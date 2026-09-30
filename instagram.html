@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
+<script src="assets/events.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הנכסים מהאינסטגרם | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<!-- ‏הכתובת הקנונית של הדף. ‏Netlify מגיש כל דף בשתי צורות
+     (‏/about ו-/about.html), ופרמטרי סינון מייצרים עוד — והתגית הזו
+     אומרת לגוגל איזו מהן לאנדקס. הפרטים: docs/security-headers.md -->
+<link rel="canonical" href="https://shuknadlan.co.il/instagram">
+<meta name="description" content="כל הנכסים שפורסמו בחשבון האינסטגרם של שוק נדל״ן, מהחדש לישן - מחפשים לפי מספר המודעה שבפוסט ועוברים לכל הפרטים והתמונות.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/content-page.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script defer src="assets/site-footer.js"></script>
+<script defer src="assets/buyer-banner.js"></script>
+<!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
+     docs/regional-pages.md) -->
+<script defer src="assets/markets.js"></script>
+<script defer src="assets/city-context.js"></script>
+<script defer src="assets/market-text.js"></script>
+<style>
+  /* ‏הדף שאליו מוביל הקישור בפרופיל האינסטגרם (‏docs/facebook-auto-publish.md,
+     סעיף "אינסטגרם"). מי שמגיע/ה לכאן ראה/תה פוסט ומחפש/ת את מספר המודעה
+     שבו - ולכן המספר הוא הדבר הבולט בכרטיס, והחיפוש הוא לפיו. */
+  .ig-main{padding:26px 0 46px}
+  .ig-main .wrap{max-width:1080px}
+  .ig-find{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 18px}
+  .ig-find input{flex:1 1 220px;min-width:0;font:inherit;font-size:16px;padding:11px 14px;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+  .ig-find a{font-size:14px;font-weight:700;color:var(--sapphire)}
+  .ig-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  @media(min-width:720px){.ig-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(min-width:980px){.ig-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .ig-card{display:block;background:var(--surface);border:1px solid var(--line);
+    text-decoration:none;color:var(--ink);min-width:0}
+  .ig-card:hover{border-color:var(--sapphire)}
+  .ig-card .ph{position:relative;aspect-ratio:4/5;background:var(--line) center/cover no-repeat}
+  .ig-card .num{position:absolute;top:8px;inset-inline-start:8px;background:var(--ink);color:#fff;
+    font-size:13px;font-weight:800;padding:4px 9px}
+  .ig-card .body{padding:10px 12px 12px}
+  .ig-card .price{font-weight:800;font-size:16px}
+  .ig-card .title{font-size:14px;line-height:1.45;margin-top:4px;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ig-card .where{font-size:13px;color:var(--ink-muted);margin-top:4px}
+  .ig-state{padding:30px 0;color:var(--ink-soft);font-size:16px}
+  .ig-card.hit{outline:3px solid var(--brass)}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<header class="site">
+  <div class="header-inner">
+    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
+    </a>
+    <a href="/" class="back-link">← דף הבית</a>
+  </div>
+</header>
+
+<section class="page-head">
+  <div class="wrap">
+    <span class="kicker">מהאינסטגרם</span>
+    <h1>הנכסים מהאינסטגרם שלנו</h1>
+    <p>ראיתם נכס ב-<a href="https://www.instagram.com/shuknadlan/" target="_blank" rel="noopener"><bdi dir="ltr">@shuknadlan</bdi></a>? הקלידו את מספר המודעה שבפוסט, או מצאו אותו ברשימה - החדשים ראשונים.</p>
+  </div>
+</section>
+
+<main class="ig-main">
+  <div class="wrap">
+    <div class="ig-find">
+      <input id="igNum" type="search" inputmode="numeric" placeholder="מספר מודעה, למשל 1162" aria-label="חיפוש לפי מספר מודעה">
+      <a href="/">לכל הנכסים באתר</a>
+    </div>
+    <div id="igGrid" class="ig-grid" aria-live="polite"></div>
+    <div id="igState" class="ig-state">טוען את הנכסים...</div>
+  </div>
+</main>
+
+<script>
+/* ‏instagram_feed (מיגרציה 20270122090000) מחזירה את הנכסים הפעילים שעלו
+   לאינסטגרם, מהחדש לישן, עם עיר ושכונה בלבד - בלי רחוב. */
+(function () {
+  var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+  var grid = document.getElementById('igGrid');
+  var state = document.getElementById('igState');
+  var input = document.getElementById('igNum');
+  var rows = [];
+
+  function nis(n) { return '\u20aa' + Number(n).toLocaleString('he-IL'); }
+  function price(p) {
+    if (p.price === null || p.price === undefined) return 'מחיר לפי פנייה';
+    var s = p.deal_type === 'rent' ? nis(p.price) + ' לחודש' : nis(p.price);
+    if (p.category === 'commercial' && p.price_includes_vat !== true) s += ' + מע״מ';
+    return s;
+  }
+  function cssUrl(u) { return String(u || '').replace(/["'\\()\s<>]/g, encodeURIComponent); }
+
+  function card(p) {
+    var where = [p.neighborhood, p.city].filter(Boolean).join(', ');
+    return '<a class="ig-card" data-num="' + escapeHtml(p.listing_number) + '" href="/property?id=' + encodeURIComponent(p.property_id) + '">' +
+      '<div class="ph" style="background-image:url(\'' + cssUrl(p.image || '/assets/property-placeholder.jpg') + '\')">' +
+        '<span class="num">מודעה ' + escapeHtml(p.listing_number) + '</span></div>' +
+      '<div class="body">' +
+        '<div class="price">' + escapeHtml(price(p)) + '</div>' +
+        '<div class="title">' + escapeHtml(p.title || '') + '</div>' +
+        (where ? '<div class="where">' + escapeHtml(where) + '</div>' : '') +
+      '</div></a>';
+  }
+
+  function render() {
+    var q = (input.value || '').replace(/\D/g, '');
+    var list = q ? rows.filter(function (p) { return String(p.listing_number).indexOf(q) === 0; }) : rows;
+    grid.innerHTML = list.map(card).join('');
+    if (!rows.length) { state.textContent = 'עוד לא עלו נכסים לאינסטגרם. בינתיים, כל הנכסים מחכים בדף הבית.'; state.hidden = false; }
+    else if (!list.length) { state.textContent = 'לא מצאנו מודעה ' + q + ' ברשימה. אולי היא כבר לא פעילה - נסו את החיפוש בדף הבית.'; state.hidden = false; }
+    else state.hidden = true;
+    if (q && list.length === 1) grid.firstChild.classList.add('hit');
+  }
+
+  input.addEventListener('input', render);
+  input.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var a = grid.querySelector('.ig-card');
+    if (a && (input.value || '').replace(/\D/g, '')) location.href = a.getAttribute('href');
+  });
+
+  fetch(SUPABASE_URL + '/rest/v1/rpc/instagram_feed', {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_limit: 60 })
+  }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (data) { rows = Array.isArray(data) ? data : []; render(); })
+    .catch(function () { state.textContent = 'לא הצלחנו לטעון את הרשימה כרגע. כל הנכסים זמינים בדף הבית.'; });
+})();
+</script>
+
+<footer class="site">
+
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead buyer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה - נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי - לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה" data-market-placeholder>
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית" data-market-aria="aria-label">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="/agency-signup" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="/developer-signup" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="/professional-signup" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק - נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+          <a href="https://www.instagram.com/shuknadlan/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן באינסטגרם - נפתח בחלון חדש" title="אינסטגרם">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm5.25-3.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="/#allProps-sale">למכירה ב<span data-market-city>עפולה</span></a>
+          <a href="/#allProps-rent">להשכרה ב<span data-market-city>עפולה</span></a>
+          <a href="/#allProps-commercial">נכסים מסחריים</a>
+          <a href="/#allProps">כל הנכסים</a>
+          <a href="/open-house">יריד הבתים הפתוחים</a>
+          <a href="/projects">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="/#calc">מחשבון משכנתא</a>
+          <a href="/#yield">מחשבון תשואה</a>
+          <a href="/#heroSection">חיפוש על המפה</a>
+          <a href="/articles">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="/agencies">כל משרדי התיווך</a>
+          <a href="/agents">כל המתווכים</a>
+          <a href="/professionals">כל בעלי המקצוע</a>
+          <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
+          <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="/about">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
+          <a href="/faq">שאלות נפוצות</a>
+          <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/ethics-code">הקוד האתי ותו האיכות</a>
+          <a href="/crm">כניסת מתווכים</a>
+        </div>
+      </details>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="/?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="/?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="/?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="/?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="/?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="/?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="/?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="/?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="/agencies">משרדי תיווך בעפולה</a>
+      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="/terms">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="/privacy">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="/accessibility">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+
+
+</body>
+</html>
