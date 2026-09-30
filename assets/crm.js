@@ -1532,6 +1532,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   await loadAgreements();
   await loadNotifications(agent.id);
   await loadNotifPrefs(agent.id);
+  // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
+  loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה.
@@ -18420,6 +18422,11 @@ function buildClientCard(c){
   if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
 
   addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+  addCardAction(actions, {
+    label:'📅 פגישה / תזכורת',
+    title:'קביעת פגישה, סיור או תזכורת ביומן, מקושרת ללקוח/ה',
+    onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }),
+  });
   // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
   // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
   addCardAction(actions, {
@@ -19710,6 +19717,15 @@ const NOTIF_TYPES = [
   { type:'listing_match',  tone:'deal',   goto:'accProperties', focus:'#propertiesList',
     title:'הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת',
     sub:'התאמה בין נכס שלך ללקוח/ה בקובץ של סוכן/ת אחר/ת, עם הפרטים שלו/ה ליצירת קשר לשיתוף פעולה.' },
+  /* ‏waDefault: דלוק בוואטסאפ כברירת מחדל, ונשמר ברשימה ההפוכה
+     ‏whatsapp_off_types. תזכורת שהסוכן/ת קבע/ה לשעה מסוימת היא בקשה מפורשת,
+     ולא ערוץ שנדלק מעצמו - ראו סעיף 9 ב-20270125090000_agent_agenda.sql. */
+  { type:'agenda_reminder', tone:'deal', goto:'accAgenda',  focus:'#agList',
+    title:'תזכורות מהיומן',
+    sub:'פגישה שמתקרבת, משימה שהגיע זמנה או שבאיחור. בוואטסאפ היא יוצאת גם בשעות השקט, כי את השעה קבעת בעצמך.',
+    waDefault:true,
+    when: ()=> assistantTierOk(),
+    refresh: ()=> loadAgenda() },
   { type:'deal_closed',    tone:'deal',   goto:'accTeam',     focus:'#teamList',
     title:'עסקה שנסגרה בצוות',
     sub:'נכס שסומן כנמכר או כהושכר אצל אחד הסוכנים במשרד, כולל שם הסוכן/ת ופרטי הנכס.',
@@ -19790,9 +19806,12 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 async function loadNotifications(agentId){
   const listEl = document.getElementById('notifList');
   const badge = document.getElementById('bellBadge');
+  // ‏'*' ולא רשימת עמודות: ‏related_agenda_item_id נולדה במיגרציה
+  // ‏20270125090000, והאתר עולה לאוויר לפני שהיא רצה. רשימה מפורשת הייתה
+  // מפילה את הפעמון כולו בדקות האלה.
   const { data, error } = await sb
     .from('notifications')
-    .select('id, type, title, body, read, related_lead_id, created_at')
+    .select('*')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false })
     .limit(20);
@@ -19802,6 +19821,7 @@ async function loadNotifications(agentId){
     return;
   }
   const items = data || [];
+  announceNewAgendaReminders(items);
   const unread = items.filter(n => !n.read).length;
   badge.textContent = unread > 9 ? '9+' : String(unread);
   badge.style.display = unread ? 'flex' : 'none';
@@ -19845,6 +19865,10 @@ async function loadNotifications(agentId){
       // ביטל בגללה את ההתראה לגמרי במקום להעביר ללשונית שלה. ‏gotoSection הוא
       // שעושה את המעבר, ואחריו הגלילה מגיעה למקום קיים.
       if (navAccVisible(target.goto)){
+        if (n.related_agenda_item_id){
+          agendaFocus(n.related_agenda_item_id);
+          return;
+        }
         if (target.refresh) target.refresh();
         gotoSection(target.goto, null, { scrollTo: target.focus });
       }
@@ -19938,6 +19962,9 @@ let notifMutedTypes = [];
    דירוג האיכות של Meta, לא נדלק לאיש בלי בקשה מפורשת. התוצאה: סוג התראה
    חדש יגיע לפעמון של כולם אוטומטית, ולוואטסאפ — רק למי שיבקש. */
 let notifWhatsappTypes = [];
+/* ההפך של notifWhatsappTypes, לסוגים שדלוקים בוואטסאפ כברירת מחדל
+   (‏waDefault ב-NOTIF_TYPES): מה שכובה. */
+let notifWhatsappOffTypes = [];
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
    ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
@@ -19947,14 +19974,19 @@ function assistantTierOk(){
   return !!currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium');
 }
 
+function notifWaOn(t){
+  return t.waDefault ? !notifWhatsappOffTypes.includes(t.type) : notifWhatsappTypes.includes(t.type);
+}
+
 function notifVisibleTypes(){
   return NOTIF_TYPES.filter(t => !t.when || t.when());
 }
 
 async function loadNotifPrefs(agentId){
+  // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
   const { data, error } = await sb
     .from('agent_notification_preferences')
-    .select('muted_types, whatsapp_types')
+    .select('*')
     .eq('agent_id', agentId)
     .maybeSingle();
 
@@ -19962,6 +19994,7 @@ async function loadNotifPrefs(agentId){
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!error && data && Array.isArray(data.muted_types)) ? data.muted_types : [];
   notifWhatsappTypes = (!error && data && Array.isArray(data.whatsapp_types)) ? data.whatsapp_types : [];
+  notifWhatsappOffTypes = (!error && data && Array.isArray(data.whatsapp_off_types)) ? data.whatsapp_off_types : [];
   renderNotifPrefs();
 }
 
@@ -19983,7 +20016,7 @@ function renderNotifPrefs(){
       </label>
       <label class="np-wa">
         <input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
-          ${notifWhatsappTypes.includes(t.type) ? 'checked' : ''}
+          ${notifWaOn(t) ? 'checked' : ''}
           ${muted || !tierOk ? 'disabled' : ''}>
         <span>💬 גם בוואטסאפ</span>
       </label>`;
@@ -20089,14 +20122,20 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
      וסוג שכובה בפעמון יוצא מהרשימה בכל מקרה — הוא לא ייווצר במסד, ושורה
      שמבטיחה הודעה שלא תישלח היא שקר שקשה לאתר. */
   const waChecked = new Set(Array.from(document.querySelectorAll('.notifPrefWa:checked')).map(cb => cb.value));
+  const waDefault = new Set(NOTIF_TYPES.filter(t => t.waDefault).map(t => t.type));
   const whatsapp = notifWhatsappTypes
     .filter(type => !shown.includes(type))
-    .concat(shown.filter(type => waChecked.has(type) && checked.has(type)));
+    .concat(shown.filter(type => !waDefault.has(type) && waChecked.has(type) && checked.has(type)));
+  // ‏waDefault נשמר הפוך: מה שהוצג ולא סומן נכנס לרשימת הכבויים.
+  const whatsappOff = notifWhatsappOffTypes
+    .filter(type => !shown.includes(type))
+    .concat(shown.filter(type => waDefault.has(type) && !(waChecked.has(type) && checked.has(type))));
 
   const { error } = await sb.from('agent_notification_preferences').upsert({
     agent_id: currentAgent.id,
     muted_types: muted,
     whatsapp_types: whatsapp,
+    whatsapp_off_types: whatsappOff,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent_id' });
 
@@ -20108,15 +20147,569 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
   }
   notifMutedTypes = muted;
   notifWhatsappTypes = whatsapp;
+  notifWhatsappOffTypes = whatsappOff;
   syncNotifPrefsCount();
   syncNotifWaNote();
   feedback.style.color = 'var(--blue)';
   const bits = [];
   bits.push(muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'מקבלים את כל ההתראות');
-  if (whatsapp.length) bits.push(whatsapp.length + ' מהם יישלחו גם בוואטסאפ');
+  const waOn = notifVisibleTypes().filter(t => !muted.includes(t.type)
+    && (t.waDefault ? !whatsappOff.includes(t.type) : whatsapp.includes(t.type))).length;
+  if (waOn) bits.push(waOn + ' מהם יישלחו גם בוואטסאפ');
   feedback.textContent = 'נשמר - ' + bits.join(', ') + '.';
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
 });
+
+/* ==========================================================================
+   יומן ומשימות
+   --------------------------------------------------------------------------
+   פגישות, סיורים, חתימות, שיחות ומשימות - טבלה אחת במסד
+   (‏agent_agenda_items), שנכתבת מכאן, מהעוזר בוואטסאפ ומהמערכת עצמה
+   (משימות אוטומטיות). ראו docs/agent-agenda.md.
+
+   **אין כאן שום מנגנון התראה.** המסד בונה את מועדי ההתראה בטריגר, ה-cron
+   הופך אותם לשורות agenda_reminder בפעמון, ומשם הן יוצאות לוואטסאפ. מה
+   שהדפדפן עושה הוא לכתוב פריט ולהציג - ולכן תזכורת מגיעה גם כשהדשבורד
+   סגור, וגם על פריט שנקבע בוואטסאפ.
+
+   הגייט (‏agent_agenda_enabled - mid/premium בחיוב פעיל) נאכף בטריגר
+   במסד. ‏assistantTierOk כאן הוא לתצוגה בלבד, כמו בשאר העוזר.
+   ========================================================================== */
+const AGENDA_KIND_LABELS = { meeting:'פגישה', showing:'סיור בנכס', signing:'חתימה', call:'שיחה', task:'משימה' };
+const AGENDA_KIND_ICONS  = { meeting:'🤝', showing:'🏠', signing:'✍️', call:'📞', task:'✅' };
+const AGENDA_MEETING_KINDS = ['meeting', 'showing', 'signing'];
+
+/* המשימות האוטומטיות. הסוג (‏auto_kind) הוא המפתח לכיבוי, והשמירה היא רשימת
+   מושתקים - סוג חדש שייכנס במסד יגיע לכולם בלי backfill. */
+const AGENDA_AUTO_KINDS = [
+  { kind:'lead_followup',      title:'לחזור לליד חדש',
+    sub:'ליד שהשתייך אליך פותח משימה מיוחדת לחזור אליו בתוך שעה (בשעות העבודה).' },
+  { kind:'agreement_followup', title:'המשך טיפול אחרי חתימה',
+    sub:'הסכם שכל הצדדים חתמו עליו פותח משימה למחרת בבוקר.' },
+  { kind:'exclusivity_end',    title:'בלעדיות שמסתיימת',
+    sub:'שבוע לפני שהבלעדיות בהסכם חתום נגמרת - לחדש או לסכם עם הלקוח/ה.' },
+  { kind:'listing_expiry',     title:'תוקף מודעה שנגמר',
+    sub:'שבוע לפני שתוקף ההתקשרות על נכס פעיל נגמר והמודעה יורדת מהמדפים.' },
+];
+
+let agendaItems = [];
+let agendaDone = [];
+let agendaTab = 'today';
+let agendaAutoOff = [];
+let agendaFocusId = null;
+
+function agendaDue(it){ return it.due_at ? new Date(it.due_at) : null; }
+
+function agendaDayStart(offsetDays){
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + (offsetDays || 0));
+  return d;
+}
+
+function agendaIsLate(it){
+  const due = agendaDue(it);
+  return it.status === 'open' && !!due && due < new Date();
+}
+
+function agendaBuckets(){
+  const tomorrow = agendaDayStart(1);
+  const weekEnd = agendaDayStart(8);
+  const open = agendaItems.filter(it => it.status === 'open');
+  const today = open.filter(it => { const d = agendaDue(it); return d && d < tomorrow; });
+  const week = open.filter(it => { const d = agendaDue(it); return d && d >= tomorrow && d < weekEnd; });
+  return { open, today, week };
+}
+
+function agendaWhenText(it){
+  const d = agendaDue(it);
+  if (!d) return 'בלי מועד';
+  const days = Math.round((agendaDayStart(0) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  const time = d.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' });
+  const day = days === 0 ? 'היום'
+    : days === -1 ? 'מחר'
+    : days === 1 ? 'אתמול'
+    : d.toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'numeric' });
+  return day + ' ' + time;
+}
+
+async function loadAgenda(){
+  if (!currentAgent) return;
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const cols = 'id, kind, title, notes, location, due_at, priority, status, source, auto_kind, client_id, property_id, lead_id, remind_before, completed_at, google_event_id, google_sync_state, google_sync_error';
+  const [open, done, prefs] = await Promise.all([
+    sb.from('agent_agenda_items').select(cols)
+      .eq('agent_id', currentAgent.id).eq('status', 'open')
+      .order('due_at', { ascending:true, nullsFirst:false }).limit(500),
+    sb.from('agent_agenda_items').select(cols)
+      .eq('agent_id', currentAgent.id).eq('status', 'done').gte('completed_at', since)
+      .order('completed_at', { ascending:false }).limit(50),
+    sb.from('agent_agenda_preferences').select('auto_off')
+      .eq('agent_id', currentAgent.id).maybeSingle(),
+  ]);
+  // שגיאה משמעה שהמיגרציה עוד לא רצה: הקטגוריה נשארת ריקה ולא שוברת דבר.
+  if (open.error){
+    console.warn('טעינת היומן נכשלה:', open.error.message);
+    agendaItems = []; agendaDone = [];
+  } else {
+    agendaItems = open.data || [];
+    agendaDone = done.error ? [] : (done.data || []);
+  }
+  agendaAutoOff = (!prefs.error && prefs.data && Array.isArray(prefs.data.auto_off)) ? prefs.data.auto_off : [];
+  renderAgenda();
+  renderAgendaAuto();
+  loadGcal().catch(err => console.warn('טעינת חיבור יומן Google נכשלה:', err));
+}
+
+function renderAgenda(){
+  const listEl = document.getElementById('agList');
+  if (!listEl) return;
+  const tierOk = assistantTierOk();
+
+  const note = document.getElementById('agTierNote');
+  note.hidden = tierOk;
+  if (!tierOk){
+    note.innerHTML = 'היומן, התזכורות והמשימות האוטומטיות הם חלק מהעוזר האישי, שזמין במסלולים ' +
+      'PROFESSIONAL ו-Elite. <a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
+  }
+  document.getElementById('agAdd').hidden = !tierOk;
+  syncAgendaClientOptions();
+
+  const b = agendaBuckets();
+  document.getElementById('agTabTodayCount').textContent = b.today.length;
+  document.getElementById('agTabWeekCount').textContent = b.week.length;
+  document.getElementById('agTabOpenCount').textContent = b.open.length;
+  const late = b.open.filter(agendaIsLate).length;
+  accSetCount('accAgenda', b.today.length || '', b.today.length);
+  accSetSummary('accAgenda', b.today.length
+    ? ' · ' + plural(b.today.length, 'אחת להיום', 'להיום') + (late ? ' · ' + late + ' באיחור' : '')
+    : '');
+  if (typeof renderTodoList === 'function') renderTodoList();
+
+  document.querySelectorAll('#agTabs [data-ag-tab]').forEach(btn =>
+    btn.setAttribute('aria-pressed', String(btn.dataset.agTab === agendaTab)));
+
+  const rows = agendaTab === 'today' ? b.today
+    : agendaTab === 'week' ? b.week
+    : agendaTab === 'done' ? agendaDone
+    : b.open;
+
+  if (!rows.length){
+    const empty = {
+      today: 'אין פגישות או משימות להיום.',
+      week: 'השבוע הקרוב פנוי.',
+      open: 'אין משימות פתוחות.',
+      done: 'עוד לא סומנה משימה כבוצעה ב-30 הימים האחרונים.',
+    }[agendaTab];
+    listEl.innerHTML = `<div class="empty-state" style="padding:14px">${esc(empty)}</div>`;
+    return;
+  }
+  listEl.innerHTML = '';
+  rows.forEach(it => listEl.appendChild(buildAgendaRow(it)));
+
+  if (agendaFocusId){
+    const el = document.getElementById('ag-' + agendaFocusId);
+    agendaFocusId = null;
+    if (el){
+      el.classList.add('is-focus');
+      setTimeout(()=> el.scrollIntoView({ block:'center', behavior: navReduceMotion() ? 'auto' : 'smooth' }), 60);
+      setTimeout(()=> el.classList.remove('is-focus'), 2600);
+    }
+  }
+}
+
+function buildAgendaRow(it){
+  const client = it.client_id ? (clientRows || []).find(c => c.id === it.client_id) : null;
+  const late = agendaIsLate(it);
+  const el = document.createElement('div');
+  el.id = 'ag-' + it.id;
+  el.className = 'rm-item ag-item'
+    + (late ? ' is-late' : '')
+    + (it.priority === 'high' && !late ? ' is-high' : '')
+    + (it.status === 'done' ? ' is-done' : '');
+  const meta = [
+    it.location,
+    client ? 'לקוח/ה: ' + client.full_name : null,
+  ].filter(Boolean).join(' · ');
+  el.innerHTML = `
+    <div class="rm-head">
+      <span class="rm-title">${AGENDA_KIND_ICONS[it.kind] || ''} ${esc(it.title)}</span>
+      ${it.priority === 'high' ? '<span class="rm-badge">❗ מיוחדת</span>' : ''}
+      ${it.source === 'system' ? '<span class="rm-badge">אוטומטית</span>' : ''}
+      ${it.source === 'whatsapp' ? '<span class="rm-badge">מוואטסאפ</span>' : ''}
+      ${it.google_event_id && it.google_sync_state !== 'error' ? '<span class="rm-badge">ב-Google</span>' : ''}
+      ${it.google_sync_state === 'error' ? `<span class="rm-badge" title="${esc(it.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
+    </div>
+    <div class="ag-when">${esc(AGENDA_KIND_LABELS[it.kind] || '')} · ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
+    ${meta ? `<p class="rm-body">${esc(meta)}</p>` : ''}
+    ${it.notes ? `<p class="rm-body">${esc(it.notes)}</p>` : ''}
+    <div class="ag-acts"></div>`;
+
+  const acts = el.querySelector('.ag-acts');
+  const act = (label, fn, cls) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    if (cls) btn.className = cls;
+    btn.addEventListener('click', fn);
+    acts.appendChild(btn);
+  };
+  if (!assistantTierOk()) return el;
+  if (it.status === 'open'){
+    act('✓ בוצע', ()=> agendaUpdate(it.id, { status:'done' }, 'סומן כבוצע'));
+    if (it.due_at){
+      act('⏰ עוד שעה', ()=> agendaPostpone(it, 'hour'));
+      act('📆 למחר', ()=> agendaPostpone(it, 'tomorrow'));
+    }
+    act('✏️ עריכה', ()=> openAgendaForm({ item: it }));
+    act('ביטול', ()=>{
+      if (!confirm('לבטל את "' + it.title + '"? התזכורות עליו לא יישלחו.')) return;
+      agendaUpdate(it.id, { status:'canceled' }, 'בוטל');
+    }, 'is-danger');
+  } else {
+    act('↩ החזרה לפתוחות', ()=> agendaUpdate(it.id, { status:'open' }, 'הוחזר לפתוחות'));
+  }
+  return el;
+}
+
+/* דחייה: "עוד שעה" נמדדת מעכשיו כשהפריט כבר באיחור - פגישה שעברה לפני
+   שלוש שעות ודוחים אותה בשעה אמורה לחזור בעוד שעה, לא לפני שעתיים. */
+function agendaPostpone(it, how){
+  const due = agendaDue(it);
+  const base = due && due > new Date() ? due : new Date();
+  let next;
+  if (how === 'hour'){
+    next = new Date(base.getTime() + 3600e3);
+  } else {
+    next = new Date(due || base);
+    const tomorrow = agendaDayStart(1);
+    next.setFullYear(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    if (next <= new Date()) next.setHours(9, 0, 0, 0);
+  }
+  agendaUpdate(it.id, { due_at: next.toISOString() }, 'נדחה ל' + agendaWhenText({ due_at: next.toISOString() }));
+}
+
+async function agendaUpdate(id, patch, okMsg){
+  const { error } = await sb.from('agent_agenda_items').update(patch).eq('id', id);
+  if (error){ showToast(agendaErrorText(error)); return; }
+  showToast(okMsg);
+  await loadAgenda();
+}
+
+function agendaErrorText(error){
+  const msg = String(error && error.message || '');
+  if (msg.includes('tier_required')) return 'היומן זמין במסלולים PROFESSIONAL ו-Elite';
+  if (msg.startsWith('agenda: ')) return msg.slice(8);
+  return 'שגיאה: ' + msg;
+}
+
+function syncAgendaClientOptions(){
+  const sel = document.getElementById('agClient');
+  if (!sel) return;
+  const keep = sel.value;
+  const active = (clientRows || []).filter(c => (c.status || 'active') !== 'closed')
+    .slice().sort((a, b) => String(a.full_name).localeCompare(String(b.full_name), 'he'));
+  sel.innerHTML = '<option value="">ללא</option>' +
+    active.map(c => `<option value="${esc(c.id)}">${esc(c.full_name)}</option>`).join('');
+  if (keep && active.some(c => c.id === keep)) sel.value = keep;
+}
+
+function agendaPad(n){ return String(n).padStart(2, '0'); }
+
+/* פתיחת הטופס - ריק, מכרטיס לקוח/ה (‏clientId), או לעריכה (‏item). */
+function openAgendaForm(opts){
+  const o = opts || {};
+  const it = o.item || null;
+  document.getElementById('agAdd').open = true;
+  gotoSection('accAgenda', 'agTitle', { scrollTo:'#agAdd' });
+  syncAgendaClientOptions();
+  document.getElementById('agEditId').value = it ? it.id : '';
+  document.getElementById('agTitle').value = it ? it.title : (o.title || '');
+  document.getElementById('agKind').value = it ? it.kind : (o.kind || 'task');
+  document.getElementById('agClient').value = it ? (it.client_id || '') : (o.clientId || '');
+  document.getElementById('agLocation').value = it ? (it.location || '') : '';
+  document.getElementById('agNotes').value = it ? (it.notes || '') : '';
+  document.getElementById('agHigh').checked = !!(it && it.priority === 'high');
+  const due = it ? agendaDue(it) : null;
+  document.getElementById('agDate').value = due
+    ? due.getFullYear() + '-' + agendaPad(due.getMonth() + 1) + '-' + agendaPad(due.getDate()) : '';
+  document.getElementById('agTime').value = due ? agendaPad(due.getHours()) + ':' + agendaPad(due.getMinutes()) : '';
+  const rb = it && Array.isArray(it.remind_before) ? it.remind_before : null;
+  document.getElementById('agRemind').value = rb === null ? ''
+    : rb.length === 0 ? 'none'
+    : (['0','15','60','1440'].includes(String(rb[0])) ? String(rb[0]) : '');
+  document.getElementById('agSaveBtn').textContent = it ? 'שמירת השינויים' : 'הוספה ליומן';
+  document.getElementById('agCancelEdit').hidden = !it;
+  document.getElementById('agFeedback').textContent = '';
+}
+
+function resetAgendaForm(){
+  document.getElementById('agForm').reset();
+  document.getElementById('agAdd').open = false;
+  document.getElementById('agEditId').value = '';
+  document.getElementById('agSaveBtn').textContent = 'הוספה ליומן';
+  document.getElementById('agCancelEdit').hidden = true;
+}
+
+document.getElementById('agCancelEdit').addEventListener('click', ()=>{
+  resetAgendaForm();
+  document.getElementById('agFeedback').textContent = '';
+});
+
+document.getElementById('agForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const fb = document.getElementById('agFeedback');
+  const title = document.getElementById('agTitle').value.trim();
+  if (!title){ fb.style.color = '#dc2626'; fb.textContent = 'צריך לכתוב מה.'; return; }
+
+  // השעה המקומית של הדפדפן, ולא UTC: ‏"10:00" שהוקלד הוא עשר בבוקר אצל
+  // מי שהקליד/ה. בלי תאריך ועם שעה - היום. בלי שניהם - משימה בלי מועד.
+  const date = document.getElementById('agDate').value;
+  const time = document.getElementById('agTime').value;
+  let dueAt = null;
+  if (date || time){
+    const d = date ? new Date(date + 'T' + (time || '09:00')) : new Date();
+    if (!date){ const [h, m] = time.split(':').map(Number); d.setHours(h, m, 0, 0); }
+    if (isNaN(d)){ fb.style.color = '#dc2626'; fb.textContent = 'התאריך או השעה אינם תקינים.'; return; }
+    dueAt = d.toISOString();
+  }
+  const remind = document.getElementById('agRemind').value;
+  const payload = {
+    title,
+    kind: document.getElementById('agKind').value,
+    client_id: document.getElementById('agClient').value || null,
+    location: document.getElementById('agLocation').value.trim() || null,
+    notes: document.getElementById('agNotes').value.trim() || null,
+    priority: document.getElementById('agHigh').checked ? 'high' : 'normal',
+    due_at: dueAt,
+    remind_before: remind === '' ? null : remind === 'none' ? [] : [Number(remind)],
+  };
+
+  const editId = document.getElementById('agEditId').value;
+  const btn = document.getElementById('agSaveBtn');
+  btn.disabled = true;
+  const { error } = editId
+    ? await sb.from('agent_agenda_items').update(payload).eq('id', editId)
+    : await sb.from('agent_agenda_items').insert({ ...payload, agent_id: currentAgent.id, source:'crm' });
+  btn.disabled = false;
+
+  if (error){ fb.style.color = '#dc2626'; fb.textContent = agendaErrorText(error); return; }
+  // ‏toast ולא שורת המשוב: הטופס מתקפל מיד אחרי השמירה, והשורה בתוכו.
+  fb.textContent = '';
+  showToast(dueAt
+    ? (editId ? 'נשמר' : 'נוסף ליומן') + ' - ' + agendaWhenText({ due_at: dueAt })
+    : (editId ? 'נשמר' : 'נוסף לרשימת המשימות הפתוחות'));
+  resetAgendaForm();
+  // הפריט שנוסף צריך להיראות: לשונית שמכילה אותו
+  const d = dueAt ? new Date(dueAt) : null;
+  agendaTab = !d ? 'open' : d < agendaDayStart(1) ? 'today' : d < agendaDayStart(8) ? 'week' : 'open';
+  await loadAgenda();
+});
+
+document.getElementById('agTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-ag-tab]');
+  if (!btn) return;
+  agendaTab = btn.dataset.agTab;
+  renderAgenda();
+});
+
+/* מהפעמון: לשונית שמכילה את הפריט, גלילה אליו והדגשה קצרה. */
+async function agendaFocus(id){
+  gotoSection('accAgenda');
+  await loadAgenda();
+  const it = agendaItems.find(x => x.id === id) || agendaDone.find(x => x.id === id);
+  if (it){
+    const d = agendaDue(it);
+    agendaTab = it.status === 'done' ? 'done'
+      : (d && d < agendaDayStart(1)) ? 'today'
+      : (d && d < agendaDayStart(8)) ? 'week' : 'open';
+  }
+  agendaFocusId = id;
+  renderAgenda();
+}
+
+function renderAgendaAuto(){
+  const el = document.getElementById('agAutoList');
+  if (!el) return;
+  const tierOk = assistantTierOk();
+  el.innerHTML = '';
+  AGENDA_AUTO_KINDS.forEach(k => {
+    const row = document.createElement('div');
+    row.className = 'np-row' + (tierOk ? '' : ' is-off');
+    row.innerHTML = `
+      <label>
+        <input type="checkbox" class="agAutoKind" value="${esc(k.kind)}"
+          ${agendaAutoOff.includes(k.kind) ? '' : 'checked'} ${tierOk ? '' : 'disabled'}>
+        <span><span class="np-title">${esc(k.title)}</span><span class="np-sub">${esc(k.sub)}</span></span>
+      </label>`;
+    el.appendChild(row);
+  });
+  document.getElementById('agAutoSave').hidden = !tierOk;
+}
+
+document.getElementById('agAutoSave').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  const fb = document.getElementById('agAutoFeedback');
+  const shown = AGENDA_AUTO_KINDS.map(k => k.kind);
+  const on = new Set(Array.from(document.querySelectorAll('.agAutoKind:checked')).map(cb => cb.value));
+  const off = agendaAutoOff.filter(k => !shown.includes(k)).concat(shown.filter(k => !on.has(k)));
+  const { error } = await sb.from('agent_agenda_preferences').upsert({
+    agent_id: currentAgent.id, auto_off: off, updated_at: new Date().toISOString(),
+  }, { onConflict:'agent_id' });
+  if (error){ fb.style.color = '#dc2626'; fb.textContent = 'שגיאה: ' + error.message; return; }
+  agendaAutoOff = off;
+  fb.style.color = 'var(--teal)';
+  fb.textContent = off.length ? 'נשמר - ' + plural(off.length, 'סוג אחד כבוי', 'סוגים כבויים') + '.' : 'נשמר - כל המשימות האוטומטיות דלוקות.';
+  setTimeout(()=>{ fb.textContent = ''; }, 2500);
+});
+
+
+/* ---------- יומן Google ----------
+   תהליך נפרד מהכניסה עם Google, ובכוונה: הוא מתחיל רק כאן, בלחיצה.
+   ‏google-calendar-connect מחזירה את כתובת ההסכמה, הדפדפן עובר אליה, ו-Google
+   מחזירה אל google-calendar-callback - שמפנה לכאן עם ?gcal=<תוצאה>.
+   מה שנכתב ל-Google: פגישות, סיורים וחתימות, ליומן נפרד "שוק נדל״ן".
+   מה שנקרא מ-Google: פנוי/תפוס בלבד, לעוזר בוואטסאפ. ראו docs/google-calendar.md. */
+let agendaGcal = null;
+
+const GCAL_RESULT_TEXT = {
+  connected: 'יומן Google חובר. הפגישות הפתוחות יופיעו שם בדקות הקרובות.',
+  connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - העוזר לא יראה מתי את/ה תפוס/ה ביומן האישי.',
+  denied: 'החיבור בוטל במסך של Google. אפשר לנסות שוב מתי שתרצו.',
+  scope_missing: 'בלי ההרשאה ליצור את יומן "שוק נדל״ן" אין מה לחבר. נסו שוב והשאירו אותה מסומנת.',
+  expired: 'עבר יותר מדי זמן מהלחיצה. לחצו שוב על "חבר/י יומן".',
+  tier_required: 'החיבור ליומן Google זמין במסלולים PROFESSIONAL ו-Elite.',
+  not_configured: 'החיבור ליומן Google עוד לא הוגדר במערכת.',
+  error: 'החיבור ליומן Google נכשל. נסו שוב בעוד רגע.',
+};
+
+function consumeGcalResult(){
+  let params;
+  try { params = new URLSearchParams(location.search); } catch { return; }
+  const result = params.get('gcal');
+  if (!result) return;
+  params.delete('gcal');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  showToast(GCAL_RESULT_TEXT[result] || GCAL_RESULT_TEXT.error, 7000);
+}
+
+async function loadGcal(){
+  if (!currentAgent) return;
+  consumeGcalResult();
+  const { data, error } = await sb.from('agent_calendar_connections').select('*')
+    .eq('agent_id', currentAgent.id).maybeSingle();
+  agendaGcal = error ? null : (data || null);
+  renderGcal();
+}
+
+function renderGcal(){
+  const box = document.getElementById('agGcal');
+  if (!box) return;
+  box.hidden = !assistantTierOk();
+  if (box.hidden) return;
+  const st = document.getElementById('agGcalStatus');
+  const note = document.getElementById('agGcalNote');
+  const connect = document.getElementById('agGcalConnect');
+  const disconnect = document.getElementById('agGcalDisconnect');
+  const c = agendaGcal;
+
+  if (c && c.status === 'active'){
+    st.textContent = 'מחובר' + (c.google_email ? ': ' + c.google_email : '');
+    const bits = ['פגישות, סיורים וחתימות מופיעים ביומן "שוק נדל״ן" בחשבון Google שלך.'];
+    if (!(c.scopes || []).some(x => /calendar\.freebusy$/.test(x))){
+      bits.push('בלי הרשאת הזמינות - העוזר לא רואה מתי את/ה תפוס/ה ביומן האישי. חיבור מחדש יוסיף אותה.');
+    } else {
+      bits.push('העוזר בוואטסאפ רואה מתי את/ה תפוס/ה ביומן האישי - רק את השעות, בלי הפרטים.');
+    }
+    if (c.last_sync_at) bits.push('סנכרון אחרון: ' + new Date(c.last_sync_at).toLocaleString('he-IL') + '.');
+    note.textContent = bits.join(' ');
+    connect.textContent = 'חיבור מחדש';
+    disconnect.hidden = false;
+  } else if (c && c.status === 'error'){
+    st.textContent = 'החיבור נותק';
+    note.textContent = (c.last_error || 'החיבור ל-Google הפסיק לעבוד.') + ' הפגישות ממשיכות להתריע כרגיל, רק לא מופיעות ב-Google.';
+    connect.textContent = 'חבר/י יומן מחדש';
+    disconnect.hidden = false;
+  } else {
+    st.textContent = 'לא מחובר';
+    note.textContent = 'פגישות, סיורים וחתימות יופיעו ביומן נפרד בשם "שוק נדל״ן" בחשבון Google שלך, ' +
+      'והעוזר בוואטסאפ יידע מתי את/ה פנוי/ה. מהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
+    connect.textContent = 'חבר/י יומן';
+    disconnect.hidden = true;
+  }
+}
+
+async function gcalCall(action){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('צריך להתחבר מחדש');
+  const res = await fetch(SUPABASE_URL + '/functions/v1/google-calendar-connect', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify({ action }),
+  });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || data.error) throw new Error(data.detail || data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+document.getElementById('agGcalConnect').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'מעבירים ל-Google…';
+  try {
+    const { url } = await gcalCall('start');
+    // ניווט של הדף עצמו ולא חלון קופץ: חוסמי חלונות, ובאייפון אפליקציה
+    // מותקנת שפותחת חלון חדש יוצאת לדפדפן ולא חוזרת.
+    location.href = url;
+  } catch (err){
+    btn.disabled = false;
+    btn.textContent = label;
+    showToast('החיבור לא התחיל: ' + err.message, 6000);
+  }
+});
+
+document.getElementById('agGcalDisconnect').addEventListener('click', async (e)=>{
+  if (!confirm('לנתק את יומן Google? היומן "שוק נדל״ן" יימחק מהחשבון שלך ב-Google, וההרשאה תבוטל. היומן כאן ממשיך לעבוד כרגיל.')) return;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await gcalCall('disconnect');
+    showToast('יומן Google נותק');
+    await loadAgenda();
+  } catch (err){
+    showToast('הניתוק נכשל: ' + err.message, 6000);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ---------- התראה בזמן, כשהדשבורד פתוח ----------
+   הפעמון נטען עד היום בכניסה בלבד, ולכן תזכורת "פגישה בעוד שעה" שנוצרה
+   בזמן שהדשבורד פתוח הייתה מחכה לרענון. דגימה כל דקה, רק כשהלשונית
+   גלויה - שאילתה של עשרים שורות - ותזכורת חדשה מהיומן עולה גם כהודעה
+   על המסך. הפעם הראשונה רק לומדת מה כבר קיים, כדי שכניסה לדשבורד לא
+   תציף את המסך בתזכורות של אתמול. */
+let agendaSeenNotifIds = null;
+
+function announceNewAgendaReminders(items){
+  const fresh = items.filter(n => n.type === 'agenda_reminder' && !n.read);
+  if (agendaSeenNotifIds === null){
+    agendaSeenNotifIds = new Set(fresh.map(n => n.id));
+    return;
+  }
+  const news = fresh.filter(n => !agendaSeenNotifIds.has(n.id));
+  news.forEach(n => agendaSeenNotifIds.add(n.id));
+  if (!news.length) return;
+  showToast('🔔 ' + news[0].title + (news.length > 1 ? ' (+' + (news.length - 1) + ')' : ''), 6000);
+  loadAgenda().catch(()=>{});
+}
+
+setInterval(()=>{
+  if (currentAgent && !document.hidden) loadNotifications(currentAgent.id);
+}, 60 * 1000);
 
 /* ==========================================================================
    תזכורות וטיפים
@@ -20532,9 +21125,6 @@ document.addEventListener('click', (e)=>{
    ========================================================================== */
 const NAV_HOME = '__home';
 const NAV_ADMIN_HOME = '__adminHome';
-/* "יומן ומשימות" אינו קטגוריה בעמוד אלא בלוק "דורש טיפול מיידי" שבראש דף
-   הבית (#todoSection), ולכן הוא יעד מדומה כמו NAV_HOME — ראו navGo. */
-const NAV_TASKS = '__tasks';
 
 /* שלוש קבוצות בסרגל, בסדר חשיבות: ליבת העבודה (מה שעושים כל יום), הזירה
    (מה שמגיע מבחוץ — לידים לקנייה, שותפים, מידע על האזור), והניהול (מה
@@ -20564,7 +21154,11 @@ const NAV_GROUPS = [
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
-    { acc:NAV_TASKS,             label:'יומן ומשימות',      icon:'calendar', tab:'home' },
+    /* עד 2027-01 זה היה יעד מדומה שגלל לבלוק "דורש טיפול מיידי". היום זו
+       קטגוריה אמיתית - הפגישות והמשימות (docs/agent-agenda.md) - והבלוק
+       ההוא ממשיך להופיע בדף הבית, עם כרטיס משלה. ‏tab:'clients' ולא 'home':
+       בסינון המובייל לשונית הבית אינה מציגה קטגוריות בכלל. */
+    { acc:'accAgenda',           label:'יומן ומשימות',      icon:'calendar', tab:'clients' },
   ]},
   { key:'market', label:'מודיעין וזירת שיתופי פעולה', short:'מודיעין ושיתופים', icon:'layers', items:[
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
@@ -20630,7 +21224,7 @@ const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLe
 const NAV_TAB_BADGE = {
   props:   [],
   leads:   ['accLeads'],
-  clients: ['accAlerts'],
+  clients: ['accAlerts', 'accAgenda'],
   /* ‏docs נשארת בלי תגית אדומה בכוונה: המונה שם הוא "ממתינים לחתימה", וזו
      המתנה ללקוח/ה ולא חוב של הסוכן/ת. */
   docs:    [],
@@ -20672,7 +21266,7 @@ function navAccVisible(accId){
 }
 
 function navItemVisible(item){
-  if (item.acc === NAV_HOME || item.acc === NAV_TASKS) return dashView === 'agent';
+  if (item.acc === NAV_HOME) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
   // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
   return [item.acc, ...(item.also || [])].some(navAccVisible);
@@ -20684,14 +21278,9 @@ function navItemTarget(item){
   return [item.acc, ...(item.also || [])].find(navAccVisible) || item.acc;
 }
 
-/* המונה של שורה בניווט. "יומן ומשימות" סופר את הכרטיסים שבבלוק "דורש טיפול
-   מיידי" — אותו חישוב של renderTodoList, ולכן אותו מספר. שורה מאוחדת
-   מציגה רק את מונה הראשית: המונה של משרדי השת״פ הוא "3 מתוך 10" ואינו
-   סכום של שום דבר. */
+/* המונה של שורה בניווט. שורה מאוחדת מציגה רק את מונה הראשית: המונה של
+   משרדי השת״פ הוא "3 מתוך 10" ואינו סכום של שום דבר. */
 function navItemCount(item){
-  if (item.acc === NAV_TASKS){
-    return TODO_ITEMS.filter(t => navAccVisible(t.acc) && accCountOf(t.acc) > 0).length;
-  }
   return accCountOf(navItemTarget(item));
 }
 
@@ -20849,11 +21438,6 @@ function sideNavFoot(){
 function navGo(item){
   if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
     setNavTab('home');
-    return;
-  }
-  if (item.acc === NAV_TASKS){
-    setNavTab('home', { silent:true });
-    scrollToTopOf(document.getElementById('todoSection'));
     return;
   }
   const target = navItemTarget(item);
@@ -21041,6 +21625,10 @@ const TODO_ITEMS = [
   { acc:'accLeads',    icon:'flame',   tone:'mint',  many:n => n + ' לידים חמים שלא נפתחו',
     one:'ליד חם אחד שלא נפתח',            sub:'הכסף שממתין לטיפול',
     cta:{ html:'פתחו את הליד עכשיו', icon:'flame', run:()=> gotoSection('accLeads') } },
+  /* המונה של היומן הוא מה שפתוח להיום ומה שבאיחור - לא כל היומן. */
+  { acc:'accAgenda',   icon:'calendar', tone:'sand', many:n => n + ' פגישות ומשימות להיום',
+    one:'פגישה או משימה אחת להיום',       sub:'כולל מה שבאיחור',
+    cta:{ html:'ליומן', icon:'calendar', run:()=> gotoSection('accAgenda') } },
   { acc:'accAlerts',   icon:'target',  tone:'sand',  many:n => n + ' התאמות נכס ללקוחות',
     one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים שעונים על הדרישות',
     /* הכפתור היה "שלח וואטסאפ ללקוח", והוא כפול: השיתוף בוואטסאפ יושב

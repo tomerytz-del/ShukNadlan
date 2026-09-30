@@ -2,7 +2,8 @@
 
 סוכן/ת שולח/ת הודעה בוואטסאפ — טקסט, תמונות או הקלטה קולית — והעוזר מטפל
 בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, מכין קישור והודעה מוכנה על נכס,
-מפיק דוח שוק ומידע תכנוני, וקורא עבורו/ה את ההסכמים, הלידים וההתראות. הוא מזהה מי שלח לפי מספר הטלפון, מבצע את הפעולה במסד ומשיב
+מפיק דוח שוק ומידע תכנוני, קובע פגישות ותזכורות ביומן
+(ראו [`agent-agenda.md`](agent-agenda.md)), וקורא עבורו/ה את ההסכמים, הלידים וההתראות. הוא מזהה מי שלח לפי מספר הטלפון, מבצע את הפעולה במסד ומשיב
 בוואטסאפ. ומהכיוון ההפוך: **התראות הפעמון יכולות לצאת אליו/ה בוואטסאפ**,
 לפי סוגים שהוא/היא מסמן/ת. **ומייל שהסוכן/ת מעביר/ה לכתובת האישית שלו/ה
 נכנס לאותה שיחה** — לקוח/ה שפנה/תה במייל נכנס/ת לקובץ, והתשובה מגיעה
@@ -23,9 +24,9 @@ Meta WhatsApp Cloud API  ──Webhook (POST)──►  Edge Function: whatsapp-
                                      3. זיהוי הסוכן/ת לפי agency_members.phone_e164
                                      4. תמונה → Supabase Storage ‏(property-images)
                                         הקלטה → OpenAI Whisper → טקסט
-                                     5. Claude עם 31 כלים (נכסים · ניתוח ומידע ·
-                                        לקוחות · התאמות · הסכמים · לידים ·
-                                        התראות)
+                                     5. Claude עם 38 כלים (נכסים · ניתוח ומידע ·
+                                        לקוחות · התאמות · הסכמים · יומן ·
+                                        לידים · התראות)
                                      6. תשובה חזרה דרך Graph API
 
                               — והכיוון ההפוך —
@@ -49,6 +50,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/functions/_shared/agreement-templates.js` · `agreement-doc.js` | עותק זהה של מודולי `assets/` — ‏Edge Function אינה יכולה לייבא משם |
 | `scripts/check_agreement_assets.py` · `.github/workflows/agreement_assets.yml` | חוסמים ב-CI פער בין המקור לעותק |
 | `supabase/functions/notification-push/index.ts` | הכיוון ההפוך: התראות הפעמון יוצאות בוואטסאפ |
+| `supabase/migrations/20270125090000_agent_agenda.sql` | היומן: `agenda_add` / `agenda_list` / `agenda_update` כותבים ל-`agent_agenda_items`, והתזכורות יוצאות כ-`agenda_reminder` - דלוקות בוואטסאפ כברירת מחדל |
 | `supabase/migrations/20260824090000_whatsapp_integration.sql` | טבלאות + זיהוי לפי טלפון |
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
 | `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds` ו-`notification_push_reconcile`: שורה שלא יצאה אינה חוסמת |

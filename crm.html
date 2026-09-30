@@ -2067,6 +2067,37 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .rm-last{font-size:.72rem;color:var(--ink-soft);margin:10px 0 0;text-align:center}
   @media(max-width:480px){ .rm-grid{grid-template-columns:1fr} }
 
+  /* ---------- יומן ומשימות ----------
+     אותה שורה של התזכורות (‏.rm-item), ועוד שלושה מצבים: באיחור (פס אדום),
+     מיוחדת (פס זהב) ובוצעה (מעומעמת). הפעולות יושבות בשורה אחת מתחת לגוף,
+     כמו "לטיפול בזה" בתזכורות. */
+  .ag-form{margin:12px 0 4px}
+  .ag-add{margin:14px 0 4px;border:1px dashed var(--line);border-radius:10px;padding:10px 13px}
+  .ag-add>summary{cursor:pointer;font-weight:700;font-size:.86rem;color:var(--teal);list-style:none}
+  .ag-add>summary::-webkit-details-marker{display:none}
+  .ag-form-btns .btn[hidden]{display:none}
+  .ag-gcal{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:0 0 12px}
+  .ag-gcal[hidden]{display:none}
+  .ag-gcal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ag-gcal-title{font-weight:700;font-size:.86rem}
+  #dashboard .ag-gcal{border-color:var(--edge);background:var(--surface-2)}
+  .ag-high{display:flex;align-items:flex-end;padding-bottom:10px}
+  .ag-form-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .ag-form-btns .btn{flex:1}
+  .ag-feedback{font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em}
+  .ag-tabs{margin:4px 0 10px;flex-wrap:wrap}
+  .rm-item.ag-item{border-inline-start-width:4px}
+  .rm-item.ag-item.is-late{border-inline-start-color:#dc2626}
+  .rm-item.ag-item.is-high{border-inline-start-color:var(--gold-dark)}
+  .rm-item.ag-item.is-done{opacity:.62}
+  .rm-item.ag-item.is-done .rm-title{text-decoration:line-through}
+  .rm-item.ag-item.is-focus{box-shadow:0 0 0 2px var(--teal)}
+  .ag-when{font-size:.74rem;font-weight:700;color:var(--teal)}
+  .rm-item.is-late .ag-when{color:#dc2626}
+  .ag-acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .ag-acts button{font-size:.76rem;font-weight:700;color:var(--teal);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+  .ag-acts button.is-danger{color:#dc2626}
+
   /* ---------- CMA report (2.3) ---------- */
   #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;
     padding:calc(20px + var(--sa-top)) calc(12px + var(--sa-end)) calc(20px + var(--sa-bottom)) calc(12px + var(--sa-start))}
@@ -5859,6 +5890,118 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          הזמנת שירותי תיווך, מהאשף ועד העותק החתום במייל. ‏document_html של כל
          הסכם נכתב כאן פעם אחת ונחסם לעריכה במסד — ראו
          supabase/migrations/20260926090000_client_agreements.sql. -->
+    <!-- ---------- יומן ומשימות ----------
+         פגישות, סיורים, חתימות, שיחות ומשימות, במקום אחד עם הבוט בוואטסאפ:
+         מה שנקבע שם מופיע כאן, ומה שנקבע כאן מתריע שם. ההתראות עצמן אינן
+         מנגנון נפרד - הן שורות מסוג agenda_reminder בפעמון, ומשם יוצאות
+         לוואטסאפ. ראו docs/agent-agenda.md. -->
+    <details class="acc" id="accAgenda">
+      <summary>
+        <span class="acc-title">יומן ומשימות<span class="acc-sum" id="accAgendaSum"></span></span>
+        <span class="acc-count hot" id="accAgendaCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך העוזר בוואטסאפ ("תזכיר לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
+        <p class="acc-sub" id="agTierNote" hidden></p>
+
+        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
+             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
+        <div class="ag-gcal" id="agGcal" hidden>
+          <div class="ag-gcal-head">
+            <span class="ag-gcal-title">יומן Google</span>
+            <span class="rm-badge" id="agGcalStatus"></span>
+          </div>
+          <p class="rm-note" id="agGcalNote"></p>
+          <div class="ag-form-btns">
+            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
+            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
+          </div>
+        </div>
+
+        <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
+          <button type="button" data-ag-tab="today" aria-pressed="true">היום · <span id="agTabTodayCount">0</span></button>
+          <button type="button" data-ag-tab="week" aria-pressed="false">השבוע · <span id="agTabWeekCount">0</span></button>
+          <button type="button" data-ag-tab="open" aria-pressed="false">כל הפתוחות · <span id="agTabOpenCount">0</span></button>
+          <button type="button" data-ag-tab="done" aria-pressed="false">בוצעו</button>
+        </div>
+        <div id="agList" class="rm-list"></div>
+
+        <!-- הטופס מקופל: בטלפון הוא גובה מסך וחצי, והרשימה היא מה שבאים לראות.
+             ‏openAgendaForm פותח אותו (מכרטיס לקוח/ה, מעריכה). -->
+        <details class="ag-add" id="agAdd">
+          <summary>＋ פגישה, תזכורת או משימה חדשה</summary>
+          <form id="agForm" class="ag-form" novalidate>
+            <input type="hidden" id="agEditId">
+            <div class="field">
+              <label for="agTitle">מה</label>
+              <input type="text" id="agTitle" maxlength="200" required placeholder="למשל: סיור עם רונית בהרצל 12">
+            </div>
+            <div class="rm-grid">
+              <div class="field">
+                <label for="agKind">סוג</label>
+                <select class="rm-sel" id="agKind">
+                  <option value="meeting">פגישה</option>
+                  <option value="showing">סיור בנכס</option>
+                  <option value="signing">חתימה</option>
+                  <option value="call">שיחה</option>
+                  <option value="task" selected>משימה</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="agClient">לקוח/ה</label>
+                <select class="rm-sel" id="agClient"><option value="">ללא</option></select>
+              </div>
+              <div class="field">
+                <label for="agDate">תאריך</label>
+                <input type="date" id="agDate">
+              </div>
+              <div class="field">
+                <label for="agTime">שעה</label>
+                <input type="time" id="agTime" step="300">
+              </div>
+            </div>
+            <div class="field">
+              <label for="agLocation">מיקום</label>
+              <input type="text" id="agLocation" maxlength="300" placeholder="כתובת או קישור לשיחת וידאו">
+            </div>
+            <div class="field">
+              <label for="agNotes">הערות</label>
+              <textarea id="agNotes" maxlength="2000" rows="2"></textarea>
+            </div>
+            <div class="rm-grid">
+              <div class="field">
+                <label for="agRemind">תזכורת</label>
+                <select class="rm-sel" id="agRemind">
+                  <option value="">אוטומטית לפי הסוג</option>
+                  <option value="0">בזמן עצמו</option>
+                  <option value="15">15 דקות לפני</option>
+                  <option value="60">שעה לפני</option>
+                  <option value="1440">יום לפני</option>
+                  <option value="none">בלי תזכורת</option>
+                </select>
+              </div>
+              <div class="field ag-high">
+                <label class="checkbox-item"><input type="checkbox" id="agHigh"> ❗ משימה מיוחדת</label>
+              </div>
+            </div>
+            <p class="rm-note" id="agRemindNote">אוטומטית: פגישה - שעה לפני. משימה - בזמן שלה. משימה מיוחדת מקבלת גם תזכורת יום לפני, ואם נשארה פתוחה - תזכורת איחור יום אחרי.</p>
+            <div class="ag-form-btns">
+              <button type="submit" class="btn btn-gold" id="agSaveBtn">הוספה ליומן</button>
+              <button type="button" class="btn btn-ghost" id="agCancelEdit" hidden>ביטול עריכה</button>
+            </div>
+            <div id="agFeedback" class="ag-feedback"></div>
+          </form>
+        </details>
+
+        <p class="form-subheading">משימות אוטומטיות</p>
+        <p class="rm-note">המערכת פותחת לך משימה כשקורה משהו שדורש המשך. כולן דלוקות כברירת מחדל, וכל אחת ניתנת לכיבוי.</p>
+        <div id="agAutoList" class="notif-prefs"></div>
+        <button type="button" class="btn btn-ghost btn-block" id="agAutoSave">שמירת המשימות האוטומטיות</button>
+        <div id="agAutoFeedback" class="ag-feedback"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accAgreements">
       <summary>
         <span class="acc-title">הסכמים והחתמות</span>
