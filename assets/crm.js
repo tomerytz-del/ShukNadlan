@@ -19059,7 +19059,7 @@ function openContactImport(){
   if (CI.pickerSupported()){
     btns.push('<button type="button" class="btn btn-ghost" data-ci="picker">📱 בחירה מאנשי הקשר בטלפון</button>');
   }
-  if (CI.googleConfigured()){
+  if (CI.googleAvailable(currentAgent && currentAgent.is_platform_admin)){
     btns.push('<button type="button" class="btn btn-ghost" data-ci="google">🔗 ייבוא מ-Google Contacts</button>');
   }
   btns.push('<button type="button" class="btn btn-ghost" data-ci="file">📄 מקובץ אנשי קשר (vCard או CSV)</button>');

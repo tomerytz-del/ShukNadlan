@@ -133,6 +133,19 @@ ID ציבורי מטבעו - הוא מופיע בכל כניסה עם Google. ה
 4. להדביק את ה-Client ID (לא ה-Secret) ב-`GOOGLE_CLIENT_ID`. הוא ציבורי
    מטבעו.
 
+**כרגע הכפתור מוצג רק למנהל/ת הפלטפורמה.** מסך ההסכמה בפרויקט
+`shuknadlan` ב-*Testing*, ובמצב הזה Google חוסמת כל מי שאינו/ה ב-Test
+users - וב-*Testing* גם אי אפשר להגיש לאימות. הסדר לפתיחה לכולם:
+*Branding* מלא (דף בית, `privacy`, `terms`, דומיין מורשה) ← *Audience* ←
+**Publish app** ← *Verification Center* ← הגשה ← אחרי האישור,
+`GOOGLE_PUBLISHED = true` ב-`assets/contact-import.js`.
+
+**ובעלות על הדומיין:** המיתוג נדחה בפעם הראשונה כי `tomerytz@gmail.com`
+(בעל הפרויקט) לא היה בעלים של `shuknadlan.co.il` ב-Search Console. נוספה
+לו רשומת TXT שנייה ב-DNS (`docs/security-headers.md`), ואחרי 24 שעות
+מבקשים אימות מחדש של המיתוג: *Branding* ← *View issues* ← *I have fixed
+the issues*.
+
 **מלכודת:** `contacts.readonly` הוא scope **רגיש**. כל עוד האפליקציה לא
 עברה אימות של Google, רק חשבונות שמופיעים ב-*Test users* יכולים לאשר, וכל
 השאר מקבלים "האפליקציה לא אומתה". האימות דורש את `privacy.html` עם סעיף
