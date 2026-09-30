@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   authUrl,
   disconnectAgent,
+  GCAL_PUBLISHED,
   googleCalendarConfigured,
 } from "../_shared/google-calendar.ts";
 
@@ -53,7 +54,7 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data: member } = await supabase
     .from("agency_members")
-    .select("id, email, active")
+    .select("id, email, active, is_platform_admin")
     .eq("user_id", userData.user.id)
     .maybeSingle();
   if (!member || !member.active) return json({ error: "no_matching_agent_profile" }, 403);
@@ -72,6 +73,14 @@ Deno.serve(async (req: Request) => {
         error: "not_configured",
         detail: "החיבור ליומן Google עוד לא הוגדר במערכת. פנו לתמיכה.",
       }, 503);
+    }
+    // עד שהאפליקציה מאומתת ב-Google, רק מנהל/ת הפלטפורמה. הכפתור מוסתר
+    // לשאר ב-CRM, וזו האכיפה: בקשה ישירה לנקודת הקצה מקבלת את אותה תשובה.
+    if (!GCAL_PUBLISHED && !member.is_platform_admin) {
+      return json({
+        error: "not_available_yet",
+        detail: "החיבור ליומן Google ייפתח לכל הסוכנים בקרוב.",
+      }, 403);
     }
     const { data: enabled } = await supabase.rpc("agent_agenda_enabled", { p_agent_id: member.id });
     if (!enabled) {

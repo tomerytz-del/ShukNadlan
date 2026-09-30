@@ -20935,6 +20935,18 @@ document.getElementById('agAutoSave').addEventListener('click', async ()=>{
    מה שנקרא מ-Google: פנוי/תפוס בלבד, לעוזר בוואטסאפ. ראו docs/google-calendar.md. */
 let agendaGcal = null;
 
+/* ‏**false כל עוד מסך ההסכמה ב-Google במצב Testing** - Google חוסמת שם כל
+   מי שאינו/ה ב-Test users, ולכן הכרטיס מוצג רק למנהל/ת הפלטפורמה, ולמי
+   שכבר מחובר/ת (כדי שיוכל/תוכל לנתק). אחרי האימות ו-Publish app - true כאן
+   **וגם** ב-GCAL_PUBLISHED שב-_shared/google-calendar.ts, שם זו האכיפה. */
+const GCAL_PUBLISHED = false;
+
+function gcalAvailable(){
+  return GCAL_PUBLISHED
+    || !!(currentAgent && currentAgent.is_platform_admin)
+    || !!(agendaGcal && agendaGcal.status !== 'revoked');
+}
+
 const GCAL_RESULT_TEXT = {
   connected: 'יומן Google חובר. הפגישות הפתוחות יופיעו שם בדקות הקרובות.',
   connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - העוזר לא יראה מתי את/ה תפוס/ה ביומן האישי.',
@@ -20969,7 +20981,7 @@ async function loadGcal(){
 function renderGcal(){
   const box = document.getElementById('agGcal');
   if (!box) return;
-  box.hidden = !assistantTierOk();
+  box.hidden = !assistantTierOk() || !gcalAvailable();
   if (box.hidden) return;
   const st = document.getElementById('agGcalStatus');
   const note = document.getElementById('agGcalNote');
