@@ -122,6 +122,67 @@ export async function sendImage(
   return await messageIdFrom(res);
 }
 
+const NOTIFY_TEMPLATE = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE") || "";
+const NOTIFY_TEMPLATE_LANG = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE_LANG") || "he";
+
+export function notifyTemplateConfigured(): boolean {
+  return !!NOTIFY_TEMPLATE;
+}
+
+/**
+ * הודעה יזומה מחוץ לחלון 24 השעות — דרך אותה תבנית של `notification-push`
+ * (‏{{1}} שם פרטי · {{2}} שורת תוכן · כפתור URL עם סיומת כתובת).
+ *
+ * ‏**שורה אחת.** ‏Meta דוחה פרמטר של תבנית שמכיל שורה חדשה, טאב או יותר
+ * מארבעה רווחים רצופים — ההסבר המלא ב-`templateSummary` שם.
+ */
+export async function sendNotifyTemplate(
+  to: string,
+  firstName: string,
+  summary: string,
+  urlSuffix: string,
+): Promise<string | null> {
+  if (!NOTIFY_TEMPLATE) throw new Error("WHATSAPP_NOTIFY_TEMPLATE is not configured");
+  const line = formatForWhatsapp(summary)
+    .replace(/\s*[\r\n\t]+\s*/g, " ")
+    .replace(/ {4,}/g, "   ")
+    .slice(0, 900);
+
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: NOTIFY_TEMPLATE,
+        language: { code: NOTIFY_TEMPLATE_LANG },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: (firstName || "שלום").slice(0, 60) },
+              { type: "text", text: line },
+            ],
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [{ type: "text", text: urlSuffix }],
+          },
+        ],
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`whatsapp template send failed ${res.status}: ${await res.text()}`);
+  }
+  return await messageIdFrom(res);
+}
+
 /**
  * מסמנת את ההודעה כנקראה (הסימון הכחול) ומדליקה חיווי "מקליד…".
  * נכשלת בשקט: זה קישוט UX, לא חלק מהזרימה.

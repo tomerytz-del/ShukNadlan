@@ -6897,6 +6897,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         מהטלפון.
       </p>
     </div>
+
+    <!-- קליטה מהמייל (docs/email-intake.md). הכתובת נוצרת רק בלחיצה: עד
+         שלסוכן/ת אחד/ת יש כתובת, ה-cron שקורא את התיבה אינו רץ בכלל. -->
+    <div class="wa-intake" id="waIntakeCard" style="margin-top:14px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:10px">
+      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">📧 העברת מיילים לעוזר</p>
+      <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 8px;line-height:1.6">
+        פנייה של לקוח/ה הגיעה למייל הפרטי שלך? מעבירים (Forward) אותה לכתובת
+        האישית שלך, והעוזר קורא אותה: לקוח/ה שמחפש/ת נכס נכנס/ת לקובץ הלקוחות,
+        ועל נכס שמוצע למכירה או להשכרה הוא ישאל אם לפתוח אותו. אפשר לכתוב
+        מעל ההודעה המועברת גם הוראות ("תכניס אותו, תקציב עד 1.6 מליון").
+        התשובה מגיעה אלייך כאן בוואטסאפ ולא במייל.
+      </p>
+      <div id="waIntakeAddrRow" hidden style="gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <code id="waIntakeAddr" dir="ltr" style="font-size:.78rem;padding:6px 8px;background:#fff;border:1px solid var(--line);border-radius:8px;word-break:break-all"></code>
+        <button type="button" class="btn btn-ghost" id="waIntakeCopy" style="font-size:.74rem;padding:5px 10px">העתקה</button>
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="waIntakeBtn">הצגת הכתובת שלי</button>
+      <p id="waIntakeHint" style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0;line-height:1.6"></p>
+      <button type="button" id="waIntakeRotate" hidden style="background:none;border:0;padding:0;margin-top:6px;font-size:.72rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer">הכתובת דלפה? החלפה לכתובת חדשה</button>
+    </div>
       </div>
     </details>
 
