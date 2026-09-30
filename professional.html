@@ -102,55 +102,160 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .profile-avatar img{width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
   .profile-strip.has-cover .profile-text{padding-bottom:6px}
-  .profile-name{font-size:1.4rem;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark)}
-  .profile-business{font-size:.95rem;color:var(--gold-dark);font-weight:700;margin-top:2px}
-  .profile-role{font-size:.85rem;color:var(--ink-soft);margin-top:3px}
+  .profile-name{font-size:1.5rem;font-family:'Heebo',system-ui,sans-serif;font-weight:800;letter-spacing:-.02em;color:var(--teal-dark);line-height:1.2}
+  .profile-business{font-size:1rem;color:var(--gold-dark);font-weight:700;margin-top:3px}
+  .profile-role{font-size:.85rem;color:var(--ink-soft);margin-top:3px;display:flex;align-items:center;gap:6px}
+  .profile-role::before{content:"";width:6px;height:6px;background:var(--brass,#c9a227);flex:none}
+  .profile-role:empty{display:none}
+  @media(min-width:760px){.profile-name{font-size:1.85rem}}
+
+  /* ====== כרטיס הפרופיל ======
+     משטח לבן עם פס זהב עליון: בלעדיו הזהות וכפתורי הקשר ישבו ישירות על
+     הרקע המשורטט של העמוד ונקראו כטקסט חופשי. עם תמונת נושא הכרטיס עולה
+     על קצה התמונה, והאווטאר (‏margin-top שלילי) בולט ממנו אל התמונה. */
+  .profile-card{
+    position:relative;margin-top:22px;padding:4px 22px 22px;
+    background:#fff;border:1px solid var(--line);
+    box-shadow:0 22px 50px -30px rgba(14,42,107,.5);
+  }
+  .profile-card::before{content:"";position:absolute;inset-inline:-1px;top:-1px;height:3px;background:var(--brass,#c9a227)}
+  .profile-card.has-cover{margin:-44px 14px 0}
+  @media(min-width:760px){
+    .profile-card{padding:6px 30px 26px}
+    .profile-card.has-cover{margin:-56px 28px 0}
+  }
+  @media(max-width:479px){
+    .profile-card{padding:2px 16px 18px}
+    .profile-card.has-cover{margin:-36px 8px 0}
+  }
+  .profile-avatar{box-shadow:0 10px 24px -12px rgba(14,42,107,.55)}
+  .profile-card .profile-avatar{border-color:#fff;border-width:4px}
+  /* ‏flex-start ולא flex-end: ב-flex-end ה-margin השלילי אינו מזיז את
+     האווטאר למעלה, והוא נשאר כלוא בתוך הכרטיס */
+  .profile-card.has-cover .profile-strip{align-items:flex-start;padding-top:0}
+  .profile-card.has-cover .profile-avatar{margin-top:-40px}
+  .profile-card.has-cover .profile-text{padding-top:16px}
+  @media(min-width:760px){.profile-card.has-cover .profile-avatar{width:112px;height:112px;margin-top:-48px}}
 
   /* שורת האסמכתאות — רישיון, ותק ואזורי פעילות. כל תגית מוצגת רק אם יש
      לה תוכן, ואם אין אף אחת השורה כולה יורדת. */
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
   .chip{
-    background:var(--teal-tint);color:var(--teal-dark);border-radius:0;
-    padding:5px 12px;font-size:.76rem;font-weight:700;
+    background:var(--brass-tint,#f7f1e2);color:var(--brass-ink,#8a6d10);border-radius:0;
+    border:1px solid #ecdcae;padding:5px 12px;font-size:.78rem;font-weight:700;
   }
-  .chip.soft{background:#fff;border:1px solid var(--line);color:var(--ink-soft);font-weight:600}
+  .chip.soft{background:var(--surface-soft,#f8faff);border:1px solid var(--line);color:var(--ink-soft);font-weight:600}
 
+  /* המשפט של בעל/ת המקצוע - כציטוט, עם פס זהב בצד */
   .headline{
-    font-size:1rem;color:var(--ink);margin:14px 0 0;font-weight:600;
+    font-size:1.08rem;color:var(--ink);margin:16px 0 0;font-weight:600;line-height:1.5;
     max-width:60ch;text-wrap:balance;
+    border-inline-start:3px solid var(--brass,#c9a227);padding-inline-start:12px;
   }
 
   /* ====== יצירת קשר ======
      וואטסאפ הוא הכפתור הראשי — זו הדרך שבה אנשים באמת פונים לבעל מקצוע.
      כפתור שאין לו נתונים (אין טלפון, אין אתר) לא מוצג אפור אלא לא מוצג. */
-  .contact-row{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0 0}
-  .contact-row .btn{flex:1 1 auto;min-width:140px}
+  /* כל כפתור הוא "אריח": אייקון בריבוע משלו, התווית, ושורה משנית שאומרת
+     לאן הוא מוביל (המספר, שם האתר, המייל). קודם אלה היו מלבנים שקופים עם
+     מסגרת כמעט בלתי נראית על רקע העמוד, ורק הוואטסאפ נקרא ככפתור.
+     הסלקטורים כפולים (‎.contact-row .btn-ghost‎) כי design-system.css נטען
+     אחרי ה-style הזה ומחזיר את ‎.btn-ghost‎ לשקוף. */
+  /* דסקטופ: שורה אחת, והוואטסאפ רחב מהשאר - כמה כפתורים שלא יהיו */
+  .contact-row{
+    display:flex;gap:10px;
+    margin:22px 0 0;padding-top:20px;border-top:1px solid var(--hair,#eef1f8);
+  }
+  .contact-row .btn{
+    flex:1 1 0;position:relative;justify-content:flex-start;gap:12px;min-height:64px;
+    padding:10px 14px;text-align:start;min-width:0;
+    transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+  }
+  .contact-row .btn-wa{flex-grow:1.5}
+  .contact-row .btn:hover{transform:translateY(-2px)}
+  .btn-ico{
+    flex:none;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
+    transition:background .16s ease,color .16s ease;
+  }
+  .contact-row .btn-ico svg{width:19px;height:19px}
+  .btn-text{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+  .btn-label{font-size:.98rem;font-weight:800}
+  .btn-text small{
+    font-size:.76rem;font-weight:500;opacity:.8;margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start;
+  }
+  .contact-row .btn-wa{
+    background:var(--wa);color:#fff;border:0;
+    box-shadow:0 14px 26px -16px rgba(28,133,70,.9);
+  }
+  .contact-row .btn-wa:hover{background:var(--wa-dark,#1c8546);color:#fff}
+  .contact-row .btn-wa .btn-ico{background:rgba(255,255,255,.18)}
+  /* החץ של הוואטסאפ: הפעולה הראשית אומרת שהיא "ממשיכה" */
+  .contact-row .btn-wa::after{content:"←";margin-inline-start:auto;font-size:1.15rem;font-weight:700;transition:transform .16s ease}
+  .contact-row .btn-wa:hover::after{transform:translateX(-4px)}
+  .contact-row .btn-ghost{
+    background:#fff;border:1.5px solid var(--hair-strong,#dde3f2);color:var(--sapphire,#0e2a6b);
+    box-shadow:0 1px 2px rgba(14,42,107,.06);
+  }
+  .contact-row .btn-ghost .btn-ico{background:var(--teal-tint);color:var(--sapphire,#0e2a6b)}
+  .contact-row .btn-ghost small{color:var(--ink-soft);opacity:1}
+  .contact-row .btn-ghost:hover{
+    background:#fff;border-color:var(--sapphire,#0e2a6b);
+    box-shadow:0 14px 26px -18px rgba(14,42,107,.55);
+  }
+  .contact-row .btn-ghost:hover .btn-ico{background:var(--sapphire,#0e2a6b);color:#fff}
+  @media(prefers-reduced-motion:reduce){
+    .contact-row .btn,.contact-row .btn-wa::after{transition:none}
+    .contact-row .btn:hover,.contact-row .btn-wa:hover::after{transform:none}
+  }
+  /* טאבלט: וואטסאפ שורה שלמה, והשאר בשלישיה */
+  @media(max-width:759px){
+    .contact-row{flex-wrap:wrap}
+    .contact-row .btn-wa{flex:1 1 100%}
+  }
   /* בטלפון ארבעה כפתורים ברוחב מלא דוחפים את התוכן הרבה מתחת לקיפול.
      וואטסאפ נשאר שורה שלמה כי הוא הפעולה הראשית, והשאר מסתדרים בזוגות. */
   @media(max-width:479px){
-    .contact-row .btn{flex:1 1 calc(50% - 5px);min-width:0}
-    .contact-row .btn-wa{flex:1 1 100%}
+    .contact-row{gap:8px}
+    .contact-row .btn-ghost{flex:1 1 calc(50% - 4px)}
+    .contact-row .btn{min-height:58px;padding:8px 10px;gap:9px}
+    .contact-row .btn-ico{width:32px;height:32px}
   }
+
+  /* הסרגל הצף בטלפון: אותם כפתורים, בלי השורה המשנית */
+  .sticky-bar .btn{gap:8px;padding:12px 14px}
+  .sticky-bar .btn-ico{display:inline-flex}
+  .sticky-bar .btn-ico svg{width:19px;height:19px}
+  .sticky-bar .btn-text small{display:none}
+  .sticky-bar .btn-ghost{background:#fff;border:1.5px solid var(--hair-strong,#dde3f2)}
 
   .empty-note{
     margin:26px 0 0;padding:16px 18px;font-size:.88rem;color:var(--ink-soft);
     background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);text-align:center;
   }
 
-  section.block{margin-top:30px}
-  section.block h2{font-size:1.1rem;margin-bottom:12px}
+  section.block{margin-top:34px}
+  /* כותרת סעיף: ריבוע זהב, הכותרת, וקו דק שממשיך עד קצה העמודה */
+  section.block h2{font-size:1.2rem;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  section.block h2::before{content:"";width:8px;height:8px;background:var(--brass,#c9a227);flex:none}
+  section.block h2::after{content:"";flex:1;height:1px;background:var(--line)}
   .prose{
-    font-size:.94rem;color:var(--ink);white-space:pre-wrap;max-width:66ch;
-    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);padding:16px 18px;
+    font-size:.97rem;color:var(--ink);white-space:pre-wrap;line-height:1.8;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);padding:18px 22px;
+    border-inline-start:3px solid var(--sapphire,#0e2a6b);box-shadow:0 10px 30px -24px rgba(14,42,107,.5);
   }
 
-  .service-list{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0}
+  .service-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;list-style:none;padding:0;margin:0}
   .service-list li{
     background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);
-    padding:9px 13px;font-size:.86rem;font-weight:600;
-    display:flex;align-items:center;gap:8px;
+    padding:11px 14px;font-size:.9rem;font-weight:600;color:var(--ink);
+    display:flex;align-items:center;gap:10px;
   }
-  .service-list li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+  /* וי בריבוע ספיר במקום נקודה */
+  .service-list li::before{
+    content:"✓";width:22px;height:22px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+    background:var(--teal-tint);color:var(--sapphire,#0e2a6b);font-size:.8rem;font-weight:800;
+  }
 
   /* ====== גלריה ======
      ריבועים אחידים: תמונות באורכים שונים היו הופכות את הרשת למדרגות.
@@ -263,19 +368,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="proContent">
   <div class="wrap">
     <div class="profile-cover" id="profileCover"></div>
-    <div class="profile-strip" id="profileStrip">
-      <div class="profile-avatar" id="profileAvatar">·</div>
-      <div class="profile-text">
-        <h1 class="profile-name" id="profileName">-</h1>
-        <div class="profile-business" id="profileBusiness"></div>
-        <div class="profile-role" id="profileRole"></div>
+    <!-- כרטיס הפרופיל: הזהות, האסמכתאות וכפתורי הקשר במשטח אחד. עם תמונת
+         נושא הוא עולה על קצה התמונה, והאווטאר בולט ממנו אל התמונה. -->
+    <div class="profile-card" id="profileCard">
+      <div class="profile-strip" id="profileStrip">
+        <div class="profile-avatar" id="profileAvatar">·</div>
+        <div class="profile-text">
+          <h1 class="profile-name" id="profileName">-</h1>
+          <div class="profile-business" id="profileBusiness"></div>
+          <div class="profile-role" id="profileRole"></div>
+        </div>
       </div>
+
+      <div class="chips" id="profileChips"></div>
+      <p class="headline" id="profileHeadline" hidden></p>
+
+      <div class="contact-row" id="contactRow"></div>
     </div>
-
-    <div class="chips" id="profileChips"></div>
-    <p class="headline" id="profileHeadline" hidden></p>
-
-    <div class="contact-row" id="contactRow"></div>
 
     <!-- פרופיל שנרשם ועדיין לא מולא: אומרים את זה במפורש במקום להשאיר
          עמוד ריק שנראה שבור. -->
@@ -363,6 +472,7 @@ function renderHeader(p){
     el('profileCover').style.backgroundImage = `url("${cover.replace(/"/g, '%22')}")`;
     el('profileCover').style.display = 'block';
     el('profileStrip').classList.add('has-cover');
+    el('profileCard').classList.add('has-cover');
   }
 
   const avatar = el('profileAvatar');
@@ -400,6 +510,17 @@ function renderHeader(p){
    ‏phone_e164 נשמר כספרות בלבד בפורמט 972521112222 — בדיוק מה שגם wa.me
    וגם tel: מצפים לו, ולכן אין כאן נרמול. ההודעה נפתחת מוכנה עם שם בעל/ת
    המקצוע וקישור לעמוד, כדי שיידע/תדע מאיפה הפנייה הגיעה.               */
+/* השורה המשנית בכפתורי הקשר: המספר בכתיב מקומי (‏972521112222 ←
+   052-1112222), ושם האתר בלי www - מה שהגולש/ת מזהה במבט. */
+function localPhone(e164){
+  const d = String(e164 || '').replace(/\D/g, '');
+  const local = d.startsWith('972') ? '0' + d.slice(3) : d;
+  return local.length === 10 ? local.slice(0, 3) + '-' + local.slice(3) : local;
+}
+function siteHost(u){
+  try { return new URL(u).hostname.replace(/^www\./, ''); } catch(e){ return ''; }
+}
+
 function renderContact(p){
   const name = p.advertiser_name || '';
   const row = el('contactRow');
@@ -413,19 +534,21 @@ function renderContact(p){
       location.href,
     ].join('\n');
     const waHref = 'https://wa.me/' + p.phone_e164 + '?text=' + encodeURIComponent(text);
-    buttons.push({ href:waHref, cls:'btn-wa', icon:'wa', label:'וואטסאפ', aria:'שליחת הודעת וואטסאפ ל' + (name || 'בעל/ת המקצוע'), external:true, sticky:true });
-    buttons.push({ href:'tel:+' + p.phone_e164, cls:'btn-ghost', icon:'phone', label:'התקשרו', sticky:true });
+    buttons.push({ href:waHref, cls:'btn-wa', icon:'wa', label:'וואטסאפ', sub:'שליחת הודעה ישירה', aria:'שליחת הודעת וואטסאפ ל' + (name || 'בעל/ת המקצוע'), external:true, sticky:true });
+    buttons.push({ href:'tel:+' + p.phone_e164, cls:'btn-ghost', icon:'phone', label:'התקשרו', sub:localPhone(p.phone_e164), subLtr:true, sticky:true });
   }
   const site = safeUrl(p.click_url);
-  if (site) buttons.push({ href:site, cls:'btn-ghost', icon:'site', label:'לאתר', external:true });
-  if (p.public_email) buttons.push({ href:'mailto:' + p.public_email, cls:'btn-ghost', icon:'mail', label:'אימייל' });
+  if (site) buttons.push({ href:site, cls:'btn-ghost', icon:'site', label:'לאתר', sub:siteHost(site), subLtr:true, external:true });
+  if (p.public_email) buttons.push({ href:'mailto:' + p.public_email, cls:'btn-ghost', icon:'mail', label:'אימייל', sub:p.public_email, subLtr:true });
 
   /* ‏data-professional על כל כפתורי הקשר: הפנייה כאן היא לבעל/ת המקצוע
      ולא למתווך/ת, ובלי הסימון events.js סופר אותה כ-contact_agent
      (‏docs/analytics-events.md). הוא יושב גם על "לאתר" — קישור https שהמאזין
      ממילא לא סופר — כדי שלא יהיה כפתור קשר אחד בדף שנשכח. */
   const html = b => `<a class="btn ${b.cls}" data-professional href="${escapeHtml(b.href)}"${b.external ? ' target="_blank" rel="noopener"' : ''}` +
-    `${b.aria ? ` aria-label="${escapeHtml(b.aria)}"` : ''}>${ICONS[b.icon]}<span>${escapeHtml(b.label)}</span></a>`;
+    `${b.aria ? ` aria-label="${escapeHtml(b.aria)}"` : ''}><span class="btn-ico">${ICONS[b.icon]}</span>` +
+    `<span class="btn-text"><span class="btn-label">${escapeHtml(b.label)}</span>` +
+    `${b.sub ? `<small${b.subLtr ? ' dir="ltr"' : ''}>${escapeHtml(b.sub)}</small>` : ''}</span></a>`;
 
   row.innerHTML = buttons.map(html).join('');
   const stickyButtons = buttons.filter(b => b.sticky);
