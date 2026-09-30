@@ -141,6 +141,99 @@ async function makeScenarioActive(channel: Channel): Promise<boolean | null> {
 const BATCH = 5;
 const MAX_PHOTOS = 5;
 
+// ---------------------------------------------------------------------------
+// יחס התמונה באינסטגרם
+//
+// ‏אינסטגרם מקבלת רק יחס בין 4:5 (‏0.8, לאורך) ל-1.91:1 (לרוחב), ותמונה אחת
+// מחוץ לטווח מפילה את כל הקרוסלה: ‏"The aspect ratio is not supported"
+// ‏(‏36003). צילומי מסך ותמונות מוואטסאפ הם בדיוק כאלה — 9:16 ומעלה — וכך
+// נפל נכס 1162 בפוסט הראשון מבין ארבעה.
+//
+// לכן כל תמונה נמדדת (‏Range על 64KB הראשונים, רק כותרת ה-JPEG) ותמונה
+// חורגת עוברת דרך image transformation של Supabase Storage עם `cover`:
+// חיתוך למרכז, ביחס הקרוב המותר. ‏`format=origin` שומר JPEG — בלעדיו
+// השירות מחזיר WebP, שאינסטגרם דוחה.
+//
+// מה **לא** נעשה: תמונה שאינה ב-Storage שלנו, או שהכותרת שלה לא נקראה,
+// יוצאת כמו שהיא. אין לנו איך לחתוך אותה, והשמטה שקטה של תמונה גרועה
+// מכישלון גלוי שמתועד ב-last_error.
+// ---------------------------------------------------------------------------
+const IG_MIN_RATIO = 0.8;
+const IG_MAX_RATIO = 1.91;
+
+function jpegSize(buf: Uint8Array): { w: number; h: number } | null {
+  if (buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const marker = buf[i + 1];
+    // ‏SOF0–SOF15, בלי DHT (‏C4), JPG (‏C8) ו-DAC (‏CC) — הם באותו טווח ואינם מסגרת.
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      const h = (buf[i + 5] << 8) | buf[i + 6];
+      const w = (buf[i + 7] << 8) | buf[i + 8];
+      return w && h ? { w, h } : null;
+    }
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+    const len = (buf[i + 2] << 8) | buf[i + 3];
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
+}
+
+// ‏EXIF orientation 5–8 אומר שהתמונה מוצגת מסובבת ב-90°, ולכן הרוחב והגובה
+// שבכותרת הפוכים ממה שאינסטגרם תראה. מספיק לדעת אם יש סיבוב, לא לאיזה צד.
+function exifRotated(buf: Uint8Array): boolean {
+  for (let i = 2; i + 12 < buf.length && i < 65536; i++) {
+    if (buf[i] === 0x45 && buf[i + 1] === 0x78 && buf[i + 2] === 0x69 && buf[i + 3] === 0x66 && buf[i + 4] === 0 && buf[i + 5] === 0) {
+      const t = i + 6;
+      const le = buf[t] === 0x49;
+      const u16 = (o: number) => le ? buf[o] | (buf[o + 1] << 8) : (buf[o] << 8) | buf[o + 1];
+      const u32 = (o: number) => le
+        ? (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0
+        : ((buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3]) >>> 0;
+      const ifd = t + u32(t + 4);
+      if (ifd + 2 > buf.length) return false;
+      const n = u16(ifd);
+      for (let k = 0; k < n; k++) {
+        const e = ifd + 2 + k * 12;
+        if (e + 10 > buf.length) return false;
+        if (u16(e) === 0x0112) return u16(e + 8) >= 5 && u16(e + 8) <= 8;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+const STORAGE_PUBLIC = "/storage/v1/object/public/";
+
+function instagramCropUrl(url: string, ratio: number): string | null {
+  const at = url.indexOf(STORAGE_PUBLIC);
+  if (at < 0) return null;
+  const [path] = url.slice(at + STORAGE_PUBLIC.length).split(/[?#]/);
+  const size = ratio < IG_MIN_RATIO ? "width=1080&height=1350" : "width=1080&height=566";
+  return `${url.slice(0, at)}/storage/v1/render/image/public/${path}?${size}&resize=cover&format=origin`;
+}
+
+async function fitForInstagram(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { headers: { Range: "bytes=0-65535" } });
+    if (!res.ok) return url;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const size = jpegSize(buf);
+    if (!size) return url;
+    const ratio = exifRotated(buf) ? size.h / size.w : size.w / size.h;
+    if (ratio >= IG_MIN_RATIO && ratio <= IG_MAX_RATIO) return url;
+    const cropped = instagramCropUrl(url, ratio);
+    if (cropped) console.log("instagram crop", url, size.w, size.h, ratio.toFixed(2));
+    return cropped ?? url;
+  } catch (e) {
+    console.warn("instagram ratio", url, e instanceof Error ? e.message : String(e));
+    return url;
+  }
+}
+
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -462,9 +555,10 @@ async function handle(
   // ‏אינסטגרם מקבלת JPEG בלבד. תמונות הנכס מה-CRM נשמרות כ-JPEG בכוונה
   // (‏IMAGE_TYPE_EXTERNAL ב-assets/crm.js), אבל תמונה שהגיעה מוואטסאפ או
   // מייבוא יכולה להיות PNG או WebP — והיא נדחית כאן, לא אצל אינסטגרם.
-  const images = (channel === "instagram"
+  let images = (channel === "instagram"
     ? gallery.filter((u) => !/\.(png|webp|gif|heic|avif)(\?|#|$)/i.test(u))
     : gallery).slice(0, MAX_PHOTOS);
+  if (channel === "instagram") images = await Promise.all(images.map(fitForInstagram));
 
   // נכס בלי תמונה אינו מפורסם. ‏pending_property_publications כבר מסננת אותו
   // (מיגרציה 20261020090000), ולכן אין דרך מוכרת להגיע לכאן — אבל אם שתי
