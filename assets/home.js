@@ -3675,6 +3675,9 @@ document.getElementById('aiPromoGo')?.addEventListener('click', ()=> ShukSearch.
    טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני מקורות אמת
    לאותו ליד. הכפתור פותח את הבאנר אם הוא סגור, וגולל אליו בכל מקרה. */
 document.getElementById('aiPromoCta')?.addEventListener('click', ()=>{
+  // הבאנר מוסתר בדף הבית; ה-CTA חושף אותו רק למי שביקש/ה
+  const wrap = document.getElementById('ownerBannerWrap');
+  if (wrap) wrap.hidden = false;
   const start = document.getElementById('ownerStartBtn');
   if (start && start.getAttribute('aria-expanded') !== 'true') start.click();
   document.getElementById('ownerBanner')?.scrollIntoView({ behavior:'smooth', block:'center' });
