@@ -20236,7 +20236,7 @@ function agendaWhenText(it){
 async function loadAgenda(){
   if (!currentAgent) return;
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
-  const cols = 'id, kind, title, notes, location, due_at, priority, status, source, auto_kind, client_id, property_id, lead_id, remind_before, completed_at';
+  const cols = 'id, kind, title, notes, location, due_at, priority, status, source, auto_kind, client_id, property_id, lead_id, remind_before, completed_at, google_event_id, google_sync_state, google_sync_error';
   const [open, done, prefs] = await Promise.all([
     sb.from('agent_agenda_items').select(cols)
       .eq('agent_id', currentAgent.id).eq('status', 'open')
@@ -20258,6 +20258,7 @@ async function loadAgenda(){
   agendaAutoOff = (!prefs.error && prefs.data && Array.isArray(prefs.data.auto_off)) ? prefs.data.auto_off : [];
   renderAgenda();
   renderAgendaAuto();
+  loadGcal().catch(err => console.warn('טעינת חיבור יומן Google נכשלה:', err));
 }
 
 function renderAgenda(){
@@ -20336,6 +20337,8 @@ function buildAgendaRow(it){
       ${it.priority === 'high' ? '<span class="rm-badge">❗ מיוחדת</span>' : ''}
       ${it.source === 'system' ? '<span class="rm-badge">אוטומטית</span>' : ''}
       ${it.source === 'whatsapp' ? '<span class="rm-badge">מוואטסאפ</span>' : ''}
+      ${it.google_event_id && it.google_sync_state !== 'error' ? '<span class="rm-badge">ב-Google</span>' : ''}
+      ${it.google_sync_state === 'error' ? `<span class="rm-badge" title="${esc(it.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
     </div>
     <div class="ag-when">${esc(AGENDA_KIND_LABELS[it.kind] || '')} · ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
     ${meta ? `<p class="rm-body">${esc(meta)}</p>` : ''}
@@ -20559,6 +20562,128 @@ document.getElementById('agAutoSave').addEventListener('click', async ()=>{
   fb.style.color = 'var(--teal)';
   fb.textContent = off.length ? 'נשמר - ' + plural(off.length, 'סוג אחד כבוי', 'סוגים כבויים') + '.' : 'נשמר - כל המשימות האוטומטיות דלוקות.';
   setTimeout(()=>{ fb.textContent = ''; }, 2500);
+});
+
+
+/* ---------- יומן Google ----------
+   תהליך נפרד מהכניסה עם Google, ובכוונה: הוא מתחיל רק כאן, בלחיצה.
+   ‏google-calendar-connect מחזירה את כתובת ההסכמה, הדפדפן עובר אליה, ו-Google
+   מחזירה אל google-calendar-callback - שמפנה לכאן עם ?gcal=<תוצאה>.
+   מה שנכתב ל-Google: פגישות, סיורים וחתימות, ליומן נפרד "שוק נדל״ן".
+   מה שנקרא מ-Google: פנוי/תפוס בלבד, לעוזר בוואטסאפ. ראו docs/google-calendar.md. */
+let agendaGcal = null;
+
+const GCAL_RESULT_TEXT = {
+  connected: 'יומן Google חובר. הפגישות הפתוחות יופיעו שם בדקות הקרובות.',
+  connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - העוזר לא יראה מתי את/ה תפוס/ה ביומן האישי.',
+  denied: 'החיבור בוטל במסך של Google. אפשר לנסות שוב מתי שתרצו.',
+  scope_missing: 'בלי ההרשאה ליצור את יומן "שוק נדל״ן" אין מה לחבר. נסו שוב והשאירו אותה מסומנת.',
+  expired: 'עבר יותר מדי זמן מהלחיצה. לחצו שוב על "חבר/י יומן".',
+  tier_required: 'החיבור ליומן Google זמין במסלולים PROFESSIONAL ו-Elite.',
+  not_configured: 'החיבור ליומן Google עוד לא הוגדר במערכת.',
+  error: 'החיבור ליומן Google נכשל. נסו שוב בעוד רגע.',
+};
+
+function consumeGcalResult(){
+  let params;
+  try { params = new URLSearchParams(location.search); } catch { return; }
+  const result = params.get('gcal');
+  if (!result) return;
+  params.delete('gcal');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  showToast(GCAL_RESULT_TEXT[result] || GCAL_RESULT_TEXT.error, 7000);
+}
+
+async function loadGcal(){
+  if (!currentAgent) return;
+  consumeGcalResult();
+  const { data, error } = await sb.from('agent_calendar_connections').select('*')
+    .eq('agent_id', currentAgent.id).maybeSingle();
+  agendaGcal = error ? null : (data || null);
+  renderGcal();
+}
+
+function renderGcal(){
+  const box = document.getElementById('agGcal');
+  if (!box) return;
+  box.hidden = !assistantTierOk();
+  if (box.hidden) return;
+  const st = document.getElementById('agGcalStatus');
+  const note = document.getElementById('agGcalNote');
+  const connect = document.getElementById('agGcalConnect');
+  const disconnect = document.getElementById('agGcalDisconnect');
+  const c = agendaGcal;
+
+  if (c && c.status === 'active'){
+    st.textContent = 'מחובר' + (c.google_email ? ': ' + c.google_email : '');
+    const bits = ['פגישות, סיורים וחתימות מופיעים ביומן "שוק נדל״ן" בחשבון Google שלך.'];
+    if (!(c.scopes || []).some(x => /calendar\.freebusy$/.test(x))){
+      bits.push('בלי הרשאת הזמינות - העוזר לא רואה מתי את/ה תפוס/ה ביומן האישי. חיבור מחדש יוסיף אותה.');
+    } else {
+      bits.push('העוזר בוואטסאפ רואה מתי את/ה תפוס/ה ביומן האישי - רק את השעות, בלי הפרטים.');
+    }
+    if (c.last_sync_at) bits.push('סנכרון אחרון: ' + new Date(c.last_sync_at).toLocaleString('he-IL') + '.');
+    note.textContent = bits.join(' ');
+    connect.textContent = 'חיבור מחדש';
+    disconnect.hidden = false;
+  } else if (c && c.status === 'error'){
+    st.textContent = 'החיבור נותק';
+    note.textContent = (c.last_error || 'החיבור ל-Google הפסיק לעבוד.') + ' הפגישות ממשיכות להתריע כרגיל, רק לא מופיעות ב-Google.';
+    connect.textContent = 'חבר/י יומן מחדש';
+    disconnect.hidden = false;
+  } else {
+    st.textContent = 'לא מחובר';
+    note.textContent = 'פגישות, סיורים וחתימות יופיעו ביומן נפרד בשם "שוק נדל״ן" בחשבון Google שלך, ' +
+      'והעוזר בוואטסאפ יידע מתי את/ה פנוי/ה. מהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
+    connect.textContent = 'חבר/י יומן';
+    disconnect.hidden = true;
+  }
+}
+
+async function gcalCall(action){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('צריך להתחבר מחדש');
+  const res = await fetch(SUPABASE_URL + '/functions/v1/google-calendar-connect', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify({ action }),
+  });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || data.error) throw new Error(data.detail || data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+document.getElementById('agGcalConnect').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'מעבירים ל-Google…';
+  try {
+    const { url } = await gcalCall('start');
+    // ניווט של הדף עצמו ולא חלון קופץ: חוסמי חלונות, ובאייפון אפליקציה
+    // מותקנת שפותחת חלון חדש יוצאת לדפדפן ולא חוזרת.
+    location.href = url;
+  } catch (err){
+    btn.disabled = false;
+    btn.textContent = label;
+    showToast('החיבור לא התחיל: ' + err.message, 6000);
+  }
+});
+
+document.getElementById('agGcalDisconnect').addEventListener('click', async (e)=>{
+  if (!confirm('לנתק את יומן Google? היומן "שוק נדל״ן" יימחק מהחשבון שלך ב-Google, וההרשאה תבוטל. היומן כאן ממשיך לעבוד כרגיל.')) return;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await gcalCall('disconnect');
+    showToast('יומן Google נותק');
+    await loadAgenda();
+  } catch (err){
+    showToast('הניתוק נכשל: ' + err.message, 6000);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 /* ---------- התראה בזמן, כשהדשבורד פתוח ----------

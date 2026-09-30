@@ -2076,6 +2076,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ag-add>summary{cursor:pointer;font-weight:700;font-size:.86rem;color:var(--teal);list-style:none}
   .ag-add>summary::-webkit-details-marker{display:none}
   .ag-form-btns .btn[hidden]{display:none}
+  .ag-gcal{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:0 0 12px}
+  .ag-gcal[hidden]{display:none}
+  .ag-gcal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ag-gcal-title{font-weight:700;font-size:.86rem}
+  #dashboard .ag-gcal{border-color:var(--edge);background:var(--surface-2)}
   .ag-high{display:flex;align-items:flex-end;padding-bottom:10px}
   .ag-form-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .ag-form-btns .btn{flex:1}
@@ -5899,6 +5904,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
         <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך העוזר בוואטסאפ ("תזכיר לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
         <p class="acc-sub" id="agTierNote" hidden></p>
+
+        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
+             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
+        <div class="ag-gcal" id="agGcal" hidden>
+          <div class="ag-gcal-head">
+            <span class="ag-gcal-title">יומן Google</span>
+            <span class="rm-badge" id="agGcalStatus"></span>
+          </div>
+          <p class="rm-note" id="agGcalNote"></p>
+          <div class="ag-form-btns">
+            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
+            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
+          </div>
+        </div>
 
         <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
           <button type="button" data-ag-tab="today" aria-pressed="true">היום · <span id="agTabTodayCount">0</span></button>

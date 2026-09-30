@@ -15,6 +15,13 @@ import {
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import {
+  accessTokenFor,
+  freeBusy,
+  GCAL_FREEBUSY_SCOPE,
+  googleCalendarConfigured,
+  GoogleRevokedError,
+} from "../_shared/google-calendar.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -1051,6 +1058,23 @@ const TOOLS: Anthropic.Tool[] = [
         query: { type: "string", description: "חיפוש בכותרת, למשל שם הלקוח/ה." },
       },
       required: ["range"],
+    },
+  },
+  {
+    name: "agenda_free_slots",
+    description:
+      "מתי הסוכן/ת פנוי/ה ביום מסוים: \"מתי אני פנוי מחר אחה\"צ?\", \"תמצא לי שעה לסיור ביום ה'\". " +
+      "מצליב את היומן במערכת, ואם חובר יומן Google - גם את הזמינות ביומן האישי " +
+      "(פנוי/תפוס בלבד, בלי פרטים). מחזיר חלונות פנויים.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "YYYY-MM-DD בשעון ישראל. ברירת מחדל: היום." },
+        from_hour: { type: "integer", description: "תחילת החלון, 0-23. ברירת מחדל 9. \"אחה\"צ\" = 13." },
+        to_hour: { type: "integer", description: "סוף החלון, 1-24. ברירת מחדל 19." },
+        duration_minutes: { type: "integer", description: "כמה זמן צריך. ברירת מחדל 60." },
+      },
+      required: [],
     },
   },
   {
@@ -4161,6 +4185,103 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
   }));
 }
 
+/**
+ * חלונות פנויים ביום אחד. שני מקורות תפוס:
+ *
+ *   1. פגישות, סיורים וחתימות ביומן שלנו (שיחה ומשימה אינן תופסות זמן).
+ *   2. אם חובר יומן Google עם הרשאת פנוי/תפוס - היומן הראשי שם. רק טווחי
+ *      זמן חוזרים, בלי כותרת ובלי משתתפים, ולכן גם לא מגיעים למודל.
+ *
+ * כשל מול Google אינו מפיל את התשובה: היא יוצאת לפי היומן שלנו, ו-`source`
+ * אומר זאת - "פנוי" בלי Google הוא חצי תמונה, והסוכן/ת צריך/ה לדעת.
+ */
+async function toolAgendaFreeSlots(ctx: ToolContext, input: Record<string, unknown>) {
+  const date = input.date ? String(input.date) : ilDateOf(Date.now());
+  if (!ilLocalToIso(date, "00:00")) return { ok: false, error: "date חייב להיות YYYY-MM-DD." };
+  const fromH = Math.min(Math.max(Math.round(Number(input.from_hour ?? 9)), 0), 23);
+  const toH = Math.min(Math.max(Math.round(Number(input.to_hour ?? 19)), fromH + 1), 24);
+  const dur = Math.min(Math.max(Math.round(Number(input.duration_minutes ?? 60)), 15), 480);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  const dayFrom = Date.parse(ilLocalToIso(date, `${pad(fromH)}:00`)!);
+  const dayTo = toH === 24
+    ? Date.parse(ilLocalToIso(ilDateOf(Date.parse(ilLocalToIso(date, "12:00")!) + 864e5), "00:00")!)
+    : Date.parse(ilLocalToIso(date, `${pad(toH)}:00`)!);
+  // היום: לא מציעים שעה שכבר עברה. עיגול לחצי השעה הבאה.
+  const start = Math.max(dayFrom, Math.ceil(Date.now() / 1800e3) * 1800e3);
+  if (start >= dayTo) {
+    return { ok: true, date, free_windows: [], note: "החלון שביקשת כבר עבר." };
+  }
+
+  const busy: Array<[number, number]> = [];
+  const { data: own } = await ctx.supabase.from("agent_agenda_items")
+    .select("due_at, ends_at, kind")
+    .eq("agent_id", ctx.agent.id).eq("status", "open")
+    .in("kind", ["meeting", "showing", "signing"])
+    .gte("due_at", new Date(dayFrom - 8 * 3600e3).toISOString())
+    .lt("due_at", new Date(dayTo).toISOString());
+  for (const r of own || []) {
+    const s = Date.parse(r.due_at);
+    busy.push([s, r.ends_at ? Date.parse(r.ends_at) : s + 3600e3]);
+  }
+
+  let source = "היומן במערכת בלבד";
+  let googleNote: string | undefined =
+    "יומן Google לא מחובר, ולכן אני רואה רק את מה שביומן במערכת. חיבור: יומן ומשימות בדשבורד → חבר/י יומן.";
+  const { data: conn } = await ctx.supabase.from("agent_calendar_connections")
+    .select("status, scopes").eq("agent_id", ctx.agent.id).maybeSingle();
+  if (conn?.status === "active" && googleCalendarConfigured()) {
+    if (!(conn.scopes || []).includes(GCAL_FREEBUSY_SCOPE)) {
+      googleNote = "יומן Google מחובר בלי הרשאת זמינות, ולכן היומן האישי לא נבדק. חיבור מחדש מהדשבורד יוסיף אותה.";
+    } else {
+      try {
+        const token = await accessTokenFor(ctx.supabase, ctx.agent.id);
+        if (token) {
+          const gb = await freeBusy(token, new Date(start).toISOString(), new Date(dayTo).toISOString());
+          for (const b of gb) busy.push([Date.parse(b.start), Date.parse(b.end)]);
+          source = "היומן במערכת + יומן Google";
+          googleNote = undefined;
+        }
+      } catch (err) {
+        googleNote = err instanceof GoogleRevokedError
+          ? "ההרשאה ליומן Google בוטלה, ולכן היומן האישי לא נבדק. צריך לחבר מחדש מהדשבורד."
+          : "לא הצלחתי לקרוא את יומן Google כרגע, ולכן בדקתי רק את היומן במערכת.";
+      }
+    }
+  }
+
+  busy.sort((a, b) => a[0] - b[0]);
+  const windows: Array<[number, number]> = [];
+  let cursor = start;
+  for (const [bs, be] of busy) {
+    if (be <= cursor) continue;
+    if (bs >= dayTo) break;
+    if (bs > cursor) windows.push([cursor, Math.min(bs, dayTo)]);
+    cursor = Math.max(cursor, be);
+  }
+  if (cursor < dayTo) windows.push([cursor, dayTo]);
+
+  const hhmm = (ms: number) => new Date(ms).toLocaleTimeString("he-IL", {
+    timeZone: IL_TZ, hour: "2-digit", minute: "2-digit",
+  });
+  const free = windows.filter(([a, b]) => b - a >= dur * 60000)
+    .map(([a, b]) => ({ from: hhmm(a), to: hhmm(b) }));
+
+  return {
+    ok: true,
+    date,
+    day: ilWhen(new Date(dayFrom).toISOString()).split(" ")[0],
+    duration_minutes: dur,
+    free_windows: free,
+    source,
+    google_note: googleNote,
+    guidance: free.length
+      ? "הצע/י עד שלושה חלונות, בקצרה. אם יש google_note - אמור/אמרי אותו במשפט אחד. " +
+        "אם הסוכן/ת בוחר/ת שעה - agenda_add."
+      : "אין חלון פנוי באורך הזה. הצע/י יום אחר או זמן קצר יותר.",
+  };
+}
+
 async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   const kind = String(input.kind || "task");
   if (!AGENDA_KINDS.includes(kind)) return { ok: false, error: "סוג לא מוכר." };
@@ -4335,6 +4456,7 @@ async function runTool(
       case "agenda_add": return await toolAgendaAdd(ctx, input);
       case "agenda_list": return await toolAgendaList(ctx, input);
       case "agenda_update": return await toolAgendaUpdate(ctx, input);
+      case "agenda_free_slots": return await toolAgendaFreeSlots(ctx, input);
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
@@ -4541,6 +4663,9 @@ const SYSTEM_STATIC: string = (() => {
     "- התזכורת יוצאת לבד בזמן - בוואטסאפ ובפעמון בדשבורד. **אל תבטיח/י שתכתוב/י בעצמך**; " +
       "המערכת היא ששולחת. היומן המלא נמצא בדשבורד בקטגוריה \"יומן ומשימות\".",
     "- אם חזר past - המועד עבר; שאל/י לאיזה מועד התכוון/ה ואל תקבע/י לבד.",
+    "- \"מתי אני פנוי/ה\" / \"תמצא לי שעה לסיור\" = agenda_free_slots. פגישות שנקבעות כאן " +
+      "מופיעות גם ביומן Google של הסוכן/ת, אם חובר. החיבור עצמו נעשה רק בדשבורד " +
+      "(יומן ומשימות → חבר/י יומן) - אי אפשר לחבר מכאן.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +

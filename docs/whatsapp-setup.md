@@ -24,7 +24,7 @@ Meta WhatsApp Cloud API  ──Webhook (POST)──►  Edge Function: whatsapp-
                                      3. זיהוי הסוכן/ת לפי agency_members.phone_e164
                                      4. תמונה → Supabase Storage ‏(property-images)
                                         הקלטה → OpenAI Whisper → טקסט
-                                     5. Claude עם 37 כלים (נכסים · ניתוח ומידע ·
+                                     5. Claude עם 38 כלים (נכסים · ניתוח ומידע ·
                                         לקוחות · התאמות · הסכמים · יומן ·
                                         לידים · התראות)
                                      6. תשובה חזרה דרך Graph API
