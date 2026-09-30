@@ -68,6 +68,26 @@ export function placeLine(row: PropertyFacts): string {
   return [row.neighborhood, row.street, row.city].filter(Boolean).join(", ");
 }
 
+/** ‏קודי המאפיינים בעברית — אותו אוצר של FEATURE_LABELS ב-assets/property.js.
+ *
+ *  עד 30.9.2026 המודל קיבל את הקודים עצמם (‏"mamad, balcony, elevator"),
+ *  התעלם מהם, ונשאר עם החדרים, הקומה והמחיר בלבד - כלומר כתב פוסט שחוזר
+ *  על שורות העובדות שמתחתיו. קוד שאין לו תווית (‏exclusive, price_dropped
+ *  וכו') אינו תכונה של הנכס עצמו, ולכן אינו נכנס. */
+const FEATURE_LABELS: Record<string, string> = {
+  moshav_kibbutz_only: "במושב/קיבוץ",
+  parking: "חניה", elevator: "מעלית", balcony: "מרפסת", sun_balcony: "מרפסת שמש", ac: "מיזוג",
+  bars: "סורגים", accessible: "גישה לנכים", renovated_feature: "משופצת", furnished: "מרוהטת",
+  mamad: "ממ״ד", building_shelter: "מקלט בבניין", mamak: "ממ״ק", storage: "מחסן",
+  high_ceiling: "תקרה גבוהה", cameras: "מצלמות", kitchenette: "מטבחון", alarm: "אזעקה",
+  meeting_room: "חדר ישיבות", loading_ramp: "רמפת העמסה", comms: "תקשורת", cold_room: "חדר קירור",
+};
+
+function featureNames(features: unknown): string[] {
+  if (!Array.isArray(features)) return [];
+  return features.map((f) => FEATURE_LABELS[String(f)]).filter(Boolean);
+}
+
 /** כל מה שידוע על הנכס, בטקסט אחד — הקלט של Claude ושל בונה הפוסט. */
 export function factsText(row: PropertyFacts): string {
   const dealType = row.deal_type === "rent" ? "להשכרה" : "למכירה";
@@ -92,7 +112,7 @@ export function factsText(row: PropertyFacts): string {
     priceLine(row) ? `מחיר: ${priceLine(row)}` : null,
     row.condition ? `מצב הנכס: ${row.condition}` : null,
     row.project_status ? `סטטוס הפרויקט: ${row.project_status}` : null,
-    row.features?.length ? `מאפיינים: ${row.features.join(", ")}` : null,
+    featureNames(row.features).length ? `מאפיינים: ${featureNames(row.features).join(", ")}` : null,
     row.furniture_details ? `ריהוט: ${row.furniture_details}` : null,
     row.move_in_date ? `כניסה: ${row.move_in_date}` : null,
     ...planning,
@@ -130,11 +150,18 @@ export const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישרא
 {"marketing_description": "...", "post_text": "..."}
 
 marketing_description - 50 עד 90 מילים, פסקה אחת רציפה, מתארת את הנכס
-ומסתיימת בהזמנה לצפייה.
+ומסתיימת בהזמנה לצפייה. לא רשימת נתונים: לספר מה מקבלים בנכס הזה - מה
+המאפיינים והמיקום נותנים ביום-יום (למשל ממ״ד ומעלית = שקט ונוחות, מרפסת =
+מקום לשבת בחוץ) - ולשלב את המספרים בתוך המשפטים.
 
-post_text - פוסט לפייסבוק, עד 45 מילים, משפט פותח שמושך את העין, שתיים עד
-שלוש אימוג'י לכל היותר, ובסוף שורה אחת עם 3 עד 5 האשטגים בעברית
-(לדוגמה: #נדלן #עפולה #דירהלמכירה). בלי קישור ובלי טלפון.`;
+post_text - פוסט לפייסבוק ולאינסטגרם, עד 40 מילים, בטון חם ואנושי שפונה
+לקורא/ת. **מתחת לפוסט המערכת מוסיפה בעצמה שורות עם המיקום, מספר החדרים,
+השטח, הקומה והמחיר - ולכן אסור לחזור עליהם בפוסט.** הפוסט הוא הסיבה
+לעצור ולהסתכל: משפט פותח שמושך את העין, ואחריו מה שמייחד את הנכס
+(מאפיינים, מצב, ריהוט, כניסה, מה שהסוכן/ת כתב/ה). כשאין כמעט מה לייחד -
+משפט הזמנה קצר אחד, בלי להמציא. שתיים עד שלוש אימוג'י לכל היותר, ובסוף
+שורה נפרדת עם 3 עד 5 האשטגים בעברית (לדוגמה: #נדלן #עפולה #דירהלמכירה).
+בלי קישור ובלי טלפון.`;
 
 // ---------------------------------------------------------------------------
 // הקריאה
