@@ -62,6 +62,12 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/instagram</loc>
+    <lastmod>2026-09-30</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/about</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>

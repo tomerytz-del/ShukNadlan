@@ -320,10 +320,15 @@ function buildInstagramCaption(row: any, marketing: { description: string; post:
   if (row.agent_name) {
     facts.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
   }
-  facts.push(`🔗 כל הפרטים והתמונות: ${link}`);
+  // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ, ולכן הקישור כאן נועד להקלדה:
+  // ‏‎/p/1162‎ (‏netlify/edge-functions/short-link.ts) ולא ה-uuid הארוך. הדרך
+  // ללחוץ היא הקישור בפרופיל, שמוביל ל-/instagram — הפוסטים האחרונים לפי
+  // מספר מודעה.
+  const short = row.listing_number ? `${SITE_BASE_URL.replace(/^https?:\/\//, "")}/p/${row.listing_number}` : link;
+  facts.push(`🔗 כל הפרטים והתמונות: ${short}`);
   facts.push(row.listing_number
-    ? `(הקישור לאתר גם בפרופיל - מודעה מס׳ ${row.listing_number})`
-    : "(הקישור לאתר גם בפרופיל)");
+    ? `👆 או בקישור שבפרופיל - מודעה מס׳ ${row.listing_number}`
+    : "👆 או בקישור שבפרופיל");
 
   const deal = row.deal_type === "rent" ? "להשכרה" : row.deal_type === "sale" ? "למכירה" : null;
   const tags = [
