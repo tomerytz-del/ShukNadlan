@@ -284,3 +284,16 @@ select queue_property_description('<uuid>', 'manual', true, 0);
 `docs/facebook-auto-publish.md`, "הסתירה שאין לה שורה בטבלה".
 | שורה ב-`failed` | ארבעה ניסיונות נכשלו. ‏`last_error` אומר למה; `queue_property_description(..., true)` מחזיר לתור |
 | הכפתור ב-CRM נכשל בלי הודעה מהשרת | תשובת ה-preflight. ‏`property-description` נקראת גם מהדפדפן, ולכן היא **חייבת** לענות ל-`OPTIONS` ולהחזיר כותרות CORS בכל תשובה — בלי זה הדפדפן חוסם את הבקשה לפני שהיא מגיעה לשרת, וביומן רואים `OPTIONS \| 405` בלי POST אחריו |
+
+## הרענון החד-פעמי של 30.9.2026
+
+אחרי שינוי הפרומפט (הפוסט אינו חוזר על שורות העובדות) הורץ רענון לכל
+הנכסים הפעילים שהתיאור שלהם נכתב בידי Claude: ‏workflow
+`marketing_refresh_once.yml` (ידני, ברירת מחדל `dry_run`) שקורא ל-
+`property-description` עם `mode: "apply"` ו-`replace_post: true`.
+
+* **טקסט שנכתב ביד לא נדרס** - רק `marketing_description_source = 'ai'`.
+* **אין התראה לסוכנים** - קורא פנימי בלי שורת תור, ולכן
+  `mark_property_description` אינה נקראת.
+* ‏`replace_post` מכובד לקורא פנימי בלבד. ‏`apply_property_marketing_description`
+  עצמה עדיין אינה דורסת `post_text` קיים.
