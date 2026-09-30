@@ -27,7 +27,7 @@ export const TIER_NAMES: Record<Tier, string> = {
 };
 
 /** מחיר חודשי לפני מע"מ. משמש בהודעות בלבד — הגבייה אינה כאן. */
-export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 750, premium: 950 };
+export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 399, premium: 599 };
 
 /* תקופת ההשקה. שלושת המספרים האלה חוזרים ב-assets/tiers.js (תצוגה)
    וב-promo-lifecycle (התראות), ושלושתם חייבים להישאר זהים: דף שמבטיח חצי
