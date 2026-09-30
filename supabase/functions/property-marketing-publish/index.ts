@@ -259,6 +259,8 @@ const generateMarketing = (row: any) =>
 // גולש/ת בפייסבוק סורק/ת את השורות האלה לפני שהוא/היא קורא/ת מילה מהפתיח,
 // ולכן הן לא נכנסות לתוך הטקסט החופשי אלא יושבות מתחתיו תמיד באותו סדר.
 // ---------------------------------------------------------------------------
+const POST_CTA = "👇 לצפייה בתמונות והדמיות של הנכס כנסו לקישור";
+
 function buildMessage(row: any, marketing: { description: string; post: string }): string {
   const link = propertyUrl(row.property_id);
   const lead = (row.post_text?.trim() || marketing.post || marketing.description).trim();
@@ -276,6 +278,9 @@ function buildMessage(row: any, marketing: { description: string; post: string }
   if (row.agent_name) {
     lines.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
   }
+  // ‏קריאה לפעולה מעל הקישור: הפוסט מציג שתיים-שלוש תמונות, ובדף הנכס יש
+  // את כולן ואת ההדמיות. בלי המשפט הקישור נראה כמו חתימה ולא כמו הזמנה.
+  lines.push(POST_CTA);
   if (!lead.includes(link)) lines.push(`🔗 ${link}`);
 
   // ‏**הניקוי כאן ולא רק במחולל, כי כאן זה גבול הפרסום.** ‏`lead` יכול
@@ -323,7 +328,7 @@ function buildInstagramCaption(row: any, marketing: { description: string; post:
   // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ — גם לא את הקצר (‏/p/1162) —
   // ולכן אין כאן כתובת בכלל. הדרך היחידה ללחוץ היא הקישור בביו, שמוביל
   // ל-/instagram: כל הנכסים מהפוסטים, עם חיפוש לפי מספר המודעה.
-  facts.push("🔗 כל הנכסים, עם כל הפרטים והתמונות - בקישור שבביו");
+  facts.push("🔗 לצפייה בתמונות והדמיות של הנכס כנסו לקישור שבביו");
   if (row.listing_number) facts.push(`🔎 מחפשים שם את מודעה מס׳ ${row.listing_number}`);
 
   const deal = row.deal_type === "rent" ? "להשכרה" : row.deal_type === "sale" ? "למכירה" : null;
