@@ -93,8 +93,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:#fff;border:1px solid var(--brass);border-radius:99px;padding:4px 12px}
 
   /* ---------- שלושת הכרטיסים ---------- */
-  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;padding:34px 0 10px}
-  @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin:0 auto}}
+  /* ‏stretch ולא start: כרטיסים בגובה אחד, והכפתורים בשורה אחת. עם start
+     כל כרטיס נגמר איפה שהרשימה שלו נגמרת, וכפתור ה-CTA קפץ בין שלושה גבהים.
+     ‏subgrid (כשנתמך) מיישר גם את רצועות הכותרת ואת תחילת הרשימות: כל כרטיס
+     תופס ארבע שורות של הרשת - כותרת, יתרונות, כפתור, הערה - והשורות משותפות. */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);column-gap:18px;row-gap:0;align-items:stretch;padding:34px 0 10px}
+  @supports (grid-template-rows:subgrid){
+    .plans .plan{display:grid;grid-row:span 4;grid-template-rows:subgrid;row-gap:0}
+  }
+  @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin:0 auto}
+    .plans .plan + .plan{margin-top:26px}}
 
   /* ‏overflow גלוי ולא hidden: תגית "הבחירה של המובילים" יושבת חצי מחוץ
      לכרטיס, ו-hidden היה חותך אותה בדיוק באמצע. הפינות של רצועת הכותרת
@@ -170,8 +178,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan-badge{position:absolute;top:0;inset-inline-start:50%;transform:translate(50%,-50%);
     background:var(--sapphire-deep);color:#f6e0a3;font-size:.72rem;font-weight:800;
     padding:5px 14px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 14px -8px rgba(13,27,61,.9)}
-  .plan.elite{margin-top:14px}
-  @media(max-width:900px){.plan.elite{margin-top:20px}}
 
   /* מצבים: המסלול הנוכחי, ומסלול שנעול בתקופת ההטבה */
   .plan.is-current{outline:2.5px solid var(--sapphire);outline-offset:2px}
@@ -656,6 +662,7 @@ if (!current){
 const COMPARE = [
   ['ניהול העסק', [
     ['מערכת CRM מלאה - נכסים, לידים, לקוחות ועמלות',      true, true, true],
+    ['פרסום אוטומטי ברשתות החברתיות - פייסבוק ואינסטגרם', true, true, true],
     ['פרסום נכסים',                    'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
     ['החתמת מסמכי תיווך דיגיטלית',     'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
     ['דף סוכן/ת אישי ודף משרד ממותג',                     true, true, true],
@@ -665,10 +672,12 @@ const COMPARE = [
     ['ייבוא נכסים מאקסל וייצוא תיק הנכסים',               true, true, true],
     ['סטטוס נכס, מניעת מודעות כפולות ותביעת בלעדיות',     true, true, true],
     ['ניהול צוות המשרד והזמנת סוכנים',                    true, true, true],
+    ['ייבוא לקוחות מאנשי הקשר בטלפון או מקובץ vCard/CSV, עם סימון כפילויות', true, true, true],
     ['ארנק דיגיטלי - טעינת קרדיט וחיוב שקוף',             true, true, true],
     ['מרכז התראות בפעמון, עם שליטה לפי סוג',              true, true, true],
     ['תזכורות יזומות על מודעות שדורשות טיפול',            true, true, true],
     ['עוזר אישי בוואטסאפ - נכסים, לקוחות והתאמות בהודעה, תמונה או הקלטה', false, true, true],
+    ['העברת מייל לעוזר - הוא מטפל בו ועונה לך בוואטסאפ',  false, true, true],
     ['התראות הפעמון גם בוואטסאפ',                         false, true, true],
     ['יומן פגישות ומשימות עם תזכורות בוואטסאפ ובפעמון, וחיבור ליומן Google', false, true, true],
     ['מדריך התחלה מלווה בצעדים הראשונים',                 false, true, true],
@@ -677,7 +686,6 @@ const COMPARE = [
     ['הקפצת מודעה לראש התוצאות',  'חינם · כל 24 שעות', 'חינם · כל 24 שעות', 'חינם · כל 24 שעות'],
     ['קידום מודעה בסלוטים המקודמים', '₪20 ל-72 שעות', '₪20 ל-72 שעות', '₪20 ל-72 שעות'],
     ['תיאור שיווקי אוטומטי ב-AI',                        false, true, true],
-    ['פרסום אוטומטי ברשתות החברתיות',                     true, true, true],
     ['סרטון שיווקי אוטומטי מהתמונות', false, '₪25 להפקה', '8 בחודש · ללא חיוב'],
     ['הפקת סיור וירטואלי 360° בתוך דף הנכס',              false, false, true],
     ['הדמיות AI לנכס פרטי - 4 סגנונות עיצוב',            false, false, true],
