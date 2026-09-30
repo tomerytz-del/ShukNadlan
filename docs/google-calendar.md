@@ -31,6 +31,9 @@ CRM  ──POST {action:'start'}──►  google-calendar-connect   (verify_jwt
                           accounts.google.com  (מסך ההסכמה)
                                    │
                                    ▼
+                  shuknadlan.co.il/auth/google-calendar   (‏_redirects, ‏200 proxy)
+                                   │
+                                   ▼
                           google-calendar-callback   (verify_jwt = false)
                                    │  אימות state · החלפת קוד · בדיקת הרשאות
                                    │  יצירת יומן "שוק נדל״ן" · שמירת הטוקן מוצפן
@@ -38,6 +41,28 @@ CRM  ──POST {action:'start'}──►  google-calendar-connect   (verify_jwt
                                    ▼
                           302 → /crm?goto=accAgenda&gcal=<תוצאה>
 ```
+
+## מי רואה את הכפתור: מנהל/ת הפלטפורמה בלבד, עד האימות
+
+כל עוד מסך ההסכמה ב-Google במצב *Testing*, Google חוסמת כל מי שאינו/ה
+ב-*Test users* ("Access blocked"). לכן `GCAL_PUBLISHED = false` בשני
+מקומות, באותה תבנית של `GOOGLE_PUBLISHED` בייבוא אנשי הקשר:
+
+| איפה | מה הוא עושה |
+| --- | --- |
+| `supabase/functions/_shared/google-calendar.ts` | **האכיפה**: `google-calendar-connect` מחזירה `not_available_yet` לכל מי שאינו/ה מנהל/ת הפלטפורמה |
+| `assets/crm.js` | התצוגה: כרטיס "יומן Google" מוסתר, חוץ ממנהל/ת הפלטפורמה ומי שכבר מחובר/ת (כדי שיוכל/תוכל לנתק) |
+
+ובנוסף, בזמן הזה:
+
+- שורת היומן ב-`pricing.html` **אינה** מזכירה את Google. הבטחה בלי יכולת
+  היא בדיוק הכשל שהסקיל `new-tier-capability` נועד למנוע.
+- הבוט אינו מציע לחבר יומן (`agenda_free_slots` והסעיף בפרומפט).
+
+**הפתיחה לכולם, אחרי שהאימות עבר ו-*Publish app*:** ‏`GCAL_PUBLISHED = true`
+בשני הקבצים, `", וחיבור ליומן Google"` חוזר לשורה ב-`pricing.html` וב-`GATES`
+שב-`scripts/check_tier_gates.py`, והמשפט על החיבור חוזר ל-`googleNote`
+ולפרומפט ב-`whatsapp-webhook/agent.ts`.
 
 ## ההרשאות - הצרות ביותר שעובדות
 
@@ -139,32 +164,47 @@ Authorization - ולכן ה-state הוא האימות היחיד שלו.
 
 ## ההגדרה ב-Google Cloud
 
-1. פרויקט ב-Google Cloud (אפשר אותו פרויקט של הכניסה עם Google) → **APIs &
-   Services** → הפעלת **Google Calendar API**.
-2. **OAuth consent screen** - הוספת שלוש ההרשאות שלמעלה, קישור
-   ל-`https://shuknadlan.co.il/privacy#google-calendar` ולתנאי השימוש.
-3. **Credentials → Create OAuth client ID → Web application**, עם Authorized
+1. **פרויקט נפרד**, `shuknadlan-calendar` (30.9.2026), ולא הפרויקט של
+   הכניסה עם Google: הוספת הרשאות לפרויקט שכבר ב-*In production* הייתה
+   עלולה להציג "Google hasn't verified this app" לכל מי שנכנס/ת ל-CRM.
+   ‏**APIs & Services → Library** → הפעלת **Google Calendar API**.
+2. **Google Auth Platform**:
+   - *Branding*: דף בית, `https://shuknadlan.co.il/privacy`,
+     `https://shuknadlan.co.il/terms`, ו-Authorized domain
+     ‏`shuknadlan.co.il`. **`supabase.co` נדחה** ("must be a top private
+     domain") - זו סיומת ציבורית, כמו `co.il`.
+   - *Data Access*: ארבע ההרשאות שלמעלה, ולא יותר. ‏Google מציעה שם גם את
+     `.../auth/calendar` המלאה (רגישה) - למחוק אותה.
+   - *Audience*: ‏External, ‏*Testing*, ו-Test users.
+3. *Clients* → **Create client → Web application**, עם Authorized
    redirect URI:
    ```
-   https://obookujgolazrwycsiyn.supabase.co/functions/v1/google-calendar-callback
+   https://shuknadlan.co.il/auth/google-calendar
    ```
+   הכתובת על הדומיין שלנו ולא על Supabase, כי לפני האימות Google דורשת
+   להוכיח בעלות על כל דומיין מורשה, ועל `*.supabase.co` אי אפשר.
+   ‏`_redirects` מעביר אותה (‏200) ל-`google-calendar-callback`. עד 30.9.2026
+   הכתובת הייתה `https://obookujgolazrwycsiyn.supabase.co/functions/v1/google-calendar-callback`
+   - אפשר להשאיר את שתיהן בלקוח בזמן המעבר, ולמחוק את הישנה (ואת
+   ‏`obookujgolazrwycsiyn.supabase.co` מ-Authorized domains) אחריו.
 4. שלושה סודות ב-Supabase → Edge Functions → Secrets:
 
    | סוד | מה |
    | --- | --- |
    | `GOOGLE_CALENDAR_CLIENT_ID` | מהלקוח שנוצר בשלב 3 |
    | `GOOGLE_CALENDAR_CLIENT_SECRET` | מאותו לקוח |
-   | `GOOGLE_CALENDAR_TOKEN_KEY` | `openssl rand -base64 32` - ולשמור עותק במקום בטוח |
+   | `GOOGLE_CALENDAR_TOKEN_KEY` | `openssl rand -base64 32` (או ב-PowerShell: `$b = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)`) - 44 תווים, כולל ה-`=` בסוף. לשמור עותק במקום בטוח |
 
    בלי שלושתם הכפתור מחזיר `not_configured` ומסביר זאת, והיומן במערכת ממשיך
    לעבוד בלי Google.
 
-5. **אימות האפליקציה מול Google.** ההרשאות האלה מסווגות אצל Google כרגישות,
-   ולכן עד שהאפליקציה עוברת אימות (OAuth verification) היא במצב Testing:
-   רק משתמשים שנוספו ידנית כ-Test users יכולים לחבר, וההרשאה שלהם פגה אחרי
-   שבעה ימים. לפני פתיחה לכל הסוכנים צריך להגיש לאימות - זה לוקח זמן, ולכן
-   כדאי להגיש מוקדם. יש לבדוק את הסיווג המדויק של כל הרשאה במסך ה-consent של
-   Google Cloud, כי הוא משתנה מעת לעת.
+5. **אימות האפליקציה מול Google.** ‏Google מסווגת את `calendar.app.created`
+   ואת `calendar.freebusy` **כלא רגישות** (כך הן מופיעות ב-*Data Access*,
+   30.9.2026), ולכן הצפוי הוא אימות מיתוג בלבד - שם, דומיין, מדיניות פרטיות
+   - ולא אימות רגיש עם סרטון. עד שהוא עובר האפליקציה ב-*Testing*: רק
+   Test users יכולים לחבר, וההרשאה שלהם פגה אחרי שבעה ימים. הסדר: *Audience*
+   ← **Publish app** ← *Verification Center* ← הגשה ← אחרי האישור, הפתיחה
+   לכולם (סעיף "מי רואה את הכפתור" למעלה).
 
 ## מלכודות
 

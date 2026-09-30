@@ -32,9 +32,25 @@ export const IL_TZ = "Asia/Jerusalem";
 const CLIENT_ID = Deno.env.get("GOOGLE_CALENDAR_CLIENT_ID") || "";
 const CLIENT_SECRET = Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET") || "";
 const TOKEN_KEY_B64 = Deno.env.get("GOOGLE_CALENDAR_TOKEN_KEY") || "";
-const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
+const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
-export const GCAL_REDIRECT_URI = `${SUPABASE_URL}/functions/v1/google-calendar-callback`;
+// ‏כתובת החזרה מ-Google יושבת על הדומיין שלנו ולא על ‎*.supabase.co‎:
+// ‏Google דורשת להוכיח בעלות (Search Console) על כל דומיין מורשה לפני אימות
+// האפליקציה, ועל תת-דומיין של Supabase אי אפשר. ‏‎_redirects‎ מעביר את
+// הנתיב (‏200, proxy, עם ה-query) אל `google-calendar-callback`.
+// ‏GOOGLE_CALENDAR_REDIRECT_URI עוקף, לסביבת בדיקה בלבד. חייב להיות זהה
+// ל-Authorized redirect URI בלקוח ה-OAuth, תו בתו.
+export const GCAL_REDIRECT_URI = Deno.env.get("GOOGLE_CALENDAR_REDIRECT_URI") ||
+  `${SITE_BASE}/auth/google-calendar`;
+
+/**
+ * **false כל עוד מסך ההסכמה ב-Google במצב Testing.** במצב הזה Google חוסמת
+ * כל מי שאינו/ה ב-Test users ("Access blocked"), ולכן החיבור פתוח רק
+ * למנהל/ת הפלטפורמה. אחרי האימות ו-Publish app - true כאן **וגם**
+ * ‏`GCAL_PUBLISHED` ב-`assets/crm.js`. אותה תבנית של `GOOGLE_PUBLISHED`
+ * בייבוא אנשי הקשר (docs/crm-contacts-import.md).
+ */
+export const GCAL_PUBLISHED = false;
 
 export function googleCalendarConfigured(): boolean {
   return !!(CLIENT_ID && CLIENT_SECRET && TOKEN_KEY_B64);

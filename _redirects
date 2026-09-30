@@ -35,3 +35,9 @@
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST
 # ל-GET. docs/crm-contacts-import.md
 /crm-share    /crm?share=error    303
+
+# ‏החזרה מ-Google אחרי "חבר/י יומן" (docs/google-calendar.md). ‏200 = proxy:
+# ‏Netlify מעביר את הבקשה עם ה-query (‏code, state) אל ה-Edge Function, ואת
+# ה-302 שהיא מחזירה ל-/crm - לדפדפן. הכתובת על הדומיין שלנו כי Google דורשת
+# בעלות מאומתת על כל דומיין מורשה, ועל ‎*.supabase.co‎ אי אפשר להוכיח אותה.
+/auth/google-calendar    https://obookujgolazrwycsiyn.supabase.co/functions/v1/google-calendar-callback    200
