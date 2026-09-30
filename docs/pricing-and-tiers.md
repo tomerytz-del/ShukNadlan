@@ -73,6 +73,7 @@
 | תיאור שיווקי אוטומטי ב-AI | `property_description_tier_ok` — שלוש נקודות, ראו למטה |
 | העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` — בדיקת `tier` לפני כל עיבוד |
 | התראות בוואטסאפ | `notification_push_due_agents` — `mid`/`premium` + `billing_status` |
+| יומן פגישות ומשימות | `agent_agenda_enabled` — `mid`/`premium` + `billing_status`. נאכף בטריגר `agent_agenda_items_before` על כל הוספה שאינה של המערכת (גם מהבוט, שעוקף RLS), ושוב ב-`agent_agenda_dispatch` ובמשימות האוטומטיות (`agent_agenda_add_auto`). ראו `docs/agent-agenda.md` |
 | מדריך ההתחלה | `agent_onboarding_active` — `mid`/`premium`, והמצב שהדשבורד קורא הוא `agent_onboarding_state`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
 | מספר טלפון בתיאור המודעה ובביו | `paygo_text_rules_apply` — **ההגבלה ההפוכה מכל השאר**: ב-Pay&GO המספר מוסר בשמירה, בטריגר על `properties` ועל `agency_members`. ההסרה חד-כיוונית (ראו `docs/public-text-policy.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |

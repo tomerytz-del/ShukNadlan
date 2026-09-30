@@ -63,6 +63,9 @@ GATES = {
     'פניות מהערכת השווי בדף הסוכן/ת ובדף המשרד':   'claim_lead',
     'הפניה אוטומטית של לידי בעל-נכס אליך':         'lead_audience_size',
     'התראות הפעמון גם בוואטסאפ':                   'notification_push_due_agents',
+    # הגייט נאכף בטריגר ‏agent_agenda_items_before על כל הוספה (גם מהבוט,
+    # שעוקף RLS), ושוב ב-agent_agenda_dispatch לפני כל התראה.
+    'יומן פגישות ומשימות עם תזכורות בוואטסאפ ובפעמון': 'agent_agenda_enabled',
     'מדריך התחלה מלווה בצעדים הראשונים':           'agent_onboarding_active',
     # ההגבלה ההפוכה מכל השאר: מה ש-Pay&GO **אינו** רשאי לכתוב. הכלל חי
     # בטריגר על properties ועל agency_members, ולא בבדיקה בדפדפן.
