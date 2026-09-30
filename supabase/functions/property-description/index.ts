@@ -242,6 +242,17 @@ Deno.serve(async (req: Request) => {
       });
       if (applyErr) throw new Error(`שמירת התיאור נכשלה: ${applyErr.message}`);
       if (!saved) throw new Error("שמירת התיאור לא עדכנה אף שורה");
+
+      // ‏‏`replace_post` - לקורא פנימי בלבד. ‏apply_property_marketing_description
+      // אינה דורסת post_text קיים (כדי לא למחוק נוסח שנכתב ביד), ולכן רענון
+      // רגיל משאיר את הפוסט הישן. הדגל נוצר לרענון החד-פעמי של 30.9.2026
+      // (‏marketing_refresh_once.yml), שעובר רק על נכסים ש-Claude כתב.
+      if (body?.replace_post === true && internal.ok && copy.post) {
+        const { error: postErr } = await sb.from("properties")
+          .update({ post_text: copy.post }).eq("id", propertyId);
+        if (postErr) throw new Error(`שמירת הפוסט נכשלה: ${postErr.message}`);
+      }
+
       if (jobId) await sb.rpc("mark_property_description", { p_job_id: jobId, p_ok: true, p_error: null });
 
       return json({
