@@ -128,14 +128,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .profile-card{padding:2px 16px 18px}
     .profile-card.has-cover{margin:-36px 8px 0}
   }
-  .profile-avatar{box-shadow:0 10px 24px -12px rgba(14,42,107,.55)}
-  .profile-card .profile-avatar{border-color:#fff;border-width:4px}
-  /* ‏flex-start ולא flex-end: ב-flex-end ה-margin השלילי אינו מזיז את
-     האווטאר למעלה, והוא נשאר כלוא בתוך הכרטיס */
-  .profile-card.has-cover .profile-strip{align-items:flex-start;padding-top:0}
-  .profile-card.has-cover .profile-avatar{margin-top:-40px}
-  .profile-card.has-cover .profile-text{padding-top:16px}
-  @media(min-width:760px){.profile-card.has-cover .profile-avatar{width:112px;height:112px;margin-top:-48px}}
+  /* האווטאר יושב כולו בתוך הכרטיס, ממורכז מול השם. גרסה קודמת בלטה ממנו
+     אל תמונת הנושא: על תמונה עמוסה העיגול נבלע בה, ופס הזהב של הכרטיס
+     חתך אותו באמצע. טבעת זהב דקה מחוץ למסגרת הלבנה מפרידה אותו מהרקע. */
+  .profile-card .profile-strip,
+  .profile-card .profile-strip.has-cover{align-items:center;padding:24px 0 16px}
+  .profile-card .profile-avatar,
+  .profile-card .profile-strip.has-cover .profile-avatar{
+    width:104px;height:104px;margin-top:0;border:3px solid #fff;
+    box-shadow:0 0 0 2px var(--brass,#c9a227),0 14px 28px -14px rgba(14,42,107,.6);
+  }
+  .profile-card .profile-strip.has-cover .profile-text{padding-bottom:0}
+  @media(min-width:760px){
+    .profile-card .profile-strip,.profile-card .profile-strip.has-cover{gap:22px;padding-top:30px}
+    .profile-card .profile-avatar,
+    .profile-card .profile-strip.has-cover .profile-avatar{width:128px;height:128px}
+  }
+  @media(max-width:479px){
+    .profile-card .profile-avatar,
+    .profile-card .profile-strip.has-cover .profile-avatar{width:84px;height:84px}
+  }
 
   /* שורת האסמכתאות — רישיון, ותק ואזורי פעילות. כל תגית מוצגת רק אם יש
      לה תוכן, ואם אין אף אחת השורה כולה יורדת. */
@@ -440,7 +452,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
 const el = id => document.getElementById(id);

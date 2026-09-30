@@ -1845,7 +1845,7 @@ function safeExternalUrl(u){
 }
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
 /* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות

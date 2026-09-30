@@ -44,13 +44,14 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const siteBaseUrl = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
 
-const VALID_TYPES = ["mortgage_advisor","appraiser","architect","interior_designer","real_estate_lawyer","general"];
+const VALID_TYPES = ["mortgage_advisor","appraiser","architect","interior_designer","real_estate_lawyer","cleaning","general"];
 
 const TYPE_LABELS: Record<string, string> = {
   mortgage_advisor: "יועץ/ת משכנתאות",
   appraiser: "שמאי/ת מקרקעין",
   architect: "אדריכל/ית",
   interior_designer: "מעצב/ת פנים",
+  cleaning: "חברת ניקיון",
   real_estate_lawyer: "עו״ד מקרקעין",
   general: "בעל/ת מקצוע",
 };
