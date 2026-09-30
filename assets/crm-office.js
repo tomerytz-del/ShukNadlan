@@ -400,7 +400,7 @@ function openClientImport(){
     'ומה שיוזן יתחיל מיד לעבוד במנוע ההתאמות.</p>' +
     '<div class="ci-src">' +
       '<button type="button" class="btn btn-gold" data-cx="pick">📄 בחירת קובץ</button>' +
-      '<button type="button" class="btn btn-ghost" data-cx="template">⭳ הורדת תבנית ריקה</button>' +
+      '<button type="button" class="btn btn-ghost" data-cx="template">📥 הורדת תבנית ריקה</button>' +
     '</div>' +
     '<p class="imp-note" style="margin:12px 0 0">העמודות שמזוהות: ' +
       escapeHtml(CLIENT_IO_FIELDS.map(f => f.label).join(' · ')) +
