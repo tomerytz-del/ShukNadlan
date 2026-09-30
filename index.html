@@ -4415,8 +4415,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
        הבאנר נפתח *סגור* — שורת הזמנה אחת בגובה חצי מהבאנר הפתוח. אשף בן
        שלושה שלבים שפרוס במלואו בעמוד הבית תופס מסך שלם משני מבקרים שבאו
-       לראות נכסים, ולכן הוא נפתח רק למי שלוחץ/ת. ראו bindLeadBanner(). -->
-  <div class="section wrap">
+       לראות נכסים, ולכן הוא נפתח רק למי שלוחץ/ת. ראו bindLeadBanner().
+
+       הבאנר הוסר מהתצוגה בדף הבית (hidden על העוטף — אפס גובה ואפס רווח).
+       הסימון נשאר כי home.js נקשר לשדות האשף ברמה העליונה, ו-#aiPromoCta
+       עדיין פותח את האשף: הוא מסיר את ה-hidden לפני שהוא פותח וגולל. -->
+  <div class="section wrap" id="ownerBannerWrap" hidden>
     <div class="lead-banner owner-banner" id="ownerBanner">
       <button type="button" class="lead-teaser" id="ownerStartBtn"
               aria-expanded="false" aria-controls="ownerPanel">
