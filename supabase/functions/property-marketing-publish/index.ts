@@ -320,15 +320,11 @@ function buildInstagramCaption(row: any, marketing: { description: string; post:
   if (row.agent_name) {
     facts.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
   }
-  // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ, ולכן הקישור כאן נועד להקלדה:
-  // ‏‎/p/1162‎ (‏netlify/edge-functions/short-link.ts) ולא ה-uuid הארוך. הדרך
-  // ללחוץ היא הקישור בפרופיל, שמוביל ל-/instagram — הפוסטים האחרונים לפי
-  // מספר מודעה.
-  const short = row.listing_number ? `${SITE_BASE_URL.replace(/^https?:\/\//, "")}/p/${row.listing_number}` : link;
-  facts.push(`🔗 כל הפרטים והתמונות: ${short}`);
-  facts.push(row.listing_number
-    ? `👆 או בקישור שבפרופיל - מודעה מס׳ ${row.listing_number}`
-    : "👆 או בקישור שבפרופיל");
+  // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ — גם לא את הקצר (‏/p/1162) —
+  // ולכן אין כאן כתובת בכלל. הדרך היחידה ללחוץ היא הקישור בביו, שמוביל
+  // ל-/instagram: כל הנכסים מהפוסטים, עם חיפוש לפי מספר המודעה.
+  facts.push("🔗 כל הנכסים, עם כל הפרטים והתמונות - בקישור שבביו");
+  if (row.listing_number) facts.push(`🔎 מחפשים שם את מודעה מס׳ ${row.listing_number}`);
 
   const deal = row.deal_type === "rent" ? "להשכרה" : row.deal_type === "sale" ? "למכירה" : null;
   const tags = [
