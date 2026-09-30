@@ -11,6 +11,8 @@ import {
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { runEmailIntake } from "./email-intake.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -889,6 +891,11 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
   }
 }
 
+/** עבודה שממשיכה אחרי שהתשובה חזרה לקורא (Meta, או pg_cron). */
+function inBackground(work: Promise<unknown>): void {
+  EdgeRuntime.waitUntil(work);
+}
+
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
@@ -909,6 +916,29 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== "POST") {
     return new Response("method not allowed", { status: 405 });
+  }
+
+  // ‏קליטה מהמייל (‏docs/email-intake.md). ‏pg_cron קורא לאותה פונקציה ולא
+  // לפונקציה נפרדת, כי המייל נכנס **לאותה שיחה**: אותו עוזר, אותה היסטוריה,
+  // ואותה `reply` — והתשובה של הסוכן/ת בוואטסאפ ממשיכה ממנו. הקורא כאן אינו
+  // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
+  if (url.searchParams.get("task") === "email-intake") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runEmailIntake({ supabase, reply, loadConversation, saveConversation })
+        .then((r) => console.log("email intake", JSON.stringify(r)))
+        .catch((err) => console.error("email intake failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const rawBody = await req.text();
@@ -936,7 +966,7 @@ Deno.serve(async (req: Request) => {
 
   // ‏Meta מצפה ל-200 תוך שניות ספורות ומנסה שוב אחרת. סבב LLM + כלים לוקח
   // יותר מזה, לכן מאשרים מיד וממשיכים לעבד ברקע.
-  EdgeRuntime.waitUntil(handlePayload(payload));
+  inBackground(handlePayload(payload));
 
   return new Response("EVENT_RECEIVED", { status: 200 });
 });

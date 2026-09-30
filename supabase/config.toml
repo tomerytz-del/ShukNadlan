@@ -279,3 +279,12 @@ verify_jwt = false
 # (‏_shared/cron-auth.ts) — אין JWT של משתמש/ת לאמת.
 [functions.billing-renew]
 verify_jwt = false
+
+[functions.google-calendar-connect]
+verify_jwt = true           # חיבור/ניתוק יומן Google מה-CRM - הזהות נקבעת מה-JWT של הסוכן/ת
+
+[functions.google-calendar-callback]
+verify_jwt = false          # ניווט של הדפדפן חזרה מ-Google, בלי JWT - מאומת ב-state חתום (HMAC, רבע שעה)
+
+[functions.google-calendar-sync]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role

@@ -50,7 +50,7 @@
 | סרטון שיווקי | ✗ | ₪25 להפקה | 8 בחודש ללא חיוב |
 | הדמיות AI (פרטי — 4 סגנונות, ומסחרי) | ✗ | ✗ | ✓ |
 | הפקת סיור וירטואלי 360° בדף הנכס | ✗ | ✗ | ✓ |
-| עוזר אישי בוואטסאפ (נכסים, לקוחות, התאמות, דוח שוק, מידע תכנוני, הכנת הסכמים) | ✗ | ✓ | ✓ |
+| עוזר אישי בוואטסאפ (נכסים, לקוחות, התאמות, דוח שוק, מידע תכנוני, הכנת הסכמים, מיילים מועברים) | ✗ | ✓ | ✓ |
 | התראות הפעמון גם בוואטסאפ | ✗ | ✓ | ✓ |
 | מדריך התחלה מלווה בצעדים הראשונים | ✗ | ✓ | ✓ |
 | מספר טלפון בתיאור המודעה ובביו | ✗ (מוסר בשמירה) | ✓ | ✓ |
@@ -71,8 +71,9 @@
 | הדמיות AI | `property_visualizations_enabled` — `premium` בלבד, ובנוסף ב-policies של טבלת `property_visualizations` |
 | הפקת סיור 360° | `property_virtual_tour_eligible` — `premium` בלבד, ב-policies של **הכתיבה** לטבלה ולדלי. התצוגה אינה תלויה במסלול: סיור שהופק נשאר בדף |
 | תיאור שיווקי אוטומטי ב-AI | `property_description_tier_ok` — שלוש נקודות, ראו למטה |
-| העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` — בדיקת `tier` לפני כל עיבוד |
+| העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` — בדיקת `tier` לפני כל עיבוד. מייל מועבר עובר את אותה בדיקה (`tier` + `billing_status`) ב-`whatsapp-webhook/email-intake.ts`, לפני הקריאה למודל (`docs/email-intake.md`) |
 | התראות בוואטסאפ | `notification_push_due_agents` — `mid`/`premium` + `billing_status` |
+| יומן פגישות ומשימות | `agent_agenda_enabled` — `mid`/`premium` + `billing_status`. נאכף בטריגר `agent_agenda_items_before` על כל הוספה שאינה של המערכת (גם מהבוט, שעוקף RLS), ושוב ב-`agent_agenda_dispatch` ובמשימות האוטומטיות (`agent_agenda_add_auto`). החיבור ליומן Google: אותו גייט ב-`google-calendar-connect` וב-`google-calendar-callback`, ובכל סבב של `google_calendar_sync_claim`. ראו `docs/agent-agenda.md`, `docs/google-calendar.md` |
 | מדריך ההתחלה | `agent_onboarding_active` — `mid`/`premium`, והמצב שהדשבורד קורא הוא `agent_onboarding_state`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
 | מספר טלפון בתיאור המודעה ובביו | `paygo_text_rules_apply` — **ההגבלה ההפוכה מכל השאר**: ב-Pay&GO המספר מוסר בשמירה, בטריגר על `properties` ועל `agency_members`. ההסרה חד-כיוונית (ראו `docs/public-text-policy.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |
