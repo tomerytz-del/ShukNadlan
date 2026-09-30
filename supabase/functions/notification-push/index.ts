@@ -85,6 +85,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   system: "accSharedWithMe",
   platform_signup: "accSubscriptions",
   platform_upgrade: "accSubscriptions",
+  agenda_reminder: "accAgenda",
 };
 
 function json(obj: unknown, status = 200) {
@@ -120,10 +121,14 @@ function textBody(name: string | null, items: Item[]): string {
   const first = firstName(name);
   const accs = [...new Set(items.map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC))];
 
+  // תזכורת מהיומן אינה "מה שחדש" אלא "מה שקורה עכשיו", וכשזה כל מה שיש
+  // בהודעה - הכותרת אומרת את זה.
+  const onlyAgenda = items.every((it) => it.type === "agenda_reminder");
+  const head = onlyAgenda ? "תזכורת מהיומן:" : "מה שחדש אצלך:";
   const lines = [
-    first ? `${first}, מה שחדש אצלך:` : "מה שחדש אצלך:",
+    first ? `${first}, ${head}` : head,
     "",
-    ...items.map((it) => `🔔 ${it.title}${it.body ? `\n   ${it.body}` : ""}`),
+    ...items.map((it) => `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}`),
     "",
     ...accs.map((acc) => gotoUrl(acc)),
     "",

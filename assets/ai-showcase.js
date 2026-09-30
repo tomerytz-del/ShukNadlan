@@ -80,6 +80,15 @@
      הסימן הזה הוא כבר השפה שבה האתר מסמן תוכן שנוצר ב-AI (האריחים, התגית
      שברצועות, הכפתור על התמונה הראשית), והתגית מצטרפת אליה במקום להמציא
      סימון שני לאותו דבר. */
+  /* חץ עכבר קלאסי: לבן עם קו מתאר כהה, כדי שייקרא גם על הזהב של הכפתור
+     וגם על הספיר שמתחתיו. הקצה ב-(3,2) — ‏transform-origin ב-CSS מצביע
+     עליו, כך שה"לחיצה" מתכווצת לתוך הנקודה שלוחצת ולא לתוך מרכז החץ. */
+  var CURSOR_SVG =
+    '<svg class="ai-nudge-cursor" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M3 2v17.5l4.6-4.3 2.9 6.6 3.1-1.4-2.9-6.5H17Z" fill="#fff" ' +
+        'stroke="#0d1b3d" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '</svg>';
+
   var SPARKLE_SVG =
     '<svg class="ai-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
       'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -534,6 +543,45 @@
     '.ai-cta[disabled]:hover{background:#c9a227;transform:none;',
     '  box-shadow:0 10px 26px -14px rgba(201,162,39,.9)}',
 
+    /* ---- סמן שלוחץ על הכפתור ----
+       הזמנה ללחוץ: חץ עכבר נכנס מלמטה, לוחץ (הכפתור שוקע איתו וטבעת
+       מתפשטת מהקצה), ויוצא. מחזור של 3.2 שניות — מספיק כדי שייראה
+       כתנועה אחת ולא כהבהוב, ולא איטי כל כך שיחמיצו אותו בגלילה.
+       ‏pointer-events:none — הסמן יושב מעל הכפתור, ולחיצה אמיתית חייבת
+       לעבור דרכו. והוא נעצר ברגע שמרחפים או ממקדים: מי שכבר מצביע/ה על
+       הכפתור לא צריך/ה שיראו לו/ה איפה ללחוץ. */
+    '.ai-cta[data-nudge]{position:relative;animation:aiCtaPress 3.2s ease-in-out infinite}',
+    '.ai-cta[data-nudge]:hover,.ai-cta[data-nudge]:focus-visible{animation:none}',
+    '.ai-nudge{position:absolute;top:52%;inset-inline-start:4%;width:30px;height:30px;',
+    '  pointer-events:none;z-index:1}',
+    '.ai-nudge-cursor{display:block;width:30px;height:30px;transform-origin:12.5% 8.3%;',
+    '  filter:drop-shadow(0 3px 4px rgba(13,27,61,.45));',
+    '  animation:aiCursor 3.2s ease-in-out infinite}',
+    '.ai-nudge-ring{position:absolute;top:-10px;left:-9px;width:24px;height:24px;',
+    '  border-radius:50%;border:2px solid #fff;opacity:0;',
+    '  animation:aiRing 3.2s ease-out infinite}',
+    '.ai-cta[data-nudge]:hover .ai-nudge,.ai-cta[data-nudge]:focus-visible .ai-nudge{display:none}',
+    '@keyframes aiCursor{',
+    '  0%{transform:translate(10px,28px);opacity:0}',
+    '  15%{opacity:1}',
+    '  38%{transform:translate(0,0) scale(1)}',
+    '  46%{transform:translate(0,0) scale(.8)}',
+    '  54%{transform:translate(0,0) scale(1)}',
+    '  78%{transform:translate(0,0);opacity:1}',
+    '  100%{transform:translate(10px,28px);opacity:0}}',
+    '@keyframes aiRing{',
+    '  0%,45%{transform:scale(.3);opacity:0}',
+    '  48%{transform:scale(.5);opacity:.95}',
+    '  75%,100%{transform:scale(2.2);opacity:0}}',
+    '@keyframes aiCtaPress{',
+    '  0%,42%,58%,100%{transform:scale(1)}',
+    '  48%{transform:scale(.97)}}',
+    /* בלי תנועה נשאר חץ עומד על הכפתור: עדיין רמז איפה ללחוץ, בלי הלחיצה
+       החוזרת ובלי הטבעת. */
+    '@media (prefers-reduced-motion: reduce){',
+    '  .ai-cta[data-nudge],.ai-nudge-cursor{animation:none}',
+    '  .ai-nudge-ring{display:none}}',
+
     /* ---- חריץ הבקשה ----
        הרצועה לא מרכיבה את שדות הבקשה בעצמה — היא רק שומרת להם מקום מעל
        הכפתור, והדף מזיז לתוכו את הצומת החי. הסיבה בקובץ הקורא: הרצועה
@@ -792,10 +840,18 @@
        לחיצה הייתה מייצרת מחדש את מה שכבר על המסך — והשורה פשוט לא
        מופיעה. השבבים שמעליה הם ממילא הדרך לייצר עוד, ומשפט שמסביר את
        זה היה עוד פסקה בין המבקר/ת לבין התמונה. */
+    /* סמן העכבר שלוחץ על הכפתור מופיע רק כשהלחיצה עוד לא קרתה: בזמן
+       "יוצרים…" הכפתור מושבת, וסמן שממשיך ללחוץ עליו היה מזמין לחיצה
+       שלא תעשה כלום. ‏aria-hidden — הוא הזמנה ויזואלית ולא תוכן. */
+    var nudgeHtml = cta.busy ? '' :
+      '<span class="ai-nudge" aria-hidden="true">' +
+        '<span class="ai-nudge-ring"></span>' + CURSOR_SVG +
+      '</span>';
     var actionsHtml = cta.label
       ? '<div class="ai-actions">' +
-          '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
-            esc(cta.busy ? 'יוצרים…' : cta.label) +
+          '<button class="ai-cta" type="button" id="aiPropCta"' +
+            (cta.busy ? ' disabled' : ' data-nudge') + '>' +
+            esc(cta.busy ? 'יוצרים…' : cta.label) + nudgeHtml +
           '</button>' +
         '</div>'
       : '';

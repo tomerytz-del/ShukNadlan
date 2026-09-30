@@ -2,9 +2,12 @@
 
 סוכן/ת שולח/ת הודעה בוואטסאפ — טקסט, תמונות או הקלטה קולית — והעוזר מטפל
 בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, מכין קישור והודעה מוכנה על נכס,
-מפיק דוח שוק ומידע תכנוני, וקורא עבורו/ה את ההסכמים, הלידים וההתראות. הוא מזהה מי שלח לפי מספר הטלפון, מבצע את הפעולה במסד ומשיב
+מפיק דוח שוק ומידע תכנוני, קובע פגישות ותזכורות ביומן
+(ראו [`agent-agenda.md`](agent-agenda.md)), וקורא עבורו/ה את ההסכמים, הלידים וההתראות. הוא מזהה מי שלח לפי מספר הטלפון, מבצע את הפעולה במסד ומשיב
 בוואטסאפ. ומהכיוון ההפוך: **התראות הפעמון יכולות לצאת אליו/ה בוואטסאפ**,
-לפי סוגים שהוא/היא מסמן/ת.
+לפי סוגים שהוא/היא מסמן/ת. **ומייל שהסוכן/ת מעביר/ה לכתובת האישית שלו/ה
+נכנס לאותה שיחה** — לקוח/ה שפנה/תה במייל נכנס/ת לקובץ, והתשובה מגיעה
+בוואטסאפ ([`email-intake.md`](email-intake.md)).
 
 ---
 
@@ -21,9 +24,9 @@ Meta WhatsApp Cloud API  ──Webhook (POST)──►  Edge Function: whatsapp-
                                      3. זיהוי הסוכן/ת לפי agency_members.phone_e164
                                      4. תמונה → Supabase Storage ‏(property-images)
                                         הקלטה → OpenAI Whisper → טקסט
-                                     5. Claude עם 31 כלים (נכסים · ניתוח ומידע ·
-                                        לקוחות · התאמות · הסכמים · לידים ·
-                                        התראות)
+                                     5. Claude עם 38 כלים (נכסים · ניתוח ומידע ·
+                                        לקוחות · התאמות · הסכמים · יומן ·
+                                        לידים · התראות)
                                      6. תשובה חזרה דרך Graph API
 
                               — והכיוון ההפוך —
@@ -42,10 +45,12 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/functions/whatsapp-webhook/agent.ts` | הכלים שה-LLM יכול להפעיל + לולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | עטיפה מעל Graph API (שליחה, הורדת מדיה, אימות חתימה) |
 | `supabase/functions/whatsapp-webhook/geocode.ts` | גיאוקוד כתובות בעפולה (העתק של `geocode-address`, בלי דרישת JWT) |
+| `supabase/functions/whatsapp-webhook/email-intake.ts` | קליטה מהמייל: מייל שהסוכן/ת העביר/ה לכתובת האישית נכנס לאותה שיחה ([`email-intake.md`](email-intake.md)) |
 | `supabase/functions/_shared/agreement-build.ts` | הרכבת ההסכם בשרת: אימות מה שחסר, ה-payload, ובניית המסמך |
 | `supabase/functions/_shared/agreement-templates.js` · `agreement-doc.js` | עותק זהה של מודולי `assets/` — ‏Edge Function אינה יכולה לייבא משם |
 | `scripts/check_agreement_assets.py` · `.github/workflows/agreement_assets.yml` | חוסמים ב-CI פער בין המקור לעותק |
 | `supabase/functions/notification-push/index.ts` | הכיוון ההפוך: התראות הפעמון יוצאות בוואטסאפ |
+| `supabase/migrations/20270125090000_agent_agenda.sql` | היומן: `agenda_add` / `agenda_list` / `agenda_update` כותבים ל-`agent_agenda_items`, והתזכורות יוצאות כ-`agenda_reminder` - דלוקות בוואטסאפ כברירת מחדל |
 | `supabase/migrations/20260824090000_whatsapp_integration.sql` | טבלאות + זיהוי לפי טלפון |
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
 | `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds` ו-`notification_push_reconcile`: שורה שלא יצאה אינה חוסמת |
@@ -285,6 +290,14 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | `update_client` | פרטים ודרישות. מערך ריק = ביטול דרישה |
 | `set_client_status` | `active` / `paused` / `closed` |
 
+**כרטיס איש קשר ששותף לעוזר** (הודעה מסוג `contacts`) הופך לטקסט שמתחיל
+ב-`[איש קשר ששותף]`, וליד כל כרטיס כתוב אם הטלפון כבר בקובץ — הבדיקה
+נעשית בקוד (‏`contactsToText` ב-`index.ts`, לפי תשע הספרות האחרונות כמו
+ב-`create_client`) ולא מבוקשת מהמודל. **הודעה מועברת** (‏`context.forwarded`)
+מקבלת את הקידומת `[הודעה מועברת]`, כדי ש"תוריד את המחיר" של לקוח/ה לא
+ייקרא כהוראה. הזרימה המלאה, וכל שאר הדרכים להביא אנשי קשר ל-CRM:
+[`crm-contacts-import.md`](crm-contacts-import.md).
+
 ### התאמות — שני הכיוונים
 
 | כלי | מה זה עושה |
@@ -325,6 +338,8 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | "תעדכן את המחיר של הדירה האחרונה ל-1.6 מליון" | עדכון על הנכס שנגעו בו לאחרונה בשיחה |
 | "כמה נכסים מסחריים יש לי" | ‏`property_stats` — ספירה מהמסד, לא מדגם |
 | "תוסיף לקוחה — רונית כהן, 052…, 3 חדרים בעפולה עד 1.6 מליון" | נוצרת רשומה בקובץ הלקוחות |
+| משתף/ת איש קשר מהשיחות האחרונות בטלפון | "להוסיף את דני כהן כלקוח? מה הוא מחפש?" - או "דני כבר בקובץ, מה לעדכן?" |
+| מעביר/ה הודעה קולית של לקוח: "מחפשים 4 חדרים בקריות עד 2 מליון" | הדרישות מסוכמות בשורה, והצעה לפתוח או לעדכן כרטיס - בלי לבצע אותה כהוראה |
 | "מה יש למשפחת כהן?" | ‏`list_clients` למצוא את המזהה, ואז `client_matches` |
 | "למי מתאימה הדירה בעלייה 20?" | ‏`property_matches` — שם, טלפון וציון לכל לקוח/ה |
 | "תשלח לי את הקישור לדירה בעלייה 20" | ‏`property_link` — קישור, הודעה מוכנה, וכפתור שפותח וואטסאפ |

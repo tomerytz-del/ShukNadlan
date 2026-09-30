@@ -34,7 +34,7 @@
    ========================================================================== */
 'use strict';
 
-var VERSION = '2026-09-18';
+var VERSION = '2026-09-30';
 
 /* ‏Worker חדש נכנס לתוקף מיד ולא ממתין לסגירת כל הלשוניות. אין כאן מצב
    שמור ואין מטמון, ולכן אין מה לשמר בין הגרסאות. */
@@ -46,8 +46,49 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(self.clients.claim());
 });
 
-/* המאזין שבגללו הקובץ קיים. ‏respondWith אינו נקרא בכוונה: בקשה שלא
-   מטופלת ממשיכה לרשת כרגיל, וזו בדיוק ההתנהגות הרצויה. */
-self.addEventListener('fetch', function () {
-  /* מעבר לרשת — ברירת המחדל של הדפדפן */
+/* ‏**שיתוף איש קשר אל האפליקציה המותקנת** (‏share_target ב-
+   ‎app-crm.webmanifest‎). אנדרואיד שולח את הכרטיס כקובץ ‎.vcf‎ ב-POST, ולאתר
+   סטטי אין מי שיקבל POST — ולכן ה-Worker תופס אותו כאן, שם את התוכן בצד,
+   ומפנה ל-‎/crm?share=contacts‎. הדף קורא ומוחק (‏ContactImport.takeShared
+   ב-‎assets/contact-import.js‎).
+
+   ‏**זה אינו מטמון של דפים**, והכלל שלמעלה בעינו: ‏Cache Storage משמש כאן
+   תיבת דואר לכרטיס אחד, שנמחקת בקריאה הראשונה. שום בקשת רשת אינה מוגשת
+   ממנה. ‏docs/crm-contacts-import.md. */
+var SHARE_PATH = '/crm-share';
+var SHARE_CACHE = 'shared-contacts-v1';
+var SHARE_KEY = '/__shared-contacts';
+/* כרטיס אמיתי הוא קילובייטים בודדים (עם תמונה - עשרות). מה שמעבר לזה אינו
+   ספר טלפונים שכדאי לפענח בטלפון, ובטח לא לשמור. */
+var SHARE_MAX_BYTES = 2 * 1024 * 1024;
+
+function handleShare(request) {
+  return request.formData().then(function (form) {
+    var parts = [];
+    var files = form.getAll('contacts');
+    var reads = files.map(function (f) {
+      if (!f || typeof f.text !== 'function' || f.size > SHARE_MAX_BYTES) return Promise.resolve();
+      return f.text().then(function (t) { parts.push(t); });
+    });
+    return Promise.all(reads).then(function () {
+      var text = form.get('text');
+      if (text && /BEGIN:VCARD/i.test(String(text))) parts.push(String(text));
+      if (!parts.length) return Response.redirect('/crm?share=empty', 303);
+      return caches.open(SHARE_CACHE).then(function (cache) {
+        return cache.put(SHARE_KEY, new Response(parts.join('\n'), {
+          headers: { 'Content-Type': 'text/vcard; charset=utf-8' },
+        }));
+      }).then(function () { return Response.redirect('/crm?share=contacts', 303); });
+    });
+  })['catch'](function () { return Response.redirect('/crm?share=error', 303); });
+}
+
+/* המאזין שבגללו הקובץ קיים. ‏respondWith אינו נקרא בכוונה בשום בקשה אחרת:
+   בקשה שלא מטופלת ממשיכה לרשת כרגיל, וזו בדיוק ההתנהגות הרצויה. */
+self.addEventListener('fetch', function (event) {
+  var req = event.request;
+  if (req.method === 'POST' && new URL(req.url).pathname === SHARE_PATH) {
+    event.respondWith(handleShare(req));
+  }
+  /* כל השאר: מעבר לרשת — ברירת המחדל של הדפדפן */
 });

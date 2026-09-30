@@ -19,7 +19,7 @@
      Tiers.list()                 // שלושת המסלולים לפי סדר התצוגה
      Tiers.byId('mid')            // { id, name, priceMonthly, features, ... }
      Tiers.label('premium')       // 'Elite'
-     Tiers.priceText('mid')       // '₪750 / חודש'
+     Tiers.priceText('mid')       // '₪399 / חודש'
      Tiers.promo()                // הגדרת הטבת ההשקה
      Tiers.promoState(member)     // מצב ההטבה של סוכן/ת מסוים/ת
      Tiers.switchOpen()           // האם מעבר בין מסלולים פתוח בכלל
@@ -102,7 +102,7 @@
       name: 'PROFESSIONAL',
       tagline: 'בנה מותג חזק והגדל עסקאות',
       pitch: 'הלידים מפסיקים להיות שיקול',
-      priceMonthly: 750,
+      priceMonthly: 399,
       vat: true,
       priceNote: 'חיוב חודשי · ללא התחייבות',
       color: 'pro',
@@ -127,7 +127,7 @@
       name: 'Elite',
       tagline: 'שליטה מלאה בשוק וחשיפה מקסימלית',
       pitch: 'הכול כלול, בלי מחשבון',
-      priceMonthly: 950,
+      priceMonthly: 599,
       vat: true,
       priceNote: 'חיוב חודשי · ללא התחייבות',
       color: 'elite',
