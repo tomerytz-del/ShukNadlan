@@ -106,6 +106,39 @@ export function extractToken(headers: string, mailboxUser: string): string | nul
   return null;
 }
 
+/**
+ * השולח, כשאפשר לסמוך עליו — למייל שנשלח ישר לכתובת הרגילה, בלי טוקן.
+ *
+ * ‏`From` לבדו הוא טקסט שכל אחד כותב. מה שהופך אותו לזהות הוא בדיקת האימות
+ * ש-Gmail עצמו מריץ בקבלה ורושם ב-`Authentication-Results`: ‏dmarc=pass על
+ * הדומיין של ה-From, או dkim=pass בחתימה של אותו דומיין. בלי אחד מהם —
+ * ‏null, והמייל נשאר כמו כל מייל אחר בתיבה.
+ *
+ * ‏**רק הכותרת העליונה.** השרת המקבל מוסיף את שלו **בראש** ההודעה; כותרת
+ * ‏`Authentication-Results` נמוכה יותר יכולה להיות כזו שהשולח כתב בעצמו.
+ * ‏HEADER.FIELDS מחזיר את הכותרות בסדר שבו הן בהודעה, ולכן הראשונה היא של Gmail.
+ */
+export function verifiedSender(headers: string, mailboxUser: string): string | null {
+  const unfolded = headers.replace(/\r?\n[ \t]+/g, " ");
+  const lines = unfolded.split(/\r?\n/);
+
+  const fromLine = lines.find((l) => /^from:/i.test(l));
+  if (!fromLine) return null;
+  const m = fromLine.match(/<([^<>\s]+@[^<>\s]+)>/) || fromLine.match(/([^\s<>"]+@[^\s<>"]+)/);
+  if (!m) return null;
+  const from = m[1].toLowerCase().replace(/[;,]+$/, "");
+  const domain = from.split("@")[1];
+  if (!domain || from === mailboxUser.toLowerCase()) return null;
+
+  const auth = lines.find((l) => /^authentication-results:/i.test(l));
+  if (!auth) return null;
+  const a = auth.toLowerCase();
+  const d = escapeRe(domain);
+  const dmarc = new RegExp(`dmarc=pass\\b[^;]*header\\.from=${d}\\b`).test(a);
+  const dkim = new RegExp(`dkim=pass\\b[^;]*header\\.(?:i=@|d=)${d}\\b`).test(a);
+  return dmarc || dkim ? from : null;
+}
+
 // ---------------------------------------------------------------------------
 // המייל כטקסט
 // ---------------------------------------------------------------------------
@@ -220,7 +253,9 @@ export function buildEmailPrompt(mail: ParsedMail): string {
       "(פרסום, עדכון נכס, הסכם) - לסכם מה הבנת ולבקש אישור.",
     "5. מייל טכני (קוד אימות, אישור העברה של Gmail): להעביר לסוכן/ת את הקוד " +
       "או את הקישור כמו שהם, בלי לפעול.",
-    "6. התשובה קצרה: מה זוהה, מה נעשה, ומה מחכה לסוכן/ת. לפתוח בנושא המייל " +
+    "6. פנייה של הסוכן/ת לצוות הפלטפורמה עצמו (תמיכה, חיוב, תקלה) ולא לקוח או " +
+      "נכס: לא להכניס דבר, ולומר שהמייל נשאר בתיבה והצוות יענה עליו במייל.",
+    "7. התשובה קצרה: מה זוהה, מה נעשה, ומה מחכה לסוכן/ת. לפתוח בנושא המייל " +
       "כדי שיהיה ברור על איזה מייל מדובר.",
     "",
     "--- המייל ---",
@@ -327,14 +362,15 @@ async function handleOne(
   mailbox: string,
   uidvalidity: number,
   uid: number,
-  token: string,
+  who: { token: string } | { agentId: string },
 ): Promise<void> {
   const sb = deps.supabase;
 
   // ‏claim לפני כל דבר שעולה כסף או כותב. שתי הרצות חופפות רואות את אותו
   // מייל; השנייה נתקלת ב-23505 ועוזבת.
+  const via = "token" in who ? "token" : "sender";
   const { data: claimed, error: claimErr } = await sb.from("email_intake_messages")
-    .insert({ mailbox, uidvalidity, uid, status: "processing" })
+    .insert({ mailbox, uidvalidity, uid, status: "processing", via })
     .select("id")
     .single();
   if (claimErr || !claimed) {
@@ -343,16 +379,22 @@ async function handleOne(
   }
   const row = claimed as ClaimRow;
 
-  const { data: link } = await sb.from("agent_email_intake")
-    .select("agent_id").eq("token", token).maybeSingle();
-  if (!link) {
-    await finish(sb, row, "skipped", "unknown_token");
-    return;
+  let agentId: string;
+  if ("token" in who) {
+    const { data: link } = await sb.from("agent_email_intake")
+      .select("agent_id").eq("token", who.token).maybeSingle();
+    if (!link) {
+      await finish(sb, row, "skipped", "unknown_token");
+      return;
+    }
+    agentId = link.agent_id;
+  } else {
+    agentId = who.agentId;
   }
 
   const { data: agent } = await sb.from("agency_members")
     .select("id, agency_id, display_name, tier, active, billing_status, phone_e164")
-    .eq("id", link.agent_id)
+    .eq("id", agentId)
     .maybeSingle();
   if (!agent) {
     await finish(sb, row, "skipped", "agent_missing");
@@ -465,20 +507,44 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
       for (let i = 0; i < uids.length; i += 100) {
         const part = await imap.uidFetch(
           uids.slice(i, i + 100),
-          "BODY.PEEK[HEADER.FIELDS (DELIVERED-TO X-ORIGINAL-TO TO CC)]",
+          "BODY.PEEK[HEADER.FIELDS (DELIVERED-TO X-ORIGINAL-TO TO CC FROM AUTHENTICATION-RESULTS)]",
         );
         for (const [uid, v] of part) heads.set(uid, new TextDecoder().decode(v.bytes));
       }
 
+      // מייל בלי טוקן, מכתובת מאומתת: האם זו הכתובת הרשומה של סוכן/ת?
+      // שאילתה אחת לכל הסבב, ולא אחת למייל — רוב המייל בתיבה אינו של סוכנים.
+      const senders = new Map<number, string>();
+      for (const uid of uids) {
+        const h = heads.get(uid) || "";
+        if (extractToken(h, IMAP_USER)) continue;
+        const from = verifiedSender(h, IMAP_USER);
+        if (from) senders.set(uid, from);
+      }
+      const agentByEmail = new Map<string, string>();
+      if (senders.size) {
+        const { data, error } = await sb.rpc("email_intake_agents_by_email", {
+          p_emails: [...new Set(senders.values())],
+        });
+        if (error) console.error("email intake sender lookup failed", error);
+        for (const r of (data as { email: string; agent_id: string }[]) || []) {
+          agentByEmail.set(r.email, r.agent_id);
+        }
+      }
+
       for (const uid of uids) {
         const token = extractToken(heads.get(uid) || "", IMAP_USER);
-        if (!token) {
+        const senderAgent = token ? null : agentByEmail.get(senders.get(uid) || "") || null;
+        if (!token && !senderAgent) {
           advanced = uid;
           continue;
         }
         if (handled >= MAX_PER_RUN) break; // הסמן נעצר כאן; ההרצה הבאה ממשיכה
         try {
-          await handleOne(deps, imap, mailbox, uidvalidity, uid, token);
+          await handleOne(
+            deps, imap, mailbox, uidvalidity, uid,
+            token ? { token } : { agentId: senderAgent! },
+          );
         } catch (err) {
           console.error("email intake message failed", uid, err);
         }
