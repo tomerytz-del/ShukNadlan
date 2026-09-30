@@ -288,3 +288,9 @@ verify_jwt = false          # ניווט של הדפדפן חזרה מ-Google, �
 
 [functions.google-calendar-sync]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
+# יומן שיחות (פיילוט Twilio): את הוובהוקים קוראת Twilio, בלי JWT. האימות הוא
+# חתימת X-Twilio-Signature מול TWILIO_AUTH_TOKEN; ‏?task=cleanup של ה-cron
+# מאומת ב-x-alert-cron-secret / service role. docs/call-tracking.md
+[functions.twilio-voice]
+verify_jwt = false          # Twilio + חתימה; cron + x-alert-cron-secret

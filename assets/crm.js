@@ -1528,6 +1528,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   await loadSavedSearchShelf(agent.id);
   await loadSharedWithMe();
   await loadClients();
+  // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+  loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
   await loadClientAlerts();
   await loadAgreements();
   await loadNotifications(agent.id);
@@ -19304,6 +19306,119 @@ document.getElementById('ciModal').addEventListener('click', async e => {
   if (act === 'picker'){
     const list = await window.ContactImport.pick(true);
     if (list.length) ciShowList(list, 'picker');
+  }
+});
+
+/* ============================================================================
+   יומן שיחות (פיילוט Twilio)
+   ----------------------------------------------------------------------------
+   השיחות נכתבות בידי twilio-voice (הקלטה, תמלול, סיכום). כאן רק קריאה: RLS
+   מחזיר לסוכן/ת רק את שלו/ה, וההקלטה מושמעת בקישור חתום לשעה מהדלי הפרטי
+   call-recordings, שה-policy שלו מתיר רק את התיקייה של הסוכן/ת.
+   הבלוק מוסתר כשאין מספר - וכך גם לכל מי שאינו בפיילוט.
+   docs/call-tracking.md
+   ============================================================================ */
+let callRows = [];
+const CALL_STATUS = { answered:'נענתה', missed:'לא נענתה', busy:'תפוס', failed:'נכשלה', ringing:'מצלצלת' };
+
+function callLocalPhone(p){
+  const d = String(p || '').replace(/\D/g, '');
+  return d.startsWith('972') ? '0' + d.slice(3) : d;
+}
+
+async function loadCalls(){
+  const block = document.getElementById('callsBlock');
+  if (!block || !currentAgent) return;
+  const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
+    .select('twilio_number, active').eq('active', true);
+  if (lineErr || !lines || !lines.length){ block.style.display = 'none'; return; }
+  document.getElementById('callsLine').textContent =
+    'המספר שלך: ' + lines.map(l => callLocalPhone(l.twilio_number)).join(', ');
+  block.style.display = '';
+
+  const { data, error } = await sb.from('agent_calls')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error')
+    .order('created_at', { ascending:false })
+    .limit(30);
+  const list = document.getElementById('callsList');
+  if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(error.message) + '</div>'; return; }
+  callRows = data || [];
+  renderCalls();
+}
+
+function renderCalls(){
+  const list = document.getElementById('callsList');
+  if (!callRows.length){
+    list.innerHTML = '<div class="empty-state">עוד אין שיחות. שיחה למספר שלך תופיע כאן עם הקלטה וסיכום.</div>';
+    return;
+  }
+  list.innerHTML = callRows.map(c => {
+    const client = c.client_id ? clientRows.find(r => r.id === c.client_id) : null;
+    const phone = callLocalPhone(c.from_number);
+    const name = client ? client.full_name : ((c.extracted && c.extracted.caller_name) || '');
+    const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
+    const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
+    const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
+    const needs = c.extracted && c.extracted.needs_text;
+    const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
+    return `<div class="call-row" data-call="${esc(c.id)}">
+      <div class="call-top">
+        <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
+          ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+        <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
+      </div>
+      ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
+      ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
+      <div class="call-actions">
+        ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
+        ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
+        ${!client && phone ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
+        ${phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('callsList').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-call-act]');
+  if (!btn) return;
+  const row = btn.closest('[data-call]');
+  const c = callRows.find(x => x.id === row.dataset.call);
+  if (!c) return;
+  const act = btn.dataset.callAct;
+  if (act === 'play'){
+    if (row.querySelector('audio')) return;
+    btn.disabled = true;
+    const { data, error } = await sb.storage.from('call-recordings').createSignedUrl(c.recording_path, 3600);
+    btn.disabled = false;
+    if (error || !data){ showToast('לא הצלחנו לטעון את ההקלטה'); return; }
+    const audio = document.createElement('audio');
+    audio.className = 'call-audio';
+    audio.controls = true;
+    audio.src = data.signedUrl;
+    row.appendChild(audio);
+    audio.play().catch(()=>{});
+    return;
+  }
+  if (act === 'transcript'){
+    const open = row.querySelector('.call-transcript');
+    if (open){ open.remove(); return; }
+    const box = document.createElement('div');
+    box.className = 'call-transcript';
+    box.textContent = c.transcript;
+    row.appendChild(box);
+    return;
+  }
+  if (act === 'add'){
+    const phone = callLocalPhone(c.from_number);
+    openClientFormWithContact({
+      name: (c.extracted && c.extracted.caller_name) || '',
+      phone, phones:[phone], email:'',
+    });
+    if (c.extracted && c.extracted.needs_text){
+      const notes = document.getElementById('clNotes');
+      if (notes && !notes.value) notes.value = 'מהשיחה: ' + c.extracted.needs_text;
+    }
   }
 });
 
