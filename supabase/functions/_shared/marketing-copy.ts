@@ -214,7 +214,10 @@ export async function generateMarketingCopy(
     },
     body: JSON.stringify({
       model: opts.model,
-      max_tokens: 1000,
+      // ‏2000 ולא 1000: אחרי שהפוסט הוארך (30.9.2026) תיאור ופוסט בעברית,
+      // ב-JSON, עברו לפעמים את 1000 טוקנים - התשובה נחתכה באמצע והפכה ל-JSON
+      // שבור ("תשובת Claude אינה JSON"). עברית צורכת טוקנים רבים למילה.
+      max_tokens: 2000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: `נתוני הנכס:\n${factsText(row)}` }],
     }),
@@ -245,7 +248,7 @@ export async function generateMarketingCopy(
     parsed = JSON.parse(raw);
   } catch {
     const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error(`תשובת Claude אינה JSON: ${raw.slice(0, 200)}`);
+    if (!m) throw new Error(`תשובת Claude אינה JSON (stop_reason=${data?.stop_reason}): ${raw.slice(0, 200)}`);
     parsed = JSON.parse(m[0]);
   }
 
