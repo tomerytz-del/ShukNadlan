@@ -29,3 +29,9 @@
 /nazareth-nof-hagalil    /nof-hagalil-migdal    301
 # ‏"חיפה והקריות" עד 27.9.2026 - הקריות יצאו לשוק משלהן (/krayot)
 /haifa-krayot    /haifa    301
+
+# ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
+# את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
+# ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST
+# ל-GET. docs/crm-contacts-import.md
+/crm-share    /crm?share=error    303
