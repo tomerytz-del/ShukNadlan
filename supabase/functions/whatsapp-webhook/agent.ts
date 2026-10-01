@@ -900,6 +900,18 @@ const TOOLS: Anthropic.Tool[] = [
             "ת.ז. או ח״פ של הלקוח/ה. חובה להזמנה בכתב. אם חסר בכרטיס - " +
             "מבקשים מהסוכן/ת, והערך נשמר גם בכרטיס הלקוח/ה.",
         },
+        client_email: {
+          type: "string",
+          description:
+            "מייל של הלקוח/ה, כשהסוכן/ת מסר/ה אותו בצ'אט. נשמר גם בכרטיס הלקוח/ה. " +
+            "נדרש כשחוזר missing על מייל - בלעדיו קוד האימות לחתימה מרחוק לא מגיע.",
+        },
+        in_person_only: {
+          type: "boolean",
+          description:
+            "true רק כשהסוכן/ת אמר/ה במפורש שהחתימה תהיה פנים מול פנים, במכשיר שלו/ה. " +
+            "אז אין קוד אימות ולא נדרש מייל.",
+        },
         property_ids: {
           type: "array",
           items: { type: "string" },
@@ -1250,6 +1262,15 @@ function priceText(price: unknown, dealType: unknown): string {
  * ‏undefined, ואז הודעת ההעברה נשלחת דרך בורר הצ'אטים של וואטסאפ במקום
  * לצ'אט שגוי.
  */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** האם קוד אימות יגיע לחותם/ת הזה/ו: מייל, או נייד כשתבנית האימות בוואטסאפ מוגדרת. */
+function otpReachable(sg: { phone?: string | null; email?: string | null }): boolean {
+  if (String(sg.email || "").trim()) return true;
+  const mobile = /^(05\d{8}|9725\d{8})$/.test(String(sg.phone || "").replace(/\D/g, ""));
+  return mobile && !!Deno.env.get("WHATSAPP_OTP_TEMPLATE");
+}
+
 function waNumber(phone: unknown): string | undefined {
   const digits = String(phone ?? "").replace(/\D/g, "");
   if (digits.length < 9) return undefined;
@@ -3555,6 +3576,22 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     if (error) console.warn("client id_number save failed", error.message);
   }
 
+  // מייל שהסוכן/ת מסר/ה בצ'אט — אותו דין כמו ת.ז.: נשמר בכרטיס כדי שההסכם
+  // הבא לא ייעצר שוב, ומשמש מיד כערוץ לקוד האימות.
+  const rawEmail = String(input.client_email || "").trim().toLowerCase();
+  if (rawEmail && !EMAIL_RE.test(rawEmail)) {
+    return { ok: false, error: `"${rawEmail}" אינה כתובת מייל תקינה. בקש/י מהסוכן/ת לבדוק ולשלוח שוב.` };
+  }
+  const clientEmail = rawEmail || String(client.email || "").trim() || null;
+  if (rawEmail && rawEmail !== String(client.email || "").trim().toLowerCase()) {
+    const { error } = await ctx.supabase
+      .from("agent_clients")
+      .update({ email: rawEmail })
+      .eq("id", client.id)
+      .eq("agent_id", ctx.agent.id);
+    if (error) console.warn("client email save failed", error.message);
+  }
+
   // ---- כרטיס הסוכן/ת והמשרד — מה שמודפס בראש המסמך
   // המשרד בשאילתה נפרדת ולא ב-embed‏ (agencies(name, address)). ראו
   // ‏`_shared/agency-lookup.ts`: ה-embed הזה מחזיר PGRST201 ומפיל את **כל**
@@ -3625,7 +3662,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     full_name: String(client.full_name || "").trim(),
     id_number: clientIdNumber,
     phone: client.phone,
-    email: client.email,
+    email: clientEmail,
     address: client.address,
     client_id: String(client.id),
   }];
@@ -3676,6 +3713,23 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   };
 
   const missing = missingForAgreement(build);
+
+  /* ‏**קוד האימות צריך לאן להגיע.** בטופסי קונה ושוכר החתימה מרחוק נעצרת
+     בקוד חד-פעמי. וואטסאפ מגיע לנייד רק כשתבנית האימות מוגדרת
+     (‏WHATSAPP_OTP_TEMPLATE) — לקוח/ה שלא כתב/ה לעסק נמצא/ת מחוץ לחלון 24
+     השעות — ובכל מקרה אחר הקוד יוצא רק במייל. בלי אחד מהשניים הקישור נפתח
+     ונתקע, וזה בדיוק מה שקרה ב-1.10.2026. לכן מבקשים את המייל **לפני**
+     שההסכם נוצר ונועל את גוף המסמך, ולא אחרי. */
+  if (tpl.side === "client" && !input.in_person_only) {
+    signers.forEach((sg, i) => {
+      if (otpReachable(sg)) return;
+      const who = sg.full_name || `חותם/ת ${i + 1}`;
+      missing.push(i === 0
+        ? `מייל של ${who} (client_email) - לשם יישלח קוד האימות לחתימה מרחוק`
+        : `מייל של ${who} (extra_signers[${i - 1}].email) - לשם יישלח קוד האימות לחתימה מרחוק`);
+    });
+  }
+
   if (missing.length) {
     return {
       ok: false,
@@ -4771,6 +4825,10 @@ const SYSTEM_STATIC: string = (() => {
     "- **אם חזר missing - ההסכם לא נוצר.** בקש/י בהודעה אחת את כל מה שברשימה " +
       "(בדרך כלל ת.ז. של הלקוח/ה ואחוז העמלה), ואז קרא/י שוב. אל תמציא/י ת.ז. " +
       "ואל תנחש/י עמלה.",
+    "- חסר מייל לקוד האימות (בטופס קונה/שוכר): בקש/י אותו במשפט אחד - \"כדי שהלקוח/ה " +
+      "יקבל/תקבל קוד לחתימה מרחוק צריך את המייל\" - ואז קרא/י שוב עם client_email " +
+      "(הוא נשמר גם בכרטיס). אם הסוכן/ת אומר/ת שהחתימה תהיה פנים מול פנים - " +
+      "קרא/י שוב עם in_person_only=true, ואין צורך במייל. אל תנחש/י כתובת.",
     "- אחרי היצירה: הצג/י את sign_url של כל חותם/ת עם השם שלידו, ואמור/אמרי את " +
       "how_to_sign - אותו קישור משמש גם לחתימה מרחוק וגם לפגישה פנים מול פנים. " +
       "אם יש wa_send_url, זו הדרך המהירה להעביר.",
