@@ -1264,11 +1264,13 @@ function priceText(price: unknown, dealType: unknown): string {
  */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** האם קוד אימות יגיע לחותם/ת הזה/ו: מייל, או נייד כשתבנית האימות בוואטסאפ מוגדרת. */
+/**
+ * האם לחותם/ת הזה/ו יש דרך לאמת את עצמו/ה מרחוק: נייד ישראלי (שולח/ת לנו
+ * "אימות חתימה" בוואטסאפ — ‏_shared/agreement-wa-verify.ts) או מייל (קוד).
+ */
 function otpReachable(sg: { phone?: string | null; email?: string | null }): boolean {
   if (String(sg.email || "").trim()) return true;
-  const mobile = /^(05\d{8}|9725\d{8})$/.test(String(sg.phone || "").replace(/\D/g, ""));
-  return mobile && !!Deno.env.get("WHATSAPP_OTP_TEMPLATE");
+  return /^(05\d{8}|9725\d{8})$/.test(String(sg.phone || "").replace(/\D/g, ""));
 }
 
 function waNumber(phone: unknown): string | undefined {
@@ -3714,19 +3716,18 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
 
   const missing = missingForAgreement(build);
 
-  /* ‏**קוד האימות צריך לאן להגיע.** בטופסי קונה ושוכר החתימה מרחוק נעצרת
-     בקוד חד-פעמי. וואטסאפ מגיע לנייד רק כשתבנית האימות מוגדרת
-     (‏WHATSAPP_OTP_TEMPLATE) — לקוח/ה שלא כתב/ה לעסק נמצא/ת מחוץ לחלון 24
-     השעות — ובכל מקרה אחר הקוד יוצא רק במייל. בלי אחד מהשניים הקישור נפתח
-     ונתקע, וזה בדיוק מה שקרה ב-1.10.2026. לכן מבקשים את המייל **לפני**
-     שההסכם נוצר ונועל את גוף המסמך, ולא אחרי. */
+  /* ‏**החותם/ת צריך/ה דרך לאמת את עצמו/ה.** בטופסי קונה ושוכר החתימה
+     מרחוק נעצרת באימות: נייד ישראלי מאמת בהודעה מוכנה שהלקוח/ה שולח/ת לנו
+     בוואטסאפ, ומייל מקבל קוד. בלי אף אחד מהשניים הקישור נפתח ונתקע — וזה
+     בדיוק מה שקרה ב-1.10.2026. לכן מבקשים מייל **לפני** שההסכם נוצר ונועל
+     את גוף המסמך, ולא אחרי. */
   if (tpl.side === "client" && !input.in_person_only) {
     signers.forEach((sg, i) => {
       if (otpReachable(sg)) return;
       const who = sg.full_name || `חותם/ת ${i + 1}`;
       missing.push(i === 0
-        ? `מייל של ${who} (client_email) - לשם יישלח קוד האימות לחתימה מרחוק`
-        : `מייל של ${who} (extra_signers[${i - 1}].email) - לשם יישלח קוד האימות לחתימה מרחוק`);
+        ? `מייל של ${who} (client_email) - אין נייד בכרטיס, ובלי נייד או מייל אין איך לאמת חתימה מרחוק`
+        : `מייל של ${who} (extra_signers[${i - 1}].email) - אין נייד, ובלי נייד או מייל אין איך לאמת חתימה מרחוק`);
     });
   }
 
@@ -3801,7 +3802,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
     requires_otp: !!created.require_otp,
     otp_note: created.require_otp
-      ? "בחתימה מרחוק החותם/ת מקבל/ת קוד אימות בוואטסאפ למספר שבכרטיס (או במייל אם אין מספר). " +
+      ? "בחתימה מרחוק החותם/ת מאמת/ת את עצמו/ה בלחיצה: שולח/ת לנו הודעה מוכנה בוואטסאפ מהנייד שבכרטיס (או קוד במייל). " +
         "פנים מול פנים - כשהקישור נפתח בטלפון שלך, כשאת/ה מחובר/ת לאזור האישי - אין קוד."
       : undefined,
     // ‏OTP בלי נייד ובלי מייל = קישור שנפתח ונתקע מרחוק. עדיף לומר את זה

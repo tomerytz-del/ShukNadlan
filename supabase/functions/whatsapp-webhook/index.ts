@@ -13,6 +13,7 @@ import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
+import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -604,6 +605,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
   markReadAndTyping(msg.id);
+
+  // --- אימות חותם/ת על הסכם ("אימות חתימה 482193") ---
+  // לפני זיהוי הסוכן/ת: השולח/ת הוא/היא לקוח/ה, ובלי זה היה/הייתה מקבל/ת
+  // "איני מזהה את מספר הטלפון שלך". ‏_shared/agreement-wa-verify.ts.
+  if (msg.type === "text") {
+    const verifyReply = await handleWaSignVerify(supabase, from, String(msg.text?.body || ""));
+    if (verifyReply) {
+      await reply(from, verifyReply, null);
+      return;
+    }
+  }
 
   // --- זיהוי הסוכן/ת לפי מספר הטלפון ---
   // phone_e164 היא עמודה מחושבת שמנרמלת את agency_members.phone לאותו פורמט
