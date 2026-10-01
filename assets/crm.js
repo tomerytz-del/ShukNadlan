@@ -19331,9 +19331,14 @@ async function loadCalls(){
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
     .select('twilio_number, active').eq('active', true);
-  if (lineErr || !lines || !lines.length){ block.style.display = 'none'; return; }
-  document.getElementById('callsLine').textContent =
-    'המספר שלך: ' + lines.map(l => callLocalPhone(l.twilio_number)).join(', ');
+  const hasLine = !lineErr && lines && lines.length;
+  // מנהל/ת הפלטפורמה רואה את הבלוק גם בלי מספר - בשביל הסימולציה
+  const isAdmin = !!currentAgent.is_platform_admin;
+  if (!hasLine && !isAdmin){ block.style.display = 'none'; return; }
+  document.getElementById('callsLine').textContent = hasLine
+    ? 'המספר שלך: ' + lines.map(l => callLocalPhone(l.twilio_number)).join(', ')
+    : 'אין עדיין מספר משויך';
+  document.getElementById('callSimBtn').style.display = isAdmin ? '' : 'none';
   block.style.display = '';
 
   const { data, error } = await sb.from('agent_calls')
@@ -19360,6 +19365,8 @@ function renderCalls(){
     const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
     const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
     const needs = c.extracted && c.extracted.needs_text;
+    const needsObj = (c.extracted && c.extracted.needs) || {};
+    const canUpdate = client && Object.keys(needsObj).length > 0;
     const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
     return `<div class="call-row" data-call="${esc(c.id)}">
       <div class="call-top">
@@ -19372,7 +19379,8 @@ function renderCalls(){
       <div class="call-actions">
         ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
         ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
-        ${!client && phone ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
+        ${canUpdate ? '<button type="button" class="btn btn-ghost" data-call-act="update">🔄 עדכון הכרטיס מהשיחה</button>' : ''}
+        ${!client && (phone || name) ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
         ${phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
       </div>
     </div>`;
@@ -19413,12 +19421,102 @@ document.getElementById('callsList').addEventListener('click', async e => {
     const phone = callLocalPhone(c.from_number);
     openClientFormWithContact({
       name: (c.extracted && c.extracted.caller_name) || '',
-      phone, phones:[phone], email:'',
+      phone, phones: phone ? [phone] : [], email:'',
     });
+    fillClientFormNeeds((c.extracted && c.extracted.needs) || {});
     if (c.extracted && c.extracted.needs_text){
       const notes = document.getElementById('clNotes');
       if (notes && !notes.value) notes.value = 'מהשיחה: ' + c.extracted.needs_text;
     }
+    return;
+  }
+  if (act === 'update') return updateClientFromCall(c, btn);
+});
+
+/* הדרישות שחולצו מהשיחה (extracted.needs, בשמות השדות של agent_clients)
+   לתוך הטופס של לקוח/ה חדש/ה - רק מה שנאמר, והשאר כמו שהוא. */
+function fillClientFormNeeds(n){
+  if (n.deal_type) setClientFormDeal(n.deal_type);
+  if (Array.isArray(n.cities) && n.cities.length) addClientCities(n.cities.join(','));
+  if (n.min_rooms != null) document.getElementById('clMinRooms').value = n.min_rooms;
+  if (n.min_price != null) document.getElementById('clMinPrice').value = n.min_price;
+  if (n.max_price != null) document.getElementById('clMaxPrice').value = n.max_price;
+}
+
+/* עדכון כרטיס קיים מהשיחה. ערים - בתוספת למה שכבר בכרטיס ולא במקומו: לקוח/ה
+   שאמר/ה "גם בעפולה" לא ויתר/ה על נצרת. לקוח/ה "בהמתנה" (למשל מייבוא אנשי
+   קשר, בלי דרישות) עובר/ת לפעיל/ה - עכשיו יש מה להתאים. */
+async function updateClientFromCall(c, btn){
+  const row = clientRows.find(r => r.id === c.client_id);
+  const n = (c.extracted && c.extracted.needs) || {};
+  if (!row) return;
+  const payload = {};
+  if (n.deal_type) payload.deal_type = n.deal_type;
+  if (Array.isArray(n.cities) && n.cities.length){
+    payload.cities = [...new Set([...(row.cities || []), ...n.cities])];
+  }
+  if (n.min_rooms != null) payload.min_rooms = n.min_rooms;
+  if (n.min_price != null) payload.min_price = n.min_price;
+  if (n.max_price != null) payload.max_price = n.max_price;
+  if (payload.min_rooms != null && row.max_rooms != null && payload.min_rooms > Number(row.max_rooms)) payload.max_rooms = null;
+  const lo = payload.min_price ?? row.min_price, hi = payload.max_price ?? row.max_price;
+  if (lo != null && hi != null && Number(lo) > Number(hi)){
+    if (payload.max_price != null) payload.min_price = null; else payload.max_price = null;
+  }
+  if (row.status === 'paused') payload.status = 'active';
+  if (!Object.keys(payload).length) return;
+  btn.disabled = true;
+  const { error } = await sb.from('agent_clients').update(payload).eq('id', row.id);
+  btn.disabled = false;
+  if (error){ showToast('שגיאה בעדכון: ' + error.message); return; }
+  showToast(`הכרטיס של ${row.full_name} עודכן - מצליבים נכסים`);
+  expandedClientIds.add(row.id);
+  await loadClients();
+  renderCalls();
+  crossMatchClient(row.id);
+}
+
+/* סימולציית שיחה - מנהל/ת הפלטפורמה מעלה הקלטה (הודעה קולית מוואטסאפ,
+   הקלטה מהטלפון), והפונקציה מריצה עליה את כל הצינור: תמלול, סיכום, שורה
+   ביומן והודעה בוואטסאפ. בודקים את הסיכום בלי Twilio. docs/call-tracking.md */
+document.getElementById('callSimBtn').addEventListener('click', () => {
+  document.getElementById('callSimFile').click();
+});
+document.getElementById('callSimFile').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const from = prompt('מספר הטלפון של ה"מתקשר/ת" (אפשר להשאיר ריק, או מספר של לקוח/ה מהקובץ כדי לבדוק זיהוי):', '') || '';
+  const btn = document.getElementById('callSimBtn');
+  btn.disabled = true; btn.textContent = 'מעלה…';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const fd = new FormData();
+    fd.append('audio', file);
+    fd.append('from', from);
+    const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=simulate', {
+      method:'POST',
+      headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok){
+      showToast('הסימולציה נכשלה: ' + (data.detail || data.error || res.status), 6000);
+      return;
+    }
+    showToast('ההקלטה התקבלה - הסיכום יגיע בוואטסאפ ויופיע כאן בעוד כחצי דקה', 6000);
+    await loadCalls();
+    // ‏פולינג קצר עד שהשורה מעובדת - בלי Realtime על הטבלה
+    for (let i = 0; i < 12; i++){
+      await new Promise(r => setTimeout(r, 10000));
+      await loadCalls();
+      const row = callRows.find(r => r.id === data.call_id);
+      if (row && (row.summary || row.error)) break;
+    }
+  } catch (err){
+    showToast('הסימולציה נכשלה: ' + (err && err.message || err), 6000);
+  } finally {
+    btn.disabled = false; btn.textContent = '🧪 סימולציית שיחה';
   }
 });
 

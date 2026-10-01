@@ -383,77 +383,17 @@ async function processRecording(r: { callSid: string; recordingSid: string; reco
   if (call.recording_path) return; // משלוח חוזר של Twilio
 
   try {
-    // 1. הורדה מ-Twilio
+    // הורדה מ-Twilio
     const audioRes = await fetch(`${r.recordingUrl}.mp3`, { headers: { Authorization: twilioAuth() } });
     if (!audioRes.ok) throw new Error(`recording download ${audioRes.status}`);
     const bytes = new Uint8Array(await audioRes.arrayBuffer());
+    await analyzeCall(call, bytes, "audio/mpeg", r.duration, r.recordingSid);
 
-    // 2. אלינו
-    const path = `${call.agent_id}/${call.id}.mp3`;
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, {
-      contentType: "audio/mpeg",
-      upsert: true,
-    });
-    if (upErr) throw new Error(`upload: ${upErr.message}`);
-    await supabase.from("agent_calls").update({
-      recording_sid: r.recordingSid,
-      recording_path: path,
-      recording_duration: r.duration,
-    }).eq("id", call.id);
-
-    // 3. מחיקה מ-Twilio: העותק היחיד נשאר אצלנו, עם תאריך תפוגה אחד.
+    // מחיקה מ-Twilio: העותק היחיד נשאר אצלנו, עם תאריך תפוגה אחד.
     fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Recordings/${encodeURIComponent(r.recordingSid)}.json`,
       { method: "DELETE", headers: { Authorization: twilioAuth() } },
     ).catch((e) => console.warn("twilio recording delete failed", e));
-
-    // 4. תמלול
-    const transcript = bytes.byteLength <= WHISPER_MAX_BYTES ? await transcribe(bytes) : null;
-
-    // 5. סיכום
-    const client = call.client_id
-      ? (await supabase.from("agent_clients").select("full_name, deal_type, cities, min_rooms, max_price")
-        .eq("id", call.client_id).maybeSingle()).data
-      : null;
-    const summary = transcript ? await summarize(transcript, client?.full_name ?? null) : null;
-
-    await supabase.from("agent_calls").update({
-      transcript,
-      summary: summary?.summary ?? null,
-      extracted: summary ?? null,
-      processed_at: new Date().toISOString(),
-    }).eq("id", call.id);
-
-    // 6. לסוכן/ת
-    const agent = await loadAgent(call.agent_id);
-    if (!agent) return;
-    const phone = localPhone(call.from_number || "");
-    const who = client?.full_name ? `${client.full_name} (${phone})` : (summary?.caller_name
-      ? `${summary.caller_name} (${phone})`
-      : phone || "מספר חסוי");
-    const mins = r.duration ? `${Math.max(1, Math.round(r.duration / 60))} דק׳` : "";
-
-    const lines = [`📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
-    if (summary?.summary) lines.push("", summary.summary);
-    else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
-    if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
-    if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
-    if (!client) {
-      lines.push("", `המספר אינו בקובץ. להוסיף? כתבו לי "תוסיף את ${phone} כלקוח"` +
-        (summary?.needs_text ? " והדרישות יתווספו." : "."));
-    } else {
-      await supabase.from("whatsapp_conversations")
-        .update({ last_client_id: call.client_id }).eq("agent_id", call.agent_id);
-    }
-    lines.push("", `התמלול המלא בכרטיס: ${SITE}/crm?goto=accClients`);
-
-    let audioUrl: string | null = null;
-    if (bytes.byteLength <= WA_AUDIO_MAX_BYTES) {
-      const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
-      audioUrl = signed?.signedUrl ?? null;
-    }
-    await notifyAgent(agent, lines.join("\n"), `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl);
-    await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
   } catch (err) {
     console.error("recording processing failed", err);
     await supabase.from("agent_calls").update({ error: String((err as Error)?.message || err).slice(0, 500) })
@@ -461,11 +401,95 @@ async function processRecording(r: { callSid: string; recordingSid: string; reco
   }
 }
 
-async function transcribe(bytes: Uint8Array<ArrayBuffer>): Promise<string | null> {
+const AUDIO_EXT: Record<string, string> = {
+  "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav", "audio/x-wav": "wav",
+  "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/webm": "webm", "audio/aac": "aac",
+};
+
+/**
+ * הצינור המשותף לשיחה אמיתית ולסימולציה: אחסון, תמלול, סיכום, התראה.
+ * זורקת בכשל - הקורא רושם את השגיאה בשורה.
+ */
+async function analyzeCall(
+  call: { id: string; agent_id: string; from_number: string | null; client_id: string | null },
+  bytes: Uint8Array<ArrayBuffer>,
+  mime: string,
+  duration: number | null,
+  recordingSid: string | null,
+) {
+  // 1. אלינו
+  const ext = AUDIO_EXT[mime] || "mp3";
+  const path = `${call.agent_id}/${call.id}.${ext}`;
+  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, {
+    contentType: mime,
+    upsert: true,
+  });
+  if (upErr) throw new Error(`upload: ${upErr.message}`);
+  await supabase.from("agent_calls").update({
+    recording_sid: recordingSid,
+    recording_path: path,
+    recording_duration: duration,
+  }).eq("id", call.id);
+
+  // 2. תמלול
+  const transcript = bytes.byteLength <= WHISPER_MAX_BYTES ? await transcribe(bytes, mime, ext) : null;
+
+  // 3. סיכום
+  const client = call.client_id
+    ? (await supabase.from("agent_clients").select("full_name, deal_type, cities, min_rooms, max_price")
+      .eq("id", call.client_id).maybeSingle()).data
+    : null;
+  const summary = transcript ? await summarize(transcript, client?.full_name ?? null) : null;
+
+  await supabase.from("agent_calls").update({
+    transcript,
+    summary: summary?.summary ?? null,
+    extracted: summary ?? null,
+    processed_at: new Date().toISOString(),
+    error: transcript ? null : (OPENAI_KEY ? "transcription_failed" : "transcription_not_configured"),
+  }).eq("id", call.id);
+
+  // 4. לסוכן/ת
+  const agent = await loadAgent(call.agent_id);
+  if (!agent) return;
+  const phone = localPhone(call.from_number || "");
+  const who = client?.full_name ? `${client.full_name} (${phone})` : (summary?.caller_name
+    ? `${summary.caller_name}${phone ? ` (${phone})` : ""}`
+    : phone || "מספר חסוי");
+  const mins = duration ? `${Math.max(1, Math.round(duration / 60))} דק׳` : "";
+  const hasNeeds = !!summary?.needs && Object.keys(summary.needs).length > 0;
+
+  const lines = [`📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
+  if (summary?.summary) lines.push("", summary.summary);
+  else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
+  if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
+  if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
+  if (!client) {
+    lines.push("", phone
+      ? `המספר אינו בקובץ. להוסיף? כתבו לי "כן, תוסיף"${hasNeeds ? " והדרישות מהשיחה ייכנסו לכרטיס." : "."}`
+      : "");
+  } else {
+    if (hasNeeds) lines.push("", `לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה? כתבו לי "כן, תעדכן".`);
+    await supabase.from("whatsapp_conversations")
+      .update({ last_client_id: call.client_id }).eq("agent_id", call.agent_id);
+  }
+  lines.push("", `התמלול המלא בכרטיס: ${SITE}/crm?goto=accClients`);
+
+  let audioUrl: string | null = null;
+  if (bytes.byteLength <= WA_AUDIO_MAX_BYTES) {
+    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
+    audioUrl = signed?.signedUrl ?? null;
+  }
+  await notifyAgent(agent, lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n"),
+    `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl);
+  await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
+}
+
+async function transcribe(bytes: Uint8Array<ArrayBuffer>, mime = "audio/mpeg", ext = "mp3"): Promise<string | null> {
   if (!OPENAI_KEY) return null;
   try {
     const form = new FormData();
-    form.append("file", new Blob([bytes], { type: "audio/mpeg" }), "call.mp3");
+    form.append("file", new Blob([bytes], { type: mime }), `call.${ext}`);
     form.append("model", "whisper-1");
     form.append("language", "he");
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -484,12 +508,46 @@ async function transcribe(bytes: Uint8Array<ArrayBuffer>): Promise<string | null
   }
 }
 
+/** הדרישות בשדות של agent_clients - רק מה שנאמר. ‏מפתח חסר = לא עלה. */
+export type CallNeeds = {
+  deal_type?: "sale" | "rent";
+  cities?: string[];
+  min_rooms?: number;
+  min_price?: number;
+  max_price?: number;
+};
+
 type CallSummary = {
   summary: string;
   caller_name: string | null;
   needs_text: string | null;
   next_step: string | null;
+  needs: CallNeeds;
 };
+
+function cleanNeeds(raw: unknown): CallNeeds {
+  const n = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: CallNeeds = {};
+  if (n.deal_type === "sale" || n.deal_type === "rent") out.deal_type = n.deal_type;
+  if (Array.isArray(n.cities)) {
+    const cities = n.cities.map((c) => String(c ?? "").trim()).filter(Boolean).slice(0, 6);
+    if (cities.length) out.cities = cities;
+  }
+  const num = (v: unknown, min: number, max: number) => {
+    const x = Number(v);
+    return Number.isFinite(x) && x >= min && x <= max ? x : undefined;
+  };
+  const rooms = num(n.min_rooms, 1, 12);
+  if (rooms !== undefined) out.min_rooms = Math.round(rooms * 2) / 2;
+  const lo = num(n.min_price, 500, 100_000_000);
+  const hi = num(n.max_price, 500, 100_000_000);
+  if (lo !== undefined) out.min_price = Math.round(lo);
+  if (hi !== undefined) out.max_price = Math.round(hi);
+  if (out.min_price !== undefined && out.max_price !== undefined && out.min_price > out.max_price) {
+    delete out.min_price;
+  }
+  return out;
+}
 
 const SUMMARY_PROMPT = [
   "את/ה מסכם/ת שיחת טלפון בין מתווך/ת נדל\"ן ללקוח/ה, מתוך תמלול אוטומטי בעברית.",
@@ -499,6 +557,11 @@ const SUMMARY_PROMPT = [
   "caller_name - שם הלקוח/ה אם נאמר בשיחה, אחרת null.",
   "needs_text - מה הלקוח/ה מחפש/ת בשורה אחת (קנייה או שכירות, עיר, חדרים, תקציב, מועד כניסה), או null אם לא עלה.",
   "next_step - הצעד הבא שסוכם או שכדאי לעשות, במשפט אחד, או null.",
+  "needs - אובייקט עם מה שהלקוח/ה מחפש/ת, **רק שדות שנאמרו במפורש** (שדה שלא נאמר - לא לכלול):",
+  "  deal_type: \"sale\" (קנייה) או \"rent\" (שכירות); cities: מערך שמות ערים בעברית;",
+  "  min_rooms: מספר החדרים המינימלי (\"4 חדרים\" = 4); min_price / max_price: בשקלים",
+  "  (\"עד 2 מליון\" = max_price 2000000; בשכירות - מחיר חודשי). אם לא עלה כלום - {}.",
+  "  אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - {}.",
   "כתוב/כתבי בעברית, עם מקף רגיל (-) ולא מקף ארוך.",
 ].join("\n");
 
@@ -514,7 +577,9 @@ async function summarize(transcript: string, knownName: string | null): Promise<
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 1200,
+        // ‏8000: max_tokens כולל גם את החשיבה הנסתרת של המודל, ובתקרה נמוכה
+        // התשובה חוזרת ריקה (ראו generateMarketingCopy, 1.10.2026).
+        max_tokens: 8000,
         system: SUMMARY_PROMPT,
         messages: [{
           role: "user",
@@ -542,6 +607,7 @@ async function summarize(transcript: string, knownName: string | null): Promise<
       caller_name: clean(parsed?.caller_name),
       needs_text: clean(parsed?.needs_text),
       next_step: clean(parsed?.next_step),
+      needs: cleanNeeds(parsed?.needs),
     };
   } catch (err) {
     console.error("summary failed", err);
@@ -575,8 +641,81 @@ async function cleanup(sb: SupabaseClient): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// סימולציה - כל הצינור על הקלטה שמעלים, בלי Twilio
+//
+// מנהל/ת הפלטפורמה בלבד, מה-CRM. נועדה לבדוק את התמלול, הסיכום וההודעה
+// בוואטסאפ עוד לפני שיש מספר, ולהפריד אחר כך בין תקלה אצלנו לתקלה בטלפוניה.
+// השורה נרשמת ב-agent_calls של מי שהעלה/תה, עם `twilio_call_sid` שמתחיל
+// ב-SIM-, ונמחקת אחרי 90 יום כמו כל שיחה.
+// ---------------------------------------------------------------------------
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const SIM_MAX_BYTES = 25 * 1024 * 1024;
+
+function corsJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+}
+
+async function simulate(req: Request): Promise<Response> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return corsJson({ error: "unauthorized" }, 401);
+  const { data: userData } = await supabase.auth.getUser(token);
+  const uid = userData?.user?.id;
+  if (!uid) return corsJson({ error: "unauthorized" }, 401);
+  const { data: me } = await supabase.from("agency_members")
+    .select("id, is_platform_admin").eq("user_id", uid).eq("active", true).maybeSingle();
+  if (!me?.is_platform_admin) return corsJson({ error: "forbidden" }, 403);
+
+  const form = await req.formData().catch(() => null);
+  const file = form?.get("audio");
+  if (!(file instanceof File) || !file.size) return corsJson({ error: "no_audio" }, 400);
+  if (file.size > SIM_MAX_BYTES) return corsJson({ error: "too_large" }, 413);
+  // הודעה קולית של וואטסאפ יורדת לפעמים כ-.opus בלי סוג, או כ-audio/opus.
+  // שם הסוג נגזר אז מהסיומת - Whisper ו-Storage מכירים אותה כ-ogg.
+  const byExt: Record<string, string> = {
+    opus: "audio/ogg", ogg: "audio/ogg", oga: "audio/ogg", mp3: "audio/mpeg", m4a: "audio/mp4",
+    mp4: "audio/mp4", wav: "audio/wav", webm: "audio/webm", aac: "audio/aac",
+  };
+  let mime = (file.type || "").split(";")[0].trim().toLowerCase();
+  if (mime === "audio/opus" || mime === "video/ogg") mime = "audio/ogg";
+  if (!AUDIO_EXT[mime]) mime = byExt[(file.name.split(".").pop() || "").toLowerCase()] || mime;
+  if (!AUDIO_EXT[mime]) return corsJson({ error: "unsupported_type", detail: mime || file.name }, 415);
+
+  const from = e164(String(form?.get("from") || ""));
+  const client = from ? await findClient(me.id, from) : null;
+  const { data: call, error } = await supabase.from("agent_calls").insert({
+    agent_id: me.id,
+    twilio_call_sid: `SIM-${crypto.randomUUID()}`,
+    direction: "inbound",
+    from_number: from || null,
+    to_number: "simulation",
+    client_id: client?.id ?? null,
+    status: "answered",
+  }).select("id, agent_id, from_number, client_id").single();
+  if (error || !call) return corsJson({ error: "db_error", detail: error?.message }, 500);
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  EdgeRuntime.waitUntil(analyzeCall(call, bytes, mime, null, null).catch(async (err) => {
+    console.error("simulation failed", err);
+    await supabase.from("agent_calls").update({ error: String((err as Error)?.message || err).slice(0, 500) })
+      .eq("id", call.id);
+  }));
+  return corsJson({ ok: true, call_id: call.id });
+}
+
+// ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
+
+  if (url.searchParams.get("task") === "simulate") {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
+    return await simulate(req);
+  }
 
   if (url.searchParams.get("task") === "cleanup") {
     const auth = authorizeInternalCaller(req);

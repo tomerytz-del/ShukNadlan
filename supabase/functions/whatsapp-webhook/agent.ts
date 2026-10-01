@@ -677,6 +677,27 @@ const TOOLS: Anthropic.Tool[] = [
   // קובץ הלקוחות
   // -------------------------------------------------------------------------
   {
+    name: "list_calls",
+    description:
+      "יומן השיחות של הסוכן/ת (מספר הטלפון של שוק נדל\"ן, אם יש): מי התקשר, מתי, " +
+      "האם נענתה, הסיכום, ומה הלקוח/ה מחפש/ת בשדות (needs) - לפי מה שנאמר בשיחה. " +
+      "זה הכלי ל'מי התקשר אליי היום', 'מה דיברתי עם דני', 'מי לא נענה', וגם " +
+      "ל'כן, תעדכן' / 'כן, תוסיף' אחרי הודעת סיכום שיחה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "שם לקוח/ה מהקובץ או מספר טלפון." },
+        status: {
+          type: "string",
+          enum: ["answered", "missed"],
+          description: "רק שיחות שנענו, או רק שיחות שלא נענו (כולל תפוס).",
+        },
+        since_hours: { type: "integer", description: "רק שיחות מהשעות האחרונות. 'היום' = 24." },
+        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 10, מקסימום 50." },
+      },
+    },
+  },
+  {
     name: "list_clients",
     description:
       "מחזיר את קובץ הלקוחות של הסוכן/ת עם הדרישות של כל אחד/ת, ולצד כל " +
@@ -3047,6 +3068,84 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
   };
 }
 
+/**
+ * יומן השיחות (‏agent_calls, ‏docs/call-tracking.md). קריאה בלבד: הכתיבה רק
+ * מ-twilio-voice. ‏needs חוזר בשמות השדות של agent_clients, כדי ש"כן, תעדכן"
+ * אחרי סיכום יעבור ישר ל-update_client / create_client בלי לנחש.
+ */
+async function toolListCalls(ctx: ToolContext, input: Record<string, unknown>) {
+  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 50);
+  let query = ctx.supabase
+    .from("agent_calls")
+    .select("id, from_number, client_id, status, duration_sec, summary, extracted, created_at, error")
+    .eq("agent_id", ctx.agent.id)
+    .order("created_at", { ascending: false });
+
+  if (input.status === "answered") query = query.eq("status", "answered");
+  else if (input.status === "missed") query = query.in("status", ["missed", "busy", "failed"]);
+  const hours = Number(input.since_hours) || 0;
+  if (hours > 0) query = query.gte("created_at", new Date(Date.now() - hours * 3600_000).toISOString());
+
+  const q = String(input.query || "").trim();
+  const digits = q.replace(/\D/g, "");
+  let clientIds: string[] | null = null;
+  if (q && digits.length >= 6) {
+    query = query.ilike("from_number", `%${digits.slice(-9)}%`);
+  } else if (q) {
+    const safe = q.replace(/[,()*%]/g, " ").trim();
+    const { data: found } = await ctx.supabase.from("agent_clients")
+      .select("id").eq("agent_id", ctx.agent.id).ilike("full_name", `%${safe}%`).limit(20);
+    clientIds = (found || []).map((c) => String(c.id));
+    if (!clientIds.length) return { ok: true, total: 0, calls: [], note: `אין בקובץ לקוח/ה בשם "${q}".` };
+    query = query.in("client_id", clientIds);
+  }
+
+  const { data, error } = await query.limit(limit);
+  if (error) return { ok: false, error: error.message };
+  const rows = (data || []) as Record<string, any>[];
+  if (!rows.length) {
+    const { count } = await ctx.supabase.from("agent_phone_lines")
+      .select("id", { count: "exact", head: true }).eq("agent_id", ctx.agent.id).eq("active", true);
+    return {
+      ok: true,
+      total: 0,
+      calls: [],
+      note: count ? "אין שיחות שמתאימות לסינון." : "לסוכן/ת אין עדיין מספר של שוק נדל\"ן, ולכן אין יומן שיחות.",
+    };
+  }
+
+  const ids = [...new Set(rows.map((r) => r.client_id).filter(Boolean))];
+  const names = new Map<string, string>();
+  if (ids.length) {
+    const { data: cs } = await ctx.supabase.from("agent_clients").select("id, full_name").in("id", ids);
+    for (const c of cs || []) names.set(String(c.id), String(c.full_name));
+  }
+  const local = (p: unknown) => {
+    const d = String(p || "").replace(/\D/g, "");
+    return d.startsWith("972") ? "0" + d.slice(3) : d;
+  };
+
+  if (rows[0]?.client_id) ctx.conv.last_client_id = String(rows[0].client_id);
+  return {
+    ok: true,
+    total: rows.length,
+    calls: rows.map((r) => ({
+      when: r.created_at,
+      phone: local(r.from_number) || null,
+      client_id: r.client_id || null,
+      client_name: r.client_id ? names.get(String(r.client_id)) ?? null : null,
+      caller_name_from_call: r.extracted?.caller_name ?? null,
+      status: r.status,
+      minutes: r.duration_sec ? Math.max(1, Math.round(r.duration_sec / 60)) : null,
+      summary: r.summary ?? null,
+      needs_text: r.extracted?.needs_text ?? null,
+      needs: r.extracted?.needs ?? null,
+      next_step: r.extracted?.next_step ?? null,
+      processing: r.status === "answered" && !r.summary && !r.error,
+    })),
+  };
+}
+
 async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>) {
   const fullName = String(input.full_name || "").trim();
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
@@ -4436,6 +4535,7 @@ async function runTool(
       case "create_property_video": return await toolCreatePropertyVideo(ctx, input);
       // לקוחות
       case "list_clients": return await toolListClients(ctx, input);
+      case "list_calls": return await toolListCalls(ctx, input);
       case "create_client": return await toolCreateClient(ctx, input);
       case "update_client": return await toolUpdateClient(ctx, input);
       case "set_client_status": return await toolSetClientStatus(ctx, input);
@@ -4608,6 +4708,16 @@ const SYSTEM_STATIC: string = (() => {
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. \"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
+    "",
+    "יומן שיחות (מספר הטלפון של שוק נדל\"ן):",
+    "- \"מי התקשר אליי היום\" = list_calls עם since_hours 24. \"מי לא נענה\" = status missed. " +
+      "\"מה דיברתי עם דני\" = list_calls עם query. ענה/י לפי summary, ואל תמציא/י מה שלא שם.",
+    "- אחרי הודעת \"סיכום שיחה\" הסוכן/ת עשוי/ה לענות \"כן, תעדכן\" או \"כן, תוסיף\". אז: " +
+      "list_calls עם limit 1 (השיחה האחרונה) - ואם יש client_id: update_client עם השדות שב-needs " +
+      "(ערים - בתוספת לערים שכבר בכרטיס, לא במקומן), ואם הלקוח/ה בהמתנה (paused) - גם " +
+      "set_client_status active. אם אין client_id: create_client עם השם (client_name או " +
+      "caller_name_from_call - ואם אין שם, שאל/י), הטלפון וה-needs. אחר כך client_matches.",
+    "- אם processing הוא true - השיחה עוד מעובדת. אמור/אמרי שהסיכום יגיע בעוד רגע.",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
     "- הודעה שמתחילה ב-[איש קשר ששותף] = הסוכן/ת שיתף/ה כרטיס מאנשי הקשר או מהשיחות " +
