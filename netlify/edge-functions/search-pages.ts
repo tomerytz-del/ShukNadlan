@@ -269,7 +269,7 @@ export default async function handler(request: Request, context: Context) {
     return new Response(null, { status: 302, headers });
   }
 
-  const res = await withGeoCookie(await context.next(), routing?.geoCookie || null);
+  const res = withGeoCookie(await context.next(), routing?.geoCookie || null, routing?.soon || null);
 
   // רק HTML
   const type = res.headers.get("content-type") || "";
@@ -297,11 +297,15 @@ export default async function handler(request: Request, context: Context) {
 
 /* ‏עוגיית shuk_geo על התשובה הרגילה: הדפדפן קורא אותה בדפים שאינם שייכים
    לשוק (‏‎/agencies‎). התשובה המקורית אינה ניתנת לשינוי, ולכן עותק - ורק
-   כשיש מה לכתוב, כך שרוב הבקשות יוצאות בדיוק כמו קודם. */
-function withGeoCookie(res: Response, value: string | null): Response {
-  if (!value) return res;
+   כשיש מה לכתוב, כך שרוב הבקשות יוצאות בדיוק כמו קודם.
+
+   ‏shuk_soon: השוק שעוד לא נפתח שבו הגולש/ת נמצא/ת (lib/markets.ts,
+   ‏`soon`), לפס "נפתחים בקרוב" שב-assets/market-soon-strip.js. */
+function withGeoCookie(res: Response, value: string | null, soon: string | null): Response {
+  if (!value && !soon) return res;
   const copy = new Response(res.body, res);
-  copy.headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(value)}${GEO_COOKIE_TAIL}`);
+  if (value) copy.headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(value)}${GEO_COOKIE_TAIL}`);
+  if (soon) copy.headers.append("Set-Cookie", `shuk_soon=${encodeURIComponent(soon)}${GEO_COOKIE_TAIL}`);
   return copy;
 }
 

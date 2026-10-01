@@ -19,6 +19,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
 <script defer src="assets/near-me.js"></script>
+<script defer src="assets/market-soon-strip.js"></script>
 <!-- בורר השוק ליד שם השוק ב-H1 (docs/regional-pages.md) -->
 <script defer src="assets/city-menu.js"></script>
 <script src="assets/events.js"></script>
@@ -3286,6 +3287,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(max-width:699px){
     #ownerBanner .lead-teaser-go{flex:1 0 100%;text-align:center}
   }
+
+  /* ====== פס "נפתחים בקרוב" (assets/market-soon-strip.js) ======
+     למי שה-IP או ה-GPS שלו/ה באזור של שוק שעוד לא נפתח. מוסתר כברירת
+     מחדל, ולכן אינו תופס מקום אצל אף אחד אחר. */
+  .soon-strip{background:var(--gold-tint);border-bottom:1px solid var(--line)}
+  .soon-strip-inner{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+  .soon-strip-text{flex:1 1 260px;margin:0;font-size:.92rem;line-height:1.55;color:var(--ink)}
+  .soon-strip-text strong{color:var(--gold-dark)}
+  .soon-strip-promo{display:block;font-weight:700;color:var(--gold-dark)}
+  .soon-strip-promo[hidden]{display:none}
+  .soon-strip-link{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:.88rem;text-decoration:none}
+  .soon-strip-close{flex:0 0 auto;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);font-size:1.3rem;line-height:1;cursor:pointer}
+  .soon-strip-close:hover{background:rgba(14,42,107,.08)}
 </style>
 
 <!-- נתונים מובנים: הכתובת הפיזית, אזור השירות והעמודים ברשתות. זה מה
@@ -3454,6 +3468,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </nav>
 </header>
+
+<!-- פס "נפתחים בקרוב" - assets/market-soon-strip.js ממלא ומציג אותו רק למי
+     שנמצא/ת באזור של שוק שעוד לא נפתח (נתניה, חדרה...). לא הפניה: מי
+     שחיפש/ה דירה נשאר/ת כאן. docs/regional-pages.md. -->
+<div class="soon-strip" id="soonStrip" role="region" aria-label="שוק הנדל״ן באזור שלך" hidden>
+  <div class="wrap soon-strip-inner">
+    <p class="soon-strip-text">
+      <strong>שוק הנדל״ן של <span data-soon-label>האזור שלך</span> נפתח בקרוב.</strong>
+      מתווכים ומשרדי תיווך מהאזור מצטרפים עכשיו, והנכסים שלהם יהיו הראשונים ביום הפתיחה.
+      <span class="soon-strip-promo" data-soon-promo hidden></span>
+    </p>
+    <a class="soon-strip-link" href="/" data-soon-link>לפרטים והצטרפות</a>
+    <button type="button" class="soon-strip-close" data-soon-close aria-label="סגירה">&times;</button>
+  </div>
+</div>
 
 <div class="ad-leaderboard">
   <div class="wrap ad-slot">

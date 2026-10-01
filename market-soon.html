@@ -54,6 +54,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .soon-card p { margin: 0 0 18px; line-height: 1.7; }
   .soon-card ul { margin: 0 0 20px; padding-inline-start: 20px; line-height: 1.9; }
   .soon-btn { display: inline-block; padding: 12px 22px; border-radius: 999px; font-weight: 700; text-decoration: none; background: #0e2a6b; color: #fff; }
+  /* ההטבה - מ-Tiers.PROMO, אותו מקור כמו pricing.html ו-agency-signup.html */
+  .soon-promo { margin: 0 0 18px; padding: 14px 16px; border-radius: 12px; background: #f7f1e2; border: 1px solid rgba(14, 42, 107, .14); line-height: 1.6; }
+  .soon-promo strong { display: block; font-size: 17px; color: #08194a; margin-bottom: 4px; }
+  .soon-promo span { font-size: 15px; }
   .soon-btn.ghost { background: transparent; color: #0e2a6b; border: 1.5px solid #0e2a6b; }
   .soon-contact { text-align: center; margin: 0 0 56px; line-height: 1.9; }
   .soon-foot { text-align: center; padding: 24px 16px 40px; font-size: 14px; opacity: .75; }
@@ -93,6 +97,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li>מערכת CRM מלאה לנכסים, ללקוחות ולהסכמים</li>
         <li>שיתוף פעולה עם המשרדים האחרים באזור</li>
       </ul>
+      <div class="soon-promo" id="soonPromo" hidden>
+        <strong id="soonPromoHead"></strong>
+        <span id="soonPromoSub"></span>
+      </div>
       <a class="soon-btn" href="/agency-signup">הצטרפות כמשרד תיווך</a>
     </section>
     <section class="soon-card">
@@ -115,7 +123,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a href="/terms">תקנון</a> · <a href="/privacy">פרטיות</a> · <a href="/accessibility">נגישות</a>
 </footer>
 
+<script src="assets/tiers.js"></script>
 <script>
+/* ההטבה למצטרפים. הנוסח מ-Tiers.PROMO ולא כתוב כאן, כדי שלא יתיישן מול
+   pricing.html; כשההטבה כבויה (‏PROMO.active), או tiers.js לא נטען - אין
+   קופסה, והכרטיס נשאר כמו שהיה. */
+(function () {
+  var T = window.Tiers;
+  var box = document.getElementById('soonPromo');
+  if (!box || !T || !T.PROMO || !T.PROMO.active) return;
+  document.getElementById('soonPromoHead').textContent = '🎁 ' + T.PROMO.headline;
+  document.getElementById('soonPromoSub').textContent = T.PROMO.sub;
+  box.hidden = false;
+})();
+
 /* השם של השוק. ‏window.SHUK_MARKET מוזרק ב-market-pages.ts; אם ה-edge לא רץ
    (תצוגה מקומית, כשל), הכתובת עצמה אומרת איזה שוק זה. בלי שניהם הטקסט
    הכללי נשאר ("האזור שלך") - וזה עדיין דף תקין. */
