@@ -485,23 +485,58 @@ async function analyzeCall(
   await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
 }
 
+/** ‏Whisper מקבל את הקובץ לפי הסיומת, וקובץ m4a מטלפון (מכשירי הקלטה,
+ *  Voice Memos) נדחה לפעמים ב-"Invalid file format" למרות שהוא תקין - נצפה
+ *  ב-1.10.2026 בסימולציה הראשונה. לכן בדחייה כזו מנסים שוב באותם בתים עם
+ *  שם וסוג חלופיים, לפי מה שהבתים עצמם אומרים. */
+const WHISPER_RETRY: Record<string, Array<[string, string]>> = {
+  m4a: [["mp4", "audio/mp4"], ["mp4", "video/mp4"]],
+  mp4: [["m4a", "audio/mp4"]],
+  aac: [["m4a", "audio/mp4"], ["mp4", "audio/mp4"]],
+  webm: [["ogg", "audio/ogg"]],
+  ogg: [["oga", "audio/ogg"], ["webm", "audio/webm"]],
+};
+
+/** סוג הקובץ לפי הבתים הראשונים - בשביל הלוג, כשהסיומת משקרת. */
+function sniff(bytes: Uint8Array): string {
+  const ascii = (a: number, b: number) => String.fromCharCode(...bytes.slice(a, b));
+  if (ascii(4, 8) === "ftyp") return `mp4(${ascii(8, 12)})`;
+  if (ascii(0, 4) === "OggS") return "ogg";
+  if (ascii(0, 4) === "RIFF") return "wav";
+  if (ascii(0, 3) === "ID3" || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)) return "mp3";
+  if (bytes[0] === 0x1a && bytes[1] === 0x45) return "webm";
+  if (ascii(0, 6) === "#!AMR\n") return "amr";
+  return [...bytes.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join(" ");
+}
+
+async function whisperOnce(bytes: Uint8Array<ArrayBuffer>, mime: string, ext: string) {
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: mime }), `call.${ext}`);
+  form.append("model", "whisper-1");
+  form.append("language", "he");
+  return await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_KEY}` },
+    body: form,
+  });
+}
+
 async function transcribe(bytes: Uint8Array<ArrayBuffer>, mime = "audio/mpeg", ext = "mp3"): Promise<string | null> {
   if (!OPENAI_KEY) return null;
+  // לפי הבתים ולא לפי מה שהדפדפן אמר: ‏ftyp הוא mp4/m4a גם אם הקובץ נקרא אחרת
+  const kind = sniff(bytes);
+  if (kind.startsWith("mp4(") && ext !== "m4a" && ext !== "mp4") ext = "m4a";
+  const attempts: Array<[string, string]> = [[ext, mime], ...(WHISPER_RETRY[ext] || [])];
   try {
-    const form = new FormData();
-    form.append("file", new Blob([bytes], { type: mime }), `call.${ext}`);
-    form.append("model", "whisper-1");
-    form.append("language", "he");
-    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_KEY}` },
-      body: form,
-    });
-    if (!res.ok) {
-      console.error("whisper failed", res.status, (await res.text()).slice(0, 300));
-      return null;
+    for (const [e, m] of attempts) {
+      const res = await whisperOnce(bytes, m, e);
+      if (res.ok) return (((await res.json())?.text as string) || "").trim() || null;
+      const body = (await res.text()).slice(0, 300);
+      console.error("whisper failed", res.status, `as .${e} (${m})`, `sniff=${kind}`, body);
+      // רק דחיית פורמט שווה ניסיון נוסף; מכסה, מפתח או תקלה - לא
+      if (res.status !== 400 || !/file format/i.test(body)) return null;
     }
-    return (((await res.json())?.text as string) || "").trim() || null;
+    return null;
   } catch (err) {
     console.error("transcription failed", err);
     return null;
