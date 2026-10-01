@@ -95,6 +95,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;border-radius:10px;
        font-weight:700;font-size:.95rem;width:100%;background:var(--blue);color:#fff}
   .btn:disabled{opacity:.45;cursor:not-allowed}
+  a.btn{text-decoration:none}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
 
   #feedback{font-size:.84rem;text-align:center;margin-top:11px;min-height:1.2em}
@@ -175,13 +176,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="big" style="font-size:2rem;line-height:1;margin-bottom:10px">🔒</div>
       <h1>אימות לפני צפייה בהסכם</h1>
       <p id="otpIntro"></p>
-      <p style="margin-top:8px" id="otpSentLine"></p>
-      <input type="text" id="otpInput" class="otp-input" inputmode="numeric" autocomplete="one-time-code"
-             maxlength="6" placeholder="------" aria-label="קוד האימות">
-      <div class="otp-actions">
-        <button type="button" class="btn" id="otpVerifyBtn" disabled>אימות וצפייה בהסכם</button>
-        <button type="button" class="btn btn-ghost" id="otpResendBtn">שליחת קוד חדש</button>
-        <button type="button" class="btn btn-ghost" id="otpSwitchBtn" hidden></button>
+      <!-- אימות בהודעה נכנסת: הלקוח/ה שולח/ת לנו הודעה מוכנה מהנייד שבכרטיס,
+           וה-webhook מאמת לפי המספר שממנו היא הגיעה. בלי תבנית של Meta. -->
+      <div id="waBox" hidden>
+        <p style="margin-top:8px">לחצו על הכפתור, ובוואטסאפ שייפתח פשוט שלחו את ההודעה המוכנה.
+          ההסכם ייפתח כאן לבד.</p>
+        <div class="otp-actions">
+          <a class="btn" id="waVerifyBtn" data-site-contact target="_blank" rel="noopener">אימות בוואטסאפ</a>
+        </div>
+        <p id="waWaiting" hidden style="margin-top:10px;font-size:.84rem">ממתינים להודעה שלך בוואטסאפ…</p>
+      </div>
+      <div id="otpCodeBox">
+        <p id="otpOr" hidden style="margin-top:16px;font-size:.84rem">או עם קוד:</p>
+        <p style="margin-top:8px" id="otpSentLine"></p>
+        <input type="text" id="otpInput" class="otp-input" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" placeholder="------" aria-label="קוד האימות">
+        <div class="otp-actions">
+          <button type="button" class="btn" id="otpVerifyBtn" disabled>אימות וצפייה בהסכם</button>
+          <button type="button" class="btn btn-ghost" id="otpResendBtn">שליחת קוד חדש</button>
+          <button type="button" class="btn btn-ghost" id="otpSwitchBtn" hidden></button>
+        </div>
       </div>
       <p style="margin-top:16px;font-size:.78rem">הסוכן/ת לידך? כשהקישור נפתח במכשיר שלו/ה,
         מחובר/ת לאזור האישי, החתימה נעשית בלי קוד.</p>
@@ -362,6 +376,13 @@ function renderOtpGate(data){
     data.agent.name + ' מבקש/ת את חתימתך על ' + data.agreement.title + '.';
   otpChannels = data.me.channels || [];
   paintOtpChannel(data.me.otp_channel, data.me.otp_target);
+
+  const waUrl = data.me.wa_verify_url || '';
+  document.getElementById('waBox').hidden = !waUrl;
+  if (waUrl) document.getElementById('waVerifyBtn').href = waUrl;
+  // בלי ערוץ לקוד (אין מייל, אין תבנית) - רק הכפתור, בלי שדה שאין מה להזין בו
+  document.getElementById('otpCodeBox').hidden = !otpChannels.length;
+  document.getElementById('otpOr').hidden = !(waUrl && otpChannels.length);
   if (data.me.otp_error){
     const fb = document.getElementById('otpFeedback');
     fb.style.color = 'var(--brick)';
@@ -370,8 +391,46 @@ function renderOtpGate(data){
       : 'שליחת הקוד נכשלה - לחצו על "שליחת קוד חדש".';
   }
   showState('stateOtp');
-  document.getElementById('otpInput').focus();
+  if (!waUrl) document.getElementById('otpInput').focus();
 }
+
+/* ההמתנה לאימות בוואטסאפ. ה-webhook מסמן את החותם/ת כמאומת/ת, והדף רק
+   שואל שוב: מיד כשחוזרים אליו מוואטסאפ, ובנוסף כל 3 שניות במשך 10 דקות. */
+let waPollTimer = null;
+let waPollUntil = 0;
+
+async function waPollOnce(){
+  if (document.getElementById('stateOtp').classList.contains('is-on') === false) return stopWaPoll();
+  const { ok, data } = await callFn({ action:'open', token });
+  if (ok && data.ok && !data.locked){
+    stopWaPoll();
+    await init();
+  }
+}
+
+function stopWaPoll(){
+  if (waPollTimer) clearInterval(waPollTimer);
+  waPollTimer = null;
+}
+
+function startWaPoll(){
+  document.getElementById('waWaiting').hidden = false;
+  waPollUntil = Date.now() + 10 * 60_000;
+  stopWaPoll();
+  waPollTimer = setInterval(()=>{
+    if (Date.now() > waPollUntil){
+      stopWaPoll();
+      document.getElementById('waWaiting').textContent = 'שלחתם את ההודעה? רעננו את הדף.';
+      return;
+    }
+    waPollOnce();
+  }, 3000);
+}
+
+document.getElementById('waVerifyBtn').addEventListener('click', startWaPoll);
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible' && waPollTimer) waPollOnce();
+});
 
 const otpInput = document.getElementById('otpInput');
 otpInput.addEventListener('input', ()=>{

@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { maskPhone, sendWhatsappOtp, toWhatsappMsisdn } from "../_shared/whatsapp-otp.ts";
+import { WA_VERIFY_TTL_MINUTES, waVerifyUrl } from "../_shared/agreement-wa-verify.ts";
 
 // ============================================================================
 // חתימת הסכמי תיווך — ידנית ומרחוק
@@ -167,10 +168,17 @@ function maskEmail(email: string | null): string {
 type OtpChannel = "whatsapp" | "email";
 type OtpSigner = { id: string; full_name: string; email: string | null; phone: string | null };
 
-/** הערוצים שאפשר לשלוח אליהם קוד, לפי סדר העדיפות: וואטסאפ ואז מייל. */
+const WA_OTP_TEMPLATE_SET = !!Deno.env.get("WHATSAPP_OTP_TEMPLATE");
+
+/**
+ * הערוצים שאפשר **לשלוח** אליהם קוד, לפי סדר העדיפות: וואטסאפ ואז מייל.
+ * ‏וואטסאפ יוצא רק עם תבנית AUTHENTICATION — בלעדיה ההודעה נדחית מחוץ לחלון
+ * 24 השעות, תמיד, וניסיון כזה רק מעכב את המייל. לנייד בלי תבנית יש את
+ * הכיוון ההפוך: הלקוח/ה שולח/ת לנו (‏_shared/agreement-wa-verify.ts).
+ */
 function otpChannels(signer: OtpSigner): OtpChannel[] {
   const out: OtpChannel[] = [];
-  if (toWhatsappMsisdn(signer.phone)) out.push("whatsapp");
+  if (WA_OTP_TEMPLATE_SET && toWhatsappMsisdn(signer.phone)) out.push("whatsapp");
   if (signer.email) out.push("email");
   return out;
 }
@@ -661,12 +669,36 @@ Deno.serve(async (req: Request) => {
     if (agreement.require_otp && !signer.otp_verified_at && !signer.signed_at && !inPerson) {
       const fresh = signer.otp_sent_at && signer.otp_hash &&
         (Date.now() - new Date(signer.otp_sent_at).getTime()) < OTP_TTL_MINUTES * 60_000;
+      const channels = otpChannels(signer);
       let channel: OtpChannel | null = (signer.otp_channel as OtpChannel | null) ?? null;
       let otpError: string | null = null;
-      if (!fresh) {
+
+      /* אימות בהודעה נכנסת: ה-nonce נשמר כל עוד הוא בתוקף, כי הדף קורא
+         ל-open שוב ושוב בזמן שהוא ממתין לאימות — nonce חדש בכל קריאה היה
+         פוסל את ההודעה שהלקוח/ה כבר שלח/ה. */
+      let waUrl: string | null = null;
+      if (toWhatsappMsisdn(signer.phone)) {
+        let nonce = signer.wa_verify_nonce as string | null;
+        const nonceFresh = nonce && signer.wa_verify_requested_at &&
+          (Date.now() - new Date(signer.wa_verify_requested_at).getTime()) <
+            (WA_VERIFY_TTL_MINUTES - 5) * 60_000;
+        if (!nonceFresh) {
+          nonce = newOtpCode();
+          const { error: nErr } = await db.from("agreement_signers").update({
+            wa_verify_nonce: nonce,
+            wa_verify_requested_at: new Date().toISOString(),
+          }).eq("id", signer.id);
+          if (nErr) { console.error("wa verify nonce save failed", nErr.message); nonce = null; }
+        }
+        if (nonce) waUrl = waVerifyUrl(nonce);
+      }
+
+      if (!fresh && channels.length) {
         const out = await issueOtp(signer, agreement.title);
         channel = out.channel;
-        otpError = out.sent ? null : (out.error === "no_contact" ? "no_contact" : "send_failed");
+        otpError = out.sent ? null : "send_failed";
+      } else if (!channels.length && !waUrl) {
+        otpError = "no_contact";
       }
       return json({
         ok: true,
@@ -678,7 +710,8 @@ Deno.serve(async (req: Request) => {
           otp_channel: channel,
           otp_target: otpTarget(signer, channel),
           otp_error: otpError,
-          channels: otpChannels(signer),
+          channels,
+          wa_verify_url: waUrl,
         },
       });
     }

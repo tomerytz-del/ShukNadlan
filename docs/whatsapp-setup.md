@@ -96,7 +96,8 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | `WHATSAPP_GRAPH_VERSION` | ⬜ | ברירת מחדל `v23.0` |
 | `WHATSAPP_NOTIFY_TEMPLATE` | להתראות | שם התבנית המאושרת לדחיפת התראות הפעמון. בלעדיה נשלח טקסט חופשי, שעובד רק בתוך חלון 24 השעות |
 | `WHATSAPP_NOTIFY_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
-| `WHATSAPP_OTP_TEMPLATE` | לחתימה על הסכמים | תבנית **Authentication** עם כפתור Copy code, לקוד האימות שהחותם/ת מקבל/ת לפני הצגת ההסכם. בלעדיה הקוד יוצא בטקסט חופשי (רק בתוך חלון 24 השעות) ואחר כך במייל. ראו [`client-agreements.md`](client-agreements.md) |
+| `WHATSAPP_OTP_TEMPLATE` | ⬜ | תבנית **Authentication** לקוד **יוצא** לחותם/ת על הסכם. Meta פותחת את הקטגוריה רק לעסק מאומת עם נפח שליחה גבוה, ובלעדיה החותם/ת מאמת/ת בהודעה **נכנסת** ("אימות חתימה NNNNNN") שה-webhook בודק לפני זיהוי הסוכן/ת. ראו [`client-agreements.md`](client-agreements.md) |
+| `WHATSAPP_BUSINESS_NUMBER` | ⬜ | המספר העסקי בספרות (`972…`), לקישור האימות בחתימה. ברירת מחדל זהה ל-`assets/bot-link.js` |
 | `WHATSAPP_OTP_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
 | `ALERT_CRON_SECRET` | להתראות | אימות הקורא הפנימי של `notification-push` (אותו סוד של שאר ה-cron) |
 
