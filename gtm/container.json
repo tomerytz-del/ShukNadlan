@@ -1,12 +1,12 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-09-26 21:22:05",
+    "exportTime": "2026-10-01 08:10:31",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/9",
+        "path": "accounts/6376638087/containers/264013397/versions/10",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "9",
-        "name": "חיפוש במשפט - 5 אירועים",
+        "containerVersionId": "10",
+        "name": "Meta pixel",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -74,7 +74,7 @@
                     {
                         "type": "TEMPLATE",
                         "key": "html",
-                        "value": "<!-- Meta Pixel Code -->\n<script>\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};\nif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\nn.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];\ns.parentNode.insertBefore(t,s)}(window, document,'script',\n'https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '1844258613237835');\nfbq('track', 'PageView');\n</script>\n<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\nsrc=\"https://www.facebook.com/tr?id=1844258613237835&ev=PageView&noscript=1\"\n/></noscript>\n<!-- End Meta Pixel Code -->"
+                        "value": "<!-- Meta Pixel Code -->\n<script>\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};\nif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\nn.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];\ns.parentNode.insertBefore(t,s)}(window, document,'script',\n'https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '2269705306930561');\nfbq('track', 'PageView');\n</script>\n<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\nsrc=\"https://www.facebook.com/tr?id=1844258613237835&ev=PageView&noscript=1\"\n/></noscript>\n<!-- End Meta Pixel Code -->"
                     },
                     {
                         "type": "BOOLEAN",
@@ -82,7 +82,7 @@
                         "value": "false"
                     }
                 ],
-                "fingerprint": "1789840543644",
+                "fingerprint": "1790842171422",
                 "firingTriggerId": [
                     "2147479553"
                 ],
@@ -3150,7 +3150,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1790457697420",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/9?apiLink=version"
+        "fingerprint": "1790842195657",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/10?apiLink=version"
     }
 }
