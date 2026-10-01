@@ -3215,6 +3215,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נופלת באלכסון ויוצרת לוח שחמט במקום פסים */
   .adm-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   @media(min-width:700px){.adm-facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  /* תווית שהיא משפט שלם ("אני רוצה למצוא נכס באושיסקין...") בטור ברוחב
+     חצי מסך נשברת לשש שורות והכרטיס נמתח לגובה. טור אחד נותן לה את כל
+     הרוחב, והמספר נשאר בקצה הנגדי */
+  .adm-facts.adm-facts-wide{grid-template-columns:minmax(0,1fr)}
+  @media(min-width:700px){.adm-facts.adm-facts-wide{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .adm-fact{
     display:flex;align-items:baseline;justify-content:space-between;gap:8px;
     padding:8px 11px;border-radius:var(--r-xs);background:var(--surface-2);

@@ -3174,9 +3174,14 @@ async function loadAdminPwaReport(){
    **הטור שבגללו הבלוק נבנה הוא "בלי תוצאות".** חיפוש עם תוצאות מספר על
    המלאי שיש; חיפוש שחזר ריק מספר על המלאי שחסר, כלומר על נכס שכדאי
    להשיג או על שכונה שאין בה מספיק. הפרטים: docs/search-analytics.md */
+/* ‏`fallback` ולא "סרגל החיפוש": אין סרגל חיפוש באתר מאז החיפוש במשפט,
+   והשורה הזו סופרת את מי ש-`SentenceSearch` נחסם אצלו/ה ונפל/ה למסלול
+   הישן. ‏`bar` הוא האיות הקודם של אותו דבר - דפדפן עם `home.js` במטמון
+   ממשיך לשלוח אותו - ולכן שתי התוויות זהות ולא שתי שורות נפרדות. */
 const SEARCH_SOURCE_LABELS = {
-  'bar':      'סרגל החיפוש',
   'sentence': 'חיפוש במשפט',
+  'fallback': 'מסלול גיבוי (המשפט נחסם)',
+  'bar':      'מסלול גיבוי (המשפט נחסם)',
 };
 
 async function loadAdminSearchReport(){
@@ -3187,7 +3192,7 @@ async function loadAdminSearchReport(){
     { p_days: adminReportMonths * 30 });
 
   const block = admBlock('מה מחפשים באתר',
-    'כל חיפוש מסרגל החיפוש ומהמשפט, נספר במסד שלנו ולא ב-GA4. השורה החשובה היא החיפושים שחזרו בלי תוצאות: הם מראים מה מחפשים אצלנו ולא מוצאים.');
+    'כל חיפוש באתר, נספר במסד שלנו ולא ב-GA4. השתיים שמובילות לפעולה הן "חיפשו ולא מצאו" ו"תוצאה אחת בלבד": הן מראות איזה מלאי חסר.');
 
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
@@ -3204,8 +3209,10 @@ async function loadAdminSearchReport(){
   const days     = Number(rep.window_days) || 30;
   const searches = Number(totals.searches) || 0;
   const zero     = Number(totals.zero_results) || 0;
+  const single   = Number(totals.single_results) || 0;
+  const settled  = Number(totals.settled_zero) || 0;
 
-  if (!searches){
+  if (!searches && !settled){
     block.appendChild(admEl('div', 'empty-state',
       'עדיין לא נרשמו חיפושים בחלון הזה.'));
     host.appendChild(block);
@@ -3213,14 +3220,24 @@ async function loadAdminSearchReport(){
     return;
   }
 
-  const zeroPct = Math.round((zero / searches) * 100);
+  const pctOf = n => searches > 0 ? Math.round((n / searches) * 100) : 0;
   block.appendChild(admEl('p', 'adm-legend',
     admInt(searches) + ' חיפושים ב-' + admInt(days) + ' ימים · ' +
     admInt(totals.sessions) + ' מבקרים · חציון תוצאות: ' + admInt(totals.median_results) +
-    ' · ' + admInt(zero) + ' חזרו ריקים (' + zeroPct + '%)'));
+    ' · ' + admInt(zero) + ' חזרו ריקים (' + pctOf(zero) + '%) · ' +
+    admInt(single) + ' החזירו נכס אחד (' + pctOf(single) + '%)'));
 
-  /* לפי מקור: הסרגל מול המשפט. אם אחד מהם מייצר הרבה יותר חיפושים
-     ריקים, זה אומר משהו על הכלי ולא רק על המלאי. */
+  /* ‏"נעצרו על אפס" אינו חלק מ-"חיפושים": שם מישהו לחץ "הצג N נכסים",
+     וכאן המשפט פשוט התייצב על אפס תוצאות ואיש לא ביקש לראות. אלה שני
+     דברים שונים, וערבוב שלהם היה משנה את משמעות המספר הראשון. */
+  if (settled){
+    block.appendChild(admEl('p', 'adm-legend',
+      'ועוד ' + admInt(settled) +
+      ' פעמים שבהן המשפט נעצר על אפס תוצאות ואיש לא ביקש לראות אותן'));
+  }
+
+  /* לפי מקור. אם מסלול אחד מייצר הרבה יותר חיפושים ריקים, זה אומר משהו
+     על הכלי ולא רק על המלאי. */
   const bySource = Array.isArray(rep.by_source) ? rep.by_source : [];
   if (bySource.length){
     const rows = admEl('div', 'adm-rows');
@@ -3264,23 +3281,34 @@ async function loadAdminSearchReport(){
     block.appendChild(wrap);
   }
 
-  /* הממצא: מה חיפשו ולא מצאו. גם מונח שהופיע פעם אחת נחשב כאן - נכס
-     שחסר במלאי אינו צריך להיות פופולרי כדי להיות שווה השגה. */
-  const zeroTerms = Array.isArray(rep.zero_terms) ? rep.zero_terms : [];
-  if (zeroTerms.length){
-    block.appendChild(admEl('p', 'adm-legend', 'חיפשו ולא מצאו'));
-    const facts = admEl('div', 'adm-facts');
-    zeroTerms.forEach(row => {
+  /* שתי הרשימות שמובילות לפעולה. גם מונח שהופיע אצל אדם אחד נחשב בהן -
+     נכס שחסר במלאי אינו צריך להיות פופולרי כדי להיות שווה השגה.
+
+     **נספר במבקרים ולא בחיפושים**, ולכן "אנשים" ולא "פעמים": אותו אדם
+     יכול להגיע לאותו צירוף פעמיים, ושתי שורות היו קוראות לזה שניים. */
+  const termFacts = (rows, title) => {
+    if (!rows.length) return;
+    block.appendChild(admEl('p', 'adm-legend', title));
+    /* ‏`adm-facts-wide`: המונחים כאן הם משפטים שלמים ("אני רוצה למצוא
+       נכס באושיסקין עם כל גודל בכל תקציב") ולא מילה אחת. */
+    const facts = admEl('div', 'adm-facts adm-facts-wide');
+    rows.forEach(row => {
       const fact = admEl('div', 'adm-fact');
+      /* ‏textContent ולא innerHTML: זה טקסט שגולש/ת הקליד/ה */
       fact.appendChild(admEl('span', 'adm-fact-lbl', row.term));
-      /* ‏"פעמים" ולא מספר עירום: בלי היחידה אי אפשר לדעת אם 9 הוא כמה
-         חיפשו את זה או כמה תוצאות היו (כאן תמיד אפס). */
       fact.appendChild(admEl('span', 'adm-fact-val',
-        plural(Number(row.searches) || 0, 'פעם אחת', 'פעמים', admInt(row.searches))));
+        plural(Number(row.people) || 0, 'מבקר/ת אחד/ת', 'מבקרים', admInt(row.people))));
       facts.appendChild(fact);
     });
     block.appendChild(facts);
-  }
+  };
+
+  termFacts(Array.isArray(rep.zero_terms) ? rep.zero_terms : [], 'חיפשו ולא מצאו');
+
+  /* תוצאה אחת אינה אפס, ומבחינת מי שמחפש זה כמעט אותו דבר: רחוב או
+     שכונה שיש בהם נכס בודד הם מלאי חסר בדיוק כמו אפס, והם לא היו
+     מופיעים בשום מקום אחר בבלוק. */
+  termFacts(Array.isArray(rep.single_terms) ? rep.single_terms : [], 'תוצאה אחת בלבד');
 
   host.appendChild(block);
   dashPanelsMeasure();
