@@ -2989,6 +2989,7 @@ const ADMIN_NAV = [
   { id: 'dashPanelLeads',     label: 'לידים',         dot: '#22456e' },
   { id: 'dashPanelOps',       label: 'בריאות המערכת', dot: '#1f6f63' },
   { id: 'dashPanelInventory', label: 'מצבת',          dot: '#2f4f7a' },
+  { id: 'dashPanelCosts',     label: 'עלויות',        dot: '#5b6b2f' },
   { id: 'platformAdminSection', label: 'כלי ניהול',   dot: '#6b7280' },
 ];
 
@@ -4581,6 +4582,425 @@ document.querySelectorAll('#invRange button').forEach(btn=>{
   });
 });
 document.getElementById('invRefreshBtn').addEventListener('click', loadInventoryReport);
+
+/* ==========================================================================
+   עלויות הפלטפורמה (דשבורד 6)
+   --------------------------------------------------------------------------
+   שורה לכל חיוב של ספק, מ-platform_costs: מה שנקלט מקבלות שהועברו ל-
+   shuknadlan+costs@gmail.com, ומה שהוזן כאן ידנית. docs/platform-costs.md.
+
+   **המטבעות אינם מתערבבים בשקט.** הסך הכל בשקלים הוא הערכה לפי שער שמוצג
+   ליד המספר וניתן לשינוי; הסכומים המקוריים, בדולר ובשקל, מוצגים כמו שחויבו.
+   ========================================================================== */
+const COST_SERVICES = [
+  { key: 'netlify',             label: 'Netlify',        sub: 'אחסון האתר' },
+  { key: 'supabase',            label: 'Supabase',       sub: 'מסד, פונקציות ואחסון קבצים' },
+  { key: 'domain',              label: 'דומיינים',       sub: 'box.co.il' },
+  { key: 'github',              label: 'GitHub',         sub: 'קוד ו-Actions' },
+  { key: 'anthropic_api',       label: 'Claude API',     sub: 'הבוטים, תיאורים, מבזקים, סיכומי שיחות' },
+  { key: 'claude_subscription', label: 'מנוי Claude',    sub: 'Claude Code' },
+  { key: 'openai',              label: 'OpenAI',         sub: 'תמלול הקלטות (Whisper)' },
+  { key: 'gemini',              label: 'Google Gemini',  sub: 'סיווג תמונות והדמיות' },
+  { key: 'fal_ai',              label: 'fal.ai',         sub: 'סרטוני נכסים' },
+  { key: 'meta',                label: 'Meta',           sub: 'וואטסאפ ופייסבוק' },
+  { key: 'twilio',              label: 'Twilio',         sub: 'יומן שיחות' },
+  { key: 'make',                label: 'Make.com',       sub: 'פרסום לפייסבוק ולאינסטגרם' },
+  { key: 'morning',             label: 'morning',        sub: 'סליקה וחשבוניות' },
+  { key: 'resend',              label: 'Resend',         sub: 'מייל' },
+  { key: 'other',               label: 'אחר',            sub: '' },
+];
+const COST_SERVICE_OF = new Map(COST_SERVICES.map(s => [s.key, s]));
+const COST_SOURCE_LABEL = { mail: 'מייל', manual: 'ידני', backfill: 'ייבוא' };
+const COST_RATE_KEY = 'shuk_costs_usd_ils';
+
+let costsPeriod = 'month';
+let costsBusy = false;
+let costsLast = null;      // הדוח האחרון, לבנייה מחדש כשהשער משתנה
+let costsEditId = null;
+
+function costLabel(key){
+  const s = COST_SERVICE_OF.get(key);
+  return s ? s.label : key;
+}
+
+function costUsdRate(){
+  try{
+    const v = Number(localStorage.getItem(COST_RATE_KEY));
+    if (v > 0) return v;
+  }catch(e){}
+  return 3.7;
+}
+
+/* סכום בשקלים להערכה. אירו מומר דרך הדולר (1.08), וזה כתוב ליד השער. */
+function costToIls(amount, currency){
+  const a = Number(amount) || 0;
+  if (currency === 'ILS') return a;
+  if (currency === 'EUR') return a * costUsdRate() * 1.08;
+  return a * costUsdRate();
+}
+
+function costFmt(amount, currency){
+  if (amount === null || amount === undefined) return 'לא ידוע';
+  try{
+    return Number(amount).toLocaleString('he-IL', {
+      style: 'currency', currency: currency || 'USD',
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    });
+  }catch(e){
+    return String(amount) + ' ' + (currency || '');
+  }
+}
+
+function costYmd(d){
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+/* התקופה והתקופה שלפניה, באותו אורך. בחודשים - חודשים קלנדריים מלאים,
+   כדי ש"ספטמבר מול אוגוסט" יהיה באמת זה. */
+function costsRangeOf(period){
+  const now = new Date();
+  const ms = (offset) => new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const me = (offset) => new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  if (period === 'custom'){
+    const f = document.getElementById('costsFrom').value;
+    const t = document.getElementById('costsTo').value;
+    if (!f || !t || f > t) return null;
+    const from = new Date(f + 'T00:00:00');
+    const to = new Date(t + 'T00:00:00');
+    const days = Math.round((to - from) / 86400000) + 1;
+    const pTo = new Date(from); pTo.setDate(pTo.getDate() - 1);
+    const pFrom = new Date(pTo); pFrom.setDate(pFrom.getDate() - days + 1);
+    return { from: f, to: t, prevFrom: costYmd(pFrom), prevTo: costYmd(pTo),
+             label: f + ' עד ' + t, prevLabel: 'התקופה הקודמת' };
+  }
+  if (period === 'last'){
+    return { from: costYmd(ms(-1)), to: costYmd(me(-1)), prevFrom: costYmd(ms(-2)), prevTo: costYmd(me(-2)),
+             label: admMonthLabel(costYmd(ms(-1)).slice(0, 7)), prevLabel: admMonthLabel(costYmd(ms(-2)).slice(0, 7)) };
+  }
+  const n = period === 'month' ? 1 : (Number(period) || 1);
+  return { from: costYmd(ms(-(n - 1))), to: costYmd(now), prevFrom: costYmd(ms(-(2 * n - 1))), prevTo: costYmd(me(-n)),
+           label: n === 1 ? admMonthLabel(costYmd(now).slice(0, 7)) + ' (עד היום)' : n + ' חודשים אחרונים',
+           prevLabel: n === 1 ? admMonthLabel(costYmd(ms(-1)).slice(0, 7)) : n + ' החודשים שלפני' };
+}
+
+async function loadCostsReport(){
+  const host = document.getElementById('costsReport');
+  if (!host || costsBusy) return;
+  const range = costsRangeOf(costsPeriod);
+  if (!range){
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', 'בחרו תאריך התחלה ותאריך סיום.'));
+    dashPanelsMeasure();
+    return;
+  }
+  costsBusy = true;
+  const refreshBtn = document.getElementById('costsRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את העלויות…</div>';
+
+  const { data, error } = await sb.rpc('platform_costs_list', { p_from: range.prevFrom, p_to: range.to });
+
+  costsBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'דוח העלויות לא קיים עדיין במסד - הריצו את המיגרציה 20270206090000_platform_costs.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת העלויות: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  costsLast = { report: data || {}, range };
+  renderCostsReport();
+}
+
+function renderCostsReport(){
+  const host = document.getElementById('costsReport');
+  if (!host || !costsLast) return;
+  const { report, range } = costsLast;
+  host.innerHTML = '';
+
+  const all = Array.isArray(report.rows) ? report.rows : [];
+  const pending = Array.isArray(report.pending) ? report.pending : [];
+  const counted = r => r.status === 'confirmed' && r.amount !== null;
+  const cur  = all.filter(r => r.charged_on >= range.from && r.charged_on <= range.to);
+  const prev = all.filter(r => r.charged_on >= range.prevFrom && r.charged_on <= range.prevTo);
+
+  const sumIls = rows => rows.filter(counted).reduce((s, r) => s + costToIls(r.amount, r.currency), 0);
+  const sumCur = (rows, c) => rows.filter(r => counted(r) && r.currency === c).reduce((s, r) => s + Number(r.amount), 0);
+
+  const stampEl = document.getElementById('costsStamp');
+  if (stampEl) stampEl.textContent = report.generated_at
+    ? 'עודכן ' + new Date(report.generated_at).toLocaleString('he-IL')
+    : '';
+
+  /* ---- 1. ארבעת המספרים ---- */
+  const totalNow = sumIls(cur), totalPrev = sumIls(prev);
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('סה"כ בתקופה (הערכה בשקלים)', admMoney(totalNow),
+    { wine: true, delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
+      note: range.label + ' · מול ' + admMoney(totalPrev) }));
+  tiles.appendChild(admTile('חיובים בדולר', costFmt(sumCur(cur, 'USD'), 'USD'),
+    { note: plural(cur.filter(r => counted(r) && r.currency === 'USD').length, 'חיוב אחד', 'חיובים') }));
+  tiles.appendChild(admTile('חיובים בשקלים', costFmt(sumCur(cur, 'ILS'), 'ILS'),
+    { note: plural(cur.filter(r => counted(r) && r.currency === 'ILS').length, 'חיוב אחד', 'חיובים') }));
+  tiles.appendChild(admTile('ממתינים לאישור', admInt(pending.length),
+    { note: pending.length ? 'לא נספרים בסך הכל' : 'הכול מאושר' }));
+  host.appendChild(tiles);
+
+  const rate = admEl('div', 'cst-rate');
+  rate.appendChild(admEl('span', null, 'שער להערכה: ₪'));
+  const rateIn = admEl('input');
+  rateIn.type = 'number'; rateIn.step = '0.01'; rateIn.min = '0.1';
+  rateIn.value = String(costUsdRate());
+  rateIn.setAttribute('aria-label', 'שער הדולר בשקלים להערכה');
+  rateIn.addEventListener('change', ()=>{
+    const v = Number(rateIn.value);
+    if (v > 0){
+      try{ localStorage.setItem(COST_RATE_KEY, String(v)); }catch(e){}
+      renderCostsReport();
+    }
+  });
+  rate.appendChild(rateIn);
+  rate.appendChild(admEl('span', null, 'לדולר. הסכומים המקוריים מוצגים בפירוט כמו שחויבו.'));
+  host.appendChild(rate);
+
+  /* ---- 2. ממתינים ---- */
+  if (pending.length){
+    const block = admBlock('ממתינים לאישור',
+      'קבלות שלא זוהה בהן סכום בוודאות. הן לא נספרות עד שמשלימים את הסכום ומאשרים.');
+    const list = admEl('div', 'cst-pend');
+    pending.forEach(r => {
+      const item = admEl('div', 'cst-pend-item');
+      const main = admEl('div', 'cst-pend-main', costLabel(r.service) + ' · ' +
+        (r.amount === null ? 'סכום לא ידוע' : costFmt(r.amount, r.currency)));
+      main.appendChild(admEl('small', null, [r.charged_on, r.invoice_no ? 'חשבונית ' + r.invoice_no : '',
+        r.description || r.mail_subject || ''].filter(Boolean).join(' · ')));
+      item.appendChild(main);
+      const ok = admEl('button', 'cst-act', 'השלמה ואישור');
+      ok.type = 'button';
+      ok.addEventListener('click', ()=> costsOpenForm(r, 'confirmed'));
+      const no = admEl('button', 'cst-act danger', 'לא חיוב שלנו');
+      no.type = 'button';
+      no.addEventListener('click', ()=> costsSetStatus(r, 'rejected'));
+      item.appendChild(ok); item.appendChild(no);
+      list.appendChild(item);
+    });
+    block.appendChild(list);
+    host.appendChild(block);
+  }
+
+  /* ---- 3. לפי שירות ---- */
+  const svcBlock = admBlock('לפי שירות', 'הסכום בשקלים להערכה, והחץ - מול ' + range.prevLabel + '.');
+  const bySvc = new Map();
+  cur.filter(counted).forEach(r => {
+    const s = bySvc.get(r.service) || { ils: 0, n: 0, orig: new Map() };
+    s.ils += costToIls(r.amount, r.currency); s.n++;
+    s.orig.set(r.currency, (s.orig.get(r.currency) || 0) + Number(r.amount));
+    bySvc.set(r.service, s);
+  });
+  const prevBySvc = new Map();
+  prev.filter(counted).forEach(r => prevBySvc.set(r.service, (prevBySvc.get(r.service) || 0) + costToIls(r.amount, r.currency)));
+  if (!bySvc.size){
+    svcBlock.appendChild(admEl('div', 'empty-state', 'אין חיובים מאושרים בתקופה הזו.'));
+  } else {
+    const rows = admEl('div', 'adm-rows');
+    [...bySvc.entries()].sort((a, b) => b[1].ils - a[1].ils).forEach(([key, s]) => {
+      const orig = [...s.orig.entries()].map(([c, v]) => costFmt(v, c)).join(' + ');
+      const meta = COST_SERVICE_OF.get(key);
+      const sub = [meta && meta.sub, plural(s.n, 'חיוב אחד', 'חיובים'), orig].filter(Boolean).join(' · ');
+      rows.appendChild(admRow(costLabel(key), sub, admMoney(s.ils),
+        totalNow ? (s.ils / totalNow) * 100 : 0,
+        admDeltaChip(Math.round(s.ils), Math.round(prevBySvc.get(key) || 0))));
+    });
+    rows.appendChild(admRow('סה"כ', null, admMoney(totalNow), null, null, true));
+    svcBlock.appendChild(rows);
+  }
+  host.appendChild(svcBlock);
+
+  /* ---- 4. לפי חודש ---- */
+  const months = [];
+  for (let d = new Date(range.from.slice(0, 7) + '-01T00:00:00'); costYmd(d) <= range.to; d.setMonth(d.getMonth() + 1)){
+    const ym = costYmd(d).slice(0, 7);
+    months.push({ month: ym, total: sumIls(cur.filter(r => r.charged_on.slice(0, 7) === ym)) });
+  }
+  if (months.length > 1){
+    const mBlock = admBlock('לפי חודש', 'החודש האחרון מסומן בזהב אם הוא עוד לא נגמר.');
+    mBlock.appendChild(admChart(months, m => m.total, admMoney));
+    host.appendChild(mBlock);
+  }
+
+  /* ---- 5. כל החיובים ---- */
+  const listBlock = admBlock('כל החיובים בתקופה', 'מקור: מייל = קבלה שנקלטה אוטומטית, ידני = הוזן כאן, ייבוא = נתוני הפתיחה.');
+  if (!cur.length){
+    listBlock.appendChild(admEl('div', 'empty-state', 'אין חיובים בתקופה הזו.'));
+  } else {
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table');
+    const thead = admEl('thead'); const hr = admEl('tr');
+    ['שירות', 'תאריך', 'סכום', 'חשבונית', 'תיאור', 'מקור', ''].forEach(h => hr.appendChild(admEl('th', null, h)));
+    thead.appendChild(hr); table.appendChild(thead);
+    const tbody = admEl('tbody');
+    cur.forEach(r => {
+      const tr = admEl('tr', r.status === 'rejected' ? 'is-rejected' : null);
+      const name = admEl('td', null, costLabel(r.service));
+      if (r.status !== 'confirmed'){
+        name.appendChild(document.createTextNode(' '));
+        name.appendChild(admEl('span', 'cst-tag ' + r.status, r.status === 'pending' ? 'ממתין' : 'נדחה'));
+      }
+      tr.appendChild(name);
+      tr.appendChild(admEl('td', 'num', r.charged_on));
+      tr.appendChild(admEl('td', 'num', costFmt(r.amount, r.currency)));
+      tr.appendChild(admEl('td', null, r.invoice_no || ''));
+      const desc = admEl('td', null, (r.description || '').slice(0, 60));
+      if (r.description && r.description.length > 60) desc.title = r.description;
+      tr.appendChild(desc);
+      tr.appendChild(admEl('td', null, COST_SOURCE_LABEL[r.source] || r.source));
+      const act = admEl('td');
+      const edit = admEl('button', 'cst-act', 'עריכה');
+      edit.type = 'button';
+      edit.addEventListener('click', ()=> costsOpenForm(r));
+      const del = admEl('button', 'cst-act danger', 'מחיקה');
+      del.type = 'button';
+      del.addEventListener('click', ()=> costsDelete(r));
+      act.appendChild(edit); act.appendChild(document.createTextNode(' ')); act.appendChild(del);
+      tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); wrap.appendChild(table); listBlock.appendChild(wrap);
+  }
+  host.appendChild(listBlock);
+
+  /* ---- 6. איך קבלות נכנסות ---- */
+  const how = admBlock('קליטה אוטומטית מהמייל');
+  const p = admEl('p', 'cst-howto');
+  p.appendChild(document.createTextNode('קבלה שמגיעה ל-'));
+  p.appendChild(admEl('code', null, 'shuknadlan+costs@gmail.com'));
+  p.appendChild(document.createTextNode(
+    ' נקלטת תוך שתי דקות - ממסנן העברה בתיבה הפרטית, או מהעברה ידנית של מנהל/ת. ' +
+    (report.last_mail_at
+      ? 'הקבלה האחרונה נקלטה ' + new Date(report.last_mail_at).toLocaleString('he-IL') + '.'
+      : 'עוד לא נקלטה קבלה מהמייל.')));
+  how.appendChild(p);
+  host.appendChild(how);
+
+  dashPanelsMeasure();
+}
+
+function costsFillServices(){
+  const sel = document.getElementById('cfService');
+  if (!sel || sel.options.length) return;
+  COST_SERVICES.forEach(s => {
+    const o = admEl('option', null, s.label + (s.sub ? ' - ' + s.sub : ''));
+    o.value = s.key;
+    sel.appendChild(o);
+  });
+}
+
+/* ‏row ריק = חשבונית חדשה. ‏forceStatus - כשנפתח מ"השלמה ואישור". */
+function costsOpenForm(row, forceStatus){
+  costsFillServices();
+  const form = document.getElementById('costsForm');
+  costsEditId = row ? row.id : null;
+  document.getElementById('costsFormTitle').textContent = row ? 'עריכת חיוב' : 'חשבונית חדשה';
+  const svc = document.getElementById('cfService');
+  const key = row ? row.service : 'netlify';
+  if (![...svc.options].some(o => o.value === key)){
+    const o = admEl('option', null, key); o.value = key; svc.appendChild(o);
+  }
+  svc.value = key;
+  document.getElementById('cfDate').value = row ? row.charged_on : costYmd(new Date());
+  document.getElementById('cfAmount').value = row && row.amount !== null ? String(row.amount) : '';
+  document.getElementById('cfCurrency').value = row ? row.currency : 'USD';
+  document.getElementById('cfInvoice').value = row ? (row.invoice_no || '') : '';
+  document.getElementById('cfDesc').value = row ? (row.description || '') : '';
+  document.getElementById('cfStatus').value = forceStatus || (row ? row.status : 'confirmed');
+  document.getElementById('cfError').hidden = true;
+  form.hidden = false;
+  const panel = document.getElementById('dashPanelCosts');
+  if (panel && !panel.classList.contains('is-open')) dashPanelSetOpen(panel, true, true);
+  dashPanelsMeasure();
+  form.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block: 'center' });
+  (row && row.amount === null ? document.getElementById('cfAmount') : svc).focus();
+}
+
+function costsCloseForm(){
+  document.getElementById('costsForm').hidden = true;
+  costsEditId = null;
+  dashPanelsMeasure();
+}
+
+async function costsSave(e){
+  e.preventDefault();
+  const err = document.getElementById('cfError');
+  const amountRaw = document.getElementById('cfAmount').value.trim();
+  const status = document.getElementById('cfStatus').value;
+  const showErr = (msg)=>{ err.textContent = msg; err.hidden = false; dashPanelsMeasure(); };
+  if (!document.getElementById('cfDate').value) return showErr('חסר תאריך החיוב.');
+  if (amountRaw === '' && status === 'confirmed') return showErr('חיוב מאושר צריך סכום. אם הסכום לא ידוע עדיין - שמרו כ"ממתין".');
+  const btn = document.getElementById('cfSave');
+  btn.disabled = true;
+  const { error } = await sb.rpc('platform_cost_save', {
+    p_id: costsEditId,
+    p_service: document.getElementById('cfService').value,
+    p_charged_on: document.getElementById('cfDate').value,
+    p_amount: amountRaw === '' ? null : Number(amountRaw),
+    p_currency: document.getElementById('cfCurrency').value,
+    p_invoice_no: document.getElementById('cfInvoice').value,
+    p_description: document.getElementById('cfDesc').value,
+    p_status: status,
+  });
+  btn.disabled = false;
+  if (error) return showErr(error.message || 'השמירה נכשלה.');
+  showToast(costsEditId ? 'החיוב עודכן' : 'החשבונית נוספה');
+  costsCloseForm();
+  loadCostsReport();
+}
+
+async function costsSetStatus(row, status){
+  const { error } = await sb.rpc('platform_cost_save', {
+    p_id: row.id, p_service: row.service, p_charged_on: row.charged_on, p_amount: row.amount,
+    p_currency: row.currency, p_invoice_no: row.invoice_no, p_description: row.description, p_status: status,
+  });
+  if (error){ showToast('העדכון נכשל: ' + error.message); return; }
+  showToast(status === 'rejected' ? 'סומן כלא חיוב שלנו' : 'עודכן');
+  loadCostsReport();
+}
+
+async function costsDelete(row){
+  if (!confirm('למחוק את החיוב של ' + costLabel(row.service) + ' מ-' + row.charged_on + '?')) return;
+  const { error } = await sb.rpc('platform_cost_delete', { p_id: row.id });
+  if (error){ showToast('המחיקה נכשלה: ' + error.message); return; }
+  showToast('החיוב נמחק');
+  loadCostsReport();
+}
+
+document.querySelectorAll('#costsRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    costsPeriod = btn.dataset.period || 'month';
+    document.querySelectorAll('#costsRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    const custom = document.getElementById('costsCustom');
+    custom.hidden = costsPeriod !== 'custom';
+    if (costsPeriod === 'custom'){
+      const f = document.getElementById('costsFrom'), t = document.getElementById('costsTo');
+      if (!t.value) t.value = costYmd(new Date());
+      if (!f.value){ const d = new Date(); d.setMonth(d.getMonth() - 1); f.value = costYmd(d); }
+    }
+    loadCostsReport();
+  });
+});
+document.getElementById('costsCustomGo').addEventListener('click', loadCostsReport);
+document.getElementById('costsRefreshBtn').addEventListener('click', loadCostsReport);
+document.getElementById('costsAddBtn').addEventListener('click', ()=> costsOpenForm(null));
+document.getElementById('cfCancel').addEventListener('click', costsCloseForm);
+document.getElementById('costsForm').addEventListener('submit', costsSave);
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
@@ -22078,6 +22498,8 @@ function applyNavFilter(){
   if (opsPanel) opsPanel.classList.toggle('nav-off', !isAdminView);
   const invPanel = document.getElementById('dashPanelInventory');
   if (invPanel) invPanel.classList.toggle('nav-off', !isAdminView);
+  const costsPanel = document.getElementById('dashPanelCosts');
+  if (costsPanel) costsPanel.classList.toggle('nav-off', !isAdminView);
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.classList.toggle('nav-off', !isAdminView);
   const adminNav = document.getElementById('adminNav');
@@ -22151,6 +22573,8 @@ function setDashView(view, opts){
   if (opsPanel) opsPanel.hidden = (dashView !== 'admin');
   const invPanel = document.getElementById('dashPanelInventory');
   if (invPanel) invPanel.hidden = (dashView !== 'admin');
+  const costsPanel = document.getElementById('dashPanelCosts');
+  if (costsPanel) costsPanel.hidden = (dashView !== 'admin');
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.hidden = (dashView !== 'admin');
   const adminNav = document.getElementById('adminNav');
@@ -22178,6 +22602,7 @@ function setDashView(view, opts){
     loadLeadReport();
     loadOpsReport();
     loadInventoryReport();
+    loadCostsReport();
   }
   if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
