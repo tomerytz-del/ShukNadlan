@@ -27,6 +27,7 @@ import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
+import { forwardedSender, parseCostMail, stripForwardPrefix } from "./cost-mail.ts";
 
 /* התיבה. ברירת המחדל היא תיבת הפלטפורמה שכבר שולחת את המייל
    (‏platform-mail), עם אותה סיסמת אפליקציה — אין סוד חדש להגדיר. תיבה נפרדת
@@ -53,6 +54,10 @@ const MAX_BODY_CHARS = 12_000;
 const HISTORY_CHARS = 2_500;
 
 const TIER_ALLOWED = new Set(["mid", "premium"]);
+
+/* קבלות לעלויות הפלטפורמה (‏docs/platform-costs.md) — בלי מודל, ולכן תקרה
+   משלהן ולא מתוך MAX_PER_RUN: עשרים קבלות אינן עשרים תורים של העוזר. */
+const COSTS_PER_RUN = 20;
 
 /**
  * ‏**הכלים של תור מייל.** מייל מועבר נושא טקסט שכתב מישהו אחר — הפונה, אתר
@@ -104,6 +109,21 @@ export function extractToken(headers: string, mailboxUser: string): string | nul
     if (m[1].replace(/\./g, "") === local.replace(/\./g, "")) return m[2];
   }
   return null;
+}
+
+/**
+ * האם המייל נשלח לכתובת הקבלות — ‏`shuknadlan+costs@gmail.com`. שם קבוע
+ * ולא טוקן: זו כתובת של הפלטפורמה, לא של סוכן/ת, ומה שמגן עליה הוא שרק
+ * ספק מאומת או מנהל/ת פלטפורמה מאומת/ת נקלטים ממנה (‏handleCostMail).
+ */
+export function isCostsMail(headers: string, mailboxUser: string): boolean {
+  const [local, domain] = mailboxUser.toLowerCase().split("@");
+  if (!local || !domain) return false;
+  const re = new RegExp(`([a-z0-9.]+)\\+costs@${escapeRe(domain)}`, "g");
+  for (const m of headers.toLowerCase().matchAll(re)) {
+    if (m[1].replace(/\./g, "") === local.replace(/\./g, "")) return true;
+  }
+  return false;
 }
 
 /**
@@ -469,6 +489,89 @@ async function handleOne(
 }
 
 // ---------------------------------------------------------------------------
+// קבלה של ספק → עלויות הפלטפורמה
+// ---------------------------------------------------------------------------
+
+/**
+ * קבלה אחת שהגיעה לכתובת `+costs`. שני מקורות בלבד נקלטים:
+ *
+ *   * **הספק עצמו, מאומת** — המסנן ב-Gmail מעביר את הקבלה כמו שהיא, וה-
+ *     ‏From והחתימה של הספק נשמרים. ‏`parseCostMail` מחליט/ה אם זה ספק מוכר.
+ *   * **מנהל/ת פלטפורמה, מאומת/ת** — שהעביר/ה קבלה ביד ("העבר"). השולח
+ *     המקורי נקרא מכותרת ההעברה שבגוף, ולכן אינו מאומת — מה שמקובל כי מי
+ *     שהעביר/ה כן מאומת/ת. ספק שאינו ברשימה נכנס כ-`other` וממתין.
+ *
+ * כל השאר — נרשם ב-`email_intake_messages` כ-skipped ולא נוגע בטבלה.
+ */
+async function handleCostMail(
+  sb: SupabaseClient,
+  imap: ImapClient,
+  mailbox: string,
+  uidvalidity: number,
+  uid: number,
+  sender: string,
+  byAdmin: boolean,
+): Promise<void> {
+  const { data: claimed, error: claimErr } = await sb.from("email_intake_messages")
+    .insert({ mailbox, uidvalidity, uid, status: "processing", via: "costs" })
+    .select("id")
+    .single();
+  if (claimErr || !claimed) {
+    if (claimErr?.code !== "23505") console.error("cost mail claim failed", claimErr);
+    return;
+  }
+  const row = claimed as ClaimRow;
+
+  let mail: ParsedMail;
+  try {
+    const fetched = await imap.uidFetch([uid], `BODY.PEEK[]<0.${MAX_FETCH_BYTES}>`);
+    const raw = fetched.get(uid)?.bytes;
+    if (!raw || !raw.length) return finish(sb, row, "failed", "costs: empty_fetch");
+    mail = await parseMail(raw);
+  } catch (err) {
+    console.error("cost mail fetch/parse failed", err);
+    return finish(sb, row, "failed", `costs: fetch: ${String((err as Error)?.message || err)}`);
+  }
+
+  await sb.from("email_intake_messages").update({
+    message_id: mail.messageId,
+    from_addr: mail.from.slice(0, 300),
+    subject: mail.subject.slice(0, 300),
+  }).eq("id", row.id);
+
+  const vendor = byAdmin ? (forwardedSender(mail.text) || "") : sender;
+  const draft = parseCostMail(
+    {
+      sender: vendor,
+      subject: mail.subject,
+      text: mail.text,
+      mailDate: mail.date ? new Date(mail.date) : null,
+    },
+    byAdmin ? "other" : null,
+  );
+  if (!draft) return finish(sb, row, "skipped", `costs: not_a_charge (${vendor || "unknown"})`);
+
+  const { error } = await sb.from("platform_costs").insert({
+    ...draft,
+    source: "mail",
+    mail_message_id: mail.messageId,
+    mail_from: (byAdmin ? `${vendor} (via ${sender})` : sender).slice(0, 300),
+    mail_subject: stripForwardPrefix(mail.subject).slice(0, 300),
+  });
+  if (error) {
+    // אותה חשבונית שכבר נקלטה (העברה כפולה, או "חשבונית חדשה" ואחריה
+    // "התשלום התקבל") — זה המקרה שהמפתח הייחודי נועד לו, לא תקלה.
+    if (error.code === "23505") return finish(sb, row, "skipped", `costs: duplicate ${draft.invoice_no || ""}`);
+    console.error("cost mail insert failed", error);
+    return finish(sb, row, "failed", `costs: insert: ${error.message}`);
+  }
+  await finish(
+    sb, row, "done",
+    `costs: ${draft.service} ${draft.amount ?? "?"} ${draft.currency} ${draft.status}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // הסבב
 // ---------------------------------------------------------------------------
 
@@ -501,6 +604,7 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
 
     let advanced = lastUid;
     let handled = 0;
+    let costsHandled = 0;
 
     if (uids.length) {
       const heads = new Map<number, string>();
@@ -514,10 +618,14 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
 
       // מייל בלי טוקן, מכתובת מאומתת: האם זו הכתובת הרשומה של סוכן/ת?
       // שאילתה אחת לכל הסבב, ולא אחת למייל — רוב המייל בתיבה אינו של סוכנים.
+      // ‏גם קבלה ל-`+costs` שמנהל/ת העביר/ה עוברת כאן: הכתובת שלה היא כתובת
+      // של סוכן/ת, וכך מתברר אם הוא/היא מנהל/ת פלטפורמה.
       const senders = new Map<number, string>();
+      const costs = new Set<number>();
       for (const uid of uids) {
         const h = heads.get(uid) || "";
-        if (extractToken(h, IMAP_USER)) continue;
+        if (isCostsMail(h, IMAP_USER)) costs.add(uid);
+        else if (extractToken(h, IMAP_USER)) continue;
         const from = verifiedSender(h, IMAP_USER);
         if (from) senders.set(uid, from);
       }
@@ -531,8 +639,38 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
           agentByEmail.set(r.email, r.agent_id);
         }
       }
+      const adminIds = new Set<string>();
+      const costAgents = [...costs].map((u) => agentByEmail.get(senders.get(u) || "")).filter(Boolean);
+      if (costAgents.length) {
+        const { data } = await sb.from("agency_members")
+          .select("id")
+          .in("id", costAgents as string[])
+          .eq("is_platform_admin", true)
+          .eq("active", true);
+        for (const r of (data as { id: string }[]) || []) adminIds.add(r.id);
+      }
 
       for (const uid of uids) {
+        // ‏+costs קודם לכל: מנהל/ת שמעביר/ה קבלה הוא/היא גם סוכן/ת רשום/ה,
+        // ובלי זה הקבלה הייתה הופכת לתור של העוזר.
+        if (costs.has(uid)) {
+          const from = senders.get(uid);
+          if (!from) {
+            advanced = uid;
+            continue;
+          }
+          if (costsHandled >= COSTS_PER_RUN) break;
+          const byAdmin = adminIds.has(agentByEmail.get(from) || "");
+          try {
+            await handleCostMail(sb, imap, mailbox, uidvalidity, uid, from, byAdmin);
+          } catch (err) {
+            console.error("cost mail failed", uid, err);
+          }
+          costsHandled++;
+          advanced = uid;
+          continue;
+        }
+
         const token = extractToken(heads.get(uid) || "", IMAP_USER);
         const senderAgent = token ? null : agentByEmail.get(senders.get(uid) || "") || null;
         if (!token && !senderAgent) {
@@ -567,7 +705,7 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
         .lt("last_uid", advanced);
     }
 
-    return { scanned: uids.length, handled, last_uid: advanced };
+    return { scanned: uids.length, handled, costs: costsHandled, last_uid: advanced };
   } finally {
     await imap.logout();
   }
