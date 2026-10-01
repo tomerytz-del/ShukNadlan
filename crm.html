@@ -2949,6 +2949,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      יהיה ברור שזה מסך אחר ולא המשך של אותו דוח. */
   .dp-ops{--dp-a:#1f6f63; --dp-b:#0e3f38}
   .dp-inv{--dp-a:#2f4f7a; --dp-b:#1a2f4d}
+  /* עלויות - ירוק-זית כהה, רחוק מהיין, מהטורקיז ומהפלדה של שלושת האחרים */
+  .dp-costs{--dp-a:#5b6b2f; --dp-b:#353f18}
   /* שווקים מקומיים - זהב-חום, הצבע של הפין בדף הבית */
   .dp-markets{--dp-a:#9a7418; --dp-b:#5e4508}
 
@@ -3161,6 +3163,52 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .adm-table td{border-bottom:1px solid var(--surface-2)}
   .adm-table td:first-child{font-weight:700;color:var(--txt);white-space:normal}
   .adm-table .num{font-variant-numeric:tabular-nums;font-weight:700}
+
+  /* ---- עלויות הפלטפורמה (דשבורד 6) ---- */
+  /* ‏display:flex למטה גובר על התכונה hidden, ובלעדי זה טווח התאריכים והטופס
+     היו מוצגים תמיד */
+  .cst-custom[hidden],.cst-form[hidden]{display:none}
+  .cst-add{border-color:#d9dfc4;color:#4a5726}
+  .cst-custom{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;font-size:.74rem;font-weight:700;color:var(--txt-soft)}
+  .cst-custom label{display:flex;flex-direction:column;gap:4px}
+  .cst-custom input{border:1px solid var(--edge);border-radius:var(--r-xs);padding:6px 9px;font:inherit;background:var(--surface)}
+  .cst-form{
+    background:var(--surface);border:1px solid #d9dfc4;border-radius:var(--r-md);
+    padding:14px;display:flex;flex-direction:column;gap:12px;
+  }
+  .cst-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:700px){.cst-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .cst-f{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:700;color:var(--txt-soft);min-width:0}
+  .cst-f input,.cst-f select{
+    width:100%;border:1.5px solid var(--edge);border-radius:var(--r-xs);padding:9px 10px;
+    font:inherit;font-size:.85rem;font-weight:500;color:var(--txt);background:#fff;
+  }
+  .cst-f input:focus,.cst-f select:focus{border-color:#5b6b2f;outline:none}
+  .cst-wide{grid-column:1 / -1}
+  .cst-err{margin:0;font-size:.75rem;font-weight:700;color:#b91c1c}
+  .cst-form-btns{display:flex;gap:8px}
+  .cst-form-btns .btn{padding:9px 18px;font-size:.82rem}
+  .cst-rate{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.7rem;color:var(--txt-faint)}
+  .cst-rate input{width:68px;border:1px solid var(--edge);border-radius:var(--r-xs);padding:3px 6px;font:inherit;text-align:center}
+  .cst-pend{display:flex;flex-direction:column;gap:6px}
+  .cst-pend-item{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 11px;
+    border:1px solid #f1e3b5;border-inline-start:4px solid #c9a227;border-radius:var(--r-xs);background:#fffbef;
+  }
+  .cst-pend-main{flex:1;min-width:160px;font-size:.78rem;font-weight:700;color:var(--txt)}
+  .cst-pend-main small{display:block;font-size:.68rem;font-weight:600;color:var(--txt-faint)}
+  .cst-act{
+    border:1px solid var(--edge);background:var(--surface);border-radius:999px;padding:4px 11px;
+    font-size:.7rem;font-weight:800;color:var(--txt-soft);
+  }
+  .cst-act:hover{background:var(--surface-2)}
+  .cst-act.danger{color:#b91c1c}
+  .cst-tag{display:inline-block;border-radius:999px;padding:1px 7px;font-size:.62rem;font-weight:800;background:var(--surface-2);color:var(--txt-faint)}
+  .cst-tag.pending{background:#fff3cd;color:#8a6d0b}
+  .cst-tag.rejected{background:#fdeaea;color:#b91c1c}
+  .adm-table tr.is-rejected td{opacity:.5;text-decoration:line-through}
+  .cst-howto{font-size:.72rem;color:var(--txt-faint);line-height:1.6;margin:0}
+  .cst-howto code{font-size:.7rem;background:var(--surface-2);padding:1px 5px;border-radius:4px;direction:ltr;unicode-bidi:embed}
 
   /* פסקת "עוד מידע": זוגות תווית-ערך צפופים */
   /* רקע אחיד לכל התאים ולא פסים לסירוגין: בגריד של שלושה טורים "שורה זוגית"
@@ -5233,6 +5281,109 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
       <!-- סוף דשבורד 5 -->
+
+      <!-- ==========================================================
+           דשבורד 6 — עלויות הפלטפורמה
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, ונטען מ-RPC ‏platform_costs_list.
+           שורה לכל חיוב של ספק: מה שנקלט מהקבלות שהועברו ל-
+           ‏shuknadlan+costs@gmail.com, ומה שהוזן כאן ידנית.
+
+           **למה סכום שלא זוהה אינו נספר:** קבלה בלי סכום (‏Meta שולחת
+           אותו ב-PDF) מופיעה תחת "ממתינים", ולא נכנסת לסך הכל עד שמישהו
+           משלים/ה אותה. דוח עלויות שמנחש הוא דוח שאי אפשר לסמוך עליו.
+
+           כל הגופים נבנים ב-JS (renderCostsReport). הפרטים:
+           ‏docs/platform-costs.md. -->
+      <section class="dash-panel dp-costs" id="dashPanelCosts" aria-label="עלויות הפלטפורמה - מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelCostsHead"
+                aria-expanded="false" aria-controls="dashPanelCostsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">עלויות המערכת · כל הספקים</span>
+            <span class="dp-sub" id="costsPanelSub">כמה עולה להחזיק את הפלטפורמה, לפי שירות ולפי חודש</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelCostsBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="costsRange" role="group" aria-label="תקופת דוח העלויות">
+                <button type="button" data-period="month" class="is-on">החודש</button>
+                <button type="button" data-period="last">חודש קודם</button>
+                <button type="button" data-period="3">3 חודשים</button>
+                <button type="button" data-period="6">6 חודשים</button>
+                <button type="button" data-period="12">שנה</button>
+                <button type="button" data-period="custom">טווח</button>
+              </div>
+              <button type="button" class="adm-refresh" id="costsRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <button type="button" class="adm-refresh cst-add" id="costsAddBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                הוספת חשבונית
+              </button>
+              <span class="adm-stamp" id="costsStamp"></span>
+            </div>
+            <div class="cst-custom" id="costsCustom" hidden>
+              <label>מתאריך <input type="date" id="costsFrom"></label>
+              <label>עד תאריך <input type="date" id="costsTo"></label>
+              <button type="button" class="adm-refresh" id="costsCustomGo">הצגה</button>
+            </div>
+
+            <!-- הזנה ידנית ועריכה. אותו טופס משמש להוספה, לתיקון סכום של
+                 קבלה שנקלטה מהמייל, ולהשלמת חיוב שממתין. -->
+            <form class="cst-form" id="costsForm" hidden novalidate>
+              <h3 class="adm-h" id="costsFormTitle">חשבונית חדשה</h3>
+              <div class="cst-grid">
+                <label class="cst-f">שירות
+                  <select id="cfService" required></select>
+                </label>
+                <label class="cst-f">תאריך החיוב
+                  <input type="date" id="cfDate" required>
+                </label>
+                <label class="cst-f">סכום
+                  <input type="number" id="cfAmount" step="0.01" inputmode="decimal" placeholder="למשל 25.00">
+                </label>
+                <label class="cst-f">מטבע
+                  <select id="cfCurrency">
+                    <option value="USD">דולר ($)</option>
+                    <option value="ILS">שקל (₪)</option>
+                    <option value="EUR">אירו (€)</option>
+                  </select>
+                </label>
+                <label class="cst-f">מספר חשבונית
+                  <input type="text" id="cfInvoice" maxlength="80" placeholder="לא חובה - מונע הזנה כפולה">
+                </label>
+                <label class="cst-f">מצב
+                  <select id="cfStatus">
+                    <option value="confirmed">מאושר - נספר בסך הכל</option>
+                    <option value="pending">ממתין - לא נספר עדיין</option>
+                    <option value="rejected">נדחה - לא חיוב שלנו</option>
+                  </select>
+                </label>
+                <label class="cst-f cst-wide">תיאור
+                  <input type="text" id="cfDesc" maxlength="500" placeholder="למשל: מסלול Pro לחודש אוקטובר">
+                </label>
+              </div>
+              <p class="cst-err" id="cfError" role="alert" hidden></p>
+              <div class="cst-form-btns">
+                <button type="submit" class="btn btn-gold" id="cfSave">שמירה</button>
+                <button type="button" class="btn btn-ghost" id="cfCancel">ביטול</button>
+              </div>
+            </form>
+
+            <div id="costsReport"><div class="empty-state">טוען את העלויות…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 6 -->
 
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
