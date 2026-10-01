@@ -289,6 +289,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | `create_client` | מוסיף לקוח/ה. די בשם; בודק כפילות בשם ובטלפון |
 | `update_client` | פרטים ודרישות. מערך ריק = ביטול דרישה |
 | `set_client_status` | `active` / `paused` / `closed` |
+| `list_calls` | יומן השיחות (מספר Twilio): מי התקשר, נענתה או לא, הסיכום והדרישות שחולצו. ‏"כן, תעדכן" אחרי סיכום שיחה עובר דרכו. ‏[`call-tracking.md`](call-tracking.md) |
 
 **כרטיס איש קשר ששותף לעוזר** (הודעה מסוג `contacts`) הופך לטקסט שמתחיל
 ב-`[איש קשר ששותף]`, וליד כל כרטיס כתוב אם הטלפון כבר בקובץ — הבדיקה
