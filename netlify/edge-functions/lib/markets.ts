@@ -31,6 +31,8 @@ export type Registry = {
   bySlug: (slug: string) => Market | null;
   defaultMarket: () => Market;
   locate: (lat: number, lng: number, onlyLive?: boolean) => Market | null;
+  /* בתוך התיבות של השוק עצמו - בלי ההרחבה של NEAR_KM שב-locate. */
+  contains: (m: Market, lat: number, lng: number) => boolean;
 };
 
 export function registry(): Registry | null {
@@ -60,7 +62,18 @@ export function esc(s: unknown): string {
 
    ‏IP סלולרי בישראל ממוקם לרוב לפי נקודת היציאה של הספק (תל אביב, פתח
    תקווה) ולא לפי המכשיר. לכן שכבת ה-IP פועלת רק בתוך תיבה של שוק, ולכן יש
-   כפתור GPS. */
+   כפתור GPS.
+
+   ---------- ‏`soon` - שוק שעוד לא נפתח, בלי הפניה ----------
+
+   כלל 1 משאיר בדף הבית את מי שבא/ה מנתניה או מחדרה, והם רואים את עפולה בלי
+   לדעת שהאזור שלהם בדרך. ‏`soon` מסמן את השוק הזה, ו-
+   ‏assets/market-soon-strip.js מציג פס "נפתחים בקרוב" עם ההזמנה למשרדים.
+   **לא הפניה** - מי שחיפש/ה דירה נשאר/ת בדף שביקש/ה.
+
+   שני מקורות: בחירה שמורה בשוק שאינו חי (GPS שמצא את נתניה), או IP
+   **בתוך התיבה** של השוק (‏`contains`, בלי ה-NEAR_KM של locate) - פס שמכריז
+   על "נתניה" למי שה-IP שלו/ה בכפר סבא הוא הודעה שגויה, לא הזמנה. */
 
 const BOT = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview|lighthouse|headless/i;
 
@@ -73,6 +86,7 @@ export type Geo = {
 export type Decision = {
   location: string | null;   // ‏302 לכאן, או null
   geoCookie: string | null;  // ערך לעוגיית shuk_geo, או null
+  soon: string | null;       // ‏slug לעוגיית shuk_soon - שוק שעוד לא נפתח, או null
 };
 
 function cookieValue(header: string, name: string): string | null {
@@ -90,16 +104,15 @@ export function decide(
   reg: Registry,
   opts: { cookie: string; userAgent: string; geo?: Geo | null; search: string },
 ): Decision {
-  const none: Decision = { location: null, geoCookie: null };
+  const none: Decision = { location: null, geoCookie: null, soon: null };
   if (BOT.test(opts.userAgent || "")) return none;
 
   const chosen = cookieValue(opts.cookie || "", "shuk_market");
   if (chosen) {
     const m = reg.bySlug(chosen.split("|")[0]);
     if (m) {
-      return (m.live && !m.isDefault)
-        ? { location: m.path + (opts.search || ""), geoCookie: null }
-        : none;
+      if (!m.live) return { ...none, soon: m.slug };
+      return m.isDefault ? none : { location: m.path + (opts.search || ""), geoCookie: null, soon: null };
     }
   }
 
@@ -107,9 +120,15 @@ export function decide(
   if (!g || g.country?.code !== "IL") return none;
   if (typeof g.latitude !== "number" || typeof g.longitude !== "number") return none;
   const m = reg.locate(g.latitude, g.longitude, true);
-  if (!m) return none;
+  if (!m) {
+    const s = reg.locate(g.latitude, g.longitude, false);
+    return (s && !s.live && reg.contains(s, g.latitude, g.longitude))
+      ? { ...none, soon: s.slug }
+      : none;
+  }
   return {
     location: m.isDefault ? null : m.path + (opts.search || ""),
     geoCookie: geoCookieValue(m),
+    soon: null,
   };
 }

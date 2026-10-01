@@ -289,6 +289,7 @@
     byPath: byPath,
     defaultMarket: defaultMarket,
     locate: locate,
+    contains: inBox,
     km: km
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
