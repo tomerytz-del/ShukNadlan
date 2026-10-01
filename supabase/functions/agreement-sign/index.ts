@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
+import { maskPhone, sendWhatsappOtp, toWhatsappMsisdn } from "../_shared/whatsapp-otp.ts";
 
 // ============================================================================
 // חתימת הסכמי תיווך — ידנית ומרחוק
@@ -10,9 +11,12 @@ import { agencyName } from "../_shared/agency-lookup.ts";
 //
 //   ציבורי, לפי אסימון (אין חשבון, אין JWT):
 //     • open       — החותם/ת פותח/ת את הקישור ורואה את המסמך
-//     • otp_send   — שליחה/שליחה חוזרת של הקוד החד-פעמי
+//     • otp_send   — שליחה/שליחה חוזרת של הקוד החד-פעמי (וואטסאפ, או מייל)
 //     • otp_verify — הזנת הקוד, ורק אחריה גוף ההסכם מוחזר
 //     • sign       — החותם/ת שולח/ת תמונת חתימה
+//
+//   ‏open ו-sign מדלגים על הקוד כשהקישור נפתח במכשיר של הסוכן/ת בעל/ת
+//   ההסכם, מחובר/ת (חתימה פנים מול פנים) — ראו isOwningAgentSession.
 //     • view       — צפייה בעותק החתום מהקישור הקבוע שבמייל
 //
 //   מאומת, לפי ה-JWT של הסוכן/ת:
@@ -160,14 +164,24 @@ function maskEmail(email: string | null): string {
   return `${head}${"*".repeat(Math.max(2, user.length - 1))}@${domain}`;
 }
 
-async function issueOtp(signer: { id: string; full_name: string; email: string | null },
-                        agreementTitle: string) {
-  if (!signer.email) return { sent: false, error: "no_email" as const };
+type OtpChannel = "whatsapp" | "email";
+type OtpSigner = { id: string; full_name: string; email: string | null; phone: string | null };
 
-  const code = newOtpCode();
-  const hash = await hashOtp(code, signer.id);
-  const expires = new Date(Date.now() + OTP_TTL_MINUTES * 60_000).toISOString();
+/** הערוצים שאפשר לשלוח אליהם קוד, לפי סדר העדיפות: וואטסאפ ואז מייל. */
+function otpChannels(signer: OtpSigner): OtpChannel[] {
+  const out: OtpChannel[] = [];
+  if (toWhatsappMsisdn(signer.phone)) out.push("whatsapp");
+  if (signer.email) out.push("email");
+  return out;
+}
 
+function otpTarget(signer: OtpSigner, channel: OtpChannel | null): string {
+  if (channel === "whatsapp") return maskPhone(signer.phone);
+  if (channel === "email") return maskEmail(signer.email);
+  return "";
+}
+
+async function sendOtpEmail(signer: OtpSigner, code: string, agreementTitle: string) {
   const inner =
     `<div style="padding:18px 24px;font-size:13px;line-height:1.75">` +
       `<p style="margin:0 0 10px">שלום ${esc(signer.full_name)},</p>` +
@@ -179,24 +193,86 @@ async function issueOtp(signer: { id: string; full_name: string; email: string |
       `אם לא ביקשתם לחתום על הסכם - התעלמו מההודעה ואל תמסרו את הקוד לאיש.</p>` +
     `</div>`;
 
-  const result = await sendPlatformEmail({
-    to: [signer.email],
+  return await sendPlatformEmail({
+    to: [signer.email as string],
     subject: `קוד אימות לחתימה - ${code}`,
     html: mailShell("קוד אימות לחתימה על הסכם", inner),
     text: `קוד האימות שלך לחתימה על "${agreementTitle}" הוא ${code}.\n` +
           `הקוד תקף ל-${OTP_TTL_MINUTES} דקות. אל תמסרו אותו לאיש.`,
   });
+}
 
-  // חותמת הזמן נכתבת גם כשהמייל נכשל: בלעדיה אין ‏cooldown, ולחיצות חוזרות
+/**
+ * ‏**וואטסאפ קודם, מייל כגיבוי.** לרוב הקונים והשוכרים אין מייל בכרטיס,
+ * וטלפון יש לכולם — זה מה שהסוכן/ת מעביר/ה אליו את הקישור. ‏`prefer`
+ * מגיע מכפתור "שליחה במייל במקום" במסך האימות; כשהערוץ המבוקש נכשל
+ * עוברים לשני, כי קוד שלא הגיע לשום מקום הוא בדיוק המבוי הסתום שזה בא
+ * לפתור.
+ */
+async function issueOtp(signer: OtpSigner, agreementTitle: string, prefer?: OtpChannel | null) {
+  let channels = otpChannels(signer);
+  if (!channels.length) return { sent: false, channel: null, error: "no_contact" as const };
+  if (prefer && channels.includes(prefer)) {
+    channels = [prefer, ...channels.filter((c) => c !== prefer)];
+  }
+
+  const code = newOtpCode();
+  const hash = await hashOtp(code, signer.id);
+  const expires = new Date(Date.now() + OTP_TTL_MINUTES * 60_000).toISOString();
+
+  let used: OtpChannel = channels[0];
+  let sent = false;
+  const errors: string[] = [];
+  for (const ch of channels) {
+    used = ch;
+    const r = ch === "whatsapp"
+      ? await sendWhatsappOtp(toWhatsappMsisdn(signer.phone) as string, code)
+      : await sendOtpEmail(signer, code, agreementTitle);
+    if (r.sent) { sent = true; break; }
+    errors.push(`${ch}: ${r.error || "send_failed"}`);
+    console.warn("agreement-sign otp send failed", signer.id, ch, r.error);
+  }
+
+  // חותמת הזמן נכתבת גם כשהשליחה נכשלה: בלעדיה אין ‏cooldown, ולחיצות חוזרות
   // על "שליחה חוזרת" היו מייצרות קוד חדש בכל פעם ופוסלות את הקודם
-  await db.from("agreement_signers").update({
+  const otpRow = {
     otp_hash: hash,
     otp_sent_at: new Date().toISOString(),
     otp_expires_at: expires,
     otp_attempts: 0,
-  }).eq("id", signer.id);
+  };
+  const { error: chErr } = await db.from("agreement_signers")
+    .update({ ...otpRow, otp_channel: used }).eq("id", signer.id);
+  // ‏הפונקציה והמיגרציה נפרסות בשני jobs נפרדים. בחלון שבו otp_channel
+  // עדיין לא קיים, בלי הניסיון השני ה-hash לא היה נשמר והקוד שנשלח היה
+  // נדחה כ"לא נשלח קוד"
+  if (chErr) await db.from("agreement_signers").update(otpRow).eq("id", signer.id);
 
-  return { sent: result.sent, error: result.sent ? null : (result.error || "send_failed") };
+  return { sent, channel: used, error: sent ? null : (errors.join(" | ") || "send_failed") };
+}
+
+/* ---------------------------------------------------------------------------
+ * חתימה פנים מול פנים — בלי קוד
+ *
+ * ‏הקוד קיים כדי שקישור שהועבר הלאה לא יחשוף את פרטי הנכסים. כשהקישור נפתח
+ * במכשיר של הסוכן/ת בעל/ת ההסכם, מחובר/ת, אין ממי להגן: הוא/היא כתב/ה את
+ * המסמך, והלקוח/ה יושב/ת לידו/ה. ‏sign.html שולח את ה-JWT של הסשן כשיש
+ * כזה, וכאן בודקים שהוא של **בעל/ת ההסכם הזה** — סוכן/ת אחר/ת, גם מאותו
+ * משרד, עובר/ת במסלול הרגיל עם קוד.
+ * ------------------------------------------------------------------------- */
+async function isOwningAgentSession(req: Request, agentId: string): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization") || "";
+  if (!/^Bearer\s+\S+\.\S+\.\S+$/.test(authHeader)) return false;   // רק JWT של משתמש/ת
+  try {
+    const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: userData, error } = await authed.auth.getUser();
+    if (error || !userData?.user) return false;
+    const { data: agent } = await db
+      .from("agency_members").select("id, active").eq("user_id", userData.user.id).maybeSingle();
+    return !!agent && agent.active && agent.id === agentId;
+  } catch {
+    return false;
+  }
 }
 
 /** כתובת ה-IP של הפונה, כפי שהפרוקסי מוסר אותה. חלק מהראיה, לא מזהה משתמש. */
@@ -206,23 +282,53 @@ function clientIp(req: Request): string | null {
   return first || req.headers.get("cf-connecting-ip") || null;
 }
 
+/**
+ * ‏**תקלה בשאילתה אינה "לא נמצא".** עד 1.10.2026 כל שגיאה כאן חזרה כ-
+ * ‏not_found, והגולש/ת ראה/תה "ייתכן שהקישור הועתק חלקית" על קישור תקין
+ * לגמרי — דקה אחרי שאותו קישור נפתח בהצלחה. עכשיו שגיאה היא ‏db_error
+ * (‏503, "נסו שוב"), ושני המקרים נרשמים ביומן עם אורך האסימון: קישור חתוך
+ * באמת נראה שם מיד.
+ */
 async function loadByToken(token: string) {
-  const { data: signer } = await db
+  const { data: signer, error: signerErr } = await db
     .from("agreement_signers")
     .select("*")
     .eq("sign_token", token)
     .maybeSingle();
-  if (!signer) return { error: "not_found" as const };
+  if (signerErr) {
+    console.error("agreement-sign signer lookup failed", signerErr.message);
+    return { error: "db_error" as const };
+  }
+  if (!signer) {
+    console.warn("agreement-sign token not found", { len: token.length, head: token.slice(0, 6) });
+    return { error: "not_found" as const };
+  }
 
-  const { data: agreement } = await db
+  // ‏select שנבנה בשרשור מחרוזות מוקלד כ-GenericStringError — הטיפוס כאן
+  // מפורש כדי שכל פעולה שמשתמשת בהסכם לא תירש את השגיאה
+  const { data: agreementRow, error: agrErr } = await db
     .from("agreements")
     .select("id, kind, title, status, document_html, verify_code, view_token, signed_at, " +
             "agent_id, agency_id, require_otp, allow_passport")
     .eq("id", signer.agreement_id)
     .maybeSingle();
+  const agreement = agreementRow as unknown as {
+    id: string; kind: string; title: string; status: string; document_html: string | null;
+    verify_code: string | null; view_token: string; signed_at: string | null;
+    agent_id: string; agency_id: string | null; require_otp: boolean; allow_passport: boolean;
+  } | null;
+  if (agrErr) {
+    console.error("agreement-sign agreement lookup failed", agrErr.message);
+    return { error: "db_error" as const };
+  }
   if (!agreement) return { error: "not_found" as const };
 
   return { signer, agreement };
+}
+
+/** תשובת השגיאה של loadByToken: ‏404 לקישור שאינו קיים, ‏503 לתקלה. */
+function lookupError(e?: string) {
+  return e === "db_error" ? json({ error: "db_error" }, 503) : json({ error: "not_found" }, 404);
 }
 
 async function signersOf(agreementId: string): Promise<SignerRow[]> {
@@ -534,11 +640,13 @@ Deno.serve(async (req: Request) => {
     if (!token) return json({ error: "missing_token" }, 400);
 
     const found = await loadByToken(token);
-    if ("error" in found) return json({ error: "not_found" }, 404);
+    if ("error" in found) return lookupError(found.error);
     const { signer, agreement } = found;
 
     if (agreement.status === "cancelled") return json({ error: "cancelled" }, 410);
     if (new Date(signer.token_expires_at).getTime() < Date.now()) return json({ error: "expired" }, 410);
+
+    const inPerson = await isOwningAgentSession(req, agreement.agent_id);
 
     if (!signer.viewed_at) {
       await db.from("agreement_signers").update({ viewed_at: new Date().toISOString() }).eq("id", signer.id);
@@ -550,16 +658,28 @@ Deno.serve(async (req: Request) => {
 
     /* שער האימות. ‏document_html אינו יוצא מכאן לפני שהקוד הוזן — וזה כל
        העניין: פרטי הנכס בטופס הקונה הם המידע שמוגן, ולא רק החתימה. */
-    if (agreement.require_otp && !signer.otp_verified_at && !signer.signed_at) {
-      const fresh = signer.otp_sent_at &&
+    if (agreement.require_otp && !signer.otp_verified_at && !signer.signed_at && !inPerson) {
+      const fresh = signer.otp_sent_at && signer.otp_hash &&
         (Date.now() - new Date(signer.otp_sent_at).getTime()) < OTP_TTL_MINUTES * 60_000;
-      if (!fresh) await issueOtp(signer, agreement.title);
+      let channel: OtpChannel | null = (signer.otp_channel as OtpChannel | null) ?? null;
+      let otpError: string | null = null;
+      if (!fresh) {
+        const out = await issueOtp(signer, agreement.title);
+        channel = out.channel;
+        otpError = out.sent ? null : (out.error === "no_contact" ? "no_contact" : "send_failed");
+      }
       return json({
         ok: true,
         locked: true,
         agreement: { title: agreement.title, kind: agreement.kind, status: agreement.status },
         agent: { name: (await agentCard(agreement.agent_id)).name },
-        me: { full_name: signer.full_name, email_masked: maskEmail(signer.email), has_email: !!signer.email },
+        me: {
+          full_name: signer.full_name,
+          otp_channel: channel,
+          otp_target: otpTarget(signer, channel),
+          otp_error: otpError,
+          channels: otpChannels(signer),
+        },
       });
     }
 
@@ -580,6 +700,7 @@ Deno.serve(async (req: Request) => {
           ? `${SITE_BASE_URL}/agreement?t=${encodeURIComponent(agreement.view_token)}` : null,
       },
       agent: { name: agent.name, agency: agent.agency, phone: agent.phone },
+      in_person: inPerson,
       me: {
         id: signer.id, full_name: signer.full_name, id_number: signer.id_number,
         party: signer.party, signed_at: signer.signed_at,
@@ -598,23 +719,31 @@ Deno.serve(async (req: Request) => {
     if (!token) return json({ error: "missing_token" }, 400);
 
     const found = await loadByToken(token);
-    if ("error" in found) return json({ error: "not_found" }, 404);
+    if ("error" in found) return lookupError(found.error);
     const { signer, agreement } = found;
 
     if (agreement.status === "cancelled") return json({ error: "cancelled" }, 410);
     if (new Date(signer.token_expires_at).getTime() < Date.now()) return json({ error: "expired" }, 410);
-    if (!signer.email) return json({ error: "no_email" }, 400);
+    const channels = otpChannels(signer);
+    if (!channels.length) return json({ error: "no_contact" }, 400);
+    const prefer = body?.channel === "email" || body?.channel === "whatsapp"
+      ? body.channel as OtpChannel : null;
 
     // ‏cooldown: בלעדיו כל לחיצה מייצרת קוד חדש ופוסלת את זה שכבר בדרך,
-    // וגם מאפשרת להשתמש בנו כדי להציף תיבה זרה
-    if (signer.otp_sent_at &&
+    // וגם מאפשרת להשתמש בנו כדי להציף תיבה זרה. ‏מעבר לערוץ **אחר** פטור
+    // ממנו: מי שהקוד לא הגיע אליו/ה בוואטסאפ לא צריך/ה לחכות כדי לבקש מייל.
+    const switching = !!prefer && prefer !== signer.otp_channel;
+    if (!switching && signer.otp_sent_at &&
         (Date.now() - new Date(signer.otp_sent_at).getTime()) < OTP_RESEND_SECONDS * 1000) {
-      return json({ ok: true, throttled: true, retry_after: OTP_RESEND_SECONDS });
+      return json({
+        ok: true, throttled: true, retry_after: OTP_RESEND_SECONDS,
+        otp_channel: signer.otp_channel, otp_target: otpTarget(signer, signer.otp_channel as OtpChannel | null),
+      });
     }
 
-    const out = await issueOtp(signer, agreement.title);
+    const out = await issueOtp(signer, agreement.title, prefer);
     if (!out.sent) return json({ error: "send_failed", detail: out.error }, 502);
-    return json({ ok: true, email_masked: maskEmail(signer.email) });
+    return json({ ok: true, otp_channel: out.channel, otp_target: otpTarget(signer, out.channel) });
   }
 
   // ------------------------------------------------------------ otp_verify --
@@ -625,7 +754,7 @@ Deno.serve(async (req: Request) => {
     if (code.length !== 6) return json({ error: "invalid_code" }, 400);
 
     const found = await loadByToken(token);
-    if ("error" in found) return json({ error: "not_found" }, 404);
+    if ("error" in found) return lookupError(found.error);
     const { signer } = found;
 
     if (!signer.otp_hash || !signer.otp_expires_at) return json({ error: "no_code" }, 409);
@@ -660,7 +789,7 @@ Deno.serve(async (req: Request) => {
     if (!validSignature(body?.signature)) return json({ error: "invalid_signature" }, 400);
 
     const found = await loadByToken(token);
-    if ("error" in found) return json({ error: "not_found" }, 404);
+    if ("error" in found) return lookupError(found.error);
     const { signer, agreement } = found;
 
     if (agreement.status === "cancelled") return json({ error: "cancelled" }, 410);
@@ -670,7 +799,10 @@ Deno.serve(async (req: Request) => {
 
     /* אותו שער כמו ב-open, ושוב בשרת: לקוח שדילג על מסך האימות וקרא ישר
        ל-sign היה חותם בלי שאומת מעולם. */
-    if (agreement.require_otp && !signer.otp_verified_at) return json({ error: "otp_required" }, 403);
+    const inPerson = await isOwningAgentSession(req, agreement.agent_id);
+    if (agreement.require_otp && !signer.otp_verified_at && !inPerson) {
+      return json({ error: "otp_required" }, 403);
+    }
 
     const idNumber = typeof body?.id_number === "string" ? body.id_number.trim().slice(0, 20) : "";
     const idKind = body?.id_kind === "passport" ? "passport" : "id_card";
@@ -680,7 +812,9 @@ Deno.serve(async (req: Request) => {
       signed_at: new Date().toISOString(),
       signed_ip: clientIp(req),
       signed_ua: (req.headers.get("user-agent") || "").slice(0, 400),
-      method: "remote",
+      // ‏manual = במכשיר של הסוכן/ת, כמו לוח החתימה באשף — זה מה שהעמודה
+      // מתעדת, ולא איזה מסך שימש לחתימה
+      method: inPerson ? "manual" : "remote",
       id_number: idNumber || signer.id_number,
       id_kind: idNumber ? idKind : null,
     }).eq("id", signer.id).is("signed_at", null);

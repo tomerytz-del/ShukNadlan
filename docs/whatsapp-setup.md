@@ -96,6 +96,8 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | `WHATSAPP_GRAPH_VERSION` | ⬜ | ברירת מחדל `v23.0` |
 | `WHATSAPP_NOTIFY_TEMPLATE` | להתראות | שם התבנית המאושרת לדחיפת התראות הפעמון. בלעדיה נשלח טקסט חופשי, שעובד רק בתוך חלון 24 השעות |
 | `WHATSAPP_NOTIFY_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
+| `WHATSAPP_OTP_TEMPLATE` | לחתימה על הסכמים | תבנית **Authentication** עם כפתור Copy code, לקוד האימות שהחותם/ת מקבל/ת לפני הצגת ההסכם. בלעדיה הקוד יוצא בטקסט חופשי (רק בתוך חלון 24 השעות) ואחר כך במייל. ראו [`client-agreements.md`](client-agreements.md) |
+| `WHATSAPP_OTP_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
 | `ALERT_CRON_SECRET` | להתראות | אימות הקורא הפנימי של `notification-push` (אותו סוד של שאר ה-cron) |
 
 `SUPABASE_URL` ו-`SUPABASE_SERVICE_ROLE_KEY` מוזרקים אוטומטית — אין צורך להגדיר.

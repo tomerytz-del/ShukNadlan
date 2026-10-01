@@ -175,13 +175,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="big" style="font-size:2rem;line-height:1;margin-bottom:10px">🔒</div>
       <h1>אימות לפני צפייה בהסכם</h1>
       <p id="otpIntro"></p>
-      <p style="margin-top:8px">שלחנו קוד בן 6 ספרות אל <b id="otpTarget"></b>.</p>
+      <p style="margin-top:8px" id="otpSentLine"></p>
       <input type="text" id="otpInput" class="otp-input" inputmode="numeric" autocomplete="one-time-code"
              maxlength="6" placeholder="------" aria-label="קוד האימות">
       <div class="otp-actions">
         <button type="button" class="btn" id="otpVerifyBtn" disabled>אימות וצפייה בהסכם</button>
         <button type="button" class="btn btn-ghost" id="otpResendBtn">שליחת קוד חדש</button>
+        <button type="button" class="btn btn-ghost" id="otpSwitchBtn" hidden></button>
       </div>
+      <p style="margin-top:16px;font-size:.78rem">הסוכן/ת לידך? כשהקישור נפתח במכשיר שלו/ה,
+        מחובר/ת לאזור האישי, החתימה נעשית בלי קוד.</p>
       <div id="otpFeedback" style="font-size:.84rem;margin-top:11px;min-height:1.2em"></div>
     </div>
   </div>
@@ -192,6 +195,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h1 id="docTitle"></h1>
       <p><span class="who" id="agentName"></span> מבקש/ת את חתימתך על ההסכם שלהלן.</p>
       <p style="margin-top:6px">נא לקרוא אותו במלואו לפני החתימה.</p>
+      <p id="inPersonNote" hidden style="margin-top:8px;font-size:.84rem;font-weight:600">
+        חתימה במעמד הסוכן/ת - במכשיר שלו/ה, בלי קוד אימות.</p>
     </div>
 
     <div class="card doc-wrap"><div class="agr-inner" id="docBody"></div></div>
@@ -256,7 +261,12 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const FN_URL = SUPABASE_URL + '/functions/v1/agreement-sign';
 
-const token = new URLSearchParams(location.search).get('t') || '';
+/* האסימון הוא תמיד 48 תווי hex. קישור שעבר בוואטסאפ או בהעתקה נדבק לפעמים
+   לסימן שאחריו (נקודה, סוגר, רווח), ושולחים לשרת רק את האסימון עצמו. */
+const rawToken = (new URLSearchParams(location.search).get('t') || '').trim();
+const tokenMatch = rawToken.match(/[0-9a-f]{48}/i);
+const token = tokenMatch ? tokenMatch[0].toLowerCase() : rawToken;
+let agentJwt = null;
 let pad = null;
 let loaded = null;
 
@@ -272,14 +282,31 @@ function fail(title, detail){
   showState('stateError');
 }
 
+/* חתימה פנים מול פנים: כשהקישור נפתח במכשיר שבו הסוכן/ת מחובר/ת לאזור
+   האישי, ה-JWT של הסשן נשלח עם כל קריאה, והשרת מדלג על הקוד אם זה/זו
+   בעל/ת ההסכם. ‏getSession גם מרענן סשן שפג - אחרת סוכן/ת שה-CRM שלו/ה
+   פתוח מאתמול היה/הייתה נתקע/ת בשער. בכל כשל ממשיכים בלי, במסלול הרגיל. */
+async function loadAgentSession(){
+  try {
+    if (!window.supabase) return null;
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await sb.auth.getSession();
+    return (data && data.session && data.session.access_token) || null;
+  } catch(err){
+    return null;
+  }
+}
+
 async function callFn(payload){
-  const res = await fetch(FN_URL, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json().catch(()=> ({}));
-  return { ok: res.ok, data };
+  const headers = { 'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY };
+  if (agentJwt) headers.Authorization = 'Bearer ' + agentJwt;
+  try {
+    const res = await fetch(FN_URL, { method:'POST', headers, body: JSON.stringify(payload) });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: res.ok, data };
+  } catch(err){
+    return { ok: false, data: { error: 'network' } };
+  }
 }
 
 /* המסמך שנשמר בעת היצירה הוא HTML שנכתב בדפדפן של הסוכן/ת ונחסם לשינוי
@@ -294,18 +321,54 @@ const ERROR_MESSAGES = {
   not_found: ['הקישור אינו תקין', 'ייתכן שהקישור הועתק חלקית. בקשו מהסוכן/ת לשלוח אותו שוב.'],
   expired:   ['תוקף הקישור פג',  'הקישור לחתימה פג. בקשו מהסוכן/ת לשלוח קישור חדש.'],
   cancelled: ['ההסכם בוטל',      'ההסכם הזה בוטל ואינו ניתן לחתימה.'],
-  no_email:  ['אין כתובת מייל',  'להסכם הזה נדרש אימות בקוד, ולא נשמרה כתובת מייל. פנו לסוכן/ת.'],
+  no_contact: ['אין לאן לשלוח קוד', 'להסכם הזה נדרש אימות בקוד, ולא נשמרו טלפון או מייל. פנו לסוכן/ת.'],
+  no_email:  ['אין לאן לשלוח קוד', 'להסכם הזה נדרש אימות בקוד, ולא נשמרו טלפון או מייל. פנו לסוכן/ת.'],
+  db_error:  ['תקלה זמנית',     'לא הצלחנו לטעון את ההסכם. נסו שוב בעוד רגע.'],
+  network:   ['אין חיבור',      'לא הצלחנו להתחבר. בדקו את החיבור לאינטרנט ונסו שוב.'],
   otp_required: ['נדרש אימות',   'יש לאמת את הזהות בקוד לפני החתימה. רעננו את העמוד.'],
 };
 
 /* ---------- שער האימות ----------
-   הקוד נשלח לתיבה שאליה נשלח גם הקישור, ולכן הוא אינו מזהה את האדם — הוא
-   מוכיח שליטה בתיבה. זה בדיוק מה שקישור שהועבר הלאה בוואטסאפ אינו נותן,
-   וזו הסיבה שהוא נדרש בטופסי קונה ושוכר: רשימת הנכסים שבהם היא הסחורה. */
+   הקוד יוצא בוואטסאפ למספר שבכרטיס, ובמייל כשאין מספר או כשהשליחה נכשלה.
+   הוא אינו מזהה את האדם - הוא מוכיח שליטה בטלפון או בתיבה שאליהם נשלח
+   הקישור, וזה בדיוק מה שקישור שהועבר הלאה אינו נותן. לכן הוא נדרש בטופסי
+   קונה ושוכר: רשימת הנכסים שבהם היא הסחורה. */
+const CHANNEL_LABEL = { whatsapp:'בוואטסאפ למספר', email:'במייל לכתובת' };
+let otpChannel = null;
+let otpChannels = [];
+
+function paintOtpChannel(channel, target){
+  otpChannel = channel || otpChannel;
+  const line = document.getElementById('otpSentLine');
+  line.textContent = '';
+  if (otpChannel && target){
+    line.append('שלחנו קוד בן 6 ספרות ' + CHANNEL_LABEL[otpChannel] + ' ');
+    const b = document.createElement('b');
+    b.textContent = target;
+    b.dir = 'ltr';
+    line.append(b, '.');
+  }
+  const other = otpChannels.find(c => c !== otpChannel);
+  const sw = document.getElementById('otpSwitchBtn');
+  sw.hidden = !other;
+  if (other){
+    sw.dataset.channel = other;
+    sw.textContent = other === 'email' ? 'שליחת הקוד במייל במקום' : 'שליחת הקוד בוואטסאפ במקום';
+  }
+}
+
 function renderOtpGate(data){
   document.getElementById('otpIntro').textContent =
     data.agent.name + ' מבקש/ת את חתימתך על ' + data.agreement.title + '.';
-  document.getElementById('otpTarget').textContent = data.me.email_masked || '';
+  otpChannels = data.me.channels || [];
+  paintOtpChannel(data.me.otp_channel, data.me.otp_target);
+  if (data.me.otp_error){
+    const fb = document.getElementById('otpFeedback');
+    fb.style.color = 'var(--brick)';
+    fb.textContent = data.me.otp_error === 'no_contact'
+      ? 'לא נשמרו טלפון או מייל לשליחת הקוד. פנו לסוכן/ת.'
+      : 'שליחת הקוד נכשלה - לחצו על "שליחת קוד חדש".';
+  }
   showState('stateOtp');
   document.getElementById('otpInput').focus();
 }
@@ -346,22 +409,34 @@ document.getElementById('otpVerifyBtn').addEventListener('click', async ()=>{
   await init();   // אותו מסלול טעינה, הפעם בלי השער
 });
 
-document.getElementById('otpResendBtn').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
+async function requestOtp(btn, channel){
   const fb = document.getElementById('otpFeedback');
+  const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שולח…';
-  const { ok, data } = await callFn({ action:'otp_send', token });
-  btn.textContent = 'שליחת קוד חדש';
+  const { ok, data } = await callFn(channel ? { action:'otp_send', token, channel } : { action:'otp_send', token });
+  btn.textContent = original;
   btn.disabled = false;
   fb.style.color = ok ? 'var(--ink-soft)' : 'var(--brick)';
-  fb.textContent = !ok ? 'שליחת הקוד נכשלה - נסו שוב בעוד רגע'
-    : (data.throttled ? 'קוד כבר נשלח. בדקו את התיבה, כולל דואר זבל.' : 'קוד חדש נשלח');
-});
+  if (!ok){
+    fb.textContent = data.error === 'no_contact'
+      ? 'לא נשמרו טלפון או מייל לשליחת הקוד. פנו לסוכן/ת.'
+      : 'שליחת הקוד נכשלה - נסו שוב בעוד רגע';
+    return;
+  }
+  paintOtpChannel(data.otp_channel, data.otp_target);
+  fb.textContent = data.throttled
+    ? (otpChannel === 'email' ? 'קוד כבר נשלח. בדקו את התיבה, כולל דואר זבל.' : 'קוד כבר נשלח. בדקו את הוואטסאפ.')
+    : 'קוד חדש נשלח';
+}
+
+document.getElementById('otpResendBtn').addEventListener('click', e => requestOtp(e.currentTarget, null));
+document.getElementById('otpSwitchBtn').addEventListener('click', e => requestOtp(e.currentTarget, e.currentTarget.dataset.channel));
 
 async function init(){
   if (!token) return fail('הקישור אינו תקין', 'חסר מזהה בכתובת. פתחו את הקישור המלא מההודעה שקיבלתם.');
 
+  if (agentJwt === null) agentJwt = await loadAgentSession() || '';
   const { ok, data } = await callFn({ action:'open', token });
   if (!ok || !data.ok){
     const m = ERROR_MESSAGES[data.error] || ['שגיאה בטעינת ההסכם', 'נסו שוב בעוד רגע, או פנו לסוכן/ת.'];
@@ -377,6 +452,7 @@ async function init(){
   if (data.me.signed_at) return renderDone(data, false);
 
   document.getElementById('docTitle').textContent = data.agreement.title;
+  document.getElementById('inPersonNote').hidden = !data.in_person;
   document.getElementById('agentName').textContent =
     data.agent.name + (data.agent.agency ? ' · ' + data.agent.agency : '');
   document.getElementById('signerName').value = data.me.full_name || '';
