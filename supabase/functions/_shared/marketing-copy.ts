@@ -199,6 +199,16 @@ export function noLongDash(s: string): string {
   return s.replace(/[\u2014\u2013\u2015]/g, "-");
 }
 
+const COPY_SCHEMA = {
+  type: "object",
+  properties: {
+    marketing_description: { type: "string" },
+    post_text: { type: "string" },
+  },
+  required: ["marketing_description", "post_text"],
+  additionalProperties: false,
+};
+
 export async function generateMarketingCopy(
   row: PropertyFacts,
   opts: { apiKey: string; model: string },
@@ -222,6 +232,11 @@ export async function generateMarketingCopy(
       // נקבע ב-CLAUDE_MODEL מחוץ לקוד.
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
+      // ‏Structured outputs: ה-API מחזיר JSON תקין לפי הסכמה. בלי זה, אחרי
+      // שהפוסט הוארך (30.9.2026), כ-1 מכל 4 תשובות נשברה - גרשיים של מ"ר בלי
+      // בריחה, או ירידת שורה גולמית לפני שורת ההאשטגים. ‏JSON.parse למטה נשאר
+      // כגיבוי, אבל כבר אינו צריך לנחש.
+      output_config: { format: { type: "json_schema", schema: COPY_SCHEMA } },
       messages: [{ role: "user", content: `נתוני הנכס:\n${factsText(row)}` }],
     }),
   });
