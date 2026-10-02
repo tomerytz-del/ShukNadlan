@@ -497,10 +497,43 @@ const WHISPER_RETRY: Record<string, Array<[string, string]>> = {
   ogg: [["oga", "audio/ogg"], ["webm", "audio/webm"]],
 };
 
+function findAscii(bytes: Uint8Array, s: string): boolean {
+  const c = [...s].map((ch) => ch.charCodeAt(0));
+  outer: for (let i = 0; i <= bytes.length - c.length; i++) {
+    for (let j = 0; j < c.length; j++) if (bytes[i + j] !== c[j]) continue outer;
+    return true;
+  }
+  return false;
+}
+
+/** הקודק בתוך מעטפת mp4/3gp, לפי ה-sample entry ב-stsd. */
+function mp4Codec(bytes: Uint8Array): string {
+  if (findAscii(bytes, "mp4a")) return "aac";
+  if (findAscii(bytes, "samr")) return "amr";
+  if (findAscii(bytes, "sawb")) return "amr-wb";
+  return "?";
+}
+
+/** ‏ftyp עם מותג 3gp (‏3gp4 - נצפה בהקלטה מטלפון אנדרואיד ב-1.10.2026) נדחה
+ *  ב-Whisper גם בשם m4a וגם בשם mp4, אף שהשמע בפנים הוא AAC רגיל. המותג הוא
+ *  רק תווית בקופסה הראשונה, ולכן מחליפים אותו בעותק ל-"M4A " (ותאימויות 3g*
+ *  ל-"isom") ומנסים שוב. ב-AMR זה לא יעזור - Whisper אינו מכיר את הקודק. */
+function rebrandFtyp(bytes: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> | null {
+  const ascii = (a: number, b: number) => String.fromCharCode(...bytes.slice(a, b));
+  if (ascii(4, 8) !== "ftyp" || !ascii(8, 10).startsWith("3g")) return null;
+  const size = new DataView(bytes.buffer, bytes.byteOffset).getUint32(0);
+  if (size < 16 || size > 256 || size > bytes.length) return null;
+  const out = bytes.slice();
+  const put = (at: number, s: string) => [...s].forEach((ch, i) => (out[at + i] = ch.charCodeAt(0)));
+  put(8, "M4A ");
+  for (let at = 16; at + 4 <= size; at += 4) if (ascii(at, at + 2) === "3g") put(at, "isom");
+  return out;
+}
+
 /** סוג הקובץ לפי הבתים הראשונים - בשביל הלוג, כשהסיומת משקרת. */
 function sniff(bytes: Uint8Array): string {
   const ascii = (a: number, b: number) => String.fromCharCode(...bytes.slice(a, b));
-  if (ascii(4, 8) === "ftyp") return `mp4(${ascii(8, 12)})`;
+  if (ascii(4, 8) === "ftyp") return `mp4(${ascii(8, 12)},${mp4Codec(bytes)})`;
   if (ascii(0, 4) === "OggS") return "ogg";
   if (ascii(0, 4) === "RIFF") return "wav";
   if (ascii(0, 3) === "ID3" || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)) return "mp3";
@@ -526,13 +559,18 @@ async function transcribe(bytes: Uint8Array<ArrayBuffer>, mime = "audio/mpeg", e
   // לפי הבתים ולא לפי מה שהדפדפן אמר: ‏ftyp הוא mp4/m4a גם אם הקובץ נקרא אחרת
   const kind = sniff(bytes);
   if (kind.startsWith("mp4(") && ext !== "m4a" && ext !== "mp4") ext = "m4a";
-  const attempts: Array<[string, string]> = [[ext, mime], ...(WHISPER_RETRY[ext] || [])];
+  const attempts: Array<[Uint8Array<ArrayBuffer>, string, string]> =
+    [[ext, mime] as [string, string], ...(WHISPER_RETRY[ext] || [])].map(([e, m]) => [bytes, e, m]);
+  // מותג 3gp נדחה בכל שם - העותק עם המותג המתוקן קודם לכל השאר
+  const rebranded = rebrandFtyp(bytes);
+  if (rebranded) attempts.unshift([rebranded, "m4a", "audio/mp4"]);
   try {
-    for (const [e, m] of attempts) {
-      const res = await whisperOnce(bytes, m, e);
+    for (const [b, e, m] of attempts) {
+      const res = await whisperOnce(b, m, e);
       if (res.ok) return (((await res.json())?.text as string) || "").trim() || null;
       const body = (await res.text()).slice(0, 300);
-      console.error("whisper failed", res.status, `as .${e} (${m})`, `sniff=${kind}`, body);
+      console.error("whisper failed", res.status, `as .${e} (${m})${b === bytes ? "" : " rebranded"}`,
+        `sniff=${kind}`, body);
       // רק דחיית פורמט שווה ניסיון נוסף; מכסה, מפתח או תקלה - לא
       if (res.status !== 400 || !/file format/i.test(body)) return null;
     }

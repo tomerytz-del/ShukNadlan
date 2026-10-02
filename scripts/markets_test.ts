@@ -151,6 +151,25 @@ check("שוק שאינו חי: IP מהקריות אינו מפנה", d.location 
 d = decide(reg, { cookie: "shuk_market=krayot%7Cgps", userAgent: UA, geo: null, search: "" });
 check("שוק שאינו חי: GPS שמור אינו מפנה", d.location === null);
 
+/* ‏soon - פס "נפתחים בקרוב" בדף הבית, בלי הפניה (assets/market-soon-strip.js) */
+const KFAR_SABA = [32.178, 34.907]; // 16 ק"מ ממרכז נתניה, מחוץ לתיבה שלה
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(NETANYA), search: "" });
+check("IP מנתניה: אין הפניה, soon=netanya", d.location === null && d.soon === "netanya" && d.geoCookie === null, JSON.stringify(d));
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(HADERA), search: "" });
+check("IP מחדרה: soon=hadera", d.location === null && d.soon === "hadera");
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KFAR_SABA), search: "" });
+check("IP מכפר סבא (ליד נתניה, לא בתוכה): אין soon", d.soon === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
+check("IP מתל אביב: אין soon", d.soon === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
+check("IP מעפולה (שוק חי): אין soon", d.soon === null);
+d = decide(reg, { cookie: "shuk_market=netanya%7Cgps", userAgent: UA, geo: null, search: "" });
+check("GPS שמור בנתניה: soon=netanya, בלי הפניה", d.location === null && d.soon === "netanya");
+d = decide(reg, { cookie: "shuk_market=afula-emek%7Cchoice", userAgent: UA, geo: IL(NETANYA), search: "" });
+check("בחירה מפורשת בעפולה גוברת על IP מנתניה: אין soon", d.soon === null);
+d = decide(reg, { cookie: "", userAgent: "Googlebot/2.1", geo: IL(NETANYA), search: "" });
+check("סורק: אין soon", d.soon === null);
+
 krayot.live = true;
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KIRYAT_BIALIK), search: "" });
@@ -243,6 +262,14 @@ krayot.live = false;
 
 r = await searchPages(req("/", "shuk_market=krayot%7Cchoice"), ctx());
 check("‎/‎ עם בחירה בשוק שאינו חי: 200, הדף כמו שהוא", r.status === 200 && (await r.text()) === HOME);
+
+r = await searchPages(req("/", ""), ctx(IL(NETANYA)));
+check("‎/‎ מנתניה: 200, עם עוגיית shuk_soon ובלי shuk_geo",
+  r.status === 200 && (r.headers.get("set-cookie") || "").includes("shuk_soon=netanya") &&
+  !(r.headers.get("set-cookie") || "").includes("shuk_geo="));
+
+r = await searchPages(req("/", ""), ctx(IL(TEL_AVIV)));
+check("‎/‎ מתל אביב: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
 
 reg.bySlug("krayot")!.live = krayotLiveInFile;
 
