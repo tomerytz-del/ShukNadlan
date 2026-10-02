@@ -5580,11 +5580,30 @@ document.getElementById('clearSearchBtn').addEventListener('click', clearSearch)
    ‎RESIDENTIAL_PTYPES‎, ‎COMMERCIAL_PTYPES‎), ולכן ערך מומצא ב-URL לא נכנס
    ל-searchState ולא מגיע לשאילתה — הוא פשוט מתעלם.
    ============================================================ */
+/* רענון של הדף (F5, משיכה למטה בטלפון). ‏performance.navigation הישן
+   הוא הגיבוי לדפדפנים שאין בהם Navigation Timing 2. */
+function isReload(){
+  try {
+    const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    if (nav) return nav.type === 'reload';
+    return !!(performance.navigation && performance.navigation.type === 1);
+  } catch(e){ return false; }
+}
+
 function applyDeepLinkFilters(){
   // עם החיפוש במשפט הכתובת נקראת שם (ראו initSentenceSearch למטה)
   if (sentence) return;
   const params = new URLSearchParams(location.search);
   if (![...params.keys()].length) return;
+  // רענון נפתח נקי - אותו כלל כמו ב-initSentenceSearch
+  if (isReload()){
+    try {
+      const url = new URL(location.href);
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'ai'].forEach(k => url.searchParams.delete(k));
+      history.replaceState(history.state, '', url);
+    } catch(e){ /* דפדפן שחוסם היסטוריה */ }
+    return;
+  }
 
   const deal = params.get('deal');
   const isCommercial = deal === 'commercial';
@@ -6005,11 +6024,16 @@ function initSentenceDock(){
           ‎<meta name="shuk-search-heading">‎, ורק ל-14 הכתובות שברשימה.
        2. הגעה דרך קישור - מדף אחר באתר או מאתר אחר (גוגל). ה-referrer
           ריק בלשונית ששוחזרה, בכתובת שהוקלדה ובסימנייה.
-     בכל מקרה אחר הפרמטרים יורדים מהכתובת, כדי ששורת הכתובת תתאים למסך. */
-  const landing = !!document.querySelector('meta[name="shuk-search-heading"]');
+     בכל מקרה אחר הפרמטרים יורדים מהכתובת, כדי ששורת הכתובת תתאים למסך.
+
+     **ורענון תמיד נקי, גם בשני המקרים האלה.** הדפדפן שומר את ה-referrer
+     המקורי ברענון, ולכן מי שהגיע/ה מדף נכס, בחר/ה מסננים (הכתובת התעדכנה)
+     ורענן/ה - נקרא/ה כ"הגעה דרך קישור" והמסננים חזרו. רענון הוא בקשה
+     מפורשת להתחיל מחדש. */
+  const landing = !isReload() && !!document.querySelector('meta[name="shuk-search-heading"]');
   let viaLink = false;
   try {
-    if (document.referrer){
+    if (document.referrer && !isReload()){
       const ref = new URL(document.referrer);
       viaLink = ref.origin !== location.origin || !/^\/(index(\.html)?)?$/.test(ref.pathname);
     }
