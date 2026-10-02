@@ -432,14 +432,16 @@ async function analyzeCall(
   }).eq("id", call.id);
 
   // 2. תמלול
-  const transcript = bytes.byteLength <= WHISPER_MAX_BYTES ? await transcribe(bytes, mime, ext) : null;
+  const places = await agentPlaces(call.agent_id);
+  const hint = places ? `${WHISPER_DOMAIN} מקומות: ${places}.` : WHISPER_DOMAIN;
+  const transcript = bytes.byteLength <= WHISPER_MAX_BYTES ? await transcribe(bytes, mime, ext, hint) : null;
 
   // 3. סיכום
   const client = call.client_id
     ? (await supabase.from("agent_clients").select("full_name, deal_type, cities, min_rooms, max_price")
       .eq("id", call.client_id).maybeSingle()).data
     : null;
-  const summary = transcript ? await summarize(transcript, client?.full_name ?? null) : null;
+  const summary = transcript ? await summarize(transcript, client?.full_name ?? null, places) : null;
 
   await supabase.from("agent_calls").update({
     transcript,
@@ -542,11 +544,58 @@ function sniff(bytes: Uint8Array): string {
   return [...bytes.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join(" ");
 }
 
-async function whisperOnce(bytes: Uint8Array<ArrayBuffer>, mime: string, ext: string) {
+/** ‏Whisper שומע שמות מקומות לפי מה שהוא מכיר: בסימולציה הראשונה שעברה,
+ *  "רובע יזרעאל" (שכונה בעפולה שבה יש לסוכן שלושה נכסים) יצא "ברוב הישראל",
+ *  ו"לשכור" יצא "לזכור". ה-prompt של Whisper הוא רמז אוצר מילים: מילות
+ *  התחום, ואחריהן הערים והשכונות של הסוכן/ת - מהנכסים ומהלקוחות שלו/ה,
+ *  לפי שכיחות. ‏Whisper קורא רק את ~224 הטוקנים האחרונים, ולכן החיתוך.
+ *  אותה רשימה עוברת גם לסיכום, כדי ש-Claude יתקן שם שבכל זאת השתבש. */
+const WHISPER_DOMAIN = "שיחת נדל״ן בין מתווך ללקוח: שכירות, לשכור, קנייה, לקנות, מכירה, דירה, חדרים, מ״ר, " +
+  "קומה, מעלית, חניה, ממ״ד, מרפסת, תקציב, מיליון, אלף שקל, משכנתא, בלעדיות, פינוי, כניסה.";
+const WHISPER_HINT_MAX = 500;
+
+async function agentPlaces(agentId: string): Promise<string> {
+  const count = new Map<string, number>();
+  const add = (s: unknown, w = 1) => {
+    const k = typeof s === "string" ? s.trim() : "";
+    if (k) count.set(k, (count.get(k) || 0) + w);
+  };
+  try {
+    const [{ data: props }, { data: clients }] = await Promise.all([
+      supabase.from("properties").select("city, neighborhood_id").eq("agent_id", agentId).limit(1000),
+      supabase.from("agent_clients").select("cities").eq("agent_id", agentId).limit(1000),
+    ]);
+    const nbIds = [...new Set((props || []).map((p) => p.neighborhood_id).filter(Boolean))];
+    const { data: nbs } = nbIds.length
+      ? await supabase.from("neighborhoods").select("id, name").in("id", nbIds)
+      : { data: [] as Array<{ id: string; name: string }> };
+    const nbName = new Map((nbs || []).map((n) => [n.id, n.name]));
+    for (const p of props || []) {
+      add(p.city, 2);
+      add(nbName.get(p.neighborhood_id));
+    }
+    for (const c of clients || []) for (const city of (c.cities || []) as string[]) add(city);
+  } catch (err) {
+    console.error("vocabulary hint failed", err);
+  }
+  let places = "";
+  for (const [name] of [...count].sort((a, b) => b[1] - a[1])) {
+    // "לב העמק C1" -> "לב העמק": קוד המתחם אינו מה שאומרים בטלפון
+    const spoken = name.replace(/\s+[A-Z]\d*$/, "").replace(/\s*\(.*?\)\s*/g, " ").trim();
+    if (!spoken || places.includes(spoken)) continue;
+    const next = places ? `${places}, ${spoken}` : spoken;
+    if (WHISPER_DOMAIN.length + next.length + 8 > WHISPER_HINT_MAX) break;
+    places = next;
+  }
+  return places;
+}
+
+async function whisperOnce(bytes: Uint8Array<ArrayBuffer>, mime: string, ext: string, hint: string) {
   const form = new FormData();
   form.append("file", new Blob([bytes], { type: mime }), `call.${ext}`);
   form.append("model", "whisper-1");
   form.append("language", "he");
+  if (hint) form.append("prompt", hint);
   return await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_KEY}` },
@@ -554,7 +603,12 @@ async function whisperOnce(bytes: Uint8Array<ArrayBuffer>, mime: string, ext: st
   });
 }
 
-async function transcribe(bytes: Uint8Array<ArrayBuffer>, mime = "audio/mpeg", ext = "mp3"): Promise<string | null> {
+async function transcribe(
+  bytes: Uint8Array<ArrayBuffer>,
+  mime = "audio/mpeg",
+  ext = "mp3",
+  hint = WHISPER_DOMAIN,
+): Promise<string | null> {
   if (!OPENAI_KEY) return null;
   // לפי הבתים ולא לפי מה שהדפדפן אמר: ‏ftyp הוא mp4/m4a גם אם הקובץ נקרא אחרת
   const kind = sniff(bytes);
@@ -566,7 +620,7 @@ async function transcribe(bytes: Uint8Array<ArrayBuffer>, mime = "audio/mpeg", e
   if (rebranded) attempts.unshift([rebranded, "m4a", "audio/mp4"]);
   try {
     for (const [b, e, m] of attempts) {
-      const res = await whisperOnce(b, m, e);
+      const res = await whisperOnce(b, m, e, hint);
       if (res.ok) return (((await res.json())?.text as string) || "").trim() || null;
       const body = (await res.text()).slice(0, 300);
       console.error("whisper failed", res.status, `as .${e} (${m})${b === bytes ? "" : " rebranded"}`,
@@ -638,7 +692,7 @@ const SUMMARY_PROMPT = [
   "כתוב/כתבי בעברית, עם מקף רגיל (-) ולא מקף ארוך.",
 ].join("\n");
 
-async function summarize(transcript: string, knownName: string | null): Promise<CallSummary | null> {
+async function summarize(transcript: string, knownName: string | null, places = ""): Promise<CallSummary | null> {
   if (!ANTHROPIC_KEY) return null;
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -657,6 +711,11 @@ async function summarize(transcript: string, knownName: string | null): Promise<
         messages: [{
           role: "user",
           content: (knownName ? `הלקוח/ה המוכר/ת: ${knownName}\n\n` : "") +
+            // התמלול משבש שמות מקומות ("ברוב הישראל" במקום "רובע יזרעאל")
+            (places
+              ? `המקומות שהסוכן/ת עובד/ת בהם: ${places}. אם מילה בתמלול נשמעת כמו אחד מהם, ` +
+                `כנראה שזה הוא; מקום שאינו דומה לאף אחד - לא לנחש.\n\n`
+              : "") +
             `תמלול השיחה:\n${transcript.slice(0, 60000)}`,
         }],
       }),
