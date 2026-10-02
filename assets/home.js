@@ -1035,6 +1035,9 @@ function logSearchToDb(row){
         category:     row.category || 'all',
         filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
         result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
+        /* ‏false = המשפט התייצב על אפס ואיש לא ביקש לראות. ברירת המחדל
+           היא true, כדי ששדה שנשכח ייספר כחיפוש רגיל ולא כמצב שהוסק. */
+        submitted:    row.submitted !== false,
         session_id:   visitorSessionId()
         /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
       }),
@@ -4476,9 +4479,16 @@ async function runSearchInner(){
     });
     /* ‏ואותו אירוע גם למסד, שמזין את הדשבורד. מחוץ ל-if: ‏shukTrack חסר
        פירושו שחוסם פרסומות מנע את events.js, וזה בדיוק המקרה שבגללו
-       המונה הזה קיים. */
+       המונה הזה קיים.
+
+       **‏`fallback` ולא `bar`.** השם הקודם נקרא בדשבורד "סרגל החיפוש",
+       ואין סרגל חיפוש: מאז החיפוש במשפט אין ב-`index.html` לא
+       ‏`#searchFreeText`, לא `#searchBtn` ולא `#dealTypeSelect`.
+       ‏`runSearch()` היא המסלול שרץ כש-`SentenceSearch` **נחסם** ונופלים
+       ל-`applyDeepLinkFilters()`, ולכן שורה כאן אומרת "הסקריפט של המשפט
+       לא נטען אצל מישהו" - מידע שימושי בפני עצמו, בשם נכון. */
     logSearchToDb({
-      source: 'bar',
+      source: 'fallback',
       term: freeTextMain,
       dealType: dealType || 'all',
       category: isCommercial ? 'commercial' : 'residential',
@@ -5815,6 +5825,55 @@ function onSentenceChange(results, st, reason){
   if (reason !== 'load' && ppShelfFiltered){ ppShelfFiltered = false; propsShelf.selectTag(''); }
   renderPropertyGrid(results, sentenceRowsOn);
   renderSentenceMapTag(results, st);
+  if (reason !== 'load') noteSentenceZero(results, st);
+}
+
+/* ---------- החיפוש שחזר ריק ----------
+   **הטור שבגללו `search_events` נבנתה לא יכול היה להתמלא.** שלושה ימים
+   אחרי שהמונה עלה היו בו 21 חיפושים ואפס מהם ריקים — ולא מפני שכולם
+   מצאו. חיפוש נרשם רק ב-`showSentenceResults()`, כלומר בלחיצה על "הצג N
+   נכסים"; וכשהמשפט מגיע לאפס, מה שעולה במסך הוא "אין כרגע התאמה
+   מדויקת" עם כפתור הרחבה, ומי שרואה את זה לוחץ על ההרחבה. הרגע שבו אדם
+   חיפש ולא מצא נראה בממשק ולא הגיע למסד.
+
+   לכן המצב הזה נרשם מכאן, ועם שלוש מגבלות שהן כל ההבדל בין מדידה
+   לזיהום:
+
+   ‏1. **השהיה.** `onSentenceChange` נורית על כל נגיעה בבורר, ובדרך
+      לצירוף אחד עוברים כמה. רק משפט שנשאר על אפס במשך
+      ‏`ZERO_SETTLE_MS` נרשם — כלומר מצב שמישהו ראה, לא שלב בדרך.
+   ‏2. **פעם אחת לכל נוסח.** אותו צירוף שחוזר אחרי שינוי והחזרה לא
+      נרשם שוב, כי זה אדם אחד עם צורך אחד.
+   ‏3. **‏`submitted:false`.** השורות האלה **אינן** נספרות ב-
+      ‏`totals.searches`: חיפוש הוא כוונה שאושרה בלחיצה, וזו כוונה
+      שהוסקה. ערבוב של השניים היה משנה את משמעות המספר באמצע.
+
+   **מה עדיין לא נתפס:** מי שלוחץ על כפתור ההרחבה לפני שההשהיה נגמרה.
+   זה בסדר — ההרחבה עצמה מדווחת כ-`search_empty_widen` ל-GA4. */
+var ZERO_SETTLE_MS = 2000;
+var zeroSettleTimer = 0;
+var zeroSettleSeen = Object.create(null);
+
+function noteSentenceZero(results, st){
+  clearTimeout(zeroSettleTimer);
+  if (!sentence || (results && results.length)) return;
+  zeroSettleTimer = setTimeout(function(){
+    try{
+      var term = sentence.describe();
+      if (!term || zeroSettleSeen[term]) return;
+      zeroSettleSeen[term] = true;
+      var t = sentence.Core.typeDef(st.type);
+      logSearchToDb({
+        source: 'sentence',
+        submitted: false,
+        term: term,
+        dealType: st.deal || 'all',
+        category: t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential'),
+        filterCount: countActiveFilters(),
+        resultCount: 0,
+      });
+    } catch(e){ /* מדידה לא שוברת אתר */ }
+  }, ZERO_SETTLE_MS);
 }
 
 /* ‏"הצג N נכסים": השורות נפתחות, התצוגה המפוצלת נדלקת בפעם הראשונה (כמו
