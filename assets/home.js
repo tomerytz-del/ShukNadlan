@@ -6526,24 +6526,30 @@ function initSentenceDock(){
     $('hsHood').disabled = $('hsCity').value !== 'all' || !hoods.length;
   }
 
-  function fillTypes(st, commercialOk){
-    const types = sentence.Core.TYPES.filter(t => t.key === 'any' || (commercialOk ? true : !t.commercial));
-    fillSelect($('hsType'), types.map(t => [t.key, t.key === 'any' ? 'כל הנכסים' : t.label]), st.type || 'any');
+  // "מסחרי" מציג רק את הסוגים המסחריים, ו"להשכרה"/"למכירה" - רק את שאינם
+  function fillTypes(st, commercial){
+    const types = commercial
+      ? sentence.Core.TYPES.filter(t => t.commercial).sort((x, y) => (y.key === 'commercial') - (x.key === 'commercial'))
+      : sentence.Core.TYPES.filter(t => t.key === 'any' || !t.commercial);
+    const opts = types.map(t => [t.key, t.key === 'any' ? 'כל הנכסים' : t.key === 'commercial' ? 'כל הסוגים' : t.label]);
+    fillSelect($('hsType'), opts, types.some(t => t.key === st.type) ? st.type : opts[0][0]);
   }
 
   // מה שכבר נבחר בחיפוש - חוזר לפאנל, ולא פאנל ריק בכל פתיחה
   function fillFromState(){
     const st = sentence.state();
     fillAreas(st);
-    fillTypes(st, true);
+    const commercial = mode === 'commercial';
+    fillTypes(st, commercial);
     const r = st.rooms;
     $('hsRooms').value = !r ? '' : (r[0] >= 5 ? '5' : String(Math.floor(r[0])));
     $('hsPriceMax').value = fmt(st.priceMax);
     $('hsPriceMin').value = fmt(st.priceMin);
-    const feats = searchState.r.propertyFeatures;
+    const feats = (commercial ? searchState.c : searchState.r).propertyFeatures;
     panel.querySelectorAll('.hs-check input').forEach(cb => { cb.checked = feats.has(cb.value); });
     $('hsStorage').value = feats.has('storage') ? '1' : '';
-    $('hsFloor').value = searchState.r.floorMin != null && searchState.r.floorMin !== '' ? String(searchState.r.floorMin) : '';
+    const fl = (commercial ? searchState.c : searchState.r).floorMin;
+    $('hsFloor').value = fl != null && fl !== '' ? String(fl) : '';
   }
 
   function setMode(next){
@@ -6568,15 +6574,17 @@ function initSentenceDock(){
   // הצ'קבוקסים והשדות של הפאנל → searchState ושדות המודאל, ואז אותו applyAdvancedFilters
   function applyPanel(){
     if (!sentence.loaded()) return;
-    const deal = mode === 'rent' ? 'rent' : 'sale';
+    // מסחרי = שתי העסקאות יחד (deal ריק), כמו ‎?deal=commercial‎
+    const commercial = mode === 'commercial';
+    const deal = commercial ? null : mode;
     const area = $('hsHood').value || $('hsCity').value || 'all';
-    sentence.patch({ deal, area, type: $('hsType').value || 'any' });
+    sentence.patch({ deal, area, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
 
     const st = sentence.state();
     syncSearchStateFromSentence(st);
     const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
     const pre = searchState.activeTab === 'commercial' ? 'c' : 'r';
-    const rooms = $('hsRooms').value;
+    const rooms = commercial ? '' : $('hsRooms').value;
     s.rooms = new Set(!rooms ? [] : ROOM_OPTIONS.filter(o => {
       const n = o === '+6' ? 6 : parseFloat(o);
       return rooms === '5' ? n >= 5 : (n >= Number(rooms) && n < Number(rooms) + 1);
@@ -6585,8 +6593,10 @@ function initSentenceDock(){
     set(pre + 'PriceMax', digits($('hsPriceMax').value));
     set(pre + 'PriceMin', digits($('hsPriceMin').value));
     set(pre + 'FloorMin', $('hsFloor').value);
-    const feats = new Set([...panel.querySelectorAll('.hs-check input:checked')].map(cb => cb.value));
-    if ($('hsStorage').value) feats.add('storage');
+    // ממ״ד ומחסן הם מאפיינים של מגורים; במסחרי הם שדות מיקום אחרים, והפאנל מסתיר אותם
+    const feats = new Set([...panel.querySelectorAll('.hs-check input:checked')]
+      .filter(cb => !(commercial && cb.closest('.hs-res-only'))).map(cb => cb.value));
+    if (!commercial && $('hsStorage').value) feats.add('storage');
     s.propertyFeatures = feats;
     applyAdvancedFilters();
     showSentenceResults();
