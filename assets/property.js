@@ -737,6 +737,15 @@ function vizJumpPair(){
   return null;
 }
 
+/* במובייל הכרטיס צר והכותרת נשברת. המילה האחרונה לא נחתכת, כך ש-"ב-AI"
+   לא נשבר על המקף - שורה שמתחילה ב-"AI" לבד נקראת כשבר. */
+function vjKeepTail(text, after){
+  const words = String(text).split(' ');
+  const last = words.pop();
+  const head = words.length ? escapeHtml(words.join(' ')) + ' ' : '';
+  return `${head}<span class="vj-nw">${escapeHtml(last)}${after}</span>`;
+}
+
 function renderVizJumpButton(){
   const btn = document.getElementById('vizJumpBtn');
   if (!btn || btn.hidden) return;
@@ -759,9 +768,21 @@ function renderVizJumpButton(){
   btn.setAttribute('aria-label', `${title} - ${sub}`);
   btn.innerHTML = `
     <span class="vj-text">
-      <span class="vj-title">${escapeHtml(title)} ${ICON.sparkle}</span>
-      <span class="vj-sub">${escapeHtml(sub)}</span>
+      <span class="vj-title">${ICON.sparkle} ${vjKeepTail(title, '')}</span>
+      <span class="vj-sub">${vjKeepTail(sub, '')}</span>
     </span>${thumbs}`;
+}
+
+/* רוחב תגית המחיר, אל ‎--price-w‎ על התא הראשי. במובייל הכרטיס יושב לצדה
+   באותה שורה ומקבל את שאר הרוחב, ורוחב המחיר תלוי בסכום ובשורת המ"ר. */
+function watchHeroPriceWidth(){
+  const price = document.getElementById('heroPrice');
+  const cell = price && price.parentElement;
+  if (!cell || !window.ResizeObserver || price.dataset.watched) return;
+  price.dataset.watched = '1';
+  new ResizeObserver(()=>{
+    cell.style.setProperty('--price-w', price.hidden ? '0px' : price.offsetWidth + 'px');
+  }).observe(price);
 }
 
 function revealVizJumpButton(){
@@ -781,6 +802,7 @@ function revealVizJumpButton(){
     target.scrollIntoView({ behavior:'smooth', block:'start' });
   });
   btn.hidden = false;
+  watchHeroPriceWidth();
   renderVizJumpButton();
 }
 

@@ -253,22 +253,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #vizJumpBtn{
     gap:10px;padding:6px 8px 6px 10px;border:1.5px solid var(--bronze-soft);
     box-shadow:0 6px 18px rgba(10,18,30,.25);text-align:start;
-    max-width:calc(100vw - 64px);
   }
+  #vizJumpBtn .vj-nw{white-space:nowrap}
   #vizJumpBtn .vj-text{display:flex;flex-direction:column;gap:2px;min-width:0}
   #vizJumpBtn .vj-title{font-size:.76rem;font-weight:800;line-height:1.2}
   #vizJumpBtn .vj-title svg{display:inline-block;vertical-align:-2px;width:13px;height:13px}
-  /* במובייל אין מקום לכרטיס ולמחיר באותה שורה, והמחיר עולה מעליו. שניהם
-     נשארים קריאים, ובמחשב הם חוזרים לשבת זה לצד זה. */
+  /* במובייל הכרטיס והמחיר יושבים באותה שורה בתחתית התמונה, כמו במחשב:
+     המחיר מתכווץ מעט, הכרטיס מקבל את שאר הרוחב, והכותרת שלו נשברת לשתי
+     שורות במקום שהוא יתרחב אל תוך המחיר. מחיר שעולה מעל הכרטיס כיסה את
+     הבית עצמו - את מה שבאו לראות. */
   @media(max-width:639px){
-    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price{bottom:70px}
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price{padding:7px 10px}
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price .num{font-size:1.12rem}
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price .sub{font-size:.64rem}
+    /* ‏--price-w נמדד ב-JS (‏watchHeroPriceWidth): מחיר של 12 מיליון רחב
+       ממחיר של 900 אלף, וקבוע כאן היה מכסה אותו. 40px = שני השוליים והרווח. */
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-actions{max-width:calc(100% - var(--price-w, 140px) - 40px)}
+    #vizJumpBtn{gap:7px;padding:5px 6px 5px 8px;max-width:100%}
   }
   #vizJumpBtn .vj-sub{font-size:.66rem;font-weight:600;color:var(--ink-soft,#55607a);line-height:1.2}
   /* הווילון: ההדמיה נחתכת מעל הצילום ב-clip-path, והידית זזה באותו קצב
      בדיוק (אותם keyframes ואותו משך), כך שהקו תמיד יושב על התפר. */
   #vizJumpBtn .vj-curtain{
     position:relative;flex:none;display:block;overflow:hidden;
-    width:86px;height:40px;border:1px solid rgba(15,23,42,.12);direction:ltr;
+    width:56px;height:46px;border:1px solid rgba(15,23,42,.12);direction:ltr;
   }
   #vizJumpBtn .vj-curtain img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   #vizJumpBtn .vj-after{clip-path:inset(0 50% 0 0);animation:vj-clip 5.5s ease-in-out infinite}
@@ -296,6 +304,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* בלי תנועה: הווילון עומד באמצע, וההשוואה עדיין נקראת */
   @media(prefers-reduced-motion:reduce){
     #vizJumpBtn .vj-after,#vizJumpBtn .vj-handle{animation:none}
+  }
+  /* מסך צר (‏360px): גם הווילון והמחיר מתכווצים, כדי שהכותרת תישאר בשתי שורות */
+  @media(max-width:380px){
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price .num{font-size:1rem}
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price{padding:6px 8px}
+    #vizJumpBtn .vj-title{font-size:.7rem}
+    #vizJumpBtn .vj-sub{font-size:.6rem}
+    #vizJumpBtn .vj-curtain{width:56px;height:44px}
   }
   @media(min-width:640px){
     #vizJumpBtn{padding:8px 10px 8px 14px}
