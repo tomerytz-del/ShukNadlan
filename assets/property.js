@@ -706,18 +706,73 @@ function revealTourJumpButton(){
 
 /* ---------- קיצור הדרך להדמיות ----------
    שלט על התמונה הראשית ולא הכלי עצמו: כלי שצף על תמונת הנכס מכסה את מה
-   שבאו לראות. הכפתור רק מוביל לסקציה — שנמצאת ממילא גבוה בעמוד.
-   נדלק רק אחרי ש-loadVisualizations אישרה שיש מה להראות. */
+   שבאו לראות. הכפתור רק מוביל לסקציה, בלחיצה אחת ובלי לחפש אותה.
+   נדלק רק אחרי ש-loadVisualizations אישרה שיש מה להראות.
+
+   **הוא אומר מה יקרה, ולא איך קוראים לכלי.** "הדמיית AI לנכס" היה שם של
+   פיצ'ר; מי שלא ידע/ה מה זה לא הבין/ה שהלחיצה מראה את *הבית הזה* אחרי
+   שיפוץ, ולכן הגיע/ה לווילון רק אם גלל/ה עד אליו. עכשיו הכותרת היא
+   ההבטחה, והשורה שמתחתיה אומרת שזו הדמיה, לא צילום.
+
+   ‏**ושתי תמונונות - לפני ואחרי - כשיש.** הן מסבירות בשנייה מה שהטקסט
+   מסביר בשורה, והן לקוחות מהנכס עצמו: מקור ותוצאה של אותה הדמיה, באותו
+   סגנון שהווילון ייפתח עליו. נכס שעוד אין לו הדמיה מקבל את השלט בלי
+   תמונונות - אין תמונה אמיתית להראות, ותמונה של נכס אחר הייתה מטעה. */
+function vizJumpCopy(){
+  if (!vizState.isPrivate) return { title:'ראו איך ייראה כאן העסק שלכם', sub:'הדמיית AI לעסק' };
+  if (vizState.staging) return { title:'ראו איך הבית יכול להיראות', sub:'הדמיית עיצוב ב-AI' };
+  return { title:'ראו איך הבית יכול להיראות', sub:'הדמיית שיפוץ ב-AI' };
+}
+
+/* זוג לפני/אחרי לתמונונות: מהסגנון שהווילון פתוח עליו, ובו החזית קודם -
+   היא מה שרואים בתמונה הראשית, ולכן ההשוואה נקראת בלי הסבר. */
+function vizJumpPair(){
+  const pools = [vizState.byStyle.get(vizState.current) || []];
+  vizState.byStyle.forEach(list=> pools.push(list || []));
+  const rank = t => (t === 'exterior' ? 0 : 1);
+  for (const list of pools){
+    const ok = list.filter(it=> it && it.source_image_url && it.result_url);
+    if (ok.length) return ok.slice().sort((a, b)=> rank(a.target) - rank(b.target))[0];
+  }
+  return null;
+}
+
+function renderVizJumpButton(){
+  const btn = document.getElementById('vizJumpBtn');
+  if (!btn || btn.hidden) return;
+  const { title, sub } = vizJumpCopy();
+  const pair = vizJumpPair();
+  const key = pair ? pair.source_image_url + '|' + pair.result_url : '';
+  if (btn.dataset.rendered === title + '|' + key) return;
+  btn.dataset.rendered = title + '|' + key;
+  const thumbs = pair
+    ? `<span class="vj-thumbs" aria-hidden="true">
+         <img src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
+         <span class="vj-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg></span>
+         <img src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+       </span>`
+    : '';
+  btn.classList.toggle('has-thumbs', !!pair);
+  btn.setAttribute('aria-label', `${title} - ${sub}`);
+  btn.innerHTML = `
+    <span class="vj-text">
+      <span class="vj-title">${escapeHtml(title)} ${ICON.sparkle}</span>
+      <span class="vj-sub">${escapeHtml(sub)}</span>
+    </span>${thumbs}`;
+}
+
 function revealVizJumpButton(){
   const btn = document.getElementById('vizJumpBtn');
   if (!btn || !btn.hidden) return;
-  btn.innerHTML = `${ICON.sparkle}<span>הדמיית AI לנכס</span>`;
   btn.addEventListener('click', ()=>{
+    // ישר לווילון עצמו, לא לראש הסקציה
+    const target = document.getElementById('aiShowcase') || document.getElementById('vizSection');
     const section = document.getElementById('vizSection');
-    if (!section || section.hidden) return;
-    section.scrollIntoView({ behavior:'smooth', block:'start' });
+    if (!target || !section || section.hidden) return;
+    target.scrollIntoView({ behavior:'smooth', block:'start' });
   });
   btn.hidden = false;
+  renderVizJumpButton();
 }
 
 const lb = document.getElementById('lightbox');
@@ -1208,6 +1263,9 @@ let showcasePending = false;
 function renderPropertyShowcase(){
   const el = document.getElementById('aiShowcase');
   if (!el || !vizState.propertyId) return;
+  // השלט שעל התמונה הראשית מתעדכן יחד עם הווילון: הדמיה ראשונה שנוצרה
+  // עכשיו מוסיפה לו את התמונונות, ושינוי סגנון מחליף אותן.
+  renderVizJumpButton();
   if (!window.AiShowcase){
     if (!showcasePending && document.readyState === 'loading'){
       showcasePending = true;
