@@ -65,6 +65,7 @@
     { key: 'restrooms',        label: 'שירותים' },
     { key: 'basement',         label: 'מרתף?' },
     { key: 'solar',            label: 'דוד שמש?' },
+    { key: 'ev_charger',       label: 'עמדת טעינה לרכב חשמלי', src: 'feature:ev_charger' },
     { key: 'furnished',        label: 'מרוהט?',             src: 'feature:furnished' },
     { key: 'pets',             label: 'בעלי חיים' },
     { key: 'partners',         label: 'שותפים' },

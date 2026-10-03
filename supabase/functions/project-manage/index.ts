@@ -76,7 +76,7 @@ function projectFields(body: Record<string, unknown>) {
     min_size_sqm: num(body.min_size_sqm, 0, 100_000),
     max_size_sqm: num(body.max_size_sqm, 0, 100_000),
     property_types: stringList(body.property_types, PROJECT_PROPERTY_TYPES, 9),
-    features: stringList(body.features, PROJECT_FEATURES, 16),
+    features: stringList(body.features, PROJECT_FEATURES, PROJECT_FEATURES.length),
 
     logo_url: safeUrl(body.logo_url),
     cover_url: safeUrl(body.cover_url),

@@ -109,13 +109,14 @@ export const COMMERCIAL_PTYPES = [
   "בית מלון", "קליניקות",
 ];
 const RESIDENTIAL_FEATURES = [
-  "parking", "elevator", "balcony", "ac", "bars", "accessible",
+  "parking", "elevator", "balcony", "sun_balcony", "ac", "bars", "accessible",
   "renovated_feature", "furnished", "mamad", "exclusive", "building_shelter",
-  "mamak", "storage",
+  "mamak", "storage", "ev_charger",
 ];
 const COMMERCIAL_FEATURES = [
   "parking", "elevator", "balcony", "ac", "high_ceiling", "cameras",
   "kitchenette", "alarm", "meeting_room", "loading_ramp", "comms", "cold_room",
+  "ev_charger",
 ];
 const CONDITIONS = [
   "new_from_contractor", "new", "renovated", "maintained", "needs_renovation",
