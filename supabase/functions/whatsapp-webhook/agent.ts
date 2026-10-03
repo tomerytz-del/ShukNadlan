@@ -813,6 +813,39 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "create_showcase",
+    description:
+      "פותח ללקוח/ה מיניסייט אישי - עמוד אחד, ממותג במשרד ובסוכן/ת, עם הנכסים " +
+      "שמתאימים לו/ה. הלקוח/ה מסמן/ת שם מה אהב/ה ומה לא, שואל/ת על כל נכס ומבקש/ת " +
+      "סיור. ללקוח/ה יש עמוד פעיל אחד: קריאה נוספת מוסיפה לאותו קישור. בלי " +
+      "property_ids נלקחות ההתאמות של client_matches. **אינו שולח ללקוח/ה** - מחזיר " +
+      "wa_client_url שהסוכן/ת לוחץ/ת עליו ושולח/ת מהוואטסאפ שלו/ה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        property_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "הנכסים לשליחה. ריק = ההתאמות של הלקוח/ה (עד 10).",
+        },
+        intro: { type: "string", description: "הודעה אישית בראש העמוד, אם הסוכן/ת ביקש/ה." },
+      },
+      required: ["client_id"],
+    },
+  },
+  {
+    name: "showcase_status",
+    description:
+      "מה קורה במיניסייט של לקוח/ה: האם פתח/ה, מה אהב/ה ומה לא (ולמה), שאלות " +
+      "שמחכות לתשובה, בקשות סיור, ונכסי שת\"פ שאהב/ה ועוד צריך לתאם מול המתווך/ת המקורי/ת.",
+    input_schema: {
+      type: "object",
+      properties: { client_id: { type: "string" } },
+      required: ["client_id"],
+    },
+  },
+  {
     name: "list_match_alerts",
     description:
       "התראות ההתאמה שנפתחו מעצמן - נכס חדש (או נכס שהמחיר שלו ירד) שהתאים " +
@@ -3297,13 +3330,24 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   });
   if (error) return { ok: false, error: error.message };
 
+  // האם יש כבר מיניסייט פעיל, ומה מההתאמות כבר בו - כדי שההצעה תהיה "לפתוח"
+  // או "להוסיף את החדשות", ולא "לפתוח" על עמוד שכבר נשלח
+  const showcase = await activeShowcase(ctx, clientId);
+  const inShowcase = new Set(showcase?.property_ids ?? []);
+  ctx.conv.last_client_id = clientId;
+
   return {
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
     count: (data || []).length,
+    showcase: showcase
+      ? { link: showcase.link, items: showcase.property_ids.length,
+          new_matches: (data || []).filter((m: Record<string, unknown>) => !inShowcase.has(String(m.property_id))).length }
+      : null,
     matches: (data || []).map((m: Record<string, unknown>) => ({
       property_id: m.property_id,
+      in_showcase: inShowcase.has(String(m.property_id)),
       // ‏own / agency / shared — זה מה שקובע אם צריך להרים טלפון לסוכן/ת אחר/ת
       source: m.source,
       score: m.score,
@@ -3318,6 +3362,218 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       listing_agent_phone: m.listing_agent_phone,
       link: propertyLink(String(m.property_id)),
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// המיניסייט ללקוח/ה (docs/client-showcase.md)
+//
+// ‏create_showcase פותח את העמוד דרך `agent_showcase_add_properties` - **אותו
+// גוף** של הכפתור ב-CRM, עם מזהה סוכן/ת מפורש כי לבוט אין JWT. שם נבדקים
+// הלקוח/ה והמאגר (נכסי המשרד + מה ששותף איתו), ולכן אין כאן בדיקה מקבילה.
+//
+// הבוט **אינו שולח ללקוח/ה**: הוא מחזיר wa.me לצ'אט של הלקוח/ה עם הודעה מוכנה,
+// והסוכן/ת לוחץ/ת ושולח/ת מהמספר שלו/ה - אותו נימוק של property_link. הלקוח/ה
+// מכיר/ה את הסוכן/ת, לא את המספר של שוק נדל״ן.
+// ---------------------------------------------------------------------------
+const SHOWCASE_MATCH_LIMIT = 10;
+
+function showcaseLink(token: string, preview = false): string | undefined {
+  return SITE_BASE_URL ? `${SITE_BASE_URL}/showcase?t=${token}${preview ? "&preview=1" : ""}` : undefined;
+}
+
+async function activeShowcase(ctx: ToolContext, clientId: string) {
+  const { data } = await ctx.supabase
+    .from("client_showcases")
+    .select("id, token, view_count, last_viewed_at, client_showcase_items(property_id, removed_at)")
+    .eq("client_id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!data) return null;
+  const items = ((data.client_showcase_items || []) as Array<{ property_id: string; removed_at: string | null }>)
+    .filter((i) => !i.removed_at);
+  return {
+    id: data.id as string,
+    token: data.token as string,
+    view_count: data.view_count as number,
+    last_viewed_at: data.last_viewed_at as string | null,
+    link: showcaseLink(String(data.token)),
+    property_ids: items.map((i) => i.property_id),
+  };
+}
+
+/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js. */
+function showcaseMessage(firstName: string, link: string): string {
+  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
+    "הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
+    "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
+    "רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.";
+}
+
+const SHOWCASE_ERRORS: Record<string, string> = {
+  agent_not_found: "הסוכן/ת אינו/ה פעיל/ה.",
+  agent_without_agency: "לסוכן/ת אין משרד - אין מאגר נכסים לשלוח ממנו.",
+  client_not_found: "לא נמצא/ה לקוח/ה כזה/כזו בקובץ של הסוכן/ת.",
+  no_properties: "אין נכסים לשליחה - אין כרגע התאמות ללקוח/ה.",
+  too_many: "יותר מדי נכסים בבת אחת (עד 40).",
+};
+
+async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknown>) {
+  const clientId = String(input.client_id || "");
+  const client = await ownedClient(ctx, clientId);
+  if (!client) return { ok: false, error: SHOWCASE_ERRORS.client_not_found };
+  if (!SITE_BASE_URL) return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת - אין דרך לבנות קישור." };
+
+  let ids = Array.isArray(input.property_ids)
+    ? (input.property_ids as unknown[]).map(String).filter(Boolean)
+    : [];
+  if (!ids.length) {
+    const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
+      p_agent_id: ctx.agent.id,
+      p_client_id: clientId,
+      p_limit: SHOWCASE_MATCH_LIMIT,
+    });
+    if (error) return { ok: false, error: error.message };
+    ids = (data || []).map((m: Record<string, unknown>) => String(m.property_id));
+  }
+  if (!ids.length) return { ok: false, error: SHOWCASE_ERRORS.no_properties };
+
+  const { data: res, error } = await ctx.supabase.rpc("agent_showcase_add_properties", {
+    p_agent_id: ctx.agent.id,
+    p_client_id: clientId,
+    p_property_ids: ids,
+    p_intro: input.intro ? String(input.intro).slice(0, 1000) : null,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!res || res.error) return { ok: false, error: SHOWCASE_ERRORS[res?.error] || String(res?.error || "שגיאה") };
+
+  // בדיקת הלוגו בתמונות - ברקע, כדי לא לעכב את התשובה. עד שהיא עוברת,
+  // תמונה שלא נבדקה פשוט אינה מוצגת בעמוד (נכשל סגור).
+  if (SERVICE_ROLE_KEY && FUNCTIONS_BASE) {
+    const scan = fetch(`${FUNCTIONS_BASE}/client-showcase`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        apikey: SERVICE_ROLE_KEY,
+      },
+      body: JSON.stringify({ action: "scan", showcase_id: res.showcase_id }),
+    }).then((r) => r.body?.cancel()).catch((e) => console.error("showcase scan failed", e));
+    try {
+      // deno-lint-ignore no-explicit-any
+      (globalThis as any).EdgeRuntime?.waitUntil(scan);
+    } catch {
+      /* מחוץ ל-Edge Runtime (בדיקות) */
+    }
+  }
+
+  const link = showcaseLink(String(res.token))!;
+  const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
+  const message = showcaseMessage(first, link);
+  const encoded = encodeURIComponent(message);
+  const clientWa = waNumber(client.phone);
+  ctx.conv.last_client_id = clientId;
+
+  return {
+    ok: true,
+    client_name: client.full_name,
+    link,
+    preview_url: showcaseLink(String(res.token), true),
+    added: res.added,
+    skipped: res.skipped,
+    message,
+    // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
+    wa_client_url: clientWa ? `https://wa.me/${clientWa}?text=${encoded}` : undefined,
+    wa_share_url: clientWa ? undefined : `https://wa.me/?text=${encoded}`,
+    client_phone_missing: !clientWa,
+    note:
+      "העמוד ממותג במשרד ובפרטי הסוכן/ת, והנכסים בלי מיתוג - בלי שם משרד, טלפון או מספר בית, " +
+      "ותמונה עם לוגו מוסתרת. הבוט לא שלח ללקוח/ה: הסוכן/ת שולח/ת בלחיצה על wa_client_url.",
+  };
+}
+
+const SHOWCASE_REASON_LABELS: Record<string, string> = {
+  price: "מחיר", location: "מיקום", size: "גודל", condition: "מצב הנכס",
+  layout: "חלוקה", floor: "קומה", photos: "התמונות", other: "אחר",
+};
+
+async function toolShowcaseStatus(ctx: ToolContext, input: Record<string, unknown>) {
+  const clientId = String(input.client_id || "");
+  const client = await ownedClient(ctx, clientId);
+  if (!client) return { ok: false, error: SHOWCASE_ERRORS.client_not_found };
+  const sc = await activeShowcase(ctx, clientId);
+  ctx.conv.last_client_id = clientId;
+  if (!sc) return { ok: true, client_name: client.full_name, has_showcase: false };
+
+  const [{ data: items }, { data: msgs }, { data: meets }] = await Promise.all([
+    ctx.supabase
+      .from("client_showcase_items")
+      .select("id, property_id, source, reaction, reaction_reasons, coop_status, properties(property_type, street, city, price, deal_type)")
+      .eq("showcase_id", sc.id)
+      .is("removed_at", null),
+    ctx.supabase
+      .from("client_showcase_messages")
+      .select("item_id, author, body, created_at")
+      .eq("showcase_id", sc.id)
+      .order("created_at", { ascending: true }),
+    ctx.supabase
+      .from("client_showcase_meetings")
+      .select("starts_at, status, note")
+      .eq("showcase_id", sc.id)
+      .in("status", ["requested", "confirmed"])
+      .order("starts_at", { ascending: true }),
+  ]);
+
+  // פרטי המתווך/ת המקורי/ת - רק לנכסי השת"פ שבעמוד, ולסוכן/ת בלבד (לעולם לא ללקוח/ה)
+  const sharedIds = ((items || []) as Array<Record<string, unknown>>)
+    .filter((r) => r.source === "shared").map((r) => String(r.property_id));
+  const { data: owners } = sharedIds.length
+    ? await ctx.supabase
+      .from("properties")
+      .select("id, agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)")
+      .in("id", sharedIds)
+    : { data: [] as Array<Record<string, unknown>> };
+
+  // deno-lint-ignore no-explicit-any
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v);
+  const ownerBy = new Map<string, { name?: string; phone?: string; office?: string }>();
+  for (const o of (owners || []) as Array<Record<string, unknown>>) {
+    const m = one(o.agency_members);
+    ownerBy.set(String(o.id), { name: m?.display_name, phone: m?.phone, office: one(o.agencies)?.name });
+  }
+  const label = (r: Record<string, unknown>) => {
+    const p = one(r.properties) || {};
+    return [p.property_type || "נכס", [p.street, p.city].filter(Boolean).join(", ")].filter(Boolean).join(" ב");
+  };
+
+  // שאלה שמחכה = הודעת לקוח/ה שאחריה עוד לא ענה/תה הסוכן/ת, לפי נכס או כללית
+  const lastBy = new Map<string, { author: string; body: string; created_at: string }>();
+  for (const m of msgs || []) lastBy.set(String(m.item_id ?? "general"), m);
+  const itemLabel = new Map((items || []).map((r: Record<string, unknown>) => [String(r.id), label(r)]));
+  const waiting = [...lastBy.entries()]
+    .filter(([, m]) => m.author === "client")
+    .map(([k, m]) => ({ about: k === "general" ? "כללי" : itemLabel.get(k) || "נכס", question: m.body }));
+
+  const rows = (items || []) as Array<Record<string, unknown>>;
+  return {
+    ok: true,
+    client_name: client.full_name,
+    has_showcase: true,
+    link: sc.link,
+    opened: (sc.view_count || 0) > 0,
+    last_viewed_at: sc.last_viewed_at,
+    liked: rows.filter((r) => r.reaction === "liked").map(label),
+    disliked: rows.filter((r) => r.reaction === "disliked").map((r) => ({
+      property: label(r),
+      reasons: ((r.reaction_reasons as string[]) || []).map((k) => SHOWCASE_REASON_LABELS[k] || k),
+    })),
+    pending: rows.filter((r) => !r.reaction).length,
+    waiting_questions: waiting,
+    meetings: (meets || []).map((m) => ({ starts_at: m.starts_at, status: m.status, note: m.note })),
+    coop_to_arrange: rows
+      .filter((r) => r.source === "shared" && r.reaction === "liked" && r.coop_status !== "agreed")
+      .map((r) => ({ property: label(r), status: r.coop_status || "needed", listing_agent: ownerBy.get(String(r.property_id)) || null })),
   };
 }
 
@@ -4604,6 +4860,8 @@ async function runTool(
       case "set_client_status": return await toolSetClientStatus(ctx, input);
       // התאמות
       case "client_matches": return await toolClientMatches(ctx, input);
+      case "create_showcase": return await toolCreateShowcase(ctx, input);
+      case "showcase_status": return await toolShowcaseStatus(ctx, input);
       case "property_matches": return await toolPropertyMatches(ctx, input);
       case "list_match_alerts": return await toolListMatchAlerts(ctx, input);
       // הסכמים
@@ -4773,6 +5031,16 @@ const SYSTEM_STATIC: string = (() => {
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. \"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
+    "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
+      "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
+      "\"להוסיף את <new_matches> החדשות לעמוד של <שם>?\". אל תפתחי בלי אישור.",
+    "- אחרי אישור = create_showcase (בלי property_ids אם הכוונה להתאמות שהצגת; עם property_ids " +
+      "אם הסוכן/ת בחר/ה חלק מהן). בתשובה: wa_client_url כקישור ללחיצה (\"לחיצה כאן פותחת " +
+      "את הצ'אט עם <שם> עם הודעה מוכנה\") ו-preview_url לצפייה מוקדמת, ומשפט אחד שהעמוד ממותג " +
+      "במשרד והנכסים בלי מיתוג. **אל תאמרי שנשלח ללקוח/ה** - הסוכן/ת שולח/ת. אם client_phone_missing " +
+      "- wa_share_url, ובקשי להוסיף טלפון לכרטיס.",
+    "- \"מה <שם> אהב/ה\", \"<שם> ענה/תה?\", \"יש בקשת סיור?\" = showcase_status. נכס שת\"פ " +
+      "ב-coop_to_arrange - הזכירי לתאם עם listing_agent (שם וטלפון) לפני הסיור.",
     "",
     "יומן שיחות (מספר הטלפון של שוק נדל\"ן):",
     "- \"מי התקשר אליי היום\" = list_calls עם since_hours 24. \"מי לא נענה\" = status missed. " +

@@ -581,11 +581,18 @@ async function handleCancelMeeting(supabase: SupabaseClient, showcase: Row, body
 // scan — הסוכן/ת, עם JWT
 // ---------------------------------------------------------------------------
 async function handleScan(req: Request, supabase: SupabaseClient, body: Row) {
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
-  const { data: userData } = await supabase.auth.getUser(auth.slice(7));
-  const userId = userData?.user?.id;
-  if (!userId) return json({ error: "unauthorized" }, 401);
+  // שני קוראים: הסוכן/ת מה-CRM (‏JWT, ונבדקת הבעלות), או קורא פנימי עם
+  // ‏service_role - העוזרת בוואטסאפ אחרי create_showcase, שכבר אימתה את
+  // הסוכן/ת לפי הטלפון ואת המיניסייט דרך agent_showcase_add_properties.
+  const internal = authorizeInternalCaller(req).ok;
+  let userId: string | null = null;
+  if (!internal) {
+    const auth = req.headers.get("Authorization") ?? "";
+    if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+    const { data: userData } = await supabase.auth.getUser(auth.slice(7));
+    userId = userData?.user?.id ?? null;
+    if (!userId) return json({ error: "unauthorized" }, 401);
+  }
 
   const showcaseId = String(body.showcase_id ?? "");
   if (!UUID_RE.test(showcaseId)) return json({ error: "bad_showcase" }, 400);
@@ -596,7 +603,7 @@ async function handleScan(req: Request, supabase: SupabaseClient, body: Row) {
     .eq("id", showcaseId)
     .maybeSingle();
   const owner = showcase && (Array.isArray(showcase.agency_members) ? showcase.agency_members[0] : showcase.agency_members);
-  if (!showcase || owner?.user_id !== userId) return json({ error: "not_found" }, 404);
+  if (!showcase || (!internal && owner?.user_id !== userId)) return json({ error: "not_found" }, 404);
 
   const apiKey = Deno.env.get("GEMINI_API_KEY");
 
