@@ -1702,6 +1702,42 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .match-seg button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
   .match-sort{border:1px solid #E2E8F0;border-radius:10px;padding:7px 10px;font:inherit;font-size:.8rem;background:#fff;color:var(--ink)}
   @media(max-width:480px){.match-tools{align-items:stretch}.match-seg{width:100%}.match-seg button{flex:1;justify-content:center}.match-sort{width:100%}}
+
+  /* ---------- המיניסייט האישי ללקוח/ה (assets/crm-showcase.js) ----------
+     פס הבחירה בראש פאנל ההתאמות, תיבת הסימון בכל התאמה, והפאנל בכרטיס
+     הלקוח/ה: תגובות, הודעות ובקשות סיור. docs/client-showcase.md */
+  .sc-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:#FFF8E6;border:1px solid #EBD9A6;border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:10px;font-size:.86rem}
+  .sc-bar-actions{display:flex;gap:6px}
+  .sc-bar .btn{padding:6px 12px;font-size:.8rem}
+  .sc-pick{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;margin-inline-start:6px}
+  .sc-in{font-size:.76rem;font-weight:700;color:#2A5B36;white-space:nowrap;margin-inline-start:6px}
+  .sc-hot{background:#FDE7EF;color:#A3154B}
+  .sc-panel{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+  .sc-head{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .sc-sec{margin-top:12px}
+  .sc-sec-title{font-weight:700;font-size:.9rem;margin-bottom:6px}
+  .sc-item{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;background:#fff}
+  .sc-item-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-size:.86rem}
+  .sc-item-act{display:flex;gap:2px;flex:none}
+  .sc-item-act .btn{padding:4px 7px;font-size:.8rem}
+  .sc-thread{margin-top:6px}
+  .sc-msg{display:flex;flex-direction:column;max-width:85%;padding:5px 9px;border-radius:10px;margin:4px 0;font-size:.84rem;white-space:pre-line}
+  .sc-msg time{font-size:.68rem;opacity:.65}
+  .sc-msg.client{background:#EEF1F8}
+  .sc-msg.agent{background:#0E2A6B;color:#fff;margin-inline-start:auto}
+  .sc-reply{display:flex;gap:6px;margin-top:4px}
+  .sc-reply input{flex:1;min-width:0;padding:6px 9px;border:1.5px solid var(--line);border-radius:var(--radius-sm);font:inherit;font-size:.84rem}
+  .sc-meet{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+  .sc-meet-act{display:flex;gap:4px;flex:none}
+  .sc-warn{background:#FFF4D6;border-radius:var(--radius-sm);padding:7px 10px;font-size:.82rem;margin-bottom:6px}
+  .sc-coop{margin-top:6px;border-radius:var(--radius-sm);padding:7px 10px;font-size:.84rem;background:#F4F9F5;border:1px solid #CFE3D5}
+  .sc-coop-needed{background:#FFF8E6;border-color:#EBD9A6}
+  .sc-coop-st{font-weight:700}
+  .sc-coop-act{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .sc-coop-act .btn{padding:4px 9px;font-size:.78rem}
+  .sc-insight{margin-top:10px;background:#EAF0FB;border-radius:var(--radius-sm);padding:7px 10px;font-size:.84rem}
+  #showcaseModal textarea{width:100%;font:inherit;padding:8px;border:1.5px solid var(--line);border-radius:var(--radius-sm)}
+  #showcaseModal input[readonly]{width:100%;font:inherit;padding:8px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#F7F9FD}
   .match-card{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px;background:var(--paper-raised)}
   .match-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .match-title{font-weight:700;font-size:.88rem}
@@ -8154,6 +8190,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- המיניסייט האישי ללקוח/ה - שליחה וקישור. התוכן נבנה ב-assets/crm-showcase.js -->
+<div class="pm-overlay" id="showcaseModal" role="dialog" aria-modal="true" aria-label="מיניסייט ללקוח/ה" style="display:none">
+  <div class="pm-card"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
@@ -8162,6 +8203,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/agency-city.js"></script>
 <script src="assets/contact-import.js"></script>
 <script src="assets/crm-office.js"></script>
+<!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
+     נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
+<script src="assets/crm-showcase.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>

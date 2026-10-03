@@ -97,8 +97,10 @@ SITE_EMAIL = "shuknadlan@gmail.com"
 # ‏data-bot, ולכן הוא נבדק כאן רק כדי שלא ייחשב "מספר של סוכן/ת".
 BOT_PHONE = "972532494740"
 
-# ‏דפי האזור האישי — אסור להם לטעון events.js.
-PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage"}
+# ‏דפי האזור האישי — אסור להם לטעון events.js. ‏showcase הוא המיניסייט שבין
+# סוכן/ת ללקוח/ה שלו/ה: חיוג משם הוא לקוח/ה קיים/ת ולא פנייה חדשה, מאותו
+# נימוק בדיוק (docs/client-showcase.md).
+PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "showcase"}
 
 EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 

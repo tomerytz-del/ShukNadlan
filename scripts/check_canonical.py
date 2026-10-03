@@ -101,6 +101,8 @@ PRIVATE = {
     "professional-manage",
     "sign",
     "review-request",
+    # ‏המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
+    "showcase",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
