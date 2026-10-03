@@ -33,6 +33,7 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 | `privacy.html` | כל האזכורים |
 | `LABEL` ב-`renderEmptyBotLink` (`assets/home.js`) | הכפתור במסך אפס התוצאות |
 | `#gabrielaHero` ו-`#gabHowDialog` ב-`index.html` | כרטיס גבריאלה ב-hero של דף הבית: השם, התפקיד, בועות הדוגמה, "איך זה עובד?", ו-`alt` של הדמות |
+| `SCENES` ב-`initGabChat` (‏`assets/home.js`) | שיחת הדוגמה המתחלפת בכרטיס. **כל תרחיש חייב כלי אמיתי ב-`public-agent.ts`** - כלי שהוסר מהבוט מוריד גם את התרחיש שלו |
 | `GAB_HELLO` ו-`renderGabrielaCta` / `gabrielaMiniLink` ב-`assets/home.js` | הודעת הפתיחה, הכפתור, שורת התפריט הנייד ("גבריאלה תחפש בשבילכם") והשורה שבסוף הרשימה ליד המפה |
 | `assets/gabriela-*.webp` | הדמות והאווטאר. **לא חותכים, לא צובעים ולא מחליפים** - שם חדש לעוזרת הוא גם החלטה על התמונה |
 
