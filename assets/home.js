@@ -3101,7 +3101,13 @@ const SPLIT_MAX_ROWS = 60;      // מעבר לזה הגלילה ארוכה מל�
 /* מסך רחב מספיק לשתי עמודות — *ומפה שנטענה*. בלי תנאי המפה, העדפה שנשמרה
    מביקור קודם הייתה פותחת פאנל "נכסים בתחום המפה" ריק לצד מפה שלא עלתה
    (‏Leaflet חסום/נכשל), כי אין תחום נראה לסנן לפיו. */
-const splitSupported = ()=> !!heroMap && window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).matches;
+const splitSupported = ()=> !!heroMap && mapViewIsOpen() && window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).matches;
+
+/* המפה פתוחה (‏.map-open, ‏openMapView). מאז שהמפה יצאה מה-hero היא מוצגת רק
+   כך, ולכן גם התצוגה המפוצלת - שלא נדלקת עוד מעצמה אחרי חיפוש - חיה רק
+   בתוכה. ובצרים מ-1024px: ‏#splitRows הוא רצועה אופקית בתחתית המפה. */
+function mapViewIsOpen(){ return !!document.getElementById('heroSection')?.classList.contains('map-open'); }
+function mapStripOn(){ return !!heroMap && mapViewIsOpen() && !window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).matches; }
 
 let splitOn = false;
 // האם הגולש/ת כבר הביע/ה העדפה. בלי ההבחנה הזו אי אפשר להבדיל בין "כיבה
@@ -3187,13 +3193,15 @@ function hotSplitRow(id, on){
 
 // לחיצה על פין → גלילה אל השורה שלו בפאנל והדגשתה
 function revealSplitRow(id){
-  if (!splitOn || !splitSupported()) return;
+  const strip = mapStripOn();
+  if (!strip && (!splitOn || !splitSupported())) return;
   if (hotSplitId && hotSplitId !== id) hotSplitRow(hotSplitId, false);
   const row = splitRowFor(id);
   if (!row) return;
   hotSplitRow(id, true);
-  // block:'nearest' — גלילה בתוך הפאנל בלבד, בלי לגרור איתה את העמוד
-  row.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  // block:'nearest' — גלילה בתוך הפאנל בלבד, בלי לגרור איתה את העמוד.
+  // ברצועה של הנייד הכרטיס נגלל למרכז (‏inline:'center')
+  row.scrollIntoView({ behavior:'smooth', block:'nearest', inline: strip ? 'center' : 'nearest' });
 }
 
 function updateSplitPanel(){
@@ -3201,13 +3209,17 @@ function updateSplitPanel(){
   const countEl = document.getElementById('splitCount');
   const note = document.getElementById('splitNote');
   if (!rows) return;
-  // כשהתצוגה כבויה אין מה לצייר; ההדלקה קוראת לפונקציה הזו בעצמה
-  if (!splitOn || !splitSupported()) return;
+  // כשהתצוגה כבויה אין מה לצייר; ההדלקה קוראת לפונקציה הזו בעצמה.
+  // הרצועה של הנייד (המפה הפתוחה מתחת ל-1024px) היא אותה רשימה בדיוק.
+  const strip = mapStripOn();
+  if (!strip && (!splitOn || !splitSupported())) return;
 
   const inView = propertiesInView();
   const shown = inView.slice(0, SPLIT_MAX_ROWS);
   // שורה שנמחקת תוך כדי ריחוף לא מפעילה mouseleave, והפין שלה היה נשאר
-  // מודגש ומורם לנצח
+  // מודגש ומורם לנצח. חריג אחד: פין שהבלון שלו פתוח - הבלון מזיז את המפה
+  // (‏autoPan → moveend → כאן), והבחירה צריכה לשרוד את הציור מחדש.
+  const keepHot = hotSplitId && mapMarkers[hotSplitId]?.isPopupOpen?.() ? hotSplitId : null;
   if (hotSplitId) hotSplitRow(hotSplitId, false);
 
   if (countEl){
@@ -3229,8 +3241,13 @@ function updateSplitPanel(){
       rows.appendChild(row);
     });
   }
+  // בכרטיס האחרון: גבריאלה תעדכן על נכס חדש באזור (‏renderGabrielaCta)
+  const gabRow = gabrielaSplitRow();
+  if (gabRow) rows.appendChild(gabRow);
   // התוכן התחלף — גלילה שנשארה מהתצוגה הקודמת הייתה נוחתת באמצע רשימה אחרת
   rows.scrollTop = 0;
+  rows.scrollLeft = 0;
+  if (keepHot && splitRowFor(keepHot)) revealSplitRow(keepHot);
 
   if (note){
     const overflow = inView.length - shown.length;
@@ -3546,6 +3563,15 @@ document.getElementById('mapCollapseBtn')?.addEventListener('click', ()=>{
 function applyMapPeekMode(){
   const hero = heroEl();
   if (!hero) return;
+  /* ‏**כבוי מאז שהמפה יצאה מה-hero** (‏.map-closed / ‏.map-open למטה): הפס
+     המצומצם היה הפתרון למפה שתופסת את כל המסך בטלפון, ועכשיו המפה נפתחת
+     רק בלחיצה על "הצג במפה" - ואז היא ממילא מסך מלא. הקוד נשאר, כבוי, כדי
+     שהחזרה (אם תידרש) תהיה מחיקה של התנאי הזה ולא כתיבה מחדש. */
+  if (hero.classList.contains('map-closed') || hero.classList.contains('map-open')){
+    hero.classList.remove('can-peek');
+    setMapPeek(false);
+    return;
+  }
   const narrow = MAP_PEEK_MQ.matches && !hero.classList.contains('map-failed');
   hero.classList.toggle('can-peek', narrow);
   setMapPeek(narrow);
@@ -3553,6 +3579,366 @@ function applyMapPeekMode(){
 applyMapPeekMode();
 if (MAP_PEEK_MQ.addEventListener) MAP_PEEK_MQ.addEventListener('change', applyMapPeekMode);
 else if (MAP_PEEK_MQ.addListener) MAP_PEEK_MQ.addListener(applyMapPeekMode);
+
+/* ============================================================
+   המפה יוצאת מה-hero, ונפתחת בכפתור "הצג במפה"
+   ------------------------------------------------------------
+   דף הבית נטען בלי מפה (‏#heroSection.map-closed ב-HTML): במקומה כרטיס
+   גבריאלה. המפה לא נמחקה - Leaflet מאותחל כמו קודם, הפינים מתעדכנים בכל
+   חיפוש, וכל הלוגיקה (שכונות, סימון אזור, תצוגה מפוצלת, "הזזת המפה היא
+   חיפוש") ממשיכה לרוץ. מה שהשתנה הוא רק מתי רואים אותה.
+
+   ‏openMapView מחליף את ‎.map-closed‎ ב-‎.map-open‎: המפה ממלאת את המסך, עם
+   פס עליון (חזרה, תקציר החיפוש, סינון). מ-1024px - מפה + רשימה בצד
+   (‏setSplitView בלי לזכור העדפה); מתחת - ‏#splitRows כרצועה בתחתית.
+
+   ‏Leaflet לא מצייר נכון ב-container מוסתר (גודל 0), ולכן הפתיחה קוראת
+   ‏invalidateSize + fitMapToMarkers - אותו דפוס של setMapExpanded. ובזכות
+   הגודל 0 המפה גם לא מורידה אריחים בטעינה, רק בפתיחה הראשונה.
+
+   סגירה: "חזרה לרשימה", ‏Escape, וכפתור "חזרה" של הדפדפן (‏pushState בפתיחה,
+   ‏popstate סוגר). אחרי סגירה חוזרים לאותה נקודת גלילה, והפוקוס חוזר לכפתור
+   שפתח. ‏docs/search-map-experience.md.
+   ============================================================ */
+let mapOpenReturn = null;
+let mapOpenPushed = false;
+
+function mapOpenSummaryText(){
+  const q = document.getElementById('ssQuery');
+  const typed = q && q.value.trim();
+  if (typed) return typed;
+  // המשפט כמו שהוא נקרא, ולא textContent שלו - בתוכו יושבות גם המילים
+  // המתחלפות המוסתרות (‏.ss-roll), והן היו נדבקות זו לזו
+  try { if (sentence && sentence.describe) return sentence.describe(); } catch(e){ /* נופלים לכותרת */ }
+  return '';
+}
+
+function openMapView(source, opener){
+  const hero = heroEl();
+  if (!hero || mapViewIsOpen()) return;
+  mapOpenReturn = { y: window.scrollY, focus: opener || document.activeElement };
+  hero.classList.remove('map-closed');
+  hero.classList.add('map-open');
+  document.body.classList.add('map-is-open');
+  const summary = document.getElementById('mapOpenSummary');
+  if (summary) summary.textContent = mapOpenSummaryText();
+  try { history.pushState({ map:1 }, ''); mapOpenPushed = true; } catch(e){ mapOpenPushed = false; }
+  // בתוך המפה הפתוחה אצבע אחת וגלגלת מזיזות את המפה - אין דף לגלול מתחתיה
+  if (heroMap && window.MapGestures && MapGestures.setFree) MapGestures.setFree(heroMap, true);
+  if (window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).matches) setSplitView(true, { remember:false });
+  initMapDraw();
+  if (heroMap) setTimeout(()=>{
+    heroMap.invalidateSize({ pan:false });
+    fitMapToMarkers();
+    updateSplitPanel();
+  }, 60);
+  document.getElementById('mapCloseBtn')?.focus({ preventScroll:true });
+  /* מדידה: ‏map_open עם המקור (‏results_header / fab / menu). אירוע חדש, ולכן
+     לפי CLAUDE.md הוא צריך טריגר ותגית ב-GTM וייצוא מחדש של
+     ‏gtm/container.json - עד אז ‏check_gtm_container.py חוסם אותו, והדחיפה
+     נשארת בהערה. מי שמגדיר/ה את התגית מסיר/ה את ההערה באותו PR של הייצוא.
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event:'map_open', source: source || 'results_header' });
+  */
+}
+
+function closeMapViewNow(){
+  const hero = heroEl();
+  if (!hero || !mapViewIsOpen()) return;
+  hero.classList.remove('map-open');
+  hero.classList.add('map-closed');
+  document.body.classList.remove('map-is-open');
+  if (splitOn) setSplitView(false, { remember:false });
+  if (hotSplitId) hotSplitRow(hotSplitId, false);
+  if (heroMap){
+    if (window.MapGestures && MapGestures.setFree) MapGestures.setFree(heroMap, false);
+    try { heroMap.closePopup(); } catch(e){ /* אין בלון פתוח */ }
+  }
+  const back = mapOpenReturn;
+  mapOpenReturn = null;
+  if (back){
+    window.scrollTo({ top: back.y, behavior:'instant' });
+    /* הפוקוס חוזר לכפתור שפתח. הגלולה הצפה מוסתרת בזמן שהמפה פתוחה, וחוזרת
+       רק כשה-IntersectionObserver שלה רץ שוב - ולכן הניסיון חוזר במסגרת
+       הבאה, ואם היא עדיין מוסתרת הפוקוס עובר לכפתור שבכותרת התוצאות. */
+    const tryFocus = (el)=> {
+      if (!el || !el.isConnected || typeof el.focus !== 'function' || el.hidden) return false;
+      el.focus({ preventScroll:true });
+      return document.activeElement === el;
+    };
+    if (!tryFocus(back.focus)){
+      requestAnimationFrame(()=> requestAnimationFrame(()=>{
+        if (!tryFocus(back.focus)){
+          const head = document.getElementById('searchResults')?.hidden ? 'allPropsMapBtn' : 'mapOpenBtn';
+          tryFocus(document.getElementById(head));
+        }
+      }));
+    }
+  }
+}
+
+/* הסגירה עוברת דרך ההיסטוריה כשהפתיחה דחפה רשומה - אחרת "חזרה" אחרי
+   סגירה בכפתור הייתה נוחתת על רשומה יתומה ולא עושה כלום */
+function closeMapView(){
+  if (!mapViewIsOpen()) return;
+  if (mapOpenPushed && history.state && history.state.map){
+    mapOpenPushed = false;
+    history.back();
+    return;
+  }
+  closeMapViewNow();
+}
+
+window.addEventListener('popstate', ()=>{
+  if (mapViewIsOpen()){ mapOpenPushed = false; closeMapViewNow(); }
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape' || !mapViewIsOpen()) return;
+  // ‏Escape בתוך חלון סינון שנפתח מעל המפה סוגר את החלון, לא את המפה
+  if (document.querySelector('.filter-modal-overlay.open, .filter-modal-overlay.active, dialog[open]')) return;
+  closeMapView();
+});
+document.getElementById('mapCloseBtn')?.addEventListener('click', closeMapView);
+document.getElementById('mapListBtn')?.addEventListener('click', closeMapView);
+// ‏"סינון" בפס העליון וב"סינון מתקדם" שבכותרת התוצאות פותחים את אותו חלון
+// של "סינון מתקדם" שבכרטיס החיפוש (המוסתר בדף הבית, ‏.ss-free-only)
+['mapOpenFilter', 'srFilterBtn'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('click', ()=>{
+    document.getElementById('ssAdvancedBtn')?.click();
+  });
+});
+
+/* כל מה שפותח את המפה נושא ‎data-map-open="<מקור>"‎: הכפתור שבכותרת
+   התוצאות, הגלולה הצפה, ו"חיפוש על המפה" בתפריטים ובפוטר (שהיה עוגן
+   ל-‎#heroSection‎ וגלל אל מפה שכבר לא שם). */
+document.addEventListener('click', (e)=>{
+  const t = e.target.closest && e.target.closest('[data-map-open]');
+  if (!t) return;
+  e.preventDefault();
+  openMapView(t.getAttribute('data-map-open'), t);
+});
+/* מדף אחר מגיעים ל-‎/#heroSection‎ (הקישור בפוטר של כל הדפים) - שם הכוונה
+   היא בדיוק "חיפוש על המפה" */
+if (location.hash === '#heroSection'){
+  try { history.replaceState(null, '', location.pathname + location.search); } catch(e){ /* כתובת נשארת */ }
+  setTimeout(()=> openMapView('menu'), 0);
+}
+
+/* "הצג במפה" גם מעל תיבת הנכסים, כשאין חיפוש פעיל: ‏PropShelf בונה את
+   הכותרת שלה בעצמו (‏assets/prop-shelf.js לא משתנה), ולכן הכפתור נשתל אחרי. */
+function mountAllPropsMapBtn(){
+  const head = document.querySelector('#allProps .pp-head');
+  if (!head || head.querySelector('.map-open-btn')) return;
+  const tpl = document.getElementById('mapOpenBtn');
+  if (!tpl) return;
+  const btn = tpl.cloneNode(true);
+  btn.id = 'allPropsMapBtn';
+  btn.setAttribute('data-map-open', 'results_header');
+  head.appendChild(btn);
+}
+
+/* הגלולה הצפה: רק כשהתוצאות (או תיבת הנכסים) על המסך, והכפתור שבכותרת
+   שלהן כבר גלל החוצה. שני IntersectionObserver, בלי מאזין גלילה. */
+function bindMapOpenFab(){
+  const fab = document.getElementById('mapOpenFab');
+  if (!fab || !('IntersectionObserver' in window)) return;
+  const seen = new Map();
+  const sync = ()=>{
+    let listOn = false, headOn = false;
+    seen.forEach((on, el)=>{
+      if (!on) return;
+      if (el.matches('.map-open-btn')) headOn = true;
+      else listOn = true;
+    });
+    fab.hidden = !listOn || headOn;
+  };
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(en => seen.set(en.target, en.isIntersecting));
+    sync();
+  });
+  ['searchResults', 'allProps', 'mapOpenBtn'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) io.observe(el);
+  });
+  const watchShelfBtn = ()=>{
+    mountAllPropsMapBtn();
+    const b = document.getElementById('allPropsMapBtn');
+    if (b && !seen.has(b)){ seen.set(b, false); io.observe(b); }
+  };
+  watchShelfBtn();
+  const shelf = document.getElementById('allProps');
+  if (shelf && 'MutationObserver' in window){
+    new MutationObserver(watchShelfBtn).observe(shelf, { childList:true });
+  }
+}
+bindMapOpenFab();
+
+/* ============================================================
+   גבריאלה: הכפתור לפי מצב העוזרת
+   ------------------------------------------------------------
+   ‏ShukBot.enabled() אמת → קישור wa.me שנבנה ב-ShukBot.anchorHtml, ולכן נושא
+   ‎data-bot‎ ונספר כ-contact_bot ולא כפנייה למתווך/ת.
+   שקר (או bot-link.js לא נטען) → אף קישור wa.me: אותו כפתור, בנוסח אחר,
+   פותח את הסוכן החכם (‏#buyerBanner) עם ‎source=homepage_gabriela‎.
+   ‏docs/whatsapp-public-bot.md.
+   ============================================================ */
+const GAB_HELLO = 'היי גבריאלה, הגעתי מדף הבית ואשמח שתחפשי לי נכס';
+const GAB_WA_ICON = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.3-.5v-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1.9.4 1.8 1 2.6 1.1 1.6 2.5 2.9 4.2 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.4-1 .2-.3.2-.7.1-1-.1-.1-.3-.2-.5-.3z"/></svg>';
+const GAB_BELL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>';
+const GAB_AVATAR = '/assets/gabriela-avatar.webp';
+
+function gabrielaBotOn(){ return !!(window.ShukBot && ShukBot.enabled && ShukBot.enabled()); }
+
+function openGabrielaAgent(){
+  document.getElementById('gabHowDialog')?.close?.();
+  buyState.source = 'homepage_gabriela';
+  openBuyerPanel(true);
+  document.getElementById('buyerBanner')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* כפתור במקום ‎wrap‎: הקישור כשהעוזרת דולקת, וכפתור הסוכן כשהיא כבויה */
+function drawGabrielaCta(wrap, entry){
+  if (!wrap) return;
+  if (gabrielaBotOn()){
+    wrap.innerHTML = ShukBot.anchorHtml(GAB_HELLO, GAB_WA_ICON + '<span>פתחו שיחה עם גבריאלה</span>', 'gab-cta');
+    const a = wrap.querySelector('a');
+    if (a) a.setAttribute('data-bot-entry', entry);
+    return;
+  }
+  wrap.innerHTML = '';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'gab-cta is-agent';
+  b.innerHTML = GAB_BELL_ICON + '<span>עדכנו אותי על נכסים מתאימים</span>';
+  b.addEventListener('click', openGabrielaAgent);
+  wrap.appendChild(b);
+}
+
+/* שורה קטנה עם האווטאר - בתחתית התפריט הנייד ובסוף הרשימה שליד המפה */
+function gabrielaMiniHtml(cls, title, sub){
+  return '<img src="' + GAB_AVATAR + '" width="40" height="40" alt="" loading="lazy" decoding="async">' +
+    '<span><b>' + escapeHtml(title) + '</b>' + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</span>';
+}
+function gabrielaMiniLink(cls, title, sub, entry){
+  if (gabrielaBotOn()){
+    const href = ShukBot.link(GAB_HELLO);
+    const a = document.createElement('a');
+    a.className = cls;
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.setAttribute('data-bot', '1');
+    a.setAttribute('data-bot-entry', entry);
+    a.innerHTML = gabrielaMiniHtml(cls, title, sub);
+    return a;
+  }
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = cls;
+  b.innerHTML = gabrielaMiniHtml(cls, title, sub);
+  b.addEventListener('click', ()=>{
+    if (mapViewIsOpen()) closeMapViewNow();
+    document.getElementById('mobileMenu')?.classList.remove('open');
+    document.getElementById('menuToggle')?.setAttribute('aria-expanded', 'false');
+    openGabrielaAgent();
+  });
+  return b;
+}
+function gabrielaSplitRow(){
+  return gabrielaMiniLink('split-gab', 'גבריאלה תעדכן אתכם על נכס חדש באזור', '', 'map_list');
+}
+
+function renderGabrielaCta(){
+  drawGabrielaCta(document.getElementById('gabCtaWrap'), 'homepage_hero');
+  drawGabrielaCta(document.getElementById('gabHowCtaWrap'), 'homepage_how');
+  if (!gabrielaBotOn()){
+    const text = document.getElementById('gabText');
+    if (text) text.textContent = 'ספרו לה מה אתם מחפשים, והיא תעדכן אתכם ברגע שעולה נכס מתאים.';
+  }
+  const menu = document.getElementById('menuGab');
+  if (menu){
+    menu.innerHTML = '';
+    menu.appendChild(gabrielaMiniLink('menu-gab-link', 'גבריאלה תחפש בשבילכם', 'עוזרת AI בוואטסאפ, 24/7', 'menu'));
+  }
+  // שם העיר בבועות הדוגמה הולך אחרי השוק, לא מקובע לעפולה
+  try {
+    const m = window.CityContext && CityContext.market && CityContext.market();
+    if (m && m.city) document.querySelectorAll('[data-gab-city]').forEach(el => { el.textContent = m.city; });
+  } catch(e){ /* נשאר הכיתוב שב-HTML */ }
+}
+renderGabrielaCta();
+
+/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה של
+   הביקור הראשון - פעם אחת לדפדפן, חמש שניות, ונעלמת בכל מגע. ‏aria-hidden:
+   לקורא מסך המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם
+   המיקרופון מוצג בכלל (‏Web Speech API), ולכן הבדיקה היא על ‎hidden‎ שלו. */
+function showMicHint(){
+  const mic = document.getElementById('ssMic');
+  if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
+  if (!window.matchMedia('(max-width:759px)').matches) return;
+  try { if (localStorage.getItem('shuk_mic_hint')) return; localStorage.setItem('shuk_mic_hint', '1'); }
+  catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
+  const tip = document.createElement('span');
+  tip.className = 'ss-mic-hint';
+  tip.setAttribute('aria-hidden', 'true');
+  tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+  mic.appendChild(tip);
+  const remove = ()=>{ tip.remove(); document.removeEventListener('pointerdown', remove, true); };
+  setTimeout(remove, 5000);
+  document.addEventListener('pointerdown', remove, true);
+}
+
+/* ‏"איך זה עובד?" - ‏<dialog> מקורי. ‏showModal נותן לכידת פוקוס ו-Escape,
+   והפוקוס חוזר לכפתור שפתח. לחיצה על הרקע סוגרת. */
+(function bindGabHow(){
+  const btn = document.getElementById('gabHowBtn');
+  const dlg = document.getElementById('gabHowDialog');
+  if (!btn || !dlg) return;
+  if (typeof dlg.showModal !== 'function'){ btn.hidden = true; return; }
+  btn.addEventListener('click', ()=> dlg.showModal());
+  dlg.addEventListener('click', (e)=>{
+    if (e.target === dlg || e.target.closest('[data-gab-how-close]')) dlg.close();
+  });
+  dlg.addEventListener('close', ()=> btn.focus({ preventScroll:true }));
+})();
+
+/* ============================================================
+   "נכסים" בניווט של הדסקטופ: רשימה נפתחת
+   ------------------------------------------------------------
+   לחיצה פותחת וסוגרת, ריחוף עכבר פותח, ‏Escape סוגר ומחזיר את הפוקוס
+   לכפתור, לחיצה מחוץ לרשימה או מעבר פוקוס החוצה סוגרים. ‏aria-expanded
+   הוא מקור האמת - ה-CSS מסובב את החץ לפיו.
+   ============================================================ */
+(function bindNavDrop(){
+  const wrap = document.getElementById('navDropProps');
+  if (!wrap) return;
+  const btn = wrap.querySelector('.nav-drop-btn');
+  const menu = wrap.querySelector('.nav-drop-menu');
+  if (!btn || !menu) return;
+  let leaveTimer = 0;
+  const set = (on)=>{
+    clearTimeout(leaveTimer);
+    btn.setAttribute('aria-expanded', String(on));
+    menu.hidden = !on;
+  };
+  const isOpen = ()=> btn.getAttribute('aria-expanded') === 'true';
+  btn.addEventListener('click', ()=> set(!isOpen()));
+  const hoverMq = window.matchMedia('(hover:hover) and (pointer:fine)');
+  wrap.addEventListener('mouseenter', ()=>{ if (hoverMq.matches) set(true); });
+  wrap.addEventListener('mouseleave', ()=>{
+    if (!hoverMq.matches) return;
+    leaveTimer = setTimeout(()=> set(false), 180);
+  });
+  wrap.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && isOpen()){ set(false); btn.focus(); }
+    if (e.key === 'ArrowDown' && e.target === btn){
+      e.preventDefault(); set(true); menu.querySelector('a')?.focus();
+    }
+  });
+  wrap.addEventListener('focusout', (e)=>{ if (!wrap.contains(e.relatedTarget)) set(false); });
+  document.addEventListener('click', (e)=>{ if (isOpen() && !wrap.contains(e.target)) set(false); });
+  menu.addEventListener('click', (e)=>{ if (e.target.closest('a')) set(false); });
+})();
 
 /* ============================================================
    שורת המספרים והתגיות שמעל הכותרת
@@ -5940,8 +6326,10 @@ function initSentenceDock(){
   if (!dock || !hero) return;
   const mq = window.matchMedia('(max-width:759px)');
   let heroVisible = true;
+  // בלי המשפט (‏.ss-free-only) הכפתור יושב בתוך שורת החיפוש, ואין צורך בפאנל
+  const freeOnly = !!document.getElementById('ssCard')?.classList.contains('ss-free-only');
   const sync = ()=>{
-    const on = mq.matches && heroVisible && !hero.classList.contains('map-failed');
+    const on = !freeOnly && mq.matches && heroVisible && !hero.classList.contains('map-failed');
     dock.hidden = !on;
     document.body.classList.toggle('ss-dock-on', on);
     if (on) document.documentElement.style.setProperty('--ss-dock-h', dock.offsetHeight + 'px');
@@ -5976,7 +6364,12 @@ function initSentenceDock(){
   // ‏"הצג N נכסים" בטלפון פותח את המפה המלאה עם הפינים; "רשימה" - את השורות
   dock.querySelector('[data-ss-dock-go]')?.addEventListener('click', ()=>{
     if (mapPeekOn()) openMapFromPeek();
-    document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    /* מאז שהמפה יצאה מה-hero (‏.map-closed) אין מפה לגלול אליה: "הצג N
+       נכסים" מוביל לתוצאות, ומשם "הצג במפה" פותח אותה. ההמתנה למסגרת היא
+       לחיפוש עצמו (‏data-ss-go → showSentenceResults), שמציג את הסקציה. */
+    const target = mapViewIsOpen() || document.getElementById('heroSection')?.classList.contains('map-closed')
+      ? 'searchResults' : 'heroSection';
+    requestAnimationFrame(()=> document.getElementById(target)?.scrollIntoView({ behavior:'smooth', block:'start' }));
   });
   document.getElementById('ssDockList')?.addEventListener('click', ()=>{
     showSentenceResults();
@@ -6007,6 +6400,8 @@ function initSentenceDock(){
     },
   });
   if (!sentence) return;
+  // אחרי mount: הוא זה שמחליט אם המיקרופון מוצג (‏Web Speech API)
+  showMicHint();
 
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);

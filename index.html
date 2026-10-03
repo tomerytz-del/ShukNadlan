@@ -366,8 +366,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   @media(min-width:900px){
     nav.primary{display:flex}
-    .hamburger,.hdr-login{display:none}
-    #cta-desktop{display:inline-flex !important}
+    .hamburger{display:none}
+    /* מ-900px כניסת המתווכים היא ‎#hdrLogin‎ עצמו, בתווית המלאה ("כניסת
+       מתווכים", או "CRM" למחובר/ת). ‏‎#cta-desktop‎ נשאר ב-DOM מוסתר. */
     .logo-img{height:54px;width:auto}
     .logo-word{font-size:.95rem;white-space:nowrap}
   }
@@ -3303,6 +3304,468 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .soon-strip-link{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:.88rem;text-decoration:none}
   .soon-strip-close{flex:0 0 auto;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);font-size:1.3rem;line-height:1;cursor:pointer}
   .soon-strip-close:hover{background:rgba(14,42,107,.08)}
+
+  /* =====================================================================
+     דף הבית החדש: גבריאלה במרכז, והמפה נפתחת בכפתור "הצג במפה"
+     ---------------------------------------------------------------------
+     ‏‎.map-closed‎ (ברירת המחדל, ב-HTML) מסתיר את המפה וכל מה שיושב עליה,
+     וה-hero מקבל גובה טבעי. ‏‎.map-open‎ (‏openMapView ב-JS) פורס את המפה על
+     כל המסך. שום דבר לא נמחק מה-DOM: השכונות, סימון האזור, התצוגה המפוצלת
+     ו"הזזת המפה היא חיפוש" ממשיכים לעבוד כמו שהם.
+     ‏docs/search-map-experience.md, סעיף 0.
+     ===================================================================== */
+
+  /* ---------- הכותרת ---------- */
+  .hdr-login{height:44px;padding:0 14px;border-radius:12px;background:var(--sapphire);border-color:var(--sapphire)}
+  .hdr-login svg{color:var(--brass-light)}
+  .hamburger{width:44px;height:44px;border-radius:12px}
+  @media(min-width:900px){
+    .header-inner{gap:18px}
+    nav.primary{flex:1 1 auto;justify-content:center;align-items:center;gap:20px;font-size:15px;color:var(--sapphire)}
+    .hdr-login{display:inline-flex;height:48px;padding:0 20px;font-size:15px}
+    .hdr-login-short{display:none}
+    .hdr-login-long{display:inline}
+  }
+  @media(min-width:1200px){ nav.primary{gap:28px;font-size:17px} }
+  nav.primary > a{padding:8px 0;white-space:nowrap}
+  @media(min-width:900px) and (max-width:1199px){ nav.primary{gap:14px;font-size:14px} .hdr-login{padding:0 14px;font-size:14px} }
+  .nav-drop{position:relative}
+  .nav-drop-btn{
+    display:inline-flex;align-items:center;gap:5px;padding:8px 0;border:0;background:none;cursor:pointer;
+    font:inherit;font-weight:600;color:inherit;
+  }
+  .nav-drop-btn svg{width:15px;height:15px;transition:transform .15s ease}
+  .nav-drop-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .nav-drop-btn:hover{color:var(--teal)}
+  .nav-drop-menu{
+    position:absolute;top:calc(100% + 6px);inset-inline-start:-14px;z-index:120;min-width:220px;
+    display:flex;flex-direction:column;padding:8px;background:#fff;border-radius:14px;
+    border-top:2px solid var(--brass);
+    box-shadow:0 1px 2px rgba(14,42,107,.06),0 14px 34px rgba(14,42,107,.16);
+  }
+  .nav-drop-menu[hidden]{display:none}
+  .nav-drop-menu a{padding:11px 12px;border-radius:9px;font-size:15px;font-weight:600;color:var(--sapphire);white-space:nowrap}
+  .nav-drop-menu a:hover,.nav-drop-menu a:focus-visible{background:var(--sky-tint);color:var(--sapphire)}
+  @media(prefers-reduced-motion:reduce){ .nav-drop-btn svg{transition:none} }
+  /* התפריט הנייד: קו זהב מתחת ללשונית הפעילה, ושורת גבריאלה מעל הכניסה */
+  .menu-tabs button[aria-selected="true"]{box-shadow:inset 0 -3px 0 var(--brass),var(--shadow-sm)}
+  .menu-gab:empty{display:none}
+  .menu-gab{margin-bottom:8px}
+  .menu-gab-link{
+    display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:8px 10px;box-sizing:border-box;
+    background:#fff;border:1px solid var(--line);border-radius:12px;text-align:start;cursor:pointer;
+    font:inherit;color:var(--sapphire);text-decoration:none;
+  }
+  .mobile-menu a.menu-gab-link{padding:8px 10px;border-radius:12px}
+  .menu-gab-link img{width:40px;height:40px;border-radius:50%;flex:none;border:2px solid var(--brass)}
+  .menu-gab-link b{display:block;font-size:15px;font-weight:800}
+  .menu-gab-link span span{display:block;font-size:12.5px;color:#4a5872;font-weight:500}
+
+  /* ---------- רקע הנוף של העמק ----------
+     עדין, רק בחלק העליון של ה-hero: התמונה ב-::before, ושכבת התכלת ב-::after
+     מעליה - אטומה יותר מאחורי הכותרת (כדי שתישאר קריאה), שקופה יותר באמצע
+     (ההר והשדות), ונמוגה לתכלת מלא לפני שהכרטיס של גבריאלה נגמר. לא לשנות
+     את הערכים בלי לבדוק ניגודיות של הכותרת (4.5:1). */
+  .hero.hero-valley{isolation:isolate}
+  .hero.hero-valley.map-closed{background:#eaf1fb}
+  .hero.hero-valley.map-closed::before,
+  .hero.hero-valley.map-closed::after{content:"";position:absolute;left:0;right:0;top:0;height:var(--valley-h,640px);pointer-events:none}
+  .hero.hero-valley.map-closed::before{z-index:-2;background:url("/assets/hero-valley.webp") center 30%/cover no-repeat;filter:saturate(.85)}
+  .hero.hero-valley.map-closed::after{z-index:-1;background:linear-gradient(180deg,
+      rgba(234,241,251,.78) 0%,
+      rgba(234,241,251,.66) 22%,
+      rgba(234,241,251,.40) 48%,
+      rgba(234,241,251,.55) 72%,
+      #eaf1fb 100%)}
+  @media(max-width:759px){
+    .hero.hero-valley{--valley-h:460px}
+    .hero.hero-valley.map-closed::before{background-image:url("/assets/hero-valley-800.webp");background-position:center 20%}
+  }
+  @media(prefers-reduced-transparency:reduce){ .hero.hero-valley::before{display:none} }
+  html.a11y-contrast .hero.hero-valley::before,
+  html.a11y-contrast .hero.hero-valley::after{display:none !important}
+
+  /* ---------- ה-hero בלי המפה ---------- */
+  .hero.map-closed{height:auto !important;overflow:hidden}
+  .hero.map-closed #hero-map,
+  .hero.map-closed .map-toolbar,
+  .hero.map-closed .map-peek-open,
+  .hero.map-closed .map-tools,
+  .hero.map-closed .area-result,
+  .hero.map-closed .ss-map-tag,
+  .hero.map-closed .split-panel,
+  .hero.map-closed .map-fallback-note,
+  .map-open-bar,.map-list-btn{display:none !important}
+  .hero.map-closed .hero-overlay{
+    position:static;display:block;pointer-events:auto;background:none;padding:28px 0 52px;
+  }
+  .hero.map-closed .hero-lead::before{display:none}
+  .hero.map-closed .hero-inner>*{text-align:center}
+  .hero.map-closed .hero-inner h1{
+    text-align:center;color:var(--sapphire);font-size:clamp(28px,7vw,52px);line-height:1.12;letter-spacing:-.02em;
+  }
+  .hero.map-closed .hero-badges{justify-content:center}
+  .hero.map-closed .search-shell{margin-inline:auto;max-width:860px}
+  .hero.map-closed .search-shell::before{display:none}
+  .hero-badge-ai{background:#fff;border-radius:999px;box-shadow:0 2px 10px rgba(14,42,107,.12)}
+  @media(min-width:760px){
+    .hero.map-closed .hero-overlay{padding:40px 0 56px}
+    .hero.map-closed .hero-h1-break{display:inline}
+    .hero.map-closed .hero-inner h1{font-size:clamp(30px,4.4vw,52px)}
+  }
+
+  /* ---------- חיפושים נפוצים שמוקלדים בשדה ---------- */
+  .ss-field{position:relative;flex:1 1 auto;min-width:0;display:flex}
+  .ss-field .ss-input{width:100%}
+  .ss-typer{
+    position:absolute;inset:0;display:flex;align-items:center;padding:0 10px;
+    pointer-events:none;white-space:nowrap;overflow:hidden;font-size:15px;
+  }
+  .ss-typer-pre{color:var(--ss-muted);white-space:pre}
+  .ss-typer-text{color:var(--sapphire);font-weight:500;white-space:pre}
+  .ss-caret{display:inline-block;flex:none;width:2px;height:1.15em;margin-inline-start:2px;background:var(--brass);animation:ss-blink 1s steps(1) infinite}
+  @keyframes ss-blink{50%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){ .ss-caret{animation:none} }
+  .ss-field.is-typing .ss-input::placeholder{color:transparent}
+  .ss-field:not(.is-typing) .ss-typer,
+  .ss-field:focus-within .ss-typer,
+  .ss-field.has-value .ss-typer{display:none}
+  /* בטלפון: בלי הקידומת, ואם בכל זאת ארוך מהשדה - רואים את סופו, כמו בהקלדה */
+  @media(max-width:759px){ .ss-typer{justify-content:flex-end} .ss-typer-pre{display:none} }
+
+  /* ---------- שורת החיפוש: השדה החופשי בלבד ----------
+     המשפט והבורר שלו יורדים מהמסך (‏.ss-free-only על ‎#ssCard‎), ומה שנשאר
+     הוא שורה לבנה אחת כמו במוקאפ: ניצוץ, השדה (עם החיפושים המוקלדים),
+     המיקרופון וכפתור הזהב. ‏display:none ולא הסרה - המצב, הספירה והכתובת
+     ממשיכים לרוץ על אותו משפט, רק שאין לו ייצוג על המסך. */
+  .ss-card.ss-free-only .ss-sentence,
+  .ss-card.ss-free-only .ss-picker{display:none !important}
+  .hero .ss-card.ss-free-only{
+    background:none;border:0;box-shadow:none;padding:0;
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  .hero .ss-card.ss-free-only::after{display:none}
+  .ss-card.ss-free-only .ss-smart{
+    background:#fff;border:0;border-radius:14px;overflow:hidden;
+    box-shadow:0 10px 30px rgba(14,42,107,.12);padding:6px;align-items:center;
+  }
+  .ss-card.ss-free-only .ss-smart:focus-within{box-shadow:0 0 0 2px var(--brass),0 10px 30px rgba(14,42,107,.12)}
+  .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:17px}
+  .ss-card.ss-free-only .ss-go{border-radius:10px;min-height:48px;padding:0 20px;font-size:16px}
+  .ss-card.ss-free-only .ss-smart + .ss-tools{border-top:0;padding:8px 4px 0;background:none}
+  /* ‏"ניקוי החיפוש" ו"סינון מתקדם" אינם במוקאפ: הסינון עבר לכותרת התוצאות
+     (‏#srFilterBtn) ולפס של המפה הפתוחה, והניקוי יושב שם ממילא (‏#clearSearchBtn).
+     הכפתורים נשארים ב-DOM - שניהם נלחצים משם. */
+  .ss-card.ss-free-only .ss-tools{display:none}
+  .sr-head .sr-filter{margin-inline-start:0}
+  /* בטלפון "הצג N נכסים" יושב בתוך השורה, כמו במוקאפ, ולא בפאנל תחתון */
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-smart{border:0;background:#fff;min-height:56px;padding:6px}
+    .ss-card.ss-free-only .ss-smart:focus-within{border:0}
+    .ss-card.ss-free-only .ss-smart .ss-go{display:inline-flex;min-height:44px;padding:0 14px;font-size:15px;gap:5px}
+    .ss-card.ss-free-only .ss-spark{padding-inline-start:12px}
+    .ss-card.ss-free-only .ss-input{padding:12px 6px}
+    .ss-card.ss-free-only .ss-mic:not([hidden]){width:36px}
+    /* סימן קטן על המיקרופון: נקודה זהובה, ופעימה עדינה פעמיים בטעינה - כדי
+       שיידעו שאפשר לחפש בקול. בביקור הראשון גם בועה קצרה (‏showMicHint). */
+    .ss-card.ss-free-only .ss-smart{overflow:visible}
+    .ss-card.ss-free-only .ss-mic{position:relative;color:var(--sapphire)}
+    .ss-card.ss-free-only .ss-mic::after{
+      content:"";position:absolute;top:8px;inset-inline-end:5px;width:8px;height:8px;border-radius:50%;
+      background:var(--brass);box-shadow:0 0 0 2px #fff;animation:ssMicDot 1.6s ease-out 2;
+    }
+    .ss-card.ss-free-only .ss-mic.is-listening::after{display:none}
+    .ss-mic-hint{
+      position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:5;
+      width:max-content;max-width:min(240px,80vw);white-space:nowrap;padding:7px 11px;border-radius:10px;
+      background:var(--sapphire);color:#fff;font-size:13px;font-weight:600;line-height:1.3;text-align:center;
+      box-shadow:0 8px 20px rgba(14,42,107,.28);pointer-events:none;
+    }
+    .ss-mic-hint::before{
+      content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
+      border:6px solid transparent;border-bottom-color:var(--sapphire);
+    }
+  }
+  @keyframes ssMicDot{0%{box-shadow:0 0 0 2px #fff,0 0 0 2px rgba(201,162,39,.7)}100%{box-shadow:0 0 0 2px #fff,0 0 0 10px rgba(201,162,39,0)}}
+  @media(prefers-reduced-motion:reduce){ .ss-card.ss-free-only .ss-mic::after{animation:none} }
+  .hero-sub{margin:8px 0 0;font-size:clamp(15px,1.6vw,20px);line-height:1.4;color:#33415c;font-weight:400;text-wrap:balance}
+  .hero.map-closed .hero-inner .hero-sub{text-align:center}
+  .hero.map-closed .search-shell{margin-top:20px}
+  /* ‏"N נכסים נוספו היום" אינו במוקאפ; תגית ה-AI נשארת (האפיון, חלק 0) */
+  .hero.map-closed #heroTodayBadge{display:none}
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-smart{border-radius:14px}
+    .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:16px}
+  }
+
+  /* ---------- כרטיס גבריאלה ---------- */
+  .gab{
+    --gab-pop:150px;
+    position:relative;max-width:1180px;margin:calc(var(--gab-pop) + 24px) auto 0;
+    background:#fff;border:2px solid var(--brass);border-radius:24px;
+    box-shadow:0 24px 60px rgba(14,42,107,.18);
+    display:flex;align-items:stretch;text-align:start;
+  }
+  .hero.map-closed .hero-inner > .gab,
+  .hero.map-closed .hero-inner > .gab-how-dlg{text-align:start}
+  .gab-body{flex:1 1 auto;min-width:0;padding:40px 44px;display:flex;flex-direction:column;gap:18px;position:relative;z-index:3}
+  .gab-tag{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;background:var(--brass-tint);color:var(--brass-ink);font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px}
+  .gab-tag svg{width:16px;height:16px;flex:none}
+  .gab-name{margin:0;color:var(--sapphire);font-weight:800;font-size:56px;line-height:1;letter-spacing:-.01em}
+  .gab-head-d .gab-name{margin-top:14px}
+  .gab-role{margin:4px 0 0;font-weight:700;font-size:26px;line-height:1.25;color:var(--ink)}
+  .gab-text{margin:0;font-size:19px;line-height:1.55;color:#33415c;max-width:520px}
+  .gab-chat{display:flex;flex-direction:column;gap:8px;background:#f3f7f2;border-radius:16px;padding:16px;max-width:520px}
+  .gab-bubble{font-size:16px;padding:10px 14px;max-width:85%;color:var(--ink)}
+  .gab-bubble.me{align-self:flex-start;background:#dcf5de;border-radius:14px 14px 14px 4px}
+  .gab-bubble.her{align-self:flex-end;background:#fff;border-radius:14px 14px 4px 14px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .gab-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .gab-cta-wrap{display:contents}
+  .gab-cta{
+    display:inline-flex;align-items:center;justify-content:center;gap:12px;background:var(--wa-dark);color:#fff;
+    text-decoration:none;font-weight:700;font-size:20px;padding:15px 28px;border-radius:14px;min-height:56px;
+    box-sizing:border-box;border:0;font-family:inherit;cursor:pointer;line-height:1.2;
+  }
+  .gab-cta:hover,.gab-cta:focus-visible{background:#166d39;color:#fff}
+  .gab-cta:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+  .gab-cta svg{width:26px;height:26px;flex:0 0 auto}
+  /* כשהעוזרת כבויה הכפתור פותח את הסוכן החכם ולא את וואטסאפ - ספיר ולא ירוק */
+  .gab-cta.is-agent{background:var(--sapphire)}
+  .gab-cta.is-agent:hover,.gab-cta.is-agent:focus-visible{background:var(--sapphire-hover)}
+  .gab-cta.is-agent svg{color:var(--brass-light)}
+  .gab-how{
+    min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;font:inherit;
+    font-weight:700;font-size:16px;color:var(--sapphire);
+    text-decoration:underline;text-decoration-color:var(--brass);text-underline-offset:5px;text-decoration-thickness:1.5px;
+  }
+  .gab-how:hover{color:var(--sapphire-hover)}
+  .gab-perks{display:flex;flex-wrap:wrap;gap:10px;padding:6px 0 0;margin:0;list-style:none}
+  .gab-perks li{display:inline-flex;align-items:center;gap:8px;border:1px solid #e3e8f2;border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;color:var(--ink)}
+  .gab-perks svg{width:18px;height:18px;flex:none;stroke:var(--brass-ink)}
+
+  .gab-figure{flex:0 0 440px;position:relative;min-height:560px}
+  .gab-disc{position:absolute;left:50px;bottom:90px;width:340px;height:340px;border-radius:50%;background:#fff1c9;border:2px solid #f3d987}
+  .gab-img{position:absolute;left:0;bottom:0;width:420px;height:auto;max-width:none;display:block;z-index:2;
+    clip-path:inset(-400px -80px 0 0 round 0 0 0 22px);
+    filter:drop-shadow(0 22px 26px rgba(14,42,107,.35))}
+  .gab-float{position:absolute;right:-28px;bottom:54px;z-index:3;background:#fff;border-radius:16px;box-shadow:0 14px 30px rgba(14,42,107,.22);padding:12px 16px;display:flex;align-items:center;gap:10px;text-align:start}
+  .gab-float-ok{width:38px;height:38px;flex:none;border-radius:50%;background:var(--wa-dark);display:flex;align-items:center;justify-content:center}
+  .gab-float b{display:block;font-size:16px;color:var(--sapphire)}
+  .gab-float span{font-size:14px;color:#4a5872}
+  /* בדסקטופ שם ותפקיד יושבים בגוף, בנייד בשורה העליונה - אותו HTML בשני
+     עותקים: ‏.gab-top מוצג רק בנייד, ‏.gab-head-d והדמות שבצד רק מ-760px. */
+  .gab-top{display:none}
+  .gab-hint{display:none;align-self:flex-start;background:#dcf5de;border-radius:14px 14px 14px 4px;padding:10px 14px;font-size:15px;color:var(--ink)}
+  @media(max-width:1023px){
+    .gab{--gab-pop:110px}
+    .gab-body{padding:32px 28px}
+    .gab-name{font-size:46px}
+    .gab-figure{flex-basis:360px}
+    .gab-img{width:400px}
+    .gab-disc{width:280px;height:280px;left:40px}
+    .gab-float{display:none}
+  }
+  @media(max-width:759px){
+    .gab{--gab-pop:96px;flex-direction:column;border-radius:22px;margin-left:0;margin-right:0}
+    .gab-top{display:flex;height:240px}
+    .gab-head{flex:1 1 auto;min-width:0;padding:22px 16px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:8px;position:relative;z-index:3}
+    .gab-top .gab-figure{flex:0 0 196px;min-height:0;overflow:visible}
+    .gab-img{width:196px;clip-path:inset(-300px -60px 0 0)}
+    .gab-disc{width:160px;height:160px;left:22px;bottom:26px}
+    .gab-name{font-size:38px}
+    .gab-role{font-size:18px;margin:0}
+    .gab-tag{font-size:12px;padding:5px 10px}
+    .gab-body{padding:18px 18px 22px;gap:12px;border-top:1px solid #f0e2b6;background:#fffcf4;border-radius:0 0 20px 20px}
+    .gab-text{font-size:17px}
+    .gab-chat{display:none}
+    .gab-hint{display:block}
+    .gab-head-d,.gab > .gab-figure{display:none}
+    .gab-actions{flex-direction:column;align-items:stretch;gap:4px}
+    .gab-cta{width:100%;font-size:18px;padding:14px 18px}
+    .gab-how{align-self:center;font-size:15px}
+    .gab-perks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
+    .gab-perks li{flex-direction:column;border:0;padding:0;font-size:13px;gap:4px}
+  }
+  .gab-tag{white-space:nowrap}
+  /* טלפון צר (320-374px): הדמות והדיסק קטנים יותר, כדי שהשם לא יעלה עליה */
+  @media(max-width:374px){
+    .gab{--gab-pop:84px}
+    .gab-top{height:206px}
+    .gab-top .gab-figure{flex-basis:150px}
+    .gab-img{width:150px}
+    .gab-disc{width:124px;height:124px;left:14px;bottom:20px}
+    .gab-head{padding:18px 12px 0 0}
+    .gab-name{font-size:32px}
+    .gab-role{font-size:16px}
+  }
+
+  /* ---------- "איך זה עובד?" ---------- */
+  .gab-how-dlg{
+    width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:0;border:0;border-radius:20px;
+    background:#fff;color:var(--ink);box-shadow:0 30px 80px rgba(13,27,61,.35);text-align:start;
+  }
+  .gab-how-dlg::backdrop{background:rgba(13,27,61,.55)}
+  .gab-how-head{display:flex;align-items:center;gap:12px;padding:22px 22px 6px}
+  .gab-how-ava{width:56px;height:56px;border-radius:50%;flex:none;border:2px solid var(--brass)}
+  .gab-how-head > div{flex:1 1 auto;min-width:0}
+  .gab-how-title{margin:0;font-size:22px;font-weight:800;color:var(--sapphire);line-height:1.2}
+  .gab-how-sub{margin:2px 0 0;font-size:14px;color:#4a5872}
+  .gab-how-x{
+    flex:none;align-self:flex-start;width:44px;height:44px;border:0;border-radius:50%;background:var(--sky-tint);
+    color:var(--sapphire);display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .gab-how-x svg{width:20px;height:20px}
+  .gab-how-x:hover{background:var(--sky)}
+  .gab-how-steps{list-style:none;margin:0;padding:12px 22px 6px;display:flex;flex-direction:column;gap:14px}
+  .gab-how-steps li{display:flex;gap:14px;align-items:flex-start}
+  .gab-how-num{
+    flex:none;width:34px;height:34px;border-radius:50%;background:var(--brass);color:var(--sapphire-deep);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;
+  }
+  .gab-how-steps b{display:block;font-size:17px;color:var(--sapphire);line-height:1.3}
+  .gab-how-steps li span:not(.gab-how-num){display:block;font-size:15px;line-height:1.5;color:#33415c;margin-top:2px}
+  .gab-how-foot{padding:16px 22px 22px;display:flex}
+  .gab-how-foot .gab-cta{width:100%;font-size:18px}
+
+  /* ---------- שורת האמינות: המספרים והחותמות ----------
+     אותו markup של ‎.hero-stats‎ (המספרים נכתבים מהנתונים, החותמות פותחות את
+     הבועות ואת חלון הדירוג), כשורה שקטה מתחת לכרטיס: טקסט 14px, אייקון קו
+     בזהב, בלי רקע ובלי אריחים. המספרים הם הדבר היחיד שמודגש. */
+  .hero-stats.trust{
+    max-width:1180px;margin:26px auto 0;justify-content:center;align-items:center;
+    gap:8px 26px;font-size:14px;line-height:1.3;color:#33415c;
+  }
+  .hero-stats.trust:not([hidden]){display:flex}
+  .hero-stats.trust .hero-stats-group{gap:8px 26px}
+  .hero-stats.trust .hero-stat{flex-direction:row;align-items:center;gap:7px;padding:6px 0;text-shadow:none;color:#33415c}
+  .hero-stats.trust .hero-stat b{font-size:17px;font-weight:800;color:var(--sapphire);font-variant-numeric:tabular-nums;letter-spacing:0}
+  .hero-stats.trust .hero-stat i{font-size:14px;color:#33415c}
+  .hero-stats.trust .hero-stat-sep:not(.hero-stat-sep-wide){display:none}
+  .hero-stats.trust .hero-stat-sep-wide{width:1px;height:18px;background:#c9d2e3}
+  .hero-stats.trust .hero-marks{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:8px 26px;position:relative}
+  .hero-stats.trust .hero-marks-row{display:contents}
+  .hero-stats.trust .hero-mark{flex-direction:row;gap:7px;padding:6px 0;border-radius:6px;color:#33415c}
+  .hero-stats.trust .hero-mark-seal{width:26px;height:26px;filter:none}
+  .hero-stats.trust .hero-mark-ico{width:18px;height:18px;background:none;border:0;box-shadow:none;color:var(--brass-ink);border-radius:0}
+  .hero-stats.trust .hero-mark-ico svg{width:18px;height:18px}
+  .hero-stats.trust .hero-mark-ico path[stroke="var(--teal)"]{stroke:#fff}
+  .hero-stats.trust .hero-mark-cap{font-size:14px;font-weight:500;color:inherit;text-shadow:none}
+  .hero-stats.trust .hero-mark:hover .hero-mark-seal,.hero-stats.trust .hero-mark:hover .hero-mark-ico,
+  .hero-stats.trust .hero-mark.is-open .hero-mark-seal,.hero-stats.trust .hero-mark.is-open .hero-mark-ico{transform:none}
+  .hero-stats.trust .hero-stat-link:hover b{color:var(--sapphire)}
+  .hero-stats.trust .hero-stat-link:hover i,.hero-stats.trust .hero-stat-link:focus-visible i,
+  .hero-stats.trust .hero-mark:hover .hero-mark-cap,.hero-stats.trust .hero-mark:focus-visible .hero-mark-cap,
+  .hero-stats.trust .hero-mark.is-open .hero-mark-cap{
+    color:var(--sapphire);text-decoration:underline;text-decoration-color:var(--brass);text-underline-offset:4px;
+  }
+  .hero-stats.trust .hero-stat-link:focus-visible,.hero-stats.trust .hero-mark:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+  /* ה-hero כבר אינו קופסה בגובה קבוע, ולכן כל הבועות נפתחות כלפי מטה */
+  .hero-stats.trust .hero-marks-row.is-lower .hero-mark[data-info]::after{top:calc(100% + 10px);bottom:auto}
+  @media(max-width:759px){
+    .hero-stats.trust{margin:18px 0 0;gap:4px 16px;font-size:13px}
+    .hero-stats.trust .hero-stats-group{flex-basis:100%;justify-content:center}
+    .hero-stats.trust .hero-stat-sep-wide{display:none}
+    .hero-stats.trust .hero-marks{gap:4px 16px}
+    .hero-stats.trust .hero-mark-cap,.hero-stats.trust .hero-stat i{font-size:13px}
+  }
+
+  /* ---------- "הצג במפה": בכותרת התוצאות, וגלולה צפה ---------- */
+  .map-open-btn{
+    display:inline-flex;align-items:center;gap:10px;background:var(--sapphire);color:#fff;text-decoration:none;
+    font:700 16px 'Heebo',sans-serif;padding:10px 20px;border-radius:12px;border:0;cursor:pointer;min-height:44px;white-space:nowrap;
+  }
+  .map-open-btn:hover,.map-open-btn:focus-visible{background:var(--sapphire-hover);color:#fff}
+  .map-open-btn:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .map-open-btn svg{width:20px;height:20px;flex:none;stroke:var(--brass-light)}
+  .sr-head .map-open-btn{margin-inline-start:auto}
+  .sr-head .map-open-btn ~ .sr-clear{margin-inline-start:0}
+  .pp-head .map-open-btn{margin-inline-start:auto;align-self:center}
+  .map-open-fab{
+    position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:900;
+    border-radius:999px;padding:14px 26px;font-size:17px;box-shadow:0 12px 28px rgba(14,42,107,.40);
+  }
+  .map-open-fab[hidden]{display:none}
+  body:has(#ssDock:not([hidden])) .map-open-fab{bottom:calc(92px + env(safe-area-inset-bottom))}
+  body.map-is-open .map-open-fab{display:none}
+
+  /* ---------- המפה הפתוחה ---------- */
+  body.map-is-open{overflow:hidden}
+  .hero.map-open{
+    --mob-h:64px;
+    position:fixed;inset:0;z-index:1200;height:auto !important;overflow:hidden;background:var(--sky-tint);
+  }
+  .hero.map-open .hero-overlay,
+  .hero.map-open .map-peek-open,
+  .hero.map-open .map-collapse-btn,
+  .hero.map-open #mapExpandBtn{display:none !important}
+  .hero.map-open .map-open-bar{
+    display:flex !important;position:absolute;top:0;left:0;right:0;height:var(--mob-h);z-index:8;box-sizing:border-box;
+    align-items:center;gap:10px;padding:0 14px;background:#fff;border-bottom:1px solid var(--line);
+    box-shadow:0 2px 12px rgba(14,42,107,.08);
+  }
+  .hero.map-open #hero-map{top:var(--mob-h);bottom:0;height:auto}
+  .mob-back,.mob-filter{
+    flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:12px;
+    font:700 15px 'Heebo',sans-serif;cursor:pointer;white-space:nowrap;
+  }
+  .mob-back{background:var(--sapphire);color:#fff;border:0}
+  .mob-back:hover{background:var(--sapphire-hover)}
+  .mob-filter{background:#fff;color:var(--sapphire);border:1.5px solid var(--sapphire)}
+  .mob-back svg,.mob-filter svg{width:18px;height:18px}
+  .mob-summary{
+    flex:1 1 auto;min-width:0;margin:0;font-size:15px;font-weight:600;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  }
+  /* הסיכה שנבחרה - זהובה. ‏!important כי צבע הסיכה (לפי סוג העסקה) נכתב
+     ב-style שלה (‏renderMap) */
+  .hero.map-open .map-pin.is-hot{background:var(--brass) !important;color:var(--sapphire);outline:2px solid #fff;outline-offset:0}
+  @media(min-width:1024px){
+    .hero.map-open .split-panel{top:var(--mob-h)}
+    .hero.split-on.map-open .split-panel{display:flex}
+  }
+  .split-gab{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--brass-tint);font-size:14px;color:var(--sapphire);text-decoration:none;text-align:start;border:0;cursor:pointer;font-family:inherit;min-height:56px;box-sizing:border-box}
+  .split-gab img{width:36px;height:36px;border-radius:50%;flex:none;border:2px solid var(--brass)}
+  .split-gab b{font-weight:700}
+  /* מתחת ל-1024px אין מקום לרשימה בצד: ‏#splitRows הוא רצועה אופקית
+     בתחתית, שנגללת בתוך עצמה (הדף לא זז), וכרטיס ברוחב ~300px */
+  @media(max-width:1023px){
+    .hero.map-open{--strip-h:112px}
+    .hero.map-open .map-toolbar{display:none}
+    .hero.map-open .map-list-btn{
+      display:inline-flex !important;position:absolute;z-index:7;left:50%;transform:translateX(-50%);
+      bottom:calc(var(--strip-h) + 26px + env(safe-area-inset-bottom));
+      align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;border:0;cursor:pointer;
+      background:var(--sapphire);color:#fff;font:700 15px 'Heebo',sans-serif;box-shadow:0 8px 22px rgba(14,42,107,.35);
+    }
+    .hero.map-open .map-list-btn svg{width:18px;height:18px;color:var(--brass-light)}
+    .hero.map-open .split-panel{
+      display:block !important;position:absolute;left:0;right:0;bottom:0;top:auto;z-index:6;width:auto;
+      background:none;box-shadow:none;padding:0 0 calc(14px + env(safe-area-inset-bottom));
+    }
+    .hero.map-open .split-head,.hero.map-open .split-note{display:none}
+    .hero.map-open .split-rows{
+      display:flex;flex-direction:row;gap:10px;overflow-x:auto;overflow-y:hidden;
+      scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:4px 16px;scrollbar-width:none;
+    }
+    .hero.map-open .split-rows::-webkit-scrollbar{display:none}
+    .hero.map-open .split-rows > *{flex:0 0 300px;max-width:calc(100vw - 56px);height:var(--strip-h);scroll-snap-align:center;box-sizing:border-box}
+    .hero.map-open .split-rows .sr-row{box-shadow:0 8px 22px rgba(14,42,107,.22)}
+    .hero.map-open .split-rows .sr-row.is-hot{border-color:var(--brass);box-shadow:0 0 0 2px var(--brass),0 8px 22px rgba(14,42,107,.22)}
+    .hero.map-open .split-rows .sr-thumb{flex:0 0 92px;min-height:0}
+    .hero.map-open .split-rows .sr-title{font-size:.82rem}
+    .hero.map-open .split-rows .sr-meta{font-size:.7rem}
+    .hero.map-open .split-rows .sr-price{font-size:.92rem}
+    .hero.map-open .split-rows .sr-side{padding:8px 0 8px 10px;gap:4px}
+    /* כרטיס הרצועה: תמונה קטנה, מחיר, כותרת ושורת פרטים אחת - בלי שורת
+       העובדות המלאה, שלא נכנסת בגובה הרצועה */
+    .hero.map-open .split-rows .sr-row .pc-facts{display:none}
+    .hero.map-open .split-rows .sr-title{-webkit-line-clamp:2}
+    .hero.map-open .split-rows .sr-body{padding:8px 2px 8px 0}
+    .hero.map-open .split-rows .sr-empty{background:#fff;border-radius:12px;padding:16px;font-size:.82rem}
+    .mob-summary{text-align:start}
+    .mob-back,.mob-filter{padding:0 10px}
+  }
+  @media(max-width:420px){ .mob-filter span,.mob-back-long{display:none} }
 </style>
 
 <!-- נתונים מובנים: הכתובת הפיזית, אזור השירות והעמודים ברשתות. זה מה
@@ -3367,7 +3830,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
          התפריט המלא, על כל הקבוצות, יושב בהמבורגר שמתחת. -->
     <nav class="primary" aria-label="ניווט ראשי">
-      <a href="#allProps">נכסים</a>
+      <!-- ‏"נכסים" נפתח לרשימה - אותם יעדים של לשונית "נכסים" בתפריט הנייד.
+           כפתור ולא קישור: זה מה שהוא עושה (‏aria-expanded), והיעד שהיה
+           לקישור ("כל הנכסים") הוא הפריט הראשון ברשימה. ‏bindNavDrop ב-JS:
+           לחיצה, ריחוף, ‏Escape ולחיצה בחוץ. -->
+      <div class="nav-drop" id="navDropProps">
+        <button type="button" class="nav-drop-btn" aria-expanded="false" aria-controls="navDropPropsMenu">
+          נכסים
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="nav-drop-menu" id="navDropPropsMenu" hidden>
+          <a href="#allProps">כל הנכסים</a>
+          <a href="#allProps-private">נכסים פרטיים</a>
+          <a href="#allProps-commercial">נכסים מסחריים</a>
+          <a href="/open-house">יריד הבתים הפתוחים</a>
+          <a href="/projects">פרויקטים חדשים</a>
+          <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
+        </div>
+      </div>
       <a href="/projects">פרויקטים חדשים</a>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
@@ -3441,7 +3921,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="#allProps-commercial">נכסים מסחריים</a>
       <a href="/open-house">יריד הבתים הפתוחים</a>
       <a href="/projects">פרויקטים חדשים</a>
-      <a href="#heroSection">חיפוש על המפה</a>
+      <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
     </div>
 
     <div class="menu-panel" id="menuPanelPeople" role="tabpanel" aria-labelledby="menuTabPeople" hidden>
@@ -3467,6 +3947,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- הכפתור עטוף כדי שיוכל להיצמד לתחתית התפריט (‏sticky) גם במסך נמוך
          (טלפון בשכיבה), שבו גם התפריט המקוצר עדיין נגלל. -->
     <div class="menu-cta">
+      <!-- גבריאלה בתחתית התפריט, מעל כניסת המתווכים. אותו חוק של הכרטיס
+           ב-hero: קישור wa.me עם data-bot כשהעוזרת דולקת, ופתיחת הסוכן החכם
+           כשהיא כבויה (‏renderGabrielaCta). -->
+      <div class="menu-gab" id="menuGab"></div>
       <a href="/crm" class="btn btn-teal btn-block">כניסת מתווכים</a>
     </div>
   </nav>
@@ -3497,7 +3981,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <main id="main">
 
   <!-- ====== HERO: search + map ====== -->
-  <section class="hero has-sentence" id="heroSection">
+  <section class="hero has-sentence hero-valley map-closed" id="heroSection">
+    <!-- ====== המפה הפתוחה: הפס העליון ======
+         דף הבית נטען בלי מפה (‏.map-closed). "הצג במפה" מוסיף ‎.map-open‎ -
+         המפה ממלאת את המסך, ובראשה הפס הזה: חזרה, תקציר החיפוש, וסינון.
+         ‏openMapView / closeMapView ב-assets/home.js, ‏docs/search-map-experience.md. -->
+    <div class="map-open-bar" id="mapOpenBar">
+      <button type="button" class="mob-back" id="mapCloseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        חזרה לרשימה
+      </button>
+      <p class="mob-summary" id="mapOpenSummary"></p>
+      <button type="button" class="mob-filter" id="mapOpenFilter" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/></svg>
+        סינון
+      </button>
+    </div>
+    <!-- בנייד אין מקום לרשימה בצד: ‏#splitRows הוא רצועה בתחתית, ומעליה הכפתור
+         שסוגר את המפה וחוזר לרשימה המלאה -->
+    <button type="button" class="map-list-btn" id="mapListBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg> הצג רשימה</button>
     <div id="hero-map" role="region" aria-label="מפת הנכסים המוצגים"></div>
 
     <!-- שכבת הפתיחה של המפה המצומצמת (טלפון בלבד, ראו ‎.map-peek‎ ב-CSS
@@ -3583,6 +4085,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
           </script>
 
+          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? הכל כאן.</p>
+
         </div><!-- /.hero-lead -->
 
         <!-- ====== חיפוש במשפט ======
@@ -3594,7 +4098,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מה שבתוך ‎#ssSentence‎ כאן הוא רק הציור הראשון, לפני שהסקריפט
              רץ; הסקריפט מצייר אותו מחדש מהמצב (ומהכתובת). -->
         <div class="search-shell ss-shell">
-          <div class="ss-card" id="ssCard">
+          <!-- ‏.ss-free-only (אוקטובר 2026): המשפט ("אני רוצה למצוא נכס...") והבורר
+               שלו אינם מוצגים - נשארים השדה החופשי וכפתור "הצג N נכסים", כמו
+               במוקאפ של דף הבית. ה-DOM והמצב נשארים: ‏sentence-search.js סופר,
+               מפרש וכותב את הכתובת מאותו מצב, ו"סינון מתקדם" ממשיך לחול עליו. -->
+          <div class="ss-card ss-free-only" id="ssCard">
             <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-break"></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
 
             <!-- הבורר - צמוד למשפט בכל רוחב מסך, כדי שהאפשרויות יופיעו ליד
@@ -3613,9 +4121,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <form class="ss-smart" id="ssSmart" role="search" autocomplete="off">
               <span class="ss-spark" aria-hidden="true">✦</span>
               <label class="visually-hidden" for="ssQuery">חיפוש בכתיבה חופשית</label>
-              <input id="ssQuery" class="ss-input" type="search" enterkeyhint="search" maxlength="120"
-                     placeholder="או כתבו חופשי: דירת 4 חדרים בגבעת המורה עד 1.7 מיליון"
-                     data-short-placeholder="או כתבו חופשי…">
+              <!-- ‏.ss-field עוטף את השדה בלבד (המיקרופון נשאר אחריו כמו שהיה),
+                   ובתוכו שכבת החיפושים הנפוצים שמוקלדים מעל שדה ריק - ‏aria-hidden,
+                   כדי שקורא מסך ישמע את התווית פעם אחת. ‏assets/sentence-search.js. -->
+              <div class="ss-field">
+                <input id="ssQuery" class="ss-input" type="search" enterkeyhint="search" maxlength="120"
+                       placeholder="כתבו מה אתם מחפשים: דירת 4 חדרים בגבעת המורה עד 1.7 מיליון"
+                       data-short-placeholder="כתבו מה אתם מחפשים…">
+                <span class="ss-typer" aria-hidden="true"><span class="ss-typer-pre">כתבו מה אתם מחפשים: </span><span class="ss-typer-text"></span><span class="ss-caret"></span></span>
+              </div>
               <button type="button" class="ss-mic" id="ssMic" hidden aria-pressed="false" aria-label="חיפוש קולי">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
@@ -3666,6 +4180,93 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="hero-near-msg" id="heroNearMsg" role="status" aria-live="polite"></p>
         </div>
 
+        <!-- ====== גבריאלה: עוזרת ה-AI בוואטסאפ ======
+             הכרטיס שהדמות "יוצאת" ממנו. העומק נבנה משלוש שכבות - הכרטיס, דיסק
+             זהוב מאחורי הדמות, והדמות שחורגת מעל הקצה העליון (‏--gab-pop ו-
+             ‏clip-path ב-CSS). הדמות היא התמונה המקורית עם רקע שהוסר - לא
+             חותכים, לא צובעים ולא מחליפים אותה.
+
+             שני עותקים של השם והדמות: ‏.gab-top בנייד (שם + דמות בשורה אחת),
+             ‏.gab-head-d והדמות שבצד בדסקטופ. שתי התמונות הן ‎<picture>‎ עם
+             אותם מקורות, ולכן בכל רוחב שתיהן מבקשות את אותה כתובת - הורדה אחת.
+             ‏alt רק על אחת מהן, ו-‎h2‎ רק בעותק של הדסקטופ.
+
+             הכפתור נבנה ב-JS (‏renderGabrielaCta ב-assets/home.js): קישור
+             ‏wa.me עם ‎data-bot‎ כשהעוזרת דולקת, וכפתור שפותח את הסוכן החכם
+             כשהיא כבויה. ‏docs/whatsapp-public-bot.md. -->
+        <article class="gab" id="gabrielaHero" aria-labelledby="gabName">
+          <div class="gab-top">
+            <div class="gab-head">
+              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת AI</span>
+              <p class="gab-name" aria-hidden="true">גבריאלה</p>
+              <p class="gab-role">מחפשת נכס<br>בשבילכם!</p>
+            </div>
+            <div class="gab-figure">
+              <div class="gab-disc" aria-hidden="true"></div>
+              <picture>
+            <source media="(max-width:759px)" srcset="/assets/gabriela-cutout-400.webp" width="400" height="695">
+            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="" loading="eager" decoding="async">
+          </picture>
+            </div>
+          </div>
+
+          <div class="gab-body">
+            <div class="gab-head-d">
+              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>עוזרת AI אישית · זמינה 24/7</span></span>
+              <h2 class="gab-name" id="gabName">גבריאלה</h2>
+              <p class="gab-role">מחפשת נכס בשבילכם!</p>
+            </div>
+            <p class="gab-text" id="gabText">כתבו לה בוואטסאפ מה אתם מחפשים, והיא תמצא נכסים מתאימים ותעדכן אתכם ברגע שעולה נכס חדש.</p>
+            <div class="gab-chat" aria-hidden="true">
+              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+              <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
+            </div>
+            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+            <div class="gab-actions">
+              <span class="gab-cta-wrap" id="gabCtaWrap"></span>
+              <button type="button" class="gab-how" id="gabHowBtn" aria-haspopup="dialog" aria-controls="gabHowDialog">איך זה עובד?</button>
+            </div>
+            <ul class="gab-perks">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>שירות אישי ומדויק</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>התראה על כל נכס חדש</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>מענה מיידי</li>
+            </ul>
+          </div>
+
+          <div class="gab-figure">
+            <div class="gab-disc" aria-hidden="true"></div>
+            <picture>
+            <source media="(max-width:759px)" srcset="/assets/gabriela-cutout-400.webp" width="400" height="695">
+            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="גבריאלה, עוזרת ה-AI של שוק הנדל״ן" loading="eager" decoding="async">
+          </picture>
+            <div class="gab-float" aria-hidden="true">
+              <span class="gab-float-ok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+              <span><b>מצאתי 4 נכסים מתאימים</b><span><span data-gab-city>עפולה</span> · עד 1.6 מ׳ ₪</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- ‏"איך זה עובד?" - ‏<dialog> מקורי: ‏showModal() לוכד את הפוקוס, ‏Escape
+             סוגר, והפוקוס חוזר לכפתור שפתח. שלושה צעדים, משפט אחד לכל צעד. -->
+        <dialog class="gab-how-dlg" id="gabHowDialog" aria-labelledby="gabHowTitle">
+          <div class="gab-how-head">
+            <img class="gab-how-ava" src="/assets/gabriela-avatar.webp" width="56" height="56" alt="" loading="lazy" decoding="async">
+            <div>
+              <h2 class="gab-how-title" id="gabHowTitle">איך גבריאלה עובדת?</h2>
+              <p class="gab-how-sub">שלושה צעדים פשוטים.</p>
+            </div>
+            <button type="button" class="gab-how-x" data-gab-how-close aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <ol class="gab-how-steps">
+            <li><span class="gab-how-num" aria-hidden="true">1</span><div><b>מספרים לה מה מחפשים</b><span>סוג נכס, אזור ותקציב - במילים שלכם, כמו בשיחה עם חבר.</span></div></li>
+            <li><span class="gab-how-num" aria-hidden="true">2</span><div><b>היא מוצאת את המתאימים</b><span>גבריאלה עוברת על כל הנכסים באתר ושולחת לכם רק את מה שמתאים.</span></div></li>
+            <li><span class="gab-how-num" aria-hidden="true">3</span><div><b>היא מעדכנת אתכם</b><span>עלה נכס חדש שמתאים? תקבלו הודעה מיד, בלי לחפש שוב.</span></div></li>
+          </ol>
+          <div class="gab-how-foot">
+            <span class="gab-cta-wrap" id="gabHowCtaWrap"></span>
+          </div>
+        </dialog>
+
         <!-- ====== שורת המספרים והחותמות ======
              שני המונים נמשכים מהמאגר (renderHeroStats). שתי החותמות שלצדם
              אינן קישוט אלא תשובות לשתי השאלות שגולש/ת נדל״ן שואל/ת בשנייה
@@ -3676,7 +4277,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מפה עם סרגל חיפוש מעליה, וכל שורה נוספת נגזרת ממנה. שתי הקבוצות
              כאן הן מה שמבטיח שאם היא כן תישבר, היא תישבר בין המספרים
              לחותמות ולא באמצע צמד. -->
-        <div class="hero-stats" id="heroStats" hidden>
+        <div class="hero-stats trust" id="heroStats" hidden>
           <div class="hero-stats-group">
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
@@ -4170,12 +4771,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="sr-ai-chip-x" aria-hidden="true">✕</span>
           <span class="sr-only">- הסרת מסנן ההדמיות</span>
         </button>
+        <button type="button" class="map-open-btn" id="mapOpenBtn" data-map-open="results_header"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg> הצג במפה</button>
         <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
+        <!-- ‏"סינון מתקדם" עבר לכאן מתחת לשורת החיפוש שב-hero (שם יש רק את השדה
+             והכפתור, כמו במוקאפ). הוא פותח את אותו חלון - ראו ‎#ssAdvancedBtn‎. -->
+        <button type="button" class="sr-clear sr-filter" id="srFilterBtn" aria-haspopup="dialog">סינון מתקדם</button>
         <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
       </div>
       <div class="sr-rows" id="searchResultsRows"></div>
     </div>
   </section>
+
+  <!-- הגלולה הצפה: מופיעה כשהתוצאות על המסך וכפתור "הצג במפה" שבכותרת שלהן
+       כבר גלל החוצה (‏bindMapOpenFab ב-JS) -->
+  <button type="button" class="map-open-btn map-open-fab" id="mapOpenFab" data-map-open="fab" hidden><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg> הצג במפה</button>
 
   <!-- ====== Newsflash ticker ====== -->
   <div class="ticker">
@@ -5180,7 +5789,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="#calc">מחשבון משכנתא</a>
           <a href="#yield">מחשבון תשואה</a>
-          <a href="#heroSection">חיפוש על המפה</a>
+          <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
       </details>

@@ -21,12 +21,25 @@ from playwright.sync_api import sync_playwright
 NET = {"offline": False, "downloadThroughput": 1_600_000 // 8,
        "uploadThroughput": 750_000 // 8, "latency": 150}
 
-METRICS = """() => {
+# ‏LCP אינו זמין ב-getEntriesByType - רק דרך PerformanceObserver עם
+# ‏buffered, ולכן הפונקציה אסינכרונית. נוסף כשתמונת רקע גדולה נכנסה למסך
+# הראשון של דף הבית (נוף העמק, ‏docs/search-map-experience.md): ‏FCP לבדו
+# אינו רואה תמונה שמצוירת אחרי הטקסט.
+METRICS = """async () => {
+  const lcp = await new Promise(res => {
+    let v = null;
+    try {
+      const po = new PerformanceObserver(l => { const e = l.getEntries(); if (e.length) v = e[e.length - 1].startTime; });
+      po.observe({ type: 'largest-contentful-paint', buffered: true });
+      setTimeout(() => { po.disconnect(); res(v); }, 50);
+    } catch (e) { res(null); }
+  });
   const n = performance.getEntriesByType('navigation')[0] || {};
   const f = performance.getEntriesByName('first-contentful-paint')[0];
   const res = performance.getEntriesByType('resource');
   return {
     fcp:  f ? f.startTime : null,
+    lcp:  lcp,
     dcl:  n.domContentLoadedEventEnd,
     load: n.loadEventEnd,
     doc_kb:  (n.transferSize || 0) / 1024,
@@ -78,17 +91,22 @@ def main():
         for title, warm in (("ביקור ראשון (מטמון ריק)", False),
                             ("פריסה שנגעה רק ב-HTML (assets במטמון)", True)):
             print("\n" + title)
-            print("  %-6s %-22s %-22s %9s %11s" % ("", "FCP ms", "load ms", "מסמך KB", "רשת KB"))
+            print("  %-6s %-22s %-22s %-22s %9s %11s" % ("", "FCP ms", "LCP ms", "load ms", "מסמך KB", "רשת KB"))
             out = {}
             for label, path in (("לפני", a.before), ("אחרי", a.after)):
                 rs = [one_load(browser, a.base, path, warm) for _ in range(a.samples)]
                 out[label] = rs
-                print("  %-6s %-22s %-22s %9.1f %11.1f" % (
-                    label, span([r["fcp"] for r in rs]), span([r["load"] for r in rs]),
+                print("  %-6s %-22s %-22s %-22s %9.1f %11.1f" % (
+                    label, span([r["fcp"] for r in rs]),
+                    span([r["lcp"] for r in rs if r.get("lcp") is not None] or [0]),
+                    span([r["load"] for r in rs]),
                     med(rs, "doc_kb"), med(rs, "wire_kb")))
             b, c = out["לפני"], out["אחרי"]
-            for key, name in (("fcp", "FCP"), ("load", "load")):
-                vb = [r[key] for r in b]; vc = [r[key] for r in c]
+            for key, name in (("fcp", "FCP"), ("lcp", "LCP"), ("load", "load")):
+                vb = [r[key] for r in b if r.get(key) is not None]
+                vc = [r[key] for r in c if r.get(key) is not None]
+                if not vb or not vc:
+                    continue
                 overlap = not (max(vc) < min(vb) or max(vb) < min(vc))
                 print("  → %-5s חציון %+.0fms · פיזור %.0f/%.0f · הטווחים %s" % (
                     name, med(c, key) - med(b, key), max(vb) - min(vb), max(vc) - min(vc),

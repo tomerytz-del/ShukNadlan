@@ -143,7 +143,10 @@
     var wheelAcc = 0, wheelHint = wheelHintText();
 
     function onWheel(e) {
-      if (!(e.ctrlKey || e.metaKey)) { show(wheelHint); return; }
+      /* מפה "חופשית" (‏setFree, למשל המפה הפתוחה במסך מלא בדף הבית) אינה
+         יושבת בתוך דף נגלל - הגלגלת לבדה מזיזה אותה */
+      var free = container.dataset.gestureFree === '1';
+      if (!free && !(e.ctrlKey || e.metaKey)) { show(wheelHint); return; }
       e.preventDefault();
       hide();
       // deltaMode: 0=פיקסלים, 1=שורות, 2=עמודים. בלי הנרמול, גלגלת שמדווחת
@@ -176,6 +179,7 @@
     // הלב של הכל: בלי הגרירה, הקונטיינר נשאר עם touch-action של הזום בלבד
     map.dragging.disable();
     if (map.touchZoom) map.touchZoom.enable();
+    container.dataset.gestureTouch = 'on';
 
     var touchHint = (opts && opts.text) || HINT_TEXT;
     var tracking = false, startX = 0, startY = 0;
@@ -189,6 +193,7 @@
     }
     function onTouchMove(e) {
       if (!tracking || e.touches.length > 1) return;
+      if (container.dataset.gestureFree === '1') { tracking = false; return; }
       var dx = e.touches[0].clientX - startX;
       var dy = e.touches[0].clientY - startY;
       if (dx * dx + dy * dy < DRAG_TOLERANCE * DRAG_TOLERANCE) return;
@@ -208,6 +213,7 @@
 
     function releaseTouch() {
       hide();
+      container.dataset.gestureTouch = 'off';
       container.removeEventListener('touchstart', onTouchStart);
       container.removeEventListener('touchmove', onTouchMove);
       container.removeEventListener('touchend', onTouchEnd);
@@ -236,5 +242,22 @@
     return true;
   }
 
-  global.MapGestures = { apply: apply };
+  /* ‏setFree(map, true): המפה ממלאת את המסך ואין מתחתיה דף לגלול - אצבע אחת
+     גוררת אותה, הגלגלת מתקרבת בלי מקש, ובועיות ההסבר לא מופיעות.
+     ‏setFree(map, false) מחזיר את המחוות המשתפות. נקרא מ-openMapView /
+     ‏closeMapViewNow ב-assets/home.js. */
+  function setFree(map, on) {
+    if (!map || !map.getContainer) return;
+    var container = map.getContainer();
+    if (!container || container.dataset.gestureHandling !== 'on') return;
+    container.dataset.gestureFree = on ? '1' : '0';
+    var hint = container.querySelector('.map-gesture-hint');
+    if (hint) hint.classList.remove('is-on');
+    // מסך מגע שבו הגרירה כובתה ב-apply: מדליקים לזמן המסך המלא ומכבים אחריו
+    if (container.dataset.gestureTouch === 'on' && map.dragging) {
+      if (on) map.dragging.enable(); else map.dragging.disable();
+    }
+  }
+
+  global.MapGestures = { apply: apply, setFree: setFree };
 })(window);
