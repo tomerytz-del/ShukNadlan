@@ -67,6 +67,23 @@ FROM_RE = re.compile(r"""\.from\(\s*["']agency_members["']\s*\)""")
 # ‏agencies( בתוך מחרוזת select. ‏agencies!fk( מותר — הנתיב מפורש.
 EMBED_RE = re.compile(r"""(?<![!\w])agencies\s*\(""")
 
+# ‏הכלל השני, בכיוון ההפוך: ‎agency_members(…)‎ בלי שם מפתח, על טבלה שיש לה
+# יותר ממפתח זר אחד אליה. ‏referred_by (‏#508) הוסיף מפתח שני ל-properties,
+# ל-leads ול-agent_clients, ו-‎agency_members(tier)‎ ב-property-visualize
+# וב-property-inquiry-intake נכשל מאז ב-PGRST201 — כל הדמיה לפי דרישה וכל
+# פנייה על נכס נענו property_not_found. הרשימה מהמסד:
+#   select conrelid::regclass, count(*) from pg_constraint
+#   where contype='f' and confrelid='agency_members'::regclass
+#   group by 1 having count(*) > 1;
+MULTI_FK_TABLES = (
+    "properties", "leads", "agent_clients", "wallet_refunds",
+    "agency_invitations", "lead_routing_log",
+)
+FROM_MULTI_RE = re.compile(
+    r"""\.from\(\s*["'](?:""" + "|".join(MULTI_FK_TABLES) + r""")["']\s*\)"""
+)
+MEMBER_EMBED_RE = re.compile(r"""(?<![!\w])agency_members\s*\(""")
+
 # כמה תווים אחרי ‎.from('agency_members')‎ נחשבים "אותה שרשרת". השרשראות
 # בפועל קצרות בהרבה; הרווח כאן נדיב בכוונה, כי המחיר של פספוס גבוה מהמחיר
 # של התראה.
@@ -82,6 +99,9 @@ FIX = """
         const agency = await loadAgency(supabase, member?.agency_id);
 
     ‏בדפי HTML: שאילתה נוספת על agencies לפי member.agency_id.
+
+    ‏ו-agency_members(…) על properties/leads/agent_clients — לנקוב בשם
+    המפתח: agency_members!properties_agent_id_fkey(tier).
 """
 
 
@@ -92,16 +112,17 @@ def line_of(text: str, pos: int) -> int:
 def find_violations(path: Path) -> list[tuple[int, str]]:
     text = path.read_text(encoding="utf-8")
     hits: list[tuple[int, str]] = []
-    for m in FROM_RE.finditer(text):
-        window = text[m.end() : m.end() + CHAIN_WINDOW]
-        # עוצרים בסוף השרשרת: הצהרה הבאה שמתחילה שרשרת אחרת
-        stop = window.find(".from(")
-        if stop != -1:
-            window = window[:stop]
-        e = EMBED_RE.search(window)
-        if e:
-            pos = m.end() + e.start()
-            hits.append((line_of(text, pos), text[pos : pos + 60].strip()))
+    for from_re, embed_re in ((FROM_RE, EMBED_RE), (FROM_MULTI_RE, MEMBER_EMBED_RE)):
+        for m in from_re.finditer(text):
+            window = text[m.end() : m.end() + CHAIN_WINDOW]
+            # עוצרים בסוף השרשרת: הצהרה הבאה שמתחילה שרשרת אחרת
+            stop = window.find(".from(")
+            if stop != -1:
+                window = window[:stop]
+            e = embed_re.search(window)
+            if e:
+                pos = m.end() + e.start()
+                hits.append((line_of(text, pos), text[pos : pos + 60].strip()))
     return hits
 
 

@@ -84,11 +84,20 @@ Deno.serve(async (req: Request) => {
     return json({ error: "not_available", message: "הדמיות זמינות רק בנכסים של סוכני Premium" }, 403);
   }
 
-  const { data: property } = await supabase
+  // ‏**ה-embed נושא את שם המפתח הזר במפורש.** מאז ‏referred_by (‏#508) יש
+  // ל-properties שני מפתחות זרים ל-agency_members, ו-‎agency_members(tier)‎
+  // בלי רמז נכשל ב-PGRST201 — השאילתה כולה, לא רק ה-embed. ‏data יצא null,
+  // והפונקציה ענתה property_not_found על כל נכס: אף הדמיה לפי דרישה לא
+  // נוצרה מאז, והדף הראה "לא הצלחנו ליצור את ההדמיה כרגע".
+  const { data: property, error: propErr } = await supabase
     .from("properties")
-    .select("id, title, category, property_type, rooms, size_sqm, area_sqm, city, deal_type, agency_id, agent_id, images, agency_members(tier)")
+    .select("id, title, category, property_type, rooms, size_sqm, area_sqm, city, deal_type, agency_id, agent_id, images, agency_members!properties_agent_id_fkey(tier)")
     .eq("id", property_id)
     .single();
+  if (propErr && propErr.code !== "PGRST116") {
+    console.error("property-visualize: שליפת הנכס נכשלה", propErr);
+    return json({ error: "db_error", detail: propErr.message }, 500);
+  }
   if (!property) return json({ error: "property_not_found" }, 404);
 
   // מגרש וקרקע אינם ניתנים להדמיה — ראו isLandType. דף הנכס לא מציג להם את
@@ -329,7 +338,17 @@ Deno.serve(async (req: Request) => {
   }
 
   if (todo.length === 0) {
-    return json({ ok: true, job_id: null, lead_id: leadId, ready, note: "כל ההדמיות בסגנון הזה כבר קיימות" });
+    // ‏already_exists: בנכס מסחרי הדף אומר לגולש/ת במפורש שהעסק הזה כבר
+    // הודמה, ולא "ההדמיה מוכנה" — בלי זה נראה שנוצרה עכשיו הדמיה חדשה,
+    // והתמונה על המסך היא אותה תמונה שכבר הייתה שם.
+    return json({
+      ok: true,
+      job_id: null,
+      lead_id: leadId,
+      ready,
+      already_exists: true,
+      note: isPrivate ? "כל ההדמיות בסגנון הזה כבר קיימות" : "כבר בוצעה הדמיה לסוג העסק הזה בנכס",
+    });
   }
 
   // ---- הבקשה ------------------------------------------------------------

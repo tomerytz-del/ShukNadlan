@@ -44,7 +44,9 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: property, error: propErr } = await supabase
       .from("properties")
-      .select("id, agency_id, agent_id, city, property_type, deal_type, status, agency_members(tier)")
+      // ‏שם המפתח הזר מפורש: ל-properties שני מפתחות ל-agency_members
+      // ‏(agent_id ו-referred_by), ו-embed בלי רמז נכשל ב-PGRST201.
+      .select("id, agency_id, agent_id, city, property_type, deal_type, status, agency_members!properties_agent_id_fkey(tier)")
       .eq("id", property_id)
       .single();
 
