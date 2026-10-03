@@ -62,6 +62,9 @@ const KNOWN_SOURCES = new Set([
   // ביניהם הוא בדיוק מה שהיומן קיים כדי לענות עליו.
   "property_page_owner_wizard",
   "homepage_yield_calc",
+  // כרטיס גבריאלה בדף הבית כשהעוזרת בוואטסאפ כבויה: הכפתור פותח את הסוכן
+  // החכם במקום קישור wa.me (‏renderGabrielaCta ב-assets/home.js)
+  "homepage_gabriela",
   "agency_page_owner_wizard",
   "agency_page_yield_calc",
   "agency_page_buyer_wizard",

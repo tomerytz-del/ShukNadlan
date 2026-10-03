@@ -93,6 +93,11 @@
 /assets/*.svg
   Cache-Control: public, max-age=86400
 
+# תמונות דף הבית (גבריאלה ונוף העמק) - הנוף הוא התמונה הכבדה ביותר במסך
+# הראשון, ובלי הכלל הזה כל ביקור חוזר היה מאמת אותה מחדש מול השרת
+/assets/*.webp
+  Cache-Control: public, max-age=86400
+
 /promoted.png
   Cache-Control: public, max-age=86400
 

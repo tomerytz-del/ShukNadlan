@@ -223,4 +223,41 @@ test('תוויות המשפט בלי מקף ארוך', () => {
   C.slotsFor(st, AREAS, CTX).forEach(s => assert.ok(!/[–—]/.test(s.value), s.value));
 });
 
+/* הדוגמאות שמוקלדות בשדה החופשי בדף הבית. examplePhrases כבר מסננת את מה
+   שלא עובר - ולכן הבדיקה כאן היא שהסינון לא אכל את הרשימה: שוק עם מלאי
+   מקבל את כל שבע הדוגמאות, וכל אחת מזהה לפחות שני שדות כשמריצים אותה
+   כמו שגולש/ת היה/תה מקליד/ה אותה. */
+test('הדוגמאות המוקלדות: כולן עוברות ב-parse עם לפחות שני שדות', () => {
+  [false, true].forEach(short => {
+    const list = C.examplePhrases(AREAS, short);
+    assert.strictEqual(list.length, 7, (short ? 'נייד: ' : 'מחשב: ') + JSON.stringify(list));
+    list.forEach(p => {
+      const r = C.parse(p, C.defaultState(), AREAS);
+      assert.ok(r.fields.length >= 2, p + ' → ' + r.fields.join(','));
+      assert.ok(!/[–—]/.test(p), p);
+      if (short) assert.ok(p.length <= C.SHORT_MAX, p + ' ארוך מדי לנייד');
+    });
+  });
+});
+
+test('הדוגמאות המוקלדות נבנות מהשוק ולא מקובעות לעפולה', () => {
+  const props = [
+    P({ id: 'x1', city: 'חיפה', deal_type: 'sale', property_type: 'דירה', rooms: 4, price: 1900000, neighborhood_id: 9, neighborhood_name: 'כרמל צרפתי' }),
+    P({ id: 'x2', city: 'חיפה', deal_type: 'sale', property_type: 'דירה', rooms: 3, price: 1500000, neighborhood_id: 8, neighborhood_name: 'נווה שאנן' }),
+    P({ id: 'x3', city: 'טירת כרמל', deal_type: 'rent', property_type: 'דירה', rooms: 3, price: 4200 }),
+  ];
+  const areas = C.deriveAreas(props);
+  const list = C.examplePhrases(areas, false);
+  assert.ok(list.some(p => p.includes('כרמל צרפתי')), JSON.stringify(list));
+  assert.ok(list.some(p => p.includes('בחיפה')), JSON.stringify(list));
+  assert.ok(!list.some(p => p.includes('עפולה')), JSON.stringify(list));
+  list.forEach(p => assert.ok(C.parse(p, C.defaultState(), areas).fields.length >= 2, p));
+});
+
+test('הדוגמאות המוקלדות לפני שהמלאי נטען: רק כאלה שאינן תלויות באזור', () => {
+  const list = C.examplePhrases([], true);
+  assert.ok(list.length >= 3, JSON.stringify(list));
+  list.forEach(p => assert.ok(C.parse(p, C.defaultState(), []).fields.length >= 2, p));
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

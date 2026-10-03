@@ -608,8 +608,50 @@
     return p.map(function (kv) { return kv[0] + '=' + encodeURIComponent(kv[1]); }).join('&');
   }
 
+  /* ---------- דוגמאות שמוקלדות בשדה החופשי ----------
+     נבנות מהמלאי של השוק הנוכחי (השכונות והיישובים שיש בהם נכסים) ולא
+     מרשימה של עפולה: בשוק אחר הדוגמה צריכה להיות של העיר שלו. וכל דוגמה
+     עוברת כאן ב-parse() ונשמרת רק אם זוהו בה לפחות שני שדות - דוגמה
+     שגולש/ת מקליד/ה כמו שהיא ומקבל/ת "לא זיהיתי" שוברת אמון.
+     ‏short: לטלפון, עד SHORT_MAX תווים, כדי שהביטוי ייכנס לשדה בלי חיתוך. */
+  var SHORT_MAX = 22;
+
+  function examplePhrases(areas, short) {
+    var list = areas || [];
+    var hoods = list.filter(function (a) { return a.key.indexOf('hood:') === 0; }).map(function (a) { return a.label; });
+    var towns = list.filter(function (a) { return a.key.indexOf('city:') === 0; }).map(function (a) { return a.label; });
+    var city = list.mainCity || '';
+    var pick = function (arr, i) { return arr.length ? arr[i % arr.length] : ''; };
+    var h1 = pick(hoods, 0), h2 = pick(hoods, 1), h3 = pick(hoods, 2), h4 = pick(hoods, 3);
+    var town = towns[0] || h2;
+    var raw = short ? [
+      '4 חדרים עד 1.7 מיליון',
+      'להשכרה עד 4,000 ₪',
+      h2 && 'פנטהאוז ב' + h2,
+      'דירת גן עד 2.3 מיליון',
+      town && 'בית פרטי ב' + town,
+      'משרד להשכרה',
+      h4 && '3 חדרים ב' + h4,
+    ] : [
+      h1 && 'דירת 4 חדרים ב' + h1 + ' עד 1.7 מיליון',
+      city && 'דירה להשכרה ב' + city + ' עד 4,000 ₪',
+      h2 && 'פנטהאוז ב' + h2,
+      'דירת גן 5 חדרים עד 2.3 מיליון',
+      town && 'בית פרטי ב' + town,
+      h3 && 'משרד להשכרה ב' + h3,
+      h4 && 'דירת 3 חדרים ב' + h4,
+    ];
+    var seen = {};
+    return raw.filter(function (p) {
+      if (!p || seen[p]) return false;
+      seen[p] = true;
+      if (short && p.length > SHORT_MAX) return false;
+      return parse(p, defaultState(), list).fields.length >= 2;
+    });
+  }
+
   var Core = {
-    TYPES: TYPES, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
+    TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
     defaultState: defaultState, norm: norm, deriveAreas: deriveAreas, findArea: findArea,
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
@@ -1297,6 +1339,72 @@
     }
     placeholder();
     if (mq.addEventListener) mq.addEventListener('change', placeholder);
+
+    /* ---------- חיפושים נפוצים שמוקלדים בשדה ----------
+       אות אחר אות עם עצירה בסוף מילה, ואז מחיקה ומעבר לבא. השכבה (‏.ss-typer,
+       ‏aria-hidden) יושבת *מעל* input ריק ולא בתוך ה-placeholder: קורא מסך
+       שומע את התווית הקיימת פעם אחת, ולא מאות שינויים.
+       נעצרת בפוקוס, כשיש טקסט, בלשונית מוסתרת וכששדה יצא מהמסך - אין טיימר
+       שרץ ברקע בלי סיבה. ‏prefers-reduced-motion: הביטוי השלם מתחלף כל 3.5
+       שניות, בלי הקלדה. הביטויים עצמם: examplePhrases() ב-Core. */
+    (function typer() {
+      var field = input.closest && input.closest('.ss-field');
+      var out = field && field.querySelector('.ss-typer-text');
+      if (!out) return;
+      var CHAR_MS = 55, WORD_PAUSE = 170, HOLD_MS = 1900, DEL_MS = 22, GAP_MS = 380, SWAP_MS = 3500;
+      var i = 0, timer = 0, running = false, visible = true;
+
+      function list() {
+        var l = examplePhrases(areas, mq.matches);
+        return l.length ? l : [mq.matches ? shortPlaceholder : longPlaceholder].filter(Boolean);
+      }
+      function blocked() {
+        return doc.hidden || !visible || doc.activeElement === input || input.value !== '' || !list().length;
+      }
+      function sync() {
+        field.classList.toggle('has-value', input.value !== '');
+        field.classList.toggle('is-typing', running);
+      }
+      function stop() { running = false; root.clearTimeout(timer); sync(); }
+      function start() {
+        if (running || blocked()) return;
+        running = true; sync();
+        if (noMotion()) swap(); else type(0);
+      }
+      function phrase() { var l = list(); return l[i % l.length]; }
+      function type(n) {
+        if (blocked()) return stop();
+        var p = phrase();
+        out.textContent = p.slice(0, n);
+        if (n >= p.length) { timer = root.setTimeout(function () { erase(p.length); }, HOLD_MS); return; }
+        timer = root.setTimeout(function () { type(n + 1); }, CHAR_MS + (p.charAt(n) === ' ' ? WORD_PAUSE : 0));
+      }
+      function erase(n) {
+        if (blocked()) return stop();
+        out.textContent = out.textContent.slice(0, n);
+        if (n <= 0) { i++; timer = root.setTimeout(function () { type(0); }, GAP_MS); return; }
+        timer = root.setTimeout(function () { erase(n - 1); }, DEL_MS);
+      }
+      function swap() {
+        if (blocked()) return stop();
+        out.textContent = phrase(); i++;
+        timer = root.setTimeout(swap, SWAP_MS);
+      }
+
+      input.addEventListener('focus', stop);
+      input.addEventListener('input', function () { if (input.value !== '') stop(); sync(); });
+      input.addEventListener('blur', function () { sync(); root.setTimeout(start, 600); });
+      doc.addEventListener('visibilitychange', function () { if (doc.hidden) stop(); else start(); });
+      if (mq.addEventListener) mq.addEventListener('change', function () { i = 0; });
+      if ('IntersectionObserver' in root) {
+        new root.IntersectionObserver(function (e) {
+          visible = e[0].isIntersecting;
+          if (visible) start(); else stop();
+        }).observe(field);
+      }
+      sync();
+      start();
+    })();
     /* הבורר עובר בין popover (דסקטופ) לזרימה (טלפון) ומתמקם מחדש כשהרוחב
        משתנה - בלי מעבר, כדי שלא "ירדוף" אחרי המילה בזמן גרירת החלון. */
     if (mq.addEventListener) mq.addEventListener('change', function () { if (active) render(); });
