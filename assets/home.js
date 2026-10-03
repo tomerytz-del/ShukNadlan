@@ -3868,6 +3868,26 @@ function renderGabrielaCta(){
 }
 renderGabrielaCta();
 
+/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה של
+   הביקור הראשון - פעם אחת לדפדפן, חמש שניות, ונעלמת בכל מגע. ‏aria-hidden:
+   לקורא מסך המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם
+   המיקרופון מוצג בכלל (‏Web Speech API), ולכן הבדיקה היא על ‎hidden‎ שלו. */
+function showMicHint(){
+  const mic = document.getElementById('ssMic');
+  if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
+  if (!window.matchMedia('(max-width:759px)').matches) return;
+  try { if (localStorage.getItem('shuk_mic_hint')) return; localStorage.setItem('shuk_mic_hint', '1'); }
+  catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
+  const tip = document.createElement('span');
+  tip.className = 'ss-mic-hint';
+  tip.setAttribute('aria-hidden', 'true');
+  tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+  mic.appendChild(tip);
+  const remove = ()=>{ tip.remove(); document.removeEventListener('pointerdown', remove, true); };
+  setTimeout(remove, 5000);
+  document.addEventListener('pointerdown', remove, true);
+}
+
 /* ‏"איך זה עובד?" - ‏<dialog> מקורי. ‏showModal נותן לכידת פוקוס ו-Escape,
    והפוקוס חוזר לכפתור שפתח. לחיצה על הרקע סוגרת. */
 (function bindGabHow(){
@@ -6380,6 +6400,8 @@ function initSentenceDock(){
     },
   });
   if (!sentence) return;
+  // אחרי mount: הוא זה שמחליט אם המיקרופון מוצג (‏Web Speech API)
+  showMicHint();
 
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
