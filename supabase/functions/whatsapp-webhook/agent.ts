@@ -109,7 +109,7 @@ export const COMMERCIAL_PTYPES = [
   "בית מלון", "קליניקות",
 ];
 const RESIDENTIAL_FEATURES = [
-  "parking", "elevator", "balcony", "ac", "bars", "accessible",
+  "parking", "elevator", "balcony", "sun_balcony", "ac", "bars", "accessible",
   "renovated_feature", "furnished", "mamad", "exclusive", "building_shelter",
   "mamak", "storage", "ev_charger",
 ];

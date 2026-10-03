@@ -26,6 +26,12 @@
 | הערכת שווי (בעלי נכסים) | `index.html`, `agency.html`, `agent.html` - `.wiz-checks` | נשלח כטקסט ל-`owner-lead-intake` |
 | פרויקטים חדשים | `_shared/projects.ts` - `PROJECT_FEATURES`, `assets/project-card.js` | התקרה ב-`project-manage` היא עכשיו אורך הרשימה ולא 16 קבוע |
 
+## מה נמצא בדרך
+
+בניית הרשימה גילתה ש-`sun_balcony` (מרפסת שמש) נעדר מרשימות העוזרת
+לסוכנים ומתיאור כלי החיפוש של הבוט הציבורי - כלומר העוזרת לא יכלה לסמן
+אותו ולא לסנן לפיו. תוקן באותו PR. הרשימה עברה לסקיל `new-property-feature`.
+
 ## מה בכוונה לא נוגע
 
 **השוואת המחירים בדוח ה-CMA** (`cma_price_features()`): עמדת טעינה נדירה
