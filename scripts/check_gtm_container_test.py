@@ -195,6 +195,22 @@ def main() -> int:
              {"type": "TEMPLATE", "key": "measurementIdOverride", "value": "G-OTHER12345"}),
          None)
 
+    # ‏המקרה של גרסה 10: init הוחלף, ה-noscript נשאר על המזהה הישן.
+    def pixel_html(c, html):
+        for t in c["containerVersion"]["tag"]:
+            if t.get("type") == "html":
+                t["parameter"] = [{"type": "TEMPLATE", "key": "html", "value": html}]
+
+    case("מזהה פיקסל שונה ב-noscript",
+         lambda c: pixel_html(c, PIXEL_HTML.replace("'000'", "'222'") +
+                              '<noscript><img src="https://www.facebook.com/tr?id=111&ev=PageView&noscript=1"/></noscript>'),
+         "מזהי פיקסל שונים")
+
+    case("מזהה פיקסל זהה ב-noscript עובר",
+         lambda c: pixel_html(c, PIXEL_HTML +
+                              '<noscript><img src="https://www.facebook.com/tr?id=000&ev=PageView&noscript=1"/></noscript>'),
+         None)
+
     case("‏UPD חזר לפעול",
          lambda c: c["containerVersion"]["variable"].append(
              {"name": "UPD", "type": "awup",
