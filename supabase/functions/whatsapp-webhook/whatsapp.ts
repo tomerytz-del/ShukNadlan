@@ -122,6 +122,104 @@ export async function sendImage(
   return await messageIdFrom(res);
 }
 
+// מגבלות של הודעת כפתורים ב-Cloud API: עד שלושה כפתורים, כותרת של עד 20
+// תווים לכל אחד, וגוף של עד 1024. חריגה באחת מהן דוחה את ההודעה כולה.
+const MAX_BUTTONS = 3;
+const MAX_BUTTON_TITLE = 20;
+const MAX_BUTTON_BODY = 1024;
+
+export interface ReplyButton {
+  id: string;
+  title: string;
+}
+
+/**
+ * הודעה עם כפתורי תשובה מהירה (interactive · button). ‏הלחיצה חוזרת לוובהוק
+ * כהודעה מסוג `interactive`, ו-`index.ts` מעביר את **כותרת** הכפתור לבוט
+ * כאילו נכתבה ביד — ולכן הכותרת היא מה שהמודל קורא, וצריכה להיות ברורה
+ * גם בלי ההקשר של המסך.
+ */
+export async function sendButtons(
+  to: string,
+  body: string,
+  buttons: ReplyButton[],
+): Promise<string | null> {
+  const clean = formatForWhatsapp(body);
+  const text = clean.length > MAX_BUTTON_BODY
+    ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…"
+    : clean;
+
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text },
+        action: {
+          buttons: buttons.slice(0, MAX_BUTTONS).map((b) => ({
+            type: "reply",
+            reply: {
+              id: b.id.slice(0, 256),
+              // ‏Array.from ולא slice: אימוג'י הוא שתי יחידות UTF-16, וחיתוך
+              // באמצע שלו משאיר תו שבור שמטא דוחה.
+              title: Array.from(formatForWhatsapp(b.title)).slice(0, MAX_BUTTON_TITLE).join(""),
+            },
+          })),
+        },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`whatsapp buttons send failed ${res.status}: ${await res.text()}`);
+  }
+  return await messageIdFrom(res);
+}
+
+/**
+ * כרטיס איש קשר (type `contacts`). בוואטסאפ הוא מוצג עם כפתור "שמירה",
+ * כלומר מי שמקבל/ת אותו שומר/ת בלחיצה אחת, בלי להקליד מספר.
+ */
+export async function sendContactCard(
+  to: string,
+  contact: { name: string; company: string; phoneDigits: string; url?: string },
+): Promise<string | null> {
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "contacts",
+      contacts: [{
+        name: {
+          formatted_name: `${contact.name} - ${contact.company}`,
+          first_name: contact.name,
+        },
+        org: { company: contact.company },
+        phones: [{
+          phone: `+${contact.phoneDigits}`,
+          type: "WORK",
+          // ‏wa_id הוא מה שמוסיף לכרטיס את הכפתור "שליחת הודעה" ישר לצ'אט.
+          wa_id: contact.phoneDigits,
+        }],
+        ...(contact.url ? { urls: [{ url: contact.url, type: "WORK" }] } : {}),
+      }],
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`whatsapp contact send failed ${res.status}: ${await res.text()}`);
+  }
+  return await messageIdFrom(res);
+}
+
 const NOTIFY_TEMPLATE = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE") || "";
 const NOTIFY_TEMPLATE_LANG = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE_LANG") || "he";
 
