@@ -739,13 +739,15 @@ function vizJumpPair(){
   return null;
 }
 
-/* במובייל הכרטיס צר והכותרת נשברת. המילה האחרונה לא נחתכת, כך ש-"ב-AI"
-   לא נשבר על המקף - שורה שמתחילה ב-"AI" לבד נקראת כשבר. */
-function vjKeepTail(text, after){
+/* במובייל הכרטיס צר והטקסט נשבר. הזנב שמועבר כאן נשאר בשורה אחת: בכותרת
+   המילה האחרונה, ובשורת המשנה "לפני ואחרי" - "לפני" בסוף שורה ו"ואחרי"
+   בתחילת הבאה קוראים כשתי מילים נפרדות ולא כצמד. */
+function vjKeepTail(text, after, n = 1){
   const words = String(text).split(' ');
-  const last = words.pop();
-  const head = words.length ? escapeHtml(words.join(' ')) + ' ' : '';
-  return `${head}<span class="vj-nw">${escapeHtml(last)}${after}</span>`;
+  const tail = words.splice(-n).join(' ');
+  // ‏"AI" נצמד למילה שלפניו (רווח לא-שביר): שורה שמתחילה ב-"AI" לבד נקראת כשבר
+  const head = words.length ? escapeHtml(words.join(' ').replace(/ AI$/, '\u00a0AI')) + ' ' : '';
+  return `${head}<span class="vj-nw">${escapeHtml(tail)}${after}</span>`;
 }
 
 function renderVizJumpButton(){
@@ -771,7 +773,7 @@ function renderVizJumpButton(){
   btn.innerHTML = `
     <span class="vj-text">
       <span class="vj-title">${ICON.sparkle} ${vjKeepTail(title, '')}</span>
-      <span class="vj-sub">${vjKeepTail(sub, '')}</span>
+      <span class="vj-sub">${vjKeepTail(sub, '', 2)}</span>
     </span>${thumbs}`;
 }
 
