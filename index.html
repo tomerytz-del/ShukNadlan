@@ -3599,6 +3599,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:16px}
   }
 
+  /* ---------- טלפון: הכפתור לגבריאלה כבר במסך הראשון ----------
+     בכרטיס המלא (דמות 196px, שם 38px, גוף עם הסבר ודוגמה לפני הכפתור)
+     "פתחו שיחה עם גבריאלה" נחת כ-200px מתחת לקיפול בטלפון רגיל - כלומר
+     הפעולה שבשבילה הכרטיס קיים לא נראתה בטעינה. כאן הכול מתכווץ: ה-hero
+     צפוף יותר, הדמות 128px, השורה העליונה 150px, והכפתור עולה לראש הגוף
+     (‏order:-1) - ההסבר והיתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
+     (טלפון קטן, 360×640), נמדד ב-Playwright ב-320/360/390/412. */
+  @media(max-width:759px){
+    .hero.map-closed .hero-overlay{padding:12px 0 36px}
+    .hero.map-closed .hero-inner h1{font-size:clamp(24px,7vw,30px)}
+    .hero-sub{margin-top:4px;font-size:14px}
+    .hero.map-closed .search-shell{margin-top:12px}
+    .gab{--gab-pop:52px;margin-top:calc(var(--gab-pop) + 12px)}
+    .gab-top{height:150px}
+    .gab-top .gab-figure{flex-basis:128px}
+    .gab-img{width:128px;clip-path:inset(-200px -40px 0 0)}
+    .gab-disc{width:104px;height:104px;left:12px;bottom:14px}
+    .gab-head{padding:14px 14px 0 0;gap:4px}
+    .gab-name{font-size:30px}
+    .gab-role{font-size:15px}
+    .gab-tag{font-size:11.5px;padding:4px 9px}
+    .gab-body{padding:14px 16px 18px;gap:10px}
+    .gab-actions{order:-1}
+    .gab-cta{min-height:52px;padding:12px 16px;font-size:17px}
+    .gab-text{font-size:15.5px}
+    .gab-hint{font-size:14px}
+  }
+  @media(max-width:374px){
+    .gab{--gab-pop:44px}
+    .gab-top{height:136px}
+    .gab-top .gab-figure{flex-basis:112px}
+    .gab-img{width:112px}
+    .gab-disc{width:92px;height:92px;left:10px;bottom:12px}
+    .gab-name{font-size:27px}
+    .gab-role{font-size:14px}
+  }
+
   /* ---------- "איך זה עובד?" ---------- */
   .gab-how-dlg{
     width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:0;border:0;border-radius:20px;
