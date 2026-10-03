@@ -3599,6 +3599,47 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:16px}
   }
 
+  /* ---------- טלפון: הכפתור לגבריאלה כבר במסך הראשון ----------
+     בכרטיס המלא (דמות 196px, שם 38px, גוף עם הסבר ודוגמה לפני הכפתור)
+     "פתחו שיחה עם גבריאלה" נחת כ-200px מתחת לקיפול בטלפון רגיל - כלומר
+     הפעולה שבשבילה הכרטיס קיים לא נראתה בטעינה. כאן הכול מתכווץ: ה-hero
+     צפוף יותר, הדמות 128px, השורה העליונה 150px, והכפתור עולה לראש הגוף
+     (‏order:-1) - ההסבר והיתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
+     (טלפון קטן, 360×640), נמדד ב-Playwright ב-320/360/390/412. */
+  @media(max-width:759px){
+    .hero.map-closed .hero-overlay{padding:12px 0 36px}
+    .hero.map-closed .hero-inner h1{font-size:clamp(24px,7vw,30px)}
+    .hero-sub{margin-top:4px;font-size:14px}
+    .hero.map-closed .search-shell{margin-top:12px}
+    /* גובה השורה העליונה נגזר מהטקסט שבה (תגית, שם, תפקיד בשורה אחת) ולא
+       מהדמות: שורה של 150px השאירה שטח לבן ריק מתחת ל"בשבילכם!". הדמות
+       ‏(108px רוחב = ‎~188px‎ גובה) מקבלת את ההפרש כחריגה מעל המסגרת. */
+    .gab{--gab-pop:78px;margin-top:calc(var(--gab-pop) + 12px)}
+    .gab-top{height:110px}
+    .gab-top .gab-role br{display:none}
+    .gab-top .gab-figure{flex-basis:112px}
+    .gab-img{width:108px;clip-path:inset(-200px -40px 0 0)}
+    .gab-disc{width:92px;height:92px;left:10px;bottom:10px}
+    .gab-head{padding:14px 14px 0 0;gap:4px}
+    .gab-name{font-size:30px}
+    .gab-role{font-size:15px}
+    .gab-tag{font-size:11.5px;padding:4px 9px}
+    .gab-body{padding:14px 16px 18px;gap:10px}
+    .gab-actions{order:-1}
+    .gab-cta{min-height:52px;padding:12px 16px;font-size:17px}
+    .gab-text{font-size:15.5px}
+    .gab-hint{font-size:14px}
+  }
+  @media(max-width:374px){
+    .gab{--gab-pop:70px}
+    .gab-top{height:104px}
+    .gab-top .gab-figure{flex-basis:100px}
+    .gab-img{width:98px}
+    .gab-disc{width:82px;height:82px;left:8px;bottom:8px}
+    .gab-name{font-size:27px}
+    .gab-role{font-size:14px}
+  }
+
   /* ---------- "איך זה עובד?" ---------- */
   .gab-how-dlg{
     width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:0;border:0;border-radius:20px;
@@ -4199,7 +4240,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="gab-head">
               <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת AI</span>
               <p class="gab-name" aria-hidden="true">גבריאלה</p>
-              <p class="gab-role">מחפשת נכס<br>בשבילכם!</p>
+              <p class="gab-role">מחפשת נכס <br>בשבילכם!</p>
             </div>
             <div class="gab-figure">
               <div class="gab-disc" aria-hidden="true"></div>
