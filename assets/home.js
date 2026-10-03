@@ -3890,38 +3890,44 @@ renderGabrielaCta();
 /* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
    "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
    בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
-   מפריעה. היא נעלמת לבד אחרי MIC_HINT_SHOW, או בכל מגע.
+   מפריעה. **היא נשארת עד שלוחצים על המיקרופון** (החלטת בעל/ת האתר, אוקטובר
+   2026) - לא טיימר ולא כל מגע בדף.
 
-   פעם אחת לדפדפן (‏localStorage ‏shuk_mic_hint) - ונספרת רק כשבאמת הוצגה.
-   לא מוצגת אם בינתיים הגולש/ת כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא
-   מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי".
-   ‏sentence-search.js מחליט אם המיקרופון מוצג בכלל (‏Web Speech API). */
+   הסימון ב-localStorage ‏(shuk_mic_hint) נרשם רק בלחיצה על המיקרופון, ולכן
+   מי שעוד לא לחץ/ה רואה אותה גם בביקור הבא. לא מוצגת אם בינתיים הגולש/ת
+   כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא מהמסך. ‏aria-hidden: לקורא מסך
+   המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם המיקרופון
+   מוצג בכלל (‏Web Speech API). */
 const MIC_HINT_DELAY = 3500;
-const MIC_HINT_SHOW = 4500;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
   try { if (localStorage.getItem('shuk_mic_hint')) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
+  let tip = null;
+  // הלחיצה על המיקרופון (או על הבועה, שיושבת בתוכו) - מסירה ולא חוזרת
+  mic.addEventListener('click', ()=>{
+    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){}
+    if (!tip) return;
+    const t = tip; tip = null;
+    document.documentElement.classList.remove('mic-hint-on');
+    t.classList.add('is-leaving');
+    setTimeout(()=> t.remove(), 250);
+  }, { once:true });
   setTimeout(()=>{
     const input = document.getElementById('ssQuery');
     if (document.hidden || !input || document.activeElement === input || input.value) return;
     const r = mic.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
-    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){ return; }
-    const tip = document.createElement('span');
+    if (localStorage.getItem('shuk_mic_hint')) return;          // כבר לחצו בינתיים
+    tip = document.createElement('span');
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
     tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
     mic.appendChild(tip);
-    const remove = ()=>{
-      tip.classList.add('is-leaving');
-      setTimeout(()=> tip.remove(), 250);
-      document.removeEventListener('pointerdown', remove, true);
-    };
-    setTimeout(remove, MIC_HINT_SHOW);
-    document.addEventListener('pointerdown', remove, true);
+    // הבועה יושבת על התווית "מה אתם מחפשים" - מסתירים אותה בלי להזיז דבר
+    document.documentElement.classList.add('mic-hint-on');
   }, MIC_HINT_DELAY);
 }
 
