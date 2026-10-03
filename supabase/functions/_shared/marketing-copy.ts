@@ -81,6 +81,7 @@ const FEATURE_LABELS: Record<string, string> = {
   mamad: "ממ״ד", building_shelter: "מקלט בבניין", mamak: "ממ״ק", storage: "מחסן",
   high_ceiling: "תקרה גבוהה", cameras: "מצלמות", kitchenette: "מטבחון", alarm: "אזעקה",
   meeting_room: "חדר ישיבות", loading_ramp: "רמפת העמסה", comms: "תקשורת", cold_room: "חדר קירור",
+  ev_charger: "עמדת טעינה לרכב חשמלי",
 };
 
 function featureNames(features: unknown): string[] {

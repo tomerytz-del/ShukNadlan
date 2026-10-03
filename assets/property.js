@@ -33,6 +33,7 @@ const ICON = {
   users:   S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/>'),
   wifi:    S('<path d="M2 8.8a16 16 0 0 1 20 0M5 12.5a11 11 0 0 1 14 0M8.5 16.2a6 6 0 0 1 7 0"/><path d="M12 20h.01"/>'),
   thermo:  S('<path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0Z"/>'),
+  plug:    S('<path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0Z"/><path d="M12 17v5"/>'),
   access:  S('<circle cx="12" cy="4.5" r="1.8"/><path d="M6 8.5h12M12 8.5V15M12 15l-3 5M12 15l3 5"/>'),
   arrowUp: S('<path d="M12 20V4M6 10l6-6 6 6"/>'),
   utensils:S('<path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10"/><path d="M17 3c-1.5 1.5-2 3-2 5s.7 3 2 3v10"/>'),
@@ -62,7 +63,7 @@ const FEATURE_LABELS = {
   accessible:'גישה לנכים', renovated_feature:'משופצת', furnished:'מרוהטת', mamad:'ממ״ד', exclusive:'בבלעדיות',
   building_shelter:'מקלט בבניין', mamak:'ממ״ק', storage:'מחסן', high_ceiling:'תקרה גבוהה', cameras:'מצלמות',
   kitchenette:'מטבחון', alarm:'אזעקה', meeting_room:'חדר ישיבות', loading_ramp:'רמפת העמסה',
-  comms:'תקשורת', cold_room:'חדר קירור',
+  comms:'תקשורת', cold_room:'חדר קירור', ev_charger:'עמדת טעינה לרכב חשמלי',
 };
 /* אייקון לכל מאפיין — מה שאין לו אייקון ייעודי מקבל וי, כדי שרשימת היתרונות
    תישאר קו אחד ולא תערבב אייקונים לחלק מהשורות ונקודות לשאר. */
@@ -70,7 +71,7 @@ const FEATURE_ICONS = {
   parking:'car', elevator:'elevator', balcony:'balcony', sun_balcony:'sun', ac:'snow', bars:'window',
   accessible:'access', renovated_feature:'sparkle', furnished:'sofa', mamad:'shield', mamak:'shield',
   building_shelter:'shield', storage:'box', high_ceiling:'arrowUp', cameras:'camera', kitchenette:'utensils',
-  alarm:'bell', meeting_room:'users', loading_ramp:'truck', comms:'wifi', cold_room:'thermo',
+  alarm:'bell', meeting_room:'users', loading_ramp:'truck', comms:'wifi', cold_room:'thermo', ev_charger:'plug',
   exclusive:'star', price_dropped:'trend', moshav_kibbutz_only:'pin',
 };
 const CONDITION_LABELS = {

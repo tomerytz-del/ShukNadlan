@@ -33,6 +33,7 @@
     lobby:'לובי מפואר', concierge:'קונסיירז׳', accessible:'נגיש',
     green_building:'בנייה ירוקה', smart_home:'בית חכם', solar:'מערכת סולארית',
     playground:'גן משחקים', synagogue_nearby:'בית כנסת בקרבת מקום',
+    ev_charger:'עמדת טעינה לרכב חשמלי',
   };
 
   function esc(s) {

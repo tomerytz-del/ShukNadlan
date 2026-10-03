@@ -383,7 +383,8 @@ const TOOLS: Anthropic.Tool[] = [
           items: { type: "string" },
           description:
             "מאפיינים שחייבים להימצא בנכס: parking, elevator, balcony, ac, " +
-            "mamad, renovated_feature, furnished, storage, accessible, bars.",
+            "mamad, renovated_feature, furnished, storage, accessible, bars, " +
+            "ev_charger (עמדת טעינה לרכב חשמלי).",
         },
         limit: { type: "integer", description: `ברירת מחדל 5, מקסימום ${MAX_RESULTS}.` },
       },

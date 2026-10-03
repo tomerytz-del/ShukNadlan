@@ -156,7 +156,7 @@ export const PROJECT_PROPERTY_TYPES = [
 export const PROJECT_FEATURES = [
   "elevator", "parking", "mamad", "balcony", "storage", "garden",
   "pool", "gym", "lobby", "concierge", "accessible", "green_building",
-  "smart_home", "solar", "playground", "synagogue_nearby",
+  "smart_home", "solar", "playground", "synagogue_nearby", "ev_charger",
 ] as const;
 
 /** ניקוד ההתעניינות של ליד — מה שקובע אם הוא נכנס למדף ובאיזה סדר.

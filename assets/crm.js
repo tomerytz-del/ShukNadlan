@@ -9630,11 +9630,13 @@ const RESIDENTIAL_PROPERTY_FEATURES = [
   ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['sun_balcony','מרפסת שמש'],['ac','מיזוג'],['bars','סורגים'],
   ['accessible','גישה לנכים'],['renovated_feature','משופצת'],['furnished','מרוהטת'],['mamad','ממ״ד'],
   ['exclusive','בבלעדיות'],['building_shelter','מקלט בבניין'],['mamak','ממ״ק'],['storage','מחסן'],
+  ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 const COMMERCIAL_PROPERTY_FEATURES = [
   ['parking','נכס עם חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מזגן'],['high_ceiling','תקרה גבוהה'],
   ['cameras','מצלמות'],['kitchenette','מטבחון'],['alarm','אזעקה'],['meeting_room','חדר ישיבות'],
   ['loading_ramp','רמפת העמסה'],['comms','תקשורת'],['cold_room','חדר קירור'],
+  ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 
 function populatePropertyTypeSelect(category){
@@ -9649,7 +9651,7 @@ const FEATURE_ICONS = {
   accessible:'♿', renovated_feature:'🛠️', furnished:'🛋️', mamad:'🛡️', exclusive:'⭐',
   building_shelter:'🏚️', mamak:'🛡️', storage:'📦', high_ceiling:'⬆️', cameras:'📹',
   kitchenette:'☕', alarm:'🚨', meeting_room:'👥', loading_ramp:'🚚', comms:'📶',
-  cold_room:'🧊', moshav_kibbutz_only:'🌾', price_dropped:'📉',
+  cold_room:'🧊', ev_charger:'🔌', moshav_kibbutz_only:'🌾', price_dropped:'📉',
 };
 function renderFeatureCheckboxes(containerId, items, preselected){
   const container = document.getElementById(containerId);
@@ -15382,6 +15384,8 @@ const IMP_FEATURE_SYNONYMS = {
   'נגיש לנכים':'accessible','משופץ':'renovated_feature','שופץ':'renovated_feature',
   'בלעדיות':'exclusive','ממד':'mamad','ממק':'mamak','מקלט':'building_shelter',
   'מרפסת שמש':'sun_balcony','מרפסות שמש':'sun_balcony','מעליות':'elevator',
+  'עמדת טעינה':'ev_charger','עמדת טעינה לרכב':'ev_charger','עמדת טעינה חשמלית':'ev_charger',
+  'טעינה לרכב חשמלי':'ev_charger','עמדת טעינה לרכבים חשמליים':'ev_charger','עמדות טעינה':'ev_charger',
 };
 
 function impFeatureMap(){
@@ -24846,6 +24850,7 @@ const AGR_FEATURE_FROM_FIELD = {
   ac:            { yes:['יש'], feature:'ac' },
   accessible:    { yes:['כן'], feature:'accessible' },
   furnished:     { yes:['כן'], feature:'furnished' },
+  ev_charger:    { yes:['יש'], feature:'ev_charger' },
   balconies:     { count:true, feature:'balcony' },
   parking_count: { count:true, feature:'parking' },
   elevators:     { count:true, feature:'elevator' },
@@ -25157,6 +25162,7 @@ const AGR_FIELD_CHOICES = {
   accessible:    ['כן', 'לא'],
   basement:      ['כן', 'לא'],
   solar:         ['כן', 'לא'],
+  ev_charger:    ['יש', 'אין'],
   furnished:     ['כן', 'לא', 'חלקית'],
   pets:          ['מותר', 'אסור'],
   partners:      ['מותר', 'אסור'],

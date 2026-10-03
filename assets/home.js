@@ -4469,11 +4469,13 @@ const RESIDENTIAL_PROPERTY_FEATURES = [
   ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['sun_balcony','מרפסת שמש'],['ac','מיזוג'],['bars','סורגים'],
   ['accessible','גישה לנכים'],['renovated_feature','משופצת'],['furnished','מרוהטת'],['mamad','ממ״ד'],
   ['exclusive','בבלעדיות'],['building_shelter','מקלט בבניין'],['mamak','ממ״ק'],['storage','מחסן'],
+  ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 const COMMERCIAL_PROPERTY_FEATURES = [
   ['parking','נכס עם חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מזגן'],['high_ceiling','תקרה גבוהה'],
   ['cameras','מצלמות'],['kitchenette','מטבחון'],['alarm','אזעקה'],['meeting_room','חדר ישיבות'],
   ['loading_ramp','רמפת העמסה'],['comms','תקשורת'],['cold_room','חדר קירור'],
+  ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 const ROOM_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','+6'];
 

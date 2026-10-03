@@ -4235,6 +4235,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hs-check input{width:22px;height:22px;margin:0;accent-color:var(--brass);flex:none;order:2;margin-inline-start:auto}
   .hs-check:has(input:checked){border-color:var(--brass);background:#fffaf0}
   .hs-check:has(input:focus-visible){outline:2px solid var(--brass);outline-offset:2px}
+  /* חמישה מאפיינים בשורה של ארבעה (ושל שניים בטלפון): החמישי לוקח שורה שלמה
+     ולא נשאר תקוע לבד בתא אחד */
+  .hs-check-wide{grid-column:1 / -1}
   .hs-go{
     display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border:0;cursor:pointer;
     background:var(--brass);color:var(--sapphire-deep);font:inherit;font-size:18px;font-weight:800;
@@ -4696,6 +4699,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <label class="hs-check"><input type="checkbox" value="balcony"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V12h16v9M4 16h16M8 12v9M12 12v9M16 12v9"/><path d="M7 12V5h10v7"/></svg>מרפסת</label>
                   <label class="hs-check"><input type="checkbox" value="parking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14v-4l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg>חניה</label>
                   <label class="hs-check hs-res-only"><input type="checkbox" value="mamad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-3 8.3-7 9.5C8 19.3 5 15.4 5 11V6z"/></svg>ממ״ד</label>
+                  <label class="hs-check hs-check-wide"><input type="checkbox" value="ev_charger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0Z"/><path d="M12 17v5"/></svg>עמדת טעינה לרכב חשמלי</label>
                 </div>
                 <div class="hs-grid">
                   <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4"/></svg>קומה</span>
@@ -5711,6 +5715,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <label><input type="checkbox" value="ממ״ד"> ממ״ד</label>
               <label><input type="checkbox" value="מרפסת"> מרפסת</label>
               <label><input type="checkbox" value="מעלית"> מעלית</label>
+              <label><input type="checkbox" value="עמדת טעינה לרכב חשמלי"> עמדת טעינה לרכב חשמלי</label>
             </div>
 
             <p class="wiz-err" id="wizErr2"></p>
