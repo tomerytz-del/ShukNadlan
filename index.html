@@ -476,6 +476,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hero-badge-ai{cursor:pointer;transition:background .15s ease,transform .15s ease}
   .hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}
   .hero-badge-star{color:var(--brass,#c9a227);font-size:.72rem}
+  .hero-badge-sep{opacity:.4;font-weight:400}
   .hero-badge-live{background:rgba(255,255,255,.78);border-color:rgba(14,42,107,.16);color:var(--ink-soft);font-weight:600}
   .hero-badge-live .live-dot{background:#21a565;width:5px;height:5px}
 
@@ -3554,8 +3555,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="hero-lead">
           <div class="hero-badges">
             <button type="button" class="hero-badge hero-badge-ai" id="heroAiBadge" hidden>
-              <span class="hero-badge-star" aria-hidden="true">✦</span>
+              <span class="hero-badge-star" aria-hidden="true">✨</span>
               <span id="heroAiCount"></span>
+              <!-- מה מקבלים בלחיצה, ולא רק כמה: "הדמיית AI" לבד לא אומר שיש
+                   כאן השוואה של הבית לפני ואחרי, וזה מה שמושך ללחוץ. -->
+              <span class="hero-badge-sep" aria-hidden="true">|</span>
+              <span>לפני ואחרי</span>
             </button>
             <span class="hero-badge hero-badge-live" id="heroTodayBadge" hidden>
               <span class="live-dot" aria-hidden="true"></span>
