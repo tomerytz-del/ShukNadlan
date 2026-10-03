@@ -113,9 +113,10 @@
   --verified:        #14713f;
   --verified-tint:   #e5f5ed;
 
-  /* ---- צורה: הכול מרובע. זו החלטה, לא השמטה ---- */
-  --radius-sm: 0; --radius-md: 0; --radius-lg: 0;
-  --radius-xl: 0; --radius-2xl: 0; --radius: 0;
+  /* ---- צורה: פינות מעוגלות (אוקטובר 2026; עד אז הכול היה מרובע) ----
+     סולם אחד לכל האתר - ראו סעיף 3 למטה. */
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  --radius-xl: 20px; --radius-2xl: 24px; --radius: 12px;
 
   /* ---- צללים: ספיר מדולל, לא שחור ---- */
   --shadow-xs: 0 1px 2px rgba(14,42,107,.06);
@@ -182,22 +183,49 @@ select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
 
 ::selection{background:rgba(14,42,107,.16)}
 
-/* ====== 3. צורה מרובעת ======
-   הטוקנים למעלה כבר מאפסים כל ‎var(--radius-*)‎, אבל באתר יש גם ערכים
-   קשיחים (999px לגלולות, 5–12px לתגיות). הרשימה הזאת מכסה אותם. ‏!important
-   נדרש כי חלק מהכללים הפנימיים ממוענים בשתי מחלקות ומנצחים בספציפיות.
-   מה שנשאר עגול הוא רק מה שהוא באמת דיסקה: תו האמון, תמונות פרופיל, נקודות
-   מצב ופיני המפה. */
-.btn,.card,.chip,.tag,.pill,.badge,.thumb,
-input,select,textarea,
-.prop-card,.prop-card .thumb,.prop-card .ribbon,
-.pc-badge,.pc-media,.pc-thumb,.pc-badges span,
-.footer-cta a,.footer-chip,.footer-seo-links a,
-.ad-slot .tag,.hamburger,.mobile-menu,
-[class*="-card"],[class*="-chip"],[class*="-tab"],[class*="-badge"],
-[class*="-modal"],[class*="-panel"],[class*="-btn"],[class*="btn-"]{
-  border-radius:0 !important;
+/* ====== 3. צורה: פינות מעוגלות ======
+   ‏**אוקטובר 2026: ההעדפה היא פינות מעוגלות** (עד אז הכול היה מרובע, בכלל
+   אחד של ‎border-radius:0 !important‎ על תבניות מחלקה רחבות). הסולם:
+
+     כפתורים, שדות, לשוניות     10px
+     כרטיסים                    16px
+     חלונות (מודאל)             18px
+     גלולות וצ׳יפים             999px
+     תגיות קטנות (badge)        6px
+
+   ‏!important נשאר, מאותה סיבה שהיה: הרבה כללים בדפים עצמם כותבים
+   ‎border-radius:0‎ מפורש (מהתקופה המרובעת), וממוענים בשתי מחלקות.
+
+   ‏**התבניות כאן צרות יותר מבעבר, בכוונה.** הכלל המרובע תפס כל מחלקה שמכילה
+   ‎-tab‎, ‎-panel‎ או ‎-modal‎ - וזה לא שינה כלום כשהערך היה 0. עם עיגול זה
+   היה מעגל גם את מה שאינו רכיב: שכבת הרקע של חלון (‏‎.filter-modal-overlay‎,
+   מסך מלא), הכותרת והתחתית שבתוכו, מעטפת של טבלה (‏‎.cma-table‎), ופאנל צד
+   של המפה. לכן כאן - רק הרכיב עצמו.
+
+   כרטיסי הנכסים (‏‎.prop-card‎) מעוגלים גם הם, ו-‎overflow:hidden‎ שלהם (‏property-card)
+   חותך את התמונה לפי הפינה. ‏docs/home-page-sections.md, "פינות". */
+.btn,.cta,.footer-cta a,.hamburger,
+[class*="-btn"]:not([class*="-btns"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea,
+[class*="-tabs"] > button,[class*="-tabs"] > a,.tab-btn,.bp-tab,.bn-tab{
+  border-radius:10px !important;
 }
+.card,.prop-card,[class*="-card"]:not([class*="-cards"]),.thumb,.lead-banner,.state,.oh-how > ol{
+  border-radius:16px !important;
+}
+.filter-modal,.calc-modal .mlead,.qb-modal,.mlead-panel,.a11y-panel,.bell-panel,.match-panel,.profile-panel,.dash-panel,.mobile-menu .menu-panel{
+  border-radius:18px !important;
+}
+.chip,.pill,.tag,.footer-chip,.footer-seo-links a,
+[class*="-chip"]:not([class*="-chips"]):not([class*="-chip-row"]):not([class*="-chip-x"]){
+  border-radius:999px !important;
+}
+.badge,.pc-badges span,.pc-badge,.ad-slot .tag,.prop-card .ribbon,
+[class*="-badge"]:not([class*="-badges"]):not([class*="-badge-"]):not(.qb-badge){
+  border-radius:6px !important;
+}
+/* מה שנשאר ישר: התמונה שבתוך כרטיס (הכרטיס חותך), והמגירה של התפריט */
+.pc-media,.pc-thumb,.prop-card .thumb,.mobile-menu{border-radius:0 !important}
 /* חריגים: מה שהוא באמת דיסקה. הרשימה מפורשת ולא ‎[class*="dot"]‎ — התבנית
    הרחבה תפסה גם מכולות (‏.cf-dots), כלומר משטח רחב שקיבל פינות של עיגול.
 
