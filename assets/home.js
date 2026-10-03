@@ -3887,6 +3887,78 @@ function renderGabrielaCta(){
 }
 renderGabrielaCta();
 
+/* שיחת הדוגמה בכרטיס גבריאלה: תרחישים מתחלפים - ההודעה של הגולש/ת, "מקלידה",
+   והתשובה שלה. **כל תרחיש הוא דבר שהבוט הציבורי באמת יודע לעשות** (הכלים ב-
+   public-agent.ts: search_properties, find_agencies, save_search_alert,
+   search_projects, mortgage_estimate, owner_lead, find_professionals) - זו
+   הבטחה לגולש/ת, לא קישוט. מי שמוסיף/ה תרחיש בודק/ת שיש לו כלי.
+
+   רץ רק כשהכרטיס במסך והלשונית גלויה, ולא רץ בכלל עם prefers-reduced-motion
+   (נשארת השיחה הקבועה שב-HTML). textContent בלבד - אין כאן HTML מבחוץ. */
+function initGabChat(){
+  const chat = document.getElementById('gabChat');
+  if (!chat) return;
+  const city = (document.querySelector('[data-gab-city]')?.textContent || 'עפולה').trim();
+  const SCENES = [
+    ['היי גבריאלה, אני מחפש 4 חדרים ב' + city + ' עד 1.6 מיליון ₪', 'מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.'],
+    ['תמצאי לי מתווך שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
+    ['דירה להשכרה עם מרפסת וחניה, עד 5,000 ₪', 'מצאתי כמה דירות. רוצה שאעדכן אותך כשתעלה עוד אחת?'],
+    ['יש פרויקטים חדשים מקבלן ב' + city + '?', 'כן, יש פרויקטים בשיווק עכשיו. שולחת לך את הפרטים.'],
+    ['כמה יהיה ההחזר החודשי על משכנתא של מיליון ₪?', 'חישבתי לך הערכה. רוצה שיועץ משכנתאות יחזור אליך?'],
+    ['אני רוצה למכור את הדירה שלי', 'בשמחה. אחבר אותך למשרד תיווך מהאזור להערכת שווי.'],
+    ['צריך שמאי מקרקעין ב' + city, 'הנה שמאים מוסמכים שעובדים באזור, עם הטלפון שלהם.'],
+  ];
+  const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l3 3 6-7M6 9l1 1 6-8"/></svg>';
+  const now = () => new Date().toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', hour12:false });
+  const bubble = (who, text) => {
+    const b = document.createElement('div');
+    b.className = 'gab-bubble ' + who + ' is-in';
+    b.textContent = text;
+    const meta = document.createElement('span');
+    meta.className = 'gab-meta';
+    meta.textContent = now();
+    if (who === 'me') meta.insertAdjacentHTML('beforeend', TICKS);
+    b.appendChild(meta);
+    return b;
+  };
+  // השיחה הקבועה שב-HTML מקבלת שעה ווי, כמו כל השאר
+  chat.querySelectorAll('.gab-bubble').forEach(b => {
+    const meta = document.createElement('span');
+    meta.className = 'gab-meta';
+    meta.textContent = now();
+    if (b.classList.contains('me')) meta.insertAdjacentHTML('beforeend', TICKS);
+    b.appendChild(meta);
+  });
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let visible = false, running = false, i = 1;   // 0 כבר מוצג ב-HTML
+  async function cycle(){
+    if (running) return;
+    running = true;
+    while (visible && !document.hidden){
+      await wait(3600);
+      if (!visible || document.hidden) break;
+      chat.classList.add('is-out');
+      await wait(300);
+      chat.classList.remove('is-out');
+      chat.textContent = '';
+      const [q, a] = SCENES[i % SCENES.length]; i++;
+      chat.appendChild(bubble('me', q));
+      await wait(900);
+      const typing = document.createElement('div');
+      typing.className = 'gab-bubble her is-in';
+      typing.innerHTML = '<span class="gab-typing"><i></i><i></i><i></i></span>';
+      chat.appendChild(typing);
+      await wait(1300);
+      typing.replaceWith(bubble('her', a));
+    }
+    running = false;
+  }
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) cycle(); }, { threshold:.4 }).observe(chat);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && visible) cycle(); });
+}
+initGabChat();
+
 /* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
    "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
    בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
