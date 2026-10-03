@@ -1643,7 +1643,7 @@ async function requestVisualization(){
        ההדמיה אחרי שהדף נטען. ההודעה יושבת בפסקה שמעל הכפתור ולא בטוסט
        שנעלם: היא תשובה ללחיצה, וצריך שתישאר עד שקוראים אותה. */
     if (!vizState.isPrivate && (alreadyDone || out.already_exists) && !out.job_id){
-      vizState.error = `כבר בוצעה הדמיה ל"${business.value.trim()}" בנכס הזה - היא מוצגת כאן למעלה.`;
+      vizState.error = `כבר בוצעה הדמיה ל"${business.value.trim()}" בנכס הזה - היא מוצגת כאן.`;
       return;
     }
 
