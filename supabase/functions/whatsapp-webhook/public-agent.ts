@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
-import { formatForWhatsapp, sendImage } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -87,6 +87,12 @@ const LEAD_WINDOW_HOURS = 24;
 // כמה כרטיסי תמונה מותר לשלוח בתור אחד. וואטסאפ הוא ערוץ אישי, וארבע
 // תמונות ברצף הן הצפה ולא שירות.
 const MAX_CARDS_PER_TURN = 3;
+
+// שני הכפתורים של ההצעה לשמור חיפוש. ‏**הכותרת היא מה שחוזר לבוט** כשלוחצים
+// (‏index.ts מעביר את `button_reply.title` כטקסט של הפונה), ולכן היא צריכה
+// להיות מובנת למודל גם בלי המסך. עד 20 תווים - המגבלה של Meta.
+const SAVE_YES_TITLE = "כן, תשמרי לי ❤️";
+const SAVE_NO_DEFAULT = "לא, תראי עוד שכונות";
 
 const DEAL_TYPES = ["sale", "rent"];
 const CATEGORIES = ["residential", "commercial"];
@@ -577,12 +583,43 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "offer_save_search",
+    description:
+      "שולח את ההצעה לשמור את החיפוש **כהודעה עם שני כפתורים**: \"" +
+      SAVE_YES_TITLE + "\" ו-\"" + SAVE_NO_DEFAULT + "\" (או decline_label). " +
+      "להשתמש אחרי שהצגת תוצאות חלקיות - close_matches, או מעט תוצאות - ולפני " +
+      "save_search_alert. **ההודעה הזו היא סוף התור**: אין לכתוב אחריה דבר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description:
+            "גוף ההודעה, שלוש שורות לכל היותר בתבנית: מה מצאת ובמה זה שונה " +
+            "ממה שהתבקש (\"חלקם לא ברובע יזרעאל, אלא בשכונות אחרות בעפולה\"), " +
+            "ואז ההצעה עם החיפוש במילים של הפונה (\"רוצה שאשמור את החיפוש " +
+            "שלך - 4 חדרים ברובע יזרעאל עד 1.6 מיליון ₪ - ואשלח לך בוואטסאפ " +
+            "ברגע שיעלה נכס חדש שמתאים בדיוק? 🔔\"). בלי הכפתורים - הם נוספים לבד.",
+        },
+        decline_label: {
+          type: "string",
+          description:
+            `הכפתור השני, עד 20 תווים. ברירת המחדל "${SAVE_NO_DEFAULT}" ` +
+            "מתאימה כשההבדל היה השכונה. כשההבדל אחר (מחיר, חדרים) - למשל " +
+            "\"לא, עוד אפשרויות\".",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
     name: "save_search_alert",
     description:
       "שומר חיפוש למי שמחפש/ת נכס, כדי שיקבל/תקבל עדכון כשיעלה נכס מתאים. " +
       "**להשתמש רק אחרי ש-search_properties החזיר מעט מדי או כלום, אחרי " +
-      "ששאלת אם רוצים שנעדכן, ואחרי תשובה חיובית מפורשת.** לא ליזום את זה " +
-      "בשיחה שהתשובה בה כבר נמצאה.\n" +
+      "ששאלת אם רוצים שנעדכן (offer_save_search), ואחרי תשובה חיובית " +
+      "מפורשת** - לחיצה על \"" + SAVE_YES_TITLE + "\" היא תשובה כזו. לא " +
+      "ליזום את זה בשיחה שהתשובה בה כבר נמצאה.\n" +
       "‏consent_agent_contact הוא שאלה **נפרדת** - האם מסכימים שסוכן/ת ייצור " +
       "קשר. תשובה חיובית רק על העדכונים = false, והחיפוש עדיין נשמר.",
     input_schema: {
@@ -703,6 +740,10 @@ interface PublicContext {
   waPhone: string;
   /** כרטיסי תמונה שכבר נשלחו בתור הזה. מאופס בכל תור, ואינו נשמר. */
   cardsSent: number;
+  /** הודעת הכפתורים (גוף וכותרות), אם נשלחה בתור הזה. היא סוף התור. */
+  offerSent?: string;
+  /** האם רץ חיפוש בתור הזה - הרגע להציע לשמור את גבריאלה באנשי הקשר. */
+  searched?: boolean;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -1448,6 +1489,51 @@ async function sendPropertyCards(
   };
 }
 
+/**
+ * ההצעה לשמור חיפוש, כהודעה עם שני כפתורים.
+ *
+ * ‏**למה כפתורים ולא שאלה בטקסט:** זו השאלה היחידה בשיחה שהתשובה עליה היא
+ * כן/לא, והיא מגיעה בדיוק אחרי שהפונה קיבל/ה תוצאות חלקיות - הרגע שבו הכי
+ * קל לסגור את הצ'אט. לחיצה אחת זולה מהקלדה, והכותרת שחוזרת (‏`SAVE_YES_TITLE`)
+ * היא "כן" מפורש שאין צורך לפרש.
+ *
+ * ההודעה **סוגרת את התור**: ‏`runPublicTurn` מפסיק אחריה ולא שולח טקסט נוסף,
+ * כי טקסט אחריה היה דוחף את הכפתורים למעלה ומתחת לו שאלה כפולה.
+ */
+async function offerSaveSearch(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const body = String(args.message || "").trim();
+  if (!body) return { error: "missing_message" };
+  const decline = String(args.decline_label || "").trim() || SAVE_NO_DEFAULT;
+
+  try {
+    const waMessageId = await sendButtons(ctx.waPhone, body, [
+      { id: "save_search_yes", title: SAVE_YES_TITLE },
+      { id: "save_search_no", title: decline },
+    ]);
+    // הגוף והכפתורים, כמו שהפונה רואה אותם - ליומן ולהיסטוריה של השיחה
+    ctx.offerSent = `${formatForWhatsapp(body)}\n[${SAVE_YES_TITLE} | ${decline}]`;
+    await ctx.supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId,
+      direction: "out",
+      wa_phone: ctx.waPhone,
+      msg_type: "interactive",
+      body: ctx.offerSent,
+      status: waMessageId ? "sent" : null,
+    });
+    return { sent: true, note: "ההודעה נשלחה עם הכפתורים. אין לכתוב דבר נוסף בתור הזה." };
+  } catch (err) {
+    // בלי כפתורים השאלה עדיין נשאלת - בטקסט, כמו קודם
+    console.error("offer buttons send failed", err);
+    return {
+      sent: false,
+      note: "הכפתורים לא נשלחו. לשאול את אותה שאלה בטקסט, כתשובה הרגילה.",
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // קליטת לידים
 // ---------------------------------------------------------------------------
@@ -1776,6 +1862,7 @@ async function runTool(
   try {
     switch (name) {
       case "search_properties":
+        ctx.searched = true;
         return await searchProperties(ctx, args);
       case "get_property":
         return await getProperty(ctx, args);
@@ -1799,6 +1886,8 @@ async function runTool(
         return await mortgageLead(ctx, args);
       case "send_property_card":
         return await sendPropertyCards(ctx, args);
+      case "offer_save_search":
+        return await offerSaveSearch(ctx, args);
       default:
         return { error: "unknown_tool", name };
     }
@@ -1822,10 +1911,13 @@ async function runTool(
  */
 const SYSTEM_STATIC: string = (() => {
   const lines = [
-    "את/ה העוזר האוטומטי של שוק הנדל\"ן של עפולה והסביבה - אתר נדל\"ן מקומי " +
-    "שבו משרדי תיווך מפרסמים נכסים. את/ה משוחח/ת בוואטסאפ עם גולש/ת שאינו/ה " +
-    "רשומ/ה במערכת: בדרך כלל מי שמחפש/ת דירה, שוקל/ת למכור, או רוצה לדעת " +
-    "לאיזה משרד לפנות.",
+    "את גבריאלה, העוזרת האוטומטית של שוק הנדל\"ן של עפולה והסביבה - אתר " +
+    "נדל\"ן מקומי שבו משרדי תיווך מפרסמים נכסים. את משוחחת בוואטסאפ עם " +
+    "גולש/ת שאינו/ה רשומ/ה במערכת: בדרך כלל מי שמחפש/ת דירה, שוקל/ת למכור, " +
+    "או רוצה לדעת לאיזה משרד לפנות.",
+    "- **השם שלך הוא גבריאלה**, ואת מדברת על עצמך בלשון נקבה (\"מצאתי\", " +
+      "\"אני יכולה\", \"אשמור\"). את הפונה מדברים בגוף שני, בלי לנחש מגדר " +
+      "כשאפשר לנסח בלי.",
     "",
     "מה שאת/ה עושה: מוצא/ת נכסים במאגר, מסביר/ה על האזור ועל התהליך במילים " +
     "פשוטות, שולח/ת קישורים לדפי הנכסים, וממליץ/ה על משרדי תיווך ובעלי מקצוע " +
@@ -1906,9 +1998,21 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "השארת פרטים - ארבעה מסלולים, ורק הם:",
     "",
-    "**א. מחפש/ת שלא מצאנו לו/ה כלום.** אחרי חיפוש שחזר ריק או דל, ואחרי " +
-      "שהצעת להרחיב טווח - שאלה אחת קצרה: לעדכן כשיעלה נכס כזה? אם כן - " +
-      "לשאול לשם, ולקרוא ל-save_search_alert עם הקריטריונים מהשיחה.",
+    "**א. מחפש/ת שלא מצאנו לו/ה בדיוק את מה שביקש/ה.** אחרי חיפוש שחזר ריק, " +
+      "דל, או עם close_matches - ההצעה לשמור את החיפוש נשלחת ב-" +
+      "**offer_save_search**, ולא כשאלה בטקסט. הסדר: send_property_card לנכסים " +
+      "הקרובים (אם יש), ואז offer_save_search - וזהו, התור נגמר שם.",
+    "- התבנית של ההודעה (להתאים לחיפוש, לא להעתיק):",
+    "  מצאתי לך כמה נכסים בטווח המחיר שביקשת 🏡",
+    "  חלקם לא ברובע יזרעאל, אלא בשכונות אחרות בעפולה.",
+    "  רוצה שאשמור את החיפוש שלך - 4 חדרים ברובע יזרעאל עד 1.6 מיליון ₪ - " +
+      "ואשלח לך בוואטסאפ ברגע שיעלה נכס חדש שמתאים בדיוק למה שחיפשת? 🔔",
+    "- השורה השנייה אומרת במה התוצאות שונות, לפי relaxed_on. כשלא נמצא כלום - " +
+      "אומרים את זה במקום השורה הראשונה.",
+    `- "${SAVE_YES_TITLE}" = כן מפורש לשמירה. לשאול לשם (אם לא נאמר), ואז ` +
+      "save_search_alert עם הקריטריונים **המקוריים** מהשיחה - לא המורחבים.",
+    `- "${SAVE_NO_DEFAULT}" (או כל לא אחר) = search_properties שוב בלי area ` +
+      "והצגת התוצאות. לא לשאול שוב על שמירה.",
     "- **שאלת ההסכמה נפרדת מהשאלה הזו.** \"שסוכן/ת גם ייצור קשר ויעזור " +
       "בחיפוש?\" - כן מפורש = consent_agent_contact true; לא, שתיקה, \"נראה\" " +
       "או שינוי נושא = false. חיפוש נשמר בשני המקרים, וזו לא פשרה: העדכונים " +
@@ -1947,7 +2051,7 @@ const SYSTEM_STATIC: string = (() => {
     "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות ל-" +
       `${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
     "- מי שמבקש/ת לדבר עם אדם - להפנות לדף הנכס או המשרד הרלוונטי, ולומר " +
-      "בפשטות שאת/ה עוזר/ת אוטומטי/ת ולא הסוכן/ת עצמו/ה.",
+      "בפשטות שאת עוזרת אוטומטית ולא הסוכן/ת עצמו/ה.",
     "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר: " +
       `${SITE_BASE}/ . אותו מנגנון בדיוק.`,
   ];
@@ -1977,9 +2081,9 @@ function sessionContext(conv: PublicConversationState): string {
   if (!conv.history.length) {
     lines.push(
       "",
-      "**זו ההודעה הראשונה בשיחה.** לפתוח במשפט אחד קצר שאומר מי את/ה - " +
-        "העוזר האוטומטי של שוק הנדל\"ן של עפולה והסביבה - ומיד לענות לגופו " +
-        "של עניין. לא תפריט, לא ברכה ארוכה.",
+      "**זו ההודעה הראשונה בשיחה.** לפתוח במשפט אחד קצר שבו את מציגה את " +
+        "עצמך בשמך - \"היי, אני גבריאלה, העוזרת של שוק הנדל\"ן של עפולה " +
+        "והסביבה\" - ומיד לענות לגופו של עניין. לא תפריט, לא ברכה ארוכה.",
     );
   }
   if (conv.last_property_id) {
@@ -2003,7 +2107,7 @@ export async function runPublicTurn(opts: {
   userText: string;
   /** המספר שממנו הגיעה ההודעה, כברירת מחדל לטלפון בליד */
   waPhone: string;
-}): Promise<string> {
+}): Promise<{ text: string; searched: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0 };
 
@@ -2051,7 +2155,7 @@ export async function runPublicTurn(opts: {
     if (responseText) finalText = responseText;
 
     if ((response.stop_reason as string) === "refusal") {
-      finalText = "מצטער, לא אוכל לעזור בזה. אפשר לשאול אותי על נכסים באתר.";
+      finalText = "מצטערת, לא אוכל לעזור בזה. אפשר לשאול אותי על נכסים באתר.";
       break;
     }
 
@@ -2091,6 +2195,21 @@ export async function runPublicTurn(opts: {
     }
 
     messages.push({ role: "user", content: results });
+
+    // ההודעה עם הכפתורים היא סוף התור. אין קריאה נוספת למודל - טקסט אחריה
+    // היה נשלח מתחתיה, ומה שהיה ממילא נכתב בה.
+    if (ctx.offerSent) break;
+  }
+
+  if (ctx.offerSent) {
+    // ‏text ריק = אין מה לשלוח, ההודעה כבר יצאה. בהיסטוריה נרשם גוף ההצעה,
+    // כדי שלחיצה על "כן" בתור הבא תדע על מה היא עונה.
+    conv.history = [
+      ...conv.history,
+      { role: "user" as const, content: userText },
+      { role: "assistant" as const, content: ctx.offerSent },
+    ].slice(-HISTORY_LIMIT);
+    return { text: "", searched: !!ctx.searched };
   }
 
   if (!finalText) {
@@ -2106,5 +2225,5 @@ export async function runPublicTurn(opts: {
     { role: "assistant", content: finalText },
   ].slice(-HISTORY_LIMIT);
 
-  return finalText;
+  return { text: finalText, searched: !!ctx.searched };
 }
