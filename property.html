@@ -248,6 +248,38 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .media-btn.magic{background:rgba(255,255,255,.88);color:var(--teal-dark);border-color:rgba(255,255,255,.95)}
   .media-btn.magic:hover{background:#fff}
   .media-btn.magic svg{color:var(--bronze)}
+  /* השלט של ההדמיה גדל לכרטיס: כותרת שאומרת מה יקרה בלחיצה, ושתי תמונונות
+     לפני ואחרי מהנכס עצמו. מסגרת זהב כדי שייקרא כהזמנה ולא כעוד תגית. */
+  #vizJumpBtn{
+    gap:10px;padding:6px 8px 6px 10px;border:1.5px solid var(--bronze-soft);
+    box-shadow:0 6px 18px rgba(10,18,30,.25);text-align:start;
+    max-width:calc(100vw - 64px);
+  }
+  #vizJumpBtn .vj-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+  #vizJumpBtn .vj-title{font-size:.76rem;font-weight:800;line-height:1.2}
+  #vizJumpBtn .vj-title svg{display:inline-block;vertical-align:-2px;width:13px;height:13px}
+  /* במובייל אין מקום לכרטיס ולמחיר באותה שורה, והמחיר עולה מעליו. שניהם
+     נשארים קריאים, ובמחשב הם חוזרים לשבת זה לצד זה. */
+  @media(max-width:639px){
+    .bento-main:has(#vizJumpBtn:not([hidden])) .hero-price{bottom:70px}
+  }
+  #vizJumpBtn .vj-sub{font-size:.66rem;font-weight:600;color:var(--ink-soft,#55607a);line-height:1.2}
+  #vizJumpBtn .vj-thumbs{display:flex;align-items:center;flex:none;position:relative}
+  #vizJumpBtn .vj-thumbs img{width:40px;height:36px;object-fit:cover;display:block;border:1px solid rgba(15,23,42,.12)}
+  #vizJumpBtn .vj-arrow{
+    width:18px;height:18px;margin-inline:-7px;z-index:1;border-radius:50%;display:grid;place-items:center;
+    background:var(--bronze-soft);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);
+  }
+  #vizJumpBtn .vj-arrow svg{width:11px;height:11px;color:#fff}
+  @media(min-width:640px){
+    #vizJumpBtn{padding:8px 10px 8px 14px}
+    #vizJumpBtn .vj-title svg{width:15px;height:15px}
+    #vizJumpBtn .vj-title{font-size:.9rem}
+    #vizJumpBtn .vj-sub{font-size:.72rem}
+    #vizJumpBtn .vj-thumbs img{width:72px;height:54px}
+    #vizJumpBtn .vj-arrow{width:22px;height:22px;margin-inline:-9px}
+    #vizJumpBtn .vj-arrow svg{width:13px;height:13px}
+  }
   @media(min-width:640px){
     .bento{grid-template-columns:1.9fr 1fr;grid-template-rows:1fr 1fr;height:min(58vh,430px)}
     .bento-main{grid-column:1;grid-row:1/3;aspect-ratio:auto;height:100%}
