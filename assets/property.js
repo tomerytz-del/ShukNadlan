@@ -745,11 +745,14 @@ function renderVizJumpButton(){
   const key = pair ? pair.source_image_url + '|' + pair.result_url : '';
   if (btn.dataset.rendered === title + '|' + key) return;
   btn.dataset.rendered = title + '|' + key;
+  /* וילון ולא שתי תמונונות זו לצד זו: אותה מסגרת, הצילום מתחת וההדמיה
+     מעליו, וידית זהב שעוברת ביניהם הלוך ושוב. זו אותה מחווה כמו הווילון
+     שבתיבה עצמה, ולכן הכרטיס מראה בקטן בדיוק את מה שהלחיצה פותחת. */
   const thumbs = pair
-    ? `<span class="vj-thumbs" aria-hidden="true">
-         <img src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
-         <span class="vj-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg></span>
-         <img src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+    ? `<span class="vj-thumbs vj-curtain" aria-hidden="true">
+         <img class="vj-before" src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
+         <img class="vj-after" src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+         <span class="vj-handle"><span class="vj-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></span>
        </span>`
     : '';
   btn.classList.toggle('has-thumbs', !!pair);
