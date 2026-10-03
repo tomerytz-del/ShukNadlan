@@ -39,7 +39,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ‏`None` הוא הצהרה מודעת ש"אין גייט ואין צורך בו", עם נימוק. הוא **לא**
 # דרך לשתק את הבדיקה: מי שכותב None מצהיר בכתב, וזה נקרא ב-PR.
 GATES = {
-    'עוזר אישי בוואטסאפ - נכסים, לקוחות והתאמות בהודעה, תמונה או הקלטה':
+    'גבריאלה, עוזרת אישית בוואטסאפ - נכסים, לקוחות והתאמות בהודעה, תמונה או הקלטה':
         'TIER_ALLOWED',
     'תיאור שיווקי אוטומטי ב-AI':                  'property_description_tier_ok',
     'סרטון שיווקי אוטומטי מהתמונות':               'property_video_tier',
@@ -64,7 +64,7 @@ GATES = {
     'הפניה אוטומטית של לידי בעל-נכס אליך':         'lead_audience_size',
     # אותו שם גייט של העוזר: קבוע נפרד בשם זהה ב-whatsapp-webhook/email-intake.ts,
     # עם בדיקת billing_status לפני הקריאה למודל (docs/email-intake.md).
-    'העברת מייל לעוזר - הוא מטפל בו ועונה לך בוואטסאפ': 'TIER_ALLOWED',
+    'העברת מייל לגבריאלה - היא מטפלת בו ועונה לך בוואטסאפ': 'TIER_ALLOWED',
     'התראות הפעמון גם בוואטסאפ':                   'notification_push_due_agents',
     # הגייט נאכף בטריגר ‏agent_agenda_items_before על כל הוספה (גם מהבוט,
     # שעוקף RLS), ושוב ב-agent_agenda_dispatch לפני כל התראה.

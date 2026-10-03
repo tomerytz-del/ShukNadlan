@@ -5498,10 +5498,10 @@ function renderWaStartCard(phone){
     ? `https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(ASSISTANT_WA_HELLO)}`
     : '#';
   document.getElementById('waStartBtnLabel').textContent = saved
-    ? "פתיחת צ'אט עם העוזר"
+    ? "פתיחת צ'אט עם גבריאלה"
     : 'קודם שמרו את המספר שלכם למטה';
   document.getElementById('waStartHint').textContent = saved
-    ? 'חשוב: יש לשלוח מהמכשיר שבו מותקן המספר שרשום למטה - לפי המספר הזה העוזר מזהה אתכם.'
+    ? 'חשוב: יש לשלוח מהמכשיר שבו מותקן המספר שרשום למטה - לפי המספר הזה גבריאלה מזהה אתכם.'
     : '';
 }
 
@@ -5517,10 +5517,10 @@ function loadWhatsappSettings(agent){
   const note = document.getElementById('waTierNote');
   if (note){
     note.innerHTML = assistantTierOk()
-      ? 'העוזר זמין במסלול שלך. אם ההודעה לא נענתה - בדקו שהמספר כאן הוא ' +
+      ? 'גבריאלה זמינה במסלול שלך. אם ההודעה לא נענתה - בדקו שהמספר כאן הוא ' +
         'המספר שממנו שלחתם.'
-      : 'העוזר האישי זמין במסלולים <strong>PROFESSIONAL</strong> ו-<strong>Elite</strong>. ' +
-        'במסלול Pay&amp;GO אפשר להוסיף ולעדכן נכסים מהדשבורד, והודעה לעוזר תיענה ' +
+      : 'גבריאלה, העוזרת האישית, זמינה במסלולים <strong>PROFESSIONAL</strong> ו-<strong>Elite</strong>. ' +
+        'במסלול Pay&amp;GO אפשר להוסיף ולעדכן נכסים מהדשבורד, והודעה לגבריאלה תיענה ' +
         'בהסבר ובקישור. <a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
   }
 }
@@ -5540,7 +5540,7 @@ function showIntakeAddress(addr){
   document.getElementById('waIntakeRotate').hidden = false;
   document.getElementById('waIntakeHint').textContent =
     'כדאי לשמור אותה באנשי הקשר. אפשר גם להגדיר במייל העברה אוטומטית ' +
-    '(למשל של לידים מאתר) - אם Gmail ישלח קוד אישור, העוזר יעביר לך אותו בוואטסאפ. ' +
+    '(למשל של לידים מאתר) - אם Gmail ישלח קוד אישור, גבריאלה תעביר לך אותו בוואטסאפ. ' +
     (currentAgent && currentAgent.phone ? '' : 'שימו לב: בלי מספר וואטסאפ שמור למעלה, המיילים לא ייענו.');
 }
 
@@ -5559,7 +5559,7 @@ async function requestIntakeAddress(rotate){
 document.getElementById('waIntakeBtn').addEventListener('click', ()=>{
   if (!assistantTierOk()){
     document.getElementById('waIntakeHint').textContent =
-      'העברת מיילים היא חלק מהעוזר האישי, שזמין במסלולים PROFESSIONAL ו-Elite.';
+      'העברת מיילים היא חלק מגבריאלה, העוזרת האישית, שזמינה במסלולים PROFESSIONAL ו-Elite.';
     return;
   }
   requestIntakeAddress(false);
@@ -6484,9 +6484,9 @@ function labelPromoGift(strip, promo, agent){
 /* ‏done נקרא מהשורה שהמסד החזיר, ולא מחושב כאן שוב: תנאי משוכפל בין שרת
    לדפדפן מתפצל, ואז ההתראה יוצאת בזמן שהכרטיס עוד מציג את הצעד כפתוח. */
 const ONBOARD_STEPS = [
-  { key:'whatsapp', name:'חיבור העוזר האישי בוואטסאפ',
-    text:'שומרים את מספר הוואטסאפ שלכם ושולחים לעוזר הודעה ראשונה. משם אפשר להעלות נכס, לשלוח תמונות של דירה או להקליט הודעה - בלי לפתוח את המחשב.',
-    cta:'לחיבור העוזר',
+  { key:'whatsapp', name:'חיבור גבריאלה, העוזרת האישית בוואטסאפ',
+    text:'שומרים את מספר הוואטסאפ שלכם ושולחים לגבריאלה הודעה ראשונה. משם אפשר להעלות נכס, לשלוח תמונות של דירה או להקליט הודעה - בלי לפתוח את המחשב.',
+    cta:'לחיבור גבריאלה',
     done: s => s.whatsapp_done,
     run:  ()=> gotoSection('accWhatsapp', 'waPhone') },
   { key:'profile', name:'תמונת פרופיל ותמונת נושא',
@@ -6579,7 +6579,7 @@ function renderOnboarding(){
   if (state.just_finished){
     document.getElementById('onbTitle').textContent = 'סיימת את מדריך ההתחלה';
     prog.textContent = '✓';
-    sub.textContent = 'העוזר מחובר, הפרופיל מוצג, יש נכס, יש לקוח/ה, נוצר הסכם ונרכש ליד. מכאן זה המסך הרגיל שלך - והמדריך לא יחזור.';
+    sub.textContent = 'גבריאלה מחוברת, הפרופיל מוצג, יש נכס, יש לקוח/ה, נוצר הסכם ונרכש ליד. מכאן זה המסך הרגיל שלך - והמדריך לא יחזור.';
     list.innerHTML = '';
     box.hidden = false;
     return;
@@ -19584,7 +19584,7 @@ function openContactImport(){
     '<p class="imp-note" style="margin:12px 0 0">קובץ: באייפון - אפליקציית אנשי הקשר, בחירת אנשי קשר, שיתוף ← "ייצוא vCard". ' +
       'ב-Google - contacts.google.com ← ייצוא ← Google CSV.</p>' +
     '<div class="ci-tip"><b>הדרך הכי מהירה מהטלפון, גם באייפון:</b> בשיחות האחרונות פותחים את איש הקשר ← ' +
-      'שיתוף ← וואטסאפ ← העוזר של שוק נדל״ן. הוא בודק אם הלקוח כבר בקובץ, ומציע להוסיף אותו עם מה שהוא מחפש.</div>';
+      'שיתוף ← וואטסאפ ← גבריאלה משוק נדל״ן. היא בודקת אם הלקוח כבר בקובץ, ומציעה להוסיף אותו עם מה שהוא מחפש.</div>';
   ciEl('ciFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-ci="close">סגירה</button>';
 }
 
@@ -19982,7 +19982,7 @@ async function handleShareParam(){
       location.pathname + (search ? '?' + search : '') + location.hash);
   }
   if (kind !== 'contacts' || !window.ContactImport){
-    showToast('השיתוף לא הגיע. אפשר לנסות שוב, או לשתף לעוזר בוואטסאפ.', 6000);
+    showToast('השיתוף לא הגיע. אפשר לנסות שוב, או לשתף לגבריאלה בוואטסאפ.', 6000);
     return;
   }
   const list = await window.ContactImport.takeShared();
@@ -21074,7 +21074,7 @@ function syncNotifWaNote(){
      במסלול שבו הערוץ פועל. וזה נאמר גם כשאין אף סימון — אחרת תיבות
      מכובות בלי הסבר נראות כמו תקלה. */
   if (!assistantTierOk()){
-    note.innerHTML = 'שליחת ההתראות בוואטסאפ היא חלק מהעוזר האישי, שזמין במסלולים ' +
+    note.innerHTML = 'שליחת ההתראות בוואטסאפ היא חלק מגבריאלה, העוזרת האישית, שזמינה במסלולים ' +
       'PROFESSIONAL ו-Elite. ההתראות בפעמון עובדות בכל מסלול. ' +
       '<a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
     return;
@@ -21084,7 +21084,7 @@ function syncNotifWaNote(){
   if (!on){ note.textContent = ''; return; }
   note.textContent = (currentAgent && currentAgent.phone)
     ? `${plural(on, 'סוג התראה אחד יישלח', 'סוגי התראה יישלחו')} גם לוואטסאפ שלך (${currentAgent.phone}).`
-    : 'כדי שההתראות יגיעו בוואטסאפ צריך מספר שמור בקטגוריית "העוזר בוואטסאפ" - בלעדיו הסימון כאן לא יעשה דבר.';
+    : 'כדי שההתראות יגיעו בוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ" - בלעדיו הסימון כאן לא יעשה דבר.';
 }
 
 /* המונה על הקטגוריה: "הכול" כשאין מושתקים, ואחרת כמה מתוך כמה פעילים —
@@ -21292,7 +21292,7 @@ function renderAgenda(){
   const note = document.getElementById('agTierNote');
   note.hidden = tierOk;
   if (!tierOk){
-    note.innerHTML = 'היומן, התזכורות והמשימות האוטומטיות הם חלק מהעוזר האישי, שזמין במסלולים ' +
+    note.innerHTML = 'היומן, התזכורות והמשימות האוטומטיות הם חלק מגבריאלה, העוזרת האישית, שזמינה במסלולים ' +
       'PROFESSIONAL ו-Elite. <a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
   }
   document.getElementById('agAdd').hidden = !tierOk;
@@ -21610,7 +21610,7 @@ function gcalAvailable(){
 
 const GCAL_RESULT_TEXT = {
   connected: 'יומן Google חובר. הפגישות הפתוחות יופיעו שם בדקות הקרובות.',
-  connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - העוזר לא יראה מתי את/ה תפוס/ה ביומן האישי.',
+  connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - גבריאלה לא תראה מתי את/ה תפוס/ה ביומן האישי.',
   denied: 'החיבור בוטל במסך של Google. אפשר לנסות שוב מתי שתרצו.',
   scope_missing: 'בלי ההרשאה ליצור את יומן "שוק נדל״ן" אין מה לחבר. נסו שוב והשאירו אותה מסומנת.',
   expired: 'עבר יותר מדי זמן מהלחיצה. לחצו שוב על "חבר/י יומן".',
@@ -21654,9 +21654,9 @@ function renderGcal(){
     st.textContent = 'מחובר' + (c.google_email ? ': ' + c.google_email : '');
     const bits = ['פגישות, סיורים וחתימות מופיעים ביומן "שוק נדל״ן" בחשבון Google שלך.'];
     if (!(c.scopes || []).some(x => /calendar\.freebusy$/.test(x))){
-      bits.push('בלי הרשאת הזמינות - העוזר לא רואה מתי את/ה תפוס/ה ביומן האישי. חיבור מחדש יוסיף אותה.');
+      bits.push('בלי הרשאת הזמינות - גבריאלה לא רואה מתי את/ה תפוס/ה ביומן האישי. חיבור מחדש יוסיף אותה.');
     } else {
-      bits.push('העוזר בוואטסאפ רואה מתי את/ה תפוס/ה ביומן האישי - רק את השעות, בלי הפרטים.');
+      bits.push('גבריאלה בוואטסאפ רואה מתי את/ה תפוס/ה ביומן האישי - רק את השעות, בלי הפרטים.');
     }
     if (c.last_sync_at) bits.push('סנכרון אחרון: ' + new Date(c.last_sync_at).toLocaleString('he-IL') + '.');
     note.textContent = bits.join(' ');
@@ -21670,7 +21670,7 @@ function renderGcal(){
   } else {
     st.textContent = 'לא מחובר';
     note.textContent = 'פגישות, סיורים וחתימות יופיעו ביומן נפרד בשם "שוק נדל״ן" בחשבון Google שלך, ' +
-      'והעוזר בוואטסאפ יידע מתי את/ה פנוי/ה. מהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
+      'וגבריאלה בוואטסאפ תדע מתי את/ה פנוי/ה. מהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
     connect.textContent = 'חבר/י יומן';
     disconnect.hidden = true;
   }
@@ -21929,7 +21929,7 @@ function syncReminderChannelsNote(){
   const parts = [];
   if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה - הרשימה למעלה ממשיכה להתעדכן כרגיל.');
   if (wa && !(currentAgent && currentAgent.phone))
-    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "העוזר בוואטסאפ".');
+    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ".');
   if (email && !(currentAgent && currentAgent.email))
     parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
   note.textContent = parts.join(' ');
@@ -22219,7 +22219,7 @@ const NAV_GROUPS = [
     { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
-    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+    { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more' },
     { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
