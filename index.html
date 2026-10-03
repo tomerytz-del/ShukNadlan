@@ -3493,7 +3493,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-card.ss-free-only .ss-input{padding:12px 6px}
     .ss-card.ss-free-only .ss-mic:not([hidden]){width:36px}
     /* סימן קטן על המיקרופון: נקודה זהובה, ופעימה עדינה פעמיים בטעינה - כדי
-       שיידעו שאפשר לחפש בקול. בביקור הראשון גם בועה קצרה (‏showMicHint). */
+       שיידעו שאפשר לחפש בקול. וגם בועה (‏showMicHint) שנשארת עד הלחיצה על
+       המיקרופון - והיא עצמה לחיצה עליו (יושבת בתוך הכפתור, ולכן pointer-events). */
     .ss-card.ss-free-only .ss-smart{overflow:visible}
     .ss-card.ss-free-only .ss-mic{position:relative;color:var(--sapphire)}
     .ss-card.ss-free-only .ss-mic::after{
@@ -3505,7 +3506,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:5;
       width:max-content;max-width:min(240px,80vw);white-space:nowrap;padding:7px 11px;border-radius:10px;
       background:var(--sapphire);color:#fff;font-size:13px;font-weight:600;line-height:1.3;text-align:center;
-      box-shadow:0 8px 20px rgba(14,42,107,.28);pointer-events:none;
+      box-shadow:0 8px 20px rgba(14,42,107,.28);cursor:pointer;
     }
     .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
     .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s ease-in both}
@@ -3514,6 +3515,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       border:6px solid transparent;border-bottom-color:var(--sapphire);
     }
   }
+  html.mic-hint-on .hs-q{visibility:hidden}
   @keyframes ssMicHintIn{from{opacity:0;transform:translate(-50%,-4px)}to{opacity:1;transform:translate(-50%,0)}}
   @keyframes ssMicHintOut{to{opacity:0;transform:translate(-50%,-4px)}}
   @media(prefers-reduced-motion:reduce){ .ss-mic-hint,.ss-mic-hint.is-leaving{animation:none} }
