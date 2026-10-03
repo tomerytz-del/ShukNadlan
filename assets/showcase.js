@@ -294,13 +294,15 @@
         <div class="where">📍 ${esc(whereText(it))}</div>
         ${specs.length ? `<div class="specs">${specs.map(s => `<span>${esc(s)}</span>`).join('')}</div>` : ''}
         ${it.agent_note ? `<div class="note"><b>${esc(state.agent.name || 'הסוכן/ת')}:</b> ${esc(it.agent_note)}</div>` : ''}
-        ${it.description ? `<div class="desc">${esc(it.description)}</div><button type="button" class="more" hidden>המשך קריאה</button>` : ''}
-        ${feats.length ? `<div class="feats">${feats.map(f => `<span>✓ ${esc(f)}</span>`).join('')}</div>` : ''}
+        <!-- הפעולה העיקרית של העמוד, מיד מתחת למחיר ולמפרט ולא אחרי התיאור:
+             כך רואים אותה בכל כרטיס בלי לגלול. -->
         <div class="react">
-          <button type="button" class="love" aria-pressed="${it.reaction === 'liked'}">${it.reaction === 'liked' ? '❤️ אהבתי' : '🤍 אהבתי'}</button>
+          <button type="button" class="love" aria-pressed="${it.reaction === 'liked'}">${it.reaction === 'liked' ? '✓ נשמר באהבתי' : '❤️ אהבתי'}</button>
           <button type="button" class="nope">✕ לא בשבילי</button>
         </div>
         <div class="reasons" hidden></div>
+        ${it.description ? `<div class="desc">${esc(it.description)}</div><button type="button" class="more" hidden>המשך קריאה</button>` : ''}
+        ${feats.length ? `<div class="feats">${feats.map(f => `<span>✓ ${esc(f)}</span>`).join('')}</div>` : ''}
         <button type="button" class="ask">💬 שאלה על הנכס${msgs.length ? ` (${msgs.length})` : ''}</button>
         <div class="thread" ${openThreads.has(it.id) ? '' : 'hidden'}></div>
       </div>`;
