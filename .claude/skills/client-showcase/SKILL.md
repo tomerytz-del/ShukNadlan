@@ -59,9 +59,11 @@ console.log(scrubPartnerText("דירה מרווחת\nלפרטים: רונית 05
 EOF
 ```
 
-### 4. נכס נכנס רק דרך `showcase_add_properties`
+### 4. נכס נכנס רק דרך `agent_showcase_add_properties` (ועטיפת ה-CRM שלה)
 
-היא בודקת את המאגר - אותו מאגר של `match_properties_for_client`: נכסי
+שתי דלתות, גוף אחד: `showcase_add_properties` מהדפדפן (זהות מה-JWT) היא עטיפה
+מעל `agent_showcase_add_properties`, שגבריאלה קוראת לה עם מזהה סוכן/ת מפורש
+(‏service_role בלבד). מי שמשנה את המאגר משנה **רק** את הגוף. הגוף בודק את המאגר - אותו מאגר של `match_properties_for_client`: נכסי
 המשרד, ומה ששותף עם המשרד ב-`property_shares`. ל-`authenticated` **אין**
 `insert` על `client_showcase_items` בכוונה. וגם בצפייה ה-Edge Function
 בודקת שוב שהשת"פ קיים - משרד שביטל שת"פ מעלים את הנכס גם ממיניסייט שכבר
