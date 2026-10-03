@@ -16,7 +16,7 @@
 | טופס הנכס וטופס הלקוח ב-CRM | `assets/crm.js` - `RESIDENTIAL_/COMMERCIAL_PROPERTY_FEATURES`, `FEATURE_ICONS` | צ'יפ 🔌 |
 | ייבוא נכסים מקובץ | `assets/crm.js` - `IMP_FEATURE_SYNONYMS` | "עמדת טעינה", "עמדות טעינה" וכו' |
 | סינון מתקדם בדף הבית | `assets/home.js` - אותן שתי רשימות | |
-| פאנל "מה אתם מחפשים" בדף הבית | `index.html` - `.hs-check` עם `hs-check-wide` | תיבה חמישית, בשורה מלאה |
+| פאנל "מה אתם מחפשים" בדף הבית | `index.html` - `.hs-check-inline` בתוך `.hs-grid-row` | בשורה אחת עם "קומה" ו"מחסן" (בטלפון - מתחתם) |
 | דף הנכס | `assets/property.js` - `FEATURE_LABELS`, `FEATURE_ICONS` (`plug`) | |
 | המיניסייט ללקוח/ה | `assets/showcase.js` - `FEATURE_LABELS` | |
 | התיאור השיווקי והפוסט | `_shared/marketing-copy.ts` - `FEATURE_LABELS` | |
@@ -25,6 +25,15 @@
 | הסכמי תיווך (`sell`, `landlord`) | `agreement-templates.js` (שני העותקים), `AGR_FIELD_CHOICES` ו-`AGR_FEATURE_FROM_FIELD` ב-`crm.js` | שדה 41 בטבלת הנכס, מתמלא מ-`feature:ev_charger`, ו"יש" חוזר לכרטיס הנכס |
 | הערכת שווי (בעלי נכסים) | `index.html`, `agency.html`, `agent.html` - `.wiz-checks` | נשלח כטקסט ל-`owner-lead-intake` |
 | פרויקטים חדשים | `_shared/projects.ts` - `PROJECT_FEATURES`, `assets/project-card.js` | התקרה ב-`project-manage` היא עכשיו אורך הרשימה ולא 16 קבוע |
+
+## הפאנל: שורה אחת עם קומה ומחסן
+
+בגרסה הראשונה התיבה ישבה כחמישית בשורת המאפיינים (מעלית, מרפסת, חניה,
+ממ״ד) ותפסה שורה שלמה לבדה - הפאנל התארך בשורה בשביל תיבה אחת. היא עברה
+לשורת "קומה" ו"מחסן", שהפכה ל-flex (‏`.hs-grid-row`): במסחרי המחסן מוסתר
+והשניים שנשארים מתחלקים בשורה בלי תא ריק. בטלפון אין רוחב לשלושה, והתיבה
+יורדת מתחת לשניים. ‏`applyPanel` אוסף את התיבות מכל הפאנל, ולכן המעבר לא
+נגע בלוגיקה.
 
 ## מה נמצא בדרך
 
