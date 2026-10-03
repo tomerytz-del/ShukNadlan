@@ -27,6 +27,9 @@ Disallow: /sign.html
 # הטוקן שלו נכנס לאינדקס יחד איתו — ולכן הוא חסום, על כל הווריאציות.
 Disallow: /review-request
 Disallow: /review-request.html
+# המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
+Disallow: /showcase
+Disallow: /showcase.html
 
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary

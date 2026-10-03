@@ -86,6 +86,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   platform_signup: "accSubscriptions",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
+  showcase_activity: "accClients",
 };
 
 function json(obj: unknown, status = 200) {

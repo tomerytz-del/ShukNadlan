@@ -18714,6 +18714,9 @@ async function loadClients(){
     (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
   }
 
+  // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
+  if (typeof loadShowcaseSummaries === 'function') await loadShowcaseSummaries();
+
   const totalMatches = Object.values(clientMatchCounts).reduce((a, b) => a + b, 0);
   accSetCount('accClients', clientRows.length || '');
   // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
@@ -18884,6 +18887,7 @@ function buildClientCard(c){
   const wa = waLink(c.phone);
   const el = document.createElement('div');
   el.className = 'card client-card';
+  el.dataset.clientCard = c.id;
   el.innerHTML = `
     <div class="lead-top">
       <div style="min-width:0">
@@ -18907,6 +18911,7 @@ function buildClientCard(c){
         <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
         ${c.referred_by ? '<span class="status-pill status-shared">הפנייה</span>' : ''}
         ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
+        <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
       </div>
       <div class="card-menu">
         <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
@@ -18944,6 +18949,8 @@ function buildClientCard(c){
     onClick: btn => toggleClientMatches(c, btn, panel),
   });
   matchBtn.classList.add('match-cta');
+  // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
+  if (typeof addShowcaseAction === 'function') addShowcaseAction(actions, el, c);
 
   // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
   // הפעולות לצד "עריכה" ו"החתמה" - שלושה כפתורים באותו גודל ובאותו צבע,
@@ -19052,7 +19059,7 @@ async function toggleClientMatches(client, btn, panel){
 
   const rows = data || [];
   clientMatchCounts[client.id] = rows.length;
-  renderClientMatches(panel, rows);
+  renderClientMatches(panel, rows, client);
   panel.style.display = 'block';
   btn.textContent = '🔍 הסתרת ההתאמות';
 }
@@ -19080,7 +19087,7 @@ const MATCH_SORTS = {
 let matchFilter = 'all';
 let matchSort = 'score';
 
-function renderClientMatches(panel, rows){
+function renderClientMatches(panel, rows, client){
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
     return;
@@ -19108,6 +19115,9 @@ function renderClientMatches(panel, rows){
 
   const sortSel = panel.querySelector('.match-sort');
   sortSel.value = matchSort;
+  // המיניסייט: תיבת סימון בכל התאמה ופס "שליחה" (assets/crm-showcase.js).
+  // לפני draw, כי renderMatchCards קורא את הבחירה מ-panel._showcase.
+  if (typeof showcaseMatchTools === 'function') showcaseMatchTools(panel, rows, client);
   const draw = filterKey => {
     panel.querySelectorAll('[data-match-filter]').forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset.matchFilter === filterKey)));
@@ -19164,6 +19174,10 @@ function renderMatchCards(panel, rows){
       ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
       <div class="lead-actions"></div>
     `;
+
+    if (typeof showcaseDecorateMatch === 'function'){
+      showcaseDecorateMatch(card, m, panel.closest('.match-panel') && panel.closest('.match-panel')._showcase);
+    }
 
     const actions = card.querySelector('.lead-actions');
     addCardAction(actions, {
@@ -20737,6 +20751,12 @@ const NOTIF_TYPES = [
   /* הצד השני של אותה התאמה: הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת.
      ‏goto לנכסים שלי - אין מסך של התאמות מצד המפרסם/ת, והגוף כבר נושא את
      שם הסוכן/ת והטלפון, שהם מה שצריך כדי ליצור קשר. */
+  /* ‏הלקוח/ה פתח/ה את המיניסייט, הגיב/ה על נכס, שאל/ה או ביקש/ה סיור.
+     ‏refresh: התגית "🌐" בכרטיס נשענת על הסיכום שנטען עם הלקוחות. */
+  { type:'showcase_activity', tone:'deal', goto:'accClients', focus:'#clientsList',
+    title:'פעילות במיניסייט של לקוח/ה',
+    sub:'לקוח/ה פתח/ה את המיניסייט ששלחת, סימן/ה נכס שאהב/ה או לא, שאל/ה שאלה או ביקש/ה לתאם סיור.',
+    refresh: ()=> loadClients() },
   { type:'listing_match',  tone:'deal',   goto:'accProperties', focus:'#propertiesList',
     title:'הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת',
     sub:'התאמה בין נכס שלך ללקוח/ה בקובץ של סוכן/ת אחר/ת, עם הפרטים שלו/ה ליצירת קשר לשיתוף פעולה.' },
