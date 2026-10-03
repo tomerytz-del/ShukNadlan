@@ -3700,9 +3700,12 @@ document.addEventListener('keydown', (e)=>{
 });
 document.getElementById('mapCloseBtn')?.addEventListener('click', closeMapView);
 document.getElementById('mapListBtn')?.addEventListener('click', closeMapView);
-// ‏"סינון" בפס העליון פותח את אותו חלון של "סינון מתקדם" שבכרטיס החיפוש
-document.getElementById('mapOpenFilter')?.addEventListener('click', ()=>{
-  document.getElementById('ssAdvancedBtn')?.click();
+// ‏"סינון" בפס העליון וב"סינון מתקדם" שבכותרת התוצאות פותחים את אותו חלון
+// של "סינון מתקדם" שבכרטיס החיפוש (המוסתר בדף הבית, ‏.ss-free-only)
+['mapOpenFilter', 'srFilterBtn'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('click', ()=>{
+    document.getElementById('ssAdvancedBtn')?.click();
+  });
 });
 
 /* כל מה שפותח את המפה נושא ‎data-map-open="<מקור>"‎: הכפתור שבכותרת
@@ -6303,8 +6306,10 @@ function initSentenceDock(){
   if (!dock || !hero) return;
   const mq = window.matchMedia('(max-width:759px)');
   let heroVisible = true;
+  // בלי המשפט (‏.ss-free-only) הכפתור יושב בתוך שורת החיפוש, ואין צורך בפאנל
+  const freeOnly = !!document.getElementById('ssCard')?.classList.contains('ss-free-only');
   const sync = ()=>{
-    const on = mq.matches && heroVisible && !hero.classList.contains('map-failed');
+    const on = !freeOnly && mq.matches && heroVisible && !hero.classList.contains('map-failed');
     dock.hidden = !on;
     document.body.classList.toggle('ss-dock-on', on);
     if (on) document.documentElement.style.setProperty('--ss-dock-h', dock.offsetHeight + 'px');

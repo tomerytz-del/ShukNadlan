@@ -3447,16 +3447,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hero .ss-card.ss-free-only::after{display:none}
   .ss-card.ss-free-only .ss-smart{
     background:#fff;border:0;border-radius:14px;overflow:hidden;
-    box-shadow:0 10px 30px rgba(14,42,107,.12);padding:6px 8px 6px 0;align-items:center;
+    box-shadow:0 10px 30px rgba(14,42,107,.12);padding:6px;align-items:center;
   }
   .ss-card.ss-free-only .ss-smart:focus-within{box-shadow:0 0 0 2px var(--brass),0 10px 30px rgba(14,42,107,.12)}
   .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:17px}
   .ss-card.ss-free-only .ss-go{border-radius:10px;min-height:48px;padding:0 20px;font-size:16px}
   .ss-card.ss-free-only .ss-smart + .ss-tools{border-top:0;padding:8px 4px 0;background:none}
-  /* כשאין מה לנקות הכפתור דהוי (‏is-idle), ועל רקע הנוף הוא היה כתם קריא-בקושי */
-  .ss-card.ss-free-only .ss-clear.is-idle{visibility:hidden}
+  /* ‏"ניקוי החיפוש" ו"סינון מתקדם" אינם במוקאפ: הסינון עבר לכותרת התוצאות
+     (‏#srFilterBtn) ולפס של המפה הפתוחה, והניקוי יושב שם ממילא (‏#clearSearchBtn).
+     הכפתורים נשארים ב-DOM - שניהם נלחצים משם. */
+  .ss-card.ss-free-only .ss-tools{display:none}
+  .sr-head .sr-filter{margin-inline-start:0}
+  /* בטלפון "הצג N נכסים" יושב בתוך השורה, כמו במוקאפ, ולא בפאנל תחתון */
   @media(max-width:759px){
-    .ss-card.ss-free-only .ss-smart{border-radius:14px;padding:4px 6px 4px 0}
+    .ss-card.ss-free-only .ss-smart{border:0;background:#fff;min-height:56px;padding:6px}
+    .ss-card.ss-free-only .ss-smart:focus-within{border:0}
+    .ss-card.ss-free-only .ss-smart .ss-go{display:inline-flex;min-height:44px;padding:0 14px;font-size:15px;gap:5px}
+    .ss-card.ss-free-only .ss-spark{padding-inline-start:12px}
+    .ss-card.ss-free-only .ss-input{padding:12px 6px}
+    .ss-card.ss-free-only .ss-mic:not([hidden]){width:36px}
+  }
+  .hero-sub{margin:8px 0 0;font-size:clamp(15px,1.6vw,20px);line-height:1.4;color:#33415c;font-weight:400;text-wrap:balance}
+  .hero.map-closed .hero-inner .hero-sub{text-align:center}
+  .hero.map-closed .search-shell{margin-top:20px}
+  /* ‏"N נכסים נוספו היום" אינו במוקאפ; תגית ה-AI נשארת (האפיון, חלק 0) */
+  .hero.map-closed #heroTodayBadge{display:none}
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-smart{border-radius:14px}
     .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:16px}
   }
 
@@ -4046,6 +4063,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               }
             } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
           </script>
+
+          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? הכל כאן.</p>
 
         </div><!-- /.hero-lead -->
 
@@ -4733,6 +4752,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </button>
         <button type="button" class="map-open-btn" id="mapOpenBtn" data-map-open="results_header"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg> הצג במפה</button>
         <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
+        <!-- ‏"סינון מתקדם" עבר לכאן מתחת לשורת החיפוש שב-hero (שם יש רק את השדה
+             והכפתור, כמו במוקאפ). הוא פותח את אותו חלון - ראו ‎#ssAdvancedBtn‎. -->
+        <button type="button" class="sr-clear sr-filter" id="srFilterBtn" aria-haspopup="dialog">סינון מתקדם</button>
         <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
       </div>
       <div class="sr-rows" id="searchResultsRows"></div>
