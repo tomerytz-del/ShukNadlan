@@ -182,6 +182,40 @@
 - במובייל אין מקום לכרטיס ולמחיר באותה שורה, ולכן המחיר עולה מעליו
   (‏`:has()` על התא הראשי).
 
+##### מדידת הלחיצה - ממתינה לפרסום ב-GTM
+
+האירוע `viz_jump_click` **מוכן ואינו מחובר עדיין.** ‏`check_gtm_container.py`
+חוסם אירוע שהקוד דוחף בלי טריגר ותגית במכולה, ואת המכולה אפשר לשנות רק
+במסך של GTM. לכן הסדר הוא הסדר של החיפוש במשפט (‏`docs/sentence-search.md`,
+סעיף 8):
+
+1. **GTM ← Admin ← Import Container**, הקובץ `docs/gtm-viz-jump-import.json`,
+   Workspace קיים, מצב **Merge**. על `DLV - item_id` ו-`DLV - page_type` -
+   **Overwrite** (זהים לקיימים).
+2. **Submit ← Publish**.
+3. **Admin ← Export Container**, הגרסה ש**פורסמה** - אל `gtm/container.json`.
+4. באותו PR עם הייצוא: ב-`revealVizJumpButton()` שב-`assets/property.js`,
+   בתוך מאזין הלחיצה, לפני הגלילה -
+
+   ```js
+   if (window.shukTrack) shukTrack('viz_jump_click', {
+     preview: btn.classList.contains('has-thumbs') ? 'thumbs' : 'text',
+     viz_mode: !vizState.isPrivate ? 'commercial' : (vizState.staging ? 'staging' : 'renovation'),
+   });
+   ```
+
+   ושורה לאירוע בטבלה של `docs/analytics-events.md`.
+5. ב-GA4, ‏**Admin ← Custom definitions**: ‏`preview` ו-`viz_mode` כ-Custom
+   dimensions (event scope).
+
+| פרמטר | ערכים | למה |
+| --- | --- | --- |
+| `preview` | `thumbs` \| `text` | האם התמונונות מגדילות את הלחיצות - ההשוואה שבשבילה הן נוספו |
+| `viz_mode` | `renovation` \| `staging` \| `commercial` | שלושה נוסחים שונים על הכרטיס |
+| `item_id` | מזהה הנכס | מגיע ממילא מ-`pageContext()` ב-`events.js` |
+
+אין כאן PII: הפרמטרים מתארים את המודעה ואת הכרטיס, לא את הגולש/ת.
+
 #### ונכס בלי תמונות — בלי תיבה בכלל
 
 המנוע הוא img2img, ובנכס בלי תמונות כל בקשה חוזרת `no_images`. לכן
