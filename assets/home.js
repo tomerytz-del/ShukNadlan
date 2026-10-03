@@ -3812,7 +3812,7 @@ function openGabrielaAgent(){
 function drawGabrielaCta(wrap, entry){
   if (!wrap) return;
   if (gabrielaBotOn()){
-    wrap.innerHTML = ShukBot.anchorHtml(GAB_HELLO, GAB_WA_ICON + '<span>פתחו שיחה עם גבריאלה</span>', 'gab-cta');
+    wrap.innerHTML = ShukBot.anchorHtml(GAB_HELLO, GAB_WA_ICON + '<span>ספרו לגבריאלה מה אתם מחפשים</span>', 'gab-cta');
     const a = wrap.querySelector('a');
     if (a) a.setAttribute('data-bot-entry', entry);
     return;
@@ -6485,6 +6485,126 @@ function initSentenceDock(){
     searchHasRun = true;
   }
   initSentenceDock();
+})();
+
+/* ============================================================
+   "מה אתם מחפשים": שלוש גלולות ופאנל הסינון שמתחת לשורת החיפוש
+   ------------------------------------------------------------
+   הפאנל נפתח רק בלחיצה על גלולה, ומתמלא מהמצב הנוכחי של החיפוש בכל
+   פתיחה. "הצג נכסים מתאימים" לא ממציא סינון משלו - הוא מזין את שני
+   המנגנונים שכבר קיימים:
+     1. ‏sentence.patch - עסקה, אזור וסוג (מה שהמשפט יודע לבטא).
+     2. ‏applyAdvancedFilters - חדרים, מחיר, מאפיינים וקומה, דרך אותו
+        ‏searchState ואותם שדות של חלון "סינון מתקדם" (שנשאר נגיש מ"עוד
+        אפשרויות סינון").
+   ‏"להשקעה" הוא קנייה - אין במלאי סוג עסקה כזה. ‏docs/home-page-sections.md.
+   ============================================================ */
+(function initHomeFilterPanel(){
+  const panel = document.getElementById('hsPanel');
+  if (!panel || !sentence) return;
+  const pills = [...document.querySelectorAll('.hs-deal')];
+  const $ = id => document.getElementById(id);
+  const digits = v => { const n = String(v || '').replace(/[^\d]/g, ''); return n ? Number(n) : null; };
+  const fmt = n => n ? Number(n).toLocaleString('he-IL') : '';
+  let mode = null;
+
+  function fillSelect(sel, opts, value){
+    sel.innerHTML = opts.map(([v, l]) => `<option value="${escAttr(v)}">${escAttr(l)}</option>`).join('');
+    if (value !== undefined && opts.some(o => o[0] === value)) sel.value = value;
+  }
+
+  // העיר והשכונה נגזרות מהאזורים שבמלאי (אותם אזורים של המשפט)
+  function fillAreas(st){
+    const areas = sentence.areas() || [];
+    const main = areas.mainCity || CityCtx.label();
+    const towns = areas.filter(a => a.key.indexOf('city:') === 0);
+    const hoods = areas.filter(a => a.key.indexOf('hood:') === 0);
+    const cityVal = (st.area || '').indexOf('city:') === 0 ? st.area : 'all';
+    fillSelect($('hsCity'), [['all', main]].concat(towns.map(a => [a.key, a.label])), cityVal);
+    const hoodVal = (st.area || '').indexOf('hood:') === 0 ? st.area : '';
+    fillSelect($('hsHood'), [['', 'כל השכונות']].concat(hoods.map(a => [a.key, a.label])), hoodVal);
+    $('hsHood').disabled = $('hsCity').value !== 'all' || !hoods.length;
+  }
+
+  // "מסחרי" מציג רק את הסוגים המסחריים, ו"להשכרה"/"למכירה" - רק את שאינם
+  function fillTypes(st, commercial){
+    const types = commercial
+      ? sentence.Core.TYPES.filter(t => t.commercial).sort((x, y) => (y.key === 'commercial') - (x.key === 'commercial'))
+      : sentence.Core.TYPES.filter(t => t.key === 'any' || !t.commercial);
+    const opts = types.map(t => [t.key, t.key === 'any' ? 'כל הנכסים' : t.key === 'commercial' ? 'כל הסוגים' : t.label]);
+    fillSelect($('hsType'), opts, types.some(t => t.key === st.type) ? st.type : opts[0][0]);
+  }
+
+  // מה שכבר נבחר בחיפוש - חוזר לפאנל, ולא פאנל ריק בכל פתיחה
+  function fillFromState(){
+    const st = sentence.state();
+    fillAreas(st);
+    const commercial = mode === 'commercial';
+    fillTypes(st, commercial);
+    const r = st.rooms;
+    $('hsRooms').value = !r ? '' : (r[0] >= 5 ? '5' : String(Math.floor(r[0])));
+    $('hsPriceMax').value = fmt(st.priceMax);
+    $('hsPriceMin').value = fmt(st.priceMin);
+    const feats = (commercial ? searchState.c : searchState.r).propertyFeatures;
+    panel.querySelectorAll('.hs-check input').forEach(cb => { cb.checked = feats.has(cb.value); });
+    $('hsStorage').value = feats.has('storage') ? '1' : '';
+    const fl = (commercial ? searchState.c : searchState.r).floorMin;
+    $('hsFloor').value = fl != null && fl !== '' ? String(fl) : '';
+  }
+
+  function setMode(next){
+    mode = (mode === next) ? null : next;           // לחיצה שנייה על אותה גלולה סוגרת
+    pills.forEach(b => {
+      const on = b.dataset.hsDeal === mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-expanded', String(on));
+    });
+    panel.hidden = !mode;
+    panel.dataset.mode = mode || '';
+    if (mode) fillFromState();
+  }
+  pills.forEach(b => b.addEventListener('click', () => setMode(b.dataset.hsDeal)));
+
+  $('hsCity').addEventListener('change', () => {
+    $('hsHood').disabled = $('hsCity').value !== 'all';
+    if ($('hsHood').disabled) $('hsHood').value = '';
+  });
+  ['hsPriceMax', 'hsPriceMin'].forEach(id => $(id).addEventListener('blur', e => { e.target.value = fmt(digits(e.target.value)); }));
+
+  // הצ'קבוקסים והשדות של הפאנל → searchState ושדות המודאל, ואז אותו applyAdvancedFilters
+  function applyPanel(){
+    if (!sentence.loaded()) return;
+    // מסחרי = שתי העסקאות יחד (deal ריק), כמו ‎?deal=commercial‎
+    const commercial = mode === 'commercial';
+    const deal = commercial ? null : mode;
+    const area = $('hsHood').value || $('hsCity').value || 'all';
+    sentence.patch({ deal, area, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
+
+    const st = sentence.state();
+    syncSearchStateFromSentence(st);
+    const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
+    const pre = searchState.activeTab === 'commercial' ? 'c' : 'r';
+    const rooms = commercial ? '' : $('hsRooms').value;
+    s.rooms = new Set(!rooms ? [] : ROOM_OPTIONS.filter(o => {
+      const n = o === '+6' ? 6 : parseFloat(o);
+      return rooms === '5' ? n >= 5 : (n >= Number(rooms) && n < Number(rooms) + 1);
+    }));
+    const set = (id, v) => { const el = $(id); if (el) el.value = v == null ? '' : String(v); };
+    set(pre + 'PriceMax', digits($('hsPriceMax').value));
+    set(pre + 'PriceMin', digits($('hsPriceMin').value));
+    set(pre + 'FloorMin', $('hsFloor').value);
+    // ממ״ד ומחסן הם מאפיינים של מגורים; במסחרי הם שדות מיקום אחרים, והפאנל מסתיר אותם
+    const feats = new Set([...panel.querySelectorAll('.hs-check input:checked')]
+      .filter(cb => !(commercial && cb.closest('.hs-res-only'))).map(cb => cb.value));
+    if (!commercial && $('hsStorage').value) feats.add('storage');
+    s.propertyFeatures = feats;
+    applyAdvancedFilters();
+    showSentenceResults();
+    document.getElementById('searchResults')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+  panel.addEventListener('submit', e => { e.preventDefault(); applyPanel(); });
+  // כל שאר האפשרויות (מצב הנכס, מ״ר, תאריך כניסה…) - בחלון הקיים
+  $('hsMore').addEventListener('click', () => document.getElementById('ssAdvancedBtn')?.click());
 })();
 
 applyDeepLinkFilters();

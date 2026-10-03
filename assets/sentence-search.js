@@ -1488,6 +1488,16 @@
         change(patch, 'extra');
       },
       hasExtra: function () { return !!ctx.extra; },
+      /* שינוי ישיר של המצב מבחוץ - פאנל הסינון שמתחת לשורת החיפוש בדף הבית
+         (עסקה, אזור, סוג). כל שדה שנקבע כאן נספר כ"נבחר" (‏touched), כמו
+         בחירה במשפט עצמו. */
+      patch: function (p) {
+        Object.keys(p || {}).forEach(function (k) {
+          var slot = k === 'priceMax' ? 'price' : k;
+          if (slot in SLOT_NAMES) touched[slot] = true;
+        });
+        change(p || {}, 'panel');
+      },
       setDrawn: function (on, inDrawn) {
         ctx.inDrawn = inDrawn || null;
         if (on) touched.area = true;
