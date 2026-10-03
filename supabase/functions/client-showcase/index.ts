@@ -3,6 +3,10 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { fetchAsBase64 } from "../_shared/visualization.ts";
 import { BRANDING_MODEL, detectBranding } from "./branding.ts";
 import { maskHouseNumber, scrubPartnerText } from "./scrub.ts";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import {
+  phoneE164, sendShowcaseTemplate, sendShowcaseText, templateConfigured, waConfigured, WaError, WA_OPTED_OUT,
+} from "./wa.ts";
 
 // ============================================================================
 // המיניסייט האישי ללקוח/ה — showcase.html ↔ כאן ↔ client_showcase_*.
@@ -73,13 +77,19 @@ Deno.serve(async (req: Request) => {
   const action = String(body.action ?? "view");
 
   if (action === "scan") return await handleScan(req, supabase, body);
+  if (action === "wa_notify") {
+    // ה-cron (‏showcase-wa) או קריאה ידנית עם service_role - לא דפדפן
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
+    return await handleWaNotify(supabase);
+  }
 
   const token = String(body.t ?? "");
   if (!TOKEN_RE.test(token)) return json({ error: "not_found" }, 404);
 
   const { data: showcase, error } = await supabase
     .from("client_showcases")
-    .select("id, agent_id, client_id, intro, status, view_count, first_viewed_at")
+    .select("id, agent_id, client_id, intro, status, view_count, first_viewed_at, wa_notify")
     .eq("token", token)
     .maybeSingle();
   if (error) return json({ error: "db_error" }, 500);
@@ -95,6 +105,16 @@ Deno.serve(async (req: Request) => {
       return await handleMessage(supabase, showcase, body);
     case "meeting":
       return await handleMeeting(supabase, showcase, body);
+    case "wa_pref": {
+      // המתג בעמוד: "עדכונים בוואטסאפ". כיבוי גם מרוקן את התור.
+      const on = body.on === true;
+      const { error: prefErr } = await supabase
+        .from("client_showcases")
+        .update(on ? { wa_notify: true } : { wa_notify: false, wa_pending_at: null, wa_pending_kinds: [] })
+        .eq("id", showcase.id);
+      if (prefErr) return json({ error: "db_error" }, 500);
+      return json({ ok: true, wa_notify: on });
+    }
     case "cancel_meeting":
       return await handleCancelMeeting(supabase, showcase, body);
     default:
@@ -181,6 +201,7 @@ async function handleView(supabase: SupabaseClient, showcase: Row, preview: bool
       colors: brandColors(agency?.colors),
     },
     has_agreement: hasAgreement,
+    wa_notify: showcase.wa_notify !== false,
     items: items.map(({ property_id: _p, ...rest }) => rest),
     messages: messages ?? [],
     meetings: (meetings ?? []).map((m: Row) => ({
@@ -692,6 +713,142 @@ async function notifyAgent(
     // התראה שנכשלה אינה מפילה את פעולת הלקוח/ה — התגובה כבר נשמרה
     console.error("showcase notify failed", (e as Error).message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// wa_notify - וואטסאפ ללקוח/ה על תשובה או החלטה על סיור (ה-cron, כל 5 דקות)
+//
+// התור יושב על client_showcases (‏wa_pending_at / wa_pending_kinds) ומתמלא
+// בטריגרים במסד (‏20270209090000). כאן: הודעה אחת למיניסייט שמסכמת את כל
+// מה שהצטבר, 30 דקות לפחות מהקודמת, ולא בשעות השקט.
+// ---------------------------------------------------------------------------
+const WA_GAP_MINUTES = 30;
+const WA_BATCH = 30;
+
+function ilHour(): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+}
+
+async function handleWaNotify(supabase: SupabaseClient) {
+  const h = ilHour();
+  if (h < 8 || h >= 22) return json({ ok: true, quiet: true });
+
+  const gapCutoff = new Date(Date.now() - WA_GAP_MINUTES * 60_000).toISOString();
+  const { data: due, error } = await supabase
+    .from("client_showcases")
+    .select("id, token, agent_id, client_id, wa_pending_at, wa_pending_kinds, wa_last_sent_at, last_viewed_at")
+    .eq("status", "active")
+    .eq("wa_notify", true)
+    .not("wa_pending_at", "is", null)
+    .or(`wa_last_sent_at.is.null,wa_last_sent_at.lt.${gapCutoff}`)
+    .order("wa_pending_at", { ascending: true })
+    .limit(WA_BATCH);
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+
+  const results: Record<string, number> = {};
+  for (const sc of due ?? []) {
+    const status = await notifyOne(supabase, sc);
+    results[status] = (results[status] ?? 0) + 1;
+  }
+  return json({ ok: true, processed: (due ?? []).length, results });
+}
+
+async function notifyOne(supabase: SupabaseClient, sc: Row): Promise<string> {
+  const done = async (status: string, err: string | null, sent: boolean) => {
+    await supabase.from("client_showcases").update({
+      wa_pending_at: null,
+      wa_pending_kinds: [],
+      wa_last_status: status,
+      wa_last_error: err ? err.slice(0, 500) : null,
+      ...(sent || status === "failed" ? { wa_last_sent_at: new Date().toISOString() } : {}),
+      ...(status === "opted_out" ? { wa_notify: false } : {}),
+    }).eq("id", sc.id);
+    return status;
+  };
+
+  // נקרא כבר: הלקוח/ה פתח/ה את העמוד אחרי שהתור התמלא
+  if (sc.last_viewed_at && new Date(sc.last_viewed_at) > new Date(sc.wa_pending_at)) {
+    return await done("seen", null, false);
+  }
+
+  const [{ data: client }, { data: agent }] = await Promise.all([
+    supabase.from("agent_clients").select("full_name, phone").eq("id", sc.client_id).maybeSingle(),
+    supabase.from("agency_members").select("display_name").eq("id", sc.agent_id).maybeSingle(),
+  ]);
+  const to = phoneE164(client?.phone);
+  if (!to) return await done("no_phone", "אין ללקוח/ה מספר טלפון תקין בכרטיס", false);
+  if (!waConfigured()) return await done("failed", "WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID לא מוגדרים", false);
+
+  const line = await waSummary(supabase, sc, agent?.display_name || "הסוכן/ת");
+  const suffix = `showcase?t=${sc.token}`;
+  const name = firstName(client?.full_name);
+
+  // ערוץ: תבנית, או טקסט חופשי רק בתוך חלון 24 השעות
+  let mode: "template" | "text" | null = templateConfigured() ? "template" : null;
+  if (!mode) {
+    const since = new Date(Date.now() - 23 * 3600_000).toISOString();
+    const { data: conv } = await supabase
+      .from("whatsapp_public_conversations").select("last_message_at").eq("wa_phone", to).gte("last_message_at", since).maybeSingle();
+    if (conv) mode = "text";
+  }
+  if (!mode) {
+    return await done("no_channel",
+      "WHATSAPP_SHOWCASE_TEMPLATE לא מוגדר, והלקוח/ה לא כתב/ה למספר ב-24 השעות האחרונות", false);
+  }
+
+  const body = mode === "template"
+    ? line
+    : `שלום ${name}, ${line}.\nלצפייה ולתשובה: https://shuknadlan.co.il/${suffix}`;
+  try {
+    const wamid = mode === "template"
+      ? await sendShowcaseTemplate(to, name, line, suffix)
+      : await sendShowcaseText(to, body);
+    // כל הודעה יוצאת נרשמת ביומן - מעקב מסירה (docs/whatsapp-setup.md)
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: wamid, direction: "out", wa_phone: to, msg_type: mode, body: body.slice(0, 2000),
+    });
+    return await done("sent", null, true);
+  } catch (e) {
+    const err = e as WaError;
+    await supabase.from("whatsapp_messages").insert({
+      direction: "out", wa_phone: to, msg_type: mode, body: body.slice(0, 2000), error: err.message.slice(0, 500),
+    });
+    return await done(err.code === WA_OPTED_OUT ? "opted_out" : "failed", err.message, false);
+  }
+}
+
+/** שורת העדכון: מה קרה מאז ההודעה הקודמת, בשורה אחת. */
+async function waSummary(supabase: SupabaseClient, sc: Row, agentName: string): Promise<string> {
+  const kinds: string[] = sc.wa_pending_kinds ?? [];
+  const parts: string[] = [];
+  const fmt = (iso: string) => new Date(iso).toLocaleString("he-IL", {
+    timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  if (kinds.includes("meeting_confirmed") || kinds.includes("meeting_declined")) {
+    const { data: meets } = await supabase
+      .from("client_showcase_meetings")
+      .select("starts_at, status, decided_at")
+      .eq("showcase_id", sc.id)
+      .in("status", ["confirmed", "declined"])
+      .gte("decided_at", sc.wa_pending_at)
+      .order("decided_at", { ascending: false })
+      .limit(1);
+    const m = meets?.[0];
+    if (m?.status === "confirmed") parts.push(`${agentName} אישר/ה את הסיור ב${fmt(m.starts_at)}`);
+    else if (m) parts.push(`${agentName} הציע/ה מועד אחר לסיור`);
+  }
+  if (kinds.includes("reply")) {
+    const { count } = await supabase
+      .from("client_showcase_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("showcase_id", sc.id)
+      .eq("author", "agent")
+      .is("read_at", null);
+    const n = count ?? 1;
+    parts.push(n > 1 ? `${agentName} שלח/ה לך ${n} תשובות במיניסייט` : `${agentName} ענה/תה לך במיניסייט`);
+  }
+  return parts.join(" · ") || `יש עדכון מ${agentName} במיניסייט`;
 }
 
 function firstName(full: unknown): string {

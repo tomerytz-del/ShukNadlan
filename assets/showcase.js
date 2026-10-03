@@ -226,6 +226,8 @@
         <div class="sub">סמנו מה אהבתם ומה לא - ומהנכסים שאהבתם נתאם סיור.</div>
         <div class="always">🔖 העמוד הזה שלך וזמין תמיד - נכסים חדשים יתווספו כאן.
           <button type="button" class="share-btn" data-share-page>📤 שיתוף עם המשפחה</button></div>
+        <label class="wa-pref"><input type="checkbox" data-wa-pref ${state.wa_notify !== false ? 'checked' : ''}>
+          📲 עדכון בוואטסאפ כש${esc((a.name || 'הסוכן/ת').split(' ')[0])} עונה או מאשר/ת סיור</label>
         <div class="contact-grid">${contactHtml('pill-btn')}</div>
       </section>
       ${state.intro ? `<section class="card intro">${esc(state.intro)}</section>` : ''}
@@ -238,6 +240,17 @@
       <p class="foot">מיניסייט אישי ופרטי${a.agency_name ? ' מ' + esc(a.agency_name) : ''}<br><small>באמצעות שוק נדל״ן</small></p>
     `;
     app.querySelector('[data-share-page]').addEventListener('click', sharePage);
+    app.querySelector('[data-wa-pref]').addEventListener('change', async e => {
+      const on = e.target.checked;
+      try {
+        await call('wa_pref', { on });
+        state.wa_notify = on;
+        toast(on ? 'נעדכן אותך בוואטסאפ' : 'לא יישלחו עדכונים בוואטסאפ');
+      } catch(err){
+        e.target.checked = !on;
+        toast(errorText(err.code));
+      }
+    });
     app.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', ()=>{ tab = b.dataset.tab; render(); window.scrollTo({ top: 0 }); }));
 
     const body = document.getElementById('tabBody');
