@@ -1149,29 +1149,58 @@
       if (!Rec) micBtn.hidden = true;
       else {
         micBtn.hidden = false;
+        /* הזיהוי הפעיל. לחיצה בזמן הקשבה עוצרת אותו - קודם כל לחיצה יצרה
+           מופע חדש, והשני נפל ב-InvalidStateError או ביטל את הראשון
+           (‏aborted) והציג "לא זמין" על חיפוש שעבד. */
+        var listening = null;
         micBtn.addEventListener('click', function () {
+          if (listening) { try { listening.stop(); } catch (e) { /* כבר נעצר */ } return; }
+          var typed = input.value;
+          var heard = '';
+          var failed = false;
           try {
             var rec = new Rec();
             rec.lang = 'he-IL';
-            rec.interimResults = false;
+            /* תוצאות ביניים נכתבות לשדה תוך כדי דיבור: בלעדיהן הגולש/ת מדבר/ת
+               לתוך שתיקה עד שהזיהוי נסגר, ולא יודע/ת אם שומעים */
+            rec.interimResults = true;
+            rec.continuous = false;
             rec.maxAlternatives = 1;
+            listening = rec;
             micBtn.classList.add('is-listening');
             micBtn.setAttribute('aria-pressed', 'true');
             rec.onresult = function (ev) {
-              var said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
-              if (said) { input.value = said; runParse(); }
-              else if (noteEl) noteEl.textContent = '';
+              var text = '';
+              for (var i = 0; i < ev.results.length; i++) {
+                if (ev.results[i] && ev.results[i][0]) text += ev.results[i][0].transcript;
+              }
+              heard = text.trim();
+              if (heard) input.value = heard;
             };
             var stop = function () {
+              if (listening === rec) listening = null;
               micBtn.classList.remove('is-listening');
               micBtn.setAttribute('aria-pressed', 'false');
             };
-            rec.onend = stop;
+            /* הפענוח קורה ב-onend ולא ב-onresult: עם תוצאות ביניים onresult
+               נורה כמה פעמים, ובחלק מהדפדפנים (ספארי) התוצאה האחרונה אינה
+               מסומנת isFinal. ‏onend מגיע פעם אחת, אחרי שהכל נשמע. */
+            rec.onend = function () {
+              stop();
+              if (failed) return;
+              if (heard) { input.value = heard; runParse(); }
+              else { input.value = typed; if (noteEl) noteEl.textContent = 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'; }
+            };
             /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
                נלחץ ולא קרה דבר. עכשיו כל כשל אומר מה קרה. */
             rec.onerror = function (ev) {
-              stop();
               var code = ev && ev.error;
+              /* ‏aborted הוא עצירה שלנו, ו-no-speech מטופל ב-onend. מה שנשמע עד
+                 הכשל (למשל network באמצע משפט) עדיין מפוענח שם. */
+              if (code === 'aborted' || code === 'no-speech' || heard) return;
+              failed = true;
+              stop();
+              input.value = typed;
               /* קוד השגיאה נכתב בסוגריים: בלעדיו "לא עובד" מהטלפון של גולש/ת
                  אינו ניתן לאבחון - ‏not-allowed (הרשאה/מדיניות), ‏network (שירות
                  הזיהוי של הדפדפן), ‏audio-capture (אין מיקרופון) הם שלוש בעיות
@@ -1179,17 +1208,17 @@
               if (noteEl) noteEl.textContent =
                 (code === 'not-allowed' || code === 'service-not-allowed'
                   ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות האתר בדפדפן, או לכתוב בשדה.'
-                  : code === 'no-speech'
-                    ? 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'
-                    : code === 'audio-capture'
+                  : code === 'audio-capture'
                       ? 'לא נמצא מיקרופון במכשיר - אפשר לכתוב בשדה.'
-                      : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
+                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
                 (code ? ' (' + code + ')' : '');
             };
-            if (noteEl) noteEl.textContent = 'מקשיבים...';
+            if (noteEl) noteEl.textContent = 'מקשיבים... לחיצה נוספת עוצרת';
             rec.start();
           } catch (err) {
+            listening = null;
             micBtn.classList.remove('is-listening');
+            micBtn.setAttribute('aria-pressed', 'false');
             if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
           }
         });
