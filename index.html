@@ -3456,7 +3456,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏"ניקוי החיפוש" ו"סינון מתקדם" אינם במוקאפ: הסינון עבר לכותרת התוצאות
      (‏#srFilterBtn) ולפס של המפה הפתוחה, והניקוי יושב שם ממילא (‏#clearSearchBtn).
      הכפתורים נשארים ב-DOM - שניהם נלחצים משם. */
-  .ss-card.ss-free-only .ss-tools{display:none}
+  /* ‏"סינון מתקדם" נשאר מתחת לשורת החיפוש, באותה שפה: גלולה לבנה עם צל
+     עדין, כמו השורה שמעליה. ‏"ניקוי החיפוש" מופיע לצדה רק כשיש מה לנקות. */
+  .ss-card.ss-free-only .ss-tools{display:flex;justify-content:flex-start;gap:10px;padding:10px 0 0;border:0;background:none}
+  .ss-card.ss-free-only .ss-adv,
+  .ss-card.ss-free-only .ss-clear:not(.is-idle){
+    min-height:40px;padding:0 16px;background:#fff;border:1px solid #e3e8f2;
+    box-shadow:0 4px 14px rgba(14,42,107,.10);font-size:14px;font-weight:700;color:var(--sapphire);text-decoration:none;
+  }
+  .ss-card.ss-free-only .ss-adv svg{width:18px;height:18px;color:var(--brass-ink)}
+  .ss-card.ss-free-only .ss-adv:hover,.ss-card.ss-free-only .ss-adv:focus-visible{border-color:var(--brass)}
+  .ss-card.ss-free-only .ss-clear.is-idle{display:none}
+  html body .ss-card.ss-free-only .ss-adv,html body .ss-card.ss-free-only .ss-clear{border-radius:999px !important}
+  .hero.map-closed .hero-inner .ss-card.ss-free-only .ss-tools{justify-content:center}
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-tools{padding-top:8px}
+    .ss-card.ss-free-only .ss-adv,.ss-card.ss-free-only .ss-clear:not(.is-idle){min-height:36px;font-size:13.5px}
+  }
+  /* טלפון קטן (‏320×568): שורת הסינון לקחה את ~40px שהכפתור לגבריאלה היה
+     צריך כדי להישאר במסך הראשון - כאן הם חוזרים מהמרווחים */
+  @media(max-width:374px){
+    /* ‏html body: כללי הטלפון של הכרטיס (#555) יושבים מאוחר יותר בקובץ */
+    html body .hero.map-closed .hero-overlay{padding-top:6px}
+    html body .hero.map-closed .search-shell{margin-top:8px}
+    html body .gab{--gab-pop:58px;margin-top:calc(var(--gab-pop) + 6px)}
+    html body .ss-card.ss-free-only .ss-tools{padding-top:6px}
+    html body .hero.map-closed .hero-inner h1{font-size:21px;line-height:1.15}
+  }
   .sr-head .sr-filter{margin-inline-start:0}
   /* בטלפון "הצג N נכסים" יושב בתוך השורה, כמו במוקאפ, ולא בפאנל תחתון */
   @media(max-width:759px){
@@ -4573,10 +4599,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <p class="gab-text" id="gabText">כתבו לה בוואטסאפ מה אתם מחפשים, והיא תמצא נכסים מתאימים ותעדכן אתכם ברגע שעולה נכס חדש.</p>
             <div class="gab-chat" aria-hidden="true">
-              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
               <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
             </div>
-            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
             <div class="gab-actions">
               <span class="gab-cta-wrap" id="gabCtaWrap"></span>
               <button type="button" class="gab-how" id="gabHowBtn" aria-haspopup="dialog" aria-controls="gabHowDialog">איך זה עובד?</button>
@@ -4596,7 +4622,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </picture>
             <div class="gab-float" aria-hidden="true">
               <span class="gab-float-ok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
-              <span><b>מצאתי 4 נכסים מתאימים</b><span><span data-gab-city>עפולה</span> · עד 1.6 מ׳ ₪</span></span>
+              <span><b>מצאתי 4 נכסים מתאימים</b><span><span data-gab-city>עפולה</span> · <span class="nw">עד 1.6 מ׳ ₪</span></span></span>
             </div>
           </div>
         </article>
