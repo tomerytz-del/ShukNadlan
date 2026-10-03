@@ -1,6 +1,6 @@
 ---
 name: new-edge-function
-description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן — verify_jwt ב-config.toml, CORS, סודות ופריסה. Use when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function.
+description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן — verify_jwt ב-config.toml, CORS, סודות ופריסה. Use when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function. Also when a function suddenly answers 404/not_found for rows that exist, or when writing a select with an embed like agency_members(…).
 ---
 
 # ‏Edge Function חדשה
@@ -70,6 +70,32 @@ Functions). סוד חדש נרשם גם ב-`.env.example` עם שורת הסבר
 
 התבנית כוללת תנאי `where` שמונע קריאה כשאין עבודה — זה מה שמונע 720
 הרצות ריקות ביום.
+
+## ‏embed ב-`select`: לנקוב בשם המפתח, ולבדוק `error`
+
+```ts
+// שביר: נשבר ביום שמישהו מוסיף עמודה שנייה שמפנה ל-agency_members
+.select("id, agent_id, agency_members(tier)")
+
+// יציב
+const { data, error } = await supabase.from("properties")
+  .select("id, agent_id, agency_members!properties_agent_id_fkey(tier)")
+  .eq("id", id).single();
+if (error && error.code !== "PGRST116") return json({ error: "db_error" }, 500);
+if (!data) return json({ error: "not_found" }, 404);
+```
+
+כשיש שני מפתחות זרים לאותה טבלה, PostgREST מחזיר **PGRST201** על **כל**
+השאילתה, ו-`data` יוצא `null`. פונקציה שבודקת רק `if (!data)` עונה
+"לא נמצא" — ותקלת מסד מתחפשת לנתון חסר. כך `property-visualize` ו-
+`property-inquiry-intake` ענו 404 על כל נכס שלושה ימים אחרי #508.
+‏`PGRST116` ("אין שורה" ב-`.single()`) הוא היחיד שבאמת אומר "לא נמצא".
+
+```sh
+python scripts/check_agency_embed.py
+```
+
+חוסמת ב-CI embed דו-משמעי סביב `agency_members` (בשני הכיוונים).
 
 ## לפני הדחיפה
 

@@ -1590,8 +1590,14 @@ async function requestVisualization(){
      כבר הודמה, ההדמיה שלו על המסך מיד; אם לא, המסגרת שלו מציגה את מסך
      ההמתנה ומשם תוצאה חדשה נכנסת תחתיו (mergeVizResults). */
   const prevCurrent = vizState.current;
+  /* עסק שכבר הודמה בנכס הזה: ההדמיה שלו עולה על המסך מיד, והבקשה עדיין
+     יוצאת — היא הפנייה שהסוכן/ת מקבל/ת, והשרת מחזיר את הקיימת בלי לשלם על
+     קריאה חדשה. מה שמשתנה הוא ההודעה: "ההדמיה מוכנה" הייתה אומרת שנוצרה
+     עכשיו הדמיה חדשה, כשעל המסך אותה תמונה שכבר הייתה שם. */
+  let alreadyDone = false;
   if (!vizState.isPrivate){
     const key = bizKey(business.value);
+    alreadyDone = (vizState.byStyle.get(key) || []).length > 0;
     if (!vizState.bizLabels.has(key)){
       // חדש נכנס בראש הרשימה — הוא העסק האחרון שהודמה
       vizState.bizLabels = new Map([[key, business.value.trim()], ...vizState.bizLabels]);
@@ -1632,6 +1638,14 @@ async function requestVisualization(){
     if (!vizState.isPrivate) applyVizContactFields();
 
     mergeVizResults(out.ready || []);
+
+    /* ‏already_exists מגיע מהשרת גם כשהדף לא ידע — מבקר/ת אחר/ת יצר/ה את
+       ההדמיה אחרי שהדף נטען. ההודעה יושבת בפסקה שמעל הכפתור ולא בטוסט
+       שנעלם: היא תשובה ללחיצה, וצריך שתישאר עד שקוראים אותה. */
+    if (!vizState.isPrivate && (alreadyDone || out.already_exists) && !out.job_id){
+      vizState.error = `כבר בוצעה הדמיה ל"${business.value.trim()}" בנכס הזה - היא מוצגת כאן למעלה.`;
+      return;
+    }
 
     if (out.job_id) await pollVisualizationJob(out.job_id, out.pending_targets || []);
 

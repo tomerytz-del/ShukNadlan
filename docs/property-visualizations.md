@@ -316,6 +316,17 @@ POST { property_id, style?, business_type?, business_description?, name, phone }
   `rpc('visualization_job_status', { p_job_id })`.
 - בלם קצב: `visualization_ondemand_daily_cap` בקשות ל-24 שעות **פר נכס**
   (לא פר גולש/ת — אין לנו זהות אמינה בצד הזה).
+- **עסק שכבר הודמה בנכס** (אותו סוג עסק מנורמל, מאותה תמונת מקור) אינו
+  נוצר מחדש: התשובה היא `{ ok, job_id: null, ready, already_exists: true }`,
+  והדף כותב מעל הכפתור "כבר בוצעה הדמיה ל"בית קפה" בנכס הזה" ומציג אותה —
+  במקום "ההדמיה מוכנה", שנשמע כאילו נוצרה עכשיו הדמיה חדשה. הליד עדיין נרשם.
+- **ה-embed של הסוכן/ת נושא את שם המפתח** —
+  `agency_members!properties_agent_id_fkey(tier)`. מאז `referred_by` (‏#508)
+  יש ל-`properties` שני מפתחות זרים ל-`agency_members`, ו-embed בלי רמז נכשל
+  ב-PGRST201. מ-30.9 עד התיקון כל בקשה כאן — וכל פנייה ב-
+  `property-inquiry-intake` — נענתה `property_not_found` (‏404), והדף הראה
+  "לא הצלחנו ליצור את ההדמיה כרגע". ‏`check_agency_embed.py` חוסם מעכשיו
+  embed כזה.
 
 ### `property-visualize-base` — `verify_jwt = true`
 

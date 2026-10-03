@@ -1,6 +1,6 @@
 ---
 name: new-migration
-description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן — שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found".
+description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן — שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found". Also when adding a foreign key to a table that already references the same target (e.g. a second column pointing at agency_members) — that breaks every unqualified PostgREST embed with PGRST201.
 ---
 
 # מיגרציה חדשה
@@ -51,7 +51,7 @@ python3 scripts/check_migration_versions.py --base-ref origin/main
 ‏25 שניות לפני המיזוג. לכן לפני מיזוג, כשיש עוד PR פתוח שנוגע
 במיגרציות, שווה למשוך את הבסיס ולהריץ שוב.
 
-## חמישה כללי כתיבה
+## שישה כללי כתיבה
 
 ### 1. אידמפוטנטית — היא עלולה לרוץ שוב
 
@@ -145,7 +145,33 @@ python3 scripts/check_migration_quotes.py
 הבדיקה חוסמת ב-CI מחרוזת שלא נסגרה ובקסלאש לפני גרש. בתוך גוף
 מצוטט ב-`$$` היא אינה מתלוננת, כי שם יושבים regex-ים עם גרשים בכוונה.
 
-### שלוש הבדיקות של המשפחה, ואיך לדרוש אותן
+### 6. מפתח זר **שני** לאותה טבלה שובר כל embed קיים שלה
+
+עמודה חדשה שמפנה לטבלה שכבר יש אליה מפתח זר — `referred_by` לצד
+`agent_id`, שניהם ל-`agency_members` — הופכת כל `agency_members(…)` בלי
+שם מפתח לדו-משמעי. ‏PostgREST מסרב לבחור (‏**PGRST201**), **השאילתה כולה**
+נכשלת, ו-supabase-js מחזיר `data: null`. קוד שבודק רק `if (!data)` עונה
+"לא נמצא".
+
+**זה קרה ב-#508** (‏30.9.2026): המיגרציה עצמה תקינה, הסכימה נכונה, ה-CI
+ירוק — ומאותו רגע `property-visualize` ו-`property-inquiry-intake` ענו
+‏404 על כל נכס. אף הדמיה לפי דרישה ואף פנייה מדף נכס לא נרשמו שלושה ימים,
+ומה שהגולש/ת ראה/תה היה "לא הצלחנו ליצור את ההדמיה כרגע".
+
+לכן מיגרציה שמוסיפה מפתח זר:
+
+```sh
+# 1. האם כבר יש מפתח זר מהטבלה הזו לאותו יעד?
+grep -rnE "\.from\(['\"]<הטבלה>['\"]\)" supabase/functions assets *.html \
+  | head   # ואז לחפש בשרשרת embed של היעד בלי '!'
+```
+
+2. כל embed כזה מקבל שם מפתח באותו PR:
+   `agency_members!properties_agent_id_fkey(tier)`.
+3. הטבלה נכנסת ל-`MULTI_FK_TABLES` ב-`scripts/check_agency_embed.py` (אם
+   היעד הוא `agency_members`), כדי שגם embed עתידי ייחסם ב-CI.
+
+## שלוש הבדיקות של המשפחה, ואיך לדרוש אותן
 
 שלושתן קוראות קבצים בלבד, רצות על **כל** PR, ונושאות שם job מובחן כדי
 שאפשר יהיה לדרוש אותן בהגנת הענף:
