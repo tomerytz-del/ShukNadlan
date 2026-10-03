@@ -3965,22 +3965,26 @@ initGabChat();
    מפריעה. **היא נשארת עד שלוחצים על המיקרופון** (החלטת בעל/ת האתר, אוקטובר
    2026) - לא טיימר ולא כל מגע בדף.
 
-   הסימון ב-localStorage ‏(shuk_mic_hint) נרשם רק בלחיצה על המיקרופון, ולכן
-   מי שעוד לא לחץ/ה רואה אותה גם בביקור הבא. לא מוצגת אם בינתיים הגולש/ת
+   הסימון ב-localStorage ‏(shuk_mic_hint) הוא **זמן** הלחיצה על המיקרופון:
+   מי שעוד לא לחץ/ה רואה אותה בכל ביקור, ומי שלחץ/ה - שוב אחרי 24 שעות
+   (‏MIC_HINT_AGAIN, החלטת בעל/ת האתר). לא מוצגת אם בינתיים הגולש/ת
    כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא מהמסך. ‏aria-hidden: לקורא מסך
    המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם המיקרופון
    מוצג בכלל (‏Web Speech API). */
 const MIC_HINT_DELAY = 3500;
+const MIC_HINT_AGAIN = 24 * 60 * 60 * 1000;   // חוזרת פעם ביום גם למי שכבר לחץ/ה
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
-  try { if (localStorage.getItem('shuk_mic_hint')) return; }
+  // נלחץ ב-24 השעות האחרונות? (ערך ישן "1" אינו זמן - ולכן הבועה חוזרת גם אליו)
+  const clickedRecently = () => Date.now() - Number(localStorage.getItem('shuk_mic_hint')) < MIC_HINT_AGAIN;
+  try { if (clickedRecently()) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
   let tip = null;
   // הלחיצה על המיקרופון (או על הבועה, שיושבת בתוכו) - מסירה ולא חוזרת
   mic.addEventListener('click', ()=>{
-    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){}
+    try { localStorage.setItem('shuk_mic_hint', String(Date.now())); } catch(e){}
     if (!tip) return;
     const t = tip; tip = null;
     document.documentElement.classList.remove('mic-hint-on');
@@ -3992,7 +3996,7 @@ function showMicHint(){
     if (document.hidden || !input || document.activeElement === input || input.value) return;
     const r = mic.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
-    if (localStorage.getItem('shuk_mic_hint')) return;          // כבר לחצו בינתיים
+    if (clickedRecently()) return;                              // כבר לחצו בינתיים
     tip = document.createElement('span');
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
