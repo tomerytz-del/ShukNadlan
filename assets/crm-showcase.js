@@ -38,6 +38,7 @@ async function loadShowcaseSummaries(){
     const { data, error } = await sb
       .from('client_showcases')
       .select('id, client_id, token, intro, view_count, last_viewed_at, created_at,'
+        + ' wa_notify, wa_pending_at, wa_last_sent_at, wa_last_status, wa_last_error,'
         + ' client_showcase_items(property_id, reaction, removed_at, coop_status),'
         + ' client_showcase_messages(author, read_at),'
         + ' client_showcase_meetings(status, starts_at)')
@@ -49,6 +50,7 @@ async function loadShowcaseSummaries(){
       const now = Date.now();
       showcaseSummaries[s.client_id] = {
         id: s.id, token: s.token, intro: s.intro || '',
+        wa: { notify: s.wa_notify !== false, pending: s.wa_pending_at, sent: s.wa_last_sent_at, status: s.wa_last_status, error: s.wa_last_error },
         view_count: s.view_count, last_viewed_at: s.last_viewed_at,
         property_ids: new Set(items.map(i => i.property_id)),
         liked: items.filter(i => i.reaction === 'liked').length,
@@ -339,6 +341,7 @@ async function renderShowcasePanel(client, panel){
 
   panel.innerHTML = `
     <div class="sc-head">
+      ${waStatusHtml(s.wa, fmt)}
       <div class="lead-meta">${s.view_count ? `👁 נצפה ${plural(s.view_count, 'פעם אחת', 'פעמים')} · לאחרונה ${esc(fmt(s.last_viewed_at))}` : 'הלקוח/ה עדיין לא פתח/ה את הקישור'}</div>
       <div class="lead-actions">
         <button type="button" class="btn btn-ghost" data-share>🔗 הקישור</button>
@@ -422,7 +425,8 @@ async function renderShowcasePanel(client, panel){
     if (note === null) return;
     const { data, error } = await sb.rpc('showcase_decide_meeting', { p_meeting_id: b.dataset.meet, p_confirm: ok, p_note: note });
     if (error || (data && data.error)) return showToast('שגיאה: ' + ((data && data.error) || error.message));
-    showToast(ok ? (data && data.agenda_item_id ? 'הסיור אושר ונרשם ביומן' : 'הסיור אושר') : 'נשלחה תשובה ללקוח/ה');
+    const waNote = s.wa && s.wa.notify ? ' · הלקוח/ה יקבל/תקבל עדכון בוואטסאפ' : '';
+    showToast((ok ? (data && data.agenda_item_id ? 'הסיור אושר ונרשם ביומן' : 'הסיור אושר') : 'נשלחה תשובה ללקוח/ה') + waNote, 4500);
     reload();
   }));
   panel.querySelectorAll('.sc-item').forEach(row => {
@@ -456,9 +460,29 @@ async function renderShowcasePanel(client, panel){
     const { error } = await sb.from('client_showcase_messages')
       .insert({ showcase_id: s.id, item_id: form.dataset.item || null, author:'agent', body });
     if (error) return showToast('שגיאה: ' + error.message);
-    showToast('נשלח. הלקוח/ה יראה/תראה את זה במיניסייט');
+    showToast(s.wa && s.wa.notify ? 'נשלח. הלקוח/ה יקבל/תקבל עדכון בוואטסאפ עם קישור לתשובה' : 'נשלח. הלקוח/ה יראה/תראה את זה במיניסייט');
     reload();
   }));
+}
+
+/* ---------- הוואטסאפ ללקוח/ה ----------
+   תשובה ואישור סיור יוצאים ללקוח/ה בוואטסאפ דרך תור במסד (‏20270209090000):
+   הודעה אחת לרצף, 08:00-22:00, ולא אם כבר פתח/ה את העמוד. השורה כאן אומרת
+   לסוכן/ת מה קרה עם העדכון האחרון - בלעדיה "שלחתי לו" ו"זה לא הגיע" נראים
+   אותו דבר. */
+function waStatusHtml(wa, fmt){
+  if (!wa) return '';
+  if (!wa.notify) return '<div class="lead-meta">📲 הלקוח/ה כיבה/תה עדכונים בוואטסאפ - כדאי להודיע לו/ה ישירות</div>';
+  if (wa.pending) return '<div class="lead-meta">📲 עדכון בוואטסאפ ממתין לשליחה (עד 5 דקות, ובלילה - בבוקר)</div>';
+  const label = {
+    sent: wa.sent ? '📲 עדכון אחרון נשלח בוואטסאפ ב-' + fmt(wa.sent) : '',
+    seen: '📲 הלקוח/ה ראה/תה את העדכון האחרון בעמוד לפני שנשלח וואטסאפ',
+    no_channel: '⚠️ העדכון האחרון לא נשלח בוואטסאפ - תבנית ההודעה עדיין לא אושרה ב-Meta. כדאי להודיע ללקוח/ה ישירות',
+    no_phone: '⚠️ אין מספר טלפון תקין בכרטיס - העדכון לא נשלח בוואטסאפ',
+    opted_out: '⚠️ הלקוח/ה חסם/ה הודעות מהעסק בוואטסאפ - כדאי להודיע לו/ה ישירות',
+    failed: '⚠️ שליחת הוואטסאפ האחרונה נכשלה - כדאי להודיע ללקוח/ה ישירות',
+  }[wa.status];
+  return label ? `<div class="lead-meta" title="${esc(wa.error || '')}">${esc(label)}</div>` : '';
 }
 
 /* ---------- תיאום שת"פ ----------

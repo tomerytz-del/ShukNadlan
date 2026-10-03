@@ -19,8 +19,9 @@ description: עבודה על המיניסייט האישי ללקוח/ה ברי�
 | `supabase/functions/client-showcase/branding.ts` | זיהוי לוגו / סימן מים (Gemini) |
 | `assets/crm-showcase.js` | תיבות הסימון בהתאמות, חלון השליחה והודעת הפתיחה, הפאנל בכרטיס, תיאום השת"פ |
 | `supabase/migrations/20270208090000_client_showcases.sql` | הטבלאות, ה-RLS, `showcase_add_properties`, `showcase_decide_meeting` |
+| `supabase/migrations/20270209090000_showcase_whatsapp.sql` + `client-showcase/wa.ts` | תור הוואטסאפ ללקוח/ה, הטריגרים וה-cron `showcase-wa` |
 
-## שישה דברים ששוברים בשקט
+## שבעה דברים ששוברים בשקט
 
 ### 1. שדה חדש לנכס - לכולם או לאף אחד
 
@@ -81,6 +82,15 @@ EOF
 ליד חדש. הוספת `events.js` הייתה מנפחת את `contact_agent`. הודעת הפתיחה
 (`renderShowcaseShare` ב-`crm-showcase.js`) והנוסחים בדף כפופים לכלל המקף
 הרגיל (`check_long_dash.py`).
+
+### 7. הוואטסאפ ללקוח/ה יוצא מהתור, לא מהטריגר
+
+תשובה של הסוכן/ת והחלטה על סיור רק **ממלאות תור** (`wa_pending_at`) בטריגר
+במסד; ה-cron `showcase-wa` שולח (`action = wa_notify`). מי ש"מקצר" לשליחה
+ישירה מהטריגר או מה-CRM מאבד שלושה דברים בבת אחת: הקיבוץ (ארבע תשובות = ארבע
+הודעות), שעות השקט, ו"לא לשלוח מה שכבר נקרא". והתבנית: בלי
+`WHATSAPP_SHOWCASE_TEMPLATE` אין ערוץ לרוב הלקוחות, והסטטוס `no_channel` -
+לא כשל שקט, אלא שורה בפאנל של הסוכן/ת. נוסח התבנית ב-`docs/client-showcase.md`.
 
 ## הודעת הפתיחה
 
