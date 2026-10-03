@@ -685,6 +685,8 @@
     var ids = function (id) { return doc.getElementById(id); };
     var card = ids('ssCard');
     if (!card) return null;
+    // המשפט מוסתר בדף הבית (אוקטובר 2026): נשארים השדה החופשי והכפתור
+    var freeOnly = card.classList.contains('ss-free-only');
     var sentenceEl = ids('ssSentence');
     var picker = ids('ssPicker');
     var pickerStep = ids('ssPickerStep');
@@ -1092,7 +1094,12 @@
         noteEl.textContent = 'הבנתי: ' + parsedNote(fields, st, areas, ctx);
       } else {
         render();
-        noteEl.textContent = 'לא זיהיתי - נסו לבחור במשפט למעלה';
+        if (freeOnly) {
+          var ex = examplePhrases(areas, mq.matches)[0];
+          noteEl.textContent = 'לא זיהיתי - נסו לכתוב סוג נכס, אזור או תקציב' + (ex ? ', למשל: ' + ex : '');
+        } else {
+          noteEl.textContent = 'לא זיהיתי - נסו לבחור במשפט למעלה';
+        }
       }
       track('search_freetext_submit', { parsed_fields: fields.join(',') || 'none', field_count: fields.length });
       return fields.length > 0;
@@ -1171,6 +1178,9 @@
       var fromButton = !enterSubmit && e.submitter && e.submitter.hasAttribute('data-ss-go');
       enterSubmit = false;
       if (fromButton) { submit(); return; }
+      /* בלי משפט על המסך (‏.ss-free-only) אין מה "לבדוק לפני שמציגים": Enter
+         שזיהה משהו מציג את התוצאות מיד. במשפט המלא Enter רק ממלא אותו. */
+      if (freeOnly) { if (runParse()) submit(); return; }
       runParse();
     });
     goBtns.forEach(function (b) {

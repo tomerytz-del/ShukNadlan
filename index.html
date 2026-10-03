@@ -3433,6 +3433,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* בטלפון: בלי הקידומת, ואם בכל זאת ארוך מהשדה - רואים את סופו, כמו בהקלדה */
   @media(max-width:759px){ .ss-typer{justify-content:flex-end} .ss-typer-pre{display:none} }
 
+  /* ---------- שורת החיפוש: השדה החופשי בלבד ----------
+     המשפט והבורר שלו יורדים מהמסך (‏.ss-free-only על ‎#ssCard‎), ומה שנשאר
+     הוא שורה לבנה אחת כמו במוקאפ: ניצוץ, השדה (עם החיפושים המוקלדים),
+     המיקרופון וכפתור הזהב. ‏display:none ולא הסרה - המצב, הספירה והכתובת
+     ממשיכים לרוץ על אותו משפט, רק שאין לו ייצוג על המסך. */
+  .ss-card.ss-free-only .ss-sentence,
+  .ss-card.ss-free-only .ss-picker{display:none !important}
+  .hero .ss-card.ss-free-only{
+    background:none;border:0;box-shadow:none;padding:0;
+    -webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  .hero .ss-card.ss-free-only::after{display:none}
+  .ss-card.ss-free-only .ss-smart{
+    background:#fff;border:0;border-radius:14px;overflow:hidden;
+    box-shadow:0 10px 30px rgba(14,42,107,.12);padding:6px 8px 6px 0;align-items:center;
+  }
+  .ss-card.ss-free-only .ss-smart:focus-within{box-shadow:0 0 0 2px var(--brass),0 10px 30px rgba(14,42,107,.12)}
+  .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:17px}
+  .ss-card.ss-free-only .ss-go{border-radius:10px;min-height:48px;padding:0 20px;font-size:16px}
+  .ss-card.ss-free-only .ss-smart + .ss-tools{border-top:0;padding:8px 4px 0;background:none}
+  /* כשאין מה לנקות הכפתור דהוי (‏is-idle), ועל רקע הנוף הוא היה כתם קריא-בקושי */
+  .ss-card.ss-free-only .ss-clear.is-idle{visibility:hidden}
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-smart{border-radius:14px;padding:4px 6px 4px 0}
+    .ss-card.ss-free-only .ss-input,.ss-card.ss-free-only .ss-typer{font-size:16px}
+  }
+
   /* ---------- כרטיס גבריאלה ---------- */
   .gab{
     --gab-pop:150px;
@@ -4031,7 +4058,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מה שבתוך ‎#ssSentence‎ כאן הוא רק הציור הראשון, לפני שהסקריפט
              רץ; הסקריפט מצייר אותו מחדש מהמצב (ומהכתובת). -->
         <div class="search-shell ss-shell">
-          <div class="ss-card" id="ssCard">
+          <!-- ‏.ss-free-only (אוקטובר 2026): המשפט ("אני רוצה למצוא נכס...") והבורר
+               שלו אינם מוצגים - נשארים השדה החופשי וכפתור "הצג N נכסים", כמו
+               במוקאפ של דף הבית. ה-DOM והמצב נשארים: ‏sentence-search.js סופר,
+               מפרש וכותב את הכתובת מאותו מצב, ו"סינון מתקדם" ממשיך לחול עליו. -->
+          <div class="ss-card ss-free-only" id="ssCard">
             <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-break"></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
 
             <!-- הבורר - צמוד למשפט בכל רוחב מסך, כדי שהאפשרויות יופיעו ליד
@@ -4055,9 +4086,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    כדי שקורא מסך ישמע את התווית פעם אחת. ‏assets/sentence-search.js. -->
               <div class="ss-field">
                 <input id="ssQuery" class="ss-input" type="search" enterkeyhint="search" maxlength="120"
-                       placeholder="או כתבו חופשי: דירת 4 חדרים בגבעת המורה עד 1.7 מיליון"
-                       data-short-placeholder="או כתבו חופשי…">
-                <span class="ss-typer" aria-hidden="true"><span class="ss-typer-pre">או כתבו חופשי: </span><span class="ss-typer-text"></span><span class="ss-caret"></span></span>
+                       placeholder="כתבו מה אתם מחפשים: דירת 4 חדרים בגבעת המורה עד 1.7 מיליון"
+                       data-short-placeholder="כתבו מה אתם מחפשים…">
+                <span class="ss-typer" aria-hidden="true"><span class="ss-typer-pre">כתבו מה אתם מחפשים: </span><span class="ss-typer-text"></span><span class="ss-caret"></span></span>
               </div>
               <button type="button" class="ss-mic" id="ssMic" hidden aria-pressed="false" aria-label="חיפוש קולי">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
