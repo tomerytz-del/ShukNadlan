@@ -265,3 +265,22 @@ footer.site:has(.footer-lead){padding-top:0}
 @media(min-width:900px){
   .footer-top{grid-template-columns:minmax(340px,1fr) 2fr;gap:28px}
 }
+
+/* ====== אוקטובר 2026: הפוטר בשפה של דף הבית החדש, בכל הדפים ======
+   הגלולות (החיפושים הפופולריים) עגולות, הכפתורים מעוגלים, ורשת הקישורים
+   נושמת יותר בדסקטופ - כמו במוקאפ של דף הבית. ‏design-system.css מיישר
+   פינות ב-‎!important‎ (‏.footer-cta a, ‏.footer-seo-links a) ונטען אחרי הקובץ
+   הזה, ולכן הבוררים כאן נושאים ‎footer.site‎ - ספציפיות גבוהה יותר ולא
+   סדר טעינה. הקישורים עצמם לא זזו (‏search-pages.ts ו-check_canonical תלויים
+   בהם). */
+footer.site .footer-seo-links a{border-radius:999px !important;padding:6px 14px;background:transparent}
+footer.site .footer-seo-links a:hover,
+footer.site .footer-seo-links a:focus-visible{border-color:rgba(229,199,106,.6);color:#fff}
+footer.site .footer-cta a{border-radius:8px !important}
+footer.site .footer-news-form input,
+footer.site .footer-news-form button{border-radius:10px !important}
+footer.site .footer-col a:hover,footer.site .footer-col a:focus-visible{color:#e5c76a}
+@media(min-width:760px){
+  footer.site .footer-col h4{font-size:.95rem}
+  footer.site .footer-col a{font-size:.88rem}
+}
