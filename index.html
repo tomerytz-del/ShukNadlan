@@ -3481,11 +3481,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       background:var(--sapphire);color:#fff;font-size:13px;font-weight:600;line-height:1.3;text-align:center;
       box-shadow:0 8px 20px rgba(14,42,107,.28);pointer-events:none;
     }
+    .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
+    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s ease-in both}
     .ss-mic-hint::before{
       content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
       border:6px solid transparent;border-bottom-color:var(--sapphire);
     }
   }
+  @keyframes ssMicHintIn{from{opacity:0;transform:translate(-50%,-4px)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes ssMicHintOut{to{opacity:0;transform:translate(-50%,-4px)}}
+  @media(prefers-reduced-motion:reduce){ .ss-mic-hint,.ss-mic-hint.is-leaving{animation:none} }
   @keyframes ssMicDot{0%{box-shadow:0 0 0 2px #fff,0 0 0 2px rgba(201,162,39,.7)}100%{box-shadow:0 0 0 2px #fff,0 0 0 10px rgba(201,162,39,0)}}
   @media(prefers-reduced-motion:reduce){ .ss-card.ss-free-only .ss-mic::after{animation:none} }
   .hero-sub{margin:8px 0 0;font-size:clamp(15px,1.6vw,20px);line-height:1.4;color:#33415c;font-weight:400;text-wrap:balance}
@@ -3529,6 +3534,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gab-cta:hover,.gab-cta:focus-visible{background:#166d39;color:#fff}
   .gab-cta:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
   .gab-cta svg{width:26px;height:26px;flex:0 0 auto}
+  /* "פתחו שיחה עם גבריאלה" בשורה אחת - בטלפון צר הגופן קטן, ולא הכפתור נשבר */
+  .gab-cta span{white-space:nowrap}
+  /* הנוסח של מצב הכבוי ארוך יותר, וב-320px לא נכנס בשורה אחת - שם עדיף שתי
+     שורות מאוזנות מטקסט שגולש מהכפתור */
+  .gab-cta.is-agent span{white-space:normal;text-wrap:balance;text-align:center}
+  @media(max-width:374px){ .gab-cta{font-size:16px;gap:8px;padding-inline:12px} .gab-cta svg{width:22px;height:22px} }
+  .hero-sub,.gab-text,.owner-hero p,.oh-feature-text,.gab-how-steps span{text-wrap:pretty}
+  .gab-name,.gab-role,.oh-feature-title,#articles .article-card h3{text-wrap:balance}
   /* כשהעוזרת כבויה הכפתור פותח את הסוכן החכם ולא את וואטסאפ - ספיר ולא ירוק */
   .gab-cta.is-agent{background:var(--sapphire)}
   .gab-cta.is-agent:hover,.gab-cta.is-agent:focus-visible{background:var(--sapphire-hover)}
@@ -3950,6 +3963,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #ownerBannerWrap .owner-toggle button{
     height:52px;border:1px solid #dfe5ef;background:#fff;color:#33415c;border-radius:12px;font-size:16px;font-weight:600;
   }
+  #ownerBannerWrap .owner-toggle button{white-space:nowrap}
+  @media(max-width:374px){ #ownerBannerWrap .owner-toggle button{font-size:15px;padding:0 6px} #ownerBannerWrap .wiz-steps li{font-size:12px} }
   #ownerBannerWrap .owner-toggle button.active{border:2px solid var(--sapphire);background:#eef3fb;color:var(--sapphire);font-weight:700}
   #ownerBannerWrap .chip{
     min-height:44px;border:1px solid #dfe5ef;background:#fff;color:#33415c;border-radius:10px;
@@ -4425,7 +4440,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
           </script>
 
-          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? הכל כאן.</p>
+          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? <span class="nw">הכל כאן.</span></p>
 
         </div><!-- /.hero-lead -->
 
@@ -4539,7 +4554,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="gab-head">
               <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת AI</span>
               <p class="gab-name" aria-hidden="true">גבריאלה</p>
-              <p class="gab-role">מחפשת נכס <br>בשבילכם!</p>
+              <p class="gab-role">מחפשת נכס <br><span class="nw">בשבילכם!</span></p>
             </div>
             <div class="gab-figure">
               <div class="gab-disc" aria-hidden="true"></div>
@@ -5415,9 +5430,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <h2 id="ownerTitle">כמה שווה הנכס שלכם?<br><span>הערכת שווי חינם</span></h2>
         <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
         <ol class="owner-steps">
-          <li><span class="n" aria-hidden="true">1</span><span><b>ממלאים כתובת ופרטי נכס</b> - פחות מדקה</span></li>
-          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מומלץ/ת מהאזור</b> בודק/ת את הנכס</span></li>
-          <li><span class="n" aria-hidden="true">3</span><span><b>מקבלים הערכת שווי חינם</b>, בלי התחייבות</span></li>
+          <li><span class="n" aria-hidden="true">1</span><span><b>ממלאים כתובת ופרטי נכס</b> <span class="nw">- פחות מדקה</span></span></li>
+          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מומלץ/ת מהאזור</b> <span class="nw">בודק/ת את הנכס</span></span></li>
+          <li><span class="n" aria-hidden="true">3</span><span><b>מקבלים הערכת שווי חינם</b><span class="nw">, בלי התחייבות</span></span></li>
         </ol>
       </div>
       <button type="button" class="lead-teaser" id="ownerStartBtn" hidden

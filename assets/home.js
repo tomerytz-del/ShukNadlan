@@ -3887,24 +3887,42 @@ function renderGabrielaCta(){
 }
 renderGabrielaCta();
 
-/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה של
-   הביקור הראשון - פעם אחת לדפדפן, חמש שניות, ונעלמת בכל מגע. ‏aria-hidden:
-   לקורא מסך המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם
-   המיקרופון מוצג בכלל (‏Web Speech API), ולכן הבדיקה היא על ‎hidden‎ שלו. */
+/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
+   "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
+   בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
+   מפריעה. היא נעלמת לבד אחרי MIC_HINT_SHOW, או בכל מגע.
+
+   פעם אחת לדפדפן (‏localStorage ‏shuk_mic_hint) - ונספרת רק כשבאמת הוצגה.
+   לא מוצגת אם בינתיים הגולש/ת כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא
+   מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי".
+   ‏sentence-search.js מחליט אם המיקרופון מוצג בכלל (‏Web Speech API). */
+const MIC_HINT_DELAY = 3500;
+const MIC_HINT_SHOW = 4500;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
-  try { if (localStorage.getItem('shuk_mic_hint')) return; localStorage.setItem('shuk_mic_hint', '1'); }
+  try { if (localStorage.getItem('shuk_mic_hint')) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
-  const tip = document.createElement('span');
-  tip.className = 'ss-mic-hint';
-  tip.setAttribute('aria-hidden', 'true');
-  tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
-  mic.appendChild(tip);
-  const remove = ()=>{ tip.remove(); document.removeEventListener('pointerdown', remove, true); };
-  setTimeout(remove, 5000);
-  document.addEventListener('pointerdown', remove, true);
+  setTimeout(()=>{
+    const input = document.getElementById('ssQuery');
+    if (document.hidden || !input || document.activeElement === input || input.value) return;
+    const r = mic.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
+    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){ return; }
+    const tip = document.createElement('span');
+    tip.className = 'ss-mic-hint';
+    tip.setAttribute('aria-hidden', 'true');
+    tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+    mic.appendChild(tip);
+    const remove = ()=>{
+      tip.classList.add('is-leaving');
+      setTimeout(()=> tip.remove(), 250);
+      document.removeEventListener('pointerdown', remove, true);
+    };
+    setTimeout(remove, MIC_HINT_SHOW);
+    document.addEventListener('pointerdown', remove, true);
+  }, MIC_HINT_DELAY);
 }
 
 /* ‏"איך זה עובד?" - ‏<dialog> מקורי. ‏showModal נותן לכידת פוקוס ו-Escape,
