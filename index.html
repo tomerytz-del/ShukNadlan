@@ -4215,6 +4215,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      מחליף את הגלולה "סינון מתקדם" שמתחת לשורת החיפוש; החלון המלא נשאר נגיש
      מ"עוד אפשרויות סינון". ‏initHomeFilterPanel ב-assets/home.js. */
   .ss-card.ss-free-only .ss-adv{display:none}
+  /* כפתור "סינון מתקדם" - פותח את "מה אתם מחפשים". צמוד לתחתית שורת החיפוש,
+     בצד שמאל (סוף השורה), מתחת לכפתור "הצג". ‏#ssCard: design-system נטען אחרי. */
+  #ssCard .hs-toggle{
+    display:flex;align-items:center;gap:7px;margin:8px 0 0;margin-inline-start:auto;padding:7px 14px;min-height:38px;
+    background:rgba(255,255,255,.94);border:1px solid #e3e8f2;border-radius:999px;color:var(--sapphire-deep);
+    font:inherit;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(14,42,107,.12);
+  }
+  #ssCard .hs-toggle svg{width:18px;height:18px;flex:none}
+  #ssCard .hs-toggle .hs-toggle-chev{width:16px;height:16px;transition:transform .2s ease}
+  #ssCard .hs-toggle[aria-expanded="true"]{border-color:var(--brass);background:#fffaf0}
+  #ssCard .hs-toggle[aria-expanded="true"] .hs-toggle-chev{transform:rotate(180deg)}
+  #ssCard .hs-toggle:hover{border-color:var(--brass)}
+  #ssCard .hs-toggle:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  #ssCard .hs-filter{margin-top:10px}
+  /* בטלפון נשארת התצוגה הקודמת - הגלולות גלויות תמיד, בלי הכפתור (בקשת
+     בעל/ת האתר). לכן מחלקה ולא hidden: ‏[hidden] כאן הוא !important. */
+  @media(min-width:760px){ #ssCard .hs-filter.is-collapsed{display:none} }
+  @media(max-width:759px){ #ssCard .hs-toggle{display:none} }
+  /* ובמחשב, כשהגלולות מקופלות, כרטיס גבריאלה עולה ‎120px‎: הראש שלה עדיין
+     מעל המסגרת (‏--gab-pop) ולא נוגע בכפתור. כשהסינון פתוח הוא נדחף ממילא. */
+  @media(min-width:760px){ html body #gabrielaHero{margin-top:calc(var(--gab-pop) - 96px)} }
   .hs-filter{margin-top:14px;text-align:start}
   .hs-q{
     display:table;margin:0 auto 10px;padding:5px 16px;border-radius:10px;
@@ -4696,7 +4717,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  "סינון מתקדם" (‏applyAdvancedFilters). אין כאן לוגיקת סינון חדשה.
                  ‏"להשקעה" הוא קנייה (‏deal=sale) - אין במלאי עמודת "להשקעה".
                  ‏initHomeFilterPanel ב-assets/home.js. -->
-            <div class="hs-filter" id="hsFilter">
+            <!-- ‏"סינון מתקדם" (אוקטובר 2026, מחשב בלבד): בטעינה רואים רק את הכפתור
+                 הזה, בפינה התחתונה של שורת החיפוש. הוא פותח את הגלולות ואת הפאנל -
+                 כך כרטיס גבריאלה עולה למעלה. בטלפון הגלולות גלויות כמו קודם.
+                 ‏initHomeFilterPanel. -->
+            <button type="button" class="hs-toggle" id="hsToggle" aria-expanded="false" aria-controls="hsFilter">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/><circle cx="17.5" cy="7" r="2.2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="12" r="2.2" fill="currentColor" stroke="none"/><circle cx="13.5" cy="17" r="2.2" fill="currentColor" stroke="none"/></svg>
+              <span>סינון מתקדם</span>
+              <svg class="hs-toggle-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="hs-filter is-collapsed" id="hsFilter">
               <p class="hs-q" id="hsQ">מה אתם מחפשים</p>
               <div class="hs-deals" role="group" aria-labelledby="hsQ">
                 <button type="button" class="hs-deal" data-hs-deal="rent" aria-expanded="false" aria-controls="hsPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M14 9l2 2"/></svg><span>להשכרה</span></button>

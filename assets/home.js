@@ -6645,6 +6645,21 @@ function initSentenceDock(){
   }
   pills.forEach(b => b.addEventListener('click', () => setMode(b.dataset.hsDeal)));
 
+  // "סינון מתקדם" (מחשב בלבד - בטלפון הכפתור מוסתר והגלולות גלויות): הגלולות
+  // והפאנל מקופלים בטעינה; הכפתור פותח את שניהם (על "למכירה", או על מה שכבר
+  // נבחר) וסוגר את הכל
+  const wrap = document.getElementById('hsFilter');
+  const toggle = document.getElementById('hsToggle');
+  toggle?.addEventListener('click', () => {
+    const open = wrap.classList.contains('is-collapsed');
+    wrap.classList.toggle('is-collapsed', !open);
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open){
+      if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
+      pills.find(b => b.dataset.hsDeal === mode)?.focus({ preventScroll:true });
+    } else if (mode) setMode(mode);
+  });
+
   $('hsCity').addEventListener('change', () => {
     $('hsHood').disabled = $('hsCity').value !== 'all';
     if ($('hsHood').disabled) $('hsHood').value = '';
