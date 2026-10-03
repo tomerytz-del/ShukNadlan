@@ -3887,41 +3887,119 @@ function renderGabrielaCta(){
 }
 renderGabrielaCta();
 
+/* שיחת הדוגמה בכרטיס גבריאלה: תרחישים מתחלפים - ההודעה של הגולש/ת, "מקלידה",
+   והתשובה שלה. **כל תרחיש הוא דבר שהבוט הציבורי באמת יודע לעשות** (הכלים ב-
+   public-agent.ts: search_properties, find_agencies, save_search_alert,
+   search_projects, mortgage_estimate, owner_lead, find_professionals) - זו
+   הבטחה לגולש/ת, לא קישוט. מי שמוסיף/ה תרחיש בודק/ת שיש לו כלי.
+
+   רץ רק כשהכרטיס במסך והלשונית גלויה, ולא רץ בכלל עם prefers-reduced-motion
+   (נשארת השיחה הקבועה שב-HTML). textContent בלבד - אין כאן HTML מבחוץ. */
+function initGabChat(){
+  const chat = document.getElementById('gabChat');
+  if (!chat) return;
+  const city = (document.querySelector('[data-gab-city]')?.textContent || 'עפולה').trim();
+  const SCENES = [
+    ['היי גבריאלה, אני מחפש 4 חדרים ב' + city + ' עד 1.6 מיליון ₪', 'מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.'],
+    ['תמצאי לי מתווך שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
+    ['דירה להשכרה עם מרפסת וחניה, עד 5,000 ₪', 'מצאתי כמה דירות. רוצה שאעדכן אותך כשתעלה עוד אחת?'],
+    ['יש פרויקטים חדשים מקבלן ב' + city + '?', 'כן, יש פרויקטים בשיווק עכשיו. שולחת לך את הפרטים.'],
+    ['כמה יהיה ההחזר החודשי על משכנתא של מיליון ₪?', 'חישבתי לך הערכה. רוצה שיועץ משכנתאות יחזור אליך?'],
+    ['אני רוצה למכור את הדירה שלי', 'בשמחה. אחבר אותך למשרד תיווך מהאזור להערכת שווי.'],
+    ['צריך שמאי מקרקעין ב' + city, 'הנה שמאים מוסמכים שעובדים באזור, עם הטלפון שלהם.'],
+  ];
+  const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l3 3 6-7M6 9l1 1 6-8"/></svg>';
+  const now = () => new Date().toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', hour12:false });
+  const bubble = (who, text) => {
+    const b = document.createElement('div');
+    b.className = 'gab-bubble ' + who + ' is-in';
+    b.textContent = text;
+    const meta = document.createElement('span');
+    meta.className = 'gab-meta';
+    meta.textContent = now();
+    if (who === 'me') meta.insertAdjacentHTML('beforeend', TICKS);
+    b.appendChild(meta);
+    return b;
+  };
+  // השיחה הקבועה שב-HTML מקבלת שעה ווי, כמו כל השאר
+  chat.querySelectorAll('.gab-bubble').forEach(b => {
+    const meta = document.createElement('span');
+    meta.className = 'gab-meta';
+    meta.textContent = now();
+    if (b.classList.contains('me')) meta.insertAdjacentHTML('beforeend', TICKS);
+    b.appendChild(meta);
+  });
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let visible = false, running = false, i = 1;   // 0 כבר מוצג ב-HTML
+  async function cycle(){
+    if (running) return;
+    running = true;
+    while (visible && !document.hidden){
+      await wait(3600);
+      if (!visible || document.hidden) break;
+      chat.classList.add('is-out');
+      await wait(300);
+      chat.classList.remove('is-out');
+      chat.textContent = '';
+      const [q, a] = SCENES[i % SCENES.length]; i++;
+      chat.appendChild(bubble('me', q));
+      await wait(900);
+      const typing = document.createElement('div');
+      typing.className = 'gab-bubble her is-in';
+      typing.innerHTML = '<span class="gab-typing"><i></i><i></i><i></i></span>';
+      chat.appendChild(typing);
+      await wait(1300);
+      typing.replaceWith(bubble('her', a));
+    }
+    running = false;
+  }
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) cycle(); }, { threshold:.4 }).observe(chat);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && visible) cycle(); });
+}
+initGabChat();
+
 /* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
    "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
    בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
-   מפריעה. היא נעלמת לבד אחרי MIC_HINT_SHOW, או בכל מגע.
+   מפריעה. **היא נשארת עד שלוחצים על המיקרופון** (החלטת בעל/ת האתר, אוקטובר
+   2026) - לא טיימר ולא כל מגע בדף.
 
-   פעם אחת לדפדפן (‏localStorage ‏shuk_mic_hint) - ונספרת רק כשבאמת הוצגה.
-   לא מוצגת אם בינתיים הגולש/ת כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא
-   מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי".
-   ‏sentence-search.js מחליט אם המיקרופון מוצג בכלל (‏Web Speech API). */
+   הסימון ב-localStorage ‏(shuk_mic_hint) נרשם רק בלחיצה על המיקרופון, ולכן
+   מי שעוד לא לחץ/ה רואה אותה גם בביקור הבא. לא מוצגת אם בינתיים הגולש/ת
+   כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא מהמסך. ‏aria-hidden: לקורא מסך
+   המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם המיקרופון
+   מוצג בכלל (‏Web Speech API). */
 const MIC_HINT_DELAY = 3500;
-const MIC_HINT_SHOW = 4500;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
   try { if (localStorage.getItem('shuk_mic_hint')) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
+  let tip = null;
+  // הלחיצה על המיקרופון (או על הבועה, שיושבת בתוכו) - מסירה ולא חוזרת
+  mic.addEventListener('click', ()=>{
+    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){}
+    if (!tip) return;
+    const t = tip; tip = null;
+    document.documentElement.classList.remove('mic-hint-on');
+    t.classList.add('is-leaving');
+    setTimeout(()=> t.remove(), 250);
+  }, { once:true });
   setTimeout(()=>{
     const input = document.getElementById('ssQuery');
     if (document.hidden || !input || document.activeElement === input || input.value) return;
     const r = mic.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
-    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){ return; }
-    const tip = document.createElement('span');
+    if (localStorage.getItem('shuk_mic_hint')) return;          // כבר לחצו בינתיים
+    tip = document.createElement('span');
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
     tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
     mic.appendChild(tip);
-    const remove = ()=>{
-      tip.classList.add('is-leaving');
-      setTimeout(()=> tip.remove(), 250);
-      document.removeEventListener('pointerdown', remove, true);
-    };
-    setTimeout(remove, MIC_HINT_SHOW);
-    document.addEventListener('pointerdown', remove, true);
+    // הבועה יושבת על התווית "מה אתם מחפשים" - מסתירים אותה בלי להזיז דבר
+    document.documentElement.classList.add('mic-hint-on');
   }, MIC_HINT_DELAY);
 }
 
