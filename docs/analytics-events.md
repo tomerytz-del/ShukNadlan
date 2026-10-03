@@ -38,6 +38,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `search_freetext_submit` | פירוש של השדה החכם | `parsed_fields` (‏`deal,area` או `none`), `field_count` - **הטקסט עצמו לא נשלח** |
 | `search_submit` | "הצג N נכסים" בחיפוש במשפט | `result_count` |
 | `search_empty_widen` | ההרחבה המוצעת כשאין תוצאות | `slot` (כולל `extra` - הסינונים המתקדמים) |
+| `viz_jump_click` | לחיצה על כרטיס ההדמיה שעל התמונה הראשית בדף הנכס (‏`docs/property-visualizations.md`) | `preview`: ‏`thumbs` \| `text`; ‏`viz_mode`: ‏`renovation` \| `staging` \| `commercial` |
 | `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
 | `pwa_banner_dismiss` | ✕ ברצועה | `mode` |
 | `pwa_install_click` | לחיצה על כפתור ההתקנה (ברצועה או בתפריט) | `mode` |
