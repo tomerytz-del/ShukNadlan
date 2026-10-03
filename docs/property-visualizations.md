@@ -197,9 +197,8 @@
 `gtm/container.json`, ורק אז הקוד - כי `check_gtm_container.py` חוסם אירוע
 שהקוד דוחף בלי תגית בייצוא.
 
-**שלב אחד שנשאר ידני:** ב-GA4, ‏**Admin ← Custom definitions**, ‏`preview` ו-
-`viz_mode` כ-Custom dimensions (event scope). בלי זה הם נאספים ואינם מוצגים
-בדוחות.
+ב-GA4 ‏`preview` ו-`viz_mode` מוגדרים כ-Custom dimensions (event scope) מ-3.10.2026,
+ולכן הם מוצגים בדוחות ולא רק נאספים.
 
 | פרמטר | ערכים | למה |
 | --- | --- | --- |
