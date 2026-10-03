@@ -231,3 +231,15 @@ footer.site:has(.footer-lead){padding-top:0}
 | דף הבית, דסקטופ | 844px | 629px |
 | עמוד פנימי, טלפון | 1158px | 719px |
 | עמוד פנימי, דסקטופ | 753px | 666px |
+
+## אוקטובר 2026: השפה של דף הבית החדש, בכל הדפים
+
+- **גלולות וכפתורים מעוגלים** (החיפושים הפופולריים 999px, כפתורי ההצטרפות 8px),
+  כמו במוקאפ של דף הבית. ‏`design-system.css` מיישר פינות ב-`!important` ונטען
+  אחרי `site-footer.css`, ולכן הבוררים נושאים `footer.site` - ספציפיות, לא סדר.
+- **באנר מחפשי הנכס הוא כרטיס שעולה מעל קו הפוטר** (‏`translateY(-36px)`, ספיר עם
+  מסגרת זהב שקופה) - ב-`index.html` וב-`assets/buyer-banner.css`, רק בתוך
+  `.footer-lead` (בדף הנכס הוא נשאר בעמודת התוכן).
+- **הקישורים לא זזו** - ‏`search-pages.ts` ו-`check_canonical.py` תלויים בהם.
+
+הפרטים: [`home-page-sections.md`](home-page-sections.md).

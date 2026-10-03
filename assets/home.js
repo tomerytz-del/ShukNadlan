@@ -1569,20 +1569,18 @@ function renderOpenHouseBanner(count){
   if (!host) return;
   if (!count){ host.hidden = true; host.innerHTML = ''; return; }
 
+  /* ‏**אוקטובר 2026:** כרטיס כהה עם תמונה - הטקסט מימין, ונוף העמק משמאל
+     שנמוג אל הכהה (בטלפון: התמונה למעלה). אותם משפטים, אותו יעד. ‏.oh-feature
+     ב-index.html; ‏.oh-promo נשאר לבאנר בעלי המקצוע ולדף היריד. */
   host.innerHTML =
-    `<a class="oh-promo" href="/open-house">` +
-      `<h2 class="oh-promo-title">יריד דירות<br>ללא עמלת תיווך<br>לזמן מוגבל!</h2>` +
-      OpenHouse.zeroArt('oh-promo-art') +
-      `<span class="oh-promo-body">` +
-        `<span class="oh-promo-kicker">אל תחמיצו את ההזדמנות!</span>` +
-        // שני משפטים, שורה לכל אחד — ‏nowrap ב-CSS, כדי שמשפט לא יישבר
-        // באמצעו בין שתי השורות
-        `<span class="oh-promo-text">` +
-          `<span>מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך.</span>` +
-          `<span>המבצע בתוקף לתקופה קצובה בלבד!</span>` +
-        `</span>` +
+    `<a class="oh-feature" href="/open-house">` +
+      `<span class="oh-feature-copy">` +
+        `<span class="oh-feature-kicker">אל תחמיצו את ההזדמנות!</span>` +
+        `<h2 class="oh-feature-title">יריד דירות ללא עמלת תיווך,<br>לזמן מוגבל</h2>` +
+        `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        `<span class="oh-feature-cta">לצפייה בדירות ביריד ←</span>` +
       `</span>` +
-      `<span class="oh-promo-cta">לצפייה בדירות ביריד</span>` +
+      `<span class="oh-feature-img" aria-hidden="true"></span>` +
     `</a>`;
   host.hidden = false;
 }
@@ -1625,8 +1623,8 @@ const propsShelf = PropShelf.create({
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
   kindTagsMax:14,
   sortId:'ppSort',
-  // באנר ההדמיות יושב בין הגריד לכפתור "עוד" — ראו showAiPromo()
-  afterGrid:'aiPromo',
+  // באנר ההדמיות כבר לא בתוך התיבה (‏afterGrid): מאוקטובר 2026 הוא סקציה
+  // עצמאית מתחת למבזק, ב-index.html. ‏docs/home-property-shelves.md.
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} ${marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label)} - פרטיים ומסחריים`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
@@ -1829,12 +1827,17 @@ async function loadArticles(){
         <h3>${escapeArticleText(a.title)}</h3>
         ${a.excerpt ? `<p>${escapeArticleText(a.excerpt)}</p>` : ''}
         <span class="stamp">${escapeArticleText(stamp)}</span>
+        <span class="read" aria-hidden="true">לקריאה ←</span>
       </div>`;
     el.appendChild(card);
   });
   refreshScroll();
 })();
 
+
+/* פעמון בקו - במקום האימוג'י 🔔 שהיה בכפתורי ההתראה (אימוג'י נראה אחרת
+   בכל מערכת, ואינו בשפה של הממשק). אותו SVG שב-index.html. */
+const BELL_SVG = '<svg class="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>';
 
 /* קישורי תמונה שמגיעים מטופס הרשמה פתוח נכנסים ישירות ל-href/src, ולכן
    מסוננים לפרוטוקול בטוח בלבד: ‎javascript:‎ בשדה הקישור היה הופך לכתובת
@@ -1890,6 +1893,11 @@ const EXPERT_PLURAL = {
   appraiser:'שמאים', real_estate_lawyer:'עורכי דין', architect:'אדריכלים',
   mortgage_advisor:'יועצי משכנתאות', interior_designer:'מעצבי פנים',
 };
+/* התחום עצמו, לגלולות שבבאנר ("שמאות", לא "שמאים") */
+const EXPERT_FIELD = {
+  appraiser:'שמאות', real_estate_lawyer:'עריכת דין', architect:'אדריכלות',
+  mortgage_advisor:'ייעוץ משכנתאות', interior_designer:'עיצוב פנים',
+};
 /* הסדר כאן הוא סדר ההצגה: קודם מה שהכי קרוב לעסקה עצמה */
 const EXPERT_ORDER = ['appraiser', 'real_estate_lawyer', 'architect', 'mortgage_advisor', 'interior_designer'];
 
@@ -1942,6 +1950,10 @@ async function renderExpertBanner(){
         `<span class="oh-promo-text">` +
           `<span>${line}</span>` +
           `<span>מצאו את המומחה שלכם וצרו קשר להתייעצות אישית.</span>` +
+        `</span>` +
+        // גלולה לכל תחום שקיים בפועל - מאותה רשימה של המשפט שמעל
+        `<span class="oh-promo-pills">` +
+          EXPERT_ORDER.filter(t => present.has(t)).map(t => `<span>${escAttr(EXPERT_FIELD[t])}</span>`).join('') +
         `</span>` +
       `</span>` +
       `<span class="oh-promo-cta">למציאת מומחה ←</span>` +
@@ -3855,6 +3867,13 @@ function renderGabrielaCta(){
     const text = document.getElementById('gabText');
     if (text) text.textContent = 'ספרו לה מה אתם מחפשים, והיא תעדכן אתכם ברגע שעולה נכס מתאים.';
   }
+  // באנר מחפשי הנכס בפוטר: "או כתבו לגבריאלה" רק כשהעוזרת דולקת
+  const buyerGab = document.getElementById('buyerGab');
+  if (buyerGab){
+    buyerGab.innerHTML = '';
+    if (gabrielaBotOn()) buyerGab.appendChild(gabrielaMiniLink('buyer-gab-link', 'או כתבו לגבריאלה', '', 'footer_buyer'));
+    buyerGab.hidden = !gabrielaBotOn();
+  }
   const menu = document.getElementById('menuGab');
   if (menu){
     menu.innerHTML = '';
@@ -3868,24 +3887,42 @@ function renderGabrielaCta(){
 }
 renderGabrielaCta();
 
-/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה של
-   הביקור הראשון - פעם אחת לדפדפן, חמש שניות, ונעלמת בכל מגע. ‏aria-hidden:
-   לקורא מסך המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם
-   המיקרופון מוצג בכלל (‏Web Speech API), ולכן הבדיקה היא על ‎hidden‎ שלו. */
+/* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
+   "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
+   בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
+   מפריעה. היא נעלמת לבד אחרי MIC_HINT_SHOW, או בכל מגע.
+
+   פעם אחת לדפדפן (‏localStorage ‏shuk_mic_hint) - ונספרת רק כשבאמת הוצגה.
+   לא מוצגת אם בינתיים הגולש/ת כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא
+   מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי".
+   ‏sentence-search.js מחליט אם המיקרופון מוצג בכלל (‏Web Speech API). */
+const MIC_HINT_DELAY = 3500;
+const MIC_HINT_SHOW = 4500;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
-  try { if (localStorage.getItem('shuk_mic_hint')) return; localStorage.setItem('shuk_mic_hint', '1'); }
+  try { if (localStorage.getItem('shuk_mic_hint')) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
-  const tip = document.createElement('span');
-  tip.className = 'ss-mic-hint';
-  tip.setAttribute('aria-hidden', 'true');
-  tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
-  mic.appendChild(tip);
-  const remove = ()=>{ tip.remove(); document.removeEventListener('pointerdown', remove, true); };
-  setTimeout(remove, 5000);
-  document.addEventListener('pointerdown', remove, true);
+  setTimeout(()=>{
+    const input = document.getElementById('ssQuery');
+    if (document.hidden || !input || document.activeElement === input || input.value) return;
+    const r = mic.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
+    try { localStorage.setItem('shuk_mic_hint', '1'); } catch(e){ return; }
+    const tip = document.createElement('span');
+    tip.className = 'ss-mic-hint';
+    tip.setAttribute('aria-hidden', 'true');
+    tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+    mic.appendChild(tip);
+    const remove = ()=>{
+      tip.classList.add('is-leaving');
+      setTimeout(()=> tip.remove(), 250);
+      document.removeEventListener('pointerdown', remove, true);
+    };
+    setTimeout(remove, MIC_HINT_SHOW);
+    document.addEventListener('pointerdown', remove, true);
+  }, MIC_HINT_DELAY);
 }
 
 /* ‏"איך זה עובד?" - ‏<dialog> מקורי. ‏showModal נותן לכידת פוקוס ו-Escape,
@@ -5035,7 +5072,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     rows.innerHTML =
       '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.' +
       '<div class="ssa-empty"><button type="button" class="ssa-cta" id="ssaEmptyBtn">' +
-      '🔔 עדכנו אותי כשיעלה נכס כזה</button>' +
+      BELL_SVG + ' עדכנו אותי כשיעלה נכס כזה</button>' +
       '<div class="bot-alt" id="botEmptyWrap"></div></div></div>';
     document.getElementById('ssaEmptyBtn').addEventListener('click', ssaOpen);
     renderEmptyBotLink();

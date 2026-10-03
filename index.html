@@ -3456,7 +3456,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏"ניקוי החיפוש" ו"סינון מתקדם" אינם במוקאפ: הסינון עבר לכותרת התוצאות
      (‏#srFilterBtn) ולפס של המפה הפתוחה, והניקוי יושב שם ממילא (‏#clearSearchBtn).
      הכפתורים נשארים ב-DOM - שניהם נלחצים משם. */
-  .ss-card.ss-free-only .ss-tools{display:none}
+  /* ‏"סינון מתקדם" נשאר מתחת לשורת החיפוש, באותה שפה: גלולה לבנה עם צל
+     עדין, כמו השורה שמעליה. ‏"ניקוי החיפוש" מופיע לצדה רק כשיש מה לנקות. */
+  .ss-card.ss-free-only .ss-tools{display:flex;justify-content:flex-start;gap:10px;padding:10px 0 0;border:0;background:none}
+  .ss-card.ss-free-only .ss-adv,
+  .ss-card.ss-free-only .ss-clear:not(.is-idle){
+    min-height:40px;padding:0 16px;background:#fff;border:1px solid #e3e8f2;
+    box-shadow:0 4px 14px rgba(14,42,107,.10);font-size:14px;font-weight:700;color:var(--sapphire);text-decoration:none;
+  }
+  .ss-card.ss-free-only .ss-adv svg{width:18px;height:18px;color:var(--brass-ink)}
+  .ss-card.ss-free-only .ss-adv:hover,.ss-card.ss-free-only .ss-adv:focus-visible{border-color:var(--brass)}
+  .ss-card.ss-free-only .ss-clear.is-idle{display:none}
+  html body .ss-card.ss-free-only .ss-adv,html body .ss-card.ss-free-only .ss-clear{border-radius:999px !important}
+  .hero.map-closed .hero-inner .ss-card.ss-free-only .ss-tools{justify-content:center}
+  @media(max-width:759px){
+    .ss-card.ss-free-only .ss-tools{padding-top:8px}
+    .ss-card.ss-free-only .ss-adv,.ss-card.ss-free-only .ss-clear:not(.is-idle){min-height:36px;font-size:13.5px}
+  }
+  /* טלפון קטן (‏320×568): שורת הסינון לקחה את ~40px שהכפתור לגבריאלה היה
+     צריך כדי להישאר במסך הראשון - כאן הם חוזרים מהמרווחים */
+  @media(max-width:374px){
+    /* ‏html body: כללי הטלפון של הכרטיס (#555) יושבים מאוחר יותר בקובץ */
+    html body .hero.map-closed .hero-overlay{padding-top:6px}
+    html body .hero.map-closed .search-shell{margin-top:8px}
+    html body .gab{--gab-pop:58px;margin-top:calc(var(--gab-pop) + 6px)}
+    html body .ss-card.ss-free-only .ss-tools{padding-top:6px}
+    html body .hero.map-closed .hero-inner h1{font-size:21px;line-height:1.15}
+  }
   .sr-head .sr-filter{margin-inline-start:0}
   /* בטלפון "הצג N נכסים" יושב בתוך השורה, כמו במוקאפ, ולא בפאנל תחתון */
   @media(max-width:759px){
@@ -3481,11 +3507,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       background:var(--sapphire);color:#fff;font-size:13px;font-weight:600;line-height:1.3;text-align:center;
       box-shadow:0 8px 20px rgba(14,42,107,.28);pointer-events:none;
     }
+    .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
+    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s ease-in both}
     .ss-mic-hint::before{
       content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
       border:6px solid transparent;border-bottom-color:var(--sapphire);
     }
   }
+  @keyframes ssMicHintIn{from{opacity:0;transform:translate(-50%,-4px)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes ssMicHintOut{to{opacity:0;transform:translate(-50%,-4px)}}
+  @media(prefers-reduced-motion:reduce){ .ss-mic-hint,.ss-mic-hint.is-leaving{animation:none} }
   @keyframes ssMicDot{0%{box-shadow:0 0 0 2px #fff,0 0 0 2px rgba(201,162,39,.7)}100%{box-shadow:0 0 0 2px #fff,0 0 0 10px rgba(201,162,39,0)}}
   @media(prefers-reduced-motion:reduce){ .ss-card.ss-free-only .ss-mic::after{animation:none} }
   .hero-sub{margin:8px 0 0;font-size:clamp(15px,1.6vw,20px);line-height:1.4;color:#33415c;font-weight:400;text-wrap:balance}
@@ -3529,6 +3560,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gab-cta:hover,.gab-cta:focus-visible{background:#166d39;color:#fff}
   .gab-cta:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
   .gab-cta svg{width:26px;height:26px;flex:0 0 auto}
+  /* "פתחו שיחה עם גבריאלה" בשורה אחת - בטלפון צר הגופן קטן, ולא הכפתור נשבר */
+  .gab-cta span{white-space:nowrap}
+  /* הנוסח של מצב הכבוי ארוך יותר, וב-320px לא נכנס בשורה אחת - שם עדיף שתי
+     שורות מאוזנות מטקסט שגולש מהכפתור */
+  .gab-cta.is-agent span{white-space:normal;text-wrap:balance;text-align:center}
+  @media(max-width:374px){ .gab-cta{font-size:16px;gap:8px;padding-inline:12px} .gab-cta svg{width:22px;height:22px} }
+  .hero-sub,.gab-text,.owner-hero p,.oh-feature-text,.gab-how-steps span{text-wrap:pretty}
+  .gab-name,.gab-role,.oh-feature-title,#articles .article-card h3{text-wrap:balance}
   /* כשהעוזרת כבויה הכפתור פותח את הסוכן החכם ולא את וואטסאפ - ספיר ולא ירוק */
   .gab-cta.is-agent{background:var(--sapphire)}
   .gab-cta.is-agent:hover,.gab-cta.is-agent:focus-visible{background:var(--sapphire-hover)}
@@ -3807,6 +3846,307 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .mob-back,.mob-filter{padding:0 10px}
   }
   @media(max-width:420px){ .mob-filter span,.mob-back-long{display:none} }
+
+  /* =====================================================================
+     דף הבית מתחת ל-hero (אוקטובר 2026): השפה של ה-hero החדש
+     ---------------------------------------------------------------------
+     הסקציות, הסדר שלהן והלוגיקה כמו שהיו - משתנה רק השפה החזותית: כותרת
+     h2 של 34px (26px בטלפון) בלי שורת קיקר מוזהבת, כרטיסים לבנים עם צל
+     כפול רך, וסירוגין של באנר כהה וסקציה בהירה. **כרטיסי הנכסים, המשרדים
+     והמתווכים - והתגיות עליהם - לא נוגעים** (‏.pc-*, ‏.pp-tags, ‏#dealmakers).
+     ‏docs/home-page-sections.md.
+     ===================================================================== */
+  :root{--home-card-shadow:0 1px 2px rgba(14,42,107,.06),0 8px 20px rgba(14,42,107,.06)}
+  #allProps .pp-head h2,#articles .articles-head h2{
+    font-size:34px;font-weight:800;color:var(--sapphire);letter-spacing:-.5px;line-height:1.15;
+  }
+  @media(max-width:759px){
+    #allProps .pp-head h2,#articles .articles-head h2{font-size:26px}
+  }
+  .ico-bell{width:1.05em;height:1.05em;vertical-align:-.15em;flex:none}
+  .mlead-done .mark .ico-bell,.wiz-done-mark .ico-bell{width:26px;height:26px;vertical-align:middle}
+
+  /* ---------- המבזק: פס לבן אחד ---------- */
+  main div.ticker{background:none;border:0;padding:30px 0 0;overflow:visible}
+  main div.ticker .wrap{
+    background:#fff;border:1px solid #E3E8F2;border-radius:12px;min-height:52px;
+    padding:0 8px 0 16px;gap:14px;box-sizing:border-box;
+  }
+  html[dir="rtl"] main div.ticker .wrap{padding:0 16px 0 8px}
+  main div.ticker .ticker-flag{
+    background:none;color:var(--sapphire);font-size:14px;padding:0 0 0 14px;border-radius:0;
+    border-inline-end:1px solid #E3E8F2;gap:8px;
+  }
+  main div.ticker .ticker-flag .live-dot{background:#c0392b;box-shadow:0 0 0 4px rgba(192,57,43,.15)}
+  main div.ticker .ticker-text{color:#14213d;font-weight:500;font-size:15px}
+  main div.ticker .ticker-more{
+    color:var(--sapphire);font-size:14px;padding:9px 14px;border-radius:8px;background:#F1F4FA;
+    min-height:36px;display:inline-flex;align-items:center;
+  }
+  main div.ticker .ticker-more:hover{background:#e6ebf5}
+  @media(max-width:759px){
+    main div.ticker{padding-top:20px}
+    /* בטלפון הכפתור הוא חץ בלבד; הכיתוב נשאר לקורא מסך (aria-label ב-JS) */
+    main div.ticker .ticker-more{font-size:0;width:40px;height:40px;padding:0;justify-content:center}
+    main div.ticker .ticker-more::before{content:"←";font-size:18px}
+  }
+
+  /* ---------- באנר ההדמיות: סקציה עצמאית מתחת למבזק ---------- */
+  .ai-promo-sec{padding-block:18px 0}
+  .ai-promo-sec:has(> .ai-promo[hidden]){display:none}
+  .ai-promo-sec .ai-promo{margin-top:0;border-radius:14px;overflow:hidden}
+
+  /* ---------- תיבת הנכסים ---------- */
+  #allProps{padding-top:44px}
+  #allProps .pp-box{background:#EEF2F8;border:0;border-radius:24px;box-shadow:none}
+  #allProps .pp-more{
+    background:#fff;color:var(--sapphire);border:1.5px solid var(--sapphire);border-radius:12px;min-height:46px;
+    padding:0 26px;font-weight:700;
+  }
+  #allProps .pp-more:hover{background:var(--sapphire);color:#fff}
+  @media(max-width:759px){ #allProps{padding-top:28px} #allProps .pp-box{border-radius:20px} }
+
+  /* ---------- יריד הבתים הפתוחים: כרטיס כהה עם תמונה ---------- */
+  #openHouseBanner{padding-top:36px}
+  .oh-feature{
+    display:flex;align-items:stretch;min-height:263px;border-radius:24px;overflow:hidden;
+    background:var(--sapphire-deep);color:#fff;text-decoration:none;
+  }
+  .oh-feature-copy{flex:1 1 56%;padding:34px 40px;display:flex;flex-direction:column;justify-content:center;gap:10px;min-width:0}
+  .oh-feature-kicker{font-size:14px;font-weight:700;letter-spacing:2px;color:var(--brass-light)}
+  .oh-feature-title{margin:0;font-size:36px;font-weight:800;line-height:1.15;color:#fff}
+  .oh-feature-text{font-size:16px;line-height:1.6;color:#c9d3e8;max-width:46ch}
+  .oh-feature-cta{
+    align-self:flex-start;margin-top:8px;background:var(--brass);color:var(--sapphire-deep);font-weight:800;font-size:16px;
+    padding:0 22px;min-height:46px;display:inline-flex;align-items:center;border-radius:12px;
+  }
+  .oh-feature:hover .oh-feature-cta,.oh-feature:focus-visible .oh-feature-cta{background:var(--brass-light)}
+  .oh-feature:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+  .oh-feature-img{
+    flex:1 1 44%;position:relative;min-height:200px;
+    background:linear-gradient(270deg,var(--sapphire-deep) 0%,rgba(13,27,61,0) 45%),url("/assets/hero-valley-800.webp") center/cover no-repeat;
+  }
+  html[dir="ltr"] .oh-feature-img{background:linear-gradient(90deg,var(--sapphire-deep) 0%,rgba(13,27,61,0) 45%),url("/assets/hero-valley-800.webp") center/cover no-repeat}
+  @media(max-width:759px){
+    #openHouseBanner{padding-top:28px}
+    .oh-feature{flex-direction:column-reverse;min-height:0;border-radius:20px}
+    .oh-feature-img{flex:0 0 150px;min-height:150px;
+      background:linear-gradient(0deg,var(--sapphire-deep) 0%,rgba(13,27,61,0) 60%),url("/assets/hero-valley-800.webp") center 30%/cover no-repeat}
+    .oh-feature-copy{padding:4px 20px 22px}
+    .oh-feature-title{font-size:24px}
+    .oh-feature-text{font-size:15px}
+    .oh-feature-cta{align-self:stretch;justify-content:center}
+  }
+
+  /* ---------- הערכת שווי: תמונת העמק מתחת לשכבת ספיר, והאשף על כרטיס לבן ----------
+     הבוררים כאן ממוענים ל-‎#ownerBannerWrap‎ כדי לגבור על כללי ה-‎.lead-banner‎
+     הכהים (שמשרתים גם את באנר מחפשי הנכס שבפוטר) בלי לגעת בהם. */
+  #ownerBannerWrap{padding-top:44px}
+  #ownerBannerWrap #ownerBanner{
+    position:relative;isolation:isolate;overflow:hidden;border-radius:24px;padding:36px;margin:0;
+    display:flex;flex-wrap:wrap;align-items:center;gap:32px;min-height:420px;box-sizing:border-box;
+    background:url("/assets/hero-valley.webp") center 55%/cover no-repeat;border:0;box-shadow:none;
+  }
+  #ownerBannerWrap #ownerBanner::before{
+    content:"";position:absolute;inset:0;z-index:-1;border:0;border-radius:0;pointer-events:none;
+    background:linear-gradient(270deg,rgba(14,42,107,.96) 0%,rgba(14,42,107,.88) 45%,rgba(14,42,107,.55) 100%);
+  }
+  html[dir="ltr"] #ownerBannerWrap #ownerBanner::before{background:linear-gradient(90deg,rgba(14,42,107,.96) 0%,rgba(14,42,107,.88) 45%,rgba(14,42,107,.55) 100%)}
+  #ownerBannerWrap #ownerBanner::after{display:none}
+  #ownerBannerWrap .owner-hero{flex:1 1 400px;min-width:0;display:flex;flex-direction:column;gap:14px;color:#fff;text-align:start}
+  #ownerBannerWrap .owner-hero h2{margin:0;font-size:38px;font-weight:800;line-height:1.15;color:#fff}
+  #ownerBannerWrap .owner-hero h2 span{color:var(--brass-light)}
+  #ownerBannerWrap .owner-hero p{margin:0;font-size:17px;line-height:1.6;color:#e6ebf5;max-width:480px}
+  .owner-steps{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+  .owner-steps li{display:flex;align-items:center;gap:12px;font-size:16px;line-height:1.4;color:#e6ebf5}
+  .owner-steps li b{color:#fff;font-weight:700}
+  .owner-steps li > .n{
+    flex:none;width:30px;height:30px;border-radius:50%;background:var(--brass);color:var(--sapphire-deep);
+    font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;
+  }
+  /* האשף: כרטיס לבן מרחף עם צל עמוק */
+  #ownerBannerWrap .lead-panel{
+    flex:0 1 460px;min-width:0;margin:0;padding:26px 28px;background:#fff;border-radius:20px;
+    box-shadow:0 24px 50px rgba(0,0,0,.3);text-align:start;color:var(--ink);border:0;animation:none;
+  }
+  #ownerBannerWrap .owner-wizard{background:none;border:0;padding:0;margin:0;box-shadow:none}
+  #ownerBannerWrap .wiz-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 16px}
+  #ownerBannerWrap .wiz-steps li{
+    color:#6b7a96;font-size:13px;font-weight:600;padding-bottom:8px;border-bottom:3px solid #e3e8f2;gap:6px;
+  }
+  #ownerBannerWrap .wiz-steps li.active{color:var(--sapphire);border-bottom-color:var(--brass)}
+  #ownerBannerWrap .wiz-steps li.done{color:var(--sapphire);border-bottom-color:var(--brass)}
+  #ownerBannerWrap .wiz-steps .dot{background:#e3e8f2;color:#4a5872;box-shadow:none}
+  #ownerBannerWrap .wiz-steps li.active .dot,#ownerBannerWrap .wiz-steps li.done .dot{background:var(--brass);color:var(--sapphire-deep);box-shadow:none}
+  #ownerBannerWrap .wiz-q{color:var(--sapphire-deep);font-size:17px;font-weight:700;margin:0 0 10px}
+  #ownerBannerWrap .wiz-label{color:var(--sapphire-deep);font-size:14px;font-weight:600;margin:14px 0 6px}
+  #ownerBannerWrap .wiz-input{
+    height:50px;border:1px solid #dfe5ef;border-radius:12px;background:#f8fafd;padding:0 14px;font-size:16px;
+    color:var(--ink);box-sizing:border-box;
+  }
+  #ownerBannerWrap .wiz-input:focus{outline:2px solid var(--brass);outline-offset:1px;background:#fff}
+  #ownerBannerWrap .owner-toggle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  #ownerBannerWrap .owner-toggle button{
+    height:52px;border:1px solid #dfe5ef;background:#fff;color:#33415c;border-radius:12px;font-size:16px;font-weight:600;
+  }
+  #ownerBannerWrap .owner-toggle button{white-space:nowrap}
+  @media(max-width:374px){ #ownerBannerWrap .owner-toggle button{font-size:15px;padding:0 6px} #ownerBannerWrap .wiz-steps li{font-size:12px} }
+  #ownerBannerWrap .owner-toggle button.active{border:2px solid var(--sapphire);background:#eef3fb;color:var(--sapphire);font-weight:700}
+  #ownerBannerWrap .chip{
+    min-height:44px;border:1px solid #dfe5ef;background:#fff;color:#33415c;border-radius:10px;
+  }
+  #ownerBannerWrap .chip[aria-checked="true"]{border:2px solid var(--sapphire);background:#eef3fb;color:var(--sapphire)}
+  #ownerBannerWrap .wiz-checks label{color:#33415c;border:1px solid #dfe5ef;background:#fff;border-radius:10px;min-height:44px;box-sizing:border-box}
+  #ownerBannerWrap .wiz-checks label:has(input:checked){border-color:var(--sapphire);background:#eef3fb}
+  #ownerBannerWrap .wiz-err{color:#b3261e}
+  #ownerBannerWrap .wiz-nav .btn{min-height:52px;border-radius:12px;font-size:17px;font-weight:800}
+  #ownerBannerWrap .btn-gold{background:var(--brass);border-color:var(--brass);color:var(--sapphire-deep)}
+  #ownerBannerWrap .btn-ghost-light{background:#fff;border:1.5px solid var(--sapphire);color:var(--sapphire)}
+  #ownerBannerWrap .wiz-done h3{color:var(--sapphire-deep)}
+  #ownerBannerWrap .wiz-done p:not(.wiz-disclaimer){color:#33415c}
+  #ownerBannerWrap .wiz-done-mark{background:var(--brass);color:var(--sapphire-deep)}
+  /* ההסתייגות - מתחת לכפתור בכל שלב ובמסך התודה */
+  .wiz-disclaimer{margin:10px 0 0;font-size:12.5px;line-height:1.5;color:#4a5872;text-align:start}
+  @media(max-width:759px){
+    #ownerBannerWrap{padding-top:28px}
+    #ownerBannerWrap #ownerBanner{
+      display:block;padding:0;min-height:0;border-radius:20px;background:none;overflow:visible;
+    }
+    #ownerBannerWrap #ownerBanner::before{display:none}
+    /* בטלפון: התמונה והכותרת למעלה, והכרטיס הלבן עולה עליהן */
+    #ownerBannerWrap .owner-hero{
+      position:relative;isolation:isolate;overflow:hidden;border-radius:20px 20px 0 0;padding:26px 20px 64px;gap:10px;
+      background:linear-gradient(180deg,rgba(14,42,107,.78),rgba(14,42,107,.96)),url("/assets/hero-valley-800.webp") center/cover no-repeat;
+    }
+    #ownerBannerWrap .owner-hero h2{font-size:28px}
+    #ownerBannerWrap .owner-hero p{font-size:15.5px}
+    .owner-steps li{font-size:15px}
+    #ownerBannerWrap .lead-panel{margin:-44px 10px 0;padding:20px 18px;position:relative}
+  }
+
+  /* ---------- כתבות: שלושה כרטיסים ושורת קישורים ---------- */
+  #articles{padding-top:56px}
+  #articles .row-nav{display:none !important}
+  #articles .article-scroll{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;overflow:visible;padding:0;margin:0;
+    mask-image:none;-webkit-mask-image:none;scroll-snap-type:none;
+  }
+  #articles .article-card,
+  #articles .article-card:first-child{
+    flex:none;width:auto;border:0;border-radius:18px;overflow:hidden;background:#fff;box-shadow:var(--home-card-shadow);
+  }
+  #articles .article-card .cover,
+  #articles .article-card:first-child .cover{height:auto;aspect-ratio:16/9}
+  #articles .article-card .body{padding:18px 20px 20px;gap:8px}
+  #articles .article-card .kicker{
+    align-self:flex-start;font-size:12.5px;font-weight:700;color:var(--brass-ink);background:var(--brass-tint);
+    padding:3px 10px;border-radius:999px;letter-spacing:0;
+  }
+  #articles .article-card h3{font-size:19px;line-height:1.35;color:#14213d;margin:0}
+  #articles .article-card p,#articles .article-card .stamp{display:none}
+  #articles .article-card .read{font-size:14px;font-weight:700;color:var(--sapphire);margin-top:auto}
+  /* מהרביעית והלאה: שורת קישורים (שלוש), ולא עוד כרטיסים */
+  #articles .article-scroll > .article-card:nth-child(n+4){
+    flex-direction:row;align-items:center;gap:10px;padding:14px 16px;border:1px solid #E3E8F2;border-radius:12px;box-shadow:none;
+  }
+  #articles .article-scroll > .article-card:nth-child(n+4) .cover,
+  #articles .article-scroll > .article-card:nth-child(n+4) .kicker,
+  #articles .article-scroll > .article-card:nth-child(n+4) .read{display:none}
+  #articles .article-scroll > .article-card:nth-child(n+4) .body{padding:0;flex-direction:row;align-items:center;gap:10px}
+  #articles .article-scroll > .article-card:nth-child(n+4) .body::before{content:"●";color:var(--brass);font-size:12px;flex:none}
+  #articles .article-scroll > .article-card:nth-child(n+4) h3{font-size:15px;font-weight:600}
+  #articles .article-scroll > .article-card:nth-child(n+7){display:none}
+  #articles .see-all{font-size:15px;font-weight:700;color:var(--sapphire);border:0}
+  @media(max-width:759px){
+    #articles{padding-top:32px}
+    /* בטלפון: כרטיס אחד, ואחריו רשימת קישורים - במקום הגלילה האופקית */
+    #articles .article-scroll{grid-template-columns:minmax(0,1fr);gap:10px}
+    #articles .article-scroll > .article-card:nth-child(n+2){
+      flex-direction:row;align-items:center;gap:10px;padding:14px 16px;border:1px solid #E3E8F2;border-radius:12px;box-shadow:none;
+    }
+    #articles .article-scroll > .article-card:nth-child(n+2) .cover,
+    #articles .article-scroll > .article-card:nth-child(n+2) .kicker,
+    #articles .article-scroll > .article-card:nth-child(n+2) .read{display:none}
+    #articles .article-scroll > .article-card:nth-child(n+2) .body{padding:0;flex-direction:row;align-items:center;gap:10px}
+    #articles .article-scroll > .article-card:nth-child(n+2) .body::before{content:"●";color:var(--brass);font-size:12px;flex:none}
+    #articles .article-scroll > .article-card:nth-child(n+2) h3{font-size:15px;font-weight:600}
+    #articles .article-scroll > .article-card:nth-child(n+5){display:none}
+  }
+
+  /* ---------- מומחה אמיתי: אחרי הכתבות, וגלולה לכל תחום ---------- */
+  #expertBanner{padding-top:44px}
+  #expertBanner .oh-promo{border-radius:20px;padding:26px 34px}
+  #expertBanner .oh-promo::before{inset:8px;border-radius:14px}
+  .oh-promo-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .oh-promo-pills span{
+    border:1px solid rgba(229,199,106,.55);color:var(--brass-light);border-radius:999px;padding:3px 12px;
+    font-size:13.5px;font-weight:600;white-space:nowrap;
+  }
+  .oh-promo-pills:empty{display:none}
+  @media(max-width:1039px){ #expertBanner .oh-promo-text{display:flex} #expertBanner .oh-promo-text > span{white-space:normal} }
+  @media(max-width:759px){
+    #expertBanner{padding-top:28px}
+    #expertBanner .oh-promo{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:22px 20px;text-align:start}
+    #expertBanner .oh-promo-title{font-size:26px}
+    #expertBanner .oh-promo-art{height:64px}
+    #expertBanner .oh-promo-cta{align-self:stretch;text-align:center;margin:4px 0 0}
+  }
+
+  /* ---------- פינות מעוגלות בדף הבית ----------
+     ‏design-system.css מיישר פינות לכל האתר (‏border-radius:0 !important על
+     ‎[class*="-card"]‎, ‎[class*="-btn"]‎, ‎[class*="-panel"]‎, ‎.btn‎, ‎input‎…).
+     העיצוב החדש של דף הבית מעוגל (המוקאפ), ולכן כאן - ורק לרכיבים שהוא
+     מעצב - ‏!important נגדי. כרטיסי הנכסים, המשרדים והמתווכים אינם ברשימה:
+     הם נשארים כמו היום. */
+  /* ‏design-system.css נטען *אחרי* הבלוק הזה, ולכן ‎!important‎ בספציפיות
+     שווה מפסיד לו - ‏‎html body‎ מעלה את הספציפיות של מה שאין לו מזהה */
+  html body .map-open-btn{border-radius:12px !important}
+  html body .map-open-fab,html body .map-list-btn{border-radius:999px !important}
+  html body .mob-back,html body .mob-filter,html body .ss-card.ss-free-only .ss-go{border-radius:10px !important}
+  html body .nav-drop-menu{border-radius:14px !important}
+  html body .hdr-login,html body .hamburger{border-radius:12px !important}
+  html body .gab-how-dlg{border-radius:20px !important}
+  #ownerBannerWrap #ownerBanner{border-radius:24px !important}
+  #ownerBannerWrap .lead-panel{border-radius:20px !important}
+  #ownerBannerWrap .wiz-input,#ownerBannerWrap .owner-toggle button,#ownerBannerWrap .wiz-nav .btn{border-radius:12px !important}
+  #ownerBannerWrap .chip,#ownerBannerWrap .wiz-checks label{border-radius:10px !important}
+  #articles .article-card{border-radius:18px !important}
+  #articles .article-scroll > .article-card:nth-child(n+4){border-radius:12px !important}
+  #allProps .pp-box{border-radius:24px !important}
+  #allProps .pp-more{border-radius:12px !important}
+  .oh-feature{border-radius:24px !important}
+  .ticker .wrap{border-radius:12px !important}
+  .ticker-more{border-radius:8px !important}
+  @media(max-width:759px){
+    #ownerBannerWrap #ownerBanner{border-radius:20px !important}
+    #articles .article-scroll > .article-card:nth-child(n+2){border-radius:12px !important}
+    #allProps .pp-box,.oh-feature{border-radius:20px !important}
+  }
+
+  /* ---------- באנר מחפשי הנכס: כרטיס שעולה מעל קו הפוטר ---------- */
+  .footer-lead{padding-top:0}
+  footer.site .footer-lead .buyer-banner{
+    max-width:1180px;margin:0 auto;transform:translateY(-36px);margin-bottom:-12px;
+    background:var(--sapphire);border:1px solid rgba(229,199,106,.45);border-radius:18px !important;
+    box-shadow:0 18px 40px rgba(6,14,40,.35);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  }
+  footer.site .footer-lead .buyer-banner .lead-teaser-icon{border-radius:12px !important;background:rgba(229,199,106,.14);border-color:rgba(229,199,106,.4);color:var(--brass-light)}
+  footer.site .footer-lead .buyer-banner .lead-teaser-go{border-radius:10px !important}
+  footer.site .footer-lead .buyer-banner .lead-panel{grid-column:1 / -1}
+  .buyer-gab{padding-inline-end:18px}
+  .buyer-gab[hidden]{display:none}
+  .buyer-gab a{display:inline-flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:700;text-decoration:none;min-height:44px;white-space:nowrap}
+  .buyer-gab a:hover,.buyer-gab a:focus-visible{text-decoration:underline;text-decoration-color:var(--brass)}
+  .buyer-gab img{width:34px;height:34px;border-radius:50%;border:2px solid var(--brass);flex:none}
+  .buyer-gab a > span > span{display:none}
+  @media(max-width:759px){
+    footer.site .footer-lead .buyer-banner{grid-template-columns:minmax(0,1fr);transform:translateY(-24px);margin:0 16px -8px}
+    .buyer-gab{padding:0 16px 14px;justify-self:center}
+  }
+
+  /* ---------- מקום פרסום: מסגרת מקווקוות דקה ---------- */
+  .ad-row .ad-slot{border:1px dashed #c9d2e3;border-radius:10px;background:#fff;color:#6b7a96}
+  .ad-row .ad-slot .tag{border:1px solid #c9d2e3;border-radius:4px;letter-spacing:1px;font-size:11px;background:none}
 </style>
 
 <!-- נתונים מובנים: הכתובת הפיזית, אזור השירות והעמודים ברשתות. זה מה
@@ -4126,7 +4466,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
           </script>
 
-          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? הכל כאן.</p>
+          <p class="hero-sub">מחפשים לקנות, למכור, להשכיר או להשקיע? <span class="nw">הכל כאן.</span></p>
 
         </div><!-- /.hero-lead -->
 
@@ -4240,7 +4580,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="gab-head">
               <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת AI</span>
               <p class="gab-name" aria-hidden="true">גבריאלה</p>
-              <p class="gab-role">מחפשת נכס <br>בשבילכם!</p>
+              <p class="gab-role">מחפשת נכס <br><span class="nw">בשבילכם!</span></p>
             </div>
             <div class="gab-figure">
               <div class="gab-disc" aria-hidden="true"></div>
@@ -4259,10 +4599,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <p class="gab-text" id="gabText">כתבו לה בוואטסאפ מה אתם מחפשים, והיא תמצא נכסים מתאימים ותעדכן אתכם ברגע שעולה נכס חדש.</p>
             <div class="gab-chat" aria-hidden="true">
-              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
               <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
             </div>
-            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד 1.6 מיליון ₪</div>
+            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
             <div class="gab-actions">
               <span class="gab-cta-wrap" id="gabCtaWrap"></span>
               <button type="button" class="gab-how" id="gabHowBtn" aria-haspopup="dialog" aria-controls="gabHowDialog">איך זה עובד?</button>
@@ -4282,7 +4622,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </picture>
             <div class="gab-float" aria-hidden="true">
               <span class="gab-float-ok"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
-              <span><b>מצאתי 4 נכסים מתאימים</b><span><span data-gab-city>עפולה</span> · עד 1.6 מ׳ ₪</span></span>
+              <span><b>מצאתי 4 נכסים מתאימים</b><span><span data-gab-city>עפולה</span> · <span class="nw">עד 1.6 מ׳ ₪</span></span></span>
             </div>
           </div>
         </article>
@@ -4813,7 +5153,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="sr-only">- הסרת מסנן ההדמיות</span>
         </button>
         <button type="button" class="map-open-btn" id="mapOpenBtn" data-map-open="results_header"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg> הצג במפה</button>
-        <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
+        <button type="button" class="ssa-cta" id="ssaOpenBtn"><svg class="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> עדכנו אותי על נכסים כאלה</button>
         <!-- ‏"סינון מתקדם" עבר לכאן מתחת לשורת החיפוש שב-hero (שם יש רק את השדה
              והכפתור, כמו במוקאפ). הוא פותח את אותו חלון - ראו ‎#ssAdvancedBtn‎. -->
         <button type="button" class="sr-clear sr-filter" id="srFilterBtn" aria-haspopup="dialog">סינון מתקדם</button>
@@ -4839,6 +5179,44 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
+
+  <!-- ====== באנר ההדמיות: סקציה עצמאית מיד מתחת למבזק ======
+       ‏**אוקטובר 2026:** יצא מתוך תיבת הנכסים (‏cfg.afterGrid של המדף) ועלה
+       לכאן, כדי ששני באנרים כהים לא יופיעו ברצף - באנר כהה ואחריו סקציה
+       בהירה, לסירוגין. העיצוב וההתנהגות (‏initAiPromo, ‏initAiPromoThumb)
+       כמו שהיו. ‏docs/home-property-shelves.md.
+
+       (ההערה המקורית, מהתקופה שבה ישב בתוך התיבה:)
+       מחליף את רצועת ההדמיות הגדולה שישבה כאן מתחת למבזק, ודחפה את
+       הנכסים עצמם מסך שלם למטה. הוא לא נשאר כאן: PropShelf.create()
+       מעביר אותו (‏cfg.afterGrid) לתוך התיבה, בין הגריד לכפתור "עוד",
+       כלומר בדיוק אחרי שהעין עברה על שתי שורות נכסים ושואלת "מה עוד".
+
+       שני פתחים יוצאים ממנו, אותם שני פתחים של הרצועה שהוא מחליף: מסנן
+       ההדמיות (למי שמחפש/ת) ואשף הערכת השווי (למי שמוכר/ת). המספר הוא
+       הנכסים *הפעילים* שיש להם הדמיה מפורסמת — אותה קבוצה שהתגית ב-hero
+       סופרת. אין אף אחד → הבאנר נשאר hidden. ראו initAiPromo(). -->
+  <section class="section wrap ai-promo-sec" aria-label="הדמיות AI">
+  <div class="ai-promo" id="aiPromo" hidden>
+    <!-- הסדר ב-DOM הוא הסדר בעין ב-RTL, כמו במוקאפ: הטקסט והכפתור מימין,
+         התמונון באמצע, וקופסת ה-CTA משמאל. כל משפט כאן הוא שורה אחת
+         (‏nowrap) — ראו ‎.ai-promo‎ ב-CSS. -->
+    <div class="ai-promo-copy">
+      <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים כאן כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
+      <p class="ai-promo-sub">ראו איך כל נכס ייראה אחרי שיפוץ - בלחיצה אחת.</p>
+      <button type="button" class="ai-promo-go" id="aiPromoGo"></button>
+    </div>
+    <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
+    <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
+         שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
+         מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
+    <button type="button" class="ai-promo-cta" id="aiPromoCta">
+      <b>חושבים למכור או להשכיר?</b>
+      <span class="ai-promo-cta-long">השאירו פרטים לפגישה - כולל הדמיית AI לנכס שלכם</span>
+      <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
+    </button>
+  </div>
+  </section>
 
   <!-- ====== הנכסים: פרטי ומסחרי, מכירה והשכרה, בתיבה אחת ======
        יושבת מיד מתחת למבזק, ובמקומן של **שתי** התצוגות שישבו
@@ -4867,35 +5245,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        docs/home-property-shelves.md. -->
   <section class="section wrap" id="allProps" hidden></section>
 
-  <!-- ====== באנר ההדמיות: בסוף תיבת הנכסים ======
-       מחליף את רצועת ההדמיות הגדולה שישבה כאן מתחת למבזק, ודחפה את
-       הנכסים עצמם מסך שלם למטה. הוא לא נשאר כאן: PropShelf.create()
-       מעביר אותו (‏cfg.afterGrid) לתוך התיבה, בין הגריד לכפתור "עוד",
-       כלומר בדיוק אחרי שהעין עברה על שתי שורות נכסים ושואלת "מה עוד".
-
-       שני פתחים יוצאים ממנו, אותם שני פתחים של הרצועה שהוא מחליף: מסנן
-       ההדמיות (למי שמחפש/ת) ואשף הערכת השווי (למי שמוכר/ת). המספר הוא
-       הנכסים *הפעילים* שיש להם הדמיה מפורסמת — אותה קבוצה שהתגית ב-hero
-       סופרת. אין אף אחד → הבאנר נשאר hidden. ראו initAiPromo(). -->
-  <div class="ai-promo" id="aiPromo" hidden>
-    <!-- הסדר ב-DOM הוא הסדר בעין ב-RTL, כמו במוקאפ: הטקסט והכפתור מימין,
-         התמונון באמצע, וקופסת ה-CTA משמאל. כל משפט כאן הוא שורה אחת
-         (‏nowrap) — ראו ‎.ai-promo‎ ב-CSS. -->
-    <div class="ai-promo-copy">
-      <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים כאן כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
-      <p class="ai-promo-sub">ראו איך כל נכס ייראה אחרי שיפוץ - בלחיצה אחת.</p>
-      <button type="button" class="ai-promo-go" id="aiPromoGo"></button>
-    </div>
-    <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
-    <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
-         שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
-         מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
-    <button type="button" class="ai-promo-cta" id="aiPromoCta">
-      <b>חושבים למכור או להשכיר?</b>
-      <span class="ai-promo-cta-long">השאירו פרטים לפגישה - כולל הדמיית AI לנכס שלכם</span>
-      <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
-    </button>
-  </div>
 
   <!-- ====== יריד הבתים הפתוחים: הרצועה שמובילה אליו ======
        יושבת מיד מתחת לתיבת הנכסים ובאנר ההדמיות שבסופה: מי שגלל/ה עד
@@ -4915,7 +5264,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="mlead-overlay" id="ssaModal" role="dialog" aria-modal="true" aria-labelledby="ssaTitle">
     <div class="filter-modal">
       <div class="filter-modal-header">
-        <h3 id="ssaTitle">🔔 סוכן חכם - התראה על נכס מתאים</h3>
+        <h3 id="ssaTitle"><svg class="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg> סוכן חכם - התראה על נכס מתאים</h3>
         <button type="button" class="filter-modal-close" id="ssaCloseBtn" aria-label="סגירה">✕</button>
       </div>
 
@@ -4990,7 +5339,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </form>
 
       <div class="filter-modal-body mlead-done" id="ssaDone" hidden>
-        <div class="mark">🔔</div>
+        <div class="mark" aria-hidden="true"><svg class="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></div>
         <h4>הסוכן החכם פועל</h4>
         <p id="ssaDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים לחיפוש.</p>
       </div>
@@ -5082,18 +5431,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- ====== בעלי המקצוע: באנר שמוביל לדף שלהם ======
-       בעלי המקצוע ישבו עד כה כלשונית שלישית בסקציית האנשים, לצד משרדי
-       התיווך והמתווכים — אבל הם לא "מי שמוכר לכם דירה" אלא מי שמייעץ לכם
-       לפני שקונים, והשאלה שהם עונים עליה אחרת. עכשיו יש להם באנר משלהם,
-       באותה שפה של באנר היריד (‏.oh-promo), שמוביל ל-/professionals — שם
-       מסננים לפי תחום ואזור ופונים ישירות.
-
-       הבאנר נבנה ב-renderExpertBanner() ונשאר hidden כשאין אף בעל/ת מקצוע
-       פעיל/ה: באנר שמוביל לדף ריק גרוע מהיעדר באנר. רשימת התחומים שבו
-       נגזרת מבעלי המקצוע שקיימים בפועל, ולא מרשימה קבועה — הבטחה על "עורכי
-       דין" כשאין אף אחד הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
-  <section class="section wrap" id="expertBanner" hidden></section>
 
   <!-- ====== Owner-lead banner ======
        יושב מיד מתחת לרצועת הנכסים למכירה: מי שגלל/ה את מחירי השכנים הוא/היא
@@ -5106,10 +5443,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        הבאנר הוסר מהתצוגה בדף הבית (hidden על העוטף — אפס גובה ואפס רווח).
        הסימון נשאר כי home.js נקשר לשדות האשף ברמה העליונה, ו-#aiPromoCta
        עדיין פותח את האשף: הוא מסיר את ה-hidden לפני שהוא פותח וגולל. -->
-  <div class="section wrap" id="ownerBannerWrap" hidden>
-    <div class="lead-banner owner-banner" id="ownerBanner">
-      <button type="button" class="lead-teaser" id="ownerStartBtn"
-              aria-expanded="false" aria-controls="ownerPanel">
+  <!-- ‏**אוקטובר 2026: הבאנר חוזר לדף הבית כסקציה מלאה** (במקום השורה המקופלת
+       שהוסתרה ב-#504): תמונת העמק מתחת לשכבת ספיר, מימין הכותרת ושלושה צעדים,
+       ומשמאל האשף הקיים - פתוח - על כרטיס לבן מרחף. כל המזהים של האשף נשארו,
+       ולכן home.js שולח לאותו endpoint. ‏.lead-teaser נשאר ב-DOM מוסתר
+       (‏bindLeadBanner נקשר אליו). ‏**ההערה על השמאי מופיעה מתחת לכפתור בכל
+       שלב ובמסך התודה** (‏.wiz-disclaimer) - זו הסתייגות משפטית, ולא שורה אחת
+       בסוף שאפשר לגלול מעליה. ‏docs/home-page-sections.md. -->
+  <section class="section wrap owner-sec" id="ownerBannerWrap" aria-labelledby="ownerTitle">
+    <div class="lead-banner owner-banner is-open" id="ownerBanner">
+      <div class="owner-hero">
+        <h2 id="ownerTitle">כמה שווה הנכס שלכם?<br><span>הערכת שווי חינם</span></h2>
+        <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
+        <ol class="owner-steps">
+          <li><span class="n" aria-hidden="true">1</span><span><b>ממלאים כתובת ופרטי נכס</b> <span class="nw">- פחות מדקה</span></span></li>
+          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מומלץ/ת מהאזור</b> <span class="nw">בודק/ת את הנכס</span></span></li>
+          <li><span class="n" aria-hidden="true">3</span><span><b>מקבלים הערכת שווי חינם</b><span class="nw">, בלי התחייבות</span></span></li>
+        </ol>
+      </div>
+      <button type="button" class="lead-teaser" id="ownerStartBtn" hidden
+              aria-expanded="true" aria-controls="ownerPanel">
         <span class="lead-teaser-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 10.5 12 3l9 7.5"></path>
@@ -5127,8 +5480,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </span>
       </button>
 
-      <div class="lead-panel" id="ownerPanel" hidden>
-      <div class="owner-intro">
+      <div class="lead-panel" id="ownerPanel">
+      <div class="owner-intro" hidden>
         <h2 id="ownerHeadline">מוכר/משכיר?</h2>
         <p>קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווך מומלץ באזורכם.</p>
       </div>
@@ -5155,6 +5508,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="wiz-nav">
               <button type="button" class="btn btn-gold" data-next="2">להמשך ←</button>
             </div>
+            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
           </section>
 
           <!-- שלב 2 -->
@@ -5192,6 +5546,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button>
               <button type="button" class="btn btn-gold" data-next="3">להמשך ←</button>
             </div>
+            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
           </section>
 
           <!-- שלב 3 -->
@@ -5206,6 +5561,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="btn btn-ghost-light" data-back="2">→ חזרה</button>
               <button type="submit" class="btn btn-gold" id="wizSubmitBtn">קבלת הערכת שווי חינם</button>
             </div>
+            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
           </section>
         </form>
 
@@ -5215,11 +5571,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h3>הפרטים נשלחו לבדיקה</h3>
           <p>סוכן מקומי יצור איתכם קשר תוך זמן קצר עם הערכת המחיר המדויקת לנכס.</p>
           <button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>
+          <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
         </div>
       </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- ====== כתבות ובלוגים ======
        הרצועה מציגה את שמונה האחרונות; הארכיון המלא (articles.html) הוא
@@ -5246,6 +5603,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          לשורת הכותרת (ראו ‎#articles‎ ב-CSS). קישור אחד, שני מקומות. -->
     <p class="articles-all"><a href="/articles" class="see-all">כל הכתבות ←</a></p>
   </section>
+
+  <!-- ====== בעלי המקצוע: באנר שמוביל לדף שלהם ======
+       ‏**אוקטובר 2026: אחרי הכתבות**, ולא צמוד להערכת השווי - שני באנרים
+       כהים ברצף הם עומס. ‏docs/home-page-sections.md.
+
+       בעלי המקצוע ישבו עד כה כלשונית שלישית בסקציית האנשים, לצד משרדי
+       התיווך והמתווכים — אבל הם לא "מי שמוכר לכם דירה" אלא מי שמייעץ לכם
+       לפני שקונים, והשאלה שהם עונים עליה אחרת. עכשיו יש להם באנר משלהם,
+       באותה שפה של באנר היריד (‏.oh-promo), שמוביל ל-/professionals — שם
+       מסננים לפי תחום ואזור ופונים ישירות.
+
+       הבאנר נבנה ב-renderExpertBanner() ונשאר hidden כשאין אף בעל/ת מקצוע
+       פעיל/ה: באנר שמוביל לדף ריק גרוע מהיעדר באנר. רשימת התחומים שבו
+       נגזרת מבעלי המקצוע שקיימים בפועל, ולא מרשימה קבועה — הבטחה על "עורכי
+       דין" כשאין אף אחד הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
+  <section class="section wrap" id="expertBanner" hidden></section>
 
   <!-- ====== שורת פרסומת ====== -->
   <div class="ad-row wrap">
@@ -5592,10 +5965,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               aria-expanded="false" aria-controls="buyerPanel">
         <span class="lead-teaser-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="10.5" cy="10.5" r="6.5"></circle>
-            <path d="M15.5 15.5 21 21"></path>
-            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
-            <path d="M8.5 10.9v3h4v-3"></path>
+            <path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"></path>
+            <path d="M10 20a2 2 0 0 0 4 0"></path>
           </svg>
         </span>
         <span class="lead-teaser-copy">
@@ -5607,6 +5978,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="lead-teaser-go-close">סגירה ✕</span>
         </span>
       </button>
+      <!-- ‏"או כתבו לגבריאלה" - רק כשהעוזרת דולקת (‏renderGabrielaCta). כשהיא
+           כבויה אין כאן כלום: הבאנר עצמו הוא כבר הסוכן החכם. -->
+      <div class="buyer-gab" id="buyerGab" hidden></div>
 
       <div class="lead-panel" id="buyerPanel" hidden>
         <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
@@ -5759,7 +6133,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <!-- מסך סיום -->
           <div class="wiz-done" id="buyDone" hidden>
-            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <div class="wiz-done-mark" aria-hidden="true"><svg class="ico-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></div>
             <h3>החיפוש שלכם פעיל</h3>
             <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
             <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>

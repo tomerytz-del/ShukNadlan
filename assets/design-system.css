@@ -451,3 +451,12 @@ footer.site h3,footer.site h4,.footer-brand .footer-logo span{color:#fff}
 html.a11y-nomotion *,html.a11y-nomotion *::before,html.a11y-nomotion *::after{
   animation:none !important;
 }
+
+/* ====== שבירת שורות: לא באמצע משפט ======
+   ‏balance לכותרות (שורות באורך דומה, בלי מילה יתומה בשורה האחרונה), ו-pretty
+   לפסקאות (מונע שורה אחרונה של מילה אחת). זה שיפור הדרגתי: דפדפן שלא מכיר
+   את המאפיין פשוט שובר כמו קודם. איפה שצירוף חייב להישאר יחד ("פחות מדקה",
+   "עם גבריאלה") - ‏‎.nw‎ (‏white-space:nowrap) על הצירוף עצמו, ב-HTML. */
+h1,h2,h3,h4{text-wrap:balance}
+p,li,dd,figcaption,blockquote{text-wrap:pretty}
+.nw{white-space:nowrap}
