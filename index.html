@@ -680,6 +680,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ss-mic{
     flex:none;display:none;align-items:center;justify-content:center;width:44px;
     background:none;border:0;color:var(--ss-muted);cursor:pointer;
+    /* החזקה להקלטה: בלי אלה לחיצה ארוכה בטלפון מסמנת טקסט או פותחת תפריט */
+    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   }
   .ss-mic svg{width:20px;height:20px}
   /* מקשיבים: עיגול אדום פועם סביב המיקרופון - בלעדיו לחיצה על הכפתור

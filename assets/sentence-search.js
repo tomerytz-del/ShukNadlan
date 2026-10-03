@@ -1153,11 +1153,25 @@
            מופע חדש, והשני נפל ב-InvalidStateError או ביטל את הראשון
            (‏aborted) והציג "לא זמין" על חיפוש שעבד. */
         var listening = null;
-        micBtn.addEventListener('click', function () {
-          if (listening) { try { listening.stop(); } catch (e) { /* כבר נעצר */ } return; }
+        /* שתי דרכים לאותו כפתור. לחיצה קצרה: מתחילים, והזיהוי נסגר לבד בסוף
+           המשפט (או בלחיצה נוספת). החזקה: מקליטים כל עוד האצבע על הכפתור,
+           ועזיבה עוצרת ומחפשת - כמו הודעה קולית בוואטסאפ. ההחזקה אינה
+           מחליפה את הלחיצה: מקלדת וקורא מסך אינם יכולים "להחזיק".
+           ‏audioOn: עזיבה עוצרת רק אחרי שההקשבה באמת התחילה (‏onstart).
+           בפעם הראשונה הדפדפן מבקש הרשאה, וכדי לאשר צריך להרים את האצבע -
+           בלי הבדיקה הזו האישור עצמו היה עוצר את ההקלטה. */
+        var HOLD_NOTE = 'מקשיבים... עזבו את הכפתור כדי לחפש';
+        var TAP_NOTE = 'מקשיבים... לחיצה נוספת עוצרת';
+        var pressed = false, holdMode = false, holdTimer = 0;
+        var pressStops = false, skipClick = false, audioOn = false;
+        var stopListening = function () {
+          if (listening) { try { listening.stop(); } catch (e) { /* כבר נעצר */ } }
+        };
+        var startListening = function () {
           var typed = input.value;
           var heard = '';
           var failed = false;
+          audioOn = false;
           try {
             var rec = new Rec();
             rec.lang = 'he-IL';
@@ -1177,8 +1191,15 @@
               heard = text.trim();
               if (heard) input.value = heard;
             };
+            /* "מקשיבים" רק כשהזיהוי באמת שומע: הוא מתחיל כשלוש-עשיריות שנייה
+               אחרי הלחיצה, ומי שמדבר/ת לפני כן מאבד/ת את המילה הראשונה */
+            rec.onstart = function () {
+              if (listening !== rec) return;
+              audioOn = true;
+              if (noteEl) noteEl.textContent = pressed ? HOLD_NOTE : TAP_NOTE;
+            };
             var stop = function () {
-              if (listening === rec) listening = null;
+              if (listening === rec) { listening = null; audioOn = false; }
               micBtn.classList.remove('is-listening');
               micBtn.setAttribute('aria-pressed', 'false');
             };
@@ -1188,7 +1209,11 @@
             rec.onend = function () {
               stop();
               if (failed) return;
-              if (heard) { input.value = heard; runParse(); }
+              /* דיבור שזוהה פותח את התוצאות מיד, בלי "הצג N נכסים". ב-Enter
+                 זה הפוך בכוונה - מי שמקליד/ה עוד מלטש/ת - אבל סוף ההקלטה הוא
+                 כבר "סיימתי", ובטלפון לא היה ברור שיש עוד לחיצה. מה שלא זוהה
+                 נשאר במשפט עם "לא זיהיתי", כדי לא לפתוח רשימה שאינה החיפוש. */
+              if (heard) { input.value = heard; if (runParse()) submit(); }
               else { input.value = typed; if (noteEl) noteEl.textContent = 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'; }
             };
             /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
@@ -1213,7 +1238,7 @@
                     : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
                 (code ? ' (' + code + ')' : '');
             };
-            if (noteEl) noteEl.textContent = 'מקשיבים... לחיצה נוספת עוצרת';
+            if (noteEl) noteEl.textContent = 'רגע...';
             rec.start();
           } catch (err) {
             listening = null;
@@ -1221,6 +1246,43 @@
             micBtn.setAttribute('aria-pressed', 'false');
             if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
           }
+        };
+
+        micBtn.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return;
+          skipClick = true;                 // ה-click שאחרי מטופל כאן, לא שם
+          if (listening) { pressStops = true; return; }
+          pressStops = false;
+          pressed = true;
+          holdMode = false;
+          /* ‏capture: העזיבה מגיעה לכפתור גם אם האצבע גלשה ממנו בזמן הדיבור */
+          try { micBtn.setPointerCapture(e.pointerId); } catch (err) { /* לא נתמך */ }
+          startListening();
+          root.clearTimeout(holdTimer);
+          holdTimer = root.setTimeout(function () {
+            if (!pressed) return;
+            holdMode = true;
+            if (audioOn && noteEl) noteEl.textContent = HOLD_NOTE;
+          }, 400);
+        });
+        var release = function () {
+          root.setTimeout(function () { skipClick = false; }, 500);
+          if (pressStops) { pressStops = false; stopListening(); return; }
+          if (!pressed) return;
+          pressed = false;
+          root.clearTimeout(holdTimer);
+          if (holdMode && audioOn) stopListening();
+          else if (audioOn && noteEl) noteEl.textContent = TAP_NOTE;
+          holdMode = false;
+        };
+        micBtn.addEventListener('pointerup', release);
+        micBtn.addEventListener('pointercancel', release);
+        /* לחיצה ארוכה בטלפון פותחת תפריט או מסמנת טקסט */
+        micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        /* מקלדת וקורא מסך מגיעים רק לכאן (‏Enter/רווח) - לחיצה מתחילה ועוצרת */
+        micBtn.addEventListener('click', function () {
+          if (skipClick) { skipClick = false; return; }
+          if (listening) stopListening(); else startListening();
         });
       }
     }
