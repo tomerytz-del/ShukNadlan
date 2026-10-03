@@ -737,6 +737,15 @@ function vizJumpPair(){
   return null;
 }
 
+/* במובייל הכרטיס צר והכותרת נשברת. המילה האחרונה לא נחתכת, כך ש-"ב-AI"
+   לא נשבר על המקף - שורה שמתחילה ב-"AI" לבד נקראת כשבר. */
+function vjKeepTail(text, after){
+  const words = String(text).split(' ');
+  const last = words.pop();
+  const head = words.length ? escapeHtml(words.join(' ')) + ' ' : '';
+  return `${head}<span class="vj-nw">${escapeHtml(last)}${after}</span>`;
+}
+
 function renderVizJumpButton(){
   const btn = document.getElementById('vizJumpBtn');
   if (!btn || btn.hidden) return;
@@ -745,20 +754,35 @@ function renderVizJumpButton(){
   const key = pair ? pair.source_image_url + '|' + pair.result_url : '';
   if (btn.dataset.rendered === title + '|' + key) return;
   btn.dataset.rendered = title + '|' + key;
+  /* וילון ולא שתי תמונונות זו לצד זו: אותה מסגרת, הצילום מתחת וההדמיה
+     מעליו, וידית זהב שעוברת ביניהם הלוך ושוב. זו אותה מחווה כמו הווילון
+     שבתיבה עצמה, ולכן הכרטיס מראה בקטן בדיוק את מה שהלחיצה פותחת. */
   const thumbs = pair
-    ? `<span class="vj-thumbs" aria-hidden="true">
-         <img src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
-         <span class="vj-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg></span>
-         <img src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+    ? `<span class="vj-thumbs vj-curtain" aria-hidden="true">
+         <img class="vj-before" src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
+         <img class="vj-after" src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+         <span class="vj-handle"><span class="vj-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></span>
        </span>`
     : '';
   btn.classList.toggle('has-thumbs', !!pair);
   btn.setAttribute('aria-label', `${title} - ${sub}`);
   btn.innerHTML = `
     <span class="vj-text">
-      <span class="vj-title">${escapeHtml(title)} ${ICON.sparkle}</span>
-      <span class="vj-sub">${escapeHtml(sub)}</span>
+      <span class="vj-title">${ICON.sparkle} ${vjKeepTail(title, '')}</span>
+      <span class="vj-sub">${vjKeepTail(sub, '')}</span>
     </span>${thumbs}`;
+}
+
+/* רוחב תגית המחיר, אל ‎--price-w‎ על התא הראשי. במובייל הכרטיס יושב לצדה
+   באותה שורה ומקבל את שאר הרוחב, ורוחב המחיר תלוי בסכום ובשורת המ"ר. */
+function watchHeroPriceWidth(){
+  const price = document.getElementById('heroPrice');
+  const cell = price && price.parentElement;
+  if (!cell || !window.ResizeObserver || price.dataset.watched) return;
+  price.dataset.watched = '1';
+  new ResizeObserver(()=>{
+    cell.style.setProperty('--price-w', price.hidden ? '0px' : price.offsetWidth + 'px');
+  }).observe(price);
 }
 
 function revealVizJumpButton(){
@@ -778,6 +802,7 @@ function revealVizJumpButton(){
     target.scrollIntoView({ behavior:'smooth', block:'start' });
   });
   btn.hidden = false;
+  watchHeroPriceWidth();
   renderVizJumpButton();
 }
 
