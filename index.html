@@ -3679,6 +3679,42 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:14px}
   }
 
+  /* ---------- הנוסח של הכרטיס בטלפון (אוקטובר 2026) ----------
+     "מחפשת נכס / בשבילכם!" בשתי שורות גדולות עם קו זהב מתחת, הבועה עם
+     אייקון שיחה, והיתרונות עם אייקון זהב גדול ומפרידים. ‏html body: כללי
+     הטלפון הקודמים של הכרטיס יושבים מאוחר יותר בקובץ. */
+  .gab-text b{color:var(--ink);font-weight:700}
+  .gab-hint svg{width:20px;height:20px;flex:none;color:var(--wa-dark)}
+  @media(max-width:759px){
+    html body .gab-hint{display:flex;align-items:center;gap:8px}
+    html body .gab-top{height:154px}
+    html body .gab{--gab-pop:38px}
+    html body .gab-top .gab-role br{display:inline}
+    html body .gab-name{font-size:36px}
+    html body .gab-top .gab-role{font-size:21px;line-height:1.2;color:var(--sapphire-deep);font-weight:800}
+    .gab-top .gab-role::after{content:"";display:block;width:112px;height:10px;margin-top:4px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10'%3E%3Cpath d='M2 8 C 40 2, 80 2, 118 4' fill='none' stroke='%23c9a227' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E") right center/contain no-repeat}
+    html body .gab-perks{gap:0}
+    html body .gab-perks li{padding:2px 4px;border-inline-start:1px solid #eadfbf;font-size:13.5px;font-weight:800;color:var(--sapphire-deep)}
+    html body .gab-perks li:first-child{border-inline-start:0}
+    html body .gab-perks svg{width:30px;height:30px;stroke:var(--brass)}
+  }
+  /* טלפון קטן (‏320×568): הכותרת "מה אתם מחפשים" יורדת (הגלולות מדברות
+     בעד עצמן) והשורה העליונה של הכרטיס צפופה יותר - אחרת הכפתור לגבריאלה
+     נדחף מתחת לקיפול */
+  @media(max-width:374px){
+    html body .hs-q{display:none}
+    html body .hs-filter{margin-top:8px}
+    html body .hs-deal{min-height:44px}
+    html body .gab-top{height:132px}
+    html body .gab{--gab-pop:34px}
+    /* הנוסח "ספרו לגבריאלה מה אתם מחפשים" ארוך מהכפתור ב-320px */
+    html body .gab-cta:not(.is-agent){font-size:14px;gap:6px;padding-inline:8px}
+    html body .gab-name{font-size:30px}
+    html body .gab-top .gab-role{font-size:18px}
+    html body .gab-head{gap:2px;padding-top:12px}
+    .gab-top .gab-role::after{width:92px;margin-top:2px}
+  }
+
   /* ---------- "איך זה עובד?" ---------- */
   .gab-how-dlg{
     width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:0;border:0;border-radius:20px;
@@ -4147,6 +4183,88 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- מקום פרסום: מסגרת מקווקוות דקה ---------- */
   .ad-row .ad-slot{border:1px dashed #c9d2e3;border-radius:10px;background:#fff;color:#6b7a96}
   .ad-row .ad-slot .tag{border:1px solid #c9d2e3;border-radius:4px;letter-spacing:1px;font-size:11px;background:none}
+
+  /* ---------- "מה אתם מחפשים": גלולות ופאנל הסינון (אוקטובר 2026) ----------
+     מחליף את הגלולה "סינון מתקדם" שמתחת לשורת החיפוש; החלון המלא נשאר נגיש
+     מ"עוד אפשרויות סינון". ‏initHomeFilterPanel ב-assets/home.js. */
+  .ss-card.ss-free-only .ss-adv{display:none}
+  .hs-filter{margin-top:14px;text-align:start}
+  .hs-q{
+    display:table;margin:0 auto 10px;padding:5px 16px;border-radius:10px;
+    background:rgba(255,255,255,.92);color:var(--sapphire-deep);font-size:16px;font-weight:800;line-height:1.3;
+    box-shadow:0 2px 10px rgba(14,42,107,.10);
+  }
+  .hs-deals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .hs-deal{
+    position:relative;display:flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:0 12px;
+    background:#fff;border:1px solid #e3e8f2;color:var(--sapphire);font:inherit;font-size:17px;font-weight:800;cursor:pointer;
+    box-shadow:0 4px 14px rgba(14,42,107,.10);transition:background .15s ease,border-color .15s ease;
+  }
+  .hs-deal svg{width:24px;height:24px;flex:none}
+  .hs-deal:hover{border-color:var(--brass)}
+  .hs-deal:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .hs-deal.is-on{background:var(--brass);border-color:var(--brass);color:var(--sapphire-deep)}
+  /* חץ קטן מהגלולה הפעילה אל הפאנל */
+  .hs-deal.is-on::after{
+    content:"";position:absolute;left:50%;bottom:-13px;margin-left:-9px;
+    border:9px solid transparent;border-bottom-color:#fff;
+  }
+  .hs-panel{
+    margin-top:12px;background:#fff;border-radius:18px;padding:20px;box-shadow:0 14px 34px rgba(14,42,107,.16);
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .hs-panel[hidden]{display:none}
+  .hs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 14px}
+  .hs-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .hs-label{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--sapphire-deep)}
+  .hs-label svg{width:18px;height:18px;flex:none;color:var(--sapphire)}
+  .hs-field select,.hs-field input{
+    width:100%;min-width:0;height:50px;box-sizing:border-box;padding:0 14px;border:1px solid #dfe5ef;background:#fff;
+    font:inherit;font-size:17px;color:var(--ink);
+  }
+  .hs-field select:focus,.hs-field input:focus{outline:2px solid var(--brass);outline-offset:1px}
+  .hs-field select:disabled{background:#f4f6fa;color:#8a94ad}
+  .hs-field input::placeholder{color:#8a94ad}
+  .hs-checks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .hs-check{
+    display:flex;align-items:center;gap:8px;min-height:52px;padding:0 12px;border:1px solid #dfe5ef;background:#fff;cursor:pointer;
+    font-size:16px;font-weight:600;color:var(--sapphire-deep);min-width:0;box-sizing:border-box;
+  }
+  .hs-check svg{width:22px;height:22px;flex:none;color:var(--sapphire)}
+  .hs-check input{width:22px;height:22px;margin:0;accent-color:var(--brass);flex:none;order:2;margin-inline-start:auto}
+  .hs-check:has(input:checked){border-color:var(--brass);background:#fffaf0}
+  .hs-check:has(input:focus-visible){outline:2px solid var(--brass);outline-offset:2px}
+  .hs-go{
+    display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border:0;cursor:pointer;
+    background:var(--brass);color:var(--sapphire-deep);font:inherit;font-size:18px;font-weight:800;
+  }
+  .hs-go svg{width:22px;height:22px}
+  .hs-go:hover,.hs-go:focus-visible{background:var(--brass-light)}
+  .hs-more{align-self:center;border:0;background:none;cursor:pointer;font:inherit;font-size:14px;font-weight:700;color:var(--sapphire);
+    text-decoration:underline;text-decoration-color:var(--brass);text-underline-offset:4px;min-height:40px}
+  html body .hs-deal{border-radius:999px !important}
+  html body .hs-q{border-radius:10px !important}
+  html body .hs-panel{border-radius:18px !important}
+  html body .hs-field select,html body .hs-field input,html body .hs-check{border-radius:12px !important}
+  html body .hs-go{border-radius:14px !important}
+  html body .hs-check input{border-radius:5px !important}
+  @media(max-width:759px){
+    .hs-filter{margin-top:10px}
+    .hs-q{font-size:15px;margin-bottom:8px}
+    .hs-deals{gap:8px}
+    .hs-deal{min-height:48px;font-size:15.5px;gap:6px;padding:0 8px}
+    .hs-deal svg{width:20px;height:20px}
+    .hs-panel{padding:16px 14px;gap:12px}
+    .hs-grid{gap:12px 10px}
+    .hs-field select,.hs-field input{height:46px;font-size:16px;padding:0 10px}
+    .hs-label{font-size:13.5px}
+    .hs-checks{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .hs-check{min-height:46px;font-size:15px}
+  }
+  @media(max-width:374px){
+    .hs-deal{font-size:14px;gap:4px;padding:0 6px}
+    .hs-deal svg{width:18px;height:18px}
+  }
 </style>
 
 <!-- נתונים מובנים: הכתובת הפיזית, אזור השירות והעמודים ברשתות. זה מה
@@ -4539,6 +4657,59 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
             </div>
 
+            <!-- ====== "מה אתם מחפשים": שלוש גלולות ופאנל סינון ======
+                 ‏**אוקטובר 2026**, לפי העיצוב שאושר: מתחת לשורת החיפוש שלוש גלולות
+                 (לקנייה / להשכרה / להשקעה). הפאנל נפתח **רק בלחיצה** על אחת
+                 מהן, וכל שדה בו מזין את אותו חיפוש בדיוק: עסקה, אזור וסוג -
+                 ‏sentence.patch; חדרים, מחיר, מאפיינים וקומה - דרך המודאל של
+                 "סינון מתקדם" (‏applyAdvancedFilters). אין כאן לוגיקת סינון חדשה.
+                 ‏"להשקעה" הוא קנייה (‏deal=sale) - אין במלאי עמודת "להשקעה".
+                 ‏initHomeFilterPanel ב-assets/home.js. -->
+            <div class="hs-filter" id="hsFilter">
+              <p class="hs-q" id="hsQ">מה אתם מחפשים</p>
+              <div class="hs-deals" role="group" aria-labelledby="hsQ">
+                <button type="button" class="hs-deal" data-hs-deal="sale" aria-expanded="false" aria-controls="hsPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.6 9.8V20h12.8V9.8"/><path d="M10 20v-5.5h4V20"/></svg><span>לקנייה</span></button>
+                <button type="button" class="hs-deal" data-hs-deal="rent" aria-expanded="false" aria-controls="hsPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M14 9l2 2"/></svg><span>להשכרה</span></button>
+                <button type="button" class="hs-deal" data-hs-deal="invest" aria-expanded="false" aria-controls="hsPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V14M10 20V9M16 20V4M2 20h20"/></svg><span>להשקעה</span></button>
+              </div>
+              <form class="hs-panel" id="hsPanel" hidden novalidate>
+                <div class="hs-grid">
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>עיר</span>
+                    <select id="hsCity"></select></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>שכונה</span>
+                    <select id="hsHood"></select></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.6 9.8V20h12.8V9.8"/><path d="M10 20v-5.5h4V20"/></svg>סוג נכס</span>
+                    <select id="hsType"></select></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V6M3 13h18v5M21 13a3 3 0 0 0-3-3h-7v3"/><circle cx="7" cy="10.5" r="1.8"/></svg>חדרים</span>
+                    <select id="hsRooms">
+                      <option value="">לא משנה</option><option value="1">1</option><option value="2">2</option>
+                      <option value="3">3</option><option value="4">4</option><option value="5">5 ומעלה</option>
+                    </select></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-6"/></svg>מחיר מקסימום (₪)</span>
+                    <input id="hsPriceMax" type="text" inputmode="numeric" autocomplete="off" placeholder="אין הגבלה"></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6"/><path d="M5 12v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-6"/></svg>מחיר מינימום (₪)</span>
+                    <input id="hsPriceMin" type="text" inputmode="numeric" autocomplete="off" placeholder="אין הגבלה"></label>
+                </div>
+                <div class="hs-checks" role="group" aria-label="מאפיינים">
+                  <label class="hs-check"><input type="checkbox" value="elevator"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M7.5 9.5 9 8l1.5 1.5M13.5 14.5 15 16l1.5-1.5"/></svg>מעלית</label>
+                  <label class="hs-check"><input type="checkbox" value="balcony"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V12h16v9M4 16h16M8 12v9M12 12v9M16 12v9"/><path d="M7 12V5h10v7"/></svg>מרפסת</label>
+                  <label class="hs-check"><input type="checkbox" value="parking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14v-4l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg>חניה</label>
+                  <label class="hs-check"><input type="checkbox" value="mamad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-3 8.3-7 9.5C8 19.3 5 15.4 5 11V6z"/></svg>ממ״ד</label>
+                </div>
+                <div class="hs-grid">
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4"/></svg>קומה</span>
+                    <select id="hsFloor">
+                      <option value="">לא משנה</option><option value="0">קרקע ומעלה</option><option value="1">1 ומעלה</option>
+                      <option value="2">2 ומעלה</option><option value="3">3 ומעלה</option><option value="5">5 ומעלה</option>
+                    </select></label>
+                  <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>מחסן</span>
+                    <select id="hsStorage"><option value="">לא משנה</option><option value="1">עם מחסן</option></select></label>
+                </div>
+                <button type="submit" class="hs-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>הצג נכסים מתאימים</button>
+                <button type="button" class="hs-more" id="hsMore">עוד אפשרויות סינון</button>
+              </form>
+            </div>
+
             <!-- לעולם לא נגמרים במסך ריק: ההרחבה האחת שמחזירה משהו -->
             <div class="ss-empty" id="ssEmpty" hidden>
               <span id="ssEmptyText"></span>
@@ -4578,7 +4749,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <article class="gab" id="gabrielaHero" aria-labelledby="gabName">
           <div class="gab-top">
             <div class="gab-head">
-              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת AI</span>
+              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>עוזרת הנדל״ן החכמה</span>
               <p class="gab-name" aria-hidden="true">גבריאלה</p>
               <p class="gab-role">מחפשת נכס <br><span class="nw">בשבילכם!</span></p>
             </div>
@@ -4593,24 +4764,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="gab-body">
             <div class="gab-head-d">
-              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>עוזרת AI אישית · זמינה 24/7</span></span>
+              <span class="gab-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>עוזרת הנדל״ן החכמה · זמינה 24/7</span></span>
               <h2 class="gab-name" id="gabName">גבריאלה</h2>
               <p class="gab-role">מחפשת נכס בשבילכם!</p>
             </div>
-            <p class="gab-text" id="gabText">כתבו לה בוואטסאפ מה אתם מחפשים, והיא תמצא נכסים מתאימים ותעדכן אתכם ברגע שעולה נכס חדש.</p>
+            <p class="gab-text" id="gabText">ספרו לגבריאלה <b>בוואטסאפ מה אתם מחפשים.</b> היא תמצא לכם נכסים מתאימים ותעדכן אתכם כשיעלה נכס חדש שמתאים לכם.</p>
             <div class="gab-chat" aria-hidden="true">
               <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
               <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
             </div>
-            <div class="gab-hint" aria-hidden="true">לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
+            <div class="gab-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z"/></svg>לדוגמה: 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
             <div class="gab-actions">
               <span class="gab-cta-wrap" id="gabCtaWrap"></span>
               <button type="button" class="gab-how" id="gabHowBtn" aria-haspopup="dialog" aria-controls="gabHowDialog">איך זה עובד?</button>
             </div>
             <ul class="gab-perks">
-              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>שירות אישי ומדויק</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>התראה על כל נכס חדש</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>מענה מיידי</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>שירות אישי</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>התראה על נכס חדש</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M13 6.5 9 13h4l-1.5 4.5L16 11h-4z"/></svg>מענה מיידי</li>
             </ul>
           </div>
 
