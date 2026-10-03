@@ -1,7 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
-import { downloadMedia, formatForWhatsapp, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
+import {
+  downloadMedia,
+  formatForWhatsapp,
+  markReadAndTyping,
+  sendContactCard,
+  sendText,
+  verifySignature,
+} from "./whatsapp.ts";
 import {
   type AgentRow,
   type ConversationState,
@@ -497,7 +504,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     default:
       await reply(
         from,
-        "אני יודע לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
+        "אני יודעת לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
           "\"3 חדרים בעפולה עד מיליון ושלוש\")",
         null,
       );
@@ -509,8 +516,9 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   const conv = await loadPublicConversation(from);
 
   let answer: string;
+  let searched = false;
   try {
-    answer = await runPublicTurn({ supabase, conv, userText, waPhone: from });
+    ({ text: answer, searched } = await runPublicTurn({ supabase, conv, userText, waPhone: from }));
   } catch (err) {
     console.error("public turn failed", err);
     await supabase.from("whatsapp_messages")
@@ -524,7 +532,91 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   }
 
   await savePublicConversation(from, conv);
-  await reply(from, answer, null);
+  // ריק = התור נגמר בהודעת כפתורים שכבר נשלחה (offer_save_search)
+  if (answer) await reply(from, answer, null);
+
+  // ההצעה לשמור את גבריאלה באנשי הקשר - אחרי תור עם חיפוש, ולא באותו תור
+  // שבו נשלחו הכפתורים: הכרטיס היה דוחף אותם למעלה, רגע לפני שלוחצים.
+  if (searched && answer) await maybeShareContactCard(from);
+}
+
+// ---------------------------------------------------------------------------
+// גבריאלה באנשי הקשר
+// ---------------------------------------------------------------------------
+
+// המספר העסקי של העוזרת - אותו מספר כמו ב-assets/bot-link.js וב-crm.js. מזהה
+// ציבורי ולא סוד; המשתנה קיים כדי שהחלפת מספר ב-Meta לא תחכה לפריסה של קוד.
+const ASSISTANT_PHONE = (Deno.env.get("WHATSAPP_DISPLAY_NUMBER") || "972532494740")
+  .replace(/\D/g, "");
+const CONTACT_CARD_NOTE =
+  "ועוד משהו קטן - שווה לשמור אותי באנשי הקשר 📇 ככה יהיה קל למצוא אותי " +
+  "בחיפוש הבא: פשוט לכתוב לי מה מחפשים.";
+
+/**
+ * כרטיס איש קשר של גבריאלה, **פעם אחת למספר** - לא לשיחה. מי שכבר קיבל/ה
+ * אותו לא צריך/ה אותו שוב, וכרטיס בכל שיחה הוא ספאם.
+ *
+ * ‏"פעם אחת" נבדק ביומן (`whatsapp_messages`, ‏msg_type `contacts`) ולא בעמודה
+ * חדשה - היומן ממילא רושם כל הודעה יוצאת, ומקור אמת שני היה מתפצל ממנו.
+ */
+async function maybeShareContactCard(phone: string): Promise<void> {
+  if (!ASSISTANT_PHONE) return;
+  const { data: sent } = await supabase
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .eq("msg_type", "contacts")
+    .limit(1);
+  if (sent && sent.length) return;
+
+  await reply(phone, CONTACT_CARD_NOTE, null);
+  const body = `גבריאלה - שוק נדל"ן (+${ASSISTANT_PHONE})`;
+  try {
+    const waMessageId = await sendContactCard(phone, {
+      name: "גבריאלה",
+      company: "שוק נדל\"ן",
+      phoneDigits: ASSISTANT_PHONE,
+      url: "https://shuknadlan.co.il",
+    });
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId,
+      direction: "out",
+      wa_phone: phone,
+      msg_type: "contacts",
+      body,
+      status: waMessageId ? "sent" : null,
+    });
+  } catch (err) {
+    console.error("contact card send failed", err);
+    // נרשם עם השגיאה, ולכן לא יישלח שוב: ההזמנה כבר יצאה בטקסט, וניסיון
+    // חוזר בכל חיפוש היה מוסיף אותה שוב ושוב בלי הכרטיס.
+    await supabase.from("whatsapp_messages").insert({
+      direction: "out",
+      wa_phone: phone,
+      msg_type: "contacts",
+      body,
+      error: String((err as Error)?.message || err),
+    });
+  }
+}
+
+/**
+ * האם גבריאלה כבר הציגה את עצמה לסוכן/ת. ההיסטוריה של הסוכנים אינה מתאפסת,
+ * ולכן "היסטוריה ריקה" הייתה מציגה אותה רק לסוכנים חדשים - ולא לאלה שהכירו
+ * את העוזר בלי שם. היומן אומר אם השם כבר נאמר אי פעם.
+ */
+async function assistantIntroduced(agentId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("agent_id", agentId)
+    .eq("direction", "out")
+    .ilike("body", "%גבריאלה%")
+    .limit(1);
+  // בכשל קריאה - לא להציג שוב. היכרות כפולה מביכה יותר מהיכרות שנדחתה בתור.
+  if (error) return true;
+  return !!(data && data.length);
 }
 
 // ---------------------------------------------------------------------------
@@ -743,7 +835,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     default:
       await reply(
         from,
-        "אני יודע לקבל טקסט, תמונות, הקלטות קוליות ואנשי קשר. מסמכים וסרטונים אפשר להעלות מהדשבורד.",
+        "אני יודעת לקבל טקסט, תמונות, הקלטות קוליות ואנשי קשר. מסמכים וסרטונים אפשר להעלות מהדשבורד.",
         agent.id,
       );
       return;
@@ -799,6 +891,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     content.push({ type: "image", source: { type: "url", url: newImageUrl } });
   }
   content.push({ type: "text", text: userText });
+
+  conv.introduce = !(await assistantIntroduced(agent.id));
 
   // --- הפעלת ה-LLM ---
   let answer: string;
