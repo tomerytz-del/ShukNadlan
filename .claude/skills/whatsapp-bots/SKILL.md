@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, or when turning the site's "ask Gabriela" button on or off.
+description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, or when turning the site's "ask Gabriela" button on or off.
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -32,6 +32,9 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 | `scripts/check_tier_gates.py` | **המפתחות הם טקסט השורה ב-`pricing.html`** - שורה ששונתה בלי המפתח מפילה את הבדיקה |
 | `privacy.html` | כל האזכורים |
 | `LABEL` ב-`renderEmptyBotLink` (`assets/home.js`) | הכפתור במסך אפס התוצאות |
+| `#gabrielaHero` ו-`#gabHowDialog` ב-`index.html` | כרטיס גבריאלה ב-hero של דף הבית: השם, התפקיד, בועות הדוגמה, "איך זה עובד?", ו-`alt` של הדמות |
+| `GAB_HELLO` ו-`renderGabrielaCta` / `gabrielaMiniLink` ב-`assets/home.js` | הודעת הפתיחה, הכפתור, שורת התפריט הנייד ("גבריאלה תחפש בשבילכם") והשורה שבסוף הרשימה ליד המפה |
+| `assets/gabriela-*.webp` | הדמות והאווטאר. **לא חותכים, לא צובעים ולא מחליפים** - שם חדש לעוזרת הוא גם החלטה על התמונה |
 
 **שינוי שם הוא גם מה שמאפס את ההיכרות** אצל הסוכנים: `assistantIntroduced`
 מחפשת את השם החדש, ולכן כל סוכן/ת יקבל/תקבל אותה שוב פעם אחת. זה הרצוי.
@@ -114,6 +117,14 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   ל"סליחה, איני מזהה את מספר הטלפון שלך".
 * קישור לבוט נושא `data-bot`, אחרת `events.js` סופר אותו כ-`contact_agent`
   (`scripts/check_events.py` חוסם).
+* **הכניסה הראשית היא כרטיס גבריאלה בדף הבית** (אוקטובר 2026), בארבעה
+  מקומות שכולם עוברים ב-`renderGabrielaCta()`: ה-hero, החלון "איך זה עובד?",
+  התפריט הנייד, והרשימה שליד המפה הפתוחה (`data-bot-entry`: `homepage_hero`,
+  `homepage_how`, `menu`, `map_list`). **כשהדגל כבוי אין שם אף קישור `wa.me`**:
+  אותו כפתור פותח את הסוכן החכם עם `source=homepage_gabriela`, והנוסח משתנה.
+  מי שמוסיף/ה נקודת כניסה עוברת דרך אותה פונקציה, ולא בונה `wa.me` בעצמו/ה -
+  אחרת כיבוי הדגל משאיר כפתור שמוביל ל"איני מזהה".
+  ‏`docs/whatsapp-public-bot.md`, "נקודות כניסה מהאתר".
 
 ## לפני הדחיפה
 
