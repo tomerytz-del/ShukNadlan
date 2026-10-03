@@ -1188,7 +1188,11 @@
             rec.onend = function () {
               stop();
               if (failed) return;
-              if (heard) { input.value = heard; runParse(); }
+              /* דיבור שזוהה פותח את התוצאות מיד, בלי "הצג N נכסים". ב-Enter
+                 זה הפוך בכוונה - מי שמקליד/ה עוד מלטש/ת - אבל סוף ההקלטה הוא
+                 כבר "סיימתי", ובטלפון לא היה ברור שיש עוד לחיצה. מה שלא זוהה
+                 נשאר במשפט עם "לא זיהיתי", כדי לא לפתוח רשימה שאינה החיפוש. */
+              if (heard) { input.value = heard; if (runParse()) submit(); }
               else { input.value = typed; if (noteEl) noteEl.textContent = 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'; }
             };
             /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
