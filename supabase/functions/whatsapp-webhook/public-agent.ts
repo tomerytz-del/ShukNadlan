@@ -88,11 +88,15 @@ const LEAD_WINDOW_HOURS = 24;
 // תמונות ברצף הן הצפה ולא שירות.
 const MAX_CARDS_PER_TURN = 3;
 
-// שני הכפתורים של ההצעה לשמור חיפוש. ‏**הכותרת היא מה שחוזר לבוט** כשלוחצים
+// שני הכפתורים שמסיימים כל חיפוש. ‏**הכותרת היא מה שחוזר לבוט** כשלוחצים
 // (‏index.ts מעביר את `button_reply.title` כטקסט של הפונה), ולכן היא צריכה
-// להיות מובנת למודל גם בלי המסך. עד 20 תווים - המגבלה של Meta.
-const SAVE_YES_TITLE = "כן, תשמרי לי ❤️";
-const SAVE_NO_DEFAULT = "לא, תראי עוד שכונות";
+// להיות מובנת למודל גם בלי המסך.
+//
+// ‏עד 20 תווים - המגבלה של Meta, וחריגה דוחה את ההודעה כולה. שתיהן 19 תווים
+// ו-20 יחידות UTF-16 (‏🏘️ הוא שלוש), כלומר על הקצה בכל ספירה: אין להוסיף
+// להן אפילו רווח. "🏘️ תראי לי גם נכסים דומים" (25) קוצר בגלל זה.
+const SIMILAR_TITLE = "🏘️ תראי נכסים דומים";
+const SAVE_TITLE = "🔔 שמרי לי את החיפוש";
 
 const DEAL_TYPES = ["sale", "rent"];
 const CATEGORIES = ["residential", "commercial"];
@@ -585,9 +589,9 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "offer_save_search",
     description:
-      "שולח את ההצעה לשמור את החיפוש **כהודעה עם שני כפתורים**: \"" +
-      SAVE_YES_TITLE + "\" ו-\"" + SAVE_NO_DEFAULT + "\" (או decline_label). " +
-      "להשתמש אחרי שהצגת תוצאות חלקיות - close_matches, או מעט תוצאות - ולפני " +
+      "ההודעה שמסיימת חיפוש של מי שמחפש/ת נכס, **עם כפתורים**: \"" +
+      SIMILAR_TITLE + "\" (רק כש-has_similar) ו-\"" + SAVE_TITLE + "\". " +
+      "להשתמש אחרי שהצגת את ההתאמות המדויקות (או אמרת שאין), ולפני " +
       "save_search_alert. **ההודעה הזו היא סוף התור**: אין לכתוב אחריה דבר.",
     input_schema: {
       type: "object",
@@ -595,37 +599,38 @@ const TOOLS: Anthropic.Tool[] = [
         message: {
           type: "string",
           description:
-            "גוף ההודעה, שלוש שורות לכל היותר בתבנית: מה מצאת ובמה זה שונה " +
-            "ממה שהתבקש (\"חלקם לא ברובע יזרעאל, אלא בשכונות אחרות בעפולה\"), " +
-            "ואז ההצעה עם החיפוש במילים של הפונה (\"רוצה שאשמור את החיפוש " +
-            "שלך - 4 חדרים ברובע יזרעאל עד 1.6 מיליון ₪ - ואשלח לך בוואטסאפ " +
-            "ברגע שיעלה נכס חדש שמתאים בדיוק? 🔔\"). בלי הכפתורים - הם נוספים לבד.",
+            "גוף ההודעה, לפי התבנית בהוראות (\"אלה הנכסים שמצאתי...\" / " +
+            "\"מצאתי גם כמה נכסים דומים...\" / \"ואם עדיף להישאר רק עם " +
+            "החיפוש המקורי...\"). בלי הכפתורים - הם נוספים לבד.",
         },
-        decline_label: {
-          type: "string",
+        has_similar: {
+          type: "boolean",
           description:
-            `הכפתור השני, עד 20 תווים. ברירת המחדל "${SAVE_NO_DEFAULT}" ` +
-            "מתאימה כשההבדל היה השכונה. כשההבדל אחר (מחיר, חדרים) - למשל " +
-            "\"לא, עוד אפשרויות\".",
+            "true רק אם search_properties החזיר close_matches שעוד לא הוצגו. " +
+            "בלעדיו נשלח רק כפתור השמירה.",
         },
       },
-      required: ["message"],
+      required: ["message", "has_similar"],
     },
   },
   {
     name: "save_search_alert",
     description:
       "שומר חיפוש למי שמחפש/ת נכס, כדי שיקבל/תקבל עדכון כשיעלה נכס מתאים. " +
-      "**להשתמש רק אחרי ש-search_properties החזיר מעט מדי או כלום, אחרי " +
-      "ששאלת אם רוצים שנעדכן (offer_save_search), ואחרי תשובה חיובית " +
-      "מפורשת** - לחיצה על \"" + SAVE_YES_TITLE + "\" היא תשובה כזו. לא " +
-      "ליזום את זה בשיחה שהתשובה בה כבר נמצאה.\n" +
+      "**להשתמש רק אחרי בקשה מפורשת לשמור** - לחיצה על \"" + SAVE_TITLE + "\" " +
+      "היא בקשה כזו, וגם \"תשמרי לי\" בטקסט. עם הקריטריונים **המקוריים** " +
+      "מהשיחה, לא המורחבים.\n" +
+      "‏full_name: רק אם נמסר בשיחה. בלעדיו המערכת משתמשת בשם פרופיל " +
+      "הוואטסאפ, ואם גם הוא חסר - חוזר missing_name ואז שואלים לשם.\n" +
       "‏consent_agent_contact הוא שאלה **נפרדת** - האם מסכימים שסוכן/ת ייצור " +
-      "קשר. תשובה חיובית רק על העדכונים = false, והחיפוש עדיין נשמר.",
+      "קשר. בלי \"כן\" מפורש לשאלה הזו = false, והחיפוש עדיין נשמר.",
     input_schema: {
       type: "object",
       properties: {
-        full_name: { type: "string", description: "השם כפי שנמסר. חובה." },
+        full_name: {
+          type: "string",
+          description: "השם, רק אם נמסר בשיחה. אחרת להשמיט - המערכת משלימה משם הפרופיל.",
+        },
         email: { type: "string", description: "רק אם נמסר בשיחה." },
         phone: {
           type: "string",
@@ -660,7 +665,7 @@ const TOOLS: Anthropic.Tool[] = [
           description: "מה שלא נכנס לשדות - במילים של הפונה, לא בפרשנות שלך.",
         },
       },
-      required: ["full_name", "consent_agent_contact"],
+      required: ["consent_agent_contact"],
     },
   },
   {
@@ -740,10 +745,14 @@ interface PublicContext {
   waPhone: string;
   /** כרטיסי תמונה שכבר נשלחו בתור הזה. מאופס בכל תור, ואינו נשמר. */
   cardsSent: number;
+  /** שם הפרופיל בוואטסאפ, אם Meta שלחה אותו. **לא נכנס לפרומפט** - רק לשמירת חיפוש. */
+  profileName?: string | null;
   /** הודעת הכפתורים (גוף וכותרות), אם נשלחה בתור הזה. היא סוף התור. */
   offerSent?: string;
-  /** האם רץ חיפוש בתור הזה - הרגע להציע לשמור את גבריאלה באנשי הקשר. */
+  /** האם רץ חיפוש בתור הזה. */
   searched?: boolean;
+  /** האם נשמר חיפוש בתור הזה - הרגע הטבעי להציע לשמור את גבריאלה באנשי הקשר. */
+  savedSearch?: boolean;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -870,11 +879,15 @@ async function searchProperties(
   // שומר על הבוט מלהמציא, והצגת התפשרות כהתאמה היא בדיוק אותה הטעיה בדלת
   // האחורית. הפרומפט מחייב לומר במה הן שונות.
   // -------------------------------------------------------------------------
-  const CLOSE_ENOUGH = 3;
+  //
+  // ‏**ועכשיו גם כשנמצא.** החיפוש נגמר בהודעה עם הכפתור "תראי נכסים דומים"
+  // (‏offer_save_search), ולכן הקרובים נאספים בכל חיפוש ולא רק בחיפוש דל:
+  // הכפתור מופיע רק כשיש מה להראות מאחוריו. הם **אינם מוצגים** עד שלוחצים.
+  // -------------------------------------------------------------------------
   let close: Record<string, unknown>[] = [];
   const relaxed: string[] = [];
 
-  if (rows.length < CLOSE_ENOUGH && !args._relaxed) {
+  if (rows.length < MAX_RESULTS && !args._relaxed) {
     const widened: Record<string, unknown> = { ...args, _relaxed: true, limit: MAX_RESULTS };
 
     if (maxPrice !== null) { widened.max_price = Math.round(maxPrice * 1.15); relaxed.push("מחיר עד +15%"); }
@@ -902,11 +915,13 @@ async function searchProperties(
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
-    // ריק כשהחיפוש הצליח — ואז אין על מה לדבר.
     close_matches: close.length ? close : undefined,
     relaxed_on: close.length ? relaxed : undefined,
     close_note: close.length
-      ? "אלה **אינם** מה שהתבקש אלא הקרובים לו במלאי. חובה לומר במה הם שונים לפני שמציגים אותם."
+      ? "אלה **אינם** מה שהתבקש אלא הקרובים לו במלאי. אם הפונה **עוד לא** " +
+        "ביקש/ה לראות דומים: לא להציג אותם, אלא offer_save_search עם " +
+        "has_similar=true. אם זה עתה לחץ/ה \"" + SIMILAR_TITLE + "\" או ביקש/ה " +
+        "בטקסט: להציג אותם, עם במה כל אחד שונה לפי relaxed_on."
       : undefined,
     all_listings_url: `${SITE_BASE}/`,
   };
@@ -1490,12 +1505,16 @@ async function sendPropertyCards(
 }
 
 /**
- * ההצעה לשמור חיפוש, כהודעה עם שני כפתורים.
+ * ההודעה שמסיימת חיפוש: "תראי נכסים דומים" (כשיש) ו"שמרי לי את החיפוש".
  *
- * ‏**למה כפתורים ולא שאלה בטקסט:** זו השאלה היחידה בשיחה שהתשובה עליה היא
- * כן/לא, והיא מגיעה בדיוק אחרי שהפונה קיבל/ה תוצאות חלקיות - הרגע שבו הכי
- * קל לסגור את הצ'אט. לחיצה אחת זולה מהקלדה, והכותרת שחוזרת (‏`SAVE_YES_TITLE`)
- * היא "כן" מפורש שאין צורך לפרש.
+ * ‏**שלושה צעדים ברצף:** מחפשים עכשיו → מרחיבים אם רוצים → ואם עדיין אין
+ * את הנכס הנכון, ממשיכים לחפש בשביל הפונה (חיפוש שמור והתראה בוואטסאפ).
+ * הצעד השלישי הוא מה שמחזיר את האדם כשהנכס הבא עולה, במקום שיסיים כאן
+ * ויעבור לאתר אחר.
+ *
+ * ‏**למה כפתורים ולא שאלה בטקסט:** זה הרגע שבו הכי קל לסגור את הצ'אט.
+ * לחיצה אחת זולה מהקלדה, והכותרת שחוזרת (‏`SAVE_TITLE`) היא בקשה מפורשת
+ * שאין צורך לפרש.
  *
  * ההודעה **סוגרת את התור**: ‏`runPublicTurn` מפסיק אחריה ולא שולח טקסט נוסף,
  * כי טקסט אחריה היה דוחף את הכפתורים למעלה ומתחת לו שאלה כפולה.
@@ -1506,15 +1525,17 @@ async function offerSaveSearch(
 ): Promise<unknown> {
   const body = String(args.message || "").trim();
   if (!body) return { error: "missing_message" };
-  const decline = String(args.decline_label || "").trim() || SAVE_NO_DEFAULT;
+  // "דומים" רק כשיש מאחוריו close_matches. כפתור שמוביל ל"לא מצאתי" הוא
+  // הבטחה שבורה, ולכן ההחלטה כאן ולא רק בניסוח של המודל.
+  const buttons = [
+    ...(args.has_similar === true ? [{ id: "show_similar", title: SIMILAR_TITLE }] : []),
+    { id: "save_search", title: SAVE_TITLE },
+  ];
 
   try {
-    const waMessageId = await sendButtons(ctx.waPhone, body, [
-      { id: "save_search_yes", title: SAVE_YES_TITLE },
-      { id: "save_search_no", title: decline },
-    ]);
+    const waMessageId = await sendButtons(ctx.waPhone, body, buttons);
     // הגוף והכפתורים, כמו שהפונה רואה אותם - ליומן ולהיסטוריה של השיחה
-    ctx.offerSent = `${formatForWhatsapp(body)}\n[${SAVE_YES_TITLE} | ${decline}]`;
+    ctx.offerSent = `${formatForWhatsapp(body)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
     await ctx.supabase.from("whatsapp_messages").insert({
       wa_message_id: waMessageId,
       direction: "out",
@@ -1618,9 +1639,12 @@ async function saveSearchAlert(
   ctx: PublicContext,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  const fullName = text(args.full_name);
+  // שם שנמסר בשיחה קודם; אחריו שם פרופיל הוואטסאפ. הלחיצה על "שמרי לי"
+  // שומרת מיד, בלי "איך קוראים לך?" באמצע - זו כל הנקודה של הכפתור. שם
+  // הפרופיל אינו נשלח למודל: הוא נכנס כאן, ישר לנקודת הקליטה.
+  const fullName = text(args.full_name) || text(ctx.profileName);
   if (!fullName || fullName.length < 2) {
-    return { error: "missing_name", note: "צריך לשאול לשם לפני השמירה." };
+    return { error: "missing_name", note: "אין שם בשיחה ואין שם פרופיל. לשאול לשם, ואז לשמור." };
   }
   if (!hasLeadSlot(ctx.conv)) {
     return {
@@ -1678,6 +1702,7 @@ async function saveSearchAlert(
   }
 
   consumeLeadSlot(ctx.conv);
+  ctx.savedSearch = true;
   return {
     saved: true,
     duplicate: body.duplicate === true,
@@ -1934,8 +1959,8 @@ const SYSTEM_STATIC: string = (() => {
     "- מצאת נכסים מתאימים? **send_property_card**, עד שלושה, ואז משפט סיכום " +
       "קצר. וואטסאפ הוא ערוץ ויזואלי, וקישור בלי תמונה כמעט לא נפתח.",
     "- הכיתוב כבר מכיל שם, מיקום, מחיר, חדרים וקישור. **אין לחזור עליהם " +
-      "בטקסט** - משפט אחד שמחבר (\"שלושה שמתאימים לתקציב, השני הכי קרוב " +
-      "למרכז\") ושאלה אחת קדימה.",
+      "בטקסט.** אחרי חיפוש של מי שמחפש/ת נכס, ההודעה שאחרי הכרטיסים היא " +
+      "offer_save_search (מסלול א למטה), ולא משפט סיכום נפרד.",
     "- נכס שחזר sent=false - להזכיר אותו בטקסט עם הקישור שחזר, בלי להתנצל.",
     "",
     "פרויקטים חדשים מקבלן:",
@@ -1961,11 +1986,11 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
-      "החזיר ריק גם ב-close_matches - לומר שלא נמצא, ולהציע לשמור התראה.",
-    "- **‏close_matches אינם תשובה לשאלה - הם הקרוב לה.** להציג אותם רק אחרי " +
-      "שנאמר שלא נמצא בדיוק מה שהתבקש, ולומר במה הם שונים לפי relaxed_on " +
-      "(\"קצת מעל התקציב\", \"3 חדרים ולא 4\", \"שכונה אחרת בעפולה\"). " +
-      "להציג אותם כהתאמה היא הטעיה. עם הקישור של כל אחד, כרגיל.",
+      "החזיר ריק גם ב-close_matches - לומר שלא נמצא, ולהציע לשמור את החיפוש.",
+    "- **‏close_matches אינם תשובה לשאלה - הם הקרוב לה.** הם מוצגים רק אחרי " +
+      `לחיצה על "${SIMILAR_TITLE}" (או בקשה כזו בטקסט), ותמיד עם במה הם ` +
+      "שונים לפי relaxed_on (\"קצת מעל התקציב\", \"3 חדרים ולא 4\", " +
+      "\"שכונה אחרת בעפולה\"). להציג אותם כהתאמה היא הטעיה.",
     "- **מידע פנימי על הנכס אינו נמסר**: כתובת מדויקת ומספר בית, גוש וחלקה, " +
       "שם בעל/ת הנכס או כל פרט מזהה אחר עליו/ה. הנכסים מוצגים ברחוב ובשכונה. " +
       "אין לנחש, אין לשחזר מהתיאור, ואין להתנצל על כך.",
@@ -1998,26 +2023,39 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "השארת פרטים - ארבעה מסלולים, ורק הם:",
     "",
-    "**א. מחפש/ת שלא מצאנו לו/ה בדיוק את מה שביקש/ה.** אחרי חיפוש שחזר ריק, " +
-      "דל, או עם close_matches - ההצעה לשמור את החיפוש נשלחת ב-" +
-      "**offer_save_search**, ולא כשאלה בטקסט. הסדר: send_property_card לנכסים " +
-      "הקרובים (אם יש), ואז offer_save_search - וזהו, התור נגמר שם.",
-    "- התבנית של ההודעה (להתאים לחיפוש, לא להעתיק):",
-    "  מצאתי לך כמה נכסים בטווח המחיר שביקשת 🏡",
-    "  חלקם לא ברובע יזרעאל, אלא בשכונות אחרות בעפולה.",
-    "  רוצה שאשמור את החיפוש שלך - 4 חדרים ברובע יזרעאל עד 1.6 מיליון ₪ - " +
-      "ואשלח לך בוואטסאפ ברגע שיעלה נכס חדש שמתאים בדיוק למה שחיפשת? 🔔",
-    "- השורה השנייה אומרת במה התוצאות שונות, לפי relaxed_on. כשלא נמצא כלום - " +
-      "אומרים את זה במקום השורה הראשונה.",
-    `- "${SAVE_YES_TITLE}" = כן מפורש לשמירה. לשאול לשם (אם לא נאמר), ואז ` +
-      "save_search_alert עם הקריטריונים **המקוריים** מהשיחה - לא המורחבים.",
-    `- "${SAVE_NO_DEFAULT}" (או כל לא אחר) = search_properties שוב בלי area ` +
-      "והצגת התוצאות. לא לשאול שוב על שמירה.",
-    "- **שאלת ההסכמה נפרדת מהשאלה הזו.** \"שסוכן/ת גם ייצור קשר ויעזור " +
-      "בחיפוש?\" - כן מפורש = consent_agent_contact true; לא, שתיקה, \"נראה\" " +
-      "או שינוי נושא = false. חיפוש נשמר בשני המקרים, וזו לא פשרה: העדכונים " +
-      "הם ההבטחה, והסוכן/ת הוא תוספת שמבקשים.",
-    "- אין לשאול שוב מי שסירב/ה. בשיחה אחת שואלים פעם אחת.",
+    "**א. כל חיפוש של מי שמחפש/ת נכס נגמר בשלושה צעדים:** מחפשים עכשיו → " +
+      "מרחיבים אם רוצים → ואם עדיין אין את הנכס הנכון, ממשיכים לחפש בשבילו/ה.",
+    "- אחרי search_properties: send_property_card להתאמות המדויקות (עד שלוש), " +
+      "ואז **offer_save_search** - והתור נגמר שם. has_similar=true רק כשחזרו " +
+      "close_matches. את הקרובים **לא** מציגים עכשיו.",
+    "- התבנית כשנמצאו התאמות ויש גם דומים (להתאים, לא להעתיק):",
+    "  אלה הנכסים שמצאתי שמתאימים למה שביקשת 😊",
+    "  מצאתי גם כמה נכסים דומים באזורים סמוכים. רוצה שאציג גם אותם?",
+    "  ואם עדיף להישאר רק עם החיפוש המקורי - אני יכולה לשמור אותו ולעדכן " +
+      "בוואטסאפ ברגע שיעלה נכס חדש שמתאים בדיוק למה שחיפשת 🔔",
+    "- בלי דומים: בלי השורה השנייה. בלי התאמות מדויקות: השורה הראשונה היא " +
+      "\"לא מצאתי נכס שמתאים בדיוק למה שביקשת\", ו\"גם\" יורד מהשנייה. " +
+      "\"באזורים סמוכים\" רק כשההרחבה באמת הייתה באזור (relaxed_on); כשהיא " +
+      "במחיר או בחדרים - לומר את זה.",
+    `- "${SIMILAR_TITLE}" = search_properties שוב עם **אותם** קריטריונים, ` +
+      "send_property_card ל-close_matches (עד שלושה) עם במה כל אחד שונה, ואז " +
+      "offer_save_search עם has_similar=false: שורה אחת שהחיפוש המקורי עדיין " +
+      "יכול להישמר.",
+    `- "${SAVE_TITLE}" (או "תשמרי לי" בטקסט) = save_search_alert **מיד**, עם ` +
+      "הקריטריונים **המקוריים** ולא המורחבים, consent_agent_contact=false, " +
+      "ובלי full_name אם לא נמסר. ואז האישור, בתבנית הזו בדיוק:",
+    "  מעולה ✓ שמרתי:",
+    "  4 חדרים • רובע יזרעאל • עד 1.6 מיליון ₪",
+    "  ברגע שיעלה נכס מתאים, אשלח לך הודעה כאן בוואטסאפ.",
+    "  (השורה האמצעית היא הקריטריונים, מופרדים ב-•. בלי שאלה נוספת אחרי.)",
+    "- חזר missing_name - לשאול לשם בשאלה אחת קצרה, ואז לשמור. חזר " +
+      "duplicate - \"החיפוש הזה כבר שמור אצלי\", באותה תבנית.",
+    "- **במסלול הזה לא שואלים על סוכן/ת.** הלחיצה היא בקשה לעדכונים, לא " +
+      "הסכמה ליצירת קשר. רק מי שמבקש/ת בעצמו/ה שסוכן/ת יעזור - " +
+      "consent_agent_contact=true.",
+    "- **פעם אחת לכל חיפוש.** אותם קריטריונים לא מקבלים את ההצעה פעמיים, " +
+      "וחיפוש שכבר נשמר לא מוצע לשמירה שוב. חיפוש **חדש** (קריטריונים אחרים) " +
+      "נגמר שוב ב-offer_save_search - כמו הראשון.",
     "",
     "**ב. בעל/ת נכס שרוצה למכור או להשכיר.** מי שאומר/ת \"יש לי דירה למכירה\" " +
       "או \"אני רוצה להשכיר\" - להסביר שאפשר להעביר את הפרטים לסוכן/ת תיווך " +
@@ -2036,10 +2074,12 @@ const SYSTEM_STATIC: string = (() => {
     "מה שנכון לארבעתם:",
     "- **המספר שממנו כותבים הוא ברירת המחדל לטלפון, ויש לומר את זה**: " +
       "\"אשתמש במספר שממנו את/ה כותב/ת\". מי שמעדיף/ה מספר או מייל אחר - " +
-      "לשאול ולהעביר בפרמטר.",
+      "לשאול ולהעביר בפרמטר. (במסלול א ההודעה עם הכפתורים כבר אומרת " +
+      "\"אעדכן בוואטסאפ\", וזה מספיק.)",
     "- לומר בפשטות מה קורה עם הפרטים לפני שקוראים לכלי: למי הם מגיעים ולשם מה.",
     "- אחרי הכלי - לומר את what_happens שחזר, כלשונו ובלי לייפות. אם חזר " +
-      "‏matched=false, אין להבטיח שמישהו יחזור.",
+      "‏matched=false, אין להבטיח שמישהו יחזור. (במסלול א - תבנית האישור " +
+      "שלמעלה, שאומרת בדיוק את זה.)",
     "- **אין לקרוא לאף אחד מארבעת הכלים בלי שנאמר \"כן\" ברור.** נימוס אינו " +
       "הסכמה, שתיקה אינה הסכמה, ו\"תשלח לי מה שיש\" אינו אישור ליצירת קשר.",
     "- **שאלה אחת בכל שיחה, לא ארבע.** מי שסירב/ה למסלול אחד לא נשאל/ת על " +
@@ -2064,20 +2104,30 @@ const SYSTEM_STATIC: string = (() => {
  * הבלוק השני מושמט כשאין בו תוכן — שיחה ותיקה בלי נכס אחרון מחזירה מחרוזת
  * ריקה, ובלוק טקסט ריק נדחה ב-400. נקודת השבירה נשארת על הראשון בכל מקרה.
  */
-function buildSystem(conv: PublicConversationState): Anthropic.TextBlockParam[] {
+function buildSystem(
+  conv: PublicConversationState,
+  hasProfileName: boolean,
+): Anthropic.TextBlockParam[] {
   const head: Anthropic.TextBlockParam = {
     type: "text",
     text: SYSTEM_STATIC,
     cache_control: { type: "ephemeral" },
   };
-  const tail = sessionContext(conv).trim();
+  const tail = sessionContext(conv, hasProfileName).trim();
   return tail ? [head, { type: "text", text: tail }] : [head];
 }
 
 /** החלק המשתנה — יושב אחרי נקודת השבירה ולכן אינו מבטל את המטמון. */
-function sessionContext(conv: PublicConversationState): string {
+function sessionContext(conv: PublicConversationState, hasProfileName: boolean): string {
   const lines: string[] = [];
 
+  // רק **האם** יש שם, לא השם עצמו: המודל צריך לדעת אם לשאול, לא מי זה.
+  lines.push(
+    "",
+    hasProfileName
+      ? "לפונה יש שם פרופיל בוואטסאפ: לשמירת חיפוש אין צורך לשאול לשם."
+      : "לפונה אין שם פרופיל בוואטסאפ: שמירת חיפוש תחזיר missing_name, ואז שואלים לשם.",
+  );
   if (!conv.history.length) {
     lines.push(
       "",
@@ -2107,9 +2157,12 @@ export async function runPublicTurn(opts: {
   userText: string;
   /** המספר שממנו הגיעה ההודעה, כברירת מחדל לטלפון בליד */
   waPhone: string;
-}): Promise<{ text: string; searched: boolean }> {
+  /** שם הפרופיל בוואטסאפ (‏`contacts[].profile.name` ב-webhook), אם נשלח */
+  profileName?: string | null;
+}): Promise<{ text: string; shareContact: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
-  const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0 };
+  const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
+  const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName };
 
   const messages: Anthropic.MessageParam[] = [
     ...conv.history,
@@ -2135,7 +2188,7 @@ export async function runPublicTurn(opts: {
       // הכלים. ראו SYSTEM_STATIC ב-agent.ts להסבר המלא.
       // הבלוק השני נוסף רק כשיש בו משהו: בשיחה ותיקה בלי נכס אחרון
       // ‏`sessionContext` מחזירה מחרוזת ריקה, ובלוק טקסט ריק נדחה ב-400.
-      system: buildSystem(conv),
+      system: buildSystem(conv, !!profileName),
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
@@ -2209,7 +2262,7 @@ export async function runPublicTurn(opts: {
       { role: "user" as const, content: userText },
       { role: "assistant" as const, content: ctx.offerSent },
     ].slice(-HISTORY_LIMIT);
-    return { text: "", searched: !!ctx.searched };
+    return { text: "", shareContact: false };
   }
 
   if (!finalText) {
@@ -2225,5 +2278,8 @@ export async function runPublicTurn(opts: {
     { role: "assistant", content: finalText },
   ].slice(-HISTORY_LIMIT);
 
-  return { text: finalText, searched: !!ctx.searched };
+  // כרטיס איש הקשר: אחרי שמירת חיפוש ("שמרתי, וזה המספר שלי לפעם הבאה"),
+  // או אחרי חיפוש שנגמר בטקסט ולא בכפתורים. **לעולם לא אחרי כפתורים** -
+  // הכרטיס היה דוחף אותם למעלה רגע לפני הלחיצה.
+  return { text: finalText, shareContact: !!ctx.savedSearch || !!ctx.searched };
 }

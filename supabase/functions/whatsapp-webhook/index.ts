@@ -516,9 +516,15 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   const conv = await loadPublicConversation(from);
 
   let answer: string;
-  let searched = false;
+  let shareContact = false;
   try {
-    ({ text: answer, searched } = await runPublicTurn({ supabase, conv, userText, waPhone: from }));
+    ({ text: answer, shareContact } = await runPublicTurn({
+      supabase,
+      conv,
+      userText,
+      waPhone: from,
+      profileName: msg._profile_name || null,
+    }));
   } catch (err) {
     console.error("public turn failed", err);
     await supabase.from("whatsapp_messages")
@@ -535,9 +541,10 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   // ריק = התור נגמר בהודעת כפתורים שכבר נשלחה (offer_save_search)
   if (answer) await reply(from, answer, null);
 
-  // ההצעה לשמור את גבריאלה באנשי הקשר - אחרי תור עם חיפוש, ולא באותו תור
-  // שבו נשלחו הכפתורים: הכרטיס היה דוחף אותם למעלה, רגע לפני שלוחצים.
-  if (searched && answer) await maybeShareContactCard(from);
+  // ההצעה לשמור את גבריאלה באנשי הקשר - בעיקר אחרי שמירת חיפוש, ולעולם לא
+  // באותו תור שבו נשלחו הכפתורים: הכרטיס היה דוחף אותם למעלה, רגע לפני
+  // שלוחצים. ‏runPublicTurn מחליט מתי (‏shareContact).
+  if (shareContact && answer) await maybeShareContactCard(from);
 }
 
 // ---------------------------------------------------------------------------
@@ -977,8 +984,17 @@ async function handleStatus(st: Record<string, any>): Promise<void> {
 async function handlePayload(payload: Record<string, any>): Promise<void> {
   for (const entry of payload.entry || []) {
     for (const change of entry.changes || []) {
+      // ‏Meta שולחת את שם הפרופיל בוואטסאפ לצד ההודעה (‏contacts[].profile.name),
+      // לא בתוכה. הוא מוצמד להודעה כאן כדי שהבוט הציבורי יוכל לשמור חיפוש
+      // בלחיצה אחת, בלי לעצור לשאול "איך קוראים לך?".
+      const profileNames = new Map<string, string>();
+      for (const c of change.value?.contacts || []) {
+        const name = String(c?.profile?.name || "").trim();
+        if (c?.wa_id && name) profileNames.set(String(c.wa_id), name);
+      }
       for (const msg of change.value?.messages || []) {
         try {
+          if (profileNames.has(msg.from)) msg._profile_name = profileNames.get(msg.from);
           await handleMessage(msg);
         } catch (err) {
           console.error("message handling failed", err);
