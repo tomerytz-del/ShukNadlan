@@ -1,13 +1,12 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-10-03 15:27:18",
+    "exportTime": "2026-10-03 16:45:54",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/11",
+        "path": "accounts/6376638087/containers/264013397/versions/12",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "11",
-        "name": "Add GA4 viz_jump_click tag, trigger, and variables",
-        "description": "Tags:\n* Added a new \"GA4 — viz_jump_click\" tag (G-40ZLLXSRFY) triggered by \"CE — viz_jump_click\".\n\nTrigger:\n* Added the \"CE — viz_jump_click\" trigger, which fires on the \"viz_jump_click\" custom event.\n\nVariables:\n* Added the \"DLV - viz_mode\" and \"DLV - preview\" Data Layer variables.",
+        "containerVersionId": "12",
+        "name": "Meta pixel noscript fix",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -75,7 +74,7 @@
                     {
                         "type": "TEMPLATE",
                         "key": "html",
-                        "value": "<!-- Meta Pixel Code -->\n<script>\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};\nif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\nn.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];\ns.parentNode.insertBefore(t,s)}(window, document,'script',\n'https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '2269705306930561');\nfbq('track', 'PageView');\n</script>\n<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\nsrc=\"https://www.facebook.com/tr?id=1844258613237835&ev=PageView&noscript=1\"\n/></noscript>\n<!-- End Meta Pixel Code -->"
+                        "value": "<!-- Meta Pixel Code -->\n<script>\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};\nif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\nn.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];\ns.parentNode.insertBefore(t,s)}(window, document,'script',\n'https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '2269705306930561');\nfbq('track', 'PageView');\n</script>\n<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\nsrc=\"https://www.facebook.com/tr?id=2269705306930561&ev=PageView&noscript=1\"\n/></noscript>\n<!-- End Meta Pixel Code -->"
                     },
                     {
                         "type": "BOOLEAN",
@@ -83,7 +82,7 @@
                         "value": "false"
                     }
                 ],
-                "fingerprint": "1790842171422",
+                "fingerprint": "1791045894231",
                 "firingTriggerId": [
                     "2147479553"
                 ],
@@ -3330,7 +3329,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1791041205964",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/11?apiLink=version"
+        "fingerprint": "1791045931422",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/12?apiLink=version"
     }
 }

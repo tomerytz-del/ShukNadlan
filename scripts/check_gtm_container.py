@@ -94,7 +94,7 @@ BENIGN_TYPES = {
 # בייצוא. תגית חדשה כאן היא **החלטה**, לא עדכון רשימה: היא מריצה JS
 # חופשי בכל דף, ו-privacy.html צריך לדעת עליה.
 REVIEWED_HTML_TAGS: dict[str, str] = {
-    # ‏הפיקסל של Meta, מזהה 1844258613237835, נורה מהטריגר המובנה All Pages.
+    # ‏הפיקסל של Meta, מזהה 2269705306930561, נורה מהטריגר המובנה All Pages.
     # ‏מוצהר ב-privacy.html בסעיף נפרד ("פרסום ומיקוד מחדש") ולא בסעיף
     # העוגיות, כי מיקוד מחדש אינו מדידה — ראו docs/analytics-gtm.md.
     "meta pixel pageview": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
@@ -395,6 +395,24 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 "תגית \"%s\" מסוג `%s`, שאינו מוכר לבדיקה.\n"
                 "        אם הוא תקין — להוסיף אותו ל-BENIGN_TYPES עם הסבר."
                 % (name, kind)
+            )
+
+    # ‏8א. מזהה פיקסל אחד בתגית. קטע הפיקסל של מטא נושא את המזהה פעמיים:
+    # ב-`fbq('init', …)` וב-`tr?id=…` של ה-<noscript>, שנשלח מדפדפן בלי JS.
+    # בגרסה 10 הוחלף המזהה ב-init בלבד, וה-noscript המשיך לשלוח לישן עד
+    # גרסה 12 - שני מזהים באותה תגית, בלי שגיאה ובלי סימן בשום מקום.
+    for tag in tags:
+        if tag.get("type") != "html":
+            continue
+        html = param(tag, "html") or ""
+        ids = set(re.findall(r"fbq\(\s*['\"]init['\"]\s*,\s*['\"](\d+)['\"]", html))
+        ids |= set(re.findall(r"facebook\.com/tr\?id=(\d+)", html))
+        if len(ids) > 1:
+            problems.append(
+                "בתגית \"%s\" יש %d מזהי פיקסל שונים: %s.\n"
+                "        ‏fbq('init') וה-<noscript> (‏tr?id=) חייבים לשלוח לאותו\n"
+                "        פיקסל, אחרת חלק מהביקורים נרשמים בערכת נתונים אחרת."
+                % (tag.get("name", "?"), len(ids), ", ".join(sorted(ids)))
             )
 
     # ‏הטריגרים המובנים (‏All Pages, Initialization) אינם ב-trigger של
