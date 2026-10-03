@@ -769,6 +769,12 @@ function revealVizJumpButton(){
     const target = document.getElementById('aiShowcase') || document.getElementById('vizSection');
     const section = document.getElementById('vizSection');
     if (!target || !section || section.hidden) return;
+    /* ‏preview עונה על השאלה שבשבילה נוספו התמונונות: האם הן מגדילות את
+       הלחיצות. ‏item_id מגיע ממילא מ-pageContext() ב-events.js. */
+    if (window.shukTrack) shukTrack('viz_jump_click', {
+      preview: btn.classList.contains('has-thumbs') ? 'thumbs' : 'text',
+      viz_mode: !vizState.isPrivate ? 'commercial' : (vizState.staging ? 'staging' : 'renovation'),
+    });
     target.scrollIntoView({ behavior:'smooth', block:'start' });
   });
   btn.hidden = false;

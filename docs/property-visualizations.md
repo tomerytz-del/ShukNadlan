@@ -182,31 +182,17 @@
 - במובייל אין מקום לכרטיס ולמחיר באותה שורה, ולכן המחיר עולה מעליו
   (‏`:has()` על התא הראשי).
 
-##### מדידת הלחיצה - ממתינה לפרסום ב-GTM
+##### מדידת הלחיצה
 
-האירוע `viz_jump_click` **מוכן ואינו מחובר עדיין.** ‏`check_gtm_container.py`
-חוסם אירוע שהקוד דוחף בלי טריגר ותגית במכולה, ואת המכולה אפשר לשנות רק
-במסך של GTM. לכן הסדר הוא הסדר של החיפוש במשפט (‏`docs/sentence-search.md`,
-סעיף 8):
+‏`viz_jump_click` נדחף מהמאזין שב-`revealVizJumpButton()`, ומחובר מגרסת
+מכולה 11. הסדר שבו זה נעשה הוא הסדר של החיפוש במשפט (‏`docs/sentence-search.md`,
+סעיף 8): הייבוא `docs/gtm-viz-jump-import.json` ב-GTM, פרסום, ייצוא ל-
+`gtm/container.json`, ורק אז הקוד - כי `check_gtm_container.py` חוסם אירוע
+שהקוד דוחף בלי תגית בייצוא.
 
-1. **GTM ← Admin ← Import Container**, הקובץ `docs/gtm-viz-jump-import.json`,
-   Workspace קיים, מצב **Merge**. על `DLV - item_id` ו-`DLV - page_type` -
-   **Overwrite** (זהים לקיימים).
-2. **Submit ← Publish**.
-3. **Admin ← Export Container**, הגרסה ש**פורסמה** - אל `gtm/container.json`.
-4. באותו PR עם הייצוא: ב-`revealVizJumpButton()` שב-`assets/property.js`,
-   בתוך מאזין הלחיצה, לפני הגלילה -
-
-   ```js
-   if (window.shukTrack) shukTrack('viz_jump_click', {
-     preview: btn.classList.contains('has-thumbs') ? 'thumbs' : 'text',
-     viz_mode: !vizState.isPrivate ? 'commercial' : (vizState.staging ? 'staging' : 'renovation'),
-   });
-   ```
-
-   ושורה לאירוע בטבלה של `docs/analytics-events.md`.
-5. ב-GA4, ‏**Admin ← Custom definitions**: ‏`preview` ו-`viz_mode` כ-Custom
-   dimensions (event scope).
+**שלב אחד שנשאר ידני:** ב-GA4, ‏**Admin ← Custom definitions**, ‏`preview` ו-
+`viz_mode` כ-Custom dimensions (event scope). בלי זה הם נאספים ואינם מוצגים
+בדוחות.
 
 | פרמטר | ערכים | למה |
 | --- | --- | --- |
