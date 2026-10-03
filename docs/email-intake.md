@@ -52,7 +52,7 @@ pg_cron כל 2 דק׳  ──►  whatsapp-webhook?task=email-intake   (x-alert-
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | ‏`sendNotifyTemplate` — הודעה מחוץ לחלון |
 | `supabase/migrations/20270124090000_email_intake.sql` | הטבלאות, `email_intake_address` / `email_intake_rotate`, וה-cron |
 | `supabase/migrations/20270127090000_email_intake_by_sender.sql` | הכתובת הרגילה: `email_intake_agents_by_email`, העמודה `via`, וה-cron בלי תנאי |
-| `crm.html` · `assets/crm.js` | הכרטיס "העברת מיילים לעוזר" בקטגוריה "העוזר האישי בוואטסאפ" |
+| `crm.html` · `assets/crm.js` | הכרטיס "העברת מיילים לגבריאלה" בקטגוריה "גבריאלה - העוזרת האישית בוואטסאפ" |
 
 **למה בתוך `whatsapp-webhook` ולא פונקציה נפרדת:** המייל נכנס *לאותה שיחה*.
 אותו עוזר, אותה היסטוריה, אותה `reply` ואותו יומן `whatsapp_messages` —

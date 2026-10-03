@@ -4815,7 +4815,7 @@ async function renderEmptyBotLink(){
   // בשרת נדלק. בשני המקרים פשוט אין כפתור, והטופס ממשיך לעבוד.
   if (!wrap || !window.ShukBot || !ShukBot.enabled()) return;
 
-  const LABEL = '💬 או דברו איתי בוואטסאפ';
+  const LABEL = '💬 או שאלו את גבריאלה בוואטסאפ';
   const draw = (hello) => {
     wrap.innerHTML = ShukBot.anchorHtml(hello, LABEL, 'ssa-cta bot-cta');
     const a = wrap.querySelector('a');
