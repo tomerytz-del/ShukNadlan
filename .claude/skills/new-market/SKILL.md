@@ -149,6 +149,7 @@ check("קריית מוצקין → krayot", reg.locate(32.8378, 35.0795)?.slug =
 | שכונות | CRM ← ניהול שכונות ← **ייבוא מ-GovMap**: בוחרים את השוק, סורקים, מאשרים. רץ רק מהאתר החי (הטוקן נעול לדומיין). ידנית: הוספה עם בחירת העיר, וגבול ב-`/neighborhood-boundary` | בלי שכונות אין סינון לפי שכונה |
 | עסקאות רשמיות | הדבקה ידנית מ-GovMap ב-CRM, ו-`DEALS_CITIES` ב-GitHub vars | דוח ה-CMA בשוק בלי השוואות |
 | שמות שכונה בעסקאות | אחרי ההדבקה: `market_deal_hoods_unmatched` בסוכן התפעולי. כינוי ודאי - שורה ב-`neighborhood_aliases` (`docs/market-deals-official.md`) | עסקאות בלי פין לא נכנסות להשוואה לפי שכונה בדוח ה-CMA |
+| עסקאות לפי שכונה (גבריאלה) | אחרי השכונות והעסקאות: השאילתה "עסקאות לכל שכונה" למטה. שכונה עם 0 בשתי העמודות - מצולע חסר, או שם ברשות המיסים שצריך כינוי | "עסקאות בשכונה X" בוואטסאפ חוזר ריק |
 | מבזקים | היקף החדשות הוא `afula`/`region`/`national` - שוק חדש מקבל ארצי בלבד | אין מבזקים מקומיים (שלב 4) |
 
 **שתי מלכודות בטבלה הזו:**
@@ -158,6 +159,34 @@ check("קריית מוצקין → krayot", reg.locate(32.8378, 35.0795)?.slug =
   `geocodeAddress` זורקת עליה "אין מימוש" בכל סבב. `docs/geocoding.md`.
 - **GovMap מחזיר רק 1,500 עסקאות אחרונות ליישוב.** בעיר גדולה זה כמה חודשים,
   לא שנתיים - `market_deals_coverage()` תראה טווח קצר. ‏`docs/market-deals-official.md`.
+- **רשות המיסים רושמת שם שכונה רק לחלק מהעסקאות, ובשמות שלה.** בעפולה רק
+  ארבעה שמות מותאמים אצלנו. גבריאלה משייכת עסקה לשכונה לפי השם, ובלעדיו לפי
+  פין שנופל במצולע **אחד ויחיד** (`20270211092000`). לכן שכונה בלי מצולע
+  ובלי כינוי חוזרת ריקה בשקט. שם שנופל כולו בתוך שכונה שלנו ("נווה יוסף"
+  בגבעת המורה) הוא כינוי - **בהכרעת מנהל/ת**, לא בניחוש:
+
+  ```sql
+  -- עסקאות לכל שכונה בעיר: לפי שם, ולפי פין בלי שם מותאם
+  select n.name,
+         count(*) filter (where n.id = any(o.neighborhood_ids)) as by_name,
+         count(*) filter (where o.neighborhood_ids is null and o.lat is not null
+           and public.neighborhood_for_city_point(c.id, c.name, o.lat, o.lng) = n.id) as by_pin
+    from public.cities c
+    join public.neighborhoods n on n.city_id = c.id
+    join public.market_deals_official o on public.city_name_key(o.city) = c.name_key
+   where c.name = 'העיר'
+   group by n.name order by 2 desc, 3 desc;
+
+  -- שמות ברשות המיסים שלא הותאמו, והשכונה שהפינים שלהם נופלים בה
+  select o.neighborhood, count(*),
+         string_agg(distinct coalesce(n.name, '?'), ', ') as falls_in
+    from public.cities c
+    join public.market_deals_official o on public.city_name_key(o.city) = c.name_key
+    left join public.neighborhoods n
+      on n.id = public.neighborhood_for_city_point(c.id, c.name, o.lat, o.lng)
+   where c.name = 'העיר' and o.neighborhood is not null and o.neighborhood_ids is null
+   group by 1 order by 2 desc;
+  ```
 
 ## משרד שלא מופיע בשוק
 
