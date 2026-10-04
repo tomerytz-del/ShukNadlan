@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, or when touching the open-house fair offer / the agent-help question after saving a search.
+description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, when touching the open-house fair offer / the agent-help question after saving a search, or when an agent pastes a WhatsApp catalog link (wa.me/p/...) and the draft, price or image comes out wrong.
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -15,6 +15,7 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 | `supabase/functions/whatsapp-webhook/public-agent.ts` | הבוט הציבורי: הכלים, ההוראות ולולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | כל מה שיוצא ל-Meta: טקסט, תמונה, כפתורים, איש קשר, תבנית |
 | `assets/bot-link.js` | המספר, הקישור והמתג `ENABLED` של הכפתורים באתר |
+| `supabase/functions/whatsapp-webhook/catalog-link.ts` | קישור לפריט בקטלוג וואטסאפ (`wa.me/p/...`) → טיוטת נכס |
 
 ## השם חי בהרבה מקומות, ומשתנה בכולם יחד
 
@@ -192,6 +193,29 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 
 ‏`docs/whatsapp-public-bot.md`, "כמה פניות מגיעות מהאתר".
 
+## קישור לקטלוג וואטסאפ (`wa.me/p/...`) - טיוטה, לא נכס
+
+סוכן/ת מדביק/ה קישור לפריט בקטלוג, ו-`index.ts` קורא את תגיות ה-`og:` של
+הדף **לפני** הרצף ומדביק להודעה בלוק `[פריט מקטלוג וואטסאפ ...]`. אין כלי.
+מה שנשבר בשקט:
+
+* **התמונות הממתינות הן מאגר אחד**, וכולו מתחבר לנכס הבא. לכן תמונת הקטלוג
+  נכנסת אליו רק ב-`attachCatalogImage`, **אחרי** שהרצף נאסף, ורק כשיש בתור
+  פריט אחד. מי שמעביר אותה ל-`whatsapp_burst_add` (כמו תמונה רגילה) מחבר
+  שתי תמונות של שני נכסים לנכס הראשון.
+* **שורת התמונה נספרת רק צמודה ל-`[סוף פריט הקטלוג]` ובתיקייה
+  `<agent_id>/whatsapp/`.** התיאור נכתב בידי אחרים, ושורה בתוכו שנראית אותו
+  דבר אינה תמונה. סוגריים מרובעים בתיאור הופכים לעגולים מאותה סיבה.
+* **מחיר = מספר עם מטבע מהרשימה הסגורה (`CURRENCY`).** בלעדיה "קומה 2" בסוף
+  תיאור נקרא כמחיר של 2 - הבדיקה תפסה את זה.
+* **ההוראה ב-`SYSTEM_STATIC` חורגת מהכלל הרגיל** ("סוג, עסקה ומחיר =
+  יוצרים"): כאן טיוטה ואישור. מי שמקצר את ההוראות שומר על החריגה.
+* **`wa.me` חסום מסביבת הפיתוח בענן.** בדיקה חיה של הדף נעשית מהשרת:
+  `select net.http_get('https://wa.me/p/<id>/<phone>', ...)` ואז
+  `net._http_response` (קריאה בלבד מבחינת הסכימה).
+
+`docs/whatsapp-setup.md`, "נכס מקישור לקטלוג וואטסאפ".
+
 ## לפני הדחיפה
 
 ```sh
@@ -200,6 +224,7 @@ python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
 python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
+node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב-catalog-link.ts
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,
