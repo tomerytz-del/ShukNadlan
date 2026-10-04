@@ -262,6 +262,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏--price-w נמדד ב-JS (‏watchHeroPriceWidth): מחיר של 12 מיליון רחב
      ממחיר של 900 אלף, וקבוע כאן היה מכסה אותו. 40px = שני השוליים והרווח. */
   .bento-main:has(#vizJumpBtn:not([hidden])) .hero-actions{max-width:calc(100% - var(--price-w, 140px) - 40px)}
+  /* מחיר ארוך (‏watchHeroPriceWidth): הכרטיס ברוחב מלא, והמחיר מעליו */
+  .bento-main.vj-stack:has(#vizJumpBtn:not([hidden])) .hero-actions{max-width:calc(100% - 24px)}
+  .bento-main.vj-stack:has(#vizJumpBtn:not([hidden])) .hero-price{bottom:calc(var(--vj-h, 60px) + 20px)}
   /* במובייל הכרטיס והמחיר יושבים באותה שורה בתחתית התמונה, כמו במחשב:
      המחיר מתכווץ מעט, הכרטיס מקבל את שאר הרוחב, והכותרת שלו נשברת לשתי
      שורות במקום שהוא יתרחב אל תוך המחיר. מחיר שעולה מעל הכרטיס כיסה את
