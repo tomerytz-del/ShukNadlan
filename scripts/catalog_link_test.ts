@@ -159,6 +159,20 @@ ok("הורדה: 404 = שגיאה", "error" in notFound && notFound.error.include
 const thrown = await fetchCatalogItem(links[0], (async () => { throw new Error("net"); }) as unknown as typeof fetch);
 ok("הורדה: חריגה = שגיאה ולא קריסה", "error" in thrown, thrown);
 
+// --- הגיבוי: wa.me ענה 400 לבקשה מה-Edge Function (4.10.2026) ---
+const goodPage = page("משרדים from תומר יצחק on WhatsApp.", "משרדים במיקום מרכזי · ₪1,000.00");
+const viaDb = await fetchCatalogItem(links[0], fakeFetch(400, "Bad Request"), async () => goodPage);
+ok("גיבוי: 400 ישיר והגיבוי מחזיר את הדף = פריט", "item" in viaDb && viaDb.item.price === 1000, viaDb);
+const bothFail = await fetchCatalogItem(links[0], fakeFetch(400, "Bad Request"), async () => null);
+ok("גיבוי: שניהם נכשלו = השגיאה הישירה", "error" in bothFail && bothFail.error.includes("400"), bothFail);
+const fbThrows = await fetchCatalogItem(links[0], fakeFetch(400, ""), async () => { throw new Error("rpc"); });
+ok("גיבוי: חריגה בגיבוי אינה מפילה", "error" in fbThrows, fbThrows);
+const noItemDirect = await fetchCatalogItem(links[0], fakeFetch(200, page("WhatsApp", "")), async () => goodPage);
+ok("גיבוי: דף ישיר בלי פריט = מנסים את הגיבוי", "item" in noItemDirect, noItemDirect);
+let fallbackCalled = false;
+await fetchCatalogItem(links[0], fakeFetch(200, goodPage), async () => { fallbackCalled = true; return null; });
+ok("גיבוי: הצלחה ישירה אינה קוראת לגיבוי", !fallbackCalled);
+
 if (fail) {
   console.log(`\n${fail} בדיקות נכשלו`);
   process.exit(1);
