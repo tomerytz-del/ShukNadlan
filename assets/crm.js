@@ -97,7 +97,14 @@ document.getElementById('laSubmit').addEventListener('click', async ()=>{
     // ‏already_pending ו-already_approved אינם כישלון אלא התשובה עצמה.
     if (data.status === 'received' || data.status === 'already_pending' || data.status === 'already_approved'){
       document.getElementById('licenseAppealModal').style.display = 'none';
+      // מי שעוד לא בפנים (פתיחת משרד, כניסה ראשונה) עובר/ת למסך ההמתנה ולא
+      // נשאר/ת מול הטופס שנחסם — זה המסך שיחכה לו/ה גם בכניסה הבאה.
+      if (!currentAgent && data.status !== 'already_approved'){
+        showAppealPendingScreen(licenseAppealCtx.license);
+        return;
+      }
       showToast(data.detail || 'הצילום התקבל', 6000);
+      refreshLicenseHold();
       return;
     }
     fail(data.detail || ('שגיאה: ' + (data.error || 'לא ידועה')));
@@ -517,6 +524,7 @@ const SCREEN_CARDS = {
   login:        'loginCardMain',
   identify:     'identifyScreen',
   claimPending: 'claimPendingScreen',
+  appealPending:'appealPendingScreen',
   released:     'releasedScreen',
   closed:       'closedScreen',
   createAgency: 'createAgencyScreen',
@@ -995,6 +1003,8 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     // רישיון שלא אומת — מודאל הערעור במקום שורת שגיאה. הטופס נשאר פתוח
     // מאחוריו, כך שאפשר גם פשוט לתקן ספרה שהוקלדה שגוי ולנסות שוב.
     if (res.status === 403 && data.error === 'license_not_verified'){
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
       const { data: { user } } = await sb.auth.getUser();
       openLicenseAppeal({
         license: data.license_number || license,
@@ -1003,7 +1013,6 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
         email:   user?.email || '',
         source:  'create-own-agency',
       });
-      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
       return;
     }
 
@@ -1055,6 +1064,10 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
    והארנק ממשיכים כמו שהם ולא נבחרים מחדש. הדגל הזה הוא מה שמבדיל. */
 let releasedAgent = null;
 
+/* מה שכבר נמסר ולא צריך להקליד שוב: השם מחשבון Google, ומספר הרישיון והשם
+   מערעור שאושר. ממלא רק שדה ריק - מה שהוקלד במסך גובר. */
+let createAgencyPrefill = null;
+
 function showCreateAgencyScreen(){
   const adopting = !!releasedAgent;
   document.getElementById('caTierField').style.display = adopting ? 'none' : '';
@@ -1067,6 +1080,10 @@ function showCreateAgencyScreen(){
     // הכרטיס כבר קיים; מילוי מראש מונע שם או רישיון שנכתבים מחדש בשוגג
     document.getElementById('caManagerName').value = releasedAgent.display_name || '';
     document.getElementById('caLicense').value = releasedAgent.license_number || '';
+  } else if (createAgencyPrefill){
+    const fill = (id, v)=>{ const el = document.getElementById(id); if (el && !el.value.trim() && v) el.value = v; };
+    fill('caManagerName', createAgencyPrefill.name);
+    fill('caLicense', createAgencyPrefill.license);
   }
   showScreen('createAgency');
 }
@@ -1156,6 +1173,9 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
 
   if (data.status === 'claim_pending'){ showClaimPendingScreen(user, data.agency_name); return; }
 
+  // נשלח צילום רישיון והוא עוד בבדיקה — לא שוב טופס, ולא "פתיחת משרד חדש".
+  if (data.status === 'appeal_pending'){ showAppealPendingScreen(data.license_number); return; }
+
   // הכרטיס נמצא — חסרים בו הפרטים שרק הסוכן/ת יכול/ה למסור. **השיוך עוד
   // לא נעשה**, ובכוונה: כרטיס שקיבל חשבון הוא כרטיס שנכנסו אליו, ואין טעם
   // לבקש רישיון ממי שכבר בפנים. המסך הזה הוא גם שער הקוד האתי — אותה לחיצה
@@ -1173,6 +1193,7 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
   // הכרטיס נמצא — ומה שעוצר הוא הרישיון, לא הזיהוי. בלי הענף הזה המסך הבא
   // היה "לא מצאנו כרטיס", והסיבה האמיתית לא הייתה מגיעה לאף אחד.
   if (data.error === 'license_not_verified'){
+    if (data.appeal_pending){ showAppealPendingScreen(data.license_number); return; }
     showIdentifyScreen(user, data.detail || 'רישיון התיווך לא אומת מול רשם המתווכים.');
     openLicenseAppeal({
       license: data.license_number || '',
@@ -1186,7 +1207,14 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
   // מי שהגיע/ה מ"פתיחת משרד" עם Google כבר ענה/תה על השאלה שמסך הזיהוי
   // שואל. ‏status:'none' שם פירושו בדיוק מה שהוא ביקש: אין כרטיס, ולכן
   // פותחים משרד — ואין סיבה להציג לו/ה קודם מסך ששואל אם אולי כן יש.
-  if (data.status === 'none' && readNewAgencyIntent()){
+  createAgencyPrefill = {
+    name: data.appeal?.name || user?.user_metadata?.full_name || '',
+    license: data.appeal?.license_number || '',
+  };
+  // ערעור שאושר על פתיחת משרד: הבחירה כבר נעשתה בפעם הקודמת, ולכן ממשיכים
+  // ישר לטופס — עם המספר והשם שכבר נמסרו.
+  const approvedOpening = ['agency-signup', 'create-own-agency'].includes(data.appeal?.source);
+  if (data.status === 'none' && (readNewAgencyIntent() || approvedOpening)){
     clearNewAgencyIntent();
     showCreateAgencyScreen();
     return;
@@ -1212,6 +1240,29 @@ function showIdentifyScreen(user, notice){
   showScreen('identify');
 }
 
+function showAppealPendingScreen(license){
+  document.getElementById('apdLicense').textContent = license || '';
+  document.getElementById('apdFeedback').textContent = '';
+  showScreen('appealPending');
+}
+
+document.getElementById('apdRefreshBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('apdRefreshBtn');
+  const feedback = document.getElementById('apdFeedback');
+  btn.disabled = true; btn.textContent = 'בודקים…';
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){ showLoginCard('פג תוקף החיבור - יש להתחבר מחדש.'); return; }
+  await routeAfterAuth(session, { force:true });
+  btn.disabled = false; btn.textContent = 'בדיקה אם אושר';
+  if (document.getElementById('appealPendingScreen').style.display === 'block'){
+    feedback.style.color = 'var(--ink-soft)';
+    feedback.textContent = 'הצילום עדיין בבדיקה.';
+  }
+});
+document.getElementById('apdLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
+
 function showClaimPendingScreen(user, agencyName){
   document.getElementById('claimEmail').textContent = user?.email || '';
   document.getElementById('claimAgencyName').textContent = agencyName || '';
@@ -1235,6 +1286,7 @@ document.getElementById('idClaimBtn').addEventListener('click', async ()=>{
   // הכרטיס נמצא — הרישיון שעליו הוא מה שלא אומת. זו הודעה אחרת לגמרי
   // מ-license_not_found ("אין כרטיס כזה"), ולכן היא לא נכנסת למפה שלמטה.
   if (data.error === 'license_not_verified'){
+    if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
     const { data: { user } } = await sb.auth.getUser();
     openLicenseAppeal({
       license: data.license_number || license,
@@ -1501,6 +1553,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -6253,11 +6306,29 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     }
 
     feedback.textContent = 'שומר…';
+
+    // ‏מספר הרישיון אינו נכתב ישירות: שדות הבדיקה שלו נעולים מול הדפדפן, ולכן
+    // שמירה ישירה הייתה משאירה על מספר חדש את התוצאה של הקודם. מספר שהשתנה
+    // נבדק בשרת מול רשם המתווכים (join-agency/set_license), כאן בשמירה.
+    const digitsOf = v => String(v || '').replace(/\D/g, '').replace(/^0+/, '');
+    let licenseNote = '';
+    if (digitsOf(license) !== digitsOf(currentAgent.license_number)){
+      feedback.textContent = 'בודקים את מספר הרישיון מול רשם המתווכים…';
+      const lic = await saveLicenseNumber(license);
+      if (!lic.success){
+        throw new Error(lic.detail || LICENSE_SAVE_ERRORS[lic.error] || 'מספר הרישיון לא נשמר');
+      }
+      licenseNote = lic.license.cleared
+        ? ''
+        : ' מספר הרישיון לא נמצא ברשם המתווכים - הדף והמודעות יעלו לאוויר אחרי אישור (ראו הכרטיס בראש הדשבורד).';
+      refreshLicenseHold();
+      feedback.textContent = 'שומר…';
+    }
+
     // קוראים את השורה חזרה במקום להניח מה נשמר: טריגר ההגנה על agency_members
     // מחזיר שדות נעולים לערכם הישן בשקט, ועדיף להציג את מה שבאמת יושב ב-DB
     const patch = {
       display_name: name,
-      license_number: license,
       id_number: document.getElementById('pfIdNumber').value.trim() || null,
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
@@ -6315,9 +6386,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     renderProfilePreview();
 
     feedback.style.color = 'var(--green)';
-    feedback.textContent = saved.license_number === license
-      ? 'הפרטים נשמרו - דף הסוכן/ת שלך מעודכן.'
-      : 'הפרטים נשמרו, אך מספר הרישיון לא עודכן - פנו להנהלת הפלטפורמה.';
+    feedback.textContent = 'הפרטים נשמרו - דף הסוכן/ת שלך מעודכן.' + licenseNote;
     showToast('פרטי הסוכן/ת עודכנו');
     // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
     refreshOnboarding();
@@ -6687,6 +6756,111 @@ async function loadOnboarding(){
    הבא נולד בטריגר במסד **באותה שמירה**, והפעמון נטען בכניסה לדשבורד בלבד —
    בלי הרענון כאן ההתראה שמעודדת את הצעד הבא הייתה מופיעה רק בטעינה הבאה,
    כלומר בדיוק לא ברגע שבו היא רלוונטית. שתיהן קורות רק בזמן המדריך. */
+/* ================= רישיון שעוד לא אושר =================
+   החשבון נפתח לפני אישור הרישיון, ומה שמחכה הוא האוויר: דף הסוכן/ת, דף
+   המשרד והמודעות (20270216090000_license_hold.sql). הכרטיס הזה הוא המקום
+   היחיד שבו רואים את זה - ומכאן שולחים צילום, מתקנים מספר ובודקים סטטוס.
+   הנתונים מ-join-agency (‏license_status), כי טבלת הערעורים סגורה לדפדפן. */
+let licenseState = null;
+
+async function refreshLicenseHold(){
+  const card = document.getElementById('licenseHoldCard');
+  if (!card || !currentAgent) return;
+  const { ok, data } = await callJoinAgency({ action:'license_status' });
+  if (!ok){ return; }   // תקלה זמנית אינה סיבה להציג אזהרה
+  licenseState = data;
+  if (data.cleared){ card.hidden = true; return; }
+
+  const held = data.held_properties || 0;
+  const isManager = currentAgent.role === 'manager';
+  document.getElementById('lhText').textContent =
+    'החשבון פעיל ואפשר לעבוד כרגיל, אבל ' +
+    (isManager ? 'דף המשרד, דף הסוכן/ת שלך' : 'דף הסוכן/ת שלך') +
+    ' והמודעות לא מוצגים באתר עד שהרישיון יאושר. ' +
+    (held ? (held === 1 ? 'מודעה אחת ממתינה' : held + ' מודעות ממתינות') + ' ותעלה לאוויר אוטומטית ברגע האישור.'
+          : 'מודעות שתפרסם/י עכשיו יעלו לאוויר אוטומטית ברגע האישור.');
+
+  const a = data.appeal;
+  const status = document.getElementById('lhStatus');
+  const appealBtn = document.getElementById('lhAppealBtn');
+  if (a && a.status === 'pending'){
+    status.style.color = 'var(--ink)';
+    status.textContent = 'הצילום ששלחת (' + hebDate(a.created_at) + ') בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים.';
+    appealBtn.hidden = true;
+  } else if (a && a.status === 'rejected'){
+    status.style.color = 'var(--brick)';
+    status.textContent = 'הצילום שנשלח לא אושר' + (a.decision_note ? ': ' + a.decision_note : '.') +
+      ' אפשר לתקן את המספר או לשלוח צילום חדש.';
+    appealBtn.hidden = false;
+  } else {
+    status.style.color = 'var(--brick)';
+    status.textContent = 'מספר הרישיון ' + (data.license_number || '') + ' לא נמצא ברשם המתווכים. ' +
+      'המאגר מתעדכן אחת לשלושה חודשים - אם הרישיון חדש, שלחו צילום ונאשר ידנית.';
+    appealBtn.hidden = false;
+  }
+  card.hidden = false;
+}
+
+document.getElementById('lhAppealBtn').addEventListener('click', ()=>{
+  openLicenseAppeal({
+    license: licenseState?.license_number || currentAgent?.license_number || '',
+    name:    currentAgent?.display_name || '',
+    email:   currentAgent?.email || '',
+    source:  'crm',
+  });
+});
+
+document.getElementById('lhFixBtn').addEventListener('click', ()=>{
+  const row = document.getElementById('lhFixRow');
+  row.hidden = !row.hidden;
+  if (!row.hidden){
+    const input = document.getElementById('lhLicense');
+    input.value = licenseState?.license_number || '';
+    input.focus();
+  }
+});
+
+/* מספר רישיון חדש עובר דרך השרת, ונבדק מול רשם המתווכים בשמירה. אישור
+   כאן מעלה לאוויר את מה שחיכה - הטריגר במסד עושה את זה, לא הדפדפן. */
+async function saveLicenseNumber(license){
+  const { data } = await callJoinAgency({ action:'set_license', license_number: license });
+  if (data.success && currentAgent) currentAgent.license_number = data.license?.license_number || license;
+  return data;
+}
+
+const LICENSE_SAVE_ERRORS = {
+  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-8.',
+  license_in_use:  'מספר הרישיון הזה כבר רשום אצל סוכן/ת אחר/ת במערכת. אם זה שלך - פנו אלינו.',
+};
+
+document.getElementById('lhSaveBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('lhSaveBtn');
+  const fb = document.getElementById('lhFeedback');
+  const license = document.getElementById('lhLicense').value.trim();
+  if (!license){ fb.style.color = 'var(--brick)'; fb.textContent = 'יש להזין מספר רישיון.'; return; }
+  btn.disabled = true; btn.textContent = 'בודקים מול רשם המתווכים…'; fb.textContent = '';
+  try{
+    const data = await saveLicenseNumber(license);
+    if (!data.success){
+      fb.style.color = 'var(--brick)';
+      fb.textContent = data.detail || LICENSE_SAVE_ERRORS[data.error] || 'השמירה נכשלה, נסו שוב.';
+      return;
+    }
+    document.getElementById('lhFixRow').hidden = true;
+    if (data.license.cleared){
+      showToast('הרישיון אומת - הדף והמודעות שלך עולים לאוויר', 6000);
+      fb.textContent = '';
+    } else {
+      fb.style.color = 'var(--brick)';
+      fb.textContent = 'המספר נשמר, אבל גם הוא לא נמצא ברשם. אפשר לשלוח צילום רישיון.';
+    }
+    await refreshLicenseHold();
+    if (data.license.cleared) loadProperties(currentAgent.id);
+  } finally{
+    btn.disabled = false; btn.textContent = 'שמירה ובדיקה';
+  }
+});
+
 function refreshOnboarding(){
   if (!onboardingLive()) return;
   loadOnboarding();
@@ -7157,6 +7331,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
       // נפתח מול מי שהתעודה בידיו/ה. זו כל הסיבה שהשדה כאן ולא בטופס של
       // מנהל/ת המשרד.
       if (data.error === 'license_not_verified'){
+        if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
         const { data: { user } } = await sb.auth.getUser();
         openLicenseAppeal({
           license: data.license_number || license,
@@ -12048,6 +12223,11 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   await loadClientAlerts();
   // ואותו נכס עשוי להיות הראשון, ולסגור צעד במדריך ההתחלה
   refreshOnboarding();
+  // רישיון שעוד לא אושר: המודעה נשמרה, אבל מחכה. הכרטיס בראש הדשבורד סופר אותה.
+  if (publishAfterInsert && licenseState && !licenseState.cleared){
+    showToast('הנכס נשמר. הוא יעלה לאוויר אוטומטית ברגע שרישיון התיווך שלך יאושר.', 7000);
+    refreshLicenseHold();
+  }
   /* נכס שנשמר ולא פורסם: ההודעה מסבירה למה ומה עושים הלאה, ו-1.5 שניות
      אינן מספיקות כדי לקרוא אותה. הטופס נשאר פתוח עד שסוגרים אותו. */
   if (!savedWithoutPublishing){
@@ -13490,8 +13670,13 @@ async function setPropertyStatus(property, nextStatus, btn, agentId){
     showToast(propertyStatusErrorText(error), 6000);
     return;
   }
+  // רישיון שעוד לא אושר: המסד השאיר את הנכס unpublished (license_hold_at),
+  // ולכן "מופיע באתר" לא היה נכון.
+  const heldForLicense = nextStatus === 'active' && licenseState && !licenseState.cleared;
+  if (heldForLicense) refreshLicenseHold();
   showToast(
-    nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
+    heldForLicense               ? 'הנכס יעלה לאוויר אוטומטית ברגע שרישיון התיווך שלך יאושר'
+    : nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
     : nextStatus === 'unpublished' ? 'הנכס ירד מפרסום — הוא נשאר אצלך במערכת'
     : nextStatus === 'sold'        ? (patch.sale_closed_price
         ? 'הנכס סומן כנמכר, ומחיר הסגירה נרשם במאגר העסקאות'

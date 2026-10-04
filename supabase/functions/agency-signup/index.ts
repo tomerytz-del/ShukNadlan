@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
-import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { resolveAgencyCityId } from "../_shared/agency-city.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
@@ -79,24 +79,21 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   // ---------------------------------------------------------------------
-  // אימות רישיון התיווך מול רשם המתווכים
+  // אימות רישיון התיווך מול רשם המתווכים - **אינו חוסם את פתיחת החשבון**
   //
-  // **לפני שנוצר משהו.** המשרד, משתמש ה-auth וכרטיס הסוכן/ת נוצרים בשלוש
-  // פעולות נפרדות שכבר היום דורשות rollback ידני כשאחת נכשלת; בדיקה
-  // שהייתה רצה באמצע הייתה מוסיפה מצב רביעי לנקות. כאן היא עולה קריאת
-  // רשת אחת ומחזירה 403 לפני שנגענו במסד.
+  // עד `20270216090000_license_hold.sql` רישיון שלא נמצא החזיר 403 ולא נוצר
+  // כלום, ולכן מי ששלח/ה צילום לא היה/ה יכול/ה להיכנס לבדוק סטטוס, וכל
+  // ניסיון חוזר התחיל מההתחלה. עכשיו החשבון נפתח תמיד, התוצאה נכתבת על
+  // הכרטיס, ומה שמחכה לאישור הוא האוויר: דף המשרד, דף הסוכן/ת והמודעות.
   //
-  // ‏not_found ו-inactive חוסמים; ‏unverified לעולם לא. ראו
-  // ‏_shared/broker-license-gate.ts.
+  // הבדיקה עדיין רצה כאן, לפני הכתיבה, כדי שהתוצאה תיכנס כבר ב-INSERT.
   // ---------------------------------------------------------------------
   const licenseCheck = await checkBrokerLicense(supabase, license_number, {
     who: manager_name,
     email: manager_email,
     source: "agency-signup",
   });
-  if (!licenseCheck.allowed) {
-    return json(blockedResponse(licenseCheck, license_number), 403);
-  }
+  const license = licenseSummary(licenseCheck, license_number);
 
   try {
     // slug יינו למשרד — בדיקת ייחוד עם fallback מספרי (מודול 3 §2.2)
@@ -205,6 +202,7 @@ Deno.serve(async (req: Request) => {
       member_slug: finalMemberSlug,
       promo,
       ethics_recorded: ethicsRecorded,
+      license,
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

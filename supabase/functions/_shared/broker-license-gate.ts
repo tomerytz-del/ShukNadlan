@@ -123,6 +123,52 @@ export async function manuallyApproved(supabase: any, license: string) {
   } catch { return null; }
 }
 
+/** ערעור שממתין להחלטה על מספר הרישיון הזה. */
+export async function pendingAppeal(supabase: any, license: string) {
+  try {
+    const { data } = await supabase
+      .from("broker_license_appeals")
+      .select("id, created_at")
+      .eq("license_number", license)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle();
+    return data ?? null;
+  } catch { return null; }
+}
+
+/**
+ * הערעור האחרון (ממתין או מאושר) שנשלח מאחת הכתובות האלה.
+ *
+ * זה מה שמאפשר לחזור אחרי ערעור **בלי להתחיל מההתחלה**. החסימה אינה יוצרת
+ * כלום — לא משרד, לא כרטיס ולפעמים גם לא חשבון — ולכן בלי השאילתה הזו הכניסה
+ * הבאה לא ידעה שהיה ערעור: סוכן/ת שהוזמן/ה התבקש/ה שוב את מספר הרישיון, ומי
+ * שהאימייל שלו/ה לא תאם כרטיס נחת/ה על "אני פותח/ת משרד חדש".
+ *
+ * הזיהוי לפי אימייל, כי זה מה שיש: טופס הערעור ממולא מראש בכתובת החשבון,
+ * וזו גם הכתובת שאליה נשלחת ההחלטה. ערעור שנדחה אינו מוחזר — הוא אינו
+ * פותח כלום, והמסלול הרגיל (מספר אחר, ערעור חדש) נשאר פתוח.
+ */
+export async function appealForEmail(supabase: any, emails: string[]) {
+  const list = [...new Set(emails.map((e) => String(e || "").trim().toLowerCase()).filter(Boolean))];
+  if (!list.length) return null;
+  try {
+    const { data } = await supabase
+      .from("broker_license_appeals")
+      .select("license_number, applicant_name, status, source")
+      .in("applicant_email", list)
+      .in("status", ["pending", "approved"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data ?? null;
+  } catch { return null; }
+}
+
+/** הנוסח למי שחוזר/ת בזמן שהצילום עוד בבדיקה. */
+export const APPEAL_PENDING_MESSAGE =
+  "צילום הרישיון ששלחת נמצא בבדיקה אצל הנהלת הפלטפורמה. נעדכן במייל, ואז ממשיכים מאותה נקודה - בלי למלא שוב.";
+
 // ---------------------------------------------------------------------------
 // השער
 // ---------------------------------------------------------------------------
@@ -139,6 +185,8 @@ export type GateDecision = {
   registry_name: string | null;
   /** האם להציע את מסלול הערעור. רק כשהחסימה נובעת מהמאגר. */
   appealable: boolean;
+  /** כבר נשלח צילום והוא ממתין. אין מה לבקש שוב — רק להמתין. */
+  appeal_pending?: boolean;
 };
 
 const columnsFor = (status: string, name: string | null, entityStatus: string | null) => ({
@@ -202,7 +250,11 @@ export async function checkBrokerLicense(
   const blocking = result.status === "inactive" ||
     (result.status === "not_found" && await blocksNotFound(supabase));
 
-  if (blocking) {
+  // ערעור שכבר ממתין: ההנהלה כבר יודעת, ולכן אין מייל נוסף בכל ניסיון
+  // חוזר, והמסך מקבל "בבדיקה" במקום טופס ערעור שני.
+  const pending = blocking ? await pendingAppeal(supabase, license) : null;
+
+  if (blocking && !pending) {
     // ההתראה היא חלק מהדרישה, ולכן היא נשלחת כאן — בנקודה שבה כל ארבעת
     // המסלולים עוברים — ולא בכל פונקציה בנפרד. כישלון שליחה אינו משנה את
     // ההחלטה: החסימה כבר נקבעה.
@@ -212,10 +264,11 @@ export async function checkBrokerLicense(
   return {
     allowed: !blocking,
     columns,
-    message,
+    message: pending ? APPEAL_PENDING_MESSAGE : message,
     status: result.status,
     registry_name: result.name,
-    appealable: blocking,
+    appealable: blocking && !pending,
+    appeal_pending: !!pending,
   };
 }
 
@@ -246,6 +299,25 @@ async function alertPlatform(
   });
 }
 
+/**
+ * מצב הרישיון כפי שהוא נמסר לדפדפן אחרי פתיחת חשבון.
+ *
+ * מאז `20270216090000_license_hold.sql` רישיון שלא נמצא **אינו** חוסם את
+ * פתיחת החשבון: החשבון נפתח, ומה שמחכה לאישור הוא האוויר - דף הסוכן/ת, דף
+ * המשרד והמודעות. התשובה הזו אומרת למסך אם להציג "הכול תקין" או "יש בעיה
+ * ברישיון, אפשר לשלוח צילום".
+ */
+export function licenseSummary(decision: GateDecision, license: string) {
+  return {
+    status: decision.status,
+    cleared: decision.allowed,
+    license_number: normalizeLicense(license),
+    appealable: decision.appealable,
+    appeal_pending: !!decision.appeal_pending,
+    detail: decision.allowed ? "" : decision.message,
+  };
+}
+
 /** גוף התשובה שהדפדפן מקבל כשההרשמה נחסמה. אחיד בכל ארבעת המסלולים. */
 export function blockedResponse(decision: GateDecision, license: string) {
   return {
@@ -253,6 +325,7 @@ export function blockedResponse(decision: GateDecision, license: string) {
     license_status: decision.status,
     license_number: normalizeLicense(license),
     appealable: decision.appealable,
+    appeal_pending: !!decision.appeal_pending,
     detail: decision.message,
   };
 }

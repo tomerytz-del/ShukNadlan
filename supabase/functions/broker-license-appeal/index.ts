@@ -285,7 +285,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: appeal, error: findErr } = await supabase
         .from("broker_license_appeals")
-        .select("id, license_number, applicant_name, applicant_email, status")
+        .select("id, license_number, applicant_name, applicant_email, status, source")
         .eq("id", appealId)
         .maybeSingle();
       if (findErr) return json({ error: "db_error", detail: findErr.message }, 500);
@@ -317,11 +317,24 @@ Deno.serve(async (req: Request) => {
           })
           .eq("license_number", appeal.license_number)
           .in("license_status", ["not_found", "inactive"])
+          // הטריגר agency_members_release_license_hold מעלה עכשיו לאוויר את
+          // המודעות של הכרטיסים האלה (20270216090000_license_hold.sql).
           .select("id");
         released = (freed ?? []).length;
       }
 
       const approved = decision === "approved";
+      // לאן חוזרים. מאז 20270216090000_license_hold.sql החשבון נפתח לפני
+      // הבדיקה, ולכן כמעט תמיד יש כרטיס - והאישור כבר העלה לאוויר את הדף
+      // והמודעות שחיכו (הטריגר על agency_members). רק ערעור מהזרימה הישנה,
+      // שנחסם בטופס לפני שנוצר חשבון, חוזר לטופס.
+      const noAccount = released === 0 && appeal.source === "agency-signup";
+      const backUrl = noAccount
+        ? "https://shuknadlan.co.il/agency-signup"
+        : "https://shuknadlan.co.il/crm";
+      const backText = noAccount
+        ? "אפשר לחזור לטופס פתיחת המשרד ולשלוח אותו שוב - הפעם הוא יעבור."
+        : "הדף שלך והמודעות שחיכו לאישור עולים עכשיו לאוויר. אפשר להיכנס לאיזור הסוכנים כרגיל.";
       await sendPlatformEmail({
         to: [appeal.applicant_email],
         subject: approved ? "רישיון התיווך אושר - אפשר להמשיך" : "בקשת אימות רישיון התיווך נדחתה",
@@ -329,14 +342,15 @@ Deno.serve(async (req: Request) => {
           <p>שלום ${esc(appeal.applicant_name)},</p>
           ${approved
             ? `<p>בדקנו את צילום רישיון התיווך ששלחת (מספר <b>${esc(appeal.license_number)}</b>) ו<b>אישרנו אותו</b>.</p>
-               <p>אפשר להמשיך בפתיחת המשרד באתר — הכניסה כבר פתוחה.</p>`
+               <p>${esc(backText)}</p>
+               <p><a href="${backUrl}" style="color:#0e2a6b;font-weight:700">להמשך ←</a></p>`
             : `<p>בדקנו את צילום רישיון התיווך ששלחת (מספר <b>${esc(appeal.license_number)}</b>), ולא הצלחנו לאשר אותו.</p>`}
           ${decisionNote ? `<p style="background:#f6f7fb;padding:10px;border-radius:8px">${esc(decisionNote)}</p>` : ""}
           <p style="color:#666;font-size:13px">לשאלות אפשר להשיב למייל הזה
              (<a href="mailto:${esc(PLATFORM_CONTACT_EMAIL)}" style="color:#0e2a6b">${esc(PLATFORM_CONTACT_EMAIL)}</a>).</p>
         </div>`,
         text: approved
-          ? `רישיון ${appeal.license_number} אושר. אפשר להמשיך בפתיחת המשרד באתר.${decisionNote ? " " + decisionNote : ""}`
+          ? `רישיון ${appeal.license_number} אושר. ${backText} ${backUrl}${decisionNote ? " " + decisionNote : ""}`
           : `בקשת אימות רישיון ${appeal.license_number} נדחתה.${decisionNote ? " " + decisionNote : ""}`,
       });
 
