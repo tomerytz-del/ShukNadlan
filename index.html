@@ -4337,11 +4337,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      מ"עוד אפשרויות סינון". ‏initHomeFilterPanel ב-assets/home.js. */
   .ss-card.ss-free-only .ss-adv{display:none}
   /* כפתור "סינון מתקדם" - פותח את "מה אתם מחפשים". צמוד לתחתית שורת החיפוש,
-     בצד שמאל (סוף השורה), מתחת לכפתור "הצג". ‏#ssCard: design-system נטען אחרי. */
+     בצד ימין (תחילת השורה, מתחת ל-✦ של השדה). ‏#ssCard: design-system נטען אחרי.
+     לא בצד שמאל: שם עולה הראש של גבריאלה (‏--gab-pop), והכפתור ישב לה על
+     הפוני במחשב (אוקטובר 2026). בצד ימין יושב גוף הכרטיס, שמתחיל נמוך יותר. */
   /* position+z-index: הדמות של גבריאלה חורגת מעל הכרטיס שלה, ובלי זה התמונה
      יושבת מעל הכפתור ובולעת את הלחיצות (קרה ב-#566). */
   #ssCard .hs-toggle{
-    position:relative;z-index:6;display:flex;align-items:center;gap:7px;margin:8px 0 0;margin-inline-start:auto;padding:7px 14px;min-height:38px;
+    position:relative;z-index:6;display:flex;align-items:center;gap:7px;margin:8px 0 0;margin-inline-end:auto;padding:7px 14px;min-height:38px;
     background:rgba(255,255,255,.94);border:1px solid #e3e8f2;border-radius:999px;color:var(--sapphire-deep);
     font:inherit;font-size:14.5px;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(14,42,107,.12);
   }
@@ -4356,8 +4358,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      בעל/ת האתר). לכן מחלקה ולא hidden: ‏[hidden] כאן הוא !important. */
   @media(min-width:760px){ #ssCard .hs-filter.is-collapsed{display:none} }
   @media(max-width:759px){ #ssCard .hs-toggle{display:none} }
-  /* ובמחשב, כשהגלולות מקופלות, כרטיס גבריאלה עולה ‎84px‎: הראש שלה עדיין
-     מעל המסגרת (‏--gab-pop) ולא נוגע בכפתור. כשהסינון פתוח הוא נדחף ממילא. */
+  /* ובמחשב, כשהגלולות מקופלות, כרטיס גבריאלה עולה ‎84px‎: הראש שלה עולה
+     לגובה הכפתור, אבל בצד השני של הדף, ולכן לא נוגע בו. כשהסינון פתוח הוא
+     נדחף ממילא. */
   @media(min-width:760px){ html body #gabrielaHero{margin-top:calc(var(--gab-pop) - 60px)} }
   .hs-filter{margin-top:14px;text-align:start}
   .hs-q{
