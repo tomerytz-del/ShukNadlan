@@ -23,7 +23,7 @@ import {
 // שעה. בלעדיו אפשר היה לשלוח למישהו קישור שמחבר את היומן **שלו/ה** לחשבון
 // של התוקף/ת.
 //
-// תמיד מסתיים בהפניה חזרה ל-CRM (`/crm?goto=accAgenda&gcal=…`), גם בכשל:
+// תמיד מסתיים בהפניה חזרה ל-CRM (`/crm?goto=accGcal&gcal=…`), גם בכשל:
 // מסך JSON של שרת באמצע תהליך התחברות הוא מבוי סתום.
 // ============================================================================
 
@@ -34,7 +34,7 @@ const SITE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").repla
 function back(result: string): Response {
   return new Response(null, {
     status: 302,
-    headers: { Location: `${SITE}/crm?goto=accAgenda&gcal=${encodeURIComponent(result)}` },
+    headers: { Location: `${SITE}/crm?goto=accGcal&gcal=${encodeURIComponent(result)}` },
   });
 }
 
