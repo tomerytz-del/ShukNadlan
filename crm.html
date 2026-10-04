@@ -337,6 +337,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .call-sum{font-size:.84rem;line-height:1.6;margin:6px 0 0}
   .call-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .call-actions .btn{padding:5px 11px;font-size:.78rem}
+  .call-row.is-archived{opacity:.6}
   .client-calls{margin-top:10px;padding:4px 12px;border:1px solid #EEF2F6;border-radius:12px;background:#FAFBFD}
   .call-audio{width:100%;margin-top:8px}
   .call-transcript{font-size:.8rem;line-height:1.7;background:#F8FAFC;border-radius:10px;padding:10px;margin-top:8px;white-space:pre-wrap}
@@ -5925,6 +5926,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- מנהל/ת הפלטפורמה בלבד: כל הצינור על הקלטה שמעלים, בלי Twilio -->
             <button type="button" class="btn btn-ghost" id="callSimBtn" style="display:none;padding:5px 11px;font-size:.78rem">🧪 סימולציית שיחה</button>
             <input type="file" id="callSimFile" accept="audio/*,.ogg,.opus,.m4a,.mp3,.wav,.webm" hidden>
+            <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
+            <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
           </div>
           <div id="callsList"></div>
         </div>

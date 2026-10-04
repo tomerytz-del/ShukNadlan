@@ -19966,9 +19966,9 @@ async function loadCalls(){
   if (!callsEnabled){ callsEnabled = true; if (clientRows.length) renderClients(); }
 
   const { data, error } = await sb.from('agent_calls')
-    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
     .order('created_at', { ascending:false })
-    .limit(30);
+    .limit(60);
   const list = document.getElementById('callsList');
   if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(error.message) + '</div>'; return; }
   callRows = data || [];
@@ -19976,13 +19976,52 @@ async function loadCalls(){
   renderCalls();
 }
 
+// ארכוב מסתיר שיחה מהרשימה בלי למחוק אותה (agent_call_set_archived)
+let callsShowArchived = false;
+
 function renderCalls(){
   const list = document.getElementById('callsList');
+  const archivedCount = callRows.filter(c => c.archived_at).length;
+  const toggle = document.getElementById('callsArchiveToggle');
+  if (toggle){
+    toggle.style.display = archivedCount || callsShowArchived ? '' : 'none';
+    toggle.textContent = callsShowArchived ? '↩ חזרה לשיחות' : `🗄 ארכיון (${archivedCount})`;
+  }
+  const shown = callRows.filter(c => callsShowArchived ? c.archived_at : !c.archived_at);
+  if (callsShowArchived){
+    list.innerHTML = shown.length ? shown.map(c => callRowHtml(c)).join('')
+      : '<div class="empty-state">אין שיחות בארכיון.</div>';
+    return;
+  }
+  if (!shown.length && callRows.length){
+    list.innerHTML = '<div class="empty-state">כל השיחות בארכיון.</div>';
+    return;
+  }
   if (!callRows.length){
     list.innerHTML = '<div class="empty-state">עוד אין שיחות. שיחה למספר שלך תופיע כאן עם הקלטה וסיכום.</div>';
     return;
   }
-  list.innerHTML = callRows.map(c => callRowHtml(c)).join('');
+  list.innerHTML = shown.map(c => callRowHtml(c)).join('');
+}
+
+document.getElementById('callsArchiveToggle').addEventListener('click', () => {
+  callsShowArchived = !callsShowArchived;
+  renderCalls();
+});
+
+/* ארכוב / החזרה. בכרטיס הלקוח/ה השיחה נשארת (מסומנת), ברשימה היא עוברת. */
+async function archiveCall(c, row, btn){
+  const archive = !c.archived_at;
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('agent_call_set_archived', { p_call_id: c.id, p_archived: archive });
+  btn.disabled = false;
+  if (error || !data){ showToast('הפעולה נכשלה' + (error ? ': ' + error.message : '')); return; }
+  c.archived_at = archive ? new Date().toISOString() : null;
+  const r = callRows.find(x => x.id === c.id);
+  if (r && r !== c) r.archived_at = c.archived_at;
+  if (row.closest('.client-calls')) row.outerHTML = callRowHtml(c, true);
+  renderCalls();
+  showToast(archive ? 'השיחה הועברה לארכיון' : 'השיחה הוחזרה מהארכיון');
 }
 
 /* שורת שיחה - אחת לבלוק "שיחות אחרונות" ולכרטיס הלקוח/ה. ‏inCard: בכרטיס
@@ -19998,7 +20037,7 @@ function callRowHtml(c, inCard){
   const needsObj = (c.extracted && c.extracted.needs) || {};
   const canUpdate = client && Object.keys(needsObj).length > 0;
   const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
-  return `<div class="call-row" data-call="${esc(c.id)}">
+  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -20012,7 +20051,8 @@ function callRowHtml(c, inCard){
       ${canUpdate ? '<button type="button" class="btn btn-ghost" data-call-act="update">🔄 עדכון הכרטיס מהשיחה</button>' : ''}
       ${!inCard && !client && (phone || name) ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
       ${!inCard && phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
-      <button type="button" class="btn btn-ghost" data-call-act="delete" title="מחיקת השיחה וההקלטה">🗑</button>
+      <button type="button" class="btn btn-ghost" data-call-act="archive" title="${c.archived_at ? 'החזרה מהארכיון' : 'הסתרה מהרשימה, בלי למחוק'}">${c.archived_at ? '↩ מהארכיון' : '🗄 ארכוב'}</button>
+      <button type="button" class="btn btn-ghost" data-call-act="delete" title="מחיקת השיחה וההקלטה">🗑 מחיקה</button>
     </div>
   </div>`;
 }
@@ -20026,6 +20066,7 @@ document.addEventListener('click', async e => {
   if (!c) return;
   const act = btn.dataset.callAct;
   if (act === 'delete') return deleteCall(c, row, btn);
+  if (act === 'archive') return archiveCall(c, row, btn);
   if (act === 'play'){
     if (row.querySelector('audio')) return;
     btn.disabled = true;
@@ -20081,8 +20122,8 @@ async function deleteCall(c, row, btn){
     if (!res.ok || !out.deleted) throw new Error(out.error || res.status);
     callById.delete(c.id);
     callRows = callRows.filter(x => x.id !== c.id);
-    row.remove();
-    if (!callRows.length) renderCalls();
+    if (row.closest('.client-calls')) row.remove();
+    renderCalls();
     showToast('השיחה נמחקה');
   } catch (err){
     btn.disabled = false;
@@ -20095,7 +20136,7 @@ async function deleteCall(c, row, btn){
 async function loadClientCalls(c){
   const digits = String(c.phone || '').replace(/\D/g, '');
   let q = sb.from('agent_calls')
-    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
     .order('created_at', { ascending:false }).limit(20);
   q = digits.length >= 9
     ? q.or(`client_id.eq.${c.id},from_number.like.%${digits.slice(-9)}`)
