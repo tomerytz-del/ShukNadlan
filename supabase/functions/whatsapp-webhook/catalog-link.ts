@@ -12,7 +12,8 @@
 //
 // הכול מקודד כ-`&#x5e8;` ומלא בסימני כיוון (‏U+200E/U+200F), ובשפה עברית
 // התבנית מתהפכת ("<פריט> של <עסק> ב-WhatsApp.", "1,100,000.00 ₪"). שני
-// הנוסחים נתמכים, והבקשה מבקשת אנגלית כדי שהנוסח יהיה צפוי.
+// הנוסחים נתמכים, והבקשה נשלחת בלי Accept-Language,
+// ואז הדף חוזר באנגלית.
 //
 // **הטקסט נכתב בידי בעל/ת הקטלוג**, ולכן הוא עובר למודל כנתונים בתוך בלוק
 // מסומן, בלי סוגריים מרובעים שיכולים לזייף את הסימון.
@@ -249,28 +250,74 @@ export function catalogImagesInTurn(text: string, prefix: string): { items: numb
 const PAGE_TIMEOUT_MS = 8000;
 const MAX_PAGE_CHARS = 1_000_000;
 
-/** מורידה את הדף ומחזירה את הפריט, או סיבה לכישלון בעברית. */
-export async function fetchCatalogItem(
+/**
+ * ה-User-Agent של סורק התצוגה המקדימה של Meta - הבקשה שהדף הזה נבנה לה.
+ * בלי Accept-Language הדף חוזר בנוסח האנגלי.
+ *
+ * ‏**בניסיון האמיתי הראשון (4.10.2026) wa.me ענה 400 לבקשה מה-Edge Function**,
+ * עם User-Agent של דפדפן, ובאותה דקה אותו קישור החזיר 200 מהמסד דרך pg_net.
+ * לכן יש גיבוי (`fallback`), והכישלון נרשם בלוג עם תחילת התשובה.
+ */
+const PAGE_HEADERS = {
+  "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+};
+
+/** מקור נוסף לדף כשהבקשה הישירה נכשלת (ב-index.ts: pg_net דרך המסד).
+ *  מחזיר את ה-HTML, או null. */
+export type CatalogPageFallback = (link: CatalogLink) => Promise<string | null>;
+
+async function fetchDirect(
   link: CatalogLink,
-  fetchFn: typeof fetch = fetch,
-): Promise<{ item: CatalogItem } | { error: string }> {
-  let html: string;
+  fetchFn: typeof fetch,
+): Promise<{ html: string } | { error: string }> {
   try {
     const res = await fetchFn(link.url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+      headers: PAGE_HEADERS,
       redirect: "follow",
       signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
     });
-    if (!res.ok) return { error: `הדף החזיר ${res.status}` };
-    html = (await res.text()).slice(0, MAX_PAGE_CHARS);
+    const text = (await res.text()).slice(0, MAX_PAGE_CHARS);
+    if (!res.ok) {
+      console.warn("catalog page direct fetch failed", res.status, link.url, text.slice(0, 300));
+      return { error: `הדף החזיר ${res.status}` };
+    }
+    return { html: text };
   } catch (err) {
     console.error("catalog page fetch failed", link.url, err);
     return { error: "הדף לא נטען" };
   }
-  const item = parseCatalogPage(html);
-  return item ? { item } : { error: "הקישור אינו מוביל לפריט (ייתכן שהפריט הוסר מהקטלוג)" };
+}
+
+/**
+ * מורידה את הדף ומחזירה את הפריט, או סיבה לכישלון בעברית. בקשה ישירה קודם;
+ * אם היא נכשלה או שלא חזר פריט - `fallback`, כשיש.
+ */
+export async function fetchCatalogItem(
+  link: CatalogLink,
+  fetchFn: typeof fetch = fetch,
+  fallback?: CatalogPageFallback,
+): Promise<{ item: CatalogItem } | { error: string }> {
+  const direct = await fetchDirect(link, fetchFn);
+  if ("html" in direct) {
+    const item = parseCatalogPage(direct.html);
+    if (item) return { item };
+    console.warn("catalog page direct fetch: no item in page", link.url);
+  }
+
+  if (fallback) {
+    let html: string | null = null;
+    try {
+      html = await fallback(link);
+    } catch (err) {
+      console.error("catalog page fallback failed", link.url, err);
+    }
+    if (html) {
+      const item = parseCatalogPage(html.slice(0, MAX_PAGE_CHARS));
+      if (item) return { item };
+    }
+  }
+
+  return "error" in direct
+    ? { error: direct.error }
+    : { error: "הקישור אינו מוביל לפריט (ייתכן שהפריט הוסר מהקטלוג)" };
 }

@@ -23,6 +23,7 @@ import { runEmailIntake } from "./email-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
 import {
   catalogBlock,
+  type CatalogLink,
   catalogFailureBlock,
   catalogImagesInTurn,
   fetchCatalogItem,
@@ -364,6 +365,42 @@ async function storeCatalogImage(url: string, agentId: string): Promise<string |
   }
 }
 
+const CATALOG_FALLBACK_WAIT_MS = 12000;
+const CATALOG_FALLBACK_POLL_MS = 700;
+
+/**
+ * הדף דרך המסד (pg_net), כשהבקשה הישירה מהפונקציה נכשלה. wa.me ענה 400
+ * לבקשה מכאן ו-200 לאותו קישור מהמסד (מיגרציה 20270217090000). ‏pg_net
+ * אסינכרוני: הבקשה יוצאת כשה-RPC הראשון נסגר, והתשובה נשאלת עד שהיא מגיעה.
+ */
+async function catalogPageViaDb(link: CatalogLink): Promise<string | null> {
+  const { data: id, error } = await supabase.rpc("whatsapp_catalog_fetch_start", {
+    p_product: link.productId, p_phone: link.phone,
+  });
+  if (error || id == null) {
+    console.error("catalog db fetch start failed", error);
+    return null;
+  }
+  const deadline = Date.now() + CATALOG_FALLBACK_WAIT_MS;
+  while (Date.now() < deadline) {
+    await sleep(CATALOG_FALLBACK_POLL_MS);
+    const { data: rows, error: readErr } = await supabase.rpc("whatsapp_catalog_fetch_result", { p_id: id });
+    if (readErr) {
+      console.error("catalog db fetch result failed", readErr);
+      return null;
+    }
+    const row = (rows as { status_code: number | null; content: string | null; error_msg: string | null }[] | null)?.[0];
+    if (!row) continue;
+    if (row.status_code !== 200 || !row.content) {
+      console.warn("catalog db fetch failed", row.status_code, row.error_msg);
+      return null;
+    }
+    return row.content;
+  }
+  console.warn("catalog db fetch timed out", link.url);
+  return null;
+}
+
 /** הטקסט שמתווסף להודעה עם קישור לקטלוג: בלוק הפריט, או "לא הצלחתי לקרוא". */
 async function catalogLinksToText(body: string, agentId: string, from: string): Promise<string> {
   const links = findCatalogLinks(body);
@@ -371,7 +408,7 @@ async function catalogLinksToText(body: string, agentId: string, from: string): 
 
   const blocks: string[] = [];
   for (const link of links.slice(0, MAX_LINKS_PER_MESSAGE)) {
-    const got = await fetchCatalogItem(link);
+    const got = await fetchCatalogItem(link, fetch, catalogPageViaDb);
     if ("error" in got) {
       blocks.push(catalogFailureBlock(link, got.error));
       continue;
