@@ -97,6 +97,16 @@ const MAX_CARDS_PER_TURN = 3;
 // להן אפילו רווח. "🏘️ תראי לי גם נכסים דומים" (25) קוצר בגלל זה.
 const SIMILAR_TITLE = "🏘️ תראי נכסים דומים";
 const SAVE_TITLE = "🔔 שמרי לי את החיפוש";
+// הכפתור השלישי, רק בחיפוש לקנייה ורק פעם אחת בשיחה: הצטרפות לעדכוני יריד
+// הבתים הפתוחים (נכסים ללא עמלת תיווך לזמן מוגבל, docs/open-house-fair.md).
+// ‏17 תווים ו-18 יחידות UTF-16 (‏🏠 הוא שתיים).
+const FAIR_TITLE = "🏠 צרפי אותי ליריד";
+// השורה שנוספת לגוף ההודעה יחד עם הכפתור. בקוד ולא בניסוח של המודל, כדי
+// שהכפתור לעולם לא יגיע בלי ההסבר מה הוא, וההסבר לעולם לא בלי הכפתור.
+const FAIR_LINE =
+  "ועוד משהו 🏠 יש אצלנו *יריד דירות ללא עמלת תיווך* - מתווכים מציעים בו נכסים " +
+  "לזמן מוגבל בלי דמי תיווך. אפשר להצטרף לרשימת העדכונים של היריד ולשמוע " +
+  "ראשונים כשנכנס אליו נכס.";
 
 const DEAL_TYPES = ["sale", "rent"];
 const CATEGORIES = ["residential", "commercial"];
@@ -610,6 +620,13 @@ const TOOLS: Anthropic.Tool[] = [
             "true רק אם search_properties החזיר close_matches שעוד לא הוצגו. " +
             "בלעדיו נשלח רק כפתור השמירה.",
         },
+        for_purchase: {
+          type: "boolean",
+          description:
+            "true כשהחיפוש הוא לקנייה (deal_type=sale). מוסיף לבד את ההצעה " +
+            "להצטרף ליריד הדירות ללא עמלת תיווך ואת הכפתור \"" + FAIR_TITLE +
+            "\" - פעם אחת בשיחה, והקוד בודק. אין לכתוב את ההצעה ב-message.",
+        },
       },
       required: ["message", "has_similar"],
     },
@@ -667,6 +684,23 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["consent_agent_contact"],
+    },
+  },
+  {
+    name: "open_house_signup",
+    description:
+      "מצרף/ת לרשימת העדכונים של יריד הדירות ללא עמלת תיווך: מייל בכל פעם " +
+      "שמתווך/ת מכניס/ה נכס ליריד, ומייל אישור עם קישור הסרה מיד. **רק אחרי " +
+      "\"כן\" מפורש** - לחיצה על \"" + FAIR_TITLE + "\" היא כזה. העדכונים " +
+      "נשלחים במייל בלבד, ולכן צריך כתובת: אם לא נמסרה בשיחה - לשאול עליה " +
+      "בשאלה אחת קצרה, ורק אחרי שנמסרה לקרוא לכלי. זו רשימת דיוור ולא פנייה " +
+      "לסוכן/ת: אף מתווך/ת אינו/ה מקבל/ת את הכתובת.",
+    input_schema: {
+      type: "object",
+      properties: {
+        email: { type: "string", description: "כתובת המייל כפי שנמסרה בשיחה. חובה." },
+      },
+      required: ["email"],
     },
   },
   {
@@ -754,6 +788,8 @@ interface PublicContext {
   searched?: boolean;
   /** האם נשמר חיפוש בתור הזה - הרגע הטבעי להציע לשמור את גבריאלה באנשי הקשר. */
   savedSearch?: boolean;
+  /** האם הצטרפו ליריד בתור הזה. אחד לתור - כתובת שנייה היא כבר לא "אני". */
+  joinedFair?: boolean;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -1528,15 +1564,26 @@ async function offerSaveSearch(
   if (!body) return { error: "missing_message" };
   // "דומים" רק כשיש מאחוריו close_matches. כפתור שמוביל ל"לא מצאתי" הוא
   // הבטחה שבורה, ולכן ההחלטה כאן ולא רק בניסוח של המודל.
+  // היריד: רק בחיפוש לקנייה, ורק אם ההצעה עוד לא נשלחה בשיחה הזו. ההיסטוריה
+  // שומרת את גוף הודעת הכפתורים עם הכותרות (ctx.offerSent), ולכן הכותרת
+  // בהיסטוריה היא הסימן שכבר הוצע. ההחלטה כאן ולא בהוראות: "פעם אחת בשיחה"
+  // שתלוי בזיכרון של המודל הוא הצעה שחוזרת בכל חיפוש.
+  const offerFair = args.for_purchase === true && !fairOffered(ctx.conv);
   const buttons = [
     ...(args.has_similar === true ? [{ id: "show_similar", title: SIMILAR_TITLE }] : []),
     { id: "save_search", title: SAVE_TITLE },
+    ...(offerFair ? [{ id: "open_house_join", title: FAIR_TITLE }] : []),
   ];
+  // ‏sendButtons חותך גוף ארוך מ-1024 תווים מהסוף, וזה היה חותך דווקא את
+  // השורה שמסבירה את הכפתור. לכן מה שמתקצר הוא הניסוח של המודל.
+  const fullBody = offerFair
+    ? `${body.slice(0, 1000 - FAIR_LINE.length)}\n\n${FAIR_LINE}`
+    : body;
 
   try {
-    const waMessageId = await sendButtons(ctx.waPhone, body, buttons);
+    const waMessageId = await sendButtons(ctx.waPhone, fullBody, buttons);
     // הגוף והכפתורים, כמו שהפונה רואה אותם - ליומן ולהיסטוריה של השיחה
-    ctx.offerSent = `${formatForWhatsapp(body)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
+    ctx.offerSent = `${formatForWhatsapp(fullBody)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
     await ctx.supabase.from("whatsapp_messages").insert({
       wa_message_id: waMessageId,
       direction: "out",
@@ -1554,6 +1601,51 @@ async function offerSaveSearch(
       note: "הכפתורים לא נשלחו. לשאול את אותה שאלה בטקסט, כתשובה הרגילה.",
     };
   }
+}
+
+/** האם ההצעה להצטרף ליריד כבר נשלחה בשיחה (ההיסטוריה נגזמת ל-10 הודעות). */
+function fairOffered(conv: PublicConversationState): boolean {
+  return conv.history.some((m) =>
+    typeof m.content === "string" && m.content.includes(FAIR_TITLE) && m.role === "assistant"
+  );
+}
+
+/**
+ * הצטרפות לעדכוני יריד הבתים הפתוחים - אותה נקודת קליטה שהטופס בדף היריד
+ * קורא לה (‏open-house-subscribe), עם source משלה. **אינה ליד**, ולכן אינה
+ * צורכת מכסת לידים: הכתובת נשארת ברשימת הדיוור של היריד ואינה מגיעה לאף
+ * מתווך/ת (docs/open-house-fair.md, "מה אין כאן").
+ */
+async function openHouseSignup(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  if (ctx.joinedFair) {
+    return { error: "already_joined_this_turn", note: "כבר צירפת כתובת בתור הזה." };
+  }
+  const email = text(args.email, 254);
+  if (!email) return { error: "missing_email", note: "לשאול לכתובת המייל, ואז לצרף." };
+
+  const { ok, status, body } = await callIntake("open-house-subscribe", {
+    email,
+    source: "whatsapp_bot",
+  });
+  if (!ok) {
+    if (body.error === "invalid_email") {
+      return { joined: false, error: "invalid_email", note: "הכתובת אינה תקינה. לבקש אותה שוב." };
+    }
+    return { joined: false, error: body.error || `http_${status}` };
+  }
+
+  ctx.joinedFair = true;
+  return {
+    joined: true,
+    duplicate: body.duplicate === true,
+    what_happens: body.duplicate === true
+      ? "הכתובת כבר ברשימת העדכונים של היריד. אין צורך בדבר נוסף."
+      : "הכתובת נוספה לרשימת העדכונים של היריד. מייל אישור עם קישור הסרה " +
+        "יוצא עכשיו, ומעכשיו יוצא מייל בכל פעם שנכס נכנס ליריד.",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1914,6 +2006,8 @@ async function runTool(
         return await sendPropertyCards(ctx, args);
       case "offer_save_search":
         return await offerSaveSearch(ctx, args);
+      case "open_house_signup":
+        return await openHouseSignup(ctx, args);
       default:
         return { error: "unknown_tool", name };
     }
@@ -2013,7 +2107,8 @@ const SYSTEM_STATIC: string = (() => {
     "- **אין התחייבות בשם אף משרד או סוכן/ת** - לא על זמינות, לא על עמלה ולא " +
       "על מחיר. את/ה מפנה, הם מסכמים.",
     "- אין לבקש תעודת זהות, פרטי תשלום או מסמכים. שם ופרטי קשר נאספים רק " +
-      "בתרחיש אחד - ראו \"השארת פרטים\" למטה - ורק אחרי אישור מפורש.",
+      "בתרחיש אחד - ראו \"השארת פרטים\" למטה - ורק אחרי אישור מפורש. " +
+      "(ומייל ליריד הדירות, רק למי שביקש/ה להצטרף - ראו \"יריד הדירות\".)",
     "",
     "המלצה על משרדים:",
     "- ההמלצה היא **לפי התאמה לתחום ולאזור**, לא לפי העדפה. אין \"המשרד הכי " +
@@ -2057,6 +2152,25 @@ const SYSTEM_STATIC: string = (() => {
     "- **פעם אחת לכל חיפוש.** אותם קריטריונים לא מקבלים את ההצעה פעמיים, " +
       "וחיפוש שכבר נשמר לא מוצע לשמירה שוב. חיפוש **חדש** (קריטריונים אחרים) " +
       "נגמר שוב ב-offer_save_search - כמו הראשון.",
+    "- **חיפוש לקנייה (deal_type=sale) = for_purchase=true** ב-offer_save_search. " +
+      "הקוד מוסיף לבד את ההצעה להצטרף ליריד ואת הכפתור, ורק פעם אחת בשיחה. " +
+      "אין לכתוב את ההצעה בעצמך ב-message.",
+    "",
+    "**יריד הדירות ללא עמלת תיווך** (לא ליד, ולכן מחוץ לארבעת המסלולים):",
+    "- יריד שבו מתווכים מציעים נכסים לקונים בלי דמי תיווך, לתקופה קצובה. " +
+      `הנכסים שביריד עכשיו: ${SITE_BASE}/open-house . ` +
+      "ברשימת העדכונים יוצא מייל בכל פעם שנכס נכנס ליריד.",
+    `- "${FAIR_TITLE}" (או "כן" להצעה בטקסט) = לבקש כתובת מייל בשאלה אחת קצרה ` +
+      "(\"מעולה! לאיזה מייל לשלוח את עדכוני היריד?\"), כי העדכונים יוצאים " +
+      "במייל בלבד. כתובת שכבר נמסרה בשיחה - להשתמש בה בלי לשאול. אחרי שנמסרה: " +
+      "open_house_signup.",
+    "- אחרי הכלי: \"צירפתי ✓\" ואת what_happens במילים פשוטות, עם הקישור " +
+      "ליריד. duplicate - \"הכתובת הזו כבר ברשימה\". invalid_email - לבקש שוב.",
+    "- **אין לצרף בלי \"כן\"**, ואין להציע שוב למי שלא לחץ/ה או סירב/ה. " +
+      "ההצטרפות אינה מעבירה פרטים לאף מתווך/ת, ואפשר לומר את זה.",
+    "- מי ששואל/ת על היריד בעצמו/ה (\"מה זה היריד?\", \"יש דירות בלי " +
+      "עמלה?\") - להסביר, לחפש אם רוצים, ולהציע את הרשימה במילים. כאן מותר " +
+      "גם בלי חיפוש לקנייה, כי הבקשה באה מהפונה.",
     "",
     "**ב. בעל/ת נכס שרוצה למכור או להשכיר.** מי שאומר/ת \"יש לי דירה למכירה\" " +
       "או \"אני רוצה להשכיר\" - להסביר שאפשר להעביר את הפרטים לסוכן/ת תיווך " +
@@ -2280,7 +2394,10 @@ export async function runPublicTurn(opts: {
   ].slice(-HISTORY_LIMIT);
 
   // כרטיס איש הקשר: אחרי שמירת חיפוש ("שמרתי, וזה המספר שלי לפעם הבאה"),
-  // או אחרי חיפוש שנגמר בטקסט ולא בכפתורים. **לעולם לא אחרי כפתורים** -
+  // אחרי הצטרפות ליריד, או אחרי חיפוש שנגמר בטקסט ולא בכפתורים. **לעולם לא אחרי כפתורים** -
   // הכרטיס היה דוחף אותם למעלה רגע לפני הלחיצה.
-  return { text: finalText, shareContact: !!ctx.savedSearch || !!ctx.searched };
+  return {
+    text: finalText,
+    shareContact: !!ctx.savedSearch || !!ctx.searched || !!ctx.joinedFair,
+  };
 }
