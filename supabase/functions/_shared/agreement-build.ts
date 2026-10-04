@@ -27,6 +27,7 @@
 // ---------------------------------------------------------------------------
 import "./agreement-templates.js";
 import "./agreement-doc.js";
+import { ilIdStatus } from "./il-id.ts";
 
 // deno-lint-ignore no-explicit-any
 const g = globalThis as any;
@@ -63,6 +64,8 @@ export interface AgreementSigner {
   email?: string | null;
   address?: string | null;
   client_id?: string | null;
+  /** הסוכן/ת אישר/ה שת.ז. שנפסלה בספרת הביקורת נכונה - העקיפה של `il-id.ts` */
+  id_confirmed?: boolean;
 }
 
 export interface AgreementAgentCard {
@@ -168,6 +171,11 @@ export function missingForAgreement(input: BuildInput): string[] {
     const who = (s.full_name || "").trim() || `חותם/ת ${i + 1}`;
     if (!(s.full_name || "").trim()) missing.push(`חסר שם לחותם/ת ${i + 1}`);
     if (!(s.id_number || "").trim()) missing.push(`חסרה ת.ז. ל${who}`);
+    // ‏אותה בדיקה שהאשף עושה (`IlId` ב-agrValidate), ואותה עקיפה: ת.ז. שגויה
+    // הייתה ננעלת בגוף המסמך, ומספר אמיתי שהבדיקה אינה מכירה עובר באישור.
+    else if (!s.id_confirmed && ilIdStatus(s.id_number) !== "ok") {
+      missing.push(`ת.ז. של ${who} (${(s.id_number || "").trim()}) אינה תקינה - ספרת הביקורת אינה מתאימה`);
+    }
   });
 
   const hasPct = Number(input.commission.pct) > 0;

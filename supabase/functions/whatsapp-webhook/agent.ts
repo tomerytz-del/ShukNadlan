@@ -14,6 +14,7 @@ import {
   type AgreementSigner,
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { ilIdStatus } from "../_shared/il-id.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import {
   accessTokenFor,
@@ -946,6 +947,12 @@ const TOOLS: Anthropic.Tool[] = [
             "ת.ז. או ח״פ של הלקוח/ה. חובה להזמנה בכתב. אם חסר בכרטיס - " +
             "מבקשים מהסוכן/ת, והערך נשמר גם בכרטיס הלקוח/ה.",
         },
+        client_id_confirmed: {
+          type: "boolean",
+          description:
+            "true **רק** אחרי שחזר missing על ת.ז. של הלקוח/ה שאינה תקינה (ספרת ביקורת), " +
+            "ביקשת מהסוכן/ת לבדוק, והוא/היא אישר/ה במפורש שהמספר נכון כפי שהוא.",
+        },
         client_email: {
           type: "string",
           description:
@@ -989,6 +996,11 @@ const TOOLS: Anthropic.Tool[] = [
             properties: {
               full_name: { type: "string" },
               id_number: { type: "string" },
+              id_confirmed: {
+                type: "boolean",
+                description:
+                  "true רק אחרי שהסוכן/ת אישר/ה במפורש שת.ז. שנפסלה בספרת הביקורת נכונה.",
+              },
               phone: { type: "string" },
               email: { type: "string" },
             },
@@ -3859,7 +3871,11 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   // ת.ז. שהסוכן/ת מסר/ה בצ'אט נשמרת גם בכרטיס — כדי שההסכם הבא לא ייעצר
   // כאן שוב. ‏best-effort, כמו באשף: כשל בשמירה אינו עוצר את ההסכם.
   const clientIdNumber = String(input.client_id_number || client.id_number || "").trim();
-  if (clientIdNumber && clientIdNumber !== client.id_number) {
+  const clientIdConfirmed = input.client_id_confirmed === true;
+  // ‏ת.ז. שנפסלה בספרת הביקורת ולא אושרה אינה נכתבת לכרטיס - היא תחזור
+  // כ-missing למטה, ותיקון שלה יגיע בקריאה הבאה.
+  if (clientIdNumber && clientIdNumber !== client.id_number &&
+      (clientIdConfirmed || ilIdStatus(clientIdNumber) === "ok")) {
     const { error } = await ctx.supabase
       .from("agent_clients")
       .update({ id_number: clientIdNumber })
@@ -3953,6 +3969,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     party: "client",
     full_name: String(client.full_name || "").trim(),
     id_number: clientIdNumber,
+    id_confirmed: clientIdConfirmed,
     phone: client.phone,
     email: clientEmail,
     address: client.address,
@@ -3963,6 +3980,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       party: "partner",
       full_name: String(extra.full_name || "").trim(),
       id_number: String(extra.id_number || "").trim(),
+      id_confirmed: extra.id_confirmed === true,
       phone: String(extra.phone || "").trim() || null,
       email: String(extra.email || "").trim() || null,
       address: null,
@@ -5159,6 +5177,11 @@ const SYSTEM_STATIC: string = (() => {
     "- **אם חזר missing - ההסכם לא נוצר.** בקש/י בהודעה אחת את כל מה שברשימה " +
       "(בדרך כלל ת.ז. של הלקוח/ה ואחוז העמלה), ואז קרא/י שוב. אל תמציא/י ת.ז. " +
       "ואל תנחש/י עמלה.",
+    "- ת.ז. \"אינה תקינה\" ב-missing = ספרת הביקורת אינה מתאימה, כמעט תמיד טעות הקלדה. " +
+      "הצג/י לסוכן/ת את המספר ושאל/י אם הוא נכון או שיש טעות. מספר מתוקן - קרא/י שוב עם " +
+      "המספר החדש. אם הסוכן/ת מאשר/ת שהמספר נכון כפי שהוא - קרא/י שוב עם " +
+      "client_id_confirmed=true (או extra_signers[].id_confirmed=true לחותם/ת נוסף/ת). " +
+      "לעולם אל תסמן/י אישור בלי שהסוכן/ת אמר/ה זאת, ואל תתקן/י ספרה בעצמך.",
     "- חסר מייל לקוד האימות (בטופס קונה/שוכר): בקש/י אותו במשפט אחד - \"כדי שהלקוח/ה " +
       "יקבל/תקבל קוד לחתימה מרחוק צריך את המייל\" - ואז קרא/י שוב עם client_email " +
       "(הוא נשמר גם בכרטיס). אם הסוכן/ת אומר/ת שהחתימה תהיה פנים מול פנים - " +
