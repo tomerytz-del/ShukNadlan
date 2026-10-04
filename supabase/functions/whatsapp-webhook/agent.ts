@@ -2407,6 +2407,13 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "שמדייק את הדוח יותר מכל דבר אחר.",
     // נכס מסחרי (20270224090000): הסולם מסנן לפי קבוצת קומה ולא לפי חדרים.
     // לחנות אין חדרים, ובקשה להשלים מספר חדרים לחנות היא עצה שגויה.
+    // נכס מגורים מיוחד (דירת גן, פנטהאוז): במאגר אין תת-סוג, וההתאמה בקירוב
+    // לפי הקומה. ‏kind_matched=false עם subject_kind garden/roof = חזרה לדירות רגילות.
+    kind_rooms:
+      "הממוצע נשען על דירות מאותו סוג כמו הנכס - בקירוב: דירות קרקע לדירת גן, הקומה העליונה " +
+      "בבניין לפנטהאוז - בטווח של חדר אחד לכל כיוון. אמור/אמרי שזה קירוב לפי הקומה.",
+    kind_any_rooms:
+      "הממוצע נשען על דירות מאותו סוג כמו הנכס (בקירוב לפי הקומה), בכל מספר חדרים. אמור/אמרי זאת.",
     floor_exact: "",
     no_similar_floor:
       "זה נכס מסחרי, ולא נמצאו די עסקאות מסחריות באותה קבוצת קומה, ולכן הממוצע מערבב " +
@@ -2523,8 +2530,19 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     excluded_other_floor: hasStats ? coverage.excluded_other_floor : undefined,
     excluded_other_rooms: hasStats ? coverage.excluded_other_rooms : undefined,
     comparability_guidance: hasStats
-      ? ROOMS_GUIDANCE[String(coverage.rooms_band_reason)] || undefined
+      ? ([
+        ROOMS_GUIDANCE[String(coverage.rooms_band_reason)] || "",
+        // דירת גן או פנטהאוז שלא נמצאו לה עסקאות מאותו סוג: הממוצע הוא של דירות רגילות
+        (coverage.subject_kind === "garden" || coverage.subject_kind === "roof") && !coverage.kind_matched
+          ? "הנכס הוא " + (coverage.subject_kind === "roof" ? "פנטהאוז/דירת גג" : "דירת גן") +
+            ", ולא נמצאו די עסקאות מאותו סוג עד 2,000 מ', ולכן הממוצע נשען על דירות רגילות. " +
+            "אמור/אמרי זאת במפורש - זה נכס שנמכר בדרך כלל במחיר שונה."
+          : "",
+      ].filter(Boolean).join(" ") || undefined)
       : undefined,
+    // תת-הסוג של נכס מגורים (house / garden / roof / unit) והאם הממוצע נשען עליו
+    subject_kind: hasStats ? coverage.subject_kind : undefined,
+    kind_matched: hasStats ? coverage.kind_matched : undefined,
     // מאיפה הנתונים בדוח הזה באמת הגיעו. נאמר לסוכן/ת כשהוא/היא שואל/ת.
     sources: report.sources,
     // עסקאות שרשומות לפי המחיר המבוקש ולא לפי מחיר הסגירה. אם יש כאלה,

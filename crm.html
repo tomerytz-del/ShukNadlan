@@ -2194,18 +2194,101 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .cma-actions{flex-direction:column}
     .cma-actions .btn{width:100%}
   }
-  .cma-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:2px solid var(--teal);padding-bottom:12px;margin-bottom:18px}
-  .cma-head .brand{display:flex;align-items:center;gap:8px;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem}
-  .cma-head .brand .logo-img{height:32px;width:auto}
-  .cma-head .when{font-size:.72rem;color:var(--ink-soft)}
-  .cma-sheet h2{font-size:1.25rem;margin-bottom:2px}
-  .cma-sub{font-size:.84rem;color:var(--ink-soft);margin-bottom:18px}
-  .cma-section-title{font-size:.78rem;font-weight:800;color:var(--teal);letter-spacing:.04em;margin:20px 0 8px}
+  /* ---------- הדוח עצמו: מסמך ממותג ----------
+     ‏`.cma-doc` נושא את צבעי המשרד כמשתנים (‏--cma-brand ו-‏--cma-accent מ-
+     ‏`agencies.colors`, דרך normalizeHex), ולכן כל מה שמתחתיו ממותג בלי
+     שהקוד יידע מה הצבע. המותג צובע כותרות ומסגרת - **לא נתונים**: השעונים
+     והפס נושאים צבעים משלהם (סקאלה מתפצלת כחול-אפור-אדום), כי צבע של
+     משרד אינו אומר "זול" או "יקר".
+     הספרות בגופן הרגיל (Heebo) ולא בסריף: מספר גיבור בסריף נקרא כקישוט. */
+  .cma-doc{--cma-ink:#1b1f26;--cma-ink-2:#4a5260;--cma-ink-3:#6b7280;--cma-line:#e4e2dc;--cma-soft:#f6f5f2;
+    --cma-low:#2a78d6;--cma-mid:#d6d3cc;--cma-high:#e34948;
+    color:var(--cma-ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cma-brandbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:var(--cma-brand);color:var(--cma-on-brand);border-radius:14px;padding:14px 18px;margin-bottom:14px}
+  .cma-brand-id{display:flex;align-items:center;gap:12px;min-width:0}
+  .cma-logo{background:#fff;border-radius:10px;padding:6px 8px;display:flex;align-items:center;flex:none}
+  .cma-logo img{height:34px;width:auto;max-width:120px;object-fit:contain;display:block}
+  .cma-agency{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;line-height:1.2}
+  .cma-doc-title{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:left}
+  .cma-kicker{font-size:.8rem;font-weight:800;letter-spacing:.04em}
+  .cma-date{font-size:.72rem;opacity:.85}
+  .cma-agent{display:flex;align-items:center;gap:12px;padding:4px 2px 14px;border-bottom:1px solid var(--cma-line);margin-bottom:16px}
+  .cma-agent-photo{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--cma-accent)}
+  .cma-agent-photo.is-initial{display:flex;align-items:center;justify-content:center;background:var(--cma-brand);color:var(--cma-on-brand);font-weight:800;font-size:1.2rem}
+  .cma-agent-name{font-weight:700;font-size:.92rem}
+  .cma-agent-meta{font-size:.76rem;color:var(--cma-ink-2);margin-top:2px}
+  .cma-agent-meta a,.cma-foot-agent a{color:inherit;text-decoration:none}
+  .cma-hero h2{font-size:1.35rem;margin:0 0 2px;color:var(--cma-brand-dark)}
+  .cma-addr{font-size:.86rem;color:var(--cma-ink-2);margin-bottom:12px}
+  .cma-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+  .cma-chips>div{background:var(--cma-soft);border:1px solid var(--cma-line);border-radius:10px;padding:7px 12px;min-width:84px}
+  .cma-chips dt{font-size:.66rem;color:var(--cma-ink-3);font-weight:700}
+  .cma-chips dd{margin:1px 0 0;font-weight:700;font-size:.92rem}
+  .cma-sec{margin-top:22px;break-inside:avoid-page}
+  .cma-h{font-size:.82rem;font-weight:800;color:var(--cma-brand);letter-spacing:.03em;margin:0 0 10px;
+    padding-bottom:6px;border-bottom:2px solid var(--cma-accent);display:inline-block}
+  .cma-cap{font-size:.75rem;color:var(--cma-ink-3);margin:0 0 8px;line-height:1.5}
+  /* מספר הגיבור: אחד בדוח, Heebo ולא סריף, ספרות פרופורציונליות */
+  .cma-hero-fig{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--cma-soft);
+    border:1px solid var(--cma-line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .cma-hero-n{font-family:'Heebo',sans-serif;font-size:3rem;font-weight:800;line-height:1;color:var(--cma-ink);direction:ltr}
+  .cma-hero-l{font-size:.84rem;color:var(--cma-ink-2);max-width:420px;line-height:1.5}
+  /* השעונים */
+  .cma-gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px}
+  .cma-gauge{margin:0;border:1px solid var(--cma-line);border-radius:14px;padding:12px 12px 10px;text-align:center;background:#fff}
+  .cma-gauge-t{font-size:.74rem;font-weight:700;color:var(--cma-ink-2);margin-bottom:4px}
+  .cma-gauge-svg{width:100%;max-width:190px;height:auto;display:block;margin:0 auto}
+  .cma-gauge-svg .z-low{stroke:var(--cma-low)}
+  .cma-gauge-svg .z-mid{stroke:var(--cma-mid)}
+  .cma-gauge-svg .z-high{stroke:var(--cma-high)}
+  .cma-gauge-svg .needle{stroke:var(--cma-ink)}
+  .cma-gauge-svg .hub{fill:var(--cma-ink);stroke:#fff;stroke-width:2}
+  .cma-gauge-v{font-family:'Heebo',sans-serif;font-size:1.45rem;font-weight:800;margin-top:-4px;direction:ltr}
+  .cma-gauge-ends{display:flex;justify-content:space-between;font-size:.64rem;color:var(--cma-ink-3);max-width:190px;margin:-2px auto 0;padding:0 6px}
+  .cma-gauge-c{font-size:.7rem;color:var(--cma-ink-3);margin-top:4px;line-height:1.4}
+  /* אריחי המדדים: תווית מעל ערך, ערך ב-Heebo */
   .cma-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
   @media(min-width:560px){.cma-stats{grid-template-columns:repeat(4,1fr)}}
-  .cma-stat{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;text-align:center}
-  .cma-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--teal-dark)}
-  .cma-stat .l{font-size:.68rem;color:var(--ink-soft);margin-top:2px}
+  .cma-stat{border:1px solid var(--cma-line,var(--line));border-radius:12px;padding:10px 12px;text-align:right;background:#fff}
+  .cma-stat .l{font-size:.68rem;color:var(--cma-ink-3,var(--ink-soft));font-weight:700}
+  .cma-stat .n{font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--cma-ink,var(--teal-dark));margin-top:2px}
+  /* פס הטווח: מחצית העסקאות האמצעיות, החציון, והנכס */
+  .cma-range{margin:14px 0 4px;padding:14px 16px 10px;border:1px solid var(--cma-line);border-radius:14px}
+  .cma-range-track{position:relative;height:10px;border-radius:999px;background:var(--cma-soft);margin:30px 6px 6px;border:1px solid var(--cma-line)}
+  .cma-range-band{position:absolute;top:-1px;bottom:-1px;background:var(--cma-mid);border-radius:999px}
+  .cma-range-mid{position:absolute;top:-5px;width:2px;height:20px;background:var(--cma-ink-2);transform:translateX(50%)}
+  .cma-range-pin{position:absolute;top:-6px;width:22px;height:22px;border-radius:50%;background:var(--cma-accent);
+    border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transform:translateX(50%)}
+  .cma-range-pin span{position:absolute;bottom:26px;right:50%;transform:translateX(50%);white-space:nowrap;
+    font-size:.7rem;font-weight:800;color:var(--cma-ink);background:#fff;border:1px solid var(--cma-line);border-radius:6px;padding:1px 6px}
+  /* נכס בקצה הטווח: התווית נצמדת לקצה במקום לגלוש מהגיליון */
+  .cma-range-pin.is-start span{right:-4px;transform:none}
+  .cma-range-pin.is-end span{right:auto;left:-4px;transform:none}
+  .cma-range-ends{display:flex;justify-content:space-between;font-size:.66rem;color:var(--cma-ink-3)}
+  .cma-range-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.72rem;color:var(--cma-ink-2);margin-top:8px}
+  .cma-range-legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-inline-end:5px;vertical-align:middle}
+  .cma-range-legend .k-band{background:var(--cma-mid)}
+  .cma-range-legend .k-mid{width:2px;height:12px;background:var(--cma-ink-2)}
+  .cma-range-where{font-size:.8rem;margin:8px 0 0}
+  /* הקרקע */
+  .cma-land-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:620px){.cma-land-grid{grid-template-columns:1.1fr 1fr}}
+  .cma-own{border-radius:14px;padding:14px 16px;border:1px solid var(--cma-line);background:var(--cma-soft)}
+  .cma-own.is-s{border-color:#e9b949;background:#fdf6e3}
+  .cma-own-k{font-size:.7rem;font-weight:700;color:var(--cma-ink-3)}
+  .cma-own-v{font-size:1.2rem;font-weight:800;margin:2px 0 6px}
+  .cma-own-d{font-size:.78rem;color:var(--cma-ink-2);line-height:1.55}
+  .cma-facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cma-facts>div{border:1px solid var(--cma-line);border-radius:10px;padding:8px 10px}
+  .cma-facts dt{font-size:.66rem;color:var(--cma-ink-3);font-weight:700}
+  .cma-facts dd{margin:2px 0 0;font-size:.84rem;font-weight:600}
+  .cma-table td.cma-c-rank{color:var(--cma-ink-3,var(--ink-soft));font-weight:700;width:1%}
+  .cma-basis.is-same{border-color:var(--cma-accent,var(--gold));color:var(--cma-ink,var(--ink));font-weight:700}
+  .cma-method .cma-note{background:var(--cma-soft)}
+  .cma-foot-agent{font-size:.8rem;color:var(--cma-ink);margin-bottom:8px}
+  .cma-foot p{margin:0}
+  .cma-made{display:flex;align-items:center;gap:5px;margin-top:10px;font-size:.66rem;color:var(--cma-ink-3)}
   /* ---------- טבלאות הדוח, ולמה הן נגללות ולא נדחסות ----------
      ‏`width:100%` בלי `table-layout:fixed` אומר שהרוחב **המינימלי** של
      הטבלה הוא סכום ה-min-content של העמודות, ואת זה אין לה דרך לוותר
@@ -2302,6 +2385,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
        נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
     .cma-tablewrap{overflow:visible !important}
+    /* כרטיס שנחתך בין שני עמודים נקרא כשני כרטיסים */
+    .cma-gauge,.cma-hero-fig,.cma-range,.cma-own,.cma-stat{break-inside:avoid}
   }
 
   /* ==========================================================================

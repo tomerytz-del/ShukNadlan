@@ -50,7 +50,7 @@ SAMPLE_END = "/* ---------- שכבת השוק"
 # שבה הוא שהם ייקראו כמחירי עסקה - בדיוק הערבוב ש-`20261130090000`
 # נבנתה כדי למנוע. לכן נבדק שכל נוסח בה אומר זאת, בכל ארבעת המצבים.
 MARKET_START = "function cmaMarketNote(cov){"
-MARKET_END = "function renderCmaReport(r){"
+MARKET_END = "/* ---------- שעון (חצי עיגול) ----------"
 
 # הפלט האמיתי של agent_cma_report על מודעה #1139 (עלייה 7, עפולה),
 # הועתק משאילתת אימות מול הפרודקשן ב-21.9.2026. 80 מ"ר ב-1,320,000 ₪
@@ -113,6 +113,16 @@ SAMPLE_CASES = {
                           "subject_rooms": None, "rooms_band_reason": "no_similar_floor",
                           "band_dimension": "floor", "subject_floor_group": "upper",
                           "excluded_other_floor": 0, "excluded_other_rooms": 0}, 750],
+    # ---- נכס מגורים מיוחד: פנטהאוז שנמצאו לו עסקאות מאותו תת-סוג ----
+    "roof_kind": [{"has_statistics": True, "comparables_found": 6, "rooms_band": 1,
+                   "subject_rooms": "5.0", "rooms_band_reason": "kind_rooms",
+                   "subject_kind": "roof", "kind_matched": True,
+                   "excluded_other_kind": 56, "excluded_other_rooms": 0}, 2000],
+    # דירת גן שלא נמצאו לה כאלה - הממוצע חזר לדירות רגילות
+    "garden_fallback": [{"has_statistics": True, "comparables_found": 9, "rooms_band": 0,
+                         "subject_rooms": "4.0", "rooms_band_reason": "exact",
+                         "subject_kind": "garden", "kind_matched": False,
+                         "max_radius_meters": 4500, "excluded_other_rooms": 3}, 750],
     # משרד בלי קומה רשומה - וגם עם מספר חדרים (3.5), שאינו רלוונטי לו
     "no_floor": [{"has_statistics": True, "comparables_found": 8, "rooms_band": None,
                   "subject_rooms": "3.5", "rooms_band_reason": "subject_floor_missing",
@@ -262,6 +272,16 @@ def main() -> int:
          "אינה מסוננת לפי קומה" in text(sample["floor_unfiltered"])),
         ("מסחרי בלי קומה: הדוח מבקש להשלים קומה",
          "השלימו את הקומה" in text(sample["no_floor"])),
+        # ---- נכס מגורים מיוחד ----
+        ("פנטהאוז: נאמר שההשוואה מול הקומה העליונה, ושזה קירוב",
+         "בקומה העליונה" in text(sample["roof_kind"]) and "קירוב" in text(sample["roof_kind"])),
+        ("ובטווח החדרים ‎±1‎",
+         "4 עד 6 חדרים" in text(sample["roof_kind"])),
+        ("ומה שנשאר בחוץ (דירות רגילות) - נספר ונאמר",
+         "56 דירות רגילות" in text(sample["roof_kind"])),
+        ("דירת גן בלי עסקאות מאותו סוג: נאמר שהממוצע של דירות רגילות",
+         "דירות רגילות" in text(sample["garden_fallback"])
+         and "4 חדרים" in text(sample["garden_fallback"])),
         ("ובשום מצב מסחרי לא מבקש מספר חדרים",
          all("חדרים" not in text(sample[k])
              for k in ("floor_exact", "floor_unfiltered", "no_floor"))),

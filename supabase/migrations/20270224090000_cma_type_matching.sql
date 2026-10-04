@@ -1,5 +1,11 @@
 -- ===========================================================================
--- דוח CMA לנכס מסחרי: "בנין" אינו מסחרי, וקומה במקום חדרים
+-- דוח CMA: השוואה לאותו סוג נכס - מסחרי לפי קומה, ובית, דירת גן ופנטהאוז
+-- מול עצמם
+--
+-- שני חלקים. הראשון (נכס מסחרי) מיד כאן; השני (נכס מגורים מיוחד) בסעיף
+-- "ונכס מגורים מיוחד" למטה.
+--
+-- ## חלק א - נכס מסחרי: "בנין" אינו מסחרי, וקומה במקום חדרים
 --
 -- ## מה היה שבור
 --
@@ -38,12 +44,34 @@
 -- 3. ‏`cma_deal_pool` - עמודה חדשה `floor_group`. ‏drop ו-create כי טיפוס
 --    ההחזרה משתנה (`create or replace` אינו יכול לשנות `returns table`).
 -- 4. ‏`agent_cma_report` - בנכס מסחרי הסולם מסנן לפי **קבוצת קומה** ולא לפי
---    חדרים: אותה קבוצה ב-750 ואז ב-1,000 מ', ואז בלי סינון. חנות בקומת
+--    חדרים: אותה קבוצה, ואז בלי סינון (הרדיוס - למטה). חנות בקומת
 --    קרקע ומשרד בקומה שלישית אינם אותו נכס - הפער בטבלה למעלה הוא כ-40%.
+--    הרדיוס מתרחב עד 2,000 מ' (‏`cma_commercial_max_radius_meters`), קודם
+--    באותה קבוצת קומה (750, 1,000, 2,000) ואז בלי סינון (750, 1,000, 2,000),
+--    ולא מעבר לזה.
 --    ‏`rooms_band_reason` מקבל שלושה ערכים חדשים (`floor_exact`,
 --    ‏`no_similar_floor`, ‏`subject_floor_missing`), ו-`data_coverage` נושא
 --    ‏`band_dimension`, ‏`subject_class`, ‏`subject_floor_group` ו-
 --    ‏`excluded_other_floor`. נכס מגורים - ללא שינוי בתו.
+--
+-- ## חלק ב - נכס מגורים מיוחד
+--
+-- בתוך dwelling יש ארבעה שווקים: בית, דירת גן, פנטהאוז ודירה רגילה, ועד
+-- כאן כולם הושוו זה לזה. וילה מול דירות בבניין, ופנטהאוז מול ממוצע של
+-- דירות 5 חדרים בקומה שנייה. ‏`property_kind` מסווג את הנכס לפי הסוג שלו.
+--
+-- **במאגר העסקאות אין תת-סוג ואין שנת בנייה** (נבדק 4.10.2026: 0 מתוך
+-- 23,722 עם שנה; GovMap רושם "דירה" לכולן). לכן לעסקה הוא נגזר בקירוב:
+-- דירת גן ← דירה בקומת קרקע; פנטהאוז ← הקומה העליונה שנמכרה באותו בניין
+-- (גוש+חלקה, בניין של 3 קומות ומעלה) או קומה עם "גג". והגיל - בעטיפה
+-- (20270225090000): עסקה באותו בניין מקבלת עדיפות בבחירת העסקאות להצגה.
+--
+--   בית      - מושווה רק לבתים (same_type), עם שלב 2,000 מ' בכל רמת חדרים.
+--   גן / גג  - אותו תת-סוג ‎±1‎ חדר ב-1,000 ואז ב-2,000 מ', אותו תת-סוג בכל
+--              גודל ב-2,000 מ', ורק אז הסולם הרגיל - ואז הדוח אומר זאת.
+--   דירה     - ללא שינוי.
+--
+-- ‏`cma_rare_type_radius_meters` (2,000) הוא שורת תצורה, כמו שאר הספים.
 --
 -- ## ומה שאינו כאן, בכוונה
 --
@@ -51,6 +79,16 @@
 -- מהחדרים, ושינוי הסולם הקיים דורש מדידה משלו על 22 המודעות - כמו שנמדד
 -- סולם החדרים ב-20261228090000. כאן היא רק לנכס מסחרי, שאין לו חדרים.
 -- ===========================================================================
+
+-- הרדיוס המרבי לנכס מסחרי - שורת תצורה, כמו שאר הספים של הדוח.
+insert into public.pricing_config (key, value)
+values ('cma_commercial_max_radius_meters', 2000)
+on conflict (key) do nothing;
+
+-- והרדיוס המורחב לנכס מגורים מיוחד (בית, דירת גן, דירת גג)
+insert into public.pricing_config (key, value)
+values ('cma_rare_type_radius_meters', 2000)
+on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 1. מחלקת סוג הנכס
@@ -67,7 +105,8 @@ as $$
     when btrim(p_type) in ('דירה', 'דירת גן', 'גג/פנטהאוז', 'דו משפחתי',
                            'בית פרטי/קוטג''', 'יחידת דיור', 'דירות',
                            'פנטהאוז', 'קוטג''', 'וילה', 'טריפלקס', 'דופלקס',
-                           'בית פרטי', 'דירת גג', 'מרתף/פרטר', 'סטודיו/לופט')
+                           'בית פרטי', 'דירת גג', 'מרתף/פרטר', 'סטודיו/לופט',
+                           'קוטג'' דו משפחתי', 'קוטג'' חד משפחתי')
       then 'dwelling'
     -- ‏"בנין"/"בניין" **אינם** כאן (20270224090000): ב-GovMap זה סוג שמערבב
     -- דירות, משרדים וחנויות, ורובו בקומות עליונות.
@@ -122,6 +161,93 @@ revoke all on function public.floor_group(text) from public, anon;
 grant execute on function public.floor_group(text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
+-- 2א. מספר קומה
+--
+-- הקומה הגבוהה ביותר שמוזכרת בטקסט ("שניה ושלישית" = 3, "קומה 9, קומה 10"
+-- = 10, "עשרים ושש" = 26, "קרקע" = 0, "מרתף" = -1). משמשת רק לשאלה אחת:
+-- האם העסקה היא בקומה העליונה בבניין שלה (ראו property_kind למטה). צורות
+-- זכר ("מרתף שני") אינן ברשימה, כמו ב-floor_group.
+-- ---------------------------------------------------------------------------
+create or replace function public.floor_num(p_floor text)
+returns integer
+language sql
+immutable
+set search_path to ''
+as $$
+  select max(v)
+    from (
+      select (m[1])::integer as v
+        from regexp_matches(coalesce(p_floor, ''), '(-?[0-9]{1,2})(?![0-9])', 'g') m
+      union all
+      select w.v
+        from (values
+          ('קרקע', 0), ('מרתף', -1),
+          ('ראשונה|ראשנה', 1), ('שניה|שנייה|שניייה', 2), ('שלישית|שלשית', 3),
+          ('רביעית|רביעת', 4), ('חמישית|חמשית|חמישי', 5), ('שישית|ששית', 6),
+          ('שביעית', 7), ('שמינית', 8), ('תשיעית', 9), ('עשירית', 10),
+          ('(אחת|אחד)[ -]?עשרה', 11), ('שתים[ -]?עשרה', 12), ('שלוש[ -]?עשרה', 13),
+          ('ארבע[ -]?עשרה', 14), ('חמש[ -]?עשרה', 15), ('שש[ -]?עשרה', 16),
+          ('שבע[ -]?עשרה', 17), ('שמונה[ -]?עשרה', 18), ('תשע[ -]?עשרה', 19),
+          ('עשרים', 20), ('עשרים ו(אחת|אחד)', 21), ('עשרים ושתיים|עשרים ושתים', 22),
+          ('עשרים ושלוש', 23), ('עשרים וארבע', 24), ('עשרים וחמש', 25),
+          ('עשרים ושש', 26), ('עשרים ושבע', 27), ('עשרים ושמונה', 28),
+          ('עשרים ותשע', 29), ('שלושים', 30), ('שלושים ו(אחת|אחד)', 31),
+          ('שלושים וחמש', 35), ('ארבעים', 40)
+        ) w(re, v)
+       where coalesce(p_floor, '') ~ w.re
+    ) x;
+$$;
+
+comment on function public.floor_num(text) is
+  'הקומה הגבוהה ביותר שמוזכרת בטקסט קומה חופשי (רשות המיסים) או במספר. קרקע = 0, מרתף = -1, null כשאין. משמשת לזיהוי הקומה העליונה בבניין (property_kind).';
+
+revoke all on function public.floor_num(text) from public, anon;
+grant execute on function public.floor_num(text) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 2ב. תת-סוג של נכס מגורים
+--
+-- בתוך dwelling יש ארבעה שווקים שונים: בית (פרטי, דו משפחתי, קוטג'), דירת
+-- גן, דירת גג/פנטהאוז, ודירה רגילה (unit). בנכס עצמו התת-סוג כתוב בסוג.
+-- בעסקאות הרשמיות **לא**: GovMap רושם "דירה" לכולן. לכן לעסקה רשמית הוא
+-- נגזר בקירוב, ב-cma_deal_pool:
+--
+--   דירת גן  ← דירה בקומת קרקע
+--   דירת גג  ← דירה שהקומה שלה מכילה "גג", או הקומה הגבוהה ביותר שנמכרה
+--              באותו בניין (גוש+חלקה), בבניין של 3 קומות ומעלה
+--
+-- זה קירוב ולא עובדה - דירת קרקע אינה תמיד דירת גן - ולכן הוא משמש רק
+-- לשלבים הראשונים של הסולם לנכס מיוחד, והדוח אומר עליו שהוא קירוב.
+-- ---------------------------------------------------------------------------
+create or replace function public.property_kind(p_type text)
+returns text
+language sql
+immutable
+set search_path to ''
+as $$
+  select case
+    when public.property_type_class(p_type) is distinct from 'dwelling' then null
+    when btrim(p_type) in ('בית פרטי/קוטג''', 'בית פרטי', 'דו משפחתי', 'קוטג''', 'וילה',
+                           'קוטג'' דו משפחתי', 'קוטג'' חד משפחתי') then 'house'
+    when btrim(p_type) in ('דירת גן', 'מרתף/פרטר') then 'garden'
+    when btrim(p_type) in ('גג/פנטהאוז', 'פנטהאוז', 'דירת גג') then 'roof'
+    else 'unit'
+  end;
+$$;
+
+comment on function public.property_kind(text) is
+  'תת-סוג לנכס מגורים: house / garden / roof / unit, או null לנכס שאינו מגורים. לפי הסוג בלבד; לעסקה רשמית ("דירה") garden ו-roof נגזרים בקירוב מהקומה ב-cma_deal_pool.';
+
+revoke all on function public.property_kind(text) from public, anon;
+grant execute on function public.property_kind(text) to authenticated, service_role;
+
+-- הקומה העליונה בבניין נשאלת לפי גוש+חלקה, ובלי אינדקס זו סריקה של כל
+-- המאגר לכל עסקה ברדיוס.
+create index if not exists market_deals_official_parcel_idx
+  on public.market_deals_official (gush, helka)
+  where gush is not null and helka is not null;
+
+-- ---------------------------------------------------------------------------
 -- 3. ‏cma_deal_pool - עם floor_group
 --
 -- זהה ל-20261228090000, ועמודה אחת נוספת בסוף. עסקת פלטפורמה לוקחת את
@@ -151,7 +277,8 @@ returns table (
   rooms_diff      numeric,
   price_per_sqm   numeric,
   distance_meters numeric,
-  floor_group     text
+  floor_group     text,
+  kind            text
 )
 language sql
 stable
@@ -165,18 +292,48 @@ as $$
          d.sale_price,
          d.sold_at,
          d.size_sqm,
+         -- בית ודירה אינם אותו סוג גם כששניהם dwelling: וילה מול דירות
+         -- בבניין אינה השוואה, בשום שלב בסולם.
          coalesce(public.property_type_class(d.property_type)
-                  = public.property_type_class(p_subject_type), false) as same_type,
+                  = public.property_type_class(p_subject_type)
+                  and (public.property_type_class(p_subject_type) <> 'dwelling'
+                       or (public.property_kind(d.property_type) = 'house')
+                          = (public.property_kind(p_subject_type) = 'house')), false) as same_type,
          abs(nullif(d.rooms, 0) - nullif(p_subject_rooms, 0)) as rooms_diff,
          case when d.size_sqm > 0 then round(d.sale_price / d.size_sqm) end as price_per_sqm,
          round(public.geo_distance_meters(p_lat, p_lng, d.lat, d.lng))::numeric as distance_meters,
-         public.floor_group(d.floor) as floor_group
+         public.floor_group(d.floor) as floor_group,
+         -- תת-הסוג (property_kind). לעסקה "דירה" - בקירוב מהקומה. הקומה
+         -- העליונה בבניין נשאלת **רק** כשהנכס הוא דירת גג: זו שאילתה לכל
+         -- עסקה, ובשאר הנכסים אין בה צורך.
+         case
+           when public.property_kind(d.property_type) is distinct from 'unit'
+             then public.property_kind(d.property_type)
+           when d.floor ~ 'גג' then 'roof'
+           when public.property_kind(p_subject_type) = 'roof'
+            and coalesce(d.top_floor,
+                         (select max(public.floor_num(o2.floor))
+                            from public.market_deals_official o2
+                           where d.gush is not null and d.helka is not null
+                             and o2.gush = d.gush and o2.helka = d.helka)) >= 3
+            and public.floor_num(d.floor) = coalesce(d.top_floor,
+                         (select max(public.floor_num(o2.floor))
+                            from public.market_deals_official o2
+                           where d.gush is not null and d.helka is not null
+                             and o2.gush = d.gush and o2.helka = d.helka))
+             then 'roof'
+           when public.floor_group(d.floor) = 'ground' then 'garden'
+           else 'unit'
+         end as kind
     from (
       select md.id, md.source, md.price_basis, md.property_type, md.rooms,
              md.sale_price, md.sold_at,
              rp.lat, rp.lng,
              coalesce(rp.built_size_sqm, rp.size_sqm, rp.area_sqm) as size_sqm,
-             rp.floor::text as floor
+             rp.floor::text as floor,
+             -- בעסקת פלטפורמה מספר הקומות בבניין רשום בנכס עצמו
+             rp.total_floors::integer as top_floor,
+             null::text as gush, null::text as helka
         from public.market_deals md
         join public.properties rp on rp.id = md.related_property_id
        where md.related_property_id is distinct from p_exclude
@@ -184,7 +341,8 @@ as $$
       union all
 
       select o.id, o.source, 'official'::text, o.property_type, o.rooms,
-             o.sale_price, o.sold_at, o.lat, o.lng, o.size_sqm, o.floor
+             o.sale_price, o.sold_at, o.lat, o.lng, o.size_sqm, o.floor,
+             null::integer, o.gush, o.helka
         from public.market_deals_official o
     ) d
    where d.lat is not null and d.lng is not null
@@ -231,6 +389,11 @@ declare
   v_min_comps     integer;
   v_max_age       integer;
   v_similar_max   numeric;   -- עד לאן מרחיבים כדי לשמור על התאמת חדרים
+  v_commercial_max numeric;  -- הרדיוס המרבי לנכס מסחרי (cma_commercial_max_radius_meters)
+  v_rare_max      numeric;   -- הרדיוס המורחב לבית, דירת גן ודירת גג (cma_rare_type_radius_meters)
+  v_subject_kind  text;      -- property_kind של הנכס: house / garden / roof / unit
+  v_kinds         boolean[]; -- לכל שלב: האם דורש תת-סוג תואם
+  v_used_kind     boolean := false;
   v_cutoff        date;
   v_pool_radius   numeric;
   v_counts        integer[];
@@ -314,6 +477,7 @@ begin
   v_dim           := case when v_subject_class = 'commercial' then 'floor' else 'rooms' end;
   v_band_rooms    := case when v_dim = 'rooms' then v_subject_rooms end;
   v_subject_floor := case when v_dim = 'floor' then public.floor_group(v_prop.floor::text) end;
+  v_subject_kind  := public.property_kind(v_prop.property_type);
 
   select coalesce(max(value) filter (where key = 'cma_default_radius_meters'), 500),
          coalesce(max(value) filter (where key = 'cma_min_comparables'), 5),
@@ -322,9 +486,11 @@ begin
          coalesce(max(value) filter (where key = 'cma_similar_radius_meters'), 1000),
          coalesce(max(value) filter (where key = 'cma_min_market_comparables'), 3),
          coalesce(max(value) filter (where key = 'cma_feature_match_min'), 0.6),
-         coalesce(max(value) filter (where key = 'cma_market_comparables_limit'), 12)
+         coalesce(max(value) filter (where key = 'cma_market_comparables_limit'), 12),
+         coalesce(max(value) filter (where key = 'cma_commercial_max_radius_meters'), 2000),
+         coalesce(max(value) filter (where key = 'cma_rare_type_radius_meters'), 2000)
     into v_base_radius, v_min_comps, v_max_age, v_city_limit, v_similar_max,
-         v_min_market, v_feat_min, v_market_limit
+         v_min_market, v_feat_min, v_market_limit, v_commercial_max, v_rare_max
     from public.pricing_config;
 
   v_cutoff := (current_date - (v_max_age || ' months')::interval)::date;
@@ -344,52 +510,89 @@ begin
   v_radii := array[v_base_radius, v_similar_max, v_base_radius, v_similar_max,
                    v_base_radius, v_similar_max, v_base_radius, v_base_radius*2,
                    v_base_radius*3, v_base_radius*4, v_base_radius*6]::numeric[];
-  v_pool_radius := greatest(v_base_radius * 6, v_similar_max);
+
+  -- ונכס מסחרי: סולם משלו, עד `cma_commercial_max_radius_meters` (2,000 מ').
+  -- עסקאות מסחריות דלילות בסדר גודל מדירות, ולכן גם השלב המסונן (אותה
+  -- קבוצת קומה) מתרחב עד הקצה **לפני** שמוותרים על הקומה - אותו עיקרון
+  -- של סולם החדרים: מרחק הוא הוויתור הזול. ומעבר ל-2,000 מ' אין המשך:
+  -- חנות במרכז העיר וחנות באזור תעשייה בקצה השני אינן שוק אחד, ומוטב
+  -- `insufficient` מממוצע שמערבב אותן.
+  if v_dim = 'floor' then
+    v_bands := array[0,             0,             0,
+                     null,          null,          null]::numeric[];
+    v_radii := array[v_base_radius, v_similar_max, v_commercial_max,
+                     v_base_radius, v_similar_max, v_commercial_max]::numeric[];
+  end if;
+
+  -- ונכס מגורים מיוחד (20270224090000). לבית, לדירת גן ולפנטהאוז יש מעט
+  -- עסקאות, והן שוק אחר: ממוצע של דירות רגילות מתמחר פנטהאוז כדירה.
+  --
+  --   בית           - בית מושווה רק לבתים (same_type), ולכן הסולם הרגיל,
+  --                   עם שלב נוסף ב-2,000 מ' בכל רמת חדרים.
+  --   גן / גג       - קודם אותו תת-סוג (בקירוב, ראו property_kind) בטווח
+  --                   ‎±1‎ חדר, ב-1,000 ואז ב-2,000 מ'; אחר כך אותו תת-סוג
+  --                   בכל גודל ב-2,000 מ'; ורק אז הסולם הרגיל של דירות -
+  --                   ואז הדוח אומר שלא נמצאו עסקאות מאותו סוג.
+  if v_dim = 'rooms' and v_subject_kind = 'house' then
+    v_bands := array[0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1,
+                     null, null, null, null, null]::numeric[];
+    v_radii := array[v_base_radius, v_similar_max, v_rare_max,
+                     v_base_radius, v_similar_max, v_rare_max,
+                     v_base_radius, v_similar_max, v_rare_max,
+                     v_base_radius, v_base_radius*2, v_base_radius*3,
+                     v_base_radius*4, v_base_radius*6]::numeric[];
+  elsif v_dim = 'rooms' and v_subject_kind in ('garden', 'roof') then
+    v_kinds := array[true, true, true]
+               || array_fill(null::boolean, array[array_length(v_radii, 1)]);
+    v_bands := array[1, 1, null]::numeric[] || v_bands;
+    v_radii := array[v_similar_max, v_rare_max, v_rare_max]::numeric[] || v_radii;
+  end if;
+  v_kinds := coalesce(v_kinds, array_fill(null::boolean, array[array_length(v_radii, 1)]));
+  v_pool_radius := (select max(x) from unnest(v_radii) x);
 
   if v_prop.lat is not null and v_prop.lng is not null then
-    -- מעבר **אחד** על הבריכה, ובו כל 11 הספירות. הגרסה הקודמת הריצה
-    -- שאילתה לכל שלב בלולאה; 11 שאילתות היו הופכות את זה למחיר אמיתי.
-    select array[
-      count(*) filter (where c.same_type and c.band_diff <= 0   and c.distance_meters <= v_radii[1]),
-      count(*) filter (where c.same_type and c.band_diff <= 0   and c.distance_meters <= v_radii[2]),
-      count(*) filter (where c.same_type and c.band_diff <= 0.5 and c.distance_meters <= v_radii[3]),
-      count(*) filter (where c.same_type and c.band_diff <= 0.5 and c.distance_meters <= v_radii[4]),
-      count(*) filter (where c.same_type and c.band_diff <= 1   and c.distance_meters <= v_radii[5]),
-      count(*) filter (where c.same_type and c.band_diff <= 1   and c.distance_meters <= v_radii[6]),
-      count(*) filter (where c.same_type and c.distance_meters <= v_radii[7]),
-      count(*) filter (where c.same_type and c.distance_meters <= v_radii[8]),
-      count(*) filter (where c.same_type and c.distance_meters <= v_radii[9]),
-      count(*) filter (where c.same_type and c.distance_meters <= v_radii[10]),
-      count(*) filter (where c.same_type and c.distance_meters <= v_radii[11])
-    ]::integer[]
+    -- הבריכה נשלפת **פעם אחת** (‏materialized), וכל שלב בסולם סופר ממנה.
+    -- הספירה נשענת על v_bands/v_radii ולא על קבועים, כי לנכס מסחרי יש
+    -- סולם באורך אחר (20270224090000).
+    with pool as materialized (
+      -- ‏band_diff: המרחק מהנכס בממד של הסולם. חדרים - ההפרש; קומה - 0
+      -- באותה קבוצה ו-1 בקבוצה אחרת. ‏null כשלאחד הצדדים חסר הנתון, ואז
+      -- העסקה אינה נכנסת לשום שלב מסונן - בדיוק כמו rooms_diff.
+      select p.same_type, p.distance_meters, p.kind,
+             case when v_dim = 'floor'
+                  then case when p.floor_group is null or v_subject_floor is null then null
+                            when p.floor_group = v_subject_floor then 0 else 1 end
+                  else p.rooms_diff end as band_diff
+        from public.cma_deal_pool(v_prop.lat, v_prop.lng, v_cutoff, v_pool_radius,
+                                  p_property_id, v_prop.property_type, v_band_rooms) p
+    )
+    select array_agg(k.n order by g.i)
       into v_counts
-      from (
-        -- ‏band_diff: המרחק מהנכס בממד של הסולם. חדרים - ההפרש; קומה - 0
-        -- באותה קבוצה ו-1 בקבוצה אחרת. ‏null כשלאחד הצדדים חסר הנתון, ואז
-        -- העסקה אינה נכנסת לשום שלב מסונן - בדיוק כמו rooms_diff.
-        select p.*,
-               case when v_dim = 'floor'
-                    then case when p.floor_group is null or v_subject_floor is null then null
-                              when p.floor_group = v_subject_floor then 0 else 1 end
-                    else p.rooms_diff end as band_diff
-          from public.cma_deal_pool(v_prop.lat, v_prop.lng, v_cutoff, v_pool_radius,
-                                    p_property_id, v_prop.property_type, v_band_rooms) p
-      ) c;
+      from generate_subscripts(v_radii, 1) g(i)
+      cross join lateral (
+        select count(*)::integer as n
+          from pool c
+         where c.same_type
+           and (not coalesce(v_kinds[g.i], false) or c.kind = v_subject_kind)
+           and (v_bands[g.i] is null or c.band_diff <= v_bands[g.i])
+           and c.distance_meters <= v_radii[g.i]
+      ) k;
 
     for v_i in 1 .. array_length(v_radii, 1) loop
       -- נכס בלי מספר חדרים מדלג על השלבים המסוננים במקום לצבור בהם אפסים
       continue when v_bands[v_i] is not null and v_dim = 'rooms' and v_subject_rooms is null;
-      -- ובנכס מסחרי: לקומה יש שלב אחד בלבד (אותה קבוצה), ואין "‎±0.5‎
-      -- קומה". בלי קומה רשומה - גם הוא מדולג.
-      continue when v_bands[v_i] is not null and v_dim = 'floor'
-                and (v_subject_floor is null or v_bands[v_i] > 0);
+      -- ונכס מסחרי בלי קומה רשומה - אותו דבר בשלבי הקומה
+      continue when v_bands[v_i] is not null and v_dim = 'floor' and v_subject_floor is null;
       v_used_band   := v_bands[v_i];
+      v_used_kind   := coalesce(v_kinds[v_i], false);
       v_used_radius := v_radii[v_i];
       v_n           := v_counts[v_i];
       exit when v_n >= v_min_comps;
     end loop;
 
     v_band_reason := case
+      -- נכס מיוחד שנמצאו לו די עסקאות מאותו תת-סוג
+      when v_used_kind then case when v_used_band is null then 'kind_any_rooms' else 'kind_rooms' end
       when v_dim = 'floor' then case
         when v_used_band = 0           then 'floor_exact'
         when v_subject_floor is null   then 'subject_floor_missing'
@@ -415,6 +618,7 @@ begin
         -- מסמנת אותה. שלושה ערכים לדגל בוליאני הם באג שממתין.
         select p.*,
                coalesce(p.same_type
+                        and (not v_used_kind or p.kind = v_subject_kind)
                         and (v_used_band is null
                              or (v_dim = 'rooms' and p.rooms_diff <= v_used_band)
                              or (v_dim = 'floor' and p.floor_group = v_subject_floor)), false) as in_stats
@@ -444,6 +648,7 @@ begin
                  as distance_meters
           from (
             select p.id, p.title, nullif(p.rooms, 0) as rooms, p.price, p.features, p.floor,
+                   p.property_type,
                    p.lat, p.lng, (p.agent_id = v_agent.id) as is_own,
                    coalesce(p.built_size_sqm, p.size_sqm, p.area_sqm) as size_sqm
               from public.properties p
@@ -460,6 +665,8 @@ begin
                 or (v_dim = 'rooms' and m.rooms is not null and v_subject_rooms is not null
                     and abs(m.rooms - v_subject_rooms) <= v_used_band)
                 or (v_dim = 'floor' and public.floor_group(m.floor::text) = v_subject_floor))
+           -- נכס מיוחד שהשוואת העסקאות שלו נשענה על אותו תת-סוג: גם המתחרים
+           and (not v_used_kind or public.property_kind(m.property_type) = v_subject_kind)
       ) c;
 
     select count(*), count(*) filter (where (x->>'feature_match')::numeric >= v_feat_min)
@@ -665,7 +872,7 @@ begin
            'source', s.source,
            'label',  case s.source
                        when 'platform_derived' then 'עסקאות שנסגרו דרך שוק נדל״ן'
-                       when 'tax_authority'    then 'רשות המיסים — מאגר עסקאות מקרקעין'
+                       when 'tax_authority'    then 'רשות המיסים - מאגר עסקאות מקרקעין'
                        else s.source end,
            'deals',  s.n) order by s.n desc), '[]'::jsonb)
     into v_sources
@@ -709,7 +916,7 @@ begin
       'excluded_other_type', greatest(v_n_all - v_n_class, 0),
       -- מה שנשאר בחוץ בגלל מספר החדרים. דוח שמשתיק נתונים חייב לומר
       -- שהשתיק, בדיוק כמו excluded_other_type שלידו.
-      'excluded_other_rooms', case when v_used_band is null or v_dim <> 'rooms' then 0
+      'excluded_other_rooms', case when v_used_band is null or v_dim <> 'rooms' or v_used_kind then 0
                                    else greatest(v_n_class - v_n, 0) end,
       'subject_rooms',      v_subject_rooms,
       'rooms_band',         case when v_dim = 'rooms' then v_used_band end,
@@ -748,7 +955,13 @@ begin
       'band_dimension',         v_dim,
       'subject_floor_group',    v_subject_floor,
       'excluded_other_floor',   case when v_used_band is null or v_dim <> 'floor' then 0
-                                     else greatest(v_n_class - v_n, 0) end
+                                     else greatest(v_n_class - v_n, 0) end,
+      -- הרדיוס הרחוק ביותר שהסולם בודק: 2,000 מ' בנכס מסחרי
+      'max_radius_meters',      (select max(x) from unnest(v_radii) x),
+      -- תת-הסוג של נכס מגורים, והאם הממוצע נשען על אותו תת-סוג
+      'subject_kind',           v_subject_kind,
+      'kind_matched',           v_used_kind,
+      'excluded_other_kind',    case when v_used_kind then greatest(v_n_class - v_n, 0) else 0 end
     ),
     'sources', v_sources
   );
