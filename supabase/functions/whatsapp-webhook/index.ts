@@ -21,6 +21,14 @@ import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import {
+  catalogBlock,
+  catalogFailureBlock,
+  catalogImagesInTurn,
+  fetchCatalogItem,
+  findCatalogLinks,
+  MAX_LINKS_PER_MESSAGE,
+} from "./catalog-link.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -163,7 +171,15 @@ async function reply(
 /** מורידה תמונה מוואטסאפ, מעלה ל-Storage ומחזירה URL ציבורי (או null). */
 async function storeImage(mediaId: string, agentId: string): Promise<string | null> {
   const { bytes, mimeType } = await downloadMedia(mediaId);
+  return storeImageBytes(bytes, mimeType, agentId);
+}
 
+/** אותה שמירה, לבתים שכבר בידינו (תמונה מקטלוג וואטסאפ). */
+async function storeImageBytes(
+  bytes: Uint8Array | ArrayBuffer,
+  mimeType: string,
+  agentId: string,
+): Promise<string | null> {
   if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
     console.warn("unsupported image type", mimeType);
     return null;
@@ -317,6 +333,94 @@ function forwardedPrefix(msg: Record<string, any>): string {
   return msg.context?.forwarded || msg.context?.frequently_forwarded
     ? "[הודעה מועברת - נכתבה במקור על ידי מישהו אחר]\n"
     : "";
+}
+
+// ---------------------------------------------------------------------------
+// קישור לפריט בקטלוג וואטסאפ (‏catalog-link.ts)
+//
+// הקישור נקרא כאן, לפני הרצף, ולא בכלי של המודל: זה דטרמיניסטי, וכך המודל
+// רואה את הפריט באותו תור שבו הסוכן/ת שלח/ה אותו. התמונה **אינה** נכנסת
+// לרשימת התמונות הממתינות כאן - רק אחרי שהרצף נאסף (‏`attachCatalogImage`),
+// כי שני פריטים ברצף אחד היו מחברים את שתי התמונות לנכס הראשון.
+// ---------------------------------------------------------------------------
+
+const CATALOG_IMAGE_TIMEOUT_MS = 10000;
+
+/** מורידה את תמונת הפריט מה-CDN של Meta ושומרת אותה כמו תמונה מהצ'אט.
+ *  הכתובת שם חתומה ופגה תוך ימים, ולכן שומרים עותק ולא קישור. */
+async function storeCatalogImage(url: string, agentId: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(CATALOG_IMAGE_TIMEOUT_MS) });
+    if (!res.ok) {
+      console.warn("catalog image fetch failed", res.status);
+      return null;
+    }
+    const mimeType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return await storeImageBytes(bytes, mimeType, agentId);
+  } catch (err) {
+    console.error("catalog image failed", err);
+    return null;
+  }
+}
+
+/** הטקסט שמתווסף להודעה עם קישור לקטלוג: בלוק הפריט, או "לא הצלחתי לקרוא". */
+async function catalogLinksToText(body: string, agentId: string, from: string): Promise<string> {
+  const links = findCatalogLinks(body);
+  if (!links.length) return "";
+
+  const blocks: string[] = [];
+  for (const link of links.slice(0, MAX_LINKS_PER_MESSAGE)) {
+    const got = await fetchCatalogItem(link);
+    if ("error" in got) {
+      blocks.push(catalogFailureBlock(link, got.error));
+      continue;
+    }
+    const stored = got.item.imageUrl ? await storeCatalogImage(got.item.imageUrl, agentId) : null;
+    blocks.push(catalogBlock(link, got.item, stored, from));
+  }
+  if (links.length > MAX_LINKS_PER_MESSAGE) {
+    blocks.push(
+      `[בהודעה ${links.length} קישורים לקטלוג, ונקרא רק הראשון. ` +
+        "בקשי לשלוח כל פריט בהודעה נפרדת, אחרי שהנוכחי טופל.]",
+    );
+  }
+  return "\n\n" + blocks.join("\n\n");
+}
+
+/**
+ * אחרי שהרצף נאסף: פריט קטלוג אחד = התמונה שלו מצטרפת לתמונות הממתינות,
+ * ו-`create_property` יחבר אותה לנכס כמו תמונה שנשלחה בצ'אט. כמה פריטים =
+ * אף תמונה לא מצטרפת (אין דרך לדעת איזו שייכת לאיזה נכס), והמודל מתבקש
+ * לטפל בהם אחד אחד. מחזירה את הכתובת שצורפה, או null.
+ */
+async function attachCatalogImage(
+  agentId: string,
+  from: string,
+  conv: ConversationState,
+  userText: string,
+): Promise<{ image: string | null; note: string }> {
+  const prefix = supabase.storage.from(IMAGES_BUCKET).getPublicUrl(`${agentId}/whatsapp/`).data.publicUrl;
+  const { items, images } = catalogImagesInTurn(userText, prefix);
+  if (!items) return { image: null, note: "" };
+  if (items > 1) {
+    return {
+      image: null,
+      note: `\n\n[בתור הזה ${items} פריטי קטלוג. התמונות שלהם לא צורפו לאף נכס. ` +
+        "אל תפתחי מהם נכס: בקשי לשלוח את הקישורים שוב, אחד בכל פעם.]",
+    };
+  }
+  if (images.length !== 1) return { image: null, note: "" };
+
+  const { error } = await supabase.rpc("whatsapp_pending_image_add", {
+    p_agent_id: agentId, p_phone: from, p_url: images[0],
+  });
+  if (error) {
+    console.error("catalog image pending add failed", error);
+    return { image: null, note: "\n\n[התמונה מהקטלוג לא נשמרה לצירוף. אמרי לסוכן/ת לשלוח אותה בנפרד.]" };
+  }
+  conv.pending_images = await freshPendingImages(agentId);
+  return { image: images[0], note: "" };
 }
 
 // ---------------------------------------------------------------------------
@@ -772,7 +876,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   switch (msg.type) {
     case "text":
-      userText = forwardedPrefix(msg) + (msg.text?.body || "");
+      userText = forwardedPrefix(msg) + (msg.text?.body || "") +
+        (await catalogLinksToText(String(msg.text?.body || ""), agent.id, from));
       break;
 
     case "contacts":
@@ -886,6 +991,11 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     // התמונה שהמודל רואה: האחרונה ברצף (קודם - התמונה של ההודעה הנוכחית).
     newImageUrl = conv.pending_images[conv.pending_images.length - 1] || null;
   }
+
+  // פריט מקטלוג וואטסאפ: התמונה שלו מצטרפת רק עכשיו, כשידוע כמה פריטים ברצף.
+  const catalog = await attachCatalogImage(agent.id, from, conv, userText);
+  if (catalog.image) newImageUrl = catalog.image;
+  userText += catalog.note;
 
   if (!userText.trim()) {
     await saveConversation(agent.id, from, conv);
