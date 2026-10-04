@@ -780,14 +780,30 @@ function renderVizJumpButton(){
 
 /* רוחב תגית המחיר, אל ‎--price-w‎ על התא הראשי. במובייל הכרטיס יושב לצדה
    באותה שורה ומקבל את שאר הרוחב, ורוחב המחיר תלוי בסכום ובשורת המ"ר. */
+/* ‏**וכשהמחיר ארוך מדי - הכרטיס עובר לשורה משלו.** מחיר של שכירות מסחרית
+   ("2,966 ₪ / חודש + מע"מ") השאיר לכרטיס פחות מ-120px בטלפון, והכותרת נשברה
+   לחמש שורות. כשהמקום שנשאר קטן מהווילון ועוד עמודת טקסט מינימלית, הכרטיס
+   מקבל את כל הרוחב (‏.vj-stack), והמחיר עולה מעליו בגובה הכרטיס שנמדד
+   (‏--vj-h). עמודת הטקסט המינימלית שונה בין טלפון למחשב, כי הגופן שונה:
+   ‏80px הם כותרת בשלוש שורות בטלפון, ו-180px בשתיים במחשב. */
+const vjTextMin = ()=> (window.innerWidth >= 640 ? 180 : 80);
 function watchHeroPriceWidth(){
   const price = document.getElementById('heroPrice');
+  const btn = document.getElementById('vizJumpBtn');
   const cell = price && price.parentElement;
-  if (!cell || !window.ResizeObserver || price.dataset.watched) return;
+  if (!cell || !btn || !window.ResizeObserver || price.dataset.watched) return;
   price.dataset.watched = '1';
-  new ResizeObserver(()=>{
-    cell.style.setProperty('--price-w', price.hidden ? '0px' : price.offsetWidth + 'px');
-  }).observe(price);
+  const sync = ()=>{
+    const pw = price.hidden ? 0 : price.offsetWidth;
+    cell.style.setProperty('--price-w', pw + 'px');
+    const curtain = btn.querySelector('.vj-curtain');
+    const need = (curtain ? curtain.offsetWidth : 0) + vjTextMin() + 30;
+    cell.classList.toggle('vj-stack', !!pw && cell.clientWidth - pw - 40 < need);
+    cell.style.setProperty('--vj-h', btn.offsetHeight + 'px');
+  };
+  const ro = new ResizeObserver(sync);
+  ro.observe(price); ro.observe(cell); ro.observe(btn);
+  sync();
 }
 
 function revealVizJumpButton(){
