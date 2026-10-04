@@ -3815,6 +3815,16 @@ function drawGabrielaCta(wrap, entry){
     wrap.innerHTML = ShukBot.anchorHtml(GAB_HELLO, GAB_WA_ICON + '<span>ספרו לגבריאלה מה אתם מחפשים</span>', 'gab-cta');
     const a = wrap.querySelector('a');
     if (a) a.setAttribute('data-bot-entry', entry);
+    // ב-hero בלבד: נקודת "הודעה חדשה" על אייקון הוואטסאפ, שנעלמת בלחיצה
+    const svg = a && entry === 'homepage_hero' && a.querySelector('svg');
+    if (svg){
+      const ic = document.createElement('span');
+      ic.className = 'gab-cta-ic';
+      svg.replaceWith(ic);
+      ic.appendChild(svg);
+      ic.insertAdjacentHTML('beforeend', '<span class="gab-cta-badge" aria-hidden="true">1</span>');
+      a.addEventListener('click', ()=>{ ic.querySelector('.gab-cta-badge')?.remove(); });
+    }
     return;
   }
   wrap.innerHTML = '';

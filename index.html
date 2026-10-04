@@ -3610,9 +3610,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     70%{transform:rotate(10deg) scale(1.1)}
     74%{transform:rotate(-6deg)}
   }
+  /* נקודת "הודעה חדשה" על האייקון (נבנית ב-drawGabrielaCta). נשארת בתוך
+     גבולות הכפתור, כי ה-overflow שלו חתוך בשביל ההברקה */
+  .gab-cta-ic{position:relative;display:inline-flex;flex:0 0 auto}
+  .gab-cta-badge{
+    position:absolute;top:-5px;right:-6px;width:17px;height:17px;padding:0;box-sizing:border-box;
+    border-radius:999px;background:#e53935;color:#fff;border:2px solid var(--wa-dark);
+    font-size:10px;font-weight:800;line-height:13px;text-align:center;white-space:nowrap;
+    transform:scale(0);animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
+  }
+  @keyframes gabBadgeIn{to{transform:scale(1)}}
+  /* מתחת ל-375px הכיתוב ממלא את הכפתור והאייקון כמעט בקצה - הנקודה נצמדת אליו */
+  @media(max-width:374px){ .gab-cta-badge{right:-1px;top:-4px} }
   @media(prefers-reduced-motion:reduce){
     #gabCtaWrap .gab-cta:not(.is-agent),#gabCtaWrap .gab-cta:not(.is-agent) svg{animation:none}
     #gabCtaWrap .gab-cta:not(.is-agent)::after{animation:none;display:none}
+    .gab-cta-badge{animation:none;transform:none}
   }
   .gab-how{
     min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;font:inherit;
