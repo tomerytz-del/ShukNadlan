@@ -4,7 +4,9 @@ import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-m
 import {
   grantLaunchPromo, PROMO_TIER, TIERS, TIER_NAMES, TIER_PRICES, type Tier,
 } from "../_shared/launch-promo.ts";
-import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import {
+  APPEAL_PENDING_MESSAGE, appealForEmail, blockedResponse, checkBrokerLicense,
+} from "../_shared/broker-license-gate.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { freeAgentSlug } from "../_shared/agent-slug.ts";
 
@@ -185,8 +187,21 @@ Deno.serve(async (req: Request) => {
     if (!card) return { error: "member_not_found" as const };
     if (card.license_number) return { ok: true as const };
 
-    const license = normLicense(body?.license_number);
-    const name = String(body?.display_name || "").trim().slice(0, 80);
+    let license = normLicense(body?.license_number);
+    let name = String(body?.display_name || "").trim().slice(0, 80);
+
+    // **מי שכבר שלח/ה צילום לא מתבקש/ת שוב את המספר.** החסימה לא כותבת
+    // כלום על הכרטיס, ולכן בלי זה הכניסה הבאה שאלה מחדש את מספר הרישיון —
+    // ואחרי אישור הערעור הסוכן/ת היה/תה צריך/ה להקליד אותו פעם שלישית. הערעור
+    // הממתין עובר דרך אותה בדיקה ונחסם שוב, הפעם עם `appeal_pending`; המאושר
+    // עובר, והשיוך נעשה בלי מסך ביניים.
+    if (!license) {
+      const appeal = await appealForEmail(supabase, [userEmail, card.email]);
+      if (appeal) {
+        license = normLicense(appeal.license_number);
+        if (!name) name = String(appeal.applicant_name || "").trim().slice(0, 80);
+      }
+    }
     if (!license) return { needs: { display_name: card.display_name || "" } };
 
     // אותו טווח של טופס הערעור (`broker-license-appeal`), כדי ששני המקומות
@@ -364,6 +379,30 @@ Deno.serve(async (req: Request) => {
         const { data: agency } = await supabase
           .from("agencies").select("name").eq("id", claim.agency_id).maybeSingle();
         return json({ status: "claim_pending", claim_id: claim.id, agency_name: agency?.name || "" });
+      }
+
+      // --- 4. ערעור רישיון שנשלח מהכתובת הזו ---
+      // מי שנחסם/ה בפתיחת משרד לא קיבל/ה כלום — לא משרד ולא כרטיס — ולכן
+      // בלי הבדיקה הזו הכניסה הבאה הייתה "none", כלומר מסך "מי את/ה?" עם
+      // "אני פותח/ת משרד חדש", כאילו הערעור מעולם לא נשלח.
+      const appeal = await appealForEmail(supabase, [userEmail]);
+      if (appeal?.status === "pending") {
+        return json({
+          status: "appeal_pending",
+          license_number: appeal.license_number,
+          detail: APPEAL_PENDING_MESSAGE,
+        });
+      }
+      if (appeal?.status === "approved") {
+        // אושר — ממשיכים לפתיחת המשרד עם מה שכבר נמסר בערעור.
+        return json({
+          status: "none",
+          appeal: {
+            license_number: appeal.license_number,
+            name: appeal.applicant_name || "",
+            source: appeal.source || "",
+          },
+        });
       }
 
       return json({ status: "none" });

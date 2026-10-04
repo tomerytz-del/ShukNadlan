@@ -4558,6 +4558,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button type="button" class="btn btn-ghost btn-block" id="claimLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
 
+  <!-- ---------- צילום הרישיון בבדיקה ----------
+       מי שנחסם/ה ברשם המתווכים ושלח/ה צילום נוחת/ת כאן בכל כניסה עד ההחלטה.
+       עד היום לא היה מסך כזה: החסימה לא יוצרת כלום, ולכן הכניסה הבאה נראתה
+       כמו כניסה ראשונה - שוב מספר רישיון, או "אני פותח/ת משרד חדש". אחרי
+       האישור "בדיקה אם אושר" ממשיך מאותה נקודה, בלי למלא שוב. -->
+  <div class="card login-card" id="appealPendingScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>הרישיון בבדיקה</h1>
+    <p class="sub">צילום רישיון התיווך <b id="apdLicense" dir="ltr"></b> התקבל ונמצא בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים. נעדכן במייל - ואז ממשיכים מכאן, בלי למלא שוב.</p>
+    <button type="button" class="btn btn-gold btn-block" id="apdRefreshBtn">בדיקה אם אושר</button>
+    <div id="apdFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="apdLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
   <!-- ---------- ניתוק מהמשרד ----------
        מנהל/ת המשרד השעה/תה את הסוכן/ת. זה המסך שהוא/היא פוגש/ת בכניסה הבאה,
        ובמכוון הוא **לא** מסך הכניסה ולא "אין לך משרד": מי שהושעה/תה צריך/ה

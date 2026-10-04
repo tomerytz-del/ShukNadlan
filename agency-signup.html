@@ -382,6 +382,15 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     // חסימת רישיון אינה שגיאת טופס אלא מצב בפני עצמו, ולכן היא מחליפה מסך
     // ולא מדפיסה שורה אדומה מתחת לכפתור. הפרטים שכבר הוקלדו עוברים לטופס
     // הערעור — אין סיבה לבקש אותם פעמיים.
+    // כבר נשלח צילום על המספר הזה והוא בבדיקה - לא מבקשים אותו שוב.
+    if (res.status === 403 && data.error === 'license_not_verified' && data.appeal_pending){
+      document.getElementById('appealSentMsg').textContent = data.detail || '';
+      document.getElementById('stateForm').style.display = 'none';
+      document.getElementById('stateAppealSent').style.display = 'block';
+      window.scrollTo(0,0);
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+      return;
+    }
     if (res.status === 403 && data.error === 'license_not_verified'){
       document.getElementById('blockedReason').textContent = data.detail || '';
       document.getElementById('apName').value  = managerName;

@@ -97,6 +97,12 @@ document.getElementById('laSubmit').addEventListener('click', async ()=>{
     // ‏already_pending ו-already_approved אינם כישלון אלא התשובה עצמה.
     if (data.status === 'received' || data.status === 'already_pending' || data.status === 'already_approved'){
       document.getElementById('licenseAppealModal').style.display = 'none';
+      // מי שעוד לא בפנים (פתיחת משרד, כניסה ראשונה) עובר/ת למסך ההמתנה ולא
+      // נשאר/ת מול הטופס שנחסם — זה המסך שיחכה לו/ה גם בכניסה הבאה.
+      if (!currentAgent && data.status !== 'already_approved'){
+        showAppealPendingScreen(licenseAppealCtx.license);
+        return;
+      }
       showToast(data.detail || 'הצילום התקבל', 6000);
       return;
     }
@@ -517,6 +523,7 @@ const SCREEN_CARDS = {
   login:        'loginCardMain',
   identify:     'identifyScreen',
   claimPending: 'claimPendingScreen',
+  appealPending:'appealPendingScreen',
   released:     'releasedScreen',
   closed:       'closedScreen',
   createAgency: 'createAgencyScreen',
@@ -995,6 +1002,8 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     // רישיון שלא אומת — מודאל הערעור במקום שורת שגיאה. הטופס נשאר פתוח
     // מאחוריו, כך שאפשר גם פשוט לתקן ספרה שהוקלדה שגוי ולנסות שוב.
     if (res.status === 403 && data.error === 'license_not_verified'){
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
       const { data: { user } } = await sb.auth.getUser();
       openLicenseAppeal({
         license: data.license_number || license,
@@ -1003,7 +1012,6 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
         email:   user?.email || '',
         source:  'create-own-agency',
       });
-      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
       return;
     }
 
@@ -1055,6 +1063,10 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
    והארנק ממשיכים כמו שהם ולא נבחרים מחדש. הדגל הזה הוא מה שמבדיל. */
 let releasedAgent = null;
 
+/* מה שכבר נמסר ולא צריך להקליד שוב: השם מחשבון Google, ומספר הרישיון והשם
+   מערעור שאושר. ממלא רק שדה ריק - מה שהוקלד במסך גובר. */
+let createAgencyPrefill = null;
+
 function showCreateAgencyScreen(){
   const adopting = !!releasedAgent;
   document.getElementById('caTierField').style.display = adopting ? 'none' : '';
@@ -1067,6 +1079,10 @@ function showCreateAgencyScreen(){
     // הכרטיס כבר קיים; מילוי מראש מונע שם או רישיון שנכתבים מחדש בשוגג
     document.getElementById('caManagerName').value = releasedAgent.display_name || '';
     document.getElementById('caLicense').value = releasedAgent.license_number || '';
+  } else if (createAgencyPrefill){
+    const fill = (id, v)=>{ const el = document.getElementById(id); if (el && !el.value.trim() && v) el.value = v; };
+    fill('caManagerName', createAgencyPrefill.name);
+    fill('caLicense', createAgencyPrefill.license);
   }
   showScreen('createAgency');
 }
@@ -1156,6 +1172,9 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
 
   if (data.status === 'claim_pending'){ showClaimPendingScreen(user, data.agency_name); return; }
 
+  // נשלח צילום רישיון והוא עוד בבדיקה — לא שוב טופס, ולא "פתיחת משרד חדש".
+  if (data.status === 'appeal_pending'){ showAppealPendingScreen(data.license_number); return; }
+
   // הכרטיס נמצא — חסרים בו הפרטים שרק הסוכן/ת יכול/ה למסור. **השיוך עוד
   // לא נעשה**, ובכוונה: כרטיס שקיבל חשבון הוא כרטיס שנכנסו אליו, ואין טעם
   // לבקש רישיון ממי שכבר בפנים. המסך הזה הוא גם שער הקוד האתי — אותה לחיצה
@@ -1173,6 +1192,7 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
   // הכרטיס נמצא — ומה שעוצר הוא הרישיון, לא הזיהוי. בלי הענף הזה המסך הבא
   // היה "לא מצאנו כרטיס", והסיבה האמיתית לא הייתה מגיעה לאף אחד.
   if (data.error === 'license_not_verified'){
+    if (data.appeal_pending){ showAppealPendingScreen(data.license_number); return; }
     showIdentifyScreen(user, data.detail || 'רישיון התיווך לא אומת מול רשם המתווכים.');
     openLicenseAppeal({
       license: data.license_number || '',
@@ -1186,7 +1206,14 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
   // מי שהגיע/ה מ"פתיחת משרד" עם Google כבר ענה/תה על השאלה שמסך הזיהוי
   // שואל. ‏status:'none' שם פירושו בדיוק מה שהוא ביקש: אין כרטיס, ולכן
   // פותחים משרד — ואין סיבה להציג לו/ה קודם מסך ששואל אם אולי כן יש.
-  if (data.status === 'none' && readNewAgencyIntent()){
+  createAgencyPrefill = {
+    name: data.appeal?.name || user?.user_metadata?.full_name || '',
+    license: data.appeal?.license_number || '',
+  };
+  // ערעור שאושר על פתיחת משרד: הבחירה כבר נעשתה בפעם הקודמת, ולכן ממשיכים
+  // ישר לטופס — עם המספר והשם שכבר נמסרו.
+  const approvedOpening = ['agency-signup', 'create-own-agency'].includes(data.appeal?.source);
+  if (data.status === 'none' && (readNewAgencyIntent() || approvedOpening)){
     clearNewAgencyIntent();
     showCreateAgencyScreen();
     return;
@@ -1212,6 +1239,29 @@ function showIdentifyScreen(user, notice){
   showScreen('identify');
 }
 
+function showAppealPendingScreen(license){
+  document.getElementById('apdLicense').textContent = license || '';
+  document.getElementById('apdFeedback').textContent = '';
+  showScreen('appealPending');
+}
+
+document.getElementById('apdRefreshBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('apdRefreshBtn');
+  const feedback = document.getElementById('apdFeedback');
+  btn.disabled = true; btn.textContent = 'בודקים…';
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){ showLoginCard('פג תוקף החיבור - יש להתחבר מחדש.'); return; }
+  await routeAfterAuth(session, { force:true });
+  btn.disabled = false; btn.textContent = 'בדיקה אם אושר';
+  if (document.getElementById('appealPendingScreen').style.display === 'block'){
+    feedback.style.color = 'var(--ink-soft)';
+    feedback.textContent = 'הצילום עדיין בבדיקה.';
+  }
+});
+document.getElementById('apdLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
+
 function showClaimPendingScreen(user, agencyName){
   document.getElementById('claimEmail').textContent = user?.email || '';
   document.getElementById('claimAgencyName').textContent = agencyName || '';
@@ -1235,6 +1285,7 @@ document.getElementById('idClaimBtn').addEventListener('click', async ()=>{
   // הכרטיס נמצא — הרישיון שעליו הוא מה שלא אומת. זו הודעה אחרת לגמרי
   // מ-license_not_found ("אין כרטיס כזה"), ולכן היא לא נכנסת למפה שלמטה.
   if (data.error === 'license_not_verified'){
+    if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
     const { data: { user } } = await sb.auth.getUser();
     openLicenseAppeal({
       license: data.license_number || license,
@@ -7026,6 +7077,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
       // נפתח מול מי שהתעודה בידיו/ה. זו כל הסיבה שהשדה כאן ולא בטופס של
       // מנהל/ת המשרד.
       if (data.error === 'license_not_verified'){
+        if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
         const { data: { user } } = await sb.auth.getUser();
         openLicenseAppeal({
           license: data.license_number || license,
