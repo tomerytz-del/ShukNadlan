@@ -1,0 +1,41 @@
+name: הודעות הפתיחה לגבריאלה מזוהות כהגעה מהאתר
+
+# ‏הפאנל "פניות לגבריאלה" ב-crm סופר כמה פונים הגיעו מכפתור באתר, לפי
+# ביטוי בהודעת הפתיחה שהכפתור ממלא מראש (‏wa.me אינו מעביר שום דבר אחר).
+# ניסוח מחדש של הודעה באתר בלי לעדכן את ‏SITE_ENTRY_PHRASES ב-
+# ‏whatsapp-webhook/index.ts אינו שובר כלום - הפניות פשוט נספרות "direct",
+# והמספר בפאנל יורד בשקט.
+#
+# קריאת קבצים בלבד, בלי רשת ובלי סודות. ‏docs/whatsapp-public-bot.md.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "supabase/migrations/20270213090000_whatsapp_public_entry.sql"
+      - "scripts/check_bot_entry.py"
+      - ".github/workflows/bot_entry.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "supabase/migrations/20270213090000_whatsapp_public_entry.sql"
+      - "scripts/check_bot_entry.py"
+      - ".github/workflows/bot_entry.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: הודעות פתיחה מול SITE_ENTRY_PHRASES
+        run: python3 scripts/check_bot_entry.py

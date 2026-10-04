@@ -451,6 +451,27 @@ async function savePublicConversation(
   if (error) console.error("public conversation save failed", error);
 }
 
+/* מאיפה הגיע/ה הפונה - לפי הודעת הפתיחה שהכפתור באתר ממלא מראש.
+   ‏wa.me אינו מעביר שום פרמטר מלבד הטקסט, ולכן הטקסט הוא הסימן היחיד.
+   הביטויים חייבים להופיע בהודעות הפתיחה ב-assets/home.js
+   (‏GAB_HELLO, ‏renderEmptyBotLink) וב-FALLBACK_HELLO ב-assets/bot-link.js -
+   ‏scripts/check_bot_entry.py מצליב, כי ניסוח מחדש של הודעה היה מעביר את
+   כל הפניות שלה ל-direct בלי שום סימן. מי שמחק/ה את ההודעה המוכנה וכתב/ה
+   משהו משלו/ה נספר/ת direct, וזה המחיר הידוע.
+   ‏SITE_ENTRY_PHRASES משוכפל במיגרציה 20270213090000 (המילוי למפרע). */
+const SITE_ENTRY_PHRASES: ReadonlyArray<[string, string]> = [
+  ["מדף הבית", "homepage"],
+  ["חיפשתי באתר", "search_empty"],
+  ["הגעתי מהאתר", "site"],
+];
+
+function siteEntryOf(text: string): string {
+  for (const [phrase, entry] of SITE_ENTRY_PHRASES) {
+    if (text.includes(phrase)) return entry;
+  }
+  return "direct";
+}
+
 /**
  * פונה שאינו סוכן/ת. הכול כאן קריאה בלבד: אין שמירת מדיה, אין כתיבה לנכסים,
  * ואין נגיעה בנתוני סוכנים — למעט מה שממילא פתוח באתר.
@@ -514,6 +535,15 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   if (!userText.trim()) return;
 
   const conv = await loadPublicConversation(from);
+
+  // היסטוריה ריקה = פנייה חדשה (גם אחרי 12 שעות שקט). זה מה שנספר בפאנל
+  // "פניות לגבריאלה" ב-crm, ולכן נחתם עכשיו: ה-body נמחק אחרי 30 יום.
+  if (!conv.history.length) {
+    const { error } = await supabase.from("whatsapp_messages")
+      .update({ public_entry: siteEntryOf(userText) })
+      .eq("wa_message_id", msg.id);
+    if (error) console.error("public entry stamp failed", error);
+  }
 
   let answer: string;
   let shareContact = false;

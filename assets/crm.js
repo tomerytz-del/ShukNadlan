@@ -3163,7 +3163,7 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
-  loadAdminSearchReport();
+  loadAdminSearchReport().then(loadAdminGabrielaReport);
 }
 
 /* ---------- מה מחפשים באתר ----------
@@ -3309,6 +3309,134 @@ async function loadAdminSearchReport(){
      שכונה שיש בהם נכס בודד הם מלאי חסר בדיוק כמו אפס, והם לא היו
      מופיעים בשום מקום אחר בבלוק. */
   termFacts(Array.isArray(rep.single_terms) ? rep.single_terms : [], 'תוצאה אחת בלבד');
+
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- פניות לגבריאלה מהאתר ----------
+   כמה אנשים שאינם סוכנים פתחו שיחה עם גבריאלה בכל יום, וכמה מהם הגיעו
+   מכפתור באתר. נספר במסד (‏whatsapp_messages.public_entry) ולא ב-GA4: שם
+   ‏contact_bot הוא **לחיצה** על הכפתור, וכאן זו הודעה שהגיעה בפועל.
+
+   "פנייה" = הודעה שפותחת שיחה (ראשונה, או אחרי 12 שעות שקט), ולכן מי
+   שכתב/ה עשר הודעות נספר/ת פעם אחת. "מהאתר" מזוהה לפי הודעת הפתיחה
+   שהכפתור ממלא מראש; מי שמחק/ה אותה וכתב/ה משהו משלו/ה נספר/ת "ישירות".
+   הפרטים: docs/whatsapp-public-bot.md, "כמה פניות מגיעות מהאתר". */
+const GAB_ENTRY_LABELS = {
+  'homepage':     ['כרטיס גבריאלה בדף הבית', 'כולל "איך זה עובד?", התפריט הנייד והרשימה שליד המפה'],
+  'search_empty': ['חיפוש שלא מצא תוצאות', 'הכפתור במסך אפס התוצאות'],
+  'site':         ['כפתור אחר באתר', 'הודעת ברירת המחדל'],
+  'direct':       ['ישירות, לא מהאתר', 'מספר שמור, כרטיס איש קשר, או הודעה שנכתבה מחדש'],
+};
+const GAB_DAYS_SHOWN = 14;
+
+function gabDayLabel(day){
+  const d = new Date(day + 'T12:00:00');
+  return isNaN(d) ? day
+    : d.toLocaleDateString('he-IL', { weekday:'short', day:'numeric', month:'numeric' });
+}
+
+async function loadAdminGabrielaReport(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('platform_gabriela_report',
+    { p_days: adminReportMonths * 30 });
+
+  const block = admBlock('פניות לגבריאלה מהאתר',
+    'כמה פונים שאינם סוכנים פתחו שיחה עם גבריאלה בוואטסאפ בכל יום, וכמה מהם הגיעו מכפתור באתר. נספר במסד לפי ההודעה שהגיעה בפועל, ולא לפי לחיצה ב-GA4. מי שכתב/ה כמה הודעות נספר/ת פעם אחת.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'מונה הפניות לגבריאלה טרם קיים במסד - הריצו את המיגרציה 20270213090000_whatsapp_public_entry.sql.'
+      : 'שגיאה בטעינת מונה הפניות לגבריאלה: ' + error.message;
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep    = data || {};
+  const totals = rep.totals || {};
+  const days   = Number(rep.window_days) || 30;
+  const all    = Number(totals.inquiries) || 0;
+  const site   = Number(totals.site) || 0;
+
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('היום מהאתר', admInt(totals.site_today),
+    { wine: true, note: 'מתוך ' + admInt(totals.inquiries_today) + ' פניות היום' }));
+  tiles.appendChild(admTile('אתמול מהאתר', admInt(totals.site_yesterday)));
+  tiles.appendChild(admTile('מהאתר ב-' + admInt(days) + ' ימים', admInt(site),
+    { note: plural(Number(totals.site_people) || 0, 'אדם אחד', 'אנשים', admInt(totals.site_people)) }));
+  tiles.appendChild(admTile('ממוצע ליום מהאתר', (site / days).toLocaleString('he-IL', { maximumFractionDigits: 1 })));
+  block.appendChild(tiles);
+
+  /* המספר היומי נכנס גם לכותרת הפאנל: הפאנל מתחיל מכווץ, והכותרת היא
+     מה שרואים כל יום בלי לפתוח ולגלול עד הבלוק הזה. ‏renderAdminReport
+     כותב את הכותרת מחדש בכל טעינה, וה-replace מכסה את המקרה שבו לא. */
+  const sub = document.getElementById('adminPanelSub');
+  if (sub && sub.textContent){
+    sub.textContent = sub.textContent.replace(/ · גבריאלה היום: .*$/, '')
+      + ' · גבריאלה היום: ' + admInt(totals.site_today) + ' מהאתר';
+  }
+
+  if (!all){
+    block.appendChild(admEl('div', 'empty-state',
+      'עדיין לא נרשמו פניות לגבריאלה בחלון הזה.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  /* מאיזה כפתור - כדי לדעת איזו נקודת כניסה עובדת */
+  const byEntry = Array.isArray(rep.by_entry) ? rep.by_entry : [];
+  if (byEntry.length){
+    const rows = admEl('div', 'adm-rows');
+    byEntry.forEach(row => {
+      const n = Number(row.n) || 0;
+      const lbl = GAB_ENTRY_LABELS[row.entry] || [row.entry, null];
+      rows.appendChild(admRow(lbl[0], lbl[1], admInt(n), all > 0 ? (n / all) * 100 : 0));
+    });
+    rows.appendChild(admRow('כל הפניות', null, admInt(all), 100, null, true));
+    block.appendChild(rows);
+  }
+
+  /* יום אחרי יום, מהחדש לישן. כל יום בחלון מופיע, גם יום של אפס - רצף
+     בלי חורים הוא מה שמראה שקט. מוצגים 14, והשאר בלחיצה. */
+  const daily = (Array.isArray(rep.daily) ? rep.daily : []).slice().reverse();
+  if (daily.length){
+    block.appendChild(admEl('p', 'adm-legend', 'לפי יום'));
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table adm-table-narrow');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    ['יום','מהאתר','כל הפניות'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    const draw = (count) => {
+      tbody.innerHTML = '';
+      daily.slice(0, count).forEach(row => {
+        const tr = admEl('tr');
+        tr.appendChild(admEl('td', null, gabDayLabel(row.day)));
+        tr.appendChild(admEl('td', null, admInt(row.site)));
+        tr.appendChild(admEl('td', null, admInt(row.inquiries)));
+        tbody.appendChild(tr);
+      });
+      dashPanelsMeasure();
+    };
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    block.appendChild(wrap);
+    draw(GAB_DAYS_SHOWN);
+    if (daily.length > GAB_DAYS_SHOWN){
+      const more = admEl('button', 'btn btn-ghost', 'הצגת כל ' + admInt(daily.length) + ' הימים');
+      more.type = 'button';
+      more.addEventListener('click', () => { draw(daily.length); more.remove(); });
+      block.appendChild(more);
+    }
+  }
 
   host.appendChild(block);
   dashPanelsMeasure();
