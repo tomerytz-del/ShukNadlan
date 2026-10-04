@@ -3685,7 +3685,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      "פתחו שיחה עם גבריאלה" נחת כ-200px מתחת לקיפול בטלפון רגיל - כלומר
      הפעולה שבשבילה הכרטיס קיים לא נראתה בטעינה. כאן הכול מתכווץ: ה-hero
      צפוף יותר, הדמות 128px, השורה העליונה 150px, והכפתור עולה לראש הגוף
-     (‏order:-1) - ההסבר והיתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
+     (‏.gab-convo, צמוד מעל השיחה) - היתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
      (טלפון קטן, 360×640), נמדד ב-Playwright ב-320/360/390/412. */
   @media(max-width:759px){
     .hero.map-closed .hero-overlay{padding:12px 0 36px}
@@ -3706,7 +3706,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:15px}
     .gab-tag{font-size:11.5px;padding:4px 9px}
     .gab-body{padding:14px 16px 18px;gap:10px}
-    .gab-actions{order:-1}
     .gab-cta{min-height:52px;padding:12px 16px;font-size:17px}
   }
   @media(max-width:374px){
@@ -3822,6 +3821,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--sapphire-deep);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;
   }
   @media(max-width:759px){ .gab-chat-box{max-width:none} .gab-how-tip li{font-size:14.5px} }
+  /* ---------- הכפתור והשיחה כיחידה אחת ----------
+     הכפתור הירוק יושב צמוד מעל השיחה, ברוחב שלה: פינות עליונות לכפתור,
+     תחתונות לשיחה, בלי רווח ביניהם. ‏#gabCtaWrap / ‏html body - כללי הכפתור
+     והשיחה יושבים במקומות אחרים בקובץ וב-design-system.css. */
+  .gab-convo{display:flex;flex-direction:column;max-width:520px;width:100%}
+  .gab-convo .gab-actions{display:flex;flex-direction:column;align-items:stretch;gap:0}
+  /* ‏transform-origin בתחתית: ה"לחיצה" המונפשת לא פותחת רווח מול השיחה */
+  html body #gabCtaWrap .gab-cta{width:100%;border-radius:16px 16px 0 0;transform-origin:50% 100%}
+  html body .gab-convo .gab-chat{border-radius:0 0 16px 16px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(14,42,107,.06)}
+  .gab-convo .gab-chat-box{max-width:none}
   /* טלפון צר: הקופסה 248px ב-320, והצעדים נשברו לשתי שורות. הבועה חורגת
      מעט מהשיחה לתוך הריפוד של הכרטיס, והגופן קטן בחצי פיקסל */
   @media(max-width:374px){
@@ -4899,27 +4908,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <h2 class="gab-name" id="gabName">גבריאלה</h2>
               <p class="gab-role">מחפשת נכס בשבילכם!</p>
             </div>
-            <!-- שיחת דוגמה מתחלפת (‏initGabChat ב-home.js). התוכן כאן הוא הגרסה
-                 הקבועה - בלי JS ועם prefers-reduced-motion היא מה שמוצג. -->
-            <!-- ‏"איך זה עובד?" - תגית על הקצה התחתון של השיחה, ובלחיצה עולה ממנה
-                 בועה עם שלושה צעדים (‏bindGabHow ב-home.js). במקום פסקת ההסבר
-                 והחלון שהיו כאן: השיחה כבר מראה את מה שהם אמרו. -->
-            <div class="gab-chat-box">
-              <div class="gab-chat" id="gabChat" aria-hidden="true">
-                <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
-                <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
+            <!-- הכפתור והשיחה הם יחידה אחת - כמו חלון וואטסאפ: הכפתור הירוק הוא
+                 הכותרת, והשיחה מתחתיו. לחיצה על השיחה פותחת את אותה שיחה עם
+                 גבריאלה (‏bindGabConvo ב-home.js). -->
+            <div class="gab-convo">
+              <div class="gab-actions">
+                <span class="gab-cta-wrap" id="gabCtaWrap"></span>
               </div>
-              <button type="button" class="gab-how" id="gabHowBtn" aria-expanded="false" aria-controls="gabHowTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>איך זה עובד?</button>
-              <div class="gab-how-tip" id="gabHowTip">
-                <ol>
-                  <li data-how-step="1">כותבים בוואטסאפ מה מחפשים</li>
-                  <li>מקבלים נכסים שמתאימים בדיוק</li>
-                  <li>מתעדכנים כשעולה נכס חדש</li>
-                </ol>
+              <!-- שיחת דוגמה מתחלפת (‏initGabChat ב-home.js). התוכן כאן הוא הגרסה
+                   הקבועה - בלי JS ועם prefers-reduced-motion היא מה שמוצג. -->
+              <!-- ‏"איך זה עובד?" - תגית על הקצה התחתון של השיחה, ובלחיצה עולה ממנה
+                   בועה עם שלושה צעדים (‏bindGabHow ב-home.js). במקום פסקת ההסבר
+                   והחלון שהיו כאן: השיחה כבר מראה את מה שהם אמרו. -->
+              <div class="gab-chat-box">
+                <div class="gab-chat" id="gabChat" aria-hidden="true">
+                  <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
+                  <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
+                </div>
+                <button type="button" class="gab-how" id="gabHowBtn" aria-expanded="false" aria-controls="gabHowTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>איך זה עובד?</button>
+                <div class="gab-how-tip" id="gabHowTip">
+                  <ol>
+                    <li data-how-step="1">כותבים בוואטסאפ מה מחפשים</li>
+                    <li>מקבלים נכסים שמתאימים בדיוק</li>
+                    <li>מתעדכנים כשעולה נכס חדש</li>
+                  </ol>
+                </div>
               </div>
-            </div>
-            <div class="gab-actions">
-              <span class="gab-cta-wrap" id="gabCtaWrap"></span>
             </div>
             <ul class="gab-perks">
               <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>שירות אישי</li>

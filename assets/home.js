@@ -4016,6 +4016,16 @@ function showMicHint(){
   }, MIC_HINT_DELAY);
 }
 
+/* לחיצה על שיחת הדוגמה = לחיצה על הכפתור הירוק שמעליה: אותה שיחה עם
+   גבריאלה (או הסוכן החכם כשהעוזרת כבויה). ‏click() על הקישור עצמו - כך
+   ‏events.js סופר אותה כ-contact_bot עם data-bot-entry של ה-hero, ונקודת
+   "הודעה חדשה" נעלמת כמו בלחיצה על הכפתור. */
+(function bindGabConvo(){
+  const chat = document.getElementById('gabChat');
+  if (!chat) return;
+  chat.addEventListener('click', ()=>{ document.querySelector('#gabCtaWrap .gab-cta')?.click(); });
+})();
+
 /* ‏"איך זה עובד?" - תגית על הקצה התחתון של שיחת הדוגמה, ובלחיצה עולה ממנה
    בועה עם שלושה צעדים. נסגרת בלחיצה נוספת, בלחיצה מחוץ לה וב-Escape
    (שמחזיר את הפוקוס לתגית). ‏aria-expanded הוא מקור האמת. */
