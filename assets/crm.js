@@ -26156,6 +26156,11 @@ function agrRenderSignerForms(){
       </div>
       <div class="agr-field" style="margin-top:8px"><label>כתובת (לא חובה)</label>
         <input type="text" data-agr-sf="${esc(s.uid)}" data-key="address" value="${esc(s.address)}"></div>
+      <label style="display:flex;gap:7px;align-items:flex-start;margin-top:9px;font-size:.8rem;cursor:pointer">
+        <input type="checkbox" data-agr-sf="${esc(s.uid)}" data-key="self_fill" style="margin-top:3px"${s.self_fill ? ' checked' : ''}>
+        <span><b>הלקוח/ה ישלים/תשלים שם מלא ות.ז. בקישור לחתימה</b> - כשאין לכם את שם המשפחה או את
+        הת.ז. אפשר לשלוח בלעדיהם. החתימה תיפתח ללקוח/ה רק אחרי שימלא/תמלא אותם, והם ייכנסו להסכם.</span>
+      </label>
     </div>`).join('');
   // ‏ת.ז. שהגיעה מכרטיס הלקוח/ה ואינה תקינה מסומנת כבר בפתיחה, לא רק ביציאה מהשדה
   IlId.scan(host);
@@ -26292,7 +26297,10 @@ function agrValidate(){
         scope:'signer', uid:s.uid, key:'full_name',
         label:`שם מלא - חותם/ת ${i + 1}`, value:s.full_name }]);
     }
-    if (!s.id_number.trim()){
+    // ‏self_fill: השם המלא והת.ז. מגיעים מהלקוח/ה בקישור, ו-sign.html לא
+    // פותח את החתימה בלעדיהם. מה שהסוכן/ת כן הזין/ה עדיין נבדק למטה.
+    if (s.self_fill && !s.id_number.trim()){ /* יושלם בקישור */ }
+    else if (!s.id_number.trim()){
       add(`חסרה ת.ז. לחותם/ת ${i + 1} (${who})`, [{
         scope:'signer', uid:s.uid, key:'id_number',
         label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true, ilId:true }]);
@@ -26347,9 +26355,11 @@ function agrBuildDoc(){
       agency_name: (currentAgent.agencies && currentAgent.agencies.name) || agrAgencyName(),
       agency_address: agrAgencyAddress(),
     },
-    signers: w.signers.map(s => ({
+    signers: w.signers.map((s, i) => ({
       full_name:s.full_name, id_number:s.id_number, phone:s.phone,
       email:s.email, address:s.address, party:s.party,
+      // ‏ord זהה לשורה ב-agreement_signers - לפיו המשבצות נמלאות (fillSignerSlots)
+      ord:i, self_fill:!!s.self_fill,
     })),
     properties: w.properties.map(p => ({ fields:p.fields, notes:p.notes })),
     commission: { pct:w.commission.pct, amount:w.commission.amount, basisSuffix: basis ? basis.suffix : '' },
@@ -26578,6 +26588,9 @@ async function agrSaveAndGoSign(btn){
       full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
       phone: s.phone.trim() || null, email: s.email.trim() || null,
       address: s.address.trim() || null,
+      // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
+      // על עמודה שעוד לא קיימת (20270222090000)
+      ...(s.self_fill ? { self_fill: true } : {}),
     }));
     const { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
     if (signersErr) throw signersErr;
@@ -26642,6 +26655,24 @@ function agrRenderStepSign(){
     }
 
     const wa = waLink(s.phone);
+    /* ‏self_fill שעוד לא השלים/ה: אין לוח חתימה כאן. חתימה בלוח של ה-CRM
+       הייתה עוקפת את השלמת השם והת.ז., וההסכם היה נחתם עם משבצות ריקות.
+       פנים מול פנים - פותחים את הקישור במכשיר של הסוכן/ת, ושם יש את השדות. */
+    if (s.self_fill && !s.details_filled_at){
+      return `<div class="agr-signer" data-signer="${esc(s.id)}">
+      <h5>${esc(s.full_name)}</h5>
+      <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל'}${
+        s.mail_sent_at ? ' · קישור נשלח ב-' + esc(hebDateTime(s.mail_sent_at)) : ''}${
+        s.mail_error ? ' · שליחה נכשלה' : ''}</div>
+      <p class="imp-note" style="margin:8px 0">ישלים/תשלים שם מלא ות.ז. בקישור, ואז יחתום/תחתום שם.
+        לחתימה פנים מול פנים - פתחו את הקישור (🔗) במכשיר שלכם.</p>
+      <div class="agr-signer-acts">
+        ${s.email ? `<button type="button" class="btn btn-ghost" data-agr="mail-sign" data-signer="${esc(s.id)}">✉️ שליחה במייל</button>` : ''}
+        ${wa ? `<button type="button" class="btn btn-share" data-agr="wa-sign" data-signer="${esc(s.id)}">💬 וואטסאפ</button>` : ''}
+        <button type="button" class="btn btn-ghost" data-agr="copy-sign" data-signer="${esc(s.id)}">🔗 העתקת קישור</button>
+      </div>
+    </div>`;
+    }
     return `<div class="agr-signer" data-signer="${esc(s.id)}">
       <h5>${esc(s.full_name)}${s.id_number ? ' · ת.ז. ' + esc(s.id_number) : ''}, חתום כאן:</h5>
       <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל - חתימה מרחוק אינה אפשרית'}${
@@ -26687,7 +26718,8 @@ function agrRenderStepSign(){
   }
 
   html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
-    '<div class="agr-preview">' + (rec.document_html || '') + '</div>';
+    '<div class="agr-preview">' +
+      window.AgreementDoc.fillSignerSlots(rec.document_html, rec.signers) + '</div>';
 
   agrEl('agrBody').innerHTML = html;
 
@@ -26789,7 +26821,7 @@ async function agrDownloadPdf(btn){
   // ‏left ולא inset-inline-start: בדף RTL הלוגי מתמפה ל-right, וההסתרה
   // הייתה גוררת את הגוף ימינה ומרחיבה את הגלילה האופקית של הדשבורד
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;background:#fff';
-  host.innerHTML = (rec.document_html || '') +
+  host.innerHTML = window.AgreementDoc.fillSignerSlots(rec.document_html, rec.signers) +
     window.AgreementDoc.signatureBlockHtml(rec.signers || []);
   document.body.appendChild(host);
 
@@ -26928,7 +26960,7 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
   }
   if (t.dataset.agrSf){
     const signer = agrWizard.signers.find(s => s.uid === t.dataset.agrSf);
-    if (signer) signer[t.dataset.key] = t.value;
+    if (signer) signer[t.dataset.key] = t.type === 'checkbox' ? t.checked : t.value;
     return;
   }
   /* תאריכי הבלעדיות: במצב "חודשים" תאריך הסיום נגזר מתאריך ההתחלה ומתעדכן

@@ -52,6 +52,40 @@
     return s ? esc(s) : (blank || BLANK);
   }
 
+  /* ‏משבצת שהחותם/ת ממלא/ת בקישור (‏self_fill). גוף המסמך ננעל ביצירה, ולכן
+     השם והת.ז. של חותם/ת כזה/כזו אינם נכתבים לתוכו אלא נשמרים כמשבצת עם
+     סימון, ו-fillSignerSlots ממלאת אותה בכל הצגה מ-agreement_signers - אותו
+     מקור שממנו בלוק החתימות כבר נבנה. שאר הנוסח נשאר נעול כמו שהוא.
+
+     ‏ההערה שבסוף היא הגבול: בתוך המשבצת יכול לשבת BLANK, שהוא span בעצמו,
+     ולכן הסוגר של המשבצת מזוהה לפי ההערה ולא לפי ה-</span> הראשון. */
+  var SLOT_END = '</span><!--/agr-fill-->';
+  var SLOT_RE = /<span data-agr-fill="(\d+):(full_name|id_number)">[\s\S]*?<\/span><!--\/agr-fill-->/g;
+
+  function slotInner(v) {
+    return valueOrBlank(v);
+  }
+
+  function slot(s, key, inner) {
+    if (!s || !s.self_fill || s.ord === undefined || s.ord === null) return inner;
+    return '<span data-agr-fill="' + Number(s.ord) + ':' + key + '">' + inner + SLOT_END;
+  }
+
+  /* ממלאת את המשבצות מהשורות של agreement_signers (‏ord, ‏full_name,
+     ‏id_number). מה שהחותם/ת הקליד/ה עובר בריחה כאן - זה הקלט היחיד של
+     גולש/ת שנכנס למסמך. */
+  function fillSignerSlots(html, signers) {
+    html = html || '';
+    if (html.indexOf('data-agr-fill') < 0) return html;
+    var byOrd = {};
+    (signers || []).forEach(function (s) { byOrd[String(s.ord)] = s; });
+    return html.replace(SLOT_RE, function (_m, ord, key) {
+      var s = byOrd[ord];
+      return '<span data-agr-fill="' + ord + ':' + key + '">' +
+        slotInner(s ? s[key] : '') + SLOT_END;
+    });
+  }
+
   function hebDate(d) {
     if (!d) return '';
     var t = new Date(d);
@@ -117,8 +151,10 @@
         var c = clients[i] || {};
         out += '<p style="' + pStyle + '">' +
           '<span style="' + labelStyle + '">' + (i === 0 ? 'בין' : 'ו/או') + '</span><br>' +
-          (c.full_name ? esc(c.full_name) + ' ' : '') +
-          'ת.ז.: ' + valueOrBlank(c.id_number) + ' ' +
+          (c.self_fill
+            ? slot(c, 'full_name', valueOrBlank(c.full_name)) + ' '
+            : (c.full_name ? esc(c.full_name) + ' ' : '')) +
+          'ת.ז.: ' + slot(c, 'id_number', valueOrBlank(c.id_number)) + ' ' +
           (c.address ? esc(c.address) + ' ' : '') +
           'טלפון: ' + valueOrBlank(c.phone) +
           '</p>';
@@ -128,11 +164,13 @@
     } else {
       clients.forEach(function (s, i) {
         var bits = [];
-        if (s.id_number) bits.push('ת.ז. ' + esc(s.id_number));
+        if (s.self_fill) bits.push('ת.ז. ' + slot(s, 'id_number', valueOrBlank(s.id_number)));
+        else if (s.id_number) bits.push('ת.ז. ' + esc(s.id_number));
         if (s.address) bits.push(esc(s.address));
         out += '<p style="' + pStyle + '">' +
           '<span style="' + labelStyle + '">' + (i === 0 ? 'בין' : 'ובין') + '</span><br>' +
-          esc(s.full_name || '') + (bits.length ? ', ' + bits.join(', ') : '') + '<br>' +
+          (s.self_fill ? slot(s, 'full_name', valueOrBlank(s.full_name)) : esc(s.full_name || '')) +
+          (bits.length ? ', ' + bits.join(', ') : '') + '<br>' +
           'טלפון: ' + valueOrBlank(s.phone) +
           (s.email ? ' · אימייל: ' + esc(s.email) : '') +
           '</p>';
@@ -590,6 +628,8 @@
     shekel: shekel,
     commissionText: commissionText,
     buildHtml: buildHtml,
+    fillSignerSlots: fillSignerSlots,
+    slotInner: slotInner,
     signatureBlockHtml: signatureBlockHtml,
     safeSignatureSrc: safeSignatureSrc,
     signaturePad: signaturePad,

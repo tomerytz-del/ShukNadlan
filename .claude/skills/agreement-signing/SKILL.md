@@ -97,6 +97,20 @@ description: עבודה על החתמת לקוחות על הסכמי תיווך 
   אותה בלי אישור מפורש של הסוכן/ת - מודל ש"מתקן" ספרה או מאשר לבד הוא בדיוק
   הכשל השקט: ההסכם נוצר, ננעל, ונראה תקין.
 
+## חותם/ת שמשלים/ה פרטים בקישור (`self_fill`)
+
+גוף המסמך ננעל, ולכן השם והת.ז. של חותם/ת כזה/כזו הם **משבצות** בתוכו
+(`data-agr-fill="<ord>:<key>"` ... `<!--/agr-fill-->`), ש-`fillSignerSlots`
+ממלאת מ-`agreement_signers` בכל הצגה. מה ששובר בשקט:
+
+- **מקום חדש שמציג `document_html` גולמי** - מראה קו ריק במקום ת.ז. כל
+  הצגה עוברת דרך `AgreementDoc.fillSignerSlots(html, signers)` עם `ord`.
+- **סדר החותמים** ב-`buildHtml` וב-`signerRows` חייב להיות זהה (`ord: i`).
+- **לוח חתימה שאינו `sign.html`** לחותם/ת `self_fill` - עוקף את השדות. ב-CRM
+  הוא מוסתר עד `details_filled_at`, ו-`sign` בשרת דוחה בלי שם בשתי מילים
+  ות.ז. (‏`details_name`, ‏`details_id`, ‏`details_id_invalid`).
+- `self_fill` נשלח ב-insert **רק כשהוא true** - ה-CRM מתעדכן לפני המיגרציה.
+
 ## הבוט בודק לפני שהוא יוצר
 
 `prepare_agreement` בודק את `otpReachable` **לפני** ה-insert, כי
