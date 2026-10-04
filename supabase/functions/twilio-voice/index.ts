@@ -178,19 +178,55 @@ async function waSend(payload: Record<string, unknown>): Promise<void> {
   if (!res.ok) throw new Error(`whatsapp ${res.status}: ${(await res.text()).slice(0, 300)}`);
 }
 
+/** שאלה עם כפתורי תשובה מהירה, אחרי הסיכום וההקלטה - כדי שתהיה הדבר האחרון
+ *  במסך. הלחיצה חוזרת לבוט ככותרת הכפתור, כאילו נכתבה ביד (ראו sendButtons
+ *  ב-whatsapp-webhook/whatsapp.ts), ולכן הכותרת היא ההוראה עצמה. */
+export type CallAction = { body: string; buttons: string[] };
+
+function waBody(s: string): string {
+  return noLongDash(s).replace(/\*\*([^*\n]+?)\*\*/g, "*$1*");
+}
+
 async function notifyAgent(
   agent: { id: string; display_name: string | null; phone_e164: string | null },
   text: string,
   oneLine: string,
   audioUrl: string | null,
+  opts: { action?: CallAction | null; urlSuffix?: string } = {},
 ): Promise<void> {
   const to = agent.phone_e164;
   if (!to) return;
-  const body = noLongDash(text).replace(/\*\*([^*\n]+?)\*\*/g, "*$1*").slice(0, 4000);
+  const body = waBody(text).slice(0, 4000);
+  const action = opts.action && opts.action.body ? opts.action : null;
 
   if (await inWindow(agent.id) || !WA_TEMPLATE) {
     await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
     if (audioUrl) await waSend({ recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } });
+    if (action) {
+      const buttons = action.buttons.slice(0, 3);
+      try {
+        if (!buttons.length) throw new Error("no buttons");
+        await waSend({
+          recipient_type: "individual",
+          to,
+          type: "interactive",
+          interactive: {
+            type: "button",
+            body: { text: waBody(action.body).slice(0, 1000) },
+            action: {
+              buttons: buttons.map((t, i) => ({
+                type: "reply",
+                // ‏Array.from: אימוג'י הוא שתי יחידות UTF-16, וחיתוך באמצעו נדחה
+                reply: { id: `call_${i}`, title: Array.from(t).slice(0, 20).join("") },
+              })),
+            },
+          },
+        });
+      } catch (err) {
+        if (buttons.length) console.error("call action buttons failed", err);
+        await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body: waBody(action.body) } });
+      }
+    }
     return;
   }
 
@@ -217,7 +253,7 @@ async function notifyAgent(
           type: "button",
           sub_type: "url",
           index: "0",
-          parameters: [{ type: "text", text: "/crm?goto=accClients" }],
+          parameters: [{ type: "text", text: opts.urlSuffix || "/crm?goto=accClients" }],
         },
       ],
     },
@@ -231,6 +267,29 @@ async function loadAgent(agentId: string) {
     .eq("id", agentId)
     .maybeSingle();
   return data as { id: string; display_name: string | null; phone: string | null; phone_e164: string | null } | null;
+}
+
+/**
+ * ההודעות האלה יוצאות מכאן ולא מהבוט, ולכן גבריאלה לא ראתה אותן: "כן" או
+ * לחיצה על "קבע פגישה" היו מגיעים אליה בלי הקשר. הן נכנסות להיסטוריה של
+ * השיחה כזוג user/assistant (כדי שהסדר יישאר תקין), בלי לגעת ב-
+ * last_message_at - הוא מודד את חלון 24 השעות לפי מה שהסוכן/ת כתב/ה.
+ */
+async function rememberForBot(agentId: string, text: string): Promise<void> {
+  try {
+    const { data } = await supabase.from("whatsapp_conversations")
+      .select("history").eq("agent_id", agentId).maybeSingle();
+    if (!data) return;
+    const history = Array.isArray(data.history) ? data.history : [];
+    const next = [
+      ...history,
+      { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה לסוכן/ת הודעה על שיחת טלפון]" },
+      { role: "assistant", content: noLongDash(text).slice(0, 3000) },
+    ].slice(-12);
+    await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", agentId);
+  } catch (err) {
+    console.error("remember for bot failed", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +330,9 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   }, { onConflict: "twilio_call_sid" });
   if (error) console.error("call insert failed", error);
 
+  // לקוח/ה מהקובץ: הכרטיס מגיע לוואטסאפ בזמן שהנייד מצלצל
+  if (client && agent) EdgeRuntime.waitUntil(notifyRinging(agent, client, from));
+
   const dialAction = escXml(`${PUBLIC_BASE}?event=dial`);
   const recCb = escXml(`${PUBLIC_BASE}?event=recording`);
   // ‏callerId = המתקשר/ת: הסוכן/ת רואה בנייד את מי שמתקשר, לא את המספר שלנו.
@@ -307,25 +369,57 @@ async function onDial(p: URLSearchParams): Promise<Response> {
   return answered ? xml("<Hangup/>") : xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
 }
 
+/** "מי מתקשר/ת עכשיו" - שם, מה מחפש/ת, ומה דובר בשיחה הקודמת, עם קישור
+ *  שפותח את הכרטיס ב-CRM. דפדפן אינו יכול להקפיץ חלון על מסך השיחה בנייד,
+ *  ולכן ההתראה של וואטסאפ היא ה"קפיצה". */
+async function notifyRinging(
+  agent: { id: string; display_name: string | null; phone_e164: string | null },
+  client: Record<string, any>,
+  from: string,
+): Promise<void> {
+  try {
+    const { data: last } = await supabase.from("agent_calls")
+      .select("summary, created_at").eq("client_id", client.id).not("summary", "is", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const link = `/crm?goto=accClients&client=${client.id}`;
+    const lines = [`📞 *${client.full_name} מתקשר/ת עכשיו* (${localPhone(from)})`];
+    const needs = needsLine(client).replace(/^:\s*/, "");
+    if (needs) lines.push(`מחפש/ת: ${needs}`);
+    if (last?.summary) {
+      const when = new Date(last.created_at).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric" });
+      lines.push(`בשיחה הקודמת (${when}): ${last.summary}`);
+    }
+    lines.push("", `הכרטיס: ${SITE}${link}`);
+    await notifyAgent(agent, lines.join("\n"), `${client.full_name} מתקשר/ת עכשיו`, null, { urlSuffix: link });
+    await supabase.from("whatsapp_conversations")
+      .update({ last_client_id: client.id }).eq("agent_id", agent.id);
+  } catch (err) {
+    console.error("ringing notify failed", err);
+  }
+}
+
 async function notifyMissed(call: { id: string; agent_id: string; from_number: string | null; client_id: string | null }) {
   try {
     const agent = await loadAgent(call.agent_id);
     if (!agent) return;
     const phone = localPhone(call.from_number || "");
     let who = phone || "מספר חסוי";
-    let extra = "המספר אינו בקובץ הלקוחות. להוסיף אותו? כתבו לי \"תוסיף את " + phone + " כלקוח\".";
+    let extra = "";
+    let action: CallAction | null = phone ? { body: NOT_IN_LIST, buttons: ["כן, תוסיף"] } : null;
     if (call.client_id) {
       const { data: c } = await supabase.from("agent_clients")
         .select("full_name, deal_type, cities, min_rooms, max_price").eq("id", call.client_id).maybeSingle();
       if (c) {
         who = `${c.full_name} (${phone})`;
         extra = "לקוח/ה מהקובץ" + needsLine(c);
+        action = { body: `לחזור ל${c.full_name}? אקבע לך תזכורת.`, buttons: ["תזכורת לחזור"] };
         await supabase.from("whatsapp_conversations")
           .update({ last_client_id: call.client_id }).eq("agent_id", call.agent_id);
       }
     }
-    const text = `📞 *שיחה שלא נענתה* מ-${who}\n${extra}\nלחיוג חוזר: ${phone}`;
-    await notifyAgent(agent, text, `שיחה שלא נענתה מ-${who}`, null);
+    const text = `📞 *שיחה שלא נענתה* מ-${who}${extra ? "\n" + extra : ""}\nלחיוג חוזר: ${phone}`;
+    await notifyAgent(agent, text, `שיחה שלא נענתה מ-${who}`, null, { action });
+    await rememberForBot(call.agent_id, action ? `${text}\n\n${action.body}` : text);
     await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
   } catch (err) {
     console.error("missed notify failed", err);
@@ -333,6 +427,8 @@ async function notifyMissed(call: { id: string; agent_id: string; from_number: s
       .eq("id", call.id);
   }
 }
+
+const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצה להוסיף אותו עכשיו?";
 
 function needsLine(c: Record<string, any>): string {
   const parts: string[] = [];
@@ -468,24 +564,44 @@ async function analyzeCall(
   else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
   if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
   if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
+  // השאלות והכפתורים - הודעה נפרדת אחרי ההקלטה, כדי שיהיו הדבר האחרון במסך
+  const asks: string[] = [];
+  const buttons: string[] = [];
   if (!client) {
-    lines.push("", phone
-      ? `המספר אינו בקובץ. להוסיף? כתבו לי "כן, תוסיף"${hasNeeds ? " והדרישות מהשיחה ייכנסו לכרטיס." : "."}`
-      : "");
+    if (phone) {
+      asks.push(NOT_IN_LIST + (hasNeeds ? " הדרישות מהשיחה ייכנסו לכרטיס." : ""));
+      buttons.push("כן, תוסיף");
+    }
   } else {
-    if (hasNeeds) lines.push("", `לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה? כתבו לי "כן, תעדכן".`);
+    if (hasNeeds) {
+      asks.push(`לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה?`);
+      buttons.push("כן, תעדכן");
+    }
     await supabase.from("whatsapp_conversations")
       .update({ last_client_id: call.client_id }).eq("agent_id", call.agent_id);
   }
-  lines.push("", `התמלול המלא בכרטיס: ${SITE}/crm?goto=accClients`);
+  const tasks = summary?.tasks || [];
+  if (tasks.length) {
+    asks.push("", "*משימות מהשיחה - אשמח לעזור:*", ...tasks.map((t) => `• ${t.text}`));
+    for (const t of tasks) {
+      const b = TASK_BUTTON[t.kind];
+      if (b && !buttons.includes(b)) buttons.push(b);
+    }
+  }
+  lines.push("", `התמלול וההקלטה בכרטיס: ${SITE}/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`);
 
   let audioUrl: string | null = null;
   if (bytes.byteLength <= WA_AUDIO_MAX_BYTES) {
     const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
     audioUrl = signed?.signedUrl ?? null;
   }
-  await notifyAgent(agent, lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n"),
-    `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl);
+  const text = lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
+  const action = asks.length ? { body: asks.join("\n").trim(), buttons } : null;
+  await notifyAgent(agent, text, `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl, {
+    action,
+    urlSuffix: `/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`,
+  });
+  await rememberForBot(call.agent_id, action ? `${text}\n\n${action.body}` : text);
   await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
 }
 
@@ -646,13 +762,35 @@ export type CallNeeds = {
   max_price?: number;
 };
 
+type CallTask = { kind: "meeting" | "send_material" | "call_back" | "other"; text: string };
+
 type CallSummary = {
   summary: string;
   caller_name: string | null;
   needs_text: string | null;
   next_step: string | null;
   needs: CallNeeds;
+  tasks: CallTask[];
 };
+
+/** כפתור לכל סוג משימה. הכותרת היא מה שגבריאלה מקבלת כשלוחצים, ולכן היא
+ *  ההוראה עצמה (ראו "יומן שיחות" ב-SYSTEM_STATIC של agent.ts). ‏other בלי
+ *  כפתור - היא מוצגת ברשימה, והסוכן/ת כותב/ת מה לעשות. */
+const TASK_BUTTON: Record<CallTask["kind"], string | null> = {
+  meeting: "קבע פגישה",
+  send_material: "שלח חומר ללקוח",
+  call_back: "תזכורת לחזור",
+  other: null,
+};
+
+function cleanTasks(raw: unknown): CallTask[] {
+  if (!Array.isArray(raw)) return [];
+  const kinds = new Set(["meeting", "send_material", "call_back", "other"]);
+  return raw
+    .filter((t) => t && typeof t === "object" && kinds.has((t as any).kind) && String((t as any).text || "").trim())
+    .map((t) => ({ kind: (t as any).kind, text: noLongDash(String((t as any).text).trim()).slice(0, 200) }))
+    .slice(0, 4) as CallTask[];
+}
 
 function cleanNeeds(raw: unknown): CallNeeds {
   const n = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -692,6 +830,10 @@ const SUMMARY_PROMPT = [
   "  min_rooms: מספר החדרים המינימלי (\"4 חדרים\" = 4); min_price / max_price: בשקלים",
   "  (\"עד 2 מליון\" = max_price 2000000; בשכירות - מחיר חודשי). אם לא עלה כלום - {}.",
   "  אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - {}.",
+  "tasks - משימות לסוכן/ת שעלו בשיחה: מה שהסוכן/ת הבטיח/ה (\"אשלח לך\", \"נקבע סיור\", \"אחזור אלייך\")",
+  "  או מה שהלקוח/ה ביקש/ה. kind: meeting = לקבוע פגישה, סיור או צפייה בנכס; send_material = לשלוח",
+  "  נכסים, פרטים, תמונות או מסמכים; call_back = לחזור ללקוח/ה; other = כל משימה אחרת. text - משפט",
+  "  קצר בעברית, עם שם הלקוח/ה ומועד אם נאמר (\"לקבוע עם אריאל סיור ביום ג׳\"). אין משימות - [].",
   "כתוב/כתבי בעברית, עם מקף רגיל (-) ולא מקף ארוך.",
   // ‏structured outputs: מירכאה רגילה בתוך ערך סוגרת את המחרוזת, וכך יצא
   // "4,500 ש" בשיחה של 4.10.2026. סכום נכתב עם ₪, וראשי תיבות עם ״ העברי.
@@ -724,8 +866,20 @@ const SUMMARY_SCHEMA = {
       required: ["deal_type", "cities", "min_rooms", "min_price", "max_price"],
       additionalProperties: false,
     },
+    tasks: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["meeting", "send_material", "call_back", "other"] },
+          text: { type: "string" },
+        },
+        required: ["kind", "text"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["summary", "caller_name", "needs_text", "next_step", "needs"],
+  required: ["summary", "caller_name", "needs_text", "next_step", "needs", "tasks"],
   additionalProperties: false,
 };
 
@@ -800,6 +954,7 @@ async function summarize(transcript: string, knownName: string | null, places = 
       needs_text: clean(parsed?.needs_text),
       next_step: clean(parsed?.next_step),
       needs: cleanNeeds(parsed?.needs),
+      tasks: cleanTasks(parsed?.tasks),
     };
   } catch (err) {
     console.error("summary failed", err);
@@ -850,6 +1005,44 @@ const SIM_MAX_BYTES = 25 * 1024 * 1024;
 
 function corsJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+}
+
+/**
+ * מחיקת שיחות - ההקלטה מהדלי והשורה מ-agent_calls. מהכפתור ב-CRM (‏JWT:
+ * רק שיחות של הסוכן/ת עצמו/ה), או בקריאה פנימית (‏service_role / סוד ה-cron)
+ * לניקוי חד-פעמי, כמו שיחות הניסיון של הפיילוט. ההקלטה נמחקת דרך ה-Storage
+ * API ולא ב-SQL, כי מחיקת שורה מ-storage.objects משאירה את הקובץ יתום.
+ */
+async function deleteCalls(req: Request): Promise<Response> {
+  const body = await req.json().catch(() => ({}));
+  const ids = (Array.isArray(body?.call_ids) ? body.call_ids : [])
+    .map((x: unknown) => String(x)).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 200);
+  if (!ids.length) return corsJson({ error: "no_ids" }, 400);
+
+  let q = supabase.from("agent_calls").select("id, recording_path").in("id", ids);
+  if (!authorizeInternalCaller(req).ok) {
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const { data: userData } = token ? await supabase.auth.getUser(token) : { data: null };
+    const uid = userData?.user?.id;
+    if (!uid) return corsJson({ error: "unauthorized" }, 401);
+    const { data: me } = await supabase.from("agency_members")
+      .select("id").eq("user_id", uid).eq("active", true).maybeSingle();
+    if (!me) return corsJson({ error: "forbidden" }, 403);
+    q = q.eq("agent_id", me.id);
+  }
+  const { data: rows, error } = await q;
+  if (error) return corsJson({ error: error.message }, 500);
+  const paths = (rows || []).map((r) => r.recording_path).filter(Boolean) as string[];
+  if (paths.length) {
+    const { error: rmErr } = await supabase.storage.from(BUCKET).remove(paths);
+    if (rmErr) return corsJson({ error: rmErr.message }, 500);
+  }
+  const found = (rows || []).map((r) => r.id);
+  if (found.length) {
+    const { error: delErr } = await supabase.from("agent_calls").delete().in("id", found);
+    if (delErr) return corsJson({ error: delErr.message }, 500);
+  }
+  return corsJson({ deleted: found.length, recordings: paths.length });
 }
 
 async function simulate(req: Request): Promise<Response> {
@@ -907,6 +1100,12 @@ Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
     return await simulate(req);
+  }
+
+  if (url.searchParams.get("task") === "delete") {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
+    return await deleteCalls(req);
   }
 
   if (url.searchParams.get("task") === "cleanup") {
