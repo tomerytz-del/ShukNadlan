@@ -87,15 +87,23 @@
      אם יחס הלחיצה בתנועה קרה עלה, ואם לא — הכיוון הבא הוא לא להציג
      בביקור הראשון בכלל אלא מהשני ואילך.
 
-     ‏**דף יכול לבקש ערך משלו** ב-‎data-delay‎ (מילישניות). ה-CRM מבקש
+     ‏**אוקטובר 2026: שש שניות *גלישה באתר*, לא שמונה מטעינת הדף**
+     (החלטת בעל/ת האתר). הספירה מצטברת בין דפים באותה לשונית
+     (‏sessionStorage), ונספר רק זמן שבו הלשונית גלויה. מי שעבר/ה בין
+     שלושה דפים תוך שתי שניות כל אחד לא נשאר/ה בלי הצעה כי כל דף איפס את
+     הטיימר, ומי שפתח/ה את האתר בלשונית ברקע לא חוזר/ת לרצועה שכבר
+     מחכה. ראו afterBrowsing למטה.
+
+     ‏**דף יכול לבקש ערך משלו** ב-‎data-delay‎ (מילישניות גלישה). ה-CRM מבקש
      ‏3000 ומשאיר את ההתנהגות שנמדדה שם כמוצלחת — 20% לחיצה, היחס הגבוה
      באתר — כי סוכן/ת שנכנס/ת לסביבת העבודה שלו/ה כבר יודע/ת מה זה. */
-  var SHOW_DELAY_DEFAULT_MS = 8000;
+  var SHOW_DELAY_DEFAULT_MS = 6000;
   var SHOW_DELAY_MIN_MS = 1000;
   var SHOW_DELAY_MAX_MS = 60000;
 
   var K_SNOOZE = 'shukPwaSnoozedAt';
   var K_INSTALLED = 'shukPwaInstalled';
+  var K_BROWSE = 'shukPwaBrowseMs';     // sessionStorage: זמן גלישה מצטבר בלשונית
 
   // ------------------------------------------------------------------
   // אחסון — עטוף תמיד. בגלישה פרטית באייפון עצם הגישה ל-localStorage
@@ -767,7 +775,7 @@
   var AUTO = !(script && script.hasAttribute('data-no-auto'));
 
   /* ‏data-delay מהדף, מוגבל לטווח שפוי. ערך שאינו מספר (או מאפיין חסר)
-     נופל לברירת המחדל — דף שמבקש "abc" יקבל שמונה שניות ולא רצועה
+     נופל לברירת המחדל — דף שמבקש "abc" יקבל שש שניות ולא רצועה
      שלעולם לא עולה. */
   var SHOW_DELAY_MS = (function () {
     var raw = script && script.getAttribute('data-delay');
@@ -775,6 +783,36 @@
     if (!raw || isNaN(asNumber)) return SHOW_DELAY_DEFAULT_MS;
     return Math.min(SHOW_DELAY_MAX_MS, Math.max(SHOW_DELAY_MIN_MS, asNumber));
   })();
+
+  /* ‏**זמן גלישה, לא זמן מטעינה.** מונה אחד לדף: כל חצי שנייה שהלשונית
+     גלויה מתווספת לסכום שב-sessionStorage, ומשם הוא ממשיך בדף הבא באותה
+     לשונית. מי שממתין/ה (‏afterBrowsing) נקרא/ת כשהסכום עובר את הסף.
+     אחסון חסום - הספירה נשארת בזיכרון, כלומר מטעינת הדף, כמו קודם. */
+  var BROWSE_TICK_MS = 500;
+  var browseMs = (function () {
+    try { return parseInt(window.sessionStorage.getItem(K_BROWSE), 10) || 0; } catch (e) { return 0; }
+  })();
+  var browseWaiters = [];
+  var browseTimer = null;
+  function flushBrowseWaiters() {
+    browseWaiters = browseWaiters.filter(function (w) {
+      if (browseMs < w.ms) return true;
+      w.fn();
+      return false;
+    });
+    if (!browseWaiters.length && browseTimer) { clearInterval(browseTimer); browseTimer = null; }
+  }
+  function afterBrowsing(ms, fn) {
+    browseWaiters.push({ ms: ms, fn: fn });
+    flushBrowseWaiters();
+    if (!browseWaiters.length || browseTimer) return;
+    browseTimer = setInterval(function () {
+      if (document.hidden) return;
+      browseMs += BROWSE_TICK_MS;
+      try { window.sessionStorage.setItem(K_BROWSE, String(browseMs)); } catch (e) { /* אחסון חסום */ }
+      flushBrowseWaiters();
+    }, BROWSE_TICK_MS);
+  }
 
   registerServiceWorker();
 
@@ -794,7 +832,7 @@
     lastMode = 'prompt';
     syncTriggers();
     if (AUTO && canAutoShow('prompt')) {
-      setTimeout(function () { showBar('prompt'); }, SHOW_DELAY_MS);
+      afterBrowsing(SHOW_DELAY_MS, function () { showBar('prompt'); });
     }
   });
 
@@ -830,7 +868,7 @@
        שהדף באמת ניתן להתקנה כרגע. */
     var m = mode();
     if (!AUTO || m === 'prompt' || !canAutoShow(m)) return;
-    setTimeout(function () { showBar(m); }, SHOW_DELAY_MS);
+    afterBrowsing(SHOW_DELAY_MS, function () { showBar(m); });
   }
 
   if (document.readyState === 'loading') {
