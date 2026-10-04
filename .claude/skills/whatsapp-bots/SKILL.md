@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, or when turning the site's "ask Gabriela" button on or off.
+description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, or when touching the open-house fair offer / the agent-help question after saving a search.
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -70,6 +70,19 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   הקוד חותך ב-`Array.from` ולא ב-`slice`, כי חיתוך באמצע אימוג'י משאיר תו
   שבור.
 * גוף עד 1024 תווים.
+
+**הכפתור השלישי, "🏠 צרפי אותי ליריד"** (`FAIR_TITLE`, 17 תווים ו-18
+יחידות UTF-16), נוסף רק בחיפוש לקנייה (`for_purchase`) ורק פעם אחת בשיחה
+(`fairOffered` בודק בהיסטוריה). עם שלושה כפתורים ההודעה בתקרה של Meta - מי
+שמוסיף/ה כפתור רביעי שובר/ת את ההודעה כולה. הכפתור והשורה שמסבירה אותו
+(`FAIR_LINE`) נוספים בקוד יחד, ו-`open_house_signup` מבקש מייל כי עדכוני
+היריד יוצאים במייל בלבד. ‏`docs/whatsapp-public-bot.md`, "יריד הדירות".
+
+**אחרי שמירת חיפוש - עוד הודעת כפתורים**: `offer_agent_help` (‏"🤝 כן, אשמח
+לעזרה" / "🔔 רק עדכונים, תודה"). השמירה עצמה תמיד בלי הסכמה, ו"כן" מדליק
+אותה על אותה שורה (`request_agent_help` → `grant_consent`) לפי
+`last_saved_search_id` שבמצב השיחה. כרטיס איש הקשר יוצא בתור של התשובה,
+לא בתור של השמירה. ‏`docs/whatsapp-public-bot.md`, "השאלה על מתווך/ת".
 
 **הכותרת היא מה שחוזר לבוט.** `index.ts` מעביר את `button_reply.title` כאילו
 נכתב ביד. לכן הכותרת צריכה להיות מובנת למודל גם בלי המסך, וההוראות צריכות
@@ -162,6 +175,23 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   אחרת כיבוי הדגל משאיר כפתור שמוביל ל"איני מזהה".
   ‏`docs/whatsapp-public-bot.md`, "נקודות כניסה מהאתר".
 
+## הודעת הפתיחה מהאתר היא גם המדידה
+
+הפאנל "פניות לגבריאלה מהאתר" ב-`crm` סופר פניות לפי `whatsapp_messages.public_entry`,
+שנחתם בקליטה על ההודעה שפותחת שיחה ציבורית (`siteEntryOf()` ב-`index.ts`). ‏wa.me
+אינו מעביר דבר מלבד הטקסט, ולכן **הסיווג הוא ביטוי בהודעת הפתיחה** ("מדף הבית",
+"חיפשתי באתר", "הגעתי מהאתר" - `SITE_ENTRY_PHRASES`).
+
+* מנסחים מחדש את `GAB_HELLO`, את ההודעות של `renderEmptyBotLink` או את
+  `FALLBACK_HELLO`? הביטוי נשאר, או שהרשימה מתעדכנת. אחרת הכפתור עובד וכל
+  הפניות ממנו עוברות בשקט ל-`direct`. ‏`scripts/check_bot_entry.py` חוסם.
+* נקודת כניסה חדשה עוברת ב-`ShukBot.link` / `anchorHtml` עם הודעה שמכילה ביטוי.
+  משתנה חדש שמחזיק הודעה נכנס ל-`KNOWN_HELLO_VARS` בבדיקה.
+* "פנייה" = הודעה עם היסטוריה ריקה (ראשונה, או אחרי 12 שעות שקט). שינוי
+  `PUBLIC_IDLE_RESET_HOURS` משנה גם את מה שהפאנל סופר.
+
+‏`docs/whatsapp-public-bot.md`, "כמה פניות מגיעות מהאתר".
+
 ## לפני הדחיפה
 
 ```sh
@@ -169,6 +199,7 @@ python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
+python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,
