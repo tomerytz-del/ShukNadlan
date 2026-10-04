@@ -507,12 +507,18 @@ const TOOLS: Anthropic.Tool[] = [
       "יש לומר לסוכן/ת שהיכולת שייכת ל-Elite ולא להמציא נתונים. " +
       "אלה עסקאות מכר בלבד, ולא שכירות. " +
       "**בלי רחוב** (\"איזה עסקאות היו בנוף הגליל\") הכלי מחזיר את העסקאות " +
-      "האחרונות בעיר כולה - אל תנחש/י רחוב בשביל זה.",
+      "האחרונות בעיר כולה - אל תנחש/י רחוב בשביל זה. " +
+      "**שכונה אינה רחוב:** \"עסקאות בגבעת המורה\" = neighborhood ולא street. " +
+      "השכונה נקבעת לפי שם השכונה במאגר רשות המיסים.",
     input_schema: {
       type: "object",
       properties: {
         city: { type: "string", description: "העיר. ברירת מחדל: העיר של הסוכן/ת." },
         street: { type: "string", description: "שם רחוב, בלי מספר בית." },
+        neighborhood: {
+          type: "string",
+          description: "שם שכונה בעיר (למשל 'גבעת המורה' בעפולה) - במקום רחוב, כשהשאלה על שכונה.",
+        },
         house_number: { type: "string", description: "מספר בית. משפר את המיקום." },
         radius_m: {
           type: "integer",
@@ -2530,10 +2536,12 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
+  const neighborhood = String(input.neighborhood || "").trim();
 
   // בלי רחוב = העיר כולה (מיגרציה 20270104090000). קודם זה החזיר "צריך
   // שם רחוב", והעוזר ניחש שני רחובות "מרכזיים" שלא היו במאגר.
-  const coords = street && houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
+  // שכונה אינה כתובת, ואין מה לגאוקד: מיגרציה 20270211090000.
+  const coords = !neighborhood && street && houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
 
   const { data, error } = await ctx.supabase.rpc("agent_market_deals_lookup", {
     p_agent_id:      ctx.agent.id,
@@ -2546,6 +2554,7 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
     p_months:        Number(input.months) || 24,
     p_limit:         Number(input.limit) || 5,
     p_property_type: input.property_type ? String(input.property_type) : null,
+    p_neighborhood:  neighborhood || null,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -2555,6 +2564,14 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
       ok: false,
       error: String(res.detail || "היכולת זמינה במסלול Elite."),
       upgrade_to: "Elite",
+    };
+  }
+  if (res.error === "neighborhood_not_found") {
+    return {
+      ok: false,
+      error: String(res.detail),
+      known_neighborhoods: res.known_neighborhoods,
+      guidance: "אין בעיר שכונה בשם הזה. הצע/י שכונה מתוך known_neighborhoods, או חיפוש לפי רחוב, ואל תנחש/י.",
     };
   }
   if (res.error) return { ok: false, error: String(res.detail || res.error) };
@@ -2586,6 +2603,10 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
     ? "לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה לפי **שם הרחוב** ולא לפי מרחק. אמור/י זאת, ואל תציג/י מרחקים."
     : res.mode === "street_partial"
     ? "שם הרחוב לא נמצא כמו שהוא, והתוצאות הן מרחוב ש**שמו דומה** (שם אחד מוכל בשני). אמור/י מה שם הרחוב במאגר, כדי שהסוכן/ת יוודא/תוודא שזה הרחוב הנכון."
+    : res.mode === "neighborhood"
+    ? "אלה עסקאות **בשכונה** (" + String(res.neighborhood || "") + ") לפי שם השכונה במאגר רשות המיסים, ולא ברחוב מסוים. " +
+      (res.neighborhood_from_street ? "השם נשלח כרחוב, אבל הוא שכונה ולא רחוב - אמור/י זאת בקצרה. " : "") +
+      "אל תציג/י מרחקים."
     : res.mode === "city"
     ? "אלה העסקאות האחרונות **בעיר כולה**, לא ברחוב מסוים. אל תציג/י מרחקים."
     : "";
@@ -2595,6 +2616,7 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
     mode: res.mode,
     city: res.city,
     radius_meters: res.radius_meters,
+    ...(res.neighborhood ? { neighborhood: res.neighborhood } : {}),
     months: res.months,
     oldest_considered: res.oldest_considered,
     returned: res.returned,
@@ -4984,7 +5006,9 @@ const SYSTEM_STATIC: string = (() => {
       "יכולת של Elite ואל תמציא/י עסקאות. אם mode הוא street, ציין/י שהחיפוש היה לפי " +
       "שם הרחוב ולא לפי מרחק, ואל תציג/י מרחקים. \"איזה עסקאות היו בעיר X\" = הכלי **בלי רחוב**. " +
       "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות. " +
-      "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב).",
+      "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב). " +
+      "\"עסקאות בשכונה X\" / \"מה נמכר בגבעת המורה\" = market_deals_lookup עם neighborhood (בלי רחוב): " +
+      "גבעת המורה, מרכז העיר, עפולה עלית ודומיהן הן **שכונות** ולא רחובות.",
     "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
       "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
     "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
