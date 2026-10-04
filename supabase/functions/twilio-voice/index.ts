@@ -336,10 +336,14 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   const dialAction = escXml(`${PUBLIC_BASE}?event=dial`);
   const recCb = escXml(`${PUBLIC_BASE}?event=recording`);
   // ‏callerId = המתקשר/ת: הסוכן/ת רואה בנייד את מי שמתקשר, לא את המספר שלנו.
+  // מתקשר/ת מחו"ל או חסוי/ה: callerId = המספר שלנו. Twilio מתמחרת את הרגל לנייד
+  // לפי ה-caller ID - ‏$0.0646 לדקה ממספר ישראלי מול $0.1868 מכל מספר אחר, פי
+  // שלושה על אותה שיחה. המתקשר/ת עדיין מופיע/ה בסיכום בוואטסאפ.
   // ‏answerOnBridge: הלקוח/ה שומע/ת צלצול עד שהסוכן/ת עונה, ולא שקט.
+  const callerId = from.startsWith("+972") ? from : to;
   return xml(
     `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` +
-      `<Dial callerId="${escXml(from)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
+      `<Dial callerId="${escXml(callerId)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
       `record="record-from-answer-dual" recordingStatusCallback="${recCb}" ` +
       `recordingStatusCallbackEvent="completed" action="${dialAction}" method="POST">` +
       `<Number>${escXml(target)}</Number></Dial>`,
