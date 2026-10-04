@@ -5983,6 +5983,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <!-- מספרי המעקב: כינוי ומקור לכל מספר, נתוני 30 הימים, והזמנת מספר חדש מהארנק -->
           <div id="linesPanel" class="lines-panel"></div>
+          <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
+          <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
           <div id="callsList"></div>
         </div>
         <!-- קובץ הלקוחות באקסל: ייבוא לכולם, ייצוא למנהל/ת משרד בלבד (מוצג ב-
@@ -6658,6 +6660,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </details>
 
     <div id="managerSection" style="display:none">
+
+      <!-- שיחות המשרד: המספרים והשיחות של כל סוכני המשרד, עם האזנה להקלטות.
+           קריאה בלבד - ארכוב ומחיקה נשארים של הסוכן/ת. docs/call-tracking.md -->
+      <details class="acc" id="accOfficeCalls">
+        <summary>
+          <span class="acc-title">שיחות המשרד</span>
+          <span class="acc-count" id="accOfficeCallsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <div class="imp-note" style="margin-bottom:8px">30 הימים האחרונים, לכל סוכן/ת ולכל מספר. ההקלטות והתמלולים פתוחים לך כמנהל/ת המשרד, והסוכנים רואים שזה כך.</div>
+          <div id="officeAgentStats" class="lines-panel"></div>
+          <div class="call-actions" style="margin:10px 0 6px">
+            <select id="officeCallsAgent" class="btn btn-ghost" aria-label="סינון לפי סוכן/ת"><option value="">כל הסוכנים</option></select>
+            <label class="call-meta" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="officeCallsMissed"> רק שיחות שלא נענו</label>
+          </div>
+          <div id="officeCallsList"></div>
+        </div>
+      </details>
 
       <details class="acc" id="accReviews">
         <summary>
