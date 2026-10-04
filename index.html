@@ -1093,14 +1093,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      כהה שצץ שם נקרא כחלון שנפתח על האתר; קופסה לבנה נקראת כהסבר שנצמד
      לחותמת. מכיוון שהיא לבנה על רקע בהיר היא חייבת מסגרת — בלעדיה הצל
      לבדו אינו מפריד אותה מהמפה. הטקסט הוא ‎--ink‎, אותו שחור־כחול שבו
-     כתוב כל הדף. */
+     כתוב כל הדף.
+     הפינות מעוגלות (12px, אוקטובר 2026) - כמו כל האתר, ‏home-page סעיף 5. */
   .hero-mark[data-info]::after{
     content:attr(data-info);display:none;
     position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
     width:max-content;max-width:min(300px,84vw);white-space:normal;text-align:center;
     background:#fff;color:var(--ink);border:1px solid var(--line);
     font-size:.72rem;font-weight:600;line-height:1.5;
-    padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.22);
+    padding:10px 13px;border-radius:12px;box-shadow:0 10px 26px rgba(6,20,34,.22);
     pointer-events:none;z-index:30;
     /* ‏balance מחלק את הטקסט לשורות שוות במקום להשאיר מילה בודדת בשורה
        אחרונה. הוא לא מונע שבירה של משפט באמצע — CSS אינו יודע מה זה משפט —
