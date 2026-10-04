@@ -12269,6 +12269,19 @@ const PROPERTY_STATUS_LABELS = {
 /* שלושה גוונים ולא שניים: ירוק למה שחי באתר עכשיו, זהב למה שיורד ממנו
    זמנית ואמור לחזור, ואפור למה שנסגר. "ירד מפרסום" באפור היה נראה כמו
    ארכיון — וזו בדיוק ההבחנה שהוספנו. */
+/* נכס שנשמר כמפורסם בזמן שרישיון התיווך עוד לא אושר נשאר unpublished
+   במסד, עם license_hold_at (20270216090000_license_hold.sql). "ירד מפרסום"
+   היה שקר בשבילו: הסוכן/ת לא הוריד/ה אותו, והוא יעלה מעצמו ברגע האישור.
+   לכן תווית משלו בכל מקום שבו הרשימה מציגה סטטוס. */
+const PROPERTY_LICENSE_HOLD_LABEL = 'ממתין לאישור רישיון';
+function propertyHeldForLicense(p){
+  return !!(p && p.license_hold_at && p.status === 'unpublished');
+}
+function propertyStatusLabel(p){
+  if (propertyHeldForLicense(p)) return PROPERTY_LICENSE_HOLD_LABEL;
+  return PROPERTY_STATUS_LABELS[p?.status] || p?.status || '';
+}
+
 function propertyStatusPillClass(status){
   if (status === 'active') return 'status-unlocked';
   if (status === 'unpublished') return 'status-masked';
@@ -12306,7 +12319,7 @@ function propertySearchBlob(p){
     p.listing_number != null ? '#' + p.listing_number : null,
     p.listing_number, p.agent2_name,
     ownerRow?.owner_name, ownerRow?.owner_phone,
-    PROPERTY_STATUS_LABELS[p.status],
+    propertyStatusLabel(p),
   ].filter(v => v !== null && v !== undefined && v !== '').join(' ').toLowerCase();
 }
 
@@ -12459,7 +12472,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -12692,7 +12705,7 @@ function buildPropertyTab(p, agentId){
   // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
   const sub = [
     `מודעה #${esc(String(p.listing_number ?? '-'))}`,
-    esc(PROPERTY_STATUS_LABELS[p.status] || p.status || ''),
+    esc(propertyStatusLabel(p)),
     propertyIsPromoted(p) ? '🌟 מקודם' : '',
     OpenHouse.live(p) ? '🏷 ביריד' : '',
     p.referred_by ? '🤝 הפנייה' : '',
@@ -13817,7 +13830,8 @@ let pspSeq = 0;
    בטופס העריכה אין מה להעביר - הבלוק שם יושב ברוחב מלא ממילא. */
 function buildPropertyStatusPanel(p, agentId, opts){
   const el = document.createElement('div');
-  el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
+  el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '')
+    + (propertyHeldForLicense(p) ? ' psp-held' : '');
   /* שורה אחת סגורה, ותפריט שנפתח מתחתיה.
 
      קודם היו כאן חמישה כפתורים ברוחב מינימלי של 104px: בטלפון הם נערמו
@@ -13832,9 +13846,10 @@ function buildPropertyStatusPanel(p, agentId, opts){
      ההסבר שלה - הסבר שב-`title` בלבד לא היה מגיע לטלפון לעולם. */
   const menuId = 'pspMenu-' + (++pspSeq);
   el.innerHTML = `
-    <button type="button" class="psp-toggle" aria-expanded="false" aria-controls="${menuId}">
+    <button type="button" class="psp-toggle" aria-expanded="false" aria-controls="${menuId}"${propertyHeldForLicense(p)
+      ? ' title="המודעה תעלה לאוויר אוטומטית ברגע שרישיון התיווך שלך יאושר"' : ''}>
       <span class="psp-label">סטטוס</span>
-      <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
+      <span class="psp-now">${escapeHtml(propertyStatusLabel(p))}</span>
       <svg class="psp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </button>
