@@ -20177,7 +20177,7 @@ async function loadCalls(){
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
     .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number, included, downgrade_deadline, downgrade_keep')
-    .neq('status', 'released').order('created_at');
+    .eq('agent_id', currentAgent.id).neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
   // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
   const { data: quota } = await sb.rpc('my_phone_line_quota');
@@ -20186,6 +20186,13 @@ async function loadCalls(){
   const isAdmin = !!currentAgent.is_platform_admin;
   // הבלוק מוצג לכולם: גם מי שאין לו/ה מספר רואה כאן את ההזמנה של מספר חדש
   document.getElementById('callsLine').textContent = hasLine ? '' : 'עוד אין לך מספר מעקב';
+  // שקיפות: במשרד עם מנהל/ת, ההקלטות פתוחות גם לו/ה (תצוגת "שיחות המשרד")
+  const mgrNote = document.getElementById('callsManagerNote');
+  if (mgrNote){
+    const inOffice = currentAgent.agency_id && currentAgent.role !== 'manager';
+    mgrNote.style.display = inOffice && hasLine ? '' : 'none';
+    mgrNote.textContent = 'מנהל/ת המשרד יכול/ה לראות את השיחות במספרים שלך ולהאזין להקלטות.';
+  }
   document.getElementById('callSimBtn').style.display = isAdmin ? '' : 'none';
   block.style.display = '';
   // הכרטיסים נבנו אולי לפני שידענו שיש יומן - בונים שוב, עם כפתור השיחות
@@ -20193,6 +20200,7 @@ async function loadCalls(){
 
   const { data, error } = await sb.from('agent_calls')
     .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
+    .eq('agent_id', currentAgent.id)
     .order('created_at', { ascending:false })
     .limit(60);
   const list = document.getElementById('callsList');
@@ -20222,6 +20230,7 @@ async function loadLineStats(){
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   const { data } = await sb.from('agent_calls')
     .select('line_id, status, client_id, from_number, billed_minutes, created_at')
+    .eq('agent_id', currentAgent.id)
     .gte('created_at', since).not('line_id', 'is', null).limit(3000);
   // המכסה לפי חודש קלנדרי (charge_call_minutes); השעון של הדפדפן מספיק לתצוגה
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
@@ -20475,6 +20484,142 @@ async function releaseLine(line, btn){
   }
 }
 
+/* ============================================================================
+   שיחות המשרד - מנהל/ת משרד בלבד (#managerSection)
+   ----------------------------------------------------------------------------
+   קריאה בלבד: ה-RLS (20270222090000_office_calls.sql) פותח למנהל/ת את
+   השיחות, המספרים וההקלטות של מי שחבר/ה היום במשרד. השורות כאן בלי ארכוב,
+   מחיקה או הוספה לקובץ - אלה פעולות של הסוכן/ת על הקובץ שלו/ה. נטען רק
+   כשהקטגוריה נפתחת, כי במשרד גדול אלה אלפי שורות.
+   docs/call-tracking.md
+   ============================================================================ */
+let officeCallRows = [];
+let officeMembers = new Map();
+let officeLines = [];
+
+async function loadOfficeCalls(){
+  if (!currentAgent || currentAgent.role !== 'manager' || !currentAgent.agency_id) return;
+  const list = document.getElementById('officeCallsList');
+  list.innerHTML = '<div class="empty-state">טוען…</div>';
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [mem, lines, calls] = await Promise.all([
+    sb.from('agency_members').select('id, display_name').eq('agency_id', currentAgent.agency_id),
+    sb.from('agent_phone_lines').select('id, agent_id, twilio_number, label, source_type, status')
+      .neq('status', 'released').order('created_at'),
+    sb.from('agent_calls')
+      .select('id, agent_id, line_id, from_number, client_id, status, duration_sec, billed_minutes, recording_path, transcript, summary, extracted, created_at')
+      .gte('created_at', since).order('created_at', { ascending:false }).limit(1000),
+  ]);
+  if (calls.error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(calls.error.message) + '</div>'; return; }
+  officeMembers = new Map((mem.data || []).map(m => [m.id, m.display_name || 'סוכן/ת']));
+  // ה-policy מחזיר רק את המשרד, וזה סינון נוסף מפני שורות של המנהל/ת ממשרד קודם
+  officeLines = (lines.data || []).filter(l => officeMembers.has(l.agent_id));
+  officeCallRows = (calls.data || []).filter(c => officeMembers.has(c.agent_id));
+  officeCallRows.forEach(c => callById.set(c.id, c));
+  accSetCount('accOfficeCalls', officeCallRows.length);
+
+  const sel = document.getElementById('officeCallsAgent');
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">כל הסוכנים</option>' + [...officeMembers].map(([id, name]) =>
+    `<option value="${esc(id)}">${esc(name)}</option>`).join('');
+  sel.value = officeMembers.has(keep) ? keep : '';
+  renderOfficeStats();
+  renderOfficeCalls();
+}
+
+function renderOfficeStats(){
+  const box = document.getElementById('officeAgentStats');
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const byAgent = new Map();
+  const byLine = new Map();
+  for (const c of officeCallRows){
+    const a = byAgent.get(c.agent_id) || { calls:0, answered:0, missed:0, monthMin:0 };
+    a.calls++;
+    if (c.status === 'answered') a.answered++; else if (c.status !== 'ringing') a.missed++;
+    if (new Date(c.created_at).getTime() >= monthStart) a.monthMin += Number(c.billed_minutes) || 0;
+    byAgent.set(c.agent_id, a);
+    if (c.line_id){
+      const l = byLine.get(c.line_id) || { calls:0, missed:0 };
+      l.calls++;
+      if (c.status !== 'answered' && c.status !== 'ringing') l.missed++;
+      byLine.set(c.line_id, l);
+    }
+  }
+  const agents = [...officeMembers.keys()].filter(id => byAgent.has(id) || officeLines.some(l => l.agent_id === id));
+  if (!agents.length){
+    box.innerHTML = '<div class="empty-state">לאף סוכן/ת במשרד עוד אין מספר וירטואלי. כל סוכן/ת מזמין/ה מספר מבלוק "שיחות אחרונות" בקובץ הלקוחות.</div>';
+    return;
+  }
+  box.innerHTML = agents.map(id => {
+    const a = byAgent.get(id) || { calls:0, answered:0, missed:0, monthMin:0 };
+    const lines = officeLines.filter(l => l.agent_id === id).map(l => {
+      const st = byLine.get(l.id) || { calls:0, missed:0 };
+      return `<span class="call-meta">${esc(l.label || 'מספר בלי כינוי')} ${esc(callLocalPhone(l.twilio_number))} · ${st.calls} שיחות${st.missed ? `, ${st.missed} לא נענו` : ''}</span>`;
+    }).join('<br>');
+    return `<div class="line-row" data-office-agent="${esc(id)}">
+      <div class="line-top"><span class="line-name">${esc(officeMembers.get(id))}</span>
+        <a href="#" class="call-meta" data-office-filter="${esc(id)}">לשיחות ←</a></div>
+      <div class="line-stats">
+        <span>שיחות <b>${a.calls}</b></span>
+        <span>נענו <b>${a.answered}</b></span>
+        <span>לא נענו <b>${a.missed}</b></span>
+        <span>דקות החודש <b>${a.monthMin}</b></span>
+      </div>
+      ${lines ? `<div style="margin-top:4px">${lines}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderOfficeCalls(){
+  const list = document.getElementById('officeCallsList');
+  const agent = document.getElementById('officeCallsAgent').value;
+  const missedOnly = document.getElementById('officeCallsMissed').checked;
+  const rows = officeCallRows.filter(c => (!agent || c.agent_id === agent) &&
+    (!missedOnly || (c.status !== 'answered' && c.status !== 'ringing'))).slice(0, 100);
+  if (!rows.length){ list.innerHTML = '<div class="empty-state">אין שיחות להצגה.</div>'; return; }
+  const lineLabel = new Map(officeLines.map(l => [l.id, l.label || callLocalPhone(l.twilio_number)]));
+  list.innerHTML = rows.map(c => officeCallRowHtml(c, officeMembers.get(c.agent_id), lineLabel.get(c.line_id))).join('');
+}
+
+/* שורת שיחה של משרד: מי מהסוכנים, דרך איזה מספר, והשמעה ותמלול בלבד.
+   אותו מאזין data-call-act של השורות הרגילות (callById) מטפל בשתי הפעולות. */
+function officeCallRowHtml(c, agentName, lineName){
+  const phone = callLocalPhone(c.from_number);
+  const name = (c.extracted && c.extracted.caller_name) || '';
+  const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
+  const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
+  const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
+  return `<div class="call-row" data-call="${esc(c.id)}">
+    <div class="call-top">
+      <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
+        ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+      <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
+    </div>
+    <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}</div>
+    ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ''}
+    <div class="call-actions">
+      ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
+      ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
+    </div>
+  </div>`;
+}
+
+(function wireOfficeCalls(){
+  const acc = document.getElementById('accOfficeCalls');
+  if (!acc) return;
+  acc.addEventListener('toggle', () => { if (acc.open) loadOfficeCalls(); });
+  document.getElementById('officeCallsAgent').addEventListener('change', renderOfficeCalls);
+  document.getElementById('officeCallsMissed').addEventListener('change', renderOfficeCalls);
+  document.getElementById('officeAgentStats').addEventListener('click', e => {
+    const a = e.target.closest('[data-office-filter]');
+    if (!a) return;
+    e.preventDefault();
+    document.getElementById('officeCallsAgent').value = a.dataset.officeFilter;
+    renderOfficeCalls();
+    document.getElementById('officeCallsList').scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+})();
+
 async function linesCall(task, body){
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + task, {
@@ -20652,6 +20797,7 @@ async function loadClientCalls(c){
   const digits = String(c.phone || '').replace(/\D/g, '');
   let q = sb.from('agent_calls')
     .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
+    .eq('agent_id', currentAgent.id)
     .order('created_at', { ascending:false }).limit(20);
   q = digits.length >= 9
     ? q.or(`client_id.eq.${c.id},from_number.like.%${digits.slice(-9)}`)
@@ -22867,6 +23013,7 @@ const DASH_ICONS = {
   flame:'<path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/>',
   wallet:'<rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/>',
   users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  phone:'<path d="M6.6 3h3l1.5 4-2 1.4a12 12 0 0 0 6.5 6.5l1.4-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.2 2 2 0 0 1 6.6 3Z"/>',
   layers:'<path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
   contact:'<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="8" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>',
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.6"/><line x1="15.4" y1="6.4" x2="8.6" y2="10.5"/>',
@@ -23028,6 +23175,8 @@ const NAV_GROUPS = [
     /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
        למנהל/ת משרד או זכיין/ית — בלי לשכפל כאן את בדיקת התפקיד */
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
+    // גם הוא ב-#managerSection: מנהל/ת משרד בלבד, בלי בדיקת תפקיד כפולה כאן
+    { acc:'accOfficeCalls', label:'שיחות המשרד', icon:'phone', tab:'more' },
   ]},
   /* ההגדרות — מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
      מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל.
