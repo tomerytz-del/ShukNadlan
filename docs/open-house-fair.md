@@ -10,7 +10,7 @@
 | היכן מסמנים | טופס הנכס ב-`crm.html` — סימון + תאריך תחילה ותאריך סיום |
 | כמה זה עולה | כלום. פתוח לכל מתווך/ת, בכל מסלול |
 | היכן זה נראה | סימן על מפת דף הבית · תגית על אריח הנכס · רצועה בדף הנכס · באנר בדף הבית · דף היריד `open-house.html` |
-| מי מקבל עדכון | כל מי שנרשם/ה בדף היריד — מייל ברגע שנכס חדש נכנס (ראו "רשימת ההמתנה" למטה) |
+| מי מקבל עדכון | כל מי שנרשם/ה בדף היריד, או דרך גבריאלה בוואטסאפ — מייל ברגע שנכס חדש נכנס (ראו "רשימת ההמתנה" למטה) |
 | הסימן | פין אדום עם בית ותווית "פתוח" — `OpenHouse.icon()` ב-[`assets/open-house.js`](../assets/open-house.js) |
 | המסד | `properties.open_house` + `open_house_start` + `open_house_end`, מיגרציה `20261102090000_open_house_fair.sql` |
 
@@ -348,7 +348,8 @@ or (open_house_start is not null and open_house_end is not null
 פתיחה במקום לדף ריק.
 
 ```
-טופס בדף היריד → POST (anon) → open-house-subscribe  [service_role]
+טופס בדף היריד   ─┐
+גבריאלה בוואטסאפ ─┴→ POST (anon) → open-house-subscribe  [service_role]
                                       ↓
                        open_house_subscribers   (email unique, סמן משלו)
                                       ↓
@@ -358,6 +359,12 @@ or (open_house_start is not null and open_house_end is not null
                                       ↓
                   קישור הסרה בכל הודעה → open-house-manage
 ```
+
+**גבריאלה מציעה את הרשימה** למי שמחפש/ת דירה לקנייה בוואטסאפ - כפתור שלישי
+בהודעה שמסיימת את החיפוש, פעם אחת בשיחה. אחרי "כן" היא מבקשת מייל וקוראת
+לאותה נקודת קליטה עם `source = whatsapp_bot`, כך שאפשר לספור כמה נרשמו
+משם (`select source, count(*) from open_house_subscribers group by 1`).
+הפרטים: [`whatsapp-public-bot.md`](whatsapp-public-bot.md), "יריד הדירות".
 
 ### למה טבלה משלה ולא `newsletter_subscribers`
 

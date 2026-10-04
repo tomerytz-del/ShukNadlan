@@ -1623,9 +1623,11 @@ function handleGotoParam(){
   const params = new URLSearchParams(location.search);
   const raw = params.get('goto');
   if (!raw) return;
+  const clientId = params.get('client');
 
   if (window.history && window.history.replaceState){
     params.delete('goto');
+    params.delete('client');
     const search = params.toString();
     history.replaceState(history.state, '',
       location.pathname + (search ? '?' + search : '') + location.hash);
@@ -1634,6 +1636,7 @@ function handleGotoParam(){
   if (!/^acc[A-Za-z0-9]{1,40}$/.test(raw)) return;
   if (!navAccVisible(raw)) return;
   gotoSection(raw);
+  if (raw === 'accClients' && clientId) openClientFromParam(clientId);
 }
 
 /* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
@@ -3163,7 +3166,7 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
-  loadAdminSearchReport();
+  loadAdminSearchReport().then(loadAdminGabrielaReport);
 }
 
 /* ---------- מה מחפשים באתר ----------
@@ -3309,6 +3312,134 @@ async function loadAdminSearchReport(){
      שכונה שיש בהם נכס בודד הם מלאי חסר בדיוק כמו אפס, והם לא היו
      מופיעים בשום מקום אחר בבלוק. */
   termFacts(Array.isArray(rep.single_terms) ? rep.single_terms : [], 'תוצאה אחת בלבד');
+
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- פניות לגבריאלה מהאתר ----------
+   כמה אנשים שאינם סוכנים פתחו שיחה עם גבריאלה בכל יום, וכמה מהם הגיעו
+   מכפתור באתר. נספר במסד (‏whatsapp_messages.public_entry) ולא ב-GA4: שם
+   ‏contact_bot הוא **לחיצה** על הכפתור, וכאן זו הודעה שהגיעה בפועל.
+
+   "פנייה" = הודעה שפותחת שיחה (ראשונה, או אחרי 12 שעות שקט), ולכן מי
+   שכתב/ה עשר הודעות נספר/ת פעם אחת. "מהאתר" מזוהה לפי הודעת הפתיחה
+   שהכפתור ממלא מראש; מי שמחק/ה אותה וכתב/ה משהו משלו/ה נספר/ת "ישירות".
+   הפרטים: docs/whatsapp-public-bot.md, "כמה פניות מגיעות מהאתר". */
+const GAB_ENTRY_LABELS = {
+  'homepage':     ['כרטיס גבריאלה בדף הבית', 'כולל "איך זה עובד?", התפריט הנייד והרשימה שליד המפה'],
+  'search_empty': ['חיפוש שלא מצא תוצאות', 'הכפתור במסך אפס התוצאות'],
+  'site':         ['כפתור אחר באתר', 'הודעת ברירת המחדל'],
+  'direct':       ['ישירות, לא מהאתר', 'מספר שמור, כרטיס איש קשר, או הודעה שנכתבה מחדש'],
+};
+const GAB_DAYS_SHOWN = 14;
+
+function gabDayLabel(day){
+  const d = new Date(day + 'T12:00:00');
+  return isNaN(d) ? day
+    : d.toLocaleDateString('he-IL', { weekday:'short', day:'numeric', month:'numeric' });
+}
+
+async function loadAdminGabrielaReport(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('platform_gabriela_report',
+    { p_days: adminReportMonths * 30 });
+
+  const block = admBlock('פניות לגבריאלה מהאתר',
+    'כמה פונים שאינם סוכנים פתחו שיחה עם גבריאלה בוואטסאפ בכל יום, וכמה מהם הגיעו מכפתור באתר. נספר במסד לפי ההודעה שהגיעה בפועל, ולא לפי לחיצה ב-GA4. מי שכתב/ה כמה הודעות נספר/ת פעם אחת.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'מונה הפניות לגבריאלה טרם קיים במסד - הריצו את המיגרציה 20270214090000_whatsapp_public_entry.sql.'
+      : 'שגיאה בטעינת מונה הפניות לגבריאלה: ' + error.message;
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep    = data || {};
+  const totals = rep.totals || {};
+  const days   = Number(rep.window_days) || 30;
+  const all    = Number(totals.inquiries) || 0;
+  const site   = Number(totals.site) || 0;
+
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('היום מהאתר', admInt(totals.site_today),
+    { wine: true, note: 'מתוך ' + admInt(totals.inquiries_today) + ' פניות היום' }));
+  tiles.appendChild(admTile('אתמול מהאתר', admInt(totals.site_yesterday)));
+  tiles.appendChild(admTile('מהאתר ב-' + admInt(days) + ' ימים', admInt(site),
+    { note: plural(Number(totals.site_people) || 0, 'אדם אחד', 'אנשים', admInt(totals.site_people)) }));
+  tiles.appendChild(admTile('ממוצע ליום מהאתר', (site / days).toLocaleString('he-IL', { maximumFractionDigits: 1 })));
+  block.appendChild(tiles);
+
+  /* המספר היומי נכנס גם לכותרת הפאנל: הפאנל מתחיל מכווץ, והכותרת היא
+     מה שרואים כל יום בלי לפתוח ולגלול עד הבלוק הזה. ‏renderAdminReport
+     כותב את הכותרת מחדש בכל טעינה, וה-replace מכסה את המקרה שבו לא. */
+  const sub = document.getElementById('adminPanelSub');
+  if (sub && sub.textContent){
+    sub.textContent = sub.textContent.replace(/ · גבריאלה היום: .*$/, '')
+      + ' · גבריאלה היום: ' + admInt(totals.site_today) + ' מהאתר';
+  }
+
+  if (!all){
+    block.appendChild(admEl('div', 'empty-state',
+      'עדיין לא נרשמו פניות לגבריאלה בחלון הזה.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  /* מאיזה כפתור - כדי לדעת איזו נקודת כניסה עובדת */
+  const byEntry = Array.isArray(rep.by_entry) ? rep.by_entry : [];
+  if (byEntry.length){
+    const rows = admEl('div', 'adm-rows');
+    byEntry.forEach(row => {
+      const n = Number(row.n) || 0;
+      const lbl = GAB_ENTRY_LABELS[row.entry] || [row.entry, null];
+      rows.appendChild(admRow(lbl[0], lbl[1], admInt(n), all > 0 ? (n / all) * 100 : 0));
+    });
+    rows.appendChild(admRow('כל הפניות', null, admInt(all), 100, null, true));
+    block.appendChild(rows);
+  }
+
+  /* יום אחרי יום, מהחדש לישן. כל יום בחלון מופיע, גם יום של אפס - רצף
+     בלי חורים הוא מה שמראה שקט. מוצגים 14, והשאר בלחיצה. */
+  const daily = (Array.isArray(rep.daily) ? rep.daily : []).slice().reverse();
+  if (daily.length){
+    block.appendChild(admEl('p', 'adm-legend', 'לפי יום'));
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table adm-table-narrow');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    ['יום','מהאתר','כל הפניות'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    const draw = (count) => {
+      tbody.innerHTML = '';
+      daily.slice(0, count).forEach(row => {
+        const tr = admEl('tr');
+        tr.appendChild(admEl('td', null, gabDayLabel(row.day)));
+        tr.appendChild(admEl('td', null, admInt(row.site)));
+        tr.appendChild(admEl('td', null, admInt(row.inquiries)));
+        tbody.appendChild(tr);
+      });
+      dashPanelsMeasure();
+    };
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    block.appendChild(wrap);
+    draw(GAB_DAYS_SHOWN);
+    if (daily.length > GAB_DAYS_SHOWN){
+      const more = admEl('button', 'btn btn-ghost', 'הצגת כל ' + admInt(daily.length) + ' הימים');
+      more.type = 'button';
+      more.addEventListener('click', () => { draw(daily.length); more.remove(); });
+      block.appendChild(more);
+    }
+  }
 
   host.appendChild(block);
   dashPanelsMeasure();
@@ -18937,6 +19068,16 @@ function buildClientCard(c){
   if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
 
   addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+  // השיחות וההקלטות עם הלקוח/ה (יומן שיחות). רק למי שיש לו/ה יומן -
+  // אצל כל השאר הכפתור היה פותח תמיד "אין שיחות".
+  if (callsBlockVisible()){
+    const callsBtn = addCardAction(actions, {
+      label:'📞 שיחות והקלטות',
+      title:'השיחות עם הלקוח/ה - סיכום, הקלטה ותמלול',
+      onClick: btn => toggleClientCalls(c, btn, el),
+    });
+    callsBtn.classList.add('client-calls-btn');
+  }
   addCardAction(actions, {
     label:'📅 פגישה / תזכורת',
     title:'קביעת פגישה, סיור או תזכורת ביומן, מקושרת ללקוח/ה',
@@ -19794,7 +19935,13 @@ document.getElementById('ciModal').addEventListener('click', async e => {
    docs/call-tracking.md
    ============================================================================ */
 let callRows = [];
+// כל שיחה שנטענה - מהבלוק "שיחות אחרונות" ומהכרטיס של הלקוח/ה - לפי id
+const callById = new Map();
 const CALL_STATUS = { answered:'נענתה', missed:'לא נענתה', busy:'תפוס', failed:'נכשלה', ringing:'מצלצלת' };
+
+// נקבע ב-loadCalls: יש לסוכן/ת מספר (או שהוא/היא מנהל/ת הפלטפורמה)
+let callsEnabled = false;
+function callsBlockVisible(){ return callsEnabled; }
 
 function callLocalPhone(p){
   const d = String(p || '').replace(/\D/g, '');
@@ -19815,60 +19962,111 @@ async function loadCalls(){
     : 'אין עדיין מספר משויך';
   document.getElementById('callSimBtn').style.display = isAdmin ? '' : 'none';
   block.style.display = '';
+  // הכרטיסים נבנו אולי לפני שידענו שיש יומן - בונים שוב, עם כפתור השיחות
+  if (!callsEnabled){ callsEnabled = true; if (clientRows.length) renderClients(); }
 
   const { data, error } = await sb.from('agent_calls')
-    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
     .order('created_at', { ascending:false })
-    .limit(30);
+    .limit(60);
   const list = document.getElementById('callsList');
   if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(error.message) + '</div>'; return; }
   callRows = data || [];
+  callRows.forEach(c => callById.set(c.id, c));
   renderCalls();
 }
 
+// ארכוב מסתיר שיחה מהרשימה בלי למחוק אותה (agent_call_set_archived)
+let callsShowArchived = false;
+
 function renderCalls(){
   const list = document.getElementById('callsList');
+  const archivedCount = callRows.filter(c => c.archived_at).length;
+  const toggle = document.getElementById('callsArchiveToggle');
+  if (toggle){
+    toggle.style.display = archivedCount || callsShowArchived ? '' : 'none';
+    toggle.textContent = callsShowArchived ? '↩ חזרה לשיחות' : `🗄 ארכיון (${archivedCount})`;
+  }
+  const shown = callRows.filter(c => callsShowArchived ? c.archived_at : !c.archived_at);
+  if (callsShowArchived){
+    list.innerHTML = shown.length ? shown.map(c => callRowHtml(c)).join('')
+      : '<div class="empty-state">אין שיחות בארכיון.</div>';
+    return;
+  }
+  if (!shown.length && callRows.length){
+    list.innerHTML = '<div class="empty-state">כל השיחות בארכיון.</div>';
+    return;
+  }
   if (!callRows.length){
     list.innerHTML = '<div class="empty-state">עוד אין שיחות. שיחה למספר שלך תופיע כאן עם הקלטה וסיכום.</div>';
     return;
   }
-  list.innerHTML = callRows.map(c => {
-    const client = c.client_id ? clientRows.find(r => r.id === c.client_id) : null;
-    const phone = callLocalPhone(c.from_number);
-    const name = client ? client.full_name : ((c.extracted && c.extracted.caller_name) || '');
-    const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
-    const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
-    const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
-    const needs = c.extracted && c.extracted.needs_text;
-    const needsObj = (c.extracted && c.extracted.needs) || {};
-    const canUpdate = client && Object.keys(needsObj).length > 0;
-    const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
-    return `<div class="call-row" data-call="${esc(c.id)}">
-      <div class="call-top">
-        <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
-          ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
-        <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
-      </div>
-      ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
-      ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
-      <div class="call-actions">
-        ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
-        ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
-        ${canUpdate ? '<button type="button" class="btn btn-ghost" data-call-act="update">🔄 עדכון הכרטיס מהשיחה</button>' : ''}
-        ${!client && (phone || name) ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
-        ${phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  list.innerHTML = shown.map(c => callRowHtml(c)).join('');
 }
 
-document.getElementById('callsList').addEventListener('click', async e => {
+document.getElementById('callsArchiveToggle').addEventListener('click', () => {
+  callsShowArchived = !callsShowArchived;
+  renderCalls();
+});
+
+/* ארכוב / החזרה. בכרטיס הלקוח/ה השיחה נשארת (מסומנת), ברשימה היא עוברת. */
+async function archiveCall(c, row, btn){
+  const archive = !c.archived_at;
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('agent_call_set_archived', { p_call_id: c.id, p_archived: archive });
+  btn.disabled = false;
+  if (error || !data){ showToast('הפעולה נכשלה' + (error ? ': ' + error.message : '')); return; }
+  c.archived_at = archive ? new Date().toISOString() : null;
+  const r = callRows.find(x => x.id === c.id);
+  if (r && r !== c) r.archived_at = c.archived_at;
+  if (row.closest('.client-calls')) row.outerHTML = callRowHtml(c, true);
+  renderCalls();
+  showToast(archive ? 'השיחה הועברה לארכיון' : 'השיחה הוחזרה מהארכיון');
+}
+
+/* שורת שיחה - אחת לבלוק "שיחות אחרונות" ולכרטיס הלקוח/ה. ‏inCard: בכרטיס
+   כבר ברור מי הלקוח/ה, ולכן בלי "הוספה לקובץ". */
+function callRowHtml(c, inCard){
+  const client = c.client_id ? clientRows.find(r => r.id === c.client_id) : null;
+  const phone = callLocalPhone(c.from_number);
+  const name = client ? client.full_name : ((c.extracted && c.extracted.caller_name) || '');
+  const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
+  const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
+  const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
+  const needs = c.extracted && c.extracted.needs_text;
+  const needsObj = (c.extracted && c.extracted.needs) || {};
+  const canUpdate = client && Object.keys(needsObj).length > 0;
+  const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
+  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}" data-call="${esc(c.id)}">
+    <div class="call-top">
+      <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
+        ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+      <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
+    </div>
+    ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
+    ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
+    <div class="call-actions">
+      ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
+      ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
+      ${canUpdate ? '<button type="button" class="btn btn-ghost" data-call-act="update">🔄 עדכון הכרטיס מהשיחה</button>' : ''}
+      ${!inCard && !client && (phone || name) ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
+      ${!inCard && phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
+      <button type="button" class="btn btn-ghost" data-call-act="archive" title="${c.archived_at ? 'החזרה מהארכיון' : 'הסתרה מהרשימה, בלי למחוק'}">${c.archived_at ? '↩ מהארכיון' : '🗄 ארכוב'}</button>
+      <button type="button" class="btn btn-ghost" data-call-act="delete" title="מחיקת השיחה וההקלטה">🗑 מחיקה</button>
+    </div>
+  </div>`;
+}
+
+// מאזין אחד לכל השורות - בבלוק השיחות ובכרטיסי הלקוחות
+document.addEventListener('click', async e => {
   const btn = e.target.closest('[data-call-act]');
   if (!btn) return;
   const row = btn.closest('[data-call]');
-  const c = callRows.find(x => x.id === row.dataset.call);
+  const c = row && callById.get(row.dataset.call);
   if (!c) return;
   const act = btn.dataset.callAct;
+  if (act === 'delete') return deleteCall(c, row, btn);
+  if (act === 'archive') return archiveCall(c, row, btn);
   if (act === 'play'){
     if (row.querySelector('audio')) return;
     btn.disabled = true;
@@ -19907,6 +20105,80 @@ document.getElementById('callsList').addEventListener('click', async e => {
   }
   if (act === 'update') return updateClientFromCall(c, btn);
 });
+
+/* מחיקה - ההקלטה והשורה, דרך twilio-voice?task=delete (מחיקה מ-storage
+   מהדפדפן אינה אפשרית: ה-policy של הדלי מתיר רק קריאה). */
+async function deleteCall(c, row, btn){
+  if (!confirm('למחוק את השיחה, ההקלטה והתמלול? אי אפשר לשחזר.')) return;
+  btn.disabled = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=delete', {
+      method:'POST',
+      headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ call_ids: [c.id] }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.deleted) throw new Error(out.error || res.status);
+    callById.delete(c.id);
+    callRows = callRows.filter(x => x.id !== c.id);
+    if (row.closest('.client-calls')) row.remove();
+    renderCalls();
+    showToast('השיחה נמחקה');
+  } catch (err){
+    btn.disabled = false;
+    showToast('המחיקה נכשלה: ' + (err && err.message || err));
+  }
+}
+
+/* השיחות של לקוח/ה, בכרטיס שלו/ה: לפי client_id, ולפי תשע הספרות האחרונות
+   של הטלפון - שיחה שהגיעה לפני שהלקוח/ה נוסף/ה לקובץ נשמרה בלי client_id. */
+async function loadClientCalls(c){
+  const digits = String(c.phone || '').replace(/\D/g, '');
+  let q = sb.from('agent_calls')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
+    .order('created_at', { ascending:false }).limit(20);
+  q = digits.length >= 9
+    ? q.or(`client_id.eq.${c.id},from_number.like.%${digits.slice(-9)}`)
+    : q.eq('client_id', c.id);
+  const { data, error } = await q;
+  if (error) return null;
+  (data || []).forEach(x => callById.set(x.id, x));
+  return data || [];
+}
+
+async function toggleClientCalls(c, btn, el){
+  let box = el.querySelector('.client-calls');
+  if (box){ box.remove(); return; }
+  btn.disabled = true;
+  const calls = await loadClientCalls(c);
+  btn.disabled = false;
+  box = document.createElement('div');
+  box.className = 'client-calls';
+  box.innerHTML = calls === null
+    ? '<div class="empty-state">שגיאה בטעינת השיחות</div>'
+    : (calls.length
+      ? calls.map(x => callRowHtml(x, true)).join('')
+      : '<div class="empty-state">אין שיחות מתועדות עם הלקוח/ה.</div>');
+  el.querySelector('.lead-actions').insertAdjacentElement('afterend', box);
+}
+
+/* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
+   סיכום שיחה) פותח את הכרטיס עצמו ואת השיחות שבו, ולא רק את הקטגוריה. */
+function openClientFromParam(id){
+  if (!/^[0-9a-f-]{36}$/i.test(id || '')) return;
+  const c = clientRows.find(r => r.id === id);
+  if (!c) return;
+  expandedClientIds.add(id);
+  renderClients();
+  setTimeout(() => {
+    const el = document.querySelector(`[data-client-card="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior:'smooth', block:'start' });
+    const btn = el.querySelector('.client-calls-btn');
+    if (btn && !el.querySelector('.client-calls')) toggleClientCalls(c, btn, el);
+  }, 450);
+}
 
 /* הדרישות שחולצו מהשיחה (extracted.needs, בשמות השדות של agent_clients)
    לתוך הטופס של לקוח/ה חדש/ה - רק מה שנאמר, והשאר כמו שהוא. */

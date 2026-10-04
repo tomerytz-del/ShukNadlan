@@ -517,11 +517,22 @@ async function limitNoticeAlreadySent(phone: string): Promise<boolean> {
 async function loadPublicConversation(
   phone: string,
 ): Promise<PublicConversationState> {
-  const { data } = await supabase
+  const BASE_COLS = "history, last_property_id, last_message_at, leads_created, leads_window_start";
+  let { data, error } = await supabase
     .from("whatsapp_public_conversations")
-    .select("history, last_property_id, last_message_at, leads_created, leads_window_start")
+    .select(`${BASE_COLS}, last_saved_search_id`)
     .eq("wa_phone", phone)
     .maybeSingle();
+  // הפונקציה והמיגרציה נפרסות בשני workflows בלי סדר מובטח. עד שהעמודה
+  // ‏(20270214091000) קיימת, select שלה נכשל - ושיחה שנטענת כריקה הייתה
+  // מאבדת את ההיסטוריה ואת מונה הלידים. לכן נופלים לעמודות הישנות.
+  if (error) {
+    ({ data, error } = await supabase
+      .from("whatsapp_public_conversations")
+      .select(BASE_COLS)
+      .eq("wa_phone", phone)
+      .maybeSingle() as any);
+  }
 
   const idleMs = PUBLIC_IDLE_RESET_HOURS * 60 * 60 * 1000;
   const stale = data?.last_message_at
@@ -534,6 +545,7 @@ async function loadPublicConversation(
   return {
     history: (!data || stale ? [] : (data.history as Anthropic.MessageParam[]) || []),
     last_property_id: (!data || stale ? null : data.last_property_id) || null,
+    last_saved_search_id: (!data || stale ? null : data.last_saved_search_id) || null,
     leads_created: data?.leads_created || 0,
     leads_window_start: data?.leads_window_start || null,
   };
@@ -543,7 +555,7 @@ async function savePublicConversation(
   phone: string,
   conv: PublicConversationState,
 ): Promise<void> {
-  const { error } = await supabase.from("whatsapp_public_conversations").upsert({
+  const row = {
     wa_phone: phone,
     history: conv.history,
     last_property_id: conv.last_property_id,
@@ -551,8 +563,38 @@ async function savePublicConversation(
     leads_window_start: conv.leads_window_start,
     last_message_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+  };
+  let { error } = await supabase.from("whatsapp_public_conversations").upsert({
+    ...row,
+    last_saved_search_id: conv.last_saved_search_id,
   }, { onConflict: "wa_phone" });
+  // אותה נפילה לאחור כמו ב-load: עמודה שעוד לא קיימת לא מפילה את השמירה
+  if (error) {
+    ({ error } = await supabase.from("whatsapp_public_conversations")
+      .upsert(row, { onConflict: "wa_phone" }));
+  }
   if (error) console.error("public conversation save failed", error);
+}
+
+/* מאיפה הגיע/ה הפונה - לפי הודעת הפתיחה שהכפתור באתר ממלא מראש.
+   ‏wa.me אינו מעביר שום פרמטר מלבד הטקסט, ולכן הטקסט הוא הסימן היחיד.
+   הביטויים חייבים להופיע בהודעות הפתיחה ב-assets/home.js
+   (‏GAB_HELLO, ‏renderEmptyBotLink) וב-FALLBACK_HELLO ב-assets/bot-link.js -
+   ‏scripts/check_bot_entry.py מצליב, כי ניסוח מחדש של הודעה היה מעביר את
+   כל הפניות שלה ל-direct בלי שום סימן. מי שמחק/ה את ההודעה המוכנה וכתב/ה
+   משהו משלו/ה נספר/ת direct, וזה המחיר הידוע.
+   ‏SITE_ENTRY_PHRASES משוכפל במיגרציה 20270214090000 (המילוי למפרע). */
+const SITE_ENTRY_PHRASES: ReadonlyArray<[string, string]> = [
+  ["מדף הבית", "homepage"],
+  ["חיפשתי באתר", "search_empty"],
+  ["הגעתי מהאתר", "site"],
+];
+
+function siteEntryOf(text: string): string {
+  for (const [phrase, entry] of SITE_ENTRY_PHRASES) {
+    if (text.includes(phrase)) return entry;
+  }
+  return "direct";
 }
 
 /**
@@ -618,6 +660,15 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   if (!userText.trim()) return;
 
   const conv = await loadPublicConversation(from);
+
+  // היסטוריה ריקה = פנייה חדשה (גם אחרי 12 שעות שקט). זה מה שנספר בפאנל
+  // "פניות לגבריאלה" ב-crm, ולכן נחתם עכשיו: ה-body נמחק אחרי 30 יום.
+  if (!conv.history.length) {
+    const { error } = await supabase.from("whatsapp_messages")
+      .update({ public_entry: siteEntryOf(userText) })
+      .eq("wa_message_id", msg.id);
+    if (error) console.error("public entry stamp failed", error);
+  }
 
   let answer: string;
   let shareContact = false;
