@@ -28,8 +28,10 @@ import { noLongDash } from "../_shared/marketing-copy.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
-const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
+// ‏trim: סוד שהודבק עם רווח או שורה חדשה בסוף נראה זהה במסך ומפיל כל חתימה
+// (4.10.2026: השיחות הראשונות למספר האמיתי נדחו כולן ב-403).
+const TWILIO_SID = (Deno.env.get("TWILIO_ACCOUNT_SID") || "").trim();
+const TWILIO_TOKEN = (Deno.env.get("TWILIO_AUTH_TOKEN") || "").trim();
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const CLAUDE_MODEL = Deno.env.get("CALL_SUMMARY_MODEL") || Deno.env.get("CLAUDE_MODEL") ||
@@ -864,10 +866,19 @@ Deno.serve(async (req: Request) => {
 
   const params = new URLSearchParams(await req.text());
   const publicUrl = PUBLIC_BASE + url.search;
-  if (!(await validSignature(publicUrl, params, req.headers.get("x-twilio-signature") || ""))) {
+  const signature = req.headers.get("x-twilio-signature") || "";
+  if (!(await validSignature(publicUrl, params, signature))) {
+    // בלי הסוד עצמו: רק מה שמבחין בין טוקן של חשבון אחר לבין כתובת שאינה זהה
+    console.error("twilio webhook rejected: invalid signature", JSON.stringify({
+      url: publicUrl,
+      account_sid_matches: params.get("AccountSid") === TWILIO_SID,
+      matches_req_url: await validSignature(req.url, params, signature),
+      has_signature: !!signature,
+    }));
     return new Response("invalid signature", { status: 403 });
   }
   if (params.get("AccountSid") && params.get("AccountSid") !== TWILIO_SID) {
+    console.error("twilio webhook rejected: wrong account", params.get("AccountSid")?.slice(0, 8));
     return new Response("wrong account", { status: 403 });
   }
 
