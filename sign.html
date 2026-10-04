@@ -142,6 +142,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
+<!-- בדיקת ספרת הביקורת של ת.ז. בזמן ההזנה, עם "המספר נכון - לאשר בכל זאת" -->
+<script src="assets/il-id.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -231,7 +233,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" data-id-kind="passport">דרכון</button>
         </div>
         <input type="text" id="signerId" inputmode="numeric" dir="ltr" style="text-align:right"
-               placeholder="9 ספרות" maxlength="20">
+               placeholder="9 ספרות" maxlength="20" data-il-id>
       </div>
 
       <div class="pad-label" id="padLabel">חתום כאן:</div>
@@ -561,6 +563,9 @@ document.getElementById('idKind').addEventListener('click', (e)=>{
   document.getElementById('idLabel').textContent = isPassport ? 'מספר דרכון' : 'מספר תעודת זהות';
   input.placeholder = isPassport ? 'מספר הדרכון' : '9 ספרות';
   input.inputMode = isPassport ? 'text' : 'numeric';
+  // לדרכון אין ספרת ביקורת אחידה - הבדיקה חלה על ת.ז. בלבד
+  input.dataset.ilId = isPassport ? 'off' : '';
+  IlId.refresh(input);
 });
 
 document.getElementById('ackRead').addEventListener('change', refreshSubmit);
@@ -573,6 +578,14 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('submitBtn');
   const feedback = document.getElementById('feedback');
   if (!pad || pad.isEmpty()) return;
+
+  // ‏ת.ז. שספרת הביקורת שלה אינה מתאימה עוצרת כאן, אלא אם החותם/ת אישר/ה
+  // שהמספר נכון. האזהרה והתיבה מוצגות מתחת לשדה.
+  if (!IlId.check(document.getElementById('signerId'))){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
+    return;
+  }
 
   feedback.textContent = '';
   btn.disabled = true;

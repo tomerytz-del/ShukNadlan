@@ -969,11 +969,17 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
   const license = document.getElementById('caLicense').value.trim();
+  const idNumber = document.getElementById('caIdNumber').value.trim();
   const feedback = document.getElementById('createAgencyFeedback');
   const btn = document.getElementById('createAgencyBtn');
-  if (!agencyName || !managerName || !license){
+  if (!agencyName || !managerName || !license || !idNumber){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא למלא את כל השדות';
+    return;
+  }
+  if (!IlId.check(document.getElementById('caIdNumber'))){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
     return;
   }
   const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther')) : null;
@@ -996,7 +1002,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, ...(agencyCity || {}), ethics_code_accepted: true }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, id_number: idNumber, ...(agencyCity || {}), ethics_code_accepted: true }),
     });
     const data = await res.json();
 
@@ -5927,6 +5933,8 @@ function loadProfileSettings(agent){
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
   document.getElementById('pfIdNumber').value = agent.id_number || '';
+  // מה שכבר שמור נחשב מאושר: הבדיקה חוזרת רק כשהמספר משתנה
+  document.getElementById('pfIdNumber').dataset.ilIdOk = agent.id_number || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
   document.getElementById('pfArea').value = agent.service_area || '';
@@ -6285,6 +6293,11 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שם מלא ומספר רישיון הם שדות חובה.';
     return;
   }
+  if (!IlId.check(document.getElementById('pfIdNumber'))){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
+    return;
+  }
 
   const uploading = (profileState.photo && !profileState.photo.url)
     || (profileState.cover && !profileState.cover.url)
@@ -6370,6 +6383,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfName').value = saved.display_name || '';
     document.getElementById('pfLicense').value = saved.license_number || '';
     document.getElementById('pfIdNumber').value = saved.id_number || '';
+    document.getElementById('pfIdNumber').dataset.ilIdOk = saved.id_number || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
     document.getElementById('pfArea').value = saved.service_area || '';
@@ -19670,6 +19684,9 @@ function resetClientForm(){
   editingClientId = null;
   editingClientRow = null;
   document.getElementById('addClientForm').reset();
+  // אישור "המספר נכון" שייך ללקוח/ה הקודם/ת, לא לטופס
+  delete document.getElementById('clIdNumber').dataset.ilIdOk;
+  IlId.refresh(document.getElementById('clIdNumber'));
   document.getElementById('clientFeedback').textContent = '';
   document.getElementById('saveClientBtn').textContent = 'שמור לקוח והצלב נכסים';
   clientFormCities = [];
@@ -19696,6 +19713,7 @@ function openEditClient(c){
   document.getElementById('clPhone').value = c.phone || '';
   document.getElementById('clEmail').value = c.email || '';
   document.getElementById('clIdNumber').value = c.id_number || '';
+  document.getElementById('clIdNumber').dataset.ilIdOk = c.id_number || '';
   document.getElementById('clAddress').value  = c.address || '';
   document.getElementById('clFinancing').value  = c.financing_status || '';
   document.getElementById('clLeadSource').value = c.lead_source || '';
@@ -19794,6 +19812,12 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   if (minSize != null && maxSize != null && minSize > maxSize){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'השטח המינימלי גדול מהמקסימלי';
+    return;
+  }
+  // ‏הת.ז. שבכרטיס היא זו שתיכנס להסכם התיווך - טעות הקלדה נתפסת כאן
+  if (!IlId.check(document.getElementById('clIdNumber'))){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
     return;
   }
 
@@ -26058,7 +26082,8 @@ function agrRenderSignerForms(){
         <div class="agr-field"><label>שם מלא</label>
           <input type="text" data-agr-sf="${esc(s.uid)}" data-key="full_name" value="${esc(s.full_name)}"></div>
         <div class="agr-field"><label>ת.ז. / ח״פ</label>
-          <input type="text" data-agr-sf="${esc(s.uid)}" data-key="id_number" value="${esc(s.id_number)}"></div>
+          <input type="text" inputmode="numeric" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="id_number"
+                 data-il-id data-il-id-ok="${esc(s.id_override || '')}" value="${esc(s.id_number)}"></div>
         <div class="agr-field"><label>טלפון</label>
           <input type="tel" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="phone" value="${esc(s.phone)}"></div>
         <div class="agr-field"><label>אימייל (נדרש לחתימה מרחוק)</label>
@@ -26067,6 +26092,8 @@ function agrRenderSignerForms(){
       <div class="agr-field" style="margin-top:8px"><label>כתובת (לא חובה)</label>
         <input type="text" data-agr-sf="${esc(s.uid)}" data-key="address" value="${esc(s.address)}"></div>
     </div>`).join('');
+  // ‏ת.ז. שהגיעה מכרטיס הלקוח/ה ואינה תקינה מסומנת כבר בפתיחה, לא רק ביציאה מהשדה
+  IlId.scan(host);
 }
 
 /* ---------- תקופת הבלעדיות ----------
@@ -26203,7 +26230,15 @@ function agrValidate(){
     if (!s.id_number.trim()){
       add(`חסרה ת.ז. לחותם/ת ${i + 1} (${who})`, [{
         scope:'signer', uid:s.uid, key:'id_number',
-        label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true }]);
+        label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true, ilId:true }]);
+    }
+    // ‏ספרת ביקורת שאינה מתאימה היא כמעט תמיד טעות הקלדה, והיא הייתה נכנסת
+    // לגוף ההסכם שננעל. מי שבטוח/ה במספר מסמן/ת "המספר נכון" (s.id_override).
+    else if (!IlId.acceptedValue(s.id_number, s.id_override)){
+      add(`ת.ז. של ${who} אינה תקינה`, [{
+        scope:'signer', uid:s.uid, key:'id_number',
+        label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true,
+        ilId:true, okValue:s.id_override }]);
     }
   });
 
@@ -26226,7 +26261,7 @@ function agrValidate(){
   if (!currentAgent || !currentAgent.id_number){
     add('חסרה ת.ז. בפרטי הסוכן/ת', [{
       scope:'agent', key:'id_number', label:'ת.ז. / ח״פ שלך - תישמר בפרופיל',
-      value:'', inputmode:'numeric', ltr:true }]);
+      value:'', inputmode:'numeric', ltr:true, ilId:true }]);
   }
   return items;
 }
@@ -26281,6 +26316,7 @@ function agrQuickFillField(f){
     ' data-agr-qf="1"' +
     ` data-qf-scope="${esc(f.scope)}" data-qf-key="${esc(f.key)}"` +
     (f.uid ? ` data-qf-uid="${esc(f.uid)}"` : '') +
+    (f.ilId ? ` data-il-id data-il-id-ok="${esc(f.okValue || '')}"` : '') +
     ` value="${esc(f.value ?? '')}"></div>`;
 }
 
@@ -26291,6 +26327,15 @@ async function agrQuickFill(btn){
   let agentIdNumber = null;
   const clientIdNumbers = new Map();   // client_id → ת.ז. שהוקלדה
 
+  // ‏ת.ז. לא תקינה שלא אושרה עוצרת כאן, לפני שהיא נשמרת בכרטיס או בפרופיל
+  const badIds = [...agrEl('agrBody').querySelectorAll('[data-agr-qf][data-il-id]')]
+    .filter(el => !IlId.accepted(el));
+  if (badIds.length){
+    badIds.forEach(el => IlId.refresh(el));
+    IlId.check(badIds[0]);
+    return;
+  }
+
   agrEl('agrBody').querySelectorAll('[data-agr-qf]').forEach(el => {
     const v = el.value.trim();
     const { qfScope: scope, qfKey: key, qfUid: uid } = el.dataset;
@@ -26298,6 +26343,7 @@ async function agrQuickFill(btn){
       const s = w.signers.find(x => x.uid === uid);
       if (!s) return;
       s[key] = v;
+      if (key === 'id_number') s.id_override = el.dataset.ilIdOk || '';
       if (v && key === 'id_number' && s.client_id) clientIdNumbers.set(s.client_id, v);
     }
     else if (scope === 'commission') w.commission[key] = v;
@@ -26373,6 +26419,8 @@ function agrRenderStepPreview(){
             blocking.map(m => `<li style="margin-bottom:5px">${esc(m.text)}</li>`).join('') +
           '</ul>'
         : '');
+    // ‏ת.ז. שנפסלה מוצגת עם הסיבה ועם "המספר נכון" כבר עכשיו
+    IlId.scan(body);
 
     agrEl('agrFoot').innerHTML =
       '<button type="button" class="btn btn-ghost" data-agr="back-to-details">חזרה לעריכה</button>' +
@@ -26839,6 +26887,14 @@ agrEl('newAgreementBtn').addEventListener('click', ()=> openAgreementWizard());
    נבנה ב-renderQuickActions ופותח את האשף משם — ולא את קטגוריית ההסכמים:
    הדרך הקצרה ביותר מ"יש לי לקוח/ה מולי" ל"המסמך על המסך" היא בחירת סוג
    ההסכם, ולא רשימה של הסכמים קודמים. ראו QUICK_ACTIONS. */
+
+/* ‏"המספר נכון - לאשר בכל זאת" (assets/il-id.js) נשמר על החותם/ת ולא על
+   השדה: האשף מצייר את הטופס מחדש בכל מעבר שלב, והאישור היה נעלם איתו. */
+agrEl('agrBody').addEventListener('il-id-override', (e)=>{
+  const uid = e.target.dataset.agrSf || e.target.dataset.qfUid;
+  const signer = uid && agrWizard.signers.find(s => s.uid === uid);
+  if (signer) signer.id_override = e.detail.checked ? e.detail.value : '';
+});
 
 agrEl('agrSearch').addEventListener('input', renderAgreements);
 ['agrStatusFilter','agrKindFilter'].forEach(id =>

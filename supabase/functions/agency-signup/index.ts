@@ -151,6 +151,10 @@ Deno.serve(async (req: Request) => {
         display_name: manager_name,
         email: manager_email,
         license_number: license_number,
+        // ‏ת.ז. נבדקה בטופס (ספרת ביקורת, עם עקיפה מכוונת) - כאן היא רק נשמרת.
+        // רשות, כדי שטופס ישן במטמון של דפדפן לא ייפול על השדה החסר.
+        id_number: typeof body.id_number === "string" && body.id_number.trim()
+          ? body.id_number.trim().slice(0, 20) : null,
         // תוצאת הבדיקה שרצה למעלה, על השורה. זו הבדיקה היחידה — היא אינה
         // חוזרת, ולכן מה שנכתב כאן הוא התיעוד הקבוע שלה.
         ...licenseCheck.columns,
