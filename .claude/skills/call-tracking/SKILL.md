@@ -1,6 +1,6 @@
 ---
 name: call-tracking
-description: עבודה על המספרים הווירטואליים ויומן השיחות בריפו של שוק נדל״ן - Twilio, twilio-voice, הקלטה, תמלול Whisper וסיכום בוואטסאפ, הזמנת מספר מהארנק, המסלולים (אחד כלול ב-Elite, אחד בתשלום בשאר, ירידת מסלול), תקרת 150 הדקות, ה-caller ID שקובע את המחיר, וחתימת ה-Webhook. Use when touching supabase/functions/twilio-voice, agent_phone_lines / agent_calls / phone_line_charges, the lines panel or call rows in assets/crm.js, when a call returns 403 or "אירעה שגיאת יישום", when a transcription or summary fails, when an order fails or charges twice, when changing what a tracking number costs or includes, or when an agent says calls stopped being recorded.
+description: עבודה על המספרים הווירטואליים ויומן השיחות בריפו של שוק נדל״ן - Twilio, twilio-voice, הקלטה, תמלול Whisper וסיכום בוואטסאפ, הזמנת מספר מהארנק, המסלולים (אחד כלול ב-Elite, אחד בתשלום בשאר, ירידת מסלול), תקרת 150 הדקות, ה-caller ID שקובע את המחיר, וחתימת ה-Webhook. Use when touching supabase/functions/twilio-voice, the office calls view (accOfficeCalls, manager listening), agent_phone_lines / agent_calls / phone_line_charges, the lines panel or call rows in assets/crm.js, when a call returns 403 or "אירעה שגיאת יישום", when a transcription or summary fails, when an order fails or charges twice, when changing what a tracking number costs or includes, or when an agent says calls stopped being recorded.
 ---
 
 # מספרים וירטואליים ויומן שיחות
@@ -87,6 +87,15 @@ $0.006 ≈ ‏31 אגורות; מספר $5.5 לחודש. אחסון ב-Twilio א
 כפתורים עד 20 תווים, `id` בצורה `call_N`. מחוץ לחלון 24 השעות - תבנית עם
 `urlSuffix`. כל הודעה שיוצאת מכאן נכנסת להיסטוריה של גבריאלה
 (`rememberForBot`), אחרת "כן" או לחיצה על כפתור מגיעים אליה בלי הקשר.
+
+## 9. מנהל/ת המשרד קורא/ת הכול - ולכן כל שאילתה מסננת `agent_id`
+
+ה-RLS פותח למנהל/ת את השיחות, המספרים וההקלטות של סוכני המשרד
+(`20270222090000_office_calls.sql`). שאילתה בדפדפן שנשענת על ה-RLS לבדו
+("השיחות שלי") מחזירה למנהל/ת את **כל המשרד**, בשקט. כל שאילתה על
+`agent_calls` או `agent_phone_lines` מהקובץ של הסוכן/ת מסננת
+`.eq('agent_id', currentAgent.id)`. תצוגת המשרד (`loadOfficeCalls`) היא
+המקום היחיד שלא, והיא קריאה בלבד - בלי ארכוב, מחיקה או הוספה לקובץ.
 
 ## בדיקה לפני דחיפה
 
