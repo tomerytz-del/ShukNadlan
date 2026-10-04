@@ -303,21 +303,13 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
 
   const { data: line } = await supabase
     .from("agent_phone_lines")
-    .select("id, agent_id, forward_to, active, label")
+    .select("id, agent_id, forward_to, active, label, ring_mode")
     .eq("twilio_number", to)
     .maybeSingle();
   if (!line || !line.active) {
     return xml(`<Say ${VOICE}>${escXml(MSG_UNASSIGNED)}</Say><Hangup/>`);
   }
 
-  const agent = await loadAgent(line.agent_id);
-  const target = e164(line.forward_to || agent?.phone || "");
-  if (!target) {
-    console.error("no forward target", line.id);
-    return xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
-  }
-
-  const client = await findClient(line.agent_id, from);
   const { error } = await supabase.from("agent_calls").upsert({
     agent_id: line.agent_id,
     line_id: line.id,
@@ -325,36 +317,74 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
     direction: "inbound",
     from_number: from,
     to_number: to,
-    client_id: client?.id ?? null,
     status: "ringing",
   }, { onConflict: "twilio_call_sid" });
   if (error) console.error("call insert failed", error);
 
-  // לקוח/ה מהקובץ: הכרטיס מגיע לוואטסאפ בזמן שהנייד מצלצל
-  if (client && agent) EdgeRuntime.waitUntil(notifyRinging(agent, client, from, line.label || ""));
+  // חלוקה בסבב: הבא/ה בתור (phone_line_ring_next), ובלי אף אחד זמין - הבעלים
+  const ring = line.ring_mode === "round_robin" ? await ringNext(callSid, line.id) : null;
+  const ringAgentId = ring?.agent_id || line.agent_id;
+  const agent = await loadAgent(ringAgentId);
+  const target = ring ? e164(ring.phone) : e164(line.forward_to || agent?.phone || "");
+  if (!target) {
+    console.error("no forward target", line.id);
+    return xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
+  }
 
+  await ringingClient(callSid, ringAgentId, agent, from, line.label || "");
+  const record = await recordingAllowed(line.id);
+  // ‏answerOnBridge: הלקוח/ה שומע/ת צלצול עד שהסוכן/ת עונה, ולא שקט.
+  return xml(
+    (record ? `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` : "") +
+      dialXml(target, from, to, record, ring ? RING_TIMEOUT_SEC : DIAL_TIMEOUT_SEC),
+  );
+}
+
+// בסבב כל סוכן/ת מצלצל/ת פחות זמן: ארבעה ניסיונות של 25 שניות הם כמעט שתי דקות
+const RING_TIMEOUT_SEC = 18;
+
+/** ה-<Dial> לנייד. ‏callerId = המתקשר/ת, כדי שהסוכן/ת יראה בנייד מי מתקשר.
+ *  מתקשר/ת מחו"ל או חסוי/ה: callerId = המספר שלנו. Twilio מתמחרת את הרגל לנייד
+ *  לפי ה-caller ID - ‏$0.0646 לדקה ממספר ישראלי מול $0.1868 מכל מספר אחר, פי
+ *  שלושה על אותה שיחה. המתקשר/ת עדיין מופיע/ה בסיכום בוואטסאפ. */
+function dialXml(target: string, from: string, to: string, record: boolean, timeout: number): string {
   const dialAction = escXml(`${PUBLIC_BASE}?event=dial`);
   const recCb = escXml(`${PUBLIC_BASE}?event=recording`);
-  // ‏callerId = המתקשר/ת: הסוכן/ת רואה בנייד את מי שמתקשר, לא את המספר שלנו.
-  // מתקשר/ת מחו"ל או חסוי/ה: callerId = המספר שלנו. Twilio מתמחרת את הרגל לנייד
-  // לפי ה-caller ID - ‏$0.0646 לדקה ממספר ישראלי מול $0.1868 מכל מספר אחר, פי
-  // שלושה על אותה שיחה. המתקשר/ת עדיין מופיע/ה בסיכום בוואטסאפ.
-  // ‏answerOnBridge: הלקוח/ה שומע/ת צלצול עד שהסוכן/ת עונה, ולא שקט.
   const callerId = from.startsWith("+972") ? from : to;
-  // מעבר ל-150 הדקות של החודש ובלי יתרה לדקה נוספת: השיחה עוברת, בלי הקלטה
-  // (ובלי ההודעה שהיא מוקלטת). לקוח/ה שלא נענה/תה עולה יותר מכל דקה.
-  const { data: recordOk, error: recErr } = await supabase.rpc("phone_line_recording_allowed", { p_line_id: line.id });
-  if (recErr) console.error("recording allowed check failed", recErr);
-  const record = recErr ? true : recordOk !== false;
   const recAttrs = record
     ? `record="record-from-answer-dual" recordingStatusCallback="${recCb}" recordingStatusCallbackEvent="completed" `
     : "";
-  return xml(
-    (record ? `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` : "") +
-      `<Dial callerId="${escXml(callerId)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
-      recAttrs + `action="${dialAction}" method="POST">` +
-      `<Number>${escXml(target)}</Number></Dial>`,
-  );
+  return `<Dial callerId="${escXml(callerId)}" timeout="${timeout}" answerOnBridge="true" ` +
+    recAttrs + `action="${dialAction}" method="POST">` +
+    `<Number>${escXml(target)}</Number></Dial>`;
+}
+
+/** מעבר ל-150 הדקות של החודש ובלי יתרה לדקה נוספת: השיחה עוברת, בלי הקלטה
+ *  (ובלי ההודעה שהיא מוקלטת). לקוח/ה שלא נענה/תה עולה יותר מכל דקה. */
+async function recordingAllowed(lineId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("phone_line_recording_allowed", { p_line_id: lineId });
+  if (error) console.error("recording allowed check failed", error);
+  return error ? true : data !== false;
+}
+
+async function ringNext(callSid: string, lineId: string): Promise<{ agent_id: string; phone: string } | null> {
+  const { data, error } = await supabase.rpc("phone_line_ring_next", { p_call_sid: callSid, p_line_id: lineId });
+  if (error) console.error("ring next failed", error);
+  return data?.agent_id ? { agent_id: data.agent_id, phone: data.phone } : null;
+}
+
+/** הלקוח/ה מהקובץ של מי שהנייד שלו/ה מצלצל עכשיו - בסבב זה משתנה בכל ניסיון,
+ *  כי לכל סוכן/ת קובץ משלו/ה. הכרטיס מגיע לוואטסאפ בזמן הצלצול. */
+async function ringingClient(
+  callSid: string,
+  agentId: string,
+  agent: Awaited<ReturnType<typeof loadAgent>>,
+  from: string,
+  label: string,
+): Promise<void> {
+  const client = await findClient(agentId, from);
+  await supabase.from("agent_calls").update({ client_id: client?.id ?? null }).eq("twilio_call_sid", callSid);
+  if (client && agent) EdgeRuntime.waitUntil(notifyRinging(agent, client, from, label));
 }
 
 // ---------------------------------------------------------------------------
@@ -367,6 +397,31 @@ async function onDial(p: URLSearchParams): Promise<Response> {
   const duration = Number(p.get("DialCallDuration") || 0) || null;
   const answered = dialStatus === "completed" || dialStatus === "answered";
   const status = answered ? "answered" : dialStatus === "busy" ? "busy" : dialStatus === "failed" ? "failed" : "missed";
+
+  if (!answered) {
+    // בסבב: אין מענה - הבא/ה בתור, עד ארבעה. השיחה נשארת "מצלצלת" בינתיים.
+    const { data: cur } = await supabase.from("agent_calls")
+      .select("id, line_id, ring_attempts, agent_phone_lines(ring_mode, label)")
+      .eq("twilio_call_sid", callSid).maybeSingle();
+    const lineInfo = (cur as any)?.agent_phone_lines;
+    if (cur?.line_id && lineInfo?.ring_mode === "round_robin") {
+      const next = await ringNext(callSid, cur.line_id);
+      const target = next ? e164(next.phone) : "";
+      if (next && target) {
+        const from = p.get("From") || "";
+        const to = p.get("To") || "";
+        await ringingClient(callSid, next.agent_id, await loadAgent(next.agent_id), from, lineInfo.label || "");
+        return xml(dialXml(target, from, to, await recordingAllowed(cur.line_id), RING_TIMEOUT_SEC));
+      }
+      // אף אחד לא ענה: השיחה נרשמת אצל מי שהתור היה שלו/ה - הוא/היא חוזר/ת
+      // (והלקוח/ה מהקובץ שלו/ה, לא של מי שצלצל אחרון)
+      const first = (cur.ring_attempts || [])[0];
+      if (first) {
+        const firstClient = await findClient(first, p.get("From") || "");
+        await supabase.from("agent_calls").update({ agent_id: first, client_id: firstClient?.id ?? null }).eq("id", cur.id);
+      }
+    }
+  }
 
   const { data: call } = await supabase
     .from("agent_calls")
