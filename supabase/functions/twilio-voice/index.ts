@@ -336,10 +336,14 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   const dialAction = escXml(`${PUBLIC_BASE}?event=dial`);
   const recCb = escXml(`${PUBLIC_BASE}?event=recording`);
   // ‏callerId = המתקשר/ת: הסוכן/ת רואה בנייד את מי שמתקשר, לא את המספר שלנו.
+  // מתקשר/ת מחו"ל או חסוי/ה: callerId = המספר שלנו. Twilio מתמחרת את הרגל לנייד
+  // לפי ה-caller ID - ‏$0.0646 לדקה ממספר ישראלי מול $0.1868 מכל מספר אחר, פי
+  // שלושה על אותה שיחה. המתקשר/ת עדיין מופיע/ה בסיכום בוואטסאפ.
   // ‏answerOnBridge: הלקוח/ה שומע/ת צלצול עד שהסוכן/ת עונה, ולא שקט.
+  const callerId = from.startsWith("+972") ? from : to;
   return xml(
     `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` +
-      `<Dial callerId="${escXml(from)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
+      `<Dial callerId="${escXml(callerId)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
       `record="record-from-answer-dual" recordingStatusCallback="${recCb}" ` +
       `recordingStatusCallbackEvent="completed" action="${dialAction}" method="POST">` +
       `<Number>${escXml(target)}</Number></Dial>`,
@@ -1115,10 +1119,19 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
   if (task === "lines-available") {
     const area = String(body?.area || "4");
     if (!LINE_AREAS.has(area)) return corsJson({ error: "bad_area" }, 400);
+    // המסלול לפני Twilio: מי שאינו/ה רשאי/ת להזמין לא מחפש/ת מספר בכלל
+    const { data: quota } = await supabase.rpc("phone_line_quota", { p_agent_id: me.id });
+    if (quota && !quota.can_order) {
+      return corsJson({ error: "tier_required", required_tier: "premium", quota }, 403);
+    }
     const number = await findAvailableNumber(area);
-    const { data: price } = await supabase.from("pricing_config")
-      .select("value").eq("key", "phone_line_monthly_price").maybeSingle();
-    return corsJson({ number, price: Number(price?.value ?? 89), balance: Number(me.credit_balance || 0) });
+    return corsJson({
+      number,
+      price: Number(quota?.next_price ?? 89),
+      monthly_price: Number(quota?.price ?? 89),
+      included: Number(quota?.next_price) === 0,
+      balance: Number(me.credit_balance || 0),
+    });
   }
 
   if (task === "lines-release") {
@@ -1169,7 +1182,10 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
     p_agent_id: me.id, p_number: number, p_label: label, p_source: source, p_property_id: propertyId,
   });
   if (orderErr) return corsJson({ error: orderErr.message }, 500);
-  if (order?.error) return corsJson(order, order.error === "insufficient_balance" ? 402 : 400);
+  if (order?.error) {
+    const status = order.error === "insufficient_balance" ? 402 : order.error === "tier_required" ? 403 : 400;
+    return corsJson(order, status);
+  }
 
   const form = new URLSearchParams({
     PhoneNumber: number,
@@ -1196,16 +1212,66 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
     forward_to: forwardTo,
     external_number: externalNumber,
   }).eq("id", order.line_id);
-  return corsJson({ success: true, line_id: order.line_id, number, balance: order.balance, price: order.price_charged });
+  return corsJson({
+    success: true, line_id: order.line_id, number, balance: order.balance,
+    price: order.price_charged, included: !!order.included,
+  });
+}
+
+/** מספר וירטואלי לפי מסלול: Elite - אחד כלול ונוספים בתשלום; האחרים - אחד
+ *  בתשלום. הסבב רץ לפני החידוש, כי הוא שממיר מספר כלול של מי שירד/ה לבתשלום
+ *  (phone_line_tier_sweep, docs/call-tracking.md). */
+function tierSweepNotes(sweep: Record<string, any> | null) {
+  const ils = (d: string) => new Date(d).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" });
+  const name = (r: Record<string, any>) => `${localPhone(r.number)}${r.label ? ` (${r.label})` : ""}`;
+  const rows = (k: string) => (sweep?.[k] || []) as Array<Record<string, any>>;
+  return [
+    ...rows("warn").map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "מסלול Elite מסתיים בקרוב - מה קורה למספרים הווירטואליים",
+      body: `המסלול מסתיים ב-${ils(r.ends_at)}. אם לא יחודש, יישאר לך מספר וירטואלי אחד לבחירתך ` +
+        "ב-89 ₪ לחודש, והשאר ישוחררו 7 ימים אחרי הירידה. חידוש המנוי שומר את כל המספרים.",
+    })),
+    ...rows("included").map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "המספר הווירטואלי שלך כלול עכשיו ב-Elite",
+      body: `המספר ${name(r)} מתחדש מעכשיו בלי חיוב, כל עוד המסלול Elite.`,
+    })),
+    ...rows("choose").map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "בחרו איזה מספר וירטואלי נשאר",
+      body: `המסלול כבר אינו Elite, ובו אפשר להחזיק מספר וירטואלי אחד. יש לך ${r.count} מספרים: ` +
+        `עד ${ils(r.deadline)} בחרו ב-CRM איזה נשאר (89 ₪ לחודש), או שדרגו חזרה ל-Elite. ` +
+        "בלי בחירה יישאר המספר שקיבל הכי הרבה שיחות.",
+    })),
+    ...rows("converted").map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "המספר הווירטואלי עובר לתשלום",
+      body: `המספר ${name(r)} נשאר שלך, ב-${r.price} ₪ לחודש מהארנק החל מ-${ils(r.paid_until)}.`,
+    })),
+    ...rows("released").map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "המספר שוחרר",
+      body: `המספר ${name(r)} שוחרר עם הירידה מ-Elite. השיחות וההקלטות שלו נשארות ביומן.`,
+    })),
+  ];
 }
 
 async function renewLines(): Promise<Response> {
+  const { data: sweep, error: sweepErr } = await supabase.rpc("phone_line_tier_sweep");
+  if (sweepErr) console.error("phone line tier sweep failed", sweepErr);
   const { data, error } = await supabase.rpc("claim_due_phone_line_renewals");
   if (error) return json({ error: error.message }, 500);
   const failed = (data?.payment_failed || []) as Array<Record<string, any>>;
   const released = (data?.released || []) as Array<Record<string, any>>;
+  const tierReleased = (sweep?.released || []) as Array<Record<string, any>>;
 
-  for (const r of released) {
+  for (const r of [...released, ...tierReleased]) {
     if (r.twilio_sid) {
       const del = await fetch(`${TW_API()}/IncomingPhoneNumbers/${r.twilio_sid}.json`, {
         method: "DELETE",
@@ -1229,6 +1295,7 @@ async function renewLines(): Promise<Response> {
       body: `המספר ${localPhone(r.number)}${r.label ? ` (${r.label})` : ""} שוחרר אחרי 7 ימים בלי תשלום. ` +
         "השיחות וההקלטות שלו נשארות ביומן.",
     })),
+    ...tierSweepNotes(sweep),
   ];
   if (notes.length) {
     const { error: nErr } = await supabase.from("notifications").insert(notes);
@@ -1238,6 +1305,7 @@ async function renewLines(): Promise<Response> {
     renewed: (data?.renewed || []).length,
     payment_failed: failed.length,
     released: released.length,
+    tier: sweep ? Object.fromEntries(Object.entries(sweep).map(([k, v]) => [k, (v as unknown[]).length])) : null,
   });
 }
 
