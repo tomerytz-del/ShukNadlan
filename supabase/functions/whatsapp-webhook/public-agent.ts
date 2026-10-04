@@ -97,6 +97,17 @@ const MAX_CARDS_PER_TURN = 3;
 // להן אפילו רווח. "🏘️ תראי לי גם נכסים דומים" (25) קוצר בגלל זה.
 const SIMILAR_TITLE = "🏘️ תראי נכסים דומים";
 const SAVE_TITLE = "🔔 שמרי לי את החיפוש";
+// שני הכפתורים שאחרי שמירת חיפוש: האם מתווך/ת יעזור/תעזור. "כן" מדליק את
+// ההסכמה על החיפוש שנשמר (‏request_agent_help), וזה מה שמכניס אותו למדף
+// הלידים. ‏16/17 ו-18/19 (תווים / יחידות UTF-16).
+const AGENT_YES_TITLE = "🤝 כן, אשמח לעזרה";
+const AGENT_NO_TITLE = "🔔 רק עדכונים, תודה";
+// השאלה עצמה, בקוד ולא בניסוח של המודל: מה שהיא מבטיחה ("מתווך/ת מהאזור
+// ייצור/תיצור קשר") צריך להיות בדיוק מה ש-grant_consent עושה, ולא יותר.
+const AGENT_LINE =
+  "ועוד שאלה אחת: רוצה שגם מתווך/ת מהאזור יעזור/תעזור לך לחפש? אם כן, אעביר " +
+  "את החיפוש והמספר שלך למתווכים באזור, ומי שיוכל/תוכל לעזור ייצור/תיצור קשר.";
+
 // הכפתור השלישי, רק בחיפוש לקנייה ורק פעם אחת בשיחה: הצטרפות לעדכוני יריד
 // הבתים הפתוחים (נכסים ללא עמלת תיווך לזמן מוגבל, docs/open-house-fair.md).
 // ‏17 תווים ו-18 יחידות UTF-16 (‏🏠 הוא שתיים).
@@ -687,6 +698,34 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "offer_agent_help",
+    description:
+      "מיד אחרי save_search_alert שהחזיר can_offer_agent_help=true: אישור " +
+      "השמירה, **עם השאלה אם מתווך/ת יעזור/תעזור ושני כפתורים** (\"" +
+      AGENT_YES_TITLE + "\" / \"" + AGENT_NO_TITLE + "\"). השאלה והכפתורים " +
+      "נוספים לבד. **ההודעה הזו היא סוף התור**: אין לכתוב אחריה דבר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description:
+            "אישור השמירה בתבנית מההוראות (\"מעולה ✓ שמרתי:\" + שורת הקריטריונים + " +
+            "\"ברגע שיעלה נכס מתאים...\"). בלי השאלה על מתווך/ת - היא נוספת לבד.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "request_agent_help",
+    description:
+      "מדליק את ההסכמה שמתווך/ת ייצור/תיצור קשר, על החיפוש שנשמר בשיחה. " +
+      "**רק אחרי \"כן\" מפורש** לשאלה של offer_agent_help - לחיצה על \"" +
+      AGENT_YES_TITLE + "\" היא כזה. בלי פרמטרים: החיפוש והפרטים כבר שמורים.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "open_house_signup",
     description:
       "מצרף/ת לרשימת העדכונים של יריד הדירות ללא עמלת תיווך: מייל בכל פעם " +
@@ -768,6 +807,8 @@ const TOOLS: Anthropic.Tool[] = [
 export interface PublicConversationState {
   history: Anthropic.MessageParam[];
   last_property_id: string | null;
+  /** החיפוש האחרון שנשמר בשיחה - ל"כן, אשמח לעזרה" בתור הבא. */
+  last_saved_search_id: string | null;
   /** כמה לידים נפתחו מהמספר הזה בחלון הנוכחי, ומתי החלון התחיל */
   leads_created: number;
   leads_window_start: string | null;
@@ -790,6 +831,8 @@ interface PublicContext {
   savedSearch?: boolean;
   /** האם הצטרפו ליריד בתור הזה. אחד לתור - כתובת שנייה היא כבר לא "אני". */
   joinedFair?: boolean;
+  /** האם ניתנה בתור הזה הסכמה לעזרה ממתווך/ת. */
+  agentHelp?: boolean;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -1603,6 +1646,80 @@ async function offerSaveSearch(
   }
 }
 
+/**
+ * אישור השמירה + השאלה על מתווך/ת, כהודעת כפתורים. אותו מנגנון בדיוק כמו
+ * offer_save_search: ההודעה סוגרת את התור, והגוף עם הכותרות נרשם ביומן
+ * ובהיסטוריה כדי שהלחיצה בתור הבא תדע על מה היא עונה.
+ */
+async function offerAgentHelp(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  if (!ctx.conv.last_saved_search_id) {
+    return { error: "no_saved_search", note: "אין חיפוש שמור בשיחה. לאשר את השמירה בטקסט." };
+  }
+  const message = String(args.message || "").trim();
+  if (!message) return { error: "missing_message" };
+  const body = `${message.slice(0, 1000 - AGENT_LINE.length)}\n\n${AGENT_LINE}`;
+  const buttons = [
+    { id: "agent_help_yes", title: AGENT_YES_TITLE },
+    { id: "agent_help_no", title: AGENT_NO_TITLE },
+  ];
+  try {
+    const waMessageId = await sendButtons(ctx.waPhone, body, buttons);
+    ctx.offerSent = `${formatForWhatsapp(body)}\n[${buttons.map((b) => b.title).join(" | ")}]`;
+    await ctx.supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId,
+      direction: "out",
+      wa_phone: ctx.waPhone,
+      msg_type: "interactive",
+      body: ctx.offerSent,
+      status: waMessageId ? "sent" : null,
+    });
+    return { sent: true, note: "ההודעה נשלחה עם הכפתורים. אין לכתוב דבר נוסף בתור הזה." };
+  } catch (err) {
+    console.error("agent help buttons send failed", err);
+    return {
+      sent: false,
+      note: "הכפתורים לא נשלחו. לכתוב את האישור ואת השאלה על מתווך/ת בטקסט, כתשובה הרגילה.",
+    };
+  }
+}
+
+/**
+ * "כן, אשמח לעזרה": מדליק את ההסכמה על החיפוש שכבר נשמר, דרך saved-search-intake
+ * (‏action=grant_consent) - אותה נקודת קליטה, ולכן אותו ניתוב ואותו יומן.
+ * אינו צורך מכסת לידים: זה אותו ליד, ולא חדש.
+ */
+async function requestAgentHelp(ctx: PublicContext): Promise<unknown> {
+  const searchId = ctx.conv.last_saved_search_id;
+  if (!searchId) {
+    return {
+      error: "no_saved_search",
+      note: "אין חיפוש שמור בשיחה הזו. אם רוצים עזרה ממתווך/ת - לשמור חיפוש עם " +
+        "save_search_alert ו-consent_agent_contact=true.",
+    };
+  }
+  const { ok, status, body } = await callIntake("saved-search-intake", {
+    action: "grant_consent",
+    search_id: searchId,
+  });
+  if (!ok) return { done: false, error: body.error || `http_${status}` };
+
+  ctx.conv.last_saved_search_id = null;
+  ctx.agentHelp = true;
+  return {
+    done: true,
+    // מה באמת קרה, בלי להבטיח יותר: מדף פירושו שמתווכים יכולים לבחור בליד,
+    // לא שמישהו כבר בחר
+    what_happens: body.routing === "shelf" || body.already === true
+      ? "החיפוש והמספר זמינים עכשיו למתווכים באזור, ומתווך/ת שיוכל/תוכל לעזור " +
+        "ייצור/תיצור קשר. אין התחייבות שמישהו יפנה, והעדכונים בוואטסאפ ממשיכים כרגיל."
+      : "ההסכמה נשמרה, והחיפוש יוצע למתווכים באזור כשיהיה מתאים. אין התחייבות " +
+        "שמישהו יפנה, והעדכונים בוואטסאפ ממשיכים כרגיל.",
+  };
+}
+
 /** האם ההצעה להצטרף ליריד כבר נשלחה בשיחה (ההיסטוריה נגזמת ל-10 הודעות). */
 function fairOffered(conv: PublicConversationState): boolean {
   return conv.history.some((m) =>
@@ -1796,10 +1913,15 @@ async function saveSearchAlert(
 
   consumeLeadSlot(ctx.conv);
   ctx.savedSearch = true;
+  // כפילות אינה מחזירה מזהה, ולכן גם אינה מקבלת את השאלה על מתווך/ת: אין
+  // שורה חדשה לעדכן, וייתכן שההסכמה כבר ניתנה עליה בשיחה קודמת.
+  const searchId = typeof body.search_id === "string" ? body.search_id : null;
+  ctx.conv.last_saved_search_id = searchId;
   return {
     saved: true,
     duplicate: body.duplicate === true,
     consent_given: consent,
+    can_offer_agent_help: !consent && !!searchId,
     manage_note: "אפשר לבטל את העדכונים בכל רגע דרך הקישור שמופיע בכל התראה.",
     // מה באמת קרה, כדי שהתשובה לא תבטיח יותר: בלי הסכמה אין סוכן/ת בתמונה
     what_happens: consent
@@ -2008,6 +2130,10 @@ async function runTool(
         return await offerSaveSearch(ctx, args);
       case "open_house_signup":
         return await openHouseSignup(ctx, args);
+      case "offer_agent_help":
+        return await offerAgentHelp(ctx, args);
+      case "request_agent_help":
+        return await requestAgentHelp(ctx);
       default:
         return { error: "unknown_tool", name };
     }
@@ -2143,12 +2269,20 @@ const SYSTEM_STATIC: string = (() => {
     "  מעולה ✓ שמרתי:",
     "  4 חדרים • רובע יזרעאל • עד 1.6 מיליון ₪",
     "  ברגע שיעלה נכס מתאים, אשלח לך הודעה כאן בוואטסאפ.",
-    "  (השורה האמצעית היא הקריטריונים, מופרדים ב-•. בלי שאלה נוספת אחרי.)",
+    "  (השורה האמצעית היא הקריטריונים, מופרדים ב-•.)",
+    "- **חזר can_offer_agent_help=true - האישור נשלח דרך offer_agent_help**, " +
+      "שמוסיף לבד את השאלה אם מתווך/ת יעזור/תעזור ואת שני הכפתורים, והתור " +
+      "נגמר שם. אחרת (duplicate, או שההסכמה כבר ניתנה) - האישור בטקסט, בלי " +
+      "שאלה נוספת.",
+    `- "${AGENT_YES_TITLE}" (או "כן" לשאלה בטקסט) = request_agent_help, ואז ` +
+      "what_happens במילים פשוטות. **אין להבטיח שמישהו כבר בדרך.**",
+    `- "${AGENT_NO_TITLE}" (או "לא") = משפט אחד קצר שהעדכונים ממשיכים כרגיל, ` +
+      "ובלי לשאול שוב.",
     "- חזר missing_name - לשאול לשם בשאלה אחת קצרה, ואז לשמור. חזר " +
       "duplicate - \"החיפוש הזה כבר שמור אצלי\", באותה תבנית.",
-    "- **במסלול הזה לא שואלים על סוכן/ת.** הלחיצה היא בקשה לעדכונים, לא " +
-      "הסכמה ליצירת קשר. רק מי שמבקש/ת בעצמו/ה שסוכן/ת יעזור - " +
-      "consent_agent_contact=true.",
+    "- **הלחיצה על השמירה אינה הסכמה ליצירת קשר**, ולכן השמירה עצמה תמיד עם " +
+      "consent_agent_contact=false, והשאלה באה אחריה. רק מי שמבקש/ת עזרה " +
+      "ממתווך/ת בעצמו/ה, לפני השמירה, נשמר/ת ישר עם consent_agent_contact=true.",
     "- **פעם אחת לכל חיפוש.** אותם קריטריונים לא מקבלים את ההצעה פעמיים, " +
       "וחיפוש שכבר נשמר לא מוצע לשמירה שוב. חיפוש **חדש** (קריטריונים אחרים) " +
       "נגמר שוב ב-offer_save_search - כמו הראשון.",
@@ -2197,6 +2331,7 @@ const SYSTEM_STATIC: string = (() => {
       "שלמעלה, שאומרת בדיוק את זה.)",
     "- **אין לקרוא לאף אחד מארבעת הכלים בלי שנאמר \"כן\" ברור.** נימוס אינו " +
       "הסכמה, שתיקה אינה הסכמה, ו\"תשלח לי מה שיש\" אינו אישור ליצירת קשר.",
+    "- (השאלה על מתווך/ת אחרי שמירת חיפוש היא חלק ממסלול א, ולא מסלול נוסף.)",
     "- **שאלה אחת בכל שיחה, לא ארבע.** מי שסירב/ה למסלול אחד לא נשאל/ת על " +
       "האחרים, ומי שכבר השאיר/ה פרטים לא נשאל/ת שוב. בוט שמנסה למכור בכל " +
       "הזדמנות הוא בוט שסוגרים.",
@@ -2398,6 +2533,9 @@ export async function runPublicTurn(opts: {
   // הכרטיס היה דוחף אותם למעלה רגע לפני הלחיצה.
   return {
     text: finalText,
-    shareContact: !!ctx.savedSearch || !!ctx.searched || !!ctx.joinedFair,
+    // התשובה לשאלה על מתווך/ת היא הרגע שבו כרטיס איש הקשר יוצא אחרי שמירה:
+    // תור השמירה עצמו נגמר עכשיו בכפתורים, והכרטיס לעולם לא איתם.
+    shareContact: !!ctx.savedSearch || !!ctx.searched || !!ctx.joinedFair ||
+      !!ctx.agentHelp || userText === AGENT_NO_TITLE,
   };
 }
