@@ -317,6 +317,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     #vizJumpBtn .vj-sub{font-size:.6rem}
     #vizJumpBtn .vj-curtain{width:56px;height:44px}
   }
+  /* שורת טקסט אחת (מסחרי): גם הווילון נמוך יותר, כדי שהכרטיס לא יהיה גבוה
+     מהטקסט שבו */
+  #vizJumpBtn.vj-one-line .vj-curtain{height:34px}
+  @media(min-width:640px){
+    #vizJumpBtn.vj-one-line .vj-curtain{height:40px;width:110px}
+  }
   @media(min-width:640px){
     #vizJumpBtn{padding:8px 10px 8px 14px}
     #vizJumpBtn .vj-title svg{width:15px;height:15px}

@@ -723,7 +723,10 @@ function revealTourJumpButton(){
    עיצוב AI לפני ואחרי". "עיצוב" ולא "שיפוץ" גם במכירה - הוא נכון גם להשכרה,
    שבה ההדמיה היא הלבשת בית ולא שיפוץ, ולכן נוסח אחד לשתיהן. */
 function vizJumpCopy(){
-  if (!vizState.isPrivate) return { title:'לחצו וראו איך ייראה כאן העסק שלכם', sub:'בהדמיית AI לפני ואחרי' };
+  // במסחרי ובהשכרה שורה אחת בלבד: המחיר שם ארוך ("/ חודש"), הכרטיס יורד
+  // לשורה משלו, וכל מילה נוספת כיסתה עוד רצועה מהתמונה של החנות. הווילון
+  // שליד הטקסט כבר מראה מה זה.
+  if (!vizState.isPrivate || vizState.staging) return { title:'הדמיית לפני ואחרי', sub:'' };
   return { title:'לחצו וראו איך הבית יכול להיראות', sub:'בהדמיית עיצוב AI לפני ואחרי' };
 }
 
@@ -770,11 +773,12 @@ function renderVizJumpButton(){
        </span>`
     : '';
   btn.classList.toggle('has-thumbs', !!pair);
-  btn.setAttribute('aria-label', `${title} - ${sub}`);
+  btn.classList.toggle('vj-one-line', !sub);
+  btn.setAttribute('aria-label', sub ? `${title} - ${sub}` : title);
   btn.innerHTML = `
     <span class="vj-text">
-      <span class="vj-title">${ICON.sparkle} ${vjKeepTail(title, '')}</span>
-      <span class="vj-sub">${vjKeepTail(sub, '', 2)}</span>
+      <span class="vj-title">${ICON.sparkle} ${sub ? vjKeepTail(title, '') : `<span class="vj-nw">${escapeHtml(title)}</span>`}</span>
+      ${sub ? `<span class="vj-sub">${vjKeepTail(sub, '', 2)}</span>` : ''}
     </span>${thumbs}`;
 }
 
@@ -786,7 +790,10 @@ function renderVizJumpButton(){
    מקבל את כל הרוחב (‏.vj-stack), והמחיר עולה מעליו בגובה הכרטיס שנמדד
    (‏--vj-h). עמודת הטקסט המינימלית שונה בין טלפון למחשב, כי הגופן שונה:
    ‏80px הם כותרת בשלוש שורות בטלפון, ו-180px בשתיים במחשב. */
-const vjTextMin = ()=> (window.innerWidth >= 640 ? 180 : 80);
+// בשורה אחת (‏.vj-one-line) הכותרת לא נשברת בכלל, ולכן העמודה צריכה את כל רוחבה
+const vjTextMin = (btn)=> btn.classList.contains('vj-one-line')
+  ? (window.innerWidth >= 640 ? 180 : 130)
+  : (window.innerWidth >= 640 ? 180 : 80);
 function watchHeroPriceWidth(){
   const price = document.getElementById('heroPrice');
   const btn = document.getElementById('vizJumpBtn');
@@ -797,7 +804,7 @@ function watchHeroPriceWidth(){
     const pw = price.hidden ? 0 : price.offsetWidth;
     cell.style.setProperty('--price-w', pw + 'px');
     const curtain = btn.querySelector('.vj-curtain');
-    const need = (curtain ? curtain.offsetWidth : 0) + vjTextMin() + 30;
+    const need = (curtain ? curtain.offsetWidth : 0) + vjTextMin(btn) + 30;
     cell.classList.toggle('vj-stack', !!pw && cell.clientWidth - pw - 40 < need);
     cell.style.setProperty('--vj-h', btn.offsetHeight + 'px');
   };
