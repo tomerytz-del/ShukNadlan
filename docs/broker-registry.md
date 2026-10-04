@@ -283,6 +283,7 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 | `agency_members_public` | כרטיס שהרישיון שלו לא תקין אינו מוצג |
 | `agency_is_live()` + `public read agencies` | משרד מוצג רק כשיש בו כרטיס פעיל עם רישיון תקין |
 | `#licenseHoldCard` ב-CRM | הסטטוס, שליחת צילום ותיקון המספר |
+| `propertyStatusLabel()` ב-CRM | "ממתין לאישור רישיון" ברשימת הנכסים, בשבב הסטטוס ובתצוגת המשרד - במקום "ירד מפרסום" |
 
 "תקין" = יש מספר, והסטטוס אינו `not_found`/`inactive`. ‏`unverified` נשאר תקין,
 מאותה סיבה שלא חסם קודם.

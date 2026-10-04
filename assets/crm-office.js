@@ -558,7 +558,7 @@ const BULK_REFER_LIST_MAX = 300;
 let bulkRefer = null;   // { kind, rows, checked:Set, query, scope }
 
 const BULK_PROPERTY_COLUMNS =
-  'id, listing_number, title, city, street, house_number, property_type, deal_type, status, price, agent_id, referred_by';
+  'id, listing_number, title, city, street, house_number, property_type, deal_type, status, price, agent_id, referred_by, license_hold_at';
 
 async function bulkFetchAgencyProperties(){
   const rows = [];
@@ -619,7 +619,9 @@ const BULK_REFER_KINDS = {
       .filter(Boolean).join(', ') || p.title || '-',
     meta: p => [
       p.listing_number != null ? 'מודעה #' + p.listing_number : '',
-      (typeof PROPERTY_STATUS_LABELS !== 'undefined' && PROPERTY_STATUS_LABELS[p.status]) || p.status,
+      // ‏propertyStatusLabel מ-crm.js: "ממתין לאישור רישיון" לנכס שמחכה לרישיון
+      (typeof propertyStatusLabel === 'function' ? propertyStatusLabel(p)
+        : (typeof PROPERTY_STATUS_LABELS !== 'undefined' && PROPERTY_STATUS_LABELS[p.status]) || p.status),
       p.agent_id !== currentAgent.id ? 'אצל ' + (officeMemberName(p.agent_id) || 'סוכן/ת') : '',
     ],
     blob: p => [p.title, p.city, p.street, p.house_number, p.property_type, p.listing_number,

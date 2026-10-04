@@ -34,6 +34,7 @@ description: עבודה על אימות רישיון התיווך בריפו ש�
 | דף הסוכן/ת | `agency_members_public` | מסנן רישיון לא תקין |
 | דף המשרד | `agency_is_live()` + המדיניות `public read agencies` | משרד בלי אף כרטיס תקין מוסתר |
 | ה-CRM | `#licenseHoldCard`, `refreshLicenseHold()` | הסטטוס, הצילום, תיקון המספר |
+| התווית בנכס | `propertyStatusLabel()`, `.psp-held` | "ממתין לאישור רישיון" במקום "ירד מפרסום". מקום חדש שמציג סטטוס נכס - דרכה, ו-`license_hold_at` בעמודות |
 
 ## ששה דברים ששוברים בשקט
 
