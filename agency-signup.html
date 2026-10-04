@@ -166,6 +166,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <input type="text" id="licenseNumber" required placeholder="לדוגמה: 123456" inputmode="numeric">
       <div id="licenseHint" class="hint" style="font-size:.74rem;margin-top:6px;display:none"></div>
     </div>
+    <!-- ‏ת.ז. נדרשת בכל הסכם תיווך. היא נבדקת כאן פעם אחת, בפתיחת המשרד
+         (ספרת ביקורת, עם "המספר נכון" למי שבטוח/ה), ונשמרת בפרופיל - כך
+         שההסכם הראשון לא נעצר עליה. assets/il-id.js -->
+    <div class="field">
+      <label>מספר תעודת זהות</label>
+      <input type="text" id="managerIdNumber" required placeholder="9 ספרות" inputmode="numeric"
+             dir="ltr" style="text-align:right" maxlength="20" data-il-id>
+    </div>
     <div class="field"><label>אימייל</label><input type="email" id="managerEmail" required autocomplete="username"></div>
     <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
 
@@ -234,6 +242,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/specialties.js"></script>
 <script src="assets/tiers.js"></script>
 <script src="assets/agency-city.js"></script>
+<script src="assets/il-id.js"></script>
 <script>
 /* ---------- המסלול שנבחר בדף המסלולים ----------
    ‏?tier= הוא אישור ולא הגדרה: הוא מאשר למי שהגיע/ה מדף המסלולים שהבחירה
@@ -336,12 +345,13 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('agencyName').value.trim();
   const managerName = document.getElementById('managerName').value.trim();
   const licenseNumber = document.getElementById('licenseNumber').value.trim();
+  const managerIdNumber = document.getElementById('managerIdNumber').value.trim();
   const managerEmail = document.getElementById('managerEmail').value.trim();
   const managerPassword = document.getElementById('managerPassword').value;
   const feedback = document.getElementById('feedback');
   const btn = document.getElementById('submitBtn');
 
-  if (!agencyName || !managerName || !licenseNumber || !managerEmail || !managerPassword){
+  if (!agencyName || !managerName || !licenseNumber || !managerIdNumber || !managerEmail || !managerPassword){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא למלא את כל השדות';
     return;
@@ -350,6 +360,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   if (window.AgencyCity && !agencyCity){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא לבחור את עיר המשרד';
+    return;
+  }
+  if (!IlId.check(document.getElementById('managerIdNumber'))){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
     return;
   }
   if (managerPassword.length < 8){
@@ -374,6 +389,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_email: managerEmail,
         manager_password: managerPassword,
         license_number: licenseNumber,
+        id_number: managerIdNumber,
         specialties: chosenSpecialties,
         ...(agencyCity || {}),
         ethics_code_accepted: true,

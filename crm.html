@@ -63,6 +63,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/open-house.js"></script>
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
+<!-- בדיקת ספרת הביקורת של ת.ז. בזמן ההזנה, עם עקיפה. docs/client-agreements.md -->
+<script src="assets/il-id.js"></script>
 <!-- מורכב בסוף assets/crm.js, עם בדיקת הטפסים שלא נשמרו. ראו crmUnsavedInput -->
 <script src="assets/exit-guard.js"></script>
 <!-- ‏GovMap: הטוקן והשליפה לערים שאינן עפולה. הסקריפט של GovMap עצמו נטען
@@ -4632,6 +4634,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
+    <!-- ‏ת.ז. נבדקת פעם אחת בפתיחת המשרד ונשמרת בפרופיל, כמו ב-agency-signup.html -->
+    <div class="field"><label>מספר תעודת זהות</label><input type="text" id="caIdNumber" required placeholder="9 ספרות"
+      inputmode="numeric" dir="ltr" style="text-align:right" maxlength="20" data-il-id></div>
     <!-- ---------- המסלול ----------
          בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
          המסלול המלא לחצי שנה, ובחירה אמיתית תיפתח בתומה — במסך בחירת
@@ -6008,7 +6013,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="field"><label for="clPhone">טלפון ראשי <span class="cf-req">*</span></label>
                 <input type="tel" id="clPhone" required dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
               <div class="field"><label for="clIdNumber">ת.ז. / ח״פ</label>
-                <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="להפקת הסכם תיווך"></div>
+                <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="להפקת הסכם תיווך" data-il-id></div>
             </div>
             <div class="cf-grid cf-grid-3">
               <div class="field"><label for="clEmail">דוא״ל</label>
@@ -7407,7 +7412,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                ולא מוקלדת מחדש בכל הסכם. אינה נחשפת בדף הסוכן/ת הציבורי. -->
           <div class="field">
             <label for="pfIdNumber">ת.ז. / ח״פ</label>
-            <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric">
+            <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric" data-il-id>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
           </div>
           <div class="field">
