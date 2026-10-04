@@ -143,7 +143,7 @@ const WRITABLE_FIELDS = [
 const CLIENT_WRITABLE_FIELDS = [
   "full_name", "phone", "email", "notes", "deal_type", "category",
   "property_types", "cities", "min_price", "max_price", "min_rooms",
-  "max_rooms", "min_size_sqm", "max_floor", "required_features",
+  "max_rooms", "min_size_sqm", "max_size_sqm", "max_floor", "required_features",
 ] as const;
 
 const AGREEMENT_KIND_KEYS = [
@@ -263,6 +263,10 @@ const clientFields = {
   min_rooms: { type: "number", description: "מינימום חדרים (אפשר 3.5)." },
   max_rooms: { type: "number", description: "מקסימום חדרים." },
   min_size_sqm: { type: "number", description: 'מינימום מ"ר.' },
+  max_size_sqm: {
+    type: "number",
+    description: 'מקסימום מ"ר. סינון קשיח: נכס גדול ממנו לא יוצע. "120-170 מ״ר" = min 120, max 170.',
+  },
   max_floor: { type: "integer", description: "הקומה הגבוהה ביותר שמסכימים לה." },
   required_features: {
     type: "array",
@@ -3007,7 +3011,10 @@ function clientNeeds(c: Record<string, unknown>): string {
     const to = c.max_price ? Number(c.max_price).toLocaleString("he-IL") : "";
     parts.push(from && to ? `₪${from}-${to}` : from ? `מ-₪${from}` : `עד ₪${to}`);
   }
-  if (c.min_size_sqm) parts.push(`מ-${c.min_size_sqm} מ״ר`);
+  if (c.min_size_sqm || c.max_size_sqm) {
+    const lo = c.min_size_sqm, hi = c.max_size_sqm;
+    parts.push(lo && hi ? `${lo}-${hi} מ״ר` : lo ? `מ-${lo} מ״ר` : `עד ${hi} מ״ר`);
+  }
   if (c.max_floor !== null && c.max_floor !== undefined) parts.push(`עד קומה ${c.max_floor}`);
   const feats = (c.required_features as string[]) || [];
   if (feats.length) parts.push(`חובה: ${feats.join(", ")}`);
@@ -3045,7 +3052,7 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .select(
       "id, full_name, phone, email, notes, status, deal_type, category, " +
       "property_types, cities, min_price, max_price, min_rooms, max_rooms, " +
-      "min_size_sqm, max_floor, required_features, created_at",
+      "min_size_sqm, max_size_sqm, max_floor, required_features, created_at",
     )
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false });
@@ -3272,7 +3279,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     .insert(payload)
     .select("id, full_name, phone, status, deal_type, category, property_types, " +
             "cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, " +
-            "max_floor, required_features")
+            "max_size_sqm, max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 
@@ -3300,8 +3307,8 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .select("id, full_name, status, deal_type, category, property_types, cities, " +
-            "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_floor, " +
-            "required_features")
+            "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, " +
+            "max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 

@@ -18742,7 +18742,9 @@ function clientRequirementLine(c){
       : null,
     (c.min_rooms || c.max_rooms)
       ? ((c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים') : null,
-    c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר' : null,
+    (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
+      : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
+      : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : null,
     c.max_floor != null ? 'עד קומה ' + c.max_floor : null,
     (c.required_features || []).length ? c.required_features.map(featureLabel).join(', ') : null,
   ].filter(Boolean);
@@ -19360,6 +19362,7 @@ function openEditClient(c){
   document.getElementById('clMaxPrice').value = c.max_price ?? '';
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
+  document.getElementById('clMaxSize').value  = c.max_size_sqm ?? '';
   document.getElementById('clMaxFloor').value = c.max_floor ?? '';
   document.getElementById('clNotes').value    = c.notes || '';
   document.getElementById('clStatus').value   = c.status;
@@ -19440,10 +19443,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
 
   const minPrice = numOrNull('clMinPrice'), maxPrice = numOrNull('clMaxPrice');
   const minRooms = numOrNull('clMinRooms');
+  const minSize = numOrNull('clMinSize'), maxSize = numOrNull('clMaxSize');
   // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת
   if (minPrice != null && maxPrice != null && minPrice > maxPrice){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'התקציב המינימלי גבוה מהמקסימלי';
+    return;
+  }
+  if (minSize != null && maxSize != null && minSize > maxSize){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'השטח המינימלי גדול מהמקסימלי';
     return;
   }
 
@@ -19462,7 +19471,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     cities: clientFormCities.slice(),
     min_price: minPrice, max_price: maxPrice,
     min_rooms: minRooms,
-    min_size_sqm: numOrNull('clMinSize'),
+    min_size_sqm: minSize, max_size_sqm: maxSize,
     max_floor: numOrNull('clMaxFloor'),
     required_features: getCheckedValues('clFeatures'),
     status: document.getElementById('clStatus').value,

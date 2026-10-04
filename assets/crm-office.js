@@ -168,13 +168,14 @@ const CLIENT_IO_FIELDS = [
   { key:'min_rooms',         label:'חדרים מינימום',   syn:['חדרים','מספר חדרים','מחדרים','rooms'] },
   { key:'max_rooms',         label:'חדרים מקסימום',   syn:['עד חדרים'] },
   { key:'min_size_sqm',      label:'מ"ר מינימלי',     syn:['גודל','מר','שטח','גודל מינימלי'] },
+  { key:'max_size_sqm',      label:'מ"ר מקסימלי',     syn:['עד מר','שטח מקסימלי','גודל מקסימלי'] },
   { key:'max_floor',         label:'קומה מקסימלית',   syn:['עד קומה'] },
   { key:'required_features', label:'מאפיינים נדרשים', syn:['מאפיינים','דרישות'] },
   { key:'financing_status',  label:'בשלות מימון',     syn:['מימון','אישור עקרוני'] },
   { key:'lead_source',       label:'מקור הגעה',       syn:['מקור','מקור הליד','source'] },
   { key:'notes',             label:'הערות',           syn:['הערה','notes'] },
 ];
-const CLIENT_IO_NUMERIC = new Set(['min_price','max_price','min_rooms','max_rooms','min_size_sqm','max_floor']);
+const CLIENT_IO_NUMERIC = new Set(['min_price','max_price','min_rooms','max_rooms','min_size_sqm','max_size_sqm','max_floor']);
 const CLIENT_IO_LISTS = new Set(['cities','property_types','required_features']);
 
 // קוד → מילה בקובץ, ומילה בקובץ → קוד. המילה הראשונה לכל קוד היא זו שנכתבת.
@@ -348,12 +349,15 @@ function clientRowToPayload(r, mapping, maps){
   });
   // תקציב במיליונים ("1.8") - מתורגם לשקלים, אחרת כל נכס היה מעליו
   ['min_price', 'max_price'].forEach(key => { if (p[key] && p[key] < 100) p[key] = Math.round(p[key] * 1e6); });
-  ['min_rooms', 'max_rooms', 'min_size_sqm'].forEach(key => { if (p[key] === 0) delete p[key]; });
+  ['min_rooms', 'max_rooms', 'min_size_sqm', 'max_size_sqm'].forEach(key => { if (p[key] === 0) delete p[key]; });
   if (p.min_price != null && p.max_price != null && p.min_price > p.max_price){
     [p.min_price, p.max_price] = [p.max_price, p.min_price];
   }
   if (p.min_rooms != null && p.max_rooms != null && p.min_rooms > p.max_rooms){
     [p.min_rooms, p.max_rooms] = [p.max_rooms, p.min_rooms];
+  }
+  if (p.min_size_sqm != null && p.max_size_sqm != null && p.min_size_sqm > p.max_size_sqm){
+    [p.min_size_sqm, p.max_size_sqm] = [p.max_size_sqm, p.min_size_sqm];
   }
   if (p.max_floor != null) p.max_floor = Math.round(p.max_floor);
 
@@ -369,7 +373,7 @@ function clientRowToPayload(r, mapping, maps){
 
   if (!p.status){
     const hasNeeds = p.cities.length || p.property_types.length || p.min_price != null || p.max_price != null
-      || p.min_rooms != null || p.min_size_sqm != null;
+      || p.min_rooms != null || p.min_size_sqm != null || p.max_size_sqm != null;
     p.status = hasNeeds ? 'active' : 'paused';
   }
   Object.keys(p).forEach(k => { if (p[k] === null) delete p[k]; });
