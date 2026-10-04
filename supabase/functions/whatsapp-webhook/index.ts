@@ -420,7 +420,7 @@ async function loadPublicConversation(
     .eq("wa_phone", phone)
     .maybeSingle();
   // הפונקציה והמיגרציה נפרסות בשני workflows בלי סדר מובטח. עד שהעמודה
-  // ‏(20270213092000) קיימת, select שלה נכשל - ושיחה שנטענת כריקה הייתה
+  // ‏(20270214091000) קיימת, select שלה נכשל - ושיחה שנטענת כריקה הייתה
   // מאבדת את ההיסטוריה ואת מונה הלידים. לכן נופלים לעמודות הישנות.
   if (error) {
     ({ data, error } = await supabase
@@ -479,7 +479,7 @@ async function savePublicConversation(
    ‏scripts/check_bot_entry.py מצליב, כי ניסוח מחדש של הודעה היה מעביר את
    כל הפניות שלה ל-direct בלי שום סימן. מי שמחק/ה את ההודעה המוכנה וכתב/ה
    משהו משלו/ה נספר/ת direct, וזה המחיר הידוע.
-   ‏SITE_ENTRY_PHRASES משוכפל במיגרציה 20270213090000 (המילוי למפרע). */
+   ‏SITE_ENTRY_PHRASES משוכפל במיגרציה 20270214090000 (המילוי למפרע). */
 const SITE_ENTRY_PHRASES: ReadonlyArray<[string, string]> = [
   ["מדף הבית", "homepage"],
   ["חיפשתי באתר", "search_empty"],

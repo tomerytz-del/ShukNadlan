@@ -14,7 +14,7 @@ on:
       - "*.html"
       - "assets/*.js"
       - "supabase/functions/whatsapp-webhook/index.ts"
-      - "supabase/migrations/20270213090000_whatsapp_public_entry.sql"
+      - "supabase/migrations/20270214090000_whatsapp_public_entry.sql"
       - "scripts/check_bot_entry.py"
       - ".github/workflows/bot_entry.yml"
   push:
@@ -23,7 +23,7 @@ on:
       - "*.html"
       - "assets/*.js"
       - "supabase/functions/whatsapp-webhook/index.ts"
-      - "supabase/migrations/20270213090000_whatsapp_public_entry.sql"
+      - "supabase/migrations/20270214090000_whatsapp_public_entry.sql"
       - "scripts/check_bot_entry.py"
       - ".github/workflows/bot_entry.yml"
   workflow_dispatch:

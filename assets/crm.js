@@ -3349,7 +3349,7 @@ async function loadAdminGabrielaReport(){
 
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
-      ? 'מונה הפניות לגבריאלה טרם קיים במסד - הריצו את המיגרציה 20270213090000_whatsapp_public_entry.sql.'
+      ? 'מונה הפניות לגבריאלה טרם קיים במסד - הריצו את המיגרציה 20270214090000_whatsapp_public_entry.sql.'
       : 'שגיאה בטעינת מונה הפניות לגבריאלה: ' + error.message;
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);

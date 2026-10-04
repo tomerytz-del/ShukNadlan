@@ -19,7 +19,7 @@
      (‏`*_HELLO = '...'` ו-‏`draw('...')`) מכילה ביטוי מ-‏`SITE_ENTRY_PHRASES`.
   ‏2. כל קריאה ל-‏`ShukBot.link(` / ‏`ShukBot.anchorHtml(` בקובץ JS או HTML
      מקבלת הודעה שנבדקה בסעיף 1 (משתנה מוכר או מחרוזת שמכילה ביטוי).
-  ‏3. כל ביטוי מופיע גם במילוי למפרע שבמיגרציה ‏20270213090000.
+  ‏3. כל ביטוי מופיע גם במילוי למפרע שבמיגרציה ‏20270214090000.
 
     python scripts/check_bot_entry.py
 
@@ -33,7 +33,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEBHOOK = ROOT / "supabase/functions/whatsapp-webhook/index.ts"
-MIGRATION = ROOT / "supabase/migrations/20270213090000_whatsapp_public_entry.sql"
+MIGRATION = ROOT / "supabase/migrations/20270214090000_whatsapp_public_entry.sql"
 HELLO_FILES = [ROOT / "assets/home.js", ROOT / "assets/bot-link.js"]
 
 # משתנים שמחזיקים הודעת פתיחה ונבדקים בסעיף 1. ‏`hello` הוא הפרמטר של

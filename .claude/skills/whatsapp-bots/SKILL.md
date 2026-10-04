@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, or when turning the site's "ask Gabriela" button on or off.
+description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, or when touching the open-house fair offer / the agent-help question after saving a search.
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -175,6 +175,23 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   אחרת כיבוי הדגל משאיר כפתור שמוביל ל"איני מזהה".
   ‏`docs/whatsapp-public-bot.md`, "נקודות כניסה מהאתר".
 
+## הודעת הפתיחה מהאתר היא גם המדידה
+
+הפאנל "פניות לגבריאלה מהאתר" ב-`crm` סופר פניות לפי `whatsapp_messages.public_entry`,
+שנחתם בקליטה על ההודעה שפותחת שיחה ציבורית (`siteEntryOf()` ב-`index.ts`). ‏wa.me
+אינו מעביר דבר מלבד הטקסט, ולכן **הסיווג הוא ביטוי בהודעת הפתיחה** ("מדף הבית",
+"חיפשתי באתר", "הגעתי מהאתר" - `SITE_ENTRY_PHRASES`).
+
+* מנסחים מחדש את `GAB_HELLO`, את ההודעות של `renderEmptyBotLink` או את
+  `FALLBACK_HELLO`? הביטוי נשאר, או שהרשימה מתעדכנת. אחרת הכפתור עובד וכל
+  הפניות ממנו עוברות בשקט ל-`direct`. ‏`scripts/check_bot_entry.py` חוסם.
+* נקודת כניסה חדשה עוברת ב-`ShukBot.link` / `anchorHtml` עם הודעה שמכילה ביטוי.
+  משתנה חדש שמחזיק הודעה נכנס ל-`KNOWN_HELLO_VARS` בבדיקה.
+* "פנייה" = הודעה עם היסטוריה ריקה (ראשונה, או אחרי 12 שעות שקט). שינוי
+  `PUBLIC_IDLE_RESET_HOURS` משנה גם את מה שהפאנל סופר.
+
+‏`docs/whatsapp-public-bot.md`, "כמה פניות מגיעות מהאתר".
+
 ## לפני הדחיפה
 
 ```sh
@@ -182,6 +199,7 @@ python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
+python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,
