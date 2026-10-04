@@ -4,6 +4,19 @@ import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-m
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { maskPhone, sendWhatsappOtp, toWhatsappMsisdn } from "../_shared/whatsapp-otp.ts";
 import { WA_VERIFY_TTL_MINUTES, waVerifyUrl } from "../_shared/agreement-wa-verify.ts";
+import { ilIdStatus } from "../_shared/il-id.ts";
+// ‏fillSignerSlots: המשבצות של חותם/ת שמשלים/ה פרטים בקישור (self_fill)
+// נמלאות מ-agreement_signers בכל הצגה. אותו מודול שבונה את המסמך בדפדפן.
+import "../_shared/agreement-templates.js";
+import "../_shared/agreement-doc.js";
+
+// deno-lint-ignore no-explicit-any
+const AgreementDoc: any = (globalThis as any).AgreementDoc;
+
+/** גוף המסמך עם המשבצות של self_fill ממולאות מהשורות. שאר ה-HTML כמו שננעל. */
+function filledDoc(html: string | null, signers: { ord: number; full_name: string; id_number: string | null }[]) {
+  return AgreementDoc.fillSignerSlots(html || "", signers);
+}
 
 // ============================================================================
 // חתימת הסכמי תיווך — ידנית ומרחוק
@@ -502,7 +515,7 @@ async function sendSignedCopies(agreementId: string) {
       `<p style="margin:0;font-size:11.5px;color:#565c63">קוד אימות המסמך: ` +
       `<b style="letter-spacing:.08em">${esc(agreement.verify_code)}</b></p>` +
     `</div>` +
-    `<div style="border-top:1px solid #e3e8f4">${agreement.document_html || ""}</div>` +
+    `<div style="border-top:1px solid #e3e8f4">${filledDoc(agreement.document_html, signers)}</div>` +
     signatureBlockHtml(signers);
 
   const html = mailShell("העתק חתום - " + agreement.title, inner);
@@ -725,7 +738,7 @@ Deno.serve(async (req: Request) => {
         title: agreement.title,
         kind: agreement.kind,
         status: agreement.status,
-        document_html: agreement.document_html,
+        document_html: filledDoc(agreement.document_html, all),
         verify_code: agreement.verify_code,
         allow_passport: agreement.allow_passport,
         signed_at: agreement.signed_at,
@@ -737,6 +750,9 @@ Deno.serve(async (req: Request) => {
       me: {
         id: signer.id, full_name: signer.full_name, id_number: signer.id_number,
         party: signer.party, signed_at: signer.signed_at,
+        // ‏self_fill: הדף פותח את השם והת.ז. לעריכה, ולוח החתימה נפתח רק
+        // אחרי שהם מולאו. ‏ord מזהה את המשבצות שלו/ה בגוף המסמך.
+        ord: signer.ord, self_fill: signer.self_fill === true,
       },
       // רק שמות ומצב — לא טלפונים ולא כתובות של הצד השני
       signers: all.map((s) => ({
@@ -840,6 +856,29 @@ Deno.serve(async (req: Request) => {
     const idNumber = typeof body?.id_number === "string" ? body.id_number.trim().slice(0, 20) : "";
     const idKind = body?.id_kind === "passport" ? "passport" : "id_card";
 
+    /* ‏חותם/ת שמשלים/ה פרטים בקישור: השם המלא והת.ז. הם תנאי לחתימה, והם
+       נכתבים לשורה - שממנה המשבצות בגוף המסמך נמלאות. אותה בדיקה כמו בדף,
+       ושוב בשרת: קריאה ישירה ל-sign בלי הפרטים הייתה משאירה הסכם חתום עם
+       שורת צדדים ריקה. */
+    let selfFill: Record<string, unknown> = {};
+    if (signer.self_fill === true) {
+      const fullName = typeof body?.full_name === "string"
+        ? body.full_name.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+      if (fullName.split(" ").filter((w: string) => w.length > 0).length < 2) {
+        return json({ error: "details_name" }, 400);
+      }
+      if (!idNumber) return json({ error: "details_id" }, 400);
+      const idConfirmed = body?.id_confirmed === true;
+      if (idKind === "id_card" && ilIdStatus(idNumber) !== "ok" && !idConfirmed) {
+        return json({ error: "details_id_invalid" }, 400);
+      }
+      selfFill = {
+        full_name: fullName,
+        details_filled_at: new Date().toISOString(),
+        id_confirmed: idKind === "id_card" && ilIdStatus(idNumber) !== "ok",
+      };
+    }
+
     const { error: updErr } = await db.from("agreement_signers").update({
       signature: body.signature,
       signed_at: new Date().toISOString(),
@@ -850,6 +889,7 @@ Deno.serve(async (req: Request) => {
       method: inPerson ? "manual" : "remote",
       id_number: idNumber || signer.id_number,
       id_kind: idNumber ? idKind : null,
+      ...selfFill,
     }).eq("id", signer.id).is("signed_at", null);
 
     if (updErr) return json({ error: "db_error", detail: updErr.message }, 500);
@@ -884,7 +924,7 @@ Deno.serve(async (req: Request) => {
       ok: true,
       agreement: {
         title: agreement.title, kind: agreement.kind, status: agreement.status,
-        document_html: agreement.document_html, verify_code: agreement.verify_code,
+        document_html: filledDoc(agreement.document_html, all), verify_code: agreement.verify_code,
         signed_at: agreement.signed_at, created_at: agreement.created_at,
       },
       agent: { name: agent.name, agency: agent.agency, phone: agent.phone },

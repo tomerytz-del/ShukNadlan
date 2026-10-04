@@ -947,6 +947,13 @@ const TOOLS: Anthropic.Tool[] = [
             "ת.ז. או ח״פ של הלקוח/ה. חובה להזמנה בכתב. אם חסר בכרטיס - " +
             "מבקשים מהסוכן/ת, והערך נשמר גם בכרטיס הלקוח/ה.",
         },
+        client_self_fill: {
+          type: "boolean",
+          description:
+            "true כשהסוכן/ת בוחר/ת שהלקוח/ה ישלים/תשלים בעצמו/ה שם מלא ות.ז. בקישור " +
+            "לחתימה (כשאין לו/לה ת.ז. או שם משפחה). אז ת.ז. אינה חובה כאן, והחתימה " +
+            "נפתחת ללקוח/ה רק אחרי שמילא/ה אותם.",
+        },
         client_id_confirmed: {
           type: "boolean",
           description:
@@ -996,6 +1003,10 @@ const TOOLS: Anthropic.Tool[] = [
             properties: {
               full_name: { type: "string" },
               id_number: { type: "string" },
+              self_fill: {
+                type: "boolean",
+                description: "true כשהחותם/ת ישלים/תשלים שם מלא ות.ז. בעצמו/ה בקישור.",
+              },
               id_confirmed: {
                 type: "boolean",
                 description:
@@ -1004,7 +1015,7 @@ const TOOLS: Anthropic.Tool[] = [
               phone: { type: "string" },
               email: { type: "string" },
             },
-            required: ["full_name", "id_number"],
+            required: ["full_name"],
           },
         },
         notes: { type: "string", description: "הערות שייכנסו למסמך." },
@@ -3970,6 +3981,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     full_name: String(client.full_name || "").trim(),
     id_number: clientIdNumber,
     id_confirmed: clientIdConfirmed,
+    self_fill: input.client_self_fill === true,
     phone: client.phone,
     email: clientEmail,
     address: client.address,
@@ -3981,6 +3993,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       full_name: String(extra.full_name || "").trim(),
       id_number: String(extra.id_number || "").trim(),
       id_confirmed: extra.id_confirmed === true,
+      self_fill: extra.self_fill === true,
       phone: String(extra.phone || "").trim() || null,
       email: String(extra.email || "").trim() || null,
       address: null,
@@ -4108,6 +4121,9 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     signers: links,
     // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
+    self_fill_note: signers.some((sg) => sg.self_fill)
+      ? "מי שסומן/ה להשלמה בקישור ימלא/תמלא שם מלא ות.ז. לפני שהחתימה נפתחת, והם ייכנסו להסכם."
+      : undefined,
     requires_otp: !!created.require_otp,
     otp_note: created.require_otp
       ? "בחתימה מרחוק החותם/ת מאמת/ת את עצמו/ה בלחיצה: שולח/ת לנו הודעה מוכנה בוואטסאפ מהנייד שבכרטיס (או קוד במייל). " +
@@ -5182,6 +5198,10 @@ const SYSTEM_STATIC: string = (() => {
       "המספר החדש. אם הסוכן/ת מאשר/ת שהמספר נכון כפי שהוא - קרא/י שוב עם " +
       "client_id_confirmed=true (או extra_signers[].id_confirmed=true לחותם/ת נוסף/ת). " +
       "לעולם אל תסמן/י אישור בלי שהסוכן/ת אמר/ה זאת, ואל תתקן/י ספרה בעצמך.",
+    "- חסרה ת.ז. או שם משפחה של הלקוח/ה והסוכן/ת לא יודע/ת אותם: הצע/י במשפט אחד " +
+      "שהלקוח/ה ישלים/תשלים אותם בעצמו/ה בקישור - החתימה נפתחת לו/לה רק אחרי שמילא/ה. " +
+      "אם הסוכן/ת מסכים/ה - קרא/י שוב עם client_self_fill=true (או extra_signers[].self_fill=true). " +
+      "אל תבחר/י בזה בלי שהסוכן/ת הסכים/ה.",
     "- חסר מייל לקוד האימות (בטופס קונה/שוכר): בקש/י אותו במשפט אחד - \"כדי שהלקוח/ה " +
       "יקבל/תקבל קוד לחתימה מרחוק צריך את המייל\" - ואז קרא/י שוב עם client_email " +
       "(הוא נשמר גם בכרטיס). אם הסוכן/ת אומר/ת שהחתימה תהיה פנים מול פנים - " +

@@ -80,6 +80,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .field input:focus{border-color:var(--blue);outline:none}
 
   .pad-label{font-size:.75rem;font-weight:700;color:var(--ink-soft);margin-bottom:5px}
+  .fill-note{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-sm);background:#f4f6f1;
+    font-size:.84rem;line-height:1.6;color:var(--ink)}
   .pad-box{position:relative;border:2px dashed #9aa0a6;border-radius:10px;background:#fff;height:190px;overflow:hidden}
   .pad-box canvas{width:100%;height:100%;display:block;cursor:crosshair}
   .pad-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -221,9 +223,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2>חתימה</h2>
       <p class="sign-sub">בחתימתי, אני מאשר בזאת כי קראתי את ההסכם.</p>
 
+      <!-- ‏self_fill: הסוכן/ת שלח/ה את ההסכם בלי השם המלא או הת.ז., והחותם/ת
+           משלים/ה אותם כאן. לוח החתימה נפתח רק אחרי ששניהם מולאו. -->
+      <p class="fill-note" id="fillNote" hidden>
+        כדי לחתום, השלימו קודם את השם המלא ואת מספר תעודת הזהות. הפרטים ייכנסו
+        להסכם, ומיד אחר כך תיפתח החתימה.
+      </p>
+
       <div class="field" id="nameField">
-        <label for="signerName">שם החותם/ת</label>
-        <input type="text" id="signerName" readonly>
+        <label for="signerName" id="nameLabel">שם החותם/ת</label>
+        <input type="text" id="signerName" readonly autocomplete="name">
       </div>
 
       <div class="field" id="idField">
@@ -236,6 +245,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                placeholder="9 ספרות" maxlength="20" data-il-id>
       </div>
 
+      <div id="padSection">
       <div class="pad-label" id="padLabel">חתום כאן:</div>
       <div class="pad-box">
         <canvas id="padCanvas"></canvas>
@@ -252,6 +262,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </label>
 
       <button type="button" class="btn" id="submitBtn" disabled>חתימה ואישור ההסכם</button>
+      </div>
       <div id="feedback"></div>
     </div>
   </div>
@@ -342,6 +353,9 @@ const ERROR_MESSAGES = {
   db_error:  ['תקלה זמנית',     'לא הצלחנו לטעון את ההסכם. נסו שוב בעוד רגע.'],
   network:   ['אין חיבור',      'לא הצלחנו להתחבר. בדקו את החיבור לאינטרנט ונסו שוב.'],
   otp_required: ['נדרש אימות',   'יש לאמת את הזהות בקוד לפני החתימה. רעננו את העמוד.'],
+  details_name: ['חסר שם מלא', 'נא להזין שם פרטי ושם משפחה.'],
+  details_id:   ['חסרה ת.ז.',  'נא להזין את מספר תעודת הזהות.'],
+  details_id_invalid: ['ת.ז. אינה תקינה', 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.'],
 };
 
 /* ---------- שער האימות ----------
@@ -520,9 +534,19 @@ async function init(){
   document.getElementById('padLabel').textContent = (data.me.full_name || '') + ', חתום כאן:';
 
   const idInput = document.getElementById('signerId');
+  selfFill = !!data.me.self_fill;
+  myOrd = data.me.ord;
   if (data.me.id_number){
     idInput.value = data.me.id_number;
-    idInput.readOnly = true;
+    // ‏self_fill: גם ת.ז. שהסוכן/ת הזין/ה נשארת פתוחה לתיקון - החותם/ת
+    // הוא/היא מי שמכיר/ה את המספר
+    idInput.readOnly = !selfFill;
+  }
+  if (selfFill){
+    const nameInput = document.getElementById('signerName');
+    nameInput.readOnly = false;
+    document.getElementById('nameLabel').textContent = 'שם מלא (שם פרטי ושם משפחה)';
+    document.getElementById('fillNote').hidden = false;
   }
   // מי שאין לו/לה ת״ז ישראלית חייב/ת דרך להזדהות, ובלי הבורר הזה הטופס
   // דורש ממנו/ה מספר שאינו קיים
@@ -543,11 +567,61 @@ async function init(){
   });
 
   showState('stateForm');
+  refreshDetails();
   pad.resize();
 }
 
+/* ---------- השלמת פרטים (self_fill) ----------
+   השם והת.ז. נכנסים למשבצות שבגוף המסמך תוך כדי הקלדה, כדי שמה שנחתם
+   הוא מה שנראה. החתימה נפתחת ברגע ששניהם תקינים - בלי כפתור "המשך". */
+let selfFill = false;
+let myOrd = null;
+
+function detailsName(){
+  return document.getElementById('signerName').value.replace(/\s+/g, ' ').trim();
+}
+
+function detailsReady(){
+  if (!selfFill) return true;
+  if (detailsName().split(' ').filter(Boolean).length < 2) return false;
+  const idInput = document.getElementById('signerId');
+  if (!idInput.value.trim()) return false;
+  return signerIdKind === 'passport' || IlId.accepted(idInput);
+}
+
+function paintSlot(key, value){
+  if (myOrd === null || myOrd === undefined) return;
+  document.querySelectorAll('[data-agr-fill="' + Number(myOrd) + ':' + key + '"]').forEach(el => {
+    el.innerHTML = window.AgreementDoc.slotInner(value);
+  });
+}
+
+function refreshDetails(){
+  if (!selfFill) return;
+  const name = detailsName();
+  paintSlot('full_name', name);
+  paintSlot('id_number', document.getElementById('signerId').value.trim());
+  document.getElementById('padLabel').textContent = (name || '') + ', חתום כאן:';
+  const ready = detailsReady();
+  const section = document.getElementById('padSection');
+  const wasHidden = section.hidden;
+  section.hidden = !ready;
+  // הלוח נמדד מחדש כשהוא נחשף - קנבס שצויר מוסתר מקבל רוחב 0
+  if (ready && wasHidden && pad) pad.resize();
+  refreshSubmit();
+}
+
+document.getElementById('signerName').addEventListener('input', refreshDetails);
+document.getElementById('signerId').addEventListener('input', ()=>{
+  const input = document.getElementById('signerId');
+  // תשע ספרות שגויות: האזהרה ו"המספר נכון" מוצגים מיד, לא רק ביציאה מהשדה
+  if (selfFill && input.value.replace(/\D/g, '').length >= 9) IlId.refresh(input);
+  refreshDetails();
+});
+document.getElementById('signerId').addEventListener('il-id-override', refreshDetails);
+
 function refreshSubmit(){
-  const ready = !!pad && !pad.isEmpty() && document.getElementById('ackRead').checked;
+  const ready = !!pad && !pad.isEmpty() && document.getElementById('ackRead').checked && detailsReady();
   document.getElementById('submitBtn').disabled = !ready;
 }
 
@@ -566,6 +640,7 @@ document.getElementById('idKind').addEventListener('click', (e)=>{
   // לדרכון אין ספרת ביקורת אחידה - הבדיקה חלה על ת.ז. בלבד
   input.dataset.ilId = isPassport ? 'off' : '';
   IlId.refresh(input);
+  refreshDetails();
 });
 
 document.getElementById('ackRead').addEventListener('change', refreshSubmit);
@@ -581,6 +656,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
 
   // ‏ת.ז. שספרת הביקורת שלה אינה מתאימה עוצרת כאן, אלא אם החותם/ת אישר/ה
   // שהמספר נכון. האזהרה והתיבה מוצגות מתחת לשדה.
+  if (selfFill && !detailsReady()){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'השלימו שם מלא (פרטי ומשפחה) ומספר תעודת זהות.';
+    return;
+  }
   if (!IlId.check(document.getElementById('signerId'))){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
@@ -597,6 +677,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     signature: pad.toDataURL(),
     id_number: document.getElementById('signerId').value.trim(),
     id_kind: signerIdKind,
+    ...(selfFill ? {
+      full_name: detailsName(),
+      id_confirmed: IlId.status(document.getElementById('signerId').value) !== 'ok'
+        && IlId.accepted(document.getElementById('signerId')),
+    } : {}),
   });
 
   if (!ok || !data.ok){
