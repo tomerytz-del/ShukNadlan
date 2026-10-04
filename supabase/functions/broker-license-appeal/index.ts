@@ -318,13 +318,13 @@ Deno.serve(async (req: Request) => {
           .eq("license_number", appeal.license_number)
           .in("license_status", ["not_found", "inactive"])
           // הטריגר agency_members_release_license_hold מעלה עכשיו לאוויר את
-          // המודעות של הכרטיסים האלה (20270215090000_license_hold.sql).
+          // המודעות של הכרטיסים האלה (20270216090000_license_hold.sql).
           .select("id");
         released = (freed ?? []).length;
       }
 
       const approved = decision === "approved";
-      // לאן חוזרים. מאז 20270215090000_license_hold.sql החשבון נפתח לפני
+      // לאן חוזרים. מאז 20270216090000_license_hold.sql החשבון נפתח לפני
       // הבדיקה, ולכן כמעט תמיד יש כרטיס - והאישור כבר העלה לאוויר את הדף
       // והמודעות שחיכו (הטריגר על agency_members). רק ערעור מהזרימה הישנה,
       // שנחסם בטופס לפני שנוצר חשבון, חוזר לטופס.
