@@ -340,6 +340,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .call-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .call-actions .btn{padding:5px 11px;font-size:.78rem}
   .call-row.is-archived{opacity:.6}
+  .lines-panel{margin:6px 0 12px}
+  #plModal .field select{width:100%;padding:11px 12px;border:1px solid #CBD5E1;border-radius:10px;font:inherit;background:#fff}
+  .line-row{border:1px solid #EEF2F6;border-radius:12px;padding:10px 12px;margin-top:8px;background:#FFF}
+  .line-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+  .line-name{font-weight:700}
+  .line-stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:.82rem;color:#475569}
+  .line-stats b{color:#0F172A}
+  .line-warn{color:#B45309;font-size:.8rem;margin-top:4px}
   .client-calls{margin-top:10px;padding:4px 12px;border:1px solid #EEF2F6;border-radius:12px;background:#FAFBFD}
   .call-audio{width:100%;margin-top:8px}
   .call-transcript{font-size:.8rem;line-height:1.7;background:#F8FAFC;border-radius:10px;padding:10px;margin-top:8px;white-space:pre-wrap}
@@ -5973,6 +5981,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
             <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
           </div>
+          <!-- מספרי המעקב: כינוי ומקור לכל מספר, נתוני 30 הימים, והזמנת מספר חדש מהארנק -->
+          <div id="linesPanel" class="lines-panel"></div>
           <div id="callsList"></div>
         </div>
         <!-- קובץ הלקוחות באקסל: ייבוא לכולם, ייצוא למנהל/ת משרד בלבד (מוצג ב-
@@ -8217,6 +8227,58 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="imp-body" id="ciBody"></div>
     <div class="imp-foot" id="ciFoot"></div>
+  </div>
+</div>
+<!-- הזמנת מספר מעקב / עריכת כינוי (assets/crm.js: openLineModal) -->
+<div class="imp-overlay" id="plModal" role="dialog" aria-modal="true" aria-labelledby="plTitle" style="display:none">
+  <div class="imp-card" style="max-width:520px">
+    <div class="imp-head">
+      <div class="imp-title" id="plTitle">מספר חדש</div>
+      <button type="button" class="imp-close" id="plClose" aria-label="סגירת החלון">✕</button>
+    </div>
+    <div class="imp-body">
+      <div class="field" style="margin-top:10px">
+        <label for="plLabel">כינוי למספר</label>
+        <input id="plLabel" maxlength="80" placeholder="למשל: שלט - האורנים 13, יד2 - פנטהאוז">
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label for="plSource">איפה המספר מפורסם</label>
+        <select id="plSource">
+          <option value="sign">שלט</option>
+          <option value="yad2">יד2</option>
+          <option value="facebook">פייסבוק</option>
+          <option value="instagram">אינסטגרם</option>
+          <option value="google">גוגל</option>
+          <option value="website">אתר</option>
+          <option value="newspaper">עיתון</option>
+          <option value="flyer">פלאייר</option>
+          <option value="other">אחר</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label for="plProperty">נכס (לא חובה)</label>
+        <select id="plProperty"><option value="">בלי נכס</option></select>
+      </div>
+      <div id="plOrderOnly">
+        <div class="field" style="margin-top:10px">
+        <label for="plArea">קידומת</label>
+        <select id="plArea">
+          <option value="4">04 - צפון</option>
+          <option value="3">03 - מרכז</option>
+          <option value="2">02 - ירושלים</option>
+          <option value="8">08 - דרום ושפלה</option>
+          <option value="9">09 - השרון</option>
+          <option value="77">077 - ארצי</option>
+        </select>
+        </div>
+        <p class="imp-note" id="plPriceNote" style="margin-top:10px"></p>
+      </div>
+      <p class="imp-note" id="plMsg" style="margin-top:8px"></p>
+    </div>
+    <div class="imp-foot">
+      <button type="button" class="btn btn-gold" id="plSave">הזמנה</button>
+      <button type="button" class="btn btn-ghost" id="plCancel">ביטול</button>
+    </div>
   </div>
 </div>
 <input type="file" id="ciFile" accept=".vcf,.vcard,.csv,text/vcard,text/x-vcard,text/csv" hidden>
