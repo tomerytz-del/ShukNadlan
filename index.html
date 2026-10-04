@@ -3883,8 +3883,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   /* ---------- השורה ככרטיס: היתרונות שאין לאחרים (אוקטובר 2026) ----------
      זה ה-highlight של האתר - מה שאין באתרים אחרים - ולכן כרטיס ולא שורה
-     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל. בלי תווית כותרת (הוסרה
-     בבקשת בעל/ת האתר). **נמוך בכוונה**
+     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל, וכותרת קטנה בתוכו
+     (‏.trust-title). תווית ספיר על הקצה העליון נוסתה והוסרה - כותרת שקטה
+     ולא בועה (החלטת בעל/ת האתר). **נמוך בכוונה**
      (החלטת בעל/ת האתר: לא באנר גבוה) - במחשב שורה אחת, ובטלפון המספרים
      בשורה אחת והחותמות בשתי שורות של אייקון מעל כיתוב. כל אייקון בעיגול
      זהב בהיר, כמו היתרונות בכרטיס גבריאלה. */
@@ -3892,6 +3893,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     position:relative;background:#fff;border:1px solid #eadfbf;border-radius:20px;
     box-shadow:0 12px 32px rgba(14,42,107,.09);padding:14px 24px;box-sizing:border-box;
   }
+  /* הכותרת בשורה משלה (‏flex-basis:100%), עם קו זהב קצר משני צדיה */
+  .trust-title{
+    flex-basis:100%;margin:0 0 6px;display:flex;align-items:center;justify-content:center;gap:10px;
+    font-size:15px;font-weight:800;line-height:1.2;color:var(--brass-ink);letter-spacing:.01em;
+  }
+  .trust-title::before,.trust-title::after{content:"";width:28px;height:2px;border-radius:2px;background:var(--brass)}
   html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{
     width:36px;height:36px;flex:none;border-radius:50%;
   }
@@ -5010,6 +5017,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              כאן הן מה שמבטיח שאם היא כן תישבר, היא תישבר בין המספרים
              לחותמות ולא באמצע צמד. -->
         <div class="hero-stats trust" id="heroStats" hidden>
+          <p class="trust-title">רק בשוק הנדל״ן</p>
           <div class="hero-stats-group">
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
