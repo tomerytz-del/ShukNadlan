@@ -20198,18 +20198,55 @@ async function loadCalls(){
   // הכרטיסים נבנו אולי לפני שידענו שיש יומן - בונים שוב, עם כפתור השיחות
   if (!callsEnabled){ callsEnabled = true; if (clientRows.length) renderClients(); }
 
-  const { data, error } = await sb.from('agent_calls')
+  await refreshCallList();
+  loadLineStats();
+}
+
+/* חיפוש ומיון השיחות - בשרת ולא ברשימה שבזיכרון: היא מחזיקה רק את 60
+   האחרונות, ושיחה מלפני חודשיים היא בדיוק מה שמחפשים. שם לקוח/ה מתורגם
+   למזהים מקובץ הלקוחות (client_id), ושם שנאמר בשיחה מ-extracted.caller_name. */
+function callsFilterState(){
+  const v = id => (document.getElementById(id) || {}).value || '';
+  return { q: v('callsSearch').trim(), from: v('callsFrom'), to: v('callsTo'), sort: v('callsSort') || 'new' };
+}
+function callsFilterActive(f){ return !!(f.q || f.from || f.to || f.sort !== 'new'); }
+
+async function refreshCallList(){
+  const f = callsFilterState();
+  let q = sb.from('agent_calls')
     .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
-    .eq('agent_id', currentAgent.id)
-    .order('created_at', { ascending:false })
-    .limit(60);
+    .eq('agent_id', currentAgent.id);
+  if (f.from) q = q.gte('created_at', new Date(f.from + 'T00:00:00').toISOString());
+  if (f.to){ const end = new Date(f.to + 'T00:00:00'); end.setDate(end.getDate() + 1); q = q.lt('created_at', end.toISOString()); }
+  // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
+  const term = f.q.replace(/[,()*%\\"']/g, ' ').trim();
+  if (term){
+    // מרכאות: חיפוש של כמה מילים ("דירת גן") הוא ערך אחד ולא שני תנאים
+    const parts = [`summary.ilike."*${term}*"`, `extracted->>caller_name.ilike."*${term}*"`];
+    const digits = term.replace(/\D/g, '').replace(/^0/, '');
+    if (digits.length >= 3) parts.push(`from_number.like.*${digits}*`);
+    const low = term.toLowerCase();
+    const ids = clientRows.filter(c => String(c.full_name || '').toLowerCase().includes(low)).slice(0, 50).map(c => c.id);
+    if (ids.length) parts.push(`client_id.in.(${ids.join(',')})`);
+    q = q.or(parts.join(','));
+  }
+  q = f.sort === 'old' ? q.order('created_at', { ascending:true })
+    : f.sort === 'long' ? q.order('duration_sec', { ascending:false, nullsFirst:false }).order('created_at', { ascending:false })
+    : q.order('created_at', { ascending:false });
+  const { data, error } = await q.limit(callsFilterActive(f) ? 200 : 60);
   const list = document.getElementById('callsList');
   if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(error.message) + '</div>'; return; }
   callRows = data || [];
   callRows.forEach(c => callById.set(c.id, c));
   renderCalls();
-  loadLineStats();
 }
+
+(function wireCallsFilter(){
+  let timer = null;
+  const run = () => { clearTimeout(timer); timer = setTimeout(() => { if (currentAgent) refreshCallList(); }, 300); };
+  ['callsSearch'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', run); });
+  ['callsFrom', 'callsTo', 'callsSort'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', run); });
+})();
 
 /* ============================================================================
    מספרי מעקב - "מאיפה הלקוחות מגיעים"
@@ -20313,6 +20350,7 @@ function renderLines(){
             <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a>`
          : 'מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע'}</span>`;
   box.innerHTML = rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
+  accSetCount('accLines', lineRows.length || '');
 }
 
 document.getElementById('linesPanel').addEventListener('click', e => {
@@ -20574,8 +20612,27 @@ function renderOfficeCalls(){
   const list = document.getElementById('officeCallsList');
   const agent = document.getElementById('officeCallsAgent').value;
   const missedOnly = document.getElementById('officeCallsMissed').checked;
-  const rows = officeCallRows.filter(c => (!agent || c.agent_id === agent) &&
-    (!missedOnly || (c.status !== 'answered' && c.status !== 'ringing'))).slice(0, 100);
+  // חיפוש ומיון מקומיים: 30 הימים כבר בזיכרון. שם מהקובץ של סוכן/ת אחר/ת
+  // אינו בידי המנהל/ת, ולכן השם הוא מה שנאמר בשיחה (extracted.caller_name).
+  const term = document.getElementById('officeCallsSearch').value.trim().toLowerCase();
+  const digits = term.replace(/\D/g, '').replace(/^0/, '');
+  const from = document.getElementById('officeCallsFrom').value;
+  const to = document.getElementById('officeCallsTo').value;
+  const fromT = from ? new Date(from + 'T00:00:00').getTime() : -Infinity;
+  const toT = to ? new Date(to + 'T00:00:00').getTime() + 86400000 : Infinity;
+  const sort = document.getElementById('officeCallsSort').value;
+  const rows = officeCallRows.filter(c => {
+    if (agent && c.agent_id !== agent) return false;
+    if (missedOnly && (c.status === 'answered' || c.status === 'ringing')) return false;
+    const t = new Date(c.created_at).getTime();
+    if (t < fromT || t >= toT) return false;
+    if (!term) return true;
+    const text = [c.summary, c.extracted && c.extracted.caller_name].filter(Boolean).join(' ').toLowerCase();
+    return text.includes(term) || (digits.length >= 3 && String(c.from_number || '').includes(digits));
+  });
+  if (sort === 'old') rows.reverse();
+  else if (sort === 'long') rows.sort((a, b) => (b.duration_sec || 0) - (a.duration_sec || 0));
+  rows.splice(100);
   if (!rows.length){ list.innerHTML = '<div class="empty-state">אין שיחות להצגה.</div>'; return; }
   const lineLabel = new Map(officeLines.map(l => [l.id, l.label || callLocalPhone(l.twilio_number)]));
   list.innerHTML = rows.map(c => officeCallRowHtml(c, officeMembers.get(c.agent_id), lineLabel.get(c.line_id))).join('');
@@ -20610,6 +20667,9 @@ function officeCallRowHtml(c, agentName, lineName){
   acc.addEventListener('toggle', () => { if (acc.open) loadOfficeCalls(); });
   document.getElementById('officeCallsAgent').addEventListener('change', renderOfficeCalls);
   document.getElementById('officeCallsMissed').addEventListener('change', renderOfficeCalls);
+  document.getElementById('officeCallsSearch').addEventListener('input', renderOfficeCalls);
+  ['officeCallsFrom', 'officeCallsTo', 'officeCallsSort'].forEach(id =>
+    document.getElementById(id).addEventListener('change', renderOfficeCalls));
   document.getElementById('officeAgentStats').addEventListener('click', e => {
     const a = e.target.closest('[data-office-filter]');
     if (!a) return;
@@ -20658,7 +20718,9 @@ function renderCalls(){
     return;
   }
   if (!callRows.length){
-    list.innerHTML = '<div class="empty-state">עוד אין שיחות. שיחה למספר שלך תופיע כאן עם הקלטה וסיכום.</div>';
+    list.innerHTML = callsFilterActive(callsFilterState())
+      ? '<div class="empty-state">לא נמצאו שיחות שמתאימות לחיפוש.</div>'
+      : '<div class="empty-state">עוד אין שיחות. שיחה למספר שלך תופיע כאן עם הקלטה וסיכום.</div>';
     return;
   }
   list.innerHTML = shown.map(c => callRowHtml(c)).join('');
@@ -22608,8 +22670,14 @@ async function loadGcal(){
 function renderGcal(){
   const box = document.getElementById('agGcal');
   if (!box) return;
-  box.hidden = !assistantTierOk() || !gcalAvailable();
-  if (box.hidden) return;
+  // החיבור יושב בהגדרות (#accGcal); ביומן נשאר רק קישור אליו, כשאין חיבור
+  const available = assistantTierOk() && gcalAvailable();
+  const acc = document.getElementById('accGcal');
+  if (acc) acc.style.display = available ? '' : 'none';
+  const link = document.getElementById('agGcalLink');
+  if (link) link.hidden = !available || !!(agendaGcal && agendaGcal.status === 'active');
+  if (!available) return;
+  accSetCount('accGcal', agendaGcal && agendaGcal.status === 'active' ? '✓' : '');
   const st = document.getElementById('agGcalStatus');
   const note = document.getElementById('agGcalNote');
   const connect = document.getElementById('agGcalConnect');
@@ -23189,6 +23257,8 @@ const NAV_GROUPS = [
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
     { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more' },
+    { acc:'accLines',         label:'מספרים וירטואליים',  icon:'phone',    tab:'more' },
+    { acc:'accGcal',          label:'יומן Google',        icon:'calendar', tab:'more' },
     { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא

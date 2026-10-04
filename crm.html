@@ -2157,6 +2157,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ag-add>summary::-webkit-details-marker{display:none}
   .ag-form-btns .btn[hidden]{display:none}
   .ag-gcal{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:0 0 12px}
+  .calls-filter{margin:8px 0 4px;align-items:center}
+  .calls-filter .calls-search{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.85rem}
+  .calls-filter input[type=date],.calls-filter select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.8rem;margin-inline-start:4px}
   .ag-gcal[hidden]{display:none}
   .ag-gcal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ag-gcal-title{font-weight:700;font-size:.86rem}
@@ -5981,8 +5984,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
             <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
           </div>
-          <!-- מספרי המעקב: כינוי ומקור לכל מספר, נתוני 30 הימים, והזמנת מספר חדש מהארנק -->
-          <div id="linesPanel" class="lines-panel"></div>
+          <!-- חיפוש ומיון: שם לקוח/ה, טלפון, מילה מהסיכום, וטווח תאריכים - בשרת,
+               כי הרשימה שנטענת היא רק 60 האחרונות (refreshCallList) -->
+          <div class="call-actions calls-filter" id="callsFilter">
+            <input type="search" id="callsSearch" class="calls-search" placeholder="חיפוש לפי שם לקוח/ה, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות">
+            <label class="call-meta">מ-<input type="date" id="callsFrom" aria-label="מתאריך"></label>
+            <label class="call-meta">עד<input type="date" id="callsTo" aria-label="עד תאריך"></label>
+            <select id="callsSort" aria-label="מיון">
+              <option value="new">החדשות קודם</option>
+              <option value="old">הישנות קודם</option>
+              <option value="long">הארוכות קודם</option>
+            </select>
+            <a href="#" class="call-meta" data-goto="accLines">📞 המספרים הווירטואליים שלי ←</a>
+          </div>
           <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
           <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
           <div id="callsList"></div>
@@ -6223,19 +6237,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך גבריאלה בוואטסאפ ("תזכירי לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
         <p class="acc-sub" id="agTierNote" hidden></p>
 
-        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
-             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
-        <div class="ag-gcal" id="agGcal" hidden>
-          <div class="ag-gcal-head">
-            <span class="ag-gcal-title">יומן Google</span>
-            <span class="rm-badge" id="agGcalStatus"></span>
-          </div>
-          <p class="rm-note" id="agGcalNote"></p>
-          <div class="ag-form-btns">
-            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
-            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
-          </div>
-        </div>
+        <!-- החיבור ליומן Google עבר להגדרות (#accGcal): פעולה של פעם אחת, ולא מה
+             שבאים לראות בראש היומן. כאן רק קישור אליו, כשעוד אין חיבור. -->
+        <p class="acc-sub" id="agGcalLink" hidden><a href="#" data-goto="accGcal">📅 חיבור ליומן Google - בהגדרות ←</a></p>
 
         <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
           <button type="button" data-ag-tab="today" aria-pressed="true">היום · <span id="agTabTodayCount">0</span></button>
@@ -6675,6 +6679,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="call-actions" style="margin:10px 0 6px">
             <select id="officeCallsAgent" class="btn btn-ghost" aria-label="סינון לפי סוכן/ת"><option value="">כל הסוכנים</option></select>
             <label class="call-meta" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="officeCallsMissed"> רק שיחות שלא נענו</label>
+          </div>
+          <div class="call-actions calls-filter">
+            <input type="search" id="officeCallsSearch" class="calls-search" placeholder="חיפוש לפי שם המתקשר/ת, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות המשרד">
+            <label class="call-meta">מ-<input type="date" id="officeCallsFrom" aria-label="מתאריך"></label>
+            <label class="call-meta">עד<input type="date" id="officeCallsTo" aria-label="עד תאריך"></label>
+            <select id="officeCallsSort" aria-label="מיון">
+              <option value="new">החדשות קודם</option>
+              <option value="old">הישנות קודם</option>
+              <option value="long">הארוכות קודם</option>
+            </select>
           </div>
           <div id="officeCallsList"></div>
         </div>
@@ -7398,6 +7412,49 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p id="waIntakeHint" style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0;line-height:1.6"></p>
       <button type="button" id="waIntakeRotate" hidden style="background:none;border:0;padding:0;margin-top:6px;font-size:.72rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer">הכתובת דלפה? החלפה לכתובת חדשה</button>
     </div>
+      </div>
+    </details>
+
+    <!-- ---------- מספרים וירטואליים ----------
+         ניהול המספרים (כינוי, מקור, ניתוב, מספר קיים, הזמנה מהארנק) - הגדרה
+         שעושים פעם אחת לכל שלט או מודעה. השיחות עצמן נשארו ב"שיחות אחרונות"
+         בקובץ הלקוחות. ‏renderLines ב-assets/crm.js, docs/call-tracking.md -->
+    <details class="acc" id="accLines">
+      <summary>
+        <span class="acc-title">מספרים וירטואליים</span>
+        <span class="acc-count" id="accLinesCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">מספר לכל שלט, מודעה או קמפיין - השיחות מנותבות לנייד, מוקלטות ומסוכמות בוואטסאפ, ותדעו מאיפה כל לקוח/ה הגיע/ה. כאן נותנים כינוי, בוחרים לאן לנתב, מחברים מספר קיים ומזמינים מספר חדש.</p>
+        <div id="linesPanel" class="lines-panel"></div>
+      </div>
+    </details>
+
+    <!-- ---------- יומן Google ----------
+         חיבור של פעם אחת. מוסתר כולו כשהמסלול אינו כולל את היומן
+         (renderGcal). ‏docs/google-calendar.md -->
+    <details class="acc" id="accGcal">
+      <summary>
+        <span class="acc-title">יומן Google</span>
+        <span class="acc-count" id="accGcalCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
+             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
+        <div class="ag-gcal" id="agGcal">
+          <div class="ag-gcal-head">
+            <span class="ag-gcal-title">יומן Google</span>
+            <span class="rm-badge" id="agGcalStatus"></span>
+          </div>
+          <p class="rm-note" id="agGcalNote"></p>
+          <div class="ag-form-btns">
+            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
+            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
+          </div>
+        </div>
+
       </div>
     </details>
 

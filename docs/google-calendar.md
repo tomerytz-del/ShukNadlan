@@ -39,7 +39,7 @@ CRM  ──POST {action:'start'}──►  google-calendar-connect   (verify_jwt
                                    │  יצירת יומן "שוק נדל״ן" · שמירת הטוקן מוצפן
                                    │  סימון הפגישות הפתוחות לסנכרון
                                    ▼
-                          302 → /crm?goto=accAgenda&gcal=<תוצאה>
+                          302 → /crm?goto=accGcal&gcal=<תוצאה>
 ```
 
 ## מי רואה את הכפתור: כל הסוכנים במסלול, מ-30.9.2026
@@ -229,3 +229,10 @@ select status, google_email, calendar_id, last_error, last_sync_at from agent_ca
 select title, google_sync_state, google_sync_error from agent_agenda_items
  where google_sync_state is not null order by updated_at desc limit 20;
 ```
+
+## איפה החיבור ב-CRM
+
+בהגדרות החשבון, בקטגוריה **"יומן Google"** (`#accGcal`) - ולא בראש "יומן ומשימות", שם הוא ישב
+עד 10.2026. החיבור הוא פעולה של פעם אחת, וביומן באים לראות את הפגישות. ביומן נשאר רק קישור
+"חיבור ליומן Google - בהגדרות" (`agGcalLink`), וגם הוא רק כשעוד אין חיבור. כשהמסלול אינו כולל
+את היומן הקטגוריה מוסתרת כולה (`renderGcal`). ההפניה חזרה מ-Google נוחתת עליה (`goto=accGcal`).
