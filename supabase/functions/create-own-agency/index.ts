@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
-import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { resolveAgencyCityId } from "../_shared/agency-city.ts";
 
@@ -84,20 +84,18 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---------------------------------------------------------------------
-  // אימות רישיון התיווך, לפני שנוצר המשרד
+  // אימות רישיון התיווך - **אינו חוסם את פתיחת המשרד**
   //
-  // גם כאן, כמו ב-agency-signup, הבדיקה קודמת לכל כתיבה: שני המסלולים
-  // שלמטה (יצירת כרטיס חדש, ואימוץ כרטיס מנותק) כבר מוחקים את המשרד ידנית
-  // כשהם נכשלים, ואין סיבה להוסיף להם מצב שלישי לנקות.
+  // התוצאה נכתבת על הכרטיס, ומה שמחכה לאישור הוא האוויר: דף המשרד, דף
+  // הסוכן/ת והמודעות (`20270215090000_license_hold.sql`). כך מי שהרישיון
+  // שלו/ה עוד לא במאגר נכנס/ת, שולח/ת צילום, ורואה את הסטטוס ב-CRM.
   // ---------------------------------------------------------------------
   const licenseCheck = await checkBrokerLicense(supabase, license_number, {
     who: manager_name,
     email: userData.user.email ?? undefined,
     source: "create-own-agency",
   });
-  if (!licenseCheck.allowed) {
-    return json(blockedResponse(licenseCheck, license_number), 403);
-  }
+  const license = licenseSummary(licenseCheck, license_number);
 
   try {
     let baseSlug = slugify(agency_name) || "agency";
@@ -165,6 +163,7 @@ Deno.serve(async (req: Request) => {
           clients: (moved as any)?.clients_moved ?? 0,
         },
         ethics_recorded: !agencyEthicsErr,
+        license,
       });
     }
 
@@ -234,6 +233,7 @@ Deno.serve(async (req: Request) => {
       tier: promo?.tier ?? "free",
       promo,
       ethics_recorded: ethicsRecorded,
+      license,
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

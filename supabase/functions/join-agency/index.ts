@@ -5,8 +5,9 @@ import {
   grantLaunchPromo, PROMO_TIER, TIERS, TIER_NAMES, TIER_PRICES, type Tier,
 } from "../_shared/launch-promo.ts";
 import {
-  APPEAL_PENDING_MESSAGE, appealForEmail, blockedResponse, checkBrokerLicense,
+  APPEAL_PENDING_MESSAGE, appealForEmail, checkBrokerLicense, licenseSummary,
 } from "../_shared/broker-license-gate.ts";
+import { normalizeLicense } from "../_shared/broker-registry.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { freeAgentSlug } from "../_shared/agent-slug.ts";
 
@@ -93,7 +94,7 @@ Deno.serve(async (req: Request) => {
   const userEmail = normEmail(user.email);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const action = ["resolve", "claim", "decide", "cancel_claim", "set_tier"].includes(body?.action)
+  const action = ["resolve", "claim", "decide", "cancel_claim", "set_tier", "license_status", "set_license"].includes(body?.action)
     ? body.action : "resolve";
 
   /** הענקת הטבת ההשקה. כישלון כאן לא מפיל את השיוך — המשרד חשוב מהמתנה. */
@@ -114,18 +115,17 @@ Deno.serve(async (req: Request) => {
   }
 
   /**
-   * שער הרישיון על כרטיס קיים.
+   * שער הרישיון על כרטיס קיים - **מספר חובה, אישור לא**.
    *
-   * ‏bind הוא הרגע שבו חשבון נקשר לכרטיס — כלומר **הכניסה הראשונה** של
-   * הסוכן/ת למערכת — ולכן הוא המקום הנכון לשער, ולא שלושת המסלולים בנפרד.
+   * עד `20270215090000_license_hold.sql` כרטיס שהרישיון שלו לא נמצא לא קיבל
+   * `user_id`, כלומר מי שנחסם/ה לא נכנס/ה כלל - גם לא כדי לראות שהערעור
+   * שלו/ה בבדיקה. עכשיו השיוך נעשה, והשער עבר למה שמוצג לגולשים: דף
+   * הסוכן/ת והמודעות מחכים לאישור במסד, ולא בפונקציה הזו.
    *
-   * הבדיקה חד-פעמית ולא חוזרת, ולכן:
-   *   • כרטיס שכבר אומת (‏verified/manual) עובר **בלי קריאת רשת בכלל**.
-   *     זה הרוב: ‏add-team-member כבר בדק אותו ביצירה.
-   *   • כרטיס שמעולם לא נבדק (‏license_checked_at ריק — כלומר נוצר לפני
-   *     המיגרציה) נבדק עכשיו, בכניסה הראשונה שלו. זו בדיוק ההגדרה.
-   *   • כרטיס שנבדק ונחסם נבדק שוב, כי ‎checkBrokerLicense‎ שואל קודם כול
-   *     אם בינתיים אושר ערעור — וזה המסלול שדרכו מי שנחסם/ה נכנס/ת.
+   * מה שנשאר כאן:
+   *   • כרטיס בלי מספר **אינו** משויך (`license_required`) - בלי מספר אין מה
+   *     לבדוק ואין על מה לערער.
+   *   • כרטיס שמעולם לא נבדק נבדק עכשיו, והתוצאה נכתבת עליו.
    */
   async function licenseGate(memberId: string) {
     const { data: card } = await supabase
@@ -134,31 +134,21 @@ Deno.serve(async (req: Request) => {
       .eq("id", memberId).maybeSingle();
     if (!card) return null;
 
-    if (card.license_checked_at && ["verified", "manual"].includes(card.license_status)) return null;
-
-    // כרטיס בלי מספר רישיון **אינו** עובר. מאז שטופס ההזמנה הפסיק לבקש את
-    // המספר, זה מצבו הרגיל של כל כרטיס ממתין — ו-`fillMissingProfile` הוא
-    // שגובה אותו מהסוכן/ת לפני השיוך. אם בכל זאת הגענו לכאן בלי מספר, משהו
-    // עקף את המסלול הזה, והתשובה הנכונה היא סירוב ולא מעבר בשקט: זה ההבדל
-    // בין שער לבין קישוט.
     if (!card.license_number) {
       return {
         error: "license_required",
         detail: "כדי להיכנס למערכת צריך למסור את מספר רישיון התיווך.",
       };
     }
+    if (card.license_checked_at) return null;
 
     const decision = await checkBrokerLicense(supabase, card.license_number, {
       who: card.display_name || undefined,
       email: card.email || userEmail || undefined,
       source: "join-agency",
     });
-
-    // התוצאה נרשמת בכל מקרה — גם כשהיא מתירה. זה התיעוד החד-פעמי של
-    // הבדיקה, ובלעדיו היא הייתה רצה שוב בכל כניסה.
     await supabase.from("agency_members").update(decision.columns).eq("id", memberId);
-
-    return decision.allowed ? null : blockedResponse(decision, card.license_number);
+    return null;
   }
 
   /**
@@ -173,10 +163,11 @@ Deno.serve(async (req: Request) => {
    * הערעור — שדורש צילום תעודה — נפתח בידי מי שהתעודה אינה אצלו/ה. עכשיו
    * הבדיקה רצה מול מי שהמספר שלו/ה, והערעור נפתח עם המסמך ביד.
    *
-   * ארבע תשובות, וכל אחת מסך אחר אצל הקורא:
-   *   ok      — יש רישיון (כרטיס ותיק), או שנמסר עכשיו ועבר. אפשר לשייך.
+   * התשובות, וכל אחת מסך אחר אצל הקורא:
+   *   ok      — יש רישיון (כרטיס ותיק), או שנמסר עכשיו ונכתב - גם אם לא
+   *             נמצא ברשם. אפשר לשייך; האוויר מחכה לאישור במסד.
    *   needs   — עוד לא נמסר. זה **אינו** כישלון: זו הבקשה הראשונה.
-   *   blocked — נמסר ונחסם. תשובת הערעור המלאה, כמו בכל מסלול אחר.
+   *   taken   — המספר כבר רשום על כרטיס אחר.
    *   invalid — מה שהוקלד אינו יכול להיות מספר רישיון.
    */
   async function fillMissingProfile(memberId: string) {
@@ -217,12 +208,13 @@ Deno.serve(async (req: Request) => {
       return { taken: true as const };
     }
 
+    // התוצאה נכתבת על הכרטיס **גם כשהיא שלילית**: החשבון נכנס, ומה שמחכה
+    // לאישור הוא דף הסוכן/ת והמודעות (20270215090000_license_hold.sql).
     const decision = await checkBrokerLicense(supabase, license, {
       who: name || card.display_name || undefined,
       email: card.email || userEmail || undefined,
       source: "join-agency",
     });
-    if (!decision.allowed) return { blocked: blockedResponse(decision, license) };
 
     const patch: Record<string, unknown> = { license_number: license, ...decision.columns };
     // השם נכתב רק כשהכרטיס נוצר בלעדיו. כשמנהל/ת המשרד כבר מילא/ה אותו,
@@ -264,7 +256,6 @@ Deno.serve(async (req: Request) => {
         display_name: prep.needs.display_name,
       });
     }
-    if ("blocked" in prep) return json(prep.blocked, 403);
     if ("taken" in prep) return json({ error: "license_in_use" }, 409);
     if ("invalid" in prep) return json({ error: prep.invalid }, 400);
     return json({ error: prep.error, detail: (prep as any).detail }, 500);
@@ -662,6 +653,89 @@ Deno.serve(async (req: Request) => {
         current_tier: me.tier,
         detail: `הבקשה למסלול ${TIER_NAMES[tier]} נקלטה. ניצור קשר להסדרת התשלום, והמסלול יופעל מיד אחריה.`,
       });
+    }
+
+    // =====================================================================
+    // license_status — "מה מצב הרישיון שלי?"
+    //
+    // מה שה-CRM מציג למי שהרישיון שלו/ה עוד לא אושר: האם הדף והמודעות
+    // באוויר, והאם יש ערעור ובאיזה מצב. ‏broker_license_appeals סגורה לדפדפן,
+    // ולכן התשובה עוברת כאן ולא בשאילתה ישירה.
+    // =====================================================================
+    if (action === "license_status") {
+      const { data: me } = await supabase
+        .from("agency_members")
+        .select("id, license_number, license_status")
+        .eq("user_id", user.id).maybeSingle();
+      if (!me) return json({ error: "no_matching_agent_profile" }, 403);
+
+      const cleared = !!me.license_number && !["not_found", "inactive"].includes(me.license_status || "");
+      let appeal: any = null;
+      if (!cleared && me.license_number) {
+        const { data } = await supabase
+          .from("broker_license_appeals")
+          .select("status, decision_note, created_at, decided_at")
+          .eq("license_number", normalizeLicense(me.license_number))
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle();
+        appeal = data ?? null;
+      }
+      const { count: held } = await supabase
+        .from("properties").select("id", { count: "exact", head: true })
+        .eq("agent_id", me.id).not("license_hold_at", "is", null);
+
+      return json({
+        status: me.license_status,
+        cleared,
+        license_number: me.license_number,
+        appeal,
+        held_properties: held ?? 0,
+      });
+    }
+
+    // =====================================================================
+    // set_license — מספר רישיון חדש או מתוקן, נבדק בשמירה
+    //
+    // הדרך היחידה לשנות את המספר אחרי הכניסה: שדות ה-license_* נעולים מול
+    // הדפדפן, ולכן שמירה ישירה של המספר הייתה משאירה עליו את תוצאת הבדיקה
+    // של המספר הקודם. מספר שכבר אומת אינו משתנה כאן (וגם לא בטריגר).
+    // אישור כאן מעלה לאוויר את מה שחיכה - הטריגר על agency_members עושה זאת.
+    // =====================================================================
+    if (action === "set_license") {
+      // אותו נרמול של טבלת הערעורים (בלי אפסים מובילים), כדי שאישור ערעור
+      // ימצא את הכרטיס לפי אותו מספר.
+      const license = normalizeLicense(String(body?.license_number ?? ""));
+      if (!/^\d{3,8}$/.test(license)) return json({ error: "invalid_license" }, 400);
+
+      const { data: me } = await supabase
+        .from("agency_members")
+        .select("id, display_name, email, license_number, license_status")
+        .eq("user_id", user.id).maybeSingle();
+      if (!me) return json({ error: "no_matching_agent_profile" }, 403);
+
+      const locked = ["verified", "manual"].includes(me.license_status || "");
+      if (locked && normLicense(me.license_number) !== license) {
+        return json({ error: "license_locked", detail: "מספר הרישיון כבר אומת ואינו ניתן לשינוי. לתיקון - פנו אלינו." }, 409);
+      }
+
+      const { data: rows } = await supabase
+        .from("agency_members").select("id, license_number").not("license_number", "is", null);
+      if ((rows || []).some((r: any) => r.id !== me.id && normLicense(r.license_number) === license)) {
+        return json({ error: "license_in_use" }, 409);
+      }
+
+      const decision = await checkBrokerLicense(supabase, license, {
+        who: me.display_name || undefined,
+        email: me.email || userEmail || undefined,
+        source: "set-license",
+      });
+      const { error } = await supabase
+        .from("agency_members")
+        .update({ license_number: license, ...decision.columns })
+        .eq("id", me.id);
+      if (error) return json({ error: "db_error", detail: error.message }, 500);
+
+      return json({ success: true, license: licenseSummary(decision, license) });
     }
 
     return json({ error: "unknown_action" }, 400);

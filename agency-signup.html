@@ -192,10 +192,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        משהו, והפעולה המוצעת היא לשלוח צילום — לא "פנו לתמיכה".
   -->
   <div id="stateBlocked" style="display:none">
-    <h1>לא מצאנו את מספר הרישיון</h1>
+    <h1 id="blockedTitle">לא מצאנו את מספר הרישיון</h1>
     <p class="sub" id="blockedReason"></p>
 
-    <div style="background:#f6f7fb;border-radius:12px;padding:14px;margin:16px 0;font-size:.85rem;line-height:1.65">
+    <div style="background:#f6f7fb;border-radius:12px;padding:14px;margin:16px 0;font-size:.85rem;line-height:1.65" id="blockedExplain">
       מאגר רשם המתווכים מתעדכן אחת לשלושה חודשים, ולכן רישיון שהונפק לאחרונה
       עדיין לא מופיע בו. אפשר לצרף כאן צילום של הרישיון - הנהלת הפלטפורמה
       תבדוק ותפתח את המשרד ידנית, בדרך כלל תוך יום עסקים.
@@ -221,7 +221,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="stateAppealSent" style="display:none">
     <h1>הצילום התקבל</h1>
     <p class="sub" id="appealSentMsg"></p>
-    <a href="/" class="btn" style="display:flex;text-decoration:none;margin-top:16px">חזרה לדף הבית</a>
+    <a href="/" class="btn" id="appealSentBtn" style="display:flex;text-decoration:none;margin-top:16px">חזרה לדף הבית</a>
   </div>
 
   <div id="stateDone">
@@ -323,7 +323,9 @@ licenseInput.addEventListener('blur', async ()=>{
       licenseHint.textContent = '✓ ' + (data.message || 'הרישיון אומת');
     } else if (data.status === 'not_found' || data.status === 'inactive'){
       licenseHint.style.color = 'var(--red)';
-      licenseHint.textContent = data.message || 'מספר הרישיון לא נמצא ברשם המתווכים';
+      // לא חוסם: החשבון נפתח, והדף עולה לאוויר אחרי אישור הרישיון
+      licenseHint.textContent = (data.message || 'מספר הרישיון לא נמצא ברשם המתווכים') +
+        ' אפשר להמשיך - החשבון ייפתח, והדף והמודעות יעלו לאוויר אחרי אישור הרישיון.';
     } else {
       licenseHint.style.display = 'none';   // unverified — אין מה לומר
     }
@@ -403,6 +405,35 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       return;
     }
 
+    // ‏החשבון נפתח, אבל הרישיון לא נמצא ברשם. זה **אינו** כישלון: נכנסים
+    // כרגיל, ורק הדף והמודעות מחכים לאישור. הצילום מתבקש כאן, כשהפרטים
+    // עוד מול העיניים - ואפשר גם אחר כך, מאיזור הסוכנים.
+    if (res.ok && data.success && data.license && !data.license.cleared){
+      accountOpened = true;
+      blockedLicense = data.license.license_number || licenseNumber;
+      document.getElementById('stateForm').style.display = 'none';
+      if (data.license.appeal_pending){
+        document.getElementById('appealSentMsg').textContent =
+          'החשבון נפתח. על מספר הרישיון הזה כבר נשלח צילום והוא בבדיקה - הדף והמודעות שלך יעלו לאוויר ברגע שיאושר.';
+        showAppealSentForAccount();
+      } else {
+        document.getElementById('blockedTitle').textContent = 'החשבון נפתח - נשאר לאשר את הרישיון';
+        document.getElementById('blockedReason').textContent = data.license.detail || '';
+        document.getElementById('blockedExplain').textContent =
+          'אפשר כבר להיכנס ולעבוד. דף המשרד, דף הסוכן/ת והמודעות יעלו לאוויר אחרי אישור הרישיון. ' +
+          'מאגר רשם המתווכים מתעדכן אחת לשלושה חודשים, ולכן רישיון חדש עוד לא מופיע בו - ' +
+          'צרפו צילום והנהלת הפלטפורמה תאשר, בדרך כלל תוך יום עסקים.';
+        document.getElementById('apName').value  = managerName;
+        document.getElementById('apEmail').value = managerEmail;
+        const back = document.getElementById('apBack');
+        back.textContent = 'אעשה את זה אחר כך - כניסה לאיזור הסוכנים';
+        back.href = '/crm';
+        document.getElementById('stateBlocked').style.display = 'block';
+      }
+      window.scrollTo(0,0);
+      return;
+    }
+
     if (!res.ok || data.error){
       const messages = {
         weak_password: 'הסיסמה קצרה מדי',
@@ -431,6 +462,16 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
    ‏5MB ב-base64 הם ~6.7MB בגוף הבקשה, ולכן התקרה כאן היא 5MB על הקובץ
    עצמו — בדיוק כמו במסד ובפונקציה. */
 let blockedLicense = '';
+// ‏true אחרי שהחשבון נפתח עם רישיון שעוד לא אושר: הצילום נשלח מחשבון קיים,
+// ומסך הסיום מוביל לאיזור הסוכנים ולא לדף הבית.
+let accountOpened = false;
+
+function showAppealSentForAccount(){
+  const btn = document.getElementById('appealSentBtn');
+  btn.textContent = 'מעבר לאיזור הסוכנים';
+  btn.href = '/crm';
+  document.getElementById('stateAppealSent').style.display = 'block';
+}
 const MAX_APPEAL_BYTES = 5 * 1024 * 1024;
 
 const readAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -441,6 +482,7 @@ const readAsDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 document.getElementById('apBack').addEventListener('click', (e)=>{
+  if (accountOpened) return;       // הקישור מוביל ל-/crm
   e.preventDefault();
   document.getElementById('stateBlocked').style.display = 'none';
   document.getElementById('stateForm').style.display = 'block';
@@ -485,7 +527,8 @@ document.getElementById('apSubmit').addEventListener('click', async ()=>{
     if (data.status === 'received' || data.status === 'already_pending' || data.status === 'already_approved'){
       document.getElementById('appealSentMsg').textContent = data.detail || '';
       document.getElementById('stateBlocked').style.display = 'none';
-      document.getElementById('stateAppealSent').style.display = 'block';
+      if (accountOpened) showAppealSentForAccount();
+      else document.getElementById('stateAppealSent').style.display = 'block';
       window.scrollTo(0,0);
       return;
     }

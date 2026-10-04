@@ -317,20 +317,24 @@ Deno.serve(async (req: Request) => {
           })
           .eq("license_number", appeal.license_number)
           .in("license_status", ["not_found", "inactive"])
+          // הטריגר agency_members_release_license_hold מעלה עכשיו לאוויר את
+          // המודעות של הכרטיסים האלה (20270215090000_license_hold.sql).
           .select("id");
         released = (freed ?? []).length;
       }
 
       const approved = decision === "approved";
-      // לאן חוזרים. מי שנחסם/ה בטופס פתיחת המשרד עוד אין לו/ה חשבון, ולכן
-      // הטופס הוא הדרך; כל השאר כבר מחוברים, והכניסה ממשיכה מעצמה מאותה
-      // נקודה — join-agency מוצא את הערעור לפי האימייל ולא מבקש שוב את המספר.
-      const backUrl = appeal.source === "agency-signup"
+      // לאן חוזרים. מאז 20270215090000_license_hold.sql החשבון נפתח לפני
+      // הבדיקה, ולכן כמעט תמיד יש כרטיס - והאישור כבר העלה לאוויר את הדף
+      // והמודעות שחיכו (הטריגר על agency_members). רק ערעור מהזרימה הישנה,
+      // שנחסם בטופס לפני שנוצר חשבון, חוזר לטופס.
+      const noAccount = released === 0 && appeal.source === "agency-signup";
+      const backUrl = noAccount
         ? "https://shuknadlan.co.il/agency-signup"
         : "https://shuknadlan.co.il/crm";
-      const backText = appeal.source === "agency-signup"
+      const backText = noAccount
         ? "אפשר לחזור לטופס פתיחת המשרד ולשלוח אותו שוב - הפעם הוא יעבור."
-        : "אפשר פשוט להיכנס שוב עם אותו חשבון, וממשיכים מאותה נקודה בלי למלא שוב את מספר הרישיון.";
+        : "הדף שלך והמודעות שחיכו לאישור עולים עכשיו לאוויר. אפשר להיכנס לאיזור הסוכנים כרגיל.";
       await sendPlatformEmail({
         to: [appeal.applicant_email],
         subject: approved ? "רישיון התיווך אושר - אפשר להמשיך" : "בקשת אימות רישיון התיווך נדחתה",

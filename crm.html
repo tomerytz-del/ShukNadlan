@@ -4907,6 +4907,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
       </div>
 
+      <!-- ---------- רישיון התיווך עוד לא אושר ----------
+           החשבון נפתח לפני אישור הרישיון (20270215090000_license_hold.sql),
+           ולכן זה המקום שבו הסוכן/ת רואה מה מחכה: הדף, דף המשרד והמודעות לא
+           מוצגים באתר עד האישור. מכאן שולחים צילום, מתקנים מספר, ורואים את
+           מצב הערעור. נעלם מעצמו ברגע שהרישיון מאושר. -->
+      <section id="licenseHoldCard" hidden style="background:#fff8ec;border:1.5px solid #e5c76a;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px">
+        <h2 style="font-size:1.02rem;margin:0 0 6px">רישיון התיווך שלך עוד לא אושר</h2>
+        <p id="lhText" style="font-size:.86rem;line-height:1.65;margin:0 0 8px"></p>
+        <p id="lhStatus" style="font-size:.84rem;line-height:1.6;margin:0 0 12px;font-weight:700"></p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn btn-gold" id="lhAppealBtn">שליחת צילום רישיון</button>
+          <button type="button" class="btn btn-ghost" id="lhFixBtn">תיקון מספר הרישיון</button>
+        </div>
+        <div id="lhFixRow" hidden style="margin-top:12px">
+          <div class="field" style="margin-bottom:8px">
+            <label for="lhLicense">מספר רישיון תיווך</label>
+            <input type="text" id="lhLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+          </div>
+          <button type="button" class="btn btn-gold" id="lhSaveBtn">שמירה ובדיקה</button>
+        </div>
+        <div id="lhFeedback" style="font-size:.82rem;margin-top:8px;min-height:1.2em"></div>
+      </section>
+
       <!-- ---------- מדריך ההתחלה ----------
            ששת הצעדים הראשונים של סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה,
            ורק שלהם: המצב מגיע מ-agent_onboarding_state() במסד, שמחזירה אפס
@@ -7371,7 +7394,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field">
             <label for="pfLicense">מספר רישיון תיווך</label>
             <input type="text" id="pfLicense" maxlength="30" dir="ltr" style="text-align:right" required>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. אפשר לתקן אותו כאן, אבל לא להשאיר ריק.</p>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. מספר שמשנים כאן נבדק מול רשם המתווכים בשמירה.</p>
           </div>
           <!-- ‏ת.ז. נדרשת בהזמנת שירותי תיווך בכתב (תקנות המתווכים במקרקעין
                (פרטי הזמנה בכתב), התשנ״ז-1997), ולכן היא נשמרת בפרופיל פעם אחת

@@ -299,6 +299,25 @@ async function alertPlatform(
   });
 }
 
+/**
+ * מצב הרישיון כפי שהוא נמסר לדפדפן אחרי פתיחת חשבון.
+ *
+ * מאז `20270215090000_license_hold.sql` רישיון שלא נמצא **אינו** חוסם את
+ * פתיחת החשבון: החשבון נפתח, ומה שמחכה לאישור הוא האוויר - דף הסוכן/ת, דף
+ * המשרד והמודעות. התשובה הזו אומרת למסך אם להציג "הכול תקין" או "יש בעיה
+ * ברישיון, אפשר לשלוח צילום".
+ */
+export function licenseSummary(decision: GateDecision, license: string) {
+  return {
+    status: decision.status,
+    cleared: decision.allowed,
+    license_number: normalizeLicense(license),
+    appealable: decision.appealable,
+    appeal_pending: !!decision.appeal_pending,
+    detail: decision.allowed ? "" : decision.message,
+  };
+}
+
 /** גוף התשובה שהדפדפן מקבל כשההרשמה נחסמה. אחיד בכל ארבעת המסלולים. */
 export function blockedResponse(decision: GateDecision, license: string) {
   return {

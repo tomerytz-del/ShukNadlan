@@ -104,6 +104,7 @@ document.getElementById('laSubmit').addEventListener('click', async ()=>{
         return;
       }
       showToast(data.detail || 'הצילום התקבל', 6000);
+      refreshLicenseHold();
       return;
     }
     fail(data.detail || ('שגיאה: ' + (data.error || 'לא ידועה')));
@@ -1552,6 +1553,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -6301,11 +6303,29 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     }
 
     feedback.textContent = 'שומר…';
+
+    // ‏מספר הרישיון אינו נכתב ישירות: שדות הבדיקה שלו נעולים מול הדפדפן, ולכן
+    // שמירה ישירה הייתה משאירה על מספר חדש את התוצאה של הקודם. מספר שהשתנה
+    // נבדק בשרת מול רשם המתווכים (join-agency/set_license), כאן בשמירה.
+    const digitsOf = v => String(v || '').replace(/\D/g, '').replace(/^0+/, '');
+    let licenseNote = '';
+    if (digitsOf(license) !== digitsOf(currentAgent.license_number)){
+      feedback.textContent = 'בודקים את מספר הרישיון מול רשם המתווכים…';
+      const lic = await saveLicenseNumber(license);
+      if (!lic.success){
+        throw new Error(lic.detail || LICENSE_SAVE_ERRORS[lic.error] || 'מספר הרישיון לא נשמר');
+      }
+      licenseNote = lic.license.cleared
+        ? ''
+        : ' מספר הרישיון לא נמצא ברשם המתווכים - הדף והמודעות יעלו לאוויר אחרי אישור (ראו הכרטיס בראש הדשבורד).';
+      refreshLicenseHold();
+      feedback.textContent = 'שומר…';
+    }
+
     // קוראים את השורה חזרה במקום להניח מה נשמר: טריגר ההגנה על agency_members
     // מחזיר שדות נעולים לערכם הישן בשקט, ועדיף להציג את מה שבאמת יושב ב-DB
     const patch = {
       display_name: name,
-      license_number: license,
       id_number: document.getElementById('pfIdNumber').value.trim() || null,
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
@@ -6363,9 +6383,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     renderProfilePreview();
 
     feedback.style.color = 'var(--green)';
-    feedback.textContent = saved.license_number === license
-      ? 'הפרטים נשמרו - דף הסוכן/ת שלך מעודכן.'
-      : 'הפרטים נשמרו, אך מספר הרישיון לא עודכן - פנו להנהלת הפלטפורמה.';
+    feedback.textContent = 'הפרטים נשמרו - דף הסוכן/ת שלך מעודכן.' + licenseNote;
     showToast('פרטי הסוכן/ת עודכנו');
     // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
     refreshOnboarding();
@@ -6735,6 +6753,111 @@ async function loadOnboarding(){
    הבא נולד בטריגר במסד **באותה שמירה**, והפעמון נטען בכניסה לדשבורד בלבד —
    בלי הרענון כאן ההתראה שמעודדת את הצעד הבא הייתה מופיעה רק בטעינה הבאה,
    כלומר בדיוק לא ברגע שבו היא רלוונטית. שתיהן קורות רק בזמן המדריך. */
+/* ================= רישיון שעוד לא אושר =================
+   החשבון נפתח לפני אישור הרישיון, ומה שמחכה הוא האוויר: דף הסוכן/ת, דף
+   המשרד והמודעות (20270215090000_license_hold.sql). הכרטיס הזה הוא המקום
+   היחיד שבו רואים את זה - ומכאן שולחים צילום, מתקנים מספר ובודקים סטטוס.
+   הנתונים מ-join-agency (‏license_status), כי טבלת הערעורים סגורה לדפדפן. */
+let licenseState = null;
+
+async function refreshLicenseHold(){
+  const card = document.getElementById('licenseHoldCard');
+  if (!card || !currentAgent) return;
+  const { ok, data } = await callJoinAgency({ action:'license_status' });
+  if (!ok){ return; }   // תקלה זמנית אינה סיבה להציג אזהרה
+  licenseState = data;
+  if (data.cleared){ card.hidden = true; return; }
+
+  const held = data.held_properties || 0;
+  const isManager = currentAgent.role === 'manager';
+  document.getElementById('lhText').textContent =
+    'החשבון פעיל ואפשר לעבוד כרגיל, אבל ' +
+    (isManager ? 'דף המשרד, דף הסוכן/ת שלך' : 'דף הסוכן/ת שלך') +
+    ' והמודעות לא מוצגים באתר עד שהרישיון יאושר. ' +
+    (held ? (held === 1 ? 'מודעה אחת ממתינה' : held + ' מודעות ממתינות') + ' ותעלה לאוויר אוטומטית ברגע האישור.'
+          : 'מודעות שתפרסם/י עכשיו יעלו לאוויר אוטומטית ברגע האישור.');
+
+  const a = data.appeal;
+  const status = document.getElementById('lhStatus');
+  const appealBtn = document.getElementById('lhAppealBtn');
+  if (a && a.status === 'pending'){
+    status.style.color = 'var(--ink)';
+    status.textContent = 'הצילום ששלחת (' + hebDate(a.created_at) + ') בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים.';
+    appealBtn.hidden = true;
+  } else if (a && a.status === 'rejected'){
+    status.style.color = 'var(--brick)';
+    status.textContent = 'הצילום שנשלח לא אושר' + (a.decision_note ? ': ' + a.decision_note : '.') +
+      ' אפשר לתקן את המספר או לשלוח צילום חדש.';
+    appealBtn.hidden = false;
+  } else {
+    status.style.color = 'var(--brick)';
+    status.textContent = 'מספר הרישיון ' + (data.license_number || '') + ' לא נמצא ברשם המתווכים. ' +
+      'המאגר מתעדכן אחת לשלושה חודשים - אם הרישיון חדש, שלחו צילום ונאשר ידנית.';
+    appealBtn.hidden = false;
+  }
+  card.hidden = false;
+}
+
+document.getElementById('lhAppealBtn').addEventListener('click', ()=>{
+  openLicenseAppeal({
+    license: licenseState?.license_number || currentAgent?.license_number || '',
+    name:    currentAgent?.display_name || '',
+    email:   currentAgent?.email || '',
+    source:  'crm',
+  });
+});
+
+document.getElementById('lhFixBtn').addEventListener('click', ()=>{
+  const row = document.getElementById('lhFixRow');
+  row.hidden = !row.hidden;
+  if (!row.hidden){
+    const input = document.getElementById('lhLicense');
+    input.value = licenseState?.license_number || '';
+    input.focus();
+  }
+});
+
+/* מספר רישיון חדש עובר דרך השרת, ונבדק מול רשם המתווכים בשמירה. אישור
+   כאן מעלה לאוויר את מה שחיכה - הטריגר במסד עושה את זה, לא הדפדפן. */
+async function saveLicenseNumber(license){
+  const { data } = await callJoinAgency({ action:'set_license', license_number: license });
+  if (data.success && currentAgent) currentAgent.license_number = data.license?.license_number || license;
+  return data;
+}
+
+const LICENSE_SAVE_ERRORS = {
+  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-8.',
+  license_in_use:  'מספר הרישיון הזה כבר רשום אצל סוכן/ת אחר/ת במערכת. אם זה שלך - פנו אלינו.',
+};
+
+document.getElementById('lhSaveBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('lhSaveBtn');
+  const fb = document.getElementById('lhFeedback');
+  const license = document.getElementById('lhLicense').value.trim();
+  if (!license){ fb.style.color = 'var(--brick)'; fb.textContent = 'יש להזין מספר רישיון.'; return; }
+  btn.disabled = true; btn.textContent = 'בודקים מול רשם המתווכים…'; fb.textContent = '';
+  try{
+    const data = await saveLicenseNumber(license);
+    if (!data.success){
+      fb.style.color = 'var(--brick)';
+      fb.textContent = data.detail || LICENSE_SAVE_ERRORS[data.error] || 'השמירה נכשלה, נסו שוב.';
+      return;
+    }
+    document.getElementById('lhFixRow').hidden = true;
+    if (data.license.cleared){
+      showToast('הרישיון אומת - הדף והמודעות שלך עולים לאוויר', 6000);
+      fb.textContent = '';
+    } else {
+      fb.style.color = 'var(--brick)';
+      fb.textContent = 'המספר נשמר, אבל גם הוא לא נמצא ברשם. אפשר לשלוח צילום רישיון.';
+    }
+    await refreshLicenseHold();
+    if (data.license.cleared) loadProperties(currentAgent.id);
+  } finally{
+    btn.disabled = false; btn.textContent = 'שמירה ובדיקה';
+  }
+});
+
 function refreshOnboarding(){
   if (!onboardingLive()) return;
   loadOnboarding();
@@ -12097,6 +12220,11 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   await loadClientAlerts();
   // ואותו נכס עשוי להיות הראשון, ולסגור צעד במדריך ההתחלה
   refreshOnboarding();
+  // רישיון שעוד לא אושר: המודעה נשמרה, אבל מחכה. הכרטיס בראש הדשבורד סופר אותה.
+  if (publishAfterInsert && licenseState && !licenseState.cleared){
+    showToast('הנכס נשמר. הוא יעלה לאוויר אוטומטית ברגע שרישיון התיווך שלך יאושר.', 7000);
+    refreshLicenseHold();
+  }
   /* נכס שנשמר ולא פורסם: ההודעה מסבירה למה ומה עושים הלאה, ו-1.5 שניות
      אינן מספיקות כדי לקרוא אותה. הטופס נשאר פתוח עד שסוגרים אותו. */
   if (!savedWithoutPublishing){
@@ -13539,8 +13667,13 @@ async function setPropertyStatus(property, nextStatus, btn, agentId){
     showToast(propertyStatusErrorText(error), 6000);
     return;
   }
+  // רישיון שעוד לא אושר: המסד השאיר את הנכס unpublished (license_hold_at),
+  // ולכן "מופיע באתר" לא היה נכון.
+  const heldForLicense = nextStatus === 'active' && licenseState && !licenseState.cleared;
+  if (heldForLicense) refreshLicenseHold();
   showToast(
-    nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
+    heldForLicense               ? 'הנכס יעלה לאוויר אוטומטית ברגע שרישיון התיווך שלך יאושר'
+    : nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
     : nextStatus === 'unpublished' ? 'הנכס ירד מפרסום — הוא נשאר אצלך במערכת'
     : nextStatus === 'sold'        ? (patch.sale_closed_price
         ? 'הנכס סומן כנמכר, ומחיר הסגירה נרשם במאגר העסקאות'
