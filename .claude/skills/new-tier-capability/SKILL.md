@@ -55,7 +55,7 @@ premium ->  Elite
 **כפתור מוסתר אינו גייט.** ‏`fetch` מהקונסול עוקף אותו, וגם משתמש/ת שפתח/ה
 את הדשבורד בזמן שהמסלול שלו/ה פג.
 
-התבנית שחוזרת תשע פעמים בריפו:
+התבנית שחוזרת עשר פעמים בריפו:
 
 ```sql
 create or replace function public.my_capability_gate(p_agent_id uuid)
@@ -125,7 +125,7 @@ return jsonb_build_object(
 כפתור חסר אינו מלמד דבר. כפתור שאומר **"זמין ב-Elite"** הוא גם התשובה וגם
 המדרג, וזו כל תכליתו.
 
-## תשע נקודות האכיפה הקיימות
+## עשר נקודות האכיפה הקיימות
 
 הן התקדים, והן גם הדוגמאות הטובות ביותר לקרוא לפני שכותבים אחת חדשה:
 
@@ -140,6 +140,7 @@ return jsonb_build_object(
 | דוח CMA | `agent_cma_report` |
 | שאילתת עסקאות | `agent_market_deals_lookup` |
 | העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` |
+| מספר וירטואלי | `phone_line_included_eligible` - נאכף ב-`order_phone_line`, והירידה בסבב `phone_line_tier_sweep` (הסקיל `call-tracking`) |
 
 ## והמסך חייב להיות נגיש
 

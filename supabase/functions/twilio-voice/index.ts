@@ -341,11 +341,18 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   // שלושה על אותה שיחה. המתקשר/ת עדיין מופיע/ה בסיכום בוואטסאפ.
   // ‏answerOnBridge: הלקוח/ה שומע/ת צלצול עד שהסוכן/ת עונה, ולא שקט.
   const callerId = from.startsWith("+972") ? from : to;
+  // מעבר ל-150 הדקות של החודש ובלי יתרה לדקה נוספת: השיחה עוברת, בלי הקלטה
+  // (ובלי ההודעה שהיא מוקלטת). לקוח/ה שלא נענה/תה עולה יותר מכל דקה.
+  const { data: recordOk, error: recErr } = await supabase.rpc("phone_line_recording_allowed", { p_line_id: line.id });
+  if (recErr) console.error("recording allowed check failed", recErr);
+  const record = recErr ? true : recordOk !== false;
+  const recAttrs = record
+    ? `record="record-from-answer-dual" recordingStatusCallback="${recCb}" recordingStatusCallbackEvent="completed" `
+    : "";
   return xml(
-    `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` +
+    (record ? `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` : "") +
       `<Dial callerId="${escXml(callerId)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
-      `record="record-from-answer-dual" recordingStatusCallback="${recCb}" ` +
-      `recordingStatusCallbackEvent="completed" action="${dialAction}" method="POST">` +
+      recAttrs + `action="${dialAction}" method="POST">` +
       `<Number>${escXml(target)}</Number></Dial>`,
   );
 }
@@ -369,8 +376,56 @@ async function onDial(p: URLSearchParams): Promise<Response> {
     .maybeSingle();
 
   if (!answered && call) EdgeRuntime.waitUntil(notifyMissed(call));
+  if (call) EdgeRuntime.waitUntil(chargeMinutes(call.id));
 
   return answered ? xml("<Hangup/>") : xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
+}
+
+/** 150 דקות בחודש למספר, ומעבר לזה 0.5 ₪ לדקה מהארנק (charge_call_minutes).
+ *  ההתראות בפעמון - ומשם בוואטסאפ למי שמסלולו כולל את זה: 80%, הגעה לתקרה,
+ *  ודקות שלא כוסו (פעם ביום למספר). */
+async function chargeMinutes(callId: string): Promise<void> {
+  try {
+    const { data: r, error } = await supabase.rpc("charge_call_minutes", { p_call_id: callId });
+    if (error) throw error;
+    if (!r?.limited) return;
+    const name = `${localPhone(r.number)}${r.label ? ` (${r.label})` : ""}`;
+    const rate = Number(r.rate).toFixed(2).replace(/\.?0+$/, "");
+    const notes: Array<Record<string, unknown>> = [];
+    if (r.crossed_80) {
+      notes.push({
+        agent_id: r.agent_id, type: "system",
+        title: `נוצלו ${r.used} מתוך ${r.cap} הדקות החודש`,
+        body: `המספר ${name}. מעבר ל-${r.cap} דקות, כל דקה נוספת ${rate} ₪ מהארנק. המכסה מתאפסת ב-1 לחודש.`,
+      });
+    }
+    if (r.crossed_cap) {
+      notes.push({
+        agent_id: r.agent_id, type: "system",
+        title: `המספר הגיע ל-${r.cap} הדקות של החודש`,
+        body: `המספר ${name}. מעכשיו ועד סוף החודש כל דקה נוספת ${rate} ₪ מהארנק.`,
+      });
+    }
+    if (r.unpaid) {
+      const title = "אין יתרה לדקות נוספות - ההקלטה והסיכום הופסקו";
+      const since = new Date(Date.now() - 86400000).toISOString();
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true })
+        .eq("agent_id", r.agent_id).eq("title", title).gte("created_at", since);
+      if (!count) {
+        notes.push({
+          agent_id: r.agent_id, type: "system", title,
+          body: `המספר ${name} ממשיך לקבל שיחות, אבל בלי הקלטה, תמלול וסיכום - עד טעינת הארנק ` +
+            `או עד ה-1 לחודש. כל דקה מעבר ל-${r.cap} היא ${rate} ₪.`,
+        });
+      }
+    }
+    if (notes.length) {
+      const { error: nErr } = await supabase.from("notifications").insert(notes);
+      if (nErr) console.error("minutes notifications failed", nErr);
+    }
+  } catch (err) {
+    console.error("charge minutes failed", callId, err);
+  }
 }
 
 /** "מי מתקשר/ת עכשיו" - שם, מה מחפש/ת, ומה דובר בשיחה הקודמת, עם קישור
