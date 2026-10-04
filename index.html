@@ -3830,6 +3830,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gab-convo .gab-actions{display:flex;flex-direction:column;align-items:stretch;gap:0}
   /* ‏transform-origin בתחתית: ה"לחיצה" המונפשת לא פותחת רווח מול השיחה */
   html body #gabCtaWrap .gab-cta{width:100%;border-radius:16px 16px 0 0;transform-origin:50% 100%}
+  /* מחשב צר / טאבלט לרוחב (‏760-899): הדמות שבצד לוקחת ‎360px‎, ולגוף נשארים
+     ‎360-460px‎. ב-20px הכיתוב רחב מהכפתור ונחתך (‏overflow:hidden בשביל
+     ההברקה) - ב-800 נעלמה ה"ס" של "ספרו". כמו בטלפון צר: הגופן קטן, לא הכפתור. */
+  @media(min-width:760px) and (max-width:899px){
+    html body #gabCtaWrap .gab-cta{font-size:17px;gap:8px;padding-inline:14px}
+    html body #gabCtaWrap .gab-cta svg{width:22px;height:22px}
+  }
+  /* ובקצה התחתון (‏760-799) הגוף ‎~360px‎ - עוד פיקסל גופן וריפוד */
+  @media(min-width:760px) and (max-width:799px){ html body #gabCtaWrap .gab-cta{font-size:16px;padding-inline:10px} }
   html body .gab-convo .gab-chat{border-radius:0 0 16px 16px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(14,42,107,.06)}
   .gab-convo .gab-chat-box{max-width:none}
   /* טלפון צר: הקופסה 248px ב-320, והצעדים נשברו לשתי שורות. הבועה חורגת
