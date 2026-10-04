@@ -3574,6 +3574,46 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gab-cta.is-agent{background:var(--sapphire)}
   .gab-cta.is-agent:hover,.gab-cta.is-agent:focus-visible{background:var(--sapphire-hover)}
   .gab-cta.is-agent svg{color:var(--brass-light)}
+  /* מושך את העין לכפתור ב-hero: כל כמה שניות "לחיצה" קטנה, טבעת שמתפשטת
+     ממנו והברקה שעוברת עליו. רק transform/opacity/box-shadow - אין שינוי
+     בגודל, ולכן אין קפיצה בדף ואין סיכון לכפתור במסך הראשון. נעצר ב-hover
+     ובפוקוס (מי שכבר שם לא צריך תזכורת), ולא רץ בכלל ב-reduced-motion. */
+  #gabCtaWrap .gab-cta:not(.is-agent){
+    position:relative;overflow:hidden;isolation:isolate;
+    animation:gabCtaTap 6s ease-in-out 2.5s infinite;
+  }
+  #gabCtaWrap .gab-cta:not(.is-agent)::after{
+    content:"";position:absolute;top:0;bottom:0;right:0;width:40%;pointer-events:none;
+    background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.45) 50%,rgba(255,255,255,0) 100%);
+    transform:translateX(130%) skewX(-18deg);
+    animation:gabCtaShine 6s ease-in-out 2.5s infinite;
+  }
+  #gabCtaWrap .gab-cta:not(.is-agent) svg{animation:gabCtaIcon 6s ease-in-out 2.5s infinite}
+  #gabCtaWrap .gab-cta:not(.is-agent):hover,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible,
+  #gabCtaWrap .gab-cta:not(.is-agent):hover::after,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible::after,
+  #gabCtaWrap .gab-cta:not(.is-agent):hover svg,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible svg{animation-play-state:paused}
+  #gabCtaWrap .gab-cta:not(.is-agent):active{transform:scale(.97)}
+  @keyframes gabCtaTap{
+    0%,62%{transform:scale(1);box-shadow:0 0 0 0 rgba(37,211,102,0)}
+    66%{transform:scale(.96);box-shadow:0 0 0 0 rgba(37,211,102,.55)}
+    71%{transform:scale(1.02)}
+    75%{transform:scale(1)}
+    90%,100%{transform:scale(1);box-shadow:0 0 0 16px rgba(37,211,102,0)}
+  }
+  @keyframes gabCtaShine{
+    0%,70%{transform:translateX(130%) skewX(-18deg)}
+    88%,100%{transform:translateX(-300%) skewX(-18deg)}
+  }
+  @keyframes gabCtaIcon{
+    0%,62%,80%,100%{transform:rotate(0)}
+    66%{transform:rotate(-14deg) scale(1.1)}
+    70%{transform:rotate(10deg) scale(1.1)}
+    74%{transform:rotate(-6deg)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    #gabCtaWrap .gab-cta:not(.is-agent),#gabCtaWrap .gab-cta:not(.is-agent) svg{animation:none}
+    #gabCtaWrap .gab-cta:not(.is-agent)::after{animation:none;display:none}
+  }
   .gab-how{
     min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;font:inherit;
     font-weight:700;font-size:16px;color:var(--sapphire);
