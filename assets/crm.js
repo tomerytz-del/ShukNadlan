@@ -20176,9 +20176,12 @@ async function loadCalls(){
   const block = document.getElementById('callsBlock');
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
-    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number')
+    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number, included, downgrade_deadline, downgrade_keep')
     .neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
+  // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
+  const { data: quota } = await sb.rpc('my_phone_line_quota');
+  lineQuota = quota || null;
   const hasLine = lineRows.some(l => l.active);
   const isAdmin = !!currentAgent.is_platform_admin;
   // הבלוק מוצג לכולם: גם מי שאין לו/ה מספר רואה כאן את ההזמנה של מספר חדש
@@ -20211,6 +20214,7 @@ async function loadCalls(){
    ============================================================================ */
 let lineRows = [];
 let lineStats = {};
+let lineQuota = null;
 const LINE_SOURCE_LABELS = { sign:'שלט', yad2:'יד2', facebook:'פייסבוק', instagram:'אינסטגרם', google:'גוגל',
   website:'אתר', newspaper:'עיתון', flyer:'פלאייר', other:'אחר' };
 
@@ -20241,8 +20245,13 @@ function renderLines(){
     const st = lineStats[l.id] || { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() };
     const prop = l.property_id ? (typeof myPropertyRows !== 'undefined' ? myPropertyRows.find(p => p.id === l.property_id) : null) : null;
     const meta = [LINE_SOURCE_LABELS[l.source_type], prop && linePropLabel(prop)].filter(Boolean).join(' · ');
-    const renew = l.monthly_price && l.paid_until
+    const renew = l.included ? 'כלול במסלול Elite'
+      : l.monthly_price && l.paid_until
       ? `${shekel(l.monthly_price)} לחודש · מתחדש ב-${new Date(l.paid_until).toLocaleDateString('he-IL')}` : '';
+    const choose = l.downgrade_deadline
+      ? `<div class="line-warn">המסלול כבר אינו Elite, ובו נשאר מספר וירטואלי אחד (89 ₪ לחודש).
+          עד ${new Date(l.downgrade_deadline).toLocaleDateString('he-IL')} בחרו איזה נשאר - בלי בחירה יישאר זה שקיבל הכי הרבה שיחות.
+          <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לשדרוג חזרה ל-Elite</a></div>` : '';
     return `<div class="line-row" data-line="${esc(l.id)}">
       <div class="line-top">
         <span><span class="line-name">${esc(l.label || 'מספר בלי כינוי')}</span>
@@ -20260,18 +20269,33 @@ function renderLines(){
       </div>
       ${l.forward_to ? `<div class="call-meta">השיחות מועברות אל ${esc(callLocalPhone(l.forward_to))}</div>` : ''}
       ${l.external_number ? `<div class="call-meta">המספר הקיים ${esc(callLocalPhone(l.external_number))} מופנה לכאן · <a href="#" data-line-act="howto">איך מפנים?</a></div>` : ''}
+      ${choose}
       ${l.payment_failed_at ? '<div class="line-warn">החידוש נכשל - אין מספיק יתרה בארנק. המספר ישוחרר אחרי 7 ימים בלי תשלום.</div>' : ''}
       <div class="call-actions">
         <button type="button" class="btn btn-ghost" data-line-act="edit">✏️ עריכה וניתוב</button>
+        ${l.downgrade_deadline ? (l.downgrade_keep
+          ? '<span class="call-badge">✓ המספר הזה נשאר</span>'
+          : '<button type="button" class="btn btn-gold" data-line-act="keep">להשאיר את המספר הזה</button>') : ''}
         ${l.twilio_sid ? '<button type="button" class="btn btn-ghost" data-line-act="release">✖ ביטול המספר</button>' : ''}
         ${renew ? `<span class="call-meta">${esc(renew)}</span>` : ''}
       </div>
     </div>`;
   }).join('');
-  box.innerHTML = rows + `<div class="call-actions" style="margin-top:8px">
-      <button type="button" class="btn btn-gold" data-line-act="order">➕ הזמנת מספר מעקב חדש</button>
-      <span class="call-meta">מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע</span>
-    </div>`;
+  const q = lineQuota;
+  /* מי שאינו/ה Elite ויש לו/ה כבר מספר: הכפתור מוצג ולא מוסתר, ואומר איפה
+     זה זמין - הוא גם התשובה וגם ההזמנה לשדרג (‏new-tier-capability). */
+  const order = q && !q.can_order
+    ? `<button type="button" class="btn btn-ghost" disabled>➕ מספרים וירטואליים נוספים - במסלול Elite</button>
+       <span class="call-meta">במסלול Elite מספר אחד כלול, ומספרים נוספים ב-89 ₪ לחודש - לכל שלט, מודעה וקמפיין.
+         <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים ולשדרוג</a></span>`
+    : `<button type="button" class="btn btn-gold" data-line-act="order">➕ הזמנת מספר וירטואלי חדש</button>
+       <span class="call-meta">${q && Number(q.next_price) === 0
+         ? 'מספר אחד כלול במסלול Elite שלך - בלי חיוב'
+         : q && !q.premium
+         ? `מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. במסלול Elite המספר הראשון כלול ואפשר להוסיף עוד.
+            <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a>`
+         : 'מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע'}</span>`;
+  box.innerHTML = rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
 }
 
 document.getElementById('linesPanel').addEventListener('click', e => {
@@ -20283,6 +20307,7 @@ document.getElementById('linesPanel').addEventListener('click', e => {
   if (act === 'order') return openLineModal(null);
   if (act === 'edit' && line) return openLineModal(line);
   if (act === 'release' && line) return releaseLine(line, btn);
+  if (act === 'keep' && line) return keepLineOnDowngrade(line, btn);
   if (act === 'howto' && line){ e.preventDefault(); return showForwardHowto(line); }
 });
 
@@ -20296,7 +20321,7 @@ function openLineModal(line){
   lineModalTarget = line;
   const modal = document.getElementById('plModal');
   if (modal.parentElement !== document.body) document.body.appendChild(modal);
-  document.getElementById('plTitle').textContent = line ? 'עריכת המספר' : 'הזמנת מספר מעקב';
+  document.getElementById('plTitle').textContent = line ? 'עריכת המספר' : 'הזמנת מספר וירטואלי';
   document.getElementById('plLabel').value = line ? (line.label || '') : '';
   document.getElementById('plSource').value = (line && line.source_type) || 'sign';
   const propSel = document.getElementById('plProperty');
@@ -20310,8 +20335,13 @@ function openLineModal(line){
   document.getElementById('plSave').textContent = line ? 'שמירה' : 'המשך להזמנה';
   document.getElementById('plSave').disabled = false;
   document.getElementById('plMsg').textContent = '';
+  const free = lineQuota && Number(lineQuota.next_price) === 0;
   document.getElementById('plPriceNote').textContent = line ? '' :
-    'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. 89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.';
+    'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. ' +
+    (free ? 'המספר הזה כלול במסלול Elite שלך, בלי חיוב.'
+          : '89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.') +
+    (lineQuota && lineQuota.premium
+      ? ' אם המסלול יורד מ-Elite, נשאר מספר אחד לבחירתך ב-89 ₪ לחודש, והשאר משתחררים.' : '');
   modal.style.display = 'flex';
   document.getElementById('plLabel').focus();
 }
@@ -20355,16 +20385,29 @@ document.getElementById('plSave').addEventListener('click', async () => {
   msg.textContent = 'מחפש מספר פנוי...';
   let avail;
   try { avail = await linesCall('lines-available', { area }); }
-  catch (err){ btn.disabled = false; msg.textContent = 'לא הצלחנו לחפש מספר: ' + err.message; return; }
+  catch (err){
+    btn.disabled = false;
+    msg.textContent = err.code === 'tier_required'
+      ? 'במסלול שלך אפשר להחזיק מספר וירטואלי אחד. מספרים נוספים זמינים במסלול Elite.'
+      : 'לא הצלחנו לחפש מספר: ' + err.message;
+    return;
+  }
   btn.disabled = false;
   if (!avail.number){ msg.textContent = 'אין כרגע מספר פנוי בקידומת הזו. נסו קידומת אחרת.'; return; }
   closeLineModal();
+  const tierLine = lineQuota && lineQuota.premium
+    ? `אם המסלול יורד מ-Elite: נשאר מספר וירטואלי אחד לבחירתך ב-${shekel(avail.monthly_price)} לחודש, והשאר משתחררים אחרי 7 ימים.`
+    : null;
   const ok = await confirmPurchase({
-    title: 'הזמנת מספר מעקב',
+    title: 'הזמנת מספר וירטואלי',
     lines: [`"${label}" - ${LINE_SOURCE_LABELS[source] || ''}`, `קידומת 0${area}`,
-      `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`],
+      avail.included ? 'כלול במסלול Elite שלך - בלי חיוב, מתחדש אוטומטית כל עוד המסלול Elite.'
+        : `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`,
+      tierLine].filter(Boolean),
     price: avail.price,
-    confirmLabel: `הזמנה וחיוב ${shekel(avail.price)}`,
+    requireAck: !!tierLine,
+    ackText: avail.included ? 'קראתי ואני מבין/ה מה קורה למספרים אם המסלול יורד מ-Elite.' : undefined,
+    confirmLabel: avail.included ? 'הזמנת המספר' : `הזמנה וחיוב ${shekel(avail.price)}`,
   });
   if (!ok) return;
   try {
@@ -20376,6 +20419,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     if (externalNumber) showForwardHowto({ twilio_number: out.number, external_number: externalNumber });
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
+      err.code === 'tier_required' ? 'מספרים וירטואליים נוספים זמינים במסלול Elite' :
       'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + err.message);
     refreshAgentBalance();
   }
@@ -20395,6 +20439,17 @@ function showForwardHowto(line){
     `  (לביטול: ##21#)\n` +
     `• מספר וירטואלי או קו של משרד: באפליקציה או באזור האישי של הספק, "הפניית שיחות" אל ${ours}.\n\n` +
     `אחרי ההפניה, כל שיחה ל-${ext} תגיע אליך עם הקלטה, תמלול וסיכום בוואטסאפ.`);
+}
+
+/* ירידה מ-Elite: הסוכן/ת בוחר/ת איזה מספר נשאר (phone_line_keep_on_downgrade).
+   השאר משתחררים בסבב היומי כשנגמר חלון הבחירה (phone_line_tier_sweep). */
+async function keepLineOnDowngrade(line, btn){
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('phone_line_keep_on_downgrade', { p_line_id: line.id });
+  if (error || !data){ btn.disabled = false; showToast('הבחירה נכשלה' + (error ? ': ' + error.message : '')); return; }
+  lineRows.forEach(l => { l.downgrade_keep = l.id === line.id; });
+  renderLines();
+  showToast(`המספר ${callLocalPhone(line.twilio_number)} יישאר`);
 }
 
 async function releaseLine(line, btn){
