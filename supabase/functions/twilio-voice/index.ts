@@ -303,7 +303,7 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
 
   const { data: line } = await supabase
     .from("agent_phone_lines")
-    .select("id, agent_id, forward_to, active")
+    .select("id, agent_id, forward_to, active, label")
     .eq("twilio_number", to)
     .maybeSingle();
   if (!line || !line.active) {
@@ -331,7 +331,7 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   if (error) console.error("call insert failed", error);
 
   // לקוח/ה מהקובץ: הכרטיס מגיע לוואטסאפ בזמן שהנייד מצלצל
-  if (client && agent) EdgeRuntime.waitUntil(notifyRinging(agent, client, from));
+  if (client && agent) EdgeRuntime.waitUntil(notifyRinging(agent, client, from, line.label || ""));
 
   const dialAction = escXml(`${PUBLIC_BASE}?event=dial`);
   const recCb = escXml(`${PUBLIC_BASE}?event=recording`);
@@ -376,6 +376,7 @@ async function notifyRinging(
   agent: { id: string; display_name: string | null; phone_e164: string | null },
   client: Record<string, any>,
   from: string,
+  label = "",
 ): Promise<void> {
   try {
     const { data: last } = await supabase.from("agent_calls")
@@ -383,6 +384,7 @@ async function notifyRinging(
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     const link = `/crm?goto=accClients&client=${client.id}`;
     const lines = [`📞 *${client.full_name} מתקשר/ת עכשיו* (${localPhone(from)})`];
+    if (label) lines.push(`דרך: ${label}`);
     const needs = needsLine(client).replace(/^:\s*/, "");
     if (needs) lines.push(`מחפש/ת: ${needs}`);
     if (last?.summary) {
@@ -417,7 +419,8 @@ async function notifyMissed(call: { id: string; agent_id: string; from_number: s
           .update({ last_client_id: call.client_id }).eq("agent_id", call.agent_id);
       }
     }
-    const text = `📞 *שיחה שלא נענתה* מ-${who}${extra ? "\n" + extra : ""}\nלחיוג חוזר: ${phone}`;
+    const label = await lineLabelForCall(call.id);
+    const text = `📞 *שיחה שלא נענתה* מ-${who}${label ? `\nדרך: ${label}` : ""}${extra ? "\n" + extra : ""}\nלחיוג חוזר: ${phone}`;
     await notifyAgent(agent, text, `שיחה שלא נענתה מ-${who}`, null, { action });
     await rememberForBot(call.agent_id, action ? `${text}\n\n${action.body}` : text);
     await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
@@ -426,6 +429,15 @@ async function notifyMissed(call: { id: string; agent_id: string; from_number: s
     await supabase.from("agent_calls").update({ error: String((err as Error)?.message || err).slice(0, 500) })
       .eq("id", call.id);
   }
+}
+
+/** הכינוי של המספר שדרכו הגיעה השיחה ("השלט באורנים 13") - כדי שהסוכן/ת
+ *  יידע/תדע מאיזה ערוץ הגיעה הפנייה. ריק כשאין כינוי או כשהשיחה מסימולציה. */
+async function lineLabelForCall(callId: string): Promise<string> {
+  const { data: c } = await supabase.from("agent_calls").select("line_id").eq("id", callId).maybeSingle();
+  if (!c?.line_id) return "";
+  const { data: l } = await supabase.from("agent_phone_lines").select("label").eq("id", c.line_id).maybeSingle();
+  return String(l?.label || "").trim();
 }
 
 const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצה להוסיף אותו עכשיו?";
@@ -560,6 +572,8 @@ async function analyzeCall(
   const hasNeeds = !!summary?.needs && Object.keys(summary.needs).length > 0;
 
   const lines = [`📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
+  const viaLabel = await lineLabelForCall(call.id);
+  if (viaLabel) lines.push(`דרך: ${viaLabel}`);
   if (summary?.summary) lines.push("", summary.summary);
   else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
   if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
@@ -1045,6 +1059,171 @@ async function deleteCalls(req: Request): Promise<Response> {
   return corsJson({ deleted: found.length, recordings: paths.length });
 }
 
+// ---------------------------------------------------------------------------
+// מספרי מעקב: הזמנה מהארנק, ביטול וחידוש
+//
+// הסדר בהזמנה הוא החלק החשוב: קודם מוצאים מספר פנוי (בלי לחייב), אחר כך
+// order_phone_line מנכה ופותחת שורה pending, ורק אז קונים ב-Twilio. קנייה
+// שנכשלה - phone_line_order_failed מחזירה את הכסף. ההפך (לקנות ואז לחייב)
+// היה משאיר אצלנו מספרים קנויים של מי שאין לו/ה יתרה.
+// ---------------------------------------------------------------------------
+
+const TW_API = () => `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}`;
+const LINE_SOURCES = new Set(["sign", "yad2", "facebook", "instagram", "google", "website", "newspaper", "flyer", "other"]);
+// קידומות קוויות שאפשר להזמין. נייד בכוונה לא: ללקוחות שרואים מספר נייד יש
+// נטייה לשלוח וואטסאפ, וההודעה לא מגיעה לאף אחד (docs/call-tracking.md).
+const LINE_AREAS = new Set(["2", "3", "4", "8", "9", "72", "73", "74", "76", "77"]);
+
+async function agentFromJwt(req: Request) {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+  const { data: userData } = await supabase.auth.getUser(token);
+  const uid = userData?.user?.id;
+  if (!uid) return null;
+  const { data: me } = await supabase.from("agency_members")
+    .select("id, credit_balance").eq("user_id", uid).eq("active", true).maybeSingle();
+  return me;
+}
+
+async function findAvailableNumber(area: string): Promise<string | null> {
+  const res = await fetch(`${TW_API()}/AvailablePhoneNumbers/IL/Local.json?VoiceEnabled=true&PageSize=50`, {
+    headers: { Authorization: twilioAuth() },
+  });
+  if (!res.ok) {
+    console.error("twilio available numbers failed", res.status, (await res.text()).slice(0, 300));
+    return null;
+  }
+  const list = ((await res.json())?.available_phone_numbers || []) as Array<{ phone_number: string }>;
+  const hit = list.find((n) => n.phone_number.startsWith(`+972${area}`));
+  return hit?.phone_number ?? null;
+}
+
+async function linesAgentTask(req: Request, task: string): Promise<Response> {
+  const me = await agentFromJwt(req);
+  if (!me) return corsJson({ error: "unauthorized" }, 401);
+  if (!TWILIO_SID || !TWILIO_TOKEN) return corsJson({ error: "not_configured" }, 503);
+  const body = await req.json().catch(() => ({}));
+
+  if (task === "lines-available") {
+    const area = String(body?.area || "4");
+    if (!LINE_AREAS.has(area)) return corsJson({ error: "bad_area" }, 400);
+    const number = await findAvailableNumber(area);
+    const { data: price } = await supabase.from("pricing_config")
+      .select("value").eq("key", "phone_line_monthly_price").maybeSingle();
+    return corsJson({ number, price: Number(price?.value ?? 89), balance: Number(me.credit_balance || 0) });
+  }
+
+  if (task === "lines-release") {
+    const { data: line } = await supabase.from("agent_phone_lines")
+      .select("id, twilio_sid, status, twilio_number").eq("id", String(body?.line_id || "")).eq("agent_id", me.id).maybeSingle();
+    if (!line || line.status === "released") return corsJson({ error: "not_found" }, 404);
+    // מספר בלי twilio_sid ניתן בידי הפלטפורמה (כמו מספר הפיילוט) - לא משתחרר מכאן
+    if (!line.twilio_sid) return corsJson({ error: "managed_by_platform" }, 409);
+    const del = await fetch(`${TW_API()}/IncomingPhoneNumbers/${line.twilio_sid}.json`, {
+      method: "DELETE",
+      headers: { Authorization: twilioAuth() },
+    });
+    if (!del.ok && del.status !== 404) {
+      return corsJson({ error: "twilio_release_failed", status: del.status }, 502);
+    }
+    // הסיומת מפנה את ה-unique: Twilio עשויה למכור את המספר שוב, גם לסוכן/ת אחר/ת אצלנו
+    await supabase.from("agent_phone_lines").update({
+      status: "released",
+      active: false,
+      released_at: new Date().toISOString(),
+      twilio_number: `${line.twilio_number}#released-${line.id.slice(0, 8)}`,
+    }).eq("id", line.id);
+    return corsJson({ released: true });
+  }
+
+  // lines-order
+  const area = String(body?.area || "4");
+  const source = body?.source_type ? String(body.source_type) : null;
+  const label = String(body?.label || "").trim().slice(0, 80);
+  const propertyId = body?.property_id ? String(body.property_id) : null;
+  if (!LINE_AREAS.has(area)) return corsJson({ error: "bad_area" }, 400);
+  if (source && !LINE_SOURCES.has(source)) return corsJson({ error: "bad_source" }, 400);
+  if (!label) return corsJson({ error: "label_required" }, 400);
+  if (propertyId) {
+    const { data: prop } = await supabase.from("properties")
+      .select("id").eq("id", propertyId).eq("agent_id", me.id).maybeSingle();
+    if (!prop) return corsJson({ error: "property_not_yours" }, 403);
+  }
+
+  const number = await findAvailableNumber(area);
+  if (!number) return corsJson({ error: "no_number_available" }, 409);
+
+  const { data: order, error: orderErr } = await supabase.rpc("order_phone_line", {
+    p_agent_id: me.id, p_number: number, p_label: label, p_source: source, p_property_id: propertyId,
+  });
+  if (orderErr) return corsJson({ error: orderErr.message }, 500);
+  if (order?.error) return corsJson(order, order.error === "insufficient_balance" ? 402 : 400);
+
+  const form = new URLSearchParams({
+    PhoneNumber: number,
+    FriendlyName: `${label} (${me.id.slice(0, 8)})`.slice(0, 64),
+    VoiceUrl: `${PUBLIC_BASE}?event=incoming`,
+    VoiceMethod: "POST",
+  });
+  const buy = await fetch(`${TW_API()}/IncomingPhoneNumbers.json`, {
+    method: "POST",
+    headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
+  if (!buy.ok) {
+    const detail = (await buy.text()).slice(0, 300);
+    console.error("twilio buy failed", buy.status, detail);
+    await supabase.rpc("phone_line_order_failed", { p_line_id: order.line_id });
+    return corsJson({ error: "purchase_failed", detail, refunded: true }, 502);
+  }
+  const bought = await buy.json();
+  await supabase.from("agent_phone_lines")
+    .update({ twilio_sid: bought?.sid ?? null, status: "active", active: true }).eq("id", order.line_id);
+  return corsJson({ success: true, line_id: order.line_id, number, balance: order.balance, price: order.price_charged });
+}
+
+async function renewLines(): Promise<Response> {
+  const { data, error } = await supabase.rpc("claim_due_phone_line_renewals");
+  if (error) return json({ error: error.message }, 500);
+  const failed = (data?.payment_failed || []) as Array<Record<string, any>>;
+  const released = (data?.released || []) as Array<Record<string, any>>;
+
+  for (const r of released) {
+    if (r.twilio_sid) {
+      const del = await fetch(`${TW_API()}/IncomingPhoneNumbers/${r.twilio_sid}.json`, {
+        method: "DELETE",
+        headers: { Authorization: twilioAuth() },
+      }).catch(() => null);
+      if (del && !del.ok && del.status !== 404) console.error("twilio release failed", r.line_id, del.status);
+    }
+  }
+  const notes = [
+    ...failed.map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "המספר לא חודש - אין מספיק יתרה בארנק",
+      body: `המספר ${localPhone(r.number)}${r.label ? ` (${r.label})` : ""} ממשיך לעבוד עוד 7 ימים. ` +
+        `טעינת ${r.price} ₪ לארנק תחדש אותו אוטומטית.`,
+    })),
+    ...released.map((r) => ({
+      agent_id: r.agent_id,
+      type: "system",
+      title: "המספר שוחרר",
+      body: `המספר ${localPhone(r.number)}${r.label ? ` (${r.label})` : ""} שוחרר אחרי 7 ימים בלי תשלום. ` +
+        "השיחות וההקלטות שלו נשארות ביומן.",
+    })),
+  ];
+  if (notes.length) {
+    const { error: nErr } = await supabase.from("notifications").insert(notes);
+    if (nErr) console.error("renewal notifications failed", nErr);
+  }
+  return json({
+    renewed: (data?.renewed || []).length,
+    payment_failed: failed.length,
+    released: released.length,
+  });
+}
+
 async function simulate(req: Request): Promise<Response> {
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return corsJson({ error: "unauthorized" }, 401);
@@ -1100,6 +1279,18 @@ Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
     return await simulate(req);
+  }
+
+  const linesTask = url.searchParams.get("task") || "";
+  if (linesTask === "lines-order" || linesTask === "lines-release" || linesTask === "lines-available") {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
+    return await linesAgentTask(req, linesTask);
+  }
+  if (linesTask === "lines-renew") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
+    return await renewLines();
   }
 
   if (url.searchParams.get("task") === "delete") {
