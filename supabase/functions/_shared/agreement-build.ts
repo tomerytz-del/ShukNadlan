@@ -66,6 +66,8 @@ export interface AgreementSigner {
   client_id?: string | null;
   /** הסוכן/ת אישר/ה שת.ז. שנפסלה בספרת הביקורת נכונה - העקיפה של `il-id.ts` */
   id_confirmed?: boolean;
+  /** החותם/ת משלים/ה שם מלא ות.ז. בקישור לחתימה (agreement_signers.self_fill) */
+  self_fill?: boolean;
 }
 
 export interface AgreementAgentCard {
@@ -170,7 +172,10 @@ export function missingForAgreement(input: BuildInput): string[] {
   input.signers.forEach((s, i) => {
     const who = (s.full_name || "").trim() || `חותם/ת ${i + 1}`;
     if (!(s.full_name || "").trim()) missing.push(`חסר שם לחותם/ת ${i + 1}`);
-    if (!(s.id_number || "").trim()) missing.push(`חסרה ת.ז. ל${who}`);
+    // ‏self_fill: הת.ז. מגיעה מהחותם/ת בקישור, ו-sign.html לא פותח את
+    // החתימה בלעדיה. ת.ז. שהסוכן/ת כן מסר/ה עדיין נבדקת למטה.
+    if (s.self_fill && !(s.id_number || "").trim()) { /* יושלם בקישור */ }
+    else if (!(s.id_number || "").trim()) missing.push(`חסרה ת.ז. ל${who}`);
     // ‏אותה בדיקה שהאשף עושה (`IlId` ב-agrValidate), ואותה עקיפה: ת.ז. שגויה
     // הייתה ננעלת בגוף המסמך, ומספר אמיתי שהבדיקה אינה מכירה עובר באישור.
     else if (!s.id_confirmed && ilIdStatus(s.id_number) !== "ok") {
@@ -208,13 +213,16 @@ function docInput(input: BuildInput, verifyCode: string, createdAt: Date | strin
       agency_name: input.agent.agency_name,
       agency_address: input.agent.agency_address,
     },
-    signers: input.signers.map((s) => ({
+    signers: input.signers.map((s, i) => ({
       full_name: s.full_name,
       id_number: s.id_number || "",
       phone: s.phone || "",
       email: s.email || "",
       address: s.address || "",
       party: s.party,
+      // ‏ord זהה לשורה ב-agreement_signers (signerRows) - לפיו המשבצות נמלאות
+      ord: i,
+      self_fill: !!s.self_fill,
     })),
     properties: input.properties.map((p) => ({
       fields: fieldsFor(tpl, p),
@@ -307,5 +315,6 @@ export function signerRows(agreementId: string, signers: AgreementSigner[]) {
     phone: (s.phone || "").trim() || null,
     email: (s.email || "").trim() || null,
     address: (s.address || "").trim() || null,
+    ...(s.self_fill ? { self_fill: true } : {}),
   }));
 }
