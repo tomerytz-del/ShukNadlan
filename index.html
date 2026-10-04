@@ -3881,6 +3881,38 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-stats.trust .hero-marks{gap:4px 16px}
     .hero-stats.trust .hero-mark-cap,.hero-stats.trust .hero-stat i{font-size:13px}
   }
+  /* ---------- השורה ככרטיס (אוקטובר 2026) ----------
+     בלי רקע השורה ריחפה על הרקע של ה-hero ונראתה כחלק שלא שייך לאתר.
+     עכשיו היא כרטיס לבן במסגרת זהב עדינה, באותה שפה של כרטיס גבריאלה
+     שמעליה. בטלפון: המספרים למעלה ומתחתם קו מקווקו, והחותמות כאריחים
+     בשתי עמודות - האחרונה ברוחב מלא. גם מתקן את "הדמיית AI לנכס" שגלשה
+     מהמסך בשורה של שלוש. */
+  html body .hero-stats.trust{
+    background:#fff;border:1px solid #eadfbf;border-radius:20px;
+    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:14px 22px;box-sizing:border-box;
+  }
+  html body .hero-stats.trust .hero-stat b{font-size:20px}
+  @media(min-width:760px){ html body .hero-stats.trust{width:fit-content;max-width:min(1180px,100%)} }
+  @media(max-width:759px){
+    html body .hero-stats.trust{padding:12px;gap:0;row-gap:0}
+    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){
+      gap:4px 22px;padding:0 0 10px;margin-bottom:10px;border-bottom:1.5px dashed #eadfbf;
+    }
+    html body .hero-stats.trust .hero-stat b{font-size:22px}
+    html body .hero-stats.trust .hero-stat i{font-size:14px;font-weight:600}
+    html body .hero-stats.trust .hero-marks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+    html body .hero-stats.trust .hero-mark{
+      justify-content:flex-start;gap:8px;padding:9px 10px;min-height:44px;box-sizing:border-box;
+      background:#f6f8fc;border:1px solid #e6ebf5;border-radius:12px;text-align:start;width:100%;
+      grid-column:auto;justify-self:stretch;
+    }
+    /* החמישית ברוחב מלא. ‏grid-column של שתי השורות (‏.hero-marks-row, בראש
+       הקובץ) חל גם כאן, כי השורות ‏display:contents - ולכן מאופס למעלה */
+    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:last-child{grid-column:1 / -1;justify-content:center}
+    html body .hero-stats.trust .hero-mark-cap{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25;white-space:normal;min-width:0;text-wrap:balance}
+    html body .hero-stats.trust .hero-mark{min-width:0}
+    html body .hero-stats.trust .hero-mark-seal{width:24px;height:24px;flex:none}
+  }
 
   /* ---------- "הצג במפה": בכותרת התוצאות, וגלולה צפה ---------- */
   .map-open-btn{
