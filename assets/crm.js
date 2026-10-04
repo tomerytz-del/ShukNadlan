@@ -20152,14 +20152,13 @@ async function loadCalls(){
   const block = document.getElementById('callsBlock');
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
-    .select('twilio_number, active').eq('active', true);
-  const hasLine = !lineErr && lines && lines.length;
-  // מנהל/ת הפלטפורמה רואה את הבלוק גם בלי מספר - בשביל הסימולציה
+    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid')
+    .neq('status', 'released').order('created_at');
+  lineRows = lineErr ? [] : (lines || []);
+  const hasLine = lineRows.some(l => l.active);
   const isAdmin = !!currentAgent.is_platform_admin;
-  if (!hasLine && !isAdmin){ block.style.display = 'none'; return; }
-  document.getElementById('callsLine').textContent = hasLine
-    ? 'המספר שלך: ' + lines.map(l => callLocalPhone(l.twilio_number)).join(', ')
-    : 'אין עדיין מספר משויך';
+  // הבלוק מוצג לכולם: גם מי שאין לו/ה מספר רואה כאן את ההזמנה של מספר חדש
+  document.getElementById('callsLine').textContent = hasLine ? '' : 'עוד אין לך מספר מעקב';
   document.getElementById('callSimBtn').style.display = isAdmin ? '' : 'none';
   block.style.display = '';
   // הכרטיסים נבנו אולי לפני שידענו שיש יומן - בונים שוב, עם כפתור השיחות
@@ -20174,6 +20173,201 @@ async function loadCalls(){
   callRows = data || [];
   callRows.forEach(c => callById.set(c.id, c));
   renderCalls();
+  loadLineStats();
+}
+
+/* ============================================================================
+   מספרי מעקב - "מאיפה הלקוחות מגיעים"
+   ----------------------------------------------------------------------------
+   לכל מספר כינוי ומקור (השלט, יד2, פייסבוק), ונתוני 30 הימים האחרונים לפי
+   line_id של השיחות. הזמנה: הפרטים כאן, האישור והחיוב ב-confirmPurchase (אותו
+   חלון של כל רכישה מהארנק), והקנייה עצמה ב-twilio-voice?task=lines-order.
+   עריכת הכינוי - phone_line_set_details (עמודות הכינוי בלבד, רק במספר שלך).
+   docs/call-tracking.md
+   ============================================================================ */
+let lineRows = [];
+let lineStats = {};
+const LINE_SOURCE_LABELS = { sign:'שלט', yad2:'יד2', facebook:'פייסבוק', instagram:'אינסטגרם', google:'גוגל',
+  website:'אתר', newspaper:'עיתון', flyer:'פלאייר', other:'אחר' };
+
+async function loadLineStats(){
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const { data } = await sb.from('agent_calls')
+    .select('line_id, status, client_id, from_number')
+    .gte('created_at', since).not('line_id', 'is', null).limit(3000);
+  const clientKeys = new Set(clientRows.map(c => String(c.phone || '').replace(/\D/g, '').slice(-9)).filter(k => k.length === 9));
+  lineStats = {};
+  for (const c of data || []){
+    const st = lineStats[c.line_id] || (lineStats[c.line_id] = { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() });
+    st.calls++;
+    if (c.status === 'answered') st.answered++;
+    else if (c.status !== 'ringing') st.missed++;
+    const key = String(c.from_number || '').replace(/\D/g, '').slice(-9);
+    if (key) st.callers.add(key);
+    if (c.client_id) st.known++;
+    else if (key && clientKeys.has(key)) st.added.add(key);
+  }
+  renderLines();
+}
+
+function renderLines(){
+  const box = document.getElementById('linesPanel');
+  if (!box) return;
+  const rows = lineRows.map(l => {
+    const st = lineStats[l.id] || { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() };
+    const prop = l.property_id ? (typeof myPropertyRows !== 'undefined' ? myPropertyRows.find(p => p.id === l.property_id) : null) : null;
+    const meta = [LINE_SOURCE_LABELS[l.source_type], prop && linePropLabel(prop)].filter(Boolean).join(' · ');
+    const renew = l.monthly_price && l.paid_until
+      ? `${shekel(l.monthly_price)} לחודש · מתחדש ב-${new Date(l.paid_until).toLocaleDateString('he-IL')}` : '';
+    return `<div class="line-row" data-line="${esc(l.id)}">
+      <div class="line-top">
+        <span><span class="line-name">${esc(l.label || 'מספר בלי כינוי')}</span>
+          <span class="call-meta">${esc(callLocalPhone(l.twilio_number))}</span>
+          ${l.status === 'pending' ? '<span class="call-badge">בהקמה</span>' : ''}</span>
+        <span class="call-meta">${esc(meta)}</span>
+      </div>
+      <div class="line-stats">
+        <span>30 יום: <b>${st.calls}</b> שיחות</span>
+        <span>נענו <b>${st.answered}</b></span>
+        <span>לא נענו <b>${st.missed}</b></span>
+        <span>מתקשרים <b>${st.callers.size}</b></span>
+        <span>מהקובץ <b>${st.known}</b></span>
+        <span>נוספו לקובץ <b>${st.added.size}</b></span>
+      </div>
+      ${l.payment_failed_at ? '<div class="line-warn">החידוש נכשל - אין מספיק יתרה בארנק. המספר ישוחרר אחרי 7 ימים בלי תשלום.</div>' : ''}
+      <div class="call-actions">
+        <button type="button" class="btn btn-ghost" data-line-act="edit">✏️ כינוי ומקור</button>
+        ${l.twilio_sid ? '<button type="button" class="btn btn-ghost" data-line-act="release">✖ ביטול המספר</button>' : ''}
+        ${renew ? `<span class="call-meta">${esc(renew)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = rows + `<div class="call-actions" style="margin-top:8px">
+      <button type="button" class="btn btn-gold" data-line-act="order">➕ הזמנת מספר מעקב חדש</button>
+      <span class="call-meta">מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע</span>
+    </div>`;
+}
+
+document.getElementById('linesPanel').addEventListener('click', e => {
+  const btn = e.target.closest('[data-line-act]');
+  if (!btn) return;
+  const act = btn.dataset.lineAct;
+  const row = btn.closest('[data-line]');
+  const line = row && lineRows.find(l => l.id === row.dataset.line);
+  if (act === 'order') return openLineModal(null);
+  if (act === 'edit' && line) return openLineModal(line);
+  if (act === 'release' && line) return releaseLine(line, btn);
+});
+
+function linePropLabel(p){
+  const addr = [p.street, p.house_number].filter(Boolean).join(' ');
+  return p.title || [addr, p.city].filter(Boolean).join(', ') || ('נכס ' + (p.listing_number || ''));
+}
+
+let lineModalTarget = null;
+function openLineModal(line){
+  lineModalTarget = line;
+  const modal = document.getElementById('plModal');
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  document.getElementById('plTitle').textContent = line ? 'כינוי ומקור למספר' : 'הזמנת מספר מעקב';
+  document.getElementById('plLabel').value = line ? (line.label || '') : '';
+  document.getElementById('plSource').value = (line && line.source_type) || 'sign';
+  const propSel = document.getElementById('plProperty');
+  const props = typeof myPropertyRows !== 'undefined' ? myPropertyRows : [];
+  propSel.innerHTML = '<option value="">בלי נכס</option>' + props.map(p =>
+    `<option value="${esc(p.id)}">${esc(linePropLabel(p))}</option>`).join('');
+  propSel.value = (line && line.property_id) || '';
+  document.getElementById('plOrderOnly').style.display = line ? 'none' : '';
+  document.getElementById('plSave').textContent = line ? 'שמירה' : 'המשך להזמנה';
+  document.getElementById('plSave').disabled = false;
+  document.getElementById('plMsg').textContent = '';
+  document.getElementById('plPriceNote').textContent = line ? '' :
+    'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. 89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.';
+  modal.style.display = 'flex';
+  document.getElementById('plLabel').focus();
+}
+function closeLineModal(){ document.getElementById('plModal').style.display = 'none'; }
+document.getElementById('plClose').addEventListener('click', closeLineModal);
+document.getElementById('plCancel').addEventListener('click', closeLineModal);
+
+document.getElementById('plSave').addEventListener('click', async () => {
+  const msg = document.getElementById('plMsg');
+  const label = document.getElementById('plLabel').value.trim();
+  const source = document.getElementById('plSource').value;
+  const propertyId = document.getElementById('plProperty').value || null;
+  if (!label){ msg.textContent = 'כתבו כינוי למספר - כך תזהו אותו בדוח ובוואטסאפ.'; return; }
+  const btn = document.getElementById('plSave');
+
+  if (lineModalTarget){
+    btn.disabled = true;
+    const { data, error } = await sb.rpc('phone_line_set_details', {
+      p_line_id: lineModalTarget.id, p_label: label, p_source: source, p_property_id: propertyId });
+    btn.disabled = false;
+    if (error || !data){ msg.textContent = 'השמירה נכשלה' + (error ? ': ' + error.message : ''); return; }
+    Object.assign(lineModalTarget, { label, source_type: source, property_id: propertyId });
+    closeLineModal();
+    renderLines();
+    showToast('נשמר');
+    return;
+  }
+
+  // הזמנה: מספר פנוי ומחיר מהשרת, ואז האישור והחיוב בחלון הרכישה הרגיל
+  const area = document.getElementById('plArea').value;
+  btn.disabled = true;
+  msg.textContent = 'מחפש מספר פנוי...';
+  let avail;
+  try { avail = await linesCall('lines-available', { area }); }
+  catch (err){ btn.disabled = false; msg.textContent = 'לא הצלחנו לחפש מספר: ' + err.message; return; }
+  btn.disabled = false;
+  if (!avail.number){ msg.textContent = 'אין כרגע מספר פנוי בקידומת הזו. נסו קידומת אחרת.'; return; }
+  closeLineModal();
+  const ok = await confirmPurchase({
+    title: 'הזמנת מספר מעקב',
+    lines: [`"${label}" - ${LINE_SOURCE_LABELS[source] || ''}`, `קידומת 0${area}`,
+      `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`],
+    price: avail.price,
+    confirmLabel: `הזמנה וחיוב ${shekel(avail.price)}`,
+  });
+  if (!ok) return;
+  try {
+    const out = await linesCall('lines-order', { area, label, source_type: source, property_id: propertyId });
+    if (out.balance != null) setAgentBalance(out.balance);
+    showToast(`המספר ${callLocalPhone(out.number)} מוכן - שיחות אליו יגיעו לנייד שלך`);
+    loadCalls();
+  } catch (err){
+    showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
+      'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + err.message);
+    refreshAgentBalance();
+  }
+});
+
+async function releaseLine(line, btn){
+  if (!confirm(`לבטל את המספר ${callLocalPhone(line.twilio_number)}? שיחות אליו יפסיקו להגיע, ואי אפשר לקבל אותו בחזרה. השיחות וההקלטות נשארות.`)) return;
+  btn.disabled = true;
+  try {
+    await linesCall('lines-release', { line_id: line.id });
+    showToast('המספר בוטל');
+    loadCalls();
+  } catch (err){
+    btn.disabled = false;
+    showToast(err.code === 'managed_by_platform' ? 'את המספר הזה מנהלת הפלטפורמה - פנו אלינו' : 'הביטול נכשל: ' + err.message);
+  }
+}
+
+async function linesCall(task, body){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + task, {
+    method:'POST',
+    headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok || out.error){
+    const err = new Error(out.detail || out.error || String(res.status));
+    err.code = out.error; err.refunded = out.refunded;
+    throw err;
+  }
+  return out;
 }
 
 // ארכוב מסתיר שיחה מהרשימה בלי למחוק אותה (agent_call_set_archived)
