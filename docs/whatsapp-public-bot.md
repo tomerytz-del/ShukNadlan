@@ -583,14 +583,17 @@ WHATSAPP_PUBLIC_BOT = on
 מאוקטובר 2026 ה-hero של דף הבית הוא כרטיס גדול של גבריאלה
 (‏`article#gabrielaHero`, ‏[`search-map-experience.md`](search-map-experience.md)
 סעיף 0.0). ‏`renderGabrielaCta()` ב-`assets/home.js` בונה את הכפתור לפי המתג
-שלמטה, באותו חוק בארבעה מקומות:
+שלמטה, באותו חוק בשלושה מקומות:
 
 | איפה | `data-bot-entry` |
 | --- | --- |
 | הכרטיס ב-hero | `homepage_hero` |
-| החלון "איך זה עובד?" | `homepage_how` |
 | שורת גבריאלה בתחתית התפריט הנייד | `menu` |
 | הכרטיס האחרון ברשימה שליד המפה הפתוחה | `map_list` |
+
+‏`homepage_how` (הכפתור שהיה בחלון "איך זה עובד?") יצא באוקטובר 2026 עם
+החלון עצמו - "איך זה עובד?" הוא עכשיו בועה בכרטיס, בלי כפתור משלה. בנתונים
+הישנים הוא עוד מופיע.
 
 - **`ShukBot.enabled()` אמת** - קישור `wa.me` שנבנה ב-`ShukBot.anchorHtml` /
   ‏`ShukBot.link`, עם `data-bot`, כלומר נספר כ-`contact_bot`. הודעת הפתיחה:

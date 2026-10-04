@@ -3539,15 +3539,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:0 24px 60px rgba(14,42,107,.18);
     display:flex;align-items:stretch;text-align:start;
   }
-  .hero.map-closed .hero-inner > .gab,
-  .hero.map-closed .hero-inner > .gab-how-dlg{text-align:start}
+  .hero.map-closed .hero-inner > .gab{text-align:start}
   .gab-body{flex:1 1 auto;min-width:0;padding:40px 44px;display:flex;flex-direction:column;gap:18px;position:relative;z-index:3}
   .gab-tag{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;background:var(--brass-tint);color:var(--brass-ink);font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px}
   .gab-tag svg{width:16px;height:16px;flex:none}
   .gab-name{margin:0;color:var(--sapphire);font-weight:800;font-size:56px;line-height:1;letter-spacing:-.01em}
   .gab-head-d .gab-name{margin-top:14px}
   .gab-role{margin:4px 0 0;font-weight:700;font-size:26px;line-height:1.25;color:var(--ink)}
-  .gab-text{margin:0;font-size:19px;line-height:1.55;color:#33415c;max-width:520px}
   .gab-chat{display:flex;flex-direction:column;gap:8px;background:#f3f7f2;border-radius:16px;padding:16px;max-width:520px}
   .gab-bubble{font-size:16px;padding:10px 14px;max-width:85%;color:var(--ink)}
   .gab-bubble.me{align-self:flex-start;background:#dcf5de;border-radius:14px 14px 14px 4px}
@@ -3568,18 +3566,65 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שורות מאוזנות מטקסט שגולש מהכפתור */
   .gab-cta.is-agent span{white-space:normal;text-wrap:balance;text-align:center}
   @media(max-width:374px){ .gab-cta{font-size:16px;gap:8px;padding-inline:12px} .gab-cta svg{width:22px;height:22px} }
-  .hero-sub,.gab-text,.owner-hero p,.oh-feature-text,.gab-how-steps span{text-wrap:pretty}
+  .hero-sub,.owner-hero p,.oh-feature-text{text-wrap:pretty}
   .gab-name,.gab-role,.oh-feature-title,#articles .article-card h3{text-wrap:balance}
   /* כשהעוזרת כבויה הכפתור פותח את הסוכן החכם ולא את וואטסאפ - ספיר ולא ירוק */
   .gab-cta.is-agent{background:var(--sapphire)}
   .gab-cta.is-agent:hover,.gab-cta.is-agent:focus-visible{background:var(--sapphire-hover)}
   .gab-cta.is-agent svg{color:var(--brass-light)}
-  .gab-how{
-    min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;font:inherit;
-    font-weight:700;font-size:16px;color:var(--sapphire);
-    text-decoration:underline;text-decoration-color:var(--brass);text-underline-offset:5px;text-decoration-thickness:1.5px;
+  /* מושך את העין לכפתור ב-hero: כל כמה שניות "לחיצה" קטנה, טבעת שמתפשטת
+     ממנו והברקה שעוברת עליו. רק transform/opacity/box-shadow - אין שינוי
+     בגודל, ולכן אין קפיצה בדף ואין סיכון לכפתור במסך הראשון. נעצר ב-hover
+     ובפוקוס (מי שכבר שם לא צריך תזכורת), ולא רץ בכלל ב-reduced-motion. */
+  #gabCtaWrap .gab-cta:not(.is-agent){
+    position:relative;overflow:hidden;isolation:isolate;
+    animation:gabCtaTap 6s ease-in-out 2.5s infinite;
   }
-  .gab-how:hover{color:var(--sapphire-hover)}
+  #gabCtaWrap .gab-cta:not(.is-agent)::after{
+    content:"";position:absolute;top:0;bottom:0;right:0;width:40%;pointer-events:none;
+    background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.45) 50%,rgba(255,255,255,0) 100%);
+    transform:translateX(130%) skewX(-18deg);
+    animation:gabCtaShine 6s ease-in-out 2.5s infinite;
+  }
+  #gabCtaWrap .gab-cta:not(.is-agent) svg{animation:gabCtaIcon 6s ease-in-out 2.5s infinite}
+  #gabCtaWrap .gab-cta:not(.is-agent):hover,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible,
+  #gabCtaWrap .gab-cta:not(.is-agent):hover::after,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible::after,
+  #gabCtaWrap .gab-cta:not(.is-agent):hover svg,#gabCtaWrap .gab-cta:not(.is-agent):focus-visible svg{animation-play-state:paused}
+  #gabCtaWrap .gab-cta:not(.is-agent):active{transform:scale(.97)}
+  @keyframes gabCtaTap{
+    0%,62%{transform:scale(1);box-shadow:0 0 0 0 rgba(37,211,102,0)}
+    66%{transform:scale(.96);box-shadow:0 0 0 0 rgba(37,211,102,.55)}
+    71%{transform:scale(1.02)}
+    75%{transform:scale(1)}
+    90%,100%{transform:scale(1);box-shadow:0 0 0 16px rgba(37,211,102,0)}
+  }
+  @keyframes gabCtaShine{
+    0%,70%{transform:translateX(130%) skewX(-18deg)}
+    88%,100%{transform:translateX(-300%) skewX(-18deg)}
+  }
+  @keyframes gabCtaIcon{
+    0%,62%,80%,100%{transform:rotate(0)}
+    66%{transform:rotate(-14deg) scale(1.1)}
+    70%{transform:rotate(10deg) scale(1.1)}
+    74%{transform:rotate(-6deg)}
+  }
+  /* נקודת "הודעה חדשה" על האייקון (נבנית ב-drawGabrielaCta). נשארת בתוך
+     גבולות הכפתור, כי ה-overflow שלו חתוך בשביל ההברקה */
+  .gab-cta-ic{position:relative;display:inline-flex;flex:0 0 auto}
+  .gab-cta-badge{
+    position:absolute;top:-5px;right:-6px;width:17px;height:17px;padding:0;box-sizing:border-box;
+    border-radius:999px;background:#e53935;color:#fff;border:2px solid var(--wa-dark);
+    font-size:10px;font-weight:800;line-height:13px;text-align:center;white-space:nowrap;
+    transform:scale(0);animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
+  }
+  @keyframes gabBadgeIn{to{transform:scale(1)}}
+  /* מתחת ל-375px הכיתוב ממלא את הכפתור והאייקון כמעט בקצה - הנקודה נצמדת אליו */
+  @media(max-width:374px){ .gab-cta-badge{right:-1px;top:-4px} }
+  @media(prefers-reduced-motion:reduce){
+    #gabCtaWrap .gab-cta:not(.is-agent),#gabCtaWrap .gab-cta:not(.is-agent) svg{animation:none}
+    #gabCtaWrap .gab-cta:not(.is-agent)::after{animation:none;display:none}
+    .gab-cta-badge{animation:none;transform:none}
+  }
   .gab-perks{display:flex;flex-wrap:wrap;gap:10px;padding:6px 0 0;margin:0;list-style:none}
   .gab-perks li{display:inline-flex;align-items:center;gap:8px;border:1px solid #e3e8f2;border-radius:999px;padding:8px 14px;font-size:15px;font-weight:600;color:var(--ink)}
   .gab-perks svg{width:18px;height:18px;flex:none;stroke:var(--brass-ink)}
@@ -3616,11 +3661,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:18px;margin:0}
     .gab-tag{font-size:12px;padding:5px 10px}
     .gab-body{padding:18px 18px 22px;gap:12px;border-top:1px solid #f0e2b6;background:#fffcf4;border-radius:0 0 20px 20px}
-    .gab-text{font-size:17px}
     .gab-head-d,.gab > .gab-figure{display:none}
     .gab-actions{flex-direction:column;align-items:stretch;gap:4px}
     .gab-cta{width:100%;font-size:18px;padding:14px 18px}
-    .gab-how{align-self:center;font-size:15px}
     .gab-perks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
     .gab-perks li{flex-direction:column;border:0;padding:0;font-size:13px;gap:4px}
   }
@@ -3642,7 +3685,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      "פתחו שיחה עם גבריאלה" נחת כ-200px מתחת לקיפול בטלפון רגיל - כלומר
      הפעולה שבשבילה הכרטיס קיים לא נראתה בטעינה. כאן הכול מתכווץ: ה-hero
      צפוף יותר, הדמות 128px, השורה העליונה 150px, והכפתור עולה לראש הגוף
-     (‏order:-1) - ההסבר והיתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
+     (‏.gab-convo, צמוד מעל השיחה) - היתרונות באים אחריו. היעד: תחתית הכפתור מעל 640px
      (טלפון קטן, 360×640), נמדד ב-Playwright ב-320/360/390/412. */
   @media(max-width:759px){
     .hero.map-closed .hero-overlay{padding:12px 0 36px}
@@ -3663,9 +3706,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-role{font-size:15px}
     .gab-tag{font-size:11.5px;padding:4px 9px}
     .gab-body{padding:14px 16px 18px;gap:10px}
-    .gab-actions{order:-1}
     .gab-cta{min-height:52px;padding:12px 16px;font-size:17px}
-    .gab-text{font-size:15.5px}
   }
   @media(max-width:374px){
     .gab{--gab-pop:70px}
@@ -3712,7 +3753,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      "מחפשת נכס / בשבילכם!" בשתי שורות גדולות עם קו זהב מתחת, הבועה עם
      אייקון שיחה, והיתרונות עם אייקון זהב גדול ומפרידים. ‏html body: כללי
      הטלפון הקודמים של הכרטיס יושבים מאוחר יותר בקובץ. */
-  .gab-text b{color:var(--ink);font-weight:700}
   @media(max-width:759px){
     html body .gab-top{height:154px}
     html body .gab{--gab-pop:38px}
@@ -3742,33 +3782,63 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .gab-top .gab-role::after{width:92px;margin-top:2px}
   }
 
-  /* ---------- "איך זה עובד?" ---------- */
-  .gab-how-dlg{
-    width:min(480px,calc(100vw - 32px));box-sizing:border-box;padding:0;border:0;border-radius:20px;
-    background:#fff;color:var(--ink);box-shadow:0 30px 80px rgba(13,27,61,.35);text-align:start;
+  /* ---------- "איך זה עובד?" - תגית על השיחה, ובועה שעולה ממנה ----------
+     התגית יושבת על הקצה התחתון של ‎.gab-chat‎ (חציה מחוץ לו - ולכן
+     ‎margin-bottom‎ על הקופסה). הבועה מכסה את השיחה בזמן שהיא פתוחה, ונסגרת
+     בלחיצה נוספת, בלחיצה מחוץ לה וב-Escape (‏bindGabHow ב-home.js).
+     ‏visibility ולא ‏[hidden]: ‏[hidden] בדף הוא ‏!important ולא היה מאפשר
+     אנימציה, ו-visibility:hidden גם מוציא אותה מעץ הנגישות כשהיא סגורה. */
+  .gab-chat-box{position:relative;max-width:520px;margin-bottom:16px}
+  .gab-how{
+    position:absolute;left:50%;bottom:0;transform:translate(-50%,50%);z-index:2;
+    display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 14px 5px 12px;
+    border:1.5px solid var(--brass);border-radius:999px;background:#fff;cursor:pointer;
+    font:inherit;font-weight:700;font-size:14px;line-height:1;color:var(--sapphire);white-space:nowrap;
+    box-shadow:0 4px 12px rgba(14,42,107,.14);
   }
-  .gab-how-dlg::backdrop{background:rgba(13,27,61,.55)}
-  .gab-how-head{display:flex;align-items:center;gap:12px;padding:22px 22px 6px}
-  .gab-how-ava{width:56px;height:56px;border-radius:50%;flex:none;border:2px solid var(--brass)}
-  .gab-how-head > div{flex:1 1 auto;min-width:0}
-  .gab-how-title{margin:0;font-size:22px;font-weight:800;color:var(--sapphire);line-height:1.2}
-  .gab-how-sub{margin:2px 0 0;font-size:14px;color:#4a5872}
-  .gab-how-x{
-    flex:none;align-self:flex-start;width:44px;height:44px;border:0;border-radius:50%;background:var(--sky-tint);
-    color:var(--sapphire);display:flex;align-items:center;justify-content:center;cursor:pointer;
+  /* שטח לחיצה של 44px גם כשהתגית עצמה 32px */
+  .gab-how::before{content:"";position:absolute;inset:-6px -4px}
+  .gab-how svg{width:17px;height:17px;flex:none;color:var(--brass-ink)}
+  .gab-how:hover,.gab-how[aria-expanded="true"]{background:var(--brass-tint)}
+  .gab-how:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .gab-how-tip{
+    position:absolute;left:50%;bottom:26px;z-index:3;width:min(300px,calc(100% - 16px));box-sizing:border-box;
+    padding:12px 14px;border-radius:14px;background:#fff;color:var(--ink);text-align:start;
+    box-shadow:0 14px 34px rgba(14,42,107,.25),0 0 0 1px rgba(14,42,107,.06);
+    opacity:0;visibility:hidden;transform:translate(-50%,10px) scale(.96);transform-origin:50% 100%;
+    transition:opacity .2s ease,transform .25s cubic-bezier(.2,.9,.3,1.2),visibility 0s linear .25s;
   }
-  .gab-how-x svg{width:20px;height:20px}
-  .gab-how-x:hover{background:var(--sky)}
-  .gab-how-steps{list-style:none;margin:0;padding:12px 22px 6px;display:flex;flex-direction:column;gap:14px}
-  .gab-how-steps li{display:flex;gap:14px;align-items:flex-start}
-  .gab-how-num{
-    flex:none;width:34px;height:34px;border-radius:50%;background:var(--brass);color:var(--sapphire-deep);
-    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;
+  .gab-how-tip.is-open{opacity:1;visibility:visible;transform:translate(-50%,0) scale(1);transition-delay:0s}
+  /* הזנב של הבועה, מצביע על התגית */
+  .gab-how-tip::after{
+    content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;margin-left:-6px;
+    background:#fff;transform:rotate(45deg);box-shadow:2px 2px 3px rgba(14,42,107,.08);
   }
-  .gab-how-steps b{display:block;font-size:17px;color:var(--sapphire);line-height:1.3}
-  .gab-how-steps li span:not(.gab-how-num){display:block;font-size:15px;line-height:1.5;color:#33415c;margin-top:2px}
-  .gab-how-foot{padding:16px 22px 22px;display:flex}
-  .gab-how-foot .gab-cta{width:100%;font-size:18px}
+  .gab-how-tip ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;counter-reset:gabhow}
+  .gab-how-tip li{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;line-height:1.3;counter-increment:gabhow}
+  .gab-how-tip li::before{
+    content:counter(gabhow);flex:none;width:24px;height:24px;border-radius:50%;background:var(--brass);
+    color:var(--sapphire-deep);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;
+  }
+  @media(max-width:759px){ .gab-chat-box{max-width:none} .gab-how-tip li{font-size:14.5px} }
+  /* ---------- הכפתור והשיחה כיחידה אחת ----------
+     הכפתור הירוק יושב צמוד מעל השיחה, ברוחב שלה: פינות עליונות לכפתור,
+     תחתונות לשיחה, בלי רווח ביניהם. ‏#gabCtaWrap / ‏html body - כללי הכפתור
+     והשיחה יושבים במקומות אחרים בקובץ וב-design-system.css. */
+  .gab-convo{display:flex;flex-direction:column;max-width:520px;width:100%}
+  .gab-convo .gab-actions{display:flex;flex-direction:column;align-items:stretch;gap:0}
+  /* ‏transform-origin בתחתית: ה"לחיצה" המונפשת לא פותחת רווח מול השיחה */
+  html body #gabCtaWrap .gab-cta{width:100%;border-radius:16px 16px 0 0;transform-origin:50% 100%}
+  html body .gab-convo .gab-chat{border-radius:0 0 16px 16px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(14,42,107,.06)}
+  .gab-convo .gab-chat-box{max-width:none}
+  /* טלפון צר: הקופסה 248px ב-320, והצעדים נשברו לשתי שורות. הבועה חורגת
+     מעט מהשיחה לתוך הריפוד של הכרטיס, והגופן קטן בחצי פיקסל */
+  @media(max-width:374px){
+    .gab-how-tip{width:calc(100% + 20px);padding:10px 12px}
+    .gab-how-tip li{font-size:13.5px;gap:8px}
+    .gab-how-tip li::before{width:22px;height:22px;font-size:12px}
+  }
+  @media(prefers-reduced-motion:reduce){ .gab-how-tip{transition:none} }
 
   /* ---------- שורת האמינות: המספרים והחותמות ----------
      אותו markup של ‎.hero-stats‎ (המספרים נכתבים מהנתונים, החותמות פותחות את
@@ -3811,7 +3881,58 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-stats.trust .hero-marks{gap:4px 16px}
     .hero-stats.trust .hero-mark-cap,.hero-stats.trust .hero-stat i{font-size:13px}
   }
-
+  /* ---------- השורה ככרטיס: היתרונות שאין לאחרים (אוקטובר 2026) ----------
+     זה ה-highlight של האתר - מה שאין באתרים אחרים - ולכן כרטיס ולא שורה
+     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל, וכותרת קטנה בתוכו
+     (‏.trust-title). תווית ספיר על הקצה העליון נוסתה והוסרה - כותרת שקטה
+     ולא בועה (החלטת בעל/ת האתר). **נמוך בכוונה**
+     (החלטת בעל/ת האתר: לא באנר גבוה) - במחשב שורה אחת, ובטלפון המספרים
+     בשורה אחת והחותמות בשתי שורות של אייקון מעל כיתוב. כל אייקון בעיגול
+     זהב בהיר, כמו היתרונות בכרטיס גבריאלה. */
+  html body .hero-stats.trust{
+    position:relative;background:#fff;border:1px solid #eadfbf;border-radius:20px;
+    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:14px 24px;box-sizing:border-box;
+  }
+  /* הכותרת בשורה משלה (‏flex-basis:100%), עם קו זהב קצר משני צדיה */
+  .trust-title{
+    flex-basis:100%;margin:0 0 6px;display:flex;align-items:center;justify-content:center;gap:10px;
+    font-size:15px;font-weight:800;line-height:1.2;color:var(--brass-ink);letter-spacing:.01em;
+  }
+  .trust-title::before,.trust-title::after{content:"";width:28px;height:2px;border-radius:2px;background:var(--brass)}
+  html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{
+    width:36px;height:36px;flex:none;border-radius:50%;
+  }
+  html body .hero-stats.trust .hero-mark-ico{background:var(--brass-tint);display:flex;align-items:center;justify-content:center}
+  html body .hero-stats.trust .hero-mark-ico svg{width:20px;height:20px}
+  html body .hero-stats.trust .hero-mark-cap{font-weight:700;color:var(--sapphire-deep)}
+  html body .hero-stats.trust .hero-stat b{font-size:20px}
+  @media(min-width:760px){
+    html body .hero-stats.trust{width:fit-content;max-width:min(1180px,100%)}
+    html body .hero-stats.trust .hero-mark{gap:8px}
+    html body .hero-stats.trust,html body .hero-stats.trust .hero-marks{column-gap:20px}
+    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){column-gap:20px}
+    /* עם העיגולים החותמות כבר לא נכנסות בשורה אחת עם המספרים, והקו
+       האנכי נשאר תלוי בסוף שורת המספרים */
+    html body .hero-stats.trust .hero-stat-sep-wide{display:none}
+  }
+  @media(max-width:759px){
+    html body .hero-stats.trust{padding:12px 10px;gap:0}
+    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){
+      gap:2px 20px;padding:0 0 9px;margin-bottom:10px;border-bottom:1.5px dashed #eadfbf;
+    }
+    html body .hero-stats.trust .hero-stat{padding:2px 0}
+    html body .hero-stats.trust .hero-stat i{font-size:14px;font-weight:600}
+    /* שש עמודות, שתיים לכל חותמת: שלוש בשורה הראשונה, ושתיים ממורכזות
+       בשנייה (‏.is-lower מחזיקה שתיים). השורות ‏(.hero-marks-row) הן ‏display:contents, ולכן החותמות
+       הן הפריטים של הגריד ישירות, לפי סדר המסמך */
+    html body .hero-stats.trust .hero-marks{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 4px;width:100%}
+    html body .hero-stats.trust .hero-marks-row > .hero-mark{grid-column:span 2}
+    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(1){grid-column:2 / span 2}
+    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(2){grid-column:4 / span 2}
+    html body .hero-stats.trust .hero-mark{flex-direction:column;align-items:center;gap:5px;padding:2px;min-width:0;text-align:center}
+    html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{width:34px;height:34px}
+    html body .hero-stats.trust .hero-mark-cap{font-size:12.5px;line-height:1.2;white-space:normal;text-wrap:balance}
+  }
   /* ---------- "הצג במפה": בכותרת התוצאות, וגלולה צפה ---------- */
   .map-open-btn{
     display:inline-flex;align-items:center;gap:10px;background:var(--sapphire);color:#fff;text-decoration:none;
@@ -4168,7 +4289,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .mob-back,html body .mob-filter,html body .ss-card.ss-free-only .ss-go{border-radius:10px !important}
   html body .nav-drop-menu{border-radius:14px !important}
   html body .hdr-login,html body .hamburger{border-radius:12px !important}
-  html body .gab-how-dlg{border-radius:20px !important}
   #ownerBannerWrap #ownerBanner{border-radius:24px !important}
   #ownerBannerWrap .lead-panel{border-radius:20px !important}
   #ownerBannerWrap .wiz-input,#ownerBannerWrap .owner-toggle button,#ownerBannerWrap .wiz-nav .btn{border-radius:12px !important}
@@ -4839,16 +4959,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <h2 class="gab-name" id="gabName">גבריאלה</h2>
               <p class="gab-role">מחפשת נכס בשבילכם!</p>
             </div>
-            <p class="gab-text" id="gabText">ספרו לגבריאלה <b>בוואטסאפ מה אתם מחפשים.</b> היא תמצא לכם נכסים מתאימים ותעדכן אתכם כשיעלה נכס חדש שמתאים לכם.</p>
-            <!-- שיחת דוגמה מתחלפת (‏initGabChat ב-home.js). התוכן כאן הוא הגרסה
-                 הקבועה - בלי JS ועם prefers-reduced-motion היא מה שמוצג. -->
-            <div class="gab-chat" id="gabChat" aria-hidden="true">
-              <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
-              <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
-            </div>
-            <div class="gab-actions">
-              <span class="gab-cta-wrap" id="gabCtaWrap"></span>
-              <button type="button" class="gab-how" id="gabHowBtn" aria-haspopup="dialog" aria-controls="gabHowDialog">איך זה עובד?</button>
+            <!-- הכפתור והשיחה הם יחידה אחת - כמו חלון וואטסאפ: הכפתור הירוק הוא
+                 הכותרת, והשיחה מתחתיו. לחיצה על השיחה פותחת את אותה שיחה עם
+                 גבריאלה (‏bindGabConvo ב-home.js). -->
+            <div class="gab-convo">
+              <div class="gab-actions">
+                <span class="gab-cta-wrap" id="gabCtaWrap"></span>
+              </div>
+              <!-- שיחת דוגמה מתחלפת (‏initGabChat ב-home.js). התוכן כאן הוא הגרסה
+                   הקבועה - בלי JS ועם prefers-reduced-motion היא מה שמוצג. -->
+              <!-- ‏"איך זה עובד?" - תגית על הקצה התחתון של השיחה, ובלחיצה עולה ממנה
+                   בועה עם שלושה צעדים (‏bindGabHow ב-home.js). במקום פסקת ההסבר
+                   והחלון שהיו כאן: השיחה כבר מראה את מה שהם אמרו. -->
+              <div class="gab-chat-box">
+                <div class="gab-chat" id="gabChat" aria-hidden="true">
+                  <div class="gab-bubble me">היי גבריאלה, אני מחפש 4 חדרים ב<span data-gab-city>עפולה</span> עד <span class="nw">1.6 מיליון ₪</span></div>
+                  <div class="gab-bubble her">מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.</div>
+                </div>
+                <button type="button" class="gab-how" id="gabHowBtn" aria-expanded="false" aria-controls="gabHowTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>איך זה עובד?</button>
+                <div class="gab-how-tip" id="gabHowTip">
+                  <ol>
+                    <li data-how-step="1">כותבים בוואטסאפ מה מחפשים</li>
+                    <li>מקבלים נכסים שמתאימים בדיוק</li>
+                    <li>מתעדכנים כשעולה נכס חדש</li>
+                  </ol>
+                </div>
+              </div>
             </div>
             <ul class="gab-perks">
               <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>שירות אישי</li>
@@ -4870,27 +5006,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </article>
 
-        <!-- ‏"איך זה עובד?" - ‏<dialog> מקורי: ‏showModal() לוכד את הפוקוס, ‏Escape
-             סוגר, והפוקוס חוזר לכפתור שפתח. שלושה צעדים, משפט אחד לכל צעד. -->
-        <dialog class="gab-how-dlg" id="gabHowDialog" aria-labelledby="gabHowTitle">
-          <div class="gab-how-head">
-            <img class="gab-how-ava" src="/assets/gabriela-avatar.webp" width="56" height="56" alt="" loading="lazy" decoding="async">
-            <div>
-              <h2 class="gab-how-title" id="gabHowTitle">איך גבריאלה עובדת?</h2>
-              <p class="gab-how-sub">שלושה צעדים פשוטים.</p>
-            </div>
-            <button type="button" class="gab-how-x" data-gab-how-close aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-          </div>
-          <ol class="gab-how-steps">
-            <li><span class="gab-how-num" aria-hidden="true">1</span><div><b>מספרים לה מה מחפשים</b><span>סוג נכס, אזור ותקציב - במילים שלכם, כמו בשיחה עם חבר.</span></div></li>
-            <li><span class="gab-how-num" aria-hidden="true">2</span><div><b>היא מוצאת את המתאימים</b><span>גבריאלה עוברת על כל הנכסים באתר ושולחת לכם רק את מה שמתאים.</span></div></li>
-            <li><span class="gab-how-num" aria-hidden="true">3</span><div><b>היא מעדכנת אתכם</b><span>עלה נכס חדש שמתאים? תקבלו הודעה מיד, בלי לחפש שוב.</span></div></li>
-          </ol>
-          <div class="gab-how-foot">
-            <span class="gab-cta-wrap" id="gabHowCtaWrap"></span>
-          </div>
-        </dialog>
-
         <!-- ====== שורת המספרים והחותמות ======
              שני המונים נמשכים מהמאגר (renderHeroStats). שתי החותמות שלצדם
              אינן קישוט אלא תשובות לשתי השאלות שגולש/ת נדל״ן שואל/ת בשנייה
@@ -4902,6 +5017,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              כאן הן מה שמבטיח שאם היא כן תישבר, היא תישבר בין המספרים
              לחותמות ולא באמצע צמד. -->
         <div class="hero-stats trust" id="heroStats" hidden>
+          <p class="trust-title">רק בשוק הנדל״ן</p>
           <div class="hero-stats-group">
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
