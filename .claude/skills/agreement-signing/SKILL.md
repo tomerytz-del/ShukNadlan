@@ -1,6 +1,6 @@
 ---
 name: agreement-signing
-description: עבודה על החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, ה-Edge Function agreement-sign, האימות לפני הצגת ההסכם (הודעת וואטסאפ נכנסת "אימות חתימה", קוד במייל, תבנית AUTHENTICATION עתידית), חתימה פנים מול פנים לפי ה-JWT של הסוכן/ת, prepare_agreement בבוט, והנעילה של גוף המסמך. Use when a signer is stuck on the verification screen, when "הקישור אינו תקין" appears on a valid link, when touching sign.html / agreement-sign / agreement-wa-verify.ts / whatsapp-otp.ts / prepare_agreement, when adding a verification channel, or when changing how the WhatsApp webhook routes inbound messages.
+description: עבודה על החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, ה-Edge Function agreement-sign, האימות לפני הצגת ההסכם (הודעת וואטסאפ נכנסת "אימות חתימה", קוד במייל, תבנית AUTHENTICATION עתידית), חתימה פנים מול פנים לפי ה-JWT של הסוכן/ת, prepare_agreement בבוט, והנעילה של גוף המסמך. Use when a signer is stuck on the verification screen, when "הקישור אינו תקין" appears on a valid link, when touching sign.html / agreement-sign / agreement-wa-verify.ts / whatsapp-otp.ts / prepare_agreement, when adding a verification channel, when changing how the WhatsApp webhook routes inbound messages, or when touching an ID-number (ת.ז.) field in a signing form, the agreement wizard, the client card, the agent profile or office opening (assets/il-id.js, "המספר נכון - לאשר בכל זאת").
 ---
 
 # החתמת לקוחות על הסכם
@@ -74,6 +74,23 @@ description: עבודה על החתמת לקוחות על הסכמי תיווך 
 אין שורה → `not_found` (‏404) **ונרשם ביומן** עם אורך האסימון. עד
 1.10.2026 כל תקלה הוצגה כ"הועתק חלקית" על קישור שנפתח דקה קודם. מי
 שמוסיף שאילתה שם — בודק `error` לפני `data`.
+
+## ת.ז. נבדקת בזמן ההזנה - ותמיד עם עקיפה
+
+כל שדה ת.ז. שמזין הסכם נושא `data-il-id` ונבדק מול ספרת הביקורת ב-
+`assets/il-id.js` (‏`IlId`): ‏`sign.html`, האשף (טופס החותמים, `agrValidate`,
+המילוי המהיר), כרטיס הלקוח/ה, פרטי הסוכן/ת, ושתי דרכי פתיחת המשרד. הטבלה
+המלאה: `docs/client-agreements.md`, "בדיקת ת.ז. בזמן ההזנה".
+
+- **העקיפה היא חלק מהכלל, לא חור בו.** הבדיקה תופסת טעות הקלדה, לא זהות.
+  שדה חדש בלי "המספר נכון" חוסם לקוח/ה אמיתי/ת. לכן גם **אין** בדיקה בשרת
+  (‏`agreement-sign`, ‏`agency-signup`, ‏`create-own-agency` שומרים מה שהגיע).
+- **האישור קשור לערך** (`data-il-id-ok`). טופס שמצויר מחדש (האשף) מאבד
+  אותו - ולכן הוא נשמר על החותם/ת (`id_override`, האירוע `il-id-override`).
+- **ערך שכבר שמור נחשב מאושר** (כרטיס, פרופיל): אחרת כל שמירה של הערות
+  הייתה דורשת אישור מחדש. ת.ז. של הסוכן/ת נבדקת פעם אחת, בפתיחת המשרד.
+- דרכון אינו נבדק (`data-il-id="off"`), ושדה `readOnly` (מולא מראש) גם לא.
+- שדה ת.ז. חדש: `data-il-id` + `IlId.check(input)` לפני השליחה, ושורה בטבלה במסמך.
 
 ## הבוט בודק לפני שהוא יוצר
 
