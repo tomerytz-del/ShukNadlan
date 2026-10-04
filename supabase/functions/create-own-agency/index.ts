@@ -96,6 +96,10 @@ Deno.serve(async (req: Request) => {
     source: "create-own-agency",
   });
   const license = licenseSummary(licenseCheck, license_number);
+  // ‏ת.ז. נבדקה בטופס (ספרת ביקורת, עם עקיפה מכוונת) - כאן היא רק נשמרת.
+  // רשות, כדי שגרסה ישנה של ה-CRM במטמון לא תיפול על השדה החסר.
+  const idNumber = typeof body.id_number === "string" && body.id_number.trim()
+    ? body.id_number.trim().slice(0, 20) : null;
 
   try {
     let baseSlug = slugify(agency_name) || "agency";
@@ -137,7 +141,9 @@ Deno.serve(async (req: Request) => {
       // נכתבים כאן בעדכון נפרד. כשל כאן אינו מפיל את המעבר — המשרד כבר עבר,
       // והשורה נשארת unverified, שאינו חוסם.
       const { error: licErr } = await supabase
-        .from("agency_members").update(licenseCheck.columns).eq("id", releasedMember.id);
+        .from("agency_members")
+        .update({ ...licenseCheck.columns, ...(idNumber ? { id_number: idNumber } : {}) })
+        .eq("id", releasedMember.id);
       if (licErr) console.error("license stamp failed", licErr);
 
       // חתימת הקוד האתי על המשרד החדש. שורת הסוכן/ת כבר חתומה מהמשרד הקודם,
@@ -186,6 +192,7 @@ Deno.serve(async (req: Request) => {
       display_name: manager_name,
       email: userData.user.email,
       license_number: license_number,
+      id_number: idNumber,
       ...licenseCheck.columns,
     }).select().single();
 

@@ -26,7 +26,7 @@ description: עבודה על אימות רישיון התיווך בריפו ש�
 | שכבה | איפה | מה |
 | --- | --- | --- |
 | הבדיקה | `_shared/broker-license-gate.ts` | `checkBrokerLicense` (מטמון, ערעור מאושר, המאגר), `licenseSummary` לדפדפן |
-| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים** |
+| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים**. מקבלים גם `id_number` (רשות בשרת; בטופס חובה ונבדק בספרת ביקורת עם עקיפה - `assets/il-id.js`, הסקיל `agreement-signing`) |
 | כניסת סוכן/ת | `join-agency` | `licenseGate` דורש מספר בלבד. `license_status`, `set_license` |
 | ערעור | `broker-license-appeal` | `submit` (אנונימי), `list`/`decide` (מנהל/ת פלטפורמה) |
 | המודעות | טריגר `properties_a_license_hold` | `active` של סוכן/ת לא תקין/ה → `unpublished` + `license_hold_at` |
