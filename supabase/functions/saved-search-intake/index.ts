@@ -88,6 +88,65 @@ const CONDITIONS = [
   "new_from_contractor", "new", "renovated", "maintained", "needs_renovation",
 ];
 
+/* ---- הסכמה שניתנת אחרי השמירה ---------------------------------------------
+   גבריאלה שומרת חיפוש מיד בלחיצה ("שמרי לי"), בלי הסכמה, ורק אז שואלת אם
+   מתווך/ת יעזור/תעזור. "כן" שם אינו חיפוש חדש: שליחה חוזרת של אותם
+   קריטריונים עם consent=true נופלת על הכפילות ב-create_saved_search, שאינה
+   נוגעת בשורה הקיימת. לכן הפעולה הזו מעדכנת את **אותה** שורה.
+
+   ‏search_id הוא ה-uuid ש-intake החזיר למי שיצר/ה את החיפוש, ולכן הוא ההרשאה:
+   מי שמחזיק/ה אותו הוא/היא מי ששמר/ה. ההסכמה רק נדלקת, לעולם לא נכבית כאן
+   (ביטול עובר דרך saved-search-manage), וחיפוש שהוסר אינו חוזר דרכה.
+
+   ‏lead_routing_log מחזיק שורה אחת לליד (‏unique על lead_table+lead_id), ו-
+   ‏log_lead_routing עושה do nothing בהתנגשות. לכן השורה הקיימת ("no_consent")
+   מתעדכנת במקום, וליד אחד נספר פעם אחת בדוחות. */
+async function grantConsent(body: any): Promise<Response> {
+  const id = String(body.search_id ?? "");
+  if (!UUID_RE.test(id)) return json({ error: "invalid_search_id" }, 400);
+
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+  const { data: updated, error } = await serviceClient
+    .from("saved_searches")
+    .update({ consent_agent_contact: true })
+    .eq("id", id)
+    .eq("consent_agent_contact", false)
+    .neq("status", "unsubscribed")
+    .is("agency_id", null)
+    .select("id")
+    .maybeSingle();
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+
+  if (!updated) {
+    const { data: row } = await serviceClient
+      .from("saved_searches").select("consent_agent_contact, status").eq("id", id).maybeSingle();
+    if (!row || row.status === "unsubscribed") return json({ error: "not_found" }, 404);
+    return json({ success: true, already: true });
+  }
+
+  // אותה הכרעה כמו ביצירה: מדף, מתחת לרף, או אין סוכנים פעילים
+  const agents = await audienceSize(serviceClient, "agent_buyer");
+  let onShelf = false;
+  if (agents > 0) {
+    const { data: shelfRow } = await serviceClient
+      .from("saved_search_leads_public").select("id").eq("id", id).maybeSingle();
+    onShelf = !!shelfRow;
+  }
+  const routing = onShelf ? "shelf" : "unrouted";
+  const { error: logError } = await serviceClient
+    .from("lead_routing_log")
+    .update({
+      routing,
+      recipients: Math.max(agents, 0),
+      reason: onShelf ? null : agents > 0 ? "below_min_intent" : "no_active_agents",
+    })
+    .eq("lead_table", "saved_searches")
+    .eq("lead_id", id);
+  if (logError) console.warn("lead_routing_log consent update failed:", logError.message);
+
+  return json({ success: true, routing });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -98,6 +157,8 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+
+  if (body.action === "grant_consent") return await grantConsent(body);
 
   // ---- פרטי הקשר -----------------------------------------------------------
   const fullName = String(body.full_name ?? "").trim();
