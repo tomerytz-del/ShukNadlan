@@ -120,6 +120,33 @@ check("missing_fields מזהה חוסר",
       set(missing_fields({"PRICE": 1})) >= {"deal_id", "date", "address"},
       missing_fields({"PRICE": 1}))
 
+# --------------------------------------- סוג הנכס מוכר לדוח ה-CMA במסד
+# ‏`property_type_class()` היא שמחליטה אם עסקה היא בת השוואה, וסוג שאינו
+# מוכר לה חוזר `null` ואינו נספר באף דוח - בלי שגיאה. עד 20270224090000
+# חנות, משרד ומחסן מופו כאן ל"מסחרי", שלא היה ברשימה שם, כלומר בדיוק
+# העסקאות שהדוח לנכס מסחרי צריך היו נופלות בשקט. הבדיקה קוראת את
+# המיגרציה **האחרונה** שמגדירה את הפונקציה, כי היא זו שחלה.
+import re                                                            # noqa: E402
+
+from deals_engine.normalize import TYPE_MAP                         # noqa: E402
+
+_MIG = Path(__file__).resolve().parent.parent / "supabase" / "migrations"
+_defs = [p for p in sorted(_MIG.glob("*.sql"))
+         if "function public.property_type_class(" in p.read_text(encoding="utf-8")
+         and "create or replace function public.property_type_class" in p.read_text(encoding="utf-8")]
+check("נמצאה מיגרציה שמגדירה את property_type_class", bool(_defs))
+if _defs:
+    _sql = _defs[-1].read_text(encoding="utf-8")
+    _body = _sql[_sql.index("create or replace function public.property_type_class"):]
+    _body = _body[:_body.index("$$;")]
+    # מחרוזות SQL: גרש מוכפל הוא גרש אחד ("בית פרטי/קוטג''")
+    _known = {m.replace("''", "'") for m in re.findall(r"'((?:[^']|'')*)'", _body)}
+    for raw, mapped in TYPE_MAP.items():
+        check(f"‏{raw!r} → {mapped!r} מוכר ל-property_type_class ({_defs[-1].name})",
+              mapped in _known, "הסוג ייכנס למאגר ולא ייספר בשום דוח CMA")
+    check("‏\"בנין\" אינו מסווג (הוא מערבב דירות, משרדים וחנויות)",
+          "בנין" not in _known and "בניין" not in _known)
+
 # ----------------------------------------------- הבדיקה עצמה נשארת טהורה
 # ה-workflow מריץ את הקובץ הזה **בלי להתקין תלויות**, כי הוא פונקציות
 # טהורות. כשאוצר המילים והתעבורה ישבו באותו מודול, ‏`import requests`

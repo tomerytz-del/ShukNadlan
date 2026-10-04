@@ -102,6 +102,22 @@ SAMPLE_CASES = {
                   "excluded_other_rooms": 0}, 750],
     # אין סטטיסטיקה - אין שורה, בדיוק כמו שאין פער
     "no_stats": [{"has_statistics": False, "status": "insufficient"}, 750],
+    # ---- נכס מסחרי (20270224090000): קומה במקום חדרים ----
+    # חנות בקומת קרקע, 6 עסקאות מסחריות בקרקע ו-2 בקומות עליונות
+    "floor_exact": [{"has_statistics": True, "comparables_found": 6, "rooms_band": None,
+                     "subject_rooms": None, "rooms_band_reason": "floor_exact",
+                     "band_dimension": "floor", "subject_floor_group": "ground",
+                     "excluded_other_floor": 2, "excluded_other_rooms": 0}, 750],
+    # משרד בקומה 3, אין די עסקאות מסחריות בקומות עליונות
+    "floor_unfiltered": [{"has_statistics": True, "comparables_found": 8, "rooms_band": None,
+                          "subject_rooms": None, "rooms_band_reason": "no_similar_floor",
+                          "band_dimension": "floor", "subject_floor_group": "upper",
+                          "excluded_other_floor": 0, "excluded_other_rooms": 0}, 750],
+    # משרד בלי קומה רשומה - וגם עם מספר חדרים (3.5), שאינו רלוונטי לו
+    "no_floor": [{"has_statistics": True, "comparables_found": 8, "rooms_band": None,
+                  "subject_rooms": "3.5", "rooms_band_reason": "subject_floor_missing",
+                  "band_dimension": "floor", "subject_floor_group": None,
+                  "excluded_other_floor": 0, "excluded_other_rooms": 0}, 750],
 }
 
 MARKET_HARNESS = """
@@ -237,6 +253,18 @@ def main() -> int:
          "אינה מסוננת לפי מספר חדרים" in text(sample["no_rooms"])),
         ("בלי has_statistics - אין שורת מדגם בכלל",
          sample["no_stats"].strip() == ""),
+        # ---- נכס מסחרי: קומה, ולעולם לא בקשה למספר חדרים ----
+        ("מסחרי, אותה קומה: נאמרים הקומה והרדיוס",
+         "בקומת קרקע" in text(sample["floor_exact"]) and "750" in sample["floor_exact"]),
+        ("ומה שנשאר בחוץ בגלל הקומה - נספר ונאמר",
+         "2 עסקאות מסחריות נוספות" in text(sample["floor_exact"])),
+        ("מסחרי בלי עסקאות באותה קומה: נאמר שאין סינון קומה",
+         "אינה מסוננת לפי קומה" in text(sample["floor_unfiltered"])),
+        ("מסחרי בלי קומה: הדוח מבקש להשלים קומה",
+         "השלימו את הקומה" in text(sample["no_floor"])),
+        ("ובשום מצב מסחרי לא מבקש מספר חדרים",
+         all("חדרים" not in text(sample[k])
+             for k in ("floor_exact", "floor_unfiltered", "no_floor"))),
         # ---- שכבת השוק: מחיר מבוקש, ולעולם לא כמחיר עסקה ----
         ("כל מצב בשכבת השוק אומר שאלה מחירים מבוקשים",
          all("מחירים מבוקשים" in text(market[k])

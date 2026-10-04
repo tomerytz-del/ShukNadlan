@@ -21319,9 +21319,17 @@ function cmaCoverageBlock(cov){
   };
   const x = texts[cov.status];
   if (!x) return '';
+  /* נכס מסחרי בלי בני השוואה הוא כמעט תמיד זה, ולא היעדר עסקאות: במאגר
+     הרשמי חנויות ומשרדים רשומים יחד עם דירות תחת "בנין", ולכן הם אינם
+     נספרים (20270224090000). בלי השורה הזו "אין עסקאות בסביבה" נשמע כמו
+     שקר לסוכן/ת שמכיר/ה עסקאות ברחוב. */
+  const commercial = cov.subject_class === 'commercial'
+    && (cov.status === 'none' || cov.status === 'insufficient')
+    ? `<div class="d">במאגר העסקאות הרשמי חנויות ומשרדים אינם מסווגים בנפרד - הם רשומים יחד עם דירות תחת "בנין". `
+      + `לכן הם אינם נספרים כבני השוואה לנכס מסחרי, ונספרות רק עסקאות שסוגן ידוע.</div>` : '';
   return `<div class="cma-gap">
       <div class="t">${esc(x.t)}</div>
-      <div class="d">${esc(x.d)}</div>
+      <div class="d">${esc(x.d)}</div>${commercial}
       <ul>
         <li>עסקאות שנמצאו בסביבה: ${esc(cov.comparables_found ?? 0)}</li>
         <li>נדרש לחישוב ממוצע: ${esc(cov.min_required ?? '-')}</li>
@@ -21376,6 +21384,29 @@ function cmaSampleNote(cov, radiusUsed){
          + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
          + `השלימו את מספר החדרים בכרטיס הנכס והפיקו את הדוח שוב - זה המספר שמדייק אותו יותר מכל.</div>`;
   }
+
+  /* נכס מסחרי (20270224090000): לחנות ולמשרד אין חדרים, והסולם מסנן לפי
+     קבוצת קומה. חנות בקומת קרקע ומשרד בקומה שלישית אינם אותו נכס - בעפולה
+     החציון למ"ר הוא כ-16,800 מול כ-12,000. ולכן גם כאן שני המצבים בלי
+     סינון נאמרים בקול, ובקשה להשלים מבקשת קומה ולא חדרים. */
+  const floorName = ({ ground:'בקומת קרקע', upper:'בקומות עליונות', below:'במרתף' })[cov.subject_floor_group] || '';
+  const otherFloor = Number(cov.excluded_other_floor) || 0;
+  const floorAside = otherFloor > 0
+    ? ` ‏${esc(otherFloor)} עסקאות מסחריות נוספות בסביבה הן בקומה אחרת, ואינן נספרות בממוצע.` : '';
+  if (cov.rooms_band_reason === 'floor_exact'){
+    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות מסחריות `
+         + `<strong>${esc(floorName)}</strong>${rad}.${floorAside}</div>`;
+  }
+  if (cov.rooms_band_reason === 'no_similar_floor'){
+    return `<div class="cma-note">לא נמצאו די עסקאות מסחריות ${esc(floorName)}, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
+         + `בחנות זה הפער הגדול ביותר במחיר, ולכן יש לקרוא את הממוצע בזהירות.</div>`;
+  }
+  if (cov.rooms_band_reason === 'subject_floor_missing'){
+    return `<div class="cma-note">לנכס לא רשומה קומה, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
+         + `השלימו את הקומה בכרטיס הנכס והפיקו את הדוח שוב - בנכס מסחרי זה הנתון שמדייק אותו יותר מכל.</div>`;
+  }
   return rad ? `<div class="cma-note">ההשוואה נערכה${rad}.</div>` : '';
 }
 
@@ -21407,8 +21438,10 @@ function cmaMarketNote(cov){
       + `<strong>תואמים לנכס במאפיינים</strong> (ממ״ד, מעלית, מרפסת, חניה וכדומה).</div>`;
   }
   if (cov.market_band_reason === 'rooms_only'){
+    /* בנכס מסחרי הסולם הוא קומה ולא חדרים (20270224090000) */
+    const band = cov.band_dimension === 'floor' ? 'באותה קבוצת קומה' : 'באותו מספר חדרים';
     return head + '<div class="cma-note">לא נמצאו די נכסים שתואמים גם במאפיינים, ולכן החציון כאן נשען על '
-      + 'כל הנכסים באותו מספר חדרים. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>';
+      + `כל הנכסים ${band}. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>`;
   }
   if (cov.market_band_reason === 'subject_features_missing'){
     return head + '<div class="cma-note">לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. '
