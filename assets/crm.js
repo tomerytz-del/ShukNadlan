@@ -20221,13 +20221,16 @@ const LINE_SOURCE_LABELS = { sign:'שלט', yad2:'יד2', facebook:'פייסבו
 async function loadLineStats(){
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   const { data } = await sb.from('agent_calls')
-    .select('line_id, status, client_id, from_number')
+    .select('line_id, status, client_id, from_number, billed_minutes, created_at')
     .gte('created_at', since).not('line_id', 'is', null).limit(3000);
+  // המכסה לפי חודש קלנדרי (charge_call_minutes); השעון של הדפדפן מספיק לתצוגה
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
   const clientKeys = new Set(clientRows.map(c => String(c.phone || '').replace(/\D/g, '').slice(-9)).filter(k => k.length === 9));
   lineStats = {};
   for (const c of data || []){
-    const st = lineStats[c.line_id] || (lineStats[c.line_id] = { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() });
+    const st = lineStats[c.line_id] || (lineStats[c.line_id] = { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set(), monthMin:0 });
     st.calls++;
+    if (new Date(c.created_at).getTime() >= monthStart) st.monthMin += Number(c.billed_minutes) || 0;
     if (c.status === 'answered') st.answered++;
     else if (c.status !== 'ringing') st.missed++;
     const key = String(c.from_number || '').replace(/\D/g, '').slice(-9);
@@ -20241,6 +20244,8 @@ async function loadLineStats(){
 function renderLines(){
   const box = document.getElementById('linesPanel');
   if (!box) return;
+  const capMin = Number(lineQuota && lineQuota.included_minutes) || 150;
+  const overRate = Number(lineQuota && lineQuota.overage_per_min) || 0.5;
   const rows = lineRows.map(l => {
     const st = lineStats[l.id] || { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() };
     const prop = l.property_id ? (typeof myPropertyRows !== 'undefined' ? myPropertyRows.find(p => p.id === l.property_id) : null) : null;
@@ -20266,7 +20271,10 @@ function renderLines(){
         <span>מתקשרים <b>${st.callers.size}</b></span>
         <span>מהקובץ <b>${st.known}</b></span>
         <span>נוספו לקובץ <b>${st.added.size}</b></span>
+        ${l.monthly_price ? `<span>דקות החודש <b>${st.monthMin || 0}</b> מתוך ${esc(String(capMin))}</span>` : ''}
       </div>
+      ${l.monthly_price && (st.monthMin || 0) >= capMin
+        ? `<div class="line-warn">נוצלו כל ${esc(String(capMin))} הדקות של החודש - כל דקה נוספת ${shekel(overRate)} מהארנק. בלי יתרה השיחות ממשיכות להגיע, אבל בלי הקלטה וסיכום.</div>` : ''}
       ${l.forward_to ? `<div class="call-meta">השיחות מועברות אל ${esc(callLocalPhone(l.forward_to))}</div>` : ''}
       ${l.external_number ? `<div class="call-meta">המספר הקיים ${esc(callLocalPhone(l.external_number))} מופנה לכאן · <a href="#" data-line-act="howto">איך מפנים?</a></div>` : ''}
       ${choose}
@@ -20340,6 +20348,7 @@ function openLineModal(line){
     'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. ' +
     (free ? 'המספר הזה כלול במסלול Elite שלך, בלי חיוב.'
           : '89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.') +
+    ` כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.` +
     (lineQuota && lineQuota.premium
       ? ' אם המסלול יורד מ-Elite, נשאר מספר אחד לבחירתך ב-89 ₪ לחודש, והשאר משתחררים.' : '');
   modal.style.display = 'flex';
@@ -20403,6 +20412,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     lines: [`"${label}" - ${LINE_SOURCE_LABELS[source] || ''}`, `קידומת 0${area}`,
       avail.included ? 'כלול במסלול Elite שלך - בלי חיוב, מתחדש אוטומטית כל עוד המסלול Elite.'
         : `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`,
+      `כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.`,
       tierLine].filter(Boolean),
     price: avail.price,
     requireAck: !!tierLine,
