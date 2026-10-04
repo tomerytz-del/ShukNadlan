@@ -3802,7 +3802,6 @@ const GAB_AVATAR = '/assets/gabriela-avatar.webp';
 function gabrielaBotOn(){ return !!(window.ShukBot && ShukBot.enabled && ShukBot.enabled()); }
 
 function openGabrielaAgent(){
-  document.getElementById('gabHowDialog')?.close?.();
   buyState.source = 'homepage_gabriela';
   openBuyerPanel(true);
   document.getElementById('buyerBanner')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -3872,10 +3871,10 @@ function gabrielaSplitRow(){
 
 function renderGabrielaCta(){
   drawGabrielaCta(document.getElementById('gabCtaWrap'), 'homepage_hero');
-  drawGabrielaCta(document.getElementById('gabHowCtaWrap'), 'homepage_how');
   if (!gabrielaBotOn()){
-    const text = document.getElementById('gabText');
-    if (text) text.textContent = 'ספרו לה מה אתם מחפשים, והיא תעדכן אתכם ברגע שעולה נכס מתאים.';
+    // הכפתור פותח את הסוכן החכם ולא את וואטסאפ - הצעד הראשון בבועה בהתאם
+    const step = document.querySelector('#gabHowTip [data-how-step="1"]');
+    if (step) step.textContent = 'משאירים פרטים: מה מחפשים ואיפה';
   }
   // באנר מחפשי הנכס בפוטר: "או כתבו לגבריאלה" רק כשהעוזרת דולקת
   const buyerGab = document.getElementById('buyerGab');
@@ -4017,18 +4016,20 @@ function showMicHint(){
   }, MIC_HINT_DELAY);
 }
 
-/* ‏"איך זה עובד?" - ‏<dialog> מקורי. ‏showModal נותן לכידת פוקוס ו-Escape,
-   והפוקוס חוזר לכפתור שפתח. לחיצה על הרקע סוגרת. */
+/* ‏"איך זה עובד?" - תגית על הקצה התחתון של שיחת הדוגמה, ובלחיצה עולה ממנה
+   בועה עם שלושה צעדים. נסגרת בלחיצה נוספת, בלחיצה מחוץ לה וב-Escape
+   (שמחזיר את הפוקוס לתגית). ‏aria-expanded הוא מקור האמת. */
 (function bindGabHow(){
   const btn = document.getElementById('gabHowBtn');
-  const dlg = document.getElementById('gabHowDialog');
-  if (!btn || !dlg) return;
-  if (typeof dlg.showModal !== 'function'){ btn.hidden = true; return; }
-  btn.addEventListener('click', ()=> dlg.showModal());
-  dlg.addEventListener('click', (e)=>{
-    if (e.target === dlg || e.target.closest('[data-gab-how-close]')) dlg.close();
+  const tip = document.getElementById('gabHowTip');
+  if (!btn || !tip) return;
+  const isOpen = () => btn.getAttribute('aria-expanded') === 'true';
+  const set = open => { btn.setAttribute('aria-expanded', String(open)); tip.classList.toggle('is-open', open); };
+  btn.addEventListener('click', e => { e.stopPropagation(); set(!isOpen()); });
+  document.addEventListener('click', e => { if (isOpen() && !tip.contains(e.target)) set(false); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isOpen()){ set(false); btn.focus({ preventScroll:true }); }
   });
-  dlg.addEventListener('close', ()=> btn.focus({ preventScroll:true }));
 })();
 
 /* ============================================================
