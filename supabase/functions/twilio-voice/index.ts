@@ -694,6 +694,55 @@ const SUMMARY_PROMPT = [
   "כתוב/כתבי בעברית, עם מקף רגיל (-) ולא מקף ארוך.",
 ].join("\n");
 
+/** ‏structured outputs: בשיחה האמיתית הראשונה (4.10.2026) המודל הוסיף טקסט
+ *  אחרי ה-JSON, ו-JSON.parse נפל - הסוכן קיבל "לא הצלחתי לסכם" על שיחה תקינה.
+ *  כמו ב-generateMarketingCopy (‏#529): הסכימה מחייבת JSON תקין, וכל שדה
+ *  נוכח - null כשלא נאמר, ו-cleanNeeds מסנן אותו. */
+const NULLABLE_STR = { anyOf: [{ type: "string" }, { type: "null" }] };
+const NULLABLE_NUM = { anyOf: [{ type: "number" }, { type: "null" }] };
+const SUMMARY_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    caller_name: NULLABLE_STR,
+    needs_text: NULLABLE_STR,
+    next_step: NULLABLE_STR,
+    needs: {
+      type: "object",
+      properties: {
+        deal_type: { anyOf: [{ type: "string", enum: ["sale", "rent"] }, { type: "null" }] },
+        cities: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }] },
+        min_rooms: NULLABLE_NUM,
+        min_price: NULLABLE_NUM,
+        max_price: NULLABLE_NUM,
+      },
+      required: ["deal_type", "cities", "min_rooms", "min_price", "max_price"],
+      additionalProperties: false,
+    },
+  },
+  required: ["summary", "caller_name", "needs_text", "next_step", "needs"],
+  additionalProperties: false,
+};
+
+/** האובייקט המאוזן הראשון בטקסט - גיבוי למקרה שהתשובה לא הגיעה דרך הסכימה.
+ *  ‏regex חמדני (`\{[\s\S]*\}`) תופס גם טקסט שבא אחרי ה-JSON ומכיל "}". */
+function firstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
 async function summarize(transcript: string, knownName: string | null, places = ""): Promise<CallSummary | null> {
   if (!ANTHROPIC_KEY) return null;
   try {
@@ -710,6 +759,7 @@ async function summarize(transcript: string, knownName: string | null, places = 
         // התשובה חוזרת ריקה (ראו generateMarketingCopy, 1.10.2026).
         max_tokens: 8000,
         system: SUMMARY_PROMPT,
+        output_config: { format: { type: "json_schema", schema: SUMMARY_SCHEMA } },
         messages: [{
           role: "user",
           content: (knownName ? `הלקוח/ה המוכר/ת: ${knownName}\n\n` : "") +
@@ -730,9 +780,12 @@ async function summarize(transcript: string, knownName: string | null, places = 
     // deno-lint-ignore no-explicit-any
     const text = (data?.content ?? []).filter((b: any) => b?.type === "text").map((b: any) => b.text).join("")
       .trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    const parsed = JSON.parse(m[0]);
+    const obj = firstJsonObject(text);
+    if (!obj) {
+      console.error("summary: no JSON in response", data?.stop_reason, text.slice(0, 200));
+      return null;
+    }
+    const parsed = JSON.parse(obj);
     const clean = (v: unknown) => (typeof v === "string" && v.trim() ? noLongDash(v.trim()) : null);
     const summary = clean(parsed?.summary);
     if (!summary) return null;
