@@ -26738,7 +26738,7 @@ async function agrSaveAndGoSign(btn){
       phone: s.phone.trim() || null, email: s.email.trim() || null,
       address: s.address.trim() || null,
       // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
-      // על עמודה שעוד לא קיימת (20270222090000)
+      // על עמודה שעוד לא קיימת (20270223090000)
       ...(s.self_fill ? { self_fill: true } : {}),
     }));
     const { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);

@@ -504,7 +504,7 @@
 | `agreement-sign` | ‏`sign` דורש שם בשתי מילים ות.ז. (ספרת ביקורת או `id_confirmed`) מחותם/ת `self_fill`; ‏`open`, ‏`view` והעותק במייל ממלאים את המשבצות |
 | `crm.js` | התיבה בטופס החותם/ת, `agrValidate` מדלג על ת.ז. חסרה, אין לוח חתימה ב-CRM לחותם/ת שטרם השלים/ה, ושתי התצוגות של המסמך ממלאות את המשבצות |
 | `agreement-build.ts` / `agent.ts` | אותו דבר לבוט |
-| `20270222090000_agreement_signer_self_fill.sql` | ‏`self_fill`, ‏`details_filled_at`, ‏`id_confirmed` |
+| `20270223090000_agreement_signer_self_fill.sql` | ‏`self_fill`, ‏`details_filled_at`, ‏`id_confirmed` |
 
 **שלושה דברים שנשברים בשקט:**
 
