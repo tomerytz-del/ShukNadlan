@@ -3881,24 +3881,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-stats.trust .hero-marks{gap:4px 16px}
     .hero-stats.trust .hero-mark-cap,.hero-stats.trust .hero-stat i{font-size:13px}
   }
-  /* ---------- השורה ככרטיס: "היתרונות שרק אצלנו" (אוקטובר 2026) ----------
+  /* ---------- השורה ככרטיס: היתרונות שאין לאחרים (אוקטובר 2026) ----------
      זה ה-highlight של האתר - מה שאין באתרים אחרים - ולכן כרטיס ולא שורה
-     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל, ותווית זהב שיושבת על הקצה
-     העליון (‏.trust-label, כמו ‏.gab-tag בכרטיס שמעליו). **נמוך בכוונה**
+     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל. בלי תווית כותרת (הוסרה
+     בבקשת בעל/ת האתר). **נמוך בכוונה**
      (החלטת בעל/ת האתר: לא באנר גבוה) - במחשב שורה אחת, ובטלפון המספרים
      בשורה אחת והחותמות בשתי שורות של אייקון מעל כיתוב. כל אייקון בעיגול
      זהב בהיר, כמו היתרונות בכרטיס גבריאלה. */
   html body .hero-stats.trust{
     position:relative;background:#fff;border:1px solid #eadfbf;border-radius:20px;
-    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:22px 24px 14px;box-sizing:border-box;margin-top:34px;
+    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:14px 24px;box-sizing:border-box;
   }
-  .trust-label{
-    position:absolute;top:0;left:50%;transform:translate(-50%,-50%);margin:0;white-space:nowrap;
-    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;
-    background:var(--sapphire);color:#fff;font-size:13px;font-weight:800;line-height:1.2;
-    box-shadow:0 6px 14px rgba(14,42,107,.22);
-  }
-  .trust-label svg{width:14px;height:14px;flex:none;color:var(--brass)}
   html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{
     width:36px;height:36px;flex:none;border-radius:50%;
   }
@@ -3916,7 +3909,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     html body .hero-stats.trust .hero-stat-sep-wide{display:none}
   }
   @media(max-width:759px){
-    html body .hero-stats.trust{padding:20px 10px 12px;gap:0}
+    html body .hero-stats.trust{padding:12px 10px;gap:0}
     html body .hero-stats.trust .hero-stats-group:not(.hero-marks){
       gap:2px 20px;padding:0 0 9px;margin-bottom:10px;border-bottom:1.5px dashed #eadfbf;
     }
@@ -5017,7 +5010,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              כאן הן מה שמבטיח שאם היא כן תישבר, היא תישבר בין המספרים
              לחותמות ולא באמצע צמד. -->
         <div class="hero-stats trust" id="heroStats" hidden>
-          <p class="trust-label"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>היתרונות שרק אצלנו</p>
           <div class="hero-stats-group">
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
