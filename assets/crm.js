@@ -20176,7 +20176,7 @@ async function loadCalls(){
   const block = document.getElementById('callsBlock');
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
-    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid')
+    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number')
     .neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
   const hasLine = lineRows.some(l => l.active);
@@ -20258,9 +20258,11 @@ function renderLines(){
         <span>מהקובץ <b>${st.known}</b></span>
         <span>נוספו לקובץ <b>${st.added.size}</b></span>
       </div>
+      ${l.forward_to ? `<div class="call-meta">השיחות מועברות אל ${esc(callLocalPhone(l.forward_to))}</div>` : ''}
+      ${l.external_number ? `<div class="call-meta">המספר הקיים ${esc(callLocalPhone(l.external_number))} מופנה לכאן · <a href="#" data-line-act="howto">איך מפנים?</a></div>` : ''}
       ${l.payment_failed_at ? '<div class="line-warn">החידוש נכשל - אין מספיק יתרה בארנק. המספר ישוחרר אחרי 7 ימים בלי תשלום.</div>' : ''}
       <div class="call-actions">
-        <button type="button" class="btn btn-ghost" data-line-act="edit">✏️ כינוי ומקור</button>
+        <button type="button" class="btn btn-ghost" data-line-act="edit">✏️ עריכה וניתוב</button>
         ${l.twilio_sid ? '<button type="button" class="btn btn-ghost" data-line-act="release">✖ ביטול המספר</button>' : ''}
         ${renew ? `<span class="call-meta">${esc(renew)}</span>` : ''}
       </div>
@@ -20281,6 +20283,7 @@ document.getElementById('linesPanel').addEventListener('click', e => {
   if (act === 'order') return openLineModal(null);
   if (act === 'edit' && line) return openLineModal(line);
   if (act === 'release' && line) return releaseLine(line, btn);
+  if (act === 'howto' && line){ e.preventDefault(); return showForwardHowto(line); }
 });
 
 function linePropLabel(p){
@@ -20293,7 +20296,7 @@ function openLineModal(line){
   lineModalTarget = line;
   const modal = document.getElementById('plModal');
   if (modal.parentElement !== document.body) document.body.appendChild(modal);
-  document.getElementById('plTitle').textContent = line ? 'כינוי ומקור למספר' : 'הזמנת מספר מעקב';
+  document.getElementById('plTitle').textContent = line ? 'עריכת המספר' : 'הזמנת מספר מעקב';
   document.getElementById('plLabel').value = line ? (line.label || '') : '';
   document.getElementById('plSource').value = (line && line.source_type) || 'sign';
   const propSel = document.getElementById('plProperty');
@@ -20301,6 +20304,8 @@ function openLineModal(line){
   propSel.innerHTML = '<option value="">בלי נכס</option>' + props.map(p =>
     `<option value="${esc(p.id)}">${esc(linePropLabel(p))}</option>`).join('');
   propSel.value = (line && line.property_id) || '';
+  document.getElementById('plForward').value = line && line.forward_to ? callLocalPhone(line.forward_to) : '';
+  document.getElementById('plExternal').value = line && line.external_number ? callLocalPhone(line.external_number) : '';
   document.getElementById('plOrderOnly').style.display = line ? 'none' : '';
   document.getElementById('plSave').textContent = line ? 'שמירה' : 'המשך להזמנה';
   document.getElementById('plSave').disabled = false;
@@ -20319,19 +20324,28 @@ document.getElementById('plSave').addEventListener('click', async () => {
   const label = document.getElementById('plLabel').value.trim();
   const source = document.getElementById('plSource').value;
   const propertyId = document.getElementById('plProperty').value || null;
+  const forwardTo = document.getElementById('plForward').value.trim() || null;
+  const externalNumber = document.getElementById('plExternal').value.trim() || null;
+  const badPhone = v => v && !/^(\+?972[1-9]\d{7,8}|0[1-9]\d{7,8})$/.test(v.replace(/[^0-9+]/g, ''));
+  if (badPhone(forwardTo)){ msg.textContent = 'מספר ההעברה צריך להיות מספר ישראלי, למשל 0541234567.'; return; }
+  if (badPhone(externalNumber)){ msg.textContent = 'המספר הקיים צריך להיות מספר ישראלי, למשל 0771234567.'; return; }
   if (!label){ msg.textContent = 'כתבו כינוי למספר - כך תזהו אותו בדוח ובוואטסאפ.'; return; }
   const btn = document.getElementById('plSave');
 
   if (lineModalTarget){
     btn.disabled = true;
     const { data, error } = await sb.rpc('phone_line_set_details', {
-      p_line_id: lineModalTarget.id, p_label: label, p_source: source, p_property_id: propertyId });
+      p_line_id: lineModalTarget.id, p_label: label, p_source: source, p_property_id: propertyId,
+      p_forward_to: forwardTo, p_external_number: externalNumber });
     btn.disabled = false;
     if (error || !data){ msg.textContent = 'השמירה נכשלה' + (error ? ': ' + error.message : ''); return; }
-    Object.assign(lineModalTarget, { label, source_type: source, property_id: propertyId });
+    const hadExternal = lineModalTarget.external_number;
+    Object.assign(lineModalTarget, { label, source_type: source, property_id: propertyId,
+      forward_to: forwardTo, external_number: externalNumber });
     closeLineModal();
     renderLines();
     showToast('נשמר');
+    if (externalNumber && externalNumber !== hadExternal) showForwardHowto(lineModalTarget);
     return;
   }
 
@@ -20354,16 +20368,34 @@ document.getElementById('plSave').addEventListener('click', async () => {
   });
   if (!ok) return;
   try {
-    const out = await linesCall('lines-order', { area, label, source_type: source, property_id: propertyId });
+    const out = await linesCall('lines-order', { area, label, source_type: source, property_id: propertyId,
+      forward_to: forwardTo, external_number: externalNumber });
     if (out.balance != null) setAgentBalance(out.balance);
-    showToast(`המספר ${callLocalPhone(out.number)} מוכן - שיחות אליו יגיעו לנייד שלך`);
-    loadCalls();
+    showToast(`המספר ${callLocalPhone(out.number)} מוכן - שיחות אליו יגיעו ${forwardTo ? 'אל ' + forwardTo : 'לנייד שלך'}`);
+    await loadCalls();
+    if (externalNumber) showForwardHowto({ twilio_number: out.number, external_number: externalNumber });
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
       'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + err.message);
     refreshAgentBalance();
   }
 });
+
+/* מספר קיים מתחבר בהפניית שיחות אצל הספק שלו: כל שיחה אליו עוברת למספר
+   שלנו, ומשם לנייד - עם הקלטה, תמלול וסיכום. הקוד **21* הוא הפניה קבועה
+   ברשתות הסלולר בישראל; במספר וירטואלי או בקו של המשרד ההפניה נעשית
+   באפליקציה או באזור האישי של הספק. */
+function showForwardHowto(line){
+  const ours = callLocalPhone(line.twilio_number);
+  const ext = callLocalPhone(line.external_number);
+  alert(
+    `איך מחברים את ${ext}:\n\n` +
+    `מגדירים "הפניית שיחות קבועה" מ-${ext} אל ${ours}.\n\n` +
+    `• נייד: מחייגים מהמכשיר של ${ext} את הקוד **21*${ours}# ולוחצים חיוג.\n` +
+    `  (לביטול: ##21#)\n` +
+    `• מספר וירטואלי או קו של משרד: באפליקציה או באזור האישי של הספק, "הפניית שיחות" אל ${ours}.\n\n` +
+    `אחרי ההפניה, כל שיחה ל-${ext} תגיע אליך עם הקלטה, תמלול וסיכום בוואטסאפ.`);
+}
 
 async function releaseLine(line, btn){
   if (!confirm(`לבטל את המספר ${callLocalPhone(line.twilio_number)}? שיחות אליו יפסיקו להגיע, ואי אפשר לקבל אותו בחזרה. השיחות וההקלטות נשארות.`)) return;

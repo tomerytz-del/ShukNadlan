@@ -1074,6 +1074,14 @@ const LINE_SOURCES = new Set(["sign", "yad2", "facebook", "instagram", "google",
 // נטייה לשלוח וואטסאפ, וההודעה לא מגיעה לאף אחד (docs/call-tracking.md).
 const LINE_AREAS = new Set(["2", "3", "4", "8", "9", "72", "73", "74", "76", "77"]);
 
+/** מספר ישראלי (ניתוב או מספר קיים) - אותו כלל של phone_line_set_details במסד.
+ *  ניתוב לחו"ל היה עולה לנו כסף בלי תקרה. */
+function ilPhone(raw: unknown): string | null | false {
+  const v = String(raw ?? "").replace(/[^0-9+]/g, "");
+  if (!v) return null;
+  return /^(\+?972[1-9]\d{7,8}|0[1-9]\d{7,8})$/.test(v) ? v : false;
+}
+
 async function agentFromJwt(req: Request) {
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
@@ -1144,6 +1152,10 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
   if (!LINE_AREAS.has(area)) return corsJson({ error: "bad_area" }, 400);
   if (source && !LINE_SOURCES.has(source)) return corsJson({ error: "bad_source" }, 400);
   if (!label) return corsJson({ error: "label_required" }, 400);
+  const forwardTo = ilPhone(body?.forward_to);
+  const externalNumber = ilPhone(body?.external_number);
+  if (forwardTo === false) return corsJson({ error: "bad_forward_to" }, 400);
+  if (externalNumber === false) return corsJson({ error: "bad_external_number" }, 400);
   if (propertyId) {
     const { data: prop } = await supabase.from("properties")
       .select("id").eq("id", propertyId).eq("agent_id", me.id).maybeSingle();
@@ -1177,8 +1189,13 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
     return corsJson({ error: "purchase_failed", detail, refunded: true }, 502);
   }
   const bought = await buy.json();
-  await supabase.from("agent_phone_lines")
-    .update({ twilio_sid: bought?.sid ?? null, status: "active", active: true }).eq("id", order.line_id);
+  await supabase.from("agent_phone_lines").update({
+    twilio_sid: bought?.sid ?? null,
+    status: "active",
+    active: true,
+    forward_to: forwardTo,
+    external_number: externalNumber,
+  }).eq("id", order.line_id);
   return corsJson({ success: true, line_id: order.line_id, number, balance: order.balance, price: order.price_charged });
 }
 
