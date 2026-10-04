@@ -3881,39 +3881,58 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero-stats.trust .hero-marks{gap:4px 16px}
     .hero-stats.trust .hero-mark-cap,.hero-stats.trust .hero-stat i{font-size:13px}
   }
-  /* ---------- השורה ככרטיס (אוקטובר 2026) ----------
-     בלי רקע השורה ריחפה על הרקע של ה-hero ונראתה כחלק שלא שייך לאתר.
-     עכשיו היא כרטיס לבן במסגרת זהב עדינה, באותה שפה של כרטיס גבריאלה
-     שמעליה. בטלפון: המספרים למעלה ומתחתם קו מקווקו, והחותמות כאריחים
-     בשתי עמודות - האחרונה ברוחב מלא. גם מתקן את "הדמיית AI לנכס" שגלשה
-     מהמסך בשורה של שלוש. */
+  /* ---------- השורה ככרטיס: "היתרונות שרק אצלנו" (אוקטובר 2026) ----------
+     זה ה-highlight של האתר - מה שאין באתרים אחרים - ולכן כרטיס ולא שורה
+     שמרחפת על הרקע: לבן, מסגרת זהב עדינה וצל, ותווית זהב שיושבת על הקצה
+     העליון (‏.trust-label, כמו ‏.gab-tag בכרטיס שמעליו). **נמוך בכוונה**
+     (החלטת בעל/ת האתר: לא באנר גבוה) - במחשב שורה אחת, ובטלפון המספרים
+     בשורה אחת והחותמות בשתי שורות של אייקון מעל כיתוב. כל אייקון בעיגול
+     זהב בהיר, כמו היתרונות בכרטיס גבריאלה. */
   html body .hero-stats.trust{
-    background:#fff;border:1px solid #eadfbf;border-radius:20px;
-    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:14px 22px;box-sizing:border-box;
+    position:relative;background:#fff;border:1px solid #eadfbf;border-radius:20px;
+    box-shadow:0 12px 32px rgba(14,42,107,.09);padding:22px 24px 14px;box-sizing:border-box;margin-top:34px;
   }
+  .trust-label{
+    position:absolute;top:0;left:50%;transform:translate(-50%,-50%);margin:0;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:999px;
+    background:var(--sapphire);color:#fff;font-size:13px;font-weight:800;line-height:1.2;
+    box-shadow:0 6px 14px rgba(14,42,107,.22);
+  }
+  .trust-label svg{width:14px;height:14px;flex:none;color:var(--brass)}
+  html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{
+    width:36px;height:36px;flex:none;border-radius:50%;
+  }
+  html body .hero-stats.trust .hero-mark-ico{background:var(--brass-tint);display:flex;align-items:center;justify-content:center}
+  html body .hero-stats.trust .hero-mark-ico svg{width:20px;height:20px}
+  html body .hero-stats.trust .hero-mark-cap{font-weight:700;color:var(--sapphire-deep)}
   html body .hero-stats.trust .hero-stat b{font-size:20px}
-  @media(min-width:760px){ html body .hero-stats.trust{width:fit-content;max-width:min(1180px,100%)} }
-  @media(max-width:759px){
-    html body .hero-stats.trust{padding:12px;gap:0;row-gap:0}
-    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){
-      gap:4px 22px;padding:0 0 10px;margin-bottom:10px;border-bottom:1.5px dashed #eadfbf;
-    }
-    html body .hero-stats.trust .hero-stat b{font-size:22px}
-    html body .hero-stats.trust .hero-stat i{font-size:14px;font-weight:600}
-    html body .hero-stats.trust .hero-marks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
-    html body .hero-stats.trust .hero-mark{
-      justify-content:flex-start;gap:8px;padding:9px 10px;min-height:44px;box-sizing:border-box;
-      background:#f6f8fc;border:1px solid #e6ebf5;border-radius:12px;text-align:start;width:100%;
-      grid-column:auto;justify-self:stretch;
-    }
-    /* החמישית ברוחב מלא. ‏grid-column של שתי השורות (‏.hero-marks-row, בראש
-       הקובץ) חל גם כאן, כי השורות ‏display:contents - ולכן מאופס למעלה */
-    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:last-child{grid-column:1 / -1;justify-content:center}
-    html body .hero-stats.trust .hero-mark-cap{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25;white-space:normal;min-width:0;text-wrap:balance}
-    html body .hero-stats.trust .hero-mark{min-width:0}
-    html body .hero-stats.trust .hero-mark-seal{width:24px;height:24px;flex:none}
+  @media(min-width:760px){
+    html body .hero-stats.trust{width:fit-content;max-width:min(1180px,100%)}
+    html body .hero-stats.trust .hero-mark{gap:8px}
+    html body .hero-stats.trust,html body .hero-stats.trust .hero-marks{column-gap:20px}
+    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){column-gap:20px}
+    /* עם העיגולים החותמות כבר לא נכנסות בשורה אחת עם המספרים, והקו
+       האנכי נשאר תלוי בסוף שורת המספרים */
+    html body .hero-stats.trust .hero-stat-sep-wide{display:none}
   }
-
+  @media(max-width:759px){
+    html body .hero-stats.trust{padding:20px 10px 12px;gap:0}
+    html body .hero-stats.trust .hero-stats-group:not(.hero-marks){
+      gap:2px 20px;padding:0 0 9px;margin-bottom:10px;border-bottom:1.5px dashed #eadfbf;
+    }
+    html body .hero-stats.trust .hero-stat{padding:2px 0}
+    html body .hero-stats.trust .hero-stat i{font-size:14px;font-weight:600}
+    /* שש עמודות, שתיים לכל חותמת: שלוש בשורה הראשונה, ושתיים ממורכזות
+       בשנייה (‏.is-lower מחזיקה שתיים). השורות ‏(.hero-marks-row) הן ‏display:contents, ולכן החותמות
+       הן הפריטים של הגריד ישירות, לפי סדר המסמך */
+    html body .hero-stats.trust .hero-marks{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 4px;width:100%}
+    html body .hero-stats.trust .hero-marks-row > .hero-mark{grid-column:span 2}
+    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(1){grid-column:2 / span 2}
+    html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(2){grid-column:4 / span 2}
+    html body .hero-stats.trust .hero-mark{flex-direction:column;align-items:center;gap:5px;padding:2px;min-width:0;text-align:center}
+    html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{width:34px;height:34px}
+    html body .hero-stats.trust .hero-mark-cap{font-size:12.5px;line-height:1.2;white-space:normal;text-wrap:balance}
+  }
   /* ---------- "הצג במפה": בכותרת התוצאות, וגלולה צפה ---------- */
   .map-open-btn{
     display:inline-flex;align-items:center;gap:10px;background:var(--sapphire);color:#fff;text-decoration:none;
@@ -4998,6 +5017,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              כאן הן מה שמבטיח שאם היא כן תישבר, היא תישבר בין המספרים
              לחותמות ולא באמצע צמד. -->
         <div class="hero-stats trust" id="heroStats" hidden>
+          <p class="trust-label"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>היתרונות שרק אצלנו</p>
           <div class="hero-stats-group">
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
