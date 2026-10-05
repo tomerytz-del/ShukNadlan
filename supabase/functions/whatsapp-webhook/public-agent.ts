@@ -975,17 +975,35 @@ async function searchProperties(
   let areaHint: Record<string, unknown> = {};
   if (area) {
     const needle = areaNeedle(area) || areaKey(area);
+    // כינויים שנקבעו בהכרעה (‏`neighborhood_aliases`): "C1" ו"לב העמק" הם
+    // "לב העמק C1". הם מוסיפים שכונות שמותר להתאים, ואינם מחליפים את השם.
+    const aliasHoods = new Set<string>();
+    if (needle) {
+      const { data: aliases } = await ctx.supabase
+        .from("neighborhood_aliases")
+        .select("alias, neighborhoods(name, city)");
+      for (const a of aliases || []) {
+        // deno-lint-ignore no-explicit-any
+        const n = (a as any).neighborhoods;
+        if (!n?.name || (city && !String(n.city || "").includes(city))) continue;
+        const k = areaKey(String(a.alias));
+        if (k && (k === needle || k.includes(needle) || needle.includes(k))) {
+          aliasHoods.add(areaKey(n.name));
+        }
+      }
+    }
     rows = rows.filter((p) => {
       // deno-lint-ignore no-explicit-any
       const hood = areaKey((p as any).neighborhoods?.name || "");
       // deno-lint-ignore no-explicit-any
       const sales = areaKey((p as any).sales_area || "");
-      return !!needle && (hood.includes(needle) || sales.includes(needle));
+      return !!needle &&
+        (hood.includes(needle) || sales.includes(needle) || aliasHoods.has(hood));
     }).slice(0, limit);
 
     // ‏0 תוצאות כשהשם עצמו אינו מוכר אינו "אין נכסים שם" אלא "לא הבנתי
     // איפה" - ובלי הרמז הבוט אמר "לא מצאתי ב-21" כאילו בדק.
-    if (!rows.length && !args._relaxed) {
+    if (!rows.length && !args._relaxed && !aliasHoods.size) {
       let hoods = ctx.supabase.from("neighborhoods").select("name");
       if (city) hoods = hoods.ilike("city", likeSafe(city));
       let sales = ctx.supabase.from("properties").select("sales_area")
