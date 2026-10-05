@@ -4543,6 +4543,7 @@ const INV_GROUPS = [
     note: 'המלאי עצמו: כמה יש, כמה באוויר, ומה חסר במודעות.',
     fields: [
       ['total', 'נכסים במערכת'], ['active', 'מפורסמים כרגע'],
+      ['closed', 'בארכיון / נסגרו'],
       ['new', 'נוספו בחלון'], ['promoted', 'בקידום פעיל'],
       ['with_images', 'עם תמונות'], ['with_text', 'עם תיאור שיווקי'],
       ['geocoded', 'ממוקמים על המפה'], ['with_video', 'עם סרטון'],
@@ -4678,6 +4679,14 @@ function renderInventoryReport(report){
 
   /* ארבעה מספרי כותרת — אלה שנשאלים בפועל כשמישהו שואל "מה יש לכם" */
   const props  = report.properties    || {};
+  // "בארכיון / נסגרו" נגזר מ-by_status שה-RPC כבר מחזיר, ולא מעוד שדה
+  // במיגרציה: זה הפער בין "במערכת" ל"מפורסמים" שנשאל עליו. ‏unpublished
+  // אינו כאן בכוונה — נכס כזה עוד בדרך לאוויר, ולא נסגר.
+  if (props.by_status && typeof props.by_status === 'object'){
+    const st = props.by_status;
+    props.closed = ['archived', 'sold', 'rented']
+      .reduce((s, k) => s + (Number(st[k]) || 0), 0);
+  }
   const collab = report.collaboration || {};
   const clients= report.clients       || {};
   const media  = report.media         || {};
