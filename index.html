@@ -5220,223 +5220,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="split-note" id="splitNote" hidden></p>
     </aside>
 
-    <!-- ====== סינון לפי שכונות (בחירה מרובה) ======
-         הבחירה מוחלת רק בלחיצה על "הצגת תוצאות": סימון של שכונה שלישית
-         באמצע ההתלבטות לא צריך להריץ חיפוש ולהזיז את המפה מתחת ליד. -->
-    <div class="filter-modal-overlay" id="hoodFilterModal">
-      <div class="filter-modal">
-        <div class="filter-modal-header">
-          <h3>סינון לפי שכונות</h3>
-          <button type="button" class="filter-modal-close" data-close-modal="hoodFilterModal">✕</button>
-        </div>
-        <div class="filter-modal-body">
-          <div class="filter-section">
-            <h4>שכונות <span class="filter-hint">(ניתן לבחור יותר משכונה אחת)</span></h4>
-            <div id="hoodFilterOptions" role="group" aria-label="בחירת שכונות"></div>
-            <p class="filter-hint hood-empty-note" id="hoodEmptyNote" hidden>
-              המספר לצד כל שכונה הוא מספר הנכסים בה בסוג העסקה שנבחר. שכונות
-              מעומעמות הן שכונות שאין בהן כרגע נכסים כאלה.
-            </p>
-          </div>
-        </div>
-        <div class="filter-modal-footer">
-          <button type="button" class="btn btn-ghost" id="hoodClearBtn">כל השכונות</button>
-          <button type="button" class="btn btn-gold" id="hoodApplyBtn" style="flex:1">הצגת תוצאות</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ====== Residential filters modal ====== -->
-    <div class="filter-modal-overlay" id="residentialFilterModal">
-      <div class="filter-modal">
-        <div class="filter-modal-header">
-          <h3>סינונים</h3>
-          <button type="button" class="filter-modal-close" data-close-modal="residentialFilterModal">✕</button>
-        </div>
-        <div class="filter-modal-body">
-          <div class="filter-section">
-            <h4>מחיר</h4>
-            <div class="range-row">
-              <input type="number" id="rPriceMin" placeholder="מ-₪">
-              <input type="number" id="rPriceMax" placeholder="עד ₪">
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>חדרים</h4>
-            <div class="pill-group" id="rRoomsPills"></div>
-          </div>
-          <div class="filter-section">
-            <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
-            <div class="ptype-group" data-label="דירות">
-              <div class="pill-group" data-ptype-cat="apt"></div>
-            </div>
-            <div class="ptype-group" data-label="בתים">
-              <div class="pill-group" data-ptype-cat="house"></div>
-            </div>
-            <div class="ptype-group" data-label="אחר">
-              <div class="pill-group" data-ptype-cat="other"></div>
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>מאפייני מודעה</h4>
-            <div class="checkbox-grid" id="rListingFeatures"></div>
-          </div>
-          <div class="filter-section">
-            <h4>מאפייני הנכס</h4>
-            <div class="checkbox-grid" id="rPropertyFeatures"></div>
-          </div>
-          <div class="filter-section">
-            <h4>מצב הנכס</h4>
-            <select id="rCondition" class="filter-select">
-              <option value="">הכל</option>
-              <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
-              <option value="new">חדש (נכס בן עד 10 שנים)</option>
-              <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
-              <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
-              <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
-            </select>
-          </div>
-          <div class="filter-section">
-            <h4>סטטוס הפרויקט</h4>
-            <select id="rProjectStatus" class="filter-select">
-              <option value="">הכל</option>
-              <option value="planning">תכנון ראשוני</option>
-              <option value="permit_requested">הוגשה בקשה להיתר</option>
-              <option value="permit_issued">ניתן היתר בנייה</option>
-              <option value="construction_complete">הבנייה הסתיימה</option>
-            </select>
-          </div>
-          <div class="filter-section">
-            <h4>קומה</h4>
-            <div class="range-row">
-              <input type="number" id="rFloorMin" placeholder="מקומה">
-              <input type="number" id="rFloorMax" placeholder="עד קומה">
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>גודל דירה (במ"ר)</h4>
-            <div class="range-row">
-              <input type="number" id="rSizeMin" placeholder="מ-מ״ר">
-              <input type="number" id="rSizeMax" placeholder="עד מ״ר">
-            </div>
-            <label class="checkbox-item" style="margin-top:6px"><input type="checkbox" id="rBuiltSizeToggle"> הצג לפי מ"ר בנוי בלבד</label>
-          </div>
-          <div class="filter-section">
-            <h4>תאריך כניסה</h4>
-            <input type="date" id="rMoveInDate" class="filter-select" style="margin-bottom:8px">
-            <label class="checkbox-item"><input type="checkbox" id="rMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
-          </div>
-          <div class="filter-section">
-            <h4>חיפוש חופשי</h4>
-            <input type="text" id="rFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
-          </div>
-        </div>
-        <div class="filter-modal-footer">
-          <button type="button" class="btn btn-ghost" id="rClearFilters">איפוס</button>
-          <!-- מריץ חיפוש ולא רק סוגר את המודאל: ‏runSearch() סוגרת בעצמה כל
-               ‎.filter-modal-overlay‎ פתוח, ולכן הלחיצה הזו היא גם הסגירה. -->
-          <button type="button" class="btn btn-gold" id="rApplyFilters" style="flex:1">הצגת תוצאות</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ====== Commercial filters modal ====== -->
-    <div class="filter-modal-overlay" id="commercialFilterModal">
-      <div class="filter-modal">
-        <div class="filter-modal-header">
-          <h3>נדל"ן מסחרי - סינונים</h3>
-          <button type="button" class="filter-modal-close" data-close-modal="commercialFilterModal">✕</button>
-        </div>
-        <div class="filter-modal-body">
-          <div class="filter-section">
-            <h4>סוג עסקה</h4>
-            <!-- "הכול" הוא ברירת המחדל ולא "מכירה": נדל"ן מסחרי הוא קודם כל
-                 קטגוריה, ורוב המלאי המסחרי בפלטפורמה הוא להשכרה. כשברירת
-                 המחדל הייתה "מכירה", מעבר ל"מסחרי" בסרגל החיפוש החזיר את
-                 נכסי המכירה בלבד והסתיר את כל המסחרי להשכרה. -->
-            <div class="deal-toggle" role="group" aria-label="סוג עסקה מסחרי" style="max-width:320px">
-              <button type="button" class="active" data-cdeal="">הכול</button>
-              <button type="button" data-cdeal="sale">מכירה</button>
-              <button type="button" data-cdeal="rent">השכרה</button>
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
-            <div class="pill-group" id="cPtypePills"></div>
-          </div>
-          <div class="filter-section">
-            <h4>מחיר</h4>
-            <div class="range-row">
-              <input type="number" id="cPriceMin" placeholder="מ-₪">
-              <input type="number" id="cPriceMax" placeholder="עד ₪">
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>חדרים</h4>
-            <div class="pill-group" id="cRoomsPills"></div>
-          </div>
-          <div class="filter-section">
-            <h4>מאפייני מודעה</h4>
-            <div class="checkbox-grid" id="cListingFeatures"></div>
-          </div>
-          <div class="filter-section">
-            <h4>מאפייני הנכס</h4>
-            <div class="checkbox-grid" id="cPropertyFeatures"></div>
-          </div>
-          <div class="filter-section">
-            <h4>סטטוס הפרויקט</h4>
-            <select id="cProjectStatus" class="filter-select">
-              <option value="">הכל</option>
-              <option value="planning">תכנון ראשוני</option>
-              <option value="permit_requested">הוגשה בקשה להיתר</option>
-              <option value="permit_issued">ניתן היתר בנייה</option>
-              <option value="construction_complete">הבנייה הסתיימה</option>
-            </select>
-          </div>
-          <div class="filter-section">
-            <h4>קומה</h4>
-            <div class="range-row">
-              <input type="number" id="cFloorMin" placeholder="מקומה">
-              <input type="number" id="cFloorMax" placeholder="עד קומה">
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>גודל נכס (במ"ר)</h4>
-            <div class="range-row">
-              <input type="number" id="cSizeMin" placeholder="מ-מ״ר">
-              <input type="number" id="cSizeMax" placeholder="עד מ״ר">
-            </div>
-          </div>
-          <div class="filter-section">
-            <h4>שירותים</h4>
-            <div class="tri-toggle" data-tri="cRestrooms"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
-          </div>
-          <div class="filter-section">
-            <h4>מחסן</h4>
-            <div class="tri-toggle" data-tri="cStorage"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
-          </div>
-          <div class="filter-section">
-            <h4>ממ"ד</h4>
-            <div class="tri-toggle" data-tri="cMamad"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
-          </div>
-          <div class="filter-section">
-            <h4>תאריך כניסה</h4>
-            <input type="date" id="cMoveInDate" class="filter-select" style="margin-bottom:8px">
-            <label class="checkbox-item"><input type="checkbox" id="cMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
-          </div>
-          <div class="filter-section">
-            <h4>חיפוש חופשי</h4>
-            <input type="text" id="cFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
-          </div>
-        </div>
-        <div class="filter-modal-footer">
-          <button type="button" class="btn btn-ghost" id="cClearFilters">איפוס</button>
-          <!-- כמו במודאל המגורים: הכפתור מריץ את החיפוש, והסגירה נגזרת ממנו -->
-          <button type="button" class="btn btn-gold" id="cApplyFilters" style="flex:1">הצגת תוצאות</button>
-        </div>
-      </div>
-    </div>
-
     <div class="map-toolbar">
       <div class="map-toolbar-side">
         <!-- בורר הערכות (טבע / קלאסי / בהיר) הוסתר מהגולשים: בחירת ערכה היא
@@ -5495,6 +5278,228 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </section>
+
+  <!-- שלושת חלונות הסינון יושבים כאן, מחוץ ל-‎#heroSection‎, בכוונה: ‏‎.hero-valley‎
+       נושא ‎isolation:isolate‎ (לשכבות הרקע של העמק), ולכן הוא הקשר ערימה סגור,
+       ו-‎z-index:300‎ של החלון נמדד רק בתוכו. ‏‎#searchResults‎ (‏‎z-index:4‎, אחרי
+       ה-hero) צויר מעל החלון הפתוח - הכותרת "תוצאות החיפוש" והכפתורים שלה
+       כיסו את סוגי הנכס, ולחיצה עליהם נפלה על התוצאות. -->
+  <!-- ====== סינון לפי שכונות (בחירה מרובה) ======
+       הבחירה מוחלת רק בלחיצה על "הצגת תוצאות": סימון של שכונה שלישית
+       באמצע ההתלבטות לא צריך להריץ חיפוש ולהזיז את המפה מתחת ליד. -->
+  <div class="filter-modal-overlay" id="hoodFilterModal">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3>סינון לפי שכונות</h3>
+        <button type="button" class="filter-modal-close" data-close-modal="hoodFilterModal">✕</button>
+      </div>
+      <div class="filter-modal-body">
+        <div class="filter-section">
+          <h4>שכונות <span class="filter-hint">(ניתן לבחור יותר משכונה אחת)</span></h4>
+          <div id="hoodFilterOptions" role="group" aria-label="בחירת שכונות"></div>
+          <p class="filter-hint hood-empty-note" id="hoodEmptyNote" hidden>
+            המספר לצד כל שכונה הוא מספר הנכסים בה בסוג העסקה שנבחר. שכונות
+            מעומעמות הן שכונות שאין בהן כרגע נכסים כאלה.
+          </p>
+        </div>
+      </div>
+      <div class="filter-modal-footer">
+        <button type="button" class="btn btn-ghost" id="hoodClearBtn">כל השכונות</button>
+        <button type="button" class="btn btn-gold" id="hoodApplyBtn" style="flex:1">הצגת תוצאות</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Residential filters modal ====== -->
+  <div class="filter-modal-overlay" id="residentialFilterModal">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3>סינונים</h3>
+        <button type="button" class="filter-modal-close" data-close-modal="residentialFilterModal">✕</button>
+      </div>
+      <div class="filter-modal-body">
+        <div class="filter-section">
+          <h4>מחיר</h4>
+          <div class="range-row">
+            <input type="number" id="rPriceMin" placeholder="מ-₪">
+            <input type="number" id="rPriceMax" placeholder="עד ₪">
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>חדרים</h4>
+          <div class="pill-group" id="rRoomsPills"></div>
+        </div>
+        <div class="filter-section">
+          <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
+          <div class="ptype-group" data-label="דירות">
+            <div class="pill-group" data-ptype-cat="apt"></div>
+          </div>
+          <div class="ptype-group" data-label="בתים">
+            <div class="pill-group" data-ptype-cat="house"></div>
+          </div>
+          <div class="ptype-group" data-label="אחר">
+            <div class="pill-group" data-ptype-cat="other"></div>
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>מאפייני מודעה</h4>
+          <div class="checkbox-grid" id="rListingFeatures"></div>
+        </div>
+        <div class="filter-section">
+          <h4>מאפייני הנכס</h4>
+          <div class="checkbox-grid" id="rPropertyFeatures"></div>
+        </div>
+        <div class="filter-section">
+          <h4>מצב הנכס</h4>
+          <select id="rCondition" class="filter-select">
+            <option value="">הכל</option>
+            <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
+            <option value="new">חדש (נכס בן עד 10 שנים)</option>
+            <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
+            <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
+            <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
+          </select>
+        </div>
+        <div class="filter-section">
+          <h4>סטטוס הפרויקט</h4>
+          <select id="rProjectStatus" class="filter-select">
+            <option value="">הכל</option>
+            <option value="planning">תכנון ראשוני</option>
+            <option value="permit_requested">הוגשה בקשה להיתר</option>
+            <option value="permit_issued">ניתן היתר בנייה</option>
+            <option value="construction_complete">הבנייה הסתיימה</option>
+          </select>
+        </div>
+        <div class="filter-section">
+          <h4>קומה</h4>
+          <div class="range-row">
+            <input type="number" id="rFloorMin" placeholder="מקומה">
+            <input type="number" id="rFloorMax" placeholder="עד קומה">
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>גודל דירה (במ"ר)</h4>
+          <div class="range-row">
+            <input type="number" id="rSizeMin" placeholder="מ-מ״ר">
+            <input type="number" id="rSizeMax" placeholder="עד מ״ר">
+          </div>
+          <label class="checkbox-item" style="margin-top:6px"><input type="checkbox" id="rBuiltSizeToggle"> הצג לפי מ"ר בנוי בלבד</label>
+        </div>
+        <div class="filter-section">
+          <h4>תאריך כניסה</h4>
+          <input type="date" id="rMoveInDate" class="filter-select" style="margin-bottom:8px">
+          <label class="checkbox-item"><input type="checkbox" id="rMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
+        </div>
+        <div class="filter-section">
+          <h4>חיפוש חופשי</h4>
+          <input type="text" id="rFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
+        </div>
+      </div>
+      <div class="filter-modal-footer">
+        <button type="button" class="btn btn-ghost" id="rClearFilters">איפוס</button>
+        <!-- מריץ חיפוש ולא רק סוגר את המודאל: ‏runSearch() סוגרת בעצמה כל
+             ‎.filter-modal-overlay‎ פתוח, ולכן הלחיצה הזו היא גם הסגירה. -->
+        <button type="button" class="btn btn-gold" id="rApplyFilters" style="flex:1">הצגת תוצאות</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Commercial filters modal ====== -->
+  <div class="filter-modal-overlay" id="commercialFilterModal">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3>נדל"ן מסחרי - סינונים</h3>
+        <button type="button" class="filter-modal-close" data-close-modal="commercialFilterModal">✕</button>
+      </div>
+      <div class="filter-modal-body">
+        <div class="filter-section">
+          <h4>סוג עסקה</h4>
+          <!-- "הכול" הוא ברירת המחדל ולא "מכירה": נדל"ן מסחרי הוא קודם כל
+               קטגוריה, ורוב המלאי המסחרי בפלטפורמה הוא להשכרה. כשברירת
+               המחדל הייתה "מכירה", מעבר ל"מסחרי" בסרגל החיפוש החזיר את
+               נכסי המכירה בלבד והסתיר את כל המסחרי להשכרה. -->
+          <div class="deal-toggle" role="group" aria-label="סוג עסקה מסחרי" style="max-width:320px">
+            <button type="button" class="active" data-cdeal="">הכול</button>
+            <button type="button" data-cdeal="sale">מכירה</button>
+            <button type="button" data-cdeal="rent">השכרה</button>
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
+          <div class="pill-group" id="cPtypePills"></div>
+        </div>
+        <div class="filter-section">
+          <h4>מחיר</h4>
+          <div class="range-row">
+            <input type="number" id="cPriceMin" placeholder="מ-₪">
+            <input type="number" id="cPriceMax" placeholder="עד ₪">
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>חדרים</h4>
+          <div class="pill-group" id="cRoomsPills"></div>
+        </div>
+        <div class="filter-section">
+          <h4>מאפייני מודעה</h4>
+          <div class="checkbox-grid" id="cListingFeatures"></div>
+        </div>
+        <div class="filter-section">
+          <h4>מאפייני הנכס</h4>
+          <div class="checkbox-grid" id="cPropertyFeatures"></div>
+        </div>
+        <div class="filter-section">
+          <h4>סטטוס הפרויקט</h4>
+          <select id="cProjectStatus" class="filter-select">
+            <option value="">הכל</option>
+            <option value="planning">תכנון ראשוני</option>
+            <option value="permit_requested">הוגשה בקשה להיתר</option>
+            <option value="permit_issued">ניתן היתר בנייה</option>
+            <option value="construction_complete">הבנייה הסתיימה</option>
+          </select>
+        </div>
+        <div class="filter-section">
+          <h4>קומה</h4>
+          <div class="range-row">
+            <input type="number" id="cFloorMin" placeholder="מקומה">
+            <input type="number" id="cFloorMax" placeholder="עד קומה">
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>גודל נכס (במ"ר)</h4>
+          <div class="range-row">
+            <input type="number" id="cSizeMin" placeholder="מ-מ״ר">
+            <input type="number" id="cSizeMax" placeholder="עד מ״ר">
+          </div>
+        </div>
+        <div class="filter-section">
+          <h4>שירותים</h4>
+          <div class="tri-toggle" data-tri="cRestrooms"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+        </div>
+        <div class="filter-section">
+          <h4>מחסן</h4>
+          <div class="tri-toggle" data-tri="cStorage"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+        </div>
+        <div class="filter-section">
+          <h4>ממ"ד</h4>
+          <div class="tri-toggle" data-tri="cMamad"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+        </div>
+        <div class="filter-section">
+          <h4>תאריך כניסה</h4>
+          <input type="date" id="cMoveInDate" class="filter-select" style="margin-bottom:8px">
+          <label class="checkbox-item"><input type="checkbox" id="cMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
+        </div>
+        <div class="filter-section">
+          <h4>חיפוש חופשי</h4>
+          <input type="text" id="cFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
+        </div>
+      </div>
+      <div class="filter-modal-footer">
+        <button type="button" class="btn btn-ghost" id="cClearFilters">איפוס</button>
+        <!-- כמו במודאל המגורים: הכפתור מריץ את החיפוש, והסגירה נגזרת ממנו -->
+        <button type="button" class="btn btn-gold" id="cApplyFilters" style="flex:1">הצגת תוצאות</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ====== הפאנל התחתון של החיפוש במשפט - טלפון בלבד ======
        צמוד לתחתית המסך כל עוד ה-hero במסך, ונושא את כפתור הזהב. הבורר עצמו

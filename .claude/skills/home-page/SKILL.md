@@ -1,6 +1,6 @@
 ---
 name: home-page
-description: עבודה על דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, שורת החיפוש החופשית, המפה שנפתחת ב"הצג במפה" (map-closed / map-open), סדר הסקציות מתחת ל-hero, הערכת השווי וההסתייגות על השמאי, והפינות המעוגלות מול design-system.css. Use when changing anything in the home page hero or sections, adding a section or a button to index.html, when a style in index.html "doesn't apply" or a corner comes out square, when the Gabriela button drops below the fold on mobile, when touching the owner valuation wizard, or when a sentence on the page breaks in the middle.
+description: עבודה על דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, שורת החיפוש החופשית, המפה שנפתחת ב"הצג במפה" (map-closed / map-open), סדר הסקציות מתחת ל-hero, הערכת השווי וההסתייגות על השמאי, והפינות המעוגלות מול design-system.css. Use when changing anything in the home page hero or sections, adding a section or a button to index.html, when a style in index.html "doesn't apply" or a corner comes out square, when the Gabriela button drops below the fold on mobile, when touching the owner valuation wizard, or when a sentence on the page breaks in the middle. Also when a modal or overlay on the home page is covered by the search results or its clicks fall through, or when the property-type list under להשכרה/למכירה/מסחרי is missing a type.
 ---
 
 # דף הבית
@@ -56,6 +56,12 @@ description: עבודה על דף הבית של שוק נדל״ן (index.html) -
 לא יידעו עליו. ‏"מסחרי" = `deal` ריק וסוג `commercial`; שדה שאין לו משמעות
 בנכס מסחרי מקבל `hs-res-only` ומסונן גם ב-`applyPanel`.
 
+**רשימת "סוג נכס" בפאנל אינה רשימה של הפאנל** - היא `TYPES` ב-
+`assets/sentence-search.js` (‏`commercial: true` למסחרי). סוג שחסר שם חסר
+גם בפאנל, גם במשפט וגם בפירוש הטקסט החופשי: כך "מסחרי" הציע רק חנות ומשרד
+כשבמלאי היו מבני תעשייה ומגרשים מסחריים. סוג חדש במלאי נכנס ל-`TYPES`
+(עם `ptypes` מדויקים - "מגרשים" מסחרי, "מגרש" מגורים) ול-`parse()`.
+
 **במחשב הגלולות מקופלות מאחורי "סינון מתקדם" (‏`#hsToggle`); בטלפון הן גלויות
 תמיד** - החלטה של בעל/ת האתר. קיפול = המחלקה `is-collapsed`, לא `hidden`
 (‏`[hidden]` הוא `!important` בדף ולא היה מאפשר להציג בטלפון).
@@ -67,6 +73,17 @@ description: עבודה על דף הבית של שוק נדל״ן (index.html) -
 מי שמזיז/ה את הכרטיס (`#gabrielaHero{margin-top}`) מודד/ת את קצה השיער לפי
 הפיקסל הלא-שקוף הראשון של `.gab-img` (ציור ל-canvas, אותו מקור) מול תחתית
 `#ssSmart` ב-1024, ‏1440 ו-1920, ו-`elementFromPoint` על `#hsToggle`.
+
+## 2א1. חלון במסך מלא - מחוץ ל-`#heroSection`
+
+`.hero-valley` נושא `isolation:isolate` (שכבות הרקע של העמק ב-`::before`/
+`::after`), ולכן ה-hero הוא הקשר ערימה סגור: `z-index:300` של חלון בתוכו
+נמדד רק בתוכו, ו-`#searchResults` (‏`z-index:4`, אחרי ה-hero) נצבע מעליו.
+כך חלון "נדל״ן מסחרי - סינונים" נראה תקין בראשו, ובחלק התחתון "תוצאות
+החיפוש" והכפתורים שלה כיסו את סוגי הנכס ובלעו את הלחיצות. **כל
+`position:fixed` חדש (חלון, שכבה, בלון) נכנס אחרי `</section>` של ה-hero**,
+כמו שלושת חלונות הסינון. לבדוק: לפתוח אותו כש-`#searchResults` במסך,
+ולוודא ב-`elementFromPoint` לאורך החלון שכל נקודה בתוכו.
 
 ## 2ב. שיחת הדוגמה - רק יכולות אמיתיות, ובגובה קבוע
 
