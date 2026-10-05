@@ -57,7 +57,7 @@ as $$
       union all
       -- מילים: regex **אחד** שמחלץ את כל המילים, והמיפוי בהשוואת מחרוזות.
       -- הגרסה הקודמת הריצה 40 ביטויים נפרדים לכל קריאה - כחצי מילי-שנייה
-      -- לעסקה, כלומר כ-0.7 שנייה לבריכה של 1,200 עסקאות (20270301090000).
+      -- לעסקה, כלומר כ-0.7 שנייה לבריכה של 1,200 עסקאות (20270302090000).
       select case
                when t ~ '^(עשרים|שלושים|ארבעים)' then
                  (case when t like 'עשרים%' then 20 when t like 'שלושים%' then 30 else 40 end)
@@ -209,7 +209,7 @@ as $$
 $$;
 
 comment on function public.cma_deal_pool(double precision, double precision, date, numeric, uuid, text, numeric) is
-  'בני ההשוואה לדוח CMA: איחוד market_deals ו-market_deals_official ברדיוס ובחלון הזמן, עם מרחק, התאמת מחלקה, הפרש חדרים, קבוצת קומה (לנכס מסחרי ולגן/גג) ותת-סוג (לגן/גג). כל פונקציית עזר נקראת פעם אחת לעסקה, ורק כשהנכס צריך אותה (20270301090000).';
+  'בני ההשוואה לדוח CMA: איחוד market_deals ו-market_deals_official ברדיוס ובחלון הזמן, עם מרחק, התאמת מחלקה, הפרש חדרים, קבוצת קומה (לנכס מסחרי ולגן/גג) ותת-סוג (לגן/גג). כל פונקציית עזר נקראת פעם אחת לעסקה, ורק כשהנכס צריך אותה (20270302090000).';
 
 revoke all on function public.cma_deal_pool(double precision, double precision, date, numeric, uuid, text, numeric) from public, anon, authenticated;
 grant execute on function public.cma_deal_pool(double precision, double precision, date, numeric, uuid, text, numeric) to service_role;
