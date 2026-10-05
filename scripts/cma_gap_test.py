@@ -102,7 +102,7 @@ SAMPLE_CASES = {
                   "excluded_other_rooms": 0}, 750],
     # אין סטטיסטיקה - אין שורה, בדיוק כמו שאין פער
     "no_stats": [{"has_statistics": False, "status": "insufficient"}, 750],
-    # ---- נכס מסחרי (20270224090000): קומה במקום חדרים ----
+    # ---- נכס מסחרי (20270226090000): קומה במקום חדרים ----
     # חנות בקומת קרקע, 6 עסקאות מסחריות בקרקע ו-2 בקומות עליונות
     "floor_exact": [{"has_statistics": True, "comparables_found": 6, "rooms_band": None,
                      "subject_rooms": None, "rooms_band_reason": "floor_exact",
