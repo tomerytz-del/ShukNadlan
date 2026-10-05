@@ -4122,9 +4122,14 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     .eq("agent_id", ctx.agent.id);
   if (htmlError) return { ok: false, error: htmlError.message };
 
-  const { error: signersError } = await ctx.supabase
-    .from("agreement_signers")
-    .insert(signerRows(String(created.id), signers));
+  const signerInsert = signerRows(String(created.id), signers);
+  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(signerInsert);
+  // הפונקציות והמיגרציות נפרסות בלי סדר מובטח: בדקה שבה client_id עוד לא
+  // קיים (20270228090000) נכתבים החותמים בלעדיו, וההסכם לא נופל.
+  if (signersError && /client_id/.test(signersError.message || "")) {
+    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
+      .insert(signerInsert.map(({ client_id: _c, ...row }) => row)));
+  }
   if (signersError) return { ok: false, error: signersError.message };
 
   const { data: saved } = await ctx.supabase

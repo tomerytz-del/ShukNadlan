@@ -347,6 +347,80 @@ async function loadByToken(token: string) {
   return { signer, agreement };
 }
 
+/* -------------------------------------------------------------------------
+ * מה שהחותם/ת מילא/ה בקישור - גם לכרטיס הלקוח/ה ב-CRM
+ *
+ * בלי זה ההסכם הבא עם אותו/אותה לקוח/ה נעצר שוב על אותה ת.ז. חסרה. הכרטיס
+ * נמצא לפי agreement_signers.client_id (נכתב ביצירה מאז 20270228090000),
+ * ולהסכם ישן - לפי נייד או מייל מתוך agreements.client_ids, ורק כשיש התאמה
+ * אחת. תמיד בתוך הכרטיסים של הסוכן/ת בעל/ת ההסכם.
+ *
+ * ‏ת.ז.: נכתבת כשאין בכרטיס, או כשהחותם/ת היה/תה self_fill - אז הוא/היא
+ * מי שתיקן/ה את המספר. שם: רק כשהשם החדש מרחיב את הקיים ("דנה" ← "דנה
+ * כהן"), כדי לא לדרוס כינוי שהסוכן/ת נתן/ה ("דנה - קונה עפולה").
+ *
+ * ‏best-effort: החתימה כבר במסד, וכשל כאן נרשם ביומן ואינו מפיל אותה.
+ * ------------------------------------------------------------------------- */
+function phoneKey(v: unknown): string {
+  const d = String(v ?? "").replace(/\D/g, "");
+  return d.length >= 9 ? d.slice(-9) : "";
+}
+
+function nameExtends(oldName: unknown, newName: string): boolean {
+  const oldWords = String(oldName ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const newWords = newName.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (!newWords.length) return false;
+  if (!oldWords.length) return true;
+  return newWords.length > oldWords.length && oldWords.every((w) => newWords.includes(w));
+}
+
+// deno-lint-ignore no-explicit-any
+async function saveToClientCard(signer: any, agreement: { id: string; agent_id: string },
+  filled: { id_number: string | null; id_kind: string; full_name: string | null }) {
+  try {
+    if (!filled.id_number && !filled.full_name) return;
+    type Card = { id: string; full_name: string | null; id_number: string | null; phone?: string | null; email?: string | null };
+    let card: Card | null = null;
+
+    if (signer.client_id) {
+      const { data } = await db.from("agent_clients")
+        .select("id, full_name, id_number")
+        .eq("id", signer.client_id).eq("agent_id", agreement.agent_id).maybeSingle();
+      card = (data as Card | null) ?? null;
+    } else {
+      const { data: agr } = await db.from("agreements").select("client_ids").eq("id", agreement.id).maybeSingle();
+      const ids = ((agr?.client_ids as string[] | null) ?? []).filter(Boolean);
+      if (!ids.length) return;
+      const { data: cards } = await db.from("agent_clients")
+        .select("id, full_name, id_number, phone, email")
+        .in("id", ids).eq("agent_id", agreement.agent_id);
+      const ph = phoneKey(signer.phone);
+      const em = String(signer.email ?? "").trim().toLowerCase();
+      const hits = ((cards ?? []) as Card[]).filter((c) =>
+        (ph && phoneKey(c.phone) === ph) || (em && String(c.email ?? "").trim().toLowerCase() === em));
+      if (hits.length === 1) card = hits[0];
+    }
+    if (!card) return;
+
+    const patch: Record<string, string> = {};
+    const hasId = !!String(card.id_number ?? "").trim();
+    if (filled.id_number && filled.id_number !== card.id_number &&
+        (!hasId || (signer.self_fill === true && filled.id_kind === "id_card"))) {
+      patch.id_number = filled.id_number;
+    }
+    if (filled.full_name && nameExtends(card.full_name, filled.full_name)) {
+      patch.full_name = filled.full_name;
+    }
+    if (!Object.keys(patch).length) return;
+
+    const { error } = await db.from("agent_clients").update(patch)
+      .eq("id", card.id).eq("agent_id", agreement.agent_id);
+    if (error) console.error("agreement-sign client card update failed", error.message);
+  } catch (err) {
+    console.error("agreement-sign client card update failed", (err as Error)?.message || err);
+  }
+}
+
 /** תשובת השגיאה של loadByToken: ‏404 לקישור שאינו קיים, ‏503 לתקלה. */
 function lookupError(e?: string) {
   return e === "db_error" ? json({ error: "db_error" }, 503) : json({ error: "not_found" }, 404);
@@ -893,6 +967,12 @@ Deno.serve(async (req: Request) => {
     }).eq("id", signer.id).is("signed_at", null);
 
     if (updErr) return json({ error: "db_error", detail: updErr.message }, 500);
+
+    await saveToClientCard(signer, agreement, {
+      id_number: idNumber || null,
+      id_kind: idKind,
+      full_name: typeof selfFill.full_name === "string" ? selfFill.full_name : null,
+    });
 
     // הטריגר במסד כבר עדכן את סטטוס ההסכם; כאן רק בודקים אם נסגר המעגל
     const { data: after } = await db

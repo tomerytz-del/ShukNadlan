@@ -27210,8 +27210,17 @@ async function agrSaveAndGoSign(btn){
       // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
       // על עמודה שעוד לא קיימת (20270223090000)
       ...(s.self_fill ? { self_fill: true } : {}),
+      // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
+      // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
+      ...(s.client_id ? { client_id: s.client_id } : {}),
     }));
-    const { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
+    let { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
+    // ‏הדפדפן מתעדכן לפני שהמיגרציה רצה: בדקה הזו client_id עוד לא קיים, וזו
+    // לא סיבה להפיל הסכם. בלי הקישור הכתיבה לכרטיס נופלת להתאמה לפי נייד/מייל.
+    if (signersErr && /client_id/.test(signersErr.message || '')){
+      ({ error: signersErr } = await sb.from('agreement_signers')
+        .insert(signerRows.map(({ client_id, ...row }) => row)));
+    }
     if (signersErr) throw signersErr;
 
     w.agreementId = agreementId;
