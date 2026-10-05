@@ -2405,6 +2405,23 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "לנכס עצמו לא רשום מספר חדרים, ולכן ההשוואה אינה מסוננת לפי חדרים והממוצע מערבב " +
       "גדלים שונים. אמור/אמרי זאת, ובקש/י להשלים את מספר החדרים בכרטיס הנכס - זה מה " +
       "שמדייק את הדוח יותר מכל דבר אחר.",
+    // נכס מסחרי (20270226090000): הסולם מסנן לפי קבוצת קומה ולא לפי חדרים.
+    // לחנות אין חדרים, ובקשה להשלים מספר חדרים לחנות היא עצה שגויה.
+    // נכס מגורים מיוחד (דירת גן, פנטהאוז): במאגר אין תת-סוג, וההתאמה בקירוב
+    // לפי הקומה. ‏kind_matched=false עם subject_kind garden/roof = חזרה לדירות רגילות.
+    kind_rooms:
+      "הממוצע נשען על דירות מאותו סוג כמו הנכס - בקירוב: דירות קרקע לדירת גן, הקומה העליונה " +
+      "בבניין לפנטהאוז - בטווח של חדר אחד לכל כיוון. אמור/אמרי שזה קירוב לפי הקומה.",
+    kind_any_rooms:
+      "הממוצע נשען על דירות מאותו סוג כמו הנכס (בקירוב לפי הקומה), בכל מספר חדרים. אמור/אמרי זאת.",
+    floor_exact: "",
+    no_similar_floor:
+      "זה נכס מסחרי, ולא נמצאו די עסקאות מסחריות באותה קבוצת קומה, ולכן הממוצע מערבב " +
+      "קומת קרקע עם קומות עליונות - ובחנות זה הפער הגדול ביותר במחיר. אמור/אמרי זאת במפורש " +
+      "כשאת/ה מוסר/ת את הפער.",
+    subject_floor_missing:
+      "זה נכס מסחרי ולא רשומה לו קומה, ולכן ההשוואה אינה מסוננת לפי קומה ומערבבת קומת קרקע " +
+      "עם קומות עליונות. אמור/אמרי זאת, ובקש/י להשלים את הקומה בכרטיס הנכס. אל תבקש/י מספר חדרים.",
   };
 
   // שכבת השוק. **הסכנה כאן היא ערבוב**: מודל שמקבל "חציון" ו"ממוצע"
@@ -2424,6 +2441,16 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "יש פחות נכסים דומים בשוק מהמינימום, ולכן **אין חציון שוק**. אפשר למנות את הנכסים עצמם " +
       "כמתחרים, ואסור לגזור מהם מחיר.",
   };
+
+  // נכס מסחרי בלי ממוצע: במאגר הרשמי חנויות ומשרדים רשומים יחד עם דירות
+  // תחת "בנין", ולכן אינם נספרים (20270226090000). מודל שלא נאמר לו יאמר
+  // "אין עסקאות בסביבה", וסוכן/ת שמכיר/ה עסקאות ברחוב יחשוב/תחשוב שהדוח שבור.
+  const COMMERCIAL_COVERAGE_NOTE =
+    coverage.subject_class === "commercial" &&
+      (coverage.status === "none" || coverage.status === "insufficient")
+      ? " זה נכס מסחרי: במאגר העסקאות הרשמי חנויות ומשרדים אינם מסווגים בנפרד אלא רשומים יחד " +
+        "עם דירות תחת \"בנין\", ולכן אינם נספרים כבני השוואה. אמור/אמרי זאת, ואל תציע/י להשוות לעסקאות \"בנין\"."
+      : "";
 
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
@@ -2480,7 +2507,8 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     gap_per_sqm_sample_size: hasStats ? stats.sqm_sample_size : undefined,
     stats,
     data_coverage: coverage,
-    coverage_guidance: COVERAGE_GUIDANCE[String(coverage.status)] || undefined,
+    coverage_guidance:
+      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE).trim() || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
@@ -2496,10 +2524,25 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     market_guidance: MARKET_GUIDANCE[String(coverage.market_band_reason)] || undefined,
     rooms_band: hasStats ? coverage.rooms_band : undefined,
     rooms_band_reason: hasStats ? coverage.rooms_band_reason : undefined,
+    // ‏'rooms' לנכס מגורים, 'floor' לנכס מסחרי - ואז rooms_band_reason הוא floor_*
+    band_dimension: hasStats ? coverage.band_dimension : undefined,
+    subject_floor_group: hasStats ? coverage.subject_floor_group : undefined,
+    excluded_other_floor: hasStats ? coverage.excluded_other_floor : undefined,
     excluded_other_rooms: hasStats ? coverage.excluded_other_rooms : undefined,
     comparability_guidance: hasStats
-      ? ROOMS_GUIDANCE[String(coverage.rooms_band_reason)] || undefined
+      ? ([
+        ROOMS_GUIDANCE[String(coverage.rooms_band_reason)] || "",
+        // דירת גן או פנטהאוז שלא נמצאו לה עסקאות מאותו סוג: הממוצע הוא של דירות רגילות
+        (coverage.subject_kind === "garden" || coverage.subject_kind === "roof") && !coverage.kind_matched
+          ? "הנכס הוא " + (coverage.subject_kind === "roof" ? "פנטהאוז/דירת גג" : "דירת גן") +
+            ", ולא נמצאו די עסקאות מאותו סוג עד 2,000 מ', ולכן הממוצע נשען על דירות רגילות. " +
+            "אמור/אמרי זאת במפורש - זה נכס שנמכר בדרך כלל במחיר שונה."
+          : "",
+      ].filter(Boolean).join(" ") || undefined)
       : undefined,
+    // תת-הסוג של נכס מגורים (house / garden / roof / unit) והאם הממוצע נשען עליו
+    subject_kind: hasStats ? coverage.subject_kind : undefined,
+    kind_matched: hasStats ? coverage.kind_matched : undefined,
     // מאיפה הנתונים בדוח הזה באמת הגיעו. נאמר לסוכן/ת כשהוא/היא שואל/ת.
     sources: report.sources,
     // עסקאות שרשומות לפי המחיר המבוקש ולא לפי מחיר הסגירה. אם יש כאלה,

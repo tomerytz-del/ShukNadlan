@@ -21364,7 +21364,12 @@ document.getElementById('alertsMarkAll').addEventListener('click', e => markAllA
 async function openCmaReport(propertyId, btn){
   const original = actionLabel(btn);
   btn.disabled = true; setActionLabel(btn, 'מפיק…');
-  const { data, error } = await sb.rpc('cma_report', { p_property_id: propertyId });
+  // המיתוג במקביל לדוח, וכשל בו אינו מפיל את הדוח: דוח בלי לוגו עדיף על
+  // אין דוח.
+  const [{ data, error }, brand] = await Promise.all([
+    sb.rpc('cma_report', { p_property_id: propertyId }),
+    loadCmaBrand().catch(() => null),
+  ]);
   btn.disabled = false; setActionLabel(btn, original);
 
   if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
@@ -21380,7 +21385,40 @@ async function openCmaReport(propertyId, btn){
     showToast(messages[data.error] || data.detail || 'שגיאה בהפקת הדוח', 6000);
     return;
   }
-  renderCmaReport(data);
+  renderCmaReport(data, brand);
+}
+
+/* ---------- המיתוג של הדוח ----------
+   הדוח יוצא ללקוח/ה בשם המשרד והסוכן/ת שמפיק/ה אותו: הלוגו והצבעים של
+   המשרד (`agencies.colors`, אותם צבעים שהמיניסייט ודף המשרד נושאים), ופרטי
+   הקשר של הסוכן/ת. צבע שאינו hex תקין נופל לפלטת ברירת המחדל של ה-CRM,
+   ותמונה רק ב-https - שדה במסד לא הופך ל-CSS או לכתובת שרירותית בדוח.
+   נטען בכל הפקה ולא נשמר: מנהל/ת שהחליף/ה לוגו מצפה/ה לראות אותו בדוח הבא. */
+async function loadCmaBrand(){
+  const a = currentAgent || {};
+  let agency = null;
+  if (a.agency_id){
+    const { data } = await sb.from('agencies').select('name, logo_url, colors')
+      .eq('id', a.agency_id).maybeSingle();
+    agency = data || null;
+  }
+  const c = (agency && agency.colors) || {};
+  const base = BRAND_PALETTES[0];
+  const primary = normalizeHex(c.primary, base.primary);
+  const httpsOnly = u => (typeof u === 'string' && /^https:\/\//i.test(u.trim())) ? u.trim() : null;
+  return {
+    agencyName:  agency?.name || '',
+    logo:        httpsOnly(agency?.logo_url),
+    primary,
+    primaryDark: normalizeHex(c.primary_dark, base.primary_dark),
+    accent:      normalizeHex(c.accent, base.accent),
+    onPrimary:   readableOn(primary),
+    agentName:   a.display_name || '',
+    agentPhoto:  httpsOnly(a.photo_url),
+    phone:       a.phone || '',
+    email:       a.email || '',
+    license:     a.license_number || '',
+  };
 }
 
 /* ---------- תצוגת הדוח ----------
@@ -21431,9 +21469,17 @@ function cmaCoverageBlock(cov){
   };
   const x = texts[cov.status];
   if (!x) return '';
+  /* נכס מסחרי בלי בני השוואה הוא כמעט תמיד זה, ולא היעדר עסקאות: במאגר
+     הרשמי חנויות ומשרדים רשומים יחד עם דירות תחת "בנין", ולכן הם אינם
+     נספרים (20270226090000). בלי השורה הזו "אין עסקאות בסביבה" נשמע כמו
+     שקר לסוכן/ת שמכיר/ה עסקאות ברחוב. */
+  const commercial = cov.subject_class === 'commercial'
+    && (cov.status === 'none' || cov.status === 'insufficient')
+    ? `<div class="d">במאגר העסקאות הרשמי חנויות ומשרדים אינם מסווגים בנפרד - הם רשומים יחד עם דירות תחת "בנין". `
+      + `לכן הם אינם נספרים כבני השוואה לנכס מסחרי, ונספרות רק עסקאות שסוגן ידוע.</div>` : '';
   return `<div class="cma-gap">
       <div class="t">${esc(x.t)}</div>
-      <div class="d">${esc(x.d)}</div>
+      <div class="d">${esc(x.d)}</div>${commercial}
       <ul>
         <li>עסקאות שנמצאו בסביבה: ${esc(cov.comparables_found ?? 0)}</li>
         <li>נדרש לחישוב ממוצע: ${esc(cov.min_required ?? '-')}</li>
@@ -21469,6 +21515,29 @@ function cmaSampleNote(cov, radiusUsed){
   const aside = other > 0
     ? ` ‏${esc(other)} עסקאות נוספות בסביבה הן בגודל אחר, ואינן נספרות בממוצע.` : '';
 
+  /* נכס מגורים מיוחד (20270226090000): דירת גן, דירת גג/פנטהאוז. במאגר
+     הרשמי אין תת-סוג - GovMap רושם "דירה" לכולן - ולכן ההתאמה בקירוב:
+     דירת קרקע לדירת גן, והקומה העליונה בבניין לפנטהאוז. הדוח אומר שזה
+     קירוב, ואומר בקול כשלא נמצאו כאלה והממוצע חזר לדירות רגילות. */
+  const KIND_NAME = { garden:'דירות קרקע (קירוב לדירות גן)', roof:'דירות בקומה העליונה בבניין (קירוב לדירות גג)' };
+  const kindName = KIND_NAME[cov.subject_kind] || '';
+  if (cov.rooms_band_reason === 'kind_rooms' || cov.rooms_band_reason === 'kind_any_rooms'){
+    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} <strong>${esc(kindName)}</strong>`
+         + (cov.rooms_band_reason === 'kind_rooms' && !isNaN(rooms) && cov.subject_rooms != null
+             ? ` של ${esc(num(rooms - 1))} עד ${esc(num(rooms + 1))} חדרים` : ' בכל גודל')
+         + `${rad}. במאגר העסקאות הרשמי אין סימון של דירת גן או פנטהאוז, ולכן זה קירוב לפי הקומה.`
+         + (Number(cov.excluded_other_kind) > 0
+             ? ` ‏${esc(cov.excluded_other_kind)} דירות רגילות בסביבה אינן נספרות בממוצע.` : '')
+         + '</div>';
+  }
+  const kindFallback = (cov.subject_kind === 'garden' || cov.subject_kind === 'roof') && !cov.kind_matched
+    ? `<div class="cma-note">לא נמצאו די ${esc(kindName)} עד ${esc(cov.max_radius_meters || 2000)} מ׳, ולכן הממוצע נשען על <strong>דירות רגילות</strong>. `
+      + `${cov.subject_kind === 'roof' ? 'פנטהאוז' : 'דירת גן'} נמכרת בדרך כלל במחיר שונה מדירה רגילה, ויש לקרוא את הפער בזהירות.</div>` : '';
+  if (kindFallback){
+    const base = cmaSampleNote({ ...cov, subject_kind: null }, radiusUsed);
+    return kindFallback + base;
+  }
+
   if (cov.rooms_band_reason === 'exact'){
     return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות של `
          + `<strong>${esc(num(rooms))} חדרים</strong>${rad}.${aside}</div>`;
@@ -21487,6 +21556,29 @@ function cmaSampleNote(cov, radiusUsed){
     return `<div class="cma-note">לנכס לא רשום מספר חדרים, ולכן ההשוואה${rad} `
          + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
          + `השלימו את מספר החדרים בכרטיס הנכס והפיקו את הדוח שוב - זה המספר שמדייק אותו יותר מכל.</div>`;
+  }
+
+  /* נכס מסחרי (20270226090000): לחנות ולמשרד אין חדרים, והסולם מסנן לפי
+     קבוצת קומה. חנות בקומת קרקע ומשרד בקומה שלישית אינם אותו נכס - בעפולה
+     החציון למ"ר הוא כ-16,800 מול כ-12,000. ולכן גם כאן שני המצבים בלי
+     סינון נאמרים בקול, ובקשה להשלים מבקשת קומה ולא חדרים. */
+  const floorName = ({ ground:'בקומת קרקע', upper:'בקומות עליונות', below:'במרתף' })[cov.subject_floor_group] || '';
+  const otherFloor = Number(cov.excluded_other_floor) || 0;
+  const floorAside = otherFloor > 0
+    ? ` ‏${esc(otherFloor)} עסקאות מסחריות נוספות בסביבה הן בקומה אחרת, ואינן נספרות בממוצע.` : '';
+  if (cov.rooms_band_reason === 'floor_exact'){
+    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות מסחריות `
+         + `<strong>${esc(floorName)}</strong>${rad}.${floorAside}</div>`;
+  }
+  if (cov.rooms_band_reason === 'no_similar_floor'){
+    return `<div class="cma-note">לא נמצאו די עסקאות מסחריות ${esc(floorName)}, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
+         + `בחנות זה הפער הגדול ביותר במחיר, ולכן יש לקרוא את הממוצע בזהירות.</div>`;
+  }
+  if (cov.rooms_band_reason === 'subject_floor_missing'){
+    return `<div class="cma-note">לנכס לא רשומה קומה, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
+         + `השלימו את הקומה בכרטיס הנכס והפיקו את הדוח שוב - בנכס מסחרי זה הנתון שמדייק אותו יותר מכל.</div>`;
   }
   return rad ? `<div class="cma-note">ההשוואה נערכה${rad}.</div>` : '';
 }
@@ -21519,8 +21611,10 @@ function cmaMarketNote(cov){
       + `<strong>תואמים לנכס במאפיינים</strong> (ממ״ד, מעלית, מרפסת, חניה וכדומה).</div>`;
   }
   if (cov.market_band_reason === 'rooms_only'){
+    /* בנכס מסחרי הסולם הוא קומה ולא חדרים (20270226090000) */
+    const band = cov.band_dimension === 'floor' ? 'באותה קבוצת קומה' : 'באותו מספר חדרים';
     return head + '<div class="cma-note">לא נמצאו די נכסים שתואמים גם במאפיינים, ולכן החציון כאן נשען על '
-      + 'כל הנכסים באותו מספר חדרים. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>';
+      + `כל הנכסים ${band}. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>`;
   }
   if (cov.market_band_reason === 'subject_features_missing'){
     return head + '<div class="cma-note">לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. '
@@ -21533,7 +21627,51 @@ function cmaMarketNote(cov){
   return head;
 }
 
-function renderCmaReport(r){
+/* ---------- שעון (חצי עיגול) ----------
+   מדד אחד מול סקאלה, עם שלושה אזורים: זול (כחול), בטווח (אפור ניטרלי),
+   יקר (אדום). כחול ואדום הם שני הקטבים של סקאלה מתפצלת, והאמצע אפור -
+   "אין כאן כלום" - ולא צבע (dataviz: diverging pair, נבדק ב-validator:
+   ‏CVD ‎ΔE 21.6‎). הצבע לעולם אינו נושא לבדו: הערך כתוב במרכז, והמשמעות
+   בשורה מתחתיו. הכיוון כיוון הקריאה: זול מימין, יקר משמאל - כמו פס הטווח.
+   ‏2px רווח בין האזורים, כמו בין כל שני מילויים סמוכים. */
+function cmaGaugeSvg(t, cuts){
+  const R = 78, CX = 100, CY = 96, W = 12;
+  const pt = (u, r) => {
+    const a = Math.PI * Math.max(0, Math.min(1, u));
+    return [CX + r * Math.cos(a), CY - r * Math.sin(a)];
+  };
+  const arc = (u0, u1, cls) => {
+    const [x0, y0] = pt(u0, R), [x1, y1] = pt(u1, R);
+    return `<path class="${cls}" d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 0 0 ${x1.toFixed(1)} ${y1.toFixed(1)}" `
+      + `fill="none" stroke-width="${W}" stroke-linecap="butt"/>`;
+  };
+  const gap = 0.012;
+  const [a, b] = cuts;
+  const [nx, ny] = pt(t, R - W - 6);
+  return `<svg class="cma-gauge-svg" viewBox="0 0 200 104" aria-hidden="true">
+      ${arc(0, a - gap, 'z-low')}${arc(a + gap, b - gap, 'z-mid')}${arc(b + gap, 1, 'z-high')}
+      <line class="needle" x1="${CX}" y1="${CY}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke-width="3" stroke-linecap="round"/>
+      <circle class="hub" cx="${CX}" cy="${CY}" r="6"/>
+    </svg>`;
+}
+
+/* כרטיס שעון: כותרת, השעון, הערך והמשמעות. ‏`pct` הוא אחוז פער (‎-40‎ עד
+   ‏‎+40‎, מוגבל לקצוות) או אחוזון (0-100). */
+function cmaGaugeCard({ title, value, valueText, mode, caption }){
+  if (value == null || !Number.isFinite(Number(value))) return '';
+  const v = Number(value);
+  const t = mode === 'percentile' ? v / 100 : (Math.max(-40, Math.min(40, v)) + 40) / 80;
+  const cuts = mode === 'percentile' ? [0.25, 0.75] : [30 / 80, 50 / 80];
+  return `<figure class="cma-gauge">
+      <figcaption class="cma-gauge-t">${title}</figcaption>
+      ${cmaGaugeSvg(t, cuts)}
+      <div class="cma-gauge-v">${valueText}</div>
+      <div class="cma-gauge-ends"><span>זול</span><span>יקר</span></div>
+      <div class="cma-gauge-c">${caption}</div>
+    </figure>`;
+}
+
+function renderCmaReport(r, brand){
   const s   = r.subject || {};
   const st  = r.stats || {};
   const cov = r.data_coverage || {};
@@ -21622,21 +21760,34 @@ function renderCmaReport(r){
      אחת סימון משלה: מחלקת נכס אחרת, או מספר חדרים אחר. ‏`in_stats` מגיע
      מה-RPC ואינו מחושב כאן - תצוגה שמחליטה בעצמה מי נספר היא תצוגה
      שתיפרד מהחישוב ברגע שהסולם ישתנה. */
+  /* ---------- העסקאות הדומות ביותר ----------
+     ‏`comparables` מגיע מ-`agent_cma_report_full` כבר מצומצם ומדורג
+     (20270227090000): הדומות ביותר לנכס בשטח, במרחק ובתאריך, מתוך מה
+     שנספר בממוצע. הממוצע עצמו חושב על **כולן** - והכיתוב אומר זאת, כי
+     טבלה של 8 שורות מתחת לממוצע של 180 נקראת אחרת כצירוף מקרים. */
   const compRows = comps.map(c => `<tr>
-      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}</td>
-      <td>${c.rooms ?? '-'}${c.same_type !== false && c.in_stats === false
-        ? ' <span class="cma-basis" title="מספר חדרים שונה מהנכס - אינה נספרת בממוצע">לא נספר</span>' : ''}</td>
+      <td class="cma-c-rank">${esc(c.similarity_rank ?? '')}</td>
+      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.rooms != null ? ' · ' + esc(String(Number(c.rooms))) + ' חד׳' : ''}${c.same_building
+        ? ' <span class="cma-basis is-same" title="אותו גוש וחלקה כמו הנכס - אותו בניין, ולכן אותו גיל ורמת בנייה">באותו בניין</span>' : ''}</td>
+      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
       <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
       <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
       <td>${esc(c.distance_meters)} מ׳</td>
       <td>${hebDate(c.sold_at)}</td>
       ${ownCell(c)}
     </tr>`).join('');
+  const listedOf = Number(cov.comparables_listed_of) || comps.length;
+  const compsCaption = !comps.length ? '' : hasStats
+    ? `${plural(comps.length, 'העסקה הדומה ביותר', 'העסקאות הדומות ביותר')} לנכס, מתוך ${esc(st.comparables_count)} שהממוצע נשען עליהן`
+      + `${r.radius_meters_used ? ` ברדיוס ${esc(r.radius_meters_used)} מ׳` : ''}. הבחירה לפי קרבה בשטח, במרחק ובמועד העסקה.`
+    : `אין די עסקאות דומות לחישוב ממוצע, ולכן מוצגות ${plural(comps.length, 'העסקה הקרובה ביותר', 'העסקאות הקרובות ביותר')}`
+      + `${listedOf > comps.length ? ` מתוך ${esc(listedOf)} בסביבה` : ''}.`;
 
-  /* שורות שכבת השוק. ‏`feature_match` הוא `null` כשלאחד הצדדים אין
-     מאפיינים רשומים, ו-`null` אינו 0: "לא נרשם" אינו "אין ממ״ד", ולכן
-     הוא מוצג כ"לא רשום" ולא כ-0%. ‏`in_market_stats` מגיע מה-RPC. */
-  const marketComps = r.market_comparables || [];
+  /* שכבת השוק. ‏`feature_match` הוא `null` כשלאחד הצדדים אין מאפיינים
+     רשומים, ו-`null` אינו 0: "לא נרשם" אינו "אין ממ״ד". ‏`in_market_stats`
+     מגיע מה-RPC. מוצגות עד 6 שורות - הן כבר מדורגות לפי התאמה. */
+  const CMA_ROWS = 6;
+  const marketComps = (r.market_comparables || []).slice(0, CMA_ROWS);
   const mst = r.market_stats || {};
   const featPct = v => v == null ? '<span class="cma-basis" title="למודעה אין מאפיינים רשומים">לא רשום</span>'
                                  : Math.round(Number(v) * 100) + '%';
@@ -21656,11 +21807,9 @@ function renderCmaReport(r){
   const marketGap    = cmaGapPct(s.price, mst.median_price);
   const marketSqmGap = cmaGapPct(s.price_per_sqm, mst.median_price_per_sqm);
 
-  /* שכבת השכונה: עסקאות רשמיות בלי פין, באותה שכונה כמו הנכס. אין להן
-     מרחק - הן לא מוקמו - ולכן אין עמודת מרחק, ו-`in_stats` מגיע מה-RPC
-     כמו בשאר הטבלאות. החציון שלהן נפרד מ"תמונת השוק" שלמעלה ואינו נכנס
-     לממוצע שלה: "באותה שכונה" ו"ברדיוס X" הן שתי השוואות שונות. */
-  const hoodComps = r.neighborhood_comparables || [];
+  /* שכבת השכונה: עסקאות רשמיות בלי פין, באותה שכונה כמו הנכס. החציון
+     שלהן נפרד מתמונת השוק ואינו נכנס לממוצע שלה. */
+  const hoodComps = (r.neighborhood_comparables || []).slice(0, CMA_ROWS);
   const hst = r.neighborhood_stats || {};
   const hoodGap    = cmaGapPct(s.price, hst.median_price);
   const hoodSqmGap = cmaGapPct(s.price_per_sqm, hst.median_price_per_sqm);
@@ -21676,9 +21825,8 @@ function renderCmaReport(r){
       ${ownCell(c)}
     </tr>`).join('');
 
-  /* על מה הממוצע נשען, לפי בעלות, ובנפרד ממנו - החציון למ״ר של כל קבוצה.
-     הפיצול מגיע מהמסד רק כששתי הקבוצות מעל הסף; מתחתיו אין כאן מספר, רק
-     הספירה. והוא **אינו** מתקן את הממוצע: זו החלטה של השמאי/ת, לא של הדוח. */
+  /* על מה הממוצע נשען, לפי בעלות. הפיצול מגיע מהמסד רק כששתי הקבוצות
+     מעל הסף, והוא **אינו** מתקן את הממוצע: זו החלטה של השמאי/ת. */
   const ownNote = (!own || !hasStats || !Number(ownCounts.in_stats)) ? '' :
       `<div class="cma-note">מתוך ${esc(ownCounts.in_stats)} העסקאות בממוצע: `
     + `${esc(ownCounts.private || 0)} על קרקע פרטית, ${esc(ownCounts.state || 0)} על קרקע מדינה`
@@ -21689,13 +21837,6 @@ function renderCmaReport(r){
         ? `<div class="cma-note">חציון למ״ר לפי סוג הבעלות: קרקע פרטית ${shekel(ownSplit.private_median_price_per_sqm)} `
           + `(${esc(ownSplit.private_sample)}) · קרקע מדינה ${shekel(ownSplit.state_median_price_per_sqm)} (${esc(ownSplit.state_sample)}).</div>`
         : '');
-
-  const cityRows = cityComps.map(c => `<tr>
-      <td>${esc(c.property_type)}</td>
-      <td>${c.rooms ?? '-'}</td>
-      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
-      <td>${hebDate(c.sold_at)}</td>
-    </tr>`).join('');
 
   const plans = (r.planning && Array.isArray(r.planning.applicable_plans)) ? r.planning.applicable_plans : [];
 
@@ -21711,126 +21852,273 @@ function renderCmaReport(r){
       + 'שהיה בפרסום ולא לפי מחיר הסגירה, ומסומנות ככאלה בטבלאות. פער המיקוח אינו משוקלל בהן.</div>'
     : '';
 
-  document.getElementById('cmaBody').innerHTML = `
-    <div class="cma-head">
-      <div class="brand"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"> שוק נדל״ן - דוח השוואת שוק</div>
-      <div class="when">הופק ב-${new Date(r.generated_at).toLocaleDateString('he-IL')}</div>
-    </div>
-
-    <h2>${esc(s.title)}</h2>
-    <div class="cma-sub">
-      ${esc(s.address || s.city)} · ${esc(s.property_type)} · ${s.rooms ? plural(s.rooms, 'חדר אחד', 'חדרים') : '- חדרים'} ·
-      ${s.deal_type === 'rent' ? 'להשכרה' : 'למכירה'} · מחיר מבוקש ${shekel(s.price)}
-      ${s.price_per_sqm ? ' · ' + shekel(s.price_per_sqm) + ' למ״ר' : ''}
-      ${ownSubj ? ' · קרקע ' + esc(ownSubj) + (own.subject.mixed_units ? ' (חלקה מעורבת)' : '') : ''}
-    </div>
-
-    <div class="cma-section-title">תמונת השוק</div>
-    ${hasStats ? `
-      <div class="cma-stats">
-        <div class="cma-stat"><div class="n">${esc(st.comparables_count)}</div><div class="l">עסקאות להשוואה</div></div>
-        <div class="cma-stat"><div class="n">${shekel(st.avg_price)}</div><div class="l">מחיר ממוצע</div></div>
-        <div class="cma-stat"><div class="n">${shekel(st.median_price)}</div><div class="l">מחיר חציוני</div></div>
-        <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '-'}</div><div class="l">ממוצע למ״ר</div></div>
+  /* ---------- הקרקע ----------
+     סוג הבעלות הוא שאלה שחוזרת אצל כל קונה ("זה טאבו או מינהל?"), ולכן
+     הוא כרטיס משלו ולא שורה בטבלה. ההסבר לכל סוג זהיר בכוונה - "עשויה",
+     "בדרך כלל" - כי המקור עצמו אומר שאינו קובע זכות משפטית, וכל כרטיס
+     מפנה לנסח. היעדר מידע אינו "פרטית": כשאין התאמה במאגר נאמר "לא נמצא". */
+  const LAND_OWN_MEANING = {
+    P: 'הקרקע רשומה בבעלות פרטית.',
+    S: 'הקרקע בבעלות המדינה ומנוהלת בידי רשות מקרקעי ישראל (רמ״י). זכויות הרוכשים הן בדרך כלל חכירה ולא בעלות, '
+     + 'והעברתן עשויה לדרוש אישור רמ״י ולפעמים גם תשלום - וזה יכול להשפיע על תהליך המשכנתא.',
+    L: 'הקרקע רשומה בבעלות רשות מקומית. את סוג הזכויות של היחידה יש לבדוק בנסח.',
+    M: 'בחלקה רשום יותר מסוג בעלות אחד. את הזכויות של היחידה עצמה יש לבדוק בנסח.',
+    O: 'סוג הבעלות הרשום אינו פרטי, מדינה או רשות מקומית. את הזכויות יש לבדוק בנסח.',
+  };
+  const ownCode = own && own.subject && own.subject.ownership;
+  const plan = r.planning || null;
+  const landFacts = [
+    plan && (plan.gush || plan.helka) ? ['גוש / חלקה', `${esc(plan.gush || '-')} / ${esc(plan.helka || '-')}`] : null,
+    plan && plan.parcel_area_sqm ? ['שטח החלקה', `${esc(plan.parcel_area_sqm)} מ״ר`] : null,
+    plan && plan.land_use_designation ? ['ייעוד קרקע', esc(plan.land_use_designation)] : null,
+    plans.length ? ['תוכניות חלות', plans.map(p => esc(p.number || p.description)).join(', ')] : null,
+  ].filter(Boolean);
+  const landBlock = (!ownCode && !landFacts.length && !(own && plan)) ? '' : `
+    <section class="cma-sec cma-land">
+      <h3 class="cma-h">הקרקע</h3>
+      <div class="cma-land-grid">
+        <div class="cma-own ${ownCode ? 'is-' + esc(ownCode.toLowerCase()) : 'is-none'}">
+          <div class="cma-own-k">סוג הבעלות בטאבו</div>
+          <div class="cma-own-v">${ownCode ? esc(LAND_OWN[ownCode] || ownCode) : 'לא נמצא במאגר'}</div>
+          <div class="cma-own-d">${ownCode
+            ? esc(LAND_OWN_MEANING[ownCode] || '') + (own.subject.mixed_units ? ' בחלקה יש גם תת-חלקות בסוג בעלות אחר.' : '')
+            : own ? 'לחלקה של הנכס לא נמצא רישום במאגר הבעלות. זה אינו אומר שהקרקע פרטית - הדרך לדעת היא נסח טאבו.'
+                  : 'מאגר הבעלות עוד לא זמין בדוח הזה.'}</div>
+        </div>
+        ${landFacts.length ? `<dl class="cma-facts">${landFacts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
       </div>
-      ${gapNote}
-      ${cmaSampleNote(cov, r.radius_meters_used)}
-      ${!st.avg_price_per_sqm
-        ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
-      ${/* ‏`excluded_other_type` מה-RPC ולא הפרש בין שני שדות ה-stats:
-            מאז `20261221090000` הסטטיסטיקה רצה על מחלקה תואמת בלבד,
-            ולכן `same_type_count` שווה תמיד ל-`comparables_count`
-            והשורה הזו לא הופיעה אף פעם. בדיקה שאינה יכולה להיות אמת
-            אינה בדיקה. */''}
-      ${Number(cov.excluded_other_type) > 0
-        ? `<div class="cma-note">${esc(cov.excluded_other_type)} עסקאות בסביבה הן בסוג נכס אחר, ואינן נספרות בממוצע. הן מסומנות בטבלה.</div>` : ''}
       ${ownNote}
-    ` : cmaCoverageBlock(cov)}
-    ${askingNote}
+    </section>`;
+
+  /* ---------- איפה הנכס יושב בתוך השוק ----------
+     פס אחד במקום עוד מספר: הטווח שבין הרבעון התחתון לעליון של המחיר
+     למ״ר (מחצית העסקאות האמצעיות), החציון, והנכס. הרבעונים מגיעים מהמסד
+     רק מעל הסף (20270227090000), ולכן הפס מופיע רק כשיש לו על מה לעמוד.
+     הכיוון הוא כיוון הקריאה: זול מימין, יקר משמאל. */
+  const rangeOk = hasStats && st.p25_price_per_sqm != null && st.p75_price_per_sqm != null;
+  const subjPsm = s.price_per_sqm == null ? null : Number(s.price_per_sqm);
+  let rangeBlock = '';
+  if (rangeOk){
+    const vals = [st.min_price_per_sqm, st.max_price_per_sqm, subjPsm].filter(v => v != null).map(Number);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = hi - lo || 1;
+    const at = v => Math.max(0, Math.min(100, ((Number(v) - lo) / span) * 100));
+    const p25 = Number(st.p25_price_per_sqm), p75 = Number(st.p75_price_per_sqm);
+    const where = subjPsm == null ? '' : subjPsm < p25
+      ? 'המחיר המבוקש למ״ר <strong>נמוך מרוב העסקאות הדומות</strong>.'
+      : subjPsm > p75
+        ? 'המחיר המבוקש למ״ר <strong>גבוה מרוב העסקאות הדומות</strong>.'
+        : 'המחיר המבוקש למ״ר <strong>בתוך הטווח של מחצית העסקאות האמצעיות</strong>.';
+    rangeBlock = `
+      <div class="cma-range" role="img" aria-label="טווח המחיר למ״ר בעסקאות הדומות ומיקום הנכס בתוכו">
+        <div class="cma-range-track">
+          <div class="cma-range-band" style="inset-inline-start:${at(p25).toFixed(1)}%;width:${(at(p75) - at(p25)).toFixed(1)}%"></div>
+          <div class="cma-range-mid" style="inset-inline-start:${at(st.median_price_per_sqm).toFixed(1)}%"></div>
+          ${subjPsm != null ? `<div class="cma-range-pin${at(subjPsm) < 12 ? ' is-start' : at(subjPsm) > 88 ? ' is-end' : ''}" style="inset-inline-start:${at(subjPsm).toFixed(1)}%"><span>הנכס · ${shekel(Math.round(subjPsm))}</span></div>` : ''}
+        </div>
+        <div class="cma-range-ends"><span>${shekel(lo)}</span><span>${shekel(hi)}</span></div>
+        <div class="cma-range-legend">
+          <span><i class="k-band"></i>מחצית העסקאות האמצעיות: ${shekel(p25)} - ${shekel(p75)} למ״ר</span>
+          <span><i class="k-mid"></i>חציון: ${shekel(st.median_price_per_sqm)}</span>
+        </div>
+        ${where ? `<p class="cma-range-where">${where}</p>` : ''}
+      </div>`;
+  }
+
+  /* ---------- לוח המדדים ----------
+   מספר גיבור **אחד** (dataviz: hero figure, אחד לכל תצוגה) - הפער למ״ר,
+   שהוא ההשוואה ההוגנת כששטחים שונים; ואם אין שטח, הפער הכולל. מתחתיו עד
+   שלושה שעונים, כל אחד מספר אחר ולא חזרה על הגיבור במחסה אחר: איפה הנכס
+   בתוך העסקאות (אחוזון), מול הממוצע למ״ר, ומול מה שמבוקש היום. */
+  const heroPct = sqmGap ?? priceGap;
+  /* ‏gapNote נשאר מקור האמת לשורות הפער (וכך גם הבדיקה שלו), אבל בלוח
+     המדדים המספרים כבר בגיבור ובשעונים - ולכן כאן רק שתי שורות ההסבר. */
+  const gapExplain = (gapDiverges
+      ? '<div class="cma-note">שני הפערים רחוקים זה מזה מפני ששטח הנכס שונה מהשטח הממוצע '
+        + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
+      : '')
+    + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
+      ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
+      : '');
+  const heroBlock = heroPct === null ? '' : `
+      <div class="cma-hero-fig">
+        <div class="cma-hero-n">${heroPct > 0 ? '+' : ''}${esc(heroPct)}%</div>
+        <div class="cma-hero-l">${sqmGap !== null
+          ? `המחיר המבוקש למ״ר (${shekel(s.price_per_sqm)}) מול ממוצע ${shekel(st.avg_price_per_sqm)} ב-${esc(st.sqm_sample_size ?? st.comparables_count)} עסקאות דומות`
+          : `המחיר המבוקש (${shekel(s.price)}) מול ממוצע ${shekel(st.avg_price)} ב-${esc(st.comparables_count)} עסקאות דומות`}</div>
+      </div>`;
+  const pctile = st.subject_percentile;
+  const gauges = [
+    cmaGaugeCard({
+      title: 'המיקום בין העסקאות הדומות', mode: 'percentile', value: pctile,
+      valueText: pctile == null ? '' : `${esc(pctile)}%`,
+      caption: pctile == null ? '' : `יקר למ״ר מ-${esc(pctile)}% מהעסקאות`,
+    }),
+    sqmGap !== null && priceGap !== null ? cmaGaugeCard({
+      title: 'המחיר הכולל מול הממוצע', mode: 'gap', value: priceGap,
+      valueText: `${priceGap > 0 ? '+' : ''}${esc(priceGap)}%`,
+      caption: `מול ${shekel(st.avg_price)}`,
+    }) : '',
+    marketSqmGap !== null ? cmaGaugeCard({
+      title: 'מול המבוקש בשוק עכשיו', mode: 'gap', value: marketSqmGap,
+      valueText: `${marketSqmGap > 0 ? '+' : ''}${esc(marketSqmGap)}%`,
+      caption: `למ״ר, מול חציון ${shekel(mst.median_price_per_sqm)} ב-${esc(mst.sqm_sample_size ?? mst.count)} מודעות`,
+    }) : '',
+  ].filter(Boolean).join('');
+
+  /* ---------- המיתוג ----------
+     הדוח נשלח ללקוח/ה בשם המשרד, ולכן הוא נושא את הלוגו, את הצבעים ואת
+     פרטי הסוכן/ת - ולא את שלנו. הצבעים עוברים normalizeHex (רק hex תקין
+     נכנס ל-style), והתמונות רק ב-https. שוק נדל״ן נשאר בשורה אחת בתחתית,
+     כמקור המערכת. */
+  const b = brand || {};
+  const brandStyle = `--cma-brand:${b.primary || '#1c3a5e'};--cma-brand-dark:${b.primaryDark || '#122840'};`
+    + `--cma-on-brand:${b.onPrimary || '#ffffff'};--cma-accent:${b.accent || '#c0912f'}`;
+  const agentLine = [
+    b.license ? `רישיון תיווך ${esc(b.license)}` : '',
+    b.phone ? `<a href="tel:${esc(b.phone)}">${esc(b.phone)}</a>` : '',
+    b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : '',
+  ].filter(Boolean).join(' · ');
+
+  const facts = [
+    ['סוג', esc(s.property_type || '-')],
+    s.rooms ? ['חדרים', esc(String(Number(s.rooms)))] : null,
+    cov.band_dimension === 'floor' && cov.subject_floor_group
+      ? ['קומה', ({ ground:'קרקע', upper:'עליונה', below:'מרתף' })[cov.subject_floor_group] || '-'] : null,
+    s.size_sqm ? ['שטח', `${esc(s.size_sqm)} מ״ר`] : null,
+    ['מחיר מבוקש', shekel(s.price)],
+    s.price_per_sqm ? ['למ״ר', shekel(s.price_per_sqm)] : null,
+  ].filter(Boolean);
+
+  document.getElementById('cmaBody').innerHTML = `
+   <div class="cma-doc" style="${brandStyle}">
+    <header class="cma-brandbar">
+      <div class="cma-brand-id">
+        ${b.logo ? `<span class="cma-logo"><img src="${esc(b.logo)}" alt="${esc(b.agencyName || '')}"></span>` : ''}
+        <span class="cma-agency">${esc(b.agencyName || '')}</span>
+      </div>
+      <div class="cma-doc-title">
+        <span class="cma-kicker">דוח השוואת שוק</span>
+        <span class="cma-date">${new Date(r.generated_at).toLocaleDateString('he-IL')}</span>
+      </div>
+    </header>
+
+    ${b.agentName ? `
+    <div class="cma-agent">
+      ${b.agentPhoto ? `<img class="cma-agent-photo" src="${esc(b.agentPhoto)}" alt="">` : `<span class="cma-agent-photo is-initial">${esc((b.agentName || '').trim().charAt(0))}</span>`}
+      <div class="cma-agent-txt">
+        <div class="cma-agent-name">הוכן עבורך על ידי ${esc(b.agentName)}</div>
+        ${agentLine ? `<div class="cma-agent-meta">${agentLine}</div>` : ''}
+      </div>
+    </div>` : ''}
+
+    <section class="cma-hero">
+      <h2>${esc(s.title)}</h2>
+      <div class="cma-addr">${esc([s.address, s.city].filter(Boolean).join(', '))}</div>
+      <dl class="cma-chips">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    </section>
+
+    <section class="cma-sec">
+      <h3 class="cma-h">לוח המדדים</h3>
+      ${hasStats ? `
+        ${heroBlock}
+        ${gauges ? `<div class="cma-gauges">${gauges}</div>` : ''}
+        <div class="cma-stats">
+          <div class="cma-stat"><div class="l">מחיר ממוצע</div><div class="n">${shekel(st.avg_price)}</div></div>
+          <div class="cma-stat"><div class="l">מחיר חציוני</div><div class="n">${shekel(st.median_price)}</div></div>
+          <div class="cma-stat"><div class="l">ממוצע למ״ר</div><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '-'}</div></div>
+          <div class="cma-stat"><div class="l">שטח ממוצע</div><div class="n">${st.avg_size_sqm ? esc(st.avg_size_sqm) + ' מ״ר' : '-'}</div></div>
+        </div>
+        ${rangeBlock}
+        ${gapExplain}
+        ${cmaSampleNote(cov, r.radius_meters_used)}
+        ${!st.avg_price_per_sqm
+          ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
+      ` : cmaCoverageBlock(cov)}
+    </section>
+
+    ${landBlock}
 
     ${comps.length ? `
-      <div class="cma-section-title">עסקאות בסביבת הנכס</div>
+    <section class="cma-sec">
+      <h3 class="cma-h">${hasStats ? 'העסקאות הדומות ביותר' : 'עסקאות בסביבת הנכס'}</h3>
+      <p class="cma-cap">${compsCaption}</p>
       <div class="cma-tablewrap"><table class="cma-table">
-        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th>${ownTh}</tr></thead>
+        <thead><tr><th></th><th>נכס</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th>${ownTh}</tr></thead>
         <tbody>${compRows}</tbody>
-      </table></div>` : ''}
+      </table></div>
+    </section>` : ''}
 
     ${marketComps.length ? `
-      <div class="cma-section-title">נכסים דומים שמוצעים בשוק עכשיו</div>
+    <section class="cma-sec">
+      <h3 class="cma-h">מתחרים בשוק עכשיו</h3>
       ${Array.isArray(s.features) && s.features.length
         ? `<div class="cma-note">המאפיינים של הנכס: ${esc(s.features.map(f => CMA_FEATURE_LABELS[f] || f).join(' · '))}</div>`
         : ''}
       ${cmaMarketNote(cov)}
       ${mst.median_price ? `
         <div class="cma-stats">
-          <div class="cma-stat"><div class="n">${esc(mst.count)}</div><div class="l">נכסים בהשוואה</div></div>
-          <div class="cma-stat"><div class="n">${shekel(mst.median_price)}</div><div class="l">מחיר מבוקש חציוני</div></div>
+          <div class="cma-stat"><div class="n">${shekel(mst.median_price)}</div><div class="l">מבוקש חציוני</div></div>
           <div class="cma-stat"><div class="n">${mst.median_price_per_sqm ? shekel(mst.median_price_per_sqm) : '-'}</div><div class="l">מבוקש חציוני למ״ר</div></div>
+          <div class="cma-stat"><div class="n">${esc(mst.count)}</div><div class="l">נכסים בהשוואה</div></div>
           <div class="cma-stat"><div class="n">${esc(cov.market_comparables_total)}</div><div class="l">סה״כ בסביבה</div></div>
         </div>
         ${cmaGapLine(marketGap,    'המחיר המבוקש שלנו מול המבוקש בשוק',      mst.count)}
-        ${cmaGapLine(marketSqmGap, 'המחיר המבוקש שלנו למ״ר מול המבוקש בשוק', mst.sqm_sample_size ?? mst.count)}
-        ${mst.own_count > 0
-          ? `<div class="cma-note">${esc(mst.own_count)} מהנכסים בהשוואה הם מודעות שלך.</div>` : ''}` : ''}
+        ${cmaGapLine(marketSqmGap, 'המחיר המבוקש שלנו למ״ר מול המבוקש בשוק', mst.sqm_sample_size ?? mst.count)}` : ''}
       <div class="cma-tablewrap"><table class="cma-table">
         <thead><tr><th>נכס</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>התאמת מאפיינים</th><th>מרחק</th></tr></thead>
         <tbody>${marketRows}</tbody>
       </table></div>
-      ${Number(cov.market_comparables_total) > Number(cov.market_comparables_shown)
-        ? `<div class="cma-note">מוצגים ${esc(cov.market_comparables_shown)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</div>` : ''}` : ''}
+      ${Number(cov.market_comparables_total) > marketComps.length
+        ? `<p class="cma-cap">מוצגים ${esc(marketComps.length)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</p>` : ''}
+    </section>` : ''}
 
     ${hoodComps.length ? `
-      <div class="cma-section-title">עסקאות בשכונת ${esc(cov.neighborhood_name || '')} (ללא מיקום מדויק)</div>
-      <div class="cma-note">עסקאות רשמיות שרשומות באותה שכונה כמו הנכס, אבל בלי כתובת מדויקת, ולכן אינן בחישוב הרדיוס שלמעלה.
-        הן מוצגות כהשוואה נפרדת, לפי שכונה.</div>
-      ${Number(cov.neighborhood_shared_count) > 0
-        ? `<div class="cma-note">${esc(cov.neighborhood_shared_count)} מהן רשומות במאגר בשם שמכסה כמה שכונות סמוכות, ונספרות בכל אחת מהן. הן מסומנות "משותפת".</div>` : ''}
+    <section class="cma-sec">
+      <h3 class="cma-h">בשכונת ${esc(cov.neighborhood_name || '')}</h3>
+      <p class="cma-cap">עסקאות רשמיות באותה שכונה שאין להן כתובת מדויקת, ולכן הן השוואה נפרדת ואינן בחישוב שלמעלה.
+        ${Number(cov.neighborhood_shared_count) > 0
+          ? `${esc(cov.neighborhood_shared_count)} מהן רשומות בשם שמכסה כמה שכונות סמוכות ("משותפת").` : ''}</p>
       ${hst.median_price ? `
         <div class="cma-stats">
-          <div class="cma-stat"><div class="n">${esc(hst.count)}</div><div class="l">עסקאות בשכונה</div></div>
           <div class="cma-stat"><div class="n">${shekel(hst.median_price)}</div><div class="l">מחיר חציוני</div></div>
           <div class="cma-stat"><div class="n">${hst.median_price_per_sqm ? shekel(hst.median_price_per_sqm) : '-'}</div><div class="l">חציון למ״ר</div></div>
+          <div class="cma-stat"><div class="n">${esc(hst.count)}</div><div class="l">עסקאות בחציון</div></div>
           <div class="cma-stat"><div class="n">${esc(cov.neighborhood_comparables_total)}</div><div class="l">סה״כ בשכונה</div></div>
         </div>
         ${cmaGapLine(hoodGap,    'המחיר המבוקש מול החציון בשכונה',      hst.count)}
         ${cmaGapLine(hoodSqmGap, 'המחיר המבוקש למ״ר מול החציון בשכונה', hst.sqm_sample_size ?? hst.count)}`
-      : `<div class="cma-note">${esc(cov.neighborhood_comparables_counted)} מהן תואמות לנכס בסוג ובמספר החדרים - פחות מ-${esc(cov.min_required)}, ולכן אין כאן חציון, רק העסקאות עצמן.</div>`}
+      : `<div class="cma-note">${esc(cov.neighborhood_comparables_counted)} מהן תואמות לנכס בסוג ובגודל - פחות מ-${esc(cov.min_required)}, ולכן אין כאן חציון.</div>`}
       <div class="cma-tablewrap"><table class="cma-table">
         <thead><tr><th>סוג</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>תאריך</th>${ownTh}</tr></thead>
         <tbody>${hoodRows}</tbody>
       </table></div>
-      ${Number(cov.neighborhood_comparables_total) > Number(cov.neighborhood_comparables_shown)
-        ? `<div class="cma-note">מוצגות ${esc(cov.neighborhood_comparables_shown)} האחרונות מתוך ${esc(cov.neighborhood_comparables_total)}.</div>` : ''}` : ''}
+      ${Number(cov.neighborhood_comparables_total) > hoodComps.length
+        ? `<p class="cma-cap">מוצגות ${esc(hoodComps.length)} האחרונות מתוך ${esc(cov.neighborhood_comparables_total)}.</p>` : ''}
+    </section>` : ''}
 
-    ${cityComps.length ? `
-      <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
-      <div class="cma-note">העסקאות האלה אינן נכללות בחישוב שלמעלה, כי אי אפשר למקם אותן ביחס לנכס.</div>
-      <div class="cma-tablewrap"><table class="cma-table">
-        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>תאריך</th></tr></thead>
-        <tbody>${cityRows}</tbody>
-      </table></div>` : ''}
+    ${(Number(cov.excluded_other_type) > 0 || askingNote || Number(cov.city_comparables_total) > 0) ? `
+    <section class="cma-sec cma-method">
+      <h3 class="cma-h">על מה הדוח נשען</h3>
+      ${Number(cov.excluded_other_type) > 0
+        ? `<div class="cma-note">${esc(cov.excluded_other_type)} עסקאות בסביבה הן בסוג נכס אחר, ואינן נספרות בממוצע.</div>` : ''}
+      ${askingNote}
+      ${Number(cov.city_comparables_total) > 0
+        ? `<div class="cma-note">עוד ${esc(cov.city_comparables_total)} עסקאות ב${esc(s.city)} אינן נכללות בחישוב, כי אין להן מיקום מדויק ואי אפשר למדוד את המרחק שלהן מהנכס.</div>` : ''}
+    </section>` : ''}
 
-    ${r.planning ? `
-      <div class="cma-section-title">מידע תכנוני</div>
-      <div class="cma-tablewrap"><table class="cma-table">
-        <tbody>
-          <tr><th>גוש / חלקה</th><td>${esc(r.planning.gush || '-')} / ${esc(r.planning.helka || '-')}</td></tr>
-          <tr><th>שטח החלקה</th><td>${r.planning.parcel_area_sqm ? esc(r.planning.parcel_area_sqm) + ' מ״ר' : '-'}</td></tr>
-          <tr><th>ייעוד קרקע</th><td>${esc(r.planning.land_use_designation || '-')}</td></tr>
-          ${ownSubj ? `<tr><th>סוג בעלות (טאבו)</th><td>${esc(ownSubj)}${own.subject.mixed_units ? ' - חלקה מעורבת' : ''}</td></tr>` : ''}
-          ${plans.length ? `<tr><th>תוכניות חלות</th><td>${plans.map(p => esc(p.number || p.description)).join(', ')}</td></tr>` : ''}
-        </tbody>
-      </table></div>` : ''}
-
-    <div class="cma-foot">
-      ${sourcesLine}
+    <footer class="cma-foot">
+      ${b.agentName ? `<div class="cma-foot-agent"><strong>${esc(b.agentName)}</strong>${b.agencyName ? ' · ' + esc(b.agencyName) : ''}${agentLine ? ' · ' + agentLine : ''}</div>` : ''}
+      <p>${sourcesLine}
       המאגר אינו כולל עסקאות שלא נסגרו דרך הפלטפורמה, ולכן אינו תמונה מלאה של השוק באזור.
       ${r.planning ? 'המידע התכנוני מבוסס על שכבות ה-GIS של עיריית עפולה. ' : ''}
       ${own ? 'סוג הבעלות מפנקסי המקרקעין (משרד המשפטים)' + (own.as_of ? ', נכון ל-' + new Date(own.as_of).toLocaleDateString('he-IL') : '')
-        + ', ואינו קובע זכות משפטית. ' : ''}
+        + ', ואינו קובע זכות משפטית - לבדיקת הזכויות יש להזמין נסח טאבו. ' : ''}
       הנתונים נכונים למועד ההפקה, מוצגים לצורך התרשמות כללית בלבד, ואינם מהווים שומת
-      מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.
-    </div>`;
+      מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.</p>
+      <div class="cma-made"><img src="assets/logo-shuknadlan.svg" alt="" width="14" height="17"> הופק במערכת שוק נדל״ן</div>
+    </footer>
+   </div>`;
 
   document.getElementById('cmaOverlay').style.display = 'block';
 }
