@@ -316,5 +316,7 @@ export function signerRows(agreementId: string, signers: AgreementSigner[]) {
     email: (s.email || "").trim() || null,
     address: (s.address || "").trim() || null,
     ...(s.self_fill ? { self_fill: true } : {}),
+    // הכרטיס בקובץ הלקוחות - לשם agreement-sign כותב ת.ז. ושם מלא שהושלמו
+    ...(s.client_id ? { client_id: s.client_id } : {}),
   }));
 }
