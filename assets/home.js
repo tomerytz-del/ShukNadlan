@@ -4637,7 +4637,6 @@ function initFilterModals(){
   renderCheckboxes(document.getElementById('rPropertyFeatures'), RESIDENTIAL_PROPERTY_FEATURES, searchState.r.propertyFeatures);
 
   renderPills(document.getElementById('cPtypePills'), COMMERCIAL_PTYPES, searchState.c.ptypes);
-  renderPills(document.getElementById('cRoomsPills'), ROOM_OPTIONS, searchState.c.rooms);
   renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES, searchState.c.listingFeatures);
   renderCheckboxes(document.getElementById('cPropertyFeatures'), COMMERCIAL_PROPERTY_FEATURES, searchState.c.propertyFeatures);
 
@@ -6265,6 +6264,8 @@ function applyAdvancedFilters(){
   const cur = sentence.state();
 
   const patch = {};
+  // במסחרי אין חדרים (החלון אינו מציג אותם) - ושארית מחיפוש מגורים לא מסננת
+  if (commercial) s.rooms = new Set();
   const rooms = [...s.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(Number.isFinite);
   patch.rooms = rooms.length ? [Math.min(...rooms), s.rooms.has('+6') ? 99 : Math.max(...rooms)] : null;
   patch.priceMax = s.priceMax ? Number(s.priceMax) : null;
