@@ -976,8 +976,16 @@ async function searchProperties(
   if (area) {
     const needle = areaNeedle(area) || areaKey(area);
     // כינויים שנקבעו בהכרעה (‏`neighborhood_aliases`): "C1" ו"לב העמק" הם
-    // "לב העמק C1". הם מוסיפים שכונות שמותר להתאים, ואינם מחליפים את השם.
+    // "לב העמק C1". ‏"ברובע" / "במרכז" - אות היחס נופלת לפני ההשוואה לכינוי.
+    //
+    // **כינוי מדויק גובר על ה-substring.** "מרכז" הוא מרכז העיר בעפולה
+    // (‏5.10.2026), אבל כ-substring הוא תפס גם את "מרכז עפולה עלית" ב-
+    // `sales_area` של בית בעפולה עלית, ו"מרכז עפולה" תפס **רק** אותו. כשהשם
+    // הוא כינוי במדויק - מתאימים רק לשכונות של הכינוי (בשם השכונה או
+    // ב-`sales_area` שכתוב בשם הזה), ולא בהתאמה חלקית.
+    const bare = needle.replace(/^(וב|ב|ה)(?=.{3})/, "");
     const aliasHoods = new Set<string>();
+    let exactAlias = false;
     if (needle) {
       const { data: aliases } = await ctx.supabase
         .from("neighborhood_aliases")
@@ -987,9 +995,10 @@ async function searchProperties(
         const n = (a as any).neighborhoods;
         if (!n?.name || (city && !String(n.city || "").includes(city))) continue;
         const k = areaKey(String(a.alias));
-        if (k && (k === needle || k.includes(needle) || needle.includes(k))) {
-          aliasHoods.add(areaKey(n.name));
-        }
+        if (!k) continue;
+        const exact = k === needle || k === bare;
+        if (exact || k.includes(needle)) aliasHoods.add(areaKey(n.name));
+        if (exact) exactAlias = true;
       }
     }
     rows = rows.filter((p) => {
@@ -997,8 +1006,9 @@ async function searchProperties(
       const hood = areaKey((p as any).neighborhoods?.name || "");
       // deno-lint-ignore no-explicit-any
       const sales = areaKey((p as any).sales_area || "");
-      return !!needle &&
-        (hood.includes(needle) || sales.includes(needle) || aliasHoods.has(hood));
+      if (!needle) return false;
+      if (exactAlias) return aliasHoods.has(hood) || aliasHoods.has(sales);
+      return hood.includes(needle) || sales.includes(needle) || aliasHoods.has(hood);
     }).slice(0, limit);
 
     // ‏0 תוצאות כשהשם עצמו אינו מוכר אינו "אין נכסים שם" אלא "לא הבנתי
