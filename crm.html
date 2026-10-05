@@ -6761,6 +6761,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="acc-body">
           <div class="imp-note" style="margin-bottom:8px">30 הימים האחרונים, לכל סוכן/ת ולכל מספר. ההקלטות והתמלולים פתוחים לך כמנהל/ת המשרד, והסוכנים רואים שזה כך.</div>
           <div id="officeAgentStats" class="lines-panel"></div>
+          <!-- התראה על שיחה שלא נענתה ולא סומנה "חזרתי" (claim_missed_call_sla_alerts) -->
+          <div class="call-actions calls-filter" style="margin-top:10px">
+            <label class="call-meta" for="officeSla">התראה אליך על שיחה שלא נענתה ולא חזרו אליה אחרי:</label>
+            <select id="officeSla">
+              <option value="">כבוי</option>
+              <option value="15">15 דקות</option>
+              <option value="30">30 דקות</option>
+              <option value="60">שעה</option>
+              <option value="120">שעתיים</option>
+              <option value="240">4 שעות</option>
+            </select>
+          </div>
+          <!-- המספרים של המשרד: למי משויך כל מספר, וחלוקה בסבב בין כמה סוכנים -->
+          <h4 class="cf-title" style="margin:14px 0 6px;font-size:.95rem">המספרים במשרד</h4>
+          <div id="officeLinesAdmin" class="lines-panel"></div>
           <div class="call-actions" style="margin:10px 0 6px">
             <select id="officeCallsAgent" class="btn btn-ghost" aria-label="סינון לפי סוכן/ת"><option value="">כל הסוכנים</option></select>
             <label class="call-meta" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="officeCallsMissed"> רק שיחות שלא נענו</label>

@@ -20176,7 +20176,7 @@ async function loadCalls(){
   const block = document.getElementById('callsBlock');
   if (!block || !currentAgent) return;
   const { data: lines, error: lineErr } = await sb.from('agent_phone_lines')
-    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number, included, downgrade_deadline, downgrade_keep')
+    .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number, included, downgrade_deadline, downgrade_keep, ring_mode, ring_agents')
     .eq('agent_id', currentAgent.id).neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
   // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
@@ -20214,7 +20214,7 @@ function callsFilterActive(f){ return !!(f.q || f.from || f.to || f.sort !== 'ne
 async function refreshCallList(){
   const f = callsFilterState();
   let q = sb.from('agent_calls')
-    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at, handled_at')
     .eq('agent_id', currentAgent.id);
   if (f.from) q = q.gte('created_at', new Date(f.from + 'T00:00:00').toISOString());
   if (f.to){ const end = new Date(f.to + 'T00:00:00'); end.setDate(end.getDate() + 1); q = q.lt('created_at', end.toISOString()); }
@@ -20321,7 +20321,8 @@ function renderLines(){
       </div>
       ${l.monthly_price && (st.monthMin || 0) >= capMin
         ? `<div class="line-warn">נוצלו כל ${esc(String(capMin))} הדקות של החודש - כל דקה נוספת ${shekel(overRate)} מהארנק. בלי יתרה השיחות ממשיכות להגיע, אבל בלי הקלטה וסיכום.</div>` : ''}
-      ${l.forward_to ? `<div class="call-meta">השיחות מועברות אל ${esc(callLocalPhone(l.forward_to))}</div>` : ''}
+      ${l.ring_mode === 'round_robin' ? `<div class="call-meta">🔄 מתחלק בסבב בין ${(l.ring_agents || []).length} סוכנים - מנהל/ת המשרד קובע/ת מי בתור</div>`
+        : l.forward_to ? `<div class="call-meta">השיחות מועברות אל ${esc(callLocalPhone(l.forward_to))}</div>` : ''}
       ${l.external_number ? `<div class="call-meta">המספר הקיים ${esc(callLocalPhone(l.external_number))} מופנה לכאן · <a href="#" data-line-act="howto">איך מפנים?</a></div>` : ''}
       ${choose}
       ${l.payment_failed_at ? '<div class="line-warn">החידוש נכשל - אין מספיק יתרה בארנק. המספר ישוחרר אחרי 7 ימים בלי תשלום.</div>' : ''}
@@ -20542,10 +20543,10 @@ async function loadOfficeCalls(){
   const since = new Date(Date.now() - 30 * 86400000).toISOString();
   const [mem, lines, calls] = await Promise.all([
     sb.from('agency_members').select('id, display_name').eq('agency_id', currentAgent.agency_id),
-    sb.from('agent_phone_lines').select('id, agent_id, twilio_number, label, source_type, status')
+    sb.from('agent_phone_lines').select('id, agent_id, twilio_number, label, source_type, status, monthly_price, ring_mode, ring_agents')
       .neq('status', 'released').order('created_at'),
     sb.from('agent_calls')
-      .select('id, agent_id, line_id, from_number, client_id, status, duration_sec, billed_minutes, recording_path, transcript, summary, extracted, created_at')
+      .select('id, agent_id, line_id, from_number, client_id, status, duration_sec, billed_minutes, recording_path, transcript, summary, extracted, created_at, handled_at')
       .gte('created_at', since).order('created_at', { ascending:false }).limit(1000),
   ]);
   if (calls.error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(calls.error.message) + '</div>'; return; }
@@ -20562,7 +20563,10 @@ async function loadOfficeCalls(){
     `<option value="${esc(id)}">${esc(name)}</option>`).join('');
   sel.value = officeMembers.has(keep) ? keep : '';
   renderOfficeStats();
+  renderOfficeLinesAdmin();
   renderOfficeCalls();
+  const { data: sla } = await sb.rpc('my_office_missed_call_sla');
+  document.getElementById('officeSla').value = sla ? String(sla) : '';
 }
 
 function renderOfficeStats(){
@@ -20638,6 +20642,100 @@ function renderOfficeCalls(){
   list.innerHTML = rows.map(c => officeCallRowHtml(c, officeMembers.get(c.agent_id), lineLabel.get(c.line_id))).join('');
 }
 
+/* המספרים של המשרד: שיוך לסוכן/ת (office_phone_line_assign) וחלוקה בסבב
+   (office_phone_line_set_ring). המספר עובר עם החיוב - האישור אומר את זה. */
+function renderOfficeLinesAdmin(){
+  const box = document.getElementById('officeLinesAdmin');
+  if (!officeLines.length){ box.innerHTML = '<div class="empty-state">אין עדיין מספרים וירטואליים במשרד.</div>'; return; }
+  const opts = sel => [...officeMembers].map(([id, name]) =>
+    `<option value="${esc(id)}"${id === sel ? ' selected' : ''}>${esc(name)}</option>`).join('');
+  box.innerHTML = officeLines.map(l => {
+    const rr = l.ring_mode === 'round_robin';
+    const ringNames = (l.ring_agents || []).map(id => officeMembers.get(id)).filter(Boolean);
+    return `<div class="line-row" data-office-line="${esc(l.id)}">
+      <div class="line-top"><span><span class="line-name">${esc(l.label || 'מספר בלי כינוי')}</span>
+        <span class="call-meta">${esc(callLocalPhone(l.twilio_number))}</span></span></div>
+      <div class="call-actions" style="align-items:center">
+        <label class="call-meta">משויך ל-<select data-office-assign>${opts(l.agent_id)}</select></label>
+        <button type="button" class="btn btn-ghost" data-office-ring>${rr ? '🔄 סבב: ' + esc(ringNames.join(', ')) : '🔄 חלוקה בסבב'}</button>
+      </div>
+      <div class="office-ring-edit" hidden>
+        <div class="call-meta" style="margin:6px 0">מי מקבל/ת שיחות מהמספר הזה, לפי התור (כל שיחה מתחילה אצל הבא/ה, ובלי מענה עוברת לבא/ה אחריו/ה אחרי 18 שניות):</div>
+        ${[...officeMembers].map(([id, name]) => `<label class="call-meta" style="display:inline-flex;gap:4px;margin-inline-end:10px">
+          <input type="checkbox" value="${esc(id)}"${(l.ring_agents || []).includes(id) ? ' checked' : ''}> ${esc(name)}</label>`).join('')}
+        <div class="call-actions" style="margin-top:6px">
+          <button type="button" class="btn btn-gold" data-office-ring-save>שמירת הסבב</button>
+          ${rr ? '<button type="button" class="btn btn-ghost" data-office-ring-off>ביטול הסבב</button>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function officeRpc(fn, args){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw new Error(error.message);
+  if (data && data.error) throw Object.assign(new Error(data.detail || data.error), { code: data.error });
+  return data;
+}
+
+(function wireOfficeLinesAdmin(){
+  const box = document.getElementById('officeLinesAdmin');
+  if (!box) return;
+  box.addEventListener('change', async e => {
+    const sel = e.target.closest('[data-office-assign]');
+    if (!sel) return;
+    const row = sel.closest('[data-office-line]');
+    const line = officeLines.find(l => l.id === row.dataset.officeLine);
+    if (!line || sel.value === line.agent_id) return;
+    const to = officeMembers.get(sel.value) || 'הסוכן/ת';
+    const billing = line.monthly_price ? `\nהחידוש החודשי (${line.monthly_price} ₪) יירד מהארנק של ${to}.` : '';
+    if (!confirm(`להעביר את ${callLocalPhone(line.twilio_number)} ל${to}?\nשיחות חדשות יגיעו לנייד של ${to}. השיחות הקודמות נשארות אצל מי שקיבל/ה אותן.${billing}`)){
+      sel.value = line.agent_id; return;
+    }
+    sel.disabled = true;
+    try {
+      await officeRpc('office_phone_line_assign', { p_line_id: line.id, p_agent_id: sel.value });
+      line.agent_id = sel.value;
+      showToast('המספר הועבר ל' + to);
+      renderOfficeStats();
+    } catch (err){
+      sel.value = line.agent_id;
+      showToast(err.code === 'tier_required' ? err.message : 'ההעברה נכשלה: ' + err.message);
+    }
+    sel.disabled = false;
+  });
+  box.addEventListener('click', async e => {
+    const row = e.target.closest('[data-office-line]');
+    if (!row) return;
+    const line = officeLines.find(l => l.id === row.dataset.officeLine);
+    const edit = row.querySelector('.office-ring-edit');
+    if (e.target.closest('[data-office-ring]')){ edit.hidden = !edit.hidden; return; }
+    const save = e.target.closest('[data-office-ring-save]');
+    const off = e.target.closest('[data-office-ring-off]');
+    if (!save && !off) return;
+    const agents = off ? [] : [...edit.querySelectorAll('input[type=checkbox]:checked')].map(i => i.value);
+    if (save && agents.length < 2){ showToast('סבב צריך לפחות שני סוכנים'); return; }
+    (save || off).disabled = true;
+    try {
+      const out = await officeRpc('office_phone_line_set_ring', { p_line_id: line.id, p_mode: off ? 'single' : 'round_robin', p_agents: agents });
+      line.ring_mode = off ? 'single' : 'round_robin';
+      line.ring_agents = off ? null : (out.agents || agents);
+      renderOfficeLinesAdmin();
+      showToast(off ? 'הסבב בוטל - השיחות חוזרות לבעלים של המספר' : 'הסבב נשמר');
+    } catch (err){
+      (save || off).disabled = false;
+      showToast('השמירה נכשלה: ' + err.message);
+    }
+  });
+  const slaSel = document.getElementById('officeSla');
+  slaSel.addEventListener('change', async () => {
+    const v = slaSel.value ? Number(slaSel.value) : null;
+    const { data, error } = await sb.rpc('office_set_missed_call_sla', { p_minutes: v });
+    showToast(error || !data ? 'השמירה נכשלה' : v ? `התראה אחרי ${slaSel.options[slaSel.selectedIndex].text} בלי שיחה חוזרת` : 'ההתראה כבויה');
+  });
+})();
+
 /* שורת שיחה של משרד: מי מהסוכנים, דרך איזה מספר, והשמעה ותמלול בלבד.
    אותו מאזין data-call-act של השורות הרגילות (callById) מטפל בשתי הפעולות. */
 function officeCallRowHtml(c, agentName, lineName){
@@ -20652,7 +20750,8 @@ function officeCallRowHtml(c, agentName, lineName){
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
       <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
     </div>
-    <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}</div>
+    <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
+      ${badge === 'missed' ? (c.handled_at ? ' · <span class="call-badge answered">חזרו אליו/ה</span>' : ' · <span class="call-badge missed">לא סומן שחזרו</span>') : ''}</div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ''}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
@@ -20773,6 +20872,9 @@ function callRowHtml(c, inCard){
       ${canUpdate ? '<button type="button" class="btn btn-ghost" data-call-act="update">🔄 עדכון הכרטיס מהשיחה</button>' : ''}
       ${!inCard && !client && (phone || name) ? '<button type="button" class="btn btn-ghost" data-call-act="add">➕ הוספה לקובץ</button>' : ''}
       ${!inCard && phone ? `<a class="btn btn-ghost" href="tel:${esc(phone)}">📞 חיוג</a>` : ''}
+      ${badge === 'missed' ? (c.handled_at
+        ? '<button type="button" class="btn btn-ghost" data-call-act="unhandle" title="ביטול הסימון">✓ חזרתי</button>'
+        : '<button type="button" class="btn btn-gold" data-call-act="handled" title="סימון שחזרת ללקוח/ה - מנהל/ת המשרד לא יקבל/תקבל התראה">✔ חזרתי</button>') : ''}
       <button type="button" class="btn btn-ghost" data-call-act="archive" title="${c.archived_at ? 'החזרה מהארכיון' : 'הסתרה מהרשימה, בלי למחוק'}">${c.archived_at ? '↩ מהארכיון' : '🗄 ארכוב'}</button>
       <button type="button" class="btn btn-ghost" data-call-act="delete" title="מחיקת השיחה וההקלטה">🗑 מחיקה</button>
     </div>
@@ -20789,6 +20891,16 @@ document.addEventListener('click', async e => {
   const act = btn.dataset.callAct;
   if (act === 'delete') return deleteCall(c, row, btn);
   if (act === 'archive') return archiveCall(c, row, btn);
+  if (act === 'handled' || act === 'unhandle'){
+    btn.disabled = true;
+    const on = act === 'handled';
+    const { data, error } = await sb.rpc('agent_call_set_handled', { p_call_id: c.id, p_handled: on });
+    if (error || !data){ btn.disabled = false; showToast('הסימון נכשל' + (error ? ': ' + error.message : '')); return; }
+    c.handled_at = on ? new Date().toISOString() : null;
+    row.outerHTML = callRowHtml(c, !!row.closest('.client-calls'));
+    showToast(on ? 'סומן שחזרת ללקוח/ה' : 'הסימון בוטל');
+    return;
+  }
   if (act === 'play'){
     if (row.querySelector('audio')) return;
     btn.disabled = true;
@@ -20858,7 +20970,7 @@ async function deleteCall(c, row, btn){
 async function loadClientCalls(c){
   const digits = String(c.phone || '').replace(/\D/g, '');
   let q = sb.from('agent_calls')
-    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at')
+    .select('id, from_number, client_id, status, duration_sec, recording_path, transcript, summary, extracted, created_at, error, archived_at, handled_at')
     .eq('agent_id', currentAgent.id)
     .order('created_at', { ascending:false }).limit(20);
   q = digits.length >= 9
