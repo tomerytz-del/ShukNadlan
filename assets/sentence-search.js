@@ -41,6 +41,13 @@
     { key: 'land', label: 'מגרש', ptypes: ['מגרש', 'מגרשים'], noRooms: true },
     { key: 'shop', label: 'חנות', ptypes: ['חנויות/שטח מסחרי'], url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
     { key: 'office', label: 'משרד', ptypes: ['משרדים'], url: 'משרדים', commercial: true, noRooms: true },
+    /* שלושת הבאים נוספו אחרי שבמלאי היו מבני תעשייה ומגרשים מסחריים, ובחירת
+       "מסחרי" בפאנל שמתחת לשורת החיפוש הציעה רק חנות ומשרד. ‏"מגרשים" (רבים)
+       הוא הערך המסחרי במסד ו"מגרש" (יחיד) הוא המגורים - לכן comm_land לוקח
+       רק את הראשון, ו-land שלמעלה נשאר לשניהם. */
+    { key: 'industry', label: 'מבנה תעשייה', ptypes: ['מבני תעשייה'], url: 'מבני תעשייה', commercial: true, noRooms: true },
+    { key: 'comm_land', label: 'מגרש מסחרי', ptypes: ['מגרשים'], url: 'מגרשים', commercial: true, noRooms: true },
+    { key: 'warehouse', label: 'מחסן', ptypes: ['מחסנים'], url: 'מחסנים', commercial: true, noRooms: true },
     { key: 'commercial', label: 'נכס מסחרי', commercial: true, noRooms: true },
   ];
   var TYPE_BY_KEY = {};
@@ -450,11 +457,14 @@
     if (/פנטהאוז|פנטהאוס|פנטהויז|דירת גג|(^| )גג( |$)/.test(t)) patch.type = 'penthouse';
     else if (/דירות? גן|(^| )גן( |$)/.test(t)) patch.type = 'garden';
     else if (/(^| )בית|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) patch.type = 'house';
-    else if (/מגרש|(^| )קרקע/.test(t)) patch.type = 'land';
+    else if (/מגרש|(^| )קרקע/.test(t)) patch.type = /מסחר/.test(t) ? 'comm_land' : 'land';
     else if (/חנות|חנויות|שטח מסחרי/.test(t)) patch.type = 'shop';
     else if (/משרד/.test(t)) patch.type = 'office';
+    else if (/מבנה תעשי|מבני תעשי|מפעל/.test(t)) patch.type = 'industry';
     else if (/מסחרי|(^| )עסק/.test(t)) patch.type = 'commercial';
     else if (/דיר/.test(t)) patch.type = 'apt';
+    // אחרי "דיר": "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
+    else if (/(^| )מחסן( |$)|מחסנים/.test(t)) patch.type = 'warehouse';
 
     var rest = t;
     var rm = t.match(/(\d+(?:\.5)?)\s*(\+)?\s*(?:חד|ח( |$))/);
