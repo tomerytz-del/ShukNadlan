@@ -286,11 +286,6 @@ const NOTIFY_TYPES = [
   "review_request", "marketing_copy", "system", "agenda_reminder",
 ];
 
-// סוגים שדלוקים בוואטסאפ **כברירת מחדל**, ונשמרים ברשימה ההפוכה
-// ‏`whatsapp_off_types`. תזכורת מהיומן היא בקשה מפורשת של הסוכן/ת לשעה
-// מסוימת - ראו סעיף 9 ב-20270125090000_agent_agenda.sql.
-const WA_DEFAULT_TYPES = ["agenda_reminder"];
-
 const AGENDA_KINDS = ["task", "call", "meeting", "showing", "signing"];
 
 /**
@@ -1078,9 +1073,8 @@ const TOOLS: Anthropic.Tool[] = [
     name: "whatsapp_alerts",
     description:
       "מציג או משנה אילו סוגי התראה יישלחו לסוכן/ת **גם כהודעת וואטסאפ**, " +
-      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שאף סוג אינו נשלח בוואטסאפ - " +
-      "ערוץ יוצא נדלק רק בבקשה מפורשת - חוץ מ-agenda_reminder (תזכורות מהיומן), " +
-      "שדלוק עד שמכבים אותו.",
+      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שכל הסוגים נשלחים בוואטסאפ, " +
+      "עד שמכבים אותם.",
     input_schema: {
       type: "object",
       properties: {
@@ -2452,6 +2446,15 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
         "עם דירות תחת \"בנין\", ולכן אינם נספרים כבני השוואה. אמור/אמרי זאת, ואל תציע/י להשוות לעסקאות \"בנין\"."
       : "";
 
+  // בית פרטי בלי ממוצע: הוא מושווה לבתים בלבד (20270226090000), ובמאגר כמעט
+  // אין עסקאות בתים. בלי ההסבר "אין עסקאות בסביבה" נשמע כמו אזור מת.
+  const HOUSE_COVERAGE_NOTE =
+    coverage.subject_kind === "house" &&
+      (coverage.status === "none" || coverage.status === "insufficient")
+      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות, ובמאגר העסקאות יש מעט מאוד מכירות " +
+        "של בתים. אמור/אמרי זאת, ואל תציע/י לגזור מחיר מעסקאות של דירות."
+      : "";
+
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
     insufficient:
@@ -2508,7 +2511,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     stats,
     data_coverage: coverage,
     coverage_guidance:
-      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE).trim() || undefined,
+      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
@@ -4545,19 +4548,15 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
     .map((t) => String(t))
     .filter((t) => NOTIFY_TYPES.includes(t));
 
-  // ‏'*': ‏whatsapp_off_types חדשה (20270125090000), והפונקציה עולה לפני
-  // שהמיגרציה רצה.
   const { data: prefs } = await ctx.supabase
     .from("agent_notification_preferences")
-    .select("*")
+    .select("muted_types, whatsapp_off_types")
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
-  // הרשימה האפקטיבית: המאושרים, ועוד מה שדלוק כברירת מחדל ולא כובה.
+  // וואטסאפ דלוק כברירת מחדל לכל סוג (20270303090000), ולכן הרשימה
+  // האפקטיבית היא הכול פחות מה שכובה.
   const off: string[] = prefs?.whatsapp_off_types || [];
-  const current: string[] = [
-    ...(prefs?.whatsapp_types || []),
-    ...WA_DEFAULT_TYPES.filter((t) => !off.includes(t)),
-  ];
+  const current: string[] = NOTIFY_TYPES.filter((t) => !off.includes(t));
 
   if (action === "get") {
     return { ok: true, enabled_types: current, all_types: NOTIFY_TYPES };
@@ -4578,14 +4577,17 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
   else next = asked.length ? current.filter((t) => !asked.includes(t)) : [];
 
   // ‏upsert ולא update: לרוב הסוכנים אין שורת העדפות בכלל (היעדר שורה =
-  // קבלת כל ההתראות בפעמון), וההדלקה הראשונה היא זו שיוצרת אותה.
-  // ‏muted_types נשמר כפי שהוא — הפעמון בדשבורד אינו מושפע מהערוץ.
+  // הכול דלוק, בפעמון ובוואטסאפ), והכיבוי הראשון הוא זה שיוצר אותה.
+  // ‏muted_types נשמר כפי שהוא — הפעמון בדשבורד אינו מושפע מהערוץ. סוגים
+  // שאינם ב-NOTIFY_TYPES (של מנהל/ת הפלטפורמה) נשארים כפי שהיו.
   const { error } = await ctx.supabase
     .from("agent_notification_preferences")
     .upsert({
       agent_id: ctx.agent.id,
-      whatsapp_types: next.filter((t) => !WA_DEFAULT_TYPES.includes(t)),
-      whatsapp_off_types: WA_DEFAULT_TYPES.filter((t) => !next.includes(t)),
+      whatsapp_off_types: [
+        ...off.filter((t) => !NOTIFY_TYPES.includes(t)),
+        ...NOTIFY_TYPES.filter((t) => !next.includes(t)),
+      ],
       muted_types: prefs?.muted_types || [],
       updated_at: new Date().toISOString(),
     }, { onConflict: "agent_id" });

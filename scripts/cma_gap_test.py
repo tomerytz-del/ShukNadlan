@@ -159,6 +159,34 @@ MARKET_CASES = {
     "none": [{"market_comparables_total": 0, "market_band_reason": None}],
 }
 
+# הבלוק הרביעי: מה הדוח אומר כשאין ממוצע. בית פרטי מושווה לבתים בלבד
+# (20270226090000) ובמאגר כמעט אין כאלה, ולכן "אין עסקאות בסביבה" לבדו
+# נקרא כאילו האזור מת. כך נראו כל הבתים הפעילים באתר אחרי #606.
+COVERAGE_START = "function cmaCoverageBlock(cov){"
+COVERAGE_END = "/* ---------- על מה הסטטיסטיקה נשענה"
+
+COVERAGE_HARNESS = """
+%s
+function esc(v){ return String(v ?? ''); }
+function plural(n, one, many){ return n === 1 ? one : n + ' ' + many; }
+function hebDate(d){ return String(d); }
+const out = {};
+for (const [name, args] of Object.entries(%s)) out[name] = cmaCoverageBlock(args[0]);
+console.log(JSON.stringify(out));
+"""
+
+COVERAGE_CASES = {
+    "house_none": [{"status": "none", "comparables_found": 0, "min_required": 5,
+                    "subject_class": "dwelling", "subject_kind": "house"}],
+    "house_few": [{"status": "insufficient", "comparables_found": 2, "min_required": 5,
+                   "subject_class": "dwelling", "subject_kind": "house"}],
+    "shop_none": [{"status": "none", "comparables_found": 0, "min_required": 5,
+                   "subject_class": "commercial", "subject_kind": None}],
+    "flat_none": [{"status": "none", "comparables_found": 0, "min_required": 5,
+                   "subject_class": "dwelling", "subject_kind": "unit"}],
+    "house_ok": [{"status": "ok", "subject_class": "dwelling", "subject_kind": "house"}],
+}
+
 CASES = {
     # (subject, stats, hasStats)
     "real": [REAL["subject"], REAL["stats"], True],
@@ -207,13 +235,17 @@ def main() -> int:
     gap_block = block(START, END, "בלוק הפער")
     sample_block = block(SAMPLE_START, SAMPLE_END, "‏cmaSampleNote")
     market_block = block(MARKET_START, MARKET_END, "‏cmaMarketNote")
-    if gap_block is None or sample_block is None or market_block is None:
+    coverage_block = block(COVERAGE_START, COVERAGE_END, "‏cmaCoverageBlock")
+    if gap_block is None or sample_block is None or market_block is None \
+            or coverage_block is None:
         return 1
 
     out = run(HARNESS % (json.dumps(gap_block), json.dumps(CASES, ensure_ascii=False)))
     sample = run(SAMPLE_HARNESS % (sample_block, json.dumps(SAMPLE_CASES, ensure_ascii=False)))
     market = run(MARKET_HARNESS % (market_block, json.dumps(MARKET_CASES, ensure_ascii=False)))
-    if out is None or sample is None or market is None:
+    coverage = run(COVERAGE_HARNESS % (coverage_block,
+                                       json.dumps(COVERAGE_CASES, ensure_ascii=False)))
+    if out is None or sample is None or market is None or coverage is None:
         return 1
 
     def text(html: str) -> str:
@@ -302,6 +334,19 @@ def main() -> int:
          "אין כאן חציון" in text(market["too_few"])),
         ("אין מתחרים בכלל - אין בלוק שוק",
          market["none"].strip() == ""),
+        # ---- אין ממוצע: למה ----
+        ("בית בלי עסקאות: נאמר שבית מושווה לבתים בלבד",
+         "לבתים פרטיים בלבד" in text(coverage["house_none"])),
+        ("וגם כשנמצאו מעט",
+         "לבתים פרטיים בלבד" in text(coverage["house_few"])),
+        ("נכס מסחרי: ההסבר המסחרי, בלי זה של הבית",
+         "חנויות ומשרדים" in text(coverage["shop_none"])
+         and "לבתים פרטיים" not in text(coverage["shop_none"])),
+        ("דירה רגילה: אף אחד משני ההסברים",
+         "לבתים פרטיים" not in text(coverage["flat_none"])
+         and "חנויות ומשרדים" not in text(coverage["flat_none"])),
+        ("יש ממוצע - אין בלוק פער כיסוי",
+         coverage["house_ok"].strip() == ""),
     ]
     for name, ok in checks:
         bad += not ok
