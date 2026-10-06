@@ -8306,8 +8306,10 @@ async function loadRefundQueue(){
     <div style="border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px" data-refund="${esc(r.id)}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <strong style="font-size:.85rem">${esc(r.agency_members?.display_name || 'סוכן/ת')}</strong>
-        <strong style="font-size:.9rem">${shekel(r.amount)}</strong>
+        <strong style="font-size:.9rem">${shekel(r.money_amount ?? r.amount)}</strong>
       </div>
+      ${r.money_amount != null && Number(r.money_amount) !== Number(r.amount)
+        ? `<div style="font-size:.74rem;color:var(--muted)">להחזיר בפועל, כולל מע״מ - ${shekel(r.amount)} קרדיט ירדו מהיתרה</div>` : ''}
       <div style="font-size:.74rem;color:var(--muted);margin:2px 0 6px">
         ${new Date(r.requested_at).toLocaleDateString('he-IL')}${r.agent_note ? ' - ' + esc(r.agent_note) : ''}
       </div>
