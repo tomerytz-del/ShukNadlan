@@ -1,6 +1,6 @@
 # קונסולת השיווק — ניהול קמפיינים ממומנים (מטא, ובהמשך גוגל)
 
-**מצב: שלב 1 (הסכימה) נכתב; שאר השלבים בתכנון — ראו "התקדמות" למטה.** המסמך
+**מצב: שלבים 1 (הסכימה) ו-2 (`ads-admin`) נכתבו; שאר השלבים בתכנון — ראו "התקדמות" למטה.** המסמך
 הוא מה שתומר סיכם בשיחה עם קלוד, כדי שקלוד קוד ימשיך מכאן בלי לשחזר את
 הדיון.
 
@@ -45,8 +45,8 @@ crm.html → תצוגת מנהל/ת → פאנל חדש  #dashPanelAds  (דשב�
    │  קריאה: supabase-js ישירות ל-ads_* (RLS לפי is_platform_admin)
    │  פעולות: fetch → /functions/v1/ads-admin  עם ה-JWT של תומר
    ▼
-ads-admin  (Edge Function, verify_jwt = true)
-   - מאמת JWT → בודק is_platform_admin; או x-alert-cron-secret ל-cron
+ads-admin  (Edge Function, verify_jwt = false — ה-cron אינו נושא JWT; האימות בפנים)
+   - מאמת JWT → בודק is_platform_admin; או x-alert-cron-secret ל-cron (sync_insights בלבד)
    - actions (POST {action, ...}):
        status           טוקן חי? חשבון, מטבע, יתרה, סטטוס, דף
        sync_insights    insights ברמת campaign+adset+ad, time_increment=1, N ימים → upsert ads_insights_daily
@@ -101,6 +101,39 @@ ads-leads-webhook  (Edge Function, verify_jwt = false — אימות בחתימ�
 - טבלת מודעות עם דגל "נשחקת" לפי `references/analysis-playbooks.md` בסקיל.
 - לשונית "גוגל" — "ממתין לחיבור" עד שיש טוקן.
 
+## שני מסלולים ורמת אגרסיביות (נוסף 7.10.2026)
+
+תומר ביקש להפריד: **קידום נכסים** בטון לא אגרסיבי, ו**שיווק הפלטפורמה
+למתווכים** שמותר לו להיות אגרסיבי יותר - עם כיוון של הרמה, ועריכה של
+הנוסחים שהמודל מציע.
+
+| מסלול (`audience`) | מה | למי | רמה (`intensity`) |
+| --- | --- | --- | --- |
+| `property` | נכס `active` שבאתר | קונים / שוכרים | 1-2 בלבד - `check` במסד, לא רק בקוד |
+| `platform` | שוק נדל"ן עצמה | מתווכים ומשרדים | 1-5, ברירת מחדל `ads_settings.platform_default_intensity` |
+
+הסולם: 1 מידעי, 2 חם וענייני, 3 ישיר ונחוש, 4 אגרסיבי (כאב מוכר וניגוד חד),
+5 אגרסיבי מאוד (פתיחה פרובוקטיבית, מסגור הפסד, בחירה בין שתי דרכים).
+
+**הרמה משנה טון, לעולם לא עובדות.** בכל רמה: רק עובדות מ-
+`ads_settings.platform_facts` (או מנתוני הנכס), בלי מספרים מומצאים, בלי
+"הכי"/"מובטח", בלי מתחרים בשם, בלי דחיפות כשאין `deadline` אמיתי בתדריך,
+ובלי טענה על מצבו האישי של הקורא/ת (מדיניות personal attributes של מטא).
+מודעה אגרסיבית שממציאה "חוסכים 10 שעות בשבוע" היא פרסום מטעה.
+
+- **מודעת נכס** נכתבת לפי `PROPERTY_COPY_RULES` - אותם חוקים של התיאור
+  השיווקי, שחולצו ב-`_shared/marketing-copy.ts` לקבוע משותף (ה-`SYSTEM_PROMPT`
+  של התיאור נשאר זהה בייט-בייט), ועם העובדות של `property_marketing_facts`.
+- **עריכה:** `ads_copy_drafts.generated` הוא מה שהמודל כתב, `variants` מה
+  שנערך. "כתוב מחדש" עם הערה ("קצר יותר", "פחות אגרסיבי") שומר את הסבב
+  הקודם ב-`history` (עד 10).
+- **אזהרות, לא חסימה:** `checkVariant()` מסמן כותרת מעל 40 תווים, שורה
+  ראשונה מעל 125, טלפון או קישור בטקסט, דחיפות בלי תאריך, "הכי"/"מובטח",
+  יותר מסימן קריאה אחד, והגזמה או "ללא תיווך" במודעת נכס. החסימות
+  האמיתיות - שורת הגילוי ונכס שאינו באוויר - ביצירת הקמפיין (שלב 5).
+- **`platform_facts`** נזרעה מהיכולות שקיימות היום. כל יכולת חדשה שרוצים
+  לפרסם - שורה שם קודם.
+
 ## סודות (Supabase → Edge Functions → Secrets)
 
 ```
@@ -135,6 +168,9 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | שלב | מה נכנס | הערות |
 | --- | --- | --- |
 | 1 | `20270305090000_ads_console.sql`: ‏`ads_settings`, ‏`ads_actions_log`, ‏`ads_insights_daily`, ‏`ads_leads`; RLS קריאה ל-`current_is_platform_admin()` בלבד, בלי policy כתיבה; ה-cron `ads-insights-sync` (00:10 UTC) | ה-cron יורה רק כש-`ads_settings.enabled = true`, וברירת המחדל `false` - להדליק אחרי ש-`ads-admin` באוויר והסודות מוגדרים. ‏`disclosure_line` ריקה עד שתומר ימלא אותה, ו-`ads-admin` תסרב ליצור מודעה בלעדיה. ‏`lead_source_channel()` ממפה היום `meta_ads` ל-`other` - שלב 4 מוסיף לו ערוץ משלו |
+| 2 | `supabase/functions/ads-admin/` (`index.ts`, ולקוח Graph ב-`meta.ts`): ‏`status`, ‏`sync_insights`, ‏`campaigns`, ‏`set_status`, ‏`set_budget` | **‏`verify_jwt = false` ולא `true` כפי שתוכנן:** ה-cron נכנס ב-`x-alert-cron-secret` בלי JWT, וה-Gateway היה חוסם אותו. ‏JWT של מנהל/ת נבדק בפנים, ו-`cron_secret` מורשה ל-`sync_insights` בלבד. כל כתיבה קוראת את האובייקט קודם ומוודאת `account_id` של החשבון שלנו, תומכת ב-`dry_run`, ונרשמת ב-`ads_actions_log` גם כשנכשלה. תקציב: `daily_budget` בלבד, עד פי 2, ו-`learning_reset_risk` מ-20%. הסנכרון מוחק שורות בחלון שמטא כבר לא מחזירה (‏`synced_at` ישן), ורק ברמה ששליפתה הצליחה. לידים: `lead`, ו-`onsite_conversion.lead_grouped` רק כשהוא לבדו, כדי לא לספור פעמיים. ה-Graph בגרסה v26.0 (‏`META_API_VERSION`); לא נבדק מול מטא אמיתית - בלי הסודות `status` מחזיר `configured:false` |
+| 2ב | מנוע הקופי: `ads-admin/copy.ts`, הפעולות `generate_copy` ו-`save_copy`, הטבלה `ads_copy_drafts` (`20270306090000_ads_copy.sql`), וזריעת `platform_facts` ו-`platform_default_intensity` | ראו "שני מסלולים ורמת אגרסיביות". הקופי אינו נוגע במטא ועובד גם לפני שהחשבון מחובר - צריך רק `ANTHROPIC_API_KEY`. ממשק העריכה בא עם הפאנל (שלב 3) |
+| - | הסקיל `performance-marketing` ב-`.claude/skills/` (MIT), עם בלוק התאמה בראשו: ישראל ולא ניגריה, שורת הגילוי גוברת על "בלי disclaimer במטא", ושני המסלולים. מ-`ad-creative` נלקחו רק מגבלות התווים, ל-`meta-ads/references/ad-text-limits.md`; הסקיל עצמו לא הותקן (ברירת מחדל אגרסיבית לשוק אחר) | ‏`LIMITS.description` ב-`copy.ts` תוקן ל-25 לפי הטבלה |
 
 ## הסקיל `meta-ads`
 

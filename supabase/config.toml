@@ -297,3 +297,10 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 # מאומת ב-x-alert-cron-secret / service role. docs/call-tracking.md
 [functions.twilio-voice]
 verify_jwt = false          # Twilio + חתימה; cron + x-alert-cron-secret
+
+# קונסולת השיווק (docs/marketing-console.md): JWT של מנהל/ת פלטפורמה נבדק
+# בתוך הפונקציה (agency_members.is_platform_admin), וה-cron הלילי
+# ads-insights-sync נכנס ב-x-alert-cron-secret בלי JWT - ולכן לא true.
+# ‏cron_secret מורשה ל-sync_insights בלבד.
+[functions.ads-admin]
+verify_jwt = false          # JWT מנהל פלטפורמה בפנים; cron + x-alert-cron-secret
