@@ -100,6 +100,7 @@ update property_publications set publish_after = now() + interval '7 days'
 | במודול הפרסום (קרוסלה/תמונה) | לא עלה | מתקנים ושולחים שוב |
 | במודול ה-Webhook response, אחרי פרסום | **עלה** | מסמנים `posted` ידנית, לא שולחים |
 | `The aspect ratio is not supported (36003)` | תמונה מחוץ ל-4:5..1.91:1 | ‏`fitForInstagram` חותכת; תמונה שאינה ב-Storage שלנו אינה נחתכת |
+| `Media ID is not available (9007)` | אינסטגרם עוד עיבדה את התמונות כש-Make פרסם | התור שולח שוב לבד; לוודא בחשבון שאין פוסט כפול. שכיח - ‏Sleep לפני מודול הקרוסלה |
 | `Missing value of required parameter 'files'` | האגרגטור לא ממופה | ‏Target structure של האגרגטור, `Files` = `{{5.array}}` |
 | פילטר שלא עבר | אופרטור Time במקום Numeric | ‏Numeric: ‏`image_count ≥ 2` / `= 1` |
 
