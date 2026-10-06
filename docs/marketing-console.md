@@ -101,6 +101,39 @@ ads-leads-webhook  (Edge Function, verify_jwt = false — אימות בחתימ�
 - טבלת מודעות עם דגל "נשחקת" לפי `references/analysis-playbooks.md` בסקיל.
 - לשונית "גוגל" — "ממתין לחיבור" עד שיש טוקן.
 
+## שני מסלולים ורמת אגרסיביות (נוסף 7.10.2026)
+
+תומר ביקש להפריד: **קידום נכסים** בטון לא אגרסיבי, ו**שיווק הפלטפורמה
+למתווכים** שמותר לו להיות אגרסיבי יותר - עם כיוון של הרמה, ועריכה של
+הנוסחים שהמודל מציע.
+
+| מסלול (`audience`) | מה | למי | רמה (`intensity`) |
+| --- | --- | --- | --- |
+| `property` | נכס `active` שבאתר | קונים / שוכרים | 1-2 בלבד - `check` במסד, לא רק בקוד |
+| `platform` | שוק נדל"ן עצמה | מתווכים ומשרדים | 1-5, ברירת מחדל `ads_settings.platform_default_intensity` |
+
+הסולם: 1 מידעי, 2 חם וענייני, 3 ישיר ונחוש, 4 אגרסיבי (כאב מוכר וניגוד חד),
+5 אגרסיבי מאוד (פתיחה פרובוקטיבית, מסגור הפסד, בחירה בין שתי דרכים).
+
+**הרמה משנה טון, לעולם לא עובדות.** בכל רמה: רק עובדות מ-
+`ads_settings.platform_facts` (או מנתוני הנכס), בלי מספרים מומצאים, בלי
+"הכי"/"מובטח", בלי מתחרים בשם, בלי דחיפות כשאין `deadline` אמיתי בתדריך,
+ובלי טענה על מצבו האישי של הקורא/ת (מדיניות personal attributes של מטא).
+מודעה אגרסיבית שממציאה "חוסכים 10 שעות בשבוע" היא פרסום מטעה.
+
+- **מודעת נכס** נכתבת לפי `PROPERTY_COPY_RULES` - אותם חוקים של התיאור
+  השיווקי, שחולצו ב-`_shared/marketing-copy.ts` לקבוע משותף (ה-`SYSTEM_PROMPT`
+  של התיאור נשאר זהה בייט-בייט), ועם העובדות של `property_marketing_facts`.
+- **עריכה:** `ads_copy_drafts.generated` הוא מה שהמודל כתב, `variants` מה
+  שנערך. "כתוב מחדש" עם הערה ("קצר יותר", "פחות אגרסיבי") שומר את הסבב
+  הקודם ב-`history` (עד 10).
+- **אזהרות, לא חסימה:** `checkVariant()` מסמן כותרת מעל 40 תווים, שורה
+  ראשונה מעל 125, טלפון או קישור בטקסט, דחיפות בלי תאריך, "הכי"/"מובטח",
+  יותר מסימן קריאה אחד, והגזמה או "ללא תיווך" במודעת נכס. החסימות
+  האמיתיות - שורת הגילוי ונכס שאינו באוויר - ביצירת הקמפיין (שלב 5).
+- **`platform_facts`** נזרעה מהיכולות שקיימות היום. כל יכולת חדשה שרוצים
+  לפרסם - שורה שם קודם.
+
 ## סודות (Supabase → Edge Functions → Secrets)
 
 ```
@@ -136,6 +169,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | --- | --- | --- |
 | 1 | `20270305090000_ads_console.sql`: ‏`ads_settings`, ‏`ads_actions_log`, ‏`ads_insights_daily`, ‏`ads_leads`; RLS קריאה ל-`current_is_platform_admin()` בלבד, בלי policy כתיבה; ה-cron `ads-insights-sync` (00:10 UTC) | ה-cron יורה רק כש-`ads_settings.enabled = true`, וברירת המחדל `false` - להדליק אחרי ש-`ads-admin` באוויר והסודות מוגדרים. ‏`disclosure_line` ריקה עד שתומר ימלא אותה, ו-`ads-admin` תסרב ליצור מודעה בלעדיה. ‏`lead_source_channel()` ממפה היום `meta_ads` ל-`other` - שלב 4 מוסיף לו ערוץ משלו |
 | 2 | `supabase/functions/ads-admin/` (`index.ts`, ולקוח Graph ב-`meta.ts`): ‏`status`, ‏`sync_insights`, ‏`campaigns`, ‏`set_status`, ‏`set_budget` | **‏`verify_jwt = false` ולא `true` כפי שתוכנן:** ה-cron נכנס ב-`x-alert-cron-secret` בלי JWT, וה-Gateway היה חוסם אותו. ‏JWT של מנהל/ת נבדק בפנים, ו-`cron_secret` מורשה ל-`sync_insights` בלבד. כל כתיבה קוראת את האובייקט קודם ומוודאת `account_id` של החשבון שלנו, תומכת ב-`dry_run`, ונרשמת ב-`ads_actions_log` גם כשנכשלה. תקציב: `daily_budget` בלבד, עד פי 2, ו-`learning_reset_risk` מ-20%. הסנכרון מוחק שורות בחלון שמטא כבר לא מחזירה (‏`synced_at` ישן), ורק ברמה ששליפתה הצליחה. לידים: `lead`, ו-`onsite_conversion.lead_grouped` רק כשהוא לבדו, כדי לא לספור פעמיים. ה-Graph בגרסה v26.0 (‏`META_API_VERSION`); לא נבדק מול מטא אמיתית - בלי הסודות `status` מחזיר `configured:false` |
+| 2ב | מנוע הקופי: `ads-admin/copy.ts`, הפעולות `generate_copy` ו-`save_copy`, הטבלה `ads_copy_drafts` (`20270306090000_ads_copy.sql`), וזריעת `platform_facts` ו-`platform_default_intensity` | ראו "שני מסלולים ורמת אגרסיביות". הקופי אינו נוגע במטא ועובד גם לפני שהחשבון מחובר - צריך רק `ANTHROPIC_API_KEY`. ממשק העריכה בא עם הפאנל (שלב 3) |
 
 ## הסקיל `meta-ads`
 

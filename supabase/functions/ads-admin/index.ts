@@ -2,6 +2,16 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { actionCount, MetaClient, MetaError, normalizeAccountId } from "./meta.ts";
+import {
+  type Audience,
+  type Brief,
+  checkVariant,
+  cleanVariant,
+  generateVariants,
+  MAX_INTENSITY,
+  type Variant,
+} from "./copy.ts";
+import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -15,6 +25,10 @@ import { actionCount, MetaClient, MetaError, normalizeAccountId } from "./meta.t
 //   campaigns      רשימה חיה של קמפיינים וסטים (סטטוס, תקציב)
 //   set_status     ‏{object_type, object_id, status: ACTIVE|PAUSED}
 //   set_budget     ‏{object_type, object_id, daily_budget}  — בשקלים, עד פי 2
+//   generate_copy  נוסחים למודעה: audience property|platform, intensity, brief
+//                  (‏copy.ts). עם draft_id + feedback — כתיבה מחדש לפי הערה
+//   save_copy      ‏{draft_id, variants, status} — נוסחים אחרי עריכה
+// ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
 //   - JWT של מנהל/ת פלטפורמה פעיל/ה (agency_members.is_platform_admin) —
@@ -46,6 +60,8 @@ const ADS_TOKEN = Deno.env.get("META_ADS_ACCESS_TOKEN") || "";
 const AD_ACCOUNT = Deno.env.get("META_AD_ACCOUNT_ID") || "";
 const APP_SECRET = Deno.env.get("META_APP_SECRET") || "";
 const PAGE_ID = Deno.env.get("FACEBOOK_PAGE_ID") || "";
+const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
+const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-sonnet-5";
 
 const MAX_BUDGET_MULTIPLIER = 2;
 // ‏90 יום — מעבר לזה מטא ממילא מגבילה פירוט יומי, וההרצה תיחתך בזמן.
@@ -402,6 +418,123 @@ async function actionSetBudget(sb: SupabaseClient, meta: MetaClient, accountBare
 }
 
 // ---------------------------------------------------------------------------
+// generate_copy / save_copy — טיוטות קופי (ads_copy_drafts)
+//
+// ‏intensity נחתך לתקרת המסלול כאן, וה-check במסד הוא הגדר השנייה. נכס חייב
+// להיות active: מודעה לנכס שאינו באתר אסורה (docs/marketing-console.md), ואין
+// טעם לנסח אותה.
+// ---------------------------------------------------------------------------
+async function setting(sb: SupabaseClient, key: string): Promise<unknown> {
+  const { data } = await sb.from("ads_settings").select("value").eq("key", key).maybeSingle();
+  return data?.value ?? null;
+}
+
+function readBrief(raw: any): Brief {
+  const t = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim().slice(0, 500) : undefined);
+  return { offer: t(raw?.offer), angle: t(raw?.angle), notes: t(raw?.notes), deadline: t(raw?.deadline) };
+}
+
+function withWarnings(audience: Audience, variants: Variant[], brief: Brief) {
+  return variants.map((v) => ({ ...v, warnings: checkVariant(audience, v, brief) }));
+}
+
+async function actionGenerateCopy(sb: SupabaseClient, caller: Caller, body: any) {
+  if (!ANTHROPIC_KEY) return json({ error: "copy_not_configured" }, 503);
+  const count = Math.min(Math.max(Math.floor(Number(body?.count) || 3), 1), 6);
+  const feedback = typeof body?.feedback === "string" ? body.feedback.trim().slice(0, 1000) : "";
+
+  // כתיבה מחדש של טיוטה קיימת: המסלול, הנכס והתדריך באים מהטיוטה, והרמה
+  // יכולה להשתנות ("פחות אגרסיבי").
+  let draft: any = null;
+  if (body?.draft_id) {
+    const { data, error } = await sb.from("ads_copy_drafts").select("*").eq("id", String(body.draft_id)).maybeSingle();
+    if (error) return json({ error: "db_error" }, 500);
+    if (!data) return json({ error: "draft_not_found" }, 404);
+    draft = data;
+  }
+
+  const requested = draft?.audience ?? body?.audience;
+  if (requested !== "property" && requested !== "platform") return json({ error: "bad_audience" }, 400);
+  const audience: Audience = requested;
+  let intensity = Math.floor(Number(body?.intensity));
+  if (!Number.isFinite(intensity) || intensity < 1) {
+    intensity = draft?.intensity ?? (audience === "platform" ? Number(await setting(sb, "platform_default_intensity")) || 3 : 2);
+  }
+  intensity = Math.min(intensity, MAX_INTENSITY[audience]);
+  const brief = body?.brief ? readBrief(body.brief) : readBrief(draft?.brief ?? {});
+  const propertyId: string | null = draft?.property_id ?? (body?.property_id ? String(body.property_id) : null);
+
+  let facts: Record<string, unknown> | null = null;
+  if (audience === "property") {
+    if (!propertyId) return json({ error: "property_required" }, 400);
+    const { data: prop, error } = await sb.from("properties").select("id, status").eq("id", propertyId).maybeSingle();
+    if (error) return json({ error: "db_error" }, 500);
+    if (!prop) return json({ error: "property_not_found" }, 404);
+    if (prop.status !== "active") return json({ error: "property_not_active", detail: "מודעה ממומנת רק לנכס שבאוויר" }, 409);
+    const { data: f, error: fErr } = await sb.rpc("property_marketing_facts", { p_property_id: propertyId });
+    if (fErr) return json({ error: "db_error", detail: fErr.message }, 500);
+    facts = Array.isArray(f) ? f[0] : f;
+    if (!facts) return json({ error: "property_not_found" }, 404);
+  }
+  const platformFacts = audience === "platform" ? String((await setting(sb, "platform_facts")) ?? "") : "";
+
+  let variants: Variant[];
+  try {
+    variants = await generateVariants({
+      apiKey: ANTHROPIC_KEY, model: CLAUDE_MODEL, audience, intensity, platformFacts, facts, brief, count,
+      previous: draft && feedback ? (draft.variants as Variant[]) : undefined,
+      feedback: draft ? feedback : undefined,
+    });
+  } catch (e) {
+    if (e instanceof MarketingCopyAuthError) return json({ error: "copy_auth_failed" }, 503);
+    console.error("generate_copy failed", (e as Error).message);
+    return json({ error: "copy_failed", detail: (e as Error).message }, 502);
+  }
+
+  const now = new Date().toISOString();
+  if (draft) {
+    // הסבב הקודם נשמר ב-history עם ההערה שהחליפה אותו — עד 10 אחרונים.
+    const history = [{ at: now, intensity: draft.intensity, feedback, variants: draft.variants }, ...(draft.history ?? [])].slice(0, 10);
+    const { data, error } = await sb.from("ads_copy_drafts")
+      .update({ intensity, brief, generated: variants, variants, history, status: "draft", model: CLAUDE_MODEL, updated_at: now })
+      .eq("id", draft.id).select("*").single();
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    return json({ draft: { ...data, variants: withWarnings(audience, variants, brief) } });
+  }
+
+  const { data, error } = await sb.from("ads_copy_drafts").insert({
+    created_by: caller.actorId, audience, intensity, property_id: propertyId, brief,
+    generated: variants, variants, model: CLAUDE_MODEL,
+  }).select("*").single();
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  return json({ draft: { ...data, variants: withWarnings(audience, variants, brief) } });
+}
+
+async function actionSaveCopy(sb: SupabaseClient, body: any) {
+  const id = String(body?.draft_id ?? "");
+  if (!id) return json({ error: "draft_required" }, 400);
+  const { data: draft, error } = await sb.from("ads_copy_drafts").select("id, audience, brief").eq("id", id).maybeSingle();
+  if (error) return json({ error: "db_error" }, 500);
+  if (!draft) return json({ error: "draft_not_found" }, 404);
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  let variants: Variant[] | null = null;
+  if (body?.variants !== undefined) {
+    if (!Array.isArray(body.variants) || body.variants.length > 12) return json({ error: "bad_variants" }, 400);
+    variants = body.variants.map(cleanVariant);
+    patch.variants = variants;
+  }
+  if (body?.status !== undefined) {
+    if (!["draft", "approved", "archived"].includes(body.status)) return json({ error: "bad_status" }, 400);
+    patch.status = body.status;
+  }
+  const { data, error: upErr } = await sb.from("ads_copy_drafts").update(patch).eq("id", id).select("*").single();
+  if (upErr) return json({ error: "db_error", detail: upErr.message }, 500);
+  const brief = readBrief(draft.brief ?? {});
+  return json({ draft: { ...data, variants: withWarnings(draft.audience, (data.variants ?? []) as Variant[], brief) } });
+}
+
+// ---------------------------------------------------------------------------
 async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Response> {
   const internal = authorizeInternalCaller(req);
   if (internal.ok) {
@@ -457,6 +590,10 @@ Deno.serve(async (req: Request) => {
     const { data } = await sb.from("ads_settings").select("value").eq("key", "enabled").maybeSingle();
     if (data?.value !== true) return json({ ok: true, skipped: "disabled" });
   }
+
+  // הקופי אינו נוגע במטא — עובד גם לפני שהחשבון מחובר.
+  if (action === "generate_copy") return await actionGenerateCopy(sb, caller, body);
+  if (action === "save_copy") return await actionSaveCopy(sb, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
