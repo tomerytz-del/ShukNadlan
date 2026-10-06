@@ -1,0 +1,31 @@
+name: מנוע המדיה - בדיקות
+
+# ‏ffmpeg אמיתי על סרטון סינתטי, בלי רשת ובלי מסד. רץ רק על PR שנוגע במנוע:
+# הבדיקה אינה נדרשת בהגנת הענף, ולכן דילוג עליה אינו חוסם מיזוג.
+
+on:
+  pull_request:
+    paths:
+      - "media_engine/**"
+      - "media_render.py"
+      - ".github/workflows/media_engine_test.yml"
+      - ".github/workflows/media_render.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: בדיקות
+        run: python3 -m unittest media_engine.test_media_engine -v

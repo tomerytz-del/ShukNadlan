@@ -56,7 +56,8 @@
 - **המנועים** — `news_engine/` + `news_scraper.py` (מבזקי הנדל"ן),
   `lead_engine/` + `scraper.py` (לידים מ-RSS), ו-`deals_engine/` +
   `deals_scraper.py` (עסקאות מרשות המיסים לדוח ה-CMA), רצים ב-workflows
-  מתוזמנים. למנוע העסקאות יש כלל משלו: **רשומה פגומה נזרקת ונספרת ולא
+  מתוזמנים, ו-`media_engine/` + `media_render.py` (רינדור ב-ffmpeg, מופעל
+  מתור במסד; `docs/media-worker.md`). למנוע העסקאות יש כלל משלו: **רשומה פגומה נזרקת ונספרת ולא
   מנוחשת**, כי עסקה שנכנסת למאגר מסומנת `official` — המספר שהדוח סומך
   עליו יותר מכל אחר. ‏`docs/market-deals-official.md`.
 - **קליטה מהמייל** — סוכן/ת מעביר/ה מייל ל-`shuknadlan@gmail.com` מהכתובת

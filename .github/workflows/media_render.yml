@@ -1,0 +1,48 @@
+name: מנוע המדיה - רינדור
+
+# ‏ffmpeg לבקשות שבתור media_renders. מופעל רק מבחוץ: ‏media-render?mode=dispatch
+# (‏pg_cron כל 2 דקות כשיש בקשה פתוחה) שולח workflow_dispatch, או ידנית
+# מלשונית Actions. הריצה מרוקנת את התור ויוצאת. ‏docs/media-worker.md.
+#
+# **אין כאן service_role.** הסוד היחיד הוא MEDIA_WORKER_SECRET, שמאפשר לקחת
+# בקשה, להעלות לנתיב שהשרת בחר ולדווח - ולא יותר. הריפו ציבורי ולכן גם
+# היומן של הריצה הזו ציבורי; המנוע אינו מדפיס את כתובת ההעלאה החתומה.
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_jobs:
+        description: "כמה בקשות לכל היותר בריצה הזו"
+        type: string
+        default: "50"
+
+# שתי ריצות במקביל בטוחות (‏claim נועל), אבל אין בזה טעם: הראשונה מרוקנת
+# את התור. השנייה ממתינה ומוצאת אותו ריק, או מרנדרת מה שנכנס בינתיים.
+concurrency:
+  group: media-render
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          ffmpeg -hide_banner -version | head -1
+
+      - name: רינדור
+        env:
+          MEDIA_WORKER_SECRET: ${{ secrets.MEDIA_WORKER_SECRET }}
+          # דרך env ולא בתוך הפקודה, כדי שקלט לא יהפוך לקוד shell
+          MAX_JOBS: ${{ inputs.max_jobs || '50' }}
+        run: python3 media_render.py --max-jobs "$MAX_JOBS"

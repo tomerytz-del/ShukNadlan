@@ -267,6 +267,12 @@ verify_jwt = true
 [functions.property-video-callback]
 verify_jwt = false
 
+# מנוע המדיה (docs/media-worker.md). לא ל-pg_cron ולא ל-GitHub Actions יש JWT
+# שלנו. שני המסלולים מאומתים בפנים ושניהם fail-closed: ‏dispatch דרך
+# _shared/cron-auth.ts, ו-claim/complete/fail דרך MEDIA_WORKER_SECRET.
+[functions.media-render]
+verify_jwt = false
+
 # מורנינג קורא/ת לכאן מבחוץ בסיום תשלום, ואין לו/ה JWT שלנו.
 #
 # זו נקודת הקצה היחידה שמזכה ארנק, ולכן שווה לומר במפורש מה מגן עליה: סוד
