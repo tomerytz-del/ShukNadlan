@@ -20172,6 +20172,8 @@ document.getElementById('ciModal').addEventListener('click', async e => {
 let callRows = [];
 // כל שיחה שנטענה - מהבלוק "שיחות אחרונות" ומהכרטיס של הלקוח/ה - לפי id
 const callById = new Map();
+/* שיחה שלא נענתה ויש לה הקלטה היא הודעה קולית (twilio-voice, event=voicemail) -
+   אין לה עמודה משלה: הקלטה נשמרת בשיחה שלא נענתה רק מהתא הקולי. */
 const CALL_STATUS = { answered:'נענתה', missed:'לא נענתה', busy:'תפוס', failed:'נכשלה', ringing:'מצלצלת' };
 
 // נקבע ב-loadCalls: יש לסוכן/ת מספר (או שהוא/היא מנהל/ת הפלטפורמה)
@@ -20759,6 +20761,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-top">
       <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+        ${c.status !== 'answered' && c.recording_path ? '<span class="call-badge answered">🎙 הודעה קולית</span>' : ''}
       <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
     </div>
     <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
@@ -20873,6 +20876,7 @@ function callRowHtml(c, inCard){
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+        ${c.status !== 'answered' && c.recording_path ? '<span class="call-badge answered">🎙 הודעה קולית</span>' : ''}
       <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
     </div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
