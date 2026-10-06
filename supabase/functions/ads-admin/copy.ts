@@ -41,8 +41,9 @@ export type Brief = {
   deadline?: string; // תאריך אמיתי. בלעדיו אסורה דחיפות
 };
 
-// מגבלות התצוגה של מטא בפיד (platform-specs.md בסקיל ad-creative).
-export const LIMITS = { headline: 40, description: 30, primary_text: 500, hook: 125 };
+// מגבלות התצוגה של מטא בפיד (‎.claude/skills/meta-ads/references/ad-text-limits.md‎).
+// ‏primary_text אין לו תקרה קשיחה; 500 הוא הגבול שלנו, כי מעבר לו אף אחד לא קורא.
+export const LIMITS = { headline: 40, description: 25, primary_text: 500, hook: 125 };
 
 const LADDER: Record<Audience, Record<number, string>> = {
   property: {

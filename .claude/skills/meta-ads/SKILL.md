@@ -176,7 +176,7 @@ If the user needs something the scripts don't cover, extend the skill in a write
 
 ## Companion skills
 
-If the `ad-creative` or `performance-marketing` skills are installed, use them for what they're good at — generating many copy variations, creative-testing plans, funnel-layer diagnostics, account-safety hygiene — and keep this skill for everything that touches the API. For a real-estate business, `references/real-estate-creative.md` overrides their defaults: Hebrew, calm local tone, no "aggressive" style, no fake urgency or invented numbers, and the broker disclosure line on every ad.
+If the `ad-creative` or `performance-marketing` skills are installed, use them for what they're good at — generating many copy variations, creative-testing plans, funnel-layer diagnostics, account-safety hygiene — and keep this skill for everything that touches the API. For a real-estate business, `references/real-estate-creative.md` overrides their defaults: Hebrew, calm local tone, no fake urgency or invented numbers, and the broker disclosure line on every ad. Shuk Nadlan runs two tracks (`docs/marketing-console.md`): **property ads stay calm (intensity 1-2)**, while **platform ads aimed at brokers may go up to intensity 5** — tone only, never invented facts. `ad-creative` is not installed here; its character limits live in `references/ad-text-limits.md`.
 
 ## Reference files
 
@@ -188,6 +188,7 @@ Read these on demand, not all upfront.
 - `references/write-actions.md` — Mandatory before any write call. Confirmation flow, safety thresholds, rollback patterns — including the campaign-creation section before using `create_campaign.py`.
 - `references/campaign-creation.md` — Spec format, destinations (website / lead_form / whatsapp), formats (image / carousel / existing_post), currency, interests, state file and rollback. Read this when the user asks to launch a campaign, A/B test, or new ad flight.
 - `references/real-estate-creative.md` — Israeli broker ad rules (license disclosure, owner consent, no fictitious listings), Meta housing/discrimination policy, campaign-type choice, Hebrew copy structure and angles, image rules, lead-form design, local budgets. Read before writing any copy, form or spec for a real-estate business.
+- `references/ad-text-limits.md` — Character limits per platform (Meta, Google RSA, LinkedIn, TikTok, X). Read before writing or validating any ad text.
 - `references/troubleshooting.md` — Common failure modes (sandbox proxy, IG boost invisible to SU tokens, missing requests module, encoding issues, 37-month cap, etc.). Read this when any script returns `ok: false` or something unexpected.
 
 ## Scaling beyond personal use
