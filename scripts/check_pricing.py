@@ -48,6 +48,8 @@ PRICES = {
     'ppl_price_buyer_renter':            25,
     'ppl_price_owner_mid':               50,
     'free_lead_quota_monthly':           10,
+    # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
+    'vat_rate':                          0.18,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -61,8 +63,10 @@ DISPLAY = [
     ('supabase/functions/_shared/launch-promo.ts', r'premium: ' + N,   'tier_premium_monthly_price'),
     ('pricing.html', r'PROFESSIONAL ב-₪' + N,                          'tier_mid_monthly_price'),
     ('pricing.html', r'Elite ב-₪' + N,                                 'tier_premium_monthly_price'),
-    ('pricing.html', r'לא\. ₪' + N + ' ו-₪',                           'tier_mid_monthly_price'),
-    ('pricing.html', r'ו-₪' + N + ' הם לחודש',                         'tier_premium_monthly_price'),
+    ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
+    ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
+    # המע״מ בעמוד התשלום
+    ('checkout.html', r'const VAT_RATE = ' + N,                        'vat_rate'),
     # המספר הווירטואלי
     ('pricing.html', r'₪' + N + r' לחודש \+ מע״מ',                     'phone_line_monthly_price'),
     ('assets/tiers.js', r'₪' + N + r' לחודש \+ מע״מ',                  'phone_line_monthly_price'),
