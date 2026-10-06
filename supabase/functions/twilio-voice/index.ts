@@ -16,6 +16,9 @@ import { noLongDash } from "../_shared/marketing-copy.ts";
 //   ?event=recording  — ההקלטה מוכנה. עוברת אלינו (דלי call-recordings),
 //                       נמחקת מ-Twilio, מתומללת ב-Whisper ומסוכמת ב-Claude,
 //                       והסוכן/ת מקבל/ת בוואטסאפ את הסיכום ואת ההקלטה.
+//   ?event=voicemail  — הודעה קולית משיחה שלא נענתה (<Record>). אותו צינור
+//                       של ההקלטה, בכותרת "הודעה קולית".
+//   ?event=voicemail-done — ה-action של <Record>: תודה וניתוק.
 //   ?task=cleanup     — cron יומי: מחיקת הקלטות בנות 90 יום.
 //
 // ‏verify_jwt = false: את הפונקציה קוראת Twilio, בלי JWT. האימות הוא חתימת
@@ -58,6 +61,12 @@ const WA_AUDIO_MAX_BYTES = 16 * 1024 * 1024;
 const VOICE = 'voice="Google.he-IL-Standard-A" language="he-IL"';
 const MSG_RECORDED = "שלום, הגעתם לשוק נדל״ן. השיחה מוקלטת לשיפור השירות.";
 const MSG_MISSED = "לא הצלחנו לענות כרגע. נחזור אליכם בהקדם. תודה.";
+const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. השאירו הודעה אחרי הצליל, ונחזור אליכם בהקדם.";
+const MSG_VOICEMAIL_DONE = "תודה, ההודעה נשמרה.";
+// ‏הודעה קולית: עד שתי דקות, וחמש שניות של שקט מסיימות אותה. הודעה קצרה
+// מ-VOICEMAIL_MIN_SEC היא ניתוק אחרי הצליל ולא הודעה - נמחקת בלי תמלול.
+const VOICEMAIL_MAX_SEC = 120;
+const VOICEMAIL_MIN_SEC = 2;
 const MSG_UNASSIGNED = "המספר אינו פעיל כרגע. תודה.";
 
 const SITE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
@@ -427,13 +436,34 @@ async function onDial(p: URLSearchParams): Promise<Response> {
     .from("agent_calls")
     .update({ status, duration_sec: duration })
     .eq("twilio_call_sid", callSid)
-    .select("id, agent_id, from_number, client_id")
+    .select("id, agent_id, from_number, client_id, line_id")
     .maybeSingle();
 
   if (!answered && call) EdgeRuntime.waitUntil(notifyMissed(call));
   if (call) EdgeRuntime.waitUntil(chargeMinutes(call.id));
 
-  return answered ? xml("<Hangup/>") : xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
+  if (answered) return xml("<Hangup/>");
+  return xml(await voicemailXml(call?.line_id ?? null));
+}
+
+/** ‏**תא קולי** במקום "נחזור אליכם" וניתוק. ההודעה עוברת את צינור ההקלטה
+ *  (‏event=voicemail): אחסון, תמלול, סיכום ווואטסאפ לסוכן/ת.
+ *
+ *  ‏**אותו תנאי של הקלטת שיחה** (‏phone_line_recording_allowed): מספר שעבר את
+ *  150 הדקות ואין לו יתרה ממשיך לקבל שיחות בלי הקלטה, ולכן גם בלי תא קולי.
+ *  ההודעה עצמה אינה נספרת בדקות (‏charge_call_minutes סופר שיחות שנענו):
+ *  היא עולה לנו קבלה + הקלטה + Whisper, כאגורה לשנייה עשרים. */
+async function voicemailXml(lineId: string | null): Promise<string> {
+  if (!lineId || !(await recordingAllowed(lineId))) {
+    return `<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`;
+  }
+  const cb = escXml(`${PUBLIC_BASE}?event=voicemail`);
+  const done = escXml(`${PUBLIC_BASE}?event=voicemail-done`);
+  return `<Say ${VOICE}>${escXml(MSG_VOICEMAIL)}</Say>` +
+    `<Record maxLength="${VOICEMAIL_MAX_SEC}" timeout="5" playBeep="true" trim="trim-silence" ` +
+    `action="${done}" method="POST" recordingStatusCallback="${cb}" ` +
+    `recordingStatusCallbackEvent="completed"/>` +
+    `<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`;
 }
 
 /** 150 דקות בחודש למספר, ומעבר לזה 0.5 ₪ לדקה מהארנק (charge_call_minutes).
@@ -569,7 +599,7 @@ function needsLine(c: Record<string, any>): string {
 // ההקלטה: אחסון, תמלול, סיכום, התראה
 // ---------------------------------------------------------------------------
 
-async function onRecording(p: URLSearchParams): Promise<Response> {
+async function onRecording(p: URLSearchParams, voicemail = false): Promise<Response> {
   if ((p.get("RecordingStatus") || "completed") !== "completed") return json({ ok: true, skipped: true });
   // עונים מיד: Twilio מנסה שוב אחרי 15 שניות, והעיבוד לוקח יותר.
   EdgeRuntime.waitUntil(processRecording({
@@ -577,6 +607,7 @@ async function onRecording(p: URLSearchParams): Promise<Response> {
     recordingSid: p.get("RecordingSid") || "",
     recordingUrl: p.get("RecordingUrl") || "",
     duration: Number(p.get("RecordingDuration") || 0) || null,
+    voicemail,
   }));
   return json({ ok: true });
 }
@@ -598,7 +629,9 @@ async function findCallForRecording(callSid: string) {
   return byParent;
 }
 
-async function processRecording(r: { callSid: string; recordingSid: string; recordingUrl: string; duration: number | null }) {
+async function processRecording(
+  r: { callSid: string; recordingSid: string; recordingUrl: string; duration: number | null; voicemail?: boolean },
+) {
   const call = await findCallForRecording(r.callSid);
   if (!call) {
     console.error("recording for unknown call", r.callSid, r.recordingSid);
@@ -606,23 +639,34 @@ async function processRecording(r: { callSid: string; recordingSid: string; reco
   }
   if (call.recording_path) return; // משלוח חוזר של Twilio
 
+  // ניתוק אחרי הצליל: אין הודעה. נמחקת מ-Twilio ולא מגיעה לסוכן/ת - ההתראה
+  // על השיחה שלא נענתה כבר יצאה.
+  if (r.voicemail && (r.duration ?? 0) < VOICEMAIL_MIN_SEC) {
+    deleteTwilioRecording(r.recordingSid);
+    return;
+  }
+
   try {
     // הורדה מ-Twilio
     const audioRes = await fetch(`${r.recordingUrl}.mp3`, { headers: { Authorization: twilioAuth() } });
     if (!audioRes.ok) throw new Error(`recording download ${audioRes.status}`);
     const bytes = new Uint8Array(await audioRes.arrayBuffer());
-    await analyzeCall(call, bytes, "audio/mpeg", r.duration, r.recordingSid);
+    await analyzeCall(call, bytes, "audio/mpeg", r.duration, r.recordingSid, !!r.voicemail);
 
     // מחיקה מ-Twilio: העותק היחיד נשאר אצלנו, עם תאריך תפוגה אחד.
-    fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Recordings/${encodeURIComponent(r.recordingSid)}.json`,
-      { method: "DELETE", headers: { Authorization: twilioAuth() } },
-    ).catch((e) => console.warn("twilio recording delete failed", e));
+    deleteTwilioRecording(r.recordingSid);
   } catch (err) {
     console.error("recording processing failed", err);
     await supabase.from("agent_calls").update({ error: String((err as Error)?.message || err).slice(0, 500) })
       .eq("id", call.id);
   }
+}
+
+function deleteTwilioRecording(recordingSid: string): void {
+  fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Recordings/${encodeURIComponent(recordingSid)}.json`,
+    { method: "DELETE", headers: { Authorization: twilioAuth() } },
+  ).catch((e) => console.warn("twilio recording delete failed", e));
 }
 
 const AUDIO_EXT: Record<string, string> = {
@@ -640,6 +684,7 @@ async function analyzeCall(
   mime: string,
   duration: number | null,
   recordingSid: string | null,
+  voicemail = false,
 ) {
   // 1. אלינו
   const ext = AUDIO_EXT[mime] || "mp3";
@@ -685,7 +730,12 @@ async function analyzeCall(
   const mins = duration ? `${Math.max(1, Math.round(duration / 60))} דק׳` : "";
   const hasNeeds = !!summary?.needs && Object.keys(summary.needs).length > 0;
 
-  const lines = [`📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
+  // הודעה קולית: אותו סיכום ואותם כפתורים, בכותרת אחרת - הסוכן/ת לא דיבר/ה
+  // עם אף אחד, ו"סיכום שיחה" היה מטעה.
+  const secs = duration ? `${Math.round(duration)} שנ׳` : "";
+  const lines = [voicemail
+    ? `🎙️ *הודעה קולית* מ-${who}${secs ? ` · ${secs}` : ""}`
+    : `📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
   const viaLabel = await lineLabelForCall(call.id);
   if (viaLabel) lines.push(`דרך: ${viaLabel}`);
   if (summary?.summary) lines.push("", summary.summary);
@@ -725,7 +775,7 @@ async function analyzeCall(
   }
   const text = lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   const action = asks.length ? { body: asks.join("\n").trim(), buttons } : null;
-  await notifyAgent(agent, text, `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl, {
+  await notifyAgent(agent, text, `${voicemail ? "הודעה קולית מ" : "סיכום שיחה עם "}${who}: ${summary?.summary || ""}`, audioUrl, {
     action,
     urlSuffix: `/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`,
   });
@@ -1532,6 +1582,10 @@ Deno.serve(async (req: Request) => {
       return await onDial(params);
     case "recording":
       return await onRecording(params);
+    case "voicemail":
+      return await onRecording(params, true);
+    case "voicemail-done":
+      return xml(`<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`);
     default:
       return new Response("unknown event", { status: 400 });
   }
