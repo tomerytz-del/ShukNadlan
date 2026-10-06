@@ -1,0 +1,24 @@
+{
+  "page_id": "<PAGE_ID>",
+  "name": "קונים - עפולה והעמק - טופס בסיס",
+  "locale": "he_IL",
+  "higher_intent": true,
+  "headline": "מחפשים נכס בעפולה ובעמק?",
+  "questions": [
+    {"type": "FULL_NAME"},
+    {"type": "PHONE"},
+    {"type": "CUSTOM", "key": "deal_type", "label": "מה אתם מחפשים?",
+     "options": ["קנייה", "שכירות", "מכירת נכס שלי"]},
+    {"type": "CUSTOM", "key": "budget", "label": "מה טווח התקציב?",
+     "options": ["עד 1.2 מיליון ₪", "1.2–1.8 מיליון ₪", "1.8–2.5 מיליון ₪", "מעל 2.5 מיליון ₪"]},
+    {"type": "CUSTOM", "key": "timing", "label": "מתי תרצו לעבור?",
+     "options": ["מיידי", "תוך 3 חודשים", "תוך חצי שנה", "רק בודק/ת"]}
+  ],
+  "privacy_policy": {"url": "https://<YOUR-SITE>/privacy", "link_text": "מדיניות פרטיות"},
+  "thank_you": {
+    "title": "תודה! נחזור אליכם עוד היום",
+    "body": "בינתיים אפשר לראות את כל הנכסים הזמינים באתר",
+    "button_text": "לנכסים באתר",
+    "website_url": "https://<YOUR-SITE>"
+  }
+}
