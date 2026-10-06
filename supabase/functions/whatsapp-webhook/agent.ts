@@ -2446,6 +2446,15 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
         "עם דירות תחת \"בנין\", ולכן אינם נספרים כבני השוואה. אמור/אמרי זאת, ואל תציע/י להשוות לעסקאות \"בנין\"."
       : "";
 
+  // בית פרטי בלי ממוצע: הוא מושווה לבתים בלבד (20270226090000), ובמאגר כמעט
+  // אין עסקאות בתים. בלי ההסבר "אין עסקאות בסביבה" נשמע כמו אזור מת.
+  const HOUSE_COVERAGE_NOTE =
+    coverage.subject_kind === "house" &&
+      (coverage.status === "none" || coverage.status === "insufficient")
+      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות, ובמאגר העסקאות יש מעט מאוד מכירות " +
+        "של בתים. אמור/אמרי זאת, ואל תציע/י לגזור מחיר מעסקאות של דירות."
+      : "";
+
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
     insufficient:
@@ -2502,7 +2511,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     stats,
     data_coverage: coverage,
     coverage_guidance:
-      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE).trim() || undefined,
+      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
