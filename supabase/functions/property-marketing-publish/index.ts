@@ -259,28 +259,28 @@ const generateMarketing = (row: any) =>
 // גולש/ת בפייסבוק סורק/ת את השורות האלה לפני שהוא/היא קורא/ת מילה מהפתיח,
 // ולכן הן לא נכנסות לתוך הטקסט החופשי אלא יושבות מתחתיו תמיד באותו סדר.
 // ---------------------------------------------------------------------------
-// ‏**הקריאה לפעולה - ל-PROFESSIONAL ומעלה בלבד**, לבקשת בעל האתר
-// (‏30.9.2026). ‏"הדמיות" רק ב-Elite: ההדמיות עצמן הן יכולת premium
-// (‏property_visualizations_enabled), ומשפט שמבטיח הדמיות בנכס שאין לו
-// אותן הוא הבטחה שהקונה מגלה שאינה נכונה בלחיצה הראשונה.
-// ‏מסלול שפג (‏billing_status / active) נספר כ-free, כמו בכל גייט אחר.
-type CtaTier = "mid" | "premium" | null;
+// ‏**הקריאה לפעולה - לכל המסלולים.** עד 6.10.2026 היא נכתבה רק ל-PROFESSIONAL
+// ומעלה (‏30.9.2026). זה בוטל לבקשת בעל האתר: הפוסטים ברשתות מביאים תנועה
+// לאתר שלנו, והאינטרס שלנו הוא שכל נכס שמתפרסם יזמין להיכנס אליו - בדיוק
+// הנימוק שבגללו הפרסום עצמו פתוח לכל המסלולים (docs/pricing-and-tiers.md).
+// ‏ההבדל היחיד שנשאר הוא "הדמיות", שנכתב רק ב-Elite: ההדמיות עצמן הן יכולת
+// premium (‏property_visualizations_enabled), ומשפט שמבטיח הדמיות בנכס שאין
+// לו אותן הוא הבטחה שהקונה מגלה שאינה נכונה בלחיצה הראשונה. מסלול שפג
+// (‏billing_status / active) אינו premium, כמו בכל גייט אחר.
+type CtaTier = "mid" | "premium";
 
 // deno-lint-ignore no-explicit-any
 async function ctaTier(sb: any, agentId: string | null | undefined): Promise<CtaTier> {
-  if (!agentId) return null;
+  if (!agentId) return "mid";
   const { data: m } = await sb.from("agency_members").select("tier, billing_status, active")
     .eq("id", agentId).maybeSingle();
-  if (!m?.active || m.billing_status !== "active") return null;
-  return m.tier === "premium" || m.tier === "mid" ? m.tier : null;
+  return m?.active && m.billing_status === "active" && m.tier === "premium" ? "premium" : "mid";
 }
 
 // deno-lint-ignore no-explicit-any
 function postCta(row: any, channel: "facebook" | "instagram"): string | null {
   const what = row.cta_tier === "premium" ? "בתמונות ובהדמיות של הנכס"
-    : row.cta_tier === "mid" ? "בכל התמונות והפרטים של הנכס"
-    : null;
-  if (!what) return null;
+    : "בכל התמונות והפרטים של הנכס";
   return channel === "instagram"
     ? `🔗 לצפייה ${what} כנסו לקישור שבביו`
     : `👇 לצפייה ${what} כנסו לקישור`;
