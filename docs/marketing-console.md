@@ -1,6 +1,6 @@
 # קונסולת השיווק — ניהול קמפיינים ממומנים (מטא, ובהמשך גוגל)
 
-**מצב: שלב 1 (הסכימה) נכתב; שאר השלבים בתכנון — ראו "התקדמות" למטה.** המסמך
+**מצב: שלבים 1 (הסכימה) ו-2 (`ads-admin`) נכתבו; שאר השלבים בתכנון — ראו "התקדמות" למטה.** המסמך
 הוא מה שתומר סיכם בשיחה עם קלוד, כדי שקלוד קוד ימשיך מכאן בלי לשחזר את
 הדיון.
 
@@ -45,8 +45,8 @@ crm.html → תצוגת מנהל/ת → פאנל חדש  #dashPanelAds  (דשב�
    │  קריאה: supabase-js ישירות ל-ads_* (RLS לפי is_platform_admin)
    │  פעולות: fetch → /functions/v1/ads-admin  עם ה-JWT של תומר
    ▼
-ads-admin  (Edge Function, verify_jwt = true)
-   - מאמת JWT → בודק is_platform_admin; או x-alert-cron-secret ל-cron
+ads-admin  (Edge Function, verify_jwt = false — ה-cron אינו נושא JWT; האימות בפנים)
+   - מאמת JWT → בודק is_platform_admin; או x-alert-cron-secret ל-cron (sync_insights בלבד)
    - actions (POST {action, ...}):
        status           טוקן חי? חשבון, מטבע, יתרה, סטטוס, דף
        sync_insights    insights ברמת campaign+adset+ad, time_increment=1, N ימים → upsert ads_insights_daily
@@ -135,6 +135,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | שלב | מה נכנס | הערות |
 | --- | --- | --- |
 | 1 | `20270305090000_ads_console.sql`: ‏`ads_settings`, ‏`ads_actions_log`, ‏`ads_insights_daily`, ‏`ads_leads`; RLS קריאה ל-`current_is_platform_admin()` בלבד, בלי policy כתיבה; ה-cron `ads-insights-sync` (00:10 UTC) | ה-cron יורה רק כש-`ads_settings.enabled = true`, וברירת המחדל `false` - להדליק אחרי ש-`ads-admin` באוויר והסודות מוגדרים. ‏`disclosure_line` ריקה עד שתומר ימלא אותה, ו-`ads-admin` תסרב ליצור מודעה בלעדיה. ‏`lead_source_channel()` ממפה היום `meta_ads` ל-`other` - שלב 4 מוסיף לו ערוץ משלו |
+| 2 | `supabase/functions/ads-admin/` (`index.ts`, ולקוח Graph ב-`meta.ts`): ‏`status`, ‏`sync_insights`, ‏`campaigns`, ‏`set_status`, ‏`set_budget` | **‏`verify_jwt = false` ולא `true` כפי שתוכנן:** ה-cron נכנס ב-`x-alert-cron-secret` בלי JWT, וה-Gateway היה חוסם אותו. ‏JWT של מנהל/ת נבדק בפנים, ו-`cron_secret` מורשה ל-`sync_insights` בלבד. כל כתיבה קוראת את האובייקט קודם ומוודאת `account_id` של החשבון שלנו, תומכת ב-`dry_run`, ונרשמת ב-`ads_actions_log` גם כשנכשלה. תקציב: `daily_budget` בלבד, עד פי 2, ו-`learning_reset_risk` מ-20%. הסנכרון מוחק שורות בחלון שמטא כבר לא מחזירה (‏`synced_at` ישן), ורק ברמה ששליפתה הצליחה. לידים: `lead`, ו-`onsite_conversion.lead_grouped` רק כשהוא לבדו, כדי לא לספור פעמיים. ה-Graph בגרסה v26.0 (‏`META_API_VERSION`); לא נבדק מול מטא אמיתית - בלי הסודות `status` מחזיר `configured:false` |
 
 ## הסקיל `meta-ads`
 
