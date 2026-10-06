@@ -320,18 +320,20 @@ Deno.serve(async (req: Request) => {
         // אחרת נמשיך לשלוח לאותו מספר בכל סבב. שאר ההעדפות — הקצב, התקרה
         // והסוגים — לא נגענו בהן, וגם המייל נשאר אם הוא היה מסומן.
         //
-        // ‏update ולא upsert, ובכוונה: ערוץ הוואטסאפ יכול להיות דלוק **רק**
-        // כשיש שורת העדפות (ברירת המחדל היא `{email}`), ולכן אין כאן מה
-        // ליצור — ו-upsert היה עלול לכתוב שורה חדשה עם ברירות מחדל על סוכן/ת
-        // שהשורה שלו/ה נמחקה בינתיים.
+        // ‏upsert ולא update: מאז 20270303090000 ברירת המחדל היא `{whatsapp}`,
+        // כלומר הערוץ דלוק גם אצל מי שאין לו/ה שורת העדפות בכלל - ו-update
+        // היה מעדכן אפס שורות וממשיך לשלוח לאותו מספר בכל סבב. ומי שנשאר/ה
+        // בלי ערוץ עובר/ת למייל: ביטול מול Meta הוא ביטול של הוואטסאפ, לא
+        // של התזכורות.
         if (err instanceof WhatsappError && err.code === WA_OPTED_OUT) {
+          const rest = channels.filter((c) => c !== "whatsapp");
           const { error: offErr } = await sb
             .from("agent_reminder_preferences")
-            .update({
-              channels: channels.filter((c) => c !== "whatsapp"),
+            .upsert({
+              agent_id: row.agent_id,
+              channels: rest.length ? rest : (row.email ? ["email"] : []),
               updated_at: new Date().toISOString(),
-            })
-            .eq("agent_id", row.agent_id);
+            }, { onConflict: "agent_id" });
           if (offErr) console.error("opt-out channel removal failed", offErr.message);
           else console.log("whatsapp channel removed after Meta opt-out", row.agent_id);
         }

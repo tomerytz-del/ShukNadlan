@@ -22177,13 +22177,11 @@ const NOTIF_TYPES = [
   { type:'listing_match',  tone:'deal',   goto:'accProperties', focus:'#propertiesList',
     title:'הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת',
     sub:'התאמה בין נכס שלך ללקוח/ה בקובץ של סוכן/ת אחר/ת, עם הפרטים שלו/ה ליצירת קשר לשיתוף פעולה.' },
-  /* ‏waDefault: דלוק בוואטסאפ כברירת מחדל, ונשמר ברשימה ההפוכה
-     ‏whatsapp_off_types. תזכורת שהסוכן/ת קבע/ה לשעה מסוימת היא בקשה מפורשת,
-     ולא ערוץ שנדלק מעצמו - ראו סעיף 9 ב-20270125090000_agent_agenda.sql. */
+  /* בוואטסאפ היא עוקפת שעות שקט ומרווח קיבוץ - ראו סעיף 9 ב-
+     ‏20270125090000_agent_agenda.sql. */
   { type:'agenda_reminder', tone:'deal', goto:'accAgenda',  focus:'#agList',
     title:'תזכורות מהיומן',
     sub:'פגישה שמתקרבת, משימה שהגיע זמנה או שבאיחור. בוואטסאפ היא יוצאת גם בשעות השקט, כי את השעה קבעת בעצמך.',
-    waDefault:true,
     when: ()=> assistantTierOk(),
     refresh: ()=> loadAgenda() },
   { type:'deal_closed',    tone:'deal',   goto:'accTeam',     focus:'#teamList',
@@ -22416,14 +22414,10 @@ document.getElementById('notifSettingsBtn').addEventListener('click', ()=>{
      שהתראה שכובתה לא נוצרת מלכתחילה ולא רק מוסתרת בדפדפן. */
 let notifMutedTypes = [];
 
-/* ‏whatsapp_types הוא ההיפך מ-muted_types שלידו: רשימת **מאושרים**. זה
-   החריג המכוון לתבנית שחוזרת בכל הפרויקט, והסיבה ספציפית — ערוץ יוצא
-   שעולה כסף, ושחסימה אחת בו מייקרת אותנו אצל כל הנמענים העתידיים דרך
-   דירוג האיכות של Meta, לא נדלק לאיש בלי בקשה מפורשת. התוצאה: סוג התראה
-   חדש יגיע לפעמון של כולם אוטומטית, ולוואטסאפ — רק למי שיבקש. */
-let notifWhatsappTypes = [];
-/* ההפך של notifWhatsappTypes, לסוגים שדלוקים בוואטסאפ כברירת מחדל
-   (‏waDefault ב-NOTIF_TYPES): מה שכובה. */
+/* וואטסאפ הוא ערוץ ברירת המחדל (20270303090000): כל סוג דלוק בו עד שמכבים
+   אותו, ולכן נשמרת רשימת ה**כבויים** - אותה תבנית של muted_types שלידה.
+   סוג התראה חדש יגיע לכולם גם לפעמון וגם לוואטסאפ. ‏whatsapp_types, רשימת
+   המאושרים של פעם, נשארה בטבלה בלי קורא. */
 let notifWhatsappOffTypes = [];
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
@@ -22435,7 +22429,7 @@ function assistantTierOk(){
 }
 
 function notifWaOn(t){
-  return t.waDefault ? !notifWhatsappOffTypes.includes(t.type) : notifWhatsappTypes.includes(t.type);
+  return !notifWhatsappOffTypes.includes(t.type);
 }
 
 function notifVisibleTypes(){
@@ -22453,7 +22447,6 @@ async function loadNotifPrefs(agentId){
   // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!error && data && Array.isArray(data.muted_types)) ? data.muted_types : [];
-  notifWhatsappTypes = (!error && data && Array.isArray(data.whatsapp_types)) ? data.whatsapp_types : [];
   notifWhatsappOffTypes = (!error && data && Array.isArray(data.whatsapp_off_types)) ? data.whatsapp_off_types : [];
   renderNotifPrefs();
 }
@@ -22476,7 +22469,7 @@ function renderNotifPrefs(){
       </label>
       <label class="np-wa">
         <input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
-          ${notifWaOn(t) ? 'checked' : ''}
+          ${notifWaOn(t) && !muted ? 'checked' : ''}
           ${muted || !tierOk ? 'disabled' : ''}>
         <span>💬 גם בוואטסאפ</span>
       </label>`;
@@ -22495,6 +22488,8 @@ function syncNotifWaRow(type){
   const bell = row.querySelector('.notifPrefType');
   const wa = row.querySelector('.notifPrefWa');
   const allowed = bell.checked && assistantTierOk();
+  // סוג שחזר לפעמון חוזר גם לוואטסאפ - זו ברירת המחדל (20270303090000).
+  if (allowed && wa.disabled) wa.checked = true;
   row.classList.toggle('is-off', !allowed);
   wa.disabled = !allowed;
   if (!bell.checked) wa.checked = false;
@@ -22540,10 +22535,9 @@ document.getElementById('notifPrefsList').addEventListener('change', (e)=>{
   syncNotifWaNote();
 });
 
-/* "סימון הכל" / "ניקוי הכל" נוגעים בפעמון בלבד, ובכוונה: הם היו כאן לפני
-   ערוץ הוואטסאפ, והרחבתם אליו הייתה הופכת לחיצה אחת ל-שמונה הודעות יוצאות
-   שאיש לא ביקש. ניקוי כן מוריד גם את הוואטסאפ — דרך syncNotifWaRow — כי
-   סוג שכובה בפעמון לא נוצר במסד ואין ממה לשלוח. */
+/* "סימון הכל" / "ניקוי הכל" נוגעים בפעמון, והוואטסאפ הולך אחריו דרך
+   syncNotifWaRow: ניקוי מוריד אותו (סוג שכובה בפעמון לא נוצר במסד ואין ממה
+   לשלוח), וסימון מחזיר אותו לברירת המחדל - דלוק. */
 document.getElementById('notifPrefsAllBtn').addEventListener('click', ()=>{
   document.querySelectorAll('.notifPrefType').forEach(cb => {
     cb.checked = true;
@@ -22577,24 +22571,18 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
     .filter(type => !shown.includes(type))
     .concat(shown.filter(type => !checked.has(type)));
 
-  /* אותו היגיון בדיוק על ערוץ הוואטסאפ, ובכיוון ההפוך (רשימת מאושרים):
-     סוג שאינו גלוי לתפקיד הזה נשאר כפי שהוא, ומה שהוצג נקבע לפי הסימון.
-     וסוג שכובה בפעמון יוצא מהרשימה בכל מקרה — הוא לא ייווצר במסד, ושורה
-     שמבטיחה הודעה שלא תישלח היא שקר שקשה לאתר. */
+  /* אותו היגיון בדיוק על ערוץ הוואטסאפ (גם הוא רשימת כבויים): סוג שאינו
+     גלוי לתפקיד הזה נשאר כפי שהוא, ומה שהוצג ולא סומן נכנס לרשימה. סוג
+     שכובה בפעמון נכנס אליה בכל מקרה - הוא לא ייווצר במסד, ותיבה שמבטיחה
+     הודעה שלא תישלח היא שקר שקשה לאתר. */
   const waChecked = new Set(Array.from(document.querySelectorAll('.notifPrefWa:checked')).map(cb => cb.value));
-  const waDefault = new Set(NOTIF_TYPES.filter(t => t.waDefault).map(t => t.type));
-  const whatsapp = notifWhatsappTypes
-    .filter(type => !shown.includes(type))
-    .concat(shown.filter(type => !waDefault.has(type) && waChecked.has(type) && checked.has(type)));
-  // ‏waDefault נשמר הפוך: מה שהוצג ולא סומן נכנס לרשימת הכבויים.
   const whatsappOff = notifWhatsappOffTypes
     .filter(type => !shown.includes(type))
-    .concat(shown.filter(type => waDefault.has(type) && !(waChecked.has(type) && checked.has(type))));
+    .concat(shown.filter(type => !(waChecked.has(type) && checked.has(type))));
 
   const { error } = await sb.from('agent_notification_preferences').upsert({
     agent_id: currentAgent.id,
     muted_types: muted,
-    whatsapp_types: whatsapp,
     whatsapp_off_types: whatsappOff,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent_id' });
@@ -22606,7 +22594,6 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
     return;
   }
   notifMutedTypes = muted;
-  notifWhatsappTypes = whatsapp;
   notifWhatsappOffTypes = whatsappOff;
   syncNotifPrefsCount();
   syncNotifWaNote();
@@ -22614,7 +22601,7 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
   const bits = [];
   bits.push(muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'מקבלים את כל ההתראות');
   const waOn = notifVisibleTypes().filter(t => !muted.includes(t.type)
-    && (t.waDefault ? !whatsappOff.includes(t.type) : whatsapp.includes(t.type))).length;
+    && !whatsappOff.includes(t.type)).length;
   if (waOn) bits.push(waOn + ' מהם יישלחו גם בוואטסאפ');
   feedback.textContent = 'נשמר - ' + bits.join(', ') + '.';
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
@@ -23225,10 +23212,11 @@ const REMINDER_KINDS = [
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
 
 /* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents): סוכן/ת בלי
-   שורת העדפות מקבל/ת מייל, שבועי, שש הודעות ב-30 יום ושקט 21→8. אילו הצד
-   הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו. */
+   שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום ושקט 21→8. אילו הצד
+   הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו.
+   וואטסאפ מאז 20270303090000 - מייל הוא ערוץ שמוסיפים. */
 const REMINDER_PREF_DEFAULTS = {
-  channels: ['email'],
+  channels: ['whatsapp'],
   muted_kinds: [],
   cadence: 'weekly',
   max_per_30_days: 6,
@@ -23371,8 +23359,12 @@ function syncReminderChannelsNote(){
   const wa = document.getElementById('rmChWhatsapp').checked;
   const parts = [];
   if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה - הרשימה למעלה ממשיכה להתעדכן כרגיל.');
+  // בלי מספר המסד שולח במייל במקום (‏agent_reminder_due_agents), והטופס
+  // אומר את זה - אחרת סימון הוואטסאפ נראה כאילו הוא עובד.
   if (wa && !(currentAgent && currentAgent.phone))
-    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ".');
+    parts.push(email
+      ? 'לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ".'
+      : 'לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ" - עד שיישמר, התזכורות יישלחו במייל.');
   if (email && !(currentAgent && currentAgent.email))
     parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
   note.textContent = parts.join(' ');
