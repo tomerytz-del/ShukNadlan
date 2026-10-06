@@ -106,7 +106,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
         <div>
           <strong id="productName">טעינת ארנק</strong>
-          <div style="font-size:.85rem;color:var(--muted)" id="productDesc">הסכום נזקף לארנק שלכם ומשמש לרכישת לידים ולהקפצת נכסים. אין חיוב חוזר ואין כרטיס שמור.</div>
+          <div style="font-size:.85rem;color:var(--muted)" id="productDesc">הסכום נזקף לארנק שלכם ומשמש לרכישת לידים ולהקפצת נכסים. כמו כל המחירים באתר, הוא לפני מע״מ - המע״מ מתווסף בתשלום. אין חיוב חוזר ואין כרטיס שמור.</div>
         </div>
         <!-- הסכומים זהים ל-ALLOWED_AMOUNTS ב-wallet-topup. סכום אחר נדחה
              בשרת, ולכן זו רשימה סגורה ולא שדה חופשי. -->
@@ -375,11 +375,17 @@ if (isDevWallet){
 const urlAmount = Number(params.get('amount'));
 if (ALLOWED_AMOUNTS.includes(urlAmount)) amountEl.value = String(urlAmount);
 
-/* הסכום הוא מה שנבחר, ולא תוצאה של חישוב: טעינת ארנק היא העברה של סכום
-   נקוב לארנק — אין בה מכפלה, אין תקופה ואין מע״מ להוסיף מעל הנקוב. לכן אין
-   כאן קריאה לשרת, ומה שכתוב על הכפתור הוא מה שייגבה. */
+/* ‏**הסכום שנבחר הוא הקרדיט, והמע״מ נוסף מעליו** (‏20270304090000): כל מחיר
+   באתר הוא לפני מע״מ, ולכן גם היתרה בארנק. ‏₪100 בארנק נגבים ₪118.
+   החישוב האמיתי הוא ‏vat_gross() במסד, והוא מה שנשלח לסליקה; כאן התצוגה,
+   ו-‏VAT_RATE רשום ב-PRICES של scripts/check_pricing.py מול pricing_config. */
+const VAT_RATE = 0.18;
 function paintTotal(){
-  totalEl.textContent = '₪' + Number(amountEl.value).toLocaleString('he-IL');
+  const credit = Number(amountEl.value);
+  const gross = Math.round(credit * (1 + VAT_RATE) * 100) / 100;
+  const vat = Math.round((gross - credit) * 100) / 100;
+  totalEl.textContent = '₪' + gross.toLocaleString('he-IL') +
+    ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')';
 }
 amountEl.addEventListener('change', paintTotal);
 if (isWallet) paintTotal();
