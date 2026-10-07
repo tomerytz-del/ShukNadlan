@@ -61,8 +61,17 @@ jobs:
           MONTH=$(echo "$ROW" | cut -d'|' -f2)
           PEOPLE=$(echo "$ROW" | cut -d'|' -f3)
 
-          # תקלה חוצת-ענפים: ענינו בלי agent_id למספר שרשום כסוכן/ת — כלומר
-          # סוכן/ת נפל/ה לענף הציבורי. בדיוק הדבר שההפרדה למספר שני מונעת.
+          # תקלה חוצת-ענפים: ענינו בלי agent_id למספר שהיה רשום כסוכן/ת
+          # **באותו רגע** — כלומר סוכן/ת נפל/ה לענף הציבורי. בדיוק הדבר
+          # שההפרדה למספר שני מונעת.
+          #
+          # שני דברים שנראים כך ואינם תקלה, ושניהם הפעילו את Issue ‎#526‎:
+          # 1. ‏a.created_at < m.created_at — מי שדיבר/ה עם גבריאלה כגולש/ת
+          #    ונרשם/ה כסוכן/ת אחר כך. בספטמבר-אוקטובר 2026 אלה היו 63
+          #    הודעות של 9 אנשים, כולם בהפרש של דקות עד שעות מההרשמה.
+          # 2. התשובה ל"אימות חתימה" — נשלחת בכוונה בלי agent_id, לפני זיהוי
+          #    הסוכן/ת (handleWaSignVerify ב-index.ts), כי החותם/ת הוא/היא לקוח/ה.
+          #    מזוהה לפי ההודעה הנכנסת האחרונה מאותו מספר, כמו VERIFY_RE.
           CROSS=$(psql "$SUPABASE_DB_URL" -X -t -A -v ON_ERROR_STOP=1 -c "
             select count(*)
               from public.whatsapp_messages m
@@ -70,7 +79,15 @@ jobs:
                and m.agent_id is null
                and m.created_at > now() - interval '30 days'
                and exists (select 1 from public.agency_members a
-                            where a.phone_e164 = m.wa_phone);")
+                            where a.phone_e164 = m.wa_phone
+                              and a.created_at < m.created_at)
+               and coalesce((select i.body ~ 'אימות\s*חתימה'
+                               from public.whatsapp_messages i
+                              where i.wa_phone = m.wa_phone
+                                and i.direction = 'in'
+                                and i.created_at <= m.created_at
+                              order by i.created_at desc
+                              limit 1), false) = false;")
 
           echo "week=$WEEK"     >> "$GITHUB_OUTPUT"
           echo "month=$MONTH"   >> "$GITHUB_OUTPUT"
