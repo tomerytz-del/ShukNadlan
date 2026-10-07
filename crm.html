@@ -7438,6 +7438,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div id="refundFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em;margin-top:6px"></div>
       </div>
 
+      <!-- המנוי למסלול (billing_subscriptions, kind=tier - 20270307090000).
+           מוצג רק כשיש מנוי: מצב, תאריך החיוב הבא, וביטול או חידוש. -->
+      <div id="subSection" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:4px">המנוי שלך</div>
+        <p class="acc-sub" id="subText"></p>
+        <button type="button" class="btn btn-ghost btn-block" id="subToggleBtn" style="display:none"></button>
+        <div id="subFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em;margin-top:6px"></div>
+      </div>
+
       <button type="button" class="btn btn-ghost btn-block" id="toggleBillingHistory" style="margin-top:10px">הצגת היסטוריית חיובים</button>
       <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
       </div>

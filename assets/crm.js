@@ -1440,7 +1440,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // עמודות המסלול וההטבה נוספו במיגרציה מאוחרת יותר, ולכן הן בסל אחד עם
   // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן
   // והדשבורד נפתח כרגיל — בלי שער בחירת מסלול ובלי באנר הטבה.
-  const TIER_FIELDS = 'tier_selected_at, tier_source, pending_tier_change, promo_tier, promo_started_at, promo_ends_at, promo_ended_at';
+  const TIER_FIELDS = 'tier_selected_at, tier_source, pending_tier_change, promo_tier, promo_started_at, promo_ends_at, promo_ended_at, paid_tier, paid_tier_until';
   // עמודות סגירת החשבון נוספו במיגרציה 20261018090000, ולכן הן נוסעות באותו
   // סל סובלני: סביבה שהמיגרציה עוד לא רצה בה נכנסת לדשבורד בלי מקטע הסגירה,
   // ולא נתקעת במסך שגיאה.
@@ -1567,6 +1567,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   probeTopupMode();
   handleTopupReturn();
   refreshRefundSection();
+  handleSubscriptionReturn();
+  refreshSubscriptionSection();
   // מקטע הסגירה נטען ברקע כמו שאר מקטעי ההגדרות: הוא לא על המסך הראשון,
   // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
   loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
@@ -6583,14 +6585,20 @@ function renderPromoStrip(agent){
 
 function renderActivePromo(strip, promo, agent, preview){
   const urgent = promo.daysLeft <= 30;
-  strip.classList.toggle('is-urgent', urgent);
   strip.href = pricingUrl(agent);
   document.getElementById('promoStripTitle').textContent = urgent
     ? `הטבת ההשקה מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
     : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
-  document.getElementById('promoStripSub').textContent = urgent
-    ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
-    : 'כל היכולות פתוחות. לפירוט המסלולים ←';
+  // מי ששילם/ה מראש (paid_tier עד אחרי סוף ההטבה) אינו/ה צריך/ה תזכורת
+  // לבחור - אותו כלל של promo-lifecycle, שמחליף שם את המייל באישור.
+  const prePaid = agent && (agent.paid_tier === 'mid' || agent.paid_tier === 'premium')
+    && agent.paid_tier_until && promo.endsAt && new Date(agent.paid_tier_until) > promo.endsAt;
+  document.getElementById('promoStripSub').textContent = prePaid
+    ? `אחר כך ממשיכים ב-${Tiers.label(agent.paid_tier)} ששילמת עליו, בלי הפסקה. לפירוט המסלולים ←`
+    : urgent
+      ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
+      : 'כל היכולות פתוחות. לפירוט המסלולים ←';
+  strip.classList.toggle('is-urgent', urgent && !prePaid);
   labelPromoGift(strip, promo, agent);
   document.getElementById('promoPopNote').hidden = !preview;
   strip.hidden = false;
@@ -7818,6 +7826,130 @@ async function handleTopupReturn(){
   await refreshAgentBalance();
   feedback.style.color = 'var(--muted)';
   feedback.textContent = 'התשלום נקלט והיתרה תתעדכן בדקות הקרובות. אפשר לעקוב בהיסטוריית החיובים.';
+}
+
+/* ---------- המנוי למסלול ----------
+   ‏billing_subscriptions (kind=tier) - נקרא לפי ה-RLS ("agent reads own tier
+   subscription") ומסונן במפורש לסוכן/ת, כמו כל שאילתה שמנהל/ת עלול/ה לראות
+   בה יותר. הביטול וההפעלה עוברים ב-set_tier_auto_renew, לפי ה-JWT. */
+const SUB_TIER_NAMES = { mid:'PROFESSIONAL', premium:'Elite' };
+
+async function refreshSubscriptionSection(){
+  const section = document.getElementById('subSection');
+  if (!section || !currentAgent) return;
+  try {
+    const { data: sub } = await sb.from('billing_subscriptions')
+      .select('tier, status, next_charge_on, next_retry_at, failed_attempts')
+      .eq('kind', 'tier').eq('agent_id', currentAgent.id).maybeSingle();
+    if (!sub){ section.style.display = 'none'; return; }
+    section.style.display = '';
+    const name = SUB_TIER_NAMES[sub.tier] || sub.tier;
+    const until = currentAgent.paid_tier_until
+      ? new Date(currentAgent.paid_tier_until).toLocaleDateString('he-IL') : '';
+    const textEl = document.getElementById('subText');
+    const btn = document.getElementById('subToggleBtn');
+    btn.style.display = '';
+    if (sub.status === 'active' && sub.failed_attempts > 0 && sub.next_retry_at){
+      textEl.textContent = `${name} · החיוב האחרון לא עבר. ננסה שוב ב-${new Date(sub.next_retry_at).toLocaleDateString('he-IL')}.`;
+      btn.textContent = 'ביטול החידוש'; btn.dataset.on = '0';
+    } else if (sub.status === 'active'){
+      textEl.textContent = `${name} · מתחדש אוטומטית${sub.next_charge_on ? ' ב-' + new Date(sub.next_charge_on).toLocaleDateString('he-IL') : ''}. אפשר לבטל בכל עת, והמסלול נשאר עד סוף החודש ששולם.`;
+      btn.textContent = 'ביטול החידוש'; btn.dataset.on = '0';
+    } else if (sub.status === 'cancelled'){
+      textEl.textContent = `${name} · החידוש בוטל.${until ? ' המסלול פעיל עד ' + until + ', ואחרי זה Pay&GO.' : ''}`;
+      btn.textContent = 'הפעלת החידוש מחדש'; btn.dataset.on = '1';
+    } else {
+      textEl.textContent = `${name} · החידוש הופסק אחרי שלושה חיובים שלא עברו.${until ? ' המסלול פעיל עד ' + until + '.' : ''} כדי להמשיך - חידוש בדף המסלולים.`;
+      btn.textContent = 'לדף המסלולים'; btn.dataset.on = 'pricing';
+    }
+  } catch(err){
+    console.error('refreshSubscriptionSection', err);
+  }
+}
+
+document.getElementById('subToggleBtn')?.addEventListener('click', async ()=>{
+  const btn = document.getElementById('subToggleBtn');
+  const feedback = document.getElementById('subFeedback');
+  if (btn.dataset.on === 'pricing'){ location.href = '/pricing?current=' + encodeURIComponent(currentAgent.tier || '') + '&from=crm'; return; }
+  const on = btn.dataset.on === '1';
+  if (!on){
+    const ok = await confirmPurchase({
+      title: 'ביטול החידוש החודשי',
+      lines: ['לא ייגבה חיוב נוסף. המסלול נשאר עד סוף החודש ששולם, ואחרי זה החשבון עובר ל-Pay&GO.',
+              'הנכסים, הלידים, הלקוחות והארנק נשארים. אפשר לחדש בכל עת.'],
+      confirmLabel: 'ביטול החידוש',
+    });
+    if (!ok) return;
+  }
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('set_tier_auto_renew', { p_on: on });
+    if (error) throw error;
+    if (data?.error === 'needs_new_payment'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'כדי לחדש צריך תשלום חדש עם כרטיס בתוקף - בדף המסלולים.';
+      return;
+    }
+    if (data?.error) throw new Error(data.error);
+    feedback.style.color = 'var(--blue)';
+    feedback.textContent = on ? 'החידוש החודשי הופעל מחדש.' : 'החידוש בוטל. לא ייגבה חיוב נוסף.';
+    await refreshSubscriptionSection();
+  } catch(err){
+    console.error('subToggle', err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'הפעולה לא הצליחה. נסו שוב.';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* החזרה מעמוד התשלום של המנוי - כמו handleTopupReturn: ‏?subscription=success
+   אינו הוכחה. בודקים את ההזמנה עד שהיא נסגרת, ומנקים את שני המפתחות שלנו
+   בלבד מהכתובת. */
+async function handleSubscriptionReturn(){
+  const params = new URLSearchParams(location.search);
+  const outcome = params.get('subscription');
+  const orderId = params.get('order_id');
+  if (!outcome) return;
+  if (window.history && window.history.replaceState){
+    params.delete('subscription'); params.delete('order_id');
+    const search = params.toString();
+    history.replaceState(history.state, '', location.pathname + (search ? '?' + search : '') + location.hash);
+  }
+  document.getElementById('accWallet')?.setAttribute('open', '');
+  const feedback = document.getElementById('subFeedback');
+  document.getElementById('subSection').style.display = '';
+  if (!feedback) return;
+  if (outcome !== 'success'){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'התשלום לא הושלם. לא בוצע חיוב.';
+    return;
+  }
+  feedback.style.color = 'var(--muted)';
+  feedback.textContent = 'התשלום התקבל - מעדכנים את המסלול…';
+  for (let i = 0; i < 5; i++){
+    await new Promise(r => setTimeout(r, i === 0 ? 1200 : 2600));
+    if (!orderId) break;
+    const { data } = await sb.from('subscription_orders')
+      .select('status, tier, period_start, period_end').eq('id', orderId).maybeSingle();
+    if (data?.status === 'success'){
+      const name = SUB_TIER_NAMES[data.tier] || data.tier;
+      const from = new Date(data.period_start);
+      feedback.style.color = 'var(--blue)';
+      feedback.textContent = from > new Date()
+        ? `המנוי ${name} נקבע, ויתחיל ב-${from.toLocaleDateString('he-IL')} - בסוף הטבת ההשקה.`
+        : `המסלול ${name} פעיל עד ${new Date(data.period_end).toLocaleDateString('he-IL')}.`;
+      setTimeout(()=> location.reload(), 2500);
+      return;
+    }
+    if (data?.status === 'failed'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'התשלום לא אושר. לא בוצע חיוב.';
+      return;
+    }
+  }
+  feedback.style.color = 'var(--muted)';
+  feedback.textContent = 'התשלום נקלט, והמסלול יתעדכן בדקות הקרובות.';
 }
 
 /* ---------- החזר יתרה שלא מומשה ----------
@@ -20173,6 +20305,8 @@ document.getElementById('ciModal').addEventListener('click', async e => {
 let callRows = [];
 // כל שיחה שנטענה - מהבלוק "שיחות אחרונות" ומהכרטיס של הלקוח/ה - לפי id
 const callById = new Map();
+/* שיחה שלא נענתה ויש לה הקלטה היא הודעה קולית (twilio-voice, event=voicemail) -
+   אין לה עמודה משלה: הקלטה נשמרת בשיחה שלא נענתה רק מהתא הקולי. */
 const CALL_STATUS = { answered:'נענתה', missed:'לא נענתה', busy:'תפוס', failed:'נכשלה', ringing:'מצלצלת' };
 
 // נקבע ב-loadCalls: יש לסוכן/ת מספר (או שהוא/היא מנהל/ת הפלטפורמה)
@@ -20760,6 +20894,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-top">
       <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+        ${c.status !== 'answered' && c.recording_path ? '<span class="call-badge answered">🎙 הודעה קולית</span>' : ''}
       <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
     </div>
     <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
@@ -20874,6 +21009,7 @@ function callRowHtml(c, inCard){
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
+        ${c.status !== 'answered' && c.recording_path ? '<span class="call-badge answered">🎙 הודעה קולית</span>' : ''}
       <span class="call-meta">${esc(when)}${mins ? ' · ' + esc(mins) : ''}</span>
     </div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
