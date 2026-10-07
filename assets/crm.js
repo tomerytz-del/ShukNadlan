@@ -12160,7 +12160,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     category: currentCategory,
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
-    price: parseFloat(document.getElementById('npPrice').value),
+    price: salePriceFromMillions(parseFloat(document.getElementById('npPrice').value), document.getElementById('npDeal').value),
     price_includes_vat: currentCategory === 'commercial' ? vatSelectValue() : null,
     maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
     arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
@@ -15798,6 +15798,16 @@ function impNumber(v){
   return isFinite(n) ? n : null;
 }
 
+/* מחיר מכירה נכתב בפי סוכנים במיליונים — "1.48" הוא ‏1,480,000 ₪. בלי
+   ההמרה הנכס נשמר ב-₪1.48, מוצג כך, ונופל מכל חיפוש עם טווח מחירים (כך
+   עלו 14 נכסים מקובץ אחד, מיגרציה 20270315090000). מתחת ל-100 אין מחיר
+   מכירה אמיתי, ולכן אין כאן ניחוש: השכרה אינה מומרת לעולם. */
+const SALE_PRICE_MILLIONS_BELOW = 100;
+function salePriceFromMillions(price, deal){
+  if (deal !== 'sale' || !(price > 0) || price >= SALE_PRICE_MILLIONS_BELOW) return price;
+  return Math.round(price * 1000000);
+}
+
 const IMP_TRUE_WORDS = ['כן','true','yes','1','v','✓','y','נכון','כן!'];
 const IMP_FALSE_WORDS = ['לא','false','no','0','n','שגוי'];
 function impBool(v){
@@ -16280,11 +16290,13 @@ function impBuildRow(rawRow, rowNumber){
   if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" - יש לרשום מכירה או השכרה`);
   else payload.deal_type = deal;
 
-  const price = impNumber(cell('price'));
+  const rawPrice = impNumber(cell('price'));
+  const price = rawPrice === null ? null : salePriceFromMillions(rawPrice, deal);
   if (price === null) fail('price', 'חסר מחיר או שאינו מספר');
   else if (price <= 0) fail('price', 'המחיר חייב להיות גדול מאפס');
   else {
     payload.price = price;
+    if (price !== rawPrice) warnings.push(`המחיר ${rawPrice} פורש כמיליונים: ${price.toLocaleString('he-IL')} ₪`);
     if (deal === 'sale' && price < 10000) warnings.push('מחיר נמוך במיוחד למכירה - ודאו שהמחיר בשקלים ולא באלפים');
   }
 
