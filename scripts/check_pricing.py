@@ -65,6 +65,9 @@ DISPLAY = [
     ('pricing.html', r'Elite ב-₪' + N,                                 'tier_premium_monthly_price'),
     ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
     ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
+    # עמוד התשלום של המנוי (20270307090000)
+    ('checkout.html', r"mid: \{ name: 'PROFESSIONAL', price: " + N,  'tier_mid_monthly_price'),
+    ('checkout.html', r"premium: \{ name: 'Elite', price: " + N,     'tier_premium_monthly_price'),
     # המע״מ בעמוד התשלום
     ('checkout.html', r'const VAT_RATE = ' + N,                        'vat_rate'),
     # המספר הווירטואלי

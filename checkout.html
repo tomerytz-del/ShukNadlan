@@ -88,17 +88,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/developer-signup">כיזם/קבלן</a>.</p>
     </div>
 
-    <!-- ‏?product=subscription הגיע לכאן עד היום ופתח תשלום על מסלול. אין
-         יותר רכישת מסלול: כל מי שנכנס/ת למערכת מקבל/ת את ההטבה, ולכן מחיר
-         שאפשר לשלם עליו היה מציע משהו שלא נגבה. כתובת ישנה או מוקלדת ידנית
-         נוחתת כאן, ובמקום טופס תשלום היא מקבלת את התמונה הנכונה. -->
+    <!-- מוצר שאינו מוכר (כתובת ישנה או מוקלדת ידנית): במקום טופס תשלום -
+         הפניה למקומות הנכונים. מנוי למסלול מגיע לכאן רק עם ?tier= תקין. -->
     <div class="note" id="removedNotice" style="display:none">
-      <p><strong>אין רכישת מסלול.</strong> כל מי שמצטרף/ת למערכת נכנס/ת עם
-      ההטבה - המסלול נפתח בלי תשלום ובלי כרטיס אשראי.
-      <a href="/pricing">פירוט המסלולים</a> ·
-      <a href="/agency-signup">הצטרפות כמשרד תיווך</a>.</p>
-      <p>מה שכן נרכש הוא <b>טעינת ארנק</b>, שממנה משלמים על לידים ועל הקפצת
-      נכסים - <a href="/checkout">לעמוד טעינת הארנק</a>.</p>
+      <p><strong>הקישור אינו מוביל לרכישה.</strong> מנוי למסלול בוחרים
+      ב<a href="/pricing">דף המסלולים</a>, ושם הכפתור מוביל לעמוד התשלום הנכון.</p>
+      <p>טעינת ארנק, שממנה משלמים על לידים ועל הקפצת נכסים -
+      <a href="/checkout">לעמוד טעינת הארנק</a>.</p>
     </div>
 
     <h2 id="buyHead">מה רוכשים</h2>
@@ -119,6 +115,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <option value="400">₪400</option>
             <option value="500">₪500</option>
           </select>
+        </div>
+        <!-- מנוי למסלול (?product=subscription&tier=...): במקום בחירת סכום -
+             החידוש החודשי, מסומן כברירת מחדל ואפשר להוריד. -->
+        <div id="subWrap" style="display:none;font-size:.85rem;max-width:260px">
+          <label style="display:flex;gap:8px;align-items:flex-start">
+            <input type="checkbox" id="autoRenew" checked style="margin-top:3px;width:16px;height:16px;flex:none">
+            <span>חידוש חודשי אוטומטי מהכרטיס. אפשר לבטל בכל עת באיזור הסוכנים, והמסלול נשאר עד סוף החודש ששולם.</span>
+          </label>
         </div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-weight:700">
@@ -248,12 +252,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
    פרטי הכרטיס נמסרים אך ורק בעמוד של חברת הסליקה, ולכן אין כאן ולו שדה אחד
    שנוגע בהם. מה שנאסף כאן משמש לזיהוי, ליצירת קשר ולהנפקת החשבונית.
    ============================================================================ */
-/* **העמוד משרת מוצר אחד: טעינת ארנק.** ‏?product=subscription היה כאן עד
-   היום ופתח תשלום על מסלול, והוסר — אין רכישת מסלול: כל מי שנכנס/ת למערכת
-   מקבל/ת את ההטבה, והמסלול נפתח בלי תשלום. החסימה אינה רק ויזואלית: **אין
-   יותר בעמוד הזה שום קוד שקורא ל-subscription-purchase**, ולכן כתובת
-   מוקלדת ידנית לא יכולה לפתוח ממנו סליקת מנוי. הבקשה היחידה שהעמוד יודע
-   לשלוח היא wallet-topup.
+/* **העמוד משרת שני מוצרים: טעינת ארנק, ומנוי למסלול.** המנוי היה סגור בין
+   10.2026 ל-7.10.2026 (כל המצטרפים בהטבה), ונפתח מחדש עם חידוש חודשי
+   (‏subscription-purchase, 20270307090000). הוא נפתח רק עם ‏?tier= תקין;
+   כל מוצר אחר מקבל הפניה ולא טופס. הזכאות (למשל: בתקופת ההטבה רק בחודש
+   האחרון) נבדקת בשרת, לא כאן.
 
    **השער יושב לפני יצירת לקוח ה-Supabase בכוונה.** ה-SDK נטען מ-CDN, ואם
    הטעינה נכשלת כל מה שאחריה לא רץ — ואז דווקא הכתובת החסומה הייתה מציגה
@@ -273,19 +276,38 @@ const rawProduct = params.get('product');
    שדות ואותו אישור תקנון; ההבדל הוא נקודת הקצה (project-manage) והסכומים. */
 const isDevWallet = rawProduct === 'developer_wallet';
 const isWallet   = rawProduct === null || rawProduct === 'wallet' || isDevWallet;
+/* ‏?product=subscription&tier=mid|premium - מנוי למסלול (20270307090000).
+   החודש הראשון כאן, והחידוש החודשי מהכרטיס השמור. הסכום אינו נשלח מכאן:
+   ‏subscription-purchase מחשב אותו במסד, והמחירים כאן הם תצוגה בלבד -
+   ‏check_pricing.py מצליב אותם מול pricing_config. */
+const SUB_TIERS = { mid: { name: 'PROFESSIONAL', price: 399 }, premium: { name: 'Elite', price: 599 } };
+const subTier    = params.get('tier');
+const isSub      = rawProduct === 'subscription' && Object.prototype.hasOwnProperty.call(SUB_TIERS, subTier);
 
-if (!isWallet){
-  /* כל מה שאינו טעינת ארנק — ובכלל זה המנוי שהוסר — לא מקבל כאן טופס. */
+if (isSub){
+  const t = SUB_TIERS[subTier];
+  document.getElementById('headKicker').textContent = 'עמוד תשלום';
+  document.getElementById('headTitle').textContent = 'מנוי ' + t.name;
+  document.getElementById('headLead').textContent =
+    'שלב אחרון לפני המעבר לתשלום. בדקו את הפרטים, אשרו את התקנון, והמשיכו לעמוד הסליקה המאובטח.';
+  document.getElementById('productName').textContent = 'מנוי ' + t.name + ' - חודש';
+  document.getElementById('productDesc').textContent =
+    'המסלול נפתח מיד אחרי התשלום. בתקופת הטבת ההשקה הוא מתחיל בסוף ההטבה, ולא נגבים פעמיים על אותו חודש.';
+  document.getElementById('amountWrap').style.display = 'none';
+  document.getElementById('subWrap').style.display = '';
+  document.title = 'מנוי ' + t.name + ' | שוק נדל״ן';
+} else if (!isWallet){
+  /* מוצר שאינו מוכר - לא מקבל כאן טופס. */
   ['buyHead','buyBox','detailsHead','checkoutForm'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
   document.getElementById('removedNotice').style.display = '';
-  document.getElementById('headKicker').textContent = 'מסלולים';
-  document.getElementById('headTitle').textContent = 'אין רכישת מסלול';
+  document.getElementById('headKicker').textContent = 'עמוד תשלום';
+  document.getElementById('headTitle').textContent = 'הקישור אינו מוביל לרכישה';
   document.getElementById('headLead').textContent =
-    'כל מי שמצטרף/ת למערכת נכנס/ת עם ההטבה, והמסלול נפתח בלי תשלום. מה שכן נרכש הוא טעינת ארנק.';
-  document.title = 'אין רכישת מסלול | שוק נדל״ן';
+    'מנוי למסלול בוחרים בדף המסלולים. טעינת ארנק - בעמוד טעינת הארנק.';
+  document.title = 'עמוד תשלום | שוק נדל״ן';
 } else {
   document.getElementById('headKicker').textContent = 'עמוד תשלום';
   document.getElementById('headTitle').textContent = isDevWallet ? 'טעינת ארנק יזם' : 'טעינת ארנק';
@@ -381,14 +403,16 @@ if (ALLOWED_AMOUNTS.includes(urlAmount)) amountEl.value = String(urlAmount);
    ו-‏VAT_RATE רשום ב-PRICES של scripts/check_pricing.py מול pricing_config. */
 const VAT_RATE = 0.18;
 function paintTotal(){
-  const credit = Number(amountEl.value);
+  const credit = isSub ? SUB_TIERS[subTier].price : Number(amountEl.value);
   const gross = Math.round(credit * (1 + VAT_RATE) * 100) / 100;
   const vat = Math.round((gross - credit) * 100) / 100;
   totalEl.textContent = '₪' + gross.toLocaleString('he-IL') +
-    ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')';
+    (isSub
+      ? ' לחודש (₪' + credit.toLocaleString('he-IL') + ' + מע״מ ₪' + vat.toLocaleString('he-IL') + ')'
+      : ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')');
 }
 amountEl.addEventListener('change', paintTotal);
-if (isWallet) paintTotal();
+if (isWallet || isSub) paintTotal();
 
 /* הכפתור נעול עד סימון התקנון. זו דרישת הסליקה, והיא גם פשוט נכונה: אישור
    שנלחץ בטעות אינו אישור. */
@@ -438,7 +462,7 @@ let countryRestored = false;
 /* מילוי אוטומטי למי שכבר מחובר/ת. אין כאן בדיקת הרשאה — היא נעשית בשרת,
    ב-wallet-topup, שדורש חשבון סוכן/ת פעיל/ה. */
 (async function prefill(){
-  if (!isWallet) return;
+  if (!isWallet && !isSub) return;
   try{
     const { data: { session } } = await sb.auth.getSession();
     if (!session){ document.getElementById('guestNotice').style.display = ''; return; }
@@ -448,7 +472,7 @@ let countryRestored = false;
       .select('id, display_name, phone, is_platform_admin').eq('user_id', session.user.id).maybeSingle();
     /* כפתור טעינת הבדיקה — למנהל/ת פלטפורמה בלבד. זו תצוגה; השרת בודק שוב
        ודוחה כל אחד/ת אחר/ת ב-test_topup_forbidden. */
-    if (agent && agent.is_platform_admin) document.getElementById('testTopupBtn').style.display = '';
+    if (agent && agent.is_platform_admin && isWallet) document.getElementById('testTopupBtn').style.display = '';
     /* יזם/ית אינו/ה סוכן/ת: אין פרופיל חשבונית של סוכן/ת למלא ממנו. */
     if (!agent || isDevWallet) return;
 
@@ -542,7 +566,7 @@ document.getElementById('testTopupBtn').addEventListener('click', async ()=>{
 
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  if (!isWallet) return;       /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
+  if (!isWallet && !isSub) return;   /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
   const first = firstEl.value.trim();
   const last  = lastEl.value.trim();
   const email = emailEl.value.trim();
@@ -582,7 +606,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     msgEl.textContent = 'מעבירים להתחברות - הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
     try{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
-        { product: isDevWallet ? 'developer_wallet' : 'wallet',
+        { product: isSub ? 'subscription' : isDevWallet ? 'developer_wallet' : 'wallet',
           amount: Number(amountEl.value), first_name: first, last_name: last,
           email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone,
           business: businessEl.value.trim(), tax_id: taxIdEl.value.trim() }));
@@ -609,10 +633,14 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       client_business: businessEl.value.trim(),
       client_tax_id: taxIdEl.value.trim(),
     };
-    const payload = isDevWallet
+    const payload = isSub
+      ? { tier: subTier, auto_renew: document.getElementById('autoRenew').checked, ...client }
+      : isDevWallet
       ? { action: 'topup', amount: Number(amountEl.value), ...client }
       : { amount: Number(amountEl.value), ...client };
-    const res = await fetch(SUPABASE_URL + (isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup'), {
+    const endpoint = isSub ? '/functions/v1/subscription-purchase'
+      : isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup';
+    const res = await fetch(SUPABASE_URL + endpoint, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
                  'Authorization': 'Bearer ' + session.access_token },
@@ -626,7 +654,15 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
           ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
         : data.error === 'no_developer_account'
           ? 'החשבון אינו משויך לחברה יזמית. היכנסו דרך אזור היזמים ונסו שוב.'
-        : data.error === 'too_many_open_topups'
+        : data.error === 'promo_active'
+          ? 'את המנוי אפשר לחדש בחודש האחרון של הטבת ההשקה' +
+            (data.promo_ends_at ? ' (היא נגמרת ב-' + new Date(data.promo_ends_at).toLocaleDateString('he-IL') + ')' : '') +
+            '. עד אז המסלול המלא פתוח לך בלי תשלום.'
+        : data.error === 'downgrade_at_period_end'
+          ? 'מעבר למסלול נמוך יותר נכנס לתוקף בסוף החודש ששולם' +
+            (data.paid_until ? ' (' + new Date(data.paid_until).toLocaleDateString('he-IL') + ')' : '') +
+            '. בטלו את החידוש באיזור הסוכנים, ובסוף החודש אפשר לבחור את המסלול החדש.'
+        : data.error === 'too_many_open_orders' || data.error === 'too_many_open_topups'
           ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
         : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
           ? 'הסליקה עדיין לא פעילה. פנו אלינו ונטען את הארנק ידנית.'
