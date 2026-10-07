@@ -698,6 +698,7 @@ function showLoginCard(message){
   // הגעה למסך ממסך אחר מנקה הודעה ישנה; קריאה חוזרת כשכבר עומדים כאן (המאזין
   // ו-boot() יכולים שניהם להגיע לכאן על אותה טעינה) לא מוחקת הודעה שכבר מוצגת
   if (text || !alreadyOnLogin) document.getElementById('loginError').textContent = text || '';
+  if (!alreadyOnLogin) showResendConfirm(false);
   // בלי הבאנר, מי שלחץ/ה על קישור ההזמנה רואה מסך כניסה סתמי ואין לו/ה שום
   // דרך לדעת שהקישור נקלט ושההצטרפות תושלם מיד אחרי ההתחברות.
   const invited = !!readInviteToken();
@@ -886,23 +887,69 @@ googleLoginBtn.addEventListener('click', async ()=>{
   // בהצלחה הדפדפן מנותב ל-Google; החזרה מטופלת ב-onAuthStateChange למטה
 });
 
+/* שגיאות Auth בעברית. ההודעה הגולמית של Supabase היא באנגלית, ומי שקיבל/ה
+   "Email not confirmed" לא ידע/ה שמחכה לו/ה מייל - ולחץ/ה שוב ושוב על כניסה
+   ועל יצירת חשבון עד שנחסם/ה במכסת השליחה. לפי error.code ולא לפי הטקסט,
+   שמשתנה בין גרסאות; הטקסט נשאר רק כגיבוי. */
+const CONFIRM_MAIL_HINT = 'המייל נשלח מ-noreply@mail.app.supabase.io - כדאי לבדוק גם בתיקיית הספאם.';
+function authErrorText(error, fallbackPrefix){
+  const code = error?.code || '';
+  const msg = error?.message || '';
+  if (code === 'invalid_credentials' || msg === 'Invalid login credentials') return 'אימייל או סיסמה שגויים';
+  if (code === 'email_not_confirmed' || msg === 'Email not confirmed'){
+    return 'החשבון נוצר, אבל כתובת המייל עוד לא אושרה. יש ללחוץ על הקישור במייל האישור ואז להיכנס כאן. ' + CONFIRM_MAIL_HINT;
+  }
+  if (code === 'over_email_send_rate_limit' || /after \d+ seconds/.test(msg)){
+    const secs = (msg.match(/after (\d+) seconds/) || [])[1];
+    return secs ? `נשלח מייל ממש עכשיו. אפשר לבקש שוב בעוד ${secs} שניות.` : 'נשלחו יותר מדי מיילים בזמן קצר. נסו שוב בעוד כמה דקות.';
+  }
+  return fallbackPrefix + msg;
+}
+function showResendConfirm(show){
+  document.getElementById('resendConfirmBtn').style.display = show ? 'block' : 'none';
+}
+
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const btn = document.getElementById('loginBtn');
   const errEl = document.getElementById('loginError');
+  errEl.style.color = '';
   errEl.textContent = '';
+  showResendConfirm(false);
   btn.disabled = true; btn.textContent = 'מתחבר…';
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = 'כניסה';
   if (error){
-    errEl.textContent = error.message === 'Invalid login credentials'
-      ? 'אימייל או סיסמה שגויים'
-      : 'שגיאת התחברות: ' + error.message;
+    errEl.textContent = authErrorText(error, 'שגיאת התחברות: ');
+    showResendConfirm(error.code === 'email_not_confirmed' || error.message === 'Email not confirmed');
     return;
   }
   await routeAfterAuth(data.session);
+});
+
+document.getElementById('resendConfirmBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('email').value.trim();
+  const btn = document.getElementById('resendConfirmBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.style.color = '';
+  if (!email){ errEl.textContent = 'יש להזין את כתובת המייל.'; return; }
+  btn.disabled = true; btn.textContent = 'שולח…';
+  try{
+    const { error } = await sb.auth.resend({
+      type: 'signup', email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error){ errEl.textContent = authErrorText(error, 'השליחה נכשלה: '); return; }
+    errEl.style.color = 'var(--ink)';
+    errEl.textContent = 'שלחנו שוב את מייל האישור. ' + CONFIRM_MAIL_HINT;
+  } catch(err){
+    console.error('resend confirmation failed', err);
+    errEl.textContent = 'שגיאת רשת - נסו שוב';
+  } finally{
+    btn.disabled = false; btn.textContent = 'שליחה חוזרת של מייל האישור';
+  }
 });
 
 /* יצירת חשבון למי שהוזמן/ה — שני מסלולי סיום, ושניהם מסתיימים בשיוך:
@@ -925,6 +972,7 @@ document.getElementById('inviteSignupBtn').addEventListener('click', async ()=>{
   // שאר השגיאות במסך הזה מקבלות.
   errEl.style.color = '';
   errEl.textContent = '';
+  showResendConfirm(false);
   if (!email){ errEl.textContent = 'יש להזין את האימייל שקיבל את ההזמנה.'; return; }
   if ((password || '').length < 8){ errEl.textContent = 'הסיסמה צריכה להיות באורך 8 תווים לפחות.'; return; }
 
@@ -935,13 +983,14 @@ document.getElementById('inviteSignupBtn').addEventListener('click', async ()=>{
       options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
     if (error){
-      errEl.textContent = 'יצירת החשבון נכשלה: ' + error.message;
+      errEl.textContent = authErrorText(error, 'יצירת החשבון נכשלה: ');
       return;
     }
     if (data.session){ await routeAfterAuth(data.session); return; }
     errEl.style.color = 'var(--ink)';
     errEl.textContent = 'שלחנו מייל לאישור הכתובת. אחרי האישור אפשר להיכנס כאן, וההצטרפות למשרד תושלם אוטומטית. ' +
-                        'אם כבר יש לך חשבון - אפשר פשוט להיכנס עם הסיסמה הקיימת.';
+                        CONFIRM_MAIL_HINT + ' אם כבר יש לך חשבון - אפשר פשוט להיכנס עם הסיסמה הקיימת.';
+    showResendConfirm(true);
   } catch(err){
     console.error('invite signup failed', err);
     errEl.textContent = 'שגיאת רשת - נסו שוב';

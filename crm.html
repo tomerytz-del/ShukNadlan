@@ -4651,6 +4651,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
       <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
       <div id="loginError"></div>
+      <!-- מוצג רק כשהחשבון קיים והמייל עוד לא אושר (email_not_confirmed), או
+           מיד אחרי יצירת חשבון. בלעדיו מי שמייל האישור לא הגיע אליו/ה (ספאם,
+           מכסת השליחה של Supabase) נשאר/ה מול שגיאה בלי שום דרך קדימה. -->
+      <button type="button" class="btn btn-ghost btn-block" id="resendConfirmBtn" style="display:none;margin-top:8px">שליחה חוזרת של מייל האישור</button>
     </form>
     <!-- ---------- יצירת חשבון למוזמן/ת ----------
          מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
