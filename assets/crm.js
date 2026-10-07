@@ -3054,6 +3054,7 @@ const ADMIN_NAV = [
   { id: 'dashPanelOps',       label: 'בריאות המערכת', dot: '#1f6f63' },
   { id: 'dashPanelInventory', label: 'מצבת',          dot: '#2f4f7a' },
   { id: 'dashPanelCosts',     label: 'עלויות',        dot: '#5b6b2f' },
+  { id: 'dashPanelAds',       label: 'קמפיינים',      dot: '#1d4ed8' },
   { id: 'platformAdminSection', label: 'כלי ניהול',   dot: '#6b7280' },
 ];
 
@@ -24113,6 +24114,8 @@ function applyNavFilter(){
   if (invPanel) invPanel.classList.toggle('nav-off', !isAdminView);
   const costsPanel = document.getElementById('dashPanelCosts');
   if (costsPanel) costsPanel.classList.toggle('nav-off', !isAdminView);
+  const adsPanel = document.getElementById('dashPanelAds');
+  if (adsPanel) adsPanel.classList.toggle('nav-off', !isAdminView);
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.classList.toggle('nav-off', !isAdminView);
   const adminNav = document.getElementById('adminNav');
@@ -24154,6 +24157,762 @@ function setNavTab(key, opts){
   if (shown.length === 1) openAcc(shown[0].id);
 }
 
+/* ==========================================================================
+   קמפיינים ממומנים - קונסולת השיווק (דשבורד 7)
+   --------------------------------------------------------------------------
+   שלוש לשוניות: ביצועים וקמפיינים, נוסחי מודעות, וגוגל (ממתין לחיבור).
+
+   ‏**קריאה** - ישירות מ-ads_insights_daily ו-ads_copy_drafts; ה-RLS פותח
+   אותן למנהל/ת פלטפורמה בלבד. ‏**כל מה שנוגע במטא ובקופי** - דרך ads-admin
+   עם ה-JWT, ושם האימות, היומן והתקרות (תקציב עד פי 2, נכס עד רמה 2).
+
+   ‏**כל שינוי בקמפיין חי עובר dry_run ואז חלון אישור** שמציג מה ישתנה
+   ומה הקמפיין עשה בתקופה - בלי זה לחיצה אחת בטעות משהה קמפיין שעובד.
+
+   ‏**"נשחקת" בלי תדירות.** הסקיל בודק תדירות מעל 3, אבל תדירות של תקופה
+   היא חשיפות חלקי reach, ו-reach אינו מצטבר בין ימים - סכום של שורות יומיות
+   היה מודד דבר אחר ממה שהכותרת מבטיחה. לכן הסימון כאן נשען על מה שכן
+   מצטבר: ירידה של CTR הקישור ל-70% ומטה בין חצי התקופה הראשון לשני, ועליית
+   CPM של 20% ומעלה באותו זמן. מודעה שהוציאה פחות מ-₪10 בחצי השני לא נבדקת.
+   ========================================================================== */
+const ADS_FUNCTION_URL = SUPABASE_URL + '/functions/v1/ads-admin';
+const ADS_ERRORS = {
+  unauthorized: 'צריך להתחבר מחדש',
+  forbidden: 'הפעולה פתוחה למנהל/ת פלטפורמה בלבד',
+  meta_not_configured: 'חשבון המודעות של מטא לא מחובר עדיין',
+  meta_token_invalid: 'הטוקן של מטא פג או בוטל - צריך להפיק טוקן חדש',
+  meta_rate_limited: 'מטא מגבילה כרגע את קצב הקריאות - נסו שוב בעוד כמה דקות',
+  meta_error: 'מטא דחתה את הבקשה',
+  not_in_account: 'האובייקט אינו שייך לחשבון המודעות שלנו',
+  budget_increase_too_large: 'העלאת תקציב של יותר מפי 2 בפעולה אחת נחסמת',
+  lifetime_budget_not_supported: 'לאובייקט הזה תקציב לכל התקופה - משנים אותו ב-Ads Manager',
+  no_budget_on_object: 'התקציב מוגדר ברמה אחרת (קמפיין או סט)',
+  copy_not_configured: 'כתיבת נוסחים לא מוגדרת (ANTHROPIC_API_KEY)',
+  copy_auth_failed: 'המפתח של Anthropic נדחה',
+  copy_failed: 'כתיבת הנוסחים נכשלה - נסו שוב',
+  property_required: 'בחרו נכס',
+  property_not_active: 'מודעה ממומנת רק לנכס שבאוויר',
+  property_not_found: 'הנכס לא נמצא',
+  draft_not_found: 'הטיוטה לא נמצאה',
+};
+const ADS_LADDER = {
+  property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
+              2: 'חם ומזמין - מה הנכס נותן ביום-יום, קריאה ברורה לפעולה' },
+  platform: { 1: 'מידעי ורגוע - יכולת אחת, בלי לחץ',
+              2: 'חם וענייני - תועלת יומיומית, בטון של עמית למקצוע',
+              3: 'ישיר ונחוש - פתיחה חדה, משפטים קצרים, קריאה תקיפה',
+              4: 'אגרסיבי - כאב מוכר מהעבודה וניגוד חד בין היום למה שאפשר',
+              5: 'אגרסיבי מאוד - פתיחה פרובוקטיבית, מה מפסידים בלי הכלי, בחירה בין שתי דרכים' },
+};
+const ADS_CTA = { LEARN_MORE: 'מידע נוסף', SIGN_UP: 'הרשמה', CONTACT_US: 'צרו קשר', WHATSAPP_MESSAGE: 'שליחת הודעה בוואטסאפ', GET_QUOTE: 'קבלת הצעה' };
+const ADS_LIMITS = { headline: 40, description: 25, primary_text: 500, hook: 125 };
+const ADS_STATUS_LBL = { ACTIVE: 'פעיל', PAUSED: 'מושהה', CAMPAIGN_PAUSED: 'הקמפיין מושהה', ADSET_PAUSED: 'הסט מושהה',
+  WITH_ISSUES: 'יש בעיות', DISAPPROVED: 'נדחה', PENDING_REVIEW: 'בבדיקה', IN_PROCESS: 'בעיבוד' };
+
+let adsDays = 7;
+let adsBusy = false;
+let adsLast = null;          // { rows, live, status, range }
+let adsDraftCur = null;      // הטיוטה שפתוחה בעורך
+let adsPropPicked = null;    // { id, label }
+let adsPlatformDefault = 3;
+
+const adsNis = n => '₪' + Number(n || 0).toLocaleString('he-IL', { maximumFractionDigits: 0 });
+const adsNis2 = n => '₪' + Number(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const adsPct = n => (Number(n || 0) * 100).toLocaleString('he-IL', { maximumFractionDigits: 2 }) + '%';
+
+function adsErrText(d){
+  const base = ADS_ERRORS[d && d.error] || ('שגיאה: ' + ((d && d.error) || 'לא ידועה'));
+  if (d && d.meta && (d.meta.user_msg || d.meta.message)) return base + ' - ' + (d.meta.user_msg || d.meta.message);
+  if (d && d.detail) return base + ' - ' + d.detail;
+  return base;
+}
+
+async function adsCall(action, payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error(ADS_ERRORS.unauthorized);
+  const res = await fetch(ADS_FUNCTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify(Object.assign({ action }, payload || {})),
+  });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || data.error){
+    const e = new Error(adsErrText(data));
+    e.code = data.error; e.data = data;
+    throw e;
+  }
+  return data;
+}
+
+function adsRange(days){
+  const now = new Date();
+  const back = n => { const d = new Date(now); d.setDate(d.getDate() - n); return costYmd(d); };
+  return { from: back(days - 1), to: costYmd(now), prevFrom: back(2 * days - 1), prevTo: back(days), days };
+}
+
+// סכום שורות יומיות. ‏CTR ו-CPM מחושבים מהסכומים ולא כממוצע של יחסים.
+function adsSum(rows){
+  const t = { spend: 0, impressions: 0, clicks: 0, link_clicks: 0, leads: 0, conversations: 0 };
+  rows.forEach(r => { Object.keys(t).forEach(k => { t[k] += Number(r[k]) || 0; }); });
+  t.cpl = t.leads ? t.spend / t.leads : null;
+  t.ctr = t.impressions ? t.link_clicks / t.impressions : 0;
+  t.cpm = t.impressions ? (t.spend / t.impressions) * 1000 : 0;
+  return t;
+}
+
+async function loadAdsReport(){
+  const host = document.getElementById('adsReport');
+  if (!host || adsBusy) return;
+  adsBusy = true;
+  adsLoadDefaults();
+  host.innerHTML = '<div class="empty-state">טוען את נתוני הקמפיינים…</div>';
+  const range = adsRange(adsDays);
+
+  const [insights, status] = await Promise.all([
+    sb.from('ads_insights_daily')
+      .select('day, level, object_id, object_name, campaign_id, adset_id, spend, impressions, clicks, link_clicks, leads, conversations, synced_at')
+      .gte('day', range.prevFrom).lte('day', range.to).limit(5000),
+    adsCall('status').catch(e => ({ __error: e })),
+  ]);
+
+  let live = null;
+  if (status && status.configured && !status.__error){
+    live = await adsCall('campaigns').catch(e => ({ __error: e }));
+  }
+  adsBusy = false;
+
+  if (insights.error){
+    host.innerHTML = '';
+    const missing = insights.error.code === '42P01' || insights.error.code === 'PGRST205';
+    host.appendChild(admEl('div', 'empty-state', missing
+      ? 'הטבלאות של הקונסולה לא קיימות עדיין במסד - המיגרציה 20270305090000_ads_console.sql.'
+      : 'שגיאה בטעינת הביצועים: ' + insights.error.message));
+    dashPanelsMeasure();
+    return;
+  }
+  adsLast = { rows: insights.data || [], live, status, range };
+  renderAdsReport();
+}
+
+function renderAdsState(){
+  const box = document.getElementById('adsState');
+  const { status, live } = adsLast;
+  box.innerHTML = '';
+  box.hidden = false;
+  if (status && status.__error){
+    box.appendChild(admEl('b', null, 'לא ניתן לבדוק את החיבור למטא. '));
+    box.appendChild(document.createTextNode(status.__error.message));
+    return;
+  }
+  if (!status || !status.configured){
+    box.appendChild(admEl('b', null, 'חשבון המודעות לא מחובר. '));
+    const miss = (status && status.missing || []).join(', ');
+    box.appendChild(document.createTextNode('חסרים הסודות ' + miss +
+      ' ב-Supabase (Edge Functions → Secrets). עד אז מוצגים כאן רק נתונים שכבר נשמרו, ונוסחי המודעות עובדים כרגיל.'));
+    return;
+  }
+  const a = status.account || {};
+  box.appendChild(admEl('b', null, 'מחובר: ' + (a.name || 'חשבון מודעות')));
+  const bits = [a.currency, a.timezone_name, status.page && status.page.name ? 'דף: ' + status.page.name : null]
+    .filter(Boolean).join(' · ');
+  if (bits) box.appendChild(document.createTextNode(' · ' + bits));
+  // ‏account_status 1 = פעיל. כל ערך אחר (מושבת, חוב, בבדיקה) עוצר את כל הקמפיינים.
+  if (a.account_status && Number(a.account_status) !== 1){
+    box.appendChild(admEl('div', 'ads-pill is-bad', 'החשבון אינו פעיל (סטטוס ' + a.account_status + ')'));
+  }
+  if (status.page && status.page.error){
+    box.appendChild(admEl('div', 'ads-pill is-warn', 'הטוקן אינו רואה את הדף - טפסי לידים ופוסטים לא יעבדו'));
+  }
+  if (live && live.__error) box.appendChild(admEl('div', 'ads-pill is-warn', live.__error.message));
+}
+
+function adsDayChart(days, values, format){
+  const max = Math.max(1, ...values);
+  const wrap = admEl('div', 'ads-chart');
+  const chart = admEl('div', 'adm-chart');
+  values.forEach((v, i)=>{
+    const col = admEl('div', 'adm-col');
+    const bar = admEl('div', 'adm-col-bar' + (i === values.length - 1 ? ' is-now' : ''));
+    bar.style.height = Math.max(3, Math.round((v / max) * 100)) + '%';
+    bar.title = days[i] + ': ' + format(v);
+    col.appendChild(bar);
+    chart.appendChild(col);
+  });
+  wrap.appendChild(chart);
+  // ציר: רק תאריך ראשון, אמצעי ואחרון - 30 תוויות לא נכנסות בטלפון
+  const axis = admEl('div', 'adm-axis');
+  days.forEach((d, i) => {
+    const show = i === 0 || i === days.length - 1 || i === Math.floor(days.length / 2);
+    axis.appendChild(admEl('span', null, show ? d.slice(8, 10) + '.' + d.slice(5, 7) : ''));
+  });
+  wrap.appendChild(axis);
+  return wrap;
+}
+
+function renderAdsReport(){
+  const host = document.getElementById('adsReport');
+  if (!host || !adsLast) return;
+  const { rows, live, range } = adsLast;
+  host.innerHTML = '';
+  renderAdsState();
+
+  const camp = rows.filter(r => r.level === 'campaign');
+  const cur = camp.filter(r => r.day >= range.from);
+  const prev = camp.filter(r => r.day >= range.prevFrom && r.day <= range.prevTo);
+  const t = adsSum(cur), p = adsSum(prev);
+
+  const stamp = document.getElementById('adsStamp');
+  const lastSync = rows.reduce((m, r) => r.synced_at > m ? r.synced_at : m, '');
+  if (stamp) stamp.textContent = lastSync ? 'סונכרן ' + new Date(lastSync).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : 'לא סונכרן עדיין';
+
+  const sub = document.getElementById('adsPanelSub');
+  if (sub) sub.textContent = cur.length
+    ? adsNis(t.spend) + ' · ' + admInt(t.leads) + ' לידים · ' + (t.cpl !== null ? adsNis(t.cpl) + ' לליד' : 'אין לידים') + ' · ' + range.days + ' ימים'
+    : 'אין נתוני ביצועים ב-' + range.days + ' הימים האחרונים';
+
+  const delta = (a, b) => {
+    const c = admDeltaChip(a, b);
+    // ‏admDeltaChip מנוסח לחודשים; כאן החלון הוא ימים
+    if (/החודש/.test(c.textContent)) c.textContent = '▲ חדש';
+    c.title = range.days + ' הימים האחרונים מול ' + range.days + ' שלפניהם';
+    return c;
+  };
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('הוצאה', adsNis(t.spend), { wine: true, delta: delta(t.spend, p.spend) }));
+  tiles.appendChild(admTile('לידים', admInt(t.leads), { delta: delta(t.leads, p.leads),
+    note: t.conversations ? admInt(t.conversations) + ' שיחות וואטסאפ' : null }));
+  tiles.appendChild(admTile('עלות לליד', t.cpl !== null ? adsNis2(t.cpl) : '-', {
+    note: p.cpl !== null ? 'קודם: ' + adsNis2(p.cpl) : null }));
+  tiles.appendChild(admTile('CTR קישור', adsPct(t.ctr), { note: 'CPM ' + adsNis2(t.cpm) }));
+  host.appendChild(tiles);
+
+  // שני גרפים, סדרה אחת בכל אחד - בלי ציר כפול
+  const days = [];
+  for (let i = range.days - 1; i >= 0; i--){ const d = new Date(); d.setDate(d.getDate() - i); days.push(costYmd(d)); }
+  const byDay = k => days.map(d => cur.filter(r => r.day === d).reduce((s, r) => s + (Number(r[k]) || 0), 0));
+  const charts = admEl('div', 'ads-grid2');
+  const c1 = admEl('div'); c1.appendChild(admEl('h3', 'adm-h', 'הוצאה ליום')); c1.appendChild(adsDayChart(days, byDay('spend'), adsNis));
+  const c2 = admEl('div'); c2.appendChild(admEl('h3', 'adm-h', 'לידים ליום')); c2.appendChild(adsDayChart(days, byDay('leads'), admInt));
+  charts.appendChild(c1); charts.appendChild(c2);
+  host.appendChild(charts);
+
+  renderAdsCampaigns(host, rows, live, range);
+  renderAdsFatigue(host, rows, range);
+  dashPanelsMeasure();
+}
+
+function adsStatusPill(st){
+  const cls = st === 'ACTIVE' ? 'is-on' : (/DISAPPROVED|WITH_ISSUES/.test(st || '') ? 'is-bad' : '');
+  return admEl('span', 'ads-pill ' + cls, ADS_STATUS_LBL[st] || st || '-');
+}
+
+function renderAdsCampaigns(host, rows, live, range){
+  const perObj = (level) => {
+    const m = new Map();
+    rows.filter(r => r.level === level && r.day >= range.from).forEach(r => {
+      if (!m.has(r.object_id)) m.set(r.object_id, []);
+      m.get(r.object_id).push(r);
+    });
+    return m;
+  };
+  const campStats = perObj('campaign');
+  const setStats = perObj('adset');
+  const campaigns = live && !live.__error ? (live.campaigns || []) : [];
+  const adsets = live && !live.__error ? (live.adsets || []) : [];
+
+  host.appendChild(admEl('h3', 'adm-h', 'קמפיינים'));
+  if (!campaigns.length && !campStats.size){
+    host.appendChild(admEl('div', 'empty-state', 'אין קמפיינים להצגה.'));
+    return;
+  }
+  // בלי חיבור חי - השורות מהטבלה בלבד, ובלי פעולות
+  const list = campaigns.length ? campaigns
+    : [...campStats.entries()].map(([id, rs]) => ({ id, name: rs[0].object_name, __static: true }));
+  const learning = new Set(adsets.filter(s => s.learning_stage_info && s.learning_stage_info.status === 'LEARNING').map(s => s.campaign_id));
+
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['קמפיין', 'מצב', 'תקציב יומי', 'הוצאה', 'לידים', 'לליד', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  list.forEach(c => {
+    const s = adsSum(campStats.get(c.id) || []);
+    const tr = admEl('tr');
+    const name = admEl('td', null, c.name || c.id);
+    if (learning.has(c.id)) { name.appendChild(document.createTextNode(' ')); name.appendChild(admEl('span', 'ads-pill is-warn', 'בלמידה')); }
+    tr.appendChild(name);
+    const st = admEl('td'); st.appendChild(c.__static ? admEl('span', 'ads-pill', '-') : adsStatusPill(c.effective_status || c.status)); tr.appendChild(st);
+    const bud = admEl('td');
+    if (!c.__static && c.daily_budget_ils) bud.appendChild(adsBudgetEditor('campaign', c));
+    else bud.textContent = c.__static ? '-' : (c.lifetime_budget_ils ? adsNis(c.lifetime_budget_ils) + ' לתקופה' : 'בסטים');
+    tr.appendChild(bud);
+    tr.appendChild(admEl('td', 'num', adsNis(s.spend)));
+    tr.appendChild(admEl('td', 'num', admInt(s.leads)));
+    tr.appendChild(admEl('td', 'num', s.cpl !== null ? adsNis2(s.cpl) : '-'));
+    const act = admEl('td');
+    if (!c.__static) act.appendChild(adsStatusButton('campaign', c, s, learning.has(c.id)));
+    tr.appendChild(act);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+
+  if (!adsets.length) return;
+  host.appendChild(admEl('h3', 'adm-h', 'סטים'));
+  const wrap2 = admEl('div', 'adm-table-wrap');
+  const t2 = admEl('table', 'adm-table');
+  const h2 = admEl('tr');
+  ['סט', 'מצב', 'תקציב יומי', 'הוצאה', 'לידים', 'לליד', ''].forEach(h => h2.appendChild(admEl('th', null, h)));
+  t2.appendChild(h2);
+  adsets.forEach(a => {
+    const s = adsSum(setStats.get(a.id) || []);
+    const inLearning = a.learning_stage_info && a.learning_stage_info.status === 'LEARNING';
+    const tr = admEl('tr');
+    const name = admEl('td', null, a.name || a.id);
+    if (inLearning) { name.appendChild(document.createTextNode(' ')); name.appendChild(admEl('span', 'ads-pill is-warn', 'בלמידה')); }
+    tr.appendChild(name);
+    const st = admEl('td'); st.appendChild(adsStatusPill(a.effective_status || a.status)); tr.appendChild(st);
+    const bud = admEl('td');
+    if (a.daily_budget_ils) bud.appendChild(adsBudgetEditor('adset', a));
+    else bud.textContent = a.lifetime_budget_ils ? adsNis(a.lifetime_budget_ils) + ' לתקופה' : 'בקמפיין';
+    tr.appendChild(bud);
+    tr.appendChild(admEl('td', 'num', adsNis(s.spend)));
+    tr.appendChild(admEl('td', 'num', admInt(s.leads)));
+    tr.appendChild(admEl('td', 'num', s.cpl !== null ? adsNis2(s.cpl) : '-'));
+    const act = admEl('td'); act.appendChild(adsStatusButton('adset', a, s, inLearning)); tr.appendChild(act);
+    t2.appendChild(tr);
+  });
+  wrap2.appendChild(t2);
+  host.appendChild(wrap2);
+}
+
+function adsImpactLines(stats){
+  const r = adsLast ? adsLast.range.days : 7;
+  return ['ב-' + r + ' הימים האחרונים: ' + adsNis(stats.spend) + ' הוצאה, ' + admInt(stats.leads) + ' לידים' +
+    (stats.cpl !== null ? ', ' + adsNis2(stats.cpl) + ' לליד' : '') + '.'];
+}
+
+function adsStatusButton(type, obj, stats, inLearning){
+  const isOn = obj.status === 'ACTIVE';
+  const b = admEl('button', 'ads-act', isOn ? 'השהיה' : 'הפעלה');
+  b.type = 'button';
+  b.addEventListener('click', async ()=>{
+    const to = isOn ? 'PAUSED' : 'ACTIVE';
+    b.disabled = true;
+    try{
+      const dry = await adsCall('set_status', { object_type: type, object_id: obj.id, status: to, dry_run: true });
+      const lines = [(type === 'campaign' ? 'קמפיין: ' : 'סט: ') + (dry.plan.name || obj.id),
+        (ADS_STATUS_LBL[dry.plan.from] || dry.plan.from) + ' ← ' + (ADS_STATUS_LBL[to] || to)].concat(adsImpactLines(stats));
+      if (inLearning) lines.push('הוא עדיין בשלב הלמידה. השהיה עכשיו מבזבזת את מה שכבר הושקע בלמידה.');
+      if (to === 'ACTIVE') lines.push('הפעלה אחרי השהיה של יותר משבוע מחזירה אותו לשלב הלמידה.');
+      const ok = await confirmPurchase({ title: to === 'PAUSED' ? 'השהיית ' + (type === 'campaign' ? 'קמפיין' : 'סט') : 'הפעלת ' + (type === 'campaign' ? 'קמפיין' : 'סט'),
+        lines, requireAck: true, hidePrice: true, confirmLabel: to === 'PAUSED' ? 'השהיה' : 'הפעלה',
+        ackText: 'אני מבין/ה שזה משנה קמפיין חי במטא, והפעולה נרשמת ביומן.' });
+      if (!ok) return;
+      await adsCall('set_status', { object_type: type, object_id: obj.id, status: to });
+      showToast(to === 'PAUSED' ? 'הושהה' : 'הופעל');
+      loadAdsReport();
+    }catch(e){
+      showToast(e.message, 5200);
+    }finally{
+      b.disabled = false;
+    }
+  });
+  return b;
+}
+
+function adsBudgetEditor(type, obj){
+  const box = admEl('span', 'ads-budget');
+  const input = admEl('input');
+  input.type = 'number'; input.min = '1'; input.step = '1'; input.inputMode = 'decimal';
+  input.value = String(obj.daily_budget_ils);
+  input.setAttribute('aria-label', 'תקציב יומי בשקלים');
+  const b = admEl('button', 'ads-act', 'עדכון');
+  b.type = 'button';
+  b.addEventListener('click', async ()=>{
+    const val = Number(input.value);
+    if (!(val > 0)) { showToast('תקציב לא תקין'); return; }
+    b.disabled = true;
+    try{
+      const dry = await adsCall('set_budget', { object_type: type, object_id: obj.id, daily_budget: val, dry_run: true });
+      const pl = dry.plan;
+      const lines = [(type === 'campaign' ? 'קמפיין: ' : 'סט: ') + (pl.name || obj.id),
+        'תקציב יומי: ' + adsNis(pl.from_ils) + ' ← ' + adsNis(pl.to_ils) + ' (פי ' + pl.multiplier + ')'];
+      if (pl.learning_reset_risk) lines.push('שינוי של 20% ומעלה עלול להחזיר אותו לשלב הלמידה - 3 עד 7 ימים של ביצועים לא יציבים.');
+      const ok = await confirmPurchase({ title: 'שינוי תקציב', lines, requireAck: true, hidePrice: true,
+        confirmLabel: 'עדכון התקציב', ackText: 'אני מבין/ה שזה משנה את ההוצאה בקמפיין חי במטא.' });
+      if (!ok) { input.value = String(obj.daily_budget_ils); return; }
+      await adsCall('set_budget', { object_type: type, object_id: obj.id, daily_budget: val });
+      showToast('התקציב עודכן');
+      loadAdsReport();
+    }catch(e){
+      showToast(e.message, 5200);
+      input.value = String(obj.daily_budget_ils);
+    }finally{
+      b.disabled = false;
+    }
+  });
+  box.appendChild(input); box.appendChild(b);
+  return box;
+}
+
+function renderAdsFatigue(host, rows, range){
+  const half = Math.floor(range.days / 2);
+  const mid = (()=>{ const d = new Date(); d.setDate(d.getDate() - (range.days - half - 1)); return costYmd(d); })();
+  const ads = new Map();
+  rows.filter(r => r.level === 'ad' && r.day >= range.from).forEach(r => {
+    if (!ads.has(r.object_id)) ads.set(r.object_id, { name: r.object_name, early: [], late: [] });
+    ads.get(r.object_id)[r.day < mid ? 'early' : 'late'].push(r);
+  });
+  if (!ads.size) return;
+  const list = [...ads.entries()].map(([id, a]) => {
+    const e = adsSum(a.early), l = adsSum(a.late), all = adsSum(a.early.concat(a.late));
+    const flags = [];
+    if (l.spend >= 10 && e.ctr > 0){
+      if (l.ctr < e.ctr * 0.7) flags.push('CTR ירד ל-' + Math.round((l.ctr / e.ctr) * 100) + '%');
+      if (e.cpm > 0 && l.cpm > e.cpm * 1.2 && l.ctr < e.ctr) flags.push('CPM עלה ' + Math.round((l.cpm / e.cpm - 1) * 100) + '%');
+    }
+    return { id, name: a.name, all, flags };
+  }).sort((a, b) => b.flags.length - a.flags.length || b.all.spend - a.all.spend);
+
+  host.appendChild(admEl('h3', 'adm-h', 'מודעות'));
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['מודעה', 'הוצאה', 'לידים', 'לליד', 'CTR קישור', 'שחיקה'].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  list.forEach(a => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, a.name || a.id));
+    tr.appendChild(admEl('td', 'num', adsNis(a.all.spend)));
+    tr.appendChild(admEl('td', 'num', admInt(a.all.leads)));
+    tr.appendChild(admEl('td', 'num', a.all.cpl !== null ? adsNis2(a.all.cpl) : '-'));
+    tr.appendChild(admEl('td', 'num', adsPct(a.all.ctr)));
+    const f = admEl('td');
+    if (a.flags.length) {
+      const pill = admEl('span', 'ads-pill ' + (a.flags.length > 1 ? 'is-bad' : 'is-warn'), a.flags.length > 1 ? 'נשחקת' : 'לעקוב');
+      pill.title = a.flags.join(' · ');
+      f.appendChild(pill);
+    } else f.textContent = '-';
+    tr.appendChild(f);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  host.appendChild(admEl('p', 'adm-note',
+    '"נשחקת" = CTR הקישור ירד ל-70% ומטה בין חצי התקופה הראשון לשני וגם ה-CPM עלה ב-20% ומעלה. סימן אחד = לעקוב. מודעה שהוציאה פחות מ-₪10 בחצי השני אינה נבדקת.'));
+}
+
+/* ---------- לשוניות ---------- */
+function adsSelectTab(id){
+  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
+    const on = t === id;
+    document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
+    document.getElementById(p).hidden = !on;
+  });
+  if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); }
+  dashPanelsMeasure();
+}
+['adsTabPerf', 'adsTabCopy', 'adsTabGoogle'].forEach(id =>
+  document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
+
+document.getElementById('adsRange')?.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-days]');
+  if (!btn) return;
+  adsDays = Number(btn.dataset.days) || 7;
+  document.querySelectorAll('#adsRange button').forEach(b => b.classList.toggle('is-on', b === btn));
+  loadAdsReport();
+});
+
+document.getElementById('adsSyncBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try{
+    const r = await adsCall('sync_insights', { days: 3 });
+    showToast(r.ok === false ? 'הסנכרון הושלם חלקית' : 'הנתונים עודכנו ממטא');
+    loadAdsReport();
+  }catch(err){
+    showToast(err.message, 5200);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+/* ---------- נוסחי מודעות ---------- */
+function adsSyncIntensity(){
+  const aud = document.getElementById('acAudience').value;
+  const range = document.getElementById('acIntensity');
+  const max = aud === 'property' ? 2 : 5;
+  range.max = String(max);
+  if (Number(range.value) > max) range.value = String(max);
+  document.getElementById('acIntensityVal').textContent = range.value + ' מתוך ' + max;
+  document.getElementById('acIntensityLbl').textContent = ADS_LADDER[aud][Number(range.value)] || '';
+  document.getElementById('acPropWrap').hidden = aud !== 'property';
+  dashPanelsMeasure();
+}
+document.getElementById('acAudience')?.addEventListener('change', ()=>{
+  const aud = document.getElementById('acAudience').value;
+  document.getElementById('acIntensity').value = String(aud === 'property' ? 2 : adsPlatformDefault);
+  adsSyncIntensity();
+});
+document.getElementById('acIntensity')?.addEventListener('input', adsSyncIntensity);
+
+let adsPropTimer = null;
+document.getElementById('acPropQ')?.addEventListener('input', (e)=>{
+  adsPropPicked = null;
+  clearTimeout(adsPropTimer);
+  // תווים שיש להם משמעות בתחביר ה-or של PostgREST יוצאים מהחיפוש
+  const q = e.target.value.replace(/[,()%*\\]/g, ' ').trim();
+  const list = document.getElementById('acPropList');
+  if (q.length < 2){ list.hidden = true; return; }
+  adsPropTimer = setTimeout(async ()=>{
+    const { data } = await sb.from('properties').select('id, title, city')
+      .eq('status', 'active').or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
+    list.innerHTML = '';
+    (data || []).forEach(p => {
+      const li = admEl('li');
+      const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : ''));
+      b.type = 'button';
+      b.addEventListener('click', ()=>{
+        adsPropPicked = { id: p.id, label: b.textContent };
+        e.target.value = b.textContent;
+        list.hidden = true;
+      });
+      li.appendChild(b); list.appendChild(li);
+    });
+    if (!(data || []).length) list.appendChild(admEl('li', 'adm-note', 'לא נמצא נכס פעיל'));
+    list.hidden = false;
+    dashPanelsMeasure();
+  }, 250);
+});
+
+document.getElementById('adsCopyForm')?.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const err = document.getElementById('acError');
+  err.hidden = true;
+  const audience = document.getElementById('acAudience').value;
+  if (audience === 'property' && !adsPropPicked){
+    err.textContent = 'בחרו נכס מהרשימה.'; err.hidden = false; dashPanelsMeasure(); return;
+  }
+  const btn = document.getElementById('acGo');
+  btn.disabled = true; btn.textContent = 'כותב…';
+  try{
+    const r = await adsCall('generate_copy', {
+      audience,
+      intensity: Number(document.getElementById('acIntensity').value),
+      property_id: audience === 'property' ? adsPropPicked.id : undefined,
+      count: Number(document.getElementById('acCount').value),
+      brief: {
+        angle: document.getElementById('acAngle').value,
+        offer: document.getElementById('acOffer').value,
+        deadline: document.getElementById('acDeadline').value,
+        notes: document.getElementById('acNotes').value,
+      },
+    });
+    adsDraftCur = r.draft;
+    renderAdsDraft();
+    loadAdsDrafts();
+  }catch(ex){
+    err.textContent = ex.message; err.hidden = false; dashPanelsMeasure();
+  }finally{
+    btn.disabled = false; btn.textContent = 'כתיבת נוסחים';
+  }
+});
+
+function adsCounter(input, limit, firstLine){
+  const span = admEl('span', 'ads-count');
+  const upd = ()=>{
+    const v = input.value;
+    let txt = v.length + '/' + limit;
+    let over = v.length > limit;
+    if (firstLine){
+      const fl = (v.split('\n')[0] || '').length;
+      txt += ' · שורה ראשונה ' + fl + '/' + ADS_LIMITS.hook;
+      over = over || fl > ADS_LIMITS.hook;
+    }
+    span.textContent = txt;
+    span.classList.toggle('is-over', over);
+  };
+  input.addEventListener('input', upd);
+  upd();
+  return span;
+}
+
+function adsField(label, el, limit, firstLine){
+  const lab = admEl('label');
+  const top = admEl('span', null, label + ' ');
+  if (limit) top.appendChild(adsCounter(el, limit, firstLine));
+  lab.appendChild(top);
+  lab.appendChild(el);
+  return lab;
+}
+
+function adsCollectVariants(){
+  return [...document.querySelectorAll('#adsDraft .ads-var')].map(card => ({
+    angle: card.querySelector('[data-k=angle]').value,
+    primary_text: card.querySelector('[data-k=primary_text]').value,
+    headline: card.querySelector('[data-k=headline]').value,
+    description: card.querySelector('[data-k=description]').value,
+    cta: card.querySelector('[data-k=cta]').value,
+  }));
+}
+
+function renderAdsDraft(){
+  const host = document.getElementById('adsDraft');
+  host.innerHTML = '';
+  const d = adsDraftCur;
+  if (!d) { dashPanelsMeasure(); return; }
+  const max = d.audience === 'property' ? 2 : 5;
+  host.appendChild(admEl('h3', 'adm-h',
+    (d.audience === 'property' ? 'קידום נכס' : 'שיווק למתווכים') + ' · רמה ' + d.intensity + ' מתוך ' + max +
+    ' · ' + ({ draft: 'טיוטה', approved: 'מאושר', archived: 'בארכיון' }[d.status] || d.status)));
+
+  const res = admEl('div', 'ads-results');
+  (d.variants || []).forEach((v, i) => {
+    const card = admEl('div', 'ads-var');
+    const hd = admEl('div', 'ads-var-head');
+    hd.appendChild(admEl('span', null, 'נוסח ' + (i + 1)));
+    card.appendChild(hd);
+    const mk = (tag, k, val) => { const el = admEl(tag); el.dataset.k = k; el.value = val || ''; return el; };
+    card.appendChild(adsField('זווית', mk('input', 'angle', v.angle)));
+    card.appendChild(adsField('טקסט ראשי', mk('textarea', 'primary_text', v.primary_text), ADS_LIMITS.primary_text, true));
+    card.appendChild(adsField('כותרת', mk('input', 'headline', v.headline), ADS_LIMITS.headline));
+    card.appendChild(adsField('תיאור', mk('input', 'description', v.description), ADS_LIMITS.description));
+    const sel = mk('select', 'cta', '');
+    Object.entries(ADS_CTA).forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; sel.appendChild(o); });
+    sel.value = v.cta || 'LEARN_MORE';
+    card.appendChild(adsField('כפתור', sel));
+    if (v.warnings && v.warnings.length){
+      const ul = admEl('ul', 'ads-warn');
+      v.warnings.forEach(w => ul.appendChild(admEl('li', null, w)));
+      card.appendChild(ul);
+    }
+    res.appendChild(card);
+  });
+  host.appendChild(res);
+  if (d.audience === 'property') host.appendChild(admEl('p', 'adm-note', 'שורת הגילוי (שם ומספר רישיון) תתווסף מתחת לטקסט ביצירת הקמפיין.'));
+
+  // שמירה, אישור וארכיון
+  const btns = admEl('div', 'ads-row-btns');
+  const save = (status, label) => {
+    const b = admEl('button', status === 'approved' ? 'btn btn-gold' : 'btn btn-ghost', label);
+    b.type = 'button';
+    b.addEventListener('click', async ()=>{
+      b.disabled = true;
+      try{
+        const payload = { draft_id: d.id };
+        if (status !== 'archived') payload.variants = adsCollectVariants();
+        if (status) payload.status = status;
+        const r = await adsCall('save_copy', payload);
+        adsDraftCur = r.draft;
+        renderAdsDraft();
+        loadAdsDrafts();
+        showToast(status === 'approved' ? 'הנוסחים אושרו' : status === 'archived' ? 'הועבר לארכיון' : 'נשמר');
+      }catch(e){ showToast(e.message, 5200); }
+      finally{ b.disabled = false; }
+    });
+    return b;
+  };
+  btns.appendChild(save(null, 'שמירת העריכה'));
+  btns.appendChild(save('approved', 'אישור הנוסחים'));
+  btns.appendChild(save('archived', 'ארכיון'));
+  host.appendChild(btns);
+
+  // כתיבה מחדש לפי הערה, וברמה אחרת אם רוצים
+  const re = admEl('div', 'cst-grid');
+  const fb = admEl('input'); fb.type = 'text'; fb.maxLength = 1000;
+  fb.placeholder = 'למשל: קצר יותר, פחות אגרסיבי, להדגיש את גבריאלה';
+  const lvl = admEl('select');
+  for (let i = 1; i <= max; i++){ const o = admEl('option', null, 'רמה ' + i); o.value = String(i); lvl.appendChild(o); }
+  lvl.value = String(d.intensity);
+  const l1 = admEl('label', 'cst-f cst-wide', 'הערה לכתיבה מחדש'); l1.appendChild(fb);
+  const l2 = admEl('label', 'cst-f', 'רמה'); l2.appendChild(lvl);
+  re.appendChild(l1); re.appendChild(l2);
+  host.appendChild(re);
+  const reBtn = admEl('button', 'btn btn-ghost', 'כתיבה מחדש');
+  reBtn.type = 'button';
+  reBtn.addEventListener('click', async ()=>{
+    reBtn.disabled = true; reBtn.textContent = 'כותב…';
+    try{
+      // העריכה האחרונה נשמרת קודם, כדי שהמודל יכתוב מחדש את מה שרואים ולא את המקור
+      await adsCall('save_copy', { draft_id: d.id, variants: adsCollectVariants() });
+      const r = await adsCall('generate_copy', { draft_id: d.id, feedback: fb.value, intensity: Number(lvl.value),
+        count: Math.max(1, (d.variants || []).length || 3) });
+      adsDraftCur = r.draft;
+      renderAdsDraft();
+      loadAdsDrafts();
+    }catch(e){ showToast(e.message, 5200); }
+    finally{ reBtn.disabled = false; reBtn.textContent = 'כתיבה מחדש'; }
+  });
+  const reRow = admEl('div', 'ads-row-btns'); reRow.appendChild(reBtn);
+  if ((d.history || []).length) reRow.appendChild(admEl('span', 'adm-note', (d.history.length) + ' גרסאות קודמות נשמרו'));
+  host.appendChild(reRow);
+  dashPanelsMeasure();
+}
+
+async function loadAdsDrafts(){
+  const host = document.getElementById('adsDrafts');
+  if (!host) return;
+  const { data, error } = await sb.from('ads_copy_drafts')
+    .select('id, updated_at, audience, intensity, status, brief, variants, history, property_id')
+    .neq('status', 'archived').order('updated_at', { ascending: false }).limit(12);
+  host.innerHTML = '';
+  if (error){
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
+      ? 'טבלת הטיוטות לא קיימת עדיין - המיגרציה 20270306090000_ads_copy.sql.'
+      : 'שגיאה בטעינת הטיוטות: ' + error.message));
+    dashPanelsMeasure();
+    return;
+  }
+  if (!(data || []).length){ host.appendChild(admEl('div', 'empty-state', 'אין טיוטות עדיין.')); dashPanelsMeasure(); return; }
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['נוסח ראשון', 'מסלול', 'רמה', 'מצב', 'עודכן', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  data.forEach(d => {
+    const tr = admEl('tr');
+    const first = (d.variants && d.variants[0]) || {};
+    tr.appendChild(admEl('td', null, first.headline || (d.brief && d.brief.angle) || '-'));
+    tr.appendChild(admEl('td', null, d.audience === 'property' ? 'נכס' : 'מתווכים'));
+    tr.appendChild(admEl('td', 'num', String(d.intensity)));
+    tr.appendChild(admEl('td', null, { draft: 'טיוטה', approved: 'מאושר' }[d.status] || d.status));
+    tr.appendChild(admEl('td', null, new Date(d.updated_at).toLocaleDateString('he-IL')));
+    const td = admEl('td');
+    const b = admEl('button', 'ads-act', 'פתיחה');
+    b.type = 'button';
+    b.addEventListener('click', ()=>{
+      // האזהרות מחושבות בשרת בשמירה; טיוטה שנפתחת מהרשימה מוצגת בלעדיהן
+      adsDraftCur = d;
+      renderAdsDraft();
+      document.getElementById('adsDraft').scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block: 'start' });
+    });
+    td.appendChild(b); tr.appendChild(td);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  dashPanelsMeasure();
+}
+
+// ברירת המחדל של הרמה במסלול הפלטפורמה - מ-ads_settings, פעם אחת, ורק
+// כשהפאנל נטען: סוכן/ת רגיל/ה לא צריך/ה לשלם על הקריאה הזו בכל כניסה ל-CRM.
+let adsDefaultsLoaded = false;
+async function adsLoadDefaults(){
+  if (adsDefaultsLoaded) return;
+  adsDefaultsLoaded = true;
+  adsSyncIntensity();
+  const { data } = await sb.from('ads_settings').select('value').eq('key', 'platform_default_intensity').maybeSingle();
+  const v = Number(data && data.value);
+  if (v >= 1 && v <= 5){
+    adsPlatformDefault = v;
+    if (document.getElementById('acAudience').value === 'platform'){
+      document.getElementById('acIntensity').value = String(v);
+      adsSyncIntensity();
+    }
+  }
+}
+
 /* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
 function renderViewSwitch(){
   const sw = document.getElementById('viewSwitch');
@@ -24188,6 +24947,8 @@ function setDashView(view, opts){
   if (invPanel) invPanel.hidden = (dashView !== 'admin');
   const costsPanel = document.getElementById('dashPanelCosts');
   if (costsPanel) costsPanel.hidden = (dashView !== 'admin');
+  const adsPanel = document.getElementById('dashPanelAds');
+  if (adsPanel) adsPanel.hidden = (dashView !== 'admin');
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.hidden = (dashView !== 'admin');
   const adminNav = document.getElementById('adminNav');
@@ -24216,6 +24977,7 @@ function setDashView(view, opts){
     loadOpsReport();
     loadInventoryReport();
     loadCostsReport();
+    loadAdsReport();
   }
   if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
