@@ -96,14 +96,23 @@
 
      ‏**דף יכול לבקש ערך משלו** ב-‎data-delay‎ (מילישניות גלישה). ה-CRM מבקש
      ‏3000 ומשאיר את ההתנהגות שנמדדה שם כמוצלחת — 20% לחיצה, היחס הגבוה
-     באתר — כי סוכן/ת שנכנס/ת לסביבת העבודה שלו/ה כבר יודע/ת מה זה. */
-  var SHOW_DELAY_DEFAULT_MS = 6000;
+     באתר — כי סוכן/ת שנכנס/ת לסביבת העבודה שלו/ה כבר יודע/ת מה זה.
+
+     ‏**7.10.2026: עשר שניות, ורק מהביקור השני** (החלטת בעל/ת האתר אחרי
+     המדידה של אותו יום). המדידה מצאה שהגל של 27.9 - 113 הצגות ביום אחד
+     מקהל קר - נתן **4 לחיצות והתקנה אחת** בשבעת הימים שאחריו. חשיפה
+     רחבה ייצרה ביקורים ולא התקנות, ולהציע התקנה למי שנחת/ה על האתר
+     בפעם הראשונה זה להציע לפני שיש מה להתקין בשבילו/ה. ראו
+     ‏`visitCount()` למטה. */
+  var SHOW_DELAY_DEFAULT_MS = 10000;
   var SHOW_DELAY_MIN_MS = 1000;
   var SHOW_DELAY_MAX_MS = 60000;
 
   var K_SNOOZE = 'shukPwaSnoozedAt';
   var K_INSTALLED = 'shukPwaInstalled';
   var K_BROWSE = 'shukPwaBrowseMs';     // sessionStorage: זמן גלישה מצטבר בלשונית
+  var K_VISITS = 'shukPwaVisits';       // localStorage: כמה ביקורים נספרו
+  var K_VISIT_SEEN = 'shukPwaVisitSeen';// sessionStorage: הביקור הזה כבר נספר
 
   // ------------------------------------------------------------------
   // אחסון — עטוף תמיד. בגלישה פרטית באייפון עצם הגישה ל-localStorage
@@ -289,9 +298,39 @@
     return !!mode() && !isStandalone() && readStore(K_INSTALLED) !== '1';
   }
 
+  /* ‏**מניין הביקורים, והסיבה שהוא בשתי שכבות אחסון.**
+
+     ‏"ביקור" כאן הוא **לשונית**, לא דף: `sessionStorage` חי עד שהיא
+     נסגרת, ולכן גולש/ת שעובר/ת בין חמישה דפים באותו ביקור נספר/ת פעם
+     אחת. המניין עצמו ב-`localStorage`, כי הוא צריך לשרוד את סגירת
+     הלשונית - זו כל הנקודה.
+
+     נספר **בכל טעינה של הסקריפט**, גם בדפדפן שלא יכול להתקין ובדף
+     שההצעה כבוי בו, כדי שהביקור הראשון של אייפון ייחשב גם אם הוא נעשה
+     בדפדפן אחר אחר כך. **ובמצב standalone לא נספר בכלל**: מי שכבר
+     התקין/ה פותח/ת את האפליקציה כל יום, ואין טעם לנפח לו/ה מונה.
+
+     אחסון חסום (גלישה פרטית באייפון) - `readStore` מחזיר null ו-
+     `writeStore` בולע, כלומר המניין נשאר 1 והרצועה לא תעלה שם לעולם.
+     זה הכיוון הבטוח: לא להציע, ולא להציע למי שלא רצה/תה. */
+  function countVisit() {
+    if (isStandalone()) return;
+    try {
+      if (window.sessionStorage.getItem(K_VISIT_SEEN) === '1') return;
+      window.sessionStorage.setItem(K_VISIT_SEEN, '1');
+    } catch (e) { /* אחסון חסום: כל טעינה תיראה כביקור חדש, והמניין עדיין לא ישרוד */ }
+    writeStore(K_VISITS, String(visitCount() + 1));
+  }
+  function visitCount() {
+    return parseInt(readStore(K_VISITS) || '0', 10) || 0;
+  }
+
   function canAutoShow(m) {
     if (!m || m === 'mac-safari') return false;          // במחשב — רק בלחיצה יזומה
     if (readStore(K_INSTALLED) === '1') return false;
+    /* מהביקור השני ואילך. ‏`data-first-visit="show"` מחזיר דף יחיד
+       להתנהגות הישנה - ה-CRM משתמש בזה, ראו ההערה ליד FIRST_VISIT. */
+    if (!FIRST_VISIT_OK && visitCount() < 2) return false;
     var snoozed = parseInt(readStore(K_SNOOZE) || '0', 10);
     if (snoozed && (Date.now() - snoozed) < SNOOZE_DAYS * 864e5) return false;
     return true;
@@ -783,6 +822,16 @@
     if (!raw || isNaN(asNumber)) return SHOW_DELAY_DEFAULT_MS;
     return Math.min(SHOW_DELAY_MAX_MS, Math.max(SHOW_DELAY_MIN_MS, asNumber));
   })();
+
+  /* ‏`data-first-visit="show"` - דף שמציע גם בביקור הראשון.
+     **ה-CRM הוא המקרה היחיד, והוא אינו חריג שרירותי:** כדי להגיע לשם
+     צריך להתחבר, כלומר כבר יש חשבון וכבר הייתה היכרות - "ביקור ראשון"
+     שם אינו אדם זר שנחת מגוגל. וזה גם הדף עם יחס הלחיצה הגבוה באתר
+     (‏8 מתוך 28 הצגות בעשרה ימים). */
+  var FIRST_VISIT_OK = !!(script && script.getAttribute('data-first-visit') === 'show');
+
+  /* נספר לפני כל השאר, כדי שגם יציאה מוקדמת מ-start() תספור את הביקור. */
+  countVisit();
 
   /* ‏**זמן גלישה, לא זמן מטעינה.** מונה אחד לדף: כל חצי שנייה שהלשונית
      גלויה מתווספת לסכום שב-sessionStorage, ומשם הוא ממשיך בדף הבא באותה
