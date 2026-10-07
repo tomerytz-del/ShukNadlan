@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
-import { PROMO_NOTICE_DAYS, TIER_NAMES, TIER_PRICES, type Tier } from "../_shared/launch-promo.ts";
+import { PROMO_NOTICE_DAYS, PROMO_WHATSAPP_DAYS, TIER_NAMES, TIER_PRICES, type Tier } from "../_shared/launch-promo.ts";
 
 // ============================================================================
 // מחזור החיים של הטבת ההשקה — שתי התראות וסיום
@@ -14,6 +14,9 @@ import { PROMO_NOTICE_DAYS, TIER_NAMES, TIER_PRICES, type Tier } from "../_share
 //     להחליט בלי לחץ.
 //   • **שבועיים לפני** — התראה שנייה. שבועיים אחרי הראשונה, בדיוק כפי
 //     שסוכם.
+//   • **שבוע לפני, ויום לפני** — תזכורת קצרה בוואטסאפ בלבד (פעמון ←
+//     notification-push), בלי מייל. הסימון בטבלה promo_notices ולא בעמודה
+//     (20270308090000).
 //   • **ביום הסיום** — ‎expire_launch_promos‎ מעביר/ה למסלול ששולם מראש את
 //     מי ששילם/ה (‏paid_tier), ומוריד/ה ל-Pay&GO את מי שלא בחר/ה מסלול.
 //
@@ -235,6 +238,35 @@ function noticeBell(agentId: string, endsAt: string, prePaid: PrePaid | null): B
   };
 }
 
+/** "מחר" / "היום" / "בעוד N ימים" לפי התאריך בישראל, לא לפי 24 שעות: הריצה
+ *  ב-09:40, וההטבה יכולה להסתיים באותו יום אחר הצהריים. */
+function whenWords(endsAt: string): string {
+  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const end = new Date(endsAt);
+  const diff = Math.round((Date.parse(day(end)) - Date.parse(day(new Date()))) / 86400000);
+  if (diff <= 0) return "היום";
+  if (diff === 1) return "מחר";
+  if (diff === 7) return "בעוד שבוע";
+  return `בעוד ${diff} ימים`;
+}
+
+function reminderBell(agentId: string, endsAt: string, prePaid: PrePaid | null): Bell {
+  const words = whenWords(endsAt);
+  if (prePaid) {
+    return {
+      agent_id: agentId, type: "system",
+      title: `הטבת ההשקה מסתיימת ${words} - ה-${TIER_NAMES[prePaid.tier]} שלך ממשיך`,
+      body: "המנוי ששילמת עליו מתחיל בסוף ההטבה, בלי הפסקה ובלי פעולה נוספת.",
+    };
+  }
+  return {
+    agent_id: agentId, type: "system",
+    title: `הטבת ה-Elite מסתיימת ${words} (${hebDate(endsAt)})`,
+    body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}. ` +
+      `בלי בחירה החשבון עובר ל-Pay&GO. ${checkoutUrl("premium")}`,
+  };
+}
+
 function endedBell(agentId: string, downgraded: boolean, paidTier: Tier | null): Bell | null {
   if (paidTier) {
     return {
@@ -278,7 +310,7 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const dryRun = new URL(req.url).searchParams.get("dry_run") === "1";
 
-  const summary = { notice_1: 0, notice_2: 0, expired: 0, downgraded: 0, mail_failed: 0, dry_run: dryRun };
+  const summary = { notice_1: 0, notice_2: 0, whatsapp_7: 0, whatsapp_1: 0, expired: 0, downgraded: 0, mail_failed: 0, dry_run: dryRun };
 
   try {
     // ---- שתי ההתראות ----
@@ -324,6 +356,47 @@ Deno.serve(async (req: Request) => {
         const mail = noticeMail(member.display_name || "שלום", member.promo_ends_at, daysLeft, prePaid);
         const sent = await sendPlatformEmail({ to: [member.email], ...mail });
         if (!sent.sent) { summary.mail_failed++; console.error("notice mail failed", member.id, sent.error); }
+      }
+    }
+
+    // ---- התזכורות בוואטסאפ: שבוע ויום לפני ----
+    // יום-לפני קודם: מי שנכנס/ה לשתיהן באותה ריצה (הטבה קצרה, או ריצה
+    // שהוחמצה) מקבל/ת רק את הקרובה לסוף, וזו של השבוע נרשמת כאילו נשלחה.
+    // הסדר יורד לפי promo_ends_at: מי שכבר קיבל/ה יושב/ת בתחתית, כך שתקרת
+    // ה-200 לעולם אינה נתפסת כולה בשורות שכבר טופלו.
+    const waDays = [...PROMO_WHATSAPP_DAYS].sort((a, b) => a - b);
+    for (const days of waDays) {
+      const cutoff = new Date(Date.now() + days * 86400000).toISOString();
+      const { data: due, error } = await supabase
+        .from("agency_members")
+        .select("id, display_name, email, promo_ends_at, paid_tier, paid_tier_until")
+        .not("promo_ends_at", "is", null)
+        .is("promo_ended_at", null)
+        .lte("promo_ends_at", cutoff)
+        .gt("promo_ends_at", new Date().toISOString())
+        .order("promo_ends_at", { ascending: false })
+        .limit(200);
+      if (error) { console.error(`whatsapp ${days} query failed`, error.message); continue; }
+
+      for (const member of (due || []) as MemberRow[]) {
+        if (dryRun) {
+          const { count } = await supabase.from("promo_notices").select("member_id", { count: "exact", head: true })
+            .eq("member_id", member.id).eq("days_before", days);
+          if (!count) summary[days === 1 ? "whatsapp_1" : "whatsapp_7"]++;
+          continue;
+        }
+        // הסימון הוא ה-insert: שורה שחזרה = זו הפעם הראשונה. התזכורות
+        // המוקדמות יותר (7 כשזו של יום) נרשמות יחד איתה, כדי שלא יצאו אחריה.
+        const rows = PROMO_WHATSAPP_DAYS.filter((d) => d >= days)
+          .map((d) => ({ member_id: member.id, days_before: d, promo_ends_at: member.promo_ends_at }));
+        const { data: marked, error: markErr } = await supabase.from("promo_notices")
+          .upsert(rows, { onConflict: "member_id,days_before", ignoreDuplicates: true })
+          .select("days_before");
+        if (markErr) { console.error("whatsapp mark failed", member.id, markErr.message); continue; }
+        if (!(marked || []).some((r: { days_before: number }) => r.days_before === days)) continue;
+
+        summary[days === 1 ? "whatsapp_1" : "whatsapp_7"]++;
+        await ring(supabase, reminderBell(member.id, member.promo_ends_at, prePaidOf(member)));
       }
     }
 
