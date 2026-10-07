@@ -6861,7 +6861,7 @@ async function saveLicenseNumber(license){
 }
 
 const LICENSE_SAVE_ERRORS = {
-  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-8.',
+  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-9.',
   license_in_use:  'מספר הרישיון הזה כבר רשום אצל סוכן/ת אחר/ת במערכת. אם זה שלך - פנו אלינו.',
 };
 
@@ -7323,7 +7323,7 @@ async function acceptEthicsFor(memberId){
 }
 
 const GATE_LICENSE_ERRORS = {
-  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-8.',
+  invalid_license: 'מספר הרישיון אינו תקין - ספרות בלבד, בין 3 ל-9.',
   license_in_use:  'מספר הרישיון הזה כבר רשום אצל סוכן/ת אחר/ת במערכת. אם זה שלך - פנו אלינו.',
 };
 

@@ -23,7 +23,7 @@ import { normalizeLicense } from "../_shared/broker-registry.ts";
 // ---------------------------------------------------------------------------
 // הבלמים על המסלול האנונימי, לפי סדר ההפעלה:
 //
-//   1. מספר רישיון בן 3–8 ספרות בלבד.
+//   1. מספר רישיון בן 3–9 ספרות בלבד.
 //   2. אימייל שנראה כמו אימייל, ושם שאינו ריק.
 //   3. סוג הקובץ מתוך רשימה סגורה, ולפי **תוכן ההצהרה ולפי הדלי גם יחד** —
 //      הדלי עצמו מוגדר עם allowed_mime_types, ולכן קובץ שאינו תמונה/PDF
@@ -138,8 +138,8 @@ Deno.serve(async (req: Request) => {
     // =====================================================================
     if (action === "submit") {
       const license = normalizeLicense(body.license_number);
-      if (!/^\d{3,8}$/.test(license)) {
-        return json({ error: "bad_license_number", detail: "מספר רישיון תיווך צריך להיות בן 3 עד 8 ספרות" }, 400);
+      if (!/^\d{3,9}$/.test(license)) {
+        return json({ error: "bad_license_number", detail: "מספר רישיון תיווך צריך להיות בן 3 עד 9 ספרות" }, 400);
       }
 
       const name = trimmed(body.applicant_name, 120);
