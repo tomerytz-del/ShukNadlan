@@ -3091,6 +3091,48 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dp-costs{--dp-a:#5b6b2f; --dp-b:#353f18}
   /* שווקים מקומיים - זהב-חום, הצבע של הפין בדף הבית */
   .dp-markets{--dp-a:#9a7418; --dp-b:#5e4508}
+  /* קמפיינים ממומנים - כחול של מטא, כהה מספיק לטקסט לבן */
+  .dp-ads{--dp-a:#1d4ed8; --dp-b:#0f2a7a}
+
+  /* ---- קונסולת השיווק (docs/marketing-console.md) ---- */
+  .ads-state{font-size:.78rem;line-height:1.6;color:var(--txt-soft);background:var(--surface-2);border-radius:12px;padding:10px 14px}
+  .ads-state b{color:var(--txt)}
+  .ads-tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .ads-tabs button{border:1px solid var(--edge);background:var(--surface);color:var(--txt-soft);border-radius:999px;padding:6px 14px;font-size:.76rem;font-weight:700;cursor:pointer}
+  .ads-tabs button[aria-selected="true"]{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+  .ads-pane[hidden]{display:none}
+  .ads-pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.66rem;font-weight:800;background:var(--surface-2);color:var(--txt-soft)}
+  .ads-pill.is-on{background:#dcfce7;color:#166534}
+  .ads-pill.is-warn{background:#fef3c7;color:#92400e}
+  .ads-pill.is-bad{background:#fee2e2;color:#991b1b}
+  .ads-act{border:1px solid var(--edge);background:var(--surface);border-radius:8px;padding:4px 10px;font-size:.7rem;font-weight:700;cursor:pointer;color:var(--txt)}
+  .ads-act:disabled{opacity:.5;cursor:default}
+  .ads-budget{display:inline-flex;gap:4px;align-items:center}
+  .ads-budget input{width:70px;border:1px solid var(--edge);border-radius:8px;padding:4px 6px;font-size:.72rem}
+  .ads-grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+  @media(min-width:700px){.ads-grid2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .ads-chart .adm-col-bar{background:linear-gradient(180deg,#5b84f0,#1d4ed8)}
+  .ads-chart .adm-col-bar.is-now{background:linear-gradient(180deg,#e3c463,#c9a227)}
+  .ads-copy-form .cst-grid{margin-bottom:10px}
+  .ads-intensity{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:700;color:var(--txt-soft)}
+  .ads-intensity input[type=range]{width:100%;accent-color:#1d4ed8}
+  .ads-intensity-lbl{font-weight:600;color:var(--txt);font-size:.74rem;line-height:1.5}
+  .ads-results{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+  .ads-var{border:1px solid var(--edge);border-radius:14px;padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+  .ads-var-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.76rem;font-weight:800;color:var(--txt)}
+  .ads-var label{display:flex;flex-direction:column;gap:3px;font-size:.68rem;font-weight:700;color:var(--txt-soft)}
+  .ads-var textarea,.ads-var input,.ads-var select{border:1.5px solid var(--edge);border-radius:10px;padding:8px 10px;font:inherit;font-size:.82rem;color:var(--txt);background:var(--surface)}
+  .ads-var textarea{min-height:110px;resize:vertical;line-height:1.55}
+  .ads-count{font-weight:600;color:var(--txt-faint)}
+  .ads-count.is-over{color:#b91c1c}
+  .ads-warn{margin:0;padding:0 18px 0 0;font-size:.7rem;color:#92400e;line-height:1.6}
+  .ads-row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .ads-row-btns .btn{padding:8px 16px;font-size:.8rem}
+  .ads-pick{position:relative}
+  .ads-pick-list{list-style:none;margin:4px 0 0;padding:0;border:1px solid var(--edge);border-radius:10px;background:var(--surface);max-height:200px;overflow:auto}
+  .ads-pick-list[hidden]{display:none}
+  .ads-pick-list button{display:block;width:100%;text-align:start;border:0;background:none;padding:8px 10px;font-size:.76rem;cursor:pointer;color:var(--txt)}
+  .ads-pick-list button:hover{background:var(--surface-2)}
 
   /* ---- סרגל הניווט של תצוגת המנהל/ת ---- */
   .adm-nav{
@@ -5567,6 +5609,108 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
       <!-- סוף דשבורד 6 -->
+
+      <!-- ============================================================
+           דשבורד 7 - קמפיינים ממומנים (קונסולת השיווק)
+           קריאה: ads_* ישירות (RLS למנהל/ת פלטפורמה). פעולות וקופי:
+           ‏ads-admin, עם JWT. docs/marketing-console.md
+           ============================================================ -->
+      <section class="dash-panel dp-ads" id="dashPanelAds" aria-label="קמפיינים ממומנים - מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelAdsHead"
+                aria-expanded="false" aria-controls="dashPanelAdsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">קמפיינים ממומנים · מטא</span>
+            <span class="dp-sub" id="adsPanelSub">הוצאה, לידים ועלות לליד, ניהול הקמפיינים ונוסחי המודעות</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelAdsBody">
+          <div class="dp-inner">
+            <div class="ads-tabs" role="tablist" aria-label="קונסולת השיווק">
+              <button type="button" role="tab" id="adsTabPerf" aria-selected="true" aria-controls="adsPanePerf">ביצועים וקמפיינים</button>
+              <button type="button" role="tab" id="adsTabCopy" aria-selected="false" aria-controls="adsPaneCopy">נוסחי מודעות</button>
+              <button type="button" role="tab" id="adsTabGoogle" aria-selected="false" aria-controls="adsPaneGoogle">גוגל</button>
+            </div>
+
+            <div class="ads-pane" id="adsPanePerf" role="tabpanel" aria-labelledby="adsTabPerf">
+              <div class="adm-toolbar">
+                <div class="adm-range" id="adsRange" role="group" aria-label="תקופת הביצועים">
+                  <button type="button" data-days="7" class="is-on">7 ימים</button>
+                  <button type="button" data-days="14">14 ימים</button>
+                  <button type="button" data-days="30">30 ימים</button>
+                </div>
+                <button type="button" class="adm-refresh" id="adsSyncBtn" title="משיכת שלושת הימים האחרונים ממטא">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                  רענון ממטא
+                </button>
+                <span class="adm-stamp" id="adsStamp"></span>
+              </div>
+              <div class="ads-state" id="adsState" hidden></div>
+              <div id="adsReport"><div class="empty-state">טוען את נתוני הקמפיינים…</div></div>
+            </div>
+
+            <div class="ads-pane" id="adsPaneCopy" role="tabpanel" aria-labelledby="adsTabCopy" hidden>
+              <form class="cst-form ads-copy-form" id="adsCopyForm" novalidate>
+                <h3 class="adm-h">נוסחים חדשים</h3>
+                <div class="cst-grid">
+                  <label class="cst-f">מסלול
+                    <select id="acAudience">
+                      <option value="platform">שיווק הפלטפורמה למתווכים</option>
+                      <option value="property">קידום נכס לקונים ולשוכרים</option>
+                    </select>
+                  </label>
+                  <div class="cst-f ads-pick" id="acPropWrap" hidden>
+                    <label for="acPropQ">נכס (רק נכס שבאוויר)</label>
+                    <input type="search" id="acPropQ" placeholder="חיפוש לפי כותרת או עיר" autocomplete="off">
+                    <ul class="ads-pick-list" id="acPropList" hidden></ul>
+                  </div>
+                  <label class="cst-f">זווית
+                    <input type="text" id="acAngle" maxlength="200" placeholder="למשל: חיסכון בזמן, לידים, פרסום אוטומטי">
+                  </label>
+                  <label class="cst-f">הצעה (רק אם היא אמיתית)
+                    <input type="text" id="acOffer" maxlength="200" placeholder="למשל: חודש ראשון ללא עלות">
+                  </label>
+                  <label class="cst-f">תאריך יעד אמיתי
+                    <input type="text" id="acDeadline" maxlength="100" placeholder="בלעדיו אין דחיפות במודעה">
+                  </label>
+                  <label class="cst-f">כמה נוסחים
+                    <select id="acCount"><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+                  </label>
+                  <label class="cst-f cst-wide">הערות
+                    <input type="text" id="acNotes" maxlength="500" placeholder="כל מה שהמודל צריך לדעת">
+                  </label>
+                </div>
+                <div class="ads-intensity">
+                  <label for="acIntensity">רמת אגרסיביות: <span id="acIntensityVal">3</span></label>
+                  <input type="range" id="acIntensity" min="1" max="5" step="1" value="3">
+                  <span class="ads-intensity-lbl" id="acIntensityLbl"></span>
+                </div>
+                <p class="cst-err" id="acError" role="alert" hidden></p>
+                <div class="cst-form-btns">
+                  <button type="submit" class="btn btn-gold" id="acGo">כתיבת נוסחים</button>
+                </div>
+              </form>
+              <div id="adsDraft"></div>
+              <h3 class="adm-h">טיוטות אחרונות</h3>
+              <div id="adsDrafts"><div class="empty-state">טוען…</div></div>
+            </div>
+
+            <div class="ads-pane" id="adsPaneGoogle" role="tabpanel" aria-labelledby="adsTabGoogle" hidden>
+              <div class="ads-state">
+                <b>Google Ads - ממתין לחיבור.</b> צריך Developer Token ברמת Basic לפחות מחשבון מנהל (MCC),
+                ו-refresh token עם הרשאת <code>adwords</code>. הפירוט: <code>docs/marketing-console.md</code>, שלב 7.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 7 -->
 
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
