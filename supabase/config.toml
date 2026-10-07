@@ -304,3 +304,9 @@ verify_jwt = false          # Twilio + חתימה; cron + x-alert-cron-secret
 # ‏cron_secret מורשה ל-sync_insights בלבד.
 [functions.ads-admin]
 verify_jwt = false          # JWT מנהל פלטפורמה בפנים; cron + x-alert-cron-secret
+
+# לידים מטפסים מיידיים של מטא (docs/marketing-console.md, שלב 4). מטא אינה
+# שולחת JWT; האימות הוא X-Hub-Signature-256 מול META_APP_SECRET, ו-fail-closed
+# (בלי הסוד - 503 לכל POST). ה-GET הוא אימות המנוי מול META_WEBHOOK_VERIFY_TOKEN.
+[functions.ads-leads-webhook]
+verify_jwt = false          # מטא + חתימת X-Hub-Signature-256

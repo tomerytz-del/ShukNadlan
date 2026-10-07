@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { actionCount, MetaClient, MetaError, normalizeAccountId } from "./meta.ts";
+import { actionCount, MetaClient, MetaError, normalizeAccountId } from "../_shared/meta-graph.ts";
 import {
   type Audience,
   type Brief,
@@ -13,6 +13,7 @@ import {
 } from "./copy.ts";
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
+import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -32,6 +33,12 @@ import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "
 //   intel_registry_refresh  ספירת מתווכים לכל עיר מרשם המתווכים (intel.ts)
 //   intel_places_scan       ‏{city_id} — משרדים ב-Google Places, place_id בלבד
 //   intel_places_live       ‏{city_id} — אותם משרדים עם שם ודירוג, לא נשמר
+//   lead_forms     טפסי הלידים של הדף, עם השיוך שלהם (ads_lead_forms)
+//   save_lead_form ‏{form_id, kind, property_id, deal_type, ...} — ושליחת מה שחיכה לו
+//   sync_leads     רשת הביטחון של ads-leads-webhook: הלידים של 48 השעות האחרונות
+//                  לכל טופס משויך, ושליחה חוזרת של new/failed. גם מה-cron.
+//   retry_lead     ‏{meta_lead_id} — שליחה חוזרת של ליד שנכשל
+//   subscribe_page רישום הדף ל-leadgen באפליקציה (‏/{page}/subscribed_apps)
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
@@ -64,6 +71,7 @@ const ADS_TOKEN = Deno.env.get("META_ADS_ACCESS_TOKEN") || "";
 const AD_ACCOUNT = Deno.env.get("META_AD_ACCOUNT_ID") || "";
 const APP_SECRET = Deno.env.get("META_APP_SECRET") || "";
 const PAGE_ID = Deno.env.get("FACEBOOK_PAGE_ID") || "";
+const PAGE_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-sonnet-5";
 const PLACES_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") || "";
@@ -616,6 +624,157 @@ async function actionPlacesLive(sb: SupabaseClient, body: any) {
 }
 
 // ---------------------------------------------------------------------------
+// לידים מטפסי מטא (שלב 4). השליחה עצמה ב-_shared/meta-leads.ts, משותפת
+// ל-ads-leads-webhook. כאן: שיוך טפסים, סנכרון, ושליחה חוזרת.
+// ---------------------------------------------------------------------------
+const FORM_KINDS = ["property", "owner", "buyer", "broker", "ignore"];
+const ROUTE_OPTS = { supabaseUrl, serviceRoleKey };
+
+async function leadsToken(): Promise<string> {
+  return await pageToken(ADS_TOKEN, PAGE_ID, PAGE_TOKEN || ADS_TOKEN);
+}
+
+// ליד שחיכה (טופס שלא שויך) או שנכשל - נשלח שוב. ‏formId מצמצם לטופס אחד.
+async function routePending(sb: SupabaseClient, formId?: string) {
+  let q = sb.from("ads_leads").select("meta_lead_id").in("status", ["new", "failed"]).lt("attempts", 5)
+    .order("received_at", { ascending: true }).limit(100);
+  if (formId) q = q.eq("form_id", formId);
+  const { data } = await q;
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) {
+    const res = await routeLead(sb, ROUTE_OPTS, r.meta_lead_id);
+    out[res.status] = (out[res.status] ?? 0) + 1;
+  }
+  return out;
+}
+
+async function actionLeadForms(sb: SupabaseClient) {
+  if (!PAGE_ID) return json({ error: "page_not_configured" }, 503);
+  const token = await leadsToken();
+  if (!token) return json({ error: "meta_not_configured" }, 503);
+  let forms: any[] = [];
+  try {
+    forms = await new MetaClient(token, APP_SECRET).getAll(`${PAGE_ID}/leadgen_forms`, {
+      fields: "id,name,status,created_time,questions{key,label,type}", limit: 100,
+    });
+  } catch (e) {
+    return metaErrorResponse(e);
+  }
+  const { data: mapped } = await sb.from("ads_lead_forms").select("*");
+  const byId = new Map((mapped ?? []).map((m: any) => [m.form_id, m]));
+  const { data: counts } = await sb.from("ads_leads").select("form_id, status");
+  const tally: Record<string, Record<string, number>> = {};
+  for (const c of counts ?? []) {
+    const k = c.form_id ?? "";
+    tally[k] ??= {};
+    tally[k][c.status] = (tally[k][c.status] ?? 0) + 1;
+  }
+  return json({
+    forms: forms.map((f) => ({
+      id: f.id, name: f.name, status: f.status, created_time: f.created_time,
+      questions: (f.questions ?? []).map((q: any) => ({ key: q.key, label: q.label, type: q.type })),
+      mapping: byId.get(f.id) ?? null,
+      leads: tally[f.id] ?? {},
+    })),
+  });
+}
+
+async function actionSaveLeadForm(sb: SupabaseClient, body: any) {
+  const formId = String(body?.form_id ?? "");
+  if (!/^\d{5,25}$/.test(formId)) return json({ error: "bad_form_id" }, 400);
+  const kind = String(body?.kind ?? "");
+  if (!FORM_KINDS.includes(kind)) return json({ error: "bad_kind" }, 400);
+  const deal = body?.deal_type === "rent" ? "rent" : body?.deal_type === "sale" ? "sale" : null;
+  const propertyId = body?.property_id ? String(body.property_id) : null;
+  if (kind === "property") {
+    if (!propertyId) return json({ error: "property_required" }, 400);
+    const { data: prop } = await sb.from("properties").select("id, status").eq("id", propertyId).maybeSingle();
+    if (!prop) return json({ error: "property_not_found" }, 404);
+    if (prop.status !== "active") return json({ error: "property_not_active" }, 409);
+  }
+  const t = (x: unknown, n = 80) => (typeof x === "string" && x.trim() ? x.trim().slice(0, n) : null);
+  const fieldMap: Record<string, string> = {};
+  for (const [k, v] of Object.entries(body?.field_map ?? {})) {
+    if (["city", "property_type", "budget", "rooms", "consent", "note"].includes(k) && typeof v === "string" && v) {
+      fieldMap[k] = v.slice(0, 100);
+    }
+  }
+  const { error } = await sb.from("ads_lead_forms").upsert({
+    form_id: formId, form_name: t(body?.form_name, 200), kind,
+    property_id: kind === "property" ? propertyId : null,
+    deal_type: deal, default_city: t(body?.default_city), default_property_type: t(body?.default_property_type),
+    field_map: fieldMap, updated_at: new Date().toISOString(),
+  }, { onConflict: "form_id" });
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  // מה שחיכה לשיוך הזה יוצא עכשיו, ולא בעוד שעה.
+  const routed = await routePending(sb, formId);
+  return json({ ok: true, routed });
+}
+
+async function actionSyncLeads(sb: SupabaseClient, caller: Caller, body: any) {
+  const hours = Math.min(Math.max(Number(body?.hours) || 48, 1), 24 * 30);
+  const since = Math.floor(Date.now() / 1000) - hours * 3600;
+  const { data: forms } = await sb.from("ads_lead_forms").select("form_id").neq("kind", "ignore");
+  const summary: Record<string, unknown> = { forms: (forms ?? []).length, fetched: 0 };
+  const token = (forms ?? []).length ? await leadsToken() : "";
+  if ((forms ?? []).length && token) {
+    const meta = new MetaClient(token, APP_SECRET);
+    let fetched = 0;
+    const failed: string[] = [];
+    for (const f of forms ?? []) {
+      try {
+        const leads = await meta.getAll(`${f.form_id}/leads`, {
+          fields: LEAD_FIELDS,
+          filtering: JSON.stringify([{ field: "time_created", operator: "GREATER_THAN", value: since }]),
+          limit: 100,
+        });
+        for (const l of leads) {
+          await storeLead(sb, { ...l, form_id: l.form_id ?? f.form_id }, "sync");
+          fetched++;
+        }
+      } catch (e) {
+        failed.push(f.form_id);
+        summary[`error_${f.form_id}`] = e instanceof MetaError ? e.message : String(e);
+        if (e instanceof MetaError && (e.tokenInvalid || e.rateLimited)) break;
+      }
+    }
+    summary.fetched = fetched;
+    if (failed.length) summary.failed_forms = failed;
+  } else if ((forms ?? []).length) {
+    summary.error = "no_token";
+  }
+  summary.routed = await routePending(sb);
+  await log(sb, caller, {
+    action: "sync_leads", object_type: "lead_form", object_id: null, request: { hours }, response: summary,
+    ok: !summary.failed_forms && !summary.error, error: summary.error ? String(summary.error) : null,
+  });
+  return json({ ok: true, ...summary });
+}
+
+async function actionRetryLead(sb: SupabaseClient, body: any) {
+  const id = String(body?.meta_lead_id ?? "");
+  if (!id) return json({ error: "lead_required" }, 400);
+  // ניסיון ידני מאפס את מונה הניסיונות - מי שלוחץ/ת "שוב" כבר בדק/ה מה נכשל.
+  await sb.from("ads_leads").update({ attempts: 0 }).eq("meta_lead_id", id).in("status", ["failed", "new"]);
+  const r = await routeLead(sb, ROUTE_OPTS, id);
+  return json({ ok: r.status === "routed" || r.status === "broker" || r.status === "skipped", ...r });
+}
+
+async function actionSubscribePage(sb: SupabaseClient, caller: Caller) {
+  if (!PAGE_ID) return json({ error: "page_not_configured" }, 503);
+  const token = await leadsToken();
+  if (!token) return json({ error: "meta_not_configured" }, 503);
+  try {
+    const res = await new MetaClient(token, APP_SECRET).post(`${PAGE_ID}/subscribed_apps`, { subscribed_fields: "leadgen" });
+    await log(sb, caller, { action: "subscribe_page", object_type: "account", object_id: PAGE_ID, response: res, ok: true });
+    return json({ ok: true });
+  } catch (e) {
+    await log(sb, caller, { action: "subscribe_page", object_type: "account", object_id: PAGE_ID, ok: false, error: e instanceof MetaError ? e.message : String(e) });
+    return metaErrorResponse(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
 async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Response> {
   const internal = authorizeInternalCaller(req);
   if (internal.ok) {
@@ -663,7 +822,8 @@ Deno.serve(async (req: Request) => {
   }
   const action = String(body?.action ?? "");
 
-  if (!caller.full && action !== "sync_insights") return json({ error: "forbidden_for_cron" }, 403);
+  // ה-cron מורשה לשני סנכרונים בלבד - שום פעולה שמשנה קמפיין או שולחת ליד ידנית.
+  if (!caller.full && action !== "sync_insights" && action !== "sync_leads") return json({ error: "forbidden_for_cron" }, 403);
 
   // ה-cron יורה רק כש-enabled; הבדיקה כאן מכסה את הפער בין כיבוי לבין
   // הרצה שכבר הייתה בדרך.
@@ -678,6 +838,12 @@ Deno.serve(async (req: Request) => {
   if (action === "intel_registry_refresh") return await actionRegistryRefresh(sb);
   if (action === "intel_places_scan") return await actionPlacesScan(sb, body);
   if (action === "intel_places_live") return await actionPlacesLive(sb, body);
+  // הלידים צריכים טוקן של הדף ולא בהכרח את חשבון המודעות - לפני הבדיקה שלו.
+  if (action === "lead_forms") return await actionLeadForms(sb);
+  if (action === "save_lead_form") return await actionSaveLeadForm(sb, body);
+  if (action === "sync_leads") return await actionSyncLeads(sb, caller, body);
+  if (action === "retry_lead") return await actionRetryLead(sb, body);
+  if (action === "subscribe_page") return await actionSubscribePage(sb, caller);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.

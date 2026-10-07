@@ -2,8 +2,7 @@
 // לקוח Graph API מינימלי לחשבון המודעות — הגרסה ב-Deno של
 // ‎.claude/skills/meta-ads/scripts/meta_client.py‎.
 //
-// למה לא ב-_shared: שינוי ב-_shared פורס מחדש את כל הפונקציות. הקובץ יעבור
-// לשם בשלב 4, כש-ads-leads-webhook תצטרך אותו.
+// משותף ל-ads-admin ול-ads-leads-webhook (שלב 4).
 //
 // ההבדלים מהסקיל, ולמה:
 //   - אין המתנה על rate limit. בסקיל זה sleep של דקה; כאן פונקציית Edge
