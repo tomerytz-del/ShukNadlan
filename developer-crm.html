@@ -9,6 +9,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>אזור הניהול ליזמים וקבלנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -754,7 +756,7 @@ function errText(d){
       ? 'שדות שאינם תקינים: ' + named(d.invalid)
       : 'חסרים שדות חובה: ' + named(d.missing);
   }
-  return ERRORS[d && d.error] || (d && d.detail) || 'משהו השתבש - נסו שוב';
+  return ERRORS[d && d.error] || (d && (d.detail || d.error) ? (window.FriendlyError ? FriendlyError.text(d.detail || d.error) : d.detail || d.error) : 'משהו השתבש - נסו שוב');
 }
 
 function setMsg(id, text, kind){
@@ -893,7 +895,7 @@ el('googleBtn').addEventListener('click', async ()=>{
   if (error){
     btn.disabled = false;
     btn.querySelector('.gl-label').textContent = 'התחברות עם Google';
-    setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message, 'err');
+    setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + (window.FriendlyError ? FriendlyError.text(error) : error), 'err');
   }
 });
 

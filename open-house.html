@@ -1167,7 +1167,7 @@ signupForm.addEventListener('submit', async (e) => {
     done.hidden = false;
   } catch(err){
     msg.dataset.state = 'error';
-    msg.textContent = err.message || 'ההרשמה נכשלה - נסו שוב בעוד רגע';
+    msg.textContent = /[\u0590-\u05FF]/.test(err.message || '') ? err.message : 'ההרשמה נכשלה - בדקו את החיבור לאינטרנט ונסו שוב בעוד רגע';
     btn.disabled = false;
     btn.textContent = label;
   }
