@@ -22799,6 +22799,8 @@ const AGENDA_AUTO_KINDS = [
     sub:'שבוע לפני שהבלעדיות בהסכם חתום נגמרת - לחדש או לסכם עם הלקוח/ה.' },
   { kind:'listing_expiry',     title:'תוקף מודעה שנגמר',
     sub:'שבוע לפני שתוקף ההתקשרות על נכס פעיל נגמר והמודעה יורדת מהמדפים.' },
+  { kind:'showing_feedback',   title:'לחזור ללקוח/ה אחרי סיור',
+    sub:'הלקוח/ה ענה/תה איך היה הסיור - משימה לחזור עם הצעה, או לשלוח נכסים אחרים.' },
 ];
 
 let agendaItems = [];
@@ -22863,7 +22865,7 @@ async function loadAgenda(){
   } else {
     agendaItems = open.data || [];
     agendaDone = done.error ? [] : (done.data || []);
-    await agendaLoadClientFollowup(agendaItems);
+    await agendaLoadClientFollowup(agendaItems.concat(agendaDone));
   }
   agendaAutoOff = (!prefs.error && prefs.data && Array.isArray(prefs.data.auto_off)) ? prefs.data.auto_off : [];
   renderAgenda();
@@ -22876,20 +22878,63 @@ async function loadAgenda(){
    נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תרוקן את היומן. */
 async function agendaLoadClientFollowup(items){
   const ids = items.filter(it => it.client_id && ['meeting','showing','signing'].includes(it.kind)).map(it => it.id);
-  if (!ids.length) return;
+  if (!ids.length){
+    // אין עדיין פגישה עם לקוח/ה - רק בודקים שהעמודה קיימת, בשביל הטופס
+    const probe = await sb.from('agent_agenda_items').select('id, client_notify').limit(1);
+    agendaFollowupReady = !probe.error;
+    return;
+  }
   const { data, error } = await sb.from('agent_agenda_items')
-    .select('id, client_notify, client_response').in('id', ids);
+    .select('id, client_notify, client_response, client_feedback').in('id', ids);
   if (error || !data) return;
+  agendaFollowupReady = true;
   const byId = new Map(data.map(r => [r.id, r]));
   items.forEach(it => {
     const r = byId.get(it.id);
-    if (r){ it.client_notify = r.client_notify; it.client_response = r.client_response; }
+    if (r){ it.client_notify = r.client_notify; it.client_response = r.client_response; it.client_feedback = r.client_feedback; }
   });
 }
+
+// ‏false עד שהעמודות קיימות (המיגרציה רצה): בלעדיהן אין טעם להציע "לשלוח
+// ללקוח/ה", ושמירה עם client_notify הייתה נכשלת.
+let agendaFollowupReady = false;
+const AGENDA_FOLLOWUP_KINDS = ['meeting','showing','signing'];
+
+function agendaClientHasPhone(clientId){
+  const c = clientId ? (clientRows || []).find(x => x.id === clientId) : null;
+  return !!(c && String(c.phone || '').replace(/\D/g, '').length >= 9);
+}
+
+/* התיבה "לשלוח ללקוח/ה" בטופס: רק לפגישה/סיור/חתימה עם לקוח/ה. */
+function syncAgendaClientNotify(){
+  const wrap = document.getElementById('agClientNotifyWrap');
+  if (!wrap) return;
+  const kind = document.getElementById('agKind').value;
+  const clientId = document.getElementById('agClient').value;
+  const show = agendaFollowupReady && AGENDA_FOLLOWUP_KINDS.includes(kind) && !!clientId;
+  wrap.hidden = !show;
+  const box = document.getElementById('agClientNotify');
+  const note = document.getElementById('agClientNotifyNote');
+  const phone = agendaClientHasPhone(clientId);
+  box.disabled = !phone;
+  if (!phone) box.checked = false;
+  note.textContent = phone
+    ? 'הלקוח/ה יקבל/תקבל אישור עכשיו, תזכורת לפני הפגישה עם כפתורי אישור הגעה וביטול, ואחרי סיור - שאלה איך היה. התשובות יגיעו אליך.'
+    : 'אין טלפון בכרטיס הלקוח/ה, ולכן אי אפשר לשלוח.';
+}
+['agKind','agClient'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', syncAgendaClientNotify);
+});
 
 const AGENDA_CLIENT_BADGES = {
   confirmed: '✅ הלקוח/ה אישר/ה הגעה',
   reschedule: '📆 הלקוח/ה ביקש/ה מועד אחר',
+};
+const AGENDA_FEEDBACK_BADGES = {
+  liked: '👍 אהב/ה את הסיור',
+  unsure: '🤔 מתלבט/ת אחרי הסיור',
+  not_for_me: '👎 לא בשבילו/ה',
 };
 
 function renderAgenda(){
@@ -22970,7 +23015,7 @@ function buildAgendaRow(it){
       ${it.source === 'whatsapp' ? '<span class="rm-badge">מוואטסאפ</span>' : ''}
       ${it.google_event_id && it.google_sync_state !== 'error' ? '<span class="rm-badge">ב-Google</span>' : ''}
       ${it.google_sync_state === 'error' ? `<span class="rm-badge" title="${esc(it.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
-      ${it.client_notify ? `<span class="rm-badge">${esc(AGENDA_CLIENT_BADGES[it.client_response] || '📲 הלקוח/ה מקבל/ת תזכורת')}</span>` : ''}
+      ${it.client_notify ? `<span class="rm-badge">${esc(AGENDA_FEEDBACK_BADGES[it.client_feedback] || AGENDA_CLIENT_BADGES[it.client_response] || '📲 הלקוח/ה מקבל/ת תזכורת')}</span>` : ''}
     </div>
     <div class="ag-when">${esc(AGENDA_KIND_LABELS[it.kind] || '')} · ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
     ${meta ? `<p class="rm-body">${esc(meta)}</p>` : ''}
@@ -22992,6 +23037,13 @@ function buildAgendaRow(it){
     if (it.due_at){
       act('⏰ עוד שעה', ()=> agendaPostpone(it, 'hour'));
       act('📆 למחר', ()=> agendaPostpone(it, 'tomorrow'));
+    }
+    if (agendaFollowupReady && !it.client_notify && AGENDA_FOLLOWUP_KINDS.includes(it.kind)
+        && agendaClientHasPhone(it.client_id) && it.due_at && agendaDue(it) > new Date()){
+      act('📲 לשלוח ללקוח/ה', ()=>{
+        if (!confirm('לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, ותזכורת לפני הפגישה עם כפתורי אישור וביטול?')) return;
+        agendaUpdate(it.id, { client_notify:true }, 'האישור יוצא ללקוח/ה בוואטסאפ');
+      });
     }
     act('✏️ עריכה', ()=> openAgendaForm({ item: it }));
     act('ביטול', ()=>{
@@ -23071,6 +23123,8 @@ function openAgendaForm(opts){
   document.getElementById('agRemind').value = rb === null ? ''
     : rb.length === 0 ? 'none'
     : (['0','15','60','1440'].includes(String(rb[0])) ? String(rb[0]) : '');
+  document.getElementById('agClientNotify').checked = it ? !!it.client_notify : true;
+  syncAgendaClientNotify();
   document.getElementById('agSaveBtn').textContent = it ? 'שמירת השינויים' : 'הוספה ליומן';
   document.getElementById('agCancelEdit').hidden = !it;
   document.getElementById('agFeedback').textContent = '';
@@ -23118,6 +23172,12 @@ document.getElementById('agForm').addEventListener('submit', async (e)=>{
     due_at: dueAt,
     remind_before: remind === '' ? null : remind === 'none' ? [] : [Number(remind)],
   };
+  // ‏client_notify נשלח רק כשהתיבה מוצגת: לפני שהמיגרציה רצה העמודה אינה
+  // קיימת, ושדה שאינו קיים מפיל את כל השמירה.
+  if (!document.getElementById('agClientNotifyWrap').hidden){
+    const box = document.getElementById('agClientNotify');
+    payload.client_notify = box.checked && !box.disabled;
+  }
 
   const editId = document.getElementById('agEditId').value;
   const btn = document.getElementById('agSaveBtn');

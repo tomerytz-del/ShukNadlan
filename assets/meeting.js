@@ -4,6 +4,7 @@
    נפתח מהכפתור באישור שגבריאלה שולחת ללקוח/ה כשסוכן/ת קובע/ת איתו/ה פגישה.
    מה יש כאן: מתי ואיפה, הוספה ליומן (Google בקישור, Apple ו-Outlook בקובץ
    ‎.ics‎), ניווט, אישור הגעה / ביטול / בקשת מועד אחר, ודרך לפנות לסוכן/ת.
+   ואחרי סיור: "איך היה?" (אהבתי / מתלבט/ת / לא בשבילי).
 
    כל הנתונים מגיעים מ-meeting-client (‏Edge Function), שמחזירה רק מה שהלקוח/ה
    ממילא יודע/ת - בלי הערות הסוכן/ת. הפרטים: docs/meeting-client-followup.md
@@ -58,8 +59,16 @@
   }
 
   /* ---------- תצוגה ---------- */
+  const FEEDBACK = [
+    ['liked', '👍 אהבתי', '👍 תודה! שמחים שאהבת.'],
+    ['unsure', '🤔 מתלבט/ת', '🤔 תודה! הסוכן/ת יחזור/תחזור אליך לעזור להחליט.'],
+    ['not_for_me', '👎 לא בשבילי', '👎 תודה! הסוכן/ת יחפש/תחפש נכסים שמתאימים יותר.'],
+  ];
+
   function statusBox(m){
     if (m.status === 'canceled') return '<div class="status bad">הפגישה בוטלה.</div>';
+    const fb = FEEDBACK.find(f => f[0] === m.client_feedback);
+    if (fb) return '<div class="status ok">' + esc(fb[2]) + '</div>';
     if (m.status === 'past') return '<div class="status warn">הפגישה כבר עברה.</div>';
     if (m.client_response === 'confirmed') return '<div class="status ok">✅ אישרת הגעה. נתראה!</div>';
     if (m.client_response === 'reschedule') return '<div class="status warn">📆 ביקשת מועד אחר - הסוכן/ת יחזור/תחזור אליך.</div>';
@@ -124,6 +133,17 @@
       </section>`;
     }
 
+    if (m.feedback_open){
+      html += `
+      <section class="card">
+        <h2 class="sec-title">איך היה הסיור?</h2>
+        <div class="grid">
+          ${FEEDBACK.map((f, i) => `<button type="button" class="btn ${f[0] === 'liked' ? 'btn-ok' : 'btn-soft'}${i === 2 ? ' full' : ''}" data-fb="${f[0]}" ${m.client_feedback === f[0] ? 'disabled' : ''}>${esc(f[1])}</button>`).join('')}
+        </div>
+        <p class="note" id="fbNote" role="status"></p>
+      </section>`;
+    }
+
     if (a.phone){
       html += `
       <section class="card">
@@ -138,6 +158,22 @@
 
     app.innerHTML = html;
     app.querySelectorAll('[data-resp]').forEach(btn => btn.addEventListener('click', () => respond(btn.dataset.resp)));
+    app.querySelectorAll('[data-fb]').forEach(btn => btn.addEventListener('click', () => sendFeedback(btn.dataset.fb)));
+  }
+
+  async function sendFeedback(feedback){
+    const note = document.getElementById('fbNote');
+    app.querySelectorAll('[data-fb]').forEach(b => { b.disabled = true; });
+    try {
+      const res = await call('feedback', { feedback });
+      state.meeting.client_feedback = feedback;
+      render();
+      const after = document.getElementById('fbNote');
+      if (after && res.message) after.textContent = res.message;
+    } catch (err) {
+      if (note) note.textContent = err.userMessage || 'משהו השתבש. אפשר לנסות שוב בעוד רגע.';
+      app.querySelectorAll('[data-fb]').forEach(b => { b.disabled = false; });
+    }
   }
 
   async function respond(response){

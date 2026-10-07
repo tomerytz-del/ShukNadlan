@@ -1137,8 +1137,8 @@ const TOOLS: Anthropic.Tool[] = [
         notify_client: {
           type: "boolean",
           description: "פגישה/סיור/חתימה עם client_id: לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, " +
-            "ותזכורת שעה לפני עם כפתורי אישור הגעה/ביטול. ברירת מחדל: כן. false רק כשהסוכן/ת ביקש/ה " +
-            "לא לשלוח ללקוח/ה.",
+            "תזכורת (יום לפני כשרחוק, ושעה לפני) עם כפתורי אישור הגעה/ביטול, ואחרי סיור - שאלה איך היה. " +
+            "ברירת מחדל: כן. false רק כשהסוכן/ת ביקש/ה לא לשלוח ללקוח/ה.",
         },
       },
       required: ["kind", "title"],
@@ -4715,17 +4715,24 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
   }
   // מה הלקוח/ה קיבל/ה וענה/תה על הפגישה. שאילתה נפרדת ולא חלק מ-AGENDA_SELECT:
   // העמודות נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תפיל את היומן.
-  const followups = new Map<string, { notify: boolean; response: string | null }>();
+  const followups = new Map<string, { notify: boolean; response: string | null; feedback: string | null }>();
   const ids = rows.map((r) => r.id).filter(Boolean) as string[];
   if (ids.length) {
     const { data } = await ctx.supabase.from("agent_agenda_items")
-      .select("id, client_notify, client_response").in("id", ids);
-    (data || []).forEach((r) => followups.set(r.id, { notify: !!r.client_notify, response: r.client_response }));
+      .select("id, client_notify, client_response, client_feedback").in("id", ids);
+    (data || []).forEach((r) => followups.set(r.id, {
+      notify: !!r.client_notify, response: r.client_response, feedback: r.client_feedback,
+    }));
   }
   const RESPONSE_TEXT: Record<string, string> = {
     confirmed: "הלקוח/ה אישר/ה הגעה",
     canceled: "הלקוח/ה ביטל/ה",
     reschedule: "הלקוח/ה ביקש/ה מועד אחר",
+  };
+  const FEEDBACK_TEXT: Record<string, string> = {
+    liked: "משוב: אהב/ה את הסיור",
+    unsure: "משוב: מתלבט/ת",
+    not_for_me: "משוב: לא בשבילו/ה",
   };
   const now = Date.now();
   return rows.map((r) => ({
@@ -4741,7 +4748,9 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
     notes: r.notes || undefined,
     automatic: r.source === "system" || undefined,
     client_followup: followups.get(String(r.id))?.notify
-      ? (RESPONSE_TEXT[String(followups.get(String(r.id))?.response)] || "הלקוח/ה מקבל/ת אישור ותזכורת, עוד לא ענה/תה")
+      ? (FEEDBACK_TEXT[String(followups.get(String(r.id))?.feedback)] ||
+        RESPONSE_TEXT[String(followups.get(String(r.id))?.response)] ||
+        "הלקוח/ה מקבל/ת אישור ותזכורת, עוד לא ענה/תה")
       : undefined,
   }));
 }
@@ -4933,10 +4942,11 @@ async function clientFollowupPlan(
   }
   const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
     ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
+  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
   return {
     notify: true,
     note: `ל${client?.full_name || "לקוח/ה"} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
-      "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד.",
+      "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback,
   };
 }
 
@@ -5375,6 +5385,8 @@ const SYSTEM_STATIC: string = (() => {
     "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ: הלקוח/ה מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
       "ותזכורת שעה לפני עם כפתורי אישור הגעה, ביטול ומועד אחר. התשובה מגיעה לסוכן/ת כהתראה. " +
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
+    "- אחרי סיור הלקוח/ה נשאל/ת איך היה, והתשובה פותחת משימה אוטומטית. \"תשלחי לה נכסים דומים\" / " +
+      "\"נכסים אחרים\" (גם ממשימה כזו) = client_matches, ואז הצע/י create_showcase - כמו \"שלח חומר ללקוח\".",
     "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" / " +
       "\"תבטל את הפגישה\" = agenda_update (item_id מ-agenda_list עם query).",
     "- התזכורת יוצאת לבד בזמן - בוואטסאפ ובפעמון בדשבורד. **אל תבטיח/י שתכתוב/י בעצמך**; " +

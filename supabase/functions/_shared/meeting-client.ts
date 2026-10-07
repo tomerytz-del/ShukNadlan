@@ -24,8 +24,11 @@ const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 
 // {{1}} שם פרטי · {{2}} שורה אחת · כפתור URL דינמי (‏meeting?t=…)
 const MEETING_TEMPLATE = Deno.env.get("WHATSAPP_MEETING_TEMPLATE") || "";
-// {{1}} שם פרטי · {{2}} שורה אחת · שלושה כפתורי quick reply: אישור / ביטול / מועד אחר
+// {{1}} שם פרטי · {{2}} שורה אחת · שלושה כפתורי quick reply: אישור / ביטול / מועד אחר.
+// משמשת גם לתזכורת של יום לפני.
 const REMINDER_TEMPLATE = Deno.env.get("WHATSAPP_MEETING_REMINDER_TEMPLATE") || "";
+// {{1}} שם פרטי · {{2}} שורה אחת · שלושה כפתורי quick reply: אהבתי / מתלבט/ת / לא בשבילי
+const FEEDBACK_TEMPLATE = Deno.env.get("WHATSAPP_MEETING_FEEDBACK_TEMPLATE") || "";
 const TEMPLATE_LANG = Deno.env.get("WHATSAPP_MEETING_TEMPLATE_LANG") || "he";
 
 export const SITE = "https://shuknadlan.co.il";
@@ -35,23 +38,38 @@ export const IL_TZ = "Asia/Jerusalem";
 export const WA_OPTED_OUT = 131050;
 
 export type MeetingResponse = "confirmed" | "canceled" | "reschedule";
+export type MeetingFeedback = "liked" | "unsure" | "not_for_me";
 
-// הכפתורים בתזכורת. בתבנית הכותרות קבועות ב-Meta, ורק ה-payload נשלח מכאן;
-// בטקסט חופשי (בתוך חלון 24 השעות) הן נשלחות מכאן - עד 20 תווים.
-export const REMINDER_BUTTONS: Array<{ code: string; response: MeetingResponse; title: string }> = [
-  { code: "c", response: "confirmed", title: "✅ אישור הגעה" },
-  { code: "x", response: "canceled", title: "❌ ביטול הפגישה" },
-  { code: "r", response: "reschedule", title: "📆 לשנות מועד" },
+type Button = { code: string; value: string; title: string };
+
+// הכפתורים. בתבנית הכותרות קבועות ב-Meta, ורק ה-payload נשלח מכאן; בטקסט
+// חופשי (בתוך חלון 24 השעות) הן נשלחות מכאן - עד 20 תווים, ולכן נמדדות.
+// הסדר הוא הסדר בתבנית: הקוד שולח payload לפי האינדקס.
+export const REMINDER_BUTTONS: Button[] = [
+  { code: "c", value: "confirmed", title: "✅ אישור הגעה" },
+  { code: "x", value: "canceled", title: "❌ ביטול הפגישה" },
+  { code: "r", value: "reschedule", title: "📆 לשנות מועד" },
+];
+export const FEEDBACK_BUTTONS: Button[] = [
+  { code: "l", value: "liked", title: "👍 אהבתי" },
+  { code: "u", value: "unsure", title: "🤔 מתלבט/ת" },
+  { code: "n", value: "not_for_me", title: "👎 לא בשבילי" },
 ];
 
-const PAYLOAD_RE = /^mtg:([cxr]):([0-9a-f]{48})$/;
+const PAYLOAD_RE = /^mtg:([cxrlun]):([0-9a-f]{48})$/;
 
-/** ‏`mtg:c:<token>` → התשובה והטוקן. כל דבר אחר → null (ההודעה ממשיכה לבוט). */
-export function parseMeetingPayload(value: unknown): { response: MeetingResponse; token: string } | null {
+export type MeetingPayload =
+  | { type: "response"; response: MeetingResponse; token: string }
+  | { type: "feedback"; feedback: MeetingFeedback; token: string };
+
+/** ‏`mtg:c:<token>` → מה נלחץ והטוקן. כל דבר אחר → null (ההודעה ממשיכה לבוט). */
+export function parseMeetingPayload(value: unknown): MeetingPayload | null {
   const m = typeof value === "string" ? value.trim().match(PAYLOAD_RE) : null;
   if (!m) return null;
-  const b = REMINDER_BUTTONS.find((x) => x.code === m[1]);
-  return b ? { response: b.response, token: m[2] } : null;
+  const r = REMINDER_BUTTONS.find((x) => x.code === m[1]);
+  if (r) return { type: "response", response: r.value as MeetingResponse, token: m[2] };
+  const f = FEEDBACK_BUTTONS.find((x) => x.code === m[1]);
+  return f ? { type: "feedback", feedback: f.value as MeetingFeedback, token: m[2] } : null;
 }
 
 export function meetingPayload(code: string, token: string): string {
@@ -72,6 +90,9 @@ export function meetingTemplateConfigured(): boolean {
 }
 export function reminderTemplateConfigured(): boolean {
   return !!REMINDER_TEMPLATE;
+}
+export function feedbackTemplateConfigured(): boolean {
+  return !!FEEDBACK_TEMPLATE;
 }
 
 /** אותה נרמול של phoneE164 ב-_shared/projects.ts. */
@@ -159,14 +180,21 @@ export function sendMeetingTemplate(to: string, name: string, line: string, toke
   });
 }
 
-/** התזכורת: שורה אחת ושלושה כפתורי quick reply, שה-payload שלהם נושא את הטוקן. */
-export function sendReminderTemplate(to: string, name: string, line: string, token: string) {
+/** תזכורת או משוב: שורה אחת ושלושה כפתורי quick reply, שה-payload שלהם נושא את הטוקן. */
+export function sendButtonsTemplate(
+  which: "reminder" | "feedback",
+  to: string,
+  name: string,
+  line: string,
+  token: string,
+) {
+  const buttons = which === "reminder" ? REMINDER_BUTTONS : FEEDBACK_BUTTONS;
   return post({
     messaging_product: "whatsapp",
     to,
     type: "template",
     template: {
-      name: REMINDER_TEMPLATE,
+      name: which === "reminder" ? REMINDER_TEMPLATE : FEEDBACK_TEMPLATE,
       language: { code: TEMPLATE_LANG },
       components: [
         {
@@ -176,7 +204,7 @@ export function sendReminderTemplate(to: string, name: string, line: string, tok
             { type: "text", text: oneLine(line, 600) },
           ],
         },
-        ...REMINDER_BUTTONS.map((b, i) => ({
+        ...buttons.map((b, i) => ({
           type: "button",
           sub_type: "quick_reply",
           index: String(i),
@@ -197,8 +225,9 @@ export function sendText(to: string, body: string) {
   });
 }
 
-/** התזכורת בתוך חלון 24 השעות: אותם שלושה כפתורים, כהודעה אינטראקטיבית. */
-export function sendReminderButtons(to: string, body: string, token: string) {
+/** תזכורת או משוב בתוך חלון 24 השעות: אותם שלושה כפתורים, כהודעה אינטראקטיבית. */
+export function sendButtonsText(which: "reminder" | "feedback", to: string, body: string, token: string) {
+  const buttons = which === "reminder" ? REMINDER_BUTTONS : FEEDBACK_BUTTONS;
   return post({
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -208,7 +237,7 @@ export function sendReminderButtons(to: string, body: string, token: string) {
       type: "button",
       body: { text: noLongDash(body).slice(0, 1000) },
       action: {
-        buttons: REMINDER_BUTTONS.map((b) => ({
+        buttons: buttons.map((b) => ({
           type: "reply",
           reply: { id: meetingPayload(b.code, token), title: b.title },
         })),
@@ -303,5 +332,47 @@ export async function respondToMeeting(
     : response === "canceled"
     ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש - ${agentName} ישמח/תשמח לתאם.${contact}`
     : `עדכנתי את ${agentName} שצריך מועד אחר, והוא/היא יחזור/תחזור אליך לתיאום.${contact}`;
+  return { ok: true, already: !!res.already, reply };
+}
+
+/**
+ * משוב אחרי סיור (כפתור בוואטסאפ או בדף הפגישה): נרשם ב-
+ * `agent_agenda_client_feedback`, שמתריעה לסוכן/ת ופותחת לו/ה משימה.
+ */
+export async function feedbackToMeeting(
+  supabase: SupabaseClient,
+  token: string,
+  feedback: MeetingFeedback,
+): Promise<{ ok: boolean; error?: string; already?: boolean; reply: string }> {
+  const { data, error } = await supabase.rpc("agent_agenda_client_feedback", {
+    p_token: token,
+    p_feedback: feedback,
+  });
+  if (error) {
+    console.error("meeting feedback failed", error);
+    return { ok: false, error: "db_error", reply: "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע." };
+  }
+  const res = (data || {}) as Record<string, unknown>;
+  if (res.error === "not_yet") {
+    return { ok: false, error: "not_yet", reply: "נשמח לשמוע איך היה - אחרי הסיור 🙂" };
+  }
+  if (res.error) {
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות ישירות לסוכן/ת." };
+  }
+  if (!res.already) await kickNotificationPush();
+
+  const { data: item } = await supabase
+    .from("agent_agenda_items").select("agent_id").eq("client_token", token).maybeSingle();
+  let agentName = "הסוכן/ת";
+  if (item?.agent_id) {
+    const { data: agent } = await supabase
+      .from("agency_members").select("display_name").eq("id", item.agent_id).maybeSingle();
+    agentName = agent?.display_name || agentName;
+  }
+  const reply = feedback === "liked"
+    ? `איזה כיף! 🙌 עדכנתי את ${agentName}, שיחזור/תחזור אליך עם ההמשך.`
+    : feedback === "unsure"
+    ? `תודה על הכנות 🙏 עדכנתי את ${agentName}, שיחזור/תחזור אליך לשמוע מה מתלבטים ולעזור להחליט.`
+    : `תודה, זה עוזר! עדכנתי את ${agentName}, שיחפש/תחפש בשבילך נכסים שמתאימים יותר.`;
   return { ok: true, already: !!res.already, reply };
 }

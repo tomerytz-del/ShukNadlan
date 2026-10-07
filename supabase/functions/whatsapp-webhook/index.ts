@@ -21,7 +21,7 @@ import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
-import { parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
+import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
   type CatalogLink,
@@ -898,7 +898,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
   markReadAndTyping(msg.id);
 
-  // --- תשובה של לקוח/ה לתזכורת על פגישה (אישור / ביטול / מועד אחר) ---
+  // --- תשובה של לקוח/ה לתזכורת על פגישה (אישור / ביטול / מועד אחר),
+  //     או משוב אחרי סיור (אהבתי / מתלבט/ת / לא בשבילי) ---
   // לפני זיהוי הסוכן/ת ולפני הבוט הציבורי: השולח/ת הוא/היא לקוח/ה של
   // סוכן/ת, וה-payload ‏(`mtg:<c|x|r>:<token>`) הוא כל מה שצריך. בתבנית הוא
   // מגיע ב-button.payload, ובהודעת כפתורים רגילה ב-button_reply.id.
@@ -909,7 +910,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       : null,
   );
   if (meetingBtn) {
-    const res = await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response);
+    const res = meetingBtn.type === "response"
+      ? await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response)
+      : await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
     await reply(from, res.reply, null);
     return;
   }

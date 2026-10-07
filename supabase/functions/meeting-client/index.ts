@@ -2,9 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
-  firstName, inWindow, meetingNoun, meetingTemplateConfigured, meetingWhenText, type MeetingResponse,
-  phoneE164, reminderTemplateConfigured, respondToMeeting, sendMeetingTemplate, sendReminderButtons,
-  sendReminderTemplate, sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
+  feedbackTemplateConfigured, feedbackToMeeting, firstName, inWindow, kickNotificationPush, type MeetingFeedback,
+  meetingNoun, meetingTemplateConfigured, meetingWhenText, type MeetingResponse, phoneE164,
+  reminderTemplateConfigured, respondToMeeting, sendButtonsTemplate, sendButtonsText, sendMeetingTemplate,
+  sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
 } from "../_shared/meeting-client.ts";
 
 // ============================================================================
@@ -16,7 +17,7 @@ import {
 //   ‏· **ה-cron** (‏`meeting-client-dispatch`, כל דקה כשיש מה לשלוח) —
 //     ‏`dispatch`, מאומת ב-`authorizeInternalCaller`.
 //   ‏· **הלקוח/ה** — אין חשבון. הטוקן מהקישור (‏`t`) הוא המפתח לפגישה אחת:
-//     ‏`view` ו-`respond` (‏POST מהדף), וקובץ היומן (‏GET ‎?t=…&ics=1‎).
+//     ‏`view`, ‏`respond` ו-`feedback` (‏POST מהדף), וקובץ היומן (‏GET ‎?t=…&ics=1‎).
 //
 // הדף מקבל רק מה שהלקוח/ה ממילא יודע/ת: מתי, איפה, עם מי. לא הערות
 // הסוכן/ת (‏`notes` נכתבות לעצמו/ה), לא שם הלקוח/ה המלא ולא נכס.
@@ -29,6 +30,7 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TOKEN_RE = /^[0-9a-f]{48}$/;
 const BATCH = 30;
 const RESPONSES: MeetingResponse[] = ["confirmed", "canceled", "reschedule"];
+const FEEDBACKS: MeetingFeedback[] = ["liked", "unsure", "not_for_me"];
 
 function corsHeaders(contentType = "application/json") {
   return {
@@ -83,6 +85,14 @@ Deno.serve(async (req: Request) => {
     if (!res.ok) return json({ error: res.error, message: res.reply }, 409);
     return json({ ok: true, already: res.already, message: res.reply });
   }
+  if (action === "feedback") {
+    const feedback = String(body.feedback ?? "") as MeetingFeedback;
+    if (!FEEDBACKS.includes(feedback)) return json({ error: "bad_feedback" }, 400);
+    const res = await feedbackToMeeting(supabase, token, feedback);
+    if (!res.ok && res.error === "db_error") return json({ error: "db_error" }, 500);
+    if (!res.ok) return json({ error: res.error, message: res.reply }, 409);
+    return json({ ok: true, already: res.already, message: res.reply });
+  }
   return json({ error: "unknown_action" }, 400);
 });
 
@@ -92,7 +102,7 @@ Deno.serve(async (req: Request) => {
 async function loadMeeting(supabase: SupabaseClient, token: string): Promise<Row | null | "error"> {
   const { data: item, error } = await supabase
     .from("agent_agenda_items")
-    .select("id, kind, title, due_at, ends_at, location, status, client_notify, client_response, client_id, agent_id, updated_at")
+    .select("id, kind, title, due_at, ends_at, location, status, client_notify, client_response, client_feedback, client_id, agent_id, updated_at")
     .eq("client_token", token)
     .maybeSingle();
   if (error) return "error";
@@ -128,6 +138,10 @@ async function handleView(supabase: SupabaseClient, token: string) {
       location: item.location,
       status: item.status === "canceled" ? "canceled" : past ? "past" : item.status === "open" ? "open" : "closed",
       client_response: item.client_response,
+      // משוב: רק אחרי סיור שהתקיים (לא בוטל)
+      feedback_open: item.kind === "showing" && item.status !== "canceled" && !!item.due_at &&
+        Date.parse(item.due_at) < Date.now() && Date.parse(item.due_at) > Date.now() - 14 * 864e5,
+      client_feedback: item.client_feedback,
     },
     client_first_name: firstName(client.full_name),
     agent: {
@@ -230,11 +244,18 @@ async function handleDispatch(supabase: SupabaseClient) {
   const { data: batch, error } = await supabase.rpc("agent_agenda_client_claim", { p_limit: BATCH });
   if (error) return json({ error: "db_error", detail: error.message }, 500);
   const results: Record<string, number> = {};
+  let alerts = 0;
   for (const row of (batch || []) as Row[]) {
+    // ‏noreply כבר טופלה במסד (התראה לסוכן/ת) - כאן רק מעירים את המשלוח
+    if (row.kind === "noreply") {
+      alerts++;
+      continue;
+    }
     const status = await sendOne(supabase, row);
     results[status] = (results[status] ?? 0) + 1;
   }
-  return json({ ok: true, processed: (batch || []).length, results });
+  if (alerts) await kickNotificationPush();
+  return json({ ok: true, processed: (batch || []).length, results, noreply_alerts: alerts });
 }
 
 function lineFor(row: Row): string {
@@ -252,6 +273,12 @@ function lineFor(row: Row): string {
     case "cancel":
       return `ה${noun} עם ${withWho} שנקבעה ל${when} בוטלה. לתיאום מועד חדש אפשר לפנות ל${agent}` +
         (phone ? ` ב-wa.me/${phone}.` : ".");
+    case "reminder_day":
+      return `תזכורת: מחר יש לך ${noun} עם ${withWho}, ${when}${where}. נשמח לדעת שזה בתוקף.`;
+    case "feedback": {
+      const at = row.location ? ` ב${row.location}` : "";
+      return `איך היה ה${noun}${at}? נשמח לשמוע - זה עוזר ל${agent} להתאים לך את ההמשך.`;
+    }
     default: {
       const time = new Date(row.due_at).toLocaleTimeString("he-IL", { timeZone: IL_TZ, hour: "2-digit", minute: "2-digit" });
       return `תזכורת: ${noun} עם ${withWho} היום בשעה ${time}${where}. נשמח לדעת שזה בתוקף.`;
@@ -275,10 +302,19 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
   if (!to) return await done("no_phone", null, "אין ללקוח/ה מספר טלפון תקין בכרטיס");
   if (!waConfigured()) return await done("failed", null, "WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID לא מוגדרים");
 
-  const isReminder = row.kind === "reminder";
+  // שלוש צורות: אישור/עדכון/ביטול (כפתור לדף), תזכורת (אישור/ביטול/מועד אחר), משוב
+  const buttons: "reminder" | "feedback" | null =
+    row.kind === "reminder" || row.kind === "reminder_day" ? "reminder"
+    : row.kind === "feedback" ? "feedback"
+    : null;
   const name = firstName(row.client_name);
   const line = lineFor(row);
-  const templateOk = isReminder ? reminderTemplateConfigured() : meetingTemplateConfigured();
+  const templateOk = buttons === "reminder" ? reminderTemplateConfigured()
+    : buttons === "feedback" ? feedbackTemplateConfigured()
+    : meetingTemplateConfigured();
+  const templateEnv = buttons === "reminder" ? "WHATSAPP_MEETING_REMINDER_TEMPLATE"
+    : buttons === "feedback" ? "WHATSAPP_MEETING_FEEDBACK_TEMPLATE"
+    : "WHATSAPP_MEETING_TEMPLATE";
 
   // ערוץ: טקסט חופשי כשהלקוח/ה בתוך חלון 24 השעות (הוא חינמי ומאפשר
   // כפתורים), ואחרת תבנית. בלי שניהם - לא נשלח כלום, וזה נרשם.
@@ -286,27 +322,27 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
   if (!mode && templateOk) mode = "template";
   if (!mode) {
     return await done("no_channel", null,
-      `${isReminder ? "WHATSAPP_MEETING_REMINDER_TEMPLATE" : "WHATSAPP_MEETING_TEMPLATE"} לא מוגדר, ` +
+      `${templateEnv} לא מוגדר, ` +
         "והלקוח/ה לא כתב/ה למספר ב-24 השעות האחרונות");
   }
 
   const link = `${SITE}/meeting?t=${row.token}`;
   const text = `שלום ${name || ""}`.trim() + ",\n" + line +
-    (row.kind === "cancel" || isReminder ? "" : `\n\nלפרטים ולהוספה ליומן: ${link}`);
+    (row.kind === "cancel" || buttons ? "" : `\n\nלפרטים ולהוספה ליומן: ${link}`);
 
   try {
     let wamid: string | null;
     if (mode === "template") {
-      wamid = isReminder
-        ? await sendReminderTemplate(to, name, line, row.token)
+      wamid = buttons
+        ? await sendButtonsTemplate(buttons, to, name, line, row.token)
         : await sendMeetingTemplate(to, name, line, row.token);
     } else {
-      wamid = isReminder ? await sendReminderButtons(to, text, row.token) : await sendText(to, text);
+      wamid = buttons ? await sendButtonsText(buttons, to, text, row.token) : await sendText(to, text);
     }
     // כל הודעה יוצאת נרשמת ביומן - מעקב מסירה (docs/whatsapp-setup.md)
     await supabase.from("whatsapp_messages").insert({
       wa_message_id: wamid, direction: "out", wa_phone: to,
-      msg_type: mode === "template" ? "template" : isReminder ? "interactive" : "text",
+      msg_type: mode === "template" ? "template" : buttons ? "interactive" : "text",
       body: (mode === "template" ? line : text).slice(0, 2000),
       status: wamid ? "sent" : null,
     });
