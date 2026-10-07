@@ -94,7 +94,7 @@ jobs:
           echo "people=$PEOPLE" >> "$GITHUB_OUTPUT"
           echo "cross=$CROSS"   >> "$GITHUB_OUTPUT"
 
-          if [ "$WEEK" -ge 300 ] || [ "$CROSS" -gt 0 ]; then
+          if [ "$WEEK" -ge 1000 ] || [ "$CROSS" -gt 0 ]; then
             echo "alert=yes" >> "$GITHUB_OUTPUT"
           else
             echo "alert=no"  >> "$GITHUB_OUTPUT"
@@ -110,7 +110,7 @@ jobs:
             echo "| אנשים שונים בחודש | $PEOPLE |"
             echo "| תקלות חוצות-ענפים | $CROSS |"
             echo ""
-            echo "הסף למספר שני: 300 בשבוע, או תקלה אחת חוצת-ענפים."
+            echo "הסף למספר שני: 1,000 בשבוע, או תקלה אחת חוצת-ענפים."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: פתיחת Issue כשהסף נחצה
@@ -136,7 +136,7 @@ jobs:
           | אנשים שונים בחודש | $PEOPLE |
           | תקלות חוצות-ענפים | $CROSS |
 
-          הסף: **300 הודעות בשבוע**, או **תקלה אחת** שבה סוכן/ת קיבל/ה תשובה
+          הסף: **1,000 הודעות בשבוע**, או **תקלה אחת** שבה סוכן/ת קיבל/ה תשובה
           של הבוט הציבורי. \`תקלות חוצות-ענפים > 0\` פירושו שזה כבר קרה.
 
           **מה צריך לעשות**
