@@ -22863,12 +22863,34 @@ async function loadAgenda(){
   } else {
     agendaItems = open.data || [];
     agendaDone = done.error ? [] : (done.data || []);
+    await agendaLoadClientFollowup(agendaItems);
   }
   agendaAutoOff = (!prefs.error && prefs.data && Array.isArray(prefs.data.auto_off)) ? prefs.data.auto_off : [];
   renderAgenda();
   renderAgendaAuto();
   loadGcal().catch(err => console.warn('טעינת חיבור יומן Google נכשלה:', err));
 }
+
+/* פולואפ ללקוח/ה על פגישה (docs/meeting-client-followup.md): האם הלקוח/ה
+   מקבל/ת אישור ותזכורת, ומה ענה/תה. שאילתה נפרדת ולא חלק מ-cols: העמודות
+   נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תרוקן את היומן. */
+async function agendaLoadClientFollowup(items){
+  const ids = items.filter(it => it.client_id && ['meeting','showing','signing'].includes(it.kind)).map(it => it.id);
+  if (!ids.length) return;
+  const { data, error } = await sb.from('agent_agenda_items')
+    .select('id, client_notify, client_response').in('id', ids);
+  if (error || !data) return;
+  const byId = new Map(data.map(r => [r.id, r]));
+  items.forEach(it => {
+    const r = byId.get(it.id);
+    if (r){ it.client_notify = r.client_notify; it.client_response = r.client_response; }
+  });
+}
+
+const AGENDA_CLIENT_BADGES = {
+  confirmed: '✅ הלקוח/ה אישר/ה הגעה',
+  reschedule: '📆 הלקוח/ה ביקש/ה מועד אחר',
+};
 
 function renderAgenda(){
   const listEl = document.getElementById('agList');
@@ -22948,6 +22970,7 @@ function buildAgendaRow(it){
       ${it.source === 'whatsapp' ? '<span class="rm-badge">מוואטסאפ</span>' : ''}
       ${it.google_event_id && it.google_sync_state !== 'error' ? '<span class="rm-badge">ב-Google</span>' : ''}
       ${it.google_sync_state === 'error' ? `<span class="rm-badge" title="${esc(it.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
+      ${it.client_notify ? `<span class="rm-badge">${esc(AGENDA_CLIENT_BADGES[it.client_response] || '📲 הלקוח/ה מקבל/ת תזכורת')}</span>` : ''}
     </div>
     <div class="ag-when">${esc(AGENDA_KIND_LABELS[it.kind] || '')} · ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
     ${meta ? `<p class="rm-body">${esc(meta)}</p>` : ''}
@@ -22972,7 +22995,8 @@ function buildAgendaRow(it){
     }
     act('✏️ עריכה', ()=> openAgendaForm({ item: it }));
     act('ביטול', ()=>{
-      if (!confirm('לבטל את "' + it.title + '"? התזכורות עליו לא יישלחו.')) return;
+      if (!confirm('לבטל את "' + it.title + '"? התזכורות עליו לא יישלחו.'
+        + (it.client_notify ? ' הלקוח/ה יקבל/תקבל הודעה בוואטסאפ שהפגישה בוטלה.' : ''))) return;
       agendaUpdate(it.id, { status:'canceled' }, 'בוטל');
     }, 'is-danger');
   } else {

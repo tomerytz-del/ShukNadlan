@@ -21,6 +21,7 @@ import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import { parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
   type CatalogLink,
@@ -896,6 +897,22 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
   markReadAndTyping(msg.id);
+
+  // --- תשובה של לקוח/ה לתזכורת על פגישה (אישור / ביטול / מועד אחר) ---
+  // לפני זיהוי הסוכן/ת ולפני הבוט הציבורי: השולח/ת הוא/היא לקוח/ה של
+  // סוכן/ת, וה-payload ‏(`mtg:<c|x|r>:<token>`) הוא כל מה שצריך. בתבנית הוא
+  // מגיע ב-button.payload, ובהודעת כפתורים רגילה ב-button_reply.id.
+  // ‏docs/meeting-client-followup.md
+  const meetingBtn = parseMeetingPayload(
+    msg.type === "button" ? msg.button?.payload
+      : msg.type === "interactive" ? msg.interactive?.button_reply?.id
+      : null,
+  );
+  if (meetingBtn) {
+    const res = await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response);
+    await reply(from, res.reply, null);
+    return;
+  }
 
   // --- אימות חותם/ת על הסכם ("אימות חתימה 482193") ---
   // לפני זיהוי הסוכן/ת: השולח/ת הוא/היא לקוח/ה, ובלי זה היה/הייתה מקבל/ת

@@ -103,6 +103,8 @@ PRIVATE = {
     "review-request",
     # ‏המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
     "showcase",
+    # ‏דף הפגישה ללקוח/ה - קישור עם טוקן (docs/meeting-client-followup.md)
+    "meeting",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
