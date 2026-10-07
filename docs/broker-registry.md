@@ -207,7 +207,7 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 ‏`submit` חייב להיות פתוח (`verify_jwt=false`): מי שנחסם/ה בטופס פתיחת המשרד
 עוד אין לו/ה חשבון. לכן:
 
-1. מספר רישיון בן 3–8 ספרות בלבד.
+1. מספר רישיון בן 3–9 ספרות בלבד.
 2. אימייל תקין ושם שאינו ריק.
 3. סוג הקובץ מרשימה סגורה — ונאכף פעמיים: בפונקציה, ושוב ב-`allowed_mime_types`
    של הדלי, כך שהצהרת MIME שקרית נדחית גם היא.
@@ -335,6 +335,13 @@ GET data.gov.il/api/3/action/datastore_search?resource_id=<id>&filters={"<שדה
 3. מצאו את ה-`resource_id` הנוכחי בדף המאגר, עדכנו את ה-Secret, ורוקנו את
    המטמון: `delete from broker_registry_cache where status = 'not_found';`
 4. הדליקו בחזרה.
+
+**מספר רישיון אמיתי נדחה כ"לא נמצא" בלי שאלה למאגר.** בדקו את הטווח: מספר
+רישיון יכול להיות בן 9 ספרות (‏312109848), והטווח היה 3–8 עד אוקטובר 2026.
+הטווח (`\d{3,9}`) מופיע בחמישה מקומות - `broker-registry.ts`, ‏`broker-license-lookup`,
+‏`broker-license-appeal` ושני מסלולים ב-`join-agency` - ובשתי הודעות ב-`assets/crm.js`.
+דחיית פורמט (`reason: "bad_format"`) **אינה נשמרת במטמון**, כי היא אינה
+תשובה של המאגר. כרטיס שכבר נכתב `not_found` מתוקן בשמירה חוזרת של המספר.
 
 **אף אחד לא נחסם, גם כשהמספר שגוי.** בדקו ש-`broker_registry_enabled` הוא 1,
 ושהתשובות אינן `unverified` — האחרון אומר שלא הצלחנו לשאול בכלל, וזו תקלת רשת
