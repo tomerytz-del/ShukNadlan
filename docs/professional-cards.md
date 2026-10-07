@@ -416,9 +416,9 @@ billing-renew → claim_due_professional_renewals
 
 ### מה עדיין לא נבנה
 
-* **מנוי מתחדש לסוכנים/ות.** אין להם/ן היום רכישת מסלול בכלל — היא נסגרה
-  בכוונה (`subscription-purchase` מחזירה 410, `docs/wallet-payments.md`).
-  `billing_subscriptions.kind` מוכן לסוג נוסף, אבל זו החלטה עסקית ולא טכנית.
+* ~~מנוי מתחדש לסוכנים/ות~~ - **נבנה ב-`20270307090000`** על אותה תשתית
+  (`kind = 'tier'`, `claim_due_tier_renewals`, אותו `billing-renew` ואותו
+  מתג). `docs/pricing-and-tiers.md`, "מנוי בתשלום".
 * **תגית "מתחדש" ברשימת בעלי המקצוע ב-CRM** למנהל/ת הפלטפורמה.
 
 ## הסליקה
