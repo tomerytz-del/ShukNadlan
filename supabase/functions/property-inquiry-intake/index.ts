@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { normalizeSource } from "../_shared/lead-routing.ts";
 
 // מודול 1 (המנגנון המקורי) — פניית קונה/שוכר על נכס קיים.
 // שונה מ-owner-lead-intake בנקודה אחת חשובה: אין כאן מנגנון התאמה/רוטציה
@@ -35,6 +36,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const { property_id, name, phone, message } = body;
+  // מקור מפורש רק מהאוצר הסגור של המסלולים (‏_shared/lead-routing.ts). בלעדיו
+  // ‏leads.source נשאר null ובקרת הלידים גוזרת property_page_inquiry מסוג
+  // הליד - כמו היום. ליד מטופס של מטא (ads-leads-webhook) נושא
+  // meta_ads_property_form, ובלי זה היה נספר כפנייה מדף הנכס.
+  const source = normalizeSource(body?.source, "");
   if (!property_id || !name || !phone) {
     return json({ error: "missing_fields", required: ["property_id", "name", "phone"] }, 400);
   }
@@ -68,6 +74,7 @@ Deno.serve(async (req: Request) => {
       city: property.city,
       property_type: property.property_type,
     };
+    if (source) insertPayload.source = source;
 
     if (autoUnlock) {
       insertPayload.status = "unlocked";
