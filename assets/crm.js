@@ -24469,15 +24469,18 @@ function renderAdsFatigue(host, rows, range){
 
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
-  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
+  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabIntel', 'adsPaneIntel'],
+   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
     document.getElementById(p).hidden = !on;
   });
   if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); }
+  if (id === 'adsTabIntel') loadIntelReport();
+  if (id === 'adsTabKw') loadKeywordReport();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{
@@ -24776,6 +24779,252 @@ async function adsLoadDefaults(){
     }
   }
 }
+
+/* ---------- מודיעין שווקים ----------
+   לכל עיר בשוק: מתווכים ברשם (ספירה), משרדי תיווך בגוגל (ספירה), ומה כבר
+   בפלטפורמה. החדירה = מתווכים בפלטפורמה חלקי מתווכים ברשם - קירוב, כי
+   העיר ברשם היא עיר המגורים ולא מקום העבודה. "רשימה" מושכת את המשרדים חי
+   מגוגל ולא שומרת אותם (תנאי השימוש), ולכן כל לחיצה היא קריאה. */
+let intelMarket = '';
+let intelBusy = false;
+
+function intelRenderMarkets(){
+  const box = document.getElementById('intelMarkets');
+  if (!box || box.dataset.ready) return;
+  box.dataset.ready = '1';
+  const add = (slug, label) => {
+    const b = admEl('button', slug === intelMarket ? 'is-on' : null, label);
+    b.type = 'button'; b.dataset.market = slug;
+    box.appendChild(b);
+  };
+  add('', 'כל השווקים');
+  marketList().forEach(m => add(m.slug, m.label));
+  box.addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-market]');
+    if (!b) return;
+    intelMarket = b.dataset.market;
+    box.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
+    loadIntelReport();
+  });
+}
+
+async function loadIntelReport(){
+  const host = document.getElementById('intelReport');
+  if (!host || intelBusy) return;
+  intelRenderMarkets();
+  intelBusy = true;
+  host.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data, error } = await sb.rpc('platform_market_intel', { p_market: intelMarket || null });
+  intelBusy = false;
+  host.innerHTML = '';
+  if (error){
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270307090000_market_intel.sql.'
+      : 'שגיאה בטעינת המודיעין: ' + error.message));
+    dashPanelsMeasure();
+    return;
+  }
+  const rows = (data && data.cities) || [];
+  const stamp = document.getElementById('intelStamp');
+  if (stamp) stamp.textContent = data && data.registry_refreshed_at
+    ? 'הרשם עודכן ' + new Date(data.registry_refreshed_at).toLocaleDateString('he-IL')
+    : 'הרשם לא נספר עדיין - "רענון מהרשם"';
+  if (!rows.length){ host.appendChild(admEl('div', 'empty-state', 'אין ערים משויכות לשוק הזה.')); dashPanelsMeasure(); return; }
+
+  const sum = k => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+  const tiles = admEl('div', 'adm-tiles');
+  const reg = sum('registry_brokers'), agents = sum('platform_agents');
+  tiles.appendChild(admTile('מתווכים ברשם', admInt(reg), { wine: true, note: 'לפי עיר מגורים' }));
+  tiles.appendChild(admTile('משרדים בגוגל', admInt(sum('google_offices')) + (rows.some(r => r.google_capped) ? ' ומעלה' : ''),
+    { note: rows.filter(r => r.scanned_at).length + ' מתוך ' + rows.length + ' ערים נסרקו' }));
+  tiles.appendChild(admTile('בפלטפורמה', admInt(agents) + ' מתווכים', { note: admInt(sum('platform_agencies')) + ' משרדים' }));
+  tiles.appendChild(admTile('חדירה', reg ? Math.round(agents / reg * 1000) / 10 + '%' : '-', { note: 'מתווכים בפלטפורמה מתוך הרשם' }));
+  host.appendChild(tiles);
+
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['עיר', 'ברשם', 'בגוגל', 'משרדים אצלנו', 'מתווכים אצלנו', 'חדירה', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  rows.forEach(r => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, r.name));
+    tr.appendChild(admEl('td', 'num', r.registry_brokers != null ? admInt(r.registry_brokers) : '-'));
+    const g = admEl('td', 'num', r.google_offices != null ? admInt(r.google_offices) + (r.google_capped ? ' ומעלה' : '') : 'לא נסרק');
+    if (r.scanned_at) g.title = 'נסרק ' + new Date(r.scanned_at).toLocaleDateString('he-IL');
+    tr.appendChild(g);
+    tr.appendChild(admEl('td', 'num', admInt(r.platform_agencies)));
+    tr.appendChild(admEl('td', 'num', admInt(r.platform_agents)));
+    tr.appendChild(admEl('td', 'num', r.registry_brokers ? Math.round(r.platform_agents / r.registry_brokers * 1000) / 10 + '%' : '-'));
+    const act = admEl('td');
+    const scan = admEl('button', 'ads-act', 'סריקה'); scan.type = 'button';
+    scan.title = 'ספירת משרדי התיווך בעיר מ-Google Maps';
+    scan.addEventListener('click', async ()=>{
+      scan.disabled = true;
+      try{
+        const res = await adsCall('intel_places_scan', { city_id: r.city_id });
+        showToast(res.city + ': ' + res.offices + (res.capped ? ' ומעלה' : '') + ' משרדים');
+        loadIntelReport();
+      }catch(e){ showToast(intelErr(e), 6000); }
+      finally{ scan.disabled = false; }
+    });
+    const live = admEl('button', 'ads-act', 'רשימה'); live.type = 'button';
+    live.title = 'המשרדים בעיר, חי מ-Google Maps - לא נשמר';
+    live.addEventListener('click', ()=> loadIntelLive(r, live));
+    act.appendChild(scan); act.appendChild(document.createTextNode(' ')); act.appendChild(live);
+    tr.appendChild(act);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  host.appendChild(admEl('p', 'adm-note',
+    'הרשם סופר לפי עיר המגורים של המתווך/ת, ולכן לאזור זה קירוב ולא רשימה. גוגל מחזירה עד 60 משרדים לחיפוש - "ומעלה" אומר שיש יותר.'));
+  dashPanelsMeasure();
+}
+
+function intelErr(e){
+  if (e && e.code === 'places_not_configured') return 'חסר הסוד GOOGLE_PLACES_API_KEY ב-Supabase (Edge Functions → Secrets)';
+  if (e && e.code === 'places_error' && /PERMISSION_DENIED|REQUEST_DENIED|API_KEY/.test(e.message)) return 'גוגל דחתה את המפתח - לוודא ש-"Places API (New)" מופעל ושהמפתח מורשה לו. ' + e.message;
+  return e && e.message ? e.message : 'שגיאה';
+}
+
+function intelSafeUrl(u){ return /^https?:\/\//i.test(String(u || '')) ? String(u) : null; }
+
+async function loadIntelLive(row, btn){
+  const host = document.getElementById('intelLive');
+  host.innerHTML = '';
+  host.appendChild(admEl('div', 'empty-state', 'טוען את המשרדים ב' + row.name + ' מגוגל…'));
+  btn.disabled = true;
+  try{
+    const res = await adsCall('intel_places_live', { city_id: row.city_id });
+    host.innerHTML = '';
+    host.appendChild(admEl('h3', 'adm-h', 'משרדי תיווך ב' + res.city + ' · ' + res.places.length + (res.capped ? ' ומעלה' : '')));
+    const wrap = admEl('div', 'adm-table-wrap');
+    const tbl = admEl('table', 'adm-table');
+    const head = admEl('tr');
+    ['משרד', 'דירוג', 'ביקורות', 'אצלנו', 'קישורים'].forEach(h => head.appendChild(admEl('th', null, h)));
+    tbl.appendChild(head);
+    res.places.forEach(p => {
+      const tr = admEl('tr');
+      const nm = admEl('td', null, p.name || '-');
+      if (p.address) nm.title = p.address;
+      if (p.status && p.status !== 'OPERATIONAL'){ nm.appendChild(document.createTextNode(' ')); nm.appendChild(admEl('span', 'ads-pill is-warn', 'סגור')); }
+      tr.appendChild(nm);
+      tr.appendChild(admEl('td', 'num', p.rating != null ? String(p.rating) : '-'));
+      tr.appendChild(admEl('td', 'num', p.reviews != null ? admInt(p.reviews) : '-'));
+      const on = admEl('td'); on.appendChild(admEl('span', 'ads-pill' + (p.on_platform ? ' is-on' : ''), p.on_platform ? 'בפלטפורמה' : 'לא')); tr.appendChild(on);
+      const links = admEl('td');
+      [[p.website, 'אתר'], [p.maps_url, 'מפה']].forEach(([u, l]) => {
+        const safe = intelSafeUrl(u);
+        if (!safe) return;
+        const a = admEl('a', null, l); a.href = safe; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        links.appendChild(a); links.appendChild(document.createTextNode(' '));
+      });
+      tr.appendChild(links);
+      tbl.appendChild(tr);
+    });
+    wrap.appendChild(tbl);
+    host.appendChild(wrap);
+    host.appendChild(admEl('p', 'ads-src', 'נתונים: Google Maps. מוצגים בזמן אמת ואינם נשמרים במערכת. "בפלטפורמה" היא התאמת שם משוערת.'));
+  }catch(e){
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', intelErr(e)));
+  }finally{
+    btn.disabled = false;
+    dashPanelsMeasure();
+  }
+}
+
+document.getElementById('intelRegistryBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try{
+    const r = await adsCall('intel_registry_refresh');
+    showToast('נספרו ' + admInt(r.brokers) + ' מתווכים ב-' + admInt(r.cities) + ' ערים');
+    loadIntelReport();
+  }catch(err){ showToast(err.message, 6000); }
+  finally{ btn.disabled = false; }
+});
+
+/* ---------- מילות מפתח מחיפושי האתר ----------
+   המונחים שגולשים הקלידו בפועל, במבקרים. מפוצלים לפי סוג העסקה השכיח,
+   כי קמפיין מכירה וקמפיין השכרה הם שני קמפיינים, וכל אחד מקבל את מילות
+   השלילה של השני. הרשימות בפורמט של Google Ads (התאמת ביטוי במירכאות),
+   להעתקה - Google Ads עצמו עוד לא מחובר (שלב 7). */
+let kwDays = 90;
+const KW_NEG = { sale: ['להשכרה', 'השכרה', 'שכירות'], rent: ['למכירה', 'מכירה', 'קניה'] };
+
+async function loadKeywordReport(){
+  const host = document.getElementById('kwReport');
+  if (!host) return;
+  host.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data, error } = await sb.rpc('platform_keyword_report', { p_days: kwDays });
+  host.innerHTML = '';
+  if (error){
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270307090000_market_intel.sql.'
+      : 'שגיאה בטעינת מילות המפתח: ' + error.message));
+    dashPanelsMeasure();
+    return;
+  }
+  const terms = (data && data.terms) || [];
+  if (!terms.length){ host.appendChild(admEl('div', 'empty-state', 'אין חיפושים בתקופה.')); dashPanelsMeasure(); return; }
+
+  const groups = [['sale', 'מכירה'], ['rent', 'השכרה'], ['all', 'כללי']];
+  const grid = admEl('div', 'ads-grid2');
+  groups.forEach(([key, label]) => {
+    const list = terms.filter(t => (key === 'all' ? !['sale', 'rent'].includes(t.deal_type) : t.deal_type === key));
+    if (!list.length) return;
+    const box = admEl('div');
+    box.appendChild(admEl('h3', 'adm-h', 'קמפיין ' + label + ' · ' + list.length + ' מונחים'));
+    const ta = admEl('textarea', 'ads-kw-box');
+    ta.readOnly = true;
+    ta.value = list.slice(0, 50).map(t => '"' + t.term.replace(/"/g, '') + '"').join('\n');
+    box.appendChild(ta);
+    // מילות השלילה ברשימה נפרדת ובלי מינוס: ב-Google Ads הן נכנסות לשדה
+    // נפרד, ומינוס לפני מילה עברית מתהפך לצד הלא נכון בתצוגה מימין לשמאל.
+    if (KW_NEG[key]) box.appendChild(admEl('p', 'adm-note', 'מילות שלילה לקמפיין הזה: ' + KW_NEG[key].join(', ')));
+    const copy = admEl('button', 'ads-act', 'העתקה'); copy.type = 'button';
+    copy.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(ta.value); showToast('הועתק'); }
+      catch(e){ ta.select(); showToast('סמנו והעתיקו ידנית'); }
+    });
+    box.appendChild(copy);
+    grid.appendChild(box);
+  });
+  host.appendChild(grid);
+
+  host.appendChild(admEl('h3', 'adm-h', 'המונחים המובילים'));
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['מונח', 'מבקרים', 'חיפושים', 'בלי תוצאות', 'עסקה'].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  terms.slice(0, 40).forEach(t => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, t.term));
+    tr.appendChild(admEl('td', 'num', admInt(t.people)));
+    tr.appendChild(admEl('td', 'num', admInt(t.searches)));
+    const z = admEl('td', 'num', admInt(t.zero_people));
+    if (t.zero_people && t.zero_people === t.people) z.appendChild(admEl('span', 'ads-pill is-warn', ' אין מלאי'));
+    tr.appendChild(z);
+    tr.appendChild(admEl('td', null, { sale: 'מכירה', rent: 'השכרה' }[t.deal_type] || 'כללי'));
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  host.appendChild(admEl('p', 'adm-note',
+    'מונח שכל מחפשיו קיבלו אפס תוצאות ("אין מלאי") הוא ביקוש בלי היצע: מילת מפתח טובה לקמפיין גיוס בלעדיות, ולא לקמפיין קונים - אין מה להראות להם.'));
+  dashPanelsMeasure();
+}
+
+document.getElementById('kwRange')?.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-days]');
+  if (!btn) return;
+  kwDays = Number(btn.dataset.days) || 90;
+  document.querySelectorAll('#kwRange button').forEach(b => b.classList.toggle('is-on', b === btn));
+  loadKeywordReport();
+});
 
 /* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
 function renderViewSwitch(){

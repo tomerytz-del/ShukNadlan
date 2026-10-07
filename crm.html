@@ -3129,6 +3129,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ads-row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .ads-row-btns .btn{padding:8px 16px;font-size:.8rem}
   .ads-pick{position:relative}
+  .ads-kw-box{width:100%;min-height:120px;border:1.5px solid var(--edge);border-radius:10px;padding:8px 10px;font:inherit;font-size:.78rem;line-height:1.6;direction:rtl}
+  .ads-src{font-size:.66rem;color:var(--txt-faint)}
   .ads-pick-list{list-style:none;margin:4px 0 0;padding:0;border:1px solid var(--edge);border-radius:10px;background:var(--surface);max-height:200px;overflow:auto}
   .ads-pick-list[hidden]{display:none}
   .ads-pick-list button{display:block;width:100%;text-align:start;border:0;background:none;padding:8px 10px;font-size:.76rem;cursor:pointer;color:var(--txt)}
@@ -5635,6 +5637,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ads-tabs" role="tablist" aria-label="קונסולת השיווק">
               <button type="button" role="tab" id="adsTabPerf" aria-selected="true" aria-controls="adsPanePerf">ביצועים וקמפיינים</button>
               <button type="button" role="tab" id="adsTabCopy" aria-selected="false" aria-controls="adsPaneCopy">נוסחי מודעות</button>
+              <button type="button" role="tab" id="adsTabIntel" aria-selected="false" aria-controls="adsPaneIntel">מודיעין שווקים</button>
+              <button type="button" role="tab" id="adsTabKw" aria-selected="false" aria-controls="adsPaneKw">מילות מפתח</button>
               <button type="button" role="tab" id="adsTabGoogle" aria-selected="false" aria-controls="adsPaneGoogle">גוגל</button>
             </div>
 
@@ -5699,6 +5703,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div id="adsDraft"></div>
               <h3 class="adm-h">טיוטות אחרונות</h3>
               <div id="adsDrafts"><div class="empty-state">טוען…</div></div>
+            </div>
+
+            <!-- מודיעין שווקים: רשם המתווכים (ספירה לעיר) ו-Google Places
+                 (place_id בלבד נשמר; שם ודירוג חי). docs/marketing-console.md -->
+            <div class="ads-pane" id="adsPaneIntel" role="tabpanel" aria-labelledby="adsTabIntel" hidden>
+              <div class="adm-toolbar">
+                <div class="adm-range" id="intelMarkets" role="group" aria-label="בחירת שוק"></div>
+                <button type="button" class="adm-refresh" id="intelRegistryBtn" title="ספירה מחדש מרשם המתווכים של משרד המשפטים">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                  רענון מהרשם
+                </button>
+                <span class="adm-stamp" id="intelStamp"></span>
+              </div>
+              <div id="intelReport"><div class="empty-state">בחרו שוק.</div></div>
+              <div id="intelLive"></div>
+            </div>
+
+            <div class="ads-pane" id="adsPaneKw" role="tabpanel" aria-labelledby="adsTabKw" hidden>
+              <div class="adm-toolbar">
+                <div class="adm-range" id="kwRange" role="group" aria-label="תקופת החיפושים">
+                  <button type="button" data-days="30">30 ימים</button>
+                  <button type="button" data-days="90" class="is-on">90 ימים</button>
+                  <button type="button" data-days="365">שנה</button>
+                </div>
+              </div>
+              <div id="kwReport"><div class="empty-state">טוען…</div></div>
             </div>
 
             <div class="ads-pane" id="adsPaneGoogle" role="tabpanel" aria-labelledby="adsTabGoogle" hidden>
