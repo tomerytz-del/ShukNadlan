@@ -20,6 +20,7 @@ on:
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
+      - "scripts/ops_ads_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -36,6 +37,7 @@ on:
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
+      - "scripts/ops_ads_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -96,3 +98,8 @@ jobs:
       # פעמיים. על שני הממצאים של 28.9.2026.
       - name: ‏slow_ttfb / queue_blocked מודדות את מה שהן טוענות
         run: python3 scripts/ops_live_queue_test.py
+
+      # ‏קונסולת השיווק (probes/ads.py): טוקן פג נמדד על הקריאה האחרונה,
+      # וקמפיין תנועה שמעולם לא הביא לידים אינו "קמפיין בלי לידים".
+      - name: ‏ads_* מדווחות בדיוק מתי שצריך, ונסגרות
+        run: python3 scripts/ops_ads_test.py
