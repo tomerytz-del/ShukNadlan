@@ -41,6 +41,9 @@ PRICES = {
     'phone_line_monthly_price':          89,
     'phone_line_included_minutes':       150,
     'phone_line_overage_per_min':        0.5,
+    # שיחה יוצאת נספרת דקה וחצי (20270309090000). עוד אין שיחות יוצאות, ולכן
+    # אין מקום תצוגה ב-DISPLAY - מי שבונה אותן מוסיף אחד.
+    'phone_line_outbound_minute_weight': 1.5,
     'promote_price':                     20,
     'promote_duration_hours':            72,
     'property_video_price_mid':          25,
