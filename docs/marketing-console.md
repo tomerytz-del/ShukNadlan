@@ -1,6 +1,6 @@
 # קונסולת השיווק — ניהול קמפיינים ממומנים (מטא, ובהמשך גוגל)
 
-**מצב: שלבים 1-5 נכתבו (הסכימה, `ads-admin`, הפאנל, לידים, יצירת קמפיין); 6-7 בתכנון — ראו "התקדמות" למטה.** המסמך
+**מצב: שלבים 1-6 נכתבו (הסכימה, `ads-admin`, הפאנל, לידים, יצירת קמפיין, ממצאים לסוכן התפעולי); 7 (Google Ads) בתכנון — ראו "התקדמות" למטה.** המסמך
 הוא מה שתומר סיכם בשיחה עם קלוד, כדי שקלוד קוד ימשיך מכאן בלי לשחזר את
 הדיון.
 
@@ -279,6 +279,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | 3ב | מודיעין שווקים ומילות מפתח: `20270310090000_market_intel.sql`, ‏`ads-admin/intel.ts` (‏`intel_registry_refresh`, ‏`intel_places_scan`, ‏`intel_places_live`), ושתי לשוניות בפאנל | ראו "מודיעין שווקים ומילות מפתח". לא נבדק מול data.gov.il ו-Google אמיתיים - מול `fetch` מדומה ומסד מקומי |
 | 4 | לידים מטפסי מטא: `20270312090000_ads_leads_routing.sql` (‏`ads_lead_forms`, מצב ניתוב ב-`ads_leads`, ‏`ads_lead_claim()`, ערוץ `meta_ads` ב-`lead_source_channel()`, ה-cron `ads-leads-sync` בדקה 20 של כל שעה), `_shared/meta-leads.ts`, הפונקציה `ads-leads-webhook`, הפעולות `lead_forms` · `save_lead_form` · `sync_leads` · `retry_lead` · `subscribe_page`, והלשונית "לידים ממטא" | ראו "לידים מטפסי מטא". ליד נכנס **דרך אותן פונקציות כמו ליד מהאתר** ולא בנתיב משלו. ‏`meta.ts` עבר ל-`_shared/meta-graph.ts` כי שתי פונקציות משתמשות בו. ‏`property-inquiry-intake` שומרת מעכשיו `source` (מנורמל ב-`KNOWN_SOURCES`) - קודם התעלמה ממנו. נבדק מול Graph מדומה ומסד מקומי |
 | 5 | יצירת קמפיין מנוסח מאושר: `20270314090000_ads_campaigns.sql` (‏`ads_campaigns`, ו-`max_daily_budget` ‏/ `platform_landing_path` ב-`ads_settings`), ‏`ads-admin/campaign.ts`, הפעולות `create_campaign` ו-`discard_campaign`, וטופס היצירה מתחת לטיוטה מאושרת בלשונית "נוסחי מודעות" | ראו "יצירת קמפיין". נבדק מול Graph מדומה (סדר הקריאות, PAUSED/ACTIVE, כשל באמצע, תמונה בסוג שגוי), מסד מקומי ובדפדפן. לא נבדק מול חשבון מודעות אמיתי |
+| 6 | ‏`ops_agent/probes/ads.py` - שישה ממצאים בפאנל "בריאות המערכת": `ads_token_invalid` (קריטי), `ads_sync_silent` ו-`ads_leads_failed` (חמור), `ads_campaign_no_leads` ו-`ads_leads_unmapped` (בינוני), `ads_campaign_partial` (נמוך). הספים ב-`ops_agent/config.py`, והבדיקה ב-`scripts/ops_ads_test.py` | **מהמסד בלבד:** הטוקן יושב בסודות של Supabase ולא של GitHub, וכל מה שצריך כבר ביומן. **כל ממצא יכול להיסגר** (הלקח של `heavy_query`): הטוקן נבדק על הקריאה האחרונה למטא ולא על "היה כשל", הסנכרון מהמוצלח האחרון, והקמפיין בחלון נע של חמישה ימים מלאים בלי היום ואתמול (מטא מעדכנת לידים באיחור). **"בלי לידים" רק על קמפיין שאמור להביא לידים** - נוצר מהקונסולה עם טופס או וואטסאפ, או הביא לידים בחודש שלפני; קמפיין תנועה לאתר היה ממצא על יחידה אחרת. נבדק על Postgres מקומי עם המיגרציות האמיתיות |
 
 ## הסקיל `meta-ads`
 
