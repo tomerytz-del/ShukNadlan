@@ -86,6 +86,14 @@ const KNOWN_SOURCES = new Set([
   "whatsapp_bot_owner_wizard",
   "whatsapp_bot_search_agent",
   "whatsapp_bot_mortgage_calc",
+  // טפסים מיידיים של מטא (‏ads-leads-webhook / ads-admin sync_leads,
+  // ‏docs/marketing-console.md שלב 4). שלושה ערכים - אחד לכל מסלול - מאותה
+  // סיבה כמו הבוט: מוכר/ת, מחפש/ת ופנייה על נכס הם שלושה משפכים, והשאלה
+  // היא איזה מהם הקמפיין באמת מייצר. ‏lead_source_channel() ממפה את
+  // meta_ads_* לערוץ משלו.
+  "meta_ads_owner_form",
+  "meta_ads_buyer_form",
+  "meta_ads_property_form",
 ]);
 
 /* ---------------------------------------------------------------------------

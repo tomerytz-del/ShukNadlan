@@ -3749,6 +3749,7 @@ const LX_CHANNELS = {
   project_page:  'דפי הפרויקטים',
   open_house:    'יריד הבתים הפתוחים',
   rss_engine:    'מנוע ה-RSS',
+  meta_ads:      'מודעות ממומנות במטא',
   unattributed:  'ללא שיוך מקור',
   other:         'אחר',
 };
@@ -3797,6 +3798,9 @@ const LX_SOURCES = {
   project_page:                'דף נחיתה של פרויקט',
   open_house_page:             'יריד הבתים הפתוחים',
   rss_engine:                  'מנוע ה-RSS (סריקת פידים)',
+  meta_ads_owner_form:         'טופס לידים במטא · מוכר/ת',
+  meta_ads_buyer_form:         'טופס לידים במטא · מחפש/ת',
+  meta_ads_property_form:      'טופס לידים במטא · פנייה על נכס',
   unattributed:                'ללא שיוך מקור',
 };
 
@@ -24605,7 +24609,7 @@ function renderAdsFatigue(host, rows, range){
 
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
-  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabIntel', 'adsPaneIntel'],
+  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
    ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
@@ -24613,10 +24617,11 @@ function adsSelectTab(id){
   });
   if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); }
   if (id === 'adsTabIntel') loadIntelReport();
+  if (id === 'adsTabLeads') loadLeadsTab();
   if (id === 'adsTabKw') loadKeywordReport();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{
@@ -24915,6 +24920,191 @@ async function adsLoadDefaults(){
     }
   }
 }
+
+/* ---------- לידים מטפסי מטא (שלב 4) ----------
+   כל טופס בדף משויך פעם אחת למסלול: פנייה על נכס, מוכר/ת, מחפש/ת, מתווכים
+   (קמפיין הפלטפורמה - נשאר כאן), או התעלמות. ליד מטופס שעוד לא שויך ממתין
+   ונשלח ברגע השיוך. השליחה עוברת באותן פונקציות קליטה של האתר, ולכן הליד
+   מקבל אותה רוטציה ואותם מחירים. ‏_shared/meta-leads.ts. */
+const LEAD_KINDS = { '': 'לא שויך', property: 'פנייה על נכס', owner: 'מוכר/ת או משכיר/ה', buyer: 'מחפש/ת דירה', broker: 'מתווכים (קמפיין הפלטפורמה)', ignore: 'התעלמות' };
+const LEAD_STATUS = { new: ['ממתין', ''], routing: ['בשליחה', 'is-warn'], routed: ['נכנס לפלטפורמה', 'is-on'], failed: ['נכשל', 'is-bad'], broker: ['ליד מתווך', 'is-warn'], skipped: ['לא נשלח', ''] };
+const LEAD_ERRORS = {
+  missing_phone: 'אין טלפון בטופס', missing_city: 'חסרה עיר - הוסיפו עיר ברירת מחדל או שאלת עיר',
+  missing_property_type: 'חסר סוג נכס - הוסיפו ברירת מחדל', missing_contact: 'אין טלפון ואין אימייל',
+  missing_search_criteria: 'אין עיר, תקציב או חדרים לחיפוש', form_missing_property: 'לא נבחר נכס לטופס',
+};
+let leadsFormsCache = [];
+
+async function loadLeadsTab(){
+  const fHost = document.getElementById('leadsForms');
+  fHost.innerHTML = '<div class="empty-state">טוען את הטפסים ממטא…</div>';
+  try{
+    const r = await adsCall('lead_forms');
+    leadsFormsCache = r.forms || [];
+    renderLeadForms();
+  }catch(e){
+    fHost.innerHTML = '';
+    fHost.appendChild(admEl('div', 'empty-state', e.code === 'meta_not_configured' || e.code === 'page_not_configured'
+      ? 'הדף או הטוקן של מטא לא מוגדרים עדיין - הטפסים יופיעו כאן אחרי החיבור.' : e.message));
+  }
+  loadLeadsList();
+}
+
+function leadFormRow(f){
+  const m = f.mapping || {};
+  const card = admEl('div', 'ads-var');
+  const head = admEl('div', 'ads-var-head');
+  head.appendChild(admEl('span', null, f.name || f.id));
+  const counts = Object.entries(f.leads || {}).map(([k, n]) => (LEAD_STATUS[k] ? LEAD_STATUS[k][0] : k) + ' ' + n).join(' · ');
+  head.appendChild(admEl('span', 'ads-src', (f.status === 'ACTIVE' ? 'פעיל' : f.status || '') + (counts ? ' · ' + counts : '')));
+  card.appendChild(head);
+  if ((f.questions || []).length) card.appendChild(admEl('p', 'ads-src', 'שאלות בטופס: ' + f.questions.map(q => q.label || q.key).join(' · ')));
+
+  const grid = admEl('div', 'cst-grid');
+  const sel = (label, opts, val) => {
+    const l = admEl('label', 'cst-f', label); const s = admEl('select');
+    Object.entries(opts).forEach(([k, v]) => { const o = admEl('option', null, v); o.value = k; s.appendChild(o); });
+    s.value = val || ''; l.appendChild(s); grid.appendChild(l); return s;
+  };
+  const inp = (label, val, ph) => {
+    const l = admEl('label', 'cst-f', label); const i = admEl('input'); i.type = 'text'; i.maxLength = 80;
+    i.value = val || ''; if (ph) i.placeholder = ph; l.appendChild(i); grid.appendChild(l); return i;
+  };
+  const kind = sel('מסלול', LEAD_KINDS, m.kind || '');
+  const deal = sel('סוג עסקה', { sale: 'מכירה', rent: 'השכרה' }, m.deal_type || 'sale');
+  const city = inp('עיר ברירת מחדל', m.default_city, 'כשהטופס לא שואל עיר');
+  const ptype = inp('סוג נכס ברירת מחדל', m.default_property_type, 'למשל: דירה');
+  const propWrap = admEl('div', 'cst-f ads-pick');
+  propWrap.appendChild(admEl('span', null, 'הנכס (רק נכס שבאוויר)'));
+  const propQ = admEl('input'); propQ.type = 'search'; propQ.placeholder = m.property_id ? 'נבחר נכס - חיפוש להחלפה' : 'חיפוש לפי כותרת או עיר';
+  const propList = admEl('ul', 'ads-pick-list'); propList.hidden = true;
+  propWrap.appendChild(propQ); propWrap.appendChild(propList); grid.appendChild(propWrap);
+  let propId = m.property_id || null;
+  let timer = null;
+  propQ.addEventListener('input', ()=>{
+    clearTimeout(timer);
+    const q = propQ.value.replace(/[,()%*\\]/g, ' ').trim();
+    if (q.length < 2){ propList.hidden = true; return; }
+    timer = setTimeout(async ()=>{
+      const { data } = await sb.from('properties').select('id, title, city').eq('status', 'active')
+        .or('title.ilike.%' + q + '%,city.ilike.%' + q + '%').limit(8);
+      propList.innerHTML = '';
+      (data || []).forEach(p => {
+        const li = admEl('li'); const b = admEl('button', null, (p.title || 'נכס') + (p.city ? ' · ' + p.city : '')); b.type = 'button';
+        b.addEventListener('click', ()=>{ propId = p.id; propQ.value = b.textContent; propList.hidden = true; });
+        li.appendChild(b); propList.appendChild(li);
+      });
+      propList.hidden = false; dashPanelsMeasure();
+    }, 250);
+  });
+  // ‏style ולא hidden: ‏.cst-f מגדיר display:flex, וזה גובר על המאפיין hidden
+  const syncVisible = ()=>{ propWrap.style.display = kind.value === 'property' ? '' : 'none'; dashPanelsMeasure(); };
+  kind.addEventListener('change', syncVisible); syncVisible();
+  card.appendChild(grid);
+
+  const save = admEl('button', 'btn btn-gold', 'שמירת השיוך'); save.type = 'button';
+  save.addEventListener('click', async ()=>{
+    if (!kind.value){ showToast('בחרו מסלול'); return; }
+    if (kind.value === 'property' && !propId){ showToast('בחרו נכס'); return; }
+    save.disabled = true;
+    try{
+      const r = await adsCall('save_lead_form', { form_id: f.id, form_name: f.name, kind: kind.value, deal_type: deal.value,
+        property_id: propId, default_city: city.value, default_property_type: ptype.value });
+      const n = Object.values(r.routed || {}).reduce((a, b) => a + b, 0);
+      showToast('נשמר' + (n ? ' · ' + n + ' לידים שחיכו נשלחו' : ''));
+      loadLeadsTab();
+    }catch(e){ showToast(e.message, 5200); }
+    finally{ save.disabled = false; }
+  });
+  const row = admEl('div', 'ads-row-btns'); row.appendChild(save); card.appendChild(row);
+  return card;
+}
+
+function renderLeadForms(){
+  const host = document.getElementById('leadsForms');
+  host.innerHTML = '';
+  if (!leadsFormsCache.length){ host.appendChild(admEl('div', 'empty-state', 'אין טפסי לידים בדף עדיין.')); dashPanelsMeasure(); return; }
+  const box = admEl('div', 'ads-results');
+  leadsFormsCache.forEach(f => box.appendChild(leadFormRow(f)));
+  host.appendChild(box);
+  dashPanelsMeasure();
+}
+
+function leadField(fd, names){
+  const f = (fd || []).find(x => names.includes(x.name));
+  return f && f.values && f.values[0] ? String(f.values[0]) : '';
+}
+
+async function loadLeadsList(){
+  const host = document.getElementById('leadsList');
+  const { data, error } = await sb.from('ads_leads')
+    .select('meta_lead_id, created_time, form_id, campaign_id, kind, status, error, target, field_data')
+    .order('created_time', { ascending: false }).limit(50);
+  host.innerHTML = '';
+  if (error){
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42703' || error.code === 'PGRST204')
+      ? 'הטבלה לא עודכנה עדיין - המיגרציה 20270312090000_ads_leads_routing.sql.' : 'שגיאה בטעינת הלידים: ' + error.message));
+    dashPanelsMeasure(); return;
+  }
+  if (!(data || []).length){ host.appendChild(admEl('div', 'empty-state', 'עוד לא הגיעו לידים ממטא.')); dashPanelsMeasure(); return; }
+  const names = new Map(leadsFormsCache.map(f => [f.id, f.name]));
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['מתי', 'שם', 'טלפון', 'טופס', 'מצב', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  data.forEach(l => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, new Date(l.created_time).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })));
+    tr.appendChild(admEl('td', null, leadField(l.field_data, ['full_name']) || [leadField(l.field_data, ['first_name']), leadField(l.field_data, ['last_name'])].join(' ').trim() || '-'));
+    // טלפון בכיוון שמאל-לימין, אחרת ה-+ של +972 קופץ לסוף בתצוגה מימין לשמאל
+    const phTd = admEl('td', 'num'); const ph = admEl('span', null, leadField(l.field_data, ['phone_number', 'phone']) || '-');
+    ph.dir = 'ltr'; phTd.appendChild(ph); tr.appendChild(phTd);
+    tr.appendChild(admEl('td', null, names.get(l.form_id) || l.form_id || '-'));
+    const st = admEl('td');
+    const [lbl, cls] = LEAD_STATUS[l.status] || [l.status, ''];
+    st.appendChild(admEl('span', 'ads-pill ' + cls, lbl));
+    // ‏new בלי שיוך = ממתין לטופס; ‏new עם שיוך = ממתין לסנכרון הבא
+    const formMapped = !!(leadsFormsCache.find(f => f.id === l.form_id) || {}).mapping;
+    if (l.status === 'new' && !formMapped) st.appendChild(admEl('div', 'ads-src', 'הטופס לא שויך'));
+    if (l.error) st.appendChild(admEl('div', 'ads-src', LEAD_ERRORS[l.error] || l.error));
+    tr.appendChild(st);
+    const act = admEl('td');
+    if (l.status === 'failed' || l.status === 'new'){
+      const b = admEl('button', 'ads-act', 'שליחה שוב'); b.type = 'button';
+      b.addEventListener('click', async ()=>{
+        b.disabled = true;
+        try{ const r = await adsCall('retry_lead', { meta_lead_id: l.meta_lead_id }); showToast(r.status === 'routed' ? 'נכנס לפלטפורמה' : (LEAD_ERRORS[r.error] || r.error || r.status)); loadLeadsList(); }
+        catch(e){ showToast(e.message, 5200); }
+        finally{ b.disabled = false; }
+      });
+      act.appendChild(b);
+    }
+    tr.appendChild(act);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  dashPanelsMeasure();
+}
+
+document.getElementById('leadsSyncBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget; btn.disabled = true;
+  try{
+    const r = await adsCall('sync_leads', { hours: 48 });
+    const routed = Object.entries(r.routed || {}).map(([k, n]) => (LEAD_STATUS[k] ? LEAD_STATUS[k][0] : k) + ' ' + n).join(', ');
+    showToast('נמשכו ' + (r.fetched || 0) + ' לידים' + (routed ? ' · ' + routed : ''));
+    loadLeadsTab();
+  }catch(err){ showToast(err.message, 5200); }
+  finally{ btn.disabled = false; }
+});
+
+document.getElementById('leadsSubscribeBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget; btn.disabled = true;
+  try{ await adsCall('subscribe_page'); showToast('הדף מחובר - לידים חדשים יגיעו תוך שניות'); }
+  catch(err){ showToast(err.message, 6000); }
+  finally{ btn.disabled = false; }
+});
 
 /* ---------- מודיעין שווקים ----------
    לכל עיר בשוק: מתווכים ברשם (ספירה), משרדי תיווך בגוגל (ספירה), ומה כבר

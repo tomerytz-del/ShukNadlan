@@ -5637,6 +5637,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ads-tabs" role="tablist" aria-label="קונסולת השיווק">
               <button type="button" role="tab" id="adsTabPerf" aria-selected="true" aria-controls="adsPanePerf">ביצועים וקמפיינים</button>
               <button type="button" role="tab" id="adsTabCopy" aria-selected="false" aria-controls="adsPaneCopy">נוסחי מודעות</button>
+              <button type="button" role="tab" id="adsTabLeads" aria-selected="false" aria-controls="adsPaneLeads">לידים ממטא</button>
               <button type="button" role="tab" id="adsTabIntel" aria-selected="false" aria-controls="adsPaneIntel">מודיעין שווקים</button>
               <button type="button" role="tab" id="adsTabKw" aria-selected="false" aria-controls="adsPaneKw">מילות מפתח</button>
               <button type="button" role="tab" id="adsTabGoogle" aria-selected="false" aria-controls="adsPaneGoogle">גוגל</button>
@@ -5703,6 +5704,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div id="adsDraft"></div>
               <h3 class="adm-h">טיוטות אחרונות</h3>
               <div id="adsDrafts"><div class="empty-state">טוען…</div></div>
+            </div>
+
+            <!-- לידים מטפסי מטא (שלב 4): שיוך כל טופס למסלול, והלידים האחרונים.
+                 השליחה עצמה ב-_shared/meta-leads.ts. docs/marketing-console.md -->
+            <div class="ads-pane" id="adsPaneLeads" role="tabpanel" aria-labelledby="adsTabLeads" hidden>
+              <div class="adm-toolbar">
+                <button type="button" class="adm-refresh" id="leadsSyncBtn" title="משיכת הלידים של 48 השעות האחרונות מכל טופס משויך, ושליחה חוזרת של מה שנכשל">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                  סנכרון עכשיו
+                </button>
+                <button type="button" class="adm-refresh" id="leadsSubscribeBtn" title="רישום הדף לקבלת לידים בזמן אמת (webhook)">חיבור הדף לקבלת לידים</button>
+              </div>
+              <h3 class="adm-h">טפסי הלידים בדף</h3>
+              <div id="leadsForms"><div class="empty-state">טוען…</div></div>
+              <h3 class="adm-h">לידים אחרונים</h3>
+              <div id="leadsList"><div class="empty-state">טוען…</div></div>
             </div>
 
             <!-- מודיעין שווקים: רשם המתווכים (ספירה לעיר) ו-Google Places
