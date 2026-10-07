@@ -14,6 +14,7 @@ import {
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
+import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput } from "./campaign.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -39,6 +40,9 @@ import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-le
 //                  לכל טופס משויך, ושליחה חוזרת של new/failed. גם מה-cron.
 //   retry_lead     ‏{meta_lead_id} — שליחה חוזרת של ליד שנכשל
 //   subscribe_page רישום הדף ל-leadgen באפליקציה (‏/{page}/subscribed_apps)
+//   create_campaign  ‏{draft_id, variants, destination, format, ...} - קמפיין
+//                    מנוסח מאושר (‏campaign.ts). ‏dry_run מחזיר את התוכנית
+//   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
@@ -75,6 +79,8 @@ const PAGE_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-sonnet-5";
 const PLACES_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") || "";
+const IG_ACCOUNT_ID = Deno.env.get("INSTAGRAM_ACCOUNT_ID") || "";
+const SITE = "https://shuknadlan.co.il";
 
 const MAX_BUDGET_MULTIPLIER = 2;
 // ‏90 יום — מעבר לזה מטא ממילא מגבילה פירוט יומי, וההרצה תיחתך בזמן.
@@ -775,6 +781,249 @@ async function actionSubscribePage(sb: SupabaseClient, caller: Caller) {
 }
 
 // ---------------------------------------------------------------------------
+// create_campaign / discard_campaign (שלב 5, campaign.ts)
+//
+// ‏**מה נחסם, ולמה כאן ולא בעורך:**
+//   - טיוטה שלא אושרה. העורך מזהיר; היצירה היא המקום שבו זה הופך לכסף.
+//   - שורת הגילוי ריקה (‏ads_settings.disclosure_line). במודעת נכס נוספת לה
+//     גם השורה של המתווך/ת שהנכס שלו/ה, ורק עם רישיון מאומת: התקנות דורשות
+//     שם ומספר רישיון בכל מודעה של מתווך/ת, והנכס משווק בשמו/ה.
+//   - נכס שאינו באוויר, ונכס בלי אישור מפורש שיש הסכמת בעלים לפרסום ממומן
+//     (‏owner_consent). את ההסכמה עצמה אין לנו במסד, ולכן היא מאושרת בחלון
+//     ונרשמת ביומן - לא מנוחשת.
+//   - טופס לידים שאינו מהסוג המתאים: נכס ← טופס "פנייה על נכס" של אותו נכס
+//     או "מחפש/ת"; פלטפורמה ← "מתווכים". אחרת ליד ממודעה על דירה היה נכנס
+//     לרוטציה של מוכרים.
+//   - תקציב מעל ads_settings.max_daily_budget, וחשבון שאינו בשקלים.
+//   - תמונה בקמפיין הפלטפורמה רק מהאחסון שלנו או מהאתר: הפונקציה מורידה
+//     אותה, וכתובת חופשית הייתה הופכת אותה למורידה של כל דבר.
+// ---------------------------------------------------------------------------
+function storageHost(): string {
+  try { return new URL(supabaseUrl).host; } catch { return ""; }
+}
+
+function allowedImageUrl(u: unknown): string | null {
+  if (typeof u !== "string") return null;
+  try {
+    const url = new URL(u.trim());
+    if (url.protocol !== "https:") return null;
+    if (url.host !== storageHost() && url.host !== "shuknadlan.co.il") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+const isHttps = (u: unknown): u is string => typeof u === "string" && /^https:\/\//.test(u);
+
+function utm(campaignKey: string) {
+  return `utm_source=meta&utm_medium=paid&utm_campaign=${encodeURIComponent(campaignKey)}`;
+}
+
+function clampInt(v: unknown, min: number, max: number, dflt: number): number {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return dflt;
+  return Math.min(Math.max(n, min), max);
+}
+
+async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: string, caller: Caller, body: any) {
+  const dryRun = Boolean(body?.dry_run);
+  const draftId = String(body?.draft_id ?? "");
+  if (!draftId) return json({ error: "draft_required" }, 400);
+  const { data: draft, error: dErr } = await sb.from("ads_copy_drafts").select("*").eq("id", draftId).maybeSingle();
+  if (dErr) return json({ error: "db_error" }, 500);
+  if (!draft) return json({ error: "draft_not_found" }, 404);
+  if (draft.status !== "approved") return json({ error: "draft_not_approved" }, 409);
+
+  const all = (draft.variants ?? []) as any[];
+  const picked: number[] = Array.isArray(body?.variants) ? [...new Set(body.variants.map((n: unknown) => Math.floor(Number(n))))] as number[] : [0];
+  if (!picked.length || picked.length > 3 || picked.some((i) => !Number.isInteger(i) || i < 0 || i >= all.length)) {
+    return json({ error: "bad_variants" }, 400);
+  }
+  const variants = picked.map((i) => ({
+    angle: String(all[i]?.angle ?? ""), primary_text: String(all[i]?.primary_text ?? ""),
+    headline: String(all[i]?.headline ?? ""), description: String(all[i]?.description ?? ""), cta: String(all[i]?.cta ?? ""),
+  }));
+
+  const destination = String(body?.destination ?? "") as Destination;
+  if (!DESTINATIONS.includes(destination)) return json({ error: "bad_destination" }, 400);
+  const format = String(body?.format ?? "image") as Format;
+  if (!FORMATS.includes(format)) return json({ error: "bad_format" }, 400);
+  if (format === "carousel" && draft.audience !== "property") return json({ error: "carousel_property_only" }, 400);
+
+  const disclosureLine = String((await setting(sb, "disclosure_line")) ?? "").trim();
+  if (!disclosureLine) return json({ error: "disclosure_missing" }, 409);
+  const maxBudget = Number(await setting(sb, "max_daily_budget")) || 150;
+  const dailyBudget = Math.round(Number(body?.daily_budget) * 100) / 100;
+  if (!(dailyBudget >= 10 && dailyBudget <= maxBudget)) return json({ error: "bad_budget", detail: `בין ₪10 ל-₪${maxBudget} ליום` }, 400);
+  let endTime: string | undefined;
+  if (body?.days !== undefined && body?.days !== null && body?.days !== "") {
+    const days = Math.floor(Number(body.days));
+    if (!(days >= 1 && days <= 60)) return json({ error: "bad_days" }, 400);
+    endTime = new Date(Date.now() + days * 86_400_000).toISOString();
+  }
+  const ageMin = clampInt(body?.age_min, 18, 65, 25);
+  const ageMax = clampInt(body?.age_max, 18, 65, 65);
+  const defaultRadius = Number(await setting(sb, "default_radius_km")) || 15;
+  const leadFormId = destination === "lead_form" ? String(body?.lead_form_id ?? "") : "";
+
+  let form: any = null;
+  if (destination === "lead_form") {
+    if (!leadFormId) return json({ error: "lead_form_required" }, 400);
+    const { data, error } = await sb.from("ads_lead_forms").select("form_id, kind, property_id").eq("form_id", leadFormId).maybeSingle();
+    if (error) return json({ error: "db_error" }, 500);
+    if (!data) return json({ error: "lead_form_not_mapped", detail: "שייכו את הטופס בלשונית לידים ממטא" }, 409);
+    form = data;
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  const key = `sn_${draft.id.slice(0, 8)}`;
+  let disclosure = disclosureLine;
+  let images: string[] = [];
+  let geo: GeoPoint[] = [];
+  let landingUrl: string | undefined;
+  let campaignName: string;
+  const propertyId: string | null = draft.property_id ?? null;
+
+  if (draft.audience === "property") {
+    if (!propertyId) return json({ error: "property_required" }, 400);
+    if (body?.owner_consent !== true) return json({ error: "owner_consent_required" }, 400);
+    const { data: prop, error } = await sb.from("properties")
+      .select("id, title, city, status, lat, lng, images, marketing_image, agent_id").eq("id", propertyId).maybeSingle();
+    if (error) return json({ error: "db_error" }, 500);
+    if (!prop) return json({ error: "property_not_found" }, 404);
+    if (prop.status !== "active") return json({ error: "property_not_active", detail: "מודעה ממומנת רק לנכס שבאוויר" }, 409);
+
+    const { data: agent } = prop.agent_id
+      ? await sb.from("agency_members").select("display_name, license_number, license_status").eq("id", prop.agent_id).maybeSingle()
+      : { data: null };
+    if (!agent?.license_number || !["verified", "manual"].includes(agent.license_status) || !agent.display_name) {
+      return json({ error: "agent_license_missing", detail: "למתווך/ת של הנכס אין רישיון מאומת - אין שורת גילוי" }, 409);
+    }
+    const agentLine = `${String(agent.display_name).trim()}, רישיון תיווך ${agent.license_number}`;
+    disclosure = disclosureLine.includes(String(agent.license_number)) ? disclosureLine : `${agentLine} | ${disclosureLine}`;
+
+    images = [...new Set([prop.marketing_image, ...(prop.images ?? [])].filter(isHttps))];
+    let lat = Number(prop.lat), lng = Number(prop.lng);
+    if (!(lat && lng) && prop.city) {
+      const { data: c } = await sb.from("cities").select("lat, lng").eq("name", prop.city).maybeSingle();
+      lat = Number(c?.lat); lng = Number(c?.lng);
+    }
+    if (!(lat && lng)) return json({ error: "property_no_location" }, 409);
+    geo = [{ lat, lng, radius_km: clampInt(body?.radius_km, 1, 80, defaultRadius), label: String(prop.city ?? prop.title ?? "") }];
+    landingUrl = `${SITE}/property?id=${encodeURIComponent(prop.id)}&${utm(key)}`;
+    campaignName = `SN · נכס · ${String(prop.title ?? prop.city ?? "").slice(0, 40)} · ${stamp}`;
+
+    if (form && !(form.kind === "buyer" || (form.kind === "property" && form.property_id === propertyId))) {
+      return json({ error: "lead_form_wrong_kind", detail: "לנכס: טופס פנייה על הנכס הזה, או טופס מחפשים" }, 409);
+    }
+  } else {
+    const cityIds: string[] = Array.isArray(body?.city_ids) ? [...new Set(body.city_ids.map(String))] as string[] : [];
+    if (!cityIds.length || cityIds.length > 10) return json({ error: "cities_required", detail: "בין עיר אחת לעשר" }, 400);
+    const { data: cities, error } = await sb.from("cities").select("id, name, lat, lng").in("id", cityIds);
+    if (error) return json({ error: "db_error" }, 500);
+    const radius = clampInt(body?.radius_km, 1, 80, 10);
+    geo = (cities ?? []).filter((c: any) => Number(c.lat) && Number(c.lng))
+      .map((c: any) => ({ lat: Number(c.lat), lng: Number(c.lng), radius_km: radius, label: String(c.name) }));
+    if (geo.length !== cityIds.length) return json({ error: "city_no_location" }, 409);
+
+    const img = allowedImageUrl(body?.image_url);
+    if (!img) return json({ error: "bad_image_url", detail: "תמונה מהאחסון של האתר בלבד (https)" }, 400);
+    images = [img];
+    let path = String((await setting(sb, "platform_landing_path")) ?? "/pricing");
+    if (!path.startsWith("/") || path.startsWith("//")) path = "/pricing";
+    landingUrl = `${SITE}${path}${path.includes("?") ? "&" : "?"}${utm(key)}`;
+    campaignName = `SN · מתווכים · ${(variants[0].angle || "פלטפורמה").slice(0, 30)} · ${stamp}`;
+
+    if (form && form.kind !== "broker") return json({ error: "lead_form_wrong_kind", detail: "לקמפיין למתווכים: טופס מסוג מתווכים" }, 409);
+  }
+
+  const inp: PlanInput = {
+    audience: draft.audience, campaignName, pageId: PAGE_ID, instagramUserId: IG_ACCOUNT_ID || undefined,
+    destination, format, variants, disclosure, images, landingUrl, leadFormId: leadFormId || undefined,
+    dailyBudget, endTime, geo, ageMin, ageMax,
+  };
+  const { plan, errors, warnings } = buildPlan(inp);
+  if (!plan) return json({ error: "invalid_plan", errors, warnings }, 400);
+
+  const account = await meta.get(act, { fields: "currency" });
+  if (account?.currency !== "ILS") return json({ error: "account_currency_not_ils", detail: String(account?.currency ?? "") }, 409);
+
+  const preview = {
+    name: campaignName,
+    summary: plan.summary,
+    disclosure,
+    ads: plan.creatives.map((c) => ({ headline: c.headline, message: c.message, cta: c.cta, images: c.images.length })),
+  };
+  if (dryRun) return json({ dry_run: true, plan: preview, warnings });
+
+  const { data: row, error: insErr } = await sb.from("ads_campaigns").insert({
+    created_by: caller.actorId, draft_id: draft.id, audience: draft.audience, property_id: propertyId,
+    name: campaignName, destination, format, lead_form_id: leadFormId || null, daily_budget: dailyBudget,
+    end_time: endTime ?? null, plan: { ...preview, adset: plan.adset, owner_consent: draft.audience === "property" ? true : null },
+  }).select("id").single();
+  if (insErr) return json({ error: "db_error", detail: insErr.message }, 500);
+
+  const objects: Created[] = [];
+  const record = async (o: Created) => {
+    objects.push(o);
+    const patch: Record<string, unknown> = { objects, updated_at: new Date().toISOString() };
+    if (o.type === "campaign") patch.meta_campaign_id = o.id;
+    const { error } = await sb.from("ads_campaigns").update(patch).eq("id", row.id);
+    if (error) console.error("ads_campaigns record failed", row.id, error.message);
+  };
+
+  try {
+    const res = await execute(meta, act, inp, plan, record);
+    await sb.from("ads_campaigns").update({ status: "created", updated_at: new Date().toISOString() }).eq("id", row.id);
+    await log(sb, caller, { action: "create_campaign", object_type: "campaign", object_id: res.campaignId, request: { id: row.id, ...preview }, response: res, ok: true });
+    return json({ ok: true, id: row.id, campaign_id: res.campaignId, ads: res.ads.length, warnings });
+  } catch (e) {
+    const msg = e instanceof MetaError ? e.message : (e as Error)?.message ?? String(e);
+    await sb.from("ads_campaigns").update({ status: "failed", error: msg.slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", row.id);
+    await log(sb, caller, {
+      action: "create_campaign", object_type: "campaign", object_id: objects.find((o) => o.type === "campaign")?.id ?? null,
+      request: { id: row.id, ...preview }, response: e instanceof MetaError ? e.meta : { objects }, ok: false, error: msg,
+    });
+    if (e instanceof MetaError) return metaErrorResponse(e);
+    return json({ error: "create_failed", detail: msg, id: row.id }, 502);
+  }
+}
+
+async function actionDiscardCampaign(sb: SupabaseClient, meta: MetaClient, accountBare: string, caller: Caller, body: any) {
+  const id = String(body?.id ?? "");
+  const { data: row, error } = await sb.from("ads_campaigns").select("*").eq("id", id).maybeSingle();
+  if (error) return json({ error: "db_error" }, 500);
+  if (!row) return json({ error: "campaign_not_found" }, 404);
+  if (row.status === "discarded") return json({ ok: true, unchanged: true });
+
+  const campaignId: string | null = row.meta_campaign_id ?? null;
+  if (campaignId) {
+    const current = await loadOwned(meta, accountBare, campaignId, "status,effective_status");
+    // קמפיין שכבר נמחק במטא (ב-Ads Manager) - רק מסמנים כאן.
+    if (current && current.status === "ACTIVE") {
+      return json({ error: "campaign_active", detail: "קמפיין פעיל משהים קודם, ואז מוחקים" }, 409);
+    }
+    if (Boolean(body?.dry_run)) return json({ dry_run: true, plan: { name: row.name, campaign_id: campaignId, status: current?.status ?? null } });
+    if (current) {
+      try {
+        // מחיקת קמפיין מוחקת איתו את הסטים והמודעות. הקריאייטיבים והתמונות
+        // נשארים יתומים בספריית החשבון - הם אינם מוציאים כסף.
+        await meta.post(campaignId, { status: "DELETED" });
+      } catch (e) {
+        await log(sb, caller, { action: "discard_campaign", object_type: "campaign", object_id: campaignId, request: { id }, response: e instanceof MetaError ? e.meta : null, ok: false, error: metaErrorText(e) });
+        return metaErrorResponse(e);
+      }
+    }
+  } else if (Boolean(body?.dry_run)) {
+    return json({ dry_run: true, plan: { name: row.name, campaign_id: null, status: null } });
+  }
+  await sb.from("ads_campaigns").update({ status: "discarded", updated_at: new Date().toISOString() }).eq("id", id);
+  await log(sb, caller, { action: "discard_campaign", object_type: "campaign", object_id: campaignId, request: { id }, ok: true });
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
 async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Response> {
   const internal = authorizeInternalCaller(req);
   if (internal.ok) {
@@ -869,6 +1118,10 @@ Deno.serve(async (req: Request) => {
         return await actionSetStatus(sb, meta, bare, caller, body);
       case "set_budget":
         return await actionSetBudget(sb, meta, bare, caller, body);
+      case "create_campaign":
+        return await actionCreateCampaign(sb, meta, act, caller, body);
+      case "discard_campaign":
+        return await actionDiscardCampaign(sb, meta, bare, caller, body);
       default:
         return json({ error: "unknown_action", detail: action }, 400);
     }

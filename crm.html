@@ -3127,6 +3127,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ads-count.is-over{color:#b91c1c}
   .ads-warn{margin:0;padding:0 18px 0 0;font-size:.7rem;color:#92400e;line-height:1.6}
   .ads-row-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .ads-camp-form{margin-top:16px;padding-top:14px;border-top:1px solid var(--edge);display:flex;flex-direction:column;gap:10px}
+  .ads-camp-vars{display:flex;flex-direction:column;gap:6px}
+  .ads-check{display:flex;gap:8px;align-items:flex-start;font-size:.78rem;color:var(--txt);line-height:1.45}
+  .ads-check input{margin-top:3px;flex:none}
+  .ads-camp-form select[multiple]{min-height:120px}
   .ads-row-btns .btn{padding:8px 16px;font-size:.8rem}
   .ads-pick{position:relative}
   .ads-kw-box{width:100%;min-height:120px;border:1.5px solid var(--edge);border-radius:10px;padding:8px 10px;font:inherit;font-size:.78rem;line-height:1.6;direction:rtl}
@@ -5704,6 +5709,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div id="adsDraft"></div>
               <h3 class="adm-h">טיוטות אחרונות</h3>
               <div id="adsDrafts"><div class="empty-state">טוען…</div></div>
+              <!-- שלב 5: קמפיינים שנוצרו מנוסח מאושר (ads_campaigns). -->
+              <h3 class="adm-h">קמפיינים שנוצרו מכאן</h3>
+              <div id="adsCampaigns"><div class="empty-state">טוען…</div></div>
             </div>
 
             <!-- לידים מטפסי מטא (שלב 4): שיוך כל טופס למסלול, והלידים האחרונים.
