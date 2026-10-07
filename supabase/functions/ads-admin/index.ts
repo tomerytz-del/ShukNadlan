@@ -12,6 +12,7 @@ import {
   type Variant,
 } from "./copy.ts";
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
+import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -28,6 +29,9 @@ import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 //   generate_copy  נוסחים למודעה: audience property|platform, intensity, brief
 //                  (‏copy.ts). עם draft_id + feedback — כתיבה מחדש לפי הערה
 //   save_copy      ‏{draft_id, variants, status} — נוסחים אחרי עריכה
+//   intel_registry_refresh  ספירת מתווכים לכל עיר מרשם המתווכים (intel.ts)
+//   intel_places_scan       ‏{city_id} — משרדים ב-Google Places, place_id בלבד
+//   intel_places_live       ‏{city_id} — אותם משרדים עם שם ודירוג, לא נשמר
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
@@ -62,6 +66,7 @@ const APP_SECRET = Deno.env.get("META_APP_SECRET") || "";
 const PAGE_ID = Deno.env.get("FACEBOOK_PAGE_ID") || "";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-sonnet-5";
+const PLACES_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") || "";
 
 const MAX_BUDGET_MULTIPLIER = 2;
 // ‏90 יום — מעבר לזה מטא ממילא מגבילה פירוט יומי, וההרצה תיחתך בזמן.
@@ -535,6 +540,82 @@ async function actionSaveCopy(sb: SupabaseClient, body: any) {
 }
 
 // ---------------------------------------------------------------------------
+// מודיעין שווקים (intel.ts). מנהל/ת בלבד - לא ה-cron.
+// ---------------------------------------------------------------------------
+async function actionRegistryRefresh(sb: SupabaseClient) {
+  let res;
+  try {
+    res = await registryCityCounts();
+  } catch (e) {
+    console.error("registry refresh failed", (e as Error).message);
+    return json({ error: "registry_failed", detail: (e as Error).message }, 502);
+  }
+  const now = new Date().toISOString();
+  const rows = [...res.counts.entries()].map(([city_name, brokers]) => ({ city_name, brokers, refreshed_at: now }));
+  // ‏upsert ואז מחיקת מה שלא נגעו בו: עיר שנעלמה מהרשם לא נשארת עם ספירה ישנה,
+  // וכשל באמצע לא משאיר טבלה ריקה.
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await sb.from("market_intel_registry").upsert(rows.slice(i, i + 500), { onConflict: "city_name" });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+  }
+  await sb.from("market_intel_registry").delete().lt("refreshed_at", now);
+  return json({ ok: true, brokers: res.total, cities: rows.length, field: res.field });
+}
+
+async function loadCity(sb: SupabaseClient, cityId: string) {
+  const { data, error } = await sb.from("cities").select("id, name, lat, lng").eq("id", cityId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function placesErrorResponse(e: unknown) {
+  if (e instanceof PlacesError) {
+    return json({ error: "places_error", detail: e.code + ": " + e.message }, e.status === 429 ? 429 : 502);
+  }
+  return json({ error: "places_error", detail: (e as Error)?.message ?? String(e) }, 502);
+}
+
+async function actionPlacesScan(sb: SupabaseClient, body: any) {
+  if (!PLACES_KEY) return json({ error: "places_not_configured" }, 503);
+  const city = await loadCity(sb, String(body?.city_id ?? "")).catch(() => null);
+  if (!city) return json({ error: "city_not_found" }, 404);
+  let r;
+  try {
+    r = await placesSearch({ apiKey: PLACES_KEY, city: city.name, lat: city.lat, lng: city.lng, live: false });
+  } catch (e) {
+    return placesErrorResponse(e);
+  }
+  const now = new Date().toISOString();
+  if (r.places.length) {
+    const { error } = await sb.from("market_intel_places").upsert(
+      r.places.map((p) => ({ place_id: p.id, city_id: city.id, last_seen: now })), { onConflict: "place_id" });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+  }
+  const { error: sErr } = await sb.from("market_intel_scans")
+    .upsert({ city_id: city.id, offices: r.places.length, capped: r.capped, scanned_at: now }, { onConflict: "city_id" });
+  if (sErr) return json({ error: "db_error", detail: sErr.message }, 500);
+  return json({ ok: true, city: city.name, offices: r.places.length, capped: r.capped });
+}
+
+async function actionPlacesLive(sb: SupabaseClient, body: any) {
+  if (!PLACES_KEY) return json({ error: "places_not_configured" }, 503);
+  const city = await loadCity(sb, String(body?.city_id ?? "")).catch(() => null);
+  if (!city) return json({ error: "city_not_found" }, 404);
+  let r;
+  try {
+    r = await placesSearch({ apiKey: PLACES_KEY, city: city.name, lat: city.lat, lng: city.lng, live: true });
+  } catch (e) {
+    return placesErrorResponse(e);
+  }
+  const { data: agencies } = await sb.from("agencies").select("name").eq("city_id", city.id);
+  const names = (agencies ?? []).map((a: any) => a.name).filter(Boolean);
+  const places = r.places
+    .map((p) => ({ ...p, on_platform: matchesPlatform(p.name, names) }))
+    .sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0));
+  return json({ city: city.name, capped: r.capped, places });
+}
+
+// ---------------------------------------------------------------------------
 async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Response> {
   const internal = authorizeInternalCaller(req);
   if (internal.ok) {
@@ -594,6 +675,9 @@ Deno.serve(async (req: Request) => {
   // הקופי אינו נוגע במטא — עובד גם לפני שהחשבון מחובר.
   if (action === "generate_copy") return await actionGenerateCopy(sb, caller, body);
   if (action === "save_copy") return await actionSaveCopy(sb, body);
+  if (action === "intel_registry_refresh") return await actionRegistryRefresh(sb);
+  if (action === "intel_places_scan") return await actionPlacesScan(sb, body);
+  if (action === "intel_places_live") return await actionPlacesLive(sb, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
