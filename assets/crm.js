@@ -6584,14 +6584,20 @@ function renderPromoStrip(agent){
 
 function renderActivePromo(strip, promo, agent, preview){
   const urgent = promo.daysLeft <= 30;
-  strip.classList.toggle('is-urgent', urgent);
   strip.href = pricingUrl(agent);
   document.getElementById('promoStripTitle').textContent = urgent
     ? `הטבת ההשקה מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
     : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
-  document.getElementById('promoStripSub').textContent = urgent
-    ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
-    : 'כל היכולות פתוחות. לפירוט המסלולים ←';
+  // מי ששילם/ה מראש (paid_tier עד אחרי סוף ההטבה) אינו/ה צריך/ה תזכורת
+  // לבחור - אותו כלל של promo-lifecycle, שמחליף שם את המייל באישור.
+  const prePaid = agent && (agent.paid_tier === 'mid' || agent.paid_tier === 'premium')
+    && agent.paid_tier_until && promo.endsAt && new Date(agent.paid_tier_until) > promo.endsAt;
+  document.getElementById('promoStripSub').textContent = prePaid
+    ? `אחר כך ממשיכים ב-${Tiers.label(agent.paid_tier)} ששילמת עליו, בלי הפסקה. לפירוט המסלולים ←`
+    : urgent
+      ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
+      : 'כל היכולות פתוחות. לפירוט המסלולים ←';
+  strip.classList.toggle('is-urgent', urgent && !prePaid);
   labelPromoGift(strip, promo, agent);
   document.getElementById('promoPopNote').hidden = !preview;
   strip.hidden = false;

@@ -183,10 +183,13 @@ CMA), ובטופס העריכה הוא נשאר מושבת עם ההסבר — �
    └── שער הקוד האתי → שער המסלול ("קיבלת Elite במתנה") → "מתחילים"
          set_tier → tier_source = 'launch_promo_accepted'
 
-חודש לפני הסיום           promo-lifecycle → מייל התראה + promo_notice_1_at
-שבועיים לפני הסיום        promo-lifecycle → מייל שני + promo_notice_2_at
-ביום הסיום                expire_launch_promos() → tier = free, tier_source = 'promo_expired'
-                          promo-lifecycle → מייל סיום עם קישור ל-pricing.html
+חודש לפני הסיום           promo-lifecycle → מייל + פעמון + promo_notice_1_at
+                          (הכפתור: עמוד התשלום של Elite; מי ששילם/ה - אישור)
+שבועיים לפני הסיום        promo-lifecycle → מייל + פעמון + promo_notice_2_at
+ביום הסיום                expire_launch_promos() → paid_tier אם שולם, אחרת
+                          tier = free, tier_source = 'promo_expired'
+                          promo-lifecycle → מייל + פעמון: "המנוי התחיל" או
+                          "עברת ל-Pay&GO" עם קישור לחזרה ל-Elite
 כניסה הבאה ל-CRM          שער המסלול נפתח שוב — הפעם כבחירה אמיתית
 ```
 
@@ -253,11 +256,22 @@ CMA), ובטופס העריכה הוא נשאר מושבת עם ההסבר — �
 | יום לפני סוף החודש | `billing-renew` → `claim_due_tier_renewals` → חיוב הכרטיס |
 | ביטול / הפעלה מחדש | CRM, טעינת ארנק ← "המנוי שלך" → `set_tier_auto_renew` (JWT) |
 | הודעות | מייל אחרי כל חיוב, כישלון והפסקה (`tierNotice`) |
+| הדלת בתקופת ההטבה | התראות `promo-lifecycle` (30 ו-14 יום) - מחיר + כפתור לעמוד התשלום |
 
 **ההטבה.** רכישה בתקופת ההטבה מותרת רק ב-30 הימים האחרונים שלה
 (`promo_active` לפני כן), והחודש ששולם מתחיל **בסוף ההטבה**. המסלול אינו
 מתחלף ברגע התשלום: `expire_launch_promos` מעבירה בסוף ההטבה ל-`paid_tier`
 (`tier_source = 'paid'`) במקום ל-Pay&GO. מי שלא שילם/ה - Pay&GO, כמו קודם.
+
+**ההתראות על סוף ההטבה הן הדלת לרכישה.** חלון הרכישה (30 הימים האחרונים)
+וההתראות (30 ו-14 יום לפני) חופפים בכוונה: המייל והפעמון נושאים את המחיר
+לפני מע״מ ואת הכפתור ל-`/checkout?product=subscription&tier=premium` (וקישור
+ל-PROFESSIONAL). מי ששילם/ה כבר (`paid_tier_until` אחרי `promo_ends_at`)
+מקבל/ת **אישור** ולא תזכורת - "בחר/י מסלול" למי שבחר/ה מוביל לרכישה כפולה -
+וגם הרצועה ב-CRM (`renderActivePromo`) מחליפה את "ממשיך/ה ב-Pay&GO" ב"ממשיכים
+ב-X ששילמת עליו". ביום הסיום המייל נגזר מ-`tier_source` אחרי העדכון: `paid`
+- "המנוי התחיל", `promo_expired` - Pay&GO וכפתור חזרה ל-Elite. כל אחת
+מההתראות נכתבת גם לפעמון (`notifications`, ‏`system`), ומשם לוואטסאפ.
 
 **ירידה** בזמן שמסלול גבוה ששולם בתוקף - `downgrade_at_period_end`: מבטלים
 את החידוש, ובסוף התקופה רוכשים את הנמוך. **שדרוג** - מיידי, בלי זיכוי יחסי.
