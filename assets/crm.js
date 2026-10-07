@@ -24955,7 +24955,7 @@ async function loadIntelReport(){
   host.innerHTML = '';
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
-      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270307090000_market_intel.sql.'
+      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270309090000_market_intel.sql.'
       : 'שגיאה בטעינת המודיעין: ' + error.message));
     dashPanelsMeasure();
     return;
@@ -25098,7 +25098,7 @@ async function loadKeywordReport(){
   host.innerHTML = '';
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
-      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270307090000_market_intel.sql.'
+      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270309090000_market_intel.sql.'
       : 'שגיאה בטעינת מילות המפתח: ' + error.message));
     dashPanelsMeasure();
     return;
