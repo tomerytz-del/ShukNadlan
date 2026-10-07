@@ -5494,8 +5494,8 @@ ssaForm.addEventListener('submit', async (e)=>{
     });
   } catch(err){
     console.warn('saved-search-intake failed:', err);
-    ssaErrorEl.textContent = err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
+    ssaErrorEl.textContent = /[\u0590-\u05FF]/.test(err.message || '')
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב. לעזרה בוואטסאפ: 054-6929991';
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -5882,8 +5882,8 @@ buyerForm.addEventListener('submit', async (e)=>{
     });
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
-    buySetError(3, err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
+    buySetError(3, /[\u0590-\u05FF]/.test(err.message || '')
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב. לעזרה בוואטסאפ: 054-6929991');
     btn.textContent = originalLabel;
     btn.disabled = false;
   }

@@ -12,8 +12,30 @@ const toastEl = document.getElementById('toast');
 let currentAgent = null;
 const SUPPORT_EMAIL = 'support@shuknadlan.co.il'; // כתובת placeholder — תוקם בפועל בהמשך
 
+/* שגיאה לתצוגה - תמיד בעברית (assets/friendly-error.js, docs/friendly-errors.md).
+   ‏function ולא const: מורם, ו-crm-office.js / crm-showcase.js קוראים לה גם הם. */
+function heErr(e){
+  return window.FriendlyError ? FriendlyError.text(e) : 'משהו השתבש. כדאי לנסות שוב.';
+}
+
+/* הודעה שנראית כמו כישלון מקבלת קישור עזרה בוואטסאפ, וזמן ארוך יותר לקרוא
+   וללחוץ. לפי הטקסט ולא לפי דגל: כ-150 קריאות כבר מנסחות "נכשל"/"שגיאה",
+   ובלי זה כל אחת מהן הייתה צריכה שינוי משלה. */
+const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
 function showToast(msg, ms=3200){
-  toastEl.textContent = msg;
+  const failure = TOAST_FAILURE.test(String(msg || ''));
+  if (failure && window.FriendlyError){
+    toastEl.textContent = msg;
+    const help = document.createElement('div');
+    help.style.cssText = 'margin-top:6px;font-size:.8rem';
+    help.innerHTML = FriendlyError.helpHtml(msg);
+    help.firstChild.style.color = '#fff';
+    help.firstChild.style.textDecoration = 'underline';
+    toastEl.appendChild(help);
+    ms = Math.max(ms, 7000);
+  } else {
+    toastEl.textContent = msg;
+  }
   toastEl.style.display = 'block';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
@@ -107,7 +129,7 @@ document.getElementById('laSubmit').addEventListener('click', async ()=>{
       refreshLicenseHold();
       return;
     }
-    fail(data.detail || ('שגיאה: ' + (data.error || 'לא ידועה')));
+    fail(data.detail || ('שגיאה: ' + heErr(data.error)));
     btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
   } catch(err){
     console.error(err);
@@ -882,7 +904,8 @@ googleLoginBtn.addEventListener('click', async ()=>{
   });
   if (error){
     resetGoogleButton();
-    document.getElementById('loginError').textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message;
+    document.getElementById('loginError').textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + heErr(error);
+    loginHelp();
   }
   // בהצלחה הדפדפן מנותב ל-Google; החזרה מטופלת ב-onAuthStateChange למטה
 });
@@ -903,10 +926,18 @@ function authErrorText(error, fallbackPrefix){
     const secs = (msg.match(/after (\d+) seconds/) || [])[1];
     return secs ? `נשלח מייל ממש עכשיו. אפשר לבקש שוב בעוד ${secs} שניות.` : 'נשלחו יותר מדי מיילים בזמן קצר. נסו שוב בעוד כמה דקות.';
   }
-  return fallbackPrefix + msg;
+  return fallbackPrefix + heErr(error);
 }
 function showResendConfirm(show){
   document.getElementById('resendConfirmBtn').style.display = show ? 'block' : 'none';
+  // כל ניקוי של המסך מנקה גם את קישור העזרה; loginHelp מחזירה אותו עם השגיאה הבאה
+  if (!show && window.FriendlyError) FriendlyError.hideHelp(document.getElementById('loginError'));
+}
+/* קישור עזרה בוואטסאפ מתחת לשגיאת כניסה - מי שנתקע/ה כאן עוד אין לו/ה חשבון,
+   ולכן אין לו/ה שום ערוץ אחר לבקש עזרה. */
+function loginHelp(){
+  const errEl = document.getElementById('loginError');
+  if (window.FriendlyError) FriendlyError.attachHelp(errEl, errEl.textContent);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
@@ -924,6 +955,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   if (error){
     errEl.textContent = authErrorText(error, 'שגיאת התחברות: ');
     showResendConfirm(error.code === 'email_not_confirmed' || error.message === 'Email not confirmed');
+    loginHelp();
     return;
   }
   await routeAfterAuth(data.session);
@@ -941,12 +973,13 @@ document.getElementById('resendConfirmBtn').addEventListener('click', async ()=>
       type: 'signup', email,
       options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
-    if (error){ errEl.textContent = authErrorText(error, 'השליחה נכשלה: '); return; }
+    if (error){ errEl.textContent = authErrorText(error, 'השליחה נכשלה: '); loginHelp(); return; }
     errEl.style.color = 'var(--ink)';
     errEl.textContent = 'שלחנו שוב את מייל האישור. ' + CONFIRM_MAIL_HINT;
   } catch(err){
     console.error('resend confirmation failed', err);
-    errEl.textContent = 'שגיאת רשת - נסו שוב';
+    errEl.textContent = 'אין חיבור לשרת. כדאי לבדוק את החיבור לאינטרנט ולנסות שוב.';
+    loginHelp();
   } finally{
     btn.disabled = false; btn.textContent = 'שליחה חוזרת של מייל האישור';
   }
@@ -984,6 +1017,7 @@ document.getElementById('inviteSignupBtn').addEventListener('click', async ()=>{
     });
     if (error){
       errEl.textContent = authErrorText(error, 'יצירת החשבון נכשלה: ');
+      loginHelp();
       return;
     }
     if (data.session){ await routeAfterAuth(data.session); return; }
@@ -993,7 +1027,8 @@ document.getElementById('inviteSignupBtn').addEventListener('click', async ()=>{
     showResendConfirm(true);
   } catch(err){
     console.error('invite signup failed', err);
-    errEl.textContent = 'שגיאת רשת - נסו שוב';
+    errEl.textContent = 'אין חיבור לשרת. כדאי לבדוק את החיבור לאינטרנט ולנסות שוב.';
+    loginHelp();
   } finally{
     btn.disabled = false; btn.textContent = 'יצירת חשבון וסיסמה';
   }
@@ -1081,7 +1116,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
         return;
       }
       feedback.style.color = 'var(--red)';
-      feedback.textContent = 'שגיאה: ' + (data.detail || data.error);
+      feedback.textContent = 'שגיאה: ' + heErr(data.detail || data.error);
       btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
       return;
     }
@@ -1451,7 +1486,7 @@ function routeAfterAuth(session, { force = false } = {}){
         // הדשבורד כבר על המסך: כשל בטעינת קטגוריה בודדת לא מוחק את מה שכבר נטען
         showToast('חלק מהנתונים לא נטענו. נסו לרענן את הדף.');
       } else {
-        showAuthLoadError('שגיאה בטעינת המסך: ' + (err?.message || err));
+        showAuthLoadError('שגיאה בטעינת המסך: ' + (heErr(err) || err));
       }
     }
     finally { authRouting = null; }
@@ -1886,7 +1921,7 @@ async function devSwitch(changes, pills){
         not_platform_admin: 'תפריט הבדיקה זמין רק למנהל פלטפורמה',
         no_matching_agent_profile: 'לא נמצא פרופיל סוכן/ת לחשבון הזה',
       };
-      showToast(messages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(messages[data.error] || ('שגיאה: ' + heErr(data.error)));
       return;
     }
 
@@ -1927,7 +1962,7 @@ document.getElementById('devEnterDeveloper').addEventListener('click', async (e)
     });
     const data = await res.json().catch(()=> ({}));
     if (!res.ok || data.error){
-      showToast(data.error === 'not_platform_admin' ? 'תפריט הבדיקה זמין רק למנהל פלטפורמה' : ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(data.error === 'not_platform_admin' ? 'תפריט הבדיקה זמין רק למנהל פלטפורמה' : ('שגיאה: ' + heErr(data.error)));
       return;
     }
     if (data.status === 'suspended'){ showToast('חשבון היזם של המשתמש הזה מושהה'); return; }
@@ -1947,7 +1982,7 @@ async function loadNeighborhoodsAdmin(){
   loadNeighborhoodCityOptions();
   hoodImportInit();
   const { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name');
-  if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(error.message) + '</div>'; return; }
+  if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
   /* שכונות בלי גבול קודם: הן העבודה שנשארה ("סימון על המפה"), ובלי המיון
@@ -2002,7 +2037,7 @@ async function loadNeighborhoodsAdmin(){
         }
       }
       const { error: delErr } = await sb.from('neighborhoods').delete().eq('id', n.id);
-      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); return; }
+      if (delErr){ showToast('שגיאה במחיקה: ' + heErr(delErr)); return; }
       showToast('השכונה נמחקה');
       await loadNeighborhoodsAdmin();
     });
@@ -2136,7 +2171,7 @@ async function scanHoodImport(){
     renderHoodImport();
   } catch(e){
     console.warn('hood import scan failed', e);
-    hoodImportStatus('הסריקה נכשלה: ' + (e && e.message ? e.message : e) + '. שום דבר לא נשמר.');
+    hoodImportStatus('הסריקה נכשלה: ' + (e && heErr(e) ? heErr(e) : e) + '. שום דבר לא נשמר.');
   } finally {
     btn.disabled = false;
   }
@@ -2179,7 +2214,7 @@ document.getElementById('addNeighborhoodAdminBtn').addEventListener('click', asy
   const city = (document.getElementById('newNeighborhoodAdminCity') || {}).value || 'עפולה';
   const { error } = await sb.from('neighborhoods').insert({ city, name });
   if (error){
-    showToast(error.code === '23505' ? 'השכונה כבר קיימת ברשימה' : ('שגיאה: ' + error.message));
+    showToast(error.code === '23505' ? 'השכונה כבר קיימת ברשימה' : ('שגיאה: ' + heErr(error)));
     return;
   }
   input.value = '';
@@ -2222,7 +2257,7 @@ async function loadRssSourcesAdmin(){
     listEl.innerHTML = '<div class="empty-state">' +
       (error.code === '42P01'
         ? 'טבלת rss_sources לא קיימת עדיין - הריצו את schema.sql ב-Supabase.'
-        : 'שגיאה: ' + error.message) + '</div>';
+        : 'שגיאה: ' + heErr(error)) + '</div>';
     return;
   }
 
@@ -2308,7 +2343,7 @@ async function loadRssSourcesAdmin(){
       if (!confirm(`למחוק את המקור "${source.name}"? הלידים שכבר נאספו ממנו יישארו במערכת.`)) return;
       delBtn.disabled = true;
       const { error: delErr } = await sb.from('rss_sources').delete().eq('id', source.id);
-      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      if (delErr){ showToast('שגיאה במחיקה: ' + heErr(delErr)); delBtn.disabled = false; return; }
       showToast('המקור נמחק');
       await loadRssSourcesAdmin();
     });
@@ -2341,7 +2376,7 @@ document.getElementById('addRssSourceBtn').addEventListener('click', async ()=>{
   btn.disabled = false;
 
   if (error){
-    showToast(error.code === '23505' ? 'הפיד הזה כבר קיים ברשימה' : ('שגיאה: ' + error.message));
+    showToast(error.code === '23505' ? 'הפיד הזה כבר קיים ברשימה' : ('שגיאה: ' + heErr(error)));
     return;
   }
   nameInput.value = '';
@@ -2527,7 +2562,7 @@ async function saveArticle(status){
     await loadArticlesAdmin();
   } catch(err){
     console.warn('שמירת כתבה נכשלה:', err);
-    feedback.textContent = 'שגיאה: ' + (err.message || 'לא ניתן לשמור');
+    feedback.textContent = 'שגיאה: ' + (heErr(err) || 'לא ניתן לשמור');
   } finally {
     saveBtn.disabled = publishBtn.disabled = false;
   }
@@ -2585,7 +2620,7 @@ async function loadUnroutedLeads(){
     listEl.innerHTML = '<div class="empty-state">' +
       (error.code === '42P01'
         ? 'יומן ניתוב הלידים לא קיים עדיין - הריצו את המיגרציה 20260913090000_lead_routing.sql ב-Supabase.'
-        : 'שגיאה: ' + error.message) + '</div>';
+        : 'שגיאה: ' + heErr(error)) + '</div>';
     return;
   }
 
@@ -2641,7 +2676,7 @@ async function loadUnroutedLeads(){
       const { error: upErr } = await sb.from('lead_routing_log')
         .update({ resolved_at: new Date().toISOString(), resolved_by: currentAgent.id })
         .eq('id', row.id);
-      if (upErr){ done.disabled = false; alert('העדכון נכשל: ' + upErr.message); return; }
+      if (upErr){ done.disabled = false; alert('העדכון נכשל: ' + heErr(upErr)); return; }
       await loadUnroutedLeads();
     });
     item.appendChild(done);
@@ -2869,7 +2904,7 @@ async function loadMarketReport(){
       ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270112090000_markets.sql טרם רצה.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'התצוגה פתוחה למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת השוק: ' + error.message;
+        : 'שגיאה בטעינת השוק: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -3151,7 +3186,7 @@ async function loadAdminReport(){
       ? 'הדוח לא קיים עדיין במסד - הריצו את המיגרציה 20260916090000_platform_admin_dashboard.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת הדוח: ' + error.message;
+        : 'שגיאה בטעינת הדוח: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -3197,7 +3232,7 @@ async function loadAdminPwaReport(){
     // זו אינה שגיאה שצריך להבהיל בגללה: הדשבורד שלם בלעדיה.
     const msg = (error.code === '42883' || error.code === 'PGRST202')
       ? 'מונה ההתקנות טרם קיים במסד - הריצו את המיגרציה 20261124090000_pwa_install_events.sql.'
-      : 'שגיאה בטעינת מונה ההתקנות: ' + error.message;
+      : 'שגיאה בטעינת מונה ההתקנות: ' + heErr(error);
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);
     dashPanelsMeasure();
@@ -3311,7 +3346,7 @@ async function loadAdminSearchReport(){
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
       ? 'מונה החיפושים טרם קיים במסד - הריצו את המיגרציה 20270118090000_search_events.sql.'
-      : 'שגיאה בטעינת מונה החיפושים: ' + error.message;
+      : 'שגיאה בטעינת מונה החיפושים: ' + heErr(error);
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);
     dashPanelsMeasure();
@@ -3464,7 +3499,7 @@ async function loadAdminGabrielaReport(){
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
       ? 'מונה הפניות לגבריאלה טרם קיים במסד - הריצו את המיגרציה 20270214090000_whatsapp_public_entry.sql.'
-      : 'שגיאה בטעינת מונה הפניות לגבריאלה: ' + error.message;
+      : 'שגיאה בטעינת מונה הפניות לגבריאלה: ' + heErr(error);
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);
     dashPanelsMeasure();
@@ -3995,7 +4030,7 @@ async function loadLeadReport(){
       ? 'דוח הלידים לא קיים עדיין במסד - הריצו את המיגרציה 20261122090000_lead_analytics.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת דוח הלידים: ' + error.message;
+        : 'שגיאה בטעינת דוח הלידים: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -4348,7 +4383,7 @@ async function loadOpsReport(){
       ? 'הדוח התפעולי לא קיים עדיין במסד - הריצו את המיגרציה 20261127090000_ops_agent.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת הדוח התפעולי: ' + error.message;
+        : 'שגיאה בטעינת הדוח התפעולי: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -4562,7 +4597,7 @@ function opsItem(f){
       { p_key: f.key, p_days: f.muted ? 0 : 30 });
     if (error){
       muteBtn.disabled = false;
-      alert('ההשתקה נכשלה: ' + error.message);
+      alert('ההשתקה נכשלה: ' + heErr(error));
       return;
     }
     loadOpsReport();
@@ -4713,7 +4748,7 @@ async function loadInventoryReport(){
       ? 'המצבת לא קיימת עדיין במסד - הריצו את המיגרציה 20261127090000_ops_agent.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת המצבת: ' + error.message;
+        : 'שגיאה בטעינת המצבת: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -4993,7 +5028,7 @@ async function loadCostsReport(){
       ? 'דוח העלויות לא קיים עדיין במסד - הריצו את המיגרציה 20270206090000_platform_costs.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
-        : 'שגיאה בטעינת העלויות: ' + error.message;
+        : 'שגיאה בטעינת העלויות: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
     dashPanelsMeasure();
     return;
@@ -5240,7 +5275,7 @@ async function costsSave(e){
     p_status: status,
   });
   btn.disabled = false;
-  if (error) return showErr(error.message || 'השמירה נכשלה.');
+  if (error) return showErr(heErr(error) || 'השמירה נכשלה.');
   showToast(costsEditId ? 'החיוב עודכן' : 'החשבונית נוספה');
   costsCloseForm();
   loadCostsReport();
@@ -5251,7 +5286,7 @@ async function costsSetStatus(row, status){
     p_id: row.id, p_service: row.service, p_charged_on: row.charged_on, p_amount: row.amount,
     p_currency: row.currency, p_invoice_no: row.invoice_no, p_description: row.description, p_status: status,
   });
-  if (error){ showToast('העדכון נכשל: ' + error.message); return; }
+  if (error){ showToast('העדכון נכשל: ' + heErr(error)); return; }
   showToast(status === 'rejected' ? 'סומן כלא חיוב שלנו' : 'עודכן');
   loadCostsReport();
 }
@@ -5259,7 +5294,7 @@ async function costsSetStatus(row, status){
 async function costsDelete(row){
   if (!confirm('למחוק את החיוב של ' + costLabel(row.service) + ' מ-' + row.charged_on + '?')) return;
   const { error } = await sb.rpc('platform_cost_delete', { p_id: row.id });
-  if (error){ showToast('המחיקה נכשלה: ' + error.message); return; }
+  if (error){ showToast('המחיקה נכשלה: ' + heErr(error)); return; }
   showToast('החיוב נמחק');
   loadCostsReport();
 }
@@ -5299,7 +5334,7 @@ async function loadArticlesAdmin(){
     listEl.innerHTML = '<div class="empty-state">' +
       (error.code === '42P01'
         ? 'טבלת articles לא קיימת עדיין - הריצו את המיגרציה 20260829180000_articles.sql ב-Supabase.'
-        : 'שגיאה: ' + error.message) + '</div>';
+        : 'שגיאה: ' + heErr(error)) + '</div>';
     return;
   }
 
@@ -5400,7 +5435,7 @@ async function loadArticlesAdmin(){
       if (!confirm(`למחוק את הכתבה "${article.title}"? הפעולה אינה הפיכה.`)) return;
       delBtn.disabled = true;
       const { error: delErr } = await sb.from('articles').delete().eq('id', article.id);
-      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      if (delErr){ showToast('שגיאה במחיקה: ' + heErr(delErr)); delBtn.disabled = false; return; }
       // התמונה כבר לא מוצגת בשום מקום — best-effort, כמו בשאר המחיקות
       const path = article.cover_url ? articleCoverPath(article.cover_url) : null;
       if (path) sb.storage.from(ARTICLES_BUCKET).remove([path]).catch(()=>{});
@@ -5469,7 +5504,7 @@ async function loadProfessionalCardsAdmin(){
         ? 'הרשימה לא קיימת עדיין במסד - הריצו את המיגרציה 20261019090000_professional_card_admin.sql.'
         : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
           ? 'הרשימה פתוחה למנהל/ת פלטפורמה בלבד.'
-          : 'שגיאה: ' + error.message
+          : 'שגיאה: ' + heErr(error)
     ) + '</div>';
     return;
   }
@@ -5572,9 +5607,9 @@ async function loadProfessionalCardsAdmin(){
       delBtn.disabled = true;
 
       const { data: res, error: delErr } = await sb.rpc('admin_delete_professional_card', { p_id: card.id });
-      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      if (delErr){ showToast('שגיאה במחיקה: ' + heErr(delErr)); delBtn.disabled = false; return; }
       if (res && res.error){
-        showToast(res.error === 'not_found' ? 'הכרטיסייה כבר לא קיימת' : 'שגיאה במחיקה: ' + res.error);
+        showToast(res.error === 'not_found' ? 'הכרטיסייה כבר לא קיימת' : 'שגיאה במחיקה: ' + heErr(res.error));
         delBtn.disabled = false;
         await loadProfessionalCardsAdmin();
         return;
@@ -5710,7 +5745,7 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
   btn.disabled = false; btn.textContent = 'שמירת העדפות';
   if (error){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + error.message;
+    feedback.textContent = 'שגיאה: ' + heErr(error);
     return;
   }
   feedback.style.color = 'var(--blue)';
@@ -5855,7 +5890,7 @@ document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
     // 23505 = מספר הוואטסאפ כבר משויך לסוכן/ת אחר/ת (אינדקס ייחודי על phone_e164)
     feedback.textContent = error.code === '23505'
       ? 'המספר הזה כבר רשום אצל סוכן/ת אחר/ת במערכת.'
-      : 'שגיאה: ' + error.message;
+      : 'שגיאה: ' + heErr(error);
     return;
   }
 
@@ -6472,7 +6507,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
   } catch(err){
     console.error('profile save failed', err);
     feedback.style.color = 'var(--wine)';
-    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+    feedback.textContent = 'שמירה נכשלה: ' + (heErr(err) || 'שגיאה לא צפויה');
   } finally{
     btn.disabled = false; btn.textContent = 'שמירת הפרטים';
   }
@@ -7269,7 +7304,7 @@ async function chooseTier(tierId, btn){
     }
     if (!res.ok || data.error){
       feedback.style.color = 'var(--red)';
-      feedback.textContent = 'שגיאה: ' + (data.detail || data.error || res.status);
+      feedback.textContent = 'שגיאה: ' + heErr(data.detail || data.error || res.status);
       return;
     }
 
@@ -7434,7 +7469,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
         return fail(INVITE_INVALID_TEXT[data.reason] || INVITE_INVALID_TEXT.not_found);
       }
       if (data.status !== 'joined' && data.status !== 'member'){
-        return fail('החיבור לכרטיס לא הצליח: ' + (data.detail || data.error || 'שגיאה לא צפויה'));
+        return fail('החיבור לכרטיס לא הצליח: ' + heErr(data.detail || data.error || 'שגיאה לא צפויה'));
       }
 
       clearInviteToken();
@@ -7456,7 +7491,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
     // המסך נשאר כמו שהוא — עם מה שהוקלד בו. ‏showEthicsGate מחדש כאן היה
     // מנקה את תיבת האישור ומכריח לסמן שוב אחרי תקלת רשת.
     console.error('ethics gate accept failed', err);
-    fail('שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה'));
+    fail('שמירה נכשלה: ' + (heErr(err) || 'שגיאה לא צפויה'));
   } finally{
     btn.disabled = false; btn.textContent = 'אישור הקוד וכניסה למערכת';
   }
@@ -7593,7 +7628,7 @@ document.getElementById('ethicsForm').addEventListener('submit', async (e)=>{
   } catch(err){
     console.error('ethics accept failed', err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+    feedback.textContent = 'שמירה נכשלה: ' + (heErr(err) || 'שגיאה לא צפויה');
   } finally{
     btn.disabled = false;
     if (btn.textContent === 'שומר…') btn.textContent = original;
@@ -7623,7 +7658,7 @@ document.getElementById('ethicsWithdrawBtn').addEventListener('click', async ()=
   } catch(err){
     console.error('ethics withdraw failed', err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'הביטול נכשל: ' + (err.message || 'שגיאה לא צפויה');
+    feedback.textContent = 'הביטול נכשל: ' + (heErr(err) || 'שגיאה לא צפויה');
   }
 });
 
@@ -7698,7 +7733,7 @@ document.getElementById('ethicsAgencyBtn').addEventListener('click', async ()=>{
   } catch(err){
     console.error('agency ethics accept failed', err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+    feedback.textContent = 'שמירה נכשלה: ' + (heErr(err) || 'שגיאה לא צפויה');
   } finally{
     btn.disabled = false;
   }
@@ -7715,7 +7750,7 @@ async function loadPendingReviews(agencyId){
     .eq('status', 'pending')
     .order('created_at', { ascending:false });
 
-  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accReviews', (reviews||[]).length);
   if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין ביקורות הממתינות לאישור.</div>'; return; }
 
@@ -7764,7 +7799,7 @@ async function moderateReview(reviewId, newStatus, agencyId){
   // האימות (מודול 3 §3.4). ה-RLS policy "manager moderate own agency reviews" כבר
   // קיים ומגביל את זה לשורות של המשרד שלו בלבד.
   const { error } = await sb.from('reviews').update({ status: newStatus }).eq('id', reviewId);
-  if (error){ showToast('שגיאה: ' + error.message); return; }
+  if (error){ showToast('שגיאה: ' + heErr(error)); return; }
   showToast(newStatus === 'published' ? 'הביקורת פורסמה' : 'הביקורת נדחתה');
   await loadPendingReviews(agencyId);
 }
@@ -8443,7 +8478,7 @@ async function loadLicenseAppeals(){
     const { data } = await callLicenseAppealApi({
       action: 'decide', appeal_id: card.dataset.appeal, decision, decision_note: note || null,
     });
-    if (data.error){ showToast('שגיאה: ' + (data.detail || data.error)); btn.disabled = false; return; }
+    if (data.error){ showToast('שגיאה: ' + heErr(data.detail || data.error)); btn.disabled = false; return; }
     showToast(decision === 'approve'
       ? 'הרישיון אושר - הכניסה נפתחה והודעה נשלחה במייל'
       : 'הערעור נדחה וההודעה נשלחה');
@@ -8522,7 +8557,7 @@ async function loadRefundQueue(){
     if (!ok2) return;
     btn.disabled = true;
     const { data } = await callRefundApi({ action:'complete', refund_id: card.dataset.refund, credit_note_id: creditNote || null });
-    if (data.error){ showToast('שגיאה: ' + data.error); btn.disabled = false; return; }
+    if (data.error){ showToast('שגיאה: ' + heErr(data.error)); btn.disabled = false; return; }
     showToast('ההחזר סומן כבוצע');
     await loadRefundQueue();
   }));
@@ -8534,7 +8569,7 @@ async function loadRefundQueue(){
     if (!reason || !reason.trim()) return;
     btn.disabled = true;
     const { data } = await callRefundApi({ action:'reject', refund_id: card.dataset.refund, reason: reason.trim() });
-    if (data.error){ showToast('שגיאה: ' + data.error); btn.disabled = false; return; }
+    if (data.error){ showToast('שגיאה: ' + heErr(data.error)); btn.disabled = false; return; }
     showToast('הבקשה נדחתה והיתרה הוחזרה');
     await loadRefundQueue();
   }));
@@ -8683,7 +8718,7 @@ async function loadSubscriptionsAdmin(){
         p_member_id: card.dataset.member, p_tier: tier, p_note: null,
       });
       if (error || data?.error){
-        showToast('שגיאה: ' + (data?.error || error.message));
+        showToast('שגיאה: ' + heErr(data?.error || error));
         btn.disabled = false;
         return;
       }
@@ -8702,7 +8737,7 @@ async function loadSubscriptionsAdmin(){
         p_member_id: card.dataset.member, p_note: reason.trim(),
       });
       if (error || data?.error){
-        showToast('שגיאה: ' + (data?.error || error.message));
+        showToast('שגיאה: ' + heErr(data?.error || error));
         btn.disabled = false;
         return;
       }
@@ -8789,7 +8824,7 @@ async function renderSubsDrill(bucket){
   // תשובה שחזרה אחרי שנלחץ מספר אחר לא תדרוס את הרשימה שמוצגת עכשיו.
   if (subsDrillBucket !== bucket) return;
   if (error){
-    host.innerHTML = '<div class="empty-state">שגיאה בטעינת הרשימה: ' + esc(error.message) + '</div>';
+    host.innerHTML = '<div class="empty-state">שגיאה בטעינת הרשימה: ' + esc(heErr(error)) + '</div>';
     return;
   }
 
@@ -8948,7 +8983,7 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
         parcel_not_found: 'לא נמצאה חלקה תואמת לגוש/חלקה שהוזנו',
       };
       feedback.style.color = 'var(--red)';
-      feedback.textContent = messages[data.error] || ('שגיאה: ' + (data.detail || data.error));
+      feedback.textContent = messages[data.error] || ('שגיאה: ' + heErr(data.detail || data.error));
       return;
     }
 
@@ -9626,7 +9661,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
   } catch(err){
     console.error('branding save failed', err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+    feedback.textContent = 'שמירה נכשלה: ' + (heErr(err) || 'שגיאה לא צפויה');
   } finally{
     btn.disabled = false; btn.textContent = 'שמירת המיתוג';
   }
@@ -9788,7 +9823,7 @@ async function loadTeam(agencyId, callerId){
     .eq('agency_id', agencyId)
     .order('role', { ascending:false });
 
-  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accTeam', (members||[]).length);
 
   // מספר הנכסים הפעילים של כל חבר/ת צוות, מפוצל למכירה ולהשכרה — באותם שני
@@ -10022,7 +10057,7 @@ async function loadClaimRequests(agencyId, callerId){
         showToast('החיבור נחסם: ' + (data.detail || 'רישיון התיווך על הכרטיס לא אומת מול רשם המתווכים.'), 8000);
         return;
       }
-      if (!res.ok || data.error){ showToast('הפעולה נכשלה: ' + (data.error || res.status)); return; }
+      if (!res.ok || data.error){ showToast('הפעולה נכשלה: ' + heErr(data.error || res.status)); return; }
       showToast(decision === 'approve' ? 'החשבון חובר לכרטיס' : 'הבקשה נדחתה');
       await loadTeam(agencyId, callerId);
     };
@@ -10119,7 +10154,7 @@ async function updateMemberField(memberId, changes, agencyId, callerId){
     : (changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.');
   if (!confirm(label)) return;
   const { error } = await sb.from('agency_members').update(changes).eq('id', memberId);
-  if (error){ showToast('שגיאה: ' + error.message); return; }
+  if (error){ showToast('שגיאה: ' + heErr(error)); return; }
   showToast('העדכון בוצע בהצלחה');
   await loadTeam(agencyId, callerId);
 }
@@ -10400,7 +10435,7 @@ function openOpenHouseModal(p, agentId){
     const { error } = await sb.from('properties').update(patch).eq('id', p.id);
     if (error){
       document.getElementById('ohModalNote').style.color = 'var(--brick)';
-      document.getElementById('ohModalNote').textContent = 'השמירה נכשלה: ' + error.message;
+      document.getElementById('ohModalNote').textContent = 'השמירה נכשלה: ' + heErr(error);
       saveBtn.disabled = removeBtn.disabled = false;
       btn.textContent = original;
       return;
@@ -10972,7 +11007,7 @@ document.getElementById('npVideoFile').addEventListener('change', async (e)=>{
   } catch(err){
     if (!err.cancelled){
       console.warn('הכנת הסרטון נכשלה:', err);
-      showToast(err.message || 'הסרטון לא נטען');
+      showToast(heErr(err) || 'הסרטון לא נטען');
     }
     setVideoBusy(null);
     return;
@@ -11254,7 +11289,7 @@ async function addStreetToRegistry(){
   const { data, error } = await sb.rpc('street_registry_add', { p_city: city, p_name: raw });
   if (error){
     hint.style.color = 'var(--brick)';
-    hint.textContent = 'הוספת הרחוב נכשלה: ' + error.message;
+    hint.textContent = 'הוספת הרחוב נכשלה: ' + heErr(error);
     return;
   }
   streetRegistry = null;               // טעינה מחדש, כדי שהרשימה תכיל אותו
@@ -12099,7 +12134,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     videoUrl  = videoSlot ? (videoSlot.url || null) : mediaUrl('npVideoUrl', 'הקישור לסרטון');
   } catch(err){
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = err.message;
+    feedback.textContent = heErr(err);
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;
@@ -12706,7 +12741,7 @@ async function loadProperties(agentId){
   await officePreloadNames(props);
 
   if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + error.message + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + esc(heErr(error)) + '</div>';
     return;
   }
   accSetCount('accProperties', (props||[]).length);
@@ -13532,7 +13567,7 @@ document.getElementById('npGenDesc').addEventListener('click', async ()=>{
     hint.textContent = 'נוסח חדש נכתב מהנתונים העדכניים. אפשר לערוך אותו — הוא נשמר רק בלחיצה על "שמירת שינויים".';
   } catch(err){
     hint.className = 'mkt-note warn';
-    hint.textContent = err.message;
+    hint.textContent = heErr(err);
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
@@ -13561,7 +13596,7 @@ async function openMarketingCopy(property, btn, agentId){
     document.getElementById('mktModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
   } catch(err){
-    showToast(err.message);
+    showToast(heErr(err));
   } finally {
     if (btn){ btn.disabled = false; setActionLabel(btn, original); }
   }
@@ -13588,7 +13623,7 @@ document.getElementById('mktRegen').addEventListener('click', async (e)=>{
     document.getElementById('mktDesc').value = data.marketing_description || '';
     document.getElementById('mktPost').value = data.post_text || '';
   } catch(err){
-    showToast(err.message);
+    showToast(heErr(err));
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
@@ -13606,7 +13641,7 @@ document.getElementById('mktSave').addEventListener('click', async (e)=>{
     post_text: document.getElementById('mktPost').value.trim() || null,
   }).eq('id', mktProperty.id);
   btn.disabled = false; btn.textContent = original;
-  if (error){ showToast('שגיאה בשמירה: ' + error.message); return; }
+  if (error){ showToast('שגיאה בשמירה: ' + heErr(error)); return; }
   const agentId = mktAgentId;
   closeMarketingCopy();
   showToast('התיאור השיווקי נשמר ומוצג בדף הנכס');
@@ -13823,10 +13858,10 @@ function propertyStatusErrorText(error){
   if (error.hint === 'exclusive_elsewhere' || error.hint === 'duplicate_elsewhere'
       || error.hint === 'duplicate_same_agency' || error.hint === 'exclusivity_agreement_required'
       || error.hint === 'address_incomplete'){
-    return error.message;
+    return heErr(error);
   }
   if (error.code === '23503') return 'אי אפשר למחוק את הנכס — מקושרים אליו חוזה או עסקה שמורים.';
-  return error.message || 'שגיאה לא ידועה';
+  return heErr(error) || 'שגיאה לא ידועה';
 }
 
 const PROPERTY_STATUS_CONFIRM = {
@@ -14410,7 +14445,7 @@ async function openTourEditor(property, btn){
     tourRebuildViewer();
   } catch(err){
     console.error(err);
-    showToast(err.message || 'לא ניתן לפתוח את עורך הסיור');
+    showToast(heErr(err) || 'לא ניתן לפתוח את עורך הסיור');
   } finally {
     if (btn){ btn.disabled = false; setActionLabel(btn, original); }
   }
@@ -14664,7 +14699,7 @@ document.getElementById('tourAddFile').addEventListener('change', async (e)=>{
   } catch(err){
     console.error(err);
     tourSetBusy(false);
-    tourSetStatus(err.message || 'העלאת הפנורמה נכשלה', 'err');
+    tourSetStatus(heErr(err) || 'העלאת הפנורמה נכשלה', 'err');
   }
 });
 
@@ -14911,7 +14946,7 @@ document.getElementById('tourSaveBtn').addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     tourSetBusy(false);
-    tourSetStatus('השמירה נכשלה: ' + (err.message || 'שגיאה'), 'err');
+    tourSetStatus('השמירה נכשלה: ' + (heErr(err) || 'שגיאה'), 'err');
   }
 });
 
@@ -14939,7 +14974,7 @@ document.getElementById('tourDeleteBtn').addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     tourSetBusy(false);
-    tourSetStatus('המחיקה נכשלה: ' + (err.message || 'שגיאה'), 'err');
+    tourSetStatus('המחיקה נכשלה: ' + (heErr(err) || 'שגיאה'), 'err');
   }
 });
 
@@ -16025,7 +16060,7 @@ async function impReadFile(file){
 
   let XLSX;
   try { XLSX = await loadImportLib(); }
-  catch(err){ fail(err.message); return; }
+  catch(err){ fail(heErr(err)); return; }
 
   try{
     const buffer = await file.arrayBuffer();
@@ -16767,7 +16802,7 @@ async function impRenderStep4(){
     if (error){
       console.error(error);
       rows.forEach(row=>{
-        if (row.owner) importState.failed.push({ raw: row.raw, message: 'הנכס נקלט אך פרטי הבעלים לא נשמרו: ' + error.message });
+        if (row.owner) importState.failed.push({ raw: row.raw, message: 'הנכס נקלט אך פרטי הבעלים לא נשמרו: ' + heErr(error) });
       });
     }
   };
@@ -16833,7 +16868,7 @@ async function impRenderStep4(){
 async function impDownloadTemplate(){
   let XLSX;
   try { XLSX = await loadImportLib(); }
-  catch(err){ showToast(err.message); return; }
+  catch(err){ showToast(heErr(err)); return; }
 
   const headers = IMPORT_FIELDS.map(f => f.label + (f.required ? ' *' : ''));
   // השורות לדוגמה נבנות לפי מפתח ולא לפי מיקום, כדי שהוספת שדה ל-IMPORT_FIELDS
@@ -16900,7 +16935,7 @@ async function impDownloadTemplate(){
 async function impDownloadErrors(rows){
   let XLSX;
   try { XLSX = await loadImportLib(); }
-  catch(err){ showToast(err.message); return; }
+  catch(err){ showToast(heErr(err)); return; }
   const header = [...importState.headers, 'סיבת הדחייה'];
   const data = rows.map(r => [...importState.headers.map((_, i) => impText(r.raw[i])), r.message]);
   const sheet = XLSX.utils.aoa_to_sheet([header, ...data]);
@@ -17199,7 +17234,7 @@ async function expDownload(){
   try {
     let XLSX;
     try { XLSX = await loadImportLib(); }
-    catch(err){ showToast(err.message); return; }
+    catch(err){ showToast(heErr(err)); return; }
     // שם השכונה נכתב בקובץ, ובייצוא של נכסי סוכן/ת אחר/ת המטמון עשוי להיות ריק
     await ensureNeighborhoodsLoaded();
 
@@ -17236,7 +17271,7 @@ async function expDownload(){
     expClose();
     showToast(`${plural(rows.length, 'נכס אחד ירד', 'נכסים ירדו')} לקובץ`);
   } catch(err){
-    showToast('הייצוא נכשל: ' + (err?.message || 'שגיאה לא ידועה'));
+    showToast('הייצוא נכשל: ' + (heErr(err) || 'שגיאה לא ידועה'));
   } finally {
     button.disabled = false;
     button.textContent = label;
@@ -17310,7 +17345,7 @@ async function archiveLead(lead, btn, agentId){
   if (error){
     showToast(isMissingTableError(error)
       ? 'הארכיון עדיין לא קיים - הריצו את המיגרציה 20260924090000_lead_archive.sql ב-Supabase.'
-      : 'העברה לארכיון נכשלה: ' + error.message);
+      : 'העברה לארכיון נכשלה: ' + heErr(error));
     return;
   }
   archivedLeadIds.add(lead.id);
@@ -17325,7 +17360,7 @@ async function unarchiveLead(lead, btn, agentId){
   btn.disabled = true;
   const { error } = await sb.from('lead_archives').delete().eq('lead_id', lead.id);
   btn.disabled = false;
-  if (error){ showToast('החזרה מהארכיון נכשלה: ' + error.message); return; }
+  if (error){ showToast('החזרה מהארכיון נכשלה: ' + heErr(error)); return; }
   archivedLeadIds.delete(lead.id);
   expandedLeadIds.delete(lead.id);
   showToast('הליד חזר לרשימה הפעילה');
@@ -17354,7 +17389,7 @@ async function loadLeads(agentId){
   await officePreloadNames(leads);
 
   if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + error.message + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + esc(heErr(error)) + '</div>';
     return;
   }
   archivedLeadIds = archived;
@@ -17651,7 +17686,7 @@ async function claimLead(lead, btn, agentId){
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
-      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(errorMessages[data.error] || ('שגיאה: ' + heErr(data.error)));
       btn.disabled = false; btn.textContent = original;
       return;
     }
@@ -17920,7 +17955,7 @@ async function loadLeadShelf(agentId){
     // הטבלאות נוצרות ב-schema.sql + מיגרציית הרכישה; עד שהן קיימות אין טעם להבהיל
     const missing = /does not exist|schema cache/i.test(error.message || '');
     listEl.innerHTML = '<div class="empty-state">' +
-      (missing ? 'מדף המוכרים והקונים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      (missing ? 'מדף המוכרים והקונים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(heErr(error))) +
       '</div>';
     shelfLeads = [];
     refreshShelfCounts();
@@ -18050,7 +18085,7 @@ async function loadPurchasedLeads(agentId){
     .order('sold_at', { ascending:false });
 
   if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(heErr(error)) + '</div>';
     return;
   }
   if (!leads || leads.length === 0){
@@ -18131,7 +18166,7 @@ async function buyRssLead(lead, btn){
         agent_inactive: 'החשבון אינו פעיל',
         no_matching_agent_profile: 'שגיאת הרשאה - אין פרופיל סוכן/ת מקושר',
       };
-      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(errorMessages[data.error] || ('שגיאה: ' + heErr(data.error)));
       btn.disabled = false; btn.textContent = original;
       return;
     }
@@ -18182,7 +18217,7 @@ async function loadMortgageShelf(agentId){
   if (error){
     const missing = /does not exist|schema cache/i.test(error.message || '');
     listEl.innerHTML = '<div class="empty-state">' +
-      (missing ? 'מדף לידי המשכנתאות לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      (missing ? 'מדף לידי המשכנתאות לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(heErr(error))) +
       '</div>';
     mortgageShelfLeads = [];
     refreshShelfCounts();
@@ -18325,7 +18360,7 @@ async function loadPurchasedMortgageLeads(agentId){
     .order('sold_at', { ascending:false });
 
   if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(heErr(error)) + '</div>';
     return;
   }
   if (!leads || leads.length === 0){
@@ -18421,7 +18456,7 @@ async function buyMortgageLead(lead, btn){
         not_a_mortgage_advisor: 'החשבון אינו מסומן כיועצ/ת משכנתאות - פנו למנהל/ת הפלטפורמה',
         no_matching_agent_profile: 'שגיאת הרשאה - אין פרופיל מקושר',
       };
-      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(errorMessages[data.error] || ('שגיאה: ' + heErr(data.error)));
       btn.disabled = false; btn.textContent = original;
       return;
     }
@@ -18489,7 +18524,7 @@ async function loadSavedSearchShelf(agentId){
     // המדפים שמעל
     const missing = /does not exist|schema cache/i.test(error.message || '');
     listEl.innerHTML = '<div class="empty-state">' +
-      (missing ? 'מדף מחפשי הדירה לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      (missing ? 'מדף מחפשי הדירה לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(heErr(error))) +
       '</div>';
     savedSearchLeads = [];
     refreshShelfCounts();
@@ -18636,7 +18671,7 @@ async function loadPurchasedSavedSearches(agentId){
     .order('sold_at', { ascending:false });
 
   if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(heErr(error)) + '</div>';
     return;
   }
   if (!leads || leads.length === 0){
@@ -18759,7 +18794,7 @@ async function buySavedSearchLead(lead, btn){
         agent_inactive: 'החשבון אינו פעיל',
         no_matching_agent_profile: 'שגיאת הרשאה - אין פרופיל סוכן/ת מקושר',
       };
-      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      showToast(errorMessages[data.error] || ('שגיאה: ' + heErr(data.error)));
       btn.disabled = false; btn.textContent = original;
       return;
     }
@@ -18824,12 +18859,12 @@ async function loadSharePartners(agent){
     listEl.innerHTML = '<div class="empty-state">' +
       (missingSchema(exclusionsRes.error)
         ? 'שיתוף נכסים בין משרדים לא הופעל עדיין בפרויקט הזה.'
-        : 'שגיאה בטעינת רשימת השת״פ: ' + esc(exclusionsRes.error.message)) + '</div>';
+        : 'שגיאה בטעינת רשימת השת״פ: ' + esc(heErr(exclusionsRes.error))) + '</div>';
     accSetCount('accSharePartners', '');
     return;
   }
   if (agenciesRes.error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת רשימת המשרדים: ' + esc(agenciesRes.error.message) + '</div>';
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת רשימת המשרדים: ' + esc(heErr(agenciesRes.error)) + '</div>';
     return;
   }
 
@@ -18904,7 +18939,7 @@ async function saveSharePartners(){
   btn.disabled = false; btn.textContent = original;
   if (error){
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה בשמירה: ' + error.message;
+    feedback.textContent = 'שגיאה בשמירה: ' + heErr(error);
     return;
   }
   feedback.style.color = 'var(--teal)';
@@ -18934,7 +18969,7 @@ async function shareProperty(p, btn, agentId){
   btn.disabled = true; btn.textContent = 'מפיץ…';
   const { data, error } = await sb.rpc('share_property_with_partners', { p_property_id: p.id });
   if (error || data?.error){
-    showToast(shareErrorMessages[data?.error] || ('שגיאה בשיתוף' + (error ? ': ' + error.message : '')));
+    showToast(shareErrorMessages[data?.error] || ('שגיאה בשיתוף' + (error ? ': ' + heErr(error) : '')));
     btn.disabled = false; btn.textContent = original;
     return;
   }
@@ -18950,7 +18985,7 @@ async function unshareProperty(p, btn, agentId){
   btn.disabled = true; setActionLabel(btn, 'מסיר…');
   const { data, error } = await sb.rpc('unshare_property', { p_property_id: p.id });
   if (error || data?.error){
-    showToast(shareErrorMessages[data?.error] || ('שגיאה בביטול השיתוף' + (error ? ': ' + error.message : '')));
+    showToast(shareErrorMessages[data?.error] || ('שגיאה בביטול השיתוף' + (error ? ': ' + heErr(error) : '')));
     btn.disabled = false; setActionLabel(btn, original);
     return;
   }
@@ -18971,7 +19006,7 @@ async function loadSharedWithMe(){
     listEl.innerHTML = '<div class="empty-state">' +
       (missingSchema(error)
         ? 'שיתוף נכסים בין משרדים לא הופעל עדיין בפרויקט הזה.'
-        : 'שגיאה בטעינת הנכסים ששותפו: ' + esc(error.message)) + '</div>';
+        : 'שגיאה בטעינת הנכסים ששותפו: ' + esc(heErr(error))) + '</div>';
     accSetCount('accSharedWithMe', '');
     return;
   }
@@ -19232,7 +19267,7 @@ async function loadClients(){
     listEl.innerHTML = '<div class="empty-state">' +
       (missingSchema(error)
         ? 'קובץ הלקוחות לא הופעל עדיין בפרויקט הזה.'
-        : 'שגיאה בטעינת הלקוחות: ' + esc(error.message)) + '</div>';
+        : 'שגיאה בטעינת הלקוחות: ' + esc(heErr(error))) + '</div>';
     accSetCount('accClients', '');
     const kpiNote = document.getElementById('kpiClientsNote');
     if (kpiNote) kpiNote.textContent = 'קובץ הלקוחות לא נטען';
@@ -19610,7 +19645,7 @@ async function toggleClientMatches(client, btn, panel){
   btn.disabled = false;
 
   if (error){
-    showToast('שגיאה בחיפוש התאמות: ' + error.message);
+    showToast('שגיאה בחיפוש התאמות: ' + heErr(error));
     btn.textContent = original;
     return;
   }
@@ -19935,7 +19970,7 @@ function openEditClient(c){
 async function deleteClient(c){
   if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? הפעולה בלתי הפיכה.`)) return;
   const { error } = await sb.from('agent_clients').delete().eq('id', c.id);
-  if (error){ showToast('שגיאה במחיקה: ' + error.message); return; }
+  if (error){ showToast('שגיאה במחיקה: ' + heErr(error)); return; }
   expandedClientIds.delete(c.id);
   if (editingClientId === c.id) resetClientForm();
   showToast('הלקוח/ה נמחק/ה');
@@ -20060,7 +20095,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
 
   if (error){
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה בשמירה: ' + error.message;
+    feedback.textContent = 'שגיאה בשמירה: ' + heErr(error);
     return;
   }
   const wasEditing = !!editingClientId;
@@ -20286,7 +20321,7 @@ async function ciSave(){
   for (let i = 0; i < payload.length; i += 200){
     const { error } = await sb.from('agent_clients').insert(payload.slice(i, i + 200));
     if (error){
-      showToast(`נוספו ${added}. שגיאה בהמשך: ` + error.message, 6000);
+      showToast(`נוספו ${added}. שגיאה בהמשך: ` + heErr(error), 6000);
       break;
     }
     added += Math.min(200, payload.length - i);
@@ -20434,7 +20469,7 @@ async function refreshCallList(){
     : q.order('created_at', { ascending:false });
   const { data, error } = await q.limit(callsFilterActive(f) ? 200 : 60);
   const list = document.getElementById('callsList');
-  if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(error.message) + '</div>'; return; }
+  if (error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(heErr(error)) + '</div>'; return; }
   callRows = data || [];
   callRows.forEach(c => callById.set(c.id, c));
   renderCalls();
@@ -20624,7 +20659,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
       p_line_id: lineModalTarget.id, p_label: label, p_source: source, p_property_id: propertyId,
       p_forward_to: forwardTo, p_external_number: externalNumber });
     btn.disabled = false;
-    if (error || !data){ msg.textContent = 'השמירה נכשלה' + (error ? ': ' + error.message : ''); return; }
+    if (error || !data){ msg.textContent = 'השמירה נכשלה' + (error ? ': ' + heErr(error) : ''); return; }
     const hadExternal = lineModalTarget.external_number;
     Object.assign(lineModalTarget, { label, source_type: source, property_id: propertyId,
       forward_to: forwardTo, external_number: externalNumber });
@@ -20645,7 +20680,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     btn.disabled = false;
     msg.textContent = err.code === 'tier_required'
       ? 'במסלול שלך אפשר להחזיק מספר וירטואלי אחד. מספרים נוספים זמינים במסלול Elite.'
-      : 'לא הצלחנו לחפש מספר: ' + err.message;
+      : 'לא הצלחנו לחפש מספר: ' + heErr(err);
     return;
   }
   btn.disabled = false;
@@ -20677,7 +20712,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
       err.code === 'tier_required' ? 'מספרים וירטואליים נוספים זמינים במסלול Elite' :
-      'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + err.message);
+      'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + heErr(err));
     refreshAgentBalance();
   }
 });
@@ -20703,7 +20738,7 @@ function showForwardHowto(line){
 async function keepLineOnDowngrade(line, btn){
   btn.disabled = true;
   const { data, error } = await sb.rpc('phone_line_keep_on_downgrade', { p_line_id: line.id });
-  if (error || !data){ btn.disabled = false; showToast('הבחירה נכשלה' + (error ? ': ' + error.message : '')); return; }
+  if (error || !data){ btn.disabled = false; showToast('הבחירה נכשלה' + (error ? ': ' + heErr(error) : '')); return; }
   lineRows.forEach(l => { l.downgrade_keep = l.id === line.id; });
   renderLines();
   showToast(`המספר ${callLocalPhone(line.twilio_number)} יישאר`);
@@ -20718,7 +20753,7 @@ async function releaseLine(line, btn){
     loadCalls();
   } catch (err){
     btn.disabled = false;
-    showToast(err.code === 'managed_by_platform' ? 'את המספר הזה מנהלת הפלטפורמה - פנו אלינו' : 'הביטול נכשל: ' + err.message);
+    showToast(err.code === 'managed_by_platform' ? 'את המספר הזה מנהלת הפלטפורמה - פנו אלינו' : 'הביטול נכשל: ' + heErr(err));
   }
 }
 
@@ -20748,7 +20783,7 @@ async function loadOfficeCalls(){
       .select('id, agent_id, line_id, from_number, client_id, status, duration_sec, billed_minutes, recording_path, transcript, summary, extracted, created_at, handled_at')
       .gte('created_at', since).order('created_at', { ascending:false }).limit(1000),
   ]);
-  if (calls.error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(calls.error.message) + '</div>'; return; }
+  if (calls.error){ list.innerHTML = '<div class="empty-state">שגיאה בטעינת השיחות: ' + esc(heErr(calls.error)) + '</div>'; return; }
   officeMembers = new Map((mem.data || []).map(m => [m.id, m.display_name || 'סוכן/ת']));
   // ה-policy מחזיר רק את המשרד, וזה סינון נוסף מפני שורות של המנהל/ת ממשרד קודם
   officeLines = (lines.data || []).filter(l => officeMembers.has(l.agent_id));
@@ -20900,7 +20935,7 @@ async function officeRpc(fn, args){
       renderOfficeStats();
     } catch (err){
       sel.value = line.agent_id;
-      showToast(err.code === 'tier_required' ? err.message : 'ההעברה נכשלה: ' + err.message);
+      showToast(err.code === 'tier_required' ? heErr(err) : 'ההעברה נכשלה: ' + heErr(err));
     }
     sel.disabled = false;
   });
@@ -20924,7 +20959,7 @@ async function officeRpc(fn, args){
       showToast(off ? 'הסבב בוטל - השיחות חוזרות לבעלים של המספר' : 'הסבב נשמר');
     } catch (err){
       (save || off).disabled = false;
-      showToast('השמירה נכשלה: ' + err.message);
+      showToast('השמירה נכשלה: ' + heErr(err));
     }
   });
   const slaSel = document.getElementById('officeSla');
@@ -21036,7 +21071,7 @@ async function archiveCall(c, row, btn){
   btn.disabled = true;
   const { data, error } = await sb.rpc('agent_call_set_archived', { p_call_id: c.id, p_archived: archive });
   btn.disabled = false;
-  if (error || !data){ showToast('הפעולה נכשלה' + (error ? ': ' + error.message : '')); return; }
+  if (error || !data){ showToast('הפעולה נכשלה' + (error ? ': ' + heErr(error) : '')); return; }
   c.archived_at = archive ? new Date().toISOString() : null;
   const r = callRows.find(x => x.id === c.id);
   if (r && r !== c) r.archived_at = c.archived_at;
@@ -21096,7 +21131,7 @@ document.addEventListener('click', async e => {
     btn.disabled = true;
     const on = act === 'handled';
     const { data, error } = await sb.rpc('agent_call_set_handled', { p_call_id: c.id, p_handled: on });
-    if (error || !data){ btn.disabled = false; showToast('הסימון נכשל' + (error ? ': ' + error.message : '')); return; }
+    if (error || !data){ btn.disabled = false; showToast('הסימון נכשל' + (error ? ': ' + heErr(error) : '')); return; }
     c.handled_at = on ? new Date().toISOString() : null;
     row.outerHTML = callRowHtml(c, !!row.closest('.client-calls'));
     showToast(on ? 'סומן שחזרת ללקוח/ה' : 'הסימון בוטל');
@@ -21162,7 +21197,7 @@ async function deleteCall(c, row, btn){
     showToast('השיחה נמחקה');
   } catch (err){
     btn.disabled = false;
-    showToast('המחיקה נכשלה: ' + (err && err.message || err));
+    showToast('המחיקה נכשלה: ' + (err && heErr(err) || err));
   }
 }
 
@@ -21251,7 +21286,7 @@ async function updateClientFromCall(c, btn){
   btn.disabled = true;
   const { error } = await sb.from('agent_clients').update(payload).eq('id', row.id);
   btn.disabled = false;
-  if (error){ showToast('שגיאה בעדכון: ' + error.message); return; }
+  if (error){ showToast('שגיאה בעדכון: ' + heErr(error)); return; }
   showToast(`הכרטיס של ${row.full_name} עודכן - מצליבים נכסים`);
   expandedClientIds.add(row.id);
   await loadClients();
@@ -21284,7 +21319,7 @@ document.getElementById('callSimFile').addEventListener('change', async e => {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok){
-      showToast('הסימולציה נכשלה: ' + (data.detail || data.error || res.status), 6000);
+      showToast('הסימולציה נכשלה: ' + heErr(data.detail || data.error || res.status), 6000);
       return;
     }
     showToast('ההקלטה התקבלה - הסיכום יגיע בוואטסאפ ויופיע כאן בעוד כחצי דקה', 6000);
@@ -21297,7 +21332,7 @@ document.getElementById('callSimFile').addEventListener('change', async e => {
       if (row && (row.summary || row.error)) break;
     }
   } catch (err){
-    showToast('הסימולציה נכשלה: ' + (err && err.message || err), 6000);
+    showToast('הסימולציה נכשלה: ' + (err && heErr(err) || err), 6000);
   } finally {
     btn.disabled = false; btn.textContent = '🧪 סימולציית שיחה';
   }
@@ -21365,7 +21400,7 @@ async function loadClientAlerts(){
     listEl.innerHTML = '<div class="empty-state">' +
       (missingSchema(error)
         ? 'התראות ההתאמה לא הופעלו עדיין בפרויקט הזה.'
-        : 'שגיאה בטעינת ההתראות: ' + esc(error.message)) + '</div>';
+        : 'שגיאה בטעינת ההתראות: ' + esc(heErr(error))) + '</div>';
     accSetCount('accAlerts', '');
     document.getElementById('alertsFilterCount').textContent = '';
     document.getElementById('alertsMarkAll').hidden = true;
@@ -21529,7 +21564,7 @@ async function setAlertStatus(row, status, btn){
 
   if (error){
     btn.disabled = false; btn.textContent = original;
-    showToast('שגיאה בעדכון ההתראה: ' + error.message);
+    showToast('שגיאה בעדכון ההתראה: ' + heErr(error));
     return;
   }
 
@@ -21553,7 +21588,7 @@ async function markAllAlertsSeen(btn){
     .in('id', ids);
   btn.disabled = false;
 
-  if (error){ showToast('שגיאה בעדכון ההתראות: ' + error.message); return; }
+  if (error){ showToast('שגיאה בעדכון ההתראות: ' + heErr(error)); return; }
   showToast(plural(ids.length, 'התראה אחת סומנה', 'התראות סומנו') + ' כנצפו');
   await loadClientAlerts();
 }
@@ -21573,7 +21608,7 @@ async function openCmaReport(propertyId, btn){
   ]);
   btn.disabled = false; setActionLabel(btn, original);
 
-  if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
+  if (error){ showToast('שגיאה בהפקת הדוח: ' + heErr(error)); return; }
   if (data?.error){
     const messages = {
       upgrade_required: data.detail || 'דוח CMA זמין ב-PROFESSIONAL וב-Elite',
@@ -22789,7 +22824,7 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
   btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
   if (error){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + error.message;
+    feedback.textContent = 'שגיאה: ' + heErr(error);
     return;
   }
   notifMutedTypes = muted;
@@ -23046,7 +23081,7 @@ function agendaErrorText(error){
   const msg = String(error && error.message || '');
   if (msg.includes('tier_required')) return 'היומן זמין במסלולים PROFESSIONAL ו-Elite';
   if (msg.startsWith('agenda: ')) return msg.slice(8);
-  return 'שגיאה: ' + msg;
+  return 'שגיאה: ' + heErr(error);
 }
 
 function syncAgendaClientOptions(){
@@ -23203,7 +23238,7 @@ document.getElementById('agAutoSave').addEventListener('click', async ()=>{
   const { error } = await sb.from('agent_agenda_preferences').upsert({
     agent_id: currentAgent.id, auto_off: off, updated_at: new Date().toISOString(),
   }, { onConflict:'agent_id' });
-  if (error){ fb.style.color = '#dc2626'; fb.textContent = 'שגיאה: ' + error.message; return; }
+  if (error){ fb.style.color = '#dc2626'; fb.textContent = 'שגיאה: ' + heErr(error); return; }
   agendaAutoOff = off;
   fb.style.color = 'var(--teal)';
   fb.textContent = off.length ? 'נשמר - ' + plural(off.length, 'סוג אחד כבוי', 'סוגים כבויים') + '.' : 'נשמר - כל המשימות האוטומטיות דלוקות.';
@@ -23331,7 +23366,7 @@ document.getElementById('agGcalConnect').addEventListener('click', async (e)=>{
   } catch (err){
     btn.disabled = false;
     btn.textContent = label;
-    showToast('החיבור לא התחיל: ' + err.message, 6000);
+    showToast('החיבור לא התחיל: ' + heErr(err), 6000);
   }
 });
 
@@ -23344,7 +23379,7 @@ document.getElementById('agGcalDisconnect').addEventListener('click', async (e)=
     showToast('יומן Google נותק');
     await loadAgenda();
   } catch (err){
-    showToast('הניתוק נכשל: ' + err.message, 6000);
+    showToast('הניתוק נכשל: ' + heErr(err), 6000);
   } finally {
     btn.disabled = false;
   }
@@ -23639,7 +23674,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
   btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
   if (error){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + error.message;
+    feedback.textContent = 'שגיאה: ' + heErr(error);
     return;
   }
 
@@ -24339,7 +24374,7 @@ async function loadAdsReport(){
     const missing = insights.error.code === '42P01' || insights.error.code === 'PGRST205';
     host.appendChild(admEl('div', 'empty-state', missing
       ? 'הטבלאות של הקונסולה לא קיימות עדיין במסד - המיגרציה 20270305090000_ads_console.sql.'
-      : 'שגיאה בטעינת הביצועים: ' + insights.error.message));
+      : 'שגיאה בטעינת הביצועים: ' + heErr(insights.error)));
     dashPanelsMeasure();
     return;
   }
@@ -24354,7 +24389,7 @@ function renderAdsState(){
   box.hidden = false;
   if (status && status.__error){
     box.appendChild(admEl('b', null, 'לא ניתן לבדוק את החיבור למטא. '));
-    box.appendChild(document.createTextNode(status.__error.message));
+    box.appendChild(document.createTextNode(heErr(status.__error)));
     return;
   }
   if (!status || !status.configured){
@@ -24376,7 +24411,7 @@ function renderAdsState(){
   if (status.page && status.page.error){
     box.appendChild(admEl('div', 'ads-pill is-warn', 'הטוקן אינו רואה את הדף - טפסי לידים ופוסטים לא יעבדו'));
   }
-  if (live && live.__error) box.appendChild(admEl('div', 'ads-pill is-warn', live.__error.message));
+  if (live && live.__error) box.appendChild(admEl('div', 'ads-pill is-warn', heErr(live.__error)));
 }
 
 function adsDayChart(days, values, format){
@@ -24566,7 +24601,7 @@ function adsStatusButton(type, obj, stats, inLearning){
       showToast(to === 'PAUSED' ? 'הושהה' : 'הופעל');
       loadAdsReport();
     }catch(e){
-      showToast(e.message, 5200);
+      showToast(heErr(e), 5200);
     }finally{
       b.disabled = false;
     }
@@ -24599,7 +24634,7 @@ function adsBudgetEditor(type, obj){
       showToast('התקציב עודכן');
       loadAdsReport();
     }catch(e){
-      showToast(e.message, 5200);
+      showToast(heErr(e), 5200);
       input.value = String(obj.daily_budget_ils);
     }finally{
       b.disabled = false;
@@ -24689,7 +24724,7 @@ document.getElementById('adsSyncBtn')?.addEventListener('click', async (e)=>{
     showToast(r.ok === false ? 'הסנכרון הושלם חלקית' : 'הנתונים עודכנו ממטא');
     loadAdsReport();
   }catch(err){
-    showToast(err.message, 5200);
+    showToast(heErr(err), 5200);
   }finally{
     btn.disabled = false;
   }
@@ -24770,7 +24805,7 @@ document.getElementById('adsCopyForm')?.addEventListener('submit', async (e)=>{
     renderAdsDraft();
     loadAdsDrafts();
   }catch(ex){
-    err.textContent = ex.message; err.hidden = false; dashPanelsMeasure();
+    err.textContent = heErr(ex); err.hidden = false; dashPanelsMeasure();
   }finally{
     btn.disabled = false; btn.textContent = 'כתיבת נוסחים';
   }
@@ -24865,7 +24900,7 @@ function renderAdsDraft(){
         renderAdsDraft();
         loadAdsDrafts();
         showToast(status === 'approved' ? 'הנוסחים אושרו' : status === 'archived' ? 'הועבר לארכיון' : 'נשמר');
-      }catch(e){ showToast(e.message, 5200); }
+      }catch(e){ showToast(heErr(e), 5200); }
       finally{ b.disabled = false; }
     });
     return b;
@@ -24898,7 +24933,7 @@ function renderAdsDraft(){
       adsDraftCur = r.draft;
       renderAdsDraft();
       loadAdsDrafts();
-    }catch(e){ showToast(e.message, 5200); }
+    }catch(e){ showToast(heErr(e), 5200); }
     finally{ reBtn.disabled = false; reBtn.textContent = 'כתיבה מחדש'; }
   });
   const reRow = admEl('div', 'ads-row-btns'); reRow.appendChild(reBtn);
@@ -25064,7 +25099,7 @@ function adsCampaignForm(d){
       loadAdsCampaigns();
     }catch(ex){
       const list = ex.data && ex.data.errors ? ' - ' + ex.data.errors.map(adsPlanErrText).join(' · ') : '';
-      err.textContent = ex.message + list; err.hidden = false;
+      err.textContent = heErr(ex) + list; err.hidden = false;
       dashPanelsMeasure();
     }finally{
       go.disabled = false; go.textContent = 'בדיקה ויצירה';
@@ -25083,7 +25118,7 @@ async function loadAdsCampaigns(){
   host.innerHTML = '';
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
-      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270314090000_ads_campaigns.sql.' : 'שגיאה בטעינת הקמפיינים: ' + error.message));
+      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270314090000_ads_campaigns.sql.' : 'שגיאה בטעינת הקמפיינים: ' + heErr(error)));
     dashPanelsMeasure();
     return;
   }
@@ -25120,7 +25155,7 @@ async function loadAdsCampaigns(){
           await adsCall('discard_campaign', { id: c.id });
           showToast('נמחק');
           loadAdsCampaigns();
-        }catch(e){ showToast(e.message, 5200); }
+        }catch(e){ showToast(heErr(e), 5200); }
         finally{ b.disabled = false; }
       });
       act.appendChild(b);
@@ -25143,7 +25178,7 @@ async function loadAdsDrafts(){
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
       ? 'טבלת הטיוטות לא קיימת עדיין - המיגרציה 20270306090000_ads_copy.sql.'
-      : 'שגיאה בטעינת הטיוטות: ' + error.message));
+      : 'שגיאה בטעינת הטיוטות: ' + heErr(error)));
     dashPanelsMeasure();
     return;
   }
@@ -25220,7 +25255,7 @@ async function loadLeadsTab(){
   }catch(e){
     fHost.innerHTML = '';
     fHost.appendChild(admEl('div', 'empty-state', e.code === 'meta_not_configured' || e.code === 'page_not_configured'
-      ? 'הדף או הטוקן של מטא לא מוגדרים עדיין - הטפסים יופיעו כאן אחרי החיבור.' : e.message));
+      ? 'הדף או הטוקן של מטא לא מוגדרים עדיין - הטפסים יופיעו כאן אחרי החיבור.' : heErr(e)));
   }
   loadLeadsList();
 }
@@ -25288,7 +25323,7 @@ function leadFormRow(f){
       const n = Object.values(r.routed || {}).reduce((a, b) => a + b, 0);
       showToast('נשמר' + (n ? ' · ' + n + ' לידים שחיכו נשלחו' : ''));
       loadLeadsTab();
-    }catch(e){ showToast(e.message, 5200); }
+    }catch(e){ showToast(heErr(e), 5200); }
     finally{ save.disabled = false; }
   });
   const row = admEl('div', 'ads-row-btns'); row.appendChild(save); card.appendChild(row);
@@ -25318,7 +25353,7 @@ async function loadLeadsList(){
   host.innerHTML = '';
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42703' || error.code === 'PGRST204')
-      ? 'הטבלה לא עודכנה עדיין - המיגרציה 20270312090000_ads_leads_routing.sql.' : 'שגיאה בטעינת הלידים: ' + error.message));
+      ? 'הטבלה לא עודכנה עדיין - המיגרציה 20270312090000_ads_leads_routing.sql.' : 'שגיאה בטעינת הלידים: ' + heErr(error)));
     dashPanelsMeasure(); return;
   }
   if (!(data || []).length){ host.appendChild(admEl('div', 'empty-state', 'עוד לא הגיעו לידים ממטא.')); dashPanelsMeasure(); return; }
@@ -25350,7 +25385,7 @@ async function loadLeadsList(){
       b.addEventListener('click', async ()=>{
         b.disabled = true;
         try{ const r = await adsCall('retry_lead', { meta_lead_id: l.meta_lead_id }); showToast(r.status === 'routed' ? 'נכנס לפלטפורמה' : (LEAD_ERRORS[r.error] || r.error || r.status)); loadLeadsList(); }
-        catch(e){ showToast(e.message, 5200); }
+        catch(e){ showToast(heErr(e), 5200); }
         finally{ b.disabled = false; }
       });
       act.appendChild(b);
@@ -25370,14 +25405,14 @@ document.getElementById('leadsSyncBtn')?.addEventListener('click', async (e)=>{
     const routed = Object.entries(r.routed || {}).map(([k, n]) => (LEAD_STATUS[k] ? LEAD_STATUS[k][0] : k) + ' ' + n).join(', ');
     showToast('נמשכו ' + (r.fetched || 0) + ' לידים' + (routed ? ' · ' + routed : ''));
     loadLeadsTab();
-  }catch(err){ showToast(err.message, 5200); }
+  }catch(err){ showToast(heErr(err), 5200); }
   finally{ btn.disabled = false; }
 });
 
 document.getElementById('leadsSubscribeBtn')?.addEventListener('click', async (e)=>{
   const btn = e.currentTarget; btn.disabled = true;
   try{ await adsCall('subscribe_page'); showToast('הדף מחובר - לידים חדשים יגיעו תוך שניות'); }
-  catch(err){ showToast(err.message, 6000); }
+  catch(err){ showToast(heErr(err), 6000); }
   finally{ btn.disabled = false; }
 });
 
@@ -25421,7 +25456,7 @@ async function loadIntelReport(){
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
       ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270310090000_market_intel.sql.'
-      : 'שגיאה בטעינת המודיעין: ' + error.message));
+      : 'שגיאה בטעינת המודיעין: ' + heErr(error)));
     dashPanelsMeasure();
     return;
   }
@@ -25486,7 +25521,7 @@ async function loadIntelReport(){
 function intelErr(e){
   if (e && e.code === 'places_not_configured') return 'חסר הסוד GOOGLE_PLACES_API_KEY ב-Supabase (Edge Functions → Secrets)';
   if (e && e.code === 'places_error' && /PERMISSION_DENIED|REQUEST_DENIED|API_KEY/.test(e.message)) return 'גוגל דחתה את המפתח - לוודא ש-"Places API (New)" מופעל ושהמפתח מורשה לו. ' + e.message;
-  return e && e.message ? e.message : 'שגיאה';
+  return e && heErr(e) ? heErr(e) : 'שגיאה';
 }
 
 function intelSafeUrl(u){ return /^https?:\/\//i.test(String(u || '')) ? String(u) : null; }
@@ -25543,7 +25578,7 @@ document.getElementById('intelRegistryBtn')?.addEventListener('click', async (e)
     const r = await adsCall('intel_registry_refresh');
     showToast('נספרו ' + admInt(r.brokers) + ' מתווכים ב-' + admInt(r.cities) + ' ערים');
     loadIntelReport();
-  }catch(err){ showToast(err.message, 6000); }
+  }catch(err){ showToast(heErr(err), 6000); }
   finally{ btn.disabled = false; }
 });
 
@@ -25564,7 +25599,7 @@ async function loadKeywordReport(){
   if (error){
     host.appendChild(admEl('div', 'empty-state', (error.code === '42883' || error.code === 'PGRST202')
       ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270310090000_market_intel.sql.'
-      : 'שגיאה בטעינת מילות המפתח: ' + error.message));
+      : 'שגיאה בטעינת מילות המפתח: ' + heErr(error)));
     dashPanelsMeasure();
     return;
   }
@@ -26989,7 +27024,7 @@ async function loadAgreements(){
   if (error){
     listEl.innerHTML = '<div class="empty-state">' + (missingSchema(error)
       ? 'מנגנון ההסכמים לא הופעל עדיין בפרויקט הזה.'
-      : 'שגיאה בטעינת ההסכמים: ' + esc(error.message)) + '</div>';
+      : 'שגיאה בטעינת ההסכמים: ' + esc(heErr(error))) + '</div>';
     accSetCount('accAgreements', '');
     return;
   }
@@ -27227,7 +27262,7 @@ async function agrCancel(a){
   if (!confirm('לבטל את ההסכם "' + a.title + '"?\n\nההסכם יישאר בארכיון כמבוטל, והקישורים לחתימה יפסיקו לעבוד.')) return;
   const { error } = await sb.from('agreements')
     .update({ status:'cancelled', cancelled_at:new Date().toISOString() }).eq('id', a.id);
-  if (error) return showToast('הביטול נכשל: ' + error.message);
+  if (error) return showToast('הביטול נכשל: ' + heErr(error));
   showToast('ההסכם בוטל');
   await loadAgreements();
 }
@@ -27235,7 +27270,7 @@ async function agrCancel(a){
 async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
   const { error } = await sb.from('agreements').delete().eq('id', a.id);
-  if (error) return showToast('המחיקה נכשלה: ' + error.message);
+  if (error) return showToast('המחיקה נכשלה: ' + heErr(error));
   expandedAgreementIds.delete(a.id);
   showToast('הטיוטה נמחקה');
   await loadAgreements();
@@ -28148,7 +28183,7 @@ async function agrAddPropertyToCatalog(uid, btn){
     .insert(payload).select('id').single();
   if (error){
     btn.disabled = false; btn.textContent = original;
-    showToast('הוספת הנכס למאגר נכשלה: ' + error.message);
+    showToast('הוספת הנכס למאגר נכשלה: ' + heErr(error));
     return;
   }
 
@@ -28855,7 +28890,7 @@ async function agrSaveAndGoSign(btn){
     agrRender();
   } catch(err){
     console.error(err);
-    showToast('שמירת ההסכם נכשלה: ' + (err.message || 'שגיאה'));
+    showToast('שמירת ההסכם נכשלה: ' + (heErr(err) || 'שגיאה'));
     btn.disabled = false;
     btn.textContent = original;
   }
@@ -29010,7 +29045,7 @@ async function agrSaveManualSignature(signerId, btn){
   }).eq('id', signerId).is('signed_at', null);
 
   if (error){
-    showToast('שמירת החתימה נכשלה: ' + error.message);
+    showToast('שמירת החתימה נכשלה: ' + heErr(error));
     btn.disabled = false;
     btn.textContent = original;
     return;
@@ -29182,7 +29217,7 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
     patch[t.dataset.agrFlag] = t.checked;
     const { error } = await sb.from('agreements').update(patch).eq('id', agrWizard.agreementId);
     if (error){
-      showToast('העדכון נכשל: ' + error.message);
+      showToast('העדכון נכשל: ' + heErr(error));
       t.checked = !t.checked;
       return;
     }
@@ -29549,7 +29584,7 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
   try{
     const { data, error } = await sb.rpc('market_deals_import', { p_rows: dealsImportParsed });
     if (error) throw error;
-    if (data && data.error){ alert('הייבוא נדחה: ' + data.error); return; }
+    if (data && data.error){ alert('הייבוא נדחה: ' + heErr(data.error)); return; }
     const parts = [plural(data.inserted, 'נוספה עסקה אחת', 'עסקאות', 'נוספו ' + data.inserted)];
     if (data.skipped) parts.push(`${data.skipped} כבר היו במאגר`);
     if (data.rejected_count) parts.push(plural(data.rejected_count, 'עסקה אחת נדחתה', 'נדחו'));
@@ -29559,7 +29594,7 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
     dealsImportParsed = [];
     await loadDealsCoverage();
   } catch(err){
-    alert('הייבוא נכשל: ' + (err.message || err));
+    alert('הייבוא נכשל: ' + (heErr(err) || err));
   } finally {
     btn.disabled = false; btn.textContent = 'ייבוא';
   }
@@ -29646,7 +29681,7 @@ async function runGovmapBackfill(){
       ${esc(String(counts.error))} נכשלו (ינוסו שוב בלחיצה הבאה).</p>`;
   } catch(err){
     console.warn('GovMap backfill failed:', err);
-    status.textContent = 'ההשלמה נכשלה: ' + ((err && err.message) || err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);
   } finally {
     govmapSetBusy(false);
   }
@@ -29683,7 +29718,7 @@ async function runGovmapParity(){
             }
           }
         }
-      } catch(err){ row.err = (err && err.message) || String(err); }
+      } catch(err){ row.err = (err && heErr(err)) || String(err); }
       results.push(row);
     }
     status.textContent = '';
@@ -29715,7 +29750,7 @@ async function runGovmapParity(){
       ${bad.length ? `<div style="overflow-x:auto"><table class="cma-table"><thead><tr><th>כתובת</th><th>מיקום</th><th>גוש/חלקה (עירייה מול GovMap)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>` : ''}`;
   } catch(err){
     console.warn('GovMap parity failed:', err);
-    status.textContent = 'ההשוואה נכשלה: ' + ((err && err.message) || err);
+    status.textContent = 'ההשוואה נכשלה: ' + ((err && heErr(err)) || err);
   } finally {
     govmapSetBusy(false);
   }
@@ -29777,7 +29812,7 @@ async function runGovmapDeals(){
       ${rows.length >= 150 ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
   } catch(err){
     console.warn('GovMap deals failed:', err);
-    status.textContent = 'ההשלמה נכשלה: ' + ((err && err.message) || err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);
   } finally {
     govmapSetBusy(false);
   }
