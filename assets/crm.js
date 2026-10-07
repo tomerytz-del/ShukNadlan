@@ -24615,7 +24615,7 @@ function adsSelectTab(id){
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
     document.getElementById(p).hidden = !on;
   });
-  if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); }
+  if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); loadAdsCampaigns(); }
   if (id === 'adsTabIntel') loadIntelReport();
   if (id === 'adsTabLeads') loadLeadsTab();
   if (id === 'adsTabKw') loadKeywordReport();
@@ -24855,6 +24855,232 @@ function renderAdsDraft(){
   const reRow = admEl('div', 'ads-row-btns'); reRow.appendChild(reBtn);
   if ((d.history || []).length) reRow.appendChild(admEl('span', 'adm-note', (d.history.length) + ' גרסאות קודמות נשמרו'));
   host.appendChild(reRow);
+  if (d.status === 'approved') host.appendChild(adsCampaignForm(d));
+  dashPanelsMeasure();
+}
+
+/* ---------- יצירת קמפיין מנוסח מאושר (שלב 5) ----------
+   הכול עובר dry_run ואז חלון אישור עם התקציב, התקופה, האזור והנוסחים כפי
+   שיעלו - כולל שורת הגילוי שנוספת בסוף. הקמפיין נוצר מושהה, והמודעות בתוכו
+   פעילות: המתג היחיד הוא "הפעלה" בלשונית הביצועים. ‏ads-admin/campaign.ts. */
+const ADS_DEST = { lead_form: 'טופס לידים במטא', website: 'האתר', whatsapp: 'וואטסאפ' };
+Object.assign(ADS_ERRORS, {
+  draft_not_approved: 'אפשר ליצור קמפיין רק מנוסחים מאושרים',
+  bad_variants: 'בחרו בין נוסח אחד לשלושה',
+  disclosure_missing: 'שורת הגילוי (ads_settings.disclosure_line) ריקה - בלעדיה לא נוצרת מודעה',
+  owner_consent_required: 'צריך לאשר שיש הסכמת בעלים לפרסום ממומן',
+  agent_license_missing: 'למתווך/ת של הנכס אין רישיון מאומת',
+  property_no_location: 'לנכס אין מיקום על המפה',
+  lead_form_required: 'בחרו טופס לידים',
+  lead_form_not_mapped: 'הטופס לא שויך',
+  lead_form_wrong_kind: 'הטופס אינו מתאים לקמפיין הזה',
+  cities_required: 'בחרו לפחות עיר אחת',
+  city_no_location: 'לאחת הערים אין מיקום על המפה',
+  bad_image_url: 'קישור התמונה אינו תקין',
+  bad_budget: 'תקציב לא תקין',
+  bad_days: 'מספר ימים בין 1 ל-60',
+  carousel_property_only: 'קרוסלה - רק בקידום נכס',
+  account_currency_not_ils: 'חשבון המודעות אינו בשקלים',
+  invalid_plan: 'התוכנית לא עברה בדיקה',
+  create_failed: 'היצירה נכשלה באמצע',
+  campaign_active: 'קמפיין פעיל משהים קודם',
+  campaign_not_found: 'הקמפיין לא נמצא',
+});
+const ADS_PLAN_ERRORS = {
+  image_required: 'אין תמונה', carousel_needs_2_images: 'לקרוסלה צריך לפחות שתי תמונות', no_geo: 'אין אזור',
+  geo_outside_israel: 'המיקום מחוץ לישראל', bad_radius: 'רדיוס בין 1 ל-80 ק"מ', bad_age: 'טווח גילאים לא תקין',
+  landing_url_required: 'אין כתובת יעד', lead_form_required: 'בחרו טופס לידים', page_missing: 'הדף בפייסבוק לא מוגדר',
+};
+function adsPlanErrText(code){
+  const m = /^variant_(\d+)_(.+)$/.exec(code);
+  if (m) return 'נוסח ' + m[1] + ': ' + (m[2] === 'headline_too_long_for_carousel' ? 'הכותרת ארוכה מ-32 תווים - בקרוסלה היא נחתכת. קצרו בעורך.' : 'חסר טקסט או כותרת');
+  return ADS_PLAN_ERRORS[code] || code;
+}
+
+function adsNum(label, val, min, max){
+  const i = admEl('input'); i.type = 'number'; i.min = String(min); i.max = String(max); i.step = '1'; i.value = String(val); i.inputMode = 'numeric';
+  const l = admEl('label', 'cst-f', label); l.appendChild(i);
+  return { l, i };
+}
+
+function adsCampaignForm(d){
+  const box = admEl('form', 'cst-form ads-camp-form');
+  box.noValidate = true;
+  box.appendChild(admEl('h3', 'adm-h', 'יצירת קמפיין מהנוסחים האלה'));
+
+  const vWrap = admEl('div', 'ads-camp-vars');
+  (d.variants || []).forEach((v, i) => {
+    const l = admEl('label', 'ads-check');
+    const c = admEl('input'); c.type = 'checkbox'; c.value = String(i); c.checked = i === 0;
+    l.appendChild(c); l.appendChild(admEl('span', null, 'נוסח ' + (i + 1) + ': ' + (v.headline || v.angle || '')));
+    vWrap.appendChild(l);
+  });
+  box.appendChild(vWrap);
+
+  const g = admEl('div', 'cst-grid');
+  const dest = admEl('select');
+  Object.entries(ADS_DEST).forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; dest.appendChild(o); });
+  const lDest = admEl('label', 'cst-f', 'לאן מובילה המודעה'); lDest.appendChild(dest); g.appendChild(lDest);
+
+  const formSel = admEl('select');
+  const lForm = admEl('label', 'cst-f', 'טופס לידים'); lForm.appendChild(formSel); g.appendChild(lForm);
+
+  let fmt = null;
+  if (d.audience === 'property'){
+    fmt = admEl('select');
+    [['image', 'תמונה אחת'], ['carousel', 'קרוסלה מתמונות הנכס']].forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; fmt.appendChild(o); });
+    const lf = admEl('label', 'cst-f', 'תצוגה'); lf.appendChild(fmt); g.appendChild(lf);
+  }
+  const budget = adsNum('תקציב יומי (₪)', 30, 10, 1000); g.appendChild(budget.l);
+  const days = adsNum('כמה ימים', 7, 1, 60); g.appendChild(days.l);
+  const radius = adsNum('רדיוס (ק"מ)', d.audience === 'property' ? 15 : 10, 1, 80); g.appendChild(radius.l);
+  const ageMin = adsNum('מגיל', 25, 18, 65); g.appendChild(ageMin.l);
+  const ageMax = adsNum('עד גיל', 65, 18, 65); g.appendChild(ageMax.l);
+  box.appendChild(g);
+
+  let citiesSel = null, imgUrl = null, consent = null;
+  if (d.audience === 'platform'){
+    const g2 = admEl('div', 'cst-grid');
+    citiesSel = admEl('select'); citiesSel.multiple = true; citiesSel.size = 6;
+    const lc = admEl('label', 'cst-f', 'ערים (אפשר כמה)'); lc.appendChild(citiesSel); g2.appendChild(lc);
+    imgUrl = admEl('input'); imgUrl.type = 'url'; imgUrl.placeholder = 'https://…/storage/v1/object/public/…';
+    imgUrl.dir = 'ltr';
+    const li = admEl('label', 'cst-f cst-wide', 'קישור לתמונה (מהאחסון של האתר, JPG או PNG)'); li.appendChild(imgUrl); g2.appendChild(li);
+    box.appendChild(g2);
+    sb.from('cities').select('id, name').not('market_slug', 'is', null).not('lat', 'is', null).order('name').then(({ data }) => {
+      (data || []).forEach(c => { const o = admEl('option', null, c.name); o.value = c.id; citiesSel.appendChild(o); });
+    });
+  } else {
+    const l = admEl('label', 'ads-check');
+    consent = admEl('input'); consent.type = 'checkbox';
+    l.appendChild(consent);
+    l.appendChild(admEl('span', null, 'יש הסכמת בעלים לפרסום ממומן של הנכס (התקנות אוסרות לפרסם נכס בלי הסכמה)'));
+    box.appendChild(l);
+  }
+
+  // הטפסים מהשיוך בלשונית "לידים ממטא": לנכס - פנייה על הנכס הזה או מחפשים;
+  // למתווכים - טופס מתווכים. ‏ads-admin בודק שוב.
+  sb.from('ads_lead_forms').select('form_id, form_name, kind, property_id').then(({ data }) => {
+    const ok = (data || []).filter(f => d.audience === 'property'
+      ? (f.kind === 'buyer' || (f.kind === 'property' && f.property_id === d.property_id)) : f.kind === 'broker');
+    formSel.innerHTML = '';
+    if (!ok.length){ const o = admEl('option', null, 'אין טופס משויך מתאים'); o.value = ''; formSel.appendChild(o); }
+    ok.forEach(f => { const o = admEl('option', null, (f.form_name || f.form_id) + ' · ' + (LEAD_KINDS[f.kind] || f.kind)); o.value = f.form_id; formSel.appendChild(o); });
+  });
+  const syncDest = ()=>{ lForm.style.display = dest.value === 'lead_form' ? '' : 'none'; dashPanelsMeasure(); };
+  dest.addEventListener('change', syncDest);
+  syncDest();
+
+  const err = admEl('p', 'cst-err'); err.hidden = true; err.setAttribute('role', 'alert');
+  box.appendChild(err);
+  const go = admEl('button', 'btn btn-gold', 'בדיקה ויצירה');
+  go.type = 'submit';
+  const row = admEl('div', 'ads-row-btns'); row.appendChild(go);
+  row.appendChild(admEl('span', 'adm-note', 'הקמפיין נוצר מושהה. מפעילים אותו בלשונית הביצועים.'));
+  box.appendChild(row);
+
+  box.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    err.hidden = true;
+    const payload = {
+      draft_id: d.id,
+      variants: [...vWrap.querySelectorAll('input:checked')].map(c => Number(c.value)),
+      destination: dest.value,
+      format: fmt ? fmt.value : 'image',
+      lead_form_id: dest.value === 'lead_form' ? formSel.value : undefined,
+      daily_budget: Number(budget.i.value), days: Number(days.i.value), radius_km: Number(radius.i.value),
+      age_min: Number(ageMin.i.value), age_max: Number(ageMax.i.value),
+    };
+    if (citiesSel) payload.city_ids = [...citiesSel.selectedOptions].map(o => o.value);
+    if (imgUrl) payload.image_url = imgUrl.value.trim();
+    if (consent) payload.owner_consent = consent.checked;
+    go.disabled = true;
+    try{
+      const dry = await adsCall('create_campaign', Object.assign({ dry_run: true }, payload));
+      const p = dry.plan, s = p.summary;
+      const lines = [
+        p.name,
+        'יעד: ' + ADS_DEST[s.destination] + ' · ' + (s.format === 'carousel' ? 'קרוסלה של ' + s.images + ' תמונות' : 'תמונה אחת') + ' · ' + s.ads + ' מודעות',
+        'תקציב: ' + adsNis(s.daily_budget) + ' ליום' + (s.days ? ' ל-' + s.days + ' ימים - עד ' + adsNis(s.max_spend) + ' בסך הכול' : ' בלי תאריך סיום'),
+        'אזור: ' + s.geo.map(x => x.label + ' (' + x.radius_km + ' ק"מ)').join(', ') + ' · גילאי ' + s.age[0] + '-' + s.age[1],
+        'שורת הגילוי בסוף כל מודעה: ' + p.disclosure,
+      ].concat((p.ads || []).map((a, i) => 'מודעה ' + (i + 1) + ': ' + a.headline))
+       .concat((dry.warnings || []).map(w => 'שימו לב: ' + w));
+      const ok = await confirmPurchase({ title: 'יצירת קמפיין במטא', lines, requireAck: true, hidePrice: true,
+        confirmLabel: 'יצירה (מושהה)', ackText: 'אני מבין/ה שזה יוצר קמפיין בחשבון המודעות. הוא לא יוציא כסף עד שאפעיל אותו.' });
+      if (!ok) return;
+      go.textContent = 'יוצר…';
+      const r = await adsCall('create_campaign', payload);
+      showToast('הקמפיין נוצר במטא (מושהה) עם ' + r.ads + ' מודעות');
+      loadAdsCampaigns();
+    }catch(ex){
+      const list = ex.data && ex.data.errors ? ' - ' + ex.data.errors.map(adsPlanErrText).join(' · ') : '';
+      err.textContent = ex.message + list; err.hidden = false;
+      dashPanelsMeasure();
+    }finally{
+      go.disabled = false; go.textContent = 'בדיקה ויצירה';
+    }
+  });
+  return box;
+}
+
+const ADS_CAMP_STATUS = { creating: ['ביצירה', 'is-warn'], created: ['נוצר', 'is-on'], failed: ['נכשל באמצע', 'is-bad'], discarded: ['נמחק', ''] };
+async function loadAdsCampaigns(){
+  const host = document.getElementById('adsCampaigns');
+  if (!host) return;
+  const { data, error } = await sb.from('ads_campaigns')
+    .select('id, created_at, name, audience, destination, daily_budget, end_time, status, error, meta_campaign_id, objects')
+    .order('created_at', { ascending: false }).limit(12);
+  host.innerHTML = '';
+  if (error){
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
+      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270314090000_ads_campaigns.sql.' : 'שגיאה בטעינת הקמפיינים: ' + error.message));
+    dashPanelsMeasure();
+    return;
+  }
+  if (!(data || []).length){ host.appendChild(admEl('div', 'empty-state', 'עוד לא נוצר קמפיין מכאן.')); dashPanelsMeasure(); return; }
+  const wrap = admEl('div', 'adm-table-wrap');
+  const tbl = admEl('table', 'adm-table');
+  const head = admEl('tr');
+  ['קמפיין', 'יעד', 'ליום', 'מצב', 'נוצר', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  data.forEach(c => {
+    const tr = admEl('tr');
+    const name = admEl('td', null, c.name);
+    if (c.error) name.title = c.error;
+    tr.appendChild(name);
+    tr.appendChild(admEl('td', null, ADS_DEST[c.destination] || c.destination));
+    tr.appendChild(admEl('td', 'num', adsNis(c.daily_budget)));
+    const st = ADS_CAMP_STATUS[c.status] || [c.status, ''];
+    const td = admEl('td'); td.appendChild(admEl('span', 'ads-pill ' + st[1], st[0])); tr.appendChild(td);
+    tr.appendChild(admEl('td', null, new Date(c.created_at).toLocaleDateString('he-IL')));
+    const act = admEl('td');
+    if (c.status === 'created' || c.status === 'failed'){
+      const b = admEl('button', 'ads-act', 'מחיקה');
+      b.type = 'button';
+      b.addEventListener('click', async ()=>{
+        b.disabled = true;
+        try{
+          await adsCall('discard_campaign', { id: c.id, dry_run: true });
+          const ok = await confirmPurchase({ title: 'מחיקת קמפיין', hidePrice: true, requireAck: true, confirmLabel: 'מחיקה',
+            lines: [c.name, c.status === 'failed'
+              ? 'היצירה נעצרה באמצע. המחיקה מסירה מהחשבון את מה שכבר נוצר (' + (c.objects || []).length + ' פריטים).'
+              : 'הקמפיין, הסט והמודעות יימחקו מהחשבון. הנתונים שכבר נאספו נשארים בדוחות.'],
+            ackText: 'אני מבין/ה שמחיקה במטא אינה הפיכה.' });
+          if (!ok) return;
+          await adsCall('discard_campaign', { id: c.id });
+          showToast('נמחק');
+          loadAdsCampaigns();
+        }catch(e){ showToast(e.message, 5200); }
+        finally{ b.disabled = false; }
+      });
+      act.appendChild(b);
+    }
+    tr.appendChild(act);
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
   dashPanelsMeasure();
 }
 
