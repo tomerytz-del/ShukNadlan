@@ -444,6 +444,18 @@ python scripts/check_long_dash.py --fix  # החלפה למקף רגיל
 נכסים כמתיישנים בבת אחת — 50 קריאות Claude מיותרות על שינוי של תו אחד.
 המיגרציה אוספת מי היה טרי **לפני**, ומחזירה להם את טביעת האצבע.
 
+## הודעת שגיאה: בעברית, ועם דרך לבקש עזרה
+
+**לא מציגים `error.message` גולמי.** Supabase, הדפדפן ופונקציות ה-Edge
+מחזירים אנגלית (`Email not confirmed`, ‏`Failed to fetch`, ‏`duplicate key…`),
+וכ-200 מקומות הציגו אותה כמו שהיא. ב-CRM עוטפים ב-`heErr(error)`, ובדף אחר
+שטוען את `assets/friendly-error.js` ב-`FriendlyError.text(error)`. הודעה
+שכבר בעברית עוברת כמו שהיא, ולכן העטיפה בטוחה תמיד.
+
+הודעת כישלון ב-`showToast` מקבלת מעצמה קישור "לעזרה בוואטסאפ" למספר של
+הפלטפורמה, עם `data-site-contact`. קוד שגיאה חדש שפונקציית Edge מחזירה
+לגולש/ת מקבל שורה ב-`RULES`. הפרטים: `docs/friendly-errors.md`.
+
 ## בריחת HTML: `escapeHtml` ולא הגדרה מקומית
 
 דף שמכניס ערך מהמסד ל-`innerHTML` או למאפיין טוען את `assets/esc.js`

@@ -10,6 +10,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
 <!-- ‏viewport-fit=cover, וזה תנאי ולא קישוט: באפליקציה המותקנת (‏display
      ‏standalone) אנדרואיד פורש את הדף מקצה לקצה גם בלי לבקש, כלומר תחתית
      הדף יושבת **מאחורי** סרגל הניווט של המערכת. בלי ההצהרה הזו
@@ -4651,6 +4653,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
       <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
       <div id="loginError"></div>
+      <!-- מוצג רק כשהחשבון קיים והמייל עוד לא אושר (email_not_confirmed), או
+           מיד אחרי יצירת חשבון. בלעדיו מי שמייל האישור לא הגיע אליו/ה (ספאם,
+           מכסת השליחה של Supabase) נשאר/ה מול שגיאה בלי שום דרך קדימה. -->
+      <button type="button" class="btn btn-ghost btn-block" id="resendConfirmBtn" style="display:none;margin-top:8px">שליחה חוזרת של מייל האישור</button>
     </form>
     <!-- ---------- יצירת חשבון למוזמן/ת ----------
          מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
