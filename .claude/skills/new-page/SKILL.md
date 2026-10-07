@@ -126,6 +126,22 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 `cssUrl` (ראו `index.html`), כי `escapeHtml` אינה מגינה על גרש בודד
 בתוך CSS.
 
+### ‏5א. הודעת שגיאה - בעברית, לא `error.message`
+
+שגיאה מ-Supabase, מהדפדפן או מפונקציית Edge היא אנגלית (`Failed to fetch`,
+‏`Load failed` בספארי, `db_error`). **לא מציגים אותה כמו שהיא.**
+
+- דף שטוען `assets/friendly-error.js` (‏`<script src>` אחרי `esc.js`):
+  `FriendlyError.text(err)`. מתחת לאלמנט השגיאה אפשר להוסיף
+  `FriendlyError.attachHelp(el, el.textContent)` - קישור "לעזרה בוואטסאפ"
+  עם `data-site-contact`, ולכן `check_events.py` מקבל אותו.
+- דף ציבורי שלא רוצים להוסיף לו בקשה: מציגים `err.message` רק כשיש בו
+  עברית (`/[֐-׿]/.test(err.message || '')`), ואחרת הודעה קבועה
+  בעברית. **לא** `err.message !== 'Failed to fetch'` - ספארי אומר
+  `Load failed` והוא עובר.
+
+הפרטים: `docs/friendly-errors.md`.
+
 ### 6. פרטיות כתובת
 
 דף שמציג נכס מציג **רחוב ושכונה, לא מספר בית**. יש `maskHouseNumber`
