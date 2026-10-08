@@ -306,7 +306,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | כלי | מה זה עושה |
 |---|---|
 | `profile_get` | הפרופיל כפי שהוא בדף (`/agent?slug=`), ומה חסר בו |
-| `update_profile` | שם, ביו, אזור פעילות, השכלה/הסמכות, ותק ותחומי התמחות; ותמונה שנשלחה בשיחה כתמונת פרופיל (`photo=profile`). אין תמונת נושא אישית: `photo=cover` מחזיר `cover_is_agency` והסבר, כי הרצועה היא תמונת המשרד |
+| `update_profile` | שם, ביו, אזורי פעילות (רק מרשימת האזורים, `service_markets`), השכלה/הסמכות, ותק ותחומי התמחות; ותמונה שנשלחה בשיחה כתמונת פרופיל (`photo=profile`). אין תמונת נושא אישית: `photo=cover` מחזיר `cover_is_agency` והסבר, כי הרצועה היא תמונת המשרד |
 
 **רשימה סגורה של שדות, וזה הגבול היחיד.** הבוט רץ כ-service_role, ו-
 `protect_sensitive_agency_member_fields` מדלגת על service_role לגמרי: מסלול,
@@ -466,7 +466,8 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | "מה חדש?" | ‏`list_notifications` |
 | תמונה + "תמונת פרופיל" | ‏`update_profile` עם `photo=profile` - התמונה אינה מצורפת לנכס |
 | "תוסיף לביו שאני גם שמאי מוסמך" | ‏`profile_get`, ואז `update_profile` עם הביו המלא |
-| "אני עובד בעפולה והעמקים, 12 שנה בתחום" | ‏`update_profile` עם `service_area` ו-`years_experience` |
+| "אני עובד בעפולה והעמקים, 12 שנה בתחום" | ‏`update_profile` עם `service_markets: ["עפולה והעמק"]` ו-`years_experience` |
+| "תוסיף לי גם את מגדל העמק" | ‏`profile_get`, ואז `update_profile` עם האזורים הקיימים ועוד "נוף הגליל ומגדל העמק" |
 | "תעדכן אותי כאן על לידים חדשים" | ‏`whatsapp_alerts` עם `enable: [new_lead]` |
 
 ### הקישור לנכס — הבוט מכין, הסוכן/ת שולח/ת

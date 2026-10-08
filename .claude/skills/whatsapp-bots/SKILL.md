@@ -319,6 +319,11 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   `photo=cover` מחזיר `cover_is_agency` והסבר שהרצועה היא תמונת המשרד,
   שמנהל/ת המשרד מחליף/ה במיתוג. מי שמחזיר/ה את `cover` לכלי מחזיר/ה דבר
   שהאתר כבר לא מציג (`agent.html` קורא רק `agencies.cover_url`).
+* **אזורי פעילות רק מהרשימה.** `update_profile` מקבל `service_markets` - שמות
+  מ-`SERVICE_MARKETS` (`_shared/service-markets.ts`, enum בכלי) - ולא
+  `service_area` חופשי; `service_area` שנשלח בכל זאת מחזיר שגיאה עם הרשימה.
+  הטקסט ל-`service_area` נגזר מהבחירה. מי שמחזיר/ה שדה טקסט מחזיר/ה אזור
+  שאינו מכניס את הסוכן/ת לאף שוק. ‏`docs/regional-pages.md`.
 * **יומן Google מוצע אחרי פגישה, לא מחובר מכאן.** `agenda_add` של פגישה,
   סיור או חתימה מחזיר `gcal_offer` כשאין שורה ב-`agent_calendar_connections`
   ורק פעם בשיחה (בודק בהיסטוריה). החיבור הוא OAuth בדשבורד. ההחלטה מתי
