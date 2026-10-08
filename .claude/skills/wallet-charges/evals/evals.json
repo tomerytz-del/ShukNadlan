@@ -1,0 +1,36 @@
+{
+  "skill_name": "wallet-charges",
+  "evals": [
+    {
+      "id": 1,
+      "name": "drone-photo-purchase",
+      "prompt": "אני רוצה שסוכנים יוכלו להזמין צילום רחפן לנכס ב-₪250, שירד מהארנק. ההזמנה עצמה נשלחת לספק חיצוני (צלם) דרך Edge Function. תממש את זה: המסד, ה-Edge Function והכפתור ב-CRM.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Price read from pricing_config, not sent by browser",
+        "Agent row locked with for update",
+        "Deduction conditional on credit_balance >= charge",
+        "Functions revoked from public, anon, authenticated",
+        "Charge before vendor call; refund by charged amount on failure",
+        "CRM uses confirmPurchase",
+        "No VAT added at purchase"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "video-failed-refund",
+      "prompt": "סוכנים מתלוננים שכשיצירת הסרטון השיווקי נכשלת אצל הספק, הכסף שירד מהארנק לא חוזר. תמצא איך זה עובד היום ותתקן כך שההחזר יקרה אוטומטית.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Identified the existing charge/refund functions correctly",
+        "Refund uses amount_charged, not current price",
+        "Refund cannot happen twice",
+        "Found a concrete root cause in code",
+        "Noticed the agent-facing message falsely says 'no charge'",
+        "Proposed backfill for agents already owed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "skill_name": "new-migration",
+  "evals": [
+    {
+      "id": 1,
+      "name": "last-seen-rpc",
+      "prompt": "צריך לדעת מתי כל סוכן נכנס לאחרונה ל-CRM. תוסיף עמודה last_seen_at ל-agency_members ופונקציה שה-CRM קורא לה בטעינה כדי לעדכן אותה, ותחבר את הקריאה ב-CRM.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Migration file version is unique and greater than the latest",
+        "Column added idempotently (add column if not exists)",
+        "Function revokes from public, anon AND authenticated before granting",
+        "Function cannot be used to touch another agent's row (no client-supplied id)",
+        "CRM call is non-blocking and wired in loadDashboard",
+        "All repo checks pass"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "referred-by-fk",
+      "prompt": "תוסיף לטבלת properties עמודה referred_by שמפנה ל-agency_members - הסוכן שהפנה את הנכס. רק העמודה והמפתח הזר, בלי UI.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Noticed the column already exists and did not write a duplicate migration",
+        "Addressed the second-FK / PGRST201 embed risk",
+        "Asked what 'referring agent' means before adding a new column"
+      ]
+    }
+  ]
+}

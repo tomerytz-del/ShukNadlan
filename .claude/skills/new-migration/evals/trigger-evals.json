@@ -1,0 +1,74 @@
+[
+  {
+    "query": "צריך עמודה חדשה last_seen_at בטבלת agency_members שמתעדכנת כשהסוכן נכנס ל-CRM",
+    "should_trigger": true
+  },
+  {
+    "query": "db push failed on main with 'Remote migration versions not found in local migrations directory'. what now",
+    "should_trigger": true
+  },
+  {
+    "query": "add an index on properties(city_id, status), the home page query is slow",
+    "should_trigger": true
+  },
+  {
+    "query": "תוסיף לטבלת leads עמודה referred_by שמפנה ל-agency_members",
+    "should_trigger": true
+  },
+  {
+    "query": "write a security definer function that marks a lead as handled; it's called only from the whatsapp edge function",
+    "should_trigger": true
+  },
+  {
+    "query": "I just ran an ALTER TABLE through the supabase dashboard to test the new column, is that a problem?",
+    "should_trigger": true
+  },
+  {
+    "query": "create a table saved_search_alerts with RLS so each agent only sees their own rows",
+    "should_trigger": true
+  },
+  {
+    "query": "the supabase migrations workflow failed on main: syntax error at or near \"ת\" in 20261230090000",
+    "should_trigger": true
+  },
+  {
+    "query": "שתי מיגרציות הגיעו עם אותו version אחרי שני מיזוגים מקבילים והצינור אדום, מה עושים",
+    "should_trigger": true
+  },
+  {
+    "query": "כמה נכסים פעילים יש כרגע בכל עיר? רק שאילתה, לא לשנות כלום",
+    "should_trigger": false
+  },
+  {
+    "query": "the edge function property-inquiry-intake returns 401 on the public contact form",
+    "should_trigger": false
+  },
+  {
+    "query": "add a new property feature 'מחסן' to the CRM checkbox list and the property page",
+    "should_trigger": false
+  },
+  {
+    "query": "raise the lead price to 25 shekels everywhere",
+    "should_trigger": false
+  },
+  {
+    "query": "deals_scraper is ingesting deals with null price, should we drop them or keep them",
+    "should_trigger": false
+  },
+  {
+    "query": "write a python script that exports an agent's properties to csv",
+    "should_trigger": false
+  },
+  {
+    "query": "the ops agent keeps reporting heavy_query for a query that no longer runs",
+    "should_trigger": false
+  },
+  {
+    "query": "open a new market 'krayot' with kiryat bialik, motzkin and yam",
+    "should_trigger": false
+  },
+  {
+    "query": "regenerate the supabase typescript types, they're out of date",
+    "should_trigger": false
+  }
+]

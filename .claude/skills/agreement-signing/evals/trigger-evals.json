@@ -1,0 +1,66 @@
+[
+  {
+    "query": "לקוחה כותבת שהיא שלחה את הודעת 'אימות חתימה' בוואטסאפ ועדיין תקועה במסך האימות",
+    "should_trigger": true
+  },
+  {
+    "query": "a client opens the signing link and gets 'הקישור אינו תקין' but the agent sent it a minute ago",
+    "should_trigger": true
+  },
+  {
+    "query": "רוצה להוסיף אימות ב-SMS לחותמים בנוסף למייל ולוואטסאפ",
+    "should_trigger": true
+  },
+  {
+    "query": "the ID number field in the client card rejects a valid ID of an olah chadasha, she can't save it",
+    "should_trigger": true
+  },
+  {
+    "query": "גבריאלה יצרה הסכם בלעדיות ללקוח בלי מייל ובלי נייד תקין, ועכשיו אי אפשר לשלוח אותו לחתימה",
+    "should_trigger": true
+  },
+  {
+    "query": "add a second signer (spouse) option when the agent has the client sign face to face on the tablet",
+    "should_trigger": true
+  },
+  {
+    "query": "I want to send the OTP code over WhatsApp using our notify template, since we don't have an authentication template approved yet",
+    "should_trigger": true
+  },
+  {
+    "query": "בהסכם החתום מופיע קו ריק במקום הת״ז של החותם השני",
+    "should_trigger": true
+  },
+  {
+    "query": "סוכן רוצה לפרסם נכס שכבר קיים במערכת אצל משרד אחר, יש לו הסכם בלעדיות חתום, אבל השמירה נכשלת על כפילות",
+    "should_trigger": false
+  },
+  {
+    "query": "גבריאלה הציגה את עצמה בשם הלא נכון ללקוח בהודעה הראשונה",
+    "should_trigger": false
+  },
+  {
+    "query": "a whatsapp button message from the public bot is rejected by meta, title too long",
+    "should_trigger": false
+  },
+  {
+    "query": "add a terms-of-service checkbox on checkout.html before the payment",
+    "should_trigger": false
+  },
+  {
+    "query": "an agent's page isn't showing on the site even after his license was approved",
+    "should_trigger": false
+  },
+  {
+    "query": "the client showcase mini-site shows another office's logo on one of the property images",
+    "should_trigger": false
+  },
+  {
+    "query": "an agent forwarded an email to shuknadlan@gmail.com and nothing happened, the intake didn't pick it up",
+    "should_trigger": false
+  },
+  {
+    "query": "the whatsapp webhook hub.challenge verification fails when re-registering the webhook in meta",
+    "should_trigger": false
+  }
+]

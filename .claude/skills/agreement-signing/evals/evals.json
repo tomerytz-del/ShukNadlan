@@ -1,0 +1,32 @@
+{
+  "skill_name": "agreement-signing",
+  "evals": [
+    {
+      "id": 1,
+      "name": "otp-via-notify-template",
+      "prompt": "עוד אין לנו תבנית AUTHENTICATION מאושרת במטא. תשלח את קוד האימות של ההסכם בוואטסאפ דרך WHATSAPP_NOTIFY_TEMPLATE שכבר מאושרת, כדי שלקוחות בלי מייל יוכלו לחתום.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Declined to send OTP through the notify template",
+        "Explained Meta policy risk",
+        "Pointed to inbound WhatsApp verification as the existing alternative",
+        "Explained the path once the AUTH template is approved (WHATSAPP_OTP_TEMPLATE)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "stuck-wa-verify",
+      "prompt": "לקוחה כותבת שהיא שלחה בוואטסאפ את הודעת 'אימות חתימה' מהקישור, ועדיין תקועה במסך האימות של sign.html. הסוכן אומר שכשהוא בודק מהטלפון שלו זה עובד. מה יכול לגרום לזה? תבדוק את הקוד ותתקן אם יש באג.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Checked that handleWaSignVerify runs before agent identification",
+        "Checked nonce reuse window in open",
+        "Considered sender-number mismatch",
+        "Found the stale wa.me link bug in sign.html and fixed it",
+        "Explained why the agent's own test passes (owner session skips the gate)"
+      ]
+    }
+  ]
+}
