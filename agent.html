@@ -39,12 +39,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- הרקע הזורם של האתר. נטען בלי data-auto: דף הסוכן/ת מרכיב אותו אחרי
      שנקראה ההעדפה שלו/ה ושל המשרד מה-CRM (ראו applyPageBackground). -->
 <script src="assets/page-bg.js"></script>
+<!-- ערכת העיצוב של המשרד - חלה על דפי כל הסוכנים שלו (docs/agency-page.md) -->
+<script src="assets/agency-theme.js"></script>
 <style>
   /* ---------- ערכת הצבעים ----------
-     בשונה מדף המשרד, דף הסוכן/ת אינו מתחלף בצבעים: הוא של הפלטפורמה, וסוכן/ת
-     אחד/ת לא אמור/ה לקבל דף בגוון אחר מחברו/ה. שמות ה-tokens זהים לאלה של דף
-     המשרד (--brand / --accent) כדי ששכבת העיצוב — כותרות המקטעים, הרצועות,
-     הטאבים, הגלריה — תהיה בדיוק אותה שכבה בשני הדפים. */
+     אלה ברירות המחדל. דף הסוכן/ת לובש את ערכת המשרד שלו - זו שמנהל/ת
+     המשרד בחר/ה ב-CRM - דרך AgencyTheme.apply (‏assets/agency-theme.js),
+     ולכן כל סוכני המשרד נראים אותו דבר ואין לסוכן/ת עיצוב אישי. שמות
+     ה-tokens זהים לאלה של דף המשרד (--brand / --accent) כדי ששכבת העיצוב —
+     כותרות המקטעים, הרצועות, הטאבים, הגלריה — תהיה בדיוק אותה שכבה בשני
+     הדפים. */
   :root{
     --brand:#0e2a6b; --brand-dark:#0d1b3d; --accent:#0e2a6b; --accent-dark:#08194a;
     --on-brand:#fff; --on-accent:#fff; --accent-ink:#08194a;
@@ -1531,20 +1535,16 @@ function agencyTint(hex, ratio = 0.14){
 }
 /* ---------- הרקע הזורם של הדף ----------
    כמו בדף המשרד: ברירת המחדל היא הרקע של האתר, כדי שדף הסוכן/ת ירגיש חלק
-   מאותו אתר ולא כדף בודד על נייר ריק. ההעדפה נקראת בשתי רמות —
-
-     1. ‏agency_members.page_bg — הבחירה של הסוכן/ת עצמו/ה ב-CRM.
-     2. ‏agencies.colors.page_bg — הבחירה של מנהל/ת המשרד, כשהסוכן/ת לא בחר/ה.
-
-   ובהיעדר שתיהן (מצבם של כל הסוכנים הקיימים) — ברירת המחדל, כלומר מוצג.
-   הרקע מורכב מיד עם הטעינה מאותה סיבה שבדף המשרד: זו ברירת המחדל. */
+   מאותו אתר ולא כדף בודד על נייר ריק. ההעדפה היא של המשרד בלבד —
+   ‏agencies.colors.page_bg, שמנהל/ת המשרד בוחר/ת במקטע המיתוג. העקיפה
+   האישית (‏agency_members.page_bg) כבר אינה נקראת: כל סוכני המשרד נראים
+   אותו דבר. הרקע מורכב מיד עם הטעינה מאותה סיבה שבדף המשרד: זו ברירת המחדל. */
 const PAGE_BG_OFF = 'plain';
 
 function applyPageBackground(agent){
   if (!window.PageBg) return;
-  const own = (agent && agent.page_bg) || null;
   const agency = ((agent && agent.agencies && agent.agencies.colors) || {}).page_bg || null;
-  if ((own || agency || '') === PAGE_BG_OFF) PageBg.unmount();
+  if (agency === PAGE_BG_OFF) PageBg.unmount();
   else PageBg.mount();
 }
 
@@ -1729,12 +1729,13 @@ function agencyPageHref(agency){
   return agency && agency.slug ? '/agency?slug=' + encodeURIComponent(agency.slug) : null;
 }
 
-/* רצועת תמונת הנושא. ברירת המחדל היא תמונת הרקע של המשרד — כך שגם סוכן/ת
-   שעוד לא העלה/תה תמונה משלו/ה מקבל/ת ראש עמוד ממותג — ותמונה אישית, כשקיימת,
-   גוברת עליה. הרצועה מקשרת לדף המשרד, עם תגית קטנה שמסמנת שאפשר ללחוץ. */
+/* רצועת תמונת הנושא - תמיד של המשרד. מנהל/ת המשרד קובע/ת אותה לכל
+   הסוכנים, ואין תמונת נושא אישית (‏agency_members.cover_url כבר אינה
+   מוצגת; docs/agency-page.md, סעיף 10). הרצועה מקשרת לדף המשרד, עם תגית
+   קטנה שמסמנת שאפשר ללחוץ. */
 function renderProfileCover(agent){
   const agency = agent.agencies || null;
-  const src = safeImageUrl(agent.cover_url) || safeImageUrl(agency && agency.cover_url);
+  const src = safeImageUrl(agency && agency.cover_url);
   if (!src) return;
 
   const cover = document.getElementById('profileCover');
@@ -1813,14 +1814,13 @@ async function loadAgentProfile(){
     // ‏PostgREST מחזיר שגיאת "עמודה לא קיימת" על *כל* השאילתה — והדף כולו
     // הציג "הסוכן לא נמצא" בגלל תגית חסרה. לכן הניסיונות יורדים במדרגות,
     // מהסט המלא אל הגרעין, וכל מדרגה מוותרת רק על מה שנוסף אחרי קודמתה:
-    // ‏page_bg (החדש מכולם) נופל ראשון ולבדו, אחריו שדות התגיות, ובסוף
-    // נשאר הגרעין שבלעדיו אין דף. כך סביבה שבה ה-view עוד לא עודכן מאבדת
-    // רק את מה שבאמת חסר בה, ולכל מה שנופל יש ממילא ברירת מחדל.
-    const CORE_FIELDS = 'id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, role';
+    // שדות התגיות נופלים ראשונים, ובסוף נשאר הגרעין שבלעדיו אין דף. כך
+    // סביבה שבה ה-view עוד לא עודכן מאבדת רק את מה שבאמת חסר בה, ולכל מה
+    // שנופל יש ממילא ברירת מחדל.
+    const CORE_FIELDS = 'id, display_name, bio, photo_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, role';
     const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area, photo_position, gallery';
-    const BG_FIELD = ', page_bg';
     let agent = null;
-    for (const fields of [CORE_FIELDS + HIGHLIGHT_FIELDS + BG_FIELD, CORE_FIELDS + HIGHLIGHT_FIELDS, CORE_FIELDS]){
+    for (const fields of [CORE_FIELDS + HIGHLIGHT_FIELDS, CORE_FIELDS]){
       const { data, error } = await byKey(sb.from('agency_members_public').select(fields)).maybeSingle();
       if (!error){ agent = data; break; }
       console.warn('טעינת הפרופיל בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
@@ -1834,6 +1834,8 @@ async function loadAgentProfile(){
     }
 
     applyPageBackground(agent);
+    // ערכת העיצוב של המשרד - זהה לכל סוכניו
+    if (window.AgencyTheme && agent.agencies) AgencyTheme.apply(agent.agencies.colors);
 
     currentAgentProfile = agent;
     document.title = agent.display_name + ' | שוק נדל״ן';
