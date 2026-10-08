@@ -13,6 +13,7 @@
 
        AgencyCity.mount(selectEl, otherInputEl, { url, key })
        AgencyCity.value(selectEl, otherInputEl)  // {city_id} | {city_name} | null
+       AgencyCity.address(street, selectEl, otherInputEl)  // "הרצל 24, עפולה"
 
    הרשימה נבנית ב-DOM (‏textContent), ולא ב-innerHTML - אין מה לברוח.
    ============================================================================ */
@@ -94,5 +95,15 @@
     return { city_id: sel.value };
   }
 
-  g.AgencyCity = { mount: mount, value: value, OTHER: OTHER };
+  /** הכתובת המלאה ל-agencies.address: "רחוב ומספר, עיר" - שם העיר מהרשימה או מ"עיר אחרת…". */
+  function address(street, sel, other) {
+    var s = String(street || '').trim();
+    var city = '';
+    if (sel && sel.value === OTHER) city = other ? String(other.value || '').trim() : '';
+    else if (sel && sel.value && sel.selectedIndex >= 0) city = String(sel.options[sel.selectedIndex].textContent || '').trim();
+    if (city && s.indexOf(city) === -1) s = s ? s + ', ' + city : city;
+    return s.slice(0, 160);
+  }
+
+  g.AgencyCity = { mount: mount, value: value, address: address, OTHER: OTHER };
 })(typeof window !== 'undefined' ? window : globalThis);

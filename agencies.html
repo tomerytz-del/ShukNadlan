@@ -1318,10 +1318,14 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
       && !membersRes.value.error && members.length < 1000;
     const staffedAgencies = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
     const staffed = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
-    // ‏המשרדים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
-    // משרד בלי עיר נספר בשוק ברירת המחדל. בלי הקובץ - כולם, כמו קודם.
-    const scope = window.MarketScope ? await window.MarketScope.spec(sb) : null;
-    const visible = window.MarketScope ? staffed.filter(a => window.MarketScope.inMarket(scope, a.city_id)) : staffed;
+    // ‏המשרדים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד, או
+    // אזור פעילות שאחד/ת מהסוכנים בו בחר/ה. משרד בלי עיר נספר בשוק ברירת
+    // המחדל. בלי הקובץ - כולם, כמו קודם.
+    const MS = window.MarketScope;
+    const [scope, svc] = MS
+      ? await Promise.all([MS.spec(sb), MS.memberMarkets ? MS.memberMarkets(sb) : null])
+      : [null, null];
+    const visible = MS ? staffed.filter(a => MS.inMarket(scope, a.city_id, svc && svc.byAgency.get(a.id))) : staffed;
 
     finish(visible.map(a => {
       const shaped = shapeAgency(a, propsByAgency.get(a.id) || [], rankByAgency.get(a.id), ratingByAgency.get(a.id), propsLoaded);

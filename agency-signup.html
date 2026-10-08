@@ -140,13 +140,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="or-divider">- או במילוי הטופס -</div>
 
     <div class="field"><label for="agencyName">שם המשרד</label><input type="text" id="agencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
-    <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך. בלעדיה המשרד אינו נספר
-         באף שוק, ובאתר הוא מופיע בשוק ברירת המחדל גם אם הוא בנתניה
-         (20270115101000). רשימה סגורה + "עיר אחרת…", כמו בטופס הנכס. -->
+    <!-- ‏כתובת המשרד - פעם אחת, כאן. העיר קובעת לאיזה שוק מקומי המשרד שייך
+         (20270115101000), ולכן היא רשימה סגורה + "עיר אחרת…", כמו בטופס
+         הנכס; הרחוב נשמר יחד איתה ב-agencies.address (דף המשרד, "מיתוג").
+         ‏**זו אינה שאלת אזור הפעילות:** עד היום הרשימה נשאה "איפה המשרד
+         פעיל בעיקר?", ונרשמים ענו עליה כאילו היא אזור השירות. אזורי
+         הפעילות נבחרים בפרופיל, מרשימת השווקים (service_markets). -->
     <div class="field">
-      <label for="agencyCity">עיר</label>
-      <select id="agencyCity" required data-placeholder="איפה המשרד פעיל בעיקר?"></select>
+      <label for="agencyStreet">כתובת המשרד</label>
+      <input type="text" id="agencyStreet" required maxlength="100" placeholder="רחוב ומספר, לדוגמה: הרצל 24" autocomplete="address-line1">
+      <select id="agencyCity" required data-placeholder="עיר המשרד" style="margin-top:8px" aria-label="עיר המשרד"></select>
       <input type="text" id="agencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
+      <div class="hint micro">אזורי הפעילות שלך נבחרים אחר כך בפרופיל, מרשימת האזורים שלנו</div>
     </div>
 
     <!-- תחומי ההתמחות ירדו מכאן: הם אופציונליים, נבחרים ב"מיתוג ועיצוב דף
@@ -377,11 +382,20 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     return;
   }
   const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('agencyCity'), document.getElementById('agencyCityOther')) : null;
+  const agencyStreet = document.getElementById('agencyStreet').value.trim();
+  if (!agencyStreet){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא את כתובת המשרד (רחוב ומספר)';
+    return;
+  }
   if (window.AgencyCity && !agencyCity){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא לבחור את עיר המשרד';
     return;
   }
+  const agencyAddress = window.AgencyCity
+    ? AgencyCity.address(agencyStreet, document.getElementById('agencyCity'), document.getElementById('agencyCityOther'))
+    : agencyStreet;
   // אותו כלל של normalizeMobile בשרת: נייד ישראלי בלבד, כי זה המספר שגבריאלה מזהה
   if (!ilMobile(managerPhone)){
     feedback.style.color = 'var(--red)';
@@ -412,6 +426,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         license_number: licenseNumber,
         manager_phone: managerPhone,
         ...(agencyCity || {}),
+        address: agencyAddress,
         ethics_code_accepted: true,
       }),
     });
