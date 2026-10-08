@@ -4867,11 +4867,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
     </div>
     <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
-    <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך (20270115101000) -->
+    <!-- ‏כתובת המשרד - פעם אחת, כמו ב-agency-signup.html. העיר קובעת לאיזה
+         שוק מקומי המשרד שייך (20270115101000); אזורי הפעילות נבחרים בפרופיל. -->
     <div class="field">
-      <label for="caAgencyCity">עיר</label>
-      <select id="caAgencyCity" required data-placeholder="איפה המשרד פעיל בעיקר?"></select>
+      <label for="caAgencyStreet">כתובת המשרד</label>
+      <input type="text" id="caAgencyStreet" required maxlength="100" placeholder="רחוב ומספר, לדוגמה: הרצל 24" autocomplete="address-line1">
+      <select id="caAgencyCity" required data-placeholder="עיר המשרד" style="margin-top:8px" aria-label="עיר המשרד"></select>
       <input type="text" id="caAgencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
+      <div class="micro">אזורי הפעילות שלך נבחרים אחר כך בפרופיל, מרשימת האזורים שלנו</div>
     </div>
     <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
@@ -7957,9 +7960,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <label for="pfYears">שנות ותק בנדל״ן</label>
             <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
           </div>
+          <!-- ‏אזורי הפעילות - מהרשימה הסגורה של השווקים (assets/markets.js),
+               פעילים ושאינם, ולא טקסט חופשי: כל אזור שנבחר מכניס את הסוכן/ת
+               ואת המשרד לדף של אותו שוק ולמפה שלו, בנוסף לשוק של עיר המשרד
+               (‏agency_members.service_markets, docs/regional-pages.md). -->
           <div class="field">
-            <label for="pfArea">אזור התמחות</label>
-            <input type="text" id="pfArea" maxlength="60" placeholder="למשל עפולה והעמקים">
+            <label>אזורי פעילות</label>
+            <div class="checkbox-grid" id="pfMarkets"></div>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">אפשר לבחור כמה אזורים. בכל אזור שתבחרו יופיעו את/ה והמשרד כמשרד וכמתווך/ת פעילים, בנוסף לאזור של כתובת המשרד.</p>
           </div>
           <div class="field">
             <label for="pfCredentials">תארים והסמכות</label>
