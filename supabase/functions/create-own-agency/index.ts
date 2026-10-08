@@ -4,7 +4,7 @@ import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
-import { resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -25,6 +25,16 @@ function corsHeaders() {
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
+/** נייד ישראלי בצורה המקומית, או null. זהה ל-normalizeMobile ב-agency-signup. */
+function normalizeMobile(raw: unknown): string | null {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  if (!d) return null;
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("972")) d = "0" + d.slice(3).replace(/^0+/, "");
+  else if (d.length === 9 && d.startsWith("5")) d = "0" + d;
+  return /^05\d{8}$/.test(d) ? d : null;
+}
+
 function slugify(text: string) {
   return text.trim().toLowerCase()
     .replace(/[^\u0590-\u05FFa-z0-9\s-]/g, "")
@@ -101,6 +111,16 @@ Deno.serve(async (req: Request) => {
   const idNumber = typeof body.id_number === "string" && body.id_number.trim()
     ? body.id_number.trim().slice(0, 20) : null;
 
+  // הנייד - המספר שגבריאלה מזהה. אותו כלל של agency-signup, ואותה נפילה
+  // רכה: מספר שכבר רשום אצל אחר/ת אינו מפיל את פתיחת המשרד.
+  const phone = normalizeMobile(body.manager_phone);
+  const savePhone = async (memberId: string): Promise<boolean> => {
+    if (!phone) return false;
+    const { error } = await supabase.from("agency_members").update({ phone }).eq("id", memberId);
+    if (error) console.warn("manager phone not saved", error.code, error.message);
+    return !error;
+  };
+
   try {
     let baseSlug = slugify(agency_name) || "agency";
     let finalSlug = baseSlug;
@@ -115,7 +135,7 @@ Deno.serve(async (req: Request) => {
     // עיר המשרד מהטופס - בלעדיה המשרד אינו נספר באף שוק מקומי (20270115101000)
     const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
-      .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId }).select().single();
+      .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body) }).select().single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
 
     // ----------------------------------------------------------------------
@@ -156,6 +176,7 @@ Deno.serve(async (req: Request) => {
       // גם כאן ההצטרפות מדווחת כ"משרד חדש": מה שנפתח הוא משרד, גם כשהסוכן/ת
       // שמאחוריו כבר הייתה במערכת. המסלול בהודעה הוא זה שעבר איתו/ה.
       await announcePlatformSignup(supabase, releasedMember.id, "agency");
+      await savePhone(releasedMember.id);
 
       return json({
         success: true,
@@ -228,6 +249,7 @@ Deno.serve(async (req: Request) => {
     // כאן אינו מפיל את פתיחת המשרד: המשרד קיים, וההטבה תוענק בכניסה הבאה
     // (‏grant_launch_promo אידמפוטנטית ורצה גם מ-join-agency/resolve).
     const promo = await grantLaunchPromo(supabase, member.id);
+    const phoneSaved = await savePhone(member.id);
 
     // אחרי ההטבה, כדי שהמסלול בהודעה יהיה הנכון. ראו
     // ‏_shared/platform-signup-alert.ts.
@@ -240,6 +262,7 @@ Deno.serve(async (req: Request) => {
       tier: promo?.tier ?? "free",
       promo,
       ethics_recorded: ethicsRecorded,
+      phone_saved: phoneSaved,
       license,
     });
   } catch (err: any) {

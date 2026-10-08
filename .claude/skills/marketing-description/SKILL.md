@@ -1,6 +1,6 @@
 ---
 name: marketing-description
-description: עבודה על התיאור השיווקי של נכס בריפו של שוק נדל״ן - איזה שדה מוצג בדף הנכס ובבוט (marketing_description מול description), טביעת האצבע וה-stale, התור האוטומטי, כפתור הרענון ב-CRM, הפרומפט המשותף עם פייסבוק, ומיגרציה שנוגעת בטקסט של נכסים. Use when "refreshed the description and nothing changed", when adding a field to the property form that the copy should mention, when touching property-description / marketing-copy.ts / renderDescription, when writing a migration that updates properties.title/description/marketing_description, or when a property is wrongly flagged "כדאי לרענן תיאור".
+description: עבודה על התיאור השיווקי של נכס בריפו של שוק נדל״ן - איזה שדה מוצג בדף הנכס ובבוט (marketing_description מול description), טביעת האצבע וה-stale, התור האוטומטי, כפתור הרענון ב-CRM, הפרומפט המשותף עם פייסבוק, ומיגרציה שנוגעת בטקסט של נכסים. Use when "refreshed the description and nothing changed", when adding a field to the property form that the copy should mention, when touching property-description / marketing-copy.ts / renderDescription, when writing a migration that updates properties.title/description/marketing_description or fixes a fingerprinted field like price/rooms, or when a property is wrongly flagged "כדאי לרענן תיאור".
 ---
 
 # תיאור שיווקי לנכס
@@ -57,6 +57,11 @@ const text = marketing || p.description || '';
   וכל אחד מהם הוא קריאת Claude מיותרת. הדוגמה:
   `supabase/migrations/20261202090000_long_dash_backfill.sql`. וזכרו:
   נכס שנעשה stale עובר בדף לתיאור המודעה.
+* **וגם מיגרציה שמתקנת נתון בטביעה** (`price`, `rooms`, `size_sqm`) - אותו
+  דפוס. אבל רק כשהטקסט **אינו מצטט את הערך הישן**: לפני ההחזרה בודקים ב-
+  `select` שהנוסח לא מזכיר אותו, אחרת stale הוא בדיוק מה שצריך. הדוגמה:
+  `20270315090000_sale_price_millions_backfill.sql` (‏14 מחירים שנכתבו
+  במיליונים, 1.48 במקום 1,480,000, ואף תיאור לא הזכיר מחיר).
 
 ## מה שלא נוגעים בו
 
@@ -84,6 +89,8 @@ const text = marketing || p.description || '';
   `docs/marketing-description.md`, "רענון המוני".
 * **בלי שורת תור אין התראה לסוכן/ת** - `mark_property_description` היא
   ששולחת אותה. מודדים `notifications` ו-`property_publications` לפני ואחרי.
+* **ההתראה נושאת `related_property_id`** - ממנו הקישור לכרטיס הנכס. מי
+  שמחליף/ה את `mark_property_description` שומר/ת עליו (סקיל `agent-notifications`).
 
 ## ‏`max_tokens` והפרומפט זזים יחד
 

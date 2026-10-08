@@ -197,7 +197,7 @@ Deno.serve(async (req: Request) => {
 
     // אותו טווח של טופס הערעור (`broker-license-appeal`), כדי ששני המקומות
     // שמקבלים מספר רישיון מאדם לא יחלקו עליו.
-    if (!/^\d{3,8}$/.test(license)) return { invalid: "invalid_license" as const };
+    if (!/^\d{3,9}$/.test(license)) return { invalid: "invalid_license" as const };
 
     // **רישיון שייך לאדם אחד.** בלי הבדיקה הזו שני כרטיסים יכולים לשאת את
     // אותו מספר — ואז `claim` מוצא שניים, מחזיר `license_not_found`, ורשת
@@ -705,7 +705,7 @@ Deno.serve(async (req: Request) => {
       // אותו נרמול של טבלת הערעורים (בלי אפסים מובילים), כדי שאישור ערעור
       // ימצא את הכרטיס לפי אותו מספר.
       const license = normalizeLicense(String(body?.license_number ?? ""));
-      if (!/^\d{3,8}$/.test(license)) return json({ error: "invalid_license" }, 400);
+      if (!/^\d{3,9}$/.test(license)) return json({ error: "invalid_license" }, 400);
 
       const { data: me } = await supabase
         .from("agency_members")

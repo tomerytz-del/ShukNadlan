@@ -96,7 +96,22 @@ function json(obj: unknown, status = 200) {
   });
 }
 
-type Item = { type: string; title: string; body: string | null };
+type Item = {
+  type: string;
+  title: string;
+  body: string | null;
+  // ‏notification_push_claim מחזירה אותם מ-20270320093000. התראה ישנה, או כזו
+  // שמכסה כמה נכסים/לקוחות, מגיעה בלעדיהם ומקבלת את קישור הקטגוריה.
+  property_id?: string | null;
+  client_id?: string | null;
+  lead_id?: string | null;
+  // ‏20270321093000: נכס של משרד אחר (שיתוף), תזכורת, הסכם וביקורת
+  property_mine?: boolean | null;
+  agenda_item_id?: string | null;
+  agreement_id?: string | null;
+  review_id?: string | null;
+  review_agent_slug?: string | null;
+};
 
 class WhatsappError extends Error {
   constructor(message: string, readonly code: number | null) {
@@ -112,15 +127,66 @@ function gotoUrl(acc: string): string {
   return `${SITE_BASE}/crm?goto=${encodeURIComponent(acc)}`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuidOr = (v: unknown): string | null =>
+  typeof v === "string" && UUID_RE.test(v) ? v : null;
+
+/**
+ * הקישור הישיר של התראה - **הדבר שעליו היא מדברת**, ולא הקטגוריה שלו.
+ * "נכתב תיאור לנכס" מוביל לכרטיס של אותו נכס ב-CRM, "נכס מתאים לדנה" לכרטיס
+ * של דנה עם רשימת ההתאמות פתוחה. ‏null כשאין יעד יחיד - ואז הקטגוריה.
+ *
+ * הסדר חשוב רק ב-client_match: היא נושאת גם את הנכס וגם את הלקוח/ה, והפעולה
+ * הבאה היא אצל הלקוח/ה (להתקשר, לשלוח), כי הנכס בדרך כלל של מישהו אחר.
+ * עסקה שנסגרה מגיעה למנהל/ת, והנכס של סוכן/ת אחר/ת - אין לו כרטיס אצלו/ה.
+ * נכס של משרד אחר (‏property_mine = false, "נכס חדש שותף איתך") נפתח ב"שותפו
+ * איתי". ביקורת ממתינה מגיעה עם review_id רק למי שמאשר/ת אותה, ומפורסמת -
+ * עם הסלאג של הסוכן/ת, לדף הציבורי.
+ * הפרמטרים נקראים ב-handleGotoParam ב-crm.js.
+ */
+function itemPath(it: Item): string | null {
+  const property = uuidOr(it.property_id);
+  const client = uuidOr(it.client_id);
+  const lead = uuidOr(it.lead_id);
+  const agenda = uuidOr(it.agenda_item_id);
+  const agreement = uuidOr(it.agreement_id);
+  const review = uuidOr(it.review_id);
+
+  if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
+  if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
+  if (it.type === "review_new" || it.type === "review_alert") {
+    if (review) return `/crm?goto=accReviews&review=${review}`;
+    if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
+    return null;
+  }
+  if (client && it.type === "client_match") {
+    return `/crm?goto=accClients&client=${client}&focus=matches`;
+  }
+  if (property && it.property_mine === false) {
+    return `/crm?goto=accSharedWithMe&property=${property}`;
+  }
+  if (property && it.type !== "client_match" && it.type !== "deal_closed") {
+    return `/crm?goto=accProperties&property=${property}`;
+  }
+  if (client) return `/crm?goto=accClients&client=${client}`;
+  if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
+    return `/crm?goto=accLeads&lead=${lead}`;
+  }
+  return null;
+}
+
 /**
  * גוף ההודעה בטקסט חופשי.
  *
- * שורה לכל התראה, וקישור אחד לכל **קטגוריה** ולא לכל התראה: שלוש התאמות
- * מובילות לאותו מסך, ושלושה קישורים זהים ברצף הופכים הודעה קצרה לקיר.
+ * שורה לכל התראה, ומתחתיה הקישור הישיר שלה כשיש לה יעד יחיד (ראו itemPath).
+ * התראות בלי יעד כזה חולקות קישור אחד לכל **קטגוריה**: שלוש התאמות שמובילות
+ * לאותו מסך לא צריכות שלושה קישורים זהים ברצף.
  */
 function textBody(name: string | null, items: Item[]): string {
   const first = firstName(name);
-  const accs = [...new Set(items.map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC))];
+  const accs = [...new Set(
+    items.filter((it) => !itemPath(it)).map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC),
+  )];
 
   // תזכורת מהיומן אינה "מה שחדש" אלא "מה שקורה עכשיו", וכשזה כל מה שיש
   // בהודעה - הכותרת אומרת את זה.
@@ -129,10 +195,14 @@ function textBody(name: string | null, items: Item[]): string {
   const lines = [
     first ? `${first}, ${head}` : head,
     "",
-    ...items.map((it) => `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}`),
+    ...items.map((it) => {
+      const path = itemPath(it);
+      return `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
+        (path ? `\n   👈 ${SITE_BASE}${path}` : "");
+    }),
     "",
     ...accs.map((acc) => gotoUrl(acc)),
-    "",
+    ...(accs.length ? [""] : []),
     `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`,
   ];
   // ‏4000 ולא 4096: חיתוך שלנו עדיף על 400 מ-Meta ואפס הודעה.
@@ -150,10 +220,16 @@ function textBody(name: string | null, items: Item[]): string {
  * הפרדה נוסף: גופי ההתראות מכילים פסיקים ונקודות משל עצמם, ו-`•` הוא הגבול
  * היחיד שנשאר חד. התבנית עצמה עדיין שמה את `{{2}}` בשורה נפרדת — המגבלה היא
  * על הפרמטר, לא על הנוסח.
+ *
+ * הקישור הישיר נכנס בסוף הפריט ולא בכפתור: הכפתור היחיד בתבנית הוא הדרך
+ * לכבות את הערוץ (ראו MANAGE_ACC), ו-WhatsApp הופך כתובת בגוף ההודעה לקישור.
  */
 function templateSummary(items: Item[]): string {
   return items
-    .map((it) => `• ${it.title}${it.body ? `: ${it.body}` : ""}`)
+    .map((it) => {
+      const path = itemPath(it);
+      return `• ${it.title}${it.body ? `: ${it.body}` : ""}${path ? ` ${SITE_BASE}${path}` : ""}`;
+    })
     .join(" ")
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
     // (למשל ציטוט מביקורת), ולכן לא די בהחלפת המפריד.

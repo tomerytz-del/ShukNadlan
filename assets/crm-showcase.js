@@ -186,7 +186,7 @@ function openShowcaseSend(client, propertyIds, onDone){
     });
     if (error || !data || data.error){
       btn.disabled = false; btn.textContent = 'יצירת הקישור';
-      showToast('לא הצלחנו ליצור את המיניסייט: ' + ((data && data.error) || (error && error.message) || ''));
+      showToast('לא הצלחנו ליצור את המיניסייט: ' + heErr((data && data.error) || error));
       return;
     }
     await loadShowcaseSummaries();
@@ -307,7 +307,7 @@ async function renderShowcasePanel(client, panel){
     // חושף ממילא למשרד שקיבל את השת"פ, ושאיתו/ה מתאמים
     sb.from('shared_properties_for_me').select('property_id, owner_agent_name, owner_agent_phone, owner_agency_name'),
   ]);
-  if (items.error){ panel.innerHTML = '<div class="lead-meta">שגיאה בטעינת המיניסייט: ' + esc(items.error.message) + '</div>'; return; }
+  if (items.error){ panel.innerHTML = '<div class="lead-meta">שגיאה בטעינת המיניסייט: ' + esc(heErr(items.error)) + '</div>'; return; }
 
   const rows = items.data || [];
   const messages = msgs.data || [];
@@ -411,7 +411,7 @@ async function renderShowcasePanel(client, panel){
   panel.querySelector('[data-close-sc]').addEventListener('click', async ()=>{
     if (!confirm('לסגור את המיניסייט? הקישור יפסיק לעבוד אצל הלקוח/ה. אפשר לפתוח חדש בכל עת מההתאמות.')) return;
     const { error } = await sb.from('client_showcases').update({ status:'closed', closed_at: new Date().toISOString() }).eq('id', s.id);
-    if (error) return showToast('שגיאה: ' + error.message);
+    if (error) return showToast('שגיאה: ' + heErr(error));
     showToast('המיניסייט נסגר');
     reload();
   });
@@ -424,7 +424,7 @@ async function renderShowcasePanel(client, panel){
     const note = prompt(ok ? 'הודעה ללקוח/ה (לא חובה) - למשל נקודת מפגש:' : 'מה להציע במקום? (הלקוח/ה יראה/תראה את זה במיניסייט)');
     if (note === null) return;
     const { data, error } = await sb.rpc('showcase_decide_meeting', { p_meeting_id: b.dataset.meet, p_confirm: ok, p_note: note });
-    if (error || (data && data.error)) return showToast('שגיאה: ' + ((data && data.error) || error.message));
+    if (error || (data && data.error)) return showToast('שגיאה: ' + heErr((data && data.error) || error));
     const waNote = s.wa && s.wa.notify ? ' · הלקוח/ה יקבל/תקבל עדכון בוואטסאפ' : '';
     showToast((ok ? (data && data.agenda_item_id ? 'הסיור אושר ונרשם ביומן' : 'הסיור אושר') : 'נשלחה תשובה ללקוח/ה') + waNote, 4500);
     reload();
@@ -435,20 +435,20 @@ async function renderShowcasePanel(client, panel){
     row.querySelectorAll('[data-coop]').forEach(b => b.addEventListener('click', async ()=>{
       const { error } = await sb.from('client_showcase_items')
         .update({ coop_status: b.dataset.coop, coop_updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) return showToast('שגיאה: ' + error.message);
+      if (error) return showToast('שגיאה: ' + heErr(error));
       reload();
     }));
     row.querySelector('[data-note]').addEventListener('click', async ()=>{
       const note = prompt('הערה שהלקוח/ה יראה/תראה מעל הנכס (למשל: "המחיר גמיש, הבעלים ממהרים"):', r.agent_note || '');
       if (note === null) return;
       const { error } = await sb.from('client_showcase_items').update({ agent_note: note.trim().slice(0, 600) || null }).eq('id', id);
-      if (error) return showToast('שגיאה: ' + error.message);
+      if (error) return showToast('שגיאה: ' + heErr(error));
       reload();
     });
     row.querySelector('[data-remove]').addEventListener('click', async ()=>{
       if (!confirm('להסיר את הנכס מהמיניסייט?')) return;
       const { error } = await sb.from('client_showcase_items').update({ removed_at: new Date().toISOString() }).eq('id', id);
-      if (error) return showToast('שגיאה: ' + error.message);
+      if (error) return showToast('שגיאה: ' + heErr(error));
       reload();
     });
   });
@@ -459,7 +459,7 @@ async function renderShowcasePanel(client, panel){
     if (!body) return;
     const { error } = await sb.from('client_showcase_messages')
       .insert({ showcase_id: s.id, item_id: form.dataset.item || null, author:'agent', body });
-    if (error) return showToast('שגיאה: ' + error.message);
+    if (error) return showToast('שגיאה: ' + heErr(error));
     showToast(s.wa && s.wa.notify ? 'נשלח. הלקוח/ה יקבל/תקבל עדכון בוואטסאפ עם קישור לתשובה' : 'נשלח. הלקוח/ה יראה/תראה את זה במיניסייט');
     reload();
   }));

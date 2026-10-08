@@ -3,7 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
-import { resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -36,6 +36,21 @@ function cleanSpecialties(value: unknown): string[] {
     if (seen.size >= MAX_SPECIALTIES) break;
   }
   return [...seen];
+}
+
+/**
+ * הנייד של המנהל/ת - המספר שגבריאלה מזהה (‏agency_members.phone, ממנו
+ * נגזרת phone_e164). אותו כלל בדיוק של normalizeMobile ב-add-team-member:
+ * ספרות בצורה המקומית (‏0521112222), נייד ישראלי בלבד. ‏null = לא הוזן או
+ * לא תקין - פתיחת המשרד אינה נופלת עליו, והמספר נשמר אחר כך בדשבורד.
+ */
+function normalizeMobile(raw: unknown): string | null {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  if (!d) return null;
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("972")) d = "0" + d.slice(3).replace(/^0+/, "");
+  else if (d.length === 9 && d.startsWith("5")) d = "0" + d;
+  return /^05\d{8}$/.test(d) ? d : null;
 }
 
 function corsHeaders() {
@@ -111,7 +126,7 @@ Deno.serve(async (req: Request) => {
     const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies")
-      .insert({ slug: finalSlug, name: agency_name, city_id: cityId, specialties: cleanSpecialties(body.specialties) })
+      .insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body), specialties: cleanSpecialties(body.specialties) })
       .select()
       .single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
@@ -196,6 +211,18 @@ Deno.serve(async (req: Request) => {
     // אידמפוטנטית, ו-join-agency/resolve יעניק/תעניק אותה בכניסה הראשונה.
     const promo = await grantLaunchPromo(supabase, member.id);
 
+    // ‏הנייד נשמר בעדכון נפרד ולא בתוך ה-INSERT: מספר שכבר רשום אצל סוכן/ת
+    // אחר/ת נופל על האינדקס הייחודי של phone_e164 (‏23505), ומשרד שלם לא
+    // אמור ליפול על זה. במקרה כזה הדשבורד מבקש את המספר שוב, בצעד של גבריאלה.
+    const phone = normalizeMobile(body.manager_phone);
+    let phoneSaved = false;
+    if (phone) {
+      const { error: phoneErr } = await supabase.from("agency_members")
+        .update({ phone }).eq("id", member.id);
+      phoneSaved = !phoneErr;
+      if (phoneErr) console.warn("manager phone not saved", phoneErr.code, phoneErr.message);
+    }
+
     // ההתראה למנהל/ת הפלטפורמה — **אחרי** ההטבה ולא לפניה, כדי שהמסלול
     // שבהודעה יהיה המסלול שבאמת יושב על השורה. ראו _shared/platform-signup-alert.ts.
     await announcePlatformSignup(supabase, member.id, "agency");
@@ -206,6 +233,7 @@ Deno.serve(async (req: Request) => {
       member_slug: finalMemberSlug,
       promo,
       ethics_recorded: ethicsRecorded,
+      phone_saved: phoneSaved,
       license,
     });
   } catch (err: any) {

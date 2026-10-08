@@ -73,7 +73,7 @@ verify_jwt = false          # "מחפשים פרויקט חדש?" בדף הפר�
 verify_jwt = false          # בדיקת ח״פ מטופס ההרשמה — אין עדיין חשבון
 
 # חיווי חי על מספר רישיון תיווך בטופס פתיחת המשרד. מחזירה סטטוס ושם מתוך
-# מאגר המתווכים הפעילים של משרד המשפטים — מידע שממילא פומבי — ומוגבלת ל-3–8
+# מאגר המתווכים הפעילים של משרד המשפטים — מידע שממילא פומבי — ומוגבלת ל-3–9
 # ספרות ולמטמון של 30 יום. התשובה כאן היא נוחות בלבד: ארבעת מסלולי הכניסה
 # מריצים את הבדיקה בעצמם ואינם סומכים על הדפדפן.
 [functions.broker-license-lookup]
@@ -186,6 +186,9 @@ verify_jwt = false          # אסימון חתימה אישי / JWT של הסו
 [functions.client-showcase]
 verify_jwt = false          # המיניסייט ללקוח/ה: טוקן מהקישור (אין חשבון); scan של הסוכן/ת נבדק מול auth.getUser
 
+[functions.meeting-client]
+verify_jwt = false          # דף הפגישה ללקוח/ה: טוקן מהקישור (אין חשבון); dispatch מה-cron נבדק ב-authorizeInternalCaller
+
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
 # ---------------------------------------------------------------------------
@@ -236,7 +239,7 @@ verify_jwt = true           # החזר יתרה — נוגע ב-credit_balance
 # רכישת מנוי לתקופה מראש. הסכום מחושב במסד ולא מגיע מהדפדפן, והמסלול נפתח
 # רק ב-wallet-topup-callback אחרי אימות מול מורנינג.
 [functions.subscription-purchase]
-verify_jwt = true           # סגורה — מחזירה 410. נפרסת כדי שהסירוב יהיה בתוקף
+verify_jwt = true           # חודש ראשון + חידוש חודשי (20270307090000). JWT: המנוי לסוכן/ת המחובר/ת
 
 [functions.afula-planning-lookup]
 verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
@@ -304,3 +307,9 @@ verify_jwt = false          # Twilio + חתימה; cron + x-alert-cron-secret
 # ‏cron_secret מורשה ל-sync_insights בלבד.
 [functions.ads-admin]
 verify_jwt = false          # JWT מנהל פלטפורמה בפנים; cron + x-alert-cron-secret
+
+# לידים מטפסים מיידיים של מטא (docs/marketing-console.md, שלב 4). מטא אינה
+# שולחת JWT; האימות הוא X-Hub-Signature-256 מול META_APP_SECRET, ו-fail-closed
+# (בלי הסוד - 503 לכל POST). ה-GET הוא אימות המנוי מול META_WEBHOOK_VERIFY_TOKEN.
+[functions.ads-leads-webhook]
+verify_jwt = false          # מטא + חתימת X-Hub-Signature-256

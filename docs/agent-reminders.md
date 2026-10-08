@@ -334,6 +334,25 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 ולכן ההודעה והדשבורד לא יכולים להוביל לשני מקומות שונים. תזכורת בלי דרך לטפל
 בה היא נזיפה, וזה מה שהופך אותה לכלי.
 
+**והקישור פותח את הנכסים שהממצא סופר, לא את כל הרשימה.** "3 נכסים באוויר
+בלי תמונה" נפתח ל"הנכסים שלי" מסונן ל"ללא תמונות" ולמפורסמים בלבד, ונכס
+אחד - נפתח ישר:
+
+| ממצא | הקישור |
+| --- | --- |
+| `missing_images` | `/crm?goto=accProperties&filter=no_images` |
+| `expiring_listings` | `/crm?goto=accProperties&filter=expiring` |
+| `stale_listings` | `/crm?goto=accProperties&filter=stale` |
+| `video_opportunity` | `/crm?goto=accProperties&filter=no_video` |
+| `idle_listings` | `/crm?goto=accProperties&focus=new` - טופס נכס חדש |
+
+שלושה מקומות חייבים להסכים: `FINDING_PARAMS` ב-`agent-reminders`,
+‏`REMINDER_FILTERS` ב-`crm.js` (הכפתור בדשבורד), והגדרת כל סינון
+(‏`propertyHasImage`, ‏`propertyIsExpiring`, ‏`propertyIsStale`,
+‏`propertyHasVideo`) מול התנאי שלו ב-`agent_reminder_findings`. סינון
+שמוגדר אחרת מהממצא פותח "3 נכסים" לרשימה של ארבעה. לכן גם "ללא תמונות"
+מאז מתעלם מנכס שיש לו `marketing_image`, כמו הספירה במסד.
+
 `handleGotoParam()` ב-crm.html בודק **שתי** בדיקות על ערך שהגיע מהכתובת:
 תחילית `acc` וקבוצת תווים סגורה (‏`/^acc[A-Za-z0-9]{1,40}$/`), ואחר כך
 `navAccVisible` — קישור ישן או קישור שהועבר בין סוכנים פשוט לא נפתח ולא
@@ -377,7 +396,7 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 
 ## הוספת סוג תזכורת חדש
 
-שלוש נגיעות, ובסדר הזה:
+ארבע נגיעות, ובסדר הזה:
 
 1. **בלוק `select` נוסף ב-union** של `agent_reminder_findings` — התנאי,
    הנוסח, `action_acc` ו-`sort_order`. זה המקום שקובע גם מה נשלח, כי הנוסח
@@ -385,6 +404,9 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 2. **שורה ב-`agent_reminder_kind_interval`** — משימה או תובנה. סוג שנשכח שם
    מקבל את ברירת המחדל השמרנית של 14 יום, ולא "בכל סבב".
 3. **שורה ב-`REMINDER_KINDS` ב-crm.html** — הכותרת וההסבר בתיבת הסימון.
+4. **סוג על נכסים: שורה ב-`FINDING_PARAMS` וב-`REMINDER_FILTERS`**, וסינון
+   מהיר ב-`#propExtraFilter` שמוגדר בדיוק כמו הממצא - אחרת הקישור פותח
+   את כל הרשימה.
 
 סוכן/ת קיים/ת יקבל/תקבל אותו אוטומטית, כי `muted_kinds` היא רשימת מושתקים.
 סוג שנכנס למסד וטרם נרשם ב-crm.html עדיין יופיע ברשימה ועדיין יישלח — הוא רק
