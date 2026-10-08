@@ -93,6 +93,41 @@ ALLOW = {
         'היא מחזירה false למי שאינו מחובר/ת.',
 }
 
+# ---------------------------------------------------------------------------
+# ‏SECURITY DEFINER שאין עליה החלטה בכלל — לא grant ולא revoke שמונה את
+# התפקיד. הבדיקה למעלה נדלקת רק מ-grant, ולכן פונקציה שנכתבה בלי שום שורת
+# הרשאות עברה כאן בשקט ונשארה פתוחה ל-anon ול-authenticated מברירת המחדל.
+#
+# כך נמצאה saved_search_quiet_now() (‏20260830090000, נסגרה ב-
+# 20270322090000): לא בבדיקה ולא בסוכן התפעולי, אלא בהשוואת סקירות קוד.
+# היא SECURITY INVOKER ולכן נזקה חסום ב-RLS - אבל אותו חור בדיוק על
+# ‏DEFINER הוא נקודת קצה שעוקפת RLS, וזה מה שנבדק כאן לפני הפריסה.
+#
+# פונקציית טריגר אינה כאן: Postgres מסרב לקריאה ישירה אליה.
+#
+# הרשימה היא מה שהיה פתוח ביום שהכלל נולד (8.10.2026), כל אחת עם הסיבה
+# שלה. פונקציה **חדשה** בלי החלטה נחסמת.
+# ---------------------------------------------------------------------------
+UNDECIDED_DEFINER_OK = {
+    'public.current_developer_id':
+        'policy-ות של RLS קוראות לה, ומחזירה null למי שאינו מחובר/ת.',
+    'public.current_is_platform_admin':
+        'policy-ות של RLS קוראות לה (ראו ALLOW), ומחזירה false למי שאינו מחובר/ת.',
+    'public.platform_prior_rating':
+        'ה-view agency_rating_scores קורא לה בהרשאות הקורא/ת - ‏PUBLIC_RPC '
+        'ב-ops_agent/config.py.',
+    'public.compute_agency_rankings':
+        'סגורה במסד (proacl: service_role בלבד, נבדק 8.10.2026), אבל שורת '
+        'ה-revoke אינה בריפו.',
+    'public.compute_agent_rankings':
+        'כמו compute_agency_rankings.',
+}
+
+CREATE_RE = re.compile(
+    r'\bcreate\s+(?:or\s+replace\s+)?function\s+'
+    r'(public\.[a-z_][a-z_0-9]*)\s*\((.*?)\)\s*returns\s+(.*?)\bas\s+\$',
+    re.I | re.S)
+
 GRANT_RE = re.compile(
     r'\bgrant\s+execute\s+on\s+function\s+'
     r'([a-z_][a-z_0-9]*\.[a-z_][a-z_0-9]*\s*\([^)]*\))\s*to\s+([^;]+);',
@@ -135,9 +170,33 @@ def main() -> int:
     revoked_name = {r: set() for r in DEFAULT_GRANTED}
     # ‏grant שמדיר תפקיד: (חתימה, תפקיד) → (קובץ, שורה)
     granted_without = {}
+    # כל grant או revoke שמונה את התפקיד בשם - החלטה, לכל כיוון.
+    decided = {r: set() for r in DEFAULT_GRANTED}
+    # ‏SECURITY DEFINER שאינה טריגר: שם → (קובץ, שורה) של היצירה האחרונה.
+    definers = {}
 
     for path in files:
         sql = open(path, encoding='utf-8').read()
+
+        for m in CREATE_RE.finditer(sql):
+            name = m.group(1).lower()
+            header = m.group(3).lower()
+            if header.strip().startswith('trigger'):
+                definers.pop(name, None)
+                continue
+            if re.search(r'\bsecurity\s+definer\b', header):
+                definers[name] = (path, line_of(sql, m.start()))
+            else:
+                definers.pop(name, None)
+
+        for m in re.finditer(
+                r'\b(?:grant|revoke)\s[^;]*?\bon\s+function\s+'
+                r'(public\.[a-z_][a-z_0-9]*)[^;]*?\b(?:to|from)\s+([^;]+);',
+                sql, re.I | re.S):
+            rs = roles_of(m.group(2))
+            for role in DEFAULT_GRANTED:
+                if role in rs:
+                    decided[role].add(m.group(1).lower())
 
         for m in REVOKE_RE.finditer(sql):
             rs = roles_of(m.group(2))
@@ -180,7 +239,34 @@ def main() -> int:
         print(f'    התיקון — במיגרציה חדשה, או באותה שורה:')
         print(f'        revoke all on function {sig} from public, {role};')
 
-    if bad:
+    undecided = 0
+    for name, (path, ln) in sorted(definers.items()):
+        if name in UNDECIDED_DEFINER_OK:
+            continue
+        missing = [r for r in DEFAULT_GRANTED
+                   if name not in decided[r] and name not in revoked_name[r]]
+        if not missing:
+            continue
+        undecided += 1
+        print(f'✗ {path}:{ln} — {name}  [{", ".join(missing)}]')
+        print(f'    ‏SECURITY DEFINER בלי שום החלטת הרשאות: אין grant ואין revoke')
+        print(f'    שמונים את {" ו-".join(missing)}. מברירת המחדל של Supabase היא')
+        print(f'    פתוחה להם, עוקפת RLS, וחשופה ב-/rest/v1/rpc/{name.split(".")[-1]}')
+        print(f'    אם היא נקראת רק מהשרת:')
+        print(f'        revoke all on function {name}(…) from public, anon, authenticated;')
+        print(f'        grant execute on function {name}(…) to service_role;')
+        print(f'    ואם היא נועדה לדפדפן - grant מפורש לתפקיד, כדי שזו תהיה החלטה.')
+
+    stale = sorted(n for n in UNDECIDED_DEFINER_OK if n not in definers)
+    for n in stale:
+        undecided += 1
+        print(f'✗ UNDECIDED_DEFINER_OK מחזיק את {n}, שאינה עוד SECURITY DEFINER')
+        print(f'    בלי החלטה. להסיר את השורה, כדי שהחריג לא יכסה פונקציה חדשה.')
+
+    if bad or undecided:
+        if undecided and not bad:
+            print(f'\n{undecided} פונקציות SECURITY DEFINER בלי החלטת הרשאות.')
+            return 1
         print(f'\n{bad} הרשאות שההענקה מדירה אך נשארות פתוחות בפועל.')
         print('אם החשיפה מכוונת — להעניק לתפקיד במפורש, או להוסיף שורה')
         print('ל-ALLOW ב-scripts/check_function_grants.py עם הנימוק.')
@@ -188,7 +274,9 @@ def main() -> int:
 
     print(f'✓ {len(files)} מיגרציות, {len(granted_without)} זוגות '
           f'(פונקציה, תפקיד) שההענקה מדירה: לכולם יש revoke בפועל '
-          f'({len(ALLOW)} חריגים מתועדים).')
+          f'({len(ALLOW)} חריגים מתועדים); {len(definers)} פונקציות SECURITY '
+          f'DEFINER, לכולן החלטת הרשאות ({len(UNDECIDED_DEFINER_OK)} ותיקות '
+          f'מתועדות).')
     return 0
 
 
