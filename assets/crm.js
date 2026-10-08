@@ -19274,9 +19274,24 @@ async function loadClients(){
   renderClients();
 }
 
+/* באיזה צד של העסקה הלקוח/ה: client_kind + deal_type. בעל/ת נכס אינו/ה
+   מחפש/ת, ולכן "קנייה" אצלו/ה הייתה בדיוק הטעות שהעמודה נולדה לתקן. */
+function isOwnerClient(c){ return c.client_kind === 'owner'; }
+function clientSideLabel(c){
+  if (isOwnerClient(c)) return c.deal_type === 'rent' ? 'משכיר/ה' : 'מוכר/ת';
+  return c.deal_type === 'rent' ? 'שכירות' : 'קנייה';
+}
+// ‏active אצל מחפש/ת הוא "מחפש/ת"; אצל בעל/ת נכס זו פשוט רשומה פעילה
+function clientStatusLabel(c){
+  if (c.status === 'active' && isOwnerClient(c)) return 'בעל/ת נכס';
+  return CLIENT_STATUS_LABELS[c.status] || c.status;
+}
+
 function clientRequirementLine(c){
+  // לבעל/ת נכס אין פרופיל חיפוש - השדות נשארים במסד אבל אינם אומרים דבר
+  if (isOwnerClient(c)) return [clientSideLabel(c), c.category === 'commercial' ? 'מסחרי' : 'מגורים'].join(' · ');
   const parts = [
-    c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
+    clientSideLabel(c),
     c.category === 'commercial' ? 'מסחרי' : 'מגורים',
     (c.cities || []).length ? c.cities.join(', ') : null,
     (c.property_types || []).length ? c.property_types.join(' / ') : null,
@@ -19312,9 +19327,9 @@ function clientSearchBlob(c){
     c.full_name, c.phone, c.email, c.notes,
     ...(c.cities || []), ...(c.property_types || []),
     ...(c.required_features || []).map(featureLabel),
-    c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
+    clientSideLabel(c), isOwnerClient(c) ? 'בעל/ת נכס בעלים' : null,
     c.category === 'commercial' ? 'מסחרי' : 'מגורים',
-    CLIENT_STATUS_LABELS[c.status],
+    clientStatusLabel(c),
     CLIENT_FINANCING_LABELS[c.financing_status], CLIENT_SOURCE_LABELS[c.lead_source],
   ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -19333,7 +19348,8 @@ function renderClients(){
 
   const unsorted = clientRows.filter(c => {
     if (status && c.status !== status) return false;
-    if (deal && c.deal_type !== deal) return false;
+    // ‏"owner" בסינון הוא בעלי הנכסים; קנייה ושכירות הם מחפשים בלבד
+    if (deal === 'owner' ? !isOwnerClient(c) : (deal && (isOwnerClient(c) || c.deal_type !== deal))) return false;
     if (category && c.category !== category) return false;
     // רשימה ריקה בכרטיס פירושה "לא משנה" — ולכן לקוח/ה כזה/כזו נחשב/ת
     // מתאים/ה גם לסינון לפי סוג נכס או עיר ספציפיים, בדיוק כמו במנוע ההתאמות
@@ -19397,7 +19413,7 @@ const expandedClientIds = new Set();
 function clientTabSub(c){
   return [
     c.status === 'active' ? null : (CLIENT_STATUS_LABELS[c.status] || c.status),
-    c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
+    clientSideLabel(c),
     (c.cities || []).length ? c.cities.join(', ') : null,
     (c.property_types || []).length ? c.property_types.join(' / ') : null,
   ].filter(Boolean).join(' · ');
@@ -19424,8 +19440,8 @@ function buildClientTab(c){
     title: c.full_name,
     sub: clientTabSub(c),
     pill: matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null,
-    price: clientBudgetLabel(c),
-    priceNote: c.deal_type === 'rent' ? 'לחודש' : '',
+    price: isOwnerClient(c) ? '' : clientBudgetLabel(c),
+    priceNote: !isOwnerClient(c) && c.deal_type === 'rent' ? 'לחודש' : '',
     // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
     buildCard: ()=> buildClientCard(c),
   });
@@ -19457,7 +19473,7 @@ function buildClientCard(c){
         ${referralNoteHtml(c)}
       </div>
       <div class="pill-row">
-        <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
+        <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
         ${c.referred_by ? '<span class="status-pill status-shared">הפנייה</span>' : ''}
         ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
         <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
@@ -19475,11 +19491,20 @@ function buildClientCard(c){
   const actions = el.querySelector('.lead-actions');
   const panel = el.querySelector('.match-panel');
 
+  const owner = isOwnerClient(c);
   // תצוגה מקדימה של ההתאמה החזקה ביותר - מיד עם פתיחת הכרטיס
-  const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
+  const peek = owner ? null : clientMatchPeek(c, () => el.querySelector('.match-cta'));
   if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
 
   addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+  // בעל/ת נכס: הפעולה הטבעית היא לפתוח את הנכס שלו/ה, עם הבעלים כבר בטופס
+  if (owner){
+    addCardAction(actions, {
+      label:'🏠 הוספת הנכס',
+      title:'פתיחת טופס נכס חדש, עם הלקוח/ה כבעלים',
+      onClick:()=> openPropertyForOwner(c),
+    });
+  }
   // השיחות וההקלטות עם הלקוח/ה (יומן שיחות). רק למי שיש לו/ה יומן -
   // אצל כל השאר הכפתור היה פותח תמיד "אין שיחות".
   if (callsBlockVisible()){
@@ -19496,18 +19521,24 @@ function buildClientCard(c){
     onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }),
   });
   // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
-  // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
+  // ולא רק בקטגוריית ההסכמים. סוג העסקה והצד בעסקה קובעים איזה טופס נפתח.
+  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
+                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
   addCardAction(actions, {
     label:'✍️ החתמה על הסכם',
     title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
-    onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
+    onClick:()=> openAgreementWizard({ kind: agrKind, clientId: c.id }),
   });
-  const matchBtn = addCardAction(actions, {
-    label: matches ? `🔍 הצגת ${plural(matches, 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות',
-    cls:'btn-gold act-wide',
-    onClick: btn => toggleClientMatches(c, btn, panel),
-  });
-  matchBtn.classList.add('match-cta');
+  // לבעל/ת נכס אין התאמות (client_property_match מסננת אותו/ה), ולכן גם
+  // אין כפתור שהיה נפתח תמיד על "אין התאמות"
+  if (!owner){
+    const matchBtn = addCardAction(actions, {
+      label: matches ? `🔍 הצגת ${plural(matches, 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות',
+      cls:'btn-gold act-wide',
+      onClick: btn => toggleClientMatches(c, btn, panel),
+    });
+    matchBtn.classList.add('match-cta');
+  }
   // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
   if (typeof addShowcaseAction === 'function') addShowcaseAction(actions, el, c);
 
@@ -19531,6 +19562,18 @@ function buildClientCard(c){
   else el.querySelector('.card-menu').remove();
 
   return el;
+}
+
+/* טופס נכס חדש עם בעל/ת הנכס מהכרטיס - שם, טלפון וסוג העסקה. הבעלים
+   נשמרים ל-property_owners בשמירת הנכס, בדיוק כמו כשמקלידים אותם ביד. */
+function openPropertyForOwner(c){
+  openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty', ()=>{
+    if (editingPropertyId) return;   // טופס עריכה פתוח - לא דורסים אותו
+    document.getElementById('npOwnerName').value = c.full_name || '';
+    document.getElementById('npOwnerPhone').value = c.phone || '';
+    const deal = document.getElementById('npDeal');
+    if (deal){ deal.value = c.deal_type === 'rent' ? 'rent' : 'sale'; deal.dispatchEvent(new Event('change')); }
+  });
 }
 
 /* ---------- תצוגה מקדימה של ההתאמה ----------
@@ -19761,6 +19804,7 @@ function renderMatchCards(panel, rows){
    (מתגים), והערים - מערך של תגיות שנשלח כמו שהוא ל-cities. עד היום הערים
    היו שדה טקסט שנחתך בפסיקים, וכל טעות הקלדה הפכה לעיר שאין לה נכסים. */
 let clientFormDeal = 'sale';
+let clientFormKind = 'seeker';
 let clientFormCities = [];
 let editingClientRow = null;
 
@@ -19808,6 +19852,32 @@ function setClientFormCategory(category, selectedTypes = [], selectedFeatures = 
     b.setAttribute('aria-pressed', String(on));
   });
   renderClientFormLists(selectedTypes, selectedFeatures);
+}
+
+/* מחפש/ת מול בעל/ת נכס (client_kind). בעל/ת נכס אינו/ה נכנס/ת להתאמות -
+   הסינון יושב ב-client_property_match במסד - ולכן כל פרופיל החיפוש מוסתר
+   אצלו/ה, ושני המתגים של סוג העסקה מתחלפים ל"מכירה"/"השכרה". הערכים
+   שבשדות המוסתרים נשארים בכרטיס ולא נשלחים בשמירה: סימון בטעות ש"מחזירים"
+   לא מוחק דרישות שמישהו הקליד. */
+function setClientFormKind(kind){
+  clientFormKind = kind === 'owner' ? 'owner' : 'seeker';
+  const owner = clientFormKind === 'owner';
+  document.querySelectorAll('[data-client-kind]').forEach(b => {
+    const on = b.dataset.clientKind === clientFormKind;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('#addClientForm .cf-seeker-only').forEach(el => { el.hidden = owner; });
+  document.querySelectorAll('#addClientForm .cf-owner-only').forEach(el => { el.hidden = !owner; });
+  document.getElementById('cfMatchTitle').textContent = owner ? 'הנכס של הלקוח/ה' : 'פרופיל חיפוש והתאמה אוטומטית';
+  document.getElementById('clDealBlockTitle').textContent = owner ? 'סוג עסקה' : 'סוג עסקה ותקציב';
+  const labels = owner ? { sale:'מכירה', rent:'השכרה' } : { sale:'קנייה', rent:'שכירות' };
+  document.querySelectorAll('[data-client-deal]').forEach(b => { b.textContent = labels[b.dataset.clientDeal]; });
+  const activeOpt = document.querySelector('#clStatus option[value="active"]');
+  if (activeOpt) activeOpt.textContent = owner ? 'פעיל/ה' : 'מחפש/ת';
+  document.getElementById('saveClientBtn').textContent = owner
+    ? (editingClientId ? 'עדכן לקוח' : 'שמור לקוח')
+    : (editingClientId ? 'עדכן לקוח והצלב נכסים' : 'שמור לקוח והצלב נכסים');
 }
 
 function setClientFormDeal(deal){
@@ -19891,6 +19961,7 @@ function resetClientForm(){
   renderClientCityChips();
   setClientFormDeal('sale');
   setClientFormCategory('residential');
+  setClientFormKind('seeker');
 }
 
 function openClientForm(){
@@ -19927,8 +19998,8 @@ function openEditClient(c){
   renderClientCityChips();
   setClientFormDeal(c.deal_type);
   setClientFormCategory(c.category || 'residential', c.property_types || [], c.required_features || []);
-
-  document.getElementById('saveClientBtn').textContent = 'עדכן לקוח והצלב נכסים';
+  // אחרי editingClientId - הוא שקובע אם כפתור השמירה אומר "שמור" או "עדכן"
+  setClientFormKind(c.client_kind);
   const form = openClientForm();
   form.scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -19980,6 +20051,8 @@ document.querySelectorAll('[data-client-category]').forEach(btn =>
   btn.addEventListener('click', ()=> setClientFormCategory(btn.dataset.clientCategory)));
 document.querySelectorAll('[data-client-deal]').forEach(btn =>
   btn.addEventListener('click', ()=> setClientFormDeal(btn.dataset.clientDeal)));
+document.querySelectorAll('[data-client-kind]').forEach(btn =>
+  btn.addEventListener('click', ()=> setClientFormKind(btn.dataset.clientKind)));
 
 document.getElementById('clFeaturesMore').addEventListener('click', e => {
   const box = document.getElementById('clFeatures');
@@ -20001,13 +20074,15 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   const minPrice = numOrNull('clMinPrice'), maxPrice = numOrNull('clMaxPrice');
   const minRooms = numOrNull('clMinRooms');
   const minSize = numOrNull('clMinSize'), maxSize = numOrNull('clMaxSize');
-  // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת
-  if (minPrice != null && maxPrice != null && minPrice > maxPrice){
+  // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת.
+  // אצל בעל/ת נכס השדות מוסתרים ולא נשלחים, ולכן גם לא נבדקים.
+  const seeker = clientFormKind === 'seeker';
+  if (seeker && minPrice != null && maxPrice != null && minPrice > maxPrice){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'התקציב המינימלי גבוה מהמקסימלי';
     return;
   }
-  if (minSize != null && maxSize != null && minSize > maxSize){
+  if (seeker && minSize != null && maxSize != null && minSize > maxSize){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'השטח המינימלי גדול מהמקסימלי';
     return;
@@ -20028,8 +20103,13 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     financing_status: document.getElementById('clFinancing').value || null,
     lead_source:      document.getElementById('clLeadSource').value || null,
     notes:  document.getElementById('clNotes').value.trim() || null,
+    client_kind: clientFormKind,
     deal_type: clientFormDeal,
     category:  clientFormCategory,
+    status: document.getElementById('clStatus').value,
+  };
+  // פרופיל החיפוש מוסתר אצל בעל/ת נכס ולא נשלח - ראו setClientFormKind()
+  if (seeker) Object.assign(payload, {
     property_types: getCheckedValues('clPropertyTypes'),
     cities: clientFormCities.slice(),
     min_price: minPrice, max_price: maxPrice,
@@ -20037,13 +20117,12 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     min_size_sqm: minSize, max_size_sqm: maxSize,
     max_floor: numOrNull('clMaxFloor'),
     required_features: getCheckedValues('clFeatures'),
-    status: document.getElementById('clStatus').value,
-  };
+  });
   // מקסימום החדרים ירד מהטופס (המפרט הפיזי הוא שלושה שדות), ולכן הוא לא
   // נשלח ונשמר כמו שהוא אצל מי שכבר יש לו. רק כשהמינימום החדש עוקף אותו
   // הוא מתאפס - אחרת ה-check של הטבלה היה דוחה את השמירה בלי שאפשר לתקן.
   const oldMaxRooms = editingClientRow?.max_rooms;
-  if (minRooms != null && oldMaxRooms != null && minRooms > Number(oldMaxRooms)) payload.max_rooms = null;
+  if (seeker && minRooms != null && oldMaxRooms != null && minRooms > Number(oldMaxRooms)) payload.max_rooms = null;
 
   btn.disabled = true; btn.textContent = 'שומר ומצליב…';
   feedback.textContent = '';
@@ -20065,14 +20144,18 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     return;
   }
   const wasEditing = !!editingClientId;
-  showToast(wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים');
+  const ownerSaved = payload.client_kind === 'owner';
+  showToast(ownerSaved ? (wasEditing ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה')
+    : (wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים'));
   // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
   if (!wasEditing) refreshOnboarding();
   resetClientForm();
   document.getElementById('addClientForm').style.display = 'none';
   if (savedId) expandedClientIds.add(savedId);
   await loadClients();
-  if (savedId) crossMatchClient(savedId);
+  // בעל/ת נכס שהיה/הייתה מחפש/ת: ההתראות הפתוחות שלו/ה נמחקו בטריגר במסד
+  if (ownerSaved && wasEditing) await loadClientAlerts();
+  if (savedId && !ownerSaved) crossMatchClient(savedId);
 });
 
 /* ============================================================================
@@ -25881,7 +25964,7 @@ function renderTodoList(){
    הגלילה בסוף היא אל ראש הטופס ולא אל מרכזו: טופס הנכס גבוה בהרבה מהמסך,
    ו-block:'center' הביא את אמצעו למרכז החלון — כלומר נחת באמצע השדות
    במקום בשדה הראשון. */
-function openInlineForm(accId, formId, toggleId){
+function openInlineForm(accId, formId, toggleId, afterOpen){
   gotoSection(accId);
   const reduce = navReduceMotion();
   setTimeout(()=>{
@@ -25889,6 +25972,8 @@ function openInlineForm(accId, formId, toggleId){
     const btn  = document.getElementById(toggleId);
     if (!form || !btn) return;
     if (getComputedStyle(form).display === 'none') btn.click();
+    // מילוי מוקדם (למשל הבעלים מכרטיס לקוח/ה) - אחרי הפתיחה, שמאפסת את הטופס
+    if (afterOpen) afterOpen(form);
     const first = form.querySelector('input:not([type=hidden]),select,textarea');
     if (first) first.focus({ preventScroll:true });
     scrollToTopOf(form);
@@ -26512,7 +26597,8 @@ function renderClientsCard(){
   const ratioEl = document.getElementById('kpiClientsRatio');
   if (!valueEl) return;
 
-  const searching = clientRows.filter(c => (c.status || 'active') === 'active');
+  // בעלי נכסים אינם "לקוחות מחפשים" ואינם מקבלים התאמות
+  const searching = clientRows.filter(c => (c.status || 'active') === 'active' && !isOwnerClient(c));
   const matched = searching.filter(c => (clientMatchCounts[c.id] || 0) > 0).length;
   const pct = searching.length ? Math.round(matched / searching.length * 100) : 0;
 
