@@ -84,6 +84,7 @@ lead_routing_log.source    ← המדויק ביותר: מזהה הווידג'ט
 | `agency_page` · `agent_page` | שלושת הכלים בדף המשרד ובדף הסוכן/ת |
 | `project_page` | מדף הפרויקטים ודפי הנחיתה |
 | `open_house` | יריד הבתים הפתוחים |
+| `meta_ads` | טפסי לידים במטא (‏`ads-leads-webhook` והסנכרון השעתי) - מוכר/ת, מחפש/ת, פנייה על נכס. ‏`docs/marketing-console.md` |
 | `rss_engine` | מנוע ה-RSS |
 | `unattributed` · `other` | מה שאין לו שיוך, ומה שאין לו עדיין ערוץ |
 

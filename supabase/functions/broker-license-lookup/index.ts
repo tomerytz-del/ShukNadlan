@@ -15,7 +15,7 @@ import { cachedBrokerLookup, brokerGateEnabled, manuallyApproved } from "../_sha
 // כאן משמש רק כדי שהחסימה לא תהיה הפתעה בסוף מילוי הטופס.
 //
 // שלושה בלמים מול שימוש לרעה, כי היא ציבורית וקוראת לשירות חיצוני:
-//   * רק 3–8 ספרות מתקבלות. כל קלט אחר נדחה לפני שיוצאים לרשת.
+//   * רק 3–9 ספרות מתקבלות. כל קלט אחר נדחה לפני שיוצאים לרשת.
 //   * מטמון של 30 יום. הקלדה חוזרת של אותו מספר אינה מגיעה ל-data.gov.il.
 //   * מה שחוזר הוא סטטוס ושם בלבד — לא הרשומה הגולמית מהמאגר, שעשויה
 //     להכיל פרטים אישיים נוספים.
@@ -44,8 +44,8 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const license = normalizeLicense(body.license_number);
-  if (!/^\d{3,8}$/.test(license)) {
-    return json({ error: "bad_license_number", detail: "מספר רישיון תיווך צריך להיות בן 3 עד 8 ספרות" }, 400);
+  if (!/^\d{3,9}$/.test(license)) {
+    return json({ error: "bad_license_number", detail: "מספר רישיון תיווך צריך להיות בן 3 עד 9 ספרות" }, 400);
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);

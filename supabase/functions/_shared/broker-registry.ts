@@ -300,9 +300,9 @@ async function freeTextLookup(license: string, fields: Discovered) {
  */
 export async function verifyBrokerLicense(rawLicense: string): Promise<BrokerResult> {
   const license = normalizeLicense(rawLicense);
-  // מספר רישיון תיווך הוא בן 3–8 ספרות. קלט שאינו כזה אינו יוצא לרשת כלל:
+  // מספר רישיון תיווך הוא בן 3–9 ספרות. קלט שאינו כזה אינו יוצא לרשת כלל:
   // הוא שגיאת הקלדה, לא רישיון שלא נמצא.
-  if (!/^\d{3,8}$/.test(license)) {
+  if (!/^\d{3,9}$/.test(license)) {
     return { status: "not_found", name: null, entity_status: null, reason: "bad_format", raw: null };
   }
 

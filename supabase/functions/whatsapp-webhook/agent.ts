@@ -143,7 +143,7 @@ const WRITABLE_FIELDS = [
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
 // לה את התקציב" לא יוכל לסגור לקוח/ה בטעות.
 const CLIENT_WRITABLE_FIELDS = [
-  "full_name", "phone", "email", "notes", "deal_type", "category",
+  "full_name", "phone", "email", "notes", "client_kind", "deal_type", "category",
   "property_types", "cities", "min_price", "max_price", "min_rooms",
   "max_rooms", "min_size_sqm", "max_size_sqm", "max_floor", "required_features",
 ] as const;
@@ -238,10 +238,20 @@ const clientFields = {
   phone: { type: "string", description: "טלפון, בכל פורמט." },
   email: { type: "string", description: "אימייל." },
   notes: { type: "string", description: "הערות חופשיות - מה שנאמר ואין לו שדה." },
+  client_kind: {
+    type: "string",
+    enum: ["seeker", "owner"],
+    description:
+      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס שמוכר/ת או משכיר/ה - " +
+      "אינו/ה מקבל/ת התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
+      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner. מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות.",
+  },
   deal_type: {
     type: "string",
     enum: ["sale", "rent"],
-    description: "‏sale = מחפש/ת לקנות, ‏rent = מחפש/ת לשכור. ברירת מחדל sale.",
+    description:
+      "‏seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. ‏owner: sale = מוכר/ת, " +
+      "rent = משכיר/ה. ברירת מחדל sale.",
   },
   category: {
     type: "string",
@@ -286,11 +296,6 @@ const NOTIFY_TYPES = [
   "new_lead", "client_match", "listing_match", "agreement_signed", "review_new", "deal_closed",
   "review_request", "marketing_copy", "system", "agenda_reminder",
 ];
-
-// סוגים שדלוקים בוואטסאפ **כברירת מחדל**, ונשמרים ברשימה ההפוכה
-// ‏`whatsapp_off_types`. תזכורת מהיומן היא בקשה מפורשת של הסוכן/ת לשעה
-// מסוימת - ראו סעיף 9 ב-20270125090000_agent_agenda.sql.
-const WA_DEFAULT_TYPES = ["agenda_reminder"];
 
 const AGENDA_KINDS = ["task", "call", "meeting", "showing", "signing"];
 
@@ -783,7 +788,9 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מוסיף לקוח/ה לקובץ הלקוחות של הסוכן/ת. **שדה ריק פירושו 'לא משנה'** " +
       "ואינו מסנן כלום - לקוח/ה עם שם וטלפון בלבד הוא רשומה תקפה שמקבלת " +
-      "התאמות. אל תשאל/י על שדות שלא נאמרו.",
+      "התאמות. אל תשאל/י על שדות שלא נאמרו. בעל/ת נכס (מוכר/ת או משכיר/ה) " +
+      "נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת הוא/היא נשמר/ת כקונה " +
+      "ומקבל/ת התאמות לכל נכס במאגר.",
     input_schema: {
       type: "object",
       properties: {
@@ -836,8 +843,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מה מתאים ללקוח/ה מסוים/ת. מצליב את הדרישות מול הנכסים של הסוכן/ת, נכסי " +
       "המשרד ומה שמשרדים אחרים שיתפו עם המשרד - כל התאמה עם ציון באחוזים ועם " +
-      "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שעונים " +
-      "על הדרישות ולא שותפו (בלי ציון, עם המתווך/ת והטלפון).",
+      "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
+      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון).",
     input_schema: {
       type: "object",
       properties: {
@@ -1116,9 +1123,8 @@ const TOOLS: Anthropic.Tool[] = [
     name: "whatsapp_alerts",
     description:
       "מציג או משנה אילו סוגי התראה יישלחו לסוכן/ת **גם כהודעת וואטסאפ**, " +
-      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שאף סוג אינו נשלח בוואטסאפ - " +
-      "ערוץ יוצא נדלק רק בבקשה מפורשת - חוץ מ-agenda_reminder (תזכורות מהיומן), " +
-      "שדלוק עד שמכבים אותו.",
+      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שכל הסוגים נשלחים בוואטסאפ, " +
+      "עד שמכבים אותם.",
     input_schema: {
       type: "object",
       properties: {
@@ -1245,7 +1251,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "profile_get",
     description:
       "הפרופיל האישי של הסוכן/ת כפי שהוא מוצג בדף הסוכן/ת באתר: שם, ביו, תמונת " +
-      "פרופיל ותמונת נושא, ותק, אזור, השכלה/הסמכות ותחומי התמחות - ומה חסר בו. " +
+      "פרופיל, ותק, אזור, השכלה/הסמכות ותחומי התמחות - ומה חסר בו. " +
       "לקרוא לפני עריכת ביו קיים (\"תוסיף לביו ש...\"), כדי לשלוח את הנוסח המלא.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
@@ -1253,8 +1259,10 @@ const TOOLS: Anthropic.Tool[] = [
     name: "update_profile",
     description:
       "עורך את הפרופיל האישי של הסוכן/ת (דף הסוכן/ת באתר). רק השדות שנשלחים משתנים. " +
-      "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile) " +
-      "או לתמונת הנושא (cover). מספר רישיון, טלפון ומסלול אינם נערכים כאן.",
+      "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile). " +
+      "אין תמונת נושא אישית: הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, ומנהל/ת " +
+      "המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. מספר רישיון, טלפון " +
+      "ומסלול אינם נערכים כאן.",
     input_schema: {
       type: "object",
       properties: {
@@ -1274,12 +1282,8 @@ const TOOLS: Anthropic.Tool[] = [
         },
         photo: {
           type: "string",
-          enum: ["profile", "cover"],
-          description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל או לתמונת הנושא.",
-        },
-        remove_cover: {
-          type: "boolean",
-          description: "true מסיר את תמונת הנושא האישית, והדף חוזר לתמונת המשרד.",
+          enum: ["profile"],
+          description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל.",
         },
       },
       required: [],
@@ -1301,7 +1305,7 @@ interface ToolContext {
 // ---------------------------------------------------------------------------
 
 const PROFILE_SELECT =
-  "slug, display_name, bio, photo_url, cover_url, years_experience, service_area, " +
+  "slug, display_name, bio, photo_url, years_experience, service_area, " +
   "credentials, specialties, tier";
 
 // ביו קצר מזה נראה בדף כמו שדה שלא מולא. ‏40 תווים הם משפט אחד.
@@ -1309,7 +1313,7 @@ const MIN_BIO_CHARS = 40;
 
 /**
  * מה חסר בפרופיל, לפי סדר החשיבות לגולש/ת שנוחת/ת בדף. תמונת נושא אינה
- * כאן: בלעדיה הדף יורש את תמונת המשרד, ונראה שלם.
+ * כאן: היא של המשרד, ולסוכן/ת אין תמונת נושא אישית.
  */
 export function profileGaps(row: Record<string, unknown> | null): string[] {
   if (!row) return [];
@@ -1835,26 +1839,22 @@ async function searchPools(ctx: ToolContext): Promise<SearchPools> {
   };
 }
 
-/**
- * הליבה של search_properties, וגם של "מה עוד יש באזור" ב-client_matches.
- * ‏`only` מצמצם למאגרים מסוימים; ‏`exclude` - נכסים שכבר הוצגו.
- */
+/** הליבה של search_properties: ארבעת המאגרים, הסינון המשותף, ו-source לכל נכס. */
 async function agentPropertySearch(
   ctx: ToolContext,
   args: Record<string, unknown>,
-  opts: { limit: number; only?: string[]; exclude?: Set<string> } = { limit: 10 },
+  limit: number,
 ): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown> } | { ok: false; error: string }> {
   const pools = await searchPools(ctx);
-  const want = (s: string) => !opts.only || opts.only.includes(s);
   const uuid = /^[0-9a-f-]{36}$/i;
 
   const ors: string[] = [];
-  if (want("own")) ors.push(`agent_id.eq.${ctx.agent.id}`);
-  if (pools.agencyId && want("agency")) ors.push(`agency_id.eq.${pools.agencyId}`);
+  ors.push(`agent_id.eq.${ctx.agent.id}`);
+  if (pools.agencyId) ors.push(`agency_id.eq.${pools.agencyId}`);
   const shared = pools.sharedIds.filter((id) => uuid.test(id));
-  if (shared.length && want("shared")) ors.push(`id.in.(${shared.join(",")})`);
+  if (shared.length) ors.push(`id.in.(${shared.join(",")})`);
   const cities = pools.marketCityIds.filter((id) => uuid.test(id));
-  if (cities.length && want("market")) ors.push(`city_id.in.(${cities.join(",")})`);
+  if (cities.length) ors.push(`city_id.in.(${cities.join(",")})`);
   if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {} };
 
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
@@ -1888,13 +1888,12 @@ async function agentPropertySearch(
   const one = (v: any) => (Array.isArray(v) ? v[0] : v);
   const tagged = rows
     .map((p) => ({ p, source: sourceOf(p) }))
-    .filter(({ p, source }) => want(source) && !opts.exclude?.has(String(p.id)))
     .sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]);
 
   const bySource: Record<string, number> = {};
   for (const t of tagged) bySource[t.source] = (bySource[t.source] || 0) + 1;
 
-  const results = tagged.slice(0, opts.limit).map(({ p, source }) => {
+  const results = tagged.slice(0, limit).map(({ p, source }) => {
     const member = one(p.agency_members);
     const hood = one(p.neighborhoods)?.name || p.sales_area || null;
     // מספר בית - רק במה שהמשרד מחזיק או שותף איתו. נכס של משרד אחר שלא שיתף
@@ -1926,7 +1925,7 @@ async function agentPropertySearch(
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
-  const res = await agentPropertySearch(ctx, input, { limit });
+  const res = await agentPropertySearch(ctx, input, limit);
   if (!res.ok) return res;
   return {
     ok: true,
@@ -2650,6 +2649,15 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
         "עם דירות תחת \"בנין\", ולכן אינם נספרים כבני השוואה. אמור/אמרי זאת, ואל תציע/י להשוות לעסקאות \"בנין\"."
       : "";
 
+  // בית פרטי בלי ממוצע: הוא מושווה לבתים בלבד (20270226090000), ובמאגר כמעט
+  // אין עסקאות בתים. בלי ההסבר "אין עסקאות בסביבה" נשמע כמו אזור מת.
+  const HOUSE_COVERAGE_NOTE =
+    coverage.subject_kind === "house" &&
+      (coverage.status === "none" || coverage.status === "insufficient")
+      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות, ובמאגר העסקאות יש מעט מאוד מכירות " +
+        "של בתים. אמור/אמרי זאת, ואל תציע/י לגזור מחיר מעסקאות של דירות."
+      : "";
+
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
     insufficient:
@@ -2706,7 +2714,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     stats,
     data_coverage: coverage,
     coverage_guidance:
-      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE).trim() || undefined,
+      ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
@@ -3251,7 +3259,7 @@ async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<s
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_floor, required_features")
+    .select("id, full_name, phone, status, client_kind, deal_type, category")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -3261,7 +3269,13 @@ async function ownedClient(ctx: ToolContext, clientId: string) {
 /** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
 function clientNeeds(c: Record<string, unknown>): string {
   const parts: string[] = [];
-  parts.push(c.deal_type === "rent" ? "להשכרה" : "למכירה");
+  // ‏"למכירה" על מחפש/ת היה דו-משמעי - מודל קרא בו מוכר/ת. הצד נאמר במפורש.
+  if (c.client_kind === "owner") {
+    parts.push(c.deal_type === "rent" ? "בעל/ת נכס - משכיר/ה" : "בעל/ת נכס - מוכר/ת");
+    if (c.category === "commercial") parts.push("מסחרי");
+    return parts.join(" · ");
+  }
+  parts.push(c.deal_type === "rent" ? "מחפש/ת לשכור" : "מחפש/ת לקנות");
   if (c.category === "commercial") parts.push("מסחרי");
   const types = (c.property_types as string[]) || [];
   if (types.length) parts.push(types.join("/"));
@@ -3314,7 +3328,7 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
   let query = ctx.supabase
     .from("agent_clients")
     .select(
-      "id, full_name, phone, email, notes, status, deal_type, category, " +
+      "id, full_name, phone, email, notes, status, client_kind, deal_type, category, " +
       "property_types, cities, min_price, max_price, min_rooms, max_rooms, " +
       "min_size_sqm, max_size_sqm, max_floor, required_features, created_at",
     )
@@ -3541,7 +3555,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
-    .select("id, full_name, phone, status, deal_type, category, property_types, " +
+    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, " +
             "cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, " +
             "max_size_sqm, max_floor, required_features")
     .single();
@@ -3570,7 +3584,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
-    .select("id, full_name, status, deal_type, category, property_types, cities, " +
+    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, " +
             "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, " +
             "max_floor, required_features")
     .single();
@@ -3616,6 +3630,18 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   const clientId = String(input.client_id || "");
   const client = await ownedClient(ctx, clientId);
   if (!client) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
+  // ‏client_property_match מסננת בעלי נכסים ממילא; כאן התשובה אומרת למה,
+  // במקום "0 התאמות" שנשמע כמו מאגר ריק
+  if (client.client_kind === "owner") {
+    return {
+      ok: false,
+      owner: true,
+      error:
+        `${client.full_name} רשום/ה כבעל/ת נכס ולא כמחפש/ת, ולכן אין לו/ה התאמות. ` +
+        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker והדרישות. " +
+        "לנכס שלו/ה - create_property, ואחר כך property_matches למי שמתאים לו.",
+    };
+  }
 
   const limit = Math.min(Number(input.limit) || 5, 15);
   const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
@@ -3632,25 +3658,32 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   ctx.conv.last_client_id = clientId;
 
   // ‏agent_client_matches מכסה את המשרד ומה ששותף איתו - כמו בדשבורד. מה
-  // שמתווכים אחרים באזור מפרסמים ולא שיתפו נאסף כאן בנפרד, לפי אותן דרישות
-  // בדיוק (בלי ציון): הוא אינו נכנס למיניסייט, אבל הוא בדיוק "מה יש באזור".
-  const market = await agentPropertySearch(ctx, {
-    deal_type: client.deal_type,
-    category: client.category,
-    property_types: client.property_types,
-    cities: client.cities,
-    min_price: client.min_price,
-    max_price: client.max_price,
-    min_rooms: client.min_rooms,
-    max_rooms: client.max_rooms,
-    min_size_sqm: client.min_size_sqm,
-    max_floor: client.max_floor,
-    features: client.required_features,
-  }, {
-    limit: 5,
-    only: ["market"],
-    exclude: new Set((data || []).map((m: Record<string, unknown>) => String(m.property_id))),
+  // שמתווכים אחרים באזור מפרסמים ולא שיתפו חוזר מ-agent_client_market_matches,
+  // **עם אותו ציון** (‏client_property_match - הסקיל client-matching). הוא אינו
+  // נכנס למיניסייט, אבל הוא בדיוק "מה עוד יש באזור".
+  const { data: marketRows, error: marketErr } = await ctx.supabase.rpc("agent_client_market_matches", {
+    p_agent_id: ctx.agent.id,
+    p_client_id: clientId,
+    p_limit: 5,
   });
+  // הפונקציה נכנסת במיגרציה; עד שהיא באוויר - בלי market, לא כשל של הכלי
+  if (marketErr) console.warn("agent_client_market_matches failed", marketErr.message);
+  const marketMatches = ((marketErr ? [] : marketRows) || []).map((m: Record<string, unknown>) => ({
+    property_id: m.property_id,
+    source: "market",
+    score: m.score,
+    title: m.title,
+    address: [m.street, m.city].filter(Boolean).join(" "),
+    price: m.price,
+    rooms: m.rooms,
+    floor: m.floor,
+    size_sqm: m.size_sqm,
+    gaps: m.reasons,
+    listing_agent: m.listing_agent_name,
+    listing_agent_phone: m.listing_agent_phone,
+    listing_office: m.listing_office,
+    link: propertyLink(String(m.property_id)),
+  }));
 
   return {
     ok: true,
@@ -3678,11 +3711,10 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       listing_agent_phone: m.listing_agent_phone,
       link: propertyLink(String(m.property_id)),
     })),
-    market_matches: market.ok && market.results.length ? market.results : undefined,
-    market_total: market.ok && market.total ? market.total : undefined,
-    market_note: market.ok && market.results.length
-      ? "נכסים של מתווכים אחרים באזור שעונים על הדרישות ולא שותפו עם המשרד. בלי ציון, ולא " +
-        "נכנסים למיניסייט - להציג עם שם המתווך/ת והטלפון, לתיאום שת\"פ."
+    market_matches: marketMatches.length ? marketMatches : undefined,
+    market_note: marketMatches.length
+      ? "נכסים של מתווכים אחרים באזור שמתאימים ללקוח/ה ולא שותפו עם המשרד (אותו ציון). " +
+        "אינם נכנסים למיניסייט - להציג עם שם המתווך/ת, המשרד והטלפון, לתיאום שת\"פ."
       : undefined,
   };
 }
@@ -4657,8 +4689,7 @@ async function toolProfileGet(ctx: ToolContext) {
     display_name: row.display_name,
     bio: row.bio,
     has_profile_photo: !!row.photo_url,
-    has_cover_photo: !!row.cover_url,
-    cover_note: row.cover_url ? undefined : "בלי תמונת נושא אישית הדף מציג את תמונת המשרד.",
+    cover_note: "תמונת הנושא בראש הדף היא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.",
     years_experience: row.years_experience,
     service_area: row.service_area,
     credentials: row.credentials,
@@ -4704,31 +4735,34 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
-  if (input.remove_cover === true) patch.cover_url = null;
-
   if (problems.length) return { error: problems.join(" "), specialty_options: PROFILE_SPECIALTIES };
 
   // התמונה נלקחת מהרשימה הממתינה באותה פעולה אטומית של צירוף לנכס, כדי
   // שאותה תמונה לא תגיע גם לנכס. כמה תמונות - האחרונה נבחרת, והשאר חוזרות.
   let taken: string[] = [];
-  const photo = input.photo === "profile" || input.photo === "cover" ? String(input.photo) : null;
+  // תמונת נושא אישית ירדה: היא של המשרד בלבד (docs/agency-page.md, סעיף 10).
+  // מודל שמבקש אותה בכל זאת מקבל הסבר ולא שמירה, והתמונה נשארת ממתינה.
+  if (input.photo === "cover") {
+    return {
+      error: "cover_is_agency",
+      detail: "אין תמונת נושא אישית - הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, " +
+        "ומנהל/ת המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. " +
+        "אפשר להפוך את התמונה לתמונת הפרופיל.",
+    };
+  }
+  const photo = input.photo === "profile" ? "profile" : null;
   if (photo) {
     taken = await takePendingImages(ctx);
     if (!taken.length) {
       return {
         error: "no_image",
-        detail: "לא התקבלה תמונה בשיחה. בקש/י מהסוכן/ת לשלוח תמונה עם הכיתוב " +
-          (photo === "profile" ? "\"תמונת פרופיל\"." : "\"תמונת נושא\"."),
+        detail: "לא התקבלה תמונה בשיחה. בקש/י מהסוכן/ת לשלוח תמונה עם הכיתוב \"תמונת פרופיל\".",
       };
     }
     const chosen = taken[taken.length - 1];
-    if (photo === "profile") {
-      patch.photo_url = chosen;
-      // נקודת המיקוד של התמונה הקודמת אינה שייכת לחדשה - חזרה למרכז.
-      patch.photo_position = null;
-    } else {
-      patch.cover_url = chosen;
-    }
+    patch.photo_url = chosen;
+    // נקודת המיקוד של התמונה הקודמת אינה שייכת לחדשה - חזרה למרכז.
+    patch.photo_position = null;
   }
 
   if (!Object.keys(patch).length) {
@@ -4770,19 +4804,15 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
     .map((t) => String(t))
     .filter((t) => NOTIFY_TYPES.includes(t));
 
-  // ‏'*': ‏whatsapp_off_types חדשה (20270125090000), והפונקציה עולה לפני
-  // שהמיגרציה רצה.
   const { data: prefs } = await ctx.supabase
     .from("agent_notification_preferences")
-    .select("*")
+    .select("muted_types, whatsapp_off_types")
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
-  // הרשימה האפקטיבית: המאושרים, ועוד מה שדלוק כברירת מחדל ולא כובה.
+  // וואטסאפ דלוק כברירת מחדל לכל סוג (20270303090000), ולכן הרשימה
+  // האפקטיבית היא הכול פחות מה שכובה.
   const off: string[] = prefs?.whatsapp_off_types || [];
-  const current: string[] = [
-    ...(prefs?.whatsapp_types || []),
-    ...WA_DEFAULT_TYPES.filter((t) => !off.includes(t)),
-  ];
+  const current: string[] = NOTIFY_TYPES.filter((t) => !off.includes(t));
 
   if (action === "get") {
     return { ok: true, enabled_types: current, all_types: NOTIFY_TYPES };
@@ -4803,14 +4833,17 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
   else next = asked.length ? current.filter((t) => !asked.includes(t)) : [];
 
   // ‏upsert ולא update: לרוב הסוכנים אין שורת העדפות בכלל (היעדר שורה =
-  // קבלת כל ההתראות בפעמון), וההדלקה הראשונה היא זו שיוצרת אותה.
-  // ‏muted_types נשמר כפי שהוא — הפעמון בדשבורד אינו מושפע מהערוץ.
+  // הכול דלוק, בפעמון ובוואטסאפ), והכיבוי הראשון הוא זה שיוצר אותה.
+  // ‏muted_types נשמר כפי שהוא — הפעמון בדשבורד אינו מושפע מהערוץ. סוגים
+  // שאינם ב-NOTIFY_TYPES (של מנהל/ת הפלטפורמה) נשארים כפי שהיו.
   const { error } = await ctx.supabase
     .from("agent_notification_preferences")
     .upsert({
       agent_id: ctx.agent.id,
-      whatsapp_types: next.filter((t) => !WA_DEFAULT_TYPES.includes(t)),
-      whatsapp_off_types: WA_DEFAULT_TYPES.filter((t) => !next.includes(t)),
+      whatsapp_off_types: [
+        ...off.filter((t) => !NOTIFY_TYPES.includes(t)),
+        ...NOTIFY_TYPES.filter((t) => !next.includes(t)),
+      ],
       muted_types: prefs?.muted_types || [],
       updated_at: new Date().toISOString(),
     }, { onConflict: "agent_id" });
@@ -4983,7 +5016,7 @@ async function toolAgendaFreeSlots(ctx: ToolContext, input: Record<string, unkno
 
   let source = "היומן במערכת בלבד";
   let googleNote: string | undefined =
-    "יומן Google לא מחובר, ולכן בדקתי רק את היומן במערכת. חיבור: יומן ומשימות בדשבורד, \"חבר/י יומן\".";
+    "יומן Google לא מחובר, ולכן בדקתי רק את היומן במערכת. חיבור: יומן Google בדשבורד, \"חיבור מאובטח ל-Google Calendar\".";
   const { data: conn } = await ctx.supabase.from("agent_calendar_connections")
     .select("status, scopes").eq("agent_id", ctx.agent.id).maybeSingle();
   if (conn?.status === "active" && googleCalendarConfigured()) {
@@ -5075,13 +5108,35 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   if (row.client_id) ctx.conv.last_client_id = String(row.client_id);
 
   const [shaped] = await agendaShape(ctx, [data]);
+  const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
   return {
     ok: true,
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
-    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id.",
+    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id." +
+      (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
+    gcal_offer: gcalOffer || undefined,
   };
+}
+
+/**
+ * הצעת יומן Google - ברגע שנקבעה פגישה, סיור או חתימה, ולא בהרשמה: כשהפגישה
+ * מול העיניים, מסך ההרשאות של Google נתפס כשירות ולא כחדירה. מוצעת רק כשאין
+ * חיבור כלל (שורה ב-agent_calendar_connections), ולא שוב כל עוד ההצעה הקודמת
+ * עוד בהיסטוריה - כלומר פעם בשיחה, ולא בכל פגישה. החיבור עצמו מהדשבורד, כי
+ * הוא OAuth של Google (docs/google-calendar.md).
+ */
+async function agendaGcalOffer(ctx: ToolContext, kind: string, due: string | null): Promise<string | null> {
+  if (!due || !["meeting", "showing", "signing"].includes(kind)) return null;
+  if (!googleCalendarConfigured()) return null;
+  if (JSON.stringify(ctx.conv.history || []).includes("gcal_offer")) return null;
+  const { data: conn } = await ctx.supabase.from("agent_calendar_connections")
+    .select("status").eq("agent_id", ctx.agent.id).maybeSingle();
+  if (conn) return null;
+  return "רשמתי את הפגישה. רוצה שאסנכרן אותה אוטומטית ליומן הגוגל שלך בלחיצה אחת? " +
+    "זה נעשה פעם אחת מהדשבורד: יומן Google > \"חיבור מאובטח ל-Google Calendar\". " +
+    "הסנכרון מתבצע רק עבור פגישות נדל\"ן שנוצרות במערכת.";
 }
 
 async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) {
@@ -5399,7 +5454,8 @@ const SYSTEM_STATIC: string = (() => {
       "list_calls עם limit 1 (השיחה האחרונה) - ואם יש client_id: update_client עם השדות שב-needs " +
       "(ערים - בתוספת לערים שכבר בכרטיס, לא במקומן), ואם הלקוח/ה בהמתנה (paused) - גם " +
       "set_client_status active. אם אין client_id: create_client עם השם (client_name או " +
-      "caller_name_from_call - ואם אין שם, שאל/י), הטלפון וה-needs. אחר כך client_matches.",
+      "caller_name_from_call - ואם אין שם, שאל/י), הטלפון וה-needs. אחר כך client_matches - " +
+      "חוץ מבעל/ת נכס (needs.client_kind owner), שלו/ה אין התאמות: הצע/י להוסיף את הנכס.",
     "- אם processing הוא true - השיחה עוד מעובדת. אמור/אמרי שהסיכום יגיע בעוד רגע.",
     "- משימות מהשיחה - הסוכן/ת לוחץ/ת על כפתור או כותב/ת. עזור/עזרי לבצע, אל תסתפק/י בהסבר:",
     "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה. מועד שנאמר " +
@@ -5414,7 +5470,8 @@ const SYSTEM_STATIC: string = (() => {
     "- אם באותה הודעה (או באותו רצף) יש הוראה של הסוכן/ת - בצע/י אותה על איש הקשר " +
       "(\"תוסיף כקונה בחיפה עד 2 מליון\" = create_client עם השם, הטלפון והדרישות).",
     "- בלי הוראה: למי שאינו בקובץ שאל/י בשאלה אחת \"להוסיף את <שם> כלקוח/ה? מה הוא/היא " +
-      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? אפשר לענות בהקלטה\". " +
+      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? או שזה בעל/ת נכס שמוכר/ת או " +
+      "משכיר/ה? אפשר לענות בהקלטה\". " +
       "\"כן\" לבד = create_client עם שם וטלפון בלבד. למי שכבר בקובץ - אל תיצור/י; " +
       "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ושאל/י מה לעדכן.",
     "- כמה אנשי קשר בבת אחת: שאלה אחת על כולם (\"להוסיף את שלושתם?\"), ואז create_client לכל אחד.",
@@ -5499,8 +5556,10 @@ const SYSTEM_STATIC: string = (() => {
       "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
     "",
     "הפרופיל האישי (דף הסוכן/ת באתר):",
-    "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. \"תמונת נושא\" / \"רקע\" / " +
-      "\"באנר\" = photo=cover. **תמונה עם כיתוב על פרופיל אינה תמונה לנכס** - אל תצרף/י אותה לנכס.",
+    "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. **אין תמונת נושא אישית**: " +
+      "\"תמונת נושא\" / \"רקע\" / \"באנר\" - הסבר/י שהרצועה היא תמונת הנושא של המשרד, ומנהל/ת המשרד " +
+      "מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים; אל תצרף/י את התמונה לנכס, ושאל/י אם " +
+      "להפוך אותה לתמונת הפרופיל. **תמונה עם כיתוב על פרופיל אינה תמונה לנכס** - אל תצרף/י אותה לנכס.",
     "- לעריכת ביו קיים (\"תוסיף שאני גם שמאי\") - קודם profile_get, ואז update_profile עם הנוסח המלא. " +
       "ביו חדש שהסוכן/ת הכתיב/ה - כמו שנאמר, בלי לייפות ובלי להמציא.",
     "- תחומי התמחות הם רשימה סגורה (specialty_options). מה שלא בה - הצע/י את הקרוב ביותר ושאל/י.",
@@ -5519,7 +5578,8 @@ const SYSTEM_STATIC: string = (() => {
     "- אם חזר past - המועד עבר; שאל/י לאיזה מועד התכוון/ה ואל תקבע/י לבד.",
     "- \"מתי אני פנוי/ה\" / \"תמצא לי שעה לסיור\" = agenda_free_slots. פגישות שנקבעות כאן " +
       "מופיעות גם ביומן Google של הסוכן/ת, אם חובר. החיבור עצמו נעשה רק בדשבורד " +
-      "(יומן ומשימות → חבר/י יומן) - אי אפשר לחבר מכאן.",
+      "(יומן Google → חיבור מאובטח ל-Google Calendar) - אי אפשר לחבר מכאן. כש-agenda_add מחזיר " +
+      "gcal_offer - הצע/י אותו פעם אחת, אחרי אישור הפגישה.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +

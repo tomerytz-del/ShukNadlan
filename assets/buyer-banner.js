@@ -420,8 +420,8 @@
       })
       .catch(function (err) {
         console.warn('saved-search-intake (footer buyer banner) failed:', err);
-        setError(3, err.message && err.message !== 'Failed to fetch'
-          ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
+        setError(3, /[\u0590-\u05FF]/.test(err.message || '')
+          ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב. לעזרה בוואטסאפ: 054-6929991');
         btn.textContent = originalLabel;
         btn.disabled = false;
       });

@@ -1,0 +1,39 @@
+name: מחירים מוצגים מול pricing_config
+
+# ‏מחיר אחד כתוב בשישה מקומות: pricing_config במסד (מה שנגבה), pricing.html,
+# ‏assets/tiers.js, ‏_shared/launch-promo.ts ותגית ה-description. אף אחד
+# מהם אינו שובר כשאחר משתנה - מיגרציה שמעלה מחיר עוברת ירוק, והדף ממשיך
+# להבטיח את הישן. הבדיקה מצליבה אותם.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "pricing.html"
+      - "assets/tiers.js"
+      - "supabase/migrations/*.sql"
+      - "supabase/functions/_shared/launch-promo.ts"
+      - "scripts/check_pricing.py"
+      - ".github/workflows/pricing.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pricing.html"
+      - "assets/tiers.js"
+      - "supabase/migrations/*.sql"
+      - "supabase/functions/_shared/launch-promo.ts"
+      - "scripts/check_pricing.py"
+      - ".github/workflows/pricing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: בדיקת מחירים
+        run: python3 scripts/check_pricing.py

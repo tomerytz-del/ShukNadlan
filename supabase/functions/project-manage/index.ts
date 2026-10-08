@@ -509,12 +509,14 @@ Deno.serve(async (req: Request) => {
         if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
         if (started?.error) return json(started, 400);
         const topupId = started.topup_id as string;
+        // נגבה ברוטו, נזקף נטו - כמו ארנק הסוכנים (‏20270304090000).
+        const charged = Number(started.charged_amount ?? amount);
 
         const { data: dev } = await supabase
           .from("developers").select("name").eq("id", developer.id).maybeSingle();
 
         const form = await createPaymentForm({
-          amount,
+          amount: charged,
           description: 'טעינת ארנק יזם - שוק נדל"ן',
           ...clientFrom(body, dev?.name ?? null),
           clientEmail: userData.user.email ?? null,
@@ -537,7 +539,7 @@ Deno.serve(async (req: Request) => {
           .update({ provider_form_id: form.formId, provider_payment_url: form.url })
           .eq("id", topupId);
 
-        return json({ success: true, topup_id: topupId, amount, redirect_url: form.url });
+        return json({ success: true, topup_id: topupId, amount, charged_amount: charged, redirect_url: form.url });
       }
 
       // מצב טעינה אחרי החזרה מעמוד התשלום. הדפדפן אינו מחליט שהתשלום עבר —

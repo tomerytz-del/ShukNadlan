@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
     const status = typeof body?.status === "string" ? body.status : "requested";
     const { data, error } = await supabase
       .from("wallet_refunds")
-      .select("id, agent_id, amount, status, allocation, agent_note, requested_at, " +
+      .select("id, agent_id, amount, money_amount, status, allocation, agent_note, requested_at, " +
               "resolved_at, resolution_note, provider_credit_note_id, " +
               "agency_members!wallet_refunds_agent_id_fkey(display_name)")
       .eq("status", status)

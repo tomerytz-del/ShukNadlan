@@ -92,7 +92,10 @@ export async function cachedBrokerLookup(supabase: any, license: string): Promis
 
   const result = await verifyBrokerLicense(license);
 
-  if (result.status !== "unverified") {
+  // ‏bad_format אינו נשמר גם הוא: זו דחייה של הקוד שלנו לפני שיצאנו לרשת, לא
+  // תשובה של המאגר. כשהטווח היה 3–8, מספר בן 9 ספרות נשמר כאן כ-not_found
+  // והמשיך לחסום גם אחרי שהטווח תוקן.
+  if (result.status !== "unverified" && result.reason !== "bad_format") {
     try {
       await supabase.from("broker_registry_cache").upsert({
         license_number: license,

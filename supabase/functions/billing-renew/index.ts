@@ -12,7 +12,13 @@ import {
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
 
 // ============================================================================
-// החיוב החודשי של בעלי מקצוע
+// החיוב החודשי: כרטיסיות בעלי מקצוע, ומאז 20270307090000 גם מסלולי הסוכנים
+//
+// שני הסוגים חולקים את billing_subscriptions, את המתג ואת אותו מבנה בדיוק -
+// ‏claim פותחת הזמנה ומסמנת אותה, כאן מחייבים ומאמתים, וטריגר על טבלת
+// ההזמנות מעדכן את המנוי. ההבדל הוא רק בטבלאות: ad_orders / complete_ad_order
+// לבעלי מקצוע, ‏subscription_orders / complete_subscription_order לסוכנים
+// (‏chargeKind למטה).
 //
 // ‏pg_cron קורא לכאן פעם בשעה, רק כשיש מנוי שהגיע תאריכו או הודעה שממתינה
 // (‏20270106090000_professional_auto_renew.sql). שני שלבים:
@@ -61,19 +67,50 @@ async function chargingEnabled(supabase: any): Promise<boolean> {
 // ---------------------------------------------------------------------------
 // 1. חיוב
 // ---------------------------------------------------------------------------
-async function chargeDue(supabase: any) {
+type ChargeKind = {
+  claim: string;
+  fail: (sb: any, orderId: string, reason: string) => Promise<unknown>;
+  complete: string;
+  completeParam: string;
+  describe: (row: any) => { who: string; description: string };
+};
+
+const KIND_PROFESSIONAL: ChargeKind = {
+  claim: "claim_due_professional_renewals",
+  fail: (sb, id, reason) => sb.rpc("fail_ad_order", { p_order_id: id, p_reason: reason }),
+  complete: "complete_ad_order",
+  completeParam: "p_order_id",
+  describe: (row) => ({
+    who: row.business_name || row.advertiser_name || "בעל/ת מקצוע",
+    description: 'חידוש חודשי - כרטיסיית בעל/ת מקצוע - שוק נדל"ן',
+  }),
+};
+
+const TIER_LABELS: Record<string, string> = { mid: "PROFESSIONAL", premium: "Elite" };
+
+const KIND_TIER: ChargeKind = {
+  claim: "claim_due_tier_renewals",
+  fail: (sb, id, reason) => sb.rpc("fail_subscription_order", { p_order_id: id, p_reason: reason }),
+  complete: "complete_subscription_order",
+  completeParam: "p_order_id",
+  describe: (row) => ({
+    who: row.display_name || "סוכן/ת",
+    description: `חידוש חודשי - מנוי ${TIER_LABELS[row.tier] ?? row.tier} - שוק נדל"ן`,
+  }),
+};
+
+async function chargeDue(supabase: any, kind: ChargeKind) {
   const stats = { claimed: 0, charged: 0, declined: 0, no_token: 0, pending: 0 };
 
-  const { data: due, error } = await supabase.rpc("claim_due_professional_renewals", { p_limit: 20 });
+  const { data: due, error } = await supabase.rpc(kind.claim, { p_limit: 20 });
   if (error) {
-    console.error("billing-renew: claim failed", error.message);
+    console.error("billing-renew: claim failed", kind.claim, error.message);
     return stats;
   }
 
   for (const row of due ?? []) {
     stats.claimed++;
-    const fail = (reason: string) =>
-      supabase.rpc("fail_ad_order", { p_order_id: row.order_id, p_reason: reason });
+    const fail = (reason: string) => kind.fail(supabase, row.order_id, reason);
 
     // הכרטיס. נשמר על המנוי אחרי הפעם הראשונה שנמצא.
     let token: string | null = row.card_token;
@@ -99,10 +136,10 @@ async function chargeDue(supabase: any) {
       continue;
     }
 
-    const who = row.business_name || row.advertiser_name || "בעל/ת מקצוע";
+    const { who, description } = kind.describe(row);
     const charge = await chargeCardToken(token, {
       amount: Number(row.amount),
-      description: 'חידוש חודשי - כרטיסיית בעל/ת מקצוע - שוק נדל"ן',
+      description,
       reference: row.order_id,
       clientName: who,
       clientEmail: row.contact_email,
@@ -126,8 +163,8 @@ async function chargeDue(supabase: any) {
       stats.pending++;
       continue;
     }
-    const { data: done, error: doneErr } = await supabase.rpc("complete_ad_order", {
-      p_order_id: row.order_id,
+    const { data: done, error: doneErr } = await supabase.rpc(kind.complete, {
+      [kind.completeParam]: row.order_id,
       p_verified_amount: verified.amount,
       p_provider_charge_id: verified.transactionId ?? charge.transactionId,
       p_document_id: verified.documentId,
@@ -151,11 +188,20 @@ async function sendNotices(supabase: any) {
 
   const { data: subs } = await supabase
     .from("billing_subscriptions")
-    .select("id, placement_id, status, contact_email, notice_order_id, failed_attempts, next_retry_at, next_charge_on")
+    .select("id, kind, placement_id, agent_id, tier, status, contact_email, notice_order_id, failed_attempts, next_retry_at, next_charge_on")
     .not("notice_order_id", "is", null)
     .limit(50);
 
   for (const sub of subs ?? []) {
+    if (sub.kind === "tier") {
+      const r = await tierNotice(supabase, sub);
+      if (r === "waiting") { stats.waiting++; continue; }
+      if (r === "sent") stats.sent++;
+      await supabase.from("billing_subscriptions")
+        .update({ notice_order_id: null, updated_at: new Date().toISOString() })
+        .eq("id", sub.id).eq("notice_order_id", sub.notice_order_id);
+      continue;
+    }
     const { data: order } = await supabase
       .from("ad_orders").select("id, status, amount, period_end, failure_reason")
       .eq("id", sub.notice_order_id).maybeSingle();
@@ -224,6 +270,61 @@ async function sendNotices(supabase: any) {
   return stats;
 }
 
+/** ההודעה לסוכן/ת על חידוש המסלול. אותם שלושה מצבים של בעלי המקצוע, עם
+ *  קישור ל-CRM במקום למסך העריכה. "waiting" = ההזמנה עוד pending, או שהמייל
+ *  נכשל - ההודעה נשארת לסבב הבא. */
+async function tierNotice(supabase: any, sub: any): Promise<"sent" | "none" | "waiting"> {
+  const { data: order } = await supabase
+    .from("subscription_orders").select("id, status, amount, period_end, tier")
+    .eq("id", sub.notice_order_id).maybeSingle();
+  if (order && order.status === "pending") return "waiting";
+
+  const { data: m } = await supabase
+    .from("agency_members").select("display_name, paid_tier_until").eq("id", sub.agent_id).maybeSingle();
+  const label = TIER_LABELS[sub.tier] ?? sub.tier;
+  const until = fmtDate(m?.paid_tier_until ?? null);
+  const crmUrl = `${siteBaseUrl}/crm`;
+
+  let subject = "";
+  let lines: string[] = [];
+  if (order?.status === "success") {
+    subject = `המנוי ${label} שלך בשוק נדל"ן חודש לחודש נוסף`;
+    lines = [
+      `חויב ${fmtMoney(order.amount)} (כולל מע״מ), והמסלול ${label} פעיל עד ${until}.`,
+      "החשבונית נשלחת בנפרד מחברת הסליקה.",
+      "אפשר לבטל את החידוש בכל עת באיזור הסוכנים, והמסלול יימשך עד סוף התקופה ששולמה.",
+    ];
+  } else if (sub.status === "failed") {
+    subject = "החידוש החודשי של המנוי שלך הופסק";
+    lines = [
+      "ניסינו לחייב את הכרטיס שלוש פעמים ולא הצלחנו, ולכן החידוש האוטומטי הופסק.",
+      `המסלול ${label} יישאר פעיל עד ${until}, ואחרי זה החשבון יעבור ל-Pay&GO - בלי לאבד נכסים, לידים או לקוחות.`,
+      "כדי להמשיך, אפשר לחדש את המנוי בדף המסלולים עם כרטיס בתוקף.",
+    ];
+  } else if (sub.status === "active" && sub.next_retry_at) {
+    subject = "לא הצלחנו לחייב את הכרטיס לחידוש המנוי";
+    lines = [
+      `ננסה שוב ב-${new Date(sub.next_retry_at).toLocaleDateString("he-IL")}.`,
+      "אם הכרטיס פג או הוחלף, אפשר לחדש בדף המסלולים עם כרטיס אחר.",
+    ];
+  }
+  if (!subject || !sub.contact_email) return "none";
+
+  const hello = m?.display_name ? `שלום ${m.display_name},` : "שלום,";
+  const html =
+    `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6">` +
+    `<p>${esc(hello)}</p>` + lines.map((l) => `<p>${esc(l)}</p>`).join("") +
+    `<p><a href="${esc(crmUrl)}">לאיזור הסוכנים</a></p>` +
+    `<p style="color:#666;font-size:13px">שאלות? ${esc(PLATFORM_CONTACT_EMAIL)}</p></div>`;
+  const text = [hello, ...lines, `איזור הסוכנים: ${crmUrl}`, `שאלות? ${PLATFORM_CONTACT_EMAIL}`].join("\n\n");
+  const sent = await sendPlatformEmail({ to: [sub.contact_email], subject, html, text });
+  if (!sent.sent) {
+    console.error("billing-renew: tier notice mail failed", sub.id, sent.error);
+    return "waiting";
+  }
+  return "sent";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -244,7 +345,10 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, charging: "morning_not_configured", notices });
   }
 
-  const charges = await chargeDue(supabase);
+  const charges = {
+    professional: await chargeDue(supabase, KIND_PROFESSIONAL),
+    tier: await chargeDue(supabase, KIND_TIER),
+  };
   // הודעות על מה שהסתיים בסבב הזה, בלי לחכות שעה.
   const late = await sendNotices(supabase);
   return json({ ok: true, charges, notices: { sent: notices.sent + late.sent, waiting: late.waiting } });
