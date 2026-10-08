@@ -1,0 +1,33 @@
+{
+  "skill_name": "pricing-change",
+  "evals": [
+    {
+      "id": 1,
+      "name": "cut-included-minutes",
+      "prompt": "מצמצמים את הדקות הכלולות במספר הווירטואלי מ-150 ל-100, כולל למנויים הקיימים. תעשה את השינוי.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Migration updates phone_line_included_minutes to 100",
+        "PRICES and displays updated, check_pricing passes",
+        "Flags the terms.html clause (price change does not apply to a paid period) for existing subscribers",
+        "No stale 150 left in CLAUDE.md / skills"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "promote-price-drop",
+      "prompt": "רוצה להוריד את מחיר הקידום של נכס מ-20 ל-15 ₪. תעשה את כל מה שצריך.",
+      "expected_output": "ראו assertions",
+      "files": [],
+      "assertions": [
+        "Migration updates pricing_config.promote_price to 15",
+        "PRICES in check_pricing.py updated",
+        "pricing.html comparison row updated",
+        "CRM fallback price updated",
+        "Docs updated",
+        "check_pricing.py passes"
+      ]
+    }
+  ]
+}

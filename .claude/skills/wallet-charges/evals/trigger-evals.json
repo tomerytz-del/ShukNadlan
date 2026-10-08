@@ -1,0 +1,82 @@
+[
+  {
+    "query": "סוכנת מרמת גן כתבה שהיא לחצה פעמיים על 'קידום נכס' וירדו לה שני חיובים מהארנק. תבדוק את promote_property ותגיד לי איפה הבאג",
+    "should_trigger": true
+  },
+  {
+    "query": "אני רוצה להוסיף אפשרות לקנות 'צילום רחפן' לנכס ב-₪250, שירד מהארנק של הסוכן. תכתוב את הפונקציה במסד ואת הכפתור ב-CRM",
+    "should_trigger": true
+  },
+  {
+    "query": "a client topped up 100 shekels through morning and her card got charged 118, she thinks it's a mistake. is it? where in the code is this decided",
+    "should_trigger": true
+  },
+  {
+    "query": "יצירת הסרטון נכשלה אצל הספק אבל הכסף ירד לסוכן, צריך שיחזור אוטומטית",
+    "should_trigger": true
+  },
+  {
+    "query": "complete_wallet_topup returns amount_mismatch for some topups since yesterday's deploy, can you debug",
+    "should_trigger": true
+  },
+  {
+    "query": "סוכן מבקש החזר של היתרה שנשארה לו בארנק, 340 ש״ח. איך מטפלים בזה אצלנו?",
+    "should_trigger": true
+  },
+  {
+    "query": "add a 'buy 50 extra minutes' button for the tracking number in the CRM, deducted from credit_balance",
+    "should_trigger": true
+  },
+  {
+    "query": "חידוש חודשי של המספר הווירטואלי - כשאין לסוכן יתרה אני רוצה שהמספר ינותק מיד ולא אחרי שבוע",
+    "should_trigger": true
+  },
+  {
+    "query": "the store purchase went through for agent 5512 but credit_balance didn't change at all, find out why",
+    "should_trigger": true
+  },
+  {
+    "query": "should the new mortgage-lead purchase function add VAT on top of the price before deducting? writing it now",
+    "should_trigger": true
+  },
+  {
+    "query": "תעלה את מחיר המספר הווירטואלי ל-99 ₪ בדף המחירים ובמסד",
+    "should_trigger": false
+  },
+  {
+    "query": "check_pricing.py נכשל אחרי שניסחתי מחדש שורה בטבלת ההשוואה ב-pricing.html",
+    "should_trigger": false
+  },
+  {
+    "query": "השיחות למספר הווירטואלי מחזירות 403 מטוויליו מאתמול בערב",
+    "should_trigger": false
+  },
+  {
+    "query": "add a column discount_code (text) to agency_members, just the migration file please",
+    "should_trigger": false
+  },
+  {
+    "query": "add a row to the pricing compare table showing that Elite includes 3 marketing videos a month and pro includes 1, and enforce it",
+    "should_trigger": false
+  },
+  {
+    "query": "write facebook ad copy for our top-up promo campaign: 'טוענים 500 ומקבלים 50 מתנה'",
+    "should_trigger": false
+  },
+  {
+    "query": "the morning API key expired, where do I rotate the secret that the edge functions use",
+    "should_trigger": false
+  },
+  {
+    "query": "גבריאלה עונה לסוכנים על שאלות יתרה באנגלית במקום בעברית, תתקן את הנוסח בבוט",
+    "should_trigger": false
+  },
+  {
+    "query": "the CMA report shows deal prices - are those with or without VAT? the client asked",
+    "should_trigger": false
+  },
+  {
+    "query": "add a new tier 'Starter' between free and pro that allows 3 active listings",
+    "should_trigger": false
+  }
+]

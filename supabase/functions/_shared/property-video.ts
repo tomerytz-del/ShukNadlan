@@ -91,14 +91,46 @@ export async function falSubmit(
 
 // ‏status ו-result לפי model+request_id, כי זו הצורה שה-reconcile מחזיק —
 // ‎status_url‎ המקורי לא נשמר, ואפשר להרכיב אותו מחדש מהשניים.
-export async function falStatus(model: string, requestId: string): Promise<string | null> {
+//
+// ‏**מהאפליקציה, לא מהמודל המלא.** השליחה נעשית לנתיב המלא
+// (‎fal-ai/kling-video/v2.5-turbo/pro/image-to-video‎), אבל התור של fal מגיש
+// status ו-result תחת שני המקטעים הראשונים בלבד
+// (‎fal-ai/kling-video/requests/<id>/status‎) — כך גם ה-status_url שהוא
+// מחזיר בשליחה, וכך הלקוח הרשמי שלו בונה אותו. עד 8.10.2026 הנתיב המלא נבנה
+// כאן, ושני המודלים שלנו (וידאו ומיזוג) הם בעלי תת-נתיב: כל בדיקה של
+// ה-reconcile חזרה ריקה. קליף שה-webhook שלו אבד נשאר `pending` עד תקרת
+// השעתיים, והסוכן/ת חיכה/תה לזיכוי - או קיבל/ה זיכוי על סרטון שכבר היה מוכן.
+// הנתיב המלא נשאר כניסיון שני, למודל שאין לו תת-נתיב או לשינוי אצל fal.
+export function falAppPath(model: string): string {
+  return model.split("/").filter(Boolean).slice(0, 2).join("/");
+}
+
+async function falQueueGet(model: string, suffix: string): Promise<Response | null> {
   const key = falKey();
   if (!key) return null;
+  const paths = [falAppPath(model)];
+  if (paths[0] !== model) paths.push(model);
+  for (const path of paths) {
+    try {
+      const res = await fetch(`${FAL_QUEUE}/${path}/requests/${suffix}`, {
+        headers: { "Authorization": `Key ${key}` },
+      });
+      if (res.status === 404 || res.status === 405) {
+        await res.body?.cancel();
+        continue;
+      }
+      return res;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export async function falStatus(model: string, requestId: string): Promise<string | null> {
+  const res = await falQueueGet(model, `${requestId}/status`);
+  if (!res?.ok) return null;
   try {
-    const res = await fetch(`${FAL_QUEUE}/${model}/requests/${requestId}/status`, {
-      headers: { "Authorization": `Key ${key}` },
-    });
-    if (!res.ok) return null;
     const data = await res.json();
     return data?.status ?? null;
   } catch {
@@ -106,18 +138,54 @@ export async function falStatus(model: string, requestId: string): Promise<strin
   }
 }
 
+// ‏בקשה שנכשלה אצל fal היא COMPLETED, והתוצאה שלה היא שגיאה (‏4xx/5xx).
+// ‏null כאן הופך את הקליף לכושל אצל הקורא - ‎no_video_in_result‎ - וזה הנכון.
 export async function falResult(model: string, requestId: string): Promise<unknown | null> {
-  const key = falKey();
-  if (!key) return null;
+  const res = await falQueueGet(model, requestId);
+  if (!res?.ok) return null;
   try {
-    const res = await fetch(`${FAL_QUEUE}/${model}/requests/${requestId}`, {
-      headers: { "Authorization": `Key ${key}` },
-    });
-    if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// סגירת בקשה ככושלת, וזיכוי הארנק
+//
+// ‏`fail_property_video_job` מחזירה את מה שנגבה לפי `amount_charged`, והיא
+// אידמפוטנטית: בקשה שכבר זוכתה אינה מזוכה שוב, ובקשה שנכשלה ולא זוכתה
+// מזוכה בקריאה הבאה. עד 8.10.2026 תשעת הקוראים התעלמו מהתשובה שלה: קריאה
+// שנכשלה (רשת, נעילה, שגיאת מסד) ביטלה את הטרנזקציה כולה - גם את הזיכוי -
+// בלי שורת לוג אחת, ו-fal כבר קיבל/ה 200 ולא שלח/ה שוב.
+//
+// לכן כל קורא עובר דרך כאן: ניסיון שני מיד (בטוח, בגלל האידמפוטנטיות), לוג
+// כשהזיכוי לא אושר, והסכום שזוכה בפועל כדי שהסוכן/ת יקבל/תקבל אמת. בקשה
+// שהזיכוי שלה לא אושר נשארת פתוחה, וה-reconcile מנסה שוב בסבב הבא.
+// ---------------------------------------------------------------------------
+export interface FailResult {
+  ok: boolean;       // הבקשה סגורה ככושלת (או שכבר הייתה)
+  refunded: number;  // מה שזוכה בקריאה הזו
+}
+
+// deno-lint-ignore no-explicit-any
+export async function failVideoJob(supabase: any, jobId: string, reason: string): Promise<FailResult> {
+  let last = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase.rpc("fail_property_video_job", {
+      p_job_id: jobId,
+      p_reason: reason,
+    });
+    if (!error && data?.success) {
+      return { ok: true, refunded: Number(data.refunded) || 0 };
+    }
+    // ‏already_done: הסרטון הושלם במקביל - אין מה לסגור ואין מה לזכות.
+    if (!error && data?.error === "already_done") return { ok: true, refunded: 0 };
+    if (!error && data?.error === "job_not_found") break;
+    last = error?.message ?? String(data?.error ?? "no_response");
+  }
+  console.error(`fail_property_video_job not confirmed for ${jobId} (${reason}): ${last}`);
+  return { ok: false, refunded: 0 };
 }
 
 // ---------------------------------------------------------------------------

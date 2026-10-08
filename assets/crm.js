@@ -14044,9 +14044,16 @@ async function produceMarketingVideo(property, btn, agentId){
         no_images:            'אין תמונות לנכס הזה — אי אפשר להפיק ממנו סרטון',
         not_enough_images:    data.message || 'אין מספיק תמונות מתאימות להפקת סרטון',
         fal_not_configured:   'שירות הווידאו לא מוגדר במערכת — יש לפנות לתמיכה',
-        fal_submit_failed:    'שירות הווידאו לא זמין כרגע — לא בוצע חיוב, נסו שוב בהמשך',
+        fal_submit_failed:    'שירות הווידאו לא זמין כרגע - נסו שוב בהמשך',
       };
-      showToast(messages[data.error] || 'שגיאה בהפקת הסרטון');
+      // כשל אחרי החיוב (fal_submit_failed, db_error): החיוב כבר ירד, ולכן
+      // אומרים מה קרה לכסף ומרעננים את היתרה - ולא "לא בוצע חיוב".
+      const refunded = Number(data.refunded) || 0;
+      const moneyNote = refunded > 0 ? ` · ${shekel(refunded)} הוחזרו לארנק`
+        : data.refund_pending ? ' · החיוב יוחזר לארנק אוטומטית תוך כחצי שעה'
+        : data.refunded === 0 ? ' · לא נגבה תשלום' : '';
+      showToast((messages[data.error] || 'שגיאה בהפקת הסרטון') + moneyNote);
+      if (refunded > 0 || data.refund_pending) refreshAgentBalance();
       btn.disabled = false; setActionLabel(btn, original);
       return;
     }

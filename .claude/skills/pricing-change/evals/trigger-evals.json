@@ -1,0 +1,74 @@
+[
+  {
+    "query": "רוצה להוריד את מחיר הקידום של נכס מ-49 ל-39 ₪, תעשה את כל מה שצריך",
+    "should_trigger": true
+  },
+  {
+    "query": "the pro subscription should be 199 instead of 179 starting next month, update everything that shows it",
+    "should_trigger": true
+  },
+  {
+    "query": "check_pricing.py fails with: DISPLAY pattern 'virtual_number' matched nothing. I only changed some wording on the pricing page",
+    "should_trigger": true
+  },
+  {
+    "query": "בדף המחירים כתוב שהמספר הווירטואלי עולה 89 אבל בחלון האישור ב-CRM הסוכנת ראתה 99. מה קורה?",
+    "should_trigger": true
+  },
+  {
+    "query": "Elite should now include 200 call minutes instead of 150, change the cap",
+    "should_trigger": true
+  },
+  {
+    "query": "אני רוצה לנסח מחדש את השורה של הסרטון השיווקי בטבלת ההשוואה כך שתהיה ברורה יותר, המחיר נשאר",
+    "should_trigger": true
+  },
+  {
+    "query": "add the drone photo service at 250 shekels as a new row on pricing.html, the db function already exists",
+    "should_trigger": true
+  },
+  {
+    "query": "כמה עולה ליד היום? אני רוצה להעלות ל-25 ₪",
+    "should_trigger": true
+  },
+  {
+    "query": "we're cutting the number of included videos in pro from 4 to 2, existing subscribers too - go ahead",
+    "should_trigger": true
+  },
+  {
+    "query": "סוכנת חויבה פעמיים על אותו ליד, תבדוק את claim_lead",
+    "should_trigger": false
+  },
+  {
+    "query": "add a 'buy credits' button to the CRM header that opens checkout",
+    "should_trigger": false
+  },
+  {
+    "query": "the pricing page looks broken on iPhone, the tier cards overlap each other",
+    "should_trigger": false
+  },
+  {
+    "query": "תכתוב מודעה לפייסבוק שמשווה את המחיר שלנו למחיר של יד2 לסוכנים",
+    "should_trigger": false
+  },
+  {
+    "query": "the CMA shows an average of 34,000 per meter in haifa for 4 rooms, seems too high",
+    "should_trigger": false
+  },
+  {
+    "query": "pricing.html isn't showing up in GA4 reports at all, is the GTM snippet there?",
+    "should_trigger": false
+  },
+  {
+    "query": "make the free tier unable to upload more than 5 images per property - enforce it in the db",
+    "should_trigger": false
+  },
+  {
+    "query": "Twilio raised their per-minute rate, record the new cost in the platform costs panel",
+    "should_trigger": false
+  },
+  {
+    "query": "תוסיף שאלה נפוצה ל-faq.html על איך מבטלים מנוי",
+    "should_trigger": false
+  }
+]

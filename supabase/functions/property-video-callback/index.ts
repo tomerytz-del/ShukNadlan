@@ -16,6 +16,7 @@ import {
   removeStoredVideo,
   storeFinalVideo,
   tokensMatch,
+  failVideoJob,
 } from "../_shared/property-video.ts";
 
 // ============================================================================
@@ -91,10 +92,7 @@ async function advanceJob(supabase: any, jobId: string): Promise<string> {
 
     const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 2)));
     if (ready.length < minClips) {
-      await supabase.rpc("fail_property_video_job", {
-        p_job_id: jobId,
-        p_reason: `too_few_clips: ${ready.length}/${minClips}`,
-      });
+      await failVideoJob(supabase, jobId, `too_few_clips: ${ready.length}/${minClips}`);
       return "failed";
     }
 
@@ -119,10 +117,7 @@ async function advanceJob(supabase: any, jobId: string): Promise<string> {
     const submit = await falSubmit(FAL_MERGE_MODEL, buildMergeInput(urls, job.aspect_ratio), hook);
 
     if (!submit.ok) {
-      await supabase.rpc("fail_property_video_job", {
-        p_job_id: jobId,
-        p_reason: `merge_submit_failed: ${submit.error}`,
-      });
+      await failVideoJob(supabase, jobId, `merge_submit_failed: ${submit.error}`);
       return "failed";
     }
 
@@ -158,10 +153,7 @@ async function claim(supabase: any, jobId: string, from: string, to: string): Pr
 async function finalize(supabase: any, job: any, videoUrl: string): Promise<string> {
   const stored = await storeFinalVideo(supabase, job.agent_id, job.property_id, videoUrl);
   if (!stored.url) {
-    await supabase.rpc("fail_property_video_job", {
-      p_job_id: job.id,
-      p_reason: `store_failed: ${stored.error}`,
-    });
+    await failVideoJob(supabase, job.id, `store_failed: ${stored.error}`);
     return "failed";
   }
 
@@ -170,10 +162,7 @@ async function finalize(supabase: any, job: any, videoUrl: string): Promise<stri
     p_result_url: stored.url,
   });
   if (error || completed?.error) {
-    await supabase.rpc("fail_property_video_job", {
-      p_job_id: job.id,
-      p_reason: `complete_failed: ${error?.message ?? completed?.error}`,
-    });
+    await failVideoJob(supabase, job.id, `complete_failed: ${error?.message ?? completed?.error}`);
     return "failed";
   }
 
@@ -200,7 +189,9 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
     .lt("updated_at", cutoff)
     .limit(20);
 
-  const stats = { checked: 0, advanced: 0, failed: 0 };
+  // ‏unrefunded: בקשות שהסגירה שלהן (והזיכוי) לא אושרה. הן נשארות פתוחות
+  // ונבדקות שוב בסבב הבא, והמספר בתשובה הוא מה שהופך את זה לגלוי.
+  const stats = { checked: 0, advanced: 0, failed: 0, unrefunded: 0 };
 
   for (const job of jobs ?? []) {
     stats.checked++;
@@ -208,8 +199,8 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
     // בקשה זקנה מאוד — אין טעם להמשיך לחכות לה.
     const ageMinutes = (Date.now() - new Date(job.created_at).getTime()) / 60000;
     if (ageMinutes > STALE_MINUTES * 4) {
-      await supabase.rpc("fail_property_video_job", { p_job_id: job.id, p_reason: "timed_out" });
-      stats.failed++;
+      const closed = await failVideoJob(supabase, job.id, "timed_out");
+      closed.ok ? stats.failed++ : stats.unrefunded++;
       continue;
     }
 
@@ -256,8 +247,8 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
       const payload = await falResult(FAL_MERGE_MODEL, job.fal_merge_request_id);
       const url = extractVideoUrl(payload);
       if (!url) {
-        await supabase.rpc("fail_property_video_job", { p_job_id: job.id, p_reason: "merge_no_video" });
-        stats.failed++;
+        const closed = await failVideoJob(supabase, job.id, "merge_no_video");
+        closed.ok ? stats.failed++ : stats.unrefunded++;
         continue;
       }
       const claimed = await claim(supabase, job.id, "merging", "uploading");
@@ -385,10 +376,7 @@ Deno.serve(async (req: Request) => {
 
   if (isMerge) {
     if (!videoUrl) {
-      await supabase.rpc("fail_property_video_job", {
-        p_job_id: jobId,
-        p_reason: `merge_failed: ${JSON.stringify(body?.error ?? "no_video").slice(0, 300)}`,
-      });
+      await failVideoJob(supabase, jobId, `merge_failed: ${JSON.stringify(body?.error ?? "no_video").slice(0, 300)}`);
       return json({ ok: true, status: "failed" });
     }
     const claimed = await claim(supabase, jobId, "merging", "uploading");
