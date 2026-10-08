@@ -450,6 +450,17 @@ python scripts/check_long_dash.py --fix  # החלפה למקף רגיל
 נכסים כמתיישנים בבת אחת — 50 קריאות Claude מיותרות על שינוי של תו אחד.
 המיגרציה אוספת מי היה טרי **לפני**, ומחזירה להם את טביעת האצבע.
 
+## הודעה לסוכן/ת: קישור לפריט, לא לקטגוריה
+
+**כל התראה או הודעה לסוכן/ת שעוסקת בנכס, לקוח/ה או ליד אחד/ת נושאת קישור
+שפותח את הפריט עצמו** - ‏`/crm?goto=accProperties&property=<id>`,
+‏`/crm?goto=accClients&client=<id>`, ‏`/crm?goto=accLeads&lead=<id>` - ולא
+קישור ל-`/crm` או לקטגוריה. בטבלת `notifications` זה אומר לכתוב את
+‏`related_property_id` / `related_client_id` / `related_lead_id` באותו
+`insert`; ‏`notification-push` והפעמון בונים מהם את הקישור. התראה בלי מזהה
+עובדת ונראית תקינה, ופשוט משאירה את הסוכן/ת לחפש. הפרטים:
+`docs/notifications-center.md`, "קישור ישיר".
+
 ## הודעת שגיאה: בעברית, ועם דרך לבקש עזרה
 
 **לא מציגים `error.message` גולמי.** Supabase, הדפדפן ופונקציות ה-Edge

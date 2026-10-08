@@ -1807,10 +1807,12 @@ function handleGotoParam(){
   const raw = params.get('goto');
   if (!raw) return;
   const clientId = params.get('client');
+  const propertyId = params.get('property');
+  const leadId = params.get('lead');
+  const focus = params.get('focus');
 
   if (window.history && window.history.replaceState){
-    params.delete('goto');
-    params.delete('client');
+    ['goto', 'client', 'property', 'lead', 'focus'].forEach(k => params.delete(k));
     const search = params.toString();
     history.replaceState(history.state, '',
       location.pathname + (search ? '?' + search : '') + location.hash);
@@ -1819,7 +1821,75 @@ function handleGotoParam(){
   if (!/^acc[A-Za-z0-9]{1,40}$/.test(raw)) return;
   if (!navAccVisible(raw)) return;
   gotoSection(raw);
-  if (raw === 'accClients' && clientId) openClientFromParam(clientId);
+  /* הקישור הישיר מהתראה (notification-push): הקטגוריה נפתחת קודם, ואז הפריט
+     עצמו. פריט שלא נמצא (נמחק, נמסר לסוכן/ת אחר/ת) משאיר את הקטגוריה פתוחה -
+     נחיתה רכה, כמו בפעמון. */
+  if (raw === 'accClients' && clientId) openClientFromParam(clientId, focus);
+  if (raw === 'accProperties' && propertyId) openPropertyFromParam(propertyId);
+  if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
+}
+
+const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* ‏?property=<id> לצד ?goto=accProperties - "נכתב תיאור לנכס", "הסרטון מוכן",
+   "הנכס שלך מתאים ללקוח/ה": הכרטיס של הנכס נפתח ונגלל אליו, ולא רק הרשימה.
+
+   הרשימה נטענת בקבוצות של עשרה ומסוננת לפי הפקדים, ולכן נכס ישן או מסונן
+   לא היה מגיע ל-DOM. הסינון מתנקה (הסוכן/ת ביקש/ה את הנכס הזה, לא את
+   הסינון של אתמול), והחלון מורחב עד אליו. */
+function openPropertyFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '')) return;
+  if (!myPropertyRows.some(p => p.id === id)) return;
+  ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  const f = propertyFilterState();
+  const idx = sortProperties(myPropertyRows, f.sort).findIndex(p => p.id === id);
+  propTabsShown = Math.max(propTabsShown, idx + 1);
+  expandedPropertyIds.add(id);
+  renderProperties();
+  setTimeout(() => {
+    const panel = document.getElementById('propTabPanel-' + id);
+    const tab = panel && panel.closest('.prop-tab');
+    if (tab) tab.scrollIntoView({ behavior:'smooth', block:'start' });
+  }, 450);
+}
+
+/* ‏?lead=<id> לצד ?goto=accLeads - ליד חדש או ליד שנמסר בהפנייה. ליד בארכיון
+   פותח את לשונית הארכיון, אחרת הוא פשוט לא היה ברשימה. */
+function openLeadFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '')) return;
+  if (!allLeads.some(l => l.id === id)) return;
+  leadsView = archivedLeadIds.has(id) ? 'archived' : 'active';
+  expandedLeadIds.add(id);
+  renderLeads(currentAgent && currentAgent.id);
+  setTimeout(() => {
+    const el = document.querySelector(`[data-lead-id="${id}"]`);
+    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  }, 450);
+}
+
+/* היעד של התראה בפעמון, כשיש לה פריט אחד: אותם שלושה פותחים כמו הקישור
+   מהוואטסאפ, ולפי אותו סדר (itemPath ב-notification-push). מחזירה true
+   כשטיפלה בניווט. */
+function openNotificationTarget(n){
+  const clientId = n.related_client_id;
+  const go = (acc, open) => {
+    if (!navAccVisible(acc)) return false;
+    gotoSection(acc);
+    open();
+    return true;
+  };
+  if (clientId && n.type === 'client_match')
+    return go('accClients', () => openClientFromParam(clientId, 'matches'));
+  if (n.related_property_id && n.type !== 'client_match' && n.type !== 'deal_closed'
+      && myPropertyRows.some(p => p.id === n.related_property_id))
+    return go('accProperties', () => openPropertyFromParam(n.related_property_id));
+  if (clientId && clientRows.some(c => c.id === clientId))
+    return go('accClients', () => openClientFromParam(clientId));
+  if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
+      && allLeads.some(l => l.id === n.related_lead_id))
+    return go('accLeads', () => openLeadFromParam(n.related_lead_id));
+  return false;
 }
 
 /* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
@@ -21324,8 +21394,9 @@ async function toggleClientCalls(c, btn, el){
 }
 
 /* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
-   סיכום שיחה) פותח את הכרטיס עצמו ואת השיחות שבו, ולא רק את הקטגוריה. */
-function openClientFromParam(id){
+   סיכום שיחה) פותח את הכרטיס עצמו ואת השיחות שבו, ולא רק את הקטגוריה.
+   ‏focus=matches (התראת התאמה) פותח במקום השיחות את רשימת ההתאמות. */
+function openClientFromParam(id, focus){
   if (!/^[0-9a-f-]{36}$/i.test(id || '')) return;
   const c = clientRows.find(r => r.id === id);
   if (!c) return;
@@ -21335,6 +21406,11 @@ function openClientFromParam(id){
     const el = document.querySelector(`[data-client-card="${id}"]`);
     if (!el) return;
     el.scrollIntoView({ behavior:'smooth', block:'start' });
+    if (focus === 'matches'){
+      const cta = el.querySelector('.match-cta');
+      if (cta) cta.click();
+      return;
+    }
     const btn = el.querySelector('.client-calls-btn');
     if (btn && !el.querySelector('.client-calls')) toggleClientCalls(c, btn, el);
   }, 450);
@@ -22654,6 +22730,8 @@ async function loadNotifications(agentId){
           return;
         }
         if (target.refresh) target.refresh();
+        // התראה על נכס, לקוח/ה או ליד אחד/ת פותחת את הפריט עצמו
+        if (openNotificationTarget(n)) return;
         gotoSection(target.goto, null, { scrollTo: target.focus });
       }
     });

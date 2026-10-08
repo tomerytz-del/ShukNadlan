@@ -1327,6 +1327,11 @@ function propertyLink(id: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/property?id=${id}` : undefined;
 }
 
+/** הכרטיס של הנכס ב-CRM - שם עורכים, ושם גם נכס שאינו באוויר נפתח. */
+function crmPropertyLink(id: string): string | undefined {
+  return SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accProperties&property=${id}` : undefined;
+}
+
 /** הקישור הקבוע לעותק החתום — אותו אחד שנשלח לכל הצדדים במייל אחרי החתימה. */
 function agreementLink(viewToken: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement?t=${viewToken}` : undefined;
@@ -1599,6 +1604,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     images_attached: images.length,
     on_map: payload.lat !== undefined,
     link: propertyLink(data.id),
+    crm_link: crmPropertyLink(data.id),
   };
 }
 
@@ -1642,6 +1648,7 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     link: propertyLink(propertyId),
+    crm_link: crmPropertyLink(propertyId),
   };
 }
 
@@ -5199,7 +5206,8 @@ const SYSTEM_STATIC: string = (() => {
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
-    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו.",
+    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו. " +
+      "אם התקבל crm_link, צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
