@@ -51,7 +51,7 @@ python3 scripts/check_migration_versions.py --base-ref origin/main
 ‏25 שניות לפני המיזוג. לכן לפני מיזוג, כשיש עוד PR פתוח שנוגע
 במיגרציות, שווה למשוך את הבסיס ולהריץ שוב.
 
-## שישה כללי כתיבה
+## שבעה כללי כתיבה
 
 ### 1. אידמפוטנטית — היא עלולה לרוץ שוב
 
@@ -180,6 +180,26 @@ grep -rnE "\.from\(['\"]<הטבלה>['\"]\)" supabase/functions assets *.html \
    `agency_members!properties_agent_id_fkey(tier)`.
 3. הטבלה נכנסת ל-`MULTI_FK_TABLES` ב-`scripts/check_agency_embed.py` (אם
    היעד הוא `agency_members`), כדי שגם embed עתידי ייחסם ב-CI.
+
+### 7. ‏policy שפותח שורה לצד שני - `with check` לא נועל את עמודות הבעלות
+
+‏policy של `update` נבדק על השורה **החדשה** רק במה שכתוב ב-`with check`.
+אם כתוב שם רק `referred_by = current_agent_id()`, אז `agent_id` ו-
+‏`agency_id` פתוחים לכל ערך - ומי שקיבל/ה גישה ב-policy יכול/ה להעביר את
+השורה למשרד אחר ב-`update` רגיל, בלי הפונקציה שאמורה לבדוק את זה.
+
+**זה קרה ב-`20270128090000`** (הפניות מהמשרד), ונמצא בסקירה רק ב-8.10.2026:
+ההערה בקובץ הבטיחה "ההעברה רק דרך `refer_to_agent()`", ושלושה policies
+השאירו את `agent_id`/`agency_id`/`referred_by` פתוחים. התיקון -
+‏`20270323090000_guard_ownership_columns.sql`.
+
+לכן עמודה שקובעת **מי רואה את השורה** (בעלים, משרד, מי שהפנה/תה) ננעלת
+בטריגר `before update` שמאפשר שינוי רק כש-`current_user` אינו
+‏`authenticated`/`anon` - כלומר מפונקציית `SECURITY DEFINER` או מ-
+‏`service_role`. טריגר ולא עוד תנאי ב-policy, כי policies מתחברים ב-OR:
+כל אחד צריך לנעול בנפרד, וה-policy הבא שייכתב פותח מחדש. ‏policy חדש
+על `properties` או `agent_clients` כבר מכוסה ב-`guard_ownership_columns()`;
+טבלה אחרת עם אותו מבנה צריכה טריגר משלה.
 
 ## שלוש הבדיקות של המשפחה, ואיך לדרוש אותן
 
