@@ -9,6 +9,7 @@ import {
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
+import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import {
   type AgentRow,
   type ConversationState,
@@ -1036,10 +1037,24 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       break;
     }
 
-    case "interactive":
+    case "interactive": {
+      // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
+      // והכותרת לבדה ("כן, לפתוח לשת״פ") אינה אומרת על איזה נכס עונים.
+      const offer = await offerButtonReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (offer?.reply) {
+        await reply(from, offer.reply, agent.id);
+        return;
+      }
+      if (offer?.text) {
+        userText = offer.text;
+        if (offer.propertyId) conv.last_property_id = offer.propertyId;
+        break;
+      }
       userText = msg.interactive?.button_reply?.title ||
         msg.interactive?.list_reply?.title || "";
       break;
+    }
 
     case "button":
       userText = msg.button?.text || "";
@@ -1262,6 +1277,27 @@ Deno.serve(async (req: Request) => {
   // לפונקציה נפרדת, כי המייל נכנס **לאותה שיחה**: אותו עוזר, אותה היסטוריה,
   // ואותה `reply` — והתשובה של הסוכן/ת בוואטסאפ ממשיכה ממנו. הקורא כאן אינו
   // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
+  // ‏הצעות של גבריאלה על נכס חדש - שת"פ וסרטון (‏property-offers.ts). אותו
+  // אימות פנימי של קליטת המייל, מאותה סיבה: הקורא הוא pg_cron ולא Meta.
+  if (url.searchParams.get("task") === "property-offers") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runPropertyOffers(supabase)
+        .then((r) => console.log("property offers", JSON.stringify(r)))
+        .catch((err) => console.error("property offers failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (url.searchParams.get("task") === "email-intake") {
     const auth = authorizeInternalCaller(req);
     if (!auth.ok) {
