@@ -55,7 +55,8 @@
       (groups[r.market_slug] = groups[r.market_slug] || []).push(r);
     });
     sel.textContent = '';
-    sel.appendChild(option('', 'בחרו את עיר המשרד'));
+    // ‏data-placeholder על ה-select מחליף את שורת הפתיחה (הטופס של פתיחת המשרד)
+    sel.appendChild(option('', sel.getAttribute('data-placeholder') || 'בחרו את עיר המשרד'));
     Object.keys(groups)
       .sort(function (a, b) { return orderOf(a) - orderOf(b); })
       .forEach(function (slug) {

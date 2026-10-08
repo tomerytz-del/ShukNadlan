@@ -120,8 +120,45 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* לוגו האתר — בכל מקום שהוא מופיע בו הוא גם הקישור לדף הבית */
   .logo-link{display:block;line-height:0}
   .logo-img{height:64px;width:auto;display:block}
-  .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
-  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
+  /* מסכי הכניסה והפתיחה - אותיות גדולות יותר ומרווח: הטופס היה צפוף,
+     ובטלפון זה ההבדל בין טופס שקוראים לטופס שמדלגים עליו */
+  .login-card h1{font-size:1.5rem;text-align:center;margin-bottom:6px;line-height:1.25}
+  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.95rem;margin-bottom:22px}
+  .login-card .field label{font-size:.86rem}
+  .login-card .field input,.login-card .field select{font-size:1rem}
+  .login-card .promo-tag{background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);
+    padding:10px 12px;margin-bottom:14px;font-size:.9rem;text-align:center}
+  .login-card .micro{font-size:.8rem;color:var(--ink-soft);margin-top:6px}
+
+  /* ---------- כרטיס אימות הרישיון (refreshLicenseHold) ---------- */
+  .lh-card{background:#f2faf5;border:1.5px solid #b9e0c8;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px}
+  .lh-card .lh-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .lh-card .lh-badge{flex:none;width:30px;height:30px;border-radius:50%;background:#1a7f4b;color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center}
+  .lh-card h2{font-size:1.1rem;margin:0}
+  .lh-card .lh-text{font-size:.92rem;line-height:1.65;margin:0 0 8px}
+  .lh-card .lh-status{font-size:.85rem;line-height:1.6;margin:0 0 12px;color:var(--ink-soft)}
+  .lh-card .lh-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .lh-card .lh-link{background:none;border:none;padding:0;margin-top:10px;font-size:.8rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer}
+  .lh-card .lh-compact{display:none;width:100%;background:none;border:none;padding:0;text-align:right;font:inherit;
+    font-size:.86rem;color:var(--ink);cursor:pointer;line-height:1.5}
+  .lh-card .lh-compact span{color:#1a7f4b;font-weight:800;white-space:nowrap}
+  .lh-card.is-compact{padding:10px 14px}
+  .lh-card.is-compact .lh-full{display:none}
+  .lh-card.is-compact .lh-compact{display:block}
+
+  /* ---------- חלון "ברוכים הבאים" (maybeShowWelcome) ---------- */
+  .welcome-modal{position:fixed;inset:0;z-index:4000;background:rgba(13,27,61,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+  .welcome-card{background:#fff;border-radius:var(--radius-lg);max-width:380px;width:100%;padding:30px 24px;text-align:center;
+    box-shadow:0 20px 60px rgba(13,27,61,.35);animation:welcomeIn .35s cubic-bezier(.2,.8,.3,1)}
+  .welcome-card h2{font-size:1.4rem;margin:6px 0 8px;line-height:1.3}
+  .welcome-card p{font-size:1rem;color:var(--ink-soft);margin:0 0 20px;line-height:1.55}
+  .welcome-burst{font-size:2.6rem;line-height:1}
+  .welcome-card.id-ask h2{font-size:1.2rem}
+  .welcome-card.id-ask p{font-size:.92rem;margin-bottom:14px}
+  .welcome-card .id-ask-note{font-size:.78rem;color:var(--ink-soft);margin:-4px 0 14px;text-align:right}
+  @keyframes welcomeIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.welcome-card{animation:none}}
 
   /* ---------- שער בחירת המסלול ----------
      כרטיס רחב יותר משאר מסכי הכניסה: שלושה מסלולים זה לצד זה לא נכנסים
@@ -2209,6 +2246,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .calls-filter .calls-search{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.85rem}
   .calls-filter input[type=date],.calls-filter select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.8rem;margin-inline-start:4px}
   .ag-gcal[hidden]{display:none}
+  /* הצעת החיבור: מתחת לפגישות היום, ובחלון אחרי הפגישה הראשונה */
+  .gcal-offer{border:1.5px dashed var(--teal);background:var(--teal-tint);border-radius:var(--radius-md);padding:14px 16px;margin:14px 0}
+  .gcal-offer[hidden]{display:none}
+  .gcal-offer-title{font-weight:800;font-size:.95rem;margin-bottom:4px}
+  .gcal-offer p{font-size:.86rem;line-height:1.55;margin:0 0 10px;color:var(--ink)}
+  .gcal-offer-note{font-size:.74rem;color:var(--ink-soft);margin-top:8px}
   .ag-gcal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ag-gcal-title{font-weight:700;font-size:.86rem}
   #dashboard .ag-gcal{border-color:var(--edge);background:var(--surface-2)}
@@ -4681,8 +4724,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <div class="card login-card" id="loginCardMain" style="display:none">
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>איזור סוכנים</h1>
-    <p class="sub">שוק נדל״ן - עפולה והעמק</p>
+    <h1>שוק הנדל״ן לעסקים</h1>
+    <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
     <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
          רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
          ומופעל מיד אחרי ההתחברות. -->
@@ -4722,7 +4765,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
          מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
-    <a href="/pricing" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? מסלולים ופתיחת משרד ←</a>
+    <a href="/agency-signup" style="display:block;text-align:center;font-size:.9rem;font-weight:700;color:var(--teal);margin-top:16px">עדיין אין לך משרד? הצטרפות ←</a>
+    <div style="text-align:center;font-size:.82rem;color:var(--ink-soft);margin-top:6px">🎁 6 חודשים במתנה עלינו - ללא התחייבות וללא פרטי אשראי</div>
   </div>
 
   <!-- ---------- מי את/ה? ----------
@@ -4822,32 +4866,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       הנכסים, הלידים והלקוחות הרשומים על שמך יעברו למשרד הזה ברגע שייפתח.
       המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
     </div>
-    <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
+    <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
     <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך (20270115101000) -->
     <div class="field">
-      <label for="caAgencyCity">עיר המשרד</label>
-      <select id="caAgencyCity" required></select>
+      <label for="caAgencyCity">עיר</label>
+      <select id="caAgencyCity" required data-placeholder="איפה המשרד פעיל בעיקר?"></select>
       <input type="text" id="caAgencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
     </div>
-    <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
-    <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
-    <!-- ‏ת.ז. נבדקת פעם אחת בפתיחת המשרד ונשמרת בפרופיל, כמו ב-agency-signup.html -->
-    <div class="field"><label>מספר תעודת זהות</label><input type="text" id="caIdNumber" required placeholder="9 ספרות"
-      inputmode="numeric" dir="ltr" style="text-align:right" maxlength="20" data-il-id></div>
+    <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
+    <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
+         מכאן: היא נשאלת בפתיחת ההסכם הראשון (openAgreementWizard). -->
+    <div class="field">
+      <label for="caPhone">טלפון נייד</label>
+      <input type="tel" id="caPhone" required placeholder="050-1234567" inputmode="tel" autocomplete="tel" dir="ltr" style="text-align:right">
+      <div class="micro">💬 למספר זה יחובר הוואטסאפ של גבריאלה</div>
+    </div>
+    <div class="field"><label for="caLicense">מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456" inputmode="numeric"></div>
     <!-- ---------- המסלול ----------
          בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
          המסלול המלא לחצי שנה, ובחירה אמיתית תיפתח בתומה — במסך בחירת
          המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
          שדה נוסף למלא. -->
-    <div id="caTierField" style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.82rem;line-height:1.6;text-align:right">
-      🎁 <b>6 חודשים במסלול Elite במתנה</b> - בלי תשלום ובלי כרטיס אשראי.
-      <a href="/pricing" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">פירוט ←</a>
+    <div id="caTierField" class="promo-tag">
+      🎁 <b>6 חודשים במתנה עלינו</b> - ללא התחייבות וללא פרטי אשראי
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
-      <label for="caEthicsConsent">קראתי את <a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a> ואני מסכים/ה לעשרת סעיפיו - בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
+      <label for="caEthicsConsent">קראתי ומאשר/ת את <a href="/terms" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a> ו<a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">קוד האתיקה</a> של המערכת</label>
     </div>
-    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn">פתיחת המשרד שלי</button>
+    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn" style="font-size:1.05rem">יוצאים לדרך 🚀</button>
     <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
     <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
   </div>
@@ -5117,22 +5164,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            ולכן זה המקום שבו הסוכן/ת רואה מה מחכה: הדף, דף המשרד והמודעות לא
            מוצגים באתר עד האישור. מכאן שולחים צילום, מתקנים מספר, ורואים את
            מצב הערעור. נעלם מעצמו ברגע שהרישיון מאושר. -->
-      <section id="licenseHoldCard" hidden style="background:#fff8ec;border:1.5px solid #e5c76a;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px">
-        <h2 style="font-size:1.02rem;margin:0 0 6px">רישיון התיווך שלך עוד לא אושר</h2>
-        <p id="lhText" style="font-size:.86rem;line-height:1.65;margin:0 0 8px"></p>
-        <p id="lhStatus" style="font-size:.84rem;line-height:1.6;margin:0 0 12px;font-weight:700"></p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn btn-gold" id="lhAppealBtn">שליחת צילום רישיון</button>
-          <button type="button" class="btn btn-ghost" id="lhFixBtn">תיקון מספר הרישיון</button>
-        </div>
-        <div id="lhFixRow" hidden style="margin-top:12px">
-          <div class="field" style="margin-bottom:8px">
-            <label for="lhLicense">מספר רישיון תיווך</label>
-            <input type="text" id="lhLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+      <!-- הנוסח הוא הזמנה ולא אזהרה: "רישיון לא אושר" באדום נקרא ככישלון,
+           אבל החשבון עובד ורק הפרסום מחכה. "המשך ללוח הבקרה" מקפל את הכרטיס
+           לשורה אחת עד סוף הביקור (‏LH_COMPACT_KEY), ולא מסתיר אותו לתמיד. -->
+      <section id="licenseHoldCard" class="lh-card" hidden>
+        <div class="lh-full">
+          <div class="lh-head"><span class="lh-badge" aria-hidden="true">✓</span>
+            <h2>החשבון שלך מוכן לעבודה!</h2></div>
+          <p id="lhText" class="lh-text"></p>
+          <p id="lhStatus" class="lh-status"></p>
+          <div class="lh-actions">
+            <button type="button" class="btn btn-gold" id="lhAppealBtn">העלאת אישור רישיון (לפרסום מיידי)</button>
+            <button type="button" class="btn btn-ghost" id="lhContinueBtn">המשך ללוח הבקרה</button>
           </div>
-          <button type="button" class="btn btn-gold" id="lhSaveBtn">שמירה ובדיקה</button>
+          <button type="button" class="lh-link" id="lhFixBtn">תיקון מספר הרישיון</button>
+          <div id="lhFixRow" hidden style="margin-top:12px">
+            <div class="field" style="margin-bottom:8px">
+              <label for="lhLicense">מספר רישיון תיווך</label>
+              <input type="text" id="lhLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+            </div>
+            <button type="button" class="btn btn-gold" id="lhSaveBtn">שמירה ובדיקה</button>
+          </div>
+          <div id="lhFeedback" style="font-size:.82rem;margin-top:8px;min-height:1.2em"></div>
         </div>
-        <div id="lhFeedback" style="font-size:.82rem;margin-top:8px;min-height:1.2em"></div>
+        <button type="button" class="lh-compact" id="lhExpandBtn">⏳ אימות הרישיון בתהליך - המודעות יעלו לאוויר עם האישור <span>העלאת אישור ←</span></button>
       </section>
 
       <!-- ---------- מדריך ההתחלה ----------
@@ -6585,9 +6640,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך גבריאלה בוואטסאפ ("תזכירי לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
         <p class="acc-sub" id="agTierNote" hidden></p>
 
-        <!-- החיבור ליומן Google עבר להגדרות (#accGcal): פעולה של פעם אחת, ולא מה
-             שבאים לראות בראש היומן. כאן רק קישור אליו, כשעוד אין חיבור. -->
-        <p class="acc-sub" id="agGcalLink" hidden><a href="#" data-goto="accGcal">📅 חיבור ליומן Google - בהגדרות ←</a></p>
 
         <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
           <button type="button" data-ag-tab="today" aria-pressed="true">היום · <span id="agTabTodayCount">0</span></button>
@@ -6596,6 +6648,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" data-ag-tab="done" aria-pressed="false">בוצעו</button>
         </div>
         <div id="agList" class="rm-list"></div>
+
+        <!-- ---------- הצעת יומן Google ----------
+             מתחת לפגישות של היום, ולא בהרשמה: מי שרואה מול העיניים פגישה
+             שהוא/היא רוצה לזכור מבין למה לאשר את מסך ההרשאות של Google.
+             מוצג רק כשהמסלול כולל את היומן ועוד אין חיבור (renderGcal). -->
+        <div class="gcal-offer" id="agGcalOffer" hidden>
+          <div class="gcal-offer-title">📅 גבריאלה מסדרת לך את הפגישות ביומן</div>
+          <p>חבר את יומן Google כדי לקבל תזכורות אוטומטיות לסיורים ולפגישות עם לקוחות - בלי להזין שום דבר ידנית.</p>
+          <button type="button" class="btn btn-gold" data-gcal-connect>📅 חיבור מאובטח ל-Google Calendar</button>
+          <div class="gcal-offer-note">הסנכרון מתבצע רק עבור פגישות נדל״ן שנוצרות במערכת</div>
+        </div>
 
         <!-- הטופס מקופל: בטלפון הוא גובה מסך וחצי, והרשימה היא מה שבאים לראות.
              ‏openAgendaForm פותח אותו (מכרטיס לקוח/ה, מעריכה). -->
@@ -7822,7 +7885,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <p class="rm-note" id="agGcalNote"></p>
           <div class="ag-form-btns">
-            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
+            <button type="button" class="btn btn-gold" id="agGcalConnect">📅 חיבור מאובטח ל-Google Calendar</button>
             <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
           </div>
         </div>

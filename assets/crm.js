@@ -1053,17 +1053,18 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
   const license = document.getElementById('caLicense').value.trim();
-  const idNumber = document.getElementById('caIdNumber').value.trim();
+  const phone = document.getElementById('caPhone').value.trim();
   const feedback = document.getElementById('createAgencyFeedback');
   const btn = document.getElementById('createAgencyBtn');
-  if (!agencyName || !managerName || !license || !idNumber){
+  if (!agencyName || !managerName || !license || !phone){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא למלא את כל השדות';
     return;
   }
-  if (!IlId.check(document.getElementById('caIdNumber'))){
+  // נייד ישראלי - אותו כלל של normalizeMobile בשרת, כי זה המספר שגבריאלה מזהה
+  if (!/^05\d{8}$/.test(localPhone(phone))){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
+    feedback.textContent = 'נדרש מספר נייד ישראלי, למשל 050-1234567.';
     return;
   }
   const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther')) : null;
@@ -1074,10 +1075,10 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   }
   if (!document.getElementById('caEthicsConsent').checked){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'פתיחת המשרד מותנית באישור הקוד האתי';
+    feedback.textContent = 'כדי להמשיך יש לאשר את תנאי השימוש וקוד האתיקה';
     return;
   }
-  btn.disabled = true; btn.textContent = 'פותח משרד…'; feedback.textContent = '';
+  btn.disabled = true; btn.textContent = 'מקימים את המשרד…'; feedback.textContent = '';
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
@@ -1086,14 +1087,14 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, id_number: idNumber, ...(agencyCity || {}), ethics_code_accepted: true }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, manager_phone: phone, ...(agencyCity || {}), ethics_code_accepted: true }),
     });
     const data = await res.json();
 
     // רישיון שלא אומת — מודאל הערעור במקום שורת שגיאה. הטופס נשאר פתוח
     // מאחוריו, כך שאפשר גם פשוט לתקן ספרה שהוקלדה שגוי ולנסות שוב.
     if (res.status === 403 && data.error === 'license_not_verified'){
-      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      btn.disabled = false; btn.textContent = 'יוצאים לדרך 🚀';
       if (data.appeal_pending){ showAppealPendingScreen(data.license_number || license); return; }
       const { data: { user } } = await sb.auth.getUser();
       openLicenseAppeal({
@@ -1112,12 +1113,12 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
         feedback.textContent = data.agency_name
           ? `כבר יש לך משרד רשום במערכת - "${data.agency_name}". לא ניתן לפתוח יותר ממשרד אחד.`
           : 'כבר יש לך משרד רשום במערכת - לא ניתן לפתוח יותר מאחד.';
-        btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+        btn.disabled = false; btn.textContent = 'יוצאים לדרך 🚀';
         return;
       }
       feedback.style.color = 'var(--red)';
       feedback.textContent = 'שגיאה: ' + heErr(data.detail || data.error);
-      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      btn.disabled = false; btn.textContent = 'יוצאים לדרך 🚀';
       return;
     }
     // המעבר הושלם — הדגל יורד, אחרת מסך פתיחת המשרד יישאר "במצב אימוץ"
@@ -1128,6 +1129,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
     // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
     showBootCard('טוענים את איזור הסוכנים…');
+    if (!wasAdopted) markWelcome();
     await loadDashboard(session.user);
     if (wasAdopted){
       showToast(movedProps > 0
@@ -1141,7 +1143,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     showScreen('createAgency');
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת - נסו שוב';
-    btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+    btn.disabled = false; btn.textContent = 'יוצאים לדרך 🚀';
   }
 });
 
@@ -1505,6 +1507,41 @@ async function routeAfterAuthOnce(user){
   await loadDashboard(user);
 }
 
+/* ---------- "ברוכים הבאים לנבחרת המתווכים!" ----------
+   חלון אחד, פעם אחת, למי שהרגע פתח/ה משרד - מ-agency-signup.html (שנכנס/ת
+   אוטומטית ומדליק/ה את הדגל לפני המעבר לכאן) או מטופס הפתיחה שבמסלול
+   Google. הוא מחליף את מסך "המשרד נפתח בהצלחה! אפשר להתחבר עכשיו",
+   שחייב/ה להתחבר שוב עם הפרטים שהוקלדו רגע קודם. הדגל ב-sessionStorage,
+   ולכן רענון אחרי הסגירה אינו מציג אותו שוב. */
+const WELCOME_KEY = 'shuknadlan.welcome';
+
+function markWelcome(){
+  try { sessionStorage.setItem(WELCOME_KEY, '1'); } catch(_){ /* גלישה פרטית - בלי החלון */ }
+}
+
+function maybeShowWelcome(){
+  let due = false;
+  try { due = sessionStorage.getItem(WELCOME_KEY) === '1'; sessionStorage.removeItem(WELCOME_KEY); } catch(_){ }
+  if (!due || document.getElementById('welcomeModal')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'welcomeModal';
+  wrap.className = 'welcome-modal';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', 'welcomeTitle');
+  wrap.innerHTML = `<div class="welcome-card">
+      <div class="welcome-burst" aria-hidden="true">🎉</div>
+      <h2 id="welcomeTitle">ברוכים הבאים לנבחרת המתווכים!</h2>
+      <p>המשרד שלך הוקם. בוא נחבר את גבריאלה ונעלה את הנכס הראשון.</p>
+      <button type="button" class="btn btn-gold btn-block" id="welcomeGo">כניסה למערכת</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = ()=> wrap.remove();
+  wrap.querySelector('#welcomeGo').addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+  wrap.querySelector('#welcomeGo').focus();
+}
+
 /* ---------- Dashboard ---------- */
 async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ה-user מגיע מה-session שכבר בידינו. קריאה ל-getUser() כאן הייתה סיבוב רשת
@@ -1640,6 +1677,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('agentAgency').textContent = agencyName;
   renderTierBadge(agent);
   renderPromoStrip(agent);
+  maybeShowWelcome();
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
@@ -6745,12 +6783,14 @@ function labelPromoGift(strip, promo, agent){
    מחכות שיחפשו אותן. ששת הצעדים כאן הם הסדר שבו הן מתחילות לעבוד, והוא
    השרשרת העסקית עצמה — מלאי, התחייבות, ומאיפה מגיע הלקוח/ה הבא/ה:
 
-     1. העוזר בוואטסאפ — משם נפתחים נכסים ולקוחות מהטלפון
-     2. תמונת פרופיל ותמונת נושא (ולמנהל/ת משרד — גם לוגו ותמונת נושא למשרד)
-     3. הנכס הראשון
-     4. הלקוח/ה הראשון/ה
-     5. ההסכם הראשון
-     6. הליד הראשון מחנות הלידים
+     1. גבריאלה בוואטסאפ — משם נפתחים נכסים ולקוחות מהטלפון
+     2. הנכס הראשון
+     3. תמונת פרופיל (ולמנהל/ת משרד — גם לוגו המשרד)
+
+   שלושה ולא שבעה (20270318090000_onboarding_three_steps.sql): לקוח, הסכם
+   וליד ראשונים הם עבודה רגילה ולא "הקמה", ורשימה של שבעה צעדים נקראה
+   כמשימה כבדה לפני שהתחילו. יומן Google **אינו** צעד: הוא מוצע ברגע
+   שנקבעת פגישה (offerGcalAfterMeeting), כשיש סיבה לאשר את מסך ההרשאות.
 
    **המצב אינו נשמר כאן ואינו נשמר כצ׳קליסט.** ‏agent_onboarding_state()
    מחשבת אותו במסד מהמציאות בכל קריאה — יש שיחה בוואטסאפ? יש photo_url? יש
@@ -6758,10 +6798,8 @@ function labelPromoGift(strip, promo, agent){
    הראשון הוא בדיוק הכלי שבו נפתח לא פעם הנכס הראשון, וכרטיס שמסמן "בוצע"
    רק על מה שנעשה בטופס היה מדווח שקר לכל מי שעשה/תה בדיוק מה שביקשנו.
 
-   ארבעת הצעדים האחרונים מקבלים גם דרבון בפעמון (‏onboarding_property,
-   ‏onboarding_client, ‏onboarding_agreement, ‏onboarding_lead) — טריגרים
-   במסד, שכל אחד מהם נולד ברגע שהצעד שלפניו נסגר. הכרטיס הוא ההכוונה;
-   ההתראה היא מה שמגיע גם למי שסגר/ה את הדשבורד.
+   דרבון בפעמון נשאר רק על הנכס הראשון (‏onboarding_property, אחרי שמירת
+   התמונה); שלושת האחרים ירדו עם הצעדים שלהם.
 
    ראו docs/agent-onboarding.md.
    ========================================================================== */
@@ -6769,48 +6807,31 @@ function labelPromoGift(strip, promo, agent){
 /* ‏done נקרא מהשורה שהמסד החזיר, ולא מחושב כאן שוב: תנאי משוכפל בין שרת
    לדפדפן מתפצל, ואז ההתראה יוצאת בזמן שהכרטיס עוד מציג את הצעד כפתוח. */
 const ONBOARD_STEPS = [
-  { key:'whatsapp', name:'חיבור גבריאלה, העוזרת האישית בוואטסאפ',
-    text:'שומרים את מספר הוואטסאפ שלכם ושולחים לגבריאלה הודעה ראשונה. משם אפשר להעלות נכס, לשלוח תמונות של דירה או להקליט הודעה - בלי לפתוח את המחשב.',
-    cta:'לחיבור גבריאלה',
+  /* המספר כבר נשמר בהרשמה, ולכן "בלחיצה": הכפתור פותח צ'אט עם גבריאלה
+     ישירות. רק מי שאין לו/ה מספר שמור עובר/ת קודם להגדרות. */
+  { key:'whatsapp', name:'חיבור גבריאלה לוואטסאפ (10 שניות)',
+    text:'שולחים תמונה או הודעה קולית - וגבריאלה בונה את דף הנכס לבד.',
+    cta:'חיבור גבריאלה בלחיצה',
     done: s => s.whatsapp_done,
-    run:  ()=> gotoSection('accWhatsapp', 'waPhone') },
-  /* תמונת פרופיל בלבד: תמונת הנושא היא של המשרד, ומנהל/ת המשרד מעלה אותה
-     בצעד שמתחת (20270317090000_agency_cover_only.sql) */
-  { key:'profile', name:'תמונת פרופיל',
-    text:'זה מה שלקוח/ה רואה בדף הסוכן/ת שלכם ובכל נכס שתפרסמו. דף בלי תמונה נראה כמו כרטיס שלא הושלם.',
-    cta:'לעדכון הפרופיל',
-    done: s => s.profile_done,
-    run:  ()=> gotoSection('accProfile') },
-  /* צעד של מנהל/ת משרד בלבד — לסוכן/ת בצוות אין דף משרד לערוך, ושורה
-     שאי אפשר לסגור אותה היא מדריך שלא נגמר לעולם. */
-  { key:'agency', name:'לוגו ותמונת נושא לדף המשרד',
-    text:'דף המשרד הוא הכותרת שמעל כל הצוות שלכם. הלוגו ותמונת הנושא נכנסים אליו, ותמונת הנושא היא גם הרצועה בראש דפי כל הסוכנים.',
-    cta:'לעיצוב דף המשרד',
-    when: s => s.is_manager,
-    done: s => s.agency_done,
-    run:  ()=> gotoSection('accBranding') },
-  { key:'property', name:'הנכס הראשון',
-    text:'מודעה אחת פותחת את כל השאר: היא נכנסת למדפים באתר, מוצלבת מול קובץ הלקוחות, ומזינה את המדדים במסך הזה.',
-    cta:'הוספת נכס',
+    run:  ()=> {
+      if (currentAgent && String(currentAgent.phone || '').trim()){
+        window.open(`https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(ASSISTANT_WA_HELLO)}`, '_blank', 'noopener');
+      } else {
+        gotoSection('accWhatsapp', 'waPhone');
+      }
+    } },
+  { key:'property', name:'העלאת הנכס הראשון',
+    text:'בדוק איך הנכס שלך ייראה לרוכשים ולשוכרים ברשת.',
+    cta:'יצירת מודעה חדשה',
     done: s => s.property_done,
     run:  ()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
-  { key:'client', name:'הלקוח/ה הראשון/ה בקובץ',
-    text:'קובץ הלקוחות הוא מה שמפעיל את ההתאמות: כל נכס חדש שנכנס - שלכם או של משרד שותף - נבדק מולו אוטומטית.',
-    cta:'הוספת לקוח/ה',
-    done: s => s.client_done,
-    run:  ()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
-  /* אשף ההחתמה ולא ניווט לקטגוריה: הסכם נוצר בתוכו, והוא ממלא את עצמו
-     מהנכס ומהלקוח/ה שכבר במערכת — כלומר משני הצעדים שמעליו. */
-  { key:'agreement', name:'ההסכם הראשון',
-    text:'הזמנת שירותי תיווך היא מה שהופך נכס ולקוח/ה לעמלה. האשף ממלא את המסמך מהפרטים שכבר במערכת, ושולח לחתימה בקישור.',
-    cta:'יצירת הסכם',
-    done: s => s.agreement_done,
-    run:  ()=> openAgreementWizard() },
-  { key:'lead', name:'הליד הראשון מחנות הלידים',
-    text:'מאיפה מגיע הלקוח/ה הבא/ה: לידי בעל-נכס, מחפשי דירה ולידי משכנתא לפי אזורי הפעילות שלך. במסלול שלך רובם כלולים במנוי.',
-    cta:'לחנות הלידים',
-    done: s => s.lead_done,
-    run:  ()=> gotoSection('accLeadShelf') },
+  /* לסוכן/ת - תמונת פרופיל; למנהל/ת - גם לוגו המשרד. שני מסכים, ולכן
+     הכפתור הולך למה שעוד חסר: קודם הפרופיל, אחריו המיתוג. */
+  { key:'profile', name: '', nameFor: s => s.is_manager ? 'הוספת לוגו ותמונת פרופיל' : 'הוספת תמונת פרופיל',
+    text:'כרטיס הביקור הדיגיטלי שלך ייראה מושלם וממותג.',
+    cta:'עיצוב הפרופיל',
+    done: s => s.profile_done && s.agency_done,
+    run:  ()=> gotoSection(onboardState && onboardState.profile_done ? 'accBranding' : 'accProfile') },
 ];
 
 /* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
@@ -6850,6 +6871,7 @@ async function loadOnboarding(){
    הנתונים מ-join-agency (‏license_status), כי טבלת הערעורים סגורה לדפדפן. */
 let licenseState = null;
 
+const LH_COMPACT_KEY = 'shuknadlan.lh_compact';
 async function refreshLicenseHold(){
   const card = document.getElementById('licenseHoldCard');
   if (!card || !currentAgent) return;
@@ -6860,33 +6882,48 @@ async function refreshLicenseHold(){
 
   const held = data.held_properties || 0;
   const isManager = currentAgent.role === 'manager';
+  // הזמנה ולא אזהרה: מה עושים עכשיו, ורק אחר כך מה מחכה. אותו נוסח של
+  // "החשבון שלך מוכן לעבודה!" ב-agency-signup.html.
   document.getElementById('lhText').textContent =
-    'החשבון פעיל ואפשר לעבוד כרגיל, אבל ' +
-    (isManager ? 'דף המשרד, דף הסוכן/ת שלך' : 'דף הסוכן/ת שלך') +
-    ' והמודעות לא מוצגים באתר עד שהרישיון יאושר. ' +
-    (held ? (held === 1 ? 'מודעה אחת ממתינה' : held + ' מודעות ממתינות') + ' ותעלה לאוויר אוטומטית ברגע האישור.'
-          : 'מודעות שתפרסם/י עכשיו יעלו לאוויר אוטומטית ברגע האישור.');
+    'אנחנו מוודאים את פרטי הרישיון מול פנקס המתווכים. ' +
+    'בינתיים אפשר כבר לחבר את גבריאלה ולהכין נכסים ראשונים לשיווק.';
 
   const a = data.appeal;
   const status = document.getElementById('lhStatus');
   const appealBtn = document.getElementById('lhAppealBtn');
+  const waiting = (isManager ? 'דף המשרד, דף הסוכן/ת' : 'דף הסוכן/ת') + ' והמודעות יעלו לאוויר עם האישור' +
+    (held ? ' (' + (held === 1 ? 'מודעה אחת ממתינה' : held + ' מודעות ממתינות') + ').' : '.');
   if (a && a.status === 'pending'){
-    status.style.color = 'var(--ink)';
-    status.textContent = 'הצילום ששלחת (' + hebDate(a.created_at) + ') בבדיקה אצל הנהלת הפלטפורמה, בדרך כלל תוך יום עסקים.';
+    status.style.color = '';
+    status.textContent = 'האישור ששלחת (' + hebDate(a.created_at) + ') בבדיקה, בדרך כלל תוך יום עסקים. ' + waiting;
     appealBtn.hidden = true;
   } else if (a && a.status === 'rejected'){
-    status.style.color = 'var(--brick)';
-    status.textContent = 'הצילום שנשלח לא אושר' + (a.decision_note ? ': ' + a.decision_note : '.') +
-      ' אפשר לתקן את המספר או לשלוח צילום חדש.';
+    // המקרה היחיד שבו באמת נדרש תיקון - צבע בולט, אבל לא אדום
+    status.style.color = 'var(--gold-dark)';
+    status.textContent = 'האישור שנשלח לא התקבל' + (a.decision_note ? ': ' + a.decision_note : '.') +
+      ' אפשר לתקן את המספר או להעלות אישור חדש.';
     appealBtn.hidden = false;
   } else {
-    status.style.color = 'var(--brick)';
-    status.textContent = 'מספר הרישיון ' + (data.license_number || '') + ' לא נמצא ברשם המתווכים. ' +
-      'המאגר מתעדכן אחת לשלושה חודשים - אם הרישיון חדש, שלחו צילום ונאשר ידנית.';
+    status.style.color = '';
+    status.textContent = 'רישיון חדש? הפנקס מתעדכן אחת לשלושה חודשים - העלאת האישור מעלה לאוויר בלי לחכות. ' + waiting;
     appealBtn.hidden = false;
   }
+  let compact = false;
+  try { compact = sessionStorage.getItem(LH_COMPACT_KEY) === '1'; } catch(_){ }
+  card.classList.toggle('is-compact', compact);
   card.hidden = false;
 }
+
+/* "המשך ללוח הבקרה" מקפל את הכרטיס לשורה אחת עד סוף הביקור - הוא נשאר
+   גלוי, כי המודעות באמת מחכות, אבל לא תופס את ראש המסך (LH_COMPACT_KEY) */
+document.getElementById('lhContinueBtn').addEventListener('click', ()=>{
+  try { sessionStorage.setItem(LH_COMPACT_KEY, '1'); } catch(_){ }
+  document.getElementById('licenseHoldCard').classList.add('is-compact');
+});
+document.getElementById('lhExpandBtn').addEventListener('click', ()=>{
+  try { sessionStorage.removeItem(LH_COMPACT_KEY); } catch(_){ }
+  document.getElementById('licenseHoldCard').classList.remove('is-compact');
+});
 
 document.getElementById('lhAppealBtn').addEventListener('click', ()=>{
   openLicenseAppeal({
@@ -6971,7 +7008,7 @@ function renderOnboarding(){
   if (state.just_finished){
     document.getElementById('onbTitle').textContent = 'סיימת את מדריך ההתחלה';
     prog.textContent = '✓';
-    sub.textContent = 'גבריאלה מחוברת, הפרופיל מוצג, יש נכס, יש לקוח/ה, נוצר הסכם ונרכש ליד. מכאן זה המסך הרגיל שלך - והמדריך לא יחזור.';
+    sub.textContent = 'גבריאלה מחוברת, הנכס הראשון עלה והפרופיל ממותג. מכאן זה המסך הרגיל שלך - והמדריך לא יחזור.';
     list.innerHTML = '';
     box.hidden = false;
     return;
@@ -6979,12 +7016,11 @@ function renderOnboarding(){
 
   document.getElementById('onbTitle').textContent = 'מדריך ההתחלה';
   prog.textContent = doneCount + ' מתוך ' + steps.length;
-  // מספר הצעדים נגזר מהרשימה ולא נכתב במילים: למנהל/ת משרד יש צעד נוסף
-  // (דף המשרד), וטקסט שאומר "ארבעה" מול חמש שורות הוא טקסט שלא נקרא שוב
-  // אחרי שנכתב.
+  // מספר הצעדים נגזר מהרשימה ולא נכתב במילים: טקסט שאומר "שלושה" מול
+  // רשימה שהשתנתה הוא טקסט שלא נקרא שוב אחרי שנכתב.
   sub.textContent = doneCount
     ? 'נשאר לסגור את מה שמסומן למטה. אפשר בכל סדר.'
-    : steps.length + ' צעדים קצרים שהופכים את החשבון החדש למשרד עובד.';
+    : steps.length + ' צעדים קצרים, ואת/ה באוויר.';
 
   // הצעד הפתוח הראשון הוא היחיד שמקבל כפתור: מדריך שכל שורה בו מציעה פעולה
   // הוא רשימה, ורשימה לא אומרת במה מתחילים.
@@ -6999,7 +7035,7 @@ function renderOnboarding(){
     li.innerHTML =
       '<span class="onb-mark" aria-hidden="true">' + (isDone ? '✓' : String(i + 1)) + '</span>'
       + '<div class="onb-body">'
-      +   '<div class="onb-name">' + esc(step.name) + '</div>'
+      +   '<div class="onb-name">' + esc(step.nameFor ? step.nameFor(state) : step.name) + '</div>'
       +   (isDone ? '' : '<p class="onb-text">' + esc(step.text) + '</p>')
       + '</div>';
     if (isNow){
@@ -22497,15 +22533,18 @@ const NOTIF_TYPES = [
   { type:'onboarding_client', tone:'', goto:'accClients', focus:'#clientsList',
     title:'מדריך ההתחלה - הלקוח/ה הראשון/ה',
     sub:'דרבון חד-פעמי אחרי הנכס הראשון, כל עוד קובץ הלקוחות ריק.',
-    when: ()=> onboardingLive() },
+    // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
+    when: ()=> false },
   { type:'onboarding_agreement', tone:'', goto:'accAgreements', focus:'#agreementsList',
     title:'מדריך ההתחלה - ההסכם הראשון',
     sub:'דרבון חד-פעמי כשיש כבר נכס ולקוח/ה, וטרם נוצרה הזמנת שירותי תיווך.',
-    when: ()=> onboardingLive() },
+    // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
+    when: ()=> false },
   { type:'onboarding_lead', tone:'', goto:'accLeadShelf', focus:'#shelfTabs',
     title:'מדריך ההתחלה - הליד הראשון',
     sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
-    when: ()=> onboardingLive() },
+    // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
+    when: ()=> false },
   { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
@@ -23235,6 +23274,7 @@ document.getElementById('agForm').addEventListener('submit', async (e)=>{
     ? (editId ? 'נשמר' : 'נוסף ליומן') + ' - ' + agendaWhenText({ due_at: dueAt })
     : (editId ? 'נשמר' : 'נוסף לרשימת המשימות הפתוחות'));
   resetAgendaForm();
+  if (!editId && dueAt) offerGcalAfterMeeting(payload.kind);
   // הפריט שנוסף צריך להיראות: לשונית שמכילה אותו
   const d = dueAt ? new Date(dueAt) : null;
   agendaTab = !d ? 'open' : d < agendaDayStart(1) ? 'today' : d < agendaDayStart(8) ? 'week' : 'open';
@@ -23324,7 +23364,7 @@ const GCAL_RESULT_TEXT = {
   connected_no_freebusy: 'יומן Google חובר, בלי הרשאת הזמינות - גבריאלה לא תראה מתי את/ה תפוס/ה ביומן האישי.',
   denied: 'החיבור בוטל במסך של Google. אפשר לנסות שוב מתי שתרצו.',
   scope_missing: 'בלי ההרשאה ליצור את יומן "שוק נדל״ן" אין מה לחבר. נסו שוב והשאירו אותה מסומנת.',
-  expired: 'עבר יותר מדי זמן מהלחיצה. לחצו שוב על "חבר/י יומן".',
+  expired: 'עבר יותר מדי זמן מהלחיצה. לחצו שוב על "חיבור מאובטח ל-Google Calendar".',
   tier_required: 'החיבור ליומן Google זמין במסלולים PROFESSIONAL ו-Elite.',
   not_configured: 'החיבור ליומן Google עוד לא הוגדר במערכת.',
   error: 'החיבור ליומן Google נכשל. נסו שוב בעוד רגע.',
@@ -23353,12 +23393,12 @@ async function loadGcal(){
 function renderGcal(){
   const box = document.getElementById('agGcal');
   if (!box) return;
-  // החיבור יושב בהגדרות (#accGcal); ביומן נשאר רק קישור אליו, כשאין חיבור
+  // החיבור יושב בהגדרות (#accGcal); ביומן - הצעה מתחת לפגישות, כשאין חיבור
   const available = assistantTierOk() && gcalAvailable();
   const acc = document.getElementById('accGcal');
   if (acc) acc.style.display = available ? '' : 'none';
-  const link = document.getElementById('agGcalLink');
-  if (link) link.hidden = !available || !!(agendaGcal && agendaGcal.status === 'active');
+  const offer = document.getElementById('agGcalOffer');
+  if (offer) offer.hidden = !available || !!(agendaGcal && agendaGcal.status === 'active');
   if (!available) return;
   accSetCount('accGcal', agendaGcal && agendaGcal.status === 'active' ? '✓' : '');
   const st = document.getElementById('agGcalStatus');
@@ -23386,9 +23426,10 @@ function renderGcal(){
     disconnect.hidden = false;
   } else {
     st.textContent = 'לא מחובר';
-    note.textContent = 'פגישות, סיורים וחתימות יופיעו ביומן נפרד בשם "שוק נדל״ן" בחשבון Google שלך, ' +
-      'וגבריאלה בוואטסאפ תדע מתי את/ה פנוי/ה. מהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
-    connect.textContent = 'חבר/י יומן';
+    note.textContent = 'גבריאלה מסדרת לך את הפגישות ביומן. חבר את יומן Google כדי לקבל תזכורות אוטומטיות לסיורים ' +
+      'ולפגישות עם לקוחות - בלי להזין שום דבר ידנית. הסנכרון מתבצע רק עבור פגישות נדל״ן שנוצרות במערכת, ' +
+      'ומהיומן האישי אנחנו רואים רק מתי הוא תפוס - בלי כותרות, בלי משתתפים ובלי פרטים.';
+    connect.textContent = '📅 חיבור מאובטח ל-Google Calendar';
     disconnect.hidden = true;
   }
 }
@@ -23406,8 +23447,9 @@ async function gcalCall(action){
   return data;
 }
 
-document.getElementById('agGcalConnect').addEventListener('click', async (e)=>{
-  const btn = e.currentTarget;
+/* כל כפתור חיבור - בהגדרות, בהצעה שמתחת ליומן ובחלון שאחרי הפגישה הראשונה -
+   עובר באותה פונקציה */
+async function startGcalConnect(btn){
   btn.disabled = true;
   const label = btn.textContent;
   btn.textContent = 'מעבירים ל-Google…';
@@ -23421,7 +23463,46 @@ document.getElementById('agGcalConnect').addEventListener('click', async (e)=>{
     btn.textContent = label;
     showToast('החיבור לא התחיל: ' + heErr(err), 6000);
   }
+}
+document.getElementById('agGcalConnect').addEventListener('click', e => startGcalConnect(e.currentTarget));
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-gcal-connect]');
+  if (btn) startGcalConnect(btn);
 });
+
+/* ---------- הצעה אחרי הפגישה הראשונה ----------
+   הרגע שבו בקשת הרשאת יומן נתפסת כשירות ולא כחדירה: הסוכן/ת קבע/ה עכשיו
+   פגישה, סיור או חתימה, והם עוד מול העיניים. פעם אחת למכשיר
+   (‏GCAL_OFFER_KEY) - "לא עכשיו" אינו מבקש שוב בכל פגישה, וההצעה הקבועה
+   מחכה מתחת ליומן. */
+const GCAL_OFFER_KEY = 'shuknadlan.gcal_offer_seen';
+const GCAL_MEETING_KINDS = ['meeting', 'showing', 'signing'];
+
+function offerGcalAfterMeeting(kind){
+  if (!GCAL_MEETING_KINDS.includes(kind)) return;
+  if (!(assistantTierOk() && gcalAvailable())) return;
+  if (agendaGcal && agendaGcal.status === 'active') return;
+  try {
+    if (localStorage.getItem(GCAL_OFFER_KEY)) return;
+    localStorage.setItem(GCAL_OFFER_KEY, String(Date.now()));
+  } catch(_){ return; }   // בלי אחסון אין "פעם אחת" - ולא מציקים
+  const wrap = document.createElement('div');
+  wrap.className = 'welcome-modal';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', 'gcalAskTitle');
+  wrap.innerHTML = `<div class="welcome-card">
+      <div class="welcome-burst" aria-hidden="true">📅</div>
+      <h2 id="gcalAskTitle">רשמתי את הפגישה.</h2>
+      <p>רוצה שאסנכרן אותה אוטומטית ליומן הגוגל שלך בלחיצה אחת? כך תקבל/י תזכורות לסיורים ולפגישות עם לקוחות - בלי להזין שום דבר ידנית.</p>
+      <button type="button" class="btn btn-gold btn-block" data-gcal-connect>📅 חיבור מאובטח ל-Google Calendar</button>
+      <button type="button" class="btn btn-ghost btn-block" id="gcalAskLater" style="margin-top:8px">לא עכשיו</button>
+      <div class="gcal-offer-note">הסנכרון מתבצע רק עבור פגישות נדל״ן שנוצרות במערכת</div>
+    </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector('#gcalAskLater').addEventListener('click', ()=> wrap.remove());
+  wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+}
 
 document.getElementById('agGcalDisconnect').addEventListener('click', async (e)=>{
   if (!confirm('לנתק את יומן Google? היומן "שוק נדל״ן" יימחק מהחשבון שלך ב-Google, וההרשאה תבוטל. היומן כאן ממשיך לעבוד כרגיל.')) return;
@@ -27357,8 +27438,63 @@ function agrNewWizard(){
 let agrUid = 0;
 const agrNextUid = () => 'p' + (++agrUid);
 
+/* ---------- ת.ז. של הסוכן/ת - ברגע ההסכם הראשון ----------
+   הת.ז. ירדה מטופס ההרשמה: שם היא נראתה כבקשה חשודה ("למה הם צריכים את
+   הת.ז. שלי עכשיו?"). כאן, רגע לפני הפקת הזמנת שירותי תיווך, הסיבה ברורה
+   מאליה - חוק המתווכים דורש את פרטי המתווך/ת על הטופס. החלון נפתח פעם
+   אחת: מה שנשמר נשאר בפרופיל, ו-agrMissingItems עדיין שואלת עליו כרשת
+   ביטחון למי שבחר/ה "לא עכשיו". מחזיר true כשאפשר להמשיך לאשף. */
+function askAgentIdNumber(){
+  return new Promise(resolve=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'welcome-modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'idAskTitle');
+    wrap.innerHTML = `<div class="welcome-card id-ask">
+        <div class="welcome-burst" aria-hidden="true">⚖️</div>
+        <h2 id="idAskTitle">כדי שההסכם יהיה תקף משפטית כחוק</h2>
+        <p>לפי חוק המתווכים, פרטי המתווך (כולל מספר מזהה) חייבים להופיע על טופס הזמנת שירותי תיווך.</p>
+        <div class="field" style="text-align:right">
+          <label for="idAskInput">מספר תעודת זהות / ח.פ</label>
+          <input type="text" id="idAskInput" inputmode="numeric" dir="ltr" style="text-align:right" maxlength="20" data-il-id autocomplete="off">
+        </div>
+        <div class="id-ask-note">🔒 הפרטים נשמרים בצורה מאובטחת ויופיעו רק על גבי ההסכמים שלך</div>
+        <button type="button" class="btn btn-gold btn-block" id="idAskSave">שמור והמשך להחתמת לקוח ←</button>
+        <button type="button" class="btn btn-ghost btn-block" id="idAskLater" style="margin-top:8px">לא עכשיו</button>
+        <div id="idAskFb" style="font-size:.8rem;margin-top:8px;min-height:1.1em;color:var(--brick)"></div>
+      </div>`;
+    document.body.appendChild(wrap);
+    const input = wrap.querySelector('#idAskInput');
+    const done = ok => { wrap.remove(); resolve(ok); };
+    wrap.querySelector('#idAskLater').addEventListener('click', ()=> done(false));
+    wrap.querySelector('#idAskSave').addEventListener('click', async (e)=>{
+      const v = input.value.trim();
+      const fb = wrap.querySelector('#idAskFb');
+      if (!v){ fb.textContent = 'יש להזין מספר זהות או ח.פ.'; input.focus(); return; }
+      if (window.IlId && !IlId.check(input)) return;   // חיווי + "המספר נכון - לאשר בכל זאת"
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      // ‏currentAgent מתעדכן גם כשהשמירה נכשלת: ההסכם נבנה ממנו, וכשל בפרופיל
+      // אינו סיבה לעצור הסכם שהמספר עבורו כבר הוקלד (כמו ב-agrSaveDetails)
+      currentAgent.id_number = v;
+      const { error } = await sb.from('agency_members').update({ id_number: v }).eq('id', currentAgent.id);
+      if (error){
+        console.warn('שמירת ת.ז. בפרופיל נכשלה:', error);
+        showToast('המספר ישמש בהסכם הזה אך לא נשמר בפרופיל - עדכנו אותו ב"עדכון פרטי הסוכן/ת"');
+      }
+      const pf = document.getElementById('pfIdNumber');
+      if (pf){ pf.value = v; pf.dataset.ilIdOk = input.dataset.ilIdOk || v; }
+      done(true);
+    });
+    input.focus();
+  });
+}
+
 async function openAgreementWizard(opts){
   opts = opts || {};
+  // "לא עכשיו" לא חוסם: האשף נפתח, ושלב החוסרים ישאל שוב לפני השליחה
+  if (currentAgent && !currentAgent.id_number) await askAgentIdNumber();
   agrWizard = agrNewWizard();
   agrEl('agrModal').style.display = 'flex';
   if (opts.kind) agrSetKind(opts.kind, { silent:true });

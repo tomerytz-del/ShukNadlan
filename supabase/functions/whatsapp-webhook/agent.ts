@@ -4790,7 +4790,7 @@ async function toolAgendaFreeSlots(ctx: ToolContext, input: Record<string, unkno
 
   let source = "היומן במערכת בלבד";
   let googleNote: string | undefined =
-    "יומן Google לא מחובר, ולכן בדקתי רק את היומן במערכת. חיבור: יומן ומשימות בדשבורד, \"חבר/י יומן\".";
+    "יומן Google לא מחובר, ולכן בדקתי רק את היומן במערכת. חיבור: יומן Google בדשבורד, \"חיבור מאובטח ל-Google Calendar\".";
   const { data: conn } = await ctx.supabase.from("agent_calendar_connections")
     .select("status, scopes").eq("agent_id", ctx.agent.id).maybeSingle();
   if (conn?.status === "active" && googleCalendarConfigured()) {
@@ -4882,13 +4882,35 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   if (row.client_id) ctx.conv.last_client_id = String(row.client_id);
 
   const [shaped] = await agendaShape(ctx, [data]);
+  const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
   return {
     ok: true,
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
-    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id.",
+    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id." +
+      (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
+    gcal_offer: gcalOffer || undefined,
   };
+}
+
+/**
+ * הצעת יומן Google - ברגע שנקבעה פגישה, סיור או חתימה, ולא בהרשמה: כשהפגישה
+ * מול העיניים, מסך ההרשאות של Google נתפס כשירות ולא כחדירה. מוצעת רק כשאין
+ * חיבור כלל (שורה ב-agent_calendar_connections), ולא שוב כל עוד ההצעה הקודמת
+ * עוד בהיסטוריה - כלומר פעם בשיחה, ולא בכל פגישה. החיבור עצמו מהדשבורד, כי
+ * הוא OAuth של Google (docs/google-calendar.md).
+ */
+async function agendaGcalOffer(ctx: ToolContext, kind: string, due: string | null): Promise<string | null> {
+  if (!due || !["meeting", "showing", "signing"].includes(kind)) return null;
+  if (!googleCalendarConfigured()) return null;
+  if (JSON.stringify(ctx.conv.history || []).includes("gcal_offer")) return null;
+  const { data: conn } = await ctx.supabase.from("agent_calendar_connections")
+    .select("status").eq("agent_id", ctx.agent.id).maybeSingle();
+  if (conn) return null;
+  return "רשמתי את הפגישה. רוצה שאסנכרן אותה אוטומטית ליומן הגוגל שלך בלחיצה אחת? " +
+    "זה נעשה פעם אחת מהדשבורד: יומן Google > \"חיבור מאובטח ל-Google Calendar\". " +
+    "הסנכרון מתבצע רק עבור פגישות נדל\"ן שנוצרות במערכת.";
 }
 
 async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) {
@@ -5323,7 +5345,8 @@ const SYSTEM_STATIC: string = (() => {
     "- אם חזר past - המועד עבר; שאל/י לאיזה מועד התכוון/ה ואל תקבע/י לבד.",
     "- \"מתי אני פנוי/ה\" / \"תמצא לי שעה לסיור\" = agenda_free_slots. פגישות שנקבעות כאן " +
       "מופיעות גם ביומן Google של הסוכן/ת, אם חובר. החיבור עצמו נעשה רק בדשבורד " +
-      "(יומן ומשימות → חבר/י יומן) - אי אפשר לחבר מכאן.",
+      "(יומן Google → חיבור מאובטח ל-Google Calendar) - אי אפשר לחבר מכאן. כש-agenda_add מחזיר " +
+      "gcal_offer - הצע/י אותו פעם אחת, אחרי אישור הפגישה.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +
