@@ -16,6 +16,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
 import {
   accessTokenFor,
   freeBusy,
@@ -392,6 +393,42 @@ const TOOLS: Anthropic.Tool[] = [
           description: "סינון לפי סטטוס. ברירת מחדל: כל הסטטוסים.",
         },
         limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20, מקסימום 200." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "search_properties",
+    description:
+      "חיפוש נכס לפי דרישות ('דירת 4 חדרים בלב העמק עד 1.8 מיליון', 'משרד להשכרה " +
+      "100 מ\"ר'), **בלי** צורך בלקוח/ה בקובץ. מחפש בארבעה מאגרים בבת אחת: הנכסים של " +
+      "הסוכן/ת (own), של המשרד (agency), מה שמשרדים אחרים שיתפו עם המשרד (shared), " +
+      "וכל הנכסים הפעילים של המתווכים בשוק המקומי של המשרד (market). כל תוצאה חוזרת " +
+      "עם source ועם המתווך/ת המפרסם/ת והטלפון. שכונה בהתאמה סלחנית ('סי 1', 'ברובע').",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_type: { type: "string", enum: ["sale", "rent"], description: "sale = למכירה, rent = להשכרה." },
+        category: { type: "string", enum: ["residential", "commercial"] },
+        city: { type: "string", description: "שם עיר, התאמה חלקית." },
+        area: { type: "string", description: "שכונה או אזור בתוך העיר ('לב העמק', 'C1', 'הרובע')." },
+        property_types: {
+          type: "array",
+          items: { type: "string" },
+          description: "התאמה חלקית: 'דירה', 'דירת גן', 'פנטהאוז', 'בית פרטי', 'משרדים', 'חנויות', 'מגרש'.",
+        },
+        min_price: { type: "number" },
+        max_price: { type: "number" },
+        min_rooms: { type: "number" },
+        max_rooms: { type: "number" },
+        min_size_sqm: { type: "number" },
+        max_floor: { type: "integer" },
+        features: {
+          type: "array",
+          items: { type: "string" },
+          description: "parking, elevator, balcony, sun_balcony, ac, mamad, renovated_feature, furnished, storage, accessible, bars, ev_charger.",
+        },
+        limit: { type: "integer", description: "ברירת מחדל 10, מקסימום 20." },
       },
       required: [],
     },
@@ -804,9 +841,10 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "client_matches",
     description:
-      "מה מתאים ללקוח/ה מסוים/ת. מצליב את הדרישות מול שלושה מאגרים בבת אחת: " +
-      "הנכסים של הסוכן/ת, נכסי המשרד, ומה שמשרדים אחרים שיתפו עם המשרד. כל " +
-      "התאמה חוזרת עם ציון באחוזים ועם הפערים.",
+      "מה מתאים ללקוח/ה מסוים/ת. מצליב את הדרישות מול הנכסים של הסוכן/ת, נכסי " +
+      "המשרד ומה שמשרדים אחרים שיתפו עם המשרד - כל התאמה עם ציון באחוזים ועם " +
+      "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
+      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון).",
     input_schema: {
       type: "object",
       properties: {
@@ -1764,6 +1802,161 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     note: total > data.length
       ? `מוצגים ${data.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
       : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// חיפוש נכס בכל המאגרים של הסוכן/ת
+//
+// עד 5.10.2026 לסוכן/ת לא היה חיפוש חופשי: ‏list_properties מחפש רק בנכסים
+// **שלו/ה**, ו-client_matches דורש לקוח/ה בקובץ ומכסה רק משרד + שיתופים.
+// סוכן שכתב "אני מחפש דירה 4 חדרים בעפולה עד 1.2 מיליון" קיבל "אין לך עדיין
+// נכסים במערכת" - כשבאזור היו שלוש כאלה.
+//
+// ארבעה מאגרים, בסדר הזה בתשובה: own → agency → shared → market. ‏market =
+// כל הנכסים **הפעילים** בערים של השוק המקומי של המשרד (‏cities.market_slug
+// של עיר המשרד). אלה אותם נכסים שמוצגים לכל גולש באתר, ולכן גם מספר הבית
+// שלהם מוסתר כאן כמו שם - המתווך/ת המפרסם/ת הוא/היא הכתובת לפרטים.
+// הסינון עצמו משותף עם הבוט הציבורי (‏property-search.ts).
+// ---------------------------------------------------------------------------
+const AGENT_SEARCH_FIELDS =
+  "id, listing_number, title, property_type, deal_type, category, price, rooms, " +
+  "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
+  "agent_id, agency_id, is_promoted, created_at, neighborhoods(name), " +
+  "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
+
+const SOURCE_ORDER: Record<string, number> = { own: 0, agency: 1, shared: 2, market: 3 };
+
+interface SearchPools {
+  agencyId: string | null;
+  sharedIds: string[];
+  marketCityIds: string[];
+}
+
+async function searchPools(ctx: ToolContext): Promise<SearchPools> {
+  const agencyId = ctx.agent.agency_id;
+  if (!agencyId) return { agencyId: null, sharedIds: [], marketCityIds: [] };
+  const [{ data: shares }, { data: agency }] = await Promise.all([
+    ctx.supabase.from("property_shares").select("property_id").eq("shared_with_agency_id", agencyId),
+    ctx.supabase.from("agencies").select("city_id, cities(market_slug)").eq("id", agencyId).maybeSingle(),
+  ]);
+  // deno-lint-ignore no-explicit-any
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v);
+  const slug = one(agency?.cities)?.market_slug as string | undefined;
+  let marketCityIds: string[] = [];
+  if (slug) {
+    const { data: cities } = await ctx.supabase.from("cities").select("id").eq("market_slug", slug);
+    marketCityIds = (cities || []).map((c) => String(c.id));
+  } else if (agency?.city_id) {
+    marketCityIds = [String(agency.city_id)];
+  }
+  return {
+    agencyId,
+    sharedIds: (shares || []).map((s) => String(s.property_id)),
+    marketCityIds,
+  };
+}
+
+/** הליבה של search_properties: ארבעת המאגרים, הסינון המשותף, ו-source לכל נכס. */
+async function agentPropertySearch(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+  limit: number,
+): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown> } | { ok: false; error: string }> {
+  const pools = await searchPools(ctx);
+  const uuid = /^[0-9a-f-]{36}$/i;
+
+  const ors: string[] = [];
+  ors.push(`agent_id.eq.${ctx.agent.id}`);
+  if (pools.agencyId) ors.push(`agency_id.eq.${pools.agencyId}`);
+  const shared = pools.sharedIds.filter((id) => uuid.test(id));
+  if (shared.length) ors.push(`id.in.(${shared.join(",")})`);
+  const cities = pools.marketCityIds.filter((id) => uuid.test(id));
+  if (cities.length) ors.push(`city_id.in.(${cities.join(",")})`);
+  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {} };
+
+  const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
+  const built = applyPropertyFilters(
+    ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
+    args,
+    [ors],
+  );
+  const { data, error } = await built.query
+    .order("is_promoted", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(AREA_SCAN_LIMIT);
+  if (error) return { ok: false, error: error.message };
+
+  let rows = (data || []) as Array<Record<string, unknown>>;
+  let hint: Record<string, unknown> = {};
+  if (area) {
+    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true });
+    rows = res.rows;
+    hint = res.hint;
+  }
+
+  const sharedSet = new Set(shared);
+  const sourceOf = (p: Record<string, unknown>): string =>
+    p.agent_id === ctx.agent.id ? "own"
+      : pools.agencyId && p.agency_id === pools.agencyId ? "agency"
+      : sharedSet.has(String(p.id)) ? "shared"
+      : "market";
+
+  // deno-lint-ignore no-explicit-any
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v);
+  const tagged = rows
+    .map((p) => ({ p, source: sourceOf(p) }))
+    .sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]);
+
+  const bySource: Record<string, number> = {};
+  for (const t of tagged) bySource[t.source] = (bySource[t.source] || 0) + 1;
+
+  const results = tagged.slice(0, limit).map(({ p, source }) => {
+    const member = one(p.agency_members);
+    const hood = one(p.neighborhoods)?.name || p.sales_area || null;
+    // מספר בית - רק במה שהמשרד מחזיק או שותף איתו. נכס של משרד אחר שלא שיתף
+    // מוצג כמו באתר: רחוב ושכונה.
+    const showNumber = source !== "market";
+    return {
+      property_id: p.id,
+      listing_number: p.listing_number,
+      source,
+      title: p.title,
+      property_type: p.property_type,
+      deal_type: p.deal_type,
+      address: [p.street, showNumber ? p.house_number : null].filter(Boolean).join(" "),
+      neighborhood: hood,
+      city: p.city,
+      price: p.price,
+      rooms: p.rooms,
+      size_sqm: p.size_sqm,
+      floor: p.floor,
+      features: p.features || [],
+      listing_agent: source === "own" ? null : member?.display_name || null,
+      listing_agent_phone: source === "own" ? null : member?.phone || null,
+      listing_office: source === "own" || source === "agency" ? null : one(p.agencies)?.name || null,
+      link: propertyLink(String(p.id)),
+    };
+  });
+  return { ok: true, total: tagged.length, by_source: bySource, results, hint };
+}
+
+async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
+  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
+  const res = await agentPropertySearch(ctx, input, limit);
+  if (!res.ok) return res;
+  return {
+    ok: true,
+    total: res.total,
+    returned: res.results.length,
+    by_source: res.by_source,
+    properties: res.results,
+    ...res.hint,
+    note:
+      "source: own = שלך, agency = של המשרד, shared = משרד אחר שיתף איתכם, market = מתווך/ת " +
+      "אחר/ת באזור. ב-shared וב-market: שם המתווך/ת, המשרד והטלפון - לתיאום שת\"פ לפני " +
+      "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו." +
+      (res.total > res.results.length ? ` מוצגים ${res.results.length} מתוך ${res.total}.` : ""),
   };
 }
 
@@ -3482,6 +3675,34 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   const inShowcase = new Set(showcase?.property_ids ?? []);
   ctx.conv.last_client_id = clientId;
 
+  // ‏agent_client_matches מכסה את המשרד ומה ששותף איתו - כמו בדשבורד. מה
+  // שמתווכים אחרים באזור מפרסמים ולא שיתפו חוזר מ-agent_client_market_matches,
+  // **עם אותו ציון** (‏client_property_match - הסקיל client-matching). הוא אינו
+  // נכנס למיניסייט, אבל הוא בדיוק "מה עוד יש באזור".
+  const { data: marketRows, error: marketErr } = await ctx.supabase.rpc("agent_client_market_matches", {
+    p_agent_id: ctx.agent.id,
+    p_client_id: clientId,
+    p_limit: 5,
+  });
+  // הפונקציה נכנסת במיגרציה; עד שהיא באוויר - בלי market, לא כשל של הכלי
+  if (marketErr) console.warn("agent_client_market_matches failed", marketErr.message);
+  const marketMatches = ((marketErr ? [] : marketRows) || []).map((m: Record<string, unknown>) => ({
+    property_id: m.property_id,
+    source: "market",
+    score: m.score,
+    title: m.title,
+    address: [m.street, m.city].filter(Boolean).join(" "),
+    price: m.price,
+    rooms: m.rooms,
+    floor: m.floor,
+    size_sqm: m.size_sqm,
+    gaps: m.reasons,
+    listing_agent: m.listing_agent_name,
+    listing_agent_phone: m.listing_agent_phone,
+    listing_office: m.listing_office,
+    link: propertyLink(String(m.property_id)),
+  }));
+
   return {
     ok: true,
     client_id: clientId,
@@ -3508,6 +3729,11 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       listing_agent_phone: m.listing_agent_phone,
       link: propertyLink(String(m.property_id)),
     })),
+    market_matches: marketMatches.length ? marketMatches : undefined,
+    market_note: marketMatches.length
+      ? "נכסים של מתווכים אחרים באזור שמתאימים ללקוח/ה ולא שותפו עם המשרד (אותו ציון). " +
+        "אינם נכנסים למיניסייט - להציג עם שם המתווך/ת, המשרד והטלפון, לתיאום שת\"פ."
+      : undefined,
   };
 }
 
@@ -5110,6 +5336,7 @@ async function runTool(
       case "update_property": return await toolUpdateProperty(ctx, input);
       case "set_property_status": return await toolSetStatus(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);
+      case "search_properties": return await toolSearchProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
       case "manage_images": return await toolManageImages(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
@@ -5215,9 +5442,13 @@ const SYSTEM_STATIC: string = (() => {
     "- השדות ההכרחיים ליצירת נכס הם סוג נכס, סוג עסקה ומחיר בלבד - אם יש אותם, צור/צרי את הנכס והשלם/י את השאר ממה שנאמר.",
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים - ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
-    "- **למצוא נכס = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
+    "- **למצוא נכס שלך (לעדכון, לקישור) = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
       "החיפוש רץ על כל הנכסים של הסוכן/ת; הרשימה בלי query היא רק החדשים. " +
       "\"הדירה באבן גבירול\" → query: \"אבן גבירול\". מספר מודעה → query עם המספר.",
+    "- **חיפוש לפי דרישות (\"יש דירת 4 חדרים בלב העמק עד 1.8?\", \"אני מחפש משרד להשכרה\") = " +
+      "search_properties**, גם בלי לקוח/ה בקובץ. הוא מחפש בנכסים שלך, של המשרד, במה ששותף איתכם " +
+      "ובכל הנכסים של המתווכים באזור. **לעולם אל תענה/י \"אין לך נכסים\" על שאלת חיפוש** - " +
+      "החיפוש אינו רק במלאי שלך. הצג/י לפי source: שלך, של המשרד, ושל מתווכים אחרים (שם, משרד וטלפון).",
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
@@ -5306,7 +5537,9 @@ const SYSTEM_STATIC: string = (() => {
     "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" - אל תבקש/י תקציב או ערים שלא נאמרו.",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
-    "- \"מה יש ל<שם>\" = client_matches. \"למי מתאים הנכס הזה\" = property_matches. " +
+    "- \"מה יש ל<שם>\" = client_matches. הוא מחזיר גם market_matches - נכסים של מתווכים אחרים " +
+      "באזור שלא שותפו עם המשרד. הצג/י אותם אחרי ההתאמות, עם שם המתווך/ת והטלפון; הם אינם נכנסים למיניסייט. " +
+      "\"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
       "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
@@ -5379,7 +5612,7 @@ const SYSTEM_STATIC: string = (() => {
     "- אם חזר [קישור לקטלוג וואטסאפ - לא הצלחתי לקרוא] - אמרי זאת ובקשי את הפרטים. " +
       "אל תנחשי מה יש בקישור.",
     "",
-    "- בהתאמה שאינה שלך (source agency או shared) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון - בלעדיהם אין מה לעשות עם ההתאמה.",
+    "- בהתאמה שאינה שלך (source agency, shared או market) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון (ובשיתוף או market - גם את המשרד) - בלעדיהם אין מה לעשות עם ההתאמה.",
     "",
     "הסכמים:",
     "- אפשר **ליצור** הסכם מכאן (prepare_agreement, למטה), אבל **אי אפשר לתקן או " +

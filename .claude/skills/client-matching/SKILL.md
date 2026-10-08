@@ -29,7 +29,8 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 ## ‏2. `client_property_match` הוא המקום היחיד לכלל התאמה
 
 הפאנל, הספירות (`client_match_counts`, `client_match_top`), ההתראות בשני
-הכיוונים והבוט (`agent_client_matches`, `agent_property_client_matches`)
+הכיוונים והבוט (`agent_client_matches`, `agent_property_client_matches`,
+`agent_client_market_matches` - מה שמשרדים אחרים באזור מפרסמים ולא שיתפו)
 קוראים כולם ל-`client_property_match(client, property)`. כלל שנוסף **שם**
 חל על כולם; כלל שנוסף בתצוגה או בכלי של הבוט מפצל את הציון בין הוואטסאפ
 לדשבורד.
