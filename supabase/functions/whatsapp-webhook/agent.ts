@@ -16,6 +16,12 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import {
+  SERVICE_MARKET_LABELS,
+  serviceAreaText,
+  serviceMarketLabels,
+  serviceMarketSlug,
+} from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
 import {
   accessTokenFor,
@@ -309,7 +315,8 @@ const AGENDA_KINDS = ["task", "call", "meeting", "showing", "signing"];
 const PROFILE_TEXT_FIELDS: Record<string, number> = {
   display_name: 80,
   bio: 600,
-  service_area: 60,
+  // ‏service_area אינו כאן: אזור הפעילות נבחר רק מהרשימה הסגורה
+  // (service_markets), והטקסט נגזר ממנו. ראו toolUpdateProfile.
   credentials: 80,
 };
 
@@ -1283,7 +1290,13 @@ const TOOLS: Anthropic.Tool[] = [
           description: "הביו **המלא** אחרי השינוי (לא רק התוספת). עד 600 תווים. " +
             "בגוף ראשון, כמו שהסוכן/ת היה/הייתה כותב/ת.",
         },
-        service_area: { type: "string", description: "אזור פעילות, למשל \"עפולה והעמקים\". עד 60 תווים." },
+        service_markets: {
+          type: "array",
+          items: { type: "string", enum: SERVICE_MARKET_LABELS },
+          description: "הרשימה **המלאה** של אזורי הפעילות אחרי השינוי - רק מתוך האזורים שלנו " +
+            "(פעילים ושאינם). \"תוסיף גם את חיפה\" = האזורים הקיימים (profile_get) ועוד \"חיפה והסביבה\". " +
+            "הסוכן/ת והמשרד מופיעים באתר בכל אזור שנבחר.",
+        },
         credentials: { type: "string", description: "השכלה והסמכות, למשל \"B.A ומגשר מוסמך\". עד 80 תווים." },
         years_experience: { type: "integer", description: "שנות ותק בנדל\"ן, 0 עד 70." },
         specialties: {
@@ -1317,7 +1330,7 @@ interface ToolContext {
 
 const PROFILE_SELECT =
   "slug, display_name, bio, photo_url, years_experience, service_area, " +
-  "credentials, specialties, tier";
+  "credentials, specialties, tier, service_markets";
 
 // ביו קצר מזה נראה בדף כמו שדה שלא מולא. ‏40 תווים הם משפט אחד.
 const MIN_BIO_CHARS = 40;
@@ -1331,7 +1344,7 @@ export function profileGaps(row: Record<string, unknown> | null): string[] {
   const gaps: string[] = [];
   if (!row.photo_url) gaps.push("תמונת פרופיל");
   if (String(row.bio || "").trim().length < MIN_BIO_CHARS) gaps.push("כמה משפטים עליך (ביו)");
-  if (!String(row.service_area || "").trim()) gaps.push("אזור פעילות");
+  if (!Array.isArray(row.service_markets) || !row.service_markets.length) gaps.push("אזורי פעילות");
   if (!Array.isArray(row.specialties) || !row.specialties.length) gaps.push("תחומי התמחות");
   if (row.years_experience == null) gaps.push("שנות ותק");
   return gaps;
@@ -4719,7 +4732,8 @@ async function toolProfileGet(ctx: ToolContext) {
     has_profile_photo: !!row.photo_url,
     cover_note: "תמונת הנושא בראש הדף היא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.",
     years_experience: row.years_experience,
-    service_area: row.service_area,
+    service_markets: serviceMarketLabels(row.service_markets),
+    service_market_options: SERVICE_MARKET_LABELS,
     credentials: row.credentials,
     specialties: row.specialties || [],
     specialty_options: PROFILE_SPECIALTIES,
@@ -4763,7 +4777,30 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
-  if (problems.length) return { error: problems.join(" "), specialty_options: PROFILE_SPECIALTIES };
+  // אזורי הפעילות - רק מהרשימה הסגורה. טקסט חופשי (service_area, מגרסה
+  // ישנה של ההוראות) אינו נשמר: מחזירים את הרשימה, והמודל שואל.
+  if (input.service_area !== undefined) {
+    problems.push("אזור פעילות נבחר רק מרשימת האזורים שלנו (service_markets).");
+  }
+  if (input.service_markets !== undefined) {
+    const raw = Array.isArray(input.service_markets) ? input.service_markets : [];
+    const unknown = raw.map(String).filter((x) => !serviceMarketSlug(x));
+    if (unknown.length) {
+      problems.push(`"${unknown.join("\", \"")}" אינו/ם ברשימת האזורים שלנו.`);
+    } else {
+      const slugs = [...new Set(raw.map((x) => serviceMarketSlug(x) as string))];
+      patch.service_markets = slugs;
+      patch.service_area = serviceAreaText(slugs) || null;
+    }
+  }
+
+  if (problems.length) {
+    return {
+      error: problems.join(" "),
+      specialty_options: PROFILE_SPECIALTIES,
+      service_market_options: SERVICE_MARKET_LABELS,
+    };
+  }
 
   // התמונה נלקחת מהרשימה הממתינה באותה פעולה אטומית של צירוף לנכס, כדי
   // שאותה תמונה לא תגיע גם לנכס. כמה תמונות - האחרונה נבחרת, והשאר חוזרות.
@@ -4794,7 +4831,7 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   }
 
   if (!Object.keys(patch).length) {
-    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזור, ותק, השכלה, תחומי התמחות ותמונות." };
+    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות ותמונות." };
   }
 
   patch.updated_at = new Date().toISOString();
@@ -5681,6 +5718,11 @@ const SYSTEM_STATIC: string = (() => {
     "- לעריכת ביו קיים (\"תוסיף שאני גם שמאי\") - קודם profile_get, ואז update_profile עם הנוסח המלא. " +
       "ביו חדש שהסוכן/ת הכתיב/ה - כמו שנאמר, בלי לייפות ובלי להמציא.",
     "- תחומי התמחות הם רשימה סגורה (specialty_options). מה שלא בה - הצע/י את הקרוב ביותר ושאל/י.",
+    "- **אזורי פעילות הם רשימה סגורה** (service_market_options, כל האזורים שלנו - פעילים ושאינם), " +
+      "update_profile עם service_markets - הרשימה המלאה אחרי השינוי. עיר או יישוב (\"מגדל העמק\", " +
+      "\"קריית ביאליק\") = האזור שמכיל אותם; אם לא ברור לאיזה אזור - שאל/י עם האפשרויות. " +
+      "מקום שאינו באף אזור - אמור/י שהוא עוד לא באזורים שלנו, ואל תשמור/י טקסט חופשי. " +
+      "בכל אזור שנבחר מופיעים באתר הסוכן/ת והמשרד.",
     "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
     "",
     "יומן, פגישות ותזכורות:",

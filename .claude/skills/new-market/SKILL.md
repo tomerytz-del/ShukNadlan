@@ -19,7 +19,7 @@ description: פתיחת שוק מקומי חדש באתר שוק נדל״ן (א�
 `shuk_soon` מ-`search-pages.ts`). אין לזה צעד נפרד - ולכן התיבות קובעות גם
 מי מקבל/ת את ההזמנה: תיבה רחבה מדי מכריזה "נתניה נפתחת" לכפר סבא.
 
-## חמשת המקומות, וכולם חייבים להסכים
+## שישת המקומות, וכולם חייבים להסכים
 
 | # | המקום | מה נשבר בלעדיו |
 | --- | --- | --- |
@@ -28,9 +28,10 @@ description: פתיחת שוק מקומי חדש באתר שוק נדל״ן (א�
 | 3 | `_redirects`: `/<slug>  /market-soon  200` | הכתובת היא 404 |
 | 4 | `config.path` ב-`netlify/edge-functions/market-pages.ts` | הדף יוצא בלי שם השוק, בלי תגיות שיתוף **ובלי noindex** |
 | 5 | `scripts/markets_test.ts` - מקרה `locate` לנקודה בשוק | כפתור ה-GPS עלול לשלוח את האזור לשוק אחר, ואף בדיקה לא תראה |
+| 6 | `supabase/functions/_shared/service-markets.ts` - slug ושם | גבריאלה לא מציעה את השוק כאזור פעילות לסוכנים (ב-CRM הוא מופיע מעצמו) |
 
 ```sh
-python scripts/check_markets.py                               # 1-4 מסכימים
+python scripts/check_markets.py                               # 1-4 ו-6 מסכימים
 node --experimental-strip-types scripts/markets_test.ts       # 5 וההתנהגות
 ```
 
