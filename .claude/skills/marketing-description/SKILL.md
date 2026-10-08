@@ -89,6 +89,8 @@ const text = marketing || p.description || '';
   `docs/marketing-description.md`, "רענון המוני".
 * **בלי שורת תור אין התראה לסוכן/ת** - `mark_property_description` היא
   ששולחת אותה. מודדים `notifications` ו-`property_publications` לפני ואחרי.
+* **ההתראה נושאת `related_property_id`** - ממנו הקישור לכרטיס הנכס. מי
+  שמחליף/ה את `mark_property_description` שומר/ת עליו (סקיל `agent-notifications`).
 
 ## ‏`max_tokens` והפרומפט זזים יחד
 
