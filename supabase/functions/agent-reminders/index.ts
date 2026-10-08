@@ -88,6 +88,26 @@ function actionUrl(acc: string | null): string {
   return `${SITE_BASE}/crm?goto=${encodeURIComponent(safe!)}`;
 }
 
+/**
+ * מה שמוסיפים לקישור כדי שיפתח **את הנכסים שהממצא סופר**, ולא את כל הרשימה:
+ * "3 נכסים באוויר בלי תמונה" נפתח מסונן לשלושה, ונכס אחד - נפתח ישר.
+ * הערכים הם האופציות של #propExtraFilter ב-crm.html, וההגדרה של כל סינון
+ * זהה לממצא ב-agent_reminder_findings (ראו propertyHasImage וחבריה ב-crm.js).
+ * "לא נכנס נכס חדש" פותח את טופס הנכס החדש.
+ */
+const FINDING_PARAMS: Record<string, string> = {
+  missing_images: "&filter=no_images",
+  expiring_listings: "&filter=expiring",
+  stale_listings: "&filter=stale",
+  video_opportunity: "&filter=no_video",
+  idle_listings: "&focus=new",
+};
+
+function itemUrl(it: Item): string {
+  const base = actionUrl(it.action);
+  return it.action === "accProperties" ? base + (FINDING_PARAMS[it.kind] || "") : base;
+}
+
 const manageUrl = () => actionUrl(MANAGE_ACC);
 
 function esc(s: unknown): string {
@@ -113,7 +133,7 @@ function textBody(name: string | null, items: Item[]): string {
     greeting(name),
     "כמה דברים שכדאי לדעת על המודעות שלך:",
     "",
-    ...items.map((it) => `• ${it.title}\n  ${it.body}\n  ${actionUrl(it.action)}`),
+    ...items.map((it) => `• ${it.title}\n  ${it.body}\n  ${itemUrl(it)}`),
     "",
     `לשינוי כמות ההודעות, הערוצים והסוגים: ${manageUrl()}`,
   ];
@@ -127,7 +147,7 @@ function emailHtml(name: string | null, items: Item[]): string {
       <div style="border:1px solid #E4DFD6;border-radius:12px;padding:14px 16px;margin:0 0 10px;background:#fff">
         <p style="margin:0 0 6px;font-size:15px;font-weight:bold;color:#1B2A41">${esc(it.title)}</p>
         <p style="margin:0 0 12px;font-size:13.5px;line-height:1.65;color:#5A6675">${esc(it.body)}</p>
-        <a href="${esc(actionUrl(it.action))}"
+        <a href="${esc(itemUrl(it))}"
            style="display:inline-block;background:#1B2A41;color:#fff;text-decoration:none;padding:9px 18px;border-radius:8px;font-size:13.5px">
           לטיפול בדשבורד
         </a>
@@ -186,8 +206,10 @@ const WA_OPTED_OUT = 131050;
  * המחרוזת כולה ולא רק על המפריד.
  */
 function waSummary(items: Item[]): string {
+  // הקישור לכל ממצא בסוף הפריט ולא בכפתור: הכפתור היחיד בתבנית הוא ניהול
+  // התזכורות, ו-WhatsApp הופך כתובת בגוף ההודעה לקישור (כמו ב-notification-push).
   return items
-    .map((it) => `• ${it.title}: ${it.body}`)
+    .map((it) => `• ${it.title}: ${it.body} ${itemUrl(it)}`)
     .join(" ")
     .replace(/\s*[\r\n\t]+\s*/g, " ")
     .replace(/ {4,}/g, "   ")

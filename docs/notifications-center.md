@@ -30,6 +30,7 @@
 | `supabase/migrations/20261118090000_notifications_delete_policy.sql` | ‏policy המחיקה של הפעמון, שעד היום חי רק בפרודקשן |
 | `supabase/migrations/20261123090000_agent_onboarding.sql` | ארבעת סוגי הדרבון של מדריך ההתחלה, וחמשת הטריגרים שמייצרים אותם |
 | `supabase/migrations/20270320093000_notification_direct_links.sql` | ‏`related_property_id` ו-`related_client_id`, שמונה הפונקציות שכותבות אותם, וה-claim שמחזיר אותם לוואטסאפ |
+| `supabase/migrations/20270321093000_notification_direct_links_more.sql` | ‏`related_review_id` ו-`related_agreement_id`, נכס ששותף איתך, ביקורת, הסכם שנחתם, ותזכורת מהיומן בוואטסאפ |
 
 המיגרציה אידמפוטנטית.
 
@@ -439,17 +440,25 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 | עמודה | מי כותב/ת אותה |
 | --- | --- |
-| `related_property_id` | תיאור שיווקי, סרטון (הופק/נכשל), התאמה משני הצדדים, נכס שנמסר בהפנייה |
+| `related_property_id` | תיאור שיווקי, סרטון (הופק/נכשל), התאמה משני הצדדים, נכס שנמסר בהפנייה, **נכס ששותף איתך** |
 | `related_client_id` | התאמה ללקוח/ה, לקוח/ה שנמסר/ה בהפנייה |
 | `related_lead_id` | (קיימת) ליד חדש, תזכורת לחוות דעת, ליד שנמסר בהפנייה |
 | `related_showcase_id` | (קיימת) פעילות במיניסייט - ה-claim מתרגם אותה ללקוח/ה |
+| `related_review_id` | ביקורת חדשה (לסוכן/ת ולמנהלים) |
+| `related_agreement_id` | הסכם שנחתם מרחוק |
+| `related_agenda_item_id` | (קיימת) תזכורת מהיומן - מ-`20270321093000` גם בוואטסאפ, לא רק בפעמון |
 
 היעד נקבע ב-`itemPath()` ב-`notification-push` וב-`openNotificationTarget()`
 ב-`crm.js`, באותו סדר:
 
 | ההתראה | הקישור |
 | --- | --- |
+| תזכורת מהיומן | `/crm?goto=accAgenda&agenda=<id>` - הפריט ביומן, מודגש |
+| הסכם שנחתם | `/crm?goto=accAgreements&agreement=<id>` - כרטיס ההסכם, אחרי טעינה מחדש |
+| ביקורת ממתינה, למי שמאשר/ת | `/crm?goto=accReviews&review=<id>` - הכרטיס בתור האישור |
+| ביקורת שפורסמה | `/agent?slug=<slug>#reviewsSec` - דף הסוכן/ת. ביקורת על עצמך שממתינה - אין יעד |
 | `client_match` עם לקוח/ה אחד/ת | `/crm?goto=accClients&client=<id>&focus=matches` - הכרטיס עם רשימת ההתאמות פתוחה |
+| נכס של משרד אחר ("נכס חדש שותף איתך") | `/crm?goto=accSharedWithMe&property=<id>` - ב"שותפו איתי", לפי `property_mine` מה-claim |
 | נכס (חוץ מ-`client_match` ו-`deal_closed`) | `/crm?goto=accProperties&property=<id>` - הכרטיס של הנכס, גם אם הוא ישן או מסונן |
 | לקוח/ה | `/crm?goto=accClients&client=<id>` |
 | ליד | `/crm?goto=accLeads&lead=<id>` |

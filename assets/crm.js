@@ -1819,9 +1819,14 @@ function handleGotoParam(){
   const propertyId = params.get('property');
   const leadId = params.get('lead');
   const focus = params.get('focus');
+  const agendaId = params.get('agenda');
+  const agreementId = params.get('agreement');
+  const reviewId = params.get('review');
+  const filter = params.get('filter');
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus'].forEach(k => params.delete(k));
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter']
+      .forEach(k => params.delete(k));
     const search = params.toString();
     history.replaceState(history.state, '',
       location.pathname + (search ? '?' + search : '') + location.hash);
@@ -1835,10 +1840,92 @@ function handleGotoParam(){
      נחיתה רכה, כמו בפעמון. */
   if (raw === 'accClients' && clientId) openClientFromParam(clientId, focus);
   if (raw === 'accProperties' && propertyId) openPropertyFromParam(propertyId);
+  if (raw === 'accProperties' && filter) openPropertyFilterFromParam(filter);
+  if (raw === 'accProperties' && focus === 'new')
+    openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
+  if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
+  if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
+  if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
+  if (raw === 'accAgenda' && UUID_PARAM_RE.test(agendaId || '')) agendaFocus(agendaId);
 }
 
+/* פותח שורה ברשימת טאבים (buildTabRow) וגולל אליה. ‏key ו-list הם מה שבנה
+   את מזהה הפאנל - ‏'tabPanel-' + list + '-' + key. */
+function scrollToTabRow(list, key){
+  setTimeout(() => {
+    const panel = document.getElementById('tabPanel-' + list + '-' + key);
+    const tab = panel && panel.closest('.prop-tab');
+    if (tab) tab.scrollIntoView({ behavior:'smooth', block:'start' });
+  }, 450);
+}
+
+/* ‏?property=<id> לצד ?goto=accSharedWithMe - "נכס חדש שותף איתך". הנכס
+   של משרד אחר, ולכן הוא ב"שותפו איתי" ולא ב"הנכסים שלי". */
+function openSharedFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '')) return;
+  const r = sharedWithMeRows.find(x => x.property_id === id);
+  if (!r) return;
+  ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  const key = r.share_id || r.property_id;
+  expandedSharedIds.add(key);
+  renderSharedWithMe();
+  scrollToTabRow('shared', key);
+}
+
+/* ‏?agreement=<id> - "הסכם שנחתם מרחוק". ‏loadAgreements ולא רק render:
+   החתימה נכנסה למסד אחרי שהרשימה נטענה. */
+async function openAgreementFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '')) return;
+  await loadAgreements();
+  if (!agreementRows.some(a => a.id === id)) return;
+  ['agrSearch','agrStatusFilter','agrKindFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  expandedAgreementIds.add(id);
+  renderAgreements();
+  scrollToTabRow('agreement', id);
+}
+
+/* ‏?review=<id> - ביקורת שממתינה לאישור המנהל/ת. התור הוא רשימת כרטיסים
+   ולא טאבים, ולכן מסמנים את הכרטיס עצמו. */
+async function openReviewFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '') || !currentAgent || !currentAgent.agency_id) return;
+  await loadPendingReviews(currentAgent.agency_id);
+  setTimeout(() => {
+    const card = document.querySelector(`[data-review-id="${id}"]`);
+    if (!card) return;
+    card.classList.add('is-focus');
+    card.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block:'center' });
+    setTimeout(()=> card.classList.remove('is-focus'), 2600);
+  }, 450);
+}
+
+/* ממצא תזכורת ← הסינון המהיר שמראה בדיוק את הנכסים שהוא סופר. אותה טבלה
+   כמו FINDING_PARAMS ב-supabase/functions/agent-reminders - שינוי באחת מחייב
+   את השנייה. */
+const REMINDER_FILTERS = {
+  missing_images: 'no_images', expiring_listings: 'expiring',
+  stale_listings: 'stale', video_opportunity: 'no_video', idle_listings: 'new',
+};
+
 const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* ‏?filter=<סינון מהיר> לצד ?goto=accProperties - התזכורת השבועית ("3 נכסים
+   באוויר בלי תמונה") פותחת את הרשימה מסוננת בדיוק לנכסים האלה, מפורסמים
+   בלבד כמו הספירה במסד. נכס אחד ברשימה - נפתח מיד. ערך שאינו אופציה
+   בבורר פשוט לא מסנן. */
+function openPropertyFilterFromParam(filter){
+  const extra = document.getElementById('propExtraFilter');
+  if (!extra || ![...extra.options].some(o => o.value === filter && o.value)) return;
+  ['propSearch','propDealFilter','propTypeFilter','propCityFilter']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  document.getElementById('propStatusFilter').value = 'active';
+  extra.value = filter;
+  renderPropertiesFromTop();
+  const rows = filterProperties(myPropertyRows, propertyFilterState());
+  if (rows.length === 1) openPropertyFromParamKeepFilters(rows[0].id);
+}
 
 /* ‏?property=<id> לצד ?goto=accProperties - "נכתב תיאור לנכס", "הסרטון מוכן",
    "הנכס שלך מתאים ללקוח/ה": הכרטיס של הנכס נפתח ונגלל אליו, ולא רק הרשימה.
@@ -1851,6 +1938,10 @@ function openPropertyFromParam(id){
   if (!myPropertyRows.some(p => p.id === id)) return;
   ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter']
     .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  openPropertyFromParamKeepFilters(id);
+}
+
+function openPropertyFromParamKeepFilters(id){
   const f = propertyFilterState();
   const idx = sortProperties(myPropertyRows, f.sort).findIndex(p => p.id === id);
   propTabsShown = Math.max(propTabsShown, idx + 1);
@@ -1898,6 +1989,12 @@ function openNotificationTarget(n){
   if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
+  if (n.related_property_id && sharedWithMeRows.some(r => r.property_id === n.related_property_id))
+    return go('accSharedWithMe', () => openSharedFromParam(n.related_property_id));
+  if (n.related_agreement_id)
+    return go('accAgreements', () => openAgreementFromParam(n.related_agreement_id));
+  if (n.related_review_id && n.type === 'review_new')
+    return go('accReviews', () => openReviewFromParam(n.related_review_id));
   return false;
 }
 
@@ -7909,6 +8006,7 @@ async function loadPendingReviews(agencyId){
   reviews.forEach(r=>{
     const card = document.createElement('div');
     card.className = 'card lead-card';
+    card.dataset.reviewId = r.id;
     card.innerHTML = `
       <div class="lead-top">
         <div>
@@ -12719,6 +12817,29 @@ function propertyIsExpired(p){
     new Date(p.listing_expires_at) < new Date(new Date().toDateString());
 }
 
+/* ארבעת הסינונים שהתזכורות השבועיות מקשרות אליהם (‏?filter= ב-handleGotoParam).
+   כל אחד חייב להגדיר בדיוק כמו הממצא שלו ב-agent_reminder_findings, אחרת
+   "3 נכסים בלי תמונה" בהודעה נפתח לרשימה של ארבעה. הספים מ-pricing_config,
+   כמו במסד. */
+function propertyHasImage(p){
+  return !!(p.images && p.images.length) || !!String(p.marketing_image || '').trim();
+}
+function propertyHasVideo(p){
+  return !!String(p.video_url || '').trim() || !!String(p.tour_3d_url || '').trim() || !!p.has_virtual_tour;
+}
+function propertyIsExpiring(p){
+  if (!p.listing_expires_at) return false;
+  const today = new Date(new Date().toDateString());
+  const end = new Date(today); end.setDate(end.getDate() + priceOf('agent_reminder_expiry_days', 14));
+  const d = new Date(p.listing_expires_at);
+  return d >= today && d <= end;
+}
+function propertyIsStale(p){
+  const touched = Math.max(new Date(p.bumped_at || p.created_at).getTime(),
+                           new Date(p.updated_at || p.created_at).getTime());
+  return touched < Date.now() - priceOf('agent_reminder_stale_days', 60) * 86400000;
+}
+
 // מיון עולה/יורד על שדה מספרי: ערך חסר תמיד יורד לסוף, בשני הכיוונים —
 // נכס בלי מ״ר לא אמור לקפוץ לראש הרשימה רק כי מיינו מהנמוך לגבוה
 function numericCompare(a, b, dir){
@@ -12781,7 +12902,10 @@ function filterProperties(rows, f){
     if (f.extra === 'promoted'   && !propertyIsPromoted(p)) return false;
     if (f.extra === 'shared'     && !p.shared_with_partners) return false;
     if (f.extra === 'not_shared' && p.shared_with_partners) return false;
-    if (f.extra === 'no_images'  && (p.images && p.images.length)) return false;
+    if (f.extra === 'no_images'  && propertyHasImage(p)) return false;
+    if (f.extra === 'no_video'   && propertyHasVideo(p)) return false;
+    if (f.extra === 'expiring'   && !propertyIsExpiring(p)) return false;
+    if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
     if (!f.q) return true;
     return propertySearchBlob(p).includes(f.q);
@@ -12860,7 +12984,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -23905,7 +24029,14 @@ function renderReminders(){
       go.type = 'button';
       go.className = 'rm-go';
       go.textContent = 'לטיפול בזה ←';
-      go.addEventListener('click', ()=> gotoSection(f.action_acc));
+      go.addEventListener('click', ()=>{
+        gotoSection(f.action_acc);
+        // אותו סינון שהקישור במייל ובוואטסאפ פותח (FINDING_PARAMS ב-agent-reminders)
+        const filter = REMINDER_FILTERS[f.kind];
+        if (f.action_acc === 'accProperties' && filter === 'new')
+          openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+        else if (f.action_acc === 'accProperties' && filter) openPropertyFilterFromParam(filter);
+      });
       item.appendChild(go);
     }
     el.appendChild(item);

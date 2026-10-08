@@ -105,6 +105,12 @@ type Item = {
   property_id?: string | null;
   client_id?: string | null;
   lead_id?: string | null;
+  // ‏20270321093000: נכס של משרד אחר (שיתוף), תזכורת, הסכם וביקורת
+  property_mine?: boolean | null;
+  agenda_item_id?: string | null;
+  agreement_id?: string | null;
+  review_id?: string | null;
+  review_agent_slug?: string | null;
 };
 
 class WhatsappError extends Error {
@@ -133,15 +139,31 @@ const uuidOr = (v: unknown): string | null =>
  * הסדר חשוב רק ב-client_match: היא נושאת גם את הנכס וגם את הלקוח/ה, והפעולה
  * הבאה היא אצל הלקוח/ה (להתקשר, לשלוח), כי הנכס בדרך כלל של מישהו אחר.
  * עסקה שנסגרה מגיעה למנהל/ת, והנכס של סוכן/ת אחר/ת - אין לו כרטיס אצלו/ה.
- * ‏`?property=`, ‏`?client=` ו-`?lead=` נקראים ב-handleGotoParam ב-crm.js.
+ * נכס של משרד אחר (‏property_mine = false, "נכס חדש שותף איתך") נפתח ב"שותפו
+ * איתי". ביקורת ממתינה מגיעה עם review_id רק למי שמאשר/ת אותה, ומפורסמת -
+ * עם הסלאג של הסוכן/ת, לדף הציבורי.
+ * הפרמטרים נקראים ב-handleGotoParam ב-crm.js.
  */
 function itemPath(it: Item): string | null {
   const property = uuidOr(it.property_id);
   const client = uuidOr(it.client_id);
   const lead = uuidOr(it.lead_id);
+  const agenda = uuidOr(it.agenda_item_id);
+  const agreement = uuidOr(it.agreement_id);
+  const review = uuidOr(it.review_id);
 
+  if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
+  if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
+  if (it.type === "review_new" || it.type === "review_alert") {
+    if (review) return `/crm?goto=accReviews&review=${review}`;
+    if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
+    return null;
+  }
   if (client && it.type === "client_match") {
     return `/crm?goto=accClients&client=${client}&focus=matches`;
+  }
+  if (property && it.property_mine === false) {
+    return `/crm?goto=accSharedWithMe&property=${property}`;
   }
   if (property && it.type !== "client_match" && it.type !== "deal_closed") {
     return `/crm?goto=accProperties&property=${property}`;
