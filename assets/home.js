@@ -1112,7 +1112,9 @@ function marketText(afula, other){
 const MS = window.MarketScope || null;
 function marketFilterSpec(){ return MS ? MS.spec(sb) : Promise.resolve(null); }
 function marketOrFilter(spec){ return MS ? MS.orFilter(spec) : null; }
-function inMarket(spec, cityId){ return MS ? MS.inMarket(spec, cityId) : true; }
+function inMarket(spec, cityId, slugs){ return MS ? MS.inMarket(spec, cityId, slugs) : true; }
+/* אזורי הפעילות של הסוכנים (agency_members.service_markets) - ריק בכשל */
+function marketMembers(){ return MS && MS.memberMarkets ? MS.memberMarkets(sb) : Promise.resolve({ byAgent:new Map(), byAgency:new Map() }); }
 function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
 
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
@@ -1291,9 +1293,10 @@ async function loadLeadingAgencies(){
       ? allAgencies.filter(a => staffed.has(a.id))
       : allAgencies;
     // ‏המשרדים של השוק (MARKET_FILTER): לפי העיר של המשרד (agencies.city_id,
-    // מהכתובת הרשומה). משרד בלי עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
-    const marketSpec = await marketFilterSpec();
-    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id));
+    // מהכתובת הרשומה), או אזור פעילות שאחד/ת מהסוכנים בו בחר/ה. משרד בלי
+    // עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
+    const [marketSpec, svc] = await Promise.all([marketFilterSpec(), marketMembers()]);
+    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id, svc.byAgency.get(a.id)));
 
     // מספר הוואטסאפ של כל משרד: מנהל/ת עם מספר תקין, ואם אין — החבר/ה
     // הראשון/ה שיש לו/ה. ‏phone_e164 נכנס ל-href, ולכן הוא עובר את אותה
@@ -1400,9 +1403,9 @@ async function loadLeadingAgents(){
       const { data: agencies } = await sb.from('agencies').select('id, name, cover_url, city_id').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
-    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, אותו כלל של כרטיסי המשרדים
-    const marketSpec = await marketFilterSpec();
-    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null);
+    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, או אזור פעילות שבחרו
+    const [marketSpec, svc] = await Promise.all([marketFilterSpec(), marketMembers()]);
+    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null, svc.byAgent.get(m.id));
 
     const rankByAgent = {};
     (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });

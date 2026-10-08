@@ -4,7 +4,7 @@ import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
-import { resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -135,7 +135,7 @@ Deno.serve(async (req: Request) => {
     // עיר המשרד מהטופס - בלעדיה המשרד אינו נספר באף שוק מקומי (20270115101000)
     const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
-      .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId }).select().single();
+      .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body) }).select().single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
 
     // ----------------------------------------------------------------------

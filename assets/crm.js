@@ -1068,11 +1068,20 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     return;
   }
   const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther')) : null;
+  const agencyStreet = document.getElementById('caAgencyStreet').value.trim();
+  if (!agencyStreet){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא את כתובת המשרד (רחוב ומספר)';
+    return;
+  }
   if (window.AgencyCity && !agencyCity){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא לבחור את עיר המשרד';
     return;
   }
+  const agencyAddress = window.AgencyCity
+    ? AgencyCity.address(agencyStreet, document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther'))
+    : agencyStreet;
   if (!document.getElementById('caEthicsConsent').checked){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'כדי להמשיך יש לאשר את תנאי השימוש וקוד האתיקה';
@@ -1087,7 +1096,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, manager_phone: phone, ...(agencyCity || {}), ethics_code_accepted: true }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, manager_phone: phone, ...(agencyCity || {}), address: agencyAddress, ethics_code_accepted: true }),
     });
     const data = await res.json();
 
@@ -6147,6 +6156,63 @@ function renderSpecialtyChoices(selected){
   enforceSpecialtyLimit();
 }
 
+/* ---- אזורי הפעילות ----
+   הרשימה הסגורה של השווקים (ShukMarkets.list), פעילים ושאינם. נשמר כ-slug-ים
+   ב-agency_members.service_markets, ושמות האזורים נכתבים גם ל-service_area -
+   השדה שהבוט, agents.html וגרסאות במטמון עדיין קוראים. */
+function marketOptions(){
+  const list = (window.ShukMarkets && Array.isArray(window.ShukMarkets.list)) ? window.ShukMarkets.list : [];
+  return list.map(m => ({ slug: m.slug, label: m.label, live: !!m.live }));
+}
+
+function renderMarketChoices(selected){
+  const container = document.getElementById('pfMarkets');
+  if (!container) return;
+  const chosen = Array.isArray(selected) ? selected : [];
+  container.innerHTML = marketOptions().map(m => `
+    <label class="checkbox-item"><input type="checkbox" value="${esc(m.slug)}" ${chosen.includes(m.slug) ? 'checked' : ''}> ${esc(m.label)}${m.live ? '' : ' <span style="font-size:.7rem;color:var(--ink-soft)">(בקרוב)</span>'}</label>
+  `).join('');
+  container.querySelectorAll('input').forEach(input => input.addEventListener('change', renderProfilePreview));
+}
+
+function selectedMarkets(){
+  return Array.from(document.querySelectorAll('#pfMarkets input:checked')).map(el => el.value);
+}
+
+/* שמות האזורים לשדה הטקסט הישן - עד 60 תווים, בלי לחתוך שם באמצע */
+function marketsAreaText(slugs){
+  const labels = marketOptions().filter(m => slugs.includes(m.slug)).map(m => m.label);
+  let out = '';
+  for (const l of labels){
+    const next = out ? out + ', ' + l : l;
+    if (next.length > 60) break;
+    out = next;
+  }
+  return out;
+}
+
+/* ‏service_markets נטען ונשמר בנפרד מהפרופיל: עמודה שעוד לא קיימת במסד
+   הייתה מפילה את כל השמירה, וכאן היא מפילה רק את התוספת. */
+/* פרופיל ותיק שבו "אזור התמחות" הוקלד כטקסט: מסמנים מראש את השווקים ששמם
+   או העיר המרכזית שלהם מופיעים בו. רק הצעה - נשמר רק אם לוחצים "שמירה". */
+function guessMarketsFromText(text){
+  const t = String(text || '');
+  if (!t.trim()) return [];
+  const list = (window.ShukMarkets && Array.isArray(window.ShukMarkets.list)) ? window.ShukMarkets.list : [];
+  return list.filter(m => (m.label && t.includes(m.label)) || (m.city && t.includes(m.city))).map(m => m.slug);
+}
+
+async function loadAgentMarkets(agentId){
+  try{
+    const { data, error } = await sb.from('agency_members').select('service_markets').eq('id', agentId).maybeSingle();
+    if (error) throw error;
+    return Array.isArray(data?.service_markets) ? data.service_markets : [];
+  }catch(e){
+    console.warn('אזורי הפעילות לא נטענו:', e);
+    return [];
+  }
+}
+
 function selectedSpecialties(){
   return Array.from(document.querySelectorAll('#pfSpecialties input:checked')).map(el => el.value);
 }
@@ -6237,7 +6303,11 @@ function loadProfileSettings(agent){
   document.getElementById('pfIdNumber').dataset.ilIdOk = agent.id_number || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
-  document.getElementById('pfArea').value = agent.service_area || '';
+  renderMarketChoices(Array.isArray(agent.service_markets) ? agent.service_markets : []);
+  loadAgentMarkets(agent.id).then(slugs => {
+    agent.service_markets = slugs;
+    renderMarketChoices(slugs.length ? slugs : guessMarketsFromText(agent.service_area));
+  });
   document.getElementById('pfCredentials').value = agent.credentials || '';
   renderSpecialtyChoices(agent.specialties);
   // slug יכול להיות ריק לסוכנים ותיקים — agent.html יודע לקבל גם id גולמי
@@ -6535,7 +6605,7 @@ function renderProfilePreview(){
   }
 }
 
-['pfName','pfLicense','pfBio','pfYears','pfCredentials','pfArea'].forEach(id=>{
+['pfName','pfLicense','pfBio','pfYears','pfCredentials'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderProfilePreview);
 });
 
@@ -6560,7 +6630,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
   // הסוכן/ת יוכל פשוט לבדוק "יש ערך?" בלי לנקות רווחים בצד שלו
   const yearsRaw = document.getElementById('pfYears').value.trim();
   const years = yearsRaw === '' ? null : parseInt(yearsRaw, 10);
-  const serviceArea = document.getElementById('pfArea').value.trim();
+  const serviceMarkets = selectedMarkets();
+  const serviceArea = marketsAreaText(serviceMarkets);
   const credentials = document.getElementById('pfCredentials').value.trim();
   const specialties = selectedSpecialties();
 
@@ -6647,6 +6718,13 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     }
     if (error) throw error;
 
+    // אזורי הפעילות - עדכון נפרד (ראו loadAgentMarkets)
+    {
+      const { error: mErr } = await sb.from('agency_members').update({ service_markets: serviceMarkets }).eq('id', currentAgent.id);
+      if (mErr) console.warn('אזורי הפעילות לא נשמרו:', mErr);
+      else saved.service_markets = serviceMarkets;
+    }
+
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
     if (profileState.pendingDeletes.length){
       sb.storage.from(PROFILE_BUCKET).remove(profileState.pendingDeletes).catch(()=>{});
@@ -6660,7 +6738,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfIdNumber').dataset.ilIdOk = saved.id_number || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
-    document.getElementById('pfArea').value = saved.service_area || '';
+    renderMarketChoices(saved.service_markets || serviceMarkets);
     document.getElementById('pfCredentials').value = saved.credentials || '';
     renderSpecialtyChoices(saved.specialties);
     renderHeaderAvatar(currentAgent);
