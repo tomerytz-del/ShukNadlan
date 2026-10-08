@@ -2266,6 +2266,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .rm-item.ag-item.is-done{opacity:.62}
   .rm-item.ag-item.is-done .rm-title{text-decoration:line-through}
   .rm-item.ag-item.is-focus{box-shadow:0 0 0 2px var(--teal)}
+  /* ביקורת שהקישור מההתראה הוביל אליה - ראו openReviewFromParam */
+  .lead-card.is-focus{box-shadow:0 0 0 2px var(--teal)}
   .ag-when{font-size:.74rem;font-weight:700;color:var(--teal)}
   .rm-item.is-late .ag-when{color:#dc2626}
   .ag-acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
@@ -6300,6 +6302,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="shared">פתוחים לשת״פ</option>
           <option value="not_shared">לא פתוחים לשת״פ</option>
           <option value="no_images">ללא תמונות</option>
+          <option value="no_video">בלי סרטון או סיור</option>
+          <option value="expiring">תוקף נגמר בקרוב</option>
+          <option value="stale">לא עודכנו מזמן</option>
           <option value="expired">פג תוקף</option>
         </select>
         <select id="propSort" class="filter-input" aria-label="מיון">

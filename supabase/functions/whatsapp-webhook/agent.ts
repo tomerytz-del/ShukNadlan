@@ -1798,7 +1798,9 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     total,
     truncated: total > data.length,
     query: q || undefined,
-    properties: data,
+    // לכל נכס הכרטיס שלו ב-CRM - "תראי לי את הנכסים בלי תמונה" צריך להיגמר
+    // בקישור שפותח אותם, לא ב"היכנס/י ל-CRM".
+    properties: data.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
     note: total > data.length
       ? `מוצגים ${data.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
       : undefined,
@@ -2093,7 +2095,15 @@ async function toolPropertyStats(ctx: ToolContext) {
   const { data, error } = await ctx.supabase
     .rpc("agent_property_stats", { p_agent_id: ctx.agent.id });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, ...(data as Record<string, unknown>) };
+  const stats = (data || {}) as Record<string, unknown>;
+  return {
+    ok: true,
+    ...stats,
+    // הרשימה המסוננת ב-CRM - אותו קישור שהתזכורת השבועית שולחת
+    without_images_crm_link: Number(stats.active_without_images) > 0 && SITE_BASE_URL
+      ? `${SITE_BASE_URL}/crm?goto=accProperties&filter=no_images`
+      : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -5434,7 +5444,7 @@ const SYSTEM_STATIC: string = (() => {
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
     "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו. " +
-      "אם התקבל crm_link, צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
+      "אם התקבל crm_link (או שדה שנגמר ב-crm_link), צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
