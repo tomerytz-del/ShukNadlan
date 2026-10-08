@@ -36,6 +36,8 @@ export const PROMO_TIER: Tier = "premium";
 export const PROMO_MONTHS = 6;
 /** ימים לפני הסיום שבהם נשלחות שתי ההתראות — חודש לפני, ואז שבועיים אחרי. */
 export const PROMO_NOTICE_DAYS = [30, 14] as const;
+/** תזכורות בוואטסאפ בלבד (דרך הפעמון), שבוע ויום לפני הסיום. נרשמות ב-promo_notices. */
+export const PROMO_WHATSAPP_DAYS = [7, 1] as const;
 
 export interface PromoGrant {
   tier: Tier;

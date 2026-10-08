@@ -97,6 +97,22 @@ python scripts/check_agency_embed.py
 
 חוסמת ב-CI embed דו-משמעי סביב `agency_members` (בשני הכיוונים).
 
+## קוד שגיאה שחוזר לדפדפן
+
+‏`{ error: 'some_code' }` מגיע בסוף למסך. בדפדפן הוא עובר דרך
+`FriendlyError.text()` (ב-CRM `heErr()`), שמתרגמת קודים מוכרים לעברית, וכל
+קוד אחר מוצג כהודעה כללית עם הקוד בסוגריים. לכן:
+
+- **קוד חדש שהגולש/ת עלול/ה לראות** מקבל שורה ב-`RULES` ב-
+  `assets/friendly-error.js`, או מפה משלו בדף שקורא לפונקציה.
+- מעדיפים את הקודים שכבר ממופים (`unauthorized`, `forbidden`, `not_found`,
+  ‏`missing_fields`, `db_error`, `rate_limited`, `tier_required`…) על פני
+  שם חדש לאותו מצב.
+- טקסט אנושי ב-`detail` נכתב **בעברית**. טקסט בעברית עובר למסך כמו שהוא,
+  ואנגלית לעולם לא מוצגת.
+
+הפרטים: `docs/friendly-errors.md`.
+
 ## לפני הדחיפה
 
 ```sh

@@ -1280,12 +1280,15 @@ function applyDeepLink(){
       if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
     });
 
-    // ‏המתווכים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
-    // מתווך/ת במשרד בלי עיר נספר/ת בשוק ברירת המחדל. בלי הקובץ - כולם.
+    // ‏המתווכים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד,
+    // או אזור פעילות שהמתווך/ת בחר/ה בפרופיל. מתווך/ת במשרד בלי עיר נספר/ת
+    // בשוק ברירת המחדל. בלי הקובץ - כולם.
     const MS = window.MarketScope;
-    const scope = MS ? await MS.spec(sb) : null;
+    const [scope, svc] = MS
+      ? await Promise.all([MS.spec(sb), MS.memberMarkets ? MS.memberMarkets(sb) : null])
+      : [null, null];
     const local = MS
-      ? members.filter(m => MS.inMarket(scope, agencyById.get(m.agency_id)?.city_id || null))
+      ? members.filter(m => MS.inMarket(scope, agencyById.get(m.agency_id)?.city_id || null, svc && svc.byAgent.get(m.id)))
       : members;
 
     finish(local.map(m => shapeAgent(

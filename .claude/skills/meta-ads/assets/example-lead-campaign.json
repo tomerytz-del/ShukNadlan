@@ -1,0 +1,66 @@
+{
+  "campaign_name": "לידים קונים | עפולה | 2026-10 | A/B זווית",
+  "destination": "lead_form",
+  "objective": "OUTCOME_LEADS",
+  "status": "PAUSED",
+  "special_ad_categories": [],
+  "currency": "ILS",
+  "required_disclosure": "רישיון תיווך <מספר>",
+  "identity": {
+    "page_id": "<PAGE_ID>",
+    "instagram_user_id": "<IG_USER_ID>"
+  },
+  "lead_form_id": "<FORM_ID>",
+  "ad_sets": [
+    {
+      "name": "זווית A – משפחות צעירות | עפולה +25 ק\"מ",
+      "daily_budget": 40,
+      "targeting": {
+        "geo_locations": {
+          "custom_locations": [
+            {"latitude": 32.6078, "longitude": 35.2897, "radius": 25, "distance_unit": "kilometer"}
+          ]
+        },
+        "age_min": 25,
+        "age_max": 50,
+        "advantage_audience": true,
+        "publisher_platforms": ["facebook", "instagram"]
+      },
+      "ads": [
+        {
+          "name": "A1_תמונה_משפחה",
+          "format": "image",
+          "image_path": "./creative/a1.jpg",
+          "headline": "דירות 4-5 חד' בעפולה",
+          "message": "מחפשים דירה ראשונה או שדרוג למשפחה בעפולה? 🏡\nהשאירו פרטים ונשלח לכם התאמות לפי התקציב.\n\nנדל\"ן עפולה | תומר יצחק, רישיון תיווך <מספר>",
+          "cta": "LEARN_MORE"
+        }
+      ]
+    },
+    {
+      "name": "זווית B – קרוסלת נכסים | עפולה +25 ק\"מ",
+      "daily_budget": 40,
+      "targeting": {
+        "geo_locations": {
+          "custom_locations": [
+            {"latitude": 32.6078, "longitude": 35.2897, "radius": 25, "distance_unit": "kilometer"}
+          ]
+        },
+        "advantage_audience": true
+      },
+      "ads": [
+        {
+          "name": "B1_קרוסלה_3_נכסים",
+          "format": "carousel",
+          "message": "<מספר> נכסים חדשים השבוע בעפולה 👇 החליקו לראות, והשאירו פרטים לתיאום סיור.\n\nנדל\"ן עפולה | תומר יצחק, רישיון תיווך <מספר>",
+          "cta": "LEARN_MORE",
+          "cards": [
+            {"image_path": "./creative/p1.jpg", "headline": "<חדרים> | <שכונה>", "description": "<מחיר>"},
+            {"image_path": "./creative/p2.jpg", "headline": "<חדרים> | <שכונה>", "description": "<מחיר>"},
+            {"image_path": "./creative/p3.jpg", "headline": "<סוג נכס> | <שכונה>", "description": "<מחיר>"}
+          ]
+        }
+      ]
+    }
+  ]
+}

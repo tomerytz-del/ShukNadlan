@@ -19,6 +19,13 @@
 // deno-lint-ignore no-explicit-any
 type Client = any;
 
+/** כתובת המשרד מהטופס ("הרצל 24, עפולה") ל-agencies.address. רשות - טופס ישן
+ *  שבמטמון אינו שולח אותה, והמשרד נפתח בלעדיה. */
+export function cleanAgencyAddress(body: { address?: unknown } | null | undefined): string | null {
+  const s = typeof body?.address === "string" ? body.address.replace(/\s+/g, " ").trim().slice(0, 160) : "";
+  return s || null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function resolveAgencyCityId(

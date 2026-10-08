@@ -9,6 +9,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>פתיחת חשבון יזם/קבלן | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -254,7 +256,7 @@ el('googleBtn').addEventListener('click', async ()=>{
     btn.disabled = false;
     btn.querySelector('.gl-label').textContent = 'הרשמה עם Google';
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message;
+    feedback.textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + (window.FriendlyError ? FriendlyError.text(error) : error);
   }
 });
 
@@ -398,7 +400,7 @@ el('submitBtn').addEventListener('click', async ()=>{
           ? 'שדות שאינם תקינים: ' + named(data.invalid)
           : 'חסרים שדות חובה: ' + named(data.missing),
       };
-      fail(messages[data.error] || ('שגיאה: ' + (data.detail || data.error)));
+      fail(messages[data.error] || (window.FriendlyError ? FriendlyError.text(data.detail || data.error) : data.detail || data.error));
       btn.disabled = false; btn.textContent = 'פתיחת החשבון';
       return;
     }

@@ -3,6 +3,15 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
+  applyPropertyFilters,
+  AREA_SCAN_LIMIT,
+  CATEGORIES,
+  DEAL_TYPES,
+  filterByArea,
+  likeSafe,
+  text,
+} from "./property-search.ts";
+import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
   PROJECT_PROPERTY_TYPES,
@@ -119,8 +128,6 @@ const FAIR_LINE =
   "לזמן מוגבל בלי דמי תיווך. אפשר להצטרף לרשימת העדכונים של היריד ולשמוע " +
   "ראשונים כשנכנס אליו נכס.";
 
-const DEAL_TYPES = ["sale", "rent"];
-const CATEGORIES = ["residential", "commercial"];
 const CONTACT_CHANNELS = ["whatsapp", "email", "both"];
 const PROPERTY_TYPES = [...new Set([...RESIDENTIAL_PTYPES, ...COMMERCIAL_PTYPES])];
 
@@ -847,56 +854,6 @@ function clampLimit(value: unknown, fallback: number, max: number): number {
   return Math.min(Math.round(n), max);
 }
 
-/**
- * מחרוזת נקייה בתקרת אורך. ברירת המחדל 80 מתאימה לשמות, ערים ומזהים —
- * **לא** לשדות חופשיים. ‏`free_text` ו-`note` מתקבלים ב-intake ב-500 וב-180
- * תווים בהתאמה, וגזירה ל-80 כאן הייתה קוטעת באמצע משפט את הדבר היחיד
- * שהפונה ניסח/ה במילים שלו/ה — ובלי שאיש ידע שזה קרה.
- */
-function text(value: unknown, maxLen = 80): string | null {
-  if (typeof value !== "string") return null;
-  const s = value.trim();
-  return s ? s.slice(0, maxLen) : null;
-}
-
-/**
- * מפתח השוואה לשם שכונה/אזור. גולשים כותבים "סי 1", "C-1", "שכונת c1" על
- * מה שבמסד הוא "לב העמק C1", והשוואת substring גולמית החזירה 0 בזמן שארבע
- * דירות 5 חדרים חיו שם (‏4.10.2026). לכן: אותיות לטיניות שנכתבו בעברית
- * חוזרות ללטינית, ורווחים, מקפים וגרשים נמחקים משני הצדדים.
- */
-const HEB_LATIN: [RegExp, string][] = [
-  [/(^|[^א-ת])סי(?=[\s\-]*\d)/g, "$1c"],
-  [/(^|[^א-ת])בי(?=[\s\-]*\d)/g, "$1b"],
-  [/(^|[^א-ת])די(?=[\s\-]*\d)/g, "$1d"],
-  [/(^|[^א-ת])אי(?=[\s\-]*\d)/g, "$1a"],
-];
-function areaKey(value: string): string {
-  let s = value.toLowerCase();
-  for (const [re, to] of HEB_LATIN) s = s.replace(re, to);
-  return s.replace(/[^0-9a-zא-ת]/g, "");
-}
-/** "שכונת C1" → "C1": המילה הכללית אינה חלק מהשם שבמסד. */
-function areaNeedle(value: string): string {
-  return areaKey(value.replace(/^\s*(שכונת|שכונה|שכ'|אזור|איזור|באזור|בשכונת)\s+/, ""));
-}
-
-/**
- * סוגי הנכס במסד אינם אחידים ("מגרש" ו-"מגרשים", "גג/פנטהאוז"), ו-`in`
- * מדויק החמיץ אותם. התאמה חלקית על הגזע: סיומת רבים יורדת, וכל שאר
- * התווים שאינם אות או רווח נמחקים - כך שהערך אינו יכול לשבור את תחביר
- * ה-`or` של PostgREST.
- */
-function typePattern(value: string): string | null {
-  const stem = value.replace(/[^א-תa-zA-Z\s]/g, " ").trim()
-    .replace(/(ים|ות)$/, "").replace(/\s+/g, "*");
-  return stem.length >= 2 ? `property_type.ilike.*${stem}*` : null;
-}
-
-/** התאמה חלקית ב-PostgREST. ‏% ו-_ בקלט של משתמש חייבים בריחה. */
-function likeSafe(value: string): string {
-  return `%${value.replace(/[%_\\]/g, "\\$&")}%`;
-}
 
 async function searchProperties(
   ctx: PublicContext,
@@ -905,62 +862,17 @@ async function searchProperties(
   const limit = clampLimit(args.limit, 5, MAX_RESULTS);
   const area = text(args.area);
 
-  let query = ctx.supabase
-    .from("properties")
-    .select(PROPERTY_FIELDS)
-    .eq("status", "active");
-
-  const dealType = text(args.deal_type);
-  if (dealType && DEAL_TYPES.includes(dealType)) query = query.eq("deal_type", dealType);
-
-  const category = text(args.category);
-  if (category && CATEGORIES.includes(category)) query = query.eq("category", category);
-
-  const city = text(args.city);
-  if (city) query = query.ilike("city", likeSafe(city));
-
-  if (Array.isArray(args.property_types)) {
-    const types = args.property_types
-      .map((t) => text(t))
-      .filter((t): t is string => !!t)
-      .slice(0, 6);
-    const patterns = types.map(typePattern).filter((t): t is string => !!t);
-    if (patterns.length) query = query.or(patterns.join(","));
-  }
-
-  const num = (v: unknown): number | null => {
-    const n = Number(v);
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  };
-  const minPrice = num(args.min_price);
-  const maxPrice = num(args.max_price);
-  const minRooms = num(args.min_rooms);
-  const maxRooms = num(args.max_rooms);
-  const minSize = num(args.min_size_sqm);
-  const maxFloor = num(args.max_floor);
-  if (minPrice !== null) query = query.gte("price", minPrice);
-  if (maxPrice !== null) query = query.lte("price", maxPrice);
-  if (minRooms !== null) query = query.gte("rooms", minRooms);
-  if (maxRooms !== null) query = query.lte("rooms", maxRooms);
-  if (minSize !== null) query = query.gte("size_sqm", minSize);
-  if (maxFloor !== null) query = query.lte("floor", maxFloor);
-
-  if (Array.isArray(args.features)) {
-    const feats = args.features
-      .map((f) => text(f))
-      .filter((f): f is string => !!f)
-      .slice(0, 8);
-    if (feats.length) query = query.contains("features", feats);
-  }
+  const built = applyPropertyFilters(
+    ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
+    args,
+  );
+  const query = built.query;
+  const { city, minPrice, maxPrice, minRooms, maxRooms, minSize } = built.parsed;
 
   // אותו סדר כמו באתר: מקודמים קודם, ואז מי שנדחף/עודכן לאחרונה.
   //
-  // סינון האזור נעשה **אחרי** השליפה (ראו למטה), ולכן שליפה לפי אזור חייבת
-  // להיות רחבה. התקרה היא פשרה מדודה ולא שרירותית: חיפוש אזור שמחזיר 0
-  // בזמן שהנכס חי באתר הוא כשל שקט — הבוט אומר "לא נמצא" והפונה מאמין.
-  // ‏400 מכסה בנוחות את כל הלוח בהיקף הנוכחי; אם הוא יגדל בסדר גודל, זו
-  // הנקודה שבה הסינון צריך לרדת ל-SQL (RPC עם join לשכונות).
-  const AREA_SCAN_LIMIT = 400;
+  // סינון האזור נעשה **אחרי** השליפה (‏filterByArea), ולכן שליפה לפי אזור
+  // רחבה - AREA_SCAN_LIMIT.
   const { data, error } = await query
     .order("is_promoted", { ascending: false })
     .order("bumped_at", { ascending: false, nullsFirst: false })
@@ -969,63 +881,12 @@ async function searchProperties(
 
   if (error) return { error: "search_failed", detail: error.message };
 
-  // השכונה יושבת בטבלה אחרת ואזור המכירה בעמודת טקסט חופשי; סינון על שתיהן
-  // בשאילתה אחת דורש embed מסוג inner, שמפיל נכסים בלי שכונה משויכת.
-  let rows = data || [];
+  let rows: Array<Record<string, unknown>> = data || [];
   let areaHint: Record<string, unknown> = {};
   if (area) {
-    const needle = areaNeedle(area) || areaKey(area);
-    // כינויים שנקבעו בהכרעה (‏`neighborhood_aliases`): "C1" ו"לב העמק" הם
-    // "לב העמק C1". הם מוסיפים שכונות שמותר להתאים, ואינם מחליפים את השם.
-    const aliasHoods = new Set<string>();
-    if (needle) {
-      const { data: aliases } = await ctx.supabase
-        .from("neighborhood_aliases")
-        .select("alias, neighborhoods(name, city)");
-      for (const a of aliases || []) {
-        // deno-lint-ignore no-explicit-any
-        const n = (a as any).neighborhoods;
-        if (!n?.name || (city && !String(n.city || "").includes(city))) continue;
-        const k = areaKey(String(a.alias));
-        if (k && (k === needle || k.includes(needle) || needle.includes(k))) {
-          aliasHoods.add(areaKey(n.name));
-        }
-      }
-    }
-    rows = rows.filter((p) => {
-      // deno-lint-ignore no-explicit-any
-      const hood = areaKey((p as any).neighborhoods?.name || "");
-      // deno-lint-ignore no-explicit-any
-      const sales = areaKey((p as any).sales_area || "");
-      return !!needle &&
-        (hood.includes(needle) || sales.includes(needle) || aliasHoods.has(hood));
-    }).slice(0, limit);
-
-    // ‏0 תוצאות כשהשם עצמו אינו מוכר אינו "אין נכסים שם" אלא "לא הבנתי
-    // איפה" - ובלי הרמז הבוט אמר "לא מצאתי ב-21" כאילו בדק.
-    if (!rows.length && !args._relaxed && !aliasHoods.size) {
-      let hoods = ctx.supabase.from("neighborhoods").select("name");
-      if (city) hoods = hoods.ilike("city", likeSafe(city));
-      let sales = ctx.supabase.from("properties").select("sales_area")
-        .eq("status", "active").not("sales_area", "is", null);
-      if (city) sales = sales.ilike("city", likeSafe(city));
-      const [{ data: known }, { data: salesRows }] = await Promise.all([
-        hoods.limit(200),
-        sales.limit(AREA_SCAN_LIMIT),
-      ]);
-      const names = [...new Set((known || []).map((n) => String(n.name)))];
-      const salesAreas = (salesRows || []).map((r) => String(r.sales_area));
-      if (![...names, ...salesAreas].some((n) => areaKey(n).includes(needle))) {
-        areaHint = {
-          area_not_recognized: true,
-          known_neighborhoods: names.slice(0, 40),
-          area_note:
-            "השכונה שהתבקשה אינה מוכרת במאגר בשם הזה. לא לומר \"לא מצאתי ב...\" " +
-            "כאילו נבדק - לשאול לאיזו מהשכונות ב-known_neighborhoods הכוונה, " +
-            "או לחפש שוב עם השם הנכון.",
-        };
-      }
-    }
+    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed });
+    rows = res.rows.slice(0, limit);
+    areaHint = res.hint;
   }
 
   // -------------------------------------------------------------------------

@@ -16,6 +16,9 @@ import { noLongDash } from "../_shared/marketing-copy.ts";
 //   ?event=recording  — ההקלטה מוכנה. עוברת אלינו (דלי call-recordings),
 //                       נמחקת מ-Twilio, מתומללת ב-Whisper ומסוכמת ב-Claude,
 //                       והסוכן/ת מקבל/ת בוואטסאפ את הסיכום ואת ההקלטה.
+//   ?event=voicemail  — הודעה קולית משיחה שלא נענתה (<Record>). אותו צינור
+//                       של ההקלטה, בכותרת "הודעה קולית".
+//   ?event=voicemail-done — ה-action של <Record>: תודה וניתוק.
 //   ?task=cleanup     — cron יומי: מחיקת הקלטות בנות 90 יום.
 //
 // ‏verify_jwt = false: את הפונקציה קוראת Twilio, בלי JWT. האימות הוא חתימת
@@ -58,6 +61,12 @@ const WA_AUDIO_MAX_BYTES = 16 * 1024 * 1024;
 const VOICE = 'voice="Google.he-IL-Standard-A" language="he-IL"';
 const MSG_RECORDED = "שלום, הגעתם לשוק נדל״ן. השיחה מוקלטת לשיפור השירות.";
 const MSG_MISSED = "לא הצלחנו לענות כרגע. נחזור אליכם בהקדם. תודה.";
+const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. השאירו הודעה אחרי הצליל, ונחזור אליכם בהקדם.";
+const MSG_VOICEMAIL_DONE = "תודה, ההודעה נשמרה.";
+// ‏הודעה קולית: עד שתי דקות, וחמש שניות של שקט מסיימות אותה. הודעה קצרה
+// מ-VOICEMAIL_MIN_SEC היא ניתוק אחרי הצליל ולא הודעה - נמחקת בלי תמלול.
+const VOICEMAIL_MAX_SEC = 120;
+const VOICEMAIL_MIN_SEC = 2;
 const MSG_UNASSIGNED = "המספר אינו פעיל כרגע. תודה.";
 
 const SITE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
@@ -142,7 +151,7 @@ async function findClient(agentId: string, fromNumber: string) {
   if (key.length !== 9) return null;
   const { data } = await supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, deal_type, cities, min_rooms, max_price")
+    .select("id, full_name, phone, status, client_kind, deal_type, cities, min_rooms, max_price")
     .eq("agent_id", agentId)
     .not("phone", "is", null)
     .limit(2000);
@@ -427,13 +436,34 @@ async function onDial(p: URLSearchParams): Promise<Response> {
     .from("agent_calls")
     .update({ status, duration_sec: duration })
     .eq("twilio_call_sid", callSid)
-    .select("id, agent_id, from_number, client_id")
+    .select("id, agent_id, from_number, client_id, line_id")
     .maybeSingle();
 
   if (!answered && call) EdgeRuntime.waitUntil(notifyMissed(call));
   if (call) EdgeRuntime.waitUntil(chargeMinutes(call.id));
 
-  return answered ? xml("<Hangup/>") : xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
+  if (answered) return xml("<Hangup/>");
+  return xml(await voicemailXml(call?.line_id ?? null));
+}
+
+/** ‏**תא קולי** במקום "נחזור אליכם" וניתוק. ההודעה עוברת את צינור ההקלטה
+ *  (‏event=voicemail): אחסון, תמלול, סיכום ווואטסאפ לסוכן/ת.
+ *
+ *  ‏**אותו תנאי של הקלטת שיחה** (‏phone_line_recording_allowed): מספר שעבר את
+ *  150 הדקות ואין לו יתרה ממשיך לקבל שיחות בלי הקלטה, ולכן גם בלי תא קולי.
+ *  ההודעה עצמה אינה נספרת בדקות (‏charge_call_minutes סופר שיחות שנענו):
+ *  היא עולה לנו קבלה + הקלטה + Whisper, כאגורה לשנייה עשרים. */
+async function voicemailXml(lineId: string | null): Promise<string> {
+  if (!lineId || !(await recordingAllowed(lineId))) {
+    return `<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`;
+  }
+  const cb = escXml(`${PUBLIC_BASE}?event=voicemail`);
+  const done = escXml(`${PUBLIC_BASE}?event=voicemail-done`);
+  return `<Say ${VOICE}>${escXml(MSG_VOICEMAIL)}</Say>` +
+    `<Record maxLength="${VOICEMAIL_MAX_SEC}" timeout="5" playBeep="true" trim="trim-silence" ` +
+    `action="${done}" method="POST" recordingStatusCallback="${cb}" ` +
+    `recordingStatusCallbackEvent="completed"/>` +
+    `<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`;
 }
 
 /** 150 דקות בחודש למספר, ומעבר לזה 0.5 ₪ לדקה מהארנק (charge_call_minutes).
@@ -500,7 +530,7 @@ async function notifyRinging(
     const lines = [`📞 *${client.full_name} מתקשר/ת עכשיו* (${localPhone(from)})`];
     if (label) lines.push(`דרך: ${label}`);
     const needs = needsLine(client).replace(/^:\s*/, "");
-    if (needs) lines.push(`מחפש/ת: ${needs}`);
+    if (needs) lines.push(client.client_kind === "owner" ? `בעל/ת נכס: ${needs}` : `מחפש/ת: ${needs}`);
     if (last?.summary) {
       const when = new Date(last.created_at).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric" });
       lines.push(`בשיחה הקודמת (${when}): ${last.summary}`);
@@ -524,7 +554,7 @@ async function notifyMissed(call: { id: string; agent_id: string; from_number: s
     let action: CallAction | null = phone ? { body: NOT_IN_LIST, buttons: ["כן, תוסיף"] } : null;
     if (call.client_id) {
       const { data: c } = await supabase.from("agent_clients")
-        .select("full_name, deal_type, cities, min_rooms, max_price").eq("id", call.client_id).maybeSingle();
+        .select("full_name, client_kind, deal_type, cities, min_rooms, max_price").eq("id", call.client_id).maybeSingle();
       if (c) {
         who = `${c.full_name} (${phone})`;
         extra = "לקוח/ה מהקובץ" + needsLine(c);
@@ -558,6 +588,8 @@ const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצ�
 
 function needsLine(c: Record<string, any>): string {
   const parts: string[] = [];
+  // בעל/ת נכס (client_kind owner) אינו/ה מחפש/ת - שדות החיפוש לא אומרים עליו/ה דבר
+  if (c.client_kind === "owner") return `: ${c.deal_type === "rent" ? "משכיר/ה" : "מוכר/ת"}`;
   if (c.deal_type) parts.push(c.deal_type === "rent" ? "שכירות" : "קנייה");
   if (Array.isArray(c.cities) && c.cities.length) parts.push(c.cities.join(", "));
   if (c.min_rooms) parts.push(`${c.min_rooms}+ חדרים`);
@@ -569,7 +601,7 @@ function needsLine(c: Record<string, any>): string {
 // ההקלטה: אחסון, תמלול, סיכום, התראה
 // ---------------------------------------------------------------------------
 
-async function onRecording(p: URLSearchParams): Promise<Response> {
+async function onRecording(p: URLSearchParams, voicemail = false): Promise<Response> {
   if ((p.get("RecordingStatus") || "completed") !== "completed") return json({ ok: true, skipped: true });
   // עונים מיד: Twilio מנסה שוב אחרי 15 שניות, והעיבוד לוקח יותר.
   EdgeRuntime.waitUntil(processRecording({
@@ -577,6 +609,7 @@ async function onRecording(p: URLSearchParams): Promise<Response> {
     recordingSid: p.get("RecordingSid") || "",
     recordingUrl: p.get("RecordingUrl") || "",
     duration: Number(p.get("RecordingDuration") || 0) || null,
+    voicemail,
   }));
   return json({ ok: true });
 }
@@ -598,7 +631,9 @@ async function findCallForRecording(callSid: string) {
   return byParent;
 }
 
-async function processRecording(r: { callSid: string; recordingSid: string; recordingUrl: string; duration: number | null }) {
+async function processRecording(
+  r: { callSid: string; recordingSid: string; recordingUrl: string; duration: number | null; voicemail?: boolean },
+) {
   const call = await findCallForRecording(r.callSid);
   if (!call) {
     console.error("recording for unknown call", r.callSid, r.recordingSid);
@@ -606,23 +641,34 @@ async function processRecording(r: { callSid: string; recordingSid: string; reco
   }
   if (call.recording_path) return; // משלוח חוזר של Twilio
 
+  // ניתוק אחרי הצליל: אין הודעה. נמחקת מ-Twilio ולא מגיעה לסוכן/ת - ההתראה
+  // על השיחה שלא נענתה כבר יצאה.
+  if (r.voicemail && (r.duration ?? 0) < VOICEMAIL_MIN_SEC) {
+    deleteTwilioRecording(r.recordingSid);
+    return;
+  }
+
   try {
     // הורדה מ-Twilio
     const audioRes = await fetch(`${r.recordingUrl}.mp3`, { headers: { Authorization: twilioAuth() } });
     if (!audioRes.ok) throw new Error(`recording download ${audioRes.status}`);
     const bytes = new Uint8Array(await audioRes.arrayBuffer());
-    await analyzeCall(call, bytes, "audio/mpeg", r.duration, r.recordingSid);
+    await analyzeCall(call, bytes, "audio/mpeg", r.duration, r.recordingSid, !!r.voicemail);
 
     // מחיקה מ-Twilio: העותק היחיד נשאר אצלנו, עם תאריך תפוגה אחד.
-    fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Recordings/${encodeURIComponent(r.recordingSid)}.json`,
-      { method: "DELETE", headers: { Authorization: twilioAuth() } },
-    ).catch((e) => console.warn("twilio recording delete failed", e));
+    deleteTwilioRecording(r.recordingSid);
   } catch (err) {
     console.error("recording processing failed", err);
     await supabase.from("agent_calls").update({ error: String((err as Error)?.message || err).slice(0, 500) })
       .eq("id", call.id);
   }
+}
+
+function deleteTwilioRecording(recordingSid: string): void {
+  fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Recordings/${encodeURIComponent(recordingSid)}.json`,
+    { method: "DELETE", headers: { Authorization: twilioAuth() } },
+  ).catch((e) => console.warn("twilio recording delete failed", e));
 }
 
 const AUDIO_EXT: Record<string, string> = {
@@ -640,6 +686,7 @@ async function analyzeCall(
   mime: string,
   duration: number | null,
   recordingSid: string | null,
+  voicemail = false,
 ) {
   // 1. אלינו
   const ext = AUDIO_EXT[mime] || "mp3";
@@ -662,7 +709,7 @@ async function analyzeCall(
 
   // 3. סיכום
   const client = call.client_id
-    ? (await supabase.from("agent_clients").select("full_name, deal_type, cities, min_rooms, max_price")
+    ? (await supabase.from("agent_clients").select("full_name, client_kind, deal_type, cities, min_rooms, max_price")
       .eq("id", call.client_id).maybeSingle()).data
     : null;
   const summary = transcript ? await summarize(transcript, client?.full_name ?? null, places) : null;
@@ -685,24 +732,33 @@ async function analyzeCall(
   const mins = duration ? `${Math.max(1, Math.round(duration / 60))} דק׳` : "";
   const hasNeeds = !!summary?.needs && Object.keys(summary.needs).length > 0;
 
-  const lines = [`📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
+  // הודעה קולית: אותו סיכום ואותם כפתורים, בכותרת אחרת - הסוכן/ת לא דיבר/ה
+  // עם אף אחד, ו"סיכום שיחה" היה מטעה.
+  const secs = duration ? `${Math.round(duration)} שנ׳` : "";
+  const lines = [voicemail
+    ? `🎙️ *הודעה קולית* מ-${who}${secs ? ` · ${secs}` : ""}`
+    : `📞 *סיכום שיחה* עם ${who}${mins ? ` · ${mins}` : ""}`];
   const viaLabel = await lineLabelForCall(call.id);
   if (viaLabel) lines.push(`דרך: ${viaLabel}`);
   if (summary?.summary) lines.push("", summary.summary);
   else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
-  if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
+  const ownerCall = summary?.needs?.client_kind === "owner";
+  if (summary?.needs_text) lines.push("", `${ownerCall ? "*הנכס:*" : "*מחפש/ת:*"} ${summary.needs_text}`);
   if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
   // השאלות והכפתורים - הודעה נפרדת אחרי ההקלטה, כדי שיהיו הדבר האחרון במסך
   const asks: string[] = [];
   const buttons: string[] = [];
   if (!client) {
     if (phone) {
-      asks.push(NOT_IN_LIST + (hasNeeds ? " הדרישות מהשיחה ייכנסו לכרטיס." : ""));
+      asks.push(NOT_IN_LIST + (ownerCall ? " הוא/היא ייכנס/תיכנס כבעל/ת נכס, בלי התאמות."
+        : hasNeeds ? " הדרישות מהשיחה ייכנסו לכרטיס." : ""));
       buttons.push("כן, תוסיף");
     }
   } else {
     if (hasNeeds) {
-      asks.push(`לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה?`);
+      asks.push(ownerCall && client.client_kind !== "owner"
+        ? `לסמן את ${client.full_name} כבעל/ת נכס? הוא/היא יצא/תצא מההתאמות.`
+        : `לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה?`);
       buttons.push("כן, תעדכן");
     }
     await supabase.from("whatsapp_conversations")
@@ -725,7 +781,7 @@ async function analyzeCall(
   }
   const text = lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   const action = asks.length ? { body: asks.join("\n").trim(), buttons } : null;
-  await notifyAgent(agent, text, `סיכום שיחה עם ${who}: ${summary?.summary || ""}`, audioUrl, {
+  await notifyAgent(agent, text, `${voicemail ? "הודעה קולית מ" : "סיכום שיחה עם "}${who}: ${summary?.summary || ""}`, audioUrl, {
     action,
     urlSuffix: `/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`,
   });
@@ -881,8 +937,11 @@ async function transcribe(
   }
 }
 
-/** הדרישות בשדות של agent_clients - רק מה שנאמר. ‏מפתח חסר = לא עלה. */
+/** הדרישות בשדות של agent_clients - רק מה שנאמר. ‏מפתח חסר = לא עלה.
+ *  ‏client_kind owner = המתקשר/ת מוכר/ת או משכיר/ה נכס. בלעדיו, "כן, תוסיף"
+ *  יצר כרטיס קונה בלי דרישות - שמתאים לכל נכס במאגר. */
 export type CallNeeds = {
+  client_kind?: "owner";
   deal_type?: "sale" | "rent";
   cities?: string[];
   min_rooms?: number;
@@ -924,6 +983,12 @@ function cleanNeeds(raw: unknown): CallNeeds {
   const n = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const out: CallNeeds = {};
   if (n.deal_type === "sale" || n.deal_type === "rent") out.deal_type = n.deal_type;
+  // בעל/ת נכס: רק הצד וסוג העסקה. ערים, חדרים ומחיר שנאמרו הם של הנכס שלו/ה
+  // ולא דרישות - הם יושבים ב-needs_text, ולא ייכנסו לשדות החיפוש של הכרטיס.
+  if (n.client_kind === "owner") {
+    out.client_kind = "owner";
+    return out;
+  }
   if (Array.isArray(n.cities)) {
     const cities = n.cities.map((c) => String(c ?? "").trim()).filter(Boolean).slice(0, 6);
     if (cities.length) out.cities = cities;
@@ -951,13 +1016,16 @@ const SUMMARY_PROMPT = [
   "summary - שניים עד ארבעה משפטים קצרים: מה הלקוח/ה רצה ומה סוכם.",
   "caller_name - שם הלקוח/ה אם נאמר בשיחה, אחרת null.",
   "needs_text - מה הלקוח/ה מחפש/ת בשורה אחת (קנייה או שכירות, עיר, חדרים, תקציב, מועד כניסה), או null אם לא עלה.",
+  "  לקוח/ה שמוכר/ת או משכיר/ה נכס - כאן תיאור הנכס שלו/ה בשורה אחת (סוג, חדרים, כתובת, מחיר מבוקש).",
   "next_step - הצעד הבא שסוכם או שכדאי לעשות, במשפט אחד, או null.",
   "needs - אובייקט עם מה שהלקוח/ה מחפש/ת, **רק שדות שנאמרו במפורש** (שדה שלא נאמר - לא לכלול):",
   "  deal_type: \"sale\" (קנייה) או \"rent\" (שכירות); cities: מערך שמות ערים בעברית -",
   "  ערים בלבד, לא שכונות ולא רחובות (שכונה או רחוב שנאמרו נכנסים ל-needs_text);",
   "  min_rooms: מספר החדרים המינימלי (\"4 חדרים\" = 4); min_price / max_price: בשקלים",
   "  (\"עד 2 מליון\" = max_price 2000000; בשכירות - מחיר חודשי). אם לא עלה כלום - {}.",
-  "  אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - {}.",
+  "  client_kind: \"owner\" אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - ואז deal_type",
+  "  \"sale\" למוכר/ת ו-\"rent\" למשכיר/ה, ושאר השדות null. מי שמוכר/ת וגם מחפש/ת לקנות - null,",
+  "  והדרישות של הקנייה כרגיל.",
   "tasks - משימות לסוכן/ת שעלו בשיחה: מה שהסוכן/ת הבטיח/ה (\"אשלח לך\", \"נקבע סיור\", \"אחזור אלייך\")",
   "  או מה שהלקוח/ה ביקש/ה. kind: meeting = לקבוע פגישה, סיור או צפייה בנכס; send_material = לשלוח",
   "  נכסים, פרטים, תמונות או מסמכים; call_back = לחזור ללקוח/ה; other = כל משימה אחרת. text - משפט",
@@ -985,13 +1053,14 @@ const SUMMARY_SCHEMA = {
     needs: {
       type: "object",
       properties: {
+        client_kind: { anyOf: [{ type: "string", enum: ["owner"] }, { type: "null" }] },
         deal_type: { anyOf: [{ type: "string", enum: ["sale", "rent"] }, { type: "null" }] },
         cities: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }] },
         min_rooms: NULLABLE_NUM,
         min_price: NULLABLE_NUM,
         max_price: NULLABLE_NUM,
       },
-      required: ["deal_type", "cities", "min_rooms", "min_price", "max_price"],
+      required: ["client_kind", "deal_type", "cities", "min_rooms", "min_price", "max_price"],
       additionalProperties: false,
     },
     tasks: {
@@ -1532,6 +1601,10 @@ Deno.serve(async (req: Request) => {
       return await onDial(params);
     case "recording":
       return await onRecording(params);
+    case "voicemail":
+      return await onRecording(params, true);
+    case "voicemail-done":
+      return xml(`<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`);
     default:
       return new Response("unknown event", { status: 400 });
   }

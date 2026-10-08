@@ -1,6 +1,6 @@
 ---
 name: wallet-charges
-description: עבודה על הארנק הדיגיטלי בריפו של שוק נדל״ן - חיוב מהארנק (ליד, קידום, סרטון, מספר וירטואלי, דקות, לידי משכנתא וחנות), חלון האישור confirmPurchase, הסדר "מחייבים ואז קונים", החזר כשהפעולה נכשלה, חידוש חודשי, החזר יתרה, טעינה בסליקה (מורנינג) והמע״מ. Use when adding a new paid action, writing a function that touches credit_balance, when an agent was charged twice or charged for something that failed, when a purchase "went through" without a charge, when touching confirmPurchase / checkout.html / wallet-topup / complete_wallet_topup / request_wallet_refund, or when a question about VAT on wallet charges comes up.
+description: עבודה על הארנק הדיגיטלי בריפו של שוק נדל״ן - הארנק לפני מע״מ (טעינת ₪100 נגבית ₪118, charged_amount, vat_gross), חיוב מהארנק (ליד, קידום, סרטון, מספר וירטואלי, דקות, לידי משכנתא וחנות), חלון האישור confirmPurchase, הסדר "מחייבים ואז קונים", החזר כשהפעולה נכשלה, חידוש חודשי, החזר יתרה, טעינה בסליקה (מורנינג) והמע״מ. Use when adding a new paid action, writing a function that touches credit_balance, when an agent was charged twice or charged for something that failed, when a purchase "went through" without a charge, when touching confirmPurchase / checkout.html / wallet-topup / complete_wallet_topup / request_wallet_refund, or when a question about VAT on wallet charges comes up.
 ---
 
 # הארנק: כל כסף שיוצא
@@ -60,22 +60,42 @@ locked`, ובלי יתרה מסמן `payment_failed_at`, מתריע בפעמון
 רכישה בלי הסכמה** - והתקנון מחייב אותה. הטעינה עצמה תמיד דרך
 `checkout.html`, שאוסף פרטי חשבונית ואישור תקנון לפני הסליקה.
 
-## 5. המע״מ - פער פתוח
+## 5. המע״מ: הארנק לפני מע״מ, והמע״מ נגבה בטעינה
 
-**הדף מצהיר שכל המחירים לפני מע״מ** (‏"₪89 לחודש + מע״מ"). אבל:
+**כל מחיר באתר לפני מע״מ** (החלטה מ-6.10.2026, ‏`20270304090000`). הארנק
+עובד באותה יחידה:
 
 | שלב | מה קורה |
 | --- | --- |
-| טעינה של ₪100 | נגבים ₪100, ומורנינג מפרקת מתוכם את המע״מ (‏`income` לא נשלח) |
-| בארנק | ‏₪100 - כלומר כסף **כולל** מע״מ |
-| הזמנת מספר | יורדים ₪89 בדיוק |
+| טעינה של ₪100 | ‏`start_wallet_topup` שומרת `amount = 100` (קרדיט) ו-`charged_amount = vat_gross(100) = 118` |
+| הסליקה | ‏`wallet-topup` שולח למורנינג ₪118. החשבונית: 100 + 18 מע״מ |
+| האישור | ‏`complete_wallet_topup` משווה את מה שמורנינג דיווחה ל-`charged_amount`, ומזכה `amount` |
+| רכישה | יורד המחיר הנקוב - ₪89 על מספר הם ₪89 לפני מע״מ, כמו בדף |
+| החזר | ‏`request_wallet_refund` מורידה קרדיט; ‏`money_amount` (טריגר) הוא הכסף להחזיר, לפי הטעינות שבהקצאה |
 
-כלומר בפועל ₪89 **כולל** מע״מ (‏≈ ₪75.4 + מע״מ), בניגוד לדף. המנויים
-עצמם (‏`subscription_price`) כן מוסיפים `vat_rate` - רק החיובים מהארנק לא.
-**זו החלטה מוצרית שטרם נסגרה**, ולא תיקון חישוב: הכפלה ב-`1 + vat_rate`
-בכל פונקציות הרכישה מייקרת כל ליד, קידום ומספר ב-18%. עד שתוחלט - לא
-להוסיף לדף מחיר ארנק חדש עם "+ מע״מ" בלי להזכיר את זה, ולא לשנות פונקציית
-רכישה אחת לבד (שתי שיטות במקביל גרועות משתיהן).
+* **פונקציית רכישה חדשה אינה מוסיפה מע״מ.** הוא כבר נגבה בכסף שנכנס.
+  הוספה שם הייתה גובה אותו פעמיים.
+* **ארנק היזמים - אותו כלל** (‏`start_developer_topup`/`complete_developer_topup`).
+  מנויים וכרטיסיות בעלי מקצוע אינם עוברים בארנק ומוסיפים `vat_rate` בעצמם.
+* ‏`complete_*_topup` מקבלת גם את הסכום הנטו - בכוונה, לחלון שבין פריסת
+  המיגרציה לפריסת ה-Edge Function. אין פתח: את הסכום שנשלח לסליקה קובע
+  רק הקוד שלנו.
+* ‏`VAT_RATE` ב-`checkout.html` הוא תצוגה, ו-`check_pricing.py` מצליב אותו
+  מול `pricing_config.vat_rate`. שינוי שיעור המע״מ - מיגרציה, ואז שם.
+
+## 5א. מנויים חוזרים: לא דרך הארנק
+
+מסלול (‏`subscription_orders`) וכרטיסיית בעל/ת מקצוע (‏`ad_orders`) **אינם**
+יורדים מהארנק: הם נגבים מהכרטיס, וה-`amount` שלהם כולל מע״מ. חידוש חודשי -
+`billing_subscriptions` + `billing-renew`, מאחורי `recurring_charging_enabled`
+(עדיין 0). שלושה כללים שחוזרים בשני הסוגים:
+
+* **המנוי מתעדכן רק בטריגר על טבלת ההזמנות** - ההזמנה נסגרת בשלושה מקומות.
+* **`charging_order_id` נקבע לפני הפנייה למורנינג** - לעולם לא חיוב כפול.
+* **מצב ולא אירוע:** חידוש מסלול נעצר כשהמסלול על השורה השתנה או כשהתבקשה
+  סגירה (`claim_due_tier_renewals`) - בלי לזכור לבטל בכל נתיב.
+
+הפרטים: `docs/pricing-and-tiers.md` ("מנוי בתשלום"), `docs/professional-cards.md`.
 
 ## 6. ההחזר של יתרה שלא מומשה
 

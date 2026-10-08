@@ -1112,7 +1112,9 @@ function marketText(afula, other){
 const MS = window.MarketScope || null;
 function marketFilterSpec(){ return MS ? MS.spec(sb) : Promise.resolve(null); }
 function marketOrFilter(spec){ return MS ? MS.orFilter(spec) : null; }
-function inMarket(spec, cityId){ return MS ? MS.inMarket(spec, cityId) : true; }
+function inMarket(spec, cityId, slugs){ return MS ? MS.inMarket(spec, cityId, slugs) : true; }
+/* אזורי הפעילות של הסוכנים (agency_members.service_markets) - ריק בכשל */
+function marketMembers(){ return MS && MS.memberMarkets ? MS.memberMarkets(sb) : Promise.resolve({ byAgent:new Map(), byAgency:new Map() }); }
 function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
 
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
@@ -1291,9 +1293,10 @@ async function loadLeadingAgencies(){
       ? allAgencies.filter(a => staffed.has(a.id))
       : allAgencies;
     // ‏המשרדים של השוק (MARKET_FILTER): לפי העיר של המשרד (agencies.city_id,
-    // מהכתובת הרשומה). משרד בלי עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
-    const marketSpec = await marketFilterSpec();
-    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id));
+    // מהכתובת הרשומה), או אזור פעילות שאחד/ת מהסוכנים בו בחר/ה. משרד בלי
+    // עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
+    const [marketSpec, svc] = await Promise.all([marketFilterSpec(), marketMembers()]);
+    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id, svc.byAgency.get(a.id)));
 
     // מספר הוואטסאפ של כל משרד: מנהל/ת עם מספר תקין, ואם אין — החבר/ה
     // הראשון/ה שיש לו/ה. ‏phone_e164 נכנס ל-href, ולכן הוא עובר את אותה
@@ -1372,7 +1375,7 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, cover_url, phone_e164, agency_id, has_ethics_badge').limit(200),
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
       // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
@@ -1395,14 +1398,14 @@ async function loadLeadingAgents(){
     const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const agencyById = {};
     if (agencyIds.length){
-      // ‏cover_url של המשרד — הנפילה של מתווך/ת שלא העלה/תה תמונת נושא,
-      // אותה נפילה של agent.html
+      // ‏cover_url של המשרד — תמונת הנושא של כל סוכני המשרד, כמו בראש
+      // agent.html (אין תמונת נושא אישית)
       const { data: agencies } = await sb.from('agencies').select('id, name, cover_url, city_id').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
-    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, אותו כלל של כרטיסי המשרדים
-    const marketSpec = await marketFilterSpec();
-    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null);
+    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, או אזור פעילות שבחרו
+    const [marketSpec, svc] = await Promise.all([marketFilterSpec(), marketMembers()]);
+    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null, svc.byAgent.get(m.id));
 
     const rankByAgent = {};
     (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });
@@ -2038,8 +2041,8 @@ function dmFromAgent(m, i){
   return {
     name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    // תמונת הנושא של המתווך/ת, ואם אין — של המשרד, כמו בראש agent.html
-    cover: m.cover_url || m.agency_cover,
+    // תמונת הנושא של המשרד - היא הרצועה בראש דפי כל סוכניו, כמו ב-agent.html
+    cover: m.agency_cover,
     photo: m.photo_url, contain: false, photoPos: m.photo_position, person: true,
     initial: name.trim()[0] || 'מ',
     tags: m.agency_name ? [m.agency_name] : [],
@@ -5494,8 +5497,8 @@ ssaForm.addEventListener('submit', async (e)=>{
     });
   } catch(err){
     console.warn('saved-search-intake failed:', err);
-    ssaErrorEl.textContent = err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
+    ssaErrorEl.textContent = /[\u0590-\u05FF]/.test(err.message || '')
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב. לעזרה בוואטסאפ: 054-6929991';
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -5882,8 +5885,8 @@ buyerForm.addEventListener('submit', async (e)=>{
     });
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
-    buySetError(3, err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
+    buySetError(3, /[\u0590-\u05FF]/.test(err.message || '')
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב. לעזרה בוואטסאפ: 054-6929991');
     btn.textContent = originalLabel;
     btn.disabled = false;
   }

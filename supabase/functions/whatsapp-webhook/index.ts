@@ -9,6 +9,7 @@ import {
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
+import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import {
   type AgentRow,
   type ConversationState,
@@ -21,6 +22,7 @@ import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
   type CatalogLink,
@@ -885,7 +887,7 @@ async function flushImageBatch(
     from,
     `📸 קיבלתי ${what}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
       "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
-      "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\" או \"תמונת נושא\".",
+      "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\".",
     agentId,
   );
 }
@@ -896,6 +898,25 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
   markReadAndTyping(msg.id);
+
+  // --- תשובה של לקוח/ה לתזכורת על פגישה (אישור / ביטול / מועד אחר),
+  //     או משוב אחרי סיור (אהבתי / מתלבט/ת / לא בשבילי) ---
+  // לפני זיהוי הסוכן/ת ולפני הבוט הציבורי: השולח/ת הוא/היא לקוח/ה של
+  // סוכן/ת, וה-payload ‏(`mtg:<c|x|r>:<token>`) הוא כל מה שצריך. בתבנית הוא
+  // מגיע ב-button.payload, ובהודעת כפתורים רגילה ב-button_reply.id.
+  // ‏docs/meeting-client-followup.md
+  const meetingBtn = parseMeetingPayload(
+    msg.type === "button" ? msg.button?.payload
+      : msg.type === "interactive" ? msg.interactive?.button_reply?.id
+      : null,
+  );
+  if (meetingBtn) {
+    const res = meetingBtn.type === "response"
+      ? await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response)
+      : await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
+    await reply(from, res.reply, null);
+    return;
+  }
 
   // --- אימות חותם/ת על הסכם ("אימות חתימה 482193") ---
   // לפני זיהוי הסוכן/ת: השולח/ת הוא/היא לקוח/ה, ובלי זה היה/הייתה מקבל/ת
@@ -1016,10 +1037,24 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       break;
     }
 
-    case "interactive":
+    case "interactive": {
+      // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
+      // והכותרת לבדה ("כן, לפתוח לשת״פ") אינה אומרת על איזה נכס עונים.
+      const offer = await offerButtonReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (offer?.reply) {
+        await reply(from, offer.reply, agent.id);
+        return;
+      }
+      if (offer?.text) {
+        userText = offer.text;
+        if (offer.propertyId) conv.last_property_id = offer.propertyId;
+        break;
+      }
       userText = msg.interactive?.button_reply?.title ||
         msg.interactive?.list_reply?.title || "";
       break;
+    }
 
     case "button":
       userText = msg.button?.text || "";
@@ -1242,6 +1277,27 @@ Deno.serve(async (req: Request) => {
   // לפונקציה נפרדת, כי המייל נכנס **לאותה שיחה**: אותו עוזר, אותה היסטוריה,
   // ואותה `reply` — והתשובה של הסוכן/ת בוואטסאפ ממשיכה ממנו. הקורא כאן אינו
   // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
+  // ‏הצעות של גבריאלה על נכס חדש - שת"פ וסרטון (‏property-offers.ts). אותו
+  // אימות פנימי של קליטת המייל, מאותה סיבה: הקורא הוא pg_cron ולא Meta.
+  if (url.searchParams.get("task") === "property-offers") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runPropertyOffers(supabase)
+        .then((r) => console.log("property offers", JSON.stringify(r)))
+        .catch((err) => console.error("property offers failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (url.searchParams.get("task") === "email-intake") {
     const auth = authorizeInternalCaller(req);
     if (!auth.ok) {

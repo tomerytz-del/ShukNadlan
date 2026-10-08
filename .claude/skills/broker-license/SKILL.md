@@ -26,14 +26,14 @@ description: עבודה על אימות רישיון התיווך בריפו ש�
 | שכבה | איפה | מה |
 | --- | --- | --- |
 | הבדיקה | `_shared/broker-license-gate.ts` | `checkBrokerLicense` (מטמון, ערעור מאושר, המאגר), `licenseSummary` לדפדפן |
-| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים**. מקבלים גם `id_number` (רשות בשרת; בטופס חובה ונבדק בספרת ביקורת עם עקיפה - `assets/il-id.js`, הסקיל `agreement-signing`) |
+| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים**. מקבלים `manager_phone` (נשמר בעדכון נפרד, כשל אינו מפיל) ו-`id_number` ברשות - הטפסים כבר לא שולחים אותו, הת.ז. נשאלת בהסכם הראשון (הסקיל `agreement-signing`) |
 | כניסת סוכן/ת | `join-agency` | `licenseGate` דורש מספר בלבד. `license_status`, `set_license` |
 | ערעור | `broker-license-appeal` | `submit` (אנונימי), `list`/`decide` (מנהל/ת פלטפורמה) |
 | המודעות | טריגר `properties_a_license_hold` | `active` של סוכן/ת לא תקין/ה → `unpublished` + `license_hold_at` |
 | השחרור | טריגר `agency_members_release_license_hold` | רישיון נעשה תקין → המודעות שחיכו עולות |
 | דף הסוכן/ת | `agency_members_public` | מסנן רישיון לא תקין |
 | דף המשרד | `agency_is_live()` + המדיניות `public read agencies` | משרד בלי אף כרטיס תקין מוסתר |
-| ה-CRM | `#licenseHoldCard`, `refreshLicenseHold()` | הסטטוס, הצילום, תיקון המספר |
+| ה-CRM | `#licenseHoldCard`, `refreshLicenseHold()` | הסטטוס, הצילום, תיקון המספר. **הנוסח הוא הזמנה ולא אזהרה**: "החשבון שלך מוכן לעבודה!", בירוק, "העלאת אישור רישיון (לפרסום מיידי)" ו"המשך ללוח הבקרה" (מקפל לשורה, `LH_COMPACT_KEY`). אדום רק כשצילום נדחה. אותו נוסח ב-`showAccountReady` ב-`agency-signup.html` |
 | התווית בנכס | `propertyStatusLabel()`, `.psp-held` | "ממתין לאישור רישיון" במקום "ירד מפרסום". מקום חדש שמציג סטטוס נכס - דרכה, ו-`license_hold_at` בעמודות |
 
 ## ששה דברים ששוברים בשקט

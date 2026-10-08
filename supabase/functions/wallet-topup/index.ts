@@ -136,6 +136,10 @@ Deno.serve(async (req: Request) => {
   if (started?.error) return json(started, 400);
 
   const topupId = started.topup_id as string;
+  // ‏**נגבה ברוטו, נזקף נטו** (‏20270304090000): ‏amount הוא הקרדיט לפני מע"מ,
+  // ‏charged_amount הוא מה שהכרטיס משלם. מסד שעוד לא קיבל את המיגרציה אינו
+  // מחזיר אותו, ואז נגבה כמו קודם.
+  const charged = Number(started.charged_amount ?? amount);
 
   // 2. הסוד בכתובת ה-webhook. בלעדיו כל מי שיודע/ת את הכתובת יכול/ה לקרוא
   //    ל-callback; זו נקודת קצה ציבורית (‏verify_jwt=false) כי למורנינג אין
@@ -158,7 +162,7 @@ Deno.serve(async (req: Request) => {
   const client = clientFrom(body, agent.display_name);
 
   const form = await createPaymentForm({
-    amount,
+    amount: charged,
     description: `טעינת ארנק - שוק נדל"ן`,
     ...client,
     clientEmail: email,
@@ -225,6 +229,7 @@ Deno.serve(async (req: Request) => {
     test_mode: false,
     topup_id: topupId,
     amount,
+    charged_amount: charged,
     redirect_url: form.url,
   }, 200);
 });

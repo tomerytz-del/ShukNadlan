@@ -41,6 +41,9 @@ PRICES = {
     'phone_line_monthly_price':          89,
     'phone_line_included_minutes':       150,
     'phone_line_overage_per_min':        0.5,
+    # שיחה יוצאת נספרת דקה וחצי (20270311090000). עוד אין שיחות יוצאות, ולכן
+    # אין מקום תצוגה ב-DISPLAY - מי שבונה אותן מוסיף אחד.
+    'phone_line_outbound_minute_weight': 1.5,
     'promote_price':                     20,
     'promote_duration_hours':            72,
     'property_video_price_mid':          25,
@@ -48,6 +51,8 @@ PRICES = {
     'ppl_price_buyer_renter':            25,
     'ppl_price_owner_mid':               50,
     'free_lead_quota_monthly':           10,
+    # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
+    'vat_rate':                          0.18,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -61,8 +66,13 @@ DISPLAY = [
     ('supabase/functions/_shared/launch-promo.ts', r'premium: ' + N,   'tier_premium_monthly_price'),
     ('pricing.html', r'PROFESSIONAL ב-₪' + N,                          'tier_mid_monthly_price'),
     ('pricing.html', r'Elite ב-₪' + N,                                 'tier_premium_monthly_price'),
-    ('pricing.html', r'לא\. ₪' + N + ' ו-₪',                           'tier_mid_monthly_price'),
-    ('pricing.html', r'ו-₪' + N + ' הם לחודש',                         'tier_premium_monthly_price'),
+    ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
+    ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
+    # עמוד התשלום של המנוי (20270307090000)
+    ('checkout.html', r"mid: \{ name: 'PROFESSIONAL', price: " + N,  'tier_mid_monthly_price'),
+    ('checkout.html', r"premium: \{ name: 'Elite', price: " + N,     'tier_premium_monthly_price'),
+    # המע״מ בעמוד התשלום
+    ('checkout.html', r'const VAT_RATE = ' + N,                        'vat_rate'),
     # המספר הווירטואלי
     ('pricing.html', r'₪' + N + r' לחודש \+ מע״מ',                     'phone_line_monthly_price'),
     ('assets/tiers.js', r'₪' + N + r' לחודש \+ מע״מ',                  'phone_line_monthly_price'),

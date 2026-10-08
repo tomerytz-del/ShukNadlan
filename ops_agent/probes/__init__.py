@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from . import behavior, database, frontend, pipeline, security
+from . import ads, behavior, database, frontend, pipeline, security
 
 # (שם, פונקציה, האם דורשת מסד)
 PROBES = (
@@ -19,6 +19,8 @@ PROBES = (
     ("security", security.run, True),
     ("behavior", behavior.run, True),
     ("pipeline", pipeline.run, True),
+    # קונסולת השיווק (שלב 6, docs/marketing-console.md) - מהמסד בלבד, בלי קריאה למטא
+    ("ads", ads.run, True),
     ("frontend", frontend.run, False),
 )
 
