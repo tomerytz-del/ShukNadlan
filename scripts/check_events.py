@@ -99,8 +99,9 @@ BOT_PHONE = "972532494740"
 
 # ‏דפי האזור האישי — אסור להם לטעון events.js. ‏showcase הוא המיניסייט שבין
 # סוכן/ת ללקוח/ה שלו/ה: חיוג משם הוא לקוח/ה קיים/ת ולא פנייה חדשה, מאותו
-# נימוק בדיוק (docs/client-showcase.md).
-PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "showcase"}
+# נימוק בדיוק (docs/client-showcase.md). ‏meeting הוא דף הפגישה שהלקוח/ה מקבל/ת
+# אחרי שהסוכן/ת קבע/ה איתו/ה פגישה (docs/meeting-client-followup.md).
+PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "showcase", "meeting"}
 
 EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 

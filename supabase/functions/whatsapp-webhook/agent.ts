@@ -1184,6 +1184,12 @@ const TOOLS: Anthropic.Tool[] = [
           description: "מתי להזכיר, בדקות לפני. \"תזכיר לי חצי שעה לפני\" = [30]. בלי השדה - ברירת המחדל לפי הסוג " +
             "(פגישה: שעה לפני, משימה: בזמן). [] = בלי תזכורת.",
         },
+        notify_client: {
+          type: "boolean",
+          description: "פגישה/סיור/חתימה עם client_id: לשלוח ללקוח/ה בוואטסאפ אישור עם הוספה ליומן, " +
+            "תזכורת (יום לפני כשרחוק, ושעה לפני) עם כפתורי אישור הגעה/ביטול, ואחרי סיור - שאלה איך היה. " +
+            "ברירת מחדל: כן. false רק כשהסוכן/ת ביקש/ה לא לשלוח ללקוח/ה.",
+        },
       },
       required: ["kind", "title"],
     },
@@ -1228,7 +1234,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מעדכן פריט ביומן: done = בוצע · reopen = החזרה לפתוחות · cancel = ביטול · " +
       "reschedule = מועד חדש (date/time או in_minutes) · edit = שינוי פרטים. " +
-      "למצוא את item_id: agenda_list עם query.",
+      "למצוא את item_id: agenda_list עם query. פגישה שהלקוח/ה מקבל/ת עליה עדכונים " +
+      "(client_followup): הזזה או ביטול נשלחים גם ללקוח/ה, לבד.",
     input_schema: {
       type: "object",
       properties: {
@@ -1243,6 +1250,10 @@ const TOOLS: Anthropic.Tool[] = [
         kind: { type: "string", enum: AGENDA_KINDS },
         high_priority: { type: "boolean" },
         remind_minutes_before: { type: "array", items: { type: "integer" } },
+        notify_client: {
+          type: "boolean",
+          description: "עם edit: להפסיק (false) או להתחיל (true) לשלוח ללקוח/ה אישור ותזכורת על הפגישה.",
+        },
       },
       required: ["item_id", "action"],
     },
@@ -4958,6 +4969,27 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
       .eq("agent_id", ctx.agent.id).in("id", clientIds);
     (data || []).forEach((c) => names.set(c.id, c.phone ? `${c.full_name} (${c.phone})` : c.full_name));
   }
+  // מה הלקוח/ה קיבל/ה וענה/תה על הפגישה. שאילתה נפרדת ולא חלק מ-AGENDA_SELECT:
+  // העמודות נולדו במיגרציה, ושגיאה כאן (לפני שהיא רצה) לא תפיל את היומן.
+  const followups = new Map<string, { notify: boolean; response: string | null; feedback: string | null }>();
+  const ids = rows.map((r) => r.id).filter(Boolean) as string[];
+  if (ids.length) {
+    const { data } = await ctx.supabase.from("agent_agenda_items")
+      .select("id, client_notify, client_response, client_feedback").in("id", ids);
+    (data || []).forEach((r) => followups.set(r.id, {
+      notify: !!r.client_notify, response: r.client_response, feedback: r.client_feedback,
+    }));
+  }
+  const RESPONSE_TEXT: Record<string, string> = {
+    confirmed: "הלקוח/ה אישר/ה הגעה",
+    canceled: "הלקוח/ה ביטל/ה",
+    reschedule: "הלקוח/ה ביקש/ה מועד אחר",
+  };
+  const FEEDBACK_TEXT: Record<string, string> = {
+    liked: "משוב: אהב/ה את הסיור",
+    unsure: "משוב: מתלבט/ת",
+    not_for_me: "משוב: לא בשבילו/ה",
+  };
   const now = Date.now();
   return rows.map((r) => ({
     item_id: r.id,
@@ -4971,6 +5003,11 @@ async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>
     client: r.client_id ? names.get(String(r.client_id)) : undefined,
     notes: r.notes || undefined,
     automatic: r.source === "system" || undefined,
+    client_followup: followups.get(String(r.id))?.notify
+      ? (FEEDBACK_TEXT[String(followups.get(String(r.id))?.feedback)] ||
+        RESPONSE_TEXT[String(followups.get(String(r.id))?.response)] ||
+        "הלקוח/ה מקבל/ת אישור ותזכורת, עוד לא ענה/תה")
+      : undefined,
   }));
 }
 
@@ -5102,9 +5139,25 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   const remind = agendaRemind(input);
   if (remind !== undefined) row.remind_before = remind;
 
-  const { data, error } = await ctx.supabase
+  // פולואפ ללקוח/ה (docs/meeting-client-followup.md): פגישה, סיור או חתימה
+  // עם לקוח/ה מהקובץ ועם מועד - אישור עכשיו ותזכורת שעה לפני, אלא אם
+  // הסוכן/ת ביקש/ה שלא. בלי טלפון בכרטיס אין למי לשלוח, והמודל אומר את זה.
+  const followup = await clientFollowupPlan(ctx, kind, row.client_id as string | null, due ?? null,
+    input.notify_client);
+  if (followup.notify) row.client_notify = true;
+
+  let { data, error } = await ctx.supabase
     .from("agent_agenda_items").insert(row).select(AGENDA_SELECT).single();
-  if (error) return { ok: false, error: agendaDbError(error) };
+  // ‏PGRST204 = העמודה עוד לא קיימת: הפונקציה נפרסה לפני שהמיגרציה רצה.
+  // הפגישה חשובה מהפולואפ - נקבעת בלעדיו.
+  if (error?.code === "PGRST204" && row.client_notify) {
+    delete row.client_notify;
+    followup.notify = false;
+    followup.note = undefined;
+    ({ data, error } = await ctx.supabase
+      .from("agent_agenda_items").insert(row).select(AGENDA_SELECT).single());
+  }
+  if (error || !data) return { ok: false, error: agendaDbError(error || {}) };
   if (row.client_id) ctx.conv.last_client_id = String(row.client_id);
 
   const [shaped] = await agendaShape(ctx, [data]);
@@ -5114,9 +5167,45 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
+    client_followup: followup.note,
     guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id." +
+      (followup.note ? " אם יש client_followup - אמור/אמרי אותו במשפט אחד נוסף." : "") +
       (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
     gcal_offer: gcalOffer || undefined,
+  };
+}
+
+/**
+ * האם לשלוח ללקוח/ה אישור ותזכורת על הפגישה, ומה לומר על זה לסוכן/ת.
+ * ההודעות עצמן יוצאות מהתור במסד (‏agent_agenda_client_messages), לא מכאן.
+ */
+async function clientFollowupPlan(
+  ctx: ToolContext,
+  kind: string,
+  clientId: string | null,
+  due: string | null,
+  requested: unknown,
+): Promise<{ notify: boolean; note?: string }> {
+  if (!["meeting", "showing", "signing"].includes(kind) || !clientId || !due) return { notify: false };
+  if (requested === false) return { notify: false, note: "לבקשתך, ללקוח/ה לא נשלח דבר על הפגישה." };
+  const { data: client } = await ctx.supabase
+    .from("agent_clients").select("full_name, phone")
+    .eq("id", clientId).eq("agent_id", ctx.agent.id).maybeSingle();
+  const digits = String(client?.phone || "").replace(/\D/g, "");
+  if (digits.length < 9) {
+    return {
+      notify: false,
+      note: `ל${client?.full_name || "לקוח/ה"} אין טלפון בכרטיס, ולכן לא יישלחו אישור ותזכורת. ` +
+        "אם תוסיף/י טלפון (update_client) ואז agenda_update עם notify_client - הם יישלחו.",
+    };
+  }
+  const reminder = Date.parse(due) - 65 * 60_000 > Date.now()
+    ? ", ושעה לפני תזכורת עם כפתורי אישור הגעה וביטול - והתשובה תגיע אליך" : "";
+  const feedback = kind === "showing" ? " אחרי הסיור נשאל אותו/ה איך היה." : "";
+  return {
+    notify: true,
+    note: `ל${client?.full_name || "לקוח/ה"} נשלח עכשיו בוואטסאפ אישור עם הוספה ליומן${reminder}. ` +
+      "הזזה או ביטול של הפגישה יעדכנו אותו/ה לבד." + feedback,
   };
 }
 
@@ -5205,6 +5294,17 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
     if (input.high_priority !== undefined) patch.priority = input.high_priority ? "high" : "normal";
     const remind = agendaRemind(input);
     if (remind !== undefined) patch.remind_before = remind;
+    if (typeof input.notify_client === "boolean") {
+      if (input.notify_client) {
+        const plan = await clientFollowupPlan(ctx, String(patch.kind || current.kind),
+          current.client_id as string | null, String(patch.due_at ?? current.due_at ?? "") || null, true);
+        if (!plan.notify) {
+          return { ok: false, error: "no_followup", guidance: plan.note ||
+            "אפשר לשלוח ללקוח/ה רק על פגישה, סיור או חתימה עם לקוח/ה מהקובץ ועם מועד." };
+        }
+      }
+      patch.client_notify = input.notify_client;
+    }
   } else {
     return { ok: false, error: "פעולה לא מוכרת." };
   }
@@ -5571,6 +5671,11 @@ const SYSTEM_STATIC: string = (() => {
       "אם לא נאמרה שעה לפגישה - שאל/י בשאלה אחת; למשימה אפשר בלי שעה (09:00).",
     "- פגישה עם לקוח/ה מהקובץ: קודם list_clients עם query, והעבר/י client_id - אז השם " +
       "והטלפון יופיעו בתזכורת.",
+    "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ: הלקוח/ה מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
+      "ותזכורת שעה לפני עם כפתורי אישור הגעה, ביטול ומועד אחר. התשובה מגיעה לסוכן/ת כהתראה. " +
+      "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
+    "- אחרי סיור הלקוח/ה נשאל/ת איך היה, והתשובה פותחת משימה אוטומטית. \"תשלחי לה נכסים דומים\" / " +
+      "\"נכסים אחרים\" (גם ממשימה כזו) = client_matches, ואז הצע/י create_showcase - כמו \"שלח חומר ללקוח\".",
     "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" / " +
       "\"תבטל את הפגישה\" = agenda_update (item_id מ-agenda_list עם query).",
     "- התזכורת יוצאת לבד בזמן - בוואטסאפ ובפעמון בדשבורד. **אל תבטיח/י שתכתוב/י בעצמך**; " +

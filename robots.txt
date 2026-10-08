@@ -30,6 +30,9 @@ Disallow: /review-request.html
 # המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
 Disallow: /showcase
 Disallow: /showcase.html
+# דף הפגישה ללקוח/ה - קישור עם טוקן (docs/meeting-client-followup.md)
+Disallow: /meeting
+Disallow: /meeting.html
 
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary
