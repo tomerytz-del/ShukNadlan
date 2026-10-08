@@ -10,6 +10,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
 <!-- ‏viewport-fit=cover, וזה תנאי ולא קישוט: באפליקציה המותקנת (‏display
      ‏standalone) אנדרואיד פורש את הדף מקצה לקצה גם בלי לבקש, כלומר תחתית
      הדף יושבת **מאחורי** סרגל הניווט של המערכת. בלי ההצהרה הזו
@@ -29,7 +31,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="אזור אישי">
-<script defer src="assets/pwa-install.js" data-bottom="124px" data-delay="3000"></script>
+<script defer src="assets/pwa-install.js" data-bottom="124px" data-delay="3000" data-first-visit="show"></script>
 <!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
      סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
      docs/security-headers.md -->
@@ -118,8 +120,45 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* לוגו האתר — בכל מקום שהוא מופיע בו הוא גם הקישור לדף הבית */
   .logo-link{display:block;line-height:0}
   .logo-img{height:64px;width:auto;display:block}
-  .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
-  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
+  /* מסכי הכניסה והפתיחה - אותיות גדולות יותר ומרווח: הטופס היה צפוף,
+     ובטלפון זה ההבדל בין טופס שקוראים לטופס שמדלגים עליו */
+  .login-card h1{font-size:1.5rem;text-align:center;margin-bottom:6px;line-height:1.25}
+  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.95rem;margin-bottom:22px}
+  .login-card .field label{font-size:.86rem}
+  .login-card .field input,.login-card .field select{font-size:1rem}
+  .login-card .promo-tag{background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);
+    padding:10px 12px;margin-bottom:14px;font-size:.9rem;text-align:center}
+  .login-card .micro{font-size:.8rem;color:var(--ink-soft);margin-top:6px}
+
+  /* ---------- כרטיס אימות הרישיון (refreshLicenseHold) ---------- */
+  .lh-card{background:#f2faf5;border:1.5px solid #b9e0c8;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px}
+  .lh-card .lh-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .lh-card .lh-badge{flex:none;width:30px;height:30px;border-radius:50%;background:#1a7f4b;color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center}
+  .lh-card h2{font-size:1.1rem;margin:0}
+  .lh-card .lh-text{font-size:.92rem;line-height:1.65;margin:0 0 8px}
+  .lh-card .lh-status{font-size:.85rem;line-height:1.6;margin:0 0 12px;color:var(--ink-soft)}
+  .lh-card .lh-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .lh-card .lh-link{background:none;border:none;padding:0;margin-top:10px;font-size:.8rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer}
+  .lh-card .lh-compact{display:none;width:100%;background:none;border:none;padding:0;text-align:right;font:inherit;
+    font-size:.86rem;color:var(--ink);cursor:pointer;line-height:1.5}
+  .lh-card .lh-compact span{color:#1a7f4b;font-weight:800;white-space:nowrap}
+  .lh-card.is-compact{padding:10px 14px}
+  .lh-card.is-compact .lh-full{display:none}
+  .lh-card.is-compact .lh-compact{display:block}
+
+  /* ---------- חלון "ברוכים הבאים" (maybeShowWelcome) ---------- */
+  .welcome-modal{position:fixed;inset:0;z-index:4000;background:rgba(13,27,61,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+  .welcome-card{background:#fff;border-radius:var(--radius-lg);max-width:380px;width:100%;padding:30px 24px;text-align:center;
+    box-shadow:0 20px 60px rgba(13,27,61,.35);animation:welcomeIn .35s cubic-bezier(.2,.8,.3,1)}
+  .welcome-card h2{font-size:1.4rem;margin:6px 0 8px;line-height:1.3}
+  .welcome-card p{font-size:1rem;color:var(--ink-soft);margin:0 0 20px;line-height:1.55}
+  .welcome-burst{font-size:2.6rem;line-height:1}
+  .welcome-card.id-ask h2{font-size:1.2rem}
+  .welcome-card.id-ask p{font-size:.92rem;margin-bottom:14px}
+  .welcome-card .id-ask-note{font-size:.78rem;color:var(--ink-soft);margin:-4px 0 14px;text-align:right}
+  @keyframes welcomeIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.welcome-card{animation:none}}
 
   /* ---------- שער בחירת המסלול ----------
      כרטיס רחב יותר משאר מסכי הכניסה: שלושה מסלולים זה לצד זה לא נכנסים
@@ -273,6 +312,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-step-btn.is-done .pf-num{background:var(--teal-tint);color:var(--teal)}
   .pf-section{padding:18px 18px 6px}
   .pf-section[hidden]{display:none}
+  /* טופס הלקוח/ה: מחפש/ת מול בעל/ת נכס. ‏!important כי .cf-live ו-.pf-note
+     נושאים display משלהם, ו-[hidden] של הדפדפן נופל מולם */
+  .cf-seeker-only[hidden],.cf-owner-only[hidden]{display:none!important}
   .pf-title{font-family:'Heebo',sans-serif;font-size:1rem;font-weight:800;color:var(--teal-dark);margin:0 0 14px;
     display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .pf-lock{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--gold-tint);color:var(--gold-dark)}
@@ -837,6 +879,32 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .img-dropzone input[type=file]{display:none}
   .img-dropzone .pick{display:inline-block;font-size:.85rem;font-weight:700;color:var(--teal);cursor:pointer}
   .img-dropzone .hint,.field .hint{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
+  /* ---------- אזור העלאה מודגש ----------
+     תמונת הפרופיל (ולמנהל/ת גם הלוגו ותמונת הנושא של המשרד) הם מה שהלקוח/ה
+     רואה ראשון, וצעד 2 במדריך ההתחלה. ולכן הם אינם עוד שורת טקסט כחולה
+     בתוך מסגרת מקווקוות אלא כרטיס בולט: אייקון, כותרת, הסבר קצר וכפתור
+     מלא. ‏.is-done מחליף את הגוון כשכבר יש תמונה, כדי שיהיה ברור מה נשאר. */
+  .img-hero{display:flex;align-items:center;gap:14px;text-align:right;
+    border:2px dashed var(--teal);background:var(--teal-tint);border-radius:var(--radius-md);padding:16px}
+  .img-hero .ih-icon{flex:none;width:58px;height:58px;border-radius:50%;background:#fff;color:var(--teal);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(18,40,64,.12)}
+  .img-hero .ih-icon.wide{border-radius:var(--radius-sm);width:72px;height:48px}
+  .img-hero .ih-icon svg{width:28px;height:28px}
+  .img-hero .ih-body{flex:1;min-width:0}
+  .img-hero .ih-title{font-size:.95rem;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .img-hero .ih-tag{font-size:.64rem;font-weight:800;color:#fff;background:var(--gold-dark, #8e6a1e);border-radius:999px;padding:2px 8px}
+  .img-hero .hint{margin:3px 0 10px}
+  .img-hero .pick{display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#fff;
+    font-size:.85rem;font-weight:800;padding:9px 16px;border-radius:999px;cursor:pointer}
+  .img-hero .pick:hover{filter:brightness(1.08)}
+  .img-hero.is-done{border-style:solid;border-color:var(--line);background:#fff}
+  .img-hero.is-done .ih-tag{display:none}
+  .img-hero.is-done .pick{background:#fff;color:var(--teal);border:1.5px solid var(--teal)}
+  .img-hero-col{flex:1 1 260px;min-width:0}
+  .office-cover-note{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:var(--radius-md);
+    padding:10px;background:var(--paper);margin-top:12px}
+  .office-cover-note .oc-thumb{flex:none;width:96px;height:44px;border-radius:var(--radius-sm);background:linear-gradient(120deg,var(--teal-dark, #0d1b3d),var(--teal)) center/cover}
+  .office-cover-note p{margin:0;font-size:.74rem;color:var(--ink-soft);line-height:1.45}
   .img-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .img-thumb{position:relative;width:78px;height:78px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper)}
   .img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1776,14 +1844,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .alert-when{font-size:.68rem;color:var(--ink-soft);white-space:nowrap}
 
   /* ---------- מיתוג דף המשרד (מנהל בלבד) ---------- */
+  /* כל ערכה מוצגת כדף מוקטן ולא כפס דוגמיות: רצועת הכותרת בצבע הראשי,
+     הקו המשני מתחתיה, כרטיס על נייר הערכה וכפתור. כך הבחירה נעשית בעין,
+     מול מה שהלקוח/ה יראה בפועל. ‏--pc-* נכתבים לכל כרטיס מ-renderPaletteGrid. */
   .palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(min-width:560px){.palette-grid{grid-template-columns:repeat(4,1fr)}}
-  .palette-card{border:2px solid var(--line);border-radius:var(--radius-md);padding:10px;background:#fff;text-align:right;display:flex;flex-direction:column;gap:8px}
+  @media(min-width:560px){.palette-grid{grid-template-columns:repeat(3,1fr)}}
+  .palette-card{position:relative;border:2px solid var(--line);border-radius:var(--radius-md);padding:8px;background:#fff;text-align:right;display:flex;flex-direction:column;gap:8px;transition:border-color .15s ease,box-shadow .15s ease}
+  .palette-card:hover{border-color:var(--hair-strong, #c9d1e4)}
   .palette-card.active{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-tint)}
-  .palette-swatches{display:flex;height:34px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line)}
-  .palette-swatches span{flex:1}
-  .palette-card .pname{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .palette-card .pc-check{position:absolute;top:6px;inset-inline-start:6px;width:22px;height:22px;border-radius:50%;
+    background:var(--teal);color:#fff;font-size:.75rem;font-weight:800;display:none;align-items:center;justify-content:center;z-index:1;
+    box-shadow:0 0 0 2px #fff}
+  .palette-card.active .pc-check{display:flex}
+  .pc-mock{border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--pc-line);background:var(--pc-paper);height:86px;display:flex;flex-direction:column}
+  .pc-mock .pc-head{height:30px;background:linear-gradient(120deg,var(--pc-brand-dark),var(--pc-brand));border-bottom:3px solid var(--pc-accent);
+    display:flex;align-items:center;gap:5px;padding:0 7px}
+  .pc-mock .pc-logo{width:14px;height:14px;border-radius:4px;background:var(--pc-raised);opacity:.9}
+  .pc-mock .pc-title{height:5px;width:42%;border-radius:3px;background:var(--pc-on-brand);opacity:.85}
+  .pc-mock .pc-body{flex:1;display:flex;gap:5px;padding:7px}
+  .pc-mock .pc-card{flex:1;background:var(--pc-raised);border:1px solid var(--pc-line);border-radius:4px;padding:5px;display:flex;flex-direction:column;justify-content:space-between}
+  .pc-mock .pc-price{height:5px;width:55%;border-radius:3px;background:var(--pc-accent-ink)}
+  .pc-mock .pc-btn{height:9px;width:70%;border-radius:3px;background:var(--pc-brand)}
+  .palette-card .pname{font-size:.8rem;font-weight:800;color:var(--ink)}
   .palette-card .pdesc{font-size:.68rem;color:var(--ink-soft);line-height:1.35}
+  .palette-card.is-default .pname::after{content:'ברירת מחדל';display:table;margin-top:3px;font-size:.6rem;font-weight:700;
+    color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
 
   /* ---------- בחירת רקע הדף ----------
      שתי אפשרויות בלבד, ולכן שני כרטיסים ולא רשימה נפתחת: כל אחד מהם מציג
@@ -2161,6 +2246,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .calls-filter .calls-search{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.85rem}
   .calls-filter input[type=date],.calls-filter select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.8rem;margin-inline-start:4px}
   .ag-gcal[hidden]{display:none}
+  /* הצעת החיבור: מתחת לפגישות היום, ובחלון אחרי הפגישה הראשונה */
+  .gcal-offer{border:1.5px dashed var(--teal);background:var(--teal-tint);border-radius:var(--radius-md);padding:14px 16px;margin:14px 0}
+  .gcal-offer[hidden]{display:none}
+  .gcal-offer-title{font-weight:800;font-size:.95rem;margin-bottom:4px}
+  .gcal-offer p{font-size:.86rem;line-height:1.55;margin:0 0 10px;color:var(--ink)}
+  .gcal-offer-note{font-size:.74rem;color:var(--ink-soft);margin-top:8px}
   .ag-gcal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ag-gcal-title{font-weight:700;font-size:.86rem}
   #dashboard .ag-gcal{border-color:var(--edge);background:var(--surface-2)}
@@ -4633,8 +4724,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <div class="card login-card" id="loginCardMain" style="display:none">
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>איזור סוכנים</h1>
-    <p class="sub">שוק נדל״ן - עפולה והעמק</p>
+    <h1>שוק הנדל״ן לעסקים</h1>
+    <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
     <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
          רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
          ומופעל מיד אחרי ההתחברות. -->
@@ -4651,6 +4742,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
       <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
       <div id="loginError"></div>
+      <!-- מוצג רק כשהחשבון קיים והמייל עוד לא אושר (email_not_confirmed), או
+           מיד אחרי יצירת חשבון. בלעדיו מי שמייל האישור לא הגיע אליו/ה (ספאם,
+           מכסת השליחה של Supabase) נשאר/ה מול שגיאה בלי שום דרך קדימה. -->
+      <button type="button" class="btn btn-ghost btn-block" id="resendConfirmBtn" style="display:none;margin-top:8px">שליחה חוזרת של מייל האישור</button>
     </form>
     <!-- ---------- יצירת חשבון למוזמן/ת ----------
          מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
@@ -4670,7 +4765,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
          מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
-    <a href="/pricing" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? מסלולים ופתיחת משרד ←</a>
+    <a href="/agency-signup" style="display:block;text-align:center;font-size:.9rem;font-weight:700;color:var(--teal);margin-top:16px">עדיין אין לך משרד? הצטרפות ←</a>
+    <div style="text-align:center;font-size:.82rem;color:var(--ink-soft);margin-top:6px">🎁 6 חודשים במתנה עלינו - ללא התחייבות וללא פרטי אשראי</div>
   </div>
 
   <!-- ---------- מי את/ה? ----------
@@ -4770,33 +4866,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       הנכסים, הלידים והלקוחות הרשומים על שמך יעברו למשרד הזה ברגע שייפתח.
       המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
     </div>
-    <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
+    <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
     <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך (20270115101000) -->
     <div class="field">
-      <label for="caAgencyCity">עיר המשרד</label>
-      <select id="caAgencyCity" required></select>
+      <label for="caAgencyCity">עיר</label>
+      <select id="caAgencyCity" required data-placeholder="איפה המשרד פעיל בעיקר?"></select>
       <input type="text" id="caAgencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
     </div>
-    <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
-    <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
-    <!-- ‏ת.ז. נבדקת פעם אחת בפתיחת המשרד ונשמרת בפרופיל, כמו ב-agency-signup.html -->
-    <div class="field"><label>מספר תעודת זהות</label><input type="text" id="caIdNumber" required placeholder="9 ספרות"
-      inputmode="numeric" dir="ltr" style="text-align:right" maxlength="20" data-il-id></div>
+    <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
+    <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
+         מכאן: היא נשאלת בפתיחת ההסכם הראשון (openAgreementWizard). -->
+    <div class="field">
+      <label for="caPhone">טלפון נייד</label>
+      <input type="tel" id="caPhone" required placeholder="050-1234567" inputmode="tel" autocomplete="tel" dir="ltr" style="text-align:right">
+      <div class="micro">💬 למספר זה יחובר הוואטסאפ של גבריאלה</div>
+    </div>
+    <div class="field"><label for="caLicense">מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456" inputmode="numeric"></div>
     <!-- ---------- המסלול ----------
          בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
          המסלול המלא לחצי שנה, ובחירה אמיתית תיפתח בתומה — במסך בחירת
          המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
          שדה נוסף למלא. -->
-    <div id="caTierField" style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.82rem;line-height:1.6;text-align:right">
-      🎁 <b>6 חודשים במסלול Elite במתנה</b> - המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
-      בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
-      <a href="/pricing" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">פירוט המסלולים ←</a>
+    <div id="caTierField" class="promo-tag">
+      🎁 <b>6 חודשים במתנה עלינו</b> - ללא התחייבות וללא פרטי אשראי
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
-      <label for="caEthicsConsent">קראתי את <a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a> ואני מסכים/ה לעשרת סעיפיו - בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
+      <label for="caEthicsConsent">קראתי ומאשר/ת את <a href="/terms" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a> ו<a href="/ethics-code" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">קוד האתיקה</a> של המערכת</label>
     </div>
-    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn">פתיחת המשרד שלי</button>
+    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn" style="font-size:1.05rem">יוצאים לדרך 🚀</button>
     <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
     <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
   </div>
@@ -5066,22 +5164,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            ולכן זה המקום שבו הסוכן/ת רואה מה מחכה: הדף, דף המשרד והמודעות לא
            מוצגים באתר עד האישור. מכאן שולחים צילום, מתקנים מספר, ורואים את
            מצב הערעור. נעלם מעצמו ברגע שהרישיון מאושר. -->
-      <section id="licenseHoldCard" hidden style="background:#fff8ec;border:1.5px solid #e5c76a;border-radius:var(--radius-md);padding:16px 18px;margin:0 0 16px">
-        <h2 style="font-size:1.02rem;margin:0 0 6px">רישיון התיווך שלך עוד לא אושר</h2>
-        <p id="lhText" style="font-size:.86rem;line-height:1.65;margin:0 0 8px"></p>
-        <p id="lhStatus" style="font-size:.84rem;line-height:1.6;margin:0 0 12px;font-weight:700"></p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn btn-gold" id="lhAppealBtn">שליחת צילום רישיון</button>
-          <button type="button" class="btn btn-ghost" id="lhFixBtn">תיקון מספר הרישיון</button>
-        </div>
-        <div id="lhFixRow" hidden style="margin-top:12px">
-          <div class="field" style="margin-bottom:8px">
-            <label for="lhLicense">מספר רישיון תיווך</label>
-            <input type="text" id="lhLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+      <!-- הנוסח הוא הזמנה ולא אזהרה: "רישיון לא אושר" באדום נקרא ככישלון,
+           אבל החשבון עובד ורק הפרסום מחכה. "המשך ללוח הבקרה" מקפל את הכרטיס
+           לשורה אחת עד סוף הביקור (‏LH_COMPACT_KEY), ולא מסתיר אותו לתמיד. -->
+      <section id="licenseHoldCard" class="lh-card" hidden>
+        <div class="lh-full">
+          <div class="lh-head"><span class="lh-badge" aria-hidden="true">✓</span>
+            <h2>החשבון שלך מוכן לעבודה!</h2></div>
+          <p id="lhText" class="lh-text"></p>
+          <p id="lhStatus" class="lh-status"></p>
+          <div class="lh-actions">
+            <button type="button" class="btn btn-gold" id="lhAppealBtn">העלאת אישור רישיון (לפרסום מיידי)</button>
+            <button type="button" class="btn btn-ghost" id="lhContinueBtn">המשך ללוח הבקרה</button>
           </div>
-          <button type="button" class="btn btn-gold" id="lhSaveBtn">שמירה ובדיקה</button>
+          <button type="button" class="lh-link" id="lhFixBtn">תיקון מספר הרישיון</button>
+          <div id="lhFixRow" hidden style="margin-top:12px">
+            <div class="field" style="margin-bottom:8px">
+              <label for="lhLicense">מספר רישיון תיווך</label>
+              <input type="text" id="lhLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+            </div>
+            <button type="button" class="btn btn-gold" id="lhSaveBtn">שמירה ובדיקה</button>
+          </div>
+          <div id="lhFeedback" style="font-size:.82rem;margin-top:8px;min-height:1.2em"></div>
         </div>
-        <div id="lhFeedback" style="font-size:.82rem;margin-top:8px;min-height:1.2em"></div>
+        <button type="button" class="lh-compact" id="lhExpandBtn">⏳ אימות הרישיון בתהליך - המודעות יעלו לאוויר עם האישור <span>העלאת אישור ←</span></button>
       </section>
 
       <!-- ---------- מדריך ההתחלה ----------
@@ -6359,12 +6465,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <section class="cf-card cf-card-match" aria-labelledby="cfMatchTitle">
             <div class="cf-head">
-              <h3 class="cf-title" id="cfMatchTitle"><span class="cf-ico" aria-hidden="true">🎯</span>פרופיל חיפוש והתאמה אוטומטית</h3>
-              <span class="cf-live" title="כל נכס חדש שנכנס למערכת נבדק מול הפרופיל הזה"><span class="cf-dot" aria-hidden="true"></span>התאמה אוטומטית פעילה</span>
+              <h3 class="cf-title"><span class="cf-ico" aria-hidden="true">🎯</span><span id="cfMatchTitle">פרופיל חיפוש והתאמה אוטומטית</span></h3>
+              <span class="cf-live cf-seeker-only" title="כל נכס חדש שנכנס למערכת נבדק מול הפרופיל הזה"><span class="cf-dot" aria-hidden="true"></span>התאמה אוטומטית פעילה</span>
             </div>
-            <p class="pf-note">שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן. מאפייני החובה הם סינון קשיח - נכס בלעדיהם יורד בציון.</p>
+            <!-- מחפש/ת מול בעל/ת נכס (client_kind, מיגרציה 20270316090000).
+                 בעל/ת נכס אינו/ה נכנס/ת להתאמות, ולכן כל מה שמסומן
+                 .cf-seeker-only מוסתר אצלו/ה - סוג העסקה והקטגוריה נשארים,
+                 כי מהם נגזר ההסכם (מכירה/השכרה). ‏setClientFormKind() ב-crm.js -->
+            <div class="field" style="margin-bottom:12px"><label id="clKindLabel">הלקוח/ה</label>
+              <div class="pf-seg" role="group" aria-labelledby="clKindLabel">
+                <button type="button" class="active" data-client-kind="seeker" aria-pressed="true">מחפש/ת נכס</button>
+                <button type="button" data-client-kind="owner" aria-pressed="false">בעל/ת נכס</button>
+              </div></div>
+            <p class="pf-note cf-seeker-only">שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן. מאפייני החובה הם סינון קשיח - נכס בלעדיהם יורד בציון.</p>
+            <p class="pf-note cf-owner-only" hidden>בעל/ת נכס אינו/ה מקבל/ת התאמות. את הנכס עצמו מוסיפים מהכרטיס, עם הלקוח/ה כבעלים.</p>
 
-            <div class="cf-block-title">סוג עסקה ותקציב</div>
+            <div class="cf-block-title" id="clDealBlockTitle">סוג עסקה ותקציב</div>
             <div class="cf-grid cf-grid-2">
               <div class="field"><label id="clDealLabel">סוג עסקה</label>
                 <div class="pf-seg" role="group" aria-labelledby="clDealLabel">
@@ -6377,6 +6493,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <button type="button" data-client-category="commercial" aria-pressed="false">מסחרי</button>
                 </div></div>
             </div>
+            <div class="cf-seeker-only">
             <div class="cf-grid cf-grid-2">
               <div class="field"><label for="clMinPrice" id="clMinPriceLabel">תקציב מינימלי (₪)</label>
                 <input type="number" id="clMinPrice" min="0" inputmode="numeric" placeholder="ללא מינימום"></div>
@@ -6412,6 +6529,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cf-block-title">מאפייני חובה</div>
             <div class="pf-chips cf-chips" id="clFeatures"></div>
             <button type="button" class="cf-more" id="clFeaturesMore" hidden>+ עוד מאפיינים</button>
+            </div>
 
             <div class="cf-block-title"><label for="clNotes">הערות פנימיות</label></div>
             <div class="field"><textarea id="clNotes" rows="3" placeholder="דרישות מיוחדות, זמני פינוי, גמישות במחיר..."></textarea></div>
@@ -6437,9 +6555,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <option value="closed">סגרו עסקה</option>
             </select>
             <select id="clientDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-              <option value="">קנייה ושכירות</option>
+              <option value="">כל הלקוחות</option>
               <option value="sale">קנייה</option>
               <option value="rent">שכירות</option>
+              <option value="owner">בעלי נכסים</option>
             </select>
             <select id="clientCategoryFilter" class="filter-input" aria-label="סינון לפי קטגוריה">
               <option value="">מגורים ומסחרי</option>
@@ -6521,9 +6640,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך גבריאלה בוואטסאפ ("תזכירי לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
         <p class="acc-sub" id="agTierNote" hidden></p>
 
-        <!-- החיבור ליומן Google עבר להגדרות (#accGcal): פעולה של פעם אחת, ולא מה
-             שבאים לראות בראש היומן. כאן רק קישור אליו, כשעוד אין חיבור. -->
-        <p class="acc-sub" id="agGcalLink" hidden><a href="#" data-goto="accGcal">📅 חיבור ליומן Google - בהגדרות ←</a></p>
 
         <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
           <button type="button" data-ag-tab="today" aria-pressed="true">היום · <span id="agTabTodayCount">0</span></button>
@@ -6532,6 +6648,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" data-ag-tab="done" aria-pressed="false">בוצעו</button>
         </div>
         <div id="agList" class="rm-list"></div>
+
+        <!-- ---------- הצעת יומן Google ----------
+             מתחת לפגישות של היום, ולא בהרשמה: מי שרואה מול העיניים פגישה
+             שהוא/היא רוצה לזכור מבין למה לאשר את מסך ההרשאות של Google.
+             מוצג רק כשהמסלול כולל את היומן ועוד אין חיבור (renderGcal). -->
+        <div class="gcal-offer" id="agGcalOffer" hidden>
+          <div class="gcal-offer-title">📅 גבריאלה מסדרת לך את הפגישות ביומן</div>
+          <p>חבר את יומן Google כדי לקבל תזכורות אוטומטיות לסיורים ולפגישות עם לקוחות - בלי להזין שום דבר ידנית.</p>
+          <button type="button" class="btn btn-gold" data-gcal-connect>📅 חיבור מאובטח ל-Google Calendar</button>
+          <div class="gcal-offer-note">הסנכרון מתבצע רק עבור פגישות נדל״ן שנוצרות במערכת</div>
+        </div>
 
         <!-- הטופס מקופל: בטלפון הוא גובה מסך וחצי, והרשימה היא מה שבאים לראות.
              ‏openAgendaForm פותח אותו (מכרטיס לקוח/ה, מעריכה). -->
@@ -7762,7 +7889,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <p class="rm-note" id="agGcalNote"></p>
           <div class="ag-form-btns">
-            <button type="button" class="btn btn-ghost" id="agGcalConnect">חבר/י יומן</button>
+            <button type="button" class="btn btn-gold" id="agGcalConnect">📅 חיבור מאובטח ל-Google Calendar</button>
             <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
           </div>
         </div>
@@ -7844,27 +7971,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים - התגיות הראשונות הן אלה שנראות בראש הדף.</p>
           </div>
 
-          <!-- ---------- רקע דף הסוכן/ת ----------
-               ברירת המחדל היא מה שמנהל/ת המשרד בחר/ה במקטע המיתוג, ובהיעדר
-               בחירה — הרקע הזורם של האתר. שתי האפשרויות האחרות הן עקיפה
-               אישית של הדף הזה בלבד, וחזרה ל"כמו המשרד" מחזירה את ברירת
-               המחדל. -->
-          <div class="form-subheading">רקע הדף שלי</div>
-          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">
-            הרקע שמאחורי תוכן דף הסוכן/ת שלך. ברירת המחדל היא מה שנבחר עבור המשרד.
+          <!-- אין כאן בחירת עיצוב: דף הסוכן/ת לובש את ערכת המשרד, שמנהל/ת
+               המשרד בוחר/ת במקטע המיתוג - זהה לכל הסוכנים -->
+          <p style="font-size:.72rem;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;margin:12px 0 0">
+            🎨 הצבעים והרקע של הדף שלך נקבעים בידי מנהל/ת המשרד, ומשותפים לכל הסוכנים במשרד.
           </p>
-          <div class="bg-choice" id="pfBgChoice"></div>
 
-          <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
-          <div class="single-img-row">
-            <div>
-              <div class="img-dropzone" style="padding:10px 14px">
-                <label class="pick" for="pfPhotoInput">+ העלאת תמונת סוכן/ת</label>
-                <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">פורטרט · מוצג כמלבן ללא מסגרת</div>
-              </div>
-              <div class="img-preview" id="pfPhotoPreview"></div>
-              <!-- סימון נקודת המיקוד. מוצג רק כשיש תמונה. -->
+          <!-- ---------- תמונת הפרופיל ----------
+               האזור המודגש בטופס: זו התמונה שהלקוח/ה רואה בדף הסוכן/ת ובכל
+               נכס, וצעד 2 במדריך ההתחלה. תמונת נושא אישית אין: הרצועה בראש
+               הדף היא תמונת הנושא של המשרד, שמנהל/ת המשרד קובע/ת. -->
+          <div class="form-subheading">תמונת הפרופיל שלך</div>
+          <div class="img-dropzone img-hero" id="pfPhotoHero">
+            <div class="ih-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+            <div class="ih-body">
+              <div class="ih-title">תמונת פרופיל <span class="ih-tag">חשוב</span></div>
+              <div class="hint">פורטרט ברור, פנים מול המצלמה. מוצגת בדף הסוכן/ת שלך ובכל נכס שתפרסם/י.</div>
+              <label class="pick" for="pfPhotoInput" id="pfPhotoPick"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת פרופיל</span></label>
+              <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
+            </div>
+          </div>
+          <div class="img-preview" id="pfPhotoPreview"></div>
+          <!-- סימון נקודת המיקוד. מוצג רק כשיש תמונה. -->
               <div class="photo-focus" id="pfPhotoFocus" hidden>
                 <div class="photo-focus-stage" id="pfFocusStage">
                   <img id="pfFocusImg" alt="">
@@ -7875,15 +8003,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <button type="button" class="photo-focus-reset" id="pfFocusReset">איפוס</button>
                 </div>
               </div>
-            </div>
-            <div>
-              <div class="img-dropzone" style="padding:10px 14px">
-                <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
-                <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600 · בלי תמונה מוצגת תמונת הרקע של המשרד</div>
-              </div>
-              <div class="img-preview" id="pfCoverPreview"></div>
-            </div>
+
+          <div class="office-cover-note">
+            <div class="oc-thumb" id="pfOfficeCoverThumb"></div>
+            <p><b>תמונת הנושא היא של המשרד.</b> הרצועה בראש הדף שלך מציגה את תמונת הנושא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.</p>
           </div>
 
           <!-- ---------- הגלריה האישית ----------
@@ -7921,33 +8044,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="acc-body">
         <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת - השינוי נכנס לתוקף מיד לאחר השמירה.</p>
 
-        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
+        <!-- ---------- ערכת העיצוב ----------
+             חמש ערכות מובנות וחזרה לברירת המחדל - ולא בוררי צבע חופשיים.
+             הערכה נבחרת כאן פעם אחת, בידי מנהל/ת המשרד בלבד (‏RLS על
+             ‏agencies), והיא חלה על דף המשרד ועל דפי כל הסוכנים שלו: לסוכן/ת
+             אין עיצוב אישי. כל ערכה נבדקה מראש לניגודיות, ולכן אין כאן אזהרות. -->
+        <div class="form-subheading" style="margin-top:0">ערכת עיצוב</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מחמש הערכות, או חזרו לברירת המחדל. הערכה חלה על דף המשרד ועל דפי כל הסוכנים במשרד.</p>
         <div class="palette-grid" id="paletteGrid"></div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPrimary">צבע ראשי</label><input type="color" id="brColorPrimary"></div>
-          <div class="color-input"><label for="brColorPrimaryDark">ראשי כהה</label><input type="color" id="brColorPrimaryDark"></div>
-          <div class="color-input"><label for="brColorAccent">צבע משני (הדגשות)</label><input type="color" id="brColorAccent"></div>
-          <div class="color-input"><label for="brColorAccentDark">משני כהה</label><input type="color" id="brColorAccentDark"></div>
-        </div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPaper">רקע הדף</label><input type="color" id="brColorPaper"></div>
-          <div class="color-input"><label for="brColorPaperRaised">רקע כרטיסים</label><input type="color" id="brColorPaperRaised"></div>
-          <div class="color-input"><label for="brColorLine">קווי הפרדה</label><input type="color" id="brColorLine"></div>
-        </div>
-
-        <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
 
         <!-- ---------- רקע דף המשרד ----------
              ברירת המחדל היא הרקע הזורם של האתר — אותה שמש, אותו קו רקיע
              ואותם גלים שיש בדף הבית ובדשבורד הזה — כדי שמעבר מדף הבית לדף
              המשרד לא ירגיש כמו מעבר לאתר אחר. משרד עם ערכה כהה, או כזה
              שרוצה שהתמונות שלו יעמדו לבד, מכבה אותו כאן ומחזיר אותו באותו
-             מקום. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת
-             בחר/ה אחרת בפרופיל האישי. -->
+             מקום. הבחירה חלה גם על דפי כל הסוכנים של המשרד. -->
         <div class="form-subheading">רקע הדף</div>
         <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת בחר/ה אחרת בפרופיל האישי.
+          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי כל הסוכנים של המשרד.
         </p>
         <div class="bg-choice" id="brBgChoice"></div>
 
@@ -8018,21 +8132,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="spec-grid" id="brSpecGrid"></div>
         <div class="spec-suggest" id="brSpecSuggest" style="display:none"></div>
 
+        <!-- הלוגו ותמונת הנושא של המשרד - אזורים מודגשים. תמונת הנושא חלה
+             גם על דפי כל הסוכנים של המשרד; לסוכן/ת אין תמונת נושא אישית. -->
         <div class="form-subheading">לוגו ותמונת נושא</div>
         <div class="single-img-row">
-          <div>
-            <div class="img-dropzone" style="padding:10px 14px">
-              <label class="pick" for="brLogoInput">+ העלאת לוגו</label>
-              <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
-              <div class="hint">מרובע · יוצג בראש דף המשרד</div>
+          <div class="img-hero-col">
+            <div class="img-dropzone img-hero" id="brLogoHero">
+              <div class="ih-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>
+              <div class="ih-body">
+                <div class="ih-title">לוגו המשרד <span class="ih-tag">חשוב</span></div>
+                <div class="hint">מרובע · בראש דף המשרד ובכל נכס של הצוות</div>
+                <label class="pick" for="brLogoInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת לוגו</span></label>
+                <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
+              </div>
             </div>
             <div class="img-preview" id="brLogoPreview"></div>
           </div>
-          <div>
-            <div class="img-dropzone" style="padding:10px 14px">
-              <label class="pick" for="brCoverInput">+ העלאת תמונת נושא</label>
-              <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
-              <div class="hint">רצועה רחבה · מומלץ 1600×600</div>
+          <div class="img-hero-col">
+            <div class="img-dropzone img-hero" id="brCoverHero">
+              <div class="ih-icon wide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+              <div class="ih-body">
+                <div class="ih-title">תמונת נושא <span class="ih-tag">חשוב</span></div>
+                <div class="hint">רצועה רחבה, מומלץ 1600×600 · בראש דף המשרד <b>ובראש דפי כל הסוכנים</b></div>
+                <label class="pick" for="brCoverInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת נושא</span></label>
+                <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
+              </div>
             </div>
             <div class="img-preview" id="brCoverPreview"></div>
           </div>

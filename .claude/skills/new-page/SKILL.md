@@ -92,9 +92,16 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 | סוג הדף | מה משתנה |
 | --- | --- |
 | ציבורי | כלשונו |
-| אזור אישי | `href="/app-crm.webmanifest"`, והכותרת `content="אזור אישי"` |
+| אזור אישי | `href="/app-crm.webmanifest"`, הכותרת `content="אזור אישי"`, ו-`<script … data-first-visit="show">` |
 | תהליך (תשלום, חתימה) | `<script … data-no-auto>` — בלי רצועה אוטומטית |
 | סרגל קבוע בתחתית | `<script … data-bottom="124px">` (‏ה-CRM) |
+
+**‏`data-first-visit="show"` באזור האישי, ולא בדף ציבורי.** מאוקטובר 2026
+הרצועה עולה בדף ציבורי רק **מהביקור השני** - המדידה הראתה שחשיפה רחבה
+לקהל קר מייצרת ביקורים ולא התקנות (‏185 הצגות → 4 לחיצות → התקנה אחת).
+באזור האישי זה לא חל: כדי להגיע לשם צריך להתחבר, כלומר כבר יש חשבון וכבר
+הייתה היכרות, ושם גם נמדד יחס הלחיצה הגבוה באתר. שלושת הדפים -
+‏`crm`, `developer-crm`, `professional-manage` - נושאים את המאפיין.
 
 דף בלי הבלוק נטען ונראה תקין; מה שחסר הוא ההצעה להתקין, ומי שכבר התקין/ה
 עלול/ה לצאת מהאפליקציה לדפדפן כשיגיע אליו. `scripts/check_pwa.py` חוסם
@@ -125,6 +132,22 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 כתובת תמונה בתוך `url('…')` שבתוך `style="…"` היא מקרה אחר — שם צריך
 `cssUrl` (ראו `index.html`), כי `escapeHtml` אינה מגינה על גרש בודד
 בתוך CSS.
+
+### ‏5א. הודעת שגיאה - בעברית, לא `error.message`
+
+שגיאה מ-Supabase, מהדפדפן או מפונקציית Edge היא אנגלית (`Failed to fetch`,
+‏`Load failed` בספארי, `db_error`). **לא מציגים אותה כמו שהיא.**
+
+- דף שטוען `assets/friendly-error.js` (‏`<script src>` אחרי `esc.js`):
+  `FriendlyError.text(err)`. מתחת לאלמנט השגיאה אפשר להוסיף
+  `FriendlyError.attachHelp(el, el.textContent)` - קישור "לעזרה בוואטסאפ"
+  עם `data-site-contact`, ולכן `check_events.py` מקבל אותו.
+- דף ציבורי שלא רוצים להוסיף לו בקשה: מציגים `err.message` רק כשיש בו
+  עברית (`/[֐-׿]/.test(err.message || '')`), ואחרת הודעה קבועה
+  בעברית. **לא** `err.message !== 'Failed to fetch'` - ספארי אומר
+  `Load failed` והוא עובר.
+
+הפרטים: `docs/friendly-errors.md`.
 
 ### 6. פרטיות כתובת
 

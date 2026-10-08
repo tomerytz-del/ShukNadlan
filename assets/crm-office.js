@@ -126,7 +126,7 @@ async function runRefer(){
   btn.textContent = original;
   btn.disabled = false;
   if (error || !data || data.ok === false){
-    showToast('המסירה נכשלה: ' + ((data && data.error) || (error && error.message) || 'שגיאה לא ידועה'), 6000);
+    showToast('המסירה נכשלה: ' + heErr((data && data.error) || error), 6000);
     return;
   }
   closeReferModal();
@@ -159,6 +159,8 @@ const CLIENT_IO_FIELDS = [
   { key:'id_number',         label:'ת.ז.',            syn:['תז','תעודת זהות','מספר זהות','id'] },
   { key:'address',           label:'כתובת',           syn:['כתובת מגורים','address'] },
   { key:'status',            label:'סטטוס',           syn:['מצב','status'] },
+  // מחפש/ת מול בעל/ת נכס (client_kind) - בעל/ת נכס אינו/ה נכנס/ת להתאמות
+  { key:'client_kind',       label:'סוג לקוח/ה',      syn:['סוג לקוח','מחפש או בעלים','בעל נכס','kind'] },
   { key:'deal_type',         label:'סוג עסקה',        syn:['עסקה','קנייה או שכירות','deal'] },
   { key:'category',          label:'קטגוריה',         syn:['מגורים או מסחרי','category'] },
   { key:'cities',            label:'ערים מבוקשות',    syn:['עיר','ערים','עיר מבוקשת','אזור','city','cities'] },
@@ -183,6 +185,8 @@ const CLIENT_IO_WORDS = {
   status:    [['מחפש/ת','active'],['פעיל','active'],['מחפש','active'],['active','active'],
               ['בהמתנה','paused'],['מושהה','paused'],['paused','paused'],
               ['סגר/ה עסקה','closed'],['סגר עסקה','closed'],['סגור','closed'],['closed','closed']],
+  client_kind: [['מחפש/ת','seeker'],['מחפש','seeker'],['קונה','seeker'],['שוכר','seeker'],['seeker','seeker'],
+                ['בעל/ת נכס','owner'],['בעל נכס','owner'],['בעלים','owner'],['מוכר','owner'],['משכיר','owner'],['owner','owner']],
   deal_type: [['קנייה','sale'],['קניה','sale'],['רכישה','sale'],['מכירה','sale'],['sale','sale'],['buy','sale'],
               ['שכירות','rent'],['השכרה','rent'],['rent','rent']],
   category:  [['מגורים','residential'],['residential','residential'],['מסחרי','commercial'],['commercial','commercial']],
@@ -226,7 +230,7 @@ async function exportClientsFile(scope){
 
   let XLSX;
   try { XLSX = await loadImportLib(); }
-  catch (err){ showToast(err.message); return; }
+  catch (err){ showToast(heErr(err)); return; }
 
   const team = await expLoadTeam();
   const names = Object.fromEntries(team.map(m => [m.id, m.display_name || '']));
@@ -336,7 +340,7 @@ function clientRowToPayload(r, mapping, maps){
   if (!p.full_name && !p.phone) return null;
   if (!p.full_name) p.full_name = p.phone;
 
-  ['deal_type', 'category', 'status', 'financing_status', 'lead_source'].forEach(key => {
+  ['client_kind', 'deal_type', 'category', 'status', 'financing_status', 'lead_source'].forEach(key => {
     const raw = impText(get(key));
     if (!raw) return;
     const code = maps[key].toCode[impNorm(raw)];
@@ -417,7 +421,7 @@ function openClientImport(){
 async function downloadClientTemplate(){
   let XLSX;
   try { XLSX = await loadImportLib(); }
-  catch (err){ showToast(err.message); return; }
+  catch (err){ showToast(heErr(err)); return; }
   const example = {
     full_name:'ישראל ישראלי', phone:'050-1234567', status:'מחפש/ת', deal_type:'קנייה', category:'מגורים',
     cities:'עפולה, נצרת עילית', property_types:'דירה', max_price:1800000, min_rooms:4,
@@ -441,7 +445,7 @@ async function readClientImportFile(file){
 
   let matrix;
   try { matrix = await clientReadMatrix(file); }
-  catch (err){ return fail('לא הצלחנו לקרוא את הקובץ: ' + (err && err.message || 'פורמט לא נתמך')); }
+  catch (err){ return fail('לא הצלחנו לקרוא את הקובץ: ' + (err && heErr(err) || 'פורמט לא נתמך')); }
   if (!matrix.length) return fail('הגיליון ריק');
 
   const headers = (matrix[0] || []).map(h => impText(h));
@@ -502,7 +506,7 @@ async function saveClientImport(btn){
   for (let i = 0; i < rows.length; i += 200){
     const chunk = rows.slice(i, i + 200).map(p => ({ ...p, agent_id: currentAgent.id, agency_id: currentAgent.agency_id }));
     const { error } = await sb.from('agent_clients').insert(chunk);
-    if (error){ failed = error.message; break; }
+    if (error){ failed = heErr(error); break; }
     added += chunk.length;
   }
   document.getElementById('ciModal').style.display = 'none';
@@ -652,7 +656,7 @@ async function openBulkRefer(kind){
 
   let rows;
   try { rows = await cfg.load(); }
-  catch (err){ modal.style.display = 'none'; showToast('הטעינה נכשלה: ' + err.message, 6000); return; }
+  catch (err){ modal.style.display = 'none'; showToast('הטעינה נכשלה: ' + heErr(err), 6000); return; }
   if (!rows.length){ modal.style.display = 'none'; showToast(cfg.empty); return; }
   await officePreloadNames(rows);
   bulkRefer = { kind, rows, checked: new Set(), query: '', scope: 'own' };
@@ -737,7 +741,7 @@ async function runBulkRefer(btn){
   if (error || !data || data.ok === false){
     btn.disabled = false;
     bulkReferFoot();
-    showToast('המסירה נכשלה: ' + ((data && data.error) || (error && error.message) || 'שגיאה לא ידועה'), 6000);
+    showToast('המסירה נכשלה: ' + heErr((data && data.error) || error), 6000);
     return;
   }
   document.getElementById('ciModal').style.display = 'none';

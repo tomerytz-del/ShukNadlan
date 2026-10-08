@@ -26,7 +26,7 @@
 
 | קובץ | תפקיד |
 | --- | --- |
-| `supabase/migrations/20270316090000_meeting_client_followup.sql` | העמודות, התור היוצא, הטריגרים, המועדים, `claim`, `respond`, `feedback`, סוג המשימה האוטומטית וה-cron |
+| `supabase/migrations/20270319090000_meeting_client_followup.sql` | העמודות, התור היוצא, הטריגרים, המועדים, `claim`, `respond`, `feedback`, סוג המשימה האוטומטית וה-cron |
 | `supabase/functions/meeting-client/index.ts` | שליחה מהתור, דף הפגישה (`view`/`respond`/`feedback`) וקובץ ה-‎`.ics`‎ |
 | `supabase/functions/_shared/meeting-client.ts` | שליחה ל-Meta (תבנית / טקסט / כפתורים), ה-payload של הכפתורים והתשובות ללקוח/ה |
 | `supabase/functions/whatsapp-webhook/index.ts` | לחיצה על כפתור, **לפני** זיהוי הסוכן/ת והבוט הציבורי |
