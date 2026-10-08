@@ -170,7 +170,7 @@ property)`, ו-`match_properties_for_client` קוראת לה כ-`lateral`. זה 
 שלוש הפונקציות למעלה גוזרות את זהות הסוכן/ת מ-`auth.uid()` — נכון לדפדפן,
 וחסר תחליף שם. אבל העוזר בוואטסאפ מזהה לפי **מספר טלפון** ורץ עם
 `service_role`, ולכן `auth.uid()` שלו `null` והן מחזירות אפס שורות. לכן
-נוספו שלוש מקבילות שמקבלות `p_agent_id` מפורש, ומוענקות ל-`service_role`
+נוספו מקבילות שמקבלות `p_agent_id` מפורש, ומוענקות ל-`service_role`
 בלבד:
 
 | פונקציה | מה היא מחזירה |
@@ -178,10 +178,11 @@ property)`, ו-`match_properties_for_client` קוראת לה כ-`lateral`. זה 
 | `agent_client_matches(agent, client, limit)` | אותן התאמות כמו `match_properties_for_client` |
 | `agent_client_match_counts(agent)` | ספירה + ההתאמה החזקה לכל לקוח/ה בקובץ |
 | `agent_property_client_matches(agent, property, limit)` | **הכיוון ההפוך** — למי מהלקוחות מתאים נכס מסוים |
+| `agent_client_market_matches(agent, client, limit)` | מה עוד יש **באזור**: נכסים פעילים של משרדים אחרים בשוק המקומי של המשרד (`cities.market_slug`) שלא שותפו איתו. בלי מספר בית, עם המתווך/ת, המשרד והטלפון. אינם נכנסים למיניסייט |
 
 שתי נקודות שכדאי לדעת:
 
-- **הניקוד לא שוכפל.** שלושתן קוראות ל-`client_property_match`, ולכן הציון
+- **הניקוד לא שוכפל.** כולן קוראות ל-`client_property_match`, ולכן הציון
   שהסוכן/ת רואה בוואטסאפ הוא אותו ציון שבפאנל. חישוב מקומי בצד השרת היה
   מתפצל מהפאנל תוך חודש, ואז אותו נכס היה מקבל שני ציונים.
 - **הן אינן פתוחות ל-`authenticated`.** פונקציה `security definer` שמקבלת
