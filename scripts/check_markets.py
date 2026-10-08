@@ -12,6 +12,8 @@
   3. ‏`_redirects`                     - בלעדיו הכתובת היא 404
   4. ‏`sitemap.xml`                    - שוק חי חייב להיות שם, ושוק שאינו חי אסור
   5. ‏`supabase/migrations/`           - שוק בלי ערים משויכות אינו מסנן כלום
+  6. ‏`supabase/functions/_shared/service-markets.ts` - אזורי הפעילות שגבריאלה
+     מציעה לסוכנים. שוק שחסר שם אינו ניתן לבחירה בצ'אט, בשקט
 
 **וכלל אחד שאינו התאמה אלא שער:** שוק שאינו ברירת המחדל אינו יכול להיות
 `live` כל עוד דף הבית אינו מסנן נכסים לפי שוק (שלב 2 ב-docs/regional-pages.md).
@@ -36,6 +38,7 @@ REDIRECTS = ROOT / "_redirects"
 SITEMAP = ROOT / "sitemap.xml"
 MIGRATIONS = ROOT / "supabase" / "migrations"
 HOME_JS = ROOT / "assets" / "home.js"
+SERVICE_MARKETS_TS = ROOT / "supabase" / "functions" / "_shared" / "service-markets.ts"
 SITE = "https://shuknadlan.co.il"
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -148,6 +151,23 @@ def main() -> int:
                 % (slug, HOME_FILTER_MARK, path)
             )
 
+    # ‏6. אזורי הפעילות בבוט - אותם slug ואותו שם, לא פחות ולא יותר
+    bot = dict(re.findall(r'slug:\s*"([^"]+)",\s*label:\s*"([^"]+)"',
+                          SERVICE_MARKETS_TS.read_text(encoding="utf-8")))
+    for m in markets:
+        if m["slug"] not in bot:
+            problems.append(
+                "‏%s: חסר ב-SERVICE_MARKETS (supabase/functions/_shared/service-markets.ts) - "
+                "גבריאלה לא תציע אותו כאזור פעילות." % m["slug"]
+            )
+        elif bot[m["slug"]] != m["label"]:
+            problems.append(
+                "‏%s: השם ב-service-markets.ts (%s) שונה מ-assets/markets.js (%s)."
+                % (m["slug"], bot[m["slug"]], m["label"])
+            )
+    for extra in sorted(set(bot) - set(slugs)):
+        problems.append("‏%s ב-service-markets.ts ואין שוק כזה ב-assets/markets.js." % extra)
+
     known = {m["path"] for m in markets if not m["default"]}
     for extra in sorted(paths - known):
         problems.append("‏%s ב-config.path של market-pages.ts ואין שוק כזה ב-assets/markets.js." % extra)
@@ -160,7 +180,7 @@ def main() -> int:
         return 1
 
     live = sum(1 for m in markets if m["live"])
-    print("✓ %d שווקים (%d חיים): הרשימה, market-pages.ts, ‏_redirects, ‏sitemap.xml והמיגרציות מסכימים." % (len(markets), live))
+    print("✓ %d שווקים (%d חיים): הרשימה, market-pages.ts, ‏_redirects, ‏sitemap.xml, המיגרציות ואזורי הפעילות בבוט מסכימים." % (len(markets), live))
     return 0
 
 
