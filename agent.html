@@ -1729,12 +1729,13 @@ function agencyPageHref(agency){
   return agency && agency.slug ? '/agency?slug=' + encodeURIComponent(agency.slug) : null;
 }
 
-/* רצועת תמונת הנושא. ברירת המחדל היא תמונת הרקע של המשרד — כך שגם סוכן/ת
-   שעוד לא העלה/תה תמונה משלו/ה מקבל/ת ראש עמוד ממותג — ותמונה אישית, כשקיימת,
-   גוברת עליה. הרצועה מקשרת לדף המשרד, עם תגית קטנה שמסמנת שאפשר ללחוץ. */
+/* רצועת תמונת הנושא - תמיד של המשרד. מנהל/ת המשרד קובע/ת אותה לכל
+   הסוכנים, ואין תמונת נושא אישית (‏agency_members.cover_url כבר אינה
+   מוצגת; docs/agency-page.md, סעיף 10). הרצועה מקשרת לדף המשרד, עם תגית
+   קטנה שמסמנת שאפשר ללחוץ. */
 function renderProfileCover(agent){
   const agency = agent.agencies || null;
-  const src = safeImageUrl(agent.cover_url) || safeImageUrl(agency && agency.cover_url);
+  const src = safeImageUrl(agency && agency.cover_url);
   if (!src) return;
 
   const cover = document.getElementById('profileCover');
@@ -1816,7 +1817,7 @@ async function loadAgentProfile(){
     // שדות התגיות נופלים ראשונים, ובסוף נשאר הגרעין שבלעדיו אין דף. כך
     // סביבה שבה ה-view עוד לא עודכן מאבדת רק את מה שבאמת חסר בה, ולכל מה
     // שנופל יש ממילא ברירת מחדל.
-    const CORE_FIELDS = 'id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, role';
+    const CORE_FIELDS = 'id, display_name, bio, photo_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, role';
     const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area, photo_position, gallery';
     let agent = null;
     for (const fields of [CORE_FIELDS + HIGHLIGHT_FIELDS, CORE_FIELDS]){

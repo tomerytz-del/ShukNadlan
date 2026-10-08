@@ -1372,7 +1372,7 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, cover_url, phone_e164, agency_id, has_ethics_badge').limit(200),
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
       // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
@@ -1395,8 +1395,8 @@ async function loadLeadingAgents(){
     const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const agencyById = {};
     if (agencyIds.length){
-      // ‏cover_url של המשרד — הנפילה של מתווך/ת שלא העלה/תה תמונת נושא,
-      // אותה נפילה של agent.html
+      // ‏cover_url של המשרד — תמונת הנושא של כל סוכני המשרד, כמו בראש
+      // agent.html (אין תמונת נושא אישית)
       const { data: agencies } = await sb.from('agencies').select('id, name, cover_url, city_id').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
@@ -2038,8 +2038,8 @@ function dmFromAgent(m, i){
   return {
     name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    // תמונת הנושא של המתווך/ת, ואם אין — של המשרד, כמו בראש agent.html
-    cover: m.cover_url || m.agency_cover,
+    // תמונת הנושא של המשרד - היא הרצועה בראש דפי כל סוכניו, כמו ב-agent.html
+    cover: m.agency_cover,
     photo: m.photo_url, contain: false, photoPos: m.photo_position, person: true,
     initial: name.trim()[0] || 'מ',
     tags: m.agency_name ? [m.agency_name] : [],

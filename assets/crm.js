@@ -5995,30 +5995,29 @@ function profileComplete(agent){
   return !!(agent && agent.photo_url && (agent.bio || '').trim());
 }
 
-/* תמונת הרקע של המשרד, ברירת המחדל לרצועה בראש דף הסוכן/ת. נטענת בנפרד
+/* תמונת הנושא של המשרד - הרצועה בראש דף הסוכן/ת (אין תמונת נושא אישית). נטענת בנפרד
    מ-brandingState, שקיים רק אצל מנהל/ת משרד. */
 let agencyCoverUrl = null;
 async function loadAgencyCover(agencyId){
   if (!agencyId) return;
   const { data } = await sb.from('agencies').select('cover_url').eq('id', agencyId).maybeSingle();
   agencyCoverUrl = (data && data.cover_url) || null;
+  const thumb = document.getElementById('pfOfficeCoverThumb');
+  if (thumb) thumb.style.backgroundImage = agencyCoverUrl ? `url("${agencyCoverUrl}")` : '';
   if (agencyCoverUrl) renderProfilePreview();
 }
 
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
-    ['photo','cover'].forEach(k=>{
-      const slot = profileState[k];
-      if (slot && slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-    });
+    const slot = profileState.photo;
+    if (slot && slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
     (profileState.gallery || []).forEach(item=>{
       if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
     });
   }
   profileState = {
     photo: agent.photo_url ? { url: agent.photo_url } : null,
-    cover: agent.cover_url ? { url: agent.cover_url } : null,
     photoPos: parsePhotoPosition(agent.photo_position),
     // אותו מבנה בדיוק כמו גלריית המשרד: {url, caption} לפי הסדר
     gallery: (Array.isArray(agent.gallery) ? agent.gallery : [])
@@ -6053,7 +6052,7 @@ function loadProfileSettings(agent){
 function renderProfileImages(){
   if (!profileState) return;
   renderSingleImage('pfPhotoPreview', profileState.photo, 'logo', ()=> clearProfileImage('photo'));
-  renderSingleImage('pfCoverPreview', profileState.cover, 'cover', ()=> clearProfileImage('cover'));
+  markImageHero('pfPhotoHero', !!profileState.photo, 'העלאת תמונת פרופיל', 'החלפת התמונה');
   renderPhotoFocus();
   renderProfileGalleryAdmin();
 }
@@ -6273,7 +6272,15 @@ async function pickProfileImage(e, kind, maxDim){
 }
 
 document.getElementById('pfPhotoInput').addEventListener('change', (e)=> pickProfileImage(e, 'photo', 640));
-document.getElementById('pfCoverInput').addEventListener('change', (e)=> pickProfileImage(e, 'cover', 1920));
+
+/* האזור המודגש מחליף גוון כשיש כבר תמונה - כך רואים במבט מה נשאר להעלות */
+function markImageHero(id, done, emptyLabel, doneLabel){
+  const hero = document.getElementById(id);
+  if (!hero) return;
+  hero.classList.toggle('is-done', done);
+  const label = hero.querySelector('.pick span');
+  if (label) label.textContent = done ? doneLabel : emptyLabel;
+}
 
 /* התצוגה המקדימה מחקה את ראש דף הסוכן/ת, ומתעדכנת מהטופס בזמן הקלדה */
 function renderProfilePreview(){
@@ -6304,10 +6311,8 @@ function renderProfilePreview(){
     pills.innerHTML = items.map(t => `<span>${esc(t)}</span>`).join('');
   }
 
-  // בלי תמונת נושא אישית דף הסוכן/ת מציג את תמונת הרקע של המשרד — והתצוגה
-  // המקדימה מראה בדיוק את אותה נפילה
-  const coverSrc = (profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null)
-    || agencyCoverUrl;
+  // הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, תמיד
+  const coverSrc = agencyCoverUrl;
   // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
   document.getElementById('ppCover').style.backgroundImage = coverSrc ? `url("${coverSrc}")` : '';
 
@@ -6372,7 +6377,6 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
   }
 
   const uploading = (profileState.photo && !profileState.photo.url)
-    || (profileState.cover && !profileState.cover.url)
     || profileState.gallery.some(g => !g.url);
   btn.disabled = true; btn.textContent = 'שומר…';
   feedback.style.color = 'var(--ink-soft)';
@@ -6382,9 +6386,6 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     // מעלים קודם ורק אז כותבים ל-DB: אם ההעלאה נכשלת, השורה נשארת עקבית עם ה-Storage
     if (profileState.photo && !profileState.photo.url){
       profileState.photo.url = await uploadProfileBlob(profileState.photo.blob, 'photo');
-    }
-    if (profileState.cover && !profileState.cover.url){
-      profileState.cover.url = await uploadProfileBlob(profileState.cover.blob, 'cover');
     }
     for (const item of profileState.gallery){
       if (!item.url) item.url = await uploadProfileBlob(item.blob, 'gallery');
@@ -6418,7 +6419,6 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
       photo_position: profileState.photo ? photoPositionCss(profileState.photoPos) : null,
-      cover_url: profileState.cover ? profileState.cover.url : null,
       years_experience: years,
       service_area: serviceArea || null,
       credentials: credentials || null,
@@ -6426,7 +6426,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
       updated_at: new Date().toISOString(),
     };
-    const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, cover_url, ' +
+    const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, ' +
       'years_experience, service_area, credentials, specialties, gallery';
 
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
@@ -6774,15 +6774,17 @@ const ONBOARD_STEPS = [
     cta:'לחיבור גבריאלה',
     done: s => s.whatsapp_done,
     run:  ()=> gotoSection('accWhatsapp', 'waPhone') },
-  { key:'profile', name:'תמונת פרופיל ותמונת נושא',
-    text:'זה מה שלקוח/ה רואה בדף הסוכן/ת שלכם ובכל נכס שתפרסמו. דף בלי תמונות נראה כמו כרטיס שלא הושלם.',
+  /* תמונת פרופיל בלבד: תמונת הנושא היא של המשרד, ומנהל/ת המשרד מעלה אותה
+     בצעד שמתחת (20270317090000_agency_cover_only.sql) */
+  { key:'profile', name:'תמונת פרופיל',
+    text:'זה מה שלקוח/ה רואה בדף הסוכן/ת שלכם ובכל נכס שתפרסמו. דף בלי תמונה נראה כמו כרטיס שלא הושלם.',
     cta:'לעדכון הפרופיל',
     done: s => s.profile_done,
     run:  ()=> gotoSection('accProfile') },
   /* צעד של מנהל/ת משרד בלבד — לסוכן/ת בצוות אין דף משרד לערוך, ושורה
      שאי אפשר לסגור אותה היא מדריך שלא נגמר לעולם. */
   { key:'agency', name:'לוגו ותמונת נושא לדף המשרד',
-    text:'דף המשרד הוא הכותרת שמעל כל הצוות שלכם. הלוגו ותמונת הנושא נכנסים אליו ולכל דפי הסוכנים שתחתיו.',
+    text:'דף המשרד הוא הכותרת שמעל כל הצוות שלכם. הלוגו ותמונת הנושא נכנסים אליו, ותמונת הנושא היא גם הרצועה בראש דפי כל הסוכנים.',
     cta:'לעיצוב דף המשרד',
     when: s => s.is_manager,
     done: s => s.agency_done,
@@ -9406,6 +9408,8 @@ function renderBrandPreview(){
 function renderBrandImages(){
   renderSingleImage('brLogoPreview', brandingState.logo, 'logo', ()=> clearBrandImage('logo'));
   renderSingleImage('brCoverPreview', brandingState.cover, 'cover', ()=> clearBrandImage('cover'));
+  markImageHero('brLogoHero', !!brandingState.logo, 'העלאת לוגו', 'החלפת הלוגו');
+  markImageHero('brCoverHero', !!brandingState.cover, 'העלאת תמונת נושא', 'החלפת התמונה');
 }
 
 function renderSingleImage(containerId, slot, kind, onRemove){

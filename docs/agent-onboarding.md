@@ -44,7 +44,7 @@
 | # | צעד | נסגר כש… | איפה עושים אותו |
 | --- | --- | --- | --- |
 | 1 | חיבור גבריאלה, העוזרת האישית בוואטסאפ | יש שורה ב-`whatsapp_conversations` | "גבריאלה - העוזרת האישית בוואטסאפ" |
-| 2 | תמונת פרופיל ותמונת נושא | `photo_url` **ו**-`cover_url` מלאים | "עדכון פרטי הסוכן/ת" |
+| 2 | תמונת פרופיל | `photo_url` מלא (תמונת הנושא היא של המשרד, `20270317090000`) | "עדכון פרטי הסוכן/ת" |
 | 2ב | לוגו ותמונת נושא למשרד — **מנהל/ת משרד בלבד** | `agencies.logo_url` ו-`cover_url` מלאים | "מיתוג ועיצוב דף המשרד" |
 | 3 | הנכס הראשון | יש שורה ב-`properties` | "הנכסים שלי" |
 | 4 | הלקוח/ה הראשון/ה | יש שורה ב-`agent_clients` | "קובץ הלקוחות" |
@@ -198,7 +198,7 @@
 
 | טריגר | על | למה |
 | --- | --- | --- |
-| `agency_members_onboarding_nudge` | `after update of photo_url, cover_url` | התמונות האישיות |
+| `agency_members_onboarding_nudge` | `after update of photo_url` | תמונת הפרופיל (עד `20270317090000` גם `cover_url`) |
 | `agencies_onboarding_nudge` | `after update of logo_url, cover_url` | מיתוג המשרד — אותו צעד, מסך אחר |
 | `properties_onboarding_nudge` | `after insert` | הנכס הראשון |
 | `agent_clients_onboarding_nudge` | `after insert` | הלקוח/ה הראשון/ה |
@@ -255,7 +255,7 @@
 ```sql
 select m.display_name, m.role, m.tier,
        exists (select 1 from whatsapp_conversations w where w.agent_id = m.id) as wa,
-       btrim(coalesce(m.photo_url,'')) <> '' and btrim(coalesce(m.cover_url,'')) <> '' as photos,
+       btrim(coalesce(m.photo_url,'')) <> '' as photos,
        exists (select 1 from properties    p where p.agent_id = m.id) as has_prop,
        exists (select 1 from agent_clients c where c.agent_id = m.id) as has_client,
        exists (select 1 from agreements    a where a.agent_id = m.id) as has_agreement,
@@ -270,7 +270,7 @@ select m.display_name, m.role, m.tier,
 
 1. **סוכן/ת חדש/ה במסלול Elite** → הכרטיס בראש הדשבורד, צעד 1 פתוח.
 2. **שליחת הודעה לעוזר** וחזרה ללשונית → צעד 1 מסומן בלי רענון ידני.
-3. **שמירת תמונת פרופיל + תמונת נושא** (ולמנהל/ת גם לוגו ותמונת נושא למשרד)
+3. **שמירת תמונת פרופיל** (ולמנהל/ת גם לוגו ותמונת נושא למשרד)
    → צעד 2 מסומן, והתראת "הנכס הראשון שלך" מצלצלת בפעמון.
 4. **פרסום נכס** → צעד 3 מסומן, והתראת "הלקוח/ה הראשון/ה בקובץ" מצלצלת.
 5. **הוספת לקוח/ה** → צעד 4 מסומן, והתראת "ההסכם הראשון" מצלצלת.

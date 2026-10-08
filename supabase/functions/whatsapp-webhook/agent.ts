@@ -1213,7 +1213,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "profile_get",
     description:
       "הפרופיל האישי של הסוכן/ת כפי שהוא מוצג בדף הסוכן/ת באתר: שם, ביו, תמונת " +
-      "פרופיל ותמונת נושא, ותק, אזור, השכלה/הסמכות ותחומי התמחות - ומה חסר בו. " +
+      "פרופיל, ותק, אזור, השכלה/הסמכות ותחומי התמחות - ומה חסר בו. " +
       "לקרוא לפני עריכת ביו קיים (\"תוסיף לביו ש...\"), כדי לשלוח את הנוסח המלא.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
@@ -1221,8 +1221,10 @@ const TOOLS: Anthropic.Tool[] = [
     name: "update_profile",
     description:
       "עורך את הפרופיל האישי של הסוכן/ת (דף הסוכן/ת באתר). רק השדות שנשלחים משתנים. " +
-      "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile) " +
-      "או לתמונת הנושא (cover). מספר רישיון, טלפון ומסלול אינם נערכים כאן.",
+      "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile). " +
+      "אין תמונת נושא אישית: הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, ומנהל/ת " +
+      "המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. מספר רישיון, טלפון " +
+      "ומסלול אינם נערכים כאן.",
     input_schema: {
       type: "object",
       properties: {
@@ -1242,12 +1244,8 @@ const TOOLS: Anthropic.Tool[] = [
         },
         photo: {
           type: "string",
-          enum: ["profile", "cover"],
-          description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל או לתמונת הנושא.",
-        },
-        remove_cover: {
-          type: "boolean",
-          description: "true מסיר את תמונת הנושא האישית, והדף חוזר לתמונת המשרד.",
+          enum: ["profile"],
+          description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל.",
         },
       },
       required: [],
@@ -1269,7 +1267,7 @@ interface ToolContext {
 // ---------------------------------------------------------------------------
 
 const PROFILE_SELECT =
-  "slug, display_name, bio, photo_url, cover_url, years_experience, service_area, " +
+  "slug, display_name, bio, photo_url, years_experience, service_area, " +
   "credentials, specialties, tier";
 
 // ביו קצר מזה נראה בדף כמו שדה שלא מולא. ‏40 תווים הם משפט אחד.
@@ -1277,7 +1275,7 @@ const MIN_BIO_CHARS = 40;
 
 /**
  * מה חסר בפרופיל, לפי סדר החשיבות לגולש/ת שנוחת/ת בדף. תמונת נושא אינה
- * כאן: בלעדיה הדף יורש את תמונת המשרד, ונראה שלם.
+ * כאן: היא של המשרד, ולסוכן/ת אין תמונת נושא אישית.
  */
 export function profileGaps(row: Record<string, unknown> | null): string[] {
   if (!row) return [];
@@ -4465,8 +4463,7 @@ async function toolProfileGet(ctx: ToolContext) {
     display_name: row.display_name,
     bio: row.bio,
     has_profile_photo: !!row.photo_url,
-    has_cover_photo: !!row.cover_url,
-    cover_note: row.cover_url ? undefined : "בלי תמונת נושא אישית הדף מציג את תמונת המשרד.",
+    cover_note: "תמונת הנושא בראש הדף היא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.",
     years_experience: row.years_experience,
     service_area: row.service_area,
     credentials: row.credentials,
@@ -4512,31 +4509,34 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
-  if (input.remove_cover === true) patch.cover_url = null;
-
   if (problems.length) return { error: problems.join(" "), specialty_options: PROFILE_SPECIALTIES };
 
   // התמונה נלקחת מהרשימה הממתינה באותה פעולה אטומית של צירוף לנכס, כדי
   // שאותה תמונה לא תגיע גם לנכס. כמה תמונות - האחרונה נבחרת, והשאר חוזרות.
   let taken: string[] = [];
-  const photo = input.photo === "profile" || input.photo === "cover" ? String(input.photo) : null;
+  // תמונת נושא אישית ירדה: היא של המשרד בלבד (docs/agency-page.md, סעיף 10).
+  // מודל שמבקש אותה בכל זאת מקבל הסבר ולא שמירה, והתמונה נשארת ממתינה.
+  if (input.photo === "cover") {
+    return {
+      error: "cover_is_agency",
+      detail: "אין תמונת נושא אישית - הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, " +
+        "ומנהל/ת המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. " +
+        "אפשר להפוך את התמונה לתמונת הפרופיל.",
+    };
+  }
+  const photo = input.photo === "profile" ? "profile" : null;
   if (photo) {
     taken = await takePendingImages(ctx);
     if (!taken.length) {
       return {
         error: "no_image",
-        detail: "לא התקבלה תמונה בשיחה. בקש/י מהסוכן/ת לשלוח תמונה עם הכיתוב " +
-          (photo === "profile" ? "\"תמונת פרופיל\"." : "\"תמונת נושא\"."),
+        detail: "לא התקבלה תמונה בשיחה. בקש/י מהסוכן/ת לשלוח תמונה עם הכיתוב \"תמונת פרופיל\".",
       };
     }
     const chosen = taken[taken.length - 1];
-    if (photo === "profile") {
-      patch.photo_url = chosen;
-      // נקודת המיקוד של התמונה הקודמת אינה שייכת לחדשה - חזרה למרכז.
-      patch.photo_position = null;
-    } else {
-      patch.cover_url = chosen;
-    }
+    patch.photo_url = chosen;
+    // נקודת המיקוד של התמונה הקודמת אינה שייכת לחדשה - חזרה למרכז.
+    patch.photo_position = null;
   }
 
   if (!Object.keys(patch).length) {
@@ -5301,8 +5301,10 @@ const SYSTEM_STATIC: string = (() => {
       "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
     "",
     "הפרופיל האישי (דף הסוכן/ת באתר):",
-    "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. \"תמונת נושא\" / \"רקע\" / " +
-      "\"באנר\" = photo=cover. **תמונה עם כיתוב על פרופיל אינה תמונה לנכס** - אל תצרף/י אותה לנכס.",
+    "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. **אין תמונת נושא אישית**: " +
+      "\"תמונת נושא\" / \"רקע\" / \"באנר\" - הסבר/י שהרצועה היא תמונת הנושא של המשרד, ומנהל/ת המשרד " +
+      "מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים; אל תצרף/י את התמונה לנכס, ושאל/י אם " +
+      "להפוך אותה לתמונת הפרופיל. **תמונה עם כיתוב על פרופיל אינה תמונה לנכס** - אל תצרף/י אותה לנכס.",
     "- לעריכת ביו קיים (\"תוסיף שאני גם שמאי\") - קודם profile_get, ואז update_profile עם הנוסח המלא. " +
       "ביו חדש שהסוכן/ת הכתיב/ה - כמו שנאמר, בלי לייפות ובלי להמציא.",
     "- תחומי התמחות הם רשימה סגורה (specialty_options). מה שלא בה - הצע/י את הקרוב ביותר ושאל/י.",
