@@ -151,7 +151,7 @@ async function findClient(agentId: string, fromNumber: string) {
   if (key.length !== 9) return null;
   const { data } = await supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, deal_type, cities, min_rooms, max_price")
+    .select("id, full_name, phone, status, client_kind, deal_type, cities, min_rooms, max_price")
     .eq("agent_id", agentId)
     .not("phone", "is", null)
     .limit(2000);
@@ -530,7 +530,7 @@ async function notifyRinging(
     const lines = [`📞 *${client.full_name} מתקשר/ת עכשיו* (${localPhone(from)})`];
     if (label) lines.push(`דרך: ${label}`);
     const needs = needsLine(client).replace(/^:\s*/, "");
-    if (needs) lines.push(`מחפש/ת: ${needs}`);
+    if (needs) lines.push(client.client_kind === "owner" ? `בעל/ת נכס: ${needs}` : `מחפש/ת: ${needs}`);
     if (last?.summary) {
       const when = new Date(last.created_at).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric" });
       lines.push(`בשיחה הקודמת (${when}): ${last.summary}`);
@@ -554,7 +554,7 @@ async function notifyMissed(call: { id: string; agent_id: string; from_number: s
     let action: CallAction | null = phone ? { body: NOT_IN_LIST, buttons: ["כן, תוסיף"] } : null;
     if (call.client_id) {
       const { data: c } = await supabase.from("agent_clients")
-        .select("full_name, deal_type, cities, min_rooms, max_price").eq("id", call.client_id).maybeSingle();
+        .select("full_name, client_kind, deal_type, cities, min_rooms, max_price").eq("id", call.client_id).maybeSingle();
       if (c) {
         who = `${c.full_name} (${phone})`;
         extra = "לקוח/ה מהקובץ" + needsLine(c);
@@ -588,6 +588,8 @@ const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצ�
 
 function needsLine(c: Record<string, any>): string {
   const parts: string[] = [];
+  // בעל/ת נכס (client_kind owner) אינו/ה מחפש/ת - שדות החיפוש לא אומרים עליו/ה דבר
+  if (c.client_kind === "owner") return `: ${c.deal_type === "rent" ? "משכיר/ה" : "מוכר/ת"}`;
   if (c.deal_type) parts.push(c.deal_type === "rent" ? "שכירות" : "קנייה");
   if (Array.isArray(c.cities) && c.cities.length) parts.push(c.cities.join(", "));
   if (c.min_rooms) parts.push(`${c.min_rooms}+ חדרים`);
@@ -707,7 +709,7 @@ async function analyzeCall(
 
   // 3. סיכום
   const client = call.client_id
-    ? (await supabase.from("agent_clients").select("full_name, deal_type, cities, min_rooms, max_price")
+    ? (await supabase.from("agent_clients").select("full_name, client_kind, deal_type, cities, min_rooms, max_price")
       .eq("id", call.client_id).maybeSingle()).data
     : null;
   const summary = transcript ? await summarize(transcript, client?.full_name ?? null, places) : null;
@@ -740,19 +742,23 @@ async function analyzeCall(
   if (viaLabel) lines.push(`דרך: ${viaLabel}`);
   if (summary?.summary) lines.push("", summary.summary);
   else lines.push("", transcript ? "לא הצלחתי לסכם את השיחה." : "לא הצלחתי לתמלל את השיחה.");
-  if (summary?.needs_text) lines.push("", `*מחפש/ת:* ${summary.needs_text}`);
+  const ownerCall = summary?.needs?.client_kind === "owner";
+  if (summary?.needs_text) lines.push("", `${ownerCall ? "*הנכס:*" : "*מחפש/ת:*"} ${summary.needs_text}`);
   if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
   // השאלות והכפתורים - הודעה נפרדת אחרי ההקלטה, כדי שיהיו הדבר האחרון במסך
   const asks: string[] = [];
   const buttons: string[] = [];
   if (!client) {
     if (phone) {
-      asks.push(NOT_IN_LIST + (hasNeeds ? " הדרישות מהשיחה ייכנסו לכרטיס." : ""));
+      asks.push(NOT_IN_LIST + (ownerCall ? " הוא/היא ייכנס/תיכנס כבעל/ת נכס, בלי התאמות."
+        : hasNeeds ? " הדרישות מהשיחה ייכנסו לכרטיס." : ""));
       buttons.push("כן, תוסיף");
     }
   } else {
     if (hasNeeds) {
-      asks.push(`לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה?`);
+      asks.push(ownerCall && client.client_kind !== "owner"
+        ? `לסמן את ${client.full_name} כבעל/ת נכס? הוא/היא יצא/תצא מההתאמות.`
+        : `לעדכן את הכרטיס של ${client.full_name} בדרישות מהשיחה?`);
       buttons.push("כן, תעדכן");
     }
     await supabase.from("whatsapp_conversations")
@@ -931,8 +937,11 @@ async function transcribe(
   }
 }
 
-/** הדרישות בשדות של agent_clients - רק מה שנאמר. ‏מפתח חסר = לא עלה. */
+/** הדרישות בשדות של agent_clients - רק מה שנאמר. ‏מפתח חסר = לא עלה.
+ *  ‏client_kind owner = המתקשר/ת מוכר/ת או משכיר/ה נכס. בלעדיו, "כן, תוסיף"
+ *  יצר כרטיס קונה בלי דרישות - שמתאים לכל נכס במאגר. */
 export type CallNeeds = {
+  client_kind?: "owner";
   deal_type?: "sale" | "rent";
   cities?: string[];
   min_rooms?: number;
@@ -974,6 +983,12 @@ function cleanNeeds(raw: unknown): CallNeeds {
   const n = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const out: CallNeeds = {};
   if (n.deal_type === "sale" || n.deal_type === "rent") out.deal_type = n.deal_type;
+  // בעל/ת נכס: רק הצד וסוג העסקה. ערים, חדרים ומחיר שנאמרו הם של הנכס שלו/ה
+  // ולא דרישות - הם יושבים ב-needs_text, ולא ייכנסו לשדות החיפוש של הכרטיס.
+  if (n.client_kind === "owner") {
+    out.client_kind = "owner";
+    return out;
+  }
   if (Array.isArray(n.cities)) {
     const cities = n.cities.map((c) => String(c ?? "").trim()).filter(Boolean).slice(0, 6);
     if (cities.length) out.cities = cities;
@@ -1001,13 +1016,16 @@ const SUMMARY_PROMPT = [
   "summary - שניים עד ארבעה משפטים קצרים: מה הלקוח/ה רצה ומה סוכם.",
   "caller_name - שם הלקוח/ה אם נאמר בשיחה, אחרת null.",
   "needs_text - מה הלקוח/ה מחפש/ת בשורה אחת (קנייה או שכירות, עיר, חדרים, תקציב, מועד כניסה), או null אם לא עלה.",
+  "  לקוח/ה שמוכר/ת או משכיר/ה נכס - כאן תיאור הנכס שלו/ה בשורה אחת (סוג, חדרים, כתובת, מחיר מבוקש).",
   "next_step - הצעד הבא שסוכם או שכדאי לעשות, במשפט אחד, או null.",
   "needs - אובייקט עם מה שהלקוח/ה מחפש/ת, **רק שדות שנאמרו במפורש** (שדה שלא נאמר - לא לכלול):",
   "  deal_type: \"sale\" (קנייה) או \"rent\" (שכירות); cities: מערך שמות ערים בעברית -",
   "  ערים בלבד, לא שכונות ולא רחובות (שכונה או רחוב שנאמרו נכנסים ל-needs_text);",
   "  min_rooms: מספר החדרים המינימלי (\"4 חדרים\" = 4); min_price / max_price: בשקלים",
   "  (\"עד 2 מליון\" = max_price 2000000; בשכירות - מחיר חודשי). אם לא עלה כלום - {}.",
-  "  אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - {}.",
+  "  client_kind: \"owner\" אם הלקוח/ה מוכר/ת או משכיר/ה נכס ואינו/ה מחפש/ת - ואז deal_type",
+  "  \"sale\" למוכר/ת ו-\"rent\" למשכיר/ה, ושאר השדות null. מי שמוכר/ת וגם מחפש/ת לקנות - null,",
+  "  והדרישות של הקנייה כרגיל.",
   "tasks - משימות לסוכן/ת שעלו בשיחה: מה שהסוכן/ת הבטיח/ה (\"אשלח לך\", \"נקבע סיור\", \"אחזור אלייך\")",
   "  או מה שהלקוח/ה ביקש/ה. kind: meeting = לקבוע פגישה, סיור או צפייה בנכס; send_material = לשלוח",
   "  נכסים, פרטים, תמונות או מסמכים; call_back = לחזור ללקוח/ה; other = כל משימה אחרת. text - משפט",
@@ -1035,13 +1053,14 @@ const SUMMARY_SCHEMA = {
     needs: {
       type: "object",
       properties: {
+        client_kind: { anyOf: [{ type: "string", enum: ["owner"] }, { type: "null" }] },
         deal_type: { anyOf: [{ type: "string", enum: ["sale", "rent"] }, { type: "null" }] },
         cities: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }] },
         min_rooms: NULLABLE_NUM,
         min_price: NULLABLE_NUM,
         max_price: NULLABLE_NUM,
       },
-      required: ["deal_type", "cities", "min_rooms", "min_price", "max_price"],
+      required: ["client_kind", "deal_type", "cities", "min_rooms", "min_price", "max_price"],
       additionalProperties: false,
     },
     tasks: {

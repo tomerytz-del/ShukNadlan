@@ -275,6 +275,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-step-btn.is-done .pf-num{background:var(--teal-tint);color:var(--teal)}
   .pf-section{padding:18px 18px 6px}
   .pf-section[hidden]{display:none}
+  /* טופס הלקוח/ה: מחפש/ת מול בעל/ת נכס. ‏!important כי .cf-live ו-.pf-note
+     נושאים display משלהם, ו-[hidden] של הדפדפן נופל מולם */
+  .cf-seeker-only[hidden],.cf-owner-only[hidden]{display:none!important}
   .pf-title{font-family:'Heebo',sans-serif;font-size:1rem;font-weight:800;color:var(--teal-dark);margin:0 0 14px;
     display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .pf-lock{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--gold-tint);color:var(--gold-dark)}
@@ -6365,12 +6368,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <section class="cf-card cf-card-match" aria-labelledby="cfMatchTitle">
             <div class="cf-head">
-              <h3 class="cf-title" id="cfMatchTitle"><span class="cf-ico" aria-hidden="true">🎯</span>פרופיל חיפוש והתאמה אוטומטית</h3>
-              <span class="cf-live" title="כל נכס חדש שנכנס למערכת נבדק מול הפרופיל הזה"><span class="cf-dot" aria-hidden="true"></span>התאמה אוטומטית פעילה</span>
+              <h3 class="cf-title"><span class="cf-ico" aria-hidden="true">🎯</span><span id="cfMatchTitle">פרופיל חיפוש והתאמה אוטומטית</span></h3>
+              <span class="cf-live cf-seeker-only" title="כל נכס חדש שנכנס למערכת נבדק מול הפרופיל הזה"><span class="cf-dot" aria-hidden="true"></span>התאמה אוטומטית פעילה</span>
             </div>
-            <p class="pf-note">שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן. מאפייני החובה הם סינון קשיח - נכס בלעדיהם יורד בציון.</p>
+            <!-- מחפש/ת מול בעל/ת נכס (client_kind, מיגרציה 20270316090000).
+                 בעל/ת נכס אינו/ה נכנס/ת להתאמות, ולכן כל מה שמסומן
+                 .cf-seeker-only מוסתר אצלו/ה - סוג העסקה והקטגוריה נשארים,
+                 כי מהם נגזר ההסכם (מכירה/השכרה). ‏setClientFormKind() ב-crm.js -->
+            <div class="field" style="margin-bottom:12px"><label id="clKindLabel">הלקוח/ה</label>
+              <div class="pf-seg" role="group" aria-labelledby="clKindLabel">
+                <button type="button" class="active" data-client-kind="seeker" aria-pressed="true">מחפש/ת נכס</button>
+                <button type="button" data-client-kind="owner" aria-pressed="false">בעל/ת נכס</button>
+              </div></div>
+            <p class="pf-note cf-seeker-only">שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן. מאפייני החובה הם סינון קשיח - נכס בלעדיהם יורד בציון.</p>
+            <p class="pf-note cf-owner-only" hidden>בעל/ת נכס אינו/ה מקבל/ת התאמות. את הנכס עצמו מוסיפים מהכרטיס, עם הלקוח/ה כבעלים.</p>
 
-            <div class="cf-block-title">סוג עסקה ותקציב</div>
+            <div class="cf-block-title" id="clDealBlockTitle">סוג עסקה ותקציב</div>
             <div class="cf-grid cf-grid-2">
               <div class="field"><label id="clDealLabel">סוג עסקה</label>
                 <div class="pf-seg" role="group" aria-labelledby="clDealLabel">
@@ -6383,6 +6396,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <button type="button" data-client-category="commercial" aria-pressed="false">מסחרי</button>
                 </div></div>
             </div>
+            <div class="cf-seeker-only">
             <div class="cf-grid cf-grid-2">
               <div class="field"><label for="clMinPrice" id="clMinPriceLabel">תקציב מינימלי (₪)</label>
                 <input type="number" id="clMinPrice" min="0" inputmode="numeric" placeholder="ללא מינימום"></div>
@@ -6418,6 +6432,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cf-block-title">מאפייני חובה</div>
             <div class="pf-chips cf-chips" id="clFeatures"></div>
             <button type="button" class="cf-more" id="clFeaturesMore" hidden>+ עוד מאפיינים</button>
+            </div>
 
             <div class="cf-block-title"><label for="clNotes">הערות פנימיות</label></div>
             <div class="field"><textarea id="clNotes" rows="3" placeholder="דרישות מיוחדות, זמני פינוי, גמישות במחיר..."></textarea></div>
@@ -6443,9 +6458,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <option value="closed">סגרו עסקה</option>
             </select>
             <select id="clientDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-              <option value="">קנייה ושכירות</option>
+              <option value="">כל הלקוחות</option>
               <option value="sale">קנייה</option>
               <option value="rent">שכירות</option>
+              <option value="owner">בעלי נכסים</option>
             </select>
             <select id="clientCategoryFilter" class="filter-input" aria-label="סינון לפי קטגוריה">
               <option value="">מגורים ומסחרי</option>
