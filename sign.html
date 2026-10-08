@@ -395,7 +395,7 @@ function renderOtpGate(data){
 
   const waUrl = data.me.wa_verify_url || '';
   document.getElementById('waBox').hidden = !waUrl;
-  if (waUrl) document.getElementById('waVerifyBtn').href = waUrl;
+  if (waUrl) setWaUrl(waUrl);
   // בלי ערוץ לקוד (אין מייל, אין תבנית) - רק הכפתור, בלי שדה שאין מה להזין בו
   document.getElementById('otpCodeBox').hidden = !otpChannels.length;
   document.getElementById('otpOr').hidden = !(waUrl && otpChannels.length);
@@ -414,14 +414,31 @@ function renderOtpGate(data){
    שואל שוב: מיד כשחוזרים אליו מוואטסאפ, ובנוסף כל 3 שניות במשך 10 דקות. */
 let waPollTimer = null;
 let waPollUntil = 0;
+let waUrlAt = 0;   // מתי הקישור (וה-nonce שבו) הגיע מהשרת
+
+/* ה-nonce שבקישור מתחלף בשרת אחרי 25 דקות ופג אחרי 30. דף שנשאר פתוח
+   מעבר לזה עם ה-href של הטעינה הראשונה שולח קוד פג בכל לחיצה, לנצח -
+   ולכן כל תשובה של open שעדיין נעולה מעדכנת את הכפתור. */
+function setWaUrl(url){
+  if (!url) return;
+  document.getElementById('waVerifyBtn').href = url;
+  waUrlAt = Date.now();
+}
+
+function otpGateShown(){
+  return document.getElementById('stateOtp').classList.contains('is-on');
+}
 
 async function waPollOnce(){
-  if (document.getElementById('stateOtp').classList.contains('is-on') === false) return stopWaPoll();
+  if (!otpGateShown()) return stopWaPoll();
   const { ok, data } = await callFn({ action:'open', token });
-  if (ok && data.ok && !data.locked){
+  if (!ok || !data.ok) return;
+  if (!data.locked){
     stopWaPoll();
     await init();
+    return;
   }
+  setWaUrl(data.me && data.me.wa_verify_url);
 }
 
 function stopWaPoll(){
@@ -443,9 +460,29 @@ function startWaPoll(){
   }, 3000);
 }
 
-document.getElementById('waVerifyBtn').addEventListener('click', startWaPoll);
+document.getElementById('waVerifyBtn').addEventListener('click', async e => {
+  // קישור שנטען לפני יותר מ-15 דקות עלול לשאת nonce שיתחלף בזמן שהלקוח/ה
+  // בוואטסאפ. מרעננים קודם, ומבקשים ללחוץ שוב (פתיחה אחרי await נחסמת).
+  if (Date.now() - waUrlAt > 15 * 60_000){
+    e.preventDefault();
+    const waiting = document.getElementById('waWaiting');
+    waiting.hidden = false;
+    waiting.textContent = 'מרעננים את הקישור…';
+    await waPollOnce();
+    if (otpGateShown()) waiting.textContent = 'הקישור עודכן - לחצו שוב על "אימות בוואטסאפ".';
+    return;
+  }
+  document.getElementById('waWaiting').textContent = 'ממתינים להודעה שלך בוואטסאפ…';
+  startWaPoll();
+});
+/* חזרה לדף - בודקים תמיד כשהשער מוצג, ולא רק בזמן ההמתנה של 10 הדקות:
+   מי ששלח/ה את ההודעה אחרי שההמתנה נגמרה, או בלי ללחוץ על הכפתור בדף
+   הזה, נשאר/ה אחרת תקוע/ה במסך האימות עד רענון ידני. */
 document.addEventListener('visibilitychange', ()=>{
-  if (document.visibilityState === 'visible' && waPollTimer) waPollOnce();
+  if (document.visibilityState === 'visible' && otpGateShown() && !document.getElementById('waBox').hidden) waPollOnce();
+});
+window.addEventListener('pageshow', e => {
+  if (e.persisted && otpGateShown() && !document.getElementById('waBox').hidden) waPollOnce();
 });
 
 const otpInput = document.getElementById('otpInput');
