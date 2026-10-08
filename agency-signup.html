@@ -63,19 +63,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
   .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
   .consent a{color:var(--blue);font-weight:700}
-  /* ---------- תחומי התמחות ----------
-     כאן הם קפסולות ולא רשת מוסברת כמו ב-CRM: הכרטיס צר, והשלב הזה הוא
-     הרשמה ולא עריכת פרופיל. הכיתוב הקצר מספיק כדי לסמן, וההסבר המלא
-     ממתין במסך המיתוג. */
-  .spec-chips{display:flex;flex-wrap:wrap;gap:7px}
-  .spec-chip{
-    display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;line-height:1.2;
-    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:0;padding:7px 12px;
-    transition:border-color .15s ease,background .15s ease,color .15s ease;
-  }
-  .spec-chip svg{width:13px;height:13px;flex:none}
-  .spec-chip.on{border-color:var(--blue);background:var(--blue);color:#fff}
-  .spec-chip[disabled]{opacity:.45;cursor:not-allowed}
   .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
@@ -108,18 +95,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="stateForm">
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62"></a>
     <h1>פתיחת משרד תיווך</h1>
-    <p class="sub">הצטרפות למרכזי - כמנהל/ת המשרד</p>
+    <!-- ‏ההסבר "סוכנים בודדים אינם נרשמים עצמאית" היה כאן קופסה שלמה; הוא
+         מתכווץ לשורת המשנה, כי מי שמגיע/ה לדף הזה הוא/היא מנהל/ת המשרד. -->
+    <p class="sub">דקה אחת, ואת/ה בפנים. את הסוכנים מוסיפים אחר כך בהזמנה.</p>
 
     <!-- ההטבה ראשונה, לפני ההסבר על מבנה ההרשמה: מי שהגיע/ה מדף המסלולים
          כבר בחר/ה, וצריך/ה לראות שמה שנבחר עדיין תקף. ‏?tier= מגיע משם
          ומשמש לתצוגה בלבד — המסלול נקבע בשרת בכל מקרה. -->
     <div class="promo-note" id="promoNote">
-      🎁 <b>6 חודשים במסלול Elite במתנה</b> - המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
-      בתום התקופה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
-      <a href="/pricing">פירוט המסלולים ←</a>
+      🎁 <b>6 חודשים במסלול Elite במתנה</b> - בלי תשלום ובלי כרטיס אשראי.
+      <a href="/pricing">פירוט ←</a>
     </div>
 
-    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית - לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול, והם בוחרים את המסלול שלהם בעצמם.</div>
 
     <!-- ---------- הדרך הקצרה ----------
          הטופס שמתחת מבקש להמציא סיסמה, וזה השדה היחיד כאן שאינו פרט שקיים
@@ -147,16 +134,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <input type="text" id="agencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
     </div>
 
-    <!-- תחומי ההתמחות נשאלים כבר כאן ולא רק בעריכת המיתוג: הם מה שיופיע
-         כתגיות בראש דף המשרד, ומשרד חדש שאין לו עדיין נכסים הוא בדיוק זה
-         שאין ממה לגזור עבורו תגיות. אופציונלי — אפשר להשלים בהמשך. -->
-    <div class="field">
-      <label>תחומי התמחות <span style="font-weight:400">(אופציונלי · עד <span id="specMax">6</span>)</span></label>
-      <div class="spec-chips" id="specChips"></div>
-      <div class="hint" style="font-size:.72rem;color:var(--ink-soft);margin-top:6px">
-        יוצגו כתגיות בראש דף המשרד. אפשר לשנות בכל עת ב״מיתוג ועיצוב דף המשרד״.
-      </div>
-    </div>
+    <!-- תחומי ההתמחות ירדו מכאן: הם אופציונליים, נבחרים ב"מיתוג ועיצוב דף
+         המשרד" יחד עם הלוגו והערכה, ועד אז דף המשרד גוזר אותם מהנכסים. -->
 
     <div class="section-divider">הפרטים שלך (כמנהל/ת)</div>
     <div class="field"><label>שם מלא</label><input type="text" id="managerName" required></div>
@@ -182,8 +161,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- ‏הצטרפות לפלטפורמה = התחייבות לקוד האתי. האישור נרשם במסד ברגע פתיחת
          המשרד (agency-signup חותם על שורת המנהל/ת ועל שורת המשרד), ולכן תו
          האיכות פעיל כבר בכניסה הראשונה. הבדיקה נאכפת גם בשרת ולא רק כאן. -->
-    <div class="section-divider">הקוד האתי</div>
-    <div class="consent">
+    <div class="consent" style="margin-top:14px">
       <input type="checkbox" id="ethicsConsent">
       <label for="ethicsConsent">קראתי את <a href="/ethics-code" target="_blank" rel="noopener">הקוד האתי של הפלטפורמה</a> ואני מסכים/ה לעשרת סעיפיו - בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
     </div>
@@ -191,6 +169,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button class="btn" id="submitBtn">פתיחת המשרד</button>
     <div id="feedback"></div>
     <a href="/crm" class="back-link">כבר יש לך חשבון? כניסה</a>
+    <p style="font-size:.72rem;color:var(--ink-soft);text-align:center;margin:10px 0 0">סוכן/ת שהוזמן/ה למשרד קיים? נכנסים דרך הקישור שבהזמנה.</p>
   </div>
 
   <!-- ============================================================
@@ -235,13 +214,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <div id="stateDone">
+    <!-- ‏המסך הזה מוצג רק כשהכניסה האוטומטית נכשלה (signInAfterSignup).
+         במסלול הרגיל עוברים ישר לאיזור הסוכנים, בלי להקליד שוב את הסיסמה. -->
     <h1>המשרד נפתח בהצלחה!</h1>
     <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת. אישור הקוד האתי נרשם, ותו האיכות כבר פעיל בדף שלך, בדף המשרד ובמודעות הנכסים.</p>
     <a href="/crm" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לכניסת מתווכים</a>
   </div>
 </div>
 
-<script src="assets/specialties.js"></script>
 <script src="assets/tiers.js"></script>
 <script src="assets/agency-city.js"></script>
 <script src="assets/il-id.js"></script>
@@ -271,37 +251,36 @@ const FN_HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_
 // עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js)
 if (window.AgencyCity) AgencyCity.mount(document.getElementById('agencyCity'), document.getElementById('agencyCityOther'), { url: SUPABASE_URL, key: SUPABASE_ANON_KEY });
 
-/* ---------- בחירת תחומי ההתמחות ----------
-   הרשימה מגיעה מ-assets/specialties.js — אותו קטלוג בדיוק שה-CRM ודף
-   המשרד קוראים ממנו, כדי שתחום חדש לא ייפול בין הטופס הזה לשאר המערכת. */
-const chosenSpecialties = [];
+/* ---------- כניסה אוטומטית אחרי הפתיחה ----------
+   ‏agency-signup יוצר/ת את המשתמש/ת עם email_confirm, ולכן אפשר להיכנס מיד.
+   עד היום המסלול היה: "המשרד נפתח" ← מסך הכניסה ← הקלדת האימייל והסיסמה
+   שהוקלדו רגע קודם. עכשיו הכניסה נעשית כאן, והדפדפן עובר ישר ל-CRM.
 
-function renderSpecChips(){
-  const box = document.getElementById('specChips');
-  if (!box || !window.Specialties) return;
-  document.getElementById('specMax').textContent = Specialties.MAX_SELECTED;
-  const full = chosenSpecialties.length >= Specialties.MAX_SELECTED;
-  box.textContent = '';
-  Specialties.list().forEach(item=>{
-    const on = chosenSpecialties.includes(item.id);
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'spec-chip' + (on ? ' on' : '');
-    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
-    chip.title = item.hint;
-    if (!on && full) chip.disabled = true;
-    chip.innerHTML = Specialties.iconFor(item.id) + '<span></span>';
-    chip.querySelector('span').textContent = item.short;
-    chip.addEventListener('click', ()=>{
-      const at = chosenSpecialties.indexOf(item.id);
-      if (at >= 0) chosenSpecialties.splice(at, 1);
-      else if (chosenSpecialties.length < Specialties.MAX_SELECTED) chosenSpecialties.push(item.id);
-      renderSpecChips();
+   אין כאן supabase-js, ולכן הבקשה היא ל-GoTrue ישירות, והתשובה נשמרת במפתח
+   שבו supabase-js שב-crm.html מחפש session (‏sb-<ref>-auth-token). זה אותו
+   מבנה בדיוק שהספרייה עצמה כותבת. כל כשל כאן אינו כשל של ההרשמה: המשרד
+   כבר נפתח, ומי שלא נכנס/ה אוטומטית רואה את מסך הסיום הרגיל. */
+const AUTH_STORAGE_KEY = 'sb-' + new URL(SUPABASE_URL).hostname.split('.')[0] + '-auth-token';
+
+async function signInAfterSignup(email, password){
+  try{
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password }),
     });
-    box.appendChild(chip);
-  });
+    if (!res.ok) return false;
+    const session = await res.json();
+    if (!session || !session.access_token || !session.refresh_token || !session.user) return false;
+    if (!session.expires_at && session.expires_in){
+      session.expires_at = Math.floor(Date.now() / 1000) + Number(session.expires_in);
+    }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+    return true;
+  } catch(_){
+    return false;   // גלישה פרטית, רשת - מסך הסיום הרגיל מכסה
+  }
 }
-renderSpecChips();
 
 /* ---------- חיווי חי על מספר הרישיון ----------
    נקרא ב-blur ולא בכל הקלדה: כל קריאה היא יציאה ל-data.gov.il (בפעם
@@ -392,7 +371,6 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_password: managerPassword,
         license_number: licenseNumber,
         id_number: managerIdNumber,
-        specialties: chosenSpecialties,
         ...(agencyCity || {}),
         ethics_code_accepted: true,
       }),
@@ -422,6 +400,10 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'פתיחת המשרד';
       return;
     }
+
+    // ‏החשבון נפתח - נכנסים כבר עכשיו, כדי שכל כפתור "לאיזור הסוכנים" מכאן
+    // ינחת בדשבורד ולא במסך הכניסה
+    const signedIn = (res.ok && data.success) ? await signInAfterSignup(managerEmail, managerPassword) : false;
 
     // ‏החשבון נפתח, אבל הרישיון לא נמצא ברשם. זה **אינו** כישלון: נכנסים
     // כרגיל, ורק הדף והמודעות מחכים לאישור. הצילום מתבקש כאן, כשהפרטים
@@ -461,6 +443,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       feedback.style.color = 'var(--red)';
       feedback.textContent = messages[data.error] || (window.FriendlyError ? FriendlyError.text(data.detail || data.error) : data.detail || data.error);
       btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+      return;
+    }
+    if (signedIn){
+      btn.textContent = 'נכנסים לאיזור הסוכנים…';
+      location.replace('/crm');
       return;
     }
     document.getElementById('stateForm').style.display = 'none';

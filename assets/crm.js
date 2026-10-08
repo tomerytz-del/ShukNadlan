@@ -6024,12 +6024,8 @@ function loadProfileSettings(agent){
     gallery: (Array.isArray(agent.gallery) ? agent.gallery : [])
       .filter(g => g && g.url)
       .map(g => ({ url: g.url, caption: g.caption || '' })),
-    // ‏'' = "כמו המשרד". ‏agency_members.page_bg יכול להיות NULL (ברירת מחדל)
-    // או 'flow'/'plain' כעקיפה אישית — ראו המיגרציה 20260914091000.
-    pageBg: agent.page_bg === 'flow' || agent.page_bg === 'plain' ? agent.page_bg : '',
     pendingDeletes: [],
   };
-  renderProfileBgChoice();
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
   document.getElementById('pfIdNumber').value = agent.id_number || '';
@@ -6048,35 +6044,11 @@ function loadProfileSettings(agent){
   loadAgencyCover(agent.agency_id);
 }
 
-/* ---------- רקע דף הסוכן/ת ----------
-   שלוש אפשרויות, ולא שתיים כמו במקטע המיתוג של המשרד: הראשונה היא "כמו
-   המשרד" — ברירת המחדל, שנשמרת כ-NULL ומשאירה את ההחלטה אצל מנהל/ת המשרד.
-   שתי האחרות הן עקיפה אישית של דף הסוכן/ת בלבד, וחזרה לראשונה מחזירה את
-   ברירת המחדל. אותם כרטיסים ואותו CSS (‏.bg-choice/.bg-card) של המשרד. */
-const PROFILE_BG_OPTIONS = [
-  { id:'',      thumb:'inherit', name:'כמו המשרד (ברירת מחדל)', desc:'מה שנבחר במקטע המיתוג של המשרד' },
-  { id:'flow',  thumb:'flow',    name:'הרקע של האתר',           desc:'שמש, קו רקיע וגלים שזורמים עם הגלילה' },
-  { id:'plain', thumb:'plain',   name:'רקע חלק',                desc:'צבע נייר אחיד, בלי תנועה' },
-];
-
-function renderProfileBgChoice(){
-  const box = document.getElementById('pfBgChoice');
-  if (!box || !profileState) return;
-  box.textContent = '';
-  PROFILE_BG_OPTIONS.forEach(opt=>{
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'bg-card' + (profileState.pageBg === opt.id ? ' active' : '');
-    card.setAttribute('aria-pressed', profileState.pageBg === opt.id ? 'true' : 'false');
-    card.innerHTML = `<div class="bg-thumb ${opt.thumb}"></div>
-      <div><div class="bname">${opt.name}</div><div class="bdesc">${opt.desc}</div></div>`;
-    card.addEventListener('click', ()=>{
-      profileState.pageBg = opt.id;
-      renderProfileBgChoice();
-    });
-    box.appendChild(card);
-  });
-}
+/* ---------- עיצוב דף הסוכן/ת ----------
+   אין כאן בחירה, בכוונה: דף הסוכן/ת לובש את ערכת העיצוב ואת הרקע שמנהל/ת
+   המשרד בחר/ה במקטע המיתוג, וזהה לכל סוכני המשרד. ‏agency_members.page_bg
+   (העקיפה האישית שהייתה כאן) כבר אינה נקראת ב-agent.html, ולכן גם אינה
+   נכתבת מכאן. */
 
 function renderProfileImages(){
   if (!profileState) return;
@@ -6452,8 +6424,6 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       credentials: credentials || null,
       specialties: specialties.length ? specialties : null,
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
-      // ‏'' = "כמו המשרד", ונשמר כ-NULL כדי שדף הסוכן/ת יירש את בחירת המשרד
-      page_bg: profileState.pageBg || null,
       updated_at: new Date().toISOString(),
     };
     const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, cover_url, ' +
@@ -6462,13 +6432,12 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
       .eq('id', currentAgent.id).select(returned).single();
 
-    let { data: saved, error } = await saveProfile(patch, RETURNED + ', page_bg');
-    // ‏page_bg נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
-    // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלי
-    // בחירת הרקע בלבד: לפרופיל עצמו יש חשיבות גדולה יותר מהעדפת התצוגה.
-    if (error && /page_bg|id_number/.test(error.message || '')){
+    let { data: saved, error } = await saveProfile(patch, RETURNED);
+    // ‏id_number נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
+    // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלעדיה.
+    if (error && /id_number/.test(error.message || '')){
       console.warn('שמירה נכשלה על עמודה חסרה - נשמר הפרופיל בלעדיה:', error);
-      const { page_bg, id_number, ...core } = patch;
+      const { id_number, ...core } = patch;
       ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, ', '')));
     }
     if (error) throw error;
@@ -6489,10 +6458,6 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfArea').value = saved.service_area || '';
     document.getElementById('pfCredentials').value = saved.credentials || '';
     renderSpecialtyChoices(saved.specialties);
-    // מה שחזר מה-DB, ולא מה שנבחר במסך: אם הנסיון השני ויתר על בחירת הרקע,
-    // הכרטיסים חייבים להראות את מה שבאמת נשמר
-    profileState.pageBg = saved.page_bg === 'flow' || saved.page_bg === 'plain' ? saved.page_bg : '';
-    renderProfileBgChoice();
     renderHeaderAvatar(currentAgent);
     document.getElementById('agentName').textContent = saved.display_name || '';
     accSetCount('accProfile', profileComplete(currentAgent) ? '' : 'להשלמה');
@@ -9065,10 +9030,17 @@ function renderPlanningResult(d){
 const BRANDING_BUCKET = 'property-images'; // אותו bucket ציבורי; הנתיב מפריד בין נכסים למיתוג
 const MAX_GALLERY_IMAGES = 24;
 
-// ארבע ערכות שגורות בענף הנדל״ן. כל ערכה מגדירה את מלוא הטוקנים שדף המשרד
-// צורך, כדי שהחלפה תיתן עיצוב שלם ולא רק כותרת בצבע אחר.
+/* חמש ערכות מובנות, ומעליהן ברירת המחדל. כל ערכה מגדירה את מלוא הטוקנים
+   שדף המשרד צורך, כדי שהחלפה תיתן עיצוב שלם ולא רק כותרת בצבע אחר, וכל
+   אחת נבדקה מראש: ראשי כהה על הנייר ומשני כהה על הכרטיסים עוברים 4.5:1.
+   אין בוררי צבע חופשיים - הם היו הדרך לדף שאי אפשר לקרוא בו את המחיר.
+
+   הערכה נבחרת בידי מנהל/ת המשרד בלבד (‏RLS ‏"manager update own agency" על
+   ‏agencies) וחלה על דף המשרד ועל דפי כל הסוכנים שלו (agent.html,
+   ‏assets/agency-theme.js). ‏BRAND_PALETTES[0] הוא גם הבסיס של דוח ה-CMA
+   למשרד בלי צבעים, ולכן הסדר כאן אינו קוסמטי. */
 const BRAND_PALETTES = [
-  { id:'navy_gold', name:'נייבי וזהב', desc:'קלאסי ויוקרתי - ברירת המחדל של הענף',
+  { id:'navy_gold', name:'נייבי וזהב', desc:'קלאסי ויוקרתי - הנפוץ בענף',
     primary:'#1c3a5e', primary_dark:'#122840', accent:'#c0912f', accent_dark:'#8e6a1e',
     paper:'#edeae3', paper_raised:'#fbfaf7', line:'#d6d1c6' },
   { id:'emerald_stone', name:'אמרלד ואבן', desc:'בוטיק ירוק - נכסי יוקרה ופרויקטים',
@@ -9080,19 +9052,26 @@ const BRAND_PALETTES = [
   { id:'graphite_copper', name:'גרפיט ונחושת', desc:'אורבני ומודרני - דירות בעיר ומשרדים',
     primary:'#2e3440', primary_dark:'#1d222b', accent:'#b35c31', accent_dark:'#8a4522',
     paper:'#eaeaec', paper_raised:'#fafafb', line:'#d2d3d8' },
+  { id:'bordeaux_cream', name:'בורדו ושמנת', desc:'חמים ומכובד - משרדי בוטיק ונכסי מורשת',
+    primary:'#6d2333', primary_dark:'#4a1622', accent:'#b8893b', accent_dark:'#86622a',
+    paper:'#efe9e4', paper_raised:'#fcfaf8', line:'#ddd0c8' },
 ];
 
+/* ברירת המחדל = הצבעים של האתר עצמו. היא **אינה** נשמרת כצבעים: השורה נשמרת
+   בלי מפתחות הצבע, וכל דף שקורא את ‏agencies.colors (דף המשרד, דפי הסוכנים,
+   המיניסייט) נופל לטוקנים שלו. כך שינוי עתידי בצבעי האתר יגיע גם למשרדים
+   שבחרו בה, ולא יישאר מאחור עותק קפוא שלהם. הערכים כאן הם לתצוגה בלבד, ו-
+   חייבים להישאר זהים ל-:root של agency.html. */
+const BRAND_DEFAULT = { id:'default', name:'צבעי שוק נדל״ן', desc:'כחול כהה ונקי - העיצוב של האתר',
+  primary:'#0e2a6b', primary_dark:'#0d1b3d', accent:'#0e2a6b', accent_dark:'#08194a',
+  paper:'#f4f7fe', paper_raised:'#ffffff', line:'#e3e8f4' };
+
 const BRAND_COLOR_KEYS = ['primary','primary_dark','accent','accent_dark','paper','paper_raised','line'];
-const BRAND_COLOR_INPUTS = {
-  primary:'brColorPrimary', primary_dark:'brColorPrimaryDark',
-  accent:'brColorAccent', accent_dark:'brColorAccentDark',
-  paper:'brColorPaper', paper_raised:'brColorPaperRaised', line:'brColorLine',
-};
 
 let brandingState = null; // { agencyName, agencySlug, palette, colors, logo, cover, gallery, pendingDeletes }
 
-// תמיד מחזיר hex באותיות קטנות — matchPalette משווה מחרוזות, ו-input[type=color]
-// ממילא מחזיר ערכים בכתיב קטן, אז ערבוב רישיות היה מפספס התאמות
+// תמיד מחזיר hex באותיות קטנות — matchPalette משווה מחרוזות, וערבוב רישיות
+// היה מפספס התאמות
 function normalizeHex(value, fallback){
   const fb = typeof fallback === 'string' ? fallback.toLowerCase() : fallback;
   if (typeof value !== 'string') return fb;
@@ -9101,7 +9080,7 @@ function normalizeHex(value, fallback){
   return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : fb;
 }
 
-// יחס ניגודיות WCAG — משמש רק לאזהרה למנהל, לא לחסימה
+// יחס ניגודיות WCAG — צבע הטקסט על גוון המשרד, בתצוגה המקדימה ובדוח ה-CMA
 function relativeLuminance(hex){
   const channels = [1,3,5].map(i=>{
     const c = parseInt(hex.slice(i, i+2), 16) / 255;
@@ -9135,14 +9114,20 @@ async function loadBranding(agencyId){
     return;
   }
   const stored = agency.colors || {};
-  const base = BRAND_PALETTES[0];
+  // שורה בלי צבע ראשי היא ברירת המחדל - כך נשמרת, וכך נראים כל המשרדים
+  // שמעולם לא נגעו במקטע הזה
+  const isDefault = !normalizeHex(stored.primary, null);
   const colors = {};
-  BRAND_COLOR_KEYS.forEach(k => { colors[k] = normalizeHex(stored[k], base[k]); });
+  BRAND_COLOR_KEYS.forEach(k => { colors[k] = normalizeHex(stored[k], BRAND_DEFAULT[k]); });
+  // משרד שהתאים צבעים ידנית לפני שהבוררים ירדו שומר עליהם עד שיבחר ערכה:
+  // הם מוצגים ככרטיס נוסף ("הצבעים הנוכחיים"), ושמירה בלי בחירה אינה מוחקת אותם
+  const palette = isDefault ? 'default' : (matchPalette(colors) || 'custom');
 
   brandingState = {
     agencyName: agency.name,
     agencySlug: agency.slug,
-    palette: stored.palette || matchPalette(colors) || 'custom',
+    palette,
+    customColors: palette === 'custom' ? { ...colors } : null,
     colors,
     pageBg: normalizePageBg(stored.page_bg),
     logo:  agency.logo_url  ? { url: agency.logo_url }  : null,
@@ -9160,7 +9145,6 @@ async function loadBranding(agencyId){
   document.getElementById('brViewPageLink').href = '/agency?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
   renderBgChoice();
-  syncColorInputs();
   renderBrandImages();
   renderGalleryAdmin();
   renderSpecialtyPicker();
@@ -9250,39 +9234,51 @@ function matchPalette(colors){
   return hit ? hit.id : null;
 }
 
+function paletteChoices(){
+  const list = [BRAND_DEFAULT, ...BRAND_PALETTES];
+  if (brandingState.customColors){
+    list.push({ id:'custom', name:'הצבעים הנוכחיים', desc:'התאמה אישית קודמת - בחירה בערכה תחליף אותה',
+      ...brandingState.customColors });
+  }
+  return list;
+}
+
 function renderPaletteGrid(){
   const grid = document.getElementById('paletteGrid');
   grid.textContent = '';
-  BRAND_PALETTES.forEach(p=>{
+  paletteChoices().forEach(p=>{
+    const on = brandingState.palette === p.id;
     const card = document.createElement('button');
     card.type = 'button';
-    card.className = 'palette-card' + (brandingState.palette === p.id ? ' active' : '');
-    card.innerHTML = `<div class="palette-swatches">
-        <span style="background:${p.primary_dark}"></span>
-        <span style="background:${p.primary}"></span>
-        <span style="background:${p.accent}"></span>
-        <span style="background:${p.paper}"></span>
+    card.className = 'palette-card' + (on ? ' active' : '') + (p.id === 'default' ? ' is-default' : '');
+    card.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const vars = {
+      '--pc-brand': p.primary, '--pc-brand-dark': p.primary_dark, '--pc-accent': p.accent,
+      '--pc-paper': p.paper, '--pc-raised': p.paper_raised, '--pc-line': p.line,
+      '--pc-on-brand': readableOn(p.primary), '--pc-accent-ink': accentInkOf(p),
+    };
+    Object.keys(vars).forEach(k => card.style.setProperty(k, vars[k]));
+    card.innerHTML = `<span class="pc-check" aria-hidden="true">✓</span>
+      <div class="pc-mock" aria-hidden="true">
+        <div class="pc-head"><span class="pc-logo"></span><span class="pc-title"></span></div>
+        <div class="pc-body">
+          <div class="pc-card"><span class="pc-price"></span><span class="pc-btn"></span></div>
+          <div class="pc-card"><span class="pc-price"></span><span class="pc-btn"></span></div>
+        </div>
       </div>
-      <div><div class="pname">${p.name}</div><div class="pdesc">${p.desc}</div></div>`;
+      <div><div class="pname">${esc(p.name)}</div><div class="pdesc">${esc(p.desc)}</div></div>`;
     card.addEventListener('click', ()=> applyPalette(p.id));
     grid.appendChild(card);
   });
 }
 
 function applyPalette(paletteId){
-  const p = BRAND_PALETTES.find(x => x.id === paletteId);
+  const p = paletteChoices().find(x => x.id === paletteId);
   if (!p) return;
   brandingState.palette = p.id;
   BRAND_COLOR_KEYS.forEach(k => { brandingState.colors[k] = p[k]; });
   renderPaletteGrid();
-  syncColorInputs();
   renderBrandPreview();
-}
-
-function syncColorInputs(){
-  BRAND_COLOR_KEYS.forEach(k=>{
-    document.getElementById(BRAND_COLOR_INPUTS[k]).value = brandingState.colors[k];
-  });
 }
 
 /* ---------- רקע דף המשרד ----------
@@ -9338,17 +9334,6 @@ function renderTaglineCount(){
 document.getElementById('brTagline').addEventListener('input', ()=>{
   renderTaglineCount();
   if (brandingState) renderBrandPreview();
-});
-
-BRAND_COLOR_KEYS.forEach(k=>{
-  document.getElementById(BRAND_COLOR_INPUTS[k]).addEventListener('input', (e)=>{
-    if (!brandingState) return;
-    brandingState.colors[k] = normalizeHex(e.target.value, brandingState.colors[k]);
-    // שינוי ידני מנתק מהערכה המוכנה — אחרת נשמור שם ערכה שכבר לא מתאר את הצבעים
-    brandingState.palette = matchPalette(brandingState.colors) || 'custom';
-    renderPaletteGrid();
-    renderBrandPreview();
-  });
 });
 
 // גוון בהיר של צבע — אותה נוסחה ש-agency.html מקבל מ-color-mix ב-14%
@@ -9415,41 +9400,6 @@ function renderBrandPreview(){
     specsRow.innerHTML = Specialties.chipsHtml(brandingState.specialties, { className:'bp-spec' });
   }
 
-  renderContrastWarning();
-}
-
-/* צבע בהיר מדי הופך טקסט בדף המשרד לבלתי קריא — מזהירים במקום לחסום, כי
-   מותג הוא בחירה של המשרד. שתי הבדיקות מכסות את שני המקומות שבהם צבע נושא
-   טקסט: הכותרות על רקע הדף, והמחירים/כוכבים על רקע הכרטיסים. */
-function renderContrastWarning(){
-  const c = brandingState.colors;
-  const el = document.getElementById('brContrastWarn');
-  const notes = [];
-
-  const heading = contrastRatio(c.primary_dark, c.paper);
-  if (heading < 4.5){
-    notes.push(`הניגודיות בין "ראשי כהה" לרקע הדף נמוכה (${heading.toFixed(1)}:1, מומלץ 4.5 ומעלה) - הכותרות בדף המשרד יהיו קשות לקריאה.`);
-  }
-  // הצבע המשני משמש כמילוי — הקו מתחת לתמונת הנושא ותגית ההשכרה. גוון
-  // שכמעט זהה לרקע פשוט נעלם, וזה לא משהו שהדף יכול לתקן לבד.
-  const accentFill = contrastRatio(c.accent, c.paper_raised);
-  if (accentFill < 1.6){
-    notes.push('הצבע המשני כמעט זהה לרקע הכרטיסים - הקו מתחת לתמונת הנושא ותגיות ההשכרה כמעט לא ייראו בדף המשרד.');
-  }
-  // ובמקביל הוא נושא טקסט — מחירים, כוכבים ואייקוני הקפסולות. אקסנט בהיר מדי
-  // ייעלם שם, ולכן הדף מחליף אותו אוטומטית בצבע הראשי.
-  const accentInk = Math.max(contrastRatio(c.accent_dark, c.paper_raised), accentFill);
-  if (accentInk < 4.5){
-    notes.push(`הצבע המשני בהיר מדי ביחס לרקע הכרטיסים (${accentInk.toFixed(1)}:1) - המחירים והכוכבים בדף המשרד יוצגו בצבע הראשי במקומו.`);
-  }
-
-  el.textContent = '';
-  notes.forEach(text=>{
-    const line = document.createElement('div');
-    line.textContent = 'שימו לב: ' + text;
-    el.appendChild(line);
-  });
-  el.style.display = notes.length ? 'block' : 'none';
 }
 
 /* ---------- לוגו ותמונת נושא ---------- */
@@ -9633,8 +9583,12 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
       if (!item.url) item.url = await uploadBrandingBlob(item.blob, 'gallery');
     }
 
+    // ברירת המחדל נשמרת בלי מפתחות צבע (ראו BRAND_DEFAULT), ולכן היא גם
+    // "איפוס" אמיתי: הדפים חוזרים לטוקנים של עצמם
     const colors = { palette: brandingState.palette, page_bg: normalizePageBg(brandingState.pageBg) };
-    BRAND_COLOR_KEYS.forEach(k => { colors[k] = brandingState.colors[k]; });
+    if (brandingState.palette !== 'default'){
+      BRAND_COLOR_KEYS.forEach(k => { colors[k] = brandingState.colors[k]; });
+    }
 
     feedback.textContent = 'שומר…';
     const { error } = await sb.from('agencies').update({

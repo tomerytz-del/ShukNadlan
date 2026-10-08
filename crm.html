@@ -1778,14 +1778,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .alert-when{font-size:.68rem;color:var(--ink-soft);white-space:nowrap}
 
   /* ---------- מיתוג דף המשרד (מנהל בלבד) ---------- */
+  /* כל ערכה מוצגת כדף מוקטן ולא כפס דוגמיות: רצועת הכותרת בצבע הראשי,
+     הקו המשני מתחתיה, כרטיס על נייר הערכה וכפתור. כך הבחירה נעשית בעין,
+     מול מה שהלקוח/ה יראה בפועל. ‏--pc-* נכתבים לכל כרטיס מ-renderPaletteGrid. */
   .palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(min-width:560px){.palette-grid{grid-template-columns:repeat(4,1fr)}}
-  .palette-card{border:2px solid var(--line);border-radius:var(--radius-md);padding:10px;background:#fff;text-align:right;display:flex;flex-direction:column;gap:8px}
+  @media(min-width:560px){.palette-grid{grid-template-columns:repeat(3,1fr)}}
+  .palette-card{position:relative;border:2px solid var(--line);border-radius:var(--radius-md);padding:8px;background:#fff;text-align:right;display:flex;flex-direction:column;gap:8px;transition:border-color .15s ease,box-shadow .15s ease}
+  .palette-card:hover{border-color:var(--hair-strong, #c9d1e4)}
   .palette-card.active{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-tint)}
-  .palette-swatches{display:flex;height:34px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line)}
-  .palette-swatches span{flex:1}
-  .palette-card .pname{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .palette-card .pc-check{position:absolute;top:6px;inset-inline-start:6px;width:22px;height:22px;border-radius:50%;
+    background:var(--teal);color:#fff;font-size:.75rem;font-weight:800;display:none;align-items:center;justify-content:center;z-index:1;
+    box-shadow:0 0 0 2px #fff}
+  .palette-card.active .pc-check{display:flex}
+  .pc-mock{border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--pc-line);background:var(--pc-paper);height:86px;display:flex;flex-direction:column}
+  .pc-mock .pc-head{height:30px;background:linear-gradient(120deg,var(--pc-brand-dark),var(--pc-brand));border-bottom:3px solid var(--pc-accent);
+    display:flex;align-items:center;gap:5px;padding:0 7px}
+  .pc-mock .pc-logo{width:14px;height:14px;border-radius:4px;background:var(--pc-raised);opacity:.9}
+  .pc-mock .pc-title{height:5px;width:42%;border-radius:3px;background:var(--pc-on-brand);opacity:.85}
+  .pc-mock .pc-body{flex:1;display:flex;gap:5px;padding:7px}
+  .pc-mock .pc-card{flex:1;background:var(--pc-raised);border:1px solid var(--pc-line);border-radius:4px;padding:5px;display:flex;flex-direction:column;justify-content:space-between}
+  .pc-mock .pc-price{height:5px;width:55%;border-radius:3px;background:var(--pc-accent-ink)}
+  .pc-mock .pc-btn{height:9px;width:70%;border-radius:3px;background:var(--pc-brand)}
+  .palette-card .pname{font-size:.8rem;font-weight:800;color:var(--ink)}
   .palette-card .pdesc{font-size:.68rem;color:var(--ink-soft);line-height:1.35}
+  .palette-card.is-default .pname::after{content:'ברירת מחדל';display:table;margin-top:3px;font-size:.6rem;font-weight:700;
+    color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
 
   /* ---------- בחירת רקע הדף ----------
      שתי אפשרויות בלבד, ולכן שני כרטיסים ולא רשימה נפתחת: כל אחד מהם מציג
@@ -4794,9 +4811,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
          שדה נוסף למלא. -->
     <div id="caTierField" style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.82rem;line-height:1.6;text-align:right">
-      🎁 <b>6 חודשים במסלול Elite במתנה</b> - המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
-      בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
-      <a href="/pricing" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">פירוט המסלולים ←</a>
+      🎁 <b>6 חודשים במסלול Elite במתנה</b> - בלי תשלום ובלי כרטיס אשראי.
+      <a href="/pricing" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">פירוט ←</a>
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
@@ -7846,16 +7862,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים - התגיות הראשונות הן אלה שנראות בראש הדף.</p>
           </div>
 
-          <!-- ---------- רקע דף הסוכן/ת ----------
-               ברירת המחדל היא מה שמנהל/ת המשרד בחר/ה במקטע המיתוג, ובהיעדר
-               בחירה — הרקע הזורם של האתר. שתי האפשרויות האחרות הן עקיפה
-               אישית של הדף הזה בלבד, וחזרה ל"כמו המשרד" מחזירה את ברירת
-               המחדל. -->
-          <div class="form-subheading">רקע הדף שלי</div>
-          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">
-            הרקע שמאחורי תוכן דף הסוכן/ת שלך. ברירת המחדל היא מה שנבחר עבור המשרד.
+          <!-- אין כאן בחירת עיצוב: דף הסוכן/ת לובש את ערכת המשרד, שמנהל/ת
+               המשרד בוחר/ת במקטע המיתוג - זהה לכל הסוכנים -->
+          <p style="font-size:.72rem;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;margin:12px 0 0">
+            🎨 הצבעים והרקע של הדף שלך נקבעים בידי מנהל/ת המשרד, ומשותפים לכל הסוכנים במשרד.
           </p>
-          <div class="bg-choice" id="pfBgChoice"></div>
 
           <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
           <div class="single-img-row">
@@ -7923,33 +7934,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="acc-body">
         <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת - השינוי נכנס לתוקף מיד לאחר השמירה.</p>
 
-        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
+        <!-- ---------- ערכת העיצוב ----------
+             חמש ערכות מובנות וחזרה לברירת המחדל - ולא בוררי צבע חופשיים.
+             הערכה נבחרת כאן פעם אחת, בידי מנהל/ת המשרד בלבד (‏RLS על
+             ‏agencies), והיא חלה על דף המשרד ועל דפי כל הסוכנים שלו: לסוכן/ת
+             אין עיצוב אישי. כל ערכה נבדקה מראש לניגודיות, ולכן אין כאן אזהרות. -->
+        <div class="form-subheading" style="margin-top:0">ערכת עיצוב</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מחמש הערכות, או חזרו לברירת המחדל. הערכה חלה על דף המשרד ועל דפי כל הסוכנים במשרד.</p>
         <div class="palette-grid" id="paletteGrid"></div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPrimary">צבע ראשי</label><input type="color" id="brColorPrimary"></div>
-          <div class="color-input"><label for="brColorPrimaryDark">ראשי כהה</label><input type="color" id="brColorPrimaryDark"></div>
-          <div class="color-input"><label for="brColorAccent">צבע משני (הדגשות)</label><input type="color" id="brColorAccent"></div>
-          <div class="color-input"><label for="brColorAccentDark">משני כהה</label><input type="color" id="brColorAccentDark"></div>
-        </div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPaper">רקע הדף</label><input type="color" id="brColorPaper"></div>
-          <div class="color-input"><label for="brColorPaperRaised">רקע כרטיסים</label><input type="color" id="brColorPaperRaised"></div>
-          <div class="color-input"><label for="brColorLine">קווי הפרדה</label><input type="color" id="brColorLine"></div>
-        </div>
-
-        <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
 
         <!-- ---------- רקע דף המשרד ----------
              ברירת המחדל היא הרקע הזורם של האתר — אותה שמש, אותו קו רקיע
              ואותם גלים שיש בדף הבית ובדשבורד הזה — כדי שמעבר מדף הבית לדף
              המשרד לא ירגיש כמו מעבר לאתר אחר. משרד עם ערכה כהה, או כזה
              שרוצה שהתמונות שלו יעמדו לבד, מכבה אותו כאן ומחזיר אותו באותו
-             מקום. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת
-             בחר/ה אחרת בפרופיל האישי. -->
+             מקום. הבחירה חלה גם על דפי כל הסוכנים של המשרד. -->
         <div class="form-subheading">רקע הדף</div>
         <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת בחר/ה אחרת בפרופיל האישי.
+          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי כל הסוכנים של המשרד.
         </p>
         <div class="bg-choice" id="brBgChoice"></div>
 
