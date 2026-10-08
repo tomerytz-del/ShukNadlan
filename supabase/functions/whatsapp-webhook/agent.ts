@@ -142,7 +142,7 @@ const WRITABLE_FIELDS = [
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
 // לה את התקציב" לא יוכל לסגור לקוח/ה בטעות.
 const CLIENT_WRITABLE_FIELDS = [
-  "full_name", "phone", "email", "notes", "deal_type", "category",
+  "full_name", "phone", "email", "notes", "client_kind", "deal_type", "category",
   "property_types", "cities", "min_price", "max_price", "min_rooms",
   "max_rooms", "min_size_sqm", "max_size_sqm", "max_floor", "required_features",
 ] as const;
@@ -237,10 +237,20 @@ const clientFields = {
   phone: { type: "string", description: "טלפון, בכל פורמט." },
   email: { type: "string", description: "אימייל." },
   notes: { type: "string", description: "הערות חופשיות - מה שנאמר ואין לו שדה." },
+  client_kind: {
+    type: "string",
+    enum: ["seeker", "owner"],
+    description:
+      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס שמוכר/ת או משכיר/ה - " +
+      "אינו/ה מקבל/ת התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
+      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner. מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות.",
+  },
   deal_type: {
     type: "string",
     enum: ["sale", "rent"],
-    description: "‏sale = מחפש/ת לקנות, ‏rent = מחפש/ת לשכור. ברירת מחדל sale.",
+    description:
+      "‏seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. ‏owner: sale = מוכר/ת, " +
+      "rent = משכיר/ה. ברירת מחדל sale.",
   },
   category: {
     type: "string",
@@ -741,7 +751,9 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מוסיף לקוח/ה לקובץ הלקוחות של הסוכן/ת. **שדה ריק פירושו 'לא משנה'** " +
       "ואינו מסנן כלום - לקוח/ה עם שם וטלפון בלבד הוא רשומה תקפה שמקבלת " +
-      "התאמות. אל תשאל/י על שדות שלא נאמרו.",
+      "התאמות. אל תשאל/י על שדות שלא נאמרו. בעל/ת נכס (מוכר/ת או משכיר/ה) " +
+      "נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת הוא/היא נשמר/ת כקונה " +
+      "ומקבל/ת התאמות לכל נכס במאגר.",
     input_schema: {
       type: "object",
       properties: {
@@ -3056,7 +3068,7 @@ async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<s
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, deal_type, category")
+    .select("id, full_name, phone, status, client_kind, deal_type, category")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -3066,7 +3078,13 @@ async function ownedClient(ctx: ToolContext, clientId: string) {
 /** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
 function clientNeeds(c: Record<string, unknown>): string {
   const parts: string[] = [];
-  parts.push(c.deal_type === "rent" ? "להשכרה" : "למכירה");
+  // ‏"למכירה" על מחפש/ת היה דו-משמעי - מודל קרא בו מוכר/ת. הצד נאמר במפורש.
+  if (c.client_kind === "owner") {
+    parts.push(c.deal_type === "rent" ? "בעל/ת נכס - משכיר/ה" : "בעל/ת נכס - מוכר/ת");
+    if (c.category === "commercial") parts.push("מסחרי");
+    return parts.join(" · ");
+  }
+  parts.push(c.deal_type === "rent" ? "מחפש/ת לשכור" : "מחפש/ת לקנות");
   if (c.category === "commercial") parts.push("מסחרי");
   const types = (c.property_types as string[]) || [];
   if (types.length) parts.push(types.join("/"));
@@ -3119,7 +3137,7 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
   let query = ctx.supabase
     .from("agent_clients")
     .select(
-      "id, full_name, phone, email, notes, status, deal_type, category, " +
+      "id, full_name, phone, email, notes, status, client_kind, deal_type, category, " +
       "property_types, cities, min_price, max_price, min_rooms, max_rooms, " +
       "min_size_sqm, max_size_sqm, max_floor, required_features, created_at",
     )
@@ -3346,7 +3364,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
-    .select("id, full_name, phone, status, deal_type, category, property_types, " +
+    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, " +
             "cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, " +
             "max_size_sqm, max_floor, required_features")
     .single();
@@ -3375,7 +3393,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
-    .select("id, full_name, status, deal_type, category, property_types, cities, " +
+    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, " +
             "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, " +
             "max_floor, required_features")
     .single();
@@ -3421,6 +3439,18 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   const clientId = String(input.client_id || "");
   const client = await ownedClient(ctx, clientId);
   if (!client) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
+  // ‏client_property_match מסננת בעלי נכסים ממילא; כאן התשובה אומרת למה,
+  // במקום "0 התאמות" שנשמע כמו מאגר ריק
+  if (client.client_kind === "owner") {
+    return {
+      ok: false,
+      owner: true,
+      error:
+        `${client.full_name} רשום/ה כבעל/ת נכס ולא כמחפש/ת, ולכן אין לו/ה התאמות. ` +
+        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker והדרישות. " +
+        "לנכס שלו/ה - create_property, ואחר כך property_matches למי שמתאים לו.",
+    };
+  }
 
   const limit = Math.min(Number(input.limit) || 5, 15);
   const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
@@ -5169,7 +5199,8 @@ const SYSTEM_STATIC: string = (() => {
       "list_calls עם limit 1 (השיחה האחרונה) - ואם יש client_id: update_client עם השדות שב-needs " +
       "(ערים - בתוספת לערים שכבר בכרטיס, לא במקומן), ואם הלקוח/ה בהמתנה (paused) - גם " +
       "set_client_status active. אם אין client_id: create_client עם השם (client_name או " +
-      "caller_name_from_call - ואם אין שם, שאל/י), הטלפון וה-needs. אחר כך client_matches.",
+      "caller_name_from_call - ואם אין שם, שאל/י), הטלפון וה-needs. אחר כך client_matches - " +
+      "חוץ מבעל/ת נכס (needs.client_kind owner), שלו/ה אין התאמות: הצע/י להוסיף את הנכס.",
     "- אם processing הוא true - השיחה עוד מעובדת. אמור/אמרי שהסיכום יגיע בעוד רגע.",
     "- משימות מהשיחה - הסוכן/ת לוחץ/ת על כפתור או כותב/ת. עזור/עזרי לבצע, אל תסתפק/י בהסבר:",
     "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה. מועד שנאמר " +
@@ -5184,7 +5215,8 @@ const SYSTEM_STATIC: string = (() => {
     "- אם באותה הודעה (או באותו רצף) יש הוראה של הסוכן/ת - בצע/י אותה על איש הקשר " +
       "(\"תוסיף כקונה בחיפה עד 2 מליון\" = create_client עם השם, הטלפון והדרישות).",
     "- בלי הוראה: למי שאינו בקובץ שאל/י בשאלה אחת \"להוסיף את <שם> כלקוח/ה? מה הוא/היא " +
-      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? אפשר לענות בהקלטה\". " +
+      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? או שזה בעל/ת נכס שמוכר/ת או " +
+      "משכיר/ה? אפשר לענות בהקלטה\". " +
       "\"כן\" לבד = create_client עם שם וטלפון בלבד. למי שכבר בקובץ - אל תיצור/י; " +
       "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ושאל/י מה לעדכן.",
     "- כמה אנשי קשר בבת אחת: שאלה אחת על כולם (\"להוסיף את שלושתם?\"), ואז create_client לכל אחד.",

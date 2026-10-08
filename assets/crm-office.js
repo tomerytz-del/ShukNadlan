@@ -159,6 +159,8 @@ const CLIENT_IO_FIELDS = [
   { key:'id_number',         label:'ת.ז.',            syn:['תז','תעודת זהות','מספר זהות','id'] },
   { key:'address',           label:'כתובת',           syn:['כתובת מגורים','address'] },
   { key:'status',            label:'סטטוס',           syn:['מצב','status'] },
+  // מחפש/ת מול בעל/ת נכס (client_kind) - בעל/ת נכס אינו/ה נכנס/ת להתאמות
+  { key:'client_kind',       label:'סוג לקוח/ה',      syn:['סוג לקוח','מחפש או בעלים','בעל נכס','kind'] },
   { key:'deal_type',         label:'סוג עסקה',        syn:['עסקה','קנייה או שכירות','deal'] },
   { key:'category',          label:'קטגוריה',         syn:['מגורים או מסחרי','category'] },
   { key:'cities',            label:'ערים מבוקשות',    syn:['עיר','ערים','עיר מבוקשת','אזור','city','cities'] },
@@ -183,6 +185,8 @@ const CLIENT_IO_WORDS = {
   status:    [['מחפש/ת','active'],['פעיל','active'],['מחפש','active'],['active','active'],
               ['בהמתנה','paused'],['מושהה','paused'],['paused','paused'],
               ['סגר/ה עסקה','closed'],['סגר עסקה','closed'],['סגור','closed'],['closed','closed']],
+  client_kind: [['מחפש/ת','seeker'],['מחפש','seeker'],['קונה','seeker'],['שוכר','seeker'],['seeker','seeker'],
+                ['בעל/ת נכס','owner'],['בעל נכס','owner'],['בעלים','owner'],['מוכר','owner'],['משכיר','owner'],['owner','owner']],
   deal_type: [['קנייה','sale'],['קניה','sale'],['רכישה','sale'],['מכירה','sale'],['sale','sale'],['buy','sale'],
               ['שכירות','rent'],['השכרה','rent'],['rent','rent']],
   category:  [['מגורים','residential'],['residential','residential'],['מסחרי','commercial'],['commercial','commercial']],
@@ -336,7 +340,7 @@ function clientRowToPayload(r, mapping, maps){
   if (!p.full_name && !p.phone) return null;
   if (!p.full_name) p.full_name = p.phone;
 
-  ['deal_type', 'category', 'status', 'financing_status', 'lead_source'].forEach(key => {
+  ['client_kind', 'deal_type', 'category', 'status', 'financing_status', 'lead_source'].forEach(key => {
     const raw = impText(get(key));
     if (!raw) return;
     const code = maps[key].toCode[impNorm(raw)];
