@@ -2254,9 +2254,21 @@ const VIDEO_BLOCKERS: Record<string, string> = {
   // נדחתה (fal_submit_failed)" הוא בדיוק סוג ההודעה שגורמת לאנשים לנסות שוב
   // חמש פעמים.
   fal_not_configured: "שירות הווידאו אינו זמין כרגע. לא נגבה תשלום.",
-  fal_submit_failed: "שירות הווידאו לא קיבל את הבקשה. לא נגבה תשלום - אפשר לנסות שוב בהמשך.",
+  // החיוב כבר ירד כשהשליחה ל-fal נכשלת, והוא מוחזר. מה בדיוק קרה לכסף -
+  // ‏videoRefundNote, לפי מה ש-property-video-create החזירה.
+  fal_submit_failed: "שירות הווידאו לא קיבל את הבקשה - אפשר לנסות שוב בהמשך.",
   no_matching_agent_profile: "לא נמצא כרטיס סוכן/ת פעיל.",
 };
+
+// כשל אחרי החיוב: מה קרה לכסף, במשפט אחד. בלי השדות (כשל לפני החיוב) - כלום.
+// deno-lint-ignore no-explicit-any
+function videoRefundNote(body: Record<string, any>): string {
+  const refunded = Number(body.refunded) || 0;
+  if (refunded > 0) return `החיוב (₪${refunded}) הוחזר לארנק.`;
+  if (body.refund_pending === true) return "החיוב יוחזר לארנק אוטומטית בתוך כחצי שעה.";
+  if (body.refunded === 0) return "לא נגבה תשלום.";
+  return "";
+}
 
 async function toolPropertyVideoInfo(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
@@ -2346,10 +2358,11 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
 
   if (!res.ok) {
     const code = String(body.error || `http_${res.status}`);
+    const base = VIDEO_BLOCKERS[code] ?? String(body.message || body.detail || "הפקת הסרטון לא נפתחה.");
     return {
       ok: false,
       code,
-      error: VIDEO_BLOCKERS[code] ?? String(body.message || body.detail || "הפקת הסרטון לא נפתחה."),
+      error: [base, videoRefundNote(body)].filter(Boolean).join(" "),
       // ‏video_exists הוא היחיד שיש עליו מה לעשות בשיחה עצמה.
       retry_with: code === "video_exists" ? "replace_existing" : undefined,
     };

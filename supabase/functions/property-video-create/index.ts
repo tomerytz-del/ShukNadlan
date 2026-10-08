@@ -6,8 +6,10 @@ import {
   buildClipInput,
   buildScenePrompt,
   corsHeaders,
+  failVideoJob,
   falSubmit,
   FAL_VIDEO_MODEL,
+  type FailResult,
   isTransientFailure,
   json,
   pickScenes,
@@ -72,6 +74,14 @@ async function pricing(supabase: any, key: string, fallback: number): Promise<nu
   const { data } = await supabase.from("pricing_config").select("value").eq("key", key).maybeSingle();
   const n = Number(data?.value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+// מה קרה לכסף, לבקשה שנכשלה אחרי החיוב. ה-CRM והבוט אומרים לסוכן/ת לפי
+// זה "₪25 הוחזרו לארנק", ולא "לא בוצע חיוב" - שהיה לא נכון: החיוב יורד
+// ב-start_property_video_job לפני השליחה ל-fal. ‏refund_pending: הזיכוי לא
+// אושר עכשיו, והבקשה נשארה פתוחה ל-reconcile.
+function refundFields(closed: FailResult) {
+  return { refunded: closed.refunded, refund_pending: !closed.ok };
 }
 
 Deno.serve(async (req: Request) => {
@@ -238,8 +248,8 @@ Deno.serve(async (req: Request) => {
     .insert(clipRows)
     .select("id, idx, source_image_url, prompt");
   if (clipErr) {
-    await supabase.rpc("fail_property_video_job", { p_job_id: jobId, p_reason: `db_error: ${clipErr.message}` });
-    return json({ error: "db_error", detail: clipErr.message }, 500);
+    const closed = await failVideoJob(supabase, jobId, `db_error: ${clipErr.message}`);
+    return json({ error: "db_error", detail: clipErr.message, ...refundFields(closed) }, 500);
   }
 
   // ---- שליחה ל-fal -------------------------------------------------------
@@ -290,11 +300,8 @@ Deno.serve(async (req: Request) => {
 
   // אף קליף לא נשלח — אין למה לחכות, והארנק מזוכה עכשיו ולא בעוד שעה.
   if (submitted === 0) {
-    await supabase.rpc("fail_property_video_job", {
-      p_job_id: jobId,
-      p_reason: `fal_submit_failed: ${failures.slice(0, 3).join(" | ")}`,
-    });
-    return json({ error: "fal_submit_failed", detail: failures[0] ?? null }, 502);
+    const closed = await failVideoJob(supabase, jobId, `fal_submit_failed: ${failures.slice(0, 3).join(" | ")}`);
+    return json({ error: "fal_submit_failed", detail: failures[0] ?? null, ...refundFields(closed) }, 502);
   }
 
   // חלק מהקליפים נשלחו וחלק לא. הסרטון עדיין שווה משהו — 3 קליפים במקום 4

@@ -268,7 +268,10 @@ QUEUES = (
      "פרסום לרשתות", "המודעה לא יוצאת לפייסבוק או לאינסטגרם"),
     ("visualization_jobs", "status", ("pending", "queued", "running"), "created_at",
      "הדמיות נכס", "ההדמיה לא נוצרת והסוכן/ת ממתין/ה"),
-    ("property_video_jobs", "status", ("pending", "queued", "running"), "created_at",
+    # ‏הסטטוסים של ההפקה עצמה, לא של תור גנרי: עד 8.10.2026 נבדקו כאן
+    # pending/queued/running, שאינם קיימים בטבלה, ובקשה ששולמה ונתקעה לא
+    # הופיעה בדשבורד לעולם.
+    ("property_video_jobs", "status", ("generating_clips", "merging", "uploading"), "created_at",
      "סרטוני שיווק", "שולם וסרטון לא הופק"),
     ("media_processing_queue", "status", ("pending", "queued"), "created_at",
      "עיבוד מדיה", "תמונות שהועלו לא נכנסות לנכס"),
