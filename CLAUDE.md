@@ -610,6 +610,10 @@ Remote migration versions not found in local migrations directory.
    ‏`authenticated` אחרי שנסגרה ל-`anon`. זה כבר קרה שלוש פעמים, ו-
    ‏`scripts/check_function_grants.py` חוסם ב-CI את שני התפקידים —
    כ-job בשם **`הרשאות פונקציות`** שרץ על **כל** PR, מאותה סיבה שבכלל 1.
+   **ופונקציה בלי שום שורת הרשאות היא אותו חור בשקט גמור:** הבדיקה נדלקה
+   רק מ-`grant`, ולכן `saved_search_quiet_now()` עברה בלי grant ובלי
+   revoke ונשארה פתוחה חודשים. מעכשיו `SECURITY DEFINER` חדשה בלי החלטה
+   לשני התפקידים נחסמת גם היא.
 
 ### אחרי מיזוג שכולל מיגרציה
 
