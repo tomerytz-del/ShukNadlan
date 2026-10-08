@@ -100,7 +100,7 @@ type Item = {
   type: string;
   title: string;
   body: string | null;
-  // ‏notification_push_claim מחזירה אותם מ-20270320090000. התראה ישנה, או כזו
+  // ‏notification_push_claim מחזירה אותם מ-20270320093000. התראה ישנה, או כזו
   // שמכסה כמה נכסים/לקוחות, מגיעה בלעדיהם ומקבלת את קישור הקטגוריה.
   property_id?: string | null;
   client_id?: string | null;

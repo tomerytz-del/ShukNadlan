@@ -29,7 +29,7 @@
 | `supabase/migrations/20261106090000_platform_upgrade_alert.sql` | הסוג `platform_upgrade` והטריגר על `tier_changes` |
 | `supabase/migrations/20261118090000_notifications_delete_policy.sql` | ‏policy המחיקה של הפעמון, שעד היום חי רק בפרודקשן |
 | `supabase/migrations/20261123090000_agent_onboarding.sql` | ארבעת סוגי הדרבון של מדריך ההתחלה, וחמשת הטריגרים שמייצרים אותם |
-| `supabase/migrations/20270320090000_notification_direct_links.sql` | ‏`related_property_id` ו-`related_client_id`, שמונה הפונקציות שכותבות אותם, וה-claim שמחזיר אותם לוואטסאפ |
+| `supabase/migrations/20270320093000_notification_direct_links.sql` | ‏`related_property_id` ו-`related_client_id`, שמונה הפונקציות שכותבות אותם, וה-claim שמחזיר אותם לוואטסאפ |
 
 המיגרציה אידמפוטנטית.
 
