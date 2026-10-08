@@ -98,6 +98,33 @@ def check_page(path: Path) -> list[str]:
                 % (link.group(1), want)
             )
 
+    # ‏data-first-visit — אותה חלוקה, ובשני הכיוונים
+    #
+    # מאוקטובר 2026 הרצועה עולה בדף ציבורי רק מהביקור השני, ודפי האזור
+    # האישי פטורים כי כדי להגיע אליהם צריך להתחבר. **זה כשל שקט לשני
+    # הכיוונים**, וזו הסיבה שהוא נבדק:
+    #
+    #   • דף אזור אישי שחסר אותו — סוכן/ת שנכנס/ת בפעם הראשונה פשוט לא
+    #     תקבל/י הצעה, ואין שום סימן לכך. זה הדף עם היחס הגבוה באתר.
+    #   • דף ציבורי שקיבל אותו — ההצעה חוזרת לקהל הקר שנמדד ולא התקין,
+    #     כלומר השינוי מתבטל בלי שאיש ישים לב.
+    script = REQUIRED[-1][0].search(head)
+    if script:
+        tag_end = head.index(">", script.start())
+        tag = head[script.start():tag_end + 1]
+        has_first_visit = 'data-first-visit="show"' in tag
+        if path.name in PERSONAL_PAGES and not has_first_visit:
+            problems.append(
+                'חסר data-first-visit="show" בתג הסקריפט.\n'
+                "            דף באזור האישי מציע התקנה גם בביקור הראשון -\n"
+                "            כדי להגיע אליו צריך להתחבר."
+            )
+        elif path.name not in PERSONAL_PAGES and has_first_visit:
+            problems.append(
+                'נושא data-first-visit="show" והוא דף ציבורי.\n'
+                "            בדף ציבורי הרצועה עולה מהביקור השני בלבד."
+            )
+
     return problems
 
 
