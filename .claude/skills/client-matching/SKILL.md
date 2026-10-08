@@ -74,6 +74,17 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 את אחת מהן - מ-`20270320093000` ואילך - שומר/ת על שני המזהים. סקיל
 `agent-notifications`.
 
+## ‏4ב. מי מחזיק/ה בכרטיס - רק דרך הפונקציות
+
+‏`agent_id`, ‏`agency_id`, ‏`referred_by` ו-`referred_at` של `agent_clients`
+(ושל `properties`) נעולים בטריגר `guard_ownership_columns()`
+(‏`20270323090000`): משתמש/ת מחובר/ת אינו/ה יכול/ה לשנות אותם ב-`update`, ו-
+‏`insert` עם `referred_by` נדחה. הפתח הבא שיוצר כרטיס או מעביר אותו -
+ייבוא, כפתור בבוט, מסירה מהמשרד - עובר דרך פונקציית `SECURITY DEFINER`
+(‏`refer_to_agent`, ‏`refer_clients_to_agent`) או דרך `service_role`. קריאה
+מהדפדפן עם `.update({ agent_id })` תיכשל עם "רק דרך העברה מהמשרד", וזו
+הכוונה: ה-policies לבדם השאירו את העמודות האלה פתוחות. ‏`docs/office-referrals.md`.
+
 ## ‏5. בדיקה
 
 אין בדיקת CI למנוע. לפני דחיפה של מיגרציה שנוגעת בו: Postgres מקומי
