@@ -85,6 +85,8 @@ DISPLAY = [
     ('pricing.html', r"'" + N + r" בחודש, ואז ₪\d+'",                 'free_lead_quota_monthly'),
     ('pricing.html', r"'\d+ בחודש, ואז ₪" + N + "'",                   'ppl_price_buyer_renter'),
     ('pricing.html', r"נכלל במכסה, ואז ₪" + N,                         'ppl_price_buyer_renter'),
+    # השאלה הנפוצה "מה זה ליד" - הבטיחה ₪20 כשנגבו ₪25, כי לא הייתה כאן
+    ('pricing.html', r'ומעבר\s+לזה ₪' + N + r' לפנייה',                'ppl_price_buyer_renter'),
     ('assets/tiers.js', r'₪' + N + r' לפנייה',                         'ppl_price_buyer_renter'),
     ('assets/tiers.js', r"'" + N + r' פניות בחינם בחודש',              'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
