@@ -227,6 +227,8 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   ו-`update` היה מעדכן אפס שורות וממשיך לשלוח. ‏`whatsapp_alerts` בבוט,
   ‏`NOTIF_TYPES` ב-`crm.js` ו-`notification_push_opt_out` חולקים את אותה
   סמנטיקה. הפרטים: `docs/notifications-center.md` → "גם בוואטסאפ".
+* **התראה על נכס, לקוח/ה או ליד אחד/ת נושאת את המזהה** (‏`related_*_id`),
+  וההודעה בוואטסאפ מקבלת ממנו קישור ישיר לפריט. סקיל `agent-notifications`.
 
 ## הכפתור באתר (`ENABLED` ב-`bot-link.js`)
 
