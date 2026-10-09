@@ -127,6 +127,7 @@ python scripts/check_migration_versions.py --base-ref origin/main
 | ‏Places API | צריך את **(New)**, ולא את הישן (`REQUEST_DENIED`). מגבלה קשיחה: `SearchTextRequest per day` = 500. תקרת הוצאה ב-Billing **אינה זמינה** ל-Places |
 | מפתח Places | הגבלה מסוג **API restriction** בלבד. לא Websites ולא IP, כי הקריאות יוצאות מ-Supabase |
 | ‏Google Ads API | צריך **חשבון מנהל** (MCC) - מרכז ה-API קיים רק בו. חשבון הפרסום מקושר אליו (בקשה מהמנהל, אישור מחשבון הפרסום) |
+| ‏"Cloud project is only approved for use with test accounts" | רמת הגישה יושבת **גם על פרויקט ה-Cloud**, לא רק על ה-Developer token. ‏Google Cloud ← Google Ads API ← Access levels ← Manage ← בקשת Explorer/Basic לפרויקט. טוקן Explorer במרכז ה-API אינו מספיק לבד |
 | ‏refresh token של Google Ads | מסך ההסכמה **In production**, אחרת הוא פג אחרי 7 ימים (`invalid_grant`). מופק מההתחברות שבה יושב חשבון המנהל - לאותו מייל יכולות להיות שתי התחברויות עם רשימות חשבונות שונות |
 
 הסודות (רק ב-Supabase ← Edge Functions ← Secrets, **לעולם לא בצ'אט**):
