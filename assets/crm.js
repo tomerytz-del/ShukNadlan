@@ -25935,6 +25935,7 @@ document.getElementById('leadsSubscribeBtn')?.addEventListener('click', async (e
    מגוגל ולא שומרת אותם (תנאי השימוש), ולכן כל לחיצה היא קריאה. */
 let intelMarket = '';
 let intelBusy = false;
+let intelRows = [];
 
 function intelRenderMarkets(){
   const box = document.getElementById('intelMarkets');
@@ -25973,6 +25974,7 @@ async function loadIntelReport(){
     return;
   }
   const rows = (data && data.cities) || [];
+  intelRows = rows;
   const stamp = document.getElementById('intelStamp');
   if (stamp) stamp.textContent = data && data.registry_refreshed_at
     ? 'הרשם עודכן ' + new Date(data.registry_refreshed_at).toLocaleDateString('he-IL')
@@ -26095,6 +26097,32 @@ document.getElementById('intelRegistryBtn')?.addEventListener('click', async (e)
     loadIntelReport();
   }catch(err){ showToast(heErr(err), 6000); }
   finally{ btn.disabled = false; }
+});
+
+/* סריקה של כל הערים שבתצוגה, אחת אחרי השנייה ולא במקביל: כל סריקה היא
+   עד שלוש קריאות ל-Places, והמכסה היומית (500) נאכפת בגוגל - שגיאה אחת
+   עוצרת את הסבב, כדי לא לשרוף את שאר המכסה על אותה שגיאה. משרד יכול לחזור
+   בסריקה של עיר שכנה, ולכן רק סבב מלא נותן את השיוך הסופי. */
+document.getElementById('intelScanAllBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const rows = intelRows.slice();
+  if (!rows.length){ showToast('אין ערים בתצוגה'); return; }
+  if (!confirm('לסרוק ' + rows.length + ' ערים מ-Google Maps?\nעד ' + rows.length * 3 + ' קריאות מתוך המכסה היומית (500).')) return;
+  btn.disabled = true;
+  let done = 0;
+  try{
+    for (const r of rows){
+      showToast('סורק ' + r.name + ' (' + (done + 1) + ' מתוך ' + rows.length + ')', 4000);
+      await adsCall('intel_places_scan', { city_id: r.city_id });
+      done++;
+    }
+    showToast('נסרקו ' + done + ' ערים', 4000);
+  }catch(err){
+    showToast('הסריקה נעצרה אחרי ' + done + ' מתוך ' + rows.length + ' ערים: ' + intelErr(err), 7000);
+  }finally{
+    btn.disabled = false;
+    loadIntelReport();
+  }
 });
 
 /* ---------- מילות מפתח מחיפושי האתר ----------
