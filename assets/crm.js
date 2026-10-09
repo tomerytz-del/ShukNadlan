@@ -4040,6 +4040,7 @@ document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminRe
 const LX_CHANNELS = {
   homepage:      'הבאנרים בדף הבית',
   property_page: 'דף הנכס',
+  visualization: 'הדמיות בדף הנכס',
   agency_page:   'דף המשרד',
   agent_page:    'דף הסוכן/ת',
   whatsapp_bot:  'הבוט בוואטסאפ',
