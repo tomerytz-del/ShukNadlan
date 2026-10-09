@@ -26,10 +26,25 @@ description: "Pull new real-estate deals per city from Govmap (in the user's Chr
 
 ## 1. מה לעדכן
 ```sql
-select name, sync_from, due_total from deal_sync_plan(25);
+select name, sync_from, due_total
+from deal_sync_plan(25, '{afula-emek,nof-hagalil-migdal,krayot}');
 ```
 רק יישובים שהגיע תורם (פעם ב-30 יום כברירת מחדל), הגדולים קודם. `sync_from` -
 עד איזה תאריך למשוך. ריק - אין מה לעדכן: לדווח וזהו.
+
+**השווקים** (הפרמטר השני). ברירת המחדל כאן - עמק יזרעאל והקריות. המשתמש
+יכול לבקש אחרים ("עדכן עסקאות בחדרה"), או את כולם - `'{}'`:
+
+| slug | השוק |
+| --- | --- |
+| `afula-emek` | עפולה והעמק |
+| `nof-hagalil-migdal` | נוף הגליל ומגדל העמק |
+| `krayot` | הקריות |
+| `haifa` | חיפה |
+| `akko-nahariya` | עכו-נהריה |
+| `karmiel-misgav` | כרמיאל-משגב |
+| `hadera` | חדרה |
+| `netanya` | נתניה |
 
 ## 2. פתיחת טבלת "עסקאות ביישוב" ב-Govmap
 1. בתיבת החיפוש (find: "main search input box") להקליד כתובת ידועה בעיר, למשל
@@ -65,10 +80,10 @@ window.__scrape = async (cutoff, city, maxPages=40) => {
   const [g,h,t]=gh.split('-'); const d=iso(date);
   return {gush:g,helka:h,tat:t??null,sold_at:d,sale_price:num(price),size_sqm:num(sqm),street,house_number:house,neighborhood:hood,property_type:(type==='-'||!type)?null:type,rooms:num(rooms),floor:(floor==='-'||!floor)?null:floor};})
   .filter(o=>o.sold_at>=cutoff);
- // שורה כמערך - הפורמט הדחוס ש-upsert_deals מקבלת, כמעט פי שניים שורות בכל מנה:
- // [gush, helka, tat, sold_at, price, sqm, street, house, neighborhood, type, rooms, floor]
+ // שורה לעסקה, שדות מופרדים ב-| ושדה ריק ריק - הפורמט של upsert_deals_text:
+ // gush|helka|tat|date|price|sqm|street|house|neighborhood|type|rooms|floor
  window.__rows=window.__payload.map(o=>[o.gush,o.helka,o.tat,o.sold_at,o.sale_price,o.size_sqm,o.street,o.house_number,o.neighborhood,o.property_type,o.rooms,o.floor]);
- window.__chunk=(i,n=10)=>JSON.stringify(window.__rows.slice(i,i+n));
+ window.__chunk=(i,n=14)=>window.__rows.slice(i,i+n).map(r=>r.map(v=>v==null?'':String(v).replace(/[|\n]/g,' ')).join('|').replace(/\|+$/,'')).join('\n');
  return JSON.stringify({pages,rows:window.__rows.length,log});
 };
 ```
@@ -89,12 +104,15 @@ window.__keep=(keys)=>{const cnt=new Map(); for(const k of (keys||'').split(',')
 
 ## 5. כתיבה
 פלט javascript_tool נחתך בערך ב-1,100 תווים - לשלוף במנות: `window.__chunk(0)`,
-`window.__chunk(10)`, ... ולכל מנה:
+`window.__chunk(14)`, ... (אם מנה נחתכת - להקטין את n). לכל מנה:
 ```sql
-select upsert_deals('<name>', $j$<הפלט של __chunk כמו שהוא>$j$::jsonb) - 'rejected';
+select upsert_deals_text('<name>', $l$
+<הפלט של __chunk כמו שהוא - שורה לעסקה>
+$l$) - 'rejected';
 ```
-`$j$` ולא גרשיים - בסוג נכס יש גרש (קוטג'). כל המנות של יישוב באותה הרצה -
-הפונקציה זוכרת מה כבר נספג.
+`$l$` ולא גרשיים - בסוג נכס יש גרש (קוטג'). כל המנות של יישוב באותה הרצה -
+הפונקציה זוכרת מה כבר נספג. (`upsert_deals` עם מערך JSON עדיין עובדת, אבל
+השורות המופרדות מכניסות יותר עסקאות לכל העברה.)
 
 **אין אף עסקה חדשה** (או הכול סונן בשלב 4):
 ```sql
