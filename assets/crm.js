@@ -25942,6 +25942,7 @@ document.getElementById('leadsSubscribeBtn')?.addEventListener('click', async (e
    מגוגל ולא שומרת אותם (תנאי השימוש), ולכן כל לחיצה היא קריאה. */
 let intelMarket = '';
 let intelBusy = false;
+let intelRows = [];
 
 function intelRenderMarkets(){
   const box = document.getElementById('intelMarkets');
@@ -25980,6 +25981,7 @@ async function loadIntelReport(){
     return;
   }
   const rows = (data && data.cities) || [];
+  intelRows = rows;
   const stamp = document.getElementById('intelStamp');
   if (stamp) stamp.textContent = data && data.registry_refreshed_at
     ? 'הרשם עודכן ' + new Date(data.registry_refreshed_at).toLocaleDateString('he-IL')
@@ -26102,6 +26104,32 @@ document.getElementById('intelRegistryBtn')?.addEventListener('click', async (e)
     loadIntelReport();
   }catch(err){ showToast(heErr(err), 6000); }
   finally{ btn.disabled = false; }
+});
+
+/* סריקה של כל הערים שבתצוגה, אחת אחרי השנייה ולא במקביל: כל סריקה היא
+   עד שלוש קריאות ל-Places, והמכסה היומית (500) נאכפת בגוגל - שגיאה אחת
+   עוצרת את הסבב, כדי לא לשרוף את שאר המכסה על אותה שגיאה. משרד יכול לחזור
+   בסריקה של עיר שכנה, ולכן רק סבב מלא נותן את השיוך הסופי. */
+document.getElementById('intelScanAllBtn')?.addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const rows = intelRows.slice();
+  if (!rows.length){ showToast('אין ערים בתצוגה'); return; }
+  if (!confirm('לסרוק ' + rows.length + ' ערים מ-Google Maps?\nעד ' + rows.length * 3 + ' קריאות מתוך המכסה היומית (500).')) return;
+  btn.disabled = true;
+  let done = 0;
+  try{
+    for (const r of rows){
+      showToast('סורק ' + r.name + ' (' + (done + 1) + ' מתוך ' + rows.length + ')', 4000);
+      await adsCall('intel_places_scan', { city_id: r.city_id });
+      done++;
+    }
+    showToast('נסרקו ' + done + ' ערים', 4000);
+  }catch(err){
+    showToast('הסריקה נעצרה אחרי ' + done + ' מתוך ' + rows.length + ' ערים: ' + intelErr(err), 7000);
+  }finally{
+    btn.disabled = false;
+    loadIntelReport();
+  }
 });
 
 /* ---------- מילות מפתח מחיפושי האתר ----------
@@ -30194,6 +30222,8 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
    הקריאות רצות אחת-אחת ולא במקביל: אין מכסה מתועדת, והטוקן אחד לכל האתר.
    ========================================================================== */
 const GOVMAP_PARITY_MAX_METERS = 15;
+// תקרת סבבים ללחיצה אחת - רשת ביטחון מפני תור שאינו מתקצר.
+const GOVMAP_MAX_ROUNDS = 40;
 
 function govmapDistanceMeters(lat1, lng1, lat2, lng2){
   const R = 6371000, rad = Math.PI / 180;
@@ -30218,47 +30248,59 @@ async function runGovmapBackfill(){
   govmapSetBusy(true);
   out.innerHTML = '';
   status.textContent = 'טוען את רשימת הנכסים…';
+  const counts = { saved:0, pin_only:0, not_found:0, error:0 };
+  let total = 0, stalled = false, more = false;
   try{
-    const { data: rows, error } = await sb.rpc('govmap_backfill_candidates', { p_limit: 40 });
-    if (error) throw error;
-    if (!rows || !rows.length){
+    // סבבים של 40 עד שהתור מתרוקן. סבב שכולו כשלים עוצר: אלה אותם נכסים
+    // שיחזרו שוב ושוב, והמשך היה רק מכה ב-GovMap.
+    for (let round = 1; ; round++){
+      if (round > GOVMAP_MAX_ROUNDS){ more = true; break; }
+      const { data: rows, error } = await sb.rpc('govmap_backfill_candidates', { p_limit: 40 });
+      if (error) throw error;
+      if (!rows || !rows.length) break;
+      const errorsBefore = counts.error;
+      for (let i = 0; i < rows.length; i++){
+        const r = rows[i];
+        status.textContent = `סבב ${round}, ${i + 1} מתוך ${rows.length}: ${r.street} ${r.house_number}, ${r.city}`;
+        try{
+          const q = { street: r.street, houseNumber: r.house_number, city: r.city };
+          let record = {};
+          if (r.need_planning){
+            const res = await GovmapLookup.lookupProperty(q);
+            if (res){
+              record = { planning: Object.assign({}, res.planning || {}, { lat: res.lat, lng: res.lng }) };
+              // פין לפי כתובת בלבד. מרכז חלקה כאן אינו אפשרי ממילא - אין גוש/חלקה בקלט.
+              if (res.pinSource === 'address'){ record.pin_lat = res.lat; record.pin_lng = res.lng; }
+              if (!res.planning) delete record.planning;
+            }
+          } else {
+            const hit = await GovmapLookup.addressLatLng(q);
+            if (hit) record = { pin_lat: hit.lat, pin_lng: hit.lng };
+          }
+          const { data: result, error: saveErr } = await sb.rpc('govmap_admin_save', { p_property_id: r.id, p_record: record });
+          if (saveErr) throw saveErr;
+          counts[result] = (counts[result] || 0) + 1;
+        } catch(err){
+          // תקלה זמנית - לא נרשם "לא נמצא", כדי שהנכס יחזור בלחיצה הבאה
+          console.warn('GovMap backfill:', r.id, err);
+          counts.error++;
+        }
+      }
+      total += rows.length;
+      if (counts.error - errorsBefore === rows.length){ stalled = true; break; }
+    }
+    if (!total){
       status.textContent = 'אין נכסים שחסרים להם נתונים מחוץ לעפולה.';
       return;
     }
-    const counts = { saved:0, pin_only:0, not_found:0, error:0 };
-    for (let i = 0; i < rows.length; i++){
-      const r = rows[i];
-      status.textContent = `${i + 1} מתוך ${rows.length}: ${r.street} ${r.house_number}, ${r.city}`;
-      try{
-        const q = { street: r.street, houseNumber: r.house_number, city: r.city };
-        let record = {};
-        if (r.need_planning){
-          const res = await GovmapLookup.lookupProperty(q);
-          if (res){
-            record = { planning: Object.assign({}, res.planning || {}, { lat: res.lat, lng: res.lng }) };
-            // פין לפי כתובת בלבד. מרכז חלקה כאן אינו אפשרי ממילא - אין גוש/חלקה בקלט.
-            if (res.pinSource === 'address'){ record.pin_lat = res.lat; record.pin_lng = res.lng; }
-            if (!res.planning) delete record.planning;
-          }
-        } else {
-          const hit = await GovmapLookup.addressLatLng(q);
-          if (hit) record = { pin_lat: hit.lat, pin_lng: hit.lng };
-        }
-        const { data: result, error: saveErr } = await sb.rpc('govmap_admin_save', { p_property_id: r.id, p_record: record });
-        if (saveErr) throw saveErr;
-        counts[result] = (counts[result] || 0) + 1;
-      } catch(err){
-        // תקלה זמנית - לא נרשם "לא נמצא", כדי שהנכס יחזור בלחיצה הבאה
-        console.warn('GovMap backfill:', r.id, err);
-        counts.error++;
-      }
-    }
     status.textContent = '';
-    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(rows.length))} נכסים:
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(total))} נכסים:
       ${esc(String(counts.saved))} עם מידע תכנוני,
       ${esc(String(counts.pin_only))} מיקום בלבד,
       ${esc(String(counts.not_found))} לא נמצאו ב-GovMap,
-      ${esc(String(counts.error))} נכשלו (ינוסו שוב בלחיצה הבאה).</p>`;
+      ${esc(String(counts.error))} נכשלו (ינוסו שוב בלחיצה הבאה).
+      ${stalled ? '<br>ההשלמה נעצרה: סבב שלם נכשל, כנראה תקלה ב-GovMap. אפשר לנסות שוב מאוחר יותר.' : ''}
+      ${more ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
   } catch(err){
     console.warn('GovMap backfill failed:', err);
     status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);
@@ -30347,49 +30389,59 @@ async function runGovmapDeals(){
   govmapSetBusy(true);
   out.innerHTML = '';
   status.textContent = 'טוען את רשימת המיקומים…';
+  const c = { locDone:0, dealsDone:0, byAddress:0, byParcel:0, tooLarge:0, tooLargeDeals:0, notFound:0, errors:0 };
+  let total = 0, stalled = false, more = false;
   try{
-    const { data: rows, error } = await sb.rpc('govmap_deal_locations', { p_limit: 150 });
-    if (error) throw error;
-    if (!rows || !rows.length){ status.textContent = 'אין עסקאות שחסר להן מיקום מחוץ לעפולה.'; return; }
-    const c = { locDone:0, dealsDone:0, byAddress:0, byParcel:0, tooLarge:0, tooLargeDeals:0, notFound:0, errors:0 };
-    for (let i = 0; i < rows.length; i++){
-      const r = rows[i];
-      const label = r.street ? `${r.street} ${r.house_number || ''}` : `גוש ${r.gush} חלקה ${r.helka}`;
-      status.textContent = `${i + 1} מתוך ${rows.length}: ${label}, ${r.city}`;
-      try{
-        let hit = null, reason = 'not_found';
-        if (r.street && r.house_number){
-          hit = await GovmapLookup.addressLatLng({ street: r.street, houseNumber: r.house_number, city: r.city });
-          if (hit) c.byAddress++;
+    // סבבים של 150 עד שהתור מתרוקן, באותו כלל עצירה כמו ההשלמה לנכסים.
+    for (let round = 1; ; round++){
+      if (round > GOVMAP_MAX_ROUNDS){ more = true; break; }
+      const { data: rows, error } = await sb.rpc('govmap_deal_locations', { p_limit: 150 });
+      if (error) throw error;
+      if (!rows || !rows.length) break;
+      const errorsBefore = c.errors;
+      for (let i = 0; i < rows.length; i++){
+        const r = rows[i];
+        const label = r.street ? `${r.street} ${r.house_number || ''}` : `גוש ${r.gush} חלקה ${r.helka}`;
+        status.textContent = `סבב ${round}, ${i + 1} מתוך ${rows.length}: ${label}, ${r.city}`;
+        try{
+          let hit = null, reason = 'not_found';
+          if (r.street && r.house_number){
+            hit = await GovmapLookup.addressLatLng({ street: r.street, houseNumber: r.house_number, city: r.city });
+            if (hit) c.byAddress++;
+          }
+          if (!hit && r.gush && r.helka){
+            const p = await GovmapLookup.parcelLatLng(r.gush, r.helka, 250);
+            if (p && p.tooLarge){ reason = 'parcel_too_large'; c.tooLarge++; c.tooLargeDeals += r.deals; }
+            else if (p){ hit = p; c.byParcel++; }
+          }
+          const { data: n, error: saveErr } = await sb.rpc('govmap_deal_save', {
+            p_city: r.city, p_street: r.street, p_house_number: r.house_number,
+            p_gush: r.gush, p_helka: r.helka,
+            p_lat: hit ? hit.lat : null, p_lng: hit ? hit.lng : null,
+            p_reason: hit ? null : reason,
+          });
+          if (saveErr) throw saveErr;
+          if (hit){ c.locDone++; c.dealsDone += (n || 0); }
+          else if (reason === 'not_found') c.notFound++;
+        } catch(err){
+          // תקלה זמנית: לא נרשם כלום, והמיקום יחזור בלחיצה הבאה
+          console.warn('GovMap deals:', label, err);
+          c.errors++;
         }
-        if (!hit && r.gush && r.helka){
-          const p = await GovmapLookup.parcelLatLng(r.gush, r.helka, 250);
-          if (p && p.tooLarge){ reason = 'parcel_too_large'; c.tooLarge++; c.tooLargeDeals += r.deals; }
-          else if (p){ hit = p; c.byParcel++; }
-        }
-        const { data: n, error: saveErr } = await sb.rpc('govmap_deal_save', {
-          p_city: r.city, p_street: r.street, p_house_number: r.house_number,
-          p_gush: r.gush, p_helka: r.helka,
-          p_lat: hit ? hit.lat : null, p_lng: hit ? hit.lng : null,
-          p_reason: hit ? null : reason,
-        });
-        if (saveErr) throw saveErr;
-        if (hit){ c.locDone++; c.dealsDone += (n || 0); }
-        else if (reason === 'not_found') c.notFound++;
-      } catch(err){
-        // תקלה זמנית: לא נרשם כלום, והמיקום יחזור בלחיצה הבאה
-        console.warn('GovMap deals:', label, err);
-        c.errors++;
       }
+      total += rows.length;
+      if (c.errors - errorsBefore === rows.length){ stalled = true; break; }
     }
+    if (!total){ status.textContent = 'אין עסקאות שחסר להן מיקום מחוץ לעפולה.'; return; }
     status.textContent = '';
-    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(rows.length))} מיקומים.
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(total))} מיקומים.
       <strong>${esc(String(c.dealsDone))} עסקאות</strong> קיבלו מיקום
       (${esc(String(c.byAddress))} לפי כתובת, ${esc(String(c.byParcel))} לפי מרכז החלקה).
       ${esc(String(c.notFound))} מיקומים לא נמצאו ב-GovMap,
       ${esc(String(c.tooLarge))} חלקות גדולות מדי לפין אחד (${esc(String(c.tooLargeDeals))} עסקאות),
       ${esc(String(c.errors))} נכשלו וינוסו שוב.
-      ${rows.length >= 150 ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
+      ${stalled ? '<br>ההשלמה נעצרה: סבב שלם נכשל, כנראה תקלה ב-GovMap. אפשר לנסות שוב מאוחר יותר.' : ''}
+      ${more ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
   } catch(err){
     console.warn('GovMap deals failed:', err);
     status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);

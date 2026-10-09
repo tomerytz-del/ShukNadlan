@@ -228,7 +228,30 @@ const agentLd = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב",
 const agentNoLicense = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב", license_number: null });
 const articleLd = await ldAt("/article?slug=a", { slug: "a", title: "כותרת", subtitle: "תת", published_at: "2026-10-01T00:00:00Z", author_name: null });
 
+/* ‏משרד עם דירוג: שתי שאילתות, ולכן ה-fetch המדומה עונה לפי הנתיב */
+async function agencyWithRating(rating: unknown, status = 200): Promise<Record<string, any> | null> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    const body = u.includes("agency_ratings_public") ? rating : { id: "ag1", name: "משרד הדר", description: "ד" };
+    const st = u.includes("agency_ratings_public") ? status : 200;
+    return new Response(JSON.stringify(body), { status: st, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const res = await handler(new Request("https://shuknadlan.co.il/agency?slug=a"), context());
+  const m = (await res.text()).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+}
+const rated = await agencyWithRating({ score: "4.67", review_count: 3 });
+const ratedOne = await agencyWithRating({ score: "5", review_count: 1 });
+const ratedNull = await agencyWithRating({ score: null, review_count: 0 });
+const ratedErr = await agencyWithRating({}, 500);
+
 const more: [string, boolean][] = [
+  ["משרד עם 3 ביקורות: AggregateRating 4.7 מתוך 3", rated?.aggregateRating?.ratingValue === 4.7 &&
+    rated?.aggregateRating?.reviewCount === 3],
+  ["משרד עם ביקורת אחת: בלי דירוג (הדף אינו מציג מתחת ל-2)", ratedOne?.["@type"] === "RealEstateAgent" &&
+    ratedOne?.aggregateRating === undefined],
+  ["משרד בלי ביקורות: בלי דירוג", ratedNull?.["@type"] === "RealEstateAgent" && ratedNull?.aggregateRating === undefined],
+  ["כשל בשאילתת הדירוג: הדף יוצא בלי דירוג", ratedErr?.["@type"] === "RealEstateAgent" && ratedErr?.aggregateRating === undefined],
   ["משרד: RealEstateAgent עם כתובת ולוגו", agencyLd?.["@type"] === "RealEstateAgent" &&
     agencyLd?.address?.streetAddress === "הנשיא 5, עפולה" && agencyLd?.logo === "https://shuknadlan.co.il/l.png"],
   ["סוכן/ת: Person עם רישיון התיווך", agentLd?.["@type"] === "Person" &&
