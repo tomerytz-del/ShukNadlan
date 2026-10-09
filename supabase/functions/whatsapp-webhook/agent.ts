@@ -831,7 +831,9 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "משנה את סטטוס הלקוח/ה. ‏active = מחפש/ת, ‏paused = בהשהיה, " +
       "‏closed = סגר/ה עסקה או אינו/ה מחפש/ת עוד. \"תמחק את הלקוח/ה\" = closed - " +
-      "הרשומה נשארת בקובץ ורק יוצאת מהרשימה הפעילה, בדיוק כמו בדשבורד.",
+      "הרשומה נשארת בקובץ ורק יוצאת מהרשימה הפעילה, בדיוק כמו בדשבורד. " +
+      "‏closed סוגר גם את המיניסייט הפעיל של הלקוח/ה, והקישור שנשלח אליו/ה מפסיק לעבוד - " +
+      "כשהתשובה מחזירה showcase_closed, לומר זאת לסוכן/ת במפורש.",
     input_schema: {
       type: "object",
       properties: {
@@ -3662,6 +3664,19 @@ async function toolSetClientStatus(ctx: ToolContext, input: Record<string, unkno
   const existing = await ownedClient(ctx, clientId);
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
+  // סגירה סוגרת גם את המיניסייט (הטריגר agent_clients_close_showcase). בודקים
+  // לפני העדכון אם היה כזה, כדי שגבריאלה תגיד לסוכן/ת שהקישור הפסיק לעבוד.
+  let hadShowcase = false;
+  if (status === "closed") {
+    const { data: sc } = await ctx.supabase
+      .from("client_showcases")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("status", "active")
+      .maybeSingle();
+    hadShowcase = !!sc;
+  }
+
   const { error } = await ctx.supabase
     .from("agent_clients")
     .update({ status, updated_at: new Date().toISOString() })
@@ -3670,7 +3685,13 @@ async function toolSetClientStatus(ctx: ToolContext, input: Record<string, unkno
   if (error) return { ok: false, error: error.message };
 
   ctx.conv.last_client_id = clientId;
-  return { ok: true, client_id: clientId, full_name: existing.full_name, status };
+  return {
+    ok: true,
+    client_id: clientId,
+    full_name: existing.full_name,
+    status,
+    ...(hadShowcase ? { showcase_closed: true } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

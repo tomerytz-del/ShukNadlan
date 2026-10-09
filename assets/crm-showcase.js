@@ -31,6 +31,16 @@ function showcaseUrl(token, preview){
   return location.origin + '/showcase?t=' + encodeURIComponent(token) + (preview ? '&preview=1' : '');
 }
 
+/* שורת אזהרה לחלון האישור לפני סגירה או מחיקה של לקוח/ה. הסגירה עצמה נעשית
+   במסד (הטריגר agent_clients_close_showcase, ובמחיקה on delete cascade) -
+   כאן רק אומרים לסוכן/ת מראש שהקישור שנשלח יפסיק לעבוד. */
+function showcaseCloseWarning(clientId){
+  const s = showcaseSummaries[clientId];
+  if (!s) return '';
+  const seen = s.view_count ? ` (נצפה ${plural(s.view_count, 'פעם אחת', 'פעמים')})` : '';
+  return `\n\nגם המיניסייט של הלקוח/ה${seen} ייסגר, והקישור שנשלח אליו/ה יפסיק לעבוד.`;
+}
+
 /* ---------- סיכום לכל הלקוחות - קריאה אחת ---------- */
 async function loadShowcaseSummaries(){
   showcaseSummaries = {};
