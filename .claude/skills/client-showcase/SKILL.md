@@ -21,7 +21,7 @@ description: עבודה על המיניסייט האישי ללקוח/ה ברי�
 | `supabase/migrations/20270208090000_client_showcases.sql` | הטבלאות, ה-RLS, `showcase_add_properties`, `showcase_decide_meeting` |
 | `supabase/migrations/20270209090000_showcase_whatsapp.sql` + `client-showcase/wa.ts` | תור הוואטסאפ ללקוח/ה, הטריגרים וה-cron `showcase-wa` |
 
-## שבעה דברים ששוברים בשקט
+## שמונה דברים ששוברים בשקט
 
 ### 1. שדה חדש לנכס - לכולם או לאף אחד
 
@@ -100,6 +100,14 @@ EOF
 הודעות), שעות השקט, ו"לא לשלוח מה שכבר נקרא". והתבנית: בלי
 `WHATSAPP_SHOWCASE_TEMPLATE` אין ערוץ לרוב הלקוחות, והסטטוס `no_channel` -
 לא כשל שקט, אלא שורה בפאנל של הסוכן/ת. נוסח התבנית ב-`docs/client-showcase.md`.
+
+### 8. סגירת לקוח/ה סוגרת את המיניסייט - במסד, לא בדפדפן
+
+"מחיקה" של לקוח/ה היא `status = 'closed'`, לא `delete`, ולכן ה-`cascade` לא
+חל עליה. הטריגר `agent_clients_close_showcase` סוגר את המיניסייט הפעיל בכל
+מעבר ל-`closed`. דלת חדשה שמשנה סטטוס לקוח/ה מקבלת את הסגירה מעצמה; מה
+שעליה להוסיף הוא **האזהרה לפני** - ‏`showcaseCloseWarning(clientId)` ב-CRM,
+או `showcase_closed` בתשובת כלי בבוט.
 
 ## הודעת הפתיחה
 
