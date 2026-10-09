@@ -95,6 +95,14 @@ check("כשל: בלי noindex", !html.includes("noindex"));
 check("כשל: הדף לא מולא", !html.includes("data-ssr"));
 check("כשל: לא נשמר במטמון", !res.headers.get("Netlify-CDN-Cache-Control"));
 
+/* יישוב עם פחות מ-5 עסקאות: מוצג, אבל noindex */
+res = await run("https://shuknadlan.co.il/deals/kfar-katan", 200, { ...AFULA, name: "כפר קטן", slug: "kfar-katan", deals: 3, median_price: null, median_ppsqm: null, by_rooms: [] });
+html = await res.text();
+check("דל: הדף מולא", /<div id="dealsBody" data-ssr="1">/.test(html));
+check("דל: noindex", html.includes('<meta name="robots" content="noindex,follow">'));
+html = await (await run("https://shuknadlan.co.il/deals/afula", 200, AFULA)).text();
+check("812 עסקאות: בלי noindex", !html.includes("noindex"));
+
 /* יישוב שאינו קיים */
 html = await (await run("https://shuknadlan.co.il/deals/nowhere", 200, null)).text();
 check("לא קיים: noindex", html.includes('<meta name="robots" content="noindex,follow">'));

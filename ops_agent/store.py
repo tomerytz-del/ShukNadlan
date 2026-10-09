@@ -52,7 +52,9 @@ PROBE_CODES = {
     # שהשוק כבר לא היה קיים. ‏scripts/ops_probe_codes_test.py חוסם מעכשיו
     # קוד שאינו מכוסה כאן, כי זו כבר הפעם השלישית (אחרי "make_").
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
-                 "listings_", "saved_search_", "market_", "agency_"),
+                 "listings_", "saved_search_", "market_", "agency_",
+                 # ‏מחזור העדכון של העסקאות (‏_deal_sync_cycle)
+                 "deal_sync_"),
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
     # ‏make_scenario_off (‏critical) לא היה נסגר לעולם, וה-Issue שהוא פותח
     # היה נשאר פתוח גם אחרי שהתרחיש הודלק.

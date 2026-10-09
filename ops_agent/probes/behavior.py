@@ -31,6 +31,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
     yield from _market_data(ctx)
+    yield from _deal_sync_cycle(ctx)
     yield from _agencies_no_city(ctx)
 
 
@@ -570,6 +571,91 @@ MARKET_UNPINNED_MIN = 100
 MARKET_HOOD_ALIAS_MIN = 20
 
 
+# ‏מחזור העדכון של העסקאות (‏docs/settlement-deals.md). יישוב שחרג מהמחזור
+# שלו ביותר מ-DEAL_SYNC_GRACE_DAYS ימים נספר כפיגור. החסד מכסה שבוע שבו
+# "עדכן עסקאות" לא הורץ, ולא יותר: מחזור של 30 יום + 14 = כמעט חודש וחצי
+# בלי עסקאות חדשות בדוח ה-CMA.
+DEAL_SYNC_GRACE_DAYS = 14
+
+
+def _deal_sync_cycle(ctx) -> Iterator[Finding]:
+    """האם "עדכן עסקאות" באמת רץ - הסוכן בדפדפן ואין לו תזמון בשרת.
+
+    ‏**זה המקום היחיד שבו מחזור שנעצר נראה.** הסוכן רץ בדפדפן של מנהל/ת
+    הפלטפורמה, ולכן אין workflow שיאדים. בלי הבדיקה הזו, חודשיים בלי
+    עדכון נראים בדיוק כמו חודשיים שבהם לא נמכר כלום.
+
+    שני ממצאים, לפי מה שקרה:
+      ‏· deal_sync_stopped - אף יישוב לא עודכן בהצלחה DEAL_SYNC_GRACE_DAYS
+        ימים, ויש ממתינים. המחזור כולו עומד.
+      ‏· deal_sync_overdue - המחזור רץ, אבל יישובים חורגים ממנו: הסוכן לא
+        מגיע אליהם (מנה קטנה מדי) או נכשל בהם שוב ושוב.
+    יישוב שנוסף לרשימה לפני פחות מ-DEAL_SYNC_GRACE_DAYS ימים אינו נספר,
+    כדי שהעיר החדשה בשוק לא תצעק ביום הראשון.
+    """
+    if not (ctx.db.has_table("deal_settlements")
+            and ctx.db.has_column("deal_settlements", "last_attempt_at")):
+        return
+    rows = ctx.db.rows(
+        """
+        -- deal_sync:cycle
+        select count(*) filter (where s.active and (
+                 (s.last_synced_at is null and s.created_at < now() - make_interval(days => %s))
+                 or s.last_synced_at < now() - make_interval(days => s.sync_every_days + %s)))
+                                                                         as overdue,
+               count(*) filter (where s.active and s.last_status like 'שגיאה:%%') as failing,
+               count(*) filter (where s.active)                          as active,
+               max(s.last_synced_at)                                     as last_ok,
+               extract(day from now() - max(s.last_synced_at))::int      as last_ok_days,
+               (array_agg(s.name order by coalesce(s.last_synced_at, s.created_at))
+                  filter (where s.active))[1:5]                         as oldest
+          from public.deal_settlements s
+        """,
+        (DEAL_SYNC_GRACE_DAYS, DEAL_SYNC_GRACE_DAYS),
+    ) or []
+    if not rows:
+        return
+    r = rows[0]
+    ctx.count()
+    overdue = int(r.get("overdue") or 0)
+    if not overdue:
+        return
+    failing = int(r.get("failing") or 0)
+    days = r.get("last_ok_days")
+    stopped = days is None or int(days) > DEAL_SYNC_GRACE_DAYS
+    evidence = {"overdue": overdue, "active": int(r.get("active") or 0),
+                "failing": failing, "last_ok": str(r.get("last_ok")),
+                "oldest": list(r.get("oldest") or [])}
+    if stopped:
+        yield Finding(
+            area="health", code="deal_sync_stopped", severity="medium",
+            subject="deals:sync",
+            title=("\"עדכן עסקאות\" לא רץ מעולם - %d יישובים ממתינים" % overdue
+                   if days is None else
+                   "\"עדכן עסקאות\" לא רץ %d ימים - %d יישובים ממתינים" % (int(days), overdue)),
+            detail="העסקאות נכנסות רק מסוכן הדפדפן, ואין לו תזמון בשרת. בלי הרצה, "
+                   "דוח ה-CMA ודפי /deals משווים למחירים שהולכים ומתיישנים, והעסקאות "
+                   "של ערים שעוד לא נמשכו פשוט חסרות.",
+            suggestion="לכתוב לסוכן \"עדכן עסקאות\" (הכפתור \"העתק פקודת עדכון\" ב-CRM, "
+                       "יישובים לעסקאות), ולחזור עד ש-due_total מגיע ל-0. ‏"
+                       "docs/settlement-deals.md, \"מחזור העדכון\".",
+            metric=overdue, metric_unit="יישובים", evidence=evidence,
+        )
+        return
+    yield Finding(
+        area="health", code="deal_sync_overdue", severity="low",
+        subject="deals:sync",
+        title="‏%d יישובים חורגים ממחזור העדכון של העסקאות%s"
+              % (overdue, " - %d מהם נכשלים" % failing if failing else ""),
+        detail="המחזור רץ, אבל לא מגיע לכולם: המנה של deal_sync_plan קטנה מכמות "
+               "הממתינים, או שיישובים נכשלים שוב ושוב ויורדים לסוף התור.",
+        suggestion="ב-CRM, יישובים לעסקאות: לסנן \"רק ממתינים\" ולבדוק את עמודת המצב. "
+                   "שגיאה שחוזרת - שם היישוב ב-GovMap שונה מהשם ברשימה, או יישוב "
+                   "שאינו קיים שם (לכבות אותו). אחרת - להריץ שוב עד ש-due_total מגיע ל-0.",
+        metric=overdue, metric_unit="יישובים", evidence=evidence,
+    )
+
+
 def _market_data(ctx) -> Iterator[Finding]:
     """הנתונים של כל שוק מקומי: עסקאות רשמיות, פינים, גבולות ושמות שכונות.
 
@@ -636,9 +722,9 @@ def _market_data(ctx) -> Iterator[Finding]:
                            "במלואה מחזיקה עד 1,500 עסקאות (המגבלה של GovMap), ומספר "
                            "נמוך בהרבה הוא כמעט תמיד הדבקה של חיפוש מצומצם - רחוב, "
                            "גוש או שכונה אחת - ולא עיר שאין בה עסקאות.",
-                    suggestion="להדביק שוב את העיר כולה ב-CRM (ייבוא עסקאות רשמיות "
-                               "מ-GovMap), בלי סינון לשכונה או לרחוב. ‏"
-                               "docs/market-deals-official.md.",
+                    suggestion="להריץ \"עדכן עסקאות\" לסוכן הדפדפן על העיר (ב-CRM, "
+                               "יישובים לעסקאות: לאפס את העדכון האחרון כדי שתחזור לתור), "
+                               "בלי סינון לשכונה או לרחוב. ‏docs/settlement-deals.md.",
                     metric=deals, metric_unit="עסקאות",
                     evidence={"market": slug, "city": city, "deals": deals,
                               "market_median": median, "hoods": int(r.get("hoods") or 0)},
@@ -659,11 +745,12 @@ def _market_data(ctx) -> Iterator[Finding]:
                     subject=subject_city,
                     title="העסקה האחרונה במאגר של %s (%s) היא מלפני %d ימים"
                           % (city, label, int(days)),
-                    detail="המאגר מתעדכן בהדבקה ידנית מ-GovMap. רשות המיסים מפרסמת "
+                    detail="המאגר מתעדכן מסוכן הדפדפן (\"עדכן עסקאות\"). רשות המיסים מפרסמת "
                            "עסקה חודשיים-שלושה אחרי שנסגרה, ולכן פער של יותר מחמישה "
-                           "חודשים הוא הדבקה שלא חודשה - ודוח CMA שמשווה למחירים ישנים.",
-                    suggestion="הדבקה חוזרת של העיר ב-CRM. ההדבקה אידמפוטנטית: "
-                               "עסקה שכבר קיימת מתעדכנת ואינה נכפלת.",
+                           "חודשים הוא עדכון שלא רץ - ודוח CMA שמשווה למחירים ישנים.",
+                    suggestion="לבדוק ב-CRM, יישובים לעסקאות, את המצב של העיר: שגיאה "
+                               "אחרונה, או יישוב כבוי. העדכון אידמפוטנטי: עסקה שכבר "
+                               "קיימת מתעדכנת ואינה נכפלת. ‏docs/settlement-deals.md.",
                     metric=int(days), metric_unit="ימים",
                     evidence={"market": slug, "city": city, "deals": deals,
                               "last_sold": str(r.get("last_sold"))},

@@ -187,14 +187,15 @@ const SOURCES: Source[] = [
     query: `developers_public?slug=not.is.null&select=slug&limit=${LIMIT}`,
   },
   {
-    // ‏דף עסקאות לכל יישוב פעיל (‏docs/settlement-deals.md). ה-policy על
-    // deal_settlements מחזירה ל-anon רק יישובים פעילים.
+    // ‏דף עסקאות לכל יישוב פעיל **שיש לו עסקאות** (‏docs/settlement-deals.md).
+    // הטבלה עצמה מחזיקה את כל ערי השווקים, רובן בלי עסקאות - והפונקציה
+    // מסננת אותן, כדי לא להגיש לגוגל מאות דפים ריקים.
     name: "עסקאות לפי יישוב",
     page: "deals",
     key: "slug",
     field: "slug",
-    lastmod: "last_synced_at",
-    query: `deal_settlements?select=slug,last_synced_at&order=name&limit=${LIMIT}`,
+    lastmod: "updated_at",
+    query: `rpc/deal_settlements_public?select=slug,updated_at&limit=${LIMIT}`,
     path: (v) => `/deals/${encodeURIComponent(v)}`,
   },
 ];
