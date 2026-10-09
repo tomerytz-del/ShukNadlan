@@ -16,7 +16,7 @@
 // ============================================================================
 
 const IMAGE_MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image-preview";
-const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.1-flash-lite";
+const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-lite";
 
 export const VISUALIZATION_BUCKET = "property-visualizations";
 
@@ -680,8 +680,9 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
       body: JSON.stringify({
         contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
         // ‏maxOutputTokens היה 20 — התשובה עצמה היא שלוש מילים, אז זה נראה
-        // נדיב. זה היה נכון למודל שלא חושב. ‏gemini-3.1-flash-lite הוא מודל
-        // חושב (thinking: true ב-ListModels), והתקציב הזה *כולל* את החשיבה:
+        // נדיב. זה היה נכון למודל שלא חושב. ‏gemini-3.1-flash-lite (שקדם ל-
+        // 3.5 כאן) הוא מודל חושב (thinking: true ב-ListModels), והתקציב הזה
+        // *כולל* את החשיבה:
         // המודל שרף את 20 הטוקנים לפני שכתב תו אחד, החזיר 200 עם טקסט ריק,
         // וכל תמונה סווגה unknown. התקרה כאן רחבה בכוונה — עלות אמיתית היא
         // לפי מה שנוצר בפועל, והתשובה נשארת שלוש מילים.

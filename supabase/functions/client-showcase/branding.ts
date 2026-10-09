@@ -13,7 +13,7 @@
 // בדוקה — כלומר מוסתרת. רק `NO` מפורש מהמודל פותח אותה.
 // ============================================================================
 
-const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.1-flash-lite";
+const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-lite";
 
 export const BRANDING_MODEL = VISION_MODEL;
 
