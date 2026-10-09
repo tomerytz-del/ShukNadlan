@@ -388,6 +388,8 @@ PUBLIC_RPC = {
     "platform_prior_rating": "ה-view agency_rating_scores - ממוצע ביקורות שפורסמו; "
                              "פונקציה ב-view נבדקת מול מי שקורא/ת אותו",
     "city_id_for_name": "מזהה עיר לפי שם - נתון פומבי; check_function_grants.py",
+    "city_price_table": "הדף /prices - מחיר חציוני לפי עיר וחדרים, צבירה בלבד ותא "
+                        "מתחת ל-5 עסקאות מושתק; docs/city-prices.md",
 }
 
 PAUSED_WORKFLOWS = {
