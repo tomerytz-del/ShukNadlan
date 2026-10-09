@@ -199,9 +199,14 @@ function inject(html: string, page: SearchPage): string {
   let out = html;
   const add: string[] = [];
 
+  /* ‏og:title ו-og:url נכתבים **במקום** הקיימים: מאז 9.10.2026 index.html
+     נושא אותם בעצמו, ותגית כפולה משאירה לסורק לבחור - והוא בוחר את של
+     דף הבית. */
   for (const [selector, value] of [
     ['name="description"', page.description],
     ['property="og:description"', page.description],
+    ['property="og:title"', title],
+    ['property="og:url"', canonical],
   ] as const) {
     const filled = fillMeta(out, selector, value);
     if (filled) out = filled;
@@ -214,8 +219,6 @@ function inject(html: string, page: SearchPage): string {
 
   add.unshift(`<link rel="canonical" href="${esc(canonical)}">`);
   add.push(
-    `<meta property="og:title" content="${esc(title)}">`,
-    `<meta property="og:url" content="${esc(canonical)}">`,
     /* הכותרת שמעל התוצאות. הדף קורא אותה מכאן ולא מרשימה משלו. */
     `<meta name="shuk-search-heading" content="${esc(page.title)}">`,
   );

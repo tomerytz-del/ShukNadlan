@@ -28,6 +28,10 @@ const PAGE = [
   '<link rel="canonical" href="https://shuknadlan.co.il/">',
   '<meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">',
   '<meta property="og:description" content="העסקה הבאה שלך בעפולה.">',
+  /* ‏מאז 9.10.2026 דף הבית נושא og:title ו-og:url משלו - ועמוד תוצאות
+     חייב להחליף אותם, לא להוסיף עוד אחד לצדם */
+  '<meta property="og:title" content="שוק נדל״ן | עפולה והעמק">',
+  '<meta property="og:url" content="https://shuknadlan.co.il/">',
   "</head><body>x</body></html>",
 ].join("\n");
 
@@ -45,6 +49,8 @@ type Result = {
   canonicalCount: number;
   title: string | null;
   heading: string | null;
+  ogTitles: string[];
+  ogUrls: string[];
 };
 
 /* ‏מה שדפדפן קורא מהמאפיין. ‏‎&‎ בתוך ‎href="…"‎ **חייב** להיכתב ‎&amp;‎
@@ -69,6 +75,8 @@ async function serve(url: string): Promise<Result> {
     canonicalCount: (html.match(/rel="canonical"/g) || []).length,
     title: decode((html.match(/<title>([^<]*)<\/title>/) || [])[1]),
     heading: decode((html.match(/name="shuk-search-heading" content="([^"]*)"/) || [])[1]),
+    ogTitles: [...html.matchAll(/property="og:title" content="([^"]*)"/g)].map((m) => decode(m[1])!),
+    ogUrls: [...html.matchAll(/property="og:url" content="([^"]*)"/g)].map((m) => decode(m[1])!),
   };
 }
 
@@ -86,7 +94,9 @@ for (const page of SEARCH_PAGES) {
     r.canonical === `${SITE}/?${page.query}` &&
       r.canonicalCount === 1 &&
       r.title === `${page.title} | שוק נדל״ן` &&
-      r.heading === page.title,
+      r.heading === page.title &&
+      r.ogTitles.length === 1 && r.ogTitles[0] === r.title &&
+      r.ogUrls.length === 1 && r.ogUrls[0] === r.canonical,
     JSON.stringify(r),
   );
 }
