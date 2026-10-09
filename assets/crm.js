@@ -24869,6 +24869,9 @@ const ADS_ERRORS = {
   draft_not_found: 'הטיוטה לא נמצאה',
   google_not_configured: 'חשבון Google Ads לא מחובר עדיין',
   google_error: 'גוגל דחתה את הבקשה',
+  unknown_direction: 'כיוון פרסום לא מוכר',
+  market_required: 'בוחרים שוק לפני השליפה',
+  market_not_found: 'אין ערים משויכות לשוק הזה',
 };
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
@@ -25318,6 +25321,7 @@ async function loadGoogleAds(){
       + (st.account.test ? ' · חשבון בדיקה' : '') + ' · קריאה בלבד';
     bar.hidden = false;
     loadGoogleCampaigns();
+    gkwInit();
   }catch(e){
     state.innerHTML = '<b>החיבור לגוגל נכשל.</b> ' + escapeHtml(gadsErrText(e));
     bar.hidden = true;
@@ -25375,6 +25379,168 @@ document.getElementById('gadsRange')?.addEventListener('click', (e)=>{
   e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
   loadGoogleCampaigns();
 });
+
+/* ---------- Keyword Planner לפי כיוון פרסום (שלב 7ב) ----------
+   הכיוונים מוגדרים בשרת (ads-admin/google-directions.ts) ולא כאן, כי אותה
+   רשימה תשמש גם ליצירת הקמפיין. כל שליפה היא פעולה אחת מהמכסה היומית של
+   ה-Developer token, ולכן היא בלחיצה ולא בפתיחת הלשונית. */
+let gkwDirections = [];
+let gkwDir = 'agents';
+let gkwMarket = 'afula-emek';
+let gkwLast = null;
+const GKW_COMP = { LOW: 'נמוכה', MEDIUM: 'בינונית', HIGH: 'גבוהה' };
+
+async function gkwInit(){
+  const box = document.getElementById('gkwBox');
+  if (!box || box.dataset.ready) { if (box) box.hidden = false; return; }
+  try{
+    const r = await adsCall('google_directions');
+    gkwDirections = r.directions || [];
+  }catch(e){ return; }
+  if (!gkwDirections.length) return;
+  box.dataset.ready = '1';
+  box.hidden = false;
+  if (!gkwDirections.some(d => d.key === gkwDir)) gkwDir = gkwDirections[0].key;
+  const markets = marketList();
+  if (!markets.some(m => m.slug === gkwMarket) && markets[0]) gkwMarket = markets[0].slug;
+
+  const dirs = document.getElementById('gkwDirections');
+  gkwDirections.forEach(d => {
+    const b = admEl('button', d.key === gkwDir ? 'is-on' : null, d.label);
+    b.type = 'button'; b.dataset.dir = d.key;
+    dirs.appendChild(b);
+  });
+  dirs.addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-dir]');
+    if (!b) return;
+    gkwDir = b.dataset.dir;
+    dirs.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
+    gkwLast = null;
+    gkwRenderAbout();
+    document.getElementById('gkwReport').innerHTML = '';
+    dashPanelsMeasure();
+  });
+
+  const mk = document.getElementById('gkwMarkets');
+  markets.forEach(m => {
+    const b = admEl('button', m.slug === gkwMarket ? 'is-on' : null, m.label);
+    b.type = 'button'; b.dataset.market = m.slug;
+    mk.appendChild(b);
+  });
+  mk.addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-market]');
+    if (!b) return;
+    gkwMarket = b.dataset.market;
+    mk.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
+    gkwLast = null;
+    document.getElementById('gkwReport').innerHTML = '';
+    dashPanelsMeasure();
+  });
+
+  document.getElementById('gkwFetchBtn').addEventListener('click', gkwFetch);
+  document.getElementById('gkwLocalOnly').addEventListener('change', gkwRender);
+  gkwRenderAbout();
+  dashPanelsMeasure();
+}
+
+// מחיר לקליק הוא שקלים בודדים, ולכן עם אגורות (‏gadsMoney מעגל לשקל).
+function gkwCpc(n){
+  if (n == null) return '-';
+  return (!gadsAccount || gadsAccount.currency === 'ILS') ? adsNis2(n) : Number(n).toFixed(2) + ' ' + gadsAccount.currency;
+}
+
+function gkwCurrent(){ return gkwDirections.find(d => d.key === gkwDir) || null; }
+
+function gkwRenderAbout(){
+  const d = gkwCurrent();
+  if (!d) return;
+  document.getElementById('gkwMarketBar').hidden = !d.market;
+  const local = document.getElementById('gkwLocalOnly');
+  local.closest('label').hidden = !d.market;
+  if (!d.market) local.checked = false;
+  document.getElementById('gkwAbout').textContent = 'קהל: ' + d.audience + ' · הקליק מוביל ל-' + d.landing + ' · המרה: ' + d.goal
+    + (d.market ? '' : ' · המונחים בלי עיר: המיקוד לאזור נעשה בהגדרות המיקום של הקמפיין, לא במילים.');
+}
+
+async function gkwFetch(){
+  const d = gkwCurrent();
+  const host = document.getElementById('gkwReport');
+  const btn = document.getElementById('gkwFetchBtn');
+  if (!d || btn.disabled) return;
+  btn.disabled = true;
+  host.innerHTML = '<div class="empty-state">שואל את גוגל…</div>';
+  try{
+    gkwLast = await adsCall('google_keyword_ideas', d.market ? { direction: d.key, market: gkwMarket } : { direction: d.key });
+    gkwRender();
+  }catch(e){
+    gkwLast = null;
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', gadsErrText(e)));
+  }
+  btn.disabled = false;
+  dashPanelsMeasure();
+}
+
+function gkwRender(){
+  const host = document.getElementById('gkwReport');
+  const r = gkwLast;
+  if (!host || !r) return;
+  host.innerHTML = '';
+  const localOnly = document.getElementById('gkwLocalOnly').checked;
+  const ideas = (r.ideas || []).filter(i => !localOnly || i.local);
+
+  host.appendChild(admEl('p', 'adm-note', 'מונחי הזרע: ' + r.seeds.join(', ')
+    + (r.cities && r.cities.length ? ' · ערים: ' + r.cities.join(', ') : '')
+    + ' · הנפח הוא חיפושים בחודש בכל ישראל, ממוצע 12 חודשים.'));
+  if (!ideas.length){
+    host.appendChild(admEl('div', 'empty-state', localOnly ? 'אין מונחים עם עיר מהשוק. נסו בלי הסינון.' : 'גוגל לא החזירה רעיונות.'));
+    return;
+  }
+
+  // רשימה להעתקה בהתאמת ביטוי, רק מונחים שיש להם נפח. המינימום 10 כי
+  // מתחת לזה גוגל מסמנת "נפח חיפוש נמוך" ולא מציגה מודעה בכלל.
+  const grid = admEl('div', 'ads-grid2');
+  const pick = ideas.filter(i => (i.searches || 0) >= 10).slice(0, 50);
+  const box = admEl('div');
+  box.appendChild(admEl('h3', 'adm-h', 'מילות מפתח · ' + pick.length + ' מונחים'));
+  const ta = admEl('textarea', 'ads-kw-box');
+  ta.readOnly = true;
+  ta.value = pick.map(i => '"' + i.text.replace(/"/g, '') + '"').join('\n');
+  box.appendChild(ta);
+  const copy = admEl('button', 'ads-act', 'העתקה'); copy.type = 'button';
+  copy.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(ta.value); showToast('הועתק'); }
+    catch(e){ ta.select(); showToast('סמנו והעתיקו ידנית'); }
+  });
+  box.appendChild(copy);
+  grid.appendChild(box);
+  const neg = admEl('div');
+  neg.appendChild(admEl('h3', 'adm-h', 'מילות שלילה מומלצות'));
+  const nta = admEl('textarea', 'ads-kw-box');
+  nta.readOnly = true;
+  nta.value = (r.negatives || []).join('\n');
+  neg.appendChild(nta);
+  neg.appendChild(admEl('p', 'adm-note', 'בלי מינוס: ב-Google Ads הן נכנסות לשדה נפרד.'));
+  grid.appendChild(neg);
+  host.appendChild(grid);
+
+  const wrap = admEl('div', 'adm-table-wrap'), tbl = admEl('table', 'adm-table'), head = admEl('tr');
+  ['מונח', 'חיפושים בחודש', 'תחרות', 'מחיר לקליק', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  tbl.appendChild(head);
+  ideas.slice(0, 150).forEach(i => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, i.text));
+    tr.appendChild(admEl('td', 'num', i.searches == null ? '-' : admInt(i.searches)));
+    tr.appendChild(admEl('td', null, GKW_COMP[i.competition] || '-'));
+    tr.appendChild(admEl('td', 'num', i.bid_low == null && i.bid_high == null ? '-'
+      : gkwCpc(i.bid_low) + ' - ' + gkwCpc(i.bid_high)));
+    tr.appendChild(admEl('td', null, [i.seed ? 'זרע' : '', i.local ? 'מקומי' : ''].filter(Boolean).join(' · ')));
+    tbl.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  host.appendChild(wrap);
+  dashPanelsMeasure();
+}
 
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){

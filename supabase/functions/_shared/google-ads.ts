@@ -110,11 +110,11 @@ function parseApiError(status: number, data: any): GoogleAdsError {
   return new GoogleAdsError(status, String(err?.status || status), String(err?.message || status));
 }
 
-// שאילתת GAQL על חשבון הפרסום. ‏searchStream מחזיר מערך של מנות, כל אחת
-// עם results; מחזירים את כולן כרשימה אחת.
-export async function gaql(cfg: GoogleAdsConfig, query: string): Promise<any[]> {
+// קריאה ל-API בשם חשבון הפרסום. ‏path אחרי /customers/{id} - למשל
+// "/googleAds:searchStream" או ":generateKeywordIdeas".
+async function post(cfg: GoogleAdsConfig, path: string, body: unknown): Promise<any> {
   const token = await accessToken(cfg);
-  const url = `https://googleads.googleapis.com/${cfg.version}/customers/${cfg.customerId}/googleAds:searchStream`;
+  const url = `https://googleads.googleapis.com/${cfg.version}/customers/${cfg.customerId}${path}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -123,11 +123,54 @@ export async function gaql(cfg: GoogleAdsConfig, query: string): Promise<any[]> 
       "login-customer-id": cfg.loginCustomerId,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw parseApiError(res.status, data);
+  return data;
+}
+
+// שאילתת GAQL על חשבון הפרסום. ‏searchStream מחזיר מערך של מנות, כל אחת
+// עם results; מחזירים את כולן כרשימה אחת.
+export async function gaql(cfg: GoogleAdsConfig, query: string): Promise<any[]> {
+  const data = await post(cfg, "/googleAds:searchStream", { query });
   return (Array.isArray(data) ? data : []).flatMap((batch: any) => batch?.results || []);
+}
+
+// עברית ב-Google Ads, וישראל כמדינה. מזהים קבועים של גוגל.
+export const LANG_HEBREW = "languageConstants/1027";
+export const GEO_ISRAEL = "geoTargetConstants/2376";
+
+export type KeywordIdea = {
+  text: string;
+  searches: number | null;      // ממוצע חודשי, 12 החודשים האחרונים
+  competition: string | null;   // LOW / MEDIUM / HIGH
+  bid_low: number | null;       // הצעה לראש העמוד, במטבע החשבון
+  bid_high: number | null;
+};
+
+// רעיונות ונפחים מ-Keyword Planner. עד 20 מונחי זרע בבקשה (מגבלה של גוגל).
+// בקשה אחת = פעולה אחת מהמכסה היומית.
+export async function keywordIdeas(cfg: GoogleAdsConfig, seeds: string[], geo: string[] = [GEO_ISRAEL]): Promise<KeywordIdea[]> {
+  const data = await post(cfg, ":generateKeywordIdeas", {
+    language: LANG_HEBREW,
+    geoTargetConstants: geo,
+    keywordPlanNetwork: "GOOGLE_SEARCH",
+    includeAdultKeywords: false,
+    keywordSeed: { keywords: seeds.slice(0, 20) },
+    pageSize: 500,
+  });
+  const n = (v: unknown) => (v == null ? null : Number(v));
+  return (data?.results || []).map((r: any) => {
+    const m = r.keywordIdeaMetrics || {};
+    return {
+      text: String(r.text || ""),
+      searches: n(m.avgMonthlySearches),
+      competition: m.competition || null,
+      bid_low: m.lowTopOfPageBidMicros != null ? fromMicros(m.lowTopOfPageBidMicros) : null,
+      bid_high: m.highTopOfPageBidMicros != null ? fromMicros(m.highTopOfPageBidMicros) : null,
+    };
+  });
 }
 
 // ‏micros → יחידות מטבע. ‏int64 מגיע כמחרוזת ב-JSON.

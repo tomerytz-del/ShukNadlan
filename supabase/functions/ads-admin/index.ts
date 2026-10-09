@@ -14,7 +14,8 @@ import {
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
-import { fromMicros, gaql, googleAdsConfig, GoogleAdsError } from "../_shared/google-ads.ts";
+import { fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas } from "../_shared/google-ads.ts";
+import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput } from "./campaign.ts";
 
 // ============================================================================
@@ -47,6 +48,9 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   google_status    Google Ads: הסודות קיימים? החשבון, המטבע, אזור הזמן
 //   google_campaigns ‏{days} - קמפיינים עם הוצאה, קליקים והמרות. קריאה בלבד
 //                    (‏_shared/google-ads.ts, שלב 7)
+//   google_directions   כיווני הפרסום (‏google-directions.ts) - בלי קריאה לגוגל
+//   google_keyword_ideas ‏{direction, market?} - Keyword Planner: נפח חודשי, תחרות
+//                    ומחיר לקליק לרעיונות מהכיוון ומערי השוק. פעולה אחת מהמכסה
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
@@ -1134,6 +1138,39 @@ async function actionGoogleCampaigns(body: any) {
   }
 }
 
+async function actionGoogleKeywordIdeas(sb: SupabaseClient, body: any) {
+  const { config } = googleAdsConfig((k) => Deno.env.get(k));
+  if (!config) return json({ error: "google_not_configured" }, 503);
+  const d = DIRECTIONS.find((x) => x.key === String(body?.direction || ""));
+  if (!d) return json({ error: "unknown_direction" }, 400);
+
+  // ערי השוק, הגדולות קודם. שלוש נכנסות למונחי הזרע (תקרה של 20 מונחים),
+  // וכולן משמשות לסימון "מקומי" ברעיונות שחוזרים.
+  let marketCities: string[] = [];
+  if (d.market) {
+    const market = String(body?.market || "");
+    if (!market) return json({ error: "market_required" }, 400);
+    const { data, error } = await sb.from("cities").select("name, population")
+      .eq("market_slug", market).order("population", { ascending: false, nullsFirst: false });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    marketCities = (data || []).map((c: any) => String(c.name));
+    if (!marketCities.length) return json({ error: "market_not_found" }, 404);
+  }
+  const seeds = seedsFor(d, marketCities.slice(0, 3));
+  try {
+    const ideas = await keywordIdeas(config, seeds);
+    const seedSet = new Set(seeds);
+    const rows = ideas.map((i) => ({
+      ...i,
+      seed: seedSet.has(i.text),
+      local: marketCities.some((c) => i.text.includes(c)),
+    })).sort((a, b) => (b.searches ?? -1) - (a.searches ?? -1));
+    return json({ ok: true, direction: d.key, seeds, cities: marketCities.slice(0, 3), negatives: d.negatives, ideas: rows });
+  } catch (e) {
+    return googleErrorResponse(e);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -1175,6 +1212,8 @@ Deno.serve(async (req: Request) => {
   // גוגל - חשבון נפרד וסודות נפרדים, ולכן לפני הבדיקה של מטא.
   if (action === "google_status") return await actionGoogleStatus();
   if (action === "google_campaigns") return await actionGoogleCampaigns(body);
+  if (action === "google_directions") return json({ directions: DIRECTIONS });
+  if (action === "google_keyword_ideas") return await actionGoogleKeywordIdeas(sb, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
