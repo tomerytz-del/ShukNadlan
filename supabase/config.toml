@@ -141,6 +141,9 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.promo-lifecycle]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+[functions.office-coach]
+verify_jwt = false          # ‏pg_cron (יום ראשון) + x-alert-cron-secret / service role ידני. docs/office-coach.md
+
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
 

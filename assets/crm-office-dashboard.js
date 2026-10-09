@@ -67,6 +67,7 @@ const odState = {
   search: '',
   busy: false,
   loadedFor: null,     // מפתח התקופה של הנתונים שבזיכרון
+  coach: undefined,    // הסיכום השבועי האחרון: undefined = טרם נטען, null = אין
 };
 
 try{
@@ -457,6 +458,7 @@ async function loadOfficeDashboard(force){
   if (!force && odState.data && odState.loadedFor === key){ renderOfficeDashboard(); return; }
   if (odState.busy) return;
   odState.busy = true;
+  if (odState.coach === undefined) loadOfficeCoach();
   if (!odState.data) host.innerHTML = odSkeleton();
   else host.classList.add('od-refreshing');
   const range = odPeriodRange(key);
@@ -475,6 +477,44 @@ async function loadOfficeDashboard(force){
   odState.loadedFor = key;
   if (odState.picked && !(odState.data.agents || []).some(a => a.agent_id === odState.picked)) odState.picked = null;
   renderOfficeDashboard();
+}
+
+/* ‏הסיכום השבועי של מאמן ה-AI (office-coach). נטען בנפרד ובלי לחכות לו:
+   הוא לא תלוי בתקופה שנבחרה, ו-RLS מחזיר רק את המשרד של המנהל/ת. כשל
+   כאן לא מפיל את הדאשבורד - הכרטיס פשוט לא מוצג. ‏docs/office-coach.md */
+async function loadOfficeCoach(){
+  odState.coach = null;
+  const { data, error } = await sb.from('office_coach_summaries')
+    .select('week_start, summary, created_at')
+    .order('week_start', { ascending: false })
+    .limit(1);
+  if (error){ odState.coach = false; return; }
+  odState.coach = (data && data[0]) || null;
+  if (odState.data) renderOfficeDashboard();
+}
+
+function odCoachHtml(){
+  const c = odState.coach;
+  if (c === false || c === undefined) return '';
+  const head = (sub) => `<div class="od-sec-h"><h2>סיכום השבוע</h2><p>${sub}</p></div>`;
+  if (!c || !c.summary || !Array.isArray(c.summary.points)){
+    return `<section class="od-sec od-coach">${head('מאמן ה-AI של המשרד')}
+      <p class="od-muted">הסיכום הראשון יגיע ביום ראשון בבוקר: שלוש נקודות על השבוע שעבר, מה השתפר, מה נתקע ומה כדאי לעשות השבוע.</p></section>`;
+  }
+  const s = c.summary;
+  const weekEnd = new Date(c.week_start + 'T00:00:00');
+  weekEnd.setDate(weekEnd.getDate() - 1);
+  const weekFrom = new Date(weekEnd); weekFrom.setDate(weekFrom.getDate() - 6);
+  const sub = 'מאמן ה-AI · השבוע ' + odRangeLabel({ from: odIso(weekFrom), to: odIso(weekEnd) }) +
+    ' · נכתב אוטומטית מהמספרים, כדאי לבדוק לפני שפועלים';
+  return `<section class="od-sec od-coach">${head(escapeHtml(sub))}
+    <p class="od-coach-hl">${escapeHtml(s.headline || '')}</p>
+    <div class="od-advice">${s.points.slice(0, 3).map((p, i) => `
+      <article class="od-tipcard${i === 0 ? ' p1' : ''}">
+        ${p.owner ? `<div class="top"><div><div class="owner">מוביל/ה: ${escapeHtml(p.owner)}</div></div></div>` : ''}
+        <h4>${escapeHtml(p.title || '')}</h4>
+        <p>${escapeHtml(p.body || '')}</p>
+      </article>`).join('')}</div></section>`;
 }
 
 function odSkeleton(){
@@ -521,6 +561,7 @@ function renderOfficeDashboard(){
     ${odBrandBar(data, range, picked)}
     ${odHero(full, view, data, range, picked)}
     ${odKpis(view, range)}
+    ${odCoachHtml()}
     <section class="od-grid">
       <div class="od-card">
         <div class="od-card-h"><h3>דורש תשומת לב עכשיו</h3>
