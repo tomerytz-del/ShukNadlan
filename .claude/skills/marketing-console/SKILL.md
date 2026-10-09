@@ -1,6 +1,6 @@
 ---
 name: marketing-console
-description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns), when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
+description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns, google_directions, google_keyword_ideas, ads-admin/google-directions.ts), adding an advertising direction or Keyword Planner seeds, when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
 ---
 
 # קונסולת השיווק
@@ -117,7 +117,26 @@ python scripts/check_migration_versions.py --base-ref origin/main
 `create or replace function public.<שם>` בכל `supabase/migrations/`), לא את
 הראשונה.
 
-## ‏8. חיבור החשבונות - מה נתקע בפועל
+## ‏8. כיווני פרסום ו-Keyword Planner בגוגל (`google-directions.ts`)
+
+- **כיוון = קמפיין נפרד.** `agents` (גיוס מתווכים, `/pricing`), `site` (קונים
+  ושוכרים, האתר וגבריאלה), `commercial` (חנויות ומשרדים, `/?deal=commercial`),
+  `owners` (הערכת שווי). לא לאחד שני כיוונים
+  לקמפיין אחד - יעד ההמרה שונה, וגוגל מבזבזת את התקציב על הזול מביניהם.
+- **הרשימה בשרת בלבד.** הלשונית קוראת אותה ב-`google_directions`, ויצירת
+  הקמפיין (7ג) תקרא את אותה רשימה. כיוון חדש = שורה ב-`DIRECTIONS`.
+- **עיר במילים רק ב-`market: true`.** כיוון של מתווכים מתמקד באזור בהגדרות
+  המיקום של הקמפיין; "CRM למתווכים בעפולה" הוא אפס חיפושים.
+- **עד 20 מונחי זרע** (‏`seedsFor` חותך). שלוש הערים הגדולות בשוק לפי
+  `cities.population`, בסדר תבנית ואז עיר: מה שנחתך הוא התבניות האחרונות
+  בכל הערים, ולכן התבנית החשובה נכתבת ראשונה.
+- **יעד המודעה הוא האתר, לא `wa.me`.** השיחה עם גבריאלה מתחילה בדף הנחיתה;
+  הודעת פתיחה חדשה למודעות = ביטוי ב-`SITE_ENTRY_PHRASES` (הסקיל `whatsapp-bots`).
+- **הנפח ארצי** (‏`GEO_ISRAEL`), ממוצע 12 חודשים. אל תציג/י אותו כחיפושים באזור.
+- **כל שליפה היא פעולה מהמכסה של Explorer** - בלחיצה, לא בטעינת הלשונית.
+- מילות השלילה הן חלק מהכיוון, ומוצגות בלי מינוס (מתהפך ב-RTL).
+
+## ‏9. חיבור החשבונות - מה נתקע בפועל
 
 | מה | איפה זה נתקע |
 | --- | --- |
@@ -138,7 +157,7 @@ python scripts/check_migration_versions.py --base-ref origin/main
 שיצאה, וגרסה סגורה מחזירה 404. ההגדרה `ads_settings.enabled`
 נדלקת **אחרי** שהפאנל מציג את שם החשבון, ולא לפני.
 
-## ‏9. בדיקה לפני push
+## ‏10. בדיקה לפני push
 
 ```sh
 cd supabase/functions/ads-admin && deno check index.ts
