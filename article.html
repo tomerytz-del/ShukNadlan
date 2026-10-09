@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/article-body.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כתבה | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -734,67 +735,29 @@ function readingMinutes(body){
 }
 
 /* ---------- גוף הכתבה ----------
-   הטקסט נשמר חופשי, ולכן שלושה כללים פשוטים ומוסכמים ממירים אותו למבנה:
-   שורה ריקה מפרידה פסקאות; שורה קצרה שמסתיימת בנקודתיים היא כותרת ביניים;
-   שורה שנפתחת ב-"- " היא פריט ברשימה. הכל דרך textContent, אז טקסט
-   שנכתב בעורך לעולם לא הופך ל-HTML.                                     */
+   הטקסט נשמר חופשי, וארבעה כללים פשוטים ומוסכמים ממירים אותו למבנה - הם
+   ב-assets/article-body.js, שגם og-tags.ts משתמשת בו כדי לכתוב את אותו גוף
+   כבר בשרת (לסורקים שאינם מריצים JS). הכל דרך textContent, אז טקסט שנכתב
+   בעורך לעולם לא הופך ל-HTML.                                            */
 function renderBody(text){
   const wrap = el('articleBody');
   wrap.textContent = '';
-
-  const blocks = String(text || '').replace(/\r\n/g, '\n').split(/\n{2,}/);
-  blocks.forEach(raw => {
-    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-    if (!lines.length) return;
-
-    let list = null;
-    let para = [];
-    // שורות רגילות רצופות בתוך אותה פסקה מתחברות לפסקה אחת — כך שגלישת
-    // שורה בעורך לא מפצלת את הטקסט לפסקאות באתר.
-    const flush = ()=>{
-      if (!para.length) return;
-      const p = document.createElement('p');
-      p.textContent = para.join(' ');
-      wrap.appendChild(p);
-      para = [];
-    };
-
-    lines.forEach(line => {
-      if (/^[-•*]\s+/.test(line)){
-        flush();
-        if (!list){ list = document.createElement('ul'); wrap.appendChild(list); }
+  window.ShukArticleBody.parse(text).forEach(b => {
+    if (b.tag === 'ul'){
+      const list = document.createElement('ul');
+      b.items.forEach(item => {
         const li = document.createElement('li');
-        li.textContent = line.replace(/^[-•*]\s+/, '');
+        li.textContent = item;
         list.appendChild(li);
-        return;
-      }
-      list = null;
-
-      if (line.length <= 70 && /:$/.test(line)){
-        flush();
-        const h = document.createElement('h2');
-        h.textContent = line.replace(/:$/, '');
-        wrap.appendChild(h);
-        return;
-      }
-      if (/^["'״”“]/.test(line)){
-        flush();
-        const q = document.createElement('blockquote');
-        q.textContent = line;
-        wrap.appendChild(q);
-        return;
-      }
-      para.push(line);
-    });
-    flush();
+      });
+      wrap.appendChild(list);
+      return;
+    }
+    const node = document.createElement(b.tag);
+    node.textContent = b.text;
+    if (b.lead) node.classList.add('lead-para');
+    wrap.appendChild(node);
   });
-
-  // האות המוגדלת מוצגת רק כשהכתבה נפתחת בפסקה שיש בה מספיק טקסט כדי
-  // לעטוף אותה. פתיחה של שורה אחת הייתה משאירה אות ענקית תלויה מעל חלל ריק.
-  const first = wrap.firstElementChild;
-  if (first && first.tagName === 'P' && first.textContent.length >= 150){
-    first.classList.add('lead-para');
-  }
 }
 
 /* ---------- ראש הכתבה ---------- */
