@@ -7350,31 +7350,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            לגמרי - כלומר יכולת שנמכרת ב-Mid/Premium רצה בלי נתונים. -->
       <details class="acc" id="accDealsImport">
         <summary>
-          <span class="acc-title">ייבוא עסקאות רשמיות</span>
+          <span class="acc-title">עסקאות רשמיות - מצב וחורים</span>
           <span class="acc-count" id="accDealsImportCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
+          <!-- ‏מ-9.10.2026 העסקאות נכנסות מסוכן הדפדפן ("עדכן עסקאות", המסך
+               "יישובים לעסקאות"), וההדבקה נשארת כגיבוי בלבד - למשל כש-GovMap
+               חוסם את הסוכן. docs/settlement-deals.md -->
           <p class="acc-sub">
-            נתוני רשות המיסים, דרך פורטל
-            <a href="https://www.govmap.gov.il/" target="_blank" rel="noopener"
-               style="color:var(--gold-dark);font-weight:700;text-decoration:none">GovMap ←</a>
-            חפשו עיר, פתחו את לשונית "עסקאות נדל״ן", סמנו את שורות הטבלה והעתיקו.
-            אפשר להדביק עמוד אחרי עמוד - עסקה שכבר נטענה לא תיטען פעמיים.
+            העסקאות נכנסות מסוכן הדפדפן: <strong>"עדכן עסקאות"</strong>, והרשימה והמחזור במסך
+            <a href="#" data-goto-acc="accDealSettlements" style="color:var(--gold-dark);font-weight:700;text-decoration:none">יישובים לעסקאות</a>.
+            כאן - מה יש במאגר, מה חסר, וחיפושים שחזרו ריקים.
           </p>
-          <div class="field" style="margin-bottom:12px">
-            <label for="dealsImportCity">העיר שאליה שייכות העסקאות</label>
-            <input type="text" id="dealsImportCity" placeholder="עפולה" autocomplete="off">
-          </div>
-          <div class="field" style="margin-bottom:12px">
-            <label for="dealsImportPaste">הדבקת הטבלה</label>
-            <textarea id="dealsImportPaste" rows="8" placeholder="הדביקו כאן את השורות שהעתקתם מ-GovMap" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit"></textarea>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-            <button type="button" class="btn btn-ghost" id="dealsImportPreviewBtn">בדיקה ותצוגה מקדימה</button>
-            <button type="button" class="btn btn-gold" id="dealsImportSaveBtn" disabled>ייבוא</button>
-          </div>
-          <div id="dealsImportPreview"></div>
+          <details id="dealsManualImport" style="margin:6px 0 14px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <summary style="cursor:pointer;font-weight:700">ייבוא ידני מ-GovMap - גיבוי, רק כשהסוכן אינו זמין</summary>
+            <p class="acc-sub">
+              נתוני רשות המיסים, דרך פורטל
+              <a href="https://www.govmap.gov.il/" target="_blank" rel="noopener"
+                 style="color:var(--gold-dark);font-weight:700;text-decoration:none">GovMap ←</a>
+              חפשו עיר, פתחו את לשונית "עסקאות נדל״ן", סמנו את שורות הטבלה והעתיקו.
+              אפשר להדביק עמוד אחרי עמוד - עסקה שכבר נטענה לא תיטען פעמיים.
+            </p>
+            <div class="field" style="margin-bottom:12px">
+              <label for="dealsImportCity">העיר שאליה שייכות העסקאות</label>
+              <input type="text" id="dealsImportCity" placeholder="עפולה" autocomplete="off">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+              <label for="dealsImportPaste">הדבקת הטבלה</label>
+              <textarea id="dealsImportPaste" rows="8" placeholder="הדביקו כאן את השורות שהעתקתם מ-GovMap" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+              <button type="button" class="btn btn-ghost" id="dealsImportPreviewBtn">בדיקה ותצוגה מקדימה</button>
+              <button type="button" class="btn btn-gold" id="dealsImportSaveBtn" disabled>ייבוא</button>
+            </div>
+            <div id="dealsImportPreview"></div>
+          </details>
           <!-- ערים בשווקים שלנו שחסרות בהן עסקאות, לפי סדר עדיפות.
                ‏deals_import_priorities(), מיגרציה 20270327090000. -->
           <div id="dealsPriorities" style="margin-top:18px"></div>
@@ -7396,9 +7407,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </summary>
         <div class="acc-body">
           <p class="acc-sub">
-            היישובים שהסוכן מושך מ-GovMap. בכל הרצה הוא ממשיך 90 יום לפני העסקה האחרונה
-            שכבר במאגר, וביישוב ריק - לפי "חודשים אחורה". עסקה שכבר קיימת לא נכנסת פעמיים.
-            כל יישוב פעיל מקבל דף ציבורי ב-<a href="/deals" target="_blank" rel="noopener">/deals</a>.
+            כל עיר בשוק נמצאת כאן אוטומטית, ועיר שמצטרפת לשוק מצטרפת גם לכאן. הסוכן מקבל
+            בכל הרצה עד 25 יישובים <strong>שהגיע תורם</strong> - שלא עודכנו לפי "מחזור (ימים)" -
+            וממשיך 90 יום לפני העסקה האחרונה שכבר במאגר. עסקה שכבר קיימת לא נכנסת פעמיים.
+            כל יישוב פעיל עם עסקאות מקבל דף ציבורי ב-<a href="/deals" target="_blank" rel="noopener">/deals</a>.
           </p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
             <div class="field" style="margin:0;flex:1 1 160px">
@@ -7413,6 +7425,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <label for="dsMonths">חודשים אחורה</label>
               <input type="number" id="dsMonths" value="12" min="1" max="120" inputmode="numeric">
             </div>
+            <div class="field" style="margin:0;flex:0 1 110px">
+              <label for="dsEvery">מחזור (ימים)</label>
+              <input type="number" id="dsEvery" value="30" min="1" max="365" inputmode="numeric">
+            </div>
             <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;cursor:pointer">
               <input type="checkbox" id="dsActive" checked> פעיל
             </label>
@@ -7421,6 +7437,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="button" class="btn btn-gold" id="dsSaveBtn">הוספת יישוב</button>
             <button type="button" class="btn btn-ghost" id="dsCancelBtn" hidden>ביטול עריכה</button>
             <button type="button" class="btn btn-ghost" id="dsCopyCmdBtn">העתק פקודת עדכון</button>
+          </div>
+          <div id="dealSettlementsSummary" class="acc-sub" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <input type="search" id="dsFilterQ" placeholder="חיפוש יישוב" style="flex:1 1 160px;max-width:240px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font-family:inherit">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="dsFilterDue"> רק ממתינים לעדכון</label>
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="dsFilterFail"> רק שגיאות</label>
           </div>
           <div id="dealSettlementsList"></div>
         </div>

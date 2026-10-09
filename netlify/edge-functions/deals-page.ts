@@ -33,6 +33,7 @@ const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const THIN_DEALS = 5;
 
 export type Settlement = {
   name: string;
@@ -175,6 +176,10 @@ export default async function handler(request: Request, context: Context) {
         const filled = injectSettlement(out, data as Settlement);
         cache = filled !== out;
         out = filled;
+        /* ‏כל עיר בשוק ברשימה (‏20270330090000), ורובן כפרים קטנים. דף עם
+           פחות מ-THIN_DEALS עסקאות הוא תוכן דל בעיני גוגל - הוא נשאר
+           לגולש/ת, אבל לא לאינדקס, וגם אינו ב-sitemap ובאינדקס /deals. */
+        if (cache && Number((data as Settlement).deals || 0) < THIN_DEALS) out = noindex(out);
       }
     }
   } catch {
