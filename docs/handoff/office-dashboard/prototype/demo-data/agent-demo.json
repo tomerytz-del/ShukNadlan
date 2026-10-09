@@ -1,0 +1,326 @@
+{
+"me": [
+{
+"agent": "נועה מזרחי",
+"role": "סוכנת",
+"leads": 45,
+"leads_prev": 46,
+"responded": 44,
+"meetings": 16,
+"showings": 32,
+"agreements": 11,
+"agreements_prev": 13,
+"recruited": 9,
+"recruited_prev": 12,
+"exclusives": 4,
+"exclusives_prev": 6,
+"deals": 8,
+"deals_prev": 7,
+"commission": 190000,
+"commission_prev": 176000,
+"commission_target": 140000,
+"avg_response_min": 27,
+"avg_response_min_prev": 33,
+"open_unanswered": 1,
+"active_listings": 17,
+"first_name": "נועה",
+"gender": "f",
+"fast_streak_days": 6,
+"best_quarter_commission": 212000,
+"leads_rank_note": null
+}
+],
+"office_avg": [
+{
+"leads": 44.0,
+"responded": 42.3,
+"meetings": 16.0,
+"showings": 27.0,
+"agreements": 12.0,
+"recruited": 11.3,
+"exclusives": 6.2,
+"deals": 6.3,
+"commission": 166000.0,
+"avg_response_min": 35.8,
+"agent": "ממוצע המשרד"
+}
+],
+"my_monthly": [
+{
+"month": "2025-10",
+"leads": 7,
+"recruited": 3,
+"exclusives": 1,
+"agreements": 3,
+"deals": 1,
+"commission": 20000,
+"avg_response_min": 41
+},
+{
+"month": "2025-11",
+"leads": 15,
+"recruited": 3,
+"exclusives": 1,
+"agreements": 3,
+"deals": 0,
+"commission": 0,
+"avg_response_min": 38
+},
+{
+"month": "2025-12",
+"leads": 3,
+"recruited": 3,
+"exclusives": 2,
+"agreements": 4,
+"deals": 2,
+"commission": 62000,
+"avg_response_min": 36
+},
+{
+"month": "2026-01",
+"leads": 17,
+"recruited": 2,
+"exclusives": 1,
+"agreements": 2,
+"deals": 0,
+"commission": 0,
+"avg_response_min": 35
+},
+{
+"month": "2026-02",
+"leads": 11,
+"recruited": 3,
+"exclusives": 1,
+"agreements": 3,
+"deals": 2,
+"commission": 50000,
+"avg_response_min": 33
+},
+{
+"month": "2026-03",
+"leads": 17,
+"recruited": 3,
+"exclusives": 2,
+"agreements": 4,
+"deals": 2,
+"commission": 62000,
+"avg_response_min": 31
+},
+{
+"month": "2026-04",
+"leads": 20,
+"recruited": 5,
+"exclusives": 2,
+"agreements": 4,
+"deals": 1,
+"commission": 23000,
+"avg_response_min": 30
+},
+{
+"month": "2026-05",
+"leads": 15,
+"recruited": 4,
+"exclusives": 2,
+"agreements": 5,
+"deals": 3,
+"commission": 78000,
+"avg_response_min": 29
+},
+{
+"month": "2026-06",
+"leads": 11,
+"recruited": 3,
+"exclusives": 2,
+"agreements": 4,
+"deals": 3,
+"commission": 75000,
+"avg_response_min": 30
+},
+{
+"month": "2026-07",
+"leads": 9,
+"recruited": 3,
+"exclusives": 1,
+"agreements": 4,
+"deals": 3,
+"commission": 81000,
+"avg_response_min": 28
+},
+{
+"month": "2026-08",
+"leads": 16,
+"recruited": 2,
+"exclusives": 1,
+"agreements": 3,
+"deals": 2,
+"commission": 40000,
+"avg_response_min": 26
+},
+{
+"month": "2026-09",
+"leads": 20,
+"recruited": 4,
+"exclusives": 2,
+"agreements": 4,
+"deals": 3,
+"commission": 69000,
+"avg_response_min": 24
+}
+],
+"my_buckets": [
+{
+"agent": "נועה מזרחי",
+"bucket": "עד 5 דק'",
+"bucket_order": 1,
+"leads": 9
+},
+{
+"agent": "נועה מזרחי",
+"bucket": "5-15 דק'",
+"bucket_order": 2,
+"leads": 12
+},
+{
+"agent": "נועה מזרחי",
+"bucket": "15-60 דק'",
+"bucket_order": 3,
+"leads": 13
+},
+{
+"agent": "נועה מזרחי",
+"bucket": "1-4 שעות",
+"bucket_order": 4,
+"leads": 7
+},
+{
+"agent": "נועה מזרחי",
+"bucket": "מעל 4 שעות",
+"bucket_order": 5,
+"leads": 3
+},
+{
+"agent": "נועה מזרחי",
+"bucket": "ללא מענה",
+"bucket_order": 6,
+"leads": 1
+}
+],
+"office_buckets": [
+{
+"bucket_order": 1,
+"bucket": "עד 5 דק'",
+"share": 0.2424
+},
+{
+"bucket_order": 2,
+"bucket": "5-15 דק'",
+"share": 0.2614
+},
+{
+"bucket_order": 3,
+"bucket": "15-60 דק'",
+"share": 0.2235
+},
+{
+"bucket_order": 4,
+"bucket": "1-4 שעות",
+"share": 0.1515
+},
+{
+"bucket_order": 5,
+"bucket": "מעל 4 שעות",
+"share": 0.0833
+},
+{
+"bucket_order": 6,
+"bucket": "ללא מענה",
+"share": 0.0379
+}
+],
+"todo": [
+{
+"id": "t1",
+"kind": "lead",
+"urgency": 2,
+"title": "ליד מיד2 מחכה כבר שעתיים",
+"detail": "דירת 4 חד' בגבעת המורה · מבקש/ת לתאם סיור",
+"due": "עכשיו"
+},
+{
+"id": "t2",
+"kind": "exclusivity",
+"urgency": 2,
+"title": "בלעדיות פוקעת ב-2 בנובמבר",
+"detail": "חנות 60 מ\"ר ברחוב שאול המלך · 2 הצגות ב-140 יום",
+"due": "השבוע"
+},
+{
+"id": "t3",
+"kind": "agreement",
+"urgency": 1,
+"title": "הסכם תיווך נשלח ולא נחתם",
+"detail": "משפחת לוי · נשלח לפני 3 ימים, נצפה פעמיים",
+"due": "היום"
+},
+{
+"id": "t4",
+"kind": "match",
+"urgency": 1,
+"title": "4 התאמות חכמות חדשות",
+"detail": "לקוחות מהקובץ שלך שמתאימים לנכסים שעלו השבוע",
+"due": "היום"
+},
+{
+"id": "t5",
+"kind": "followup",
+"urgency": 0,
+"title": "פולואפ אחרי סיור",
+"detail": "זוג כהן ראו את הפנטהאוז באפקים אתמול",
+"due": "מחר"
+}
+],
+"achievements": [
+{
+"id": "a1",
+"title": "ברק",
+"desc": "80% מהלידים נענו תוך 15 דק' במשך חודש",
+"progress": 0.59,
+"earned": false
+},
+{
+"id": "a2",
+"title": "מלכת הבלעדיות",
+"desc": "5 בלעדיות ברבעון",
+"progress": 0.8,
+"earned": false
+},
+{
+"id": "a3",
+"title": "מעל היעד",
+"desc": "עברת את יעד העמלות הרבעוני",
+"progress": 1,
+"earned": true
+},
+{
+"id": "a4",
+"title": "שמונה עסקאות",
+"desc": "8 עסקאות ברבעון אחד",
+"progress": 1,
+"earned": true
+},
+{
+"id": "a5",
+"title": "רצף של שבוע",
+"desc": "7 ימים ברצף עם מענה תוך 15 דק'",
+"progress": 0.8571428571428571,
+"earned": false
+},
+{
+"id": "a6",
+"title": "חותמת",
+"desc": "10 הסכמי תיווך ברבעון",
+"progress": 1,
+"earned": true
+}
+]
+}

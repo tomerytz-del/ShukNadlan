@@ -24262,6 +24262,8 @@ let dashProperties = [];
 
 /* עמלת התיווך המקובלת: 2% ממחיר המכירה, או דמי שכירות של חודש אחד.
    זה אומדן פוטנציאל בלבד — לא התחייבות ולא הכנסה בפועל. */
+// אותו 0.02 יושב גם ב-_office_deal_rows (20270404090000_office_dashboard.sql),
+// הערכת העמלה בדאשבורד המשרד. שינוי כאן מחייב שינוי שם, ולהפך.
 const COMMISSION_SALE_RATE = 0.02;
 
 const DASH_ICONS = {
@@ -24426,6 +24428,9 @@ const NAV_GROUPS = [
       also:['accDealsLookup'] },
   ]},
   { key:'manage', label:'ניהול וביצועים', icon:'chart', items:[
+    /* ראשון בקבוצה: זו התמונה של כל המשרד. יושב ב-#managerSection, ולכן
+       ‏navAccVisible מציג אותו למנהל/ת משרד בלבד (assets/crm-office-dashboard.js) */
+    { acc:'accOfficeDashboard', label:'דאשבורד משרד', icon:'gauge', tab:'more' },
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
     /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
