@@ -20324,7 +20324,8 @@ function openEditClient(c){
 }
 
 async function deleteClient(c){
-  if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? הפעולה בלתי הפיכה.`)) return;
+  const scWarn = typeof showcaseCloseWarning === 'function' ? showcaseCloseWarning(c.id) : '';
+  if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? הפעולה בלתי הפיכה.${scWarn}`)) return;
   const { error } = await sb.from('agent_clients').delete().eq('id', c.id);
   if (error){ showToast('שגיאה במחיקה: ' + heErr(error)); return; }
   expandedClientIds.delete(c.id);
@@ -20442,6 +20443,12 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   // הוא מתאפס - אחרת ה-check של הטבלה היה דוחה את השמירה בלי שאפשר לתקן.
   const oldMaxRooms = editingClientRow?.max_rooms;
   if (seeker && minRooms != null && oldMaxRooms != null && minRooms > Number(oldMaxRooms)) payload.max_rooms = null;
+
+  // סגירה סוגרת גם את המיניסייט (טריגר במסד) - אומרים את זה לפני ולא אחרי
+  if (editingClientId && payload.status === 'closed' && editingClientRow?.status !== 'closed'){
+    const scWarn = typeof showcaseCloseWarning === 'function' ? showcaseCloseWarning(editingClientId) : '';
+    if (scWarn && !confirm(`לסגור את הכרטיס של "${editingClientRow?.full_name || ''}"?${scWarn}`)) return;
+  }
 
   btn.disabled = true; btn.textContent = 'שומר ומצליב…';
   feedback.textContent = '';
