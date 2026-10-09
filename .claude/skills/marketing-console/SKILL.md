@@ -1,6 +1,6 @@
 ---
 name: marketing-console
-description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns, google_directions, google_keyword_ideas, ads-admin/google-directions.ts), adding an advertising direction or Keyword Planner seeds, when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
+description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns, google_directions, google_keyword_ideas, google_create_campaign, google_set_status, ads-admin/google-directions.ts, ads-admin/google-campaign.ts), creating or pausing a Google Search campaign, adding an advertising direction or Keyword Planner seeds, when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
 ---
 
 # קונסולת השיווק
@@ -135,6 +135,21 @@ python scripts/check_migration_versions.py --base-ref origin/main
 - **הנפח ארצי** (‏`GEO_ISRAEL`), ממוצע 12 חודשים. אל תציג/י אותו כחיפושים באזור.
 - **כל שליפה היא פעולה מהמכסה של Explorer** - בלחיצה, לא בטעינת הלשונית.
 - מילות השלילה הן חלק מהכיוון, ומוצגות בלי מינוס (מתהפך ב-RTL).
+
+### קמפיין חיפוש מכיוון (`google-campaign.ts`, שלב 7ג)
+
+- **בקשת mutate אחת לכל הקמפיין**, עם שמות זמניים (`-1`, `-2`, `-3`). אל
+  תפצל/י ליצירה בשלבים - אז כישלון באמצע משאיר קמפיין חלקי בחשבון.
+- **‏dry_run = `validateOnly` של גוגל**, לא בדיקה שלנו. ‏`buildGooglePlan` טהורה,
+  ושני המסלולים בונים בדיוק אותן פעולות.
+- **הקמפיין `PAUSED`, המודעה והקבוצה `ENABLED`.** ‏`containsEuPoliticalAdvertising`
+  חובה בקמפיין חדש מגרסאות ה-API של 2025 - בלעדיו היצירה נדחית.
+- **מיקום `PRESENCE`**, רדיוס סביב העיר הגדולה בשוק. כל כיוון ממוקד לשוק, גם
+  `agents`.
+- **שגיאות:** ‏`GoogleAdsError.details` מחזיק את כל השגיאות עם `trigger` (הטקסט
+  שנדחה). הפאנל מציג אותן - לא להסתפק ב-`code` הראשון.
+- **‏`google_campaigns` בלי `segments.date` לרשימה.** עם התאריך, קמפיין בלי
+  חשיפות לא חוזר, ושורה חוזרת לכל יום.
 
 ## ‏9. חיבור החשבונות - מה נתקע בפועל
 
