@@ -151,6 +151,12 @@ Use this path only if you confidently answered "yes" to question 3 in Step 0. If
 4. If the ad account isn't listed at all: click **"Add"** (top of the list) → **"Add an ad account"** → enter the ad account ID (format: `1234567890`, the number from Ads Manager's URL).
 5. Note your **Business ID** — visible at the top-right of the Business Settings page or in the URL (`business_id=XXXXX`).
 
+> **Two portfolios is the usual trap.** A person often has more than one Business portfolio, and Business Settings opens the last one used. The System User must be created in the portfolio that **owns the ad account**: open Ads Manager, read `business_id=` in the URL, and open `https://business.facebook.com/latest/settings/system_users?business_id=<that id>`. In the wrong portfolio the "Add" button is simply grey.
+>
+> **"Add" is grey even in the right portfolio** when the portfolio has no app: *Accounts → Apps → Add → Connect an app ID* first (the App ID from developers.facebook.com → Settings → Basic).
+>
+> **The SMS code for re-authentication never arrives:** choose "Try another way" and approve from the Facebook app on a logged-in phone. Requesting the code again and again locks re-authentication for 24 hours.
+
 ### A.2 Create a System User
 
 1. Still in Business Settings, left sidebar: **"Users" → "System Users"**.
