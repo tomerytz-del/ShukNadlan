@@ -126,6 +126,14 @@ function odMonthShort(ym){
   return (OD_MONTHS[m - 1] || '').slice(0, 3) + '׳' + String(y).slice(2);
 }
 
+/* האם זמן התגובה עדיין משוער. ‏data_notes.response_time_method הוא
+   'proxy' עד 20270405090000, ו-'first_response_at' מאז. הכוכבית ו"משוער"
+   נגזרים מכאן, כדי שהממשק לא יבטיח דיוק שהמסד לא מצהיר עליו. */
+function odProxy(){
+  return ((odState.data && odState.data.data_notes) || {}).response_time_method !== 'first_response_at';
+}
+function odStar(){ return odProxy() ? '*' : ''; }
+
 function odNum(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
 function odInt(v){ return Math.round(odNum(v)).toLocaleString('he-IL'); }
 function odIls(v){ return '₪' + Math.round(odNum(v)).toLocaleString('he-IL'); }
@@ -541,7 +549,7 @@ function renderOfficeDashboard(){
     <section class="od-grid">
       <div class="od-card">
         <div class="od-card-h"><h3>מהירות תגובה ללידים, לפי סוכן/ת</h3>
-          <p>חלוקת הלידים של כל סוכן/ת לפי הזמן עד המענה הראשון (משוער). ממוין מהמהיר לאיטי.</p></div>
+          <p>חלוקת הלידים של כל סוכן/ת לפי הזמן עד המענה הראשון${odProxy() ? ' (משוער)' : ''}. ממוין מהמהיר לאיטי.</p></div>
         ${odLegend(OD_BUCKETS.map(b => [b.color, b.label]))}
         ${odResponseHtml(full.agents)}
       </div>
@@ -629,8 +637,8 @@ function odHero(full, view, data, range, picked){
         ו${picked ? 'החתים/ה' : 'החתים'} על ${odCount(o.agreements, '<b>הסכם תיווך אחד</b>', 'הסכמי תיווך', '<b>' + odInt(o.agreements) + '</b>')}. העמלות (הערכה) <b>${chgWords}</b>.</p>
       <div class="od-hero-stats">
         <div class="od-hs"><small>עמלות מול התקופה הקודמת</small><strong class="${deltaCls(chg, 'up')}">${odSignedPct(chg)}</strong></div>
-        <div class="od-hs"><small>זמן תגובה ממוצע*</small><strong>${odDur(o.avg_response_min)}</strong></div>
-        <div class="od-hs"><small>נענו תוך 15 דק׳*</small><strong>${odPct(o.fast_share)}</strong></div>
+        <div class="od-hs"><small>זמן תגובה ממוצע${odStar()}</small><strong>${odDur(o.avg_response_min)}</strong></div>
+        <div class="od-hs"><small>נענו תוך 15 דק׳${odStar()}</small><strong>${odPct(o.fast_share)}</strong></div>
         <div class="od-hs"><small>שיעור בלעדיות</small><strong>${odPct(o.exclusive_rate)}</strong></div>
       </div>
       ${focus ? `<div class="od-focus"><span class="lbl">הפוקוס להיום:</span>
@@ -710,7 +718,7 @@ function odKpis(view, range){
       <span class="od-kpi-delta"><span class="${exTxt == null || exTxt === 0 ? '' : exTxt > 0 ? 'good' : 'bad'}">${exTxt == null ? '-' : odLtr((exTxt > 0 ? '+' : exTxt < 0 ? '−' : '') + Math.round(Math.abs(exTxt) * 100)) + ' נק׳'}</span><span class="vs">${vs}</span></span>
     </div>
     ${tile('הסכמי תיווך שנחתמו', odInt(o.agreements), '', odChg(o.agreements, o.agreements_prev), 'up', 'var(--od-sap)')}
-    ${tile('זמן תגובה ממוצע לליד', o.avg_response_min == null ? '-' : odDur(o.avg_response_min), '', o.avg_response_min == null ? null : odChg(o.avg_response_min, o.avg_response_prev), 'down', 'var(--od-mint)', 'משוער')}
+    ${tile('זמן תגובה ממוצע לליד', o.avg_response_min == null ? '-' : odDur(o.avg_response_min), '', o.avg_response_min == null ? null : odChg(o.avg_response_min, o.avg_response_prev), 'down', 'var(--od-mint)', odProxy() ? 'משוער' : '')}
   </section>`;
 }
 
@@ -761,13 +769,13 @@ function odAdviceHtml(advice){
 
 const OD_COLS = [
   { k:'agent',            label:'סוכן/ת' },
-  { k:'commission',       label:'עמלות*', n:true },
+  { k:'commission',       label:'עמלות (הערכה)', n:true },
   { k:'commission_target',label:'יעד', n:true },
   { k:'target_pct',       label:'עמידה ביעד', n:true },
   { k:'deals',            label:'עסקאות', n:true },
   { k:'leads',            label:'לידים', n:true },
-  { k:'avg_response_min', label:'תגובה ממוצעת*', n:true },
-  { k:'fast_share',       label:'נענו תוך 15 דק׳*', n:true },
+  { k:'avg_response_min', label:'תגובה ממוצעת', n:true, star:true },
+  { k:'fast_share',       label:'נענו תוך 15 דק׳', n:true, star:true },
   { k:'recruited',        label:'גיוסים', n:true },
   { k:'exclusives',       label:'בלעדיות', n:true },
   { k:'exclusive_rate',   label:'% בלעדיות', n:true },
@@ -800,7 +808,7 @@ function odTableHtml(agents, range){
   };
   const head = OD_COLS.map(c => {
     const sorted = c.k === k ? (dir > 0 ? 'ascending' : 'descending') : null;
-    return `<th class="${c.n ? 'n' : ''}"${sorted ? ` aria-sort="${sorted}"` : ''}><button type="button" data-od-sort="${c.k}">${c.label}</button></th>`;
+    return `<th class="${c.n ? 'n' : ''}"${sorted ? ` aria-sort="${sorted}"` : ''}><button type="button" data-od-sort="${c.k}">${c.label}${c.star ? odStar() : ''}</button></th>`;
   }).join('');
   const body = rows.map(a => {
     const isPicked = odState.picked === a.agent_id;
@@ -903,7 +911,7 @@ function odMinisHtml(agents, monthly){
 
 function odSourcesHtml(rows){
   if (!rows.length) return '<p class="od-muted">אין לידים בתקופה.</p>';
-  return `<table class="od-table"><thead><tr><th>ערוץ</th><th class="n">לידים</th><th class="n">קיבלו מענה*</th><th class="n">פגישה או סיור</th><th class="n">ליד→פגישה</th></tr></thead>
+  return `<table class="od-table"><thead><tr><th>ערוץ</th><th class="n">לידים</th><th class="n">קיבלו מענה${odStar()}</th><th class="n">פגישה או סיור</th><th class="n">ליד→פגישה</th></tr></thead>
   <tbody>${rows.map(r => `<tr><td>${escapeHtml(odChannelLabel(r.source))}</td><td class="n">${odInt(r.leads)}</td>
     <td class="n">${odInt(r.responded)}</td><td class="n">${odInt(r.meetings)}</td>
     <td class="n">${odPct(odNum(r.leads) ? odNum(r.meetings) / odNum(r.leads) : null)}</td></tr>`).join('')}</tbody></table>`;
@@ -931,8 +939,8 @@ function odDefsHtml(data){
   const notes = data.data_notes || {};
   const rate = notes.commission_sale_rate ? Math.round(notes.commission_sale_rate * 1000) / 10 : 2;
   return `<footer class="od-foot">
-    <div><strong>* זמן תגובה (משוער)</strong> - ${notes.response_time_method === 'first_response_at'
-      ? 'הזמן מכניסת הליד ועד הפנייה הראשונה של הסוכן/ת.'
+    <div><strong>${odProxy() ? '* זמן תגובה (משוער)' : 'זמן תגובה'}</strong> - ${!odProxy()
+      ? 'הזמן מכניסת הליד ועד הפנייה הראשונה של הסוכן/ת: פתיחת הליד, חיוג או וואטסאפ מכרטיס הליד, שיחה מהליד שנענתה או הוחזרה, או השלמת משימת ה-follow-up. ליד בלי אף אחד מאלה נספר "ללא מענה מתועד".'
       : 'הזמן מכניסת הליד ועד שהסוכן/ת פתח/ה אותו או סגר/ה את משימת ה-follow-up שלו ביומן. ליד שנכנס פתוח מראש ולא טופל ביומן נספר "ללא מענה מתועד". מדידה מדויקת יותר בדרך.'}
       ממוצע המשרד משוקלל לפי מספר הלידים.</div>
     <div><strong>גיוס ובלעדיות</strong> - נכס שנוסף למערכת בתקופה הוא גיוס. בלעדיות נספרת מתחילת הסכם הבלעדיות החתום. שיעור הבלעדיות = בלעדיות חלקי גיוסים.</div>
