@@ -14,8 +14,9 @@ import {
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
-import { fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas } from "../_shared/google-ads.ts";
+import { customerPath, fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas, mutate } from "../_shared/google-ads.ts";
 import { DIRECTIONS, seedsFor } from "./google-directions.ts";
+import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput } from "./campaign.ts";
 
 // ============================================================================
@@ -49,6 +50,11 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   google_campaigns ‏{days} - קמפיינים עם הוצאה, קליקים והמרות. קריאה בלבד
 //                    (‏_shared/google-ads.ts, שלב 7)
 //   google_directions   כיווני הפרסום (‏google-directions.ts) - בלי קריאה לגוגל
+//   google_create_campaign ‏{direction, market, market_path, daily_budget, radius_km,
+//                    max_cpc?, keywords, negatives, headlines, descriptions, dry_run}
+//                    - קמפיין חיפוש מושהה (‏google-campaign.ts). ‏dry_run שולח
+//                    לגוגל validateOnly - הבדיקה של גוגל עצמה, בלי ליצור
+//   google_set_status ‏{campaign_id, status: ENABLED|PAUSED, dry_run} - קריאה, אישור, יומן
 //   google_keyword_ideas ‏{direction, market?} - Keyword Planner: נפח חודשי, תחרות
 //                    ומחיר לקליק לרעיונות מהכיוון ומערי השוק. פעולה אחת מהמכסה
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
@@ -1075,14 +1081,14 @@ async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Res
 }
 
 // ---------------------------------------------------------------------------
-// Google Ads - שלב 7, קריאה בלבד. כתיבה (השהיה, תקציב, קמפיין חדש) תיכנס
-// באותו דפוס של מטא: קריאה, validate_only, אישור ויומן.
+// Google Ads - שלב 7. קריאה (7א), Keyword Planner (7ב), ויצירת קמפיין
+// והשהיה/הפעלה (7ג) באותו דפוס של מטא: קריאה, validateOnly, אישור ויומן.
 // ---------------------------------------------------------------------------
 
 function googleErrorResponse(e: unknown) {
   if (e instanceof GoogleAdsError) {
     console.error("google ads", e.status, e.code, e.message);
-    return json({ error: "google_error", code: e.code, detail: e.message }, e.status === 429 ? 429 : 502);
+    return json({ error: "google_error", code: e.code, detail: e.message, errors: e.details.slice(0, 8) }, e.status === 429 ? 429 : 502);
   }
   return json({ error: "google_error", detail: (e as Error)?.message ?? String(e) }, 502);
 }
@@ -1114,24 +1120,41 @@ async function actionGoogleCampaigns(body: any) {
   const to = new Date();
   const from = new Date(to.getTime() - (days - 1) * 86_400_000);
   try {
-    const rows = await gaql(config, `
+    // שתי שאילתות: רשימת הקמפיינים בלי segments.date (אחרת קמפיין מושהה בלי
+    // חשיפות אינו חוזר בכלל - בדיוק זה שנוצר עכשיו), והמדדים לפי יום, שמתאחדים
+    // לשורה אחת לקמפיין (‏segments.date מחזיר שורה לכל יום).
+    const list = await gaql(config, `
       SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type,
-             campaign_budget.amount_micros,
-             metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
+             campaign_budget.amount_micros
+        FROM campaign
+       WHERE campaign.status != 'REMOVED'`);
+    const daily = await gaql(config, `
+      SELECT campaign.id, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
         FROM campaign
        WHERE segments.date BETWEEN '${ymd(from)}' AND '${ymd(to)}'
          AND campaign.status != 'REMOVED'`);
-    const campaigns = rows.map((r: any) => ({
-      id: String(r.campaign?.id || ""),
-      name: r.campaign?.name || "",
-      status: r.campaign?.status || "",
-      channel: r.campaign?.advertisingChannelType || "",
-      daily_budget: r.campaignBudget?.amountMicros != null ? fromMicros(r.campaignBudget.amountMicros) : null,
-      impressions: Number(r.metrics?.impressions || 0),
-      clicks: Number(r.metrics?.clicks || 0),
-      cost: fromMicros(r.metrics?.costMicros),
-      conversions: Number(r.metrics?.conversions || 0),
-    })).sort((a, b) => b.cost - a.cost);
+    const sums = new Map<string, { impressions: number; clicks: number; cost: number; conversions: number }>();
+    for (const r of daily) {
+      const id = String(r.campaign?.id || "");
+      const t = sums.get(id) || { impressions: 0, clicks: 0, cost: 0, conversions: 0 };
+      t.impressions += Number(r.metrics?.impressions || 0);
+      t.clicks += Number(r.metrics?.clicks || 0);
+      t.cost += fromMicros(r.metrics?.costMicros);
+      t.conversions += Number(r.metrics?.conversions || 0);
+      sums.set(id, t);
+    }
+    const campaigns = list.map((r: any) => {
+      const id = String(r.campaign?.id || "");
+      const m = sums.get(id) || { impressions: 0, clicks: 0, cost: 0, conversions: 0 };
+      return {
+        id,
+        name: r.campaign?.name || "",
+        status: r.campaign?.status || "",
+        channel: r.campaign?.advertisingChannelType || "",
+        daily_budget: r.campaignBudget?.amountMicros != null ? fromMicros(r.campaignBudget.amountMicros) : null,
+        ...m,
+      };
+    }).sort((a: any, b: any) => b.cost - a.cost);
     return json({ ok: true, from: ymd(from), to: ymd(to), days, campaigns });
   } catch (e) {
     return googleErrorResponse(e);
@@ -1166,6 +1189,91 @@ async function actionGoogleKeywordIdeas(sb: SupabaseClient, body: any) {
       local: marketCities.some((c) => i.text.includes(c)),
     })).sort((a, b) => (b.searches ?? -1) - (a.searches ?? -1));
     return json({ ok: true, direction: d.key, seeds, cities: marketCities.slice(0, 3), negatives: d.negatives, ideas: rows });
+  } catch (e) {
+    return googleErrorResponse(e);
+  }
+}
+
+async function actionGoogleCreateCampaign(sb: SupabaseClient, caller: Caller, body: any) {
+  const { config } = googleAdsConfig((k) => Deno.env.get(k));
+  if (!config) return json({ error: "google_not_configured" }, 503);
+  const dryRun = Boolean(body?.dry_run);
+  const d = DIRECTIONS.find((x) => x.key === String(body?.direction || ""));
+  if (!d) return json({ error: "unknown_direction" }, 400);
+
+  // כל קמפיין ממוקד לשוק - גם גיוס מתווכים, שבו העיר אינה במילים.
+  const market = String(body?.market || "");
+  const marketPath = String(body?.market_path ?? "/");
+  if (!market) return json({ error: "market_required" }, 400);
+  if (!/^\/[a-z0-9-]*$/.test(marketPath)) return json({ error: "bad_request", detail: "market_path" }, 400);
+  const { data: top, error: cErr } = await sb.from("cities").select("name, lat, lng")
+    .eq("market_slug", market).not("lat", "is", null)
+    .order("population", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+  if (cErr) return json({ error: "db_error", detail: cErr.message }, 500);
+  if (!top) return json({ error: "market_not_found" }, 404);
+
+  const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+  const stamp = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Jerusalem" }).slice(0, 16);
+  const { plan, errors, warnings } = buildGooglePlan(config, {
+    direction: d,
+    market: { slug: market, path: marketPath, city: String(top.name), lat: Number(top.lat), lng: Number(top.lng) },
+    daily_budget: Number(body?.daily_budget),
+    radius_km: Number(body?.radius_km),
+    max_cpc: body?.max_cpc == null || body?.max_cpc === "" ? null : Number(body.max_cpc),
+    keywords: list(body?.keywords),
+    negatives: list(body?.negatives),
+    headlines: list(body?.headlines),
+    descriptions: list(body?.descriptions),
+    stamp,
+  });
+  if (!plan) return json({ error: "invalid_plan", errors, warnings }, 400);
+  const { operations, ...preview } = plan;
+
+  try {
+    if (dryRun) {
+      // ‏validateOnly: גוגל בודקת את כל הבקשה - מדיניות, אורכים, מילים - ולא יוצרת.
+      await mutate(config, operations, true);
+      return json({ dry_run: true, plan: preview, warnings });
+    }
+    const res = await mutate(config, operations, false);
+    const campaignId = createdCampaignId(res);
+    await log(sb, caller, {
+      action: "google_create_campaign", object_type: "campaign", object_id: campaignId,
+      request: { customer: customerPath(config), ...preview }, response: { campaign_id: campaignId, operations: operations.length }, ok: true,
+    });
+    return json({ ok: true, campaign_id: campaignId, name: plan.name, warnings });
+  } catch (e) {
+    if (!dryRun) {
+      await log(sb, caller, {
+        action: "google_create_campaign", object_type: "campaign", request: { customer: customerPath(config), ...preview },
+        response: e instanceof GoogleAdsError ? { code: e.code, errors: e.details } : null, ok: false, error: (e as Error)?.message ?? String(e),
+      });
+    }
+    return googleErrorResponse(e);
+  }
+}
+
+async function actionGoogleSetStatus(sb: SupabaseClient, caller: Caller, body: any) {
+  const { config } = googleAdsConfig((k) => Deno.env.get(k));
+  if (!config) return json({ error: "google_not_configured" }, 503);
+  const id = String(body?.campaign_id || "");
+  const to = String(body?.status || "");
+  if (!/^\d{1,20}$/.test(id) || !["ENABLED", "PAUSED"].includes(to)) return json({ error: "bad_request" }, 400);
+  try {
+    // קריאה קודם: הקמפיין קיים בחשבון שלנו, ומה הסטטוס שלו עכשיו.
+    const rows = await gaql(config, `SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.id = ${id}`);
+    const cur = rows[0]?.campaign;
+    if (!cur) return json({ error: "not_found" }, 404);
+    const plan = { name: cur.name || id, from: cur.status || null, to };
+    if (Boolean(body?.dry_run)) return json({ dry_run: true, plan });
+    try {
+      await mutate(config, [{ campaignOperation: { update: { resourceName: `${customerPath(config)}/campaigns/${id}`, status: to }, updateMask: "status" } }], false);
+    } catch (e) {
+      await log(sb, caller, { action: "google_set_status", object_type: "campaign", object_id: id, request: plan, ok: false, error: (e as Error)?.message ?? String(e) });
+      throw e;
+    }
+    await log(sb, caller, { action: "google_set_status", object_type: "campaign", object_id: id, request: plan, ok: true });
+    return json({ ok: true, plan });
   } catch (e) {
     return googleErrorResponse(e);
   }
@@ -1214,6 +1322,8 @@ Deno.serve(async (req: Request) => {
   if (action === "google_campaigns") return await actionGoogleCampaigns(body);
   if (action === "google_directions") return json({ directions: DIRECTIONS });
   if (action === "google_keyword_ideas") return await actionGoogleKeywordIdeas(sb, body);
+  if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);
+  if (action === "google_set_status") return await actionGoogleSetStatus(sb, caller, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.

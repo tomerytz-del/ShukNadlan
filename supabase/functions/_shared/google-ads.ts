@@ -68,10 +68,14 @@ export function googleAdsConfig(env: (k: string) => string | undefined): { confi
 // ‏code = המפתח הראשון שגוגל מחזירה: invalid_grant מה-OAuth, או למשל
 // authorizationError:USER_PERMISSION_DENIED מה-API. ‏message לבן אדם.
 export class GoogleAdsError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(public status: number, public code: string, message: string, public details: GoogleAdsErrorDetail[] = []) {
     super(message);
   }
 }
+
+// כל שגיאה ברשימה, ולא רק הראשונה: בבקשת mutate אחת לקמפיין שלם, גוגל
+// מחזירה שגיאה לכל מילה או כותרת שנדחתה, ו-trigger הוא הטקסט שנדחה.
+export type GoogleAdsErrorDetail = { code: string; message: string; trigger: string | null; field: string | null };
 
 let cachedToken: { value: string; expires: number; key: string } | null = null;
 
@@ -101,10 +105,14 @@ async function accessToken(cfg: GoogleAdsConfig): Promise<string> {
 function parseApiError(status: number, data: any): GoogleAdsError {
   const err = Array.isArray(data) ? data[0]?.error : data?.error;
   for (const d of err?.details || []) {
-    const first = d?.errors?.[0];
-    if (first?.errorCode) {
-      const [k, v] = Object.entries(first.errorCode)[0] || ["", ""];
-      return new GoogleAdsError(status, `${k}:${v}`, String(first.message || err?.message || status));
+    const errors = Array.isArray(d?.errors) ? d.errors : [];
+    if (errors[0]?.errorCode) {
+      const details = errors.map((x: any) => {
+        const [k, v] = Object.entries(x?.errorCode || {})[0] || ["", ""];
+        const path = (x?.location?.fieldPathElements || []).map((f: any) => f?.fieldName + (f?.index != null ? `[${f.index}]` : "")).join(".");
+        return { code: `${k}:${v}`, message: String(x?.message || ""), trigger: x?.trigger?.stringValue ?? null, field: path || null };
+      });
+      return new GoogleAdsError(status, details[0].code, String(errors[0].message || err?.message || status), details);
     }
   }
   return new GoogleAdsError(status, String(err?.status || status), String(err?.message || status));
@@ -136,6 +144,17 @@ export async function gaql(cfg: GoogleAdsConfig, query: string): Promise<any[]> 
   const data = await post(cfg, "/googleAds:searchStream", { query });
   return (Array.isArray(data) ? data : []).flatMap((batch: any) => batch?.results || []);
 }
+
+// כתיבה אטומית: כל הפעולות עוברות או שאף אחת לא. ‏validateOnly בודק מול
+// גוגל את כל הבקשה - מדיניות, אורכים, מילים - בלי ליצור דבר; זה ה-dry_run
+// של גוגל, והוא אמיתי יותר משלנו כי הכללים שלה. שמות משאב זמניים (‏-1, ‏-2)
+// מקשרים בין פעולות באותה בקשה.
+export async function mutate(cfg: GoogleAdsConfig, operations: unknown[], validateOnly: boolean): Promise<any> {
+  return await post(cfg, "/googleAds:mutate", { mutateOperations: operations, validateOnly, partialFailure: false });
+}
+
+export const customerPath = (cfg: GoogleAdsConfig) => `customers/${cfg.customerId}`;
+export const toMicros = (v: number) => String(Math.round(v * 1_000_000));
 
 // עברית ב-Google Ads, וישראל כמדינה. מזהים קבועים של גוגל.
 export const LANG_HEBREW = "languageConstants/1027";

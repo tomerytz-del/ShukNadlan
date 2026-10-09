@@ -24872,6 +24872,7 @@ const ADS_ERRORS = {
   unknown_direction: 'כיוון פרסום לא מוכר',
   market_required: 'בוחרים שוק לפני השליפה',
   market_not_found: 'אין ערים משויכות לשוק הזה',
+  invalid_plan: 'הקמפיין לא תקין',
 };
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
@@ -25348,7 +25349,7 @@ async function loadGoogleCampaigns(){
       return;
     }
     const wrap = admEl('div', 'adm-table-wrap'), tbl = admEl('table', 'adm-table'), head = admEl('tr');
-    ['קמפיין', 'סוג', 'סטטוס', 'תקציב יומי', 'הוצאה', 'קליקים', 'המרות', 'עלות להמרה'].forEach(h => head.appendChild(admEl('th', null, h)));
+    ['קמפיין', 'סוג', 'סטטוס', 'תקציב יומי', 'הוצאה', 'קליקים', 'המרות', 'עלות להמרה', ''].forEach(h => head.appendChild(admEl('th', null, h)));
     tbl.appendChild(head);
     const STATUS = { ENABLED: 'פעיל', PAUSED: 'מושהה' };
     r.campaigns.forEach(c => {
@@ -25361,6 +25362,9 @@ async function loadGoogleCampaigns(){
       tr.appendChild(admEl('td', 'num', admInt(c.clicks)));
       tr.appendChild(admEl('td', 'num', admInt(Math.round(c.conversions))));
       tr.appendChild(admEl('td', 'num', c.conversions ? gadsMoney(c.cost / c.conversions) : '-'));
+      const act = admEl('td');
+      if (c.status === 'ENABLED' || c.status === 'PAUSED') act.appendChild(gadsStatusButton(c));
+      tr.appendChild(act);
       tbl.appendChild(tr);
     });
     wrap.appendChild(tbl);
@@ -25379,6 +25383,38 @@ document.getElementById('gadsRange')?.addEventListener('click', (e)=>{
   e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
   loadGoogleCampaigns();
 });
+
+// השהיה/הפעלה של קמפיין בגוגל - קריאה (dry_run), אישור, ואז הכתיבה. כמו במטא.
+function gadsStatusButton(c){
+  const isOn = c.status === 'ENABLED';
+  const b = admEl('button', 'ads-act', isOn ? 'השהיה' : 'הפעלה');
+  b.type = 'button';
+  b.addEventListener('click', async ()=>{
+    const to = isOn ? 'PAUSED' : 'ENABLED';
+    b.disabled = true;
+    try{
+      const dry = await adsCall('google_set_status', { campaign_id: c.id, status: to, dry_run: true });
+      const lines = ['קמפיין: ' + dry.plan.name, (dry.plan.from === 'ENABLED' ? 'פעיל' : 'מושהה') + ' ← ' + (to === 'ENABLED' ? 'פעיל' : 'מושהה')];
+      if (to === 'ENABLED'){
+        if (c.daily_budget != null) lines.push('תקציב יומי ' + gadsMoney(c.daily_budget) + '. גוגל רשאית להוציא עד פי 2 ביום בודד, ובחודש לא יותר מ-' + gadsMoney(c.daily_budget * 30.4) + '.');
+        lines.push('בשבועיים הראשונים לא משנים תקציב ומילים - האלגוריתם לומד. אחרי כמה ימים בודקים את מונחי החיפוש ומוסיפים מילות שלילה.');
+      }
+      const ok = await confirmPurchase({ title: to === 'PAUSED' ? 'השהיית קמפיין בגוגל' : 'הפעלת קמפיין בגוגל', lines, requireAck: true, hidePrice: true,
+        confirmLabel: to === 'PAUSED' ? 'השהיה' : 'הפעלה', ackText: to === 'ENABLED'
+          ? 'אני מבין/ה שמהרגע הזה הקמפיין מוציא כסף בחשבון Google Ads, והפעולה נרשמת ביומן.'
+          : 'אני מבין/ה שזה משנה קמפיין בחשבון Google Ads, והפעולה נרשמת ביומן.' });
+      if (!ok) return;
+      await adsCall('google_set_status', { campaign_id: c.id, status: to });
+      showToast(to === 'PAUSED' ? 'הושהה' : 'הופעל');
+      loadGoogleCampaigns();
+    }catch(e){
+      showToast(gadsErrText(e), 5200);
+    }finally{
+      b.disabled = false;
+    }
+  });
+  return b;
+}
 
 /* ---------- Keyword Planner לפי כיוון פרסום (שלב 7ב) ----------
    הכיוונים מוגדרים בשרת (ads-admin/google-directions.ts) ולא כאן, כי אותה
@@ -25454,12 +25490,13 @@ function gkwCurrent(){ return gkwDirections.find(d => d.key === gkwDir) || null;
 function gkwRenderAbout(){
   const d = gkwCurrent();
   if (!d) return;
-  document.getElementById('gkwMarketBar').hidden = !d.market;
+  // השוק תמיד גלוי: גם קמפיין בלי עיר במילים (גיוס מתווכים) ממוקד לאזור.
+  document.getElementById('gkwMarketBar').hidden = false;
   const local = document.getElementById('gkwLocalOnly');
   local.closest('label').hidden = !d.market;
   if (!d.market) local.checked = false;
   document.getElementById('gkwAbout').textContent = 'קהל: ' + d.audience + ' · הקליק מוביל ל-' + d.landing + ' · המרה: ' + d.goal
-    + (d.market ? '' : ' · המונחים בלי עיר: המיקוד לאזור נעשה בהגדרות המיקום של הקמפיין, לא במילים.');
+    + (d.market ? '' : ' · המונחים בלי עיר: השוק שנבחר קובע רק את אזור הקמפיין, לא את המילים.');
 }
 
 async function gkwFetch(){
@@ -25539,7 +25576,112 @@ function gkwRender(){
   });
   wrap.appendChild(tbl);
   host.appendChild(wrap);
+
+  const formHost = admEl('div');
+  const open = admEl('button', 'btn btn-gold', 'יצירת קמפיין מושהה מהמילים האלה');
+  open.type = 'button';
+  open.addEventListener('click', ()=>{
+    open.hidden = true;
+    formHost.appendChild(gkwCampaignForm(pick));
+    dashPanelsMeasure();
+  });
+  const row = admEl('div', 'ads-row-btns'); row.appendChild(open);
+  host.appendChild(row);
+  host.appendChild(formHost);
   dashPanelsMeasure();
+}
+
+/* ---------- קמפיין חיפוש מושהה מכיוון (שלב 7ג) ----------
+   כל השדות מתמלאים מהכיוון ומהשליפה, וכולם ניתנים לעריכה. ‏"בדיקה מול גוגל"
+   שולחת validateOnly - גוגל בודקת מדיניות ואורכים בלי ליצור - ורק אחרי
+   האישור נוצר הקמפיין, מושהה. התבניות {in_city} מתמלאות בעיר הראשית של השוק. */
+function gkwCampaignForm(pick){
+  const d = gkwCurrent();
+  const m = marketList().find(x => x.slug === gkwMarket) || {};
+  const city = m.city || '';
+  const fill = t => String(t).replaceAll('{in_city}', 'ב' + city).replaceAll('{city}', city);
+  const box = admEl('form', 'cst-form ads-camp-form');
+  box.noValidate = true;
+  box.appendChild(admEl('h3', 'adm-h', 'קמפיין חיפוש: ' + d.label + ' · ' + (m.label || gkwMarket)));
+
+  const g = admEl('div', 'cst-grid');
+  const budget = adsNum('תקציב יומי (₪)', 30, 5, 300); g.appendChild(budget.l);
+  const radius = adsNum('רדיוס סביב ' + (city || 'השוק') + ' (ק"מ)', d.key === 'agents' ? 25 : 15, 1, 80); g.appendChild(radius.l);
+  const cpc = admEl('input'); cpc.type = 'number'; cpc.min = '0'; cpc.max = '50'; cpc.step = '0.5'; cpc.inputMode = 'decimal';
+  cpc.placeholder = 'בלי תקרה';
+  const lc = admEl('label', 'cst-f', 'מחיר מרבי לקליק (₪, לא חובה)'); lc.appendChild(cpc); g.appendChild(lc);
+  box.appendChild(g);
+
+  const area = (label, list, rows) => {
+    const ta = admEl('textarea', 'ads-kw-box');
+    ta.value = list.join('\n'); ta.rows = rows;
+    const l = admEl('label', 'cst-f', label); l.appendChild(ta); box.appendChild(l);
+    return ta;
+  };
+  const kw = area('מילות מפתח - שורה לכל מילה, בהתאמת ביטוי', pick.map(i => i.text), 6);
+  const neg = area('מילות שלילה - שורה לכל מילה', (gkwLast && gkwLast.negatives) || d.negatives, 4);
+  const hl = area('כותרות - עד 30 תווים, 3 עד 15', d.headlines.map(fill), 6);
+  const ds = area('תיאורים - עד 90 תווים, 2 עד 4', d.descriptions.map(fill), 4);
+  const lens = admEl('p', 'adm-note');
+  const syncLens = ()=>{
+    const over = (ta, max) => ta.value.split('\n').map(x => x.trim()).filter(x => x.length > max).length;
+    const h = over(hl, 30), dd = over(ds, 90);
+    lens.textContent = (h || dd) ? ('ארוכות מדי: ' + h + ' כותרות, ' + dd + ' תיאורים. הן יוסרו.') : 'האורכים תקינים.';
+  };
+  hl.addEventListener('input', syncLens); ds.addEventListener('input', syncLens); syncLens();
+  box.appendChild(lens);
+  box.appendChild(admEl('p', 'adm-note', 'יעד המודעה: ' + d.landing + ' · מיקום: נוכחות באזור בלבד · עברית · חיפוש בגוגל בלבד · מקסימום קליקים.'));
+
+  const err = admEl('p', 'cst-err'); err.hidden = true; err.setAttribute('role', 'alert');
+  box.appendChild(err);
+  const go = admEl('button', 'btn btn-gold', 'בדיקה מול גוגל ויצירה');
+  go.type = 'submit';
+  const row = admEl('div', 'ads-row-btns'); row.appendChild(go);
+  row.appendChild(admEl('span', 'adm-note', 'הקמפיין נוצר מושהה. מפעילים אותו בטבלת הקמפיינים למעלה.'));
+  box.appendChild(row);
+
+  const lines = ta => ta.value.split('\n').map(x => x.trim()).filter(Boolean);
+  box.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    err.hidden = true;
+    const payload = {
+      direction: d.key, market: gkwMarket, market_path: m.path || '/',
+      daily_budget: Number(budget.i.value), radius_km: Number(radius.i.value),
+      max_cpc: cpc.value === '' ? null : Number(cpc.value),
+      keywords: lines(kw), negatives: lines(neg), headlines: lines(hl), descriptions: lines(ds),
+    };
+    go.disabled = true;
+    try{
+      const dry = await adsCall('google_create_campaign', Object.assign({ dry_run: true }, payload));
+      const p = dry.plan, s = p.summary;
+      const out = [
+        p.name,
+        'תקציב: ' + gadsMoney(s.daily_budget) + ' ליום, עד ' + gadsMoney(s.max_monthly) + ' בחודש' + (s.max_cpc ? ' · עד ' + gkwCpc(s.max_cpc) + ' לקליק' : ''),
+        'אזור: ' + s.radius_km + ' ק"מ סביב ' + s.city + ' (נוכחות בלבד)',
+        s.keywords.length + ' מילות מפתח · ' + s.negatives.length + ' מילות שלילה · ' + s.headlines.length + ' כותרות · ' + s.descriptions.length + ' תיאורים',
+        'יעד: ' + p.final_url,
+        'גוגל בדקה את הבקשה ואישרה אותה, בלי ליצור עדיין.',
+      ].concat((dry.warnings || []).map(w => 'שימו לב: ' + w));
+      const ok = await confirmPurchase({ title: 'יצירת קמפיין בגוגל', lines: out, requireAck: true, hidePrice: true,
+        confirmLabel: 'יצירה (מושהה)', ackText: 'אני מבין/ה שזה יוצר קמפיין בחשבון Google Ads. הוא לא יוציא כסף עד שאפעיל אותו.' });
+      if (!ok) return;
+      go.textContent = 'יוצר…';
+      const r = await adsCall('google_create_campaign', payload);
+      showToast('הקמפיין נוצר בגוגל (מושהה)');
+      box.replaceWith(admEl('p', 'adm-note', 'נוצר: ' + r.name + '. הוא מושהה בטבלת הקמפיינים למעלה.'));
+      loadGoogleCampaigns();
+    }catch(ex){
+      const list = ex.data && Array.isArray(ex.data.errors) && ex.data.errors.length
+        ? ' - ' + ex.data.errors.map(x => typeof x === 'string' ? x : (x.trigger ? '"' + x.trigger + '": ' : '') + (x.message || x.code)).join(' · ')
+        : '';
+      err.textContent = gadsErrText(ex) + list; err.hidden = false;
+    }finally{
+      go.disabled = false;
+      if (go.isConnected) go.textContent = 'בדיקה מול גוגל ויצירה';
+      dashPanelsMeasure();
+    }
+  });
+  return box;
 }
 
 /* ---------- לשוניות ---------- */
