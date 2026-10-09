@@ -74,6 +74,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/deals</loc>
+    <lastmod>2026-10-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/about</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>

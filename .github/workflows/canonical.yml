@@ -25,6 +25,8 @@ on:
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
+      - "scripts/deals_page_test.ts"
+      - "assets/deals-render.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -38,6 +40,8 @@ on:
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
+      - "scripts/deals_page_test.ts"
+      - "assets/deals-render.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -76,3 +80,8 @@ jobs:
       # בכל כשל - שם ה-JS שבו ממלא אותו (‏docs/city-prices.md).
       - name: התנהגות דף המחירים
         run: node --experimental-strip-types scripts/prices_page_test.ts
+
+      # ‏ו-/deals/{slug}: ה-canonical של היישוב נקבע מהכתובת גם כשהמסד לא
+      # ענה, ו-noindex רק כשהמסד ענה שאין יישוב (‏docs/settlement-deals.md).
+      - name: התנהגות דפי העסקאות
+        run: node --experimental-strip-types scripts/deals_page_test.ts

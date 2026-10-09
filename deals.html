@@ -9,9 +9,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- ‏הדף מוגש גם תחת /deals/{slug} (‏_redirects), ושם "assets/x.js" יחסי היה
+     נפתר ל-/deals/assets/x.js. ‏base מיד אחרי GTM, לפני כל כתובת יחסית. -->
+<base href="/">
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מחירי דירות בעפולה והעמק ובצפון - לפי עסקאות רשמיות | שוק נדל״ן</title>
+<title>עסקאות נדל״ן לפי יישוב - מחירים ועסקאות אחרונות | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
      שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
@@ -29,22 +32,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <!-- ‏הכתובת הקנונית של הדף. ‏Netlify מגיש כל דף בשתי צורות
-     (‏/prices ו-/prices.html), ופרמטרי סינון מייצרים עוד — והתגית הזו
+     (‏/deals ו-/deals.html), ופרמטרי סינון מייצרים עוד — והתגית הזו
      אומרת לגוגל איזו מהן לאנדקס. הפרטים: docs/security-headers.md -->
-<link rel="canonical" href="https://shuknadlan.co.il/prices">
+<link rel="canonical" href="https://shuknadlan.co.il/deals">
 <!-- תגיות שיתוף (‏og / twitter). דף בלי og:image יוצא בוואטסאפ ובפייסבוק בלי תמונה;
      ‏assets/og-default.png בגודל 1200x630 הוא תמונת ברירת המחדל לדפים הסטטיים. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
-<meta property="og:title" content="מחירי דירות בעפולה והעמק ובצפון - לפי עסקאות רשמיות | שוק נדל״ן">
-<meta property="og:description" content="כמה עולה דירה בעפולה, בחיפה, בקריות ובנוף הגליל? מחיר חציוני לדירה ולמ״ר לפי מספר חדרים, מתוך עסקאות הנדל״ן שדווחו לרשות המסים בשנה האחרונה.">
-<meta property="og:url" content="https://shuknadlan.co.il/prices">
+<meta property="og:title" content="עסקאות נדל״ן לפי יישוב - מחירים ועסקאות אחרונות | שוק נדל״ן">
+<meta property="og:description" content="עסקאות הנדל״ן שדווחו לרשות המסים בעפולה, במגדל העמק ובצפון: מספר עסקאות, מחיר חציוני ולמ״ר לפי מספר חדרים, ועסקאות אחרונות לפי יישוב.">
+<meta property="og:url" content="https://shuknadlan.co.il/deals">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="כמה עולה דירה בעפולה, בחיפה, בקריות ובנוף הגליל? מחיר חציוני לדירה ולמ״ר לפי מספר חדרים, מתוך עסקאות הנדל״ן שדווחו לרשות המסים בשנה האחרונה.">
+<meta name="description" content="עסקאות הנדל״ן שדווחו לרשות המסים בעפולה, במגדל העמק ובצפון: מספר עסקאות, מחיר חציוני ולמ״ר לפי מספר חדרים, ועסקאות אחרונות לפי יישוב.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -61,18 +64,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
 <style>
-/* הטבלאות של /prices. ‏assets/prices-render.js בונה את הסימון. */
-#pricesTables .prices-market{margin-top:36px}
-#pricesTables .prices-city{margin:20px 0 28px}
-#pricesTables .prices-scroll{overflow-x:auto}
-#pricesTables .prices-table{width:100%;border-collapse:collapse;font-size:15px;min-width:420px}
-#pricesTables .prices-table th,#pricesTables .prices-table td{padding:10px 12px;border-bottom:1px solid #e3e7ef;text-align:right;white-space:nowrap}
-#pricesTables .prices-table thead th{font-weight:700;background:#f4f6fb}
-#pricesTables .prices-table td{font-variant-numeric:tabular-nums}
-#pricesTables .prices-note{font-size:14px;color:#5b6475;margin-top:6px}
+/* ‏/deals ו-/deals/{slug}. ‏assets/deals-render.js בונה את הסימון. */
+#dealsBody .deals-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:22px 0 8px}
+#dealsBody .deals-card{background:var(--paper,#f4f7fe);border:1px solid var(--line,#e3e7ef);border-top:3px solid var(--brass,#b08a3e);border-radius:var(--radius-lg,16px);padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+#dealsBody .deals-card-label{font-size:13px;color:var(--ink-muted,#6b7796);font-weight:600}
+#dealsBody .deals-card-value{font-size:26px;color:var(--brand,#0e2a6b);font-variant-numeric:tabular-nums;font-weight:800}
+#dealsBody .deals-card-note{font-size:12px;color:var(--ink-faint,#8b93b0)}
+#dealsBody .deals-scroll{overflow-x:auto}
+#dealsBody .deals-table{width:100%;border-collapse:collapse;font-size:14px}
+#dealsBody .deals-table th,#dealsBody .deals-table td{padding:10px 8px;border-bottom:1px solid var(--line,#e3e7ef);text-align:right;white-space:nowrap}
+#dealsBody .deals-table thead th{font-weight:700;background:var(--paper,#f4f6fb);color:var(--ink,#0d1b3d)}
+#dealsBody .deals-table td{font-variant-numeric:tabular-nums}
+#dealsBody .deals-price{font-weight:700;color:var(--brand,#0e2a6b)}
+#dealsBody .deals-sort{background:none;border:0;padding:0;font:inherit;font-weight:700;color:inherit;cursor:pointer}
+#dealsBody .deals-sort[aria-sort]::after{content:" ↓";color:var(--brass-ink,#8a6a2a)}
+#dealsBody .deals-sort[aria-sort="ascending"]::after{content:" ↑"}
+#dealsBody .deals-toolbar{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:14px}
+#dealsBody .deals-toolbar select{font:inherit;padding:6px 10px;border:1px solid var(--line,#d6dbe7);border-radius:var(--radius-sm,8px);background:#fff}
+#dealsBody .deals-note,#dealsBody .deals-source{font-size:14px;color:var(--ink-muted,#5b6475);margin-top:8px}
+#dealsBody .deals-source{font-weight:600}
+#dealsBody .deals-index{list-style:none;padding:0;margin:20px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+#dealsBody .deals-index li{margin:0}
+#dealsBody .deals-index a{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);background:#fff;text-decoration:none;color:var(--ink,#0d1b3d)}
+#dealsBody .deals-index a:hover{border-color:var(--brand,#0e2a6b)}
+#dealsBody .deals-index span{font-size:13px;color:var(--ink-muted,#6b7796)}
+/* ‏בטלפון העסקאות האחרונות הופכות לכרטיסים - שמונה עמודות לא נכנסות. */
+@media (max-width:640px){
+  #dealsBody .deals-recent thead{display:none}
+  #dealsBody .deals-recent,#dealsBody .deals-recent tbody,#dealsBody .deals-recent tr,#dealsBody .deals-recent td{display:block;width:100%}
+  #dealsBody .deals-recent tr{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);padding:8px 12px;margin-bottom:10px;background:#fff}
+  #dealsBody .deals-recent td{display:flex;justify-content:space-between;gap:8px;border:0;padding:4px 0;white-space:normal;width:auto}
+  #dealsBody .deals-recent td[data-label="רחוב"]{grid-column:1 / -1}
+  #dealsBody .deals-rooms th,#dealsBody .deals-rooms td{padding:8px 6px}
+  #dealsBody .deals-recent td::before{content:attr(data-label);color:var(--ink-muted,#6b7796);font-weight:600}
+}
 </style>
-<script defer src="assets/prices-render.js"></script>
-<script defer src="assets/prices.js"></script>
+<script defer src="assets/deals-render.js"></script>
+<script defer src="assets/deals.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -93,31 +121,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <section class="page-head">
   <div class="wrap">
     <span class="kicker">נתוני שוק</span>
-    <h1>מחירי דירות לפי עיר ומספר חדרים</h1>
-    <p>כמה עולה דירה בעפולה, בחיפה או בקריות - לפי העסקאות שנסגרו בפועל ודווחו לרשות המסים, ולא לפי מחירי המודעות.</p>
+    <h1 id="dealsH1">עסקאות נדל״ן לפי יישוב</h1>
+    <p id="dealsLead">העסקאות שנסגרו בפועל ודווחו לרשות המסים, לכל יישוב: כמה נמכר, במה ובאיזה מחיר.</p>
   </div>
 </section>
-
 <main class="doc">
   <div class="wrap">
-
-    <p>המחירים כאן הם <strong>מחיר חציוני</strong> - המחיר שחצי מהעסקאות נסגרו מתחתיו וחצי מעליו. הוא מושפע פחות מעסקה חריגה אחת מאשר ממוצע. התקופה: <span id="pricesPeriod">12 החודשים האחרונים במאגר</span>.</p>
-
-    <div id="pricesTables">
-      <p class="prices-note">טוען את הנתונים...</p>
-    <!--/prices-->
+    <div id="dealsBody">
+      <p class="deals-note">טוען את הנתונים...</p>
+    <!--/deals-->
     </div>
-
-    <h2>איך הטבלה נבנית</h2>
+    <h2>מאיפה המספרים</h2>
     <ul>
-      <li><strong>המקור</strong> - עסקאות הנדל״ן שדווחו לרשות המסים, אותו מאגר שעליו נשען דוח ה-CMA שמתווכים באתר מפיקים לבעלי נכסים.</li>
-      <li><strong>דירות בלבד</strong> - בלי מגרשים, בניינים שלמים ומשקים חקלאיים, ובלי עסקאות על חלק מדירה.</li>
-      <li><strong>לפחות 5 עסקאות</strong> - גודל דירה בעיר שנסגרו בו פחות מחמש עסקאות בשנה אינו מוצג, כי מחיר של שתיים-שלוש עסקאות אינו אומר דבר על השוק.</li>
+      <li><strong>המקור</strong> - עסקאות הנדל״ן שדווחו לרשות המסים, כפי שהן מוצגות בפורטל GovMap. זה מחיר העסקה שדווח, ולא מחיר המודעה.</li>
+      <li><strong>מגורים בלבד</strong> - בלי מגרשים, בניינים שלמים ומשקים חקלאיים, ובלי עסקאות על חלק מדירה.</li>
       <li><strong>12 חודשים מהעסקה האחרונה במאגר</strong> - רשות המסים מפרסמת עסקאות באיחור של כמה חודשים, ולכן התקופה מסתיימת בעסקה האחרונה שדווחה ולא בהיום.</li>
+      <li><strong>לפחות 5 עסקאות</strong> - חציון של קבוצה קטנה יותר אינו מוצג, כי הוא אינו אומר דבר על השוק.</li>
+      <li><strong>בלי מספר בית</strong> - העסקאות מוצגות ברמת רחוב.</li>
     </ul>
-
-    <h2>מה המחיר הזה לא אומר</h2>
-    <p>מחיר חציוני לעיר שלמה אינו הערכת שווי לדירה מסוימת. קומה, מצב, שכונה, חניה ומעלית משנים את המחיר בעשרות אחוזים. להערכה של נכס מסוים אפשר לבקש <a href="/">הערכת שווי</a> בדף הבית, או לפנות <a href="/agents">למתווך/ת שמכיר/ה את האזור</a>. לנכסים שמוצעים עכשיו: <a href="/">כל הנכסים למכירה</a>. לעסקאות עצמן, יישוב אחר יישוב: <a href="/deals">עסקאות נדל״ן לפי יישוב</a>.</p>
+    <p>מחיר חציוני אינו הערכת שווי לנכס מסוים. לטבלה מרוכזת של כל הערים: <a href="/prices">מחירי דירות לפי עיר</a>. להערכה של נכס: <a href="/">הערכת שווי</a> בדף הבית, או <a href="/agents">מתווך/ת שמכיר/ה את האזור</a>.</p>
   </div>
 </main>
 

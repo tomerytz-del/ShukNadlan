@@ -390,6 +390,10 @@ PUBLIC_RPC = {
     "city_id_for_name": "מזהה עיר לפי שם - נתון פומבי; check_function_grants.py",
     "city_price_table": "הדף /prices - מחיר חציוני לפי עיר וחדרים, צבירה בלבד ותא "
                         "מתחת ל-5 עסקאות מושתק; docs/city-prices.md",
+    "deal_settlement_page": "הדף /deals/{slug} - סיכום וחציון לפי חדרים, עסקאות בלי "
+                            "מספר בית, גוש וחלקה; docs/settlement-deals.md",
+    "deal_settlements_public": "האינדקס /deals וה-sitemap - יישובים פעילים ומספר "
+                               "עסקאות; docs/settlement-deals.md",
 }
 
 PAUSED_WORKFLOWS = {
