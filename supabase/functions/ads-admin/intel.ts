@@ -7,8 +7,9 @@
 // "כמה מתווכים יש באזור" בלי לבנות מאגר מידע.
 //
 // ‏**Google Places (New), Text Search**:
-//   - סריקה (intel_places_scan): FieldMask של places.id בלבד - ה-SKU הזול,
-//     ו-place_id הוא השדה היחיד שתנאי השימוש מתירים לשמור לאורך זמן.
+//   - סריקה (intel_places_scan): places.id ורכיבי הכתובת. ‏place_id הוא השדה
+//     היחיד שתנאי השימוש מתירים לשמור לאורך זמן; היישוב שבכתובת משמש רק כדי
+//     לשייך את המשרד לעיר הנכונה, ואינו נשמר (20270324090000).
 //   - תצוגה חיה (intel_places_live): שם, כתובת, דירוג, אתר - מוחזרים לדפדפן
 //     ולא נשמרים. כל צפייה היא קריאה, וזה המחיר של לא לשמור.
 //   - עד 3 עמודים של 20. עיר עם יותר מ-60 משרדים מסומנת capped.
@@ -71,13 +72,29 @@ export type PlaceLite = {
   website: string | null;
   maps_url: string | null;
   status: string | null;
+  locality: string | null;
 };
 
-const SCAN_MASK = "places.id,nextPageToken";
+// רכיבי הכתובת מעלים את הקריאה מ-SKU של מזהים בלבד ל-SKU של Text Search
+// בתשלום. בסריקה מלאה של שוק אלה עשרות קריאות בחודש - בתוך המכסה החינמית -
+// והמחיר של לא לבקש אותם היה משרד שנספר בשתי ערים.
+const SCAN_MASK = "places.id,places.addressComponents,nextPageToken";
 const LIVE_MASK = [
   "places.id", "places.displayName", "places.formattedAddress", "places.rating",
-  "places.userRatingCount", "places.websiteUri", "places.googleMapsUri", "places.businessStatus", "nextPageToken",
+  "places.userRatingCount", "places.websiteUri", "places.googleMapsUri", "places.businessStatus",
+  "places.addressComponents", "nextPageToken",
 ].join(",");
+
+// היישוב מרכיבי הכתובת: locality (ובלעדיו postal_town). ‏languageCode=he,
+// ולכן השם בעברית - ‏city_id_for_name במסד מפענחת אותו, כולל כינויים.
+export function localityOf(components: unknown): string | null {
+  if (!Array.isArray(components)) return null;
+  const pick = (type: string) =>
+    components.find((c: any) => Array.isArray(c?.types) && c.types.includes(type));
+  const c = pick("locality") ?? pick("postal_town");
+  const name = c?.longText ?? c?.shortText;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
 
 export async function placesSearch(opts: {
   apiKey: string;
@@ -126,6 +143,7 @@ export async function placesSearch(opts: {
         website: p.websiteUri ?? null,
         maps_url: p.googleMapsUri ?? null,
         status: p.businessStatus ?? null,
+        locality: localityOf(p.addressComponents),
       });
     }
     pageToken = data.nextPageToken;
