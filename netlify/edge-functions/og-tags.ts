@@ -193,6 +193,14 @@ type Meta = {
   canonical: string;
   /* רק לכתבה — ‎article:published_time‎ */
   publishedAt?: string;
+  /* ‏נתונים מובנים (JSON-LD) - כרגע לנכס בלבד. ראו "תוכן לסורק" למטה. */
+  jsonLd?: unknown;
+  /* ‏אלמנטים בדף שמתמלאים בטקסט כבר בשרת, לפי id. ה-JS כותב אליהם שוב
+     אחר כך, אותו ערך בדיוק - כך שבדפדפן אין שינוי, ומי שאינו מריץ JS
+     רואה מודעה ולא "-". */
+  fills?: { id: string; text: string }[];
+  /* ‏אלמנטים שה-hidden שלהם יורד יחד עם המילוי (‏descSection) */
+  reveal?: string[];
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -216,10 +224,104 @@ const num = (n: unknown): string => {
   return String(Number(v.toFixed(1)));
 };
 
+/* ---------- תוכן לסורק: מה שמנועי AI ותוצאות עשירות צריכים ----------
+
+   ‏og: מספיק לתצוגה מקדימה בוואטסאפ, אבל לא לשני קוראים אחרים:
+
+   ‏1. **גוגל, לתוצאה עשירה.** בלי נתונים מובנים היא יודעת שיש כאן דף, לא
+      שיש כאן נכס במחיר מסוים עם מספר חדרים. ‏RealEstateListing + Offer
+      אומרים את זה במפורש.
+   ‏2. **מנועי AI** (ChatGPT, Perplexity, Claude) **אינם מריצים JS.** עד
+      9.10.2026 ה-H1 בדף נכס היה "-" והתיאור ריק, כי שניהם נכתבים ב-
+      ‏assets/property.js אחרי הטעינה. סורק כזה ראה כותרת ותיאור קצר
+      בתגיות, וגוף דף ריק - כלומר אין מה לצטט.
+
+   לכן הכותרת והתיאור נכתבים כאן גם לתוך הדף עצמו (‏fills), באותו id
+   שה-JS כותב אליו אחר כך - **אותו ערך בדיוק**, ולכן בדפדפן לא משתנה דבר.
+   בחירת התיאור היא העתק של ‎renderDescription‎: הנוסח השיווקי, חוץ מנוסח
+   מתיישן כשיש תיאור מודעה (‏docs/marketing-description.md).
+
+   ‏**מה שאינו נכנס, בכוונה:** קואורדינטות ומספר בית. הכתובת כאן היא אותה
+   כתובת ממוסכת שבתגיות (‏docs/property-address-privacy.md) - נתונים
+   מובנים הם בדיוק המקום שבו כתובת מלאה הייתה נאספת ונשמרת אצל אחרים. */
+
+const APARTMENT_TYPES = new Set(["דירה", "דירת גן", "גג/פנטהאוז", "דופלקס", "טריפלקס"]);
+const HOUSE_TYPES = new Set(["בית פרטי/קוטג'", "דו משפחתי"]);
+
+/* ‏Accommodation (דירה/בית) נושא חדרים, שטח וקומה; נכס מסחרי או מגרש אינו
+   "מקום לגור בו", ולכן הוא Place - בלי השדות שאינם שייכים לו. */
+function listingSubject(p: Record<string, unknown>, title: string, street: string) {
+  const type = String(p.property_type || "");
+  const kind = APARTMENT_TYPES.has(type) ? "Apartment" : HOUSE_TYPES.has(type) ? "SingleFamilyResidence" : "Place";
+  const subject: Record<string, unknown> = {
+    "@type": kind,
+    name: title,
+    address: {
+      "@type": "PostalAddress",
+      ...(street ? { streetAddress: street } : {}),
+      ...(p.city ? { addressLocality: String(p.city) } : {}),
+      addressCountry: "IL",
+    },
+  };
+  if (kind !== "Place") {
+    const rooms = num(p.rooms);
+    if (rooms) subject.numberOfRooms = Number(rooms);
+    const size = num(p.size_sqm);
+    if (size) subject.floorSize = { "@type": "QuantitativeValue", value: Number(size), unitCode: "MTK" };
+    if (p.floor !== null && p.floor !== undefined && String(p.floor).trim() !== "") {
+      subject.floorLevel = String(p.floor);
+    }
+  }
+  return subject;
+}
+
+function listingJsonLd(
+  p: Record<string, unknown>, url: string, title: string, description: string,
+  images: string[], street: string,
+) {
+  const price = Number(p.price);
+  const listing: Record<string, unknown> = {
+    "@type": "RealEstateListing",
+    "@id": `${url}#listing`,
+    url,
+    name: title,
+    inLanguage: "he",
+    about: listingSubject(p, title, street),
+  };
+  if (description) listing.description = clamp(description, 500);
+  if (images.length) listing.image = images;
+  if (p.updated_at) listing.dateModified = String(p.updated_at);
+  if (Number.isFinite(price) && price > 0) {
+    listing.offers = {
+      "@type": "Offer",
+      price,
+      priceCurrency: "ILS",
+      availability: "https://schema.org/InStock",
+      businessFunction: p.deal_type === "rent"
+        ? "http://purl.org/goodrelations/v1#LeaseOut"
+        : "http://purl.org/goodrelations/v1#Sell",
+    };
+  }
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      listing,
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE}/` },
+          { "@type": "ListItem", position: 2, name: title },
+        ],
+      },
+    ],
+  };
+}
+
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
-    "rooms,size_sqm,status,neighborhoods(name)";
+    "rooms,size_sqm,status,neighborhoods(name)," +
+    "description,marketing_description,marketing_description_stale,property_type,floor,updated_at";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
@@ -240,11 +342,25 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   ].filter(Boolean);
 
   const images = Array.isArray(p.images) ? p.images : [];
+
+  // ‏העתק של renderDescription ב-assets/property.js - ראו "תוכן לסורק"
+  const marketing = p.marketing_description_stale && p.description ? "" : p.marketing_description;
+  const body = String(marketing || p.description || "").trim();
+
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: clamp(bits.join(" · "), 200),
     image: absolute(images[0]) || DEFAULT_IMAGE,
     canonical,
+    jsonLd: listingJsonLd(
+      p, canonical, title, body,
+      images.slice(0, 6).map(absolute).filter(Boolean), street,
+    ),
+    fills: [
+      { id: "propTitle", text: title },
+      { id: "propDescription", text: body },
+    ],
+    reveal: body ? ["descSection"] : [],
   };
 }
 
@@ -408,6 +524,19 @@ function fillById(html: string, id: string, value: string): string | null {
   return html.replace(re, tag);
 }
 
+/* ‏מילוי טקסט של אלמנט פשוט לפי id - ‎<h1 id="propTitle">-</h1>‎. רק
+   אלמנט שאין בתוכו תגיות: מבנה אחר בדף לא נדרס, ופשוט נשאר כמו שהוא. */
+function fillText(html: string, id: string, text: string): string {
+  if (!text) return html;
+  const re = new RegExp(`(<([a-z0-9]+)\\b[^>]*\\bid="${id}"[^>]*>)[^<]*(</\\2>)`, "i");
+  return html.replace(re, (_m, open, _tag, close) => `${open}${esc(text)}${close}`);
+}
+
+function unhide(html: string, id: string): string {
+  const re = new RegExp(`<[a-z0-9]+\\b[^>]*\\bid="${id}"[^>]*>`, "i");
+  return html.replace(re, (tag) => tag.replace(/\s+hidden(?=[\s>])/i, ""));
+}
+
 /* התגיות שממולאות לפי id כשהן כבר בדף, ונכתבות מחדש כשאינן. */
 const BY_ID: [string, (m: Meta) => string, string][] = [
   ["metaDescription", (m) => m.description, `<meta name="description" content="%s">`],
@@ -451,6 +580,14 @@ function inject(html: string, m: Meta): string {
 
   // ‏<title> הקיים מוחלף, וגם הוא ממוסך — הוא מה שנראה בלשונית ובשיתוף
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(m.title)}</title>`);
+
+  for (const f of m.fills || []) out = fillText(out, f.id, f.text);
+  for (const id of m.reveal || []) out = unhide(out, id);
+  if (m.jsonLd) {
+    // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח
+    const json = JSON.stringify(m.jsonLd).replace(/</g, "\\u003c");
+    add.push(`<script type="application/ld+json">${json}</script>`);
+  }
 
   // מה שנשאר נכנס מיד לפני </head>, אחרי ה-title ואחרי GTM
   return out.replace(/<\/head>/i, `${add.join("\n")}\n</head>`);
