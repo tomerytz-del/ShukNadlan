@@ -25287,6 +25287,9 @@ let gadsAccount = null;
 // שגיאות גוגל שכדאי לתרגם לפעולה. ‏code מגיע מ-_shared/google-ads.ts.
 function gadsErrText(e){
   const code = (e && e.data && e.data.code) || '';
+  // מאז 2026 רמת הגישה יושבת גם על פרויקט ה-Cloud, לא רק על ה-Developer token:
+  // טוקן ברמת Explorer בפרויקט שלא ביקש גישה עדיין נדחה כ"test accounts only".
+  if (/Cloud project is only approved for use with test accounts/i.test((e && e.message) || '')) return 'פרויקט ה-Google Cloud עוד מאושר רק לחשבונות בדיקה. ב-Google Cloud ← APIs & Services ← Google Ads API ← Access levels ← Manage, מבקשים גישת Explorer (או Basic) לפרויקט.';
   if (code === 'invalid_grant') return 'ה-Refresh token פג או בוטל. מפיקים חדש ב-OAuth Playground, ובודקים שמסך ההסכמה במצב In production.';
   if (/DEVELOPER_TOKEN_NOT_APPROVED|DEVELOPER_TOKEN_PROHIBITED/.test(code)) return 'ה-Developer token עוד לא מאושר לחשבון אמיתי - ממתינים לאישור Basic access.';
   if (/USER_PERMISSION_DENIED|CUSTOMER_NOT_ENABLED/.test(code)) return 'למשתמש שהפיק את ה-Refresh token אין גישה לחשבון, או שחשבון הפרסום לא מקושר לחשבון המנהל.';

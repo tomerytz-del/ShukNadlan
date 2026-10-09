@@ -309,6 +309,11 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | OAuth | פרויקט Cloud ‏`shuknadlan-maps`, ‏Google Ads API מופעל, מסך הסכמה **In production** (ב-Testing ה-refresh token פג אחרי 7 ימים), scope ‏`adwords`, לקוח Web עם redirect ל-OAuth Playground |
 | סודות | `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`, `GOOGLE_ADS_LOGIN_CUSTOMER_ID` (המנהל), `GOOGLE_ADS_CUSTOMER_ID` (הפרסום). מספרים עם או בלי מקפים |
 
+**ורמת הגישה כפולה:** גם ה-Developer token (מרכז ה-API) וגם פרויקט ה-Cloud
+(‏Google Ads API ← Access levels ← Manage). בבדיקה הראשונה, 9.10.2026, הטוקן
+היה ברמת Explorer והפרויקט לא ביקש גישה, וגוגל ענתה "The Google Cloud project
+is only approved for use with test accounts". הלשונית מתרגמת את השגיאה הזו.
+
 **מלכודת שנתפסה בהגדרה:** לחשבון בעל אותו מייל יכולות להיות שתי התחברויות
 גוגל שונות (‏`euid` שונה בכתובת), וכל אחת רואה רשימת חשבונות אחרת. ה-refresh
 token מופק מההתחברות **שבה יושב חשבון המנהל**, אחרת `USER_PERMISSION_DENIED`.
