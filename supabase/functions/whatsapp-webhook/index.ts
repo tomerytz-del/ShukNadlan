@@ -636,6 +636,28 @@ function siteEntryOf(text: string): string {
   return "direct";
 }
 
+/* מאיזו מודעה - שני מקורות, וזה שמגיע מ-Meta גובר:
+   1. מודעת "שליחת הודעה בוואטסאפ" במטא (click-to-WhatsApp): Meta מצמידה
+      להודעה הראשונה `referral` עם `source_type: "ad"` ו-`source_id` = מזהה
+      המודעה. לא תלוי בטקסט, ולכן שורד גם מי שמחק/ה את ההודעה המוכנה.
+      הכניסה נחתמת `ad` (לא "מהאתר" - הפונה לא עבר/ה באתר).
+   2. מודעה שנחתה באתר: ‏assets/bot-link.js מוסיף להודעת הפתיחה
+      "(מודעה <מקור>:<קמפיין>[:<גרסה>])" מה-UTM של דף הנחיתה. הכניסה נשארת
+      לפי הכפתור (‏homepage וכו'), והקוד נשמר לצידה.
+   התווים מוגבלים כאן ובמסד (‏whatsapp_messages_public_entry_ref_check): זה
+   שם קמפיין, וטקסט חופשי של פונה אינו נכנס לעמודה הזו.
+   ‏docs/whatsapp-public-bot.md, "מאיזו מודעה". */
+const AD_REF_RE = /\(מודעה ([a-z0-9._-]{1,30}:[a-z0-9._-]{1,30}(?::[a-z0-9._-]{1,30})?)\)/;
+
+function adEntryOf(msg: Record<string, any>, text: string): { entry: string | null; ref: string | null } {
+  const r = msg?.referral;
+  if (r && r.source_type === "ad" && /^\d{5,25}$/.test(String(r.source_id || ""))) {
+    return { entry: "ad", ref: "meta:" + String(r.source_id) };
+  }
+  const m = text.match(AD_REF_RE);
+  return { entry: null, ref: m ? m[1] : null };
+}
+
 /**
  * פונה שאינו סוכן/ת. הכול כאן קריאה בלבד: אין שמירת מדיה, אין כתיבה לנכסים,
  * ואין נגיעה בנתוני סוכנים — למעט מה שממילא פתוח באתר.
@@ -703,11 +725,20 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   // היסטוריה ריקה = פנייה חדשה (גם אחרי 12 שעות שקט). זה מה שנספר בפאנל
   // "פניות לגבריאלה" ב-crm, ולכן נחתם עכשיו: ה-body נמחק אחרי 30 יום.
   if (!conv.history.length) {
-    const { error } = await supabase.from("whatsapp_messages")
-      .update({ public_entry: siteEntryOf(userText) })
-      .eq("wa_message_id", msg.id);
+    const ad = adEntryOf(msg, userText);
+    const stamp: Record<string, string> = { public_entry: ad.entry || siteEntryOf(userText) };
+    if (ad.ref) stamp.public_entry_ref = ad.ref;
+    let { error } = await supabase.from("whatsapp_messages").update(stamp).eq("wa_message_id", msg.id);
+    // עמודה או ערך שעוד לא במסד (הפונקציה נפרסה לפני המיגרציה): חותמים
+    // לפחות את מה שהיה נחתם קודם, ולא מאבדים את הפנייה.
+    if (error && (ad.ref || ad.entry)) {
+      ({ error } = await supabase.from("whatsapp_messages")
+        .update({ public_entry: siteEntryOf(userText) }).eq("wa_message_id", msg.id));
+    }
     if (error) console.error("public entry stamp failed", error);
   }
+  // הקוד נחתם; לגבריאלה הוא רעש, והיא עלולה לצטט אותו לפונה.
+  userText = userText.replace(AD_REF_RE, "").trim() || userText;
 
   let answer: string;
   let shareContact = false;

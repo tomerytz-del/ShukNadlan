@@ -50,11 +50,43 @@
 
   function enabled() { return ENABLED; }
 
+  /* ------------------------------------------------------------------
+     מאיזו מודעה הגיע/ה הגולש/ת
+     ------------------------------------------------------------------
+     מודעה בגוגל או במטא נוחתת עם utm_source / utm_campaign / utm_content.
+     הקוד נשמר ל-sessionStorage בנחיתה (הגולש/ת עובר/ת דף לפני שכותב/ת),
+     ונוסף להודעת הפתיחה כ-"(מודעה google:commercial)". ‏siteEntryOf ב-
+     whatsapp-webhook חותם אותו ב-whatsapp_messages.public_entry_ref, וכך
+     בדיקת A/B נמדדת בשיחות ובלידים ולא רק בלחיצות. רק אותיות לטיניות,
+     ספרות ו-._- - שם קמפיין, לא פרט אישי.
+     ‏docs/whatsapp-public-bot.md, "מאיזו מודעה". */
+  var AD_REF_KEY = 'shukAdRef';
+  function cleanRef(v) {
+    return String(v || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30);
+  }
+  function adRef() {
+    try {
+      var q = new URLSearchParams(global.location.search);
+      var src = cleanRef(q.get('utm_source'));
+      var camp = cleanRef(q.get('utm_campaign'));
+      if (src && camp) {
+        var ref = src + ':' + camp + (cleanRef(q.get('utm_content')) ? ':' + cleanRef(q.get('utm_content')) : '');
+        global.sessionStorage.setItem(AD_REF_KEY, ref);
+        return ref;
+      }
+      return global.sessionStorage.getItem(AD_REF_KEY) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+  var AD_REF = adRef();
+
   /* מחזירה כתובת wa.me עם הודעת פתיחה. ‏null כשהעוזר כבוי — כדי שהקורא
      יידע לא לצייר כפתור, במקום לצייר כפתור שמוביל לתשובה "איני מזהה". */
   function link(hello) {
     if (!ENABLED) return null;
     var text = String(hello || '').trim() || FALLBACK_HELLO;
+    if (AD_REF) text += ' (מודעה ' + AD_REF + ')';
     return 'https://wa.me/' + NUMBER + '?text=' + encodeURIComponent(text);
   }
 

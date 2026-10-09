@@ -3691,6 +3691,7 @@ const GAB_ENTRY_LABELS = {
   'search_empty': ['חיפוש שלא מצא תוצאות', 'הכפתור במסך אפס התוצאות'],
   'site':         ['כפתור אחר באתר', 'הודעת ברירת המחדל'],
   'direct':       ['ישירות, לא מהאתר', 'מספר שמור, כרטיס איש קשר, או הודעה שנכתבה מחדש'],
+  'ad':           ['מודעת וואטסאפ במטא', 'לחיצה על מודעה שפותחת שיחה, בלי לעבור באתר'],
 };
 const GAB_DAYS_SHOWN = 14;
 
@@ -3801,8 +3802,46 @@ async function loadAdminGabrielaReport(){
     }
   }
 
+  await gabRenderAdsFunnel(block, days);
   host.appendChild(block);
   dashPanelsMeasure();
+}
+
+/* לפי מודעה: מה שבדיקת A/B צריכה. מטא וגוגל סופרות לחיצות; כאן נספר מה
+   קרה אחרי הלחיצה - שיחה, חיפוש שמור, הסכמה למתווך/ת, ליד שנמכר. ‏ref הוא
+   ‏meta:<מזהה מודעה> ממודעת וואטסאפ, או <מקור>:<קמפיין>[:<גרסה>] מה-UTM.
+   ‏docs/whatsapp-public-bot.md, "מאיזו מודעה". */
+async function gabRenderAdsFunnel(block, days){
+  const { data, error } = await sb.rpc('platform_gabriela_ads_report', { p_days: days });
+  if (error){
+    if (error.code !== '42883' && error.code !== 'PGRST202') block.appendChild(admEl('div', 'empty-state', 'שגיאה בטעינת הפניות לפי מודעה: ' + heErr(error)));
+    return;
+  }
+  const rows = (data && Array.isArray(data.rows)) ? data.rows : [];
+  block.appendChild(admEl('p', 'adm-legend', 'לפי מודעה'));
+  if (!rows.length){
+    block.appendChild(admEl('p', 'adm-note', 'עדיין אין פניות ממודעות. מודעה שנוחתת באתר צריכה utm_source ו-utm_campaign בכתובת; מודעת וואטסאפ במטא מזוהה לבד.'));
+    return;
+  }
+  const wrap = admEl('div', 'adm-table-wrap');
+  const table = admEl('table', 'adm-table');
+  const hrow = admEl('tr');
+  ['מודעה', 'פניות', 'אנשים', 'חיפוש שמור', 'הסכמה למתווך/ת', 'נמכר', 'מפנייה לחיפוש'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+  table.appendChild(hrow);
+  rows.forEach(r => {
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, r.ref + (r.direct_from_ad ? ' · וואטסאפ' : '')));
+    tr.appendChild(admEl('td', 'num', admInt(r.inquiries)));
+    tr.appendChild(admEl('td', 'num', admInt(r.people)));
+    tr.appendChild(admEl('td', 'num', admInt(r.saved_searches)));
+    tr.appendChild(admEl('td', 'num', admInt(r.agent_consent)));
+    tr.appendChild(admEl('td', 'num', admInt(r.sold)));
+    tr.appendChild(admEl('td', 'num', r.people ? Math.round(r.saved_searches / r.people * 100) + '%' : '-'));
+    table.appendChild(tr);
+  });
+  wrap.appendChild(table);
+  block.appendChild(wrap);
+  block.appendChild(admEl('p', 'adm-note', 'חיפוש שמור נזקף למודעה האחרונה שקדמה לו מאותו טלפון, עד 14 יום. בבדיקת A/B משווים את העמודה האחרונה, לא את הלחיצות.'));
 }
 
 function renderAdminReport(report){

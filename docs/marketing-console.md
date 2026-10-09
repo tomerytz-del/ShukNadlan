@@ -285,6 +285,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | 7א | Google Ads, חיבור וקריאה בלבד: `_shared/google-ads.ts` (‏access token מ-refresh token ושאילתת GAQL ב-`searchStream`, בלי ספרייה - הרשמית היא gRPC), הפעולות `google_status` ו-`google_campaigns` ב-`ads-admin`, והלשונית "גוגל" (סטטוס, אריחי הוצאה/קליקים/המרות, טבלת קמפיינים ל-7/30/90 יום) | **ב-`ads-admin` ולא בפונקציה נפרדת:** אותו אימות מנהל/ת, אותו יומן ואותו CORS. ה-cron אינו מורשה להן. הגרסה `v25` (‏`GOOGLE_ADS_API_VERSION` גובר - גוגל סוגרת גרסה כשנה אחרי שיצאה). שגיאות שמתורגמות לפעולה: `invalid_grant` (מסך ההסכמה ב-Testing מבטל את הטוקן אחרי 7 ימים), `DEVELOPER_TOKEN_NOT_APPROVED`, `USER_PERMISSION_DENIED`, ו"Cloud project is only approved for use with test accounts". נבדק מול החשבון האמיתי ב-9.10.2026 (Explorer לטוקן ולפרויקט) |
 | 7ב | Keyword Planner לפי כיוון פרסום: `keywordIdeas()` ב-`_shared/google-ads.ts` (‏`:generateKeywordIdeas`, עברית, ישראל), הכיוונים ב-`ads-admin/google-directions.ts`, הפעולות `google_directions` ו-`google_keyword_ideas`, ובלשונית "גוגל" בחירת כיוון ושוק, טבלת נפח/תחרות/מחיר לקליק, רשימה בהתאמת ביטוי להעתקה ומילות שלילה | ראו "כיווני הפרסום בגוגל" למטה. שליפה בלחיצה ולא בפתיחת הלשונית - כל בקשה היא פעולה מהמכסה היומית של Explorer |
 | 7ג | קמפיין חיפוש מושהה מכיוון: `ads-admin/google-campaign.ts` בונה את כל הקמפיין כבקשת `googleAds:mutate` אחת (תקציב, קמפיין `PAUSED`, רדיוס סביב העיר הראשית, עברית, מילות שלילה, קבוצת מודעות, מילים בהתאמת ביטוי ומודעה רספונסיבית `ENABLED`). הפעולות `google_create_campaign` ו-`google_set_status`, ובלשונית "גוגל" טופס מתחת לתוצאות ה-Keyword Planner וכפתור השהיה/הפעלה בטבלת הקמפיינים | ראו "קמפיין חיפוש בגוגל" למטה. ה-dry_run הוא `validateOnly` של גוגל. ביומן `ads_actions_log` - גם כשנכשל |
+| 7ד | ייחוס מודעה לשיחה עם גבריאלה: `whatsapp_messages.public_entry_ref` (‏`meta:<ad_id>` מ-`referral` של מודעת וואטסאפ, או `<מקור>:<קמפיין>[:<גרסה>]` מה-UTM דרך `bot-link.js`), ו-`platform_gabriela_ads_report` - פניות, אנשים, חיפוש שמור, הסכמה למתווך/ת ונמכר לכל מודעה | הבסיס לבדיקות A/B: המנצחת נבחרת לפי ליד ולא לפי לחיצה. ‏`docs/whatsapp-public-bot.md`, "מאיזו מודעה" |
 
 ## הסקיל `meta-ads`
 
@@ -342,7 +343,7 @@ token מופק מההתחברות **שבה יושב חשבון המנהל**, א�
 
 **גבריאלה מתוך מודעה:** הקליק בגוגל נוחת באתר, ולא ישר בוואטסאפ - כתובת
 `wa.me` כיעד של מודעת חיפוש סותרת את כלל היעד של גוגל, ולא נמדדת כהמרה.
-המסלול לשיחה הוא דף הנחיתה, ובשלב הבא (7ד) הוא יקבל הודעת פתיחה משלו (ביטוי חדש
+המסלול לשיחה הוא דף הנחיתה, ומ-7ד הודעת הפתיחה נושאת את קוד המודעה (ביטוי חדש
 ב-`SITE_ENTRY_PHRASES`, ‏`docs/whatsapp-public-bot.md`), כדי ששיחה שהתחילה
 ממודעה תיספר בנפרד ולא תיבלע ב-`homepage`. בשוק עם היצע מסחרי קטן זה
 המסלול העיקרי: פונה שלא מצא/ה חנות מתאימה משאיר/ה בקשה, והמתווכים מקבלים ליד.
