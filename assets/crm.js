@@ -26018,7 +26018,9 @@ async function loadIntelReport(){
       scan.disabled = true;
       try{
         const res = await adsCall('intel_places_scan', { city_id: r.city_id });
-        showToast(res.city + ': ' + res.offices + (res.capped ? ' ומעלה' : '') + ' משרדים');
+        const moved = res.assigned ? (res.assigned.other_city || 0) : 0;
+        showToast(res.city + ': ' + res.offices + (res.capped ? ' ומעלה' : '') + ' משרדים' +
+          (moved ? ' (' + moved + ' שנמצאו בסריקה שויכו לערים השכנות לפי הכתובת)' : ''), 5200);
         loadIntelReport();
       }catch(e){ showToast(intelErr(e), 6000); }
       finally{ scan.disabled = false; }
@@ -26080,7 +26082,8 @@ async function loadIntelLive(row, btn){
     });
     wrap.appendChild(tbl);
     host.appendChild(wrap);
-    host.appendChild(admEl('p', 'ads-src', 'נתונים: Google Maps. מוצגים בזמן אמת ואינם נשמרים במערכת. "בפלטפורמה" היא התאמת שם משוערת.'));
+    host.appendChild(admEl('p', 'ads-src', 'נתונים: Google Maps. מוצגים בזמן אמת ואינם נשמרים במערכת. "בפלטפורמה" היא התאמת שם משוערת.' +
+      (res.other_city ? ' ' + res.other_city + ' משרדים שגוגל החזירה בסביבה נמצאים לפי הכתובת בעיר אחרת, ומופיעים שם.' : '')));
   }catch(e){
     host.innerHTML = '';
     host.appendChild(admEl('div', 'empty-state', intelErr(e)));
