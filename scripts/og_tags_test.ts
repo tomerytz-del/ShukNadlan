@@ -130,8 +130,90 @@ for (const c of CASES) {
   console.log(`${ok ? "✓" : "✗"} ${c.name.padEnd(34)} ציפינו ל-${c.expect}, קיבלנו ${got}`);
 }
 
+/* ---------------------------------------------------------------------------
+   ‏תוכן לסורק בדף נכס: JSON-LD, וה-H1 והתיאור כבר ב-HTML
+   ---------------------------------------------------------------------------
+   ‏מנועי AI אינם מריצים JS, ולכן מה שלא יוצא מהשרת לא קיים בשבילם. וכל
+   שדה כאן הוא טקסט שסוכן/ת הקליד/ה - ולכן גם הבריחה נבדקת, וגם שמספר
+   הבית לא דולף לנתונים המובנים. */
+const PROP_PAGE =
+  `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>` +
+  `<h1 class="prop-title" id="propTitle">-</h1>` +
+  `<div class="desc-block" id="descSection" hidden>` +
+  `<p class="prop-desc" id="propDescription"></p></div></body></html>`;
+
+const RICH = {
+  ...PROPERTY,
+  property_type: "דירה",
+  floor: 3,
+  updated_at: "2026-10-01T10:00:00+00:00",
+  description: "תיאור ישן",
+  marketing_description: "דירה מוארת </script><script>alert(1)</script> ליד הפארק",
+  marketing_description_stale: false,
+};
+
+async function render(row: unknown): Promise<string> {
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(row), { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const ctx = {
+    next: async () => new Response(PROP_PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never;
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=9"), ctx);
+  return res.text();
+}
+
+const checks: [string, (html: string) => boolean][] = [];
+const richHtml = await render(RICH);
+const ld = (() => {
+  const m = richHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+})();
+const listing = ld?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "RealEstateListing");
+
+checks.push(
+  ["JSON-LD נפרס כ-JSON תקין", () => !!ld],
+  ["‏RealEstateListing עם מחיר ב-ILS", () => listing?.offers?.price === 1500000 && listing?.offers?.priceCurrency === "ILS"],
+  ["‏Apartment עם 4 חדרים, 100 מ״ר וקומה 3", () =>
+    listing?.about?.["@type"] === "Apartment" && listing?.about?.numberOfRooms === 4 &&
+    listing?.about?.floorSize?.value === 100 && listing?.about?.floorLevel === "3"],
+  ["‏BreadcrumbList", () => ld?.["@graph"]?.some((n: { "@type": string }) => n["@type"] === "BreadcrumbList")],
+  ["מספר הבית אינו בנתונים המובנים", () => !/הרצל 12/.test(JSON.stringify(ld))],
+  ["‏</script> מתיאור אינו סוגר את התגית", (h) => (h.match(/<script/g) || []).length === 1],
+  ["‏H1 מלא בכותרת ממוסכת", (h) => /<h1 class="prop-title" id="propTitle">דירת 4 חדרים ברחוב הרצל<\/h1>/.test(h)],
+  ["התיאור השיווקי בגוף הדף, מוברח", (h) => /id="propDescription">דירה מוארת &lt;\/script&gt;/.test(h)],
+  ["‏descSection נחשף", (h) => /<div class="desc-block" id="descSection">/.test(h)],
+);
+
+for (const [name, ok] of checks) {
+  const pass = ok(richHtml);
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+/* נוסח מתיישן: תיאור המודעה עדיף - כמו renderDescription */
+const staleHtml = await render({ ...RICH, marketing_description_stale: true });
+const stalePass = /id="propDescription">תיאור ישן</.test(staleHtml);
+if (!stalePass) failed++;
+console.log(`${stalePass ? "✓" : "✗"} נוסח שיווקי מתיישן מוחלף בתיאור המודעה`);
+
+/* נכס מסחרי: Place, בלי חדרים */
+const shopHtml = await render({ ...RICH, property_type: "חנויות/שטח מסחרי" });
+const shopLd = JSON.parse(shopHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+const shop = shopLd["@graph"][0].about;
+const shopPass = shop["@type"] === "Place" && shop.numberOfRooms === undefined;
+if (!shopPass) failed++;
+console.log(`${shopPass ? "✓" : "✗"} נכס מסחרי הוא Place בלי חדרים`);
+
+/* בלי תיאור: הבלוק נשאר מוסתר, כמו ב-JS */
+const bareHtml = await render({ ...RICH, description: null, marketing_description: null });
+const barePass = /id="descSection" hidden>/.test(bareHtml);
+if (!barePass) failed++;
+console.log(`${barePass ? "✓" : "✗"} בלי תיאור הבלוק נשאר מוסתר`);
+
+const total = CASES.length + checks.length + 3;
 if (failed) {
-  console.error(`\n✗ ${failed} מתוך ${CASES.length} מקרים התנהגו אחרת.`);
+  console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);
 }
-console.log(`\n✓ ${CASES.length} מקרים: הרשומה שאינה קיימת מקבלת noindex, והכשל הזמני אינו.`);
+console.log(`\n✓ ${total} מקרים: הרשומה שאינה קיימת מקבלת noindex, הכשל הזמני אינו, ודף נכס יוצא עם תוכן לסורק.`);
