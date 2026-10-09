@@ -155,6 +155,15 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 ו-`publicAddressText` ב-`property.html`. הכלל והנימוק:
 `docs/property-address-privacy.md`.
 
+### ‏6א. דף שמוגש גם תחת נתיב (`/deals/afula`)
+
+שורת `200` ב-`_redirects` שמגישה את הדף תחת תת-נתיב שוברת כל כתובת
+יחסית בו: ‏`assets/x.js` נפתר ל-`/deals/assets/x.js`, והדף נטען בלי
+עיצוב ובלי JS. ‏`<base href="/">` מיד אחרי קטע ה-GTM, לפני כל כתובת
+יחסית, ושאר הדף נשאר כמו בכל האתר. ה-canonical של כל נתיב מוזרק מה-
+Edge Function **מהכתובת עצמה**, לא מתשובת המסד. הדוגמה: `deals.html`
+(הסקיל `settlement-deals`).
+
 ### 7. האם הדף צריך להיסרק
 
 **דף פרטי** (אזור אישי, חתימה, קישור עם טוקן) נוסף ל-`robots.txt` **בשתי
