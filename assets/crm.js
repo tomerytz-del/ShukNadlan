@@ -30200,7 +30200,7 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
     document.getElementById('dealsImportPaste').value = '';
     document.getElementById('dealsImportPreview').innerHTML = '';
     dealsImportParsed = [];
-    await loadDealsCoverage();
+    await Promise.all([loadDealsCoverage(), loadDealsPriorities()]);
   } catch(err){
     alert('הייבוא נכשל: ' + (heErr(err) || err));
   } finally {
@@ -30454,8 +30454,130 @@ document.getElementById('govmapBackfillBtn')?.addEventListener('click', runGovma
 document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDeals);
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
+/* ---------- ערים לייבוא, לפי עדיפות ----------
+   כל עיר בשווקים שלנו, עם המדדים שמחליטים מה לייבא קודם. השורות נטענות פעם
+   אחת, והמיון והסינון רצים כאן בלי לחזור למסד. הציון מגיע מהמסד
+   (deals_import_priorities), כדי שתהיה לו הגדרה אחת. לחיצה על שם העיר
+   ממלאת אותה בשדה "העיר שאליה שייכות העסקאות". */
+let dealsPrioRows = [];
+const dealsPrioState = { sort: 'score', dir: -1, market: '', status: 'need', minPop: 0, q: '' };
+
+function dealsPrioStatus(r){
+  if (!r.deals) return 'missing';
+  const months = r.newest ? (Date.now() - new Date(r.newest).getTime()) / 2592000000 : 99;
+  return months >= 3 ? 'stale' : 'ok';
+}
+const DEALS_PRIO_STATUS = { missing: ['אין עסקאות', 'var(--danger,#c0392b)'], stale: ['ישן', '#b7791f'], ok: ['מעודכן', 'var(--muted)'] };
+const DEALS_PRIO_COLS = [
+  ['city', 'עיר'], ['market', 'שוק'], ['status', 'מצב'], ['score', 'עדיפות'], ['population', 'תושבים'],
+  ['deals', 'עסקאות'], ['newest', 'אחרונה'], ['registry', 'מתווכים ברשם'], ['active_props', 'נכסים אצלנו'],
+  ['agencies', 'משרדים אצלנו'], ['gap_hits', 'חיפושים ריקים'],
+];
+
+async function loadDealsPriorities(){
+  const box = document.getElementById('dealsPriorities');
+  if (!box || !sb) return;
+  box.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data, error } = await sb.rpc('deals_import_priorities');
+  if (error){
+    box.innerHTML = '<p class="acc-sub">' + ((error.code === '42883' || error.code === 'PGRST202')
+      ? 'הרשימה עוד לא קיימת במסד - המיגרציה 20270327090000.'
+      : 'שגיאה בטעינת הרשימה: ' + escapeHtml(heErr(error))) + '</p>';
+    return;
+  }
+  const label = {};
+  marketList().forEach(m => { label[m.slug] = m.label + (m.live ? '' : ' (בקרוב)'); });
+  dealsPrioRows = (data || []).map(r => Object.assign({}, r, { market: label[r.market_slug] || r.market_slug, status: dealsPrioStatus(r) }));
+  renderDealsPriorities();
+}
+
+function renderDealsPriorities(){
+  const box = document.getElementById('dealsPriorities');
+  if (!box) return;
+  const st = dealsPrioState;
+  const markets = [...new Set(dealsPrioRows.map(r => r.market_slug))];
+  const q = st.q.trim();
+  const rows = dealsPrioRows.filter(r =>
+    (!st.market || r.market_slug === st.market) &&
+    (st.status === 'all' || (st.status === 'need' ? r.status !== 'ok' : r.status === st.status)) &&
+    (r.population || 0) >= st.minPop &&
+    (!q || String(r.city).includes(q)));
+  const rank = { missing: 0, stale: 1, ok: 2 };
+  rows.sort((a, b) => {
+    let x = a[st.sort], y = b[st.sort];
+    if (st.sort === 'status'){ x = rank[x]; y = rank[y]; }
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;            // ריק תמיד בסוף, בשני הכיוונים
+    if (y == null) return -1;
+    return (typeof x === 'string' ? x.localeCompare(y, 'he') : x - y) * st.dir;
+  });
+  const missing = dealsPrioRows.filter(r => r.status === 'missing');
+  const opt = (v, t, cur) => `<option value="${escapeHtml(v)}"${v === cur ? ' selected' : ''}>${escapeHtml(t)}</option>`;
+  const ctl = 'border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:7px 9px;font-family:inherit';
+  box.innerHTML = `
+    <p class="acc-sub"><strong>ערים לייבוא לפי עדיפות</strong> ·
+      ${escapeHtml(String(missing.length))} מתוך ${escapeHtml(String(dealsPrioRows.length))} ערים בשווקים בלי אף עסקה
+      (${escapeHtml(admInt(missing.reduce((s, r) => s + (r.population || 0), 0)))} תושבים).
+      לחיצה על עיר ממלאת אותה בשדה למעלה.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select data-prio="market" style="${ctl}">${opt('', 'כל השווקים', st.market)}${markets.map(s => opt(s, (dealsPrioRows.find(r => r.market_slug === s) || {}).market || s, st.market)).join('')}</select>
+      <select data-prio="status" style="${ctl}">${opt('need', 'דורש ייבוא', st.status)}${opt('missing', 'אין עסקאות', st.status)}${opt('stale', 'ישן (3 חודשים+)', st.status)}${opt('ok', 'מעודכן', st.status)}${opt('all', 'הכל', st.status)}</select>
+      <select data-prio="minPop" style="${ctl}">${[0, 2000, 5000, 10000, 20000, 50000].map(n => opt(String(n), n ? 'מ-' + admInt(n) + ' תושבים' : 'כל גודל', String(st.minPop))).join('')}</select>
+      <input type="search" data-prio="q" value="${escapeHtml(st.q)}" placeholder="חיפוש עיר" style="${ctl};min-width:130px">
+      <span class="acc-sub" style="align-self:center;margin:0">${escapeHtml(String(rows.length))} ערים</span>
+    </div>
+    <div class="adm-table-wrap"><table class="adm-table"><tr>${DEALS_PRIO_COLS.map(([k, t]) =>
+      `<th><button type="button" data-prio-sort="${k}" style="all:unset;cursor:pointer;font-weight:700">${escapeHtml(t)}${st.sort === k ? (st.dir < 0 ? ' ▼' : ' ▲') : ''}</button></th>`).join('')}</tr>
+    ${rows.map(r => {
+      const [stText, stColor] = DEALS_PRIO_STATUS[r.status];
+      return `<tr>
+        <td><button type="button" data-prio-city="${escapeHtml(r.city)}" style="all:unset;cursor:pointer;color:var(--gold-dark);font-weight:700">${escapeHtml(r.city)}</button></td>
+        <td>${escapeHtml(r.market || '')}</td>
+        <td style="color:${stColor}">${escapeHtml(stText)}</td>
+        <td class="num">${escapeHtml(admInt(r.score))}</td>
+        <td class="num">${r.population != null ? escapeHtml(admInt(r.population)) : '-'}</td>
+        <td class="num">${escapeHtml(admInt(r.deals))}</td>
+        <td class="num">${escapeHtml(r.newest || '-')}</td>
+        <td class="num">${r.registry != null ? escapeHtml(admInt(r.registry)) : '-'}</td>
+        <td class="num">${escapeHtml(admInt(r.active_props))}</td>
+        <td class="num">${escapeHtml(admInt(r.agencies))}</td>
+        <td class="num">${escapeHtml(admInt(r.gap_hits))}</td></tr>`;
+    }).join('')}</table></div>
+    <p class="acc-sub" style="margin-top:8px">העדיפות: תושבים לאלף, ועוד מתווכים ברשם חלקי 5, נכסים אצלנו פי 2 וחיפושי עסקאות שחזרו ריקים פי 3 - כפול 1 לעיר בלי עסקאות, 0.6 לעסקה אחרונה מלפני חצי שנה ויותר, ו-0.3 מלפני 3 חודשים ויותר.</p>`;
+}
+
+document.getElementById('dealsPriorities')?.addEventListener('change', (e)=>{
+  const k = e.target.dataset && e.target.dataset.prio;
+  if (!k || k === 'q') return;
+  dealsPrioState[k] = k === 'minPop' ? Number(e.target.value) || 0 : e.target.value;
+  renderDealsPriorities();
+});
+document.getElementById('dealsPriorities')?.addEventListener('input', (e)=>{
+  if (!e.target.dataset || e.target.dataset.prio !== 'q') return;
+  dealsPrioState.q = e.target.value;
+  const pos = e.target.selectionStart;
+  renderDealsPriorities();
+  const inp = document.querySelector('#dealsPriorities [data-prio="q"]');
+  if (inp){ inp.focus(); try{ inp.setSelectionRange(pos, pos); }catch(_){} }
+});
+document.getElementById('dealsPriorities')?.addEventListener('click', (e)=>{
+  const s = e.target.closest('[data-prio-sort]');
+  if (s){
+    const k = s.dataset.prioSort;
+    if (dealsPrioState.sort === k) dealsPrioState.dir *= -1;
+    else { dealsPrioState.sort = k; dealsPrioState.dir = (k === 'city' || k === 'market' || k === 'status') ? 1 : -1; }
+    renderDealsPriorities();
+    return;
+  }
+  const c = e.target.closest('[data-prio-city]');
+  if (c){
+    const inp = document.getElementById('dealsImportCity');
+    if (inp){ inp.value = c.dataset.prioCity; inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); inp.focus(); }
+  }
+});
+
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
-  if (this.open){ loadDealsCoverage(); loadDealGaps(); }
+  if (this.open){ loadDealsPriorities(); loadDealsCoverage(); loadDealGaps(); }
 });
 
 /* ==========================================================================
