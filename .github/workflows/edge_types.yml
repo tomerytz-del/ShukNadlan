@@ -19,6 +19,7 @@ on:
       - "scripts/check_edge_types.py"
       - "scripts/edge_types_baseline.json"
       - "scripts/catalog_link_test.ts"
+      - "scripts/office_coach_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - "scripts/check_edge_types.py"
       - "scripts/edge_types_baseline.json"
       - "scripts/catalog_link_test.ts"
+      - "scripts/office_coach_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -59,3 +61,8 @@ jobs:
 
       - name: קישור לקטלוג וואטסאפ
         run: node --experimental-strip-types scripts/catalog_link_test.ts
+
+      # ‏המאמן השבועי: מה שיוצא למודל הוא אגרגטים ושמות סוכנים בלבד, ומה
+      # שנשמר הוא עד 3 נקודות בלי מקף ארוך (‏docs/office-coach.md).
+      - name: המאמן השבועי - מה יוצא למודל ומה נשמר
+        run: node --experimental-strip-types scripts/office_coach_test.ts
