@@ -17854,10 +17854,23 @@ function buildLeadCard(lead, agentId, isArchived){
       onClick: btn => claimLead(lead, btn, agentId),
     });
   } else {
+    // חיוג ווואטסאפ ישירות מהכרטיס. מעבר לנוחות, הלחיצה היא הרגע שבו
+    // המערכת יודעת שהסוכן/ת פנה/תה לליד: mark_lead_responded כותב את
+    // first_response_at, וממנו דאשבורד המשרד מודד זמן תגובה. בלי הכפתורים
+    // האלה ליד שנולד פתוח לא היה מגיע לשם לעולם (docs/office-dashboard.md).
+    const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
+    const wa = waLink(lead.display_phone);
+    if (tel.replace(/\D/g, '').length >= 9){
+      addCardAction(actions, { label:'📞 חיוג', href:'tel:' + tel,
+        onClick: () => markLeadResponded(lead) });
+    }
+    if (wa){
+      addCardAction(actions, { label:'💬 וואטסאפ', cls:'btn-share', href: wa, blank:true,
+        onClick: () => markLeadResponded(lead) });
+    }
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
     // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
-    const wa = waLink(lead.display_phone);
     if (wa){
       addCardAction(actions, {
         label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
@@ -17889,6 +17902,16 @@ function buildLeadCard(lead, agentId, isArchived){
     onClick: btn => archiveLead(lead, btn, agentId),
   });
   return el;
+}
+
+/* הפנייה הראשונה לליד. "שגר ושכח": הקישור נפתח מיד, וכשל ברישום לא עוצר
+   שיחה. המסד כותב רק בפעם הראשונה ורק לבעלי הליד, ולכן לחיצה חוזרת אינה
+   מזיזה את זמן התגובה. */
+function markLeadResponded(lead){
+  if (!lead || !lead.id || lead._responded) return;
+  lead._responded = true;
+  sb.rpc('mark_lead_responded', { p_lead: lead.id })
+    .then(({ error }) => { if (error) console.warn('רישום הפנייה לליד נכשל:', error.message); });
 }
 
 /* ‏origin + נתיב מוחלט. הכתובת נבנתה כאן פעם בהחלפת 'crm.html' בנתיב,
