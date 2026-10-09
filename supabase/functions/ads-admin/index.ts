@@ -600,15 +600,18 @@ async function actionPlacesScan(sb: SupabaseClient, body: any) {
     return placesErrorResponse(e);
   }
   const now = new Date().toISOString();
-  if (r.places.length) {
-    const { error } = await sb.from("market_intel_places").upsert(
-      r.places.map((p) => ({ place_id: p.id, city_id: city.id, last_seen: now })), { onConflict: "place_id" });
-    if (error) return json({ error: "db_error", detail: error.message }, 500);
-  }
+  // כל משרד נרשם לעיר שבכתובת שלו, ולא לעיר שנסרקה: הסריקה מחפשת סביב
+  // מרכז העיר, ומשרד בעיר השכנה חוזר גם בה (20270324090000).
+  const { data: stored, error } = await sb.rpc("market_intel_store_places", {
+    p_places: r.places.map((p) => ({ id: p.id, locality: p.locality })),
+    p_scanned_city: city.id,
+  });
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
   const { error: sErr } = await sb.from("market_intel_scans")
     .upsert({ city_id: city.id, offices: r.places.length, capped: r.capped, scanned_at: now }, { onConflict: "city_id" });
   if (sErr) return json({ error: "db_error", detail: sErr.message }, 500);
-  return json({ ok: true, city: city.name, offices: r.places.length, capped: r.capped });
+  const { count } = await sb.from("market_intel_places").select("place_id", { count: "exact", head: true }).eq("city_id", city.id);
+  return json({ ok: true, city: city.name, offices: count ?? 0, found: r.places.length, capped: r.capped, assigned: stored });
 }
 
 async function actionPlacesLive(sb: SupabaseClient, body: any) {
@@ -623,10 +626,18 @@ async function actionPlacesLive(sb: SupabaseClient, body: any) {
   }
   const { data: agencies } = await sb.from("agencies").select("name").eq("city_id", city.id);
   const names = (agencies ?? []).map((a: any) => a.name).filter(Boolean);
-  const places = r.places
-    .map((p) => ({ ...p, on_platform: matchesPlatform(p.name, names) }))
+  // רק משרדים שהכתובת שלהם בעיר הזו, כמו בסריקה. היישובים השונים ברשימה
+  // הם קומץ (העיר והשכנות שלה), ולכן פענוח אחד לכל יישוב ולא לכל משרד.
+  const cityOf = new Map<string, string | null>();
+  for (const loc of new Set(r.places.map((p) => p.locality).filter((l): l is string => !!l))) {
+    const { data } = await sb.rpc("city_id_for_name", { p_name: loc });
+    cityOf.set(loc, (data as string | null) ?? null);
+  }
+  const inCity = r.places.filter((p) => !p.locality || cityOf.get(p.locality) === city.id);
+  const places = inCity
+    .map(({ locality: _l, ...p }) => ({ ...p, on_platform: matchesPlatform(p.name, names) }))
     .sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0));
-  return json({ city: city.name, capped: r.capped, places });
+  return json({ city: city.name, capped: r.capped, places, other_city: r.places.length - inCity.length });
 }
 
 // ---------------------------------------------------------------------------
