@@ -84,6 +84,9 @@ window.__scrape = async (cutoff, city, maxPages=40) => {
  // gush|helka|tat|date|price|sqm|street|house|neighborhood|type|rooms|floor
  window.__rows=window.__payload.map(o=>[o.gush,o.helka,o.tat,o.sold_at,o.sale_price,o.size_sqm,o.street,o.house_number,o.neighborhood,o.property_type,o.rooms,o.floor]);
  window.__chunk=(i,n=14)=>window.__rows.slice(i,i+n).map(r=>r.map(v=>v==null?'':String(v).replace(/[|\n]/g,' ')).join('|').replace(/\|+$/,'')).join('\n');
+ // מנה גדולה כטקסט בטאב משלה: מחזיר כתובת blob קצרה. שורה ראשונה #rows=N - השרת בודק אותה.
+ window.__batch=(i,n=150)=>{const t=window.__chunk(i,n); const k=t?t.split('\n').length:0;
+  return URL.createObjectURL(new Blob([`#rows=${k}\n${t}\n#end`],{type:'text/plain;charset=utf-8'}));};
  return JSON.stringify({pages,rows:window.__rows.length,log});
 };
 ```
@@ -103,13 +106,29 @@ window.__keep=(keys)=>{const cnt=new Map(); for(const k of (keys||'').split(',')
 זה רק קיצור: הסינון האמיתי ב-`upsert_deals`, כולל ±יום ותת-חלקה שהשתנתה.
 
 ## 5. כתיבה
-פלט javascript_tool נחתך בערך ב-1,100 תווים - לשלוף במנות: `window.__chunk(0)`,
-`window.__chunk(14)`, ... (אם מנה נחתכת - להקטין את n). לכל מנה:
+**מנות של 150, לא של 14.** פלט javascript_tool נחתך בערך ב-1,100 תווים, ולכן
+לא מעבירים דרכו את העסקאות - רק כתובת:
+
+1. `window.__batch(0)` → כתובת `blob:https://www.govmap.gov.il/...`.
+2. לפתוח אותה **בטאב חדש** (navigate), ולקרוא אותו עם get_page_text. טאב Govmap
+   נשאר פתוח - הכתובת חיה רק כל עוד הוא חי.
+3. לשלוח את הטקסט **כמו שהוא, כולל שורת `#rows=` ו-`#end`**:
 ```sql
 select upsert_deals_text('<name>', $l$
-<הפלט של __chunk כמו שהוא - שורה לעסקה>
+<הטקסט מהטאב - #rows=N, שורה לעסקה, #end>
 $l$) - 'rejected';
 ```
+4. לסגור את טאב הטקסט, ולהמשיך: `window.__batch(150)`, `window.__batch(300)`, ...
+   עד שהכתובת נפתחת על `#rows=0`.
+
+`{"error":"truncated"}` - המנה נחתכה בדרך, **ושום דבר ממנה לא נכתב**. לשלוח
+אותה שוב בחצי הגודל: `window.__batch(i,75)` ואז `window.__batch(i+75,75)`.
+לא לתקן ביד ולא לשלוח בלי שורת `#rows=` - היא כל ההגנה מפני עסקאות שנעלמות.
+
+הטאב לא נפתח, או get_page_text לא מחזיר את הטקסט - לחזור לדרך הישנה:
+`window.__chunk(0)`, `window.__chunk(14)`, ... ישירות מ-javascript_tool (בלי
+`#rows=`), ולציין את זה בסיכום למשתמש.
+
 `$l$` ולא גרשיים - בסוג נכס יש גרש (קוטג'). כל המנות של יישוב באותה הרצה -
 הפונקציה זוכרת מה כבר נספג. (`upsert_deals` עם מערך JSON עדיין עובדת, אבל
 השורות המופרדות מכניסות יותר עסקאות לכל העברה.)
