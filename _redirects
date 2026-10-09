@@ -30,6 +30,12 @@
 # ‏"חיפה והקריות" עד 27.9.2026 - הקריות יצאו לשוק משלהן (/krayot)
 /haifa-krayot    /haifa    301
 
+# ‏דף עסקאות לכל יישוב (docs/settlement-deals.md). ‏deals.html מגיש גם את
+# האינדקס וגם את /deals/afula וחבריו; ‏netlify/edge-functions/deals-page.ts רץ
+# לפני השורה הזו, קורא את ה-slug מהכתובת וממלא את הדף. ‏200 ולא הפניה -
+# הכתובת בדפדפן נשארת של היישוב.
+/deals/*    /deals    200
+
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST

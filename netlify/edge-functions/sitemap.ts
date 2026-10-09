@@ -123,6 +123,9 @@ type Source = {
   field: string;
   lastmod?: string;
   query: string;
+  // ‏כתובת בצורת נתיב (‏/deals/afula) במקום ‎?slug=‎. הדף שמגיש אותה ממלא
+  // את ה-canonical מהכתובת עצמה (‏deals-page.ts).
+  path?: (value: string) => string;
 };
 
 const SOURCES: Source[] = [
@@ -183,6 +186,17 @@ const SOURCES: Source[] = [
     // ‏אין בתצוגה חותמת זמן, ולכן אין lastmod — כמו סוכנים ובעלי מקצוע.
     query: `developers_public?slug=not.is.null&select=slug&limit=${LIMIT}`,
   },
+  {
+    // ‏דף עסקאות לכל יישוב פעיל (‏docs/settlement-deals.md). ה-policy על
+    // deal_settlements מחזירה ל-anon רק יישובים פעילים.
+    name: "עסקאות לפי יישוב",
+    page: "deals",
+    key: "slug",
+    field: "slug",
+    lastmod: "last_synced_at",
+    query: `deal_settlements?select=slug,last_synced_at&order=name&limit=${LIMIT}`,
+    path: (v) => `/deals/${encodeURIComponent(v)}`,
+  },
 ];
 
 function entries(source: Source, rows: Record<string, unknown>[]): string[] {
@@ -194,7 +208,9 @@ function entries(source: Source, rows: Record<string, unknown>[]): string[] {
     if (!value || seen.has(value)) continue;
     seen.add(value);
 
-    const loc = `${SITE}/${source.page}?${source.key}=${encodeURIComponent(value)}`;
+    const loc = source.path
+      ? `${SITE}${source.path(value)}`
+      : `${SITE}/${source.page}?${source.key}=${encodeURIComponent(value)}`;
     const mod = source.lastmod ? day(row[source.lastmod]) : "";
     out.push(
       "  <url>\n" +

@@ -437,6 +437,7 @@ on conflict (neighborhood_id, alias_key) do nothing;
 | התזמון | `.github/workflows/deals_scraper.yml` |
 | **ייבוא ידני: המפרסר והמסך** | `assets/crm.js` → `parseGovmapDeals`, `crm.html` → `accDealsImport` |
 | **ייבוא ידני: האימות והכתיבה** | `supabase/migrations/20261217090000_market_deals_manual_import.sql` |
+| **סוכן הדפדפן: היישובים, `upsert_deals` ודפי `/deals`** | `supabase/migrations/20270329090000_deal_settlements.sql`, ‏`docs/settlement-deals.md` |
 
 הצד הצורך: `docs/cma.md`.
 
@@ -584,6 +585,13 @@ public.agent_market_deals_by_parcel(p_agent_id, p_gush, p_helka,
 רק בפונקציה הפנימית, כי `in_parcel` נקרא ישירות מהמאגר. גוש שאין לו אף
 עסקה ואף מיקום מחזיר `in_parcel` ריק ו-`center` ‏`null`, והכלי אומר זאת
 במפורש ומציע לשאול לפי כתובת.
+
+### סוכן הדפדפן
+
+מאוקטובר 2026 אפשר להשאיר את ההדבקה לסוכן דפדפן (Claude in Chrome):
+‏`deal_settlements` היא רשימת היישובים שלו, ‏`upsert_deals()` כותבת לכאן
+עם אותו `external_key` (‏`raw.ingest = 'browser_agent'`), וכל יישוב פעיל
+מקבל דף ב-`/deals/{slug}`. הפרטים: `docs/settlement-deals.md`.
 
 ## התקרה של GovMap: 1,500 עסקאות אחרונות ליישוב
 

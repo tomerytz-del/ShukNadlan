@@ -24453,6 +24453,7 @@ const NAV_GROUPS = [
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accDealsImport',   label:'ייבוא עסקאות',   icon:'chart',   tab:'admin' },
+    { acc:'accDealSettlements', label:'יישובים לעסקאות', icon:'chart', tab:'admin' },
     { acc:'accGovmapBackfill', label:'נתוני GovMap',  icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
     { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
@@ -30602,6 +30603,166 @@ document.getElementById('dealsPriorities')?.addEventListener('click', (e)=>{
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
   if (this.open){ loadDealsPriorities(); loadDealsCoverage(); loadDealGaps(); }
+});
+
+/* ==========================================================================
+   יישובים לעסקאות - הרשימה שסוכן הדפדפן מושך מ-GovMap
+   --------------------------------------------------------------------------
+   ‏deal_settlements (מיגרציה 20270329090000). הסוכן (Claude in Chrome) קורא
+   את היישובים הפעילים ב-deal_sync_plan() וכותב ב-upsert_deals(); כל יישוב
+   פעיל מקבל דף ב-/deals/{slug}. הכתיבה כאן היא ישירות לטבלה - ה-policy
+   מגביל אותה למנהל/ת הפלטפורמה. docs/settlement-deals.md
+   ========================================================================== */
+const DEAL_SYNC_COMMAND = 'עדכן עסקאות';
+
+/* אותו מיפוי בדיוק כמו public.deal_slugify() במסד. */
+function dealSlugify(name){
+  return String(name || '').trim().toLowerCase()
+    .replace(/ש/g, 'sh').replace(/[צץ]/g, 'tz').replace(/ח/g, 'ch')
+    .replace(/[אבגדהוזטיכךלמםנןסעפףקרת]/g, c =>
+      'abgdhvztykklmmnnsappkrt'['אבגדהוזטיכךלמםנןסעפףקרת'.indexOf(c)])
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+let dealSettlementsRows = [];
+let dealSettlementEditId = null;
+
+async function loadDealSettlements(){
+  const box = document.getElementById('dealSettlementsList');
+  if (!box || !sb) return;
+  box.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data, error } = await sb.rpc('deal_settlements_admin');
+  if (error){
+    box.innerHTML = '<p class="acc-sub">' + ((error.code === '42883' || error.code === 'PGRST202')
+      ? 'הרשימה עוד לא קיימת במסד - המיגרציה 20270329090000.'
+      : 'שגיאה בטעינת הרשימה: ' + escapeHtml(heErr(error))) + '</p>';
+    return;
+  }
+  dealSettlementsRows = data || [];
+  const cnt = document.getElementById('accDealSettlementsCount');
+  if (cnt) cnt.textContent = dealSettlementsRows.filter(r => r.active).length || '';
+  renderDealSettlements();
+}
+
+function renderDealSettlements(){
+  const box = document.getElementById('dealSettlementsList');
+  if (!box) return;
+  if (!dealSettlementsRows.length){
+    box.innerHTML = '<div class="empty-state">אין עדיין יישובים. הוסיפו את הראשון למעלה.</div>';
+    return;
+  }
+  const when = t => t ? new Date(t).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+  box.innerHTML = `<div style="overflow-x:auto"><table class="cma-table"><thead><tr>
+      <th>יישוב</th><th>slug</th><th>פעיל</th><th>חודשים אחורה</th><th>עדכון אחרון</th>
+      <th>מצב</th><th>נוספו</th><th>עודכנו</th><th>במאגר</th><th></th>
+    </tr></thead><tbody>${dealSettlementsRows.map(r => {
+      const bad = r.last_status && !/^ok/.test(r.last_status);
+      return `<tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td dir="ltr" style="text-align:right"><a href="/deals/${encodeURIComponent(r.slug)}" target="_blank" rel="noopener">${esc(r.slug)}</a></td>
+      <td><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" data-ds-active="${esc(String(r.id))}" ${r.active ? 'checked' : ''}> ${r.active ? 'כן' : 'לא'}</label></td>
+      <td>${esc(String(r.months_back))}</td>
+      <td>${esc(when(r.last_synced_at))}</td>
+      <td style="color:${bad ? 'var(--danger,#c0392b)' : 'inherit'}">${esc(r.last_status || '-')}</td>
+      <td>${r.deals_added == null ? '-' : esc(String(r.deals_added))}</td>
+      <td>${r.deals_updated == null ? '-' : esc(String(r.deals_updated))}</td>
+      <td>${esc(Number(r.deals_total || 0).toLocaleString('he-IL'))}${r.newest ? `<div class="acc-sub" style="margin:0;font-size:12px">עד ${esc(new Date(r.newest).toLocaleDateString('he-IL'))}</div>` : ''}</td>
+      <td style="white-space:nowrap">
+        <button type="button" class="btn btn-ghost" data-ds-edit="${esc(String(r.id))}">עריכה</button>
+        <button type="button" class="btn btn-ghost" data-ds-del="${esc(String(r.id))}">מחיקה</button>
+      </td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function dealSettlementFormReset(){
+  dealSettlementEditId = null;
+  const f = id => document.getElementById(id);
+  f('dsName').value = ''; f('dsSlug').value = ''; f('dsMonths').value = '12';
+  f('dsActive').checked = true; f('dsSlug').dataset.touched = '';
+  f('dsSaveBtn').textContent = 'הוספת יישוב';
+  f('dsCancelBtn').hidden = true;
+}
+
+document.getElementById('dsName')?.addEventListener('input', e => {
+  const slug = document.getElementById('dsSlug');
+  /* ה-slug נגזר מהשם עד שנערך ביד - ואז נשאר כמו שנכתב. */
+  if (slug && !slug.dataset.touched) slug.value = dealSlugify(e.target.value);
+});
+document.getElementById('dsSlug')?.addEventListener('input', e => { e.target.dataset.touched = '1'; });
+document.getElementById('dsCancelBtn')?.addEventListener('click', dealSettlementFormReset);
+
+document.getElementById('dsSaveBtn')?.addEventListener('click', async e => {
+  const name = document.getElementById('dsName').value.trim();
+  const slug = document.getElementById('dsSlug').value.trim().toLowerCase();
+  const months = parseInt(document.getElementById('dsMonths').value, 10);
+  const active = document.getElementById('dsActive').checked;
+  if (!name){ showToast('חסר שם יישוב'); return; }
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)){ showToast('ה-slug יכול להכיל רק אותיות באנגלית, ספרות ומקפים'); return; }
+  if (!(months >= 1 && months <= 120)){ showToast('חודשים אחורה - בין 1 ל-120'); return; }
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const row = { name, slug, months_back: months, active };
+  const q = dealSettlementEditId
+    ? sb.from('deal_settlements').update(row).eq('id', dealSettlementEditId)
+    : sb.from('deal_settlements').insert(row);
+  const { error } = await q;
+  btn.disabled = false;
+  if (error){
+    showToast(error.code === '23505' ? 'כבר יש יישוב עם השם או ה-slug האלה' : 'השמירה נכשלה: ' + heErr(error));
+    return;
+  }
+  showToast(dealSettlementEditId ? 'היישוב עודכן' : 'היישוב נוסף');
+  dealSettlementFormReset();
+  loadDealSettlements();
+});
+
+document.getElementById('dealSettlementsList')?.addEventListener('click', async e => {
+  const ed = e.target.closest('[data-ds-edit]');
+  if (ed){
+    const r = dealSettlementsRows.find(x => String(x.id) === ed.dataset.dsEdit);
+    if (!r) return;
+    dealSettlementEditId = r.id;
+    document.getElementById('dsName').value = r.name;
+    const slug = document.getElementById('dsSlug');
+    slug.value = r.slug; slug.dataset.touched = '1';
+    document.getElementById('dsMonths').value = r.months_back;
+    document.getElementById('dsActive').checked = !!r.active;
+    document.getElementById('dsSaveBtn').textContent = 'שמירת שינויים';
+    document.getElementById('dsCancelBtn').hidden = false;
+    document.getElementById('dsName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  const del = e.target.closest('[data-ds-del]');
+  if (del){
+    const r = dealSettlementsRows.find(x => String(x.id) === del.dataset.dsDel);
+    if (!r) return;
+    /* העסקאות עצמן נשארות במאגר (דוח ה-CMA ו-/prices נשענים עליהן).
+       נמחקים רק היישוב מהרשימה ודף /deals שלו. */
+    if (!confirm(`למחוק את ${r.name} מהרשימה?\nהעסקאות שכבר במאגר נשארות, והדף /deals/${r.slug} יורד.`)) return;
+    const { error } = await sb.from('deal_settlements').delete().eq('id', r.id);
+    if (error){ showToast('המחיקה נכשלה: ' + heErr(error)); return; }
+    showToast('היישוב נמחק');
+    loadDealSettlements();
+  }
+});
+
+document.getElementById('dealSettlementsList')?.addEventListener('change', async e => {
+  const cb = e.target.closest('[data-ds-active]');
+  if (!cb) return;
+  cb.disabled = true;
+  const { error } = await sb.from('deal_settlements').update({ active: cb.checked }).eq('id', cb.dataset.dsActive);
+  if (error){ cb.checked = !cb.checked; cb.disabled = false; showToast('העדכון נכשל: ' + heErr(error)); return; }
+  loadDealSettlements();
+});
+
+document.getElementById('dsCopyCmdBtn')?.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(DEAL_SYNC_COMMAND); showToast('הועתק: ' + DEAL_SYNC_COMMAND); }
+  catch(_){ showToast('ההעתקה נכשלה - הפקודה היא: ' + DEAL_SYNC_COMMAND); }
+});
+
+document.getElementById('accDealSettlements')?.addEventListener('toggle', function(){
+  if (this.open) loadDealSettlements();
 });
 
 /* ==========================================================================

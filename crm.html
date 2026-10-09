@@ -7385,6 +7385,47 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
+      <!-- יישובים לעסקאות: הרשימה שסוכן הדפדפן (Claude in Chrome) מושך מ-GovMap
+           ב"עדכן עסקאות", וכל יישוב פעיל מקבל דף ב-/deals/{slug}.
+           ‏deal_settlements, מיגרציה 20270329090000. docs/settlement-deals.md -->
+      <details class="acc" id="accDealSettlements">
+        <summary>
+          <span class="acc-title">יישובים לעסקאות</span>
+          <span class="acc-count" id="accDealSettlementsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            היישובים שהסוכן מושך מ-GovMap. בכל הרצה הוא ממשיך 90 יום לפני העסקה האחרונה
+            שכבר במאגר, וביישוב ריק - לפי "חודשים אחורה". עסקה שכבר קיימת לא נכנסת פעמיים.
+            כל יישוב פעיל מקבל דף ציבורי ב-<a href="/deals" target="_blank" rel="noopener">/deals</a>.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+            <div class="field" style="margin:0;flex:1 1 160px">
+              <label for="dsName">שם היישוב (כמו ב-GovMap)</label>
+              <input type="text" id="dsName" placeholder="עפולה" autocomplete="off">
+            </div>
+            <div class="field" style="margin:0;flex:1 1 140px">
+              <label for="dsSlug">slug לכתובת</label>
+              <input type="text" id="dsSlug" placeholder="afula" dir="ltr" autocomplete="off">
+            </div>
+            <div class="field" style="margin:0;flex:0 1 110px">
+              <label for="dsMonths">חודשים אחורה</label>
+              <input type="number" id="dsMonths" value="12" min="1" max="120" inputmode="numeric">
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;cursor:pointer">
+              <input type="checkbox" id="dsActive" checked> פעיל
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button type="button" class="btn btn-gold" id="dsSaveBtn">הוספת יישוב</button>
+            <button type="button" class="btn btn-ghost" id="dsCancelBtn" hidden>ביטול עריכה</button>
+            <button type="button" class="btn btn-ghost" id="dsCopyCmdBtn">העתק פקודת עדכון</button>
+          </div>
+          <div id="dealSettlementsList"></div>
+        </div>
+      </details>
+
       <!-- ‏GovMap: השלמת פין ומידע תכנוני לנכסים קיימים מחוץ לעפולה, והשוואה
            מול שכבת העירייה בעפולה. בדפדפן ולא בסורק, כי הטוקן נעול לדומיין.
            docs/govmap.md -->
