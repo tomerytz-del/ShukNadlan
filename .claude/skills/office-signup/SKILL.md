@@ -1,6 +1,6 @@
 ---
 name: office-signup
-description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה בשלושה צעדים, ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONBOARD_STEPS / agent_onboarding_state, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html).
+description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שלושה צעדים, ולמנהל/ת גם "על המשרד"), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONBOARD_STEPS / agent_onboarding_state, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html).
 ---
 
 # הצטרפות משרד, מדריך ההתחלה, ועיצוב המשרד
@@ -50,9 +50,10 @@ description: עבודה על מסלול ההצטרפות של משרד חדש ב
 רשום אצל אחר/ת נופל על האינדקס הייחודי של `phone_e164` (‏23505) - והמשרד
 עדיין נפתח. אל תעבירו אותו לתוך ה-INSERT: אז 23505 מפיל משרד שלם.
 
-## מדריך ההתחלה - שלושה צעדים, והמצב במסד
+## מדריך ההתחלה - שלושה צעדים (ולמנהל/ת ארבעה), והמצב במסד
 
-גבריאלה, נכס ראשון, תמונת פרופיל (ולמנהל/ת לוגו). התנאים ב-
+גבריאלה, נכס ראשון, תמונת פרופיל (ולמנהל/ת לוגו), ולמנהל/ת "על המשרד"
+(‏`agencies.description`, ‏`about_done`, ‏`20270328090000`). התנאים ב-
 `agent_onboarding_state()` / `agent_onboarding_photos_done()`
 (`20270318090000_onboarding_three_steps.sql`), והכרטיס ב-`ONBOARD_STEPS`
 קורא את הדגלים - **לא מחשב שוב**. צעד שמשתנה משתנה בשניהם באותו PR; אחרת
