@@ -7077,6 +7077,15 @@ const ONBOARD_STEPS = [
     cta:'עיצוב הפרופיל',
     done: s => s.profile_done && s.agency_done,
     run:  ()=> gotoSection(onboardState && onboardState.profile_done ? 'accBranding' : 'accProfile') },
+  /* למנהל/ת בלבד: "על המשרד" (agencies.description). הוא הטקסט שבראש דף
+     המשרד, ומה שגוגל ומנועי AI קוראים עליו - בלעדיו הדף הוא שם ורשימה.
+     ‏about_done חסר בשורה עד שהמיגרציה רצה; אז הצעד פשוט לא מוצג. */
+  { key:'about', name:'כתיבת "על המשרד"',
+    when: s => s.is_manager && s.about_done !== undefined,
+    text:'כמה משפטים על הניסיון, האזורים וסוגי הנכסים. הם מוצגים בראש דף המשרד, ומהם גוגל ומנועי AI לומדים מי אתם - בלי תיאור, דף המשרד הוא רק שם ורשימת נכסים.',
+    cta:'כתיבת התיאור',
+    done: s => s.about_done,
+    run:  ()=> gotoSection('accBranding', 'brDescription') },
 ];
 
 /* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
@@ -9392,7 +9401,7 @@ function readableOn(hex){
 
 async function loadBranding(agencyId){
   const { data: agency, error } = await sb.from('agencies')
-    .select('name, slug, tagline, address, specialties, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
+    .select('name, slug, tagline, description, address, specialties, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
   if (error || !agency){
     document.getElementById('brFeedback').textContent = 'לא ניתן לטעון את הגדרות המיתוג.';
     return;
@@ -9425,6 +9434,8 @@ async function loadBranding(agencyId){
 
   document.getElementById('brTagline').value = agency.tagline || '';
   renderTaglineCount();
+  document.getElementById('brDescription').value = agency.description || '';
+  renderDescriptionCount();
   document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = '/agency?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
@@ -9613,6 +9624,18 @@ function renderTaglineCount(){
   if (!input || !out) return;
   out.textContent = `· ${input.value.trim().length}/${AGENCY_TAGLINE_MAX}`;
 }
+
+/* "על המשרד" - הטקסט שבראש דף המשרד, וגם התיאור שגוגל ומנועי AI קוראים
+   (‏assets/agency-about.js, ‏og-tags.ts). אותו גבול שם ובחיתוך כאן. */
+const AGENCY_DESCRIPTION_MAX = 1200;
+
+function renderDescriptionCount(){
+  const input = document.getElementById('brDescription');
+  const out = document.getElementById('brDescriptionCount');
+  if (!input || !out) return;
+  out.textContent = `· ${input.value.trim().length}/${AGENCY_DESCRIPTION_MAX}`;
+}
+document.getElementById('brDescription').addEventListener('input', renderDescriptionCount);
 
 // המוטו נראה עכשיו בתצוגה המקדימה, ולכן הוא מתעדכן תוך כדי הקלדה
 document.getElementById('brTagline').addEventListener('input', ()=>{
@@ -9880,6 +9903,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     const { error } = await sb.from('agencies').update({
       colors,
       tagline: document.getElementById('brTagline').value.trim().slice(0, AGENCY_TAGLINE_MAX) || null,
+      description: document.getElementById('brDescription').value.trim().slice(0, AGENCY_DESCRIPTION_MAX) || null,
       address: document.getElementById('brAddress').value.trim().slice(0, 160) || null,
       specialties: brandingState.specialties.slice(0, Specialties.MAX_SELECTED),
       logo_url:  brandingState.logo  ? brandingState.logo.url  : null,
@@ -30584,7 +30608,7 @@ document.getElementById('accDealsImport')?.addEventListener('toggle', function()
 /* ==========================================================================
    יישובים לעסקאות - הרשימה שסוכן הדפדפן מושך מ-GovMap
    --------------------------------------------------------------------------
-   ‏deal_settlements (מיגרציה 20270328090000). הסוכן (Claude in Chrome) קורא
+   ‏deal_settlements (מיגרציה 20270329090000). הסוכן (Claude in Chrome) קורא
    את היישובים הפעילים ב-deal_sync_plan() וכותב ב-upsert_deals(); כל יישוב
    פעיל מקבל דף ב-/deals/{slug}. הכתיבה כאן היא ישירות לטבלה - ה-policy
    מגביל אותה למנהל/ת הפלטפורמה. docs/settlement-deals.md
@@ -30610,7 +30634,7 @@ async function loadDealSettlements(){
   const { data, error } = await sb.rpc('deal_settlements_admin');
   if (error){
     box.innerHTML = '<p class="acc-sub">' + ((error.code === '42883' || error.code === 'PGRST202')
-      ? 'הרשימה עוד לא קיימת במסד - המיגרציה 20270328090000.'
+      ? 'הרשימה עוד לא קיימת במסד - המיגרציה 20270329090000.'
       : 'שגיאה בטעינת הרשימה: ' + escapeHtml(heErr(error))) + '</p>';
     return;
   }

@@ -265,7 +265,73 @@ for (const [name, pass] of more) {
   console.log(`${pass ? "✓" : "✗"} ${name}`);
 }
 
-const total = CASES.length + checks.length + 3 + more.length;
+/* ---------------------------------------------------------------------------
+   ‏גוף הכתבה ו"על המשרד" בשרת - בדפים האמיתיים, כי ה-id-ים שם הם החוזה
+   --------------------------------------------------------------------------- */
+import { readFileSync } from "node:fs";
+async function serve(file: string, url: string, row: unknown): Promise<string> {
+  const page = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(row), { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const ctx = { next: async () => new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } }) } as never;
+  return (await handler(new Request(`https://shuknadlan.co.il${url}`), ctx)).text();
+}
+
+const LONG = "פסקה ראשונה ארוכה מספיק כדי לקבל את האות המוגדלת. ".repeat(4).trim();
+const art = await serve("article.html", "/article?slug=a", {
+  slug: "a", title: "כותרת", subtitle: "תת כותרת", published_at: "2026-10-01T00:00:00Z",
+  body: `${LONG}\n\nמה חשוב לדעת:\n- פריט <b>ראשון</b>\n- פריט שני\n\n"ציטוט"\nשורה שנייה\nשל אותה פסקה`,
+});
+const artBare = await serve("article.html", "/article?slug=a", { slug: "a", title: "כותרת", body: "" });
+const ag = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד הדר", description: "פסקה א\n\nפסקה <ב>", address: "הנשיא 5, עפולה" });
+const agFallback = await serve("agency.html", "/agency?slug=a", { id: "x", name: "אביה גולדברג - תיווך", description: null, address: "עפולה", specialty_areas: ["עפולה", "גבעת המורה", "בית שאן"] });
+const agEmpty = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: null, address: null, specialty_areas: [] });
+
+const bodies: [string, boolean][] = [
+  ["כתבה: H1 בשרת", /<h1 class="title" id="articleTitle">כותרת<\/h1>/.test(art)],
+  ["כתבה: כותרת משנה בשרת ונחשפת", /<p class="subtitle" id="articleSubtitle">תת כותרת<\/p>/.test(art)],
+  ["כתבה: הגוף בשרת - פסקה עם אות מוגדלת, h2, רשימה, ציטוט", /id="articleBody"><p class="lead-para">פסקה ראשונה/.test(art) &&
+    art.includes("<h2>מה חשוב לדעת</h2>") && art.includes("<li>פריט &lt;b&gt;ראשון&lt;/b&gt;</li>") &&
+    art.includes("<blockquote>&quot;ציטוט&quot;</blockquote>") && art.includes("<p>שורה שנייה של אותה פסקה</p>")],
+  ["כתבה בלי גוף: הגוף נשאר ריק וכותרת המשנה מוסתרת", /id="articleBody"><\/div>/.test(artBare) && /id="articleSubtitle" hidden>/.test(artBare)],
+  ["משרד: התיאור בשתי פסקאות, מוברח, והמקטע נחשף", /id="aboutText"><p>פסקה א<\/p><p>פסקה &lt;ב&gt;<\/p>/.test(ag) && /id="aboutSec" aria-labelledby="aboutHeading">/.test(ag)],
+  ["משרד: H1 בשרת", /id="brandName">משרד הדר<\/h1>/.test(ag)],
+  ["משרד בלי תיאור: משפט עובדתי עם הכתובת והאזורים", agFallback.includes("<p>משרד התיווך אביה גולדברג - תיווך, עפולה. אזורי פעילות: עפולה, גבעת המורה ובית שאן.</p>")],
+  ["משרד בלי תיאור, כתובת ואזורים: המקטע מוסתר", /id="aboutSec" aria-labelledby="aboutHeading" hidden>/.test(agEmpty) && /id="aboutText"><\/div>/.test(agEmpty)],
+];
+
+/* ‏סוכן/ת, פרויקט, יזם ובעל/ת מקצוע: H1 ותוכן מהשרת, ונתונים מובנים */
+const ldOf = (h: string) => {
+  const m = h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+};
+const agentPage = await serve("agent.html", "/agent?slug=a", { display_name: "דנה <לוי>", bio: null, license_number: "1" });
+const projPage = await serve("project.html", "/project?slug=a", { name: "מגדלי העמק", city: "עפולה", tagline: "ס", description: "על <הפרויקט>" });
+const projBare = await serve("project.html", "/project?slug=a", { name: "מגדלי העמק", city: null, tagline: null, description: null });
+const devPage = await serve("developer.html", "/developer?slug=a", { name: "יזם בע\"מ", city: "עפולה", tagline: null, description: "על החברה", logo_url: "/l.png" });
+const proPage = await serve("professional.html", "/professional?slug=a", { slug: "a", advertiser_name: "רון", business_name: "שמאות רון", advertiser_type: "appraiser", target_region: "עפולה", headline: "שמאי מוסמך", description: "תיאור" });
+bodies.push(
+  ["סוכן/ת: H1 מוברח וביו ברירת מחדל בשרת", /id="profileName">דנה &lt;לוי&gt;<\/h1>/.test(agentPage) &&
+    agentPage.includes('id="profileBio">סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.</p>')],
+  ["פרויקט: ApartmentComplex עם עיר, H1, סלוגן ותיאור נחשפים", ldOf(projPage)?.["@type"] === "ApartmentComplex" &&
+    ldOf(projPage)?.address?.addressLocality === "עפולה" && /id="projectName">מגדלי העמק<\/h1>/.test(projPage) &&
+    /id="projectTagline">ס<\/p>/.test(projPage) && /id="aboutSec">/.test(projPage) && projPage.includes("על &lt;הפרויקט&gt;")],
+  ["פרויקט בלי תיאור: המקטע נשאר מוסתר", /id="aboutSec" hidden>/.test(projBare) && /id="projectTagline" hidden>/.test(projBare)],
+  ["יזם: Organization עם לוגו, H1 ו'על החברה' בשרת", ldOf(devPage)?.["@type"] === "Organization" &&
+    ldOf(devPage)?.logo === "https://shuknadlan.co.il/l.png" && /id="devName">יזם בע&quot;מ<\/h1>/.test(devPage) &&
+    /id="devAbout">על החברה<\/div>/.test(devPage)],
+  ["בעל/ת מקצוע: ProfessionalService עם employee, H1, כותרת ותיאור בשרת", ldOf(proPage)?.["@type"] === "ProfessionalService" &&
+    ldOf(proPage)?.employee?.name === "רון" && ldOf(proPage)?.serviceType === "שמאי/ת מקרקעין" &&
+    /id="profileName">רון<\/h1>/.test(proPage) && /id="profileHeadline">שמאי מוסמך<\/p>/.test(proPage) &&
+    /id="aboutBlock">/.test(proPage)],
+);
+for (const [name, pass] of bodies) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const total = CASES.length + checks.length + 3 + more.length + bodies.length;
 if (failed) {
   console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);

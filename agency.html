@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/agency-about.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>משרד תיווך | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -373,6 +374,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      המקטע הראשון מתחת לכותרת המשרד: אנשים, לא מספרים. הקרוסלה גוללת
      במגע ובחיצים, ומנהל/ת המשרד היא הכרטיס הבולט בה — כרטיס רחב יותר,
      טבעת בצבע המשני ותגית תפקיד — ולכן גם הכרטיס הראשון ברצף. */
+  /* "על המשרד" - assets/agency-about.js. ‏og-tags.ts ממלאת אותו בשרת ומסירה
+     את hidden; ה-JS כותב שוב את אותן פסקאות. */
+  .about-sec{margin-top:26px}
+  .about-sec[hidden]{display:none}
+  .about-text p{margin:0 0 10px;line-height:1.7;max-width:70ch;color:var(--ink)}
+  .about-text p:last-child{margin-bottom:0}
   .team-sec{margin-top:26px;display:none}
   /* ---------- רצועה נגללת ----------
      ‏overflow-x גולל, scroll-snap ממרכז כרטיס — כך שגלילה במגע נעצרת על
@@ -1201,6 +1208,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="stat-grid" id="statGrid"></div>
       <div class="trust-strip" id="trustStrip"></div>
     </div>
+
+    <!-- ---------- על המשרד ----------
+         התיאור שהמשרד כתב ב-CRM ("מיתוג המשרד"), או משפט עובדתי מהשם, הכתובת
+         והאזורים. ממולא כבר בשרת (‏og-tags.ts), כדי שלסורק יהיה מה לקרוא. -->
+    <section class="about-sec" id="aboutSec" aria-labelledby="aboutHeading" hidden>
+      <div class="sec-head">
+        <h2 id="aboutHeading">על המשרד</h2>
+      </div>
+      <div class="about-text" id="aboutText"></div>
+    </section>
 
     <!-- ---------- נבחרת המתווכים ----------
          המקטע הפותח של הדף: מי האנשים שמאחורי המשרד. הקרוסלה נבנית ב-JS
@@ -2386,6 +2403,19 @@ if (window.PageBg) PageBg.mount();
 // האם הדף כבר הוצג בפועל — ראו ה-catch של loadAgency
 let agencyShown = false;
 
+/* ‏"על המשרד" - אותן פסקאות שהשרת כתב (‏assets/agency-about.js) */
+function renderAbout(agency){
+  const box = document.getElementById('aboutText');
+  const paras = window.ShukAgencyAbout ? window.ShukAgencyAbout.paragraphs(agency) : [];
+  box.textContent = '';
+  paras.forEach(t => {
+    const p = document.createElement('p');
+    p.textContent = t;
+    box.appendChild(p);
+  });
+  document.getElementById('aboutSec').hidden = !paras.length;
+}
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -2416,6 +2446,7 @@ async function loadAgency(){
     // התמחויות מוצהרות נכנסות מיד; משרד בלי הצהרה מקבל תגיות נגזרות אחרי
     // שהנכסים נטענים (loadActiveProperties קורא שוב עם הנכסים בידו)
     renderSpecialties(agency, null);
+    renderAbout(agency);
     applyBranding(agency);
     renderQualityBadge(agency);
 

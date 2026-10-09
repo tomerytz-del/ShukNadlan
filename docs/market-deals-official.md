@@ -437,7 +437,7 @@ on conflict (neighborhood_id, alias_key) do nothing;
 | התזמון | `.github/workflows/deals_scraper.yml` |
 | **ייבוא ידני: המפרסר והמסך** | `assets/crm.js` → `parseGovmapDeals`, `crm.html` → `accDealsImport` |
 | **ייבוא ידני: האימות והכתיבה** | `supabase/migrations/20261217090000_market_deals_manual_import.sql` |
-| **סוכן הדפדפן: היישובים, `upsert_deals` ודפי `/deals`** | `supabase/migrations/20270328090000_deal_settlements.sql`, ‏`docs/settlement-deals.md` |
+| **סוכן הדפדפן: היישובים, `upsert_deals` ודפי `/deals`** | `supabase/migrations/20270329090000_deal_settlements.sql`, ‏`docs/settlement-deals.md` |
 
 הצד הצורך: `docs/cma.md`.
 

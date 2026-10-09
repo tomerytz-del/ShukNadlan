@@ -93,6 +93,17 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+/* ‏גוף הכתבה ו"על המשרד": אותו קוד שהדפדפן מריץ, מיובא לתופעת הלוואי שלו
+   (‏globalThis.ShukArticleBody / ShukAgencyAbout) - כך מה שהשרת כותב והטקסט
+   שה-JS כותב אחריו אינם יכולים להתפצל. */
+import "../../assets/article-body.js";
+import "../../assets/agency-about.js";
+
+type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
+const shared = globalThis as unknown as {
+  ShukArticleBody: { parse: (text: string) => ArticleBlock[] };
+  ShukAgencyAbout: { paragraphs: (a: Record<string, unknown>) => string[] };
+};
 
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
@@ -201,6 +212,9 @@ type Meta = {
   fills?: { id: string; text: string }[];
   /* ‏אלמנטים שה-hidden שלהם יורד יחד עם המילוי (‏descSection) */
   reveal?: string[];
+  /* ‏אלמנט ריק שמקבל מבנה ולא רק טקסט (‏גוף הכתבה, "על המשרד"). ה-HTML
+     נבנה כאן בבריחה מלאה, וה-JS בונה אחריו את אותו מבנה ב-textContent. */
+  inner?: { id: string; html: string }[];
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -369,12 +383,15 @@ const MIN_REVIEWS_RATED = 2;
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address`,
+    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
+  /* ‏"על המשרד": התיאור שהמשרד כתב, או משפט עובדתי מהשם, הכתובת והאזורים -
+     אותן פסקאות שאגף ה-JS של agency.html כותב (‏assets/agency-about.js). */
+  const about = shared.ShukAgencyAbout.paragraphs(a);
   const description = clamp(
-    String(a.description || "") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
+    about.join(" ") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
     200,
   );
   const image = absolute(a.cover_url || a.logo_url) || DEFAULT_IMAGE;
@@ -421,6 +438,9 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     image,
     canonical,
     jsonLd: agency,
+    fills: [{ id: "brandName", text: String(a.name || "") }],
+    inner: about.length ? [{ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") }] : [],
+    reveal: about.length ? ["aboutSec"] : [],
   };
 }
 
@@ -464,6 +484,11 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
     image: absolute(m.cover_url || m.photo_url) || DEFAULT_IMAGE,
     canonical,
     jsonLd: person,
+    /* ‏אותו טקסט ש-renderProfile ב-agent.html כותב, כולל ברירת המחדל לביו ריק */
+    fills: [
+      { id: "profileName", text: String(m.display_name || "") },
+      { id: "profileBio", text: String(m.bio || "") || "סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק." },
+    ],
   };
 }
 
@@ -503,12 +528,33 @@ async function projectMeta(slug: string, canonical: string): Promise<MetaResult>
   const desc =
     clamp(String(p.tagline || p.description || ""), 200) ||
     `פרויקט חדש מקבלן${p.city ? " ב" + p.city : ""} - תמהיל דירות, מחירים וגלריה.`;
+  const image = absolute(p.cover_url || p.logo_url) || DEFAULT_IMAGE;
+  const tagline = String(p.tagline || "").trim();
+  const about = String(p.description || "").trim();
+
+  const complex: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "ApartmentComplex",
+    "@id": `${canonical}#project`,
+    name: String(p.name || "פרויקט חדש"),
+    url: canonical,
+    description: desc,
+    image,
+  };
+  if (p.city) complex.address = { "@type": "PostalAddress", addressLocality: String(p.city), addressCountry: "IL" };
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: desc,
-    image: absolute(p.cover_url || p.logo_url) || DEFAULT_IMAGE,
+    image,
     canonical,
+    jsonLd: complex,
+    fills: [
+      { id: "projectName", text: String(p.name || "") },
+      { id: "projectTagline", text: tagline },
+      { id: "projectDescription", text: about },
+    ],
+    reveal: [...(tagline ? ["projectTagline"] : []), ...(about ? ["aboutSec"] : [])],
   };
 }
 
@@ -523,12 +569,34 @@ async function developerMeta(slug: string, canonical: string): Promise<MetaResul
   const desc =
     clamp(String(d.tagline || d.description || ""), 200) ||
     `כל הפרויקטים החדשים של החברה${d.city ? " ב" + d.city : ""} במקום אחד.`;
+  const image = absolute(d.cover_url || d.logo_url) || DEFAULT_IMAGE;
+  const tagline = String(d.tagline || "").trim();
+  const about = String(d.description || "").trim();
+
+  const org: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${canonical}#developer`,
+    name: String(d.name || "חברה יזמית"),
+    url: canonical,
+    description: desc,
+    image,
+  };
+  if (d.logo_url) org.logo = absolute(d.logo_url);
+  if (d.city) org.address = { "@type": "PostalAddress", addressLocality: String(d.city), addressCountry: "IL" };
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: desc,
-    image: absolute(d.cover_url || d.logo_url) || DEFAULT_IMAGE,
+    image,
     canonical,
+    jsonLd: org,
+    fills: [
+      { id: "devName", text: String(d.name || "") },
+      { id: "devTagline", text: tagline },
+    ],
+    inner: about ? [{ id: "devAbout", html: esc(about) }] : [],
+    reveal: [...(tagline ? ["devTagline"] : []), ...(about ? ["aboutSec"] : [])],
   };
 }
 
@@ -543,16 +611,43 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   const name = p.advertiser_name || "בעל מקצוע";
   const role = TYPE_LABELS[String(p.advertiser_type || "")] || "בעל/ת מקצוע";
   const title = [name, p.business_name].filter(Boolean).join(" · ");
+  const description = clamp(
+    String(p.headline || p.description || "") ||
+      `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
+    155,
+  );
+  const image = absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE;
+  const canonical = canonicalBySlug("professional", p, key);
+  const headline = String(p.headline || "").trim();
+  const about = String(p.description || "").trim();
+
+  const service: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    "@id": `${canonical}#professional`,
+    name: String(p.business_name || name),
+    url: canonical,
+    description,
+    image,
+    serviceType: role,
+    areaServed: String(p.target_region || "עפולה והעמק"),
+  };
+  if (p.business_name && p.advertiser_name) {
+    service.employee = { "@type": "Person", name: String(p.advertiser_name), jobTitle: role };
+  }
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
-    description: clamp(
-      String(p.headline || p.description || "") ||
-        `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
-      155,
-    ),
-    image: absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE,
-    canonical: canonicalBySlug("professional", p, key),
+    description,
+    image,
+    canonical,
+    jsonLd: service,
+    fills: [
+      { id: "profileName", text: String(p.advertiser_name || "בעל/ת מקצוע") },
+      { id: "profileHeadline", text: headline },
+      { id: "profileDescription", text: about },
+    ],
+    reveal: [...(headline ? ["profileHeadline"] : []), ...(about ? ["aboutBlock"] : [])],
   };
 }
 
@@ -591,6 +686,16 @@ async function articleMeta(key: string): Promise<MetaResult> {
   };
   if (publishedAt) article.datePublished = publishedAt;
 
+  /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו מבנה ש-renderBody בונה,
+     כאן ב-HTML מוברח: גוף שנכתב בעורך עם תגיות יוצא כטקסט, כמו בדפדפן. */
+  const blocks = shared.ShukArticleBody.parse(String(a.body || ""));
+  const bodyHtml = blocks.map((b) => {
+    if (b.tag === "ul") return `<ul>${(b.items || []).map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
+    const cls = b.lead ? ' class="lead-para"' : "";
+    return `<${b.tag}${cls}>${esc(b.text || "")}</${b.tag}>`;
+  }).join("");
+  const subtitle = String(a.subtitle || "").trim();
+
   return {
     title: clamp(`${a.title || "כתבה"} | ${SITE_NAME}`, 90),
     description,
@@ -598,6 +703,12 @@ async function articleMeta(key: string): Promise<MetaResult> {
     canonical,
     publishedAt,
     jsonLd: article,
+    fills: [
+      { id: "articleTitle", text: String(a.title || "כתבה") },
+      { id: "articleSubtitle", text: subtitle },
+    ],
+    reveal: subtitle ? ["articleSubtitle"] : [],
+    inner: bodyHtml ? [{ id: "articleBody", html: bodyHtml }] : [],
   };
 }
 
@@ -623,6 +734,14 @@ function fillText(html: string, id: string, text: string): string {
   if (!text) return html;
   const re = new RegExp(`(<([a-z0-9]+)\\b[^>]*\\bid="${id}"[^>]*>)[^<]*(</\\2>)`, "i");
   return html.replace(re, (_m, open, _tag, close) => `${open}${esc(text)}${close}`);
+}
+
+/* ‏מילוי אלמנט **ריק** במבנה - ‎<div id="articleBody"></div>‎. אלמנט שכבר יש
+   בו משהו אינו נדרס. ה-html כבר מוברח בידי מי שבנה אותו. */
+function fillInner(html: string, id: string, inner: string): string {
+  if (!inner) return html;
+  const re = new RegExp(`(<([a-z0-9]+)\\b[^>]*\\bid="${id}"[^>]*>)\\s*(</\\2>)`, "i");
+  return html.replace(re, (_m, open, _tag, close) => `${open}${inner}${close}`);
 }
 
 function unhide(html: string, id: string): string {
@@ -675,6 +794,7 @@ function inject(html: string, m: Meta): string {
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(m.title)}</title>`);
 
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
+  for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח

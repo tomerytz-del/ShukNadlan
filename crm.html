@@ -7387,7 +7387,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <!-- יישובים לעסקאות: הרשימה שסוכן הדפדפן (Claude in Chrome) מושך מ-GovMap
            ב"עדכן עסקאות", וכל יישוב פעיל מקבל דף ב-/deals/{slug}.
-           ‏deal_settlements, מיגרציה 20270328090000. docs/settlement-deals.md -->
+           ‏deal_settlements, מיגרציה 20270329090000. docs/settlement-deals.md -->
       <details class="acc" id="accDealSettlements">
         <summary>
           <span class="acc-title">יישובים לעסקאות</span>
@@ -8170,6 +8170,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field">
           <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
           <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
+        </div>
+
+        <!-- ---------- על המשרד ----------
+             הטקסט שבראש דף המשרד, והתיאור שגוגל ומנועי AI קוראים. משרד שלא
+             כתב מקבל משפט עובדתי מהשם והכתובת (‏assets/agency-about.js). -->
+        <div class="form-subheading">על המשרד</div>
+        <div class="field">
+          <textarea id="brDescription" rows="5" maxlength="1200" placeholder="למשל: משרד משפחתי שפועל בעפולה מאז 2008, מתמחה בדירות בגבעת המורה ובעפולה עילית ובליווי משפחות שמוכרות כדי לקנות. שורה ריקה מתחילה פסקה חדשה."></textarea>
+          <div class="hint">מוצג בראש דף המשרד ומשמש את גוגל לתיאור המשרד. כמה משפטים על הניסיון, האזורים וסוגי הנכסים. עד 1,200 תווים <span id="brDescriptionCount"></span></div>
         </div>
 
         <!-- ---------- כתובת המשרד ----------
