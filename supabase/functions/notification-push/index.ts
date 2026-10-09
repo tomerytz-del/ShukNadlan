@@ -87,6 +87,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
+  // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
+  deal_sync_summary: "accDealSettlements",
 };
 
 function json(obj: unknown, status = 200) {

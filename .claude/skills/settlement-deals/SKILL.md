@@ -1,6 +1,6 @@
 ---
 name: settlement-deals
-description: עבודה על העסקאות לפי יישוב בריפו של שוק נדל״ן - רשימת היישובים deal_settlements (כל עיר בשוק, אוטומטית) ומסך "יישובים לעסקאות" ב-CRM, סוכן הדפדפן (Claude in Chrome) שמושך מ-GovMap בפקודה "עדכן עסקאות" ומחליף את ההדבקה הידנית, מחזור העדכון (sync_every_days, deal_sync_plan במנות, הממצאים deal_sync_stopped / deal_sync_overdue), upsert_deals / deal_sync_fail, ודפי /deals ו-/deals/{slug} (deals.html, deals-page.ts, deals-render.js). Use when running or changing "עדכן עסקאות", when the agent's sync adds duplicates or nothing at all, when the ops dashboard shows deal_sync_stopped or deal_sync_overdue, when a city in a market has no deals or never gets updated, when changing the update cycle, when adding or renaming a settlement or its slug, when touching upsert_deals or market_deals_official keys, when a /deals page shows no numbers, wrong canonical or a house number, when changing what the deals page shows, or when asked to build a deals scraper or call the GovMap API (don't - see the skill).
+description: עבודה על העסקאות לפי יישוב בריפו של שוק נדל״ן - רשימת היישובים deal_settlements (כל עיר בשוק, אוטומטית) ומסך "יישובים לעסקאות" ב-CRM, סוכן הדפדפן (Claude in Chrome) שמושך מ-GovMap בפקודה "עדכן עסקאות" ומחליף את ההדבקה הידנית, מחזור העדכון (sync_every_days, deal_sync_plan במנות, הממצאים deal_sync_stopped / deal_sync_overdue), upsert_deals / deal_sync_fail, הסיכום של כל הרצה (deal_sync_runs, deal_sync_run_finish, ההתראה deal_sync_summary), ודפי /deals ו-/deals/{slug} (deals.html, deals-page.ts, deals-render.js). Use when running or changing "עדכן עסקאות", when the agent's sync adds duplicates or nothing at all, when the ops dashboard shows deal_sync_stopped or deal_sync_overdue, when a city in a market has no deals or never gets updated, when changing the update cycle, when a sync summary is missing, wrong or arrives twice, when adding or renaming a settlement or its slug, when touching upsert_deals or market_deals_official keys, when a /deals page shows no numbers, wrong canonical or a house number, when changing what the deals page shows, or when asked to build a deals scraper or call the GovMap API (don't - see the skill).
 ---
 
 # עסקאות לפי יישוב
@@ -72,6 +72,21 @@ govmap:<גוש>-<חלקה>-<תת>:<YYYY-MM-DD>:<מחיר>:<מ"ר>
 - **דף דל לא לגוגל:** ‏`deal_settlements_public()` רק עם עסקאות (אינדקס ו-sitemap),
   ופחות מ-5 עסקאות - `noindex` מ-`deals-page.ts`.
 
+## הסיכום (מיגרציה `20270331090000`)
+
+- **נבנה ממה שהסוכן כבר עושה:** `upsert_deals` ו-`deal_sync_fail` קוראות ל-
+  `deal_sync_log`, שרושמת את היישוב ב-`deal_sync_runs.items` (אובייקט לפי שם -
+  יישוב בכמה מנות הוא שורה אחת). פונקציה חדשה שכותבת עסקאות **חייבת** לקרוא לה,
+  אחרת היישוב חסר בסיכום בלי שום שגיאה.
+- **נסגר פעם אחת:** ‏`deal_sync_run_finish()` מהסוכן, או `deal_sync_close_stale()`
+  מ-pg_cron אחרי שעתיים בלי פעילות (‏`auto`). קריאה שנייה מחזירה את הסיכום
+  הקיים ואינה שולחת שוב.
+- **התראה `deal_sync_summary`** לכל מנהל/ת פלטפורמה פעיל/ה. סוג חדש עבר בארבעת
+  המקומות (הסקיל `agent-notifications`): האילוץ, `NOTIF_TYPES`, ‏`ACC_BY_TYPE`, ובלי
+  פריט - אין `itemPath`. הגוף בשורה אחת ועד 800 תווים - פרמטר של תבנית וואטסאפ.
+- **שינוי באילוץ `notifications_type_check`** - מהגרסה בפרודקשן, לא מהקובץ: מיגרציה
+  שמחליפה אותו מרשימה ישנה מוחקת סוג של מישהו אחר.
+
 **ההדבקה הידנית היא גיבוי בלבד** (מקופלת ב"מצב העסקאות"). הודעה, ממצא או טקסט
 חדש שאומר "להדביק שוב" - מפנה ל"עדכן עסקאות".
 
@@ -89,7 +104,7 @@ govmap:<גוש>-<חלקה>-<תת>:<YYYY-MM-DD>:<מחיר>:<מ"ר>
    בטבלה של GovMap. הנרמול במסד.
 5. אין עסקאות: `p_rows: []`. כשל: `await sb.rpc('deal_sync_fail', { p_settlement: name, p_error })`, וממשיכים.
 6. ‏`due_total` גדול ממה שעבר - מנה נוספת.
-7. סיכום לכל יישוב: `added` / `updated` / `rejected_count`.
+7. בסוף: `await sb.rpc('deal_sync_run_finish')` - מחזיר את `summary` ושולח אותו.
 
 הרצה שנייה על אותו טווח חייבת להחזיר `added: 0`. אם לא - כלל 3.
 
