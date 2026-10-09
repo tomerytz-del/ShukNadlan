@@ -22894,6 +22894,15 @@ const NOTIF_TYPES = [
     sub:'סוכן/ת חיפש/ה עסקאות ולא קיבל/ה תוצאה בגלל הנתונים: עיר שלא נטענה, מאגר שלא עודכן, או רחוב בלי עסקאות. הרצת "עדכן עסקאות" לסוכן הדפדפן פותרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadDealGaps() },
+  /* סיכום של כל הרצת "עדכן עסקאות" - כמה יישובים, כמה עסקאות, מה נכשל
+     וכמה ממתינים (‏deal_sync_runs, מיגרציה 20270331090000). נשלח כשהסוכן
+     מסיים, או אוטומטית אחרי שעתיים בלי פעילות. docs/settlement-deals.md */
+  { type:'deal_sync_summary', tone:'deal', goto:'accDealSettlements', focus:'#dealSyncRuns',
+    view:'admin',
+    title:'סיכום עדכון עסקאות',
+    sub:'אחרי כל הרצה של "עדכן עסקאות": כמה יישובים עודכנו, כמה עסקאות נוספו, מה נכשל ולמה, וכמה יישובים עוד ממתינים.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadDealSyncRuns() },
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
@@ -30798,8 +30807,54 @@ document.addEventListener('click', e => {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
+/* סיכומי העדכון - הרצה לכל "עדכן עסקאות" (‏deal_sync_runs). השורה נפתחת
+   לפירוט לפי יישוב; הסיכום עצמו נבנה במסד (‏deal_sync_close_run), כדי
+   שההתראה, הסוכן והמסך יראו אותו טקסט. */
+async function loadDealSyncRuns(){
+  const box = document.getElementById('dealSyncRuns');
+  if (!box || !sb) return;
+  const { data, error } = await sb.from('deal_sync_runs')
+    .select('id,started_at,finished_at,finished_by,towns_ok,towns_failed,added,updated,rejected,due_left,summary,items')
+    .order('started_at', { ascending: false }).limit(12);
+  if (error){
+    box.innerHTML = (error.code === '42P01' || error.code === 'PGRST205')
+      ? '<p class="acc-sub">סיכומי העדכון עוד לא קיימים במסד - המיגרציה 20270331090000.</p>'
+      : '<p class="acc-sub">שגיאה בטעינת הסיכומים: ' + escapeHtml(heErr(error)) + '</p>';
+    return;
+  }
+  if (!data || !data.length){
+    box.innerHTML = '<div class="form-subheading">סיכומי עדכון</div><p class="acc-sub">עוד לא רץ "עדכן עסקאות".</p>';
+    return;
+  }
+  const fmt = n => Number(n || 0).toLocaleString('he-IL');
+  const when = t => new Date(t).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
+  box.innerHTML = '<div class="form-subheading">סיכומי עדכון</div>' + data.map(r => {
+    const items = Object.entries(r.items || {})
+      .sort((a, b) => (Number(b[1].added) || 0) - (Number(a[1].added) || 0));
+    const head = r.finished_at
+      ? `${esc(when(r.started_at))} · ${esc(fmt(r.towns_ok))} יישובים`
+        + (r.towns_failed ? ` · <span style="color:var(--danger,#c0392b)">${esc(fmt(r.towns_failed))} נכשלו</span>` : '')
+        + ` · +${esc(fmt(r.added))} עסקאות`
+        + (r.due_left ? ` · ${esc(fmt(r.due_left))} ממתינים` : ' · הכול מעודכן')
+        + (r.finished_by === 'auto' ? ' · <span class="acc-sub" style="margin:0">נסגר אוטומטית</span>' : '')
+      : `${esc(when(r.started_at))} · <strong>רץ עכשיו</strong> · ${esc(fmt(items.length))} יישובים עד כה`;
+    return `<details style="border-bottom:1px solid var(--line);padding:8px 0">
+      <summary style="cursor:pointer">${head}</summary>
+      ${r.summary ? `<pre style="white-space:pre-wrap;font-family:inherit;margin:8px 0;color:var(--muted)">${esc(r.summary)}</pre>` : ''}
+      <div style="overflow-x:auto"><table class="cma-table"><thead><tr>
+        <th>יישוב</th><th>מצב</th><th>נוספו</th><th>עודכנו</th><th>ללא שינוי</th><th>נדחו</th>
+      </tr></thead><tbody>${items.map(([name, v]) => `<tr>
+        <td>${esc(name)}${v.first ? ' <span class="acc-sub" style="margin:0">(ראשונות)</span>' : ''}</td>
+        <td style="color:${v.ok ? 'inherit' : 'var(--danger,#c0392b)'}">${v.ok ? 'עודכן' : esc('נכשל: ' + (v.error || ''))}</td>
+        <td>${esc(fmt(v.added))}</td><td>${esc(fmt(v.updated))}</td>
+        <td>${esc(fmt(v.unchanged))}</td><td>${esc(fmt(v.rejected))}</td>
+      </tr>`).join('')}</tbody></table></div>
+    </details>`;
+  }).join('');
+}
+
 document.getElementById('accDealSettlements')?.addEventListener('toggle', function(){
-  if (this.open) loadDealSettlements();
+  if (this.open){ loadDealSettlements(); loadDealSyncRuns(); }
 });
 
 /* ==========================================================================
