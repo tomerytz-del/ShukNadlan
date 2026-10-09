@@ -25,6 +25,8 @@ on:
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
+      - "assets/article-body.js"
+      - "assets/agency-about.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -38,6 +40,8 @@ on:
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
+      - "assets/article-body.js"
+      - "assets/agency-about.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
