@@ -484,6 +484,11 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
     image: absolute(m.cover_url || m.photo_url) || DEFAULT_IMAGE,
     canonical,
     jsonLd: person,
+    /* ‏אותו טקסט ש-renderProfile ב-agent.html כותב, כולל ברירת המחדל לביו ריק */
+    fills: [
+      { id: "profileName", text: String(m.display_name || "") },
+      { id: "profileBio", text: String(m.bio || "") || "סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק." },
+    ],
   };
 }
 
@@ -523,12 +528,33 @@ async function projectMeta(slug: string, canonical: string): Promise<MetaResult>
   const desc =
     clamp(String(p.tagline || p.description || ""), 200) ||
     `פרויקט חדש מקבלן${p.city ? " ב" + p.city : ""} - תמהיל דירות, מחירים וגלריה.`;
+  const image = absolute(p.cover_url || p.logo_url) || DEFAULT_IMAGE;
+  const tagline = String(p.tagline || "").trim();
+  const about = String(p.description || "").trim();
+
+  const complex: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "ApartmentComplex",
+    "@id": `${canonical}#project`,
+    name: String(p.name || "פרויקט חדש"),
+    url: canonical,
+    description: desc,
+    image,
+  };
+  if (p.city) complex.address = { "@type": "PostalAddress", addressLocality: String(p.city), addressCountry: "IL" };
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: desc,
-    image: absolute(p.cover_url || p.logo_url) || DEFAULT_IMAGE,
+    image,
     canonical,
+    jsonLd: complex,
+    fills: [
+      { id: "projectName", text: String(p.name || "") },
+      { id: "projectTagline", text: tagline },
+      { id: "projectDescription", text: about },
+    ],
+    reveal: [...(tagline ? ["projectTagline"] : []), ...(about ? ["aboutSec"] : [])],
   };
 }
 
@@ -543,12 +569,34 @@ async function developerMeta(slug: string, canonical: string): Promise<MetaResul
   const desc =
     clamp(String(d.tagline || d.description || ""), 200) ||
     `כל הפרויקטים החדשים של החברה${d.city ? " ב" + d.city : ""} במקום אחד.`;
+  const image = absolute(d.cover_url || d.logo_url) || DEFAULT_IMAGE;
+  const tagline = String(d.tagline || "").trim();
+  const about = String(d.description || "").trim();
+
+  const org: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${canonical}#developer`,
+    name: String(d.name || "חברה יזמית"),
+    url: canonical,
+    description: desc,
+    image,
+  };
+  if (d.logo_url) org.logo = absolute(d.logo_url);
+  if (d.city) org.address = { "@type": "PostalAddress", addressLocality: String(d.city), addressCountry: "IL" };
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: desc,
-    image: absolute(d.cover_url || d.logo_url) || DEFAULT_IMAGE,
+    image,
     canonical,
+    jsonLd: org,
+    fills: [
+      { id: "devName", text: String(d.name || "") },
+      { id: "devTagline", text: tagline },
+    ],
+    inner: about ? [{ id: "devAbout", html: esc(about) }] : [],
+    reveal: [...(tagline ? ["devTagline"] : []), ...(about ? ["aboutSec"] : [])],
   };
 }
 
@@ -563,16 +611,43 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   const name = p.advertiser_name || "בעל מקצוע";
   const role = TYPE_LABELS[String(p.advertiser_type || "")] || "בעל/ת מקצוע";
   const title = [name, p.business_name].filter(Boolean).join(" · ");
+  const description = clamp(
+    String(p.headline || p.description || "") ||
+      `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
+    155,
+  );
+  const image = absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE;
+  const canonical = canonicalBySlug("professional", p, key);
+  const headline = String(p.headline || "").trim();
+  const about = String(p.description || "").trim();
+
+  const service: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    "@id": `${canonical}#professional`,
+    name: String(p.business_name || name),
+    url: canonical,
+    description,
+    image,
+    serviceType: role,
+    areaServed: String(p.target_region || "עפולה והעמק"),
+  };
+  if (p.business_name && p.advertiser_name) {
+    service.employee = { "@type": "Person", name: String(p.advertiser_name), jobTitle: role };
+  }
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
-    description: clamp(
-      String(p.headline || p.description || "") ||
-        `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
-      155,
-    ),
-    image: absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE,
-    canonical: canonicalBySlug("professional", p, key),
+    description,
+    image,
+    canonical,
+    jsonLd: service,
+    fills: [
+      { id: "profileName", text: String(p.advertiser_name || "בעל/ת מקצוע") },
+      { id: "profileHeadline", text: headline },
+      { id: "profileDescription", text: about },
+    ],
+    reveal: [...(headline ? ["profileHeadline"] : []), ...(about ? ["aboutBlock"] : [])],
   };
 }
 
