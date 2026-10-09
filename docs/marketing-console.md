@@ -1,6 +1,6 @@
 # קונסולת השיווק — ניהול קמפיינים ממומנים (מטא, ובהמשך גוגל)
 
-**מצב: שלבים 1-6 נכתבו (הסכימה, `ads-admin`, הפאנל, לידים, יצירת קמפיין, ממצאים לסוכן התפעולי); 7 (Google Ads) בתכנון — ראו "התקדמות" למטה.** המסמך
+**מצב: שלבים 1-6 נכתבו (הסכימה, `ads-admin`, הפאנל, לידים, יצירת קמפיין, ממצאים לסוכן התפעולי); 7 (Google Ads) - החיבור וקריאה בלבד (7א), הכתיבה בהמשך. ראו "התקדמות" למטה.** המסמך
 הוא מה שתומר סיכם בשיחה עם קלוד, כדי שקלוד קוד ימשיך מכאן בלי לשחזר את
 הדיון.
 
@@ -282,6 +282,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | 4 | לידים מטפסי מטא: `20270312090000_ads_leads_routing.sql` (‏`ads_lead_forms`, מצב ניתוב ב-`ads_leads`, ‏`ads_lead_claim()`, ערוץ `meta_ads` ב-`lead_source_channel()`, ה-cron `ads-leads-sync` בדקה 20 של כל שעה), `_shared/meta-leads.ts`, הפונקציה `ads-leads-webhook`, הפעולות `lead_forms` · `save_lead_form` · `sync_leads` · `retry_lead` · `subscribe_page`, והלשונית "לידים ממטא" | ראו "לידים מטפסי מטא". ליד נכנס **דרך אותן פונקציות כמו ליד מהאתר** ולא בנתיב משלו. ‏`meta.ts` עבר ל-`_shared/meta-graph.ts` כי שתי פונקציות משתמשות בו. ‏`property-inquiry-intake` שומרת מעכשיו `source` (מנורמל ב-`KNOWN_SOURCES`) - קודם התעלמה ממנו. נבדק מול Graph מדומה ומסד מקומי |
 | 5 | יצירת קמפיין מנוסח מאושר: `20270314090000_ads_campaigns.sql` (‏`ads_campaigns`, ו-`max_daily_budget` ‏/ `platform_landing_path` ב-`ads_settings`), ‏`ads-admin/campaign.ts`, הפעולות `create_campaign` ו-`discard_campaign`, וטופס היצירה מתחת לטיוטה מאושרת בלשונית "נוסחי מודעות" | ראו "יצירת קמפיין". נבדק מול Graph מדומה (סדר הקריאות, PAUSED/ACTIVE, כשל באמצע, תמונה בסוג שגוי), מסד מקומי ובדפדפן. לא נבדק מול חשבון מודעות אמיתי |
 | 6 | ‏`ops_agent/probes/ads.py` - שישה ממצאים בפאנל "בריאות המערכת": `ads_token_invalid` (קריטי), `ads_sync_silent` ו-`ads_leads_failed` (חמור), `ads_campaign_no_leads` ו-`ads_leads_unmapped` (בינוני), `ads_campaign_partial` (נמוך). הספים ב-`ops_agent/config.py`, והבדיקה ב-`scripts/ops_ads_test.py` | **מהמסד בלבד:** הטוקן יושב בסודות של Supabase ולא של GitHub, וכל מה שצריך כבר ביומן. **כל ממצא יכול להיסגר** (הלקח של `heavy_query`): הטוקן נבדק על הקריאה האחרונה למטא ולא על "היה כשל", הסנכרון מהמוצלח האחרון, והקמפיין בחלון נע של חמישה ימים מלאים בלי היום ואתמול (מטא מעדכנת לידים באיחור). **"בלי לידים" רק על קמפיין שאמור להביא לידים** - נוצר מהקונסולה עם טופס או וואטסאפ, או הביא לידים בחודש שלפני; קמפיין תנועה לאתר היה ממצא על יחידה אחרת. נבדק על Postgres מקומי עם המיגרציות האמיתיות |
+| 7א | Google Ads, חיבור וקריאה בלבד: `_shared/google-ads.ts` (‏access token מ-refresh token ושאילתת GAQL ב-`searchStream`, בלי ספרייה - הרשמית היא gRPC), הפעולות `google_status` ו-`google_campaigns` ב-`ads-admin`, והלשונית "גוגל" (סטטוס, אריחי הוצאה/קליקים/המרות, טבלת קמפיינים ל-7/30/90 יום) | **ב-`ads-admin` ולא בפונקציה נפרדת:** אותו אימות מנהל/ת, אותו יומן ואותו CORS. ה-cron אינו מורשה להן. הגרסה `v25` (‏`GOOGLE_ADS_API_VERSION` גובר - גוגל סוגרת גרסה כשנה אחרי שיצאה). שגיאות שמתורגמות לפעולה: `invalid_grant` (מסך ההסכמה ב-Testing מבטל את הטוקן אחרי 7 ימים), `DEVELOPER_TOKEN_NOT_APPROVED`, `USER_PERMISSION_DENIED`. נבדק מול `fetch` מדומה; לא מול החשבון האמיתי |
 
 ## הסקיל `meta-ads`
 
@@ -299,18 +300,18 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 > (מי שמפרסם), והנכס בקמפיין חייב להיות `active` עם הסכמת בעלים — כלומר
 > כבר באתר. אין לפרסם נכס שאינו באתר.
 
-## Google Ads — מה צריך לפני שמתחילים
+## Google Ads — החיבור (הושלם 9.10.2026)
 
-- Developer Token מחשבון מנהל (MCC): Tools & Settings → Setup → API
-  Center. רמה `Test account` לא מספיקה; צריך `Basic` לפחות (בקשה בטופס
-  של גוגל, ימים ספורים). תומר חושב שיש לו טוקן — **טרם אומת באיזו רמה**.
-- OAuth: Google Cloud project קיים (לוח השנה כבר מחובר — `google-calendar-*`),
-  צריך scope `adwords` ו-refresh token לחשבון של תומר.
-- סודות: `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`,
-  `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`,
-  `GOOGLE_ADS_CUSTOMER_ID`, `GOOGLE_ADS_LOGIN_CUSTOMER_ID`.
-- Edge Function `google-ads-admin` באותו דפוס, דרך REST
-  (`googleads.googleapis.com/v*/customers/{id}/googleAds:searchStream` ל-GAQL).
+| מה | איפה |
+| --- | --- |
+| חשבון מנהל (MCC) | Shuk Nadlan Manager, ‏363-980-6827. חשבון הפרסום 168-584-7742 מקושר אליו |
+| Developer token | מרכז ה-API בחשבון המנהל. רמה **Explorer** (חדשה - עובדת מול חשבון אמיתי עם מכסה יומית מוגבלת); בקשת Basic עם מסמך התכנון |
+| OAuth | פרויקט Cloud ‏`shuknadlan-maps`, ‏Google Ads API מופעל, מסך הסכמה **In production** (ב-Testing ה-refresh token פג אחרי 7 ימים), scope ‏`adwords`, לקוח Web עם redirect ל-OAuth Playground |
+| סודות | `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`, `GOOGLE_ADS_LOGIN_CUSTOMER_ID` (המנהל), `GOOGLE_ADS_CUSTOMER_ID` (הפרסום). מספרים עם או בלי מקפים |
+
+**מלכודת שנתפסה בהגדרה:** לחשבון בעל אותו מייל יכולות להיות שתי התחברויות
+גוגל שונות (‏`euid` שונה בכתובת), וכל אחת רואה רשימת חשבונות אחרת. ה-refresh
+token מופק מההתחברות **שבה יושב חשבון המנהל**, אחרת `USER_PERMISSION_DENIED`.
 
 ## הרחבות שסוכמו, לפי סדר ערך
 

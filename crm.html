@@ -6199,10 +6199,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
 
             <div class="ads-pane" id="adsPaneGoogle" role="tabpanel" aria-labelledby="adsTabGoogle" hidden>
-              <div class="ads-state">
-                <b>Google Ads - ממתין לחיבור.</b> צריך Developer Token ברמת Basic לפחות מחשבון מנהל (MCC),
-                ו-refresh token עם הרשאת <code>adwords</code>. הפירוט: <code>docs/marketing-console.md</code>, שלב 7.
+              <!-- Google Ads, קריאה בלבד (‏google_status / google_campaigns ב-ads-admin).
+                   ‏docs/marketing-console.md, שלב 7. -->
+              <div class="ads-state" id="gadsState">טוען…</div>
+              <div class="adm-toolbar" id="gadsToolbar" hidden>
+                <div class="adm-range" id="gadsRange" role="group" aria-label="טווח">
+                  <button type="button" data-days="7">7 ימים</button>
+                  <button type="button" data-days="30" class="is-on">30 ימים</button>
+                  <button type="button" data-days="90">90 ימים</button>
+                </div>
               </div>
+              <div id="gadsReport"></div>
             </div>
           </div>
         </div>
