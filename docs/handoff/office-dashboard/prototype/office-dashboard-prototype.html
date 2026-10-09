@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אב-טיפוס - דאשבורד בעל משרד | שוק הנדל״ן</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>:root{
+ --color-fg:#0d1b3d;--color-fg-muted:#5b6585;--color-bg:#f4f7fe;--color-panel:#ffffff;--color-border-line:#e3e8f4;
+ --color-ok:#1e7a4c;--color-warn:#a36a00;--color-bad:#b3261e;
+ --cds-border:#dde3f2;--cds-chart-axis:#c3cbe0;--cds-chart-grid:#eef1f8;--cds-chart-muted:#cfd7ea;
+ --cds-dur-slow:320ms;--cds-ease-out:cubic-bezier(.2,.8,.2,1);
+ --cds-font-size-caption:12.5px;--cds-font-size-body:14.5px;--cds-font-size-heading:16px;--cds-font-size-title:22px;--cds-font-weight-medium:600;
+ --cds-gap-xs:6px;--cds-gap-sm:8px;--cds-gap-md:16px;--cds-gap-xl:32px;
+ --cds-pad-xs:6px;--cds-pad-sm:10px;--cds-pad-md:12px;--cds-pad-lg:20px;--cds-pad-xl:28px;
+ --cds-radius:14px;--cds-shadow-popover:0 8px 24px rgba(13,27,61,.14);--cds-surface-popover:#ffffff;--cds-text-secondary:#5b6585;
+ --font-anthropic-sans:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+ --color-fg:#e8ecf7;--color-fg-muted:#9aa4c0;--color-bg:#0b1226;--color-panel:#111a33;--color-border-line:#223055;
+ --color-ok:#5fd394;--color-warn:#f0b54a;--color-bad:#ff8a80;
+ --cds-border:#2a3a63;--cds-chart-axis:#3a4a73;--cds-chart-grid:#1a2645;--cds-chart-muted:#33426b;
+ --cds-surface-popover:#16213f;--cds-text-secondary:#9aa4c0;--cds-shadow-popover:0 8px 24px rgba(0,0,0,.4);
+}}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
+#dash-root{padding:0 var(--dash-gutter,24px)}
+.dash-skeleton{color:transparent!important;background:linear-gradient(90deg,var(--color-border-line),transparent,var(--color-border-line));background-size:200% 100%;border-radius:8px;animation:sk 1.2s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+</style>
+<script>window.__DEMO_DATA__ = {"agent_kpis": [{"agent": "אורית כהן", "role": "סוכנת בכירה", "leads": 50, "leads_prev": 54, "responded": 50, "meetings": 18, "showings": 27, "agreements": 18, "agreements_prev": 13, "recruited": 17, "recruited_prev": 14, "exclusives": 12, "exclusives_prev": 10, "deals": 12, "deals_prev": 10, "commission": 341000, "commission_prev": 249000, "commission_target": 200000, "avg_response_min": 9, "avg_response_min_prev": 8, "open_unanswered": 0, "active_listings": 25}, {"agent": "יוסי לוי", "role": "סוכן בכיר", "leads": 52, "leads_prev": 43, "responded": 51, "meetings": 22, "showings": 42, "agreements": 17, "agreements_prev": 11, "recruited": 17, "recruited_prev": 12, "exclusives": 9, "exclusives_prev": 6, "deals": 7, "deals_prev": 6, "commission": 171000, "commission_prev": 163000, "commission_target": 170000, "avg_response_min": 22, "avg_response_min_prev": 25, "open_unanswered": 1, "active_listings": 21}, {"agent": "מיכל אברהם", "role": "סוכנת", "leads": 47, "leads_prev": 47, "responded": 46, "meetings": 16, "showings": 25, "agreements": 13, "agreements_prev": 9, "recruited": 11, "recruited_prev": 10, "exclusives": 7, "exclusives_prev": 6, "deals": 4, "deals_prev": 5, "commission": 102000, "commission_prev": 148000, "commission_target": 150000, "avg_response_min": 14, "avg_response_min_prev": 14, "open_unanswered": 1, "active_listings": 18}, {"agent": "דניאל פרץ", "role": "סוכן", "leads": 38, "leads_prev": 36, "responded": 35, "meetings": 13, "showings": 19, "agreements": 4, "agreements_prev": 5, "recruited": 6, "recruited_prev": 6, "exclusives": 3, "exclusives_prev": 2, "deals": 3, "deals_prev": 4, "commission": 88000, "commission_prev": 86000, "commission_target": 130000, "avg_response_min": 48, "avg_response_min_prev": 49, "open_unanswered": 5, "active_listings": 11}, {"agent": "נועה מזרחי", "role": "סוכנת", "leads": 45, "leads_prev": 46, "responded": 44, "meetings": 16, "showings": 32, "agreements": 11, "agreements_prev": 13, "recruited": 9, "recruited_prev": 12, "exclusives": 4, "exclusives_prev": 6, "deals": 8, "deals_prev": 7, "commission": 190000, "commission_prev": 176000, "commission_target": 140000, "avg_response_min": 27, "avg_response_min_prev": 33, "open_unanswered": 1, "active_listings": 17}, {"agent": "אבי ביטון", "role": "סוכן מתחיל", "leads": 32, "leads_prev": 30, "responded": 28, "meetings": 11, "showings": 17, "agreements": 9, "agreements_prev": 6, "recruited": 8, "recruited_prev": 3, "exclusives": 2, "exclusives_prev": 0, "deals": 4, "deals_prev": 4, "commission": 104000, "commission_prev": 87000, "commission_target": 90000, "avg_response_min": 95, "avg_response_min_prev": 117, "open_unanswered": 6, "active_listings": 9}], "monthly": [{"month": "2025-10", "agent": "אורית כהן", "leads": 18, "recruited": 4, "exclusives": 3, "agreements": 4, "deals": 2, "commission": 40000}, {"month": "2025-11", "agent": "אורית כהן", "leads": 15, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 20000}, {"month": "2025-12", "agent": "אורית כהן", "leads": 19, "recruited": 5, "exclusives": 4, "agreements": 5, "deals": 2, "commission": 40000}, {"month": "2026-01", "agent": "אורית כהן", "leads": 18, "recruited": 4, "exclusives": 3, "agreements": 4, "deals": 2, "commission": 38000}, {"month": "2026-02", "agent": "אורית כהן", "leads": 14, "recruited": 5, "exclusives": 3, "agreements": 5, "deals": 2, "commission": 40000}, {"month": "2026-03", "agent": "אורית כהן", "leads": 17, "recruited": 5, "exclusives": 4, "agreements": 6, "deals": 2, "commission": 44000}, {"month": "2026-04", "agent": "אורית כהן", "leads": 16, "recruited": 6, "exclusives": 4, "agreements": 6, "deals": 3, "commission": 87000}, {"month": "2026-05", "agent": "אורית כהן", "leads": 20, "recruited": 3, "exclusives": 2, "agreements": 2, "deals": 3, "commission": 66000}, {"month": "2026-06", "agent": "אורית כהן", "leads": 18, "recruited": 5, "exclusives": 4, "agreements": 5, "deals": 4, "commission": 96000}, {"month": "2026-07", "agent": "אורית כהן", "leads": 16, "recruited": 7, "exclusives": 5, "agreements": 8, "deals": 3, "commission": 93000}, {"month": "2026-08", "agent": "אורית כהן", "leads": 12, "recruited": 3, "exclusives": 2, "agreements": 3, "deals": 4, "commission": 108000}, {"month": "2026-09", "agent": "אורית כהן", "leads": 22, "recruited": 7, "exclusives": 5, "agreements": 7, "deals": 5, "commission": 140000}, {"month": "2025-10", "agent": "יוסי לוי", "leads": 19, "recruited": 4, "exclusives": 2, "agreements": 5, "deals": 2, "commission": 40000}, {"month": "2025-11", "agent": "יוסי לוי", "leads": 12, "recruited": 1, "exclusives": 1, "agreements": 0, "deals": 0, "commission": 0}, {"month": "2025-12", "agent": "יוסי לוי", "leads": 14, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 3, "commission": 84000}, {"month": "2026-01", "agent": "יוסי לוי", "leads": 18, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 25000}, {"month": "2026-02", "agent": "יוסי לוי", "leads": 18, "recruited": 4, "exclusives": 2, "agreements": 3, "deals": 3, "commission": 63000}, {"month": "2026-03", "agent": "יוסי לוי", "leads": 19, "recruited": 4, "exclusives": 2, "agreements": 4, "deals": 3, "commission": 75000}, {"month": "2026-04", "agent": "יוסי לוי", "leads": 19, "recruited": 5, "exclusives": 2, "agreements": 5, "deals": 3, "commission": 78000}, {"month": "2026-05", "agent": "יוסי לוי", "leads": 9, "recruited": 4, "exclusives": 2, "agreements": 3, "deals": 2, "commission": 56000}, {"month": "2026-06", "agent": "יוסי לוי", "leads": 15, "recruited": 3, "exclusives": 2, "agreements": 3, "deals": 1, "commission": 29000}, {"month": "2026-07", "agent": "יוסי לוי", "leads": 15, "recruited": 6, "exclusives": 4, "agreements": 6, "deals": 1, "commission": 27000}, {"month": "2026-08", "agent": "יוסי לוי", "leads": 18, "recruited": 5, "exclusives": 2, "agreements": 5, "deals": 3, "commission": 60000}, {"month": "2026-09", "agent": "יוסי לוי", "leads": 19, "recruited": 6, "exclusives": 3, "agreements": 6, "deals": 3, "commission": 84000}, {"month": "2025-10", "agent": "מיכל אברהם", "leads": 10, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 56000}, {"month": "2025-11", "agent": "מיכל אברהם", "leads": 17, "recruited": 4, "exclusives": 2, "agreements": 2, "deals": 1, "commission": 20000}, {"month": "2025-12", "agent": "מיכל אברהם", "leads": 11, "recruited": 1, "exclusives": 1, "agreements": 0, "deals": 2, "commission": 40000}, {"month": "2026-01", "agent": "מיכל אברהם", "leads": 16, "recruited": 1, "exclusives": 1, "agreements": 1, "deals": 2, "commission": 44000}, {"month": "2026-02", "agent": "מיכל אברהם", "leads": 12, "recruited": 4, "exclusives": 2, "agreements": 5, "deals": 2, "commission": 54000}, {"month": "2026-03", "agent": "מיכל אברהם", "leads": 13, "recruited": 5, "exclusives": 3, "agreements": 5, "deals": 3, "commission": 63000}, {"month": "2026-04", "agent": "מיכל אברהם", "leads": 19, "recruited": 3, "exclusives": 2, "agreements": 1, "deals": 2, "commission": 56000}, {"month": "2026-05", "agent": "מיכל אברהם", "leads": 15, "recruited": 5, "exclusives": 3, "agreements": 5, "deals": 1, "commission": 30000}, {"month": "2026-06", "agent": "מיכל אברהם", "leads": 13, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 62000}, {"month": "2026-07", "agent": "מיכל אברהם", "leads": 22, "recruited": 3, "exclusives": 2, "agreements": 3, "deals": 0, "commission": 0}, {"month": "2026-08", "agent": "מיכל אברהם", "leads": 11, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 44000}, {"month": "2026-09", "agent": "מיכל אברהם", "leads": 14, "recruited": 5, "exclusives": 3, "agreements": 6, "deals": 2, "commission": 58000}, {"month": "2025-10", "agent": "דניאל פרץ", "leads": 11, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 30000}, {"month": "2025-11", "agent": "דניאל פרץ", "leads": 15, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 62000}, {"month": "2025-12", "agent": "דניאל פרץ", "leads": 10, "recruited": 0, "exclusives": 0, "agreements": 1, "deals": 1, "commission": 21000}, {"month": "2026-01", "agent": "דניאל פרץ", "leads": 8, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 3, "commission": 63000}, {"month": "2026-02", "agent": "דניאל פרץ", "leads": 12, "recruited": 0, "exclusives": 0, "agreements": 1, "deals": 1, "commission": 27000}, {"month": "2026-03", "agent": "דניאל פרץ", "leads": 7, "recruited": 4, "exclusives": 2, "agreements": 5, "deals": 1, "commission": 21000}, {"month": "2026-04", "agent": "דניאל פרץ", "leads": 8, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 23000}, {"month": "2026-05", "agent": "דניאל פרץ", "leads": 14, "recruited": 2, "exclusives": 1, "agreements": 2, "deals": 2, "commission": 38000}, {"month": "2026-06", "agent": "דניאל פרץ", "leads": 14, "recruited": 1, "exclusives": 0, "agreements": 0, "deals": 1, "commission": 25000}, {"month": "2026-07", "agent": "דניאל פרץ", "leads": 13, "recruited": 2, "exclusives": 1, "agreements": 1, "deals": 1, "commission": 26000}, {"month": "2026-08", "agent": "דניאל פרץ", "leads": 10, "recruited": 2, "exclusives": 1, "agreements": 2, "deals": 0, "commission": 0}, {"month": "2026-09", "agent": "דניאל פרץ", "leads": 15, "recruited": 2, "exclusives": 1, "agreements": 1, "deals": 2, "commission": 62000}, {"month": "2025-10", "agent": "נועה מזרחי", "leads": 7, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 20000}, {"month": "2025-11", "agent": "נועה מזרחי", "leads": 15, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 0, "commission": 0}, {"month": "2025-12", "agent": "נועה מזרחי", "leads": 3, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 62000}, {"month": "2026-01", "agent": "נועה מזרחי", "leads": 17, "recruited": 2, "exclusives": 1, "agreements": 2, "deals": 0, "commission": 0}, {"month": "2026-02", "agent": "נועה מזרחי", "leads": 11, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 50000}, {"month": "2026-03", "agent": "נועה מזרחי", "leads": 17, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 62000}, {"month": "2026-04", "agent": "נועה מזרחי", "leads": 20, "recruited": 5, "exclusives": 2, "agreements": 4, "deals": 1, "commission": 23000}, {"month": "2026-05", "agent": "נועה מזרחי", "leads": 15, "recruited": 4, "exclusives": 2, "agreements": 5, "deals": 3, "commission": 78000}, {"month": "2026-06", "agent": "נועה מזרחי", "leads": 11, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 3, "commission": 75000}, {"month": "2026-07", "agent": "נועה מזרחי", "leads": 9, "recruited": 3, "exclusives": 1, "agreements": 4, "deals": 3, "commission": 81000}, {"month": "2026-08", "agent": "נועה מזרחי", "leads": 16, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 40000}, {"month": "2026-09", "agent": "נועה מזרחי", "leads": 20, "recruited": 4, "exclusives": 2, "agreements": 4, "deals": 3, "commission": 69000}, {"month": "2025-10", "agent": "אבי ביטון", "leads": 9, "recruited": 1, "exclusives": 0, "agreements": 1, "deals": 1, "commission": 29000}, {"month": "2025-11", "agent": "אבי ביטון", "leads": 6, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 60000}, {"month": "2025-12", "agent": "אבי ביטון", "leads": 11, "recruited": 1, "exclusives": 0, "agreements": 1, "deals": 0, "commission": 0}, {"month": "2026-01", "agent": "אבי ביטון", "leads": 7, "recruited": 1, "exclusives": 0, "agreements": 2, "deals": 0, "commission": 0}, {"month": "2026-02", "agent": "אבי ביטון", "leads": 7, "recruited": 4, "exclusives": 1, "agreements": 4, "deals": 1, "commission": 23000}, {"month": "2026-03", "agent": "אבי ביטון", "leads": 11, "recruited": 1, "exclusives": 0, "agreements": 2, "deals": 0, "commission": 0}, {"month": "2026-04", "agent": "אבי ביטון", "leads": 5, "recruited": 1, "exclusives": 0, "agreements": 2, "deals": 1, "commission": 23000}, {"month": "2026-05", "agent": "אבי ביטון", "leads": 13, "recruited": 1, "exclusives": 0, "agreements": 2, "deals": 2, "commission": 38000}, {"month": "2026-06", "agent": "אבי ביטון", "leads": 12, "recruited": 1, "exclusives": 0, "agreements": 2, "deals": 1, "commission": 26000}, {"month": "2026-07", "agent": "אבי ביטון", "leads": 11, "recruited": 1, "exclusives": 0, "agreements": 1, "deals": 1, "commission": 25000}, {"month": "2026-08", "agent": "אבי ביטון", "leads": 7, "recruited": 2, "exclusives": 0, "agreements": 2, "deals": 2, "commission": 60000}, {"month": "2026-09", "agent": "אבי ביטון", "leads": 14, "recruited": 5, "exclusives": 2, "agreements": 6, "deals": 1, "commission": 19000}], "response_buckets": [{"agent": "אורית כהן", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 22}, {"agent": "אורית כהן", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 15}, {"agent": "אורית כהן", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 8}, {"agent": "אורית כהן", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 3}, {"agent": "אורית כהן", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 2}, {"agent": "אורית כהן", "bucket": "ללא מענה", "bucket_order": 6, "leads": 0}, {"agent": "יוסי לוי", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 13}, {"agent": "יוסי לוי", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 16}, {"agent": "יוסי לוי", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 13}, {"agent": "יוסי לוי", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 6}, {"agent": "יוסי לוי", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 3}, {"agent": "יוסי לוי", "bucket": "ללא מענה", "bucket_order": 6, "leads": 1}, {"agent": "מיכל אברהם", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 15}, {"agent": "מיכל אברהם", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 16}, {"agent": "מיכל אברהם", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 9}, {"agent": "מיכל אברהם", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 4}, {"agent": "מיכל אברהם", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 2}, {"agent": "מיכל אברהם", "bucket": "ללא מענה", "bucket_order": 6, "leads": 1}, {"agent": "דניאל פרץ", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 3}, {"agent": "דניאל פרץ", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 7}, {"agent": "דניאל פרץ", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 10}, {"agent": "דניאל פרץ", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 10}, {"agent": "דניאל פרץ", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 5}, {"agent": "דניאל פרץ", "bucket": "ללא מענה", "bucket_order": 6, "leads": 3}, {"agent": "נועה מזרחי", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 9}, {"agent": "נועה מזרחי", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 12}, {"agent": "נועה מזרחי", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 13}, {"agent": "נועה מזרחי", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 7}, {"agent": "נועה מזרחי", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 3}, {"agent": "נועה מזרחי", "bucket": "ללא מענה", "bucket_order": 6, "leads": 1}, {"agent": "אבי ביטון", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 2}, {"agent": "אבי ביטון", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 3}, {"agent": "אבי ביטון", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 6}, {"agent": "אבי ביטון", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 10}, {"agent": "אבי ביטון", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 7}, {"agent": "אבי ביטון", "bucket": "ללא מענה", "bucket_order": 6, "leads": 4}], "lead_sources": [{"source": "אתר נדל\"ן עפולה", "leads": 55, "deals": 9}, {"source": "יד2", "leads": 81, "deals": 8}, {"source": "פייסבוק ואינסטגרם", "leads": 67, "deals": 4}, {"source": "הפניות ולקוחות חוזרים", "leads": 23, "deals": 10}, {"source": "שלט בנכס", "leads": 17, "deals": 3}, {"source": "מדלן", "leads": 21, "deals": 2}], "expiring": [{"property": "דירת 4 חד' ברובע יזרעאל", "agent": "אורית כהן", "exclusivity_end": "2026-10-14", "asking_price": 1490000, "days_on_market": 62, "showings": 11}, {"property": "קוטג' 5 חד' בגבעת המורה", "agent": "יוסי לוי", "exclusivity_end": "2026-10-19", "asking_price": 2350000, "days_on_market": 88, "showings": 7}, {"property": "דירת 3 חד' במרכז העיר", "agent": "דניאל פרץ", "exclusivity_end": "2026-10-22", "asking_price": 1080000, "days_on_market": 121, "showings": 3}, {"property": "פנטהאוז 5 חד' באפקים", "agent": "מיכל אברהם", "exclusivity_end": "2026-10-27", "asking_price": 2690000, "days_on_market": 45, "showings": 9}, {"property": "חנות 60 מ\"ר ברחוב שאול המלך", "agent": "נועה מזרחי", "exclusivity_end": "2026-11-02", "asking_price": 950000, "days_on_market": 140, "showings": 2}, {"property": "דו-משפחתי בבית שערים", "agent": "יוסי לוי", "exclusivity_end": "2026-11-05", "asking_price": 3150000, "days_on_market": 73, "showings": 5}, {"property": "דירת גן 4 חד' בעפולה עילית", "agent": "אבי ביטון", "exclusivity_end": "2026-11-07", "asking_price": 1720000, "days_on_market": 96, "showings": 4}]};</script>
+<script>
+/* ---- Minimal stand-in for the dashboard runtime ("dash") used in the Claude prototype.
+   In the real CRM this is replaced by data from the office_dashboard() RPC. ---- */
+(function(){
+  const RAW = window.__DEMO_DATA__;
+  const calcs = {}, cbs = []; let params = {};
+  const results = {};
+  function compute(){
+    Object.keys(RAW).forEach(k => results[k] = {status:'ok', data: RAW[k], columns: Object.keys(RAW[k][0]||{}), refreshing:false, meta:[]});
+    let pending = Object.keys(calcs), guard = 0;
+    while (pending.length && guard++ < 20){
+      pending = pending.filter(id => {
+        const c = calcs[id];
+        if (!c.inputs.every(i => results[i] && results[i].status === 'ok')) return true;
+        try { results[id] = {status:'ok', data: c.fn(...c.inputs.map(i => results[i].data)), refreshing:false, meta:[]}; }
+        catch(e){ console.error(id, e); results[id] = {status:'error', data:[], message:String(e)}; }
+        return false;
+      });
+    }
+  }
+  const run = () => cbs.forEach(fn => { try { fn(); } catch(e){ console.error(e); } });
+  window.dash = {
+    data: id => results[id] || {status:'missing', data:[]},
+    calc: (id, def) => { calcs[id] = def; },
+    loader: () => {},
+    onData: fn => { cbs.push(fn); if (Object.keys(results).length) fn(); },
+    params: () => ({...params}),
+    setParams: p => { params = {...params, ...p}; Object.keys(params).forEach(k => params[k] == null && delete params[k]); run(); },
+    resetParams: () => { params = {}; run(); },
+    setLink: () => {}, refresh: () => {},
+    colors: ['#0e2a6b','#c9a227','#2f6fd6','#21a565','#8b2332','#6b7796','#d97a2b','#5a3fb0'],
+  };
+  window.addEventListener('DOMContentLoaded', () => { compute(); run(); });
+  let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(run, 120); });
+})();
+</script>
+</head>
+<body>
+<!-- Prototype only: demo data, no auth. See HANDOFF.md for the production implementation. -->
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: clamp(16px, 3vw, 40px); }
+.ox {
+  /* Shuk Nadlan brand: sapphire + brass. Mixed with the theme's text colour so they read in light and dark. */
+  --sn-sapphire: #0e2a6b; --sn-sapphire-deep: #0d1b3d; --sn-brass: #c9a227; --sn-brass-light: #e5c76a;
+  --sn-sap: color-mix(in oklab, #0e2a6b 72%, var(--color-fg) 28%);
+  --sn-sap-soft: color-mix(in oklab, #3c64c8 60%, var(--color-fg) 15%);
+  --sn-gold: color-mix(in oklab, #c9a227 72%, var(--color-fg) 28%);
+  --sn-sap-tint: color-mix(in srgb, var(--sn-sap) 9%, transparent);
+  --sn-gold-tint: color-mix(in srgb, #c9a227 14%, transparent);
+  --sn-font: 'Heebo', var(--font-anthropic-sans);
+  position: relative; font-family: var(--sn-font); color: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-xl); max-width: 1440px; margin-inline: auto; padding-block: var(--cds-pad-lg) calc(var(--cds-pad-xl) * 2); }
+.ox * { box-sizing: border-box; }
+.ox svg { direction: ltr; overflow: visible; display: block; }
+.ox .num, .ox td, .ox .ox-kpi-value { font-variant-numeric: tabular-nums; }
+
+/* Brand bar */
+.ox-brand { display: flex; align-items: center; justify-content: space-between; gap: var(--cds-gap-md); flex-wrap: wrap; }
+.ox-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--color-fg); }
+.ox-logo svg { width: 30px; height: 36px; flex: none; }
+.ox-logo b { display: block; font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; color: var(--sn-sap); }
+.ox-logo small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-chips { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
+.ox-chip { font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 12px; color: var(--color-fg-muted); background: var(--color-panel); white-space: nowrap; }
+.ox-chip--demo { color: var(--sn-gold); border-color: currentColor; background: var(--sn-gold-tint); }
+.ox-picked { font: inherit; font-size: var(--cds-font-size-caption); border: 1px solid var(--sn-sap); border-radius: 999px; padding: 4px 12px; background: var(--sn-sap); color: #fff; cursor: pointer; }
+.ox-picked[hidden] { display: none; }
+
+/* Hero - always sapphire, like the site's dark bands */
+.ox-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: calc(var(--cds-radius) * 2); color: #fff; padding: clamp(20px, 3.4vw, 40px);
+  background: radial-gradient(120% 140% at 100% 0%, #1b3f96 0%, #0e2a6b 42%, #0d1b3d 100%);
+  display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: clamp(18px, 3vw, 36px); }
+.ox-hero::before { content: ""; position: absolute; z-index: -1; inset-inline-start: -8%; bottom: -55%; width: 60%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,162,39,.28), rgba(201,162,39,0) 65%); }
+.ox-hero::after { content: ""; position: absolute; z-index: -1; inset: 0; opacity: .5;
+  background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 28px 28px; mask-image: linear-gradient(to left, #000 0%, transparent 70%); -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 70%); }
+.ox-hello { margin: 0; font-size: var(--cds-font-size-body); color: #e5c76a; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.ox-hello::before { content: "✦"; font-size: 12px; }
+.ox-title { margin: 6px 0 0; font-weight: 800; font-size: clamp(1.7rem, 3.2vw, 2.6rem); line-height: 1.15; letter-spacing: -.015em; }
+.ox-title .hl { color: #e5c76a; white-space: nowrap; }
+.ox-take { margin: 12px 0 0; font-size: 1.02rem; color: rgba(255,255,255,.78); max-width: 60ch; line-height: 1.8; }
+.ox .ox-take b { color: #fff; font-weight: 700; }
+.ox-hero-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.ox-hs { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 10px 14px; min-width: 7.5rem; backdrop-filter: blur(4px); }
+.ox-hs small { display: block; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.65); }
+.ox-hs strong { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ox-hs .up { color: #7ee2a8; } .ox-hs .down { color: #ff9b9b; }
+.ox-hs em { font-style: normal; font-size: var(--cds-font-size-caption); font-weight: 600; }
+.ox-focus { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: var(--cds-font-size-body); color: rgba(255,255,255,.85);
+  border-inline-start: 3px solid #c9a227; padding: 4px 12px; background: linear-gradient(to left, rgba(201,162,39,.16), rgba(201,162,39,0)); border-radius: 0 8px 8px 0; }
+.ox-focus .lbl { color: #e5c76a; font-weight: 700; }
+.ox-focus a { color: #fff; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ox-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ox-star { background: rgba(255,255,255,.08); border: 1px solid rgba(201,162,39,.45); border-radius: 18px; padding: 16px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; position: relative; }
+.ox-star .ring { grid-row: span 3; position: relative; width: 74px; height: 74px; }
+.ox-star .ring svg { width: 74px; height: 74px; transform: rotate(-90deg); }
+.ox-star .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 1.15rem; }
+.ox-star .tag { font-size: var(--cds-font-size-caption); color: #e5c76a; font-weight: 700; letter-spacing: .02em; }
+.ox-star .nm { font-size: 1.2rem; font-weight: 800; line-height: 1.2; }
+.ox-star .sub { font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.7); }
+.ox-star .sub b { color: #fff; }
+.ox-spark { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 14px 16px 10px; position: relative; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
+.ox-spark-h { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.7); }
+.ox-spark-h strong { color: #fff; font-size: 1rem; }
+.ox-spark-c { flex: 1; min-height: 96px; position: relative; }
+.ox-office-target { display: flex; align-items: center; gap: 10px; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.75); }
+.ox-office-target .bar { flex: 1; height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.ox-office-target .bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(to left, #e5c76a, #c9a227); }
+.ox-office-target b { color: #fff; font-size: .95rem; }
+.ox-hero .dash-skeleton { opacity: .5; }
+@media (max-width: 860px) { .ox-hero { grid-template-columns: 1fr; } }
+
+/* KPI tiles */
+.ox-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-kpi { position: relative; overflow: hidden; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-height: 9.5rem; }
+.ox-kpi::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 3px; background: var(--kpi-accent, var(--sn-sap)); opacity: .85; }
+.ox-kpi-label::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 2px; background: var(--sn-gold); margin-inline-end: 6px; transform: translateY(-1px) rotate(45deg); }
+.ox-kpi-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-kpi-value { font-family: var(--sn-font); font-weight: 800; color: var(--sn-sap); letter-spacing: -.02em; font-size: clamp(1.8rem, 2.6vw, 2.35rem); line-height: 1.1; margin-top: auto; }
+.ox-kpi-unit { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin-inline-start: 4px; font-weight: 500; }
+.ox-kpi-delta { font-size: var(--cds-font-size-caption); display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.ox-kpi-delta .vs { color: var(--color-fg-muted); }
+.ox .good { color: var(--color-ok); }
+.ox .bad { color: var(--color-bad); }
+.ox .warn { color: var(--color-warn); }
+
+/* Sections and cards */
+.ox-sec { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+.ox-sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cds-gap-md); flex-wrap: wrap; }
+.ox-sec-h h2 { font-weight: 800; font-size: var(--cds-font-size-title); margin: 0; color: var(--sn-sap); display: flex; align-items: center; gap: 10px; }
+.ox-sec-h h2::before { content: ""; width: 4px; height: 1.1em; border-radius: 2px; background: var(--sn-brass); }
+.ox-sec-h p { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-card { border-top: 3px solid var(--sn-sap-tint); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-md); min-width: 0; }
+.ox-card-h h3 { font-size: var(--cds-font-size-heading); font-weight: 700; margin: 0; color: var(--sn-sap); }
+.ox-card-h p { margin: 4px 0 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.ox-chart { position: relative; min-height: 220px; }
+.ox-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); min-height: 1.2em; }
+.ox-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ox-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.ox-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: inherit; height: 100%; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.ox [data-dash-source-state=empty] { color: transparent; }
+.ox [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+/* Alerts */
+.ox-alerts { width: 100%; border-collapse: collapse; }
+.ox-alerts td { padding: 10px 6px; border-top: 1px solid var(--color-border-line); font-size: var(--cds-font-size-body); vertical-align: middle; }
+.ox-alerts tr:first-child td { border-top: 0; }
+.ox-alerts th { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.ox-alerts .sev { width: 18px; }
+.ox-alerts .sev i { display: block; width: 8px; height: 8px; border-radius: 50%; }
+.ox-alerts .sev-2 i { background: var(--color-bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-bad) 18%, transparent); }
+.ox-alerts .sev-1 i { background: var(--color-warn); }
+.ox-alerts .who { font-weight: var(--cds-font-weight-medium); white-space: nowrap; }
+.ox-alerts .what { color: var(--color-fg-muted); }
+.ox-alerts .val { text-align: end; white-space: nowrap; font-weight: 800; font-size: 1.1rem; }
+.ox-ok { font-size: var(--cds-font-size-caption); color: var(--color-ok); }
+
+/* Tables */
+.ox-tablewrap { overflow: auto; max-height: 34rem; border-radius: calc(var(--cds-radius) - 2px); min-height: 8rem; }
+.ox-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--cds-font-size-body); }
+.ox-table th { position: sticky; top: 0; z-index: 1; background: var(--color-panel); text-align: start; font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: 0 8px 10px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; vertical-align: bottom; }
+.ox-table th.n, .ox-table td.n { text-align: end; }
+.ox-table th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+.ox-table th button:hover { color: var(--color-fg); }
+.ox-table th[aria-sort] button { color: var(--color-fg); }
+.ox-table th[aria-sort=ascending] button::after { content: "▲"; font-size: 8px; }
+.ox-table th[aria-sort=descending] button::after { content: "▼"; font-size: 8px; }
+.ox-table td { padding: 12px 8px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.ox-table tbody tr:last-child td { border-bottom: 0; }
+.ox-table tbody tr { transition: opacity var(--cds-dur-slow); }
+.ox-lead tbody tr { cursor: pointer; }
+.ox-lead tbody tr:hover td { background: color-mix(in srgb, var(--color-fg) 4%, transparent); }
+.ox-lead tr.is-picked td { background: var(--sn-sap-tint); }
+.ox-lead tr.is-picked td:first-child { box-shadow: inset -3px 0 0 var(--sn-brass); }
+.ox-lead tr.is-dim { opacity: .42; }
+.ox-agent { display: flex; align-items: center; gap: 10px; }
+.ox-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--color-bg); flex: none; }
+.ox-agent small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-rank { width: 1.5rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.ox-cbar { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; min-width: 8rem; }
+.ox-cbar .track { width: 100%; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--color-fg) 8%, transparent); position: relative; overflow: hidden; }
+.ox-cbar .fill { position: absolute; inset-block: 0; right: 0; border-radius: 3px; }
+.ox-pill { display: inline-block; min-width: 3.4rem; text-align: center; padding: 2px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; }
+.ox-pill.good { background: color-mix(in srgb, var(--color-ok) 14%, transparent); }
+.ox-pill.warn { background: color-mix(in srgb, var(--color-warn) 14%, transparent); }
+.ox-pill.bad { background: color-mix(in srgb, var(--color-bad) 14%, transparent); }
+.ox-search { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 12px; border: 1px solid var(--color-border-line); border-radius: 999px; background: var(--color-bg); color: var(--color-fg); min-width: 12rem; }
+
+/* Funnel */
+.ox-funnel { display: flex; flex-direction: column; gap: 4px; min-height: 260px; }
+.ox-fn-row { display: grid; grid-template-columns: minmax(6.5rem, auto) 1fr auto; gap: 12px; align-items: center; }
+.ox-fn-label { font-size: var(--cds-font-size-body); }
+.ox-fn-track { height: 30px; position: relative; }
+.ox-fn-bar { position: absolute; inset-block: 0; right: 0; border-radius: 6px; }
+.ox-fn-val { font-weight: 800; color: var(--sn-sap); font-size: 1.2rem; min-width: 3rem; text-align: end; }
+.ox-fn-step { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding-inline-start: calc(6.5rem + 12px); display: flex; gap: 6px; align-items: center; }
+.ox-fn-step.bad { color: var(--color-bad); font-weight: 600; }
+
+/* Small multiples */
+.ox-minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--cds-gap-md); min-height: 200px; position: relative; }
+.ox-mini { border: 1px solid var(--color-border-line); border-radius: calc(var(--cds-radius) - 2px); padding: var(--cds-pad-md); cursor: pointer; transition: opacity var(--cds-dur-slow), border-color var(--cds-dur-slow); background: var(--color-bg); }
+.ox-mini:hover { border-color: var(--color-fg-muted); }
+.ox-mini.is-dim { opacity: .38; }
+.ox-mini.is-picked { border-color: var(--sn-brass); box-shadow: 0 0 0 1px var(--sn-brass); }
+.ox-mini h4 { margin: 0 0 8px; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); display: flex; justify-content: space-between; }
+
+/* Badges */
+.ox-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; margin-inline-start: 6px; }
+.ox-badge.bad { background: color-mix(in srgb, var(--color-bad) 14%, transparent); }
+.ox-badge.warn { background: color-mix(in srgb, var(--color-warn) 14%, transparent); }
+
+/* Advice */
+.ox-advice { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); gap: var(--cds-gap-md); min-height: 180px; }
+.ox-tipcard { position: relative; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.ox-tipcard::before { content: ""; position: absolute; inset-block: 0; right: 0; width: 4px; background: var(--sn-sap); }
+.ox-tipcard.p1::before { background: var(--sn-brass); }
+.ox-tipcard .top { display: flex; align-items: center; gap: 10px; }
+.ox-tipcard .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--sn-sap-tint); color: var(--sn-sap); font-size: 16px; font-weight: 800; flex: none; }
+.ox-tipcard.p1 .ic { background: var(--sn-gold-tint); color: var(--sn-gold); }
+.ox-tipcard .area { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-tipcard .prio { margin-inline-start: auto; font-size: var(--cds-font-size-caption); font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--sn-sap-tint); color: var(--sn-sap); white-space: nowrap; }
+.ox-tipcard.p1 .prio { background: var(--sn-gold-tint); color: var(--sn-gold); }
+.ox-tipcard h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--color-fg); line-height: 1.35; }
+.ox-tipcard p { margin: 0; font-size: var(--cds-font-size-body); color: var(--color-fg-muted); line-height: 1.7; }
+.ox-tipcard ul { margin: 0; padding-inline-start: 1.1rem; font-size: var(--cds-font-size-body); line-height: 1.7; }
+.ox-tipcard .impact { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--color-border-line); font-size: var(--cds-font-size-caption); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ox-tipcard .impact b { color: var(--sn-gold); font-weight: 800; }
+.ox-tipcard .impact span { color: var(--color-fg-muted); }
+
+/* Tooltip */
+.ox-tip { position: absolute; z-index: 20; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.5; min-width: 9rem; opacity: 0; transition: opacity 120ms; }
+.ox-tip.on { opacity: 1; }
+.ox-tip .t { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.ox-tip .r { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.ox-tip .r span { display: inline-flex; gap: 6px; align-items: center; }
+.ox-tip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.ox-tip b { font-weight: 600; }
+
+.ox-foot { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.7; border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-foot strong { color: var(--color-fg); font-weight: 600; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes oxUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes oxGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .ox.is-ready .ox-kpi { animation: oxUp var(--cds-dur-slow) var(--cds-ease-out) both; }
+  .ox.is-ready .ox-kpi:nth-child(2) { animation-delay: 40ms; }
+  .ox.is-ready .ox-kpi:nth-child(3) { animation-delay: 80ms; }
+  .ox.is-ready .ox-kpi:nth-child(4) { animation-delay: 120ms; }
+  .ox.is-ready .ox-kpi:nth-child(5) { animation-delay: 160ms; }
+  .ox.is-ready .ox-kpi:nth-child(6) { animation-delay: 200ms; }
+  .ox.is-ready.first .ox-fn-bar, .ox.is-ready.first .ox-cbar .fill { transform-origin: right; animation: oxGrow 700ms var(--cds-ease-out) both; }
+}
+@media (max-width: 640px) {
+  .ox-fn-row { grid-template-columns: 5.5rem 1fr auto; }
+  .ox-fn-step { padding-inline-start: calc(5.5rem + 12px); }
+}
+</style>
+
+<div class="ox" dir="rtl" lang="he">
+  <div class="ox-brand" id="top">
+    <div class="ox-logo" aria-label="שוק הנדל״ן">
+      <svg viewBox="0 0 52 62" aria-hidden="true">
+        <path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z" fill="#0e2a6b"/>
+        <path d="M13 26 L26 14 L39 26" fill="none" stroke="#ffffff" stroke-width="5"/>
+        <text x="26" y="41" text-anchor="middle" fill="#c9a227" font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>
+      </svg>
+      <div><b>שוק הנדל״ן</b><small>עפולה והעמק · ניהול משרד</small></div>
+    </div>
+    <div class="ox-chips">
+      <span class="ox-chip">יולי-ספטמבר 2026 · מול אפריל-יוני</span>
+      <span class="ox-chip ox-chip--demo">נתוני הדגמה</span>
+      <button class="ox-picked" id="picked" hidden></button>
+    </div>
+  </div>
+
+  <header class="ox-hero" id="summary">
+    <div>
+      <p class="ox-hello" id="hello">שלום</p>
+      <h1 class="ox-title" id="headline"><span id="mood">רבעון</span> - <span class="hl" data-source="office" data-field="commission" data-fmt="ilsC">-</span> בעמלות</h1>
+      <p class="ox-take" id="takeaway">
+        המשרד סגר <b data-source="office" data-field="deals" data-fmt="int">-</b> עסקאות, גייס <b data-source="office" data-field="recruited" data-fmt="int">-</b> נכסים
+        וחתם על <b data-source="office" data-field="agreements" data-fmt="int">-</b> הסכמי תיווך. ההכנסות <b data-source="office" data-field="commission_chg" data-fmt="chgWords">-</b> לעומת הרבעון הקודם.
+      </p>
+      <div class="ox-hero-stats">
+        <div class="ox-hs"><small>עמלות מול רבעון קודם</small><strong data-source="office" data-field="commission_chg" data-fmt="signed" data-better="up">-</strong></div>
+        <div class="ox-hs"><small>זמן תגובה ממוצע</small><strong><span data-source="office" data-field="avg_response_min" data-fmt="int">-</span> <em>דק׳</em></strong></div>
+        <div class="ox-hs"><small>נענו תוך 15 דק׳</small><strong data-source="office" data-field="fast_share" data-fmt="pct">-</strong></div>
+        <div class="ox-hs"><small>שיעור בלעדיות</small><strong data-source="office" data-field="exclusive_rate" data-fmt="pct">-</strong></div>
+      </div>
+      <div class="ox-focus" id="focus">
+        <span class="lbl">הפוקוס להיום:</span>
+        <a id="focus-agent" data-source="alerts" data-row="0" data-field="agent">-</a>
+        <span>·</span>
+        <span id="focus-issue" data-source="alerts" data-row="0" data-field="issue">-</span>
+      </div>
+    </div>
+    <div class="ox-side">
+      <div class="ox-star" id="star">
+        <div class="ring" id="star-ring"><svg viewBox="0 0 74 74"><circle cx="37" cy="37" r="31" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="7"/><circle id="star-arc" cx="37" cy="37" r="31" fill="none" stroke="#c9a227" stroke-width="7" stroke-linecap="round" stroke-dasharray="0 999"/></svg><span id="star-init">-</span></div>
+        <span class="tag">✦ מצטיין/ת הרבעון</span>
+        <span class="nm" data-source="office" data-field="top_agent">-</span>
+        <span class="sub"><b data-source="office" data-field="top_agent_commission" data-fmt="ils">-</b> בעמלות · <b data-source="office" data-field="top_agent_target_pct" data-fmt="pct">-</b> מהיעד</span>
+      </div>
+      <div class="ox-spark" id="spark-card">
+        <div class="ox-spark-h"><span>הכנסות המשרד · 12 חודשים</span><span>הרבעון האחרון מודגש</span></div>
+        <div class="ox-spark-c" id="spark" data-source="monthly_office"></div>
+        <div class="ox-office-target"><span>יעד רבעוני משרדי</span><div class="bar"><i id="office-bar" style="width:0"></i></div><b data-source="office" data-field="target_pct" data-fmt="pct">-</b></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="ox-kpis" id="kpis" aria-label="מדדים מרכזיים">
+    <div class="ox-kpi" style="--kpi-accent: var(--sn-brass)">
+      <span class="ox-kpi-label">הכנסות מעמלות</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="commission" class="dash-skeleton k-commission">-</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="commission_chg" class="k-delta" data-better="up">-</span><span class="vs">מול אפר׳-יוני</span></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">עסקאות שנסגרו</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="deals" class="dash-skeleton k-int">-</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="deals_chg" class="k-delta" data-better="up">-</span><span class="vs">מול אפר׳-יוני</span></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">נכסים שגויסו</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="recruited" class="dash-skeleton k-int">-</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="recruited_chg" class="k-delta" data-better="up">-</span><span class="vs">מול אפר׳-יוני</span></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">שיעור בלעדיות בגיוסים</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="exclusive_rate" class="dash-skeleton k-pct">-</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="exclusive_rate_chg_pts" class="k-pts" data-better="up">-</span><span class="vs">נק׳ מול אפר׳-יוני</span></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">הסכמי תיווך שנחתמו</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="agreements" class="dash-skeleton k-int">-</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="agreements_chg" class="k-delta" data-better="up">-</span><span class="vs">מול אפר׳-יוני</span></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">זמן תגובה ממוצע לליד</span>
+      <span class="ox-kpi-value"><span data-source="office" data-field="avg_response_min" class="dash-skeleton k-int">-</span><span class="ox-kpi-unit">דק׳</span></span>
+      <span class="ox-kpi-delta"><span data-source="office" data-field="avg_response_chg" class="k-delta" data-better="down">-</span><span class="vs">מול אפר׳-יוני</span></span>
+    </div>
+  </section>
+
+  <section class="ox-grid" id="control">
+    <div class="ox-card" id="alerts-card">
+      <div class="ox-card-h">
+        <h3>דורש תשומת לב עכשיו</h3>
+        <p>סוכנים שחורגים מהסטנדרט של המשרד: תגובה מעל 30 דק׳, 4+ לידים ללא מענה, בלעדיות מתחת ל־40%, או פחות מ־70% מהיעד.</p>
+      </div>
+      <div class="ox-tablewrap" id="alerts-wrap" style="max-height:none">
+        <table class="ox-alerts" id="alerts" data-source="alerts" data-row-key="id">
+          <thead><tr><th>חומרה</th><th data-field="agent">סוכן</th><th data-field="issue">בעיה</th><th data-field="value">ערך</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="ox-card" id="funnel-card">
+      <div class="ox-card-h">
+        <h3>משפך המשרד: מליד לעסקה</h3>
+        <p>כל הסוכנים, יולי-ספטמבר. האחוז מתחת לכל שלב הוא כמה עברו לשלב הבא; הנפילה הגדולה מסומנת באדום.</p>
+      </div>
+      <div class="ox-funnel dash-skeleton" id="funnel" data-source="funnel"></div>
+    </div>
+  </section>
+
+
+  <section class="ox-sec" id="advice">
+    <div class="ox-sec-h">
+      <h2>המלצות לשיפור הפריון</h2>
+      <p>נגזרות מהנתונים של הרבעון · לכל המלצה מי מוביל/ה ומה ההשפעה הצפויה</p>
+    </div>
+    <div class="ox-advice dash-skeleton" id="advice-list" data-source="advice"></div>
+  </section>
+
+  <section class="ox-sec" id="agents">
+    <div class="ox-sec-h">
+      <h2>ביצועי סוכנים</h2>
+      <input class="ox-search" id="agent-search" type="search" placeholder="חיפוש סוכן…" aria-label="חיפוש סוכן">
+    </div>
+    <div class="ox-card">
+      <div class="ox-card-h">
+        <p>יולי-ספטמבר 2026. לחיצה על סוכן מסננת אליו את הגרפים שמתחת; לחיצה על כותרת ממיינת.</p>
+      </div>
+      <div class="ox-tablewrap dash-skeleton" id="lead-wrap">
+        <table class="ox-table ox-lead" id="leaderboard" data-source="agent_kpis" data-row-key="agent">
+          <thead><tr>
+            <th data-field="agent" data-k="agent"><button>סוכן</button></th>
+            <th data-field="commission" data-k="commission" class="n"><button>עמלות</button></th>
+            <th data-source="agent_view" data-field="target_pct" data-k="target_pct" class="n"><button>עמידה ביעד</button></th>
+            <th data-field="deals" data-k="deals" class="n"><button>עסקאות</button></th>
+            <th data-field="leads" data-k="leads" class="n"><button>לידים</button></th>
+            <th data-field="avg_response_min" data-k="avg_response_min" class="n"><button>תגובה ממוצעת</button></th>
+            <th data-source="agent_view" data-field="fast_share" data-k="fast_share" class="n"><button>נענו תוך 15 דק׳</button></th>
+            <th data-field="recruited" data-k="recruited" class="n"><button>גיוסים</button></th>
+            <th data-field="exclusives" data-k="exclusives" class="n"><button>בלעדיות</button></th>
+            <th data-source="agent_view" data-field="exclusive_rate" data-k="exclusive_rate" class="n"><button>% בלעדיות</button></th>
+            <th data-field="agreements" data-k="agreements" class="n"><button>הסכמי תיווך</button></th>
+            <th data-source="agent_view" data-field="conversion" data-k="conversion" class="n"><button>המרה ליד→עסקה</button></th>
+            <th data-field="open_unanswered" data-k="open_unanswered" class="n"><button>לידים ללא מענה</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="ox-grid" id="speed">
+    <div class="ox-card" id="response-card">
+      <div class="ox-card-h">
+        <h3>מהירות תגובה ללידים, לפי סוכן</h3>
+        <p>חלוקת הלידים של כל סוכן לפי הזמן עד המענה הראשון. ירוק = תוך 15 דק׳. ממוין מהמהיר לאיטי.</p>
+      </div>
+      <div class="ox-legend" id="resp-legend" data-source="response_buckets"></div>
+      <div class="ox-chart dash-skeleton" id="resp-chart" data-source="response_buckets agent_kpis"></div>
+    </div>
+    <div class="ox-card" id="recruit-card">
+      <div class="ox-card-h">
+        <h3 id="recruit-title">גיוסים ובלעדיות, 12 חודשים</h3>
+        <p>כל עמודה היא הנכסים שגויסו בחודש; החלק הכהה הוא נכסים בבלעדיות.</p>
+      </div>
+      <div class="ox-legend" id="recruit-legend"></div>
+      <div class="ox-chart dash-skeleton" id="recruit-chart" data-source="monthly_office monthly"></div>
+    </div>
+  </section>
+
+  <section class="ox-sec" id="trend">
+    <div class="ox-sec-h">
+      <h2>הכנסות לפי סוכן, חודש אחר חודש</h2>
+      <p>אותו סולם לכל הסוכנים · שלושת החודשים האחרונים מודגשים</p>
+    </div>
+    <div class="ox-minis dash-skeleton" id="minis" data-source="monthly"></div>
+  </section>
+
+  <section class="ox-grid" id="pipeline">
+    <div class="ox-card" id="sources-card">
+      <div class="ox-card-h">
+        <h3>מאיפה מגיעים הלידים</h3>
+        <p>לידים ועסקאות לפי מקור, יולי-ספטמבר. ההמרה מראה איזה ערוץ באמת מוכר.</p>
+      </div>
+      <div class="ox-tablewrap dash-skeleton" id="src-wrap">
+        <table class="ox-table" id="sources" data-source="lead_sources" data-row-key="source">
+          <thead><tr>
+            <th data-field="source">מקור</th>
+            <th data-field="leads" class="n">לידים</th>
+            <th data-field="deals" class="n">עסקאות</th>
+            <th data-source="sources_view" data-field="conversion" class="n">המרה</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="ox-card" id="expiring-card">
+      <div class="ox-card-h">
+        <h3>בלעדיות שפוקעות בקרוב</h3>
+        <p>הסכמי בלעדיות שמסתיימים בחודש הקרוב. כדאי לחדש או לסגור לפני שהנכס בורח למתחרה.</p>
+      </div>
+      <div class="ox-tablewrap dash-skeleton" id="exp-wrap">
+        <table class="ox-table" id="expiring" data-source="expiring" data-row-key="property">
+          <thead><tr>
+            <th data-field="property">נכס</th>
+            <th data-field="agent">סוכן</th>
+            <th data-field="exclusivity_end">פוקע</th>
+            <th data-field="asking_price" class="n">מחיר מבוקש</th>
+            <th data-field="days_on_market" class="n">ימים בשוק</th>
+            <th data-field="showings" class="n">הצגות</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="ox-foot" id="definitions">
+    <div><strong>זמן תגובה</strong> - הזמן מכניסת ליד (טופס באתר, וואטסאפ, שיחה) ועד המענה הראשון של הסוכן. ממוצע המשרד משוקלל לפי מספר הלידים של כל סוכן.</div>
+    <div><strong>גיוס ובלעדיות</strong> - נכס נחשב מגויס כשנחתם הסכם עם בעל הנכס; שיעור הבלעדיות הוא חלק הגיוסים שנחתמו בבלעדיות.</div>
+    <div><strong>הסכמי תיווך</strong> - הזמנות שירותי תיווך חתומות (מוכרים וקונים), כנדרש בחוק המתווכים.</div>
+    <div><strong>עמידה ביעד</strong> - עמלות הרבעון חלקי היעד הרבעוני של הסוכן. <strong>המרה</strong> - עסקאות חלקי לידים באותה תקופה.</div>
+  </footer>
+
+  <div class="ox-tip" id="tip" role="tooltip"></div>
+</div>
+
+<script>
+dash.calc('office', {
+  title: 'סיכום משרד לרבעון',
+  description: 'סכום כל הסוכנים ביולי-ספטמבר מול אפריל-יוני; זמן תגובה ממוצע משוקלל לפי מספר לידים.',
+  inputs: ['agent_kpis', 'response_buckets'],
+  fn: (agent_kpis, response_buckets) => {
+    const sum = (f) => d3.sum(agent_kpis, (r) => +r[f]);
+    const chg = (a, b) => (b ? (a - b) / b : null);
+    const leads = sum('leads'), leadsPrev = sum('leads_prev');
+    const rec = sum('recruited'), recPrev = sum('recruited_prev');
+    const resp = d3.sum(agent_kpis, (r) => r.avg_response_min * r.leads) / leads;
+    const respPrev = d3.sum(agent_kpis, (r) => r.avg_response_min_prev * r.leads_prev) / leadsPrev;
+    const fast = d3.sum(response_buckets.filter((b) => +b.bucket_order <= 2), (b) => +b.leads);
+    const top = d3.greatest(agent_kpis, (r) => +r.commission);
+    return [{
+      commission: sum('commission'), commission_chg: chg(sum('commission'), sum('commission_prev')),
+      deals: sum('deals'), deals_chg: chg(sum('deals'), sum('deals_prev')),
+      recruited: rec, recruited_chg: chg(rec, recPrev),
+      exclusive_rate: sum('exclusives') / rec, exclusive_rate_chg_pts: (sum('exclusives') / rec - sum('exclusives_prev') / recPrev) * 100,
+      agreements: sum('agreements'), agreements_chg: chg(sum('agreements'), sum('agreements_prev')),
+      avg_response_min: Math.round(resp), avg_response_chg: chg(resp, respPrev),
+      fast_share: fast / leads, leads, top_agent: top.agent, top_agent_commission: +top.commission,
+      top_agent_target_pct: top.commission / top.commission_target, target_pct: sum('commission') / sum('commission_target'),
+    }];
+  },
+});
+
+dash.calc('agent_view', {
+  title: 'מדדי יחס לסוכן',
+  description: 'לכל סוכן: עמידה ביעד, שיעור מענה תוך 15 דק׳, שיעור בלעדיות והמרת ליד לעסקה.',
+  inputs: ['agent_kpis', 'response_buckets'],
+  fn: (agent_kpis, response_buckets) => agent_kpis.map((r) => {
+    const mine = response_buckets.filter((b) => b.agent === r.agent);
+    const total = d3.sum(mine, (b) => +b.leads);
+    const fast = d3.sum(mine.filter((b) => +b.bucket_order <= 2), (b) => +b.leads);
+    return {
+      agent: r.agent,
+      target_pct: r.commission / r.commission_target,
+      fast_share: total ? fast / total : null,
+      exclusive_rate: r.recruited ? r.exclusives / r.recruited : null,
+      conversion: r.leads ? r.deals / r.leads : null,
+    };
+  }),
+});
+
+dash.calc('alerts', {
+  title: 'התראות ניהול',
+  description: 'סוכנים מעל 30 דק׳ תגובה, עם 4+ לידים ללא מענה, בלעדיות מתחת ל־40% או פחות מ־70% מהיעד.',
+  inputs: ['agent_kpis', 'agent_view'],
+  fn: (agent_kpis, agent_view) => {
+    const out = [];
+    agent_kpis.forEach((r) => {
+      const v = agent_view.find((x) => x.agent === r.agent) || {};
+      if (+r.open_unanswered >= 4) out.push({ id: r.agent + '|open', agent: r.agent, issue: 'לידים פתוחים ללא מענה', value: +r.open_unanswered, unit: 'count', severity: 2 });
+      if (+r.avg_response_min > 30) out.push({ id: r.agent + '|response', agent: r.agent, issue: 'זמן תגובה ממוצע איטי', value: +r.avg_response_min, unit: 'min', severity: r.avg_response_min > 60 ? 2 : 1 });
+      if (v.target_pct < 0.7) out.push({ id: r.agent + '|target', agent: r.agent, issue: 'פיגור ביעד העמלות', value: v.target_pct, unit: 'pct', severity: v.target_pct < 0.5 ? 2 : 1 });
+      if (v.exclusive_rate < 0.4) out.push({ id: r.agent + '|excl', agent: r.agent, issue: 'שיעור בלעדיות נמוך', value: v.exclusive_rate, unit: 'pct', severity: 1 });
+    });
+    return out.sort((a, b) => b.severity - a.severity);
+  },
+});
+
+dash.calc('funnel', {
+  title: 'משפך ליד לעסקה',
+  description: 'סכום כל הסוכנים לכל שלב: לידים, נענו, פגישות וסיורים, הסכמי תיווך, עסקאות.',
+  inputs: ['agent_kpis'],
+  fn: (agent_kpis) => {
+    const s = (f) => d3.sum(agent_kpis, (r) => +r[f]);
+    const stages = [['לידים נכנסים', s('leads')], ['קיבלו מענה', s('responded')], ['פגישות וסיורים', s('meetings')], ['הסכמי תיווך', s('agreements')], ['עסקאות', s('deals')]];
+    return stages.map(([stage, count], i) => ({ stage, order: i + 1, count, step_rate: i ? count / stages[i - 1][1] : null }));
+  },
+});
+
+dash.calc('monthly_office', {
+  title: 'פעילות חודשית במשרד',
+  description: 'סכום כל הסוכנים לכל חודש: נכסים שגויסו, מתוכם בבלעדיות, ועמלות.',
+  inputs: ['monthly'],
+  fn: (monthly) => d3.rollups(monthly, (v) => ({ recruited: d3.sum(v, (r) => +r.recruited), exclusives: d3.sum(v, (r) => +r.exclusives), commission: d3.sum(v, (r) => +r.commission) }), (r) => r.month)
+    .map(([month, t]) => ({ month, ...t })).sort((a, b) => d3.ascending(a.month, b.month)),
+});
+
+
+dash.calc('advice', {
+  title: 'המלצות לשיפור',
+  description: 'כללים קבועים מעל מדדי הרבעון: מהירות תגובה, בלעדיות, המשפך, מקורות, יעדים ובלעדיות שפוקעות. ההשפעה היא הערכה גסה.',
+  inputs: ['office', 'agent_kpis', 'agent_view', 'funnel', 'lead_sources', 'sources_view', 'expiring'],
+  fn: (office, agent_kpis, agent_view, funnel, lead_sources, sources_view, expiring) => {
+    const o = office[0] || {};
+    const pct = (x) => Math.round(x * 100) + '%';
+    const out = [];
+    const v = (a) => agent_view.find((x) => x.agent === a) || {};
+    // 1. Response speed
+    const fastest = agent_view.slice().sort((a, b) => b.fast_share - a.fast_share)[0];
+    if (o.fast_share < 0.6) {
+      out.push({ id: 'speed', priority: 1, icon: '⚡', area: 'מהירות תגובה', owner: 'כל הצוות',
+        title: 'להגיע ל־80% מהלידים תוך 15 דקות',
+        body: `רק ${pct(o.fast_share)} מהלידים נענים תוך 15 דק׳, וזמן התגובה הממוצע הוא ${o.avg_response_min} דק׳. ליד שמחכה מתקרר, ולרוב כבר דיבר עם משרד אחר.`,
+        steps: ['שני חלונות קבועים ביום שבהם כל סוכן/ת עובר/ת על הלידים הפתוחים', 'תבנית תשובה ראשונה בוואטסאפ, ממוקדת בשאלה אחת', 'גבריאלה עונה ראשונה מחוץ לשעות הפעילות'],
+        impact: fastest ? `הסוכן/ת המהיר/ה ביותר (${fastest.agent}) עונה ל־${pct(fastest.fast_share)} תוך 15 דק׳ - זה היעד הריאלי` : '' });
+    }
+    // 2. Mentoring: slowest with fastest
+    const slow = agent_kpis.filter((r) => +r.avg_response_min > 30).sort((a, b) => b.avg_response_min - a.avg_response_min);
+    if (slow.length && fastest) {
+      out.push({ id: 'mentor', priority: slow[0].avg_response_min > 60 ? 1 : 2, icon: '⇄', area: 'חונכות', owner: fastest.agent,
+        title: `חונכות של שבועיים: ${slow.map((r) => r.agent).join(' ו־')} עם ${fastest.agent}`,
+        body: `${slow.map((r) => `${r.agent} (${r.avg_response_min} דק׳)`).join(', ')} עונים הכי לאט במשרד. שבוע של צפייה בשיטת העבודה של ${fastest.agent}, ושבוע של יעד יומי למענה.`,
+        steps: ['פגישה קצרה בתחילת כל יום: אילו לידים פתוחים ומי מטפל', 'התראה על ליד שלא נענה אחרי 15 דק׳'],
+        impact: 'מדד הצלחה: תגובה ממוצעת מתחת ל־20 דק׳ תוך חודש' });
+    }
+    // 3. Exclusivity
+    const bestEx = agent_view.slice().sort((a, b) => b.exclusive_rate - a.exclusive_rate)[0];
+    const rec = d3.sum(agent_kpis, (r) => +r.recruited), exc = d3.sum(agent_kpis, (r) => +r.exclusives);
+    if (o.exclusive_rate < 0.6 && bestEx) {
+      const extra = Math.max(0, Math.round(rec * bestEx.exclusive_rate - exc));
+      out.push({ id: 'exclusive', priority: 1, icon: '◆', area: 'בלעדיות', owner: bestEx.agent,
+        title: 'להפוך כל גיוס לבלעדיות',
+        body: `רק ${pct(o.exclusive_rate)} מהגיוסים נחתמו בבלעדיות. ${bestEx.agent} מגיע/ה ל־${pct(bestEx.exclusive_rate)} - כדאי לבקש מ${bestEx.agent.split(' ')[0]} להציג את השיטה בישיבת הצוות.`,
+        steps: ['להגיע לפגישת גיוס עם דוח CMA ממותג ביד', 'להציג את חבילת השיווק שבלעדיות פותחת: סרטון, הדמיות, מיניסייט ללקוח', 'להחתים דיגיטלית עוד בפגישה'],
+        impact: `פוטנציאל: עוד ${extra} בלעדיות ברבעון, אם כל הצוות יגיע לרמה של ${bestEx.agent}` });
+    }
+    // 4. Funnel weakest step
+    const worst = funnel.filter((r) => r.step_rate != null).sort((a, b) => a.step_rate - b.step_rate)[0];
+    if (worst) {
+      const prev = funnel.find((r) => r.order === worst.order - 1) || {};
+      const tips = {
+        'פגישות וסיורים': ['להציע שני מועדים קונקרטיים כבר בשיחה הראשונה', 'לשלוח מיניסייט עם 3 נכסים מתאימים תוך שעה', 'פולואפ אוטומטי אחרי 24 שעות'],
+        'הסכמי תיווך': ['להחתים על הזמנת שירותי תיווך לפני הסיור, דיגיטלית', 'להסביר בקצרה מה הלקוח/ה מקבל/ת מהמשרד'],
+        'עסקאות': ['סקירת צנרת שבועית: כל לקוח/ה עם הסכם חתום וצעד הבא ביומן', 'לחזור לכל לקוח/ה שראה/תה נכס ולא התקדם/ה תוך 3 ימים'],
+        'קיבלו מענה': ['לטפל קודם בלידים הפתוחים, ראו המלצת מהירות התגובה'],
+      };
+      out.push({ id: 'funnel', priority: worst.step_rate < 0.45 ? 1 : 2, icon: '⇣', area: 'משפך', owner: 'מנהל/ת המשרד',
+        title: `לתקן את המעבר ל"${worst.stage}"`,
+        body: `זו הנקודה שבה המשרד מאבד הכי הרבה: רק ${pct(worst.step_rate)} מ"${prev.stage}" מגיעים ל"${worst.stage}".`,
+        steps: tips[worst.stage] || [],
+        impact: `כל 10 נקודות שיפור כאן = בערך ${Math.round((prev.count || 0) * 0.1)} יותר "${worst.stage}" ברבעון` });
+    }
+    // 5. Lead sources
+    const srcs = lead_sources.map((r) => ({ ...r, conversion: (sources_view.find((x) => x.source === r.source) || {}).conversion }));
+    const best = srcs.slice().sort((a, b) => b.conversion - a.conversion)[0];
+    const weak = srcs.filter((r) => r.leads >= 40).sort((a, b) => a.conversion - b.conversion)[0];
+    if (best && weak && best.source !== weak.source) {
+      out.push({ id: 'sources', priority: 2, icon: '◎', area: 'מקורות לידים', owner: 'מנהל/ת המשרד',
+        title: `להשקיע יותר ב"${best.source}"`,
+        body: `"${best.source}" ממיר ${pct(best.conversion)} מהלידים לעסקאות. "${weak.source}" מביא הרבה לידים (${weak.leads}) אבל ממיר רק ${pct(weak.conversion)}.`,
+        steps: [`תוכנית קבועה לחיזוק "${best.source}" (בקשת המלצות אחרי כל עסקה, קשר עם לקוחות עבר)`, `ב"${weak.source}": שאלת סינון אחת לפני העברה לסוכן/ת`],
+        impact: 'מדד הצלחה: יותר עסקאות לכל 100 לידים, לא יותר לידים' });
+    }
+    // 6. Expiring exclusivities
+    if (expiring.length) {
+      const val = d3.sum(expiring, (r) => +r.asking_price);
+      const weakEx = expiring.filter((r) => +r.showings <= 3 || +r.days_on_market > 100).length;
+      out.push({ id: 'renew', priority: 1, icon: '↻', area: 'שימור בלעדיות', owner: 'הסוכנים המטפלים',
+        title: `לחדש ${expiring.length} בלעדיות לפני שהן פוקעות`,
+        body: `נכסים בשווי מבוקש של ₪${d3.format(',')(val)} יוצאים מבלעדיות בחודש הקרוב. ב־${weakEx} מהם היו מעט הצגות או זמן ארוך בשוק - שם צריך שיחת מחיר.`,
+        steps: ['פגישת חידוש שבועיים לפני הסיום, עם דוח פעילות על הנכס', 'הצעת עדכון מחיר מבוסס עסקאות אחרונות באזור'],
+        impact: 'כל בלעדיות שאובדת היא נכס שמתווך מתחרה ימכור' });
+    }
+    // 7. Targets
+    const behind = agent_view.filter((r) => r.target_pct < 0.7);
+    if (behind.length) {
+      out.push({ id: 'target', priority: 2, icon: '↗', area: 'יעדים', owner: 'מנהל/ת המשרד',
+        title: `שיחת 1:1 עם ${behind.map((r) => r.agent).join(' ו־')}`,
+        body: `${behind.map((r) => `${r.agent} ב־${pct(r.target_pct)} מהיעד`).join(', ')}. לא כביקורת - כדי להבין מה תקוע ולבנות יחד תוכנית ל־30 יום.`,
+        steps: ['שלושה יעדי פעילות שבועיים (שיחות, פגישות, גיוסים) במקום יעד כספי בלבד', 'מעקב קצר בכל יום ראשון'],
+        impact: 'מדד הצלחה: מגמת עלייה בפעילות כבר בחודש הראשון' });
+    }
+    // 8. Recognition
+    if (o.top_agent) {
+      out.push({ id: 'recognition', priority: 3, icon: '★', area: 'תרבות ומוטיבציה', owner: 'מנהל/ת המשרד',
+        title: `להוקיר בפומבי את ${o.top_agent}`,
+        body: `${o.top_agent} הביא/ה ₪${d3.format(',')(o.top_agent_commission)} ברבעון. הכרה פומבית ושיתוף "מה עבד לי" בישיבת הצוות מרימים את כל המשרד.`,
+        steps: ['5 דקות בישיבת הצוות: העסקה הכי טובה של הרבעון ואיך נסגרה'],
+        impact: 'מחזק את מה שעובד, בלי עלות' });
+    }
+    return out.sort((a, b) => a.priority - b.priority).map((r, i) => ({ ...r, rank: i + 1 }));
+  },
+});
+
+dash.calc('sources_view', {
+  title: 'המרה לפי מקור',
+  description: 'עסקאות חלקי לידים לכל מקור לידים.',
+  inputs: ['lead_sources'],
+  fn: (lead_sources) => lead_sources.map((r) => ({ source: r.source, conversion: r.leads ? r.deals / r.leads : null })),
+});
+</script>
+
+<script>
+(() => {
+  const root = document.querySelector('.ox');
+  const $ = (s) => root.querySelector(s);
+  const tip = $('#tip');
+  const fInt = d3.format(',');
+  const ils = (v) => '₪' + d3.format(',')(Math.round(v));
+  const ilsC = (v) => '₪' + new Intl.NumberFormat('he-IL', { notation: 'compact', maximumFractionDigits: 1 }).format(v);
+  const pct0 = d3.format('.0%');
+  const pct1 = d3.format('.1%');
+  const signed = (v) => (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + d3.format('.0%')(Math.abs(v));
+  const mShort = new Intl.DateTimeFormat('he-IL', { month: 'short', timeZone: 'UTC' });
+  const mLong = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const dFmt = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const toMonth = (m) => new Date(String(m).slice(0, 7) + '-01T00:00:00Z');
+  const BAD = ['error', 'declined', 'connect', 'missing'];
+  let firstDone = false;
+
+  const failLine = () => { const d = document.createElement('div'); d.className = 'ox-fail'; d.textContent = 'Failed to load'; return d; };
+  // Returns true when every source is ready; otherwise shows the right state in `box`.
+  function gate(box, ids, clearEl) {
+    const st = ids.map((id) => dash.data(id));
+    const target = clearEl || box;
+    if (st.some((s) => BAD.includes(s.status))) { box.classList.remove('dash-skeleton'); target.replaceChildren(); if (!clearEl) box.append(failLine()); else box.append(failLine()); return false; }
+    if (st.some((s) => s.status !== 'ok')) { box.classList.add('dash-skeleton'); target.replaceChildren(); return false; }
+    box.classList.remove('dash-skeleton');
+    box.querySelectorAll(':scope > .ox-fail').forEach((n) => n.remove());
+    return true;
+  }
+
+  // Agent identity colours (stable order from the KPI file)
+  const agentColor = (agents) => { const m = new Map(); agents.forEach((a, i) => m.set(a, dash.colors[i % dash.colors.length])); return m; };
+  const initials = (n) => n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('');
+  const picked = () => dash.params().agent || null;
+
+  // Tooltip
+  function showTip(evt, title, rows) {
+    tip.replaceChildren();
+    const t = document.createElement('div'); t.className = 't'; t.textContent = title; tip.append(t);
+    rows.forEach(([color, name, val]) => {
+      const r = document.createElement('div'); r.className = 'r';
+      const l = document.createElement('span');
+      if (color) { const i = document.createElement('i'); i.style.background = color; l.append(i); }
+      l.append(document.createTextNode(name));
+      const b = document.createElement('b'); b.textContent = val;
+      r.append(l, b); tip.append(r);
+    });
+    tip.classList.add('on');
+    const rb = root.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = evt.clientX - rb.left - tw / 2;
+    let y = evt.clientY - rb.top - th - 14;
+    x = Math.max(0, Math.min(x, rb.width - tw));
+    if (y < 0) y = evt.clientY - rb.top + 18;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  const hideTip = () => tip.classList.remove('on');
+
+  // Interactions: pick an agent
+  const pickedBtn = $('#picked');
+  pickedBtn.addEventListener('click', () => dash.setParams({ agent: null }));
+  const togglePick = (a) => dash.setParams({ agent: picked() === a ? null : a });
+  $('#leaderboard tbody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) togglePick(tr.dataset.key); });
+  $('#minis').addEventListener('click', (e) => { const m = e.target.closest('.ox-mini'); if (m) togglePick(m.dataset.agent); });
+
+  // Sorting + search for leaderboard
+  let sortKey = 'commission', sortDir = -1, query = '';
+  root.querySelectorAll('#leaderboard th button').forEach((btn) => btn.addEventListener('click', () => {
+    const k = btn.parentElement.dataset.k;
+    if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = k === 'agent' || k === 'avg_response_min' || k === 'open_unanswered' ? 1 : -1; }
+    drawLeaderboard();
+  }));
+  const search = $('#agent-search');
+  search.addEventListener('input', () => { query = search.value.trim(); drawLeaderboard(); });
+
+  // ---------- Header + KPI tiles ----------
+  function drawKpis() {
+    const o = dash.data('office');
+    const ok = o.status === 'ok' && o.data.length;
+    const r = ok ? o.data[0] : null;
+    root.querySelectorAll('[data-source="office"]').forEach((el) => {
+      const f = el.dataset.field;
+      el.classList.toggle('dash-skeleton', !ok && o.status === 'loading');
+      el.classList.remove('good', 'bad');
+      if (!ok || r[f] == null) { el.textContent = '-'; return; }
+      const v = r[f];
+      if (el.dataset.fmt) { setFmt(el, v); return; }
+      if (el.classList.contains('k-delta')) {
+        el.textContent = signed(v);
+        const better = el.dataset.better === 'down' ? v < 0 : v > 0;
+        if (v !== 0) el.classList.add(better ? 'good' : 'bad');
+      } else if (el.classList.contains('k-pts')) {
+        el.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + d3.format('.1f')(Math.abs(v));
+        if (v !== 0) el.classList.add(v > 0 ? 'good' : 'bad');
+      } else if (el.classList.contains('k-pct') || f === 'exclusive_rate') el.textContent = pct0(v);
+      else if (el.classList.contains('k-commission')) el.textContent = ilsC(v);
+      else if (f === 'commission' || f === 'top_agent_commission') el.textContent = ils(v);
+      else if (f === 'commission_chg') el.textContent = (v >= 0 ? 'עלייה של ' : 'ירידה של ') + pct0(Math.abs(v));
+      else if (typeof v === 'number') el.textContent = fInt(v);
+      else el.textContent = v;
+    });
+  }
+
+
+  // ---------- Hero ----------
+  const FMT = {
+    int: (v) => fInt(Math.round(v)), ils: (v) => ils(v), ilsC: (v) => ilsC(v), pct: (v) => pct0(v),
+    signed: (v) => signed(v), chgWords: (v) => (v >= 0 ? 'עלו ב־' : 'ירדו ב־') + pct0(Math.abs(v)),
+  };
+  const COUNT = new Set(['int', 'ils', 'ilsC', 'pct']);
+  let counted = false;
+  function setFmt(el, v) {
+    const f = FMT[el.dataset.fmt] || ((x) => String(x));
+    el.classList.remove('up', 'down');
+    if (el.dataset.better) el.classList.add((el.dataset.better === 'up' ? v >= 0 : v <= 0) ? 'up' : 'down');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!counted && !reduce && typeof v === 'number' && COUNT.has(el.dataset.fmt) && el.closest('.ox-hero')) {
+      const i = d3.interpolateNumber(0, v);
+      const t = d3.timer((ms) => {
+        const k = Math.min(1, ms / 1100);
+        el.textContent = f(i(d3.easeCubicOut(k)));
+        if (k >= 1) { t.stop(); el.textContent = f(v); }
+      });
+      return;
+    }
+    el.textContent = f(v);
+  }
+  const greeting = () => {
+    const now = new Date();
+    const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Jerusalem' }).format(now));
+    const wd = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Jerusalem' }).format(now);
+    if ((wd === 'Fri' && h >= 12) || (wd === 'Sat' && h < 19)) return 'שבת שלום';
+    if (wd === 'Sat') return 'שבוע טוב';
+    return h < 5 ? 'לילה טוב' : h < 12 ? 'בוקר טוב' : h < 17 ? 'צהריים טובים' : h < 21 ? 'ערב טוב' : 'לילה טוב';
+  };
+  $('#focus-agent').addEventListener('click', () => { const a = $('#focus-agent').textContent; if (a && a !== '-') togglePick(a); });
+  function drawHero() {
+    $('#hello').textContent = greeting() + ', הנה תמונת המצב של המשרד';
+    const o = dash.data('office');
+    const r = o.status === 'ok' && o.data.length ? o.data[0] : null;
+    $('#mood').textContent = !r ? 'רבעון' : r.commission_chg > 0.1 ? 'רבעון שיא' : r.commission_chg > 0 ? 'רבעון חזק' : 'רבעון מאתגר';
+    const arc = $('#star-arc'), C = 2 * Math.PI * 31;
+    const tp = r ? Math.min(1, r.top_agent_target_pct || 0) : 0;
+    arc.setAttribute('stroke-dasharray', `${tp * C} ${C}`);
+    $('#star-init').textContent = r ? initials(r.top_agent) : '-';
+    $('#office-bar').style.width = (r ? Math.min(1, r.target_pct) * 100 : 0) + '%';
+    // focus line
+    const al = dash.data('alerts');
+    const fa = $('#focus-agent'), fi = $('#focus-issue');
+    if (al.status === 'ok') {
+      const top = al.data[0];
+      fa.textContent = top ? top.agent : '-';
+      fi.textContent = top ? top.issue : 'הכל בטווח, אין חריגות';
+    } else { fa.textContent = '-'; fi.textContent = '-'; }
+    drawSpark();
+  }
+  function drawSpark() {
+    const box = $('#spark');
+    if (!gate(box, ['monthly_office'])) return;
+    box.replaceChildren();
+    const rows = dash.data('monthly_office').data.slice().sort((a, b) => d3.ascending(a.month, b.month));
+    const W = Math.max(200, box.clientWidth), H = Math.max(90, box.clientHeight || 96);
+    const x = d3.scalePoint(rows.map((r) => r.month), [6, W - 6]);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => +r.commission) || 1], [H - 16, 8]).nice();
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('aria-label', 'הכנסות חודשיות של המשרד');
+    const gid = 'oxsparkgrad';
+    const gr = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .45], [.5, .14], [1, 0]].forEach(([o, a]) => gr.append('stop').attr('offset', o).style('stop-color', '#c9a227').style('stop-opacity', a));
+    const recent = rows.slice(-3);
+    if (recent.length) svg.append('rect').attr('x', x(recent[0].month) - 6).attr('y', 0).attr('width', W - x(recent[0].month) + 6).attr('height', H - 14).attr('rx', 8).attr('fill', 'rgba(255,255,255,.06)');
+    svg.append('path').datum(rows).attr('fill', `url(#${gid})`).attr('d', d3.area().x((r) => x(r.month)).y0(H - 16).y1((r) => y(+r.commission)));
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', '#e5c76a').attr('stroke-width', 2.25).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+      .attr('d', d3.line().x((r) => x(r.month)).y((r) => y(+r.commission)));
+    const last = rows[rows.length - 1];
+    if (last) svg.append('circle').attr('cx', x(last.month)).attr('cy', y(+last.commission)).attr('r', 4.5).attr('fill', '#fff').attr('stroke', '#c9a227').attr('stroke-width', 2.5);
+    svg.append('g').attr('font-size', 10).attr('fill', 'rgba(255,255,255,.6)').selectAll('text').data([rows[0], last].filter(Boolean)).join('text')
+      .attr('x', (r, i) => (i ? W - 2 : 2)).attr('y', H - 2).attr('text-anchor', (r, i) => (i ? 'end' : 'start')).text((r) => mShort.format(toMonth(r.month)));
+    const dot = svg.append('circle').attr('r', 4).attr('fill', '#e5c76a').attr('opacity', 0);
+    svg.append('rect').attr('width', W).attr('height', H).attr('fill', 'transparent')
+      .on('mousemove', (e) => {
+        const [mx] = d3.pointer(e);
+        const r = d3.least(rows, (d) => Math.abs(x(d.month) - mx));
+        dot.attr('cx', x(r.month)).attr('cy', y(+r.commission)).attr('opacity', 1);
+        showTip(e, mLong.format(toMonth(r.month)), [['#c9a227', 'עמלות', ils(r.commission)], [null, 'גיוסים', fInt(r.recruited)]]);
+      })
+      .on('mouseleave', () => { dot.attr('opacity', 0); hideTip(); });
+  }
+
+  // ---------- Alerts ----------
+  function drawAlerts() {
+    const wrap = $('#alerts-wrap'), body = $('#alerts tbody');
+    if (!gate(wrap, ['alerts'], body)) return;
+    const rows = dash.data('alerts').data;
+    body.replaceChildren();
+    wrap.querySelectorAll('.ox-ok').forEach((n) => n.remove());
+    if (!rows.length) { const p = document.createElement('p'); p.className = 'ox-ok'; p.textContent = 'הכל בטווח. אין חריגות כרגע.'; wrap.append(p); return; }
+    const pa = picked();
+    rows.forEach((a) => {
+      const tr = document.createElement('tr'); tr.dataset.key = a.id;
+      if (pa && a.agent !== pa) tr.style.opacity = .35;
+      const sev = document.createElement('td'); sev.className = 'sev sev-' + a.severity; sev.append(document.createElement('i'));
+      const who = document.createElement('td'); who.className = 'who'; who.textContent = a.agent;
+      const what = document.createElement('td'); what.className = 'what'; what.textContent = a.issue;
+      const val = document.createElement('td'); val.className = 'val ' + (a.severity === 2 ? 'bad' : 'warn');
+      val.textContent = a.unit === 'pct' ? pct0(a.value) : a.unit === 'min' ? fInt(a.value) + ' דק׳' : fInt(a.value);
+      tr.append(sev, who, what, val); body.append(tr);
+    });
+  }
+
+
+  // ---------- Advice ----------
+  function drawAdvice() {
+    const box = $('#advice-list');
+    if (!gate(box, ['advice'])) return;
+    box.replaceChildren();
+    const P = { 1: 'עדיפות עליונה', 2: 'חשוב', 3: 'כדאי' };
+    const pa = picked();
+    dash.data('advice').data.forEach((a) => {
+      const c = document.createElement('article'); c.className = 'ox-tipcard p' + a.priority; c.id = 'advice-' + a.id;
+      if (pa && !String(a.title + a.body + a.owner).includes(pa)) c.style.opacity = .45;
+      const top = document.createElement('div'); top.className = 'top';
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = a.icon;
+      const ar = document.createElement('div'); ar.className = 'area'; ar.textContent = a.area + ' · ' + a.owner;
+      const pr = document.createElement('span'); pr.className = 'prio'; pr.textContent = P[a.priority];
+      top.append(ic, ar, pr);
+      const h = document.createElement('h4'); h.textContent = a.title;
+      const p = document.createElement('p'); p.textContent = a.body;
+      c.append(top, h, p);
+      if (a.steps && a.steps.length) { const ul = document.createElement('ul'); a.steps.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.append(li); }); c.append(ul); }
+      if (a.impact) { const im = document.createElement('div'); im.className = 'impact'; const b = document.createElement('b'); b.textContent = a.impact; im.append(b); c.append(im); }
+      box.append(c);
+    });
+  }
+
+  // ---------- Funnel ----------
+  function drawFunnel() {
+    const box = $('#funnel');
+    if (!gate(box, ['funnel'])) return;
+    const rows = dash.data('funnel').data.slice().sort((a, b) => a.order - b.order);
+    box.replaceChildren();
+    const max = d3.max(rows, (r) => r.count) || 1;
+    const worst = d3.least(rows.filter((r) => r.step_rate != null), (r) => r.step_rate);
+    rows.forEach((r, i) => {
+      if (i > 0) {
+        const s = document.createElement('div');
+        s.className = 'ox-fn-step' + (worst && r.stage === worst.stage ? ' bad' : '');
+        s.textContent = '↓ ' + pct0(r.step_rate) + ' עברו הלאה';
+        box.append(s);
+      }
+      const row = document.createElement('div'); row.className = 'ox-fn-row';
+      const l = document.createElement('div'); l.className = 'ox-fn-label'; l.textContent = r.stage;
+      const tr = document.createElement('div'); tr.className = 'ox-fn-track';
+      const b = document.createElement('div'); b.className = 'ox-fn-bar';
+      b.style.width = Math.max(2, (r.count / max) * 100) + '%';
+      b.style.background = i === rows.length - 1 ? 'linear-gradient(to left, var(--sn-brass), #e5c76a)' : 'var(--sn-sap)';
+      b.style.opacity = i === rows.length - 1 ? 1 : 1 - i * 0.16;
+      tr.append(b);
+      const v = document.createElement('div'); v.className = 'ox-fn-val'; v.textContent = fInt(r.count);
+      row.append(l, tr, v); box.append(row);
+    });
+  }
+
+  // ---------- Leaderboard ----------
+  function drawLeaderboard() {
+    const wrap = $('#lead-wrap'), body = $('#leaderboard tbody');
+    if (!gate(wrap, ['agent_kpis', 'agent_view'], body)) return;
+    const k = dash.data('agent_kpis').data, v = dash.data('agent_view').data;
+    const colors = agentColor(k.map((r) => r.agent));
+    const rows = k.map((r) => ({ ...r, ...(v.find((x) => x.agent === r.agent) || {}) }));
+    const maxC = d3.max(rows, (r) => +r.commission) || 1;
+    const rank = new Map(rows.slice().sort((a, b) => b.commission - a.commission).map((r, i) => [r.agent, i + 1]));
+    const shown = rows.filter((r) => !query || r.agent.includes(query))
+      .sort((a, b) => sortKey === 'agent' ? sortDir * a.agent.localeCompare(b.agent, 'he') : sortDir * ((+a[sortKey] || 0) - (+b[sortKey] || 0)));
+    root.querySelectorAll('#leaderboard th').forEach((th) => {
+      if (th.dataset.k === sortKey) th.setAttribute('aria-sort', sortDir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+    });
+    const pa = picked();
+    const tone = (val, good, ok, invert) => { if (val == null) return ''; return invert ? (val <= good ? 'good' : val <= ok ? 'warn' : 'bad') : (val >= good ? 'good' : val >= ok ? 'warn' : 'bad'); };
+    body.replaceChildren();
+    shown.forEach((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = r.agent;
+      if (pa) tr.classList.add(pa === r.agent ? 'is-picked' : 'is-dim');
+      const td = (cls, content) => { const c = document.createElement('td'); if (cls) c.className = cls; if (content instanceof Node) c.append(content); else c.textContent = content; tr.append(c); return c; };
+      // agent
+      const a = document.createElement('div'); a.className = 'ox-agent';
+      const rk = document.createElement('span'); rk.className = 'ox-rank'; rk.textContent = '#' + rank.get(r.agent);
+      const av = document.createElement('span'); av.className = 'ox-av'; av.style.background = colors.get(r.agent); av.textContent = initials(r.agent);
+      const nm = document.createElement('div'); nm.textContent = r.agent; const sm = document.createElement('small'); sm.textContent = r.role; nm.append(sm);
+      a.append(rk, av, nm); td('', a);
+      // commission with bar
+      const cb = document.createElement('div'); cb.className = 'ox-cbar';
+      const ct = document.createElement('span'); ct.textContent = ils(r.commission);
+      const track = document.createElement('div'); track.className = 'track';
+      const fill = document.createElement('div'); fill.className = 'fill'; fill.style.width = (r.commission / maxC * 100) + '%'; fill.style.background = colors.get(r.agent);
+      track.append(fill); cb.append(ct, track); td('n', cb);
+      const tp = document.createElement('span'); tp.className = 'ox-pill ' + tone(r.target_pct, 1, 0.7); tp.textContent = pct0(r.target_pct); td('n', tp);
+      td('n', fInt(r.deals));
+      td('n', fInt(r.leads));
+      const rs = document.createElement('span'); rs.className = tone(+r.avg_response_min, 15, 30, true); rs.textContent = fInt(r.avg_response_min) + ' דק׳'; td('n', rs);
+      const fs = document.createElement('span'); fs.className = tone(r.fast_share, 0.6, 0.4); fs.textContent = pct0(r.fast_share); td('n', fs);
+      td('n', fInt(r.recruited));
+      td('n', fInt(r.exclusives));
+      const er = document.createElement('span'); er.className = 'ox-pill ' + tone(r.exclusive_rate, 0.6, 0.4); er.textContent = pct0(r.exclusive_rate); td('n', er);
+      td('n', fInt(r.agreements));
+      td('n', pct1(r.conversion));
+      const ou = document.createElement('span'); ou.className = +r.open_unanswered >= 4 ? 'bad' : ''; ou.textContent = fInt(r.open_unanswered); td('n', ou);
+      body.append(tr);
+    });
+  }
+
+  // ---------- Response speed (100% stacked bars, RTL) ----------
+  const bucketStyle = (o) => [
+    ['var(--color-ok)', 1], ['var(--color-ok)', 0.55], ['var(--color-warn)', 0.5],
+    ['var(--color-warn)', 1], ['var(--color-bad)', 0.55], ['var(--color-bad)', 1],
+  ][Math.min(5, Math.max(0, o - 1))];
+  function drawResponse() {
+    const box = $('#resp-chart'), legend = $('#resp-legend');
+    legend.replaceChildren();
+    if (!gate(box, ['response_buckets', 'agent_kpis'])) return;
+    box.replaceChildren();
+    const data = dash.data('response_buckets').data;
+    const order = dash.data('agent_kpis').data.slice().sort((a, b) => a.avg_response_min - b.avg_response_min);
+    const avg = new Map(order.map((r) => [r.agent, +r.avg_response_min]));
+    const buckets = Array.from(new Map(data.map((r) => [+r.bucket_order, r.bucket]))).sort((a, b) => a[0] - b[0]);
+    buckets.forEach(([o, name]) => {
+      const s = document.createElement('span'); const i = document.createElement('i');
+      const [c, op] = bucketStyle(o); i.style.background = c; i.style.opacity = op;
+      s.append(i, document.createTextNode(name)); legend.append(s);
+    });
+    const W = Math.max(280, box.clientWidth), rowH = 26, gap = 14, H = order.length * (rowH + gap) - gap + 4;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'חלוקת זמני תגובה לפי סוכן');
+    const labels = svg.append('g').attr('font-size', 13).attr('fill', 'var(--color-fg)');
+    const lab = labels.selectAll('text').data(order).join('text').attr('x', W).attr('text-anchor', 'end')
+      .attr('y', (d, i) => i * (rowH + gap) + rowH / 2 + 4).text((d) => d.agent);
+    const nameW = d3.max(lab.nodes(), (n) => n.getComputedTextLength()) + 14;
+    const avgW = 52;
+    const x = d3.scaleLinear([0, 1], [W - nameW, avgW]);
+    const pa = picked();
+    const defs = svg.append('defs');
+    order.forEach((ag, i) => {
+      const y = i * (rowH + gap);
+      const rows = data.filter((r) => r.agent === ag.agent).sort((a, b) => a.bucket_order - b.bucket_order);
+      const total = d3.sum(rows, (r) => +r.leads) || 1;
+      const cid = 'oxclip' + i;
+      defs.append('clipPath').attr('id', cid).append('rect').attr('x', x(1)).attr('y', y).attr('width', x(0) - x(1)).attr('height', rowH).attr('rx', 6);
+      const g = svg.append('g').attr('clip-path', `url(#${cid})`).attr('opacity', pa && pa !== ag.agent ? 0.3 : 1);
+      let cum = 0;
+      rows.forEach((r) => {
+        const share = r.leads / total;
+        const [c, op] = bucketStyle(+r.bucket_order);
+        g.append('rect').attr('x', x(cum + share)).attr('y', y).attr('width', Math.max(0, x(cum) - x(cum + share) - 1)).attr('height', rowH)
+          .attr('fill', c).attr('fill-opacity', op).style('cursor', 'default')
+          .on('mousemove', (e) => showTip(e, ag.agent, [[c, r.bucket, fInt(r.leads) + ' לידים · ' + pct0(share)], [null, 'ממוצע תגובה', fInt(avg.get(ag.agent)) + ' דק׳']]))
+          .on('mouseleave', hideTip);
+        cum += share;
+      });
+      const a = avg.get(ag.agent);
+      svg.append('text').attr('x', avgW - 8).attr('y', y + rowH / 2 + 4).attr('text-anchor', 'end').attr('font-size', 12)
+        .attr('fill', a > 30 ? 'var(--color-bad)' : 'var(--color-fg-muted)').attr('opacity', pa && pa !== ag.agent ? 0.3 : 1)
+        .text(fInt(a) + ' דק׳');
+    });
+    box.style.minHeight = H + 'px';
+  }
+
+  // ---------- Recruitment & exclusivity by month ----------
+  function drawRecruit() {
+    const box = $('#recruit-chart'), legend = $('#recruit-legend');
+    legend.replaceChildren();
+    if (!gate(box, ['monthly_office', 'monthly'])) return;
+    box.replaceChildren();
+    const pa = picked();
+    $('#recruit-title').textContent = pa ? `גיוסים ובלעדיות: ${pa}` : 'גיוסים ובלעדיות, 12 חודשים';
+    const rows = (pa
+      ? dash.data('monthly').data.filter((r) => r.agent === pa).map((r) => ({ month: r.month, recruited: +r.recruited, exclusives: +r.exclusives }))
+      : dash.data('monthly_office').data.map((r) => ({ month: r.month, recruited: +r.recruited, exclusives: +r.exclusives }))
+    ).sort((a, b) => d3.ascending(a.month, b.month));
+    const accent = 'var(--sn-sap)';
+    [[accent, 1, 'בבלעדיות'], ['var(--cds-chart-muted)', 1, 'ללא בלעדיות']].forEach(([c, op, n]) => {
+      const s = document.createElement('span'); const i = document.createElement('i'); i.style.background = c; s.append(i, document.createTextNode(n)); legend.append(s);
+    });
+    const W = Math.max(280, box.clientWidth), H = 240;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'גיוסים ובלעדיות לפי חודש');
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => r.recruited) || 1], [H - 26, 10]).nice();
+    const ticks = y.ticks(4);
+    const tg = svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)');
+    const tl = tg.selectAll('text').data(ticks).join('text').attr('x', 0).attr('y', (d) => y(d) + 4).text((d) => fInt(d));
+    const ml = (d3.max(tl.nodes(), (n) => n.getComputedTextLength()) || 10) + 10;
+    svg.insert('g', ':first-child').selectAll('line').data(ticks).join('line')
+      .attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)')).attr('stroke-width', 1);
+    const x = d3.scaleBand(rows.map((r) => r.month), [ml, W]).padding(0.32);
+    const bw = Math.min(32, x.bandwidth());
+    const off = (x.bandwidth() - bw) / 2;
+    const g = svg.append('g');
+    rows.forEach((r, i) => {
+      const x0 = x(r.month) + off;
+      const recent = i >= rows.length - 3;
+      const col = g.append('g').attr('opacity', recent ? 1 : 0.78);
+      col.append('rect').attr('x', x0).attr('width', bw).attr('y', y(r.recruited)).attr('height', Math.max(0, y(0) - y(r.recruited))).attr('rx', 4).attr('fill', 'var(--cds-chart-muted)');
+      col.append('rect').attr('x', x0).attr('width', bw).attr('y', y(r.exclusives)).attr('height', Math.max(0, y(0) - y(r.exclusives))).attr('rx', 4).attr('fill', accent);
+      col.append('rect').attr('x', x(r.month)).attr('width', x.bandwidth()).attr('y', 0).attr('height', H - 20).attr('fill', 'transparent')
+        .on('mousemove', (e) => showTip(e, mLong.format(toMonth(r.month)), [
+          ['var(--cds-chart-muted)', 'גויסו', fInt(r.recruited)], [accent, 'בבלעדיות', fInt(r.exclusives)],
+          [null, 'שיעור בלעדיות', r.recruited ? pct0(r.exclusives / r.recruited) : '-']]))
+        .on('mouseleave', hideTip);
+    });
+    const every = x.bandwidth() < 26 ? 2 : 1;
+    svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').selectAll('text')
+      .data(rows.filter((r, i) => (rows.length - 1 - i) % every === 0)).join('text')
+      .attr('x', (r) => x(r.month) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle')
+      .text((r) => mShort.format(toMonth(r.month)));
+    box.style.minHeight = H + 'px';
+  }
+
+  // ---------- Small multiples: commission per agent ----------
+  function drawMinis() {
+    const box = $('#minis');
+    if (!gate(box, ['monthly'])) return;
+    box.replaceChildren();
+    const data = dash.data('monthly').data;
+    const agents = Array.from(new Set(data.map((r) => r.agent)));
+    const colors = agentColor(agents);
+    const months = Array.from(new Set(data.map((r) => r.month))).sort();
+    const recent = new Set(months.slice(-3));
+    const yMax = d3.max(data, (r) => +r.commission) || 1;
+    const pa = picked();
+    agents.forEach((ag) => {
+      const card = document.createElement('div'); card.className = 'ox-mini'; card.dataset.agent = ag;
+      if (pa) card.classList.add(pa === ag ? 'is-picked' : 'is-dim');
+      const h = document.createElement('h4'); const n = document.createElement('span'); n.textContent = ag;
+      const dot = document.createElement('span'); dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${colors.get(ag)};align-self:center`;
+      h.append(n, dot); card.append(h);
+      const chart = document.createElement('div'); card.append(chart); box.append(card);
+      const W = Math.max(160, chart.clientWidth || 200), H = 70;
+      const rows = data.filter((r) => r.agent === ag).sort((a, b) => d3.ascending(a.month, b.month));
+      const x = d3.scaleBand(months, [0, W]).padding(0.25);
+      const y = d3.scaleLinear([0, yMax], [H, 4]);
+      const svg = d3.select(chart).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H + 14}`).attr('aria-label', 'הכנסות חודשיות של ' + ag);
+      svg.append('line').attr('x1', 0).attr('x2', W).attr('y1', H).attr('y2', H).attr('stroke', 'var(--cds-chart-axis)');
+      rows.forEach((r) => {
+        svg.append('rect').attr('x', x(r.month)).attr('width', x.bandwidth()).attr('y', y(+r.commission)).attr('height', Math.max(0, H - y(+r.commission)))
+          .attr('rx', 2).attr('fill', recent.has(r.month) ? colors.get(ag) : 'var(--cds-chart-muted)');
+        svg.append('rect').attr('x', x(r.month) - x.step() * x.padding() / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
+          .on('mousemove', (e) => showTip(e, ag + ' · ' + mLong.format(toMonth(r.month)), [[colors.get(ag), 'עמלות', ils(r.commission)], [null, 'עסקאות', fInt(r.deals)], [null, 'גיוסים', fInt(r.recruited)]]))
+          .on('mouseleave', hideTip);
+      });
+      svg.append('text').attr('x', 0).attr('y', H + 12).attr('font-size', 10).attr('fill', 'var(--color-fg-muted)').text(mShort.format(toMonth(months[0])));
+      svg.append('text').attr('x', W).attr('y', H + 12).attr('text-anchor', 'end').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)').text(mShort.format(toMonth(months[months.length - 1])));
+    });
+  }
+
+  // ---------- Lead sources ----------
+  function drawSources() {
+    const wrap = $('#src-wrap'), body = $('#sources tbody');
+    if (!gate(wrap, ['lead_sources', 'sources_view'], body)) return;
+    const rows = dash.data('lead_sources').data, conv = dash.data('sources_view').data;
+    const max = d3.max(rows, (r) => +r.leads) || 1;
+    const best = d3.greatest(conv, (r) => r.conversion);
+    body.replaceChildren();
+    rows.slice().sort((a, b) => b.leads - a.leads).forEach((r) => {
+      const c = conv.find((x) => x.source === r.source) || {};
+      const tr = document.createElement('tr'); tr.dataset.key = r.source;
+      const s = document.createElement('td'); s.textContent = r.source;
+      const l = document.createElement('td'); l.className = 'n';
+      const cb = document.createElement('div'); cb.className = 'ox-cbar';
+      const t = document.createElement('span'); t.textContent = fInt(r.leads);
+      const track = document.createElement('div'); track.className = 'track';
+      const fill = document.createElement('div'); fill.className = 'fill'; fill.style.width = (r.leads / max * 100) + '%'; fill.style.background = 'var(--sn-sap)';
+      track.append(fill); cb.append(t, track); l.append(cb);
+      const d = document.createElement('td'); d.className = 'n'; d.textContent = fInt(r.deals);
+      const cv = document.createElement('td'); cv.className = 'n';
+      const p = document.createElement('span'); p.className = 'ox-pill ' + (best && best.source === r.source ? 'good' : c.conversion < 0.04 ? 'bad' : 'warn');
+      p.textContent = pct1(c.conversion); cv.append(p);
+      tr.append(s, l, d, cv); body.append(tr);
+    });
+  }
+
+  // ---------- Expiring exclusivity ----------
+  function drawExpiring() {
+    const wrap = $('#exp-wrap'), body = $('#expiring tbody');
+    if (!gate(wrap, ['expiring'], body)) return;
+    const rows = dash.data('expiring').data.slice().sort((a, b) => d3.ascending(a.exclusivity_end, b.exclusivity_end));
+    const now = Date.now();
+    const pa = picked();
+    body.replaceChildren();
+    rows.forEach((r) => {
+      const tr = document.createElement('tr'); tr.dataset.key = r.property;
+      if (pa && r.agent !== pa) tr.style.opacity = .35;
+      const p = document.createElement('td'); p.textContent = r.property; p.style.whiteSpace = 'normal'; p.style.minWidth = '11rem';
+      const a = document.createElement('td'); a.textContent = r.agent;
+      const e = document.createElement('td');
+      const end = new Date(String(r.exclusivity_end).slice(0, 10) + 'T00:00:00Z');
+      e.textContent = dFmt.format(end);
+      const days = (end - now) / 864e5;
+      if (days <= 14) { const b = document.createElement('span'); b.className = 'ox-badge bad'; b.textContent = 'דחוף'; e.append(b); }
+      else if (days <= 30) { const b = document.createElement('span'); b.className = 'ox-badge warn'; b.textContent = 'בקרוב'; e.append(b); }
+      const pr = document.createElement('td'); pr.className = 'n'; pr.textContent = ils(r.asking_price);
+      const dm = document.createElement('td'); dm.className = 'n'; dm.textContent = fInt(r.days_on_market);
+      if (+r.days_on_market > 100) dm.classList.add('warn');
+      const sh = document.createElement('td'); sh.className = 'n'; sh.textContent = fInt(r.showings);
+      if (+r.showings <= 3) sh.classList.add('bad');
+      tr.append(p, a, e, pr, dm, sh); body.append(tr);
+    });
+  }
+
+  dash.onData(() => {
+    const pa = picked();
+    pickedBtn.hidden = !pa;
+    pickedBtn.textContent = pa ? `מסונן: ${pa}  ×` : '';
+    hideTip();
+    drawKpis();
+    drawHero();
+    if (dash.data('office').status === 'ok') counted = true;
+    drawAlerts();
+    drawAdvice();
+    drawFunnel();
+    drawLeaderboard();
+    drawResponse();
+    drawRecruit();
+    drawMinis();
+    drawSources();
+    drawExpiring();
+    if (!firstDone && dash.data('office').status === 'ok') {
+      firstDone = true;
+      root.classList.add('is-ready', 'first');
+      setTimeout(() => root.classList.remove('first'), 900);
+    }
+  });
+})();
+</script>
+
+</div>
+</body>
+</html>

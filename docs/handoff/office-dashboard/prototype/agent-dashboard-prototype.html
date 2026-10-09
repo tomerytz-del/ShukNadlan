@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אב-טיפוס - הדשבורד שלי | שוק הנדל״ן</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>:root{
+ --color-fg:#0d1b3d;--color-fg-muted:#5b6585;--color-bg:#f4f7fe;--color-panel:#ffffff;--color-border-line:#e3e8f4;
+ --color-ok:#1e7a4c;--color-warn:#a36a00;--color-bad:#b3261e;
+ --cds-border:#dde3f2;--cds-chart-axis:#c3cbe0;--cds-chart-grid:#eef1f8;--cds-chart-muted:#cfd7ea;
+ --cds-dur-slow:320ms;--cds-ease-out:cubic-bezier(.2,.8,.2,1);
+ --cds-font-size-caption:12.5px;--cds-font-size-body:14.5px;--cds-font-size-heading:16px;--cds-font-size-title:22px;--cds-font-weight-medium:600;
+ --cds-gap-xs:6px;--cds-gap-sm:8px;--cds-gap-md:16px;--cds-gap-xl:32px;
+ --cds-pad-xs:6px;--cds-pad-sm:10px;--cds-pad-md:12px;--cds-pad-lg:20px;--cds-pad-xl:28px;
+ --cds-radius:14px;--cds-shadow-popover:0 8px 24px rgba(13,27,61,.14);--cds-surface-popover:#ffffff;--cds-text-secondary:#5b6585;
+ --font-anthropic-sans:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+ --color-fg:#e8ecf7;--color-fg-muted:#9aa4c0;--color-bg:#0b1226;--color-panel:#111a33;--color-border-line:#223055;
+ --color-ok:#5fd394;--color-warn:#f0b54a;--color-bad:#ff8a80;
+ --cds-border:#2a3a63;--cds-chart-axis:#3a4a73;--cds-chart-grid:#1a2645;--cds-chart-muted:#33426b;
+ --cds-surface-popover:#16213f;--cds-text-secondary:#9aa4c0;--cds-shadow-popover:0 8px 24px rgba(0,0,0,.4);
+}}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
+#dash-root{padding:0 var(--dash-gutter,24px)}
+.dash-skeleton{color:transparent!important;background:linear-gradient(90deg,var(--color-border-line),transparent,var(--color-border-line));background-size:200% 100%;border-radius:8px;animation:sk 1.2s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+</style>
+<script>window.__DEMO_DATA__ = {"me": [{"agent": "נועה מזרחי", "role": "סוכנת", "leads": 45, "leads_prev": 46, "responded": 44, "meetings": 16, "showings": 32, "agreements": 11, "agreements_prev": 13, "recruited": 9, "recruited_prev": 12, "exclusives": 4, "exclusives_prev": 6, "deals": 8, "deals_prev": 7, "commission": 190000, "commission_prev": 176000, "commission_target": 140000, "avg_response_min": 27, "avg_response_min_prev": 33, "open_unanswered": 1, "active_listings": 17, "first_name": "נועה", "gender": "f", "fast_streak_days": 6, "best_quarter_commission": 212000, "leads_rank_note": null}], "office_avg": [{"leads": 44.0, "responded": 42.3, "meetings": 16.0, "showings": 27.0, "agreements": 12.0, "recruited": 11.3, "exclusives": 6.2, "deals": 6.3, "commission": 166000.0, "avg_response_min": 35.8, "agent": "ממוצע המשרד"}], "my_monthly": [{"month": "2025-10", "leads": 7, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 1, "commission": 20000, "avg_response_min": 41}, {"month": "2025-11", "leads": 15, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 0, "commission": 0, "avg_response_min": 38}, {"month": "2025-12", "leads": 3, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 62000, "avg_response_min": 36}, {"month": "2026-01", "leads": 17, "recruited": 2, "exclusives": 1, "agreements": 2, "deals": 0, "commission": 0, "avg_response_min": 35}, {"month": "2026-02", "leads": 11, "recruited": 3, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 50000, "avg_response_min": 33}, {"month": "2026-03", "leads": 17, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 2, "commission": 62000, "avg_response_min": 31}, {"month": "2026-04", "leads": 20, "recruited": 5, "exclusives": 2, "agreements": 4, "deals": 1, "commission": 23000, "avg_response_min": 30}, {"month": "2026-05", "leads": 15, "recruited": 4, "exclusives": 2, "agreements": 5, "deals": 3, "commission": 78000, "avg_response_min": 29}, {"month": "2026-06", "leads": 11, "recruited": 3, "exclusives": 2, "agreements": 4, "deals": 3, "commission": 75000, "avg_response_min": 30}, {"month": "2026-07", "leads": 9, "recruited": 3, "exclusives": 1, "agreements": 4, "deals": 3, "commission": 81000, "avg_response_min": 28}, {"month": "2026-08", "leads": 16, "recruited": 2, "exclusives": 1, "agreements": 3, "deals": 2, "commission": 40000, "avg_response_min": 26}, {"month": "2026-09", "leads": 20, "recruited": 4, "exclusives": 2, "agreements": 4, "deals": 3, "commission": 69000, "avg_response_min": 24}], "my_buckets": [{"agent": "נועה מזרחי", "bucket": "עד 5 דק'", "bucket_order": 1, "leads": 9}, {"agent": "נועה מזרחי", "bucket": "5-15 דק'", "bucket_order": 2, "leads": 12}, {"agent": "נועה מזרחי", "bucket": "15-60 דק'", "bucket_order": 3, "leads": 13}, {"agent": "נועה מזרחי", "bucket": "1-4 שעות", "bucket_order": 4, "leads": 7}, {"agent": "נועה מזרחי", "bucket": "מעל 4 שעות", "bucket_order": 5, "leads": 3}, {"agent": "נועה מזרחי", "bucket": "ללא מענה", "bucket_order": 6, "leads": 1}], "office_buckets": [{"bucket_order": 1, "bucket": "עד 5 דק'", "share": 0.2424}, {"bucket_order": 2, "bucket": "5-15 דק'", "share": 0.2614}, {"bucket_order": 3, "bucket": "15-60 דק'", "share": 0.2235}, {"bucket_order": 4, "bucket": "1-4 שעות", "share": 0.1515}, {"bucket_order": 5, "bucket": "מעל 4 שעות", "share": 0.0833}, {"bucket_order": 6, "bucket": "ללא מענה", "share": 0.0379}], "todo": [{"id": "t1", "kind": "lead", "urgency": 2, "title": "ליד מיד2 מחכה כבר שעתיים", "detail": "דירת 4 חד' בגבעת המורה · מבקש/ת לתאם סיור", "due": "עכשיו"}, {"id": "t2", "kind": "exclusivity", "urgency": 2, "title": "בלעדיות פוקעת ב-2 בנובמבר", "detail": "חנות 60 מ\"ר ברחוב שאול המלך · 2 הצגות ב-140 יום", "due": "השבוע"}, {"id": "t3", "kind": "agreement", "urgency": 1, "title": "הסכם תיווך נשלח ולא נחתם", "detail": "משפחת לוי · נשלח לפני 3 ימים, נצפה פעמיים", "due": "היום"}, {"id": "t4", "kind": "match", "urgency": 1, "title": "4 התאמות חכמות חדשות", "detail": "לקוחות מהקובץ שלך שמתאימים לנכסים שעלו השבוע", "due": "היום"}, {"id": "t5", "kind": "followup", "urgency": 0, "title": "פולואפ אחרי סיור", "detail": "זוג כהן ראו את הפנטהאוז באפקים אתמול", "due": "מחר"}], "achievements": [{"id": "a1", "title": "ברק", "desc": "80% מהלידים נענו תוך 15 דק' במשך חודש", "progress": 0.59, "earned": false}, {"id": "a2", "title": "מלכת הבלעדיות", "desc": "5 בלעדיות ברבעון", "progress": 0.8, "earned": false}, {"id": "a3", "title": "מעל היעד", "desc": "עברת את יעד העמלות הרבעוני", "progress": 1, "earned": true}, {"id": "a4", "title": "שמונה עסקאות", "desc": "8 עסקאות ברבעון אחד", "progress": 1, "earned": true}, {"id": "a5", "title": "רצף של שבוע", "desc": "7 ימים ברצף עם מענה תוך 15 דק'", "progress": 0.8571428571428571, "earned": false}, {"id": "a6", "title": "חותמת", "desc": "10 הסכמי תיווך ברבעון", "progress": 1, "earned": true}]};</script>
+<script>
+/* ---- Minimal stand-in for the dashboard runtime ("dash") used in the Claude prototype.
+   In the real CRM this is replaced by data from the office_dashboard() RPC. ---- */
+(function(){
+  const RAW = window.__DEMO_DATA__;
+  const calcs = {}, cbs = []; let params = {};
+  const results = {};
+  function compute(){
+    Object.keys(RAW).forEach(k => results[k] = {status:'ok', data: RAW[k], columns: Object.keys(RAW[k][0]||{}), refreshing:false, meta:[]});
+    let pending = Object.keys(calcs), guard = 0;
+    while (pending.length && guard++ < 20){
+      pending = pending.filter(id => {
+        const c = calcs[id];
+        if (!c.inputs.every(i => results[i] && results[i].status === 'ok')) return true;
+        try { results[id] = {status:'ok', data: c.fn(...c.inputs.map(i => results[i].data)), refreshing:false, meta:[]}; }
+        catch(e){ console.error(id, e); results[id] = {status:'error', data:[], message:String(e)}; }
+        return false;
+      });
+    }
+  }
+  const run = () => cbs.forEach(fn => { try { fn(); } catch(e){ console.error(e); } });
+  window.dash = {
+    data: id => results[id] || {status:'missing', data:[]},
+    calc: (id, def) => { calcs[id] = def; },
+    loader: () => {},
+    onData: fn => { cbs.push(fn); if (Object.keys(results).length) fn(); },
+    params: () => ({...params}),
+    setParams: p => { params = {...params, ...p}; Object.keys(params).forEach(k => params[k] == null && delete params[k]); run(); },
+    resetParams: () => { params = {}; run(); },
+    setLink: () => {}, refresh: () => {},
+    colors: ['#0e2a6b','#c9a227','#2f6fd6','#21a565','#8b2332','#6b7796','#d97a2b','#5a3fb0'],
+  };
+  window.addEventListener('DOMContentLoaded', () => { compute(); run(); });
+  let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(run, 120); });
+})();
+</script>
+</head>
+<body>
+<!-- Prototype only: demo data, no auth. See HANDOFF.md for the production implementation. -->
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: clamp(16px, 3vw, 40px); }
+.ox {
+  /* Shuk Nadlan brand: sapphire + brass. Mixed with the theme's text colour so they read in light and dark. */
+  --sn-sapphire: #0e2a6b; --sn-sapphire-deep: #0d1b3d; --sn-brass: #c9a227; --sn-brass-light: #e5c76a;
+  --sn-sap: color-mix(in oklab, #0e2a6b 72%, var(--color-fg) 28%);
+  --sn-sap-soft: color-mix(in oklab, #3c64c8 60%, var(--color-fg) 15%);
+  --sn-gold: color-mix(in oklab, #c9a227 72%, var(--color-fg) 28%);
+  --sn-sap-tint: color-mix(in srgb, var(--sn-sap) 9%, transparent);
+  --sn-gold-tint: color-mix(in srgb, #c9a227 14%, transparent);
+  --sn-font: 'Heebo', var(--font-anthropic-sans);
+  position: relative; font-family: var(--sn-font); color: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-xl); max-width: 1440px; margin-inline: auto; padding-block: var(--cds-pad-lg) calc(var(--cds-pad-xl) * 2); }
+.ox * { box-sizing: border-box; }
+.ox svg { direction: ltr; overflow: visible; display: block; }
+.ox .num, .ox td, .ox .ox-kpi-value { font-variant-numeric: tabular-nums; }
+
+/* Brand bar */
+.ox-brand { display: flex; align-items: center; justify-content: space-between; gap: var(--cds-gap-md); flex-wrap: wrap; }
+.ox-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--color-fg); }
+.ox-logo svg { width: 30px; height: 36px; flex: none; }
+.ox-logo b { display: block; font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; color: var(--sn-sap); }
+.ox-logo small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-chips { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
+.ox-chip { font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 12px; color: var(--color-fg-muted); background: var(--color-panel); white-space: nowrap; }
+.ox-chip--demo { color: var(--sn-gold); border-color: currentColor; background: var(--sn-gold-tint); }
+.ox-picked { font: inherit; font-size: var(--cds-font-size-caption); border: 1px solid var(--sn-sap); border-radius: 999px; padding: 4px 12px; background: var(--sn-sap); color: #fff; cursor: pointer; }
+.ox-picked[hidden] { display: none; }
+
+/* Hero - always sapphire, like the site's dark bands */
+.ox-hero { position: relative; overflow: hidden; isolation: isolate; border-radius: calc(var(--cds-radius) * 2); color: #fff; padding: clamp(20px, 3.4vw, 40px);
+  background: radial-gradient(120% 140% at 100% 0%, #1b3f96 0%, #0e2a6b 42%, #0d1b3d 100%);
+  display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: clamp(18px, 3vw, 36px); }
+.ox-hero::before { content: ""; position: absolute; z-index: -1; inset-inline-start: -8%; bottom: -55%; width: 60%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,162,39,.28), rgba(201,162,39,0) 65%); }
+.ox-hero::after { content: ""; position: absolute; z-index: -1; inset: 0; opacity: .5;
+  background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 28px 28px; mask-image: linear-gradient(to left, #000 0%, transparent 70%); -webkit-mask-image: linear-gradient(to left, #000 0%, transparent 70%); }
+.ox-hello { margin: 0; font-size: var(--cds-font-size-body); color: #e5c76a; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.ox-hello::before { content: "✦"; font-size: 12px; }
+.ox-title { margin: 6px 0 0; font-weight: 800; font-size: clamp(1.7rem, 3.2vw, 2.6rem); line-height: 1.15; letter-spacing: -.015em; }
+.ox-title .hl { color: #e5c76a; white-space: nowrap; }
+.ox-take { margin: 12px 0 0; font-size: 1.02rem; color: rgba(255,255,255,.78); max-width: 60ch; line-height: 1.8; }
+.ox .ox-take b { color: #fff; font-weight: 700; }
+.ox-hero-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.ox-hs { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 10px 14px; min-width: 7.5rem; backdrop-filter: blur(4px); }
+.ox-hs small { display: block; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.65); }
+.ox-hs strong { display: block; font-size: 1.5rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ox-hs .up { color: #7ee2a8; } .ox-hs .down { color: #ff9b9b; }
+.ox-hs em { font-style: normal; font-size: var(--cds-font-size-caption); font-weight: 600; }
+.ox-focus { margin-top: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: var(--cds-font-size-body); color: rgba(255,255,255,.85);
+  border-inline-start: 3px solid #c9a227; padding: 4px 12px; background: linear-gradient(to left, rgba(201,162,39,.16), rgba(201,162,39,0)); border-radius: 0 8px 8px 0; }
+.ox-focus .lbl { color: #e5c76a; font-weight: 700; }
+.ox-focus a { color: #fff; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ox-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ox-star { background: rgba(255,255,255,.08); border: 1px solid rgba(201,162,39,.45); border-radius: 18px; padding: 16px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; position: relative; }
+.ox-star .ring { grid-row: span 3; position: relative; width: 74px; height: 74px; }
+.ox-star .ring svg { width: 74px; height: 74px; transform: rotate(-90deg); }
+.ox-star .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 1.15rem; }
+.ox-star .tag { font-size: var(--cds-font-size-caption); color: #e5c76a; font-weight: 700; letter-spacing: .02em; }
+.ox-star .nm { font-size: 1.2rem; font-weight: 800; line-height: 1.2; }
+.ox-star .sub { font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.7); }
+.ox-star .sub b { color: #fff; }
+.ox-spark { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 14px 16px 10px; position: relative; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
+.ox-spark-h { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.7); }
+.ox-spark-h strong { color: #fff; font-size: 1rem; }
+.ox-spark-c { flex: 1; min-height: 96px; position: relative; }
+.ox-office-target { display: flex; align-items: center; gap: 10px; font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.75); }
+.ox-office-target .bar { flex: 1; height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.ox-office-target .bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(to left, #e5c76a, #c9a227); }
+.ox-office-target b { color: #fff; font-size: .95rem; }
+.ox-hero .dash-skeleton { opacity: .5; }
+@media (max-width: 860px) { .ox-hero { grid-template-columns: 1fr; } }
+
+/* KPI tiles */
+.ox-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-kpi { position: relative; overflow: hidden; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-height: 9.5rem; }
+.ox-kpi::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 3px; background: var(--kpi-accent, var(--sn-sap)); opacity: .85; }
+.ox-kpi-label::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 2px; background: var(--sn-gold); margin-inline-end: 6px; transform: translateY(-1px) rotate(45deg); }
+.ox-kpi-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-kpi-value { font-family: var(--sn-font); font-weight: 800; color: var(--sn-sap); letter-spacing: -.02em; font-size: clamp(1.8rem, 2.6vw, 2.35rem); line-height: 1.1; margin-top: auto; }
+.ox-kpi-unit { font-size: var(--cds-font-size-body); color: var(--color-fg-muted); margin-inline-start: 4px; font-weight: 500; }
+.ox-kpi-delta { font-size: var(--cds-font-size-caption); display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.ox-kpi-delta .vs { color: var(--color-fg-muted); }
+.ox .good { color: var(--color-ok); }
+.ox .bad { color: var(--color-bad); }
+.ox .warn { color: var(--color-warn); }
+
+/* Sections and cards */
+.ox-sec { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+.ox-sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cds-gap-md); flex-wrap: wrap; }
+.ox-sec-h h2 { font-weight: 800; font-size: var(--cds-font-size-title); margin: 0; color: var(--sn-sap); display: flex; align-items: center; gap: 10px; }
+.ox-sec-h h2::before { content: ""; width: 4px; height: 1.1em; border-radius: 2px; background: var(--sn-brass); }
+.ox-sec-h p { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-card { border-top: 3px solid var(--sn-sap-tint); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-md); min-width: 0; }
+.ox-card-h h3 { font-size: var(--cds-font-size-heading); font-weight: 700; margin: 0; color: var(--sn-sap); }
+.ox-card-h p { margin: 4px 0 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.ox-chart { position: relative; min-height: 220px; }
+.ox-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); min-height: 1.2em; }
+.ox-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ox-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.ox-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: inherit; height: 100%; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.ox [data-dash-source-state=empty] { color: transparent; }
+.ox [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+/* Alerts */
+.ox-alerts { width: 100%; border-collapse: collapse; }
+.ox-alerts td { padding: 10px 6px; border-top: 1px solid var(--color-border-line); font-size: var(--cds-font-size-body); vertical-align: middle; }
+.ox-alerts tr:first-child td { border-top: 0; }
+.ox-alerts th { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.ox-alerts .sev { width: 18px; }
+.ox-alerts .sev i { display: block; width: 8px; height: 8px; border-radius: 50%; }
+.ox-alerts .sev-2 i { background: var(--color-bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-bad) 18%, transparent); }
+.ox-alerts .sev-1 i { background: var(--color-warn); }
+.ox-alerts .who { font-weight: var(--cds-font-weight-medium); white-space: nowrap; }
+.ox-alerts .what { color: var(--color-fg-muted); }
+.ox-alerts .val { text-align: end; white-space: nowrap; font-weight: 800; font-size: 1.1rem; }
+.ox-ok { font-size: var(--cds-font-size-caption); color: var(--color-ok); }
+
+/* Tables */
+.ox-tablewrap { overflow: auto; max-height: 34rem; border-radius: calc(var(--cds-radius) - 2px); min-height: 8rem; }
+.ox-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--cds-font-size-body); }
+.ox-table th { position: sticky; top: 0; z-index: 1; background: var(--color-panel); text-align: start; font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: 0 8px 10px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; vertical-align: bottom; }
+.ox-table th.n, .ox-table td.n { text-align: end; }
+.ox-table th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+.ox-table th button:hover { color: var(--color-fg); }
+.ox-table th[aria-sort] button { color: var(--color-fg); }
+.ox-table th[aria-sort=ascending] button::after { content: "▲"; font-size: 8px; }
+.ox-table th[aria-sort=descending] button::after { content: "▼"; font-size: 8px; }
+.ox-table td { padding: 12px 8px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.ox-table tbody tr:last-child td { border-bottom: 0; }
+.ox-table tbody tr { transition: opacity var(--cds-dur-slow); }
+.ox-lead tbody tr { cursor: pointer; }
+.ox-lead tbody tr:hover td { background: color-mix(in srgb, var(--color-fg) 4%, transparent); }
+.ox-lead tr.is-picked td { background: var(--sn-sap-tint); }
+.ox-lead tr.is-picked td:first-child { box-shadow: inset -3px 0 0 var(--sn-brass); }
+.ox-lead tr.is-dim { opacity: .42; }
+.ox-agent { display: flex; align-items: center; gap: 10px; }
+.ox-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--color-bg); flex: none; }
+.ox-agent small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-rank { width: 1.5rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.ox-cbar { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; min-width: 8rem; }
+.ox-cbar .track { width: 100%; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--color-fg) 8%, transparent); position: relative; overflow: hidden; }
+.ox-cbar .fill { position: absolute; inset-block: 0; right: 0; border-radius: 3px; }
+.ox-pill { display: inline-block; min-width: 3.4rem; text-align: center; padding: 2px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; }
+.ox-pill.good { background: color-mix(in srgb, var(--color-ok) 14%, transparent); }
+.ox-pill.warn { background: color-mix(in srgb, var(--color-warn) 14%, transparent); }
+.ox-pill.bad { background: color-mix(in srgb, var(--color-bad) 14%, transparent); }
+.ox-search { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 12px; border: 1px solid var(--color-border-line); border-radius: 999px; background: var(--color-bg); color: var(--color-fg); min-width: 12rem; }
+
+/* Funnel */
+.ox-funnel { display: flex; flex-direction: column; gap: 4px; min-height: 260px; }
+.ox-fn-row { display: grid; grid-template-columns: minmax(6.5rem, auto) 1fr auto; gap: 12px; align-items: center; }
+.ox-fn-label { font-size: var(--cds-font-size-body); }
+.ox-fn-track { height: 30px; position: relative; }
+.ox-fn-bar { position: absolute; inset-block: 0; right: 0; border-radius: 6px; }
+.ox-fn-val { font-weight: 800; color: var(--sn-sap); font-size: 1.2rem; min-width: 3rem; text-align: end; }
+.ox-fn-step { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding-inline-start: calc(6.5rem + 12px); display: flex; gap: 6px; align-items: center; }
+.ox-fn-step.bad { color: var(--color-bad); font-weight: 600; }
+
+/* Small multiples */
+.ox-minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--cds-gap-md); min-height: 200px; position: relative; }
+.ox-mini { border: 1px solid var(--color-border-line); border-radius: calc(var(--cds-radius) - 2px); padding: var(--cds-pad-md); cursor: pointer; transition: opacity var(--cds-dur-slow), border-color var(--cds-dur-slow); background: var(--color-bg); }
+.ox-mini:hover { border-color: var(--color-fg-muted); }
+.ox-mini.is-dim { opacity: .38; }
+.ox-mini.is-picked { border-color: var(--sn-brass); box-shadow: 0 0 0 1px var(--sn-brass); }
+.ox-mini h4 { margin: 0 0 8px; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); display: flex; justify-content: space-between; }
+
+/* Badges */
+.ox-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; margin-inline-start: 6px; }
+.ox-badge.bad { background: color-mix(in srgb, var(--color-bad) 14%, transparent); }
+.ox-badge.warn { background: color-mix(in srgb, var(--color-warn) 14%, transparent); }
+
+/* Advice */
+.ox-advice { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); gap: var(--cds-gap-md); min-height: 180px; }
+.ox-tipcard { position: relative; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.ox-tipcard::before { content: ""; position: absolute; inset-block: 0; right: 0; width: 4px; background: var(--sn-sap); }
+.ox-tipcard.p1::before { background: var(--sn-brass); }
+.ox-tipcard .top { display: flex; align-items: center; gap: 10px; }
+.ox-tipcard .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--sn-sap-tint); color: var(--sn-sap); font-size: 16px; font-weight: 800; flex: none; }
+.ox-tipcard.p1 .ic { background: var(--sn-gold-tint); color: var(--sn-gold); }
+.ox-tipcard .area { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ox-tipcard .prio { margin-inline-start: auto; font-size: var(--cds-font-size-caption); font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--sn-sap-tint); color: var(--sn-sap); white-space: nowrap; }
+.ox-tipcard.p1 .prio { background: var(--sn-gold-tint); color: var(--sn-gold); }
+.ox-tipcard h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--color-fg); line-height: 1.35; }
+.ox-tipcard p { margin: 0; font-size: var(--cds-font-size-body); color: var(--color-fg-muted); line-height: 1.7; }
+.ox-tipcard ul { margin: 0; padding-inline-start: 1.1rem; font-size: var(--cds-font-size-body); line-height: 1.7; }
+.ox-tipcard .impact { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--color-border-line); font-size: var(--cds-font-size-caption); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ox-tipcard .impact b { color: var(--sn-gold); font-weight: 800; }
+.ox-tipcard .impact span { color: var(--color-fg-muted); }
+
+/* Tooltip */
+.ox-tip { position: absolute; z-index: 20; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.5; min-width: 9rem; opacity: 0; transition: opacity 120ms; }
+.ox-tip.on { opacity: 1; }
+.ox-tip .t { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.ox-tip .r { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.ox-tip .r span { display: inline-flex; gap: 6px; align-items: center; }
+.ox-tip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.ox-tip b { font-weight: 600; }
+
+.ox-foot { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.7; border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--cds-gap-md); }
+.ox-foot strong { color: var(--color-fg); font-weight: 600; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes oxUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes oxGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .ox.is-ready .ox-kpi { animation: oxUp var(--cds-dur-slow) var(--cds-ease-out) both; }
+  .ox.is-ready .ox-kpi:nth-child(2) { animation-delay: 40ms; }
+  .ox.is-ready .ox-kpi:nth-child(3) { animation-delay: 80ms; }
+  .ox.is-ready .ox-kpi:nth-child(4) { animation-delay: 120ms; }
+  .ox.is-ready .ox-kpi:nth-child(5) { animation-delay: 160ms; }
+  .ox.is-ready .ox-kpi:nth-child(6) { animation-delay: 200ms; }
+  .ox.is-ready.first .ox-fn-bar, .ox.is-ready.first .ox-cbar .fill { transform-origin: right; animation: oxGrow 700ms var(--cds-ease-out) both; }
+}
+@media (max-width: 640px) {
+  .ox-fn-row { grid-template-columns: 5.5rem 1fr auto; }
+  .ox-fn-step { padding-inline-start: calc(5.5rem + 12px); }
+}
+</style>
+<style>
+/* ---------- Agent dashboard additions ---------- */
+.ag-hero { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.ag-me { display: flex; align-items: center; gap: 14px; }
+.ag-avatar { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; color: #0d1b3d; background: linear-gradient(135deg, #e5c76a, #c9a227); box-shadow: 0 0 0 4px rgba(255,255,255,.12); flex: none; }
+.ag-quote { margin: 16px 0 0; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); font-size: 1.02rem; line-height: 1.7; color: #fff; position: relative; }
+.ag-quote::before { content: "״"; position: absolute; top: -14px; right: 12px; font-size: 3rem; line-height: 1; color: #c9a227; font-weight: 800; }
+.ag-quote small { display: block; margin-top: 4px; color: rgba(255,255,255,.6); font-size: var(--cds-font-size-caption); }
+.ag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.ag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: 600; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #fff; }
+.ag-chip.gold { background: rgba(201,162,39,.18); border-color: rgba(229,199,106,.5); color: #f3dd94; }
+.ag-goal { background: rgba(255,255,255,.08); border: 1px solid rgba(201,162,39,.45); border-radius: 18px; padding: 18px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+.ag-goal .ring { position: relative; width: 112px; height: 112px; }
+.ag-goal .ring svg { width: 112px; height: 112px; transform: rotate(-90deg); }
+.ag-goal .ring span { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-weight: 800; font-size: 1.5rem; line-height: 1.1; }
+.ag-goal .ring span small { display: block; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.65); }
+.ag-goal .t { font-size: var(--cds-font-size-caption); color: #e5c76a; font-weight: 700; }
+.ag-goal .v { font-size: 1.6rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ag-goal .s { font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.75); line-height: 1.6; }
+.ag-goal .s b { color: #fff; }
+
+/* To-do */
+.ag-todo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--cds-gap-md); min-height: 120px; }
+.ag-task { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start; position: relative; }
+.ag-task .ic { grid-row: span 3; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; background: var(--sn-sap-tint); color: var(--sn-sap); }
+.ag-task.u2 .ic { background: color-mix(in srgb, var(--color-bad) 12%, transparent); color: var(--color-bad); }
+.ag-task.u1 .ic { background: var(--sn-gold-tint); color: var(--sn-gold); }
+.ag-task h4 { margin: 0; font-size: var(--cds-font-size-body); font-weight: 700; }
+.ag-task p { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.ag-task .row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 8px; }
+.ag-task .due { font-size: var(--cds-font-size-caption); font-weight: 700; color: var(--color-fg-muted); }
+.ag-task.u2 .due { color: var(--color-bad); }
+.ag-task button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 700; padding: 5px 14px; border-radius: 999px; border: 0; background: var(--sn-sap); color: #fff; cursor: pointer; }
+
+/* KPI compare line */
+.ag-avg { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ag-avg b { color: var(--color-fg); font-weight: 600; }
+
+/* Benchmarks (me vs office) */
+.ag-bench { display: flex; flex-direction: column; gap: 18px; min-height: 240px; }
+.ag-b-row { display: grid; grid-template-columns: minmax(7rem, 9rem) 1fr auto; gap: 12px; align-items: center; }
+.ag-b-label { font-size: var(--cds-font-size-body); }
+.ag-b-label small { display: block; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ag-b-track { position: relative; height: 12px; border-radius: 99px; background: color-mix(in srgb, var(--color-fg) 7%, transparent); }
+.ag-b-fill { position: absolute; inset-block: 0; right: 0; border-radius: 99px; background: var(--sn-sap); }
+.ag-b-fill.ahead { background: linear-gradient(to left, var(--sn-sap), var(--sn-sap-soft)); }
+.ag-b-mark { position: absolute; top: -5px; bottom: -5px; width: 3px; border-radius: 2px; background: var(--sn-brass); transform: translateX(50%); }
+.ag-b-val { font-weight: 800; color: var(--sn-sap); min-width: 3.4rem; text-align: end; font-variant-numeric: tabular-nums; }
+.ag-b-val small { display: block; font-weight: 500; font-size: 11px; color: var(--color-fg-muted); }
+.ag-b-key { display: flex; gap: 16px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ag-b-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-inline-end: 6px; }
+
+/* Achievements */
+.ag-badges { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); gap: var(--cds-gap-md); min-height: 140px; }
+.ag-badge { text-align: center; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ag-medal { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; font-weight: 800; position: relative; color: var(--color-fg-muted); background: color-mix(in srgb, var(--color-fg) 6%, transparent); }
+.ag-badge.on .ag-medal { color: #0d1b3d; background: radial-gradient(circle at 35% 30%, #f3dd94, #c9a227 70%); box-shadow: 0 6px 16px rgba(201,162,39,.35); }
+.ag-badge h4 { margin: 0; font-size: var(--cds-font-size-body); font-weight: 800; }
+.ag-badge p { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.ag-prog { width: 100%; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--color-fg) 8%, transparent); overflow: hidden; margin-top: auto; }
+.ag-prog i { display: block; height: 100%; background: var(--sn-sap); border-radius: 99px; }
+.ag-badge.on .ag-prog i { background: var(--sn-brass); }
+.ag-badge .pct { font-size: 11px; color: var(--color-fg-muted); }
+@media (max-width: 860px) { .ag-hero { grid-template-columns: 1fr; } }
+</style>
+
+<div class="ox" dir="rtl" lang="he">
+  <div class="ox-brand" id="top">
+    <div class="ox-logo" aria-label="שוק הנדל״ן">
+      <svg viewBox="0 0 52 62" aria-hidden="true">
+        <path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z" fill="#0e2a6b"/>
+        <path d="M13 26 L26 14 L39 26" fill="none" stroke="#ffffff" stroke-width="5"/>
+        <text x="26" y="41" text-anchor="middle" fill="#c9a227" font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>
+      </svg>
+      <div><b>שוק הנדל״ן</b><small>הדשבורד שלי · פרטי, רק את/ה רואה אותו</small></div>
+    </div>
+    <div class="ox-chips">
+      <span class="ox-chip">יולי-ספטמבר 2026 · מול אפריל-יוני</span>
+      <span class="ox-chip ox-chip--demo">נתוני הדגמה</span>
+    </div>
+  </div>
+
+  <header class="ox-hero ag-hero" id="summary">
+    <div>
+      <div class="ag-me">
+        <span class="ag-avatar" id="ag-init">-</span>
+        <div>
+          <p class="ox-hello" id="ag-hello">שלום</p>
+          <h1 class="ox-title" id="ag-headline" data-source="motivation" data-row="0" data-field="headline">-</h1>
+        </div>
+      </div>
+      <p class="ox-take" id="ag-sub" data-source="motivation" data-row="0" data-field="sub">-</p>
+      <div class="ag-chips" id="ag-chips" data-source="motivation"></div>
+      <p class="ag-quote" id="ag-quote">-<small>משפט היום</small></p>
+    </div>
+    <div class="ox-side">
+      <div class="ag-goal" id="goal">
+        <div class="ring"><svg viewBox="0 0 112 112"><circle cx="56" cy="56" r="48" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="10"/><circle id="goal-arc" cx="56" cy="56" r="48" fill="none" stroke="#c9a227" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 999"/></svg>
+          <span><span data-source="my_view" data-field="target_pct" data-fmt="pct">-</span><small>מהיעד</small></span></div>
+        <div>
+          <div class="t">✦ העמלות שלך ברבעון</div>
+          <div class="v" data-source="me" data-field="commission" data-fmt="ils">-</div>
+          <div class="s" id="goal-gap">-</div>
+        </div>
+      </div>
+      <div class="ox-spark">
+        <div class="ox-spark-h"><span>העמלות שלך · 12 חודשים</span><span>הרבעון האחרון מודגש</span></div>
+        <div class="ox-spark-c" id="ag-spark" data-source="my_monthly"></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="ox-sec" id="today">
+    <div class="ox-sec-h">
+      <h2>מה יקדם אותך היום</h2>
+      <p>ממוין לפי דחיפות · כל משימה פותחת את הליד, הנכס או הלקוח/ה</p>
+    </div>
+    <div class="ag-todo dash-skeleton" id="todo" data-source="todo"></div>
+  </section>
+
+  <section class="ox-kpis" id="kpis" aria-label="המדדים שלי">
+    <div class="ox-kpi" style="--kpi-accent: var(--sn-brass)">
+      <span class="ox-kpi-label">עסקאות</span>
+      <span class="ox-kpi-value" data-source="me" data-field="deals" data-fmt="int">-</span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="deals_chg" data-fmt="delta" data-better="up">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="deals" data-fmt="dec">-</b></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">נכסים שגייסת</span>
+      <span class="ox-kpi-value" data-source="me" data-field="recruited" data-fmt="int">-</span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="recruited_chg" data-fmt="delta" data-better="up">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="recruited" data-fmt="dec">-</b></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">בלעדיות</span>
+      <span class="ox-kpi-value" data-source="me" data-field="exclusives" data-fmt="int">-</span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="exclusives_chg" data-fmt="delta" data-better="up">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="exclusives" data-fmt="dec">-</b></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">הסכמי תיווך</span>
+      <span class="ox-kpi-value" data-source="me" data-field="agreements" data-fmt="int">-</span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="agreements_chg" data-fmt="delta" data-better="up">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="agreements" data-fmt="dec">-</b></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">לידים</span>
+      <span class="ox-kpi-value" data-source="me" data-field="leads" data-fmt="int">-</span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="leads_chg" data-fmt="delta" data-better="up">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="leads" data-fmt="dec">-</b></span>
+    </div>
+    <div class="ox-kpi">
+      <span class="ox-kpi-label">זמן תגובה ממוצע</span>
+      <span class="ox-kpi-value"><span data-source="me" data-field="avg_response_min" data-fmt="int">-</span><span class="ox-kpi-unit">דק׳</span></span>
+      <span class="ox-kpi-delta"><span data-source="my_view" data-field="response_chg" data-fmt="delta" data-better="down">-</span><span class="vs">מול הרבעון הקודם</span></span>
+      <span class="ag-avg">ממוצע המשרד: <b data-source="office_avg" data-field="avg_response_min" data-fmt="dec">-</b> דק׳</span>
+    </div>
+  </section>
+
+  <section class="ox-grid" id="compare">
+    <div class="ox-card" id="bench-card">
+      <div class="ox-card-h">
+        <h3>איפה את/ה חזק/ה ואיפה יש מקום לצמוח</h3>
+        <p>היחסים שלך מול ממוצע המשרד. הפס הכחול שלך, הקו הזהוב הוא ממוצע המשרד. רק את/ה רואה את ההשוואה הזו.</p>
+      </div>
+      <div class="ag-b-key"><span><i style="background:var(--sn-sap)"></i>את/ה</span><span><i style="background:var(--sn-brass)"></i>ממוצע המשרד</span></div>
+      <div class="ag-bench dash-skeleton" id="bench" data-source="benchmarks"></div>
+    </div>
+    <div class="ox-card" id="speed-card">
+      <div class="ox-card-h">
+        <h3>מהירות התגובה שלך, חודש אחר חודש</h3>
+        <p>זמן ממוצע עד המענה הראשון לליד. הקו המקווקו הוא היעד: 15 דקות.</p>
+      </div>
+      <div class="ox-chart dash-skeleton" id="speed" data-source="my_monthly"></div>
+    </div>
+  </section>
+
+  <section class="ox-sec" id="growth">
+    <div class="ox-sec-h">
+      <h2>עצות אישיות לצמיחה</h2>
+      <p>נגזרות מהנתונים שלך · מתעדכנות כל רבעון</p>
+    </div>
+    <div class="ox-advice dash-skeleton" id="tips" data-source="tips"></div>
+  </section>
+
+  <section class="ox-grid" id="activity">
+    <div class="ox-card" id="funnel-card">
+      <div class="ox-card-h">
+        <h3>המשפך שלך: מליד לעסקה</h3>
+        <p>יולי-ספטמבר. מתחת לכל שלב: כמה מהשלב הקודם עברו, ובסוגריים ממוצע המשרד.</p>
+      </div>
+      <div class="ox-funnel dash-skeleton" id="funnel" data-source="my_funnel"></div>
+    </div>
+    <div class="ox-card" id="recruit-card">
+      <div class="ox-card-h">
+        <h3>הגיוסים שלך, 12 חודשים</h3>
+        <p>כל עמודה היא נכסים שגייסת בחודש; החלק הכהה בבלעדיות.</p>
+      </div>
+      <div class="ox-legend"><span><i style="background:var(--sn-sap)"></i>בבלעדיות</span><span><i style="background:var(--cds-chart-muted)"></i>ללא בלעדיות</span></div>
+      <div class="ox-chart dash-skeleton" id="recruit" data-source="my_monthly"></div>
+    </div>
+  </section>
+
+  <section class="ox-sec" id="badges-sec">
+    <div class="ox-sec-h">
+      <h2>הישגים</h2>
+      <p>מה כבר השגת ומה ממש קרוב</p>
+    </div>
+    <div class="ag-badges dash-skeleton" id="badges" data-source="achievements"></div>
+  </section>
+
+  <footer class="ox-foot">
+    <div><strong>פרטיות</strong> - הדשבורד הזה אישי. מנהל/ת המשרד רואה את המספרים שלך בדאשבורד המשרד, אבל לא את העצות, ההישגים או המשפטים כאן.</div>
+    <div><strong>ממוצע המשרד</strong> - ממוצע כל הסוכנים הפעילים במשרד באותה תקופה. בלי שמות ובלי דירוג.</div>
+    <div><strong>זמן תגובה</strong> - מכניסת הליד ועד המענה הראשון שלך (שיחה, וואטסאפ או פתיחת הליד).</div>
+  </footer>
+
+  <div class="ox-tip" id="tip" role="tooltip"></div>
+</div>
+
+<script>
+dash.calc('my_view', {
+  title: 'המדדים שלי',
+  description: 'שינוי מול הרבעון הקודם, עמידה ביעד ויחסים אישיים.',
+  inputs: ['me'],
+  fn: (me) => me.map((r) => {
+    const chg = (a, b) => (b ? (a - b) / b : null);
+    return {
+      target_pct: r.commission_target ? r.commission / r.commission_target : null,
+      gap_to_target: Math.max(0, r.commission_target - r.commission),
+      deals_chg: chg(r.deals, r.deals_prev), recruited_chg: chg(r.recruited, r.recruited_prev),
+      exclusives_chg: chg(r.exclusives, r.exclusives_prev), agreements_chg: chg(r.agreements, r.agreements_prev),
+      leads_chg: chg(r.leads, r.leads_prev), response_chg: chg(r.avg_response_min, r.avg_response_min_prev),
+      commission_chg: chg(r.commission, r.commission_prev),
+      avg_deal: r.deals ? r.commission / r.deals : null,
+    };
+  }),
+});
+
+dash.calc('benchmarks', {
+  title: 'השוואה לממוצע המשרד',
+  description: 'יחסים אישיים מול ממוצע המשרד: מענה מהיר, ליד לפגישה, פגישה להסכם, שיעור בלעדיות והמרה.',
+  inputs: ['me', 'office_avg', 'my_buckets', 'office_buckets'],
+  fn: (me, office_avg, my_buckets, office_buckets) => {
+    const r = me[0], a = office_avg[0];
+    const myTot = d3.sum(my_buckets, (b) => +b.leads) || 1;
+    const myFast = d3.sum(my_buckets.filter((b) => +b.bucket_order <= 2), (b) => +b.leads) / myTot;
+    const offFast = d3.sum(office_buckets.filter((b) => +b.bucket_order <= 2), (b) => +b.share);
+    return [
+      { id: 'fast', label: 'מענה תוך 15 דק׳', hint: 'מהירות', me: myFast, office: offFast },
+      { id: 'meet', label: 'ליד לפגישה', hint: 'פגישות חלקי לידים', me: r.meetings / r.leads, office: a.meetings / a.leads },
+      { id: 'agree', label: 'פגישה להסכם', hint: 'הסכמים חלקי פגישות', me: Math.min(1, r.agreements / r.meetings), office: Math.min(1, a.agreements / a.meetings) },
+      { id: 'excl', label: 'גיוס לבלעדיות', hint: 'שיעור בלעדיות', me: r.exclusives / r.recruited, office: a.exclusives / a.recruited },
+      { id: 'conv', label: 'ליד לעסקה', hint: 'המרה', me: r.deals / r.leads, office: a.deals / a.leads },
+    ];
+  },
+});
+
+dash.calc('my_funnel', {
+  title: 'המשפך שלי',
+  description: 'לידים, קיבלו מענה, פגישות, הסכמים ועסקאות, עם שיעור המעבר וממוצע המשרד.',
+  inputs: ['me', 'office_avg'],
+  fn: (me, office_avg) => {
+    const r = me[0], a = office_avg[0];
+    const f = ['leads', 'responded', 'meetings', 'agreements', 'deals'];
+    const names = ['לידים', 'קיבלו מענה', 'פגישות וסיורים', 'הסכמי תיווך', 'עסקאות'];
+    return f.map((k, i) => ({ stage: names[i], order: i + 1, count: +r[k],
+      step_rate: i ? r[k] / r[f[i - 1]] : null, office_rate: i ? a[k] / a[f[i - 1]] : null }));
+  },
+});
+
+dash.calc('motivation', {
+  title: 'כותרת ומוטיבציה',
+  description: 'משפט פתיחה שנבחר לפי מצב היעד והמגמה, ותגיות הישג קצרות.',
+  inputs: ['me', 'my_view', 'office_avg'],
+  fn: (me, my_view, office_avg) => {
+    const r = me[0], v = my_view[0], a = office_avg[0];
+    const f = r.gender === 'f';
+    const g = (m, w) => (f ? w : m);
+    const fmt = (x) => '₪' + d3.format(',')(Math.round(x));
+    let headline, sub;
+    if (v.target_pct >= 1) {
+      headline = `${g('עברת', 'עברת')} את היעד! ${Math.round(v.target_pct * 100)}% ממנו`;
+      sub = `${fmt(r.commission)} ברבעון. ${r.commission > r.best_quarter_commission ? 'זה הרבעון הכי טוב שלך אי פעם.' : `השיא שלך הוא ${fmt(r.best_quarter_commission)} - ${g('אתה', 'את')} במרחק ${fmt(r.best_quarter_commission - r.commission)} ממנו.`}`;
+    } else if (v.target_pct >= 0.7) {
+      headline = `${g('אתה', 'את')} ב־${Math.round(v.target_pct * 100)}% מהיעד. הסוף בהישג יד`;
+      sub = `חסרים ${fmt(v.gap_to_target)} - בערך ${Math.max(1, Math.ceil(v.gap_to_target / (v.avg_deal || 1)))} עסקאות בגודל הממוצע שלך.`;
+    } else {
+      headline = `כל רבעון מתחיל בצעד אחד. ${g('בוא', 'בואי')} נעשה אותו היום`;
+      sub = `${g('אתה', 'את')} ב־${Math.round((v.target_pct || 0) * 100)}% מהיעד. המשימות למטה הן הדרך הכי קצרה לשם.`;
+    }
+    const chips = [];
+    if (r.fast_streak_days >= 3) chips.push({ gold: true, text: `${r.fast_streak_days} ימים ברצף עם מענה תוך 15 דק׳` });
+    if (v.commission_chg > 0) chips.push({ gold: true, text: `עמלות +${Math.round(v.commission_chg * 100)}% מהרבעון הקודם` });
+    if (r.avg_response_min < a.avg_response_min) chips.push({ gold: false, text: `${g('עונה', 'עונה')} מהר יותר מממוצע המשרד` });
+    if (r.deals > a.deals) chips.push({ gold: false, text: `${r.deals} עסקאות, מעל ממוצע המשרד` });
+    return [{ headline, sub, chips }];
+  },
+});
+
+dash.calc('tips', {
+  title: 'עצות אישיות',
+  description: 'כללים קבועים: היחס החלש ביותר מול המשרד, בלעדיות, מהירות, יעד, ומה כדאי לשמר.',
+  inputs: ['me', 'office_avg', 'benchmarks', 'my_funnel', 'todo'],
+  fn: (me, office_avg, benchmarks, my_funnel, todo) => {
+    const r = me[0], a = office_avg[0];
+    const f = r.gender === 'f'; const g = (m, w) => (f ? w : m);
+    const pct = (x) => Math.round(x * 100) + '%';
+    const out = [];
+    const gaps = benchmarks.map((b) => ({ ...b, gap: b.me - b.office })).sort((x, y) => x.gap - y.gap);
+    const weak = gaps[0], strong = gaps[gaps.length - 1];
+    const library = {
+      fast: { icon: '⚡', title: 'לענות מהר יותר מכולם', steps: ['להפעיל התראות לידים בטלפון', 'תבנית תשובה ראשונה בוואטסאפ', 'שני חלונות קבועים ביום לטיפול בלידים'] },
+      meet: { icon: '☎', title: 'להפוך יותר שיחות לפגישות', steps: ['להציע שני מועדים כבר בשיחה הראשונה', 'לשלוח מיניסייט עם 3 נכסים מתאימים תוך שעה', 'פולואפ אחרי 24 שעות'] },
+      agree: { icon: '✎', title: 'להחתים לפני הסיור', steps: ['לשלוח הזמנת שירותי תיווך דיגיטלית יחד עם אישור הפגישה', 'להסביר במשפט אחד מה הלקוח/ה מקבל/ת'] },
+      excl: { icon: '◆', title: 'להגיע לפגישת גיוס עם הצעה שקשה לסרב לה', steps: ['דוח CMA ממותג על הנכס', 'להראות סרטון שיווקי והדמיות שבלעדיות פותחת', 'להחתים דיגיטלית עוד בפגישה'] },
+      conv: { icon: '↗', title: 'לסגור יותר מהצנרת שכבר יש לך', steps: ['רשימה שבועית של כל לקוח/ה עם הסכם חתום וצעד הבא ביומן', 'לחזור תוך 3 ימים לכל מי שראה/תה נכס'] },
+    };
+    if (weak && weak.gap < 0) {
+      const L = library[weak.id];
+      out.push({ id: 'weak', priority: 1, icon: L.icon, area: 'ההזדמנות הכי גדולה שלך', owner: weak.label,
+        title: L.title, body: `ב"${weak.label}" ${g('אתה', 'את')} ב־${pct(weak.me)}, וממוצע המשרד ${pct(weak.office)}. זה המקום שבו שיפור קטן יזיז ${g('לך', 'לך')} הכי הרבה.`,
+        steps: L.steps, impact: `סגירת הפער = בערך ${Math.max(1, Math.round((weak.office - weak.me) * (weak.id === 'excl' ? r.recruited : r.leads)))} ${weak.id === 'excl' ? 'בלעדיות' : 'פגישות/עסקאות'} נוספות ברבעון` });
+    }
+    const urgent = todo.filter((t) => t.urgency === 2).length;
+    if (urgent) out.push({ id: 'today', priority: 1, icon: '!', area: 'להיום', owner: `${urgent} משימות דחופות`,
+      title: 'להתחיל את היום מהדחוף', body: `יש ${urgent} דברים שמחכים ${g('לך', 'לך')} ושעלולים לברוח: ליד שלא נענה ובלעדיות שעומדת לפקוע.`,
+      steps: ['קודם הליד, אחר כך שיחת החידוש', 'לקבוע ביומן מועד לפגישת חידוש עם דוח פעילות'], impact: 'עשר דקות עכשיו חוסכות עסקה אבודה' });
+    if (strong && strong.gap > 0) out.push({ id: 'strong', priority: 3, icon: '★', area: 'החוזקה שלך', owner: strong.label,
+      title: `${g('אתה', 'את')} מעל המשרד ב"${strong.label}"`, body: `${pct(strong.me)} מול ${pct(strong.office)} בממוצע. זה עובד - כדאי לשמר את ההרגל, ואולי לשתף אותו בישיבת הצוות.`,
+      steps: [], impact: 'חוזקה שמשתפים הופכת למוניטין' });
+    if (r.open_unanswered > 0) out.push({ id: 'open', priority: 2, icon: '⏱', area: 'לידים פתוחים', owner: `${r.open_unanswered} ללא מענה`,
+      title: 'לסגור את הלידים הפתוחים', body: `יש ${r.open_unanswered} לידים מהחודש האחרון שעוד לא קיבלו מענה. גם תשובה קצרה של "קיבלתי, אחזור אליך עד 17:00" שומרת אותם חמים.`,
+      steps: ['לעבור על הרשימה ב"הלידים שלי"'], impact: '' });
+    out.push({ id: 'habit', priority: 2, icon: '↻', area: 'הרגל שבועי', owner: 'יום ראשון בבוקר',
+      title: '15 דקות של תכנון שבועי', body: 'שלוש שאלות בכל יום ראשון: אילו בלעדיות פוקעות החודש, מי מהלקוחות לא שמע ממני שבועיים, ואיזה נכס צריך עדכון מחיר.',
+      steps: [], impact: 'עקביות מנצחת כישרון' });
+    return out.sort((x, y) => x.priority - y.priority);
+  },
+});
+</script>
+
+<script>
+(() => {
+  const root = document.querySelector('.ox');
+  const $ = (s) => root.querySelector(s);
+  const tip = $('#tip');
+  const fInt = d3.format(',');
+  const ils = (v) => '₪' + d3.format(',')(Math.round(v));
+  const pct0 = d3.format('.0%');
+  const mShort = new Intl.DateTimeFormat('he-IL', { month: 'short', timeZone: 'UTC' });
+  const mLong = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const toMonth = (m) => new Date(String(m).slice(0, 7) + '-01T00:00:00Z');
+  const BAD = ['error', 'declined', 'connect', 'missing'];
+  const failLine = () => { const d = document.createElement('div'); d.className = 'ox-fail'; d.textContent = 'Failed to load'; return d; };
+  function gate(box, ids) {
+    const st = ids.map((id) => dash.data(id));
+    box.replaceChildren();
+    if (st.some((s) => BAD.includes(s.status))) { box.classList.remove('dash-skeleton'); box.append(failLine()); return false; }
+    if (st.some((s) => s.status !== 'ok')) { box.classList.add('dash-skeleton'); return false; }
+    box.classList.remove('dash-skeleton'); return true;
+  }
+  function showTip(evt, title, rows) {
+    tip.replaceChildren();
+    const t = document.createElement('div'); t.className = 't'; t.textContent = title; tip.append(t);
+    rows.forEach(([c, n, v]) => { const r = document.createElement('div'); r.className = 'r'; const l = document.createElement('span');
+      if (c) { const i = document.createElement('i'); i.style.background = c; l.append(i); } l.append(document.createTextNode(n));
+      const b = document.createElement('b'); b.textContent = v; r.append(l, b); tip.append(r); });
+    tip.classList.add('on');
+    const rb = root.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = Math.max(0, Math.min(evt.clientX - rb.left - tw / 2, rb.width - tw)), y = evt.clientY - rb.top - th - 14;
+    if (y < 0) y = evt.clientY - rb.top + 18; tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  const hideTip = () => tip.classList.remove('on');
+
+  // Motivational lines - one per day, stable for the whole day.
+  const QUOTES = [
+    'הלקוח זוכר מי ענה ראשון.',
+    'בלעדיות אחת שווה יותר מעשרה לידים קרים.',
+    'כל שיחה היום היא עסקה שאולי תיסגר בעוד שלושה חודשים.',
+    'עקביות מנצחת כישרון. עוד שיחה אחת לפני סוף היום.',
+    'אנשים לא קונים דירה, הם קונים ביטחון. ואת הביטחון נותן/ת את/ה.',
+    'הנכס הבא שתגייס/י כבר מחכה במעגל המכרים שלך.',
+    'לא צריך יום מושלם. צריך יום אחד טוב, ועוד אחד אחריו.',
+    'מי שמתקשר/ת שוב אחרי "לא עכשיו" - סוגר/ת את העסקאות של הרבעון הבא.',
+    'הכי מהר להצליח זה להיות הכי קל לעבוד איתך.',
+    'שיא חדש מתחיל בשבירת שיא קטן. של אתמול.',
+  ];
+  const dayIndex = Math.floor(Date.now() / 864e5);
+
+  const greeting = (name) => {
+    const now = new Date();
+    const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Jerusalem' }).format(now));
+    const wd = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Jerusalem' }).format(now);
+    let g = h < 5 ? 'לילה טוב' : h < 12 ? 'בוקר טוב' : h < 17 ? 'צהריים טובים' : h < 21 ? 'ערב טוב' : 'לילה טוב';
+    if ((wd === 'Fri' && h >= 12) || (wd === 'Sat' && h < 19)) g = 'שבת שלום';
+    else if (wd === 'Sat') g = 'שבוע טוב';
+    else if (wd === 'Sun' && h < 12) g = 'שבוע חדש, הזדמנות חדשה';
+    return `${g}, ${name}`;
+  };
+
+  const FMT = { int: (v) => fInt(Math.round(v)), dec: (v) => d3.format(',.1~f')(v), ils, pct: pct0,
+    delta: (v) => (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + pct0(Math.abs(v)) };
+  function fillMarks() {
+    root.querySelectorAll('[data-fmt][data-source]').forEach((el) => {
+      const d = dash.data(el.dataset.source); const r = d.status === 'ok' ? d.data[0] : null;
+      el.classList.toggle('dash-skeleton', d.status === 'loading');
+      el.classList.remove('good', 'bad');
+      if (!r || r[el.dataset.field] == null) { el.textContent = '-'; return; }
+      const v = r[el.dataset.field];
+      el.textContent = FMT[el.dataset.fmt](v);
+      if (el.dataset.better && v !== 0) el.classList.add((el.dataset.better === 'up' ? v > 0 : v < 0) ? 'good' : 'bad');
+    });
+  }
+
+  function drawHero() {
+    const me = dash.data('me'), mv = dash.data('my_view'), mo = dash.data('motivation');
+    const r = me.status === 'ok' ? me.data[0] : null;
+    $('#ag-init').textContent = r ? r.agent.split(/\s+/).map((w) => w[0]).slice(0, 2).join('') : '-';
+    $('#ag-hello').textContent = r ? greeting(r.first_name) : 'שלום';
+    const q = $('#ag-quote'); q.firstChild.textContent = QUOTES[dayIndex % QUOTES.length];
+    const m = mo.status === 'ok' ? mo.data[0] : null;
+    $('#ag-headline').textContent = m ? m.headline : '-';
+    $('#ag-sub').textContent = m ? m.sub : '-';
+    const chips = $('#ag-chips'); chips.replaceChildren();
+    (m ? m.chips : []).forEach((c) => { const s = document.createElement('span'); s.className = 'ag-chip' + (c.gold ? ' gold' : ''); s.textContent = (c.gold ? '✦ ' : '') + c.text; chips.append(s); });
+    const v = mv.status === 'ok' ? mv.data[0] : null;
+    const C = 2 * Math.PI * 48;
+    $('#goal-arc').setAttribute('stroke-dasharray', `${Math.min(1, v ? v.target_pct : 0) * C} ${C}`);
+    const gap = $('#goal-gap');
+    if (r && v) gap.textContent = v.target_pct >= 1 ? `יעד: ${ils(r.commission_target)} · ${ils(r.commission - r.commission_target)} מעל היעד` : `יעד: ${ils(r.commission_target)} · חסרים ${ils(v.gap_to_target)}`;
+    drawSpark();
+  }
+
+  function drawSpark() {
+    const box = $('#ag-spark'); if (!gate(box, ['my_monthly', 'me'])) return;
+    const rows = dash.data('my_monthly').data.slice().sort((a, b) => d3.ascending(a.month, b.month));
+    const W = Math.max(200, box.clientWidth), H = Math.max(90, box.clientHeight || 96);
+    const x = d3.scalePoint(rows.map((r) => r.month), [6, W - 6]);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => +r.commission) || 1], [H - 16, 8]).nice();
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const gr = svg.append('defs').append('linearGradient').attr('id', 'agsg').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .45], [.5, .14], [1, 0]].forEach(([o, a]) => gr.append('stop').attr('offset', o).style('stop-color', '#c9a227').style('stop-opacity', a));
+    const rec = rows.slice(-3);
+    svg.append('rect').attr('x', x(rec[0].month) - 6).attr('y', 0).attr('width', W - x(rec[0].month) + 6).attr('height', H - 14).attr('rx', 8).attr('fill', 'rgba(255,255,255,.06)');
+    svg.append('path').datum(rows).attr('fill', 'url(#agsg)').attr('d', d3.area().x((r) => x(r.month)).y0(H - 16).y1((r) => y(+r.commission)));
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', '#e5c76a').attr('stroke-width', 2.25).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', d3.line().x((r) => x(r.month)).y((r) => y(+r.commission)));
+    const best = d3.greatest(rows, (r) => +r.commission);
+    svg.append('circle').attr('cx', x(best.month)).attr('cy', y(+best.commission)).attr('r', 4.5).attr('fill', '#fff').attr('stroke', '#c9a227').attr('stroke-width', 2.5);
+    svg.append('text').attr('x', x(best.month)).attr('y', y(+best.commission) - 9).attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', '#e5c76a').text('החודש הכי טוב');
+    svg.append('g').attr('font-size', 10).attr('fill', 'rgba(255,255,255,.6)').selectAll('text').data([rows[0], rows[rows.length - 1]]).join('text')
+      .attr('x', (r, i) => (i ? W - 2 : 2)).attr('y', H - 2).attr('text-anchor', (r, i) => (i ? 'end' : 'start')).text((r) => mShort.format(toMonth(r.month)));
+    svg.append('rect').attr('width', W).attr('height', H).attr('fill', 'transparent')
+      .on('mousemove', (e) => { const [mx] = d3.pointer(e); const r = d3.least(rows, (d) => Math.abs(x(d.month) - mx)); showTip(e, mLong.format(toMonth(r.month)), [['#c9a227', 'עמלות', ils(r.commission)], [null, 'עסקאות', fInt(r.deals)]]); })
+      .on('mouseleave', hideTip);
+  }
+
+  function drawTodo() {
+    const box = $('#todo'); if (!gate(box, ['todo'])) return;
+    const IC = { lead: '☎', exclusivity: '◆', agreement: '✎', match: '◎', followup: '↻' };
+    const BTN = { lead: 'לליד', exclusivity: 'לנכס', agreement: 'להסכם', match: 'להתאמות', followup: 'ללקוח/ה' };
+    dash.data('todo').data.slice().sort((a, b) => b.urgency - a.urgency).forEach((t) => {
+      const c = document.createElement('div'); c.className = 'ag-task u' + t.urgency;
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = IC[t.kind] || '•';
+      const h = document.createElement('h4'); h.textContent = t.title;
+      const p = document.createElement('p'); p.textContent = t.detail;
+      const row = document.createElement('div'); row.className = 'row';
+      const due = document.createElement('span'); due.className = 'due'; due.textContent = t.due;
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = BTN[t.kind] || 'פתח';
+      row.append(due, b); c.append(ic, h, p, row); box.append(c);
+    });
+  }
+
+  function drawBench() {
+    const box = $('#bench'); if (!gate(box, ['benchmarks'])) return;
+    dash.data('benchmarks').data.forEach((b) => {
+      const row = document.createElement('div'); row.className = 'ag-b-row';
+      const l = document.createElement('div'); l.className = 'ag-b-label'; l.textContent = b.label;
+      const sm = document.createElement('small'); sm.textContent = b.hint; l.append(sm);
+      const tr = document.createElement('div'); tr.className = 'ag-b-track';
+      const max = Math.max(b.me, b.office) * 1.25 || 1;
+      const fill = document.createElement('div'); fill.className = 'ag-b-fill' + (b.me >= b.office ? ' ahead' : ''); fill.style.width = (b.me / max * 100) + '%';
+      const mk = document.createElement('div'); mk.className = 'ag-b-mark'; mk.style.right = (b.office / max * 100) + '%';
+      tr.append(fill, mk);
+      tr.addEventListener('mousemove', (e) => showTip(e, b.label, [['var(--sn-sap)', 'את/ה', pct0(b.me)], ['#c9a227', 'ממוצע המשרד', pct0(b.office)]]));
+      tr.addEventListener('mouseleave', hideTip);
+      const v = document.createElement('div'); v.className = 'ag-b-val'; v.textContent = pct0(b.me);
+      const vs = document.createElement('small'); vs.textContent = 'משרד ' + pct0(b.office); v.append(vs);
+      row.append(l, tr, v); box.append(row);
+    });
+  }
+
+  function drawSpeed() {
+    const box = $('#speed'); if (!gate(box, ['my_monthly'])) return;
+    const rows = dash.data('my_monthly').data.slice().sort((a, b) => d3.ascending(a.month, b.month));
+    const W = Math.max(280, box.clientWidth), H = 230, GOAL = 15;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const y = d3.scaleLinear([0, Math.max(GOAL, d3.max(rows, (r) => +r.avg_response_min))], [H - 24, 12]).nice();
+    const ticks = y.ticks(4);
+    const tl = svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').selectAll('text').data(ticks).join('text').attr('x', 0).attr('y', (d) => y(d) + 4).text((d) => d);
+    const ml = d3.max(tl.nodes(), (n) => n.getComputedTextLength()) + 10;
+    svg.insert('g', ':first-child').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    const x = d3.scalePoint(rows.map((r) => r.month), [ml + 8, W - 8]);
+    svg.append('line').attr('x1', ml).attr('x2', W).attr('y1', y(GOAL)).attr('y2', y(GOAL)).attr('stroke', 'var(--sn-brass)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+    svg.append('text').attr('x', W).attr('y', y(GOAL) - 6).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--sn-gold)').attr('font-weight', 700).text('היעד: 15 דק׳');
+    svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', 'var(--sn-sap)').attr('stroke-width', 2.5).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', d3.line().x((r) => x(r.month)).y((r) => y(+r.avg_response_min)));
+    svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', (r) => x(r.month)).attr('cy', (r) => y(+r.avg_response_min)).attr('r', 3.5).attr('fill', 'var(--color-panel)').attr('stroke', 'var(--sn-sap)').attr('stroke-width', 2);
+    const last = rows[rows.length - 1];
+    svg.append('text').attr('x', x(last.month) - 8).attr('y', y(+last.avg_response_min) - 10).attr('text-anchor', 'end').attr('font-size', 12).attr('font-weight', 800).attr('fill', 'var(--sn-sap)').text(last.avg_response_min + ' דק׳');
+    svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').selectAll('text').data(rows.filter((r, i) => (rows.length - 1 - i) % 2 === 0)).join('text').attr('x', (r) => x(r.month)).attr('y', H - 4).attr('text-anchor', 'middle').text((r) => mShort.format(toMonth(r.month)));
+    svg.append('rect').attr('x', ml).attr('width', W - ml).attr('height', H).attr('fill', 'transparent')
+      .on('mousemove', (e) => { const [mx] = d3.pointer(e); const r = d3.least(rows, (d) => Math.abs(x(d.month) - mx)); showTip(e, mLong.format(toMonth(r.month)), [['var(--sn-sap)', 'זמן תגובה', r.avg_response_min + ' דק׳'], [null, 'לידים', fInt(r.leads)]]); })
+      .on('mouseleave', hideTip);
+  }
+
+  function drawTips() {
+    const box = $('#tips'); if (!gate(box, ['tips'])) return;
+    const P = { 1: 'הכי חשוב', 2: 'חשוב', 3: 'לשמר' };
+    dash.data('tips').data.forEach((a) => {
+      const c = document.createElement('article'); c.className = 'ox-tipcard p' + a.priority;
+      const top = document.createElement('div'); top.className = 'top';
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = a.icon;
+      const ar = document.createElement('div'); ar.className = 'area'; ar.textContent = a.area + ' · ' + a.owner;
+      const pr = document.createElement('span'); pr.className = 'prio'; pr.textContent = P[a.priority];
+      top.append(ic, ar, pr);
+      const h = document.createElement('h4'); h.textContent = a.title;
+      const p = document.createElement('p'); p.textContent = a.body;
+      c.append(top, h, p);
+      if (a.steps.length) { const ul = document.createElement('ul'); a.steps.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.append(li); }); c.append(ul); }
+      if (a.impact) { const im = document.createElement('div'); im.className = 'impact'; const b = document.createElement('b'); b.textContent = a.impact; im.append(b); c.append(im); }
+      box.append(c);
+    });
+  }
+
+  function drawFunnel() {
+    const box = $('#funnel'); if (!gate(box, ['my_funnel'])) return;
+    const rows = dash.data('my_funnel').data; const max = d3.max(rows, (r) => r.count) || 1;
+    rows.forEach((r, i) => {
+      if (i) { const s = document.createElement('div'); const behind = r.step_rate < r.office_rate - 0.03;
+        s.className = 'ox-fn-step' + (behind ? ' bad' : ''); s.textContent = `↓ ${pct0(r.step_rate)} עברו הלאה (משרד ${pct0(r.office_rate)})`; box.append(s); }
+      const row = document.createElement('div'); row.className = 'ox-fn-row';
+      const l = document.createElement('div'); l.className = 'ox-fn-label'; l.textContent = r.stage;
+      const tr = document.createElement('div'); tr.className = 'ox-fn-track';
+      const b = document.createElement('div'); b.className = 'ox-fn-bar'; b.style.width = Math.max(2, r.count / max * 100) + '%';
+      b.style.background = i === rows.length - 1 ? 'linear-gradient(to left, var(--sn-brass), #e5c76a)' : 'var(--sn-sap)'; b.style.opacity = i === rows.length - 1 ? 1 : 1 - i * 0.16;
+      tr.append(b);
+      const v = document.createElement('div'); v.className = 'ox-fn-val'; v.textContent = fInt(r.count);
+      row.append(l, tr, v); box.append(row);
+    });
+  }
+
+  function drawRecruit() {
+    const box = $('#recruit'); if (!gate(box, ['my_monthly'])) return;
+    const rows = dash.data('my_monthly').data.slice().sort((a, b) => d3.ascending(a.month, b.month));
+    const W = Math.max(280, box.clientWidth), H = 220;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+    const y = d3.scaleLinear([0, d3.max(rows, (r) => +r.recruited) || 1], [H - 24, 10]).nice();
+    const ticks = y.ticks(Math.min(4, y.domain()[1]));
+    const tl = svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').selectAll('text').data(ticks).join('text').attr('x', 0).attr('y', (d) => y(d) + 4).text((d) => d);
+    const ml = d3.max(tl.nodes(), (n) => n.getComputedTextLength()) + 10;
+    svg.insert('g', ':first-child').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    const x = d3.scaleBand(rows.map((r) => r.month), [ml, W]).padding(0.32); const bw = Math.min(28, x.bandwidth()), off = (x.bandwidth() - bw) / 2;
+    rows.forEach((r) => {
+      svg.append('rect').attr('x', x(r.month) + off).attr('width', bw).attr('y', y(+r.recruited)).attr('height', y(0) - y(+r.recruited)).attr('rx', 4).attr('fill', 'var(--cds-chart-muted)');
+      svg.append('rect').attr('x', x(r.month) + off).attr('width', bw).attr('y', y(+r.exclusives)).attr('height', y(0) - y(+r.exclusives)).attr('rx', 4).attr('fill', 'var(--sn-sap)');
+      svg.append('rect').attr('x', x(r.month)).attr('width', x.bandwidth()).attr('height', H - 20).attr('fill', 'transparent')
+        .on('mousemove', (e) => showTip(e, mLong.format(toMonth(r.month)), [['var(--cds-chart-muted)', 'גויסו', fInt(r.recruited)], ['var(--sn-sap)', 'בבלעדיות', fInt(r.exclusives)]])).on('mouseleave', hideTip);
+    });
+    svg.append('g').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').selectAll('text').data(rows.filter((r, i) => (rows.length - 1 - i) % (x.bandwidth() < 26 ? 2 : 1) === 0)).join('text').attr('x', (r) => x(r.month) + x.bandwidth() / 2).attr('y', H - 4).attr('text-anchor', 'middle').text((r) => mShort.format(toMonth(r.month)));
+  }
+
+  function drawBadges() {
+    const box = $('#badges'); if (!gate(box, ['achievements'])) return;
+    const IC = { a1: '⚡', a2: '◆', a3: '✦', a4: '8', a5: '7', a6: '✎' };
+    dash.data('achievements').data.slice().sort((a, b) => (b.earned - a.earned) || (b.progress - a.progress)).forEach((a) => {
+      const c = document.createElement('div'); c.className = 'ag-badge' + (a.earned ? ' on' : '');
+      const m = document.createElement('div'); m.className = 'ag-medal'; m.textContent = IC[a.id] || '★';
+      const h = document.createElement('h4'); h.textContent = a.title;
+      const p = document.createElement('p'); p.textContent = a.desc;
+      const pr = document.createElement('div'); pr.className = 'ag-prog'; const i = document.createElement('i'); i.style.width = Math.min(1, a.progress) * 100 + '%'; pr.append(i);
+      const pc = document.createElement('span'); pc.className = 'pct'; pc.textContent = a.earned ? 'הושג' : pct0(a.progress) + ' מהדרך';
+      c.append(m, h, p, pr, pc); box.append(c);
+    });
+  }
+
+  dash.onData(() => {
+    hideTip(); fillMarks(); drawHero(); drawTodo(); drawBench(); drawSpeed(); drawTips(); drawFunnel(); drawRecruit(); drawBadges();
+    if (dash.data('me').status === 'ok') root.classList.add('is-ready');
+  });
+})();
+</script>
+
+</div>
+</body>
+</html>
