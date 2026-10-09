@@ -4974,6 +4974,64 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* תווית לכל חודש שני - בשתים-עשרה עמודות ב-390px הן נדרסות */
     .od-col:nth-child(even) .m{visibility:hidden}
   }
+  /* ---------- הדשבורד שלי (.md, assets/crm-my-dashboard.js) ----------
+     יושב על אותם טוקנים ומחלקות של דאשבורד המשרד (.od); כאן רק מה שאין שם. */
+  .md-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .md-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;font-size:.74rem;font-weight:700;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff}
+  .md-chip.gold{background:rgba(201,162,39,.2);border-color:rgba(229,199,106,.55);color:#f3dd94}
+  .md-quote{margin:16px 0 0;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.06);font-size:.92rem;line-height:1.6;color:#fff;max-width:60ch}
+  .md-quote small{display:block;margin-top:3px;color:rgba(255,255,255,.6);font-size:.7rem}
+  .md-goal{background:rgba(255,255,255,.08);border:1px solid rgba(201,162,39,.5);border-radius:18px;padding:16px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+  .md-goal .ring{position:relative;width:104px;height:104px}
+  .md-goal .ring svg{width:104px;height:104px;transform:rotate(-90deg);display:block}
+  .md-goal .ring span{position:absolute;inset:0;display:grid;place-content:center;text-align:center;font-weight:800;font-size:1.35rem;line-height:1.1}
+  .md-goal .ring span small{display:block;font-size:.66rem;font-weight:500;color:rgba(255,255,255,.7)}
+  .md-goal .t{font-size:.72rem;color:var(--od-brass-l);font-weight:700}
+  .md-goal .v{font-size:1.45rem;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
+  .md-goal .s{font-size:.74rem;color:rgba(255,255,255,.78);line-height:1.6}
+  .md-goal .s b{color:#fff}
+  .md-todo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:10px}
+  .md-task{background:var(--od-panel);border:1px solid var(--od-line);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;align-items:start}
+  .md-task .ic{grid-row:span 3;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:var(--od-sap-tint);color:var(--od-sap)}
+  .md-task.u2 .ic{background:#fdecea;color:var(--od-bad)}
+  .md-task.u1 .ic{background:var(--od-gold-tint);color:var(--od-gold-ink)}
+  .md-task h4{margin:0;font-size:.88rem;font-weight:800;color:var(--od-ink)}
+  .md-task p{margin:0;font-size:.74rem;color:var(--od-muted);line-height:1.5}
+  .md-task .row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
+  .md-task .due{font-size:.72rem;font-weight:800;color:var(--od-muted)}
+  .md-task.u2 .due{color:var(--od-bad)}
+  .md-task button{font:inherit;font-size:.74rem;font-weight:800;padding:6px 14px;border-radius:999px;border:0;background:var(--od-sap);color:#fff;cursor:pointer}
+  .md-task button:focus-visible{outline:2px solid var(--od-brass);outline-offset:2px}
+  .md-avg{font-size:.7rem;color:var(--od-muted)}
+  .md-avg b{color:var(--od-ink);font-weight:700}
+  .md-bench{display:flex;flex-direction:column;gap:16px}
+  .md-b-row{display:grid;grid-template-columns:minmax(6.5rem,8.5rem) 1fr auto;gap:12px;align-items:center}
+  .md-b-label{font-size:.84rem}
+  .md-b-label small{display:block;font-size:.68rem;color:var(--od-muted)}
+  .md-b-track{position:relative;height:12px;border-radius:99px;background:#eef2f6}
+  .md-b-fill{position:absolute;inset-block:0;right:0;border-radius:99px;background:var(--od-sap-soft)}
+  .md-b-fill.ahead{background:var(--od-sap)}
+  .md-b-mark{position:absolute;top:-5px;bottom:-5px;width:3px;border-radius:2px;background:var(--od-brass);transform:translateX(50%)}
+  .md-b-val{font-weight:800;color:var(--od-sap);min-width:3.6rem;text-align:end;font-variant-numeric:tabular-nums}
+  .md-b-val small{display:block;font-weight:500;font-size:.66rem;color:var(--od-muted)}
+  .md-speed{position:relative}
+  .md-goal-line{position:absolute;inset-inline:0;border-top:2px dashed var(--od-ok);z-index:1;pointer-events:none;margin-bottom:22px}
+  .md-goal-line em{position:absolute;inset-inline-end:0;top:-18px;font-style:normal;font-size:.64rem;font-weight:700;color:var(--od-ok);background:var(--od-panel);padding:0 4px}
+  .md .od-col .stack .fast{background:var(--od-ok)}
+  .md-badges{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));gap:10px}
+  .md-badge{text-align:center;background:var(--od-panel);border:1px solid var(--od-line);border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .md-medal{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:.86rem;font-weight:800;color:var(--od-muted);background:#eef2f6}
+  .md-badge.on .md-medal{color:#0d1b3d;font-size:1.3rem;background:radial-gradient(circle at 35% 30%,#f3dd94,#c9a227 70%);box-shadow:0 6px 16px rgba(201,162,39,.35)}
+  .md-badge h4{margin:0;font-size:.88rem;font-weight:800;color:var(--od-ink)}
+  .md-badge p{margin:0;font-size:.7rem;color:var(--od-muted);line-height:1.45}
+  .md-prog{width:100%;height:6px;border-radius:99px;background:#eef2f6;overflow:hidden;margin-top:auto}
+  .md-prog i{display:block;height:100%;background:var(--od-sap);border-radius:99px}
+  .md-badge.on .md-prog i{background:var(--od-brass)}
+  @media (max-width:640px){
+    .md-badges{grid-template-columns:1fr 1fr}
+    .md-b-row{grid-template-columns:5.6rem 1fr auto}
+    .md-goal .ring,.md-goal .ring svg{width:88px;height:88px}
+  }
   .od-more{align-self:center;font:inherit;font-size:.8rem;font-weight:700;color:var(--od-sap);background:var(--od-sap-tint);border:0;border-radius:999px;padding:8px 18px;cursor:pointer}
 </style>
 </head>
@@ -5399,7 +5457,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          של המדדים (syncStickyKpis) — אין כאן חישוב שני שיכול לסטות. -->
     <div class="kpi-sticky" id="kpiSticky" aria-hidden="true">
       <div class="dash-wrap kpi-sticky-inner">
-        <button type="button" class="ks-item" data-goto="accReports">
+        <button type="button" class="ks-item" data-goto="accMyDashboard">
           <span class="ks-ico" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
           </span>
@@ -5516,8 +5574,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
                 <!-- הדרך היחידה לגרף המגמה מדף הבית: שורה אחת בכרטיס שהגרף
                      מתאר, במקום גרף שלם שתופס שטח גלילה בכל ביקור -->
-                <button type="button" class="kpi-link" data-goto="accReports"
-                        aria-label="מגמת פוטנציאל העמלות - דוחות וביצועים">
+                <button type="button" class="kpi-link" data-goto="accMyDashboard"
+                        aria-label="מגמת פוטנציאל העמלות - הדשבורד שלי">
                   מגמה
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 </button>
@@ -5620,7 +5678,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="quick-grid" id="quickGrid"></div>
         </section>
 
-        <!-- גרף מגמת העמלות ירד מכאן לקטגוריית "דוחות וביצועים" (‏#accReports).
+        <!-- גרף מגמת העמלות ירד מכאן לקטגוריית "הדשבורד שלי" (‏#accMyDashboard, לשעבר "דוחות וביצועים").
              גרף היסטורי הוא מסך שנכנסים אליו כשרוצים לבדוק מגמה, לא שטח גלילה
              קבוע בדף שנפתח עשרים פעם ביום כדי לראות מה עושים עכשיו. הקישור
              אליו יושב בכרטיס העמלות עצמו — ראו .kpi-link. -->
@@ -7335,13 +7393,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
          העמודות עצמן מתמלאות בגלילה: ‏--h מחזיק את הגובה הסופי והמחלקה
          ‏.is-grown היא זו שמשחררת אותו (ראו initTrendGrowth). -->
-    <details class="acc" id="accReports">
+    <details class="acc" id="accMyDashboard">
       <summary>
-        <span class="acc-title">דוחות וביצועים</span>
+        <span class="acc-title">הדשבורד שלי<span class="acc-sum" id="accMyDashboardSum"></span></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">מגמת פוטנציאל העמלות לאורך זמן - מאיפה הגיע התיק הפעיל שלך והאם הוא צומח</p>
+        <!-- הדשבורד האישי (assets/crm-my-dashboard.js, my_dashboard() במסד):
+             מה לעשות היום, איפה אני חזק/ה, עצות והישגים. נבנה בטעינה עצלה
+             כשהפאנל נפתח. גרף פוטנציאל העמלות שמתחת נשאר כמו שהיה, באותם
+             מזהים, ולכן renderCommissionTrend לא השתנה. docs/my-dashboard.md -->
+        <div id="myDash"></div>
+        <p class="acc-sub" style="margin-top:18px">מגמת פוטנציאל העמלות לאורך זמן - מאיפה הגיע התיק הפעיל שלך והאם הוא צומח</p>
         <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
           <div class="kpi-trend-head">
             <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
@@ -9216,6 +9279,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/contact-import.js"></script>
 <script src="assets/crm-office.js"></script>
 <script src="assets/crm-office-dashboard.js"></script>
+<script src="assets/crm-my-dashboard.js"></script>
 <!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
      נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
 <script src="assets/crm-showcase.js"></script>

@@ -42,8 +42,9 @@ definer`, ובודקת בשורה הראשונה שהקורא/ת הוא/היא �
 `_office_exclusive_rows`, `_agent_period_stats`). הן `security invoker`,
 ואיש לא מקבל הרשאה לקרוא להן ישירות: ‏`revoke` מ-`public, anon,
 authenticated`, בלי `grant`. הן רצות מתוך `office_dashboard` בהרשאות שלה.
-‏`_agent_period_stats` נועדה גם לדשבורד האישי שבדרך, כדי ששני הדאשבורדים
-יציגו תמיד אותם מספרים לאותו/ה סוכן/ת.
+‏`_agent_period_stats` מזינה גם את הדשבורד האישי (`my_dashboard`,
+[`my-dashboard.md`](my-dashboard.md)), ולכן שני הדאשבורדים מציגים תמיד אותם
+מספרים לאותו/ה סוכן/ת.
 
 **תקופת ההשוואה** היא באותו אורך, מיד לפני `p_from`.
 
