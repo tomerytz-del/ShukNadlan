@@ -127,3 +127,13 @@
 /sw.js
   Cache-Control: no-cache
   Content-Type: application/javascript; charset=utf-8
+
+# ---------------------------------------------------------------------------
+# ‏llms.txt — המפה של האתר למנועי AI (ChatGPT, Perplexity, Claude)
+#
+# הקובץ בעברית, ו-‎.txt‎ בלי charset מוצהר נקרא אצל חלק מהקוראים כ-Latin-1 -
+# כלומר ג'יבריש. ההצהרה כאן היא מה שמבטיח שהעברית תגיע כמו שהיא.
+# ---------------------------------------------------------------------------
+
+/llms.txt
+  Content-Type: text/plain; charset=utf-8

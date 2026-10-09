@@ -193,7 +193,7 @@ type Meta = {
   canonical: string;
   /* רק לכתבה — ‎article:published_time‎ */
   publishedAt?: string;
-  /* ‏נתונים מובנים (JSON-LD) - כרגע לנכס בלבד. ראו "תוכן לסורק" למטה. */
+  /* ‏נתונים מובנים (JSON-LD): נכס, משרד, סוכן/ת וכתבה. ראו "תוכן לסורק" למטה. */
   jsonLd?: unknown;
   /* ‏אלמנטים בדף שמתמלאים בטקסט כבר בשרת, לפי id. ה-JS כותב אליהם שוב
      אחר כך, אותו ערך בדיוק - כך שבדפדפן אין שינוי, ומי שאינו מריץ JS
@@ -366,35 +366,80 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agencies?slug=eq.${encodeURIComponent(slug)}&select=name,description,logo_url,cover_url`,
+    `agencies?slug=eq.${encodeURIComponent(slug)}&select=name,description,logo_url,cover_url,tagline,address`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
+  const description = clamp(
+    String(a.description || "") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
+    200,
+  );
+  const image = absolute(a.cover_url || a.logo_url) || DEFAULT_IMAGE;
+
+  /* ‏משרד תיווך הוא עסק עם כתובת ציבורית - הכתובת כאן היא של המשרד, לא של
+     אדם, ולכן היא נכנסת כמו שהיא (בשונה מנכס, שבו מספר הבית ממוסך). */
+  const agency: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateAgent",
+    "@id": `${canonical}#agency`,
+    name: String(a.name || ""),
+    url: canonical,
+    description,
+    image,
+  };
+  if (a.logo_url) agency.logo = absolute(a.logo_url);
+  if (a.tagline) agency.slogan = String(a.tagline);
+  if (a.address) agency.address = { "@type": "PostalAddress", streetAddress: String(a.address), addressCountry: "IL" };
+
   return {
     title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),
-    description: clamp(
-      String(a.description || "") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
-      200,
-    ),
-    image: absolute(a.cover_url || a.logo_url) || DEFAULT_IMAGE,
+    description,
+    image,
     canonical,
+    jsonLd: agency,
   };
 }
 
 async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agency_members_public?slug=eq.${encodeURIComponent(slug)}&select=display_name,bio,photo_url,cover_url`,
+    `agency_members_public?slug=eq.${encodeURIComponent(slug)}&select=display_name,bio,photo_url,cover_url,license_number`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const m = got.row;
+  const description = clamp(
+    String(m.bio || "") || `${m.display_name || ""} - נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
+    200,
+  );
+
+  /* ‏רישיון התיווך כ-hasCredential: מספר שמאומת מול רשם המתווכים
+     (‏docs/broker-registry.md) הוא סיגנל אמון נדיר, ובחוק הוא ממילא מוצג
+     בדף. ‏agency_members_public כבר מסננת למי שמותר להיות באוויר. */
+  const person: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": `${canonical}#agent`,
+    name: String(m.display_name || ""),
+    url: canonical,
+    jobTitle: "מתווך/ת נדל״ן",
+    description,
+  };
+  if (m.photo_url) person.image = absolute(m.photo_url);
+  const license = String(m.license_number || "").trim();
+  if (license) {
+    person.hasCredential = {
+      "@type": "EducationalOccupationalCredential",
+      credentialCategory: "רישיון תיווך במקרקעין",
+      identifier: license,
+      recognizedBy: { "@type": "GovernmentOrganization", name: "רשם המתווכים במקרקעין, משרד המשפטים" },
+    };
+  }
+
   return {
     title: clamp(`${m.display_name || "סוכן/ת"} | ${SITE_NAME}`, 90),
-    description: clamp(
-      String(m.bio || "") || `${m.display_name || ""} - נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
-      200,
-    ),
+    description,
     image: absolute(m.cover_url || m.photo_url) || DEFAULT_IMAGE,
     canonical,
+    jsonLd: person,
   };
 }
 
@@ -488,7 +533,7 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 }
 
 async function articleMeta(key: string): Promise<MetaResult> {
-  const cols = "slug,title,subtitle,body,cover_url,published_at";
+  const cols = "slug,title,subtitle,body,cover_url,published_at,author_name";
   const got = await sbFetch(
     `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
   );
@@ -499,12 +544,36 @@ async function articleMeta(key: string): Promise<MetaResult> {
      תגית חתוכה באמצע נכנסת ל-content="…" של ה-meta. */
   const body = String(a.body || "").replace(/<[^>]*>/g, " ");
 
+  const canonical = canonicalBySlug("article", a, key);
+  const description = clamp(String(a.subtitle || "") || body, 155);
+  const image = absolute(a.cover_url) || DEFAULT_IMAGE;
+  const publishedAt = String(a.published_at || "").trim() || undefined;
+
+  /* ‏author: שם המחבר/ת כשיש, ואחרת האתר עצמו כארגון - כתבה בלי author
+     היא מה שגוגל מסמנת כחסר, וכרגע אף כתבה לא נושאת שם (9.10.2026). */
+  const publisher = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/`, logo: DEFAULT_IMAGE };
+  const author = String(a.author_name || "").trim();
+  const article: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "@id": `${canonical}#article`,
+    headline: clamp(String(a.title || "כתבה"), 110),
+    description,
+    image: [image],
+    inLanguage: "he",
+    mainEntityOfPage: canonical,
+    author: author ? { "@type": "Person", name: author } : publisher,
+    publisher,
+  };
+  if (publishedAt) article.datePublished = publishedAt;
+
   return {
     title: clamp(`${a.title || "כתבה"} | ${SITE_NAME}`, 90),
-    description: clamp(String(a.subtitle || "") || body, 155),
-    image: absolute(a.cover_url) || DEFAULT_IMAGE,
-    canonical: canonicalBySlug("article", a, key),
-    publishedAt: String(a.published_at || "").trim() || undefined,
+    description,
+    image,
+    canonical,
+    publishedAt,
+    jsonLd: article,
   };
 }
 

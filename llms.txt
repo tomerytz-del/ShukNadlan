@@ -1,0 +1,40 @@
+# שוק נדל״ן (shuknadlan.co.il)
+
+> מרקטפלייס הנדל״ן המקומי של עפולה, עפולה עילית ועמק יזרעאל: כל הנכסים למכירה ולהשכרה מכל משרדי התיווך באזור, המתווכים, בעלי המקצוע והפרויקטים החדשים, בכתובת אחת. האתר בעברית.
+
+כל מודעה באתר מגיעה ממשרד תיווך עם רישיון מאומת מול רשם המתווכים במשרד המשפטים. מחירים בשקלים; מחירי המודעות הם המחיר המבוקש, ולא מחיר עסקה.
+
+## נכסים
+
+- [דף הבית וחיפוש הנכסים](https://shuknadlan.co.il/): כל הנכסים הפעילים, עם מפה וסינון לפי סוג עסקה, חדרים, מחיר וסוג נכס
+- [דף נכס](https://shuknadlan.co.il/property?id=): פרטי מודעה אחת - מחיר, חדרים, שטח, קומה, תיאור ותמונות. מספר הבית אינו מוצג בכוונה
+- [יריד הבתים הפתוחים](https://shuknadlan.co.il/open-house): נכסים שמוצעים לקונים ללא עמלת תיווך לתקופה מוגבלת
+- [פרויקטים חדשים](https://shuknadlan.co.il/projects): דירות מקבלן ויזמים באזור
+
+## חיפושים נפוצים
+
+- [דירות 4 חדרים למכירה](https://shuknadlan.co.il/?deal=sale&rooms=4)
+- [דירות 3 חדרים למכירה](https://shuknadlan.co.il/?deal=sale&rooms=3)
+- [נכסים למכירה עד 1.5 מיליון ₪](https://shuknadlan.co.il/?deal=sale&maxPrice=1500000)
+- [דירות 3 חדרים להשכרה](https://shuknadlan.co.il/?deal=rent&rooms=3)
+- [דירות להשכרה עד 4,000 ₪](https://shuknadlan.co.il/?deal=rent&maxPrice=4000)
+
+## אנשי מקצוע
+
+- [משרדי התיווך](https://shuknadlan.co.il/agencies): כל משרדי התיווך באזור, עם דף לכל משרד
+- [המתווכים](https://shuknadlan.co.il/agents): כל המתווכים, עם מספר רישיון ודף אישי
+- [בעלי מקצוע](https://shuknadlan.co.il/professionals): יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים
+- [הקוד האתי ותו האיכות](https://shuknadlan.co.il/ethics-code)
+
+## מידע
+
+- [שאלות נפוצות](https://shuknadlan.co.il/faq)
+- [כתבות ומדריכים](https://shuknadlan.co.il/articles)
+- [אודות](https://shuknadlan.co.il/about)
+- [מסלולים ומחירים למתווכים](https://shuknadlan.co.il/pricing)
+
+## Optional
+
+- [תנאי שימוש](https://shuknadlan.co.il/terms)
+- [מדיניות פרטיות](https://shuknadlan.co.il/privacy)
+- [הצהרת נגישות](https://shuknadlan.co.il/accessibility)

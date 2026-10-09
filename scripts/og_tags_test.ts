@@ -211,7 +211,38 @@ const barePass = /id="descSection" hidden>/.test(bareHtml);
 if (!barePass) failed++;
 console.log(`${barePass ? "✓" : "✗"} בלי תיאור הבלוק נשאר מוסתר`);
 
-const total = CASES.length + checks.length + 3;
+/* ---------------------------------------------------------------------------
+   ‏משרד, סוכן/ת וכתבה: הנתונים המובנים של כל אחד
+   --------------------------------------------------------------------------- */
+async function ldAt(url: string, row: unknown): Promise<Record<string, any> | null> {
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(row), { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const res = await handler(new Request(`https://shuknadlan.co.il${url}`), context());
+  const m = (await res.text()).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+}
+
+const agencyLd = await ldAt("/agency?slug=a", { name: "משרד הדר", description: "ד", logo_url: "/l.png", address: "הנשיא 5, עפולה", tagline: "ס" });
+const agentLd = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב", photo_url: "/p.jpg", license_number: "123456" });
+const agentNoLicense = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב", license_number: null });
+const articleLd = await ldAt("/article?slug=a", { slug: "a", title: "כותרת", subtitle: "תת", published_at: "2026-10-01T00:00:00Z", author_name: null });
+
+const more: [string, boolean][] = [
+  ["משרד: RealEstateAgent עם כתובת ולוגו", agencyLd?.["@type"] === "RealEstateAgent" &&
+    agencyLd?.address?.streetAddress === "הנשיא 5, עפולה" && agencyLd?.logo === "https://shuknadlan.co.il/l.png"],
+  ["סוכן/ת: Person עם רישיון התיווך", agentLd?.["@type"] === "Person" &&
+    agentLd?.hasCredential?.identifier === "123456"],
+  ["סוכן/ת בלי רישיון: בלי hasCredential", agentNoLicense?.["@type"] === "Person" && agentNoLicense?.hasCredential === undefined],
+  ["כתבה: Article עם תאריך ו-author", articleLd?.["@type"] === "Article" &&
+    articleLd?.datePublished === "2026-10-01T00:00:00Z" && articleLd?.author?.name === "שוק נדל״ן"],
+];
+for (const [name, pass] of more) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const total = CASES.length + checks.length + 3 + more.length;
 if (failed) {
   console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);
