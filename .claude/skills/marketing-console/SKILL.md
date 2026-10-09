@@ -1,6 +1,6 @@
 ---
 name: marketing-console
-description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
+description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns), when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
 ---
 
 # קונסולת השיווק
@@ -126,10 +126,15 @@ python scripts/check_migration_versions.py --base-ref origin/main
 | קוד SMS לא מגיע | "לנסות בדרך אחרת" ← אישור מאפליקציית פייסבוק בטלפון. בקשות חוזרות נועלות ל-24 שעות |
 | ‏Places API | צריך את **(New)**, ולא את הישן (`REQUEST_DENIED`). מגבלה קשיחה: `SearchTextRequest per day` = 500. תקרת הוצאה ב-Billing **אינה זמינה** ל-Places |
 | מפתח Places | הגבלה מסוג **API restriction** בלבד. לא Websites ולא IP, כי הקריאות יוצאות מ-Supabase |
+| ‏Google Ads API | צריך **חשבון מנהל** (MCC) - מרכז ה-API קיים רק בו. חשבון הפרסום מקושר אליו (בקשה מהמנהל, אישור מחשבון הפרסום) |
+| ‏refresh token של Google Ads | מסך ההסכמה **In production**, אחרת הוא פג אחרי 7 ימים (`invalid_grant`). מופק מההתחברות שבה יושב חשבון המנהל - לאותו מייל יכולות להיות שתי התחברויות עם רשימות חשבונות שונות |
 
 הסודות (רק ב-Supabase ← Edge Functions ← Secrets, **לעולם לא בצ'אט**):
 `META_ADS_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `META_APP_SECRET`,
-`META_WEBHOOK_VERIFY_TOKEN`, `GOOGLE_PLACES_API_KEY`. ההגדרה `ads_settings.enabled`
+`META_WEBHOOK_VERIFY_TOKEN`, `GOOGLE_PLACES_API_KEY`, ושישה של Google Ads
+(`GOOGLE_ADS_*`, הרשימה ב-`_shared/google-ads.ts`). גרסת ה-API ב-
+`GOOGLE_ADS_API_VERSION` גוברת על ברירת המחדל - גוגל סוגרת גרסה כשנה אחרי
+שיצאה, וגרסה סגורה מחזירה 404. ההגדרה `ads_settings.enabled`
 נדלקת **אחרי** שהפאנל מציג את שם החשבון, ולא לפני.
 
 ## ‏9. בדיקה לפני push

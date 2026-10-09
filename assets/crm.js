@@ -24867,6 +24867,8 @@ const ADS_ERRORS = {
   property_not_active: 'מודעה ממומנת רק לנכס שבאוויר',
   property_not_found: 'הנכס לא נמצא',
   draft_not_found: 'הטיוטה לא נמצאה',
+  google_not_configured: 'חשבון Google Ads לא מחובר עדיין',
+  google_error: 'גוגל דחתה את הבקשה',
 };
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
@@ -25276,6 +25278,101 @@ function renderAdsFatigue(host, rows, range){
     '"נשחקת" = CTR הקישור ירד ל-70% ומטה בין חצי התקופה הראשון לשני וגם ה-CPM עלה ב-20% ומעלה. סימן אחד = לעקוב. מודעה שהוציאה פחות מ-₪10 בחצי השני אינה נבדקת.'));
 }
 
+/* ---------- Google Ads (שלב 7, קריאה בלבד) ----------
+   הסטטוס נטען פעם אחת לכל פתיחה של הלשונית, והקמפיינים לפי הטווח. הכתיבה
+   (השהיה, תקציב) תיכנס כאן באותו דפוס של מטא, עם חלון אישור. */
+let gadsDays = 30;
+let gadsAccount = null;
+
+// שגיאות גוגל שכדאי לתרגם לפעולה. ‏code מגיע מ-_shared/google-ads.ts.
+function gadsErrText(e){
+  const code = (e && e.data && e.data.code) || '';
+  if (code === 'invalid_grant') return 'ה-Refresh token פג או בוטל. מפיקים חדש ב-OAuth Playground, ובודקים שמסך ההסכמה במצב In production.';
+  if (/DEVELOPER_TOKEN_NOT_APPROVED|DEVELOPER_TOKEN_PROHIBITED/.test(code)) return 'ה-Developer token עוד לא מאושר לחשבון אמיתי - ממתינים לאישור Basic access.';
+  if (/USER_PERMISSION_DENIED|CUSTOMER_NOT_ENABLED/.test(code)) return 'למשתמש שהפיק את ה-Refresh token אין גישה לחשבון, או שחשבון הפרסום לא מקושר לחשבון המנהל.';
+  return (e && e.message) || 'שגיאה';
+}
+
+function gadsMoney(n){
+  return (!gadsAccount || gadsAccount.currency === 'ILS') ? admMoney(n)
+    : Math.round(Number(n) || 0).toLocaleString('he-IL') + ' ' + gadsAccount.currency;
+}
+
+async function loadGoogleAds(){
+  const state = document.getElementById('gadsState');
+  const bar = document.getElementById('gadsToolbar');
+  if (!state) return;
+  state.textContent = 'בודק את החיבור לגוגל…';
+  try{
+    const st = await adsCall('google_status');
+    if (!st.configured){
+      state.innerHTML = '<b>Google Ads - ממתין לחיבור.</b> חסרים הסודות: ' + st.missing.map(m => '<code>' + escapeHtml(m) + '</code>').join(', ');
+      bar.hidden = true;
+      return;
+    }
+    gadsAccount = st.account;
+    state.innerHTML = '<b>מחובר: ' + escapeHtml(st.account.name || st.account.id) + '</b> · ' + escapeHtml(st.account.currency || '')
+      + (st.account.test ? ' · חשבון בדיקה' : '') + ' · קריאה בלבד';
+    bar.hidden = false;
+    loadGoogleCampaigns();
+  }catch(e){
+    state.innerHTML = '<b>החיבור לגוגל נכשל.</b> ' + escapeHtml(gadsErrText(e));
+    bar.hidden = true;
+  }
+  dashPanelsMeasure();
+}
+
+async function loadGoogleCampaigns(){
+  const host = document.getElementById('gadsReport');
+  host.innerHTML = '<div class="empty-state">טוען…</div>';
+  try{
+    const r = await adsCall('google_campaigns', { days: gadsDays });
+    host.innerHTML = '';
+    const sum = k => r.campaigns.reduce((s, c) => s + (Number(c[k]) || 0), 0);
+    const cost = sum('cost'), clicks = sum('clicks'), conv = sum('conversions'), impr = sum('impressions');
+    const tiles = admEl('div', 'adm-tiles');
+    tiles.appendChild(admTile('הוצאה', gadsMoney(cost), { wine: true, note: r.from + ' עד ' + r.to }));
+    tiles.appendChild(admTile('קליקים', admInt(clicks), { note: impr ? 'CTR ' + (clicks / impr * 100).toFixed(1) + '%' : '' }));
+    tiles.appendChild(admTile('המרות', admInt(Math.round(conv)), { note: conv ? 'עלות להמרה ' + gadsMoney(cost / conv) : '' }));
+    host.appendChild(tiles);
+    if (!r.campaigns.length){
+      host.appendChild(admEl('div', 'empty-state', 'אין קמפיינים עם נתונים בטווח הזה.'));
+      dashPanelsMeasure();
+      return;
+    }
+    const wrap = admEl('div', 'adm-table-wrap'), tbl = admEl('table', 'adm-table'), head = admEl('tr');
+    ['קמפיין', 'סוג', 'סטטוס', 'תקציב יומי', 'הוצאה', 'קליקים', 'המרות', 'עלות להמרה'].forEach(h => head.appendChild(admEl('th', null, h)));
+    tbl.appendChild(head);
+    const STATUS = { ENABLED: 'פעיל', PAUSED: 'מושהה' };
+    r.campaigns.forEach(c => {
+      const tr = admEl('tr');
+      tr.appendChild(admEl('td', null, c.name));
+      tr.appendChild(admEl('td', null, c.channel));
+      tr.appendChild(admEl('td', null, STATUS[c.status] || c.status));
+      tr.appendChild(admEl('td', 'num', c.daily_budget != null ? gadsMoney(c.daily_budget) : '-'));
+      tr.appendChild(admEl('td', 'num', gadsMoney(c.cost)));
+      tr.appendChild(admEl('td', 'num', admInt(c.clicks)));
+      tr.appendChild(admEl('td', 'num', admInt(Math.round(c.conversions))));
+      tr.appendChild(admEl('td', 'num', c.conversions ? gadsMoney(c.cost / c.conversions) : '-'));
+      tbl.appendChild(tr);
+    });
+    wrap.appendChild(tbl);
+    host.appendChild(wrap);
+  }catch(e){
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', gadsErrText(e)));
+  }
+  dashPanelsMeasure();
+}
+
+document.getElementById('gadsRange')?.addEventListener('click', (e)=>{
+  const b = e.target.closest('button[data-days]');
+  if (!b) return;
+  gadsDays = Number(b.dataset.days);
+  e.currentTarget.querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
+  loadGoogleCampaigns();
+});
+
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
   [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
@@ -25288,6 +25385,7 @@ function adsSelectTab(id){
   if (id === 'adsTabIntel') loadIntelReport();
   if (id === 'adsTabLeads') loadLeadsTab();
   if (id === 'adsTabKw') loadKeywordReport();
+  if (id === 'adsTabGoogle') loadGoogleAds();
   dashPanelsMeasure();
 }
 ['adsTabPerf', 'adsTabCopy', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>

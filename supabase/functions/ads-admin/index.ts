@@ -14,6 +14,7 @@ import {
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
+import { fromMicros, gaql, googleAdsConfig, GoogleAdsError } from "../_shared/google-ads.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput } from "./campaign.ts";
 
 // ============================================================================
@@ -43,6 +44,9 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   create_campaign  ‏{draft_id, variants, destination, format, ...} - קמפיין
 //                    מנוסח מאושר (‏campaign.ts). ‏dry_run מחזיר את התוכנית
 //   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
+//   google_status    Google Ads: הסודות קיימים? החשבון, המטבע, אזור הזמן
+//   google_campaigns ‏{days} - קמפיינים עם הוצאה, קליקים והמרות. קריאה בלבד
+//                    (‏_shared/google-ads.ts, שלב 7)
 // ‏generate_copy ו-save_copy אינם נוגעים במטא, ולכן עובדים גם בלי הסודות שלה.
 //
 // ‏**אימות.** שני מסלולים, כמו ב-property-marketing-publish:
@@ -1066,6 +1070,70 @@ async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Res
   return json({ error: "unauthorized" }, 401);
 }
 
+// ---------------------------------------------------------------------------
+// Google Ads - שלב 7, קריאה בלבד. כתיבה (השהיה, תקציב, קמפיין חדש) תיכנס
+// באותו דפוס של מטא: קריאה, validate_only, אישור ויומן.
+// ---------------------------------------------------------------------------
+
+function googleErrorResponse(e: unknown) {
+  if (e instanceof GoogleAdsError) {
+    console.error("google ads", e.status, e.code, e.message);
+    return json({ error: "google_error", code: e.code, detail: e.message }, e.status === 429 ? 429 : 502);
+  }
+  return json({ error: "google_error", detail: (e as Error)?.message ?? String(e) }, 502);
+}
+
+async function actionGoogleStatus() {
+  const { config, missing } = googleAdsConfig((k) => Deno.env.get(k));
+  // ‏200 ולא שגיאה: הפאנל מציג "ממתין לחיבור" עם רשימת הסודות החסרים.
+  if (!config) return json({ configured: false, missing });
+  try {
+    const rows = await gaql(config,
+      "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.test_account FROM customer LIMIT 1");
+    const c = rows[0]?.customer || {};
+    return json({
+      configured: true,
+      version: config.version,
+      account: { id: String(c.id || config.customerId), name: c.descriptiveName || null, currency: c.currencyCode || null, time_zone: c.timeZone || null, test: !!c.testAccount },
+    });
+  } catch (e) {
+    return googleErrorResponse(e);
+  }
+}
+
+async function actionGoogleCampaigns(body: any) {
+  const { config } = googleAdsConfig((k) => Deno.env.get(k));
+  if (!config) return json({ error: "google_not_configured" }, 503);
+  const days = [7, 30, 90].includes(Number(body?.days)) ? Number(body.days) : 30;
+  // תאריכים לפי שעון ישראל - כמו החשבון. ‏BETWEEN כולל את שני הקצוות.
+  const ymd = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const to = new Date();
+  const from = new Date(to.getTime() - (days - 1) * 86_400_000);
+  try {
+    const rows = await gaql(config, `
+      SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type,
+             campaign_budget.amount_micros,
+             metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
+        FROM campaign
+       WHERE segments.date BETWEEN '${ymd(from)}' AND '${ymd(to)}'
+         AND campaign.status != 'REMOVED'`);
+    const campaigns = rows.map((r: any) => ({
+      id: String(r.campaign?.id || ""),
+      name: r.campaign?.name || "",
+      status: r.campaign?.status || "",
+      channel: r.campaign?.advertisingChannelType || "",
+      daily_budget: r.campaignBudget?.amountMicros != null ? fromMicros(r.campaignBudget.amountMicros) : null,
+      impressions: Number(r.metrics?.impressions || 0),
+      clicks: Number(r.metrics?.clicks || 0),
+      cost: fromMicros(r.metrics?.costMicros),
+      conversions: Number(r.metrics?.conversions || 0),
+    })).sort((a, b) => b.cost - a.cost);
+    return json({ ok: true, from: ymd(from), to: ymd(to), days, campaigns });
+  } catch (e) {
+    return googleErrorResponse(e);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -1104,6 +1172,9 @@ Deno.serve(async (req: Request) => {
   if (action === "sync_leads") return await actionSyncLeads(sb, caller, body);
   if (action === "retry_lead") return await actionRetryLead(sb, body);
   if (action === "subscribe_page") return await actionSubscribePage(sb, caller);
+  // גוגל - חשבון נפרד וסודות נפרדים, ולכן לפני הבדיקה של מטא.
+  if (action === "google_status") return await actionGoogleStatus();
+  if (action === "google_campaigns") return await actionGoogleCampaigns(body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
