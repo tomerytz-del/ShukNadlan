@@ -364,9 +364,12 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   };
 }
 
+/* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
+const MIN_REVIEWS_RATED = 2;
+
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agencies?slug=eq.${encodeURIComponent(slug)}&select=name,description,logo_url,cover_url,tagline,address`,
+    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
@@ -390,6 +393,27 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   if (a.logo_url) agency.logo = absolute(a.logo_url);
   if (a.tagline) agency.slogan = String(a.tagline);
   if (a.address) agency.address = { "@type": "PostalAddress", streetAddress: String(a.address), addressCountry: "IL" };
+
+  /* ‏AggregateRating - רק מה שהדף עצמו מציג: אותו ציון (‏agency_ratings_public,
+     ‏score) ואותו סף (‏MIN_REVIEWS_SHOWN = 2 ב-agency.html). דירוג בנתונים
+     המובנים שאינו מופיע בדף הוא הפרה של הנחיות גוגל, ולכן מתחת לסף - כלום.
+     כשל בשאילתה השנייה אינו מפיל את הדף: הוא יוצא בלי דירוג. */
+  if (a.id) {
+    const r = await sbFetch(
+      `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
+    );
+    const score = r.kind === "row" ? Number(r.row.score) : NaN;
+    const count = r.kind === "row" ? Number(r.row.review_count) : 0;
+    if (r.kind === "row" && r.row.score != null && Number.isFinite(score) && count >= MIN_REVIEWS_RATED) {
+      agency.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: Math.round(score * 10) / 10,
+        reviewCount: count,
+        bestRating: 5,
+        worstRating: 1,
+      };
+    }
+  }
 
   return {
     title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),

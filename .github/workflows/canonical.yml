@@ -23,6 +23,8 @@ on:
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
       - "scripts/search_pages_test.ts"
+      - "scripts/prices_page_test.ts"
+      - "assets/prices-render.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -34,6 +36,8 @@ on:
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
       - "scripts/search_pages_test.ts"
+      - "scripts/prices_page_test.ts"
+      - "assets/prices-render.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -67,3 +71,8 @@ jobs:
       # ‏canonical עצמי לכל צירוף מציף את האינדקס במשוכפל.
       - name: התנהגות עמודי התוצאות
         run: node --experimental-strip-types scripts/search_pages_test.ts
+
+      # ‏ו-/prices: הטבלאות מולאו בשרת כשהמסד ענה, והדף יוצא כמו שהוא
+      # בכל כשל - שם ה-JS שבו ממלא אותו (‏docs/city-prices.md).
+      - name: התנהגות דף המחירים
+        run: node --experimental-strip-types scripts/prices_page_test.ts
