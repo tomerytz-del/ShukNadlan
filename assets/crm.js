@@ -7077,6 +7077,15 @@ const ONBOARD_STEPS = [
     cta:'עיצוב הפרופיל',
     done: s => s.profile_done && s.agency_done,
     run:  ()=> gotoSection(onboardState && onboardState.profile_done ? 'accBranding' : 'accProfile') },
+  /* למנהל/ת בלבד: "על המשרד" (agencies.description). הוא הטקסט שבראש דף
+     המשרד, ומה שגוגל ומנועי AI קוראים עליו - בלעדיו הדף הוא שם ורשימה.
+     ‏about_done חסר בשורה עד שהמיגרציה רצה; אז הצעד פשוט לא מוצג. */
+  { key:'about', name:'כתיבת "על המשרד"',
+    when: s => s.is_manager && s.about_done !== undefined,
+    text:'כמה משפטים על הניסיון, האזורים וסוגי הנכסים. הם מוצגים בראש דף המשרד, ומהם גוגל ומנועי AI לומדים מי אתם - בלי תיאור, דף המשרד הוא רק שם ורשימת נכסים.',
+    cta:'כתיבת התיאור',
+    done: s => s.about_done,
+    run:  ()=> gotoSection('accBranding', 'brDescription') },
 ];
 
 /* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
