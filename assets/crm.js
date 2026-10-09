@@ -24451,10 +24451,12 @@ const NAV_GROUPS = [
       also:['accDealsLookup'] },
   ]},
   { key:'manage', label:'ניהול וביצועים', icon:'chart', items:[
-    /* ראשון בקבוצה: זו התמונה של כל המשרד. יושב ב-#managerSection, ולכן
-       ‏navAccVisible מציג אותו למנהל/ת משרד בלבד (assets/crm-office-dashboard.js) */
+    /* לשעבר "דוחות וביצועים": הגרף נשאר בפנים, ומעליו הדשבורד האישי
+       (assets/crm-my-dashboard.js). לכל סוכן/ת, ולכן מחוץ ל-#managerSection */
+    { acc:'accMyDashboard', label:'הדשבורד שלי', icon:'chart', tab:'more' },
+    /* התמונה של כל המשרד. יושב ב-#managerSection, ולכן navAccVisible מציג
+       אותו למנהל/ת משרד בלבד (assets/crm-office-dashboard.js) */
     { acc:'accOfficeDashboard', label:'דאשבורד משרד', icon:'gauge', tab:'more' },
-    { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
     /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
        למנהל/ת משרד או זכיין/ית — בלי לשכפל כאן את בדיקת התפקיד */

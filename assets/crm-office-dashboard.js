@@ -747,12 +747,15 @@ function odFunnelHtml(funnel){
     </div>`).join('')}</div>`;
 }
 
-function odAdviceHtml(advice){
+/* ‏showAll: הדשבורד האישי מחזיק דגל משלו (mdState.allTips), כדי שפתיחת
+   "עוד המלצות" באחד לא תפתח אותן גם בשני */
+function odAdviceHtml(advice, showAll){
   if (!advice.length) return '<p class="od-muted">אין המלצות כרגע - צריך עוד קצת נתונים בתקופה.</p>';
   const prio = { 1:'עדיפות גבוהה', 2:'עדיפות בינונית', 3:'כדאי' };
   // ארבע ראשונות גלויות, השאר מאחורי כפתור: שמונה כרטיסים בטלפון הם גלילה
   // ארוכה, והעדיפות הגבוהה ממילא בראש
-  const shown = odState.allAdvice ? advice : advice.slice(0, 4);
+  const all = showAll === undefined ? odState.allAdvice : showAll;
+  const shown = all ? advice : advice.slice(0, 4);
   const more = advice.length - shown.length;
   return `<div class="od-advice">${shown.map(r => `
     <article class="od-tipcard p${r.priority}">
