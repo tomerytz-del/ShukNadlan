@@ -300,6 +300,32 @@ const bodies: [string, boolean][] = [
   ["משרד בלי תיאור: משפט עובדתי עם הכתובת והאזורים", agFallback.includes("<p>משרד התיווך אביה גולדברג - תיווך, עפולה. אזורי פעילות: עפולה, גבעת המורה ובית שאן.</p>")],
   ["משרד בלי תיאור, כתובת ואזורים: המקטע מוסתר", /id="aboutSec" aria-labelledby="aboutHeading" hidden>/.test(agEmpty) && /id="aboutText"><\/div>/.test(agEmpty)],
 ];
+
+/* ‏סוכן/ת, פרויקט, יזם ובעל/ת מקצוע: H1 ותוכן מהשרת, ונתונים מובנים */
+const ldOf = (h: string) => {
+  const m = h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+};
+const agentPage = await serve("agent.html", "/agent?slug=a", { display_name: "דנה <לוי>", bio: null, license_number: "1" });
+const projPage = await serve("project.html", "/project?slug=a", { name: "מגדלי העמק", city: "עפולה", tagline: "ס", description: "על <הפרויקט>" });
+const projBare = await serve("project.html", "/project?slug=a", { name: "מגדלי העמק", city: null, tagline: null, description: null });
+const devPage = await serve("developer.html", "/developer?slug=a", { name: "יזם בע\"מ", city: "עפולה", tagline: null, description: "על החברה", logo_url: "/l.png" });
+const proPage = await serve("professional.html", "/professional?slug=a", { slug: "a", advertiser_name: "רון", business_name: "שמאות רון", advertiser_type: "appraiser", target_region: "עפולה", headline: "שמאי מוסמך", description: "תיאור" });
+bodies.push(
+  ["סוכן/ת: H1 מוברח וביו ברירת מחדל בשרת", /id="profileName">דנה &lt;לוי&gt;<\/h1>/.test(agentPage) &&
+    agentPage.includes('id="profileBio">סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.</p>')],
+  ["פרויקט: ApartmentComplex עם עיר, H1, סלוגן ותיאור נחשפים", ldOf(projPage)?.["@type"] === "ApartmentComplex" &&
+    ldOf(projPage)?.address?.addressLocality === "עפולה" && /id="projectName">מגדלי העמק<\/h1>/.test(projPage) &&
+    /id="projectTagline">ס<\/p>/.test(projPage) && /id="aboutSec">/.test(projPage) && projPage.includes("על &lt;הפרויקט&gt;")],
+  ["פרויקט בלי תיאור: המקטע נשאר מוסתר", /id="aboutSec" hidden>/.test(projBare) && /id="projectTagline" hidden>/.test(projBare)],
+  ["יזם: Organization עם לוגו, H1 ו'על החברה' בשרת", ldOf(devPage)?.["@type"] === "Organization" &&
+    ldOf(devPage)?.logo === "https://shuknadlan.co.il/l.png" && /id="devName">יזם בע&quot;מ<\/h1>/.test(devPage) &&
+    /id="devAbout">על החברה<\/div>/.test(devPage)],
+  ["בעל/ת מקצוע: ProfessionalService עם employee, H1, כותרת ותיאור בשרת", ldOf(proPage)?.["@type"] === "ProfessionalService" &&
+    ldOf(proPage)?.employee?.name === "רון" && ldOf(proPage)?.serviceType === "שמאי/ת מקרקעין" &&
+    /id="profileName">רון<\/h1>/.test(proPage) && /id="profileHeadline">שמאי מוסמך<\/p>/.test(proPage) &&
+    /id="aboutBlock">/.test(proPage)],
+);
 for (const [name, pass] of bodies) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);

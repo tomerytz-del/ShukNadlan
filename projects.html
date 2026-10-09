@@ -1078,6 +1078,15 @@ function applyDeepLink(){
     if (!all.length){
       el('emptyState').hidden = false;
       el('allSec').hidden = true;
+      // ‏דף שכולו "עוד אין פרויקטים" הוא מה שגוגל מסווגת כ-soft 404, והוא
+      // מוריד את האמון בכל האתר. ‏noindex רק כשהמסד ענה במפורש שאין אף
+      // פרויקט - בכשל (catch למטה) הדף נשאר כמו שהוא. ברגע שיעלה הפרויקט
+      // הראשון התגית פשוט לא נוספת, והדף חוזר לאינדקס בסריקה הבאה.
+      // ‏docs/sitemap.md.
+      const robots = document.createElement('meta');
+      robots.name = 'robots';
+      robots.content = 'noindex,follow';
+      document.head.appendChild(robots);
       return;
     }
 
