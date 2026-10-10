@@ -1,6 +1,6 @@
 ---
 name: marketing-console
-description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns, google_directions, google_keyword_ideas, google_create_campaign, google_set_status, ads-admin/google-directions.ts, ads-admin/google-campaign.ts), creating or pausing a Google Search campaign, adding an advertising direction or Keyword Planner seeds, when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
+description: עבודה על קונסולת השיווק בריפו של שוק נדל״ן - הפאנל "קמפיינים" ב-crm.html (ביצועים, נוסחי מודעות, לידים ממטא, מודיעין שווקים, מילות מפתח), ה-Edge Functions ads-admin ו-ads-leads-webhook, הטבלאות ads_* ו-market_intel_*, ו-probes/ads.py של הסוכן התפעולי. Use when touching supabase/functions/ads-admin (index.ts, copy.ts, campaign.ts, intel.ts) / ads-leads-webhook / _shared/meta-graph.ts / _shared/meta-leads.ts / _shared/google-ads.ts, the Google tab (google_status, google_campaigns, google_directions, google_keyword_ideas, google_create_campaign, google_set_status, ads-admin/google-directions.ts, ads-admin/google-campaign.ts), creating or pausing a Google Search campaign, adding an advertising direction or Keyword Planner seeds, when Google Ads returns invalid_grant or DEVELOPER_TOKEN_NOT_APPROVED, the #dashPanelAds panel in assets/crm.js, a migration that touches ads_* or market_intel_* or lead_source_channel, when a Meta lead did not reach the platform, when a campaign created from the console does not spend, when the console shows "ממתין לחיבור", when Google office counts per city look wrong, the video library (marketing_videos, the marketing-videos bucket, save_video, archive_video, a video campaign or an A/B test between video versions), or when connecting the Meta / Google accounts (secrets, System User, webhook, Places key).
 ---
 
 # קונסולת השיווק
@@ -171,6 +171,21 @@ python scripts/check_migration_versions.py --base-ref origin/main
 `GOOGLE_ADS_API_VERSION` גוברת על ברירת המחדל - גוגל סוגרת גרסה כשנה אחרי
 שיצאה, וגרסה סגורה מחזירה 404. ההגדרה `ads_settings.enabled`
 נדלקת **אחרי** שהפאנל מציג את שם החשבון, ולא לפני.
+
+## ‏9ב. ספריית הסרטונים (שלב 8, `docs/marketing-videos.md`)
+
+- **הקבצים בדלי `marketing-videos`, הקטלוג ב-`marketing_videos`.** הדפדפן
+  מעלה ישירות לדלי (‏policy למנהל/ת בלבד), ו-`save_video` כותב את השורה רק
+  אחרי שבדק (‏HEAD) ששני הקבצים שם. אין מחיקה - ארכיון: מודעה שרצה מפנה לקובץ.
+- **אין סרטון בלי תמונת שער.** מטא דורשת אותה במודעת וידאו, והדפדפן חותך
+  אותה מהשנייה הראשונה. סרטון שהועלה בדרך אחרת בלי `poster_path` נחסם ביצירה.
+- **מודעה לכל זוג נוסח × סרטון, עד `MAX_ADS` (שש).** ‏`video_id` נרשם על כל
+  מודעה ב-`ads_campaigns.objects`, ו-`marketing_video_stats()` נשענת עליו.
+  מי שמשנה את מבנה `objects` שובר את הביצועים לכל סרטון, בשקט.
+- **‏`advideos` עם `file_url`, ואז המתנה ל-`ready`** (עד 90 שניות), הכול לפני
+  הקמפיין. ‏`meta_video_id` נשמר כדי לא להעלות שוב; הוא נבדק לפני שימוש.
+- **ניסוי A/B = אותו `concept`, `variant` שונה.** הלשונית מסמנת מוביל/ה לפי
+  עלות לליד (לידים + שיחות), לא לפי קליק.
 
 ## ‏10. אלמנט חדש בפאנל: id עם הקידומת `ads`
 

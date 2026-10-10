@@ -286,6 +286,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | 7ב | Keyword Planner לפי כיוון פרסום: `keywordIdeas()` ב-`_shared/google-ads.ts` (‏`:generateKeywordIdeas`, עברית, ישראל), הכיוונים ב-`ads-admin/google-directions.ts`, הפעולות `google_directions` ו-`google_keyword_ideas`, ובלשונית "גוגל" בחירת כיוון ושוק, טבלת נפח/תחרות/מחיר לקליק, רשימה בהתאמת ביטוי להעתקה ומילות שלילה | ראו "כיווני הפרסום בגוגל" למטה. שליפה בלחיצה ולא בפתיחת הלשונית - כל בקשה היא פעולה מהמכסה היומית של Explorer |
 | 7ג | קמפיין חיפוש מושהה מכיוון: `ads-admin/google-campaign.ts` בונה את כל הקמפיין כבקשת `googleAds:mutate` אחת (תקציב, קמפיין `PAUSED`, רדיוס סביב העיר הראשית, עברית, מילות שלילה, קבוצת מודעות, מילים בהתאמת ביטוי ומודעה רספונסיבית `ENABLED`). הפעולות `google_create_campaign` ו-`google_set_status`, ובלשונית "גוגל" טופס מתחת לתוצאות ה-Keyword Planner וכפתור השהיה/הפעלה בטבלת הקמפיינים | ראו "קמפיין חיפוש בגוגל" למטה. ה-dry_run הוא `validateOnly` של גוגל. ביומן `ads_actions_log` - גם כשנכשל |
 | 7ד | ייחוס מודעה לשיחה עם גבריאלה: `whatsapp_messages.public_entry_ref` (‏`meta:<ad_id>` מ-`referral` של מודעת וואטסאפ, או `<מקור>:<קמפיין>[:<גרסה>]` מה-UTM דרך `bot-link.js`), ו-`platform_gabriela_ads_report` - פניות, אנשים, חיפוש שמור, הסכמה למתווך/ת ונמכר לכל מודעה | הבסיס לבדיקות A/B: המנצחת נבחרת לפי ליד ולא לפי לחיצה. ‏`docs/whatsapp-public-bot.md`, "מאיזו מודעה" |
+| 8 | ספריית הסרטונים: `20270414090000_marketing_videos.sql` (הדלי `marketing-videos`, הטבלה `marketing_videos`, ‏`video` ב-`ads_campaigns.format` וב-`ads_actions_log.object_type`, ו-`marketing_video_stats()`), הפעולות `save_video` ו-`archive_video`, ‏`format: "video"` ב-`campaign.ts` (‏`advideos` עם `file_url`, המתנה ל-`ready`, ‏`video_data`), הלשונית "סרטונים" ובחירת סרטון בטופס היצירה, ומקור הסרטונים ב-`marketing/videos/` | ראו `docs/marketing-videos.md`. **מודעה לכל זוג נוסח × סרטון, עד שש** - שתי גרסאות של אותו רעיון באותו סט הן A/B, ו-`video_id` נרשם על כל מודעה ב-`objects`. סרטון עולה למטא פעם אחת (‏`meta_video_id`). נבדק מול Graph מדומה, Postgres מקומי (הרצה כפולה, RLS, anon חסום) ובדפדפן עם נתונים מדומים, בטלפון ובמחשב. לא נבדק מול חשבון מודעות אמיתי |
 
 ## הסקיל `meta-ads`
 
@@ -413,5 +414,5 @@ token מופק מההתחברות **שבה יושב חשבון המנהל**, א�
 3. **Google Business Profile** — פוסטים ותגובות לביקורות דרך ה-API.
 4. **רימרקטינג** לצופי נכסים (דורש 1).
 5. **דיוור** — הניוזלטר קיים (`newsletter-subscribe`); לחבר נכסים חדשים לפי שוק.
-6. **סרטוני נכס** — `docs/property-marketing-video.md` קיים; להפוך ל-Reels.
+6. **סרטוני נכס** — `docs/property-marketing-video.md` קיים; להפוך ל-Reels. סרטוני הפלטפורמה כבר בספרייה (שלב 8, `docs/marketing-videos.md`); סרטון נכס יכול להצטרף אליה באותו מבנה.
 7. **דוח שבועי** לתומר בוואטסאפ: הוצאה, לידים, CPL, המלצה אחת.

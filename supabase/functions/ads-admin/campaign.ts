@@ -19,13 +19,25 @@ import { MetaClient } from "../_shared/meta-graph.ts";
 //     מחייבת את הקטגוריה בישראל (real-estate-creative.md §1). אזהרה, לא
 //     חסימה, כי זה משתנה אצל מטא ולא אצלנו.
 //   - מטבע: ILS בלבד. חשבון במטבע אחר נדחה ב-index.ts, ולא מנוחש.
+//   - וידאו (שלב 8, docs/marketing-videos.md): הסרטון מספריית הסרטונים
+//     (‏marketing_videos) עולה ל-advideos לפי כתובת (‏file_url - מטא מושכת
+//     אותו בעצמה), ומודעה נוצרת לכל זוג נוסח × סרטון: שני סרטונים של אותו
+//     רעיון באותו סט הם ניסוי A/B, ו-video_id נרשם על כל מודעה ב-objects.
 // ============================================================================
 
 export type Destination = "lead_form" | "whatsapp" | "website";
-export type Format = "image" | "carousel";
+export type Format = "image" | "carousel" | "video";
 
 export const DESTINATIONS: Destination[] = ["lead_form", "whatsapp", "website"];
-export const FORMATS: Format[] = ["image", "carousel"];
+export const FORMATS: Format[] = ["image", "carousel", "video"];
+
+// סרטון מהספרייה. ‏url ו-poster - כתובות ציבוריות בדלי marketing-videos.
+// ‏metaVideoId - העלאה קודמת לאותו חשבון, אם יש (נבדקת לפני שימוש).
+export type VideoRef = { id: string; label: string; url: string; poster: string; metaVideoId?: string | null };
+
+// מודעות בסט אחד: נוסחים × סרטונים. מעבר לזה התקציב מתפזר ואף מודעה לא
+// יוצאת משלב הלמידה (real-estate-creative.md §3).
+export const MAX_ADS = 6;
 
 export type Variant = { angle: string; primary_text: string; headline: string; description: string; cta: string };
 
@@ -41,6 +53,7 @@ export type PlanInput = {
   variants: Variant[];
   disclosure: string;           // השורה שנוספת בסוף הטקסט הראשי של כל מודעה
   images: string[];             // ‏image: הראשונה; carousel: 2-10
+  videos?: VideoRef[];          // ‏video: 1-3 מהספרייה
   landingUrl?: string;          // ‏website בלבד
   leadFormId?: string;          // ‏lead_form בלבד
   dailyBudget: number;          // שקלים
@@ -104,6 +117,7 @@ export function buildTargeting(geo: GeoPoint[], ageMin: number, ageMax: number) 
 type CreativePlan = {
   name: string;
   variant: number;
+  video?: VideoRef;
   cta: string;
   message: string;
   headline: string;
@@ -126,6 +140,7 @@ export type Plan = {
     age: [number, number];
     ads: number;
     images: number;
+    videos: { id: string; label: string }[];
     landing_url: string | null;
     lead_form_id: string | null;
   };
@@ -145,9 +160,16 @@ export function buildPlan(inp: PlanInput): { plan: Plan | null; errors: string[]
   if (inp.destination === "website" && !(inp.landingUrl ?? "").startsWith("https://")) errors.push("landing_url_required");
   if (inp.format === "image" && inp.images.length < 1) errors.push("image_required");
   if (inp.format === "carousel" && inp.images.length < 2) errors.push("carousel_needs_2_images");
+  const videos = inp.format === "video" ? (inp.videos ?? []) : [];
+  if (inp.format === "video") {
+    if (!videos.length) errors.push("video_required");
+    if (videos.length > 3) errors.push("too_many_videos");
+    if (videos.some((v) => !v.poster)) errors.push("video_poster_missing");
+    if (inp.variants.length * Math.max(1, videos.length) > MAX_ADS) errors.push("too_many_ads");
+  }
 
-  const images = inp.format === "carousel" ? inp.images.slice(0, 10) : inp.images.slice(0, 1);
-  const creatives: CreativePlan[] = inp.variants.map((v, i) => {
+  const images = inp.format === "video" ? [] : inp.format === "carousel" ? inp.images.slice(0, 10) : inp.images.slice(0, 1);
+  const perVariant: CreativePlan[] = inp.variants.map((v, i) => {
     const { cta, changed } = ctaFor(inp.destination, v.cta);
     if (changed) warnings.push(`נוסח ${i + 1}: הכפתור הוחלף ל-${cta}, כי ${v.cta || "הכפתור שנבחר"} אינו אפשרי ביעד הזה`);
     const message = withDisclosure(v.primary_text, inp.disclosure);
@@ -164,6 +186,11 @@ export function buildPlan(inp: PlanInput): { plan: Plan | null; errors: string[]
     if (firstLine.length > HOOK_MAX) warnings.push(`נוסח ${i + 1}: השורה הראשונה ארוכה מ-${HOOK_MAX} תווים - השאר מתקפל מתחת ל"עוד"`);
     return { name: `v${i + 1}`, variant: i, cta, message, headline, description: v.description.trim(), images };
   });
+  // וידאו: מודעה לכל זוג נוסח × סרטון. השם נושא את שניהם, כדי שבטבלת
+  // המודעות בלשונית הביצועים יהיה ברור מה נבדק מול מה.
+  const creatives: CreativePlan[] = inp.format === "video"
+    ? perVariant.flatMap((c) => videos.map((v) => ({ ...c, name: `${c.name} · ${v.label}`.slice(0, 80), video: v })))
+    : perVariant;
 
   for (const g of inp.geo) {
     if (!(g.radius_km >= 1 && g.radius_km <= 80)) errors.push("bad_radius");
@@ -207,6 +234,7 @@ export function buildPlan(inp: PlanInput): { plan: Plan | null; errors: string[]
       age: [inp.ageMin, inp.ageMax],
       ads: creatives.length,
       images: images.length,
+      videos: videos.map((v) => ({ id: v.id, label: v.label })),
       landing_url: inp.destination === "website" ? inp.landingUrl ?? null : null,
       lead_form_id: inp.destination === "lead_form" ? inp.leadFormId ?? null : null,
     },
@@ -215,7 +243,7 @@ export function buildPlan(inp: PlanInput): { plan: Plan | null; errors: string[]
 }
 
 // object_story_spec לנוסח אחד. ‏hashes - התמונות שהועלו, באותו סדר כמו
-// creative.images.
+// creative.images; בוידאו - [מזהה הסרטון במטא, ה-hash של תמונת השער].
 export function storySpec(inp: Pick<PlanInput, "pageId" | "instagramUserId" | "destination" | "format" | "landingUrl" | "leadFormId">,
   c: CreativePlan, hashes: string[]) {
   const link = inp.destination === "website" ? inp.landingUrl! : inp.destination === "lead_form" ? LEAD_FORM_LINK : WHATSAPP_LINK;
@@ -225,6 +253,18 @@ export function storySpec(inp: Pick<PlanInput, "pageId" | "instagramUserId" | "d
     ? { type: "WHATSAPP_MESSAGE", value: { app_destination: "WHATSAPP" } }
     : { type: c.cta, value: { link } };
 
+  if (inp.format === "video") {
+    // ‏video_data ולא link_data: הקישור יושב בכפתור. ‏image_hash - תמונת השער
+    // (חובה במודעת וידאו), ‏title - הכותרת שמתחת לסרטון.
+    const vcta = { type: cta.type, value: { ...(cta.value as Record<string, unknown>), link } };
+    const vd: Record<string, unknown> = {
+      video_id: hashes[0], image_hash: hashes[1], message: c.message, title: c.headline, call_to_action: vcta,
+    };
+    if (c.description) vd.link_description = c.description;
+    const ov: Record<string, unknown> = { page_id: inp.pageId, video_data: vd };
+    if (inp.instagramUserId) ov.instagram_user_id = inp.instagramUserId;
+    return ov;
+  }
   const ld: Record<string, unknown> = { link, message: c.message, call_to_action: cta };
   if (inp.format === "image") {
     ld.name = c.headline;
@@ -273,10 +313,48 @@ export async function uploadImage(meta: MetaClient, act: string, url: string): P
 }
 
 // ---------------------------------------------------------------------------
+// סרטונים
+//
+// ‏advideos עם file_url: מטא מורידה את הקובץ מהדלי הציבורי בעצמה, בלי לעבור
+// דרך הזיכרון של הפונקציה (סרטון של 10MB היה מכפיל את הזיכרון ב-base64).
+// אחר כך מחכים ש-video_status יהיה ready - מודעה על סרטון שעוד מעובד נדחית.
+// סרטון שכבר הועלה (‏metaVideoId) נבדק קודם: נמחק מהספרייה במטא - מעלים שוב.
+// ---------------------------------------------------------------------------
+const VIDEO_READY_WAIT_MS = 90_000;
+const VIDEO_POLL_MS = 4_000;
+
+async function videoStatus(meta: MetaClient, id: string): Promise<string | null> {
+  try {
+    const r = await meta.get(id, { fields: "status" });
+    return String(r?.status?.video_status ?? "") || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadVideo(meta: MetaClient, act: string, v: VideoRef, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<{ id: string; reused: boolean }> {
+  if (v.metaVideoId) {
+    const st = await videoStatus(meta, v.metaVideoId);
+    if (st === "ready") return { id: v.metaVideoId, reused: true };
+  }
+  const r = await meta.post(`${act}/advideos`, { file_url: v.url, name: v.label.slice(0, 100) });
+  const id = String(r?.id ?? "");
+  if (!id) throw new Error("video_upload_no_id");
+  const until = Date.now() + VIDEO_READY_WAIT_MS;
+  while (Date.now() < until) {
+    const st = await videoStatus(meta, id);
+    if (st === "ready") return { id, reused: false };
+    if (st === "error") throw new Error("video_processing_failed");
+    await sleep(VIDEO_POLL_MS);
+  }
+  throw new Error("video_processing_timeout");
+}
+
+// ---------------------------------------------------------------------------
 // יצירה. ‏record() נקראת אחרי כל אובייקט - ‏index.ts כותב אותה ל-ads_campaigns
 // מיד, כדי שעץ חלקי יישאר רשום גם אם הפונקציה נחתכת באמצע.
 // ---------------------------------------------------------------------------
-export type Created = { type: string; id?: string; hash?: string; name?: string };
+export type Created = { type: string; id?: string; hash?: string; name?: string; video_id?: string; reused?: boolean };
 
 export async function execute(
   meta: MetaClient,
@@ -294,6 +372,17 @@ export async function execute(
     const h = await uploadImage(meta, act, url);
     hashOf.set(url, h);
     await record({ type: "image", hash: h });
+  }
+  // סרטונים ותמונות השער - גם הם לפני הקמפיין, מאותה סיבה.
+  const videoOf = new Map<string, { metaId: string; posterHash: string }>();
+  for (const c of plan.creatives) {
+    const v = c.video;
+    if (!v || videoOf.has(v.id)) continue;
+    const up = await uploadVideo(meta, act, v);
+    await record({ type: "video", id: up.id, name: v.label, video_id: v.id, reused: up.reused });
+    const posterHash = await uploadImage(meta, act, v.poster);
+    await record({ type: "image", hash: posterHash });
+    videoOf.set(v.id, { metaId: up.id, posterHash });
   }
 
   const camp = await meta.post(`${act}/campaigns`, {
@@ -326,7 +415,8 @@ export async function execute(
 
   const ads: { ad_id: string; creative_id: string; name: string }[] = [];
   for (const c of plan.creatives) {
-    const hashes = c.images.map((u) => hashOf.get(u)!);
+    const vid = c.video ? videoOf.get(c.video.id)! : null;
+    const hashes = vid ? [vid.metaId, vid.posterHash] : c.images.map((u) => hashOf.get(u)!);
     const creative = await meta.post(`${act}/adcreatives`, {
       name: `${plan.campaign.name} · ${c.name}`,
       object_story_spec: JSON.stringify(storySpec(inp, c, hashes)),
@@ -343,7 +433,7 @@ export async function execute(
       status: "ACTIVE",
     });
     const adId = String(ad.id);
-    await record({ type: "ad", id: adId, name: c.name });
+    await record({ type: "ad", id: adId, name: c.name, ...(c.video ? { video_id: c.video.id } : {}) });
     ads.push({ ad_id: adId, creative_id: creativeId, name: c.name });
   }
   return { campaignId, adsetId, ads };
