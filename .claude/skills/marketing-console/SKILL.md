@@ -172,7 +172,16 @@ python scripts/check_migration_versions.py --base-ref origin/main
 שיצאה, וגרסה סגורה מחזירה 404. ההגדרה `ads_settings.enabled`
 נדלקת **אחרי** שהפאנל מציג את שם החשבון, ולא לפני.
 
-## ‏10. בדיקה לפני push
+## ‏10. אלמנט חדש בפאנל: id עם הקידומת `ads`
+
+הפאנל יושב בתוך `crm.html`, אותו דף של הדשבורד של כל סוכן/ת, ו**לפניו**
+בסדר המסמך. id שכבר קיים בדשבורד גונב אותו: `getElementById` מחזיר את
+הראשון, בלי שגיאה. כך `<div id="leadsList">` של "לידים ממטא" (‏#624) שלח
+שלושה ימים את הלידים של כל הסוכנים לפאנל המוסתר הזה - הכותרת והמונים של
+"הלידים שלי" הופיעו, והרשימה ריקה. מכאן `adsLeadsList`, וכל id חדש כאן
+מתחיל ב-`ads` (או `adm`). ‏`scripts/check_duplicate_ids.py` חוסם ב-CI.
+
+## ‏11. בדיקה לפני push
 
 ```sh
 cd supabase/functions/ads-admin && deno check index.ts
@@ -180,6 +189,7 @@ node --check assets/crm.js
 python scripts/ops_ads_test.py
 python scripts/ops_probe_codes_test.py
 python scripts/check_long_dash.py        # הודעות לפאנל ושגיאות בעברית
+python scripts/check_duplicate_ids.py    # id חדש בפאנל שכבר קיים בדשבורד
 ```
 
 שינוי ב-SQL של `probes/ads.py` נבדק גם מול Postgres מקומי עם המיגרציות

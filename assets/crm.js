@@ -26393,7 +26393,7 @@ function leadField(fd, names){
 }
 
 async function loadLeadsList(){
-  const host = document.getElementById('leadsList');
+  const host = document.getElementById('adsLeadsList');
   const { data, error } = await sb.from('ads_leads')
     .select('meta_lead_id, created_time, form_id, campaign_id, kind, status, error, target, field_data')
     .order('created_time', { ascending: false }).limit(50);
