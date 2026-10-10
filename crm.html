@@ -1794,6 +1794,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* קובץ הלקוחות: אותה רשת סינון, אבל שש תיבות ולא שמונה - שלוש עמודות
      ממחשב (שתי שורות מלאות) ולא ארבע (ארבע ושתיים). ראו ההערה ב-HTML. */
   #clientToolbar{container-type:inline-size}
+  .client-search-row{display:flex;gap:8px;align-items:stretch}
+  .client-search-row #clientSearch{flex:1 1 auto;min-width:0}
+  .client-filter-toggle{display:none;flex:0 0 auto;gap:6px;min-height:46px;padding:8px 14px;background:#fff;font-size:.86rem}
+  .client-filter-toggle[aria-expanded="true"]{background:var(--navy-tint,#eef3f9);border-color:#2c5a8c;color:#1C3A5E}
+  .cft-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
+    border-radius:999px;background:var(--gold,#8B2332);color:#fff;font-size:.72rem;font-weight:800}
+  .cft-count[hidden]{display:none}
+  @container (max-width:639px){
+    .client-filter-toggle{display:inline-flex;align-items:center}
+    #clientToolbar:not(.is-filters-open) .client-toolbar-grid{display:none}
+  }
   @container (min-width:640px){
     .list-toolbar .client-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   }
@@ -7288,9 +7299,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              בטלפון ושלוש מרוחב 640px של הסרגל עצמו (@container). שש תיבות
              בשורות flex נפרדות נתנו בטלפון שש שורות ברוחב מלא. -->
         <div class="list-toolbar" id="clientToolbar">
-          <input type="search" id="clientSearch" class="filter-input"
-                 placeholder="חיפוש לקוח/ה - שם, טלפון, אימייל, עיר, סוג נכס מבוקש או הערה">
-          <div class="toolbar-grid client-toolbar-grid">
+          <!-- בטלפון: החיפוש וכפתור "סינון" בשורה אחת, ושש התיבות נפתחות רק
+               בלחיצה - אחרת הן שלוש שורות שהלקוחות מחכים מתחתן. המונה בכפתור
+               אומר כמה סינונים פעילים, כדי שרשימה מסוננת לא תיראה כמו "חסרים
+               לקוחות". ממחשב (640px של הסרגל) הכפתור נעלם והרשת תמיד גלויה. -->
+          <div class="client-search-row">
+            <input type="search" id="clientSearch" class="filter-input"
+                   placeholder="שם, טלפון, עיר או הערה">
+            <button type="button" class="btn btn-ghost client-filter-toggle" id="clientFilterToggle"
+                    aria-expanded="false" aria-controls="clientFilterGrid">⚙ סינון<span class="cft-count" id="clientFilterBadge" hidden></span></button>
+          </div>
+          <div class="toolbar-grid client-toolbar-grid" id="clientFilterGrid">
             <select id="clientStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
               <option value="active">מחפשים</option>
               <option value="">כל הסטטוסים</option>

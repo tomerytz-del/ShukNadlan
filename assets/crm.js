@@ -20155,6 +20155,11 @@ function renderClients(){
 
   updateFilterFoot('clientFilterCount', 'clientClearFilters', filtered.length, clientRows.length,
     !!(q || status || deal || category || type || city));
+  // המונה על כפתור "סינון" בטלפון, שם התיבות מקופלות. "מחפשים" היא ברירת
+  // המחדל ו"כל הסטטוסים" הוא מה שהאיפוס משאיר - אף אחד מהם אינו "סינון".
+  const activeFilters = [status === 'paused' || status === 'closed', deal, category, type, city].filter(Boolean).length;
+  const badge = document.getElementById('clientFilterBadge');
+  if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
@@ -22331,6 +22336,10 @@ async function handleShareParam(){
 document.getElementById('clientSearch').addEventListener('input', renderClients);
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+document.getElementById('clientFilterToggle').addEventListener('click', e => {
+  const open = document.getElementById('clientToolbar').classList.toggle('is-filters-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
 document.getElementById('clientClearFilters').addEventListener('click', ()=>{
   ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
