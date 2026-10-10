@@ -152,8 +152,10 @@ function showcaseDecorateMatch(card, m, ctx){
   }
   const label = document.createElement('label');
   label.className = 'sc-pick';
-  label.title = 'הוספה למיניסייט של הלקוח/ה';
-  label.innerHTML = `<input type="checkbox" value="${esc(m.property_id)}" ${ctx.selected.has(m.property_id) ? 'checked' : ''}> למיניסייט`;
+  // "בחירה" ולא "למיניסייט": הכפתור "➕ למיניסייט" בתחתית הכרטיס שולח את
+  // הנכס הזה לבדו, והתיבה אוספת כמה נכסים לשליחה אחת מהפס שלמעלה
+  label.title = 'סימון לשליחה של כמה נכסים יחד למיניסייט';
+  label.innerHTML = `<input type="checkbox" value="${esc(m.property_id)}" ${ctx.selected.has(m.property_id) ? 'checked' : ''}> בחירה`;
   label.querySelector('input').addEventListener('change', e => {
     e.target.checked ? ctx.selected.add(m.property_id) : ctx.selected.delete(m.property_id);
     ctx.sync();
