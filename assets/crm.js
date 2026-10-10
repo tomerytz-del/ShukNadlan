@@ -11978,11 +11978,40 @@ const PF_SHEET_MQ = window.matchMedia('(max-width:1023px)');
 // מסנכרן לפני שהוא עונה: המשקיף רץ במיקרו-משימה, ו-pfScrollToForm נקראת
 // באותה שורה שפותחת את הטופס - לפני שהמחלקה הספיקה לעלות
 function pfSheetOpen(){ pfSyncSheet(); return document.documentElement.classList.contains('pf-sheet-open'); }
+/* ‏**"אחורה" בטלפון סוגר את הטופס, ולא יוצא מה-CRM.** כמו מדבקת ה-QR ועורך
+   הסיור: בפתיחת המסך המלא נדחפת רשומה משלו להיסטוריה, ו-popstate עליה סוגר.
+   סגירה בכל דרך אחרת (✕, ביטול, שמירה, סיבוב לרוחב מחשב) מוציאה את הרשומה
+   ב-history.back(), אחרת ה"אחורה" הבא לא היה עושה כלום. ‏exit-guard.js אינו
+   מתערב: הנחיתה היא על הזקיף שלו, והוא שואל רק כשנוחתים על רשומת הדף.
+   ‏**ופרטים שהוקלדו לא נמחקים בלחיצה אחת:** "אחורה" הוא מחווה שנלחצת בטעות,
+   ולכן כשהטופס נגוע - אותה שאלה ש-exit-guard שואל ביציאה מהדף. */
+let pfHistoryEntry = false;
+let pfClosingFromHistory = false;
 function pfSyncSheet(){
   const open = addForm.style.display !== 'none' && PF_SHEET_MQ.matches;
   document.documentElement.classList.toggle('pf-sheet-open', open);
   if (open) document.getElementById('pfSheetTitle').textContent = editingPropertyId ? 'עריכת נכס' : 'נכס חדש';
+  if (open && !pfHistoryEntry){
+    try{ history.pushState({ pfSheet:true }, ''); pfHistoryEntry = true; }
+    catch(e){ pfHistoryEntry = false; }
+  } else if (!open && pfHistoryEntry){
+    pfHistoryEntry = false;
+    if (!pfClosingFromHistory){ try{ history.back(); }catch(e){} }
+  }
+  if (!open) pfClosingFromHistory = false;
 }
+window.addEventListener('popstate', ()=>{
+  if (!pfHistoryEntry) return;
+  const dirty = addForm.dataset.touched === '1' && crmFormHasContent(addForm);
+  if (dirty && !confirm('יש פרטים שהוקלדו ולא נשמרו. לסגור את הטופס בלי לשמור?')){
+    // נשארים: הרשומה שנשלפה חוזרת, כדי ש"אחורה" הבא ישאל שוב
+    try{ history.pushState({ pfSheet:true }, ''); }catch(e){ pfHistoryEntry = false; }
+    return;
+  }
+  pfHistoryEntry = false;
+  pfClosingFromHistory = true;
+  document.getElementById('npCancel').click();
+});
 new MutationObserver(pfSyncSheet).observe(addForm, { attributes:true, attributeFilter:['style'] });
 if (PF_SHEET_MQ.addEventListener) PF_SHEET_MQ.addEventListener('change', pfSyncSheet);
 document.getElementById('pfSheetClose').addEventListener('click', () => document.getElementById('npCancel').click());
