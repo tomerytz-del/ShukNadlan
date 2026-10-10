@@ -5098,6 +5098,69 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .md-goal .ring,.md-goal .ring svg{width:88px;height:88px}
   }
   .od-more{align-self:center;font:inherit;font-size:.8rem;font-weight:700;color:var(--od-sap);background:var(--od-sap-tint);border:0;border-radius:999px;padding:8px 18px;cursor:pointer}
+
+  /* ---------- כרטיס הליד: שלושה אזורים ----------
+     מי ומתי / מה מחפש/ת / מה עושים — ראו buildLeadCard() ב-assets/crm.js.
+     ‏container query ולא media query: הכרטיס יושב באקורדיון שרוחבו תלוי
+     בתפריט הצד ובמסך, ומה שקובע אם שלוש עמודות נכנסות הוא רוחב הכרטיס
+     עצמו. מתחת ל-720px הוא נערם, והפעולות יורדות לתחתית ברוחב מלא. */
+  .lead-card.lc{container-type:inline-size;padding:14px 16px}
+  .lc-grid{display:flex;flex-direction:column;gap:12px}
+  .lc-who,.lc-need,.lc-act{min-width:0}
+  .lc-badges{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}
+  .lc-badges .lead-kind{margin-bottom:0}
+  .lc-new{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:#DC2626;color:#fff}
+  .lc .lead-name{font-size:1.02rem;font-weight:800;line-height:1.35}
+  .lc .lead-phone{font-size:.9rem;margin-top:1px}
+  .lc-locked .lead-name,.lc-locked .lead-phone{color:var(--txt-soft,var(--ink-soft));letter-spacing:.06em}
+  .lc-when{font-size:.74rem;color:var(--txt-faint,var(--ink-soft));margin-top:5px}
+  .lc-when.is-fresh{color:#B91C1C;font-weight:700}
+  .lc-lock-note{font-size:.72rem;color:var(--txt-faint,var(--ink-soft));margin-top:3px}
+
+  .lc-need{background:rgba(255,255,255,.7);border:1px solid var(--edge,var(--line));border-radius:12px;padding:10px 12px;
+    display:flex;flex-direction:column;gap:6px}
+  .lc-need .card-tags{margin-top:0}
+  .lc-prop-title{font-size:.86rem;font-weight:700;color:var(--txt,var(--ink));line-height:1.4}
+  .lc-prop-line{font-size:.8rem;color:var(--txt-soft,var(--ink-soft))}
+  .lc-prop-line b{color:var(--txt,var(--ink));font-weight:800}
+  .lc-msg{font-size:.8rem;color:var(--txt-soft,var(--ink-soft));font-style:italic;line-height:1.55;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .lc-work:empty{display:none}
+  .lc-work{display:flex;flex-direction:column;gap:6px;margin-top:2px;padding-top:8px;border-top:1px dashed var(--line)}
+  .lc-stage-row{display:flex;align-items:center;gap:8px;font-size:.76rem;font-weight:700;color:var(--txt-soft,var(--ink-soft))}
+  .lc-stage{font:inherit;font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;color:var(--txt,var(--ink));min-width:0;flex:1 1 auto;max-width:240px}
+  .lc-stage.stage-contacted{border-color:#2563EB;color:#1D4ED8}
+  .lc-stage.stage-meeting{border-color:#7C3AED;color:#6D28D9}
+  .lc-stage.stage-not_relevant{border-color:#94A3B8;color:#64748B}
+  .lc-stage.stage-won{border-color:#15803D;color:#15803D;background:#F0FDF4}
+  .lc-note-row{display:flex;gap:6px;align-items:flex-start}
+  .lc-note{flex:1 1 auto;min-width:0;font:inherit;font-size:.8rem;line-height:1.5;padding:7px 10px;
+    border:1px solid var(--edge,var(--line));border-radius:10px;background:#fff;resize:vertical}
+  .lc-note-save{padding:7px 14px;font-size:.78rem}
+  .lc-note-save[hidden]{display:none}
+  .lc-updated{font-size:.68rem;color:var(--txt-faint,var(--ink-soft))}
+
+  .lc-act{display:flex;flex-direction:column;gap:8px}
+  .lc-primary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+  .lc-primary:empty{display:none}
+  .lc-primary .btn{width:100%;min-height:46px;padding:11px 14px;font-size:.88rem;font-weight:800;min-width:0}
+  .lc-primary .btn-share{background:#1F7A3D;color:#fff}
+  .lc-primary .lc-call{background:var(--teal);color:#fff;border:0}
+  .lc-primary .lc-unlock{grid-column:1/-1;min-height:50px;font-size:.92rem;box-shadow:0 4px 14px rgba(139,35,50,.25)}
+  .lc-hint{font-size:.72rem;color:var(--txt-faint,var(--ink-soft));text-align:center}
+  .lc-hint:empty{display:none}
+  .lc-secondary{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;padding-top:6px;border-top:1px solid var(--edge,var(--line))}
+  .lc-secondary .btn{background:transparent;border:0;padding:6px 8px;font-size:.74rem;font-weight:600;
+    color:var(--txt-soft,var(--ink-soft));border-radius:8px}
+  .lc-secondary .btn:hover{background:rgba(15,23,42,.06);color:var(--txt,var(--ink))}
+  .lc-secondary .btn:disabled{opacity:.5}
+
+  @container (min-width:720px){
+    .lc-grid{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(0,1.6fr) minmax(220px,1fr);gap:18px;align-items:start}
+    .lc-need{background:transparent;border:0;border-inline:1px solid var(--edge,var(--line));border-radius:0;padding:0 18px}
+    .lc-secondary{justify-content:flex-start}
+  }
 </style>
 </head>
 <body>
