@@ -1809,6 +1809,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .list-toolbar .client-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   }
 
+  /* יומן השיחות מקופל בטלפון - ראו ההערה ב-HTML */
+  #callsBlock{container-type:inline-size}
+  .calls-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;
+    font:inherit;color:inherit;cursor:default;text-align:start}
+  .calls-caret{display:none;font-size:.85rem;color:var(--txt-soft,var(--ink-soft));transition:transform .2s ease}
+  @container (max-width:639px){
+    .calls-toggle{cursor:pointer;min-height:40px}
+    .calls-caret{display:inline}
+    .calls-toggle[aria-expanded="true"] .calls-caret{transform:rotate(180deg)}
+    #callsBlock:not(.is-open) .calls-body{display:none}
+    #callsBlock:not(.is-open) .calls-head{margin-bottom:0}
+  }
+
   /* סינון השיחות בטלפון: חיפוש בשורה משלו, שני התאריכים זה לצד זה, ואז
      המיון והקישור למספרים. ב-flex הם נערמו כל אחד בשורה, עם התווית "מ-"
      ו"עד" מחוץ לתיבה. */
@@ -7125,7 +7138,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              הקלטה, תמלול וסיכום לכל שיחה. docs/call-tracking.md -->
         <div id="callsBlock" class="calls-block" style="display:none">
           <div class="calls-head">
-            <h3 class="cf-title" style="margin:0"><span class="cf-ico" aria-hidden="true">📞</span>שיחות אחרונות</h3>
+            <!-- בטלפון הכותרת היא כפתור שפותח את היומן: מקופל הוא שורה אחת
+                 במקום מסך שלם בין "הוספת לקוח/ה" לבין החיפוש. ממחשב (640px של
+                 הבלוק) הוא תמיד פתוח והחץ נעלם. -->
+            <h3 class="cf-title" style="margin:0"><button type="button" class="calls-toggle" id="callsToggle"
+                aria-expanded="false" aria-controls="callsBody"><span class="cf-ico" aria-hidden="true">📞</span>שיחות אחרונות<span class="calls-caret" aria-hidden="true">▾</span></button></h3>
             <span class="imp-note" id="callsLine"></span>
             <!-- מנהל/ת הפלטפורמה בלבד: כל הצינור על הקלטה שמעלים, בלי Twilio -->
             <button type="button" class="btn btn-ghost" id="callSimBtn" style="display:none;padding:5px 11px;font-size:.78rem">🧪 סימולציית שיחה</button>
@@ -7133,6 +7150,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
             <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
           </div>
+          <div class="calls-body" id="callsBody">
           <!-- חיפוש ומיון: שם לקוח/ה, טלפון, מילה מהסיכום, וטווח תאריכים - בשרת,
                כי הרשימה שנטענת היא רק 60 האחרונות (refreshCallList) -->
           <div class="call-actions calls-filter" id="callsFilter">
@@ -7149,6 +7167,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
           <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
           <div id="callsList"></div>
+          </div>
         </div>
 
         <!-- ====== טופס הלקוח/ה: שני כרטיסים ======

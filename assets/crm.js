@@ -21422,6 +21422,12 @@ async function refreshCallList(){
   renderCalls();
 }
 
+// הכותרת פותחת וסוגרת את היומן בטלפון; ממחשב ה-CSS מציג אותו תמיד
+document.getElementById('callsToggle')?.addEventListener('click', e => {
+  const open = document.getElementById('callsBlock').classList.toggle('is-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
+
 (function wireCallsFilter(){
   let timer = null;
   const run = () => { clearTimeout(timer); timer = setTimeout(() => { if (currentAgent) refreshCallList(); }, 300); };
