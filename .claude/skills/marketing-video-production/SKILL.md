@@ -17,9 +17,14 @@ description: הפקת סרטון שיווק או הדרכה לפלטפורמה �
 | ‏`Cannot reach the Reelkit API` אחרי שהדומיין הותר | ‏`fetch` של Node אינו קורא את `HTTPS_PROXY` | ‏`NODE_USE_ENV_PROXY=1` לפני **כל** פקודת `reelkit` (ו-`NODE_NO_WARNINGS=1` להשתיק אזהרה) |
 | ‏`The voice service failed` / ‏`transcription service failed` עם קוד `server_error` | תקלה אצל Reelkit, גם בקול באנגלית | לא לנחש תיקון. לנסות שוב בעוד דקות, ולהציע קול אמיתי (סעיף 4) |
 
-התקנה: `npm install -g reelkit-cli` (החבילה `reelkit` ב-npm היא ספרייה אחרת,
-בלי פקודה). התחברות: `reelkit auth login --start`, לשלוח את הקישור, ואחרי
-אישור `--finish`. **הסשן זמני** - בסשן חדש מתקינים ומתחברים שוב.
+**ההתקנה אוטומטית:** `.claude/hooks/session-start.sh` מתקין בכל סשן ענן את
+`reelkit-cli`, את הסקיל שלו (`reelkit install --agent claude`) ואת `librosa`,
+וכותב `NODE_USE_ENV_PROXY=1` לסביבה. ידנית: `npm install -g reelkit-cli`
+(החבילה `reelkit` ב-npm היא ספרייה אחרת, בלי פקודה).
+
+**ההתחברות לא:** בכל סשן חדש `reelkit whoami`, ואם לא מחובר -
+`reelkit auth login --start`, לשלוח את הקישור, ואחרי אישור `--finish`. הטוקן
+אינו בריפו ואסור שיהיה.
 
 ## ‏2. לפני שמקליטים: תוכנית ואישור
 

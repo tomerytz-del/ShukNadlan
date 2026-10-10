@@ -17,6 +17,9 @@ npm install -g reelkit-cli          # הפקודה reelkit
 reelkit install --agent claude      # הסקיל ל-Claude Code
 ```
 
+בסשן ענן של Claude Code שתי הפקודות האלה (וגם `librosa` לכלי הקול) רצות
+מעצמן בתחילת כל סשן - `.claude/hooks/session-start.sh`. ההתחברות נשארת ידנית.
+
 **בסשן ענן של Claude Code** צריך שני דברים, אחרת כל קריאה ל-Reelkit נכשלת:
 1. ‏`reelkit.cc` ברשימת ה-Allowed domains של הסביבה (‏Network access ← Custom,
    עם "Also include default list of common package managers").
