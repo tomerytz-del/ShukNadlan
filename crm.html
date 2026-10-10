@@ -5205,7 +5205,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cc .cc-manage .btn{min-height:40px;padding:8px 13px;font-size:.8rem;background:#fff;width:auto}
   .cc-more{position:relative}
   .cc-more .card-menu-btn{width:auto;height:auto;border-radius:999px;font-size:.8rem;color:var(--ink)}
-  .cc-more .card-menu-pop{min-width:200px}
+  /* "עוד" יושב בתחתית הכרטיס, ולכן נפתח למעלה - אל תוך הכרטיס עצמו. פתוח
+     למטה הוא נבלע מתחת לשורות הלקוחות הבאות: הכרטיס הוא stacking context
+     משלו (‏container-type), וכל טאב אחריו נצבע מעליו בלי קשר ל-z-index. */
+  .cc-more .card-menu-pop{min-width:200px;top:auto;bottom:calc(100% + 4px)}
+  /* ולכל תפריט שנפתח בטאב (גם ⋮ בכותרת): הטאב שלו עולה מעל השכנים */
+  .prop-tab:has(.card-menu.is-open){position:relative;z-index:30}
 
   .cc-drawer{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s ease,opacity .22s ease}
   .cc-drawer.is-open{grid-template-rows:1fr;opacity:1}
