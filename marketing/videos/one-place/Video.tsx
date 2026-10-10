@@ -315,9 +315,10 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
             <div style={shown(frame, on(hook, "בעפולה"), fps, H, 1.15)}><Line size={W * 0.085}>בעפולה <span style={{ color: palette.accent }}>והסביבה?</span></Line></div>
           </div>
           {chaos.map(chaosItem)}
-          <div style={{ position: "absolute", top: H * 0.68, width: "100%", display: "flex", justifyContent: "center", ...shown(frame, stopAt, fps, H, 1.2), opacity: frame >= stopAt ? 1 - suck : 0 }}>
-            <Line size={W * 0.07} color={palette.ink}>
-              תפסיקו לחפש ב-<span style={{ color: "#c2410c", fontVariantNumeric: "tabular-nums", display: "inline-block", minWidth: W * 0.17, textAlign: "center", direction: "ltr" }}>{count}</span> מקומות
+          <div style={{ position: "absolute", top: H * 0.655, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", ...shown(frame, stopAt, fps, H, 1.2), opacity: frame >= stopAt ? 1 - suck : 0 }}>
+            <Line size={W * 0.075} color={palette.ink}>תפסיקו לחפש</Line>
+            <Line size={W * 0.075} color={palette.ink}>
+              ב-<span style={{ color: "#c2410c", fontVariantNumeric: "tabular-nums", display: "inline-block", minWidth: W * 0.2, textAlign: "center", direction: "ltr" }}>{count}</span> מקומות
             </Line>
           </div>
         </AbsoluteFill>
