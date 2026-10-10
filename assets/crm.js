@@ -20378,20 +20378,15 @@ function renderClientMatches(panel, rows, client){
 }
 
 /* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
-   צפייה בנכס, ושליחה ללקוח/ה בוואטסאפ.
+   צפייה בנכס, ו"למיניסייט" - הנכס הזה לבדו נכנס למיניסייט של הלקוח/ה,
+   דרך אותו חלון שליחה של סימון כמה נכסים (openShowcaseSend ב-
+   assets/crm-showcase.js): מוסיף למיניסייט הקיים או פותח אחד, ואז מציע את
+   הקישור בוואטסאפ.
 
-   השליחה הישירה רק על נכס שלי או של המשרד. נכס בשת"פ נשלח דרך המיניסייט
-   בלבד: עמוד הנכס הציבורי נושא את שם המשרד המפרסם ואת הטלפון שלו, ושליחה
-   שלו ללקוח/ה היא בדיוק הדליפה שהמיניסייט נבנה למנוע (הסקיל client-showcase). */
-function matchShareText(m, client){
-  const first = String(client?.full_name || '').trim().split(/\s+/)[0] || '';
-  const what = [m.property_type, m.rooms ? m.rooms + ' חד׳' : '', m.city].filter(Boolean).join(' · ');
-  const price = m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price);
-  return (first ? `היי ${first},` : 'היי,') + ' מצאתי נכס שמתאים למה שחיפשת:\n'
-    + (what ? what + ' - ' : '') + price + '\n'
-    + window.location.origin + '/property?id=' + encodeURIComponent(m.property_id);
-}
-
+   לא שליחה ישירה של עמוד הנכס: הוא נושא את שם המשרד המפרסם ואת הטלפון
+   שלו, ובנכס בשת"פ זו בדיוק הדליפה שהמיניסייט נבנה למנוע. במיניסייט כל
+   הנכסים יוצאים בלי מיתוג, ולכן הכפתור מופיע על כולם - ונשמרים גם
+   המעקב, ה"אהבתי" ובקשות הסיור. */
 function renderMatchCards(panel, rows){
   panel.innerHTML = '';
   const client = panel.closest('.match-panel')?._client;
@@ -20441,13 +20436,29 @@ function renderMatchCards(panel, rows){
     }
 
     const actions = card.querySelector('.lead-actions');
-    const clientWa = client && waLink(client.phone);
-    if (clientWa && m.source !== 'shared'){
-      addCardAction(actions, {
-        label:'💬 שליחה ללקוח/ה', cls:'btn-share', blank:true,
-        title:'וואטסאפ ל' + (client.full_name || 'לקוח/ה') + ' עם קישור לנכס - אפשר לערוך לפני השליחה',
-        href: clientWa + '?text=' + encodeURIComponent(matchShareText(m, client)),
-      });
+    const sc = panel.closest('.match-panel')?._showcase;
+    if (client && sc && typeof openShowcaseSend === 'function'){
+      if (sc.already.has(m.property_id)){
+        const done = addCardAction(actions, { label:'✓ במיניסייט', cls:'btn-share',
+          title:'הנכס כבר במיניסייט של הלקוח/ה' });
+        done.disabled = true;
+      } else {
+        addCardAction(actions, {
+          label:'➕ למיניסייט', cls:'btn-share',
+          title:'הוספת הנכס למיניסייט של ' + (client.full_name || 'הלקוח/ה') + ', ואז שליחת הקישור בוואטסאפ',
+          onClick: btn => openShowcaseSend(client, [m.property_id], ()=>{
+            // כמו אחרי שליחה מהפס: הכרטיס הזה מסומן "במיניסייט" במקום, בלי
+            // לצייר מחדש את הרשימה (והסינון והמיון שבה)
+            sc.selected.delete(m.property_id);
+            sc.already = (showcaseSummaries[client.id] || {}).property_ids || new Set();
+            const pick = card.querySelector('.sc-pick');
+            if (pick) pick.outerHTML = '<span class="sc-in">✓ במיניסייט</span>';
+            btn.textContent = '✓ במיניסייט';
+            btn.disabled = true;
+            sc.sync();
+          }),
+        });
+      }
     }
     addCardAction(actions, {
       label:'🏠 צפייה בנכס', blank:true,
