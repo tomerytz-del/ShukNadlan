@@ -1579,15 +1579,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        "עריכ/ה", "מסיר/ה", "החת/מה". עכשיו האייקון שוב מעל התווית, בריווח
        הדוק (בערך 50px), והתווית נשברת בין מילים בלבד: "הכנסה ליריד" בשתי
        שורות, אבל "עריכה" שלמה תמיד. */
-    .pc-tile{gap:3px;min-height:0;padding:7px 4px 6px;font-size:.72rem;border-radius:12px}
-    .pc-tile .pc-ico{width:17px;height:17px}
+    .pc-tile{gap:2px;min-height:0;padding:6px 4px 5px;font-size:.72rem;line-height:1.18;border-radius:12px}
+    .pc-tile .pc-ico{width:16px;height:16px}
+    /* פחות אוויר בין המקטעים - כל פיקסל כאן חוזר בכל נכס שנפתח */
+    .prop-card .pc-quick-head{margin-top:8px;padding-top:7px}
+    .pc-sec-head{margin-bottom:5px}
+    .pc-grid{--pc-gap:6px}
     .pc-tile .pc-label{overflow-wrap:normal;word-break:normal;hyphens:none}
+    /* דף הנכס בטלפון: התמונה לחיצה, העין גלויה, ואריח "דף נכס" יורד.
+       ‏"ביטול שת״פ" עולה למקום שהתפנה - שני, אחרי "עריכה" (‏order בתוך
+       ה-flex של הרשת; ב-DOM הוא אחרון, כמו שהוא נשאר במחשב). */
+    /* ‏‎.prop-card‎ בסלקטור: הכללים הבסיסיים של שניהם יושבים בהמשך הקובץ */
+    .prop-card .pc-hero-link{pointer-events:auto;cursor:pointer}
+    .prop-card .pc-hero-eye{display:flex}
+    .pc-tile.pc-wide-only{display:none}
+    .pc-tile.pc-edit{order:-2}
+    .pc-tile.pc-unshare{order:-1}
     /* באריח צר הבאדג' ("חינם", "₪20") רחב כמעט כמו חצי האריח, ונופל על
        האייקון שבמרכז. ריווח עליון רק לאריח שיש בו באדג' */
     .pc-tile:has(.pc-badge){padding-top:14px}
     .pc-tile.pc-fair-on .pc-label{font-size:.66rem}
-    .pc-chip{padding:6px 8px}
-    .pc-hub{margin-top:7px;padding:7px 8px 8px}
+    .pc-chip{padding:5px 8px;font-size:.7rem}
+    .pc-hub{margin-top:7px;padding:6px 8px 7px}
   }
   @media(prefers-reduced-motion:reduce){.pc-owner-act{transition:none}}
   /* תקרת העמודות לפי רוחב הכרטיס. הערכים נגזרים מרוחב אריח של ~85px
@@ -1650,6 +1663,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      "כמה תמונות יש" היא שאלה שנשאלת בכל רוחב. החיצים רק כשהתמונה היא
      תמונת נושא; על בול של 68px הם היו מכסים אותה כולה. */
   .pc-hero-media{position:relative;flex:none;line-height:0}
+  /* בטלפון התמונה היא הקישור לדף הנכס (נכס פעיל בלבד, ראו pageHref ב-crm.js),
+     והעין בפינה העליונה היא מה שאומר "לחיץ" - אין ריחוף שיגלה את זה.
+     **במחשב לא:** הקישור כבוי (‏pointer-events), העין מוסתרת ואריח "דף נכס"
+     נשאר. ההחלפה כולה בתוך ה-@container של הטלפון שלמטה. */
+  .pc-hero-link{display:block;position:relative;border-radius:var(--r-xs,12px);color:inherit;text-decoration:none;
+    pointer-events:none;cursor:default}
+  .pc-hero-link:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
+  .pc-hero-link .pc-hero-img{transition:filter .15s ease}
+  .pc-hero-link:hover .pc-hero-img{filter:brightness(.92)}
+  .pc-hero-eye{position:absolute;inset-block-start:4px;inset-inline-end:4px;width:22px;height:22px;
+    display:none;align-items:center;justify-content:center;border-radius:50%;
+    background:rgba(255,255,255,.92);color:var(--navy,#1C3A5E);box-shadow:0 1px 4px rgba(15,23,42,.25)}
+  .pc-hero-eye .pc-ico{width:14px;height:14px}
+  @media(prefers-reduced-motion:reduce){.pc-hero-link .pc-hero-img{transition:none}}
   .pc-hero-count{position:absolute;inset-block-end:4px;inset-inline-start:4px;line-height:1.4;
     padding:1px 6px;border-radius:999px;background:rgba(15,23,42,.62);color:#fff;
     font-size:.62rem;font-weight:800;pointer-events:none;white-space:nowrap}

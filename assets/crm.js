@@ -13546,16 +13546,30 @@ function buildPropertyCard(p, agentId){
      אחת?" היא שאלה שנשאלה עד כה רק בפתיחת העריכה, ו"איזו תמונה ראשונה"
      רק בדף הנכס. המונה תמיד גלוי; החיצים רק כשהתמונה היא תמונת נושא
      (‏@container, ראו ‎.pc-hero-nav‎) - על בול של 68px הם היו מכסים אותה. */
+  /* ‏**ובטלפון, לנכס שבאוויר, התמונה היא הקישור לדף הנכס** (בלשונית חדשה),
+     עם עין בפינה שאומרת שהיא לחיצה - ושם היא מחליפה את אריח "דף נכס", כדי
+     לחסוך שורה ברשת. **במחשב לא:** שם האריח נשאר והתמונה אינה לחיצה (‏CSS,
+     לפי רוחב הכרטיס - ‎.pc-hero-link‎ ו-‎.pc-wide-only‎). רק לנכס פעיל - דף הנכס טוען ‎status=active‎ בלבד, ולכל השאר יציג
+     "לא נמצא". החיצים והמונה הם אחים של הקישור ולא בתוכו: כפתור בתוך
+     ‏<a> אינו HTML תקין, ולחיצה על חץ הייתה פותחת גם את הדף. */
+  const pageHref = p.status === 'active' ? '/property?id=' + encodeURIComponent(p.id) : '';
+  const heroLink = inner => pageHref
+    ? `<a class="pc-hero-link" href="${esc(pageHref)}" target="_blank" rel="noopener noreferrer" tabindex="-1"
+         title="פתיחת דף הנכס באתר בלשונית חדשה" aria-label="פתיחת דף הנכס באתר">${inner}<span
+         class="pc-hero-eye" aria-hidden="true">${cardIconSvg('eye')}</span></a>`
+    : inner;
   const imgCount = (p.images && p.images.length) || 0;
   const heroHtml = imgCount
     ? `<div class="pc-hero-media">
-         <img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">
+         ${heroLink(`<img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">`)}
          ${imgCount > 1 ? `
          <button type="button" class="pc-hero-nav pc-hero-prev" aria-label="התמונה הקודמת">›</button>
          <button type="button" class="pc-hero-nav pc-hero-next" aria-label="התמונה הבאה">‹</button>` : ''}
          <span class="pc-hero-count" aria-live="polite">📷 <bdi>${imgCount > 1 ? `1/${imgCount}` : '1'}</bdi></span>
        </div>`
-    : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
+    : pageHref
+      ? `<div class="pc-hero-media">${heroLink(`<span class="pc-hero-img pc-hero-ph">${cardIconSvg('home')}</span>`)}</div>`
+      : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
   /* שורת התגיות מכווצת ל**שורה אחת**, וכל מה שמעבר לה יורד אל מאחורי
      "+N" (ראו clampCardTags). שלוש החלטות נגזרות מזה:
 
@@ -13709,7 +13723,7 @@ function buildPropertyCard(p, agentId){
      דף נכס, מסירה, החתמה, הקפצה, QR - לבנים עם אייקון כחול; את "חינם" של
      ההקפצה אומר הבאדג' שלה. ראו ‎.pc-tile‎ ב-CSS. */
   addQuickAction(actions, {
-    label:'עריכה', icon:'pencil',
+    label:'עריכה', icon:'pencil', cls:'pc-edit',
     title:'עריכת פרטי המודעה', onClick:()=> openEditProperty(p),
   });
 
@@ -13717,9 +13731,9 @@ function buildPropertyCard(p, agentId){
     // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה - אותו עמוד שה-QR מוביל
     // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
     // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
-    // ראשון בשורה יחד עם "עריכה": זו הבדיקה שעושים מיד אחרי כל שינוי.
+    // ‏pc-wide-only: בטלפון האריח מוסתר, והתמונה היא הקישור (ראו pageHref).
     addQuickAction(actions, {
-      label:'דף נכס', icon:'link',
+      label:'דף נכס', icon:'link', cls:'pc-wide-only',
       title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
       href:'/property?id=' + encodeURIComponent(p.id), blank:true,
     });
@@ -13810,10 +13824,11 @@ function buildPropertyCard(p, agentId){
       title:'הפקת מדבקת QR להדבקה על השלט',
       onClick:btn => openQrSticker(p, btn),
     });
-
+    // בטלפון הוא עולה למקום של "דף נכס", שני ברשת (‏order ב-CSS); במחשב
+    // הוא נשאר אחרון
     if (p.shared_with_partners){
       addQuickAction(actions, {
-        label:'ביטול שת״פ', icon:'close', tone:'red',
+        label:'ביטול שת״פ', icon:'close', tone:'red', cls:'pc-unshare',
         title:'הפסקת השיתוף - הנכס יורד מרשימת השת״פ של המשרדים',
         onClick:btn => unshareProperty(p, btn, agentId),
       });
@@ -14030,6 +14045,10 @@ function clampCardTags(wrap, maxRows = 2){
      והוא בודק את **הרוחב** בלבד, כי ה-apply עצמו משנה את הגובה וכל
      תגובה לגובה הייתה לולאה אינסופית. */
   requestAnimationFrame(apply);
+  /* ‏**ושוב כשהגופן נטען.** המדידה הראשונה רצה לפעמים בגופן החלופי, שצר
+     מ-Heebo: כל התגיות נכנסו לשורה, ואחרי שהגופן הגיע הן נשברו לשתיים -
+     בלי "+N", כי ה-ResizeObserver מקשיב לרוחב בלבד והרוחב לא השתנה. */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(()=> requestAnimationFrame(apply));
   if (typeof ResizeObserver === 'undefined') return;
   let lastWidth = -1;
   const ro = new ResizeObserver(entries => {
@@ -18580,6 +18599,7 @@ function addCardAction(actions, opts){
    אימוג'י לא עושה אף אחד מהשלושה: הוא נראה אחרת בכל מערכת הפעלה, גודלו
    תלוי בגופן, וצבעו קבוע. */
 const CARD_ICONS = {
+  eye:      '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   pencil:   '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   link:     '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
   signature:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"/><path d="M14 3v5h5"/><path d="M19.4 12.6a1.9 1.9 0 0 1 2.7 2.7L17 20.4l-3.4.6.6-3.4Z"/>',
@@ -18619,7 +18639,7 @@ function cardIconSvg(name){
 function buildCardTile(opts, kind){
   const el = document.createElement(opts.href ? 'a' : 'button');
   if (!opts.href) el.type = 'button';
-  el.className = kind + (opts.tone ? ' pc-' + opts.tone : '');
+  el.className = kind + (opts.tone ? ' pc-' + opts.tone : '') + (opts.cls ? ' ' + opts.cls : '');
   el.innerHTML = cardIconSvg(opts.icon)
     + `<span class="pc-label">${escapeHtml(opts.label)}</span>`
     + (opts.badge ? `<span class="pc-badge${opts.badgeFree ? ' pc-badge-free' : ''}">${escapeHtml(opts.badge)}</span>` : '');
