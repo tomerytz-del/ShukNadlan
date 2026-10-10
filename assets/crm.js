@@ -24473,6 +24473,10 @@ function gotoSection(accId, focusId, opts){
 document.addEventListener('click', (e)=>{
   const trigger = e.target.closest('[data-goto]');
   if (!trigger || !document.getElementById('dashboard').contains(trigger)) return;
+  /* ‏<a href="#" data-goto> ("מתי ולאן לשלוח תזכורות", "המספרים הווירטואליים
+     שלי"): בלי זה הדפדפן ממשיך אל "#" אחרי הגלילה וקופץ לראש הדף, והקישור
+     נראה כאילו לא עשה כלום. */
+  e.preventDefault();
   gotoSection(trigger.dataset.goto, trigger.dataset.focus);
 });
 
