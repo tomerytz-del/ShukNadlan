@@ -24065,7 +24065,11 @@ const REMINDER_PREF_DEFAULTS = {
   max_per_30_days: 6,
   quiet_from_hour: 21,
   quiet_to_hour: 8,
+  quiet_days: [],
 };
+
+/* ימי השבוע לפי extract(dow) במסד: 0 = ראשון ... 6 = שבת. */
+const REMINDER_WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
@@ -24077,7 +24081,7 @@ async function loadReminders(agentId){
   const [findings, prefs] = await Promise.all([
     sb.rpc('agent_reminder_findings', { p_agent_id: agentId }),
     sb.from('agent_reminder_preferences')
-      .select('channels, muted_kinds, cadence, max_per_30_days, quiet_from_hour, quiet_to_hour')
+      .select('channels, muted_kinds, cadence, max_per_30_days, quiet_from_hour, quiet_to_hour, quiet_days')
       .eq('agent_id', agentId).maybeSingle(),
   ]);
 
@@ -24099,6 +24103,7 @@ async function loadReminders(agentId){
                        ? Number(row.quiet_from_hour) : REMINDER_PREF_DEFAULTS.quiet_from_hour,
     quiet_to_hour:   Number.isFinite(Number(row?.quiet_to_hour))
                        ? Number(row.quiet_to_hour) : REMINDER_PREF_DEFAULTS.quiet_to_hour,
+    quiet_days:      Array.isArray(row?.quiet_days) ? row.quiet_days.map(Number) : [],
   };
 
   renderReminders();
@@ -24181,6 +24186,13 @@ function renderReminderPrefs(){
       }
       sel.value = String(value);
     });
+
+  const days = document.getElementById('rmQuietDays');
+  if (days){
+    days.innerHTML = REMINDER_WEEKDAYS.map((name, d) =>
+      `<label class="checkbox-item"><input type="checkbox" class="rmQuietDay" value="${d}"
+        ${reminderPrefs.quiet_days.includes(d) ? 'checked' : ''}> ${esc(name)}</label>`).join('');
+  }
 
   renderReminderKinds();
   syncReminderChannelsNote();
@@ -24281,6 +24293,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
     max_per_30_days: cap,
     quiet_from_hour: Number(document.getElementById('rmQuietFrom').value),
     quiet_to_hour: Number(document.getElementById('rmQuietTo').value),
+    quiet_days: Array.from(document.querySelectorAll('.rmQuietDay:checked')).map(cb => Number(cb.value)),
     updated_at: new Date().toISOString(),
   };
 
@@ -24299,6 +24312,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
     max_per_30_days: cap,
     quiet_from_hour: payload.quiet_from_hour,
     quiet_to_hour: payload.quiet_to_hour,
+    quiet_days: payload.quiet_days,
   };
   document.getElementById('rmCap').value = cap;
   // הרשימה נצבעת מחדש כי ההשתקה משנה את המצב של השורות (‏is-muted), לא את
