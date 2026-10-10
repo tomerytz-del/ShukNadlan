@@ -5135,6 +5135,98 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lc-secondary .btn:hover{background:rgba(15,23,42,.06);color:var(--txt,var(--ink))}
   .lc-secondary .btn:disabled{opacity:.5}
 
+  /* ---------- כרטיס הלקוח/ה ----------
+     כותרת / מה מחפש/ת / סרגל פעולות / מגירת התאמות - ראו buildClientCard()
+     ב-assets/crm.js. הכול תחת ‏.cc: ‏.match-card ו-.lead-actions משותפים
+     לכרטיסי נכס, ליד והמיניסייט, ושינוי בהם ישירות היה זולג לשם.
+     ‏@container מאותה סיבה של כרטיס הליד: הרוחב הוא של האקורדיון. */
+  .client-card.cc{container-type:inline-size;padding:14px 16px;gap:9px}
+  .cc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .cc-id{min-width:0}
+  .cc-name{font-size:1.06rem;font-weight:800;line-height:1.3;color:var(--txt,var(--ink))}
+  .cc-badges{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:5px}
+  .cc-badges .status-pill{border-radius:999px;padding:2px 10px}
+  .cc-count{background:#DFEDE3;color:#2A5B36}
+  .cc-kebab .card-menu-btn{width:36px;height:36px;font-size:1.25rem}
+  .cc .card-tags{margin-top:0}
+  .cc-req{background:#fff;border:1px solid var(--edge,var(--line));border-inline-start:3px solid var(--gold);
+    border-radius:12px;padding:9px 12px;font-size:.84rem;line-height:1.55;color:var(--txt,var(--ink))}
+  .cc-req-label{font-weight:800;color:var(--gold)}
+
+  .cc .match-peek{width:100%;text-align:start;font:inherit;font-size:.82rem;cursor:pointer;
+    background:linear-gradient(180deg,#F2F7F3,#E6F0E9);border:1px solid #CFE3D5;color:#1F3D2A;
+    border-radius:12px;padding:10px 12px;gap:10px;box-shadow:0 1px 2px rgba(15,23,42,.05);
+    transition:box-shadow .16s ease,transform .16s ease}
+  .cc .match-peek:hover{box-shadow:0 4px 12px rgba(15,23,42,.10)}
+  .cc .match-peek .score-pill{font-size:.8rem;padding:4px 9px;border-radius:999px}
+  .cc .match-peek-text{flex:1 1 auto;white-space:nowrap}
+  .cc-peek-label{display:block;font-size:.68rem;font-weight:800;color:#2A5B36;letter-spacing:.02em}
+  .cc-peek-price{font-weight:800;white-space:nowrap;flex-shrink:0}
+
+  /* בטלפון: הפעולה הראשית בשורה משלה ברוחב מלא, ומתחתיה קשר מימין וניהול
+     משמאל. ברוחב מספיק - שורה אחת: קשר, הפעולה הראשית במרכז, ניהול. */
+  .cc .cc-bar{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"cta cta" "contact manage";
+    align-items:center;gap:8px;margin-top:4px;padding-top:10px;border-top:1px solid var(--edge,var(--line))}
+  .cc .cc-cta{grid-area:cta}
+  .cc-contact{grid-area:contact}
+  .cc-manage{grid-area:manage;justify-content:flex-end}
+  .cc-contact,.cc-manage{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .cc-call{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;color:var(--teal);font-weight:700;font-size:.86rem;text-decoration:none}
+  .cc-call:hover{background:var(--teal-tint);border-color:var(--teal)}
+  .cc-ico{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    font-size:1.05rem;text-decoration:none;border:1.5px solid var(--line);background:#fff;flex-shrink:0}
+  .cc-wa:hover{background:#DFEDE3;border-color:#2A5B36}
+  .cc .cc-cta{display:flex}
+  .cc .cc-cta .btn{width:100%;min-height:48px;font-size:.92rem;font-weight:800;gap:8px;
+    box-shadow:0 4px 14px rgba(139,35,50,.22)}
+  .cc-caret{font-size:.8rem;opacity:.85}
+  .cc .cc-manage .btn{min-height:40px;padding:8px 13px;font-size:.8rem;background:#fff;width:auto}
+  .cc-more{position:relative}
+  .cc-more .card-menu-btn{width:auto;height:auto;border-radius:999px;font-size:.8rem;color:var(--ink)}
+  .cc-more .card-menu-pop{min-width:200px}
+
+  .cc-drawer{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s ease,opacity .22s ease}
+  .cc-drawer.is-open{grid-template-rows:1fr;opacity:1}
+  .cc-drawer-in{min-height:0;overflow:hidden}
+  .cc .match-panel{margin-top:2px;border-top:0;padding-top:4px}
+  @media(prefers-reduced-motion:reduce){.cc-drawer{transition:none}}
+
+  .cc .match-list{display:grid;grid-template-columns:1fr;gap:8px}
+  .cc .cc-match{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;margin:0;padding:9px;background:#fff;border:1px solid var(--edge,var(--line));
+    border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+  .cc-thumb{width:88px;height:88px;flex-shrink:0;border-radius:10px;overflow:hidden;background:var(--surface-2,#f1f5f9);
+    display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+  .cc-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .cc-m-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .cc .cc-match .match-title{font-size:.86rem;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cc .cc-match .score-pill{border-radius:999px;padding:3px 8px}
+  .cc-m-addr{font-size:.74rem;color:var(--txt-soft,var(--ink-soft));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cc-m-specs{font-size:.78rem;color:var(--txt-soft,var(--ink-soft))}
+  .cc-m-specs b{color:var(--txt,var(--ink));font-weight:800}
+  .cc .cc-m-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;padding-top:0;border-top:0}
+  .cc .cc-m-actions .btn{flex:1 1 auto}
+  .cc .cc-m-actions .btn{width:auto;min-height:36px;padding:6px 11px;font-size:.76rem}
+  .cc .cc-m-actions .btn-ghost{background:#fff}
+  .cc .cc-m-actions .btn-share{background:#1F7A3D;color:#fff}
+
+  @container (min-width:640px){
+    .cc .cc-bar{grid-template-columns:auto minmax(200px,280px) auto;grid-template-areas:"contact cta manage";
+      justify-content:space-between}
+    .cc .match-list{grid-template-columns:1fr 1fr}
+  }
+  /* טלפון צר: קשר וניהול בשתי שורות נפרדות, והכפתורים בכל שורה ברוחב שווה */
+  @container (max-width:520px){
+    .cc .cc-bar{grid-template-columns:1fr;grid-template-areas:"cta" "contact" "manage"}
+    .cc-contact,.cc-manage{flex-wrap:nowrap;justify-content:stretch}
+    .cc-contact .cc-call{flex:1 1 auto;justify-content:center}
+    .cc .cc-manage>*{flex:1 1 0}
+    .cc .cc-manage .btn,.cc-more .card-menu-btn{width:100%;padding:8px 6px}
+  }
+  @container (max-width:420px){
+    .cc-thumb{width:72px;height:72px}
+  }
+
   @container (min-width:720px){
     .lc-grid{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(0,1.6fr) minmax(220px,1fr);gap:18px;align-items:start}
     .lc-need{background:transparent;border:0;border-inline:1px solid var(--edge,var(--line));border-radius:0;padding:0 18px}

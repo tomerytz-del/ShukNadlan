@@ -20029,107 +20029,156 @@ function buildClientTab(c){
   });
 }
 
+/* ---------- כרטיס הלקוח/ה ----------
+   ארבע שכבות, מלמעלה למטה, באותו סדר בטלפון ובמחשב:
+   1. כותרת - שם, תגיות (מצב, הפנייה, מונה התאמות, המיניסייט) ותפריט ⋯
+      לניהול (מסירה, מחיקה).
+   2. מה מחפש/ת - שורת פרמטרים כתגיות, הדרישה החופשית (ההערות) בתיבה
+      בהירה, ו"ההתאמה המובילה" עם הציון.
+   3. סרגל פעולות - קשר (חיוג עם המספר, וואטסאפ), הפעולה הראשית ("הצגת X
+      התאמות", או "הוספת הנכס" אצל בעל/ת נכס) וניהול (מיניסייט, עריכה,
+      "עוד" עם הסכם, יומן ושיחות). במחשב שלושתם בשורה אחת; בטלפון הפעולה
+      הראשית ברוחב מלא והשאר שורת אייקונים.
+   4. מגירת ההתאמות - נפתחת בגובה ובשקיפות מתחת לסרגל (‏.cc-drawer).
+
+   האחיזות שקוד אחר מחפש בכרטיס נשמרו בשמן: ‏data-client-card, ‏.sc-pill-slot
+   ‏(crm-showcase.js), ‏.match-cta (התראת התאמה, "הצלב נכסים"), ‏.client-calls-btn
+   ‏(קישור משיחה), ‏.match-panel ו-.match-head (תיבות המיניסייט). */
+function clientParamTags(c){
+  const owner = isOwnerClient(c);
+  const size = (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
+    : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
+    : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : '';
+  const budget = ((c.min_price && c.max_price) ? shekel(c.min_price) + '-' + shekel(c.max_price)
+    : c.max_price ? 'עד ' + shekel(c.max_price)
+    : c.min_price ? 'מ-' + shekel(c.min_price) : '')
+    + ((c.min_price || c.max_price) && c.deal_type === 'rent' ? ' לחודש' : '');
+  return tagsHtml([
+    { text: clientSideLabel(c), cls:'tag-key' },
+    { text: c.category === 'commercial' ? '🏪 מסחרי' : '🏠 מגורים' },
+    // לבעל/ת נכס אין פרופיל חיפוש - השדות נשארים במסד אבל אינם אומרים דבר
+    !owner && (c.cities || []).length && { text:'📍 ' + c.cities.join(', ') },
+    !owner && (c.property_types || []).length && { text: c.property_types.join(' / ') },
+    !owner && size && { text:'📐 ' + size },
+    !owner && (c.min_rooms || c.max_rooms) && { text:'🛏 ' + (c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים' },
+    !owner && budget && { text:'💰 ' + budget, cls:'tag-info' },
+    !owner && c.max_floor != null && { text:'🏢 עד קומה ' + c.max_floor },
+    !owner && (c.required_features || []).length && { text:'✓ ' + c.required_features.map(featureLabel).join(', ') },
+  ]);
+}
+
+function setMatchCta(btn, client, open){
+  const n = clientMatchCounts[client.id];
+  btn.setAttribute('aria-expanded', String(open));
+  btn.innerHTML = open
+    ? '<span>סגירת ההתאמות</span><span class="cc-caret" aria-hidden="true">▴</span>'
+    : `<span>${n ? 'הצגת ' + esc(plural(n, 'התאמה אחת', 'התאמות')) : 'חיפוש התאמות'}</span><span class="cc-caret" aria-hidden="true">▾</span>`;
+}
+
 function buildClientCard(c){
   const matches = clientMatchCounts[c.id];
+  const owner = isOwnerClient(c);
   const wa = waLink(c.phone);
+  const tel = String(c.phone || '').replace(/[^\d+]/g, '');
   const el = document.createElement('div');
-  el.className = 'card client-card';
+  el.className = 'card client-card cc';
   el.dataset.clientCard = c.id;
   el.innerHTML = `
-    <div class="lead-top">
-      <div style="min-width:0">
-        <div class="lead-name">${esc(c.full_name)}</div>
-        ${c.phone ? `<div class="contact-line">
-            <span class="lead-phone">${esc(c.phone)}</span>
-            <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
-               title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
-            ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
-               title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
-          </div>` : ''}
-        <div class="req-line">${esc(clientRequirementLine(c))}</div>
-        ${(c.financing_status || c.lead_source) ? `<div class="lead-meta">${esc([
-          c.financing_status && '💳 ' + (CLIENT_FINANCING_LABELS[c.financing_status] || c.financing_status),
-          c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
-        ].filter(Boolean).join(' · '))}</div>` : ''}
-        ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
-        ${referralNoteHtml(c)}
+    <div class="cc-head">
+      <div class="cc-id">
+        <div class="cc-name">${esc(c.full_name)}</div>
+        <div class="cc-badges">
+          <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
+          ${c.referred_by ? '<span class="status-pill status-shared">🤝 הפנייה</span>' : ''}
+          ${matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
+          <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
+        </div>
       </div>
-      <div class="pill-row">
-        <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
-        ${c.referred_by ? '<span class="status-pill status-shared">הפנייה</span>' : ''}
-        ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
-        <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
-      </div>
-      <div class="card-menu">
+      <div class="card-menu cc-kebab">
         <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
-                title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
+                title="ניהול" aria-label="ניהול ${esc(c.full_name)}">⋮</button>
         <div class="card-menu-pop"></div>
       </div>
     </div>
-    <div class="lead-actions"></div>
-    <div class="match-panel" style="display:none"></div>
+    ${clientParamTags(c)}
+    ${c.notes ? `<div class="cc-req"><span class="cc-req-label">הדרישה:</span> ${esc(c.notes)}</div>` : ''}
+    ${(c.financing_status || c.lead_source) ? `<div class="lead-meta">${esc([
+      c.financing_status && '💳 ' + (CLIENT_FINANCING_LABELS[c.financing_status] || c.financing_status),
+      c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
+    ].filter(Boolean).join(' · '))}</div>` : ''}
+    ${referralNoteHtml(c)}
+    <div class="cc-bar lead-actions">
+      <div class="cc-contact">
+        ${tel.replace(/\D/g, '').length >= 9 ? `<a class="cc-call" href="tel:${esc(tel)}"
+            title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞 <span dir="ltr">${esc(c.phone)}</span></a>` : ''}
+        ${wa ? `<a class="cc-ico cc-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
+            title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
+      </div>
+      <div class="cc-cta"></div>
+      <div class="cc-manage"></div>
+    </div>
+    <div class="cc-drawer" inert>
+      <div class="cc-drawer-in"><div class="match-panel"></div></div>
+    </div>
   `;
 
-  const actions = el.querySelector('.lead-actions');
+  const cta = el.querySelector('.cc-cta');
+  const manage = el.querySelector('.cc-manage');
   const panel = el.querySelector('.match-panel');
 
-  const owner = isOwnerClient(c);
-  // תצוגה מקדימה של ההתאמה החזקה ביותר - מיד עם פתיחת הכרטיס
+  // ההתאמה המובילה - מיד עם פתיחת הכרטיס, מעל הסרגל
   const peek = owner ? null : clientMatchPeek(c, () => el.querySelector('.match-cta'));
-  if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+  if (peek) el.querySelector('.cc-bar').insertAdjacentElement('beforebegin', peek);
 
-  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
-  // בעל/ת נכס: הפעולה הטבעית היא לפתוח את הנכס שלו/ה, עם הבעלים כבר בטופס
+  // לבעל/ת נכס אין התאמות (client_property_match מסננת אותו/ה); הפעולה
+  // הטבעית אצלו/ה היא לפתוח את הנכס שלו/ה, עם הבעלים כבר בטופס
   if (owner){
-    addCardAction(actions, {
-      label:'🏠 הוספת הנכס',
+    addCardAction(cta, {
+      label:'🏠 הוספת הנכס', cls:'btn-gold',
       title:'פתיחת טופס נכס חדש, עם הלקוח/ה כבעלים',
       onClick:()=> openPropertyForOwner(c),
     });
-  }
-  // השיחות וההקלטות עם הלקוח/ה (יומן שיחות). רק למי שיש לו/ה יומן -
-  // אצל כל השאר הכפתור היה פותח תמיד "אין שיחות".
-  if (callsBlockVisible()){
-    const callsBtn = addCardAction(actions, {
-      label:'📞 שיחות והקלטות',
-      title:'השיחות עם הלקוח/ה - סיכום, הקלטה ותמלול',
-      onClick: btn => toggleClientCalls(c, btn, el),
-    });
-    callsBtn.classList.add('client-calls-btn');
-  }
-  addCardAction(actions, {
-    label:'📅 פגישה / תזכורת',
-    title:'קביעת פגישה, סיור או תזכורת ביומן, מקושרת ללקוח/ה',
-    onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }),
-  });
-  // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
-  // ולא רק בקטגוריית ההסכמים. סוג העסקה והצד בעסקה קובעים איזה טופס נפתח.
-  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
-                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
-  addCardAction(actions, {
-    label:'✍️ החתמה על הסכם',
-    title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
-    onClick:()=> openAgreementWizard({ kind: agrKind, clientId: c.id }),
-  });
-  // לבעל/ת נכס אין התאמות (client_property_match מסננת אותו/ה), ולכן גם
-  // אין כפתור שהיה נפתח תמיד על "אין התאמות"
-  if (!owner){
-    const matchBtn = addCardAction(actions, {
-      label: matches ? `🔍 הצגת ${plural(matches, 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות',
-      cls:'btn-gold act-wide',
+  } else {
+    const matchBtn = addCardAction(cta, {
+      label:'', cls:'btn-gold match-cta',
       onClick: btn => toggleClientMatches(c, btn, panel),
     });
-    matchBtn.classList.add('match-cta');
+    matchBtn.setAttribute('aria-controls', 'ccDrawer-' + c.id);
+    el.querySelector('.cc-drawer').id = 'ccDrawer-' + c.id;
+    setMatchCta(matchBtn, c, false);
   }
-  // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
-  if (typeof addShowcaseAction === 'function') addShowcaseAction(actions, el, c);
 
-  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
-  // הפעולות לצד "עריכה" ו"החתמה" - שלושה כפתורים באותו גודל ובאותו צבע,
-  // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
-  /* מסירה בהפנייה - מנהל/ת משרד בלבד. ומחיקה רק למי שמטפל/ת: המנהל/ת
-     שמסר/ה רואה ומעדכנ/ת לקוח/ה בהפנייה, אבל אינו/ה מוחק/ת אותו/ה
-     מהקובץ של הסוכן/ת (ה-RLS ממילא אינו מאפשר). */
+  // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
+  if (typeof addShowcaseAction === 'function') addShowcaseAction(manage, el, c);
+  addCardAction(manage, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+
+  /* "עוד": הסכם, יומן ושיחות. הם בתפריט ולא בשורה כי הם פעולות של פעם
+     בכמה ימים, ושש פעולות באותו משקל הן בדיוק מה שהסתיר את "הצגת
+     ההתאמות" - הסיבה שהקובץ הזה קיים. */
+  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
+                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
+  const more = document.createElement('div');
+  more.className = 'card-menu cc-more';
+  more.innerHTML = `<button type="button" class="btn btn-ghost card-menu-btn" aria-haspopup="true" aria-expanded="false">עוד ▾</button>
+    <div class="card-menu-pop"></div>`;
+  manage.appendChild(more);
+  const moreItems = [
+    { label:'✍️ החתמה על הסכם', onClick:()=> openAgreementWizard({ kind: agrKind, clientId: c.id }) },
+    { label:'📅 פגישה / תזכורת',
+      onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }) },
+  ];
+  // השיחות וההקלטות - רק למי שיש לו/ה יומן שיחות; אצל כל השאר היה נפתח "אין שיחות"
+  const withCalls = callsBlockVisible();
+  if (withCalls){
+    moreItems.push({ label:'📞 שיחות והקלטות',
+      onClick:()=> toggleClientCalls(c, more.querySelector('.client-calls-btn'), el) });
+  }
+  buildCardMenu(more, moreItems);
+  if (withCalls) more.querySelector('.card-menu-pop button:last-child').classList.add('client-calls-btn');
+
+  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא בתפריט ⋮ ולא
+  // לצד "עריכה". מסירה בהפנייה - מנהל/ת משרד בלבד. ומחיקה רק למי שמטפל/ת:
+  // המנהל/ת שמסר/ה אינו/ה מוחק/ת מהקובץ של הסוכן/ת (ה-RLS ממילא אינו מאפשר).
   const menu = [];
   if (canReferRow('client', c)){
     menu.push({
@@ -20140,8 +20189,8 @@ function buildClientCard(c){
   if (c.agent_id === currentAgent.id){
     menu.push({ label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) });
   }
-  if (menu.length) buildCardMenu(el.querySelector('.card-menu'), menu);
-  else el.querySelector('.card-menu').remove();
+  if (menu.length) buildCardMenu(el.querySelector('.cc-kebab'), menu);
+  else el.querySelector('.cc-kebab').remove();
 
   return el;
 }
@@ -20178,11 +20227,14 @@ function clientMatchPeek(client, ctaGetter){
   row.title = 'פתיחת רשימת ההתאמות המלאה';
   row.innerHTML =
     `<span class="score-pill ${top.top_score >= 85 ? 'score-high' : 'score-mid'}">${esc(String(top.top_score))}%</span>`
-    + `<span class="match-peek-text">הכי מתאים: <b>${esc(what)}</b>`
-    + (address ? ' ב' + esc(address) : '') + ` · ${esc(price)}</span>`;
+    + `<span class="match-peek-text"><span class="cc-peek-label">ההתאמה המובילה</span>`
+    + `<b>${esc(what)}</b>` + (address ? ' ב' + esc(address) : '') + `</span>`
+    + `<span class="cc-peek-price">${esc(price)}</span>`;
   row.addEventListener('click', ()=>{
     const cta = ctaGetter();
-    if (cta) cta.click();
+    // ההתאמה המובילה פותחת את המגירה, ולא סוגרת אותה כשהיא כבר פתוחה
+    if (cta && cta.getAttribute('aria-expanded') !== 'true') cta.click();
+    else cta?.closest('.cc')?.querySelector('.cc-drawer')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
   return row;
 }
@@ -20222,30 +20274,34 @@ function closeCardMenus(){
 document.addEventListener('click', closeCardMenus);
 document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeCardMenus(); });
 
+/* מגירת ההתאמות. פתיחה תמיד טוענת מחדש - נכס שעלה או ירד מאז הפתיחה
+   הקודמת משנה את הרשימה. ‏inert על המגירה הסגורה, כי היא נשארת ב-DOM
+   (בשביל האנימציה) ובלעדיו Tab היה נכנס לכפתורים שאינם נראים. */
 async function toggleClientMatches(client, btn, panel){
-  if (panel.style.display !== 'none'){
-    panel.style.display = 'none';
-    btn.textContent = clientMatchCounts[client.id]
-      ? `🔍 הצגת ${plural(clientMatchCounts[client.id], 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות';
+  const drawer = panel.closest('.cc-drawer');
+  if (drawer.classList.contains('is-open')){
+    drawer.classList.remove('is-open');
+    drawer.inert = true;
+    setMatchCta(btn, client, false);
     return;
   }
 
-  const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'מחפש…';
   const { data, error } = await sb.rpc('match_properties_for_client', { p_client_id: client.id });
   btn.disabled = false;
 
   if (error){
     showToast('שגיאה בחיפוש התאמות: ' + heErr(error));
-    btn.textContent = original;
+    setMatchCta(btn, client, false);
     return;
   }
 
   const rows = data || [];
   clientMatchCounts[client.id] = rows.length;
   renderClientMatches(panel, rows, client);
-  panel.style.display = 'block';
-  btn.textContent = '🔍 הסתרת ההתאמות';
+  drawer.inert = false;
+  drawer.classList.add('is-open');
+  setMatchCta(btn, client, true);
 }
 
 /* ---------- סינון ומיון בפאנל ההתאמות ----------
@@ -20272,6 +20328,7 @@ let matchFilter = 'all';
 let matchSort = 'score';
 
 function renderClientMatches(panel, rows, client){
+  panel._client = client;
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
     return;
@@ -20320,18 +20377,33 @@ function renderClientMatches(panel, rows, client){
   draw(active);
 }
 
+/* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
+   צפייה בנכס, ושליחה ללקוח/ה בוואטסאפ.
+
+   השליחה הישירה רק על נכס שלי או של המשרד. נכס בשת"פ נשלח דרך המיניסייט
+   בלבד: עמוד הנכס הציבורי נושא את שם המשרד המפרסם ואת הטלפון שלו, ושליחה
+   שלו ללקוח/ה היא בדיוק הדליפה שהמיניסייט נבנה למנוע (הסקיל client-showcase). */
+function matchShareText(m, client){
+  const first = String(client?.full_name || '').trim().split(/\s+/)[0] || '';
+  const what = [m.property_type, m.rooms ? m.rooms + ' חד׳' : '', m.city].filter(Boolean).join(' · ');
+  const price = m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price);
+  return (first ? `היי ${first},` : 'היי,') + ' מצאתי נכס שמתאים למה שחיפשת:\n'
+    + (what ? what + ' - ' : '') + price + '\n'
+    + window.location.origin + '/property?id=' + encodeURIComponent(m.property_id);
+}
+
 function renderMatchCards(panel, rows){
   panel.innerHTML = '';
+  const client = panel.closest('.match-panel')?._client;
   rows.forEach(m => {
     const address = [m.city, [m.street, m.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-    const matchTags = tagsHtml([
-      { text: m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price), cls:'tag-key' },
-      m.rooms && { html:`🛏 <b>${esc(m.rooms)}</b> חדרים` },
-      m.property_type && { text:'🏠 ' + m.property_type },
-      m.size_sqm && { text:`📐 ${m.size_sqm} מ״ר` },
-      m.floor != null && { text:'🏢 קומה ' + m.floor },
-      address && { text:'📍 ' + address },
-    ]);
+    const price = m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price);
+    const specs = [
+      m.property_type,
+      m.rooms && m.rooms + ' חד׳',
+      m.size_sqm && m.size_sqm + ' מ״ר',
+      m.floor != null && 'קומה ' + m.floor,
+    ].filter(Boolean).join(' · ');
 
     const gaps = [
       ...(m.reasons || []),
@@ -20343,20 +20415,25 @@ function renderMatchCards(panel, rows){
     const sourceLabel = m.source === 'shared'
       ? '🤝 ' + (m.listing_agency_name || 'משרד שותף')
       : MATCH_SOURCE_LABELS[m.source] || m.source;
+    const img = (m.images || [])[0];
 
     const card = document.createElement('div');
-    card.className = 'match-card';
+    card.className = 'match-card cc-match';
     card.innerHTML = `
-      <div class="match-head">
-        <div>
-          <span class="src-tag src-${esc(m.source)}">${esc(sourceLabel)}</span>
-          <div class="match-title">${esc(m.title)}</div>
+      <div class="cc-thumb">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span aria-hidden="true">🏠</span>'}</div>
+      <div class="cc-m-body">
+        <div class="match-head">
+          <div style="min-width:0">
+            <span class="src-tag src-${esc(m.source)}">${esc(sourceLabel)}</span>
+            <div class="match-title">${esc(m.title || address || 'נכס')}</div>
+          </div>
+          <span class="score-pill ${m.score >= 85 ? 'score-high' : 'score-mid'}">${m.score}%</span>
         </div>
-        <span class="score-pill ${m.score >= 85 ? 'score-high' : 'score-mid'}">${m.score}%</span>
+        ${address ? `<div class="cc-m-addr">📍 ${esc(address)}</div>` : ''}
+        <div class="cc-m-specs"><b>${esc(price)}</b>${specs ? ' · ' + esc(specs) : ''}</div>
+        ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
       </div>
-      ${matchTags}
-      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
-      <div class="lead-actions"></div>
+      <div class="lead-actions cc-m-actions"></div>
     `;
 
     if (typeof showcaseDecorateMatch === 'function'){
@@ -20364,8 +20441,16 @@ function renderMatchCards(panel, rows){
     }
 
     const actions = card.querySelector('.lead-actions');
+    const clientWa = client && waLink(client.phone);
+    if (clientWa && m.source !== 'shared'){
+      addCardAction(actions, {
+        label:'💬 שליחה ללקוח/ה', cls:'btn-share', blank:true,
+        title:'וואטסאפ ל' + (client.full_name || 'לקוח/ה') + ' עם קישור לנכס - אפשר לערוך לפני השליחה',
+        href: clientWa + '?text=' + encodeURIComponent(matchShareText(m, client)),
+      });
+    }
     addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
+      label:'🏠 צפייה בנכס', blank:true,
       href:'/property?id=' + encodeURIComponent(m.property_id),
     });
 
@@ -21893,7 +21978,7 @@ async function toggleClientCalls(c, btn, el){
     : (calls.length
       ? calls.map(x => callRowHtml(x, true)).join('')
       : '<div class="empty-state">אין שיחות מתועדות עם הלקוח/ה.</div>');
-  el.querySelector('.lead-actions').insertAdjacentElement('afterend', box);
+  (el.querySelector('.cc-bar') || el.querySelector('.lead-actions')).insertAdjacentElement('afterend', box);
 }
 
 /* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
