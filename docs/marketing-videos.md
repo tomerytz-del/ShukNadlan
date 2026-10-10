@@ -31,7 +31,7 @@
 | הכתיבה לקטלוג | ‏`ads-admin`: ‏`save_video` (חדש או עריכה) ו-`archive_video` |
 | הביצועים | ‏`marketing_video_stats(p_days)` - ‏INVOKER, כך שה-RLS של הטבלאות סוגר אותה |
 | הקמפיין | ‏`ads-admin/campaign.ts`, ‏`format: "video"` |
-| המיגרציה | `20270414090000_marketing_videos.sql` |
+| המיגרציה | `20270415090000_marketing_videos.sql` |
 | הממשק | `crm.html` (‏`#adsPaneVideos`) ו-`assets/crm.js` (‏`loadVideoLibrary`, ‏`adsVidOpenForm`, ‏`adsVidPicker`) |
 
 ### העלאה

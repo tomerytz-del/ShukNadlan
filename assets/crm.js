@@ -26500,7 +26500,7 @@ async function loadVideoLibrary(force){
   }catch(error){
     host.innerHTML = '';
     host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
-      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270414090000_marketing_videos.sql.' : 'שגיאה בטעינת הסרטונים: ' + heErr(error)));
+      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270415090000_marketing_videos.sql.' : 'שגיאה בטעינת הסרטונים: ' + heErr(error)));
     dashPanelsMeasure();
     return;
   }
