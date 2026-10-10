@@ -1804,6 +1804,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @container (max-width:639px){
     .client-filter-toggle{display:inline-flex;align-items:center}
     #clientToolbar:not(.is-filters-open) .client-toolbar-grid{display:none}
+    /* "הנכסים שלי" - אותו קיפול; ‏#propToolbar הוא ה-container שלו */
+    #propToolbar:not(.is-filters-open) #propFilterGrid{display:none}
   }
   @container (min-width:640px){
     .list-toolbar .client-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -7008,9 +7010,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </form>
     <div class="list-toolbar" id="propToolbar" hidden>
-      <input type="search" id="propSearch" class="filter-input"
-             placeholder="חיפוש נכס - כותרת, עיר, רחוב, סוג נכס, מס׳ מודעה או בעל/ת הנכס">
-      <div class="toolbar-grid">
+      <!-- בטלפון: החיפוש וכפתור "סינון" בשורה אחת, ושמונה התיבות נפתחות רק
+           בלחיצה - כמו בקובץ הלקוחות. ממחשב הכפתור נעלם והרשת תמיד גלויה.
+           הכפתור אינו פקד סינון, ולכן אינו ב-PROP_FILTER_IDS. -->
+      <div class="client-search-row">
+        <input type="search" id="propSearch" class="filter-input"
+               placeholder="כותרת, עיר, רחוב, מס׳ מודעה או בעלים">
+        <button type="button" class="btn btn-ghost client-filter-toggle" id="propFilterToggle"
+                aria-expanded="false" aria-controls="propFilterGrid">⚙ סינון<span class="cft-count" id="propFilterBadge" hidden></span></button>
+      </div>
+      <div class="toolbar-grid" id="propFilterGrid">
         <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
           <option value="">כל הסטטוסים</option>
           <option value="active">מפורסם</option>
@@ -7060,8 +7069,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="expired">פג תוקף</option>
         </select>
         <select id="propSort" class="filter-input" aria-label="מיון">
-          <option value="created_desc">מיון: החדשים ביותר</option>
-          <option value="created_asc">מיון: הוותיקים ביותר</option>
+          <option value="created_desc">מיון: החדשים</option>
+          <option value="created_asc">מיון: הוותיקים</option>
           <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
           <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
           <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>

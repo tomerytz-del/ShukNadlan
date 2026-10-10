@@ -13077,6 +13077,12 @@ function renderProperties(){
   const active = propertyFilterActive(f);
   const rows = sortProperties(filterProperties(myPropertyRows, f), f.sort);
   updateFilterFoot('propFilterCount', 'propClearFilters', rows.length, myPropertyRows.length, active);
+  // המונה על כפתור "סינון" בטלפון, שם התיבות מקופלות. החיפוש גלוי ממילא,
+  // והמיון אינו סינון; טווח מחיר נספר פעם אחת.
+  const activeFilters = [f.status, f.deal, f.type, f.city, f.rooms,
+    f.priceMin !== null || f.priceMax !== null, f.extra].filter(Boolean).length;
+  const badge = document.getElementById('propFilterBadge');
+  if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
   if (rows.length === 0){
     listEl.innerHTML = '<div class="empty-state">אין נכס שמתאים לחיפוש או לסינון הנוכחי.</div>';
@@ -13104,6 +13110,10 @@ function renderPropertiesFromTop(){
 ['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propRoomsFilter','propExtraFilter','propSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
 document.getElementById('propClearFilters').addEventListener('click', clearPropertyFilters);
+document.getElementById('propFilterToggle').addEventListener('click', e => {
+  const open = document.getElementById('propToolbar').classList.toggle('is-filters-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
 
 /* תפריטי "⋯ עוד" שבראש הרשימות - הנכסים (ייצוא, מסירה) וקובץ הלקוחות
    (אקסל, מסירה). ‏<details> פותח וסוגר לבד; מה שהוא לא עושה הוא להיסגר
