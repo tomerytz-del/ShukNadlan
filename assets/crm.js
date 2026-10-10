@@ -13397,7 +13397,8 @@ function tabShortDate(ts){
 function buildPropertyTab(p, agentId){
   const isOpen = expandedPropertyIds.has(p.id);
   const el = document.createElement('div');
-  el.className = 'prop-tab' + (isOpen ? ' is-open' : '');
+  // ‏property-tab - אחיזה למה שנכון רק ל"הנכסים שלי" (שורת המשנה נשברת)
+  el.className = 'prop-tab property-tab' + (isOpen ? ' is-open' : '');
   const panelId = 'propTabPanel-' + esc(String(p.id));
   const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '')
     + (p.category === 'commercial' && p.price_includes_vat !== true ? ' <span class="per">+ מע״מ</span>' : '');

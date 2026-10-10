@@ -1036,6 +1036,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-tab-title,.prop-tab-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .prop-tab-title{font-weight:700;font-size:.88rem}
   .prop-tab-sub{font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
+  /* ב"הנכסים שלי" שורת המשנה נושאת גם את הימים בשוק, ובטלפון - ליד מחיר
+     עם "לחודש + מע״מ" - היא נחתכה בדיוק לפניהם ("מודעה #1178 · מפורסם · …").
+     כאן מותר לה לרדת שורה: היא קטנה, והמידע שבסופה הוא הסיבה שהיא שם.
+     הכותרת שמעליה נשארת בשורה אחת. */
+  .property-tab .prop-tab-sub{white-space:normal}
   .prop-tab-price{font-weight:800;font-size:.85rem;color:var(--teal-dark);white-space:nowrap;flex-shrink:0}
   .prop-tab-price .per{font-weight:600;font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
   .prop-tab-chev{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint,var(--ink-soft));
@@ -1390,7 +1395,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* הבאדג' אומר את מה שהתווית לא מספיקה: מה זה עולה, או שזה חינם. הוא
      יושב על הפינה ולא בתוך התווית, כי ‎btn.textContent‎ של פעולה בעבודה
      ("מקפיץ…") דורס את התווית בלבד. */
-  .pc-badge{position:absolute;inset-block-start:4px;inset-inline-start:4px;
+  /* הבאדג' יושב **על** המסגרת ולא בתוכה: באריח צר, ובטלפון עם גופן מוגדל,
+     "חינם" בתוך האריח כיסה את חץ ההקפצה. */
+  .pc-badge{position:absolute;inset-block-start:-7px;inset-inline-start:4px;
     font-size:.58rem;font-weight:800;line-height:1.6;padding:0 6px;border-radius:999px;
     background:var(--teal);color:#EDF2F8;letter-spacing:.02em}
   .pc-badge.pc-badge-free{background:#2A5B36;color:#EAF4EC}
@@ -1525,6 +1532,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @container proptab (max-width:519px){
     .pc-owner-wa span{display:none}
     .pc-owner-wa{padding:4px 8px}
+    /* ‏**בטלפון מספר המודעה והסטטוס יורדים מתחת לכותרת, בשורה.** עמודת
+       הזהות היא `flex:0 0 auto` (ראו ‎.pc-ident‎) ואינה מתכווצת, ולצד בול
+       התמונה נשארו לכותרת כ-60px: "דירה / 4 / חדרים / בקינמון," - מילה
+       בשורה, וכשהגופן במכשיר מוגדל זה החמיר. */
+    /* ‏‎.prop-card‎ בסלקטור: ‎.pc-hero-head‎ ו-‎.pc-ident‎ מוגדרים בהמשך הקובץ,
+       ובאותה ספציפיות הכלל המאוחר היה גובר על זה */
+    .prop-card .pc-hero-head{flex-direction:column;align-items:stretch;gap:5px}
+    .prop-card .pc-ident{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:6px}
+    /* ‏**והשורה האחרונה ברשת מתמלאת.** בשלוש עמודות, עשרה אריחים הם
+       3+3+3+1, ו"ביטול שת״פ" עמד לבדו במרכז שורה ריקה. ‏flex-grow מותח
+       רק את מה שבשורה חלקית - שורות מלאות כבר ברוחב ה-basis. אותו דבר
+       בצ'יפים של כלי ה-AI (חמישה בשתי עמודות). */
+    .pc-grid > *,.pc-hub-row > *{flex-grow:1}
   }
   @media(prefers-reduced-motion:reduce){.pc-owner-act{transition:none}}
   /* תקרת העמודות לפי רוחב הכרטיס. הערכים נגזרים מרוחב אריח של ~85px
