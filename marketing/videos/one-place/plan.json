@@ -1,0 +1,118 @@
+{
+  "title": "מחפשים דירה בעפולה והסביבה?",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "normal",
+  "gap": "normal",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "מחפשים דירה בעפולה והסביבה? תפסיקו לחפש באלף מקומות.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מחפשים דירה בעפולה והסביבה?",
+        "תפסיקו לחפש ב-1000 מקומות"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: same series as call-to-meeting and property-intake (marketing/videos): warm off-white ground, sapphire #0e2a6b hero, gold #c9a227 accent, heebo, RTL. AUDIENCE: buyers and renters in Afula and the valley. THREAD: one phone carried through the film, showing the real site (user screenshots). No competitor names or logos. Hook: browser tabs, group notifications and generic search icons pile up, a counter runs to 1000; on 'תפסיקו' everything is sucked into one phone."
+    },
+    {
+      "id": "all",
+      "narration": "כל הנכסים של כל המתווכים באזור מחכים לכם בשוק הנדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "כל הנכסים",
+        "של כל המתווכים באזור"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-1f61792f",
+        "a-274f65eb"
+      ],
+      "notes": "The real home page screenshot inside the phone; listing cards fly in from several office badges on 'המתווכים'."
+    },
+    {
+      "id": "map",
+      "narration": "כאן תוכלו לחפש על גבי מפה אינטראקטיבית,",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מפה אינטראקטיבית"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-ca2a648b",
+        "a-46a00522"
+      ],
+      "notes": "The site's map screenshot: a finger drags, pins pop, one property opens."
+    },
+    {
+      "id": "ai",
+      "narration": "לבצע הדמיות AI על נכסים שאהבתם,",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "הדמיות AI על נכסים אמיתיים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-664047c1",
+        "a-763900c8",
+        "a-2e991bcc",
+        "a-7c219f6c",
+        "a-096793a5",
+        "a-bae15092",
+        "a-37a2eb3f"
+      ],
+      "notes": "A heart is tapped on a property on 'שאהבתם'; on 'הדמיות' an empty room wipes to a staged one, then a style button is tapped and the style changes."
+    },
+    {
+      "id": "experts",
+      "narration": "ולהתייעץ עם מתווכים ומומחים מתחום הנדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מתווכים",
+        "עורכי דין · אדריכלים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-4488f329"
+      ],
+      "notes": "An agent card on 'מתווכים', then professional cards (appraiser, mortgage advisor, lawyer) on 'ומומחים'."
+    },
+    {
+      "id": "payoff",
+      "narration": "היכנסו עכשיו, ותתחילו לבחור את הנכס הבא שלכם.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "shuknadlan.co.il",
+        "או פשוט שאלו את גבריאלה"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-4857a6de",
+        "a-0f40a197"
+      ],
+      "notes": "Logo lands with the URL in an LTR span; Gabriela's portrait with the label 'או פשוט שאלו את גבריאלה'. Hold 1.5 s."
+    }
+  ]
+}
