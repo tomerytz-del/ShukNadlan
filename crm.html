@@ -394,8 +394,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .call-audio{width:100%;margin-top:8px}
   .call-transcript{font-size:.8rem;line-height:1.7;background:#F8FAFC;border-radius:10px;padding:10px;margin-top:8px;white-space:pre-wrap}
   /* ---------- ייבוא אנשי קשר ---------- */
-  .ci-bar{display:flex;gap:8px;margin-bottom:12px}
-  .ci-bar .btn{flex:1}
   .ci-src{display:grid;gap:8px}
   .ci-src .btn{justify-content:flex-start;text-align:right}
   .ci-tip{background:var(--green-tint,#e6f5f2);border-radius:12px;padding:10px 12px;font-size:.8rem;line-height:1.6;margin-top:12px}
@@ -1792,6 +1790,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-more-menu button{font:inherit;font-size:.88rem;font-weight:700;color:var(--ink);text-align:start;
     background:none;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;white-space:nowrap}
   .prop-more-menu button:hover,.prop-more-menu button:focus-visible{background:var(--navy-tint,#eef3f9);outline:none}
+
+  /* קובץ הלקוחות: אותה רשת סינון, אבל שש תיבות ולא שמונה - שלוש עמודות
+     ממחשב (שתי שורות מלאות) ולא ארבע (ארבע ושתיים). ראו ההערה ב-HTML. */
+  #clientToolbar{container-type:inline-size}
+  @container (min-width:640px){
+    .list-toolbar .client-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+
+  /* סינון השיחות בטלפון: חיפוש בשורה משלו, שני התאריכים זה לצד זה, ואז
+     המיון והקישור למספרים. ב-flex הם נערמו כל אחד בשורה, עם התווית "מ-"
+     ו"עד" מחוץ לתיבה. */
+  @media (max-width:640px){
+    .calls-filter{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .calls-filter .calls-search{grid-column:1/-1}
+    .calls-filter label.call-meta{display:flex;align-items:center;gap:4px;min-width:0}
+    .calls-filter label.call-meta input{flex:1 1 auto;min-width:0;margin-inline-start:0}
+    .calls-filter select{margin-inline-start:0;min-width:0}
+    .calls-filter a.call-meta{align-self:center}
+  }
 
   /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
      כרטיס ההתאמה צר יותר מכרטיס ליד: הוא יושב *בתוך* כרטיס הלקוח/ה, ולכן
@@ -7071,11 +7088,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
         <p class="acc-sub">כל לקוח/ה עם דרישות החיפוש שלו/ה. המערכת מצליבה אותן מול הנכסים שלך, של המשרד ושל כל מה ששותף איתך - ומדרגת כל התאמה בציון, עם הסבר על כל פער. שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן.</p>
 
-        <div class="ci-bar">
-          <button class="btn btn-ghost" id="toggleAddClient">+ הוספת לקוח/ה</button>
+        <!-- שורת פעולות אחת, באותה שפה של "הנכסים שלי" (.prop-actbar): הוספה
+             היא הכפתור הראשי והיחיד שנמתח, הייבוא מאנשי הקשר לצידו, והשאר -
+             ייבוא וייצוא אקסל ומסירה למנהל/ת - בתפריט "⋯ עוד". עד כאן אלה היו
+             שתי שורות נפרדות של כפתורים ברוחב מלא, ובטלפון השנייה גלשה מהמסך
+             וחמש תיבות הסינון דחפו את הלקוחות עצמם למסך השלישי.
+             התפריט תמיד מוצג: ייבוא מאקסל פתוח לכל סוכן/ת. -->
+        <div class="prop-actbar">
+          <button class="btn prop-act-main" id="toggleAddClient">+ הוספת לקוח/ה</button>
           <!-- ייבוא מאנשי הקשר: חלון הבחירה של הטלפון, Google, או קובץ vcf/csv.
                רק מי שנבחר נכנס - ספר הטלפונים אינו עולה. docs/crm-contacts-import.md -->
-          <button class="btn btn-ghost" id="openContactImport" type="button">📇 ייבוא מאנשי הקשר</button>
+          <button class="btn btn-ghost prop-act-sub" id="openContactImport" type="button">📇 מאנשי הקשר</button>
+          <details class="prop-more" id="clientMoreMenu">
+            <summary class="btn btn-ghost prop-act-sub" aria-label="פעולות נוספות">⋯ עוד</summary>
+            <div class="prop-more-menu" role="menu">
+              <button type="button" role="menuitem" id="openClientImport">📊 ייבוא לקוחות מאקסל</button>
+              <!-- ייצוא ומסירה - מנהל/ת משרד בלבד (syncOfficeExportButtons ב-crm-office.js) -->
+              <button type="button" role="menuitem" id="openClientExport" style="display:none">📤 ייצוא לקוחות לאקסל</button>
+              <button type="button" role="menuitem" id="openBulkRefer" style="display:none">🤝 מסירת לקוחות לסוכן/ת</button>
+            </div>
+          </details>
         </div>
 
         <!-- יומן שיחות (פיילוט Twilio): מוצג רק למי שיש לו/ה מספר ב-agent_phone_lines.
@@ -7106,14 +7138,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
           <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
           <div id="callsList"></div>
-        </div>
-        <!-- קובץ הלקוחות באקסל: ייבוא לכולם, ייצוא למנהל/ת משרד בלבד (מוצג ב-
-             syncOfficeExportButtons). ‏docs/office-referrals.md -->
-        <div class="ci-bar" style="flex-wrap:wrap">
-          <button class="btn btn-ghost" id="openClientImport" type="button">📊 ייבוא לקוחות מאקסל</button>
-          <button class="btn btn-ghost" id="openClientExport" type="button" style="display:none">📤 ייצוא לקוחות לאקסל</button>
-          <!-- מסירת כמה לקוחות בבת אחת - מנהל/ת משרד בלבד (crm-office.js) -->
-          <button class="btn btn-ghost" id="openBulkRefer" type="button" style="display:none">🤝 מסירת לקוחות לסוכן/ת</button>
         </div>
 
         <!-- ====== טופס הלקוח/ה: שני כרטיסים ======
@@ -7260,10 +7284,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </form>
 
-        <div class="list-toolbar">
+        <!-- הסינון ברשת אחת, כמו ב"הנכסים שלי" (.toolbar-grid): שתי עמודות
+             בטלפון ושלוש מרוחב 640px של הסרגל עצמו (@container). שש תיבות
+             בשורות flex נפרדות נתנו בטלפון שש שורות ברוחב מלא. -->
+        <div class="list-toolbar" id="clientToolbar">
           <input type="search" id="clientSearch" class="filter-input"
                  placeholder="חיפוש לקוח/ה - שם, טלפון, אימייל, עיר, סוג נכס מבוקש או הערה">
-          <div class="toolbar-row">
+          <div class="toolbar-grid client-toolbar-grid">
             <select id="clientStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
               <option value="active">מחפשים</option>
               <option value="">כל הסטטוסים</option>
@@ -7281,23 +7308,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <option value="residential">מגורים</option>
               <option value="commercial">מסחרי</option>
             </select>
-          </div>
-          <div class="toolbar-row">
             <select id="clientTypeFilter" class="filter-input" aria-label="סינון לפי סוג הנכס שמחפשים">
-              <option value="">כל מי שמחפש/ת - כל סוגי הנכס</option>
+              <option value="">כל סוגי הנכס</option>
             </select>
             <select id="clientCityFilter" class="filter-input" aria-label="סינון לפי עיר מבוקשת">
-              <option value="">כל הערים המבוקשות</option>
+              <option value="">כל הערים</option>
             </select>
-          </div>
-          <div class="toolbar-row">
             <select id="clientSort" class="filter-input" aria-label="מיון">
-              <option value="created_desc">מיון: הנוספו לאחרונה</option>
-              <option value="created_asc">מיון: הוותיקים ביותר</option>
+              <option value="created_desc">מיון: החדשים</option>
+              <option value="created_asc">מיון: הוותיקים</option>
               <option value="matches_desc">מיון: הכי הרבה התאמות</option>
-              <option value="name_asc">מיון: שם - א׳ עד ת׳</option>
-              <option value="budget_desc">מיון: תקציב - מהגבוה לנמוך</option>
-              <option value="budget_asc">מיון: תקציב - מהנמוך לגבוה</option>
+              <option value="name_asc">מיון: לפי שם</option>
+              <option value="budget_desc">מיון: תקציב גבוה</option>
+              <option value="budget_asc">מיון: תקציב נמוך</option>
             </select>
           </div>
           <div class="toolbar-foot">
