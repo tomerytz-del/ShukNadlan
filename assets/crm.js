@@ -24055,7 +24055,7 @@ const REMINDER_KINDS = [
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
 
 /* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents): סוכן/ת בלי
-   שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום ושקט 21→8. אילו הצד
+   שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום ושקט 21→8 ובשישי-שבת. אילו הצד
    הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו.
    וואטסאפ מאז 20270303090000 - מייל הוא ערוץ שמוסיפים. */
 const REMINDER_PREF_DEFAULTS = {
@@ -24065,7 +24065,11 @@ const REMINDER_PREF_DEFAULTS = {
   max_per_30_days: 6,
   quiet_from_hour: 21,
   quiet_to_hour: 8,
+  quiet_days: [5, 6],   // שישי ושבת, כמו ה-default במסד (20270412090000)
 };
+
+/* ימי השבוע לפי extract(dow) במסד: 0 = ראשון ... 6 = שבת. */
+const REMINDER_WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
@@ -24077,7 +24081,7 @@ async function loadReminders(agentId){
   const [findings, prefs] = await Promise.all([
     sb.rpc('agent_reminder_findings', { p_agent_id: agentId }),
     sb.from('agent_reminder_preferences')
-      .select('channels, muted_kinds, cadence, max_per_30_days, quiet_from_hour, quiet_to_hour')
+      .select('channels, muted_kinds, cadence, max_per_30_days, quiet_from_hour, quiet_to_hour, quiet_days')
       .eq('agent_id', agentId).maybeSingle(),
   ]);
 
@@ -24099,6 +24103,7 @@ async function loadReminders(agentId){
                        ? Number(row.quiet_from_hour) : REMINDER_PREF_DEFAULTS.quiet_from_hour,
     quiet_to_hour:   Number.isFinite(Number(row?.quiet_to_hour))
                        ? Number(row.quiet_to_hour) : REMINDER_PREF_DEFAULTS.quiet_to_hour,
+    quiet_days:      Array.isArray(row?.quiet_days) ? row.quiet_days.map(Number) : REMINDER_PREF_DEFAULTS.quiet_days.slice(),
   };
 
   renderReminders();
@@ -24181,6 +24186,13 @@ function renderReminderPrefs(){
       }
       sel.value = String(value);
     });
+
+  const days = document.getElementById('rmQuietDays');
+  if (days){
+    days.innerHTML = REMINDER_WEEKDAYS.map((name, d) =>
+      `<label class="checkbox-item"><input type="checkbox" class="rmQuietDay" value="${d}"
+        ${reminderPrefs.quiet_days.includes(d) ? 'checked' : ''}> ${esc(name)}</label>`).join('');
+  }
 
   renderReminderKinds();
   syncReminderChannelsNote();
@@ -24281,6 +24293,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
     max_per_30_days: cap,
     quiet_from_hour: Number(document.getElementById('rmQuietFrom').value),
     quiet_to_hour: Number(document.getElementById('rmQuietTo').value),
+    quiet_days: Array.from(document.querySelectorAll('.rmQuietDay:checked')).map(cb => Number(cb.value)),
     updated_at: new Date().toISOString(),
   };
 
@@ -24299,6 +24312,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
     max_per_30_days: cap,
     quiet_from_hour: payload.quiet_from_hour,
     quiet_to_hour: payload.quiet_to_hour,
+    quiet_days: payload.quiet_days,
   };
   document.getElementById('rmCap').value = cap;
   // הרשימה נצבעת מחדש כי ההשתקה משנה את המצב של השורות (‏is-muted), לא את
