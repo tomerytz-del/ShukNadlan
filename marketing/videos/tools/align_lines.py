@@ -1,6 +1,10 @@
 """Second pass: snap each line's span to real pauses, then align words inside the line with a global DTW against the reference TTS.
 
-Usage: python3 -I align_lines.py <user.wav> <align-project-dir> <coarse.json> <out.json>
+Usage: python3 -I align_lines.py <user.wav> <align-project-dir> <coarse.json> <out.json> [spans.json]
+
+spans.json (optional): {"<scene id>": [start_sec, end_sec]} - pins a line's span by hand when the snapping to pauses
+picks the wrong pause (a line said in one breath with the next one, or a breath that looks like a word). Read the
+loudness around the boundary first; a breath is about -50dB, speech about -20dB.
 """
 import json
 import subprocess
@@ -13,6 +17,7 @@ SR = 16000
 HOP = 160
 
 user_path, proj, coarse_path, out_path = sys.argv[1:5]
+fixed = json.load(open(sys.argv[5])) if len(sys.argv) > 5 else {}
 plan = json.load(open(f"{proj}/plan.json"))
 vos = json.load(open(f"{proj}/assets/voiceovers.json"))
 coarse = json.load(open(coarse_path))
@@ -46,8 +51,11 @@ out = {}
 for s in plan["scenes"]:
     i = s["id"]
     c = coarse[i]
-    st = nearest(c["startSec"], [v for v in speech_starts if v < c["endSec"] - 0.3])
-    en = nearest(c["endSec"], [v for v in speech_ends if v > st + 0.3])
+    if i in fixed:
+        st, en = float(fixed[i][0]), float(fixed[i][1])
+    else:
+        st = nearest(c["startSec"], [v for v in speech_starts if v < c["endSec"] - 0.3])
+        en = nearest(c["endSec"], [v for v in speech_ends if v > st + 0.3])
     seg = y[int(st * SR): int(en * SR)]
     q, _ = librosa.load(f"{proj}/{vos[i]['key']}", sr=SR)
     q, idx = librosa.effects.trim(q, top_db=35)

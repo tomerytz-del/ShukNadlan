@@ -30,7 +30,7 @@
 | הפונקציה | `supabase/functions/twilio-voice/index.ts` (‏`verify_jwt = false`) |
 | הטבלאות | `agent_phone_lines`, `agent_calls` - מיגרציה `20270202090000_call_tracking.sql` |
 | ההקלטות | דלי פרטי `call-recordings/<agent_id>/<call_id>.mp3` |
-| ה-CRM | בלוק "שיחות אחרונות" בקובץ הלקוחות (`loadCalls` ב-`crm.js`), עם עדכון כרטיס וסימולציה |
+| ה-CRM | בלוק "שיחות אחרונות" בקובץ הלקוחות (`loadCalls` ב-`crm.js`), עם עדכון כרטיס וסימולציה. בטלפון (פחות מ-640px של הבלוק) הוא מקופל לשורת כותרת שנפתחת בלחיצה (`#callsToggle`) |
 | העוזר | הכלי `list_calls` ב-`whatsapp-webhook/agent.ts` |
 | המחיקה | cron יומי `call-recordings-cleanup` ← `twilio-voice?task=cleanup` |
 | פרטיות | `privacy.html#calls` |
