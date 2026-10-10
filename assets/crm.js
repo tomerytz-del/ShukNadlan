@@ -20230,107 +20230,156 @@ function buildClientTab(c){
   });
 }
 
+/* ---------- כרטיס הלקוח/ה ----------
+   ארבע שכבות, מלמעלה למטה, באותו סדר בטלפון ובמחשב:
+   1. כותרת - שם, תגיות (מצב, הפנייה, מונה התאמות, המיניסייט) ותפריט ⋯
+      לניהול (מסירה, מחיקה).
+   2. מה מחפש/ת - שורת פרמטרים כתגיות, הדרישה החופשית (ההערות) בתיבה
+      בהירה, ו"ההתאמה המובילה" עם הציון.
+   3. סרגל פעולות - קשר (חיוג עם המספר, וואטסאפ), הפעולה הראשית ("הצגת X
+      התאמות", או "הוספת הנכס" אצל בעל/ת נכס) וניהול (מיניסייט, עריכה,
+      "עוד" עם הסכם, יומן ושיחות). במחשב שלושתם בשורה אחת; בטלפון הפעולה
+      הראשית ברוחב מלא והשאר שורת אייקונים.
+   4. מגירת ההתאמות - נפתחת בגובה ובשקיפות מתחת לסרגל (‏.cc-drawer).
+
+   האחיזות שקוד אחר מחפש בכרטיס נשמרו בשמן: ‏data-client-card, ‏.sc-pill-slot
+   ‏(crm-showcase.js), ‏.match-cta (התראת התאמה, "הצלב נכסים"), ‏.client-calls-btn
+   ‏(קישור משיחה), ‏.match-panel ו-.match-head (תיבות המיניסייט). */
+function clientParamTags(c){
+  const owner = isOwnerClient(c);
+  const size = (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
+    : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
+    : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : '';
+  const budget = ((c.min_price && c.max_price) ? shekel(c.min_price) + '-' + shekel(c.max_price)
+    : c.max_price ? 'עד ' + shekel(c.max_price)
+    : c.min_price ? 'מ-' + shekel(c.min_price) : '')
+    + ((c.min_price || c.max_price) && c.deal_type === 'rent' ? ' לחודש' : '');
+  return tagsHtml([
+    { text: clientSideLabel(c), cls:'tag-key' },
+    { text: c.category === 'commercial' ? '🏪 מסחרי' : '🏠 מגורים' },
+    // לבעל/ת נכס אין פרופיל חיפוש - השדות נשארים במסד אבל אינם אומרים דבר
+    !owner && (c.cities || []).length && { text:'📍 ' + c.cities.join(', ') },
+    !owner && (c.property_types || []).length && { text: c.property_types.join(' / ') },
+    !owner && size && { text:'📐 ' + size },
+    !owner && (c.min_rooms || c.max_rooms) && { text:'🛏 ' + (c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים' },
+    !owner && budget && { text:'💰 ' + budget, cls:'tag-info' },
+    !owner && c.max_floor != null && { text:'🏢 עד קומה ' + c.max_floor },
+    !owner && (c.required_features || []).length && { text:'✓ ' + c.required_features.map(featureLabel).join(', ') },
+  ]);
+}
+
+function setMatchCta(btn, client, open){
+  const n = clientMatchCounts[client.id];
+  btn.setAttribute('aria-expanded', String(open));
+  btn.innerHTML = open
+    ? '<span>סגירת ההתאמות</span><span class="cc-caret" aria-hidden="true">▴</span>'
+    : `<span>${n ? 'הצגת ' + esc(plural(n, 'התאמה אחת', 'התאמות')) : 'חיפוש התאמות'}</span><span class="cc-caret" aria-hidden="true">▾</span>`;
+}
+
 function buildClientCard(c){
   const matches = clientMatchCounts[c.id];
+  const owner = isOwnerClient(c);
   const wa = waLink(c.phone);
+  const tel = String(c.phone || '').replace(/[^\d+]/g, '');
   const el = document.createElement('div');
-  el.className = 'card client-card';
+  el.className = 'card client-card cc';
   el.dataset.clientCard = c.id;
   el.innerHTML = `
-    <div class="lead-top">
-      <div style="min-width:0">
-        <div class="lead-name">${esc(c.full_name)}</div>
-        ${c.phone ? `<div class="contact-line">
-            <span class="lead-phone">${esc(c.phone)}</span>
-            <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
-               title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
-            ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
-               title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
-          </div>` : ''}
-        <div class="req-line">${esc(clientRequirementLine(c))}</div>
-        ${(c.financing_status || c.lead_source) ? `<div class="lead-meta">${esc([
-          c.financing_status && '💳 ' + (CLIENT_FINANCING_LABELS[c.financing_status] || c.financing_status),
-          c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
-        ].filter(Boolean).join(' · '))}</div>` : ''}
-        ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
-        ${referralNoteHtml(c)}
+    <div class="cc-head">
+      <div class="cc-id">
+        <div class="cc-name">${esc(c.full_name)}</div>
+        <div class="cc-badges">
+          <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
+          ${c.referred_by ? '<span class="status-pill status-shared">🤝 הפנייה</span>' : ''}
+          ${matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
+          <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
+        </div>
       </div>
-      <div class="pill-row">
-        <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
-        ${c.referred_by ? '<span class="status-pill status-shared">הפנייה</span>' : ''}
-        ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
-        <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
-      </div>
-      <div class="card-menu">
+      <div class="card-menu cc-kebab">
         <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
-                title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
+                title="ניהול" aria-label="ניהול ${esc(c.full_name)}">⋮</button>
         <div class="card-menu-pop"></div>
       </div>
     </div>
-    <div class="lead-actions"></div>
-    <div class="match-panel" style="display:none"></div>
+    ${clientParamTags(c)}
+    ${c.notes ? `<div class="cc-req"><span class="cc-req-label">הדרישה:</span> ${esc(c.notes)}</div>` : ''}
+    ${(c.financing_status || c.lead_source) ? `<div class="lead-meta">${esc([
+      c.financing_status && '💳 ' + (CLIENT_FINANCING_LABELS[c.financing_status] || c.financing_status),
+      c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
+    ].filter(Boolean).join(' · '))}</div>` : ''}
+    ${referralNoteHtml(c)}
+    <div class="cc-bar lead-actions">
+      <div class="cc-contact">
+        ${tel.replace(/\D/g, '').length >= 9 ? `<a class="cc-call" href="tel:${esc(tel)}"
+            title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞 <span dir="ltr">${esc(c.phone)}</span></a>` : ''}
+        ${wa ? `<a class="cc-ico cc-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
+            title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
+      </div>
+      <div class="cc-cta"></div>
+      <div class="cc-manage"></div>
+    </div>
+    <div class="cc-drawer" inert>
+      <div class="cc-drawer-in"><div class="match-panel"></div></div>
+    </div>
   `;
 
-  const actions = el.querySelector('.lead-actions');
+  const cta = el.querySelector('.cc-cta');
+  const manage = el.querySelector('.cc-manage');
   const panel = el.querySelector('.match-panel');
 
-  const owner = isOwnerClient(c);
-  // תצוגה מקדימה של ההתאמה החזקה ביותר - מיד עם פתיחת הכרטיס
+  // ההתאמה המובילה - מיד עם פתיחת הכרטיס, מעל הסרגל
   const peek = owner ? null : clientMatchPeek(c, () => el.querySelector('.match-cta'));
-  if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+  if (peek) el.querySelector('.cc-bar').insertAdjacentElement('beforebegin', peek);
 
-  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
-  // בעל/ת נכס: הפעולה הטבעית היא לפתוח את הנכס שלו/ה, עם הבעלים כבר בטופס
+  // לבעל/ת נכס אין התאמות (client_property_match מסננת אותו/ה); הפעולה
+  // הטבעית אצלו/ה היא לפתוח את הנכס שלו/ה, עם הבעלים כבר בטופס
   if (owner){
-    addCardAction(actions, {
-      label:'🏠 הוספת הנכס',
+    addCardAction(cta, {
+      label:'🏠 הוספת הנכס', cls:'btn-gold',
       title:'פתיחת טופס נכס חדש, עם הלקוח/ה כבעלים',
       onClick:()=> openPropertyForOwner(c),
     });
-  }
-  // השיחות וההקלטות עם הלקוח/ה (יומן שיחות). רק למי שיש לו/ה יומן -
-  // אצל כל השאר הכפתור היה פותח תמיד "אין שיחות".
-  if (callsBlockVisible()){
-    const callsBtn = addCardAction(actions, {
-      label:'📞 שיחות והקלטות',
-      title:'השיחות עם הלקוח/ה - סיכום, הקלטה ותמלול',
-      onClick: btn => toggleClientCalls(c, btn, el),
-    });
-    callsBtn.classList.add('client-calls-btn');
-  }
-  addCardAction(actions, {
-    label:'📅 פגישה / תזכורת',
-    title:'קביעת פגישה, סיור או תזכורת ביומן, מקושרת ללקוח/ה',
-    onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }),
-  });
-  // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
-  // ולא רק בקטגוריית ההסכמים. סוג העסקה והצד בעסקה קובעים איזה טופס נפתח.
-  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
-                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
-  addCardAction(actions, {
-    label:'✍️ החתמה על הסכם',
-    title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
-    onClick:()=> openAgreementWizard({ kind: agrKind, clientId: c.id }),
-  });
-  // לבעל/ת נכס אין התאמות (client_property_match מסננת אותו/ה), ולכן גם
-  // אין כפתור שהיה נפתח תמיד על "אין התאמות"
-  if (!owner){
-    const matchBtn = addCardAction(actions, {
-      label: matches ? `🔍 הצגת ${plural(matches, 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות',
-      cls:'btn-gold act-wide',
+  } else {
+    const matchBtn = addCardAction(cta, {
+      label:'', cls:'btn-gold match-cta',
       onClick: btn => toggleClientMatches(c, btn, panel),
     });
-    matchBtn.classList.add('match-cta');
+    matchBtn.setAttribute('aria-controls', 'ccDrawer-' + c.id);
+    el.querySelector('.cc-drawer').id = 'ccDrawer-' + c.id;
+    setMatchCta(matchBtn, c, false);
   }
-  // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
-  if (typeof addShowcaseAction === 'function') addShowcaseAction(actions, el, c);
 
-  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
-  // הפעולות לצד "עריכה" ו"החתמה" - שלושה כפתורים באותו גודל ובאותו צבע,
-  // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
-  /* מסירה בהפנייה - מנהל/ת משרד בלבד. ומחיקה רק למי שמטפל/ת: המנהל/ת
-     שמסר/ה רואה ומעדכנ/ת לקוח/ה בהפנייה, אבל אינו/ה מוחק/ת אותו/ה
-     מהקובץ של הסוכן/ת (ה-RLS ממילא אינו מאפשר). */
+  // המיניסייט ששלחת ללקוח/ה - תגובות, הודעות ובקשות סיור (assets/crm-showcase.js)
+  if (typeof addShowcaseAction === 'function') addShowcaseAction(manage, el, c);
+  addCardAction(manage, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+
+  /* "עוד": הסכם, יומן ושיחות. הם בתפריט ולא בשורה כי הם פעולות של פעם
+     בכמה ימים, ושש פעולות באותו משקל הן בדיוק מה שהסתיר את "הצגת
+     ההתאמות" - הסיבה שהקובץ הזה קיים. */
+  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
+                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
+  const more = document.createElement('div');
+  more.className = 'card-menu cc-more';
+  more.innerHTML = `<button type="button" class="btn btn-ghost card-menu-btn" aria-haspopup="true" aria-expanded="false">עוד ▾</button>
+    <div class="card-menu-pop"></div>`;
+  manage.appendChild(more);
+  const moreItems = [
+    { label:'✍️ החתמה על הסכם', onClick:()=> openAgreementWizard({ kind: agrKind, clientId: c.id }) },
+    { label:'📅 פגישה / תזכורת',
+      onClick:()=> openAgendaForm({ clientId: c.id, kind:'meeting', title:'פגישה עם ' + c.full_name }) },
+  ];
+  // השיחות וההקלטות - רק למי שיש לו/ה יומן שיחות; אצל כל השאר היה נפתח "אין שיחות"
+  const withCalls = callsBlockVisible();
+  if (withCalls){
+    moreItems.push({ label:'📞 שיחות והקלטות',
+      onClick:()=> toggleClientCalls(c, more.querySelector('.client-calls-btn'), el) });
+  }
+  buildCardMenu(more, moreItems);
+  if (withCalls) more.querySelector('.card-menu-pop button:last-child').classList.add('client-calls-btn');
+
+  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא בתפריט ⋮ ולא
+  // לצד "עריכה". מסירה בהפנייה - מנהל/ת משרד בלבד. ומחיקה רק למי שמטפל/ת:
+  // המנהל/ת שמסר/ה אינו/ה מוחק/ת מהקובץ של הסוכן/ת (ה-RLS ממילא אינו מאפשר).
   const menu = [];
   if (canReferRow('client', c)){
     menu.push({
@@ -20341,8 +20390,8 @@ function buildClientCard(c){
   if (c.agent_id === currentAgent.id){
     menu.push({ label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) });
   }
-  if (menu.length) buildCardMenu(el.querySelector('.card-menu'), menu);
-  else el.querySelector('.card-menu').remove();
+  if (menu.length) buildCardMenu(el.querySelector('.cc-kebab'), menu);
+  else el.querySelector('.cc-kebab').remove();
 
   return el;
 }
@@ -20379,11 +20428,14 @@ function clientMatchPeek(client, ctaGetter){
   row.title = 'פתיחת רשימת ההתאמות המלאה';
   row.innerHTML =
     `<span class="score-pill ${top.top_score >= 85 ? 'score-high' : 'score-mid'}">${esc(String(top.top_score))}%</span>`
-    + `<span class="match-peek-text">הכי מתאים: <b>${esc(what)}</b>`
-    + (address ? ' ב' + esc(address) : '') + ` · ${esc(price)}</span>`;
+    + `<span class="match-peek-text"><span class="cc-peek-label">ההתאמה המובילה</span>`
+    + `<b>${esc(what)}</b>` + (address ? ' ב' + esc(address) : '') + `</span>`
+    + `<span class="cc-peek-price">${esc(price)}</span>`;
   row.addEventListener('click', ()=>{
     const cta = ctaGetter();
-    if (cta) cta.click();
+    // ההתאמה המובילה פותחת את המגירה, ולא סוגרת אותה כשהיא כבר פתוחה
+    if (cta && cta.getAttribute('aria-expanded') !== 'true') cta.click();
+    else cta?.closest('.cc')?.querySelector('.cc-drawer')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
   return row;
 }
@@ -20423,30 +20475,34 @@ function closeCardMenus(){
 document.addEventListener('click', closeCardMenus);
 document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeCardMenus(); });
 
+/* מגירת ההתאמות. פתיחה תמיד טוענת מחדש - נכס שעלה או ירד מאז הפתיחה
+   הקודמת משנה את הרשימה. ‏inert על המגירה הסגורה, כי היא נשארת ב-DOM
+   (בשביל האנימציה) ובלעדיו Tab היה נכנס לכפתורים שאינם נראים. */
 async function toggleClientMatches(client, btn, panel){
-  if (panel.style.display !== 'none'){
-    panel.style.display = 'none';
-    btn.textContent = clientMatchCounts[client.id]
-      ? `🔍 הצגת ${plural(clientMatchCounts[client.id], 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות';
+  const drawer = panel.closest('.cc-drawer');
+  if (drawer.classList.contains('is-open')){
+    drawer.classList.remove('is-open');
+    drawer.inert = true;
+    setMatchCta(btn, client, false);
     return;
   }
 
-  const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'מחפש…';
   const { data, error } = await sb.rpc('match_properties_for_client', { p_client_id: client.id });
   btn.disabled = false;
 
   if (error){
     showToast('שגיאה בחיפוש התאמות: ' + heErr(error));
-    btn.textContent = original;
+    setMatchCta(btn, client, false);
     return;
   }
 
   const rows = data || [];
   clientMatchCounts[client.id] = rows.length;
   renderClientMatches(panel, rows, client);
-  panel.style.display = 'block';
-  btn.textContent = '🔍 הסתרת ההתאמות';
+  drawer.inert = false;
+  drawer.classList.add('is-open');
+  setMatchCta(btn, client, true);
 }
 
 /* ---------- סינון ומיון בפאנל ההתאמות ----------
@@ -20473,6 +20529,7 @@ let matchFilter = 'all';
 let matchSort = 'score';
 
 function renderClientMatches(panel, rows, client){
+  panel._client = client;
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
     return;
@@ -20521,18 +20578,28 @@ function renderClientMatches(panel, rows, client){
   draw(active);
 }
 
+/* פריט התאמה: תמונה, כותרת וכתובת, מחיר ושטח, ציון. שתי פעולות מהירות:
+   צפייה בנכס, ו"למיניסייט" - הנכס הזה לבדו נכנס למיניסייט של הלקוח/ה,
+   דרך אותו חלון שליחה של סימון כמה נכסים (openShowcaseSend ב-
+   assets/crm-showcase.js): מוסיף למיניסייט הקיים או פותח אחד, ואז מציע את
+   הקישור בוואטסאפ.
+
+   לא שליחה ישירה של עמוד הנכס: הוא נושא את שם המשרד המפרסם ואת הטלפון
+   שלו, ובנכס בשת"פ זו בדיוק הדליפה שהמיניסייט נבנה למנוע. במיניסייט כל
+   הנכסים יוצאים בלי מיתוג, ולכן הכפתור מופיע על כולם - ונשמרים גם
+   המעקב, ה"אהבתי" ובקשות הסיור. */
 function renderMatchCards(panel, rows){
   panel.innerHTML = '';
+  const client = panel.closest('.match-panel')?._client;
   rows.forEach(m => {
     const address = [m.city, [m.street, m.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-    const matchTags = tagsHtml([
-      { text: m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price), cls:'tag-key' },
-      m.rooms && { html:`🛏 <b>${esc(m.rooms)}</b> חדרים` },
-      m.property_type && { text:'🏠 ' + m.property_type },
-      m.size_sqm && { text:`📐 ${m.size_sqm} מ״ר` },
-      m.floor != null && { text:'🏢 קומה ' + m.floor },
-      address && { text:'📍 ' + address },
-    ]);
+    const price = m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price);
+    const specs = [
+      m.property_type,
+      m.rooms && m.rooms + ' חד׳',
+      m.size_sqm && m.size_sqm + ' מ״ר',
+      m.floor != null && 'קומה ' + m.floor,
+    ].filter(Boolean).join(' · ');
 
     const gaps = [
       ...(m.reasons || []),
@@ -20544,20 +20611,25 @@ function renderMatchCards(panel, rows){
     const sourceLabel = m.source === 'shared'
       ? '🤝 ' + (m.listing_agency_name || 'משרד שותף')
       : MATCH_SOURCE_LABELS[m.source] || m.source;
+    const img = (m.images || [])[0];
 
     const card = document.createElement('div');
-    card.className = 'match-card';
+    card.className = 'match-card cc-match';
     card.innerHTML = `
-      <div class="match-head">
-        <div>
-          <span class="src-tag src-${esc(m.source)}">${esc(sourceLabel)}</span>
-          <div class="match-title">${esc(m.title)}</div>
+      <div class="cc-thumb">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span aria-hidden="true">🏠</span>'}</div>
+      <div class="cc-m-body">
+        <div class="match-head">
+          <div style="min-width:0">
+            <span class="src-tag src-${esc(m.source)}">${esc(sourceLabel)}</span>
+            <div class="match-title">${esc(m.title || address || 'נכס')}</div>
+          </div>
+          <span class="score-pill ${m.score >= 85 ? 'score-high' : 'score-mid'}">${m.score}%</span>
         </div>
-        <span class="score-pill ${m.score >= 85 ? 'score-high' : 'score-mid'}">${m.score}%</span>
+        ${address ? `<div class="cc-m-addr">📍 ${esc(address)}</div>` : ''}
+        <div class="cc-m-specs"><b>${esc(price)}</b>${specs ? ' · ' + esc(specs) : ''}</div>
+        ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
       </div>
-      ${matchTags}
-      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
-      <div class="lead-actions"></div>
+      <div class="lead-actions cc-m-actions"></div>
     `;
 
     if (typeof showcaseDecorateMatch === 'function'){
@@ -20565,8 +20637,32 @@ function renderMatchCards(panel, rows){
     }
 
     const actions = card.querySelector('.lead-actions');
+    const sc = panel.closest('.match-panel')?._showcase;
+    if (client && sc && typeof openShowcaseSend === 'function'){
+      if (sc.already.has(m.property_id)){
+        const done = addCardAction(actions, { label:'✓ במיניסייט', cls:'btn-share',
+          title:'הנכס כבר במיניסייט של הלקוח/ה' });
+        done.disabled = true;
+      } else {
+        addCardAction(actions, {
+          label:'➕ למיניסייט', cls:'btn-share',
+          title:'הוספת הנכס למיניסייט של ' + (client.full_name || 'הלקוח/ה') + ', ואז שליחת הקישור בוואטסאפ',
+          onClick: btn => openShowcaseSend(client, [m.property_id], ()=>{
+            // כמו אחרי שליחה מהפס: הכרטיס הזה מסומן "במיניסייט" במקום, בלי
+            // לצייר מחדש את הרשימה (והסינון והמיון שבה)
+            sc.selected.delete(m.property_id);
+            sc.already = (showcaseSummaries[client.id] || {}).property_ids || new Set();
+            const pick = card.querySelector('.sc-pick');
+            if (pick) pick.outerHTML = '<span class="sc-in">✓ במיניסייט</span>';
+            btn.textContent = '✓ במיניסייט';
+            btn.disabled = true;
+            sc.sync();
+          }),
+        });
+      }
+    }
     addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
+      label:'🏠 צפייה בנכס', blank:true,
       href:'/property?id=' + encodeURIComponent(m.property_id),
     });
 
@@ -22094,7 +22190,7 @@ async function toggleClientCalls(c, btn, el){
     : (calls.length
       ? calls.map(x => callRowHtml(x, true)).join('')
       : '<div class="empty-state">אין שיחות מתועדות עם הלקוח/ה.</div>');
-  el.querySelector('.lead-actions').insertAdjacentElement('afterend', box);
+  (el.querySelector('.cc-bar') || el.querySelector('.lead-actions')).insertAdjacentElement('afterend', box);
 }
 
 /* ‏?client=<id> לצד ?goto=accClients - הקישור מהוואטסאפ ("מתקשר/ת עכשיו",
@@ -26175,7 +26271,7 @@ function gkwCampaignForm(pick){
 
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
-  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
+  [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabVideos', 'adsPaneVideos'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
    ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
@@ -26183,12 +26279,13 @@ function adsSelectTab(id){
   });
   if (id === 'adsTabCopy'){ adsSyncIntensity(); loadAdsDrafts(); loadAdsCampaigns(); }
   if (id === 'adsTabIntel') loadIntelReport();
+  if (id === 'adsTabVideos') loadVideoLibrary(true);
   if (id === 'adsTabLeads') loadLeadsTab();
   if (id === 'adsTabKw') loadKeywordReport();
   if (id === 'adsTabGoogle') loadGoogleAds();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{
@@ -26492,12 +26589,13 @@ function adsCampaignForm(d){
   const formSel = admEl('select');
   const lForm = admEl('label', 'cst-f', 'טופס לידים'); lForm.appendChild(formSel); g.appendChild(lForm);
 
-  let fmt = null;
-  if (d.audience === 'property'){
-    fmt = admEl('select');
-    [['image', 'תמונה אחת'], ['carousel', 'קרוסלה מתמונות הנכס']].forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; fmt.appendChild(o); });
-    const lf = admEl('label', 'cst-f', 'תצוגה'); lf.appendChild(fmt); g.appendChild(lf);
-  }
+  const fmt = admEl('select');
+  (d.audience === 'property'
+    ? [['image', 'תמונה אחת'], ['carousel', 'קרוסלה מתמונות הנכס'], ['video', 'סרטון מהספרייה']]
+    : [['image', 'תמונה'], ['video', 'סרטון מהספרייה']]
+  ).forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; fmt.appendChild(o); });
+  if (adsVidPreselect) fmt.value = 'video';
+  const lf = admEl('label', 'cst-f', 'תצוגה'); lf.appendChild(fmt); g.appendChild(lf);
   const budget = adsNum('תקציב יומי (₪)', 30, 10, 1000); g.appendChild(budget.l);
   const days = adsNum('כמה ימים', 7, 1, 60); g.appendChild(days.l);
   const radius = adsNum('רדיוס (ק"מ)', d.audience === 'property' ? 15 : 10, 1, 80); g.appendChild(radius.l);
@@ -26505,14 +26603,21 @@ function adsCampaignForm(d){
   const ageMax = adsNum('עד גיל', 65, 18, 65); g.appendChild(ageMax.l);
   box.appendChild(g);
 
-  let citiesSel = null, imgUrl = null, consent = null;
+  let citiesSel = null, imgUrl = null, consent = null, liImg = null;
+  // סרטונים: מודעה לכל זוג נוסח × סרטון (עד שש), כך ששני סרטונים של אותו
+  // רעיון באותו סט הם ניסוי A/B. ‏docs/marketing-videos.md
+  const vidBox = admEl('div', 'cst-f cst-wide');
+  vidBox.appendChild(admEl('span', null, 'סרטונים (עד שלושה - כל סרטון מקבל מודעה לכל נוסח שנבחר)'));
+  const vidPick = adsVidPicker(d.audience);
+  vidBox.appendChild(vidPick);
+  box.appendChild(vidBox);
   if (d.audience === 'platform'){
     const g2 = admEl('div', 'cst-grid');
     citiesSel = admEl('select'); citiesSel.multiple = true; citiesSel.size = 6;
     const lc = admEl('label', 'cst-f', 'ערים (אפשר כמה)'); lc.appendChild(citiesSel); g2.appendChild(lc);
     imgUrl = admEl('input'); imgUrl.type = 'url'; imgUrl.placeholder = 'https://…/storage/v1/object/public/…';
     imgUrl.dir = 'ltr';
-    const li = admEl('label', 'cst-f cst-wide', 'קישור לתמונה (מהאחסון של האתר, JPG או PNG)'); li.appendChild(imgUrl); g2.appendChild(li);
+    liImg = admEl('label', 'cst-f cst-wide', 'קישור לתמונה (מהאחסון של האתר, JPG או PNG)'); liImg.appendChild(imgUrl); g2.appendChild(liImg);
     box.appendChild(g2);
     sb.from('cities').select('id, name').not('market_slug', 'is', null).not('lat', 'is', null).order('name').then(({ data }) => {
       (data || []).forEach(c => { const o = admEl('option', null, c.name); o.value = c.id; citiesSel.appendChild(o); });
@@ -26534,8 +26639,14 @@ function adsCampaignForm(d){
     if (!ok.length){ const o = admEl('option', null, 'אין טופס משויך מתאים'); o.value = ''; formSel.appendChild(o); }
     ok.forEach(f => { const o = admEl('option', null, (f.form_name || f.form_id) + ' · ' + (LEAD_KINDS[f.kind] || f.kind)); o.value = f.form_id; formSel.appendChild(o); });
   });
-  const syncDest = ()=>{ lForm.style.display = dest.value === 'lead_form' ? '' : 'none'; dashPanelsMeasure(); };
+  const syncDest = ()=>{
+    lForm.style.display = dest.value === 'lead_form' ? '' : 'none';
+    vidBox.style.display = fmt.value === 'video' ? '' : 'none';
+    if (liImg) liImg.style.display = fmt.value === 'video' ? 'none' : '';
+    dashPanelsMeasure();
+  };
   dest.addEventListener('change', syncDest);
+  fmt.addEventListener('change', syncDest);
   syncDest();
 
   const err = admEl('p', 'cst-err'); err.hidden = true; err.setAttribute('role', 'alert');
@@ -26553,13 +26664,14 @@ function adsCampaignForm(d){
       draft_id: d.id,
       variants: [...vWrap.querySelectorAll('input:checked')].map(c => Number(c.value)),
       destination: dest.value,
-      format: fmt ? fmt.value : 'image',
+      format: fmt.value,
       lead_form_id: dest.value === 'lead_form' ? formSel.value : undefined,
       daily_budget: Number(budget.i.value), days: Number(days.i.value), radius_km: Number(radius.i.value),
       age_min: Number(ageMin.i.value), age_max: Number(ageMax.i.value),
     };
     if (citiesSel) payload.city_ids = [...citiesSel.selectedOptions].map(o => o.value);
-    if (imgUrl) payload.image_url = imgUrl.value.trim();
+    if (imgUrl && fmt.value !== 'video') payload.image_url = imgUrl.value.trim();
+    if (fmt.value === 'video') payload.video_ids = [...vidPick.querySelectorAll('input:checked')].map(c => c.value);
     if (consent) payload.owner_consent = consent.checked;
     go.disabled = true;
     try{
@@ -26567,11 +26679,12 @@ function adsCampaignForm(d){
       const p = dry.plan, s = p.summary;
       const lines = [
         p.name,
-        'יעד: ' + ADS_DEST[s.destination] + ' · ' + (s.format === 'carousel' ? 'קרוסלה של ' + s.images + ' תמונות' : 'תמונה אחת') + ' · ' + s.ads + ' מודעות',
+        'יעד: ' + ADS_DEST[s.destination] + ' · ' + (s.format === 'video' ? 'סרטון: ' + (s.videos || []).map(v => v.label).join(', ')
+          : s.format === 'carousel' ? 'קרוסלה של ' + s.images + ' תמונות' : 'תמונה אחת') + ' · ' + s.ads + ' מודעות',
         'תקציב: ' + adsNis(s.daily_budget) + ' ליום' + (s.days ? ' ל-' + s.days + ' ימים - עד ' + adsNis(s.max_spend) + ' בסך הכול' : ' בלי תאריך סיום'),
         'אזור: ' + s.geo.map(x => x.label + ' (' + x.radius_km + ' ק"מ)').join(', ') + ' · גילאי ' + s.age[0] + '-' + s.age[1],
         'שורת הגילוי בסוף כל מודעה: ' + p.disclosure,
-      ].concat((p.ads || []).map((a, i) => 'מודעה ' + (i + 1) + ': ' + a.headline))
+      ].concat((p.ads || []).map((a, i) => 'מודעה ' + (i + 1) + ': ' + a.headline + (a.video ? ' · ' + a.video : '')))
        .concat((dry.warnings || []).map(w => 'שימו לב: ' + w));
       const ok = await confirmPurchase({ title: 'יצירת קמפיין במטא', lines, requireAck: true, hidePrice: true,
         confirmLabel: 'יצירה (מושהה)', ackText: 'אני מבין/ה שזה יוצר קמפיין בחשבון המודעות. הוא לא יוציא כסף עד שאפעיל אותו.' });
@@ -26579,6 +26692,7 @@ function adsCampaignForm(d){
       go.textContent = 'יוצר…';
       const r = await adsCall('create_campaign', payload);
       showToast('הקמפיין נוצר במטא (מושהה) עם ' + r.ads + ' מודעות');
+      if (payload.video_ids) adsVidPreselect = null;
       loadAdsCampaigns();
     }catch(ex){
       const list = ex.data && ex.data.errors ? ' - ' + ex.data.errors.map(adsPlanErrText).join(' · ') : '';
@@ -26589,6 +26703,372 @@ function adsCampaignForm(d){
     }
   });
   return box;
+}
+
+// ---------------------------------------------------------------------------
+// ספריית הסרטונים (שלב 8, docs/marketing-videos.md)
+//
+// הקובץ עולה מהדפדפן ישירות לדלי marketing-videos (‏policy למנהל/ת הפלטפורמה
+// בלבד), יחד עם תמונת שער שנחתכת כאן מהשנייה הראשונה - מטא דורשת תמונה
+// למודעת וידאו. השורה בקטלוג נכתבת ב-ads-admin (‏save_video), שבודק שהקבצים
+// באמת בדלי. "לקמפיין" מסמן את הסרטון ועובר ללשונית הנוסחים: בטופס היצירה,
+// תצוגה "סרטון מהספרייה" כבר מסומנת עליו.
+// ---------------------------------------------------------------------------
+const ADS_VID_BUCKET = 'marketing-videos';
+const ADS_VID_MAX_BYTES = 50 * 1024 * 1024;
+const ADS_VID_AUDIENCES = { agents: 'מתווכים', buyers: 'קונים', sellers: 'מוכרים', renters: 'שוכרים', developers: 'יזמים', professionals: 'בעלי מקצוע', general: 'כללי' };
+const ADS_VID_PURPOSES = { marketing: 'שיווק', tutorial: 'הדרכה' };
+const ADS_VID_ASPECTS = { '9:16': '9:16 (רילס וסטורי)', '4:5': '4:5 (פיד)', '1:1': '1:1 (פיד)', '16:9': '16:9 (רוחבי)' };
+// קהל הקמפיין ← הקהלים שסרטון שלהם מתאים לו בטופס היצירה
+const ADS_VID_FOR_CAMPAIGN = { platform: ['agents', 'general'], property: ['buyers', 'renters', 'sellers', 'general'] };
+let adsVideos = null;
+let adsVidStats = {};
+let adsVidPreselect = null;
+
+Object.assign(ADS_ERRORS, {
+  video_title_required: 'צריך כותרת לסרטון',
+  bad_video_audience: 'בחרו קהל',
+  bad_video_purpose: 'בחרו מטרה',
+  bad_video_aspect: 'יחס המסך לא זוהה',
+  bad_video_path: 'נתיב הקובץ אינו תקין',
+  bad_poster_path: 'נתיב תמונת השער אינו תקין',
+  video_file_missing: 'הסרטון לא נמצא באחסון - נסו להעלות שוב',
+  poster_file_missing: 'תמונת השער לא נמצאה באחסון - נסו להעלות שוב',
+  video_path_taken: 'הקובץ הזה כבר בספרייה',
+  video_not_found: 'הסרטון לא נמצא',
+  video_required: 'בחרו סרטון מהספרייה',
+  too_many_videos: 'עד שלושה סרטונים בקמפיין',
+  video_not_available: 'אחד הסרטונים בארכיון או נמחק',
+  video_poster_missing: 'לסרטון אין תמונת שער - העלו אותו מחדש',
+});
+Object.assign(ADS_PLAN_ERRORS, {
+  video_required: 'בחרו סרטון מהספרייה', too_many_videos: 'עד שלושה סרטונים', video_poster_missing: 'לסרטון אין תמונת שער',
+  too_many_ads: 'יותר משש מודעות בסט (נוסחים × סרטונים) - הורידו נוסח או סרטון',
+});
+
+function adsVidUrl(path){ return path ? sb.storage.from(ADS_VID_BUCKET).getPublicUrl(path).data.publicUrl : ''; }
+function adsVidDur(sec){
+  const s = Math.round(Number(sec) || 0);
+  return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : '';
+}
+function adsVidAspectOf(w, h){
+  if (!(w > 0 && h > 0)) return '';
+  let best = '', diff = Infinity;
+  [['9:16', 9 / 16], ['4:5', 0.8], ['1:1', 1], ['16:9', 16 / 9]].forEach(([k, v]) => {
+    const d = Math.abs(Math.log((w / h) / v));
+    if (d < diff){ diff = d; best = k; }
+  });
+  return best;
+}
+function adsVidLabel(v){ return [v.concept, v.variant].filter(Boolean).join(' · ') || v.title; }
+
+async function loadAdsVideos(force){
+  if (adsVideos && !force) return adsVideos;
+  const { data, error } = await sb.from('marketing_videos')
+    .select('id, created_at, title, purpose, audience, aspect, width, height, duration_sec, storage_path, poster_path, hook, script, notes, concept, variant, tags, status')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  adsVideos = data || [];
+  adsVidStats = {};
+  const st = await sb.rpc('marketing_video_stats', { p_days: 90 });
+  (st.data || []).forEach(r => { adsVidStats[r.video_id] = r; });
+  return adsVideos;
+}
+
+function adsVidFillFilters(){
+  const fill = (id, all, map) => {
+    const sel = document.getElementById(id);
+    if (!sel || sel.options.length) return;
+    const o = admEl('option', null, all); o.value = ''; sel.appendChild(o);
+    Object.entries(map).forEach(([k, l]) => { const x = admEl('option', null, l); x.value = k; sel.appendChild(x); });
+    sel.addEventListener('change', renderAdsVideos);
+  };
+  fill('adsVidAudience', 'כל הקהלים', ADS_VID_AUDIENCES);
+  fill('adsVidPurpose', 'שיווק והדרכה', ADS_VID_PURPOSES);
+  fill('adsVidAspect', 'כל יחסי המסך', ADS_VID_ASPECTS);
+}
+
+async function loadVideoLibrary(force){
+  adsVidFillFilters();
+  const host = document.getElementById('adsVidList');
+  if (!host) return;
+  try{
+    await loadAdsVideos(force);
+  }catch(error){
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', (error.code === '42P01' || error.code === 'PGRST205')
+      ? 'הטבלה לא קיימת עדיין - המיגרציה 20270415090000_marketing_videos.sql.' : 'שגיאה בטעינת הסרטונים: ' + heErr(error)));
+    dashPanelsMeasure();
+    return;
+  }
+  renderAdsVideos();
+}
+
+// ביצועי סרטון: הוצאה, לידים ועלות לליד מכל המודעות שנוצרו ממנו (90 יום).
+function adsVidStatLine(v){
+  const s = adsVidStats[v.id];
+  if (!s || !s.ads) return 'עוד לא רץ בקמפיין';
+  const leads = Number(s.leads) + Number(s.conversations);
+  const parts = [s.ads + ' מודעות', adsNis(s.spend) + ' הוצאה', Number(s.link_clicks).toLocaleString('he-IL') + ' קליקים', leads + ' לידים ושיחות'];
+  if (leads) parts.push(adsNis(Number(s.spend) / leads) + ' לליד');
+  return parts.join(' · ');
+}
+function adsVidCpl(v){
+  const s = adsVidStats[v.id];
+  const leads = s ? Number(s.leads) + Number(s.conversations) : 0;
+  return leads ? Number(s.spend) / leads : null;
+}
+
+function renderAdsVideos(){
+  const host = document.getElementById('adsVidList');
+  if (!host || !adsVideos) return;
+  const aud = document.getElementById('adsVidAudience').value;
+  const pur = document.getElementById('adsVidPurpose').value;
+  const asp = document.getElementById('adsVidAspect').value;
+  const q = document.getElementById('adsVidSearch').value.trim().toLowerCase();
+  const arch = document.getElementById('adsVidArchived').checked;
+  const list = adsVideos.filter(v => (arch || v.status === 'ready')
+    && (!aud || v.audience === aud) && (!pur || v.purpose === pur) && (!asp || v.aspect === asp)
+    && (!q || [v.title, v.concept, v.variant, v.hook, (v.tags || []).join(' ')].join(' ').toLowerCase().includes(q)));
+  host.innerHTML = '';
+  if (!list.length){
+    host.appendChild(admEl('div', 'empty-state', adsVideos.length ? 'אין סרטון שמתאים לסינון.' : 'הספרייה ריקה. "העלאת סרטון" מוסיף את הראשון.'));
+    dashPanelsMeasure();
+    return;
+  }
+  // קבוצה לכל רעיון: כמה גרסאות של אותו רעיון הן ניסוי A/B, וזו שעלות הליד
+  // שלה הנמוכה ביותר מסומנת. סרטון בלי רעיון - בקבוצה של עצמו בסוף.
+  const groups = new Map();
+  list.forEach(v => {
+    const k = v.concept || '';
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(v);
+  });
+  [...groups.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b, 'he')).forEach(k => {
+    const items = groups.get(k);
+    const box = admEl('section', 'ads-vid-group');
+    const h = admEl('h3', 'ads-vid-group-h', k || 'סרטונים בלי רעיון משותף');
+    let best = null;
+    if (k && items.length > 1){
+      h.appendChild(admEl('span', 'ads-pill is-warn', 'השוואה בין ' + items.length + ' גרסאות'));
+      const ranked = items.filter(v => adsVidCpl(v) !== null).sort((a, b) => adsVidCpl(a) - adsVidCpl(b));
+      if (ranked.length > 1) best = ranked[0].id;
+    }
+    box.appendChild(h);
+    const grid = admEl('div', 'ads-vid-grid');
+    items.forEach(v => grid.appendChild(adsVidCard(v, v.id === best)));
+    box.appendChild(grid);
+    host.appendChild(box);
+  });
+  dashPanelsMeasure();
+}
+
+function adsVidCard(v, best){
+  const card = admEl('article', 'ads-vid-card' + (best ? ' is-best' : '') + (v.status === 'archived' ? ' is-archived' : ''));
+  const vid = admEl('video');
+  vid.controls = true; vid.preload = 'none'; vid.playsInline = true;
+  vid.src = adsVidUrl(v.storage_path);
+  if (v.poster_path) vid.poster = adsVidUrl(v.poster_path);
+  card.appendChild(vid);
+  const body = admEl('div', 'ads-vid-body');
+  body.appendChild(admEl('div', 'ads-vid-title', v.title));
+  const chips = admEl('div', 'ads-vid-chips');
+  if (best) chips.appendChild(admEl('span', 'ads-pill is-on', 'מוביל/ה בעלות לליד'));
+  if (v.variant) chips.appendChild(admEl('span', 'ads-pill is-warn', 'גרסה ' + v.variant));
+  [ADS_VID_AUDIENCES[v.audience], ADS_VID_PURPOSES[v.purpose], v.aspect, adsVidDur(v.duration_sec)]
+    .filter(Boolean).forEach(t => chips.appendChild(admEl('span', 'ads-pill', t)));
+  if (v.status === 'archived') chips.appendChild(admEl('span', 'ads-pill is-bad', 'בארכיון'));
+  body.appendChild(chips);
+  if (v.hook) body.appendChild(admEl('div', 'ads-vid-stats', 'הוק: ' + v.hook));
+  body.appendChild(admEl('div', 'ads-vid-stats', adsVidStatLine(v)));
+  const btns = admEl('div', 'ads-vid-btns');
+  const mk = (label, fn) => { const b = admEl('button', 'ads-act', label); b.type = 'button'; b.addEventListener('click', fn); btns.appendChild(b); return b; };
+  if (v.status === 'ready'){
+    mk('לקמפיין', ()=>{
+      adsVidPreselect = v.id;
+      adsSelectTab('adsTabCopy');
+      showToast('בטופס היצירה מתחת לטיוטה מאושרת, תצוגה "סרטון מהספרייה" - הסרטון כבר מסומן');
+    });
+  }
+  mk('העתקת קישור', async ()=>{
+    try{ await navigator.clipboard.writeText(adsVidUrl(v.storage_path)); showToast('הקישור הועתק'); }
+    catch(_){ showToast(adsVidUrl(v.storage_path), 6000); }
+  });
+  mk('עריכה', ()=> adsVidOpenForm(v));
+  const arch = mk(v.status === 'archived' ? 'החזרה מהארכיון' : 'לארכיון', async ()=>{
+    arch.disabled = true;
+    try{
+      await adsCall('archive_video', { id: v.id, archived: v.status !== 'archived' });
+      await loadVideoLibrary(true);
+    }catch(e){ showToast(heErr(e), 5200); }
+    finally{ arch.disabled = false; }
+  });
+  body.appendChild(btns);
+  card.appendChild(body);
+  return card;
+}
+
+// מידות, אורך ותמונת שער מהקובץ עצמו, בדפדפן, לפני ההעלאה.
+function adsVidProbe(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'auto'; v.muted = true; v.playsInline = true; v.src = url;
+    const fail = () => { URL.revokeObjectURL(url); reject(new Error('לא הצלחנו לקרוא את הסרטון - נסו MP4')); };
+    v.addEventListener('error', fail, { once: true });
+    v.addEventListener('loadedmetadata', () => {
+      const meta = { width: v.videoWidth, height: v.videoHeight, duration: v.duration };
+      v.addEventListener('seeked', () => {
+        const c = document.createElement('canvas');
+        c.width = v.videoWidth; c.height = v.videoHeight;
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob(blob => {
+          URL.revokeObjectURL(url);
+          if (!blob) return reject(new Error('לא הצלחנו ליצור תמונת שער'));
+          resolve(Object.assign(meta, { poster: blob }));
+        }, 'image/jpeg', 0.86);
+      }, { once: true });
+      v.currentTime = Math.min(1, (v.duration || 2) / 2);
+    }, { once: true });
+  });
+}
+
+function adsVidField(form, label, el, wide){
+  const l = admEl('label', 'cst-f' + (wide ? ' cst-wide' : ''), label);
+  l.appendChild(el);
+  form.appendChild(l);
+  return el;
+}
+
+function adsVidOpenForm(row){
+  const form = document.getElementById('adsVidForm');
+  form.innerHTML = '';
+  form.hidden = false;
+  form.appendChild(admEl('h3', 'adm-h', row ? 'עריכת סרטון' : 'העלאת סרטון לספרייה'));
+  const g = admEl('div', 'cst-grid');
+  form.appendChild(g);
+  let file = null, probe = null;
+  const probeLine = admEl('div', 'ads-vid-probe');
+  if (!row){
+    const f = admEl('input'); f.type = 'file'; f.accept = 'video/mp4,video/webm,video/quicktime';
+    adsVidField(g, 'קובץ הסרטון (עד 50MB)', f, true);
+    g.appendChild(probeLine);
+    f.addEventListener('change', async ()=>{
+      file = f.files && f.files[0]; probe = null; probeLine.textContent = '';
+      if (!file) return;
+      if (file.size > ADS_VID_MAX_BYTES){ probeLine.textContent = 'הקובץ גדול מ-50MB'; file = null; return; }
+      probeLine.textContent = 'קורא את הסרטון…';
+      try{
+        probe = await adsVidProbe(file);
+        probeLine.textContent = probe.width + '×' + probe.height + ' · ' + (adsVidAspectOf(probe.width, probe.height) || '?') + ' · ' + adsVidDur(probe.duration);
+        if (!title.value) title.value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+      }catch(e){ probeLine.textContent = heErr(e); file = null; }
+      dashPanelsMeasure();
+    });
+  } else {
+    probeLine.textContent = [row.width && row.height ? row.width + '×' + row.height : '', row.aspect, adsVidDur(row.duration_sec)].filter(Boolean).join(' · ');
+    g.appendChild(probeLine);
+  }
+  const title = admEl('input'); title.type = 'text'; title.maxLength = 120; title.value = row ? row.title : '';
+  adsVidField(g, 'כותרת', title, true);
+  const sel = (map, val) => { const s = admEl('select'); Object.entries(map).forEach(([k, l]) => { const o = admEl('option', null, l); o.value = k; s.appendChild(o); }); if (val) s.value = val; return s; };
+  const purpose = adsVidField(g, 'מטרה', sel(ADS_VID_PURPOSES, row && row.purpose));
+  const audience = adsVidField(g, 'קהל', sel(ADS_VID_AUDIENCES, row ? row.audience : 'agents'));
+  const concept = admEl('input'); concept.type = 'text'; concept.maxLength = 60; concept.value = row && row.concept || '';
+  concept.placeholder = 'למשל: מהשיחה לפגישה';
+  adsVidField(g, 'רעיון (משותף לכל הגרסאות)', concept);
+  const variant = admEl('input'); variant.type = 'text'; variant.maxLength = 40; variant.value = row && row.variant || '';
+  variant.placeholder = 'A, B, הוק תוצאה, 15 שניות…';
+  adsVidField(g, 'גרסה', variant);
+  const hook = admEl('input'); hook.type = 'text'; hook.maxLength = 300; hook.value = row && row.hook || '';
+  adsVidField(g, 'ההוק (המשפט הראשון)', hook, true);
+  const tags = admEl('input'); tags.type = 'text'; tags.value = row ? (row.tags || []).join(', ') : '';
+  tags.placeholder = 'מופרדות בפסיק';
+  adsVidField(g, 'תגיות', tags, true);
+  const script = admEl('textarea'); script.maxLength = 4000; script.value = row && row.script || '';
+  adsVidField(g, 'התסריט', script, true);
+  const notes = admEl('textarea'); notes.maxLength = 2000; notes.value = row && row.notes || '';
+  adsVidField(g, 'הערות (איך הופק, מה נבדק)', notes, true);
+
+  const err = admEl('p', 'cst-err'); err.hidden = true; err.setAttribute('role', 'alert');
+  form.appendChild(err);
+  const rowBtns = admEl('div', 'ads-row-btns');
+  const save = admEl('button', 'btn btn-gold', row ? 'שמירה' : 'העלאה לספרייה'); save.type = 'submit';
+  const cancel = admEl('button', 'ads-act', 'ביטול'); cancel.type = 'button';
+  cancel.addEventListener('click', ()=>{ form.hidden = true; form.innerHTML = ''; dashPanelsMeasure(); });
+  rowBtns.appendChild(save); rowBtns.appendChild(cancel);
+  form.appendChild(rowBtns);
+
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
+    err.hidden = true;
+    const payload = {
+      title: title.value.trim(), purpose: purpose.value, audience: audience.value,
+      concept: concept.value.trim(), variant: variant.value.trim(), hook: hook.value.trim(),
+      tags: tags.value.split(',').map(t => t.trim()).filter(Boolean), script: script.value.trim(), notes: notes.value.trim(),
+    };
+    save.disabled = true;
+    const uploaded = [];
+    try{
+      if (row){
+        Object.assign(payload, { id: row.id, aspect: row.aspect, width: row.width, height: row.height, duration_sec: row.duration_sec });
+      } else {
+        if (!file || !probe) throw new Error('בחרו קובץ סרטון');
+        const aspect = adsVidAspectOf(probe.width, probe.height);
+        const ext = file.type === 'video/webm' ? 'webm' : file.type === 'video/quicktime' ? 'mov' : 'mp4';
+        const d = new Date();
+        const base = d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + crypto.randomUUID();
+        save.textContent = 'מעלה…';
+        const up1 = await sb.storage.from(ADS_VID_BUCKET).upload(base + '.' + ext, file, { contentType: file.type || 'video/mp4', upsert: false });
+        if (up1.error) throw up1.error;
+        uploaded.push(base + '.' + ext);
+        const up2 = await sb.storage.from(ADS_VID_BUCKET).upload(base + '.jpg', probe.poster, { contentType: 'image/jpeg', upsert: false });
+        if (up2.error) throw up2.error;
+        uploaded.push(base + '.jpg');
+        Object.assign(payload, {
+          aspect, width: probe.width, height: probe.height, duration_sec: Math.round(probe.duration * 100) / 100,
+          storage_path: base + '.' + ext, poster_path: base + '.jpg', source: { uploaded_name: file.name.slice(0, 120) },
+        });
+      }
+      await adsCall('save_video', payload);
+      showToast(row ? 'נשמר' : 'הסרטון נוסף לספרייה');
+      form.hidden = true; form.innerHTML = '';
+      await loadVideoLibrary(true);
+    }catch(ex){
+      // קבצים שעלו לפני שהשורה נשמרה - לא להשאיר יתומים בדלי.
+      if (uploaded.length) sb.storage.from(ADS_VID_BUCKET).remove(uploaded).catch(()=>{});
+      err.textContent = heErr(ex); err.hidden = false;
+    }finally{
+      save.disabled = false; save.textContent = row ? 'שמירה' : 'העלאה לספרייה';
+      dashPanelsMeasure();
+    }
+  };
+  dashPanelsMeasure();
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+document.getElementById('adsVidAddBtn')?.addEventListener('click', ()=> adsVidOpenForm(null));
+document.getElementById('adsVidSearch')?.addEventListener('input', ()=> renderAdsVideos());
+document.getElementById('adsVidArchived')?.addEventListener('change', ()=> renderAdsVideos());
+
+// בורר הסרטונים בטופס יצירת הקמפיין: סרטונים מוכנים שהקהל שלהם מתאים לקמפיין.
+function adsVidPicker(audience){
+  const wrap = admEl('div', 'ads-vid-pick');
+  wrap.appendChild(admEl('div', 'ads-vid-probe', 'טוען את הספרייה…'));
+  loadAdsVideos().then(list => {
+    wrap.innerHTML = '';
+    const ok = list.filter(v => v.status === 'ready' && (ADS_VID_FOR_CAMPAIGN[audience] || []).includes(v.audience));
+    if (!ok.length){ wrap.appendChild(admEl('div', 'ads-vid-probe', 'אין בספרייה סרטון לקהל הזה - מעלים בלשונית "סרטונים".')); return; }
+    ok.forEach(v => {
+      const l = admEl('label', 'ads-check');
+      const c = admEl('input'); c.type = 'checkbox'; c.value = v.id; c.checked = v.id === adsVidPreselect;
+      l.appendChild(c);
+      l.appendChild(admEl('span', null, adsVidLabel(v) + ' · ' + v.aspect + (v.duration_sec ? ' · ' + adsVidDur(v.duration_sec) : '')));
+      wrap.appendChild(l);
+    });
+    dashPanelsMeasure();
+  }).catch(e => { wrap.innerHTML = ''; wrap.appendChild(admEl('div', 'ads-vid-probe', heErr(e))); });
+  return wrap;
 }
 
 const ADS_CAMP_STATUS = { creating: ['ביצירה', 'is-warn'], created: ['נוצר', 'is-on'], failed: ['נכשל באמצע', 'is-bad'], discarded: ['נמחק', ''] };
