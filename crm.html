@@ -1394,26 +1394,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:.58rem;font-weight:800;line-height:1.6;padding:0 6px;border-radius:999px;
     background:var(--teal);color:#EDF2F8;letter-spacing:.02em}
   .pc-badge.pc-badge-free{background:#2A5B36;color:#EAF4EC}
-  /* גוון רך לכל אריח לפי מה שהפעולה עושה: כחול = עבודה על המודעה,
-     ירוק = חשיפה בחינם, בורדו = פעולה בתשלום, חול = חומר לשטח,
-     אדום רך = ביטול.
+  /* היה כאן גוון רך לכל אריח לפי מה שהפעולה עושה (כחול, ירוק, בורדו, חול,
+     אדום). ירד - ראו ההערה שמתחת. נשארו בורדו לפעולה בתשלום ואייקון אדום
+     לביטול.
 
      ושני גוונים **מלאים**, לשתי הפעולות שהיו עד כה כפתורים רחבים משלהן:
      ‏`pc-share` לפתיחה לשת"פ ו-`pc-fair` להכנסה ליריד. מילוי מלא הוא מה
      שממשיך לומר "אלה לא עוד שני כלים ברשת" אחרי שהשורה הנפרדת ירדה.
-     כשהפעולה כבר בוצעה הן מתהפכות לגוון רך (‏`pc-green` לשת"פ שכבר הופץ,
+     כשהפעולה כבר בוצעה הן מתהפכות לגוון רך (אריח לבן בלי גוון לשת"פ שכבר הופץ,
      ‏`pc-fair-on` לנכס שכבר ביריד): אז זה כבר תיאור מצב והדרך לשנות
      אותו, ולא קריאה לפעולה. */
-  .pc-tile.pc-teal{background:#E7EDF3;border-color:#D3DDE7}
-  .pc-tile.pc-teal .pc-ico{color:var(--teal)}
-  .pc-tile.pc-green{background:#E4F0E7;border-color:#CFE3D5}
-  .pc-tile.pc-green .pc-ico{color:#2A5B36}
+  /* ‏**ובכרטיס הנכס רוב האריחים בלי גוון בכלל.** חמישה גוונים פסטליים על
+     עשרה אריחים יצרו ריצוד, והעין לא מצאה במה לבחור. אריח בלי tone הוא
+     לבן עם אייקון כחול; רקע צבעוני נשאר לקידום (בתשלום), לשני המלאים
+     שלמטה, ולביטול - שבו רק האייקון אדום, כי זו פעולה הפוכה ולא דחופה. */
+  .pc-tile .pc-ico{color:var(--navy,var(--teal))}
   .pc-tile.pc-gold{background:#F6E6E8;border-color:#E9D2D6}
   .pc-tile.pc-gold .pc-ico{color:var(--gold)}
-  .pc-tile.pc-sand{background:#F2EEE4;border-color:#E2DBCA}
-  .pc-tile.pc-sand .pc-ico{color:#7A6742}
-  .pc-tile.pc-red{background:#FDECEE;border-color:#EFD4D8}
   .pc-tile.pc-red .pc-ico{color:#9C0C24}
+  .pc-tile.pc-red:hover{border-color:#EFD4D8}
   .pc-tile.pc-share{background:#2A5B36;border-color:#2A5B36;color:#EAF4EC}
   .pc-tile.pc-share .pc-ico{color:#EAF4EC}
   .pc-tile.pc-fair{background:#C8102E;border-color:#C8102E;color:#fff}
@@ -1549,6 +1548,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        היה נוחת מתחתיו במקום לצידו. */
     .prop-card .pc-col-main{grid-column:1;grid-row:1}
     .prop-card .pc-col-side{grid-column:2;grid-row:1}
+    .prop-card .pc-matched-list{grid-column:1/-1;grid-row:3}
     .prop-card .pc-facts{grid-column:1/-1;grid-row:2;
       flex-direction:row;align-items:center;gap:10px;margin-top:9px}
     /* התגיות לוקחות את מה שנשאר, והבעלים אינם מתכווצים: הטלפון והכפתורים
@@ -1583,6 +1583,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--txt-faint,var(--ink-soft))}
   .pc-hero-ph .pc-ico{width:26px;height:26px}
   .pc-hero-body{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:2px}
+  /* מונה התמונות והחיצים. המונה תמיד גלוי - גם על הבול הקטן בטלפון, כי
+     "כמה תמונות יש" היא שאלה שנשאלת בכל רוחב. החיצים רק כשהתמונה היא
+     תמונת נושא; על בול של 68px הם היו מכסים אותה כולה. */
+  .pc-hero-media{position:relative;flex:none;line-height:0}
+  .pc-hero-count{position:absolute;inset-block-end:4px;inset-inline-start:4px;line-height:1.4;
+    padding:1px 6px;border-radius:999px;background:rgba(15,23,42,.62);color:#fff;
+    font-size:.62rem;font-weight:800;pointer-events:none;white-space:nowrap}
+  .pc-hero-count bdi{font-variant-numeric:tabular-nums}
+  .pc-hero-nav{display:none;position:absolute;top:50%;transform:translateY(-50%);
+    width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;
+    background:rgba(255,255,255,.88);color:var(--navy,#1C3A5E);font:inherit;font-size:1.25rem;font-weight:800;
+    line-height:1;box-shadow:0 2px 8px rgba(15,23,42,.22)}
+  .pc-hero-nav:hover{background:#fff}
+  .pc-hero-nav:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
+  .pc-hero-prev{inset-inline-start:8px}
+  .pc-hero-next{inset-inline-end:8px}
+  /* רשימת הלקוחות המתאימים, שנפתחת מהתגית שבשורת העובדות */
+  .card-tag.pc-matched{font-family:inherit;cursor:pointer}
+  .card-tag.pc-matched:hover{border-color:#2A5B36}
+  .card-tag.pc-matched:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
+  .pc-matched-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px 9px;
+    border:1px solid #CFE3D5;border-radius:12px;background:#F3F8F4}
+  .pc-matched-list .pc-sec-head{flex:1 1 100%;margin:0}
+  .pc-matched-item{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    border:1px solid #CFE3D5;background:#fff;font:inherit;font-size:.76rem;font-weight:700;
+    color:var(--ink);cursor:pointer}
+  .pc-matched-item b{color:#2A5B36;font-variant-numeric:tabular-nums}
+  .pc-matched-item:hover{border-color:#2A5B36}
   /* שורת הכותרת נושאת גם את שבב הסטטוס, בקצה שנשאר פנוי בה. ‏align-items
      ‏flex-start ולא center: כותרת שנשברת לשתי שורות הייתה גוררת את השבב
      למרכזה במקום להשאיר אותו בגובה השורה הראשונה.
@@ -1622,7 +1650,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      מלא הייתה דוחפת את כל השאר מתחת לקפל. */
   @container proptab (min-width:640px){
     .pc-hero{flex-direction:column;gap:8px}
+    .pc-hero-media{width:100%}
     .pc-hero-img{width:100%;height:auto;aspect-ratio:16/10;max-height:196px}
+    .pc-hero-nav{display:block}
+    .pc-hero-count{inset-block-end:8px;inset-inline-start:8px;font-size:.72rem;padding:2px 8px}
     /* נכס בלי תמונות אינו מקבל משבצת ריקה בגובה תמונה: מסגרת מקווקוות
        נמוכה אומרת "כאן אין תמונה" בלי לתפוס את המקום של אחת. */
     .pc-hero-ph{aspect-ratio:auto;height:96px;border-style:dashed}
@@ -1712,6 +1743,55 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .clear-filters{background:none;border:none;padding:0;font:inherit;font-size:.74rem;font-weight:700;
     color:var(--gold-dark);cursor:pointer;text-decoration:underline}
   .clear-filters[hidden]{display:none}
+
+  /* ---------- "הנכסים שלי": רשת סינון אחידה ----------
+     שש תיבות בשתי שורות של flex נתנו 4+2, והשורה השנייה נמתחה לחצאים -
+     שתי תיבות רחבות שנראות כמו חור. כאן רשת אחת: שתי עמודות בטלפון וארבע
+     ממחשב, ושמונה פקדים ממלאים אותה בדיוק (סטטוס, עסקה, סוג, עיר / חדרים,
+     מחיר, סינון מהיר, מיון). ‏@container ולא @media: הרוחב שקובע הוא של
+     האקורדיון, שבמחשב יושב לצד סרגל ניווט. */
+  #propToolbar{container-type:inline-size}
+  .list-toolbar .toolbar-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  @container (min-width:640px){
+    .list-toolbar .toolbar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  /* טווח המחיר: שני שדות בתוך גלולה אחת, כדי שיתפוס משבצת אחת ברשת
+     ולא שתיים. ‏inputmode=numeric ולא type=number בלבד - בטלפון זו
+     מקלדת הספרות. */
+  .filter-range{display:flex;align-items:center;gap:4px;padding:0 12px;min-width:0}
+  .filter-range input{flex:1 1 0;min-width:0;width:100%;border:none;background:transparent;
+    font:inherit;font-size:.88rem;color:inherit;padding:8px 2px;text-align:center;-moz-appearance:textfield}
+  .filter-range input::-webkit-outer-spin-button,
+  .filter-range input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .filter-range input:focus{outline:none}
+  .filter-range input::placeholder{color:#94a3b8}
+  .filter-range:focus-within{border-color:#2c5a8c;box-shadow:0 0 0 3px rgba(44,90,140,.16)}
+  .filter-range-sep{color:#94a3b8;flex:none}
+  .filter-range:has(input:not(:placeholder-shown)){
+    background-color:#eef3f9;border-color:#2c5a8c;color:#1C3A5E;font-weight:700;
+    box-shadow:0 0 0 1px #2c5a8c inset,0 3px 10px rgba(28,58,94,.10)}
+  /* איפוס הסינון ב"הנכסים שלי" הוא גלולה ולא קישור: קישור קטן בגופן
+     ‎.74rem‎ בתחתית שמונה תיבות הוא בדיוק מה שלא מוצאים */
+  #propClearFilters{padding:5px 12px;border:1px solid #d5dce6;border-radius:999px;background:#fff;
+    text-decoration:none;font-size:.78rem;color:var(--gold-dark)}
+  #propClearFilters:hover{border-color:var(--gold-dark)}
+
+  /* ---------- "הנכסים שלי": שורת הפעולות שמעל הרשימה ----------
+     ראו את ההערה ב-HTML. הכפתור הראשי נמתח, המשניים ברוחב התוכן. */
+  .prop-actbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:stretch}
+  .prop-actbar .btn{min-height:46px}
+  .prop-act-main{flex:1 1 180px;background:var(--navy,#1C3A5E);color:#fff;border:1.5px solid var(--navy,#1C3A5E)}
+  .prop-act-main:hover{background:var(--navy-2,#2c5a8c);border-color:var(--navy-2,#2c5a8c)}
+  .prop-act-sub{flex:0 1 auto;background:#fff}
+  .prop-more{position:relative;flex:0 1 auto}
+  .prop-more > summary{list-style:none;cursor:pointer;height:100%}
+  .prop-more > summary::-webkit-details-marker{display:none}
+  .prop-more-menu{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:30;min-width:220px;
+    display:flex;flex-direction:column;padding:6px;background:#fff;border:1px solid #d5dce6;
+    border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.16)}
+  .prop-more-menu button{font:inherit;font-size:.88rem;font-weight:700;color:var(--ink);text-align:start;
+    background:none;border:none;border-radius:10px;padding:10px 12px;cursor:pointer;white-space:nowrap}
+  .prop-more-menu button:hover,.prop-more-menu button:focus-visible{background:var(--navy-tint,#eef3f9);outline:none}
 
   /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
      כרטיס ההתאמה צר יותר מכרטיס ליד: הוא יושב *בתוך* כרטיס הלקוח/ה, ולכן
@@ -6502,17 +6582,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          החשש שהיה כתוב כאן קודם, ש-`wrap` יחלק אותם אחרת בכל רוחב, נכון
          לשלושה כפתורים (‏2+1 או 1+1+1). לשניים יש בדיוק שתי תוצאות ושתיהן
          מכוונות, ומ-360px ומעלה הפריסה **זהה בפיקסל** למה שהייתה.
-         הפירוט והמדידה: `docs/agent-dashboard.md`. -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-      <button class="btn btn-ghost" id="toggleAddProperty">+ הוספת נכס חדש</button>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-ghost" id="openImportProperties" style="flex:1">📥 ייבוא מקובץ</button>
-        <!-- הייצוא למנהל/ת משרד בלבד - syncOfficeExportButtons() ב-assets/crm-office.js
-             מציג אותו. מוסתר כברירת מחדל, כדי שסוכן/ת לא יראה אותו מהבהב בטעינה. -->
-        <button class="btn btn-ghost" id="openExportProperties" style="flex:1;display:none">📤 ייצוא לאקסל</button>
-        <!-- מסירת כמה נכסים לסוכן/ת - מנהל/ת משרד בלבד (crm-office.js) -->
-        <button class="btn btn-ghost" id="openBulkReferProperties" style="flex:1 1 100%;display:none">🤝 מסירת נכסים לסוכן/ת</button>
-      </div>
+         הפירוט והמדידה: `docs/agent-dashboard.md`.
+
+         ‏**ועכשיו שורה אחת.** ארבעה כפתורים ברוחב מלא בשלוש שורות דחפו את
+         הנכסים עצמם אל מתחת למסך הראשון. הוספת נכס היא הכפתור הראשי, המלא,
+         והיחיד שנמתח; הייבוא כפתור משני לצידו; והייצוא והמסירה - שתי פעולות
+         של מנהל/ת משרד שעושים פעם בחודש - יושבים בתפריט "⋯". התפריט כולו
+         מוסתר לסוכן/ת (syncOfficeExportButtons ב-crm-office.js), כדי שלא
+         ייפתח תפריט ריק. ‏`flex-wrap` נשאר מהסיבה שלמעלה: ב-280px הכפתורים
+         המשניים יורדים לשורה שנייה במקום לגלוש. -->
+    <div class="prop-actbar">
+      <button class="btn prop-act-main" id="toggleAddProperty">+ הוספת נכס חדש</button>
+      <button class="btn btn-ghost prop-act-sub" id="openImportProperties">📥 ייבוא מקובץ</button>
+      <details class="prop-more" id="propMoreMenu" style="display:none">
+        <summary class="btn btn-ghost prop-act-sub" aria-label="פעולות נוספות">⋯ עוד</summary>
+        <div class="prop-more-menu" role="menu">
+          <!-- הייצוא למנהל/ת משרד בלבד - syncOfficeExportButtons() ב-assets/crm-office.js
+               מציג אותו. מוסתר כברירת מחדל, כדי שסוכן/ת לא יראה אותו מהבהב בטעינה. -->
+          <button type="button" role="menuitem" id="openExportProperties" style="display:none">📤 ייצוא לאקסל</button>
+          <!-- מסירת כמה נכסים לסוכן/ת - מנהל/ת משרד בלבד (crm-office.js) -->
+          <button type="button" role="menuitem" id="openBulkReferProperties" style="display:none">🤝 מסירת נכסים לסוכן/ת</button>
+        </div>
+      </details>
     </div>
     <!-- ====== טופס הנכס: שישה מקטעים ======
          היה גלילה אחת ארוכה; עכשיו שישה מקטעים בסדר שבו סוכן/ת חושב/ת על
@@ -6878,7 +6969,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="list-toolbar" id="propToolbar" hidden>
       <input type="search" id="propSearch" class="filter-input"
              placeholder="חיפוש נכס - כותרת, עיר, רחוב, סוג נכס, מס׳ מודעה או בעל/ת הנכס">
-      <div class="toolbar-row">
+      <div class="toolbar-grid">
         <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
           <option value="">כל הסטטוסים</option>
           <option value="active">מפורסם</option>
@@ -6898,13 +6989,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <select id="propCityFilter" class="filter-input" aria-label="סינון לפי עיר">
           <option value="">כל הערים</option>
         </select>
-      </div>
-      <div class="toolbar-row">
+        <!-- "לפחות" ולא "בדיוק": מי שמחפש/ת 4 חדרים מוכן/ה לראות גם 4.5 ו-5.
+             נכס בלי מספר חדרים (מסחרי, מגרש) לא עובר סינון שנבחר בו מספר. -->
+        <select id="propRoomsFilter" class="filter-input" aria-label="סינון לפי מספר חדרים">
+          <option value="">כל החדרים</option>
+          <option value="1">1+ חדרים</option>
+          <option value="2">2+ חדרים</option>
+          <option value="3">3+ חדרים</option>
+          <option value="4">4+ חדרים</option>
+          <option value="5">5+ חדרים</option>
+        </select>
+        <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
+          <input type="number" id="propPriceMin" inputmode="numeric" min="0" step="any" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
+          <span class="filter-range-sep" aria-hidden="true">-</span>
+          <input type="number" id="propPriceMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי">
+        </div>
         <select id="propExtraFilter" class="filter-input" aria-label="סינון מהיר">
           <option value="">כל הנכסים</option>
           <option value="promoted">מקודמים כרגע</option>
+          <option value="exclusive">בבלעדיות</option>
+          <option value="not_exclusive">בלי בלעדיות</option>
           <option value="shared">פתוחים לשת״פ</option>
           <option value="not_shared">לא פתוחים לשת״פ</option>
+          <option value="matched">יש לקוחות מתאימים</option>
           <option value="no_images">ללא תמונות</option>
           <option value="no_video">בלי סרטון או סיור</option>
           <option value="expiring">תוקף נגמר בקרוב</option>
@@ -6925,7 +7032,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="toolbar-foot">
         <p class="list-count" id="propFilterCount"></p>
-        <button type="button" class="clear-filters" id="propClearFilters" hidden>ניקוי הסינון</button>
+        <button type="button" class="clear-filters" id="propClearFilters" hidden>✕ איפוס סינונים</button>
       </div>
     </div>
     <div id="propertiesList"></div>

@@ -777,7 +777,9 @@ document.getElementById('openBulkReferProperties').addEventListener('click', () 
    נקרא מ-loadDashboard בכל טעינה, כדי שהחלפת תפקיד תסתיר גם אותם. */
 function syncOfficeExportButtons(){
   const show = officeIsManager();
-  ['openExportProperties', 'openClientExport', 'openBulkRefer', 'openBulkReferProperties'].forEach(id => {
+  // ‏propMoreMenu - תפריט "⋯ עוד" שבראש "הנכסים שלי", שמחזיק רק את שתי
+  // הפעולות האלה; לסוכן/ת הוא היה נפתח ריק
+  ['openExportProperties', 'openClientExport', 'openBulkRefer', 'openBulkReferProperties', 'propMoreMenu'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? '' : 'none';
   });
