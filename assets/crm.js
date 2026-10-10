@@ -17716,6 +17716,50 @@ async function unarchiveLead(lead, btn, agentId){
   renderLeads(agentId);
 }
 
+/* ---------- שלב הטיפול והערה לכל ליד (‏lead_work) ----------
+   "פתוח" אמר רק ששילמו. השלב אומר איפה הליד עומד אחרי זה, וההערה היא
+   "לחזור אליו ביום שלישי ב-16:00" שעד כאן נכתבה במחברת. השורה פרטית
+   לסוכן/ת — ליד שנמסר בהפנייה מחזיק שתי שורות, אחת לכל צד.
+
+   ‏Map לפי lead_id, ואותו כלל של הארכיון: טבלה שטרם נוצרה אינה מפילה את
+   הדשבורד. ‏leadWorkReady מסתיר את הבורר עד שהמיגרציה רצה, במקום להציג
+   בורר שכל שינוי בו נכשל. */
+const LEAD_STAGES = [
+  ['new',          'חדש'],
+  ['contacted',    'נוצר קשר ראשוני'],
+  ['meeting',      'בתיאום פגישה / סיור'],
+  ['not_relevant', 'לא רלוונטי / לא ענה'],
+  ['won',          'נסגר בהצלחה'],
+];
+const LEAD_STAGE_LABEL = Object.fromEntries(LEAD_STAGES);
+let leadWork = new Map();
+let leadWorkReady = false;
+
+async function loadLeadWork(agentId){
+  const { data, error } = await sb
+    .from('lead_work')
+    .select('lead_id, stage, note, updated_at')
+    .eq('agent_id', agentId);
+  if (error){
+    if (!isMissingTableError(error)) console.warn('טעינת שלבי הטיפול בלידים נכשלה:', error.message);
+    leadWorkReady = false;
+    return new Map();
+  }
+  leadWorkReady = true;
+  return new Map((data || []).map(r => [r.lead_id, r]));
+}
+
+async function saveLeadWork(lead, patch){
+  const agentId = currentAgent?.id;
+  if (!agentId) return false;
+  const prev = leadWork.get(lead.id) || { lead_id: lead.id, stage:'new', note:null };
+  const row = { ...prev, ...patch, lead_id: lead.id, agent_id: agentId, updated_at: new Date().toISOString() };
+  const { error } = await sb.from('lead_work').upsert(row, { onConflict:'lead_id,agent_id' });
+  if (error){ showToast('השמירה נכשלה: ' + heErr(error)); return false; }
+  leadWork.set(lead.id, row);
+  return true;
+}
+
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -17724,12 +17768,13 @@ async function loadLeads(agentId){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
-  let [{ data: leads, error }, archived] = await Promise.all([
+  let [{ data: leads, error }, archived, work] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
       .order('created_at', { ascending:false }),
     loadArchivedLeadIds(agentId),
+    loadLeadWork(agentId),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -17742,6 +17787,7 @@ async function loadLeads(agentId){
     return;
   }
   archivedLeadIds = archived;
+  leadWork = work;
   allLeads = leads || [];
   renderLeads(agentId);
 }
@@ -17814,6 +17860,10 @@ const LEAD_STATUS_LABELS = { unlocked:'פתוח', pending_charge:'בתהליך �
 const expandedLeadIds = new Set();
 
 function leadStatusLabel(lead){ return LEAD_STATUS_LABELS[lead.status] || 'מוסתר'; }
+function leadPillLabel(lead){
+  const stage = lead.status === 'unlocked' ? leadWork.get(lead.id)?.stage : null;
+  return stage && stage !== 'new' ? LEAD_STAGE_LABEL[stage] : leadStatusLabel(lead);
+}
 
 /* מה שמזהה ליד בשורה אחת: איזו עסקה, איפה, איזה נכס ומתי. צד הליד
    (מוכר מול קונה) אינו נאמר כאן — הוא האייקון והפס הצדדי, בדיוק כמו
@@ -17824,8 +17874,49 @@ function leadTabSub(lead){
     lead.city,
     lead.property_type,
     lead.referred_by ? '🤝 הפנייה' : '',
-    tabShortDate(lead.created_at),
+    leadIsFresh(lead) ? opsAgo(leadAgeMinutes(lead)) : tabShortDate(lead.created_at),
   ].filter(Boolean).join(' · ');
+}
+
+/* ---------- טריות הליד ----------
+   בנדל"ן זמן התגובה הוא חצי מהעסקה, ו"6.10" לא אומר אם זה הבוקר או
+   שבוע. ביממה הראשונה הזמן נאמר יחסית ("לפני 7 דקות") והכרטיס מקבל תגית
+   "חדש"; אחריה התאריך הקצר חוזר, כי "לפני 9 ימים" כבר אינו דחוף. */
+function leadAgeMinutes(lead){
+  const t = new Date(lead.created_at || 0).getTime();
+  return t ? Math.max(0, (Date.now() - t) / 60000) : Infinity;
+}
+function leadIsFresh(lead){ return leadAgeMinutes(lead) < 24 * 60; }
+
+/* הנכס שעליו הפנייה, כשהוא מהתיק של הסוכן/ת: מחיר, חדרים ושכונה הם מה
+   שאומר בשנייה כמה הליד שווה — ובליד נעול זה בדיוק מה שמשכנע לפתוח אותו.
+   הנכס כבר בזיכרון מ-loadProperties, ולכן אין כאן שאילתה. כתובת מלאה לא
+   נכנסת: הכרטיס נקרא גם ליד לקוחות, והנכס מזוהה מספיק בכותרת. */
+function leadPropertyContext(lead){
+  const p = lead.property_id ? myPropertyRows.find(r => r.id === lead.property_id) : null;
+  const hoodId = p?.neighborhood_id || lead.neighborhood_id;
+  const hood = hoodId ? allNeighborhoods.find(n => n.id === hoodId)?.name : '';
+  return {
+    title: p?.title || '',
+    rooms: p?.rooms ? (Number(p.rooms) + ' חד׳') : '',
+    size:  p?.size_sqm ? (Number(p.size_sqm) + ' מ״ר') : '',
+    price: p?.price ? (shekel(p.price) + (p.deal_type === 'rent' ? ' לחודש' : '')) : '',
+    hood:  hood || '',
+  };
+}
+
+/* הודעת פתיחה מוכנה בוואטסאפ. הסוכן/ת עדיין לוחץ/ת "שלח" בעצמו/ה —
+   הקישור רק חוסך את ההקלדה של המשפט הראשון, שהוא תמיד אותו משפט. */
+function leadWhatsAppText(lead, ctx){
+  const first = String(lead.display_name || '').trim().split(/\s+/)[0] || '';
+  const me = String(currentAgent?.display_name || '').trim();
+  const about = ctx.title
+    || [lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : ''),
+        lead.property_type, lead.city].filter(Boolean).join(' ');
+  return (first ? `היי ${first},` : 'היי,') +
+    (me ? ` כאן ${me}.` : '') +
+    ' ראיתי את הפנייה שלך באתר שוק נדל״ן' + (about ? ` בנוגע ל${about}` : '') +
+    '. מתי נוח לך לדבר?';
 }
 
 /* במשבצת שבה יושב המחיר בטאב הנכס: כמה עולה לפתוח את הליד הזה — ההחלטה
@@ -17848,7 +17939,9 @@ function buildLeadTab(lead, agentId){
     icon: kind.icon,
     title: lead.display_name || '-',
     sub: leadTabSub(lead),
-    pill: { text: leadStatusLabel(lead),
+    // ליד פתוח שכבר יש לו שלב טיפול מציג את השלב: "פתוח" נכון לכל הלידים
+    // ששילמו עליהם, והשלב הוא מה שמבדיל ביניהם ברשימה.
+    pill: { text: leadPillLabel(lead),
             cls: 'status-pill status-' + (lead.status === 'unlocked' ? 'unlocked' : 'masked') },
     price: leadTabPrice(lead),
     // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
@@ -17858,41 +17951,74 @@ function buildLeadTab(lead, agentId){
   return el;
 }
 
+/* ---------- כרטיס הליד: מי, מה מחפש/ת, ומה עושים ----------
+   שלושה אזורים, באותו סדר בטלפון ובמחשב: מי הפונה ומתי, מה הצורך (הנכס,
+   המחיר, השכונה, ההודעה), והפעולות. בטלפון הם נערמים והפעולות יורדות
+   לתחתית בגודל אגודל; ברוחב מספיק (container query ב-crm.html, ולא media
+   query — הכרטיס יושב באקורדיון שרוחבו תלוי בתפריט הצד) הם הופכים לשלוש
+   עמודות, וזה מה שסוגר את החלל הריק באמצע שהיה בכרטיס הרחב.
+
+   ליד נעול: השם והטלפון כבר מגיעים ממוסכים מ-leads_masked, וכל מה שמתאר
+   את הצורך גלוי — זה מה שמשכנע לפתוח. ליד פתוח: חיוג ווואטסאפ בראש,
+   השלב וההערה באמצע, ופעולות הניהול (חוות דעת, הפנייה, ארכיון) קטנות
+   ושקטות בתחתית. */
 function buildLeadCard(lead, agentId, isArchived){
   const kind = leadKind(lead);
+  const unlocked = lead.status === 'unlocked';
   const el = document.createElement('div');
-  el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
-  const statusLabel = leadStatusLabel(lead);
+  el.className = 'card lead-card lc ' + kind.cls + (isArchived ? ' is-archived' : '') + (unlocked ? ' lc-open' : ' lc-locked');
   const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
+  const ctx = leadPropertyContext(lead);
+  const fresh = leadIsFresh(lead);
+  const when = fresh ? 'התקבל ' + opsAgo(leadAgeMinutes(lead)) : 'התקבל ב-' + hebDate(lead.created_at);
+  const specs = [ctx.rooms, ctx.size, ctx.hood].filter(Boolean).join(' · ');
   el.innerHTML = `
-    <div class="lead-top">
-      <div>
-        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-        <div class="lead-name">${esc(lead.display_name || '-')}</div>
+    <div class="lc-grid">
+      <section class="lc-who">
+        <div class="lc-badges">
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
+        </div>
+        <div class="lead-name">${unlocked ? '' : '🔒 '}${esc(lead.display_name || '-')}</div>
         <div class="lead-phone">${esc(lead.display_phone || '-')}</div>
-      </div>
-      <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+        <div class="lc-when${fresh ? ' is-fresh' : ''}">🕒 ${esc(when)}</div>
+        ${unlocked ? '' : '<div class="lc-lock-note">השם והטלפון ייחשפו בפתיחת הליד</div>'}
+      </section>
+      <section class="lc-need">
+        ${tagsHtml([
+          dealLabel && { text:dealLabel, cls:'tag-key' },
+          lead.city && { text:'📍 ' + lead.city + (ctx.hood ? ' · ' + ctx.hood : '') },
+          lead.property_type && { text:'🏠 ' + lead.property_type },
+        ])}
+        ${ctx.title || ctx.price ? `<div class="lc-prop">
+            ${ctx.title ? `<div class="lc-prop-title">${esc(ctx.title)}</div>` : ''}
+            <div class="lc-prop-line">${ctx.price ? `<b>${esc(ctx.price)}</b>` : ''}${ctx.price && specs ? ' · ' : ''}${esc(specs)}</div>
+          </div>` : ''}
+        ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
+        ${lead.display_message ? `<div class="lc-msg">״${esc(lead.display_message)}״</div>` : ''}
+        ${referralNoteHtml(lead)}
+        <div class="lc-work"></div>
+      </section>
+      <section class="lc-act">
+        <div class="lc-primary"></div>
+        <div class="lc-hint"></div>
+        <div class="lc-secondary"></div>
+      </section>
     </div>
-    ${tagsHtml([
-      dealLabel && { text:dealLabel, cls:'tag-key' },
-      lead.city && { text:'📍 ' + lead.city },
-      lead.property_type && { text:'🏠 ' + lead.property_type },
-      { text:'📅 ' + hebDate(lead.created_at) },
-    ])}
-    ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
-    ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
-    ${referralNoteHtml(lead)}
-    <div class="lead-actions"></div>
   `;
-  const actions = el.querySelector('.lead-actions');
-  if (lead.status !== 'unlocked'){
+  const primary = el.querySelector('.lc-primary');
+  const secondary = el.querySelector('.lc-secondary');
+  const hint = el.querySelector('.lc-hint');
+
+  if (!unlocked){
     const cost = claimCost(lead);
-    addCardAction(actions, {
-      label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
-      cls:'btn-gold act-wide',
+    addCardAction(primary, {
+      label: cost.price > 0 ? `🔓 פתיחת פרטי הליד · ${shekel(cost.price)}` : '🔓 פתיחת פרטי הליד',
+      cls:'btn-gold lc-unlock',
       title: cost.note || cost.blocked || undefined,
       onClick: btn => claimLead(lead, btn, agentId),
     });
+    hint.textContent = cost.blocked || cost.note || 'חשיפה מיידית של השם והטלפון';
   } else {
     // חיוג ווואטסאפ ישירות מהכרטיס. מעבר לנוחות, הלחיצה היא הרגע שבו
     // המערכת יודעת שהסוכן/ת פנה/תה לליד: mark_lead_responded כותב את
@@ -17900,48 +18026,98 @@ function buildLeadCard(lead, agentId, isArchived){
     // האלה ליד שנולד פתוח לא היה מגיע לשם לעולם (docs/office-dashboard.md).
     const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
     const wa = waLink(lead.display_phone);
-    if (tel.replace(/\D/g, '').length >= 9){
-      addCardAction(actions, { label:'📞 חיוג', href:'tel:' + tel,
-        onClick: () => markLeadResponded(lead) });
-    }
     if (wa){
-      addCardAction(actions, { label:'💬 וואטסאפ', cls:'btn-share', href: wa, blank:true,
+      addCardAction(primary, { label:'💬 וואטסאפ', cls:'btn-share', blank:true,
+        href: wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, ctx)),
+        title:'נפתח עם הודעת פתיחה מוכנה - אפשר לערוך לפני השליחה',
         onClick: () => markLeadResponded(lead) });
     }
+    if (tel.replace(/\D/g, '').length >= 9){
+      addCardAction(primary, { label:'📞 חיוג', cls:'lc-call', href:'tel:' + tel,
+        onClick: () => markLeadResponded(lead) });
+    }
+    if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead);
+
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
     // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
     if (wa){
-      addCardAction(actions, {
-        label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
+      addCardAction(secondary, {
+        label:'⭐ בקשת חוות דעת', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
         onClick: () => sendReviewLinkWhatsApp(lead),
       });
     }
-    addCardAction(actions, {
+    addCardAction(secondary, {
       label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
       onClick: btn => copyReviewLink(lead.id, btn),
     });
   }
   // מסירה בהפנייה - מנהל/ת משרד, על ליד שכבר נפתח (assets/crm-office.js)
   if (canReferRow('lead', lead)){
-    addCardAction(actions, {
-      label: lead.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת בהפנייה',
+    addCardAction(secondary, {
+      label: lead.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת',
       title:'הליד יעבור לטיפול הסוכן/ת ויישאר גלוי גם לך',
       onClick:()=> openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId)),
     });
   }
-  /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
-     "פתיחת ליד" או "בקשת חוות דעת" - הוא מה שעושים *אחרי* שסיימו. */
-  addCardAction(actions, isArchived ? {
-    label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
+  /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
+     מה שעושים *אחרי* שסיימו. בליד נעול הוא גם ה"לא מתאים לי". */
+  addCardAction(secondary, isArchived ? {
+    label:'↩️ החזרה מהארכיון',
     title:'הליד יחזור לרשימת הלידים הפעילים',
     onClick: btn => unarchiveLead(lead, btn, agentId),
   } : {
-    label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
-    title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון - אפשר להחזיר אותו בכל רגע',
+    label: unlocked ? '🗄️ לארכיון' : '🗄️ לא מתאים לי',
+    title:'הליד יורד מהרשימה ונשמר בארכיון - אפשר להחזיר אותו בכל רגע',
     onClick: btn => archiveLead(lead, btn, agentId),
   });
   return el;
+}
+
+/* השלב וההערה. השלב נשמר מיד בבחירה, וההערה בכפתור שמופיע רק כשיש מה
+   לשמור - כרטיס שמחכה ל"שמירה" שאיש לא לחץ עליה הוא הערה שאבדה בשקט. */
+function buildLeadWork(wrap, lead){
+  const cur = leadWork.get(lead.id) || {};
+  const uid = 'lcw-' + lead.id;
+  wrap.innerHTML = `
+    <label class="lc-stage-row" for="${uid}-stage">
+      <span>שלב:</span>
+      <select id="${uid}-stage" class="lc-stage stage-${esc(cur.stage || 'new')}">
+        ${LEAD_STAGES.map(([v, t]) => `<option value="${v}"${(cur.stage || 'new') === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+      </select>
+    </label>
+    <div class="lc-note-row">
+      <textarea id="${uid}-note" class="lc-note" rows="2" maxlength="2000"
+        placeholder="הערה למעקב, למשל: לחזור ביום שלישי ב-16:00"
+        aria-label="הערה למעקב">${esc(cur.note || '')}</textarea>
+      <button type="button" class="btn btn-ghost lc-note-save" hidden>שמירה</button>
+    </div>
+    ${cur.updated_at ? `<div class="lc-updated">עודכן ${esc(hebDate(cur.updated_at))}</div>` : ''}
+  `;
+  const stage = wrap.querySelector('.lc-stage');
+  const note = wrap.querySelector('.lc-note');
+  const save = wrap.querySelector('.lc-note-save');
+  stage.addEventListener('change', async ()=>{
+    const before = leadWork.get(lead.id)?.stage || 'new';
+    stage.disabled = true;
+    const ok = await saveLeadWork(lead, { stage: stage.value });
+    stage.disabled = false;
+    if (!ok){ stage.value = before; return; }
+    stage.className = 'lc-stage stage-' + stage.value;
+    // הגלולה בשורת הטאב מציגה את השלב, ולכן מתעדכנת במקום בלי רינדור מחדש
+    const pill = wrap.closest('.prop-tab')?.querySelector('.tab-pill');
+    if (pill) pill.textContent = leadPillLabel(lead);
+    showToast('השלב עודכן: ' + LEAD_STAGE_LABEL[stage.value]);
+  });
+  note.addEventListener('input', ()=>{
+    save.hidden = note.value.trim() === String(leadWork.get(lead.id)?.note || '').trim();
+  });
+  save.addEventListener('click', async ()=>{
+    save.disabled = true;
+    const ok = await saveLeadWork(lead, { note: note.value.trim() || null });
+    save.disabled = false;
+    if (ok){ save.hidden = true; showToast('ההערה נשמרה'); }
+  });
 }
 
 /* הפנייה הראשונה לליד. "שגר ושכח": הקישור נפתח מיד, וכשל ברישום לא עוצר
