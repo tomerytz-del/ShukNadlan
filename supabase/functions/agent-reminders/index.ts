@@ -51,7 +51,8 @@ const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
 
 // הקטגוריה בדשבורד שבה מנהלים את התזכורות עצמן. מופיעה בכל הודעה, בשני
 // הערוצים: הודעה שאין ממנה דרך להנמיך את הקצב היא הודעה שמובילה לחסימה.
-const MANAGE_ACC = "accReminders";
+// מאז 10.2026 ההגדרות ב"התראות והודעות" ולא ב"תזכורות וטיפים", שנשארה רשימה.
+const MANAGE_ACC = "accNotifPrefs";
 
 const BATCH = 40;
 

@@ -89,7 +89,7 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 
 1. ‏`notifications_type_check` (מיגרציה). **יוצא מיד לכל הסוכנים בוואטסאפ**
    - ראו `whatsapp-bots`, "ההתראות לסוכנים".
-2. ‏`NOTIF_TYPES` ב-`crm.js` - הצבע, הקטגוריה, והשורה ב"ניהול התראות".
+2. ‏`NOTIF_TYPES` ב-`crm.js` - הצבע, הקטגוריה, והשורה ב"התראות והודעות".
 3. ‏`ACC_BY_TYPE` ב-`notification-push` - קישור הקטגוריה כשאין פריט.
 4. ‏`itemPath()` ו-`openNotificationTarget()` - אם הסוג נושא פריט אחד.
 
@@ -102,8 +102,9 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 
 ## 6. שקט - שעות **וימים**
 
-מה שנשלח לסוכן/ת בוואטסאפ או במייל עובר בשקט שהסוכן/ת בחר/ה ב"תזכורות
-וטיפים", ושני השולחים קוראים אותו מאותה שורה ב-`agent_reminder_preferences`:
+מה שנשלח לסוכן/ת בוואטסאפ או במייל עובר בשקט שהסוכן/ת בחר/ה ב"התראות
+והודעות" (‏`accNotifPrefs` - שם כל ההגדרות, גם של התזכורות; "תזכורות וטיפים"
+היא רשימה בלבד), ושני השולחים קוראים אותו מאותה שורה ב-`agent_reminder_preferences`:
 ‏`notification_push_due_agents` (הפעמון בוואטסאפ) ו-`agent_reminder_due_agents`
 (התזכורות). השקט הוא שני דברים: חלון שעות (‏`quiet_from_hour`/`quiet_to_hour`,
 ‏21→8) וימי שבוע שלמים (‏`quiet_days`, ברירת מחדל `{5,6}` - שישי ושבת;
@@ -118,6 +119,14 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 
 ‏`agenda_reminder` עוקף את שניהם (שעות וימים), בכוונה - "ביטלתי" שעה לפני
 פגישה בשבת חייב לצאת.
+
+## 7. הטופס אחד, הטבלאות שתיים
+
+"התראות והודעות" שומר בכפתור אחד את `agent_notification_preferences`
+(‏`saveNotifPrefsRows`) ואת `agent_reminder_preferences` (‏`saveReminderPrefs`),
+במקביל, וכל אחת מחזירה `{ error, text }`. שדה חדש לאחת מהן נכנס לפונקציה
+שלה ולא ל-submit. ו-`saveReminderPrefs` מדלגת כשבוררי השעות עוד ריקים - בורר
+ריק נקרא 0, ו-0/0 הוא "בלי שעות שקט".
 
 ## לפני הדחיפה
 

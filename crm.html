@@ -2166,22 +2166,64 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .notif-prefs .np-title{font-size:.85rem;font-weight:700;display:block}
   .notif-prefs .np-sub{font-size:.74rem;color:var(--ink-soft);display:block;margin-top:2px;line-height:1.5}
 
-  /* שתי תיבות סימון בשורה אחת — בפעמון, ובוואטסאפ.
-     ‏.np-row הוא הכרטיס, ושני ה-<label> שבתוכו מאבדים את עיטוף הכרטיס:
-     ‏<label> אחד עם שתי תיבות היה מתחלף בכל לחיצה על הטקסט, בלי קשר למה
-     שנלחץ. ‏.notif-prefs label נשאר כפי שהוא בשביל רשימת התזכורות, שבה
-     השורה **היא** תיבת סימון אחת. */
-  .notif-prefs .np-row{background:var(--paper);border:1px solid var(--line);
-    border-radius:10px;padding:11px 12px}
-  .notif-prefs .np-row label{background:none;border:0;border-radius:0;padding:0}
-  .notif-prefs .np-row label.np-wa{
-    margin:9px 0 0;padding-top:9px;border-top:1px dashed var(--line);
-    align-items:center;font-size:.77rem;font-weight:700;color:var(--ink-soft);
-  }
-  /* הירוק של וואטסאפ ולא הירוק של הדף — אותה החלטה כמו בכל כפתורי השיתוף */
-  .notif-prefs .np-row label.np-wa input{accent-color:#25D366;width:16px;height:16px;margin:0}
+  /* ---------- התראות והודעות ----------
+     שלושה חלקים (‏.np-sec): מתי לא להפריע, ההתראות, וסיכום התזכורות המקופל.
+     כל סוג התראה הוא שורה אחת - הטקסט ושני מתגים בעמודות קבועות, והכותרות
+     ("בפעמון", "בוואטסאפ") פעם אחת מעל הרשימה. קודם כל סוג היה כרטיס בשתי
+     קומות עם "💬 גם בוואטסאפ" בכל אחד, וארבעה-עשר כרטיסים כאלה היו שלושה
+     מסכים בטלפון. */
+  .np-sec{border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin:0 0 12px;background:var(--paper-raised,#F4F3F0)}
+  .np-h{font-size:.9rem;font-weight:800;margin:0 0 9px;display:block}
+  .np-sec .rm-quiet .rm-sel{padding:8px 10px}
+
+  /* הימים: שבעה כפתורים עגולים בשורה. התיבה עצמה שקופה מעל הכפתור, ולכן
+     היא עדיין מה שנלחץ ומה שקורא המסך ומקלדת רואים. */
+  .np-days{display:flex;gap:6px;margin:10px 0 2px;flex-wrap:wrap}
+  .np-day{position:relative;flex:1 1 0;min-width:34px;max-width:46px;cursor:pointer}
+  .np-day input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+  .np-day span{display:flex;align-items:center;justify-content:center;height:36px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+  .np-day input:checked + span{background:var(--navy,#1C3A5E);border-color:var(--navy,#1C3A5E);color:#fff}
+  .np-day input:focus-visible + span{outline:2px solid var(--teal);outline-offset:2px}
+
+  /* שורת התראה: טקסט | פעמון | וואטסאפ */
+  .np-cols,.np-row{display:grid;grid-template-columns:minmax(0,1fr) 54px 64px;align-items:center;column-gap:6px}
+  .np-cols{font-size:.68rem;font-weight:700;color:var(--ink-soft);text-align:center;margin:0 0 2px}
+  .np-list{display:flex;flex-direction:column}
+  .np-row.np-row-1{grid-template-columns:minmax(0,1fr) 54px}
+  .np-row{padding:9px 0;border-top:1px solid var(--line)}
+  .np-row:first-child{border-top:0}
+  .np-text .np-title{font-size:.84rem;font-weight:700;display:block}
+  .np-text .np-sub{font-size:.72rem;color:var(--ink-soft);display:block;margin-top:1px;line-height:1.45}
+  .np-sw{display:flex;justify-content:center;cursor:pointer;margin:0}
+  /* ‏.field label (בסוף הדף) הופך כל label בתוך .field לבלוק עם שוליים */
+  .np-list .np-sw{display:flex;margin:0}
+  .np-sw input{appearance:none;-webkit-appearance:none;position:relative;width:38px;height:22px;margin:0;
+    border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .15s}
+  .np-sw input::before{content:"";position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:inset-inline-start .15s}
+  .np-sw input:checked{background:var(--teal)}
+  .np-sw input:checked::before{inset-inline-start:19px}
+  /* הירוק של וואטסאפ ולא הירוק של הדף - אותה החלטה כמו בכל כפתורי השיתוף */
+  .np-sw-wa input:checked{background:#25D366}
+  .np-sw input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   /* סוג שכובה בפעמון אינו נוצר במסד מלכתחילה, ולכן אין מה לשלוח עליו */
-  .notif-prefs .np-row.is-off label.np-wa{opacity:.45;cursor:not-allowed}
+  .np-sw input:disabled{opacity:.4;cursor:not-allowed}
+  .np-bulk{display:flex;gap:14px;margin:8px 0 0}
+  .np-link{background:none;border:0;padding:0;font:inherit;font-size:.76rem;font-weight:700;color:var(--teal);
+    text-decoration:underline;cursor:pointer}
+
+  /* סיכום התזכורות - מקופל, ובשורת הכותרת מה שמוגדר עכשיו */
+  .np-fold>summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none}
+  .np-fold>summary::-webkit-details-marker{display:none}
+  .np-fold>summary .np-h{margin:0}
+  .np-fold>summary::after{content:"▾";margin-inline-start:auto;color:var(--ink-soft);font-size:.8rem}
+  .np-fold[open]>summary{margin-bottom:10px}
+  .np-fold[open]>summary::after{content:"▴"}
+  .np-fold-sum{font-size:.74rem;color:var(--ink-soft)}
+
+  /* "תזכורות וטיפים" נשארה רשימה, והקישור מוביל להגדרות */
+  .rm-settings-link{display:inline-block;margin-top:12px;font-size:.78rem;font-weight:700;color:var(--teal)}
 
   /* ---------- הכרטיס שפותח את הצ'אט עם העוזר ----------
      המספר של העוזר לא הופיע בשום מקום במוצר: הקטגוריה אמרה "שולחים הודעה
@@ -8162,9 +8204,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          שבוע בלי מודעה חדשה, תוקף התקשרות שנגמר בעוד עשרה ימים. הקטגוריה הזו
          היא הצד השני: מה שלא קרה, ומה שכדאי שיקרה.
 
-         שני חצאים באותו מקום, ובכוונה: הרשימה של מה שיש לטפל בו, ומיד מתחתיה
-         הפקדים שקובעים אם, לאן ובאיזה קצב תישלח על כך הודעה. הרגע שבו רוצים
-         להנמיך את הקצב הוא בדיוק הרגע שבו רואים את ההודעות.
+         כאן רק הרשימה. הפקדים שקובעים אם, לאן ובאיזה קצב תישלח עליה הודעה
+         עברו ל"התראות והודעות" (‏accNotifPrefs), ליד שעות השקט והימים השקטים
+         שחלים גם על ההתראות - מקום אחד לשאלה "מתי ואיפה להפריע לי".
 
          הרשימה **מחושבת** ואינה תור: `agent_reminder_findings` במסד מריצה
          אותה מול מצב הנכסים בכל פתיחה, ולכן ממצא שטופל נעלם מעצמו — גם אם
@@ -8178,68 +8220,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">מה שכדאי לטפל בו במודעות שלך, ומתחת - לאן ובאיזה קצב תישלח על כך תזכורת. הרשימה מחושבת מהמצב העדכני בכל פתיחה: ממצא שטופל נעלם ממנה מעצמו, ואין מה לסמן כ"בוצע".</p>
+        <p class="acc-sub">מה שכדאי לטפל בו במודעות שלך. הרשימה מחושבת מהמצב העדכני בכל פתיחה: ממצא שטופל נעלם ממנה מעצמו, ואין מה לסמן כ"בוצע".</p>
 
         <div id="remindersList" class="rm-list"></div>
 
-        <p class="form-subheading">איך ומתי לקבל תזכורות</p>
-        <form id="reminderPrefsForm" style="margin-bottom:0">
-          <div class="field">
-            <label>לאן לשלוח</label>
-            <div class="checkbox-grid">
-              <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ (ברירת המחדל)</label>
-              <label class="checkbox-item"><input type="checkbox" id="rmChEmail"> גם במייל</label>
-            </div>
-            <!-- שני המשפטים כאן הם המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש
-                 מספר מאומת בקטגוריית "גבריאלה בוואטסאפ", ובלי אף ערוץ מסומן
-                 התזכורות ממשיכות להופיע כאן ופשוט לא נשלחות. -->
-            <p class="rm-note" id="rmChannelsNote"></p>
-          </div>
-
-          <div class="rm-grid">
-            <div class="field">
-              <label for="rmCadence">תדירות</label>
-              <select class="rm-sel" id="rmCadence">
-                <option value="weekly">פעם בשבוע</option>
-                <option value="daily">עד פעם ביום</option>
-                <option value="off">כבוי - בלי הודעות</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="rmCap">מקסימום הודעות ב-30 יום</label>
-              <input type="number" id="rmCap" min="0" max="60" step="1" inputmode="numeric">
-            </div>
-          </div>
-
-          <div class="field">
-            <label>שעות שקט</label>
-            <div class="rm-quiet">
-              <span>מ-</span>
-              <select class="rm-sel" id="rmQuietFrom" aria-label="תחילת שעות השקט"></select>
-              <span>עד</span>
-              <select class="rm-sel" id="rmQuietTo" aria-label="סוף שעות השקט"></select>
-            </div>
-            <p class="rm-note">שעון ישראל. הודעה שהגיע זמנה בתוך החלון הזה ממתינה לשעה הראשונה שאחריו. שעה זהה בשני השדות מבטלת את שעות השקט.</p>
-          </div>
-
-          <!-- ימים שלמים בלי הודעות (בעיקר שישי ושבת). חל גם על התראות הפעמון
-               בוואטסאפ, כמו שעות השקט - quiet_days ב-agent_reminder_preferences. -->
-          <div class="field">
-            <label>ימים שקטים</label>
-            <div class="checkbox-grid" id="rmQuietDays"></div>
-            <p class="rm-note">ביום מסומן לא יישלחו תזכורות ולא התראות בוואטסאפ, כל היום (שעון ישראל). מה שהגיע זמנו ממתין ליום הבא. תזכורת לפגישה מהיומן יוצאת בכל מקרה.</p>
-          </div>
-
-          <div class="field">
-            <label>אילו תזכורות יישלחו</label>
-            <div id="reminderKindsList" class="notif-prefs"></div>
-            <p class="rm-note">הסרת סימון מכבה את ה<strong>הודעה</strong> בלבד - הממצא עצמו ממשיך להופיע ברשימה למעלה, שם הוא לא מפריע לאיש.</p>
-          </div>
-
-          <button type="submit" class="btn btn-gold btn-block" id="saveReminderPrefsBtn">שמירת ההעדפות</button>
-          <div id="reminderPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-          <p class="rm-last" id="rmLastSent"></p>
-        </form>
+        <a href="#" class="rm-settings-link" data-goto="accNotifPrefs">⚙️ מתי ולאן לשלוח תזכורות ←</a>
       </div>
     </details>
 
@@ -8661,26 +8646,89 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
     </div>
 
-    <!-- ניהול ההתראות: תיבת סימון לכל סוג, והכול מסומן כברירת מחדל. הרשימה
-         נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש שנוסף
-         לקוד יופיע כאן אוטומטית ולא יישכח. -->
+    <!-- ---------- התראות והודעות ----------
+         מקום אחד לשאלה "מה מגיע אליי, לאן ומתי". עד 10.2026 היו כאן שתי
+         קטגוריות: "ניהול התראות" (הפעמון ו"גם בוואטסאפ") ו"תזכורות וטיפים"
+         (שבה ישבו גם שעות השקט - כי שם נולדה הטבלה, ‏agent_reminder_preferences).
+         שעות השקט והימים השקטים חלים על שני השולחים, ולכן הם ראשונים כאן.
+
+         שתי טבלאות במסד, וטופס אחד: השמירה כותבת את שתיהן במקביל
+         (‏saveNotifPrefsRows ו-saveReminderPrefs ב-crm.js). רשימת הסוגים
+         נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש יופיע כאן
+         אוטומטית. -->
     <details class="acc" id="accNotifPrefs">
       <summary>
-        <span class="acc-title">ניהול התראות</span>
+        <span class="acc-title">התראות והודעות</span>
         <span class="acc-count" id="accNotifPrefsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">בחירת סוגי ההתראות שיופיעו בפעמון. ברירת המחדל היא קבלת כל ההתראות - הסרת סימון מכבה רק את ההתראה, לא את מה שמאחוריה: הליד עדיין נכנס, הביקורת עדיין ממתינה לאישור והעסקה עדיין נרשמת.</p>
-    <p class="acc-sub">ולכל סוג - <strong>"גם בוואטסאפ"</strong>: ההתראה תישלח גם כהודעה מגבריאלה, העוזרת האישית, כדי שלא צריך שהדשבורד יהיה פתוח. כל הסוגים נשלחים בוואטסאפ כברירת מחדל, ואפשר לכבות כל אחד מהם כאן. ההודעות מקובצות (הכול מחמש הדקות האחרונות בהודעה אחת), מכבדות את שעות השקט שהגדרת ב"תזכורות וטיפים", ומוגבלות בתקרה יומית.</p>
+    <p class="acc-sub">מה מגיע אליך, לאן ומתי. <strong>התראות</strong> הן אירועים (ליד חדש, ביקורת, עסקה), <strong>תזכורות</strong> הן סיכום של מה כדאי לטפל בו במודעות שלך.</p>
     <form id="notifPrefsForm" style="margin-bottom:0">
-      <div id="notifPrefsList" class="notif-prefs"></div>
-      <p class="rm-note" id="notifWaNote"></p>
-      <div style="display:flex;gap:8px;margin:12px 0">
-        <button type="button" class="btn" id="notifPrefsAllBtn" style="flex:1">סימון הכל</button>
-        <button type="button" class="btn" id="notifPrefsNoneBtn" style="flex:1">ניקוי הכל</button>
-      </div>
-      <button type="submit" class="btn btn-gold btn-block" id="saveNotifPrefsBtn">שמירת ההעדפות</button>
+
+      <section class="np-sec">
+        <h3 class="np-h">🌙 מתי לא להפריע</h3>
+        <div class="rm-quiet">
+          <span>בין</span>
+          <select class="rm-sel" id="rmQuietFrom" aria-label="תחילת שעות השקט"></select>
+          <span>ל-</span>
+          <select class="rm-sel" id="rmQuietTo" aria-label="סוף שעות השקט"></select>
+        </div>
+        <div class="np-days" id="rmQuietDays" role="group" aria-label="ימים שקטים"></div>
+        <p class="rm-note">בשעות ובימים האלה (שעון ישראל) לא יוצאות הודעות בוואטסאפ ובמייל - הן ממתינות לאחריהם. הפעמון בדשבורד ותזכורות לפגישות מהיומן לא מושפעים. שעה זהה בשני השדות = בלי שעות שקט.</p>
+      </section>
+
+      <section class="np-sec">
+        <h3 class="np-h">🔔 התראות</h3>
+        <div class="np-cols" aria-hidden="true"><span></span><span>בפעמון</span><span>בוואטסאפ</span></div>
+        <div id="notifPrefsList" class="np-list"></div>
+        <p class="rm-note" id="notifWaNote"></p>
+        <div class="np-bulk">
+          <button type="button" class="np-link" id="notifPrefsAllBtn">הפעלת הכל</button>
+          <button type="button" class="np-link" id="notifPrefsNoneBtn">כיבוי הכל</button>
+        </div>
+        <p class="rm-note">כיבוי בפעמון מכבה רק את ההתראה: הליד עדיין נכנס והעסקה עדיין נרשמת. בוואטסאפ ההודעות מקובצות (הכול מחמש הדקות האחרונות בהודעה אחת) ומוגבלות בתקרה יומית.</p>
+      </section>
+
+      <!-- מקופל כברירת מחדל: הגדרה של פעם אחת, ובתוכה הכי הרבה שדות -->
+      <details class="np-sec np-fold" id="rmPrefsFold">
+        <summary><span class="np-h">📋 סיכום תזכורות</span><span class="np-fold-sum" id="rmFoldSum"></span></summary>
+
+        <div class="field">
+          <label>לאן לשלוח</label>
+          <div class="checkbox-grid">
+            <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ (ברירת המחדל)</label>
+            <label class="checkbox-item"><input type="checkbox" id="rmChEmail"> גם במייל</label>
+          </div>
+          <!-- המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש מספר מאומת בקטגוריית
+               "גבריאלה בוואטסאפ", ובלי אף ערוץ התזכורות פשוט לא נשלחות. -->
+          <p class="rm-note" id="rmChannelsNote"></p>
+        </div>
+
+        <div class="rm-grid">
+          <div class="field">
+            <label for="rmCadence">תדירות</label>
+            <select class="rm-sel" id="rmCadence">
+              <option value="weekly">פעם בשבוע</option>
+              <option value="daily">עד פעם ביום</option>
+              <option value="off">כבוי - בלי הודעות</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="rmCap">מקסימום ב-30 יום</label>
+            <input type="number" id="rmCap" min="0" max="60" step="1" inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:0">
+          <label>אילו תזכורות יישלחו</label>
+          <div id="reminderKindsList" class="np-list"></div>
+          <p class="rm-note">הסרת סימון מכבה את ה<strong>הודעה</strong> בלבד - הממצא ממשיך להופיע ב"תזכורות וטיפים".</p>
+        </div>
+        <p class="rm-last" id="rmLastSent"></p>
+      </details>
+
+      <button type="submit" class="btn btn-gold btn-block" id="saveNotifPrefsBtn">שמירה</button>
       <div id="notifPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
     </form>
       </div>

@@ -244,6 +244,11 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   ו-`update` היה מעדכן אפס שורות וממשיך לשלוח. ‏`whatsapp_alerts` בבוט,
   ‏`NOTIF_TYPES` ב-`crm.js` ו-`notification_push_opt_out` חולקים את אותה
   סמנטיקה. הפרטים: `docs/notifications-center.md` → "גם בוואטסאפ".
+* **שעות שקט וימים שקטים חלים על הערוץ הזה** (ברירת מחדל 21→8, ושישי-שבת),
+  והם יושבים ב-`agent_reminder_preferences` ולא ב-`agent_notification_preferences`.
+  בדשבורד הכול בקטגוריה אחת, "התראות והודעות" (‏`accNotifPrefs`), ולשם
+  מפנים סוכן/ת ששואל/ת את הבוט "למה לא קיבלתי הודעה בשבת". ‏`agenda_reminder`
+  עוקף את שניהם. הפרטים: הסקיל `agent-notifications`, סעיף 6.
 * **התראה על נכס, לקוח/ה או ליד אחד/ת נושאת את המזהה** (‏`related_*_id`),
   וההודעה בוואטסאפ מקבלת ממנו קישור ישיר לפריט. סקיל `agent-notifications`.
 
