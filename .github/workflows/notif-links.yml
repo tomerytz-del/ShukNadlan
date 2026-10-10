@@ -1,0 +1,34 @@
+name: קישורי התראות - פעמון ווואטסאפ
+
+# ‏NOTIF_TYPES (הפעמון ב-crm.js) ו-ACC_BY_TYPE (ההודעה בוואטסאפ) הן שתי מפות
+# של אותו דבר. סוג שחסר בשנייה נופל להגדרות ההתראות בלי שגיאה - כך שבעה סוגים
+# שלחו את הסוכנים למסך ההגדרות במקום לפריט. קוראת קבצים בלבד.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "crm.html"
+      - "supabase/functions/notification-push/**"
+      - "scripts/check_notif_links.py"
+      - ".github/workflows/notif-links.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "crm.html"
+      - "supabase/functions/notification-push/**"
+      - "scripts/check_notif_links.py"
+      - ".github/workflows/notif-links.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: פעמון מול וואטסאפ
+        run: python3 scripts/check_notif_links.py
