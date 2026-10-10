@@ -20213,6 +20213,8 @@ let clientFormDeal = 'sale';
 let clientFormKind = 'seeker';
 let clientFormCities = [];
 let editingClientRow = null;
+// השיחה שממנה נפתח הטופס ("הוספה לקובץ"), עד השמירה או האיפוס
+let clientFormFromCall = null;
 
 /* שבעת מאפייני החובה שסוכנים מסננים לפיהם בפועל מוצגים ראשונים; השאר
    מוסתרים מאחורי "עוד מאפיינים" - אבל מאפיין שכבר סומן אצל לקוח/ה תמיד
@@ -20357,6 +20359,7 @@ function syncClientCityOptions(){
 function resetClientForm(){
   editingClientId = null;
   editingClientRow = null;
+  clientFormFromCall = null;
   document.getElementById('addClientForm').reset();
   // אישור "המספר נכון" שייך ללקוח/ה הקודם/ת, לא לטופס
   delete document.getElementById('clIdNumber').dataset.ilIdOk;
@@ -20558,6 +20561,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   }
   const wasEditing = !!editingClientId;
   const ownerSaved = payload.client_kind === 'owner';
+  // נפתח מ"הוספה לקובץ" בשורת שיחה - השיחות עם המספר יורדות מ"שיחות אחרונות"
+  const fromCall = clientFormFromCall;
   showToast(ownerSaved ? (wasEditing ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה')
     : (wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים'));
   // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
@@ -20565,6 +20570,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   resetClientForm();
   document.getElementById('addClientForm').style.display = 'none';
   if (savedId) expandedClientIds.add(savedId);
+  if (fromCall) archiveCallsOfAddedClient(fromCall);
   await loadClients();
   // בעל/ת נכס שהיה/הייתה מחפש/ת: ההתראות הפתוחות שלו/ה נמחקו בטריגר במסד
   if (ownerSaved && wasEditing) await loadClientAlerts();
@@ -21542,6 +21548,22 @@ async function archiveCall(c, row, btn){
   showToast(archive ? 'השיחה הועברה לארכיון' : 'השיחה הוחזרה מהארכיון');
 }
 
+/* לקוח/ה שנוסף/ה מ"הוספה לקובץ": השיחה, וכל שיחה אחרת מאותו מספר שעדיין
+   ברשימה, עוברות לארכיון - כדי ש"שיחות אחרונות" יישאר רשימה של מה שעוד לא
+   טופל גם כשנכנסות מאות שיחות. ההקלטה והתמלול לא נמחקים: הם בכרטיס הלקוח/ה
+   (loadClientCalls מוצא לפי תשע הספרות של הטלפון) ובארכיון. */
+async function archiveCallsOfAddedClient(c){
+  const key = String(c.from_number || '').replace(/\D/g, '').slice(-9);
+  const calls = callRows.filter(x => !x.archived_at && (x.id === c.id ||
+    (key.length === 9 && String(x.from_number || '').replace(/\D/g, '').slice(-9) === key)));
+  if (!calls.length) return;
+  const res = await Promise.all(calls.map(x =>
+    sb.rpc('agent_call_set_archived', { p_call_id: x.id, p_archived: true })));
+  const now = new Date().toISOString();
+  calls.forEach((x, i) => { if (!res[i].error && res[i].data) x.archived_at = now; });
+  renderCalls();
+}
+
 /* שורת שיחה - אחת לבלוק "שיחות אחרונות" ולכרטיס הלקוח/ה. ‏inCard: בכרטיס
    כבר ברור מי הלקוח/ה, ולכן בלי "הוספה לקובץ". */
 function callRowHtml(c, inCard){
@@ -21633,6 +21655,8 @@ document.addEventListener('click', async e => {
       const notes = document.getElementById('clNotes');
       if (notes && !notes.value) notes.value = 'מהשיחה: ' + c.extracted.needs_text;
     }
+    // אחרי openClientFormWithContact - האיפוס שבתוכה מנקה את הסימון
+    clientFormFromCall = c;
     return;
   }
   if (act === 'update') return updateClientFromCall(c, btn);
