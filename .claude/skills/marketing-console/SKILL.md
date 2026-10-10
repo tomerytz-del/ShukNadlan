@@ -186,6 +186,8 @@ python scripts/check_migration_versions.py --base-ref origin/main
   הקמפיין. ‏`meta_video_id` נשמר כדי לא להעלות שוב; הוא נבדק לפני שימוש.
 - **ניסוי A/B = אותו `concept`, `variant` שונה.** הלשונית מסמנת מוביל/ה לפי
   עלות לליד (לידים + שיחות), לא לפי קליק.
+- **הפקת הסרטון עצמו** (‏Reelkit, קול אמיתי, 9:16 ו-1:1) - הסקיל
+  `marketing-video-production`.
 
 ## ‏10. אלמנט חדש בפאנל: id עם הקידומת `ads`
 
