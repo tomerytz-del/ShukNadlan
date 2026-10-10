@@ -13105,10 +13105,11 @@ function renderPropertiesFromTop(){
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
 document.getElementById('propClearFilters').addEventListener('click', clearPropertyFilters);
 
-/* תפריט "⋯ עוד" שבראש הרשימה (ייצוא, מסירה). ‏<details> פותח וסוגר לבד;
-   מה שהוא לא עושה הוא להיסגר בבחירת פריט, בלחיצה מחוצה לו וב-Escape. */
-(function(){
-  const menu = document.getElementById('propMoreMenu');
+/* תפריטי "⋯ עוד" שבראש הרשימות - הנכסים (ייצוא, מסירה) וקובץ הלקוחות
+   (אקסל, מסירה). ‏<details> פותח וסוגר לבד; מה שהוא לא עושה הוא להיסגר
+   בבחירת פריט, בלחיצה מחוצה לו וב-Escape. */
+['propMoreMenu', 'clientMoreMenu'].forEach(function(id){
+  const menu = document.getElementById(id);
   if (!menu) return;
   menu.querySelector('.prop-more-menu').addEventListener('click', e => {
     if (e.target.closest('button')) menu.open = false;
@@ -13121,7 +13122,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
     menu.open = false;
     menu.querySelector('summary').focus();
   });
-})();
+});
 
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
@@ -20097,10 +20098,10 @@ function clientRequirementLine(c){
 function syncClientFilterOptions(){
   fillFilterSelect('clientTypeFilter',
     uniqueSorted(clientRows.flatMap(c => c.property_types || [])),
-    'כל מי שמחפש/ת - כל סוגי הנכס');
+    'כל סוגי הנכס');
   fillFilterSelect('clientCityFilter',
     uniqueSorted(clientRows.flatMap(c => c.cities || [])),
-    'כל הערים המבוקשות');
+    'כל הערים');
 }
 
 // טקסט אחד לחיפוש חופשי על כרטיס הלקוח/ה — כולל מה הוא/היא מחפש/ת, כדי
@@ -20154,6 +20155,11 @@ function renderClients(){
 
   updateFilterFoot('clientFilterCount', 'clientClearFilters', filtered.length, clientRows.length,
     !!(q || status || deal || category || type || city));
+  // המונה על כפתור "סינון" בטלפון, שם התיבות מקופלות. "מחפשים" היא ברירת
+  // המחדל ו"כל הסטטוסים" הוא מה שהאיפוס משאיר - אף אחד מהם אינו "סינון".
+  const activeFilters = [status === 'paused' || status === 'closed', deal, category, type, city].filter(Boolean).length;
+  const badge = document.getElementById('clientFilterBadge');
+  if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
@@ -21416,6 +21422,12 @@ async function refreshCallList(){
   renderCalls();
 }
 
+// הכותרת פותחת וסוגרת את היומן בטלפון; ממחשב ה-CSS מציג אותו תמיד
+document.getElementById('callsToggle')?.addEventListener('click', e => {
+  const open = document.getElementById('callsBlock').classList.toggle('is-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
+
 (function wireCallsFilter(){
   let timer = null;
   const run = () => { clearTimeout(timer); timer = setTimeout(() => { if (currentAgent) refreshCallList(); }, 300); };
@@ -22330,6 +22342,10 @@ async function handleShareParam(){
 document.getElementById('clientSearch').addEventListener('input', renderClients);
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+document.getElementById('clientFilterToggle').addEventListener('click', e => {
+  const open = document.getElementById('clientToolbar').classList.toggle('is-filters-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
 document.getElementById('clientClearFilters').addEventListener('click', ()=>{
   ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
