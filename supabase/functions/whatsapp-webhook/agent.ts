@@ -4959,7 +4959,7 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
     channel_off: next.length === 0,
     muted_conflict: muted.length ? muted : undefined,
     note: muted.length
-      ? "הסוגים האלה מושתקים בפעמון, ולכן לא ייווצרו ולא יישלחו - צריך להפעיל אותם קודם ב'ניהול התראות' בדשבורד."
+      ? "הסוגים האלה מושתקים בפעמון, ולכן לא ייווצרו ולא יישלחו - צריך להפעיל אותם קודם ב'התראות והודעות' בדשבורד."
       : undefined,
   };
 }

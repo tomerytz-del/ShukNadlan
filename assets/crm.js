@@ -6152,7 +6152,7 @@ document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
   accSetCount('accWhatsapp', phone ? 'מחובר' : 'לא מוגדר');
   // הכפתור נפתח באותה לחיצה שבה נשמר המספר — בלי רענון ובלי לחפש אותו שוב
   renderWaStartCard(phone);
-  // וההערה ב"ניהול התראות" תלויה גם היא במספר שמור
+  // וההערה ב"התראות והודעות" תלויה גם היא במספר שמור
   syncNotifWaNote();
   feedback.style.color = 'var(--blue)';
   feedback.textContent = phone ? 'המספר נשמר - אפשר לפתוח את הצ׳אט למעלה.' : 'הגישה מוואטסאפ כובתה.';
@@ -7129,7 +7129,7 @@ const ONBOARD_STEPS = [
 ];
 
 /* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
-   הסימון של ארבע התראות הדרבון מוצגות ב"ניהול התראות" רק כל עוד המדריך חי. */
+   הסימון של ארבע התראות הדרבון מוצגות ב"התראות והודעות" רק כל עוד המדריך חי. */
 let onboardState = null;
 let onboardLastLoad = 0;
 
@@ -22846,7 +22846,7 @@ document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.pri
    הגוף של התראת ליד לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked.
 
    ‏NOTIF_TYPES הוא מקור האמת היחיד לסוגי ההתראות: ממנו נבנית רשימת תיבות
-   הסימון ב"ניהול התראות", ממנו נגזר הפס הצדדי בפאנל, וממנו הניווט בלחיצה.
+   הסימון ב"התראות והודעות", ממנו נגזר הפס הצדדי בפאנל, וממנו הניווט בלחיצה.
    סוג חדש שנוסף במסד צריך שורה אחת כאן — ובלעדיה הוא עדיין יוצג, רק בלי
    צבע וניווט ייעודיים.
 
@@ -23179,17 +23179,17 @@ function renderNotifPrefs(){
     const row = document.createElement('div');
     row.className = 'np-row' + (muted || !tierOk ? ' is-off' : '');
     row.dataset.type = t.type;
+    /* שורה אחת לסוג: הטקסט, ושני מתגים בעמודות קבועות ("בפעמון",
+       "בוואטסאפ" - הכותרות פעם אחת מעל הרשימה, ‏.np-cols). כל מתג הוא
+       <label> נפרד, ולכן לחיצה על הטקסט אינה מחליפה אף אחד מהם. */
     row.innerHTML = `
-      <label>
-        <input type="checkbox" class="notifPrefType" value="${esc(t.type)}" ${muted ? '' : 'checked'}>
-        <span><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>
-      </label>
-      <label class="np-wa">
-        <input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
+      <span class="np-text"><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>
+      <label class="np-sw"><input type="checkbox" class="notifPrefType" value="${esc(t.type)}"
+          aria-label="${esc(t.title)} - בפעמון" ${muted ? '' : 'checked'}></label>
+      <label class="np-sw np-sw-wa"><input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
+          aria-label="${esc(t.title)} - בוואטסאפ"
           ${notifWaOn(t) && !muted ? 'checked' : ''}
-          ${muted || !tierOk ? 'disabled' : ''}>
-        <span>💬 גם בוואטסאפ</span>
-      </label>`;
+          ${muted || !tierOk ? 'disabled' : ''}></label>`;
     el.appendChild(row);
   });
   syncNotifPrefsCount();
@@ -23273,13 +23273,10 @@ document.getElementById('notifPrefsNoneBtn').addEventListener('click', ()=>{
   syncNotifWaNote();
 });
 
-document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!currentAgent) return;
-  const btn = document.getElementById('saveNotifPrefsBtn');
-  const feedback = document.getElementById('notifPrefsFeedback');
-  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
-
+/* שמירת חצי ההתראות של הטופס (‏agent_notification_preferences). מחזירה
+   { error, text } ואינה נוגעת בכפתור: הטופס אחד ושומר שתי טבלאות, ומי
+   שמנהל את הכפתור ואת ההודעה הוא ה-submit שבסוף "התראות והודעות". */
+async function saveNotifPrefsRows(){
   // רק סוגים שגלויים לתפקיד הזה נשקלים. כך מנהל/ת שהורד/ה לסוכן/ת רגיל/ה
   // לא "מדליק/ה" בשקט התראות שכיבה/תה כשעדיין היה/הייתה מנהל/ת.
   const shown = notifVisibleTypes().map(t => t.type);
@@ -23303,25 +23300,41 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
     whatsapp_off_types: whatsappOff,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent_id' });
+  if (error) return { error };
 
-  btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
-  if (error){
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + heErr(error);
-    return;
-  }
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
   syncNotifPrefsCount();
   syncNotifWaNote();
-  feedback.style.color = 'var(--blue)';
-  const bits = [];
-  bits.push(muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'מקבלים את כל ההתראות');
+  const bits = [muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'כל ההתראות פעילות'];
   const waOn = notifVisibleTypes().filter(t => !muted.includes(t.type)
     && !whatsappOff.includes(t.type)).length;
-  if (waOn) bits.push(waOn + ' מהם יישלחו גם בוואטסאפ');
-  feedback.textContent = 'נשמר - ' + bits.join(', ') + '.';
-  setTimeout(()=>{ feedback.textContent=''; }, 2500);
+  if (waOn) bits.push(waOn + ' מהן גם בוואטסאפ');
+  return { text: bits.join(', ') };
+}
+
+/* כפתור אחד לשתי הטבלאות. השמירות במקביל ואינן תלויות זו בזו: כשל באחת
+   לא מבטל את השנייה, וההודעה אומרת איזו נכשלה - "שגיאה" כללית אחרי
+   שחצי נשמר הייתה שולחת לשמור שוב משהו שכבר נשמר. */
+document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('saveNotifPrefsBtn');
+  const feedback = document.getElementById('notifPrefsFeedback');
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  const [notif, rem] = await Promise.all([saveNotifPrefsRows(), saveReminderPrefs()]);
+
+  btn.disabled = false; btn.textContent = 'שמירה';
+  const failed = [notif.error && 'ההתראות', rem.error && 'התזכורות'].filter(Boolean);
+  if (failed.length){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שמירת ' + failed.join(' ו') + ' נכשלה: ' + heErr(notif.error || rem.error);
+    return;
+  }
+  feedback.style.color = 'var(--blue)';
+  feedback.textContent = 'נשמר - ' + notif.text + '. תזכורות: ' + rem.text + '.';
+  setTimeout(()=>{ feedback.textContent=''; }, 3500);
 });
 
 /* ==========================================================================
@@ -24070,6 +24083,7 @@ const REMINDER_PREF_DEFAULTS = {
 
 /* ימי השבוע לפי extract(dow) במסד: 0 = ראשון ... 6 = שבת. */
 const REMINDER_WEEKDAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const REMINDER_WEEKDAY_SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
 
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
@@ -24187,14 +24201,16 @@ function renderReminderPrefs(){
       sel.value = String(value);
     });
 
+  // שבעה כפתורים בשורה אחת: האות של היום, והשם המלא לקורא המסך
   const days = document.getElementById('rmQuietDays');
   if (days){
     days.innerHTML = REMINDER_WEEKDAYS.map((name, d) =>
-      `<label class="checkbox-item"><input type="checkbox" class="rmQuietDay" value="${d}"
-        ${reminderPrefs.quiet_days.includes(d) ? 'checked' : ''}> ${esc(name)}</label>`).join('');
+      `<label class="np-day" title="${esc(name)}"><input type="checkbox" class="rmQuietDay" value="${d}"
+        aria-label="${esc(name)}" ${reminderPrefs.quiet_days.includes(d) ? 'checked' : ''}><span>${esc(REMINDER_WEEKDAY_SHORT[d])}</span></label>`).join('');
   }
 
   renderReminderKinds();
+  syncReminderFoldSum();
   syncReminderChannelsNote();
 }
 
@@ -24202,12 +24218,15 @@ function renderReminderKinds(){
   const el = document.getElementById('reminderKindsList');
   if (!el) return;
   el.innerHTML = '';
+  // אותה שורה של סוגי ההתראות (‏.np-row), עם מתג אחד
   REMINDER_KINDS.forEach(k=>{
-    const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" class="rmKind" value="${esc(k.kind)}"
-        ${reminderPrefs.muted_kinds.includes(k.kind) ? '' : 'checked'}>
-      <span><span class="np-title">${esc(k.title)}</span><span class="np-sub">${esc(k.sub)}</span></span>`;
-    el.appendChild(label);
+    const row = document.createElement('div');
+    row.className = 'np-row np-row-1';
+    row.innerHTML = `
+      <span class="np-text"><span class="np-title">${esc(k.title)}</span><span class="np-sub">${esc(k.sub)}</span></span>
+      <label class="np-sw"><input type="checkbox" class="rmKind" value="${esc(k.kind)}"
+          aria-label="${esc(k.title)}" ${reminderPrefs.muted_kinds.includes(k.kind) ? '' : 'checked'}></label>`;
+    el.appendChild(row);
   });
 }
 
@@ -24261,19 +24280,23 @@ async function loadReminderLastSent(agentId){
   document.getElementById(id).addEventListener('change', syncReminderChannelsNote);
 });
 
-document.getElementById('reminderPrefsForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!currentAgent) return;
-  const btn = document.getElementById('saveReminderPrefsBtn');
-  const feedback = document.getElementById('reminderPrefsFeedback');
-  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+/* שמירת חצי התזכורות של "התראות והודעות" (‏agent_reminder_preferences),
+   כולל שעות השקט והימים השקטים שחלים גם על ההתראות. מחזירה { error, text }.
+
+   ‏**לא שומרת לפני שהטופס צויר:** שעות השקט הן <select> שמתמלא רק ב-
+   renderReminderPrefs(). שמירה לפני כן הייתה קוראת '' → 0 בשני השדות -
+   כלומר "בלי שעות שקט" - ודורסת בשקט את מה שבחרו, רק כי לחצו "שמירה"
+   על ההתראות. */
+async function saveReminderPrefs(){
+  if (document.getElementById('rmQuietFrom').options.length !== 24)
+    return { text: 'לא נטענו, לא שונו' };
 
   const channels = [];
   if (document.getElementById('rmChEmail').checked) channels.push('email');
   if (document.getElementById('rmChWhatsapp').checked) channels.push('whatsapp');
 
   const checked = new Set(Array.from(document.querySelectorAll('.rmKind:checked')).map(cb => cb.value));
-  /* אותו היגיון כמו ב"ניהול התראות": נשמרת רשימת ה**מושתקים**, וסוג שלא הוצג
+  /* אותו היגיון כמו בהתראות: נשמרת רשימת ה**מושתקים**, וסוג שלא הוצג
      בטופס (סוג שנוסף במסד וטרם נרשם ב-REMINDER_KINDS) שומר על מצבו הקודם
      ולא "נדלק" בשקט בשמירה. */
   const shown = REMINDER_KINDS.map(k => k.kind);
@@ -24299,13 +24322,7 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
 
   const { error } = await sb.from('agent_reminder_preferences')
     .upsert(payload, { onConflict: 'agent_id' });
-
-  btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
-  if (error){
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + heErr(error);
-    return;
-  }
+  if (error) return { error };
 
   reminderPrefs = {
     channels, muted_kinds: muted, cadence: payload.cadence,
@@ -24315,16 +24332,30 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
     quiet_days: payload.quiet_days,
   };
   document.getElementById('rmCap').value = cap;
+  syncReminderFoldSum();
   // הרשימה נצבעת מחדש כי ההשתקה משנה את המצב של השורות (‏is-muted), לא את
   // תוכנן
   renderReminders();
 
-  feedback.style.color = 'var(--blue)';
-  feedback.textContent = payload.cadence === 'off' || !channels.length || cap === 0
-    ? 'נשמר - לא יישלחו הודעות תזכורת.'
-    : 'נשמר - ' + (payload.cadence === 'daily' ? 'עד הודעה ביום' : 'עד הודעה בשבוע')
-      + ', לכל היותר ' + cap + ' ב-30 יום.';
-  setTimeout(()=>{ feedback.textContent=''; }, 3000);
+  return { text: payload.cadence === 'off' || !channels.length || cap === 0
+    ? 'לא יישלחו'
+    : (payload.cadence === 'daily' ? 'עד אחת ביום' : 'עד אחת בשבוע') + ', לכל היותר ' + cap + ' ב-30 יום' };
+}
+
+/* השורה שעל "סיכום תזכורות" המקופל: מה מוגדר עכשיו, בלי לפתוח. */
+function syncReminderFoldSum(){
+  const el = document.getElementById('rmFoldSum');
+  if (!el) return;
+  const cadence = document.getElementById('rmCadence').value;
+  const ch = [
+    document.getElementById('rmChWhatsapp').checked ? 'וואטסאפ' : '',
+    document.getElementById('rmChEmail').checked ? 'מייל' : '',
+  ].filter(Boolean);
+  el.textContent = cadence === 'off' || !ch.length ? 'כבוי'
+    : (cadence === 'daily' ? 'יומי' : 'שבועי') + ' · ' + ch.join(' + ');
+}
+['rmCadence','rmChEmail','rmChWhatsapp'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', syncReminderFoldSum);
 });
 
 /* ==========================================================================
@@ -24526,7 +24557,7 @@ const NAV_GROUPS = [
     { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
     { acc:'accWallet',        label:'הארנק והטעינות',    icon:'wallet',   tab:'more' },
     { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
-    { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
+    { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
     { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more' },
     { acc:'accLines',         label:'מספרים וירטואליים',  icon:'phone',    tab:'more' },
