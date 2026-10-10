@@ -90,7 +90,10 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 1. ‏`notifications_type_check` (מיגרציה). **יוצא מיד לכל הסוכנים בוואטסאפ**
    - ראו `whatsapp-bots`, "ההתראות לסוכנים".
 2. ‏`NOTIF_TYPES` ב-`crm.js` - הצבע, הקטגוריה, והשורה ב"התראות והודעות".
-3. ‏`ACC_BY_TYPE` ב-`notification-push` - קישור הקטגוריה כשאין פריט.
+3. ‏`ACC_BY_TYPE` ב-`notification-push` - קישור הקטגוריה כשאין פריט, **אותה
+   קטגוריה כמו ב-`NOTIF_TYPES`**. סוג שנשכח כאן נופל ל-`MANAGE_ACC` (הגדרות
+   ההתראות): עד 10.2026 שבעה סוגים שלחו כך לוואטסאפ קישור למסך ההגדרות.
+   ‏`scripts/check_notif_links.py` חוסם ב-CI.
 4. ‏`itemPath()` ו-`openNotificationTarget()` - אם הסוג נושא פריט אחד.
 
 ## 5. התבנית בוואטסאפ
@@ -135,4 +138,5 @@ node --check assets/crm.js
 python3 scripts/check_migration_versions.py --base-ref origin/main
 python3 scripts/check_function_grants.py
 python3 scripts/check_long_dash.py
+python3 scripts/check_notif_links.py
 ```

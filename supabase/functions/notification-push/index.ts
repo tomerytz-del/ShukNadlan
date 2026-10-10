@@ -72,7 +72,8 @@ const SEND_CONCURRENCY = 4;
 const WA_OPTED_OUT = 131050;
 
 // הקטגוריה בדשבורד שבה מטפלים בכל סוג התראה. אותו מיפוי שב-NOTIF_TYPES
-// ב-crm.html — סוג שאינו כאן מקבל את הפעמון עצמו, שממילא מוביל הלאה.
+// ב-assets/crm.js, ו-scripts/check_notif_links.py חוסם ב-CI כל פער. סוג שאינו
+// כאן נופל ל-MANAGE_ACC - הגדרות ההתראות - וזה לעולם לא היעד הנכון.
 const ACC_BY_TYPE: Record<string, string> = {
   new_lead: "accLeads",
   client_match: "accAlerts",
@@ -89,6 +90,16 @@ const ACC_BY_TYPE: Record<string, string> = {
   showcase_activity: "accClients",
   // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
   deal_sync_summary: "accDealSettlements",
+  // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על
+  // ביקורת ממתינה או ליד בלי יעד הוביל להגדרות ההתראות ולא לפריט.
+  // ‏scripts/check_notif_links.py מצליב מעכשיו את המפה הזו מול NOTIF_TYPES.
+  review_alert: "accReviews",
+  lead_unrouted: "accUnroutedLeads",
+  deal_data_gap: "accDealsImport",
+  onboarding_property: "accProperties",
+  onboarding_client: "accClients",
+  onboarding_lead: "accLeadShelf",
+  onboarding_agreement: "accAgreements",
 };
 
 function json(obj: unknown, status = 200) {
