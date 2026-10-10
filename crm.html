@@ -1572,13 +1572,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        רק את מה שבשורה חלקית - שורות מלאות כבר ברוחב ה-basis. אותו דבר
        בצ'יפים של כלי ה-AI (חמישה בשתי עמודות). */
     .pc-grid > *,.pc-hub-row > *{flex-grow:1}
-    /* ‏**אריח נמוך: אייקון לצד התווית ולא מעליה.** אייקון מעל תווית הוא
-       64px לאריח, ועשרה אריחים בשלוש עמודות הם ארבע שורות - בערך מסך שלם
-       של פעולות לפני הנכס הבא. בשורה אחת האריח הוא 42px, והרשת מתקצרת
-       בכשליש. */
-    .pc-tile{flex-direction:row;justify-content:center;gap:5px;min-height:42px;padding:7px 6px;
-      font-size:.72rem;border-radius:12px}
-    .pc-tile .pc-ico{width:16px;height:16px}
+    /* ‏**אריח נמוך, והתווית נשברת רק בין מילים.** אייקון מעל תווית היה 64px
+       לאריח - ארבע שורות של עשרה אריחים הן כמעט מסך. ניסיון ראשון שם את
+       האייקון *לצד* התווית (42px), ובטלפון צר עם גופן מוגדל (352px, ‏130%)
+       לא נשאר לתווית מקום: ‏`overflow-wrap:anywhere` שבר אותה באמצע מילה -
+       "עריכ/ה", "מסיר/ה", "החת/מה". עכשיו האייקון שוב מעל התווית, בריווח
+       הדוק (בערך 50px), והתווית נשברת בין מילים בלבד: "הכנסה ליריד" בשתי
+       שורות, אבל "עריכה" שלמה תמיד. */
+    .pc-tile{gap:3px;min-height:0;padding:7px 4px 6px;font-size:.72rem;border-radius:12px}
+    .pc-tile .pc-ico{width:17px;height:17px}
+    .pc-tile .pc-label{overflow-wrap:normal;word-break:normal;hyphens:none}
+    /* באריח צר הבאדג' ("חינם", "₪20") רחב כמעט כמו חצי האריח, ונופל על
+       האייקון שבמרכז. ריווח עליון רק לאריח שיש בו באדג' */
+    .pc-tile:has(.pc-badge){padding-top:14px}
     .pc-tile.pc-fair-on .pc-label{font-size:.66rem}
     .pc-chip{padding:6px 8px}
     .pc-hub{margin-top:7px;padding:7px 8px 8px}
@@ -1697,6 +1703,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏tabular-nums: המחיר הוא המספר שהעין קופצת אליו בכל כרטיס, וספרות
      ברוחב אחיד הן מה שמאפשר להשוות בין נכסים בלי לקרוא ספרה-ספרה. */
   .pc-hero .prop-price{font-size:1.1rem;margin-top:1px;font-variant-numeric:tabular-nums}
+  /* "לחודש" ו-"+ מע״מ" נשברים כיחידה ולא באמצע: בטלפון צר עם גופן מוגדל
+     ה-"+" נשאר ליד המחיר ו"מע״מ" ירד לבדו לשורה הבאה */
+  .pc-hero .prop-price .per{white-space:nowrap}
   .pc-hero .pill-row{justify-content:flex-start;margin-top:3px}
   .pc-hero .lead-kind{margin-bottom:1px;align-self:flex-start}
   /* במחשב התמונה עולה מבול לצד הכותרת לתמונת נושא מעל לה, וזו לא קישוט:

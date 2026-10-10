@@ -80,7 +80,11 @@ description: עבודה על קטגוריית "הנכסים שלי" ב-CRM של 
 `crm.html` ב-Playwright, להגדיר `window.supabase` מזויף ב-`addInitScript`
 (ה-CDN חסום ב-SRI), למלא `myPropertyRows` ולקרוא ל-`renderProperties()`.
 
-**בטלפון בודקים גם עם גופן מוגדל** (‏`document.documentElement.style.fontSize='115%'`):
+**תווית באריח לעולם אינה נשברת באמצע מילה.** בטלפון `overflow-wrap:normal`
+(ב-`proptab` מתחת ל-520px) - ‏`anywhere` נתן "עריכ/ה" ב-352px עם גופן 130%.
+אריח חדש עם תווית של מילה ארוכה אחת: בדקו אותו ברוחב הזה.
+
+**בטלפון בודקים גם עם גופן מוגדל** (‏`document.documentElement.style.fontSize='130%'`, וגם ברוחב 352px):
 סוכנים רבים מגדילים את הגופן במכשיר, ושם נולדו "מילה בשורה" בכותרת, אריח
 בודד בשורה ובאדג' שמכסה אייקון - שלושתם נראו תקינים בגופן רגיל.
 
