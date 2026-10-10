@@ -13546,15 +13546,15 @@ function buildPropertyCard(p, agentId){
      אחת?" היא שאלה שנשאלה עד כה רק בפתיחת העריכה, ו"איזו תמונה ראשונה"
      רק בדף הנכס. המונה תמיד גלוי; החיצים רק כשהתמונה היא תמונת נושא
      (‏@container, ראו ‎.pc-hero-nav‎) - על בול של 68px הם היו מכסים אותה. */
-  /* ‏**ולנכס שבאוויר התמונה היא הקישור לדף הנכס** (בלשונית חדשה), עם עין
-     בפינה שאומרת שהיא לחיצה. היא החליפה את אריח "דף נכס": תמונה היא הדבר
-     הראשון שלוחצים עליו ממילא, והאריח שהתפנה הוא מה שהוריד שורה מהרשת.
-     רק לנכס פעיל - דף הנכס טוען ‎status=active‎ בלבד, ולכל השאר יציג
+  /* ‏**ובטלפון, לנכס שבאוויר, התמונה היא הקישור לדף הנכס** (בלשונית חדשה),
+     עם עין בפינה שאומרת שהיא לחיצה - ושם היא מחליפה את אריח "דף נכס", כדי
+     לחסוך שורה ברשת. **במחשב לא:** שם האריח נשאר והתמונה אינה לחיצה (‏CSS,
+     לפי רוחב הכרטיס - ‎.pc-hero-link‎ ו-‎.pc-wide-only‎). רק לנכס פעיל - דף הנכס טוען ‎status=active‎ בלבד, ולכל השאר יציג
      "לא נמצא". החיצים והמונה הם אחים של הקישור ולא בתוכו: כפתור בתוך
      ‏<a> אינו HTML תקין, ולחיצה על חץ הייתה פותחת גם את הדף. */
   const pageHref = p.status === 'active' ? '/property?id=' + encodeURIComponent(p.id) : '';
   const heroLink = inner => pageHref
-    ? `<a class="pc-hero-link" href="${esc(pageHref)}" target="_blank" rel="noopener noreferrer"
+    ? `<a class="pc-hero-link" href="${esc(pageHref)}" target="_blank" rel="noopener noreferrer" tabindex="-1"
          title="פתיחת דף הנכס באתר בלשונית חדשה" aria-label="פתיחת דף הנכס באתר">${inner}<span
          class="pc-hero-eye" aria-hidden="true">${cardIconSvg('eye')}</span></a>`
     : inner;
@@ -13723,17 +13723,19 @@ function buildPropertyCard(p, agentId){
      דף נכס, מסירה, החתמה, הקפצה, QR - לבנים עם אייקון כחול; את "חינם" של
      ההקפצה אומר הבאדג' שלה. ראו ‎.pc-tile‎ ב-CSS. */
   addQuickAction(actions, {
-    label:'עריכה', icon:'pencil',
+    label:'עריכה', icon:'pencil', cls:'pc-edit',
     title:'עריכת פרטי המודעה', onClick:()=> openEditProperty(p),
   });
 
-  /* "דף נכס" כבר אינו אריח - הוא הלחיצה על התמונה (ראו pageHref למעלה).
-     במקומו, שני ברשת, "ביטול שת״פ": קודם הוא היה האחרון ונשאר לבד בשורה. */
-  if (p.status === 'active' && p.shared_with_partners){
+  if (p.status === 'active'){
+    // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה - אותו עמוד שה-QR מוביל
+    // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
+    // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
+    // ‏pc-wide-only: בטלפון האריח מוסתר, והתמונה היא הקישור (ראו pageHref).
     addQuickAction(actions, {
-      label:'ביטול שת״פ', icon:'close', tone:'red',
-      title:'הפסקת השיתוף - הנכס יורד מרשימת השת״פ של המשרדים',
-      onClick:btn => unshareProperty(p, btn, agentId),
+      label:'דף נכס', icon:'link', cls:'pc-wide-only',
+      title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
+      href:'/property?id=' + encodeURIComponent(p.id), blank:true,
     });
   }
 
@@ -13822,6 +13824,15 @@ function buildPropertyCard(p, agentId){
       title:'הפקת מדבקת QR להדבקה על השלט',
       onClick:btn => openQrSticker(p, btn),
     });
+    // בטלפון הוא עולה למקום של "דף נכס", שני ברשת (‏order ב-CSS); במחשב
+    // הוא נשאר אחרון
+    if (p.shared_with_partners){
+      addQuickAction(actions, {
+        label:'ביטול שת״פ', icon:'close', tone:'red', cls:'pc-unshare',
+        title:'הפסקת השיתוף - הנכס יורד מרשימת השת״פ של המשרדים',
+        onClick:btn => unshareProperty(p, btn, agentId),
+      });
+    }
   }
 
   // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB.
@@ -18628,7 +18639,7 @@ function cardIconSvg(name){
 function buildCardTile(opts, kind){
   const el = document.createElement(opts.href ? 'a' : 'button');
   if (!opts.href) el.type = 'button';
-  el.className = kind + (opts.tone ? ' pc-' + opts.tone : '');
+  el.className = kind + (opts.tone ? ' pc-' + opts.tone : '') + (opts.cls ? ' ' + opts.cls : '');
   el.innerHTML = cardIconSvg(opts.icon)
     + `<span class="pc-label">${escapeHtml(opts.label)}</span>`
     + (opts.badge ? `<span class="pc-badge${opts.badgeFree ? ' pc-badge-free' : ''}">${escapeHtml(opts.badge)}</span>` : '');
