@@ -1747,13 +1747,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- "הנכסים שלי": רשת סינון אחידה ----------
      שש תיבות בשתי שורות של flex נתנו 4+2, והשורה השנייה נמתחה לחצאים -
      שתי תיבות רחבות שנראות כמו חור. כאן רשת אחת: שתי עמודות בטלפון וארבע
-     ממחשב, ושמונה פקדים ממלאים אותה בדיוק (סטטוס, עסקה, סוג, עיר / חדרים,
-     מחיר, סינון מהיר, מיון). ‏@container ולא @media: הרוחב שקובע הוא של
-     האקורדיון, שבמחשב יושב לצד סרגל ניווט. */
+     ממחשב (חמש ברוחב מלא), ועשרה פקדים: סטטוס, עסקה, סוג, עיר, חדרים,
+     ושלושה טווחים - מחיר, שטח ומחיר למ״ר - ואז סינון מהיר ומיון.
+     ‏@container ולא @media: הרוחב שקובע הוא של האקורדיון, שבמחשב יושב לצד
+     סרגל ניווט. */
   #propToolbar{container-type:inline-size}
   .list-toolbar .toolbar-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
   @container (min-width:640px){
     .list-toolbar .toolbar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  /* עשרה פקדים מאז שנוספו שטח ומחיר למ״ר: בארבע עמודות זה 4+4+2, כלומר
+     שוב חצי שורה ריקה. ברוחב מחשב חמש עמודות נותנות שתי שורות מלאות. */
+  @container (min-width:820px){
+    .list-toolbar .toolbar-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
   }
   /* טווח המחיר: שני שדות בתוך גלולה אחת, כדי שיתפוס משבצת אחת ברשת
      ולא שתיים. ‏inputmode=numeric ולא type=number בלבד - בטלפון זו
@@ -7003,6 +7009,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <input type="number" id="propPriceMin" inputmode="numeric" min="0" step="any" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
           <span class="filter-range-sep" aria-hidden="true">-</span>
           <input type="number" id="propPriceMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי">
+        </div>
+        <div class="filter-input filter-range" role="group" aria-label="טווח שטח במ״ר">
+          <input type="number" id="propSizeMin" inputmode="numeric" min="0" step="any" placeholder="מ״ר מ-" aria-label="שטח מינימלי במ״ר">
+          <span class="filter-range-sep" aria-hidden="true">-</span>
+          <input type="number" id="propSizeMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="שטח מקסימלי במ״ר">
+        </div>
+        <div class="filter-input filter-range" role="group" aria-label="טווח מחיר למ״ר בשקלים">
+          <input type="number" id="propPsmMin" inputmode="numeric" min="0" step="any" placeholder="₪/מ״ר" aria-label="מחיר מינימלי למ״ר">
+          <span class="filter-range-sep" aria-hidden="true">-</span>
+          <input type="number" id="propPsmMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי למ״ר">
         </div>
         <select id="propExtraFilter" class="filter-input" aria-label="סינון מהיר">
           <option value="">כל הנכסים</option>

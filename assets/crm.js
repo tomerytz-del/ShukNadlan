@@ -1913,7 +1913,8 @@ const REMINDER_FILTERS = {
    מאפסים אותם - "איפוס סינונים", קישור לנכס בודד, וקישור מהתזכורת - ופקד
    שנוסף לשניים מהם ולא לשלישי השאיר נכס מבוקש מוסתר מאחורי סינון ישן. */
 const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter',
-  'propCityFilter','propRoomsFilter','propPriceMin','propPriceMax','propExtraFilter'];
+  'propCityFilter','propRoomsFilter','propPriceMin','propPriceMax','propSizeMin','propSizeMax',
+  'propPsmMin','propPsmMax','propExtraFilter'];
 
 const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -12994,18 +12995,39 @@ function propertyFilterState(){
     type: val('propTypeFilter'),
     city: val('propCityFilter'),
     rooms: Number(val('propRoomsFilter')) || 0,
-    // שדה ריק הוא "אין גבול", ולא 0 - ‏Number('') הוא 0, ו"עד 0" היה מסתיר הכול
-    priceMin: val('propPriceMin') === '' ? null : Number(val('propPriceMin')),
-    priceMax: val('propPriceMax') === '' ? null : Number(val('propPriceMax')),
+    // שלושה טווחים: מחיר, שטח (‏size_sqm) ומחיר למ״ר (‏price_per_sqm - עמודה
+    // מחושבת מאותו size_sqm, ולכן שני האחרונים תמיד מסכימים זה עם זה)
+    price: propRange(val('propPriceMin'), val('propPriceMax')),
+    size:  propRange(val('propSizeMin'),  val('propSizeMax')),
+    psm:   propRange(val('propPsmMin'),   val('propPsmMax')),
     extra: val('propExtraFilter'),
     sort: val('propSort') || 'created_desc',
   };
 }
 
+// טווח מ-/עד משני שדות. שדה ריק הוא "אין גבול", ולא 0 - ‏Number('') הוא 0,
+// ו"עד 0" היה מסתיר הכול. null כששני השדות ריקים.
+function propRange(minRaw, maxRaw){
+  const min = minRaw === '' ? null : Number(minRaw);
+  const max = maxRaw === '' ? null : Number(maxRaw);
+  return (min === null && max === null) ? null : { min, max };
+}
+
+// האם ערך בתוך טווח. ערך חסר אינו עובר טווח שנבחר - אין דרך לדעת שהוא
+// בתוכו (‏Number(null) הוא 0, ולכן הבדיקה המפורשת - אחרת הוא היה עובר כל "עד")
+function inPropRange(value, range){
+  if (!range) return true;
+  if (value === null || value === undefined || value === '') return false;
+  const v = Number(value);
+  if (range.min !== null && !(v >= range.min)) return false;
+  if (range.max !== null && !(v <= range.max)) return false;
+  return true;
+}
+
 // האם משהו מסונן - לשורת הספירה, לכפתור האיפוס, ולתיבת "רק מה שמסונן" בייצוא
 function propertyFilterActive(f){
   return !!(f.q || f.status || f.deal || f.type || f.city || f.rooms
-    || f.priceMin !== null || f.priceMax !== null || f.extra);
+    || f.price || f.size || f.psm || f.extra);
 }
 
 function filterProperties(rows, f){
@@ -13015,11 +13037,9 @@ function filterProperties(rows, f){
     if (f.type && p.property_type !== f.type) return false;
     if (f.city && p.city !== f.city) return false;
     if (f.rooms && !(Number(p.rooms) >= f.rooms)) return false;
-    // נכס בלי מחיר אינו עובר טווח שנבחר - אין דרך לדעת שהוא בתוכו
-    // (‏Number(null) הוא 0, ולכן הבדיקה המפורשת - אחרת הוא היה עובר כל "עד")
-    if ((f.priceMin !== null || f.priceMax !== null) && (p.price === null || p.price === undefined)) return false;
-    if (f.priceMin !== null && !(Number(p.price) >= f.priceMin)) return false;
-    if (f.priceMax !== null && !(Number(p.price) <= f.priceMax)) return false;
+    if (!inPropRange(p.price, f.price)) return false;
+    if (!inPropRange(p.size_sqm, f.size)) return false;
+    if (!inPropRange(p.price_per_sqm, f.psm)) return false;
     if (f.extra === 'promoted'   && !propertyIsPromoted(p)) return false;
     if (f.extra === 'exclusive'     && !propertyIsExclusive(p)) return false;
     if (f.extra === 'not_exclusive' && propertyIsExclusive(p)) return false;
@@ -13099,7 +13119,7 @@ function renderPropertiesFromTop(){
   renderProperties();
 }
 
-['propSearch','propPriceMin','propPriceMax']
+['propSearch','propPriceMin','propPriceMax','propSizeMin','propSizeMax','propPsmMin','propPsmMax']
   .forEach(id => document.getElementById(id).addEventListener('input', renderPropertiesFromTop));
 ['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propRoomsFilter','propExtraFilter','propSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
