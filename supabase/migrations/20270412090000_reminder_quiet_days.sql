@@ -7,8 +7,11 @@
 -- הראשונה שאינה שקטה.
 --
 -- ‏`quiet_days` היא רשימת ימי שבוע לפי `extract(dow)` של Postgres: 0 = ראשון
--- ... 5 = שישי, 6 = שבת. יום נקבע לפי שעון ישראל. מערך ריק (ברירת המחדל) =
--- בלי ימים שקטים, ולכן שום סוכן/ת קיים/ת לא מרגיש/ה שינוי.
+-- ... 5 = שישי, 6 = שבת. יום נקבע לפי שעון ישראל.
+--
+-- **ברירת המחדל היא שישי ושבת (`{5,6}`)** - גם לסוכן/ת בלי שורת העדפות
+-- (ה-coalesce בשני השולחים) וגם לשורות הקיימות, שמקבלות את ה-default של
+-- העמודה ב-`add column`. מערך ריק הוא בחירה מפורשת: "בלי ימים שקטים".
 --
 -- העמודה יושבת ב-`agent_reminder_preferences`, ליד שעות השקט, ושני השולחים
 -- קוראים אותה משם - בדיוק כמו את השעות:
@@ -25,7 +28,7 @@
 -- ---------------------------------------------------------------------------
 
 alter table public.agent_reminder_preferences
-  add column if not exists quiet_days smallint[] not null default '{}';
+  add column if not exists quiet_days smallint[] not null default '{5,6}';
 
 do $$
 begin
@@ -41,7 +44,7 @@ begin
 end $$;
 
 comment on column public.agent_reminder_preferences.quiet_days is
-  'ימי שבוע שקטים (0=ראשון ... 5=שישי, 6=שבת), שעון ישראל. ביום כזה לא יוצאות תזכורות ולא התראות וואטסאפ (חוץ מ-agenda_reminder). מערך ריק = בלי ימים שקטים.';
+  'ימי שבוע שקטים (0=ראשון ... 5=שישי, 6=שבת), שעון ישראל. ביום כזה לא יוצאות תזכורות ולא התראות וואטסאפ (חוץ מ-agenda_reminder). ברירת מחדל {5,6} - שישי ושבת. מערך ריק = בלי ימים שקטים, בחירה מפורשת.';
 
 -- ---------------------------------------------------------------------------
 -- 1. שקט עכשיו: שעות או יום
@@ -100,7 +103,7 @@ as $$
            )                                             as whatsapp_types,
            coalesce(rp.quiet_from_hour, 21)              as quiet_from,
            coalesce(rp.quiet_to_hour,   8)               as quiet_to,
-           coalesce(rp.quiet_days, '{}'::smallint[])     as quiet_days
+           coalesce(rp.quiet_days, '{5,6}'::smallint[])     as quiet_days
       from public.agency_members m
       left join public.agent_notification_preferences np on np.agent_id = m.id
       left join public.agent_reminder_preferences     rp on rp.agent_id = m.id
@@ -193,7 +196,7 @@ as $$
       coalesce(p.max_per_30_days, d.cap)                     as cap,
       coalesce(p.quiet_from_hour, 21)                        as quiet_from,
       coalesce(p.quiet_to_hour,   8)                         as quiet_to,
-      coalesce(p.quiet_days,      '{}'::smallint[])          as quiet_days
+      coalesce(p.quiet_days,      '{5,6}'::smallint[])          as quiet_days
       from public.agency_members m
       cross join dflt d
       left join public.agent_reminder_preferences p on p.agent_id = m.id
