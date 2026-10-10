@@ -17,7 +17,7 @@ import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-le
 import { customerPath, fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas, mutate } from "../_shared/google-ads.ts";
 import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
-import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput } from "./campaign.ts";
+import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput, type VideoRef } from "./campaign.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -46,6 +46,11 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   create_campaign  ‏{draft_id, variants, destination, format, ...} - קמפיין
 //                    מנוסח מאושר (‏campaign.ts). ‏dry_run מחזיר את התוכנית
 //   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
+//   save_video     ‏{id?, title, purpose, audience, aspect, storage_path, poster_path, ...}
+//                  - שורה בספריית הסרטונים (‏marketing_videos). הקובץ כבר בדלי
+//                  ‏marketing-videos (הדפדפן מעלה אותו); כאן בודקים שהוא שם
+//   archive_video  ‏{id, archived} - הוצאה מהספרייה והחזרה. בלי מחיקה: מודעה
+//                  שרצה על הסרטון עדיין מפנה אליו (docs/marketing-videos.md)
 //   google_status    Google Ads: הסודות קיימים? החשבון, המטבע, אזור הזמן
 //   google_campaigns ‏{days} - קמפיינים עם הוצאה, קליקים והמרות. קריאה בלבד
 //                    (‏_shared/google-ads.ts, שלב 7)
@@ -851,6 +856,126 @@ function clampInt(v: unknown, min: number, max: number, dflt: number): number {
   return Math.min(Math.max(n, min), max);
 }
 
+// ---------------------------------------------------------------------------
+// ספריית הסרטונים (שלב 8, docs/marketing-videos.md)
+// ---------------------------------------------------------------------------
+const VIDEO_BUCKET = "marketing-videos";
+const VIDEO_PURPOSES = ["marketing", "tutorial"];
+const VIDEO_AUDIENCES = ["agents", "buyers", "sellers", "renters", "developers", "professionals", "general"];
+const VIDEO_ASPECTS = ["9:16", "4:5", "1:1", "16:9"];
+const VIDEO_PATH_RE = /^[a-z0-9][a-z0-9_\-/]{2,150}\.(mp4|webm|mov)$/;
+const POSTER_PATH_RE = /^[a-z0-9][a-z0-9_\-/]{2,150}\.(jpg|jpeg|png)$/;
+
+function publicVideoUrl(path: string): string {
+  return `${supabaseUrl}/storage/v1/object/public/${VIDEO_BUCKET}/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+// הקובץ באמת בדלי? ‏HEAD לכתובת הציבורית - אותה כתובת שמטא תמשוך.
+async function storedFileExists(path: string): Promise<boolean> {
+  try {
+    const r = await fetch(publicVideoUrl(path), { method: "HEAD", signal: AbortSignal.timeout(10_000) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+function cleanText(v: unknown, max: number): string | null {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t ? t.slice(0, max) : null;
+}
+
+async function actionSaveVideo(sb: SupabaseClient, caller: Caller, body: any) {
+  const id = body?.id ? String(body.id) : null;
+  const title = cleanText(body?.title, 120);
+  if (!title || title.length < 2) return json({ error: "video_title_required" }, 400);
+  const purpose = String(body?.purpose ?? "marketing");
+  const audience = String(body?.audience ?? "");
+  const aspect = String(body?.aspect ?? "");
+  if (!VIDEO_PURPOSES.includes(purpose)) return json({ error: "bad_video_purpose" }, 400);
+  if (!VIDEO_AUDIENCES.includes(audience)) return json({ error: "bad_video_audience" }, 400);
+  if (!VIDEO_ASPECTS.includes(aspect)) return json({ error: "bad_video_aspect" }, 400);
+  const tags = Array.isArray(body?.tags)
+    ? [...new Set(body.tags.map((t: unknown) => cleanText(t, 30)).filter(Boolean))].slice(0, 12) as string[]
+    : [];
+  const num = (v: unknown, max: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 && n <= max ? n : null;
+  };
+  const row: Record<string, unknown> = {
+    title, purpose, audience, aspect,
+    width: num(body?.width, 8000) ? Math.round(Number(body.width)) : null,
+    height: num(body?.height, 8000) ? Math.round(Number(body.height)) : null,
+    duration_sec: num(body?.duration_sec, 3600) ? Math.round(Number(body.duration_sec) * 100) / 100 : null,
+    hook: cleanText(body?.hook, 300),
+    script: cleanText(body?.script, 4000),
+    notes: cleanText(body?.notes, 2000),
+    concept: cleanText(body?.concept, 60),
+    variant: cleanText(body?.variant, 40),
+    tags,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!id) {
+    const path = String(body?.storage_path ?? "");
+    const poster = String(body?.poster_path ?? "");
+    if (!VIDEO_PATH_RE.test(path) || path.includes("..")) return json({ error: "bad_video_path" }, 400);
+    if (!POSTER_PATH_RE.test(poster) || poster.includes("..")) return json({ error: "bad_poster_path" }, 400);
+    if (!(await storedFileExists(path))) return json({ error: "video_file_missing" }, 409);
+    if (!(await storedFileExists(poster))) return json({ error: "poster_file_missing" }, 409);
+    const src = body?.source && typeof body.source === "object" && !Array.isArray(body.source) ? body.source : {};
+    const { data, error } = await sb.from("marketing_videos")
+      .insert({ ...row, storage_path: path, poster_path: poster, created_by: caller.actorId, source: src })
+      .select("id").single();
+    if (error) return json({ error: error.code === "23505" ? "video_path_taken" : "db_error", detail: error.message }, error.code === "23505" ? 409 : 500);
+    return json({ ok: true, id: data.id });
+  }
+
+  const { data, error } = await sb.from("marketing_videos").update(row).eq("id", id).select("id").maybeSingle();
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  if (!data) return json({ error: "video_not_found" }, 404);
+  return json({ ok: true, id });
+}
+
+async function actionArchiveVideo(sb: SupabaseClient, body: any) {
+  const id = String(body?.id ?? "");
+  const status = body?.archived === false ? "ready" : "archived";
+  const { data, error } = await sb.from("marketing_videos")
+    .update({ status, updated_at: new Date().toISOString() }).eq("id", id).select("id").maybeSingle();
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  if (!data) return json({ error: "video_not_found" }, 404);
+  return json({ ok: true, status });
+}
+
+// ‏video_ids מהטופס ← VideoRef. רק סרטון ready, ועם תמונת שער.
+async function loadVideoRefs(sb: SupabaseClient, ids: unknown): Promise<VideoRef[] | Response> {
+  const list: string[] = Array.isArray(ids) ? [...new Set(ids.map(String))] as string[] : [];
+  if (!list.length) return json({ error: "video_required", detail: "בחרו סרטון מהספרייה" }, 400);
+  if (list.length > 3) return json({ error: "too_many_videos", detail: "עד שלושה סרטונים בקמפיין" }, 400);
+  const { data, error } = await sb.from("marketing_videos")
+    .select("id, title, concept, variant, storage_path, poster_path, status, meta_video_id").in("id", list);
+  if (error) return json({ error: "db_error" }, 500);
+  const rows = (data ?? []) as any[];
+  if (rows.length !== list.length || rows.some((r) => r.status !== "ready")) return json({ error: "video_not_available" }, 409);
+  if (rows.some((r) => !r.poster_path)) return json({ error: "video_poster_missing" }, 409);
+  return list.map((id) => {
+    const r = rows.find((x) => x.id === id)!;
+    const label = [r.concept, r.variant].filter(Boolean).join(" ") || String(r.title);
+    return { id: r.id, label: label.slice(0, 60), url: publicVideoUrl(r.storage_path), poster: publicVideoUrl(r.poster_path), metaVideoId: r.meta_video_id ?? null };
+  });
+}
+
+// אחרי יצירה (גם כושלת): הסרטונים שעלו למטא נשמרים על השורה בספרייה, כדי
+// שהקמפיין הבא ישתמש באותו סרטון ולא יעלה אותו שוב.
+async function rememberMetaVideos(sb: SupabaseClient, objects: Created[]) {
+  for (const o of objects) {
+    if (o.type !== "video" || !o.video_id || !o.id || o.reused) continue;
+    const { error } = await sb.from("marketing_videos")
+      .update({ meta_video_id: o.id, meta_video_uploaded_at: new Date().toISOString() }).eq("id", o.video_id);
+    if (error) console.error("marketing_videos meta_video_id update failed", o.video_id, error.message);
+  }
+}
+
 async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: string, caller: Caller, body: any) {
   const dryRun = Boolean(body?.dry_run);
   const draftId = String(body?.draft_id ?? "");
@@ -875,6 +1000,12 @@ async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: s
   const format = String(body?.format ?? "image") as Format;
   if (!FORMATS.includes(format)) return json({ error: "bad_format" }, 400);
   if (format === "carousel" && draft.audience !== "property") return json({ error: "carousel_property_only" }, 400);
+  let videos: VideoRef[] = [];
+  if (format === "video") {
+    const v = await loadVideoRefs(sb, body?.video_ids);
+    if (v instanceof Response) return v;
+    videos = v;
+  }
 
   const disclosureLine = String((await setting(sb, "disclosure_line")) ?? "").trim();
   if (!disclosureLine) return json({ error: "disclosure_missing" }, 409);
@@ -952,9 +1083,11 @@ async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: s
       .map((c: any) => ({ lat: Number(c.lat), lng: Number(c.lng), radius_km: radius, label: String(c.name) }));
     if (geo.length !== cityIds.length) return json({ error: "city_no_location" }, 409);
 
-    const img = allowedImageUrl(body?.image_url);
-    if (!img) return json({ error: "bad_image_url", detail: "תמונה מהאחסון של האתר בלבד (https)" }, 400);
-    images = [img];
+    if (format !== "video") {
+      const img = allowedImageUrl(body?.image_url);
+      if (!img) return json({ error: "bad_image_url", detail: "תמונה מהאחסון של האתר בלבד (https)" }, 400);
+      images = [img];
+    }
     let path = String((await setting(sb, "platform_landing_path")) ?? "/pricing");
     if (!path.startsWith("/") || path.startsWith("//")) path = "/pricing";
     landingUrl = `${SITE}${path}${path.includes("?") ? "&" : "?"}${utm(key)}`;
@@ -965,7 +1098,7 @@ async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: s
 
   const inp: PlanInput = {
     audience: draft.audience, campaignName, pageId: PAGE_ID, instagramUserId: IG_ACCOUNT_ID || undefined,
-    destination, format, variants, disclosure, images, landingUrl, leadFormId: leadFormId || undefined,
+    destination, format, variants, disclosure, images, videos, landingUrl, leadFormId: leadFormId || undefined,
     dailyBudget, endTime, geo, ageMin, ageMax,
   };
   const { plan, errors, warnings } = buildPlan(inp);
@@ -978,7 +1111,7 @@ async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: s
     name: campaignName,
     summary: plan.summary,
     disclosure,
-    ads: plan.creatives.map((c) => ({ headline: c.headline, message: c.message, cta: c.cta, images: c.images.length })),
+    ads: plan.creatives.map((c) => ({ headline: c.headline, message: c.message, cta: c.cta, images: c.images.length, video: c.video?.label ?? null })),
   };
   if (dryRun) return json({ dry_run: true, plan: preview, warnings });
 
@@ -1000,11 +1133,13 @@ async function actionCreateCampaign(sb: SupabaseClient, meta: MetaClient, act: s
 
   try {
     const res = await execute(meta, act, inp, plan, record);
+    await rememberMetaVideos(sb, objects);
     await sb.from("ads_campaigns").update({ status: "created", updated_at: new Date().toISOString() }).eq("id", row.id);
     await log(sb, caller, { action: "create_campaign", object_type: "campaign", object_id: res.campaignId, request: { id: row.id, ...preview }, response: res, ok: true });
     return json({ ok: true, id: row.id, campaign_id: res.campaignId, ads: res.ads.length, warnings });
   } catch (e) {
     const msg = e instanceof MetaError ? e.message : (e as Error)?.message ?? String(e);
+    await rememberMetaVideos(sb, objects);
     await sb.from("ads_campaigns").update({ status: "failed", error: msg.slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", row.id);
     await log(sb, caller, {
       action: "create_campaign", object_type: "campaign", object_id: objects.find((o) => o.type === "campaign")?.id ?? null,
@@ -1317,6 +1452,9 @@ Deno.serve(async (req: Request) => {
   if (action === "sync_leads") return await actionSyncLeads(sb, caller, body);
   if (action === "retry_lead") return await actionRetryLead(sb, body);
   if (action === "subscribe_page") return await actionSubscribePage(sb, caller);
+  // ספריית הסרטונים - מסד ואחסון בלבד, בלי מטא.
+  if (action === "save_video") return await actionSaveVideo(sb, caller, body);
+  if (action === "archive_video") return await actionArchiveVideo(sb, body);
   // גוגל - חשבון נפרד וסודות נפרדים, ולכן לפני הבדיקה של מטא.
   if (action === "google_status") return await actionGoogleStatus();
   if (action === "google_campaigns") return await actionGoogleCampaigns(body);

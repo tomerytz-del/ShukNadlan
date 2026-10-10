@@ -1,0 +1,143 @@
+{
+  "title": "מהשיחה לפגישה - אוטומטית",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "normal",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "call",
+      "narration": "שיחה נכנסה? פגישה נקבעה! והכל בקליק.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שיחה נכנסה?",
+        "פגישה נקבעה!",
+        "והכל בקליק."
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: restrained product explainer, warm off-white ground (#F7F5F0) with a soft sapphire pool, sapphire #0e2a6b as hero and gold #c9a227 as the single accent (both from the logo). One Hebrew face (heebo 800 headlines, 600 labels), all RTL. Intended length about 40 s. VISUAL THREAD / CONCEPT: a chain of cause and effect carried by ONE card - the client card. HOOK (result first): opens on an incoming-call card already ringing (phone glyph, pulsing rings); on 'פגישה' the same card flips into a gold 'פגישה נקבעה!' calendar chip; on 'בקליק' a pointer taps it. Then the card rewinds back into the call for scene 2 - the film shows what happens in between. Scene 1 to 2: the card flips back to the call and its body turns into a waveform."
+    },
+    {
+      "id": "record",
+      "narration": "מה קורה באמצע? השיחה למספר הווירטואלי מוקלטת, ומתומללת.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מוקלטת",
+        "מתומללת"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "On 'מה קורה באמצע' a short rewind blur on the card. Inside the same card: a red REC dot and a live waveform on 'מוקלטת'; on 'מתומללת' the waveform gives way to three transcript lines that appear whole, right to left (generic lines, no invented numbers). Scene 2 to 3: the card slides up and shrinks into a chat bubble."
+    },
+    {
+      "id": "gabriela",
+      "narration": "ההוראות לביצוע נשלחות לגבריאלה, העוזרת האישית שלכם.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "גבריאלה",
+        "העוזרת האישית"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-2e911190",
+        "a-a18f6157"
+      ],
+      "notes": "On 'גבריאלה' the user's Gabriela photo rises into a tall rounded portrait card (cropped to head and torso, tablet out of frame) beside the chat. A WhatsApp-style chat panel (WhatsApp icon) with her name; the transcript lands as a message on 'ההוראות'; on 'העוזרת' her reply streams in with a checklist: 'לשמור את הלקוח', 'למצוא התאמות', 'לשלוח למיניסייט', each ticked. She then shrinks to a round avatar that stays in the top corner for the rest of the film. Scene 3 to 4: the first checklist line grows into the client card again."
+    },
+    {
+      "id": "matches",
+      "narration": "הלקוח נשמר במאגר, ומיד מקבל התאמות מכל המתווכים בעיר.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "נשמר במאגר",
+        "התאמות מכל העיר"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "RE-HOOK (about 40 percent). On 'נשמר' the client card drops into a short client list with a soft snap. On 'התאמות' the camera pulls back to a simple city map of pins in several colours (other offices); on 'המתווכים' property cards fly from the pins toward the client card, one after another. Biggest motion so far. Scene 4 to 5: the cards stack and fly into the phone of the next scene."
+    },
+    {
+      "id": "showcase",
+      "narration": "כל ההצעות נכנסות למיניסייט אישי, ממותג בשם שלכם.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מיניסייט אישי",
+        "ממותג בשם שלכם"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-a18f6157"
+      ],
+      "notes": "A phone frame. The stacked property cards slide into it and become its feed. On 'ממותג' the phone's top bar fills with the agent's own colour band, a round agent photo placeholder and the words 'הסוכן/ת שלך' - shown as a generic placeholder brand, not a real person. Property cards carry no office branding."
+    },
+    {
+      "id": "choose",
+      "narration": "הלקוח בוחר מה הוא אוהב, ומה לא.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "אהבתי",
+        "לא בשבילי"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-a18f6157"
+      ],
+      "notes": "Short hit, same phone. A pointer taps the heart on the first card on 'אוהב' (card pulses gold) and the 'not for me' button on the second on 'לא' (card slides away)."
+    },
+    {
+      "id": "meeting",
+      "narration": "וקובע איתכם פגישה, ישר מהמיניסייט.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "פגישה נקבעה"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-a18f6157"
+      ],
+      "notes": "Rest of about half a second before it (little moves), then the liked card flips into a calendar slot; on 'פגישה' a confirmation chip 'פגישה נקבעה' lands with a chime. The phone shrinks to a small icon that will sit beside the logo."
+    },
+    {
+      "id": "payoff",
+      "narration": "בלי להקליד, ובלי לרדוף. יותר שיתופי פעולה, ויותר עסקאות. הצטרפו לשוק נדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "יותר שיתופי פעולה",
+        "יותר עסקאות",
+        "הצטרפו לשוק נדל״ן"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-b9d59616"
+      ],
+      "notes": "Payoff and the answer to the opening: the whole chain (call, recording, Gabriela, matches, mini-site, meeting) collapses into a row of small icons that runs right to left, on 'שיתופי' and 'עסקאות' two headline lines land, then the real Shuk Nadlan logo lands exactly as supplied and holds at least 1.5 s with 'הצטרפו לשוק נדל״ן' under it."
+    }
+  ]
+}
