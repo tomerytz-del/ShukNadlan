@@ -1,0 +1,122 @@
+{
+  "title": "גייסת נכס? הקונים כבר בדרך",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "normal",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "גייסת נכס? הקונים כבר בדרך!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "גייסת נכס?",
+        "הקונים כבר בדרך!"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: same series as call-to-meeting (marketing/videos/call-to-meeting): warm off-white ground, sapphire #0e2a6b hero, gold #c9a227 accent, heebo, RTL, Gabriela avatar thread. THREAD: one property card carried through the film. Hook: a 'נכס חדש' house card lands; on 'הקונים' buyer avatars fly toward it."
+    },
+    {
+      "id": "intake",
+      "narration": "מחתימים את הבעלים, ובלחיצה אחת הנכס במאגר. או בהודעה לגבריאלה, או ב-CRM.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "חתימה דיגיטלית",
+        "הוספה למאגר בלחיצה",
+        "גבריאלה · CRM"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-d0f11836",
+        "a-7d83ccb6"
+      ],
+      "notes": "Signature drawn on an agreement card on 'מחתימים'; on 'בלחיצה' the button 'הוספת הנכס למאגר שלי' (real label in the agreement wizard) is tapped and the property card pops out of the agreement; then a WhatsApp bubble with Gabriela avatar on 'לגבריאלה' and a CRM 'פרסום הנכס' button on 'CRM'."
+    },
+    {
+      "id": "live",
+      "narration": "תוך שניות הוא באוויר באתר,",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "באוויר באתר"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Short hit: the card flies into a browser frame of the site and lands as a listing."
+    },
+    {
+      "id": "ai",
+      "narration": "עם הדמיות AI, תיאור שיווקי שנכתב לבד, ופוסט בפייסבוק ובאינסטגרם של שוק נדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "הדמיות AI",
+        "תיאור שיווקי",
+        "פייסבוק · אינסטגרם"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Before/after visualization wipe on 'הדמיות'; text typing on 'תיאור'; Facebook and Instagram brand icons light up on their words."
+    },
+    {
+      "id": "alerts",
+      "narration": "קונים שחיפשו בדיוק נכס כזה מקבלים התראה מיד.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "התראה לקונים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "RE-HOOK: several phones pop WhatsApp alert bubbles with the property, on 'התראה'."
+    },
+    {
+      "id": "coop",
+      "narration": "ובלחיצה על שת״פ, כל המתווכים בפלטפורמה מקבלים התאמות ללקוחות שלהם.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שת״פ בלחיצה",
+        "התאמות ללקוחות שלהם"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A 'שת״פ' button tapped; office pins light up across a map and match cards flow to them."
+    },
+    {
+      "id": "payoff",
+      "narration": "יותר שיתופי פעולה, יותר עסקאות. הצטרפו לשוק נדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "יותר שיתופי פעולה",
+        "יותר עסקאות",
+        "shuknadlan.co.il"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-2ade9cc5"
+      ],
+      "notes": "Logo lands and holds 1.5 s, URL under it in an LTR span."
+    }
+  ]
+}
