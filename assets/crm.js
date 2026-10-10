@@ -11970,9 +11970,27 @@ function pfShowStep(n){
    גדלה אחרי גלילה (‏.kpi-sticky), הסרגל התחתון קיים רק בנייד, והסרגל של
    הטופס גדל כשמופיעה בו הודעה. מינימום 260px - במסך נמוך מאוד (טלפון
    לרוחב עם מקלדת) עדיף שהדף יגלול מאשר גוף של שתי שורות. */
+/* בטלפון הטופס הוא מסך מלא (‏html.pf-sheet-open, ראו ‎.pf-sheet-head‎ ב-CSS).
+   מחלקה אחת על html ולא שינוי בכל מקום שפותח או סוגר את הטופס - יש ארבעה
+   כאלה, וכולם כותבים addForm.style.display, ולכן המשקיף על style תופס את
+   כולם, גם חמישי שייכתב מחר. */
+const PF_SHEET_MQ = window.matchMedia('(max-width:1023px)');
+// מסנכרן לפני שהוא עונה: המשקיף רץ במיקרו-משימה, ו-pfScrollToForm נקראת
+// באותה שורה שפותחת את הטופס - לפני שהמחלקה הספיקה לעלות
+function pfSheetOpen(){ pfSyncSheet(); return document.documentElement.classList.contains('pf-sheet-open'); }
+function pfSyncSheet(){
+  const open = addForm.style.display !== 'none' && PF_SHEET_MQ.matches;
+  document.documentElement.classList.toggle('pf-sheet-open', open);
+  if (open) document.getElementById('pfSheetTitle').textContent = editingPropertyId ? 'עריכת נכס' : 'נכס חדש';
+}
+new MutationObserver(pfSyncSheet).observe(addForm, { attributes:true, attributeFilter:['style'] });
+if (PF_SHEET_MQ.addEventListener) PF_SHEET_MQ.addEventListener('change', pfSyncSheet);
+document.getElementById('pfSheetClose').addEventListener('click', () => document.getElementById('npCancel').click());
+
 function pfFitBody(){
   const body = document.getElementById('pfBody');
-  if (!body || addForm.style.display === 'none') return;
+  // במסך מלא הגוף הוא flex:1 בין שורת המקטעים לסרגל, ואין מה למדוד
+  if (!body || addForm.style.display === 'none' || pfSheetOpen()) return;
   const header = document.querySelector('#dashboard header.crm');
   const top = (header ? header.getBoundingClientRect().bottom : 0) + 14;
   const steps = addForm.querySelector('.pf-steps');
@@ -12011,6 +12029,8 @@ function pfRevealField(id){
    נכון לפני הגלילה נוחת נמוך מדי. לכן גלילה ראשונה עם scrollToTopOf,
    ותיקון אחד אחרי שהכותרת התייצבה - מול הקצה התחתון שלה בפועל. */
 function pfScrollToForm(){
+  // במסך מלא אין לאן לגלול את הדף - רק את גוף הטופס, לראש המקטע
+  if (pfSheetOpen()){ document.getElementById('pfBody').scrollTop = 0; return; }
   pfFitBody();
   scrollToTopOf(addForm);
   clearTimeout(pfScrollToForm._t);
@@ -12029,7 +12049,7 @@ function pfGoto(n){
   // למסך או מאחורי הכותרת - מעבר מקטע בלי גלילה לא צריך להזיז דבר.
   const header = document.querySelector('#dashboard header.crm');
   const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
-  if (addForm.getBoundingClientRect().top < headerBottom) pfScrollToForm();
+  if (pfSheetOpen() || addForm.getBoundingClientRect().top < headerBottom) pfScrollToForm();
 }
 addForm.querySelectorAll('[data-pf-go]').forEach(b => b.addEventListener('click', () => pfGoto(Number(b.dataset.pfGo))));
 document.getElementById('npPrevStep').addEventListener('click', () => pfGoto(pfStep - 1));

@@ -493,6 +493,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏contain עוצר את שרשור הגלילה: הגעה לסוף המקטע אינה מתחילה לגלול את
      הדף שמאחור. בלי JS המשתנה אינו מוגדר והגוף פשוט אינו מוגבל. */
   .pf-body{max-height:var(--pf-body-h,none);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .pf-sheet-head{display:none}
+  /* ---------- טופס הנכס כמסך מלא, מתחת ל-1024px ----------
+     בטלפון הטופס נפתח בתוך הרשימה, והתאמת הגובה (pfFitBody) נשענה על
+     מיקום הכותרת הדביקה, על סרגל הניווט התחתון ועל הגלילה של הדף - שלושה
+     דברים שזזים. כאן הוא מנותק מכולם: שכבה קבועה על כל החלון, שורת
+     המקטעים למעלה, הסרגל למטה, והגוף ביניהם גולל לבד. הדף שמאחור לא זז
+     (‏overflow:hidden על html), ו"עריכה" מנכס בתחתית הרשימה כבר אינה
+     קופצת לראש הקטגוריה.
+     ‏z-index ‏250: מעל הכותרת (120) וסרגל הניווט (200), מתחת לחלונות
+     (400) שנפתחים מתוך הטופס. ה-toast עלה ל-260 כדי שיופיע מעליו.
+     ‏display:flex !important - ה-JS כותב display:block ישירות על הטופס,
+     והשכבה צריכה עמודה. המחלקה קיימת רק כשהטופס פתוח, כך שאינה פותחת
+     טופס סגור. */
+  @media(max-width:1023px){
+    html.pf-sheet-open{overflow:hidden}
+    html.pf-sheet-open #addPropertyForm{position:fixed;inset:0;z-index:250;margin:0 !important;
+      display:flex !important;flex-direction:column;border:none;border-radius:0;box-shadow:none;
+      background:var(--paper-raised,#fff);padding-top:var(--sa-top,0px)}
+    html.pf-sheet-open .pf-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+      flex:none;padding:10px 14px;border-bottom:1px solid var(--line)}
+    .pf-sheet-title{font-weight:800;font-size:1rem;color:var(--ink)}
+    .pf-sheet-close{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;
+      font:inherit;font-size:1.05rem;color:var(--ink);cursor:pointer}
+    .pf-sheet-close:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+    html.pf-sheet-open .pf-steps{flex:none;border-radius:0}
+    html.pf-sheet-open .pf-body{flex:1 1 auto;min-height:0;max-height:none}
+    html.pf-sheet-open .pf-footer{position:static;flex:none;margin-top:0;border-radius:0;
+      padding-bottom:calc(12px + var(--sa-bottom,0px))}
+  }
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
   /* ---------- מסך המתנה ----------
      זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
@@ -872,7 +901,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   /* ההודעה יושבת מעל סרגל הניווט של המערכת ולא מאחוריו */
-  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:260}
 
   /* ---------- Property images (2.1) ---------- */
   .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
@@ -1545,6 +1574,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        רק את מה שבשורה חלקית - שורות מלאות כבר ברוחב ה-basis. אותו דבר
        בצ'יפים של כלי ה-AI (חמישה בשתי עמודות). */
     .pc-grid > *,.pc-hub-row > *{flex-grow:1}
+    /* ‏**אריח נמוך: אייקון לצד התווית ולא מעליה.** אייקון מעל תווית הוא
+       64px לאריח, ועשרה אריחים בשלוש עמודות הם ארבע שורות - בערך מסך שלם
+       של פעולות לפני הנכס הבא. בשורה אחת האריח הוא 42px, והרשת מתקצרת
+       בכשליש. */
+    .pc-tile{flex-direction:row;justify-content:center;gap:5px;min-height:42px;padding:7px 6px;
+      font-size:.72rem;border-radius:12px}
+    .pc-tile .pc-ico{width:16px;height:16px}
+    .pc-tile.pc-fair-on .pc-label{font-size:.66rem}
+    .pc-chip{padding:6px 8px}
+    .pc-hub{margin-top:7px;padding:7px 8px 8px}
   }
   @media(prefers-reduced-motion:reduce){.pc-owner-act{transition:none}}
   /* תקרת העמודות לפי רוחב הכרטיס. הערכים נגזרים מרוחב אריח של ~85px
@@ -6641,6 +6680,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          מוסתר. את שניהם פותר pfRevealField() ב-crm.js, שעובר למקטע של השדה.
          סרגל הפעולות שבתחתית דביק, כדי שהשמירה לא תדרוש גלילה עד הסוף. -->
     <form id="addPropertyForm" class="card pf" style="display:none;margin-bottom:18px" novalidate>
+      <!-- כותרת המסך המלא - מוצגת רק כשהטופס פתוח כמסך מלא בטלפון
+           (‏html.pf-sheet-open, ראו pfSyncSheet ב-crm.js) -->
+      <div class="pf-sheet-head">
+        <span class="pf-sheet-title" id="pfSheetTitle">נכס חדש</span>
+        <button type="button" class="pf-sheet-close" id="pfSheetClose" aria-label="סגירת הטופס">✕</button>
+      </div>
       <nav class="pf-steps" aria-label="מקטעי טופס הנכס">
         <button type="button" class="pf-step-btn is-active" data-pf-go="1" aria-current="step"><span class="pf-num">1</span><span class="pf-lbl">פרטים בסיסיים</span></button>
         <button type="button" class="pf-step-btn" data-pf-go="2"><span class="pf-num">2</span><span class="pf-lbl">מיקום ורישום</span></button>
