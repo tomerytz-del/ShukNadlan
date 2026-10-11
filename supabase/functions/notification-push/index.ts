@@ -166,7 +166,7 @@ function itemPath(it: Item): string | null {
   const review = uuidOr(it.review_id);
 
   // תזכורת על ליד ("לחזור לליד חדש") פותחת את הליד ולא את הפריט ביומן: שם
-  // מטפלים, והפריט ביומן היה עוד לחיצה בדרך (20270418090000). הפעמון
+  // מטפלים, והפריט ביומן היה עוד לחיצה בדרך (20270419090000). הפעמון
   // (‏crm.js) - באותו סדר.
   if (lead && it.type === "agenda_reminder") return `/crm?goto=accLeads&lead=${lead}`;
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;

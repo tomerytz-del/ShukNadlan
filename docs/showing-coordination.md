@@ -118,7 +118,7 @@ payload לפי האינדקס (`COORD_BUTTONS` ב-`showing-coord.ts`). כותר�
 
 ## המסד
 
-מיגרציה `20270418090000_showing_coordination.sql`.
+מיגרציה `20270419090000_showing_coordination.sql`.
 
 | מה | תפקיד |
 | --- | --- |
