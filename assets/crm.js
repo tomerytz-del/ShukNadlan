@@ -23992,7 +23992,13 @@ const NOTIF_TYPES = [
      ‏refresh: התגית "🌐" בכרטיס נשענת על הסיכום שנטען עם הלקוחות. */
   { type:'showcase_activity', tone:'deal', goto:'accClients', focus:'#clientsList',
     title:'פעילות במיניסייט של לקוח/ה',
-    sub:'לקוח/ה פתח/ה את המיניסייט ששלחת, סימן/ה נכס שאהב/ה או לא, שאל/ה שאלה או ביקש/ה לתאם סיור.',
+    sub:'לקוח/ה פתח/ה את המיניסייט ששלחת, סימן/ה נכס שאהב/ה או לא, שאל/ה שאלה או ביטל/ה סיור.',
+    refresh: ()=> loadClients() },
+  /* סוג משלו מאז 20270420090000: בוואטסאפ הוא עוקף את התקרה היומית ואת
+     מרווח הקיבוץ, כי הלקוח/ה מחכה לתשובה. */
+  { type:'showcase_meeting', tone:'deal', goto:'accClients', focus:'#clientsList',
+    title:'בקשת סיור מהמיניסייט',
+    sub:'לקוח/ה בחר/ה מועד לסיור במיניסייט ששלחת. בוואטסאפ היא יוצאת מיד, גם אחרי שהגעת לתקרת ההודעות היומית.',
     refresh: ()=> loadClients() },
   { type:'listing_match',  tone:'deal',   goto:'accProperties', focus:'#propertiesList',
     title:'הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת',

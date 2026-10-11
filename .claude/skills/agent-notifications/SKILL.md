@@ -1,6 +1,6 @@
 ---
 name: agent-notifications
-description: עבודה על ההתראות וההודעות לסוכנים בריפו של שוק נדל״ן - טבלת notifications, הפעמון ב-CRM (NOTIF_TYPES), הדחיפה לוואטסאפ (notification-push, notification_push_claim), סוג התראה חדש, והקישור הישיר לפריט (related_property_id / related_client_id / related_lead_id, ‏?property= / ?client= / ?lead= ב-crm.js). Use when adding a notification type or a new place that inserts into notifications, when writing any message to an agent that mentions a property, client or lead (WhatsApp, email, bell, bot tool result), when a notification links to /crm or to a whole category instead of the item, when touching notification-push / itemPath / handleGotoParam / openNotificationTarget, or when redefining a function that inserts into notifications.
+description: עבודה על ההתראות וההודעות לסוכנים בריפו של שוק נדל״ן - טבלת notifications, הפעמון ב-CRM (NOTIF_TYPES), הדחיפה לוואטסאפ (notification-push, notification_push_claim), סוג התראה חדש, והקישור הישיר לפריט (related_property_id / related_client_id / related_lead_id, ‏?property= / ?client= / ?lead= ב-crm.js). Use when adding a notification type or a new place that inserts into notifications, when writing any message to an agent that mentions a property, client or lead (WhatsApp, email, bell, bot tool result), when a notification links to /crm or to a whole category instead of the item, when touching notification-push / itemPath / handleGotoParam / openNotificationTarget, or when redefining a function that inserts into notifications, when a WhatsApp notification to an agent arrived late or never (daily cap, gap, quiet hours, notification_push_priority_types / notification_push_is_ambient), or when a migration adds a notification type (notification_types_add - never rewrite notifications_type_check).
 ---
 
 # התראות והודעות לסוכנים
@@ -93,8 +93,11 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 
 ## 4. סוג התראה חדש - ארבעה מקומות
 
-1. ‏`notifications_type_check` (מיגרציה). **יוצא מיד לכל הסוכנים בוואטסאפ**
-   - ראו `whatsapp-bots`, "ההתראות לסוכנים".
+1. ‏`notifications_type_check` (מיגרציה) - **רק** דרך
+   ‏`select public.notification_types_add(array['הסוג'])`, ולא בכתיבה מחדש
+   של הרשימה: רשימה קשיחה מוחקת סוג ש-PR מקביל הוסיף (‏#702 ו-#711, ‏10.2026),
+   ו-`check_notif_type_constraint.py` חוסם אותה ב-CI. **הסוג יוצא מיד לכל
+   הסוכנים בוואטסאפ** - ראו `whatsapp-bots`, "ההתראות לסוכנים", וסעיף 8 כאן.
 2. ‏`NOTIF_TYPES` ב-`crm.js` - הצבע, הקטגוריה, והשורה ב"התראות והודעות".
 3. ‏`ACC_BY_TYPE` ב-`notification-push` - קישור הקטגוריה כשאין פריט, **אותה
    קטגוריה כמו ב-`NOTIF_TYPES`**. סוג שנשכח כאן נופל ל-`MANAGE_ACC` (הגדרות
@@ -137,6 +140,32 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 שלה ולא ל-submit. ו-`saveReminderPrefs` מדלגת כשבוררי השעות עוד ריקים - בורר
 ריק נקרא 0, ו-0/0 הוא "בלי שעות שקט".
 
+## 8. בוואטסאפ: עדיפות, רקע ותקרה
+
+ההודעה לסוכן/ת בוואטסאפ מקבצת התראות, ושלושה שערים עוצרים אותה: שעות
+שקט, מרווח קיבוץ (10 דקות) ותקרה של 12 הודעות ביממה. עד `20270420090000`
+תקרה מלאה הוציאה את הסוכן/ת מהרשימה לכל היממה, ואחרי 12 שעות ההתראה נזרקה
+- כך בקשת סיור מהמיניסייט ב-11.10.2026 לא הגיעה לעולם. מאז שלוש קבוצות:
+
+| קבוצה | איפה | מה מקבלת |
+| --- | --- | --- |
+| עדיפות | `notification_push_priority_types()` - ‏`agenda_reminder`, ‏`showcase_meeting`, ‏`new_lead` | עוקפת מרווח ותקרה; נשמרת 72 שעות. שקט חל (חוץ מ-`agenda_reminder`) |
+| רקע | `notification_push_is_ambient()` - ‏`platform_signup`, ‏`system` על נכס של משרד אחר ("שותף איתך") | לא מעירה שליחה לבד: מצטרפת להודעה הבאה, או תקציר אחרי 180 דקות. בהודעה - שורה אחת לכל סוג |
+| כל השאר | | השערים כרגיל |
+
+**סוג חדש - לאיזו קבוצה?** שאלה אחת: האם אדם מחכה לתשובה בצד השני (לקוח/ה,
+ליד, פגישה)? אז עדיפות - רשימה ב-`notification_push_priority_types` וב-
+`PRIORITY_TYPES` ב-`notification-push`, **שתיהן**. האם הוא נכתב בכמויות
+(מאות ביום) ואינו דורש פעולה עכשיו? אז רקע - ב-`notification_push_is_ambient`
+וב-`isShare`/`isSignup` (‏`arrange`) ב-`notification-push`. אחרת - כלום.
+
+**ואל תוסיף/י סוג קיים לעדיפות כדי "לתקן עיכוב"** בלי לבדוק את הנפח שלו
+(`select type, count(*) from notifications where created_at > now()-interval '7 days' group by 1`):
+עדיפות עוקפת את התקרה, וסוג רועש בה הוא הדרך לחסימה של המספר מול Meta.
+
+**חלוקה בתוך סוג קיים** (בקשת סיור מתוך `showcase_activity`) נעשית בסוג
+חדש ולא בבדיקת כותרת - העדיפות נקבעת לפי `type`.
+
 ## לפני הדחיפה
 
 ```sh
@@ -145,4 +174,5 @@ python3 scripts/check_migration_versions.py --base-ref origin/main
 python3 scripts/check_function_grants.py
 python3 scripts/check_long_dash.py
 python3 scripts/check_notif_links.py
+python3 scripts/check_notif_type_constraint.py
 ```
