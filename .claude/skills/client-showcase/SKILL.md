@@ -1,6 +1,6 @@
 ---
 name: client-showcase
-description: עבודה על המיניסייט האישי ללקוח/ה בריפו של שוק נדל״ן - showcase.html, ה-Edge Function client-showcase, assets/crm-showcase.js והטבלאות client_showcase_*. הדף ממותג במשרד ובסוכן/ת והנכסים בלי מיתוג וכולם באותו טיפול (כדי שלא יידעו מה הגיע בשת"פ), זיהוי הלוגו בתמונות שנכשל סגור, ניקוי התיאור, המאגר שממנו מותר לשלוח, תיאום השת"פ אחרי "אהבתי", וההסרה בשני שלבים. Use when touching showcase.html / assets/showcase.js / client-showcase / crm-showcase.js / showcase_add_properties, when adding a field to what the client sees, when a property or image "disappeared" from a client's mini-site, when a client could tell a property came from another office, or when changing the first WhatsApp message that sends the link.
+description: עבודה על המיניסייט האישי ללקוח/ה בריפו של שוק נדל״ן - showcase.html, ה-Edge Function client-showcase, assets/crm-showcase.js והטבלאות client_showcase_*. הדף ממותג במשרד ובסוכן/ת והנכסים בלי מיתוג וכולם באותו טיפול (כדי שלא יידעו מה הגיע בשת"פ), זיהוי הלוגו בתמונות שנכשל סגור, ניקוי התיאור, המאגר שממנו מותר לשלוח, תיאום השת"פ אחרי "אהבתי", וההסרה בשני שלבים. Use when touching showcase.html / assets/showcase.js / client-showcase / crm-showcase.js / showcase_add_properties, when adding a field to what the client sees, when a property or image "disappeared" from a client's mini-site, when a client could tell a property came from another office, or when changing the first WhatsApp message that sends the link. Also when touching showing-coord.ts / showing_coord_* / the "📨 תיאום עם הבעלים והמתווכים" button, when an owner or a partner agent did not get a visit-coordination request, when a reply (scr: button) did not reach the agent, or when the pre-visit summary or the reminder came out wrong or twice.
 ---
 
 # המיניסייט האישי ללקוח/ה
@@ -108,6 +108,21 @@ EOF
 מעבר ל-`closed`. דלת חדשה שמשנה סטטוס לקוח/ה מקבלת את הסגירה מעצמה; מה
 שעליה להוסיף הוא **האזהרה לפני** - ‏`showcaseCloseWarning(clientId)` ב-CRM,
 או `showcase_closed` בתשובת כלי בבוט.
+
+### 9. תיאום ביקור עם הבעלים והמתווכים - שלוש נקודות שבירה
+
+לבקשת סיור, גבריאלה מציעה לשלוח לכל הבעלים (נכס שלי) והמתווכים (עמית/ה, שת"פ)
+בקשה עם שלושה כפתורים, ושולחת סיכום לסוכן/ת לפני הסיור
+(`docs/showing-coordination.md`, ‏`whatsapp-webhook/showing-coord.ts`).
+
+- **הנמען/ת אינו/ה מקבל/ת את שם הלקוח/ה ולא את שאר הנכסים בסיור.** מתווך/ת
+  בשת"פ לא יודע/ת מה עוד הלקוח/ה רואה היום. ‏`coordLine` - מי, איפה ומתי בלבד.
+- **‏`opted_out` לא נפתח מחדש בלחיצה נוספת** (`agent_showing_coord_start`), ותזכורת
+  (`nudge`) שנכשלה **אינה** משנה את סטטוס הבקשה - המקורית כבר הגיעה.
+- **שלושה cron-ים, שניים מהם בתוך המסד**: `showing-coord` (שליחה, דרך
+  `showing_coord_ready()`), ו-`showing-coord-briefs` (הסיכום כהתראה רגילה). מי
+  שמוסיף/ה שלב שליחה מוסיף/ה את התנאי שלו ל-`showing_coord_ready`, אחרת הוא
+  לא ירוץ לעולם.
 
 ## הודעת הפתיחה
 

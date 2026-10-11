@@ -238,6 +238,8 @@ returns table (
   window_start timestamptz,
   agent_id     uuid,
   agent_name   text,
+  -- ‏male / female / null (‏20270418090000): "אני מבקש" / "מבקשת" / "מבקש/ת"
+  agent_gender text,
   agency_name  text,
   property_line text
 )
@@ -271,7 +273,7 @@ begin
     returning r.*
   )
   select upd.id, upd.token, upd.target, upd.target_name, upd.target_phone, upd.window_start,
-         upd.agent_id, m.display_name, a.name,
+         upd.agent_id, m.display_name, m.gender, a.name,
          concat_ws(', ', nullif(btrim(concat_ws(' ', p.street, p.house_number)), ''), p.city)
     from upd
     join public.agency_members m on m.id = upd.agent_id
@@ -692,6 +694,8 @@ returns table (
   window_start timestamptz,
   agent_id     uuid,
   agent_name   text,
+  -- ‏male / female / null (‏20270418090000): "אני מבקש" / "מבקשת" / "מבקש/ת"
+  agent_gender text,
   agency_name  text,
   property_line text
 )
@@ -730,7 +734,7 @@ begin
     returning r.*
   )
   select upd.id, upd.token, upd.target, upd.target_name, upd.target_phone, upd.window_start,
-         upd.agent_id, m.display_name, a.name,
+         upd.agent_id, m.display_name, m.gender, a.name,
          concat_ws(', ', nullif(btrim(concat_ws(' ', p.street, p.house_number)), ''), p.city)
     from upd
     join public.agency_members m on m.id = upd.agent_id

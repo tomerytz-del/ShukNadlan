@@ -105,6 +105,7 @@ type ClaimRow = {
   window_start: string;
   agent_id: string;
   agent_name: string | null;
+  agent_gender: string | null;
   agency_name: string | null;
   property_line: string | null;
 };
@@ -114,12 +115,12 @@ type ClaimRow = {
  * בלי שם הלקוח/ה ובלי שאר הנכסים בסיור: הנמען/ת צריך/ה לדעת מי, איפה ומתי.
  */
 export function coordLine(
-  r: Pick<ClaimRow, "agent_name" | "agency_name" | "property_line" | "window_start">,
+  r: Pick<ClaimRow, "agent_name" | "agency_name" | "property_line" | "window_start"> & { agent_gender?: string | null },
   nudge = false,
 ): string {
   const who = [r.agent_name, r.agency_name].filter(Boolean).join(" מ");
   const where = r.property_line ? ` ב${r.property_line}` : "";
-  return `${nudge ? "תזכורת קטנה: " : ""}${who ? `כאן ${who}. ` : ""}אני מבקש/ת לתאם איתך ביקור בנכס${where} עם לקוחות, ` +
+  return `${nudge ? "תזכורת קטנה: " : ""}${who ? `כאן ${who}. ` : ""}אני ${r.agent_gender === "male" ? "מבקש" : r.agent_gender === "female" ? "מבקשת" : "מבקש/ת"} לתאם איתך ביקור בנכס${where} עם לקוחות, ` +
     `${dayText(r.window_start)} בסביבות השעה ${windowText(r.window_start)}.`;
 }
 

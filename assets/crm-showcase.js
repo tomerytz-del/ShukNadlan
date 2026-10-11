@@ -519,7 +519,8 @@ function coordManualText(c, m, line){
   const day = d.toDateString() === new Date().toDateString() ? 'היום'
     : 'ב' + d.toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'numeric' });
   const hi = c.target_name ? ' ' + String(c.target_name).split(' ')[0] : '';
-  return `שלום${hi}, אני מבקש/ת לתאם איתך ביקור בנכס${line ? ' ב' + line : ''} עם לקוחות, ${day} בסביבות השעה ${t(d)}-${t(new Date(d.getTime() + 3600e3))}. האם זה מתאפשר לך? אשמח לאישור הביקור.`;
+  const g = typeof currentAgent !== 'undefined' && currentAgent && currentAgent.gender;
+  return `שלום${hi}, אני ${g === 'male' ? 'מבקש' : g === 'female' ? 'מבקשת' : 'מבקש/ת'} לתאם איתך ביקור בנכס${line ? ' ב' + line : ''} עם לקוחות, ${day} בסביבות השעה ${t(d)}-${t(new Date(d.getTime() + 3600e3))}. האם זה מתאפשר לך? אשמח לאישור הביקור.`;
 }
 
 function coordBlockForMeeting(m, list, byProp, propText){
