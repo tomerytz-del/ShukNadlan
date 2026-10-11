@@ -14757,15 +14757,36 @@ function buildPropertyStatusPanel(p, agentId, opts){
 
      הגבול הוא המוקדם מבין תחתית הכרטיס לתחתית החלון, וההיפוך נעשה רק אם
      למעלה באמת יש מקום - אחרת עדיף תפריט שגולש מעט מאשר תפריט הפוך
-     שנחתך משני הצדדים. */
+     שנחתך משני הצדדים.
+
+     ‏**ולרוחב:** התפריט מעוגן לקצה השמאלי של השבב ונפתח ימינה. כשהשבב
+     יושב באמצע הכרטיס (בטלפון, ליד מספר המודעה) התפריט יצא מהקצה הימני
+     של הכרטיס ונחתך שם - הכותרת והחצי הימני של כל הסבר נעלמו. לכן הוא
+     מוזז לתוך הרוחב הגלוי: החיתוך של כל אב שאינו `overflow:visible`,
+     ושל החלון. */
   const placeMenu = ()=>{
     el.classList.remove('psp-up');
+    menu.style.transform = '';
+    menu.style.maxWidth = '';
     const card = el.closest('.lead-card');
     const limit = Math.min(window.innerHeight - 8,
       card ? card.getBoundingClientRect().bottom : Infinity);
     const height = menu.getBoundingClientRect().height;
     const chip = toggle.getBoundingClientRect();
     if (chip.bottom + 6 + height > limit && chip.top - 6 - height > 8) el.classList.add('psp-up');
+
+    let left = 8, right = document.documentElement.clientWidth - 8;
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement){
+      if (getComputedStyle(a).overflowX === 'visible') continue;
+      const r = a.getBoundingClientRect();
+      left = Math.max(left, r.left + 4);
+      right = Math.min(right, r.right - 4);
+    }
+    if (right - left < 160) return;   // אין רוחב סביר לעבוד בו - עדיף לא לכווץ לפס
+    if (menu.getBoundingClientRect().width > right - left) menu.style.maxWidth = (right - left) + 'px';
+    const m = menu.getBoundingClientRect();
+    const dx = m.right > right ? right - m.right : (m.left < left ? left - m.left : 0);
+    if (dx) menu.style.transform = `translateX(${Math.round(dx)}px)`;
   };
 
   const setMenuOpen = open => {
