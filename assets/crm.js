@@ -23786,6 +23786,13 @@ async function loadNotifications(agentId){
       // ביטל בגללה את ההתראה לגמרי במקום להעביר ללשונית שלה. ‏gotoSection הוא
       // שעושה את המעבר, ואחריו הגלילה מגיעה למקום קיים.
       if (navAccVisible(target.goto)){
+        // תזכורת על ליד פותחת את הליד, כמו הקישור בוואטסאפ (itemPath)
+        if (n.type === 'agenda_reminder' && n.related_lead_id
+            && allLeads.some(l => l.id === n.related_lead_id) && navAccVisible('accLeads')){
+          gotoSection('accLeads');
+          openLeadFromParam(n.related_lead_id);
+          return;
+        }
         if (n.related_agenda_item_id){
           agendaFocus(n.related_agenda_item_id);
           return;
@@ -24347,6 +24354,9 @@ function buildAgendaRow(it){
     btn.addEventListener('click', fn);
     acts.appendChild(btn);
   };
+  // הפריט שהמשימה עוסקת בו - לפני הגייט, כי מעבר אליו אינו פעולה ביומן.
+  // ‏"לחזור לליד חדש" בלי קישור שלח את הסוכן/ת לחפש את הליד ברשימה.
+  agendaTargets(it).forEach(t => act(t.label, t.open));
   if (!assistantTierOk()) return el;
   if (it.status === 'open'){
     act('✓ בוצע', ()=> agendaUpdate(it.id, { status:'done' }, 'סומן כבוצע'));
@@ -24371,6 +24381,32 @@ function buildAgendaRow(it){
     act('↩ החזרה לפתוחות', ()=> agendaUpdate(it.id, { status:'open' }, 'הוחזר לפתוחות'));
   }
   return el;
+}
+
+/* הקישורים מפריט ביומן לליד, ללקוח/ה ולנכס שהוא עוסק בהם - אותן פונקציות
+   פתיחה של ?lead= / ?client= / ?property= ושל הפעמון (openNotificationTarget).
+   פריט שכבר אינו ברשימה (ליד שנמחק, נכס שהועבר) מקבל הודעה ולא לחיצה מתה. */
+function agendaTargets(it){
+  const out = [];
+  const go = (acc, open, missing) => ()=>{
+    if (missing){ showToast(missing); return; }
+    if (!navAccVisible(acc)){ showToast('הקטגוריה הזו אינה זמינה בחשבון'); return; }
+    gotoSection(acc);
+    open();
+  };
+  if (it.lead_id){
+    out.push({ label:'👈 לליד', open: go('accLeads', () => openLeadFromParam(it.lead_id),
+      allLeads.some(l => l.id === it.lead_id) ? null : 'הליד כבר אינו ברשימת הלידים') });
+  }
+  if (it.client_id){
+    out.push({ label:'👈 לכרטיס הלקוח/ה', open: go('accClients', () => openClientFromParam(it.client_id),
+      (clientRows || []).some(c => c.id === it.client_id) ? null : 'הלקוח/ה כבר אינו/ה בקובץ הלקוחות') });
+  }
+  if (it.property_id){
+    out.push({ label:'👈 לנכס', open: go('accProperties', () => openPropertyFromParam(it.property_id),
+      myPropertyRows.some(p => p.id === it.property_id) ? null : 'הנכס כבר אינו ברשימת הנכסים שלך') });
+  }
+  return out;
 }
 
 /* דחייה: "עוד שעה" נמדדת מעכשיו כשהפריט כבר באיחור - פגישה שעברה לפני

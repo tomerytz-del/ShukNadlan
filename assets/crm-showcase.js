@@ -324,6 +324,15 @@ async function renderShowcasePanel(client, panel){
   const rows = items.data || [];
   const messages = msgs.data || [];
   const meetings = meets.data || [];
+  // בקשות התיאום לבעלים ולמתווכים (‏showing_coord_requests). שאילתה שנייה כי
+  // צריך את מזהי הסיורים; טבלה שעוד לא נוצרה (האתר עולה לפני המיגרציה)
+  // פשוט אינה מציגה את הבלוק.
+  const coordRows = meetings.length
+    ? ((await sb.from('showing_coord_requests')
+        .select('id, meeting_id, property_id, target, target_name, target_phone, status, sent_at, responded_at, window_start, nudged_at')
+        .in('meeting_id', meetings.map(m => m.id))).data || [])
+    : [];
+  const coordReady = !!meetings.length && assistantTierOk();
   const hasAgreement = (agr.data || []).length > 0;
   const ownerByProp = new Map((owners.data || []).map(o => [o.property_id, o]));
   const COOP_LABELS = { needed:'לתאם', contacted:'פניתי', agreed:'סוכם', declined:'לא יצא' };
@@ -372,7 +381,8 @@ async function renderShowcasePanel(client, panel){
       ${meetings.map(m => `<div class="sc-meet">
         <div><b>${esc(fmt(m.starts_at))}</b> · ${esc((m.property_ids || []).map(pid => byProp.get(pid)).filter(Boolean).map(propText).join(' · '))}
           ${m.note ? `<div class="lead-meta">💬 ${esc(m.note)}</div>` : ''}
-          ${m.agent_note ? `<div class="lead-meta">התשובה שלך: ${esc(m.agent_note)}</div>` : ''}</div>
+          ${m.agent_note ? `<div class="lead-meta">התשובה שלך: ${esc(m.agent_note)}</div>` : ''}
+          ${coordReady ? coordBlockForMeeting(m, coordRows.filter(c => c.meeting_id === m.id), byProp, propText) : ''}</div>
         <div class="sc-meet-act">${m.status === 'requested'
           ? `<button type="button" class="btn btn-gold" data-meet="${esc(m.id)}" data-ok="1">אישור</button>
              <button type="button" class="btn btn-ghost" data-meet="${esc(m.id)}" data-ok="0">מועד אחר</button>`
@@ -441,6 +451,19 @@ async function renderShowcasePanel(client, panel){
     showToast((ok ? (data && data.agenda_item_id ? 'הסיור אושר ונרשם ביומן' : 'הסיור אושר') : 'נשלחה תשובה ללקוח/ה') + waNote, 4500);
     reload();
   }));
+  panel.querySelectorAll('[data-coord]').forEach(b => b.addEventListener('click', async ()=>{
+    if (!confirm('לשלוח בוואטסאפ לכל הבעלים והמתווכים של הנכסים בסיור בקשה לתאם ביקור בסביבות השעה שנקבעה? כל אחד/ת יקבל/תקבל כפתורים לאשר, לדחות או לבקש מועד אחר.')) return;
+    b.disabled = true;
+    const { data, error } = await sb.rpc('showing_coord_request', { p_meeting_id: b.dataset.coord });
+    b.disabled = false;
+    if (error || (data && data.error)) return showToast(coordErrorText((data && data.error) || error));
+    const parts = [
+      data.queued ? (data.queued === 1 ? 'בקשה אחת יוצאת' : data.queued + ' בקשות יוצאות') + ' בוואטסאפ בדקה הקרובה' : 'לא יצאה בקשה חדשה',
+      data.no_phone ? (data.no_phone === 1 ? 'לנכס אחד' : 'ל-' + data.no_phone + ' נכסים') + ' אין טלפון של הבעלים או המתווך/ת' : '',
+    ].filter(Boolean);
+    showToast(parts.join(' · '), 5000);
+    reload();
+  }));
   panel.querySelectorAll('.sc-item').forEach(row => {
     const id = row.dataset.row;
     const r = rows.find(x => x.id === id);
@@ -475,6 +498,56 @@ async function renderShowcasePanel(client, panel){
     showToast(s.wa && s.wa.notify ? 'נשלח. הלקוח/ה יקבל/תקבל עדכון בוואטסאפ עם קישור לתשובה' : 'נשלח. הלקוח/ה יראה/תראה את זה במיניסייט');
     reload();
   }));
+}
+
+/* ---------- תיאום ביקור עם הבעלים והמתווכים ----------
+   לכל נכס בבקשת הסיור: נכס שלי → הבעלים, נכס של עמית/ה או בשת"פ → המתווך/ת
+   שמחזיק/ה אותו. ההודעות יוצאות מהמספר של שוק נדל״ן עם שלושה כפתורים, והתשובות
+   חוזרות כהתראה. מי שלא קיבל/ה (אין טלפון, אין ערוץ, חסם/ה) - מקבל/ת כאן כפתור
+   וואטסאפ עם אותו נוסח, לשליחה מהטלפון של הסוכן/ת. docs/showing-coordination.md */
+const COORD_STATUS = {
+  pending:'⏳ ממתין לשליחה', sending:'⏳ בשליחה', sent:'📨 נשלח - ממתין לתשובה',
+  confirmed:'✅ אישר/ה', postpone:'🕒 מבקש/ת לדחות', declined:'📆 לא מתאים - לתאם מועד אחר',
+  no_phone:'⚠️ אין טלפון', no_channel:'⚠️ לא נשלח - התבנית עוד לא אושרה', failed:'⚠️ השליחה נכשלה',
+  opted_out:'⚠️ חסם/ה הודעות מהעסק', canceled:'בוטל',
+};
+const COORD_RETRY = ['no_phone', 'no_channel', 'failed', 'opted_out', 'canceled'];
+
+function coordManualText(c, m, line){
+  const d = new Date(c.window_start || m.starts_at);
+  const t = x => x.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' });
+  const day = d.toDateString() === new Date().toDateString() ? 'היום'
+    : 'ב' + d.toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'numeric' });
+  const hi = c.target_name ? ' ' + String(c.target_name).split(' ')[0] : '';
+  const g = typeof currentAgent !== 'undefined' && currentAgent && currentAgent.gender;
+  return `שלום${hi}, אני ${g === 'male' ? 'מבקש' : g === 'female' ? 'מבקשת' : 'מבקש/ת'} לתאם איתך ביקור בנכס${line ? ' ב' + line : ''} עם לקוחות, ${day} בסביבות השעה ${t(d)}-${t(new Date(d.getTime() + 3600e3))}. האם זה מתאפשר לך? אשמח לאישור הביקור.`;
+}
+
+function coordBlockForMeeting(m, list, byProp, propText){
+  const open = ['requested', 'confirmed'].includes(m.status) && new Date(m.starts_at) > new Date(Date.now() + 15 * 60e3);
+  if (!list.length){
+    return open ? `<div class="sc-coord"><button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 תיאום עם הבעלים והמתווכים</button></div>` : '';
+  }
+  const lineOf = c => { const r = byProp.get(c.property_id); return r ? propText(r) : ''; };
+  const where = c => { const r = byProp.get(c.property_id); const p = (r && r.properties) || {}; return [p.street, p.house_number].filter(Boolean).join(' ') + (p.city ? ', ' + p.city : ''); };
+  return `<div class="sc-coord"><div class="lead-meta"><b>📨 תיאום ביקור</b></div>
+    ${list.map(c => {
+      const wa = COORD_RETRY.includes(c.status) && c.target_phone && waLink(c.target_phone);
+      return `<div class="lead-meta">${esc(c.target === 'owner' ? 'בעלים' : 'מתווך/ת')}: ${esc(c.target_name || 'ללא שם')} · ${esc(lineOf(c))} · <b>${esc(COORD_STATUS[c.status] || c.status)}</b>${c.status === 'sent' && c.nudged_at ? ' · נשלחה תזכורת' : ''}
+        ${wa ? ` <a class="btn btn-ghost" href="${esc(wa + '?text=' + encodeURIComponent(coordManualText(c, m, where(c))))}" target="_blank" rel="noopener noreferrer">💬 לשלוח ממני</a>` : ''}</div>`;
+    }).join('')}
+    ${open && list.some(c => COORD_RETRY.includes(c.status) && c.status !== 'opted_out') ? `<button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 שליחה חוזרת למי שלא קיבל/ה</button>` : ''}
+  </div>`;
+}
+
+function coordErrorText(err){
+  const code = typeof err === 'string' ? err : '';
+  return {
+    not_found: 'לא מצאתי את בקשת הסיור',
+    meeting_closed: 'בקשת הסיור בוטלה או נדחתה',
+    too_late: 'הסיור מתחיל בעוד פחות מרבע שעה - עדיף להתקשר ישירות',
+    tier_required: 'תיאום ביקורים זמין במסלולים PROFESSIONAL ו-Elite',
+  }[code] || ('שגיאה: ' + heErr(err));
 }
 
 /* ---------- הוואטסאפ ללקוח/ה ----------
