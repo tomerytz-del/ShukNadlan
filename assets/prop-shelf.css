@@ -296,6 +296,18 @@
   background:var(--teal);margin-inline-start:6px;vertical-align:1px;
 }
 .prop-row[data-deal="rent"] .pr-deal{background:var(--deal-rent)}
+/* לא חותכים את התגית ולא את הסכום. ב-‎.pr-line‎ התגית הייתה הטקסט האחרון
+   בשורה, וה-ellipsis חתך דווקא אותה: "₪4,700 לחודש" ועוד "להשכרה" לא נכנסו
+   בטלפון עם גופן מוגדל, ויצא "להש...". עכשיו השורה היא flex, הסכום
+   (‏.pr-num) והתגית ‎flex:none‎, וכשאין מקום לשניהם התגית יורדת שורה -
+   שורה נוספת בשורת נכס אחת עדיפה על מחיר או תגית חתוכים. רק "לחודש"
+   (‏.per) עוד יכול להתקצר, אם הסכום לבדו ממלא את השורה. */
+.prop-row .pr-price{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:3px;min-width:0}
+.prop-row .pr-amt{display:flex;align-items:baseline;min-width:0;white-space:nowrap}
+.prop-row .pr-num{flex:none}
+/* ‏flex מוחק את הרווח שבתחילת ה-span, ובלעדיו יצא "₪4,700לחודש" */
+.prop-row .pr-amt .per{min-width:0;overflow:hidden;text-overflow:ellipsis;margin-inline-start:.25em}
+.prop-row .pr-price .pr-deal{flex:none;margin-inline-start:0}
 /* הצבע (זהב עם יהלום) מגיע מ-assets/design-system.css, יחד עם סרט
    "מקודם" של האריח ושל שורת התוצאה — קידום נקרא באתר כשפה אחת. כאן
    נשארות רק המידות: הסרט הזה יושב על תמונונת ולא על אריח. */
