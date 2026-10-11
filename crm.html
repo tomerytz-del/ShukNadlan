@@ -3994,7 +3994,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .kpi-strip .kpi-value{font-size:1.12rem}
   .kpi-strip .kpi-note{font-size:.65rem;line-height:1.4;margin:4px 0 9px}
   .kpi-strip .kpi-link{font-size:.66rem;padding:4px 8px}
+  /* תגית הבלעדיות לא קיבלה את המידות של הרכבת: ‏.72rem ו-nowrap בעמודה של
+     ~105px, וכשהגופן במכשיר מוגדל היא יצאה מקצה הכרטיס ונחתה על "לנכסים".
+     כאן היא בגודל של שאר התגיות, נשברת לשורה שנייה כשאין רוחב, ושומרת
+     רווח מהכפתור שמתחתיה (‏margin-top:auto שלו מתאפס כשאין מקום פנוי). */
+  .kpi-strip .kpi-tag{
+    font-size:.62rem;padding:3px 7px;gap:4px;margin:0 0 7px;
+    max-width:100%;white-space:normal;line-height:1.25;
+  }
+  .kpi-strip .kpi-tag svg{width:11px;height:11px}
+  /* גם התגית שבראש הכרטיס: מספר כמו "▲ ₪810 א׳" רחב מהמקום שליד האייקון.
+     נחתך בשלוש נקודות במקום לגלוש מהכרטיס, והמלא נשאר ב-title. */
+  .kpi-strip .kpi-top{gap:6px}
+  /* בלי זה עמודת הכרטיס (‏auto) מתרחבת לרוחב המלא של התגית, והקיצור לא קורה:
+     התגית וההערה שמתחתיה נחתכות בקצה הכרטיס במקום להיכנס בו. */
+  .kpi-strip .kpi-card{grid-template-columns:minmax(0,1fr)}
+  .kpi-strip .kpi-chip{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .kpi-strip .kpi-chip[hidden]{display:none}
   @media(min-width:560px){
+    .kpi-strip .kpi-tag{font-size:.68rem;padding:3px 9px}
     .kpi-strip .kpi-card{padding:15px 16px}
     .kpi-strip .kpi-value{font-size:1.55rem}
     .kpi-strip .kpi-label{font-size:.74rem}
