@@ -622,6 +622,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .btn-gold[disabled]{opacity:.65;cursor:default;transform:none}
   .btn-ghost-light{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--on-brand)}
   .chip-row{display:flex;flex-wrap:wrap;gap:7px}
+  /* מצב הנכס ומספר חדרים - שתי רשימות בחירה זו לצד זו. החץ הוא ::after של
+     העוטף ולא רקע של ה-select, כי כלל ה-wiz-input של הבאנר קובע background
+     בספציפיות גבוהה ממנו. */
+  .wiz-pair{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:10px}
+  .wiz-pair > div{position:relative;min-width:0;--wiz-arrow-b:17px}
+  .wiz-pair > div::after{
+    content:"";position:absolute;left:13px;bottom:var(--wiz-arrow-b,20px);width:7px;height:7px;pointer-events:none;
+    border-right:2px solid #4a5872;border-bottom:2px solid #4a5872;transform:rotate(45deg);
+  }
+  .wiz-select{-webkit-appearance:none;appearance:none;padding-left:30px !important;cursor:pointer;text-overflow:ellipsis}
+  .wiz-select option[value=""]{color:#8792a8}
   .owner-banner .chip{
     padding:8px 14px;border-radius:0;font-size:.82rem;font-weight:600;
     background:transparent;border:1.5px solid rgba(255,255,255,.3);color:var(--on-brand);
@@ -1116,23 +1127,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <section class="wiz-panel" data-panel="2">
                 <p class="wiz-q">ספרו לנו על הנכס</p>
 
-                <span class="wiz-label">מצב הנכס</span>
-                <div class="chip-row" role="radiogroup" aria-label="מצב הנכס">
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-condition="renovated">משופץ</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-condition="partly_renovated">משופץ חלקית</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-condition="needs_renovation">דרוש שיפוץ</button>
-                </div>
-
-                <span class="wiz-label">מספר חדרים</span>
-                <div class="chip-row" role="radiogroup" aria-label="מספר חדרים">
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="2">2</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="2.5">2.5</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="3">3</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="3.5">3.5</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="4">4</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="4.5">4.5</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="5">5</button>
-                  <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="6">6+</button>
+                <!-- רשימות בחירה ולא צ'יפים: שמונה כפתורי חדרים ושלושה של מצב תפסו
+                     חצי מסך טלפון. ‏bindSingleChoice קוראת את ‎data-pick‎. -->
+                <div class="wiz-pair">
+                  <div>
+                    <label class="wiz-label" for="wizCondition">מצב הנכס</label>
+                    <select id="wizCondition" class="wiz-input wiz-select" data-pick="condition">
+                      <option value="" selected disabled>בחרו</option>
+                      <option value="renovated">משופץ</option>
+                      <option value="partly_renovated">משופץ חלקית</option>
+                      <option value="needs_renovation">דרוש שיפוץ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="wiz-label" for="wizRooms">מספר חדרים</label>
+                    <select id="wizRooms" class="wiz-input wiz-select" data-pick="rooms">
+                      <option value="" selected disabled>בחרו</option>
+                      <option value="2">2</option>
+                      <option value="2.5">2.5</option>
+                      <option value="3">3</option>
+                      <option value="3.5">3.5</option>
+                      <option value="4">4</option>
+                      <option value="4.5">4.5</option>
+                      <option value="5">5</option>
+                      <option value="6">6+</option>
+                    </select>
+                  </div>
                 </div>
 
                 <span class="wiz-label">מה יש בנכס?</span>
@@ -2464,16 +2484,11 @@ function goToStep(n){
   });
 }
 
-/* בחירה יחידה מתוך רצועת צ'יפים (מצב הנכס, חדרים). ‏aria-checked הוא גם
-   המצב הוויזואלי (ה-CSS נשען עליו) וגם ההכרזה לקורא מסך — מצב אחד ולא
-   שניים שצריך לסנכרן. */
+/* בחירה יחידה מתוך רשימה (מצב הנכס, חדרים) - ‏<select data-pick>. היו כאן
+   רצועות צ'יפים, ושמונה כפתורי חדרים תפסו חצי מסך טלפון. */
 function bindSingleChoice(attr, onPick){
-  document.querySelectorAll(`.chip[data-${attr}]`).forEach(chip=>{
-    chip.addEventListener('click', ()=>{
-      chip.parentElement.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
-      chip.setAttribute('aria-checked','true');
-      onPick(chip.dataset[attr]);
-    });
+  document.querySelectorAll(`select[data-pick="${attr}"]`).forEach(sel=>{
+    sel.addEventListener('change', ()=> onPick(sel.value || null));
   });
 }
 
@@ -2570,7 +2585,7 @@ function initOwnerWizard(agent){
     });
   });
 
-  /* --- שלב 2: צ'יפים של בחירה יחידה ---
+  /* --- שלב 2: בחירה יחידה מרשימה ---
      ניקוי השגיאה מיד עם הבחירה, ולא רק בניסיון המעבר הבא — אחרת ההודעה
      "נא לבחור מספר חדרים" נשארת על המסך אחרי שהמשתמש כבר בחר. */
   bindSingleChoice('condition', v => { wizState.condition = v; setError(2, ''); });

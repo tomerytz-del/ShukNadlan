@@ -371,7 +371,7 @@
 
       var price = Number(p.price);
       var priceText = (isFinite(price) && price > 0)
-        ? '₪' + price.toLocaleString('he-IL') +
+        ? '<span class="pr-num">₪' + price.toLocaleString('he-IL') + '</span>' +
           (p.deal_type === 'rent' ? '<span class="per"> לחודש</span>' : '')
         : 'לפי בקשה';
       var deal = p.deal_type === 'rent' ? 'להשכרה' : 'למכירה';
@@ -387,7 +387,7 @@
         '<span class="pr-main">' +
           '<span class="pr-line pr-what">' + escAttr(what) + '</span>' +
           '<span class="pr-line pr-facts">' + escAttr(facts.join(' · ')) + '</span>' +
-          '<span class="pr-line pr-price">' + priceText + '<span class="pr-deal">' + deal + '</span></span>' +
+          '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span></span>' +
         '</span>' +
         '<svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
