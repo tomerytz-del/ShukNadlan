@@ -10457,6 +10457,7 @@ async function releaseMember(m, ownedCount, agencyId, callerId){
     lines,
     hidePrice: true,
     requireAck: true,
+    terms: false,          // ‏השעיה אינה רכישה - בלי "הרכישה כפופה לתקנון"
     ackText: `אני מבין/ה ש-${m.display_name} יוצא/ת מהמשרד ושהנכסים עוברים איתו/ה.`,
     confirmLabel: 'השעיה וניתוק',
   });
