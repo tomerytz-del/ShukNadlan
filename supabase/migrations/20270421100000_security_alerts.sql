@@ -18,18 +18,30 @@
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. סוג ההתראה. מהאילוץ האחרון בפרודקשן (‏20270331090000, נבדק מול
---    pg_constraint ב-10.2026), ועוד security_alert.
+-- 1. סוג ההתראה - **נוסף** לאילוץ הקיים, ולא כותב אותו מחדש. ‏PR ‏#711
+--    מוסיף באותו זמן את showcase_meeting, ורשימה קשיחה כאן הייתה מוחקת
+--    אותו (או נמחקת על ידו) לפי סדר המיזוג. כשהוא כבר במסד יש
+--    notification_types_add(); אחרת - אותו דבר כאן, בלי תלות בסדר.
 -- ---------------------------------------------------------------------------
-alter table public.notifications drop constraint if exists notifications_type_check;
-alter table public.notifications add constraint notifications_type_check
-  check (type in ('new_lead','system','review_request','review_alert','client_match',
-                  'review_new','deal_closed','lead_unrouted','marketing_copy',
-                  'agreement_signed','platform_signup','platform_upgrade',
-                  'onboarding_property','onboarding_client','onboarding_agreement',
-                  'onboarding_lead','exclusivity_taken','deal_data_gap',
-                  'listing_match','agenda_reminder','showcase_activity',
-                  'deal_sync_summary','security_alert'));
+do $$
+declare
+  v_types text[] := public.notification_known_types();
+begin
+  if to_regprocedure('public.notification_types_add(text[])') is not null then
+    perform public.notification_types_add(array['security_alert']);
+    return;
+  end if;
+  if coalesce(array_length(v_types, 1), 0) < 10 then
+    raise exception 'notifications_type_check: לא נמצאה רשימת הסוגים הקיימת (%), לא מחליפים', v_types;
+  end if;
+  if 'security_alert' = any(v_types) then
+    return;
+  end if;
+  v_types := v_types || 'security_alert'::text;
+  alter table public.notifications drop constraint if exists notifications_type_check;
+  execute format('alter table public.notifications add constraint notifications_type_check check (type in (%s))',
+                 (select string_agg(quote_literal(t), ',' order by t) from unnest(v_types) t));
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 2. הטריגר

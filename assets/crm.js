@@ -2203,7 +2203,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
    exit-guard.js. */
 /* פאנל "בריאות המערכת" בתצוגת מנהל/ת הפלטפורמה. אינו קטגוריה (acc), ולכן
    יעד משלו: ‏?goto=adminOps מהוואטסאפ, והתראת security_alert בפעמון
-   (מיגרציה 20270416100000). מחזירה false למי שאינו/ה מנהל/ת פלטפורמה. */
+   (מיגרציה 20270421100000). מחזירה false למי שאינו/ה מנהל/ת פלטפורמה. */
 function openAdminOpsPanel(){
   if (!(currentAgent && currentAgent.is_platform_admin)) return false;
   if (dashView !== 'admin') setDashView('admin');
@@ -24085,7 +24085,7 @@ const NOTIF_TYPES = [
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadDealSyncRuns() },
   /* ממצא אבטחה בדרגה high או critical שנפתח בסריקה של הסוכן התפעולי
-     (מיגרציה 20270416100000). היעד הוא פאנל "בריאות המערכת" ולא קטגוריה,
+     (מיגרציה 20270421100000). היעד הוא פאנל "בריאות המערכת" ולא קטגוריה,
      ולכן הלחיצה עוברת דרך openAdminOpsPanel ולא דרך goto. */
   { type:'security_alert', tone:'alert',
     view:'admin',

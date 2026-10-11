@@ -92,7 +92,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   deal_sync_summary: "accDealSettlements",
   // ‏ממצא אבטחה חמור - למנהל/ת הפלטפורמה. היעד הוא פאנל "בריאות המערכת",
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminOps.
-  // מיגרציה 20270416100000, docs/ops-agent.md.
+  // מיגרציה 20270421100000, docs/ops-agent.md.
   security_alert: "adminOps",
   // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על
   // ביקורת ממתינה או ליד בלי יעד הוביל להגדרות ההתראות ולא לפריט.
