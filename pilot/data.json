@@ -1,0 +1,47 @@
+{
+  "title": "עסקאות אוגוסט בעפולה",
+  "city": "עפולה",
+  "source": "market_deals_official (source = tax_authority, נמשך מ-GovMap)",
+  "queried_at": "2026-10-11",
+  "date_range": { "from": "2026-08-01", "to": "2026-08-31", "label": "אוגוסט 2026" },
+  "window_note": "ב-7 וב-30 הימים האחרונים אין עסקאות: העסקה האחרונה במאגר היא מ-2026-08-31, והיישוב סונכרן ב-2026-10-09. לכן החודש המלא האחרון שדווח.",
+  "dedup": {
+    "rule": "שורה בלי property_type שיש לה תאומה עם property_type באותו גוש, חלקה, מחיר ושטח, בהפרש של עד יום - מוצאת",
+    "rows_raw": 57,
+    "rows_removed": 16,
+    "rows_used": 41
+  },
+  "query_file": "pilot/query.sql",
+  "stats": {
+    "deals": 41,
+    "avg_price": 1473415,
+    "avg_price_per_sqm": 13761,
+    "avg_price_per_sqm_method": "ממוצע של מחיר/שטח לכל עסקה",
+    "most_expensive": { "property_type": "דירה", "rooms": 5, "size_sqm": 176, "neighborhood": "רובע יזרעאל סביוני העמק", "price": 3000000, "sold_at": "2026-08-13" },
+    "cheapest": { "property_type": "דירה", "rooms": 2, "size_sqm": 55, "neighborhood": "עפולה הצעירה", "price": 650000, "sold_at": "2026-08-21" },
+    "top_neighborhood": { "name": "מרכז העיר", "deals": 6, "of_deals_with_neighborhood": 22, "deals_without_neighborhood": 19 },
+    "neighborhoods": [
+      { "name": "מרכז העיר", "deals": 6 },
+      { "name": "עפולה דרום", "deals": 5 },
+      { "name": "עפולה הצעירה", "deals": 4 },
+      { "name": "רובע יזרעאל סביוני העמק", "deals": 4 },
+      { "name": "גבעת המורה", "deals": 3 },
+      { "name": null, "deals": 19, "note": "בעיקר רחוב יצחק שמיר ורחוב פרדה יזזאו אקלום" }
+    ]
+  },
+  "stats_without_dedup": { "deals": 57, "avg_price": 1530263, "avg_price_per_sqm": 14264 },
+  "display": {
+    "deals": "41",
+    "avg_price": "1,473,415 ₪",
+    "avg_price_per_sqm": "13,761 ₪",
+    "most_expensive_price": "3,000,000 ₪",
+    "cheapest_price": "650,000 ₪"
+  },
+  "spoken": {
+    "avg_price": "מיליון ארבע מאות שבעים ושלושה אלף שקל",
+    "avg_price_rounding": "עיגול לאלף (1,473,415 -> 1,473,000) - רק בקריינות, על המסך המספר המלא. ממתין לאישור.",
+    "avg_price_per_sqm": "שלושה עשר אלף שבע מאות שישים ואחד שקל",
+    "most_expensive_price": "שלושה מיליון שקל",
+    "cheapest_price": "שש מאות חמישים אלף שקל"
+  }
+}
