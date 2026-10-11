@@ -100,3 +100,11 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   ‏`openPropertyFromParam`, ‏`openAgreementFromParam`), לא קטגוריה.
 - `crm-my-dashboard.js` משתמש בעזרים של `crm-office-dashboard.js` (`od*`),
   ולכן נטען אחריו. שינוי שם של עזר שובר את שני הדשבורדים.
+
+## ‏7. בדף המסלולים
+
+שני הדשבורדים והמאמן **פתוחים לכל המסלולים** - אין להם גייט, והם מופיעים
+ב-`pricing.html` כשורות ✓ בשלוש העמודות, ובכרטיס Pay&GO ב-`assets/tiers.js`.
+מי שמגביל/ה אחד מהם למסלול (למשל המאמן ל-Elite) עובר/ת בסקיל
+`new-tier-capability`: גייט במסד (גם ב-`office_coach_due`, אחרת הסיכום נכתב
+ומשולם למשרד שלא יראה אותו), השורה ב-`COMPARE` וב-`GATES`, הכרטיס, והתיעוד.
