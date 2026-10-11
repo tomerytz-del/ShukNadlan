@@ -22,6 +22,18 @@ import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
+import {
+  docKind,
+  documentToText,
+  hasMediaBlock,
+  MEDIA_TOOLS,
+  MEDIA_TOOLS_DENIED,
+  type MediaResult,
+  mediaForHistory,
+  transcribeMedia,
+  wrapDocument,
+  wrapRecording,
+} from "./media-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
 import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
@@ -211,31 +223,17 @@ async function storeImageBytes(
   return supabase.storage.from(IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-/** מתמללת הקלטה קולית דרך OpenAI Whisper. מחזירה null אם אין מפתח/נכשל. */
+/** מתמללת הודעה קולית דרך Whisper. מחזירה null אם אין מפתח/נכשל.
+ *  הצינור המשותף (‏_shared/whisper.ts) מנסה שוב בשם אחר כשהקובץ נדחה
+ *  כ-"Invalid file format" - הקלטות מאנדרואיד (מעטפת 3gp, ‏aac) נדחו כאן
+ *  כשהסיומת נגזרה מהסוג בלבד (11.10.2026, ‏AUD-....). */
 async function transcribeAudio(mediaId: string): Promise<string | null> {
-  if (!openaiKey) return null;
-
   try {
     const { bytes, mimeType } = await downloadMedia(mediaId);
-    // הקלטות וואטסאפ מגיעות כ-audio/ogg (קודק opus) — Whisper תומך בזה
-    const ext = mimeType.includes("mpeg") ? "mp3" : mimeType.includes("mp4") ? "m4a" : "ogg";
-
-    const form = new FormData();
-    form.append("file", new Blob([bytes], { type: mimeType }), `voice.${ext}`);
-    form.append("model", "whisper-1");
-    form.append("language", "he");
-
-    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey}` },
-      body: form,
+    const r = await transcribeMedia({
+      supabase, openaiKey, agentId: "", bytes, mime: mimeType, call: false,
     });
-    if (!res.ok) {
-      console.error("whisper failed", res.status, await res.text());
-      return null;
-    }
-    const data = await res.json();
-    return (data.text || "").trim() || null;
+    return r.ok ? r.text : null;
   } catch (err) {
     console.error("transcription failed", err);
     return null;
@@ -1058,27 +1056,77 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "audio":
-    case "voice": {
-      const media = msg.audio || msg.voice;
-      const transcript = await transcribeAudio(media.id);
-      if (!transcript) {
-        await supabase.from("whatsapp_messages")
-          .update({ error: "transcription_failed" })
+    case "voice":
+    case "document": {
+      // הודעה קולית (‏voice: true - הוקלטה בוואטסאפ) היא הוראה של הסוכן/ת,
+      // ונכנסת כטקסט כמו תמיד. קובץ שמע (‏AUD-..., הקלטה ממקליט השיחות) או
+      // מסמך הם תוכן של אחרים: הם נעטפים בסימון, והתור שקורא אותם רק מציע.
+      // ‏media-intake.ts, ‏docs/whatsapp-setup.md "הקלטת שיחה ומסמכים".
+      const media = msg.audio || msg.voice || msg.document || {};
+      const fileName = String(msg.document?.filename || "").slice(0, 120);
+      const caption = String(msg.document?.caption || "").trim();
+      const forwarded = !!(msg.context?.forwarded || msg.context?.frequently_forwarded);
+      const kind = msg.type === "document" ? docKind(String(media.mime_type || ""), fileName) : "audio";
+      // ‏Meta מסמנת הודעה קולית ב-`audio.voice`. בלי השדה - לפי הסוג: הודעה
+      // קולית של וואטסאפ היא תמיד ogg/opus, ומקליט שיחות שומר m4a/mp3/aac.
+      // טעות לכיוון "הקלטת שיחה" הייתה מורידה כלי כתיבה מכל הוראה קולית.
+      const voiceNote = msg.type === "voice" || (msg.type === "audio" && (
+        media.voice === true ||
+        (media.voice === undefined && /^audio\/(ogg|opus)/.test(String(media.mime_type || "")))
+      ));
+
+      let file: { bytes: Uint8Array; mimeType: string };
+      try {
+        file = await downloadMedia(media.id);
+      } catch (err) {
+        console.error("media download failed", err);
+        await supabase.from("whatsapp_messages").update({ error: "media_download_failed" })
           .eq("wa_message_id", msg.id);
-        await reply(
-          from,
-          openaiKey
-            ? "לא הצלחתי לתמלל את ההקלטה. אפשר לשלוח את הפרטים כטקסט?"
-            : "תמלול הקלטות עדיין לא מופעל אצלנו. אפשר לשלוח את הפרטים כטקסט?",
-          agent.id,
-        );
+        await reply(from, "לא הצלחתי להוריד את הקובץ. אפשר לנסות לשלוח אותו שוב?", agent.id);
         return;
       }
-      // הקלטה מועברת היא לרוב לקוח/ה שמתאר/ת מה מחפש/ת — הסימון הוא מה
-      // שמבדיל אותה מהוראה קולית של הסוכן/ת עצמו/ה.
-      userText = forwardedPrefix(msg) + transcript;
+
+      // תמונה שנשלחה כקובץ ולא כתמונה - אותו טיפול כמו תמונה רגילה.
+      if (kind === "image") {
+        newImageUrl = await storeImageBytes(file.bytes, file.mimeType, agent.id).catch(() => null);
+        if (!newImageUrl) {
+          await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
+          return;
+        }
+        userText = caption ? forwardedPrefix(msg) + caption : "";
+        break;
+      }
+
+      let result: MediaResult;
+      if (kind === "audio") {
+        result = await transcribeMedia({
+          supabase, openaiKey, agentId: agent.id, bytes: file.bytes, mime: file.mimeType,
+          fileName, call: !voiceNote,
+        });
+      } else {
+        result = await documentToText(file.bytes, file.mimeType, fileName);
+      }
+      if (!result.ok) {
+        await supabase.from("whatsapp_messages").update({ error: result.error.slice(0, 200) })
+          .eq("wa_message_id", msg.id);
+        await reply(from, result.reply, agent.id);
+        return;
+      }
+
+      if (kind === "audio" && voiceNote) {
+        // הקלטה מועברת היא לרוב לקוח/ה שמתאר/ת מה מחפש/ת — הסימון הוא מה
+        // שמבדיל אותה מהוראה קולית של הסוכן/ת עצמו/ה.
+        userText = forwardedPrefix(msg) + result.text;
+      } else if (kind === "audio") {
+        userText = wrapRecording(result.text, fileName, forwarded) +
+          (caption ? `\nהסוכן/ת כתב/ה עם הקובץ: ${caption}` : "");
+      } else {
+        userText = wrapDocument(result.text, fileName, caption, forwarded);
+      }
+      // ביומן: התמלול (כמו בהודעה קולית), ומסמך - רק שמו. תוכן המסמך אינו
+      // נשמר בשום מקום מעבר לתור.
       await supabase.from("whatsapp_messages")
-        .update({ body: transcript })
+        .update({ body: kind === "audio" ? result.text.slice(0, 20000) : `[מסמך] ${fileName || file.mimeType}` })
         .eq("wa_message_id", msg.id);
       break;
     }
@@ -1124,7 +1172,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     default:
       await reply(
         from,
-        "אני יודעת לקבל טקסט, תמונות, הקלטות קוליות ואנשי קשר. מסמכים וסרטונים אפשר להעלות מהדשבורד.",
+        "אני יודעת לקבל טקסט, תמונות, הודעות קוליות, הקלטות שיחה, מסמכים (PDF, ‏Word, ‏Excel) ואנשי קשר. " +
+          "סרטונים אפשר להעלות מהדשבורד.",
         agent.id,
       );
       return;
@@ -1187,6 +1236,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   content.push({ type: "text", text: userText });
 
   conv.introduce = !(await assistantIntroduced(agent.id));
+  const mediaTurn = hasMediaBlock(userText);
 
   // --- הפעלת ה-LLM ---
   let answer: string;
@@ -1196,7 +1246,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       agent: agentRow as unknown as AgentRow,
       conv,
       userContent: content,
-      userSummary: newImageUrl ? `[תמונה] ${userText}` : userText,
+      userSummary: (newImageUrl ? "[תמונה] " : "") + (mediaTurn ? mediaForHistory(userText) : userText),
+      // תור שקורא הקלטה או מסמך רק מציע - ‏media-intake.ts
+      ...(mediaTurn ? { allowedTools: MEDIA_TOOLS, deniedToolMessage: MEDIA_TOOLS_DENIED } : {}),
     });
   } catch (err) {
     console.error("agent turn failed", err);
