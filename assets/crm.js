@@ -1704,35 +1704,52 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
   loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
 
-  // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
-  await loadPricing();
-  const freeQuota = priceOf('free_lead_quota_monthly', 10);
-  document.getElementById('quotaUsed').textContent =
-    agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
-  renderQuotaMeter(freeQuota);
+  /* הטעינה במקביל, ולא בטור. עד אוקטובר 2026 כל אחת מכ-13 הטעינות כאן
+     חיכתה לקודמת לה, גם כשלא השתמשה בשום דבר ממנה - כ-25 סבבים לשרת בזה
+     אחר זה, ומונה הלקוחות בראש הדשבורד היה ממתין לכ-18 מהם. עכשיו כל מה
+     שעצמאי יוצא מיד, ומה שתלוי ממתין רק למה שהוא באמת צריך:
 
-  // רשימת השת"פ נטענת לפני הנכסים: היא מזינה את ספירת המשרדים שמוצגת
-  // בדיאלוג האישור של "פתיחה לשת״פ" בשורת הנכס
-  await loadSharePartners(agent);
-  await loadProperties(agent.id);
-  await loadLeads(agent.id);
-  await loadLeadShelf(agent.id);
-  await loadSavedSearchShelf(agent.id);
-  await loadSharedWithMe();
-  await loadClients();
-  // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
-  loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
-  await loadClientAlerts();
-  await loadAgreements();
-  await loadNotifications(agent.id);
-  await loadNotifPrefs(agent.id);
-  // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
-  loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+     * הלידים והלקוחות - אחרי הנכסים: כרטיס הליד ושורת השיחה מציגים את
+       הנכס מתוך myPropertyRows.
+     * מדפי חנות הלידים - אחרי המחירים: הם מציגים priceOf.
+     * התראות ההתאמה, יומן השיחות והיומן - אחרי הלקוחות: הם קוראים
+       clientRows. השניים האחרונים ממשיכים לרוץ ברקע כמו קודם.
+
+     ‏Promise.all ולא allSettled בכוונה: כישלון עוצר את סוף הפונקציה בדיוק
+     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה. */
+  const pricingP = loadPricing().then(()=>{
+    // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+    const freeQuota = priceOf('free_lead_quota_monthly', 10);
+    document.getElementById('quotaUsed').textContent =
+      agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
+    renderQuotaMeter(freeQuota);
+  });
+  // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
+  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם
+  const propsP = Promise.all([loadSharePartners(agent), loadProperties(agent.id)]);
+  const clientsP = propsP.then(()=> loadClients()).then(()=>{
+    // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+    loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
+    // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
+    loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+    return loadClientAlerts();
+  });
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
-  await loadPreferences(agent.id);
+  await Promise.all([
+    pricingP,
+    propsP,
+    clientsP,
+    propsP.then(()=> loadLeads(agent.id)),
+    pricingP.then(()=> Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])),
+    loadSharedWithMe(),
+    loadAgreements(),
+    loadNotifications(agent.id),
+    loadNotifPrefs(agent.id),
+    loadPreferences(agent.id),
+  ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
   loadEthicsSettings(agent);
@@ -1747,10 +1764,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
   syncOfficeExportButtons();
   if (agent.role === 'manager'){
-    await loadBranding(agent.agency_id);
-    await loadTeam(agent.agency_id, agent.id);
-    await loadPendingReviews(agent.agency_id);
-    await loadAgencyEthics(agent.agency_id);
+    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
+    await Promise.all([
+      loadBranding(agent.agency_id),
+      loadTeam(agent.agency_id, agent.id),
+      loadPendingReviews(agent.agency_id),
+      loadAgencyEthics(agent.agency_id),
+    ]);
   } else {
     document.getElementById('ethicsAgencyBlock').hidden = true;
   }
@@ -1759,14 +1779,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
-    await loadLicenseAppeals();
-    await loadRefundQueue();
-    await loadSubscriptionsAdmin();
-    await loadNeighborhoodsAdmin();
-    await loadRssSourcesAdmin();
-    await loadArticlesAdmin();
-    await loadProfessionalCardsAdmin();
-    await loadUnroutedLeads();
+    await Promise.all([
+      loadLicenseAppeals(),
+      loadRefundQueue(),
+      loadSubscriptionsAdmin(),
+      loadNeighborhoodsAdmin(),
+      loadRssSourcesAdmin(),
+      loadArticlesAdmin(),
+      loadProfessionalCardsAdmin(),
+      loadUnroutedLeads(),
+    ]);
   }
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
