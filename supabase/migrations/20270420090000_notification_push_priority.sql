@@ -42,15 +42,26 @@
 -- ---------------------------------------------------------------------------
 -- 1. הסוג החדש
 -- ---------------------------------------------------------------------------
-alter table public.notifications drop constraint if exists notifications_type_check;
-alter table public.notifications add constraint notifications_type_check
-  check (type in ('new_lead','system','review_request','review_alert','client_match',
-                  'review_new','deal_closed','lead_unrouted','marketing_copy',
-                  'agreement_signed','platform_signup','platform_upgrade',
-                  'onboarding_property','onboarding_client','onboarding_agreement',
-                  'onboarding_lead','exclusivity_taken','deal_data_gap',
-                  'listing_match','agenda_reminder','showcase_activity',
-                  'deal_sync_summary','showcase_meeting'));
+-- מוסיפה לרשימה שקיימת ברגע הריצה, ולא כותבת רשימה מלאה: PR מקביל
+-- (‏#702, ‏security_alert) מחליף את אותו אילוץ, ורשימה קשיחה כאן הייתה מוחקת
+-- את הסוג שלו - או נמחקת על ידו - לפי סדר המיזוג. נכתב בצורת `in ('..')`
+-- כדי ש-notification_known_types() (שקורא את הסוגים מהגדרת האילוץ) ימשיך
+-- לזהות אותם.
+do $$
+declare
+  v_types text[] := public.notification_known_types();
+begin
+  if coalesce(array_length(v_types, 1), 0) < 10 then
+    raise exception 'notifications_type_check: לא נמצאה רשימת הסוגים הקיימת (%), לא מחליפים', v_types;
+  end if;
+  if 'showcase_meeting' = any(v_types) then
+    return;
+  end if;
+  v_types := v_types || 'showcase_meeting'::text;
+  alter table public.notifications drop constraint if exists notifications_type_check;
+  execute format('alter table public.notifications add constraint notifications_type_check check (type in (%s))',
+                 (select string_agg(quote_literal(t), ',' order by t) from unnest(v_types) t));
+end $$;
 
 insert into public.pricing_config (key, value, description)
 values ('notif_push_priority_lookback_hours', 72,
