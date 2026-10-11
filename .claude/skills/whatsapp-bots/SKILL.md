@@ -177,6 +177,16 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 תשובה לשאלת חיפוש** - זה בדיוק הכשל שהכלי נבנה בגללו. ‏`docs/whatsapp-setup.md`,
 "החיפוש מכסה את כל האזור".
 
+**דרישה מפורשת היא חובה, ומוותרים רק אחרי שאלה.** מאפייני החובה של לקוח/ה
+הם סינון קשיח ב-`client_property_match`, ו-`features` ב-`search_properties`
+הם `contains`. כשאין אף נכס עם הכול, שני הכלים מחזירים `without_required`
+(‏`by_feature`) עם `note` שאומר **לא להציג** ולשאול; אחרי "כן" -
+`waive_features` ב-`client_matches`, או חיפוש בלי המאפיין. מי שמקצר/ת את
+ההוראות ב-`SYSTEM_STATIC` שומר/ת על שלושה: לא להציג נכס חסר בלי אישור,
+לכתוב ליד נכס מה חסר בו (`missing_required`), ו-`create_showcase` אחרי ויתור
+עם `property_ids` (בלעדיהם נלקחות רק ההתאמות המלאות). הוויתור אינו נשמר
+בכרטיס. ‏`docs/whatsapp-setup.md`, "דרישה מפורשת היא חובה".
+
 **לבדוק תלונה כזו:** היומן (‏`whatsapp_messages`, ‏`agent_id is null`) מול
 המלאי (`properties` + `neighborhoods`). קריאות הכלים אינן נשמרות, ולכן
 משחזרים את השאילתה ביד. ‏`docs/whatsapp-public-bot.md`, "שכונה וסוג נכס".
