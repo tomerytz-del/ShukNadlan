@@ -423,7 +423,7 @@ async function refreshAgentBalance(){
   return setAgentBalance(data.credit_balance);
 }
 
-function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false }){
+function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false, terms = true }){
   const overlay   = document.getElementById('purchaseModal');
   /* החלון יושב ב-HTML בתוך `#dashboard`, שהוא `display:none` במסך שער
      המסלול — ושם בדיוק נדרש עכשיו אישור המעבר עם תיבת הסימון. ההעברה
@@ -452,6 +452,9 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
     `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)}.`;
 
   ackWrap.style.display = needAck ? 'flex' : 'none';
+  // ‏"הרכישה כפופה לתקנון" היא דרישת חברת הסליקה לרכישה. אישור שאינו רכישה
+  // (מינוי מנהל/ת) מכבה אותה במפורש; ברירת המחדל נשארת מוצגת
+  document.getElementById('pmAckTerms').style.display = terms ? '' : 'none';
   ackBox.checked = false;
   confirmBtn.textContent = confirmLabel || (paid ? `אישור רכישה וחיוב ${shekel(price)}` : 'אישור');
   confirmBtn.disabled = needAck;           // נדלק רק אחרי סימון ה"אני מבין/ה"
@@ -10520,6 +10523,7 @@ async function setMemberRole(m, role, agencyId, callerId){
         ],
         hidePrice: true,
         requireAck: true,
+        terms: false,
         ackText: `אני מאשר/ת ש-${name} יהיה/תהיה מנהל/ת במשרד.`,
         confirmLabel: 'מינוי למנהל/ת',
       })
