@@ -1,0 +1,34 @@
+# ‏Dependabot: עדכוני אבטחה ועדכוני גרסה לתלויות (docs/security-ci.md).
+#
+# ‏**מה מכוסה:** פעולות GitHub ב-workflows, וחבילות Python של המנועים
+# והסוכן התפעולי. ‏**מה לא:** פונקציות ה-Edge (Deno, ‏jsr:/npm: בתוך הקוד)
+# ו-supabase-js שנטען מ-CDN בדפים - Dependabot אינו קורא אותם. אלה נעולים
+# לגרסה מדויקת, ומתעדכנים ידנית.
+#
+# שבועי ומקובץ, כדי שזה יהיה PR אחד לסקירה ולא עשרה.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      python-root:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/ops_agent"
+    schedule:
+      interval: weekly
+    groups:
+      python-ops-agent:
+        patterns: ["*"]

@@ -2165,6 +2165,21 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
    ב-cleanAuthParamsFromUrl ו-handleTopupReturn: מחיקת כל ה-query הייתה מוחקת
    גם את invite, ו-replaceState עם null במקום history.state הורס את הזקיף של
    exit-guard.js. */
+/* פאנל "בריאות המערכת" בתצוגת מנהל/ת הפלטפורמה. אינו קטגוריה (acc), ולכן
+   יעד משלו: ‏?goto=adminOps מהוואטסאפ, והתראת security_alert בפעמון
+   (מיגרציה 20270416100000). מחזירה false למי שאינו/ה מנהל/ת פלטפורמה. */
+function openAdminOpsPanel(){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return false;
+  if (dashView !== 'admin') setDashView('admin');
+  setNavTab('home');
+  const panel = document.getElementById('dashPanelOps');
+  if (!panel) return false;
+  dashPanelSetOpen(panel, true, false);
+  loadOpsReport();
+  setTimeout(()=> scrollToTopOf(panel), 50);
+  return true;
+}
+
 function handleGotoParam(){
   const params = new URLSearchParams(location.search);
   const raw = params.get('goto');
@@ -2186,6 +2201,7 @@ function handleGotoParam(){
       location.pathname + (search ? '?' + search : '') + location.hash);
   }
 
+  if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
   if (!/^acc[A-Za-z0-9]{1,40}$/.test(raw)) return;
   if (!navAccVisible(raw)) return;
   gotoSection(raw);
@@ -23934,6 +23950,15 @@ const NOTIF_TYPES = [
     sub:'אחרי כל הרצה של "עדכן עסקאות": כמה יישובים עודכנו, כמה עסקאות נוספו, מה נכשל ולמה, וכמה יישובים עוד ממתינים.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadDealSyncRuns() },
+  /* ממצא אבטחה בדרגה high או critical שנפתח בסריקה של הסוכן התפעולי
+     (מיגרציה 20270416100000). היעד הוא פאנל "בריאות המערכת" ולא קטגוריה,
+     ולכן הלחיצה עוברת דרך openAdminOpsPanel ולא דרך goto. */
+  { type:'security_alert', tone:'alert',
+    view:'admin',
+    title:'ממצאי אבטחה',
+    sub:'ממצא אבטחה חמור שהסוכן התפעולי מצא בסריקה: טבלה שנפתחה לכולם, פונקציה בלי בדיקת הרשאה, סוד בקוד. נשלח כשהממצא נפתח, לא בכל סריקה.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadOpsReport() },
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
@@ -23996,6 +24021,7 @@ async function loadNotifications(agentId){
       // הסוכן/ת מכבה ב-display:none — כלומר navAccVisible שמתחת היה מחזיר
       // false והלחיצה לא הייתה עושה דבר. המעבר לתצוגה קודם לבדיקה, ורק למי
       // שהתצוגה פתוחה בפניו/ה.
+      if (n.type === 'security_alert'){ openAdminOpsPanel(); return; }
       if (target.view === 'admin' && dashView !== 'admin'
           && currentAgent && currentAgent.is_platform_admin) {
         setDashView('admin');
