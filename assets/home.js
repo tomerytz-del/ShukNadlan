@@ -3874,6 +3874,7 @@ function gabrielaSplitRow(){
 
 function renderGabrielaCta(){
   drawGabrielaCta(document.getElementById('gabCtaWrap'), 'homepage_hero');
+  placeGabHand();
   if (!gabrielaBotOn()){
     // הכפתור פותח את הסוכן החכם ולא את וואטסאפ - הצעד הראשון בבועה בהתאם
     const step = document.querySelector('#gabHowTip [data-how-step="1"]');
@@ -4023,6 +4024,22 @@ function showMicHint(){
    גבריאלה (או הסוכן החכם כשהעוזרת כבויה). ‏click() על הקישור עצמו - כך
    ‏events.js סופר אותה כ-contact_bot עם data-bot-entry של ה-hero, ונקודת
    "הודעה חדשה" נעלמת כמו בלחיצה על הכפתור. */
+/* היד שמדגימה לחיצה (‏.gab-hand) - קצה האצבע מול מרכז אייקון הוואטסאפ.
+   המיקום של האייקון תלוי ברוחב הכפתור ובגופן, ולכן נמדד ולא קבוע ב-CSS
+   (בלי JS נשאר ה-right שב-CSS). */
+function placeGabHand(){
+  const hand = document.getElementById('gabHand');
+  const ic = document.querySelector('#gabCtaWrap .gab-cta-ic svg');
+  const box = hand && hand.offsetParent;
+  if (!hand || !ic || !box) return;
+  const r = ic.getBoundingClientRect(), b = box.getBoundingClientRect();
+  if (!r.width) return;
+  hand.style.right = 'auto';
+  hand.style.left = Math.round(r.left + r.width / 2 - b.left - 10) + 'px';
+}
+window.addEventListener('resize', placeGabHand, { passive:true });
+document.fonts?.ready?.then(placeGabHand);
+
 (function bindGabConvo(){
   const chat = document.getElementById('gabChat');
   if (!chat) return;
