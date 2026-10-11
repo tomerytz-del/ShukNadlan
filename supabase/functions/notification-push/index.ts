@@ -88,6 +88,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
+  showcase_meeting: "accClients",
   // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
   deal_sync_summary: "accDealSettlements",
   // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על

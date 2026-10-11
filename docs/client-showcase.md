@@ -307,7 +307,13 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/client-showc
 
 ## ההתראות
 
-`notifications.type = 'showcase_activity'`, עם `related_showcase_id`.
+`notifications.type = 'showcase_activity'`, עם `related_showcase_id` ו-`related_client_id`
+(הפעמון פותח את כרטיס הלקוח/ה). **בקשת סיור היא `showcase_meeting`** - סוג משלו מאז
+`20270420090000`, כי בוואטסאפ היא עוקפת את התקרה היומית ואת מרווח הקיבוץ
+(`notification_push_priority_types()`). המקרה שהוליד את זה: בקשת סיור ב-13:10
+שלא הגיעה לסוכן לעולם, כי 12 ההודעות של היום נגמרו ב-12:10 וחלון 12 השעות
+נסגר עליה בלילה. אם הסוג עוד לא קיים במסד (הפונקציה נפרסה לפני המיגרציה),
+`notifyAgent` כותבת אותה כ-`showcase_activity` ולא מאבדת אותה.
 פתיחה ראשונה ותגובות **מתקבצות**: כל עוד יש התראה שלא נקראה מהשעתיים
 האחרונות לאותו מיניסייט, היא מתעדכנת במקום שתיווצר חדשה - עשר תגובות ברצף
 הן התראה אחת. הודעה, בקשת סיור, ביטול ו"אהבתי" על נכס בשת״פ - תמיד התראה
