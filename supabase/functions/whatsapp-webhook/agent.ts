@@ -5997,8 +5997,13 @@ export async function runAgentTurn(opts: {
    * ואת הוספת הלקוח/ה. כל השאר עובר דרך אישור בוואטסאפ, בתור רגיל.
    */
   allowedTools?: ReadonlySet<string>;
+  /** מה המודל מקבל כשניסה כלי שאינו ב-`allowedTools`. ברירת המחדל - של תור
+   *  מייל; תור שקורא הקלטה או מסמך (‏media-intake.ts) מעביר נוסח משלו. */
+  deniedToolMessage?: string;
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
+  const denied = opts.deniedToolMessage ||
+    "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
   const ctx: ToolContext = { supabase, agent, conv };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
@@ -6071,7 +6076,7 @@ export async function runAgentTurn(opts: {
       // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
       // נאכף כאן ולא רק ברשימה שנשלחה אליו.
       const result = allowedTools && !allowedTools.has(use.name)
-        ? { error: "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ." }
+        ? { error: denied }
         : await runTool(
           ctx,
           use.name,
