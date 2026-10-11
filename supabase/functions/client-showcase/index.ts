@@ -550,6 +550,9 @@ async function handleMeeting(supabase: SupabaseClient, showcase: Row, body: Row)
     `${firstName(client?.full_name)} מבקש/ת לתאם סיור`,
     `${when} · ${propertyIds.length === 1 ? "נכס אחד" : `${propertyIds.length} נכסים`}${note ? ` · ${note.slice(0, 120)}` : ""}`,
     false,
+    // סוג משלו: בוואטסאפ הוא עוקף את התקרה היומית ואת מרווח הקיבוץ
+    // (notification_push_priority_types, ‏20270420090000) - הלקוח/ה מחכה לתשובה.
+    "showcase_meeting",
   );
   return json({ ok: true, meeting: { ...meeting, item_ids: itemIds } });
 }
@@ -690,6 +693,7 @@ async function notifyAgent(
   title: string,
   body: string,
   coalesce: boolean,
+  type: "showcase_activity" | "showcase_meeting" = "showcase_activity",
 ) {
   try {
     if (coalesce) {
@@ -709,13 +713,21 @@ async function notifyAgent(
         return;
       }
     }
-    await supabase.from("notifications").insert({
+    const row = {
       agent_id: showcase.agent_id,
-      type: "showcase_activity",
+      type,
       title: title.slice(0, 200),
       body: body ? body.slice(0, 500) : null,
       related_showcase_id: showcase.id,
-    });
+      // הפעמון פותח את כרטיס הלקוח/ה ולא את רשימת הלקוחות
+      related_client_id: showcase.client_id,
+    };
+    const { error } = await supabase.from("notifications").insert(row);
+    // הפונקציה והמיגרציה נפרסות בשני workflows נפרדים: סוג שהאילוץ עוד לא
+    // מכיר יוצא כ-showcase_activity, ולא נעלם.
+    if (error && type !== "showcase_activity") {
+      await supabase.from("notifications").insert({ ...row, type: "showcase_activity" });
+    }
   } catch (e) {
     // התראה שנכשלה אינה מפילה את פעולת הלקוח/ה — התגובה כבר נשמרה
     console.error("showcase notify failed", (e as Error).message);

@@ -1,0 +1,32 @@
+name: סוגי התראה במיגרציות
+
+# ‏notifications_type_check היא רשימה סגורה, ושני PR-ים שהוסיפו סוג כל אחד
+# העתיקו אותה מ-main - מי שממוזג שני מוחק את הסוג של הראשון. מ-20270420090000
+# מוסיפים דרך notification_types_add(), והבדיקה חוסמת רשימה קשיחה במיגרציה
+# חדשה. קוראת קבצים בלבד.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_notif_type_constraint.py"
+      - ".github/workflows/notif_type_constraint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_notif_type_constraint.py"
+      - ".github/workflows/notif_type_constraint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: סוגי התראה
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: אין רשימה קשיחה של notifications_type_check
+        run: python3 scripts/check_notif_type_constraint.py
