@@ -86,6 +86,14 @@ select kind, status, error, count(*) from agent_agenda_client_messages
 מוצגת, והיא מוצגת רק כש-`agendaFollowupReady` (השאילתה על העמודות הצליחה).
 בבוט: `PGRST204` בהוספה → הפגישה נקבעת בלי הפולואפ.
 
+## 10. המסלול: אותו גייט של היומן
+
+אין לפולואפ גייט משלו: הוא יוצא רק מפריט ב-`agent_agenda_items`, וכל פריט
+עובר את `agent_agenda_enabled` (PROFESSIONAL ומעלה). כך הוא רשום בשורה שלו
+ב-`pricing.html` וב-`GATES` שב-`check_tier_gates.py`. פתח חדש שישלח הודעה
+ללקוח/ה **בלי** פריט ביומן עוקף את הגייט, ומחייב גייט משלו (הסקיל
+`new-tier-capability`).
+
 ## לפני הדחיפה
 
 ```sh
