@@ -25,3 +25,8 @@ select count(*)                                 as deals,
 from c;
 -- הזולה/היקרה: select ... from c order by sale_price limit 1 / desc limit 1
 -- השכונות:     select neighborhood, count(*) from c group by 1 order by 2 desc
+
+-- סינון בית צמוד קרקע (הוסף אחרי שהעלית את החשד): מוציאים מ-c גם
+--   where not (coalesce(floor,'') ~ 'קרקע' and coalesce(floor,'') ~ '(,| ו)')
+-- ("קרקע, ראשונה" = שתי קומות מהקרקע = כנראה קוטג'). באוגוסט זו עסקה אחת: 3,000,000 ₪.
+-- התוצאה: 40 עסקאות, ממוצע 1,435,250 ₪, 13,679 ₪ למ"ר.
