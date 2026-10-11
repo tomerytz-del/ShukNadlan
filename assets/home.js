@@ -5523,6 +5523,7 @@ ssaForm.addEventListener('submit', async (e)=>{
 const buyState = {
   deal:'sale',            // 'sale' | 'rent'  — מה שנשמר ב-deal_type
   category:'residential', // 'residential' | 'commercial'
+  city:'',                // העיר שהשכונות שלה מוצגות - ראו renderBuyerHoods
   hoods:new Set(),
   rooms:new Set(),
   ptypes:new Set(),
@@ -5567,31 +5568,84 @@ function buySetError(step, message){
 /* רשימת השכונות נבנית מאותה טבלה שמזינה את סינון המפה, ולכן היא נבנית
    מחדש כשהיא מגיעה (‏initPropertyUI קורא לכאן). ‏textContent ולא innerHTML:
    שמות שכונות מוזנים על ידי משתמשי הפלטפורמה. */
+/* **עיר קודם, ואז השכונות שלה.** עד כאן נפתחו כאן השכונות של כל הערים
+   בפלטפורמה, ממוינות לפי א״ב - "רמת טבעון א'" של חיפה ליד "אבוקדו" של
+   עפולה, בלי שום דרך לדעת מה שייך לאיפה. בורר העיר יושב מעל, נפתח על
+   העיר של הדף, ומציג רק את השכונות שלה. הוא נבנה בקוד ולא ב-HTML, כמו
+   ב-assets/buyer-banner.js.
+
+   ‏**ומה נשמר:** החיפוש מתאים נכס לפי עיר **או** שכונה
+   ‏(saved_search_matches), ולכן העיר נשלחת רק כשלא נבחרה שכונה - אחרת
+   היא הייתה מרחיבה את החיפוש לכל העיר. ראו buyCriteria. */
+function buyHoodCities(){
+  return [...new Set(hoodState.rows.map(h => h.city).filter(Boolean))]
+    .sort((a,b)=> a.localeCompare(b, 'he'));
+}
+function buyCitySelect(){
+  let sel = document.getElementById('buyCity');
+  if (sel) return sel;
+  const label = document.getElementById('buyHoodLabel');
+  if (!label) return null;
+  const lbl = document.createElement('label');
+  lbl.className = 'wiz-label';
+  lbl.id = 'buyCityLabel';
+  lbl.htmlFor = 'buyCity';
+  lbl.textContent = 'באיזו עיר?';
+  sel = document.createElement('select');
+  sel.id = 'buyCity';
+  sel.className = 'wiz-input buy-city';
+  sel.addEventListener('change', ()=>{
+    buyState.city = sel.value;
+    buyState.hoods.clear();   // שכונה מעיר אחרת אינה חלק מהחיפוש בעיר הזו
+    renderBuyerHoods();
+    buySetError(1, '');
+  });
+  label.before(lbl, sel);
+  return sel;
+}
+
 function renderBuyerHoods(){
   const wrap = document.getElementById('buyHoodChips');
   const fallback = document.getElementById('buyAreaFallback');
   const label = document.getElementById('buyHoodLabel');
   if (!wrap) return;
-  wrap.innerHTML = '';
+  wrap.textContent = '';
+  const sel = buyCitySelect();
+  const cities = buyHoodCities();
 
   // בלי רשימת שכונות (מסד לא זמין) נשארת תיבת טקסט חופשי — שלב בלי שום
   // דרך לציין אזור הוא שלב מיותר. השאלה "באילו שכונות?" יורדת איתה, כדי
   // שלא תישאל שאלה שאין מתחתיה מה לענות.
-  if (!hoodState.rows.length){
+  if (!cities.length){
     if (fallback) fallback.hidden = false;
     if (label) label.hidden = true;
+    if (sel){ sel.hidden = true; document.getElementById('buyCityLabel').hidden = true; }
     return;
   }
   if (fallback) fallback.hidden = true;
-  if (label) label.hidden = false;
+  if (sel){ sel.hidden = false; document.getElementById('buyCityLabel').hidden = false; }
 
-  // אותו כלל כמו ב-hoodChoices: אזור בתכנון שאין בו נכסים אינו מוצג. כאן
-  // הנימוק חזק אפילו יותר — "B1 אזור בתכנון" הוא קוד תכנוני פנימי, וגולש/ת
-  // שמסמן/ת אילו שכונות הוא/היא מחפש/ת אינו/ה יכול/ה לרצות אותו.
-  hoodState.rows.slice()
-    .filter(h => !h.is_planned
-      || (hoodState.counts.get(h.id) || 0) > 0
-      || buyState.hoods.has(h.id))
+  if (!cities.includes(buyState.city)){
+    const want = window.CityContext?.active()?.market?.city || '';
+    buyState.city = cities.includes(want) ? want : cities[0];
+  }
+  if (sel){
+    sel.textContent = '';
+    cities.forEach(c=>{
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c;
+      sel.appendChild(o);
+    });
+    sel.value = buyState.city;
+  }
+
+  const list = hoodState.rows.filter(h => h.city === buyState.city
+      // אותו כלל כמו ב-hoodChoices: אזור בתכנון שאין בו נכסים אינו מוצג.
+      // "B1 אזור בתכנון" הוא קוד תכנוני פנימי, וגולש/ת אינו/ה יכול/ה לרצות אותו.
+      && (!h.is_planned || (hoodState.counts.get(h.id) || 0) > 0 || buyState.hoods.has(h.id)));
+  if (label) label.hidden = !list.length;
+  list.slice()
     .sort((a,b)=> String(a.name).localeCompare(String(b.name), 'he'))
     .forEach(h=>{
       const chip = document.createElement('button');
@@ -5727,7 +5781,9 @@ function buyCriteria(){
   const roomVals = [...buyState.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(n => !isNaN(n));
   const openEnded = buyState.rooms.has('+6');
   const commercial = buyState.category === 'commercial';
-  const area = hoodState.rows.length ? '' : buyAreaText();
+  // עיר רק כשלא נבחרה שכונה: ההתאמה היא עיר **או** שכונה, ועיר לצד
+  // שכונות הייתה מרחיבה את החיפוש לכל העיר
+  const area = hoodState.rows.length ? (buyState.hoods.size ? '' : buyState.city) : buyAreaText();
   return {
     deal_type: buyState.deal,
     category: buyState.category,
@@ -5898,6 +5954,8 @@ document.getElementById('buyRestart').addEventListener('click', ()=>{
   buyState.hoods.clear();
   buyState.rooms.clear();
   buyState.ptypes.clear();
+  buyState.city = '';
+  renderBuyerHoods();
   buyerForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-pressed','false'));
   buyerForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
   [1,2,3].forEach(s => buySetError(s, ''));

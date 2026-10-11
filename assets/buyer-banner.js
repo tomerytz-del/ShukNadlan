@@ -28,7 +28,7 @@
   var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
   var INTAKE_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
-  var HOODS_URL = SUPABASE_URL + '/rest/v1/neighborhoods?select=id,name';
+  var HOODS_URL = SUPABASE_URL + '/rest/v1/neighborhoods?select=id,name,city';
 
   /* סוגי הנכס — אותן רשימות של דף הבית, כדי שחיפוש שנשמר מכאן ייקרא מול
      אותם ערכים שהנכסים עצמם נושאים. */
@@ -47,6 +47,7 @@
   var state = {
     deal:'sale',            // 'sale' | 'rent'  — מה שנשמר ב-deal_type
     category:'residential', // 'residential' | 'commercial'
+    city:'',                // העיר שהשכונות שלה מוצגות - ראו renderHoods
     hoods:new Set(),
     rooms:new Set(),
     ptypes:new Set(),
@@ -87,26 +88,94 @@
   /* ---------- שלב 1: אזור ----------
      רשימת השכונות נקראת מאותה טבלה שמזינה את סינון המפה בדף הבית. היא
      מגיעה אחרי שהדף כבר עומד, ולכן הרצועה נבנית מחדש כשהיא מגיעה.
-     ‏textContent ולא innerHTML: שמות שכונות מוזנים על ידי משתמשי הפלטפורמה. */
+     ‏textContent ולא innerHTML: שמות שכונות מוזנים על ידי משתמשי הפלטפורמה.
+
+     **עיר קודם, ואז השכונות שלה.** עד כאן נפתחו כאן השכונות של כל הערים
+     בפלטפורמה, ממוינות לפי א״ב - "רמת טבעון א'" של חיפה ליד "אבוקדו" של
+     עפולה, בלי שום דרך לדעת מה שייך לאיפה. עכשיו בורר העיר יושב מעל,
+     נפתח על העיר של השוק, ומציג רק את השכונות שלה.
+
+     ‏**ומה נשמר:** החיפוש מתאים נכס לפי עיר **או** שכונה (ראו
+     ‏saved_search_matches), ולכן העיר נשלחת רק כשלא נבחרה שכונה - אחרת
+     היא הייתה מרחיבה את החיפוש לכל העיר. */
+  function defaultCity() {
+    try {
+      var cc = window.CityContext && window.CityContext.active();
+      if (cc && cc.market && cc.market.city) return cc.market.city;
+    } catch (e) { /* בלי הקשר - העיר הראשונה ברשימה */ }
+    return '';
+  }
+
+  function hoodCities() {
+    var seen = new Set();
+    hoods.rows.forEach(function (h) { if (h.city) seen.add(h.city); });
+    return Array.from(seen).sort(function (a, b) { return a.localeCompare(b, 'he'); });
+  }
+
+  /* הבורר נבנה בקוד ולא ב-HTML: הבאנר משוכפל בעשרים דפים. */
+  function citySelect() {
+    var sel = $('buyCity');
+    if (sel) return sel;
+    var label = $('buyHoodLabel');
+    if (!label) return null;
+    var lbl = document.createElement('label');
+    lbl.className = 'wiz-label';
+    lbl.id = 'buyCityLabel';
+    lbl.htmlFor = 'buyCity';
+    lbl.textContent = 'באיזו עיר?';
+    sel = document.createElement('select');
+    sel.id = 'buyCity';
+    sel.className = 'wiz-input buy-city';
+    sel.addEventListener('change', function () {
+      state.city = sel.value;
+      state.hoods.clear();   // שכונה מעיר אחרת אינה חלק מהחיפוש בעיר הזו
+      renderHoods();
+      setError(1, '');
+    });
+    label.parentNode.insertBefore(lbl, label);
+    label.parentNode.insertBefore(sel, label);
+    return sel;
+  }
+
   function renderHoods() {
     var wrap = $('buyHoodChips');
     var fallback = $('buyAreaFallback');
     var label = $('buyHoodLabel');
     if (!wrap) return;
     wrap.textContent = '';
+    var sel = citySelect();
+    var cities = hoodCities();
 
     // בלי רשימת שכונות (מסד לא זמין) נשארת תיבת טקסט חופשי — שלב בלי שום
     // דרך לציין אזור הוא שלב מיותר. השאלה "באילו שכונות?" יורדת איתה, כדי
     // שלא תישאל שאלה שאין מתחתיה מה לענות.
-    if (!hoods.rows.length) {
+    if (!cities.length) {
       if (fallback) fallback.hidden = false;
       if (label) label.hidden = true;
+      if (sel) { sel.hidden = true; $('buyCityLabel').hidden = true; }
       return;
     }
     if (fallback) fallback.hidden = true;
-    if (label) label.hidden = false;
+    if (sel) { sel.hidden = false; $('buyCityLabel').hidden = false; }
 
-    hoods.rows.slice()
+    if (cities.indexOf(state.city) < 0) {
+      var want = defaultCity();
+      state.city = cities.indexOf(want) >= 0 ? want : cities[0];
+    }
+    if (sel) {
+      sel.textContent = '';
+      cities.forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c;
+        o.textContent = c;
+        sel.appendChild(o);
+      });
+      sel.value = state.city;
+    }
+
+    var list = hoods.rows.filter(function (h) { return h.city === state.city; });
+    if (label) label.hidden = !list.length;
+    list.slice()
       .sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'he'); })
       .forEach(function (h) {
         var chip = document.createElement('button');
@@ -257,7 +326,11 @@
       .filter(function (n) { return !isNaN(n); });
     var openEnded = state.rooms.has('+6');
     var commercial = state.category === 'commercial';
-    var area = hoods.rows.length ? '' : $('buyArea').value.trim();
+    // עיר רק כשלא נבחרה שכונה: ההתאמה היא עיר **או** שכונה, ועיר לצד
+    // שכונות הייתה מרחיבה את החיפוש לכל העיר
+    var area = hoods.rows.length
+      ? (state.hoods.size ? '' : state.city)
+      : $('buyArea').value.trim();
     return {
       deal_type: state.deal,
       category: state.category,
@@ -432,6 +505,8 @@
     state.hoods.clear();
     state.rooms.clear();
     state.ptypes.clear();
+    state.city = '';
+    renderHoods();
     form.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
     form.querySelectorAll('.wiz-input').forEach(function (i) { i.classList.remove('invalid'); });
     [1, 2, 3].forEach(function (s) { setError(s, ''); });
