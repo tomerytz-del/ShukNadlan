@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 import { sendWhatsappInvite, toWhatsappMsisdn } from "../_shared/whatsapp-invite.ts";
 import { freeAgentSlug } from "../_shared/agent-slug.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -266,6 +267,8 @@ Deno.serve(async (req: Request) => {
   const authedClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authedClient.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 

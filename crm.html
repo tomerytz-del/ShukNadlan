@@ -600,6 +600,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .btn-danger:hover{background:#912018;border-color:#912018}
   .btn-danger:disabled{opacity:.5;cursor:not-allowed}
 
+  /* אימות דו-שלבי (docs/mfa.md). הקוד גדול ומרווח כי מעתיקים אותו בעין
+     מטלפון אחר; ה-QR על רקע לבן גם בלילה, אחרת מצלמות לא קוראות אותו. */
+  .mfa-code{font-size:1.4rem;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}
+  .mfa-help{font-size:.75rem;line-height:1.6;color:var(--ink-soft);text-align:center;margin:12px 0 0}
+  .mfa-qr{display:block;width:180px;height:180px;margin:6px auto 10px;background:#fff;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--line)}
+  .mfa-secret{display:block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all;text-align:center;user-select:all;background:var(--paper,#f6f3ee);padding:7px 9px;border-radius:var(--radius-sm);margin-bottom:12px}
+  .mfa-step{font-size:.84rem;line-height:1.6;margin:0 0 6px;font-weight:700}
+  .mfa-on{border:1.5px solid var(--teal);background:#F1F6F5;border-radius:var(--radius-sm);padding:12px 14px;font-size:.84rem;line-height:1.6;margin-bottom:10px}
+
   /* שני שלבי האישור חיים באותו חלון ומתחלפים בו. שלב אחד = מסך אחד:
      תיבת סימון ואז הקלדה, ולעולם לא שניהם יחד — אחרת "אישור כפול" הוא רק
      שני שדות בטופס אחד, ולוחצים עליהם ברצף בלי לעצור. */
@@ -5546,6 +5555,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div style="text-align:center;font-size:.82rem;color:var(--ink-soft);margin-top:6px">🎁 6 חודשים במתנה עלינו - ללא התחייבות וללא פרטי אשראי</div>
   </div>
 
+  <!-- ---------- אימות דו-שלבי: הקוד ----------
+       מי שהפעיל/ה אימות דו-שלבי נוחת/ת כאן אחרי הסיסמה או Google, ולפני
+       הדשבורד. המסך הזה אינו המנעול עצמו: עד שהקוד מוזן, המסד מתייחס לחשבון
+       כאל אורח/ת (‏mfa_pre_request), ולכן עקיפה של המסך לא פותחת כלום.
+       ראו docs/mfa.md. -->
+  <div class="card login-card" id="mfaChallengeScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>אימות דו-שלבי</h1>
+    <p class="sub">פותחים את אפליקציית האימות בטלפון ומזינים את הקוד בן 6 הספרות שמופיע בה תחת <bdi dir="ltr">Shuk Nadlan</bdi>.</p>
+    <form id="mfaChallengeForm">
+      <div class="field">
+        <label for="mfaChallengeCode">הקוד מהאפליקציה</label>
+        <input type="text" id="mfaChallengeCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" dir="ltr" required>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="mfaChallengeBtn">אישור</button>
+    </form>
+    <div id="mfaChallengeFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em;color:var(--brick)"></div>
+    <p class="mfa-help">אין גישה לאפליקציה (טלפון שאבד או הוחלף)? התמיכה מאפסת את האימות אחרי זיהוי: <a href="tel:+972546929991" dir="ltr">054-6929991</a></p>
+    <button type="button" class="btn btn-ghost btn-block" id="mfaChallengeLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- אימות דו-שלבי: הפעלה שהיא חובה ----------
+       למנהל/ת פלטפורמה בלבד: המסד דורש ממנו/ה aal2 גם בלי שהפעיל/ה
+       (‏_mfa_required_self), ולכן בלי המסך הזה הוא/היא היה/תה נוחת/ת במסך
+       "מי את/ה?" בלי שום הסבר. ההפעלה עצמה היא אותו רכיב של "הגדרות חשבון". -->
+  <div class="card login-card" id="mfaEnrollScreen" style="display:none">
+    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>הפעלת אימות דו-שלבי</h1>
+    <p class="sub">לחשבון עם הרשאת ניהול פלטפורמה האימות הדו-שלבי הוא חובה. זה לוקח דקה: סורקים קוד באפליקציית אימות בטלפון, כמו <bdi dir="ltr">Google Authenticator</bdi> או <bdi dir="ltr">Microsoft Authenticator</bdi>, ומזינים את הקוד שמופיע בה.</p>
+    <div id="mfaEnrollScreenBody"></div>
+    <div id="mfaEnrollFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="mfaEnrollLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
   <!-- ---------- מי את/ה? ----------
        המסך שקודם לפתיחת משרד חדש, ולא במקומה. עד היום חשבון בלי שורת
        agency_members הוצג מיד כ"עדיין לא פתחת משרד" — וזה נכון רק לחלק
@@ -9223,6 +9266,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="submit" class="btn btn-gold btn-block" id="saveNotifPrefsBtn">שמירה</button>
       <div id="notifPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
     </form>
+      </div>
+    </details>
+
+    <!-- ---------- אימות דו-שלבי ----------
+         ההפעלה והכיבוי. הסטטוס בכותרת המקופלת נקרא מה-session בלי רשת
+         (‏mfaSetCount); הרשימה המלאה מ-Supabase Auth רק כשפותחים. -->
+    <details class="acc" id="accSecurity">
+      <summary>
+        <span class="acc-title">אימות דו-שלבי</span>
+        <span class="acc-count" id="accSecurityCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">שכבת הגנה נוספת על החשבון: בכל כניסה, אחרי הסיסמה או Google, מזינים גם קוד בן 6 ספרות מאפליקציית אימות בטלפון. כך מי שהשיג/ה את הסיסמה שלך עדיין לא מגיע/ה ללקוחות, ללידים ולהסכמים.</p>
+        <div id="mfaSection"></div>
+        <div id="mfaSectionFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </div>
     </details>
 

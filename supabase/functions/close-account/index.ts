@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/morning.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // סגירת חשבון ביוזמת הסוכן/ת
@@ -62,6 +63,8 @@ Deno.serve(async (req: Request) => {
   });
   const { data: userData, error: userErr } = await authed.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 

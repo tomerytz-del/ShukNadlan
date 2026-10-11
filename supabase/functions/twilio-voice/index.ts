@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // ‏twilio-voice — יומן שיחות: ניתוב, הקלטה, תמלול, סיכום (פיילוט)
@@ -1222,6 +1223,8 @@ async function deleteCalls(req: Request): Promise<Response> {
     const { data: userData } = token ? await supabase.auth.getUser(token) : { data: null };
     const uid = userData?.user?.id;
     if (!uid) return corsJson({ error: "unauthorized" }, 401);
+    const mfa = await mfaGate(token);
+    if (mfa) return corsJson({ error: mfa.error }, mfa.status);
     const { data: me } = await supabase.from("agency_members")
       .select("id").eq("user_id", uid).eq("active", true).maybeSingle();
     if (!me) return corsJson({ error: "forbidden" }, 403);
@@ -1271,6 +1274,8 @@ async function agentFromJwt(req: Request) {
   const { data: userData } = await supabase.auth.getUser(token);
   const uid = userData?.user?.id;
   if (!uid) return null;
+  const mfa = await mfaGate(token);
+  if (mfa) return mfa;
   const { data: me } = await supabase.from("agency_members")
     .select("id, credit_balance").eq("user_id", uid).eq("active", true).maybeSingle();
   return me;
@@ -1292,6 +1297,7 @@ async function findAvailableNumber(area: string): Promise<string | null> {
 async function linesAgentTask(req: Request, task: string): Promise<Response> {
   const me = await agentFromJwt(req);
   if (!me) return corsJson({ error: "unauthorized" }, 401);
+  if ("error" in me) return corsJson({ error: me.error }, me.status);
   if (!TWILIO_SID || !TWILIO_TOKEN) return corsJson({ error: "not_configured" }, 503);
   const body = await req.json().catch(() => ({}));
 
@@ -1494,6 +1500,8 @@ async function simulate(req: Request): Promise<Response> {
   const { data: userData } = await supabase.auth.getUser(token);
   const uid = userData?.user?.id;
   if (!uid) return corsJson({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(token);
+  if (mfa) return corsJson({ error: mfa.error }, mfa.status);
   const { data: me } = await supabase.from("agency_members")
     .select("id, is_platform_admin").eq("user_id", uid).eq("active", true).maybeSingle();
   if (!me?.is_platform_admin) return corsJson({ error: "forbidden" }, 403);
