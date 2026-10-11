@@ -1048,7 +1048,7 @@ document.getElementById('cancelCreateAgency').addEventListener('click', async ()
 });
 
 /* ==========================================================================
-   אימות כניסה בוואטסאפ - docs/mfa.md
+   אימות כניסה: הודעה בוואטסאפ, או קוד מאפליקציית אימות - docs/mfa.md
    --------------------------------------------------------------------------
    ‏המסכים כאן הם הנוחות; המנעול הוא במסד: עד שמגיעה הודעה מהנייד שבכרטיס,
    ‏mfa_pre_request מתייחס/ת לחשבון כאל אורח/ת, ו-_shared/mfa-gate.ts עושה
@@ -1127,7 +1127,11 @@ async function showMfaChallenge(status){
   link.setAttribute('aria-disabled', 'true'); link.href = '#';
   st.style.color = ''; st.textContent = 'מכינים את ההודעה…';
   document.getElementById('mfaPhoneTail').textContent = '';
-  document.getElementById('mfaAdminNote').hidden = !(status?.admin && !status?.enabled);
+  document.getElementById('mfaAdminNote').hidden = !(status?.admin && !status?.enabled && !status?.totp);
+  const totpForm = document.getElementById('mfaTotpForm');
+  totpForm.hidden = !status?.totp;
+  document.getElementById('mfaTotpCode').value = '';
+  document.getElementById('mfaTotpFeedback').textContent = '';
   showScreen('mfaChallenge');
   try{
     const { url, tail } = await mfaWaStart(false);
@@ -1161,6 +1165,101 @@ document.getElementById('mfaWaLink').addEventListener('click', ()=>{
   });
 });
 
+/* ---------- הדרך השנייה: קוד מאפליקציית אימות ----------
+   ‏challengeAndVerify מחזיר session ב-aal2, ו-mfa_pre_request מדלג/ת עליו
+   בשורה הראשונה. */
+function mfaDigitsOnly(input){
+  input.addEventListener('input', ()=>{ input.value = input.value.replace(/\D/g, '').slice(0, 6); });
+}
+mfaDigitsOnly(document.getElementById('mfaTotpCode'));
+
+document.getElementById('mfaTotpForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const code = document.getElementById('mfaTotpCode').value.trim();
+  const btn = document.getElementById('mfaTotpBtn');
+  const fb = document.getElementById('mfaTotpFeedback');
+  fb.textContent = '';
+  if (!/^\d{6}$/.test(code)){ fb.textContent = 'הקוד הוא 6 ספרות.'; return; }
+  btn.disabled = true; btn.textContent = 'בודקים…';
+  try{
+    // ‏listFactors ולא ה-session: factor שנוסף ממכשיר אחר אינו ב-session המקומי
+    const { data, error } = await sb.auth.mfa.listFactors();
+    if (error) throw error;
+    const factor = (data?.totp || []).find(f => f.status === 'verified');
+    if (!factor) throw new Error('לא נמצאה אפליקציית אימות פעילה בחשבון. אפשר לאמת בוואטסאפ.');
+    const { error: vErr } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if (vErr) throw vErr;
+    mfaStopPolling();
+    const { data: { session } } = await sb.auth.getSession();
+    await routeAfterAuth(session, { force:true });
+  } catch(err){
+    console.error('totp challenge failed', err);
+    fb.textContent = heErr(err);
+    btn.disabled = false; btn.textContent = 'כניסה עם הקוד';
+    document.getElementById('mfaTotpCode').select();
+  }
+});
+
+/* הפעלה שננטשה באמצע משאירה factor לא מאומת, וזה חוסם את הבאה */
+async function mfaClearUnverified(){
+  const { data } = await sb.auth.mfa.listFactors();
+  for (const f of (data?.all || [])){
+    if (f.factor_type === 'totp' && f.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: f.id });
+  }
+}
+
+/* הרשמת אפליקציה: QR, מפתח ידני וקוד ראשון. ‏onDone אחרי שהקוד אומת. */
+async function mfaMountTotpEnroll(host, feedbackEl, onDone){
+  host.innerHTML = '<p class="mfa-help">מכינים את הקוד…</p>';
+  try{
+    await mfaClearUnverified();
+    const { data, error } = await sb.auth.mfa.enroll({
+      factorType: 'totp',
+      issuer: 'Shuk Nadlan',
+      // ייחודי לכל משתמש/ת; לא מוצג לאיש מלבד ברשימת ה-factors
+      friendlyName: 'authenticator-' + Date.now(),
+    });
+    if (error) throw error;
+    const factorId = data.id;
+    host.innerHTML =
+        '<p class="mfa-step">1. סורקים את הקוד באפליקציית האימות</p>'
+      + '<img class="mfa-qr" alt="קוד QR להוספת החשבון לאפליקציית האימות" src="' + escapeHtml(data.totp.qr_code) + '">'
+      + '<p class="mfa-help" style="margin-top:0">אי אפשר לסרוק? מוסיפים באפליקציה חשבון ידנית עם המפתח:</p>'
+      + '<code class="mfa-secret" dir="ltr">' + escapeHtml(data.totp.secret) + '</code>'
+      + '<p class="mfa-step">2. מזינים את הקוד שמופיע באפליקציה</p>'
+      + '<form class="mfa-enroll-form"><div class="field">'
+      +   '<input type="text" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" aria-label="הקוד מהאפליקציה" required>'
+      + '</div><button type="submit" class="btn btn-gold btn-block">אישור והפעלה</button></form>';
+    const form = host.querySelector('.mfa-enroll-form');
+    const input = form.querySelector('input');
+    const btn = form.querySelector('button');
+    mfaDigitsOnly(input);
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      feedbackEl.style.color = 'var(--brick)';
+      feedbackEl.textContent = '';
+      if (!/^\d{6}$/.test(input.value)){ feedbackEl.textContent = 'הקוד הוא 6 ספרות.'; return; }
+      btn.disabled = true; btn.textContent = 'בודקים…';
+      try{
+        const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: input.value });
+        if (error) throw error;
+        await onDone();
+      } catch(err){
+        console.error('totp enroll verify failed', err);
+        feedbackEl.textContent = heErr(err);
+        btn.disabled = false; btn.textContent = 'אישור והפעלה';
+        input.select();
+      }
+    });
+    input.focus();
+  } catch(err){
+    console.error('totp enroll failed', err);
+    host.innerHTML = '';
+    feedbackEl.style.color = 'var(--brick)';
+    feedbackEl.textContent = heErr(err);
+  }
+}
+
 document.getElementById('mfaChallengeLogoutBtn').addEventListener('click', async ()=>{
   mfaStopPolling();
   await sb.auth.signOut(); routedUserId = null; showLoginCard();
@@ -1185,19 +1284,31 @@ async function renderMfaSection(){
   }
   accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
-  if (!s.required){
-    host.innerHTML = '<button type="button" class="btn btn-gold btn-block" id="mfaStartBtn">הפעלה</button>'
-                   + '<p class="mfa-help">ההפעלה עצמה היא הודעה אחת לגבריאלה מהנייד שבכרטיס, כדי לוודא שהוא עובד.</p>';
-    host.querySelector('#mfaStartBtn').addEventListener('click', async ()=>{
+  host.innerHTML =
+      (s.admin ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול פלטפורמה אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
+    + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
+    + '<div class="mfa-block" id="mfaTotpBlock"></div>';
+  renderMfaWaBlock(document.getElementById('mfaWaBlock'), s, fb);
+  renderMfaTotpBlock(document.getElementById('mfaTotpBlock'), s, fb);
+}
+
+/* ---- וואטסאפ ---- */
+function renderMfaWaBlock(box, s, fb){
+  if (!s.enabled){
+    box.innerHTML = '<p class="mfa-block-h">💬 הודעה בוואטסאפ</p>'
+                  + '<p class="mfa-help" style="margin:0 0 8px;text-align:right">בכל כניסה: כפתור שפותח הודעה מוכנה לגבריאלה, שולחים וחוזרים. ההפעלה עצמה היא הודעה כזו, כדי לוודא שהנייד שבכרטיס עובד.</p>'
+                  + '<button type="button" class="btn btn-gold btn-block">הפעלה</button>';
+    box.querySelector('button').addEventListener('click', async ()=>{
       fb.textContent = '';
       let url;
       try { ({ url } = await mfaWaStart(true)); }
       catch(err){ fb.style.color = 'var(--brick)'; fb.textContent = heErr(err); return; }
       // ‏await לפני הפתיחה, ולכן לא window.open (נחסם כחלון קופץ): כפתור
       // שני שהוא קישור אמיתי, ולחיצה עליו היא מחווה של המשתמש/ת.
-      host.innerHTML = '<a class="btn btn-gold btn-block" target="_blank" rel="noopener" href="' + escapeHtml(url) + '">שליחת ההודעה בוואטסאפ</a>'
-                     + '<p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. המקטע יתעדכן לבד.</p>';
-      host.querySelector('a').addEventListener('click', ()=>{
+      box.innerHTML = '<p class="mfa-block-h">💬 הודעה בוואטסאפ</p>'
+                    + '<a class="btn btn-gold btn-block" target="_blank" rel="noopener" href="' + escapeHtml(url) + '">שליחת ההודעה בוואטסאפ</a>'
+                    + '<p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. המקטע יתעדכן לבד.</p>';
+      box.querySelector('a').addEventListener('click', ()=>{
         fb.style.color = 'var(--ink-soft)';
         fb.textContent = 'מחכים להודעה בוואטסאפ…';
         mfaStartPolling(async (st)=>{
@@ -1214,25 +1325,68 @@ async function renderMfaSection(){
     });
     return;
   }
-
-  host.innerHTML =
-      '<div class="mfa-on"><b>✓ פעיל</b><br>כל כניסה חדשה מבקשת הודעה אחת לגבריאלה מהנייד שבכרטיס.</div>'
-    + (s.admin
-        ? '<p class="mfa-help">לחשבון עם הרשאת ניהול פלטפורמה האימות הזה הוא חובה, ולכן אי אפשר לכבות אותו.</p>'
-        : '<button type="button" class="btn btn-ghost btn-block" id="mfaOffBtn">כיבוי</button>');
-  const off = host.querySelector('#mfaOffBtn');
-  if (off) off.addEventListener('click', async ()=>{
-    if (!confirm('לכבות את אימות הכניסה בוואטסאפ? מעכשיו הסיסמה לבדה תספיק כדי להיכנס לחשבון.')) return;
+  box.innerHTML = '<div class="mfa-on"><b>✓ 💬 הודעה בוואטסאפ - פעיל</b><br>בכל כניסה חדשה: הודעה אחת לגבריאלה מהנייד שבכרטיס.</div>'
+                + '<button type="button" class="btn btn-ghost btn-block">כיבוי וואטסאפ</button>';
+  const off = box.querySelector('button');
+  off.addEventListener('click', async ()=>{
+    if (!confirm(s.totp ? 'לכבות את האימות בוואטסאפ? האפליקציה תמשיך לעבוד.'
+                        : 'לכבות את אימות הכניסה בוואטסאפ? אם אין אפליקציה פעילה, הסיסמה לבדה תספיק כדי להיכנס.')) return;
     off.disabled = true; off.textContent = 'מכבים…';
     const { error } = await sb.rpc('wa_2fa_disable');
     if (error){
-      fb.style.color = 'var(--brick)';
-      fb.textContent = heErr(error);
-      off.disabled = false; off.textContent = 'כיבוי';
+      fb.style.color = 'var(--brick)'; fb.textContent = heErr(error);
+      off.disabled = false; off.textContent = 'כיבוי וואטסאפ';
       return;
     }
-    showToast('אימות הכניסה בוואטסאפ כובה');
+    showToast('האימות בוואטסאפ כובה');
     renderMfaSection();
+  });
+}
+
+/* ---- אפליקציית אימות ---- */
+function renderMfaTotpBlock(box, s, fb){
+  if (!s.totp){
+    box.innerHTML = '<p class="mfa-block-h">📱 אפליקציית אימות</p>'
+                  + '<p class="mfa-help" style="margin:0 0 8px;text-align:right">בכל כניסה: קוד בן 6 ספרות מאפליקציה כמו <bdi dir="ltr">Google Authenticator</bdi> או <bdi dir="ltr">Microsoft Authenticator</bdi>. עובד גם בלי קליטה.</p>'
+                  + '<button type="button" class="btn btn-ghost btn-block">הפעלה</button>';
+    box.querySelector('button').addEventListener('click', ()=>{
+      const area = document.createElement('div');
+      box.querySelector('button').replaceWith(area);
+      mfaMountTotpEnroll(area, fb, async ()=>{
+        showToast('אפליקציית האימות הופעלה');
+        await renderMfaSection();
+      });
+    });
+    return;
+  }
+  box.innerHTML = '<div class="mfa-on"><b>✓ 📱 אפליקציית אימות - פעיל</b><br>בכל כניסה חדשה אפשר להזין קוד מהאפליקציה.</div>'
+                + '<button type="button" class="btn btn-ghost btn-block">כיבוי האפליקציה</button>'
+                + '<p class="mfa-help">טלפון חדש? מכבים כאן ומפעילים מחדש מהטלפון החדש.</p>';
+  const off = box.querySelector('button');
+  off.addEventListener('click', async ()=>{
+    if (!confirm(s.enabled ? 'לכבות את אפליקציית האימות? האימות בוואטסאפ ימשיך לעבוד.'
+                           : 'לכבות את אפליקציית האימות? אם אין אימות בוואטסאפ, הסיסמה לבדה תספיק כדי להיכנס.')) return;
+    off.disabled = true; off.textContent = 'מכבים…';
+    try{
+      const { data, error } = await sb.auth.mfa.listFactors();
+      if (error) throw error;
+      for (const f of (data?.totp || [])){
+        const { error: uErr } = await sb.auth.mfa.unenroll({ factorId: f.id });
+        if (uErr) throw uErr;
+      }
+      // ה-session עדיין aal2 עם factor שנמחק; רענון מיישר אותו
+      await sb.auth.refreshSession();
+      showToast('אפליקציית האימות כובתה');
+      renderMfaSection();
+    } catch(err){
+      console.error('totp unenroll failed', err);
+      fb.style.color = 'var(--brick)';
+      // ‏Supabase Auth מתיר להסיר אפליקציה רק מ-session שנכנס עם קוד ממנה
+      fb.textContent = (err?.code === 'insufficient_aal' || /aal2/i.test(err?.message || ''))
+        ? 'כדי לכבות את האפליקציה צריך להיכנס עם קוד ממנה (ולא בוואטסאפ). אפשר לצאת, להיכנס שוב עם הקוד, ולכבות.'
+        : heErr(err);
+      off.disabled = false; off.textContent = 'כיבוי האפליקציה';
+    }
   });
 }
 

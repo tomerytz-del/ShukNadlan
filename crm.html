@@ -604,6 +604,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mfa-help{font-size:.75rem;line-height:1.6;color:var(--ink-soft);text-align:center;margin:12px 0 0}
   .mfa-on{border:1.5px solid var(--teal);background:#F1F6F5;border-radius:var(--radius-sm);padding:12px 14px;font-size:.84rem;line-height:1.6;margin-bottom:10px}
   #mfaWaLink[aria-disabled="true"]{opacity:.55;pointer-events:none}
+  /* אפליקציית אימות: הקוד גדול ומרווח כי מעתיקים אותו בעין מטלפון אחר;
+     ה-QR על רקע לבן גם בלילה, אחרת מצלמות לא קוראות אותו. */
+  .mfa-code{font-size:1.4rem;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}
+  .mfa-qr{display:block;width:180px;height:180px;margin:6px auto 10px;background:#fff;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--line)}
+  .mfa-secret{display:block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;word-break:break-all;text-align:center;user-select:all;background:var(--paper,#f6f3ee);padding:7px 9px;border-radius:var(--radius-sm);margin-bottom:12px}
+  .mfa-step{font-size:.84rem;line-height:1.6;margin:0 0 6px;font-weight:700}
+  .mfa-block{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+  .mfa-block-h{font-size:.88rem;font-weight:800;margin:0 0 4px}
 
   /* שני שלבי האישור חיים באותו חלון ומתחלפים בו. שלב אחד = מסך אחד:
      תיבת סימון ואז הקלדה, ולעולם לא שניהם יחד — אחרת "אישור כפול" הוא רק
@@ -5565,6 +5573,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="mfa-help" id="mfaAdminNote" hidden style="margin:0 0 12px">לחשבון עם הרשאת ניהול פלטפורמה האימות הזה הוא חובה בכל כניסה.</p>
     <a class="btn btn-gold btn-block" id="mfaWaLink" href="#" target="_blank" rel="noopener" aria-disabled="true">אימות בוואטסאפ</a>
     <div id="mfaWaStatus" role="status" aria-live="polite" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <!-- למי שהפעיל/ה גם אפליקציית אימות: הדרך השנייה, באותו מסך. מוצג רק
+         כשיש factor מאומת (mfa_status.totp). -->
+    <form id="mfaTotpForm" hidden style="margin-top:6px;padding-top:12px;border-top:1px solid var(--line)">
+      <div class="field">
+        <label for="mfaTotpCode">או: הקוד מאפליקציית האימות</label>
+        <input type="text" id="mfaTotpCode" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr">
+      </div>
+      <button type="submit" class="btn btn-ghost btn-block" id="mfaTotpBtn">כניסה עם הקוד</button>
+      <div id="mfaTotpFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em;color:var(--brick)"></div>
+    </form>
     <p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. הנייד הוחלף או אין גישה לוואטסאפ? לתמיכה: <a href="tel:+972546929991" dir="ltr">054-6929991</a></p>
     <button type="button" class="btn btn-ghost btn-block" id="mfaChallengeLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
@@ -9249,17 +9267,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
-    <!-- ---------- אימות כניסה בוואטסאפ ----------
-         ההפעלה והכיבוי (docs/mfa.md). ההפעלה נכנסת לתוקף רק אחרי הודעה
+    <!-- ---------- אימות כניסה: וואטסאפ ו/או אפליקציה ----------
+         ההפעלה והכיבוי של כל אחת מהשתיים (docs/mfa.md). בוואטסאפ ההפעלה נכנסת לתוקף רק אחרי הודעה
          אחת מהנייד שבכרטיס, כדי שלא יופעל אימות לנייד שלא עובד. -->
     <details class="acc" id="accSecurity">
       <summary>
-        <span class="acc-title">אימות כניסה בוואטסאפ</span>
+        <span class="acc-title">אימות כניסה</span>
         <span class="acc-count" id="accSecurityCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">שכבת הגנה נוספת על החשבון: בכל כניסה חדשה, אחרי הסיסמה או Google, שולחים הודעה מוכנה אחת לגבריאלה בוואטסאפ מהנייד שבכרטיס. כך מי שהשיג/ה את הסיסמה שלך עדיין לא מגיע/ה ללקוחות, ללידים ולהסכמים.</p>
+        <p class="acc-sub">שכבת הגנה נוספת על החשבון: בכל כניסה חדשה, אחרי הסיסמה או Google, מאמתים עוד פעם אחת - בהודעה מוכנה לגבריאלה בוואטסאפ, או בקוד מאפליקציית אימות. אפשר להפעיל אחת מהן או את שתיהן, ובכניסה עוברים באיזו שנוחה. כך מי שהשיג/ה את הסיסמה שלך עדיין לא מגיע/ה ללקוחות, ללידים ולהסכמים.</p>
         <div id="mfaSection"></div>
         <div id="mfaSectionFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </div>

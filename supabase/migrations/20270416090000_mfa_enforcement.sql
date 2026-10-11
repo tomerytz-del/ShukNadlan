@@ -11,11 +11,13 @@
 -- ‏**האימות הוא לכל session**, לפי ה-claim ‏session_id שב-JWT. הוא נשמר
 -- לאורך חידושי הטוקן, כלומר מאמתים פעם אחת בכל כניסה ולא בכל טעינה.
 --
+-- ‏**ולצדה, למי שמעדיף/ה: אפליקציית אימות** (‏TOTP של Supabase Auth, ‏aal2
+-- ב-JWT). שתי הדרכים שקולות: מי שחייב/ת אימות יכול/ה לעבור בכל אחת מהן.
+--
 -- מי חייב/ת אימות (‏_mfa_pending_self):
---   * מי שהפעיל/ה (‏agent_wa_2fa)
+--   * מי שהפעיל/ה וואטסאפ (‏agent_wa_2fa) או אפליקציה (factor מאומת)
 --   * מנהל/ת פלטפורמה פעיל/ה — תמיד, גם בלי שהפעיל/ה. ההרשאה הרחבה ביותר
 --     במערכת אינה יכולה להישען על סיסמה אחת.
---   ‏aal2 של Supabase Auth (‏TOTP) נחשב גם הוא אימות, אם יופעל בעתיד.
 --
 -- ‏**האכיפה: pre-request של PostgREST, ולא policy בכל טבלה.** הפונקציה רצה
 -- לפני כל בקשה ל-Data API (טבלאות ו-RPC כאחד, כולל SECURITY DEFINER שעוקפות
@@ -67,7 +69,8 @@ create index if not exists wa_login_verifications_session_idx
 -- 2. האם ה-session הנוכחי חייב אימות ועוד לא אומת — **על עצמו/ה בלבד**,
 --    לפי auth.uid(). בלי פרמטר בכוונה: גרסה שמקבלת uuid הייתה מאפשרת לכל
 --    משתמש/ת לברר על אחרים מי מנהל/ת פלטפורמה. ‏security definer כי שתי
---    הטבלאות למעלה סגורות, ו-agency_members מוגבלת ב-RLS.
+--    הטבלאות למעלה סגורות, ‏auth.mfa_factors אינה קריאה ל-authenticated
+--    (נבדק: has_table_privilege = false), ו-agency_members מוגבלת ב-RLS.
 -- ---------------------------------------------------------------------------
 create or replace function public._mfa_pending_self()
 returns boolean
@@ -80,6 +83,8 @@ as $$
      and coalesce(auth.jwt()->>'aal', '') <> 'aal2'
      and (
            exists (select 1 from agent_wa_2fa t where t.user_id = auth.uid())
+        or exists (select 1 from auth.mfa_factors f
+                    where f.user_id = auth.uid() and f.status = 'verified')
         or exists (select 1 from agency_members m
                     where m.user_id = auth.uid() and m.is_platform_admin = true and m.active = true)
          )
@@ -164,7 +169,8 @@ grant execute on function public.mfa_pre_request() to anon, authenticated, servi
 --
 -- ‏pending: חייב/ת אימות ועוד לא אימת/ה (כלומר כרגע אורח/ת במסד)
 -- ‏enabled: הפעיל/ה אימות בוואטסאפ
--- ‏required: חייב/ת אימות בכל כניסה (הפעיל/ה, או מנהל/ת פלטפורמה)
+-- ‏totp: יש אפליקציית אימות מאומתת
+-- ‏required: חייב/ת אימות בכל כניסה (הפעיל/ה אחת מהשתיים, או מנהל/ת פלטפורמה)
 -- ‏has_phone: יש נייד בכרטיס — בלעדיו אין לאן לאמת
 -- ---------------------------------------------------------------------------
 create or replace function public.mfa_status()
@@ -178,6 +184,7 @@ declare
   v_pending boolean := nullif(current_setting('shuk.mfa_pending_sub', true), '') is not null;
   v_uid     uuid := coalesce(auth.uid(), nullif(current_setting('shuk.mfa_pending_sub', true), '')::uuid);
   v_enabled boolean;
+  v_totp    boolean;
   v_admin   boolean;
   v_phone   boolean;
 begin
@@ -185,6 +192,7 @@ begin
     return jsonb_build_object('pending', false, 'enabled', false, 'required', false);
   end if;
   select exists (select 1 from agent_wa_2fa where user_id = v_uid) into v_enabled;
+  select exists (select 1 from auth.mfa_factors where user_id = v_uid and status = 'verified') into v_totp;
   select coalesce(bool_or(is_platform_admin and active), false),
          coalesce(bool_or(phone_e164 is not null and phone_e164 <> ''), false)
     into v_admin, v_phone
@@ -192,7 +200,8 @@ begin
   return jsonb_build_object(
     'pending',   v_pending,
     'enabled',   v_enabled,
-    'required',  v_enabled or v_admin,
+    'totp',      v_totp,
+    'required',  v_enabled or v_totp or v_admin,
     'admin',     v_admin,
     'has_phone', v_phone
   );
