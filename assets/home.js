@@ -826,14 +826,10 @@ document.querySelectorAll('.owner-toggle button').forEach(btn=>{
   });
 });
 
-/* --- שלב 2: צ'יפים של בחירה יחידה (מצב הנכס, חדרים) --- */
+/* --- שלב 2: בחירה יחידה מרשימה (מצב הנכס, חדרים) --- */
 function bindSingleChoice(attr, onPick){
-  document.querySelectorAll(`.chip[data-${attr}]`).forEach(chip=>{
-    chip.addEventListener('click', ()=>{
-      chip.parentElement.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
-      chip.setAttribute('aria-checked','true');
-      onPick(chip.dataset[attr]);
-    });
+  document.querySelectorAll(`select[data-pick="${attr}"]`).forEach(sel=>{
+    sel.addEventListener('change', ()=> onPick(sel.value || null));
   });
 }
 // ניקוי השגיאה מיד עם הבחירה, ולא רק בניסיון המעבר הבא — אחרת ההודעה
