@@ -24,7 +24,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
-  addDays, cleanSummary, type CoachSummary, compactPeriod, monthlyTotals, type Row, SUMMARY_SCHEMA,
+  addDays, cleanSummary, type CoachSummary, compactPeriod, type Genders, monthlyTotals, type Row, SUMMARY_SCHEMA,
 } from "./payload.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -76,15 +76,32 @@ const SYSTEM_PROMPT = `את/ה מאמן/ת ניהולי/ת למשרדי תיוו
 - כל נקודה נשענת על מספר מהנתונים. לא להמציא מספרים, שמות או אירועים שאינם בנתונים.
 - כשהנתונים דלים (משרד קטן, שבוע שקט), לומר זאת בפשטות ולהציע צעד אחד קטן. לא לנפח.
 - מספר קטן (ליד אחד, עסקה אחת) אינו מגמה. לא להסיק ממנו מסקנות.
-- להעדיף כלים שכבר קיימים במערכת כשהם רלוונטיים: דוח CMA לפגישת גיוס, סרטון שיווקי
-  והדמיות לנכס, מיניסייט ללקוח/ה, החתמה דיגיטלית, גבריאלה (העוזרת בוואטסאפ), התאמות
-  חכמות, וכפתורי "חיוג"/"וואטסאפ" בכרטיס הליד (הם גם מה שנרשם כזמן התגובה).
+- להעדיף כלים שכבר קיימים במערכת כשהם רלוונטיים, ולהמליץ על כל כלי רק במה שכתוב עליו
+  כאן. יכולת שלא מופיעה ברשימה לא קיימת, ולא ממליצים עליה.
+  - כפתורי "חיוג" ו"וואטסאפ" בכרטיס הליד: הסוכן/ת פונה לליד מהטלפון שלו/ה. זו הדרך
+    היחידה שבה מענה לליד נרשם במערכת ונספר בזמן התגובה.
+  - דוח CMA: עסקאות דומות בסביבה, להכנה לפגישת גיוס או לשיחת מחיר עם בעלים.
+  - סרטון שיווקי לנכס: הסוכן/ת מפיק/ה סרטון לנכס קיים. העלות לפי המסלול.
+  - הדמיות בדף הנכס: גולשים מבקשים הדמיה של הנכס, ובקשה עם פרטים נכנסת כליד.
+  - מיניסייט ללקוח/ה: עמוד אישי עם נכסים מתאימים, שהסוכן/ת שולח/ת ללקוח/ה.
+  - התאמות חכמות: התראה לסוכן/ת כשנכס מתאים ללקוח/ה מקובץ הלקוחות.
+  - החתמה דיגיטלית: שליחת הסכם תיווך או בלעדיות לחתימה בטלפון.
+  - גבריאלה: עוזרת אישית לסוכן/ת בוואטסאפ (נכסים, לקוחות, יומן, רשימת הלידים),
+    ובוט ציבורי שעונה למי שפונה אליו בעצמו. גבריאלה אינה פונה ללידים ואינה עונה להם.
+- אין במערכת, ולכן לא ממליצים: מענה אוטומטי או ראשוני ללידים, העברת ליד מסוכן/ת
+  לסוכן/ת, ושליחת הודעות ללקוחות בשם הסוכן/ת. חלוקת עבודה בצוות מנסחים כהחלטה של
+  המנהל/ת ("מי מתקשר/ת ללידים של השבוע"), ולא כפעולה במערכת.
 - עמלות הן הערכה. השפעה צפויה היא הערכה או מדד הצלחה, לא הבטחה.
 - לא לחזור על אותן נקודות של השבוע הקודם אם לא השתנה דבר - לומר מה התקדם או לא.
 - הטון חם, ישיר ומקצועי. בלי אימוג'י ובלי סימני קריאה מיותרים. לא להאשים סוכן/ת.
 
 כתיבה:
-- עברית. ניסוח מגדרי עם לוכסן (סוכן/ת, מוביל/ה).
+- עברית. ניסוח מגדרי עם לוכסן (סוכן/ת, מוביל/ה) רק כשמדברים על תפקיד או על קבוצה.
+- לסוכן/ת שיש לו/ה gender בנתונים ("male" או "female"), כותבים בלשון המתאימה: פועל,
+  תואר וכינוי ("טל גייסה", "תומר קבע 7 פגישות", "אין לה לידים פתוחים").
+- לסוכן/ת בלי gender אין מין ידוע, ולכן לא כותבים פועל, תואר או כינוי בלוכסן ("טל גייס/ה"
+  אסור) וגם לא מנחשים ("אין לו" אסור). מנסחים סביב השם, גם בהמשך המשפט: "10 גיוסים של
+  טל השבוע", "אצל תומר: 7 פגישות", "לטל אין כרגע לידים פתוחים".
 - מקף רגיל (-) בלבד, לעולם לא מקף ארוך.
 - כותרת: עד 12 מילים. כותרת של נקודה: עד 8 מילים. גוף נקודה: עד 45 מילים.
 - owner: מי מוביל/ה את הנקודה - שם סוכן/ת מהנתונים, "מנהל/ת המשרד" או "כל הצוות".`;
@@ -186,13 +203,19 @@ Deno.serve(async (req: Request) => {
       results.push({ agency_id: office.agency_id, skipped: "time_budget" });
       continue;
     }
-    const [wk, mo, prev] = await Promise.all([
+    const [wk, mo, prev, members] = await Promise.all([
       supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: lastWeek.from, p_to: lastWeek.to }),
       supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: last30.from, p_to: last30.to }),
       supabase.from("office_coach_summaries").select("week_start, summary")
         .eq("agency_id", office.agency_id).lt("week_start", weekStart)
         .order("week_start", { ascending: false }).limit(1).maybeSingle(),
+      // ‏מין לכל סוכן/ת, לניסוח בלשון הנכונה. כשל כאן אינו מפיל את המשרד:
+      // בלי מין המודל פשוט מנסח סביב השמות.
+      supabase.from("agency_members").select("id, gender").eq("agency_id", office.agency_id),
     ]);
+    const genders: Genders = Object.fromEntries(
+      ((members.data ?? []) as { id: string; gender: string | null }[]).map((m) => [m.id, m.gender]),
+    );
     if (wk.error || mo.error) {
       results.push({ agency_id: office.agency_id, error: "db_error", detail: (wk.error ?? mo.error)?.message });
       continue;
@@ -201,8 +224,8 @@ Deno.serve(async (req: Request) => {
     const payload = {
       week: lastWeek,
       response_time_method: (wk.data as Row)?.data_notes,
-      last_week: compactPeriod(wk.data as Row),
-      last_30_days: compactPeriod(mo.data as Row),
+      last_week: compactPeriod(wk.data as Row, genders),
+      last_30_days: compactPeriod(mo.data as Row, genders),
       monthly_office_totals_12m: monthlyTotals(mo.data as Row),
       previous_week_points: prevSummary?.points?.map((p) => p.title) ?? null,
     };

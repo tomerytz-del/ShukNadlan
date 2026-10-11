@@ -84,7 +84,7 @@ const FEATURE_LABELS: Record<string, string> = {
   ev_charger: "עמדת טעינה לרכב חשמלי",
 };
 
-function featureNames(features: unknown): string[] {
+export function featureNames(features: unknown): string[] {
   if (!Array.isArray(features)) return [];
   return features.map((f) => FEATURE_LABELS[String(f)]).filter(Boolean);
 }

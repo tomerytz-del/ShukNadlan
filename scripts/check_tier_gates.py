@@ -71,6 +71,14 @@ GATES = {
     # החיבור ל-Google נבדק באותו גייט ב-google-calendar-connect וב-callback,
     # ושוב בכל סבב של google_calendar_sync_claim.
     'יומן פגישות ומשימות עם תזכורות בוואטסאפ ובפעמון, וחיבור ליומן Google': 'agent_agenda_enabled',
+    # הפולואפ ללקוח/ה נשלח רק על פריט ביומן, וכל פריט עובר את
+    # ‏agent_agenda_items_before - כלומר אותו גייט של היומן.
+    'אישור פגישה ללקוח/ה בוואטסאפ עם הוספה ליומן, תזכורות ומשוב אחרי סיור':
+        'agent_agenda_enabled',
+    # ‏agent_showing_coord_start מסרבת (tier_required) מחוץ למסלול, וגם
+    # ההצעה של גבריאלה (showing_coord_offer_claim) בודקת את אותו גייט.
+    'תיאום ביקור עם בעלי הנכסים והמתווכים בוואטסאפ, בלחיצה אחת':
+        'agent_agenda_enabled',
     'מדריך התחלה מלווה בצעדים הראשונים':           'agent_onboarding_active',
     # ההגבלה ההפוכה מכל השאר: מה ש-Pay&GO **אינו** רשאי לכתוב. הכלל חי
     # בטריגר על properties ועל agency_members, ולא בבדיקה בדפדפן.

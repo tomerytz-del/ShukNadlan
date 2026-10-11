@@ -163,7 +163,18 @@ function accSetCount(accId, value, n){
   accCounts[accId] = (typeof n === 'number') ? n
     : (typeof value === 'number') ? value
     : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
-  refreshNavCounts();
+  scheduleNavCounts();
+}
+
+/* ‏refreshNavCounts בונה מחדש את "דורש טיפול מיידי", את הסרגל התחתון ואת
+   סרגל הצד. כל קטגוריה שנטענת קוראת ל-accSetCount, ובכניסה זה יצא 38 בניות
+   מלאות בזו אחר זו - כשהקטגוריות נטענות במקביל, רובן באותו פריים. כאן הן
+   מתקבצות לבנייה אחת לפריים. קריאה ישירה ל-refreshNavCounts (סוף
+   loadDashboard, למשל) עדיין מיידית, ומבטלת את מה שממתין. */
+let navCountsFrame = 0;
+function scheduleNavCounts(){
+  if (navCountsFrame) return;
+  navCountsFrame = requestAnimationFrame(()=>{ navCountsFrame = 0; refreshNavCounts(); });
 }
 
 /* שורת הסיכום שמתחת לשם הקטגוריה. בניגוד ל-accSetCount היא טקסט בלבד ולא
@@ -412,7 +423,7 @@ async function refreshAgentBalance(){
   return setAgentBalance(data.credit_balance);
 }
 
-function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false }){
+function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false, terms = true }){
   const overlay   = document.getElementById('purchaseModal');
   /* החלון יושב ב-HTML בתוך `#dashboard`, שהוא `display:none` במסך שער
      המסלול — ושם בדיוק נדרש עכשיו אישור המעבר עם תיבת הסימון. ההעברה
@@ -441,6 +452,9 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
     `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)}.`;
 
   ackWrap.style.display = needAck ? 'flex' : 'none';
+  // ‏"הרכישה כפופה לתקנון" היא דרישת חברת הסליקה לרכישה. אישור שאינו רכישה
+  // (מינוי מנהל/ת) מכבה אותה במפורש; ברירת המחדל נשארת מוצגת
+  document.getElementById('pmAckTerms').style.display = terms ? '' : 'none';
   ackBox.checked = false;
   confirmBtn.textContent = confirmLabel || (paid ? `אישור רכישה וחיוב ${shekel(price)}` : 'אישור');
   confirmBtn.disabled = needAck;           // נדלק רק אחרי סימון ה"אני מבין/ה"
@@ -1926,7 +1940,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
+    .select(AGENT_FIELDS + ', page_bg, id_number, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1934,7 +1948,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת - נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -2058,35 +2072,52 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
   loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
 
-  // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
-  await loadPricing();
-  const freeQuota = priceOf('free_lead_quota_monthly', 10);
-  document.getElementById('quotaUsed').textContent =
-    agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
-  renderQuotaMeter(freeQuota);
+  /* הטעינה במקביל, ולא בטור. עד אוקטובר 2026 כל אחת מכ-13 הטעינות כאן
+     חיכתה לקודמת לה, גם כשלא השתמשה בשום דבר ממנה - כ-25 סבבים לשרת בזה
+     אחר זה, ומונה הלקוחות בראש הדשבורד היה ממתין לכ-18 מהם. עכשיו כל מה
+     שעצמאי יוצא מיד, ומה שתלוי ממתין רק למה שהוא באמת צריך:
 
-  // רשימת השת"פ נטענת לפני הנכסים: היא מזינה את ספירת המשרדים שמוצגת
-  // בדיאלוג האישור של "פתיחה לשת״פ" בשורת הנכס
-  await loadSharePartners(agent);
-  await loadProperties(agent.id);
-  await loadLeads(agent.id);
-  await loadLeadShelf(agent.id);
-  await loadSavedSearchShelf(agent.id);
-  await loadSharedWithMe();
-  await loadClients();
-  // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
-  loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
-  await loadClientAlerts();
-  await loadAgreements();
-  await loadNotifications(agent.id);
-  await loadNotifPrefs(agent.id);
-  // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
-  loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+     * הלידים והלקוחות - אחרי הנכסים: כרטיס הליד ושורת השיחה מציגים את
+       הנכס מתוך myPropertyRows.
+     * מדפי חנות הלידים - אחרי המחירים: הם מציגים priceOf.
+     * התראות ההתאמה, יומן השיחות והיומן - אחרי הלקוחות: הם קוראים
+       clientRows. השניים האחרונים ממשיכים לרוץ ברקע כמו קודם.
+
+     ‏Promise.all ולא allSettled בכוונה: כישלון עוצר את סוף הפונקציה בדיוק
+     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה. */
+  const pricingP = loadPricing().then(()=>{
+    // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+    const freeQuota = priceOf('free_lead_quota_monthly', 10);
+    document.getElementById('quotaUsed').textContent =
+      agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
+    renderQuotaMeter(freeQuota);
+  });
+  // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
+  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם
+  const propsP = Promise.all([loadSharePartners(agent), loadProperties(agent.id)]);
+  const clientsP = propsP.then(()=> loadClients()).then(()=>{
+    // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+    loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
+    // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
+    loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+    return loadClientAlerts();
+  });
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
-  await loadPreferences(agent.id);
+  await Promise.all([
+    pricingP,
+    propsP,
+    clientsP,
+    propsP.then(()=> loadLeads(agent.id)),
+    pricingP.then(()=> Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])),
+    loadSharedWithMe(),
+    loadAgreements(),
+    loadNotifications(agent.id),
+    loadNotifPrefs(agent.id),
+    loadPreferences(agent.id),
+  ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
   loadEthicsSettings(agent);
@@ -2101,10 +2132,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
   syncOfficeExportButtons();
   if (agent.role === 'manager'){
-    await loadBranding(agent.agency_id);
-    await loadTeam(agent.agency_id, agent.id);
-    await loadPendingReviews(agent.agency_id);
-    await loadAgencyEthics(agent.agency_id);
+    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
+    await Promise.all([
+      loadBranding(agent.agency_id),
+      loadTeam(agent.agency_id, agent.id),
+      loadPendingReviews(agent.agency_id),
+      loadAgencyEthics(agent.agency_id),
+    ]);
   } else {
     document.getElementById('ethicsAgencyBlock').hidden = true;
   }
@@ -2113,14 +2147,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
-    await loadLicenseAppeals();
-    await loadRefundQueue();
-    await loadSubscriptionsAdmin();
-    await loadNeighborhoodsAdmin();
-    await loadRssSourcesAdmin();
-    await loadArticlesAdmin();
-    await loadProfessionalCardsAdmin();
-    await loadUnroutedLeads();
+    await Promise.all([
+      loadLicenseAppeals(),
+      loadRefundQueue(),
+      loadSubscriptionsAdmin(),
+      loadNeighborhoodsAdmin(),
+      loadRssSourcesAdmin(),
+      loadArticlesAdmin(),
+      loadProfessionalCardsAdmin(),
+      loadUnroutedLeads(),
+    ]);
   }
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
@@ -6716,6 +6752,7 @@ function loadProfileSettings(agent){
   document.getElementById('pfIdNumber').value = agent.id_number || '';
   // מה שכבר שמור נחשב מאושר: הבדיקה חוזרת רק כשהמספר משתנה
   document.getElementById('pfIdNumber').dataset.ilIdOk = agent.id_number || '';
+  document.getElementById('pfGender').value = agent.gender || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
   renderMarketChoices(Array.isArray(agent.service_markets) ? agent.service_markets : []);
@@ -7107,6 +7144,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     const patch = {
       display_name: name,
       id_number: document.getElementById('pfIdNumber').value.trim() || null,
+      // ‏מין - לניסוח טקסטים שמזכירים את הסוכן/ת בשמו/ה (מאמן ה-AI). ריק = לא ידוע.
+      gender: document.getElementById('pfGender').value || null,
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
       photo_position: profileState.photo ? photoPositionCss(profileState.photoPos) : null,
@@ -7117,19 +7156,20 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
       updated_at: new Date().toISOString(),
     };
-    const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, ' +
+    const RETURNED = 'display_name, license_number, id_number, gender, bio, photo_url, photo_position, ' +
       'years_experience, service_area, credentials, specialties, gallery';
 
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
       .eq('id', currentAgent.id).select(returned).single();
 
     let { data: saved, error } = await saveProfile(patch, RETURNED);
-    // ‏id_number נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
-    // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלעדיה.
-    if (error && /id_number/.test(error.message || '')){
+    // ‏id_number ו-gender נוספו אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה
+    // עוד לא רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני
+    // בלעדיהן.
+    if (error && /id_number|gender/.test(error.message || '')){
       console.warn('שמירה נכשלה על עמודה חסרה - נשמר הפרופיל בלעדיה:', error);
-      const { id_number, ...core } = patch;
-      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, ', '')));
+      const { id_number, gender, ...core } = patch;
+      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, gender, ', '')));
     }
     if (error) throw error;
 
@@ -7151,6 +7191,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfLicense').value = saved.license_number || '';
     document.getElementById('pfIdNumber').value = saved.id_number || '';
     document.getElementById('pfIdNumber').dataset.ilIdOk = saved.id_number || '';
+    document.getElementById('pfGender').value = saved.gender || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
     renderMarketChoices(saved.service_markets || serviceMarkets);
@@ -10613,6 +10654,8 @@ async function loadTeam(agencyId, callerId){
         },
       });
       addPhoneAction(actions, m, agencyId, callerId);
+      // ‏אפשר למנות כבר בהזמנה: התפקיד יושב על הכרטיס, והסוכן/ת נכנס/ת כמנהל/ת
+      addRoleAction(actions, m, agencyId, callerId);
       addCardAction(actions, {
         label: '🗑 ביטול ההזמנה',
         onClick: async ()=>{
@@ -10640,14 +10683,9 @@ async function loadTeam(agencyId, callerId){
       // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים - לא לעצמך (הטריגר ב-DB חוסם
       // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
       const actions = el2.querySelector('.lead-actions');
-      const newRole = m.role === 'manager' ? 'agent' : 'manager';
 
+      addRoleAction(actions, m, agencyId, callerId);
       addPhoneAction(actions, m, agencyId, callerId);
-
-      addCardAction(actions, {
-        label: m.role === 'manager' ? '↓ הורדה לסוכן/ת' : '↑ קידום למנהל/ת',
-        onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
-      });
 
       // השעיה = ניתוק מהמשרד. הכפתור אומר את זה במפורש, כי הפעולה הישנה
       // ("השעיה" שלא חסמה כלום) לימדה שזו לחיצה קלה בלי משמעות.
@@ -10794,6 +10832,7 @@ async function releaseMember(m, ownedCount, agencyId, callerId){
     lines,
     hidePrice: true,
     requireAck: true,
+    terms: false,          // ‏השעיה אינה רכישה - בלי "הרכישה כפופה לתקנון"
     ackText: `אני מבין/ה ש-${m.display_name} יוצא/ת מהמשרד ושהנכסים עוברים איתו/ה.`,
     confirmLabel: 'השעיה וניתוק',
   });
@@ -10828,9 +10867,54 @@ function addPhoneAction(actions, m, agencyId, callerId){
   });
 }
 
+/* ---------- מינוי מנהל/ת נוסף/ת ----------
+   במשרד אין "בעלים": ‏role = 'manager' הוא כל ההרשאה, וכל מנהל/ת שווה לכל
+   האחרים - ה-RLS (‏current_member_role()), פונקציות ה-Edge (‏caller.role)
+   ו-#managerSection בודקים את אותה עמודה. לכן מינוי הוא עדכון שורה אחד,
+   שמותר למנהל/ת באותו משרד, וחסום לעצמך בטריגר
+   ‏protect_sensitive_agency_member_fields (אף אחד לא מקדם את עצמו).
+   ההורדה חוזרת דרך אותו כפתור, ולכן אי אפשר להשאיר משרד בלי מנהל/ת:
+   מי שלוחץ/ת הוא/היא מנהל/ת, ואת עצמו/ה אינו/ה יכול/ה להוריד. */
+function addRoleAction(actions, m, agencyId, callerId){
+  const promote = m.role !== 'manager';
+  addCardAction(actions, {
+    label: promote ? '👑 מינוי למנהל/ת נוסף/ת' : '↓ הורדה לסוכן/ת',
+    cls: promote ? 'btn-gold' : '',
+    onClick: ()=> setMemberRole(m, promote ? 'manager' : 'agent', agencyId, callerId),
+  });
+}
+
+async function setMemberRole(m, role, agencyId, callerId){
+  const name = m.display_name || 'הסוכן/ת';
+  const ok = role === 'manager'
+    ? await confirmPurchase({
+        title: 'מינוי למנהל/ת משרד',
+        lines: [
+          `${name} יקבל/תקבל את כל ההרשאות של מנהל/ת המשרד, בדיוק כמוך:`,
+          'דאשבורד המשרד, שיחות המשרד וביקורות שממתינות לאישור.',
+          'צוות המשרד - הוספת סוכנים, השעיה, אישור בקשות שיוך ומינוי מנהלים.',
+          'מיתוג ועיצוב דף המשרד.',
+          'ההרשאות נכנסות לתוקף בכניסה הבאה שלו/ה ל-CRM (או ברענון הדף).',
+          'אפשר להוריד חזרה לסוכן/ת בכל עת מאותו מקום.',
+        ],
+        hidePrice: true,
+        requireAck: true,
+        terms: false,
+        ackText: `אני מאשר/ת ש-${name} יהיה/תהיה מנהל/ת במשרד.`,
+        confirmLabel: 'מינוי למנהל/ת',
+      })
+    : confirm(`להוריד את ${name} ממנהל/ת לסוכן/ת? ההרשאות של מנהל/ת המשרד יוסרו.`);
+  if (!ok) return;
+  // ‏RLS שחוסם עדכון מחזיר 0 שורות ולא שגיאה, ולכן בודקים שהשורה חזרה
+  const { data, error } = await sb.from('agency_members').update({ role }).eq('id', m.id).select('id');
+  if (error){ showToast('שגיאה: ' + heErr(error)); return; }
+  if (!data || !data.length){ showToast('העדכון לא נשמר. נסו לרענן את הדף.'); return; }
+  showToast(role === 'manager' ? `${name} מונה/תה למנהל/ת במשרד` : `${name} הוחזר/ה לסוכן/ת`);
+  await loadTeam(agencyId, callerId);
+}
+
 async function updateMemberField(memberId, changes, agencyId, callerId){
-  const label = 'role' in changes ? (changes.role === 'manager' ? 'לקדם את הסוכן/ת למנהל/ת?' : 'להוריד את הסוכן/ת ממנהל לסוכן רגיל?')
-    : (changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.');
+  const label = changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.';
   if (!confirm(label)) return;
   const { error } = await sb.from('agency_members').update(changes).eq('id', memberId);
   if (error){ showToast('שגיאה: ' + heErr(error)); return; }
@@ -13583,6 +13667,22 @@ const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
 function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test(error.message || ''); }
 
+/* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
+   שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
+   לתקרת 1,000 השורות של PostgREST הספירה גם יצאה נמוכה מהאמת. כשהפונקציה
+   עוד לא קיימת (המיגרציה 20270416090000 טרם רצה) נופלים לדרך הישנה. */
+async function loadPropertyViewCounts(propertyIds){
+  const counts = {};
+  const { data, error } = await sb.rpc('property_view_counts', { p_property_ids: propertyIds });
+  if (!error){
+    (data||[]).forEach(r => { counts[r.property_id] = Number(r.views) || 0; });
+    return counts;
+  }
+  const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
+  (viewRows||[]).forEach(v => { counts[v.property_id] = (counts[v.property_id]||0) + 1; });
+  return counts;
+}
+
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -13621,33 +13721,37 @@ async function loadProperties(agentId){
     return;
   }
   const propertyIds = props.map(p=>p.id);
-  const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
-  propertyViewCounts = {};
-  (viewRows||[]).forEach(v => { propertyViewCounts[v.property_id] = (propertyViewCounts[v.property_id]||0) + 1; });
 
-  const { data: planningRows } = await sb.from('property_planning_info').select('*').in('property_id', propertyIds);
-  propertyPlanningInfo = {};
-  (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
-
-  // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
-  // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
-  propertyShareCounts = {};
-  const { data: shareRows } = await sb.from('property_shares')
-    .select('property_id').in('property_id', propertyIds);
-  (shareRows||[]).forEach(s => {
-    propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
-  });
-
-  /* בלעדיות ולקוחות מתאימים - התגיות בכרטיס ושני הסינונים. שתי הקריאות
-     במקביל, ושגיאה בהן (מסד בלי הטבלה, RLS) רק משאירה את התגית בחוץ ולא
-     מפילה את הרשימה. */
-  const [{ data: exRows }, { data: matchRows }] = await Promise.all([
+  /* כל מה שתלוי רק במזהי הנכסים - במקביל. עד אוקטובר 2026 אלה היו חמישה
+     סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
+     שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
+     את הרשימה, כמו קודם. */
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+    loadPropertyViewCounts(propertyIds),
+    sb.from('property_planning_info').select('*').in('property_id', propertyIds),
+    // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
+    // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
+    sb.from('property_shares').select('property_id').in('property_id', propertyIds),
     sb.from('property_exclusivities').select('property_id, ends_on')
       .in('property_id', propertyIds).is('released_at', null)
       .gte('ends_on', localIsoDate(new Date())),
     sb.from('client_match_alerts').select('property_id, client_id, score, agent_clients(full_name, status)')
       .in('property_id', propertyIds).neq('status', 'dismissed'),
+    // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
+    // אחרי הפעם הראשונה
+    ensureNeighborhoodsLoaded(),
   ]);
+  propertyViewCounts = viewCounts;
+
+  propertyPlanningInfo = {};
+  (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
+
+  propertyShareCounts = {};
+  (shareRows||[]).forEach(s => {
+    propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
+  });
+
+  /* בלעדיות ולקוחות מתאימים - התגיות בכרטיס ושני הסינונים. */
   propertyExclusivities = {};
   (exRows||[]).forEach(r => {
     if (!propertyExclusivities[r.property_id] || r.ends_on > propertyExclusivities[r.property_id]){
@@ -13662,10 +13766,6 @@ async function loadProperties(agentId){
     propertyMatchedClients[r.property_id].push({ id: r.client_id, name: c.full_name, score: r.score });
   });
   Object.values(propertyMatchedClients).forEach(list => list.sort((a, b) => (b.score || 0) - (a.score || 0)));
-
-  // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
-  // אחרי הפעם הראשונה
-  await ensureNeighborhoodsLoaded();
 
   syncPropertyFilterOptions();
   renderProperties();
@@ -15127,15 +15227,36 @@ function buildPropertyStatusPanel(p, agentId, opts){
 
      הגבול הוא המוקדם מבין תחתית הכרטיס לתחתית החלון, וההיפוך נעשה רק אם
      למעלה באמת יש מקום - אחרת עדיף תפריט שגולש מעט מאשר תפריט הפוך
-     שנחתך משני הצדדים. */
+     שנחתך משני הצדדים.
+
+     ‏**ולרוחב:** התפריט מעוגן לקצה השמאלי של השבב ונפתח ימינה. כשהשבב
+     יושב באמצע הכרטיס (בטלפון, ליד מספר המודעה) התפריט יצא מהקצה הימני
+     של הכרטיס ונחתך שם - הכותרת והחצי הימני של כל הסבר נעלמו. לכן הוא
+     מוזז לתוך הרוחב הגלוי: החיתוך של כל אב שאינו `overflow:visible`,
+     ושל החלון. */
   const placeMenu = ()=>{
     el.classList.remove('psp-up');
+    menu.style.transform = '';
+    menu.style.maxWidth = '';
     const card = el.closest('.lead-card');
     const limit = Math.min(window.innerHeight - 8,
       card ? card.getBoundingClientRect().bottom : Infinity);
     const height = menu.getBoundingClientRect().height;
     const chip = toggle.getBoundingClientRect();
     if (chip.bottom + 6 + height > limit && chip.top - 6 - height > 8) el.classList.add('psp-up');
+
+    let left = 8, right = document.documentElement.clientWidth - 8;
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement){
+      if (getComputedStyle(a).overflowX === 'visible') continue;
+      const r = a.getBoundingClientRect();
+      left = Math.max(left, r.left + 4);
+      right = Math.min(right, r.right - 4);
+    }
+    if (right - left < 160) return;   // אין רוחב סביר לעבוד בו - עדיף לא לכווץ לפס
+    if (menu.getBoundingClientRect().width > right - left) menu.style.maxWidth = (right - left) + 'px';
+    const m = menu.getBoundingClientRect();
+    const dx = m.right > right ? right - m.right : (m.left < left ? left - m.left : 0);
+    if (dx) menu.style.transform = `translateX(${Math.round(dx)}px)`;
   };
 
   const setMenuOpen = open => {
@@ -19160,6 +19281,8 @@ let shelfLeads = [];
 async function loadLeadShelf(agentId){
   const listEl = document.getElementById('leadShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  // הלידים שכבר נרכשו אינם תלויים במדף - יוצאים לשרת יחד איתו ולא אחריו
+  const boughtP = loadPurchasedLeads(agentId);
 
   const { data: leads, error } = await sb
     .from('rss_leads_public')
@@ -19180,6 +19303,7 @@ async function loadLeadShelf(agentId){
       '</div>';
     shelfLeads = [];
     refreshShelfCounts();
+    await boughtP;
     return;
   }
 
@@ -19187,7 +19311,7 @@ async function loadLeadShelf(agentId){
   refreshShelfCounts();
   syncShelfCityFilter();
   renderLeadShelf();
-  await loadPurchasedLeads(agentId);
+  await boughtP;
 }
 
 // רשימת הערים נבנית מהמדף עצמו — אין רשימה קבועה, הפידים מביאים מה שהם מביאים
@@ -19728,6 +19852,9 @@ async function loadSavedSearchHoods(){
 async function loadSavedSearchShelf(agentId){
   const listEl = document.getElementById('savedSearchShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  // שמות השכונות והחיפושים שכבר נרכשו אינם תלויים במדף - יוצאים יחד איתו
+  const hoodsP = loadSavedSearchHoods();
+  const boughtP = loadPurchasedSavedSearches(agentId);
 
   const { data: leads, error } = await sb
     .from('saved_search_leads_public')
@@ -19749,15 +19876,16 @@ async function loadSavedSearchShelf(agentId){
       '</div>';
     savedSearchLeads = [];
     refreshShelfCounts();
+    await Promise.all([hoodsP, boughtP]);
     return;
   }
 
-  await loadSavedSearchHoods();
+  await hoodsP;
   savedSearchLeads = leads || [];
   refreshShelfCounts();
   syncSavedSearchHoodFilter();
   renderSavedSearchShelf();
-  await loadPurchasedSavedSearches(agentId);
+  await boughtP;
 }
 
 // רשימת האזורים נבנית מהמדף עצמו ולא מטבלת השכונות: אין טעם להציע סינון
@@ -20479,6 +20607,12 @@ async function loadClients(){
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
+  /* ההתאמות והמיניסייטים אינם תלויים ברשימת הלקוחות - שלוש הקריאות יוצאות
+     יחד, ולא שלושה סבבים בטור כמו עד אוקטובר 2026 */
+  // ‏.then() ולא הבונה עצמו: שאילתת supabase-js יוצאת לשרת רק כשמישהו
+  // קורא ל-then, ובלעדיו היא הייתה ממתינה עד ה-await שלמטה
+  const topsP = sb.rpc('client_match_top').then(r => r);
+  const showcasesP = typeof loadShowcaseSummaries === 'function' ? loadShowcaseSummaries() : null;
   const { data, error } = await sb
     .from('agent_clients')
     .select('*')
@@ -20505,7 +20639,7 @@ async function loadClients(){
   // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
   clientMatchCounts = {};
   clientMatchTop = {};
-  const { data: tops, error: topError } = await sb.rpc('client_match_top');
+  const { data: tops, error: topError } = await topsP;
   if (!topError){
     (tops || []).forEach(r =>{
       clientMatchCounts[r.client_id] = r.match_count;
@@ -20517,7 +20651,7 @@ async function loadClients(){
   }
 
   // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
-  if (typeof loadShowcaseSummaries === 'function') await loadShowcaseSummaries();
+  await showcasesP;
 
   const totalMatches = Object.values(clientMatchCounts).reduce((a, b) => a + b, 0);
   accSetCount('accClients', clientRows.length || '');
@@ -24032,6 +24166,13 @@ async function loadNotifications(agentId){
       // ביטל בגללה את ההתראה לגמרי במקום להעביר ללשונית שלה. ‏gotoSection הוא
       // שעושה את המעבר, ואחריו הגלילה מגיעה למקום קיים.
       if (navAccVisible(target.goto)){
+        // תזכורת על ליד פותחת את הליד, כמו הקישור בוואטסאפ (itemPath)
+        if (n.type === 'agenda_reminder' && n.related_lead_id
+            && allLeads.some(l => l.id === n.related_lead_id) && navAccVisible('accLeads')){
+          gotoSection('accLeads');
+          openLeadFromParam(n.related_lead_id);
+          return;
+        }
         if (n.related_agenda_item_id){
           agendaFocus(n.related_agenda_item_id);
           return;
@@ -24593,6 +24734,9 @@ function buildAgendaRow(it){
     btn.addEventListener('click', fn);
     acts.appendChild(btn);
   };
+  // הפריט שהמשימה עוסקת בו - לפני הגייט, כי מעבר אליו אינו פעולה ביומן.
+  // ‏"לחזור לליד חדש" בלי קישור שלח את הסוכן/ת לחפש את הליד ברשימה.
+  agendaTargets(it).forEach(t => act(t.label, t.open));
   if (!assistantTierOk()) return el;
   if (it.status === 'open'){
     act('✓ בוצע', ()=> agendaUpdate(it.id, { status:'done' }, 'סומן כבוצע'));
@@ -24617,6 +24761,32 @@ function buildAgendaRow(it){
     act('↩ החזרה לפתוחות', ()=> agendaUpdate(it.id, { status:'open' }, 'הוחזר לפתוחות'));
   }
   return el;
+}
+
+/* הקישורים מפריט ביומן לליד, ללקוח/ה ולנכס שהוא עוסק בהם - אותן פונקציות
+   פתיחה של ?lead= / ?client= / ?property= ושל הפעמון (openNotificationTarget).
+   פריט שכבר אינו ברשימה (ליד שנמחק, נכס שהועבר) מקבל הודעה ולא לחיצה מתה. */
+function agendaTargets(it){
+  const out = [];
+  const go = (acc, open, missing) => ()=>{
+    if (missing){ showToast(missing); return; }
+    if (!navAccVisible(acc)){ showToast('הקטגוריה הזו אינה זמינה בחשבון'); return; }
+    gotoSection(acc);
+    open();
+  };
+  if (it.lead_id){
+    out.push({ label:'👈 לליד', open: go('accLeads', () => openLeadFromParam(it.lead_id),
+      allLeads.some(l => l.id === it.lead_id) ? null : 'הליד כבר אינו ברשימת הלידים') });
+  }
+  if (it.client_id){
+    out.push({ label:'👈 לכרטיס הלקוח/ה', open: go('accClients', () => openClientFromParam(it.client_id),
+      (clientRows || []).some(c => c.id === it.client_id) ? null : 'הלקוח/ה כבר אינו/ה בקובץ הלקוחות') });
+  }
+  if (it.property_id){
+    out.push({ label:'👈 לנכס', open: go('accProperties', () => openPropertyFromParam(it.property_id),
+      myPropertyRows.some(p => p.id === it.property_id) ? null : 'הנכס כבר אינו ברשימת הנכסים שלך') });
+  }
+  return out;
 }
 
 /* דחייה: "עוד שעה" נמדדת מעכשיו כשהפריט כבר באיחור - פגישה שעברה לפני
@@ -28827,6 +28997,7 @@ document.getElementById('waShareModal').addEventListener('click', (e)=>{
    accSetCount קורא לכאן, ולכן כל עדכון מונה (ליד חדש, נכס שנוסף, ביקורת
    שאושרה) מתגלגל לכל הצרכנים בלי שאף קורא יצטרך לדעת שהם קיימים. */
 function refreshNavCounts(){
+  if (navCountsFrame){ cancelAnimationFrame(navCountsFrame); navCountsFrame = 0; }
   renderTodoList();
   renderBottomNav();
   renderSideNav();
@@ -31510,7 +31681,8 @@ function agrRenderStepSign(){
     }
     return `<div class="agr-signer" data-signer="${esc(s.id)}">
       <h5>${esc(s.full_name)}${s.id_number ? ' · ת.ז. ' + esc(s.id_number) : ''}, חתום כאן:</h5>
-      <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל - חתימה מרחוק אינה אפשרית'}${
+      <div class="who">${s.email ? esc(s.email)
+        : (wa ? 'ללא כתובת מייל - שליחה לחתימה בוואטסאפ או בהעתקת קישור' : 'ללא כתובת מייל - שליחה בהעתקת קישור')}${
         s.mail_sent_at ? ' · קישור נשלח ב-' + esc(hebDateTime(s.mail_sent_at)) : ''}${
         s.mail_error ? ' · שליחה נכשלה' : ''}</div>
       <div class="agr-pad">
@@ -31533,6 +31705,10 @@ function agrRenderStepSign(){
      המסמך כבר ננעל. */
   if (!done){
     const anyEmail = rec.signers.some(s => !s.signed_at && s.email);
+    /* ‏בלי מייל, וואטסאפ הוא הדרך לשלוח - ולכן הוא הכפתור הראשי כאן. הודעה
+       "אין מייל" בלי כפתור נקראה כ"אי אפשר להתקדם" (11.10.2026), כשכפתור
+       הוואטסאפ של החותם/ת ישב שורות ספורות למעלה. */
+    const waSigners = anyEmail ? [] : rec.signers.filter(s => !s.signed_at && waLink(s.phone));
     html += '<div class="agr-sec" style="margin-top:18px">' +
       '<h4>חתימה מרחוק</h4>' +
       '<label class="checkbox-item" style="align-items:flex-start;margin-bottom:10px">' +
@@ -31547,8 +31723,13 @@ function agrRenderStepSign(){
         'וקישור שהועבר הלאה בוואטסאפ לא יחשוף אותם.</span></label>' +
       (anyEmail
         ? '<button type="button" class="btn btn-gold btn-block" data-agr="send-all">✈ שלח לחתימה מרחוק</button>'
-        : '<p class="agr-missing" style="margin:0">אין כתובת מייל לאף חותם/ת שטרם חתם/ה - ' +
-          'הוסיפו כתובת, או השתמשו בכפתור וואטסאפ/העתקת קישור שליד כל חותם/ת.</p>') +
+        : waSigners.length
+          ? waSigners.map(s =>
+              `<button type="button" class="btn btn-gold btn-block" style="margin-bottom:8px" data-agr="wa-sign" data-signer="${esc(s.id)}">` +
+              `💬 שליחה לחתימה בוואטסאפ${waSigners.length > 1 ? ' ל' + esc(s.full_name) : ''}</button>`).join('') +
+            '<p class="imp-note" style="margin:0">נפתחת הודעה מוכנה עם הקישור האישי לחתימה.</p>'
+          : '<p class="agr-missing" style="margin:0">אין מייל או נייד תקין לאף חותם/ת שטרם חתם/ה - ' +
+            'העתיקו את הקישור (🔗) שליד החותם/ת ושלחו אותו בכל דרך.</p>') +
     '</div>';
   }
 

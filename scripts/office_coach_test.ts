@@ -106,6 +106,16 @@ check(
 check("נתונים חסרים אינם מפילים", compactPeriod({}).agents.length === 0);
 
 // ---------------------------------------------------------------------------
+// מין: רק male / female יוצאים, והתפקיד מוטה לפיו
+// ---------------------------------------------------------------------------
+const withGender = compactPeriod(dash, { [AGENT_ID]: "female" });
+check("מין ידוע יוצא", withGender.agents[0].gender === "female", withGender.agents[0]);
+check("התפקיד מוטה לפי המין", withGender.agents[0].role === "מנהלת", withGender.agents[0].role);
+const junk = compactPeriod(dash, { [AGENT_ID]: "<script>" });
+check("ערך מין לא חוקי אינו יוצא", !("gender" in junk.agents[0]) && junk.agents[0].role === "מנהל/ת", junk.agents[0]);
+check("בלי מין - אין שדה ונשאר לוכסן", !("gender" in out.agents[0]) && out.agents[0].role === "מנהל/ת");
+
+// ---------------------------------------------------------------------------
 // monthlyTotals: סיכום כל הסוכנים לחודש, ממוין
 // ---------------------------------------------------------------------------
 const totals = monthlyTotals({
