@@ -10276,6 +10276,8 @@ async function loadTeam(agencyId, callerId){
         },
       });
       addPhoneAction(actions, m, agencyId, callerId);
+      // ‏אפשר למנות כבר בהזמנה: התפקיד יושב על הכרטיס, והסוכן/ת נכנס/ת כמנהל/ת
+      addRoleAction(actions, m, agencyId, callerId);
       addCardAction(actions, {
         label: '🗑 ביטול ההזמנה',
         onClick: async ()=>{
@@ -10303,14 +10305,9 @@ async function loadTeam(agencyId, callerId){
       // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים - לא לעצמך (הטריגר ב-DB חוסם
       // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
       const actions = el2.querySelector('.lead-actions');
-      const newRole = m.role === 'manager' ? 'agent' : 'manager';
 
+      addRoleAction(actions, m, agencyId, callerId);
       addPhoneAction(actions, m, agencyId, callerId);
-
-      addCardAction(actions, {
-        label: m.role === 'manager' ? '↓ הורדה לסוכן/ת' : '↑ קידום למנהל/ת',
-        onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
-      });
 
       // השעיה = ניתוק מהמשרד. הכפתור אומר את זה במפורש, כי הפעולה הישנה
       // ("השעיה" שלא חסמה כלום) לימדה שזו לחיצה קלה בלי משמעות.
@@ -10491,9 +10488,53 @@ function addPhoneAction(actions, m, agencyId, callerId){
   });
 }
 
+/* ---------- מינוי מנהל/ת נוסף/ת ----------
+   במשרד אין "בעלים": ‏role = 'manager' הוא כל ההרשאה, וכל מנהל/ת שווה לכל
+   האחרים - ה-RLS (‏current_member_role()), פונקציות ה-Edge (‏caller.role)
+   ו-#managerSection בודקים את אותה עמודה. לכן מינוי הוא עדכון שורה אחד,
+   שמותר למנהל/ת באותו משרד, וחסום לעצמך בטריגר
+   ‏protect_sensitive_agency_member_fields (אף אחד לא מקדם את עצמו).
+   ההורדה חוזרת דרך אותו כפתור, ולכן אי אפשר להשאיר משרד בלי מנהל/ת:
+   מי שלוחץ/ת הוא/היא מנהל/ת, ואת עצמו/ה אינו/ה יכול/ה להוריד. */
+function addRoleAction(actions, m, agencyId, callerId){
+  const promote = m.role !== 'manager';
+  addCardAction(actions, {
+    label: promote ? '👑 מינוי למנהל/ת נוסף/ת' : '↓ הורדה לסוכן/ת',
+    cls: promote ? 'btn-gold' : '',
+    onClick: ()=> setMemberRole(m, promote ? 'manager' : 'agent', agencyId, callerId),
+  });
+}
+
+async function setMemberRole(m, role, agencyId, callerId){
+  const name = m.display_name || 'הסוכן/ת';
+  const ok = role === 'manager'
+    ? await confirmPurchase({
+        title: 'מינוי למנהל/ת משרד',
+        lines: [
+          `${name} יקבל/תקבל את כל ההרשאות של מנהל/ת המשרד, בדיוק כמוך:`,
+          'דאשבורד המשרד, שיחות המשרד וביקורות שממתינות לאישור.',
+          'צוות המשרד - הוספת סוכנים, השעיה, אישור בקשות שיוך ומינוי מנהלים.',
+          'מיתוג ועיצוב דף המשרד.',
+          'ההרשאות נכנסות לתוקף בכניסה הבאה שלו/ה ל-CRM (או ברענון הדף).',
+          'אפשר להוריד חזרה לסוכן/ת בכל עת מאותו מקום.',
+        ],
+        hidePrice: true,
+        requireAck: true,
+        ackText: `אני מאשר/ת ש-${name} יהיה/תהיה מנהל/ת במשרד.`,
+        confirmLabel: 'מינוי למנהל/ת',
+      })
+    : confirm(`להוריד את ${name} ממנהל/ת לסוכן/ת? ההרשאות של מנהל/ת המשרד יוסרו.`);
+  if (!ok) return;
+  // ‏RLS שחוסם עדכון מחזיר 0 שורות ולא שגיאה, ולכן בודקים שהשורה חזרה
+  const { data, error } = await sb.from('agency_members').update({ role }).eq('id', m.id).select('id');
+  if (error){ showToast('שגיאה: ' + heErr(error)); return; }
+  if (!data || !data.length){ showToast('העדכון לא נשמר. נסו לרענן את הדף.'); return; }
+  showToast(role === 'manager' ? `${name} מונה/תה למנהל/ת במשרד` : `${name} הוחזר/ה לסוכן/ת`);
+  await loadTeam(agencyId, callerId);
+}
+
 async function updateMemberField(memberId, changes, agencyId, callerId){
-  const label = 'role' in changes ? (changes.role === 'manager' ? 'לקדם את הסוכן/ת למנהל/ת?' : 'להוריד את הסוכן/ת ממנהל לסוכן רגיל?')
-    : (changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.');
+  const label = changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.';
   if (!confirm(label)) return;
   const { error } = await sb.from('agency_members').update(changes).eq('id', memberId);
   if (error){ showToast('שגיאה: ' + heErr(error)); return; }
