@@ -50,7 +50,12 @@ export function addDays(iso: string, days: number): string {
 export type Row = Record<string, unknown>;
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 
-export function compactPeriod(d: Row) {
+/* ‏genders: agent_id → 'male' | 'female' מ-agency_members.gender. רק שני הערכים
+   האלה יוצאים, ורק כ"סוכן" / "סוכנת", כדי שהמודל ינסח פועל וכינוי נכון. סוכן/ת
+   בלי ערך לא מקבל/ת שדה, והמודל מנסח סביב השם. */
+export type Genders = Record<string, string | null | undefined>;
+
+export function compactPeriod(d: Row, genders: Genders = {}) {
   const agents = (d.agents as Row[] | undefined) ?? [];
   const buckets = (d.response_buckets as Row[] | undefined) ?? [];
   const keep = [
@@ -62,7 +67,12 @@ export function compactPeriod(d: Row) {
   return {
     period: d.period,
     agents: agents.map((a) => {
-      const out: Row = { agent: a.agent, role: a.role === "manager" ? "מנהל/ת" : "סוכן/ת" };
+      const g = genders[String(a.agent_id)];
+      const role = a.role === "manager"
+        ? (g === "male" ? "מנהל" : g === "female" ? "מנהלת" : "מנהל/ת")
+        : (g === "male" ? "סוכן" : g === "female" ? "סוכנת" : "סוכן/ת");
+      const out: Row = { agent: a.agent, role };
+      if (g === "male" || g === "female") out.gender = g;
       for (const k of keep) if (a[k] !== null && a[k] !== undefined) out[k] = a[k];
       const mine = buckets.filter((b) => b.agent_id === a.agent_id);
       if (mine.length) {

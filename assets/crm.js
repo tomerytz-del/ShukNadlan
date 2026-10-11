@@ -1591,7 +1591,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
+    .select(AGENT_FIELDS + ', page_bg, id_number, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1599,7 +1599,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת - נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -6382,6 +6382,7 @@ function loadProfileSettings(agent){
   document.getElementById('pfIdNumber').value = agent.id_number || '';
   // מה שכבר שמור נחשב מאושר: הבדיקה חוזרת רק כשהמספר משתנה
   document.getElementById('pfIdNumber').dataset.ilIdOk = agent.id_number || '';
+  document.getElementById('pfGender').value = agent.gender || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
   renderMarketChoices(Array.isArray(agent.service_markets) ? agent.service_markets : []);
@@ -6773,6 +6774,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     const patch = {
       display_name: name,
       id_number: document.getElementById('pfIdNumber').value.trim() || null,
+      // ‏מין - לניסוח טקסטים שמזכירים את הסוכן/ת בשמו/ה (מאמן ה-AI). ריק = לא ידוע.
+      gender: document.getElementById('pfGender').value || null,
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
       photo_position: profileState.photo ? photoPositionCss(profileState.photoPos) : null,
@@ -6783,19 +6786,20 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
       updated_at: new Date().toISOString(),
     };
-    const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, ' +
+    const RETURNED = 'display_name, license_number, id_number, gender, bio, photo_url, photo_position, ' +
       'years_experience, service_area, credentials, specialties, gallery';
 
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
       .eq('id', currentAgent.id).select(returned).single();
 
     let { data: saved, error } = await saveProfile(patch, RETURNED);
-    // ‏id_number נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
-    // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלעדיה.
-    if (error && /id_number/.test(error.message || '')){
+    // ‏id_number ו-gender נוספו אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה
+    // עוד לא רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני
+    // בלעדיהן.
+    if (error && /id_number|gender/.test(error.message || '')){
       console.warn('שמירה נכשלה על עמודה חסרה - נשמר הפרופיל בלעדיה:', error);
-      const { id_number, ...core } = patch;
-      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, ', '')));
+      const { id_number, gender, ...core } = patch;
+      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, gender, ', '')));
     }
     if (error) throw error;
 
@@ -6817,6 +6821,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfLicense').value = saved.license_number || '';
     document.getElementById('pfIdNumber').value = saved.id_number || '';
     document.getElementById('pfIdNumber').dataset.ilIdOk = saved.id_number || '';
+    document.getElementById('pfGender').value = saved.gender || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
     renderMarketChoices(saved.service_markets || serviceMarkets);
