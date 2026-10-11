@@ -259,6 +259,14 @@
       pending.forEach(it => body.appendChild(propCard(it)));
     } else if (tab === 'liked'){
       if (!liked.length) body.innerHTML = '<div class="card empty">עוד לא סימנת נכס שאהבת. הלב שבכרטיס שומר אותו כאן.</div>';
+      else {
+        const cta = document.createElement('button');
+        cta.type = 'button';
+        cta.className = 'tour-cta tour-cta-top';
+        cta.textContent = liked.length === 1 ? '📅 לתאם סיור בנכס שאהבת' : `📅 לתאם סיור ב-${liked.length} הנכסים שאהבת`;
+        cta.addEventListener('click', ()=> openTour(null));
+        body.appendChild(cta);
+      }
       liked.forEach(it => body.appendChild(propCard(it)));
     } else {
       renderTalk(body);
@@ -300,6 +308,7 @@
           <button type="button" class="love" aria-pressed="${it.reaction === 'liked'}">${it.reaction === 'liked' ? '✓ נשמר באהבתי' : '❤️ אהבתי'}</button>
           <button type="button" class="nope">✕ לא בשבילי</button>
         </div>
+        ${it.reaction === 'liked' ? '<button type="button" class="tour-cta" data-tour-one>📅 לתאם סיור בנכס הזה</button>' : ''}
         <div class="reasons" hidden></div>
         ${it.description ? `<div class="desc">${esc(it.description)}</div><button type="button" class="more" hidden>המשך קריאה</button>` : ''}
         ${feats.length ? `<div class="feats">${feats.map(f => `<span>✓ ${esc(f)}</span>`).join('')}</div>` : ''}
@@ -319,6 +328,8 @@
 
     el.querySelector('.love').addEventListener('click', ()=> react(it, it.reaction === 'liked' ? null : 'liked'));
     el.querySelector('.nope').addEventListener('click', ()=> openReasons(el, it));
+    const tourOne = el.querySelector('[data-tour-one]');
+    if (tourOne) tourOne.addEventListener('click', ()=> openTour(it.id));
     el.querySelector('.ask').addEventListener('click', ()=>{
       const th = el.querySelector('.thread');
       if (th.hidden){ openThreads.add(it.id); th.hidden = false; drawThread(th, it.id); th.querySelector('textarea').focus(); }
@@ -455,19 +466,43 @@
     body.appendChild(meets);
     body.appendChild(general);
     // סיור שכבר ממתין או אושר: הטופס מתקפל לכפתור, כדי שלא ייראה כאילו הבקשה לא נקלטה
+    const intent = tourIntent;
+    tourIntent = null;
     if (state.items.some(i => i.reaction === 'liked')){
       const upcoming = meetings.some(m => m.status !== 'declined' && new Date(m.starts_at) > new Date());
-      if (!upcoming) body.insertBefore(tourForm(), meets);
-      else {
+      // לחיצה על "לתאם סיור" פותחת את הטופס גם כשכבר יש סיור ממתין - הלקוח/ה ביקש/ה במפורש
+      if (!upcoming || intent){
+        const form = tourForm(intent && intent.itemId);
+        body.insertBefore(form, meets);
+        if (intent) requestAnimationFrame(()=> goTo(form.querySelector('[data-days-set]'), 'start'));
+      } else {
         const more = document.createElement('button');
         more.type = 'button';
         more.className = 'ask';
         more.style.marginBottom = '12px';
         more.textContent = '📅 בקשת סיור נוסף';
-        more.addEventListener('click', ()=>{ more.replaceWith(tourForm()); });
+        more.addEventListener('click', ()=>{
+          const form = tourForm(null);
+          more.replaceWith(form);
+          goTo(form.querySelector('[data-days-set]'), 'start');
+        });
         body.insertBefore(more, meets);
       }
     }
+  }
+
+  /* ‏"לתאם סיור" מכל מקום בדף: עוברים ללשונית ומגיעים ישר לבחירת היום, ולא לראש
+     העמוד - שם הכותרת והסוכן/ת ממלאים את המסך, והטופס נשאר מתחת לגלילה. */
+  let tourIntent = null;
+  function openTour(itemId){
+    tourIntent = { itemId: itemId || null };
+    tab = 'talk';
+    render();
+  }
+  function goTo(el, block){
+    if (!el) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: block || 'start' });
   }
 
   /* ---------- קביעת סיור ---------- */
@@ -479,7 +514,7 @@
     if (!show){ banner.hidden = true; return; }
     document.getElementById('tourBannerText').textContent =
       liked.length === 1 ? 'אהבת נכס אחד - רוצה לראות אותו מקרוב?' : `אהבת ${liked.length} נכסים - נתאם סיור באחד מהם או בכולם?`;
-    document.getElementById('tourBannerBtn').onclick = ()=>{ tab = 'talk'; render(); window.scrollTo({ top: 0 }); };
+    document.getElementById('tourBannerBtn').onclick = ()=> openTour(null);
     banner.hidden = false;
   }
 
@@ -502,7 +537,7 @@
     return new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
   }
 
-  function tourForm(){
+  function tourForm(onlyItemId){
     const liked = state.items.filter(i => i.reaction === 'liked');
     const sec = document.createElement('section');
     sec.className = 'card tour';
@@ -515,7 +550,8 @@
       if (ilWeekday(key) === 6) continue;
       days.push(key);
     }
-    const chosen = new Set(liked.map(i => i.id));
+    // ‏"לתאם סיור בנכס הזה" - רק הנכס הזה מסומן; הלקוח/ה יכול/ה להוסיף את השאר
+    const chosen = new Set(liked.some(i => i.id === onlyItemId) ? [onlyItemId] : liked.map(i => i.id));
     let day = days[0];
     let slot = null;
 
@@ -523,14 +559,14 @@
       <h2>📅 תיאום סיור</h2>
       ${state.has_agreement ? '' : `<div class="legal">לפני הסיור ${esc(state.agent.name || 'הסוכן/ת')} ישלח/תשלח לך הזמנת שירותי תיווך לחתימה דיגיטלית - כך מחייב חוק המתווכים, ולוקח דקה.</div>`}
       <fieldset><legend>אילו נכסים?</legend>
-        ${liked.map(i => `<label class="pick"><input type="checkbox" value="${esc(i.id)}" checked> ${esc(shortWhere(i))} · ${esc(priceText(i))}</label>`).join('')}
+        ${liked.map(i => `<label class="pick"><input type="checkbox" value="${esc(i.id)}" ${chosen.has(i.id) ? 'checked' : ''}> ${esc(shortWhere(i))} · ${esc(priceText(i))}</label>`).join('')}
       </fieldset>
-      <fieldset><legend>באיזה יום?</legend><div class="days"></div></fieldset>
-      <fieldset><legend>באיזו שעה?</legend><div class="slots"></div></fieldset>
-      <fieldset><legend>הערה (לא חובה)</legend>
+      <fieldset data-days-set><legend>1. באיזה יום?</legend><div class="days"></div></fieldset>
+      <fieldset data-slots-set><legend>2. באיזו שעה?</legend><div class="slots"></div></fieldset>
+      <fieldset data-send-set><legend>3. הערה (לא חובה)</legend>
         <textarea maxlength="600" rows="2" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:8px" placeholder="למשל: מעדיפים אחרי העבודה, נגיע עם הילדים"></textarea>
       </fieldset>
-      <button type="button" class="btn btn-primary" data-send style="width:100%">שליחת בקשה לסיור</button>`;
+      <button type="button" class="btn btn-primary tour-send" data-send>בחרו יום ושעה</button>`;
 
     const daysBox = sec.querySelector('.days');
     const slotsBox = sec.querySelector('.slots');
@@ -541,7 +577,18 @@
         const label = new Date(ilToIso(k, 12, 0)).toLocaleDateString('he-IL', { timeZone:'Asia/Jerusalem', weekday:'short', day:'numeric', month:'numeric' });
         return `<button type="button" data-day="${k}" aria-pressed="${k === day}">${esc(label)}</button>`;
       }).join('');
-      daysBox.querySelectorAll('[data-day]').forEach(b => b.addEventListener('click', ()=>{ day = b.dataset.day; slot = null; drawDays(); drawSlots(); }));
+      daysBox.querySelectorAll('[data-day]').forEach(b => b.addEventListener('click', ()=>{
+        day = b.dataset.day; slot = null; drawDays(); drawSlots(); drawSend();
+        goTo(sec.querySelector('[data-slots-set]'), 'start');
+      }));
+    }
+    // הכפתור אומר מה ייבחר ונשלח, כדי שיהיה ברור שזה הצעד הבא ולא עוד שדה בטופס
+    const sendBtn = sec.querySelector('[data-send]');
+    function drawSend(){
+      sendBtn.classList.toggle('ready', !!slot);
+      sendBtn.textContent = slot
+        ? '📅 שליחת בקשה לסיור · ' + new Date(slot).toLocaleString('he-IL', { timeZone:'Asia/Jerusalem', weekday:'short', day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' })
+        : 'בחרו יום ושעה';
     }
     function drawSlots(){
       const lastHour = ilWeekday(day) === 5 ? 13.5 : 20;
@@ -555,17 +602,20 @@
         out.push(`<button type="button" data-slot="${iso}" ${taken ? 'disabled' : ''} aria-pressed="${iso === slot}">${String(hh).padStart(2, '0')}:${mm ? '30' : '00'}</button>`);
       }
       slotsBox.innerHTML = out.join('');
-      slotsBox.querySelectorAll('[data-slot]:not([disabled])').forEach(b => b.addEventListener('click', ()=>{ slot = b.dataset.slot; drawSlots(); }));
+      slotsBox.querySelectorAll('[data-slot]:not([disabled])').forEach(b => b.addEventListener('click', ()=>{
+        slot = b.dataset.slot; drawSlots(); drawSend();
+        goTo(sec.querySelector('[data-send-set]'), 'start');
+      }));
       if (!slotsBox.querySelector('[data-slot]:not([disabled])')) slotsBox.innerHTML = '<span style="color:var(--ink-soft);font-size:.88rem">אין שעות פנויות ביום הזה. בחרו יום אחר.</span>';
     }
-    drawDays(); drawSlots();
+    drawDays(); drawSlots(); drawSend();
 
     sec.querySelectorAll('.pick input').forEach(cb => cb.addEventListener('change', ()=>{
       cb.checked ? chosen.add(cb.value) : chosen.delete(cb.value);
     }));
-    sec.querySelector('[data-send]').addEventListener('click', async e => {
+    sendBtn.addEventListener('click', async e => {
       if (!chosen.size) return toast('סמנו לפחות נכס אחד');
-      if (!slot) return toast('בחרו שעה');
+      if (!slot){ goTo(sec.querySelector('[data-days-set]'), 'start'); return toast('בחרו יום ושעה'); }
       e.target.disabled = true;
       try {
         const res = await call('meeting', { item_ids: [...chosen], starts_at: slot, note: sec.querySelector('textarea').value });
