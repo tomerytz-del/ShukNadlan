@@ -47,21 +47,43 @@
 -- את הסוג שלו - או נמחקת על ידו - לפי סדר המיזוג. נכתב בצורת `in ('..')`
 -- כדי ש-notification_known_types() (שקורא את הסוגים מהגדרת האילוץ) ימשיך
 -- לזהות אותם.
-do $$
+--
+-- מכאן והלאה סוג התראה חדש נכנס **רק** דרך notification_types_add, ו-
+-- scripts/check_notif_type_constraint.py חוסם ב-CI רשימה קשיחה במיגרציה חדשה.
+create or replace function public.notification_types_add(p_types text[])
+returns text[]
+language plpgsql
+set search_path = ''
+as $$
 declare
   v_types text[] := public.notification_known_types();
+  v_new   text[];
 begin
   if coalesce(array_length(v_types, 1), 0) < 10 then
     raise exception 'notifications_type_check: לא נמצאה רשימת הסוגים הקיימת (%), לא מחליפים', v_types;
   end if;
-  if 'showcase_meeting' = any(v_types) then
-    return;
+  if exists (select 1 from unnest(p_types) t where t !~ '^[a-z0-9_]+$') then
+    raise exception 'notification_types_add: שם סוג לא חוקי (%)', p_types;
   end if;
-  v_types := v_types || 'showcase_meeting'::text;
+  v_new := array(select t from unnest(p_types) t where t <> all(v_types));
+  if coalesce(array_length(v_new, 1), 0) = 0 then
+    return v_types;
+  end if;
+  v_types := v_types || v_new;
   alter table public.notifications drop constraint if exists notifications_type_check;
+  -- בצורת in ('..'): ‏notification_known_types() קוראת את הסוגים מהגדרת האילוץ
   execute format('alter table public.notifications add constraint notifications_type_check check (type in (%s))',
                  (select string_agg(quote_literal(t), ',' order by t) from unnest(v_types) t));
-end $$;
+  return v_types;
+end;
+$$;
+
+comment on function public.notification_types_add(text[]) is
+  'מוסיפה סוגים ל-notifications_type_check בלי לגעת בקיימים. הדרך היחידה להוסיף סוג התראה במיגרציה (20270420090000) - רשימה קשיחה דורסת PR מקביל.';
+
+revoke all on function public.notification_types_add(text[]) from public, anon, authenticated;
+
+select public.notification_types_add(array['showcase_meeting']);
 
 insert into public.pricing_config (key, value, description)
 values ('notif_push_priority_lookback_hours', 72,
