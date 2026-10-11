@@ -31213,7 +31213,8 @@ function agrRenderStepSign(){
     }
     return `<div class="agr-signer" data-signer="${esc(s.id)}">
       <h5>${esc(s.full_name)}${s.id_number ? ' · ת.ז. ' + esc(s.id_number) : ''}, חתום כאן:</h5>
-      <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל - חתימה מרחוק אינה אפשרית'}${
+      <div class="who">${s.email ? esc(s.email)
+        : (wa ? 'ללא כתובת מייל - שליחה לחתימה בוואטסאפ או בהעתקת קישור' : 'ללא כתובת מייל - שליחה בהעתקת קישור')}${
         s.mail_sent_at ? ' · קישור נשלח ב-' + esc(hebDateTime(s.mail_sent_at)) : ''}${
         s.mail_error ? ' · שליחה נכשלה' : ''}</div>
       <div class="agr-pad">
@@ -31236,6 +31237,10 @@ function agrRenderStepSign(){
      המסמך כבר ננעל. */
   if (!done){
     const anyEmail = rec.signers.some(s => !s.signed_at && s.email);
+    /* ‏בלי מייל, וואטסאפ הוא הדרך לשלוח - ולכן הוא הכפתור הראשי כאן. הודעה
+       "אין מייל" בלי כפתור נקראה כ"אי אפשר להתקדם" (11.10.2026), כשכפתור
+       הוואטסאפ של החותם/ת ישב שורות ספורות למעלה. */
+    const waSigners = anyEmail ? [] : rec.signers.filter(s => !s.signed_at && waLink(s.phone));
     html += '<div class="agr-sec" style="margin-top:18px">' +
       '<h4>חתימה מרחוק</h4>' +
       '<label class="checkbox-item" style="align-items:flex-start;margin-bottom:10px">' +
@@ -31250,8 +31255,13 @@ function agrRenderStepSign(){
         'וקישור שהועבר הלאה בוואטסאפ לא יחשוף אותם.</span></label>' +
       (anyEmail
         ? '<button type="button" class="btn btn-gold btn-block" data-agr="send-all">✈ שלח לחתימה מרחוק</button>'
-        : '<p class="agr-missing" style="margin:0">אין כתובת מייל לאף חותם/ת שטרם חתם/ה - ' +
-          'הוסיפו כתובת, או השתמשו בכפתור וואטסאפ/העתקת קישור שליד כל חותם/ת.</p>') +
+        : waSigners.length
+          ? waSigners.map(s =>
+              `<button type="button" class="btn btn-gold btn-block" style="margin-bottom:8px" data-agr="wa-sign" data-signer="${esc(s.id)}">` +
+              `💬 שליחה לחתימה בוואטסאפ${waSigners.length > 1 ? ' ל' + esc(s.full_name) : ''}</button>`).join('') +
+            '<p class="imp-note" style="margin:0">נפתחת הודעה מוכנה עם הקישור האישי לחתימה.</p>'
+          : '<p class="agr-missing" style="margin:0">אין מייל או נייד תקין לאף חותם/ת שטרם חתם/ה - ' +
+            'העתיקו את הקישור (🔗) שליד החותם/ת ושלחו אותו בכל דרך.</p>') +
     '</div>';
   }
 
