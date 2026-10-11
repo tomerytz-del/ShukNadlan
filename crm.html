@@ -283,6 +283,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* textarea קיבל עד היום את ברירת המחדל של הדפדפן ולכן נראה זר לשאר השדות */
   .field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit;font-size:1rem;line-height:1.5;background:#fff;color:inherit;resize:vertical}
   .field textarea:focus{border-color:var(--teal);outline:none}
+  #profileForm .field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font:inherit;font-size:1rem;background:#fff;color:inherit}
+  #profileForm .field select:focus{border-color:var(--teal);outline:none}
   .pill-group{display:flex;flex-wrap:wrap;gap:6px}
   .pill-group button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
   .pill-group button.active{background:var(--teal);border-color:var(--teal);color:#fff}
@@ -8902,6 +8904,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <label for="pfIdNumber">ת.ז. / ח״פ</label>
             <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric" data-il-id>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
+          </div>
+          <!-- ‏מין: לניסוח טקסטים שהמערכת כותבת על הסוכן/ת בשמו/ה (סיכום השבוע של
+               מאמן ה-AI). לא חובה, ולא מוצג בדף הציבורי. ריק = מנסחים סביב השם.
+               agency_members.gender, ‏20270418090000_agent_gender.sql -->
+          <div class="field">
+            <label for="pfGender">מין</label>
+            <select id="pfGender">
+              <option value="">לא נבחר</option>
+              <option value="male">זכר</option>
+              <option value="female">נקבה</option>
+            </select>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">כדי שהמערכת תכתוב עליך בלשון הנכונה, למשל בסיכום השבועי של המשרד. לא מוצג בדף הסוכן/ת.</p>
           </div>
           <div class="field">
             <label for="pfBio">תיאור</label>
