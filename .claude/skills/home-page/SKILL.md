@@ -1,6 +1,6 @@
 ---
 name: home-page
-description: עבודה על דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, שורת החיפוש החופשית, המפה שנפתחת ב"הצג במפה" (map-closed / map-open), סדר הסקציות מתחת ל-hero, הערכת השווי וההסתייגות על השמאי, והפינות המעוגלות מול design-system.css. Use when changing anything in the home page hero or sections, adding a section or a button to index.html, when a style in index.html "doesn't apply" or a corner comes out square, when the Gabriela button drops below the fold on mobile, when touching the owner valuation wizard, or when a sentence on the page breaks in the middle. Also when a modal or overlay on the home page is covered by the search results or its clicks fall through, or when the property-type list under להשכרה/למכירה/מסחרי is missing a type.
+description: עבודה על דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, שורת החיפוש החופשית, המפה שנפתחת ב"הצג במפה" (map-closed / map-open), סדר הסקציות מתחת ל-hero, הערכת השווי וההסתייגות על השמאי, והפינות המעוגלות מול design-system.css. Use when changing anything in the home page hero or sections, adding a section or a button to index.html, when a style in index.html "doesn't apply" or a corner comes out square, when the Gabriela button drops below the fold on mobile, when touching the owner valuation wizard, or when a sentence on the page breaks in the middle. Also when a modal or overlay on the home page is covered by the search results or its clicks fall through, or when the property-type list under להשכרה/למכירה/מסחרי is missing a type. Also when changing the buyer wizard ("מחפשים נכס?" banner, buyHoodChips / buyCity, assets/buyer-banner.js, agent.html, agency.html) - its city selector and neighborhoods.
 ---
 
 # דף הבית
@@ -73,6 +73,25 @@ description: עבודה על דף הבית של שוק נדל״ן (index.html) -
 מי שמזיז/ה את הכרטיס (`#gabrielaHero{margin-top}`) מודד/ת את קצה השיער לפי
 הפיקסל הלא-שקוף הראשון של `.gab-img` (ציור ל-canvas, אותו מקור) מול תחתית
 `#ssSmart` ב-1024, ‏1440 ו-1920, ו-`elementFromPoint` על `#hsToggle`.
+
+## 2א0. אשף מחפשי הנכס - עיר קודם, וארבעה עותקים
+
+האשף בבאנר "מחפשים נכס?" (שלב 1: מה מחפשים ובאילו שכונות) קיים ב**ארבעה**
+מימושים נפרדים: `assets/home.js`, ‏`agent.html`, ‏`agency.html` ו-
+`assets/buyer-banner.js` (כל שאר הדפים). שינוי בהתנהגות שלו נכנס לארבעתם.
+
+* **בורר "באיזו עיר?" מעל השכונות, ורק השכונות של העיר שנבחרה.** עד
+  אוקטובר 2026 נפתחו שם השכונות של כל הערים בפלטפורמה ברשימה אחת. הבורר
+  נבנה ב-JS (‏`buyCitySelect`) ולא ב-HTML, כי הבאנר משוכפל בעשרים דפים. הוא
+  נפתח על העיר של הדף: `leadContext.city` בדף הסוכן/ת והמשרד, ‏`CityContext`
+  בדף הבית ובבאנר.
+* **העיר נשלחת ב-`cities` רק כשלא נבחרה שכונה.** ‏`saved_search_matches`
+  מתאימה נכס לפי עיר **או** שכונה - עיר לצד שכונות הייתה מרחיבה את החיפוש
+  לכל העיר בשקט. החלפת עיר מנקה את השכונות שנבחרו.
+* השכונות נטענות עם `city` (‏`select=id,name,city`). שאילתה בלי העמודה
+  הייתה משאירה את הבורר ריק והאשף נופל לתיבת הטקסט החופשי.
+
+הפרטים: `docs/smart-search-agent.md`, "עיר קודם, ואז השכונות שלה".
 
 ## 2א1. חלון במסך מלא - מחוץ ל-`#heroSection`
 

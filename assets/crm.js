@@ -163,7 +163,18 @@ function accSetCount(accId, value, n){
   accCounts[accId] = (typeof n === 'number') ? n
     : (typeof value === 'number') ? value
     : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
-  refreshNavCounts();
+  scheduleNavCounts();
+}
+
+/* ‏refreshNavCounts בונה מחדש את "דורש טיפול מיידי", את הסרגל התחתון ואת
+   סרגל הצד. כל קטגוריה שנטענת קוראת ל-accSetCount, ובכניסה זה יצא 38 בניות
+   מלאות בזו אחר זו - כשהקטגוריות נטענות במקביל, רובן באותו פריים. כאן הן
+   מתקבצות לבנייה אחת לפריים. קריאה ישירה ל-refreshNavCounts (סוף
+   loadDashboard, למשל) עדיין מיידית, ומבטלת את מה שממתין. */
+let navCountsFrame = 0;
+function scheduleNavCounts(){
+  if (navCountsFrame) return;
+  navCountsFrame = requestAnimationFrame(()=>{ navCountsFrame = 0; refreshNavCounts(); });
 }
 
 /* שורת הסיכום שמתחת לשם הקטגוריה. בניגוד ל-accSetCount היא טקסט בלבד ולא
@@ -1704,35 +1715,52 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
   loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
 
-  // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
-  await loadPricing();
-  const freeQuota = priceOf('free_lead_quota_monthly', 10);
-  document.getElementById('quotaUsed').textContent =
-    agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
-  renderQuotaMeter(freeQuota);
+  /* הטעינה במקביל, ולא בטור. עד אוקטובר 2026 כל אחת מכ-13 הטעינות כאן
+     חיכתה לקודמת לה, גם כשלא השתמשה בשום דבר ממנה - כ-25 סבבים לשרת בזה
+     אחר זה, ומונה הלקוחות בראש הדשבורד היה ממתין לכ-18 מהם. עכשיו כל מה
+     שעצמאי יוצא מיד, ומה שתלוי ממתין רק למה שהוא באמת צריך:
 
-  // רשימת השת"פ נטענת לפני הנכסים: היא מזינה את ספירת המשרדים שמוצגת
-  // בדיאלוג האישור של "פתיחה לשת״פ" בשורת הנכס
-  await loadSharePartners(agent);
-  await loadProperties(agent.id);
-  await loadLeads(agent.id);
-  await loadLeadShelf(agent.id);
-  await loadSavedSearchShelf(agent.id);
-  await loadSharedWithMe();
-  await loadClients();
-  // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
-  loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
-  await loadClientAlerts();
-  await loadAgreements();
-  await loadNotifications(agent.id);
-  await loadNotifPrefs(agent.id);
-  // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
-  loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+     * הלידים והלקוחות - אחרי הנכסים: כרטיס הליד ושורת השיחה מציגים את
+       הנכס מתוך myPropertyRows.
+     * מדפי חנות הלידים - אחרי המחירים: הם מציגים priceOf.
+     * התראות ההתאמה, יומן השיחות והיומן - אחרי הלקוחות: הם קוראים
+       clientRows. השניים האחרונים ממשיכים לרוץ ברקע כמו קודם.
+
+     ‏Promise.all ולא allSettled בכוונה: כישלון עוצר את סוף הפונקציה בדיוק
+     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה. */
+  const pricingP = loadPricing().then(()=>{
+    // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+    const freeQuota = priceOf('free_lead_quota_monthly', 10);
+    document.getElementById('quotaUsed').textContent =
+      agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
+    renderQuotaMeter(freeQuota);
+  });
+  // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
+  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם
+  const propsP = Promise.all([loadSharePartners(agent), loadProperties(agent.id)]);
+  const clientsP = propsP.then(()=> loadClients()).then(()=>{
+    // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+    loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
+    // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
+    loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
+    return loadClientAlerts();
+  });
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
-  await loadPreferences(agent.id);
+  await Promise.all([
+    pricingP,
+    propsP,
+    clientsP,
+    propsP.then(()=> loadLeads(agent.id)),
+    pricingP.then(()=> Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])),
+    loadSharedWithMe(),
+    loadAgreements(),
+    loadNotifications(agent.id),
+    loadNotifPrefs(agent.id),
+    loadPreferences(agent.id),
+  ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
   loadEthicsSettings(agent);
@@ -1747,10 +1775,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
   syncOfficeExportButtons();
   if (agent.role === 'manager'){
-    await loadBranding(agent.agency_id);
-    await loadTeam(agent.agency_id, agent.id);
-    await loadPendingReviews(agent.agency_id);
-    await loadAgencyEthics(agent.agency_id);
+    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
+    await Promise.all([
+      loadBranding(agent.agency_id),
+      loadTeam(agent.agency_id, agent.id),
+      loadPendingReviews(agent.agency_id),
+      loadAgencyEthics(agent.agency_id),
+    ]);
   } else {
     document.getElementById('ethicsAgencyBlock').hidden = true;
   }
@@ -1759,14 +1790,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
-    await loadLicenseAppeals();
-    await loadRefundQueue();
-    await loadSubscriptionsAdmin();
-    await loadNeighborhoodsAdmin();
-    await loadRssSourcesAdmin();
-    await loadArticlesAdmin();
-    await loadProfessionalCardsAdmin();
-    await loadUnroutedLeads();
+    await Promise.all([
+      loadLicenseAppeals(),
+      loadRefundQueue(),
+      loadSubscriptionsAdmin(),
+      loadNeighborhoodsAdmin(),
+      loadRssSourcesAdmin(),
+      loadArticlesAdmin(),
+      loadProfessionalCardsAdmin(),
+      loadUnroutedLeads(),
+    ]);
   }
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
@@ -13213,6 +13246,22 @@ const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
 function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test(error.message || ''); }
 
+/* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
+   שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
+   לתקרת 1,000 השורות של PostgREST הספירה גם יצאה נמוכה מהאמת. כשהפונקציה
+   עוד לא קיימת (המיגרציה 20270416090000 טרם רצה) נופלים לדרך הישנה. */
+async function loadPropertyViewCounts(propertyIds){
+  const counts = {};
+  const { data, error } = await sb.rpc('property_view_counts', { p_property_ids: propertyIds });
+  if (!error){
+    (data||[]).forEach(r => { counts[r.property_id] = Number(r.views) || 0; });
+    return counts;
+  }
+  const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
+  (viewRows||[]).forEach(v => { counts[v.property_id] = (counts[v.property_id]||0) + 1; });
+  return counts;
+}
+
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -13251,33 +13300,37 @@ async function loadProperties(agentId){
     return;
   }
   const propertyIds = props.map(p=>p.id);
-  const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
-  propertyViewCounts = {};
-  (viewRows||[]).forEach(v => { propertyViewCounts[v.property_id] = (propertyViewCounts[v.property_id]||0) + 1; });
 
-  const { data: planningRows } = await sb.from('property_planning_info').select('*').in('property_id', propertyIds);
-  propertyPlanningInfo = {};
-  (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
-
-  // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
-  // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
-  propertyShareCounts = {};
-  const { data: shareRows } = await sb.from('property_shares')
-    .select('property_id').in('property_id', propertyIds);
-  (shareRows||[]).forEach(s => {
-    propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
-  });
-
-  /* בלעדיות ולקוחות מתאימים - התגיות בכרטיס ושני הסינונים. שתי הקריאות
-     במקביל, ושגיאה בהן (מסד בלי הטבלה, RLS) רק משאירה את התגית בחוץ ולא
-     מפילה את הרשימה. */
-  const [{ data: exRows }, { data: matchRows }] = await Promise.all([
+  /* כל מה שתלוי רק במזהי הנכסים - במקביל. עד אוקטובר 2026 אלה היו חמישה
+     סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
+     שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
+     את הרשימה, כמו קודם. */
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+    loadPropertyViewCounts(propertyIds),
+    sb.from('property_planning_info').select('*').in('property_id', propertyIds),
+    // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
+    // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
+    sb.from('property_shares').select('property_id').in('property_id', propertyIds),
     sb.from('property_exclusivities').select('property_id, ends_on')
       .in('property_id', propertyIds).is('released_at', null)
       .gte('ends_on', localIsoDate(new Date())),
     sb.from('client_match_alerts').select('property_id, client_id, score, agent_clients(full_name, status)')
       .in('property_id', propertyIds).neq('status', 'dismissed'),
+    // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
+    // אחרי הפעם הראשונה
+    ensureNeighborhoodsLoaded(),
   ]);
+  propertyViewCounts = viewCounts;
+
+  propertyPlanningInfo = {};
+  (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
+
+  propertyShareCounts = {};
+  (shareRows||[]).forEach(s => {
+    propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
+  });
+
+  /* בלעדיות ולקוחות מתאימים - התגיות בכרטיס ושני הסינונים. */
   propertyExclusivities = {};
   (exRows||[]).forEach(r => {
     if (!propertyExclusivities[r.property_id] || r.ends_on > propertyExclusivities[r.property_id]){
@@ -13292,10 +13345,6 @@ async function loadProperties(agentId){
     propertyMatchedClients[r.property_id].push({ id: r.client_id, name: c.full_name, score: r.score });
   });
   Object.values(propertyMatchedClients).forEach(list => list.sort((a, b) => (b.score || 0) - (a.score || 0)));
-
-  // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
-  // אחרי הפעם הראשונה
-  await ensureNeighborhoodsLoaded();
 
   syncPropertyFilterOptions();
   renderProperties();
@@ -18811,6 +18860,8 @@ let shelfLeads = [];
 async function loadLeadShelf(agentId){
   const listEl = document.getElementById('leadShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  // הלידים שכבר נרכשו אינם תלויים במדף - יוצאים לשרת יחד איתו ולא אחריו
+  const boughtP = loadPurchasedLeads(agentId);
 
   const { data: leads, error } = await sb
     .from('rss_leads_public')
@@ -18831,6 +18882,7 @@ async function loadLeadShelf(agentId){
       '</div>';
     shelfLeads = [];
     refreshShelfCounts();
+    await boughtP;
     return;
   }
 
@@ -18838,7 +18890,7 @@ async function loadLeadShelf(agentId){
   refreshShelfCounts();
   syncShelfCityFilter();
   renderLeadShelf();
-  await loadPurchasedLeads(agentId);
+  await boughtP;
 }
 
 // רשימת הערים נבנית מהמדף עצמו — אין רשימה קבועה, הפידים מביאים מה שהם מביאים
@@ -19379,6 +19431,9 @@ async function loadSavedSearchHoods(){
 async function loadSavedSearchShelf(agentId){
   const listEl = document.getElementById('savedSearchShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  // שמות השכונות והחיפושים שכבר נרכשו אינם תלויים במדף - יוצאים יחד איתו
+  const hoodsP = loadSavedSearchHoods();
+  const boughtP = loadPurchasedSavedSearches(agentId);
 
   const { data: leads, error } = await sb
     .from('saved_search_leads_public')
@@ -19400,15 +19455,16 @@ async function loadSavedSearchShelf(agentId){
       '</div>';
     savedSearchLeads = [];
     refreshShelfCounts();
+    await Promise.all([hoodsP, boughtP]);
     return;
   }
 
-  await loadSavedSearchHoods();
+  await hoodsP;
   savedSearchLeads = leads || [];
   refreshShelfCounts();
   syncSavedSearchHoodFilter();
   renderSavedSearchShelf();
-  await loadPurchasedSavedSearches(agentId);
+  await boughtP;
 }
 
 // רשימת האזורים נבנית מהמדף עצמו ולא מטבלת השכונות: אין טעם להציע סינון
@@ -20130,6 +20186,12 @@ async function loadClients(){
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
+  /* ההתאמות והמיניסייטים אינם תלויים ברשימת הלקוחות - שלוש הקריאות יוצאות
+     יחד, ולא שלושה סבבים בטור כמו עד אוקטובר 2026 */
+  // ‏.then() ולא הבונה עצמו: שאילתת supabase-js יוצאת לשרת רק כשמישהו
+  // קורא ל-then, ובלעדיו היא הייתה ממתינה עד ה-await שלמטה
+  const topsP = sb.rpc('client_match_top').then(r => r);
+  const showcasesP = typeof loadShowcaseSummaries === 'function' ? loadShowcaseSummaries() : null;
   const { data, error } = await sb
     .from('agent_clients')
     .select('*')
@@ -20156,7 +20218,7 @@ async function loadClients(){
   // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
   clientMatchCounts = {};
   clientMatchTop = {};
-  const { data: tops, error: topError } = await sb.rpc('client_match_top');
+  const { data: tops, error: topError } = await topsP;
   if (!topError){
     (tops || []).forEach(r =>{
       clientMatchCounts[r.client_id] = r.match_count;
@@ -20168,7 +20230,7 @@ async function loadClients(){
   }
 
   // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
-  if (typeof loadShowcaseSummaries === 'function') await loadShowcaseSummaries();
+  await showcasesP;
 
   const totalMatches = Object.values(clientMatchCounts).reduce((a, b) => a + b, 0);
   accSetCount('accClients', clientRows.length || '');
@@ -28467,6 +28529,7 @@ document.getElementById('waShareModal').addEventListener('click', (e)=>{
    accSetCount קורא לכאן, ולכן כל עדכון מונה (ליד חדש, נכס שנוסף, ביקורת
    שאושרה) מתגלגל לכל הצרכנים בלי שאף קורא יצטרך לדעת שהם קיימים. */
 function refreshNavCounts(){
+  if (navCountsFrame){ cancelAnimationFrame(navCountsFrame); navCountsFrame = 0; }
   renderTodoList();
   renderBottomNav();
   renderSideNav();
