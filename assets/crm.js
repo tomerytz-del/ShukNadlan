@@ -554,7 +554,6 @@ const SCREEN_CARDS = {
   ethicsGate:   'ethicsGateScreen',
   tierGate:     'tierGateScreen',
   mfaChallenge: 'mfaChallengeScreen',
-  mfaEnroll:    'mfaEnrollScreen',
 };
 
 /* ==========================================================================
@@ -1049,26 +1048,24 @@ document.getElementById('cancelCreateAgency').addEventListener('click', async ()
 });
 
 /* ==========================================================================
-   אימות דו-שלבי (TOTP) - docs/mfa.md
+   אימות כניסה בוואטסאפ - docs/mfa.md
    --------------------------------------------------------------------------
-   ‏ההרשמה והקוד הם של Supabase Auth (‏sb.auth.mfa). המסכים כאן הם הנוחות;
-   המנעול הוא במסד: עד שהקוד מוזן, ‏mfa_pre_request מתייחס/ת לחשבון כאל
-   אורח/ת, ו-_shared/mfa-gate.ts עושה אותו דבר בפונקציות ה-Edge. לכן מי
-   שעוקף/ת את המסך (קריאה ישירה ל-API עם הסיסמה בלבד) לא מקבל/ת כלום.
+   ‏המסכים כאן הם הנוחות; המנעול הוא במסד: עד שמגיעה הודעה מהנייד שבכרטיס,
+   ‏mfa_pre_request מתייחס/ת לחשבון כאל אורח/ת, ו-_shared/mfa-gate.ts עושה
+   אותו דבר בפונקציות ה-Edge. לכן מי שעוקף/ת את המסך (קריאה ישירה ל-API עם
+   הסיסמה בלבד) לא מקבל/ת כלום.
 
-   ‏שני מסלולים לגילוי שצריך קוד:
-     1. ‏mfaNeedsChallenge - מקומי, מה-session: יש factor מאומת וה-JWT הוא aal1.
-     2. ‏mfaGateOnMissingAgent - כשהמסד החזיר "אין כרטיס". תופס factor
-        שנוסף ממכשיר אחר (ה-session המקומי לא יודע עליו), ומנהל/ת פלטפורמה
-        שחייב/ת להפעיל ועוד לא הפעיל/ה.
+   ‏איך יודעים שצריך אימות: כשהמסד מחזיר "אין כרטיס" (‏loadDashboard),
+   ‏mfaGateOnMissingAgent שואל/ת את mfa_status. הבדיקה רצה רק בענף הזה,
+   כך שכניסה רגילה לא משלמת עליה סיבוב רשת.
+
+   ‏ההודעה נשלחת מהטלפון, והדף לא יודע מתי. לכן בדיקה כל 3 שניות, ומיד
+   כשחוזרים ללשונית - עד 10 דקות, תוקף הקוד.
    ========================================================================== */
-async function mfaNeedsChallenge(){
-  try{
-    const { data, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (error) return false;
-    return data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2';
-  } catch(err){ console.warn('mfa aal check failed', err); return false; }
-}
+const MFA_POLL_MS = 3000;
+const MFA_POLL_MAX_MS = 10 * 60 * 1000;
+let mfaPollTimer = null;
+let mfaPollTick = null;
 
 async function mfaStatus(){
   const { data, error } = await sb.rpc('mfa_status');
@@ -1080,207 +1077,168 @@ async function mfaGateOnMissingAgent(){
   let s;
   try { s = await mfaStatus(); }
   // ‏המיגרציה עוד לא רצה, או תקלה רגעית: ממשיכים לזיהוי הרגיל. אם המסד
-  // באמת דורש קוד, המסך הבא פשוט לא ימצא כרטיס - וזה לא פותח כלום.
+  // באמת דורש אימות, המסך הבא פשוט לא ימצא כרטיס - וזה לא פותח כלום.
   catch(err){ console.warn('mfa_status failed', err); return false; }
   if (!s.pending) return false;
-  if (s.enrolled) showMfaChallenge();
-  else showMfaEnrollForced();
+  showMfaChallenge(s);
   return true;
 }
 
-/* ---------- מסך הקוד ---------- */
-function showMfaChallenge(){
-  document.getElementById('mfaChallengeCode').value = '';
-  document.getElementById('mfaChallengeFeedback').textContent = '';
-  const btn = document.getElementById('mfaChallengeBtn');
-  btn.disabled = false; btn.textContent = 'אישור';
-  showScreen('mfaChallenge');
-  setTimeout(()=> document.getElementById('mfaChallengeCode').focus(), 50);
+function mfaStopPolling(){
+  clearInterval(mfaPollTimer); mfaPollTimer = null;
 }
 
-/* הקוד מוזן → ‏session חדש ב-aal2 → ניתוב מחדש עם force, כי routedUserId
-   כבר נקבע לפני שעצרנו כאן. */
-async function mfaVerifyAndRoute(factorId, code){
-  const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code });
+/* בודק/ת עד ש-done(status) מחזיר/ה true. ‏onTimeout אחרי 10 דקות. */
+function mfaStartPolling(done, onTimeout){
+  mfaStopPolling();
+  const started = Date.now();
+  const tick = async ()=>{
+    if (Date.now() - started > MFA_POLL_MAX_MS){ mfaStopPolling(); onTimeout(); return; }
+    try { if (await done(await mfaStatus())) mfaStopPolling(); }
+    catch(err){ console.warn('mfa poll failed', err); }
+  };
+  mfaPollTimer = setInterval(tick, MFA_POLL_MS);
+  mfaPollTick = tick;
+}
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible' && mfaPollTimer && mfaPollTick) mfaPollTick();
+});
+
+const MFA_START_ERRORS = {
+  no_phone: 'אין נייד בכרטיס שלך, ולכן אין לאן לאמת. לעזרה: 054-6929991.',
+  rate_limited: 'יותר מדי ניסיונות בזמן קצר. כדאי לחכות כמה דקות ולנסות שוב.',
+};
+
+/* יוצר/ת קוד ומחזיר/ה את קישור הוואטסאפ עם ההודעה המוכנה */
+async function mfaWaStart(enable){
+  const { data, error } = await sb.rpc('wa_login_start', { p_enable: !!enable });
   if (error) throw error;
-  const { data: { session } } = await sb.auth.getSession();
-  await routeAfterAuth(session, { force:true });
+  if (data?.error) throw new Error(MFA_START_ERRORS[data.error] || heErr(data.error));
+  return {
+    url: 'https://wa.me/' + ASSISTANT_WA_NUMBER + '?text=' + encodeURIComponent('אימות כניסה ' + data.nonce),
+    tail: data.phone_tail || '',
+  };
 }
 
-document.getElementById('mfaChallengeCode').addEventListener('input', (e)=>{
-  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
-});
-
-document.getElementById('mfaChallengeForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const code = document.getElementById('mfaChallengeCode').value.trim();
-  const btn = document.getElementById('mfaChallengeBtn');
-  const fb = document.getElementById('mfaChallengeFeedback');
-  fb.textContent = '';
-  if (!/^\d{6}$/.test(code)){ fb.textContent = 'הקוד הוא 6 ספרות.'; return; }
-  btn.disabled = true; btn.textContent = 'בודקים…';
+/* ---------- מסך האימות בכניסה ---------- */
+async function showMfaChallenge(status){
+  const link = document.getElementById('mfaWaLink');
+  const st = document.getElementById('mfaWaStatus');
+  link.setAttribute('aria-disabled', 'true'); link.href = '#';
+  st.style.color = ''; st.textContent = 'מכינים את ההודעה…';
+  document.getElementById('mfaPhoneTail').textContent = '';
+  document.getElementById('mfaAdminNote').hidden = !(status?.admin && !status?.enabled);
+  showScreen('mfaChallenge');
   try{
-    // ‏listFactors ולא ה-session: factor שנוסף ממכשיר אחר אינו ב-session המקומי
-    const { data, error } = await sb.auth.mfa.listFactors();
-    if (error) throw error;
-    const factor = (data?.totp || []).find(f => f.status === 'verified');
-    if (!factor){ showMfaEnrollForced(); return; }
-    await mfaVerifyAndRoute(factor.id, code);
+    const { url, tail } = await mfaWaStart(false);
+    link.href = url; link.removeAttribute('aria-disabled');
+    if (tail){
+      const t = document.getElementById('mfaPhoneTail');
+      t.textContent = ' (מסתיים ב-' + tail + ')';
+    }
+    st.textContent = '';
   } catch(err){
-    console.error('mfa challenge failed', err);
-    fb.textContent = heErr(err);
-    btn.disabled = false; btn.textContent = 'אישור';
-    document.getElementById('mfaChallengeCode').select();
-  }
-});
-
-for (const id of ['mfaChallengeLogoutBtn', 'mfaEnrollLogoutBtn']){
-  document.getElementById(id).addEventListener('click', async ()=>{
-    await sb.auth.signOut(); routedUserId = null; showLoginCard();
-  });
-}
-
-/* ---------- ההפעלה: רכיב אחד לשני מקומות ----------
-   המסך שהוא חובה (מנהל/ת פלטפורמה) והמקטע ב"הגדרות חשבון". ‏onDone נקרא
-   אחרי שהקוד אומת וה-session כבר aal2. */
-async function mfaClearUnverified(){
-  // הפעלה שננטשה באמצע משאירה factor לא מאומת, וזה חוסם את הבאה
-  const { data } = await sb.auth.mfa.listFactors();
-  for (const f of (data?.all || [])){
-    if (f.factor_type === 'totp' && f.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: f.id });
+    console.error('wa login start failed', err);
+    st.style.color = 'var(--brick)';
+    st.textContent = heErr(err);
   }
 }
 
-async function mfaMountEnroll(host, feedbackEl, onDone){
-  host.innerHTML = '<p class="mfa-help">מכינים את הקוד…</p>';
-  try{
-    await mfaClearUnverified();
-    const { data, error } = await sb.auth.mfa.enroll({
-      factorType: 'totp',
-      issuer: 'Shuk Nadlan',
-      // ייחודי לכל משתמש/ת; לא מוצג לאיש מלבד ברשימת ה-factors
-      friendlyName: 'authenticator-' + Date.now(),
-    });
-    if (error) throw error;
-    const factorId = data.id;
-    host.innerHTML =
-        '<p class="mfa-step">1. סורקים את הקוד באפליקציית האימות</p>'
-      + '<img class="mfa-qr" alt="קוד QR להוספת החשבון לאפליקציית האימות" src="' + escapeHtml(data.totp.qr_code) + '">'
-      + '<p class="mfa-help" style="margin-top:0">אי אפשר לסרוק? מוסיפים באפליקציה חשבון ידנית עם המפתח:</p>'
-      + '<code class="mfa-secret" dir="ltr">' + escapeHtml(data.totp.secret) + '</code>'
-      + '<p class="mfa-step">2. מזינים את הקוד שמופיע באפליקציה</p>'
-      + '<form class="mfa-enroll-form"><div class="field">'
-      +   '<input type="text" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" aria-label="הקוד מהאפליקציה" required>'
-      + '</div><button type="submit" class="btn btn-gold btn-block">אישור והפעלה</button></form>';
-    const form = host.querySelector('.mfa-enroll-form');
-    const input = form.querySelector('input');
-    const btn = form.querySelector('button');
-    input.addEventListener('input', ()=>{ input.value = input.value.replace(/\D/g, '').slice(0, 6); });
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      feedbackEl.style.color = 'var(--brick)';
-      feedbackEl.textContent = '';
-      if (!/^\d{6}$/.test(input.value)){ feedbackEl.textContent = 'הקוד הוא 6 ספרות.'; return; }
-      btn.disabled = true; btn.textContent = 'בודקים…';
-      try{
-        const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code: input.value });
-        if (error) throw error;
-        await onDone();
-      } catch(err){
-        console.error('mfa enroll verify failed', err);
-        feedbackEl.textContent = heErr(err);
-        btn.disabled = false; btn.textContent = 'אישור והפעלה';
-        input.select();
-      }
-    });
-    input.focus();
-  } catch(err){
-    console.error('mfa enroll failed', err);
-    host.innerHTML = '';
-    feedbackEl.style.color = 'var(--brick)';
-    feedbackEl.textContent = heErr(err);
-  }
-}
-
-function showMfaEnrollForced(){
-  const fb = document.getElementById('mfaEnrollFeedback');
-  fb.textContent = '';
-  showScreen('mfaEnroll');
-  mfaMountEnroll(document.getElementById('mfaEnrollScreenBody'), fb, async ()=>{
-    showToast('אימות דו-שלבי הופעל');
+document.getElementById('mfaWaLink').addEventListener('click', ()=>{
+  const st = document.getElementById('mfaWaStatus');
+  st.style.color = 'var(--ink-soft)';
+  st.textContent = 'מחכים להודעה בוואטסאפ…';
+  mfaStartPolling(async (s)=>{
+    if (s.pending) return false;
+    // ‏pending ירד = ה-session אומת. ניתוב מחדש עם force, כי routedUserId
+    // כבר נקבע לפני שעצרנו כאן.
     const { data: { session } } = await sb.auth.getSession();
-    await routeAfterAuth(session, { force:true });
+    routeAfterAuth(session, { force:true });
+    return true;
+  }, ()=>{
+    st.style.color = 'var(--brick)';
+    st.textContent = 'לא הגיעה הודעה. אפשר לרענן את הדף ולנסות שוב.';
   });
-}
+});
 
-/* ---------- המקטע ב"הגדרות חשבון" ---------- */
-let mfaAgentIsAdmin = false;
+document.getElementById('mfaChallengeLogoutBtn').addEventListener('click', async ()=>{
+  mfaStopPolling();
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
 
-async function mfaSetCount(agent){
-  mfaAgentIsAdmin = !!agent?.is_platform_admin;
-  const { data: { session } } = await sb.auth.getSession();
-  const on = (session?.user?.factors || []).some(f => f.factor_type === 'totp' && f.status === 'verified');
-  accSetCount('accSecurity', on ? 'פעיל' : 'כבוי');
-}
+/* ---------- המקטע ב"הגדרות חשבון" ----------
+   נטען רק כשפותחים אותו: הוא לא על המסך הראשון, ואין סיבה שכל טעינת
+   דשבורד תשלם עליו סיבוב רשת. */
 
 async function renderMfaSection(){
   const host = document.getElementById('mfaSection');
   const fb = document.getElementById('mfaSectionFeedback');
   fb.textContent = '';
   host.innerHTML = '<p class="mfa-help">בודקים…</p>';
-  let factor = null;
-  try{
-    const { data, error } = await sb.auth.mfa.listFactors();
-    if (error) throw error;
-    factor = (data?.totp || []).find(f => f.status === 'verified') || null;
-  } catch(err){
+  let s;
+  try { s = await mfaStatus(); }
+  catch(err){
     host.innerHTML = '';
     fb.style.color = 'var(--brick)';
     fb.textContent = heErr(err);
     return;
   }
-  accSetCount('accSecurity', factor ? 'פעיל' : 'כבוי');
+  accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
-  if (!factor){
-    host.innerHTML = '<button type="button" class="btn btn-gold btn-block" id="mfaStartBtn">הפעלת אימות דו-שלבי</button>'
-                   + '<p class="mfa-help">צריך אפליקציית אימות בטלפון, כמו <bdi dir="ltr">Google Authenticator</bdi> או <bdi dir="ltr">Microsoft Authenticator</bdi>.</p>';
-    host.querySelector('#mfaStartBtn').addEventListener('click', ()=>{
-      mfaMountEnroll(host, fb, async ()=>{
-        showToast('אימות דו-שלבי הופעל. מעכשיו כל כניסה תבקש גם קוד מהאפליקציה.');
-        await renderMfaSection();
+  if (!s.required){
+    host.innerHTML = '<button type="button" class="btn btn-gold btn-block" id="mfaStartBtn">הפעלה</button>'
+                   + '<p class="mfa-help">ההפעלה עצמה היא הודעה אחת לגבריאלה מהנייד שבכרטיס, כדי לוודא שהוא עובד.</p>';
+    host.querySelector('#mfaStartBtn').addEventListener('click', async ()=>{
+      fb.textContent = '';
+      let url;
+      try { ({ url } = await mfaWaStart(true)); }
+      catch(err){ fb.style.color = 'var(--brick)'; fb.textContent = heErr(err); return; }
+      // ‏await לפני הפתיחה, ולכן לא window.open (נחסם כחלון קופץ): כפתור
+      // שני שהוא קישור אמיתי, ולחיצה עליו היא מחווה של המשתמש/ת.
+      host.innerHTML = '<a class="btn btn-gold btn-block" target="_blank" rel="noopener" href="' + escapeHtml(url) + '">שליחת ההודעה בוואטסאפ</a>'
+                     + '<p class="mfa-help">ההודעה כבר כתובה, רק לשלוח. המקטע יתעדכן לבד.</p>';
+      host.querySelector('a').addEventListener('click', ()=>{
+        fb.style.color = 'var(--ink-soft)';
+        fb.textContent = 'מחכים להודעה בוואטסאפ…';
+        mfaStartPolling(async (st)=>{
+          if (!st.enabled) return false;
+          showToast('אימות כניסה בוואטסאפ הופעל');
+          renderMfaSection();
+          return true;
+        }, ()=>{
+          fb.style.color = 'var(--brick)';
+          fb.textContent = 'לא הגיעה הודעה. אפשר לנסות שוב.';
+          renderMfaSection();
+        });
       });
     });
     return;
   }
 
   host.innerHTML =
-      '<div class="mfa-on"><b>✓ אימות דו-שלבי פעיל</b><br>מאז ' + escapeHtml(hebDate(factor.created_at)) + '. כל כניסה חדשה מבקשת גם קוד מהאפליקציה.</div>'
-    + (mfaAgentIsAdmin
-        ? '<p class="mfa-help">לחשבון עם הרשאת ניהול פלטפורמה האימות הדו-שלבי הוא חובה, ולכן אי אפשר לכבות אותו.</p>'
-        : '<button type="button" class="btn btn-ghost btn-block" id="mfaOffBtn">כיבוי אימות דו-שלבי</button>')
-    + '<p class="mfa-help">טלפון חדש? מכבים כאן ומפעילים מחדש מהטלפון החדש. טלפון שאבד: התמיכה מאפסת אחרי זיהוי, <a href="tel:+972546929991" dir="ltr">054-6929991</a></p>';
+      '<div class="mfa-on"><b>✓ פעיל</b><br>כל כניסה חדשה מבקשת הודעה אחת לגבריאלה מהנייד שבכרטיס.</div>'
+    + (s.admin
+        ? '<p class="mfa-help">לחשבון עם הרשאת ניהול פלטפורמה האימות הזה הוא חובה, ולכן אי אפשר לכבות אותו.</p>'
+        : '<button type="button" class="btn btn-ghost btn-block" id="mfaOffBtn">כיבוי</button>');
   const off = host.querySelector('#mfaOffBtn');
   if (off) off.addEventListener('click', async ()=>{
-    if (!confirm('לכבות את האימות הדו-שלבי? מעכשיו הסיסמה לבדה תספיק כדי להיכנס לחשבון.')) return;
+    if (!confirm('לכבות את אימות הכניסה בוואטסאפ? מעכשיו הסיסמה לבדה תספיק כדי להיכנס לחשבון.')) return;
     off.disabled = true; off.textContent = 'מכבים…';
-    try{
-      const { error } = await sb.auth.mfa.unenroll({ factorId: factor.id });
-      if (error) throw error;
-      // ה-session עדיין aal2 עם factor שנמחק; רענון מיישר אותו
-      await sb.auth.refreshSession();
-      showToast('אימות דו-שלבי כובה');
-      await renderMfaSection();
-    } catch(err){
-      console.error('mfa unenroll failed', err);
+    const { error } = await sb.rpc('wa_2fa_disable');
+    if (error){
       fb.style.color = 'var(--brick)';
-      fb.textContent = heErr(err);
-      off.disabled = false; off.textContent = 'כיבוי אימות דו-שלבי';
+      fb.textContent = heErr(error);
+      off.disabled = false; off.textContent = 'כיבוי';
+      return;
     }
+    showToast('אימות הכניסה בוואטסאפ כובה');
+    renderMfaSection();
   });
 }
 
 document.getElementById('accSecurity').addEventListener('toggle', (e)=>{
   if (e.target.open) renderMfaSection();
+  else mfaStopPolling();
 });
 
 // עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js, 20270115101000)
@@ -1746,11 +1704,6 @@ async function routeAfterAuthOnce(user){
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   routedUserId = user.id;
-  // אימות דו-שלבי: מי שהפעיל/ה ועוד לא הזין/ה קוד עוצר/ת כאן. הבדיקה מקומית
-  // (ה-JWT וה-factors שב-session), בלי סיבוב רשת. המקרה שהיא לא רואה -
-  // factor שנוסף ממכשיר אחר, או מנהל/ת פלטפורמה שחייב/ת להפעיל - נתפס
-  // ב-loadDashboard, כשהמסד מחזיר "אין כרטיס" (‏mfaGateOnMissingAgent).
-  if (await mfaNeedsChallenge()){ showMfaChallenge(); return; }
   showBootCard('טוענים את איזור הסוכנים…');
   // אין כאן שאילתת agency_members נפרדת: loadDashboard() ממילא שולף את השורה
   // ומבדיל בעצמו בין שגיאה (מסך שגיאה) לבין אין-שורה (מסך פתיחת משרד).
@@ -1844,7 +1797,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     // קצה חוט מגיעים למסך פתיחת המשרד. ההבחנה מול agentErr למעלה נשמרת:
     // שאילתה שנכשלה היא מסך שגיאה, לא "אין לך משרד".
     //
-    // ‏ועוד לפני כן: חשבון שחייב קוד ולא הזין אותו נראה במסד כאורח/ת, ולכן
+    // ‏ועוד לפני כן: חשבון שחייב אימות כניסה ולא אימת נראה במסד כאורח/ת, ולכן
     // גם הוא מגיע לכאן בלי כרטיס. הבדיקה רצה רק בענף הזה, כך שכניסה רגילה
     // לא משלמת עליה.
     if (await mfaGateOnMissingAgent()) return;
@@ -1950,7 +1903,6 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מקטע הסגירה נטען ברקע כמו שאר מקטעי ההגדרות: הוא לא על המסך הראשון,
   // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
   loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
-  mfaSetCount(agent).catch(err => console.warn('סטטוס אימות דו-שלבי נכשל:', err));
 
   // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
   await loadPricing();
@@ -25430,7 +25382,7 @@ const NAV_GROUPS = [
     { acc:'accGcal',          label:'יומן Google',        icon:'calendar', tab:'more' },
     { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
-    { acc:'accSecurity',      label:'אימות דו-שלבי',      icon:'shield',   tab:'more' },
+    { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
        שכנה של פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
