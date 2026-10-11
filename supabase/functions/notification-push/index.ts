@@ -165,6 +165,10 @@ function itemPath(it: Item): string | null {
   const agreement = uuidOr(it.agreement_id);
   const review = uuidOr(it.review_id);
 
+  // תזכורת על ליד ("לחזור לליד חדש") פותחת את הליד ולא את הפריט ביומן: שם
+  // מטפלים, והפריט ביומן היה עוד לחיצה בדרך (20270418090000). הפעמון
+  // (‏crm.js) - באותו סדר.
+  if (lead && it.type === "agenda_reminder") return `/crm?goto=accLeads&lead=${lead}`;
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
   if (it.type === "review_new" || it.type === "review_alert") {

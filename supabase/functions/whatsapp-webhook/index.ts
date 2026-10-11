@@ -10,6 +10,7 @@ import {
   verifySignature,
 } from "./whatsapp.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
+import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import {
   type AgentRow,
   type ConversationState,
@@ -949,6 +950,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     return;
   }
 
+  // --- בעלים או מתווך/ת עונה לבקשת תיאום ביקור (מאשר/ת / לדחות / מועד אחר) ---
+  // מאותה סיבה ובאותו מקום: הבעלים אינו/ה סוכן/ת, ומתווך/ת בשת"פ הוא/היא
+  // סוכן/ת שהלחיצה שלו/ה אסור שתגיע לגבריאלה כאילו נכתבה ביד.
+  // ‏docs/showing-coordination.md
+  const coordBtn = parseCoordPayload(
+    msg.type === "button" ? msg.button?.payload
+      : msg.type === "interactive" ? msg.interactive?.button_reply?.id
+      : null,
+  );
+  if (coordBtn) {
+    await reply(from, await respondToCoord(supabase, coordBtn.token, coordBtn.answer), null);
+    return;
+  }
+
   // --- אימות חותם/ת על הסכם ("אימות חתימה 482193") ---
   // לפני זיהוי הסוכן/ת: השולח/ת הוא/היא לקוח/ה, ובלי זה היה/הייתה מקבל/ת
   // "איני מזהה את מספר הטלפון שלך". ‏_shared/agreement-wa-verify.ts.
@@ -1069,6 +1084,14 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
+      // ‏"לשלוח בקשות תיאום לבעלים ולמתווכים?" (showing-coord.ts): המזהה נושא
+      // את בקשת הסיור, והתשובה קבועה ובלי מודל.
+      const coordReply = await coordOfferButtonReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (coordReply) {
+        await reply(from, coordReply, agent.id);
+        return;
+      }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
       // והכותרת לבדה ("כן, לפתוח לשת״פ") אינה אומרת על איזה נכס עונים.
       const offer = await offerButtonReply(
@@ -1322,6 +1345,27 @@ Deno.serve(async (req: Request) => {
       runPropertyOffers(supabase)
         .then((r) => console.log("property offers", JSON.stringify(r)))
         .catch((err) => console.error("property offers failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // ‏תיאום ביקור עם הבעלים והמתווכים (‏showing-coord.ts) - כל דקה, רק כשיש מה
+  // לשלוח. אותו אימות פנימי.
+  if (url.searchParams.get("task") === "showing-coord") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runShowingCoord(supabase)
+        .then((r) => console.log("showing coord", JSON.stringify(r)))
+        .catch((err) => console.error("showing coord failed", err)),
     );
     return new Response(JSON.stringify({ accepted: true }), {
       status: 202,

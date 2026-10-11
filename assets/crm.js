@@ -23781,6 +23781,13 @@ async function loadNotifications(agentId){
       // ביטל בגללה את ההתראה לגמרי במקום להעביר ללשונית שלה. ‏gotoSection הוא
       // שעושה את המעבר, ואחריו הגלילה מגיעה למקום קיים.
       if (navAccVisible(target.goto)){
+        // תזכורת על ליד פותחת את הליד, כמו הקישור בוואטסאפ (itemPath)
+        if (n.type === 'agenda_reminder' && n.related_lead_id
+            && allLeads.some(l => l.id === n.related_lead_id) && navAccVisible('accLeads')){
+          gotoSection('accLeads');
+          openLeadFromParam(n.related_lead_id);
+          return;
+        }
         if (n.related_agenda_item_id){
           agendaFocus(n.related_agenda_item_id);
           return;
