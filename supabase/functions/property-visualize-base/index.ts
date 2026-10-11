@@ -21,6 +21,7 @@ import {
   type StyleKey,
   type WorkItem,
 } from "../_shared/visualization.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // סט הבסיס — הצד ה"קבוע" של המנגנון ההיברידי.
@@ -80,6 +81,8 @@ Deno.serve(async (req: Request) => {
     const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: userData, error: userErr } = await authed.auth.getUser();
     if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+    const mfa = await mfaGate(authHeader);
+    if (mfa) return json({ error: mfa.error }, mfa.status);
 
     const { data: agentRow } = await supabase
       .from("agency_members")

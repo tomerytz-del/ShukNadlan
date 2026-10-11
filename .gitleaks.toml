@@ -1,0 +1,24 @@
+# ‏הגדרת gitleaks לריפו (‏.github/workflows/secrets.yml, docs/security-ci.md).
+#
+# כללי ברירת המחדל של gitleaks, ועליהם רשימת היתר אחת: ערכים שנמצאו בהרצה
+# הראשונה (אוקטובר 2026) ושהם **ציבוריים בכוונה** או אינם סודות בכלל. כל
+# שורה כאן היא החלטה בכתב, עם הנימוק לידה - לא דרך להשתיק ממצא.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "ציבוריים בכוונה, או לא סודות"
+regexTarget = "secret"
+regexes = [
+  # מפתח ה-publishable של Supabase. מוטמע בכל דף בכוונה; RLS הוא מה שמגן.
+  '''^sb_publishable_[A-Za-z0-9_-]+$''',
+  # טוקן GovMap ציבורי, נעול לדומיין שלנו בצד של GovMap (docs/govmap.md).
+  '''^a888579d-2bc4-4768-97d5-bd1642e2633b$''',
+  # תגית האימות של Google Search Console - מופיעה בכל דף (CLAUDE.md).
+  '''^_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA$''',
+  # שמות מפתחות הגדרה (‏key = 'reminder_max_failures_24h'), לא ערכים.
+  '''^[a-z][a-z0-9]*(_[a-z0-9]+)+$''',
+  # ערך דוגמה בתיעוד.
+  '''^abcdef1234567890abcdef1234567890$''',
+]

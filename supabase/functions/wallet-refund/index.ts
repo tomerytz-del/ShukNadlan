@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/morning.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // החזר יתרה שלא מומשה
@@ -38,6 +39,8 @@ async function resolveCaller(req: Request, supabase: any): Promise<Caller | { er
   });
   const { data: userData, error: userErr } = await authed.auth.getUser();
   if (userErr || !userData?.user) return { error: "unauthorized", status: 401 };
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return { error: mfa.error, status: mfa.status };
 
   const { data: agent, error } = await supabase
     .from("agency_members")

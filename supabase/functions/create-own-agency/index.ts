@@ -5,6 +5,7 @@ import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -69,6 +70,8 @@ Deno.serve(async (req: Request) => {
   const authedClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authedClient.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 

@@ -6,6 +6,7 @@ import {
   GCAL_PUBLISHED,
   googleCalendarConfigured,
 } from "../_shared/google-calendar.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // חיבור וניתוק של יומן Google - נקרא מה-CRM, עם ה-JWT של הסוכן/ת.
@@ -50,6 +51,8 @@ Deno.serve(async (req: Request) => {
   const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authed.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data: member } = await supabase

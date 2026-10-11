@@ -9,6 +9,7 @@ import { ilIdStatus } from "../_shared/il-id.ts";
 // נמלאות מ-agreement_signers בכל הצגה. אותו מודול שבונה את המסמך בדפדפן.
 import "../_shared/agreement-templates.js";
 import "../_shared/agreement-doc.js";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // deno-lint-ignore no-explicit-any
 const AgreementDoc: any = (globalThis as any).AgreementDoc;
@@ -288,6 +289,8 @@ async function isOwningAgentSession(req: Request, agentId: string): Promise<bool
     const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: userData, error } = await authed.auth.getUser();
     if (error || !userData?.user) return false;
+    // אימות דו-שלבי - בלי קוד אין פטור מהאימות, והחתימה עוברת למסלול הרגיל
+    if (await mfaGate(authHeader)) return false;
     const { data: agent } = await db
       .from("agency_members").select("id, active").eq("user_id", userData.user.id).maybeSingle();
     return !!agent && agent.active && agent.id === agentId;
@@ -707,6 +710,8 @@ async function requireOwningAgent(req: Request, agreementId: string) {
   const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authed.auth.getUser();
   if (userErr || !userData?.user) return { error: "unauthorized", status: 401 };
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return { error: mfa.error, status: mfa.status };
 
   const { data: agent } = await db
     .from("agency_members").select("id, active").eq("user_id", userData.user.id).maybeSingle();

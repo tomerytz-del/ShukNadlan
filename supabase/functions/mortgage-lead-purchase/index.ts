@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // רכישת ליד ייעוץ משכנתאות — ₪50 מיתרת הארנק.
@@ -50,6 +51,8 @@ Deno.serve(async (req: Request) => {
   if (userErr || !userData?.user) {
     return json({ error: "unauthorized", detail: "invalid or expired session" }, 401);
   }
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
 

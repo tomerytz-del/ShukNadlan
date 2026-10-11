@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // גיאוקוד בסיסי (רחוב+מספר בית -> lat/lng) לעפולה בלבד, דרך שכבת נקודות
 // הכתובות של עיריית עפולה (אותו WFS ששכבת "מידע תכנוני" ב-afula-planning-lookup
@@ -47,6 +48,8 @@ Deno.serve(async (req: Request) => {
   const authedClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authedClient.auth.getUser();
   if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data: agentRow, error: agentErr } = await supabase

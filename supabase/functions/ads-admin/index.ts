@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 import { actionCount, MetaClient, MetaError, normalizeAccountId } from "../_shared/meta-graph.ts";
 import {
   type Audience,
@@ -1197,6 +1198,8 @@ async function authorize(req: Request, sb: SupabaseClient): Promise<Caller | Res
     const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: userData } = await authed.auth.getUser();
     if (userData?.user) {
+      const mfa = await mfaGate(authHeader);
+      if (mfa) return json({ error: mfa.error }, mfa.status);
       const { data: member, error } = await sb
         .from("agency_members")
         .select("id, is_platform_admin, active")

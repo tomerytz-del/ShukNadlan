@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
 import { normalizeLicense } from "../_shared/broker-registry.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // ערעור על חסימת כניסה — צילום רישיון ואישור ידני
@@ -111,6 +112,8 @@ async function platformAdmin(req: Request, supabase: any) {
   const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData } = await authed.auth.getUser();
   if (!userData?.user) return null;
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return mfa;
 
   const { data: member } = await supabase
     .from("agency_members")
@@ -239,6 +242,7 @@ Deno.serve(async (req: Request) => {
     // =====================================================================
     const admin = await platformAdmin(req, supabase);
     if (!admin) return json({ error: "not_platform_admin" }, 403);
+    if ("error" in admin) return json({ error: admin.error }, admin.status);
 
     // ---------------------------------------------------------------------
     // list — הערעורים, עם קישור חתום לכל מסמך

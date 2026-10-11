@@ -48,6 +48,16 @@
     [['session_not_found', 'refresh_token_not_found', 'bad_jwt', 'PGRST301', 'PGRST303', /jwt expired|invalid jwt|refresh token|auth session missing/i],
       'החיבור פג. יש לרענן את הדף ולהתחבר מחדש.'],
     [['user_banned'], 'החשבון הזה חסום. לבירור - כתבו לנו.'],
+    // אימות כניסה (docs/mfa.md). ‏mfa_required ו-mfa_check_failed מגיעים
+    // מ-_shared/mfa-gate.ts בפונקציות ה-Edge; השאר מ-Supabase Auth (אפליקציה).
+    [['mfa_verification_failed', /invalid totp code/i],
+      'הקוד שגוי או שפג תוקפו. הקוד מתחלף כל 30 שניות - כדאי להזין את הקוד שמופיע באפליקציה עכשיו.'],
+    [['mfa_challenge_expired'], 'עבר יותר מדי זמן. כדאי להזין את הקוד שמופיע באפליקציה עכשיו.'],
+    [['mfa_factor_name_conflict', 'too_many_enrolled_mfa_factors'],
+      'כבר יש תהליך הפעלה פתוח. כדאי לרענן את הדף ולהתחיל מחדש.'],
+    [['mfa_required', 'insufficient_aal'],
+      'נדרש אימות כניסה. יש לרענן את הדף ולאמת בוואטסאפ או בקוד מהאפליקציה.'],
+    [['mfa_check_failed'], 'לא הצלחנו לבדוק את אימות הכניסה. כדאי לנסות שוב בעוד רגע.'],
     [['signup_disabled', 'email_provider_disabled'], 'ההרשמה עם אימייל סגורה כרגע. אפשר להיכנס עם Google.'],
     [['provider_disabled', /unsupported provider|provider is not enabled/i], 'ההתחברות הזו אינה זמינה כרגע. אפשר להיכנס עם אימייל וסיסמה.'],
 

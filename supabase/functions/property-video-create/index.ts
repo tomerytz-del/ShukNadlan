@@ -14,6 +14,7 @@ import {
   json,
   pickScenes,
 } from "../_shared/property-video.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // הפקת סרטון שיווקי לנכס — הכניסה מה-CRM ומהעוזר בוואטסאפ.
@@ -129,6 +130,8 @@ Deno.serve(async (req: Request) => {
     });
     const { data: userData, error: userErr } = await authedClient.auth.getUser();
     if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+    const mfa = await mfaGate(authHeader);
+    if (mfa) return json({ error: mfa.error }, mfa.status);
 
     const { data } = await supabase
       .from("agency_members")

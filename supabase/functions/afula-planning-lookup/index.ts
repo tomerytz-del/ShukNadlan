@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // מידע תכנוני לסוכן/ת מחובר/ת — הכלי ב-CRM ובטופס הנכס
@@ -52,6 +53,8 @@ Deno.serve(async (req) => {
   const authedClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const authResult = await authedClient.auth.getUser();
   if (authResult.error || !authResult.data.user) return json({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const agentResult = await supabase.from("agency_members").select("id, tier, active, billing_status").eq("user_id", authResult.data.user.id).maybeSingle();

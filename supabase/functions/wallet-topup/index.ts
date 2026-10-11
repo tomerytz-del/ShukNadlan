@@ -9,6 +9,7 @@ import {
   morningEnvLabel,
   isTerminalMissing,
 } from "../_shared/morning.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // טעינת ארנק — פתיחת התשלום
@@ -53,6 +54,8 @@ async function resolveAgent(req: Request, supabase: any) {
   });
   const { data: userData, error: userErr } = await authedClient.auth.getUser();
   if (userErr || !userData?.user) return { error: "unauthorized", status: 401 };
+  const mfa = await mfaGate(authHeader);
+  if (mfa) return { error: mfa.error, status: mfa.status };
 
   const { data: agentRow, error: agentErr } = await supabase
     .from("agency_members")

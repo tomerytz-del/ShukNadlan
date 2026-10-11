@@ -973,6 +973,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
   }
 
+  // --- אימות כניסה ל-CRM ("אימות כניסה 482193") ---
+  // לפני זיהוי הסוכן/ת, כדי שההודעה לא תגיע לגבריאלה כבקשה. כל הבדיקה
+  // (הקוד, התוקף, והנייד שבכרטיס מול from) במסד, ב-wa_login_verify.
+  // ‏docs/mfa.md.
+  if (msg.type === "text") {
+    const m = /אימות\s*כניסה[\s‎‏:#-]*(\d{6})/.exec(String(msg.text?.body || ""));
+    if (m) {
+      const { data, error } = await supabase.rpc("wa_login_verify", { p_nonce: m[1], p_from: from });
+      if (error) console.error("wa login verify failed", error.message);
+      await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null);
+      return;
+    }
+  }
+
   // --- זיהוי הסוכן/ת לפי מספר הטלפון ---
   // phone_e164 היא עמודה מחושבת שמנרמלת את agency_members.phone לאותו פורמט
   // ש-Meta שולחת ב-from, כך שההשוואה היא שוויון פשוט ומאונדקס.

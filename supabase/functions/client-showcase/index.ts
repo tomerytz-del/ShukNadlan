@@ -4,6 +4,7 @@ import { fetchAsBase64 } from "../_shared/visualization.ts";
 import { BRANDING_MODEL, detectBranding } from "./branding.ts";
 import { maskHouseNumber, scrubPartnerText } from "./scrub.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { mfaGate } from "../_shared/mfa-gate.ts";
 import {
   phoneE164, sendShowcaseTemplate, sendShowcaseText, templateConfigured, waConfigured, WaError, WA_OPTED_OUT,
 } from "./wa.ts";
@@ -595,6 +596,8 @@ async function handleScan(req: Request, supabase: SupabaseClient, body: Row) {
     const { data: userData } = await supabase.auth.getUser(auth.slice(7));
     userId = userData?.user?.id ?? null;
     if (!userId) return json({ error: "unauthorized" }, 401);
+    const mfa = await mfaGate(auth);
+    if (mfa) return json({ error: mfa.error }, mfa.status);
   }
 
   const showcaseId = String(body.showcase_id ?? "");
