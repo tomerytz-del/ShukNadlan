@@ -15,7 +15,7 @@ import {
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
-import { noLongDash } from "../_shared/marketing-copy.ts";
+import { featureNames, noLongDash } from "../_shared/marketing-copy.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -853,12 +853,21 @@ const TOOLS: Anthropic.Tool[] = [
       "מה מתאים ללקוח/ה מסוים/ת. מצליב את הדרישות מול הנכסים של הסוכן/ת, נכסי " +
       "המשרד ומה שמשרדים אחרים שיתפו עם המשרד - כל התאמה עם ציון באחוזים ועם " +
       "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
-      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון).",
+      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). מאפייני החובה של הלקוח/ה " +
+      "(ממ״ד, מעלית, חניה...) הם סינון קשיח: נכס בלי אחד מהם לא חוזר. אם אין התאמות " +
+      "מלאות, חוזר without_required - כמה נכסים יש בלי כל מאפיין - כדי לשאול את הסוכן/ת.",
     input_schema: {
       type: "object",
       properties: {
         client_id: { type: "string" },
         limit: { type: "integer", description: "ברירת מחדל 5." },
+        waive_features: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "מאפייני חובה שמותר שיחסרו בקריאה הזו (קודים מ-required_features). **רק אחרי " +
+            "שהסוכן/ת אישר/ה במפורש** להציג נכסים בלי המאפיין. אינו משנה את כרטיס הלקוח/ה.",
+        },
       },
       required: ["client_id"],
     },
@@ -1962,6 +1971,37 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
   const res = await agentPropertySearch(ctx, input, limit);
   if (!res.ok) return res;
+
+  // המאפיינים שנדרשו הם סינון קשיח (‏contains). כשאין אף נכס עם כולם - סופרים
+  // כמה יש בלי הדרישה הזו, ולפי איזה מאפיין חסר, כדי לשאול ולא להציע מעצמנו.
+  const feats = Array.isArray(input.features) ? (input.features as unknown[]).map(String).filter(Boolean) : [];
+  if (!res.total && feats.length) {
+    const loose = await agentPropertySearch(ctx, { ...input, features: [] }, 20);
+    if (loose.ok && loose.total) {
+      const has = (p: Record<string, unknown>, f: string) => ((p.features as string[]) || []).includes(f);
+      return {
+        ok: true,
+        total: 0,
+        returned: 0,
+        properties: [],
+        ...res.hint,
+        required_features: featureNames(feats),
+        without_required: {
+          total: loose.total,
+          by_feature: feats.map((f) => ({
+            feature: f,
+            label: featureNames([f])[0] || f,
+            properties_without_it: loose.results.filter((p) => !has(p, f)).length,
+          })).filter((b) => b.properties_without_it > 0),
+        },
+        note:
+          "אין אף נכס עם כל המאפיינים שנדרשו. **אל תציג/י נכסים.** אמור/אמרי זאת, ושאל/י " +
+          "בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature. אחרי \"כן\" - " +
+          "search_properties שוב בלי המאפיינים שאושרו, וליד כל נכס כתוב/כתבי מה חסר בו.",
+      };
+    }
+  }
+
   return {
     ok: true,
     total: res.total,
@@ -3315,7 +3355,7 @@ async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<s
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, client_kind, deal_type, category")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -3719,10 +3759,18 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   }
 
   const limit = Math.min(Number(input.limit) || 5, 15);
+  // מאפייני החובה הם סינון קשיח ב-client_property_match (‏20270417090000).
+  // ויתור הוא פרמטר של הקריאה, ורק על מה שבאמת בכרטיס - קוד אחר אינו מרחיב.
+  const required = ((client.required_features as string[] | null) || []).filter(Boolean);
+  const waive = Array.isArray(input.waive_features)
+    ? (input.waive_features as unknown[]).map(String).filter((f) => required.includes(f))
+    : [];
+
   const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
     p_agent_id: ctx.agent.id,
     p_client_id: clientId,
     p_limit: limit,
+    p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -3740,9 +3788,15 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     p_agent_id: ctx.agent.id,
     p_client_id: clientId,
     p_limit: 5,
+    p_waive_features: waive,
   });
   // הפונקציה נכנסת במיגרציה; עד שהיא באוויר - בלי market, לא כשל של הכלי
   if (marketErr) console.warn("agent_client_market_matches failed", marketErr.message);
+  // "בלי מעלית" ליד נכס שעבר בוויתור - כדי שהסוכן/ת לא יציע/תציע אותו כמלא
+  const missingOf = (m: Record<string, unknown>) => {
+    const he = featureNames(m.missing_features);
+    return he.length ? he : undefined;
+  };
   const marketMatches = ((marketErr ? [] : marketRows) || []).map((m: Record<string, unknown>) => ({
     property_id: m.property_id,
     source: "market",
@@ -3754,17 +3808,43 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     floor: m.floor,
     size_sqm: m.size_sqm,
     gaps: m.reasons,
+    missing_required: missingOf(m),
     listing_agent: m.listing_agent_name,
     listing_agent_phone: m.listing_agent_phone,
     listing_office: m.listing_office,
     link: propertyLink(String(m.property_id)),
   }));
 
+  // אין אף התאמה מלאה ויש מאפייני חובה: לא מציגים "קרובים" על דעת עצמנו.
+  // סופרים כמה נכסים היו עוברים בוויתור, ולפי איזה מאפיין חסר - והסוכן/ת מחליט/ה.
+  let withoutRequired: Record<string, unknown> | undefined;
+  if (required.length && !waive.length && !(data || []).length && !marketMatches.length) {
+    const [own, market] = await Promise.all([
+      ctx.supabase.rpc("agent_client_matches", {
+        p_agent_id: ctx.agent.id, p_client_id: clientId, p_limit: 30, p_waive_features: required,
+      }),
+      ctx.supabase.rpc("agent_client_market_matches", {
+        p_agent_id: ctx.agent.id, p_client_id: clientId, p_limit: 15, p_waive_features: required,
+      }),
+    ]);
+    const rows = [...(own.data || []), ...(market.data || [])] as Array<Record<string, unknown>>;
+    if (rows.length) {
+      const byFeature = required.map((f) => ({
+        feature: f,
+        label: featureNames([f])[0] || f,
+        properties_without_it: rows.filter((r) => ((r.missing_features as string[]) || []).includes(f)).length,
+      })).filter((b) => b.properties_without_it > 0);
+      withoutRequired = { total: rows.length, by_feature: byFeature };
+    }
+  }
+
   return {
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
     count: (data || []).length,
+    required_features: required.length ? featureNames(required) : undefined,
+    waived_features: waive.length ? featureNames(waive) : undefined,
     showcase: showcase
       ? { link: showcase.link, items: showcase.property_ids.length,
           new_matches: (data || []).filter((m: Record<string, unknown>) => !inShowcase.has(String(m.property_id))).length }
@@ -3782,6 +3862,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       floor: m.floor,
       size_sqm: m.size_sqm,
       gaps: m.reasons,
+      missing_required: missingOf(m),
       listing_agent: m.listing_agent_name,
       listing_agent_phone: m.listing_agent_phone,
       link: propertyLink(String(m.property_id)),
@@ -3790,6 +3871,18 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     market_note: marketMatches.length
       ? "נכסים של מתווכים אחרים באזור שמתאימים ללקוח/ה ולא שותפו עם המשרד (אותו ציון). " +
         "אינם נכנסים למיניסייט - להציג עם שם המתווך/ת, המשרד והטלפון, לתיאום שת\"פ."
+      : undefined,
+    without_required: withoutRequired,
+    note: withoutRequired
+      ? "אין אף נכס שיש בו את כל מאפייני החובה של הלקוח/ה. **אל תציג/י נכסים.** אמור/אמרי " +
+        "זאת, ושאל/י בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature (\"יש 3 בלי " +
+        "מעלית ו-1 בלי ממ״ד - להציג?\"). אחרי \"כן\" - client_matches שוב עם waive_features " +
+        "של המאפיינים שאושרו בלבד."
+      : waive.length
+      ? "הוצגו גם נכסים בלי המאפיינים שבוויתור. ליד כל נכס כזה כתוב/כתבי מה חסר בו " +
+        "(missing_required), ואל תציג/י אותו כהתאמה מלאה."
+      : required.length && !(data || []).length && !marketMatches.length
+      ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
   };
 }
@@ -5530,6 +5623,9 @@ const SYSTEM_STATIC: string = (() => {
       "search_properties**, גם בלי לקוח/ה בקובץ. הוא מחפש בנכסים שלך, של המשרד, במה ששותף איתכם " +
       "ובכל הנכסים של המתווכים באזור. **לעולם אל תענה/י \"אין לך נכסים\" על שאלת חיפוש** - " +
       "החיפוש אינו רק במלאי שלך. הצג/י לפי source: שלך, של המשרד, ושל מתווכים אחרים (שם, משרד וטלפון).",
+    "- **דרישה מפורשת היא חובה.** \"עם ממ״ד\", \"חייב מעלית\", \"עם חניה\" = features ב-search_properties " +
+      "(mamad, elevator, parking...), ולעולם לא נכס בלי המאפיין כאילו הוא מתאים. אם חזר without_required - " +
+      "אין נכס עם הכול: אמור/אמרי זאת ושאל/י אם להציג גם בלי המאפיין, לפי by_feature. בלי אישור לא מציגים.",
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
@@ -5622,6 +5718,15 @@ const SYSTEM_STATIC: string = (() => {
       "באזור שלא שותפו עם המשרד. הצג/י אותם אחרי ההתאמות, עם שם המתווך/ת והטלפון; הם אינם נכנסים למיניסייט. " +
       "\"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
+    "- **מאפייני החובה של הלקוח/ה (required_features) הם סינון קשיח** - client_matches לא מחזיר נכס " +
+      "שחסר בו אחד מהם. אם חזר without_required: אין אף התאמה מלאה. אל תציג/י נכסים; שאל/י בשאלה אחת " +
+      "אם להציג גם נכסים בלי המאפיין (\"אין כרגע עם ממ״ד ומעלית. יש 3 בלי מעלית - להציג?\"), ורק אחרי " +
+      "\"כן\" - client_matches עם waive_features של מה שאושר. ליד נכס עם missing_required כתוב/כתבי " +
+      "מה חסר בו. ויתור אינו משנה את הכרטיס; אם הסוכן/ת אומר/ת שהדרישה ירדה - update_client.",
+    "- סוכן/ת שמזכיר/ה דרישה של לקוח/ה שאינה בכרטיס (\"דני צריך ממ״ד\") - update_client עם " +
+      "required_features (בתוספת למה שיש), ואז client_matches. אחרת ההתאמות מתעלמות ממנה.",
+    "- **create_showcase אחרי ויתור - עם property_ids** של הנכסים שהוצגו. בלי property_ids " +
+      "נלקחות רק ההתאמות המלאות.",
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
       "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
       "\"להוסיף את <new_matches> החדשות לעמוד של <שם>?\". אל תפתחי בלי אישור.",
