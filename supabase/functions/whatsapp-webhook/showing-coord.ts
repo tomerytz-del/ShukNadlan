@@ -113,16 +113,19 @@ type ClaimRow = {
  * הבקשה עצמה, בגוף ראשון של הסוכן/ת - כך ביקש/ה המשתמש/ת שהגדיר/ה אותה.
  * בלי שם הלקוח/ה ובלי שאר הנכסים בסיור: הנמען/ת צריך/ה לדעת מי, איפה ומתי.
  */
-export function coordLine(r: Pick<ClaimRow, "agent_name" | "agency_name" | "property_line" | "window_start">): string {
+export function coordLine(
+  r: Pick<ClaimRow, "agent_name" | "agency_name" | "property_line" | "window_start">,
+  nudge = false,
+): string {
   const who = [r.agent_name, r.agency_name].filter(Boolean).join(" מ");
   const where = r.property_line ? ` ב${r.property_line}` : "";
-  return `${who ? `כאן ${who}. ` : ""}אני מבקש/ת לתאם איתך ביקור בנכס${where} עם לקוחות, ` +
+  return `${nudge ? "תזכורת קטנה: " : ""}${who ? `כאן ${who}. ` : ""}אני מבקש/ת לתאם איתך ביקור בנכס${where} עם לקוחות, ` +
     `${dayText(r.window_start)} בסביבות השעה ${windowText(r.window_start)}.`;
 }
 
-export function coordText(r: ClaimRow): string {
+export function coordText(r: ClaimRow, nudge = false): string {
   const hi = firstName(r.target_name);
-  return `שלום${hi ? " " + hi : ""}, ${coordLine(r)}\nהאם זה מתאפשר לך? אשמח לאישור הביקור.`;
+  return `שלום${hi ? " " + hi : ""}, ${coordLine(r, nudge)}\nהאם זה מתאפשר לך? אשמח לאישור הביקור.`;
 }
 
 async function post(payload: Record<string, unknown>): Promise<string | null> {
@@ -176,9 +179,16 @@ function sendCoordTemplate(to: string, name: string, line: string, token: string
   });
 }
 
-/** בקשה אחת: ערוץ, שליחה, רישום ביומן ועדכון השורה. מחזירה את הסטטוס. */
-async function sendOne(supabase: SupabaseClient, r: ClaimRow): Promise<string> {
+/**
+ * בקשה אחת: ערוץ, שליחה, רישום ביומן ועדכון השורה. מחזירה את הסטטוס.
+ *
+ * ‏`nudge` - התזכורת למי שלא ענה/תה. אותם כפתורים ואותו טוקן, אבל **השורה
+ * אינה מתעדכנת**: הבקשה המקורית כבר הגיעה, ותזכורת שנכשלה אינה הופכת אותה
+ * ל-failed. ‏nudged_at נכתב ב-claim, לפני השליחה.
+ */
+async function sendOne(supabase: SupabaseClient, r: ClaimRow, nudge = false): Promise<string> {
   const done = async (status: string, wamid: string | null = null, error: string | null = null) => {
+    if (nudge) return status;
     await supabase.from("showing_coord_requests").update({
       status,
       wa_message_id: wamid,
@@ -191,14 +201,14 @@ async function sendOne(supabase: SupabaseClient, r: ClaimRow): Promise<string> {
   const to = phoneE164(r.target_phone);
   if (!to) return await done("no_phone");
 
-  const text = coordText(r);
+  const text = coordText(r, nudge);
   const open = await inWindow(supabase, to);
   if (!open && !COORD_TEMPLATE) return await done("no_channel");
 
   try {
     const wamid = open
       ? await sendButtons(to, text, COORD_BUTTONS.map((b) => ({ id: `scr:${b.code}:${r.token}`, title: b.title })))
-      : await sendCoordTemplate(to, r.target_name || "", coordLine(r), r.token);
+      : await sendCoordTemplate(to, r.target_name || "", coordLine(r, nudge), r.token);
     // כל הודעה יוצאת נרשמת ביומן (הסקיל whatsapp-bots). ‏agent_id ריק: השיחה
     // היא עם הנמען/ת, לא עם הסוכן/ת - גם כשהנמען/ת מתווך/ת בעצמו/ה.
     await supabase.from("whatsapp_messages").insert({
@@ -253,7 +263,8 @@ function offerBody(o: OfferRow): string {
   }).join("\n");
   return `${hi ? hi + ", " : ""}${client} ביקש/ה במיניסייט סיור ${dayText(o.starts_at)} ב-${windowText(o.starts_at).slice(0, 5)}:\n` +
     `${list}\n\nלשלוח לכל הבעלים והמתווכים בקשה לתאם ביקור בסביבות ${windowText(o.starts_at)}? ` +
-    "כל אחד/ת יקבל/תקבל כפתורים לאשר, לדחות או לבקש מועד אחר, ואעדכן אותך על כל תשובה.";
+    "כל אחד/ת יקבל/תקבל כפתורים לאשר, לדחות או לבקש מועד אחר. אעדכן אותך על כל תשובה, " +
+    "אזכיר למי שלא ענה/תה, ושעתיים לפני הסיור אשלח לך סיכום מי אישר/ה ומי לא.";
 }
 
 async function sendOffers(supabase: SupabaseClient) {
@@ -291,13 +302,30 @@ async function sendOffers(supabase: SupabaseClient) {
   return { offered: sent, offer_failed: failed };
 }
 
-/** סבב ה-cron: הצעות לסוכנים, ואז הבקשות שממתינות. */
+/**
+ * תזכורת אחת למי שלא ענה/תה - באמצע הדרך לסיור, 08:00-21:00 (הבחירה
+ * ב-showing_coord_nudge_claim). הסיכום לסוכן/ת לפני הסיור אינו כאן: הוא
+ * התראה רגילה, ונכתב במסד (showing_coord_briefs).
+ */
+async function sendNudges(supabase: SupabaseClient) {
+  const { data, error } = await supabase.rpc("showing_coord_nudge_claim", { p_limit: 30 });
+  if (error) return { nudge_error: error.message };
+  const counts: Record<string, number> = {};
+  for (const r of (data || []) as ClaimRow[]) {
+    const st = await sendOne(supabase, r, true);
+    counts[st] = (counts[st] || 0) + 1;
+  }
+  return { nudged: counts };
+}
+
+/** סבב ה-cron: הצעות לסוכנים, הבקשות שממתינות, והתזכורות. */
 export async function runShowingCoord(supabase: SupabaseClient) {
   const offers = await sendOffers(supabase);
   const sends = await sendPendingCoord(supabase);
   const counts: Record<string, number> = {};
   for (const r of sends.results) counts[r.status] = (counts[r.status] || 0) + 1;
-  return { ...offers, sent: counts, ...(sends.error ? { error: sends.error } : {}) };
+  const nudges = await sendNudges(supabase);
+  return { ...offers, sent: counts, ...nudges, ...(sends.error ? { error: sends.error } : {}) };
 }
 
 const STATUS_TEXT: Record<string, string> = {
@@ -364,7 +392,7 @@ export async function coordOfferButtonReply(
     missed.length
       ? "\nלמי שלא קיבל/ה - בפאנל המיניסייט ב-CRM יש לכל אחד/ת כפתור וואטסאפ עם אותו נוסח, לשליחה ממך."
       : "",
-    "אעדכן אותך על כל תשובה.",
+    "אעדכן אותך על כל תשובה, ושעתיים לפני הסיור אשלח סיכום מי אישר/ה ומי לא.",
   ].filter(Boolean).join("\n");
 }
 

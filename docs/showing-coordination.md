@@ -35,6 +35,17 @@
    מקבל/ת התראה: "✅ משה לוי אישר/ה את הביקור · הרצל 5, עפולה · היום 17:00 ·
    סיור עם דנה".
 
+6. **תזכורת למי שלא ענה/תה** - אחת בלבד, באמצע הדרך בין הבקשה לסיור (לא לפני
+   שעה מהבקשה ולא אחרי שעה לפני הסיור), ורק 08:00-21:00. אותה הודעה עם
+   "תזכורת קטנה:" בראשה, אותם כפתורים.
+7. **סיכום לסוכן/ת לפני הסיור:**
+
+   > 📋 לפני הסיור עם דנה ב-17:00: 1 אישרו, 1 עוד לא ענו
+   > ⏳ רונית כהן - הנביאים 3 · ✅ משה לוי - הרצל 5
+
+   שעתיים לפני - תמיד, גם "כולם אישרו ✅". וחצי שעה לפני ("⏰ עוד חצי שעה
+   סיור...") **רק אם מישהו/י עוד לא אישר/ה**: שקט שם הוא האות שהכול בסדר.
+
 אותו דבר מה-CRM: בפאנל המיניסייט, מתחת לכל בקשת סיור פתוחה, הכפתור
 "📨 תיאום עם הבעלים והמתווכים". אחרי השליחה הבלוק מציג את הסטטוס של כל נמען/ת.
 
@@ -117,7 +128,9 @@ payload לפי האינדקס (`COORD_BUTTONS` ב-`showing-coord.ts`). כותר�
 | `showing_coord_claim` | מסמן `sending` **לפני** השליחה - קריסה אינה שולחת פעמיים |
 | `showing_coord_offer_claim` | מסמן `coord_offer = 'sent'` לפני השליחה, מאותה סיבה |
 | `showing_coord_respond(token, answer)` | רושם את התשובה ומתריע לסוכן/ת |
-| `showing_coord_ready()` | התנאי של ה-cron `showing-coord` (כל דקה) |
+| `showing_coord_ready()` | התנאי של ה-cron `showing-coord` (כל דקה): בקשה שממתינה, תזכורת שהגיע זמנה, או הצעה |
+| `showing_coord_nudge_claim` | התזכורת לנמען/ת. ‏`nudged_at` נכתב לפני השליחה, ותזכורת שנכשלה **אינה** משנה את סטטוס הבקשה - המקורית כבר הגיעה |
+| `showing_coord_briefs()` | הסיכום לסוכן/ת, בתוך המסד - ה-cron `showing-coord-briefs` (כל דקה) מעיר את `notification-push` רק כשנוצר סיכום. ‏`client_showcase_meetings.coord_briefs` זוכר מה כבר יצא (`early`, `final`) |
 | הטריגר `client_showcase_meetings_cancel_coord` | סיור שבוטל או נדחה - מה שעוד ממתין אינו יוצא |
 
 הסטטוסים: `pending` → `sending` → `sent` → `confirmed` / `postpone` / `declined`,
@@ -141,12 +154,15 @@ payload לפי האינדקס (`COORD_BUTTONS` ב-`showing-coord.ts`). כותר�
 לבעלים, למתווך/ת ולנכס בלי טלפון, יצירה חוזרת שאינה כופלת, סוכן/ת אחר/ת
 (`not_found`), ה-claim שאינו מחזיר פעמיים, תשובה, תשובה חוזרת (`already`),
 שינוי תשובה, טוקן לא קיים, ביטול הסיור שמבטל את הממתינים, ותשובה על בקשה
-שבוטלה. וגם `agent_agenda_dispatch` עם ליד קיים וליד שנמחק.
+שבוטלה. וגם `agent_agenda_dispatch` עם ליד קיים וליד שנמחק. ולפני הסיור:
+אין תזכורת ואין סיכום מוקדם מדי, תזכורת אחת לכל מי שלא ענה/תה, סיכום שעתיים
+לפני שיוצא פעם אחת, סיכום של חצי שעה לפני כשמישהו/י לא ענה/תה, ובלעדיו כשכולם
+אישרו.
 
 אחרי המיזוג:
 
 ```sql
-select jobname, schedule from cron.job where jobname = 'showing-coord';
+select jobname, schedule from cron.job where jobname like 'showing-coord%';
 select status, count(*) from showing_coord_requests
  where created_at > now() - interval '7 days' group by 1 order by 2 desc;
 ```

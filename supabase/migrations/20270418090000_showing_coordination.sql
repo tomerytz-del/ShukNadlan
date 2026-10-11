@@ -360,28 +360,6 @@ $$;
 revoke all on function public.showing_coord_offer_claim(int) from public, anon, authenticated;
 grant execute on function public.showing_coord_offer_claim(int) to service_role;
 
--- האם יש מה לעשות - כדי שה-cron של כל דקה לא יעיר את הפונקציה סתם
-create or replace function public.showing_coord_ready()
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (select 1 from public.showing_coord_requests where status = 'pending')
-      or exists (
-        select 1 from public.client_showcase_meetings m
-          join public.client_showcases s on s.id = m.showcase_id
-          join public.whatsapp_conversations c
-            on c.agent_id = s.agent_id and c.last_message_at > now() - interval '23 hours'
-         where m.coord_offer is null
-           and m.status in ('requested','confirmed')
-           and m.starts_at > now() + interval '30 minutes'
-           and m.created_at > now() - interval '3 days');
-$$;
-
-revoke all on function public.showing_coord_ready() from public, anon, authenticated;
-grant execute on function public.showing_coord_ready() to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 6. ‏showing_coord_respond - הנמען/ת לחץ/ה כפתור
@@ -578,3 +556,249 @@ $$;
 
 revoke all on function public.agent_agenda_dispatch() from public, anon, authenticated;
 grant execute on function public.agent_agenda_dispatch() to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 10. לפני הסיור: סיכום לסוכן/ת, ותזכורת אחת למי שלא ענה/תה
+--
+-- **הסיכום** (‏showing_coord_briefs, בתוך המסד, כל דקה):
+--   ‏· early - שעתיים לפני (עד 40 דקות לפני): מי אישר/ה, מי לא ענה/תה, מי
+--     ביקש/ה לדחות, ולמי הבקשה לא הגיעה. יוצא תמיד - גם "כולם אישרו" הוא מה
+--     שהסוכן/ת רוצה לדעת לפני שיוצא/ת לדרך.
+--   ‏· final - חצי שעה לפני, **רק אם מישהו/י עוד לא אישר/ה**. סיור שכולם
+--     אישרו בו כבר נאמר ב-early, ושקט כאן הוא האות שהכול בסדר.
+-- אותה התראה `agenda_reminder` של התשובות - עוקפת שעות וימים שקטים.
+--
+-- **התזכורת לנמען/ת** (‏showing_coord_nudge_claim, נשלחת מ-showing-coord.ts):
+-- אחת בלבד, באמצע הדרך בין הבקשה לסיור, לא לפני שעה מהבקשה ולא אחרי שעה לפני
+-- הסיור, ורק 08:00-21:00. בקשה שיצאה פחות משעתיים לפני הסיור - בלי תזכורת:
+-- אין זמן שבו היא עוד עוזרת ואינה מציקה.
+-- ---------------------------------------------------------------------------
+alter table public.showing_coord_requests add column if not exists nudged_at timestamptz;
+alter table public.client_showcase_meetings add column if not exists coord_briefs text[] not null default '{}';
+
+comment on column public.client_showcase_meetings.coord_briefs is
+  'סיכומי התיאום שכבר יצאו לסוכן/ת לפני הסיור: early (שעתיים לפני), final (חצי שעה לפני).';
+
+create or replace function public.showing_coord_briefs()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r        record;
+  v_kind   text;
+  v_total  int;
+  v_ok     int;
+  v_wait   int;
+  v_neg    int;
+  v_miss   int;
+  v_lines  text;
+  v_sum    text;
+  v_title  text;
+  v_n      int := 0;
+begin
+  for r in
+    select m.id, m.starts_at, m.agenda_item_id, m.coord_briefs,
+           s.agent_id, s.client_id, c.full_name as client_name
+      from public.client_showcase_meetings m
+      join public.client_showcases s on s.id = m.showcase_id
+      left join public.agent_clients c on c.id = s.client_id
+     where m.status in ('requested','confirmed')
+       and m.starts_at > now()
+       and m.starts_at <= now() + interval '2 hours'
+       and exists (select 1 from public.showing_coord_requests q
+                    where q.meeting_id = m.id and q.status <> 'canceled')
+     for update of m skip locked
+  loop
+    v_kind := case
+      when now() >= r.starts_at - interval '30 minutes' then 'final'
+      when now() <  r.starts_at - interval '40 minutes' then 'early'
+    end;
+    continue when v_kind is null or v_kind = any (r.coord_briefs);
+    continue when not public.agent_agenda_enabled(r.agent_id);
+
+    select count(*),
+           count(*) filter (where q.status = 'confirmed'),
+           count(*) filter (where q.status in ('pending','sending','sent')),
+           count(*) filter (where q.status in ('postpone','declined')),
+           count(*) filter (where q.status in ('no_phone','no_channel','failed','opted_out')),
+           string_agg(
+             case q.status
+               when 'confirmed' then '✅'
+               when 'postpone'  then '🕒'
+               when 'declined'  then '📆'
+               when 'sent'      then '⏳'
+               when 'pending'   then '⏳'
+               when 'sending'   then '⏳'
+               else '⚠️' end
+             || ' ' || coalesce(nullif(btrim(q.target_name), ''), 'ללא שם')
+             || coalesce(' - ' || nullif(btrim(concat_ws(' ', p.street, p.house_number)), ''), ''),
+             ' · ' order by q.status = 'confirmed', q.created_at)
+      into v_total, v_ok, v_wait, v_neg, v_miss, v_lines
+      from public.showing_coord_requests q
+      join public.properties p on p.id = q.property_id
+     where q.meeting_id = r.id and q.status <> 'canceled';
+
+    -- final רק כשיש מה לעשות
+    if v_kind = 'final' and v_ok = v_total then
+      update public.client_showcase_meetings
+         set coord_briefs = coord_briefs || 'final'::text where id = r.id;
+      continue;
+    end if;
+
+    v_sum := case when v_ok = v_total then 'כולם אישרו ✅'
+      else concat_ws(', ',
+        case when v_ok   > 0 then v_ok   || ' אישרו' end,
+        case when v_wait > 0 then v_wait || ' עוד לא ענו' end,
+        case when v_neg  > 0 then v_neg  || ' ביקשו לדחות או מועד אחר' end,
+        case when v_miss > 0 then v_miss || ' לא קיבלו את הבקשה' end) end;
+
+    v_title := case v_kind
+      when 'early' then '📋 לפני הסיור'
+      else '⏰ עוד חצי שעה סיור' end
+      || coalesce(' עם ' || nullif(btrim(r.client_name), ''), '')
+      || ' ב-' || to_char(r.starts_at at time zone 'Asia/Jerusalem', 'HH24:MI')
+      || ': ' || v_sum;
+
+    insert into public.notifications
+      (agent_id, type, title, body, related_client_id, related_agenda_item_id)
+    values (r.agent_id, 'agenda_reminder', left(v_title, 200), left(v_lines, 400),
+            r.client_id, r.agenda_item_id);
+
+    update public.client_showcase_meetings
+       set coord_briefs = coord_briefs || v_kind where id = r.id;
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end;
+$$;
+
+comment on function public.showing_coord_briefs() is
+  'סיכום תיאום הביקור לסוכן/ת: שעתיים לפני הסיור, ושוב חצי שעה לפני אם מישהו/י עוד לא אישר/ה. מחזירה כמה התראות נוצרו.';
+
+revoke all on function public.showing_coord_briefs() from public, anon, authenticated;
+grant execute on function public.showing_coord_briefs() to service_role;
+
+-- התזכורת לנמען/ת - אותה צורה של showing_coord_claim, ו-nudged_at נכתב לפני
+-- השליחה: תזכורת שנפלה באמצע אינה יוצאת פעמיים.
+create or replace function public.showing_coord_nudge_claim(p_limit int default 30)
+returns table (
+  request_id   uuid,
+  token        text,
+  target       text,
+  target_name  text,
+  target_phone text,
+  window_start timestamptz,
+  agent_id     uuid,
+  agent_name   text,
+  agency_name  text,
+  property_line text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_hour int := extract(hour from now() at time zone 'Asia/Jerusalem');
+begin
+  if v_hour < 8 or v_hour >= 21 then
+    return;
+  end if;
+
+  return query
+  with picked as (
+    select r.id from public.showing_coord_requests r
+      join public.client_showcase_meetings m on m.id = r.meeting_id
+     where r.status = 'sent'
+       and r.nudged_at is null
+       and r.sent_at is not null
+       and m.status in ('requested','confirmed')
+       and r.window_start - r.sent_at >= interval '2 hours'
+       and now() >= r.sent_at + greatest(interval '1 hour', (r.window_start - r.sent_at) / 2)
+       and now() <= r.window_start - interval '1 hour'
+     order by r.sent_at
+     limit least(greatest(coalesce(p_limit, 30), 1), 100)
+     for update of r skip locked
+  ),
+  upd as (
+    update public.showing_coord_requests r
+       set nudged_at = now()
+      from picked
+     where r.id = picked.id
+    returning r.*
+  )
+  select upd.id, upd.token, upd.target, upd.target_name, upd.target_phone, upd.window_start,
+         upd.agent_id, m.display_name, a.name,
+         concat_ws(', ', nullif(btrim(concat_ws(' ', p.street, p.house_number)), ''), p.city)
+    from upd
+    join public.agency_members m on m.id = upd.agent_id
+    left join public.agencies a on a.id = m.agency_id
+    join public.properties p on p.id = upd.property_id;
+end;
+$$;
+
+revoke all on function public.showing_coord_nudge_claim(int) from public, anon, authenticated;
+grant execute on function public.showing_coord_nudge_claim(int) to service_role;
+
+-- ‏showing_coord_ready - התנאי של ה-cron `showing-coord` (סעיף 8): בקשה
+-- שממתינה, תזכורת שהגיע זמנה, או סיור שעוד לא הוצע לסוכן/ת. בלעדיו ה-cron של
+-- כל דקה היה מעיר את הפונקציה סתם.
+create or replace function public.showing_coord_ready()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.showing_coord_requests where status = 'pending')
+      or exists (
+        select 1 from public.showing_coord_requests r
+         where r.status = 'sent' and r.nudged_at is null and r.sent_at is not null
+           and r.window_start - r.sent_at >= interval '2 hours'
+           and now() >= r.sent_at + greatest(interval '1 hour', (r.window_start - r.sent_at) / 2)
+           and now() <= r.window_start - interval '1 hour'
+           and extract(hour from now() at time zone 'Asia/Jerusalem') between 8 and 20)
+      or exists (
+        select 1 from public.client_showcase_meetings m
+          join public.client_showcases s on s.id = m.showcase_id
+          join public.whatsapp_conversations c
+            on c.agent_id = s.agent_id and c.last_message_at > now() - interval '23 hours'
+         where m.coord_offer is null
+           and m.status in ('requested','confirmed')
+           and m.starts_at > now() + interval '30 minutes'
+           and m.created_at > now() - interval '3 days');
+$$;
+
+revoke all on function public.showing_coord_ready() from public, anon, authenticated;
+grant execute on function public.showing_coord_ready() to service_role;
+
+-- הסיכומים - בתוך המסד כל דקה, ומעירים את notification-push רק כשנוצר סיכום
+-- (אותה צורה של agent-agenda-dispatch)
+do $$
+declare
+  v_url text := 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/notification-push';
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise notice 'pg_cron אינו מותקן - סיכומי התיאום לא תוזמנו';
+    return;
+  end if;
+
+  perform cron.unschedule('showing-coord-briefs')
+    where exists (select 1 from cron.job where jobname = 'showing-coord-briefs');
+
+  perform cron.schedule('showing-coord-briefs', '* * * * *', format($cron$
+    select net.http_post(
+      url := %L,
+      headers := jsonb_strip_nulls(jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-alert-cron-secret', (select decrypted_secret from vault.decrypted_secrets
+                                 where name = 'alert_cron_secret' limit 1))),
+      timeout_milliseconds := 30000
+    )
+    from (select public.showing_coord_briefs() as n) d
+    where d.n > 0;
+  $cron$, v_url));
+end;
+$$;

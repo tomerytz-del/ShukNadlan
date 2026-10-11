@@ -329,7 +329,7 @@ async function renderShowcasePanel(client, panel){
   // פשוט אינה מציגה את הבלוק.
   const coordRows = meetings.length
     ? ((await sb.from('showing_coord_requests')
-        .select('id, meeting_id, property_id, target, target_name, target_phone, status, sent_at, responded_at, window_start')
+        .select('id, meeting_id, property_id, target, target_name, target_phone, status, sent_at, responded_at, window_start, nudged_at')
         .in('meeting_id', meetings.map(m => m.id))).data || [])
     : [];
   const coordReady = !!meetings.length && assistantTierOk();
@@ -532,7 +532,7 @@ function coordBlockForMeeting(m, list, byProp, propText){
   return `<div class="sc-coord"><div class="lead-meta"><b>📨 תיאום ביקור</b></div>
     ${list.map(c => {
       const wa = COORD_RETRY.includes(c.status) && c.target_phone && waLink(c.target_phone);
-      return `<div class="lead-meta">${esc(c.target === 'owner' ? 'בעלים' : 'מתווך/ת')}: ${esc(c.target_name || 'ללא שם')} · ${esc(lineOf(c))} · <b>${esc(COORD_STATUS[c.status] || c.status)}</b>
+      return `<div class="lead-meta">${esc(c.target === 'owner' ? 'בעלים' : 'מתווך/ת')}: ${esc(c.target_name || 'ללא שם')} · ${esc(lineOf(c))} · <b>${esc(COORD_STATUS[c.status] || c.status)}</b>${c.status === 'sent' && c.nudged_at ? ' · נשלחה תזכורת' : ''}
         ${wa ? ` <a class="btn btn-ghost" href="${esc(wa + '?text=' + encodeURIComponent(coordManualText(c, m, where(c))))}" target="_blank" rel="noopener noreferrer">💬 לשלוח ממני</a>` : ''}</div>`;
     }).join('')}
     ${open && list.some(c => COORD_RETRY.includes(c.status) && c.status !== 'opted_out') ? `<button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 שליחה חוזרת למי שלא קיבל/ה</button>` : ''}
