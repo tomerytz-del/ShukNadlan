@@ -193,6 +193,42 @@ function itemPath(it: Item): string | null {
   return null;
 }
 
+// ‏notification_push_priority_types() במסד (20270420090000): מה שאדם מחכה לו
+// בצד השני. הם עולים לראש ההודעה, כדי שחיתוך האורך (4000 / 900) לא יפגע בהם.
+const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
+
+// רקע: שיתוף נכס ממשרד אחר ונרשם/ת חדש/ה לפלטפורמה. במסד הם לא מעירים שליחה
+// לבד (notification_push_is_ambient), וכאן הם מתקפלים לשורה אחת לכל סוג - ב-
+// 11.10.2026 נכתבו 678 התראות "נכס חדש שותף איתך" ביום אחד.
+const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;
+const isSignup = (it: Item) => it.type === "platform_signup";
+
+/**
+ * הסדר וקיפול הרקע. התראות בעדיפות קודם, אחריהן שאר ההתראות, ובסוף שורה אחת
+ * לשיתופים ושורה אחת לנרשמים כשיש יותר מאחד/ת. שורה מקופלת היא בלי פריט ולכן
+ * מקבלת את קישור הקטגוריה ("שותפו איתי", "מנויים ובקשות שדרוג").
+ */
+function arrange(items: Item[]): Item[] {
+  const shares = items.filter(isShare);
+  const signups = items.filter(isSignup);
+  const rest = items.filter((it) => !isShare(it) && !isSignup(it));
+  const prio = (it: Item) => (PRIORITY_TYPES.includes(it.type) ? 0 : 1);
+  const out = [...rest].sort((a, b) => prio(a) - prio(b));
+  if (shares.length === 1) out.push(shares[0]);
+  else if (shares.length > 1) {
+    out.push({ type: "system", title: `${shares.length} נכסים חדשים שותפו איתך`, body: null });
+  }
+  if (signups.length === 1) out.push(signups[0]);
+  else if (signups.length > 1) {
+    out.push({
+      type: "platform_signup",
+      title: `${signups.length} נרשמים חדשים לפלטפורמה`,
+      body: signups.map((it) => it.title).join(" · ").slice(0, 300),
+    });
+  }
+  return out;
+}
+
 /**
  * גוף ההודעה בטקסט חופשי.
  *
@@ -340,7 +376,7 @@ Deno.serve(async (req: Request) => {
   let sent = 0, failed = 0;
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
-    const items = (row.items || []) as Item[];
+    const items = arrange((row.items || []) as Item[]);
     let status = "failed";
     let lastError: string | null = null;
 

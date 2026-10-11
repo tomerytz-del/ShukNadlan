@@ -25,6 +25,13 @@
 --    ‏72): שקט משישי בתשע בערב עד ראשון בבוקר הוא 60 שעות, ובקשת סיור מחמישי
 --    בלילה לא אמורה להיזרק לפני שהיא יוצאת.
 --
+-- 4. רקע: "נכס חדש שותף איתך" ו"מתווך/ת חדש/ה" (‏`notification_push_is_ambient`)
+--    אינם מעירים שליחה לבד. הם יוצאים עם ההודעה הבאה שיש בה משהו אחר, ואם
+--    אין כזו - כתקציר כשהוותיק/ה מביניהם מחכה שלוש שעות
+--    (`notif_push_ambient_digest_minutes`). ב-11.10.2026 נכתבו 678 התראות
+--    שיתוף, ו-15 סוכנים הגיעו לתקרה של 12 הודעות. בהודעה עצמה הם מתקפלים
+--    לשורה אחת (‏arrange ב-notification-push).
+--
 -- ‏notification_push_due_agents מועתקת מ-20270412090000 (הגרסה עם
 -- quiet_days), ‏notification_push_claim מ-20270321093000, ו-
 -- notification_push_ready מ-20261101090000 - כולן אומתו מול הפרודקשן.
@@ -50,6 +57,11 @@ values ('notif_push_priority_lookback_hours', 72,
         'שעות שבהן התראה בעדיפות (סיור, ליד, תזכורת) עוד יכולה לצאת בוואטסאפ. לשאר: notif_push_lookback_hours.')
 on conflict (key) do nothing;
 
+insert into public.pricing_config (key, value, description)
+values ('notif_push_ambient_digest_minutes', 180,
+        'כמה דקות שיתוף נכס או נרשם/ת חדש/ה מחכים לבד לפני שיוצא עליהם תקציר בוואטסאפ. עד אז הם מצטרפים להודעה הבאה.')
+on conflict (key) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- 2. הסוגים בעדיפות
 -- ---------------------------------------------------------------------------
@@ -67,6 +79,30 @@ comment on function public.notification_push_priority_types() is
 
 revoke all on function public.notification_push_priority_types() from public, anon, authenticated;
 grant execute on function public.notification_push_priority_types() to service_role;
+
+-- ‏"של מי הנכס" - כמו property_mine ב-notification_push_claim. ‏system נושא
+-- גם שיחה שהוקלטה, נכס שנמסר אליך בהפנייה ויומן Google; רק נכס של משרד אחר
+-- הוא שיתוף.
+create or replace function public.notification_push_is_ambient(p_type text, p_agent uuid, p_property uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_type = 'platform_signup'
+      or (p_type = 'system' and p_property is not null and exists (
+            select 1 from public.properties p
+             where p.id = p_property
+               and p.agent_id is distinct from p_agent
+               and p.referred_by is distinct from p_agent));
+$$;
+
+comment on function public.notification_push_is_ambient(text, uuid, uuid) is
+  'התראת רקע (שיתוף נכס ממשרד אחר, נרשם/ת חדש/ה): לא מעירה שליחה בוואטסאפ לבד, אלא מצטרפת להודעה הבאה או לתקציר (20270420090000).';
+
+revoke all on function public.notification_push_is_ambient(text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.notification_push_is_ambient(text, uuid, uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 3. מי מקבל/ת עכשיו, ואילו סוגים
@@ -193,6 +229,11 @@ as $$
              where l.agent_id = n.agent_id
                and n.id = any(l.notification_ids)
                and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
+          -- רקע מעיר שליחה רק כשהוא מחכה מספיק זמן (תקציר)
+          and (not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
+               or n.created_at <= now() - make_interval(mins =>
+                    coalesce((select value::int from public.pricing_config
+                               where key = 'notif_push_ambient_digest_minutes'), 180)))
      )
   );
 $$;
@@ -224,6 +265,9 @@ declare
   v_look_p  int := coalesce((select value::int from public.pricing_config
                               where key = 'notif_push_priority_lookback_hours'), 72);
   v_prio    text[] := public.notification_push_priority_types();
+  v_digest  int := coalesce((select value::int from public.pricing_config
+                              where key = 'notif_push_ambient_digest_minutes'), 180);
+  v_wake    boolean;
 begin
   -- רישום בלבד; החסימה כבר שוחררה על ידי הפרדיקט.
   perform public.notification_push_reconcile();
@@ -257,8 +301,11 @@ begin
                                     where rv.id = n.related_review_id and rv.status = 'published')
            ) order by n.created_at desc),
            array_agg(n.id order by n.created_at desc),
-           array_agg(distinct n.type)
-      into v_items, v_ids, v_types
+           array_agg(distinct n.type),
+           -- יש כאן משהו שמצדיק הודעה: התראה שאינה רקע, או רקע שחיכה עד התקציר
+           bool_or(not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
+                   or n.created_at <= now() - make_interval(mins => v_digest))
+      into v_items, v_ids, v_types, v_wake
       from public.notifications n
      where n.agent_id = a.agent_id
        and not n.read
@@ -273,7 +320,7 @@ begin
             -- הייתה נעלמת מכל הודעה עתידית, לנצח.
             and public.notification_push_log_holds(l.whatsapp_status, l.created_at));
 
-    continue when v_items is null;
+    continue when v_items is null or not v_wake;
 
     v_mode := case when a.in_service_window then 'text' else 'template' end;
 
@@ -291,7 +338,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'תופסת לכל סוכן/ת שמותר לשלוח לו/ה את כל ההתראות הפתוחות, ורושמת שורה ב-notification_push_log. חלון המבט לאחור ארוך יותר לסוגים שבעדיפות (20270420090000).';
+  'תופסת לכל סוכן/ת שמותר לשלוח לו/ה את כל ההתראות הפתוחות, ורושמת שורה ב-notification_push_log. חלון המבט לאחור ארוך יותר לסוגים שבעדיפות, והתראות רקע לבד יוצאות רק כתקציר (20270420090000).';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
