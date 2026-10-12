@@ -1,6 +1,6 @@
 ---
 name: client-matching
-description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more.
+description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more. Also when touching share_level (private / office / network) on properties or clients, set_share_level, or the match digest (client_match_digest_run, match_digest, match_digest_time_*) - e.g. an agent says they get no match notifications, got one too many, or a private property shows up for colleagues.
 ---
 
 # קובץ הלקוחות ומנוע ההתאמות
@@ -131,6 +131,23 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
   **בלי להפריד בין ציונים שווים** - הסדר ביניהם הוא רק תאריך הפרסום, וכך
   נחתכה פעם ההתאמה הזולה מבין שש ב-100%. מי שמוריד את התקרה במסד או קורא
   לפונקציות האלה ממקום חדש עם `p_limit` קטן - מחזיר את הבאג.
+
+## ‏4ה. רמות שיתוף וסיכום ההתאמות (‏`20270426090000`)
+
+- **אין צלצול על התאמה.** ‏`generate_client_match_alerts` ו-`_for_client`
+  כותבות רק ל-`client_match_alerts`; ‏`client_match_digest_run()` שולחת
+  `match_digest` ב-8:30, ‏12:07 ו-16:07 שעון ישראל (‏`match_digest_time_1/2/3`;
+  cron כל דקה, והשעה נבדקת בפונקציה - לא לתזמן לפי UTC, זה זז בשעון חורף), ומדלגת על סוכן/ת בשקט בלי
+  לקדם את החלון. מי שמחזיר/ה `insert` ל-
+  `notifications` לאחת מהן מחזיר/ה את ההצפה. התראה חדשה על התאמה - לסיכום.
+- **נכס `private`** נחסם בשורה ב-gate של `client_property_match`. גרסה חדשה
+  שמועתקת מגרסה ישנה מ-`20270426090000` מאבדת אותה בשקט - ונכס פרטי מופיע
+  אצל כל המשרד.
+- **נכס `network` = שת״פ.** משנים דרך `set_share_level` או כפתורי השת״פ
+  (הטריגר `properties_share_level_sync` מיישר), לא ב-`update` של `share_level`
+  לבד - אחרת הרמה אומרת "רשת" ושום משרד לא קיבל את הנכס.
+- **לקוח/ה** - הרמה קובעת רק מי מהמפרסמים שומע/ת בסיכום. פרטי הלקוח/ה לא
+  נחשפים באף רמה, ו-RLS של `agent_clients` לא משתנה בגללה.
 
 ## ‏5. בדיקה
 
