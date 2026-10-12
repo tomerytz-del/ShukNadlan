@@ -8,7 +8,7 @@
 --   1. ההתאמות עצמן ממשיכות להיכתב ל-client_match_alerts בזמן אמת - הפאנל
 --      "התאמות חכמות", התגית "N לקוחות מתאימים" והבוט לא משתנים. רק
 --      ההתראה (notifications) יורדת משתי פונקציות ההתאמה.
---   2. client_match_digest_run() שולחת שלוש פעמים ביום, ב-9:00, ‏13:00 ו-17:00
+--   2. client_match_digest_run() שולחת שלוש פעמים ביום, ב-8:00, ‏12:00 ו-16:00
 --      שעון ישראל (pg_cron כל שעה, והפונקציה בודקת את השעה בישראל - כך
 --      השעות לא זזות במעבר לשעון חורף), ושולחת לכל סוכן/ת התראה אחת, match_digest, על מה שנכנס
 --      מאז הסיכום הקודם: כמה נכסים התאימו לכמה לקוחות, הבולטים, ומי מהסוכנים
@@ -345,14 +345,15 @@ update public.agent_notification_preferences
    and 'listing_match' = any(muted_types)
    and not ('match_digest' = any(muted_types));
 
--- השעות בשעון ישראל: הראשונה, המרווח וכמה סבבים - 9:00, ‏13:00, ‏17:00
+-- השעות בשעון ישראל: הראשונה, המרווח וכמה סבבים - 8:00, ‏12:00, ‏16:00.
+-- 16:00 ולא 17:00: בחורף מחשיך ב-16:40, והסוכנים צריכים עוד אור יום לקבוע פגישות.
 insert into public.pricing_config (key, value, description)
-values ('match_digest_first_hour', 9,
+values ('match_digest_first_hour', 8,
         'השעה (שעון ישראל) של סיכום ההתאמות הראשון ביום (match_digest).'),
        ('match_digest_every_hours', 4,
         'כמה שעות בין סיכומי ההתאמות באותו יום.'),
        ('match_digest_runs', 3,
-        'כמה סיכומי התאמות ביום. עם 9 ו-4: ‏9:00, ‏13:00, ‏17:00.')
+        'כמה סיכומי התאמות ביום. עם 8 ו-4: ‏8:00, ‏12:00, ‏16:00.')
 on conflict (key) do nothing;
 
 insert into public.pricing_config (key, value, description)
@@ -409,7 +410,7 @@ declare
   v_body    text;
 begin
   -- ה-cron רץ כל שעה; שולחים רק בשעות הסיכום בשעון ישראל
-  v_first := coalesce((select value::int from public.pricing_config where key = 'match_digest_first_hour'), 9);
+  v_first := coalesce((select value::int from public.pricing_config where key = 'match_digest_first_hour'), 8);
   v_every := greatest(1, coalesce((select value::int from public.pricing_config where key = 'match_digest_every_hours'), 4));
   v_runs  := greatest(1, coalesce((select value::int from public.pricing_config where key = 'match_digest_runs'), 3));
   v_il_hour := extract(hour from (v_now at time zone 'Asia/Jerusalem'))::int;
@@ -537,7 +538,7 @@ end;
 $$;
 
 comment on function public.client_match_digest_run() is
-  'סיכום ההתאמות: ב-9:00, ‏13:00 ו-17:00 שעון ישראל (match_digest_first_hour / _every_hours / _runs), לכל סוכן/ת שאינו/ה בשקט - התראת match_digest אחת על מה שנכנס ל-client_match_alerts מאז הסיכום הקודם. במקום client_match / listing_match בזמן אמת. pg_cron כל שעה; מחוץ לשעות האלה מחזירה 0.';
+  'סיכום ההתאמות: ב-8:00, ‏12:00 ו-16:00 שעון ישראל (match_digest_first_hour / _every_hours / _runs), לכל סוכן/ת שאינו/ה בשקט - התראת match_digest אחת על מה שנכנס ל-client_match_alerts מאז הסיכום הקודם. במקום client_match / listing_match בזמן אמת. pg_cron כל שעה; מחוץ לשעות האלה מחזירה 0.';
 
 revoke all on function public.client_match_digest_run() from public, anon, authenticated;
 grant execute on function public.client_match_digest_run() to service_role;
@@ -550,7 +551,7 @@ begin
   end if;
   perform cron.unschedule('client-match-digest')
     where exists (select 1 from cron.job where jobname = 'client-match-digest');
-  -- כל שעה בדקה 7. הפונקציה שולחת רק ב-9, ‏13 ו-17 שעון ישראל (קיץ וחורף),
+  -- כל שעה בדקה 7. הפונקציה שולחת רק ב-8, ‏12 ו-16 שעון ישראל (קיץ וחורף),
   -- ובודקת בעצמה שעות וימים שקטים. דקה 7 ולא 0: בשעה עגולה רצים הרבה cron-ים.
   perform cron.schedule('client-match-digest', '7 * * * *',
                         'select public.client_match_digest_run()');
