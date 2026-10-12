@@ -1,6 +1,6 @@
 ---
 name: client-matching
-description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score.
+description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more.
 ---
 
 # קובץ הלקוחות ומנוע ההתאמות
@@ -112,6 +112,25 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 
 הסגנון כולו תחת `.cc` ב-`crm.html`, כי `.match-card` ו-`.lead-actions`
 משותפים לכרטיסים אחרים. הפריסה לפי `@container` (רוחב הכרטיס) ולא `@media`.
+
+## ‏4ד. המאגר השלישי (`property_shares`) ומספר ההתאמות בבוט
+
+- **שתי פונקציות בלבד כותבות ל-`property_shares`:** ‏`share_property_for_agent`
+  (סוכן/ת פותח/ת נכס לשת"פ) ו-`share_backfill_for_agency` (טריגר על הוספת משרד,
+  ‏`20270423090000`). עד אז משרד חדש לא קיבל אף נכס שכבר הופץ, והמאגר
+  השלישי שלו היה ריק - 821 הפצות חסרו ב-29 מתוך 30 משרדים. **מי שמשנה את
+  כללי הבחירה של המשרדים באחת משנה גם בשנייה**, אחרת משרד חדש מקבל סט אחר
+  ממשרד ותיק. ההשלמה שקטה (בלי "נכס חדש שותף איתך" ובלי התראות התאמה,
+  דרך הדגל `app.share_backfill`), כי ההתאמות עצמן מחושבות בקריאה.
+- **בדיקה שהמאגר תקין** - אפס הפצות חסרות. שאילתה אחת: נכסים פעילים עם
+  `shared_with_partners`, כפול כל משרד שאינו של הבעלים ואינו ב-
+  `agent_share_exclusions`, בלי שורה ב-`property_shares` (‏`docs/property-sharing.md`,
+  "משרד שמצטרף אחרי ההפצה").
+- **מספר ההתאמות שהבוט אומר הוא `total`, לא `count`.** ‏`client_matches`
+  ו-`property_matches` מושכים עד 30 (‏`v_cap` במסד) וחותכים ב-`match-cut.ts`,
+  **בלי להפריד בין ציונים שווים** - הסדר ביניהם הוא רק תאריך הפרסום, וכך
+  נחתכה פעם ההתאמה הזולה מבין שש ב-100%. מי שמוריד את התקרה במסד או קורא
+  לפונקציות האלה ממקום חדש עם `p_limit` קטן - מחזיר את הבאג.
 
 ## ‏5. בדיקה
 

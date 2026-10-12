@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, when touching the open-house fair offer / the agent-help question after saving a search, or when an agent pastes a WhatsApp catalog link (wa.me/p/...) and the draft, price or image comes out wrong.
+description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, when touching the open-house fair offer / the agent-help question after saving a search, or when an agent pastes a WhatsApp catalog link (wa.me/p/...) and the draft, price or image comes out wrong. Also when an agent says Gabriela "can't find" a property that exists (a misspelled street, list_properties / fuzzy-text.ts / spelling_variant), or when the bot reports fewer matches than the CRM (client_matches / property_matches total vs count, match-cut.ts).
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -192,6 +192,28 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 המלאי (`properties` + `neighborhoods`). קריאות הכלים אינן נשמרות, ולכן
 משחזרים את השאילתה ביד. ‏`docs/whatsapp-public-bot.md`, "שכונה וסוג נכס".
 
+## "אין לך נכס כזה" - כתיב קרוב וחיתוך התאמות (`list_properties`, `client_matches`)
+
+שני כשלים מ-12.10.2026 שנראו כמו "הנכס לא קיים", ושניהם על נכס אחד (מודעה
+1037, "מנחם **אושיסקין** 18"):
+
+* **‏`list_properties` עם `ilike` לבד לא מוצא שגיאת כתיב** - גם כשהסוכן/ת
+  כותב/ת את אותה שגיאה, כי המודל מתקן את הכתיב לפני הקריאה. לכן יש סריקה
+  סלחנית שנייה (`fuzzy-text.ts`), ומה שנמצא רק בה חוזר `spelling_variant`.
+  **הסף נמדד ולא נוחש:** מרחק עריכה רק במילה של 7 אותיות ומעלה ובאותו אורך,
+  ו-ו/י/ה"א הידיעה רק בהשוואה מדויקת. כל הרחבה נבדקת מול כל שמות הרחובות
+  במסד, כל אחד מול כל אחד - בגרסה הראשונה "רימון" התאים לחמישה רחובות.
+  מספר בית - רק מדויק.
+* **‏`client_matches` / `property_matches`: המספר שנאמר הוא `total`.** ‏`count`
+  הוא כמה הוצגו. החיתוך (`match-cut.ts`) לא מפריד בין התאמות באותו ציון,
+  כי הסדר ביניהן הוא תאריך הפרסום בלבד. ‏`more_note` אומר למודל מה לא הוצג.
+  הסקיל `client-matching`, סעיף 4ד.
+
+**לבדוק תלונה של סוכן/ת** (לא של גולש/ת): ‏`whatsapp_messages` עם
+‏`agent_id = <הסוכן/ת>` סביב השעה, ואז הנכס עצמו ב-`properties` (כתיב הרחוב,
+‏`status`, ‏`agent_id`) ו-`client_property_match` ללקוח/ה. קריאות הכלים אינן
+נשמרות - משחזרים ביד. ‏`docs/whatsapp-setup.md`, "כתיב קרוב וספירת התאמות".
+
 ## המספר שולח גם עדכוני מיניסייט - והתשובות מגיעות לגבריאלה
 
 `client-showcase` (‏`action = wa_notify`) שולח מאותו מספר ללקוחות של סוכנים:
@@ -364,6 +386,10 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 * **התמלול ב-`_shared/whisper.ts`**, משותף עם `twilio-voice`. הסיומת נגזרת
   מהבתים (`audioExt`), לא רק מ-`mime_type` - בלעדי זה `AUD-...` מאנדרואיד נדחה
   ב-`Invalid file format` (‏11.10.2026).
+
+* **אותם מחלצים קוראים גם קבצים מצורפים במייל** (`readAttachments` ב-
+  `email-intake.ts`). שינוי ב-`documentToText` / `transcribeMedia` / `docKind`,
+  או בנוסח של `reply` בכישלון, משנה את שני הערוצים - ראו הסקיל `email-intake`.
 
 ‏`docs/whatsapp-setup.md`, "הקלטת שיחה ומסמכים".
 

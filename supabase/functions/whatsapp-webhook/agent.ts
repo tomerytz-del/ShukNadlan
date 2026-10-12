@@ -23,6 +23,8 @@ import {
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
+import { fuzzyMatches } from "./fuzzy-text.ts";
+import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
   accessTokenFor,
   freeBusy,
@@ -860,7 +862,7 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         client_id: { type: "string" },
-        limit: { type: "integer", description: "ברירת מחדל 5." },
+        limit: { type: "integer", description: "ברירת מחדל 5, מקסימום 15." },
         waive_features: {
           type: "array",
           items: { type: "string" },
@@ -881,7 +883,7 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         property_id: { type: "string" },
-        limit: { type: "integer", description: "ברירת מחדל 5." },
+        limit: { type: "integer", description: "ברירת מחדל 5, מקסימום 15." },
       },
       required: ["property_id"],
     },
@@ -1580,7 +1582,7 @@ async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
    שם זה עבד כך מתמיד. שתי הפונקציות לעולם אינן זורקות. */
 function geocodeForProperty(ctx: ToolContext, city: string, street: string, houseNumber: string) {
   return city === "עפולה"
-    ? geocodeAfula(street, houseNumber)
+    ? geocodeAfula(street, houseNumber, ctx.supabase)
     : geocodeInCity(ctx.supabase, city, street, houseNumber);
 }
 
@@ -1764,6 +1766,9 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
  * שורות) ו-`truncated`, בדיוק כמו ב-`list_clients`.
  */
 const LIST_PROPERTIES_MAX = 200;
+// הסריקה הסלחנית עוברת על הנכסים של סוכן/ת אחד/ת. למי שמחזיק/ה הכי הרבה
+// בפלטפורמה יש 67 (‏12.10.2026), ולכן התקרה היא בטיחות ולא חיתוך שקורה בפועל.
+const FUZZY_SCAN_LIMIT = 1000;
 
 async function toolListProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
@@ -1809,25 +1814,55 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  const [{ data, error }, { count, error: countErr }] = await Promise.all([query, counter]);
+  // ‏ilike מוצא רק את הכתיב המדויק. "מנחם אושיסקין 18" נעלם ב-12.10.2026 גם
+  // כשהסוכן כתב "אושיסקין", כי המודל מתקן את הכתיב לפני הקריאה. לכן גם סריקה
+  // סלחנית על כל הנכסים של הסוכן/ת (‏fuzzy-text.ts) - מה שהיא מוצאת ו-ilike
+  // לא, חוזר מסומן spelling_variant.
+  const wantFuzzy = !!q && !/^\d+$/.test(q);
+  let scan = ctx.supabase
+    .from("properties")
+    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at, street, house_number")
+    .eq("agent_id", ctx.agent.id)
+    .order("created_at", { ascending: false })
+    .limit(FUZZY_SCAN_LIMIT);
+  if (status) scan = scan.eq("status", status);
+
+  const [{ data, error }, { count, error: countErr }, scanRes] = await Promise.all([
+    query, counter, wantFuzzy ? scan : Promise.resolve(null),
+  ]);
   if (error) return { ok: false, error: error.message };
   if (countErr) console.warn("property count failed", countErr.message);
+  if (scanRes?.error) console.warn("fuzzy property scan failed", scanRes.error.message);
 
-  const total = typeof count === "number" ? count : data.length;
+  const seen = new Set(data.map((p) => String(p.id)));
+  const variants = (scanRes?.data || [])
+    .filter((p) => !seen.has(String(p.id)) &&
+      fuzzyMatches(q, [p.title, p.street, p.house_number, p.address, p.city].filter(Boolean).join(" ")))
+    .map(({ street: _s, house_number: _h, ...p }) => ({ ...p, spelling_variant: true }));
+
+  const exactTotal = typeof count === "number" ? count : data.length;
+  const total = exactTotal + variants.length;
+  const rows = [...data, ...variants].slice(0, limit);
   return {
     ok: true,
-    returned: data.length,
+    returned: rows.length,
     // כמה **באמת** יש בתנאים האלה, ולא כמה הוחזרו. בלי זה המודל מדווח את
     // גודל החלון כאילו הוא הקובץ.
     total,
-    truncated: total > data.length,
+    truncated: total > rows.length,
     query: q || undefined,
     // לכל נכס הכרטיס שלו ב-CRM - "תראי לי את הנכסים בלי תמונה" צריך להיגמר
     // בקישור שפותח אותם, לא ב"היכנס/י ל-CRM".
-    properties: data.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
-    note: total > data.length
-      ? `מוצגים ${data.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
-      : undefined,
+    properties: rows.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
+    note: [
+      total > rows.length
+        ? `מוצגים ${rows.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
+        : "",
+      variants.length
+        ? "נכסים עם spelling_variant נמצאו בכתיב קרוב ולא מדויק (למשל אותיות שהתחלפו בשם הרחוב). " +
+          "להציג אותם כנכסים של הסוכן/ת, ולציין את הכתיב כפי שהוא שמור בנכס - ייתכן שכדאי לתקן אותו."
+        : "",
+    ].filter(Boolean).join(" ") || undefined,
   };
 }
 
@@ -3758,7 +3793,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     };
   }
 
-  const limit = Math.min(Number(input.limit) || 5, 15);
+  const limit = Math.min(Number(input.limit) || 5, MATCH_SHOW_MAX);
   // מאפייני החובה הם סינון קשיח ב-client_property_match (‏20270417090000).
   // ויתור הוא פרמטר של הקריאה, ורק על מה שבאמת בכרטיס - קוד אחר אינו מרחיב.
   const required = ((client.required_features as string[] | null) || []).filter(Boolean);
@@ -3766,13 +3801,15 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     ? (input.waive_features as unknown[]).map(String).filter((f) => required.includes(f))
     : [];
 
-  const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
+  const { data: allRows, error } = await ctx.supabase.rpc("agent_client_matches", {
     p_agent_id: ctx.agent.id,
     p_client_id: clientId,
-    p_limit: limit,
+    p_limit: MATCH_FETCH_CAP,
     p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
+  const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
+  const data = cut.shown;
 
   // האם יש כבר מיניסייט פעיל, ומה מההתאמות כבר בו - כדי שההצעה תהיה "לפתוח"
   // או "להוסיף את החדשות", ולא "לפתוח" על עמוד שכבר נשלח
@@ -3842,7 +3879,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
-    count: (data || []).length,
+    ...matchCounts(cut, "client_matches"),
     required_features: required.length ? featureNames(required) : undefined,
     waived_features: waive.length ? featureNames(waive) : undefined,
     showcase: showcase
@@ -4101,21 +4138,22 @@ async function toolShowcaseStatus(ctx: ToolContext, input: Record<string, unknow
 
 async function toolPropertyMatches(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
-  const limit = Math.min(Number(input.limit) || 5, 15);
+  const limit = Math.min(Number(input.limit) || 5, MATCH_SHOW_MAX);
 
-  const { data, error } = await ctx.supabase.rpc("agent_property_client_matches", {
+  const { data: allRows, error } = await ctx.supabase.rpc("agent_property_client_matches", {
     p_agent_id: ctx.agent.id,
     p_property_id: propertyId,
-    p_limit: limit,
+    p_limit: MATCH_FETCH_CAP,
   });
   if (error) return { ok: false, error: error.message };
+  const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
 
   ctx.conv.last_property_id = propertyId;
   return {
     ok: true,
     property_id: propertyId,
-    count: (data || []).length,
-    clients: (data || []).map((c: Record<string, unknown>) => ({
+    ...matchCounts(cut, "property_matches"),
+    clients: cut.shown.map((c: Record<string, unknown>) => ({
       client_id: c.client_id,
       full_name: c.client_name,
       phone: c.client_phone,

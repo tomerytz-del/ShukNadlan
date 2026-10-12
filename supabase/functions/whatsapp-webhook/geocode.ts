@@ -1,5 +1,5 @@
 import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
-import { geocodeAddress, loadCitySource } from "../_shared/geocode/index.ts";
+import { geocodeAddress, loadCitySource, officialStreetFor } from "../_shared/geocode/index.ts";
 
 // גיאוקוד רחוב+מספר בית -> lat/lng לעפולה, מול שכבת נקודות הכתובות של העירייה.
 //
@@ -12,13 +12,20 @@ import { geocodeAddress, loadCitySource } from "../_shared/geocode/index.ts";
 // וואטסאפ יוצר נכס בתוך שיחה חיה, ופין על המפה הוא נחמד-שיהיה ולא תנאי
 // לפרסום: כתובת שלא נמצאה או WFS שנפל לא יפילו את יצירת הנכס.
 
-/** מחזירה {lat, lng} או null אם הכתובת לא נמצאה / ה-WFS נפל. לעולם לא זורקת. */
+/**
+ * מחזירה {lat, lng} או null אם הכתובת לא נמצאה / ה-WFS נפל. לעולם לא זורקת.
+ * ‏supabase אופציונלי: איתו השם שהוקלד מתורגם לשם הרשמי (‏street-resolve.ts),
+ * ובלעדיו - כמו קודם.
+ */
+// deno-lint-ignore no-explicit-any
 export async function geocodeAfula(
   street: string,
   houseNumber: string,
+  supabase?: any,
 ): Promise<{ lat: number; lng: number } | null> {
   try {
-    return await afulaAddressToCoords(street, houseNumber);
+    const official = await officialStreetFor(supabase, "עפולה", street);
+    return await afulaAddressToCoords(street, houseNumber, official);
   } catch (err) {
     // פין על המפה זה נחמד-שיהיה, לא תנאי לפרסום הנכס
     console.warn("geocode failed", err);
@@ -50,7 +57,8 @@ export async function geocodeInCity(
   try {
     const source = await loadCitySource(supabase, city);
     if (!source) return null;          // אין ספק לעיר - לא שאלה על הכתובת
-    return await geocodeAddress(source, street, houseNumber);
+    const official = await officialStreetFor(supabase, city, street);
+    return await geocodeAddress(source, street, houseNumber, official);
   } catch (err) {
     console.warn("geocodeInCity failed", err);
     return null;

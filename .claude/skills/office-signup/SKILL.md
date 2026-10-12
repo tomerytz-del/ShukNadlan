@@ -1,6 +1,6 @@
 ---
 name: office-signup
-description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שלושה צעדים, ולמנהל/ת גם "על המשרד"), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONBOARD_STEPS / agent_onboarding_state, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html).
+description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שלושה צעדים, ולמנהל/ת גם "על המשרד"), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONBOARD_STEPS / agent_onboarding_state, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html). Also when a new office sees nothing under "נכסים ששותפו איתי" (agencies_share_backfill).
 ---
 
 # הצטרפות משרד, מדריך ההתחלה, ועיצוב המשרד
@@ -79,6 +79,15 @@ description: עבודה על מסלול ההצטרפות של משרד חדש ב
 * **`assets/agency-theme.js` הוא העתק של `applyBranding` ב-`agency.html`**
   (בלי תמונת הנושא). שינוי בחישוב צבע הטקסט על גוון המשרד נעשה בשניהם, אחרת
   דף הסוכן/ת ודף המשרד מאותה ערכה נראים שונה.
+
+## משרד חדש מקבל את נכסי השת"פ ברגע שנוצר
+
+הטריגר `agencies_share_backfill` (‏`after insert on agencies`) מוסיף את המשרד
+להפצה של כל נכס פעיל שפתוח לשת"פ, בלי התראות. לכן "נכסים ששותפו איתי"
+והתאמות ממשרדים אחרים קיימים מהיום הראשון, ואין מה להוסיף בזרימת ההרשמה.
+**מסלול חדש שיוצר משרד** (פונקציה, ייבוא, מיגרציה) מקבל את זה מעצמו - גם
+משרד בדיקה. כשל בהשלמה נבלע ב-`warning` ואינו מפיל הרשמה. הסקיל
+`client-matching`, סעיף 4ד.
 
 ## לבדוק לפני הדחיפה
 

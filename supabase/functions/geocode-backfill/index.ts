@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { geocodeAddress } from "../_shared/geocode/index.ts";
+import { geocodeAddress, officialStreetFor } from "../_shared/geocode/index.ts";
 import { loadCitySource } from "../_shared/geocode/source.ts";
 
 // ============================================================================
@@ -112,7 +112,10 @@ Deno.serve(async (req: Request) => {
     try {
       const source = await loadCitySource(supabase, String(row.city || ""));
       if (!source) continue;
-      const coords = await geocodeAddress(source, street, house);
+      // השם הרשמי מרשימת העירייה ("יוספטל" ← "גיורא יוספטל"); בלעדיו 10
+      // כתובות אמיתיות יצאו מהתור כ"לא נמצא" (‏street-resolve.ts)
+      const official = await officialStreetFor(supabase, String(row.city || ""), street);
+      const coords = await geocodeAddress(source, street, house, official);
       streak = 0;
       if (coords) {
         resolved++;
