@@ -240,9 +240,9 @@ function arrange(items: Item[]): Item[] {
  * התראות בלי יעד כזה חולקות קישור אחד לכל **קטגוריה**: שלוש התאמות שמובילות
  * לאותו מסך לא צריכות שלושה קישורים זהים ברצף.
  */
-function textBody(name: string | null, items: Item[]): string {
+function textBody(name: string | null, items: Item[], noLinks = false): string {
   const first = firstName(name);
-  const accs = [...new Set(
+  const accs = noLinks ? [] : [...new Set(
     items.filter((it) => !itemPath(it)).map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC),
   )];
 
@@ -256,7 +256,7 @@ function textBody(name: string | null, items: Item[]): string {
     ...items.map((it) => {
       const path = itemPath(it);
       return `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
-        (path ? `\n   👈 ${SITE_BASE}${path}` : "");
+        (path && !noLinks ? `\n   👈 ${SITE_BASE}${path}` : "");
     }),
     "",
     ...accs.map((acc) => gotoUrl(acc)),
@@ -265,6 +265,34 @@ function textBody(name: string | null, items: Item[]): string {
   ];
   // ‏4000 ולא 4096: חיתוך שלנו עדיף על 400 מ-Meta ואפס הודעה.
   return lines.join("\n").slice(0, 4000);
+}
+
+/**
+ * כשכל ההודעה מובילה ליעד אחד (התראה אחת, או כמה לאותו פריט/קטגוריה), הקישור
+ * הופך לכפתור (‏cta_url) ונעלם מהגוף - "פחות קישורים, יותר כפתורים"
+ * (12.10.2026). ל-Meta יש **כפתור קישור אחד להודעה**, ולכן הודעה עם כמה יעדים
+ * נשארת עם קישור לכל פריט. יעד שהוא מסך ההגדרות (סוג בלי קטגוריה) אינו כפתור:
+ * "פתיחה" שמובילה להגדרות הייתה מטעה. בחלון 24 השעות בלבד - התבנית כפתור קבוע.
+ */
+function singleTarget(items: Item[]): string | null {
+  const urls = new Set(items.map((it) => {
+    const path = itemPath(it);
+    return path ? `${SITE_BASE}${path}` : gotoUrl(ACC_BY_TYPE[it.type] || MANAGE_ACC);
+  }));
+  if (urls.size !== 1) return null;
+  const only = [...urls][0];
+  return only === gotoUrl(MANAGE_ACC) ? null : only;
+}
+
+/** כותרת הכפתור לפי היעד. עד 20 יחידות UTF-16 (נמדד: הארוכה 16). */
+function ctaLabel(url: string): string {
+  if (url.includes("accAgenda")) return "📅 פתיחה ביומן";
+  if (url.includes("accLeads")) return "👈 פתיחת הליד";
+  if (url.includes("accClients")) return "👤 כרטיס הלקוח";
+  if (url.includes("accProperties") || url.includes("accSharedWithMe")) return "🏠 פתיחת הנכס";
+  if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
+  if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
+  return "👈 פתיחה";
 }
 
 /**
@@ -341,18 +369,50 @@ async function sendWhatsapp(
       },
     };
   } else {
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      // ‏preview_url false: ההודעה נושאת קישור לדשבורד, ותצוגה מקדימה שלו
-      // תופסת חצי מסך בשביל כלום.
-      text: { preview_url: false, body: textBody(name, items) },
-    };
+    const target = singleTarget(items);
+    const ctaBody = target ? textBody(name, items, true) : "";
+    payload = target && ctaBody.length <= 1024
+      ? {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "interactive",
+        interactive: {
+          type: "cta_url",
+          body: { text: ctaBody },
+          action: { name: "cta_url", parameters: { display_text: ctaLabel(target), url: target } },
+        },
+      }
+      : {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        // ‏preview_url false: ההודעה נושאת קישור לדשבורד, ותצוגה מקדימה שלו
+        // תופסת חצי מסך בשביל כלום.
+        text: { preview_url: false, body: textBody(name, items) },
+      };
   }
 
-  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+  let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+  // כפתור שנדחה (לא ביטול של הנמען/ת) - אותה הודעה כטקסט עם הקישור, כדי
+  // שההתראה לא תיפול בגלל הצורה שלה.
+  if (!res.ok && payload.type === "interactive") {
+    const raw = await res.text();
+    if (!raw.includes(String(WA_OPTED_OUT))) {
+      console.error("cta_url rejected, sending as text", raw.slice(0, 300));
+      res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          messaging_product: "whatsapp", recipient_type: "individual", to, type: "text",
+          text: { preview_url: false, body: textBody(name, items) },
+        }),
+      });
+    } else {
+      res = new Response(raw, { status: res.status });
+    }
+  }
   if (!res.ok) {
     const raw = await res.text();
     let code: number | null = null;

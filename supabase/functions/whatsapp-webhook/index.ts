@@ -190,7 +190,12 @@ async function reply(
  * כישלון אחת אינו עוצר את הבאה; ושורת היומן נושאת את השגיאה.
  */
 async function sendOutbox(to: string, items: OutboxItem[], agentId: string | null): Promise<void> {
+  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת
+  const seen = new Set<string>();
   for (const item of items) {
+    const key = item.kind === "cta" ? item.url : item.buttons.map((b) => b.id).join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
     const logBody = item.kind === "cta"
       ? `${item.body}\n[${item.label}] ${item.url}`
       : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;

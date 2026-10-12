@@ -203,7 +203,7 @@ async function notifyAgent(
   text: string,
   oneLine: string,
   audioUrl: string | null,
-  opts: { action?: CallAction | null; urlSuffix?: string } = {},
+  opts: { action?: CallAction | null; urlSuffix?: string; cta?: { label: string } } = {},
 ): Promise<void> {
   const to = agent.phone_e164;
   if (!to) return;
@@ -211,7 +211,37 @@ async function notifyAgent(
   const action = opts.action && opts.action.body ? opts.action : null;
 
   if (await inWindow(agent.id) || !WA_TEMPLATE) {
-    await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
+    // הקישור לכרטיס - כפתור ולא שורה בטקסט (12.10.2026, "פחות קישורים"). ל-
+    // ‏cta_url יש גוף עד 1024 תווים: ארוך מזה - הטקסט, ואחריו הכפתור לבד.
+    // נדחה - הקישור חוזר כשורה בטקסט.
+    const ctaUrl = opts.cta && opts.urlSuffix ? `${SITE}${opts.urlSuffix}` : null;
+    const ctaMsg = (b: string) => ({
+      recipient_type: "individual", to, type: "interactive",
+      interactive: {
+        type: "cta_url",
+        body: { text: b },
+        action: { name: "cta_url", parameters: { display_text: opts.cta!.label, url: ctaUrl } },
+      },
+    });
+    let ctaSent = false;
+    if (ctaUrl) {
+      try {
+        if (body.length <= 1024) {
+          await waSend(ctaMsg(body));
+          ctaSent = true;
+        } else {
+          await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
+          ctaSent = true;
+          await waSend(ctaMsg("👇"));
+        }
+      } catch (err) {
+        console.error("cta_url failed, falling back to text", err);
+        const withLink = `${ctaSent ? "" : body + "\n\n"}${opts.cta!.label}: ${ctaUrl}`;
+        await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body: withLink } });
+      }
+    } else {
+      await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
+    }
     if (audioUrl) await waSend({ recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } });
     if (action) {
       const buttons = action.buttons.slice(0, 3);
@@ -537,8 +567,10 @@ async function notifyRinging(
       const when = new Date(last.created_at).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric" });
       lines.push(`בשיחה הקודמת (${when}): ${last.summary}`);
     }
-    lines.push("", `הכרטיס: ${SITE}${link}`);
-    await notifyAgent(agent, lines.join("\n"), `${client.full_name} מתקשר/ת עכשיו`, null, { urlSuffix: link });
+    await notifyAgent(agent, lines.join("\n"), `${client.full_name} מתקשר/ת עכשיו`, null, {
+      urlSuffix: link,
+      cta: { label: "👤 כרטיס הלקוח" },
+    });
     await supabase.from("whatsapp_conversations")
       .update({ last_client_id: client.id }).eq("agent_id", agent.id);
   } catch (err) {
@@ -774,7 +806,7 @@ async function analyzeCall(
       if (b && !buttons.includes(b)) buttons.push(b);
     }
   }
-  lines.push("", `התמלול וההקלטה בכרטיס: ${SITE}/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`);
+  lines.push("", "התמלול וההקלטה בכרטיס 👇");
 
   let audioUrl: string | null = null;
   if (bytes.byteLength <= WA_AUDIO_MAX_BYTES) {
@@ -786,6 +818,7 @@ async function analyzeCall(
   await notifyAgent(agent, text, `${voicemail ? "הודעה קולית מ" : "סיכום שיחה עם "}${who}: ${summary?.summary || ""}`, audioUrl, {
     action,
     urlSuffix: `/crm?goto=accClients${call.client_id ? `&client=${call.client_id}` : ""}`,
+    cta: { label: call.client_id ? "👤 כרטיס הלקוח" : "📞 ללקוחות ולשיחות" },
   });
   await rememberForBot(call.agent_id, action ? `${text}\n\n${action.body}` : text);
   await supabase.from("agent_calls").update({ notified_at: new Date().toISOString() }).eq("id", call.id);
