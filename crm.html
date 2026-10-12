@@ -807,6 +807,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     padding:11px 12px;background:#fff;font-family:inherit;font-size:1rem;color:inherit}
   .exp-scope select:focus{border-color:var(--teal);outline:none}
   .exp-note{font-size:.78rem;color:var(--ink-soft);line-height:1.55;margin:12px 0 0}
+  /* רמות השיתוף וסיכום ההתאמות (20270426090000, docs/client-matching.md).
+     ‏.share-notice - ההסבר בראש "הנכסים שלי" ו"קובץ הלקוחות", נסגר בלחיצה.
+     ‏.share-level-opts - שלוש האפשרויות בחלון, כרטיסיות עם רדיו. */
+  .share-notice{background:var(--teal-tint);border:1px solid var(--line);border-radius:var(--radius-md);
+    padding:12px 14px;margin:0 0 12px;font-size:.84rem;line-height:1.6;color:var(--ink)}
+  .share-notice b{font-weight:800}
+  .share-notice ul{margin:6px 0 0;padding-inline-start:18px}
+  .share-notice .share-notice-foot{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .share-level-opts{display:grid;gap:8px;margin-top:6px}
+  .share-level-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--radius-md);
+    padding:10px 12px;cursor:pointer;font-size:.86rem;line-height:1.5}
+  .share-level-opt:has(input:checked){border-color:var(--teal);box-shadow:0 0 0 2px var(--teal-tint)}
+  .share-level-opt input{margin-top:4px}
+  .share-level-opt b{display:block;font-weight:800}
+  .share-level-opt small{color:var(--ink-soft)}
+  button.share-level-pill{cursor:pointer;font:inherit}
   /* ‏.pm-ack הוא display:flex, שגובר על ‎[hidden]‎ של הדפדפן — בלי הכלל הזה
      תיבת "רק מה שמסונן" נשארת על המסך גם כשאין סינון פעיל. */
   .exp-scope [hidden]{display:none!important}
@@ -6780,6 +6796,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
+    <div class="share-notice" id="propertyShareNotice" hidden></div>
     <!-- שלושה כפתורים בשורה אחת נחתכים בטלפון. במקומם חלוקה לפי משמעות:
          הוספת נכס היא הפעולה הראשית ויושבת לבדה, ושתי פעולות הקובץ —
          ייבוא וייצוא — חולקות את השורה שמתחתיה.
@@ -7306,6 +7323,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
         <p class="acc-sub">כל לקוח/ה עם דרישות החיפוש שלו/ה. המערכת מצליבה אותן מול הנכסים שלך, של המשרד ושל כל מה ששותף איתך - ומדרגת כל התאמה בציון, עם הסבר על כל פער. שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן.</p>
 
+        <!-- ההסבר על רמות השיתוף ועל סיכום ההתאמות (20270426090000). נסגר
+             בלחיצה ונשאר סגור בדפדפן הזה (share-level-notice ב-localStorage).
+             הטקסט נבנה ב-renderShareLevelNotice() ב-assets/crm.js. -->
+        <div class="share-notice" id="clientShareNotice" hidden></div>
+
         <!-- שורת פעולות אחת, באותה שפה של "הנכסים שלי" (.prop-actbar): הוספה
              היא הכפתור הראשי והיחיד שנמתח, הייבוא מאנשי הקשר לצידו, והשאר -
              ייבוא וייצוא אקסל ומסירה למנהל/ת - בתפריט "⋯ עוד". עד כאן אלה היו
@@ -7414,6 +7436,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <option value="referral">המלצה / לקוח חוזר</option>
                   <option value="other">אחר</option>
                 </select></div>
+              <div class="field"><label for="clShareLevel">רמת שיתוף</label>
+                <select id="clShareLevel" aria-describedby="clShareLevelHint">
+                  <option value="office">🏢 שיתוף משרדי (ברירת מחדל)</option>
+                  <option value="private">🔒 פרטי - רק אני</option>
+                  <option value="network">🌐 שיתוף רשת - כל המשרדים</option>
+                </select>
+                <small class="exp-note" id="clShareLevelHint" style="display:block;margin-top:4px">מי מהסוכנים ישמע שיש לך לקוח/ה שמתאים/ה לנכס שלהם. שם, טלפון ודרישות לא נחשפים באף רמה.</small></div>
             </div>
             <div class="cf-grid cf-grid-3">
               <div class="field cf-span-2"><label for="clAddress">כתובת מגורים</label>
@@ -7572,7 +7601,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כל נכס שנכנס למערכת - שלך, של המשרד או כזה ששותף איתך - נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה-נכס מתריע פעם אחת בלבד.</p>
+        <p class="acc-sub">כל נכס שנכנס למערכת - שלך, של המשרד או כזה ששותף איתך - נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה-נכס מתריע פעם אחת בלבד. ההתאמות נכנסות לכאן מיד, וההתראה בפעמון ובוואטסאפ מגיעה כסיכום אחד כל שלושה ימים.</p>
 
         <div class="list-toolbar">
           <div class="toolbar-row">
@@ -9955,6 +9984,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="pm-actions">
       <button type="button" class="btn btn-ghost" id="referCancel">ביטול</button>
       <button type="button" class="btn btn-gold" id="referRun" disabled>מסירה בהפנייה</button>
+    </div>
+  </div>
+</div>
+
+<!-- רמת השיתוף של נכס או של לקוח/ה. התוכן נבנה ב-openShareLevelModal() ב-assets/crm.js -->
+<div class="pm-overlay" id="shareLevelModal" role="dialog" aria-modal="true" aria-labelledby="shareLevelTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="shareLevelTitle">רמת שיתוף</div>
+    <p class="exp-note" id="shareLevelWhat" style="font-weight:600"></p>
+    <div class="share-level-opts" id="shareLevelOpts" role="radiogroup" aria-labelledby="shareLevelTitle"></div>
+    <p class="exp-note" id="shareLevelNote"></p>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="shareLevelCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="shareLevelRun">שמירה</button>
     </div>
   </div>
 </div>

@@ -178,6 +178,16 @@ View בלי `security_invoker` — אותה תבנית כמו `leads_masked` ו-
 ואז הוא משתנה באותו PR. הפרטים על החותמות:
 [`search-map-experience.md`](search-map-experience.md).
 
+## רמת השיתוף של הנכס (`share_level`)
+
+מאז `20270426090000` לכל נכס יש רמה: `private`, ‏`office` (ברירת המחדל) או
+`network`. **‏`network` היא השת״פ שבמסמך הזה** - טריגר על
+`shared_with_partners` מסמן אותה כשמישהו לוחץ "שת״פ" ומחזיר ל-`office` ב"ביטול
+שת״פ", ו-`set_share_level` מפיצה דרך `share_property_for_agent` ומבטלת דרך
+`unshare_property_for_agent`. נכסים שהיו בשת״פ ביום המיגרציה סומנו
+`network`. ‏`private` חוסם את הנכס מלקוחות של כל סוכן/ת אחר/ת, גם במשרד
+(שורה ב-gate של `client_property_match`). הפרטים: [`client-matching.md`](client-matching.md).
+
 ## המשך
 
 קובץ הלקוחות ומנוע ההתאמות נבנו על גבי המנגנון הזה — ראו

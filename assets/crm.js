@@ -13783,6 +13783,11 @@ const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
 function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test(error.message || ''); }
+/* ‏share_level (‏20270426090000) בנפרד, עם אותה נפילה: בדקה שבין פרסום
+   ה-HTML לריצת המיגרציה הרשימה נטענת בלעדיה, ו-shareLevelOf() גוזרת את
+   הרמה מ-shared_with_partners. */
+const PROPERTY_SHARE_LEVEL_COLUMN = ', share_level';
+function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(error.message || ''); }
 
 /* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
    שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
@@ -13807,9 +13812,15 @@ async function loadProperties(agentId){
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS)
+    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN)
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (shareLevelSchemaMissing(error)){
+    ({ data: props, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
   if (referralSchemaMissing(error)){
     ({ data: props, error } = await sb.from('properties')
       .select(PROPERTY_SELECT_COLUMNS).eq('agent_id', agentId).order('created_at', { ascending:false }));
@@ -13821,6 +13832,7 @@ async function loadProperties(agentId){
     return;
   }
   accSetCount('accProperties', (props||[]).length);
+  renderShareLevelNotice('property', (props||[]).filter(p => p.agent_id === agentId || p.agent_id === undefined));
   // סיכום ללא פתיחה: כמה מהם חיים באתר עכשיו, וכמה כסף הם מייצגים
   const activeProps = (props||[]).filter(p => p.status === 'active');
   accSetSummary('accProperties', activeProps.length
@@ -14199,6 +14211,8 @@ function buildPropertyCard(p, agentId){
     matched.length && { html:`👥 <b>${matched.length}</b> ${matched.length === 1 ? 'לקוח/ה מתאים/ה' : 'לקוחות מתאימים'}`,
       cls:'tag-good pc-matched', button:true,
       title:'לקוחות מהקובץ שלך שהנכס התאים להם - לחיצה מציגה אותם' },
+    shareLevelOf(p) === 'private' && { text:'🔒 פרטי', cls:'tag-info',
+      title:'רמת שיתוף: פרטי - רק הלקוחות שלך מותאמים לנכס' },
     p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
       cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
@@ -14334,6 +14348,16 @@ function buildPropertyCard(p, agentId){
         ? 'העברת הנכס לסוכן/ת אחר/ת, או החזרה אליך'
         : 'מסירת הנכס לסוכן/ת מהצוות בהפנייה - הנכס יישאר משותף לך ולסוכן/ת',
       onClick:()=> openReferModal('property', p, p.title, ()=> loadProperties(agentId)),
+    });
+  }
+
+  // רמת השיתוף - רק מי שמחזיק/ה בנכס (set_share_level בודקת גם במסד)
+  if (!p.agent_id || p.agent_id === agentId){
+    const lvl = SHARE_LEVEL_TEXT[shareLevelOf(p)];
+    addQuickAction(actions, {
+      label:'שיתוף: ' + lvl.short, icon:'globe',
+      title:'רמת השיתוף של הנכס - ' + lvl.label + '. פרטי, שיתוף משרדי או שיתוף רשת',
+      onClick:()=> openShareLevelModal('property', p, p.title, ()=> loadProperties(agentId)),
     });
   }
 
@@ -20459,6 +20483,131 @@ async function unshareProperty(p, btn, agentId){
   await loadProperties(agentId);
 }
 
+/* ---------- רמת שיתוף: פרטי / משרדי / רשת (20270426090000) ----------
+   לנכסים וללקוחות. ‏office היא ברירת המחדל של כל מה שקיים ונוצר, ו-network
+   בנכס היא השת״פ עצמו: set_share_level מפיצה דרך אותו מנוע של "שת״פ",
+   וכפתורי השת״פ הוותיקים מיישרים את הרמה בטריגר. ברמת הלקוח/ה שום פרט אישי
+   לא נחשף - היא קובעת רק מי מהמפרסמים שומע/ת בסיכום ההתאמות שיש לך לקוח/ה
+   לנכס שלו/ה. docs/client-matching.md, "רמות שיתוף". */
+const SHARE_LEVELS = ['private', 'office', 'network'];
+const SHARE_LEVEL_TEXT = {
+  private: { icon:'🔒', label:'פרטי', short:'פרטי',
+    property:'רק הלקוחות שלך מותאמים לנכס. סוכני המשרד לא יקבלו עליו התאמות, והוא לא מופץ לשת״פ. המודעה באתר לא משתנה.',
+    client:'אף סוכן/ת אחר/ת לא ישמע/תשמע שיש לך לקוח/ה כזה/ו. ההתאמות ממשיכות להגיע אליך כרגיל.' },
+  office:  { icon:'🏢', label:'שיתוף משרדי', short:'משרדי',
+    property:'כל הלקוחות של סוכני המשרד מותאמים לנכס. זו ברירת המחדל.',
+    client:'סוכן/ת מהמשרד שהנכס שלו/ה מתאים ללקוח/ה ישמע/תשמע על כך בסיכום ההתאמות, עם השם והטלפון שלך. זו ברירת המחדל.' },
+  network: { icon:'🌐', label:'שיתוף רשת גלובלי', short:'רשת',
+    property:'הנכס מופץ לשת״פ לכל המשרדים ברשימת השת״פ שלך, ומותאם גם ללקוחות שלהם.',
+    client:'גם מפרסמים ממשרדים אחרים ישמעו שיש לך לקוח/ה לנכס שלהם - הדרך לשת״פ על קונה.' },
+};
+const SHARE_LEVEL_ERRORS = {
+  not_your_property: 'אפשר לשנות רמת שיתוף רק לנכס שלך',
+  property_not_active: 'שיתוף רשת אפשרי רק לנכס פעיל באתר',
+  agent_without_agency: 'שיתוף רשת דורש שיוך למשרד',
+};
+
+function shareLevelOf(row){
+  return SHARE_LEVELS.includes(row.share_level) ? row.share_level
+       : (row.shared_with_partners ? 'network' : 'office');
+}
+
+let shareLevelState = null;
+
+function openShareLevelModal(kind, row, label, onDone){
+  const modal = document.getElementById('shareLevelModal');
+  if (!modal) return;
+  const current = shareLevelOf(row);
+  shareLevelState = { kind, row, onDone };
+  document.getElementById('shareLevelTitle').textContent =
+    kind === 'property' ? 'רמת שיתוף לנכס' : 'רמת שיתוף ללקוח/ה';
+  document.getElementById('shareLevelWhat').textContent = label || '';
+  document.getElementById('shareLevelOpts').innerHTML = SHARE_LEVELS.map(lvl => {
+    const t = SHARE_LEVEL_TEXT[lvl];
+    return `<label class="share-level-opt">
+      <input type="radio" name="shareLevel" value="${lvl}"${lvl === current ? ' checked' : ''}>
+      <span><b>${t.icon} ${escapeHtml(t.label)}</b><small>${escapeHtml(t[kind])}</small></span>
+    </label>`;
+  }).join('');
+  document.getElementById('shareLevelNote').textContent = kind === 'property'
+    ? 'שיתוף רשת מפיץ את הנכס מיד, ובחזרה למשרדי או לפרטי ההפצה מבוטלת.'
+    : 'שם הלקוח/ה, הטלפון והדרישות לא נחשפים באף רמה - רק שיש לך לקוח/ה מתאים/ה, והפרטים שלך ליצירת קשר.';
+  document.getElementById('shareLevelRun').disabled = false;
+  modal.style.display = 'flex';
+  modal.querySelector('input:checked')?.focus();
+}
+
+function closeShareLevelModal(){
+  document.getElementById('shareLevelModal').style.display = 'none';
+  shareLevelState = null;
+}
+
+async function runShareLevel(){
+  if (!shareLevelState) return;
+  const picked = document.querySelector('#shareLevelOpts input:checked')?.value;
+  const { kind, row, onDone } = shareLevelState;
+  if (!picked || picked === shareLevelOf(row)){ closeShareLevelModal(); return; }
+  if (kind === 'property' && picked === 'network' && shareFeatureReady && sharePartnerCount() === 0){
+    showToast('לא נבחרו משרדי שת״פ - בחרו משרדים בקטגוריית "משרדי שיתוף פעולה"');
+    return;
+  }
+  const btn = document.getElementById('shareLevelRun');
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('set_share_level', { p_kind: kind, p_ids: [row.id], p_level: picked });
+  const failed = error || data?.error || (data?.errors || [])[0];
+  if (failed){
+    const code = data?.error || (data?.errors || [])[0]?.error;
+    showToast(SHARE_LEVEL_ERRORS[code] || ('שמירת רמת השיתוף נכשלה' + (error ? ': ' + heErr(error) : '')));
+    btn.disabled = false;
+    return;
+  }
+  closeShareLevelModal();
+  showToast('רמת השיתוף עודכנה: ' + SHARE_LEVEL_TEXT[picked].label);
+  if (onDone) await onDone();
+}
+
+document.getElementById('shareLevelCancel')?.addEventListener('click', closeShareLevelModal);
+document.getElementById('shareLevelRun')?.addEventListener('click', runShareLevel);
+document.getElementById('shareLevelModal')?.addEventListener('click', e => {
+  if (e.target.id === 'shareLevelModal') closeShareLevelModal();
+});
+
+/* ההסבר בראש "הנכסים שלי" ו"קובץ הלקוחות": מה השתנה (סיכום כל שלושה ימים
+   במקום התראה על כל התאמה) ומה מבקשים מהסוכן/ת (להגדיר רמת שיתוף לכל
+   לקוח/ה). נסגר בלחיצה ונשאר סגור בדפדפן הזה; כשאין localStorage הוא פשוט
+   מוצג שוב. */
+const SHARE_NOTICE_KEY = 'share-level-notice';
+function shareNoticeDismissed(){
+  try { return localStorage.getItem(SHARE_NOTICE_KEY) === '1'; } catch (e) { return false; }
+}
+function renderShareLevelNotice(kind, rows){
+  const el = document.getElementById(kind === 'client' ? 'clientShareNotice' : 'propertyShareNotice');
+  if (!el) return;
+  if (shareNoticeDismissed()){ el.hidden = true; return; }
+  const counts = { private:0, office:0, network:0 };
+  (rows || []).forEach(r => { counts[shareLevelOf(r)]++; });
+  const noun = kind === 'client' ? 'לקוחות' : 'נכסים';
+  const tally = (rows || []).length
+    ? '<div>' + escapeHtml(noun) + ' אצלך: ' + counts.private + ' פרטי · ' + counts.office + ' משרדי · ' + counts.network + ' רשת</div>'
+    : '';
+  const ask = kind === 'client'
+    ? 'עברו על הלקוחות שלכם והגדירו לכל אחד/ת רמת שיתוף: לקוח/ה שמוכן/ה לעבוד גם מול משרדים אחרים - שיתוף רשת; לקוח/ה רגיש/ה - פרטי. השינוי בעריכת הלקוח/ה או בתגית הרמה בכרטיס.'
+    : 'נכס שתרצו להשאיר ללקוחות שלכם בלבד - פרטי; נכס שתרצו להפיץ - שיתוף רשת. השינוי באריח "שיתוף" בכרטיס הנכס.';
+  el.innerHTML = `<b>חדש: רמות שיתוף, וסיכום התאמות כל שלושה ימים</b>
+    <ul>
+      <li>התראות על התאמות בין נכסים ללקוחות מגיעות מעכשיו כ<b>סיכום אחד כל שלושה ימים</b>, במקום התראה על כל התאמה. ההתאמות עצמן ממשיכות להופיע מיד בכרטיסים וב"התראות התאמה".</li>
+      <li>לכל נכס ולכל לקוח/ה יש רמת שיתוף: 🔒 פרטי, 🏢 שיתוף משרדי (ברירת המחדל לכל מה שקיים ונוצר), או 🌐 שיתוף רשת גלובלי. פרטי הלקוחות לא נחשפים באף רמה.</li>
+      <li>${escapeHtml(ask)}</li>
+    </ul>
+    ${tally}
+    <div class="share-notice-foot"><button type="button" class="btn btn-ghost share-notice-ok">הבנתי</button></div>`;
+  el.hidden = false;
+  el.querySelector('.share-notice-ok').addEventListener('click', () => {
+    try { localStorage.setItem(SHARE_NOTICE_KEY, '1'); } catch (e) {}
+    document.querySelectorAll('.share-notice').forEach(n => { n.hidden = true; });
+  });
+}
+
 async function loadSharedWithMe(){
   const listEl = document.getElementById('sharedWithMeList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -20772,6 +20921,7 @@ async function loadClients(){
 
   const totalMatches = Object.values(clientMatchCounts).reduce((a, b) => a + b, 0);
   accSetCount('accClients', clientRows.length || '');
+  renderShareLevelNotice('client', clientRows.filter(c => c.agent_id === currentAgent.id));
   // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
   accSetSummary('accClients', clientRows.length
     ? (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות')
@@ -21019,6 +21169,9 @@ function buildClientCard(c){
         <div class="cc-badges">
           <span class="status-pill status-unlocked">${esc(clientStatusLabel(c))}</span>
           ${c.referred_by ? '<span class="status-pill status-shared">🤝 הפנייה</span>' : ''}
+          ${c.agent_id === currentAgent.id
+            ? `<button type="button" class="status-pill share-level-pill" title="רמת שיתוף - לחיצה לשינוי">${
+                SHARE_LEVEL_TEXT[shareLevelOf(c)].icon} ${esc(SHARE_LEVEL_TEXT[shareLevelOf(c)].short)}</button>` : ''}
           ${matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
           <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
         </div>
@@ -21054,6 +21207,8 @@ function buildClientCard(c){
   const cta = el.querySelector('.cc-cta');
   const manage = el.querySelector('.cc-manage');
   const panel = el.querySelector('.match-panel');
+  el.querySelector('.share-level-pill')?.addEventListener('click', () =>
+    openShareLevelModal('client', c, c.full_name, () => loadClients()));
 
   // ההתאמה המובילה - מיד עם פתיחת הכרטיס, מעל הסרגל
   const peek = owner ? null : clientMatchPeek(c, () => el.querySelector('.match-cta'));
@@ -21595,6 +21750,7 @@ function openEditClient(c){
   document.getElementById('clIdNumber').dataset.ilIdOk = c.id_number || '';
   document.getElementById('clAddress').value  = c.address || '';
   document.getElementById('clFinancing').value  = c.financing_status || '';
+  document.getElementById('clShareLevel').value = shareLevelOf(c);
   document.getElementById('clLeadSource').value = c.lead_source || '';
   document.getElementById('clMinPrice').value = c.min_price ?? '';
   document.getElementById('clMaxPrice').value = c.max_price ?? '';
@@ -21713,6 +21869,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     address:   document.getElementById('clAddress').value.trim() || null,
     financing_status: document.getElementById('clFinancing').value || null,
     lead_source:      document.getElementById('clLeadSource').value || null,
+    share_level:      document.getElementById('clShareLevel').value || 'office',
     notes:  document.getElementById('clNotes').value.trim() || null,
     client_kind: clientFormKind,
     deal_type: clientFormDeal,
@@ -21752,6 +21909,17 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     let row;
     ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
     savedId = row?.id;
+  }
+  // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
+  if (shareLevelSchemaMissing(error)){
+    delete payload.share_level;
+    if (editingClientId){
+      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
+    } else {
+      let row;
+      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
+      savedId = row?.id;
+    }
   }
   btn.disabled = false; btn.textContent = original;
 
@@ -24099,9 +24267,17 @@ const NOTIF_TYPES = [
   { type:'review_request', tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'תזכורת לבקש חוות דעת',
     sub:'אחרי סגירת עסקה, או כשליד פתוח מזמן ועדיין אין עליו חוות דעת.' },
+  /* ‏client_match ו-listing_match כבר לא נכתבות (‏20270426090000) - שתיהן
+     עברו לסיכום match_digest כל שלושה ימים. הן נשארות כאן בשביל הפעמון
+     (התראות ישנות), ו-when מוציא אותן מ"התראות והודעות", כי תיבה שלהן
+     לא הייתה משנה כלום. */
   { type:'client_match',   tone:'',       goto:'accAlerts',   focus:'#alertsList',
     title:'התאמת נכס ללקוח/ה בקובץ',
-    sub:'נכס חדש שעונה על הדרישות של אחד הלקוחות בקובץ הלקוחות שלך.' },
+    sub:'נכס חדש שעונה על הדרישות של אחד הלקוחות בקובץ הלקוחות שלך.',
+    when: ()=> false },
+  { type:'match_digest',   tone:'',       goto:'accAlerts',   focus:'#alertsList',
+    title:'סיכום התאמות - כל שלושה ימים',
+    sub:'כמה נכסים חדשים התאימו ללקוחות שלך, והבולטים שבהם; וכמה מהנכסים שלך מתאימים ללקוחות של סוכנים אחרים, עם הפרטים שלהם ליצירת קשר - לפי רמת השיתוף שהם הגדירו.' },
   /* הצד השני של אותה התאמה: הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת.
      ‏goto לנכסים שלי - אין מסך של התאמות מצד המפרסם/ת, והגוף כבר נושא את
      שם הסוכן/ת והטלפון, שהם מה שצריך כדי ליצור קשר. */
@@ -24119,7 +24295,8 @@ const NOTIF_TYPES = [
     refresh: ()=> loadClients() },
   { type:'listing_match',  tone:'deal',   goto:'accProperties', focus:'#propertiesList',
     title:'הנכס שלך מתאים ללקוח/ה של סוכן/ת אחר/ת',
-    sub:'התאמה בין נכס שלך ללקוח/ה בקובץ של סוכן/ת אחר/ת, עם הפרטים שלו/ה ליצירת קשר לשיתוף פעולה.' },
+    sub:'התאמה בין נכס שלך ללקוח/ה בקובץ של סוכן/ת אחר/ת, עם הפרטים שלו/ה ליצירת קשר לשיתוף פעולה.',
+    when: ()=> false },
   /* בוואטסאפ היא עוקפת שעות שקט ומרווח קיבוץ - ראו סעיף 9 ב-
      ‏20270125090000_agent_agenda.sql. */
   { type:'agenda_reminder', tone:'deal', goto:'accAgenda',  focus:'#agList',

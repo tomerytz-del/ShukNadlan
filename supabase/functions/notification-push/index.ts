@@ -78,6 +78,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   new_lead: "accLeads",
   client_match: "accAlerts",
   listing_match: "accProperties",
+  // ‏הסיכום שמחליף את שתיהן (20270426090000) - לרשימת "התראות התאמה"
+  match_digest: "accAlerts",
   agreement_signed: "accAgreements",
   review_new: "accReviews",
   review_request: "accLeads",
