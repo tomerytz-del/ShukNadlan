@@ -63,6 +63,7 @@ export function insideAfula(lat: number, lng: number): boolean {
 export function afulaAddressToCoords(
   street: string,
   houseNumber: string,
+  officialStreet?: string | null,
 ): Promise<{ lat: number; lng: number } | null> {
-  return geocodeAddress(AFULA_SOURCE, street, houseNumber);
+  return geocodeAddress(AFULA_SOURCE, street, houseNumber, officialStreet);
 }

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
+import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // גיאוקוד בסיסי (רחוב+מספר בית -> lat/lng) לעפולה בלבד, דרך שכבת נקודות
@@ -58,7 +59,8 @@ Deno.serve(async (req: Request) => {
   if (!agentRow.active) return json({ error: "agent_inactive" }, 403);
 
   try {
-    const coords = await afulaAddressToCoords(street, houseNumber);
+    const official = await officialStreetFor(supabase, "עפולה", street);
+    const coords = await afulaAddressToCoords(street, houseNumber, official);
     if (!coords) return json({ error: "address_not_found", detail: "לא נמצאה כתובת מתאימה בעפולה" }, 404);
     return json({ success: true, lat: coords.lat, lng: coords.lng }, 200);
   } catch (err) {

@@ -316,3 +316,6 @@ verify_jwt = false          # JWT מנהל פלטפורמה בפנים; cron + x
 # (בלי הסוד - 503 לכל POST). ה-GET הוא אימות המנוי מול META_WEBHOOK_VERIFY_TOKEN.
 [functions.ads-leads-webhook]
 verify_jwt = false          # מטא + חתימת X-Hub-Signature-256
+
+[functions.csp-report]
+verify_jwt = false          # הדפדפן שולח דיווחי CSP בלי כותרות שלנו; הגנה מהצפה בתקרה היומית במסד

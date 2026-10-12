@@ -3739,6 +3739,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* טבלת המשרדים — גלילה אופקית משלה, כדי שהדף עצמו לא יגלוש */
   .adm-table-wrap{overflow-x:auto}
+  /* יומן הביקורת: הפרטים ארוכים, ולכן עמודת הפרטים נשברת לשורות (loadSecurityAudit) */
+  .audit-table td:last-child{white-space:normal;min-width:220px}
   .adm-table{width:100%;border-collapse:collapse;font-size:.76rem;min-width:420px}
   /* טבלה של שלוש עמודות נכנסת ברוחב טלפון, ו-420px היו דוחפים דווקא את
      העמודה האחרונה אל מחוץ למסך בלי סיבה */
@@ -8242,6 +8244,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             אישור פותח את פתיחת המשרד מיד, ושולח הודעה במייל.
           </p>
           <div id="licenseAppealsList"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
+
+      <!-- ---------- יומן ביקורת אבטחה ----------
+           מי שינה הרשאות, אימות כניסה ומחירים (security_audit_log, מיגרציה
+           20270423095000). נטען רק כשפותחים. docs/security-audit-log.md -->
+      <details class="acc" id="accSecurityAudit">
+        <summary>
+          <span class="acc-title">יומן ביקורת אבטחה</span>
+          <span class="acc-count" id="accSecurityAuditCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            מי שינה תפקיד, הרשאת ניהול, טלפון או רישיון של כרטיס, מי הפעיל/ה או כיבה אימות כניסה, אימותי כניסה שעברו, ושינויי מחירים. היומן נכתב במסד בלבד, ואי אפשר למחוק ממנו.
+          </p>
+          <div id="securityAuditList"><div class="empty-state">טוען…</div></div>
         </div>
       </details>
 

@@ -57,12 +57,28 @@ export const municipalWfsProvider: GeocodeProvider = {
     // וככל שיש יותר צורות, כך גדל הסיכוי שאחת מהן תקלקל את כולן.
     let lastError: unknown = null;
 
-    for (const variant of streetVariants(query.street)) {
+    // ‏מספר_בית בשכבה הוא integer: "12 א" נענה ב-400 (‏invalid input syntax for
+    // type integer, ביומן 12.10.2026), נרשם כתקלה זמנית, ונשאל שוב כל יום
+    // לנצח. האות אינה בשכבה בכלל, ולכן שואלים על המספר - הבניין של 12 הוא
+    // נקודת הכתובת הקרובה ביותר ל-12 א. בלי ספרות - אין מה לשאול: תשובה
+    // סופית, ולא 400 שנראה כמו תקלה.
+    const houseNumber = (String(query.houseNumber || "").match(/\d+/) || [""])[0];
+    if (!houseNumber) return null;
+
+    // השם הרשמי (אם יש) ראשון וכמו שהוא - זה הכתיב של השכבה עצמה. אחריו
+    // הצורות של השם שהוקלד, כמו קודם.
+    const official = String(query.officialStreet || "").trim();
+    const forms = [
+      ...(official && official !== query.street ? [official] : []),
+      ...streetVariants(query.street).filter((v) => v !== official),
+    ];
+
+    for (const variant of forms) {
       let data;
       try {
         data = await wfsQuery(
           source,
-          addressXml(source.addressLayer, variant, query.houseNumber),
+          addressXml(source.addressLayer, variant, houseNumber),
           variant,
         );
       } catch (err) {
