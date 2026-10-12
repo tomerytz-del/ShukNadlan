@@ -24,6 +24,7 @@ import {
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
+import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
   accessTokenFor,
   freeBusy,
@@ -3792,11 +3793,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     };
   }
 
-  const limit = Math.min(Number(input.limit) || 5, 15);
-  // ‏agent_client_matches נחתכת ב-30 במסד. מושכים עד שם וחותכים ל-limit כאן, כדי
-  // ש-total יהיה המספר האמיתי: עד 12.10.2026 ‏count היה גודל החלון, והבוט כתב
-  // "5 התאמות" ללקוח שהיו לו 12 - והשישית, 100% כמו החמש, לא הוזכרה.
-  const MATCH_FETCH_CAP = 30;
+  const limit = Math.min(Number(input.limit) || 5, MATCH_SHOW_MAX);
   // מאפייני החובה הם סינון קשיח ב-client_property_match (‏20270417090000).
   // ויתור הוא פרמטר של הקריאה, ורק על מה שבאמת בכרטיס - קוד אחר אינו מרחיב.
   const required = ((client.required_features as string[] | null) || []).filter(Boolean);
@@ -3811,13 +3808,8 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
-  const totalMatches = (allRows || []).length;
-  const data = (allRows || []).slice(0, limit);
-  // כמה עוד יש באותו ציון כמו האחרון שהוצג - אלה שהחיתוך הפריד ביניהם לבין
-  // התאמות שוות להן בדיוק, והסדר ביניהם הוא רק תאריך הפרסום
-  const lastShownScore = data.length ? Number(data[data.length - 1].score) : null;
-  const sameScoreHidden = lastShownScore === null ? 0
-    : (allRows || []).slice(limit).filter((m: Record<string, unknown>) => Number(m.score) === lastShownScore).length;
+  const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
+  const data = cut.shown;
 
   // האם יש כבר מיניסייט פעיל, ומה מההתאמות כבר בו - כדי שההצעה תהיה "לפתוח"
   // או "להוסיף את החדשות", ולא "לפתוח" על עמוד שכבר נשלח
@@ -3887,18 +3879,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
-    // ‏count = כמה הוצגו, total = כמה יש באמת (עד 30). המספר שנאמר לסוכן/ת הוא total.
-    count: data.length,
-    total: totalMatches,
-    total_is_capped: totalMatches >= MATCH_FETCH_CAP || undefined,
-    more_note: totalMatches > data.length
-      ? `יש ${totalMatches >= MATCH_FETCH_CAP ? `${MATCH_FETCH_CAP} ומעלה` : totalMatches} התאמות, ומוצגות ${data.length}. ` +
-        "אמור/אמרי את המספר האמיתי ולא את מספר המוצגות" +
-        (sameScoreHidden
-          ? `, וציין/צייני שיש עוד ${sameScoreHidden} בציון ${lastShownScore} כמו האחרונה שהוצגה ` +
-            "(הסדר ביניהן הוא רק תאריך הפרסום). להציג עוד - client_matches עם limit גדול יותר."
-          : ". להציג עוד - client_matches עם limit גדול יותר.")
-      : undefined,
+    ...matchCounts(cut, "client_matches"),
     required_features: required.length ? featureNames(required) : undefined,
     waived_features: waive.length ? featureNames(waive) : undefined,
     showcase: showcase
@@ -4157,21 +4138,22 @@ async function toolShowcaseStatus(ctx: ToolContext, input: Record<string, unknow
 
 async function toolPropertyMatches(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
-  const limit = Math.min(Number(input.limit) || 5, 15);
+  const limit = Math.min(Number(input.limit) || 5, MATCH_SHOW_MAX);
 
-  const { data, error } = await ctx.supabase.rpc("agent_property_client_matches", {
+  const { data: allRows, error } = await ctx.supabase.rpc("agent_property_client_matches", {
     p_agent_id: ctx.agent.id,
     p_property_id: propertyId,
-    p_limit: limit,
+    p_limit: MATCH_FETCH_CAP,
   });
   if (error) return { ok: false, error: error.message };
+  const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
 
   ctx.conv.last_property_id = propertyId;
   return {
     ok: true,
     property_id: propertyId,
-    count: (data || []).length,
-    clients: (data || []).map((c: Record<string, unknown>) => ({
+    ...matchCounts(cut, "property_matches"),
+    clients: cut.shown.map((c: Record<string, unknown>) => ({
       client_id: c.client_id,
       full_name: c.client_name,
       phone: c.client_phone,
