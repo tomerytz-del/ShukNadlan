@@ -9165,6 +9165,85 @@ async function callLicenseAppealApi(payload){
   return { ok: res.ok && !data.error, data };
 }
 
+/* ---------- יומן ביקורת אבטחה (מנהל/ת פלטפורמה) ----------
+   ‏security_audit_log נכתב רק מטריגרים במסד (מיגרציה 20270423090000).
+   כאן קריאה בלבד: 100 האירועים האחרונים, נטען כשפותחים. השמות נפתרים מ-
+   agency_members, ומזהה שלא נמצא מוצג מקוצר. docs/security-audit-log.md */
+const AUDIT_ACTIONS = {
+  member_created:        'כרטיס נוצר',
+  member_deleted:        'כרטיס נמחק',
+  member_changed:        'כרטיס שונה',
+  login_2fa_enabled:     'אימות כניסה הופעל',
+  login_2fa_disabled:    'אימות כניסה כובה',
+  login_verified:        'אימות כניסה עבר',
+  login_verified_manual: 'שחרור ידני של אימות כניסה',
+  pricing_created:       'מחיר נוסף',
+  pricing_changed:       'מחיר שונה',
+  pricing_deleted:       'מחיר נמחק',
+};
+const AUDIT_FIELDS = {
+  role:'תפקיד', active:'פעיל/ה', is_platform_admin:'מנהל/ת פלטפורמה', agency_id:'משרד',
+  phone:'טלפון', email:'מייל', license_number:'רישיון', license_status:'סטטוס רישיון',
+  released_at:'ניתוק', closed_at:'סגירה', id_number:'ת.ז.',
+};
+
+function auditDetail(row){
+  const d = row.details || {};
+  if (row.action === 'member_changed'){
+    return Object.keys(d).map(k => {
+      const label = AUDIT_FIELDS[k] || k;
+      if (d[k] === 'changed') return label + ' שונה';
+      const v = x => (x === null || x === undefined || x === '') ? '-' : String(x);
+      return label + ': ' + v(d[k].from) + ' ← ' + v(d[k].to);
+    }).join(' · ');
+  }
+  if (row.action.startsWith('pricing_')){
+    const v = x => (x === null || x === undefined) ? '-' : (typeof x === 'object' ? JSON.stringify(x) : String(x));
+    return (row.target_id || '') + ': ' + v(d.from) + ' ← ' + v(d.to);
+  }
+  if (d.note) return d.note;
+  if (d.enable) return 'כולל הפעלת האימות';
+  return '';
+}
+
+async function loadSecurityAudit(){
+  const host = document.getElementById('securityAuditList');
+  if (!host) return;
+  const { data, error } = await sb.from('security_audit_log')
+    .select('id, at, actor_user, actor_role, action, target_user, target_id, details')
+    .order('at', { ascending:false }).limit(100);
+  if (error){ host.innerHTML = '<div class="empty-state">' + esc(heErr(error)) + '</div>'; return; }
+  const rows = data || [];
+  if (!rows.length){ host.innerHTML = '<div class="empty-state">אין עדיין אירועים ביומן.</div>'; return; }
+
+  const ids = [...new Set(rows.flatMap(r => [r.actor_user, r.target_user]).filter(Boolean))];
+  const names = new Map();
+  if (ids.length){
+    const { data: members } = await sb.from('agency_members')
+      .select('user_id, display_name').in('user_id', ids);
+    (members || []).forEach(m => names.set(m.user_id, m.display_name || ''));
+  }
+  const who = uid => uid ? (names.get(uid) || ('…' + String(uid).slice(-6))) : '';
+  const actor = r => r.actor_user ? who(r.actor_user)
+    : (r.actor_role === 'service_role' ? 'מערכת (שרת)' : 'מערכת (מסד)');
+
+  host.innerHTML = '<div class="adm-table-wrap"><table class="adm-table audit-table"><thead><tr>'
+    + '<th>מתי</th><th>מי</th><th>מה</th><th>על מי</th><th>פרטים</th>'
+    + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>'
+      + '<td>' + esc(new Date(r.at).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' })) + '</td>'
+      + '<td>' + esc(actor(r)) + '</td>'
+      + '<td>' + esc(AUDIT_ACTIONS[r.action] || r.action) + '</td>'
+      + '<td>' + esc(who(r.target_user)) + '</td>'
+      + '<td>' + esc(auditDetail(r)) + '</td>'
+      + '</tr>').join('')
+    + '</tbody></table></div>';
+}
+
+document.getElementById('accSecurityAudit').addEventListener('toggle', (e)=>{
+  if (e.target.open) loadSecurityAudit();
+});
+
 async function loadLicenseAppeals(){
   const host = document.getElementById('licenseAppealsList');
   if (!host) return;
@@ -25765,6 +25844,7 @@ const NAV_GROUPS = [
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
+    { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accDealSettlements', label:'יישובים לעסקאות', icon:'chart', tab:'admin' },
