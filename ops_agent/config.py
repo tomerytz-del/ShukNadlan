@@ -311,6 +311,11 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     # שליפות ממרשמים ציבוריים. אין בהן נתון שלנו
     "company-registry-lookup",
     "broker-license-lookup",
+    # דיווחי הפרה של ה-CSP (‏report-uri ב-_headers). הדפדפן שולח אותם בעצמו,
+    # בלי שום כותרת שלנו, ולכן אין מה לאמת. נשמרת ספירה יומית בלבד, בלי IP
+    # ובלי user-agent; ‏csp_report_add נעולה ל-service_role, ותקרה של 2,000
+    # שורות חדשות ליום במסד היא ההגנה מהצפה. docs/security-headers.md.
+    "csp-report",
 })
 
 # דפוסים שמעידים שהפונקציה **כן** מאמתת. הרשימה נבנתה מקריאה בקוד
