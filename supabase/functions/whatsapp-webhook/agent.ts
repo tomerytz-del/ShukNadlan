@@ -669,6 +669,31 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["property_id"],
     },
   },
+  // רמת שיתוף (פרטי / משרדי / רשת) לנכסים וללקוחות - אותה
+  // ‏`set_share_level_for_agent` שהחלון ב-CRM קורא לה (מיגרציה 20270426090000).
+  {
+    name: "set_share_level",
+    description:
+      "רמת השיתוף של נכסים או לקוחות של הסוכן/ת: private (פרטי - נכס מותאם רק " +
+      "ללקוחות שלו/ה; על לקוח/ה אף סוכן/ת אחר/ת לא שומע/ת), office (שיתוף משרדי, " +
+      "ברירת המחדל), network (שיתוף רשת גלובלי - נכס מופץ לשת\"פ למשרדי השת\"פ; " +
+      "על לקוח/ה שומעים גם מפרסמים ממשרדים אחרים). פרטי הלקוח/ה (שם, טלפון, " +
+      "דרישות) לא נחשפים באף רמה. בלי level - מחזיר את הרמה הנוכחית בלי לשנות. " +
+      "נכס ל-network = אותה הפצה של share_property; נכס שיורד מ-network יוצא מהשת\"פ.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["client", "property"] },
+        ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "מזהי הלקוחות או הנכסים (מ-list_clients / list_properties). אפשר כמה יחד.",
+        },
+        level: { type: "string", enum: ["private", "office", "network"] },
+      },
+      required: ["kind", "ids"],
+    },
+  },
   {
     name: "property_share_status",
     description:
@@ -2240,6 +2265,8 @@ const PROPERTY_RPC_ERRORS: Record<string, string> = {
   property_not_found: "לא נמצא נכס כזה.",
   not_your_property: "הנכס הזה אינו של הסוכן/ת.",
   property_not_active: "אפשר להפיץ לשת\"פ רק נכס פעיל. נכס שנמכר, הושכר או בארכיון אינו מופץ.",
+  bad_level: "רמת שיתוף לא מוכרת. האפשרויות: פרטי, שיתוף משרדי, שיתוף רשת.",
+  bad_kind: "אפשר לשנות רמת שיתוף רק ללקוחות או לנכסים.",
 };
 
 function rpcError(code: unknown) {
@@ -2297,6 +2324,76 @@ async function toolUnshareProperty(ctx: ToolContext, input: Record<string, unkno
     title: res.title,
     removed: res.removed,
     note: "הנכס עצמו נשאר פעיל באתר.",
+  };
+}
+
+const SHARE_LEVEL_HE: Record<string, string> = {
+  private: "פרטי",
+  office: "שיתוף משרדי",
+  network: "שיתוף רשת",
+};
+
+async function toolSetShareLevel(ctx: ToolContext, input: Record<string, unknown>) {
+  const kind = String(input.kind || "");
+  if (kind !== "client" && kind !== "property") {
+    return { ok: false, error: "kind חייב להיות client או property." };
+  }
+  const ids = (Array.isArray(input.ids) ? input.ids : [])
+    .map((x) => String(x || "").trim()).filter(Boolean).slice(0, 100);
+  if (!ids.length) return { ok: false, error: "לא נמסרו מזהים." };
+  const table = kind === "client" ? "agent_clients" : "properties";
+  const nameCol = kind === "client" ? "full_name" : "title";
+
+  const readLevels = async () => {
+    const { data, error } = await ctx.supabase
+      .from(table)
+      .select(`id, ${nameCol}, share_level`)
+      .eq("agent_id", ctx.agent.id)
+      .in("id", ids);
+    if (error) return { error: error.message };
+    // deno-lint-ignore no-explicit-any
+    return { rows: ((data || []) as any[]).map((r) => ({
+      id: r.id,
+      name: r[nameCol],
+      level: r.share_level,
+      level_he: SHARE_LEVEL_HE[r.share_level] || r.share_level,
+    })) };
+  };
+
+  const level = input.level ? String(input.level) : "";
+  if (!level) {
+    const cur = await readLevels();
+    if (cur.error) return { ok: false, error: cur.error };
+    return { ok: true, items: cur.rows };
+  }
+
+  const { data, error } = await ctx.supabase.rpc("set_share_level_for_agent", {
+    p_agent_id: ctx.agent.id,
+    p_kind: kind,
+    p_ids: ids,
+    p_level: level,
+  });
+  if (error) return { ok: false, error: error.message };
+  // deno-lint-ignore no-explicit-any
+  const res = (data || {}) as Record<string, any>;
+  if (res.error) return rpcError(res.error);
+
+  // deno-lint-ignore no-explicit-any
+  const failed = ((res.errors || []) as any[]).map((e) => ({
+    id: e.id,
+    error: PROPERTY_RPC_ERRORS[String(e.error)] || String(e.error),
+  }));
+  const after = await readLevels();
+  if (kind === "property" && ids.length === 1) ctx.conv.last_property_id = ids[0];
+  return {
+    ok: true,
+    updated: res.updated,
+    level_he: SHARE_LEVEL_HE[level],
+    items: after.rows,
+    failed: failed.length ? failed : undefined,
+    // מזהה שאינו של הסוכן/ת אינו חוזר ב-items ואינו נספר ב-updated
+    not_found: after.rows && after.rows.length < ids.length
+      ? ids.length - after.rows.length : undefined,
   };
 }
 
@@ -5788,6 +5885,7 @@ async function runTool(
       case "share_property": return await toolShareProperty(ctx, input);
       case "unshare_property": return await toolUnshareProperty(ctx, input);
       case "property_share_status": return await toolPropertyShareStatus(ctx, input);
+      case "set_share_level": return await toolSetShareLevel(ctx, input);
       // סרטון שיווקי
       case "property_video_info": return await toolPropertyVideoInfo(ctx, input);
       case "create_property_video": return await toolCreatePropertyVideo(ctx, input);
@@ -5960,6 +6058,13 @@ const SYSTEM_STATIC: string = (() => {
     "- \"תוריד את הנכס מהשת\"פ\" = unshare_property. אמור/אמרי שהנכס עצמו נשאר פעיל באתר, " +
       "אחרת זה נשמע כמו הסרה מהמכירה.",
     "- \"עם מי שיתפתי\" / \"לכמה משרדים זה הלך\" = property_share_status.",
+    "- רמת שיתוף - \"תהפכי את הלקוח לפרטי\" / \"תשתפי את כל הלקוחות שלי ברשת\" / " +
+      "\"מה רמת השיתוף של הנכס\" = set_share_level (בלי level - רק קריאה). שלוש רמות: " +
+      "פרטי, שיתוף משרדי (ברירת המחדל), שיתוף רשת. כשהסוכן/ת מבקש/ת כמה פריטים, קודם " +
+      "list_clients / list_properties ואז קריאה אחת עם כל המזהים. אמור/אמרי תמיד " +
+      "שפרטי הלקוח/ה (שם, טלפון, דרישות) לא נחשפים באף רמה - הרמה קובעת רק מי " +
+      "מהמפרסמים שומע/ת בסיכום ההתאמות שיש לקוח/ה מתאים/ה, עם הפרטים של הסוכן/ת. " +
+      "נכס שעולה לרשת מופץ לשת\"פ מיד. סיכום ההתאמות יוצא שלוש פעמים ביום.",
     "- אם חזר note - אמור/אמרי אותו. במיוחד את זה של shared_count אפס: \"הפצתי\" על נכס " +
       "שאיש לא קיבל הוא בדיוק סוג האישור שאסור לתת.",
     "",

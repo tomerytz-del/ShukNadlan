@@ -391,6 +391,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | `share_property` | פותח נכס לשת״פ — מפיץ אותו לכל משרדי רשימת השת״פ ומתריע למי שקיבל עכשיו. **מסנכרן**, ולכן זה גם "עדכון ההפצה" |
 | `unshare_property` | מוריד נכס משת״פ. הנכס עצמו נשאר פעיל באתר |
 | `property_share_status` | מופץ או לא, לכמה משרדים ולאילו, וכמה היו מקבלים אילו היה מסונכרן עכשיו |
+| `set_share_level` | רמת השיתוף של לקוחות או נכסים - פרטי / שיתוף משרדי / שיתוף רשת. כמה מזהים בקריאה אחת; בלי `level` - קריאה בלבד. נכס לרשת מופץ לשת״פ באותו מנוע. ‏`set_share_level_for_agent` (‏`20270426090000`, ‏[`client-matching.md`](client-matching.md)) |
 
 שלושתם קוראים ל-`share_property_for_agent` / `unshare_property_for_agent`
 (‏מיגרציה `20261119090000`) — **אותו מנוע** שהכפתורים בדשבורד מפעילים, עם

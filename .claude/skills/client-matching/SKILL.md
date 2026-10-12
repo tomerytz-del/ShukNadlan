@@ -136,7 +136,8 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 
 - **אין צלצול על התאמה.** ‏`generate_client_match_alerts` ו-`_for_client`
   כותבות רק ל-`client_match_alerts`; ‏`client_match_digest_run()` שולחת
-  `match_digest` כל `match_digest_days` (‏3). מי שמחזיר/ה `insert` ל-
+  `match_digest` שלוש פעמים ביום (pg_cron), ומדלגת על סוכן/ת בשקט בלי
+  לקדם את החלון. מי שמחזיר/ה `insert` ל-
   `notifications` לאחת מהן מחזיר/ה את ההצפה. התראה חדשה על התאמה - לסיכום.
 - **נכס `private`** נחסם בשורה ב-gate של `client_property_match`. גרסה חדשה
   שמועתקת מגרסה ישנה מ-`20270426090000` מאבדת אותה בשקט - ונכס פרטי מופיע

@@ -1,5 +1,5 @@
 -- =============================================================================
--- סיכום התאמות כל שלושה ימים, ושלוש רמות שיתוף לנכסים וללקוחות
+-- סיכום התאמות שלוש פעמים ביום, ושלוש רמות שיתוף לנכסים וללקוחות
 --
 -- עד היום כל התאמה חדשה בין נכס ללקוח/ה צלצלה מיד: ‏client_match לסוכן/ת של
 -- הלקוח/ה, ו-listing_match למפרסם/ת. סוכנים עם קובץ גדול קיבלו עשרות צלצולים
@@ -8,10 +8,13 @@
 --   1. ההתאמות עצמן ממשיכות להיכתב ל-client_match_alerts בזמן אמת - הפאנל
 --      "התאמות חכמות", התגית "N לקוחות מתאימים" והבוט לא משתנים. רק
 --      ההתראה (notifications) יורדת משתי פונקציות ההתאמה.
---   2. client_match_digest_run() רצה פעם ביום (pg_cron) ושולחת לכל סוכן/ת
---      שעברו שלושה ימים מהסיכום הקודם שלו/ה התראה אחת, match_digest: כמה
---      נכסים התאימו לכמה לקוחות, הבולטים, ומי מהסוכנים האחרים מחזיק/ה לקוח/ה
---      שמתאים/ה לנכס שלך. ‏pricing_config.match_digest_days (ברירת מחדל 3).
+--   2. client_match_digest_run() רצה שלוש פעמים ביום (pg_cron - בוקר, צהריים
+--      ואחר הצהריים) ושולחת לכל סוכן/ת התראה אחת, match_digest, על מה שנכנס
+--      מאז הסיכום הקודם: כמה נכסים התאימו לכמה לקוחות, הבולטים, ומי מהסוכנים
+--      האחרים מחזיק/ה לקוח/ה שמתאים/ה לנכס שלך. שלוש פעמים ביום ולא פעם
+--      בכמה ימים: הסוכנים צריכים להישאר ערניים להתאמות, רק בלי צלצול על כל
+--      אחת. סוכן/ת בשעות או ביום שקט - הסיכום מחכה, והחלון נשאר פתוח עד
+--      הסבב הראשון שאחרי השקט.
 --
 -- רמות השיתוף (share_level) - על properties ועל agent_clients:
 --
@@ -342,8 +345,8 @@ update public.agent_notification_preferences
    and not ('match_digest' = any(muted_types));
 
 insert into public.pricing_config (key, value, description)
-values ('match_digest_days', 3,
-        'כל כמה ימים יוצא לסוכן/ת סיכום ההתאמות (match_digest), במקום התראה על כל התאמה.')
+values ('match_digest_min_hours', 2,
+        'מרווח מינימלי בשעות בין שני סיכומי התאמות (match_digest) לאותו/ה סוכן/ת. הסיכום רץ שלוש פעמים ביום; המרווח מונע סיכום כפול מהרצה ידנית או כפולה.')
 on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -356,12 +359,12 @@ create table if not exists public.agent_match_digest (
 );
 
 comment on table public.agent_match_digest is
-  'מתי נשלח לכל סוכן/ת סיכום ההתאמות האחרון. החלון של הסיכום הבא מתחיל כאן. סוכן/ת חדש/ה מקבל/ת שורה בסבב הראשון, והסיכום הראשון אחרי מחזור שלם.';
+  'מתי נשלח לכל סוכן/ת סיכום ההתאמות האחרון. החלון של הסיכום הבא מתחיל כאן. סוכן/ת חדש/ה מקבל/ת שורה בסבב הראשון, והסיכום הראשון בסבב שאחריו.';
 
 alter table public.agent_match_digest enable row level security;
 revoke all on table public.agent_match_digest from anon, authenticated;
 
--- הסיכום הראשון בעוד שלושה ימים, על מה שנכנס מעכשיו - לא על כל ההיסטוריה.
+-- הסיכום הראשון בסבב הבא, על מה שנכנס מעכשיו - לא על כל ההיסטוריה.
 insert into public.agent_match_digest (agent_id, last_sent_at)
 select m.id, now()
   from public.agency_members m
@@ -375,7 +378,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_days    int;
+  v_hours   int;
   v_sent    int := 0;
   r         record;
   v_from    timestamptz;
@@ -390,10 +393,10 @@ declare
   v_one_p   uuid;
   v_body    text;
 begin
-  v_days := greatest(1, coalesce(
-    (select value::int from public.pricing_config where key = 'match_digest_days'), 3));
+  v_hours := greatest(0, coalesce(
+    (select value::int from public.pricing_config where key = 'match_digest_min_hours'), 2));
 
-  -- סוכן/ת חדש/ה: הסיכום הראשון אחרי מחזור שלם, ולא בסבב הראשון שאחרי ההצטרפות
+  -- סוכן/ת חדש/ה: הסיכום הראשון בסבב הבא, ולא על כל מה שהצטבר לפני ההצטרפות
   insert into public.agent_match_digest (agent_id, last_sent_at)
   select m.id, v_now
     from public.agency_members m
@@ -404,9 +407,15 @@ begin
     select m.id, m.agency_id, d.last_sent_at
       from public.agency_members m
       join public.agent_match_digest d on d.agent_id = m.id
+      left join public.agent_reminder_preferences rp on rp.agent_id = m.id
      where m.active = true
-       -- שעה של מרווח: ה-cron היומי לא מחמיץ יום בגלל כמה שניות
-       and d.last_sent_at <= v_now - make_interval(days => v_days) + interval '1 hour'
+       and d.last_sent_at <= v_now - make_interval(hours => v_hours)
+       -- שעות וימים שקטים - אותן ברירות מחדל כמו notification_push_due_agents.
+       -- הסיכום מחכה (last_sent_at לא זז), ולכן אחרי סוף השבוע יוצא אחד ולא שישה.
+       and not public.agent_reminder_quiet_now(
+             coalesce(rp.quiet_from_hour, 21),
+             coalesce(rp.quiet_to_hour, 8),
+             coalesce(rp.quiet_days, '{5,6}'::smallint[]))
   loop
     v_from := r.last_sent_at;
 
@@ -482,7 +491,8 @@ begin
       insert into public.notifications (agent_id, type, title, body,
                                         related_client_id, related_property_id)
       values (r.id, 'match_digest',
-              'סיכום התאמות - ' || v_days || ' הימים האחרונים',
+              'סיכום התאמות - ' || case when v_now - r.last_sent_at > interval '20 hours'
+                                         then 'מאז הסיכום הקודם' else 'השעות האחרונות' end,
               v_body,
               case when coalesce(v_lst_n, 0) = 0 then v_one_c end,
               case when coalesce(v_props, 0) = 0 then v_one_p end);
@@ -501,7 +511,7 @@ end;
 $$;
 
 comment on function public.client_match_digest_run() is
-  'סיכום ההתאמות: לכל סוכן/ת שעברו match_digest_days מהסיכום הקודם - התראת match_digest אחת על מה שנכנס ל-client_match_alerts מאז. במקום client_match / listing_match בזמן אמת. pg_cron פעם ביום.';
+  'סיכום ההתאמות: לכל סוכן/ת שאינו/ה בשקט - התראת match_digest אחת על מה שנכנס ל-client_match_alerts מאז הסיכום הקודם. במקום client_match / listing_match בזמן אמת. pg_cron שלוש פעמים ביום.';
 
 revoke all on function public.client_match_digest_run() from public, anon, authenticated;
 grant execute on function public.client_match_digest_run() to service_role;
@@ -514,8 +524,9 @@ begin
   end if;
   perform cron.unschedule('client-match-digest')
     where exists (select 1 from cron.job where jobname = 'client-match-digest');
-  -- ‏06:23 UTC = ‏09:23 בקיץ / 08:23 בחורף. שעות ושבת שקטות חלות בשליחה לוואטסאפ.
-  perform cron.schedule('client-match-digest', '23 6 * * *',
+  -- שלוש פעמים ביום: ‏06:07, ‏10:07 ו-14:07 UTC = ‏09:07, ‏13:07 ו-17:07 בקיץ
+  -- (שעה פחות בחורף). שעות וימים שקטים נבדקים בפונקציה עצמה.
+  perform cron.schedule('client-match-digest', '7 6,10,14 * * *',
                         'select public.client_match_digest_run()');
 end $$;
 
