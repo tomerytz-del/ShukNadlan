@@ -63,6 +63,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      משתמש בו, כדי שהתגית ב-CRM והתגית באתר לא יוכלו לומר דברים שונים על
      אותו נכס. ראו docs/open-house-fair.md -->
 <script src="assets/open-house.js"></script>
+<script src="assets/approx-location.js"></script>
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
 <!-- בדיקת ספרת הביקורת של ת.ז. בזמן ההזנה, עם עקיפה. docs/client-agreements.md -->
@@ -6912,6 +6913,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field"><label for="npCity">עיר</label><select id="npCity" required><option value="">- בחרו עיר -</option></select><input type="text" id="npCityOther" placeholder="שם העיר" aria-label="שם העיר" style="display:none;margin-top:8px"></div>
           <div class="field"><label for="npNeighborhood">שכונה (לא חובה)</label>
             <select id="npNeighborhood"><option value="">- זיהוי אוטומטי לפי המיקום -</option></select>
+            <!-- אזור תעשייה הוא שכונה (neighborhoods.is_industrial). נכס שמשויך
+                 אליו בלי כתובת מדויקת מקבל פין משוער בתוך האזור מהטריגר במסד.
+                 docs/property-map.md, "מיקום משוער". -->
+            <p class="pf-note" style="margin-top:6px">נכס באזור תעשייה בלי כתובת מדויקת: בחרו כאן את אזור התעשייה, והנכס יוצג על המפה במיקום משוער בתוך האזור, עם הסבר לגולשים שהמיקום מוערך.</p>
           </div>
         </div>
         <div class="pf-grid">
