@@ -61,6 +61,11 @@ export interface GeoHit {
 export interface GeoQuery {
   street: string;
   houseNumber: string;
+  /**
+   * השם הרשמי של הרחוב ברשימת העירייה, כשהשם שהוקלד שונה ממנו ("יוספטל" ←
+   * "גיורא יוספטל"). נשאל ראשון, ואחריו הצורות של השם שהוקלד. ‏street-resolve.ts.
+   */
+  officialStreet?: string | null;
 }
 
 /**

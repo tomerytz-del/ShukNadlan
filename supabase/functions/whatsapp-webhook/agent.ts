@@ -1582,7 +1582,7 @@ async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
    שם זה עבד כך מתמיד. שתי הפונקציות לעולם אינן זורקות. */
 function geocodeForProperty(ctx: ToolContext, city: string, street: string, houseNumber: string) {
   return city === "עפולה"
-    ? geocodeAfula(street, houseNumber)
+    ? geocodeAfula(street, houseNumber, ctx.supabase)
     : geocodeInCity(ctx.supabase, city, street, houseNumber);
 }
 
