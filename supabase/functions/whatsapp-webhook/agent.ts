@@ -23,6 +23,7 @@ import {
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
+import { fuzzyMatches } from "./fuzzy-text.ts";
 import {
   accessTokenFor,
   freeBusy,
@@ -860,7 +861,7 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         client_id: { type: "string" },
-        limit: { type: "integer", description: "ברירת מחדל 5." },
+        limit: { type: "integer", description: "ברירת מחדל 5, מקסימום 15." },
         waive_features: {
           type: "array",
           items: { type: "string" },
@@ -881,7 +882,7 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         property_id: { type: "string" },
-        limit: { type: "integer", description: "ברירת מחדל 5." },
+        limit: { type: "integer", description: "ברירת מחדל 5, מקסימום 15." },
       },
       required: ["property_id"],
     },
@@ -1764,6 +1765,9 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
  * שורות) ו-`truncated`, בדיוק כמו ב-`list_clients`.
  */
 const LIST_PROPERTIES_MAX = 200;
+// הסריקה הסלחנית עוברת על הנכסים של סוכן/ת אחד/ת. למי שמחזיק/ה הכי הרבה
+// בפלטפורמה יש 67 (‏12.10.2026), ולכן התקרה היא בטיחות ולא חיתוך שקורה בפועל.
+const FUZZY_SCAN_LIMIT = 1000;
 
 async function toolListProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
@@ -1809,25 +1813,55 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  const [{ data, error }, { count, error: countErr }] = await Promise.all([query, counter]);
+  // ‏ilike מוצא רק את הכתיב המדויק. "מנחם אושיסקין 18" נעלם ב-12.10.2026 גם
+  // כשהסוכן כתב "אושיסקין", כי המודל מתקן את הכתיב לפני הקריאה. לכן גם סריקה
+  // סלחנית על כל הנכסים של הסוכן/ת (‏fuzzy-text.ts) - מה שהיא מוצאת ו-ilike
+  // לא, חוזר מסומן spelling_variant.
+  const wantFuzzy = !!q && !/^\d+$/.test(q);
+  let scan = ctx.supabase
+    .from("properties")
+    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at, street, house_number")
+    .eq("agent_id", ctx.agent.id)
+    .order("created_at", { ascending: false })
+    .limit(FUZZY_SCAN_LIMIT);
+  if (status) scan = scan.eq("status", status);
+
+  const [{ data, error }, { count, error: countErr }, scanRes] = await Promise.all([
+    query, counter, wantFuzzy ? scan : Promise.resolve(null),
+  ]);
   if (error) return { ok: false, error: error.message };
   if (countErr) console.warn("property count failed", countErr.message);
+  if (scanRes?.error) console.warn("fuzzy property scan failed", scanRes.error.message);
 
-  const total = typeof count === "number" ? count : data.length;
+  const seen = new Set(data.map((p) => String(p.id)));
+  const variants = (scanRes?.data || [])
+    .filter((p) => !seen.has(String(p.id)) &&
+      fuzzyMatches(q, [p.title, p.street, p.house_number, p.address, p.city].filter(Boolean).join(" ")))
+    .map(({ street: _s, house_number: _h, ...p }) => ({ ...p, spelling_variant: true }));
+
+  const exactTotal = typeof count === "number" ? count : data.length;
+  const total = exactTotal + variants.length;
+  const rows = [...data, ...variants].slice(0, limit);
   return {
     ok: true,
-    returned: data.length,
+    returned: rows.length,
     // כמה **באמת** יש בתנאים האלה, ולא כמה הוחזרו. בלי זה המודל מדווח את
     // גודל החלון כאילו הוא הקובץ.
     total,
-    truncated: total > data.length,
+    truncated: total > rows.length,
     query: q || undefined,
     // לכל נכס הכרטיס שלו ב-CRM - "תראי לי את הנכסים בלי תמונה" צריך להיגמר
     // בקישור שפותח אותם, לא ב"היכנס/י ל-CRM".
-    properties: data.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
-    note: total > data.length
-      ? `מוצגים ${data.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
-      : undefined,
+    properties: rows.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
+    note: [
+      total > rows.length
+        ? `מוצגים ${rows.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
+        : "",
+      variants.length
+        ? "נכסים עם spelling_variant נמצאו בכתיב קרוב ולא מדויק (למשל אותיות שהתחלפו בשם הרחוב). " +
+          "להציג אותם כנכסים של הסוכן/ת, ולציין את הכתיב כפי שהוא שמור בנכס - ייתכן שכדאי לתקן אותו."
+        : "",
+    ].filter(Boolean).join(" ") || undefined,
   };
 }
 
@@ -3759,6 +3793,10 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   }
 
   const limit = Math.min(Number(input.limit) || 5, 15);
+  // ‏agent_client_matches נחתכת ב-30 במסד. מושכים עד שם וחותכים ל-limit כאן, כדי
+  // ש-total יהיה המספר האמיתי: עד 12.10.2026 ‏count היה גודל החלון, והבוט כתב
+  // "5 התאמות" ללקוח שהיו לו 12 - והשישית, 100% כמו החמש, לא הוזכרה.
+  const MATCH_FETCH_CAP = 30;
   // מאפייני החובה הם סינון קשיח ב-client_property_match (‏20270417090000).
   // ויתור הוא פרמטר של הקריאה, ורק על מה שבאמת בכרטיס - קוד אחר אינו מרחיב.
   const required = ((client.required_features as string[] | null) || []).filter(Boolean);
@@ -3766,13 +3804,20 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     ? (input.waive_features as unknown[]).map(String).filter((f) => required.includes(f))
     : [];
 
-  const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
+  const { data: allRows, error } = await ctx.supabase.rpc("agent_client_matches", {
     p_agent_id: ctx.agent.id,
     p_client_id: clientId,
-    p_limit: limit,
+    p_limit: MATCH_FETCH_CAP,
     p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
+  const totalMatches = (allRows || []).length;
+  const data = (allRows || []).slice(0, limit);
+  // כמה עוד יש באותו ציון כמו האחרון שהוצג - אלה שהחיתוך הפריד ביניהם לבין
+  // התאמות שוות להן בדיוק, והסדר ביניהם הוא רק תאריך הפרסום
+  const lastShownScore = data.length ? Number(data[data.length - 1].score) : null;
+  const sameScoreHidden = lastShownScore === null ? 0
+    : (allRows || []).slice(limit).filter((m: Record<string, unknown>) => Number(m.score) === lastShownScore).length;
 
   // האם יש כבר מיניסייט פעיל, ומה מההתאמות כבר בו - כדי שההצעה תהיה "לפתוח"
   // או "להוסיף את החדשות", ולא "לפתוח" על עמוד שכבר נשלח
@@ -3842,7 +3887,18 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
-    count: (data || []).length,
+    // ‏count = כמה הוצגו, total = כמה יש באמת (עד 30). המספר שנאמר לסוכן/ת הוא total.
+    count: data.length,
+    total: totalMatches,
+    total_is_capped: totalMatches >= MATCH_FETCH_CAP || undefined,
+    more_note: totalMatches > data.length
+      ? `יש ${totalMatches >= MATCH_FETCH_CAP ? `${MATCH_FETCH_CAP} ומעלה` : totalMatches} התאמות, ומוצגות ${data.length}. ` +
+        "אמור/אמרי את המספר האמיתי ולא את מספר המוצגות" +
+        (sameScoreHidden
+          ? `, וציין/צייני שיש עוד ${sameScoreHidden} בציון ${lastShownScore} כמו האחרונה שהוצגה ` +
+            "(הסדר ביניהן הוא רק תאריך הפרסום). להציג עוד - client_matches עם limit גדול יותר."
+          : ". להציג עוד - client_matches עם limit גדול יותר.")
+      : undefined,
     required_features: required.length ? featureNames(required) : undefined,
     waived_features: waive.length ? featureNames(waive) : undefined,
     showcase: showcase
