@@ -1626,6 +1626,16 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
   const token = readInviteToken();
   const { data } = await callJoinAgency({ action:'resolve', token });
 
+  // רשת ביטחון לאימות הכניסה: join-agency (‏_shared/mfa-gate.ts) יודע שהחשבון
+  // חייב אימות גם כשהבדיקה ב-loadDashboard לא רצה או נכשלה. בלי זה הסוכן/ת
+  // נוחת/ת ב"מי את/ה?" ומקבל/ת "הבקשה נכשלה" על כל מספר רישיון - כך קרה
+  // למנהל/ת הפלטפורמה ב-12.10.2026, מיד אחרי הפריסה. docs/mfa.md.
+  if (data.error === 'mfa_required'){
+    const s = await mfaStatus().catch(()=> ({}));
+    showMfaChallenge(s);
+    return;
+  }
+
   if (data.status === 'joined' || data.status === 'member'){
     // ההזמנה נוצלה — היא לא צריכה להישאר ולנסות לפעול שוב בכניסה הבאה
     clearInviteToken();
@@ -1746,6 +1756,11 @@ document.getElementById('idClaimBtn').addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'בודקים…'; feedback.textContent = '';
   const { ok, data } = await callJoinAgency({ action:'claim', license_number:license });
   btn.disabled = false; btn.textContent = 'חיבור לכרטיס הקיים שלי';
+  if (data.error === 'mfa_required'){
+    const s = await mfaStatus().catch(()=> ({}));
+    showMfaChallenge(s);
+    return;
+  }
 
   // הכרטיס נמצא — הרישיון שעליו הוא מה שלא אומת. זו הודעה אחרת לגמרי
   // מ-license_not_found ("אין כרטיס כזה"), ולכן היא לא נכנסת למפה שלמטה.
