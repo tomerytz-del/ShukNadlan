@@ -2465,8 +2465,33 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
 // ‏`wa.me` ולא שליחה מהשרת, ומאותה סיבה שקישור החתימה אינו נשלח ללקוח/ה
 // (`agreement_sign_links`): ההודעה יוצאת מהמספר של הסוכן/ת, נקראת אישית, ומי
 // שמחליט/ה למי היא נשלחת הוא/היא מי שמכיר/ה את הצדדים. הבוט מכין, הסוכן/ת
-// לוחץ/ת. זו גם הסיבה שאין כאן שום כתיבה למסד — הכלי הזה בונה טקסט.
+// לוחץ/ת. הכתיבה היחידה למסד היא ההודעה עצמה, מאחורי הקישור הקצר.
 // ---------------------------------------------------------------------------
+
+/**
+ * ‏/wa/<code> במקום wa.me/?text= עם ההודעה מקודדת: כל אות עברית היא שישה
+ * תווים (‏%D7%…), ובאייפון וואטסאפ הופך ללחיץ רק את תחילת כתובת של אלף
+ * תווים. ההודעה נשמרת ב-`wa_share_links`, ו-netlify/edge-functions/wa-share.ts
+ * מפנה. אם השמירה נכשלה — הקישור הארוך, שעדיין עובד באנדרואיד ובמחשב.
+ */
+async function waShortLink(ctx: ToolContext, body: string, phone?: string): Promise<string> {
+  const long = `https://wa.me/${phone || ""}?text=${encodeURIComponent(body)}`;
+  if (!SITE_BASE_URL) return long;
+  const abc = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  const code = Array.from(bytes, (b) => abc[b % abc.length]).join("");
+  const { error } = await ctx.supabase.from("wa_share_links").insert({
+    code,
+    agent_id: ctx.agent.id,
+    phone: phone || null,
+    body: body.slice(0, 4000),
+  });
+  if (error) {
+    console.error("wa_share_links insert failed", error);
+    return long;
+  }
+  return `${SITE_BASE_URL}/wa/${code}`;
+}
 async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const p = await visibleProperty(
@@ -2509,7 +2534,6 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     link,
   ].filter(Boolean).join("\n");
 
-  const encoded = encodeURIComponent(message);
   const clientWa = client ? waNumber(client.phone) : undefined;
 
   ctx.conv.last_property_id = String(p.id);
@@ -2524,9 +2548,9 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     link,
     message,
     // בורר הצ'אטים של וואטסאפ — לכל נמען/ת שהסוכן/ת יבחר/תבחר
-    wa_share_url: `https://wa.me/?text=${encoded}`,
+    wa_share_url: await waShortLink(ctx, message),
     // וכשיש לקוח/ה עם טלפון: ישר לצ'אט שלו/ה, מהמספר של הסוכן/ת
-    wa_client_url: clientWa ? `https://wa.me/${clientWa}?text=${encoded}` : undefined,
+    wa_client_url: clientWa ? await waShortLink(ctx, message, clientWa) : undefined,
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
     // קישור לנכס שאינו active נפתח רק אצל הסוכן/ת שלו — ה-policy על
@@ -3962,7 +3986,8 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
   };
 }
 
-/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js. */
+/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
+ *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
 function showcaseMessage(firstName: string, link: string): string {
   return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
     "הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
@@ -4030,8 +4055,15 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   const link = showcaseLink(String(res.token))!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
   const message = showcaseMessage(first, link);
-  const encoded = encodeURIComponent(message);
   const clientWa = waNumber(client.phone);
+  // ‏לא wa.me/?text= עם ההודעה מקודדת: כ-1,500 תווים של %D7%…, ובאייפון
+  // וואטסאפ הפך ללחיץ רק את תחילתם. ‏/w/ קצר ובונה את אותה הודעה בשרת
+  // (netlify/edge-functions/showcase-send.ts).
+  const sendParams = new URLSearchParams();
+  if (first) sendParams.set("n", first);
+  if (clientWa) sendParams.set("to", clientWa);
+  const qs = sendParams.toString();
+  const sendUrl = `${SITE_BASE_URL}/w/${res.token}${qs ? "?" + qs : ""}`;
   ctx.conv.last_client_id = clientId;
 
   return {
@@ -4043,8 +4075,8 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
     skipped: res.skipped,
     message,
     // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
-    wa_client_url: clientWa ? `https://wa.me/${clientWa}?text=${encoded}` : undefined,
-    wa_share_url: clientWa ? undefined : `https://wa.me/?text=${encoded}`,
+    wa_client_url: clientWa ? sendUrl : undefined,
+    wa_share_url: clientWa ? undefined : sendUrl,
     client_phone_missing: !clientWa,
     note:
       "העמוד ממותג במשרד ובפרטי הסוכן/ת, והנכסים בלי מיתוג - בלי שם משרד, טלפון או מספר בית, " +
@@ -5638,6 +5670,13 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "מה יש לך: נכסים, שת\"פ בין משרדים, הפקת סרטון שיווקי, קובץ הלקוחות, ההתאמות " +
       "בין השניים, ניתוח שוק ומידע תכנוני, ההסכמים, היומן והתזכורות, הלידים וההתראות.",
+    "",
+    // ‏docs/email-intake.md. בלי השורה הזו המודל ענה "אין לי מייל, אני קיימת רק
+    // בוואטסאפ" (12.10.2026) — על יכולת שקיימת ושהסוכן/ת שאל/ה עליה במפורש.
+    "- **יש לך מייל: shuknadlan@gmail.com.** סוכן/ת שמעביר/ה אליו מייל (ליד, מסמך, פרטי נכס, " +
+      "קבצים מצורפים) מהכתובת שאיתה נרשם/ה למערכת - את קוראת אותו תוך כמה דקות ועונה כאן בוואטסאפ. " +
+      "מתיבה אחרת, או להעברה אוטומטית של לידים, יש כתובת אישית ב-CRM: \"גבריאלה - העוזרת האישית " +
+      "בוואטסאפ\" ← \"העברת מיילים לגבריאלה\". לשאלה \"מה המייל שלך\" - זו התשובה, ואל תאמרי שאין לך מייל.",
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
