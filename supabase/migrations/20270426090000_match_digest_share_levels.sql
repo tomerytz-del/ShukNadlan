@@ -394,6 +394,7 @@ as $$
 declare
   v_hours   int;
   v_il_min  int;
+  v_greet   text;
   v_sent    int := 0;
   r         record;
   v_from    timestamptz;
@@ -436,7 +437,9 @@ begin
   on conflict (agent_id) do nothing;
 
   for r in
-    select m.id, m.agency_id, d.last_sent_at
+    select m.id, m.agency_id, d.last_sent_at,
+           -- השם הפרטי לברכה ("בוקר טוב דני")
+           nullif(split_part(btrim(coalesce(m.display_name, '')), ' ', 1), '') as first_name
       from public.agency_members m
       join public.agent_match_digest d on d.agent_id = m.id
       left join public.agent_reminder_preferences rp on rp.agent_id = m.id
@@ -506,14 +509,27 @@ begin
       into v_lst_n, v_lst_p, v_one_p, v_lst_who;
 
     if coalesce(v_props, 0) > 0 or coalesce(v_lst_n, 0) > 0 then
-      v_body := '';
+      -- ברכה לפי השעה בישראל ולא לפי מספר הסבב, כדי שתישאר נכונה גם כשמשנים
+      -- את match_digest_time_*: ‏8:30 בוקר, ‏12:07 צהריים, ‏16:07 אחר הצהריים.
+      v_greet := case
+                   when v_il_min < 12 * 60 then 'בוקר טוב'
+                   when v_il_min < 15 * 60 then 'צהריים טובים'
+                   when v_il_min < 18 * 60 then 'אחר צהריים טובים'
+                   else 'ערב טוב'
+                 end || coalesce(' ' || r.first_name, '') || ', להלן ריכוז ההתאמות';
+      -- שורה אחת, בלי ירידות שורה: בתבנית של וואטסאפ Meta דוחה \n בפרמטר
       if v_props > 0 then
-        v_body := case when v_props = 1 then 'נכס אחד חדש מתאים' else v_props || ' נכסים חדשים מתאימים' end ||
-                  case when v_clients = 1 then ' ללקוח/ה אחד/ת שלך' else ' ל-' || v_clients || ' לקוחות שלך' end ||
-                  '. הבולטים: ' || coalesce(v_top, '') || '.';
+        v_body := v_greet || ' ללקוחות שלך: ' ||
+                  case when v_props = 1 then 'נכס אחד חדש מתאים' else v_props || ' נכסים חדשים מתאימים' end ||
+                  case when v_clients = 1 then ' ללקוח/ה אחד/ת' else ' ל-' || v_clients || ' לקוחות' end ||
+                  case when v_props = 1 and v_clients = 1 then '. פרטים: ' else '. הבולטים: ' end ||
+                  coalesce(v_top, '') || '.';
+      else
+        v_body := v_greet || ' לנכסים שלך:';
       end if;
       if v_lst_n > 0 then
-        v_body := v_body || case when v_body = '' then '' else ' ' end ||
+        v_body := v_body || ' ' ||
+                  case when v_props > 0 then 'ובנכסים שלך: ' else '' end ||
                   case when v_lst_p = 1 then 'נכס אחד שלך מתאים' else v_lst_p || ' מהנכסים שלך מתאימים' end ||
                   ' ללקוחות של סוכנים אחרים: ' || coalesce(v_lst_who, '') ||
                   '. שווה ליצור קשר לשיתוף פעולה.';
@@ -523,8 +539,8 @@ begin
       insert into public.notifications (agent_id, type, title, body,
                                         related_client_id, related_property_id)
       values (r.id, 'match_digest',
-              'סיכום התאמות - ' || case when v_now - r.last_sent_at > interval '20 hours'
-                                         then 'מאז הסיכום הקודם' else 'השעות האחרונות' end,
+              'ריכוז התאמות ללקוחות' || case when v_now - r.last_sent_at > interval '20 hours'
+                                               then ' - מאז הסיכום הקודם' else '' end,
               v_body,
               case when coalesce(v_lst_n, 0) = 0 then v_one_c end,
               case when coalesce(v_props, 0) = 0 then v_one_p end);
