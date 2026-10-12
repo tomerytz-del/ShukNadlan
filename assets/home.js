@@ -1069,6 +1069,9 @@ const PROPERTY_SELECT =
   /* הסינון המתקדם של החיפוש במשפט רץ בדפדפן, על אותה רשימה - ולכן העמודות
      שהוא מסנן לפיהן נטענות כאן (‏applyAdvancedFilters). */
   'condition, project_status, move_in_soon, move_in_date, restrooms_location, storage_location, ' +
+  /* מיקום משוער (אזור תעשייה, חלקה גדולה): הפין מסומן ככזה במפה, עם הבועית
+     של assets/approx-location.js. docs/property-map.md */
+  'location_precision, location_radius_m, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
@@ -2890,6 +2893,10 @@ function mapPopupHtml(p, kind){
         // רוחב הבלון נראית כרצועה ולא כתגית
         ? `<span class="oh-chip" style="margin-top:5px;align-self:flex-start">${OpenHouse.NO_FEE} · ${OpenHouse.endLabel(p)}</span>`
         : '') +
+      // פין משוער (אזור תעשייה, חלקה גדולה): הבלון אומר שהנקודה אינה הכתובת
+      (window.ApproxLocation && ApproxLocation.isApprox(p)
+        ? `<span style="margin-top:5px;align-self:flex-start">${ApproxLocation.badgeHtml(p)}</span>`
+        : '') +
       `<span class="map-pop-cta">לצפייה בנכס ←</span>` +
     `</span></a>`;
 }
@@ -2923,11 +2930,13 @@ function renderMap(properties){
          הקשר בין השניים כשהן נחתכות (‏relayoutMapPins מקטין תוויות
          שמתנגשות לנקודה, והסימן נשאר). */
       const openHouse = OpenHouse.live(p);
+      const approx = !!(window.ApproxLocation && ApproxLocation.isApprox(p));
       const icon = L.divIcon({
         className:'',
         html:(promoted ? '<span class="map-pin-halo" aria-hidden="true"></span>' : '') +
              (openHouse ? OpenHouse.mapPinHtml(p) : '') +
-             `<div class="map-pin${openHouse ? ' is-openhouse' : ''}" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
+             `<div class="map-pin${openHouse ? ' is-openhouse' : ''}${approx ? ' is-approx' : ''}" style="background:${DEAL_COLORS[kind]}"` +
+             (approx ? ` title="${escAttr(ApproxLocation.label(p))}"` : '') + `>${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
