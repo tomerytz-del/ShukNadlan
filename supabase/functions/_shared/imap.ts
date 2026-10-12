@@ -78,10 +78,30 @@ export class ImapClient {
     }
   }
 
+  /**
+   * ליטרל של n בתים. נקרא ישר לתוך מערך בגודל הסופי, ולא דרך `fill`:
+   * ‏`fill` מעתיק את כל המאגר בכל חתיכה של 16KB, וזה ריבועי — בליטרל של
+   * מייל עם קבצים מצורפים (עד 20MB) היו אלה ג'יגה-בתים של העתקות.
+   */
   private async readBytes(n: number): Promise<Uint8Array> {
-    while (this.buf.length < n) await this.fill();
-    const out = this.buf.slice(0, n);
-    this.buf = this.buf.subarray(n);
+    if (this.buf.length >= n) {
+      const out = this.buf.slice(0, n);
+      this.buf = this.buf.subarray(n);
+      return out;
+    }
+    const out = new Uint8Array(n);
+    let have = this.buf.length;
+    out.set(this.buf);
+    this.buf = new Uint8Array(0);
+    const chunk = new Uint8Array(65536);
+    while (have < n) {
+      const r = await this.conn.read(chunk);
+      if (r === null) throw new ImapError("imap: השרת סגר את החיבור");
+      const take = Math.min(r, n - have);
+      out.set(chunk.subarray(0, take), have);
+      have += take;
+      if (take < r) this.buf = chunk.slice(take, r);
+    }
     return out;
   }
 
