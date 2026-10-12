@@ -2486,6 +2486,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* בלי מספר שמור הבוט לא יזהה את הפונה, ולכן הכפתור מושבת ולא "מנסה" */
   .wa-start.is-locked .wa-start-btn{background:#9CC7AA;pointer-events:none}
   .wa-start-hint{font-size:.72rem;color:#8A6D10;margin:9px 0 0;line-height:1.5}
+  /* באנדרואיד הכפתור פותח את וואטסאפ ביזנס; מי שהמספר הרשום שלו/ה ברגיל - כאן */
+  .wa-start-alt{display:block;text-align:center;font-size:.78rem;color:#14532D;margin:8px 0 0;text-decoration:underline}
+  .wa-start-alt[hidden]{display:none}
 
   /* ---------- תזכורות וטיפים ----------
      שורה לכל ממצא, ובכל שורה כפתור שמוביל לקטגוריה שבה אפשר לטפל בו. הכפתור
@@ -8824,6 +8827,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a class="wa-start-btn" id="waStartBtn" href="#" target="_blank" rel="noopener">
         💬 <span id="waStartBtnLabel">פתיחת צ'אט עם גבריאלה</span>
       </a>
+      <a class="wa-start-alt" id="waStartAlt" href="#" hidden>המספר הרשום שלי בוואטסאפ הרגיל - לפתוח שם</a>
       <p class="wa-start-hint" id="waStartHint"></p>
     </div>
 
