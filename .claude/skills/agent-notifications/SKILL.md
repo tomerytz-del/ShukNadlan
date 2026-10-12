@@ -1,6 +1,6 @@
 ---
 name: agent-notifications
-description: עבודה על ההתראות וההודעות לסוכנים בריפו של שוק נדל״ן - טבלת notifications, הפעמון ב-CRM (NOTIF_TYPES), הדחיפה לוואטסאפ (notification-push, notification_push_claim), סוג התראה חדש, והקישור הישיר לפריט (related_property_id / related_client_id / related_lead_id, ‏?property= / ?client= / ?lead= ב-crm.js). Use when adding a notification type or a new place that inserts into notifications, when writing any message to an agent that mentions a property, client or lead (WhatsApp, email, bell, bot tool result), when a notification links to /crm or to a whole category instead of the item, when touching notification-push / itemPath / handleGotoParam / openNotificationTarget, or when redefining a function that inserts into notifications, when a WhatsApp notification to an agent arrived late or never (daily cap, gap, quiet hours, notification_push_priority_types / notification_push_is_ambient), or when a migration adds a notification type (notification_types_add - never rewrite notifications_type_check).
+description: עבודה על ההתראות וההודעות לסוכנים בריפו של שוק נדל״ן - טבלת notifications, הפעמון ב-CRM (NOTIF_TYPES), הדחיפה לוואטסאפ (notification-push, notification_push_claim), סוג התראה חדש, והקישור הישיר לפריט (related_property_id / related_client_id / related_lead_id, ‏?property= / ?client= / ?lead= ב-crm.js). Use when adding a notification type or a new place that inserts into notifications, when writing any message to an agent that mentions a property, client or lead (WhatsApp, email, bell, bot tool result), when a notification links to /crm or to a whole category instead of the item, when touching notification-push / itemPath / handleGotoParam / openNotificationTarget, or when redefining a function that inserts into notifications, when a WhatsApp notification to an agent arrived late or never (daily cap, gap, quiet hours, notification_push_priority_types / notification_push_is_ambient), or when a migration adds a notification type (notification_types_add - never rewrite notifications_type_check). Also when touching match notifications - they go out only in the match_digest summary (client_match_digest_run, 8:30 / 12:07 / 16:07 Israel time), never one per match.
 ---
 
 # התראות והודעות לסוכנים
@@ -194,6 +194,33 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 בלעדיה הכל עובד, ורק לפעמים יוצאת הודעה פעמיים. ובחקירה של כפילות: שורה אחת
 ב-`notifications` ושתיים ב-`notification_push_log` = מרוץ בשליחה; שתי שורות ב-
 `notifications` = הכתיבה (ה-dispatch) כפולה, וזה מקום אחר.
+
+## 10. התאמות - רק בסיכום (`match_digest`), לא בזמן אמת
+
+מאז `20270426090000` אין צלצול על התאמה בודדת. ‏`generate_client_match_alerts`
+ו-`_for_client` כותבות רק ל-`client_match_alerts`, ו-`client_match_digest_run()`
+שולחת לכל סוכן/ת התראת `match_digest` אחת ב-8:30, ‏12:07 ו-16:07 שעון ישראל.
+‏`client_match` ו-`listing_match` נשארו באילוץ ובפעמון בשביל ההיסטוריה בלבד
+(‏`when: ()=> false` ב-`NOTIF_TYPES`). מה שנשבר בשקט:
+
+* **‏`insert` ל-`notifications` שחוזר לאחת משתי פונקציות ההתאמה** מחזיר את
+  ההצפה - עשרות הודעות ביום לסוכן/ת עם קובץ גדול, שבגללן הסיכום נולד. מידע
+  חדש על התאמות נכנס **לסיכום**, לא להתראה משלו.
+* **השעות הן שעון ישראל, לא UTC.** ה-cron רץ כל דקה, והפונקציה שולחת רק
+  בעשר הדקות שמתחילות ב-`pricing_config.match_digest_time_1/2/3` (שעה-ודקה:
+  ‏830, ‏1207, ‏1607). cron של שעה קבועה ב-UTC זז בשעה בשעון חורף, וזה
+  בדיוק מה שהוחלף. שינוי שעה = שורה ב-`pricing_config`, לא קוד.
+* **השקט נבדק בפונקציה עצמה, והחלון לא מתקדם.** סוכן/ת בשעות או ביום שקט
+  מדולג/ת בלי לגעת ב-`agent_match_digest.last_sent_at`, ולכן אחרי סוף השבוע
+  יוצא סיכום אחד ולא שישה. מי שמזיז/ה את עדכון `last_sent_at` מחוץ ללולאה
+  מוחק/ת את מה שהצטבר בשקט. ואותה `agent_reminder_quiet_now` בת **שלושת**
+  הפרמטרים (סעיף 6).
+* **הנוסח שורה אחת** ("בוקר טוב דני, להלן ריכוז ההתאמות ללקוחות שלך: ..."),
+  כי בתבנית Meta דוחה `\n` (סעיף 5). הברכה לפי השעה בישראל ולא לפי מספר הסבב,
+  כדי שתישאר נכונה כששעות הסיכום משתנות.
+* **הצד של המפרסם/ת מסונן לפי `agent_clients.share_level`** - `office` רק
+  מאותו משרד, `network` מכולם, `private` אף פעם. ‏`docs/client-matching.md`,
+  והסקיל `client-matching`, סעיף 4ה.
 
 ## לפני הדחיפה
 
