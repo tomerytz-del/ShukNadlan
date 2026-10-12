@@ -399,6 +399,13 @@ PUBLIC_RPC = {
                             "מספר בית, גוש וחלקה; docs/settlement-deals.md",
     "deal_settlements_public": "האינדקס /deals וה-sitemap - יישובים פעילים ומספר "
                                "עסקאות; docs/settlement-deals.md",
+    "agency_is_live": "ה-policy \"public read agencies\" - דף המשרד לגולש/ת אנונימי/ת; "
+                      "true/false בלבד (20270216090000_license_hold.sql)",
+    "instagram_feed": "הדף /instagram - נכסים פעילים שעלו לאינסטגרם, אותם פרטים "
+                      "שבמודעה הציבורית",
+    "wa_share_link_get": "הקישור הקצר /wa/<code> (netlify/edge-functions/wa-share.ts) - "
+                         "הודעה אחת לפי קוד אקראי של 62^10, בלי רשימה וחיפוש, וקישור "
+                         "בן 90 יום אינו נפתח; docs/client-showcase.md",
 }
 
 PAUSED_WORKFLOWS = {
