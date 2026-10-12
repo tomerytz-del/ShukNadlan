@@ -1671,8 +1671,26 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     images_attached: images.length,
     on_map: payload.lat !== undefined,
     link: propertyLink(data.id),
-    crm_link: crmPropertyLink(data.id),
+    ...crmButton(ctx, crmPropertyLink(data.id)),
   };
+}
+
+/**
+ * הקישור ל-CRM ככפתור (‏cta) במקום שורה בתשובה - "פחות קישורים, יותר כפתורים"
+ * (12.10.2026). בלי outbox (תור מייל) - השדה חוזר למודל כמו קודם, והפרומפט
+ * אומר לצרף אותו.
+ */
+function crmButton(
+  ctx: ToolContext,
+  url: string | undefined,
+  label = "✏️ עריכה ב-CRM",
+  body = "לעריכה, לתמונות ולשאר הפרטים:",
+  field = "crm_link",
+): Record<string, unknown> {
+  if (!url) return {};
+  if (!ctx.outbox) return { [field]: url };
+  ctx.outbox.push({ kind: "cta", body, label, url });
+  return { crm_button_sent: true };
 }
 
 async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknown>) {
@@ -1715,7 +1733,7 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     link: propertyLink(propertyId),
-    crm_link: crmPropertyLink(propertyId),
+    ...crmButton(ctx, crmPropertyLink(propertyId)),
   };
 }
 
@@ -2193,9 +2211,10 @@ async function toolPropertyStats(ctx: ToolContext) {
     ok: true,
     ...stats,
     // הרשימה המסוננת ב-CRM - אותו קישור שהתזכורת השבועית שולחת
-    without_images_crm_link: Number(stats.active_without_images) > 0 && SITE_BASE_URL
-      ? `${SITE_BASE_URL}/crm?goto=accProperties&filter=no_images`
-      : undefined,
+    ...(Number(stats.active_without_images) > 0 && SITE_BASE_URL
+      ? crmButton(ctx, `${SITE_BASE_URL}/crm?goto=accProperties&filter=no_images`,
+        "📷 לנכסים בלי תמונה", "הנכסים באוויר בלי תמונה, מסוננים ב-CRM:", "without_images_crm_link")
+      : {}),
   };
 }
 
@@ -2494,6 +2513,43 @@ async function waShortLink(ctx: ToolContext, body: string, phone?: string): Prom
     return long;
   }
   return `${SITE_BASE_URL}/wa/${code}`;
+}
+
+/**
+ * כפתור לכל חותם/ת (prepare_agreement, agreement_sign_links): עם נייד - "📤 שליחה"
+ * שפותח את הצ'אט שלו/ה עם קישור החתימה (דרך /wa/, לא wa.me/?text= הארוך שנשבר
+ * באייפון); בלי נייד - הקישור עצמו, שנפתח גם לחתימה פנים מול פנים.
+ */
+async function agreementSignerButtons(
+  ctx: ToolContext,
+  title: string,
+  signers: { full_name: unknown; phone: unknown; sign_url: string }[],
+): Promise<void> {
+  if (!ctx.outbox) return;
+  for (const sg of signers) {
+    const name = String(sg.full_name || "").trim();
+    const first = name.split(/\s+/)[0] || "";
+    const wa = waNumber(sg.phone);
+    if (wa) {
+      const msg = `היי ${name},\n${title}\nלחתימה מקוונת:\n${sg.sign_url}`;
+      const named = `📤 ל${first} לחתימה`;
+      ctx.outbox.push({
+        kind: "cta",
+        body: `${name}: לחיצה פותחת את הצ'אט עם קישור החתימה מוכן - רק לשלוח.`,
+        label: first && named.length <= 20 ? named : "📤 שליחה לחתימה",
+        url: await waShortLink(ctx, msg, wa),
+      });
+    } else {
+      const named = `✍️ חתימה - ${first}`;
+      ctx.outbox.push({
+        kind: "cta",
+        body: `${name || "החותם/ת"}: אין נייד בכרטיס. הכפתור פותח את קישור החתימה - ` +
+          "לחתימה פנים מול פנים, או להעתקה ולהעברה.",
+        label: first && named.length <= 20 ? named : "✍️ קישור החתימה",
+        url: sg.sign_url,
+      });
+    }
+  }
 }
 async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
@@ -4766,7 +4822,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     .eq("agreement_id", created.id)
     .order("ord");
 
-  const links = ((saved || []) as unknown as Record<string, unknown>[]).map((sg) => {
+  const links = await Promise.all(((saved || []) as unknown as Record<string, unknown>[]).map(async (sg) => {
     const url = `${SITE_BASE_URL}/sign?t=${sg.sign_token}`;
     const wa = waNumber(sg.phone);
     return {
@@ -4774,13 +4830,13 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       phone: sg.phone,
       sign_url: url,
       expires_at: sg.token_expires_at,
-      wa_send_url: wa
-        ? `https://wa.me/${wa}?text=${encodeURIComponent(
-          `היי ${String(sg.full_name || "").trim()},\n${created.title}\nלחתימה מקוונת:\n${url}`,
-        )}`
+      // ‏לא wa.me/?text= עם ההודעה מקודדת - באייפון רק תחילתו לחיצה (12.10.2026)
+      wa_send_url: wa && !ctx.outbox
+        ? await waShortLink(ctx, `היי ${String(sg.full_name || "").trim()},\n${created.title}\nלחתימה מקוונת:\n${url}`, wa)
         : undefined,
     };
-  });
+  }));
+  await agreementSignerButtons(ctx, String(created.title), links);
 
   return {
     ok: true,
@@ -4795,6 +4851,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // אחרי שהלקוח/ה חתם/ה.
     dropped_properties: dropped.length ? dropped : undefined,
     signers: links,
+    buttons_sent: ctx.outbox ? true : undefined,
     // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
     self_fill_note: signers.some((sg) => sg.self_fill)
@@ -4953,11 +5010,15 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
     return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת - אין דרך לבנות קישור." };
   }
 
+  await agreementSignerButtons(ctx, String(agreement.title), pending.map((s) => ({
+    full_name: s.full_name, phone: s.phone, sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}`,
+  })));
   return {
     ok: true,
     agreement_id: agreementId,
     title: agreement.title,
     kind: AGREEMENT_KINDS[agreement.kind] || agreement.kind,
+    buttons_sent: ctx.outbox && pending.length ? true : undefined,
     signers: pending.map((s) => ({
       full_name: s.full_name,
       phone: s.phone,
@@ -5818,7 +5879,8 @@ const SYSTEM_STATIC: string = (() => {
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
     "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו. " +
-      "אם התקבל crm_link (או שדה שנגמר ב-crm_link), צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
+      "אם חזר crm_button_sent או buttons_sent - **אל תכתוב/תכתבי את הקישור ל-CRM**: הוא יוצא ככפתור אחרי התשובה. " +
+      "אחרת, אם התקבל crm_link (או שדה שנגמר ב-crm_link), צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
@@ -6047,9 +6109,10 @@ const SYSTEM_STATIC: string = (() => {
       "יקבל/תקבל קוד לחתימה מרחוק צריך את המייל\" - ואז קרא/י שוב עם client_email " +
       "(הוא נשמר גם בכרטיס). אם הסוכן/ת אומר/ת שהחתימה תהיה פנים מול פנים - " +
       "קרא/י שוב עם in_person_only=true, ואין צורך במייל. אל תנחש/י כתובת.",
-    "- אחרי היצירה: הצג/י את sign_url של כל חותם/ת עם השם שלידו, ואמור/אמרי את " +
-      "how_to_sign - אותו קישור משמש גם לחתימה מרחוק וגם לפגישה פנים מול פנים. " +
-      "אם יש wa_send_url, זו הדרך המהירה להעביר.",
+    "- אחרי היצירה: אם חזר buttons_sent - **אל תכתוב/תכתבי את sign_url**: לכל חותם/ת יוצא " +
+      "כפתור אחרי התשובה (שליחה לצ'אט שלו/ה, או הקישור עצמו כשאין נייד). את sign_url הצג/י רק " +
+      "אם ביקשו חתימה פנים מול פנים. בלי buttons_sent - sign_url של כל חותם/ת עם השם, ו-wa_send_url " +
+      "כדרך המהירה להעביר. בכל מקרה אמור/אמרי את how_to_sign.",
     "- אמור/אמרי גם את frozen_note: גוף המסמך ננעל, ותיקון נעשה בביטול והוצאת " +
       "הסכם חדש בדשבורד. אם requires_otp - אמור/אמרי את otp_note. אם otp_no_contact " +
       "אינו ריק - אמור/אמרי שלחותם/ת הזה/ו אין נייד או מייל לקוד, ולכן מרחוק הקישור " +
