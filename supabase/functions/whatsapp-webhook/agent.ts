@@ -894,8 +894,9 @@ const TOOLS: Anthropic.Tool[] = [
       "פותח ללקוח/ה מיניסייט אישי - עמוד אחד, ממותג במשרד ובסוכן/ת, עם הנכסים " +
       "שמתאימים לו/ה. הלקוח/ה מסמן/ת שם מה אהב/ה ומה לא, שואל/ת על כל נכס ומבקש/ת " +
       "סיור. ללקוח/ה יש עמוד פעיל אחד: קריאה נוספת מוסיפה לאותו קישור. בלי " +
-      "property_ids נלקחות ההתאמות של client_matches. **אינו שולח ללקוח/ה** - מחזיר " +
-      "wa_client_url שהסוכן/ת לוחץ/ת עליו ושולח/ת מהוואטסאפ שלו/ה.",
+      "property_ids נלקחות ההתאמות של client_matches. **אינו שולח ללקוח/ה** - אחרי " +
+      "התשובה יוצאים לסוכן/ת כפתורים (שליחה ללקוח/ה, תצוגה מקדימה, נוסח להעתקה), " +
+      "והסוכן/ת שולח/ת מהוואטסאפ שלו/ה.",
     input_schema: {
       type: "object",
       properties: {
@@ -1335,6 +1336,8 @@ interface ToolContext {
   supabase: SupabaseClient;
   agent: AgentRow;
   conv: ConversationState;
+  /** הודעות כפתורים שיוצאות אחרי התשובה (‏index.ts). חסר בתור שאינו מוואטסאפ. */
+  outbox?: OutboxItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -2539,26 +2542,55 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.last_property_id = String(p.id);
   if (client) ctx.conv.last_client_id = String(client.id);
 
+  const warning = p.status !== "active"
+    ? `הנכס במצב ${p.status} - הקישור לא ייפתח אצל מי שאינו הסוכן/ת שלו. להחזרה לאוויר: set_property_status עם active.`
+    : undefined;
+
+  // בשיחה בוואטסאפ: כפתור שליחה במקום קישורים (כמו create_showcase). הכפתור
+  // יוצא אחרי התשובה; לקוח/ה עם טלפון - ישר לצ'אט שלו/ה, אחרת בורר הצ'אטים.
+  if (ctx.outbox) {
+    const target = clientWa ? await waShortLink(ctx, message, clientWa) : await waShortLink(ctx, message);
+    const name = client ? String(client.full_name || "").trim() : "";
+    const first = name.split(/\s+/)[0] || "";
+    ctx.outbox.push({
+      kind: "cta",
+      body: clientWa
+        ? `לחיצה פותחת את הצ'אט עם ${name}, וההודעה על הנכס כבר כתובה - רק לשלוח.`
+        : (client
+          ? `אין טלפון בכרטיס של ${name || "הלקוח/ה"}, אז הלחיצה פותחת בחירת צ'אט עם ההודעה מוכנה.`
+          : "לחיצה פותחת בחירת צ'אט, וההודעה על הנכס כבר כתובה - בוחרים למי ושולחים."),
+      label: sendLabel(first, !!clientWa),
+      url: target,
+    });
+  }
+
   return {
     ok: true,
     property_id: p.id,
     listing_number: p.listing_number,
     title: p.title,
     status: p.status,
-    link,
-    message,
-    // בורר הצ'אטים של וואטסאפ — לכל נמען/ת שהסוכן/ת יבחר/תבחר
-    wa_share_url: await waShortLink(ctx, message),
-    // וכשיש לקוח/ה עם טלפון: ישר לצ'אט שלו/ה, מהמספר של הסוכן/ת
-    wa_client_url: clientWa ? await waShortLink(ctx, message, clientWa) : undefined,
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
+    // הקישור לדף הנכס נשאר תמיד - למי שביקש/ה "את הקישור" עצמו
+    link,
+    ...(ctx.outbox
+      ? {
+        buttons_sent: true,
+        note: "אחרי התשובה שלך יוצא אוטומטית כפתור שליחה עם ההודעה המוכנה. ענה/עני במשפט אחד " +
+          "**בלי קישור ובלי נוסח ההודעה**.",
+      }
+      : {
+        message,
+        // בורר הצ'אטים של וואטסאפ — לכל נמען/ת שהסוכן/ת יבחר/תבחר
+        wa_share_url: await waShortLink(ctx, message),
+        // וכשיש לקוח/ה עם טלפון: ישר לצ'אט שלו/ה, מהמספר של הסוכן/ת
+        wa_client_url: clientWa ? await waShortLink(ctx, message, clientWa) : undefined,
+      }),
     // קישור לנכס שאינו active נפתח רק אצל הסוכן/ת שלו — ה-policy על
     // ‏`properties` מחזירה לאנונימי/ת נכסים פעילים בלבד. עדיף לומר את זה כאן
     // מאשר שהלקוח/ה יקבל/תקבל דף ריק.
-    warning: p.status !== "active"
-      ? `הנכס במצב ${p.status} - הקישור לא ייפתח אצל מי שאינו הסוכן/ת שלו. להחזרה לאוויר: set_property_status עם active.`
-      : undefined,
+    warning,
   };
 }
 
@@ -4056,31 +4088,132 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
   const message = showcaseMessage(first, link);
   const clientWa = waNumber(client.phone);
-  // ‏לא wa.me/?text= עם ההודעה מקודדת: כ-1,500 תווים של %D7%…, ובאייפון
-  // וואטסאפ הפך ללחיץ רק את תחילתם. ‏/w/ קצר ובונה את אותה הודעה בשרת
-  // (netlify/edge-functions/showcase-send.ts).
-  const sendParams = new URLSearchParams();
-  if (first) sendParams.set("n", first);
-  if (clientWa) sendParams.set("to", clientWa);
-  const qs = sendParams.toString();
-  const sendUrl = `${SITE_BASE_URL}/w/${res.token}${qs ? "?" + qs : ""}`;
+  const sendUrl = showcaseSendUrl(String(res.token), first, clientWa);
   ctx.conv.last_client_id = clientId;
+
+  // בשיחה בוואטסאפ: כפתורים ולא קישורים (12.10.2026, "פחות קישורים, יותר
+  // כפתורים"). הם יוצאים אחרי התשובה של המודל (‏index.ts), כך שהכפתור הוא
+  // הדבר האחרון במסך. בלי outbox (תור שאינו מוואטסאפ) - הקישורים בתשובה.
+  const buttons = !!ctx.outbox;
+  if (ctx.outbox) ctx.outbox.push(...showcaseOutbox(String(res.showcase_id), client.full_name, first, clientWa, sendUrl));
 
   return {
     ok: true,
     client_name: client.full_name,
-    link,
-    preview_url: showcaseLink(String(res.token), true),
     added: res.added,
     skipped: res.skipped,
-    message,
-    // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
-    wa_client_url: clientWa ? sendUrl : undefined,
-    wa_share_url: clientWa ? undefined : sendUrl,
     client_phone_missing: !clientWa,
+    ...(buttons
+      ? { buttons_sent: true }
+      : {
+        link,
+        preview_url: showcaseLink(String(res.token), true),
+        message,
+        // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
+        wa_client_url: clientWa ? sendUrl : undefined,
+        wa_share_url: clientWa ? undefined : sendUrl,
+      }),
     note:
       "העמוד ממותג במשרד ובפרטי הסוכן/ת, והנכסים בלי מיתוג - בלי שם משרד, טלפון או מספר בית, " +
-      "ותמונה עם לוגו מוסתרת. הבוט לא שלח ללקוח/ה: הסוכן/ת שולח/ת בלחיצה על wa_client_url.",
+      "ותמונה עם לוגו מוסתרת. הבוט לא שלח ללקוח/ה - הסוכן/ת שולח/ת." +
+      (buttons
+        ? " **אחרי התשובה שלך יוצאים אוטומטית כפתורים**: שליחה ללקוח/ה, תצוגה מקדימה ונוסח להעתקה. " +
+          "ענה/עני במשפט אחד (נפתח/עודכן, כמה נכסים נוספו) **בלי שום קישור** ובלי לתאר את הכפתורים."
+        : ""),
+  };
+}
+
+/** ‏/w/<token> - הקישור הקצר שפותח וואטסאפ עם הודעת הפתיחה (showcase-send.ts).
+ *  לא wa.me/?text= עם ההודעה מקודדת: כ-1,500 תווים של %D7%…, ובאייפון רק
+ *  תחילתם לחיצה. */
+function showcaseSendUrl(token: string, first: string, clientWa: string | undefined): string {
+  const params = new URLSearchParams();
+  if (first) params.set("n", first);
+  if (clientWa) params.set("to", clientWa);
+  const qs = params.toString();
+  return `${SITE_BASE_URL}/w/${token}${qs ? "?" + qs : ""}`;
+}
+
+/** הודעה שיוצאת אחרי התשובה של המודל (‏index.ts, ‏sendOutbox). */
+export type OutboxItem =
+  | { kind: "cta"; body: string; label: string; url: string }
+  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] };
+
+// כותרות עד 20 תווים (Meta דוחה את ההודעה כולה). נמדד: 15 ו-14.
+const SC_PREVIEW_TITLE = "👁 תצוגה מקדימה";
+const SC_COPY_TITLE = "📋 נוסח להעתקה";
+const SC_BUTTON_RE = /^scx:(p|c):([0-9a-f-]{36})$/i;
+
+/** כפתור "שליחה" עם השם הפרטי כשהוא נכנס ב-20 תווים, ואחרת כללי. */
+function sendLabel(first: string, hasPhone: boolean): string {
+  const named = `📤 שליחה ל${first}`;
+  if (hasPhone && first && named.length <= 20) return named; // יחידות UTF-16 - הספירה המחמירה
+  return hasPhone ? "📤 שליחה בוואטסאפ" : "📤 בחירת צ'אט ושליחה";
+}
+
+function showcaseOutbox(
+  showcaseId: string,
+  fullName: unknown,
+  first: string,
+  clientWa: string | undefined,
+  sendUrl: string,
+): OutboxItem[] {
+  const name = String(fullName || "").trim() || "הלקוח/ה";
+  return [
+    {
+      kind: "cta",
+      body: clientWa
+        ? `לחיצה פותחת את הצ'אט עם ${name}, והודעת הפתיחה כבר כתובה - רק לשלוח.`
+        : `אין טלפון בכרטיס של ${name}, אז הלחיצה פותחת בחירת צ'אט עם ההודעה מוכנה. ` +
+          "כדאי להוסיף טלפון לכרטיס.",
+      label: sendLabel(first, !!clientWa),
+      url: sendUrl,
+    },
+    {
+      kind: "buttons",
+      body: "לפני השליחה, אפשר גם:",
+      buttons: [
+        { id: `scx:p:${showcaseId}`, title: SC_PREVIEW_TITLE },
+        { id: `scx:c:${showcaseId}`, title: SC_COPY_TITLE },
+      ],
+    },
+  ];
+}
+
+/**
+ * לחיצה על "תצוגה מקדימה" / "נוסח להעתקה" אחרי create_showcase. ‏null - זה לא
+ * כפתור של המיניסייט. בלי מודל: התשובה קבועה. רק מיניסייט פעיל של הסוכן/ת
+ * שלחץ/ה - כפתור שהועבר בין מכשירים אינו פותח עמוד של אחר/ת.
+ */
+export async function showcaseButtonReply(
+  supabase: SupabaseClient,
+  agentId: string,
+  buttonId: string,
+): Promise<{ text?: string; outbox?: OutboxItem[] } | null> {
+  const m = SC_BUTTON_RE.exec(buttonId || "");
+  if (!m) return null;
+  const [, action, showcaseId] = m;
+  const { data } = await supabase.from("client_showcases")
+    .select("token, status, agent_clients(full_name)")
+    .eq("id", showcaseId).eq("agent_id", agentId).maybeSingle();
+  if (!data || data.status !== "active" || !SITE_BASE_URL) {
+    return { text: "המיניסייט הזה כבר לא פעיל. אפשר לבקש ממני לפתוח חדש." };
+  }
+  // deno-lint-ignore no-explicit-any
+  const fullName = String((data as any).agent_clients?.full_name || "").trim();
+  const first = fullName.split(/\s+/)[0] || "";
+  const token = String(data.token);
+  if (action === "c") {
+    // הודעה נפרדת ונקייה, כדי שאפשר יהיה להעביר או להעתיק אותה כמו שהיא
+    return { text: showcaseMessage(first, showcaseLink(token)!) };
+  }
+  return {
+    outbox: [{
+      kind: "cta",
+      body: `כך ${fullName || "הלקוח/ה"} יראה את העמוד. הצפייה שלך אינה נספרת כצפייה של הלקוח/ה.`,
+      label: "👁 פתיחת התצוגה",
+      url: showcaseLink(token, true)!,
+    }],
   };
 }
 
@@ -5714,13 +5847,13 @@ const SYSTEM_STATIC: string = (() => {
       "זו השורה החשובה בתשובה: \"מתאים ל<שם> (92%), 052-…\".",
     "",
     "קישור לנכס ושליחה:",
-    "- \"תשלח לי את הקישור לנכס\" / \"תכין הודעה על הדירה\" = property_link. הצג/י את " +
-      "ה-message כמו שהוא (זה הטקסט שיועבר), ומתחתיו את wa_share_url - לחיצה אחת פותחת " +
-      "וואטסאפ עם ההודעה מוכנה.",
+    "- \"תשלח לי את הקישור לנכס\" / \"תכין הודעה על הדירה\" = property_link. אם חזר " +
+      "buttons_sent - משפט אחד בלבד; כפתור השליחה עם ההודעה המוכנה יוצא אחריו מעצמו. " +
+      "את link (דף הנכס) הצג/י רק אם ביקשו את הקישור עצמו. בלי buttons_sent - message כמו " +
+      "שהוא ומתחתיו wa_share_url.",
     "- כשהסוכן/ת אומר/ת למי ההודעה (\"תשלח את זה לרונית\") - מצא/י את הלקוח/ה עם " +
-      "list_clients, והעבר/י client_id ל-property_link. אז חוזר wa_client_url ישר לצ'אט " +
-      "שלו/ה. אם חזר client_phone_missing - אמור/אמרי שאין טלפון בקובץ והצג/י את " +
-      "wa_share_url במקום.",
+      "list_clients, והעבר/י client_id ל-property_link. אז הכפתור פותח ישר את הצ'אט " +
+      "שלו/ה. אם חזר client_phone_missing - אמור/אמרי שאין טלפון בקובץ.",
     "- **הבוט אינו שולח ללקוח/ה.** ההודעה יוצאת מהמספר של הסוכן/ת בלחיצה שלו/ה, " +
       "בדיוק כמו קישור החתימה. אל תבטיח/י ששלחת.",
     "- אם חזר warning - אמור/אמרי אותו. קישור לנכס שאינו active לא נפתח אצל הלקוח/ה.",
@@ -5808,10 +5941,10 @@ const SYSTEM_STATIC: string = (() => {
       "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
       "\"להוסיף את <new_matches> החדשות לעמוד של <שם>?\". אל תפתחי בלי אישור.",
     "- אחרי אישור = create_showcase (בלי property_ids אם הכוונה להתאמות שהצגת; עם property_ids " +
-      "אם הסוכן/ת בחר/ה חלק מהן). בתשובה: wa_client_url כקישור ללחיצה (\"לחיצה כאן פותחת " +
-      "את הצ'אט עם <שם> עם הודעה מוכנה\") ו-preview_url לצפייה מוקדמת, ומשפט אחד שהעמוד ממותג " +
-      "במשרד והנכסים בלי מיתוג. **אל תאמרי שנשלח ללקוח/ה** - הסוכן/ת שולח/ת. אם client_phone_missing " +
-      "- wa_share_url, ובקשי להוסיף טלפון לכרטיס.",
+      "אם הסוכן/ת בחר/ה חלק מהן). אם חזר buttons_sent - **משפט אחד בלי שום קישור** " +
+      "(נפתח/עודכן ל<שם>, כמה נכסים נוספו): הכפתורים לשליחה, לתצוגה מקדימה ולנוסח יוצאים " +
+      "אחריו מעצמם. בלי buttons_sent - wa_client_url (או wa_share_url) ו-preview_url כקישורים. " +
+      "**אל תאמרי שנשלח ללקוח/ה** - הסוכן/ת שולח/ת.",
     "- \"מה <שם> אהב/ה\", \"<שם> ענה/תה?\", \"יש בקשת סיור?\" = showcase_status. נכס שת\"פ " +
       "ב-coop_to_arrange - הזכירי לתאם עם listing_agent (שם וטלפון) לפני הסיור.",
     "",
@@ -5831,8 +5964,8 @@ const SYSTEM_STATIC: string = (() => {
     "- משימות מהשיחה - הסוכן/ת לוחץ/ת על כפתור או כותב/ת. עזור/עזרי לבצע, אל תסתפק/י בהסבר:",
     "  \"קבע פגישה\" = agenda_add (kind meeting, או showing לסיור בנכס) עם client_id של הלקוח/ה. מועד שנאמר " +
       "בשיחה - קבע/י בו. בלי מועד - agenda_free_slots והצע/י שתי-שלוש שעות פנויות, וקבע/י אחרי בחירה.",
-    "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase ותן/י את wa_client_url - הסוכן/ת " +
-      "שולח/ת ממנו. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
+    "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase - הסוכן/ת " +
+      "שולח/ת בכפתור שיוצא אחרי התשובה. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
     "  \"תזכורת לחזור\" = agenda_add עם kind call, כותרת \"לחזור ל<שם>\", ומועד אם נאמר (אחרת שאל/י מתי).",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
@@ -6077,11 +6210,14 @@ export async function runAgentTurn(opts: {
   /** מה המודל מקבל כשניסה כלי שאינו ב-`allowedTools`. ברירת המחדל - של תור
    *  מייל; תור שקורא הקלטה או מסמך (‏media-intake.ts) מעביר נוסח משלו. */
   deniedToolMessage?: string;
+  /** כלי שמוסיף לכאן הודעת כפתורים - היא יוצאת אחרי התשובה. בלעדיו הכלי
+   *  מחזיר קישורים בטקסט (תור מייל). */
+  outbox?: OutboxItem[];
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
-  const ctx: ToolContext = { supabase, agent, conv };
+  const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
 
