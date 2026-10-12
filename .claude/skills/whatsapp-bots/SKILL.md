@@ -387,6 +387,10 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
   מהבתים (`audioExt`), לא רק מ-`mime_type` - בלעדי זה `AUD-...` מאנדרואיד נדחה
   ב-`Invalid file format` (‏11.10.2026).
 
+* **אותם מחלצים קוראים גם קבצים מצורפים במייל** (`readAttachments` ב-
+  `email-intake.ts`). שינוי ב-`documentToText` / `transcribeMedia` / `docKind`,
+  או בנוסח של `reply` בכישלון, משנה את שני הערוצים - ראו הסקיל `email-intake`.
+
 ‏`docs/whatsapp-setup.md`, "הקלטת שיחה ומסמכים".
 
 ## הפרופיל והיומן - מה גבריאלה **לא** עושה
