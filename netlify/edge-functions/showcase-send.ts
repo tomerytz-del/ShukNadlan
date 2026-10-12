@@ -14,11 +14,13 @@
    renderShowcaseShare ב-assets/crm-showcase.js.** מי שמשנה אחד משנה את
    שלושתם.
 
-   ‏‏302 ו-no-store: הקישור נלחץ פעם או פעמיים, ואין סיבה שדפדפן ישמור אותו.
+   ‏no-store: הקישור נלחץ פעם או פעמיים, ואין סיבה שדפדפן ישמור אותו. מה שחוזר
+   ‏(דף שפותח את וואטסאפ ביזנס באנדרואיד, ‏302 במחשב) - lib/wa-open.ts.
    ‏טוקן שאינו בצורה הנכונה מפנה לדף הבית. הפרטים: docs/client-showcase.md.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { waOpenResponse } from "./lib/wa-open.ts";
 
 /** אותו נוסח של showcaseMessage ב-whatsapp-webhook/agent.ts. */
 function showcaseMessage(firstName: string, link: string): string {
@@ -43,12 +45,8 @@ export default (req: Request, _context: Context) => {
   const to = (url.searchParams.get("to") || "").replace(/\D/g, "");
   const link = `${url.origin}/showcase?t=${m[1]}`;
   const message = showcaseMessage(name, link).replace(/^היי , /, "היי, ");
-  const target = `https://wa.me/${/^\d{9,15}$/.test(to) ? to : ""}?text=${encodeURIComponent(message)}`;
-
-  return new Response(null, {
-    status: 302,
-    headers: { Location: target, "Cache-Control": "no-store" },
-  });
+  // אנדרואיד - וואטסאפ ביזנס ישירות, אייפון - whatsapp://, מחשב - wa.me (lib/wa-open.ts)
+  return waOpenResponse(req, /^\d{9,15}$/.test(to) ? to : "", message);
 };
 
 export const config: Config = {

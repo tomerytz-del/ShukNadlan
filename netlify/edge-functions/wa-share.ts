@@ -14,6 +14,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { waOpenResponse } from "./lib/wa-open.ts";
 
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
@@ -50,13 +51,8 @@ export default async (req: Request, _context: Context) => {
   const row = m ? await lookup(m[1]) : null;
   if (!row) return Response.redirect(new URL("/", url), 302);
   const to = row.phone && /^\d{9,15}$/.test(row.phone) ? row.phone : "";
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `https://wa.me/${to}?text=${encodeURIComponent(row.body)}`,
-      "Cache-Control": "no-store",
-    },
-  });
+  // אנדרואיד - וואטסאפ ביזנס ישירות, אייפון - whatsapp://, מחשב - wa.me (lib/wa-open.ts)
+  return waOpenResponse(req, to, row.body);
 };
 
 export const config: Config = {

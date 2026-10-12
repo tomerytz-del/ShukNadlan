@@ -1016,13 +1016,13 @@ async function getProperty(
     agency: agency?.name
       ? {
         name: agency.name,
-        url: agency.slug ? `${SITE_BASE}/agency?slug=${agency.slug}` : null,
+        url: agency.slug ? `${SITE_BASE}/agency?slug=${encodeURIComponent(String(agency.slug))}` : null,
       }
       : null,
     agent: agent?.display_name
       ? {
         name: agent.display_name,
-        url: agent.slug ? `${SITE_BASE}/agent?slug=${agent.slug}` : null,
+        url: agent.slug ? `${SITE_BASE}/agent?slug=${encodeURIComponent(String(agent.slug))}` : null,
       }
       : null,
     // ‏**הערה אחת, לא שתי אמיתות.** כאן חוזרים שם המשרד והסוכן/ת בלבד;
@@ -1129,7 +1129,7 @@ async function contactAgent(
       // שנשלט הוא הסדר שבו מציעים.
       phone: member.phone || null,
       phone_note: "למסור רק אם נשאלים עליו ישירות. הקישור הוא הדרך המוצעת.",
-      profile_url: member.slug ? `${SITE_BASE}/agent?slug=${member.slug}` : null,
+      profile_url: member.slug ? `${SITE_BASE}/agent?slug=${encodeURIComponent(String(member.slug))}` : null,
     },
     // ה-CTA. ‏`src=wa_bot` הוא מה שהופך את זה למדיד: בלעדיו הקליק על
     // "וואטסאפ לסוכן" בדף נספר כמו כל קליק אחר, ואי אפשר לדעת שהוא הגיע
@@ -1188,7 +1188,7 @@ async function findAgencies(
       specialties_source: declared.length ? "declared" : "derived",
       areas: a.specialty_areas || [],
       active_properties: owned.length,
-      url: a.slug ? `${SITE_BASE}/agency?slug=${a.slug}` : null,
+      url: a.slug ? `${SITE_BASE}/agency?slug=${encodeURIComponent(String(a.slug))}` : null,
     };
   });
 
@@ -1268,7 +1268,7 @@ async function findProfessionals(
         services: p.services || [],
         areas: p.service_areas || [],
         years_experience: p.years_experience,
-        url: p.slug ? `${SITE_BASE}/professional?slug=${p.slug}` : null,
+        url: p.slug ? `${SITE_BASE}/professional?slug=${encodeURIComponent(String(p.slug))}` : null,
       };
     }),
     all_professionals_url: `${SITE_BASE}/professionals`,
@@ -1354,7 +1354,7 @@ async function searchProjects(
         property_types: r.property_types || [],
         available_units: r.available_units,
         has_cover: !!r.cover_url,
-        url: `${SITE_BASE}/project?slug=${r.slug}`,
+        url: `${SITE_BASE}/project?slug=${encodeURIComponent(String(r.slug))}`,
       };
     }),
     all_projects_url: `${SITE_BASE}/projects`,
