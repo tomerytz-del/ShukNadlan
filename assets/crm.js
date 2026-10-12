@@ -9166,7 +9166,7 @@ async function callLicenseAppealApi(payload){
 }
 
 /* ---------- יומן ביקורת אבטחה (מנהל/ת פלטפורמה) ----------
-   ‏security_audit_log נכתב רק מטריגרים במסד (מיגרציה 20270423090000).
+   ‏security_audit_log נכתב רק מטריגרים במסד (מיגרציה 20270423095000).
    כאן קריאה בלבד: 100 האירועים האחרונים, נטען כשפותחים. השמות נפתרים מ-
    agency_members, ומזהה שלא נמצא מוצג מקוצר. docs/security-audit-log.md */
 const AUDIT_ACTIONS = {
