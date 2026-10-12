@@ -22,7 +22,7 @@
 
 update public.property_publications pub
    set status     = 'skipped',
-       last_error = '[inactive-property] הנכס אינו פעיל - יצא מהתור בלי פרסום (20270428090000)'
+       last_error = '[inactive-property] הנכס אינו פעיל - יצא מהתור בלי פרסום (20270501090000)'
   from public.properties p
  where p.id = pub.property_id
    and pub.status = 'pending'
