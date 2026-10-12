@@ -6451,6 +6451,21 @@ const ASSISTANT_WA_DISPLAY = '053-249-4740';
       כטקסט חופשי מלא (עם קישורים, ובחינם) במקום כתבנית. */
 const ASSISTANT_WA_HELLO = 'שלום, מה אפשר לעשות כאן?';
 
+/* ‏ההודעה הראשונה לגבריאלה - בוואטסאפ ביזנס (12.10.2026). ‏wa.me באנדרואיד
+   פותח את וואטסאפ שמוגדר כברירת מחדל, ואצל רוב הסוכנים זה הרגיל - בזמן
+   שהם עובדים מהביזנס. ‏intent:// עם com.whatsapp.w4b פותח את הביזנס ישירות,
+   ו-browser_fallback_url (‏wa.me) לוקח את מי שאין לו/ה ביזנס לרגיל.
+   **אבל גבריאלה מזהה לפי המספר ששולח:** מי שהמספר הרשום שלו/ה בוואטסאפ
+   הרגיל צריך/ה את הרגיל - ולכן בכרטיס יש גם כפתור "WhatsApp רגיל"
+   (‏pkg = 'com.whatsapp'). באייפון ובמחשב אין בחירה כזו מקישור - wa.me. */
+const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
+function assistantWaUrl(text, pkg = 'com.whatsapp.w4b'){
+  const plain = `https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(text)}`;
+  if (!IS_ANDROID) return plain;
+  return `intent://send?phone=${ASSISTANT_WA_NUMBER}&text=${encodeURIComponent(text)}` +
+    `#Intent;scheme=whatsapp;package=${pkg};S.browser_fallback_url=${encodeURIComponent(plain)};end`;
+}
+
 /* ---------- הכרטיס שפותח את הצ'אט ----------
    ‏disabled ולא מוסתר כשאין מספר שמור: כפתור שנעלם נראה כמו באג, וכפתור
    שאומר "קודם שמרו את המספר" הוא הוראה. והסדר הזה חשוב — בוט שמקבל הודעה
@@ -6464,11 +6479,17 @@ function renderWaStartCard(phone){
 
   const saved = !!String(phone || '').trim();
   card.classList.toggle('is-locked', !saved);
-  document.getElementById('waStartBtn').href = saved
-    ? `https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(ASSISTANT_WA_HELLO)}`
-    : '#';
+  const btn = document.getElementById('waStartBtn');
+  btn.href = saved ? assistantWaUrl(ASSISTANT_WA_HELLO) : '#';
+  // ‏intent:// בלשונית חדשה משאיר לשונית ריקה - באנדרואיד באותה לשונית
+  btn.target = IS_ANDROID ? '_self' : '_blank';
+  const alt = document.getElementById('waStartAlt');
+  if (alt){
+    alt.hidden = !(saved && IS_ANDROID);
+    alt.href = saved ? assistantWaUrl(ASSISTANT_WA_HELLO, 'com.whatsapp') : '#';
+  }
   document.getElementById('waStartBtnLabel').textContent = saved
-    ? "פתיחת צ'אט עם גבריאלה"
+    ? (IS_ANDROID ? "פתיחת צ'אט עם גבריאלה בביזנס" : "פתיחת צ'אט עם גבריאלה")
     : 'קודם שמרו את המספר שלכם למטה';
   document.getElementById('waStartHint').textContent = saved
     ? 'חשוב: יש לשלוח מהמכשיר שבו מותקן המספר שרשום למטה - לפי המספר הזה גבריאלה מזהה אתכם.'
@@ -7531,7 +7552,9 @@ const ONBOARD_STEPS = [
     done: s => s.whatsapp_done,
     run:  ()=> {
       if (currentAgent && String(currentAgent.phone || '').trim()){
-        window.open(`https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(ASSISTANT_WA_HELLO)}`, '_blank', 'noopener');
+        // אנדרואיד - וואטסאפ ביזנס ישירות (assistantWaUrl), אחרת wa.me בלשונית חדשה
+        if (IS_ANDROID) location.href = assistantWaUrl(ASSISTANT_WA_HELLO);
+        else window.open(assistantWaUrl(ASSISTANT_WA_HELLO), '_blank', 'noopener');
       } else {
         gotoSection('accWhatsapp', 'waPhone');
       }
