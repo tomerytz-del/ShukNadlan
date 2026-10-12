@@ -55,6 +55,7 @@ export async function geocodeAddress(
   source: GeoSource,
   street: string,
   houseNumber: string,
+  officialStreet?: string | null,
 ): Promise<{ lat: number; lng: number } | null> {
   const provider = PROVIDERS[source.kind];
   if (!provider) {
@@ -65,6 +66,7 @@ export async function geocodeAddress(
   const hit: GeoHit | null = await provider.lookup(source, {
     street: String(street || "").trim(),
     houseNumber: String(houseNumber || "").trim(),
+    officialStreet: officialStreet ?? null,
   });
   if (!hit) return null;
 
@@ -88,4 +90,5 @@ export async function geocodeAddress(
 export { loadCitySource } from "./source.ts";
 export { itmToWgs84, wgs84ToItm } from "./itm.ts";
 export { MAX_VARIANTS, streetVariants } from "./street-variants.ts";
+export { loadOfficialStreets, officialStreetFor, resolveOfficialStreet } from "./street-resolve.ts";
 export type { GeoBox, GeoHit, GeoPrecision, GeoQuery, GeoSource } from "./types.ts";
