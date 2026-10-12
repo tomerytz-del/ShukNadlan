@@ -3962,7 +3962,8 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
   };
 }
 
-/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js. */
+/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
+ *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
 function showcaseMessage(firstName: string, link: string): string {
   return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
     "הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
@@ -4030,8 +4031,15 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   const link = showcaseLink(String(res.token))!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
   const message = showcaseMessage(first, link);
-  const encoded = encodeURIComponent(message);
   const clientWa = waNumber(client.phone);
+  // ‏לא wa.me/?text= עם ההודעה מקודדת: כ-1,500 תווים של %D7%…, ובאייפון
+  // וואטסאפ הפך ללחיץ רק את תחילתם. ‏/w/ קצר ובונה את אותה הודעה בשרת
+  // (netlify/edge-functions/showcase-send.ts).
+  const sendParams = new URLSearchParams();
+  if (first) sendParams.set("n", first);
+  if (clientWa) sendParams.set("to", clientWa);
+  const qs = sendParams.toString();
+  const sendUrl = `${SITE_BASE_URL}/w/${res.token}${qs ? "?" + qs : ""}`;
   ctx.conv.last_client_id = clientId;
 
   return {
@@ -4043,8 +4051,8 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
     skipped: res.skipped,
     message,
     // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
-    wa_client_url: clientWa ? `https://wa.me/${clientWa}?text=${encoded}` : undefined,
-    wa_share_url: clientWa ? undefined : `https://wa.me/?text=${encoded}`,
+    wa_client_url: clientWa ? sendUrl : undefined,
+    wa_share_url: clientWa ? undefined : sendUrl,
     client_phone_missing: !clientWa,
     note:
       "העמוד ממותג במשרד ובפרטי הסוכן/ת, והנכסים בלי מיתוג - בלי שם משרד, טלפון או מספר בית, " +
