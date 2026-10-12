@@ -907,11 +907,26 @@ document.addEventListener('keydown', (e)=>{
 /* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
 const PROP_MAP_ZOOM = 16;
 const PROP_MAP_FULL_ZOOM = 17;
+// עיגול של עד ק"מ צריך להיכנס כולו למסגרת של 230px
+const PROP_MAP_APPROX_ZOOM = 14;
 
 let propMapReady = false;      // המפה המוטמעת עלתה — כלומר הנכס זכאי
 let propMapFull = null;        // מופע המסך המלא, נוצר בפתיחה הראשונה
 
+/* מיקום משוער (אזור תעשייה, חלקה גדולה): עיגול על האזור ולא נקודה - פין
+   על נקודה אקראית נראה מדויק ואינו. docs/property-map.md, "מיקום משוער". */
+function propMapApprox(p){
+  return !!(window.ApproxLocation && ApproxLocation.isApprox(p));
+}
 function propMapMarker(p){
+  if (propMapApprox(p)){
+    return L.circle([p.lat, p.lng], {
+      radius: ApproxLocation.radius(p),
+      color: '#b8902f', weight: 2, dashArray: '6 6',
+      fillColor: '#b8902f', fillOpacity: .15,
+      interactive: false,
+    });
+  }
   return L.marker([p.lat, p.lng], {
     icon: L.divIcon({ className:'', html:'<div class="map-marker"></div>', iconSize:[0,0] }),
     keyboard: false,
@@ -944,8 +959,9 @@ async function initPropertyMap(p, addressText){
   // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
   section.hidden = false;
   try{
+    const approx = propMapApprox(p);
     const map = L.map('propMap', { scrollWheelZoom:false, zoomControl:false })
-      .setView([p.lat, p.lng], PROP_MAP_ZOOM);
+      .setView([p.lat, p.lng], approx ? PROP_MAP_APPROX_ZOOM : PROP_MAP_ZOOM);
     propMapTiles(map);
     propMapMarker(p).addTo(map);
     /* מחוות משתפות פעולה בשתי דרכי הקלט. המפה יושבת באמצע דף ארוך, ובלעדיהן
@@ -955,15 +971,24 @@ async function initPropertyMap(p, addressText){
        קוראים לזה בכוונה: שם אין דף מתחת לגלול, והמפה היא כל המסך. */
     if (window.MapGestures) MapGestures.apply(map);
 
-    const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
-    const waze = `https://waze.com/ul?ll=${p.lat},${p.lng}&navigate=yes`;
-    const dir = document.getElementById('mapDirections');
-    dir.href = google;
-    dir.hidden = false;
-    document.getElementById('mapFullGoogle').href = google;
-    document.getElementById('mapFullWaze').href = waze;
     document.getElementById('mapFullTitle').textContent = addressText || p.title || '';
-    document.getElementById('mapNote').textContent = addressText || '';
+    const note = document.getElementById('mapNote');
+    if (approx){
+      /* בלי קישורי ניווט: Waze לנקודה אקראית שולח גולש/ת למקום שאין בו
+         כלום. במקומם - הבועית שאומרת שהמיקום מוערך. */
+      document.getElementById('mapFullGoogle').hidden = true;
+      document.getElementById('mapFullWaze').hidden = true;
+      note.innerHTML = (addressText ? escapeHtml(addressText) + ' ' : '') + ApproxLocation.badgeHtml(p);
+    } else {
+      const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+      const waze = `https://waze.com/ul?ll=${p.lat},${p.lng}&navigate=yes`;
+      const dir = document.getElementById('mapDirections');
+      dir.href = google;
+      dir.hidden = false;
+      document.getElementById('mapFullGoogle').href = google;
+      document.getElementById('mapFullWaze').href = waze;
+      note.textContent = addressText || '';
+    }
     propMapReady = true;
   } catch(e){
     console.warn('מפת הנכס לא נטענה:', e);
@@ -978,14 +1003,14 @@ function mapFullOpen(){
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
   if (!propMapFull){
-    propMapFull = L.map('propMapFull').setView([p.lat, p.lng], PROP_MAP_FULL_ZOOM);
+    propMapFull = L.map('propMapFull').setView([p.lat, p.lng], propMapApprox(p) ? PROP_MAP_APPROX_ZOOM : PROP_MAP_FULL_ZOOM);
     propMapTiles(propMapFull);
     propMapMarker(p).addTo(propMapFull);
   }
   // הקונטיינר היה display:none עד לפני רגע, ולכן המידות שנמדדו בו (בפתיחה
   // הראשונה) או שנשמרו מפתיחה קודמת אינן נכונות
   propMapFull.invalidateSize();
-  propMapFull.setView([p.lat, p.lng], PROP_MAP_FULL_ZOOM);
+  propMapFull.setView([p.lat, p.lng], propMapApprox(p) ? PROP_MAP_APPROX_ZOOM : PROP_MAP_FULL_ZOOM);
   document.getElementById('mapFullClose').focus();
 }
 function mapFullClose(){
