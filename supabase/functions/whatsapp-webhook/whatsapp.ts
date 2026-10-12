@@ -182,6 +182,47 @@ export async function sendButtons(
 }
 
 /**
+ * הודעה עם כפתור אחד שפותח קישור (interactive · cta_url). ‏**כפתור אחד בלבד**
+ * להודעה - זו המגבלה של Meta, ולכן פעולה שנייה שפותחת קישור היא הודעה נפרדת
+ * או כפתור תשובה שמחזיר הודעה כזו. כותרת הכפתור עד 20 תווים, כמו ב-
+ * `sendButtons`. בתוך חלון 24 השעות בלבד, כמו כל הודעה שאינה תבנית.
+ */
+export async function sendCtaUrl(
+  to: string,
+  body: string,
+  label: string,
+  url: string,
+): Promise<string | null> {
+  const clean = formatForWhatsapp(body);
+  const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        body: { text },
+        action: {
+          name: "cta_url",
+          parameters: {
+            display_text: Array.from(formatForWhatsapp(label)).slice(0, MAX_BUTTON_TITLE).join(""),
+            url,
+          },
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`whatsapp cta_url send failed ${res.status}: ${await res.text()}`);
+  }
+  return await messageIdFrom(res);
+}
+
+/**
  * כרטיס איש קשר (type `contacts`). בוואטסאפ הוא מוצג עם כפתור "שמירה",
  * כלומר מי שמקבל/ת אותו שומר/ת בלחיצה אחת, בלי להקליד מספר.
  */

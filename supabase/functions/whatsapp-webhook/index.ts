@@ -5,7 +5,9 @@ import {
   downloadMedia,
   formatForWhatsapp,
   markReadAndTyping,
+  sendButtons,
   sendContactCard,
+  sendCtaUrl,
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
@@ -15,8 +17,10 @@ import {
   type AgentRow,
   type ConversationState,
   loadProfile,
+  type OutboxItem,
   profileGaps,
   runAgentTurn,
+  showcaseButtonReply,
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
@@ -177,6 +181,36 @@ async function reply(
       body,
       error: String((err as Error)?.message || err),
     });
+  }
+}
+
+/**
+ * הודעות כפתורים שכלי הכין בתור (‏`OutboxItem`, למשל create_showcase), אחרי
+ * התשובה - כדי שהכפתור יהיה הדבר האחרון במסך. כל אחת נרשמת ביומן כמו `reply`.
+ * כישלון אחת אינו עוצר את הבאה; ושורת היומן נושאת את השגיאה.
+ */
+async function sendOutbox(to: string, items: OutboxItem[], agentId: string | null): Promise<void> {
+  for (const item of items) {
+    const logBody = item.kind === "cta"
+      ? `${item.body}\n[${item.label}] ${item.url}`
+      : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
+    try {
+      const waMessageId = item.kind === "cta"
+        ? await sendCtaUrl(to, item.body, item.label, item.url)
+        : await sendButtons(to, item.body, item.buttons);
+      await supabase.from("whatsapp_messages").insert({
+        wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
+        msg_type: "interactive", body: logBody, status: waMessageId ? "sent" : null,
+      });
+    } catch (err) {
+      console.error("outbox send failed", err);
+      await supabase.from("whatsapp_messages").insert({
+        direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
+        body: logBody, error: String((err as Error)?.message || err),
+      });
+      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח
+      if (item.kind === "cta") await reply(to, `${item.label}: ${item.url}`, agentId);
+    }
   }
 }
 
@@ -1146,6 +1180,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
+      // ‏"תצוגה מקדימה" / "נוסח להעתקה" אחרי פתיחת מיניסייט (agent.ts): המזהה
+      // נושא את המיניסייט, והתשובה קבועה ובלי מודל.
+      const sc = await showcaseButtonReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (sc) {
+        if (sc.text) await reply(from, sc.text, agent.id);
+        if (sc.outbox?.length) await sendOutbox(from, sc.outbox, agent.id);
+        return;
+      }
       // ‏"לשלוח בקשות תיאום לבעלים ולמתווכים?" (showing-coord.ts): המזהה נושא
       // את בקשת הסיור, והתשובה קבועה ובלי מודל.
       const coordReply = await coordOfferButtonReply(
@@ -1254,11 +1297,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   // --- הפעלת ה-LLM ---
   let answer: string;
+  const outbox: OutboxItem[] = [];
   try {
     answer = await runAgentTurn({
       supabase,
       agent: agentRow as unknown as AgentRow,
       conv,
+      outbox,
       userContent: content,
       userSummary: (newImageUrl ? "[תמונה] " : "") + (mediaTurn ? mediaForHistory(userText) : userText),
       // תור שקורא הקלטה או מסמך רק מציע - ‏media-intake.ts
@@ -1275,6 +1320,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   await saveConversation(agent.id, from, conv);
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+  if (outbox.length) await sendOutbox(from, outbox, agent.id);
 }
 
 /**
