@@ -302,7 +302,8 @@ function clip(s: string): string {
   return s.length > MAX_MEDIA_CHARS ? s.slice(0, MAX_MEDIA_CHARS) + "\n(…הקובץ ארוך, והמשך נחתך)" : s;
 }
 
-function safe(s: string): string {
+/** גם הקבצים המצורפים למייל (‏email-intake.ts) נעטפים כך. */
+export function safe(s: string): string {
   return s.replace(/\[/g, "(").replace(/\]/g, ")");
 }
 
