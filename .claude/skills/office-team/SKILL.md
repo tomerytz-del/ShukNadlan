@@ -73,6 +73,9 @@ description: עבודה על צוות המשרד ותפקידים בריפו ש�
 4. **שלוש טבלאות עם מפתח ייחודי שמתנגש** - מחיקה לפני העברה:
    - ‏`property_shares` - ‏`unique (property_id, shared_with_agency_id)`. שיתוף
      שהמשרד שנשאר כבר קיבל, **או שהנכס הוא של המשרד שנשאר עצמו**, נמחק.
+     **ומשרד שנפתח בטעות כבר קיבל הפצות** מרגע היצירה (הטריגר
+     `agencies_share_backfill`), כלומר יש לו כמעט תמיד שורות כאלה - לא רק
+     כשמישהו שיתף איתו ידנית.
    - ‏`agent_share_exclusions` - ‏`primary key (agent_id, agency_id)`.
    - ‏`agency_rankings` - מפתח `agency_id`; מוחקים, הדירוג מחושב מחדש.
 5. **רק אז למחוק את המשרד הישן.** חלק מה-FK הם `cascade` (‏`properties`,
