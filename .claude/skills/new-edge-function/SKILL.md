@@ -1,6 +1,6 @@
 ---
 name: new-edge-function
-description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן — verify_jwt ב-config.toml, CORS, סודות ופריסה. Use when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function. Also when a function suddenly answers 404/not_found for rows that exist, or when writing a select with an embed like agency_members(…).
+description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן — verify_jwt ב-config.toml, ההצהרה ב-PUBLIC_EDGE_FUNCTIONS, CORS, סודות ופריסה. Use when the ops agent reports "Edge Function פתוחה בלי אימות", when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function. Also when a function suddenly answers 404/not_found for rows that exist, or when writing a select with an embed like agency_members(…).
 ---
 
 # ‏Edge Function חדשה
@@ -29,6 +29,22 @@ verify_jwt = false          # למה: נקודת קליטה ציבורית מט�
 
 **לכל שורה שם יש הערה שמסבירה את הבחירה.** זו החלטת אבטחה, לא הגדרה
 טכנית — ומי שקורא/ת בעוד חצי שנה צריך/ה לדעת למה.
+
+### ‏`verify_jwt = false` בלי אימות בקוד: להצהיר ב-`PUBLIC_EDGE_FUNCTIONS`
+
+הסוכן התפעולי (`ops_agent/probes/security.py`) מחפש בכל פונקציה עם
+`verify_jwt = false` סימן לאימות (`EDGE_AUTH_PATTERNS` ב-
+`ops_agent/config.py`: ‏`authorizeInternalCaller`, סוד, HMAC, אסימון,
+או החזרת 401/403/429). פונקציה שאין בה אף אחד מהם מדווחת **`high`**
+בפאנל "בריאות" — "ממצא אבטחה: Edge Function פתוחה בלי אימות".
+
+אם הפונקציה **אמורה** להיות פתוחה (טופס קליטה, הרשמה, דיווח שהדפדפן
+שולח בעצמו כמו `csp-report`), מוסיפים אותה ל-`PUBLIC_EDGE_FUNCTIONS`
+**באותו PR**, עם הערה שאומרת למה ומה ההגנה מהצפה (תקרה במסד, הגבלת
+קצב, גודל גוף). הרשימה היא הצהרה ולא השתקה - בלי ההערה אין לה ערך.
+
+אם היא **לא** אמורה להיות פתוחה - זה באג, ומוסיפים אימות (‏cron →
+`authorizeInternalCaller`, וובהוק → חתימה).
 
 ## המבנה
 
