@@ -976,8 +976,8 @@ async function initPropertyMap(p, addressText){
     if (approx){
       /* בלי קישורי ניווט: Waze לנקודה אקראית שולח גולש/ת למקום שאין בו
          כלום. במקומם - הבועית שאומרת שהמיקום מוערך. */
-      document.getElementById('mapFullGoogle').hidden = true;
-      document.getElementById('mapFullWaze').hidden = true;
+      const actions = document.querySelector('.map-full-actions');
+      if (actions) actions.hidden = true;
       note.innerHTML = (addressText ? escapeHtml(addressText) + ' ' : '') + ApproxLocation.badgeHtml(p);
     } else {
       const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
