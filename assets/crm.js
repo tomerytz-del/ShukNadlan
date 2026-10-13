@@ -21735,27 +21735,43 @@ function renderMatchCards(panel, rows){
     const actions = card.querySelector('.lead-actions');
     const sc = panel.closest('.match-panel')?._showcase;
     if (client && sc && typeof openShowcaseSend === 'function'){
-      if (sc.already.has(m.property_id)){
-        const done = addCardAction(actions, { label:'✓ במיניסייט', cls:'btn-share',
-          title:'הנכס כבר במיניסייט של הלקוח/ה' });
-        done.disabled = true;
-      } else {
-        addCardAction(actions, {
-          label:'➕ למיניסייט', cls:'btn-share',
-          title:'הוספת הנכס למיניסייט של ' + (client.full_name || 'הלקוח/ה') + ', ואז שליחת הקישור בוואטסאפ',
-          onClick: btn => openShowcaseSend(client, [m.property_id], ()=>{
-            // כמו אחרי שליחה מהפס: הכרטיס הזה מסומן "במיניסייט" במקום, בלי
-            // לצייר מחדש את הרשימה (והסינון והמיון שבה)
+      // כפתור אחד שמחליף מצב: "➕ למיניסייט" ↔ "✕ הסרה מהמיניסייט". עד
+      // 13.10.2026 נכס שכבר במיניסייט קיבל כאן "✓ במיניסייט" מושבת, וההסרה
+      // הייתה רק 🗑 בפאנל המיניסייט - סוכנים לא מצאו אותה. הסימון "✓ במיניסייט"
+      // נשאר בראש הכרטיס (showcaseDecorateMatch). הכל במקום, בלי לצייר מחדש
+      // את הרשימה (והסינון והמיון שבה).
+      const who = client.full_name || 'הלקוח/ה';
+      const scBtn = addCardAction(actions, { label:'', cls:'btn-share' });
+      const paint = ()=>{
+        const inSc = sc.already.has(m.property_id);
+        scBtn.className = 'btn ' + (inSc ? 'btn-ghost' : 'btn-share');
+        scBtn.textContent = inSc ? '✕ הסרה מהמיניסייט' : '➕ למיניסייט';
+        scBtn.title = inSc
+          ? 'הנכס במיניסייט של ' + who + '. לחיצה מורידה אותו מהעמוד שלו/ה'
+          : 'הוספת הנכס למיניסייט של ' + who + ', ואז שליחת הקישור בוואטסאפ';
+      };
+      const refresh = ()=>{
+        sc.already = (showcaseSummaries[client.id] || {}).property_ids || new Set();
+        card.querySelector('.match-head .sc-in')?.remove();
+        card.querySelector('.match-head .sc-pick')?.remove();
+        showcaseDecorateMatch(card, m, sc);
+        paint();
+        sc.sync();
+      };
+      scBtn.addEventListener('click', async ()=>{
+        if (sc.already.has(m.property_id)){
+          scBtn.disabled = true;
+          const removed = await showcaseRemoveProperty(client, m.property_id);
+          scBtn.disabled = false;
+          if (removed) refresh();
+        } else {
+          openShowcaseSend(client, [m.property_id], ()=>{
             sc.selected.delete(m.property_id);
-            sc.already = (showcaseSummaries[client.id] || {}).property_ids || new Set();
-            const pick = card.querySelector('.sc-pick');
-            if (pick) pick.outerHTML = '<span class="sc-in">✓ במיניסייט</span>';
-            btn.textContent = '✓ במיניסייט';
-            btn.disabled = true;
-            sc.sync();
-          }),
-        });
-      }
+            refresh();
+          });
+        }
+      });
+      paint();
     }
     addCardAction(actions, {
       label:'🏠 צפייה בנכס', blank:true,

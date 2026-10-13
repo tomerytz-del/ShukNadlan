@@ -163,6 +163,24 @@ function showcaseDecorateMatch(card, m, ctx){
   head.appendChild(label);
 }
 
+/* הסרת נכס אחד מהמיניסייט, מכרטיס ההתאמה (renderMatchCards). אותו
+   `removed_at` של "🗑 הסרה" בפאנל המיניסייט ושל remove_from_showcase בבוט;
+   שליחה חוזרת של הנכס (showcase_add_properties) מאפסת אותו. מחזירה true
+   כשהנכס ירד, ואז הוא כבר אינו ב-property_ids של הסיכום. */
+async function showcaseRemoveProperty(client, propertyId){
+  const s = showcaseSummaries[client.id];
+  if (!s) return false;
+  const name = client.full_name || 'הלקוח/ה';
+  if (!confirm(`להוריד את הנכס מהמיניסייט של ${name}?\n\nהוא ייעלם מהעמוד של ${name} מיד. אפשר להחזיר אותו אחר כך ב"➕ למיניסייט".`)) return false;
+  const { error } = await sb.from('client_showcase_items')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('showcase_id', s.id).eq('property_id', propertyId).is('removed_at', null);
+  if (error){ showToast('שגיאה: ' + heErr(error)); return false; }
+  s.property_ids.delete(propertyId);
+  showToast('הנכס הוסר מהמיניסייט של ' + name);
+  return true;
+}
+
 /* ---------- 2. חלון השליחה ---------- */
 function showcaseModal(){ return document.getElementById('showcaseModal'); }
 function closeShowcaseModal(){ const m = showcaseModal(); if (m) m.style.display = 'none'; }
@@ -401,7 +419,7 @@ async function renderShowcasePanel(client, panel){
             <div class="sc-item-act">
               <a class="btn btn-ghost" href="/property?id=${encodeURIComponent(r.property_id)}" target="_blank" rel="noopener noreferrer" title="עמוד הנכס">🏠</a>
               <button type="button" class="btn btn-ghost" data-note title="הערה שלך שהלקוח/ה רואה">✏️</button>
-              <button type="button" class="btn btn-ghost" data-remove title="הסרה מהמיניסייט">🗑</button>
+              <button type="button" class="btn btn-ghost" data-remove title="הסרה מהמיניסייט - הנכס יורד מהעמוד של הלקוח/ה">🗑 הסרה</button>
             </div>
           </div>
           ${r.reaction === 'disliked' && (r.reaction_reasons || []).length ? `<div class="match-gap">למה לא: ${esc(r.reaction_reasons.map(k => SHOWCASE_REASON_LABELS[k] || k).join(', '))}</div>` : ''}
