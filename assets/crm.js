@@ -9231,6 +9231,7 @@ const AUDIT_ACTIONS = {
   login_verified:        'אימות כניסה עבר',
   login_verified_manual: 'שחרור ידני של אימות כניסה',
   agreement_viewed:      'הסכם חתום נפתח',
+  access_review_approved:'סקירת הרשאות אושרה',
   pricing_created:       'מחיר נוסף',
   pricing_changed:       'מחיר שונה',
   pricing_deleted:       'מחיר נמחק',
@@ -9256,6 +9257,7 @@ function auditDetail(row){
     return (row.target_id || '') + ': ' + v(d.from) + ' ← ' + v(d.to);
   }
   if (row.action === 'agreement_viewed') return d.title || '';
+  if (row.action === 'access_review_approved') return d.note || '';
   if (d.note) return d.note;
   if (d.enable) return 'כולל הפעלת האימות';
   return '';
@@ -9332,8 +9334,69 @@ async function loadDataAccess(){
     + '</tbody></table></div>';
 }
 
+/* ---------- סקירת הרשאות חצי-שנתית ----------
+   ‏access_reviews נפתחת ב-cron ב-1 בינואר וב-1 ביולי (או ידנית כאן), עם צילום
+   של ההרשאות באותו רגע. האישור עובר דרך access_review_approve ונרשם ביומן
+   הביקורת - זו הראיה לביקורת. התיקון עצמו נעשה במסכי הצוות והמנויים.
+   docs/access-review.md */
+async function loadAccessReview(){
+  const host = document.getElementById('accessReviewBox');
+  if (!host) return;
+  const { data, error } = await sb.from('access_reviews')
+    .select('id, opened_at, snapshot, reviewed_at, note')
+    .order('opened_at', { ascending:false }).limit(1);
+  if (error){ host.innerHTML = '<div class="empty-state">' + esc(heErr(error)) + '</div>'; return; }
+  const r = (data || [])[0];
+  const fmt = t => t ? new Date(t).toLocaleDateString('he-IL') : '-';
+  const openBtn = '<button type="button" class="btn btn-ghost" id="accessReviewOpen">פתיחת סקירה עכשיו</button>';
+  if (!r){
+    host.innerHTML = '<div class="empty-state">עוד לא נפתחה סקירה. הראשונה תיפתח ב-1 בינואר.</div>' + openBtn;
+  } else {
+    const s = r.snapshot || {};
+    const yes = b => b ? 'כן' : '<strong>לא</strong>';
+    const table = (title, rows, cols) => '<h4>' + esc(title) + ' (' + rows.length + ')</h4>'
+      + (rows.length ? '<div class="adm-table-wrap"><table class="adm-table audit-table"><thead><tr>'
+        + cols.map(c => '<th>' + esc(c[0]) + '</th>').join('') + '</tr></thead><tbody>'
+        + rows.map(x => '<tr>' + cols.map(c => '<td>' + c[1](x) + '</td>').join('') + '</tr>').join('')
+        + '</tbody></table></div>' : '<div class="empty-state">אין.</div>');
+    const name = x => esc(x.name || x.email || '-');
+    host.innerHTML = '<p class="acc-sub">סקירה מ-' + esc(fmt(r.opened_at)) + ' · '
+      + (r.reviewed_at ? 'אושרה ב-' + esc(fmt(r.reviewed_at)) + (r.note ? ' · ' + esc(r.note) : '') : '<strong>ממתינה לאישור</strong>')
+      + ' · ' + esc(s.active_members || 0) + ' כרטיסים פעילים</p>'
+      + table('מנהלי פלטפורמה', s.platform_admins || [], [
+          ['שם', name], ['משרד', x => esc(x.agency || '-')], ['פעיל/ה', x => yes(x.active)],
+          ['אימות דו-שלבי', x => yes(x.has_2fa)], ['כניסה אחרונה', x => esc(fmt(x.last_sign_in_at))]])
+      + table('מנהלי משרדים', s.managers || [], [
+          ['שם', name], ['משרד', x => esc(x.agency || '-')],
+          ['אימות דו-שלבי', x => yes(x.has_2fa)], ['כניסה אחרונה', x => esc(fmt(x.last_sign_in_at))]])
+      + table('פעילים שלא נכנסו 90 יום', s.dormant || [], [
+          ['שם', name], ['משרד', x => esc(x.agency || '-')], ['תפקיד', x => esc(x.role === 'manager' ? 'מנהל/ת' : 'סוכן/ת')],
+          ['כניסה אחרונה', x => esc(fmt(x.last_sign_in_at))]])
+      + (r.reviewed_at ? openBtn
+         : '<div class="cf-field"><label for="accessReviewNote">הערה (לא חובה)</label>'
+           + '<input id="accessReviewNote" type="text" maxlength="300" placeholder="למשל: הוסרה הרשאת ניהול לסוכן/ת שעזב/ה"></div>'
+           + '<button type="button" class="btn btn-gold" id="accessReviewApprove">עברתי ואישרתי</button>');
+  }
+  const openEl = document.getElementById('accessReviewOpen');
+  if (openEl) openEl.onclick = async ()=>{
+    openEl.disabled = true;
+    const { error: e } = await sb.rpc('access_review_open');
+    if (e){ showToast('הפעולה נכשלה: ' + heErr(e)); openEl.disabled = false; return; }
+    loadAccessReview();
+  };
+  const okEl = document.getElementById('accessReviewApprove');
+  if (okEl) okEl.onclick = async ()=>{
+    okEl.disabled = true;
+    const note = (document.getElementById('accessReviewNote') || {}).value || null;
+    const { error: e } = await sb.rpc('access_review_approve', { p_id: r.id, p_note: note });
+    if (e){ showToast('הפעולה נכשלה: ' + heErr(e)); okEl.disabled = false; return; }
+    showToast('הסקירה אושרה ונרשמה ביומן הביקורת');
+    loadAccessReview(); loadSecurityAudit();
+  };
+}
+
 document.getElementById('accSecurityAudit').addEventListener('toggle', (e)=>{
-  if (e.target.open){ loadSecurityAudit(); loadDataAccess(); }
+  if (e.target.open){ loadSecurityAudit(); loadAccessReview(); loadDataAccess(); }
 });
 
 async function loadLicenseAppeals(){
@@ -24652,6 +24715,13 @@ const NOTIF_TYPES = [
   /* ממצא אבטחה בדרגה high או critical שנפתח בסריקה של הסוכן התפעולי
      (מיגרציה 20270421100000). היעד הוא פאנל "בריאות המערכת" ולא קטגוריה,
      ולכן הלחיצה עוברת דרך openAdminOpsPanel ולא דרך goto. */
+  /* פעמיים בשנה (1.1, 1.7): לעבור על ההרשאות ולאשר. docs/access-review.md */
+  { type:'access_review', tone:'alert', goto:'accSecurityAudit', focus:'#accessReviewBox',
+    view:'admin',
+    title:'סקירת הרשאות חצי-שנתית',
+    sub:'תזכורת לעבור על מנהלי הפלטפורמה, מנהלי המשרדים ומי שלא נכנס/ה 90 יום, ולאשר ביומן הביקורת.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadAccessReview() },
   { type:'security_alert', tone:'alert',
     view:'admin',
     title:'ממצאי אבטחה',

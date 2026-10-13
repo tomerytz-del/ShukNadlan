@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: משיכת הקוד
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # שני קבצי מיגרציה עם אותו מספר בתחילת השם הם תקלה שקטה: ‏version הוא
       # מפתח ראשי בטבלת ההיסטוריה, ולכן אחרי שהראשון נרשם השני ייחשב כמורץ
@@ -57,7 +57,7 @@ jobs:
           echo "כל הגרסאות ייחודיות ($(ls supabase/migrations | wc -l) קבצים)."
 
       - name: התקנת Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         # גרסה קבועה ולא latest: ‏latest נפתר דרך ה-API של GitHub בלי אימות,
         # ובמכונות המשותפות של Actions הוא נופל על "rate limit exceeded" —
         # כך נכשלה פריסת #396 (24.9.2026) לפני שפונקציה אחת נפרסה, בזמן
