@@ -53,7 +53,7 @@
 | 8.2 הרשאות מיוחסות, 8.18 כלי עזר מיוחסים | כן | חלקי | `is_platform_admin` עם אימות חובה (`docs/mfa.md`); `service_role` רק בסודות; DDL רק דרך הצינור (`docs/supabase-migrations.md`). **חסר:** 2FA מאומת על דשבורדי ספקים, יומן פעולות מנהל/ת (R10) |
 | 8.3 הגבלת גישה למידע, 8.11 מיסוך | כן | מיושם | RLS; ‏`agency_members_public`; ‏`leads_masked` (`docs/lead-card.md`); פרטיות כתובת ובעלים (`docs/property-address-privacy.md`, ‏`docs/owner-privacy.md`); בדיקות ב-`ops_agent/probes/security.py` |
 | 8.4 גישה לקוד מקור | כן | חלקי | ריפו פרטי ב-GitHub. **לאמת:** 2FA, הגנת ענף על `main`, רשימת בעלי גישה |
-| 8.5 אימות מאובטח | כן | חלקי | Supabase Auth, כניסה עם Google (`docs/google-login.md`), אימות דו-שלבי (`docs/mfa.md`); לא חובה לסוכנים (R1) |
+| 8.5 אימות מאובטח | כן | חלקי | Supabase Auth, כניסה עם Google (`docs/google-login.md`), אימות דו-שלבי (`docs/mfa.md`): חובה למנהלי משרדים ולמנהלי פלטפורמה, רשות לסוכנים (R1) |
 | 8.6 ניהול קיבולת | כן | חלקי | הסוכן התפעולי מודד שאילתות כבדות ומשקל דפים (`docs/ops-agent.md`); מדידת אחסון `docs/storage-audit.md` |
 | 8.7 הגנה מפני נוזקות | כן | חלקי | ‏`nosniff` ב-`_headers`; קבצים מועלים ל-Storage בלבד, וכל הדליים מגבילים סוג קובץ וגודל (האחרון נסגר ב-`20270506091000`). Supabase אינה סורקת נוזקות. **פתוח:** החלטה על סריקה חיצונית או קבלת סיכון |
 | 8.8 ניהול חולשות טכניות | כן | חלקי | Dependabot; gitleaks; סריקת אבטחה כל 6 שעות. Deno ו-CDN מחוץ ל-Dependabot (R12); אין בדיקת חדירה |
