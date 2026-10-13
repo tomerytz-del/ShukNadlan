@@ -15,6 +15,7 @@
 | `login_2fa_enabled` / `login_2fa_disabled` | הפעלה או כיבוי של אימות כניסה בוואטסאפ |
 | `login_verified` | אימות כניסה שעבר |
 | `login_verified_manual` | שחרור ידני של חשבון תקוע (`docs/mfa.md`) |
+| `agreement_viewed` | פתיחה של הסכם **חתום** ב-CRM (`agreement_open`, ‏`docs/id-numbers.md`) |
 | `pricing_created` / `pricing_changed` / `pricing_deleted` | שינוי ב-`pricing_config` |
 
 - **הטלפון נרשם, כי עליו נשען אימות הכניסה בוואטסאפ.** שינוי טלפון שלא
