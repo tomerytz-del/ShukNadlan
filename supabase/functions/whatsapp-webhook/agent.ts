@@ -1038,25 +1038,6 @@ const TOOLS: Anthropic.Tool[] = [
           type: "string",
           description: "מזהה הלקוח/ה מקובץ הלקוחות - זה/זו החותם/ת הראשי/ת.",
         },
-        client_id_number: {
-          type: "string",
-          description:
-            "ת.ז. או ח״פ של הלקוח/ה. חובה להזמנה בכתב. אם חסר בכרטיס - " +
-            "מבקשים מהסוכן/ת, והערך נשמר גם בכרטיס הלקוח/ה.",
-        },
-        client_self_fill: {
-          type: "boolean",
-          description:
-            "true כשהסוכן/ת בוחר/ת שהלקוח/ה ישלים/תשלים בעצמו/ה שם מלא ות.ז. בקישור " +
-            "לחתימה (כשאין לו/לה ת.ז. או שם משפחה). אז ת.ז. אינה חובה כאן, והחתימה " +
-            "נפתחת ללקוח/ה רק אחרי שמילא/ה אותם.",
-        },
-        client_id_confirmed: {
-          type: "boolean",
-          description:
-            "true **רק** אחרי שחזר missing על ת.ז. של הלקוח/ה שאינה תקינה (ספרת ביקורת), " +
-            "ביקשת מהסוכן/ת לבדוק, והוא/היא אישר/ה במפורש שהמספר נכון כפי שהוא.",
-        },
         client_email: {
           type: "string",
           description:
@@ -1099,16 +1080,6 @@ const TOOLS: Anthropic.Tool[] = [
             type: "object",
             properties: {
               full_name: { type: "string" },
-              id_number: { type: "string" },
-              self_fill: {
-                type: "boolean",
-                description: "true כשהחותם/ת ישלים/תשלים שם מלא ות.ז. בעצמו/ה בקישור.",
-              },
-              id_confirmed: {
-                type: "boolean",
-                description:
-                  "true רק אחרי שהסוכן/ת אישר/ה במפורש שת.ז. שנפסלה בספרת הביקורת נכונה.",
-              },
               phone: { type: "string" },
               email: { type: "string" },
             },
@@ -4760,29 +4731,17 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   // ---- הלקוח/ה
   const { data: client } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, email, address, id_number")
+    .select("id, full_name, phone, email, address")
     .eq("id", String(input.client_id || ""))
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
   if (!client) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו בקובץ של הסוכן/ת." };
 
-  // ת.ז. שהסוכן/ת מסר/ה בצ'אט נשמרת גם בכרטיס — כדי שההסכם הבא לא ייעצר
-  // כאן שוב. ‏best-effort, כמו באשף: כשל בשמירה אינו עוצר את ההסכם.
-  const clientIdNumber = String(input.client_id_number || client.id_number || "").trim();
-  const clientIdConfirmed = input.client_id_confirmed === true;
-  // ‏ת.ז. שנפסלה בספרת הביקורת ולא אושרה אינה נכתבת לכרטיס - היא תחזור
-  // כ-missing למטה, ותיקון שלה יגיע בקריאה הבאה.
-  if (clientIdNumber && clientIdNumber !== client.id_number &&
-      (clientIdConfirmed || ilIdStatus(clientIdNumber) === "ok")) {
-    const { error } = await ctx.supabase
-      .from("agent_clients")
-      .update({ id_number: clientIdNumber })
-      .eq("id", client.id)
-      .eq("agent_id", ctx.agent.id);
-    if (error) console.warn("client id_number save failed", error.message);
-  }
+  // ת.ז. של הלקוח/ה אינה נשאלת כאן ואינה נשמרת: כל חותם/ת מקליד/ה אותה
+  // בעצמו/ה בדף החתימה (‏self_fill), והיא נשמרת רק בהסכם החתום. מיגרציה
+  // 20270503090000, docs/id-numbers.md.
 
-  // מייל שהסוכן/ת מסר/ה בצ'אט — אותו דין כמו ת.ז.: נשמר בכרטיס כדי שההסכם
+  // מייל שהסוכן/ת מסר/ה בצ'אט: נשמר בכרטיס כדי שההסכם
   // הבא לא ייעצר שוב, ומשמש מיד כערוץ לקוד האימות.
   const rawEmail = String(input.client_email || "").trim().toLowerCase();
   if (rawEmail && !EMAIL_RE.test(rawEmail)) {
@@ -4805,10 +4764,12 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   // נענה ב"לא נמצאו פרטי הסוכן/ת", בלי שדבר אחר ייראה שבור.
   const { data: member } = await ctx.supabase
     .from("agency_members")
-    .select("id, display_name, id_number, license_number, phone, agency_id")
+    .select("id, display_name, license_number, phone, agency_id")
     .eq("id", ctx.agent.id)
     .maybeSingle();
   if (!member) return { ok: false, error: "לא נמצאו פרטי הסוכן/ת." };
+  // ‏ת.ז. של הסוכן/ת מוצפנת במסד; מפוענחת כאן רק לגוף ההסכם (service role)
+  const { data: memberIdNumber } = await ctx.supabase.rpc("member_id_number", { p_member: member.id });
   const agency = await loadAgency(ctx.supabase, member.agency_id, "name, address");
 
   // ---- הנכסים
@@ -4866,9 +4827,8 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   const signers: AgreementSigner[] = [{
     party: "client",
     full_name: String(client.full_name || "").trim(),
-    id_number: clientIdNumber,
-    id_confirmed: clientIdConfirmed,
-    self_fill: input.client_self_fill === true,
+    id_number: "",
+    self_fill: true,
     phone: client.phone,
     email: clientEmail,
     address: client.address,
@@ -4878,9 +4838,8 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     signers.push({
       party: "partner",
       full_name: String(extra.full_name || "").trim(),
-      id_number: String(extra.id_number || "").trim(),
-      id_confirmed: extra.id_confirmed === true,
-      self_fill: extra.self_fill === true,
+      id_number: "",
+      self_fill: true,
       phone: String(extra.phone || "").trim() || null,
       email: String(extra.email || "").trim() || null,
       address: null,
@@ -4905,7 +4864,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     agencyId: ctx.agent.agency_id,
     agent: {
       name: member.display_name,
-      id_number: member.id_number,
+      id_number: (memberIdNumber as string | null) || null,
       license_number: member.license_number,
       phone: member.phone,
       agency_name: (agency?.name as string) || null,
@@ -5014,9 +4973,8 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     buttons_sent: ctx.outbox ? true : undefined,
     // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
-    self_fill_note: signers.some((sg) => sg.self_fill)
-      ? "מי שסומן/ה להשלמה בקישור ימלא/תמלא שם מלא ות.ז. לפני שהחתימה נפתחת, והם ייכנסו להסכם."
-      : undefined,
+    self_fill_note: "כל חותם/ת מקליד/ה ת.ז. (ומשלים/ה שם מלא) בעצמו/ה בדף החתימה, לפני שהחתימה נפתחת. " +
+      "הת.ז. נכנסת להסכם בלבד ואינה נשמרת בכרטיס הלקוח/ה.",
     requires_otp: !!created.require_otp,
     otp_note: created.require_otp
       ? "בחתימה מרחוק החותם/ת מאמת/ת את עצמו/ה בלחיצה: שולח/ת לנו הודעה מוכנה בוואטסאפ מהנייד שבכרטיס (או קוד במייל). " +
@@ -6262,17 +6220,11 @@ const SYSTEM_STATIC: string = (() => {
       "landlord · קונה = buy · שוכר/ת = tenant · בלעדיות = exclusive_sell או " +
       "exclusive_landlord. אם לא ברור מי הצד - שאל/י בשאלה אחת.",
     "- **אם חזר missing - ההסכם לא נוצר.** בקש/י בהודעה אחת את כל מה שברשימה " +
-      "(בדרך כלל ת.ז. של הלקוח/ה ואחוז העמלה), ואז קרא/י שוב. אל תמציא/י ת.ז. " +
-      "ואל תנחש/י עמלה.",
-    "- ת.ז. \"אינה תקינה\" ב-missing = ספרת הביקורת אינה מתאימה, כמעט תמיד טעות הקלדה. " +
-      "הצג/י לסוכן/ת את המספר ושאל/י אם הוא נכון או שיש טעות. מספר מתוקן - קרא/י שוב עם " +
-      "המספר החדש. אם הסוכן/ת מאשר/ת שהמספר נכון כפי שהוא - קרא/י שוב עם " +
-      "client_id_confirmed=true (או extra_signers[].id_confirmed=true לחותם/ת נוסף/ת). " +
-      "לעולם אל תסמן/י אישור בלי שהסוכן/ת אמר/ה זאת, ואל תתקן/י ספרה בעצמך.",
-    "- חסרה ת.ז. או שם משפחה של הלקוח/ה והסוכן/ת לא יודע/ת אותם: הצע/י במשפט אחד " +
-      "שהלקוח/ה ישלים/תשלים אותם בעצמו/ה בקישור - החתימה נפתחת לו/לה רק אחרי שמילא/ה. " +
-      "אם הסוכן/ת מסכים/ה - קרא/י שוב עם client_self_fill=true (או extra_signers[].self_fill=true). " +
-      "אל תבחר/י בזה בלי שהסוכן/ת הסכים/ה.",
+      "(בדרך כלל אחוז העמלה), ואז קרא/י שוב. אל תנחש/י עמלה.",
+    "- **ת.ז. של לקוחות: לעולם אל תבקש/י ואל תשמור/י.** כל חותם/ת מקליד/ה אותה בעצמו/ה " +
+      "בדף החתימה, לפני החתימה (גם פנים מול פנים, על המכשיר של הסוכן/ת), והיא נכנסת " +
+      "להסכם בלבד. אם הסוכן/ת שולח/ת ת.ז. של לקוח/ה בצ'אט - אל תחזור/י עליה, והסבר/י " +
+      "במשפט אחד שהלקוח/ה יקליד/תקליד אותה בקישור.",
     "- חסר מייל לקוד האימות (בטופס קונה/שוכר): בקש/י אותו במשפט אחד - \"כדי שהלקוח/ה " +
       "יקבל/תקבל קוד לחתימה מרחוק צריך את המייל\" - ואז קרא/י שוב עם client_email " +
       "(הוא נשמר גם בכרטיס). אם הסוכן/ת אומר/ת שהחתימה תהיה פנים מול פנים - " +

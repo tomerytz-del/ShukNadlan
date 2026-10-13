@@ -1955,7 +1955,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
+    .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1963,7 +1963,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number_last4|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת - נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -6812,9 +6812,9 @@ function loadProfileSettings(agent){
   };
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
-  document.getElementById('pfIdNumber').value = agent.id_number || '';
-  // מה שכבר שמור נחשב מאושר: הבדיקה חוזרת רק כשהמספר משתנה
-  document.getElementById('pfIdNumber').dataset.ilIdOk = agent.id_number || '';
+  // הת.ז. שמורה מוצפנת ואינה חוזרת לדפדפן (docs/id-numbers.md): השדה ריק,
+  // והרמז מראה שיש מספר שמור. הקלדה מחליפה אותו; שדה ריק משאיר אותו.
+  pfIdNumberShow(agent.id_number_last4);
   document.getElementById('pfGender').value = agent.gender || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
@@ -7206,7 +7206,9 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     // מחזיר שדות נעולים לערכם הישן בשקט, ועדיף להציג את מה שבאמת יושב ב-DB
     const patch = {
       display_name: name,
-      id_number: document.getElementById('pfIdNumber').value.trim() || null,
+      // ריק = בלי שינוי. הטריגר במסד מצפין ומאפס את העמודה
+      ...(document.getElementById('pfIdNumber').value.trim()
+        ? { id_number: document.getElementById('pfIdNumber').value.trim() } : {}),
       // ‏מין - לניסוח טקסטים שמזכירים את הסוכן/ת בשמו/ה (מאמן ה-AI). ריק = לא ידוע.
       gender: document.getElementById('pfGender').value || null,
       bio: bio || null,
@@ -7219,7 +7221,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
       updated_at: new Date().toISOString(),
     };
-    const RETURNED = 'display_name, license_number, id_number, gender, bio, photo_url, photo_position, ' +
+    const RETURNED = 'display_name, license_number, id_number_last4, gender, bio, photo_url, photo_position, ' +
       'years_experience, service_area, credentials, specialties, gallery';
 
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
@@ -7232,7 +7234,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     if (error && /id_number|gender/.test(error.message || '')){
       console.warn('שמירה נכשלה על עמודה חסרה - נשמר הפרופיל בלעדיה:', error);
       const { id_number, gender, ...core } = patch;
-      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, gender, ', '')));
+      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number_last4, gender, ', '')));
     }
     if (error) throw error;
 
@@ -7252,8 +7254,9 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     Object.assign(currentAgent, saved);
     document.getElementById('pfName').value = saved.display_name || '';
     document.getElementById('pfLicense').value = saved.license_number || '';
-    document.getElementById('pfIdNumber').value = saved.id_number || '';
-    document.getElementById('pfIdNumber').dataset.ilIdOk = saved.id_number || '';
+    // מספר שהוקלד עכשיו משמש גם להסכם הבא בסשן הזה, בלי סיבוב ל-my_id_number
+    if (patch.id_number) currentAgent.id_number = patch.id_number;
+    pfIdNumberShow(saved.id_number_last4);
     document.getElementById('pfGender').value = saved.gender || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
@@ -9227,6 +9230,7 @@ const AUDIT_ACTIONS = {
   login_2fa_disabled:    'אימות כניסה כובה',
   login_verified:        'אימות כניסה עבר',
   login_verified_manual: 'שחרור ידני של אימות כניסה',
+  agreement_viewed:      'הסכם חתום נפתח',
   pricing_created:       'מחיר נוסף',
   pricing_changed:       'מחיר שונה',
   pricing_deleted:       'מחיר נמחק',
@@ -9251,6 +9255,7 @@ function auditDetail(row){
     const v = x => (x === null || x === undefined) ? '-' : (typeof x === 'object' ? JSON.stringify(x) : String(x));
     return (row.target_id || '') + ': ' + v(d.from) + ' ← ' + v(d.to);
   }
+  if (row.action === 'agreement_viewed') return d.title || '';
   if (d.note) return d.note;
   if (d.enable) return 'כולל הפעלת האימות';
   return '';
@@ -21925,9 +21930,6 @@ function resetClientForm(){
   editingClientRow = null;
   clientFormFromCall = null;
   document.getElementById('addClientForm').reset();
-  // אישור "המספר נכון" שייך ללקוח/ה הקודם/ת, לא לטופס
-  delete document.getElementById('clIdNumber').dataset.ilIdOk;
-  IlId.refresh(document.getElementById('clIdNumber'));
   document.getElementById('clientFeedback').textContent = '';
   document.getElementById('saveClientBtn').textContent = 'שמור לקוח והצלב נכסים';
   clientFormCities = [];
@@ -21954,8 +21956,6 @@ function openEditClient(c){
   document.getElementById('clName').value  = c.full_name;
   document.getElementById('clPhone').value = c.phone || '';
   document.getElementById('clEmail').value = c.email || '';
-  document.getElementById('clIdNumber').value = c.id_number || '';
-  document.getElementById('clIdNumber').dataset.ilIdOk = c.id_number || '';
   document.getElementById('clAddress').value  = c.address || '';
   document.getElementById('clFinancing').value  = c.financing_status || '';
   document.getElementById('clShareLevel').value = shareLevelOf(c);
@@ -22066,18 +22066,11 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'השטח המינימלי גדול מהמקסימלי';
     return;
   }
-  // ‏הת.ז. שבכרטיס היא זו שתיכנס להסכם התיווך - טעות הקלדה נתפסת כאן
-  if (!IlId.check(document.getElementById('clIdNumber'))){
-    feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
-    return;
-  }
 
   const payload = {
     full_name: document.getElementById('clName').value.trim(),
     phone:  document.getElementById('clPhone').value.trim() || null,
     email:  document.getElementById('clEmail').value.trim() || null,
-    id_number: document.getElementById('clIdNumber').value.trim() || null,
     address:   document.getElementById('clAddress').value.trim() || null,
     financing_status: document.getElementById('clFinancing').value || null,
     lead_source:      document.getElementById('clLeadSource').value || null,
@@ -22209,7 +22202,7 @@ function fillClientFormFromContact(c){
   document.getElementById('clPhone').value = c.phone || '';
   if (c.email) document.getElementById('clEmail').value = c.email;
   // השם והטלפון מולאו - מה שנשאר הוא מה הוא/היא מחפש/ת
-  document.getElementById('clIdNumber').focus();
+  document.getElementById('clEmail').focus();
 }
 
 /* טופס לקוח/ה חדש/ה, ממולא מאיש קשר אחד. משמש גם את השיתוף אל האפליקציה. */
@@ -30197,9 +30190,18 @@ async function loadAgreements(){
   if (!listEl) return;
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
+  // ‏בלי גוף המסמך ובלי הת.ז. של החותמים: הרשימה לא צריכה אותם, וההסכם
+  // החתום נפתח דרך agreement_open, שרושמת את הפתיחה ביומן הביקורת
+  // (מיגרציה 20270503090000, docs/id-numbers.md). מה-snapshot רק שורת הנכס.
   const { data, error } = await sb
     .from('agreements')
-    .select('*, signers:agreement_signers(*)')
+    .select('id, agent_id, agency_id, kind, status, title, template_version, commission_pct, ' +
+            'commission_amount, commission_note, exclusive_from, exclusive_until, marketing_actions, ' +
+            'language, notes, property_ids, client_ids, view_token, sent_at, viewed_at, signed_at, ' +
+            'cancelled_at, signed_copy_sent_at, signed_copy_error, created_at, updated_at, require_otp, ' +
+            'allow_passport, manager_notified_at, property_line:snapshot->>property_line, ' +
+            'signers:agreement_signers(id, agreement_id, ord, party, full_name, phone, email, ' +
+            'signed_at, method, viewed_at, mail_sent_at, mail_error, self_fill, details_filled_at, client_id)')
     .order('created_at', { ascending:false });
 
   if (error){
@@ -30211,6 +30213,7 @@ async function loadAgreements(){
   }
 
   agreementRows = (data || []).map(a => Object.assign({}, a, {
+    snapshot: { property_line: a.property_line || '' },
     signers: (a.signers || []).slice().sort((x, y) => (x.ord || 0) - (y.ord || 0)),
   }));
 
@@ -30234,7 +30237,7 @@ function agrFillKindFilter(){
 
 function agrSearchBlob(a){
   return [a.title, agrKindLabel(a.kind), a.notes,
-    ...(a.signers || []).map(s => [s.full_name, s.phone, s.email, s.id_number].join(' ')),
+    ...(a.signers || []).map(s => [s.full_name, s.phone, s.email].join(' ')),
     (a.snapshot && a.snapshot.property_line) || '',
   ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -30528,16 +30531,36 @@ function askAgentIdNumber(){
         showToast('המספר ישמש בהסכם הזה אך לא נשמר בפרופיל - עדכנו אותו ב"עדכון פרטי הסוכן/ת"');
       }
       const pf = document.getElementById('pfIdNumber');
-      if (pf){ pf.value = v; pf.dataset.ilIdOk = input.dataset.ilIdOk || v; }
+      if (!error) currentAgent.id_number_last4 = v.replace(/\D/g, '').slice(-4);
+      pfIdNumberShow(currentAgent.id_number_last4);
       done(true);
     });
     input.focus();
   });
 }
 
+/* ‏ת.ז. של הסוכן/ת: מוצפנת במסד (מיגרציה 20270503090000), ולכן הדפדפן מקבל
+   רק 4 ספרות אחרונות (‏id_number_last4). הערך המלא נחוץ רק לגוף ההסכם,
+   ונשלף מ-my_id_number כשהאשף נפתח - לבעל/ת הת.ז. בלבד. docs/id-numbers.md */
+function pfIdNumberShow(last4){
+  const el = document.getElementById('pfIdNumber');
+  if (!el) return;
+  el.value = '';
+  el.dataset.ilIdOk = '';
+  el.placeholder = last4 ? 'שמורה ומוצפנת (מסתיימת ב-' + last4 + ') - להחלפה מקלידים מספר חדש' : '';
+}
+
+async function agrLoadOwnIdNumber(){
+  if (!currentAgent || currentAgent.id_number || !currentAgent.id_number_last4) return;
+  const { data, error } = await sb.rpc('my_id_number');
+  if (error){ console.warn('my_id_number failed', error); return; }
+  if (data) currentAgent.id_number = data;
+}
+
 async function openAgreementWizard(opts){
   opts = opts || {};
   // "לא עכשיו" לא חוסם: האשף נפתח, ושלב החוסרים ישאל שוב לפני השליחה
+  await agrLoadOwnIdNumber();
   if (currentAgent && !currentAgent.id_number) await askAgentIdNumber();
   agrWizard = agrNewWizard();
   agrEl('agrModal').style.display = 'flex';
@@ -30559,10 +30582,12 @@ function agrCloseWizard(){
 async function openAgreementSigning(agreementId){
   const row = agreementRows.find(a => a.id === agreementId);
   if (!row) return;
+  const full = await agrOpenRecord(row.id);
+  if (!full) return;
   agrWizard = agrNewWizard();
   agrWizard.kind = row.kind;
   agrWizard.agreementId = row.id;
-  agrWizard.record = row;
+  agrWizard.record = full;
   agrWizard.step = 4;
   agrEl('agrModal').style.display = 'flex';
   agrRender();
@@ -31041,7 +31066,7 @@ async function agrAddProperty(propertyId, opts){
   if (owner && owner.owner_name && tpl && tpl.side === 'owner' && !w.signers.length){
     w.signers.push({
       uid: agrNextUid(), party:'client', full_name: owner.owner_name,
-      id_number: owner.owner_id_number || '', phone: owner.owner_phone || '',
+      id_number: '', self_fill: true, phone: owner.owner_phone || '',
       email: owner.owner_email || '', address: owner.owner_address || '', client_id: null,
     });
   }
@@ -31282,7 +31307,6 @@ async function agrOwnerPatch(entry){
   fill('owner_name',      signer.full_name.trim());
   fill('owner_phone',     signer.phone.trim());
   fill('owner_email',     signer.email.trim());
-  fill('owner_id_number', signer.id_number.trim());
   fill('owner_address',   signer.address.trim());
   return Object.keys(patch).length ? patch : null;
 }
@@ -31605,7 +31629,7 @@ function agrAddClientSigner(clientId, opts){
   if (agrWizard.signers.some(s => s.client_id === clientId)) return;
   agrWizard.signers.push({
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
-    full_name: c.full_name || '', id_number: c.id_number || '', phone: c.phone || '',
+    full_name: c.full_name || '', id_number: '', self_fill: true, phone: c.phone || '',
     email: c.email || '', address: c.address || '', client_id: c.id,
   });
   if (!(opts && opts.silent)){
@@ -31615,8 +31639,8 @@ function agrAddClientSigner(clientId, opts){
 }
 
 /* חותם/ת מאנשי הקשר של הטלפון. מי שכבר בקובץ הלקוחות נכנס/ת כלקוח/ה מהקובץ
-   (עם ת.ז. והכתובת שכבר שמורות), וכל השאר כחותם/ת ידני/ת עם שם, טלפון
-   ומייל - ות.ז. משלימים בטופס שנפתח. */
+   (עם הכתובת שכבר שמורה), וכל השאר כחותם/ת ידני/ת עם שם, טלפון ומייל.
+   ת.ז. אין כאן בכלל - החותם/ת מקליד/ה אותה בדף החתימה (docs/id-numbers.md). */
 async function agrPickContactSigner(){
   const picked = await window.ContactImport.pick(false);
   const c = picked[0];
@@ -31625,7 +31649,7 @@ async function agrPickContactSigner(){
   if (existing) return agrAddClientSigner(existing.id);
   agrWizard.signers.push({
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
-    full_name: c.name || '', id_number:'', phone: c.phone || '', email: c.email || '',
+    full_name: c.name || '', id_number:'', self_fill: true, phone: c.phone || '', email: c.email || '',
     address:'', client_id:null,
   });
   agrRenderSignerForms();
@@ -31635,7 +31659,7 @@ async function agrPickContactSigner(){
 function agrAddBlankSigner(){
   agrWizard.signers.push({
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
-    full_name:'', id_number:'', phone:'', email:'', address:'', client_id:null,
+    full_name:'', id_number:'', self_fill: true, phone:'', email:'', address:'', client_id:null,
   });
   agrRenderSignerForms();
   agrRenderClientResults();
@@ -31658,9 +31682,6 @@ function agrRenderSignerForms(){
       <div class="agr-grid">
         <div class="agr-field"><label>שם מלא</label>
           <input type="text" data-agr-sf="${esc(s.uid)}" data-key="full_name" value="${esc(s.full_name)}"></div>
-        <div class="agr-field"><label>ת.ז. / ח״פ</label>
-          <input type="text" inputmode="numeric" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="id_number"
-                 data-il-id data-il-id-ok="${esc(s.id_override || '')}" value="${esc(s.id_number)}"></div>
         <div class="agr-field"><label>טלפון</label>
           <input type="tel" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="phone" value="${esc(s.phone)}"></div>
         <div class="agr-field"><label>אימייל (נדרש לחתימה מרחוק)</label>
@@ -31668,14 +31689,9 @@ function agrRenderSignerForms(){
       </div>
       <div class="agr-field" style="margin-top:8px"><label>כתובת (לא חובה)</label>
         <input type="text" data-agr-sf="${esc(s.uid)}" data-key="address" value="${esc(s.address)}"></div>
-      <label style="display:flex;gap:7px;align-items:flex-start;margin-top:9px;font-size:.8rem;cursor:pointer">
-        <input type="checkbox" data-agr-sf="${esc(s.uid)}" data-key="self_fill" style="margin-top:3px"${s.self_fill ? ' checked' : ''}>
-        <span><b>הלקוח/ה ישלים/תשלים שם מלא ות.ז. בקישור לחתימה</b> - כשאין לכם את שם המשפחה או את
-        הת.ז. אפשר לשלוח בלעדיהם. החתימה תיפתח ללקוח/ה רק אחרי שימלא/תמלא אותם, והם ייכנסו להסכם.</span>
-      </label>
+      <p class="imp-note" style="margin:9px 0 0">🔒 <b>הת.ז. מוקלדת על ידי הלקוח/ה בדף החתימה</b>, לפני החתימה -
+        גם בחתימה פנים מול פנים, על המכשיר שלך. היא נכנסת להסכם ואינה נשמרת בכרטיס הלקוח/ה.</p>
     </div>`).join('');
-  // ‏ת.ז. שהגיעה מכרטיס הלקוח/ה ואינה תקינה מסומנת כבר בפתיחה, לא רק ביציאה מהשדה
-  IlId.scan(host);
 }
 
 /* ---------- תקופת הבלעדיות ----------
@@ -31809,22 +31825,8 @@ function agrValidate(){
         scope:'signer', uid:s.uid, key:'full_name',
         label:`שם מלא - חותם/ת ${i + 1}`, value:s.full_name }]);
     }
-    // ‏self_fill: השם המלא והת.ז. מגיעים מהלקוח/ה בקישור, ו-sign.html לא
-    // פותח את החתימה בלעדיהם. מה שהסוכן/ת כן הזין/ה עדיין נבדק למטה.
-    if (s.self_fill && !s.id_number.trim()){ /* יושלם בקישור */ }
-    else if (!s.id_number.trim()){
-      add(`חסרה ת.ז. לחותם/ת ${i + 1} (${who})`, [{
-        scope:'signer', uid:s.uid, key:'id_number',
-        label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true, ilId:true }]);
-    }
-    // ‏ספרת ביקורת שאינה מתאימה היא כמעט תמיד טעות הקלדה, והיא הייתה נכנסת
-    // לגוף ההסכם שננעל. מי שבטוח/ה במספר מסמן/ת "המספר נכון" (s.id_override).
-    else if (!IlId.acceptedValue(s.id_number, s.id_override)){
-      add(`ת.ז. של ${who} אינה תקינה`, [{
-        scope:'signer', uid:s.uid, key:'id_number',
-        label:`ת.ז. / ח״פ - ${who}`, value:s.id_number, inputmode:'numeric', ltr:true,
-        ilId:true, okValue:s.id_override }]);
-    }
+    // הת.ז. של החותמים אינה נבדקת כאן: כל החותמים משלימים אותה בעצמם בדף
+    // החתימה (‏self_fill), ו-sign.html בודק אותה שם (‏IlId). docs/id-numbers.md
   });
 
   const hasPct = w.commission.pct !== '' && Number(w.commission.pct) > 0;
@@ -31871,7 +31873,7 @@ function agrBuildDoc(){
       full_name:s.full_name, id_number:s.id_number, phone:s.phone,
       email:s.email, address:s.address, party:s.party,
       // ‏ord זהה לשורה ב-agreement_signers - לפיו המשבצות נמלאות (fillSignerSlots)
-      ord:i, self_fill:!!s.self_fill,
+      ord:i, self_fill:true,
     })),
     properties: w.properties.map(p => ({ fields:p.fields, notes:p.notes })),
     commission: { pct:w.commission.pct, amount:w.commission.amount, basisSuffix: basis ? basis.suffix : '' },
@@ -31912,7 +31914,6 @@ function agrQuickFillField(f){
 async function agrQuickFill(btn){
   const w = agrWizard;
   let agentIdNumber = null;
-  const clientIdNumbers = new Map();   // client_id → ת.ז. שהוקלדה
 
   // ‏ת.ז. לא תקינה שלא אושרה עוצרת כאן, לפני שהיא נשמרת בכרטיס או בפרופיל
   const badIds = [...agrEl('agrBody').querySelectorAll('[data-agr-qf][data-il-id]')]
@@ -31930,8 +31931,6 @@ async function agrQuickFill(btn){
       const s = w.signers.find(x => x.uid === uid);
       if (!s) return;
       s[key] = v;
-      if (key === 'id_number') s.id_override = el.dataset.ilIdOk || '';
-      if (v && key === 'id_number' && s.client_id) clientIdNumbers.set(s.client_id, v);
     }
     else if (scope === 'commission') w.commission[key] = v;
     else if (scope === 'exclusive')  w.exclusive[key]  = v;
@@ -31953,20 +31952,16 @@ async function agrQuickFill(btn){
     currentAgent.id_number = agentIdNumber;
     const { error } = await sb.from('agency_members')
       .update({ id_number: agentIdNumber }).eq('id', currentAgent.id);
+    if (!error){
+      currentAgent.id_number_last4 = agentIdNumber.replace(/\D/g, '').slice(-4);
+      pfIdNumberShow(currentAgent.id_number_last4);
+    }
     if (error){
       console.warn('שמירת ת.ז. בפרופיל הסוכן/ת נכשלה:', error);
       showToast('הת.ז. תשמש בהסכם הזה אך לא נשמרה בפרופיל - עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
     }
   }
 
-  // ‏best-effort, ומאותה סיבה: ההסכם ממשיך גם אם כרטיס הלקוח/ה לא עודכן
-  for (const [clientId, idNumber] of clientIdNumbers){
-    const { error } = await sb.from('agent_clients')
-      .update({ id_number: idNumber }).eq('id', clientId);
-    if (error){ console.warn('שמירת ת.ז. בכרטיס הלקוח/ה נכשלה:', error); continue; }
-    const row = (clientRows || []).find(c => c.id === clientId);
-    if (row) row.id_number = idNumber;
-  }
 
   btn.disabled = false; btn.textContent = original;
   agrRender();
@@ -32102,7 +32097,7 @@ async function agrSaveAndGoSign(btn){
       address: s.address.trim() || null,
       // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
       // על עמודה שעוד לא קיימת (20270223090000)
-      ...(s.self_fill ? { self_fill: true } : {}),
+      self_fill: true,
       // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
       // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
       ...(s.client_id ? { client_id: s.client_id } : {}),
@@ -32132,14 +32127,23 @@ async function agrSaveAndGoSign(btn){
   }
 }
 
+/* ההסכם המלא - גוף המסמך והחותמים - דרך agreement_open. פתיחה של הסכם
+   חתום נרשמת שם ביומן הביקורת. ‏null כשנכשל, אחרי הודעה. */
+async function agrOpenRecord(agreementId){
+  const { data, error } = await sb.rpc('agreement_open', { p_id: agreementId });
+  if (error || !data){
+    console.error('agreement_open failed', error);
+    showToast('טעינת ההסכם נכשלה: ' + heErr(error));
+    return null;
+  }
+  data.signers = (data.signers || []).slice().sort((a, b) => (a.ord || 0) - (b.ord || 0));
+  return data;
+}
+
 async function agrRefreshWizardRecord(){
   if (!agrWizard || !agrWizard.agreementId) return;
-  const { data } = await sb.from('agreements')
-    .select('*, signers:agreement_signers(*)').eq('id', agrWizard.agreementId).maybeSingle();
-  if (data){
-    data.signers = (data.signers || []).slice().sort((a, b) => (a.ord || 0) - (b.ord || 0));
-    agrWizard.record = data;
-  }
+  const data = await agrOpenRecord(agrWizard.agreementId);
+  if (data && agrWizard) agrWizard.record = data;
 }
 
 /* ---------- שלב 4: חתימה ---------- */
@@ -32185,9 +32189,10 @@ function agrRenderStepSign(){
       <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל'}${
         s.mail_sent_at ? ' · קישור נשלח ב-' + esc(hebDateTime(s.mail_sent_at)) : ''}${
         s.mail_error ? ' · שליחה נכשלה' : ''}</div>
-      <p class="imp-note" style="margin:8px 0">ישלים/תשלים שם מלא ות.ז. בקישור, ואז יחתום/תחתום שם.
-        לחתימה פנים מול פנים - פתחו את הקישור (🔗) במכשיר שלכם.</p>
+      <p class="imp-note" style="margin:8px 0">הלקוח/ה מקליד/ה בעצמו/ה שם מלא ות.ז. בדף החתימה, ואז חותם/ת שם.
+        הת.ז. לא נשמרת בכרטיס הלקוח/ה - רק בהסכם החתום.</p>
       <div class="agr-signer-acts">
+        <button type="button" class="btn btn-gold" data-agr="open-sign" data-signer="${esc(s.id)}">✍️ חתימה פנים מול פנים במכשיר הזה</button>
         ${s.email ? `<button type="button" class="btn btn-ghost" data-agr="mail-sign" data-signer="${esc(s.id)}">✉️ שליחה במייל</button>` : ''}
         ${wa ? `<button type="button" class="btn btn-share" data-agr="wa-sign" data-signer="${esc(s.id)}">💬 וואטסאפ</button>` : ''}
         <button type="button" class="btn btn-ghost" data-agr="copy-sign" data-signer="${esc(s.id)}">🔗 העתקת קישור</button>
@@ -32444,6 +32449,13 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   }
   if (act === 'wa-sign') return agrWhatsappSign(btn.dataset.signer);
   if (act === 'copy-sign') return agrCopySignLink(btn.dataset.signer);
+  if (act === 'open-sign'){
+    // פנים מול פנים: דף החתימה במכשיר של הסוכן/ת, מחובר/ת - בלי שער אימות
+    // (‏isOwningAgentSession), והלקוח/ה מקליד/ה שם את הת.ז.
+    const sgn = agrSignerById(btn.dataset.signer);
+    if (sgn) window.open(agrSignUrl(sgn), '_blank', 'noopener');
+    return;
+  }
   if (act === 'send-all'){
     await agrSendLinks(agrWizard.agreementId, null, btn);
     return agrRender();

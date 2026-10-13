@@ -1,6 +1,6 @@
 ---
 name: agreement-signing
-description: עבודה על החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, ה-Edge Function agreement-sign, האימות לפני הצגת ההסכם (הודעת וואטסאפ נכנסת "אימות חתימה", קוד במייל, תבנית AUTHENTICATION עתידית), חתימה פנים מול פנים לפי ה-JWT של הסוכן/ת, prepare_agreement בבוט, והנעילה של גוף המסמך. Use when a signer is stuck on the verification screen, when "הקישור אינו תקין" appears on a valid link, when touching sign.html / agreement-sign / agreement-wa-verify.ts / whatsapp-otp.ts / prepare_agreement, when adding a verification channel, when changing how the WhatsApp webhook routes inbound messages, or when touching an ID-number (ת.ז.) field in a signing form, the agreement wizard, the client card, the agent profile or office opening (assets/il-id.js, "המספר נכון - לאשר בכל זאת").
+description: עבודה על החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, ה-Edge Function agreement-sign, האימות לפני הצגת ההסכם (הודעת וואטסאפ נכנסת "אימות חתימה", קוד במייל, תבנית AUTHENTICATION עתידית), חתימה פנים מול פנים לפי ה-JWT של הסוכן/ת, prepare_agreement בבוט, והנעילה של גוף המסמך. Use when a signer is stuck on the verification screen, when "הקישור אינו תקין" appears on a valid link, when touching sign.html / agreement-sign / agreement-wa-verify.ts / whatsapp-otp.ts / prepare_agreement, when adding a verification channel, when changing how the WhatsApp webhook routes inbound messages, or when touching an ID-number (ת.ז.) field in a signing form, the agreement wizard, the client card, the agent profile or office opening (assets/il-id.js, "המספר נכון - לאשר בכל זאת"). Also when anything reads or writes an ID number: agents' IDs are encrypted (id_number_enc, my_id_number / member_id_number), clients' IDs are never stored (self_fill only, typed on the signing page), and a signed agreement opens only through agreement_open, which logs the view.
 ---
 
 # החתמת לקוחות על הסכם
@@ -84,6 +84,21 @@ description: עבודה על החתמת לקוחות על הסכמי תיווך 
 1.10.2026 כל תקלה הוצגה כ"הועתק חלקית" על קישור שנפתח דקה קודם. מי
 שמוסיף שאילתה שם — בודק `error` לפני `data`.
 
+## ת.ז.: של לקוחות לא נשמרת, של מתווכים מוצפנת
+
+מ-13.10.2026 (‏`docs/id-numbers.md`, מיגרציה `20270503090000`):
+
+- **כל חותם/ת הוא/היא `self_fill`** ומקליד/ה ת.ז. בעצמו/ה ב-`sign.html`. אין
+  שדה ת.ז. בטופס החותם/ת באשף, בכרטיס הלקוח/ה או בבוט. טריגר
+  `a_agreement_signers_self_fill` אוכף את זה גם מול CRM ישן במטמון.
+- **ת.ז. של מתווך/ת**: `id_number` נכתבת ומתאפסת (טריגר מצפין ל-
+  `id_number_enc`). הדפדפן מקבל רק `id_number_last4`, והאשף שולף את
+  הערך המלא מ-`my_id_number()`; הבוט מ-`member_id_number()`. מי שקורא/ת
+  `agency_members.id_number` מקבל/ת `null` - **ולא שגיאה**, וזה הכשל השקט.
+- **רשימת ההסכמים לא מורידה את גוף המסמך** - הוא מגיע מ-`agreement_open`,
+  שרושמת פתיחת הסכם חתום ביומן הביקורת. מקום חדש שצריך את `document_html`
+  של הסכם קיים - דרך `agrOpenRecord`, לא `select('*')`.
+
 ## ת.ז. נבדקת בזמן ההזנה - ותמיד עם עקיפה
 
 כל שדה ת.ז. שמזין הסכם נושא `data-il-id` ונבדק מול ספרת הביקורת ב-
@@ -124,10 +139,9 @@ description: עבודה על החתמת לקוחות על הסכמי תיווך 
   הוא מוסתר עד `details_filled_at`, ו-`sign` בשרת דוחה בלי שם בשתי מילים
   ות.ז. (‏`details_name`, ‏`details_id`, ‏`details_id_invalid`).
 - `self_fill` נשלח ב-insert **רק כשהוא true** - ה-CRM מתעדכן לפני המיגרציה.
-- **מה שהחותם/ת מילא/ה חוזר לכרטיס הלקוח/ה** (`saveToClientCard` ב-`sign`), לפי
-  `agreement_signers.client_id`. מקום חדש שיוצר חותמים מקובץ הלקוחות כותב את
-  `client_id` - אחרת הכתיבה נופלת להתאמה לפי נייד/מייל, ובלי התאמה אחת לא
-  נכתב כלום. שם נכתב רק כשהוא מרחיב את הקיים - לא לדרוס כינוי של הסוכן/ת.
+- **רק השם המלא חוזר לכרטיס הלקוח/ה** (`saveToClientCard` ב-`sign`), לפי
+  `agreement_signers.client_id`. **הת.ז. לא חוזרת** - לא שומרים ת.ז. של
+  לקוחות, וטריגר במסד מאפס אותה בכרטיס. שם נכתב רק כשהוא מרחיב את הקיים.
 
 ## חותם/ת בלי מייל - וואטסאפ הוא הדרך, לא "אי אפשר"
 

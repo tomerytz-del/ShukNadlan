@@ -7418,13 +7418,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <!-- מוצג רק בדפדפן שיש בו חלון בחירה של אנשי קשר (כרום באנדרואיד) -->
               <button type="button" class="btn btn-ghost" id="clPickContact" style="display:none;padding:6px 12px;font-size:.8rem">📇 מאנשי הקשר</button>
             </div>
-            <div class="cf-grid cf-grid-3">
+            <div class="cf-grid cf-grid-2">
               <div class="field"><label for="clName">שם מלא <span class="cf-req">*</span></label>
                 <input type="text" id="clName" required autocomplete="off" placeholder="לדוגמה: משפחת כהן"></div>
               <div class="field"><label for="clPhone">טלפון ראשי <span class="cf-req">*</span></label>
                 <input type="tel" id="clPhone" required dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
-              <div class="field"><label for="clIdNumber">ת.ז. / ח״פ</label>
-                <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="להפקת הסכם תיווך" data-il-id></div>
+              <!-- ‏אין כאן ת.ז.: לא שומרים ת.ז. של לקוחות (docs/id-numbers.md). הלקוח/ה
+                   מקליד/ה אותה בדף החתימה, והיא נשמרת רק בהסכם החתום. -->
             </div>
             <div class="cf-grid cf-grid-3">
               <div class="field"><label for="clEmail">דוא״ל</label>

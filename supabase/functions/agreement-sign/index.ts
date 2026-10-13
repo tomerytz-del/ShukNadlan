@@ -381,13 +381,16 @@ function nameExtends(oldName: unknown, newName: string): boolean {
 async function saveToClientCard(signer: any, agreement: { id: string; agent_id: string },
   filled: { id_number: string | null; id_kind: string; full_name: string | null }) {
   try {
-    if (!filled.id_number && !filled.full_name) return;
-    type Card = { id: string; full_name: string | null; id_number: string | null; phone?: string | null; email?: string | null };
+    // ‏ת.ז. אינה חוזרת לכרטיס: לא שומרים ת.ז. של לקוחות (מיגרציה
+    // 20270503090000, docs/id-numbers.md). היא נשארת רק בהסכם החתום. מה
+    // שחוזר הוא השם המלא, כשהוא מרחיב את מה שהסוכן/ת כתב/ה.
+    if (!filled.full_name) return;
+    type Card = { id: string; full_name: string | null; phone?: string | null; email?: string | null };
     let card: Card | null = null;
 
     if (signer.client_id) {
       const { data } = await db.from("agent_clients")
-        .select("id, full_name, id_number")
+        .select("id, full_name")
         .eq("id", signer.client_id).eq("agent_id", agreement.agent_id).maybeSingle();
       card = (data as Card | null) ?? null;
     } else {
@@ -395,7 +398,7 @@ async function saveToClientCard(signer: any, agreement: { id: string; agent_id: 
       const ids = ((agr?.client_ids as string[] | null) ?? []).filter(Boolean);
       if (!ids.length) return;
       const { data: cards } = await db.from("agent_clients")
-        .select("id, full_name, id_number, phone, email")
+        .select("id, full_name, phone, email")
         .in("id", ids).eq("agent_id", agreement.agent_id);
       const ph = phoneKey(signer.phone);
       const em = String(signer.email ?? "").trim().toLowerCase();
@@ -406,11 +409,6 @@ async function saveToClientCard(signer: any, agreement: { id: string; agent_id: 
     if (!card) return;
 
     const patch: Record<string, string> = {};
-    const hasId = !!String(card.id_number ?? "").trim();
-    if (filled.id_number && filled.id_number !== card.id_number &&
-        (!hasId || (signer.self_fill === true && filled.id_kind === "id_card"))) {
-      patch.id_number = filled.id_number;
-    }
     if (filled.full_name && nameExtends(card.full_name, filled.full_name)) {
       patch.full_name = filled.full_name;
     }

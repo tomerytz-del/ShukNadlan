@@ -26,7 +26,7 @@ description: עבודה על אימות רישיון התיווך בריפו ש�
 | שכבה | איפה | מה |
 | --- | --- | --- |
 | הבדיקה | `_shared/broker-license-gate.ts` | `checkBrokerLicense` (מטמון, ערעור מאושר, המאגר), `licenseSummary` לדפדפן |
-| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים**. מקבלים `manager_phone` (נשמר בעדכון נפרד, כשל אינו מפיל) ו-`id_number` ברשות - הטפסים כבר לא שולחים אותו, הת.ז. נשאלת בהסכם הראשון (הסקיל `agreement-signing`) |
+| פתיחת משרד | `agency-signup`, `create-own-agency` | בודקים, כותבים על הכרטיס, מחזירים `license` - **לא חוסמים**. מקבלים `manager_phone` (נשמר בעדכון נפרד, כשל אינו מפיל) ו-`id_number` ברשות - הטפסים כבר לא שולחים אותו, הת.ז. נשאלת בהסכם הראשון (הסקיל `agreement-signing`). כשהיא מגיעה, טריגר במסד מצפין אותה ומאפס את `id_number` (‏`docs/id-numbers.md`) |
 | כניסת סוכן/ת | `join-agency` | `licenseGate` דורש מספר בלבד. `license_status`, `set_license` |
 | ערעור | `broker-license-appeal` | `submit` (אנונימי), `list`/`decide` (מנהל/ת פלטפורמה) |
 | המודעות | טריגר `properties_a_license_hold` | `active` של סוכן/ת לא תקין/ה → `unpublished` + `license_hold_at` |
