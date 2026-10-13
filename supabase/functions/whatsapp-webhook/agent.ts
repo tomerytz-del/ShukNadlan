@@ -954,6 +954,24 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "remove_from_showcase",
+    description:
+      "מוריד נכסים מהמיניסייט של לקוח/ה - הם נעלמים מהעמוד של הלקוח/ה מיד. לפי item_ids " +
+      "(מ-showcase_status), לפי property_ids, או all_disliked = כל מה שהלקוח/ה סימן/ה \"לא בשבילי\". " +
+      "בלי אף אחד מהם - מחזיר את רשימת הנכסים בעמוד (items) כדי לבחור. ההסרה הפיכה: " +
+      "create_showcase עם אותו property_id מחזיר את הנכס.",
+    input_schema: {
+      type: "object",
+      properties: {
+        client_id: { type: "string" },
+        item_ids: { type: "array", items: { type: "string" }, description: "item_id מתוך items של showcase_status." },
+        property_ids: { type: "array", items: { type: "string" } },
+        all_disliked: { type: "boolean", description: "true מוריד את כל מה שהלקוח/ה פסל/ה." },
+      },
+      required: ["client_id"],
+    },
+  },
+  {
     name: "list_match_alerts",
     description:
       "התראות ההתאמה שנפתחו מעצמן - נכס חדש (או נכס שהמחיר שלו ירד) שהתאים " +
@@ -4480,11 +4498,72 @@ async function toolShowcaseStatus(ctx: ToolContext, input: Record<string, unknow
       reasons: ((r.reaction_reasons as string[]) || []).map((k) => SHOWCASE_REASON_LABELS[k] || k),
     })),
     pending: rows.filter((r) => !r.reaction).length,
+    // לזיהוי נכס לפי שם ב-remove_from_showcase
+    items: rows.map((r) => ({ item_id: r.id, property: label(r), reaction: r.reaction || null })),
     waiting_questions: waiting,
     meetings: (meets || []).map((m) => ({ starts_at: m.starts_at, status: m.status, note: m.note })),
     coop_to_arrange: rows
       .filter((r) => r.source === "shared" && r.reaction === "liked" && r.coop_status !== "agreed")
       .map((r) => ({ property: label(r), status: r.coop_status || "needed", listing_agent: ownerBy.get(String(r.property_id)) || null })),
+  };
+}
+
+/**
+ * הסרת נכסים מהמיניסייט - אותה פעולה של 🗑 בפאנל ב-CRM (‏`removed_at`). רק
+ * במיניסייט הפעיל של הסוכן/ת (‏activeShowcase מסנן לפי agent_id, כי כאן
+ * service_role ואין RLS). הלקוח/ה אינו/ה מקבל/ת הודעה; הנכס פשוט יורד מהעמוד.
+ */
+async function toolRemoveFromShowcase(ctx: ToolContext, input: Record<string, unknown>) {
+  const clientId = String(input.client_id || "");
+  const client = await ownedClient(ctx, clientId);
+  if (!client) return { ok: false, error: SHOWCASE_ERRORS.client_not_found };
+  const sc = await activeShowcase(ctx, clientId);
+  ctx.conv.last_client_id = clientId;
+  if (!sc) return { ok: false, error: `אין ל${client.full_name} מיניסייט פעיל.` };
+
+  const { data, error } = await ctx.supabase
+    .from("client_showcase_items")
+    .select("id, property_id, reaction, properties(property_type, street, city)")
+    .eq("showcase_id", sc.id)
+    .is("removed_at", null);
+  if (error) return { ok: false, error: error.message };
+  const rows = (data || []) as Array<Record<string, unknown>>;
+  const label = (r: Record<string, unknown>) => {
+    // deno-lint-ignore no-explicit-any
+    const p = (Array.isArray(r.properties) ? r.properties[0] : r.properties) as any || {};
+    return [p.property_type || "נכס", [p.street, p.city].filter(Boolean).join(", ")].filter(Boolean).join(" ב");
+  };
+  const list = () => rows.map((r) => ({ item_id: r.id, property: label(r), reaction: r.reaction || null }));
+
+  const strs = (v: unknown) => (Array.isArray(v) ? v.map(String).filter(Boolean) : []);
+  const itemIds = new Set(strs(input.item_ids));
+  const propIds = new Set(strs(input.property_ids));
+  const allDisliked = input.all_disliked === true;
+  if (!itemIds.size && !propIds.size && !allDisliked) {
+    return { ok: false, error: "לא צוין מה להסיר. בחר/י מהרשימה.", items: list() };
+  }
+
+  const target = rows.filter((r) =>
+    itemIds.has(String(r.id)) || propIds.has(String(r.property_id)) ||
+    (allDisliked && r.reaction === "disliked")
+  );
+  if (!target.length) {
+    return { ok: false, error: "אף אחד מהנכסים שצוינו אינו בעמוד כרגע.", items: list() };
+  }
+
+  const { error: upErr } = await ctx.supabase
+    .from("client_showcase_items")
+    .update({ removed_at: new Date().toISOString() })
+    .eq("showcase_id", sc.id)
+    .in("id", target.map((r) => String(r.id)));
+  if (upErr) return { ok: false, error: upErr.message };
+
+  return {
+    ok: true,
+    client_name: client.full_name,
+    removed: target.map(label),
+    removed_property_ids: target.map((r) => String(r.property_id)),
+    remaining: rows.length - target.length,
   };
 }
 
@@ -5920,6 +5999,7 @@ async function runTool(
       case "client_matches": return await toolClientMatches(ctx, input);
       case "create_showcase": return await toolCreateShowcase(ctx, input);
       case "showcase_status": return await toolShowcaseStatus(ctx, input);
+      case "remove_from_showcase": return await toolRemoveFromShowcase(ctx, input);
       case "property_matches": return await toolPropertyMatches(ctx, input);
       case "list_match_alerts": return await toolListMatchAlerts(ctx, input);
       // הסכמים
@@ -6135,6 +6215,10 @@ const SYSTEM_STATIC: string = (() => {
       "**אל תאמרי שנשלח ללקוח/ה** - הסוכן/ת שולח/ת.",
     "- \"מה <שם> אהב/ה\", \"<שם> ענה/תה?\", \"יש בקשת סיור?\" = showcase_status. נכס שת\"פ " +
       "ב-coop_to_arrange - הזכירי לתאם עם listing_agent (שם וטלפון) לפני הסיור.",
+    "- \"תורידי/תסירי את <נכס> מהמיניסייט של <שם>\" = remove_from_showcase. נכס לפי תיאור " +
+      "(רחוב, סוג) - קודם showcase_status ומ-items את ה-item_id. אם יותר מנכס אחד מתאים לתיאור - " +
+      "שאלי איזה. \"תורידי את מה ש<שם> לא אהב/ה\" = all_disliked. אחרי ההסרה - משפט אחד: מה " +
+      "ירד וכמה נשארו בעמוד. אל תסירי בלי בקשה מפורשת של הסוכן/ת.",
     "",
     "יומן שיחות (מספר הטלפון של שוק נדל\"ן):",
     "- \"מי התקשר אליי היום\" = list_calls עם since_hours 24. \"מי לא נענה\" = status missed. " +
