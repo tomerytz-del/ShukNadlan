@@ -49,7 +49,7 @@ jobs:
     steps:
       # ההיסטוריה המלאה דרושה כדי להשוות מול הקומיט הקודם ולדעת מה השתנה
       - name: משיכת הקוד
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -121,7 +121,7 @@ jobs:
           echo "לכל הפונקציות יש הגדרת verify_jwt מפורשת."
 
       - name: התקנת Supabase CLI
-        uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         # גרסה קבועה ולא latest: ‏latest נפתר דרך ה-API של GitHub בלי אימות,
         # ובמכונות המשותפות של Actions הוא נופל על "rate limit exceeded" —
         # כך נכשלה פריסת #396 (24.9.2026) לפני שפונקציה אחת נפרסה, בזמן
