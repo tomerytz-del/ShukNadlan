@@ -224,6 +224,14 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 
 ## לפני הדחיפה
 
+### התראה על פריט שהוסר מהעבודה יורדת איתו
+
+לקוח/ה שנמחק/ה: ההתראות שלו/ה נמחקות (`agent_client_delete_cleanup`). לקוח/ה
+שנסגר/ה: התראות `client_match` שלו/ה נמחקות. ליד שארוכב: ההתראות שלו מסומנות
+`read` (‏`lead_archive_finalize`), ולכן גם `notification_push_claim` לא שולח
+אותן. סוג התראה חדש עם `related_client_id` / `related_lead_id` נכנס לזה מעצמו;
+התראה שמזהה לקוח/ה רק בטקסט - לא. ‏`docs/client-matching.md`, ‏`docs/lead-card.md`.
+
 ```sh
 node --check assets/crm.js
 python3 scripts/check_migration_versions.py --base-ref origin/main

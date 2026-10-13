@@ -1,6 +1,6 @@
 ---
 name: lead-card
-description: עבודה על כרטיס הליד בקטגוריית "לידים" ב-CRM של שוק נדל״ן - buildLeadCard / buildLeadWork / buildLeadTab ב-assets/crm.js, שלושת האזורים (מי ומתי, מה מחפש/ת, פעולות) וה-container query ב-crm.html, ליד נעול מול פתוח (המיסוך ב-leads_masked), טריות ("חדש", "התקבל לפני"), הקשר הנכס מ-myPropertyRows, הודעת הוואטסאפ המוכנה, ושלב הטיפול וההערה בטבלה lead_work. Use when adding a field or a button to the lead card, when a locked lead shows something it should not (or hides what should sell it), when changing the lead stages, when the stage or note does not save, when the card looks wrong on desktop or phone, or when adding a new way to contact a lead from the card.
+description: עבודה על כרטיס הליד בקטגוריית "לידים" ב-CRM של שוק נדל״ן - buildLeadCard / buildLeadWork / buildLeadTab ב-assets/crm.js, שלושת האזורים (מי ומתי, מה מחפש/ת, פעולות) וה-container query ב-crm.html, ליד נעול מול פתוח (המיסוך ב-leads_masked), טריות ("חדש", "התקבל לפני"), הקשר הנכס מ-myPropertyRows, הודעת הוואטסאפ המוכנה, ושלב הטיפול וההערה בטבלה lead_work. Use when adding a field or a button to the lead card, when a locked lead shows something it should not (or hides what should sell it), when changing the lead stages, when the stage or note does not save, when the card looks wrong on desktop or phone, or when adding a new way to contact a lead from the card. Also when touching the lead archive (archiveLead, askLeadArchiveStage, lead_archives, lead_archive_finalize) or grouping leads by visitor (lead_visitor_groups, buildLeadGroupTab) - e.g. an archived lead still sends reminders, or one visitor shows up as several rows.
 ---
 
 # כרטיס הליד
@@ -39,6 +39,22 @@ description: עבודה על כרטיס הליד בקטגוריית "לידים"
 
 5. **טקסט שמוצג - בלי מקף ארוך**, כולל `title`, `placeholder` והודעת
    הוואטסאפ ב-`leadWhatsAppText()`. ‏`python scripts/check_long_dash.py`.
+
+## ארכיון וקיבוץ לפי פונה
+
+- **ליד בארכיון הוא ליד שנסגר.** השלב שלו תמיד `not_relevant` או `won`
+  (`LEAD_FINAL_STAGES`). ליד פתוח נשאל לפני הארכוב (`askLeadArchiveStage`);
+  נעול אינו נשאל. המסד הוא הרשת: `lead_archive_finalize` (טריגר על
+  `lead_archives`) מסיים את השלב, מבטל את המשימה האוטומטית `lead_followup`
+  ומסמן את ההתראות של הליד כנקראו, ו-`lead_work_guard_archived` חוסם שלב פתוח
+  לליד בארכיון. פתח חדש שמארכב ליד כותב ל-`lead_archives` ולא עוקף אותה - אחרת
+  הליד ממשיך לתזכר. פגישה ידנית ביומן **אינה** מבוטלת, בכוונה.
+- **קיבוץ לפי טלפון במסד, בלי לחשוף אותו.** ‏`lead_visitor_groups()` מחזירה
+  לכל ליד את מזהה הליד הראשון של אותו/ה פונה. אל תקבצו בדפדפן לפי
+  `display_phone` - בליד נעול הוא ממוסך, ושני טלפונים שונים נראים זהים.
+  ‏`expandedLeadIds` מחזיק גם את מפתחות הקבוצות (`'v:' + visitor_id`), ו-
+  `openLeadFromParam` פותח את הקבוצה של הליד.
+- הפרטים: `docs/lead-card.md`, "לידים של אותו/ה פונה" ו"ארכיון = ליד שנסגר".
 
 ## הוספת שדה לכרטיס
 
