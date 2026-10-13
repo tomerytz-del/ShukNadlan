@@ -1138,6 +1138,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lead-tab.kind-buyer{border-inline-start-color:var(--teal)}
   .lead-tab.kind-shared{border-inline-start-color:#2A5B36}
   .lead-tab.is-archived{border-inline-start-color:#cbd5e1}
+  /* לידים של אותו/ה פונה: שורה אחת, ובפתיחה שורות הלידים עצמם (buildLeadGroupTab) */
+  .lead-group-body{padding:4px 0 2px}
+  .lead-group-note{font-size:.85rem;color:var(--ink-soft);margin:0 2px 8px}
+  .lead-group-body .prop-tabs{gap:8px}
   /* ---------- טאב התראת התאמה ----------
      הפס מסמן את מה שטרם נצפה — אותה החלטה שכבר עמדה מאחורי
      `.alert-card.is-new`, והיא פשוט עברה לשורה. בשורה נשאר רק הפס והרקע
@@ -10003,6 +10007,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="pm-actions">
       <button type="button" class="btn btn-ghost" id="shareLevelCancel">ביטול</button>
       <button type="button" class="btn btn-gold" id="shareLevelRun">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ארכוב ליד: ליד בארכיון הוא ליד שנסגר, ולכן לפני הארכוב בוחרים שלב סופי.
+     הבנייה ב-askLeadArchiveStage() ב-assets/crm.js; הרשת במסד ב-lead_archive_finalize(). -->
+<div class="pm-overlay" id="leadArchiveModal" role="dialog" aria-modal="true" aria-labelledby="leadArchiveTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="leadArchiveTitle">לאיזה שלב להעביר את הליד?</div>
+    <p class="exp-note" id="leadArchiveWhat" style="font-weight:600"></p>
+    <div class="share-level-opts" id="leadArchiveOpts" role="radiogroup" aria-labelledby="leadArchiveTitle"></div>
+    <p class="exp-note">ליד בארכיון לא מקפיץ תזכורות או התראות. אפשר להחזיר אותו מהארכיון בכל רגע.</p>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="leadArchiveCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="leadArchiveRun">העברה לארכיון</button>
     </div>
   </div>
 </div>

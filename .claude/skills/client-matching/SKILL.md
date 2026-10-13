@@ -1,6 +1,6 @@
 ---
 name: client-matching
-description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more. Also when touching share_level (private / office / network) on properties or clients, set_share_level, or the match digest (client_match_digest_run, match_digest, match_digest_time_*) - e.g. an agent says they get no match notifications, got one too many, or a private property shows up for colleagues.
+description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more. Also when touching share_level (private / office / network) on properties or clients, set_share_level, or the match digest (client_match_digest_run, match_digest, match_digest_time_*) - e.g. an agent says they get no match notifications, got one too many, or a private property shows up for colleagues. Also when deleting or closing a client (agent_client_delete_cleanup / agent_client_closed_cleanup), or when an agent still gets bell notifications or reminders about a client they deleted.
 ---
 
 # קובץ הלקוחות ומנוע ההתאמות
@@ -148,6 +148,17 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
   לבד - אחרת הרמה אומרת "רשת" ושום משרד לא קיבל את הנכס.
 - **לקוח/ה** - הרמה קובעת רק מי מהמפרסמים שומע/ת בסיכום. פרטי הלקוח/ה לא
   נחשפים באף רמה, ו-RLS של `agent_clients` לא משתנה בגללה.
+
+## מחיקה וסגירה של לקוח/ה - מה נמחק איתו/ה
+
+‏`notifications.related_client_id` ו-`agent_agenda_items.client_id` הם
+`on delete set null`, ולכן לבד הם משאירים התראה בלי קישור ותזכורת שמצלצלת על
+מי שכבר לא בקובץ. ‏`agent_client_delete_cleanup` (לפני מחיקה) מוחק את ההתראות
+של הלקוח/ה ושל פריטי היומן שלו/ה, ואת פריטי היומן עצמם - **מחיקה ולא ביטול**,
+כי ביטול פגישה עם `client_notify` שולח ללקוח/ה הודעת ביטול. סגירה
+(`status = 'closed'`) מוחקת רק את התראות `client_match` (`agent_client_closed_cleanup`).
+טבלה חדשה שמפנה ל-`agent_clients` ומייצרת התראה או תזכורת נכנסת לפונקציית
+המחיקה באותו PR. הסכמים **אינם** נמחקים. ‏`docs/client-matching.md`.
 
 ## ‏5. בדיקה
 
