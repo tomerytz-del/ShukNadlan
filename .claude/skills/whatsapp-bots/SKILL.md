@@ -147,12 +147,18 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 ו-`clientNeeds()` כותבת את הצד במפורש ("מחפש/ת לקנות", לא "למכירה" - מודל קרא
 בזה מוכר/ת). הפרטים: הסקיל `client-matching`.
 
-## המיניסייט מהשיחה: `create_showcase` ו-`showcase_status`
+## המיניסייט מהשיחה: `create_showcase`, ‏`showcase_status` ו-`remove_from_showcase`
 
 אחרי `client_matches` גבריאלה **מציעה** מיניסייט (לא פותחת בלי "כן"). ‏`create_showcase`
 מחזיר `wa_client_url` - קישור לצ'אט של הלקוח/ה עם הודעה מוכנה - **והבוט אינו שולח
 ללקוח/ה**. מי שמשנה את ההוראות ב-`SYSTEM_STATIC` שומר על שני אלה: ההצעה אחרי ההתאמות,
 והאיסור לומר "שלחתי". פרטי המתווך/ת המקורי/ת ב-`showcase_status` הם לסוכן/ת בלבד.
+
+‏`remove_from_showcase` מסמן `removed_at` (כמו 🗑 ב-CRM) ורץ ב-service_role, ולכן
+**הסינון לפי סוכן/ת הוא בקוד**: ‏`activeShowcase` (‏`agent_id`) ו-`.eq("showcase_id")`
+בעדכון - מי שמוריד אחד מהם מאפשר להסיר מעמוד של סוכן/ת אחר/ת. נכס לפי תיאור מזוהה
+דרך `items` של `showcase_status` (‏`item_id`); כשיותר מאחד מתאים - שואלים. זה כלי
+כתיבה, ולכן אינו ב-`EMAIL_TOOLS` ולא ב-`MEDIA_TOOLS`.
 הפרטים: הסקיל `client-showcase` ו-`docs/client-showcase.md`.
 
 ## קישור "שליחה בוואטסאפ" מהבוט - קצר, לעולם לא `wa.me/?text=` עם ההודעה
