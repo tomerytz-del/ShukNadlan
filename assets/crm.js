@@ -9295,8 +9295,45 @@ async function loadSecurityAudit(){
     + '</tbody></table></div>';
 }
 
+/* ---------- יומן הגישה למידע (תקנה 10) ----------
+   ‏data_access_log מתמלא כל שעה מיומני Supabase (‏access_log.yml). כאן סיכום
+   לפי משתמש/ת ויום דרך data_access_summary - הסיכום במסד, כי שבוע הוא
+   עשרות אלפי שורות ו-PostgREST חותך ב-1,000. ומעליו מצב הסנכרון, כי יומן
+   שהפסיק להתמלא נראה כמו שבוע שקט. docs/data-access-log.md */
+async function loadDataAccess(){
+  const host = document.getElementById('dataAccessList');
+  const syncHost = document.getElementById('dataAccessSync');
+  if (!host) return;
+  const [{ data, error }, { data: sync }] = await Promise.all([
+    sb.rpc('data_access_summary', { p_days: 7 }),
+    sb.from('data_access_log_sync').select('synced_until, last_run_at, last_error').maybeSingle(),
+  ]);
+  if (syncHost){
+    const fmt = t => new Date(t).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+    syncHost.textContent = !sync || !sync.synced_until
+      ? 'הסנכרון עוד לא רץ.'
+      : 'מעודכן עד ' + fmt(sync.synced_until) + (sync.last_error ? ' · הריצה האחרונה נכשלה' : '');
+  }
+  if (error){ host.innerHTML = '<div class="empty-state">' + esc(heErr(error)) + '</div>'; return; }
+  const rows = data || [];
+  if (!rows.length){ host.innerHTML = '<div class="empty-state">אין עדיין רשומות גישה.</div>'; return; }
+  const who = r => r.display_name || (r.user_id ? ('…' + String(r.user_id).slice(-6)) : 'לא מחובר/ת');
+  host.innerHTML = '<div class="adm-table-wrap"><table class="adm-table audit-table"><thead><tr>'
+    + '<th>יום</th><th>מי</th><th>בקשות</th><th>נדחו</th><th>טבלאות</th><th>כתובות IP</th>'
+    + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>'
+      + '<td>' + esc(new Date(r.day).toLocaleDateString('he-IL')) + '</td>'
+      + '<td>' + esc(who(r)) + '</td>'
+      + '<td>' + esc(r.requests) + '</td>'
+      + '<td>' + esc(r.denied || '') + '</td>'
+      + '<td>' + esc(r.paths) + '</td>'
+      + '<td>' + esc(r.ips) + '</td>'
+      + '</tr>').join('')
+    + '</tbody></table></div>';
+}
+
 document.getElementById('accSecurityAudit').addEventListener('toggle', (e)=>{
-  if (e.target.open) loadSecurityAudit();
+  if (e.target.open){ loadSecurityAudit(); loadDataAccess(); }
 });
 
 async function loadLicenseAppeals(){

@@ -61,7 +61,7 @@
 | 8.10 מחיקת מידע | כן | חלקי | הקלטות אחרי 90 יום (`docs/call-tracking.md`); סגירת חשבון (`docs/account-closure.md`). **חסר:** לוח שמירה כללי (R15) |
 | 8.12 מניעת זליגת מידע | כן | חלקי | אין PII ל-GA4 (`scripts/check_events.py`, ‏`scripts/check_gtm_container.py`); ‏`Referrer-Policy`; רשימת כלים סגורה לקליטת מייל (`docs/email-intake.md`) |
 | 8.13 גיבוי, 8.14 יתירות | כן | חסר | גיבויים של Supabase לפי התוכנית - **לא תועדו ולא נבדק שחזור** (R8). יתירות - באחריות הספקים |
-| 8.15 רישום (לוגים), 8.16 ניטור | כן | חלקי | יומני Supabase/Netlify; `ops_findings` והתראות `security_alert` (`docs/ops-agent.md`); יומן קליטת מייל. יומן ביקורת לשינויי הרשאות, אימות כניסה ומחירים (`docs/security-audit-log.md`). **חסר:** רישום קריאות של מידע רגיש, ותקופת שמירת לוגים |
+| 8.15 רישום (לוגים), 8.16 ניטור | כן | מיושם | יומני Supabase/Netlify; `ops_findings` והתראות `security_alert` (`docs/ops-agent.md`); יומן קליטת מייל. יומן ביקורת לשינויי הרשאות, אימות כניסה ומחירים (`docs/security-audit-log.md`). יומן גישה למידע: כל בקשה של משתמש/ת מחובר/ת וכל ניסיון שנדחה, 3 שנים (`docs/data-access-log.md`, תקנה 10). **חסר:** סקירה תקופתית מתועדת של היומן |
 | 8.17 סנכרון שעון | כן | מיושם | שירותי ענן מנוהלים; זמנים ב-`timestamptz` |
 | 8.19 התקנת תוכנה | כן | חלקי | תלויות נעולות לגרסה (`docs/security-ci.md`); אין מדיניות למחשב המפתח/ת |
 | 8.20 אבטחת רשת, 8.21 שירותי רשת, 8.22 הפרדת רשתות | כן | חלקי | HTTPS/HSTS; ‏Supabase ו-Netlify מנוהלים; פונקציות cron מאומתות (`supabase/functions/_shared/cron-auth.ts`); ‏`verify_jwt` לכל פונקציה ב-`supabase/config.toml` |

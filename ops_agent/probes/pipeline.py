@@ -19,6 +19,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _migrations(ctx)
     yield from _actions(ctx)
     yield from _make_scenarios(ctx)
+    yield from _access_log(ctx)
 
 
 def _make_get(ctx, path: str):
@@ -411,3 +412,44 @@ def _actions(ctx) -> Iterator[Finding]:
                 metric=float(days), metric_unit="ימים",
                 evidence={"last_run": last, "path": wf.get("path")},
             )
+
+
+def _access_log(ctx) -> Iterator[Finding]:
+    """יומן הגישה למידע (תקנה 10) שהפסיק להתמלא.
+
+    ‏access_log.yml מעתיק כל שעה מיומני Supabase, שנשמרים שם 7 ימים בלבד.
+    **יומן שהפסיק להתמלא נראה בדיוק כמו יומן של שבוע שקט** - ולכן הבדיקה
+    היא על הסמן (מתי הריצה האחרונה הצליחה) ולא על מספר השורות. אחרי 6 שעות
+    זה ממצא גבוה; אחרי 4 ימים חמור, כי משם נשארים פחות מ-3 ימים עד שהתיעוד
+    נמחק אצל Supabase ואובד לתמיד. ‏docs/data-access-log.md
+    """
+    ctx.count()
+    if not ctx.db.has_table("data_access_log_sync"):
+        return
+    try:
+        row = ctx.db.one(
+            "select synced_until, last_run_at, last_error "
+            "from public.data_access_log_sync where id = 1")
+    except Exception:
+        return
+    if not row:
+        return
+    synced = row.get("synced_until")
+    now = datetime.now(timezone.utc)
+    lag_h = (now - synced).total_seconds() / 3600 if synced else None
+    if lag_h is not None and lag_h < 6:
+        return
+    severity = "critical" if (lag_h is None or lag_h >= 96) else "high"
+    yield Finding(
+        area="health", code="access_log_stale", severity=severity,
+        subject="data_access_log",
+        title=("יומן הגישה למידע לא התמלא מעולם" if lag_h is None
+               else "יומן הגישה למידע לא התעדכן %d שעות" % lag_h),
+        detail="השגיאה האחרונה: %s" % (row.get("last_error") or "אין - הריצה פשוט לא יצאה"),
+        suggestion="לבדוק את access_log.yml בלשונית Actions ולהריץ ידנית. "
+                   "‏Supabase שומרת 7 ימים - אחריהם התיעוד שלא הועתק אובד, "
+                   "וזו הפרה של תקנה 10. docs/data-access-log.md",
+        metric=round(lag_h, 1) if lag_h is not None else None, metric_unit="שעות",
+        evidence={"last_run_at": str(row.get("last_run_at") or ""),
+                  "synced_until": str(synced or "")},
+    )

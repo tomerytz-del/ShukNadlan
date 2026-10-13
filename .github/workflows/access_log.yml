@@ -1,0 +1,57 @@
+name: יומן גישה למידע - העתקה מ-Supabase
+
+# ‏תקנה 10 לתקנות הגנת הפרטיות (אבטחת מידע): תיעוד כל ניסיון גישה למאגר
+# ושמירה של 24 חודשים לפחות. שער ה-API של Supabase רושם כל בקשה אבל שומר
+# ימים בודדים; כאן מעתיקים כל שעה ל-data_access_log, ששם נשמר 3 שנים.
+# ‏scripts/access_log_sync.py, ‏docs/data-access-log.md
+#
+# ‏**הריצה מפספסת? לא נורא, עד גבול.** הסקריפט ממשיך מהסמן שבמסד, ו-Supabase
+# שומרת 7 ימים. ריצה שלא יצאה (‏schedule של GitHub מאחר לפעמים בשעות)
+# מושלמת בריצה הבאה. **השבתה של יותר משבוע היא אובדן תיעוד** - ולכן הסוכן
+# התפעולי מתריע (‏access_log_stale) כבר אחרי 6 שעות בלי ריצה מוצלחת.
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "הרצת יבש - לספור בלי לכתוב"
+        type: boolean
+        default: false
+
+# שתי ריצות במקביל היו מקדמות את הסמן זו מעל זו
+concurrency:
+  group: access-log-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: התקנת תלויות
+        run: pip install "psycopg2-binary>=2.9,<3"
+
+      - name: העתקה
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 scripts/access_log_sync.py --dry-run
+          else
+            python3 scripts/access_log_sync.py
+          fi
