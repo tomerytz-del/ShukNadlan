@@ -1141,7 +1141,7 @@ async function showMfaChallenge(status){
   link.setAttribute('aria-disabled', 'true'); link.href = '#';
   st.style.color = ''; st.textContent = 'מכינים את ההודעה…';
   document.getElementById('mfaPhoneTail').textContent = '';
-  document.getElementById('mfaAdminNote').hidden = !(status?.admin && !status?.enabled && !status?.totp);
+  document.getElementById('mfaAdminNote').hidden = !((status?.admin || status?.manager) && !status?.enabled && !status?.totp);
   const totpForm = document.getElementById('mfaTotpForm');
   totpForm.hidden = !status?.totp;
   document.getElementById('mfaTotpCode').value = '';
@@ -1299,7 +1299,7 @@ async function renderMfaSection(){
   accSetCount('accSecurity', s.required ? 'פעיל' : 'כבוי');
 
   host.innerHTML =
-      (s.admin ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול פלטפורמה אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
+      ((s.admin || s.manager) ? '<p class="mfa-help" style="margin:0 0 4px">לחשבון עם הרשאת ניהול (מנהל/ת משרד או מנהל/ת פלטפורמה) אימות כניסה הוא חובה, גם בלי להפעיל כאן כלום. בכניסה אפשר לעבור בוואטסאפ, ואם הופעלה - גם באפליקציה.</p>' : '')
     + '<div class="mfa-block" id="mfaWaBlock" style="border-top:0;margin-top:0;padding-top:4px"></div>'
     + '<div class="mfa-block" id="mfaTotpBlock"></div>';
   renderMfaWaBlock(document.getElementById('mfaWaBlock'), s, fb);
