@@ -156,7 +156,7 @@ revoke all on function public.lead_visitor_groups() from public, anon, authentic
 grant execute on function public.lead_visitor_groups() to authenticated;
 
 comment on function public.lead_visitor_groups() is
-  'לידים של הסוכן/ת המחובר/ת שהגיעו מאותו טלפון: לכל ליד מזהה הליד הראשון של אותו/ה פונה. בלי הטלפון עצמו - ראו 20270428090000.';
+  'לידים של הסוכן/ת המחובר/ת שהגיעו מאותו טלפון: לכל ליד מזהה הליד הראשון של אותו/ה פונה. בלי הטלפון עצמו - ראו 20270502090000.';
 
 -- ---------------------------------------------------------------------------
 -- 3א. מחיקת לקוח/ה: ההתראות ופריטי היומן שלו/ה נמחקים איתו/ה

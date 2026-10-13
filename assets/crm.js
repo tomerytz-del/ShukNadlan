@@ -18750,7 +18750,7 @@ async function saveLeadWork(lead, patch){
    גולש/ת שעשה/תה הדמיות על חמישה נכסים היה חמש שורות זהות ברשימה. המסד
    (lead_visitor_groups) מחזיר לכל ליד את מזהה הליד הראשון של אותו טלפון -
    בלי הטלפון עצמו, ולכן גם ליד נעול מקובץ בלי לחשוף דבר. מסד שהמיגרציה
-   ‏20270428090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
+   ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
 
 async function loadLeadVisitors(){
@@ -21917,7 +21917,7 @@ async function deleteClient(c){
   // היו נשארות על המסך ומצביעות על מי שכבר לא בקובץ
   await loadClientAlerts();
   // וגם הפעמון והיומן: agent_client_delete_cleanup מחקה במסד את ההתראות
-  // ואת פריטי היומן של הלקוח/ה (20270428090000)
+  // ואת פריטי היומן של הלקוח/ה (20270502090000)
   if (typeof loadNotifications === 'function') loadNotifications(currentAgent.id);
   if (typeof loadAgenda === 'function') loadAgenda();
 }
