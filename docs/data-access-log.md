@@ -29,7 +29,22 @@
 | כפילות | `log_id` (המזהה של Supabase) הוא מפתח ראשי, ולכן החפיפה אינה מכפילה שורות |
 | תקרת 1,000 שורות לשאילתה | חלון שהחזיר 1,000 מתפצל לשניים עד שהוא נכנס. אחרת השורות שמעבר לתקרה היו נעלמות בשקט |
 | ריצה שלא יצאה | הריצה הבאה ממשיכה מהסמן, עד 6 ימים אחורה |
-| סודות | `SUPABASE_ACCESS_TOKEN` (אותו אחד שפורס פונקציות) ו-`SUPABASE_DB_URL` |
+| סודות | `SUPABASE_LOGS_TOKEN` (ראו "הטוקן" למטה) ו-`SUPABASE_DB_URL` |
+
+## הטוקן
+
+ה-Management API דורש הרשאת `analytics_logs_read`. הטוקן שפורס את הפונקציות
+(`SUPABASE_ACCESS_TOKEN`) אינו נושא אותה. הריצה הראשונה (13.10.2026) נכשלה
+ב-403 בגלל זה.
+
+**הפתרון:** טוקן נפרד בסוד `SUPABASE_LOGS_TOKEN`.
+
+1. ב-Supabase, ב-Account ← Access Tokens, ליצור טוקן עם הרשאת קריאה ליומנים
+   (Analytics / Logs read) על הפרויקט.
+2. ב-GitHub, ב-Settings ← Secrets and variables ← Actions, להוסיף אותו בשם
+   `SUPABASE_LOGS_TOKEN`.
+
+ה-workflow לוקח את `SUPABASE_LOGS_TOKEN` אם הוא קיים, ואחרת את הישן.
 
 ## מה נכנס
 

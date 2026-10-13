@@ -1,6 +1,6 @@
 ---
 name: client-matching
-description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more. Also when touching share_level (private / office / network) on properties or clients, set_share_level, or the match digest (client_match_digest_run, match_digest, match_digest_time_*) - e.g. an agent says they get no match notifications, got one too many, or a private property shows up for colleagues. Also when deleting or closing a client (agent_client_delete_cleanup / agent_client_closed_cleanup), or when an agent still gets bell notifications or reminders about a client they deleted.
+description: עבודה על קובץ הלקוחות ומנוע ההתאמות בריפו של שוק נדל״ן - agent_clients, client_property_match (מקור האמת היחיד לציון), match_properties_for_client / client_match_top / client_match_counts, התראות ההתאמה והטריגר שמריץ אותן, מחפש/ת מול בעל/ת נכס (client_kind), וכל הפתחים שיוצרים כרטיס לקוח/ה (הטופס ב-CRM, ייבוא מאקסל ומאנשי קשר, create_client של גבריאלה, "כן, תוסיף" אחרי סיכום שיחה). Use when touching agent_clients or a function that reads it, adding a requirement field or a scoring rule, adding a new way to create a client, when a client "matches everything" or has dozens of irrelevant matches, when a seller/landlord shows up as a buyer, when matches don't refresh after editing a client, or when the bot and the CRM show a different score. Also when a new office gets no matches from other offices (property_shares, share_backfill_for_agency), or when the bot says "5 matches" and the CRM shows more. Also when touching share_level (private / office / network) on properties or clients, set_share_level, or the match digest (client_match_digest_run, match_digest, match_digest_time_*) - e.g. an agent says they get no match notifications, got one too many, or a private property shows up for colleagues. Also when deleting or closing a client (agent_client_delete_cleanup / agent_client_closed_cleanup), or when an agent still gets bell notifications or reminders about a client they deleted. Also when a client card was deleted automatically after two years without activity (data_retention_run, _client_last_activity, retention_warning), or when adding a table where agents work on a client.
 ---
 
 # קובץ הלקוחות ומנוע ההתאמות
@@ -165,6 +165,13 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 (`status = 'closed'`) מוחקת רק את התראות `client_match` (`agent_client_closed_cleanup`).
 טבלה חדשה שמפנה ל-`agent_clients` ומייצרת התראה או תזכורת נכנסת לפונקציית
 המחיקה באותו PR. הסכמים **אינם** נמחקים. ‏`docs/client-matching.md`.
+
+**ומחיקה אוטומטית (מדיניות השמירה):** כרטיס בלי פעילות שנתיים נמחק, אחרי
+התראת `retention_warning` שבוע לפני (‏`data_retention_run`, ‏`docs/data-retention.md`).
+"פעילות" מוגדרת ב-`_client_last_activity()`: עדכון בכרטיס, יומן, שיחה, מיניסייט
+והסכם. **טבלה חדשה שבה סוכן/ת או לקוח/ה פועלים על כרטיס נכנסת לפונקציה הזו
+באותו PR** - אחרת כרטיס שעובדים עליו דרכה ייראה נטוש וימחק. ‏`client_match_alerts`
+בכוונה לא שם: הוא נכתב אוטומטית, וכרטיס נטוש היה נשאר "פעיל" לנצח.
 
 ## ‏5. בדיקה
 
