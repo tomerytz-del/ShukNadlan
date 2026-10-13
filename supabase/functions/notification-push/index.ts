@@ -99,6 +99,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminOps.
   // מיגרציה 20270421100000, docs/ops-agent.md.
   security_alert: "adminOps",
+  // ‏סקירת הרשאות חצי-שנתית (docs/access-review.md)
+  access_review: "accSecurityAudit",
   // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על
   // ביקורת ממתינה או ליד בלי יעד הוביל להגדרות ההתראות ולא לפריט.
   // ‏scripts/check_notif_links.py מצליב מעכשיו את המפה הזו מול NOTIF_TYPES.

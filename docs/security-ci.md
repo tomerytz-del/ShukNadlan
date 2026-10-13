@@ -42,3 +42,21 @@ gitleaks git . -c .gitleaks.toml --log-opts="origin/main..HEAD"
 מה שלא מכוסה נעול לגרסה מדויקת ומתעדכן ידנית. **התראות האבטחה של
 Dependabot** (‏Dependabot alerts) נדלקות בהגדרות הריפו ב-GitHub
 (‏Settings ← Code security), לא בקובץ הזה.
+
+## ‏Actions נעולים ל-SHA
+
+כל `uses:` ב-workflows נעול לקומיט, עם הערת הגרסה אחריו:
+
+```yaml
+uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+```
+
+**למה:** תג כמו `@v4` הוא מצביע שבעלי ה-Action יכולים להזיז. מי שמשתלט/ת על
+הריפו שלהם מזיז/ה אותו לקוד זדוני, והקוד הזה רץ אצלנו עם הסודות של המסד. כך
+בדיוק קרה ב-`tj-actions/changed-files` ב-2025. ‏SHA לא זז.
+
+**העדכונים לא נפגעים:** Dependabot מעדכן גם את ה-SHA וגם את ההערה.
+
+**האכיפה:** `scripts/check_action_pins.py` (job ‏`action-pins` ב-`secrets.yml`)
+חוסם `uses:` בלי SHA או בלי הערת גרסה. את ה-SHA של תג מוצאים כך:
+`git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>`.

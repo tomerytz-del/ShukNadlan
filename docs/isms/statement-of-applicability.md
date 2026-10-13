@@ -19,7 +19,7 @@
 | 5.9 מצאי נכסים, 5.10 שימוש נאות, 5.11 החזרת נכסים | כן | חלקי | מצאי נתונים: `database-definition.md`; ספקים: `docs/suppliers.md`; שימוש נאות: `security-policy.md`. אין מצאי חשבונות ודשבורדים של ספקים [למלא]; 5.11 - סגירת חשבון `docs/account-closure.md` |
 | 5.12 סיווג, 5.13 תיוג | כן | חלקי | רגישות לפי קבוצת מידע ב-`database-definition.md`; אין תיוג פורמלי (לא נדרש בהיקף הזה) |
 | 5.14 העברת מידע | כן | מיושם | HTTPS ו-HSTS (`_headers`); חתימות webhook - Meta HMAC (`supabase/functions/whatsapp-webhook/`), Twilio (`supabase/functions/twilio-voice/`), טוקן מורנינג (`supabase/functions/wallet-topup-callback/`) |
-| 5.15 בקרת גישה, 5.16 ניהול זהויות, 5.17 מידע אימות, 5.18 זכויות גישה | כן | מיושם | RLS על כ-119/120 טבלאות; תפקידים `agency_members.role`, ‏`is_platform_admin`; אימות דו-שלבי `docs/mfa.md`; הצטרפות משרד ורישיון `docs/broker-registry.md`, ‏`docs/agent-onboarding.md`. **חסר:** סקירה תקופתית של מנהלי פלטפורמה והרשאות |
+| 5.15 בקרת גישה, 5.16 ניהול זהויות, 5.17 מידע אימות, 5.18 זכויות גישה | כן | מיושם | RLS על כ-119/120 טבלאות; תפקידים `agency_members.role`, ‏`is_platform_admin`; אימות דו-שלבי `docs/mfa.md`; הצטרפות משרד ורישיון `docs/broker-registry.md`, ‏`docs/agent-onboarding.md`. סקירת הרשאות חצי-שנתית עם אישור שנרשם ביומן (`docs/access-review.md`) |
 | 5.19 קשרי ספקים, 5.20 הסכמים עם ספקים, 5.21 שרשרת אספקה, 5.22 ניטור ספקים, 5.23 שירותי ענן | כן | חלקי | `docs/suppliers.md`, `privacy.html`. **חסר:** DPA לא אושר לאף ספק (R3); אין סקירה שנתית של ספקים |
 | 5.24 תכנון ניהול אירועים, 5.25 הערכת אירועים, 5.26 תגובה, 5.27 למידה, 5.28 ראיות | כן | חלקי | `docs/isms/incident-response.md` עם יומן; התראת `security_alert` (`docs/ops-agent.md`). הנוהל טיוטה ולא תורגל |
 | 5.29 אבטחה בזמן שיבוש, 5.30 מוכנות ICT להמשכיות | כן | חסר | אין RPO/RTO ואין תוכנית המשכיות; תלות מלאה ב-Supabase ו-Netlify (R8) |
@@ -55,7 +55,7 @@
 | 8.4 גישה לקוד מקור | כן | חלקי | ריפו פרטי ב-GitHub. **לאמת:** 2FA, הגנת ענף על `main`, רשימת בעלי גישה |
 | 8.5 אימות מאובטח | כן | חלקי | Supabase Auth, כניסה עם Google (`docs/google-login.md`), אימות דו-שלבי (`docs/mfa.md`); לא חובה לסוכנים (R1) |
 | 8.6 ניהול קיבולת | כן | חלקי | הסוכן התפעולי מודד שאילתות כבדות ומשקל דפים (`docs/ops-agent.md`); מדידת אחסון `docs/storage-audit.md` |
-| 8.7 הגנה מפני נוזקות | כן | חלקי | ‏`nosniff` ב-`_headers`; קבצים מועלים ל-Storage בלבד. אין סריקת נוזקות לקבצים מועלים [למלא - לקבל או לטפל] |
+| 8.7 הגנה מפני נוזקות | כן | חלקי | ‏`nosniff` ב-`_headers`; קבצים מועלים ל-Storage בלבד, וכל הדליים מגבילים סוג קובץ וגודל (האחרון נסגר ב-`20270506091000`). Supabase אינה סורקת נוזקות. **פתוח:** החלטה על סריקה חיצונית או קבלת סיכון |
 | 8.8 ניהול חולשות טכניות | כן | חלקי | Dependabot; gitleaks; סריקת אבטחה כל 6 שעות. Deno ו-CDN מחוץ ל-Dependabot (R12); אין בדיקת חדירה |
 | 8.9 ניהול תצורה | כן | מיושם | כל התצורה בריפו: `_headers`, ‏`_redirects`, ‏`supabase/config.toml` (בדיקת `edge_config.yml`), מיגרציות; ייצוא GTM נבדק (`gtm/container.json`) |
 | 8.10 מחיקת מידע | כן | חלקי | הקלטות אחרי 90 יום (`docs/call-tracking.md`); סגירת חשבון (`docs/account-closure.md`). לוח שמירה כללי (`docs/data-retention.md`) - בהרצת יבש עד אישור (R15) |
