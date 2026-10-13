@@ -46,7 +46,10 @@ jobs:
 
       - name: העתקה
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # טוקן נפרד עם הרשאת קריאת יומנים (analytics_logs_read). הטוקן שפורס
+          # פונקציות אינו נושא אותה, והריצה הראשונה (13.10.2026) נכשלה ב-403.
+          # ‏docs/data-access-log.md, "הטוקן".
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_LOGS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |

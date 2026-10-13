@@ -91,6 +91,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
   showcase_meeting: "accClients",
+  // ‏כרטיס שיימחק בעוד שבוע לפי מדיניות השמירה (docs/data-retention.md)
+  retention_warning: "accClients",
   // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
   deal_sync_summary: "accDealSettlements",
   // ‏ממצא אבטחה חמור - למנהל/ת הפלטפורמה. היעד הוא פאנל "בריאות המערכת",
