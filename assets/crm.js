@@ -2387,6 +2387,9 @@ function openLeadFromParam(id){
   if (!allLeads.some(l => l.id === id)) return;
   leadsView = archivedLeadIds.has(id) ? 'archived' : 'active';
   expandedLeadIds.add(id);
+  // ליד בתוך קבוצה של אותו/ה פונה נמצא מתחת לשורת הקבוצה - פותחים גם אותה
+  const visitor = leadVisitorOf.get(id);
+  if (visitor) expandedLeadIds.add(leadGroupKey(visitor));
   renderLeads(currentAgent && currentAgent.id);
   setTimeout(() => {
     const el = document.querySelector(`[data-lead-id="${id}"]`);
@@ -18618,7 +18621,51 @@ async function loadArchivedLeadIds(agentId){
   return new Set((data || []).map(r => r.lead_id));
 }
 
+/* ליד בארכיון הוא ליד שנסגר: לפני הארכוב בוחרים שלב סופי, כדי שלא יישב
+   בארכיון ליד "חדש" או "בתיאום פגישה". ליד נעול ("לא מתאים לי") אינו
+   נשאל - המסד מסמן אותו "לא רלוונטי" (lead_archive_finalize), ושם גם
+   המשימה "לחזור לליד" מתבטלת וההתראות שלו מסומנות כנקראו. */
+const LEAD_FINAL_STAGES = ['not_relevant', 'won'];
+let leadArchiveState = null;
+
+function askLeadArchiveStage(lead){
+  const modal = document.getElementById('leadArchiveModal');
+  if (!modal) return Promise.resolve('not_relevant');
+  const cur = leadWork.get(lead.id)?.stage;
+  const picked = LEAD_FINAL_STAGES.includes(cur) ? cur : 'not_relevant';
+  document.getElementById('leadArchiveWhat').textContent =
+    (lead.display_name || '') + (cur ? ' · השלב עכשיו: ' + (LEAD_STAGE_LABEL[cur] || cur) : '');
+  document.getElementById('leadArchiveOpts').innerHTML = LEAD_FINAL_STAGES.map(v => `
+    <label class="share-level-opt">
+      <input type="radio" name="leadArchiveStage" value="${v}"${v === picked ? ' checked' : ''}>
+      <span><b>${v === 'won' ? '🏆 ' : '🚫 '}${esc(LEAD_STAGE_LABEL[v])}</b></span>
+    </label>`).join('');
+  modal.style.display = 'flex';
+  modal.querySelector('input:checked')?.focus();
+  return new Promise(resolve => { leadArchiveState = { resolve }; });
+}
+
+function closeLeadArchiveModal(value){
+  document.getElementById('leadArchiveModal').style.display = 'none';
+  const st = leadArchiveState;
+  leadArchiveState = null;
+  if (st) st.resolve(value);
+}
+
+document.getElementById('leadArchiveCancel')?.addEventListener('click', () => closeLeadArchiveModal(null));
+document.getElementById('leadArchiveRun')?.addEventListener('click', () =>
+  closeLeadArchiveModal(document.querySelector('#leadArchiveOpts input:checked')?.value || null));
+
 async function archiveLead(lead, btn, agentId){
+  if (lead.status === 'unlocked' && leadWorkReady){
+    const stage = await askLeadArchiveStage(lead);
+    if (!stage) return;
+    btn.disabled = true;
+    if ((leadWork.get(lead.id)?.stage || 'new') !== stage){
+      const ok = await saveLeadWork(lead, { stage });
+      if (!ok){ btn.disabled = false; return; }
+    }
+  }
   btn.disabled = true;
   const { error } = await sb.from('lead_archives').insert({ lead_id: lead.id, agent_id: agentId });
   btn.disabled = false;
@@ -18629,11 +18676,19 @@ async function archiveLead(lead, btn, agentId){
     return;
   }
   archivedLeadIds.add(lead.id);
+  // המסד העביר ליד בלי שלב סופי ל"לא רלוונטי" (lead_archive_finalize) -
+  // אותו דבר כאן, כדי שהגלולה בארכיון לא תציג "חדש" עד הטעינה הבאה
+  if (!LEAD_FINAL_STAGES.includes(leadWork.get(lead.id)?.stage)){
+    leadWork.set(lead.id, { ...(leadWork.get(lead.id) || {}), lead_id: lead.id, stage:'not_relevant',
+                            updated_at: new Date().toISOString() });
+  }
   // הליד עבר רשימה, ולכן הוא לא אמור להיפתח לבד בצד השני: מצב הפתיחה
   // שמור לפי מזהה, ובלי השורה הזו הכרטיס היה ממתין פתוח בארכיון
   expandedLeadIds.delete(lead.id);
   showToast('הליד הועבר לארכיון');
   renderLeads(agentId);
+  // ההתראות של הליד סומנו כנקראו במסד - הפעמון מתעדכן
+  if (typeof loadNotifications === 'function') loadNotifications(agentId);
 }
 
 async function unarchiveLead(lead, btn, agentId){
@@ -18691,6 +18746,24 @@ async function saveLeadWork(lead, patch){
   return true;
 }
 
+/* ---------- לידים של אותו/ה פונה ----------
+   גולש/ת שעשה/תה הדמיות על חמישה נכסים היה חמש שורות זהות ברשימה. המסד
+   (lead_visitor_groups) מחזיר לכל ליד את מזהה הליד הראשון של אותו טלפון -
+   בלי הטלפון עצמו, ולכן גם ליד נעול מקובץ בלי לחשוף דבר. מסד שהמיגרציה
+   ‏20270428090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
+let leadVisitorOf = new Map();
+
+async function loadLeadVisitors(){
+  const { data, error } = await sb.rpc('lead_visitor_groups');
+  if (error){
+    if (!['PGRST202', '42883'].includes(error.code)) console.warn('קיבוץ הלידים לפי פונה נכשל:', error.message);
+    return new Map();
+  }
+  return new Map((data || []).map(r => [r.lead_id, r.visitor_id]));
+}
+
+function leadGroupKey(visitorId){ return 'v:' + visitorId; }
+
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -18699,13 +18772,14 @@ async function loadLeads(agentId){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
-  let [{ data: leads, error }, archived, work] = await Promise.all([
+  let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
       .order('created_at', { ascending:false }),
     loadArchivedLeadIds(agentId),
     loadLeadWork(agentId),
+    loadLeadVisitors(),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -18719,6 +18793,7 @@ async function loadLeads(agentId){
   }
   archivedLeadIds = archived;
   leadWork = work;
+  leadVisitorOf = visitors;
   allLeads = leads || [];
   renderLeads(agentId);
 }
@@ -18772,7 +18847,63 @@ function renderLeads(agentId){
   // ראו ההערה מעל buildLeadTab().
   listEl.innerHTML = '<div class="prop-tabs lead-tabs"></div>';
   const tabsWrap = listEl.querySelector('.prop-tabs');
-  showing.forEach(lead => tabsWrap.appendChild(buildLeadTab(lead, agentId)));
+  groupLeadsByVisitor(showing).forEach(item => tabsWrap.appendChild(
+    item.length > 1 ? buildLeadGroupTab(item, agentId) : buildLeadTab(item[0], agentId)));
+}
+
+/* הקבוצה יושבת במקום של הליד הדחוף שבה (הרשימה כבר ממוינת), והלידים בתוכה
+   באותו סדר. הקיבוץ הוא בתוך הלשונית: ליד של אותו/ה פונה שבארכיון אינו
+   נספר בקבוצה שברשימה הפעילה. */
+function groupLeadsByVisitor(leads){
+  const out = [], byVisitor = new Map();
+  leads.forEach(lead => {
+    const v = leadVisitorOf.get(lead.id);
+    if (!v){ out.push([lead]); return; }
+    if (byVisitor.has(v)){ byVisitor.get(v).push(lead); return; }
+    const group = [lead];
+    byVisitor.set(v, group);
+    out.push(group);
+  });
+  return out;
+}
+
+/* שורה אחת לפונה: השם, כמה לידים וכמה נכסים, ובפתיחה - שורת ליד רגילה לכל
+   אחד, עם הכרטיס המלא שלו. השם נלקח מליד פתוח כשיש, כי שם הוא מלא. */
+function buildLeadGroupTab(leads, agentId){
+  const visitor = leadVisitorOf.get(leads[0].id);
+  const named = leads.find(l => l.status === 'unlocked') || leads[0];
+  const kinds = new Set(leads.map(l => leadKind(l).icon));
+  const allViz = leads.every(l => l.lead_type === 'visualization');
+  const props = new Set(leads.map(l => l.property_id).filter(Boolean)).size;
+  const cities = [...new Set(leads.map(l => l.city).filter(Boolean))];
+  const locked = leads.filter(l => l.status !== 'unlocked').length;
+  const newest = leads.reduce((a, b) => new Date(b.created_at || 0) > new Date(a.created_at || 0) ? b : a);
+  const isArchived = leads.every(l => archivedLeadIds.has(l.id));
+  const el = buildTabRow({
+    key: leadGroupKey(visitor), list:'leadgroup', expanded: expandedLeadIds,
+    cls: 'lead-tab lead-group ' + leadKind(named).cls + (isArchived ? ' is-archived' : ''),
+    icon: kinds.size === 1 ? [...kinds][0] : '👤',
+    title: named.display_name || '-',
+    sub: [
+      allViz ? leads.length + ' הדמיות' : leads.length + ' פניות',
+      props > 1 ? props + ' נכסים' : '',
+      cities.slice(0, 2).join(', '),
+      leadIsFresh(newest) ? opsAgo(leadAgeMinutes(newest)) : tabShortDate(newest.created_at),
+    ].filter(Boolean).join(' · '),
+    pill: { text: leads.length + ' לידים',
+            cls: 'status-pill status-' + (locked ? 'masked' : 'unlocked') },
+    buildCard: ()=> {
+      const wrap = document.createElement('div');
+      wrap.className = 'lead-group-body';
+      wrap.innerHTML = '<div class="lead-group-note">כל הפניות של אותו/ה פונה. לחיצה על שורה פותחת את הליד.</div>'
+        + '<div class="prop-tabs lead-tabs"></div>';
+      const inner = wrap.querySelector('.prop-tabs');
+      leads.forEach(lead => inner.appendChild(buildLeadTab(lead, agentId)));
+      return wrap;
+    },
+  });
+  el.dataset.leadGroup = visitor;
+  return el;
 }
 
 /* ---------- הלידים כרשימת טאבים ----------
@@ -18967,7 +19098,7 @@ function buildLeadCard(lead, agentId, isArchived){
       addCardAction(primary, { label:'📞 חיוג', cls:'lc-call', href:'tel:' + tel,
         onClick: () => markLeadResponded(lead) });
     }
-    if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead);
+    if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead, isArchived);
 
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
@@ -19007,14 +19138,17 @@ function buildLeadCard(lead, agentId, isArchived){
 
 /* השלב וההערה. השלב נשמר מיד בבחירה, וההערה בכפתור שמופיע רק כשיש מה
    לשמור - כרטיס שמחכה ל"שמירה" שאיש לא לחץ עליה הוא הערה שאבדה בשקט. */
-function buildLeadWork(wrap, lead){
+function buildLeadWork(wrap, lead, isArchived){
   const cur = leadWork.get(lead.id) || {};
   const uid = 'lcw-' + lead.id;
+  // ליד בארכיון נשאר בשלב סופי (lead_work_guard_archived במסד). כדי להחזיר
+  // אותו לעבודה מחזירים אותו מהארכיון, ושם כל השלבים פתוחים שוב.
+  const stages = isArchived ? LEAD_STAGES.filter(([v]) => LEAD_FINAL_STAGES.includes(v)) : LEAD_STAGES;
   wrap.innerHTML = `
     <label class="lc-stage-row" for="${uid}-stage">
       <span>שלב:</span>
       <select id="${uid}-stage" class="lc-stage stage-${esc(cur.stage || 'new')}">
-        ${LEAD_STAGES.map(([v, t]) => `<option value="${v}"${(cur.stage || 'new') === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+        ${stages.map(([v, t]) => `<option value="${v}"${(cur.stage || 'new') === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}
       </select>
     </label>
     <div class="lc-note-row">
@@ -21772,7 +21906,7 @@ function openEditClient(c){
 
 async function deleteClient(c){
   const scWarn = typeof showcaseCloseWarning === 'function' ? showcaseCloseWarning(c.id) : '';
-  if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? הפעולה בלתי הפיכה.${scWarn}`)) return;
+  if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? יימחקו גם ההתראות, התזכורות והפגישות ביומן שקשורות אליו/ה. הפעולה בלתי הפיכה.${scWarn}`)) return;
   const { error } = await sb.from('agent_clients').delete().eq('id', c.id);
   if (error){ showToast('שגיאה במחיקה: ' + heErr(error)); return; }
   expandedClientIds.delete(c.id);
@@ -21782,6 +21916,10 @@ async function deleteClient(c){
   // ההתראות של הלקוח/ה ירדו עם השורה (on delete cascade) - בלי הרענון הן
   // היו נשארות על המסך ומצביעות על מי שכבר לא בקובץ
   await loadClientAlerts();
+  // וגם הפעמון והיומן: agent_client_delete_cleanup מחקה במסד את ההתראות
+  // ואת פריטי היומן של הלקוח/ה (20270428090000)
+  if (typeof loadNotifications === 'function') loadNotifications(currentAgent.id);
+  if (typeof loadAgenda === 'function') loadAgenda();
 }
 
 // שדה מספרי ריק הוא null ולא 0 - 0 היה נקרא כ"תקציב אפס" ומסנן הכול
@@ -21943,6 +22081,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   await loadClients();
   // בעל/ת נכס שהיה/הייתה מחפש/ת: ההתראות הפתוחות שלו/ה נמחקו בטריגר במסד
   if (ownerSaved && wasEditing) await loadClientAlerts();
+  // לקוח/ה שנסגר/ה: התראות ההתאמה שלו/ה נמחקו בטריגר במסד, והפעמון מתעדכן
+  if (wasEditing && payload.status === 'closed') loadNotifications(currentAgent.id);
   if (savedId && !ownerSaved) crossMatchClient(savedId);
 });
 
