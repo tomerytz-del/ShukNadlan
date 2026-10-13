@@ -332,6 +332,7 @@ python scripts/check_canonical.py --fix  # שתילה בדף סטטי שחסר
 | `crm.html` | 1,533KB | `assets/crm.js` | 447KB |
 | `index.html` | 606KB | `assets/home.js` | 326KB |
 | `property.html` | 251KB | `assets/property.js` | 123KB |
+| `agency.html` | 226KB | `assets/agency.js` | 116KB (‏61 → 30KB ברשת) |
 
 **‏`<script src>` רגיל, לא `defer`, ובדיוק במקום שבו ישב המוטבע.** ‏`defer`
 דוחה את הריצה לאחרי הסקריפטים ה-`defer` האחרים בדף (‏`pwa-install.js`,

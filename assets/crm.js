@@ -2624,7 +2624,11 @@ async function loadNeighborhoodsAdmin(){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   loadNeighborhoodCityOptions();
   hoodImportInit();
-  const { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name');
+  let { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary, is_industrial').order('city').order('name');
+  // ‏is_industrial (‏20270430090000) - בדקה שלפני המיגרציה הרשימה נטענת בלעדיה
+  if (error && /is_industrial/.test(error.message || '')){
+    ({ data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name'));
+  }
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
@@ -2662,6 +2666,26 @@ async function loadNeighborhoodsAdmin(){
       ? 'לשכונה יש גבול על המפה. לחיצה פותחת אותו לעריכה.'
       : 'אין לשכונה גבול - במפת החיפוש היא מוצגת כעיגול מוערך.';
     row.appendChild(shape);
+
+    /* אזור תעשייה: נכס שמשויך אליו בלי כתובת מדויקת מקבל פין משוער בתוך
+       הגבול (properties_zone_location_trg). הסימון חל על נכסים שייווצרו או
+       ישויכו מעכשיו - נכס שכבר יש לו פין אינו זז. docs/property-map.md */
+    if ('is_industrial' in n){
+      const ind = document.createElement('label');
+      ind.style.cssText = 'font-size:.74rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;cursor:pointer';
+      ind.title = 'נכס באזור הזה בלי כתובת מדויקת יקבל פין משוער בתוך הגבול, עם הסבר לגולשים שהמיקום מוערך.';
+      ind.innerHTML = `<input type="checkbox"${n.is_industrial ? ' checked' : ''}> אזור תעשייה`;
+      const box = ind.querySelector('input');
+      box.addEventListener('change', async ()=>{
+        box.disabled = true;
+        const { error: indErr } = await sb.from('neighborhoods').update({ is_industrial: box.checked }).eq('id', n.id);
+        box.disabled = false;
+        if (indErr){ box.checked = !box.checked; showToast('שגיאה בשמירה: ' + heErr(indErr)); return; }
+        n.is_industrial = box.checked;
+        showToast(box.checked ? `"${n.name}" סומנה כאזור תעשייה` : `"${n.name}" אינה מסומנת עוד כאזור תעשייה`);
+      });
+      row.appendChild(ind);
+    }
 
     const delBtn = document.createElement('button');
     delBtn.className = 'btn btn-ghost';
@@ -12491,6 +12515,7 @@ toggleBtn.addEventListener('click', ()=>{
   if (showing){
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
+    editingPropertyApproxPin = null;
     document.getElementById('addPropertyForm').reset();
     setPropertyCity(defaultPropertyCity());
     populateNeighborhoodSelect('');
@@ -12947,8 +12972,12 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const planningStatus = document.getElementById('addPropertyPlanningStatus');
   btn.disabled = true; btn.textContent = editingPropertyId ? 'שומר…' : 'מפרסם…'; feedback.textContent = ''; planningStatus.textContent = '';
 
-  const lat = document.getElementById('npLat').value;
-  const lng = document.getElementById('npLng').value;
+  let lat = document.getElementById('npLat').value;
+  let lng = document.getElementById('npLng').value;
+  /* פין משוער שלא נגעו בו אינו קואורדינטה שהוזנה - ראו editingPropertyApproxPin */
+  const keepApproxPin = !!(editingPropertyId && editingPropertyApproxPin
+    && lat === editingPropertyApproxPin.lat && lng === editingPropertyApproxPin.lng);
+  if (keepApproxPin){ lat = ''; lng = ''; }
   let   street = document.getElementById('npStreet').value.trim();
   const houseNumber = document.getElementById('npHouseNumber').value.trim();
   const city = propertyCity();
@@ -13037,12 +13066,19 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
      והחלקה עצמה מגיעה מהקדסטר של מפ"י - אותו מקור שהשכבה העירונית נשענת
      עליו; בשתי חלקות הייחוס גוש, חלקה ושטח היו זהים (docs/govmap.md).
      בלי זה, נכס ברחוב שהעירייה טרם הזינה (היצירה, אדמונית) נשאר בלי פין. */
+  /* חלקה גדולה (250 מ' עד 2 ק"מ - אזור תעשייה, משק) כבר אינה "בלי פין":
+     מרכז החלקה נשמר כמיקום **משוער** (location_precision = 'parcel'),
+     והמפות מציגות אותו ככזה - עיגול ובועית, ולא פין שנראה מדויק.
+     docs/property-map.md, "מיקום משוער". */
+  let approxParcel = null;
   if (!resolvedLat && !resolvedLng && gush && helka && window.GovmapLookup){
     try{
-      const p = await GovmapLookup.parcelLatLng(gush, helka, 250);
-      if (p && !p.tooLarge){
+      const p = await GovmapLookup.parcelLatLng(gush, helka, PARCEL_APPROX_MAX_SPAN_M);
+      if (p && !p.tooLarge && p.span <= 250){
         resolvedLat = p.lat;
         resolvedLng = p.lng;
+      } else if (p && !p.tooLarge){
+        approxParcel = { lat: p.lat, lng: p.lng, radius: Math.min(1000, Math.round(p.span / 2)) };
       }
     } catch(err){
       console.warn('GovMap: מיקום לפי גוש/חלקה נכשל:', err);
@@ -13149,8 +13185,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   payload.land_max_floors          = landValue('npLandMaxFloors', v => parseInt(v, 10));
   payload.land_planning_notes      = landValue('npLandPlanningNotes');
 
-  if (resolvedLat) payload.lat = parseFloat(resolvedLat);
-  if (resolvedLng) payload.lng = parseFloat(resolvedLng);
+  /* דיוק המיקום נכתב יחד עם המיקום. בלי מיקום חדש לא שולחים כלום: נכס
+     באזור תעשייה מקבל פין משוער מהטריגר במסד (properties_zone_location_trg),
+     ופין משוער קיים שלא נגעו בו נשאר. */
+  if (resolvedLat && resolvedLng){
+    payload.lat = parseFloat(resolvedLat);
+    payload.lng = parseFloat(resolvedLng);
+    payload.location_precision = 'exact';
+    payload.location_radius_m = null;
+  } else if (approxParcel){
+    payload.lat = approxParcel.lat;
+    payload.lng = approxParcel.lng;
+    payload.location_precision = 'parcel';
+    payload.location_radius_m = approxParcel.radius;
+  }
 
   // בעריכה: האם הכתובת בפועל השתנתה? רק אז נקלוט מידע תכנוני מחדש — לא בכל שמירה,
   // כדי לא לבזבז קריאות WFS מיותרות על שינויים שלא נוגעים לכתובת (מחיר, תיאור וכו').
@@ -13392,6 +13440,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   pfShowStep(1);
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
+  editingPropertyApproxPin = null;
   currentCategory = 'residential';
   document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
   updateFormForCategory('residential');
@@ -13791,6 +13840,10 @@ function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test
    הרמה מ-shared_with_partners. */
 const PROPERTY_SHARE_LEVEL_COLUMN = ', share_level';
 function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(error.message || ''); }
+/* מיקום משוער (‏20270430090000) - אותה נפילה: בלי העמודות הכרטיס פשוט בלי
+   התגית "מיקום משוער", והטופס מתייחס לפין כמדויק. docs/property-map.md */
+const PROPERTY_LOCATION_COLUMNS = ', location_precision, location_radius_m';
+function locationSchemaMissing(error){ return !!error && /location_(precision|radius_m)/.test(error.message || ''); }
 
 /* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
    שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
@@ -13815,9 +13868,15 @@ async function loadProperties(agentId){
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN)
+    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS)
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (locationSchemaMissing(error)){
+    ({ data: props, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
   if (shareLevelSchemaMissing(error)){
     ({ data: props, error } = await sb.from('properties')
       .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS)
@@ -14216,6 +14275,10 @@ function buildPropertyCard(p, agentId){
       title:'לקוחות מהקובץ שלך שהנכס התאים להם - לחיצה מציגה אותם' },
     shareLevelOf(p) === 'private' && { text:'🔒 פרטי', cls:'tag-info',
       title:'רמת שיתוף: פרטי - רק הלקוחות שלך מותאמים לנכס' },
+    // פין משוער (אזור תעשייה, חלקה גדולה) - הסוכן/ת צריך/ה לדעת למה הפין לא
+    // על הבניין, ושכתובת או גוש/חלקה יחליפו אותו. docs/property-map.md
+    window.ApproxLocation && ApproxLocation.isApprox(p) && { text:'📍 מיקום משוער', cls:'tag-info',
+      title: ApproxLocation.label(p) + ' - הפין על המפה מסמן את האזור. כתובת מלאה או גוש/חלקה בעריכה יחליפו אותו במיקום מדויק.' },
     p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
       cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
@@ -15236,6 +15299,7 @@ async function deletePropertyForever(property, btn, agentId){
   if (editingPropertyId === property.id){
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
+    editingPropertyApproxPin = null;
     renderPropertyStatusPanel(null);
     addForm.style.display = 'none';
     toggleBtn.textContent = '+ הוספת נכס חדש';
@@ -16840,6 +16904,14 @@ document.getElementById('qrPngBtn').addEventListener('click', async (e)=>{
 });
 let editingPropertyId = null;
 let editingPropertyOriginalAddress = null; // לזיהוי "האם הכתובת השתנתה" בעריכה
+/* הפין המשוער של הנכס שבעריכה (‏location_precision zone/parcel), כפי שנטען
+   לשדות הקואורדינטות. כשהשדות לא נגעו בו, הוא אינו "הזנה ידנית": הכתובת
+   או גוש/חלקה שנוספו עכשיו עדיין מגאוקדים, ואם לא נמצא כלום - הפין המשוער
+   נשאר כמו שהוא. docs/property-map.md, "מיקום משוער". */
+let editingPropertyApproxPin = null;
+/* הצלע הארוכה המרבית של חלקה שמרכזה עוד נשמר כמיקום משוער. מעליה (חלקה
+   חקלאית של קילומטרים) המרכז כבר אינו אומר דבר - ואז בלי פין, כמו קודם. */
+const PARCEL_APPROX_MAX_SPAN_M = 2000;
 function openEditProperty(p){
   editingPropertyId = p.id;
   // בלוק הסטטוס ראשון בטופס — זו הפעולה שמחפשים כשנכנסים ל"עריכה" בלי
@@ -16873,6 +16945,8 @@ function openEditProperty(p){
   document.getElementById('npHelka').value = plan.helka || '';
   document.getElementById('npLat').value = p.lat || '';
   document.getElementById('npLng').value = p.lng || '';
+  editingPropertyApproxPin = (window.ApproxLocation && ApproxLocation.isApprox(p))
+    ? { lat: String(p.lat || ''), lng: String(p.lng || '') } : null;
   document.getElementById('npSalesArea').value = p.sales_area || '';
   populateNeighborhoodSelect(p.neighborhood_id || '');
   document.getElementById('npFloor').value = p.floor ?? '';

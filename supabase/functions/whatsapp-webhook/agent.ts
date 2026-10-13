@@ -210,6 +210,12 @@ const propertyFields = {
   city: { type: "string", description: "עיר. ברירת מחדל: העיר של המשרד של הסוכן/ת." },
   street: { type: "string", description: "שם רחוב בלי מספר בית." },
   house_number: { type: "string", description: "מספר בית בלבד." },
+  neighborhood: {
+    type: "string",
+    description:
+      "שם השכונה או אזור התעשייה בעיר, רק כשהסוכן/ת אמר/ה אותו ('אזור התעשייה', 'גבעת המורה'). " +
+      "נכס באזור תעשייה בלי רחוב ומספר בית מקבל מיקום משוער בתוך האזור, ובאתר כתוב שהמיקום מוערך.",
+  },
   floor: { type: "integer", description: "קומה." },
   size_sqm: { type: "number", description: 'שטח במ"ר.' },
   built_size_sqm: { type: "number", description: 'שטח בנוי במ"ר.' },
@@ -1519,6 +1525,41 @@ function pick(
 
 const pickWritable = (input: Record<string, unknown>) => pick(input, WRITABLE_FIELDS);
 
+/** נרמול שם שכונה להשוואה: גרשיים, רווחים, ה' הידיעה בתחילת מילה ויו"ד כפולה. */
+function hoodKey(s: string): string {
+  return s.replace(/["'״׳.,\-]/g, " ").trim().split(/\s+/)
+    .map((w) => w.replace(/^ה(?=..)/, "").replace(/יי/g, "י")).join(" ");
+}
+
+/**
+ * השכונה (או אזור התעשייה) שהסוכן/ת אמר/ה, בעיר של הנכס. התאמה מלאה אחרי
+ * נרמול, ואז התאמה **יחידה** שבה שם אחד מכיל את השני. אף פעם לא ניחוש בין
+ * שתיים - "אזור התעשייה" בעיר שיש בה שניים מחזיר את שתיהן לבחירה.
+ * נכס שמשויך לאזור תעשייה בלי כתובת מקבל פין משוער מהטריגר במסד
+ * (properties_zone_location_trg, ‏docs/property-map.md).
+ */
+async function resolvePropertyHood(
+  ctx: ToolContext, city: string, name: string,
+): Promise<{ id: string; name: string } | { error: string; known: string[] }> {
+  const { data } = await ctx.supabase
+    .from("neighborhoods").select("id, name").eq("city", city);
+  const rows = (data || []) as { id: string; name: string }[];
+  const key = hoodKey(name);
+  const exact = rows.filter((r) => hoodKey(r.name) === key);
+  if (exact.length === 1) return exact[0];
+  const partial = rows.filter((r) => {
+    const k = hoodKey(r.name);
+    return k.includes(key) || key.includes(k);
+  });
+  if (partial.length === 1) return partial[0];
+  return {
+    error: partial.length > 1
+      ? "יש כמה שכונות שמתאימות לשם הזה - שאל/י את הסוכן/ת לאיזו הכוונה."
+      : "אין בעיר שכונה או אזור תעשייה בשם הזה.",
+    known: (partial.length > 1 ? partial : rows).map((r) => r.name).slice(0, 40),
+  };
+}
+
 /** מוודאת שהנכס באמת שייך לסוכן/ת לפני כל שינוי. */
 async function ownedProperty(ctx: ToolContext, propertyId: string) {
   const { data } = await ctx.supabase
@@ -1633,12 +1674,22 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     payload.address = [street, houseNumber].filter(Boolean).join(" ");
   }
 
+  // שכונה או אזור תעשייה שנאמרו במפורש. לא נמצא - הנכס נוצר בלעדיה,
+  // והתשובה אומרת זאת (עם השמות שכן קיימים) במקום ליפול.
+  let hoodWarning: Record<string, unknown> | null = null;
+  if (input.neighborhood && payload.city) {
+    const hood = await resolvePropertyHood(ctx, String(payload.city), String(input.neighborhood));
+    if ("id" in hood) payload.neighborhood_id = hood.id;
+    else hoodWarning = { neighborhood_not_set: hood.error, known_neighborhoods: hood.known };
+  }
+
   // פין על המפה: בלי lat/lng הנכס לא מופיע במפה בעמוד הבית
   if (payload.city && street && houseNumber) {
     const coords = await geocodeForProperty(ctx, String(payload.city), street, houseNumber);
     if (coords) {
       payload.lat = coords.lat;
       payload.lng = coords.lng;
+      payload.location_precision = "exact";
     }
   }
 
@@ -1678,7 +1729,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   const { data, error } = await ctx.supabase
     .from("properties")
     .insert(payload)
-    .select("id, title")
+    .select("id, title, lat, location_precision")
     .single();
 
   if (error) {
@@ -1694,7 +1745,12 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     property_id: data.id,
     title: data.title,
     images_attached: images.length,
-    on_map: payload.lat !== undefined,
+    // ‏lat מהשורה שנשמרה ולא מה-payload: פין משוער באזור תעשייה נקבע בטריגר
+    on_map: data.lat != null,
+    ...(data.location_precision === "zone"
+      ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
+      : {}),
+    ...(hoodWarning || {}),
     link: propertyLink(data.id),
     ...crmButton(ctx, crmPropertyLink(data.id)),
   };
@@ -1724,6 +1780,12 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
 
   const payload = pickWritable(input);
+  if (input.neighborhood) {
+    const city = String(payload.city ?? existing.city ?? "");
+    const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
+    if (hood && "id" in hood) payload.neighborhood_id = hood.id;
+    else if (hood) return { ok: false, error: hood.error, known_neighborhoods: hood.known };
+  }
   if (!Object.keys(payload).length) {
     return { ok: false, error: "לא נשלח אף שדה לעדכון." };
   }
@@ -1739,6 +1801,7 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
       if (coords) {
         payload.lat = coords.lat;
         payload.lng = coords.lng;
+        payload.location_precision = "exact";
       }
     }
   }

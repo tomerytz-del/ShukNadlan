@@ -130,6 +130,25 @@ update property_publications set publish_after = now(), last_error = null
 והסוכן התפעולי מתריע על תרחיש כבוי בערוץ דלוק (`make_scenario_off`,
 קריטי) - `docs/ops-agent.md`.
 
+## 4א. שורה `pending` שלא זזה - שלוש סיבות שונות
+
+הממצאים "ממתין לתנאי מקדים" ו"תור תקוע: פרסום לרשתות" נראים זהה, והסיבה
+קובעת מה עושים. לבדוק לפני שנוגעים:
+
+```sql
+select pub.channel, p.status,
+       public.property_has_publishable_image(p.images, p.marketing_image) img,
+       pub.publish_after > now() future, count(*)
+  from property_publications pub join properties p on p.id = pub.property_id
+ where pub.status = 'pending' group by 1,2,3,4;
+```
+
+| מה רואים | הסיבה | מה עושים |
+| --- | --- | --- |
+| `p.status` אינו `active` | הנכס נמכר / ירד, והשאילתה בוחרת רק פעילים | מסמנים `skipped` במיגרציה (‏`20270501090000`) |
+| פעיל, `img = false` | **המתנה מכוונת** - הפוסט יוצא 20 דקות אחרי התמונה הראשונה | **לא** מסמנים `skipped`: הוא אינו מוחיה, והסוכן/ת יעלה/תעלה תמונות ושום דבר לא יקרה (‏`20261025090000`) |
+| פעיל, עם תמונה, `future = false` | התקרה היומית (‏`*_autopost_daily_cap`, ‏12) מלאה | זה קצב, לא תקלה. להעלות תקרה - רק בבקשה מפורשת (סעיף 6) |
+
 ## 5. מה אינסטגרם לא מאפשרת
 
 - **אין עריכת כיתוב** דרך ה-API. טעות בפוסט שעלה = נוסח מתוקן שהמשתמש/ת
