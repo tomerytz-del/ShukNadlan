@@ -58,7 +58,7 @@ PROBE_CODES = {
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
     # ‏make_scenario_off (‏critical) לא היה נסגר לעולם, וה-Issue שהוא פותח
     # היה נשאר פתוח גם אחרי שהתרחיש הודלק.
-    "pipeline": ("migration_", "workflow_", "actions_", "make_"),
+    "pipeline": ("migration_", "workflow_", "actions_", "make_", "access_log_"),
     # קונסולת השיווק (probes/ads.py). כל הקודים שם מתחילים ב-"ads_".
     "ads": ("ads_",),
     # ‏"page_weight" נשאר ברשימה אף שהבדיקה כבר אינה מייצרת אותו: זה
