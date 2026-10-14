@@ -408,7 +408,8 @@ const TOOLS: Anthropic.Tool[] = [
             "סוגי נכס, התאמה חלקית ('פנטהאוז' מוצא 'גג/פנטהאוז', 'מגרש' גם " +
             "'מגרשים'). הערכים באתר: 'דירה', 'דירת גן', 'גג/פנטהאוז', " +
             "'בית פרטי/קוטג'', 'דו משפחתי', 'מגרש', 'משרדים', " +
-            "'חנויות/שטח מסחרי', 'מבני תעשייה'.",
+            "'חנויות/שטח מסחרי', 'מבני תעשייה'. \"חנות\", \"שטח מסחרי\" ו\"חלל\" " +
+            "= 'חנויות/שטח מסחרי'. כשחוזר `office_alternative` - לפעול לפי ה-note שלו.",
         },
         min_price: { type: "number" },
         max_price: { type: "number" },
@@ -939,9 +940,39 @@ async function searchProperties(
     }
   }
 
+  // -------------------------------------------------------------------------
+  // חנות/שטח מסחרי שלא נמצא - אולי משרד יתאים
+  //
+  // "מחפשת חנות להשכרה 100 מטר עד 2,500" (‏14.10.2026): לא נמצא, והחיפוש
+  // נגמר בשמירה - אף שהמלאי החזיק משרד שענה על הכול, וזה מה שהפונה חיפש/ה
+  // בפועל. "חלל" ו"שטח מסחרי" הם הרבה פעמים משרד. ההחלטה אם לשאול נעשית
+  // כאן, לפי מה שבאמת יש במלאי, ולא בניסוח של המודל: שאלה על משרדים
+  // שאינם קיימים היא עוד מבוי סתום.
+  // -------------------------------------------------------------------------
+  let officeAlternative: Record<string, unknown> | undefined;
+  if (!rows.length && !args._relaxed && wantsShopNotOffice(args)) {
+    const probe = await searchProperties(ctx, {
+      ...args, property_types: ["משרדים"], _relaxed: true, limit: MAX_RESULTS,
+    }) as Record<string, unknown>;
+    const n = Number(probe?.count || 0);
+    if (n > 0) {
+      officeAlternative = {
+        count: n,
+        note:
+          "אין חנות/שטח מסחרי כזה, אבל יש " + n + " משרדים שעונים על אותן " +
+          "דרישות. **לא להציג אותם עכשיו ולא לקרוא ל-offer_save_search בתור " +
+          "הזה.** לומר שלא נמצאה חנות כזו ולשאול שאלה אחת: \"תרצה/י שאציג לך " +
+          "משרדים שמתאימים לדרישות שלך?\". כן = search_properties עם אותם " +
+          "קריטריונים ו-property_types ['משרדים'], ואז הזרימה הרגילה (כרטיסים ו-" +
+          "offer_save_search). לא = offer_save_search לחיפוש המקורי.",
+      };
+    }
+  }
+
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
+    office_alternative: officeAlternative,
     close_matches: close.length ? close : undefined,
     relaxed_on: close.length ? relaxed : undefined,
     close_note: close.length
@@ -953,6 +984,16 @@ async function searchProperties(
     all_listings_url: `${SITE_BASE}/`,
     ...areaHint,
   };
+}
+
+/* חיפוש של חנות או שטח מסחרי שאינו כולל משרד. ‏category=commercial בלי סוג
+   נחשב רק כשאין סוג בכלל - שם המשרדים כבר בפנים. */
+function wantsShopNotOffice(args: Record<string, unknown>): boolean {
+  const types = Array.isArray(args.property_types)
+    ? args.property_types.map((t) => String(t || "")).filter(Boolean)
+    : [];
+  if (types.some((t) => /משרד/.test(t))) return false;
+  return types.some((t) => /חנו|מסחר|חלל|עסק/.test(t));
 }
 
 async function getProperty(
@@ -2156,6 +2197,9 @@ const SYSTEM_STATIC: string = (() => {
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
       "החזיר ריק גם ב-close_matches - לומר שלא נמצא, ולהציע לשמור את החיפוש.",
+    "- **‏office_alternative = לשאול על משרדים לפני הכול.** חנות או שטח מסחרי " +
+      "שלא נמצאו, ובמלאי יש משרדים שעונים על אותן דרישות: לשאול אם להציג אותם, " +
+      "בלי offer_save_search באותו תור. לא להציע משרדים כשהשדה לא חזר.",
     "- **‏close_matches אינם תשובה לשאלה - הם הקרוב לה.** הם מוצגים רק אחרי " +
       `לחיצה על "${SIMILAR_TITLE}" (או בקשה כזו בטקסט), ותמיד עם במה הם ` +
       "שונים לפי relaxed_on (\"קצת מעל התקציב\", \"3 חדרים ולא 4\", " +

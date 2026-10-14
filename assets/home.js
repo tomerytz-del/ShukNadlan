@@ -6750,6 +6750,7 @@ function initSentenceDock(){
     fillAreas(st);
     const commercial = mode === 'commercial';
     fillTypes(st, commercial);
+    $('hsCommDeal').value = commercial && (st.deal === 'rent' || st.deal === 'sale') ? st.deal : '';
     const r = st.rooms;
     $('hsRooms').value = !r ? '' : (r[0] >= 5 ? '5' : String(Math.floor(r[0])));
     $('hsPriceMax').value = fmt(st.priceMax);
@@ -6798,9 +6799,11 @@ function initSentenceDock(){
   // הצ'קבוקסים והשדות של הפאנל → searchState ושדות המודאל, ואז אותו applyAdvancedFilters
   function applyPanel(){
     if (!sentence.loaded()) return;
-    // מסחרי = שתי העסקאות יחד (deal ריק), כמו ‎?deal=commercial‎
+    /* מסחרי = שתי העסקאות יחד (deal ריק), כמו ‎?deal=commercial‎ - אלא אם
+       נבחרה עסקה בשדה "השכרה או מכירה", שמופיע רק במסחרי. עד אוקטובר 2026
+       הבחירה הזו הייתה רק בחלון הסינון המתקדם. */
     const commercial = mode === 'commercial';
-    const deal = commercial ? null : mode;
+    const deal = commercial ? ($('hsCommDeal').value || null) : mode;
     const area = $('hsHood').value || $('hsCity').value || 'all';
     sentence.patch({ deal, area, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
 
