@@ -369,9 +369,13 @@ ENGINES = (
 # ‏pricing_config, ברירת המחדל של המתג, שם קריא). המזהה גלוי בכתובת התרחיש
 # ‏(‏/scenarios/<id>/edit) ואינו סוד; אותם מזהים יושבים כברירת מחדל גם ב-
 # ‏property-marketing-publish.
+#
+# ‏אינסטגרם יצאה מכאן ב-14.10.2026: היא מתפרסמת ב-Graph API ישיר (‏#753),
+# ותרחיש Make שלה (‏7641885) כובה בכוונה. השורה שלה הייתה מדווחת על התרחיש
+# הכבוי כ-critical בכל סריקה. ערוץ שחוזר ל-Make (‏MAKE_INSTAGRAM_WEBHOOK_URL)
+# חוזר גם לכאן.
 MAKE_SCENARIOS = (
     ("facebook_page", "7218015", "facebook_autopost_enabled", 1, "פייסבוק"),
-    ("instagram", "7641885", "instagram_autopost_enabled", 0, "אינסטגרם"),
 )
 
 # פונקציות SECURITY DEFINER שפתוחות ל-anon **בכוונה**, ומי קורא/ת להן.
