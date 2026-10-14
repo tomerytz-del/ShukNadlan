@@ -48,7 +48,7 @@ test('האזורים נגזרים מהמלאי, והיישוב העיקרי אי
 
 test('קבלה 1: "לשכור 4 חדרים בגבעת המורה עד 5500"', () => {
   const { slots } = afterParse('לשכור 4 חדרים בגבעת המורה עד 5500');
-  assert.deepStrictEqual(slots, ['לשכור', 'דירה', 'גבעת המורה', '4-5 חדרים', 'עד ₪5,500']);
+  assert.deepStrictEqual(slots, ['לשכור', 'דירה', 'גבעת המורה', '4 חדרים', 'עד ₪5,500']);
 });
 
 test('קבלה 2: "בית פרטי בעפולה עד 2.8 מיליון" - גם כשהמצב הקודם היה שכירות', () => {
@@ -62,7 +62,7 @@ test('קבלה 2: "בית פרטי בעפולה עד 2.8 מיליון" - גם כ
 test('דוגמת ה-placeholder: "דירת 4 חדרים בגבעת המורה עד 1.7 מיליון" מתעגל למדרגה', () => {
   const { st } = afterParse('דירת 4 חדרים בגבעת המורה עד 1.7 מיליון');
   assert.strictEqual(st.type, 'apt');
-  assert.deepStrictEqual(st.rooms, [4, 5.5]);
+  assert.deepStrictEqual(st.rooms, [4, 4.5]);
   assert.strictEqual(st.priceMax, 2000000);
   assert.strictEqual(st.area, 'hood:1');
 });
@@ -76,7 +76,18 @@ test('כתיב חלופי: "עפולה עילית", "גבעה", "לב העמק"'
 test('מספר עם פסיקים, "5+ חדרים", ומספר במילים', () => {
   assert.strictEqual(afterParse('עד 1,600,000').st.priceMax, 1600000);
   assert.deepStrictEqual(afterParse('5+ חדרים').st.rooms, [5, 99]);
-  assert.deepStrictEqual(afterParse('שלושה חדרים').st.rooms, [3, 4.5]);
+  assert.deepStrictEqual(afterParse('שלושה חדרים').st.rooms, [3, 3.5]);
+});
+
+test('"4 חדרים" הוא 4 עד 4.5 - בלי דירות 5 חדרים, ונשמר בכתובת', () => {
+  const st = afterParse('4 חדרים להשכרה').st;
+  assert.deepStrictEqual(st.rooms, [4, 4.5]);
+  assert.strictEqual(C.roomsLabel(st.rooms), '4 חדרים');
+  assert.deepStrictEqual(afterParse('4.5 חדרים').st.rooms, [4.5, 4.5]);
+  assert.deepStrictEqual(afterParse('5 חדרים').st.rooms, [5, 5.5]);
+  assert.deepStrictEqual(afterParse('4+ חדרים').st.rooms, [4, 99]);
+  const back = C.fromParams(new URLSearchParams(C.toParams(st, AREAS, CTX)));
+  assert.deepStrictEqual(back.rooms, [4, 4.5]);
 });
 
 test('תקציב מעל הסולם = בלי הגבלה, ומה שלא זוהה נשאר', () => {
