@@ -6374,7 +6374,10 @@ function applyAdvancedFilters(){
     else checks.push(p => feats(p).includes(code));
   });
   const propFeats = [...s.propertyFeatures];
-  if (propFeats.length) checks.push(p => propFeats.every(f => feats(p).includes(f)));
+  /* ‏"מרפסת" מתקיימת גם במרפסת שמש: חלק מהמודעות מסמנות רק sun_balcony
+     (‏14.10.2026), והן נעלמו מחיפוש של מרפסת. אותו כלל ב-property-search.ts. */
+  const hasFeat = (p, f) => feats(p).includes(f) || (f === 'balcony' && feats(p).includes('sun_balcony'));
+  if (propFeats.length) checks.push(p => propFeats.every(f => hasFeat(p, f)));
   const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
   const range = (field, lo, hi)=>{
     lo = num(lo); hi = num(hi);
@@ -6603,6 +6606,8 @@ function initSentenceDock(){
   });
 }
 
+// המאפיינים שהשדה החכם הוסיף לסינון (‏onFeatures) - כדי להחליף רק אותם
+let freeTextFeatures = new Set();
 (function initSentenceSearch(){
   if (!window.SentenceSearch) return;   // הסקריפט נחסם - נשארים עם applyDeepLinkFilters
   sentence = SentenceSearch.mount({
@@ -6611,6 +6616,18 @@ function initSentenceDock(){
     places: (window.ShukMarkets?.list || []).flatMap(m => (m.places || []).map(name => ({
       name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CityCtx.label(), main: name === m.city,
     }))),
+    /* ‏"דירה עם מעלית", "מרוהטת": מאפיין מהשדה החכם עובר דרך אותו סינון של
+       "סינון מתקדם" (‏propertyFeatures ← applyAdvancedFilters). רק מה שהשדה
+       הוסיף מוחלף בחיפוש הבא - מה שנבחר בפאנל נשאר. */
+    onFeatures: (feats) => {
+      const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
+      const prev = freeTextFeatures;
+      freeTextFeatures = new Set(feats);
+      if (!prev.size && !feats.length) return;
+      prev.forEach(f => s.propertyFeatures.delete(f));
+      feats.forEach(f => s.propertyFeatures.add(f));
+      applyAdvancedFilters();
+    },
     /* ‏"דירה במגדל העמק": הנכסים הפעילים של עיר משוק אחר, בלי MARKET_FILTER -
        זה החריג היחיד לכלל, והוא נפתח רק כשהגולש/ת כתב/ה את שם העיר.
        ‏ilike ולא eq: "מעלות" היא "מעלות-תרשיחא" במסד, "קדימה" היא "קדימה-צורן".

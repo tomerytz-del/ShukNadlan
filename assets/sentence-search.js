@@ -163,6 +163,8 @@
     if (paren && norm(paren[1])) names.push(norm(paren[1]));
     var noLatin = norm(a.label.replace(/[A-Za-z0-9]+/g, ''));
     if (noLatin && names.indexOf(noLatin) < 0) names.push(noLatin);
+    // ‏"ביוגב" ולא "בהיוגב": ה' הידיעה בראש השם נבלעת אחרי אות יחס
+    if (/^ה[^ ]{3,}/.test(full) && names.indexOf(full.slice(1)) < 0) names.push(full.slice(1));
     return names.filter(function (n) { return n.length >= 2; });
   }
 
@@ -174,7 +176,9 @@
   }
 
   function findArea(text, areas) {
-    var t = norm(text);
+    /* ‏"דירה עם מעלית" היא מ+"עלית" - והכינוי של עפולה עלית תפס אותה
+       (‏14.10.2026). המילה יורדת לפני החיפוש; היא מאפיין (‏FEATURE_WORDS). */
+    var t = norm(text).replace(/(^| )[ובלה]?מעלית(?= |$)/g, ' ');
     var best = null, bestLen = 0;
     (areas || []).forEach(function (a) {
       areaNames(a).forEach(function (n) {
@@ -467,7 +471,12 @@
     else if (/חנות|חנויות|שטח מסחרי/.test(t)) patch.type = 'shop';
     else if (/משרד/.test(t)) patch.type = 'office';
     else if (/מבנה תעשי|מבני תעשי|מפעל/.test(t)) patch.type = 'industry';
-    else if (/מסחרי|(^| )עסק/.test(t)) patch.type = 'commercial';
+    else if (/מסחרי|(^| )עסק|(^| )[בלה]?חלל( |$)/.test(t)) patch.type = 'commercial';
+    /* ‏"דופלקס" ו"סטודיו" לא זוהו, והחיפוש החזיר את כל 202 הנכסים
+       (‏14.10.2026). הם סוגים גולמיים - בדיוק הערך שבמסד. */
+    else if (/דופלקס/.test(t)) patch.type = 'raw:דופלקס';
+    else if (/טריפלקס/.test(t)) patch.type = 'raw:טריפלקס';
+    else if (/סטודיו|לופט/.test(t)) patch.type = 'raw:סטודיו/לופט';
     else if (/דיר/.test(t)) patch.type = 'apt';
     // אחרי "דיר": "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
     else if (/(^| )מחסן( |$)|מחסנים/.test(t)) patch.type = 'warehouse';
@@ -501,12 +510,23 @@
         if (value >= 200000 && st.deal !== 'sale') patch.deal = 'sale';
         else if (value <= 30000 && st.deal !== 'rent') patch.deal = 'rent';
       }
-      var deal = patch.deal || st.deal;
-      var scale = priceScale(deal, patch.type || st.type);
-      var step = null;
-      for (var i = 0; i < scale.length; i++) { if (scale[i] !== null && scale[i] >= value) { step = scale[i]; break; } }
-      patch.priceMax = step;
+      /* התקציב שנאמר הוא התקציב. עד 14.10.2026 הוא עוגל **למעלה** למדרגת
+         הבורר ("עד 1.5 מיליון" ← עד 1.6, "עד 3000" ← עד 4000), והתוצאות
+         הציגו נכסים מעל מה שהגולש/ת אמר/ה. הבורר מוסיף ערך שאינו מדרגה
+         (‏options), ולכן אין צורך בעיגול. */
+      patch.priceMax = value;
     }
+
+    /* מאפיינים ("עם מעלית", "מרוהטת") - נזרקו בשקט, והתוצאות הציגו נכסים
+       בלעדיהם. הם אינם חלק מהמשפט; הדף מחיל אותם כמו את הסינון המתקדם
+       (‏opts.onFeatures). מחסן הוא מאפיין רק כשהנכס הוא למגורים. */
+    var features = [];
+    FEATURE_WORDS.forEach(function (fw) {
+      if (fw[0].test(t) && features.indexOf(fw[1]) < 0) features.push(fw[1]);
+    });
+    if (features.indexOf('sun_balcony') >= 0) features = features.filter(function (f) { return f !== 'balcony'; });
+    var finalType = typeDef(patch.type || st.type);
+    if (finalType.residential && /(^| )[ובלה]?מחסן( |$)/.test(t)) features.push('storage');
 
     var area = findArea(t, areas);
     var place = null;
@@ -518,7 +538,26 @@
       var k = s === 'price' ? 'priceMax' : s;
       if (k in patch) fields.push(s);
     });
-    return { patch: patch, fields: fields, place: place };
+    return { patch: patch, fields: fields, place: place, features: features };
+  }
+
+  var FEATURE_WORDS = [
+    [/חני[יה]|חנייה|חניות/, 'parking'],
+    [/(^| )[ובלה]?מעלית( |$)/, 'elevator'],
+    [/מרפסת שמש/, 'sun_balcony'],
+    [/מרפסת|מרפסות/, 'balcony'],
+    [/(^| )[ובלה]?ממד( |$)/, 'mamad'],
+    [/מרוהט/, 'furnished'],
+    [/מיזוג|ממוזג|מזגן/, 'ac'],
+    [/משופצ/, 'renovated_feature'],
+    [/נגיש|גישה לנכים/, 'accessible'],
+    [/עמדת טעינה|טעינה לרכב/, 'ev_charger'],
+  ];
+  var FEATURE_LABELS = { parking: 'חניה', elevator: 'מעלית', sun_balcony: 'מרפסת שמש', balcony: 'מרפסת',
+    mamad: 'ממ״ד', furnished: 'מרוהטת', ac: 'מיזוג', renovated_feature: 'משופצת', accessible: 'נגישה',
+    ev_charger: 'עמדת טעינה', storage: 'מחסן' };
+  function featuresNote(list) {
+    return (list || []).map(function (f) { return FEATURE_LABELS[f] || f; }).join(', ');
   }
 
   /* ‏"דירה בנוף הגליל" באתר של עפולה: האזורים נגזרים מהנכסים, ולכן עיר בלי
@@ -703,7 +742,7 @@
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
     slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
-    parse: parse, parsedNote: parsedNote, placeNote: placeNote, sentenceText: sentenceText,
+    parse: parse, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
   };
 
@@ -1153,25 +1192,39 @@
       }
       active = null;
       keyboardOpen = false;
+      /* המאפיינים - דרך הדף, כמו הסינון המתקדם. נקרא גם עם רשימה ריקה, כדי
+         שמאפיין מהחיפוש הקודם לא יישאר בשקט על החיפוש הבא. */
+      var feats = res.features || [];
+      // אחרי שהמשפט כבר עודכן - הדף קורא ממנו את הלשונית (מגורים/מסחרי)
+      var applyFeats = function () { if (typeof opts.onFeatures === 'function') opts.onFeatures(feats); };
+      var featNote = feats.length ? ' · ' + featuresNote(feats) : '';
       var pl = res.place && patch.area === 'text:' + res.place.name ? res.place : null;
       if (fields.length && pl && !pl.here) {
         fields.forEach(function (f) { touched[f] = true; });
         var heardAway = 'הבנתי: ' + parsedNote(fields, applyPatch(st, patch), areas, ctx);
+        heardAway += featNote;
         noteEl.textContent = heardAway + '. ' + placeNote(pl, null);
         awayPending = true;
         loadAway(pl, function () {
           awayPending = false;
           if (parsedText !== text) { submitAfterAway = false; return; }   // הגולש/ת כבר כתב/ה משהו אחר
           change(patch, 'freetext');
+          applyFeats();
           noteEl.textContent = heardAway + '. ' + placeNote(pl, filter(props, st, ctx).length, ctx.marketLabel);
           if (submitAfterAway) { submitAfterAway = false; finishSubmit(); }
         });
       } else if (fields.length) {
         fields.forEach(function (f) { touched[f] = true; });
         change(patch, 'freetext');
-        var heard = 'הבנתי: ' + parsedNote(fields, st, areas, ctx);
+        applyFeats();
+        var heard = 'הבנתי: ' + parsedNote(fields, st, areas, ctx) + featNote;
         noteEl.textContent = heard + (pl && !filter(props, st, ctx).length ? '. ' + placeNote(pl, 0) : '');
+      } else if (feats.length) {
+        applyFeats();
+        render();
+        noteEl.textContent = 'הבנתי: ' + featuresNote(feats);
       } else {
+        applyFeats();
         render();
         if (freeOnly) {
           var ex = examplePhrases(areas, mq.matches)[0];
@@ -1180,8 +1233,8 @@
           noteEl.textContent = 'לא זיהיתי - נסו לבחור במשפט למעלה';
         }
       }
-      track('search_freetext_submit', { parsed_fields: fields.join(',') || 'none', field_count: fields.length });
-      return fields.length > 0;
+      track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });
+      return fields.length > 0 || feats.length > 0;
     }
 
     /* ‏"דירה במגדל העמק" + Enter: התוצאות מוצגות רק אחרי שהנכסים של העיר

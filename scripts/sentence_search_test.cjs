@@ -59,11 +59,11 @@ test('קבלה 2: "בית פרטי בעפולה עד 2.8 מיליון" - גם כ
   assert.deepStrictEqual([slots[0], slots[1], slots[2], slots[slots.length - 1]], ['לקנות', 'בית פרטי', 'כל עפולה והעמק', 'עד 2.8 מ׳']);
 });
 
-test('דוגמת ה-placeholder: "דירת 4 חדרים בגבעת המורה עד 1.7 מיליון" מתעגל למדרגה', () => {
+test('דוגמת ה-placeholder: "דירת 4 חדרים בגבעת המורה עד 1.7 מיליון" - התקציב כמו שנאמר', () => {
   const { st } = afterParse('דירת 4 חדרים בגבעת המורה עד 1.7 מיליון');
   assert.strictEqual(st.type, 'apt');
   assert.deepStrictEqual(st.rooms, [4, 4.5]);
-  assert.strictEqual(st.priceMax, 2000000);
+  assert.strictEqual(st.priceMax, 1700000);
   assert.strictEqual(st.area, 'hood:1');
 });
 
@@ -90,10 +90,10 @@ test('"4 חדרים" הוא 4 עד 4.5 - בלי דירות 5 חדרים, ונש�
   assert.deepStrictEqual(back.rooms, [4, 4.5]);
 });
 
-test('תקציב מעל הסולם = בלי הגבלה, ומה שלא זוהה נשאר', () => {
+test('תקציב מעל הסולם נשאר כמו שנאמר, ומה שלא זוהה נשאר', () => {
   const base = C.applyPatch(C.defaultState(), { rooms: [3, 4.5] });
   const { st } = afterParse('עד 9 מיליון', base);
-  assert.strictEqual(st.priceMax, null);
+  assert.strictEqual(st.priceMax, 9000000);
   assert.deepStrictEqual(st.rooms, [3, 4.5]);
 });
 
@@ -131,6 +131,31 @@ test('"דירה במגדל העמק" באתר של עפולה - נכסי העי�
   assert.strictEqual(C.parse('דירה בעפולה', C.defaultState(), AREAS, places).patch.area, 'all');
   // לפני שהמלאי נטען אין mainCity - ועפולה עדיין אינה "עיר בלי נכסים"
   assert.ok(!('area' in C.parse('דירה בעפולה', C.defaultState(), C.deriveAreas([]), places).patch));
+});
+
+test('דיוק (14.10.2026): תקציב בלי עיגול, חלל, דופלקס, מעלית, יוגב ומאפיינים', () => {
+  // התקציב שנאמר - לא המדרגה שמעליו
+  assert.strictEqual(afterParse('דירה עד 1.5 מיליון').st.priceMax, 1500000);
+  assert.strictEqual(afterParse('דירה עד 3000 לחודש').st.priceMax, 3000);
+  // "חלל" הוא מסחרי, לא כל הנכסים להשכרה
+  assert.strictEqual(afterParse('חלל להשכרה').st.type, 'commercial');
+  // סוגים שלא זוהו והחזירו את כל המלאי
+  assert.strictEqual(afterParse('דופלקס למכירה').st.type, 'raw:דופלקס');
+  assert.strictEqual(afterParse('סטודיו להשכרה').st.type, 'raw:סטודיו/לופט');
+  // "מעלית" אינה עפולה עלית, והיא מאפיין
+  const elev = C.parse('דירה עם מעלית', C.defaultState(), AREAS);
+  assert.ok(!('area' in elev.patch), 'מעלית נקראה כאזור');
+  assert.deepStrictEqual(elev.features, ['elevator']);
+  assert.strictEqual(C.parse('בית בעפולה עלית', C.defaultState(), AREAS).patch.area, 'hood:3');
+  // ה' הידיעה בשם יישוב: "ביוגב" = היוגב
+  assert.strictEqual(C.parse('מגרש ביוגב', C.defaultState(), AREAS).patch.area, 'city:היוגב');
+  // מאפיינים
+  assert.deepStrictEqual(C.parse('דירה מרוהטת עם חניה וממ"ד', C.defaultState(), AREAS).features.sort(), ['furnished', 'mamad', 'parking']);
+  assert.deepStrictEqual(C.parse('דירה עם מרפסת שמש', C.defaultState(), AREAS).features, ['sun_balcony']);
+  assert.deepStrictEqual(C.parse('דירה עם מחסן', C.defaultState(), AREAS).features, ['storage']);
+  assert.deepStrictEqual(C.parse('מחסן להשכרה', C.defaultState(), AREAS).features, [], 'מחסן לבד הוא סוג נכס');
+  assert.strictEqual(C.parse('מחסן להשכרה', C.defaultState(), AREAS).patch.type, 'warehouse');
+  assert.strictEqual(C.featuresNote(['elevator', 'parking']), 'מעלית, חניה');
 });
 
 test('טקסט בלי שום זיהוי מחזיר fields ריק', () => {

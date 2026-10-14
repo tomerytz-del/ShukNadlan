@@ -125,6 +125,16 @@ export function applyPropertyFilters(
       .filter((t): t is string => !!t);
     if (patterns.length) groups.push(patterns);
   }
+  /* ‏"מרפסת" מתקיימת גם במרפסת שמש: חלק מהמודעות מסמנות רק sun_balcony
+     (‏14.10.2026), והן נעלמו מחיפוש של מרפסת. אותו כלל ב-assets/home.js.
+     ה"או" הזה נכנס ל-groups - `or` אחד בלבד בבקשה (ראו למעלה). */
+  const feats = Array.isArray(args.features)
+    ? args.features.map((f) => text(f)).filter((f): f is string => !!f).slice(0, 8)
+    : [];
+  const strictFeats = feats.filter((f) => f !== "balcony");
+  if (strictFeats.length) query = query.contains("features", strictFeats);
+  if (strictFeats.length !== feats.length) groups.push(["features.cs.{balcony}", "features.cs.{sun_balcony}"]);
+
   if (groups.length === 1) query = query.or(groups[0].join(","));
   else if (groups.length > 1) {
     query = query.or(`and(${groups.map((g) => g.length === 1 ? g[0] : `or(${g.join(",")})`).join(",")})`);
@@ -151,13 +161,6 @@ export function applyPropertyFilters(
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);
   if (parsed.maxFloor !== null) query = query.lte("floor", parsed.maxFloor);
 
-  if (Array.isArray(args.features)) {
-    const feats = args.features
-      .map((f) => text(f))
-      .filter((f): f is string => !!f)
-      .slice(0, 8);
-    if (feats.length) query = query.contains("features", feats);
-  }
   return { query, parsed };
 }
 

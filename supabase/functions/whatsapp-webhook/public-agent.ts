@@ -413,7 +413,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         min_price: { type: "number" },
         max_price: { type: "number" },
-        min_rooms: { type: "number" },
+        min_rooms: {
+          type: "number",
+          description:
+            "\"4 חדרים\" = min_rooms 4 ו-max_rooms 4.5 (ולא 5 חדרים). רק \"לפחות 4\" " +
+            "או \"4+\" = min_rooms לבד. \"3-4 חדרים\" = 3 עד 4.5.",
+        },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
         max_floor: { type: "integer" },
@@ -421,7 +426,8 @@ const TOOLS: Anthropic.Tool[] = [
           type: "array",
           items: { type: "string" },
           description:
-            "מאפיינים שחייבים להימצא בנכס: parking, elevator, balcony, sun_balcony, ac, " +
+            "מאפיינים שחייבים להימצא בנכס (רק מה שנאמר במפורש): parking, elevator, " +
+            "balcony (כולל מרפסת שמש), sun_balcony, ac, " +
             "mamad, renovated_feature, furnished, storage, accessible, bars, " +
             "ev_charger (עמדת טעינה לרכב חשמלי).",
         },
@@ -862,6 +868,17 @@ async function searchProperties(
 ): Promise<unknown> {
   const limit = clampLimit(args.limit, 5, MAX_RESULTS);
   const area = text(args.area);
+
+  /* רשת ביטחון לעסקה: "דירה עד 4,000" בלי "להשכרה" היא שכירות, ו"עד 1.5
+     מיליון" היא קנייה - אותו כלל של דף הבית (‏parse ב-sentence-search.js).
+     בלעדיה, מודל ששכח את deal_type החזיר נכסים למכירה לחיפוש שכירות. */
+  if (!text(args.deal_type)) {
+    const cap = Number(args.max_price ?? args.min_price);
+    if (Number.isFinite(cap) && cap > 0) {
+      if (cap <= 30000) args = { ...args, deal_type: "rent" };
+      else if (cap >= 200000) args = { ...args, deal_type: "sale" };
+    }
+  }
 
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
