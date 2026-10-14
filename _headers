@@ -63,13 +63,19 @@
   #   3. להוסיף את הדומיינים שעלו לרשימה המתאימה כאן.
   #   4. לשנות את שם הכותרת ל-‎Content-Security-Policy‎ (בלי הסיומת).
   #
+  # ‏14.10.2026: שלבים 1-3 נעשו. שלושה ימים של דיווחים הראו את GA4
+  # (‏analytics.google.com, ‏stats.g.doubleclick.net, ‏www.google.com/.co.il)
+  # ואת הפיקסל של מטא (‏connect.facebook.net, ‏www.facebook.com) - כולם נוספו.
+  # רעש שנשאר בכוונה מחוץ לרשימה: netfree.link (סינון תוכן שמזריק לדף),
+  # ‏wasm-eval (תוסף), ו-"properties" (דיווח בלי URL). שלב 4 - אחרי שבוע נקי.
+  #
   # ‏'unsafe-inline' ב-script-src אינו בחירה אלא מצב נתון: כל דף באתר הוא
   # קובץ עצמאי שכל הקוד שלו יושב ב-‎<script>‎ בתוכו (ראו CLAUDE.md). ניקוי
   # אמיתי דורש nonce לכל טעינה — כלומר שרת — ולכן אינו רלוונטי כאן.
   # עדיין יש ערך: ‎object-src 'none'‎, ‎base-uri 'self'‎ ו-‎frame-ancestors‎
   # חוסמים וקטורים אמיתיים גם עם unsafe-inline.
   # ---------------------------------------------------------------------
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.govmap.gov.il https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://obookujgolazrwycsiyn.supabase.co wss://obookujgolazrwycsiyn.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://tiles.openfreemap.org https://tile.openstreetmap.org https://cdn.jsdelivr.net https://*.govmap.gov.il https://accounts.google.com https://people.googleapis.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.googletagmanager.com https://*.govmap.gov.il https://accounts.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri https://obookujgolazrwycsiyn.supabase.co/functions/v1/csp-report
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.govmap.gov.il https://accounts.google.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://obookujgolazrwycsiyn.supabase.co wss://obookujgolazrwycsiyn.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://*.analytics.google.com https://stats.g.doubleclick.net https://www.google.com https://www.google.co.il https://www.facebook.com https://tiles.openfreemap.org https://tile.openstreetmap.org https://cdn.jsdelivr.net https://*.govmap.gov.il https://accounts.google.com https://people.googleapis.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.googletagmanager.com https://*.govmap.gov.il https://accounts.google.com https://www.facebook.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://www.facebook.com; frame-ancestors 'none'; report-uri https://obookujgolazrwycsiyn.supabase.co/functions/v1/csp-report
 
 # ---------------------------------------------------------------------------
 # מטמון
