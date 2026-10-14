@@ -133,7 +133,10 @@ python scripts/check_migration_versions.py --base-ref origin/main
 - **יעד המודעה הוא האתר, לא `wa.me`.** השיחה עם גבריאלה מתחילה בדף הנחיתה;
   הודעת פתיחה חדשה למודעות = ביטוי ב-`SITE_ENTRY_PHRASES` (הסקיל `whatsapp-bots`).
 - **הנפח ארצי** (‏`GEO_ISRAEL`), ממוצע 12 חודשים. אל תציג/י אותו כחיפושים באזור.
-- **כל שליפה היא פעולה מהמכסה של Explorer** - בלחיצה, לא בטעינת הלשונית.
+- **Keyword Planner חסום ברמת Explorer** (נבדק 14.10.2026: `DEVELOPER_TOKEN_NOT_APPROVED`,
+  "This method is not allowed for use with explorer access"). עד ש-Basic מאושר,
+  הפאנל מציע `gkwSeedFallback`: קמפיין ממילות הזרע של הכיוון, בלי נפחים. מי
+  שמסיר את המסלול הזה משאיר את הקונסולה בלי דרך להקים קמפיין.
 - מילות השלילה הן חלק מהכיוון, ומוצגות בלי מינוס (מתהפך ב-RTL).
 
 ### קמפיין חיפוש מכיוון (`google-campaign.ts`, שלב 7ג)

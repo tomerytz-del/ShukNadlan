@@ -27187,6 +27187,9 @@ function gadsErrText(e){
   // טוקן ברמת Explorer בפרויקט שלא ביקש גישה עדיין נדחה כ"test accounts only".
   if (/Cloud project is only approved for use with test accounts/i.test((e && e.message) || '')) return 'פרויקט ה-Google Cloud עוד מאושר רק לחשבונות בדיקה. ב-Google Cloud ← APIs & Services ← Google Ads API ← Access levels ← Manage, מבקשים גישת Explorer (או Basic) לפרויקט.';
   if (code === 'invalid_grant') return 'ה-Refresh token פג או בוטל. מפיקים חדש ב-OAuth Playground, ובודקים שמסך ההסכמה במצב In production.';
+  // ‏Explorer מאשר חלק מהשירותים בלבד. Keyword Planner אינו ביניהם (נבדק
+  // 14.10.2026): "This method is not allowed for use with explorer access".
+  if (/not allowed for use with explorer access/i.test((e && e.message) || '')) return 'הפעולה הזו (למשל Keyword Planner) דורשת גישת Basic, וה-Developer token עוד ברמת Explorer. את הבקשה ל-Basic מגישים במרכז ה-API בחשבון המנהל.';
   if (/DEVELOPER_TOKEN_NOT_APPROVED|DEVELOPER_TOKEN_PROHIBITED/.test(code)) return 'ה-Developer token עוד לא מאושר לחשבון אמיתי - ממתינים לאישור Basic access.';
   if (/USER_PERMISSION_DENIED|CUSTOMER_NOT_ENABLED/.test(code)) return 'למשתמש שהפיק את ה-Refresh token אין גישה לחשבון, או שחשבון הפרסום לא מקושר לחשבון המנהל.';
   return (e && e.message) || 'שגיאה';
@@ -27405,9 +27408,33 @@ async function gkwFetch(){
     gkwLast = null;
     host.innerHTML = '';
     host.appendChild(admEl('div', 'empty-state', gadsErrText(e)));
+    // בלי Keyword Planner אפשר עדיין להקים קמפיין: מילות הזרע של הכיוון,
+    // עם העיר הראשית של השוק, בלי נפחים. זה מה שמשאיר את הקונסולה שמישה
+    // עד שגוגל מאשרת Basic.
+    if (/DEVELOPER_TOKEN_NOT_APPROVED/.test((e && e.data && e.data.code) || '')) gkwSeedFallback(host, d);
   }
   btn.disabled = false;
   dashPanelsMeasure();
+}
+
+function gkwSeedFallback(host, d){
+  const m = marketList().find(x => x.slug === gkwMarket) || {};
+  const city = m.city || '';
+  const fill = t => String(t).replaceAll('{in_city}', 'ב' + city).replaceAll('{city}', city);
+  const seeds = [...new Set(d.seeds.concat(city ? d.city_seeds.map(fill) : []))].map(text => ({ text }));
+  if (!seeds.length) return;
+  host.appendChild(admEl('p', 'adm-note', 'בינתיים אפשר להקים קמפיין ממילות הזרע של הכיוון (' + seeds.length + ' מילים), בלי נפחי חיפוש. אחרי שבוע, בדוח "מונחי החיפוש" ב-Google Ads רואים מה אנשים חיפשו בפועל.'));
+  const formHost = admEl('div');
+  const open = admEl('button', 'btn btn-gold', 'יצירת קמפיין מושהה ממילות הזרע');
+  open.type = 'button';
+  open.addEventListener('click', ()=>{
+    open.hidden = true;
+    formHost.appendChild(gkwCampaignForm(seeds));
+    dashPanelsMeasure();
+  });
+  const row = admEl('div', 'ads-row-btns'); row.appendChild(open);
+  host.appendChild(row);
+  host.appendChild(formHost);
 }
 
 function gkwRender(){
