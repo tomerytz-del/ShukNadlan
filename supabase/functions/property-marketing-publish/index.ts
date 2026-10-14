@@ -142,6 +142,13 @@ async function makeScenarioActive(channel: Channel): Promise<boolean | null> {
 const BATCH = 5;
 const MAX_PHOTOS = 5;
 
+// אחרי כמה זמן מההתחלה לא מתחילים נכס נוסף בהרצה. פוסט לאינסטגרם לוקח עד
+// כדקה וחצי (כולל ההמתנה לעיבוד), וחמישה ברצף עוברים את תקרת זמן הריצה של
+// ‏Edge Function. פונקציה שנקטעת באמצע משאירה שורה תפוסה עם ניסיון ובלי
+// תוצאה — לא ידוע אם עלתה (14.10.2026: ‏1266 לא עלה, ‏1267 עלה). נכס שלא
+// התחיל פשוט נשאר בתור להרצה הבאה, בעוד חמש דקות.
+const RUN_BUDGET_MS = 40_000;
+
 // ---------------------------------------------------------------------------
 // יחס התמונה באינסטגרם
 //
@@ -518,6 +525,28 @@ async function igCall(path: string, params: Record<string, string>, method = "PO
   return data;
 }
 
+// עד כמה ממתינים לעיבוד המכל. קרוסלה של חמש תמונות לוקחת לפעמים יותר
+// מחצי דקה (התקרה הקודמת), והשהיה כאן היא בתוך זמן הריצה של הפונקציה —
+// ראו RUN_BUDGET_MS בלולאה הראשית.
+const IG_CONTAINER_WAIT_MS = 75_000;
+const IG_CONTAINER_POLL_MS = 3_000;
+
+async function waitForContainer(creationId: string) {
+  const deadline = Date.now() + IG_CONTAINER_WAIT_MS;
+  let last = "";
+  while (Date.now() < deadline) {
+    const st = await igCall(creationId, { fields: "status_code,status" }, "GET").catch(() => null);
+    last = String(st?.status_code ?? last);
+    if (st?.status_code === "FINISHED") return;
+    if (st?.status_code === "ERROR" || st?.status_code === "EXPIRED") {
+      throw new Error(`instagram: עיבוד התמונות נכשל (status_code=${st.status_code}${st?.status ? `, ${st.status}` : ""})`);
+    }
+    await new Promise((r) => setTimeout(r, IG_CONTAINER_POLL_MS));
+  }
+  throw new Error(`instagram: המכל לא סיים עיבוד תוך ${IG_CONTAINER_WAIT_MS / 1000} שניות ` +
+    `(status_code=${last || "לא ידוע"}) - לא פורסם, ינוסה שוב`);
+}
+
 async function publishViaInstagramGraph(caption: string, images: string[]) {
   let creationId: string;
 
@@ -543,14 +572,13 @@ async function publishViaInstagramGraph(caption: string, images: string[]) {
           media_type: "CAROUSEL", children: children.join(","), caption })).id);
   }
 
-  // המכל מעובד אצל אינסטגרם. פרסום לפני FINISHED נכשל, ולכן ממתינים — עד
-  // כחצי דקה. אם עדיין לא מוכן, השגיאה מחזירה את השורה לתור לניסיון הבא.
-  for (let i = 0; i < 10; i++) {
-    const st = await igCall(creationId, { fields: "status_code" }, "GET").catch(() => null);
-    if (st?.status_code === "FINISHED") break;
-    if (st?.status_code === "ERROR") throw new Error("instagram: עיבוד התמונות נכשל (status_code=ERROR)");
-    await new Promise((r) => setTimeout(r, 3000));
-  }
+  // המכל מעובד אצל אינסטגרם. ‏media_publish לפני FINISHED נכשל ב-
+  // ‏"Media ID is not available" (‏9007) — זו בדיוק השגיאה שהפילה את תרחיש
+  // ‏Make ב-14.10.2026, שבו שני המודולים רצים צמודים בלי המתנה ביניהם.
+  //
+  // לכן לא מפרסמים עד שהסטטוס FINISHED, וגם לא "מנסים בכל זאת" כשהזמן נגמר:
+  // מכל שלא פורסם אינו פוסט, ולכן ניסיון חוזר מהתור בטוח ואינו יוצר כפילות.
+  await waitForContainer(creationId);
 
   const published = await igCall(`${IG_ACCOUNT_ID}/media_publish`, { creation_id: creationId });
   const mediaId = published?.id ? String(published.id) : null;
@@ -867,7 +895,13 @@ Deno.serve(async (req: Request) => {
 
   const results: any[] = [];
   const written = new Map<string, { description: string; post: string }>();
+  const startedAt = Date.now();
   for (const row of rows) {
+    // לפני התפיסה: שורה שלא נתפסה נשארת בתור כמו שהיא, בלי ניסיון שנשרף.
+    if (results.length && Date.now() - startedAt > RUN_BUDGET_MS) {
+      results.push({ property_id: row.property_id, channel: row.channel, skipped: "run_budget" });
+      continue;
+    }
     try {
       // התפיסה קודמת לכל השאר. שתי הרצות חופפות של ה-cron מושכות את אותה
       // שורה, ובלי זה שתיהן היו מפרסמות את אותו נכס.
