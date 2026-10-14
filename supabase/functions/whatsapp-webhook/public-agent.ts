@@ -70,6 +70,9 @@ import {
 // איכות, והמתג נפרד כדי שאפשר יהיה להחליף כאן בלי לגעת בערוץ העבודה
 // של הסוכנים.
 const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5";
+const PUBLIC_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT") || "")
+  ? Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT")
+  : "low") as "low" | "medium" | "high";
 // שישה: הזרימות כאן קצרות, אבל כבר לא תמיד כלי אחד — "חפש → שלח כרטיסים →
 // סכם" ו"חשב משכנתא → פתח ליד" הן שתיים ושלוש קריאות באותו תור.
 const MAX_TOOL_ITERATIONS = 6;
@@ -432,6 +435,12 @@ const TOOLS: Anthropic.Tool[] = [
             "ev_charger (עמדת טעינה לרכב חשמלי).",
         },
         limit: { type: "integer", description: `ברירת מחדל 5, מקסימום ${MAX_RESULTS}.` },
+        send_cards: {
+          type: "boolean",
+          description:
+            "ברירת מחדל true: החיפוש שולח בעצמו את כרטיסי ההתאמות (עד שלוש). " +
+            "false רק בחיפוש החוזר אחרי לחיצה על \"" + SIMILAR_TITLE + "\" - שם ההתאמות כבר נשלחו.",
+        },
       },
       required: [],
     },
@@ -853,6 +862,29 @@ interface PublicContext {
   joinedFair?: boolean;
   /** האם ניתנה בתור הזה הסכמה לעזרה ממתווך/ת. */
   agentHelp?: boolean;
+  /** ההודעה של התור הזה, כפי שנכתבה - לבדיקת ההסכמה בקוד (‏userConsented). */
+  userText?: string;
+}
+
+/* ‏**הסכמה לליד - נבדקת גם בקוד, לא רק בדגל שהמודל שולח** (14.10.2026).
+   ‏`consent: true` הוא מה שהמודל כותב; ב-effort נמוך הוא עלול לכתוב אותו בלי
+   ששאל, וליד שנפתח בלי בקשה הוא הטעות היקרה בבוט הזה. לכן ליד נפתח רק כשאחת
+   משלוש ההודעות האחרונות של הפונה (כולל זו) אומרת "כן" או מבקשת במפורש -
+   או מוסרת טלפון בעצמה, שזו הסכמה בפני עצמה. */
+const CONSENT_RE = /(^|[\s,.!?])(כן|כנ|בטח|בסדר|אשמח|מאשר|מאשרת|אוקיי|אוקי|ok|סגור|בבקשה|יאללה|תעבירי|תעביר|שיחזרו|שיתקשרו|שיצרו|שייצרו|תחזרו|תתקשרו)(?=$|[\s,.!?])/i;
+const PHONE_RE = /0\d[\d\s-]{7,}/;
+function userConsented(ctx: PublicContext): boolean {
+  const recent: string[] = [];
+  if (ctx.userText) recent.push(ctx.userText);
+  for (let i = ctx.conv.history.length - 1; i >= 0 && recent.length < 3; i--) {
+    const m = ctx.conv.history[i];
+    if (m.role !== "user") continue;
+    const t = typeof m.content === "string"
+      ? m.content
+      : m.content.map((b) => (b.type === "text" ? b.text : "")).join(" ");
+    if (t.trim()) recent.push(t);
+  }
+  return recent.some((t) => CONSENT_RE.test(t) || PHONE_RE.test(t));
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -986,9 +1018,30 @@ async function searchProperties(
     }
   }
 
+  // -------------------------------------------------------------------------
+  // הכרטיסים נשלחים מכאן (14.10.2026, זמן התגובה)
+  //
+  // אחרי כל חיפוש המודל קרא ל-send_property_card להתאמות - קריאה שלמה למודל,
+  // כ-6 שניות, רק כדי לבחור את אותן שלוש התאמות ראשונות שהחיפוש כבר מיין.
+  // עכשיו החיפוש שולח אותן, והמודל עובר ישר ל-offer_save_search. ‏send_cards
+  // false - בחיפוש החוזר של "דומים", שבו ההתאמות כבר נשלחו.
+  // -------------------------------------------------------------------------
+  let cards: unknown;
+  if (rows.length && !args._relaxed && args.send_cards !== false) {
+    cards = await sendPropertyCards(ctx, {
+      items: rows.slice(0, MAX_CARDS_PER_TURN).map((r) => ({ property_id: String((r as { id: string }).id) })),
+    });
+  }
+
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
+    cards_sent: cards,
+    cards_note: cards
+      ? "הכרטיסים של ההתאמות כבר נשלחו מהחיפוש - **לא** לקרוא ל-send_property_card " +
+        "להן. נכס עם sent=false (בלי תמונה) - להזכיר בטקסט עם הקישור. ומשם ישר " +
+        "ל-offer_save_search, כמו תמיד."
+      : undefined,
     office_alternative: officeAlternative,
     close_matches: close.length ? close : undefined,
     relaxed_on: close.length ? relaxed : undefined,
@@ -1940,7 +1993,7 @@ async function ownerLead(
   ctx: PublicContext,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  if (args.consent !== true) {
+  if (args.consent !== true || !userConsented(ctx)) {
     return {
       error: "consent_required",
       note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח.",
@@ -2002,7 +2055,7 @@ async function projectLead(
   ctx: PublicContext,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  if (args.consent !== true) {
+  if (args.consent !== true || !userConsented(ctx)) {
     return { error: "consent_required", note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח." };
   }
   const fullName = text(args.full_name);
@@ -2060,7 +2113,7 @@ async function mortgageLead(
   ctx: PublicContext,
   args: Record<string, unknown>,
 ): Promise<unknown> {
-  if (args.consent !== true) {
+  if (args.consent !== true || !userConsented(ctx)) {
     return { error: "consent_required", note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח." };
   }
   const fullName = text(args.full_name);
@@ -2183,8 +2236,9 @@ const SYSTEM_STATIC: string = (() => {
     "- כל נכס שמוזכר מגיע עם הקישור שלו מהכלי, כלשונו. בלי קישור אין טעם.",
     "",
     "הצגת נכסים - בתמונה:",
-    "- מצאת נכסים מתאימים? **send_property_card**, עד שלושה, ואז משפט סיכום " +
-      "קצר. וואטסאפ הוא ערוץ ויזואלי, וקישור בלי תמונה כמעט לא נפתח.",
+    "- ההתאמות של search_properties נשלחות ככרטיסים **מהחיפוש עצמו** (cards_sent). " +
+      "send_property_card הוא לנכסים אחרים - close_matches, נכס מ-get_property, " +
+      "פרויקט - עד שלושה בתור. וואטסאפ הוא ערוץ ויזואלי, וקישור בלי תמונה כמעט לא נפתח.",
     "- הכיתוב כבר מכיל שם, מיקום, מחיר, חדרים וקישור. **אין לחזור עליהם " +
       "בטקסט.** אחרי חיפוש של מי שמחפש/ת נכס, ההודעה שאחרי הכרטיסים היא " +
       "offer_save_search (מסלול א למטה), ולא משפט סיכום נפרד.",
@@ -2256,8 +2310,8 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "**א. כל חיפוש של מי שמחפש/ת נכס נגמר בשלושה צעדים:** מחפשים עכשיו → " +
       "מרחיבים אם רוצים → ואם עדיין אין את הנכס הנכון, ממשיכים לחפש בשבילו/ה.",
-    "- אחרי search_properties: send_property_card להתאמות המדויקות (עד שלוש), " +
-      "ואז **offer_save_search** - והתור נגמר שם. has_similar=true רק כשחזרו " +
+    "- search_properties **כבר שולח** את כרטיסי ההתאמות המדויקות (cards_sent) - " +
+      "אחריו ישר **offer_save_search**, והתור נגמר שם. has_similar=true רק כשחזרו " +
       "close_matches. את הקרובים **לא** מציגים עכשיו.",
     "- התבנית כשנמצאו התאמות ויש גם דומים (להתאים, לא להעתיק):",
     "  אלה הנכסים שמצאתי שמתאימים למה שביקשת 😊",
@@ -2268,7 +2322,7 @@ const SYSTEM_STATIC: string = (() => {
       "\"לא מצאתי נכס שמתאים בדיוק למה שביקשת\", ו\"גם\" יורד מהשנייה. " +
       "\"באזורים סמוכים\" רק כשההרחבה באמת הייתה באזור (relaxed_on); כשהיא " +
       "במחיר או בחדרים - לומר את זה.",
-    `- "${SIMILAR_TITLE}" = search_properties שוב עם **אותם** קריטריונים, ` +
+    `- "${SIMILAR_TITLE}" = search_properties שוב עם **אותם** קריטריונים ו-send_cards=false, ` +
       "send_property_card ל-close_matches (עד שלושה) עם במה כל אחד שונה, ואז " +
       "offer_save_search עם has_similar=false: שורה אחת שהחיפוש המקורי עדיין " +
       "יכול להישמר.",
@@ -2370,7 +2424,8 @@ function buildSystem(
   const head: Anthropic.TextBlockParam = {
     type: "text",
     text: SYSTEM_STATIC,
-    cache_control: { type: "ephemeral" },
+    // ‏ttl של שעה (14.10.2026): בחמש דקות, חצי מהשיחות התחילו בלי מטמון
+    cache_control: { type: "ephemeral", ttl: "1h" },
   };
   const tail = sessionContext(conv, hasProfileName).trim();
   return tail ? [head, { type: "text", text: tail }] : [head];
@@ -2421,7 +2476,7 @@ export async function runPublicTurn(opts: {
 }): Promise<{ text: string; shareContact: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
-  const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName };
+  const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
   const messages: Anthropic.MessageParam[] = [
     ...conv.history,
@@ -2441,7 +2496,12 @@ export async function runPublicTurn(opts: {
       // מסלולי ליד שכל אחד מהם נעול מאחורי אישור מפורש — ההחלטות הן בדיוק
       // אלה ש-low טועה בהן, וטעות כאן היא ליד שנפתח בלי שביקשו. אם הלטנטיות
       // בצ'אט תיעשה מורגשת, הידית היא לצמצם כלים ולא לרדת בחזרה.
-      output_config: { effort: "medium" },
+      //
+      // ‏**ועכשיו low** (14.10.2026, בקשת בעל/ת האתר - זמן התגובה): כל קריאה
+      // נוספת למודל כאן היא כ-6 שניות, ו-low מאחד קריאות לכלים ומקצר. מה
+      // שהחזיק את medium - ליד בלי בקשה - נחסם עכשיו בקוד (‏userConsented),
+      // ולא רק בהבנה של המודל. חזרה ל-medium בלי פריסה: WHATSAPP_PUBLIC_BOT_EFFORT.
+      output_config: { effort: PUBLIC_EFFORT },
       // ההוראות הקבועות במטמון, והחלק המשתנה אחריהן. סדר הרינדור הוא
       // ‏tools → system → messages, ולכן נקודת השבירה תופסת גם את אחד-עשר
       // הכלים. ראו SYSTEM_STATIC ב-agent.ts להסבר המלא.

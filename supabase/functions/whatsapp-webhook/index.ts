@@ -902,6 +902,14 @@ async function assistantIntroduced(agentId: string): Promise<boolean> {
 // מיגרציה 20270115099000.
 const BURST_WAIT_MS = 4000;
 
+// ‏**טקסט מוקלד מחכה פחות** (14.10.2026). ההמתנה של 4 שניות נוספה לכל
+// הודעה, כולל ה-98% שאחריהן לא הגיע דבר - והייתה רבע מזמן התגובה של
+// גבריאלה (חציון 16.5 שניות). נמדד (30 יום): מתוך ~1,500 הודעות טקסט, קול
+// וכפתור, 50 בלבד קיבלו הודעה נוספת תוך 4 שניות, ו-29 מהן תוך 1.5. אלבום,
+// מסמך והודעה מועברת - וכל רצף שכבר יש בו תמונות - ממשיכים לחכות 4 שניות.
+const QUICK_BURST_WAIT_MS = 1500;
+const QUICK_BURST_TYPES = new Set(["text", "audio", "interactive", "button"]);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -1258,7 +1266,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
     // טקסט בלי רצף: עדיף לענות עליו לבד מאשר לא לענות.
   } else {
-    await sleep(BURST_WAIT_MS);
+    const typed = QUICK_BURST_TYPES.has(String(msg.type)) && !forwardedPrefix(msg) && !newImageUrl &&
+      !(await freshPendingImages(agent.id)).length;
+    await sleep(typed ? QUICK_BURST_WAIT_MS : BURST_WAIT_MS);
     const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
     if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
 

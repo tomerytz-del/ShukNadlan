@@ -6515,7 +6515,10 @@ export async function runAgentTurn(opts: {
       // עשרים ותשעה הגדרות הכלים שלפניו** — יחד זה הרוב המוחלט של הקלט.
       // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
       system: [
-        { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral" } },
+        // ‏**ttl של שעה** (14.10.2026): בחמש הדקות של ברירת המחדל 41% מהתורים
+        // התחילו בלי מטמון (‏cache_read=0, ‏~15K טוקנים מעובדים מחדש) - ההודעות
+        // דלילות. הכתיבה יקרה מעט יותר, הקריאה זולה בהרבה, והתור הראשון מהיר.
+        { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } },
         { type: "text", text: sessionContext(agent, conv, gaps) },
       ],
       tools,
