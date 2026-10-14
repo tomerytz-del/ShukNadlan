@@ -6611,6 +6611,22 @@ function initSentenceDock(){
     places: (window.ShukMarkets?.list || []).flatMap(m => (m.places || []).map(name => ({
       name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CityCtx.label(), main: name === m.city,
     }))),
+    /* ‏"דירה במגדל העמק": הנכסים הפעילים של עיר משוק אחר, בלי MARKET_FILTER -
+       זה החריג היחיד לכלל, והוא נפתח רק כשהגולש/ת כתב/ה את שם העיר.
+       ‏ilike ולא eq: "מעלות" היא "מעלות-תרשיחא" במסד, "קדימה" היא "קדימה-צורן".
+       המשפט מסמן אותם ‏_away, והם אינם נכנסים ל"כל <השוק>" (docs/sentence-search.md). */
+    loadPlace: async (place) => {
+      if (!sb) return [];
+      const { data, error } = await sb.from('properties')
+        .select(PROPERTY_SELECT)
+        .eq('status', 'active')
+        .ilike('city', '%' + String(place.name).replace(/[%_\\]/g, '') + '%')
+        .order('is_promoted', { ascending:false })
+        .order('created_at', { ascending:false })
+        .limit(60);
+      if (error) throw error;
+      return (data || []).map(shapeProperty);
+    },
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו

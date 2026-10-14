@@ -97,21 +97,35 @@ test('תקציב מעל הסולם = בלי הגבלה, ומה שלא זוהה �
   assert.deepStrictEqual(st.rooms, [3, 4.5]);
 });
 
-test('"דירה בנוף הגליל" באתר של עפולה - אפס תוצאות והסבר, לא כל הדירות', () => {
+test('"דירה במגדל העמק" באתר של עפולה - נכסי העיר ולא כל הדירות בעפולה', () => {
   require(path.join(__dirname, '..', 'assets', 'markets.js'));
   const places = globalThis.ShukMarkets.list.flatMap(m => (m.places || []).map(name => ({
     name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CTX.marketLabel, main: name === m.city,
   })));
-  const r = C.parse('דירה בנוף הגליל', C.defaultState(), AREAS, places);
+  const r = C.parse('דירה במגדל העמק', C.defaultState(), AREAS, places);
   assert.deepStrictEqual(r.fields, ['type', 'area']);
-  assert.strictEqual(r.patch.area, 'text:נוף הגליל');
+  assert.strictEqual(r.patch.area, 'text:מגדל העמק');
+  assert.strictEqual(r.place.here, false);
   const st = C.applyPatch(C.defaultState(), r.patch);
+  // לפני שנכסי העיר נטענו - אפס, ולא 86 דירות בעפולה
   assert.strictEqual(C.filter(PROPS, st, CTX).length, 0);
-  assert.strictEqual(C.placeNote(r.place), 'נוף הגליל ומגדל העמק עוד לא באתר - נפתחים בקרוב');
+  // אחרי הטעינה (‏_away): מופיעים בחיפוש של העיר בלבד
+  const away = [P({ id: 'm1', _away: true, deal_type: 'sale', property_type: 'דירה', rooms: 4, city: 'מגדל העמק' })];
+  const all = PROPS.concat(away);
+  assert.deepStrictEqual(C.filter(all, st, CTX).map(p => p.id), ['m1']);
+  assert.ok(!C.filter(all, C.defaultState(), CTX).some(p => p._away), 'לא ב"כל עפולה והעמק"');
+  // חיפוש רחוב אחרי - רק נכסי השוק, גם כשלנכס של מגדל העמק אותו רחוב
+  const street = C.applyPatch(C.defaultState(), { area: 'text:הנרקיס' });
+  const awayStreet = all.concat([P({ id: 'm2', _away: true, deal_type: 'sale', property_type: 'דירה', city: 'מגדל העמק', street: 'הנרקיס' })]);
+  assert.deepStrictEqual(C.filter(awayStreet, street, CTX).map(p => p.id), ['i']);
+  assert.ok(!C.deriveAreas(all).some(a => a.label === 'מגדל העמק'), 'לא אזור של השוק');
+  assert.strictEqual(C.placeNote(r.place, 1, 'עפולה והעמק'), 'נכס אחד במגדל העמק - מחוץ לעפולה והעמק');
+  assert.strictEqual(C.placeNote(r.place, 0, 'עפולה והעמק'), 'אין כרגע נכסים במגדל העמק');
+  assert.strictEqual(C.placeNote(r.place, null), 'מחפשים נכסים במגדל העמק…');
   // כתיב בלי יוד, ועיר בשוק הנוכחי שאין בה נכס
   assert.strictEqual(C.parse('דירה בקרית אתא', C.defaultState(), AREAS, places).place.name, 'קריית אתא');
   const here = C.parse('בית בבלפוריה', C.defaultState(), AREAS, places).place;
-  assert.strictEqual(C.placeNote(here), 'אין כרגע נכסים בבלפוריה');
+  assert.strictEqual(C.placeNote(here, 0), 'אין כרגע נכסים בבלפוריה');
   // שכונה ויישוב שיש בהם נכסים עדיין קודמים, והיישוב העיקרי הוא "הכול"
   assert.strictEqual(C.parse('דירה בהיוגב', C.defaultState(), AREAS, places).patch.area, 'city:היוגב');
   assert.strictEqual(C.parse('דירה בעפולה', C.defaultState(), AREAS, places).patch.area, 'all');

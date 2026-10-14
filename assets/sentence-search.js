@@ -128,6 +128,7 @@
   function deriveAreas(props) {
     var hoods = {}, cities = {};
     (props || []).forEach(function (p) {
+      if (p._away) return;   // נכס משוק אחר אינו אזור של השוק הזה (findPlace)
       if (p.neighborhood_id && p.neighborhood_name) {
         var h = hoods[p.neighborhood_id] || (hoods[p.neighborhood_id] = { key: 'hood:' + p.neighborhood_id, label: p.neighborhood_name, count: 0 });
         h.count++;
@@ -221,6 +222,10 @@
      והמקרא. ‏skip מדלג על slot אחד - לחישוב "כמה יהיו אם אשנה רק אותו". */
   function matches(p, st, ctx, skip) {
     ctx = ctx || {};
+    /* נכס משוק אחר (‏_away, נטען כשהגולש/ת כתב/ה עיר משם) עונה רק לחיפוש
+       של העיר שלו - לא ל"כל <השוק>", לא לשכונה ולא למונים של שאר האזורים. */
+    if (p._away && (skip === 'area' || !st.area || st.area.indexOf('text:') !== 0 ||
+        norm(p.city).indexOf(norm(st.area.slice(5))) < 0)) return false;   // גם לא לחיפוש רחוב אחרי
     if (skip !== 'deal' && st.deal && p.deal_type !== st.deal) return false;
 
     if (skip !== 'type' && st.type && st.type !== 'any') {
@@ -534,12 +539,13 @@
     return best;
   }
 
-  /* מה שהשורה "הבנתי" מוסיפה על עיר שזוהתה ואין בה נכסים כאן */
-  function placeNote(place) {
+  /* מה שהשורה "הבנתי" מוסיפה על עיר שזוהתה בלי נכסים במלאי של הדף.
+     ‏count - כמה נכסים נמצאו בה אחרי הטעינה (‏null = עוד נטען). */
+  function placeNote(place, count, marketLabel) {
     if (!place) return '';
-    if (place.here) return 'אין כרגע נכסים ב' + place.name;
-    if (place.market.live) return place.name + ' נמצאת באתר של ' + place.market.label + ' (' + place.market.path + ')';
-    return place.market.label + ' עוד לא באתר - נפתחים בקרוב';
+    if (count === null || count === undefined) return place.here ? '' : 'מחפשים נכסים ב' + place.name + '…';
+    if (!count) return 'אין כרגע נכסים ב' + place.name;
+    return (count === 1 ? 'נכס אחד' : count + ' נכסים') + ' ב' + place.name + ' - מחוץ ל' + (marketLabel || 'אזור הזה');
   }
 
   /* "הבנתי: שכירות · גבעת המורה · 4 חדרים · עד ₪5,500" - מה שהפירוש שינה,
@@ -1111,6 +1117,25 @@
       }, { enableHighAccuracy: false, maximumAge: 600000, timeout: 12000 });
     }
 
+    /* ---------- עיר משוק אחר ----------
+       ‏"דירה במגדל העמק" באתר של עפולה: הדף טוען (‏opts.loadPlace) את
+       הנכסים הפעילים של העיר הזו ומוסיף אותם ל-props בסימון ‏_away -
+       הם עונים רק לחיפוש של העיר שלהם (‏matches), ולא נוגעים במלאי של
+       השוק. עיר אחת בכל פעם: חיפוש של עיר אחרת מחליף אותם. */
+    var awayFor = null;
+    /* ‏done נקרא אחרי שהנכסים כבר ב-props - והקורא הוא שמחיל את השינוי,
+       כדי שהמונה והמפה לא יקפצו קודם לאפס (ו-noteSentenceZero בדף לא
+       ירשום חיפוש ריק שלא היה). */
+    function loadAway(pl, done) {
+      if (awayFor === pl.name || typeof opts.loadPlace !== 'function') { done(); return; }
+      Promise.resolve(opts.loadPlace(pl)).then(function (list) {
+        props = props.filter(function (p) { return !p._away; }).concat((list || []).map(function (p) {
+          return assign(p, { _away: true });
+        }));
+        awayFor = pl.name;
+      }, function () { /* רשת - נשארים עם אפס, והשורה אומרת "אין כרגע" */ }).then(done);
+    }
+
     /* ---------- השדה החכם ---------- */
     function runParse() {
       var text = (input.value || '').trim();
@@ -1128,11 +1153,24 @@
       }
       active = null;
       keyboardOpen = false;
-      if (fields.length) {
+      var pl = res.place && patch.area === 'text:' + res.place.name ? res.place : null;
+      if (fields.length && pl && !pl.here) {
+        fields.forEach(function (f) { touched[f] = true; });
+        var heardAway = 'הבנתי: ' + parsedNote(fields, applyPatch(st, patch), areas, ctx);
+        noteEl.textContent = heardAway + '. ' + placeNote(pl, null);
+        awayPending = true;
+        loadAway(pl, function () {
+          awayPending = false;
+          if (parsedText !== text) { submitAfterAway = false; return; }   // הגולש/ת כבר כתב/ה משהו אחר
+          change(patch, 'freetext');
+          noteEl.textContent = heardAway + '. ' + placeNote(pl, filter(props, st, ctx).length, ctx.marketLabel);
+          if (submitAfterAway) { submitAfterAway = false; finishSubmit(); }
+        });
+      } else if (fields.length) {
         fields.forEach(function (f) { touched[f] = true; });
         change(patch, 'freetext');
-        var away = res.place && patch.area === 'text:' + res.place.name && !filter(props, st, ctx).length;
-        noteEl.textContent = 'הבנתי: ' + parsedNote(fields, st, areas, ctx) + (away ? '. ' + placeNote(res.place) : '');
+        var heard = 'הבנתי: ' + parsedNote(fields, st, areas, ctx);
+        noteEl.textContent = heard + (pl && !filter(props, st, ctx).length ? '. ' + placeNote(pl, 0) : '');
       } else {
         render();
         if (freeOnly) {
@@ -1146,8 +1184,16 @@
       return fields.length > 0;
     }
 
+    /* ‏"דירה במגדל העמק" + Enter: התוצאות מוצגות רק אחרי שהנכסים של העיר
+       הגיעו, ולא על המצב הקודם (כל הדירות בשוק). */
+    var awayPending = false, submitAfterAway = false;
     function submit() {
       if ((input.value || '').trim() && input.value.trim() !== parsedText) runParse();
+      if (awayPending) { submitAfterAway = true; return; }
+      finishSubmit();
+    }
+
+    function finishSubmit() {
       active = null;
       keyboardOpen = false;
       render();
@@ -1492,12 +1538,18 @@
          הרשימה המסוננת הראשונה. */
       setProperties: function (list, extra) {
         props = (list || []).slice();
+        awayFor = null;
         areas = deriveAreas(props);
         loaded = true;
         if (extra && extra.aiIds) ctx.aiIds = extra.aiIds;
         st = resolveArea(st, areas);
         render();
         if (typeof opts.onChange === 'function') opts.onChange(results(), st, 'load');
+        // ‏?q=מגדל העמק מקישור: אותה טעינה כמו אחרי הקלדה
+        var q = st.area && st.area.indexOf('text:') === 0 ? findPlace(norm(st.area.slice(5)), opts.places) : null;
+        if (q && !q.here && norm(q.name) === norm(st.area.slice(5))) {
+          loadAway(q, function () { if (st.area === 'text:' + q.name) change({}, 'load'); });
+        }
       },
       setAiIds: function (set) { ctx.aiIds = set; if (st.ai) change({}, 'ai'); else render(); },
       /* מצב מהכתובת. נקרא לפני שהנכסים נטענו, ולכן בלי onChange. */
