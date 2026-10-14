@@ -437,12 +437,13 @@
      לשורת "הבנתי" ולאנליטיקס. */
   var NUM_WORDS = { 'שני': 2, 'שתי': 2, 'שניים': 2, 'שלוש': 3, 'שלושה': 3, 'ארבע': 4, 'ארבעה': 4, 'חמש': 5, 'חמישה': 5, 'שש': 6, 'שישה': 6 };
 
+  /* ‏"4 חדרים" הוא 4 עד 4.5 - לא המדרגה "4-5" של הבורר. מי שהקליד/ה מספר
+     ביקש/ה את המספר הזה, ודירת 5 חדרים בתוצאות נראית כמו באג. החצי נכלל
+     מאותה סיבה שבמדרגות (4.5 הוא "4 חדרים וחצי"), ו-"4.5 חדרים" הוא בדיוק
+     4.5. רק "+" פותח טווח למעלה. */
   function roomsFromNumber(n, plus) {
-    if (plus && n < 5) return [n, ROOMS_OPEN];
-    if (n >= 5) return [5, ROOMS_OPEN];
-    if (n >= 4) return [4, 5.5];
-    if (n >= 3) return [3, 4.5];
-    return [Math.min(n, 2), 2.5];
+    if (plus) return [n, ROOMS_OPEN];
+    return n % 1 === 0 ? [n, n + 0.5] : [n, n];
   }
 
   function parse(text, st, areas) {
@@ -513,7 +514,7 @@
     return { patch: patch, fields: fields };
   }
 
-  /* "הבנתי: שכירות · גבעת המורה · 4-5 חדרים · עד ₪5,500" - מה שהפירוש שינה,
+  /* "הבנתי: שכירות · גבעת המורה · 4 חדרים · עד ₪5,500" - מה שהפירוש שינה,
      כפי שהוא מופיע עכשיו במשפט. */
   function parsedNote(fields, st, areas, ctx) {
     return fields.map(function (s) {
@@ -597,7 +598,8 @@
     if (!r) return '';
     if (r[1] >= ROOMS_OPEN) return r[0] + '+';
     if (r[0] === r[1]) return String(r[0]);
-    if (r[1] % 1 === 0.5) return r[0] + '-' + Math.floor(r[1]);
+    // ‏[4, 4.5] ("4 חדרים" שהוקלד) הוא "4,4.5" ולא "4-4"
+    if (r[1] % 1 === 0.5 && Math.floor(r[1]) > r[0]) return r[0] + '-' + Math.floor(r[1]);
     return r[0] + ',' + r[1];
   }
 
