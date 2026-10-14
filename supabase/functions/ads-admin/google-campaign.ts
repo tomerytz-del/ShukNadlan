@@ -110,7 +110,7 @@ export function buildGooglePlan(cfg: GoogleAdsConfig, inp: GoogleCampaignInput):
   if (!(radius >= LIMITS.radiusMin && radius <= LIMITS.radiusMax)) errors.push(`רדיוס בין ${LIMITS.radiusMin} ל-${LIMITS.radiusMax} ק"מ`);
   const maxCpc = inp.max_cpc == null || inp.max_cpc === 0 ? null : Number(inp.max_cpc);
   if (maxCpc != null && !(maxCpc > 0 && maxCpc <= 50)) errors.push("מחיר מרבי לקליק בין ₪0.1 ל-₪50, או ריק");
-  if (!Number.isFinite(inp.market.lat) || !Number.isFinite(inp.market.lng)) errors.push("לעיר הראשית של השוק אין קואורדינטות");
+  if (!Number.isFinite(inp.market.lat) || !Number.isFinite(inp.market.lng)) errors.push("לשוק אין מרכז (center ב-assets/markets.js)");
 
   // מילות מפתח - התאמת ביטוי.
   const keywords: string[] = [];

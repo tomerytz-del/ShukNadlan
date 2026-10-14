@@ -1344,8 +1344,15 @@ async function actionGoogleCreateCampaign(sb: SupabaseClient, caller: Caller, bo
   const marketPath = String(body?.market_path ?? "/");
   if (!market) return json({ error: "market_required" }, 400);
   if (!/^\/[a-z0-9-]*$/.test(marketPath)) return json({ error: "bad_request", detail: "market_path" }, 400);
-  const { data: top, error: cErr } = await sb.from("cities").select("name, lat, lng")
-    .eq("market_slug", market).not("lat", "is", null)
+  // מרכז הרדיוס הוא `center` של השוק מ-assets/markets.js, שהפאנל שולח:
+  // ‏cities.lat/lng ריקות בכל השורות (נבדק 14.10.2026), ובקוד הראשון שנשען
+  // עליהן כל יצירה נפלה ב"אין ערים משויכות לשוק". התחום של ישראל בלבד -
+  // נקודה הפוכה (lng, lat) נופלת כאן ולא ממקדת קמפיין בים.
+  const center = Array.isArray(body?.market_center) ? body.market_center.map(Number) : [];
+  const [lat, lng] = center;
+  if (!(lat >= 29 && lat <= 33.5 && lng >= 34 && lng <= 36)) return json({ error: "bad_request", detail: "market_center" }, 400);
+  const { data: top, error: cErr } = await sb.from("cities").select("name")
+    .eq("market_slug", market)
     .order("population", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
   if (cErr) return json({ error: "db_error", detail: cErr.message }, 500);
   if (!top) return json({ error: "market_not_found" }, 404);
@@ -1354,7 +1361,7 @@ async function actionGoogleCreateCampaign(sb: SupabaseClient, caller: Caller, bo
   const stamp = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Jerusalem" }).slice(0, 16);
   const { plan, errors, warnings } = buildGooglePlan(config, {
     direction: d,
-    market: { slug: market, path: marketPath, city: String(top.name), lat: Number(top.lat), lng: Number(top.lng) },
+    market: { slug: market, path: marketPath, city: String(top.name), lat, lng },
     daily_budget: Number(body?.daily_budget),
     radius_km: Number(body?.radius_km),
     max_cpc: body?.max_cpc == null || body?.max_cpc === "" ? null : Number(body.max_cpc),

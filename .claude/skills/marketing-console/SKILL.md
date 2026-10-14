@@ -147,7 +147,7 @@ python scripts/check_migration_versions.py --base-ref origin/main
   ושני המסלולים בונים בדיוק אותן פעולות.
 - **הקמפיין `PAUSED`, המודעה והקבוצה `ENABLED`.** ‏`containsEuPoliticalAdvertising`
   חובה בקמפיין חדש מגרסאות ה-API של 2025 - בלעדיו היצירה נדחית.
-- **מיקום `PRESENCE`**, רדיוס סביב העיר הגדולה בשוק. כל כיוון ממוקד לשוק, גם
+- **מיקום `PRESENCE`**, רדיוס סביב `center` של השוק מ-`markets.js` (‏`cities.lat/lng` ריקות במסד - לא להישען עליהן). כל כיוון ממוקד לשוק, גם
   `agents`.
 - **שגיאות:** ‏`GoogleAdsError.details` מחזיק את כל השגיאות עם `trigger` (הטקסט
   שנדחה). הפאנל מציג אותן - לא להסתפק ב-`code` הראשון.

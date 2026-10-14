@@ -27564,7 +27564,7 @@ function gkwCampaignForm(pick){
     e.preventDefault();
     err.hidden = true;
     const payload = {
-      direction: d.key, market: gkwMarket, market_path: m.path || '/',
+      direction: d.key, market: gkwMarket, market_path: m.path || '/', market_center: m.center,
       daily_budget: Number(budget.i.value), radius_km: Number(radius.i.value),
       max_cpc: cpc.value === '' ? null : Number(cpc.value),
       keywords: lines(kw), negatives: lines(neg), headlines: lines(hl), descriptions: lines(ds),
