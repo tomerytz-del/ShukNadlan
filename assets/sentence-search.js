@@ -446,7 +446,7 @@
     return n % 1 === 0 ? [n, n + 0.5] : [n, n];
   }
 
-  function parse(text, st, areas) {
+  function parse(text, st, areas, places) {
     var patch = {}, fields = [];
     var t = norm(text);
     if (!t) return { patch: patch, fields: fields };
@@ -504,14 +504,42 @@
     }
 
     var area = findArea(t, areas);
+    var place = null;
     if (area) patch.area = area.key;
     else if (areas && areas.mainCity && t.indexOf(norm(areas.mainCity)) >= 0) patch.area = 'all';
+    else if ((place = findPlace(t, places))) patch.area = 'text:' + place.name;
 
     SLOT_ORDER.forEach(function (s) {
       var k = s === 'price' ? 'priceMax' : s;
       if (k in patch) fields.push(s);
     });
-    return { patch: patch, fields: fields };
+    return { patch: patch, fields: fields, place: place };
+  }
+
+  /* ‏"דירה בנוף הגליל" באתר של עפולה: האזורים נגזרים מהנכסים, ולכן עיר בלי
+     נכסים בשוק הזה לא זוהתה, נזרקה בשקט, והחיפוש החזיר את כל הדירות בעפולה.
+     ‏places - ‏`[{ name, market: { label, live, path }, here, main }]` מ-
+     ‏ShukMarkets (‏`places` ב-assets/markets.js). עיר שזוהתה כאן נעשית
+     ‏`text:<עיר>`, כלומר אפס תוצאות ולא "הכול" - והדף אומר למה. */
+  function findPlace(t, places) {
+    var best = null, bestLen = 0;
+    (places || []).forEach(function (pl) {
+      // היישוב העיקרי של השוק הוא "הכול" ולא עיר בלי נכסים - גם לפני שהמלאי נטען
+      if (pl.here && pl.main) return;
+      var n = norm(pl.name);
+      [n, n.replace(/קריית/g, 'קרית')].forEach(function (v) {
+        if (v.length > bestLen && hasWord(t, v)) { best = pl; bestLen = v.length; }
+      });
+    });
+    return best;
+  }
+
+  /* מה שהשורה "הבנתי" מוסיפה על עיר שזוהתה ואין בה נכסים כאן */
+  function placeNote(place) {
+    if (!place) return '';
+    if (place.here) return 'אין כרגע נכסים ב' + place.name;
+    if (place.market.live) return place.name + ' נמצאת באתר של ' + place.market.label + ' (' + place.market.path + ')';
+    return place.market.label + ' עוד לא באתר - נפתחים בקרוב';
   }
 
   /* "הבנתי: שכירות · גבעת המורה · 4 חדרים · עד ₪5,500" - מה שהפירוש שינה,
@@ -669,7 +697,7 @@
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
     slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
-    parse: parse, parsedNote: parsedNote, sentenceText: sentenceText,
+    parse: parse, parsedNote: parsedNote, placeNote: placeNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
   };
 
@@ -1088,7 +1116,7 @@
       var text = (input.value || '').trim();
       parsedText = text;
       if (!text) return false;
-      var res = parse(text, st, areas);
+      var res = parse(text, st, areas, opts.places);
       var fields = res.fields.slice();
       var patch = res.patch;
       /* לא זוהה כלום - אולי זה שם רחוב. השדה הישן ("עיר, שכונה או רחוב")
@@ -1103,7 +1131,8 @@
       if (fields.length) {
         fields.forEach(function (f) { touched[f] = true; });
         change(patch, 'freetext');
-        noteEl.textContent = 'הבנתי: ' + parsedNote(fields, st, areas, ctx);
+        var away = res.place && patch.area === 'text:' + res.place.name && !filter(props, st, ctx).length;
+        noteEl.textContent = 'הבנתי: ' + parsedNote(fields, st, areas, ctx) + (away ? '. ' + placeNote(res.place) : '');
       } else {
         render();
         if (freeOnly) {

@@ -6607,6 +6607,10 @@ function initSentenceDock(){
   if (!window.SentenceSearch) return;   // הסקריפט נחסם - נשארים עם applyDeepLinkFilters
   sentence = SentenceSearch.mount({
     marketLabel: CityCtx.label(),
+    // ‏"דירה בנוף הגליל" - ערים שהשדה החכם מזהה גם בלי נכסים כאן (‏places ב-markets.js)
+    places: (window.ShukMarkets?.list || []).flatMap(m => (m.places || []).map(name => ({
+      name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CityCtx.label(), main: name === m.city,
+    }))),
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו

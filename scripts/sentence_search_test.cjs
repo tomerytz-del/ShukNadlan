@@ -97,6 +97,28 @@ test('תקציב מעל הסולם = בלי הגבלה, ומה שלא זוהה �
   assert.deepStrictEqual(st.rooms, [3, 4.5]);
 });
 
+test('"דירה בנוף הגליל" באתר של עפולה - אפס תוצאות והסבר, לא כל הדירות', () => {
+  require(path.join(__dirname, '..', 'assets', 'markets.js'));
+  const places = globalThis.ShukMarkets.list.flatMap(m => (m.places || []).map(name => ({
+    name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CTX.marketLabel, main: name === m.city,
+  })));
+  const r = C.parse('דירה בנוף הגליל', C.defaultState(), AREAS, places);
+  assert.deepStrictEqual(r.fields, ['type', 'area']);
+  assert.strictEqual(r.patch.area, 'text:נוף הגליל');
+  const st = C.applyPatch(C.defaultState(), r.patch);
+  assert.strictEqual(C.filter(PROPS, st, CTX).length, 0);
+  assert.strictEqual(C.placeNote(r.place), 'נוף הגליל ומגדל העמק עוד לא באתר - נפתחים בקרוב');
+  // כתיב בלי יוד, ועיר בשוק הנוכחי שאין בה נכס
+  assert.strictEqual(C.parse('דירה בקרית אתא', C.defaultState(), AREAS, places).place.name, 'קריית אתא');
+  const here = C.parse('בית בבלפוריה', C.defaultState(), AREAS, places).place;
+  assert.strictEqual(C.placeNote(here), 'אין כרגע נכסים בבלפוריה');
+  // שכונה ויישוב שיש בהם נכסים עדיין קודמים, והיישוב העיקרי הוא "הכול"
+  assert.strictEqual(C.parse('דירה בהיוגב', C.defaultState(), AREAS, places).patch.area, 'city:היוגב');
+  assert.strictEqual(C.parse('דירה בעפולה', C.defaultState(), AREAS, places).patch.area, 'all');
+  // לפני שהמלאי נטען אין mainCity - ועפולה עדיין אינה "עיר בלי נכסים"
+  assert.ok(!('area' in C.parse('דירה בעפולה', C.defaultState(), C.deriveAreas([]), places).patch));
+});
+
 test('טקסט בלי שום זיהוי מחזיר fields ריק', () => {
   assert.deepStrictEqual(afterParse('שלום').fields, []);
 });
