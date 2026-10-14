@@ -84,10 +84,10 @@ check("חמור - פותח Issue", got[0].severity == "critical")
 check("subject לפי ערוץ - נסגר כשהתרחיש חוזר", got[0].subject == "make_scenario:facebook_page")
 check("ההצעה מזכירה לרוקן את התור", "התור" in got[0].suggestion)
 
+# ‏אינסטגרם מתפרסמת ב-Graph ישיר מאז #753, ותרחיש Make שלה כבוי בכוונה.
 both = {"facebook_autopost_enabled": "1", "instagram_autopost_enabled": "1"}
-got = run(config=both, active={FB: True, IG: False})
-check("אינסטגרם דלוק והתרחיש שלו כבוי - ממצא על אינסטגרם בלבד",
-      [f.subject for f in got] == ["make_scenario:instagram"])
+check("אינסטגרם דלוקה והתרחיש שלה ב-Make כבוי - שקט (המסלול הישיר)",
+      run(config=both, active={FB: True, IG: False}) == [])
 
 check("מתג פייסבוק כבוי - תרחיש כבוי אינו ממצא",
       run(config={"facebook_autopost_enabled": "0"}, active={FB: False}) == [])
