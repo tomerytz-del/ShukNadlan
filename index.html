@@ -3170,6 +3170,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hs-field select:disabled{background:#f4f6fa;color:#8a94ad}
   .hs-field input::placeholder{color:#8a94ad}
   .hs-panel[data-mode="commercial"] .hs-res-only{display:none}
+  /* עסקה בתוך "מסחרי" - שתי הגלולות האחרות כבר אומרות אותה בעצמן */
+  .hs-panel:not([data-mode="commercial"]) .hs-comm-only{display:none}
   .hs-checks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .hs-check{
     display:flex;align-items:center;gap:8px;min-height:52px;padding:0 12px;border:1px solid #dfe5ef;background:#fff;cursor:pointer;
@@ -3526,6 +3528,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <select id="hsHood"></select></label>
                   <label class="hs-field"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.6 9.8V20h12.8V9.8"/><path d="M10 20v-5.5h4V20"/></svg>סוג נכס</span>
                     <select id="hsType"></select></label>
+                  <label class="hs-field hs-comm-only"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>השכרה או מכירה</span>
+                    <select id="hsCommDeal"><option value="">הכול</option><option value="rent">להשכרה</option><option value="sale">למכירה</option></select></label>
                   <label class="hs-field hs-res-only"><span class="hs-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V6M3 13h18v5M21 13a3 3 0 0 0-3-3h-7v3"/><circle cx="7" cy="10.5" r="1.8"/></svg>חדרים</span>
                     <select id="hsRooms">
                       <option value="">לא משנה</option><option value="1">1</option><option value="2">2</option>
