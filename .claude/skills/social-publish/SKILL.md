@@ -1,6 +1,6 @@
 ---
 name: social-publish
-description: פרסום נכס לדף הפייסבוק ולחשבון האינסטגרם של שוק נדל״ן - פרסום ידני של נכס לערוץ מסוים, מילוי החשבון בכמה פוסטים, בחירת נכסים, ומה עושים כשפרסום נכשל בלי ליצור פוסט כפול (הקפאת השורה, History ב-Make, סימני [make-unconfirmed] ו-[make-scenario-off]). Use when asked to post/publish/share a property to Facebook or Instagram, to "fill" the Instagram account with posts, when a post failed or "Scenario failed to complete", when a post went up twice, or when a property never reached Instagram.
+description: פרסום נכס לדף הפייסבוק ולחשבון האינסטגרם של שוק נדל״ן - פרסום ידני של נכס לערוץ מסוים, מילוי החשבון בכמה פוסטים, בחירת נכסים, ומה עושים כשפרסום נכשל בלי ליצור פוסט כפול (הקפאת השורה, History ב-Make, סימני [make-unconfirmed] ו-[make-scenario-off]); אינסטגרם במסלול Graph הישיר - הטוקן של ה-System User, ההמתנה לעיבוד המכל ושגיאת 9007. Use when asked to post/publish/share a property to Facebook or Instagram, to "fill" the Instagram account with posts, when a post failed or "Scenario failed to complete", when a post went up twice, or when a property never reached Instagram.
 ---
 
 # פרסום לרשתות
@@ -86,7 +86,29 @@ update property_publications set publish_after = now() + interval '7 days'
 
 ### ב. לברר מה קרה
 
-`last_error` אצלנו מראה רק `make instagram 500: Scenario failed to complete`.
+**קודם: איזה מסלול פרסם?** אינסטגרם עוברת ל-Graph API ישיר מאז
+14.10.2026 (`docs/facebook-auto-publish.md`): היא יוצאת דרך Make רק כש-
+`MAKE_INSTAGRAM_WEBHOOK_URL` מוגדר. פייסבוק עדיין דרך Make. במסלול הישיר
+`last_error` מכיל את השגיאה האמיתית של Meta, ואין צורך בצילום מ-Make:
+
+| `last_error` (מסלול ישיר) | עלה? | מה עושים |
+| --- | --- | --- |
+| `המכל לא סיים עיבוד תוך 75 שניות` | **לא** - ‏`media_publish` לא נקרא | אפשר לשלוח שוב (סעיף ד) |
+| `status_code=ERROR` / `EXPIRED` | לא | תמונה פגומה או כתובת שאינה נגישה - לבדוק את התמונות |
+| `instagram 400: ...` אחרי שהמכל הסתיים | כנראה לא, אבל לבדוק בחשבון | לפי ההודעה |
+| `instagram 190` / `Invalid OAuth` | לא | הטוקן בוטל או פג - ראו "הטוקן" למטה |
+
+**הטוקן:** ‏`INSTAGRAM_ACCESS_TOKEN` הוא טוקן של ה-System User ‏`whatsapp-bot`
+(‏Business Settings ← משתמשי מערכת), עם `instagram_basic`,
+`instagram_content_publish`, `pages_show_list`, `pages_read_engagement`,
+`business_management`, ותוקף Never. מחליפים טוקן ב"ליצור אסימון" ועדכון
+הסוד - **לעולם לא** ב"לבטל אסימונים", שמבטל גם את הטוקן של הבוט בוואטסאפ.
+
+**שורה עם `attempts` ובלי `last_error` ובלי `post_id`** - הפונקציה נקטעה
+באמצע (תקרת זמן הריצה). לא ידוע אם עלה: מקפיאים ובודקים בחשבון, כמו כל
+כישלון. ‏`RUN_BUDGET_MS` נועד למנוע את זה.
+
+**במסלול Make:** `last_error` אצלנו מראה רק `make instagram 500: Scenario failed to complete`.
 **הסיבה האמיתית נמצאת רק ב-Make**, ואין לנו גישה אליו מכאן - מבקשים
 מהמשתמש/ת צילום מסך:
 
