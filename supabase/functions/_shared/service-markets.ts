@@ -29,6 +29,7 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "holon-bat-yam", label: "חולון ובת ים" },
   { slug: "rishon", label: "ראשון לציון" },
   { slug: "rehovot", label: "רחובות ונס ציונה" },
+  { slug: "modiin", label: "מודיעין והסביבה" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);

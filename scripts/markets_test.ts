@@ -55,6 +55,9 @@ const NESS_ZIONA = [31.93, 34.80];
 const YAVNE = [31.877, 34.74];
 const GEDERA = [31.81, 34.778];
 const GAN_YAVNE = [31.787, 34.706];
+const MODIIN = [31.898, 35.008];
+const SHOHAM = [31.998, 34.946];
+const BEN_SHEMEN = [31.952, 34.925];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -249,6 +252,13 @@ check("הגבול עם ראשון: 31.9449 → רחובות, 31.945 → ראשו
   reg.locate(31.9449, 34.79)?.slug === "rehovot" && reg.locate(31.945, 34.79)?.slug === "rishon");
 check("באר יעקב אינה בתיבה של רחובות", !reg.contains(reg.bySlug("rehovot")!, 31.937, 34.838));
 check("אשדוד אינה בתיבה של רחובות", !reg.contains(reg.bySlug("rehovot")!, 31.80, 34.65));
+check("מודיעין → modiin", reg.locate(MODIIN[0], MODIIN[1])?.slug === "modiin");
+check("שוהם → modiin", reg.locate(SHOHAM[0], SHOHAM[1])?.slug === "modiin");
+check("בן שמן → modiin", reg.locate(BEN_SHEMEN[0], BEN_SHEMEN[1])?.slug === "modiin");
+check("הגבול עם פתח תקווה: 32.0199 → מודיעין, 32.02 → פתח תקווה (34.95)",
+  reg.locate(32.0199, 34.95)?.slug === "modiin" && reg.locate(32.02, 34.95)?.slug === "petah-tikva");
+check("לוד אינה בתיבה של מודיעין", !reg.contains(reg.bySlug("modiin")!, 31.952, 34.895));
+check("כפר שמואל (גזר, ליד רמלה) אינו בתיבה של מודיעין", !reg.contains(reg.bySlug("modiin")!, 31.88, 34.93));
 check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → תל אביב (34.76)",
   reg.locate(32.0299, 34.76)?.slug === "holon-bat-yam" && reg.locate(32.03, 34.76)?.slug === "tel-aviv");
 check("הגבול עם אור יהודה: 32.0249 → חולון ובת ים, 32.025 → רמת גן (34.82)",
