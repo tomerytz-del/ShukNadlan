@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>CRM — דאשבורד מנהל משרד</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+</style>
+</helmet>
+<div dir="rtl" style="display: flex; flex-wrap: wrap; align-items: stretch; min-height: 1500px; background: #F4F6FA; font-family: Assistant, sans-serif; color: #0E1A33">
+<div style="flex: 0 0 auto">
+<dc-import name="Sidebar" role="office" active="office" hint-size="260px,1500px"></dc-import>
+</div>
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 28px; background: #FFFFFF; border-bottom: 1px solid #E3E7EF">
+<label style="flex: 1 1 320px; max-width: 560px; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: 12px; background: #F4F6FA; border: 1px solid #E3E7EF">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">חיפוש</span>
+<input type="search" placeholder="חפש סוכן, צוות, לקוח או נכס במשרד" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-family: Assistant, sans-serif; font-size: 15px; color: #0E1A33">
+<kbd style="font-family: Assistant, sans-serif; font-size: 12px; color: #5A6478; background: #FFFFFF; border: 1px solid #D3D9E4; border-radius: 6px; padding: 1px 6px">Ctrl K</kbd>
+</label>
+<div style="margin-right: auto; display: flex; align-items: center; gap: 8px">
+<button aria-label="התראות" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+<button aria-label="תפריט פרופיל" style="height: 44px; padding: 0 6px 0 10px; border-radius: 12px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; display: flex; align-items: center; gap: 8px; font-family: Assistant, sans-serif; cursor: pointer"><span style="width: 32px; height: 32px; border-radius: 16px; background: #DCE6FF; color: #1F3F99; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">תי</span><span style="font-size: 14px; font-weight: 700">תומר</span></button>
+</div>
+</header>
+
+<div style="padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; max-width: 1240px; box-sizing: border-box; width: 100%">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 56px; height: 56px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E3E7EF; color: #5A6478; font-size: 11px; display: flex; align-items: center; justify-content: center">[לוגו]</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">נדל״ן עפולה</h1>
+<span style="font-size: 16px; color: #5A6478">3 צוותים · 14 סוכנים · רבעון רביעי</span>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<div role="tablist" aria-label="תקופה" style="display: flex; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 12px; padding: 4px; gap: 2px">
+<button role="tab" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #0E1A33; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">חודש</button>
+<button role="tab" aria-selected="true" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: #0E1A33; color: #FFFFFF; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">רבעון</button>
+<button role="tab" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: transparent; color: #0E1A33; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">שנה</button>
+</div>
+<button style="height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid #D3D9E4; background: #FFFFFF; color: #0E1A33; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>ייצוא לאקסל</button>
+</div>
+</div>
+
+<section aria-label="מדדי המשרד" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px">
+<div style="background: #0E1A33; color: #FFFFFF; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; color: #B8C3D9; font-weight: 700">הכנסות המשרד</span>
+<span style="font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">₪[סכום]</span>
+<span style="font-size: 13px; color: #9FE3BE; font-weight: 700">+12% לעומת אשתקד</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #5A6478; font-weight: 700">עסקאות שנסגרו</span>
+<span style="font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">21</span>
+<span style="font-size: 13px; color: #15803D; font-weight: 700">+3 לעומת הרבעון הקודם</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #5A6478; font-weight: 700">בלעדיות בגיוסים</span>
+<span style="font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">41%</span>
+<span style="font-size: 13px; color: #9A3412; font-weight: 700">ירידה של 7 נק׳</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #5A6478; font-weight: 700">זמן תגובה ממוצע</span>
+<span style="font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">27 דק׳</span>
+<span style="font-size: 13px; color: #5A6478; font-weight: 700">יעד: 15 דק׳</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #5A6478; font-weight: 700">סוכנים פעילים</span>
+<span style="font-family: Rubik, sans-serif; font-size: 28px; font-weight: 600">13 / 14</span>
+<span style="font-size: 13px; color: #5A6478; font-weight: 700">פעילות ב-7 הימים האחרונים</span>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<div style="flex: 3 1 520px; min-width: 0">
+<dc-import name="CoachCard" role="office" hint-size="100%,600px"></dc-import>
+</div>
+<section aria-label="ממתין לאישורך" style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0 0 6px; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">ממתין לאישורך</h2>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid #EEF1F6">
+<span style="width: 36px; height: 36px; border-radius: 12px; background: #FFF1C7; color: #7A5300; font-family: Rubik, sans-serif; font-weight: 600; display: flex; align-items: center; justify-content: center">3</span>
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">ביקורות לאישור</span><span style="font-size: 13px; color: #5A6478">הוותיקה מחכה 4 ימים</span></span>
+<span style="font-size: 14px; font-weight: 700; color: #1F5BF0">לאישור ←</span>
+</a>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid #EEF1F6">
+<span style="width: 36px; height: 36px; border-radius: 12px; background: #EAF0FF; color: #1F3F99; font-family: Rubik, sans-serif; font-weight: 600; display: flex; align-items: center; justify-content: center">1</span>
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">בקשת שיוך למשרד</span><span style="font-size: 13px; color: #5A6478">רון שמעוני ביקש להצטרף</span></span>
+<span style="font-size: 14px; font-weight: 700; color: #1F5BF0">לבדיקה ←</span>
+</a>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 56px">
+<span style="width: 36px; height: 36px; border-radius: 12px; background: #EAF0FF; color: #1F3F99; font-family: Rubik, sans-serif; font-weight: 600; display: flex; align-items: center; justify-content: center">1</span>
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">מינוי מנהל/ת צוות</span><span style="font-size: 13px; color: #5A6478">צוות השכרות בלי מנהל</span></span>
+<span style="font-size: 14px; font-weight: 700; color: #1F5BF0">מנה ←</span>
+</a>
+</section>
+</div>
+
+<section aria-label="הצוותים" style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">הצוותים</h2>
+<a href="#" style="font-size: 14px; font-weight: 700; text-decoration: none">ניהול צוותים וסוכנים ←</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">
+<sc-for list="{{teams}}" as="t" hint-placeholder-count="3">
+<a href="{{t.href}}" style="text-decoration: none; color: #0E1A33; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start">
+<span style="display: flex; flex-direction: column"><span style="font-family: Rubik, sans-serif; font-size: 17px; font-weight: 600">{{t.name}}</span><span style="font-size: 13px; color: #5A6478">{{t.lead}} · {{t.size}} סוכנים</span></span>
+<span style="font-size: 12px; font-weight: 700; border-radius: 8px; padding: 3px 8px; background: {{t.tagBg}}; color: {{t.tagFg}}">{{t.tag}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700"><span>יעד הרבעון</span><span>{{t.goal}}</span></div><div style="height: 8px; border-radius: 4px; background: #EEF1F6"><div style="width: {{t.goal}}; height: 8px; border-radius: 4px; background: {{t.goalC}}"></div></div></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 13px">
+<span style="display: flex; flex-direction: column"><span style="color: #5A6478; font-weight: 600">עסקאות</span><span style="font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">{{t.deals}}</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5A6478; font-weight: 600">תגובה</span><span style="font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">{{t.rt}}</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5A6478; font-weight: 600">בלעדיות</span><span style="font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">{{t.excl}}</span></span>
+</div>
+</a>
+</sc-for>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section aria-label="הכנסות 12 חודשים" style="flex: 3 1 480px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">הכנסות המשרד · 12 חודשים</h2><span style="font-size: 13px; color: #5A6478">קו מקווקו = יעד</span></div>
+<div style="position: relative; height: 180px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; align-items: end; border-bottom: 1px solid #D3D9E4">
+<span aria-hidden="true" style="position: absolute; right: 0; left: 0; bottom: 120px; border-top: 2px dashed #B7791F"></span>
+<sc-for list="{{months}}" as="m" hint-placeholder-count="12">
+<span style="display: block; height: {{m.h}}; border-radius: 6px 6px 0 0; background: {{m.c}}"></span>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; font-size: 12px; color: #5A6478; text-align: center">
+<sc-for list="{{months}}" as="m" hint-placeholder-count="12"><span>{{m.l}}</span></sc-for>
+</div>
+</section>
+<section aria-label="מקורות לידים" style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">מאיפה מגיעים הלידים</h2>
+<div style="display: flex; height: 16px; border-radius: 8px; overflow: hidden; gap: 2px"><span style="width: 58%; background: #1F5BF0"></span><span style="width: 18%; background: #6E9BFF"></span><span style="width: 14%; background: #B7791F"></span><span style="width: 10%; background: #8A93A6"></span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #1F5BF0"></span><span style="flex: 1">חיפוש בשוק נדל״ן</span><b>58%</b></span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #6E9BFF"></span><span style="flex: 1">המיני-סייט של המשרד</span><b>18%</b></span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #B7791F"></span><span style="flex: 1">גבריאלה · וואטסאפ</span><b>14%</b></span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #8A93A6"></span><span style="flex: 1">הפניות ואחר</span><b>10%</b></span>
+</div>
+</section>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<section aria-label="בלעדיות שפוקעות" style="flex: 3 1 480px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 18px 20px">
+<h2 style="margin: 0 0 6px; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">בלעדיות שפוקעות ב-30 הימים הקרובים</h2>
+<div style="overflow-x: auto"><div style="min-width: 520px">
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 12px; padding: 10px 0; font-size: 13px; font-weight: 700; color: #5A6478; border-bottom: 1px solid #EEF1F6"><span>נכס</span><span>סוכן/ת</span><span>פוקע בעוד</span><span>דוח לבעלים</span></div>
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 12px; padding: 10px 0; font-size: 15px; border-bottom: 1px solid #EEF1F6"><span style="font-weight: 700">יהושע חנקין 3</span><span>אבי</span><span style="color: #9A3412; font-weight: 700">12 יום</span><span style="color: #9A3412; font-weight: 600">לא נשלח</span></div>
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 12px; padding: 10px 0; font-size: 15px; border-bottom: 1px solid #EEF1F6"><span style="font-weight: 700">הרצל 40 · דירת גן</span><span>שירן</span><span style="font-weight: 700">17 יום</span><span style="color: #166534; font-weight: 600">נשלח</span></div>
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 12px; padding: 10px 0; font-size: 15px; border-bottom: 1px solid #EEF1F6"><span style="font-weight: 700">גבעת המורה · קוטג׳</span><span>דוד</span><span style="font-weight: 700">22 יום</span><span style="color: #9A3412; font-weight: 600">לא נשלח</span></div>
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr; gap: 12px; padding: 10px 0; font-size: 15px"><span style="font-weight: 700">מגרש · עפולה עילית</span><span>יעל</span><span style="font-weight: 700">28 יום</span><span style="color: #9A3412; font-weight: 600">לא נשלח</span></div>
+</div></div>
+</section>
+<section aria-label="מצטייני הרבעון" style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 18px; font-weight: 600">מצטייני הרבעון</h2>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 18px; background: #FFF1C7; color: #7A5300; font-weight: 700; display: flex; align-items: center; justify-content: center">1</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">שירן · צפון</span><span style="font-size: 13px; color: #5A6478">5 עסקאות · תגובה 9 דק׳</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 18px; background: #EEF1F6; color: #0E1A33; font-weight: 700; display: flex; align-items: center; justify-content: center">2</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">יעל · דרום</span><span style="font-size: 13px; color: #5A6478">4 גיוסים בבלעדיות</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 18px; background: #EEF1F6; color: #0E1A33; font-weight: 700; display: flex; align-items: center; justify-content: center">3</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">גל · השכרות</span><span style="font-size: 13px; color: #5A6478">11 השכרות</span></span></div>
+<button style="align-self: flex-start; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #D3D9E4; background: #FFFFFF; color: #1F5BF0; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">שלח הוקרה למשרד</button>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+const t = (name, lead, size, goal, deals, rt, excl, tag, tagBg, tagFg) => ({ name, lead, size, goal: goal + '%', goalC: goal >= 65 ? '#1F5BF0' : '#B7791F', deals, rt, excl, tag, tagBg, tagFg, href: name === 'צוות צפון' ? 'Desktop-TeamLead.dc.html' : '#' });
+const vals = [52, 61, 48, 70, 66, 74, 58, 80, 77, 85, 92, 88];
+const lbl = ['נוב׳','דצמ׳','ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳'];
+return {
+teams: [
+t('צוות צפון', 'מיכל', 6, 72, 9, '41 דק׳', '48%', 'מוביל', '#E6F4EC', '#166534'),
+t('צוות השכרות', 'ללא מנהל', 4, 64, 7, '18 דק׳', '—', 'צריך מנהל', '#FFF1C7', '#7A5300'),
+t('צוות דרום', 'רועי', 4, 51, 5, '24 דק׳', '29%', 'דורש חיזוק', '#FDE7D9', '#9A3412')
+],
+months: vals.map((v, i) => ({ h: (v * 1.8) + 'px', c: i === 11 ? '#1F5BF0' : '#AFC4F7', l: lbl[i] }))
+};
+}
+}
+</script>
+</body>
+</html>

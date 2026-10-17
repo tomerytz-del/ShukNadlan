@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>CRM נייד — מדריך התחלה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+</style>
+</helmet>
+<div dir="rtl" style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #F4F6FA; font-family: Assistant, sans-serif; color: #0E1A33">
+<header style="padding: 20px 20px 12px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; color: #5A6478; font-weight: 600">ברוך הבא לשוק נדל״ן</span>
+<h1 style="margin: 0; font-family: Rubik, sans-serif; font-size: 24px; font-weight: 600">{{heroTitle}}</h1>
+</header>
+
+<section aria-label="התקדמות" style="margin: 0 16px; background: #0E1A33; color: #FFFFFF; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: {{liveFg}}"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{liveDot}}"></span>{{liveText}}</span>
+<span style="font-family: Rubik, sans-serif; font-size: 15px; font-weight: 600">{{doneCount}}/7</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="5"><span style="height: 6px; border-radius: 3px; background: {{b.c}}"></span></sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #B8C3D9; font-weight: 600"><span>להופיע באתר</span><span>להתחיל לעבוד</span></div>
+</section>
+
+<section aria-label="הצעד הבא" style="margin: 12px 16px 0; background: #FFFFFF; border: 2px solid #1F5BF0; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between"><span style="font-size: 12px; font-weight: 700; color: #1F3F99; background: #EAF0FF; border-radius: 6px; padding: 3px 8px">הצעד הבא</span><span style="font-size: 12px; color: #5A6478; font-weight: 700">{{next.time}}</span></div>
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 20px; font-weight: 600">{{next.title}}</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3A4458">{{next.short}}</p>
+<button onClick="{{advance}}" style="height: 50px; border-radius: 14px; border: 0; background: #1F5BF0; color: #FFFFFF; font-family: Assistant, sans-serif; font-size: 16px; font-weight: 700; cursor: pointer">{{next.cta}}</button>
+</section>
+
+<section aria-label="שאר הצעדים" style="margin: 12px 16px 0; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 4px 14px">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #EEF1F6">
+<span style="flex-shrink: 0; width: 22px; height: 22px; border-radius: 11px; border: 2px solid {{st.ring}}; background: {{st.fill}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">
+<sc-if value="{{st.done}}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></sc-if>
+<sc-if value="{{st.notDone}}" hint-placeholder-val="{{ true }}"><span style="color: {{st.numFg}}">{{st.n}}</span></sc-if>
+</span>
+<span style="flex: 1; font-size: 15px; font-weight: 600; color: {{st.fg}}; text-decoration: {{st.strike}}">{{st.title}}</span>
+<span style="font-size: 12px; color: #5A6478">{{st.time}}</span>
+</div>
+</sc-for>
+<a href="#" style="display: flex; align-items: center; justify-content: space-between; min-height: 46px; text-decoration: none; color: #5A6478; font-size: 14px; font-weight: 700"><span>להתבלט: עוד 2 צעדים רשות</span><span>←</span></a>
+</section>
+
+<div style="position: absolute; bottom: 0; right: 0; left: 0">
+<dc-import name="BottomNav" active="home" hint-size="390px,96px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"done":{"editor":"range","min":0,"max":7,"step":1,"default":0},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { done: null }; }
+renderVals() {
+const done = Math.max(0, Math.min(7, this.state.done ?? (this.props.done ?? 0)));
+const S = [
+{ n: 1, title: 'אימות רישיון תיווך', time: '1 דק׳', cta: 'צילום תעודת הרישיון', short: 'עד שהרישיון מאומת, הדף והמודעות שלך לא מוצגים לגולשים. צילום אחד מספיק.' },
+{ n: 2, title: 'תמונה, משפט עליך ואזורים', time: '3 דק׳', cta: 'השלמת הפרופיל', short: 'פרופיל עם תמונה נראה אמין, והאזורים קובעים איפה יראו אותך.' },
+{ n: 3, title: 'הנכס הראשון', time: '4 דק׳', cta: 'העלאת נכס', short: 'מהטופס, או בהודעה לגבריאלה עם פרטים ותמונות.' },
+{ n: 4, title: 'חיבור גבריאלה בוואטסאפ', time: '10 שנ׳', cta: 'חיבור בלחיצה', short: 'העוזרת האישית שלך: שולחים לה הודעה או תמונות, והיא מעלה נכסים ולקוחות ועונה על שאלות.' },
+{ n: 5, title: 'הלקוח/ה הראשון/ה', time: '2 דק׳', cta: 'הוספת לקוח/ה', short: 'מרגע שיש לקוח/ה עם דרישות, ההתאמות החכמות מתחילות לעבוד בשבילך.' },
+{ n: 6, title: 'חיבור יומן Google', time: '30 שנ׳', cta: 'חיבור היומן', short: 'כל פגישה וסיור מהמערכת או מגבריאלה נכנסים ליומן שבטלפון.' },
+{ n: 7, title: 'העדפות לידים', time: '2 דק׳', cta: 'הגדרת העדפות', short: 'אזורים וסוגי נכסים, כדי לקבל לידי בעלים שמתאימים לך.' }
+];
+const next = S[done] || { title: 'הכל מוכן!', time: '', cta: 'לדף הבית', short: 'את/ה באוויר והמערכת עובדת בשבילך.' };
+return {
+doneCount: done, next,
+heroTitle: done >= 3 ? 'את/ה באתר! עוד קצת' : 'בוא/י נעלה אותך לאוויר',
+liveText: done >= 1 ? 'הדף שלך מוצג לגולשים' : 'עוד לא מוצג לגולשים',
+liveFg: done >= 1 ? '#9FE3BE' : '#F5C98A', liveDot: done >= 1 ? '#4ADE80' : '#F59E0B',
+bars: S.map((s, i) => ({ c: i < done ? '#6E9BFF' : '#2A3A5E' })),
+steps: S.map((s, i) => ({ ...s, done: i < done, notDone: i >= done, ring: i < done ? '#15803D' : i === done ? '#1F5BF0' : '#C7CEDB', fill: i < done ? '#15803D' : '#FFFFFF', numFg: i === done ? '#1F5BF0' : '#5A6478', fg: i < done ? '#5A6478' : '#0E1A33', strike: i < done ? 'line-through' : 'none' })),
+advance: () => this.setState({ done: Math.min(7, done + 1) })
+};
+}
+}
+</script>
+</body>
+</html>

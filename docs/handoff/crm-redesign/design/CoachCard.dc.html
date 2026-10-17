@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>כרטיס מאמן AI</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<section dir="rtl" aria-label="{{title}}" style="width: 100%; box-sizing: border-box; background: #13235B; color: #FFFFFF; border-radius: 22px; padding: {{pad}}; display: flex; flex-direction: column; gap: 16px; font-family: Assistant, sans-serif">
+<div style="display: flex; align-items: flex-start; gap: 12px">
+<span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 14px; background: #E0B84A; color: #13235B; display: flex; align-items: center; justify-content: center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"></path><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path></svg>
+</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 19px; font-weight: 600">{{title}}</h2>
+<span style="font-size: 13px; color: #C3CCE6">{{sub}}</span>
+</div>
+<button aria-label="עוד אפשרויות" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid #34457E; background: transparent; color: #C3CCE6; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
+</button>
+</div>
+
+<p style="margin: 0; font-size: 17px; line-height: 1.55; font-weight: 500">{{summary}}</p>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: flex; align-items: center; gap: 6px; background: #1D3A2E; color: #9FE3BE; border-radius: 10px; padding: 5px 10px; font-size: 13px; font-weight: 700">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"></path></svg>
+{{strength}}
+</span>
+<span style="display: flex; align-items: center; gap: 6px; background: #3D2A14; color: #F5C98A; border-radius: 10px; padding: 5px 10px; font-size: 13px; font-weight: 700">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+{{focus}}
+</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 700; color: #C3CCE6">{{actionsTitle}}</span>
+<sc-for list="{{actions}}" as="a" hint-placeholder-count="3">
+<div style="background: {{a.bg}}; color: #0E1A33; border-radius: 16px; padding: 14px; display: flex; gap: 12px; align-items: flex-start; opacity: {{a.opacity}}">
+<button aria-label="סמן כבוצע" onClick="{{a.toggle}}" style="flex-shrink: 0; width: 28px; height: 28px; margin-top: 2px; border-radius: 14px; border: 2px solid {{a.ring}}; background: {{a.check}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>
+</button>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="font-size: 12px; font-weight: 700; color: {{a.prioFg}}; background: {{a.prioBg}}; border-radius: 6px; padding: 2px 7px">{{a.prio}}</span>
+<span style="font-size: 16px; font-weight: 700; text-decoration: {{a.strike}}">{{a.title}}</span>
+</div>
+<span style="font-size: 14px; color: #4A5468; line-height: 1.45">{{a.why}}</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #166534">השפעה צפויה: {{a.impact}}</span>
+<button style="height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: #1F5BF0; color: #FFFFFF; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">{{a.cta}}</button>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label style="display: flex; align-items: center; gap: 8px; height: 48px; border-radius: 14px; background: #1E2F6E; border: 1px solid #34457E; padding: 0 6px 0 12px">
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">שאלה למאמן</span>
+<input type="text" placeholder="שאל את המאמן כל דבר…" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #FFFFFF; font-family: Assistant, sans-serif; font-size: 15px; padding-right: 6px">
+<button aria-label="שלח" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: #E0B84A; color: #13235B; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+</button>
+</label>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{questions}}" as="q" hint-placeholder-count="3">
+<button style="height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #34457E; background: transparent; color: #DCE3F5; font-family: Assistant, sans-serif; font-size: 13px; font-weight: 600; cursor: pointer">{{q}}</button>
+</sc-for>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role":{"editor":"enum","options":["agent","team","office"],"default":"agent"},"compact":{"editor":"boolean","default":false},"$preview":{"width":760,"height":600}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { done: {} }; }
+renderVals() {
+const role = this.props.role ?? 'agent';
+const compact = !!this.props.compact;
+const P = {
+high: ['עדיפות גבוהה', '#9A3412', '#FDE7D9'],
+mid: ['עדיפות בינונית', '#7A5300', '#FFF1C7'],
+win: ['הזדמנות', '#1F3F99', '#EAF0FF']
+};
+const D = {
+agent: {
+title: 'מאמן סוכני נדל״ן AI',
+sub: 'עודכן הבוקר · מבוסס על 30 הימים האחרונים שלך',
+summary: 'שבוע חזק בגיוס — 2 נכסים חדשים, אחד בבלעדיות. איפה הכסף נתקע: רק 38% מהשיחות שלך הופכות לסיור, ואצל המובילים באזור זה [X]%.',
+strength: 'החוזקה שלך: זמן תגובה 14 דק׳',
+focus: 'הפוקוס החודש: משיחה לסיור',
+actionsTitle: '3 צעדים להיום',
+actions: [
+['high', 'קבע סיור כבר בשיחה הראשונה', '6 לידים פעילים דיברו איתך השבוע ועדיין אין להם מועד לסיור. הצע שני מועדים קבועים במקום "נדבר".', '+2 סיורים בשבוע', 'פתח את 6 הלידים'],
+['mid', 'חדש בלעדיות ביהושע חנקין 3', 'ההסכם פג בעוד 12 יום. בעלים שמקבלים דוח צפיות לפני החידוש חותמים בקלות רבה יותר.', 'שמירה על נכס בבלעדיות', 'שלח דוח + הסכם'],
+['win', 'הוסף תמונות למגרש בעפולה עילית', '88 צפיות ו-0 פניות ב-12 ימים. הנכס היחיד שלך בלי תמונות.', 'יותר פניות על הנכס', 'העלה תמונות']
+],
+questions: ['איך לגייס יותר בלעדיות?', 'מה לומר לליד שלא עונה?', 'תכין לי תסריט לשיחת גיוס']
+},
+team: {
+title: 'מאמן מנהלי צוותים AI',
+sub: 'סיכום שבועי · צוות צפון · 6 סוכנים',
+summary: 'הצוות עומד על 72% מיעד החודש, עם עוד 13 ימי עבודה. הפער כולו בזמן תגובה: שני סוכנים עונים אחרי 3+ שעות, ו-5 לידים איבדו בלעדיות השבוע.',
+strength: 'חוזקת הצוות: שיעור בלעדיות 48%',
+focus: 'הפוקוס השבוע: זמן תגובה',
+actionsTitle: 'מה לעשות השבוע',
+actions: [
+['high', 'שיחת 1:1 עם עידו על זמן תגובה', 'ממוצע 3.5 שעות לליד, 3 לידים פקעו. התחל בשאלה מה חוסם אותו — לא בביקורת.', 'עד 5 לידים נוספים בחודש', 'קבע 1:1'],
+['mid', 'הצמד את מיכל לנועה לחונכות', 'מיכל מובילה את הצוות בגיוס בלעדיות; נועה בחודש השני שלה ועוד לא גייסה בלעדיות.', 'גיוס ראשון לנועה', 'צור זוג חונכות'],
+['win', 'הוקרה לשירן בישיבת הצוות', '2 עסקאות השבוע ותגובה ממוצעת של 9 דק׳. הוקרה ציבורית מעלה מוטיבציה לכל הצוות.', 'מורל ושימור', 'שלח מילה טובה']
+],
+questions: ['על מי כדאי להשקיע השבוע?', 'תכין לי ישיבת צוות של 15 דק׳', 'איך לשפר את זמן התגובה בצוות?']
+},
+office: {
+title: 'מאמן AI לבעלי משרדים',
+sub: 'סיכום שבועי · נדל״ן עפולה · 3 צוותים, 14 סוכנים',
+summary: 'הכנסות הרבעון גבוהות ב-12% מאשתקד. שני סיכונים: שיעור הבלעדיות בגיוסים ירד ל-41%, ו-58% מהלידים מגיעים ממקור אחד.',
+strength: 'הכי חזק: צוות צפון · 72% מהיעד',
+focus: 'הסיכון המרכזי: תלות במקור לידים',
+actionsTitle: 'החלטות לשבוע הזה',
+actions: [
+['high', 'סדנת גיוס בלעדיות לצוות דרום', 'בצוות דרום רק 29% מהגיוסים בבלעדיות, מול 48% בצפון. מנהלת צוות צפון יכולה להעביר אותה.', 'כ-+4 בלעדיות ברבעון', 'שבץ למנהלי הצוות'],
+['high', '4 בלעדיות פוקעות החודש', 'עמלה פוטנציאלית של ₪[סכום]. לשלושה מהנכסים עוד לא נשלח דוח לבעלים.', 'שמירת המלאי', 'צפה ברשימה'],
+['mid', 'לפזר את מקורות הלידים', 'רוב הלידים מגיעים מחיפוש בשוק נדל״ן. קידום המיני-סייט של המשרד יקטין את התלות.', 'יציבות בזרם הלידים', 'פתח קידום']
+],
+questions: ['איזה צוות צריך חיזוק?', 'איפה אני מפסיד הכנסות?', 'כמה סוכנים לגייס לרבעון הבא?']
+}
+};
+const d = D[role] || D.agent;
+const done = this.state.done;
+let acts = d.actions.map((a, i) => {
+const p = P[a[0]];
+const isDone = !!done[role + i];
+return {
+prio: isDone ? 'בוצע' : p[0], prioFg: isDone ? '#166534' : p[1], prioBg: isDone ? '#E6F4EC' : p[2],
+title: a[1], why: a[2], impact: a[3], cta: a[4],
+bg: '#FFFFFF', opacity: isDone ? '0.6' : '1', strike: isDone ? 'line-through' : 'none',
+ring: isDone ? '#15803D' : '#B9C2D3', check: isDone ? '#15803D' : '#FFFFFF',
+toggle: () => this.setState({ done: { ...done, [role + i]: !isDone } })
+};
+});
+if (compact) acts = acts.slice(0, 2);
+return { ...d, actions: acts, pad: compact ? '16px' : '22px' };
+}
+}
+</script>
+</body>
+</html>

@@ -3273,123 +3273,146 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 
   /* ---------- ניווט הצד (דסקטופ) ----------
-     שלוש קבוצות ושלוש-עשרה שורות לכל היותר, בגובה אחיד של 38px — זה מה
-     שנכנס במסך של 768px יחד עם כרטיס הארנק. ההגדרות האישיות יצאו לתפריט
-     הפרופיל (ראו NAV_GROUPS) בדיוק בשביל זה. ‏.sn-list עדיין רשאית לגלול
-     במסך נמוך במיוחד, בלי פס: פריט שאי אפשר להגיע אליו גרוע מגלילה. */
+     הטוקנים של העיצוב החדש (docs/handoff/crm-redesign, סעיף 1), מוגדרים על
+     :root ולא על #dashboard כי הסרגל התחתון והשכבות יושבים מחוצה לו.
+     הפונטים נשארו של ה-CRM (Heebo) - החלטה של תומר, 17.10.2026. */
+  :root{
+    --nv-ink:#0E1A33; --nv-muted:#5A6478; --nv-line:#E3E7EF; --nv-ground:#F4F6FA;
+    --nv-accent:#1F5BF0; --nv-accent-h:#1846C2; --nv-accent-soft:#EAF0FF; --nv-accent-ink:#1F3F99;
+    --nv-urgent:#C2410C;
+  }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* "יצירה חדשה" בראש הסרגל - אותו גיליון של ה-+ בנייד */
+  .sn-create{
+    flex-shrink:0;height:42px;width:100%;border:none;border-radius:12px;
+    background:var(--nv-accent);color:#fff;font-size:.92rem;font-weight:800;
+    display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;
+    transition:background .14s ease;
+  }
+  .sn-create:hover{background:var(--nv-accent-h)}
+  .sn-create:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+  .sn-create .sn-ico{color:#fff;width:18px;height:18px}
+
+  /* ‏.sn-list גוללת במסך נמוך במיוחד, בלי פס: פריט שאי אפשר להגיע אליו
+     גרוע מגלילה */
   .sn-list{
-    flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;
+    flex:1;min-height:0;display:flex;flex-direction:column;gap:1px;
     overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
   }
   .sn-list::-webkit-scrollbar{display:none}
-  /* כותרת הקבוצה היא אותו פס נייבי של כותרות הקבוצה בתפריט הבורגר
-     (‏.menu-gtoggle): אפור קטן נבלע בין השורות, והכותרות הן הגבולות
-     היחידים ברשימה. דחוסה (30px) כדי שהסרגל עדיין ייכנס בגובה מסך אחד. */
+  /* כותרת קבוצה: 12px מודגש באפור, וקו דק מעל כל קבוצה חוץ מהראשונה. היא
+     גבול בין קבוצות ולא שורה בפני עצמה, ולכן שקטה מהשורות שתחתיה. */
   .sn-group{
     width:100%;display:flex;align-items:center;gap:8px;flex-shrink:0;height:34px;
-    margin-top:6px;padding:0 12px;border:none;border-radius:var(--r-xs);cursor:pointer;
-    background:var(--navy);color:#fff;text-align:start;font-family:inherit;
-    font-size:.8rem;font-weight:800;letter-spacing:.02em;
-    box-shadow:0 2px 6px rgba(28,58,94,.18);transition:background .14s ease;
+    padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:transparent;
+    color:var(--nv-muted);text-align:start;font-family:inherit;font-size:.75rem;font-weight:700;
+    border-top:1px solid #EEF1F6;border-radius:0;margin-top:4px;
   }
-  .sn-group:hover{background:var(--navy-2)}
-  /* מסגרת המיקוד לבנה ופנימה: נייבי על נייבי אינו נראה */
-  .sn-group:focus-visible{outline:2px solid #fff;outline-offset:-4px}
-  .sn-group .sn-gico{width:16px;height:16px;flex-shrink:0;color:#fff}
+  .sn-list>.sn-group:first-child{border-top:0;margin-top:0}
+  .sn-group:hover{color:var(--nv-ink)}
+  .sn-group:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px;border-radius:8px}
+  .sn-group.is-pinned{cursor:default}
+  .sn-group.is-pinned .sn-gchev{opacity:.35}
   .sn-glabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* המונה על קבוצה סגורה — אדום אם מחכה בה עבודה, אחרת מספר הפריטים.
-     בקבוצה פתוחה הוא יורד: המונים של הפריטים עצמם כבר על המסך. */
+  /* המונה על קבוצה סגורה - סכום מה שדחוף בה. בקבוצה פתוחה הוא יורד: המונים
+     של הפריטים עצמם כבר על המסך */
   .sn-gcount{
-    flex-shrink:0;font-size:.66rem;font-weight:800;color:#fff;
-    background:rgba(255,255,255,.22);border-radius:999px;padding:2px 8px;
+    flex-shrink:0;min-width:20px;height:20px;padding:0 6px;border-radius:10px;
+    background:var(--nv-urgent);color:#fff;font-size:.68rem;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;
   }
-  .sn-gcount.is-hot{background:#dc2626}
   .sn-group[aria-expanded="true"] .sn-gcount{display:none}
-  .sn-gchev{flex-shrink:0;width:15px;height:15px;color:rgba(255,255,255,.85);
-            transition:transform .18s cubic-bezier(.22,1,.36,1)}
+  .sn-gchev{flex-shrink:0;width:14px;height:14px;transition:transform .18s cubic-bezier(.22,1,.36,1)}
   .sn-group[aria-expanded="true"] .sn-gchev{transform:rotate(180deg)}
-  .sn-sub{display:flex;flex-direction:column;gap:2px;padding-top:1px}
+  .sn-sub{display:flex;flex-direction:column;gap:1px;padding-bottom:4px}
   .sn-sub[hidden]{display:none}
   @media(prefers-reduced-motion:reduce){.sn-gchev{transition:none}}
   .sn-item{
-    width:100%;height:36px;flex-shrink:0;display:flex;align-items:center;gap:10px;text-align:start;
-    background:transparent;border:none;border-radius:var(--r-xs);padding:0 12px;
-    color:var(--txt);font-size:.85rem;font-weight:600;
+    position:relative;width:100%;height:36px;flex-shrink:0;display:flex;align-items:center;gap:10px;
+    text-align:start;background:transparent;border:none;border-radius:10px;padding:0 10px;
+    color:var(--nv-ink);font-size:.875rem;font-weight:600;
     transition:background .14s ease,color .14s ease;
   }
-  .sn-item:hover{background:var(--navy-tint)}
-  .sn-item:hover .sn-ico{color:var(--navy)}
-  .sn-item:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
-  .sn-item.is-on{background:var(--navy-tint);color:var(--navy);font-weight:800}
-  .sn-ico{width:18px;height:18px;flex-shrink:0;color:var(--txt-faint);transition:color .14s ease}
-  .sn-item.is-on .sn-ico{color:var(--navy)}
+  .sn-item:hover{background:var(--nv-ground)}
+  .sn-item:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
+  .sn-item.is-on{background:var(--nv-accent-soft);color:var(--nv-accent-ink);font-weight:700}
+  .sn-ico{width:18px;height:18px;flex-shrink:0;color:currentColor}
   .sn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* שני סוגי מונים: אפור ושקט ל"כמה יש" (סך הנכסים, הסכמים, משימות),
      ואדום רק ל"מחכה לך" — ראו NAV_HOT_ACCS */
   .sn-count{
-    flex-shrink:0;min-width:22px;text-align:center;
-    font-size:.68rem;font-weight:700;color:var(--txt-soft);
-    background:var(--surface-2);border-radius:999px;padding:2px 8px;
+    flex-shrink:0;min-width:20px;height:20px;padding:0 5px;border-radius:10px;
+    background:var(--nv-muted);color:#fff;font-size:.68rem;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;
   }
-  .sn-count.is-hot{background:#dc2626;color:#fff;font-weight:800}
+  .sn-count.is-hot{background:var(--nv-urgent)}
 
-  /* ---------- כרטיס הארנק, נעוץ בתחתית הסרגל ---------- */
+  /* ---------- תחתית הסרגל: מכסה, ארנק, עזרה וכיווץ ---------- */
   .sn-foot{flex-shrink:0;display:flex;flex-direction:column;gap:6px;
-           padding-top:10px;border-top:1px solid var(--edge)}
+           padding-top:8px;border-top:1px solid var(--nv-line)}
   .sn-wallet{
-    border-radius:var(--r-md);padding:10px 12px;
-    background:linear-gradient(135deg,var(--navy-tint),var(--surface-2));
-    border:1px solid var(--edge);
+    border-radius:12px;padding:10px 12px;background:var(--nv-ground);
+    display:flex;flex-direction:column;gap:6px;
   }
-  .sn-wallet-top{display:flex;align-items:center;gap:7px}
-  .sn-wallet-top .sn-ico{width:16px;height:16px;color:var(--navy)}
-  .sn-wallet-title{font-size:.74rem;font-weight:700;color:var(--txt-soft)}
-  .sn-wallet-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
-  .sn-wallet-sum{font-size:1.3rem;font-weight:800;color:var(--navy);
+  .sn-quota-row{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;font-weight:700;color:var(--nv-ink)}
+  .sn-quota-n{color:var(--nv-muted);font-variant-numeric:tabular-nums}
+  .sn-quota-bar{height:5px;border-radius:3px;background:#DDE2EC;overflow:hidden}
+  .sn-quota-bar span{display:block;height:100%;border-radius:3px;background:var(--nv-accent)}
+  .sn-wallet-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .sn-wallet-sum{font-size:.8rem;font-weight:700;color:var(--nv-muted);
                  font-variant-numeric:tabular-nums;white-space:nowrap}
   .sn-topup{
-    flex-shrink:0;border:none;border-radius:999px;padding:6px 12px;
-    background:var(--navy);color:#fff;font-size:.76rem;font-weight:800;
-    transition:background .14s ease;
+    flex-shrink:0;border:none;background:transparent;padding:4px 2px;
+    color:var(--nv-accent);font-size:.8rem;font-weight:800;
   }
-  .sn-topup:hover{background:var(--navy-2)}
-  .sn-topup:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .sn-topup:hover{color:var(--nv-accent-h);text-decoration:underline}
+  .sn-topup:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px;border-radius:4px}
   .sn-links{display:flex;gap:4px}
   .sn-link{
-    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:32px;
-    background:transparent;border:none;border-radius:var(--r-xs);
-    color:var(--txt-soft);font-size:.76rem;font-weight:600;transition:background .14s ease;
+    flex:1;display:flex;align-items:center;justify-content:flex-start;gap:8px;height:36px;padding:0 10px;
+    background:transparent;border:none;border-radius:10px;
+    color:var(--nv-muted);font-size:.8rem;font-weight:700;transition:background .14s ease;
   }
-  .sn-link .sn-ico{width:15px;height:15px}
-  .sn-link:hover{background:var(--surface-2);color:var(--txt)}
-  .sn-link:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
-  .sn-link.sn-signout:hover{background:var(--wine-tint);color:var(--wine)}
-  .sn-link.sn-signout:hover .sn-ico{color:var(--wine)}
+  .sn-link .sn-ico{width:18px;height:18px}
+  .sn-link:hover{background:var(--nv-ground);color:var(--nv-ink)}
+  .sn-link:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
+
+  /* ---------- פס אייקונים (72px) ----------
+     רק אייקונים: השם ב-title וב-aria-label (sideNavItem), המונה עובר לפינת
+     האייקון, וכותרות הקבוצות יורדות - הקווים בין הקבוצות נשארים. */
+  @media(min-width:1024px){
+    .dash-shell.nav-rail{grid-template-columns:72px minmax(0,1fr)}
+    .dash-side.is-rail{padding:10px 8px 12px}
+    .dash-side.is-rail .sn-label,
+    .dash-side.is-rail .sn-glabel,
+    .dash-side.is-rail .sn-gchev,
+    .dash-side.is-rail .sn-gcount{display:none}
+    .dash-side.is-rail .sn-group{height:9px;padding:0;pointer-events:none}
+    .dash-side.is-rail .sn-item,
+    .dash-side.is-rail .sn-create,
+    .dash-side.is-rail .sn-link{justify-content:center;padding:0}
+    .dash-side.is-rail .sn-links{flex-direction:column}
+    .dash-side.is-rail .sn-count{
+      position:absolute;top:1px;inset-inline-end:4px;min-width:18px;height:18px;
+      font-size:.62rem;border:2px solid #fff;box-sizing:content-box;
+    }
+  }
 
   /* מסך נמוך (לפטופ של 768px עם סרגלי דפדפן): אותן שורות, צפופות יותר —
      וכך הרשימה נשארת בלי גלילה גם שם */
   @media(min-width:1024px) and (max-height:820px){
-    .sn-item{height:33px;font-size:.82rem}
-    .sn-group{height:33px;margin-top:5px}
-    .sn-wallet{padding:8px 10px}
-    .sn-wallet-sum{font-size:1.12rem}
-    .sn-links .sn-link{height:28px}
+    .sn-item,.sn-link{height:33px}
+    .sn-group{height:30px}
+    .sn-create{height:38px}
+    .sn-wallet{padding:8px 10px;gap:4px}
   }
-  /* ומסך נמוך באמת (‏680px ומטה — לפטופ 1366×768 עם סרגלי הדפדפן): הכרטיס
-     מתכווץ לשורה אחת של סכום וטעינה, והשורות ל-29px */
   @media(min-width:1024px) and (max-height:720px){
-    .sn-list{gap:1px}
-    .sn-item{height:26px;font-size:.8rem}
+    .sn-item,.sn-link{height:29px;font-size:.82rem}
+    .sn-group{height:26px;margin-top:2px}
     .sn-ico{width:16px;height:16px}
-    .sn-group{height:28px;margin-top:2px;font-size:.76rem}
-    .sn-foot{gap:4px;padding-top:8px}
-    .sn-wallet{padding:6px 10px}
-    .sn-wallet-top{display:none}
-    .sn-wallet-row{margin-top:0}
-    .sn-wallet-sum{font-size:1rem}
-    .sn-wallet-sum::before{content:'ארנק ';font-size:.7rem;font-weight:700;color:var(--txt-soft)}
-    .sn-topup{padding:4px 10px;font-size:.72rem}
-    .sn-links .sn-link{height:26px}
+    .sn-create{height:34px}
+    .sn-quota-bar{display:none}
   }
 
   /* ==========================================================================
@@ -4778,8 +4801,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ==========================================================================
      סרגל הניווט התחתון
      --------------------------------------------------------------------------
-     חמש לשוניות שמחליפות את קיר האקורדיונים: במקום חמישה-עשר נושאים בטור אחד,
-     כל לשונית מציגה את הקבוצה שלה בלבד. הסרגל קיים במובייל בלבד — מ-1024px
+     בית · לידים · + · חיפוש · אני. "בית" ו"לידים" מציגים מקטע (קבוצת
+     אקורדיונים), ושלושת האחרים פותחים שכבה. שאר המקטעים (נכסים, לקוחות,
+     הסכמים, "עוד") נפתחים מתפריט הבורגר, מהקיצורים ומהחיפוש, ובלי כפתור
+     מודגש בסרגל (docs/crm-navigation.md). הסרגל קיים במובייל בלבד — מ-1024px
      ומעלה יש סרגל צד דביק שמראה את כל המפה בבת אחת, ואז הסינון כבוי לגמרי
      וכל הנושאים מוצגים (ראו navFilterActive).
 
@@ -4796,62 +4821,243 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      לא נראה — שם הדפדפן מכווץ את החלון מעל הסרגל ממילא — ולכן זה התגלה
      רק באפליקציה המותקנת, שבה אנדרואיד פורש את הדף מקצה לקצה.
      ========================================================================== */
-  /* הסרגל התחתון לובש את אותה חליפה של כרטיס העמלות: נייבי עמוק עם הילה
-     זהובה בפינה הימנית (‏inset-inline-start ב-RTL), טקסט ואייקונים לבנים.
-     קודם הוא היה רצועה לבנה על דף בהיר — הגבול היחיד בינו לבין התוכן היה
-     קו אפור של פיקסל, וברשימה ארוכה הוא נבלע בתוכה. משטח כהה הוא מה
-     שמפריד רצועת ניווט קבועה מהדף שגולל מתחתיה, וזה גם מה שקושר אותה
-     לכרטיס הכהה שבראש המסך: אותם שני משטחי המותג, אחד בכל קצה. */
+  /* חמישה כפתורים: בית · לידים · + · חיפוש · אני (BOTTOM_NAV). רצועה לבנה
+     עם צל עליון, והפריט הפעיל בגלולה כחולה בהירה - לפי העיצוב החדש
+     (docs/handoff/crm-redesign/design/BottomNav.dc.html). ה-+ מורם מעל
+     הרצועה, ולכן אין כאן overflow:hidden. */
   .bottom-nav{
     position:fixed;inset-inline:0;bottom:0;z-index:200;
-    /* ‏auto-flow ולא repeat(5,1fr): מספר הלשוניות משתנה (נוספה "הסכמים"),
-       ומספר קבוע כאן היה דוחס את האחרונה מחוץ לרצועה. */
-    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
-    background:linear-gradient(150deg,rgba(34,69,110,.96) 0%,rgba(28,58,94,.97) 48%,rgba(18,40,64,.98) 100%);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    border-top:1px solid rgba(255,255,255,.10);
-    padding-bottom:var(--sa-bottom);
-    box-shadow:0 -6px 24px rgba(15,23,42,.24);
-    /* ההילה נחתכת בגבולות הרצועה. ‏isolation: הפסאודו יושב מעל הרקע ומתחת
-       ללשוניות, בלי לפתוח שכבה שתטפס על תפריט הבורגר. */
-    overflow:hidden;isolation:isolate;
-  }
-  /* ‏position:absolute מוציא את הפסאודו מזרימת הגריד, ולכן הוא לא נחשב
-     לשונית שישית ולא מקבל עמודה משלו */
-  .bottom-nav::before{
-    content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
-    background:radial-gradient(circle,rgba(201,162,39,.28),transparent 68%);
-    pointer-events:none;z-index:0;
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;
+    background:#fff;border-top:1px solid var(--nv-line);
+    padding:4px 4px var(--sa-bottom);
+    box-shadow:0 -6px 24px rgba(14,26,51,.06);
   }
   .bottom-nav[hidden]{display:none}
   @media(min-width:1024px){.bottom-nav{display:none}}
   .bn-tab{
-    position:relative;z-index:1;background:transparent;border:none;
+    position:relative;background:transparent;border:none;min-height:54px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-    /* ‏.78 ולא ‎.66: לשונית לא־נבחרת צריכה להיות שקטה, אבל מעל ההילה הזהובה
-       המשטח מתבהר, ו-‎.66 שם כבר יורד מתחת ל-4.5:1 */
-    padding:8px 2px 7px;color:rgba(255,255,255,.78);font-size:.66rem;font-weight:700;
+    padding:5px 2px 6px;color:var(--nv-muted);font-size:.75rem;font-weight:700;
     transition:color .16s ease;
   }
-  .bn-tab svg{width:22px;height:22px}
-  .bn-tab:focus-visible{outline:2px solid #fff;outline-offset:-3px;border-radius:10px}
-  .bn-tab[aria-selected="true"]{color:#fff}
-  /* הפס העליון הוא סימן המיקום — הוא לבדו מספיק כדי לדעת איפה אנחנו,
-     ולכן הלשוניות נשארות שקטות */
-  .bn-tab[aria-selected="true"]::before{
-    content:'';position:absolute;top:0;inset-inline:22%;height:3px;border-radius:0 0 3px 3px;
-    background:linear-gradient(90deg,#e3c463,#c9a227);
+  .bn-pill{
+    position:relative;display:flex;align-items:center;justify-content:center;
+    width:48px;height:30px;border-radius:15px;transition:background .16s ease;
   }
-  .bn-badge{
-    position:absolute;top:4px;inset-inline-end:calc(50% - 20px);
-    min-width:17px;height:17px;padding:0 4px;border-radius:999px;
-    background:#f04545;color:#fff;font-size:.6rem;font-weight:800;
+  .bn-tab svg{width:22px;height:22px}
+  .bn-tab:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-3px;border-radius:12px}
+  .bn-tab.is-on{color:var(--nv-accent)}
+  .bn-tab.is-on .bn-pill{background:var(--nv-accent-soft)}
+  /* ה-+ : ריבוע כחול מעוגל שבולט מעל הרצועה, ונעשה X כהה כשהגיליון פתוח */
+  .bn-tab.bn-create{color:var(--nv-ink);margin-top:-24px}
+  .bn-create .bn-pill{
+    width:56px;height:56px;border-radius:20px;background:var(--nv-accent);color:#fff;
+    border:4px solid #fff;box-shadow:0 8px 20px rgba(31,91,240,.35);
+  }
+  .bn-create .bn-pill svg{width:26px;height:26px}
+  .bn-create.is-on{color:var(--nv-ink)}
+  .bn-create.is-on .bn-pill{background:var(--nv-ink);box-shadow:0 8px 20px rgba(14,26,51,.3)}
+  .bn-avatar{
+    width:26px;height:26px;border-radius:50%;object-fit:cover;
+    background:#DCE6FF;color:var(--nv-accent-ink);font-size:.7rem;font-weight:800;
     display:inline-flex;align-items:center;justify-content:center;
-    /* הטבעת מפרידה את התגית מהאייקון שמאחוריה, ולכן היא בצבע הרצועה
-       עצמה — לבן על נייבי היה הופך אותה לנקודה זוהרת בפני עצמה */
-    box-shadow:0 0 0 2px rgba(20,44,70,.95);
+  }
+  .bn-tab.is-on .bn-avatar{box-shadow:0 0 0 2px var(--nv-accent)}
+  .bn-badge{
+    position:absolute;top:-3px;inset-inline-end:4px;
+    min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;
+    background:var(--nv-urgent);color:#fff;font-size:.66rem;font-weight:800;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:2px solid #fff;
   }
   .bn-badge:empty{display:none}
+
+  /* התגית על כפתור התפריט בכותרת: הדחוף שאין לו כפתור בסרגל התחתון */
+  #menuBtn{position:relative}
+  .menu-badge{
+    position:absolute;top:2px;inset-inline-end:2px;min-width:17px;height:17px;padding:0 4px;
+    border-radius:9px;background:var(--nv-urgent);color:#fff;font-size:.6rem;font-weight:800;
+    display:inline-flex;align-items:center;justify-content:center;pointer-events:none;
+  }
+  .menu-badge:empty{display:none}
+
+  /* החיפוש בכותרת - מחשב בלבד; בנייד הוא בסרגל התחתון */
+  .hdr-search{display:none}
+  @media(min-width:1024px){
+    .hdr-search{
+      display:flex;align-items:center;gap:8px;height:40px;min-width:280px;padding:0 12px;
+      border:1px solid var(--nv-line);border-radius:12px;background:#fff;cursor:pointer;
+      color:var(--nv-muted);font-size:.85rem;font-weight:600;font-family:inherit;
+    }
+    .hdr-search:hover{border-color:#C9D1DE;color:var(--nv-ink)}
+    .hdr-search:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+    .hdr-search svg{width:18px;height:18px;flex-shrink:0;color:var(--nv-accent)}
+    .hdr-search span{flex:1;text-align:start}
+    .hdr-search kbd{
+      font-family:inherit;font-size:.7rem;font-weight:700;color:var(--nv-muted);direction:ltr;
+      background:var(--nv-ground);border:1px solid var(--nv-line);border-radius:6px;padding:1px 6px;
+    }
+  }
+
+  /* ==========================================================================
+     השכבות - גיליון היצירה והחיפוש
+     --------------------------------------------------------------------------
+     בנייד: גיליון שעולה מלמטה ונעצר מעל הסרגל התחתון, כדי שה-X של ה-+
+     יישאר על המסך. במחשב: חלון במרכז העליון של המסך.
+     ========================================================================== */
+  .nav-layer{position:fixed;inset:0;z-index:190;display:flex;flex-direction:column;justify-content:flex-end}
+  .nav-layer[hidden]{display:none}
+  .nl-backdrop{position:absolute;inset:0;background:rgba(14,26,51,.45)}
+  .nl-panel{
+    position:relative;background:#fff;color:var(--nv-ink);
+    border-radius:22px 22px 0 0;box-shadow:0 -10px 40px rgba(14,26,51,.18);
+    padding:10px 16px 18px;margin-bottom:calc(64px + var(--sa-bottom));
+    max-height:calc(100dvh - 64px - var(--sa-bottom) - 40px);overflow-y:auto;overscroll-behavior:contain;
+  }
+  .nl-grip{width:40px;height:4px;border-radius:2px;background:#D3D9E4;margin:0 auto 10px}
+  .nl-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .nl-head h2{font-family:inherit;font-size:1.15rem;font-weight:800;color:var(--nv-ink)}
+  .nl-close{
+    flex-shrink:0;width:44px;height:44px;border:none;border-radius:12px;background:transparent;
+    color:var(--nv-muted);display:inline-flex;align-items:center;justify-content:center;
+  }
+  .nl-close svg{width:20px;height:20px}
+  .nl-close:hover{background:var(--nv-ground);color:var(--nv-ink)}
+  .nl-close:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
+  body.nav-layer-open{overflow:hidden}
+  @media(min-width:1024px){
+    .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
+    .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;
+              max-height:80vh;padding:16px 20px 20px}
+    .nl-grip{display:none}
+  }
+
+  /* ---------- גיליון היצירה ---------- */
+  .cs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .cs-item{
+    min-height:96px;border:1px solid var(--nv-line);border-radius:16px;background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    padding:12px 6px;color:var(--nv-ink);font-size:.85rem;font-weight:700;text-align:center;
+    transition:border-color .14s ease,background .14s ease;
+  }
+  .cs-item:hover{border-color:var(--nv-accent);background:var(--nv-accent-soft)}
+  .cs-item:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+  .cs-ico{width:44px;height:44px;border-radius:14px;background:var(--nv-accent-soft);color:var(--nv-accent);
+          display:inline-flex;align-items:center;justify-content:center}
+  .cs-ico svg{width:24px;height:24px}
+  .cs-more{margin-top:14px;display:flex;flex-direction:column;gap:2px}
+  .cs-more-h{font-size:.75rem;font-weight:700;color:var(--nv-muted);padding:0 4px 4px}
+  .cs-list{display:flex;flex-direction:column;gap:2px}
+  .cs-row{
+    min-height:48px;display:flex;align-items:center;gap:10px;padding:8px 10px;
+    border:none;border-radius:12px;background:transparent;text-align:start;color:var(--nv-ink);
+    font-size:.9rem;font-weight:600;
+  }
+  .cs-row svg{width:20px;height:20px;flex-shrink:0;color:var(--nv-muted)}
+  .cs-row:hover{background:var(--nv-ground)}
+  .cs-row:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
+  .cs-row-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cs-row-s{flex-shrink:0;font-size:.78rem;color:var(--nv-muted)}
+  .cs-back{display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;
+           color:var(--nv-accent);font-weight:700;font-size:.85rem;padding:4px 0 10px}
+  .cs-back svg{width:16px;height:16px}
+  .cs-empty,.cs-hint{font-size:.85rem;color:var(--nv-muted);margin:10px 4px 0}
+  @media(max-width:359px){.cs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  /* ---------- החיפוש ----------
+     בנייד מסך מלא מעל הסרגל התחתון, השדה בראש */
+  .nav-search{justify-content:flex-start}
+  .nav-search .nl-panel{
+    border-radius:0;margin-bottom:0;flex:1;max-height:none;
+    padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(80px + var(--sa-bottom));
+  }
+  @media(min-width:1024px){
+    .nav-search{justify-content:flex-start}
+    .nav-search .nl-panel{flex:none;border-radius:22px;max-height:78vh;padding:14px 18px 18px}
+  }
+  .srch-bar{display:flex;align-items:center;gap:6px}
+  .srch-field{
+    flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;
+    border:1.5px solid var(--nv-accent);border-radius:14px;background:#fff;
+  }
+  .srch-field svg{width:20px;height:20px;flex-shrink:0;color:var(--nv-accent)}
+  .srch-field input{flex:1;min-width:0;border:none;outline:none;background:transparent;
+                    font-size:1rem;color:var(--nv-ink);height:100%}
+  .srch-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:12px 0 6px}
+  .srch-chips::-webkit-scrollbar{display:none}
+  .srch-chip{
+    flex-shrink:0;height:34px;padding:0 14px;border-radius:17px;border:1px solid #D3D9E4;
+    background:#fff;color:var(--nv-ink);font-size:.82rem;font-weight:700;white-space:nowrap;
+  }
+  .srch-chip.is-on{background:var(--nv-ink);border-color:var(--nv-ink);color:#fff}
+  .srch-chip:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+  .srch-results{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+  .srch-hint{font-size:.85rem;color:var(--nv-muted);margin:6px 2px}
+  .srch-hint.is-err{color:var(--nv-urgent)}
+  .srch-gh{display:flex;align-items:center;justify-content:space-between;gap:8px;
+           font-size:.78rem;font-weight:700;color:var(--nv-muted);padding:0 2px 6px}
+  .srch-gh span{display:inline-flex;align-items:center;gap:6px}
+  .srch-all{border:none;background:transparent;color:var(--nv-accent);font-weight:800;font-size:.8rem;padding:4px}
+  .srch-row{
+    width:100%;min-height:52px;display:flex;align-items:center;gap:10px;padding:8px 10px;
+    border:1px solid var(--nv-line);border-radius:14px;background:#fff;text-align:start;margin-bottom:6px;
+  }
+  .srch-row:hover{border-color:var(--nv-accent)}
+  .srch-row:focus-visible{outline:2px solid var(--nv-accent);outline-offset:1px}
+  .srch-ico{width:20px;height:20px;flex-shrink:0;color:var(--nv-muted)}
+  .srch-text{flex:1;min-width:0;display:flex;flex-direction:column}
+  .srch-t{font-size:.92rem;font-weight:700;color:var(--nv-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srch-s{font-size:.78rem;color:var(--nv-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srch-row mark,.srch-faq mark{background:#FFF1C7;color:inherit;border-radius:3px;padding:0 1px}
+  .srch-help{background:var(--nv-accent-soft);border-radius:16px;padding:12px}
+  .srch-help .srch-ico{color:var(--nv-accent)}
+  .srch-faq{border-top:1px solid rgba(31,91,240,.12);padding:6px 0}
+  .srch-faq:first-of-type{border-top:0}
+  .srch-faq summary{cursor:pointer;font-size:.88rem;font-weight:700;color:var(--nv-accent-ink);padding:6px 2px;min-height:32px}
+  .srch-faq p{font-size:.84rem;color:var(--nv-ink);margin:2px 2px 6px;line-height:1.55}
+  .srch-go{border:none;background:transparent;color:var(--nv-accent);font-weight:800;font-size:.84rem;padding:6px 2px}
+  .srch-go:hover{color:var(--nv-accent-h);text-decoration:underline}
+
+  /* ---------- תפריט הפרופיל: כותרת וקבוצות ----------
+     בנייד (מתחת ל-1024px) הוא מסך מלא שנפתח גם מ"אני" בסרגל התחתון */
+  .pp-head-card{padding:10px 10px 8px}
+  .ph-row{display:flex;align-items:center;gap:10px}
+  .ph-avatar{
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;object-fit:cover;
+    background:#DCE6FF;color:var(--nv-accent-ink);font-weight:800;font-size:1rem;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .ph-text{flex:1;min-width:0}
+  .ph-tier{display:inline-block !important;margin-top:4px !important;font-size:.7rem !important;font-weight:700;
+           color:var(--nv-accent-ink) !important;background:var(--nv-accent-soft);border-radius:999px;padding:1px 8px}
+  .ph-close{display:none}
+  .ph-actions{display:flex;gap:6px;margin-top:10px}
+  .ph-act{
+    flex:1;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:36px;padding:0 8px;border:1px solid var(--nv-line);border-radius:10px;background:#fff;
+    color:var(--nv-ink);font-size:.78rem;font-weight:700;text-decoration:none;white-space:nowrap;
+  }
+  .ph-act svg{width:16px;height:16px;flex-shrink:0;color:var(--nv-accent)}
+  .ph-act:hover{border-color:var(--nv-accent)}
+  .ph-act:focus-visible{outline:2px solid var(--nv-accent);outline-offset:1px}
+  @media(max-width:1023px){
+    /* ‏backdrop-filter על הכותרת הופך אותה לבלוק המכיל של כל position:fixed
+       שבתוכה, והפאנל היה נחתך לגובה הכותרת. בזמן שהמסך המלא פתוח הוא מכסה
+       אותה ממילא, ולכן הטשטוש יורד. */
+    html.pp-open #dashboard header.crm{backdrop-filter:none;-webkit-backdrop-filter:none}
+    #dashboard .profile-panel.is-open{
+      position:fixed;inset:0;inset-inline:0;top:0;bottom:calc(64px + var(--sa-bottom));
+      width:auto;max-width:none;max-height:none;border-radius:0;border:0;z-index:185;
+      padding:calc(10px + env(safe-area-inset-top,0px)) 12px 16px;
+    }
+    #dashboard .profile-panel .ph-close{
+      display:inline-flex;flex-shrink:0;width:44px;height:44px;border:none;border-radius:12px;
+      background:transparent;color:var(--nv-muted);align-items:center;justify-content:center;
+    }
+    #dashboard .profile-panel .ph-close svg{width:20px;height:20px}
+    #dashboard .profile-panel .ph-avatar{width:56px;height:56px;font-size:1.2rem}
+    #dashboard .profile-panel .menu-item{min-height:48px}
+  }
 
   /* ==========================================================================
      מתג תצוגת סוכן/מנהל
@@ -5878,6 +6084,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" class="icon-btn" id="menuBtn" aria-label="תפריט הדשבורד" title="תפריט הדשבורד"
                   aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <!-- מה שדחוף ואין לו כפתור בסרגל התחתון (התאמות, יומן, ביקורות):
+                 בנייד התפריט הוא הדרך אליהם, ולכן התגית כאן (renderMenuBadge) -->
+            <span class="menu-badge" id="menuBadge"></span>
           </button>
           <nav class="menu-panel" id="menuPanel" aria-label="קטגוריות הדשבורד"></nav>
         </div>
@@ -5901,6 +6110,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div id="notifList"><div class="empty-state" style="padding:18px">טוען…</div></div>
           </div>
         </div>
+        <!-- החיפוש האחוד במחשב (Ctrl/⌘+K). בנייד הוא בסרגל התחתון, ולכן
+             הכפתור כאן מוצג מ-1024px בלבד. docs/crm-navigation.md -->
+        <button type="button" class="hdr-search" id="hdrSearchBtn" aria-haspopup="dialog" aria-controls="searchSheet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span>חיפוש לקוח, נכס, ליד או הסכם</span>
+          <kbd>Ctrl K</kbd>
+        </button>
         <!-- כפתור היציאה ירד מהכותרת ונכנס לתפריט הפרופיל: הוא נלחץ פעם
              ביום, וישב באותה בולטות של הפעמון שנלחץ עשרים. הכפתור עצמו
              נשאר ב-DOM (מוסתר) כי הוא נקודת היציאה היחידה בקוד, ופריט
@@ -9477,10 +9693,45 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <!-- ---------- סרגל הניווט התחתון (מובייל) ----------
-     נבנה ב-JS מ-NAV_GROUPS, כמו סרגל הצד ותפריט הבורגר. יושב מחוץ ל-#dashboard
-     כי הוא position:fixed ואינו חלק מזרימת התוכן, ומוסתר בכל מסך שאינו
-     הדשבורד (ראו showScreen). -->
-<nav class="bottom-nav" id="bottomNav" role="tablist" aria-label="ניווט ראשי" hidden></nav>
+     בית · לידים · + · חיפוש · אני (BOTTOM_NAV ב-crm.js, docs/crm-navigation.md).
+     יושב מחוץ ל-#dashboard כי הוא position:fixed ואינו חלק מזרימת התוכן,
+     ומוסתר בכל מסך שאינו הדשבורד (ראו showScreen). -->
+<nav class="bottom-nav" id="bottomNav" aria-label="ניווט ראשי" hidden></nav>
+
+<!-- ---------- גיליון היצירה ----------
+     כפתור ה-+ בנייד ו"יצירה חדשה" (N) בסרגל הצד. התוכן נבנה ב-
+     renderCreateSheet מ-CREATE_ACTIONS - פעולות שכבר קיימות בלבד. -->
+<div class="nav-layer" id="createSheet" hidden>
+  <div class="nl-backdrop" data-close></div>
+  <section class="nl-panel" role="dialog" aria-modal="true" aria-labelledby="createSheetTitle">
+    <div class="nl-grip" aria-hidden="true"></div>
+    <div class="nl-head">
+      <h2 id="createSheetTitle">מה ליצור?</h2>
+      <button type="button" class="nl-close" data-close aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
+    </div>
+    <div id="createSheetBody"></div>
+  </section>
+</div>
+
+<!-- ---------- החיפוש האחוד ----------
+     ‏crm_search במסד (נכסים, לקוחות, לידים, הסכמים) ו-assets/crm-help.json
+     בדפדפן. אף טלפון אינו חוזר בתוצאות. -->
+<div class="nav-layer nav-search" id="searchSheet" hidden>
+  <div class="nl-backdrop" data-close></div>
+  <section class="nl-panel" role="dialog" aria-modal="true" aria-label="חיפוש במערכת">
+    <div class="srch-bar">
+      <label class="srch-field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span class="sr-only">חיפוש במערכת</span>
+        <input type="search" id="crmSearchInput" autocomplete="off" enterkeyhint="search"
+               placeholder="חיפוש לקוח/ה, נכס, טלפון, הסכם או שאלה">
+      </label>
+      <button type="button" class="nl-close" data-close aria-label="סגירת החיפוש"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
+    </div>
+    <div class="srch-chips" id="crmSearchChips" role="group" aria-label="סינון לפי סוג"></div>
+    <div class="srch-results" id="crmSearchResults" aria-live="polite"></div>
+  </section>
+</div>
 
 <!-- ---------- "החתם לקוח" כשהכפתור יצא מהמסך ----------
      זו הפעולה שמייצרת את ההכנסה, והיא יושבת גבוה בדף — כלומר נעלמת אחרי
