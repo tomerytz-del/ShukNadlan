@@ -45,6 +45,13 @@ const RAMAT_AVIV = [32.113, 34.80];
 const RAMAT_HAHAYAL = [32.11, 34.84];
 const HATIKVA = [32.052, 34.79];
 const EILAT = [29.557, 34.952];
+const RAMAT_GAN = [32.068, 34.824];
+const GIVATAYIM = [32.071, 34.81];
+const RG_BURSA = [32.083, 34.803];
+const KIRYAT_ONO = [32.063, 34.856];
+const OR_YEHUDA = [32.03, 34.855];
+const YEHUD = [32.033, 34.89];
+const BNEI_BRAK = [32.087, 34.835];
 /* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
 const KIRYAT_TIVON = [32.717, 35.133];
 const REKHASIM = [32.75, 35.1];
@@ -174,6 +181,18 @@ check("שכונת התקווה → tel-aviv", reg.locate(HATIKVA[0], HATIKVA[1])
 check("הגבול עם הרצליה: 32.1269 → תל אביב, 32.127 → הרצליה (34.80)",
   reg.locate(32.1269, 34.80)?.slug === "tel-aviv" && reg.locate(32.127, 34.80)?.slug === "herzliya");
 check("גבעתיים (ממזרח, 34.815) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.072, 34.812));
+check("רמת גן → ramat-gan", reg.locate(RAMAT_GAN[0], RAMAT_GAN[1])?.slug === "ramat-gan");
+check("גבעתיים → ramat-gan", reg.locate(GIVATAYIM[0], GIVATAYIM[1])?.slug === "ramat-gan");
+check("הבורסה ברמת גן (ממערב לבני ברק) → ramat-gan", reg.locate(RG_BURSA[0], RG_BURSA[1])?.slug === "ramat-gan");
+check("קריית אונו → ramat-gan", reg.locate(KIRYAT_ONO[0], KIRYAT_ONO[1])?.slug === "ramat-gan");
+check("אור יהודה → ramat-gan", reg.locate(OR_YEHUDA[0], OR_YEHUDA[1])?.slug === "ramat-gan");
+check("יהוד → ramat-gan", reg.locate(YEHUD[0], YEHUD[1])?.slug === "ramat-gan");
+check("הגבול עם תל אביב באיילון: 34.80 → תל אביב, 34.8001 → רמת גן (32.08)",
+  reg.locate(32.08, 34.80)?.slug === "tel-aviv" && reg.locate(32.08, 34.8001)?.slug === "ramat-gan");
+check("הגבול בדרום: 34.815 → תל אביב (התקווה), 34.8151 → רמת גן (32.05)",
+  reg.locate(32.05, 34.815)?.slug === "tel-aviv" && reg.locate(32.05, 34.8151)?.slug === "ramat-gan");
+check("בני ברק אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, BNEI_BRAK[0], BNEI_BRAK[1]));
+check("גבעת שמואל אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, 32.078, 34.852));
 check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.02, 34.75));
 check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
 check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
