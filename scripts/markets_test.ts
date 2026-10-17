@@ -45,6 +45,9 @@ const RAMAT_AVIV = [32.113, 34.80];
 const RAMAT_HAHAYAL = [32.11, 34.84];
 const HATIKVA = [32.052, 34.79];
 const EILAT = [29.557, 34.952];
+const HOLON = [32.016, 34.78];
+const BAT_YAM = [32.017, 34.75];
+const AZOR = [32.024, 34.805];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -222,6 +225,13 @@ check("הגבול עם רמת גן: 34.90 → רמת גן, 34.9001 → פתח ת
   reg.locate(32.065, 34.90)?.slug === "ramat-gan" && reg.locate(32.065, 34.9001)?.slug === "petah-tikva");
 check("גבעת שמואל אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, 32.078, 34.852));
 check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.02, 34.75));
+check("חולון → holon-bat-yam", reg.locate(HOLON[0], HOLON[1])?.slug === "holon-bat-yam");
+check("בת ים → holon-bat-yam", reg.locate(BAT_YAM[0], BAT_YAM[1])?.slug === "holon-bat-yam");
+check("אזור → holon-bat-yam", reg.locate(AZOR[0], AZOR[1])?.slug === "holon-bat-yam");
+check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → תל אביב (34.76)",
+  reg.locate(32.0299, 34.76)?.slug === "holon-bat-yam" && reg.locate(32.03, 34.76)?.slug === "tel-aviv");
+check("הגבול עם אור יהודה: 32.0249 → חולון ובת ים, 32.025 → רמת גן (34.82)",
+  reg.locate(32.0249, 34.82)?.slug === "holon-bat-yam" && reg.locate(32.025, 34.82)?.slug === "ramat-gan");
 check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
 check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
