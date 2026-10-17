@@ -279,8 +279,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--teal);outline:none}
-  #caAgencyCity{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font:inherit;background:#fff}
-  #caAgencyCity:focus{border-color:var(--teal);outline:none}
+  /* האזורים להצגת המשרד בפתיחתו (assets/agency-markets.js) - כמו ב-agency-signup.html */
+  .market-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .field .market-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;font-weight:600;color:var(--ink-soft);cursor:pointer;margin:0}
+  .field .market-chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .market-chip:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
+  .market-chip:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+  .market-chip-soon{font-size:.68rem;font-weight:400;opacity:.8}
   /* textarea קיבל עד היום את ברירת המחדל של הדפדפן ולכן נראה זר לשאר השדות */
   .field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit;font-size:1rem;line-height:1.5;background:#fff;color:inherit;resize:vertical}
   .field textarea:focus{border-color:var(--teal);outline:none}
@@ -5733,14 +5738,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
     </div>
     <div class="field"><label for="caAgencyName">שם המשרד</label><input type="text" id="caAgencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
-    <!-- ‏כתובת המשרד - פעם אחת, כמו ב-agency-signup.html. העיר קובעת לאיזה
-         שוק מקומי המשרד שייך (20270115101000); אזורי הפעילות נבחרים בפרופיל. -->
+    <!-- ‏כתובת מלאה ואזורים להצגה - כמו ב-agency-signup.html. אין בחירת עיר:
+         השרת גוזר אותה מהכתובת (_shared/agency-city.ts), והאזורים נשמרים
+         ב-service_markets של המנהל/ת (assets/agency-markets.js). -->
     <div class="field">
-      <label for="caAgencyStreet">כתובת המשרד</label>
-      <input type="text" id="caAgencyStreet" required maxlength="100" placeholder="רחוב ומספר, לדוגמה: הרצל 24" autocomplete="address-line1">
-      <select id="caAgencyCity" required data-placeholder="עיר המשרד" style="margin-top:8px" aria-label="עיר המשרד"></select>
-      <input type="text" id="caAgencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
-      <div class="micro">אזורי הפעילות שלך נבחרים אחר כך בפרופיל, מרשימת האזורים שלנו</div>
+      <label for="caAgencyAddress">כתובת המשרד המלאה</label>
+      <input type="text" id="caAgencyAddress" required maxlength="160" placeholder="רחוב, מספר ועיר - לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
+    </div>
+    <div class="field">
+      <label>באילו אזורים להציג את המשרד?</label>
+      <div class="market-chips" id="caAgencyMarkets"></div>
+      <div class="micro">אפשר לבחור כמה אזורים, ולשנות אחר כך בפרופיל</div>
     </div>
     <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <!-- הנייד - המספר שגבריאלה מזהה, כמו ב-agency-signup.html. ‏ת.ז. ירדה
@@ -10051,7 +10059,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
      מנהל/ת הפלטפורמה. docs/regional-pages.md -->
 <script src="assets/markets.js"></script>
-<script src="assets/agency-city.js"></script>
+<script src="assets/agency-markets.js"></script>
 <script src="assets/contact-import.js"></script>
 <script src="assets/crm-office.js"></script>
 <script src="assets/crm-office-dashboard.js"></script>
