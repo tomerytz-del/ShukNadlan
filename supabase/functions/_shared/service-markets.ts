@@ -20,6 +20,7 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "nof-hagalil-migdal", label: "נוף הגליל ומגדל העמק" },
   { slug: "hadera", label: "חדרה והסביבה" },
   { slug: "netanya", label: "נתניה והסביבה" },
+  { slug: "kfar-saba-raanana", label: "כפר סבא ורעננה" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);
