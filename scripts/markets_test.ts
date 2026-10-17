@@ -70,6 +70,11 @@ const KFAR_SABA_PT = [32.178, 34.907];
 const RAANANA = [32.184, 34.871];
 const HOD_HASHARON = [32.15, 34.89];
 const KOCHAV_YAIR = [32.224, 34.995];
+const HERZLIYA = [32.166, 34.843];
+const HERZLIYA_PITUACH = [32.175, 34.805];
+const RAMAT_HASHARON = [32.146, 34.84];
+const KFAR_SHMARYAHU = [32.183, 34.82];
+const SHEFAYIM = [32.218, 34.822];
 const TZUR_YITZHAK = [32.239, 34.99];
 const HAIFA = [32.805, 35.0];
 const KIRYAT_HAIM = [32.832, 35.058]; // שכונה של חיפה, צמודה לקריית ים
@@ -140,12 +145,23 @@ check("הגבול עם נתניה: 32.2199 → כפר סבא, 32.22 → נתני
   reg.locate(32.2199, 34.92)?.slug === "kfar-saba-raanana" && reg.locate(32.22, 34.92)?.slug === "netanya");
 check("הגבול עם נתניה ממזרח: 32.2549 → כפר סבא, 32.255 → נתניה (35.0)",
   reg.locate(32.2549, 35.0)?.slug === "kfar-saba-raanana" && reg.locate(32.255, 35.0)?.slug === "netanya");
+check("הרצליה → herzliya", reg.locate(HERZLIYA[0], HERZLIYA[1])?.slug === "herzliya");
+check("הרצליה פיתוח → herzliya", reg.locate(HERZLIYA_PITUACH[0], HERZLIYA_PITUACH[1])?.slug === "herzliya");
+check("רמת השרון → herzliya", reg.locate(RAMAT_HASHARON[0], RAMAT_HASHARON[1])?.slug === "herzliya");
+check("כפר שמריהו → herzliya", reg.locate(KFAR_SHMARYAHU[0], KFAR_SHMARYAHU[1])?.slug === "herzliya");
+check("שפיים (חוף, מערבית לנתניה) → herzliya", reg.locate(SHEFAYIM[0], SHEFAYIM[1])?.slug === "herzliya");
+check("הגבול עם רעננה: 34.8499 → הרצליה, 34.85 → כפר סבא (32.19)",
+  reg.locate(32.19, 34.8499)?.slug === "herzliya" && reg.locate(32.19, 34.85)?.slug === "kfar-saba-raanana");
+check("הגבול עם הוד השרון: 34.8649 → רמת השרון, 34.865 → כפר סבא (32.145)",
+  reg.locate(32.145, 34.8649)?.slug === "herzliya" && reg.locate(32.145, 34.865)?.slug === "kfar-saba-raanana");
+check("הגבול עם נתניה בחוף: 34.8299 → הרצליה, 34.83 → נתניה (32.24)",
+  reg.locate(32.24, 34.8299)?.slug === "herzliya" && reg.locate(32.24, 34.83)?.slug === "netanya");
 check("הגבול: 32.384 → נתניה, 32.385 → חדרה",
   reg.locate(32.384, 34.9)?.slug === "netanya" && reg.locate(32.385, 34.9)?.slug === "hadera");
 check("חיפה → haifa", reg.locate(HAIFA[0], HAIFA[1])?.slug === "haifa");
 check("קריית חיים (שכונה של חיפה) → haifa", reg.locate(KIRYAT_HAIM[0], KIRYAT_HAIM[1])?.slug === "haifa");
 check("קריית אתא → krayot", reg.locate(KIRYAT_ATA[0], KIRYAT_ATA[1])?.slug === "krayot");
-check("תל אביב → kfar-saba-raanana כשוק הקרוב (15 ק\"מ), עד שיהיה שוק לתל אביב", reg.locate(TEL_AVIV[0], TEL_AVIV[1])?.slug === "kfar-saba-raanana");
+check("תל אביב → herzliya כשוק הקרוב (9 ק\"מ), עד שיהיה שוק לתל אביב", reg.locate(TEL_AVIV[0], TEL_AVIV[1])?.slug === "herzliya");
 check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
