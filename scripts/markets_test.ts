@@ -53,6 +53,11 @@ const OR_YEHUDA = [32.03, 34.855];
 const YEHUD = [32.033, 34.89];
 const BNEI_BRAK = [32.087, 34.835];
 const ELAD = [32.052, 34.952];
+const PETAH_TIKVA = [32.087, 34.887];
+const ROSH_HAAYIN = [32.095, 34.957];
+const GIVAT_SHMUEL = [32.078, 34.852];
+const KFAR_SIRKIN = [32.08, 34.925];
+const BEEROT_YITZHAK = [32.045, 34.905];
 /* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
 const KIRYAT_TIVON = [32.717, 35.133];
 const REKHASIM = [32.75, 35.1];
@@ -201,6 +206,20 @@ check("הגבול עם תל אביב: 32.0999 → בני ברק, 32.10 → תל 
   reg.locate(32.0999, 34.835)?.slug === "bnei-brak-elad" && reg.locate(32.10, 34.835)?.slug === "tel-aviv");
 check("פתח תקווה (בין שתי התיבות) אינה בבני ברק ואלעד", !reg.contains(reg.bySlug("bnei-brak-elad")!, 32.09, 34.885));
 check("ראש העין אינה בתיבה של אלעד", !reg.contains(reg.bySlug("bnei-brak-elad")!, 32.095, 34.957));
+check("פתח תקווה → petah-tikva", reg.locate(PETAH_TIKVA[0], PETAH_TIKVA[1])?.slug === "petah-tikva");
+check("ראש העין → petah-tikva", reg.locate(ROSH_HAAYIN[0], ROSH_HAAYIN[1])?.slug === "petah-tikva");
+check("גבעת שמואל → petah-tikva", reg.locate(GIVAT_SHMUEL[0], GIVAT_SHMUEL[1])?.slug === "petah-tikva");
+check("כפר סירקין → petah-tikva", reg.locate(KFAR_SIRKIN[0], KFAR_SIRKIN[1])?.slug === "petah-tikva");
+check("בארות יצחק (ממערב לאלעד) → petah-tikva", reg.locate(BEEROT_YITZHAK[0], BEEROT_YITZHAK[1])?.slug === "petah-tikva");
+check("אלעד נשארת בבני ברק ואלעד, באמצע פתח תקווה", reg.locate(ELAD[0], ELAD[1])?.slug === "bnei-brak-elad");
+check("הגבול עם בני ברק: 34.8459 → בני ברק, 34.846 → פתח תקווה (32.085)",
+  reg.locate(32.085, 34.8459)?.slug === "bnei-brak-elad" && reg.locate(32.085, 34.846)?.slug === "petah-tikva");
+check("הגבול עם תל אביב: 34.85 → תל אביב, 34.8501 → פתח תקווה (32.105)",
+  reg.locate(32.105, 34.85)?.slug === "tel-aviv" && reg.locate(32.105, 34.8501)?.slug === "petah-tikva");
+check("הגבול עם כפר סבא: 32.1149 → פתח תקווה, 32.115 → כפר סבא (34.9)",
+  reg.locate(32.1149, 34.9)?.slug === "petah-tikva" && reg.locate(32.115, 34.9)?.slug === "kfar-saba-raanana");
+check("הגבול עם רמת גן: 34.90 → רמת גן, 34.9001 → פתח תקווה (32.065)",
+  reg.locate(32.065, 34.90)?.slug === "ramat-gan" && reg.locate(32.065, 34.9001)?.slug === "petah-tikva");
 check("גבעת שמואל אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, 32.078, 34.852));
 check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.02, 34.75));
 check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
