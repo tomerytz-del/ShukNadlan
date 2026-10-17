@@ -908,6 +908,13 @@ const BURST_WAIT_MS = 4000;
 // וכפתור, 50 בלבד קיבלו הודעה נוספת תוך 4 שניות, ו-29 מהן תוך 1.5. אלבום,
 // מסמך והודעה מועברת - וכל רצף שכבר יש בו תמונות - ממשיכים לחכות 4 שניות.
 const QUICK_BURST_WAIT_MS = 1500;
+
+// ‏**ותמונה - 3 שניות** (17.10.2026). אחרי 1.5 לטקסט, החציון אצל הסוכנים ירד
+// רק ב-1.4 שניות, כי חלק גדול מההודעות הן תמונות נכסים שחיכו 4. נמדד (30
+// יום): 661 מתוך 662 פערים בין תמונה לתמונה באותו אלבום - עד 2.5 שניות, והארוך
+// מתחת ל-3. הסיכון: טקסט שמגיע 3-4 שניות אחרי התמונה האחרונה (3 בחודש) נענה
+// בנפרד. הודעה מועברת ומסמך נשארים 4.
+const IMAGE_BURST_WAIT_MS = 3000;
 const QUICK_BURST_TYPES = new Set(["text", "audio", "interactive", "button"]);
 
 function sleep(ms: number): Promise<void> {
@@ -1268,7 +1275,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   } else {
     const typed = QUICK_BURST_TYPES.has(String(msg.type)) && !forwardedPrefix(msg) && !newImageUrl &&
       !(await freshPendingImages(agent.id)).length;
-    await sleep(typed ? QUICK_BURST_WAIT_MS : BURST_WAIT_MS);
+    const photo = msg.type === "image" && !forwardedPrefix(msg);
+    await sleep(typed ? QUICK_BURST_WAIT_MS : photo ? IMAGE_BURST_WAIT_MS : BURST_WAIT_MS);
     const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
     if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
 
