@@ -5,6 +5,7 @@ import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { cleanServiceMarkets, serviceAreaText } from "../_shared/service-markets.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -124,6 +125,21 @@ Deno.serve(async (req: Request) => {
     return !error;
   };
 
+  // ‏האזורים להצגת המשרד מהטופס - אזורי הפעילות של המנהל/ת (‏service_markets,
+  // אותו שדה של הפרופיל). עדכון נפרד, כמו הנייד: כשל כאן אינו מפיל משרד.
+  // סוכן/ת שנותק/ה ועובר/ת למשרד שלו/ה שומר/ת גם את מה שבחר/ה קודם.
+  const serviceMarkets = cleanServiceMarkets(body.service_markets);
+  const saveMarkets = async (memberId: string): Promise<void> => {
+    if (!serviceMarkets.length) return;
+    const { data: row } = await supabase.from("agency_members").select("service_markets").eq("id", memberId).maybeSingle();
+    const prev = Array.isArray(row?.service_markets) ? row.service_markets as string[] : [];
+    const merged = [...new Set([...prev, ...serviceMarkets])].slice(0, 12);
+    const { error } = await supabase.from("agency_members")
+      .update({ service_markets: merged, service_area: serviceAreaText(merged) || null })
+      .eq("id", memberId);
+    if (error) console.warn("service markets not saved", error.code, error.message);
+  };
+
   try {
     let baseSlug = slugify(agency_name) || "agency";
     let finalSlug = baseSlug;
@@ -135,7 +151,8 @@ Deno.serve(async (req: Request) => {
       finalSlug = `${baseSlug}-${attempt}`;
     }
 
-    // עיר המשרד מהטופס - בלעדיה המשרד אינו נספר באף שוק מקומי (20270115101000)
+    // עיר המשרד - מטופס ישן; בטופס הנוכחי הטריגר agencies_set_city_id גוזר
+    // אותה מסוף הכתובת המלאה (20270115101000). לא הוכרה - מהנכס הראשון.
     const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body) }).select().single();
@@ -180,6 +197,7 @@ Deno.serve(async (req: Request) => {
       // שמאחוריו כבר הייתה במערכת. המסלול בהודעה הוא זה שעבר איתו/ה.
       await announcePlatformSignup(supabase, releasedMember.id, "agency");
       await savePhone(releasedMember.id);
+      await saveMarkets(releasedMember.id);
 
       return json({
         success: true,
@@ -253,6 +271,7 @@ Deno.serve(async (req: Request) => {
     // (‏grant_launch_promo אידמפוטנטית ורצה גם מ-join-agency/resolve).
     const promo = await grantLaunchPromo(supabase, member.id);
     const phoneSaved = await savePhone(member.id);
+    await saveMarkets(member.id);
 
     // אחרי ההטבה, כדי שהמסלול בהודעה יהיה הנכון. ראו
     // ‏_shared/platform-signup-alert.ts.

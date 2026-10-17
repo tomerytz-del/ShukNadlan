@@ -4,6 +4,7 @@ import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
+import { cleanServiceMarkets, serviceAreaText } from "../_shared/service-markets.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -122,7 +123,8 @@ Deno.serve(async (req: Request) => {
       finalSlug = `${baseSlug}-${attempt}`;
     }
 
-    // עיר המשרד מהטופס - בלעדיה המשרד אינו נספר באף שוק מקומי (20270115101000)
+    // עיר המשרד - מטופס ישן; בטופס הנוכחי הטריגר agencies_set_city_id גוזר
+    // אותה מסוף הכתובת המלאה (20270115101000). לא הוכרה - מהנכס הראשון.
     const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies")
@@ -221,6 +223,17 @@ Deno.serve(async (req: Request) => {
         .update({ phone }).eq("id", member.id);
       phoneSaved = !phoneErr;
       if (phoneErr) console.warn("manager phone not saved", phoneErr.code, phoneErr.message);
+    }
+
+    // ‏האזורים להצגת המשרד מהטופס - אזורי הפעילות של המנהל/ת, אותו שדה של
+    // הפרופיל; המשרד מופיע בכל שוק שנבחר (assets/market-scope.js). גם הם
+    // בעדכון נפרד: כשל כאן משאיר משרד בלי אזורים נוספים, ולא בלי משרד.
+    const serviceMarkets = cleanServiceMarkets(body.service_markets);
+    if (serviceMarkets.length) {
+      const { error: mErr } = await supabase.from("agency_members")
+        .update({ service_markets: serviceMarkets, service_area: serviceAreaText(serviceMarkets) || null })
+        .eq("id", member.id);
+      if (mErr) console.warn("service markets not saved", mErr.code, mErr.message);
     }
 
     // ההתראה למנהל/ת הפלטפורמה — **אחרי** ההטבה ולא לפניה, כדי שהמסלול

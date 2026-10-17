@@ -1,5 +1,5 @@
 // ============================================================================
-// אזורי הפעילות - הרשימה הסגורה, לבוט של הסוכנים
+// אזורי הפעילות - הרשימה הסגורה, לבוט של הסוכנים ולפתיחת משרד
 //
 // אותם שווקים של `assets/markets.js` (slug ושם), פעילים ושאינם. הבוט אינו
 // יכול לייבא את הקובץ ההוא (הוא נפרס ב-Netlify, לא ב-Supabase), ולכן הרשימה
@@ -46,4 +46,14 @@ export function serviceAreaText(slugs: string[]): string {
     out = next;
   }
   return out;
+}
+
+/** ‏service_markets מגוף הבקשה של פתיחת משרד (agency-signup, create-own-agency):
+ *  רק slug-ים מהרשימה, בלי כפילויות, עד 12 (‏agency_members_service_markets_check).
+ *  ערך לא מוכר נזרק בשקט - האזורים ניתנים לעריכה בפרופיל, והם לא סיבה
+ *  להפיל פתיחת משרד. */
+export function cleanServiceMarkets(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [];
+  const slugs = raw.map(serviceMarketSlug).filter((s): s is string => !!s);
+  return [...new Set(slugs)].slice(0, 12);
 }

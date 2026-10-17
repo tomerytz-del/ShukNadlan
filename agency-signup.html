@@ -98,6 +98,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .field label{font-size:.86rem;color:var(--ink)}
   .field input,.field select{font-size:1rem;padding:12px 13px}
   .hint.micro{font-size:.8rem;color:var(--ink-soft);margin-top:6px}
+  /* האזורים להצגת המשרד (assets/agency-markets.js) - כמו בכרטיס הפתיחה ב-crm.html */
+  .market-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .field .market-chip{display:inline-flex;align-items:center;gap:4px;padding:8px 13px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.86rem;font-weight:600;color:var(--ink-soft);cursor:pointer;margin:0}
+  .field .market-chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .market-chip:has(input:checked){background:var(--blue);border-color:var(--blue);color:#fff}
+  .market-chip:has(input:focus-visible){outline:2px solid var(--blue);outline-offset:2px}
+  .market-chip-soon{font-size:.72rem;font-weight:400;opacity:.8}
   .promo-note{font-size:.92rem;text-align:center;padding:10px 12px}
   .btn-google{font-size:1rem}
   .consent label{font-size:.86rem}
@@ -153,18 +160,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="or-divider">- או במילוי הטופס -</div>
 
     <div class="field"><label for="agencyName">שם המשרד</label><input type="text" id="agencyName" required placeholder="לדוגמה: אלפא נדל״ן"></div>
-    <!-- ‏כתובת המשרד - פעם אחת, כאן. העיר קובעת לאיזה שוק מקומי המשרד שייך
-         (20270115101000), ולכן היא רשימה סגורה + "עיר אחרת…", כמו בטופס
-         הנכס; הרחוב נשמר יחד איתה ב-agencies.address (דף המשרד, "מיתוג").
-         ‏**זו אינה שאלת אזור הפעילות:** עד היום הרשימה נשאה "איפה המשרד
-         פעיל בעיקר?", ונרשמים ענו עליה כאילו היא אזור השירות. אזורי
-         הפעילות נבחרים בפרופיל, מרשימת השווקים (service_markets). -->
+    <!-- ‏כתובת מלאה בשדה אחד, ואזורים להצגת המשרד - בלי בחירת עיר. השרת
+         גוזר את עיר המשרד מהכתובת (_shared/agency-city.ts; לא הוכרה - היא
+         מגיעה מהנכס הראשון), והאזורים נשמרים ב-service_markets של המנהל/ת,
+         אותו שדה של "אזורי פעילות" בפרופיל: המשרד מופיע בכל שוק שנבחר
+         (assets/agency-markets.js, docs/regional-pages.md). -->
     <div class="field">
-      <label for="agencyStreet">כתובת המשרד</label>
-      <input type="text" id="agencyStreet" required maxlength="100" placeholder="רחוב ומספר, לדוגמה: הרצל 24" autocomplete="address-line1">
-      <select id="agencyCity" required data-placeholder="עיר המשרד" style="margin-top:8px" aria-label="עיר המשרד"></select>
-      <input type="text" id="agencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
-      <div class="hint micro">אזורי הפעילות שלך נבחרים אחר כך בפרופיל, מרשימת האזורים שלנו</div>
+      <label for="agencyAddress">כתובת המשרד המלאה</label>
+      <input type="text" id="agencyAddress" required maxlength="160" placeholder="רחוב, מספר ועיר - לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
+    </div>
+    <div class="field">
+      <label>באילו אזורים להציג את המשרד?</label>
+      <div class="market-chips" id="agencyMarkets"></div>
+      <div class="hint micro">אפשר לבחור כמה אזורים, ולשנות אחר כך בפרופיל</div>
     </div>
 
     <!-- תחומי ההתמחות ירדו מכאן: הם אופציונליים, נבחרים ב"מיתוג ועיצוב דף
@@ -269,7 +277,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <script src="assets/tiers.js"></script>
-<script src="assets/agency-city.js"></script>
+<script src="assets/agency-markets.js"></script>
 <script>
 /* ---------- המסלול שנבחר בדף המסלולים ----------
    ‏?tier= הוא אישור ולא הגדרה: הוא מאשר למי שהגיע/ה מדף המסלולים שהבחירה
@@ -293,8 +301,8 @@ const LICENSE_LOOKUP_URL  = SUPABASE_URL + '/functions/v1/broker-license-lookup'
 const LICENSE_APPEAL_URL  = SUPABASE_URL + '/functions/v1/broker-license-appeal';
 const FN_HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY };
 
-// עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js)
-if (window.AgencyCity) AgencyCity.mount(document.getElementById('agencyCity'), document.getElementById('agencyCityOther'), { url: SUPABASE_URL, key: SUPABASE_ANON_KEY });
+// האזורים להצגת המשרד - הרשימה הסגורה של השווקים (assets/agency-markets.js)
+if (window.AgencyMarkets) AgencyMarkets.mount(document.getElementById('agencyMarkets'));
 
 /* ---------- כניסה אוטומטית אחרי הפתיחה ----------
    ‏agency-signup יוצר/ת את המשתמש/ת עם email_confirm, ולכן אפשר להיכנס מיד.
@@ -394,21 +402,18 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'נא למלא את כל השדות';
     return;
   }
-  const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('agencyCity'), document.getElementById('agencyCityOther')) : null;
-  const agencyStreet = document.getElementById('agencyStreet').value.trim();
-  if (!agencyStreet){
+  const agencyAddress = document.getElementById('agencyAddress').value.replace(/\s+/g, ' ').trim();
+  if (!agencyAddress){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'נא למלא את כתובת המשרד (רחוב ומספר)';
+    feedback.textContent = 'נא למלא את כתובת המשרד המלאה (רחוב, מספר ועיר)';
     return;
   }
-  if (window.AgencyCity && !agencyCity){
+  const serviceMarkets = window.AgencyMarkets ? AgencyMarkets.value(document.getElementById('agencyMarkets')) : [];
+  if (window.AgencyMarkets && !serviceMarkets.length){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'נא לבחור את עיר המשרד';
+    feedback.textContent = 'נא לבחור לפחות אזור אחד שבו יוצג המשרד';
     return;
   }
-  const agencyAddress = window.AgencyCity
-    ? AgencyCity.address(agencyStreet, document.getElementById('agencyCity'), document.getElementById('agencyCityOther'))
-    : agencyStreet;
   // אותו כלל של normalizeMobile בשרת: נייד ישראלי בלבד, כי זה המספר שגבריאלה מזהה
   if (!ilMobile(managerPhone)){
     feedback.style.color = 'var(--red)';
@@ -438,8 +443,8 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_password: managerPassword,
         license_number: licenseNumber,
         manager_phone: managerPhone,
-        ...(agencyCity || {}),
         address: agencyAddress,
+        service_markets: serviceMarkets,
         ethics_code_accepted: true,
       }),
     });

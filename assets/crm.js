@@ -1409,8 +1409,8 @@ document.getElementById('accSecurity').addEventListener('toggle', (e)=>{
   else mfaStopPolling();
 });
 
-// עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js, 20270115101000)
-if (window.AgencyCity) AgencyCity.mount(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther'), { url: SUPABASE_URL, key: SUPABASE_ANON_KEY });
+// האזורים להצגת המשרד - הרשימה הסגורה של השווקים (assets/agency-markets.js)
+if (window.AgencyMarkets) AgencyMarkets.mount(document.getElementById('caAgencyMarkets'));
 
 document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
@@ -1430,21 +1430,18 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'נדרש מספר נייד ישראלי, למשל 050-1234567.';
     return;
   }
-  const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther')) : null;
-  const agencyStreet = document.getElementById('caAgencyStreet').value.trim();
-  if (!agencyStreet){
+  const agencyAddress = document.getElementById('caAgencyAddress').value.replace(/\s+/g, ' ').trim();
+  if (!agencyAddress){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'נא למלא את כתובת המשרד (רחוב ומספר)';
+    feedback.textContent = 'נא למלא את כתובת המשרד המלאה (רחוב, מספר ועיר)';
     return;
   }
-  if (window.AgencyCity && !agencyCity){
+  const serviceMarkets = window.AgencyMarkets ? AgencyMarkets.value(document.getElementById('caAgencyMarkets')) : [];
+  if (window.AgencyMarkets && !serviceMarkets.length){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'נא לבחור את עיר המשרד';
+    feedback.textContent = 'נא לבחור לפחות אזור אחד שבו יוצג המשרד';
     return;
   }
-  const agencyAddress = window.AgencyCity
-    ? AgencyCity.address(agencyStreet, document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther'))
-    : agencyStreet;
   if (!document.getElementById('caEthicsConsent').checked){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'כדי להמשיך יש לאשר את תנאי השימוש וקוד האתיקה';
@@ -1459,7 +1456,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, manager_phone: phone, ...(agencyCity || {}), address: agencyAddress, ethics_code_accepted: true }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, manager_phone: phone, address: agencyAddress, service_markets: serviceMarkets, ethics_code_accepted: true }),
     });
     const data = await res.json();
 
