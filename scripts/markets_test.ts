@@ -40,6 +40,11 @@ const AFULA = [32.6078, 35.2897];
 const KIRYAT_BIALIK = [32.8275, 35.0857];
 const NESHER = [32.766, 35.044];
 const TEL_AVIV = [32.0853, 34.7818];
+const JAFFA = [32.05, 34.755];
+const RAMAT_AVIV = [32.113, 34.80];
+const RAMAT_HAHAYAL = [32.11, 34.84];
+const HATIKVA = [32.052, 34.79];
+const EILAT = [29.557, 34.952];
 /* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
 const KIRYAT_TIVON = [32.717, 35.133];
 const REKHASIM = [32.75, 35.1];
@@ -161,7 +166,16 @@ check("הגבול: 32.384 → נתניה, 32.385 → חדרה",
 check("חיפה → haifa", reg.locate(HAIFA[0], HAIFA[1])?.slug === "haifa");
 check("קריית חיים (שכונה של חיפה) → haifa", reg.locate(KIRYAT_HAIM[0], KIRYAT_HAIM[1])?.slug === "haifa");
 check("קריית אתא → krayot", reg.locate(KIRYAT_ATA[0], KIRYAT_ATA[1])?.slug === "krayot");
-check("תל אביב → herzliya כשוק הקרוב (9 ק\"מ), עד שיהיה שוק לתל אביב", reg.locate(TEL_AVIV[0], TEL_AVIV[1])?.slug === "herzliya");
+check("תל אביב → tel-aviv", reg.locate(TEL_AVIV[0], TEL_AVIV[1])?.slug === "tel-aviv");
+check("יפו → tel-aviv", reg.locate(JAFFA[0], JAFFA[1])?.slug === "tel-aviv");
+check("רמת אביב → tel-aviv", reg.locate(RAMAT_AVIV[0], RAMAT_AVIV[1])?.slug === "tel-aviv");
+check("רמת החייל → tel-aviv", reg.locate(RAMAT_HAHAYAL[0], RAMAT_HAHAYAL[1])?.slug === "tel-aviv");
+check("שכונת התקווה → tel-aviv", reg.locate(HATIKVA[0], HATIKVA[1])?.slug === "tel-aviv");
+check("הגבול עם הרצליה: 32.1269 → תל אביב, 32.127 → הרצליה (34.80)",
+  reg.locate(32.1269, 34.80)?.slug === "tel-aviv" && reg.locate(32.127, 34.80)?.slug === "herzliya");
+check("גבעתיים (ממזרח, 34.815) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.072, 34.812));
+check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.02, 34.75));
+check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
 check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
@@ -191,7 +205,9 @@ check("IP מחדרה: soon=hadera", d.location === null && d.soon === "hadera");
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KFAR_SABA), search: "" });
 check("IP מכפר סבא: soon=kfar-saba-raanana (לא נתניה, 16 ק\"מ משם)", d.soon === "kfar-saba-raanana", JSON.stringify(d));
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
-check("IP מתל אביב: אין soon", d.soon === null);
+check("IP מתל אביב: soon=tel-aviv", d.location === null && d.soon === "tel-aviv", JSON.stringify(d));
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(EILAT), search: "" });
+check("IP מאילת: אין soon", d.soon === null);
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
 check("IP מעפולה (שוק חי): אין soon", d.soon === null);
 d = decide(reg, { cookie: "shuk_market=netanya%7Cgps", userAgent: UA, geo: null, search: "" });
@@ -219,8 +235,8 @@ check("GPS שמור בקריות גובר על IP מעפולה", d.location === 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
 check("IP מעפולה → אין הפניה (ברירת המחדל), עם עוגייה", d.location === null && !!d.geoCookie);
 
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
-check("IP מתל אביב → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(EILAT), search: "" });
+check("IP מאילת → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: { ...IL(KIRYAT_BIALIK), country: { code: "US" } }, search: "" });
 check("IP מחוץ לישראל → אין הפניה", d.location === null);
@@ -299,8 +315,8 @@ check("‎/‎ מנתניה: 200, עם עוגיית shuk_soon ובלי shuk_geo"
   r.status === 200 && (r.headers.get("set-cookie") || "").includes("shuk_soon=netanya") &&
   !(r.headers.get("set-cookie") || "").includes("shuk_geo="));
 
-r = await searchPages(req("/", ""), ctx(IL(TEL_AVIV)));
-check("‎/‎ מתל אביב: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
+r = await searchPages(req("/", ""), ctx(IL(EILAT)));
+check("‎/‎ מאילת: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
 
 reg.bySlug("krayot")!.live = krayotLiveInFile;
 
