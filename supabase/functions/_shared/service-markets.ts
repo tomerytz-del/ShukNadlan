@@ -25,6 +25,7 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "tel-aviv", label: "תל אביב-יפו" },
   { slug: "ramat-gan", label: "רמת גן וגבעתיים" },
   { slug: "bnei-brak-elad", label: "בני ברק ואלעד" },
+  { slug: "petah-tikva", label: "פתח תקווה וראש העין" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);
