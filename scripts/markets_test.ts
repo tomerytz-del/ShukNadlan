@@ -52,6 +52,7 @@ const KIRYAT_ONO = [32.063, 34.856];
 const OR_YEHUDA = [32.03, 34.855];
 const YEHUD = [32.033, 34.89];
 const BNEI_BRAK = [32.087, 34.835];
+const ELAD = [32.052, 34.952];
 /* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
 const KIRYAT_TIVON = [32.717, 35.133];
 const REKHASIM = [32.75, 35.1];
@@ -192,6 +193,14 @@ check("הגבול עם תל אביב באיילון: 34.80 → תל אביב, 34
 check("הגבול בדרום: 34.815 → תל אביב (התקווה), 34.8151 → רמת גן (32.05)",
   reg.locate(32.05, 34.815)?.slug === "tel-aviv" && reg.locate(32.05, 34.8151)?.slug === "ramat-gan");
 check("בני ברק אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, BNEI_BRAK[0], BNEI_BRAK[1]));
+check("בני ברק → bnei-brak-elad", reg.locate(BNEI_BRAK[0], BNEI_BRAK[1])?.slug === "bnei-brak-elad");
+check("אלעד → bnei-brak-elad (שוק אחד, 20 ק\"מ מבני ברק)", reg.locate(ELAD[0], ELAD[1])?.slug === "bnei-brak-elad");
+check("הגבול עם רמת גן: 34.8249 → רמת גן, 34.825 → בני ברק (32.085)",
+  reg.locate(32.085, 34.8249)?.slug === "ramat-gan" && reg.locate(32.085, 34.825)?.slug === "bnei-brak-elad");
+check("הגבול עם תל אביב: 32.0999 → בני ברק, 32.10 → תל אביב (34.835)",
+  reg.locate(32.0999, 34.835)?.slug === "bnei-brak-elad" && reg.locate(32.10, 34.835)?.slug === "tel-aviv");
+check("פתח תקווה (בין שתי התיבות) אינה בבני ברק ואלעד", !reg.contains(reg.bySlug("bnei-brak-elad")!, 32.09, 34.885));
+check("ראש העין אינה בתיבה של אלעד", !reg.contains(reg.bySlug("bnei-brak-elad")!, 32.095, 34.957));
 check("גבעת שמואל אינה בתיבה של רמת גן", !reg.contains(reg.bySlug("ramat-gan")!, 32.078, 34.852));
 check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !reg.contains(reg.bySlug("tel-aviv")!, 32.02, 34.75));
 check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
