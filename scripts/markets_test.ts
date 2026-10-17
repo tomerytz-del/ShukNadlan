@@ -66,6 +66,11 @@ const CAESAREA = [32.50, 34.90];
 const NETANYA = [32.32, 34.855];
 const KFAR_YONA = [32.316, 34.935];
 const TEL_MOND = [32.255, 34.917];
+const KFAR_SABA_PT = [32.178, 34.907];
+const RAANANA = [32.184, 34.871];
+const HOD_HASHARON = [32.15, 34.89];
+const KOCHAV_YAIR = [32.224, 34.995];
+const TZUR_YITZHAK = [32.239, 34.99];
 const HAIFA = [32.805, 35.0];
 const KIRYAT_HAIM = [32.832, 35.058]; // שכונה של חיפה, צמודה לקריית ים
 const KIRYAT_ATA = [32.805, 35.105];
@@ -126,12 +131,22 @@ check("קיסריה → hadera", reg.locate(CAESAREA[0], CAESAREA[1])?.slug === 
 check("נתניה → netanya", reg.locate(NETANYA[0], NETANYA[1])?.slug === "netanya");
 check("כפר יונה → netanya", reg.locate(KFAR_YONA[0], KFAR_YONA[1])?.slug === "netanya");
 check("תל מונד → netanya", reg.locate(TEL_MOND[0], TEL_MOND[1])?.slug === "netanya");
+check("כפר סבא → kfar-saba-raanana", reg.locate(KFAR_SABA_PT[0], KFAR_SABA_PT[1])?.slug === "kfar-saba-raanana");
+check("רעננה → kfar-saba-raanana", reg.locate(RAANANA[0], RAANANA[1])?.slug === "kfar-saba-raanana");
+check("הוד השרון → kfar-saba-raanana", reg.locate(HOD_HASHARON[0], HOD_HASHARON[1])?.slug === "kfar-saba-raanana");
+check("כוכב יאיר (מעל 32.22, מזרחית ל-34.975) → kfar-saba-raanana, לא נתניה", reg.locate(KOCHAV_YAIR[0], KOCHAV_YAIR[1])?.slug === "kfar-saba-raanana");
+check("צור יצחק → kfar-saba-raanana", reg.locate(TZUR_YITZHAK[0], TZUR_YITZHAK[1])?.slug === "kfar-saba-raanana");
+check("הגבול עם נתניה: 32.2199 → כפר סבא, 32.22 → נתניה (מערבית ל-34.975)",
+  reg.locate(32.2199, 34.92)?.slug === "kfar-saba-raanana" && reg.locate(32.22, 34.92)?.slug === "netanya");
+check("הגבול עם נתניה ממזרח: 32.2549 → כפר סבא, 32.255 → נתניה (35.0)",
+  reg.locate(32.2549, 35.0)?.slug === "kfar-saba-raanana" && reg.locate(32.255, 35.0)?.slug === "netanya");
 check("הגבול: 32.384 → נתניה, 32.385 → חדרה",
   reg.locate(32.384, 34.9)?.slug === "netanya" && reg.locate(32.385, 34.9)?.slug === "hadera");
 check("חיפה → haifa", reg.locate(HAIFA[0], HAIFA[1])?.slug === "haifa");
 check("קריית חיים (שכונה של חיפה) → haifa", reg.locate(KIRYAT_HAIM[0], KIRYAT_HAIM[1])?.slug === "haifa");
 check("קריית אתא → krayot", reg.locate(KIRYAT_ATA[0], KIRYAT_ATA[1])?.slug === "krayot");
-check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
+check("תל אביב → kfar-saba-raanana כשוק הקרוב (15 ק\"מ), עד שיהיה שוק לתל אביב", reg.locate(TEL_AVIV[0], TEL_AVIV[1])?.slug === "kfar-saba-raanana");
+check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
 check("קואורדינטה פסולה → אין", reg.locate(NaN, 35) === null);
@@ -158,7 +173,7 @@ check("IP מנתניה: אין הפניה, soon=netanya", d.location === null &&
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(HADERA), search: "" });
 check("IP מחדרה: soon=hadera", d.location === null && d.soon === "hadera");
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KFAR_SABA), search: "" });
-check("IP מכפר סבא (ליד נתניה, לא בתוכה): אין soon", d.soon === null);
+check("IP מכפר סבא: soon=kfar-saba-raanana (לא נתניה, 16 ק\"מ משם)", d.soon === "kfar-saba-raanana", JSON.stringify(d));
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
 check("IP מתל אביב: אין soon", d.soon === null);
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
