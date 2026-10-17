@@ -48,6 +48,8 @@ const EILAT = [29.557, 34.952];
 const HOLON = [32.016, 34.78];
 const BAT_YAM = [32.017, 34.75];
 const AZOR = [32.024, 34.805];
+const RISHON = [31.964, 34.80];
+const RISHON_WEST = [31.98, 34.74];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -228,6 +230,11 @@ check("בת ים (מדרום, 32.02) אינה בתיבה של תל אביב", !r
 check("חולון → holon-bat-yam", reg.locate(HOLON[0], HOLON[1])?.slug === "holon-bat-yam");
 check("בת ים → holon-bat-yam", reg.locate(BAT_YAM[0], BAT_YAM[1])?.slug === "holon-bat-yam");
 check("אזור → holon-bat-yam", reg.locate(AZOR[0], AZOR[1])?.slug === "holon-bat-yam");
+check("ראשון לציון → rishon", reg.locate(RISHON[0], RISHON[1])?.slug === "rishon");
+check("מערב ראשון → rishon", reg.locate(RISHON_WEST[0], RISHON_WEST[1])?.slug === "rishon");
+check("הגבול עם חולון: 31.9949 → ראשון, 31.995 → חולון ובת ים (34.78)",
+  reg.locate(31.9949, 34.78)?.slug === "rishon" && reg.locate(31.995, 34.78)?.slug === "holon-bat-yam");
+check("נס ציונה אינה בתיבה של ראשון", !reg.contains(reg.bySlug("rishon")!, 31.928, 34.80));
 check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → תל אביב (34.76)",
   reg.locate(32.0299, 34.76)?.slug === "holon-bat-yam" && reg.locate(32.03, 34.76)?.slug === "tel-aviv");
 check("הגבול עם אור יהודה: 32.0249 → חולון ובת ים, 32.025 → רמת גן (34.82)",
