@@ -311,6 +311,9 @@ check("שאל: תשובה מקצועית של 250 מילים לא נחתכת", c
 check("ידע: עמלה 2% ובלעדיות 4-6 חודשים", PLAYBOOK.includes("2%") && PLAYBOOK.includes("4-6 חודשים"));
 check("ידע: מה לא אומרים בפגישת גיוס", PLAYBOOK.includes("אביא לך את המחיר שאתה רוצה") && PLAYBOOK.includes("ארד ל-1%"));
 check("ידע: אין מקף ארוך", !/[–—―]/.test(PLAYBOOK));
+check("ידע: תסריטים, קונים ומשא ומתן", ["תסריטי שיחה", "חידוש בלעדיות", "עבודה עם קונים", "הצעה נגדית", "שני קונים במקביל"].every((h) => PLAYBOOK.includes(h)));
+// שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
+check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
 check("ידע: ארבעת צירי ההכשרה והתאמה לניסיון", PLAYBOOK.includes("ארבעה צירים") && PLAYBOOK.includes("experience_years") && PLAYBOOK.includes("ותיק/ה"));
 check("שאל agent: שנות הניסיון מתוארות בפרומפט", askSystemPrompt("agent").includes("experience_years"));
 check("ידע: מפנים לעו\"ד/רו\"ח בשאלות משפטיות ומס", PLAYBOOK.includes("עורך/ת דין") && PLAYBOOK.includes("רואה/ת חשבון"));
