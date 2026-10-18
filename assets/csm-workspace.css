@@ -11,8 +11,22 @@
 .csm-search{flex:1;min-width:0;width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;background:#fff;margin-bottom:8px}
 .csm-toolbar .csm-search{margin-bottom:0}
 .csm-risk-txt{color:var(--gold-dark)}
-.csm-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
-.csm-col{background:var(--paper-raised);border-radius:var(--radius-md);padding:10px;min-height:120px;scroll-snap-align:start}
+.csm-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;align-items:start}
+.csm-col{background:var(--paper-raised);border-radius:var(--radius-md);padding:10px;min-width:0}
+.csm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;align-items:start}
+.csm-cards .csm-card{margin-bottom:0}
+.csm-stage-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.csm-stage-chips button{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:.78rem;font-weight:700;color:var(--ink);cursor:pointer}
+.csm-stage-chips button span{display:inline-block;min-width:20px;margin-inline-start:4px;padding:0 6px;border-radius:999px;background:var(--paper-raised);font-size:.72rem}
+.csm-stage-chips button[aria-selected="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.csm-stage-chips button[aria-selected="true"] span{background:rgba(255,255,255,.2)}
+.csm-stage-chips button.is-risk{border-color:var(--gold)}
+.csm-contact{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}
+.csm-contact .btn{padding:7px 12px;font-size:.78rem}
+.btn.btn-call{background:#1E5B33;color:#fff;border:0}
+.btn.btn-call:hover{filter:brightness(1.08)}
+.btn.btn-sm{padding:3px 10px;font-size:.72rem}
+.csm-phone{font-size:.74rem;color:var(--ink-soft)}
 .csm-col.is-risk{background:var(--gold-tint)}
 .csm-col h4{font-size:.8rem;margin:0 0 8px;display:flex;justify-content:space-between;gap:6px}
 .csm-col h4 span{background:#fff;border-radius:999px;padding:0 8px;font-size:.72rem}

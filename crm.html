@@ -37,6 +37,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- החיבור ל-Supabase נפתח כבר כאן, במקביל להורדת הקוד, ולא בשאילתה
+     הראשונה שאחרי הכניסה. ‏crossorigin כי supabase-js שולח fetch עם כותרות,
+     כלומר בקשת CORS - בלעדיו הדפדפן פותח חיבור שאינו מתאים לה. ל-jsdelivr
+     אין צורך: הסורק המקדים מגלה אותו מה-<link> שמיד אחרי. -->
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -2892,7 +2897,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .crm-sky .sky-moon{
     position:absolute;top:9vh;left:7vw;width:64px;height:64px;border-radius:50%;
     background:radial-gradient(circle at 38% 36%,#fffbea 0%,#f3e9c6 55%,#d9cfa8 100%);
-    box-shadow:0 0 40px 8px rgba(255,244,210,.22),0 0 120px 40px rgba(160,180,255,.10);
+  }
+  /* ההילה פועמת בשקיפות של שכבה משלה, ולא באנימציה של box-shadow: צל
+     ברדיוס 140px שמשתנה מצויר מחדש בכל פריים, וזה החזיק את הדשבורד עסוק
+     כ-25% מהזמן בלילה גם בלי שנגעו בו (‏714-779ms מכל 3 שניות, מול
+     171-303 בלעדיו; ‏docs/crm-night-sky.md). שקיפות מורכבת בכרטיס הגרפי. */
+  .crm-sky .sky-moon::before{
+    content:'';position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 48px 10px rgba(255,244,210,.28),0 0 140px 48px rgba(160,180,255,.13);
+    opacity:.65;will-change:opacity;
     animation:skyMoon 9s ease-in-out infinite alternate;
   }
   /* הצל שהופך עיגול לסהר */
@@ -2900,8 +2913,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     content:'';position:absolute;top:-6px;left:16px;width:64px;height:64px;border-radius:50%;
     background:#0a1430;opacity:.92;
   }
-  @keyframes skyMoon{from{box-shadow:0 0 36px 6px rgba(255,244,210,.18),0 0 110px 36px rgba(160,180,255,.08)}
-                     to{box-shadow:0 0 48px 10px rgba(255,244,210,.28),0 0 140px 48px rgba(160,180,255,.13)}}
+  @keyframes skyMoon{from{opacity:.65}to{opacity:1}}
 
   /* כוכב נופל: קו דק שחוצה באלכסון פעם בכ-17 שניות. רוב המחזור הוא
      המתנה (‏opacity:0), כדי שיהיה הפתעה ולא הבהוב קבוע. */
@@ -2919,10 +2931,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     100%{opacity:0;transform:rotate(-24deg) translateX(-260px)}
   }
   @media(prefers-reduced-motion:reduce){
-    .crm-sky *,.crm-sky *::after{animation:none!important}
+    .crm-sky *,.crm-sky *::before,.crm-sky *::after{animation:none!important}
     .crm-sky .sky-shoot{display:none}
   }
-  html.a11y-nomotion .crm-sky *,html.a11y-nomotion .crm-sky *::after{animation:none!important}
+  html.a11y-nomotion .crm-sky *,html.a11y-nomotion .crm-sky *::before,html.a11y-nomotion .crm-sky *::after{animation:none!important}
   html.a11y-nomotion .crm-sky .sky-shoot{display:none}
 
   /* ---------- טקסט שיושב ישר על השמיים ----------
