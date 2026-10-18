@@ -2,7 +2,7 @@
 
 שלב 4 בשדרוג ה-CRM (`docs/handoff/crm-redesign/HANDOFF.md`, סעיף 4). נשען על
 הצוותים מ-[`teams.md`](teams.md). המיגרציה:
-`supabase/migrations/20270525140000_team_dashboard.sql`. הקוד:
+`supabase/migrations/20270601140000_team_dashboard.sql`. הקוד:
 `assets/crm-team-dashboard.js`. העיצוב: `design/Desktop-TeamLead.dc.html`,
 `design/Mobile-Team.dc.html`.
 
