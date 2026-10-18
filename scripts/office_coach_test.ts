@@ -311,6 +311,8 @@ check("שאל: תשובה מקצועית של 250 מילים לא נחתכת", c
 check("ידע: עמלה 2% ובלעדיות 4-6 חודשים", PLAYBOOK.includes("2%") && PLAYBOOK.includes("4-6 חודשים"));
 check("ידע: מה לא אומרים בפגישת גיוס", PLAYBOOK.includes("אביא לך את המחיר שאתה רוצה") && PLAYBOOK.includes("ארד ל-1%"));
 check("ידע: אין מקף ארוך", !/[–—―]/.test(PLAYBOOK));
+check("ידע: ארבעת צירי ההכשרה והתאמה לניסיון", PLAYBOOK.includes("ארבעה צירים") && PLAYBOOK.includes("experience_years") && PLAYBOOK.includes("ותיק/ה"));
+check("שאל agent: שנות הניסיון מתוארות בפרומפט", askSystemPrompt("agent").includes("experience_years"));
 check("ידע: מפנים לעו\"ד/רו\"ח בשאלות משפטיות ומס", PLAYBOOK.includes("עורך/ת דין") && PLAYBOOK.includes("רואה/ת חשבון"));
 check("טון: ברירת מחדל warm", cleanTone(undefined) === "warm" && cleanTone("x") === "warm" && cleanTone("direct") === "direct");
 check("טון: direct בשאלה", askSystemPrompt("agent", "direct").includes("מאמן ישיר וקשוח") && !askSystemPrompt("agent", "direct").includes("חבר/ה מקצועי/ת וחם/ה"));

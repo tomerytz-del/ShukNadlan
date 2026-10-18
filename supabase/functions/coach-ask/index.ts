@@ -52,7 +52,10 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-type Member = { id: string; agency_id: string | null; role: string | null; active: boolean; gender: string | null };
+type Member = {
+  id: string; agency_id: string | null; role: string | null; active: boolean; gender: string | null;
+  years_experience: number | null;
+};
 type Context = { summary: unknown; data: Row } | { error: string; status: number };
 
 async function latest(service: SupabaseClient, table: string, col: string, id: string, dateCol: string) {
@@ -73,7 +76,10 @@ async function loadContext(service: SupabaseClient, kind: CoachKind, me: Member,
       latest(service, "agent_coach_summaries", "agent_id", me.id, "day"),
     ]);
     if (wk.error || mo.error) return { error: "db_error", status: 500 };
-    return { summary, data: compactAgent(wk.data as Row, mo.data as Row, me.gender, new Refs()) };
+    // שנות הניסיון (מהפרופיל, לא חובה) - כדי שהמנטור יתאים את העומק: תסריט
+    // מלא למתחיל/ה, שיחה בגובה העיניים לוותיק/ה (playbook.ts, "התאמה לניסיון")
+    const data = compactAgent(wk.data as Row, mo.data as Row, me.gender, new Refs());
+    return { summary, data: { ...data, experience_years: me.years_experience ?? null } };
   }
 
   if (!me.agency_id) return { error: "not_allowed", status: 403 };
@@ -138,7 +144,7 @@ Deno.serve(async (req: Request) => {
 
   const service = createClient(supabaseUrl, serviceRoleKey);
   const { data: me, error: meErr } = await service.from("agency_members")
-    .select("id, agency_id, role, active, gender").eq("user_id", userData.user.id).maybeSingle();
+    .select("id, agency_id, role, active, gender, years_experience").eq("user_id", userData.user.id).maybeSingle();
   if (meErr) return json({ error: "db_error" }, 500);
   if (!me || !me.active) return json({ error: "no_matching_agent_profile" }, 403);
 

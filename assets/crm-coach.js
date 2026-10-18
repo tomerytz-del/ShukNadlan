@@ -49,7 +49,7 @@ const coachState = { agent: undefined, team: undefined, office: undefined };
 const coachRerender = {};
 /* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };
-/* הטון שהקורא/ת בחר/ה (coach_preferences, 20270608110000): 'warm' | 'direct'.
+/* הטון שהקורא/ת בחר/ה (coach_preferences, 20270609100000): 'warm' | 'direct'.
    null = טרם נטען. אחד לכל המנטורים של אותו אדם. */
 let coachTone = null;
 const COACH_TONES = [
