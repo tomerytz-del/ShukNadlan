@@ -66,6 +66,7 @@ const BEIT_DAGAN = [31.999, 34.829];
 const ASHDOD = [31.80, 34.65];
 const KIRYAT_MALACHI = [31.73, 34.745];
 const NITZAN = [31.74, 34.635];
+const ASHKELON = [31.668, 34.571];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -285,6 +286,12 @@ check("הגבול עם רחובות: 34.6949 → אשדוד, 34.695 → רחוב
   reg.locate(31.80, 34.6949)?.slug === "ashdod" && reg.locate(31.80, 34.695)?.slug === "rehovot");
 check("גן יבנה נשארת ברחובות", reg.locate(GAN_YAVNE[0], GAN_YAVNE[1])?.slug === "rehovot");
 check("אשקלון אינה בתיבה של אשדוד", !reg.contains(reg.bySlug("ashdod")!, 31.668, 34.571));
+check("אשקלון → ashkelon", reg.locate(ASHKELON[0], ASHKELON[1])?.slug === "ashkelon");
+check("יד מרדכי → ashkelon", reg.locate(31.588, 34.556)?.slug === "ashkelon");
+check("הגבול עם אשדוד: 31.6799 → אשקלון, 31.68 → אשדוד (34.62)",
+  reg.locate(31.6799, 34.62)?.slug === "ashkelon" && reg.locate(31.68, 34.62)?.slug === "ashdod");
+check("שדרות אינה בתיבה של אשקלון", !reg.contains(reg.bySlug("ashkelon")!, 31.525, 34.596));
+check("קריית גת אינה בתיבה של אשקלון", !reg.contains(reg.bySlug("ashkelon")!, 31.61, 34.77));
 check("הגבול עם ראשון: 34.84 → ראשון, 34.8401 → לוד (31.97)",
   reg.locate(31.97, 34.84)?.slug === "rishon" && reg.locate(31.97, 34.8401)?.slug === "lod-ramla");
 check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → תל אביב (34.76)",
