@@ -318,7 +318,7 @@ check("ידע: שגרת עבודה, וליד שנכנס באמצע הבלוק מ
 // המנטור כותב בלי אימוג'י, ותבנית עם אימוג'י הייתה מלמדת אותו את ההפך
 check("ידע: פחד משיחות בבוקר, בלי ההסבר ההורמונלי", PLAYBOOK.includes("call reluctance") && PLAYBOOK.includes("חוק 5 השניות") && !PLAYBOOK.includes("קורטיזול") && !PLAYBOOK.includes("אני יודע שקיבלת"));
 check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום", ["BATNA", "שיחות נפרדות", "להקפיא ולעבור לסעיף אחר", "סכום בנאמנות", "מה שנאמר בחדר נשאר בחדר", "שאלות לשיחה הנפרדת", "בלי אישור מפורש ממך", "החזרה לחדר המשותף", "לחיצת יד היא לא חוזה"].every((h) => PLAYBOOK.includes(h)));
-check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה"].every((h) => MANAGER_PLAYBOOK.includes(h))
+check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה", "שעות זהב", "לצפות - ", "אלה דוגמאות", "מחוץ למערכת", "בהסכמתם"].every((h) => MANAGER_PLAYBOOK.includes(h))
   && !askSystemPrompt("agent").includes("משחקן למאמן") && askSystemPrompt("team").includes("משחקן למאמן") && askSystemPrompt("office").includes("משחקן למאמן"));
 check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי מקף ארוך", !/רימקס|RE\/MAX/i.test(MANAGER_PLAYBOOK) && !/[–—―]/.test(MANAGER_PLAYBOOK));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
