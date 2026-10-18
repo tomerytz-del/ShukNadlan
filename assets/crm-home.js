@@ -317,6 +317,8 @@ function homeBrief(){
 }
 
 function renderHomeBoard(){
+  // כפתור "המנטור" - לפי מה שנטען עד עכשיו (assets/crm-coach.js)
+  if (typeof homeCoachSync === 'function') homeCoachSync();
   const host = document.getElementById('homeBoard');
   if (!host) return;
   if (dashView !== 'agent' || !currentAgent){ host.hidden = true; return; }

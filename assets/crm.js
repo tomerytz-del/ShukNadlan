@@ -2146,6 +2146,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מנהל/ת צוות? (my_roles, docs/team-dashboard.md). בלי לחכות: האזור נפתח
   // כשהתשובה מגיעה, ושום טעינה אחרת לא תלויה בו
   loadMyRoles().catch(err => console.warn('טעינת התפקידים נכשלה:', err));
+  // הסיכום האחרון של המנטור האישי - בשביל כפתור "המנטור" בדף הבית, שמוצג
+  // רק כשיש סיכום (homeCoachSync, assets/crm-coach.js). שורה אחת, ואחרי
+  // שהדשבורד סיים לעלות: שום דבר בעלייה לא מחכה לה.
+  if (coachState.agent === undefined){
+    (window.requestIdleCallback || (fn => setTimeout(fn, 1500)))(() => {
+      if (coachState.agent === undefined) coachLoad('agent').catch(err => console.warn('טעינת המנטור נכשלה:', err));
+    });
+  }
   if (agent.role === 'manager'){
     // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
     await Promise.all([
@@ -25986,7 +25994,7 @@ let navTab   = 'home';
 /* הקטגוריה האחרונה שאליה ניווטו (gotoSection) - השורה המודגשת בסרגל הצד,
    והקבוצה שלה תמיד פתוחה. בדסקטופ אין מקטעים, ולכן navTab אינו יודע את זה. */
 let navActive = NAV_HOME;
-/* השכבה הפתוחה מעל המסך: 'create' | 'search' | 'me' | 'bell' | null */
+/* השכבה הפתוחה מעל המסך: 'create' | 'search' | 'me' | 'bell' | 'coach' | null */
 let navLayer = null;
 
 function accCountOf(accId){
@@ -26032,12 +26040,101 @@ function navItemIsActive(item){
   return [item.acc, ...(item.also || [])].includes(navActive);
 }
 
+/* ---------- תצוגה אישית מול תצוגת ניהול (החלטה 2 בהעברה) ----------
+   מנהל/ת משרד או צוות שהוא/היא **גם** סוכן/ת פעיל/ה רואה בראש התפריט מתג
+   "אני כסוכן/ת" / "הצוות שלי" או "המשרד שלי". המתג קובע את סדר הקבוצות -
+   בתצוגת הניהול קבוצות הניהול ראשונות, ובאישית אחרונות - ומעביר לדאשבורד
+   של התצוגה. נשמר תחת crmNavMode.
+
+   מנהל/ת שאינו/ה סוכן/ת פעיל/ה (my_roles().is_active_agent = false,
+   docs/teams.md) אינו/ה מקבל/ת מתג, ובתפריט נשארים רק דף הבית וקבוצות
+   הניהול. הקטגוריות האישיות עצמן לא נעלמות מהעמוד ומקישור עמוק - רק
+   מהתפריט, כדי שהוא יהיה תפריט של מי שמנהל/ת. ‏myRoles נטען ב-
+   loadMyRoles (assets/crm-team-dashboard.js), וממילא בונה את הסרגל מחדש. */
+const NAV_MODE_KEY = 'crmNavMode';
+const NAV_MANAGE_GROUPS = new Set(['team', 'manage']);
+const NAV_PERSONAL_GROUPS = new Set(['daily', 'opps', 'grow']);
+
+function navRoles(){
+  return typeof myRoles !== 'undefined' ? myRoles : null;
+}
+
+function navIsManager(){
+  if (dashView !== 'agent' || !currentAgent) return false;
+  const roles = navRoles();
+  return currentAgent.role === 'manager' || !!(roles && roles.led_team_id);
+}
+
+function navIsActiveAgent(){
+  const roles = navRoles();
+  return !(roles && roles.is_active_agent === false);
+}
+
+function navMode(){
+  if (!navIsManager()) return 'personal';
+  if (!navIsActiveAgent()) return 'manage';
+  try { return localStorage.getItem(NAV_MODE_KEY) === 'manage' ? 'manage' : 'personal'; }
+  catch { return 'personal'; }
+}
+
+/* מנהל/ת משרד - "המשרד שלי" (גם כשהוא/היא מנהל/ת צוות: המשרד כולל אותו) */
+function navManageTarget(){
+  return currentAgent && currentAgent.role === 'manager'
+    ? { acc:'accOfficeDashboard', label:'המשרד שלי' }
+    : { acc:'accTeamDashboard',   label:'הצוות שלי' };
+}
+
+function navSetMode(mode){
+  try { localStorage.setItem(NAV_MODE_KEY, mode); } catch {}
+  closeMenuPanel();
+  closeNavLayers();
+  if (mode === 'manage'){
+    const t = navManageTarget();
+    if (navAccVisible(t.acc)) gotoSection(t.acc);
+  } else {
+    setNavTab('home');
+  }
+  renderSideNav();
+}
+
+function navModeToggle(){
+  if (!navIsManager() || !navIsActiveAgent()) return null;
+  const mode = navMode();
+  const wrap = document.createElement('div');
+  wrap.className = 'nav-mode';
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'תצוגה');
+  [['personal', 'אני כסוכן/ת'], ['manage', navManageTarget().label]].forEach(([key, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'nav-mode-btn';
+    b.setAttribute('aria-pressed', String(mode === key));
+    b.textContent = label;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (navMode() !== key) navSetMode(key);
+    });
+    wrap.appendChild(b);
+  });
+  return wrap;
+}
+
 function navGroupsForView(){
   const admin = dashView === 'admin';
-  return NAV_GROUPS
+  let groups = NAV_GROUPS
     .filter(g => !!g.adminOnly === admin && !g.placement)
-    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, items:g.items.filter(navItemVisible) }))
-    .filter(g => g.items.length);
+    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, items:g.items.filter(navItemVisible) }));
+  if (!admin && navIsManager()){
+    if (!navIsActiveAgent()){
+      groups = groups.map(g => NAV_PERSONAL_GROUPS.has(g.key)
+        ? { ...g, items:g.items.filter(navIsHomeItem) } : g);
+    }
+    if (navMode() === 'manage'){
+      groups = groups.filter(g => NAV_MANAGE_GROUPS.has(g.key))
+        .concat(groups.filter(g => !NAV_MANAGE_GROUPS.has(g.key)));
+    }
+  }
+  return groups.filter(g => g.items.length);
 }
 
 function navReduceMotion(){
@@ -26327,6 +26424,7 @@ function openNavLayer(layer){
   else if (layer === 'search') openSearch();
   else if (layer === 'me') openProfilePanel();
   else if (layer === 'bell') openBellPanel();
+  else if (layer === 'coach') openCoachLayer();
 }
 
 function closeNavLayers(){
@@ -26334,6 +26432,7 @@ function closeNavLayers(){
   closeSearch();
   closeProfilePanel();
   closeBellPanel();
+  closeCoachLayer();
 }
 
 function setNavLayer(layer){
@@ -29749,6 +29848,8 @@ function appendMenuGroups(panel, opts){
     }))
     .filter(g => g.items.length);
 
+  const modeToggle = navModeToggle();
+  if (modeToggle) panel.appendChild(modeToggle);
   homeItems.forEach(it => panel.appendChild(menuItemButton(it, side)));
 
   groups.forEach((group, gi)=>{
@@ -30074,12 +30175,14 @@ document.addEventListener('click', (e)=>{
   const layer = closer.closest('.nav-layer');
   if (layer.id === 'createSheet') closeCreateSheet();
   if (layer.id === 'searchSheet') closeSearch();
+  if (layer.id === 'coachSheet') closeCoachLayer();
 });
 
 document.addEventListener('keydown', (e)=>{
   if (e.key !== 'Escape') return;
   if (navLayer === 'create'){ closeCreateSheet(); e.preventDefault(); }
   else if (navLayer === 'search'){ closeSearch(); e.preventDefault(); }
+  else if (navLayer === 'coach'){ closeCoachLayer(); e.preventDefault(); }
 });
 
 /* ==========================================================================

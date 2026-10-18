@@ -3211,6 +3211,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .menu-gtoggle[aria-expanded="true"] .mg-chev{transform:rotate(180deg)}
   .menu-gtoggle[aria-expanded="true"] .mg-count{display:none}
   .menu-sub[hidden]{display:none}
+  /* מתג התצוגה למנהלים שהם גם סוכנים (navModeToggle ב-crm.js): "אני כסוכן/ת"
+     מול "הצוות שלי" / "המשרד שלי". בראש התפריט ובראש סרגל הצד. */
+  .nav-mode{display:flex;gap:4px;padding:4px;margin:0 0 8px;border-radius:12px;background:#E3E7EF}
+  .nav-mode-btn{flex:1;min-width:0;min-height:40px;border:none;border-radius:9px;background:transparent;
+                color:#5A6478;font:inherit;font-size:.82rem;font-weight:700;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nav-mode-btn[aria-pressed="true"]{background:#fff;color:#0E1A33;box-shadow:0 1px 3px rgba(14,26,51,.12)}
+  .nav-mode-btn:focus-visible{outline:2px solid #1F5BF0;outline-offset:-2px}
   @media(prefers-reduced-motion:reduce){.menu-gtoggle .mg-chev{transition:none}}
   .menu-item{
     width:100%;display:flex;align-items:center;gap:10px;text-align:start;
@@ -5302,6 +5310,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .nl-grip{display:none}
   }
 
+  /* ---------- "המנטור שלי" (#coachSheet, assets/crm-coach.js) ---------- */
+  .home-coach-btn{
+    display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;margin:0 0 12px;
+    border:none;border-radius:22px;background:#13235B;color:#fff;font:inherit;font-size:.9rem;font-weight:700;
+  }
+  .home-coach-btn[hidden]{display:none}
+  .home-coach-btn svg{width:18px;height:18px;color:#E0B84A}
+  .home-coach-btn:hover{background:#1B2F74}
+  .home-coach-btn:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+  .nav-coach .nl-panel{background:var(--nv-ground)}
+  .nav-coach .coach{margin:0}
+  .cl-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;border-radius:14px;background:#E3E7EF}
+  .cl-tab{flex:1;min-height:40px;border:none;border-radius:10px;background:transparent;
+          color:var(--nv-muted);font:inherit;font-size:.88rem;font-weight:700}
+  .cl-tab[aria-selected="true"]{background:#fff;color:var(--nv-ink);box-shadow:0 1px 3px rgba(14,26,51,.12)}
+  .cl-tab:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
+  .cl-wait{margin:8px 0;color:var(--nv-muted);font-size:.92rem}
+  .cl-more{display:block;width:100%;min-height:44px;margin-top:10px;border:none;background:transparent;
+           color:var(--nv-accent);font:inherit;font-size:.9rem;font-weight:700;text-align:center}
+  .cl-more:hover{text-decoration:underline}
+
   /* ---------- גיליון היצירה ---------- */
   .cs-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .cs-item{
@@ -6693,6 +6722,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- מה מחכה היום במשפט אחד (homeBrief ב-assets/crm-home.js). הברכה
              שמעליו ומשפטי המוטיבציה לא משתנים. -->
         <p class="dash-brief" id="dashBrief" hidden></p>
+        <!-- "המנטור" (design/Mobile-Coach.dc.html): פותח את השכבה #coachSheet.
+             מוצג רק כשיש מה להראות (homeCoachSync ב-assets/crm-coach.js). -->
+        <button type="button" class="home-coach-btn" id="homeCoachBtn" hidden aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/></svg>
+          <span>המנטור</span>
+        </button>
 
         <!-- ---------- שורת המדדים ----------
              שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
@@ -10150,6 +10185,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" class="nl-close" data-close aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
     </div>
     <div id="createSheetBody"></div>
+  </section>
+</div>
+
+<!-- ---------- "המנטור שלי" ----------
+     הכרטיס המקוצר של המנטור מדף הבית, ולמנהלים מתג בין המנטורים
+     (assets/crm-coach.js, docs/coaches.md). התוכן נבנה ב-coachLayerRender. -->
+<div class="nav-layer nav-coach" id="coachSheet" hidden>
+  <div class="nl-backdrop" data-close></div>
+  <section class="nl-panel" role="dialog" aria-modal="true" aria-labelledby="coachSheetTitle">
+    <div class="nl-grip" aria-hidden="true"></div>
+    <div class="nl-head">
+      <h2 id="coachSheetTitle">המנטור שלי</h2>
+      <button type="button" class="nl-close" data-close aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
+    </div>
+    <div id="coachSheetBody"></div>
   </section>
 </div>
 

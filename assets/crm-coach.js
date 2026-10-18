@@ -47,6 +47,16 @@ const COACH_PRIORITY = {
 const coachState = { agent: undefined, team: undefined, office: undefined };
 /* מי מצייר מחדש אחרי "בוצע" - כל דאשבורד רושם את שלו */
 const coachRerender = {};
+/* ציור מחדש של כל מקום שמציג את המנטור: הדאשבורד של אותו kind, ושכבת
+   "המנטור שלי" מדף הבית כשהיא פתוחה (coachLayerRender למטה). */
+function coachRepaint(kind){
+  if (coachRerender[kind]) coachRerender[kind]();
+  coachLayerRender();
+}
+function coachRepaintAll(){
+  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachLayerRender();
+}
 /* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };
 /* הטון שהקורא/ת בחר/ה (coach_preferences, 20270615100000): 'warm' | 'direct'.
@@ -140,7 +150,7 @@ async function coachLoad(kind, teamId){
   }
   const { data, error } = await q;
   coachState[kind] = error ? false : ((data && data[0]) || null);
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
 }
 
 /* ---------- הטון והוותק ---------- */
@@ -150,7 +160,7 @@ async function coachToneLoad(){
   if (!data) return;
   coachTone = data.tone === 'direct' ? 'direct' : 'warm';
   coachExp = COACH_EXP.some(x => x.key === data.experience) ? data.experience : null;
-  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachRepaintAll();
 }
 
 /* אופטימי, כמו "בוצע": הכרטיס מתעדכן מיד, ושגיאה מחזירה אותו. ‏upsert של
@@ -160,12 +170,12 @@ async function coachPrefSave(field, value){
   if (!currentAgent || value === cur) return;
   const set = v => { if (field === 'tone') coachTone = v; else coachExp = v; };
   set(value);
-  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachRepaintAll();
   const { error } = await sb.from('coach_preferences')
     .upsert({ agent_id: currentAgent.id, [field]: value, updated_at: new Date().toISOString() }, { onConflict: 'agent_id' });
   if (error){
     set(cur);
-    Object.values(coachRerender).forEach(fn => fn && fn());
+    coachRepaintAll();
     showToast('לא נשמר: ' + heErr(error));
   }
 }
@@ -328,7 +338,7 @@ async function coachAskSend(kind, question){
   if (!q || st.busy) return;
   if (q.length < 3){ showToast('צריך לכתוב שאלה של כמה מילים לפחות.'); return; }
   Object.assign(st, { q, a: '', err: '', busy: true, draft: '' });
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
   try{
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw { code: 'session_not_found', message: 'session_not_found' };
@@ -348,7 +358,7 @@ async function coachAskSend(kind, question){
     st.err = heErr(err);
   }
   st.busy = false;
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
 }
 
 /* ---------- "סמן כבוצע" ----------
@@ -360,7 +370,7 @@ async function coachToggleDone(kind, i){
   const before = (row.actions_done || []).slice();
   const on = !before.map(Number).includes(i);
   row.actions_done = on ? before.concat(i) : before.filter(x => Number(x) !== i);
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
   const { data, error } = await sb.rpc('coach_action_done', { p_kind: kind, p_summary_id: row.id, p_index: i, p_done: on });
   if (error){
     row.actions_done = before;
@@ -368,7 +378,7 @@ async function coachToggleDone(kind, i){
   } else {
     row.actions_done = data || [];
   }
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
 }
 
 /* ---------- נושאים שחסרים למנטור (מנהל/ת פלטפורמה) ----------
@@ -448,4 +458,116 @@ async function loadCoachGaps(){
     const form = e.target.closest && e.target.closest('[data-coach-ask]');
     if (form) coachAsk[form.dataset.coachAsk].draft = e.target.value;
   });
+})();
+
+/* ---------- "המנטור שלי": השכבה מדף הבית (HANDOFF 6.8) ----------
+   design/Mobile-Coach.dc.html: הכפתור "המנטור" בדף הבית (#homeCoachBtn)
+   פותח שכבה עם הכרטיס המקוצר (שני צעדים), ולמנהלים מתג בין המנטורים:
+   "אני כסוכן/ת" / "הצוות שלי" / "המשרד שלי". הכרטיס המלא, עם "שאל את
+   המנטור", נשאר בדאשבורד של אותו kind, ולכן בתחתית יש קישור אליו.
+
+   **הכפתור מוצג רק כשיש מה לפתוח.** מנטור הסוכן/ת נדלק בהדרגה
+   (AGENT_COACH_ENABLED), וסוכן/ת בלי סיכום לא רואה כפתור שמוביל להבטחה.
+   למנהלים יש תמיד מה להציג: הסיכום, או "הסיכום הראשון יגיע ביום ראשון".
+   מנהל/ת שאינו/ה סוכן/ת פעיל/ה (my_roles().is_active_agent) לא מקבל/ת את
+   הלשונית האישית. */
+const COACH_LAYER_TABS = { agent:'אני כסוכן/ת', team:'הצוות שלי', office:'המשרד שלי' };
+const COACH_LAYER_DASH = { agent:'accMyDashboard', team:'accTeamDashboard', office:'accOfficeDashboard' };
+let coachLayerKind = null;
+const coachLayerBusy = {};
+
+function coachRoles(){
+  return typeof myRoles !== 'undefined' ? myRoles : null;
+}
+
+function coachLayerKinds(){
+  if (typeof dashView !== 'undefined' && dashView !== 'agent') return [];
+  if (!currentAgent) return [];
+  const roles = coachRoles();
+  const kinds = [];
+  const a = coachState.agent;
+  if (!(roles && roles.is_active_agent === false) && a && a.summary) kinds.push('agent');
+  if (roles && roles.led_team_id && navAccVisible('accTeamDashboard')) kinds.push('team');
+  if (currentAgent.role === 'manager' && navAccVisible('accOfficeDashboard')) kinds.push('office');
+  return kinds;
+}
+
+function homeCoachSync(){
+  const btn = document.getElementById('homeCoachBtn');
+  if (btn) btn.hidden = !coachLayerKinds().length;
+}
+
+async function coachLayerEnsure(kind){
+  if (coachState[kind] !== undefined || coachLayerBusy[kind]) return;
+  coachLayerBusy[kind] = true;
+  coachLayerRender();
+  const roles = coachRoles();
+  try { await coachLoad(kind, kind === 'team' ? roles && roles.led_team_id : undefined); }
+  catch(e){ coachState[kind] = false; }
+  coachLayerBusy[kind] = false;
+  coachLayerRender();
+}
+
+function openCoachLayer(){
+  if (navLayer === 'coach') return;
+  const kinds = coachLayerKinds();
+  if (!kinds.length) return;
+  closeMenuPanel();
+  if (!kinds.includes(coachLayerKind)) coachLayerKind = kinds[0];
+  const el = navLayerShow('coachSheet', 'coach');
+  if (!el) return;
+  coachLayerRender();
+  coachLayerEnsure(coachLayerKind);
+  const first = el.querySelector('.cl-tab[aria-selected="true"], .nl-close');
+  if (first) first.focus({ preventScroll:true });
+}
+
+function closeCoachLayer(){
+  navLayerHide('coachSheet', 'coach');
+}
+
+function coachLayerRender(){
+  homeCoachSync();
+  const sheet = document.getElementById('coachSheet');
+  const host = document.getElementById('coachSheetBody');
+  if (!sheet || !host || sheet.hidden) return;
+  const kinds = coachLayerKinds();
+  if (!kinds.includes(coachLayerKind)) coachLayerKind = kinds[0] || null;
+  const kind = coachLayerKind;
+  if (!kind){ closeCoachLayer(); return; }
+
+  const tabs = kinds.length > 1 ? `<div class="cl-tabs" role="tablist" aria-label="איזה מנטור">
+    ${kinds.map(k => `<button type="button" role="tab" class="cl-tab" data-cl-kind="${k}"
+      aria-selected="${k === kind}">${escapeHtml(COACH_LAYER_TABS[k])}</button>`).join('')}</div>` : '';
+
+  const row = coachState[kind];
+  let body;
+  if (row === undefined || coachLayerBusy[kind]) body = '<p class="cl-wait">טוען את המנטור…</p>';
+  else if (row === false) body = '<p class="cl-wait">לא הצלחנו לטעון את המנטור כרגע. אפשר לנסות שוב בעוד רגע.</p>';
+  else body = coachCardHtml(kind, { compact:true });
+
+  host.innerHTML = tabs + `<div role="tabpanel">${body}</div>`
+    + (navAccVisible(COACH_LAYER_DASH[kind])
+        ? `<button type="button" class="cl-more" data-cl-dash="${kind}">לכל הצעדים ולשאלה למנטור ←</button>` : '');
+}
+
+(function wireCoachLayer(){
+  document.addEventListener('click', e => {
+    const open = e.target.closest('#homeCoachBtn');
+    if (open){ e.stopPropagation(); openNavLayer('coach'); return; }
+    if (!e.target.closest('#coachSheet')) return;
+    const tab = e.target.closest('[data-cl-kind]');
+    if (tab){
+      coachLayerKind = tab.dataset.clKind;
+      coachLayerRender();
+      coachLayerEnsure(coachLayerKind);
+      const on = document.querySelector('#coachSheet .cl-tab[aria-selected="true"]');
+      if (on) on.focus({ preventScroll:true });
+      return;
+    }
+    const dash = e.target.closest('[data-cl-dash]');
+    if (dash){ closeCoachLayer(); gotoSection(COACH_LAYER_DASH[dash.dataset.clDash]); return; }
+    /* כפתור פעולה מהכרטיס עובר למסך אחר - השכבה נסגרת לפניו */
+    if (e.target.closest('[data-coach-cta]')) closeCoachLayer();
+  }, true);
 })();
