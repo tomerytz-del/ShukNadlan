@@ -1,0 +1,43 @@
+name: ליבת ייבוא הנכסים — עותק אחד ובדיקה
+
+# ‏האשף ב-CRM והייבוא דרך גבריאלה בוואטסאפ מריצים את אותה ליבה, שקיימת
+# פעמיים: ב-assets/ (לדפדפן) וב-supabase/functions/_shared/ (לשרת). עותק
+# שנשכח מאחור אינו שובר כלום ואינו נראה - אותו קובץ פשוט נקלט אחרת בשני
+# המקומות. לכן: שני העותקים זהים בבית, והבדיקה של הליבה עוברת.
+#
+# קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "assets/property-import-core.js"
+      - "assets/crm.js"
+      - "supabase/functions/_shared/property-import-core.js"
+      - "supabase/functions/_shared/marketing-copy.ts"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "scripts/check_import_core.py"
+      - "scripts/property_import_core_test.js"
+      - ".github/workflows/import_core.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/property-import-core.js"
+      - "assets/crm.js"
+      - "supabase/functions/_shared/property-import-core.js"
+      - "supabase/functions/_shared/marketing-copy.ts"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "scripts/check_import_core.py"
+      - "scripts/property_import_core_test.js"
+      - ".github/workflows/import_core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: בדיקת ליבת הייבוא
+        run: python3 scripts/check_import_core.py
