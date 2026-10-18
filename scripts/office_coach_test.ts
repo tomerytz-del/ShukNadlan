@@ -21,6 +21,7 @@
 import {
   addDays,
   coachNotification,
+  splitGap,
   agentFingerprintSource,
   cleanAnswer,
   cleanQuestion,
@@ -366,6 +367,15 @@ check("המנטורים יודעים שאפשר לשאול דרך גבריאלה
     actions: [{ priority: "high", title: "לחזור\nלליד", why: "", impact: "", cta: null }, { priority: "mid", title: "CMA לפגישה", why: "", impact: "", cta: null }],
     questions: [] });
   check("התראת הבוקר: שורה אחת, כותרת וצעדים ממוספרים", n.title === "המנטור: יום של גיוס" && n.body === "1. לחזור לליד · 2. CMA לפגישה" && !/\n/.test(n.title + n.body), n);
+}
+{
+  const g = splitGap("[נושא חסר: עסקאות ירושה]\nעל זה עוד אין לי את השיטה.");
+  const none = splitGap("תשובה רגילה [נושא חסר: באמצע] לא נחשבת");
+  check("כשאין ידע: הסימון בשורה הראשונה יורד ונשמר", g.gap === "עסקאות ירושה" && g.answer === "על זה עוד אין לי את השיטה." && none.gap === null, g);
+  check("כשאין ידע: הפרומפט אוסר להמציא ומגדיר את הסימון", ["agent", "team", "office"].every((k) => {
+    const p = askSystemPrompt(k as "agent");
+    return p.includes("[נושא חסר:") && p.includes("לא ממציאים") && p.includes("העברתי את הנושא לצוות") && !p.includes("ומתוך ניסיון בתיווך");
+  }));
 }
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
