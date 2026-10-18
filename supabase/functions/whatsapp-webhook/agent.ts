@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
-import { historyWithBreakpoint, RollingMarks, trimHistory } from "./prompt-cache.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
@@ -6161,8 +6161,9 @@ async function runTool(
  * הפיצול הוא לפי מי שהתוכן משתנה איתו:
  *
  *   ‏· כאן — ההוראות. זהות לכולם, ולכן המטמון משותף **בין כל הסוכנים**.
- *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב אחרי
- *     נקודת השבירה כדי שלא יבטל את מה שלפניו.
+ *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב **בהודעה
+ *     הנוכחית**, אחרי ההיסטוריה (‏withTurnContext, ‏prompt-cache.ts): הוא כולל את
+ *     השעה בדקות, וכבלוק שני ב-system הוא ביטל את מטמון ההיסטוריה בכל תור.
  *
  * סדר הרינדור של ה-API הוא `tools` → `system` → `messages`, ולכן נקודת
  * שבירה אחת בסוף הבלוק הזה תופסת גם את הגדרות הכלים שלפניו.
@@ -6643,7 +6644,8 @@ export async function runAgentTurn(opts: {
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
-    { role: "user", content: userContent },
+    // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps), userContent) },
   ];
 
   let finalText = "";
@@ -6662,16 +6664,15 @@ export async function runAgentTurn(opts: {
       // בצ'אט נעשית מורגשת — לחזור ל-low ולהצר את רשימת הכלים, לא לוותר על
       // הדיוק.
       output_config: { effort: "medium" },
-      // שני בלוקים, ונקודת שבירה אחת ביניהם. סדר הרינדור הוא
-      // ‏tools → system → messages, ולכן ה-`cache_control` כאן תופס **גם את
-      // עשרים ותשעה הגדרות הכלים שלפניו** — יחד זה הרוב המוחלט של הקלט.
-      // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
+      // בלוק אחד, קבוע. סדר הרינדור הוא tools → system → messages, ולכן
+      // ה-`cache_control` כאן תופס **גם את הגדרות הכלים שלפניו** — יחד זה הרוב
+      // המוחלט של הקלט. ההקשר המשתנה (‏sessionContext) יושב בהודעה הנוכחית,
+      // אחרי ההיסטוריה (‏withTurnContext, ‏prompt-cache.ts). ראו SYSTEM_STATIC.
       system: [
         // ‏**ttl של שעה** (14.10.2026): בחמש הדקות של ברירת המחדל 41% מהתורים
         // התחילו בלי מטמון (‏cache_read=0, ‏~15K טוקנים מעובדים מחדש) - ההודעות
         // דלילות. הכתיבה יקרה מעט יותר, הקריאה זולה בהרבה, והתור הראשון מהיר.
         { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } },
-        { type: "text", text: sessionContext(agent, conv, gaps) },
       ],
       tools,
       messages,

@@ -12,6 +12,12 @@
 //      כתב וכתב הכול מחדש. ב-18.10.2026 כך היו 17 מתוך 36 סבבים שלישיים ומעלה.
 //      נקודה על סוף הסבב הקודם היא התאמה מדויקת, בלי תלות במרחק.
 //
+// ו**ההקשר המשתנה של התור** (שעה, הנכס האחרון, מה חסר בפרופיל) יושב **בהודעה
+// הנוכחית** (‏`withTurnContext`), לא כבלוק שני ב-`system`: הוא כולל את השעה בדקות,
+// וכל מה שאחריו - ההיסטוריה והזנב - לא נקרא מהמטמון לעולם (נמדד 18.10.2026: שלושה
+// תורים רצופים, אפס קריאה של ההיסטוריה). ובאותה הזדמנות הוא כבר לא מתחלף בין
+// סבבים של אותו תור.
+//
 // וההיסטוריה נגזמת **במדרגות** (‏`trimHistory`), לא בחלון מחליק: `slice(-12)`
 // מזיז את תחילת ההיסטוריה בכל תור, וקידומת שתחילתה זזה לא נקראת מהמטמון לעולם.
 // ============================================================================
@@ -35,6 +41,18 @@ export function historyWithBreakpoint(history: Anthropic.MessageParam[]): Anthro
   // בלוק טקסט ריק נדחה ב-400 גם בלי הסימון; וסימון על thinking אינו מותר
   if (tail && (tail.type !== "text" || tail.text)) tail.cache_control = { type: "ephemeral" };
   return out;
+}
+
+/** ההקשר המשתנה של התור כבלוק ראשון בהודעה הנוכחית, אחרי ההיסטוריה ונקודת
+ *  השבירה שלה. מסומן כמידע מהמערכת, כדי שלא ייקרא כדברי הסוכן/ת או הגולש/ת. */
+export function withTurnContext(
+  context: string,
+  content: string | Anthropic.ContentBlockParam[],
+): string | Anthropic.ContentBlockParam[] {
+  const text = context.trim();
+  if (!text) return content;
+  const blocks = typeof content === "string" ? [{ type: "text" as const, text: content }] : content;
+  return [{ type: "text", text: `[הקשר מהמערכת - לא נכתב בהודעה]\n${text}` }, ...blocks];
 }
 
 /** גזימה במדרגות: עד `limit + step` הודעות נשמרות כמו שהן, ומעבר לזה נשארות
