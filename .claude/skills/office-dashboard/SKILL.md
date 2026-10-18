@@ -126,22 +126,11 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   מי שמשנה את סדר הכתיבה (תשובה ואז יומן) שומר/ת שהיומן נכתב לכל תשובה ששולמה.
 - הסודות: `COACH_ASK_DAILY` (ברירת מחדל 10) ו-`COACH_ASK_MODEL`. קוד שגיאה חדש
   מהפונקציה מקבל שורה ב-`RULES` של `assets/friendly-error.js`.
-- **הידע המקצועי הוא קובץ, והוא השיטה של תומר** (`_shared/coach/playbook.ts`):
-  עמלה 2%, בלעדיות 4-6 חודשים, פגישת גיוס, התנגדויות ו"מה לא אומרים". שינוי
-  בו עובר ב-PR ובאישור, ולא מוסיפים לו סטטיסטיקות שלא נמדדו - המודל יצטט אותן.
-  התראת הבוקר `coach_daily` נכתבת ב-`runAgentOne` רק על סיכום חדש (לא על העתק),
-  והולכת לפעמון ולוואטסאפ דרך `notification-push`.
-  השאלה עצמה ב-`askCoach` (‏`_shared/coach/ask.ts`), משותפת ל-`coach-ask` ול-`ask_mentor`
-  של גבריאלה בוואטסאפ - מכסה ויומן אחד לשני הערוצים.
-  ניהול צוות (`MANAGER_PLAYBOOK`) נכנס רק למנטור הצוות והמשרד, וניהול משרד
-  (`OFFICE_PLAYBOOK`) רק למנטור המשרד; שניהם כתובים כללי. מנהל/ת שהוא/היא גם
-  סוכן/ת: מנטור הסוכן/ת מקבל `manages` ומוסיף את ידע הניהול, ומנטור הצוות/המשרד
-  עונה על שאלת שטח ומפנה את המספרים האישיים ל"הדשבורד שלי"
-  בלי שם של רשת. ותק פרטי: `coach_preferences.experience` (טווח), עם גיבוי
-  מ-`years_experience` הציבורי.
-- **הטון לפי הקורא/ת** (`coach_preferences.tone`, ‏`warm` / `direct`): חל על
-  "שאל את המנטור" ועל הסיכום היומי (והוא בטביעת האצבע שלו), ולא על הסיכומים
-  השבועיים, שיש להם כמה קוראים.
+- **השאלה עצמה ב-`askCoach`** (‏`_shared/coach/ask.ts`), משותפת ל-`coach-ask`
+  ול-`ask_mentor` של גבריאלה - מכסה ויומן אחד לשני הערוצים.
+- **מה המנטור יודע** (‏`playbook.ts` לפי קהל), הטון והוותק (‏`coach_preferences`),
+  מנהל/ת שהוא/היא גם סוכן/ת (‏`manages`) והתראת הבוקר (‏`coach_daily`) - בסקיל
+  `mentor`.
 - הבדיקה: `node --experimental-strip-types scripts/office_coach_test.ts` (כולל
   `cleanQuestion`, ‏`cleanAnswer` והפרומפט). הפרטים: `docs/coaches.md`.
 

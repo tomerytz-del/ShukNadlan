@@ -2164,6 +2164,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   if (agent.is_platform_admin){
     await Promise.all([
       loadLicenseAppeals(),
+      loadCoachGaps(),
       loadRefundQueue(),
       loadSubscriptionsAdmin(),
       loadNeighborhoodsAdmin(),
@@ -25829,6 +25830,7 @@ const NAV_GROUPS = [
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
+    { acc:'accCoachGaps',     label:'חסר למנטור',     icon:'article', tab:'admin' },
     { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
@@ -25859,7 +25861,7 @@ const BOTTOM_NAV = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accLicenseAppeals']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accLicenseAppeals','accCoachGaps']);
 /* התגיות בנייד. הלידים על כפתור הלידים. מה שהיה מסומן על הלשוניות שנעלמו
    (התאמות ויומן על "לקוחות", ביקורות על "עוד") עובר לכפתור התפריט בכותרת,
    שהוא הדרך אליהן עכשיו - אחרת דבר דחוף היה מתחבא מאחורי מקטע בלי כפתור.

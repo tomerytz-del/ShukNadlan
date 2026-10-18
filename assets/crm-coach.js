@@ -367,6 +367,34 @@ async function coachToggleDone(kind, i){
   if (coachRerender[kind]) coachRerender[kind]();
 }
 
+/* ---------- נושאים שחסרים למנטור (מנהל/ת פלטפורמה) ----------
+   ‏coach_knowledge_gaps (20270616100000): שאלות מקצועיות שהמנטור אמר שאין לו
+   עליהן ידע, מקובצות לפי נושא. "הוספתי לידע" אחרי שהנושא נכנס ל-playbook.ts. */
+async function loadCoachGaps(){
+  const host = document.getElementById('coachGapsList');
+  if (!host) return;
+  const { data, error } = await sb.rpc('coach_knowledge_gaps');
+  if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
+  const rows = data || [];
+  if (typeof accSetCount === 'function') accSetCount('accCoachGaps', rows.length || '');
+  if (!rows.length){ host.innerHTML = '<div class="empty-state">אין נושאים חסרים. כל השאלות המקצועיות נענו מהידע.</div>'; return; }
+  const KIND = { agent:'סוכן/ת', team:'צוות', office:'משרד' };
+  host.innerHTML = rows.map(r => `
+    <div class="coach-gap">
+      <div class="coach-gap-head">
+        <strong>${escapeHtml(r.topic)}</strong>
+        <span>${escapeHtml(String(r.asked))} ${r.asked === 1 ? 'פעם' : 'פעמים'} · ${escapeHtml(new Date(r.last_asked).toLocaleDateString('he-IL'))} · ${escapeHtml((r.kinds || []).map(k => KIND[k] || k).join(', '))}</span>
+      </div>
+      <ul>${(r.samples || []).map(q => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+      <button type="button" class="btn btn-ghost" data-coach-gap="${escapeHtml(r.topic)}">הוספתי לידע</button>
+    </div>`).join('');
+}
+
+(function wireCoachGaps(){
+  const acc = document.getElementById('accCoachGaps');
+  if (acc) acc.addEventListener('toggle', e => { if (e.target.open) loadCoachGaps(); });
+})();
+
 (function wireCoach(){
   document.addEventListener('click', e => {
     const done = e.target.closest('[data-coach-done]');
@@ -378,6 +406,16 @@ async function coachToggleDone(kind, i){
       const a = row && row.summary && (row.summary.actions || [])[Number(btn.dataset.coachI)];
       const spec = a && coachCtaFor(kind, a);
       if (spec) spec.run(a, kind);
+      return;
+    }
+    const gapBtn = e.target.closest('[data-coach-gap]');
+    if (gapBtn){
+      gapBtn.disabled = true;
+      sb.rpc('coach_gap_resolve', { p_topic: gapBtn.dataset.coachGap }).then(({ error }) => {
+        if (error){ gapBtn.disabled = false; showToast('לא נשמר: ' + heErr(error)); return; }
+        showToast('סומן. שאלה חדשה באותו נושא תחזור לרשימה רק אם עדיין חסר ידע.');
+        loadCoachGaps();
+      });
       return;
     }
     const toneBtn = e.target.closest('[data-coach-tone]');

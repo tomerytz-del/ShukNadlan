@@ -11,7 +11,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import {
   addDays, askHistory, cleanAnswer, cleanQuestion, experienceLabel, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
-  Refs, type Row, summaryForAsk,
+  Refs, type Row, splitGap, summaryForAsk,
 } from "./payload.ts";
 import { askSystemPrompt, cleanTone, type CoachManages } from "./prompts.ts";
 
@@ -162,13 +162,16 @@ export async function askCoach(
   }
   if (response.stop_reason === "refusal") return { error: "coach_refused", status: 422 };
 
-  const answer = cleanAnswer(response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(""));
+  // "כשאין ידע": הסימון יורד מהתשובה, והנושא נשמר לרשימה של מנהל/ת הפלטפורמה
+  const raw = splitGap(response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(""));
+  const answer = cleanAnswer(raw.answer) ||
+    (raw.gap ? "על זה עוד אין לי את השיטה של שוק נדל״ן. העברתי את הנושא לצוות כדי שיוסיפו אותו." : "");
   if (!answer) return { error: "coach_unavailable", status: 503 };
 
   const inputTokens = response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0) +
     (response.usage.cache_creation_input_tokens ?? 0);
   const { error: logErr } = await service.from("coach_questions").insert({
-    agent_id: me.id, agency_id: me.agency_id, kind, question, answer,
+    agent_id: me.id, agency_id: me.agency_id, kind, question, answer, gap_topic: raw.gap,
     model: response.model, input_tokens: inputTokens, output_tokens: response.usage.output_tokens,
   });
   // יומן שלא נכתב אינו מפיל תשובה שכבר שולמה, אבל המכסה נשענת עליו
