@@ -3301,6 +3301,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
   }
   .sn-list::-webkit-scrollbar{display:none}
+  /* הסרגל הרחב נבנה מאותן קבוצות של תפריט הבורגר (appendMenuGroups), ולכן
+     במחשב הבורגר יורד מהכותרת - הוא היה תפריט שני לאותה מפה בדיוק */
+  .sn-list>*{flex-shrink:0}
+  .dash-side .menu-item.is-on:not(.is-home){background:var(--nv-accent-soft);color:var(--nv-accent-ink);font-weight:700}
+  .dash-side .menu-item.is-on:not(.is-home) .mi-ico{color:var(--nv-accent-ink);opacity:1}
+  @media(min-width:1024px){
+    #dashboard .header-actions .burger-wrap{display:none}
+  }
   /* כותרת קבוצה: 12px מודגש באפור, וקו דק מעל כל קבוצה חוץ מהראשונה. היא
      גבול בין קבוצות ולא שורה בפני עצמה, ולכן שקטה מהשורות שתחתיה. */
   .sn-group{
@@ -6446,7 +6454,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              נבנית ב-buildMenuPanel() מה-DOM עצמו בכל פתיחה. הוא ראשון בשורה,
              כלומר בפינה הימנית ממש: "לאן ללכת" הוא השאלה הראשונה במסך, והיד
              מגיעה לפינה הזו בלי לחצות אותו. -->
-        <div class="menu-wrap">
+        <div class="menu-wrap burger-wrap">
           <button type="button" class="icon-btn" id="menuBtn" aria-label="תפריט הדשבורד" title="תפריט הדשבורד"
                   aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
