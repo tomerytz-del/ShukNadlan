@@ -16,8 +16,8 @@
 | --- | --- |
 | המיגרציה | `supabase/migrations/20270601160000_coaches.sql` |
 | הפונקציה | `supabase/functions/office-coach/index.ts`, עם `?kind=agent\|team\|office` |
-| מה יוצא למודל ומה נשמר | `supabase/functions/office-coach/payload.ts` |
-| הפרומפטים | `supabase/functions/office-coach/prompts.ts` |
+| מה יוצא למודל ומה נשמר | `supabase/functions/_shared/coach/payload.ts` |
+| הפרומפטים | `supabase/functions/_shared/coach/prompts.ts` |
 | הבדיקה | `scripts/office_coach_test.ts` (רצה ב-CI, ב-`edge_types.yml`) |
 | הכרטיס | `assets/crm-coach.js` (`coachCardHtml`, `COACH_CTA`) |
 
@@ -55,7 +55,7 @@
     { "priority": "high|mid|win", "title": "…", "why": "…", "impact": "…",
       "cta": { "kind": "open_lead", "ref": "<uuid>" } }   // או null
   ],
-  "questions": ["…"],         // עד 3. לא מוצגות עד "שאל את המאמן" (שלב 8)
+  "questions": ["…"],         // עד 3. השאלות המוצעות מתחת לשדה "שאל את המאמן"
   "agenda": ["…"]             // team בלבד: סדר יום לישיבת הצוות
 }
 ```
@@ -183,6 +183,44 @@ select day, count(*) filter (where model <> 'copy') calls, count(*) filter (wher
   צוות ביומן", שפותח פגישה ביומן של מנהל/ת הצוות עם סדר היום בהערות.
 - מודל: `OFFICE_COACH_MODEL`, כמו המשרד.
 
+## "שאל את המאמן"
+
+שדה שאלה חופשית בתחתית כל אחד משלושת הכרטיסים (לא בתצוגה המקוצרת), ומתחתיו
+עד שלוש שאלות מוצעות מ-`questions` של הסיכום. **תשובה בלבד:** אין למאמן כאן
+כלים, אין כפתורים בתשובה, והוא לא מבצע שום פעולה.
+
+| מה | איפה |
+| --- | --- |
+| הפונקציה | `supabase/functions/coach-ask/index.ts`, ‏`verify_jwt = true` |
+| הפרומפט | `askSystemPrompt(kind)` ב-`_shared/coach/prompts.ts` |
+| מה יוצא ומה חוזר | `summaryForAsk`, ‏`cleanQuestion`, ‏`cleanAnswer` ב-`_shared/coach/payload.ts` |
+| היומן והמכסה | `supabase/migrations/20270608100000_coach_ask.sql` |
+| הכרטיס | `coachAskHtml` ו-`coachAskSend` ב-`assets/crm-coach.js` |
+
+- **מי שואל/ת נגזר/ת מה-JWT**, לא מה-body. ההרשאה לכל מאמן היא אותה הרשאה של
+  הסיכום שלו: `agent` הסוכן/ת עצמו/ה, `team` רק מי שמוגדר/ת
+  `agency_teams.lead_member_id`, ו-`office` רק `role = 'manager'`. אחרת `403`.
+- **מה יוצא למודל:** הסיכום האחרון של אותו מאמן (טקסט בלבד, בלי `cta` ובלי
+  מזהים) והמספרים של 30 הימים האחרונים, באותו צמצום של הסיכום. כלומר מנהל/ת
+  צוות לא מקבל/ת טלפון של ליד ולא את ההודעה החופשית גם כאן.
+- **המכסה:** הסוד `COACH_ASK_DAILY` (ברירת מחדל 10) שאלות לחשבון ליום, לפי
+  היום בישראל (`coach_ask_count_today`, ‏service_role בלבד). מעבר לה `429`
+  ‏`coach_ask_quota`, שמתורגם ב-`friendly-error.js`.
+- **המודל:** הסוד `COACH_ASK_MODEL`, וברירת המחדל `claude-sonnet-5-5`. התשובה
+  עד כ-120 מילים, טקסט רגיל, בלי מקף ארוך (בפרומפט, ו-`cleanAnswer` מנקה), ושאלה
+  שאינה על העבודה נענית בסירוב קצר.
+- **היומן:** כל שאלה ותשובה נכתבות ל-`coach_questions` עם המודל והטוקנים. הסוכן/ת
+  קורא/ת את השורות של עצמו/ה בלבד, ואין כתיבה מהדפדפן.
+- **מאמן הסוכן/ת כבוי:** בלי סיכום אין כרטיס, ולכן גם אין שדה. הפונקציה עצמה לא
+  בודקת את `AGENT_COACH_ENABLED`, והמכסה היא מה שתוחם את העלות.
+
+העלות האמיתית:
+
+```sql
+select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tokens) o
+  from coach_questions group by 1, 2 order by 1 desc, 2;
+```
+
 ## הרצה ידנית
 
 ```sh
@@ -198,7 +236,6 @@ curl -X POST ".../office-coach?kind=team&team=<uuid>&dry_run=1" -H "Authorizatio
 
 | בעיצוב | למה |
 | --- | --- |
-| שדה "שאל את המאמן" והשאלות המוצעות | שלב 8. השאלות כבר נשמרות בסיכום, ולא מוצגות |
 | מסך מאמן מלא בנייד וכפתור "המאמן" בדף הבית (`Mobile-Coach`) | דף הבית נבנה בשלב 2 (ענף נפרד). הכרטיס עצמו כבר תומך ב-`compact`, והכפתור ייכנס כשהשלבים יתאחדו |
 | מתג "אני כסוכן/ת / הצוות או המשרד שלי" | שני הדאשבורדים כבר בסרגל, כל אחד בקבוצה שלו. ההחלטה מה מנהל/ת שאינו/ה סוכן/ת פעיל/ה רואה בתפריט נכנסת עם מדריך ההתחלה (שלב 7) |
 | "היסטוריית הטיפים" | אין עדיין טבלה של היסטוריה מוצגת. הסיכומים נשמרים, ואפשר להוסיף |
@@ -216,7 +253,7 @@ curl -X POST ".../office-coach?kind=team&team=<uuid>&dry_run=1" -H "Authorizatio
 - `agent_coach_due` מדלגת על מי שכבר קיבל/ה סיכום היום, ו-`team_coach_due` על
   צוות בלי מנהל/ת.
 
-`scripts/office_coach_test.ts` (108 בדיקות): שום שדה אסור לא יוצא באף kind,
+`scripts/office_coach_test.ts` (124 בדיקות, כולל "שאל את המאמן"): שום שדה אסור לא יוצא באף kind,
 `ref` שלא נשלח נמחק, `cta.kind` מחוץ לרשימה נמחק, וטביעת האצבע לא משתנה רק
 כי עבר זמן. בנוסף, הסכמה, הפרומפט ו-`CTA_KINDS` מסכימים. `deno check` עבר
 בלי שגיאות חדשות.
@@ -231,3 +268,9 @@ curl -X POST ".../office-coach?kind=team&team=<uuid>&dry_run=1" -H "Authorizatio
 
 `dashboard_load.mjs`: בלי שינוי בעלייה (97 ו-137 בקשות), כי הסיכומים נטענים
 רק כשהדאשבורד נפתח.
+
+"שאל את המאמן" (`20270608100000`, פעמיים על Postgres מקומי): סוכן/ת רואה רק את
+השאלות שלו/ה, ל-`authenticated` אין `insert` ואין `coach_ask_count_today`, ל-`anon`
+אין כלום, והספירה לא כוללת את אתמול. בדפדפן, ב-390px וב-1280px: שאלה מוצעת נשלחת
+ונענית עם מספר השאלות שנשארו, המכסה מוצגת בעברית, שאלה של שני תווים לא נשלחת, ואין
+גלילה אופקית.

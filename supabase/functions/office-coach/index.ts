@@ -38,8 +38,8 @@ import {
   addDays, agentFingerprintSource, cleanSummaryV2, type CoachKind, type CoachSummaryV2, compactAgent,
   compactPeriod, compactTeams, type Genders, monthlyTotals, previousTitles, type RefMap, Refs, type Row,
   summarySchema, targetPct,
-} from "./payload.ts";
-import { SYSTEM_PROMPTS } from "./prompts.ts";
+} from "../_shared/coach/payload.ts";
+import { SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
