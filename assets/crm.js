@@ -5973,6 +5973,10 @@ const AI_FEATURES = {
   showcase_branding: { label: 'בדיקת לוגו בתמונה', sub: 'המיניסייט ללקוח/ה', unit: 'לתמונה' },
   lead_analyzer:     { label: 'מנוע הלידים', sub: 'פוסטים מ-RSS', unit: 'לפוסט' },
   news_analyzer:     { label: 'מנוע המבזקים', sub: 'ידיעות', unit: 'לידיעה' },
+  // אזור ההטמעה (docs/csm-adoption.md)
+  csm_mentor:        { label: 'מנטור ההטמעה', sub: 'שאלות של צוות ההטמעה', unit: 'לשאלה' },
+  csm_call:          { label: 'ניתוח הקלטות - הטמעה', sub: 'סיכום והמלצות לשיחה (התמלול בשורת התמלול)', unit: 'לשיחה' },
+  gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };

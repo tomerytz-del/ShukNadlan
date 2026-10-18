@@ -1,17 +1,27 @@
 /* ===========================================================================
    סביבת ההטמעה (CSM) - "הטמעת סוכנים" בניהול מערכת (docs/csm-adoption.md)
    ---------------------------------------------------------------------------
-   ארבע לשוניות בתוך קטגוריה אחת, למנהל/ת פלטפורמה בלבד:
-     צנרת      - קנבן בשישה שלבים, ציון בריאות, והתרעה על 5+ ימים בלי גבריאלה
+   לשוניות בתוך קטגוריה אחת, לצוות ההטמעה (is_csm) ולמנהל/ת הפלטפורמה:
+     צנרת      - קנבן בשישה שלבים, ציון בריאות, התרעה על 5+ ימים בלי גבריאלה,
+                 ופרטי הקשר והשימוש של כל סוכן/ת
+     משרדים    - כתובת, מנהלים וטלפונים, וכמה סוכנים בכל משרד משתמשים
+     המנטור    - מנטור ההטמעה (csm-workspace, ‏_shared/coach/csm.ts) - צוות בלבד
+     הקלטות    - הקלטת שיחה → תמלול, סיכום והמלצות (csm_calls) - צוות בלבד
      משוב      - בקשות פיתוח, וכמה סוכנים ביקשו כל אחת (csm_feedback_votes)
      הצלחות    - ציטוט, מדד ולפני/אחרי, עם הסכמה לפרסום
      ספרייה    - שלושת מסלולי ההדרכה וקטלוג הפקודות לגבריאלה
+     צוות      - מנהל/ת הפלטפורמה בלבד: הזמנת צוות ההטמעה (csm_staff_*)
    ופגישת "הצלחה ראשונה" (#csmSessionModal): אבחון, צ'ק-ליסט, תסריט ומשוב.
 
    הנתונים: csm_agents_overview() לאותות מהמציאות, והטבלאות csm_* ישירות
    (RLS - מנהל/ת פלטפורמה). המיגרציה: 20270626090000_csm_adoption.sql.
 
-   נטען לפני crm.js ומגדיר פונקציות בלבד; sb, currentAgent, showToast, heErr,
+   שני בתים לאותו קובץ: אזור ההטמעה (csm.html, ‏assets/csm-page.js - אשת הצוות)
+   ותצוגת מנהל/ת הפלטפורמה ב-crm.html (פיקוח והזמנת הצוות). מה שמבדיל ביניהם
+   הוא window.CSM_CTX ({ isStaff, isAdmin }), שהדף קובע. העיצוב ב-
+   assets/csm-workspace.css, שנטען כאן בפתיחה הראשונה (ב-CRM - לא בעלייה).
+
+   נטען לפני crm.js ומגדיר פונקציות בלבד; sb, showToast, heErr,
    escapeHtml ו-ASSISTANT_WA_NUMBER נקראים בזמן ריצה.
    =========================================================================== */
 
@@ -117,6 +127,22 @@ const CSM_LIBRARY = [
 ];
 
 let csmRows = [];
+let csmUserId = null;   // auth.uid() - ל-created_by / updated_by
+
+function csmCtx(){
+  if (window.CSM_CTX) return window.CSM_CTX;
+  const a = typeof currentAgent !== 'undefined' ? currentAgent : null;
+  return { isStaff:false, isAdmin: !!(a && a.is_platform_admin) };
+}
+
+function csmEnsureCss(){
+  if (document.getElementById('csmWorkspaceCss')) return;
+  const l = document.createElement('link');
+  l.id = 'csmWorkspaceCss';
+  l.rel = 'stylesheet';
+  l.href = '/assets/csm-workspace.css';
+  document.head.appendChild(l);
+}
 let csmLoaded = false;
 let csmTab = 'pipeline';
 let csmFilter = '';
@@ -154,6 +180,11 @@ function csmRisk(r){
 async function loadCsm(force){
   const host = document.getElementById('csmBody');
   if (!host) return;
+  csmEnsureCss();
+  if (!csmUserId){
+    const { data: { session } } = await sb.auth.getSession();
+    csmUserId = session && session.user ? session.user.id : null;
+  }
   if (csmLoaded && !force){ csmRender(); return; }
   if (!csmLoaded) host.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data, error } = await sb.rpc('csm_agents_overview');
@@ -166,10 +197,20 @@ async function loadCsm(force){
 }
 
 function csmRender(){
+  const ctx = csmCtx();
+  document.querySelectorAll('[data-csm-tab="mentor"],[data-csm-tab="calls"]').forEach(b => { b.hidden = !ctx.isStaff; });
+  const staffTab = document.querySelector('[data-csm-tab="staff"]');
+  if (staffTab) staffTab.hidden = !ctx.isAdmin;
+  if ((csmTab === 'mentor' || csmTab === 'calls') && !ctx.isStaff) csmTab = 'pipeline';
+  if (csmTab === 'staff' && !ctx.isAdmin) csmTab = 'pipeline';
   document.querySelectorAll('[data-csm-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.csmTab === csmTab)));
   const host = document.getElementById('csmBody');
   if (!host) return;
   if (csmTab === 'pipeline') host.innerHTML = csmPipelineHtml();
+  else if (csmTab === 'offices') host.innerHTML = csmOfficesHtml();
+  else if (csmTab === 'mentor') host.innerHTML = csmMentorHtml();
+  else if (csmTab === 'staff') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadStaff(); }
+  else if (csmTab === 'calls') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadCalls(); }
   else if (csmTab === 'feedback') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadFeedback(); }
   else if (csmTab === 'stories') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadStories(); }
   else host.innerHTML = csmLibraryHtml();
@@ -222,6 +263,7 @@ function csmCardHtml(r){
         ${r.last_clarity ? `<span title="דירוג בהדרכה">⭐ ${r.last_clarity}</span>` : ''}
       </div>
       ${r.last_weekly_goal ? `<div class="csm-card-goal">🎯 ${escapeHtml(r.last_weekly_goal)}</div>` : ''}
+      ${csmContactHtml(r)}
       <label class="csm-stage-sel"><span class="sr-only">שלב</span>
         <select data-csm-stage="${escapeHtml(r.agent_id)}">${opts}</select>
       </label>
@@ -230,6 +272,278 @@ function csmCardHtml(r){
         ${r.phone ? `<a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ לסוכן/ת (נפתח בלשונית חדשה)">וואטסאפ</a>` : ''}
       </div>
     </article>`;
+}
+
+/* פרטי הקשר ורמת השימוש - מקופלים, כדי שהקנבן יישאר קריא */
+function csmContactHtml(r){
+  const days = v => { const d = csmDaysSince(v); return d == null ? 'אף פעם' : d === 0 ? 'היום' : 'לפני ' + d + ' ימים'; };
+  const addr = [r.agency_address, r.agency_city].filter(Boolean).join(', ');
+  return `<details class="csm-more"><summary>פרטים ושימוש</summary>
+    <dl>
+      ${r.phone ? `<dt>טלפון</dt><dd><a href="tel:${escapeHtml(r.phone)}" dir="ltr">${escapeHtml(r.phone)}</a></dd>` : ''}
+      ${r.email ? `<dt>מייל</dt><dd><a href="mailto:${escapeHtml(r.email)}" dir="ltr">${escapeHtml(r.email)}</a></dd>` : ''}
+      ${addr ? `<dt>המשרד</dt><dd>${escapeHtml(addr)}</dd>` : ''}
+      <dt>תפקיד</dt><dd>${r.role === 'manager' ? 'מנהל/ת משרד' : 'סוכן/ת'}${r.license_ok ? '' : ' · רישיון לא מאושר'}</dd>
+      <dt>כניסה ל-CRM</dt><dd>${escapeHtml(days(r.last_login_at))}</dd>
+      <dt>גבריאלה</dt><dd>${escapeHtml(days(r.last_gabriela_at))} · ${r.gabriela_30d || 0} הודעות ב-30 יום</dd>
+      <dt>נכסים</dt><dd>${r.active_listings || 0} פעילים מתוך ${r.listings_total || 0}${r.has_post ? ' · יש פוסט שיווקי' : ''}</dd>
+      <dt>המנטור</dt><dd>${r.mentor_30d || 0} שאלות ב-30 יום</dd>
+      ${r.stage_notes ? `<dt>הערה</dt><dd>${escapeHtml(r.stage_notes)}</dd>` : ''}
+    </dl></details>`;
+}
+
+/* ---------- משרדים ----------
+   מקובץ מאותן שורות של הצנרת, בלי שאילתה נוספת. הסדר לפי כללי התעדוף של
+   מנטור ההטמעה (CSM_PRIORITY ב-playbook.ts): מנהל/ת שמשתמש/ת, ואז גודל. */
+function csmOffices(){
+  const by = new Map();
+  csmRows.forEach(r => {
+    const k = r.agency_id || 'none';
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(r);
+  });
+  return [...by.values()].map(list => {
+    const managers = list.filter(r => r.role === 'manager');
+    return {
+      name: list[0].agency_name || 'ללא משרד',
+      address: [list[0].agency_address, list[0].agency_city].filter(Boolean).join(', '),
+      agents: list, managers,
+      managerActive: managers.some(r => { const d = csmDaysSince(r.last_gabriela_at); return d != null && d < 7; }),
+      active7: list.filter(r => (r.gabriela_7d || 0) > 0).length,
+      listings: list.reduce((s, r) => s + (r.active_listings || 0), 0),
+      risk: list.filter(r => csmRisk(r) && r.stage !== 'champion').length,
+      health: Math.round(list.reduce((s, r) => s + csmHealth(r), 0) / list.length),
+    };
+  }).sort((a, b) => (b.managerActive - a.managerActive) || (b.agents.length - a.agents.length));
+}
+
+function csmOfficesHtml(){
+  if (!csmRows.length) return '<div class="empty-state">אין עדיין משרדים.</div>';
+  const q = csmFilter.trim().toLowerCase();
+  const list = csmOffices().filter(o => !q || o.name.toLowerCase().includes(q) || o.address.toLowerCase().includes(q));
+  return `<div class="csm-toolbar">
+      <input type="search" class="csm-search" id="csmSearch" placeholder="חיפוש משרד או עיר" value="${escapeHtml(csmFilter)}" aria-label="חיפוש משרד">
+      <button type="button" class="btn btn-ghost" data-csm-refresh>רענון</button>
+    </div>
+    <p class="acc-sub">ממוין לפי מנהל/ת שמשתמש/ת בגבריאלה ואז לפי גודל. ללשונית "המנטור" אפשר לשאול עם מי כדאי להתחיל.</p>
+    ${list.map(o => `<article class="csm-office">
+      <div class="csm-fb-head"><strong>${escapeHtml(o.name)}</strong><span class="csm-health ${o.health >= 60 ? 'good' : o.health >= 30 ? 'mid' : 'low'}" title="ציון בריאות ממוצע">${o.health}</span></div>
+      <div class="csm-card-meta">${o.address ? escapeHtml(o.address) + ' · ' : ''}${o.agents.length} סוכנים · ${o.active7} פעילים בגבריאלה השבוע · ${o.listings} נכסים פעילים${o.risk ? ` · <strong class="csm-risk-txt">${o.risk} בסיכון</strong>` : ''}</div>
+      ${o.managers.length ? `<div class="csm-office-mgr">מנהל/ת: ${o.managers.map(m => `${escapeHtml(m.display_name || '')}${m.phone ? ` <a href="tel:${escapeHtml(m.phone)}" dir="ltr">${escapeHtml(m.phone)}</a>` : ''}`).join(' · ')}${o.managerActive ? ' <span class="csm-tag seen">משתמש/ת בגבריאלה</span>' : ''}</div>` : ''}
+      <details class="csm-more"><summary>הסוכנים במשרד</summary>
+        <ul class="csm-office-agents">${o.agents.map(r => `<li>
+          <span>${escapeHtml(r.display_name || 'ללא שם')}</span>
+          <span class="csm-card-meta">${escapeHtml((CSM_STAGES.find(s => s.key === r.stage) || {}).label || '')} · 💬 ${r.gabriela_7d || 0} · 🏠 ${r.active_listings || 0}</span>
+          ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" dir="ltr">${escapeHtml(r.phone)}</a>` : ''}
+        </li>`).join('')}</ul>
+      </details>
+    </article>`).join('') || '<div class="empty-state">לא נמצא משרד.</div>'}`;
+}
+
+/* ---------- המנטור ----------
+   מנטור ההטמעה דרך csm-workspace (‏action = ask_mentor). תשובה בלבד; השאלה והתשובה
+   נשמרות עד רענון הדף, כמו בכרטיסים של שלושת המנטורים. */
+const CSM_MENTOR_Q = [
+  'עם איזה 3 משרדים כדאי לי להתחיל השבוע, ולמה?',
+  'מי בסיכון עכשיו, ומה לכתוב לכל אחד/ת?',
+  'איך לגשת למנהל/ת משרד שעוד לא התחיל/ה להשתמש?',
+  'סוכן אומר "אין לי זמן ללמוד מערכת". מה עונים?',
+  'איך בונים פיילוט של 30 יום במשרד?',
+];
+const csmMentor = { q:'', a:'', err:'', busy:false, remaining:null };
+
+function csmMentorHtml(){
+  const st = csmMentor;
+  return `<div class="csm-mentor">
+    <p class="acc-sub">מנטור ההטמעה רואה את כל התיק - השלבים, המשרדים, מי בסיכון ובקשות הפיתוח - ועונה מתוך השיטה של שוק נדל״ן. אפשר לשאול גם את גבריאלה בוואטסאפ ("שאלה למנטור: ...").</p>
+    <div class="csm-mentor-sugg">${CSM_MENTOR_Q.map(q => `<button type="button" class="csm-chip" data-csm-mq="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>
+    <form class="csm-mentor-form" id="csmMentorForm">
+      <label for="csmMentorQ" class="sr-only">השאלה למנטור</label>
+      <textarea id="csmMentorQ" rows="2" maxlength="300" placeholder="מה תרצי לשאול?">${escapeHtml(st.busy ? st.q : '')}</textarea>
+      <button type="submit" class="btn btn-gold"${st.busy ? ' disabled' : ''}>${st.busy ? 'המנטור חושב…' : 'שאלה'}</button>
+    </form>
+    ${st.q && !st.busy ? `<div class="csm-mentor-q">${escapeHtml(st.q)}</div>` : ''}
+    ${st.err ? `<div class="empty-state">${escapeHtml(st.err)}</div>` : ''}
+    ${st.a ? `<div class="csm-mentor-a">${escapeHtml(st.a)}</div>` : ''}
+    ${st.remaining != null ? `<p class="csm-hint">נשארו ${st.remaining} שאלות ב-24 השעות האחרונות.</p>` : ''}
+  </div>`;
+}
+
+async function csmAskMentor(question){
+  const q = String(question || '').trim();
+  if (!q || csmMentor.busy) return;
+  if (q.length < 3){ showToast('צריך לכתוב שאלה של כמה מילים לפחות.'); return; }
+  Object.assign(csmMentor, { q, a:'', err:'', busy:true });
+  if (csmTab === 'mentor') csmRender();
+  try {
+    const data = await csmApi({ action:'ask_mentor', question:q });
+    if (data.error){
+      if (data.remaining != null) csmMentor.remaining = data.remaining;
+      throw { code: data.error, message: data.error };
+    }
+    csmMentor.a = data.answer || '';
+    csmMentor.remaining = data.remaining;
+  } catch (err){
+    csmMentor.err = heErr(err);
+  }
+  csmMentor.busy = false;
+  if (csmTab === 'mentor') csmRender();
+}
+
+/* ---------- קריאה ל-csm-workspace ----------
+   הטוקן נשלף בכל קריאה: supabase-js מרענן אותו ברקע. */
+async function csmApi(body){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { error:'session_not_found' };
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/csm-workspace', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok && !data.error) data.error = String(res.status);
+    return data;
+  } catch (e){
+    return { error: (e && e.message) || 'network' };
+  }
+}
+
+/* ---------- הקלטות שיחה ----------
+   ההקלטה עולה לדלי csm-calls, נוצרת שורה pending, ו-csm-workspace מתמללת
+   ומנתחת ברקע. הדף קורא את השורה כל 4 שניות עד done/failed. */
+const CSM_MOOD = { positive:'חיובי/ת ומעורב/ת', neutral:'ניטרלי/ת', hesitant:'מהסס/ת', negative:'מתנגד/ת או מתוסכל/ת' };
+const CSM_CALL_STATUS = { pending:'ממתינה', processing:'מתמללת ומסכמת…', done:'מוכנה', failed:'נכשלה' };
+let csmCalls = [];
+let csmCallOpen = null;
+let csmCallPoll = null;
+
+async function csmLoadCalls(){
+  const { data, error } = await sb.from('csm_calls')
+    .select('id,title,agent_id,source,status,error,analysis,transcript,audio_path,created_at')
+    .order('created_at', { ascending:false }).limit(100);
+  if (csmTab !== 'calls') return;
+  const host = document.getElementById('csmBody');
+  if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
+  csmCalls = data || [];
+  host.innerHTML = csmCallsHtml();
+  clearTimeout(csmCallPoll);
+  if (csmCalls.some(c => c.status === 'pending' || c.status === 'processing')){
+    csmCallPoll = setTimeout(() => { if (csmTab === 'calls') csmLoadCalls(); }, 4000);
+  }
+}
+
+function csmCallsHtml(){
+  const names = Object.fromEntries(csmRows.map(r => [r.agent_id, r.display_name]));
+  const list = csmCalls.map(c => {
+    const a = c.analysis || {};
+    const open = csmCallOpen === c.id;
+    return `<article class="csm-call${open ? ' is-open' : ''}">
+      <div class="csm-fb-head">
+        <button type="button" class="csm-call-title" data-csm-call="${escapeHtml(c.id)}" aria-expanded="${open}">
+          <strong>${escapeHtml(c.title || 'שיחה')}</strong>
+        </button>
+        <span class="csm-tag ${c.status === 'done' ? 'seen' : c.status === 'failed' ? 'rec' : ''}">${escapeHtml(CSM_CALL_STATUS[c.status] || c.status)}</span>
+      </div>
+      <div class="csm-card-meta">${escapeHtml(new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}
+        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
+      ${c.status === 'failed' ? `<p class="csm-hint">${escapeHtml(c.error || '')} <button type="button" class="btn btn-ghost" data-csm-call-retry="${escapeHtml(c.id)}">לנסות שוב</button></p>` : ''}
+      ${a.summary && !open ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
+      ${open ? csmCallDetailHtml(c) : ''}
+    </article>`;
+  }).join('');
+  return `<form class="csm-form" id="csmCallForm">
+      <div class="field"><label for="csmCallFile">הקלטת שיחה (m4a, mp3, aac, ogg, wav - עד 25MB)</label>
+        <input type="file" id="csmCallFile" accept="audio/*,.m4a,.mp3,.aac,.ogg,.opus,.wav,.3gp,.webm" required></div>
+      <div class="csm-fb-row">
+        <div class="field"><label for="csmCallTitle">כותרת</label><input type="text" id="csmCallTitle" maxlength="200" placeholder="למשל: שיחת היכרות עם מנהל המשרד"></div>
+        <div class="field"><label for="csmCallAgent">עם מי (לא חובה)</label><select id="csmCallAgent"><option value="">לא משויכת</option>${csmAgentOptions()}</select></div>
+      </div>
+      <button type="submit" class="btn btn-gold">העלאה לתמלול וסיכום</button>
+      <p class="csm-hint">אפשר גם לשלוח את ההקלטה לגבריאלה בוואטסאפ. ההקלטה עוברת ל-OpenAI לתמלול ולמודל לסיכום, ונשמרת באזור ההטמעה בלבד.</p>
+    </form>
+    ${list || '<div class="empty-state">עוד אין הקלטות.</div>'}`;
+}
+
+function csmCallDetailHtml(c){
+  const a = c.analysis || {};
+  const sec = (t, items) => items && items.length ? `<h5>${escapeHtml(t)}</h5><ul>${items.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '';
+  const stageLabel = k => (CSM_STAGES.find(s => s.key === k) || {}).label || '';
+  const agent = c.agent_id ? csmRows.find(r => r.agent_id === c.agent_id) : null;
+  return `<div class="csm-call-detail">
+    <div class="csm-fb-row">
+      <select data-csm-call-agent="${escapeHtml(c.id)}" aria-label="שיוך לסוכן/ת"><option value="">לא משויכת</option>${csmAgentOptions().replace(`value="${escapeHtml(c.agent_id || '')}"`, `value="${escapeHtml(c.agent_id || '')}" selected`)}</select>
+      <button type="button" class="btn btn-ghost" data-csm-call-del="${escapeHtml(c.id)}">מחיקה</button>
+    </div>
+    ${a.summary ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
+    ${a.mood ? `<p class="csm-hint">הטון: ${escapeHtml(CSM_MOOD[a.mood] || a.mood)}</p>` : ''}
+    ${sec('נקודות כאב', a.pains)}${sec('התנגדויות', a.objections)}${sec('התחייבויות', a.commitments)}
+    ${sec('המלצות', a.recommendations)}
+    ${sec('הצעדים הבאים', (a.next_steps || []).map(x => x.action + (x.when ? ' (' + x.when + ')' : '')))}
+    <div class="csm-call-actions">
+      ${a.suggested_stage || a.followup_date ? `<button type="button" class="btn btn-gold" data-csm-call-apply="${escapeHtml(c.id)}"${c.agent_id ? '' : ' disabled title="קודם לשייך לסוכן/ת"'}>
+        עדכון ${a.suggested_stage ? 'השלב ל"' + escapeHtml(stageLabel(a.suggested_stage)) + '"' : ''}${a.suggested_stage && a.followup_date ? ' ו' : ''}${a.followup_date ? 'מועד הקשר ל-' + escapeHtml(a.followup_date) : ''}</button>` : ''}
+    </div>
+    ${(a.feedback_items || []).length ? `<h5>לפיתוח</h5><ul>${a.feedback_items.map((f, i) => `<li>${escapeHtml(f.title)} <button type="button" class="btn btn-ghost" data-csm-call-fb="${escapeHtml(c.id)}" data-i="${i}">להוסיף למשוב</button></li>`).join('')}</ul>` : ''}
+    ${a.message_draft ? `<h5>הודעה מוצעת לסוכן/ת</h5><div class="csm-cmd"><code>${escapeHtml(a.message_draft)}</code>
+      <div class="csm-cmd-actions"><button type="button" class="btn btn-ghost" data-csm-copy="${escapeHtml(a.message_draft)}">העתקה</button>
+      ${agent && agent.phone ? `<a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(agent.phone))}?text=${encodeURIComponent(a.message_draft)}" target="_blank" rel="noopener noreferrer" aria-label="שליחה לסוכן/ת בוואטסאפ (נפתח בלשונית חדשה)">שליחה בוואטסאפ</a>` : ''}</div></div>` : ''}
+    ${c.transcript ? `<details class="csm-more"><summary>התמלול המלא</summary><div class="csm-transcript">${escapeHtml(c.transcript)}</div></details>` : ''}
+  </div>`;
+}
+
+async function csmUploadCall(){
+  const fileEl = document.getElementById('csmCallFile');
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  if (!file) return;
+  if (file.size > 25 * 1024 * 1024){ showToast('ההקלטה גדולה מ-25MB. אפשר לשלוח חלק ממנה או לייצא באיכות נמוכה יותר.'); return; }
+  const ext = ((file.name.match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'mp3').toLowerCase();
+  const path = 'web/' + (csmUserId || 'x') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const { error: upErr } = await sb.storage.from('csm-calls').upload(path, file, { contentType: file.type || 'audio/mpeg' });
+  if (upErr) throw upErr;
+  const { data, error } = await sb.from('csm_calls').insert({
+    title: (document.getElementById('csmCallTitle').value || '').trim() || file.name.slice(0, 200),
+    agent_id: document.getElementById('csmCallAgent').value || null,
+    source: 'upload', audio_path: path,
+  }).select('id').single();
+  if (error) throw error;
+  const r = await csmApi({ action:'analyze_call', call_id: data.id });
+  if (r.error) throw { code: r.error, message: r.error };
+  csmCallOpen = data.id;
+  showToast('ההקלטה עלתה. התמלול והסיכום לוקחים דקה-שתיים.');
+}
+
+/* ---------- צוות ההטמעה (מנהל/ת הפלטפורמה בלבד) ----------
+   תפקיד נפרד: לא סוכנת ולא מנהלת פלטפורמה. מזמינים לפי מייל (ונייד, בשביל
+   גבריאלה), והיא נכנסת ל-/csm עם Google באותו מייל - csm_claim מחברת. */
+const CSM_STAFF_ERR = {
+  invalid_email:'כתובת המייל אינה תקינה.',
+  phone_is_agent:'הנייד הזה רשום לסוכן/ת במערכת. גבריאלה מזהה סוכנים קודם, ולכן צריך נייד אחר.',
+  phone_taken:'הנייד הזה כבר רשום לאיש/אשת צוות אחר/ת.',
+};
+
+async function csmLoadStaff(){
+  const host = document.getElementById('csmBody');
+  const { data, error } = await sb.rpc('csm_staff_list');
+  if (csmTab !== 'staff') return;
+  if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
+  const rows = data || [];
+  host.innerHTML = `
+    <p class="acc-sub">מנהלת ההדרכות וההטמעה היא תפקיד נפרד: אזור משלה ב-<a href="/csm" target="_blank" rel="noopener">shuknadlan.co.il/csm</a>, בלי ניהול הפלטפורמה, בלי משרד ובלי נכסים.
+      מזמינים כאן במייל שאיתו היא נכנסת ל-Google, ובנייד שממנו היא כותבת לגבריאלה.</p>
+    <form class="csm-form" id="csmStaffForm">
+      <div class="csm-fb-row">
+        <div class="field"><label for="csmStName">שם</label><input type="text" id="csmStName" maxlength="120"></div>
+        <div class="field"><label for="csmStEmail">מייל (Google)</label><input type="email" id="csmStEmail" required dir="ltr"></div>
+        <div class="field"><label for="csmStPhone">נייד (לגבריאלה)</label><input type="tel" id="csmStPhone" dir="ltr"></div>
+      </div>
+      <button type="submit" class="btn btn-gold">הזמנה / עדכון</button>
+    </form>
+    ${rows.map(r => `<div class="csm-staff-row">
+      <div><strong>${escapeHtml(r.display_name || r.email)}</strong>
+        <div class="csm-card-meta" dir="auto">${escapeHtml([r.email, r.phone].filter(Boolean).join(' · '))} · ${r.joined ? 'נכנסה לאזור' : 'עוד לא נכנסה'}${r.active ? '' : ' · מושבתת'}</div></div>
+      <button type="button" class="btn ${r.active ? 'btn-ghost' : 'btn-gold'}" data-csm-staff="${escapeHtml(r.id)}" data-on="${r.active ? '0' : '1'}">${r.active ? 'השבתה' : 'הפעלה'}</button>
+    </div>`).join('') || '<div class="empty-state">עוד אין צוות הטמעה.</div>'}`;
 }
 
 function csmWaDigits(phone){
@@ -242,7 +556,7 @@ async function csmSetStage(agentId, stage, extra){
   const before = row && row.stage;
   if (row) row.stage = stage;
   const payload = Object.assign({ agent_id: agentId, stage, updated_at: new Date().toISOString(),
-    updated_by: currentAgent && currentAgent.user_id }, extra || {});
+    updated_by: csmUserId }, extra || {});
   const { error } = await sb.from('csm_agent_stage').upsert(payload, { onConflict:'agent_id' });
   if (error){
     if (row) row.stage = before;
@@ -407,7 +721,7 @@ async function csmAddFeedbackVote(title, category, severity, agentId, sessionId,
   let fb = (existing || []).find(f => norm(f.title) === norm(title));
   if (!fb){
     const { data, error } = await sb.from('csm_feedback')
-      .insert({ title: title.trim(), category, severity, created_by: currentAgent && currentAgent.user_id })
+      .insert({ title: title.trim(), category, severity, created_by: csmUserId })
       .select('id').single();
     if (error) throw error;
     fb = data;
@@ -441,7 +755,7 @@ async function csmSaveSession(){
     followup_at: followIso,
     dev_notes: draft.dev_notes.trim() || null,
     notes: draft.notes.trim() || null,
-    created_by: currentAgent && currentAgent.user_id,
+    created_by: csmUserId,
   }).select('id').single();
   if (error){ btn.disabled = false; showToast('הפגישה לא נשמרה: ' + heErr(error)); return; }
 
@@ -578,6 +892,62 @@ function csmLibraryHtml(){
     if (e.target.closest('[data-csm-refresh]')){ loadCsm(true); return; }
     const ses = e.target.closest('[data-csm-session]');
     if (ses){ csmOpenSession(ses.dataset.csmSession); return; }
+    const mq = e.target.closest('[data-csm-mq]');
+    if (mq){ csmAskMentor(mq.dataset.csmMq); return; }
+    const staff = e.target.closest('[data-csm-staff]');
+    if (staff){
+      staff.disabled = true;
+      sb.rpc('csm_staff_set_active', { p_id: staff.dataset.csmStaff, p_active: staff.dataset.on === '1' }).then(({ error }) => {
+        if (error){ staff.disabled = false; showToast('לא נשמר: ' + heErr(error)); return; }
+        csmLoadStaff();
+      });
+      return;
+    }
+    const callBtn = e.target.closest('[data-csm-call]');
+    if (callBtn){ csmCallOpen = csmCallOpen === callBtn.dataset.csmCall ? null : callBtn.dataset.csmCall; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
+    const retry = e.target.closest('[data-csm-call-retry]');
+    if (retry){
+      retry.disabled = true;
+      csmApi({ action:'analyze_call', call_id: retry.dataset.csmCallRetry }).then(r => {
+        if (r.error) showToast('לא הצלחנו להתחיל: ' + heErr({ code:r.error, message:r.error }));
+        csmLoadCalls();
+      });
+      return;
+    }
+    const del = e.target.closest('[data-csm-call-del]');
+    if (del){
+      const c = csmCalls.find(x => x.id === del.dataset.csmCallDel);
+      if (!c || !confirm('למחוק את ההקלטה, התמלול והסיכום?')) return;
+      (async () => {
+        if (c.audio_path) await sb.storage.from('csm-calls').remove([c.audio_path]);
+        const { error } = await sb.from('csm_calls').delete().eq('id', c.id);
+        if (error) showToast('לא נמחק: ' + heErr(error)); else { csmCallOpen = null; csmLoadCalls(); }
+      })();
+      return;
+    }
+    const apply = e.target.closest('[data-csm-call-apply]');
+    if (apply){
+      const c = csmCalls.find(x => x.id === apply.dataset.csmCallApply);
+      const a = (c && c.analysis) || {};
+      if (!c || !c.agent_id) return;
+      const row = csmRows.find(r => r.agent_id === c.agent_id);
+      apply.disabled = true;
+      csmSetStage(c.agent_id, a.suggested_stage || (row && row.stage) || 'registered',
+        a.followup_date ? { next_followup_at: new Date(a.followup_date + 'T10:00:00').toISOString() } : {})
+        .then(ok => { if (ok) showToast('עודכן בצנרת'); });
+      return;
+    }
+    const fbBtn = e.target.closest('[data-csm-call-fb]');
+    if (fbBtn){
+      const c = csmCalls.find(x => x.id === fbBtn.dataset.csmCallFb);
+      const f = c && c.analysis && (c.analysis.feedback_items || [])[Number(fbBtn.dataset.i)];
+      if (!f) return;
+      fbBtn.disabled = true;
+      csmAddFeedbackVote(f.title, 'daily_efficiency', f.severity || 'usability', c.agent_id || null, null, null)
+        .then(() => showToast('נוסף למשוב ותעדוף'))
+        .catch(err => { fbBtn.disabled = false; showToast('לא נשמר: ' + heErr(err)); });
+      return;
+    }
   });
 
   acc.addEventListener('change', async e => {
@@ -587,6 +957,12 @@ function csmLibraryHtml(){
     if (fs){
       const { error } = await sb.from('csm_feedback').update({ status: fs.value, updated_at: new Date().toISOString() }).eq('id', fs.dataset.csmFbStatus);
       if (error) showToast('הסטטוס לא נשמר: ' + heErr(error)); else csmLoadFeedback();
+      return;
+    }
+    const ca = e.target.closest('[data-csm-call-agent]');
+    if (ca){
+      const { error } = await sb.from('csm_calls').update({ agent_id: ca.value || null }).eq('id', ca.dataset.csmCallAgent);
+      if (error) showToast('השיוך לא נשמר: ' + heErr(error)); else { const c = csmCalls.find(x => x.id === ca.dataset.csmCallAgent); if (c) c.agent_id = ca.value || null; document.getElementById('csmBody').innerHTML = csmCallsHtml(); }
       return;
     }
     const fv = e.target.closest('[data-csm-fb-vote]');
@@ -615,6 +991,28 @@ function csmLibraryHtml(){
     const btn = e.target.querySelector('[type=submit]');
     if (btn) btn.disabled = true;
     try {
+      if (e.target.id === 'csmMentorForm'){
+        csmAskMentor(document.getElementById('csmMentorQ').value);
+        return;
+      }
+      if (e.target.id === 'csmCallForm'){
+        if (btn) btn.textContent = 'מעלה…';
+        await csmUploadCall();
+        csmLoadCalls();
+        return;
+      }
+      if (e.target.id === 'csmStaffForm'){
+        const { data, error } = await sb.rpc('csm_staff_save', {
+          p_email: document.getElementById('csmStEmail').value,
+          p_name: document.getElementById('csmStName').value,
+          p_phone: document.getElementById('csmStPhone').value,
+        });
+        if (error) throw error;
+        if (data && data.error){ showToast(CSM_STAFF_ERR[data.error] || 'לא נשמר.'); return; }
+        showToast('נשמר. עכשיו היא נכנסת ל-shuknadlan.co.il/csm עם Google באותו מייל.');
+        csmLoadStaff();
+        return;
+      }
       if (e.target.id === 'csmFbForm'){
         const title = document.getElementById('csmFbNewTitle').value.trim();
         if (!title) return;
@@ -630,7 +1028,7 @@ function csmLibraryHtml(){
           agent_id: document.getElementById('csmStAgent').value,
           quote: v('csmStQuote'), metrics: v('csmStMetrics'), before_text: v('csmStBefore'), after_text: v('csmStAfter'),
           permission_to_share: document.getElementById('csmStShare').checked,
-          created_by: currentAgent && currentAgent.user_id,
+          created_by: csmUserId,
         });
         if (error) throw error;
         showToast('נשמר');

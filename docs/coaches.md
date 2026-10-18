@@ -428,6 +428,14 @@ select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tok
 - טבלה משלה ולא עמודה ב-`agency_members`, כי
   `protect_sensitive_agency_member_fields` שומר שם על מה שהסוכן/ת לא משנה בעצמו/ה.
 
+## מנטור ההטמעה (לצוות ההטמעה, לא לסוכנים)
+
+מנטור נפרד למנהלת ההדרכות וההטמעה (‏`csm_staff`), ולא עוד `CoachKind`: אין לו
+סיכום יומי ואין לו כפתורים. הקוד ב-`_shared/coach/csm.ts` ו-`csm-prompt.ts`, הידע
+ב-`CSM_PLAYBOOK` (‏`playbook.ts`) - **שלא נכנס לשלושת המנטורים של הסוכנים**
+(‏`office_coach_test` בודק), והיומן ב-`csm_mentor_questions`. חומר חדש לידע הזה
+עובר את אותם כללי עריכה (סעיף "הידע המקצועי"). הפרטים: `docs/csm-adoption.md`.
+
 ## הרצה ידנית
 
 ```sh

@@ -99,6 +99,8 @@ PRIVATE = {
     "crm",
     "developer-crm",
     "professional-manage",
+    # ‏אזור ההטמעה - צוות פנימי, כניסה עם Google (docs/csm-adoption.md)
+    "csm",
     "sign",
     "review-request",
     # ‏המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
