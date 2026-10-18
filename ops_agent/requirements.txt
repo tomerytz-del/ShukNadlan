@@ -10,7 +10,7 @@
 # הסוכן מדבר עם המסד ב-SQL ישיר ולא דרך PostgREST: השאילתות שלו נוגעות
 # ב-pg_stat_statements, ב-pg_policies וב-cron.job_run_details — קטלוגים
 # שלקוח ה-supabase אינו חושף כלל.
-psycopg2-binary>=2.9,<3
+psycopg2-binary>=2.9.13,<3
 
 # לבדיקות הזמן החי מול האתר ולבריאות ה-workflows
-requests>=2.32,<3
+requests>=2.34.2,<3
