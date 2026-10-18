@@ -162,14 +162,30 @@ export function agentSystemPrompt(tone: CoachTone = "warm"): string {
 ${TONES[tone]}`;
 }
 
-export function askSystemPrompt(kind: CoachKind, tone: CoachTone = "warm"): string {
-  return `${ASK_WHO[kind]}
+/* מנהל/ת שהוא/היא גם סוכן/ת פעיל/ה מקבל/ת את שני המנטורים, וכל אחד עונה גם
+   על שאלה מהתפקיד השני - לפי ההקשר. ‏manages: מה השואל/ת מנהל/ת (coach-ask
+   גוזר מ-role ומ-agency_teams.lead_member_id); רלוונטי רק במנטור הסוכן/ת. */
+export type CoachManages = "team" | "office" | null;
+
+const AGENT_WHO_MANAGES: Record<"team" | "office", string> = {
+  team: `השואל/ת הוא/היא גם מנהל/ת צוות (manages: "team"). שאלה על העבודה האישית בשטח - כרגיל. שאלה על ניהול אנשים (גיוס, קליטה, שיחה אישית, משמעת בצוות) - עונים מתוך הידע על ניהול צוות שלמטה, ובסוף משפט אחד: לשאלה על המספרים של הצוות יש את המנטור בדאשבורד הצוות.`,
+  office: `השואל/ת הוא/היא גם מנהל/ת המשרד (manages: "office"). שאלה על העבודה האישית בשטח - כרגיל. שאלה על ניהול הצוותים או המשרד - עונים מתוך הידע על ניהול שלמטה, ובסוף משפט אחד: לשאלה על המספרים של המשרד יש את המנטור בדאשבורד המשרד.`,
+};
+
+const MANAGER_AS_AGENT = `רוב המנהלים הם גם סוכנים פעילים. שאלה על העבודה האישית של השואל/ת בשטח (פגישת גיוס, התנגדות של מוכר, משא ומתן, שגרת שיחות) - עונים כמנטור לסוכן/ת, מתוך הידע המקצועי. הנתונים כאן הם של הצוות או המשרד, ולכן על המספרים האישיים של השואל/ת לא עונים מכאן אלא אומרים במשפט אחד שהם אצל המנטור ב"הדשבורד שלי".`;
+
+export function askSystemPrompt(kind: CoachKind, tone: CoachTone = "warm", manages: CoachManages = null): string {
+  const mgr = kind === "agent" ? manages : kind;
+  const role = kind === "agent"
+    ? (manages ? "\n\n" + AGENT_WHO_MANAGES[manages] : "")
+    : "\n\n" + MANAGER_AS_AGENT;
+  return `${ASK_WHO[kind]}${role}
 
 ${TONES[tone]}
 
 ${TOOLS}
 
-${PLAYBOOK}${kind === "agent" ? "" : "\n\n" + MANAGER_PLAYBOOK}${kind === "office" ? "\n\n" + OFFICE_PLAYBOOK : ""}
+${PLAYBOOK}${mgr ? "\n\n" + MANAGER_PLAYBOOK : ""}${mgr === "office" ? "\n\n" + OFFICE_PLAYBOOK : ""}
 
 שני סוגי שאלות:
 - שאלה על המספרים (למה, כמה, על מה להתמקד): עונים מתוך הנתונים, עד 120 מילים.

@@ -27,7 +27,7 @@ import {
   addDays, askHistory, cleanAnswer, cleanQuestion, experienceLabel, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
   Refs, type Row, summaryForAsk,
 } from "../_shared/coach/payload.ts";
-import { askSystemPrompt, cleanTone } from "../_shared/coach/prompts.ts";
+import { askSystemPrompt, cleanTone, type CoachManages } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -56,7 +56,7 @@ type Member = {
   id: string; agency_id: string | null; role: string | null; active: boolean; gender: string | null;
   years_experience: number | null;
 };
-type Context = { summary: unknown; data: Row } | { error: string; status: number };
+type Context = { summary: unknown; data: Row; manages?: CoachManages } | { error: string; status: number };
 
 async function latest(service: SupabaseClient, table: string, col: string, id: string, dateCol: string) {
   const { data } = await service.from(table).select("summary").eq(col, id)
@@ -72,16 +72,21 @@ async function loadContext(
   const from30 = addDays(day, -30), to = addDays(day, -1);
 
   if (kind === "agent") {
-    const [wk, mo, summary] = await Promise.all([
+    // מנהל/ת שהוא/היא גם סוכן/ת: המנטור הזה עונה גם על שאלת ניהול (prompts.ts,
+    // AGENT_WHO_MANAGES). כשל בבדיקה = כמו סוכן/ת רגיל/ה.
+    const [wk, mo, summary, lead] = await Promise.all([
       service.rpc("_my_dashboard_core", { p_agent: me.id, p_from: addDays(day, -7), p_to: to }),
       service.rpc("_my_dashboard_core", { p_agent: me.id, p_from: from30, p_to: to }),
       latest(service, "agent_coach_summaries", "agent_id", me.id, "day"),
+      me.role === "manager" ? Promise.resolve({ data: null })
+        : service.from("agency_teams").select("id").eq("lead_member_id", me.id).limit(1).maybeSingle(),
     ]);
+    const manages: CoachManages = me.role === "manager" ? "office" : lead.data ? "team" : null;
     if (wk.error || mo.error) return { error: "db_error", status: 500 };
     // הוותק, כטווח - כדי שהמנטור יתאים את העומק: תסריט מלא למתחיל/ה, שיחה
     // בגובה העיניים לוותיק/ה (playbook.ts, "התאמה לניסיון", ו-experienceLabel)
     const data = compactAgent(wk.data as Row, mo.data as Row, me.gender, new Refs());
-    return { summary, data: { ...data, experience: experienceLabel(experienceBand, me.years_experience) } };
+    return { summary, data: { ...data, experience: experienceLabel(experienceBand, me.years_experience), manages }, manages };
   }
 
   if (!me.agency_id) return { error: "not_allowed", status: 403 };
@@ -179,7 +184,7 @@ Deno.serve(async (req: Request) => {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       max_tokens: 2000,
-      system: [{ type: "text", text: askSystemPrompt(kind, cleanTone(pref?.tone)), cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: askSystemPrompt(kind, cleanTone(pref?.tone), ctx.manages ?? null), cache_control: { type: "ephemeral" } }],
       messages: [
         ...askHistory(past as Row[] | null),
         {

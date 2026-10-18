@@ -324,6 +324,12 @@ check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי �
 check("ידע: ניהול משרד רק למנטור המשרד", ["שרשרת פיקוד", "ישיבת מנהלים שבועית", "הסוכנים המייצרים", "תוכנית שיפור", "מחוץ למערכת", "שואלים", "ישיבת ההנהלה השבועית", "מיומנות ניהולית"].every((h) => OFFICE_PLAYBOOK.includes(h))
   && askSystemPrompt("office").includes("שרשרת פיקוד") && !askSystemPrompt("team").includes("שרשרת פיקוד") && !askSystemPrompt("agent").includes("שרשרת פיקוד")
   && !/[–—―]/.test(OFFICE_PLAYBOOK) && !/\p{Extended_Pictographic}/u.test(OFFICE_PLAYBOOK));
+check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הסוכן/ת מקבל/ת ידע ניהול לפי manages",
+  !askSystemPrompt("agent").includes("משחקן למאמן")
+  && askSystemPrompt("agent", "warm", "team").includes("משחקן למאמן") && !askSystemPrompt("agent", "warm", "team").includes("שרשרת פיקוד")
+  && askSystemPrompt("agent", "warm", "office").includes("שרשרת פיקוד")
+  && askSystemPrompt("agent", "warm", "team").includes("בדאשבורד הצוות"));
+check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות והמשרד עונים על שאלת שטח ומפנים למספרים האישיים", ["team", "office"].every((k) => askSystemPrompt(k as "team" | "office").includes('ב"הדשבורד שלי"')) && !askSystemPrompt("agent").includes("רוב המנהלים הם גם סוכנים"));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
