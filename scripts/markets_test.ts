@@ -373,6 +373,15 @@ check("הגבול עם ירושלים: 31.6799 → גוש עציון, 31.68 → 
   reg.locate(31.6799, 35.15)?.slug === "gush-etzion" && reg.locate(31.68, 35.15)?.slug === "jerusalem");
 check("הגבול עם באר שבע: 35.05 → באר שבע, 35.0501 → גוש עציון (31.40)",
   reg.locate(31.40, 35.05)?.slug === "beer-sheva" && reg.locate(31.40, 35.0501)?.slug === "gush-etzion");
+check("דימונה → dimona-arad", reg.locate(31.069, 35.033)?.slug === "dimona-arad");
+check("ערד → dimona-arad", reg.locate(31.26, 35.21)?.slug === "dimona-arad");
+check("ירוחם → dimona-arad", reg.locate(30.99, 34.93)?.slug === "dimona-arad");
+check("מצפה רמון → dimona-arad", reg.locate(30.61, 34.80)?.slug === "dimona-arad");
+check("עין גדי → dimona-arad", reg.locate(31.45, 35.38)?.slug === "dimona-arad");
+check("הגבול עם באר שבע: 31.15 → באר שבע, ו-35.0501 → דימונה וערד (31.20)",
+  reg.locate(31.20, 35.05)?.slug === "beer-sheva" && reg.locate(31.20, 35.0501)?.slug === "dimona-arad");
+check("הגבול עם שדרות: 31.10 → שדרות, 31.0999 → דימונה וערד (34.50)",
+  reg.locate(31.10, 34.50)?.slug === "sderot-netivot" && reg.locate(31.0999, 34.50)?.slug === "dimona-arad");
 check("הגבול עם מודיעין: 31.8599 → בית שמש, 31.86 → מודיעין (35.00)",
   reg.locate(31.8599, 35.00)?.slug === "beit-shemesh" && reg.locate(31.86, 35.00)?.slug === "modiin");
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",

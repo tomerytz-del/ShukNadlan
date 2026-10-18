@@ -97,5 +97,5 @@ export default async function handler(request: Request, context: Context) {
 
 /* ‏כל שוק שאינו ברירת המחדל. ‏check_markets.py חוסם פער מול markets.js. */
 export const config: Config = {
-  path: ["/haifa", "/krayot", "/akko-nahariya", "/karmiel-misgav", "/nof-hagalil-migdal", "/hadera", "/netanya", "/kfar-saba-raanana", "/herzliya", "/tel-aviv", "/ramat-gan", "/bnei-brak-elad", "/petah-tikva", "/holon-bat-yam", "/rishon", "/rehovot", "/modiin", "/lod-ramla", "/ashdod", "/ashkelon", "/kiryat-gat", "/sderot-netivot", "/beer-sheva", "/jerusalem", "/beit-shemesh", "/samaria", "/binyamin", "/gush-etzion"],
+  path: ["/haifa", "/krayot", "/akko-nahariya", "/karmiel-misgav", "/nof-hagalil-migdal", "/hadera", "/netanya", "/kfar-saba-raanana", "/herzliya", "/tel-aviv", "/ramat-gan", "/bnei-brak-elad", "/petah-tikva", "/holon-bat-yam", "/rishon", "/rehovot", "/modiin", "/lod-ramla", "/ashdod", "/ashkelon", "/kiryat-gat", "/sderot-netivot", "/beer-sheva", "/jerusalem", "/beit-shemesh", "/samaria", "/binyamin", "/gush-etzion", "/dimona-arad"],
 };
