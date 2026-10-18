@@ -17104,7 +17104,8 @@ function salePriceFromMillions(price, deal){
 }
 
 const IMP_TRUE_WORDS = ['כן','true','yes','1','v','✓','y','נכון','כן!'];
-const IMP_FALSE_WORDS = ['לא','false','no','0','n','שגוי'];
+// ‏"ללא" הוא הערך השלילי בייצוא של יד2 בכל עמודות המאפיינים
+const IMP_FALSE_WORDS = ['לא','ללא','אין','false','no','0','n','שגוי'];
 function impBool(v){
   if (typeof v === 'boolean') return v;
   const s = impNorm(v);
@@ -17159,6 +17160,13 @@ const IMP_PROJECT_STATUS = {
   'ניתן היתר בנייה':'permit_issued','יש היתר':'permit_issued','היתר':'permit_issued','permit_issued':'permit_issued',
   'הבנייה הסתיימה':'construction_complete','הסתיימה':'construction_complete','construction_complete':'construction_complete',
 };
+/* ‏"חדש (נכס בן עד 10 שנים)" - יד2 מוסיפה הסבר בסוגריים לכל מצב, ו"בחר מצב
+   הנכס" הוא הערך של מודעה שבה לא נבחר מצב. */
+function impConditionKey(v){
+  const s = impNorm(String(v == null ? '' : v).replace(/\([^)]*\)/g, ' '));
+  return s.startsWith('בחר') ? '' : s;
+}
+
 const IMP_LOCATION = { 'בבניין':'building','בניין':'building','building':'building','בנכס':'unit','בדירה':'unit','unit':'unit' };
 
 /* סטטוס המודעה בקובץ. "נמכר"/"הושכר" נכנסים כמו שהם — הטריגר שמייצר
@@ -17296,6 +17304,7 @@ function impInitState(){
     overrides: Object.create(null),
     existingKeys: null,             // כותרת|מחיר של נכסים קיימים, לבדיקת כפילות
     forceStep3: false,              // אישור מעבר לבדיקה בלי מיפוי שדה חובה
+    yad2: false, yad2Agent1: null,  // קובץ "המודעות שלי" של יד2 - ראו impDetectYad2
     parsed: [], failed: [], busy: false,
   };
 }
@@ -17400,6 +17409,12 @@ async function impReadFile(file){
     importState.headers = headers;
     importState.rows = rows;
     importState.mapping = impAutoMap(headers);
+    importState.yad2 = impDetectYad2(headers);
+    if (importState.yad2){
+      importState.mapping.listing_expires_at = -1;
+      const at = (name)=> headers.findIndex(h => impNorm(h) === impNorm(name));
+      importState.yad2Agent1 = { name: at('סוכן 1'), phone: at('טלפון 1') };
+    }
     impSetStep(2);
   } catch(err){
     console.error(err);
@@ -17459,6 +17474,58 @@ function impDetectFeatureColumns(headers, mapping){
   return columns;
 }
 
+/* קובץ "המודעות שלי" שיורד מיד2 (docs/property-import.md). שלוש הכותרות
+   האלה אינן בייצוא שלנו ולא בתבנית, ולכן הן מזהות אותו בלי לנחש.
+   מה שהזיהוי משנה - ורק בקובץ כזה:
+   - "תוקף" הוא תוקף המודעה ביד2, לא תום הבלעדיות שלנו, ולכן אינו ממופה
+     (אחרת כל המלאי היה מקבל תזכורת "פג תוקף" באותו יום);
+   - "סוג עסקה" = "מסחרי" אינו אומר מכירה או השכרה (ראו impBuildRow);
+   - תאריך כניסה שעבר הוא "כניסה מיידית";
+   - "סוכן 1" נקרא כדי שהשותף/ה יירשם/תירשם נכון כשהמייבא/ת הוא/היא סוכן 2. */
+const YAD2_SIGNATURE = ['מספר מודעה', 'תאריך הקפצה', 'סוג מודעה'];
+function impDetectYad2(headers){
+  const normalized = new Set(headers.map(impNorm));
+  return YAD2_SIGNATURE.every(h => normalized.has(impNorm(h)));
+}
+
+/* מחיר מסחרי בלי מכירה/השכרה: שכירות חודשית של נכס מסחרי אינה מגיעה
+   ל-100 אלף, ומכירה אינה יורדת אליו. בקובץ הראשון (114 מודעות) הפער היה
+   בין 38,400 ל-120,000. */
+const YAD2_COMMERCIAL_SALE_FROM = 100000;
+/* ומתחת לזה זה מחיר למ"ר לחודש ולא שכירות - "75" לחנות של 500 מ"ר. */
+const YAD2_PRICE_PER_SQM_BELOW = 200;
+
+function impPhoneKey(v){
+  const d = String(v == null ? '' : v).replace(/\D/g, '');
+  return d.startsWith('972') ? '0' + d.slice(3) : d;
+}
+
+/* שם שכונה מקובץ חיצוני מול הרשימה שלנו, כשאין התאמה מדויקת. יד2 כותבת
+   "דרום עפולה", "רובע יזרעאל סביוני העמק", "אזור תעשיה א" - ואצלנו "דרום
+   העיר", "רובע יזרעאל", "אזור התעשייה". משווים מילים אחרי שמורידים את שם
+   העיר, ה' הידיעה ויו"ד כפולה, ומקבלים רק כשמילות האחד כלולות כולן בשני
+   ויש מועמד/ת אחד/ת בלבד. השורה מקבלת אזהרה עם השם שנבחר.
+   "העיר" עצמה נשארת מילה: בלעדיה "מרכז עפולה עלית" התאים גם ל"מרכז העיר". */
+function impHoodWords(name, city){
+  const cityWords = new Set(impWords(city));
+  return impWords(name)
+    .filter(w => !cityWords.has(w))
+    .map(w => w.replace(/יי/g, 'י').replace(/וו/g, 'ו'))
+    .map(w => w.length > 2 && w.startsWith('ה') ? w.slice(1) : w);
+}
+function impFuzzyNeighborhood(raw, city, hoods){
+  const words = impHoodWords(raw, city);
+  if (!words.length) return null;
+  const has = (set, list) => list.every(w => set.has(w));
+  const rawSet = new Set(words);
+  const hits = hoods.filter(n=>{
+    const own = impHoodWords(n.name, n.city || city);
+    if (!own.length) return false;
+    return has(rawSet, own) || has(new Set(own), words);
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+
 function impRenderStep2(){
   const options = importState.headers
     .map((h, i) => `<option value="${i}">${impEscape(h)}</option>`).join('');
@@ -17477,6 +17544,10 @@ function impRenderStep2(){
   impBodyEl.innerHTML = `
     <p>נקראו <strong>${importState.rows.length}</strong> שורות מתוך <strong>${impEscape(importState.fileName)}</strong>.
        זיהינו את העמודות אוטומטית - עברו ותקנו במידת הצורך. שדות עם <span class="imp-req">*</span> הם חובה.</p>
+    ${importState.yad2 ? `<div class="imp-note"><strong>זוהה קובץ מודעות מיד2.</strong>
+       התמונות והסרטונים לא נמצאים בקובץ (רק "כן/ללא") - מעלים אותם לכל נכס אחרי הייבוא.
+       "תוקף" של יד2 אינו נקלט כתוקף המודעה אצלנו, ומודעה מסחרית שבקובץ אין לה מכירה/השכרה
+       מסווגת לפי המחיר - תראו הצעה לאישור בשלב הבדיקה.</div>` : ''}
     ${featureColumns.length ? `<div class="imp-note">עמודות מאפיין (כן/לא) שייקלטו אוטומטית כמאפייני נכס:
        <strong>${featureColumns.map(c => impEscape(c.label)).join(' · ')}</strong></div>` : ''}
     <div class="imp-note" id="impMapWarn" style="min-height:1.2em"></div>
@@ -17555,6 +17626,11 @@ function impBuildRow(rawRow, rowNumber){
     if (IMP_CATEGORY[rawCategory]) category = IMP_CATEGORY[rawCategory];
     else warnings.push(`קטגוריה "${impText(cell('category'))}" לא זוהתה - נקלט כמגורים`);
   }
+  // ביד2 "מסחרי" יושב בעמודת סוג העסקה ולא בקטגוריה. נקרא מהתא שבקובץ ולא
+  // דרך cell(): אחרי שבוחרים מכירה/השכרה בתיקון הידני הנכס עדיין מסחרי.
+  const dealIdx = importState.mapping.deal_type ?? -1;
+  const fileDealCommercial = dealIdx > -1 && impNorm(rawRow[dealIdx]) === 'מסחרי';
+  if (!rawCategory && fileDealCommercial) category = 'commercial';
   payload.category = category;
 
   let ptype = impMatchPropertyType(cell('property_type'), category);
@@ -17581,11 +17657,28 @@ function impBuildRow(rawRow, rowNumber){
   if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
   else payload.property_type = ptype;
 
-  const deal = IMP_DEAL[impNorm(cell('deal_type'))];
+  let deal = IMP_DEAL[impNorm(cell('deal_type'))];
+  let rawPrice = impNumber(cell('price'));
+  if (!deal && fileDealCommercial && rawPrice > 0){
+    // הצעה ולא החלטה: הפקד נשאר פתוח עם הערך, כמו סוג נכס שנוחש מהכותרת
+    deal = rawPrice < YAD2_COMMERCIAL_SALE_FROM ? 'rent' : 'sale';
+    guessed.deal_type = deal === 'rent' ? 'השכרה' : 'מכירה';
+    warnings.push(`בקובץ כתוב "מסחרי" בלי מכירה/השכרה - לפי המחיר סווג כ${guessed.deal_type}. בדקו ותקנו במידת הצורך.`);
+  }
   if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" - יש לרשום מכירה או השכרה`);
   else payload.deal_type = deal;
 
-  const rawPrice = impNumber(cell('price'));
+  if (category === 'commercial' && deal === 'rent' && rawPrice > 0 && rawPrice < YAD2_PRICE_PER_SQM_BELOW
+      && !(overrides && 'price' in overrides)){
+    const area = impNumber(cell('built_size_sqm')) || impNumber(cell('size_sqm'));
+    if (area > 0){
+      const monthly = Math.round(rawPrice * area);
+      warnings.push(`המחיר ${rawPrice} ₪ נראה כמחיר למ"ר - חושב שכר דירה חודשי: ${monthly.toLocaleString('he-IL')} ₪ (${area} מ"ר). בדקו ותקנו במידת הצורך.`);
+      guessed.price = monthly;
+      rawPrice = monthly;
+    }
+  }
+
   const price = rawPrice === null ? null : salePriceFromMillions(rawPrice, deal);
   if (price === null) fail('price', 'חסר מחיר או שאינו מספר');
   else if (price <= 0) fail('price', 'המחיר חייב להיות גדול מאפס');
@@ -17599,9 +17692,11 @@ function impBuildRow(rawRow, rowNumber){
   if (!city) fail('city', 'חסרה עיר');
   else payload.city = city;
 
+  // ‏0 בחדרים, בקומות ובשטחים הוא "לא מולא" (כך בכל מודעה מסחרית ביד2) ולא
+  // ערך שגוי, ולכן נשאר ריק בלי אזהרה. קומה 0 היא קרקע ונקלטת.
   const rooms = impNumber(cell('rooms'));
-  if (rooms !== null){
-    if (rooms <= 0) warnings.push('מספר חדרים לא תקין - לא נקלט');
+  if (rooms !== null && rooms !== 0){
+    if (rooms < 0) warnings.push('מספר חדרים לא תקין - לא נקלט');
     else payload.rooms = rooms;
   }
 
@@ -17611,10 +17706,18 @@ function impBuildRow(rawRow, rowNumber){
     // בתוך העיר של השורה: "מרכז העיר" קיים בעפולה ובקריית אתא, והתאמה לפי
     // שם בלבד הייתה משייכת נכס בעפולה לשכונה בקריית אתא.
     const cityKey = hoodCityKey(city);
-    const match = allNeighborhoods.find(n => impNorm(n.name) === rawNeighborhood
-                                          && (!cityKey || hoodCityKey(n.city) === cityKey));
+    const inCity = allNeighborhoods.filter(n => !cityKey || hoodCityKey(n.city) === cityKey);
+    const match = inCity.find(n => impNorm(n.name) === rawNeighborhood);
+    const fuzzy = match ? null : impFuzzyNeighborhood(cell('neighborhood'), city, inCity);
     if (match) payload.neighborhood_id = match.id;
-    else warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות - לא נקלטה`);
+    else if (fuzzy){
+      payload.neighborhood_id = fuzzy.id;
+      warnings.push(`השכונה "${impText(cell('neighborhood'))}" שויכה ל"${fuzzy.name}"`);
+    }
+    // ביישוב קטן יד2 כותבת את שם היישוב גם כשכונה - אין כאן מה לשייך
+    else if (rawNeighborhood !== impNorm(city)){
+      warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות - לא נקלטה`);
+    }
   }
 
   const salesArea = impText(cell('sales_area'));
@@ -17650,8 +17753,8 @@ function impBuildRow(rawRow, rowNumber){
   }
 
   const totalFloors = impNumber(cell('total_floors'));
-  if (totalFloors !== null){
-    if (totalFloors <= 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין - לא נקלט');
+  if (totalFloors !== null && totalFloors !== 0){
+    if (totalFloors < 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין - לא נקלט');
     else payload.total_floors = Math.round(totalFloors);
   }
 
@@ -17666,8 +17769,8 @@ function impBuildRow(rawRow, rowNumber){
 
   [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה']].forEach(([key, label])=>{
     const n = impNumber(cell(key));
-    if (n !== null){
-      if (n <= 0) warnings.push(`${label} לא תקין - לא נקלט`);
+    if (n !== null && n !== 0){
+      if (n < 0) warnings.push(`${label} לא תקין - לא נקלט`);
       else payload[key] = n;
     }
   });
@@ -17677,6 +17780,20 @@ function impBuildRow(rawRow, rowNumber){
     const value = impText(cell(key));
     if (value) payload[key] = value.slice(0, max);
   });
+
+  // ביד2 שני הסוכנים מתחלפים בין המודעות. כשסוכן 2 הוא המייבא/ת עצמו/ה, השותף/ה
+  // הוא/היא סוכן 1 - אחרת המודעה הייתה מציגה את המייבא/ת פעמיים.
+  const a1 = importState.yad2Agent1;
+  const myPhone = impPhoneKey(currentAgent.phone);
+  if (a1 && myPhone && payload.agent2_phone && impPhoneKey(payload.agent2_phone) === myPhone){
+    const name1 = a1.name > -1 ? impText(rawRow[a1.name]) : '';
+    const phone1 = a1.phone > -1 ? impText(rawRow[a1.phone]) : '';
+    delete payload.agent2_name; delete payload.agent2_phone;
+    if (phone1 && impPhoneKey(phone1) !== myPhone){
+      if (name1) payload.agent2_name = name1.slice(0, 100);
+      payload.agent2_phone = phone1.slice(0, 40);
+    }
+  }
 
   const expires = impDate(cell('listing_expires_at'));
   if (expires === undefined) warnings.push('תוקף המודעה לא זוהה - לא נקלט');
@@ -17703,7 +17820,7 @@ function impBuildRow(rawRow, rowNumber){
   if (category === 'commercial'){
     payload.condition = null;
   } else {
-    const raw = impNorm(cell('condition'));
+    const raw = impConditionKey(cell('condition'));
     if (raw){
       const value = IMP_CONDITION[raw];
       if (value) payload.condition = value;
@@ -17720,14 +17837,17 @@ function impBuildRow(rawRow, rowNumber){
 
   const moveIn = impDate(cell('move_in_date'));
   if (moveIn === undefined) warnings.push('תאריך כניסה לא זוהה - לא נקלט');
+  // ביד2 תאריך שעבר הוא "כניסה מיידית" - בקובץ הראשון היו כאלה משנת 2024
+  else if (moveIn && importState.yad2 && moveIn <= impDate(new Date())) payload.move_in_soon = true;
   else if (moveIn) payload.move_in_date = moveIn;
 
   const soon = impBool(cell('move_in_soon'));
   if (soon === undefined) warnings.push('"כניסה קרובה" לא זוהה - יש לרשום כן/לא');
   else if (soon !== null) payload.move_in_soon = soon;
 
+  // ‏"תוספות" ביד2 היא עמודת כן/ללא ולא רשימה - אין בה מאפיין לקלוט
   const rawFeatures = impText(cell('features'));
-  if (rawFeatures){
+  if (rawFeatures && typeof impBool(rawFeatures) !== 'boolean'){
     const map = impFeatureMap();
     const unknown = [];
     rawFeatures.split(/[,;|]/).forEach(part=>{
@@ -17754,8 +17874,10 @@ function impBuildRow(rawRow, rowNumber){
     warnings.push('נדרשים גם קו רוחב וגם קו אורך - לא נקלטו');
   }
 
+  // ביד2 "תמונות" ו"ווידאו" הן כן/ללא - הקבצים עצמם אינם בייצוא, ושלב 2
+  // אומר זאת פעם אחת לכל הקובץ במקום אזהרה על כל שורה
   const rawImages = impText(cell('images'));
-  if (rawImages){
+  if (rawImages && typeof impBool(rawImages) !== 'boolean'){
     const urls = [], bad = [];
     rawImages.split(/[,;|\s]+/).forEach(part=>{
       const url = part.trim();
@@ -17778,7 +17900,7 @@ function impBuildRow(rawRow, rowNumber){
   // נופל כאן עם אזהרה במקום להפיל את כל שורת הייבוא
   [['tour_3d_url','הקישור לסיור הווירטואלי'], ['video_url','הקישור לסרטון']].forEach(([key, label])=>{
     const url = impText(cell(key));
-    if (!url) return;
+    if (!url || typeof impBool(url) === 'boolean') return;
     if (/^https?:\/\/\S+$/i.test(url)) payload[key] = url.slice(0, 1000);
     else warnings.push(`${label} אינו כתובת מלאה - לא נקלט`);
   });
@@ -17924,7 +18046,7 @@ function impFixRowHtml(row, colspan, pendingCount){
            ${(done || guess) ? '' : 'disabled'}>↧ גם ב-${plural(others, 'שורה אחת', 'שורות')} שנכשלו</button>`
       : '';
     const state = done ? ' done' : (guess ? ' guess' : '');
-    const mark = done ? ' ✓' : (guess ? ' · הושלם מהכותרת' : '');
+    const mark = done ? ' ✓' : (guess ? (key === 'property_type' ? ' · הושלם מהכותרת' : ' · הצעה לאישור') : '');
     return `<div class="fix-field${state}">
         <span class="fix-label">${IMPORT_FIX_FIELDS[key].label}${mark}</span>${control}
       </div>${all}`;
