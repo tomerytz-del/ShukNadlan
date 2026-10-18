@@ -329,6 +329,14 @@ check("הר חריף → אין שוק (ולא הקרוב ביותר)", reg.loca
 check("קריית שמונה → kiryat-shmona", reg.locate(KIRYAT_SHMONA[0], KIRYAT_SHMONA[1])?.slug === "kiryat-shmona");
 check("מטולה → kiryat-shmona", reg.locate(33.278, 35.578)?.slug === "kiryat-shmona");
 check("יסוד המעלה → kiryat-shmona", reg.locate(33.06, 35.60)?.slug === "kiryat-shmona");
+check("צפת → safed", reg.locate(32.965, 35.496)?.slug === "safed");
+check("ראש פינה → safed", reg.locate(32.97, 35.54)?.slug === "safed");
+check("חצור הגלילית → safed", reg.locate(32.98, 35.545)?.slug === "safed");
+check("סאסא → safed", reg.locate(33.03, 35.39)?.slug === "safed");
+check("הגבול עם קריית שמונה: 33.0599 → צפת, 33.06 → קריית שמונה (35.55)",
+  reg.locate(33.0599, 35.55)?.slug === "safed" && reg.locate(33.06, 35.55)?.slug === "kiryat-shmona");
+check("הגבול עם כרמיאל: 35.40 → כרמיאל, 35.4001 → צפת (32.95)",
+  reg.locate(32.95, 35.40)?.slug === "karmiel-misgav" && reg.locate(32.95, 35.4001)?.slug === "safed");
 check("אילת → eilat", reg.locate(EILAT[0], EILAT[1])?.slug === "eilat");
 check("יטבתה (חבל אילות) → eilat", reg.locate(29.90, 35.06)?.slug === "eilat");
 check("עין יהב (הערבה התיכונה) → eilat", reg.locate(30.66, 35.24)?.slug === "eilat");
