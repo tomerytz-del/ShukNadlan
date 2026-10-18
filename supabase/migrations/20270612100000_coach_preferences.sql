@@ -62,3 +62,10 @@ create policy "agent updates own coach preferences" on public.coach_preferences
 -- אין policy למחיקה: חזרה לברירת המחדל היא עדכון ל-warm
 revoke all on public.coach_preferences from anon, authenticated;
 grant select, insert, update on public.coach_preferences to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- הסיכום היומי של המנטור כהתראה (office-coach כותב אותה רק כשנכתב סיכום חדש).
+-- דרך notification_types_add ולא בכתיבה מחדש של האילוץ (סקיל agent-notifications).
+-- ---------------------------------------------------------------------------
+do $$ begin perform public.notification_types_add(array['coach_daily']); end $$;
+

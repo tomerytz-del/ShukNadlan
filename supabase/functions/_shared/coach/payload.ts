@@ -118,6 +118,16 @@ export type CoachAction = {
   impact: string;
   cta: { kind: string; ref?: string } | null;
 };
+/* ההתראה של הבוקר (coach_daily): הכותרת והצעדים, שורה אחת - בתבנית וואטסאפ
+   Meta דוחה \n (סקיל agent-notifications, סעיף 5). רק טקסט שהמודל כתב ונוקה. */
+export function coachNotification(s: CoachSummaryV2): { title: string; body: string } {
+  const flat = (t: string) => t.replace(/\s+/g, " ").trim();
+  const title = ("המנטור: " + flat(s.headline || "הסיכום של היום")).slice(0, 140);
+  const steps = (s.actions || []).map((a, i) => `${i + 1}. ${flat(a.title)}`);
+  const body = (steps.length ? steps.join(" · ") : flat(s.focus || s.summary || "")).slice(0, 400);
+  return { title, body };
+}
+
 export type CoachSummaryV2 = {
   v: 2;
   headline: string;

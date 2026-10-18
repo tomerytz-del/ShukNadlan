@@ -111,6 +111,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   onboarding_client: "accClients",
   onboarding_lead: "accLeadShelf",
   onboarding_agreement: "accAgreements",
+  // ‏הסיכום היומי של המנטור (office-coach) - לכרטיס שלו ב"הדשבורד שלי"
+  coach_daily: "accMyDashboard",
 };
 
 function json(obj: unknown, status = 200) {
@@ -298,6 +300,7 @@ function ctaLabel(url: string): string {
   if (url.includes("accProperties") || url.includes("accSharedWithMe")) return "🏠 פתיחת הנכס";
   if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
   if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
+  if (url.includes("accMyDashboard")) return "🧭 לסיכום המנטור";
   return "👈 פתיחה";
 }
 

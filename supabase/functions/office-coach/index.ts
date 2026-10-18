@@ -35,7 +35,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
-  addDays, agentFingerprintSource, cleanSummaryV2, type CoachKind, type CoachSummaryV2, compactAgent,
+  addDays, agentFingerprintSource, cleanSummaryV2, coachNotification, type CoachKind, type CoachSummaryV2, compactAgent,
   compactPeriod, compactTeams, type Genders, monthlyTotals, previousTitles, type RefMap, Refs, type Row,
   summarySchema, targetPct,
 } from "../_shared/coach/payload.ts";
@@ -353,6 +353,14 @@ async function runAgentOne(
       model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
     }, { onConflict: "agent_id,day" });
     if (error) return { agent_id: agent.agent_id, error: "db_error", detail: error.message };
+    // התראת הבוקר - רק על סיכום חדש (יום שהועתק מאתמול אינו מצלצל). בפעמון,
+    // ובוואטסאפ דרך notification-push עם השקט והתקרה של הסוכן/ת. כשל כאן
+    // אינו מפיל את הסיכום, שכבר נשמר.
+    const n = coachNotification(out.summary);
+    const { error: nErr } = await supabase.from("notifications").insert({
+      agent_id: agent.agent_id, type: "coach_daily", title: n.title, body: n.body,
+    });
+    if (nErr) console.error("agent-coach notification failed", agent.agent_id, nErr.message);
   }
   return {
     agent_id: agent.agent_id, ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,

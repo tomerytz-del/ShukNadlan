@@ -20,6 +20,7 @@
 
 import {
   addDays,
+  coachNotification,
   agentFingerprintSource,
   cleanAnswer,
   cleanQuestion,
@@ -360,6 +361,12 @@ check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות וה�
   }
 }
 check("המנטורים יודעים שאפשר לשאול דרך גבריאלה", askSystemPrompt("agent").includes("שאלה למנטור"));
+{
+  const n = coachNotification({ v: 2, headline: "יום\nשל גיוס", summary: "s", strength: "", focus: "f",
+    actions: [{ priority: "high", title: "לחזור\nלליד", why: "", impact: "", cta: null }, { priority: "mid", title: "CMA לפגישה", why: "", impact: "", cta: null }],
+    questions: [] });
+  check("התראת הבוקר: שורה אחת, כותרת וצעדים ממוספרים", n.title === "המנטור: יום של גיוס" && n.body === "1. לחזור לליד · 2. CMA לפגישה" && !/\n/.test(n.title + n.body), n);
+}
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
