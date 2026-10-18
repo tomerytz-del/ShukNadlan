@@ -3594,6 +3594,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-ask-a.is-err{color:#9A3412}
   .coach-ask-left{margin:0;font-size:.74rem;color:var(--nv-muted)}
   /* סגנון המנטור (coach_preferences): שתי גלולות, הנבחרת זהובה */
+  .coach-gap{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px}
+  .coach-gap-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:.85rem}
+  .coach-gap-head span{color:var(--nv-muted);font-size:.76rem}
+  .coach-gap ul{margin:6px 0 8px;padding-inline-start:18px;font-size:.8rem}
   .coach-tone{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.76rem;color:#AEB8D6}
   .coach-tone button{min-height:30px;padding:0 12px;border:1px solid var(--coach-line);border-radius:15px;background:transparent;
                      color:#DCE3F5;font-size:.76rem;font-weight:700;cursor:pointer}
@@ -8907,6 +8911,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            אישור כאן הוא גם ההיתר עצמו: השער בודק את broker_license_appeals
            לפני שהוא פונה ל-data.gov.il, ולכן "אישרתי" ו"פתחתי את המשרד" הם
            אותה פעולה. ראו docs/broker-registry.md. -->
+      <details class="acc" id="accCoachGaps">
+        <summary>
+          <span class="acc-title">נושאים שחסרים למנטור</span>
+          <span class="acc-count hot" id="accCoachGapsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            שאלות מקצועיות שנשאלו את המנטור ואין לו עליהן ידע. במקום להמציא הוא אמר שאין לו
+            עדיין את השיטה בנושא. שלחו את החומר להוספה, ואחרי שהוא נכנס סמנו "הוספתי לידע".
+          </p>
+          <div id="coachGapsList"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
       <details class="acc" id="accLicenseAppeals">
         <summary>
           <span class="acc-title">ערעורי רישיון תיווך</span>

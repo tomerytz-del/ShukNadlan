@@ -118,6 +118,15 @@ export type CoachAction = {
   impact: string;
   cta: { kind: string; ref?: string } | null;
 };
+/* "כשאין ידע": השורה הראשונה "[נושא חסר: X]" (GAP_MARK ב-prompts.ts) יורדת
+   מהתשובה, והנושא נשמר. סימון באמצע התשובה אינו נחשב - רק שורה ראשונה. */
+export function splitGap(answer: string): { answer: string; gap: string | null } {
+  const m = String(answer || "").match(/^\s*\[נושא חסר:\s*([^\]\n]{1,80})\]\s*\n?/);
+  if (!m) return { answer, gap: null };
+  const gap = m[1].replace(/\s+/g, " ").trim().slice(0, 80) || null;
+  return { answer: answer.slice(m[0].length).trim(), gap };
+}
+
 /* ההתראה של הבוקר (coach_daily): הכותרת והצעדים, שורה אחת - בתבנית וואטסאפ
    Meta דוחה \n (סקיל agent-notifications, סעיף 5). רק טקסט שהמודל כתב ונוקה. */
 export function coachNotification(s: CoachSummaryV2): { title: string; body: string } {
