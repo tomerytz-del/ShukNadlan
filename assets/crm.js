@@ -18794,6 +18794,15 @@ function buildLeadCard(lead, agentId, isArchived){
       onClick: btn => copyReviewLink(lead.id, btn),
     });
   }
+  /* "שאל את המנטור" על הליד - שאלה מוכנה בלי שם, טלפון, הודעה או עיר
+     (coachAskAboutLead ב-assets/crm-coach.js). רק כשיש מנטור אישי, ולא
+     בארכיון: שם הליד כבר נסגר. */
+  if (!isArchived && typeof coachLayerKinds === 'function' && coachLayerKinds().includes('agent')){
+    addCardAction(secondary, {
+      label:'🧭 שאל את המנטור', title:'פותח את המנטור עם שאלה מוכנה על הליד - בלי שם וטלפון. אפשר לערוך לפני השליחה',
+      onClick: () => coachAskAboutLead(lead),
+    });
+  }
   // מסירה בהפנייה - מנהל/ת משרד, על ליד שכבר נפתח (assets/crm-office.js)
   if (canReferRow('lead', lead)){
     addCardAction(secondary, {
