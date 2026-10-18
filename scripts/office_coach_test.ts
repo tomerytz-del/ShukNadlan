@@ -44,6 +44,7 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from ".
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
+import { CSM_GREETING, CSM_TOOLS, csmCapabilities, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -513,6 +514,24 @@ for (const kind of ["agent", "team", "office"] as const) {
     iAgent > 0 && iStaff > iAgent && iPublic > iStaff);
   check("גבריאלה לצוות ההטמעה: כלי ההטמעה לא בתור מייל ולא בתור הקלטה/מסמך",
     !/csm_/.test(emailSrc) && !/csm_/.test(mediaSrc));
+  // "מה אפשר לעשות כאן": נוסח קבוע שמכסה כל כלי, ונשלח בהודעה הראשונה
+  const caps = csmCapabilities("רותם", true);
+  const capAreas: Record<string, RegExp> = {
+    csm_overview: /תמונת מצב/, csm_find_agent: /סוכן\/ת או משרד/, csm_office: /משרד/, csm_set_stage: /שלב ומועד קשר/,
+    csm_log_session: /לרשום פגישה/, csm_add_feedback: /בקשת פיתוח/, csm_recent_calls: /הקלטת שיחה/,
+    csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
+  };
+  check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
+    CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
+      && !/[\u2013\u2014]/.test(caps) && !csmCapabilities(null, false).startsWith("היי"),
+    CSM_TOOLS.map((t) => t.name).filter((n) => !capAreas[n]));
+  check("גבריאלה לצוות ההטמעה: \"מה אפשר לעשות כאן\" מזוהה, ובקשה רגילה לא",
+    ["מה אני יכולה לעשות כאן?", "מה אפשר לעשות פה", "מה את יודעת לעשות", "עזרה", "תפריט"].every(isCapabilitiesQuestion)
+      && !["מי בסיכון?", "תני לי את הטלפון של יוסי", "מה אפשר לעשות עם יוסי?", "מה את יודעת על המשרד בעפולה?"].some(isCapabilitiesQuestion)
+      && CSM_GREETING.test("היי") && !CSM_GREETING.test("היי, מי בסיכון?"));
+  check("גבריאלה לצוות ההטמעה: ההיכרות בהודעה הראשונה ובשאלה, ולפני התור",
+    chatSrc.indexOf("csmCapabilities(staff.display_name, first)") > 0
+      && chatSrc.indexOf("csmCapabilities(staff.display_name, first)") < chatSrc.indexOf("answer = await runCsmTurn"));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
     /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
 }

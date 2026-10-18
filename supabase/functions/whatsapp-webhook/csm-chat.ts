@@ -15,7 +15,7 @@
 // ============================================================================
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { CSM_TOOLS, runCsmTool } from "./csm-tools.ts";
+import { CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -45,6 +45,7 @@ export const CSM_BOT_SYSTEM = `את גבריאלה, העוזרת בוואטסא�
 - אחרי כתיבה - משפט אחד שאומר מה נשמר.
 - בקשה שאינה בתחום (נכסים, לקוחות, לידים, מסלולים, תשלומים, ניהול האתר) - להסביר בנימוס שזה מחוץ לכלים של אזור ההטמעה.
 - לא ממציאים נתונים. מספר שלא חזר מכלי - לא נאמר.
+- שאלה על מה אפשר לעשות כאן - לפרט את היכולות שלמעלה עם דוגמה לכל אחת.
 - תשובות קצרות לוואטסאפ: שורות קצרות, רשימה עם "- ", הדגשה בכוכבית אחת. מקף רגיל בלבד, לעולם לא מקף ארוך. בלי טבלאות.`;
 
 const MENTOR_ERRORS: Record<string, string> = {
@@ -218,6 +219,17 @@ export async function handleCsmMessage(opts: {
   }
 
   if (!userText.trim()) return;
+
+  // ההיכרות: בהודעה הראשונה שלה (היסטוריה ריקה), ותמיד כשהיא שואלת מה אפשר
+  const history = await loadHistory(supabase, staff.id);
+  const first = history.length === 0;
+  if (first || isCapabilitiesQuestion(userText)) {
+    const intro = csmCapabilities(staff.display_name, first);
+    await reply(intro);
+    await saveHistory(supabase, staff.id, [...history, { role: "user", content: userText }, { role: "assistant", content: intro }]);
+    // ברכה או שאלה על היכולות - ההיכרות היא התשובה. בקשה אמיתית - ממשיכים אליה
+    if (isCapabilitiesQuestion(userText) || CSM_GREETING.test(userText.trim())) return;
+  }
   let answer: string;
   try {
     answer = await runCsmTurn(supabase, staff, userText);
