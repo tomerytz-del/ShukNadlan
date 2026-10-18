@@ -5958,7 +5958,7 @@ function costsAiBlock(ai, bySvc){
   const block = admBlock('עלות AI לפי יכולת (הערכה)',
     'לפי הטוקנים (או הדקות) שכל קריאה רושמת, כפול המחירון. כבר כלול בחשבוניות שלמעלה - לא נוסף לסך.');
   if (!ai){
-    block.appendChild(admEl('div', 'empty-state', 'ההערכה לא זמינה עדיין - המיגרציה 20270620100000_ai_usage_log.sql לא רצה.'));
+    block.appendChild(admEl('div', 'empty-state', 'ההערכה לא זמינה עדיין - המיגרציה 20270622090000_ai_usage_log.sql לא רצה.'));
     return block;
   }
   const rows = Array.isArray(ai.rows) ? ai.rows : [];
