@@ -39,6 +39,10 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "jerusalem", label: "ירושלים והסביבה" },
   { slug: "beit-shemesh", label: "בית שמש והסביבה" },
   { slug: "samaria", label: "אריאל והשומרון" },
+  { slug: "binyamin", label: "בנימין ומודיעין עילית" },
+  { slug: "gush-etzion", label: "גוש עציון והר חברון" },
+  { slug: "dimona-arad", label: "דימונה, ערד וירוחם" },
+  { slug: "eilat", label: "אילת והסביבה" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);

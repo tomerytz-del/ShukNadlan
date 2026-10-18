@@ -173,7 +173,18 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 מי שכבר לא בקובץ. ‏`agent_client_delete_cleanup` (לפני מחיקה) מוחק את ההתראות
 של הלקוח/ה ושל פריטי היומן שלו/ה, ואת פריטי היומן עצמם - **מחיקה ולא ביטול**,
 כי ביטול פגישה עם `client_notify` שולח ללקוח/ה הודעת ביטול. סגירה
-(`status = 'closed'`) מוחקת רק את התראות `client_match` (`agent_client_closed_cleanup`).
+(`status = 'closed'`) מוחקת את התראות `client_match` בפעמון **ואת שורות
+`client_match_alerts` הפתוחות** (`new`/`seen`; ‏`dismissed` נשמרת) -
+‏`agent_client_closed_cleanup`, ‏`20270608090000`. פתיחה מחדש מריצה את ההתאמות
+שוב (`status` ברשימת `agent_clients_match_alerts_upd`). במחיקה `client_match_alerts`
+יורדת ב-`on delete cascade`.
+
+**כל קורא של `client_match_alerts` מסנן לקוח/ה שאינו/ה `active`** - הפיד
+(`client_match_alerts_feed`), הסיכום וספירת הנכס. מושהה (`paused`) אינו/ה
+נמחק/ת אלא מוסתר/ת, ולכן קורא חדש בלי `c.status = 'active'` מחזיר לקוחות
+"לא אקטואליים" למסך - כך הופיעו 11 התראות של לקוח/ה סגור/ה בפיד באוקטובר
+2026. ובדפדפן: מחיקה, סגירה, השהיה ומעבר לבעל/ת נכס קוראים אחריהם ל-
+`loadClientAlerts()`, אחרת הרשימה שעל המסך נשארת עד רענון.
 טבלה חדשה שמפנה ל-`agent_clients` ומייצרת התראה או תזכורת נכנסת לפונקציית
 המחיקה באותו PR. הסכמים **אינם** נמחקים. ‏`docs/client-matching.md`.
 
