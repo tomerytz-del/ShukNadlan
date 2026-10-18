@@ -2413,6 +2413,24 @@ const SYSTEM_STATIC: string = (() => {
 })();
 
 /**
+ * המטמון של הבוט הציבורי חי בשעות היום - כמו `warmPromptCache` ב-agent.ts, ועם
+ * אותו כלל: הקידומת זהה לזו של `runPublicTurn` (מודל, `TOOLS`, `SYSTEM_STATIC`
+ * עם אותו `cache_control`, ו-`PUBLIC_EFFORT`).
+ */
+export async function warmPublicPromptCache(): Promise<Anthropic.Message> {
+  const response = await callClaude({
+    model: MODEL,
+    max_tokens: 0,
+    output_config: { effort: PUBLIC_EFFORT },
+    system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
+    tools: TOOLS,
+    messages: [{ role: "user", content: "." }],
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming);
+  logAiUsage(anthropicRow("gabriela_public_warm", response.model || MODEL, response.usage));
+  return response;
+}
+
+/**
  * ‏`system` כשני בלוקים: הקבוע (במטמון) ואחריו המשתנה.
  *
  * הבלוק השני מושמט כשאין בו תוכן — שיחה ותיקה בלי נכס אחרון מחזירה מחרוזת

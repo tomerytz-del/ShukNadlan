@@ -5949,6 +5949,8 @@ function renderCostsReport(){
 const AI_FEATURES = {
   gabriela_agent:    { label: 'גבריאלה לסוכנים', sub: 'העוזרת בוואטסאפ, כל קריאה למודל בתור', unit: 'לקריאה' },
   gabriela_public:   { label: 'גבריאלה לגולשים', sub: 'הבוט הציבורי בוואטסאפ', unit: 'לקריאה' },
+  gabriela_agent_warm:  { label: 'שמירת המטמון - גבריאלה לסוכנים', sub: 'בקשה ריקה אחרי 50 דקות של שקט, בשעות היום', unit: 'לבקשה' },
+  gabriela_public_warm: { label: 'שמירת המטמון - גבריאלה לגולשים', sub: 'בקשה ריקה אחרי 50 דקות של שקט, בשעות היום', unit: 'לבקשה' },
   mentor_question:   { label: 'שאלה למנטור', sub: 'CRM ו"שאלה למנטור" דרך גבריאלה', unit: 'לשאלה' },
   agent_daily:       { label: 'סיכום יומי לסוכן/ת', sub: 'המנטור לסוכן/ת, כל בוקר', unit: 'לסיכום' },
   team_weekly:       { label: 'סיכום שבועי לצוות', sub: 'מנטור מנהל/ת הצוות', unit: 'לסיכום' },

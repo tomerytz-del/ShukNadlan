@@ -96,6 +96,11 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 "gabriela_public", ...))`) - מזה הפאנל "עלויות" יודע כמה גבריאלה עולה. ‏`cache_write_1h_tokens`
 נשמר בנפרד כי ה-ttl של שעה מתומחר פי 2. ‏`docs/platform-costs.md`, "עלות AI לפי יכולת".
 
+**ושמירת המטמון** (‏`task=cache-warm`, ‏`warmPromptCache` / `warmPublicPromptCache`) שולחת בשעות
+היום בקשה ריקה עם **אותה קידומת** - מודל, `TOOLS`, `SYSTEM_STATIC`, ‏`cache_control` ו-`effort`.
+מי שמשנה אחד מהם ב-`runAgentTurn` / `runPublicTurn` משנה אותו גם שם, אחרת השמירה כותבת
+מטמון שאף תור אינו קורא (‏`docs/platform-costs.md`, "המטמון של גבריאלה").
+
 ## הודעה עם כפתורים
 
 `sendButtons` ב-`whatsapp.ts` (`interactive · button`). המגבלות של Meta

@@ -6576,6 +6576,30 @@ export async function callClaude(
 }
 
 /**
+ * שומר את המטמון של הפרומפט חי בשעות היום (‏task=cache-warm, ‏docs/platform-costs.md,
+ * "המטמון של גבריאלה"). התור הראשון אחרי שעה של שקט כותב את כל הכלים וההוראות
+ * (~40K טוקנים) למטמון של שעה - פי 2 ממחיר הקלט, כ-$0.40 על Opus 5 - במקום לקרוא
+ * אותם ב-$0.02. בקשה עם `max_tokens: 0` קוראת את אותה קידומת, מאפסת את השעון,
+ * ולא מחזירה פלט.
+ *
+ * **הקידומת חייבת להיות זהה לזו של `runAgentTurn`**: אותו מודל, אותם `TOOLS`,
+ * אותו `SYSTEM_STATIC` עם אותו `cache_control`, ואותו `effort` (הוא מרונדר לתוך
+ * הפרומפט). שינוי שם בלי כאן = בקשה שכותבת מטמון שאף תור אינו קורא.
+ */
+export async function warmPromptCache(): Promise<Anthropic.Message> {
+  const response = await callClaude({
+    model: MODEL,
+    max_tokens: 0,
+    output_config: { effort: "medium" },
+    system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
+    tools: TOOLS,
+    messages: [{ role: "user", content: "." }],
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming);
+  logAiUsage(anthropicRow("gabriela_agent_warm", response.model || MODEL, response.usage));
+  return response;
+}
+
+/**
  * מריץ תור אחד של שיחה: קלט הסוכן/ת -> (כלים) -> טקסט תשובה.
  * ‏conv מתעדכן במקום (pending_images / last_property_id) ונשמר על ידי הקורא.
  */

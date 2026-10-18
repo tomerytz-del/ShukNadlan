@@ -22,8 +22,9 @@ import {
   profileGaps,
   runAgentTurn,
   showcaseButtonReply,
+  warmPromptCache,
 } from "./agent.ts";
-import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
+import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
@@ -1627,6 +1628,48 @@ Deno.serve(async (req: Request) => {
     );
     return new Response(JSON.stringify({ accepted: true }), {
       status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // ‏שמירת המטמון של שני הבוטים בשעות היום (‏docs/platform-costs.md, "המטמון של
+  // גבריאלה"). ‏pg_cron קורא כל 5 דקות, ורק כש-`ai_cache_warm_targets()` מחזירה
+  // בוט שהמטמון שלו עומד לפוג; היא גם מה שנבדק כאן שוב, כדי שקריאה ידנית לא
+  // תכתוב מטמון של שעה סתם.
+  if (url.searchParams.get("task") === "cache-warm") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const { data: targets, error } = await supabase.rpc("ai_cache_warm_targets");
+    if (error) {
+      console.error("cache warm targets failed", error.message);
+      return new Response(JSON.stringify({ error: "targets_failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const due = (targets ?? []) as string[];
+    const warm = async (name: string, fn: () => Promise<Anthropic.Message>) => {
+      try {
+        const r = await fn();
+        const u = r.usage as unknown as Record<string, number | undefined>;
+        return { name, cache_read: u.cache_read_input_tokens ?? 0, cache_write: u.cache_creation_input_tokens ?? 0 };
+      } catch (err) {
+        console.error("cache warm failed", name, err);
+        return { name, error: String((err as Error).message || err).slice(0, 200) };
+      }
+    };
+    const results = await Promise.all([
+      ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
+      ...(due.includes("gabriela_public") ? [warm("gabriela_public", warmPublicPromptCache)] : []),
+    ]);
+    console.log("cache warm", JSON.stringify(results));
+    return new Response(JSON.stringify({ results }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }
