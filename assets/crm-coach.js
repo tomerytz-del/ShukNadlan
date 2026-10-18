@@ -151,6 +151,8 @@ async function coachLoad(kind, teamId){
   const { data, error } = await q;
   coachState[kind] = error ? false : ((data && data[0]) || null);
   coachRepaint(kind);
+  // כפתור "המנטור" בסרגל ובתפריט מופיע לפי מה שנטען (coachLayerKinds)
+  if (typeof scheduleNavCounts === 'function') scheduleNavCounts();
 }
 
 /* ---------- הטון והוותק ---------- */
@@ -203,8 +205,11 @@ function coachSub(kind, row){
 }
 
 const COACH_EMPTY = {
-  // מאמן הסוכן/ת לא מציג "יגיע מחר": הוא נדלק בהדרגה (AGENT_COACH_ENABLED),
-  // והבטחה שלא מתקיימת גרועה מכרטיס שלא קיים. ראו coachCardHtml.
+  // מאמן הסוכן/ת לא מבטיח "יגיע מחר": הוא נדלק בהדרגה (AGENT_COACH_ENABLED),
+  // ונכתב רק למי שהייתה לו/ה תנועה ב-14 יום (agent_coach_due). אבל השאלה
+  // החופשית עובדת גם בלי סיכום (coach-ask), ולכן הכרטיס קיים ומציע אותה -
+  // תומר, 18.10.2026: המנטור צריך מקום בשימוש היומיומי.
+  agent:  'עוד אין סיכום יומי בחשבון שלך. כשיהיה, הוא יופיע כאן בבוקר עם עד שלושה צעדים להיום. בינתיים אפשר לשאול את המנטור כל שאלה מקצועית.',
   team:   'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד בצוות בשבוע שעבר, מה תקוע, שלושה צעדים לשבוע וסדר יום לישיבת הצוות.',
   office: 'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד במשרד בשבוע שעבר, מה תקוע, ועד שלוש החלטות לשבוע הזה.',
 };
@@ -228,8 +233,9 @@ function coachCardHtml(kind, opts){
   if (!row || !row.summary){
     if (!COACH_EMPTY[kind]) return '';
     return `<section class="coach" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-      ${coachHead(kind, kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
-      <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p></section>`;
+      ${coachHead(kind, kind === 'agent' ? 'סיכום יומי אישי' : kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
+      <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p>
+      ${o.compact ? '' : coachAskHtml(kind, [])}</section>`;
   }
   const s = row.summary;
   const disclaimer = '<p class="coach-note">נכתב אוטומטית מהמספרים. כדאי לבדוק לפני שפועלים.</p>';
@@ -289,6 +295,18 @@ function coachCardHtml(kind, opts){
     ${o.compact ? '' : coachAskHtml(kind, Array.isArray(s.questions) ? s.questions : [])}
     ${disclaimer}
   </section>`;
+}
+
+/* המנטור בראש הדאשבורד, ולצדו הבלוק של "מה דורש טיפול" (design/
+   Desktop-TeamLead, ‏Desktop-Office, ‏Desktop-Performance). עד 18.10.2026 הוא
+   ישב מתחת לפתיח ולשורת המדדים - בדאשבורד המשרד 900px ויותר מראש הדאשבורד,
+   כלומר מתחת למסך. בלי סיכום (הכרטיס ריק) מחזיר null, והדאשבורד מצייר את
+   הבלוק במקומו הרגיל. ‏side ריק - המנטור לבד, ברוחב מלא. */
+function coachLeadHtml(kind, side){
+  const card = coachCardHtml(kind);
+  if (!card) return null;
+  if (!side) return `<div class="coach-lead is-solo">${card}</div>`;
+  return `<div class="coach-lead">${card}<div class="coach-lead-side">${side}</div></div>`;
 }
 
 /* ---------- "שאל את המנטור" ----------
@@ -464,8 +482,8 @@ async function loadCoachGaps(){
 })();
 
 /* ---------- "המנטור שלי": השכבה מדף הבית (HANDOFF 6.8) ----------
-   design/Mobile-Coach.dc.html: הכפתור "המנטור" בדף הבית (#homeCoachBtn)
-   פותח שכבה עם הכרטיס המקוצר (שני צעדים), ולמנהלים מתג בין המנטורים:
+   design/Mobile-Coach.dc.html: "הצעדים של היום" בשורת המנטור בדף הבית
+   (#homeCoachRow, למטה) פותח שכבה עם הכרטיס המקוצר (שני צעדים), ולמנהלים מתג בין המנטורים:
    "אני כסוכן/ת" / "הצוות שלי" / "המשרד שלי". הכרטיס המלא, עם "שאל את
    המנטור", נשאר בדאשבורד של אותו kind, ולכן בתחתית יש קישור אליו.
 
@@ -489,15 +507,84 @@ function coachLayerKinds(){
   const roles = coachRoles();
   const kinds = [];
   const a = coachState.agent;
-  if (!(roles && roles.is_active_agent === false) && a && a.summary) kinds.push('agent');
+  // המנטור האישי: לכל סוכן/ת פעיל/ה, גם בלי סיכום - השאלה עובדת בלעדיו.
+  // ‏undefined = טרם נטען, false = הטבלה לא נקראה (מסד בלי המיגרציה)
+  if (!(roles && roles.is_active_agent === false) && a !== undefined && a !== false) kinds.push('agent');
   if (roles && roles.led_team_id && navAccVisible('accTeamDashboard')) kinds.push('team');
   if (currentAgent.role === 'manager' && navAccVisible('accOfficeDashboard')) kinds.push('office');
   return kinds;
 }
 
+/* ---------- "שאל את המנטור" בחזית דף הבית (#homeCoachRow) ----------
+   השאלה הייתה רחוקה שלושה קליקים וגלילה (תומר, 18.10.2026): השדה ישב רק
+   בכרטיס המלא בדאשבורד. כאן היא שורה אחת מתחת לברכה, והתשובה מוצגת מתחתיה.
+   אותו coachAskSend ואותו מצב (coachAsk) של הכרטיס - ולכן אותה מכסה, ושאלה
+   ששאלת כאן מופיעה גם בכרטיס בדאשבורד.
+
+   המנטור שנשאל: הראשון ב-coachLayerKinds (האישי, ואם אין - הצוות או המשרד).
+   ‏**המבנה נבנה פעם אחת ב-HTML**: homeCoachSync רץ עם כל ציור של דף הבית
+   (refreshNavCounts), וציור מחדש של השדה היה מוחק את מה שמוקלד ואת המיקוד.
+   כאן מתעדכנים רק ההצעות, התשובה והנראות. */
+function homeAskKind(){
+  return coachLayerKinds()[0] || null;
+}
+
 function homeCoachSync(){
-  const btn = document.getElementById('homeCoachBtn');
-  if (btn) btn.hidden = !coachLayerKinds().length;
+  const row = document.getElementById('homeCoachRow');
+  if (!row) return;
+  const kind = homeAskKind();
+  row.hidden = !kind;
+  if (!kind) return;
+  row.dataset.kind = kind;
+  const st = coachAsk[kind] || {};
+
+  const steps = row.querySelector('[data-home-coach-open]');
+  const cur = coachState[kind];
+  if (steps) steps.textContent = cur && cur.summary
+    ? (kind === 'agent' ? 'הצעדים של היום ←' : 'הסיכום השבועי ←') : 'עוד מהמנטור ←';
+
+  const send = row.querySelector('.home-ask-send');
+  const input = document.getElementById('homeAskInput');
+  if (send) send.disabled = !!st.busy;
+  if (input) input.disabled = !!st.busy;
+
+  // הצעות: עד אחת מהסיכום ואחת מקצועית, רק לפני שאלה ראשונה
+  const sugg = document.getElementById('homeAskSugg');
+  if (sugg){
+    const row0 = coachState[kind];
+    const fromSum = row0 && row0.summary && Array.isArray(row0.summary.questions) ? row0.summary.questions : [];
+    const pro = COACH_PRO_Q[kind] || [];
+    const day = Math.floor(Date.now() / 86400000);
+    const list = st.q ? [] : [...new Set([fromSum[0], pro.length ? pro[day % pro.length] : null].filter(Boolean))];
+    const key = list.join('|');
+    if (sugg.dataset.key !== key){
+      sugg.dataset.key = key;
+      sugg.innerHTML = list.map(q => `<button type="button" data-home-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('');
+    }
+  }
+
+  const out = document.getElementById('homeAskOut');
+  if (out){
+    out.hidden = !st.q;
+    if (st.q){
+      out.innerHTML = `<p class="q">${escapeHtml(st.q)}</p>`
+        + (st.busy ? '<p class="a is-busy">המנטור חושב…</p>'
+          : st.err ? `<p class="a is-err">${escapeHtml(st.err)}</p>`
+          : `<p class="a">${escapeHtml(st.a || '')}</p>`)
+        + (st.remaining != null && !st.busy ? `<p class="left">${st.remaining
+            ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : '');
+    }
+  }
+}
+
+function homeAskSubmit(question){
+  const kind = homeAskKind();
+  if (!kind) return;
+  const input = document.getElementById('homeAskInput');
+  const q = String(question || '').trim();
+  if (!q) return;
+  if (input && q.length >= 3) input.value = '';
+  coachAskSend(kind, q);
 }
 
 async function coachLayerEnsure(kind){
@@ -549,15 +636,27 @@ function coachLayerRender(){
   else if (row === false) body = '<p class="cl-wait">לא הצלחנו לטעון את המנטור כרגע. אפשר לנסות שוב בעוד רגע.</p>';
   else body = coachCardHtml(kind, { compact:true });
 
-  host.innerHTML = tabs + `<div role="tabpanel">${body}</div>`
+  // השכבה היא הבית של המנטור: הצעדים, ומתחתם השאלה החופשית (הכרטיס המקוצר
+  // לא נושא אותה)
+  const s = row && row.summary;
+  const ask = row !== undefined && row !== false && !coachLayerBusy[kind]
+    ? `<div class="cl-ask">${coachAskHtml(kind, s && Array.isArray(s.questions) ? s.questions : [])}</div>` : '';
+  host.innerHTML = tabs + `<div role="tabpanel">${body}${ask}</div>`
     + (navAccVisible(COACH_LAYER_DASH[kind])
-        ? `<button type="button" class="cl-more" data-cl-dash="${kind}">לכל הצעדים ולשאלה למנטור ←</button>` : '');
+        ? `<button type="button" class="cl-more" data-cl-dash="${kind}">לדאשבורד המלא ←</button>` : '');
 }
 
 (function wireCoachLayer(){
+  document.addEventListener('submit', e => {
+    if (e.target.id !== 'homeAskForm') return;
+    e.preventDefault();
+    homeAskSubmit(document.getElementById('homeAskInput').value);
+  });
   document.addEventListener('click', e => {
-    const open = e.target.closest('#homeCoachBtn');
+    const open = e.target.closest('[data-home-coach-open]');
     if (open){ e.stopPropagation(); openNavLayer('coach'); return; }
+    const hq = e.target.closest('[data-home-q]');
+    if (hq){ homeAskSubmit(hq.dataset.homeQ); return; }
     if (!e.target.closest('#coachSheet')) return;
     const tab = e.target.closest('[data-cl-kind]');
     if (tab){
