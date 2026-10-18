@@ -304,6 +304,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ccta{font-size:.78rem;padding:8px 12px;white-space:normal}
   }
 
+  /* ---------- המנטור AI (‏.mentor-feat) ----------
+     כרטיס כהה בצבעי כרטיס המנטור ב-CRM (‏#13235B וזהב). שמות המחלקות בלי
+     "-card" ובלי "badge": ‏design-system.css נטען אחרי ה-<style> ותופס אותם. */
+  .mentor-feat{margin:40px 0 10px;display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);
+    background:#13235B;color:#fff;border-radius:22px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(13,27,61,.22)}
+  .mentor-pic{position:relative;background:#0d1b3d;min-height:100%}
+  .mentor-pic img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+  .mentor-pic::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(to left,rgba(19,35,91,0) 60%,rgba(19,35,91,.9))}
+  .mentor-body{padding:30px 32px 26px}
+  .mentor-tag{display:inline-block;font-size:.76rem;font-weight:800;color:#13235B;background:#E0B84A;
+    border-radius:999px;padding:4px 12px;margin-bottom:12px}
+  .mentor-feat h2{font-size:1.6rem;line-height:1.3;color:#fff;margin:0 0 10px}
+  .mentor-feat .mentor-lead{color:#DCE3F5;font-size:.98rem;margin:0 0 16px}
+  .mentor-points{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
+  .mentor-points li{position:relative;padding-inline-start:28px;font-size:.92rem;line-height:1.6;color:#DCE3F5}
+  .mentor-points li::before{content:"";position:absolute;inset-inline-start:0;top:.3em;width:18px;height:18px;border-radius:50%;
+    background:#E0B84A url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2313235B' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center/12px no-repeat}
+  .mentor-points b{color:#fff}
+  .mentor-feat .mentor-note{font-size:.76rem;color:#A9B5D6;margin:0}
+  @media(max-width:760px){
+    .mentor-feat{grid-template-columns:1fr}
+    .mentor-pic{height:260px}
+    .mentor-pic::after{background:linear-gradient(to bottom,rgba(19,35,91,0) 55%,#13235B)}
+    .mentor-body{padding:4px 20px 22px}
+    .mentor-feat h2{font-size:1.35rem}
+  }
+
   /* ---------- שאלות נפוצות ---------- */
   .faq{margin:40px 0 10px}
   .faq h2{font-size:1.35rem;margin-bottom:14px}
@@ -380,6 +409,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       מילוי פרטים, אישור <a href="/terms">התקנון</a> ומעבר לסליקה מאובטחת
     </p>
 
+    <!-- ‏המנטור AI - היכולת שמוצגת בהבלטה (בקשה של תומר, 18.10.2026).
+         **כל משפט כאן הוא מה שהמערכת עושה היום** (docs/coaches.md): פתוח לכל
+         המסלולים בלי גייט, ולכן "בכל המסלולים". השאלה בוואטסאפ עוברת דרך
+         גבריאלה, שהיא PROFESSIONAL ומעלה - ולכן היא מנוסחת כך. מי שמגדר/ת את
+         המנטור למסלול, או מכבה את מאמן הסוכן/ת (AGENT_COACH_ENABLED), מעדכן/ת
+         גם כאן וגם את שתי השורות בטבלה (סקיל new-tier-capability). הדמות נוצרה
+         ב-AI ואין לה שם - "המנטור" (סקיל mentor). -->
+    <section class="mentor-feat" aria-labelledby="mentorTitle">
+      <div class="mentor-pic">
+        <img src="/assets/mentor-portrait.webp" width="480" height="541" loading="lazy" decoding="async"
+             alt="המנטור AI של שוק נדל״ן - דמות שנוצרה ב-AI">
+      </div>
+      <div class="mentor-body">
+        <span class="mentor-tag">חדש · כלול בכל המסלולים</span>
+        <h2 id="mentorTitle">המנטור AI שלך: ותיק בתחום שיושב לידך כל בוקר</h2>
+        <p class="mentor-lead">המנטור עובר על המספרים של החשבון שלך - לידים, נכסים, הסכמים ויומן - ואומר
+          מה הכי חשוב עכשיו. לא עצות כלליות: צעדים שנבנו מהעבודה שלך, עם כפתור שפותח את הפריט עצמו.</p>
+        <ul class="mentor-points">
+          <li><b>לכל סוכן/ת, כל בוקר:</b> מה עובד, על מה להתמקד, ועד שלושה צעדים להיום - ליד שמחכה, הסכם שלא נחתם, נכס שצריך דחיפה.</li>
+          <li><b>למנהלי צוותים ומשרדים, כל יום ראשון:</b> סיכום שבועי של הצוות או המשרד, עד שלוש החלטות לשבוע, ולמנהל/ת צוות גם סדר יום לישיבת הצוות.</li>
+          <li><b>שאלה חופשית:</b> "מה להכין לפגישת גיוס?", "איך עונים על 'אמכור לבד'?" - תשובה מקצועית מול המספרים שלך, ב-CRM, ובמסלולים עם גבריאלה גם בוואטסאפ.</li>
+          <li><b>פרטי לגמרי:</b> הסיכום האישי מוצג רק לך. מנהלים לא רואים אותו.</li>
+        </ul>
+        <p class="mentor-note">נכתב אוטומטית מהנתונים של החשבון, וכמו כל עצה - כדאי לבדוק לפני שפועלים.</p>
+      </div>
+    </section>
+
     <section class="compare">
       <h2>מה כלול בכל מסלול</h2>
       <p class="sub">כל היכולות של המערכת, אחת אחת. מה שכתוב כאן הוא מה שהשרת אוכף - לא רשימת כוונות.
@@ -389,6 +445,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <section class="faq">
       <h2>שאלות נפוצות</h2>
+
+      <details>
+        <summary>מה עושה המנטור AI, ובאיזה מסלול הוא כלול?</summary>
+        <p>המנטור כלול בכל המסלולים, גם ב-Pay&amp;GO ללא דמי מנוי. כל בוקר הוא כותב לכל סוכן/ת פעיל/ה סיכום קצר מהמספרים
+        של החשבון - מה עובד, על מה להתמקד ועד שלושה צעדים להיום - ולמנהלי צוותים ומשרדים סיכום שבועי ביום ראשון.
+        אפשר גם לשאול אותו שאלות מקצועיות ב-CRM, ובמסלולים עם גבריאלה גם בוואטסאפ. הסיכום האישי מוצג רק לך.</p>
+      </details>
 
       <details>
         <summary>מה זה בעצם "ליד", ומתי אני מחויב/ת עליו?</summary>
