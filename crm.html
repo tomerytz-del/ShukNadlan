@@ -1239,7 +1239,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       .prop-tab,
       #dashboard .acc-body .lead-card,
       #dashboard .acc-body .agr-row,
-      .kpi-strip .kpi-card{
+      .hk-card{
         animation-name:cardReveal;animation-duration:auto;
         animation-timing-function:linear;animation-fill-mode:both;
         animation-timeline:view(block);animation-range:entry 0% entry 50%;
@@ -2934,17 +2934,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      אותה שקיפות יוצאת אפורה־עכורה, ולכן בלילה הם כמעט אטומים. */
   body.crm-night #dashboard header.crm{background:rgba(252,253,255,.97)}
   body.crm-night #dashboard .acc,
-  body.crm-night #dashboard .panel,
-  body.crm-night #dashboard .meter-card{background:rgba(255,255,255,.97)}
+  body.crm-night #dashboard .panel{background:rgba(255,255,255,.97)}
   body.crm-night #dashboard .section-head .rail-arrow{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.2)}
 
   /* הכרטיסים נשארים בהירים אבל לא אטומים לגמרי — כך הזרימה של הרקע
      מבצבצת ביניהם, והדף מרגיש שכבתי במקום לבן־על־לבן.
-     כרטיסי המדד הבהירים ירדו מכאן: השקיפות שלהם יושבת בשיפוע עצמו
-     (‏.kpi-clients,.kpi-active), כדי ששניהם יקבלו בדיוק אותו משטח. */
+     כרטיסי המדד (‏.hk-card) מגדירים משטח משלהם, ביום ובלילה. */
   #dashboard .acc,
-  #dashboard .panel,
-  #dashboard .meter-card{background:rgba(255,255,255,.88)}
+  #dashboard .panel{background:rgba(255,255,255,.88)}
 
   /* ---------- Header ---------- */
   #dashboard header.crm{
@@ -4360,95 +4357,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     unicode-bidi:isolate;direction:ltr;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
     font-size:.92em;background:rgba(15,55,64,.08);border-radius:4px;padding:0 4px;
   }
-
-  /* ==========================================================================
-     שורת המדדים
-     --------------------------------------------------------------------------
-     קודם זו הייתה רכבת אופקית: ארבעה כרטיסים ברוחב 79% כל אחד, שמהם נראה אחד
-     ורבע. הרבע נועד לרמוז "יש עוד" — ובפועל נקרא ככרטיס חתוך, והכרטיס שנחתך
-     היה דווקא "נכסים בבלעדיות". מדד שנראה שבור אינו מדד.
-
-     עכשיו שלושה מדדים קומפקטיים בשורה אחת שנכנסת בכל רוחב מסך, בלי גלילה
-     אופקית ובלי חיתוך, והם עונים על שלוש השאלות שנשאלות בבוקר בסדר הזה:
-     כמה כסף פתוח בתיק, כמה נכסים פעילים מייצרים אותו, וכמה מהם בבלעדיות.
-
-     יתרת הארנק ירדה אל מתחת לפעולות המהירות (.kpi-more): היא נחוצה, אבל לא
-     לפני שרואים מה עושים היום. כרטיס "לידים חמים" ישב לצידה ונמחק — אותו
-     מונה בדיוק כבר צועק מבלוק "דורש טיפול מיידי", מהתגית על לשונית "לידים"
-     בסרגל התחתון ומהמונה האדום על הקבוצה בתפריט. ארבעה עותקים של מספר אחד
-     אינם ארבע התראות, הם רעש שמלמד את העין לדלג על כולם.
-     ========================================================================== */
-  /* ‏ארבע שורות משותפות לשלושת הכרטיסים: אייקון, כותרת, מספר, וכל השאר.
-     הכרטיסים יורשים אותן ב-subgrid, ולכן המספרים יושבים בדיוק באותו גובה
-     בשלושתם — גם כשכותרת אחת נשברת לשתי שורות ("עמלות פוטנציאליות")
-     והשכנות שלה נכנסות בשורה אחת. קודם כל כרטיס מדד את עצמו, והמספר של
-     העמלות — הגדול מכולם — צנח שורה שלמה מתחת לשניים שלצידו. */
-  .kpi-strip{
-    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
-    grid-template-rows:auto auto auto 1fr;
-  }
-  .kpi-strip .kpi-card{grid-row:span 4;display:grid;grid-template-rows:subgrid}
-  /* דפדפן בלי subgrid: שומרים שתי שורות קבועות לכותרת ומצמידים אותה לתחתיתן.
-     אותו יישור בדיוק, בלי ירושת השורות. */
-  @supports not (grid-template-rows:subgrid){
-    .kpi-strip .kpi-card{display:flex;flex-direction:column}
-    .kpi-strip .kpi-label{display:flex;align-items:flex-end;min-height:2.5em}
-    .kpi-strip .kpi-foot{flex:1}
-  }
-  @media(min-width:560px){.kpi-strip{gap:12px}}
-  /* כרטיס אחד (הארנק) — טור אחד בכל רוחב. קודם היו כאן שניים ומ-640px הם
-     נפרשו זה לצד זה; טור שני ריק היה משאיר את הארנק חצי מסך בלי סיבה. */
-  .kpi-more{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
-
-  /* המדדים בשורה צרים פי שלושה מכרטיס מלא, ולכן כל מידה בהם קטנה בהתאם.
-     במסך של 360px זו עמודה של ~105px — שם המספר הוא מה שחייב להיקרא. */
-  .kpi-strip .kpi-card{padding:12px 11px}
-  .kpi-strip .kpi-top{margin-bottom:7px}
-  .kpi-strip .kpi-icon{width:26px;height:26px;border-radius:9px}
-  .kpi-strip .kpi-icon svg{width:14px;height:14px}
-  .kpi-strip .kpi-chip{font-size:.6rem;padding:3px 7px}
-  .kpi-strip .kpi-label{font-size:.68rem;line-height:1.25}
-  .kpi-strip .kpi-value{font-size:1.12rem}
-  .kpi-strip .kpi-note{font-size:.65rem;line-height:1.4;margin:4px 0 9px}
-  .kpi-strip .kpi-link{font-size:.66rem;padding:4px 8px}
-  /* תגית הבלעדיות לא קיבלה את המידות של הרכבת: ‏.72rem ו-nowrap בעמודה של
-     ~105px, וכשהגופן במכשיר מוגדל היא יצאה מקצה הכרטיס ונחתה על "לנכסים".
-     כאן היא בגודל של שאר התגיות, נשברת לשורה שנייה כשאין רוחב, ושומרת
-     רווח מהכפתור שמתחתיה (‏margin-top:auto שלו מתאפס כשאין מקום פנוי). */
-  .kpi-strip .kpi-tag{
-    font-size:.62rem;padding:3px 7px;gap:4px;margin:0 0 7px;
-    max-width:100%;white-space:normal;line-height:1.25;
-  }
-  .kpi-strip .kpi-tag svg{width:11px;height:11px}
-  /* גם התגית שבראש הכרטיס: מספר כמו "▲ ₪810 א׳" רחב מהמקום שליד האייקון.
-     נחתך בשלוש נקודות במקום לגלוש מהכרטיס, והמלא נשאר ב-title. */
-  .kpi-strip .kpi-top{gap:6px}
-  /* בלי זה עמודת הכרטיס (‏auto) מתרחבת לרוחב המלא של התגית, והקיצור לא קורה:
-     התגית וההערה שמתחתיה נחתכות בקצה הכרטיס במקום להיכנס בו. */
-  .kpi-strip .kpi-card{grid-template-columns:minmax(0,1fr)}
-  .kpi-strip .kpi-chip{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .kpi-strip .kpi-chip[hidden]{display:none}
-  @media(min-width:560px){
-    .kpi-strip .kpi-tag{font-size:.68rem;padding:3px 9px}
-    .kpi-strip .kpi-card{padding:15px 16px}
-    .kpi-strip .kpi-value{font-size:1.55rem}
-    .kpi-strip .kpi-label{font-size:.74rem}
-    .kpi-strip .kpi-note{font-size:.72rem}
-    .kpi-strip .kpi-link{font-size:.7rem;padding:5px 11px}
-    .kpi-strip .kpi-icon{width:32px;height:32px;border-radius:10px}
-    .kpi-strip .kpi-icon svg{width:17px;height:17px}
-  }
-  @media(min-width:1024px){.kpi-strip .kpi-value{font-size:1.8rem}}
-
-  /* היחס בין בלעדיות לתיק הפעיל. קודם זו הייתה טבעת בקוטר 72px לצד הטקסט —
-     ברוחב של שליש שורה היא זו שדחפה את המספר החוצה. בר יחס דק אומר את אותו
-     דבר בגובה 6px, והאחוז עצמו יושב כתגית לצד הכותרת. */
-  .kpi-ratio{height:6px;border-radius:999px;background:rgba(28,58,94,.18);overflow:hidden;margin-top:9px}
-  .kpi-ratio span{display:block;height:100%;border-radius:999px;
-    background:linear-gradient(90deg,#2c5a8c,#c9a227);transition:width .6s cubic-bezier(.22,1,.36,1)}
-  /* הבר יושב היום בכרטיס הבלעדיות, ולוקח את דיו המשפחה שלו */
-  .kpi-clients .kpi-ratio{background:rgba(13,122,104,.2)}
-  .kpi-clients .kpi-ratio span{background:linear-gradient(90deg,var(--mint),var(--mint-deep))}
+  
+  
+  
+  
 
   /* ==========================================================================
      מגמת פוטנציאל העמלות
@@ -4488,199 +4400,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .trend-axis span{flex:1;text-align:center;font-size:.62rem;color:var(--txt-faint);
                    white-space:nowrap;overflow:hidden}
   .kpi-trend-note{font-size:.7rem;color:var(--txt-faint);margin:9px 0 0;line-height:1.45}
-
-  /* ---------- כרטיס מדד ---------- */
-  .kpi-card{
-    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-lg);
-    padding:16px;box-shadow:var(--sh-1);position:relative;overflow:hidden;
-    display:flex;flex-direction:column;text-align:start;
-  }
-  /* הכרטיס הבולט: נייבי עמוק עם הילה זהובה — זה המספר שהסוכן/ת רודף/ת אחריו */
-  .kpi-primary{
-    background:linear-gradient(150deg,#22456e 0%,#1C3A5E 48%,#122840 100%);
-    border-color:transparent;color:#fff;box-shadow:var(--sh-navy);
-  }
-  .kpi-primary::after{
-    content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
-    background:radial-gradient(circle,rgba(201,162,39,.28),transparent 68%);pointer-events:none;
-  }
-  .kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;position:relative}
-  .kpi-icon{
-    width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    background:rgba(255,255,255,.14);color:#fff;
-  }
-  .kpi-icon svg{width:18px;height:18px}
-  /* כל אייקון שאינו על רקע כהה מקבל את אותו רקע ניטרלי ואת אותו כחול מותג.
-     גיוון צבעוני לכל אייקון בנפרד הפך את הדף לקשת, והפך את האדום — שאמור
-     לצעוק "דחוף" — לעוד גוון ברשימה. ראו .qa-icon ו-.todo-ico. */
-  .kpi-icon-soft{background:var(--navy-tint);color:var(--navy)}
-  .kpi-chip{
-    font-size:.72rem;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;
-    background:rgba(255,255,255,.16);color:#fff;display:inline-flex;align-items:center;gap:4px;
-  }
-  .kpi-chip-soft{background:var(--green-tint);color:var(--green)}
-  .kpi-chip[hidden]{display:none}
-  .kpi-label{font-size:.76rem;font-weight:700;letter-spacing:.01em;color:rgba(255,255,255,.72);position:relative}
-  .kpi-card:not(.kpi-primary) .kpi-label{color:var(--txt-soft)}
-  .kpi-value{
-    font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.75rem;line-height:1.15;
-    margin-top:3px;letter-spacing:-.01em;position:relative;
-    font-variant-numeric:tabular-nums;
-  }
-  .kpi-card:not(.kpi-primary) .kpi-value{color:var(--navy)}
-  @media(min-width:700px){.kpi-value{font-size:2.05rem}}
-  /* ההערה נחתכת לשתי שורות: היא הקשר, לא תוכן — וארבע שורות של הקשר הן
-     בדיוק מה שהפך את הכרטיס למסך שלם */
-  .kpi-note{
-    font-size:.73rem;line-height:1.45;color:rgba(255,255,255,.62);margin:5px 0 0;position:relative;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .kpi-card:not(.kpi-primary) .kpi-note{color:var(--txt-faint)}
-
-  /* ---------- תחתית הכרטיס ----------
-     ההערה, בר היחס ושער הכניסה יושבים יחד בשורת ה-subgrid האחרונה, כדי
-     שהמספר שמעליהם יישאר באותו גובה בשלושת הכרטיסים. ‏margin-top:auto על
-     השער מצמיד את שלושת הכפתורים לאותו קו תחתון. */
-  .kpi-foot{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
-  .kpi-foot>.kpi-ratio{align-self:stretch;margin-top:0;margin-bottom:2px}
-  .kpi-foot>.kpi-link{margin-top:auto}
-
-  /* ---------- שער הכניסה שבתחתית כל מדד ----------
-     כל מדד הוא גם הדלת למסך שמאחוריו: העמלות אל גרף המגמה, הנכסים
-     והבלעדיות אל רשימת הנכסים — אותם יעדים בדיוק של הפס הדביק. כפתור אחד
-     בתחתית כל כרטיס, באותו מקום ובאותה צורה, במקום כרטיס אחד שיש לו דלת
-     ושניים שנראים כמו מספר תקוע.
-
-     שורה ולא כפתור מלא: הוא לא מתחרה על תשומת הלב עם המספר שמעליו.
-     ‏nowrap: הכרטיס הוא שליש שורה במובייל, ותווית שנשברת לשתי שורות מגביהה
-     את כל רכבת המדדים. */
-  .kpi-link{
-    align-self:flex-start;margin-top:9px;display:inline-flex;align-items:center;gap:4px;
-    background:rgba(255,255,255,.16);color:#fff;border:none;white-space:nowrap;
-    font-size:.7rem;font-weight:800;padding:4px 10px;border-radius:999px;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
-    transition:background .16s ease,transform .16s ease,box-shadow .16s ease;
-  }
-  .kpi-link svg{width:12px;height:12px;transition:transform .16s ease}
-  .kpi-link:hover{background:rgba(255,255,255,.28)}
-  /* החץ נשען לכיוון היעד (‏RTL — שמאלה) ברגע הריחוף, ומתכווץ בלחיצה:
-     שני סימנים קטנים שאומרים "זה נפתח", בלי להוסיף עוד צבע לדף */
-  .kpi-link:hover svg{transform:translateX(-2px)}
-  .kpi-link:active{transform:scale(.96)}
-  .kpi-link:focus-visible{outline:2px solid #fff;outline-offset:2px}
-  /* אותו שער על הכרטיסים הבהירים, הפוך: לבן מורם על תכלת במקום לבן שקוף
-     על נייבי. אותה לוגיקה בשניהם — הכפתור לוקח את הניגוד הגבוה ביותר
-     שהמשטח שלו מאפשר, ולכן שלושת השערים נראים בני אותו גיל */
-  .kpi-link-soft{
-    background:rgba(255,255,255,.88);color:var(--navy);
-    box-shadow:inset 0 0 0 1px rgba(28,58,94,.16),0 1px 2px rgba(15,23,42,.06);
-  }
-  .kpi-link-soft:hover{background:#fff}
-  .kpi-link-soft:focus-visible{outline-color:var(--navy)}
-
-  /* ---------- שני המדדים הבהירים: נכסים פעילים ובלעדיות ----------
-     קודם היה להם משטח שונה זה מזה (‏navy-tint אטום מול לבן שקוף למחצה),
-     ולכן שני כרטיסים שאומרים אותו סוג דבר נראו כמו שתי משפחות.
-
-     ואז שניהם היו בהירים מדי: לבן־כמעט על רקע בהיר הוא כרטיס בלי קצה. הקצה
-     הוא מה שמגדיר מרווח — ובלעדיו נראה היה שהמרווח בין שני הבהירים גדול
-     מהמרווח שלידם, למרות ששניהם ‎8px בדיוק. עכשיו תכלת־נייבי עם גבול נראה
-     לעין: שלושת הכרטיסים תחומים באותה מידה, ושלושת המרווחים נקראים שווים.
-
-     השקיפות נשמרה (‏rgba ולא צבע אטום) כדי שהרקע הזורם ימשיך לבצבץ, וכך גם
-     קו האור בקצה העליון ונגיעת הנייבי בפינה — הד שקט להילה הזהובה של כרטיס
-     העמלות.
-
-     ואז שניהם היו זהים: שני כרטיסים באותו תכלת בדיוק, שנקראו כמדד אחד רחב
-     שנחתך באמצע. עכשיו כל אחד לובש את המשפחה שלו — הבלעדיות במנטה (היא
-     מגיעה מאנשים), הנכסים הפעילים בחול (הם התיק) והעמלות בנייבי — ואותם
-     שלושה גוונים חוזרים בכפתורים המהירים מתחת. כך שורת המדדים והפעולות
-     נקראות כמערכת אחת, ולא כשתי שורות שנפגשו במקרה. */
-  .kpi-clients,.kpi-active{
-    box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.55);
-  }
-  .kpi-clients{
-    background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
-    border-color:var(--mint-edge);
-  }
-  .kpi-active{
-    background:linear-gradient(158deg,var(--sand-surf-1) 0%,var(--sand-surf-2) 100%);
-    border-color:var(--sand-edge);
-  }
-  /* אותה הילה זהובה של כרטיס העמלות, באותה פינה (‏inset-inline-start — ימין
-     ב-RTL) ובאותו גודל, כדי ששלושת הכרטיסים יהיו מוארים מאותו מקור ויקראו
-     כסט אחד ולא כשלושה כרטיסים שנפגשו במקרה.
-
-     הזהב עצמו בגוון בהיר יותר (‏#ffe096 במקום ‎#c9a227): על נייבי הזהב
-     הכהה מאיר, ועל תכלת בהיר הוא היה מכהה — צהוב על תכלת נותן חאקי, לא
-     נגיעת זהב. גוון בהיר יותר מאיר את הפינה גם כאן, וזה מה שההילה אמורה
-     לעשות. */
-  .kpi-clients::after,.kpi-active::after{
-    content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
-    background:radial-gradient(circle,rgba(255,255,255,.55),transparent 68%);pointer-events:none;
-  }
-  /* הטקסט מעמיק יחד עם המשטח, וכל כרטיס בדיו של המשפחה שלו — ‏txt-soft
-     ו-txt-faint נבנו לכרטיס לבן, ועל משטח צבוע הם מטשטשים אל תוך הרקע */
-  .kpi-clients .kpi-label{color:var(--mint-deep)}
-  .kpi-clients .kpi-note{color:var(--mint-ink)}
-  .kpi-clients .kpi-value{color:var(--mint-ink)}
-  .kpi-active .kpi-label{color:var(--sand-deep)}
-  .kpi-active .kpi-note{color:var(--sand-ink)}
-  .kpi-active .kpi-value{color:var(--sand-ink)}
-  /* האייקון הבהיר מקבל את אותו טיפול: שיפוע עדין וטבעת דקה במקום ריבוע שטוח */
-  .kpi-icon-soft{
-    background:linear-gradient(150deg,#fff,#e7eff9);
-    box-shadow:inset 0 0 0 1px rgba(28,58,94,.14);
-  }
-  .kpi-clients .kpi-icon-soft{
-    background:linear-gradient(150deg,#fff,#dff1ec);color:var(--mint-deep);
-    box-shadow:inset 0 0 0 1px rgba(13,122,104,.2);
-  }
-  .kpi-active .kpi-icon-soft{
-    background:linear-gradient(150deg,#fff,#f8ecd1);color:var(--sand-deep);
-    box-shadow:inset 0 0 0 1px rgba(138,107,18,.22);
-  }
-  .kpi-clients .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--mint-deep)}
-  .kpi-active .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--sand-deep)}
-  /* הבלעדיות בכרטיס הנכסים: תגית עם מפתח, במנטה של "הושג מאנשים" */
-  .kpi-tag{
-    align-self:flex-start;display:inline-flex;align-items:center;gap:5px;
-    margin-top:6px;padding:3px 9px;border-radius:999px;
-    background:rgba(255,255,255,.78);color:var(--mint-deep);
-    font-size:.72rem;font-weight:800;white-space:nowrap;
-  }
-  .kpi-tag[hidden]{display:none}
-  .kpi-tag svg{width:13px;height:13px;flex-shrink:0}
-  /* שער הכניסה לוקח את דיו המשפחה במקום את הנייבי הכללי */
-  .kpi-clients .kpi-link-soft{
-    color:var(--mint-deep);
-    box-shadow:inset 0 0 0 1px rgba(13,122,104,.2),0 1px 2px rgba(15,23,42,.06);
-  }
-  .kpi-clients .kpi-link-soft:focus-visible{outline-color:var(--mint-deep)}
-  .kpi-active .kpi-link-soft{
-    color:var(--sand-deep);
-    box-shadow:inset 0 0 0 1px rgba(138,107,18,.22),0 1px 2px rgba(15,23,42,.06);
-  }
-  .kpi-active .kpi-link-soft:focus-visible{outline-color:var(--sand-deep)}
-
-  /* ---------- מדי משאבים ---------- */
-  .meter-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--sh-1)}
-  /* המד יושב היום כקלף בשורת מדדי המשנה, ולכן הוא צריך את אותה מעטפת */
-  .kpi-more>.meter-card{border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column}
-  .meter-top{display:flex;align-items:center;gap:9px}
-  .meter-ico{width:28px;height:28px;border-radius:9px;background:var(--surface-2);color:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .meter-ico svg{width:15px;height:15px}
-  .meter-title{font-size:.8rem;font-weight:700;color:var(--txt-soft);flex:1;min-width:0}
-  .meter-cta{background:var(--navy-tint);color:var(--navy);font-size:.72rem;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;transition:background .16s ease}
-  .meter-cta:hover{background:#dde8f3}
-  .meter-value{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.5rem;color:var(--navy);margin-top:8px;font-variant-numeric:tabular-nums}
-  .meter-value-sm{font-size:.85rem;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .meter-bar{height:7px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:12px}
-  .meter-bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--navy-2),var(--navy));transition:width .6s cubic-bezier(.22,1,.36,1)}
-  .meter-bar span.is-full{background:linear-gradient(90deg,#b13a4b,var(--wine))}
-  /* "ללא הגבלה" הוא מצב טוב, לא מד מלא — ולכן ירוק ולא נייבי */
-  .meter-bar span.is-unlimited{background:linear-gradient(90deg,#14b8a6,var(--green))}
-  .meter-note{font-size:.72rem;color:var(--txt-faint);margin:8px 0 0}
+  
 
   /* ==========================================================================
      דורש טיפול מיידי
@@ -4872,131 +4592,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .ghost-chip svg{width:14px;height:14px}
   .ghost-chip:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
-  /* ---------- קרוסלת הפעולות ----------
-     קודם הייתה כאן רכבת של כפתורים ברוחב 41% וגובה 132px: שניים וחצי במסך,
-     כל אחד מהם גדול מכרטיס מדד שלם. שורת המדדים שמעליהם היא שלוש עמודות
-     צרות, והכפתורים שמתחתיה נראו כמו מסך אחר שהודבק לאותו דף.
-
-     עכשיו הם על אותה רשת בדיוק: שלושה כפתורים ברוחב עמודת מדד, קו בקו עם
-     הכרטיסים הצבעוניים שמעל. ‏grid-auto-columns מחושב מאותה נוסחה של
-     ‏.kpi-strip — ‏(100% פחות שני מרווחים) חלקי שלוש — ולכן היישור נשמר בכל
-     רוחב מסך בלי מספרי קסם.
-
-     שלוש דרכים לדעת שיש עוד: הרכבת גולשת אל מעבר לשולי הדף (‏margin שלילי
-     בגודל ה-padding של ‏.dash-wrap) ולכן הכפתור הרביעי מציץ בקצה המסך;
-     החצים בשורת הכותרת נדלקים בדיוק כשיש לאן לגלול; והכפתור שבראש המסלול
-     מורם מעל השאר (‏.is-lead) — כך שהעין רואה שהיא עומדת בתחילת רצף ולא
-     מול שלושה כפתורים שזה כל מה שיש. */
-  .quick-grid{
-    --qa-gap:8px;      /* אותו מרווח של .kpi-strip — היישור תלוי בזה */
-    --qa-bleed:18px;   /* ה-padding של .dash-wrap */
-    display:grid;grid-auto-flow:column;
-    grid-auto-columns:calc((100% - 2 * var(--qa-gap)) / 3);
-    gap:var(--qa-gap);
-    overflow-x:auto;overscroll-behavior-inline:contain;
-    scroll-snap-type:x proximity;
-    scroll-padding-inline-start:var(--qa-bleed);
-    padding:2px var(--qa-bleed) 10px;margin-inline:calc(var(--qa-bleed) * -1);
-    scrollbar-width:none;
-  }
-  .quick-grid::-webkit-scrollbar{display:none}
-  .quick-grid>*{scroll-snap-align:start}
-  @media(min-width:560px){.quick-grid{--qa-gap:12px}}
-  /* מ-900px אין יותר רכבת: כל הכפתורים על המסך, ולכן גם אין גלישה מהשוליים
-     ואין "ראש מסלול" (‏syncQuickRail מנקה את המחלקות ומסתיר את החצים). */
-  @media(min-width:900px){
-    /* ‏padding אופקי אפס: אין כאן חיתוך שהצל צריך לנשום בתוכו (overflow
-       גלוי), ושני פיקסלים היו מזיזים את הכפתורים מקו העמודות שמעל */
-    .quick-grid{grid-auto-flow:row;grid-template-columns:repeat(4,1fr);
-                overflow:visible;padding:2px 0;margin-inline:0}
-    .quick-section .rail-nav{display:none}
-  }
-  /* מ-1200px כל שבעת הכפתורים בשורה אחת, וברוחב כמעט זהה לזה שבמובייל:
-     ארבעה כפתורים רחבים בשורה עליונה ושלושה מתחתיהם היו שתי שורות של שטח
-     ריק בתוך כל כפתור. */
-  @media(min-width:1200px){.quick-grid{grid-template-columns:repeat(7,1fr)}}
-  /* הכרטיסים נבלעו ברקע: לבן-שקוף על תכלת בהיר, מסגרת בגוון אחד מהרקע וצל
-     רך. שלושתם יחד הפכו שישה כפתורים למלבנים שקשה לראות. עכשיו משטח צבוע
-     מלא, מסגרת בגוון מעמיק וצל שמרים אותם מהדף — הרקע הזורם ממשיך לבצבץ
-     מסביבם ולא דרכם. */
-  .qa-card{
-    position:relative;border-radius:var(--r-lg);min-width:0;
-    background:#fff;border:1px solid #cfdcea;color:var(--txt);
-    box-shadow:0 2px 4px rgba(15,23,42,.06), 0 10px 22px rgba(15,23,42,.09);
-    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,
-               border-color .18s ease,opacity .22s ease;
-  }
-  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2)}
-  /* ---------- ראש המסלול ----------
-     בקרוסלה צריך להיות ברור מי הכפתור שעומדים עליו עכשיו. ‏syncQuickRail
-     מסמן את זה שבתחילת המסלול (ימין ב-RTL) כ-.is-lead ואת השאר כ-.is-rear,
-     וההבדל הוא בצל בלבד: המורם קדימה והשאר שטוחים אחריו.
-
-     צל ולא אטימות ולא סקייל — אלה שני הערוצים שהאנימציות כאן כבר תופסות
-     (‏.is-staged לכניסה, ‏.is-morphed ל-FAB), וכלל שני שכותב עליהם היה
-     נלחם איתם על אותה תכונה. */
-  .qa-card.is-rear{box-shadow:0 1px 3px rgba(15,23,42,.07)}
-  .qa-card.is-lead{box-shadow:0 4px 8px rgba(15,23,42,.08), 0 16px 30px rgba(15,23,42,.14)}
-  .qa-card.is-rear:hover{box-shadow:var(--sh-2)}
-  /* ---------- שלוש המשפחות ---------- */
-  .qa-mint{
-    background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
-    border-color:var(--mint-edge);color:var(--mint-ink);
-  }
-  .qa-sand{
-    background:linear-gradient(158deg,var(--sand-surf-1) 0%,var(--sand-surf-2) 100%);
-    border-color:var(--sand-edge);color:var(--sand-ink);
-  }
-  .qa-navy{
-    background:linear-gradient(150deg,#22456e 0%,#1C3A5E 48%,#122840 100%);
-    border-color:transparent;color:#fff;box-shadow:var(--sh-navy);
-  }
-  .qa-navy:hover{box-shadow:0 14px 38px rgba(28,58,94,.34)}
-  .qa-navy.is-rear{box-shadow:0 2px 8px rgba(28,58,94,.20)}
-  .qa-navy.is-lead{box-shadow:var(--sh-navy)}
-  .qa-navy.is-rear:hover{box-shadow:0 14px 38px rgba(28,58,94,.34)}
-  /* הכפתור עצמו הוא עמודה: הסמל למעלה, השם בתחתית. הגובה קטן מ-132px
-     ל-106px יחד עם הרוחב — כפתור צר וגבוה הוא מלבן עומד, וששה כאלה נראים
-     כמו קיר ולא כמו שורת פעולות. */
-  .qa-hit{
-    width:100%;height:100%;min-height:100px;background:transparent;color:inherit;
-    display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:9px;
-    padding:11px 11px 10px;text-align:start;border-radius:inherit;
-  }
-  .qa-hit:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-  .qa-navy .qa-hit:focus-visible{outline-color:#fff;outline-offset:3px}
-  @media(min-width:560px){.qa-hit{min-height:108px;padding:13px 13px 12px}}
-  /* הריבוע לובש את גוון המשפחה: לבן שקוף על הנייבי, לבן מלא על הבהירים */
-  .qa-icon{
-    width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;background:var(--navy);color:#fff;transition:background .18s ease,transform .18s ease;
-  }
-  .qa-icon svg{width:19px;height:19px}
-  @media(min-width:560px){
-    .qa-icon{width:40px;height:40px;border-radius:13px}
-    .qa-icon svg{width:20px;height:20px}
-  }
-  .qa-navy .qa-icon{background:rgba(255,255,255,.15);color:#fff}
-  .qa-mint .qa-icon{background:rgba(255,255,255,.72);color:var(--mint-deep);
-                    box-shadow:inset 0 0 0 1px rgba(13,122,104,.16)}
-  .qa-sand .qa-icon{background:rgba(255,255,255,.72);color:var(--sand-deep);
-                    box-shadow:inset 0 0 0 1px rgba(138,107,18,.18)}
-  .qa-card:hover .qa-icon{transform:translateY(-1px)}
-  .qa-navy:hover .qa-icon{background:rgba(255,255,255,.24)}
-  /* סאנס כבד ולא הסריף של הכותרות: השם כאן הוא תווית של כפתור, והוא נקרא
-     במבט חטוף תוך כדי גלילה — משקל 800 עושה את זה טוב יותר מסריף בגודל
-     הזה.
-
-     עד שתי שורות, ולא שורה אחת עם ellipsis: ברוחב עמודת מדד ‏(~100px)
-     "שתף בוואטסאפ" נחתך באמצע, ותווית חתוכה היא כפתור שצריך לנחש מה הוא
-     עושה. השם צמוד לתחתית הכפתור (‏justify-content:space-between), ולכן
-     שורה שנייה גדלה כלפי מעלה והשורה האחרונה נשארת על אותו קו בכל
-     הכפתורים — בדיוק מה שהשורה היחידה נועדה להבטיח. */
-  .qa-title{font-weight:800;font-size:.78rem;line-height:1.28;color:inherit;
-            min-width:0;max-width:100%;overflow-wrap:break-word;
-            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  @media(min-width:560px){.qa-title{font-size:.86rem}}
-  @media(min-width:900px){.qa-title{font-size:.9rem}}
+  
+  
+  
+  
+  
+  
+  
   /* ==========================================================================
      אנימציות גלילה
      --------------------------------------------------------------------------
@@ -5131,9 +4733,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- 3. "החתם לקוח" כאייקון צף ---------- */
   /* הכפתור מתפוגג כשהוא עומד לצאת מהמסך, והעיגול נפתח באותו רגע — שני
      חצאים של אותה תנועה, ולכן אותו עקום ואותו משך. */
-  /* ‏#quickGrid ולא ‎.qa-card לבד: הכניסה המדורגת מטה כותבת אטימות על
-     אותם כרטיסים משרשרת של שלוש מחלקות, וכלל חלש ממנה לא היה נראה */
-  #quickGrid .qa-card.is-morphed{opacity:.3;transform:scale(.97)}
+  #quickGrid .hq-btn.is-morphed{opacity:.3;transform:scale(.97)}
   .sign-fab{
     /* ‏left פיזי ולא inset-inline-start: הדף כולו RTL, ושם "start" הוא צד
        ימין — והבקשה כאן היא לפינה השמאלית, זו שהאגודל מגיע אליה בלי לכסות
@@ -5161,17 +4761,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* בדסקטופ אין סרגל תחתון, ולכן אין מעל מה לרחף */
   @media(min-width:1024px){.sign-fab{bottom:24px}}
 
-  /* ---------- 4. כניסה מדורגת של הפעולות המהירות ---------- */
-  /* ‏--d נכתב מ-JS לפי מספר העמודות בפועל (renderQuickActions לא יודע אם
-     הגריד הוא 2, 3 או 4 עמודות — getComputedStyle יודע), ולכן ההשהיה היא
-     לפי שורה ולא לפי כרטיס: שש השהיות נפרדות בגריד של שתי עמודות היו
-     מרגישות כמו טעינה איטית, לא כמו זריזות. */
-  .quick-grid.is-staged .qa-card{
-    opacity:0;transform:translateY(8px);
-    transition:opacity .3s ease var(--d,0ms),transform .3s cubic-bezier(.22,1,.36,1) var(--d,0ms);
-  }
-  .quick-grid.is-staged.is-in .qa-card{opacity:1;transform:none}
-
   /* ---------- 5. מילוי עמודות גרף המגמה ---------- */
   /* הגובה הסופי יושב ב---h (renderCommissionTrend כותב אותו), והעמודה
      מתחילה מאפס עד ש-.is-grown משחררת אותה. בלי ‏--h העמודה פשוט מוצגת
@@ -5183,14 +4772,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .trend-chart.is-staged.is-grown span{height:var(--h,100%);min-height:5px}
 
   @media(prefers-reduced-motion:reduce){
-    .qa-card,.trend-chart span,.meter-bar span,.kpi-ratio span,
+    .trend-chart span,.hk-bar span,
     .dash-greet,.kpi-sticky,.sign-fab,.todo-cta,.rail-arrow,
     #dashboard header.crm,#dashboard .agent-id-text{transition:none}
     /* גלילת הרכבות עם החצים קופצת ישר ליעד — ראו railScroll */
-    .todo-rail,.quick-grid{scroll-behavior:auto}
+    .todo-rail,.hq-row{scroll-behavior:auto}
     .todo-count.is-pop{animation:none}
-    /* בלי מעברים אין מה להסתיר: הכרטיסים והעמודות מוצגים כמו שהם */
-    .quick-grid.is-staged .qa-card{opacity:1;transform:none}
     .trend-chart.is-staged span{height:var(--h,100%);min-height:5px}
   }
 
@@ -5322,6 +4909,139 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
               max-height:80vh;padding:16px 20px 20px}
     .nl-grip{display:none}
   }
+
+  /* ==========================================================================
+     דף הבית: שלושת המדדים, הפעולות המהירות ושורת הארנק (HANDOFF 2.7)
+     --------------------------------------------------------------------------
+     design/Home-KPI*.dc.html. משטח אחיד לשלושת המדדים, וצבע התחום רק באייקון,
+     בפס ובשורת התובנה. ביום לבן; בלילה ‏#13224A - לפי body.crm-night הקיים
+     (docs/crm-night-sky.md), בלי מנגנון חדש. הערכים מ-renderVals של העיצוב.
+     ========================================================================== */
+  #overviewBlock{
+    --hk-surface:#fff;--hk-border:#E3E7EF;--hk-ink:#1B1F26;--hk-muted:#5A6478;--hk-track:#EEF1F6;
+    --hk-shadow:0 1px 2px rgba(28,58,94,.06);--hk-cta:#1C3A5E;--hk-link:#1C3A5E;--hk-wine:#8B2332;
+    --hk-money:#1C3A5E;--hk-money-soft:#A9B9CF;--hk-money-chip:#E8EEF6;
+    --hk-prop:#8a6b12;--hk-prop-soft:#D9C38A;--hk-prop-chip:#F6EFDC;
+    --hk-people:#0d7a68;--hk-people-soft:#9ED3C7;--hk-people-chip:#E3F3EF;
+    --hk-warn-bg:#FBF3E0;--hk-warn-fg:#7A5300;--hk-ok-bg:#E6F4EF;--hk-ok-fg:#0B6152;
+    --hk-info-bg:#EEF2F8;--hk-info-fg:#1C3A5E;--hk-up-bg:#E6F4EF;--hk-up-fg:#0B6152;
+  }
+  body.crm-night #overviewBlock{
+    --hk-surface:#13224A;--hk-border:rgba(255,255,255,.10);--hk-ink:#F3F5FA;--hk-muted:#AEB8CF;--hk-track:#22335E;
+    --hk-shadow:none;--hk-cta:#2E5BD8;--hk-link:#E2C25A;--hk-wine:#C2344A;
+    --hk-money:#E2C25A;--hk-money-soft:#6E5A1E;--hk-money-chip:rgba(226,194,90,.14);
+    --hk-prop:#E0B26A;--hk-prop-soft:#6B5226;--hk-prop-chip:rgba(224,178,106,.14);
+    --hk-people:#5FD3B6;--hk-people-soft:#1F5C50;--hk-people-chip:rgba(95,211,182,.14);
+    --hk-warn-bg:rgba(224,178,106,.12);--hk-warn-fg:#F1CB8A;--hk-ok-bg:rgba(95,211,182,.12);--hk-ok-fg:#8FE6CF;
+    --hk-info-bg:rgba(226,194,90,.10);--hk-info-fg:#EBD48A;--hk-up-bg:rgba(95,211,182,.14);--hk-up-fg:#8FE6CF;
+  }
+  .hk{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:0 0 18px}
+  .hk-money{--a:var(--hk-money);--as:var(--hk-money-soft);--chip:var(--hk-money-chip)}
+  .hk-prop{--a:var(--hk-prop);--as:var(--hk-prop-soft);--chip:var(--hk-prop-chip)}
+  .hk-people{--a:var(--hk-people);--as:var(--hk-people-soft);--chip:var(--hk-people-chip)}
+  .hk-card{
+    position:relative;display:grid;grid-template-columns:auto 1fr auto;align-items:center;column-gap:10px;row-gap:12px;
+    grid-template-areas:"ico label info" "num num num" "split split split" "ins ins ins";
+    background:var(--hk-surface);border:1px solid var(--hk-border);border-radius:22px;padding:18px 20px;
+    box-shadow:var(--hk-shadow);color:var(--hk-ink);text-align:start;min-width:0;
+  }
+  /* כל הכרטיס לחיץ: שכבה שקופה מעליו, וה-"i" ופעולת התובנה מעליה */
+  .hk-hit{position:absolute;inset:0;border:0;background:transparent;border-radius:inherit;cursor:pointer;z-index:0}
+  .hk-hit:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  .hk-card:hover{border-color:var(--as)}
+  .hk-ico{grid-area:ico;width:40px;height:40px;border-radius:12px;background:var(--chip);color:var(--a);
+          display:inline-flex;align-items:center;justify-content:center}
+  .hk-ico svg{width:20px;height:20px}
+  .hk-label{grid-area:label;font-size:.95rem;font-weight:700;color:var(--hk-muted);min-width:0}
+  .hk-info{grid-area:info;position:relative;z-index:1;width:28px;height:28px;border-radius:50%;border:1px solid var(--hk-border);
+           background:transparent;color:var(--hk-muted);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+  .hk-info:hover{color:var(--hk-ink);border-color:var(--hk-muted)}
+  .hk-num{grid-area:num;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+  .hk-value{font-family:'Frank Ruhl Libre',serif;font-size:2.6rem;font-weight:700;line-height:1;color:var(--hk-ink);font-variant-numeric:tabular-nums}
+  .hk-delta{font-size:.8rem;font-weight:700;color:var(--hk-up-fg);background:var(--hk-up-bg);border-radius:8px;padding:3px 8px;white-space:nowrap}
+  .hk-delta[hidden]{display:none}
+  .hk-split{grid-area:split;display:flex;flex-direction:column;gap:6px;min-width:0}
+  .hk-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:var(--hk-track)}
+  .hk-bar span{display:block;height:100%;transition:width .6s cubic-bezier(.22,1,.36,1)}
+  .hk-bar-a{background:var(--a)}
+  .hk-bar-b{background:var(--as)}
+  .hk-leg{display:flex;justify-content:space-between;gap:8px;font-size:.8rem;font-weight:600;color:var(--hk-muted)}
+  .hk-leg span{display:inline-flex;align-items:center;gap:6px;min-width:0}
+  .hk-leg i{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+  .hk-dot-a{background:var(--a)}
+  .hk-dot-b{background:var(--as)}
+  .hk-leg-s{display:none}
+  .hk-ins{grid-area:ins;align-self:end;display:flex;align-items:center;gap:10px;border-radius:14px;padding:10px 12px;
+          background:var(--hk-info-bg);color:var(--hk-info-fg)}
+  .hk-ins[hidden]{display:none}
+  .hk-ins.is-warn{background:var(--hk-warn-bg);color:var(--hk-warn-fg)}
+  .hk-ins.is-ok{background:var(--hk-ok-bg);color:var(--hk-ok-fg)}
+  .hk-ins-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .hk-ins-t b{font-size:.92rem;font-weight:800}
+  .hk-ins-t small{font-size:.8rem;font-weight:500;color:var(--hk-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hk-cta{position:relative;z-index:1;flex-shrink:0;min-height:36px;padding:0 12px;border:0;border-radius:10px;
+          background:var(--hk-cta);color:#fff;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  .hk-cta:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  /* בנייד: שורות קומפקטיות, כדי שכל השלושה נראים בלי גלילה. אייקון, תווית
+     ומספר; פס קטן בצד עם מקרא מקוצר; ושורת התובנה בלי שורת המשנה. */
+  @media(max-width:640px){
+    .hk{grid-template-columns:1fr;gap:10px}
+    .hk-card{padding:12px 14px;border-radius:18px;row-gap:8px;grid-template-columns:auto 1fr 92px;
+             grid-template-areas:"ico label split" "ico num split" "ins ins ins"}
+    .hk-ico{width:34px;height:34px;border-radius:10px}
+    .hk-ico svg{width:17px;height:17px}
+    .hk-label{font-size:.8rem}
+    .hk-info{display:none}
+    .hk-value{font-size:1.75rem;line-height:1.1}
+    .hk-delta{background:transparent;padding:0;font-size:.74rem}
+    .hk-bar{height:6px}
+    .hk-leg{display:none}
+    .hk-leg-s{display:block;font-size:.68rem;font-weight:600;color:var(--hk-muted);text-align:end;line-height:1.3}
+    .hk-ins{padding:8px 10px;border-radius:12px}
+    .hk-ins-t small{display:none}
+    .hk-ins-t b{font-size:.86rem}
+    .hk-cta{background:transparent;color:inherit;padding:0 2px;min-height:32px;font-weight:800}
+    .hk-cta::after{content:" ←"}
+  }
+
+  /* ---------- הפעולות המהירות ---------- */
+  .hq{margin:22px 0 0}
+  .hq .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .hq-sub{font-size:.8rem;font-weight:600;color:var(--hk-muted)}
+  .hq-sub[hidden]{display:none}
+  .hq-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .hq-btn{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 16px 0 18px;border-radius:14px;
+          background:var(--hk-surface);border:1px solid var(--hk-border);color:var(--hk-ink);box-shadow:var(--hk-shadow);
+          font:inherit;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;
+          transition:border-color .14s ease,transform .14s ease,opacity .2s ease}
+  .hq-btn:hover{border-color:var(--hk-muted)}
+  .hq-btn:active{transform:scale(.97)}
+  .hq-btn:focus-visible{outline:2px solid var(--hk-link);outline-offset:2px}
+  .hq-ico{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .hq-ico svg{width:17px;height:17px}
+  .hq-navy .hq-ico{background:var(--hk-money-chip);color:var(--hk-money)}
+  .hq-mint .hq-ico{background:var(--hk-people-chip);color:var(--hk-people)}
+  .hq-sand .hq-ico{background:var(--hk-prop-chip);color:var(--hk-prop)}
+  .hq-badge{min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:var(--hk-wine);color:#fff;
+            font-size:.75rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .hq-badge[hidden]{display:none}
+  /* בנייד: שורה אחת שגוללת לצדדים (רק היא, לא הדף) */
+  @media(max-width:640px){
+    .hq-row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px 4px;
+            scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+    .hq-row::-webkit-scrollbar{display:none}
+    .hq-btn{min-height:44px;font-size:.88rem;padding:0 12px 0 14px;scroll-snap-align:start}
+    .hq-ico{width:28px;height:28px}
+  }
+
+  /* ---------- שורת הארנק ---------- */
+  .hw{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:14px;padding:10px 14px;border-radius:14px;
+      border:1px dashed var(--hk-border);font-size:.88rem;font-weight:600;color:var(--hk-muted)}
+  .hw b{color:var(--hk-ink)}
+  .hw-quota.is-full b{color:var(--hk-wine)}
+  .hw-topup{margin-inline-start:auto;border:0;background:transparent;color:var(--hk-link);font:inherit;font-weight:800;cursor:pointer;min-height:32px;padding:0 4px}
+  .hw-topup:hover{text-decoration:underline}
+  @media(max-width:640px){.hw>[aria-hidden="true"]{display:none}}
 
   /* ---------- "המנטור שלי" (#coachSheet, assets/crm-coach.js) ---------- */
   /* שורת "שאל את המנטור" בדף הבית (#homeCoachRow) - בצבעי כרטיס המנטור */
@@ -6809,87 +6529,45 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="home-ask-out" id="homeAskOut" aria-live="polite" hidden></div>
         </section>
 
-        <!-- ---------- שורת המדדים ----------
-             שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
-             שנחתך בקצה: הכסף (פוטנציאל העמלות), ההיצע (הנכסים הפעילים,
-             והבלעדיות מתוכם בתגית) והביקוש (הלקוחות שמחפשים). כרטיס שלישי של
-             "נכסים בבלעדיות" ישב כאן עד היום, והיה שני כרטיסים שמובילים
-             לאותה רשימה ומספרים על אותו תיק. מדד המשנה היחיד (הארנק) יושב ב-.kpi-more
-             מתחת לפעולות המהירות. -->
-        <section aria-label="המדדים שלי">
-          <div class="kpi-strip">
-
-            <article class="kpi-card kpi-primary">
-              <div class="kpi-top">
-                <span class="kpi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                </span>
-                <span class="kpi-chip" id="kpiCommissionDelta" hidden></span>
-              </div>
-              <div class="kpi-label">עמלות פוטנציאליות</div>
-              <div class="kpi-value" id="kpiCommissionValue">₪0</div>
-              <div class="kpi-foot">
-                <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
-                <!-- הדרך היחידה לגרף המגמה מדף הבית: שורה אחת בכרטיס שהגרף
-                     מתאר, במקום גרף שלם שתופס שטח גלילה בכל ביקור -->
-                <button type="button" class="kpi-link" data-goto="accMyDashboard"
-                        aria-label="מגמת פוטנציאל העמלות - הדשבורד שלי">
-                  מגמה
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-              </div>
+        <!-- ---------- שלושת המדדים (HANDOFF 2.7, design/Home-KPI*.dc.html) ----------
+             כרטיס אחד, שלוש פעמים: משטח אחיד (לבן ביום, ‏#13224A בלילה לפי
+             body.crm-night), וצבע התחום רק באייקון, בפס ובשורת התובנה - כסף
+             נייבי, נכסים חול, אנשים מנטה. עד 19.10.2026 היו כאן שלושה סגנונות
+             (גרדיאנט, חול-זהב, מנטה) שנראו כמו שלושה מוצרים, והבהירים סנוורו
+             בלילה. בכל כרטיס: המספר ותגית שינוי במילים ("+6 החודש"), פס פיצול
+             עם מקרא, ושורת תובנה אחת עם פעולה (renderKpiInsights ב-crm.js).
+             הכרטיס כולו לחיץ דרך .hk-hit (שכבה על כל הכרטיס), וה-"i" ופעולת
+             התובנה יושבים מעליה - בלי כפתור בתוך כפתור. המספרים עצמם לא
+             השתנו: אותו חישוב, ‏syncStickyKpis מעתיק אותם לפס הדביק. -->
+        <section class="hk" aria-label="המדדים שלי">
+            <article class="hk-card hk-money">
+              <button type="button" class="hk-hit" data-goto="accMyDashboard" aria-label="עמלות פוטנציאליות - המגמה בדשבורד שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></span>
+              <span class="hk-label">עמלות פוטנציאליות</span>
+              <button type="button" class="hk-info" data-hk-how="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." title="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." aria-label="איך מחושב: עמלות פוטנציאליות">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiCommissionValue">₪0</span><span class="hk-delta" id="kpiCommissionDelta" hidden></span></div>
+              <div class="hk-split" id="kpiCommissionSplit"></div>
+              <div class="hk-ins" id="kpiCommissionIns" hidden></div>
             </article>
-
-            <!-- הנכסים הפעילים היו עד היום שורת הערה בתוך כרטיס העמלות. הם
-                 המכנה של כל שאר המדדים (העמלות מהם, הבלעדיות מתוכם), ולכן
-                 הם מדד ולא הערת שוליים. -->
-            <article class="kpi-card kpi-active">
-              <div class="kpi-top">
-                <span class="kpi-icon kpi-icon-soft">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5"/></svg>
-                </span>
-                <span class="kpi-chip kpi-chip-soft" id="kpiActiveDelta" hidden></span>
-              </div>
-              <div class="kpi-label">נכסים פעילים</div>
-              <div class="kpi-value" id="kpiActiveValue">0</div>
-              <div class="kpi-foot">
-                <p class="kpi-note" id="kpiActiveNote">טוענים את הנכסים שלך…</p>
-                <!-- הבלעדיות היא חלק מהתיק ולא תיק נוסף, ולכן היא תגית כאן
-                     ולא כרטיס משלה (ראו renderActiveCard) -->
-                <span class="kpi-tag" id="kpiActiveExclusive" hidden></span>
-                <button type="button" class="kpi-link kpi-link-soft" data-goto="accProperties"
-                        aria-label="הנכסים הפעילים שלי - ניהול נכסים">
-                  לנכסים
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-              </div>
+            <article class="hk-card hk-prop">
+              <button type="button" class="hk-hit" data-goto="accProperties" aria-label="הנכסים הפעילים שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg></span>
+              <span class="hk-label">נכסים פעילים</span>
+              <button type="button" class="hk-info" data-hk-how="נכסים בסטטוס פעיל, מכירה והשכרה." title="נכסים בסטטוס פעיל, מכירה והשכרה." aria-label="איך מחושב: נכסים פעילים">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiActiveValue">0</span><span class="hk-delta" id="kpiActiveDelta" hidden></span></div>
+              <div class="hk-split" id="kpiActiveSplit"></div>
+              <div class="hk-ins" id="kpiActiveIns" hidden></div>
             </article>
-
-            <!-- הביקוש מול ההיצע: הלקוחות שמחפשים עכשיו, והחלק מהם שכבר יש
-                 לו נכס מתאים. מנטה — המשפחה של "אנשים" בשורת הצבעים. -->
-            <article class="kpi-card kpi-clients">
-              <div class="kpi-top">
-                <span class="kpi-icon kpi-icon-soft">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.8c1.6.8 2.7 2.6 3 5.2"/></svg>
-                </span>
-                <span class="kpi-chip kpi-chip-soft" id="kpiClientsDelta" hidden></span>
-              </div>
-              <div class="kpi-label">לקוחות מחפשים</div>
-              <div class="kpi-value" id="kpiClientsValue">0</div>
-              <div class="kpi-foot">
-                <p class="kpi-note" id="kpiClientsNote">טוענים את הלקוחות שלך…</p>
-                <div class="kpi-ratio" id="kpiClientsRatio" role="img" aria-label="שיעור הלקוחות שיש להם נכס מתאים"><span style="width:0%"></span></div>
-                <button type="button" class="kpi-link kpi-link-soft" data-goto="accClients"
-                        aria-label="הלקוחות שלי - קובץ לקוחות">
-                  ללקוחות
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-              </div>
+            <article class="hk-card hk-people">
+              <button type="button" class="hk-hit" data-goto="accClients" aria-label="הלקוחות המחפשים שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21a6 6 0 0 0-12 0"/><circle cx="10" cy="7" r="4"/><path d="M22 21a6 6 0 0 0-4-5.6"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg></span>
+              <span class="hk-label">לקוחות מחפשים</span>
+              <button type="button" class="hk-info" data-hk-how="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." title="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." aria-label="איך מחושב: לקוחות מחפשים">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiClientsValue">0</span><span class="hk-delta" id="kpiClientsDelta" hidden></span></div>
+              <div class="hk-split" id="kpiClientsSplit"></div>
+              <div class="hk-ins" id="kpiClientsIns" hidden></div>
             </article>
-
-          </div>
         </section>
-
         <!-- ---------- דורש טיפול מיידי ----------
              מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרכבת
              נבנית ב-renderTodoList() מאותם מונים של הקטגוריות, והבלוק כולו
@@ -6919,59 +6597,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              שאילתה משלו. docs/crm-home.md -->
         <div class="home-board" id="homeBoard" hidden></div>
 
-        <!-- ---------- פעולות מהירות ----------
-             פעולות בלבד — לא ניווט. כל יעד שיש לו לשונית בסרגל התחתון,
-             שורה בסרגל הצד ופריט בתפריט הבורגר ירד מכאן: שלוש דרכים לאותו
-             מקום הן לא נגישות, הן רעש. ראו QUICK_ACTIONS.
-
-             "החתם לקוח" הוא הראשון ברכבת והיחיד בנייבי מלא: הפעולה שמסתיימת
-             בהתחייבות חתומה היא זו שמייצרת את ההכנסה, וצבע אחד מלא במסך הוא
-             מה שמפריד בין "לך לראות" ל"תעשה עכשיו". -->
-        <section class="quick-section" aria-label="פעולות מהירות">
+        <!-- ---------- פעולות מהירות (HANDOFF 2.7) ----------
+             שורה של כפתורים קומפקטיים בסגנון אחד (52px, ובנייד 44px וגלילה
+             לצדדים), במקום שבעה אריחים בשלושה צבעים. פעולות בלבד: "הוסף נכס"
+             ו"הוסף לקוח" ירדו, הם ב"יצירה חדשה" ובכפתור ה-+. "החתמת לקוח"
+             ראשון תמיד (id signClientCta - ה-FAB ואשף ההחתמה מחפשים אותו),
+             ושאר הסדר לפי השימוש שלך (crmQuickUse ב-localStorage, בלי מסד).
+             מונים על "התאמות חכמות" ו"חנות הלידים" (syncQuickBadges). -->
+        <section class="hq" aria-label="פעולות מהירות">
           <div class="section-head">
             <h2 class="section-h">פעולות מהירות</h2>
-            <div class="rail-nav" id="quickRailNav" hidden>
-              <button type="button" class="rail-arrow" data-rail="quickGrid" data-dir="prev" aria-label="הקודם">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </button>
-              <button type="button" class="rail-arrow" data-rail="quickGrid" data-dir="next" aria-label="הבא">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </button>
-            </div>
+            <span class="hq-sub" id="quickSub" hidden>לפי מה שהכי שימושי לך</span>
           </div>
-          <div class="quick-grid" id="quickGrid"></div>
+          <div class="hq-row" id="quickGrid"></div>
+          <!-- ---------- שורת הארנק ----------
+               היתרה והמכסה בשורה דקה אחת, במקום כרטיס גדול עם פס "ללא הגבלה"
+               מלא. היתרה מופיעה גם בתחתית סרגל הצד. ‏creditBalance נכתב ב-
+               setAgentBalance, ו-quotaUsed / quotaLabel ב-renderQuotaMeter. -->
+          <div class="hw">
+            <span>בארנק <b id="creditBalance">-</b></span>
+            <span aria-hidden="true">·</span>
+            <span class="hw-quota"><span id="quotaLabel">לידי קונה/שוכר:</span> <b id="quotaUsed">-</b></span>
+            <button type="button" class="hw-topup" data-goto="accWallet" data-focus="topupAmount">טעינה</button>
+          </div>
         </section>
-
-        <!-- גרף מגמת העמלות ירד מכאן לקטגוריית "הדשבורד שלי" (‏#accMyDashboard, לשעבר "דוחות וביצועים").
-             גרף היסטורי הוא מסך שנכנסים אליו כשרוצים לבדוק מגמה, לא שטח גלילה
-             קבוע בדף שנפתח עשרים פעם ביום כדי לראות מה עושים עכשיו. הקישור
-             אליו יושב בכרטיס העמלות עצמו — ראו .kpi-link. -->
-
-        <!-- ---------- מדד המשנה ----------
-             יתרת הארנק בלבד. כרטיס "לידים חמים" ישב כאן ונמחק: אותו מונה
-             בדיוק כבר מופיע בשלושה מקומות אחרים — בלוק "דורש טיפול מיידי",
-             התגית על לשונית "לידים" בסרגל התחתון, והמונה האדום על הקבוצה
-             בתפריט. מספר רביעי לא הוסיף התראה, הוא רק תפס חצי שורה. -->
-        <div class="kpi-more">
-          <!-- הארנק והמכסה החינמית — שני מספרים שקשורים זה לזה (המכסה
-               נגמרת, הארנק משלם את ההמשך), ולכן הם כרטיס אחד ולא שניים. -->
-          <div class="meter-card">
-            <div class="meter-top">
-              <span class="meter-ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/></svg>
-              </span>
-              <span class="meter-title">יתרת ארנק</span>
-              <button type="button" class="meter-cta" data-goto="accWallet" data-focus="topupAmount">+ טעינה</button>
-            </div>
-            <div class="meter-value" id="creditBalance">-</div>
-            <div class="meter-top" style="margin-top:12px">
-              <span class="meter-title">לידים חינמיים החודש</span>
-              <span class="meter-value-sm" id="quotaUsed">-</span>
-            </div>
-            <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
-            <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
-          </div>
-        </div>
 
       </div>
 
