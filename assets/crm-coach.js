@@ -314,6 +314,7 @@ function coachAskHtml(kind, questions){
       <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
       ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
     </div>` : ''}
+    ${kind === 'agent' ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
   </div>`;
 }
 

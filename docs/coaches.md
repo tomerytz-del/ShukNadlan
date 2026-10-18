@@ -202,13 +202,20 @@ select day, count(*) filter (where model <> 'copy') calls, count(*) filter (wher
 
 | מה | איפה |
 | --- | --- |
-| הפונקציה | `supabase/functions/coach-ask/index.ts`, ‏`verify_jwt = true` |
+| הפונקציה | `supabase/functions/coach-ask/index.ts`, ‏`verify_jwt = true` - רק האימות; הלוגיקה ב-`askCoach` (‏`_shared/coach/ask.ts`) |
+| בוואטסאפ | `ask_mentor` של גבריאלה (‏`whatsapp-webhook/agent.ts`), אותה `askCoach` |
 | הפרומפט | `askSystemPrompt(kind)` ב-`_shared/coach/prompts.ts` |
 | מה יוצא ומה חוזר | `summaryForAsk`, ‏`cleanQuestion`, ‏`cleanAnswer` ב-`_shared/coach/payload.ts` |
 | היומן והמכסה | `supabase/migrations/20270608100000_coach_ask.sql` |
 | הכרטיס | `coachAskHtml` ו-`coachAskSend` ב-`assets/crm-coach.js` |
 
-- **מי שואל/ת נגזר/ת מה-JWT**, לא מה-body. ההרשאה לכל מאמן היא אותה הרשאה של
+- **שני ערוצים, פונקציה אחת.** בכרטיס ב-CRM, ובוואטסאפ דרך גבריאלה ("שאלה למנטור:
+  ..."). שניהם קוראים ל-`askCoach`, ולכן ההרשאה, הצמצום, ההיסטוריה (12 שעות, לפי
+  `kind`), המכסה היומית והיומן ב-`coach_questions` משותפים - עשר שאלות ביום הן
+  עשר בשני הערוצים יחד. גבריאלה מעבירה את השאלה ואת התשובה כמו שהן, וקוראת לכלי
+  רק כשמבקשים את המנטור במפורש. **`ask_mentor` אינו ב-`EMAIL_TOOLS` וב-`MEDIA_TOOLS`:**
+  שם הטקסט נכתב בידי אחרים, ושאלה עולה מכסה.
+- **מי שואל/ת נגזר/ת מה-JWT** (ובוואטסאפ - מהסוכן/ת שזוהה/תה לפי הטלפון), לא מה-body. ההרשאה לכל מאמן היא אותה הרשאה של
   הסיכום שלו: `agent` הסוכן/ת עצמו/ה, `team` רק מי שמוגדר/ת
   `agency_teams.lead_member_id`, ו-`office` רק `role = 'manager'`. אחרת `403`.
 - **מה יוצא למודל:** הסיכום האחרון של אותו מאמן (טקסט בלבד, בלי `cta` ובלי

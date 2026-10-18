@@ -1,4 +1,5 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
+import { askCoach } from "../_shared/coach/ask.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
@@ -1121,6 +1122,30 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { agreement_id: { type: "string" } },
       required: ["agreement_id"],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // המנטור
+  // -------------------------------------------------------------------------
+  {
+    name: "ask_mentor",
+    description:
+      "שאלה למנטור AI (אותו מנטור שבדשבורד ב-CRM): איך מתכוננים לפגישת גיוס, מה עונים " +
+      "על התנגדות, משא ומתן, שגרת עבודה, ולמנהלים - ניהול הצוות או המשרד; וגם על המספרים " +
+      "של 30 הימים האחרונים. **רק כשהסוכן/ת מבקש/ת את המנטור במפורש** (\"שאלה למנטור\", " +
+      "\"תשאלי את המנטור\"). עד 10 שאלות ביום, יחד עם ה-CRM.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "השאלה, במילים של הסוכן/ת. בלי שמות וטלפונים של לקוחות." },
+        kind: {
+          type: "string",
+          enum: ["agent", "team", "office"],
+          description: "agent (ברירת מחדל) - המנטור האישי. team / office - רק כשמנהל/ת שואל/ת על הצוות או המשרד.",
+        },
+      },
+      required: ["question"],
     },
   },
 
@@ -5228,6 +5253,31 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
 }
 
 // ---------------------------------------------------------------------------
+// המנטור - אותה פונקציה של הכרטיס ב-CRM (_shared/coach/ask.ts): אותה הרשאה,
+// אותה מכסה ואותו יומן. הזהות היא הסוכן/ת שזוהה/תה לפי הטלפון, לא פרמטר.
+// ---------------------------------------------------------------------------
+const MENTOR_ERRORS: Record<string, string> = {
+  coach_ask_quota: "נגמרו השאלות למנטור להיום (המכסה משותפת לוואטסאפ ול-CRM). אפשר לשאול שוב מחר.",
+  not_allowed: "המנטור הזה פתוח רק למנהל/ת הצוות או המשרד.",
+  bad_question: "צריך לכתוב שאלה של כמה מילים לפחות.",
+};
+
+async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
+  const kind = ["team", "office"].includes(String(input.kind)) ? String(input.kind) as "team" | "office" : "agent";
+  const r = await askCoach(ctx.supabase, ctx.agent.id, kind, input.question);
+  if ("error" in r) {
+    return { ok: false, error: r.error, message: MENTOR_ERRORS[r.error] || "המנטור לא זמין כרגע. אפשר לנסות שוב בעוד כמה דקות." };
+  }
+  return {
+    ok: true,
+    answer: r.answer,
+    remaining_today: r.remaining,
+    note: "העבירי את answer כמו שהוא, בלי לקצר ובלי להוסיף, ופתחי במילים \"המנטור עונה:\". " +
+      "אם remaining_today הוא 0 - ציייני שזו השאלה האחרונה להיום.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
@@ -6007,6 +6057,9 @@ async function runTool(
       case "agreement_sign_links": return await toolAgreementSignLinks(ctx, input);
       case "agreement_details": return await toolAgreementDetails(ctx, input);
       case "prepare_agreement": return await toolPrepareAgreement(ctx, input);
+      // המנטור
+      case "ask_mentor": return await toolAskMentor(ctx, input);
+
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
@@ -6361,6 +6414,11 @@ const SYSTEM_STATIC: string = (() => {
       "מופיעות גם ביומן Google של הסוכן/ת, אם חובר. החיבור עצמו נעשה רק בדשבורד " +
       "(יומן Google → חיבור מאובטח ל-Google Calendar) - אי אפשר לחבר מכאן. כש-agenda_add מחזיר " +
       "gcal_offer - הצע/י אותו פעם אחת, אחרי אישור הפגישה.",
+    "",
+    "המנטור:",
+    "- \"שאלה למנטור\" / \"תשאלי את המנטור\" = ask_mentor. את לא המנטור ולא עונה במקומו: " +
+      "את השאלה מעבירים במילים של הסוכן/ת, ואת התשובה מחזירים כמו שהיא. בלי בקשה מפורשת " +
+      "למנטור - עונים כרגיל ולא קוראים לו.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +
