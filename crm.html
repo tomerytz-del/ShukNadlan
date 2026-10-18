@@ -4975,6 +4975,56 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #dashboard.is-compact .crm-home{width:34px;height:34px}
   #dashboard.is-compact .crm-home .logo-img{height:21px}
 
+  /* ---------- סמל הבית בגלולת הפעולות ----------
+     הוא עבר מאשכול הזהות אל הגלולה, למקום שבו ישב הפעמון, ונראה שם כמו
+     שאר הכפתורים שבה: סמל בלי עיגול לבן משלו, 40px כמו ההמבורגר. בכיווץ
+     הוא נשאר בגודלו, כמו הכפתורים שלצידו. אחרי כללי ‎.is-compact‎ שלמעלה,
+     באותה ספציפיות, ולכן הוא גובר עליהם. */
+  #dashboard .header-actions .crm-home,
+  #dashboard.is-compact .header-actions .crm-home{
+    width:40px;height:40px;background:transparent;border:none;box-shadow:none;
+  }
+  #dashboard .header-actions .crm-home:hover{background:var(--navy-tint);transform:none}
+  #dashboard .header-actions .crm-home .logo-img,
+  #dashboard.is-compact .header-actions .crm-home .logo-img{height:24px;width:auto}
+
+  /* ---------- הפעמון בנייד ----------
+     עד 1024px יש סרגל תחתון, והפעמון הוא הכפתור "התראות" שבו. הפאנל עצמו
+     נשאר כאן, בכותרת, ונפתח מתחתיה מקצה לקצה - כמו בטלפון עד היום - גם
+     בטווח 721-1023, שבו הוא נתלה קודם בכפתור שכבר אינו על המסך. */
+  @media(max-width:1023px){
+    #dashboard #bellBtn{display:none}
+    #dashboard .bell-wrap{position:static}
+    #dashboard .bell-panel{
+      top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
+      max-height:min(70vh,420px);
+    }
+  }
+
+  /* ---------- השם והתגית צמודים לתמונה ----------
+     הבלוק יושב משמאל לתמונה (row-reverse), ושתי השורות שבו מיושרות אליה
+     ולא לקצה הימני של עצמן - אחרת שם ארוך מתגית היה משאיר את התגית
+     תלויה באוויר, רחוק מהתמונה. */
+  #dashboard .agent-id-text{text-align:left}
+  #dashboard .agent-id-meta{justify-content:flex-end}
+
+  /* ---------- המתנה בתוך תגית המסלול ----------
+     שתי תגיות צמודות (עיגול מתנה וגלולת מסלול) נקראו כשני דברים נפרדים.
+     עכשיו המתנה יושבת בתוך הגלולה, בתחילתה, על עיגול לבן קטן, והגלולה
+     מתרחבת לה. ‏+ ולא ‎:has()‎: הריפוד נוסף רק כשהמתנה גלויה. */
+  #dashboard .tier-chip{position:relative;display:inline-flex;align-items:center;min-width:0;max-width:100%}
+  #dashboard .tier-chip .promo-gift{
+    position:absolute;inset-inline-start:3px;top:50%;z-index:1;
+    width:19px;height:19px;padding:0;overflow:visible;transform:translateY(-50%);
+    background:#fff;border:none;box-shadow:0 1px 2px rgba(15,23,42,.18);
+  }
+  #dashboard .tier-chip .promo-gift:hover{transform:translateY(-50%) scale(1.08)}
+  #dashboard .tier-chip .promo-gift::before{display:none}
+  #dashboard .tier-chip .promo-gift .ps-gift{display:none}
+  #dashboard .tier-chip .promo-gift .ps-svg{display:block;width:15px;height:15px;flex:none;filter:none}
+  #dashboard .tier-chip .promo-gift.is-urgent::after{top:-4px;inset-inline-end:-3px;width:7px;height:7px}
+  #dashboard .tier-chip .promo-gift:not([hidden]) + .tier-badge{padding-inline-start:26px}
+
   /* הפס עצמו: גובה 0 עד שהוא נפתח, ולכן הוא לא תופס מקום ולא מזיז את הדף
      כשהוא סגור. הוא בתוך הכותרת, ולכן גובה הכותרת גדל איתו לבד. */
   /* ‏visibility ולא רק גובה 0: כפתור בגובה אפס עדיין נמצא בסדר ה-Tab, ופס
@@ -5086,8 +5136,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ==========================================================================
      סרגל הניווט התחתון
      --------------------------------------------------------------------------
-     בית · לידים · + · חיפוש · אני. "בית" ו"לידים" מציגים מקטע (קבוצת
-     אקורדיונים), ושלושת האחרים פותחים שכבה. שאר המקטעים (נכסים, לקוחות,
+     בית · לידים · + · חיפוש · התראות. "בית" ו"לידים" מציגים מקטע (קבוצת
+     אקורדיונים), ושלושת האחרים פותחים שכבה. "התראות" הוא הפעמון שירד
+     מהכותרת; הפרופיל ("אני" לשעבר) נפתח מהתמונה שבכותרת. שאר המקטעים (נכסים, לקוחות,
      הסכמים, "עוד") נפתחים מתפריט הבורגר, מהקיצורים ומהחיפוש, ובלי כפתור
      מודגש בסרגל (docs/crm-navigation.md). הסרגל קיים במובייל בלבד — מ-1024px
      ומעלה יש סרגל צד דביק שמראה את כל המפה בבת אחת, ואז הסינון כבוי לגמרי
@@ -5106,7 +5157,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      לא נראה — שם הדפדפן מכווץ את החלון מעל הסרגל ממילא — ולכן זה התגלה
      רק באפליקציה המותקנת, שבה אנדרואיד פורש את הדף מקצה לקצה.
      ========================================================================== */
-  /* חמישה כפתורים: בית · לידים · + · חיפוש · אני (BOTTOM_NAV). רצועה לבנה
+  /* חמישה כפתורים: בית · לידים · + · חיפוש · התראות (BOTTOM_NAV). רצועה לבנה
      עם צל עליון, והפריט הפעיל בגלולה כחולה בהירה - לפי העיצוב החדש
      (docs/handoff/crm-redesign/design/BottomNav.dc.html). ה-+ מורם מעל
      הרצועה, ולכן אין כאן overflow:hidden. */
@@ -5142,12 +5193,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bn-create .bn-pill svg{width:26px;height:26px}
   .bn-create.is-on{color:var(--nv-ink)}
   .bn-create.is-on .bn-pill{background:var(--nv-ink);box-shadow:0 8px 20px rgba(14,26,51,.3)}
-  .bn-avatar{
-    width:26px;height:26px;border-radius:50%;object-fit:cover;
-    background:#DCE6FF;color:var(--nv-accent-ink);font-size:.7rem;font-weight:800;
-    display:inline-flex;align-items:center;justify-content:center;
-  }
-  .bn-tab.is-on .bn-avatar{box-shadow:0 0 0 2px var(--nv-accent)}
   .bn-badge{
     position:absolute;top:-3px;inset-inline-end:4px;
     min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;
@@ -6362,7 +6407,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="dash-wrap crm-header-inner">
       <!-- ---------- הפעולות ----------
            הן פותחות את הכותרת בקצה ההתחלה (ימין): ההמבורגר הוא "לאן ללכת",
-           והפעמון הוא "מה חדש". הזהות עברה לקצה השני — ראו למטה. -->
+           והפעמון הוא "מה חדש" (במחשב; בנייד הוא בסרגל התחתון). הזהות
+           בקצה השני — ראו למטה. -->
       <div class="header-actions">
         <!-- תפריט הבורגר: מפת כל הקטגוריות שגלויות לסוכן/ת בדשבורד. הרשימה
              נבנית ב-buildMenuPanel() מה-DOM עצמו בכל פתיחה. הוא ראשון בשורה,
@@ -6378,6 +6424,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </button>
           <nav class="menu-panel" id="menuPanel" aria-label="קטגוריות הדשבורד"></nav>
         </div>
+        <!-- סמל הבית: האתר הציבורי, בלשונית חדשה - מה-CRM (ובמיוחד מהאפליקציה
+             המותקנת) הוא יציאה החוצה, ולא מעבר בתוך אותו מסך. הוא יושב בגלולה
+             במקום הפעמון, שבנייד ירד לסרגל התחתון (BOTTOM_NAV ב-crm.js). -->
+        <a href="/" class="logo-link crm-home" target="_blank" rel="noopener"
+           aria-label="לאתר שוק הנדל״ן (נפתח בלשונית חדשה)" title="לאתר שוק הנדל״ן">
+          <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="" width="52" height="62">
+        </a>
+        <!-- הפעמון: מ-1024px בלבד. מתחת לזה הוא הכפתור "התראות" בסרגל התחתון,
+             שפותח את אותו פאנל (openBellPanel) -->
         <div class="bell-wrap">
           <button class="icon-btn bell-btn" id="bellBtn" aria-label="התראות" aria-expanded="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -6424,14 +6479,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            ההתראות, הקוד האתי והיציאה — כולם תחתיו. הפעמון (מה חדש) וההמבורגר
            (לאן ללכת) נשארו, כי הם עונים על שאלות אחרות לגמרי.
 
-           הקבוצה כולה עברה לקצה הסיום של הכותרת, והלוגו נכנס לתוכה: קודם הוא
-           היה מרחף ממורכז ב-absolute בין שני הצדדים, ושני הצדדים היו צריכים
-           להתקצר כדי לא לגעת בו (‏max-width:calc(50% - 34px) על הזהות). עכשיו
-           שלושתם אשכול אחד — תמונה, סמל הבית ושם — והמרכז פנוי.
+           הקבוצה כולה בקצה הסיום של הכותרת (שמאל): התמונה, ולצידה השם והתגית,
+           צמודים אליה ומיושרים אליה. סמל הבית ישב כאן ביניהם, ועבר לגלולת
+           הפעולות במקום הפעמון - הוא קישור לאתר ולא חלק מהזהות.
 
            ‏row-reverse: ב-RTL הוא מניח את הפריט הראשון בצד שמאל, ולכן סדר
-           ה-DOM (אווטאר ← לוגו ← שם) הוא גם סדר ה-Tab וגם הסדר שנראה על
-           המסך משמאל לימין, בלי לסדר מחדש את הקוד. -->
+           ה-DOM (אווטאר ← שם) הוא גם סדר ה-Tab וגם הסדר שנראה על המסך משמאל
+           לימין, בלי לסדר מחדש את הקוד. -->
       <div class="agent-id menu-wrap profile-wrap">
         <button type="button" class="avatar" id="avatarBtn"
                 aria-haspopup="true" aria-expanded="false" aria-controls="profilePanel"
@@ -6439,9 +6493,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span id="avatarInitial">·</span>
           <img id="avatarPhoto" alt="" hidden>
         </button>
-        <a href="/" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" title="לדף הבית">
-          <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
-        </a>
         <div class="agent-id-text">
           <div class="agent-name" id="agentName">-</div>
           <!-- התגית היא קישור ולא תווית: "מה יש לי" ו"מה אפשר לשדרג" הן אותה
@@ -6449,32 +6500,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                ‏href נכתב ב-renderTierBadge() עם המסלול הנוכחי ותאריך ההטבה,
                כדי שדף המסלולים יסמן את הכרטיס הנכון. -->
           <div class="agent-id-meta">
-            <a class="tier-badge" id="tierBadge" href="/pricing" target="_blank" rel="noopener"
-               title="המסלול שלי ואפשרויות השדרוג">-</a>
-            <!-- הטבת ההשקה / בקשת שדרוג פתוחה / דף המסלולים. תמיד מוצג/ת
-                 אחרי הטעינה, ו-renderPromoStrip() מחליט/ה על הנוסח. הנוסח המלא ב-title ובטקסט
-                 הנסתר, לקוראי מסך. -->
-            <a class="promo-gift" id="promoStrip" href="/pricing" target="_blank" rel="noopener"
-               aria-haspopup="dialog" aria-expanded="false" aria-controls="promoPop" hidden>
-              <span class="ps-gift" aria-hidden="true">🎁</span>
-              <!-- במחשב: מתנה מצוירת במקום האימוג׳י (ראו .ps-svg ב-CSS) -->
-              <svg class="ps-svg" viewBox="0 0 32 32" aria-hidden="true">
-                <defs>
-                  <linearGradient id="pgBox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d77a"/><stop offset="1" stop-color="#c9962a"/></linearGradient>
-                  <linearGradient id="pgLid" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset="1" stop-color="#d9a73a"/></linearGradient>
-                  <linearGradient id="pgRib" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8344c"/><stop offset="1" stop-color="#7d1d2b"/></linearGradient>
-                </defs>
-                <rect x="6" y="15" width="20" height="13" rx="2.5" fill="url(#pgBox)"/>
-                <rect x="14" y="15" width="4" height="13" fill="url(#pgRib)"/>
-                <g class="ps-lid">
-                  <path d="M16 11.5c-2.2-4.6-7.4-5.2-7.6-2.2-.2 2.4 4.2 2.9 7.6 2.2zM16 11.5c2.2-4.6 7.4-5.2 7.6-2.2.2 2.4-4.2 2.9-7.6 2.2z" fill="url(#pgRib)"/>
-                  <rect x="4.5" y="11" width="23" height="5.5" rx="2" fill="url(#pgLid)"/>
-                  <rect x="14" y="11" width="4" height="5.5" fill="url(#pgRib)"/>
-                </g>
-                <path class="ps-spark" d="M27 4l.8 1.9L29.7 6.7l-1.9.8L27 9.4l-.8-1.9-1.9-.8 1.9-.8z" fill="#f2c94c"/>
-              </svg>
-              <span class="ps-text"><b id="promoStripTitle"></b> <span id="promoStripSub"></span></span>
-            </a>
+            <!-- המתנה ותגית המסלול הן תגית אחת: המתנה יושבת בתוך הגלולה, בתחילתה,
+                 ולחיצה על כל אחת מהן פותחת את חלונית ההטבה (wirePromoGift), שבה
+                 הקישור לדף המסלולים. כל עוד המתנה מוסתרת (לפני הטעינה) התגית
+                 היא קישור רגיל. המתנה (הטבת ההשקה / בקשת שדרוג פתוחה / דף
+                 המסלולים) מוצגת תמיד אחרי הטעינה, ו-renderPromoStrip() מחליט
+                 על הנוסח, שעובר ל-title ולטקסט הנסתר לקוראי מסך. -->
+            <span class="tier-chip">
+              <a class="promo-gift" id="promoStrip" href="/pricing" target="_blank" rel="noopener"
+                 aria-haspopup="dialog" aria-expanded="false" aria-controls="promoPop" hidden>
+                <span class="ps-gift" aria-hidden="true">🎁</span>
+                <!-- המתנה המצוירת, בכל רוחב (ראו .tier-chip ב-CSS) -->
+                <svg class="ps-svg" viewBox="0 0 32 32" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="pgBox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d77a"/><stop offset="1" stop-color="#c9962a"/></linearGradient>
+                    <linearGradient id="pgLid" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset="1" stop-color="#d9a73a"/></linearGradient>
+                    <linearGradient id="pgRib" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8344c"/><stop offset="1" stop-color="#7d1d2b"/></linearGradient>
+                  </defs>
+                  <rect x="6" y="15" width="20" height="13" rx="2.5" fill="url(#pgBox)"/>
+                  <rect x="14" y="15" width="4" height="13" fill="url(#pgRib)"/>
+                  <g class="ps-lid">
+                    <path d="M16 11.5c-2.2-4.6-7.4-5.2-7.6-2.2-.2 2.4 4.2 2.9 7.6 2.2zM16 11.5c2.2-4.6 7.4-5.2 7.6-2.2.2 2.4-4.2 2.9-7.6 2.2z" fill="url(#pgRib)"/>
+                    <rect x="4.5" y="11" width="23" height="5.5" rx="2" fill="url(#pgLid)"/>
+                    <rect x="14" y="11" width="4" height="5.5" fill="url(#pgRib)"/>
+                  </g>
+                  <path class="ps-spark" d="M27 4l.8 1.9L29.7 6.7l-1.9.8L27 9.4l-.8-1.9-1.9-.8 1.9-.8z" fill="#f2c94c"/>
+                </svg>
+                <span class="ps-text"><b id="promoStripTitle"></b> <span id="promoStripSub"></span></span>
+              </a>
+              <a class="tier-badge" id="tierBadge" href="/pricing" target="_blank" rel="noopener"
+                 aria-haspopup="dialog" aria-expanded="false" aria-controls="promoPop" title="המסלול שלי ואפשרויות השדרוג">-</a>
+            </span>
             <span class="agent-agency" id="agentAgency"></span>
           </div>
         </div>
@@ -10021,7 +10077,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <!-- ---------- סרגל הניווט התחתון (מובייל) ----------
-     בית · לידים · + · חיפוש · אני (BOTTOM_NAV ב-crm.js, docs/crm-navigation.md).
+     בית · לידים · + · חיפוש · התראות (BOTTOM_NAV ב-crm.js, docs/crm-navigation.md).
      יושב מחוץ ל-#dashboard כי הוא position:fixed ואינו חלק מזרימת התוכן,
      ומוסתר בכל מסך שאינו הדשבורד (ראו showScreen). -->
 <nav class="bottom-nav" id="bottomNav" aria-label="ניווט ראשי" hidden></nav>

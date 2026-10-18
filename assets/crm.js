@@ -7502,9 +7502,13 @@ function labelPromoGift(strip, promo, agent){
 
 // לחיצה על המתנה פותחת את החלונית במקום לנווט. הקישור עצמו נשאר href אמיתי
 // (לחיצה אמצעית או Ctrl עדיין פותחות את דף המסלולים).
+// המתנה יושבת בתוך תגית המסלול (.tier-chip), ולחיצה על התגית עצמה פותחת
+// את אותה חלונית - שתיהן תגית אחת על המסך. כל עוד המתנה מוסתרת (לפני
+// הטעינה) התגית נשארת קישור רגיל לדף המסלולים.
 (function wirePromoGift(){
   const gift = document.getElementById('promoStrip');
   const pop  = document.getElementById('promoPop');
+  const badge = document.getElementById('tierBadge');
   if (!gift || !pop) return;
   // החלונית ממוקמת מתחת למתנה עצמה, ולא בקצה הכותרת: במחשב הכותרת רחבה
   // והמתנה יושבת רחוק מהקצה. ‏fixed מול המלבן של האייקון, עם חץ שמצביע עליו,
@@ -7522,6 +7526,7 @@ function labelPromoGift(strip, promo, agent){
   const setOpen = (open)=>{
     pop.hidden = !open;
     gift.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (badge) badge.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) place();
   };
   window.addEventListener('resize', ()=>{ if (!pop.hidden) place(); });
@@ -7531,13 +7536,17 @@ function labelPromoGift(strip, promo, agent){
     if (document.getElementById('dashboard').classList.contains('is-compact')) setOpen(false);
     else place();
   }, { passive:true });
-  gift.addEventListener('click', (e)=>{
+  const toggle = (e)=>{
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+    if (gift.hidden) return;
     e.preventDefault();
     setOpen(pop.hidden);
-  });
+  };
+  gift.addEventListener('click', toggle);
+  if (badge) badge.addEventListener('click', toggle);
   document.addEventListener('click', (e)=>{
-    if (!pop.hidden && !pop.contains(e.target) && !gift.contains(e.target)) setOpen(false);
+    if (!pop.hidden && !pop.contains(e.target) && !gift.contains(e.target)
+        && !(badge && badge.contains(e.target))) setOpen(false);
   });
   document.addEventListener('keydown', (e)=>{
     if (e.key === 'Escape' && !pop.hidden){ setOpen(false); gift.focus(); }
@@ -24582,6 +24591,9 @@ const NOTIF_TYPES = [
 
 const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 
+/* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
+let notifUnread = 0;
+
 async function loadNotifications(agentId){
   const listEl = document.getElementById('notifList');
   const badge = document.getElementById('bellBadge');
@@ -24604,6 +24616,8 @@ async function loadNotifications(agentId){
   const unread = items.filter(n => !n.read).length;
   badge.textContent = unread > 9 ? '9+' : String(unread);
   badge.style.display = unread ? 'flex' : 'none';
+  // אותו מספר על "התראות" בסרגל התחתון, שהוא הפעמון בנייד
+  if (unread !== notifUnread){ notifUnread = unread; renderBottomNav(); }
 
   if (!items.length){
     listEl.innerHTML = '<div class="empty-state" style="padding:18px">אין התראות חדשות.</div>';
@@ -24624,8 +24638,7 @@ async function loadNotifications(agentId){
         await sb.from('notifications').update({ read:true }).eq('id', n.id);
         await loadNotifications(agentId);
       }
-      document.getElementById('bellPanel').style.display = 'none';
-      document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+      closeBellPanel();
       // כל סוג מוביל לקטגוריה שבה באמת אפשר לעשות משהו עם ההתראה. סוג לא
       // מוכר, או קטגוריה שאינה גלויה לתפקיד הזה, פשוט סוגרים את הפאנל —
       // נחיתה רכה עדיפה על קפיצה למקום שגוי.
@@ -24666,26 +24679,35 @@ async function loadNotifications(agentId){
   });
 }
 
+/* פאנל ההתראות נפתח משני מקומות: הפעמון בכותרת (מ-1024px) והכפתור
+   "התראות" בסרגל התחתון (מתחת לזה). שניהם עוברים כאן, והוא שכבה כמו
+   החיפוש והיצירה - פתיחה סוגרת את האחרות, והכפתור בסרגל מסומן כל עוד
+   הפאנל פתוח. */
+function openBellPanel(){
+  // תפריט הבורגר אינו שכבה, ואינו נסגר מהלחיצה שנעצרה בכפתור
+  closeMenuPanel();
+  document.getElementById('bellPanel').style.display = 'block';
+  document.getElementById('bellBtn').setAttribute('aria-expanded', 'true');
+  if (currentAgent) loadNotifications(currentAgent.id);
+  setNavLayer('bell');
+}
+
+function closeBellPanel(){
+  const panel = document.getElementById('bellPanel');
+  if (!panel || panel.style.display !== 'block') return;
+  panel.style.display = 'none';
+  document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
+  if (navLayer === 'bell') setNavLayer(null);
+}
+
 document.getElementById('bellBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
-  // stopPropagation מונע מהמאזין הגלובלי לסגור את תפריט הבורגר, ולכן סוגרים
-  // אותו כאן במפורש — אחרת שני הפאנלים היו נפתחים זה על גבי זה
-  closeMenuPanel();
-  const panel = document.getElementById('bellPanel');
-  const open = panel.style.display === 'block';
-  panel.style.display = open ? 'none' : 'block';
-  document.getElementById('bellBtn').setAttribute('aria-expanded', String(!open));
-  if (!open && currentAgent) loadNotifications(currentAgent.id);
+  if (document.getElementById('bellPanel').style.display === 'block') closeBellPanel();
+  else openNavLayer('bell');
 });
 
 document.getElementById('bellPanel').addEventListener('click', e => e.stopPropagation());
-document.addEventListener('click', ()=>{
-  const panel = document.getElementById('bellPanel');
-  if (panel.style.display === 'block'){
-    panel.style.display = 'none';
-    document.getElementById('bellBtn').setAttribute('aria-expanded','false');
-  }
-});
+document.addEventListener('click', closeBellPanel);
 
 document.getElementById('markAllRead').addEventListener('click', async ()=>{
   if (!currentAgent) return;
@@ -24730,8 +24752,7 @@ document.getElementById('clearRead').addEventListener('click', async ()=>{
 });
 
 document.getElementById('notifSettingsBtn').addEventListener('click', ()=>{
-  document.getElementById('bellPanel').style.display = 'none';
-  document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+  closeBellPanel();
   gotoSection('accNotifPrefs');
 });
 
@@ -26278,7 +26299,8 @@ const BOTTOM_NAV = [
   { key:'leads',  label:'לידים', icon:'inbox',  section:'leads' },
   { key:'create', label:'יצירה', icon:'plus',   layer:'create' },
   { key:'search', label:'חיפוש', icon:'search', layer:'search' },
-  { key:'me',     label:'אני',   icon:'user',   layer:'me' },
+  // הפעמון שירד מהכותרת. הפרופיל ("אני" עד כאן) נפתח מהתמונה שבכותרת
+  { key:'alerts', label:'התראות', icon:'bell',  layer:'bell' },
 ];
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
@@ -26310,7 +26332,7 @@ let navTab   = 'home';
 /* הקטגוריה האחרונה שאליה ניווטו (gotoSection) - השורה המודגשת בסרגל הצד,
    והקבוצה שלה תמיד פתוחה. בדסקטופ אין מקטעים, ולכן navTab אינו יודע את זה. */
 let navActive = NAV_HOME;
-/* השכבה הפתוחה מעל המסך: 'create' | 'search' | 'me' | null */
+/* השכבה הפתוחה מעל המסך: 'create' | 'search' | 'me' | 'bell' | null */
 let navLayer = null;
 
 function accCountOf(accId){
@@ -26594,11 +26616,11 @@ function renderBottomNav(){
       } else if (on){
         btn.setAttribute('aria-current', 'page');
       }
-      const badge = tab.key === 'leads' ? navBadgeSum(NAV_LEADS_BADGE) : 0;
+      const badge = tab.key === 'leads' ? navBadgeSum(NAV_LEADS_BADGE)
+                  : tab.key === 'alerts' ? notifUnread : 0;
       let icon = dashIcon(tab.icon);
       let label = tab.label;
       if (tab.key === 'create' && on){ icon = dashIcon('close'); label = 'סגירה'; }
-      if (tab.key === 'me') icon = bottomNavAvatar();
       btn.setAttribute('aria-label', label + (badge ? ', ' + badge + ' ממתינים' : ''));
       btn.innerHTML = '<span class="bn-pill">' + icon
         + '<span class="bn-badge">' + (badge ? esc(badge > 9 ? '9+' : String(badge)) : '') + '</span></span>'
@@ -26621,16 +26643,6 @@ function renderBottomNav(){
   renderMenuBadge();
 }
 
-/* "אני" נושא את האווטאר של הכותרת - התמונה, או האות הראשונה */
-function bottomNavAvatar(){
-  const photo = document.getElementById('avatarPhoto');
-  if (photo && !photo.hidden && photo.getAttribute('src')){
-    return '<img class="bn-avatar" src="' + esc(photo.getAttribute('src')) + '" alt="">';
-  }
-  const initial = (document.getElementById('avatarInitial') || {}).textContent || '';
-  return '<span class="bn-avatar">' + esc(initial.trim() || '·') + '</span>';
-}
-
 /* התגית על כפתור התפריט בכותרת - הדחוף שאין לו כפתור בסרגל התחתון */
 function renderMenuBadge(){
   const el = document.getElementById('menuBadge');
@@ -26641,7 +26653,7 @@ function renderMenuBadge(){
   if (btn) btn.setAttribute('aria-label', 'תפריט הדשבורד' + (n ? ', ' + n + ' ממתינים' : ''));
 }
 
-/* ---------- השכבות: יצירה, חיפוש, אני ----------
+/* ---------- השכבות: יצירה, חיפוש, התראות, ופרופיל ----------
    אחת בכל פעם. פתיחה של אחת סוגרת את האחרות (ואת תפריט הבורגר והפעמון),
    וכל אחת מעדכנת את הסרגל התחתון כדי שהכפתור שלה יסומן. */
 function openNavLayer(layer){
@@ -26649,12 +26661,14 @@ function openNavLayer(layer){
   if (layer === 'create') openCreateSheet();
   else if (layer === 'search') openSearch();
   else if (layer === 'me') openProfilePanel();
+  else if (layer === 'bell') openBellPanel();
 }
 
 function closeNavLayers(){
   closeCreateSheet();
   closeSearch();
   closeProfilePanel();
+  closeBellPanel();
 }
 
 function setNavLayer(layer){
@@ -30150,9 +30164,7 @@ document.getElementById('menuBtn').addEventListener('click', (e)=>{
   const open = panel.classList.contains('is-open');
   if (open){ closeMenuPanel(); return; }
   // סוגרים את פאנל ההתראות מאותה סיבה הפוכה — הוא לא נסגר מלחיצה שנעצרה כאן
-  const bell = document.getElementById('bellPanel');
-  bell.style.display = 'none';
-  document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
+  closeBellPanel();
   // נבנה מחדש בכל פתיחה כדי שהמונים והקטגוריות יהיו מעודכנים לרגע הזה
   buildMenuPanel();
   panel.classList.add('is-open');
@@ -30310,9 +30322,7 @@ function openProfilePanel(){
   const panel = document.getElementById('profilePanel');
   if (!panel) return;
   closeMenuPanel();
-  const bell = document.getElementById('bellPanel');
-  bell.style.display = 'none';
-  document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
+  closeBellPanel();
   buildProfilePanel();
   panel.classList.add('is-open');
   // בנייד הפאנל הוא מסך מלא (position:fixed), וה-backdrop-filter של הכותרת
