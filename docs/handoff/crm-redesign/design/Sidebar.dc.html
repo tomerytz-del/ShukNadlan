@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>תפריט צד</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<aside dir="rtl" aria-label="תפריט ראשי" style="width: {{w}}; min-height: 1080px; height: 100%; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #E3E7EF; padding: 16px 10px; display: flex; flex-direction: column; gap: 12px; font-family: Assistant, sans-serif; color: #0E1A33">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 4px; justify-content: {{logoJustify}}">
+<span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: #0E1A33; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13M10 21v-5h4v5"></path></svg>
+</span>
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}">
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-family: Rubik, sans-serif; font-size: 17px; font-weight: 600">שוק נדל״ן</span><span style="font-size: 12px; color: #5A6478; font-weight: 600">{{roleLabel}}</span></span>
+</sc-if>
+</div>
+
+<sc-if value="{{showSwitch}}" hint-placeholder-val="{{ false }}">
+<div role="tablist" aria-label="תצוגה" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; background: #F4F6FA; border-radius: 10px; padding: 3px">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+<a href="{{v.href}}" role="tab" style="height: 32px; border-radius: 8px; background: {{v.bg}}; color: {{v.fg}}; text-decoration: none; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: {{v.shadow}}">{{v.label}}</a>
+</sc-for>
+</div>
+</sc-if>
+
+<a href="#" aria-label="יצירה חדשה" style="height: 42px; border-radius: 12px; background: #1F5BF0; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 700">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}"><span>יצירה חדשה</span></sc-if>
+</a>
+
+<nav aria-label="קטגוריות" style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; border-top: {{g.sep}}; padding-top: {{g.padTop}}">
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}">
+<button aria-expanded="{{g.expanded}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: {{g.titleColor}}; font-family: Assistant, sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; text-align: right">
+<span style="flex: 1">{{g.title}}</span>
+<sc-if value="{{g.showHot}}" hint-placeholder-val="{{ false }}">
+<span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #C2410C; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{g.hot}}</span>
+</sc-if>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: {{g.chev}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+</sc-if>
+<sc-if value="{{g.showItems}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 1px; padding-bottom: 4px">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
+<a href="{{it.href}}" title="{{it.label}}" aria-label="{{it.label}}" style="position: relative; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 10px; text-decoration: none; background: {{it.bg}}; color: {{it.fg}}; font-size: 14px; font-weight: {{it.weight}}; justify-content: {{itemJustify}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"></path></svg>
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}"><span style="flex: 1">{{it.label}}</span></sc-if>
+<sc-if value="{{it.hasCount}}" hint-placeholder-val="{{ false }}">
+<span style="{{it.countPos}} min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: {{it.countBg}}; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{it.count}}</span>
+</sc-if>
+</a>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</nav>
+
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px">
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}">
+<div style="background: #F4F6FA; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700"><span>לידים חינם החודש</span><span style="color: #5A6478">7 / 10</span></div>
+<div style="height: 5px; border-radius: 3px; background: #DDE2EC"><div style="width: 70%; height: 5px; border-radius: 3px; background: #1F5BF0"></div></div>
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="color: #5A6478">בארנק ₪240</span><a href="#" style="color: #1F5BF0; font-weight: 700; text-decoration: none">טעינה</a></div>
+</div>
+</sc-if>
+<button onClick="{{toggleRail}}" aria-label="{{railLabel}}" style="height: 36px; border: 0; border-radius: 10px; background: transparent; color: #5A6478; font-family: Assistant, sans-serif; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: {{itemJustify}}; gap: 8px; padding: 0 10px; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path><path d="{{railArrow}}"></path></svg>
+<sc-if value="{{full}}" hint-placeholder-val="{{ true }}"><span>{{railLabel}}</span></sc-if>
+</button>
+</div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role":{"editor":"enum","options":["agent","team","office"],"default":"agent"},"active":{"editor":"enum","options":["home","leads","clients","props","deals","calendar","matches","shop","share","planning","site","promote","perf","team","teamLeads","teamAgents","office","offTeams","reviews","calls","branding"],"default":"home"},"alsoAgent":{"editor":"boolean","default":true},"rail":{"editor":"boolean","default":false},"$preview":{"width":260,"height":1080}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { open: null, rail: null }; }
+renderVals() {
+const a = this.props.active ?? 'home';
+const role = this.props.role ?? 'agent';
+const rail = this.state.rail ?? !!this.props.rail;
+const I = {
+home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+leads: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+clients: 'M16 21a6 6 0 0 0-12 0M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21a6 6 0 0 0-4-5.6M16 3.1a4 4 0 0 1 0 7.8',
+props: 'M3 21h18M5 21V8l7-5 7 5v13M10 21v-5h4v5',
+deals: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17c1.5-2 2.5-2 3 0s1.5 2 3 0',
+calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM16 3v4M8 3v4M3 10h18',
+matches: 'M4 12h4l3-8 2 16 3-8h4',
+shop: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
+share: 'M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7',
+planning: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14',
+site: 'M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+promote: 'M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1zM16 9a4 4 0 0 1 0 6',
+perf: 'M3 3v18h18M7 14l4-4 3 3 5-6',
+team: 'M3 3v18h18M7 16V11M12 16V7M17 16v-3',
+teamLeads: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+teamAgents: 'M16 21a6 6 0 0 0-12 0M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21a6 6 0 0 0-4-5.6M16 3.1a4 4 0 0 1 0 7.8',
+office: 'M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4',
+offTeams: 'M16 21a6 6 0 0 0-12 0M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21a6 6 0 0 0-4-5.6M16 3.1a4 4 0 0 1 0 7.8',
+reviews: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
+calls: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z',
+branding: 'M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 21zM7.5 11.5h.01M10.5 7.5h.01M15.5 8.5h.01'
+};
+const H = { home: 'Desktop-Dashboard.dc.html', perf: 'Desktop-Performance.dc.html', team: 'Desktop-TeamLead.dc.html', office: 'Desktop-Office.dc.html' };
+const mk = (id, label, count, urgent) => ({
+id, d: I[id], label, href: H[id] || '#',
+hasCount: !!count, count: count || '', urgent: !!urgent,
+countBg: urgent ? '#C2410C' : '#5A6478',
+countPos: rail ? 'position: absolute; top: 2px; left: 6px; border: 2px solid #FFFFFF;' : '',
+bg: a === id ? '#EAF0FF' : 'transparent',
+fg: a === id ? '#1F3F99' : '#0E1A33',
+weight: a === id ? '700' : '600'
+});
+const isMgr = role !== 'agent';
+const alsoAgent = this.props.alsoAgent ?? true;
+const mgrIds = ['team','teamAgents','teamLeads','office','offTeams','reviews','calls','branding'];
+const inMgr = mgrIds.includes(a);
+const work = [
+{ key: 'core', title: 'עבודה יומית', items: [mk('home','דף הבית'), mk('leads','לידים',3,true), mk('clients','לקוחות'), mk('props','נכסים'), mk('deals','הסכמים והחתמות'), mk('calendar','יומן ומשימות',2,false)] },
+{ key: 'opp', title: 'הזדמנויות', items: [mk('matches','התאמות חכמות',5,true), mk('shop','חנות הלידים'), mk('share','שיתופי פעולה'), mk('planning','מידע אזורי ותכנוני')] },
+{ key: 'grow', title: 'צמיחה', items: [mk('perf', isMgr ? 'הדשבורד שלי כסוכן/ת' : 'הדשבורד שלי'), mk('site','המיני-סייט שלי'), mk('promote','קידום ושיווק')] }
+];
+const mgr = role === 'team'
+? { key: 'mgr', title: 'הצוות שלי', items: [mk('team','דאשבורד הצוות'), mk('teamLeads','לידים בצוות'), mk('teamAgents','הסוכנים בצוות')] }
+: { key: 'mgr', title: 'ניהול המשרד', items: [mk('office','דאשבורד המשרד'), mk('offTeams','צוותים וסוכנים'), mk('reviews','ביקורות לאישור',3,true), mk('calls','שיחות המשרד'), mk('branding','מיתוג דף המשרד')] };
+let groups;
+if (!isMgr) groups = work;
+else if (!alsoAgent) groups = [mgr];
+else groups = inMgr ? [mgr].concat(work) : work.concat([mgr]);
+const activeGroup = (groups.find(g => g.items.some(it => it.id === a)) || groups[0]).key;
+const open = this.state.open || { [activeGroup]: true, core: true };
+groups = groups.map((g, i) => {
+const isOpen = !!open[g.key];
+const hot = g.items.filter(it => it.urgent).reduce((s, it) => s + Number(it.count || 0), 0);
+return { ...g,
+expanded: isOpen ? 'true' : 'false',
+showItems: rail || isOpen,
+showHot: !isOpen && hot > 0, hot,
+chev: isOpen ? 'rotate(180deg)' : 'none',
+titleColor: (isMgr && g.key === 'mgr') ? '#1F3F99' : '#5A6478',
+sep: i === 0 ? '0' : '1px solid #EEF1F6', padTop: i === 0 ? '0' : '4px',
+toggle: () => this.setState({ open: { ...open, [g.key]: !isOpen } })
+};
+});
+const vt = (label, on, href) => ({ label, href, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#0E1A33' : '#5A6478', shadow: on ? '0 1px 3px rgba(14,26,51,0.15)' : 'none' });
+const views = role === 'team' ? [vt('אני כסוכן/ת', !inMgr, 'Desktop-Performance.dc.html'), vt('הצוות שלי', inMgr, 'Desktop-TeamLead.dc.html')]
+: [vt('אני כסוכן/ת', !inMgr, 'Desktop-Performance.dc.html'), vt('המשרד שלי', inMgr, 'Desktop-Office.dc.html')];
+const base = role === 'team' ? 'מנהל/ת צוות' : role === 'office' ? 'מנהל/ת משרד' : 'מערכת הסוכן';
+return {
+groups, views,
+full: !rail,
+w: rail ? '72px' : '260px',
+logoJustify: rail ? 'center' : 'flex-start',
+itemJustify: rail ? 'center' : 'flex-start',
+showSwitch: !rail && isMgr && alsoAgent,
+roleLabel: isMgr && alsoAgent ? base + ' · סוכן/ת פעיל/ה' : base,
+railLabel: rail ? 'הרחב תפריט' : 'כווץ תפריט',
+railArrow: rail ? 'M10 10l-2 2 2 2' : 'M8 10l2 2-2 2',
+toggleRail: () => this.setState({ rail: !rail })
+};
+}
+}
+</script>
+</body>
+</html>

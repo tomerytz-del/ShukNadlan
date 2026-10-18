@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>CRM נייד — חיפוש אחוד</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+</style>
+</helmet>
+<div dir="rtl" style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #F4F6FA; font-family: Assistant, sans-serif; color: #0E1A33">
+<div style="background: #FFFFFF; padding: 18px 16px 12px; border-bottom: 1px solid #E3E7EF; display: flex; flex-direction: column; gap: 12px">
+<label style="display: flex; align-items: center; gap: 10px; height: 52px; border-radius: 16px; border: 2px solid #1F5BF0; background: #FFFFFF; padding: 0 14px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F5BF0" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">חיפוש במערכת</span>
+<input type="search" value="כהן" placeholder="חפש לקוח, נכס, טלפון, הסכם או שאלה" style="flex: 1; min-width: 0; border: 0; outline: none; font-family: Assistant, sans-serif; font-size: 17px; color: #0E1A33; background: transparent">
+<button aria-label="חיפוש קולי" style="width: 36px; height: 36px; border: 0; background: transparent; color: #5A6478; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+</button>
+</label>
+<div role="tablist" aria-label="סינון לפי סוג" style="display: flex; gap: 8px; overflow-x: auto">
+<sc-for list="{{chips}}" as="chip" hint-placeholder-count="6">
+<button role="tab" onClick="{{chip.pick}}" style="flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid {{chip.border}}; background: {{chip.bg}}; color: {{chip.fg}}; font-family: Assistant, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer">{{chip.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="padding: 14px 16px 120px; display: flex; flex-direction: column; gap: 14px">
+<section aria-label="לקוחות" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 6px 14px">
+<div style="display: flex; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; font-weight: 700; color: #5A6478"><span>לקוחות · 2</span><a href="#" style="text-decoration: none">הכל</a></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid #EEF1F6">
+<span style="width: 38px; height: 38px; border-radius: 19px; background: #DCE6FF; color: #1F3F99; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center">מכ</span>
+<div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">משפחת <mark style="background: #FFF1B8; color: #0E1A33">כהן</mark></span><span style="font-size: 13px; color: #5A6478">קונים · 4–5 חד׳ · עד 1.8 מ׳</span></div>
+<button aria-label="התקשר למשפחת כהן" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px">
+<span style="width: 38px; height: 38px; border-radius: 19px; background: #E6F4EC; color: #166534; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center">אכ</span>
+<div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">אבי <mark style="background: #FFF1B8; color: #0E1A33">כהן</mark></span><span style="font-size: 13px; color: #5A6478">בעל נכס · מוכר</span></div>
+<button aria-label="התקשר לאבי כהן" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg></button>
+</div>
+</section>
+
+<section aria-label="נכסים" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 6px 14px">
+<div style="display: flex; justify-content: space-between; padding: 8px 0 4px; font-size: 13px; font-weight: 700; color: #5A6478"><span>נכסים · 1</span></div>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 64px">
+<span style="width: 56px; height: 44px; border-radius: 10px; background: #DDE2EC; color: #5A6478; font-size: 11px; display: flex; align-items: center; justify-content: center">[תמונה]</span>
+<div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">דירת 4 חד׳ · רח׳ הנרקיס 7</span><span style="font-size: 13px; color: #5A6478">בעלים: אבי <mark style="background: #FFF1B8; color: #0E1A33">כהן</mark> · ₪1,650,000</span></div>
+<span style="font-size: 12px; font-weight: 700; color: #15803D; background: #E6F4EC; border-radius: 8px; padding: 3px 8px">פעיל</span>
+</a>
+</section>
+
+<section aria-label="הסכמים ולידים" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 6px 14px">
+<div style="padding: 8px 0 4px; font-size: 13px; font-weight: 700; color: #5A6478">הסכמים ולידים · 2</div>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #EEF1F6">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>
+<span style="flex: 1; font-size: 15px; font-weight: 600">הסכם בלעדיות · אבי <mark style="background: #FFF1B8; color: #0E1A33">כהן</mark></span>
+<span style="font-size: 12px; font-weight: 700; color: #9A3412">פג בעוד 12 יום</span>
+</a>
+<a href="#" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 52px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+<span style="flex: 1; font-size: 15px; font-weight: 600">ליד קונה · רינה <mark style="background: #FFF1B8; color: #0E1A33">כהן</mark></span>
+<span style="font-size: 12px; color: #5A6478">אתמול</span>
+</a>
+</section>
+
+<section aria-label="עזרה" style="background: #EAF0FF; border-radius: 18px; padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F5BF0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 13px; font-weight: 700; color: #1F3F99">עזרה במערכת</span>
+<a href="#" style="font-size: 15px; font-weight: 600; text-decoration: none">איך מעבירים לקוח בין סוכנים?</a>
+<a href="#" style="font-size: 15px; font-weight: 600; text-decoration: none">שאל את גבריאלה ←</a>
+</div>
+</section>
+</div>
+
+<div style="position: absolute; bottom: 0; right: 0; left: 0">
+<dc-import name="BottomNav" active="search" hint-size="390px,96px"></dc-import>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(p) { super(p); this.state = { scope: 'all' }; }
+renderVals() {
+const list = [['all','הכל · 6'],['clients','לקוחות'],['props','נכסים'],['leads','לידים'],['deals','הסכמים'],['help','עזרה']];
+const s = this.state.scope;
+return {
+chips: list.map(([id, label]) => ({
+label,
+bg: s === id ? '#0E1A33' : '#FFFFFF',
+fg: s === id ? '#FFFFFF' : '#0E1A33',
+border: s === id ? '#0E1A33' : '#D3D9E4',
+pick: () => this.setState({ scope: id })
+}))
+};
+}
+}
+</script>
+</body>
+</html>

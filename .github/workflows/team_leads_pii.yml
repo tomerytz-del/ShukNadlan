@@ -1,0 +1,30 @@
+name: בלי טלפונים למנהל/ת צוות
+
+# ‏team_leads() מוסרת לידים למנהל/ת צוות, ובלי טלפון ובלי ההודעה החופשית -
+# החלטה של תומר (docs/team-dashboard.md). עמודה שנוספת לה היא דליפה שקטה:
+# המיגרציה עוברת והדאשבורד עובד. הבדיקה קוראת קבצים בלבד.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_team_leads_pii.py"
+      - ".github/workflows/team_leads_pii.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_team_leads_pii.py"
+      - ".github/workflows/team_leads_pii.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: בדיקת team_leads
+        run: python3 scripts/check_team_leads_pii.py

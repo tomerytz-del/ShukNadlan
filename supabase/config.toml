@@ -142,7 +142,7 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
 [functions.office-coach]
-verify_jwt = false          # ‏pg_cron (יום ראשון) + x-alert-cron-secret / service role ידני. docs/office-coach.md
+verify_jwt = false          # ‏pg_cron (משרד וצוות ביום ראשון, סוכנים כל בוקר) + x-alert-cron-secret / service role ידני. docs/coaches.md
 
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה

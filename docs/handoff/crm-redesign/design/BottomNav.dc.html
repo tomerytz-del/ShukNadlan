@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="he">
+<head>
+<meta charset="utf-8">
+<title>תפריט תחתון</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav dir="rtl" aria-label="ניווט ראשי" style="width: 390px; height: 96px; box-sizing: border-box; background: #FFFFFF; border-top: 1px solid #E3E7EF; box-shadow: 0 -6px 24px rgba(14,26,51,0.06); padding: 6px 6px 22px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; font-family: Assistant, sans-serif; color: #0E1A33">
+<a href="Main.dc.html" aria-label="בית" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; padding: 6px 0; color: {{homeC}}">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 15px; background: {{homeBg}}">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>
+</span>
+<span style="font-size: 12px; font-weight: 700">בית</span>
+</a>
+<a href="#" aria-label="לידים, 3 ממתינים" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; padding: 6px 0; color: {{leadsC}}">
+<span style="position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 15px; background: {{leadsBg}}">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+<span style="position: absolute; top: -3px; left: 6px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #C2410C; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">3</span>
+</span>
+<span style="font-size: 12px; font-weight: 700">לידים</span>
+</a>
+<a href="{{plusHref}}" aria-label="{{plusLabel}}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #0E1A33; margin-top: -26px">
+<span style="display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; border-radius: 20px; background: {{plusBg}}; color: #FFFFFF; box-shadow: 0 8px 20px rgba(31,91,240,0.35); border: 4px solid #FFFFFF">
+<sc-if value="{{isCreate}}" hint-placeholder-val="{{ false }}">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+</sc-if>
+<sc-if value="{{notCreate}}" hint-placeholder-val="{{ true }}">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+</sc-if>
+</span>
+<span style="font-size: 12px; font-weight: 700">{{plusText}}</span>
+</a>
+<a href="Mobile-Search.dc.html" aria-label="חיפוש" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; padding: 6px 0; color: {{searchC}}">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 15px; background: {{searchBg}}">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+</span>
+<span style="font-size: 12px; font-weight: 700">חיפוש</span>
+</a>
+<a href="Mobile-Profile.dc.html" aria-label="הפרופיל שלי" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; padding: 6px 0; color: {{profileC}}">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 15px; background: {{profileBg}}">
+<span style="width: 26px; height: 26px; border-radius: 13px; background: #DCE6FF; color: #1F3F99; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px {{profileRing}}">תי</span>
+</span>
+<span style="font-size: 12px; font-weight: 700">אני</span>
+</a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","leads","create","search","profile"],"default":"home"},"$preview":{"width":390,"height":96}}'>
+class Component extends DCLogic {
+renderVals() {
+const a = this.props.active ?? 'home';
+const on = '#1F5BF0', off = '#5A6478', pill = '#EAF0FF';
+const c = (k) => a === k ? on : off;
+const b = (k) => a === k ? pill : 'transparent';
+const isCreate = a === 'create';
+return {
+homeC: c('home'), homeBg: b('home'),
+leadsC: c('leads'), leadsBg: b('leads'),
+searchC: c('search'), searchBg: b('search'),
+profileC: c('profile'), profileBg: b('profile'),
+profileRing: a === 'profile' ? on : 'transparent',
+isCreate: isCreate, notCreate: !isCreate,
+plusBg: isCreate ? '#0E1A33' : '#1F5BF0',
+plusHref: isCreate ? 'Main.dc.html' : 'Mobile-Create.dc.html',
+plusLabel: isCreate ? 'סגור' : 'יצירה חדשה',
+plusText: isCreate ? 'סגור' : 'יצירה'
+};
+}
+}
+</script>
+</body>
+</html>
