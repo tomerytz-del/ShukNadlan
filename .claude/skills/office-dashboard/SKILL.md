@@ -129,7 +129,8 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
 - **הידע המקצועי הוא קובץ, והוא השיטה של תומר** (`_shared/coach/playbook.ts`):
   עמלה 2%, בלעדיות 4-6 חודשים, פגישת גיוס, התנגדויות ו"מה לא אומרים". שינוי
   בו עובר ב-PR ובאישור, ולא מוסיפים לו סטטיסטיקות שלא נמדדו - המודל יצטט אותן.
-  ניהול צוות (`MANAGER_PLAYBOOK`) נכנס רק למנטור הצוות והמשרד, וכתוב כללי
+  ניהול צוות (`MANAGER_PLAYBOOK`) נכנס רק למנטור הצוות והמשרד, וניהול משרד
+  (`OFFICE_PLAYBOOK`) רק למנטור המשרד; שניהם כתובים כללי
   בלי שם של רשת. ותק פרטי: `coach_preferences.experience` (טווח), עם גיבוי
   מ-`years_experience` הציבורי.
 - **הטון לפי הקורא/ת** (`coach_preferences.tone`, ‏`warm` / `direct`): חל על

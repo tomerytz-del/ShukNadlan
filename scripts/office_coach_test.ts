@@ -39,7 +39,7 @@ import {
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
-import { MANAGER_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
+import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -321,6 +321,9 @@ check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום",
 check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה", "שעות זהב", "לצפות - ", "אלה דוגמאות", "מחוץ למערכת", "בהסכמתם"].every((h) => MANAGER_PLAYBOOK.includes(h))
   && !askSystemPrompt("agent").includes("משחקן למאמן") && askSystemPrompt("team").includes("משחקן למאמן") && askSystemPrompt("office").includes("משחקן למאמן"));
 check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי מקף ארוך", !/רימקס|RE\/MAX/i.test(MANAGER_PLAYBOOK) && !/[–—―]/.test(MANAGER_PLAYBOOK));
+check("ידע: ניהול משרד רק למנטור המשרד", ["שרשרת פיקוד", "ישיבת מנהלים שבועית", "הסוכנים המייצרים", "תוכנית שיפור", "מחוץ למערכת", "שואלים"].every((h) => OFFICE_PLAYBOOK.includes(h))
+  && askSystemPrompt("office").includes("שרשרת פיקוד") && !askSystemPrompt("team").includes("שרשרת פיקוד") && !askSystemPrompt("agent").includes("שרשרת פיקוד")
+  && !/[–—―]/.test(OFFICE_PLAYBOOK) && !/\p{Extended_Pictographic}/u.test(OFFICE_PLAYBOOK));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
