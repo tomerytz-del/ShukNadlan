@@ -176,6 +176,9 @@ export async function askCoach(
   const { error: logErr } = await service.from("coach_questions").insert({
     agent_id: me.id, agency_id: me.agency_id, kind, question, answer, gap_topic: raw.gap,
     model: response.model, input_tokens: inputTokens, output_tokens: response.usage.output_tokens,
+    // בנפרד, כדי שהערכת העלות (ai_usage_costs) תתמחר מטמון במחיר שלו
+    cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
+    cache_write_tokens: response.usage.cache_creation_input_tokens ?? 0,
   });
   // יומן שלא נכתב אינו מפיל תשובה שכבר שולמה, אבל המכסה נשענת עליו
   if (logErr) console.error("coach ask log failed", logErr.message);

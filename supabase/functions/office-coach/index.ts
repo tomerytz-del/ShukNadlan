@@ -76,7 +76,10 @@ function json(obj: unknown, status = 200) {
 const UUID_RE = /^[0-9a-f-]{36}$/i;
 
 type CoachOut =
-  | { ok: true; summary: CoachSummaryV2; input_tokens: number; output_tokens: number; model: string }
+  | {
+    ok: true; summary: CoachSummaryV2; input_tokens: number; output_tokens: number; model: string;
+    cache_read_tokens: number; cache_write_tokens: number;
+  }
   | { ok: false; reason: string };
 
 async function coach(kind: CoachKind, payload: unknown, refs: RefMap, system = SYSTEM_PROMPTS[kind]): Promise<CoachOut> {
@@ -125,6 +128,8 @@ async function coach(kind: CoachKind, payload: unknown, refs: RefMap, system = S
     input_tokens: response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0) +
       (response.usage.cache_creation_input_tokens ?? 0),
     output_tokens: response.usage.output_tokens,
+    cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
+    cache_write_tokens: response.usage.cache_creation_input_tokens ?? 0,
   };
 }
 
@@ -201,6 +206,7 @@ async function runOffice(supabase: SupabaseClient, url: URL, dryRun: boolean, st
       const { error } = await supabase.from("office_coach_summaries").upsert({
         agency_id: office.agency_id, week_start: weekStart, summary: out.summary, model: out.model,
         input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+        cache_read_tokens: out.cache_read_tokens, cache_write_tokens: out.cache_write_tokens,
       }, { onConflict: "agency_id,week_start" });
       if (error) {
         results.push({ agency_id: office.agency_id, error: "db_error", detail: error.message });
@@ -290,6 +296,7 @@ async function runTeam(supabase: SupabaseClient, url: URL, dryRun: boolean, star
       const { error } = await supabase.from("team_coach_summaries").upsert({
         agency_id: team.agency_id, team_id: team.team_id, week_start: weekStart, summary: out.summary,
         model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+        cache_read_tokens: out.cache_read_tokens, cache_write_tokens: out.cache_write_tokens,
       }, { onConflict: "team_id,week_start" });
       if (error) {
         results.push({ team_id: team.team_id, error: "db_error", detail: error.message });
@@ -351,6 +358,7 @@ async function runAgentOne(
     const { error } = await supabase.from("agent_coach_summaries").upsert({
       agency_id: agent.agency_id, agent_id: agent.agent_id, day, summary: out.summary, input_hash: hash,
       model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+        cache_read_tokens: out.cache_read_tokens, cache_write_tokens: out.cache_write_tokens,
     }, { onConflict: "agent_id,day" });
     if (error) return { agent_id: agent.agent_id, error: "db_error", detail: error.message };
     // התראת הבוקר - רק על סיכום חדש (יום שהועתק מאתמול אינו מצלצל). בפעמון,

@@ -29,6 +29,7 @@ import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts"
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
 import { forwardedSender, parseCostMail, stripForwardPrefix } from "./cost-mail.ts";
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
+import { prepareImportJob } from "./property-import.ts";
 
 /* התיבה. ברירת המחדל היא תיבת הפלטפורמה שכבר שולחת את המייל
    (‏platform-mail), עם אותה סיסמת אפליקציה — אין סוד חדש להגדיר. תיבה נפרדת
@@ -313,13 +314,20 @@ function toBase64(bytes: Uint8Array): string {
  *
  * כישלון בקובץ אחד אינו מפיל את המייל: הקובץ נמסר בשמו ובסיבה, והעוזר
  * אומר לסוכן/ת מה לא נקרא.
+ *
+ * **קובץ נכסים** (Excel/CSV, כולל הקובץ של יד2) עובר גם ב-`prepareImportJob`,
+ * כמו בוואטסאפ: הבלוק `[ייבוא נכסים]` נבנה בקוד ולכן אינו עובר `safe` (מה
+ * שבא מהקובץ בתוכו מנוקה ב-`clip`), ונכנס **לראש** ההיסטוריה כדי שהחיתוך ל-
+ * ‏HISTORY_CHARS לא יאכל את ה-job_id. הקליטה עצמה אינה בתור הזה
+ * (‏`EMAIL_TOOLS`): ה"כן" מגיע בוואטסאפ, באותה שיחה.
  */
 export async function readAttachments(
   sb: SupabaseClient,
-  agentId: string,
+  agent: { id: string; agency_id: string | null },
   atts: MailAttachment[],
   truncated: boolean,
 ): Promise<ReadAttachments> {
+  const agentId = agent.id;
   const sections: string[] = [];
   const skipped: string[] = [];
   const images: Anthropic.ImageBlockParam[] = [];
@@ -376,6 +384,14 @@ export async function readAttachments(
     const label = kind === "audio" ? "הקלטה מצורפת - תמלול" : "קובץ מצורף";
     sections.push(`[${label}: ${name}]\n${safe(body)}\n[סוף הקובץ]`);
     history.push(`${label}: ${name}\n${r.text.replace(/\n{2,}/g, "\n").slice(0, 800)}`);
+
+    if (kind === "sheet" || (kind === "text" && /\.(csv|tsv)$/i.test(a.name))) {
+      const block = await prepareImportJob(sb, agent, a.bytes, a.name, "email");
+      if (block) {
+        sections.push(block);
+        history.unshift(`${label}: ${name}\n${block}`);
+      }
+    }
   }
 
   if (skipped.length) sections.push(`קבצים שלא נקראו:\n${skipped.map((s) => `• ${s}`).join("\n")}`);
@@ -429,6 +445,9 @@ export function buildEmailPrompt(mail: ParsedMail, attachments = ""): string {
           "נשמרות לנכס - כדי לצרף אותן צריך לשלוח אותן בוואטסאפ.",
         "   • רשימת לקוחות או אנשי קשר (Excel/CSV) - לא להוסיף בתור הזה: לומר כמה שורות, כמה כבר בקובץ " +
           "(list_clients), ולשאול. יותר מעשרה - להציע את הייבוא מאקסל בדשבורד.",
+        "   • רשימת נכסים עם בלוק [ייבוא נכסים] - למסור את הסיכום שבבלוק (חדשים, עדכונים, נפסלים ולמה), " +
+          "לשאול על כל סוג ניחוש בנפרד עם המספר ודוגמה, ולשאול אם לקלוט. הקליטה אינה בתור הזה: היא נעשית " +
+          "אחרי שהסוכן/ת עונה כאן בוואטסאפ.",
         "   • הסכם/חוזה/הצעת מחיר - סיכום קצר: צדדים, נכס, סכומים, תאריכים.",
         "   • קובץ שלא נקרא - לומר את שמו ולמה, במשפט אחד.",
       ]
@@ -625,7 +644,7 @@ async function handleOne(
   let att: ReadAttachments = { text: "", images: [], history: "" };
   if (mail.attachments.length || truncated) {
     try {
-      att = await readAttachments(sb, agent.id, mail.attachments, truncated);
+      att = await readAttachments(sb, agent, mail.attachments, truncated);
     } catch (err) {
       console.error("email intake attachments failed", err);
       att.text = `(${mail.attachments.length} קבצים מצורפים לא נקראו בגלל תקלה: ` +
