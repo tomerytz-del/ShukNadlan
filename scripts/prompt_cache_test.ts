@@ -7,7 +7,7 @@
 //
 //   node --experimental-strip-types scripts/prompt_cache_test.ts
 // ============================================================================
-import { historyWithBreakpoint, RollingMarks, trimHistory } from "../supabase/functions/whatsapp-webhook/prompt-cache.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "../supabase/functions/whatsapp-webhook/prompt-cache.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -53,6 +53,13 @@ const changes = starts.filter((s, i) => i && s !== starts[i - 1]).length;
 check("התחלה משתנה רק בגזימה (לא בכל תור)", changes <= 9, changes);
 check("לא יותר מ-18 הודעות", Math.max(...Array.from({ length: 30 }, () => h.length)) <= 18 && h.length >= 12);
 check("זוגות נשמרים (מתחיל בהודעת משתמש)", h[0] % 2 === 0);
+
+// 5. ההקשר המשתנה (שעה, נכס אחרון) בהודעה הנוכחית ולא לפני ההיסטוריה
+const withCtx = withTurnContext("עכשיו: 20:14", "שלום") as Array<{ type: string; text: string }>;
+check("ההקשר נכנס כבלוק ראשון בהודעה הנוכחית", Array.isArray(withCtx) && withCtx.length === 2 &&
+  withCtx[0].text.includes("20:14") && withCtx[1].text === "שלום");
+check("בלי הקשר - ההודעה כמו שהיא", withTurnContext("  ", "שלום") === "שלום");
+check("ההקשר מסומן כמידע מהמערכת", withCtx[0].text.startsWith("[הקשר מהמערכת"));
 
 if (failed) {
   console.log(`\n${failed} בדיקות נכשלו`);
