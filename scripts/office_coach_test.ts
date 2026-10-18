@@ -40,6 +40,7 @@ import {
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
 import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
+import { readFileSync } from "node:fs";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -332,10 +333,10 @@ check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הסוכן/ת מ
 check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות והמשרד עונים על שאלת שטח ומפנים למספרים האישיים", ["team", "office"].every((k) => askSystemPrompt(k as "team" | "office").includes('ב"הדשבורד שלי"')) && !askSystemPrompt("agent").includes("רוב המנהלים הם גם סוכנים"));
 // שאלה למנטור דרך גבריאלה: אותה פונקציה של ה-CRM, ולא בתורים שהטקסט בהם נכתב בידי אחרים
 {
-  const agentSrc = await Deno.readTextFile(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url));
-  const emailSrc = await Deno.readTextFile(new URL("../supabase/functions/whatsapp-webhook/email-intake.ts", import.meta.url));
-  const mediaSrc = await Deno.readTextFile(new URL("../supabase/functions/whatsapp-webhook/media-intake.ts", import.meta.url));
-  const askSrc = await Deno.readTextFile(new URL("../supabase/functions/coach-ask/index.ts", import.meta.url));
+  const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
+  const emailSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/email-intake.ts", import.meta.url), "utf8");
+  const mediaSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/media-intake.ts", import.meta.url), "utf8");
+  const askSrc = readFileSync(new URL("../supabase/functions/coach-ask/index.ts", import.meta.url), "utf8");
   const set = (src: string, name: string) => (src.match(new RegExp(name + "[^=]*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)")) || [])[1] || "";
   check("גבריאלה: ask_mentor מוגדר ומנותב, דרך askCoach המשותפת",
     agentSrc.includes('name: "ask_mentor"') && agentSrc.includes('case "ask_mentor"') && agentSrc.includes("askCoach(ctx.supabase, ctx.agent.id")
@@ -343,15 +344,20 @@ check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות וה�
   check("גבריאלה: ask_mentor לא בתור מייל ולא בתור הקלטה/מסמך",
     set(emailSrc, "EMAIL_TOOLS").length > 0 && set(mediaSrc, "MEDIA_TOOLS").length > 0
     && !set(emailSrc, "EMAIL_TOOLS").includes("ask_mentor") && !set(mediaSrc, "MEDIA_TOOLS").includes("ask_mentor"));
-  const { askCoach } = await import("../supabase/functions/_shared/coach/ask.ts");
-  const prevKey = Deno.env.get("ANTHROPIC_API_KEY");
-  Deno.env.set("ANTHROPIC_API_KEY", "test");
+  // ask.ts נשען על Deno ועל npm:/jsr: - רץ רק תחת deno (ב-CI הבדיקה רצה ב-node)
   // deno-lint-ignore no-explicit-any
-  const noDb = null as any;
-  const badKind = await askCoach(noDb, "x", "boss" as "agent", "שאלה ארוכה מספיק");
-  const badQ = await askCoach(noDb, "x", "agent", "א");
-  check("askCoach: סוג ושאלה נבדקים לפני המסד", "error" in badKind && badKind.error === "bad_kind" && "error" in badQ && badQ.error === "bad_question");
-  if (prevKey === undefined) Deno.env.delete("ANTHROPIC_API_KEY"); else Deno.env.set("ANTHROPIC_API_KEY", prevKey);
+  const Deno = (globalThis as any).Deno;
+  if (Deno) {
+    const { askCoach } = await import("../supabase/functions/_shared/coach/ask.ts");
+    const prevKey = Deno.env.get("ANTHROPIC_API_KEY");
+    Deno.env.set("ANTHROPIC_API_KEY", "test");
+    // deno-lint-ignore no-explicit-any
+    const noDb = null as any;
+    const badKind = await askCoach(noDb, "x", "boss" as "agent", "שאלה ארוכה מספיק");
+    const badQ = await askCoach(noDb, "x", "agent", "א");
+    check("askCoach: סוג ושאלה נבדקים לפני המסד", "error" in badKind && badKind.error === "bad_kind" && "error" in badQ && badQ.error === "bad_question");
+    if (prevKey === undefined) Deno.env.delete("ANTHROPIC_API_KEY"); else Deno.env.set("ANTHROPIC_API_KEY", prevKey);
+  }
 }
 check("המנטורים יודעים שאפשר לשאול דרך גבריאלה", askSystemPrompt("agent").includes("שאלה למנטור"));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
