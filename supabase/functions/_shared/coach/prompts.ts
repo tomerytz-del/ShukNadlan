@@ -9,7 +9,7 @@
 // מעדכן את TOOLS באותו PR. ‏docs/coaches.md, "הכלים".
 // ============================================================================
 import type { CoachKind } from "./payload.ts";
-import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK } from "./playbook.ts";
+import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, playbookFor } from "./playbook.ts";
 
 const TOOLS = `הכלים שקיימים במערכת. ממליצים על כל כלי רק במה שכתוב עליו כאן. יכולת שלא מופיעה כאן לא קיימת, ולא ממליצים עליה:
 - כפתורי "חיוג" ו"וואטסאפ" בכרטיס הליד: הסוכן/ת פונה לליד מהטלפון שלו/ה. זו הדרך היחידה שבה מענה לליד נרשם במערכת ונספר בזמן התגובה.
@@ -178,7 +178,9 @@ const MANAGER_AS_AGENT = `רוב המנהלים הם גם סוכנים פעיל�
    מוריד אותו מהתשובה ורושם את הנושא ב-coach_questions.gap_topic. */
 export const GAP_MARK = "[נושא חסר:";
 
-export function askSystemPrompt(kind: CoachKind, tone: CoachTone = "warm", manages: CoachManages = null): string {
+/* ‏topicText: השאלה והשאלות הקודמות בשיחה - קובע אילו פרקים מהידע נשלחים
+   (playbookFor). ריק = הליבה בלבד. */
+export function askSystemPrompt(kind: CoachKind, tone: CoachTone = "warm", manages: CoachManages = null, topicText = ""): string {
   const mgr = kind === "agent" ? manages : kind;
   const role = kind === "agent"
     ? (manages ? "\n\n" + AGENT_WHO_MANAGES[manages] : "")
@@ -189,7 +191,7 @@ ${TONES[tone]}
 
 ${TOOLS}
 
-${PLAYBOOK}${mgr ? "\n\n" + MANAGER_PLAYBOOK : ""}${mgr === "office" ? "\n\n" + OFFICE_PLAYBOOK : ""}
+${playbookFor(topicText).text}${mgr ? "\n\n" + MANAGER_PLAYBOOK : ""}${mgr === "office" ? "\n\n" + OFFICE_PLAYBOOK : ""}
 
 שני סוגי שאלות:
 - שאלה על המספרים (למה, כמה, על מה להתמקד): עונים מתוך הנתונים, עד 120 מילים.

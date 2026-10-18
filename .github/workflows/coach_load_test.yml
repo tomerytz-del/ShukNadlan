@@ -1,0 +1,52 @@
+name: מבחן עומס למנטור
+
+# ‏הרצה ידנית בלבד. שולח ישר ל-API של Anthropic את אותו פרומפט של "שאל את
+# המנטור", בגלים בו-זמניים, ומדפיס זמני תגובה, שגיאות 429/529 ומגבלות
+# החשבון. לא נוגע במסד ולא במכסות של סוכנים - **אבל כל בקשה עולה כסף**.
+# ברירת המחדל (גל של 1) רק קוראת את המגבלות. docs/coaches.md, "מבחן עומס".
+
+on:
+  workflow_dispatch:
+    inputs:
+      levels:
+        description: "גלים בו-זמניים, מופרדים בפסיק (1 = רק לקרוא את המגבלות)"
+        default: "1"
+        required: true
+      model:
+        description: "המודל (כמו COACH_ASK_MODEL)"
+        default: "claude-sonnet-5-5"
+        required: true
+      max_tokens:
+        description: "תקרת טוקנים לתשובה"
+        default: "600"
+        required: true
+      confirm:
+        description: "לכתוב כן כדי לשלוח באמת (עולה כסף)"
+        default: "לא"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    name: מבחן עומס למנטור
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: מבחן העומס
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LEVELS: ${{ inputs.levels }}
+          MODEL: ${{ inputs.model }}
+          MAX_TOKENS: ${{ inputs.max_tokens }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          YES=""
+          if [ "$CONFIRM" = "כן" ]; then YES="--yes"; fi
+          node --experimental-strip-types scripts/coach_load_test.ts \
+            "--levels=$LEVELS" "--model=$MODEL" "--max-tokens=$MAX_TOKENS" $YES

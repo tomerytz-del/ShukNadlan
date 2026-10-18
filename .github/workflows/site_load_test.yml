@@ -1,0 +1,38 @@
+name: מבחן עומס - אתר ופונקציות
+
+# ‏הרצה ידנית בלבד. ‏web - "גולשים" בו-זמניים במסלול אמיתי (דף הבית, רשימת
+# נכסים מה-REST, דף נכס, /prices); ‏edge - בקשות שנדחות מיד ב-whatsapp-webhook
+# (חתימה שגויה) וב-coach-ask (בלי JWT), כדי למדוד את תקרת הריצות של הפונקציות.
+# קריאה בלבד, בלי מודל ובלי הודעות. ‏Netlify מבקשת לתאם מראש עומס כבד על האתר.
+# docs/load-testing.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "web (אתר) או edge (פונקציות של גבריאלה והמנטור)"
+        default: "web"
+        required: true
+      levels:
+        description: "גלים בו-זמניים, מופרדים בפסיק"
+        default: "5,20,50"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    name: מבחן עומס - אתר ופונקציות
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: מבחן העומס
+        env:
+          TARGET: ${{ inputs.target }}
+          LEVELS: ${{ inputs.levels }}
+        run: node --experimental-strip-types scripts/site_load_test.ts "--target=$TARGET" "--levels=$LEVELS" --yes
