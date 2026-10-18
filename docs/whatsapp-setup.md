@@ -1492,3 +1492,10 @@ select created_at, wa_phone, status, status_detail, left(body, 60)
   נכתב בידי אחרים. ‏`scripts/office_coach_test.ts` בודק.
 * הפרטים: `docs/coaches.md`, "שאל את המנטור".
 
+## צוות ההטמעה (`csm-chat.ts`, 18.10.2026)
+
+מי שאינו/ה סוכן/ת ונמצא/ת ב-`csm_staff` לפי הטלפון עובר/ת - לפני הבוט הציבורי - לתור
+נפרד (‏`handleCsmMessage`): פרומפט, היסטוריה וכלים משלו (‏`csm-tools.ts`), בלי שום
+כלי של הסוכנים. ‏`TOOLS` ו-`SYSTEM_STATIC` כאן לא השתנו. קובץ שמע ממנה הוא הקלטת
+שיחה שמתומללת ומסוכמת. הפרטים: `docs/csm-adoption.md`, "בוואטסאפ".
+

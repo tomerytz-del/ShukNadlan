@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<!-- בריחת HTML (escapeHtml) ושגיאות בעברית - docs/friendly-errors.md -->
+<script src="assets/esc.js"></script>
+<script src="assets/friendly-error.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>אזור ההטמעה | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-crm.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור אישי">
+<script defer src="assets/pwa-install.js" data-first-visit="show"></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/csm-workspace.css">
+<!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תחזור לכאן ולא
+     ל-crm. ראו assets/auth-return.js -->
+<script src="assets/auth-return.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!--
+  אזור ההטמעה - הדף של מנהלת ההדרכות וההטמעה (docs/csm-adoption.md).
+  תפקיד נפרד: לא סוכנת, לא משרד ולא מנהלת פלטפורמה. הכניסה עם Google, והזיהוי
+  ב-csm_staff (csm_claim לפי המייל המאומת). הכלים עצמם - assets/crm-csm.js,
+  אותו מודול שמנהל/ת הפלטפורמה רואה/ה ב-CRM; כאן assets/csm-page.js קובע
+  window.CSM_CTX ומספק את מה שהמודול מצפה לו מהדף (sb, showToast, heErr).
+-->
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,select,textarea{font-family:inherit}
+  [hidden]{display:none !important}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap;text-decoration:none;color:inherit}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-gold:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:.95rem;background:#fff;color:inherit}
+  .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
+  .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
+  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;overflow-y:auto}
+  .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28);margin:auto}
+  .pm-title{font-weight:800;font-size:1.05rem;margin-bottom:10px}
+  .pm-actions{display:flex;gap:8px;margin-top:16px}
+  .pm-actions .btn{flex:1}
+  .toast{position:fixed;bottom:20px;right:16px;left:16px;max-width:420px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:500}
+
+  .csm-top{position:sticky;top:0;z-index:50;background:var(--teal-dark);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px}
+  .csm-top img{width:30px;height:30px}
+  .csm-top h1{font-size:1rem;margin:0;flex:1}
+  .csm-top .who{font-size:.78rem;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
+  .csm-top button{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:6px 12px;font-size:.78rem}
+  main.csm-main{max-width:1400px;margin:0 auto;padding:16px}
+  .csm-panel{background:var(--paper-raised);border-radius:var(--radius-md);padding:16px;box-shadow:0 2px 8px rgba(15,52,53,.08)}
+  .auth-card{max-width:420px;width:calc(100% - 32px);margin:48px auto;background:#fff;border-radius:var(--radius-lg);padding:28px 22px;text-align:center;box-shadow:0 2px 8px rgba(15,52,53,.08)}
+  .auth-card h2{margin:0 0 8px;font-size:1.2rem}
+  .auth-card p{color:var(--ink-soft);font-size:.88rem;margin:0 0 18px}
+  .auth-card .btn{width:100%}
+  .auth-msg{margin-top:12px;font-size:.84rem;color:var(--gold-dark)}
+  .g-btn{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .g-btn svg{width:18px;height:18px}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<header class="csm-top">
+  <a href="/" target="_blank" rel="noopener" aria-label="האתר של שוק נדל״ן (נפתח בלשונית חדשה)"><img src="assets/favicon.svg" alt=""></a>
+  <h1>אזור ההטמעה</h1>
+  <span class="who" id="csmWho"></span>
+  <button type="button" id="csmLogout" hidden>יציאה</button>
+</header>
+
+<!-- מסך ראשון: בדיקת ההתחברות. טופס הכניסה מוצג רק כשידוע שאין חיבור,
+     כדי שלא יהבהב למי שכבר מחובר/ת (docs/google-login.md) -->
+<div class="auth-card" id="csmBoot"><p>בודקת התחברות…</p></div>
+
+<div class="auth-card" id="csmLogin" hidden>
+  <h2>אזור ההדרכות וההטמעה</h2>
+  <p>לצוות ההטמעה של שוק נדל״ן. הכניסה עם חשבון ה-Google שאליו נשלחה ההזמנה.</p>
+  <button type="button" class="btn g-btn" id="csmGoogle">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>
+    <span class="gl-label">התחברות עם Google</span>
+  </button>
+  <div class="auth-msg" id="csmLoginMsg" role="alert"></div>
+</div>
+
+<div class="auth-card" id="csmNoAccess" hidden>
+  <h2>אין לחשבון הזה גישה לאזור ההטמעה</h2>
+  <p id="csmNoAccessText">החשבון שאיתו נכנסת לא הוזמן לצוות ההטמעה. אם הוזמנת, כדאי לבדוק שנכנסת עם אותו מייל שאליו נשלחה ההזמנה.</p>
+  <button type="button" class="btn btn-ghost" id="csmSwitch">כניסה עם חשבון אחר</button>
+</div>
+
+<main class="csm-main" id="csmApp" hidden>
+  <section class="csm-panel" id="accCsm" aria-label="הטמעת סוכנים">
+    <p class="acc-sub">כל סוכן/ת ומשרד בפיילוט, מההרשמה ועד שימוש עצמאי - עם פרטי הקשר ורמת השימוש.</p>
+    <div class="csm-tabs" role="tablist" aria-label="אזור ההטמעה">
+      <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
+      <button type="button" role="tab" data-csm-tab="offices" aria-selected="false">משרדים</button>
+      <button type="button" role="tab" data-csm-tab="mentor" aria-selected="false">המנטור</button>
+      <button type="button" role="tab" data-csm-tab="calls" aria-selected="false">הקלטות</button>
+      <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
+      <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
+      <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
+      <button type="button" role="tab" data-csm-tab="staff" aria-selected="false" hidden>צוות ההטמעה</button>
+    </div>
+    <div id="csmBody"><div class="empty-state">טוען…</div></div>
+  </section>
+</main>
+
+<!-- פגישת "הצלחה ראשונה" עם סוכן/ת: אבחון, צ'ק-ליסט, פקודות ומשוב.
+     התוכן נבנה ב-csmPaintSession() ב-assets/crm-csm.js -->
+<div class="pm-overlay" id="csmSessionModal" role="dialog" aria-modal="true" aria-labelledby="csmSessionTitle" style="display:none">
+  <div class="pm-card csm-session-card">
+    <div class="pm-title" id="csmSessionTitle">פגישת הצלחה ראשונה</div>
+    <div id="csmSessionBody"></div>
+    <datalist id="csmFbTitles"></datalist>
+    <div class="pm-actions csm-session-actions">
+      <button type="button" class="btn btn-ghost" id="csmSessionCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="csmSessionSave">שמירת הפגישה</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/csm-page.js"></script>
+<script src="assets/crm-csm.js"></script>
+</body>
+</html>
