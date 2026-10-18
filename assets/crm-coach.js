@@ -209,11 +209,19 @@ const COACH_EMPTY = {
   office: 'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד במשרד בשבוע שעבר, מה תקוע, ועד שלוש החלטות לשבוע הזה.',
 };
 
-const COACH_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>';
+/* הדמות של המנטור - הינשוף (assets/mentor-*.webp, נחתך מהתמונה של תומר).
+   האווטאר בכל כרטיס ובכל כפתור; הרצועה הרחבה רק בכרטיס המלא בדאשבורד,
+   כי בכרטיס המקוצר (דף הבית, השכבה) היא הייתה דוחפת את הצעדים מתחת למסך.
+   ‏alt ריק: השם של המנטור כתוב ממילא בכותרת שלידה. */
+const COACH_AVATAR = '/assets/mentor-avatar.webp';
+const COACH_FACE = `<img class="coach-ava" src="${COACH_AVATAR}" width="48" height="48" alt="" decoding="async">`;
+const COACH_BANNER = '<div class="coach-banner" aria-hidden="true"><img src="/assets/mentor-banner-960.webp"'
+  + ' srcset="/assets/mentor-banner-600.webp 600w, /assets/mentor-banner-960.webp 960w"'
+  + ' sizes="(max-width:700px) 100vw, 760px" width="960" height="349" alt="" loading="lazy" decoding="async"></div>';
 const COACH_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 
-function coachHead(kind, sub){
-  return `<div class="coach-head"><span class="coach-ico">${COACH_ICON}</span>
+function coachHead(kind, sub, banner){
+  return `${banner ? COACH_BANNER : ''}<div class="coach-head"><span class="coach-ico">${COACH_FACE}</span>
     <div><h2>${escapeHtml(COACH_TITLES[kind])}</h2><span class="coach-sub">${escapeHtml(sub)}</span></div></div>`;
 }
 
@@ -225,7 +233,7 @@ function coachCardHtml(kind, opts){
   if (!row || !row.summary){
     if (!COACH_EMPTY[kind]) return '';
     return `<section class="coach" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-      ${coachHead(kind, kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
+      ${coachHead(kind, kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד', !o.compact)}
       <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p></section>`;
   }
   const s = row.summary;
@@ -235,7 +243,7 @@ function coachCardHtml(kind, opts){
   if (s.v !== 2){
     const points = Array.isArray(s.points) ? s.points.slice(0, o.compact ? 2 : 3) : [];
     return `<section class="coach" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-      ${coachHead(kind, coachSub(kind, row))}
+      ${coachHead(kind, coachSub(kind, row), !o.compact)}
       <p class="coach-sum">${escapeHtml(s.headline || '')}</p>
       <div class="coach-acts">${points.map(p => `<article class="coach-act">
         <div class="coach-act-body">
@@ -251,7 +259,7 @@ function coachCardHtml(kind, opts){
   const actions = (s.actions || []).slice(0, o.compact ? 2 : 3);
   const actsTitle = kind === 'agent' ? 'צעדים להיום' : kind === 'team' ? 'מה לעשות השבוע' : 'החלטות לשבוע הזה';
   return `<section class="coach${o.compact ? ' is-compact' : ''}" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-    ${coachHead(kind, coachSub(kind, row))}
+    ${coachHead(kind, coachSub(kind, row), !o.compact)}
     ${s.headline ? `<p class="coach-hl">${escapeHtml(s.headline)}</p>` : ''}
     ${s.summary ? `<p class="coach-sum">${escapeHtml(s.summary)}</p>` : ''}
     ${s.strength || s.focus ? `<div class="coach-chips">
