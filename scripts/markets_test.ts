@@ -341,6 +341,12 @@ check("הגבול עם הגולן: 35.6499 → טבריה, 35.6501 → הגול�
   reg.locate(32.80, 35.6499)?.slug === "tiberias" && reg.locate(32.80, 35.6501)?.slug === "golan");
 check("הגבול עם צפת: 32.8799 → טבריה, 32.8801 → צפת (35.50)",
   reg.locate(32.8799, 35.50)?.slug === "tiberias" && reg.locate(32.8801, 35.50)?.slug === "safed");
+check("בית שאן → beit-shean", reg.locate(32.497, 35.497)?.slug === "beit-shean");
+check("טירת צבי → beit-shean", reg.locate(32.423, 35.527)?.slug === "beit-shean");
+check("הגבול עם טבריה: 32.6199 → בית שאן, 32.62 → טבריה (35.55)",
+  reg.locate(32.6199, 35.55)?.slug === "beit-shean" && reg.locate(32.62, 35.55)?.slug === "tiberias");
+check("הגבול עם השומרון: 35.4501 → בית שאן, 35.45 → השומרון (32.45)",
+  reg.locate(32.45, 35.4501)?.slug === "beit-shean" && reg.locate(32.45, 35.45)?.slug === "samaria");
 check("מרום גולן → golan", reg.locate(33.13, 35.78)?.slug === "golan");
 check("רמות (חוף הכנרת) → golan", reg.locate(32.85, 35.66)?.slug === "golan");
 check("הגבול עם קריית שמונה: 35.6999 → קריית שמונה, 35.70 → הגולן (33.24)",
