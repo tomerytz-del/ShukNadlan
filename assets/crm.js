@@ -2100,8 +2100,6 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const pricingP = loadPricing().then(()=>{
     // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
     const freeQuota = priceOf('free_lead_quota_monthly', 10);
-    document.getElementById('quotaUsed').textContent =
-      agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : 'ללא הגבלה';
     renderQuotaMeter(freeQuota);
   });
   // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
@@ -20718,8 +20716,7 @@ async function loadClients(){
         ? 'קובץ הלקוחות לא הופעל עדיין בפרויקט הזה.'
         : 'שגיאה בטעינת הלקוחות: ' + esc(heErr(error))) + '</div>';
     accSetCount('accClients', '');
-    const kpiNote = document.getElementById('kpiClientsNote');
-    if (kpiNote) kpiNote.textContent = 'קובץ הלקוחות לא נטען';
+    hkInsight('kpiClientsIns', { tone:'warn', title:'קובץ הלקוחות לא נטען' });
     return;
   }
 
@@ -26499,9 +26496,6 @@ function applyNavFilter(){
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
   updateScrollUi();
-  // רכבת שהייתה מוסתרת לא ידעה למדוד את עצמה: ברגע שהיא חוזרת למסך צריך
-  // לקבוע מחדש מי בראש המסלול והאם יש בכלל לאן לגלול
-  if (typeof syncQuickRail === 'function') syncQuickRail();
 }
 
 function setNavTab(key, opts){
@@ -29086,117 +29080,93 @@ function openInlineForm(accId, formId, toggleId, afterOpen){
   }, reduce ? 0 : 420);
 }
 
-/* ‏tone הוא המשפחה שאליה הפעולה שייכת, ולא קישוט לכל כפתור בנפרד:
-   ‏mint לאנשים, ‏sand לנכסים, ‏navy לכסף ולהתחייבות. אותם שלושה גוונים
-   בדיוק לובשים גם את שורת המדדים שמעל — ראו ההערה בטוקנים של #dashboard. */
+/* ---------- הפעולות המהירות (HANDOFF 2.7) ----------
+   פעולות בלבד, כפתור אחד בסגנון אחד; ‏tone הוא רק הצבע של האייקון, לפי
+   המשפחה (navy כסף והתחייבות, mint אנשים, sand נכסים). ‏key - המפתח של
+   ספירת השימוש (crmQuickUse). ‏badge - מאיזה מונה של קטגוריה לקרוא את
+   התגית. "הוסף נכס" ו"הוסף לקוח" ירדו: הם ב"יצירה חדשה" ובכפתור ה-+. */
 const QUICK_ACTIONS = [
-  /* ראשון וניווי מלא: הפעולה היחידה כאן שנגמרת בהתחייבות חתומה, וזו
-     שמייצרת את ההכנסה. ‏id נשאר עליה כי ה-FAB הצף וגם אשף ההחתמה מחפשים
-     אותה בשם הזה. */
-  { acc:'accAgreements', icon:'sign',     tone:'navy', title:'החתם לקוח',
-    id:'signClientCta',  aria:'החתם לקוח - הזמנת שירותי תיווך',
+  /* ראשון תמיד: הפעולה היחידה כאן שנגמרת בהתחייבות חתומה. ‏id נשאר עליה כי
+     ה-FAB הצף וגם אשף ההחתמה מחפשים אותה בשם הזה. */
+  { key:'sign',   acc:'accAgreements', icon:'sign',   tone:'navy', title:'החתמת לקוח',
+    id:'signClientCta',  aria:'החתמת לקוח - הזמנת שירותי תיווך', pinned:true,
     run:()=> openAgreementWizard() },
-  { acc:'accClients',    icon:'contact',  tone:'mint', title:'הוסף לקוח',
-    run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
-  { acc:'accProperties', icon:'building', tone:'sand', title:'הוסף נכס',
-    run:()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
-  { acc:'accProperties', icon:'chat',     tone:'mint', title:'שתף בוואטסאפ',
+  { key:'wa',     acc:'accProperties', icon:'chat',   tone:'mint', title:'שליחת נכס בוואטסאפ',
     run:()=> openWaShare() },
-  { acc:'accAlerts',     icon:'target',   tone:'sand', title:'מצא התאמות',
+  { key:'match',  acc:'accAlerts',     icon:'target', tone:'mint', title:'התאמות חכמות', badge:'accAlerts',
     run:()=> gotoSection('accAlerts') },
-  { acc:'accPlanning',   icon:'map',      tone:'navy', title:'מידע תכנוני',
+  /* ‏agent_cma_report מגודר במסד ל-PROFESSIONAL ומעלה; כאן רק לא מציגים
+     כפתור שיסורב. בוחרים נכס למכירה בגיליון, והדוח נפתח כמו מכרטיס הנכס. */
+  { key:'cma',    acc:'accProperties', icon:'chart',  tone:'sand', title:'דוח CMA לבעלים',
+    show:()=> !!currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium'),
+    run:()=> openCmaPicker() },
+  { key:'plan',   acc:'accPlanning',   icon:'map',    tone:'sand', title:'מידע תכנוני',
     run:()=> gotoSection('accPlanning') },
-  { acc:'accLeadShelf',  icon:'layers',   tone:'mint', title:'חנות הלידים',
+  { key:'shelf',  acc:'accLeadShelf',  icon:'layers', tone:'navy', title:'חנות הלידים', badge:'accLeadShelf',
     run:()=> gotoSection('accLeadShelf') },
 ];
+
+/* "שלב ב'" בהעברה: הסדר לפי השימוש האישי. ספירה בדפדפן בלבד, בלי כתיבה
+   למסד; מצב פרטי או אחסון חסום - הסדר הקבוע. */
+const QUICK_USE_KEY = 'crmQuickUse';
+function quickUse(){
+  try { const o = JSON.parse(localStorage.getItem(QUICK_USE_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+  catch { return {}; }
+}
+function quickUseBump(key){
+  const o = quickUse();
+  o[key] = (Number(o[key]) || 0) + 1;
+  try { localStorage.setItem(QUICK_USE_KEY, JSON.stringify(o)); } catch {}
+}
 
 function renderQuickActions(){
   const grid = document.getElementById('quickGrid');
   if (!grid) return;
   grid.innerHTML = '';
-  QUICK_ACTIONS.filter(a => navAccVisible(a.acc)).forEach(action=>{
-    const card = document.createElement('div');
-    card.className = 'qa-card qa-' + (action.tone || 'navy');
-    card.innerHTML = '<button type="button" class="qa-hit"'
-      + (action.id ? ' id="' + action.id + '"' : '')
-      + (action.aria ? ' aria-label="' + esc(action.aria) + '"' : '') + '>'
-      + '<span class="qa-icon">' + dashIcon(action.icon) + '</span>'
-      + '<span class="qa-title">' + esc(action.title) + '</span>'
-      + '</button>';
-    card.querySelector('.qa-hit').addEventListener('click',
-      ()=> action.run ? action.run() : navGo(action));
-    grid.appendChild(card);
+  const use = quickUse();
+  const list = QUICK_ACTIONS
+    .map((a, i) => ({ a, i }))
+    .filter(({ a }) => navAccVisible(a.acc) && (!a.show || a.show()))
+    .sort((x, y) => (y.a.pinned ? 1 : 0) - (x.a.pinned ? 1 : 0)
+      || (Number(use[y.a.key]) || 0) - (Number(use[x.a.key]) || 0) || x.i - y.i)
+    .map(({ a }) => a);
+  list.forEach(action=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hq-btn hq-' + (action.tone || 'navy');
+    if (action.id) btn.id = action.id;
+    if (action.aria) btn.setAttribute('aria-label', action.aria);
+    btn.dataset.qa = action.key;
+    btn.innerHTML = '<span class="hq-ico">' + dashIcon(action.icon) + '</span>'
+      + '<span class="hq-title">' + esc(action.title) + '</span>'
+      + (action.badge ? '<span class="hq-badge" data-qa-badge="' + action.badge + '" hidden></span>' : '');
+    btn.addEventListener('click', ()=>{ quickUseBump(action.key); action.run(); });
+    grid.appendChild(btn);
   });
-  armQuickStagger();
-  armQuickRail();
-  syncQuickRail();
+  const sub = document.getElementById('quickSub');
+  if (sub) sub.hidden = !Object.keys(use).length;
+  syncQuickBadges();
   // ה-FAB נשען על מיקומו של כפתור ההחתמה, והוא נולד מחדש בכל רינדור
   if (typeof updateScrollUi === 'function') updateScrollUi();
 }
 
-/* ==========================================================================
-   קרוסלת הפעולות — החצים והכפתור שבראש המסלול
-   --------------------------------------------------------------------------
-   הכפתורים ירדו לרוחב עמודת מדד (ראו ה-CSS של .quick-grid), ושלושה מהם
-   ממלאים בדיוק את רוחב המסך. כדי שלא ייראו כמו כל מה שיש, שלוש הרמזים
-   שהפונקציות כאן מתחזקות:
-
-     · הרביעי מציץ בקצה — זה ה-CSS לבדו (הרכבת גולשת אל מעבר לשוליים)
-     · החצים בשורת הכותרת — מוצגים רק כשיש לאן לגלול, ומכבים את עצמם בקצה
-     · ‏.is-lead על הכפתור שבתחילת המסלול — הוא מורם, השאר שטוחים אחריו
-
-   מ-900px זה גריד רגיל ולא רכבת: אין ראש מסלול ואין חצים, ושתי הפונקציות
-   מנקות אחריהן במקום להשאיר סימון ממצב קודם.
-   ========================================================================== */
-function syncQuickRail(){
-  const rail = document.getElementById('quickGrid');
-  if (!rail) return;
-  const nav   = document.getElementById('quickRailNav');
-  const cards = [...rail.children];
-  const isRail = (getComputedStyle(rail).gridAutoFlow || '').includes('column');
-  const scrollable = rail.scrollWidth - rail.clientWidth > 2;
-
-  if (nav){
-    nav.hidden = !(isRail && scrollable);
-    if (!nav.hidden) syncRailNav(rail, nav);
-  }
-
-  if (!isRail || !cards.length){
-    cards.forEach(c => c.classList.remove('is-lead', 'is-rear'));
-    return;
-  }
-
-  /* ‏RTL: תחילת המסלול היא הקצה הימני, ולכן "מי בראש" נמדד במרחק בין הקצה
-     הימני של הכרטיס לקצה הימני של הרכבת. מדידה במיקום ולא ב-scrollLeft:
-     דפדפנים לא מסכימים על הסימן של scrollLeft ב-RTL. */
-  const startX = rail.getBoundingClientRect().right;
-  let lead = cards[0], best = Infinity;
-  cards.forEach(card=>{
-    const d = Math.abs(card.getBoundingClientRect().right - startX);
-    if (d < best){ best = d; lead = card; }
-  });
-  cards.forEach(card=>{
-    card.classList.toggle('is-lead', card === lead);
-    card.classList.toggle('is-rear', card !== lead);
+/* המונים על "התאמות חכמות" ו"חנות הלידים" - מאותו accCounts של הסרגל */
+function syncQuickBadges(){
+  document.querySelectorAll('#quickGrid [data-qa-badge]').forEach(el=>{
+    const n = accCountOf(el.dataset.qaBadge);
+    el.hidden = !n;
+    el.textContent = n > 99 ? '99+' : String(n || '');
   });
 }
 
-/* מאזין אחד לרכבת ואחד לחלון, שניהם מכוסים ב-requestAnimationFrame:
-   הסימון נקרא ממיקומים אמיתיים, וקריאה כזו בכל אירוע גלילה היא בדיוק
-   הדרך להפוך גרירה חלקה לגרירה קופצת. ‏dataset שומר שהקשירה תקרה פעם
-   אחת — renderQuickActions נקרא מחדש בכל שינוי הרשאות. */
-function armQuickRail(){
-  const rail = document.getElementById('quickGrid');
-  if (!rail || rail.dataset.quickArmed) return;
-  rail.dataset.quickArmed = '1';
-  let ticking = false;
-  const onMove = ()=>{
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(()=>{ ticking = false; syncQuickRail(); });
-  };
-  rail.addEventListener('scroll', onMove, { passive:true });
-  window.addEventListener('resize', onMove, { passive:true });
+/* "דוח CMA לבעלים": בוחרים נכס למכירה בגיליון (אותו גיליון של "יצירה
+   חדשה"), והדוח נפתח בדיוק כמו מכפתור ה-CMA בכרטיס הנכס. */
+function openCmaPicker(){
+  closeMenuPanel();
+  closeSearch();
+  closeProfilePanel();
+  renderCreateSheet('cma');
+  navLayerShow('createSheet', 'create', '.cs-row');
 }
 
 /* ==========================================================================
@@ -29278,7 +29248,7 @@ function updateScrollUi(){
     fab.hidden = !live || !cta.isConnected;
     fab.classList.toggle('is-on', show);
     // המעטפת ולא הכפתור: היא זו שנושאת את המשטח והצל של הכרטיס
-    (cta.closest('.qa-card') || cta).classList.toggle('is-morphed', show);
+    cta.classList.toggle('is-morphed', show);
   } else if (fab){
     // הפעולה מוסתרת לחלוטין (למשל בלי גישה להסכמים) — אין מה להציף
     fab.hidden = true;
@@ -29326,48 +29296,6 @@ function armTodoPop(){
     });
   }, { rootMargin:'-45% 0px -45% 0px', threshold:0 });
   document.querySelectorAll('#todoList .todo-count').forEach(el => todoPopObserver.observe(el));
-}
-
-/* ---------- 4: כניסה מדורגת של הפעולות המהירות ---------- */
-/* ההשהיה היא לפי שורה ולא לפי כרטיס, ומספר העמודות נקרא מהגריד עצמו —
-   הוא 2 במובייל, 3 מ-900px ו-4 מ-1400px, ורק ה-CSS יודע מה מהם בתוקף. */
-let quickStaggerObserver = null;
-
-function armQuickStagger(){
-  const grid = document.getElementById('quickGrid');
-  if (!grid || !grid.children.length) return;
-
-  /* בזמן שהגריד מוסתר (‏.nav-off) הדפדפן מחזיר את הערך המוצהר ולא מדוד,
-     ובדפדפן שמחזיר "none" נופלים לשתי עמודות — המצב במובייל, ששם ההשהיה
-     בכלל נראית.
-
-     ברכבת האופקית (‏grid-auto-flow:column) כל הכפתורים יושבים בשורה אחת,
-     ולכן ההשהיה שם היא לפי כפתור ולא לפי שורה: אחרת ששת הכפתורים היו
-     נכנסים כגוש אחד. */
-  const cs = getComputedStyle(grid);
-  const rail = (cs.gridAutoFlow || '').includes('column');
-  const track = cs.gridTemplateColumns;
-  const cols = (track && track !== 'none') ? track.split(/\s+/).filter(Boolean).length : 2;
-  [...grid.children].forEach((card, i)=>{
-    const step = rail ? i : Math.floor(i / cols);
-    card.style.setProperty('--d', (step * 40) + 'ms');
-  });
-  grid.classList.add('is-staged');
-
-  if (navReduceMotion() || !('IntersectionObserver' in window)){
-    grid.classList.add('is-in');
-    return;
-  }
-  grid.classList.remove('is-in');
-  if (quickStaggerObserver) quickStaggerObserver.disconnect();
-  quickStaggerObserver = new IntersectionObserver((entries, obs)=>{
-    entries.forEach(entry=>{
-      if (!entry.isIntersecting) return;
-      entry.target.classList.add('is-in');
-      obs.unobserve(entry.target);
-    });
-  }, { rootMargin:'0px 0px -10% 0px', threshold:0.1 });
-  quickStaggerObserver.observe(grid);
 }
 
 /* ---------- 5: מילוי עמודות גרף המגמה ---------- */
@@ -29497,29 +29425,41 @@ function refreshNavCounts(){
   // לוח היום בדף הבית - אותו רגע בדיוק: כל טעינה שמשנה מונה (לידים, יומן,
   // נכסים) היא גם טעינה שמשנה את הלוח (assets/crm-home.js)
   if (typeof renderHomeBoard === 'function') renderHomeBoard();
+  // שורות התובנה בשלושת המדדים ומוני הפעולות המהירות - מאותם מונים ונתונים
+  renderKpiInsights();
+  syncQuickBadges();
 }
 
-/* ---------- מד המכסה החינמית ---------- */
+/* ה-"i" בכל מדד: ההסבר איך הוא מחושב. ‏title מספיק בעכבר, ובטלפון אין
+   ריחוף - לכן גם הודעה קצרה בלחיצה. */
+document.addEventListener('click', (e)=>{
+  const how = e.target.closest('[data-hk-how]');
+  if (!how) return;
+  e.stopPropagation();
+  showToast(how.dataset.hkHow);
+});
+
+/* ---------- המכסה בשורת הארנק ----------
+   במסלול עם מכסה: "לידים חינם החודש: 7 / 10", ובאדום כשנגמרה (פתיחה נוספת
+   נגבית מהארנק). במסלול בלי מכסה: "לידי קונה/שוכר: ללא הגבלה במסלול". */
 function renderQuotaMeter(freeQuota){
-  const bar = document.getElementById('quotaBar');
-  const note = document.getElementById('quotaNote');
-  if (!bar || !note) return;
+  const label = document.getElementById('quotaLabel');
+  const val = document.getElementById('quotaUsed');
+  if (!label || !val) return;
+  const wrap = val.closest('.hw-quota');
   if (!currentAgent || currentAgent.tier !== 'free'){
-    bar.style.width = '100%';
-    bar.classList.remove('is-full');
-    bar.classList.add('is-unlimited');
-    note.textContent = 'במסלול שלך לידי קונה/שוכר כלולים ללא הגבלה';
+    label.textContent = 'לידי קונה/שוכר:';
+    val.textContent = 'ללא הגבלה במסלול';
+    if (wrap){ wrap.classList.remove('is-full'); wrap.title = ''; }
     return;
   }
-  const used = quotaUsedThisCycle();
-  const pct = freeQuota > 0 ? Math.min(100, Math.round(used / freeQuota * 100)) : 0;
-  bar.style.width = pct + '%';
-  bar.classList.remove('is-unlimited');
-  bar.classList.toggle('is-full', used >= freeQuota);
-  note.textContent = used >= freeQuota
-    ? 'המכסה החודשית נוצלה - פתיחת ליד נוסף תיגבה מהארנק'
-    : (plural(freeQuota - used, 'נותר ליד חינמי אחד', 'לידים חינמיים',
-                 'נותרו ' + (freeQuota - used)) + ' עד סוף החודש');
+  const used = Math.min(quotaUsedThisCycle(), freeQuota);
+  label.textContent = 'לידים חינם החודש:';
+  val.textContent = used + '/' + freeQuota;
+  if (wrap){
+    wrap.classList.toggle('is-full', used >= freeQuota);
+    wrap.title = used >= freeQuota ? 'המכסה החודשית נוצלה - פתיחת ליד נוסף תיגבה מהארנק' : '';
+  }
 }
 
 /* ---------- מדדי הביצוע ---------- */
@@ -29591,10 +29531,48 @@ function countUp(el, to, format){
   el.dataset.raf = String(requestAnimationFrame(step));
 }
 
+/* ---------- שלושת המדדים (HANDOFF 2.7) ----------
+   המספר, תגית השינוי ופס הפיצול נכתבים כאן, עם כל טעינה של נכסים או לקוחות.
+   שורת התובנה נכתבת ב-renderKpiInsights, מ-refreshNavCounts, כי היא תלויה
+   גם בהסכמים - שנטענים בנפרד. אין כאן שאילתה: הכול מנתונים שכבר בזיכרון. */
+
+/* פס הפיצול ומקרא. ‏short - המקרא המקוצר שמוצג בנייד ליד הפס. */
+function hkSplit(id, a, b, legA, legB, short){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const total = a + b;
+  const pa = total ? Math.round(a / total * 100) : 0;
+  el.innerHTML = '<div class="hk-bar" role="img" aria-label="' + esc(legA + ', ' + legB) + '">'
+    + (total ? '<span class="hk-bar-a" style="width:' + pa + '%"></span><span class="hk-bar-b" style="width:' + (100 - pa) + '%"></span>' : '')
+    + '</div>'
+    + '<div class="hk-leg"><span><i class="hk-dot-a"></i>' + esc(legA) + '</span><span><i class="hk-dot-b"></i>' + esc(legB) + '</span></div>'
+    + '<div class="hk-leg-s">' + esc(short) + '</div>';
+}
+
+/* "+6 החודש". המספר בתוך bdi, כדי שהפלוס יישאר משמאל לו גם בשורה בעברית
+   (היה "6+" - הפלוס בצד הלא נכון). */
+function hkDelta(id, text, title){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = !text;
+  if (!text) return;
+  // רק "+₪76" בכיוון שמאל-לימין; היחידה ("א׳", "מ׳") נשארת בזרם העברי,
+  // אחרת היא נגררת לתוך הבלוק ונקראת הפוך
+  const m = String(text).match(/^(.*?)(\s[א-ת]׳)?$/);
+  el.innerHTML = '<bdi dir="ltr">+' + esc(m[1]) + '</bdi>' + esc(m[2] || '') + ' החודש';
+  el.title = title || '';
+}
+
+function hkThisMonth(rows){
+  const now = new Date();
+  return rows.filter(r =>{
+    const d = r.created_at ? new Date(r.created_at) : null;
+    return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+}
+
 function renderCommissionCard(active){
   const valueEl = document.getElementById('kpiCommissionValue');
-  const noteEl = document.getElementById('kpiCommissionNote');
-  const deltaEl = document.getElementById('kpiCommissionDelta');
   if (!valueEl) return;
 
   const total = active.reduce((s, p)=> s + propertyCommission(p), 0);
@@ -29602,21 +29580,15 @@ function renderCommissionCard(active){
   countUp(valueEl, total, v => shekelCompact(v));
   valueEl.title = shekelShort(total);
 
-  noteEl.textContent = active.length === 0
-    ? 'כל נכס שתפרסמו ייכנס למדד הזה'
-    : `${Math.round(COMMISSION_SALE_RATE * 1000) / 10}% ממכירה · חודש שכירות מהשכרה`;
+  const rent = active.filter(p => p.deal_type === 'rent').reduce((s, p)=> s + propertyCommission(p), 0);
+  const sale = total - rent;
+  hkSplit('kpiCommissionSplit', sale, rent, 'מכירה ' + shekelCompact(sale), 'השכרה ' + shekelCompact(rent),
+    active.length ? 'מכירה ' + shekelCompact(sale) : 'אין עדיין נכסים');
 
   const series = renderCommissionTrend(active, total);
-
   const prev = series.length > 1 ? series[series.length - 2].total : 0;
   const diff = total - prev;
-  if (diff > 0){
-    deltaEl.hidden = false;
-    deltaEl.textContent = '▲ ' + shekelCompact(diff);
-    deltaEl.title = 'עלייה של ' + shekelShort(diff) + ' החודש';
-  } else {
-    deltaEl.hidden = true;
-  }
+  hkDelta('kpiCommissionDelta', diff > 0 ? shekelCompact(diff) : '', diff > 0 ? 'עלייה של ' + shekelShort(diff) + ' החודש' : '');
 }
 
 /* ---------- גרף המגמה ----------
@@ -29663,37 +29635,14 @@ function renderCommissionTrend(active, total){
    אחד לא קרא אותו. זה המכנה של כל שאר המדדים, ולכן הוא מדד. */
 function renderActiveCard(active){
   const valueEl = document.getElementById('kpiActiveValue');
-  const noteEl = document.getElementById('kpiActiveNote');
-  const deltaEl = document.getElementById('kpiActiveDelta');
   if (!valueEl) return;
-
   const forRent = active.filter(p => p.deal_type === 'rent').length;
   const forSale = active.length - forRent;
-
   countUp(valueEl, active.length, v => String(Math.round(v)));
-  noteEl.textContent = active.length === 0
-    ? 'אין כרגע נכסים פעילים בתיק'
-    : `${forSale} מכירה · ${forRent} השכרה`;
-
-  const now = new Date();
-  const thisMonth = active.filter(p =>{
-    const d = p.created_at ? new Date(p.created_at) : null;
-    return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }).length;
-  deltaEl.hidden = thisMonth === 0;
-  if (thisMonth > 0) deltaEl.textContent = '▲ +' + thisMonth;
-
-  // "בבלעדיות" הוא מאפיין הנכס exclusive — אותו אחד שמסומן בטופס הוספת נכס
-  const tagEl = document.getElementById('kpiActiveExclusive');
-  if (tagEl){
-    const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
-    tagEl.hidden = active.length === 0;
-    tagEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>'
-      + esc(exclusive + ' בבלעדיות');
-    tagEl.title = active.length
-      ? Math.round(exclusive / active.length * 100) + '% מהתיק הפעיל בבלעדיות'
-      : '';
-  }
+  hkSplit('kpiActiveSplit', forSale, forRent, 'מכירה ' + forSale, 'השכרה ' + forRent,
+    forSale + ' מכירה · ' + forRent + ' השכרה');
+  const added = hkThisMonth(active);
+  hkDelta('kpiActiveDelta', added ? String(added) : '', added ? plural(added, 'נכס אחד נוסף', 'נכסים נוספו') + ' החודש' : '');
 }
 
 /* ---------- לקוחות מחפשים ----------
@@ -29702,39 +29651,105 @@ function renderActiveCard(active){
    "נכסים בבלעדיות", שהיה עוד מספר על אותו תיק ועוד קישור לאותה רשימה. */
 function renderClientsCard(){
   const valueEl = document.getElementById('kpiClientsValue');
-  const noteEl = document.getElementById('kpiClientsNote');
-  const deltaEl = document.getElementById('kpiClientsDelta');
-  const ratioEl = document.getElementById('kpiClientsRatio');
   if (!valueEl) return;
-
-  // בעלי נכסים אינם "לקוחות מחפשים" ואינם מקבלים התאמות
-  const searching = clientRows.filter(c => (c.status || 'active') === 'active' && !isOwnerClient(c));
-  const matched = searching.filter(c => (clientMatchCounts[c.id] || 0) > 0).length;
-  const pct = searching.length ? Math.round(matched / searching.length * 100) : 0;
-
+  const { searching, matched } = kpiClientStats();
   countUp(valueEl, searching.length, v => String(Math.round(v)));
-  noteEl.textContent = searching.length === 0
-    ? 'הוסיפו לקוח ונתחיל להתאים'
-    : (matched === 1 ? 'לאחד מהם יש נכס מתאים' : matched + ' מהם עם נכס מתאים');
-
-  const now = new Date();
-  const thisMonth = clientRows.filter(c =>{
-    const d = c.created_at ? new Date(c.created_at) : null;
-    return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }).length;
-  deltaEl.hidden = thisMonth === 0;
-  if (thisMonth > 0){
-    deltaEl.textContent = '▲ +' + thisMonth;
-    deltaEl.title = plural(thisMonth, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש';
-  }
-
-  if (ratioEl){
-    ratioEl.querySelector('span').style.width = pct + '%';
-    ratioEl.setAttribute('aria-label',
-      searching.length ? pct + '% מהלקוחות המחפשים עם נכס מתאים' : 'אין עדיין לקוחות מחפשים');
-  }
+  hkSplit('kpiClientsSplit', matched, searching.length - matched,
+    'עם נכס מתאים ' + matched, 'בלי התאמה ' + (searching.length - matched),
+    matched + ' עם נכס מתאים');
+  const added = hkThisMonth(clientRows);
+  hkDelta('kpiClientsDelta', added ? String(added) : '', added ? plural(added, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש' : '');
   syncStickyKpis();
   setTimeout(syncStickyKpis, 700);
+  scheduleNavCounts();
+}
+
+/* בעלי נכסים אינם "לקוחות מחפשים" ואינם מקבלים התאמות */
+function kpiClientStats(){
+  const searching = (typeof clientRows !== 'undefined' ? clientRows : [])
+    .filter(c => (c.status || 'active') === 'active' && !isOwnerClient(c));
+  const matched = searching.filter(c => (clientMatchCounts[c.id] || 0) > 0).length;
+  return { searching, matched };
+}
+
+/* ---------- שורת התובנה בכל כרטיס ----------
+   משפט אחד עם פעולה, בצבע לפי המצב (info / warn / ok). כל פעולה היא יכולת
+   שכבר קיימת, וכל מספר נספר מנתונים שבזיכרון - בלי חישוב חדש של המדד עצמו.
+   נקראת מ-refreshNavCounts, כי ההסכמים, הנכסים והלקוחות נטענים בנפרד. */
+const KPI_EXCL_WARN = 0.4;   // אותו סף של OD_TH.exclWarn בדאשבורד המשרד
+
+function hkInsight(id, ins){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.hidden = !ins;
+  if (!ins) return;
+  el.className = 'hk-ins is-' + (ins.tone || 'info');
+  el.innerHTML = '<span class="hk-ins-t"><b>' + esc(ins.title) + '</b>'
+    + (ins.sub ? '<small>' + esc(ins.sub) + '</small>' : '') + '</span>';
+  if (ins.cta && ins.run){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hk-cta';
+    btn.textContent = ins.cta;
+    btn.addEventListener('click', (e)=>{ e.stopPropagation(); ins.run(); });
+    el.appendChild(btn);
+  }
+}
+
+function renderKpiInsights(){
+  if (!document.getElementById('kpiCommissionIns') || dashView !== 'agent' || !currentAgent) return;
+  const active = dashActiveProperties();
+  const newProperty = ()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+  const openProp = p => ()=>{ gotoSection('accProperties'); openPropertyFromParam(p.id); };
+
+  // עמלות: הכי קרוב לכסף - הסכם שנשלח ולא נחתם; בלעדיו, הנכס עם העמלה הגבוהה
+  const pending = (typeof agreementRows !== 'undefined' ? agreementRows : [])
+    .filter(a => a.status === 'sent' || a.status === 'viewed').length;
+  let money = null;
+  if (pending && navAccVisible('accAgreements')){
+    money = { tone:'info', title:'הכי קרוב לכסף: ' + plural(pending, 'הסכם אחד ממתין לחתימה', 'הסכמים ממתינים לחתימה'),
+      sub:'נשלחו ועוד לא נחתמו', cta:'להסכמים', run:()=> gotoSection('accAgreements') };
+  } else if (active.length){
+    const top = active.reduce((m, p)=> propertyCommission(p) > propertyCommission(m) ? p : m, active[0]);
+    money = { tone:'info', title:'העמלה הגבוהה בתיק: ' + shekelCompact(propertyCommission(top)),
+      sub: top.title || top.address || '', cta:'לנכס', run: openProp(top) };
+  } else {
+    money = { tone:'info', title:'כל נכס שתפרסמו ייכנס למדד הזה', cta:'נכס חדש', run: newProperty };
+  }
+  hkInsight('kpiCommissionIns', money);
+
+  // נכסים: בלעדיות מתחת לסף, אחרת נכסים בלי תמונות, אחרת מצב התיק
+  let prop = null;
+  if (!active.length){
+    prop = { tone:'info', title:'עוד אין נכסים פעילים', cta:'נכס חדש', run: newProperty };
+  } else {
+    const excl = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
+    const noPhotos = active.filter(p => !(p.images || []).length);
+    if (excl / active.length < KPI_EXCL_WARN){
+      prop = { tone:'warn', title:'רק ' + excl + ' מ-' + active.length + ' בבלעדיות', sub:'בלעדיות = נכס שלא בורח למתווך אחר',
+        cta: navAccVisible('accAgreements') ? 'להחתים בלעדיות' : '', run:()=> openAgreementWizard() };
+    } else if (noPhotos.length){
+      prop = { tone:'info', title: plural(noPhotos.length, 'נכס אחד בלי תמונות', 'נכסים בלי תמונות'),
+        sub:'התמונה היא הדבר הראשון שגולשים רואים', cta:'להוספת תמונות', run: openProp(noPhotos[0]) };
+    } else {
+      prop = { tone:'ok', title: excl + ' מ-' + active.length + ' בבלעדיות', sub:'ולכל הנכסים יש תמונות' };
+    }
+  }
+  hkInsight('kpiActiveIns', prop);
+
+  // לקוחות: מי שיש לו נכס מתאים מחכה להצעה
+  const { searching, matched } = kpiClientStats();
+  let people = null;
+  if (!searching.length){
+    people = { tone:'info', title:'הוסיפו לקוח ונתחיל להתאים', cta:'לקוח חדש',
+      run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') };
+  } else if (matched){
+    people = { tone:'ok', title: plural(matched, 'לקוח אחד מחכה להצעה', 'לקוחות מחכים להצעה'),
+      sub:'יש להם נכס מתאים במאגר', cta: navAccVisible('accAlerts') ? 'שליחת התאמות' : '', run:()=> gotoSection('accAlerts') };
+  } else {
+    people = { tone:'info', title:'עוד אין נכס מתאים ללקוחות שלך', sub:'נכס חדש שיתאים יופיע כאן' };
+  }
+  hkInsight('kpiClientsIns', people);
 }
 
 function renderDashboardOverview(){
@@ -30312,6 +30327,35 @@ function renderCreateSheet(view){
       '<p class="cs-hint">הכרטיס של הנכס ייפתח, ושם כפתורי הקידום וההקפצה.</p>');
     const first = list.querySelector('.cs-row');
     if (first) first.focus({ preventScroll:true });
+    return;
+  }
+
+  if (view === 'cma'){
+    title.textContent = 'דוח CMA לאיזה נכס?';
+    // ‏agent_cma_report מסרב לנכס להשכרה (rent_not_supported), ולכן מכירה בלבד
+    const sale = (typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])
+      .filter(p => p.status === 'active' && p.deal_type !== 'rent');
+    if (!sale.length){
+      body.insertAdjacentHTML('beforeend', '<p class="cs-empty">אין כרגע נכס פעיל למכירה. הדוח מבוסס על עסקאות מכר.</p>');
+      return;
+    }
+    const list = document.createElement('div');
+    list.className = 'cs-list';
+    sale.forEach(p=>{
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'cs-row';
+      row.innerHTML = dashIcon('chart')
+        + '<span class="cs-row-t">' + esc(p.title || p.address || 'נכס') + '</span>'
+        + '<span class="cs-row-s">' + esc([p.city, p.price ? shekel(p.price) : ''].filter(Boolean).join(' · ')) + '</span>';
+      row.addEventListener('click', async ()=>{
+        await openCmaReport(p.id, row);
+        closeCreateSheet();
+      });
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    body.insertAdjacentHTML('beforeend', '<p class="cs-hint">דוח השוואת מחירים לנכס, מהעסקאות באזור - להצגה לבעלים.</p>');
     return;
   }
 
