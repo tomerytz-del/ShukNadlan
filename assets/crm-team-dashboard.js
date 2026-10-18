@@ -170,22 +170,23 @@ function renderTeamDashboard(){
     const sev = view.alerts.filter(a => a.sev === 2).length;
     accSetCount('accTeamDashboard', sev || '', sev);
   }
-  host.innerHTML = `<div class="od td" dir="rtl">
-    ${tdHeader(data, range)}
-    ${odKpis(view, range)}
-    ${coachCardHtml('team')}
-    <section class="od-grid">
-      <div class="od-card">
+  const alerts = `<div class="od-card">
         <div class="od-card-h"><h3>דורש תשומת לב</h3>
           <p>סוכני הצוות שחורגים מהסטנדרט: תגובה מעל ${OD_TH.slowAvgMin} דק׳, ${OD_TH.openWarn}+ לידים ללא מענה, בלעדיות נמוכה או פיגור ביעד.</p></div>
         ${odAlertsHtml(view.alerts)}
-      </div>
-      <div class="od-card">
+      </div>`;
+  const funnel = `<div class="od-card">
         <div class="od-card-h"><h3>משפך הצוות: מליד לעסקה</h3>
           <p>האחוז מתחת לכל שלב הוא כמה עברו לשלב הבא.</p></div>
         ${odFunnelHtml(view.funnel)}
-      </div>
-    </section>
+      </div>`;
+  // המנטור ולצדו "דורש תשומת לב", מיד אחרי המדדים (coachLeadHtml)
+  const lead = coachLeadHtml('team', alerts);
+  host.innerHTML = `<div class="od td" dir="rtl">
+    ${tdHeader(data, range)}
+    ${odKpis(view, range)}
+    ${lead ? lead + `<section class="od-sec">${funnel}</section>`
+      : `<section class="od-grid">${alerts}${funnel}</section>`}
     ${tdProgressHtml(data.teams_progress)}
     <section class="od-sec">
       <div class="od-sec-h"><h2>ביצועי הסוכנים בצוות</h2></div>

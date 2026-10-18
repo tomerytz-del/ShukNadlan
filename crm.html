@@ -3548,6 +3548,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
          background:var(--coach-bg);color:#fff;border-radius:22px;padding:22px;margin:0 0 18px;
          display:flex;flex-direction:column;gap:14px}
   .coach.is-compact{padding:16px}
+  /* המנטור בראש הדאשבורד ולצדו "מה דורש טיפול" (coachLeadHtml). בטור עד
+     1180px, שם העמודה הראשית צרה מכדי לחלק אותה. */
+  .coach-lead{margin:0 0 18px}
+  .coach-lead > .coach{margin:0}
+  .coach-lead-side{margin-top:18px;min-width:0}
+  .coach-lead-side > *{margin-top:0;margin-bottom:0}
+  @media(min-width:1180px){
+    .coach-lead:not(.is-solo){display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+    .coach-lead-side{margin-top:0}
+  }
   .coach-head{display:flex;align-items:flex-start;gap:12px}
   /* האווטאר של המנטור בטבעת זהב (COACH_FACE ב-assets/crm-coach.js) */
   .coach-ico{flex-shrink:0;width:48px;height:48px;border-radius:50%;background:var(--coach-gold);padding:2px;

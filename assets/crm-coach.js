@@ -291,6 +291,18 @@ function coachCardHtml(kind, opts){
   </section>`;
 }
 
+/* המנטור בראש הדאשבורד, ולצדו הבלוק של "מה דורש טיפול" (design/
+   Desktop-TeamLead, ‏Desktop-Office, ‏Desktop-Performance). עד 18.10.2026 הוא
+   ישב מתחת לפתיח ולשורת המדדים - בדאשבורד המשרד 900px ויותר מראש הדאשבורד,
+   כלומר מתחת למסך. בלי סיכום (הכרטיס ריק) מחזיר null, והדאשבורד מצייר את
+   הבלוק במקומו הרגיל. ‏side ריק - המנטור לבד, ברוחב מלא. */
+function coachLeadHtml(kind, side){
+  const card = coachCardHtml(kind);
+  if (!card) return null;
+  if (!side) return `<div class="coach-lead is-solo">${card}</div>`;
+  return `<div class="coach-lead">${card}<div class="coach-lead-side">${side}</div></div>`;
+}
+
 /* ---------- "שאל את המנטור" ----------
    שאלה חופשית מול הסיכום והמספרים של אותו מאמן (supabase/functions/coach-ask,
    שלב 8). תשובה בלבד - המאמן לא מבצע פעולות. מכסה יומית לחשבון; הקוד
