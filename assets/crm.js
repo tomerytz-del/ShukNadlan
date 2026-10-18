@@ -5971,6 +5971,10 @@ const AI_FEATURES = {
   showcase_branding: { label: 'בדיקת לוגו בתמונה', sub: 'המיניסייט ללקוח/ה', unit: 'לתמונה' },
   lead_analyzer:     { label: 'מנוע הלידים', sub: 'פוסטים מ-RSS', unit: 'לפוסט' },
   news_analyzer:     { label: 'מנוע המבזקים', sub: 'ידיעות', unit: 'לידיעה' },
+  // אזור ההטמעה (docs/csm-adoption.md)
+  csm_mentor:        { label: 'מנטור ההטמעה', sub: 'שאלות של צוות ההטמעה', unit: 'לשאלה' },
+  csm_call:          { label: 'ניתוח הקלטות - הטמעה', sub: 'סיכום והמלצות לשיחה (התמלול בשורת התמלול)', unit: 'לשיחה' },
+  gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };
@@ -25942,6 +25946,7 @@ const NAV_GROUPS = [
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
+    { acc:'accCsm',           label:'הטמעת סוכנים',   icon:'user',    tab:'admin' },
     { acc:'accCoachGaps',     label:'חסר למנטור',     icon:'article', tab:'admin' },
     { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },

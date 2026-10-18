@@ -12,6 +12,7 @@ import {
   verifySignature,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
+import { handleCsmMessage } from "./csm-chat.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import {
@@ -1164,6 +1165,18 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     .maybeSingle();
 
   if (!agent) {
+    // --- צוות ההטמעה (csm_staff): לא סוכן/ת ולא גולש/ת. תור נפרד עם כלי
+    // ההטמעה בלבד (csm-chat.ts, ‏docs/csm-adoption.md). אחרי הסוכנים, ולכן
+    // csm_staff_save דוחה טלפון של סוכן/ת.
+    const { data: staff } = await supabase.from("csm_staff")
+      .select("id, display_name").eq("phone_e164", from).eq("active", true).maybeSingle();
+    if (staff) {
+      await handleCsmMessage({
+        supabase, msg, staff, openaiKey, downloadMedia,
+        reply: (text: string) => reply(from, text, null),
+      });
+      return;
+    }
     if (!publicBotEnabled) {
       await reply(from, UNKNOWN_SENDER_MSG, null);
       return;

@@ -144,6 +144,9 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.office-coach]
 verify_jwt = false          # ‏pg_cron (משרד וצוות ביום ראשון, סוכנים כל בוקר) + x-alert-cron-secret / service role ידני. docs/coaches.md
 
+[functions.csm-workspace]
+verify_jwt = true           # אזור ההטמעה (/csm): מנטור והקלטות. אשת הצוות נגזרת מה-JWT (csm_staff.user_id). docs/csm-adoption.md
+
 [functions.coach-ask]
 verify_jwt = true           # "שאל את המאמן" מה-CRM: הסוכן/ת נגזר/ת מה-JWT בלבד. docs/coaches.md
 

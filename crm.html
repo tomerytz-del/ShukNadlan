@@ -8686,6 +8686,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            אישור כאן הוא גם ההיתר עצמו: השער בודק את broker_license_appeals
            לפני שהוא פונה ל-data.gov.il, ולכן "אישרתי" ו"פתחתי את המשרד" הם
            אותה פעולה. ראו docs/broker-registry.md. -->
+      <!-- הטמעת סוכנים (CSM) - תצוגת הפיקוח של מנהל/ת הפלטפורמה. אותו מודול של
+           אזור ההטמעה (csm.html): assets/crm-csm.js, ‏assets/csm-workspace.css
+           (נטען בפתיחה), docs/csm-adoption.md -->
+      <details class="acc" id="accCsm">
+        <summary>
+          <span class="acc-title">הטמעת סוכנים</span>
+          <span class="acc-count" id="accCsmCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            פיקוח על ההטמעה והזמנת צוות ההטמעה. מנהלת ההטמעה עובדת באזור משלה, /csm. המספר בכותרת הוא כמה סוכנים לא כתבו לגבריאלה 5 ימים ומעלה.
+          </p>
+          <div class="csm-tabs" role="tablist" aria-label="הטמעת סוכנים">
+            <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
+            <button type="button" role="tab" data-csm-tab="offices" aria-selected="false">משרדים</button>
+            <button type="button" role="tab" data-csm-tab="mentor" aria-selected="false" hidden>המנטור</button>
+            <button type="button" role="tab" data-csm-tab="calls" aria-selected="false" hidden>הקלטות</button>
+            <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
+            <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
+            <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
+            <button type="button" role="tab" data-csm-tab="staff" aria-selected="false" hidden>צוות ההטמעה</button>
+          </div>
+          <div id="csmBody"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
       <details class="acc" id="accCoachGaps">
         <summary>
           <span class="acc-title">נושאים שחסרים למנטור</span>
@@ -10490,6 +10516,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- פגישת "הצלחה ראשונה" עם סוכן/ת: אבחון, צ'ק-ליסט, פקודות ומשוב.
+     התוכן נבנה ב-csmPaintSession() ב-assets/crm-csm.js -->
+<div class="pm-overlay" id="csmSessionModal" role="dialog" aria-modal="true" aria-labelledby="csmSessionTitle" style="display:none">
+  <div class="pm-card csm-session-card">
+    <div class="pm-title" id="csmSessionTitle">פגישת הצלחה ראשונה</div>
+    <div id="csmSessionBody"></div>
+    <datalist id="csmFbTitles"></datalist>
+    <div class="pm-actions csm-session-actions">
+      <button type="button" class="btn btn-ghost" id="csmSessionCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="csmSessionSave">שמירת הפגישה</button>
+    </div>
+  </div>
+</div>
+
 <!-- רמת השיתוף של נכס או של לקוח/ה. התוכן נבנה ב-openShareLevelModal() ב-assets/crm.js -->
 <div class="pm-overlay" id="shareLevelModal" role="dialog" aria-modal="true" aria-labelledby="shareLevelTitle" style="display:none">
   <div class="pm-card">
@@ -10551,6 +10591,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
 <script src="assets/crm-onboarding.js"></script>
+<!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
+     וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
+<script src="assets/crm-csm.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->

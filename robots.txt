@@ -11,6 +11,8 @@ Disallow: /developer-crm
 Disallow: /developer-crm.html
 Disallow: /professional-manage
 Disallow: /professional-manage.html
+Disallow: /csm
+Disallow: /csm.html
 
 # חתימה על הסכם — כתובת חד-פעמית של משתמש/ת מסוים/ת, עם טוקן.
 Disallow: /sign

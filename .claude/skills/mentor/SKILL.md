@@ -180,3 +180,12 @@ python3 scripts/check_edge_types.py
 - **מנהל/ת שעובד/ת כסוכן/ת מקבל/ת את שני המנטורים** (`agent_coach_due` לפי
   `is_active_agent` בלבד). אם אין לו/ה סיכום אישי, בדקו קודם שה-cron
   `agent-coach` רץ בכלל (`cron.job_run_details`) ושהסוד `AGENT_COACH_ENABLED=1`.
+
+## 9. מנטור ההטמעה - רביעי, ונפרד
+
+לצוות ההטמעה (`csm_staff`), לא לסוכנים: `_shared/coach/csm.ts` ו-`csm-prompt.ts`, הידע
+ב-`CSM_PLAYBOOK`, היומן והמכסה ב-`csm_mentor_questions`. אינו `CoachKind` ואינו עובר דרך
+`askCoach`. **‏`CSM_PLAYBOOK` לא נכנס ל-`askSystemPrompt`** (הבדיקה חוסמת), וחומר
+שתומר שולח "למנטור של מנהלת ההטמעה" נכנס לשם, תחת כללי העריכה של סעיף 2. הסקיל
+`csm-adoption`.
+
