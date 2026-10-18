@@ -14,6 +14,8 @@
   5. ‏`supabase/migrations/`           - שוק בלי ערים משויכות אינו מסנן כלום
   6. ‏`supabase/functions/_shared/service-markets.ts` - אזורי הפעילות שגבריאלה
      מציעה לסוכנים. שוק שחסר שם אינו ניתן לבחירה בצ'אט, בשקט
+  7. ‏`assets/*.js` ודפי השורש - אין סינון `city_id not in` לפי רשימת הערים
+     של השווקים האחרים: היא גדלה עם כל שוק עד שהכתובת נופלת ב-400
 
 **וכלל אחד שאינו התאמה אלא שער:** שוק שאינו ברירת המחדל אינו יכול להיות
 `live` כל עוד דף הבית אינו מסנן נכסים לפי שוק (שלב 2 ב-docs/regional-pages.md).
@@ -167,6 +169,20 @@ def main() -> int:
             )
     for extra in sorted(set(bot) - set(slugs)):
         problems.append("‏%s ב-service-markets.ts ואין שוק כזה ב-assets/markets.js." % extra)
+
+    # ‏7. סינון שוק ברירת המחדל לפי רשימת ערים בכתובת. הרשימה גדלה עם כל שוק,
+    # וב-18.10.2026 (‏617 ערים, כ-23KB) השרת ענה 400 ודף הבית של עפולה הציג
+    # שלושה נכסי דמו במקום 200. הסינון הוא market_slug (‏MarketScope.orFilter,
+    # ‏20270529100000_properties_market_slug.sql), שאורכו קבוע.
+    url_list = re.compile(r"city_id\.not\.in|not\(\s*['\"]city_id['\"]\s*,\s*['\"]in['\"]")
+    for f in sorted(list((ROOT / "assets").glob("*.js")) + list(ROOT.glob("*.html"))):
+        for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+            if url_list.search(line):
+                problems.append(
+                    "‏%s:%d: סינון לפי רשימת ערים שלילית (city_id not in) - הכתובת גדלה עם כל שוק "
+                    "ונופלת ב-400. סננו לפי market_slug (‏MarketScope.apply / orFilter)."
+                    % (f.relative_to(ROOT), n)
+                )
 
     known = {m["path"] for m in markets if not m["default"]}
     for extra in sorted(paths - known):
