@@ -45,6 +45,8 @@ const RAMAT_AVIV = [32.113, 34.80];
 const RAMAT_HAHAYAL = [32.11, 34.84];
 const HATIKVA = [32.052, 34.79];
 const EILAT = [29.557, 34.952];
+// מחוץ לכל שוק, ורחוק יותר מ-NEAR_KM מכל מרכז (אילת עצמה קיבלה שוק ב-18.10.2026)
+const KIRYAT_SHMONA = [33.207, 35.571];
 const HOLON = [32.016, 34.78];
 const BAT_YAM = [32.017, 34.75];
 const AZOR = [32.024, 34.805];
@@ -321,7 +323,14 @@ check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → ת�
   reg.locate(32.0299, 34.76)?.slug === "holon-bat-yam" && reg.locate(32.03, 34.76)?.slug === "tel-aviv");
 check("הגבול עם אור יהודה: 32.0249 → חולון ובת ים, 32.025 → רמת גן (34.82)",
   reg.locate(32.0249, 34.82)?.slug === "holon-bat-yam" && reg.locate(32.025, 34.82)?.slug === "ramat-gan");
-check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
+check("קריית שמונה → אין שוק (ולא הקרוב ביותר)", reg.locate(KIRYAT_SHMONA[0], KIRYAT_SHMONA[1]) === null);
+check("אילת → eilat", reg.locate(EILAT[0], EILAT[1])?.slug === "eilat");
+check("יטבתה (חבל אילות) → eilat", reg.locate(29.90, 35.06)?.slug === "eilat");
+check("עין יהב (הערבה התיכונה) → eilat", reg.locate(30.66, 35.24)?.slug === "eilat");
+check("הגבול עם דימונה: 35.0999 → דימונה, 35.10 → אילת (30.70)",
+  reg.locate(30.70, 35.0999)?.slug === "dimona-arad" && reg.locate(30.70, 35.10)?.slug === "eilat");
+check("הגבול עם דימונה: 30.90 → אילת, 30.9001 → דימונה (35.30)",
+  reg.locate(30.90, 35.30)?.slug === "eilat" && reg.locate(30.9001, 35.30)?.slug === "dimona-arad");
 check("באר שבע → beer-sheva", reg.locate(BEER_SHEVA[0], BEER_SHEVA[1])?.slug === "beer-sheva");
 check("עומר → beer-sheva", reg.locate(31.265, 34.85)?.slug === "beer-sheva");
 check("להבים → beer-sheva", reg.locate(31.372, 34.813)?.slug === "beer-sheva");
@@ -413,8 +422,8 @@ d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KFAR_SABA), search: "" });
 check("IP מכפר סבא: soon=kfar-saba-raanana (לא נתניה, 16 ק\"מ משם)", d.soon === "kfar-saba-raanana", JSON.stringify(d));
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
 check("IP מתל אביב: soon=tel-aviv", d.location === null && d.soon === "tel-aviv", JSON.stringify(d));
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(EILAT), search: "" });
-check("IP מאילת: אין soon", d.soon === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KIRYAT_SHMONA), search: "" });
+check("IP מקריית שמונה: אין soon", d.soon === null);
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
 check("IP מעפולה (שוק חי): אין soon", d.soon === null);
 d = decide(reg, { cookie: "shuk_market=netanya%7Cgps", userAgent: UA, geo: null, search: "" });
@@ -442,8 +451,8 @@ check("GPS שמור בקריות גובר על IP מעפולה", d.location === 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
 check("IP מעפולה → אין הפניה (ברירת המחדל), עם עוגייה", d.location === null && !!d.geoCookie);
 
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(EILAT), search: "" });
-check("IP מאילת → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KIRYAT_SHMONA), search: "" });
+check("IP מקריית שמונה → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: { ...IL(KIRYAT_BIALIK), country: { code: "US" } }, search: "" });
 check("IP מחוץ לישראל → אין הפניה", d.location === null);
@@ -522,8 +531,8 @@ check("‎/‎ מנתניה: 200, עם עוגיית shuk_soon ובלי shuk_geo"
   r.status === 200 && (r.headers.get("set-cookie") || "").includes("shuk_soon=netanya") &&
   !(r.headers.get("set-cookie") || "").includes("shuk_geo="));
 
-r = await searchPages(req("/", ""), ctx(IL(EILAT)));
-check("‎/‎ מאילת: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
+r = await searchPages(req("/", ""), ctx(IL(KIRYAT_SHMONA)));
+check("‎/‎ מקריית שמונה: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
 
 reg.bySlug("krayot")!.live = krayotLiveInFile;
 
