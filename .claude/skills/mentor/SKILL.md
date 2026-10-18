@@ -1,6 +1,6 @@
 ---
 name: mentor
-description: המנטור AI של שוק נדל״ן (שלושת המאמנים - סוכן/ת, צוות, משרד) כמנטור מקצועי - הידע ב-_shared/coach/playbook.ts (PLAYBOOK לכולם, MANAGER_PLAYBOOK לצוות ולמשרד, OFFICE_PLAYBOOK למשרד), איך מכניסים חומר שתומר שולח (מה משנים ומדווחים, לאיזה קהל, בדיקה ושורה בתיעוד), הטון והוותק ב-coach_preferences, מנהל/ת שהוא/היא גם סוכן/ת (manages), שני הערוצים לשאלה (coach-ask ב-CRM ו-ask_mentor של גבריאלה דרך askCoach), והתראת הבוקר coach_daily. Use when the user sends coaching material, scripts, objection handling, negotiation or management know-how "for the mentor", when changing what the mentor knows or says, when touching playbook.ts / prompts.ts (askSystemPrompt, TONES, AGENT_WHO_MANAGES) / _shared/coach/ask.ts / coach_preferences / ask_mentor / coach_daily, when a mentor answer cites a made-up statistic, names a franchise, promises a result or suggests a feature the system does not have, or when the mentor tests pass in deno and fail in CI.
+description: המנטור AI של שוק נדל״ן (שלושת המאמנים - סוכן/ת, צוות, משרד) כמנטור מקצועי - הידע ב-_shared/coach/playbook.ts (PLAYBOOK לכולם, MANAGER_PLAYBOOK לצוות ולמשרד, OFFICE_PLAYBOOK למשרד), איך מכניסים חומר שתומר שולח (מה משנים ומדווחים, לאיזה קהל, בדיקה ושורה בתיעוד), הטון והוותק ב-coach_preferences, מנהל/ת שהוא/היא גם סוכן/ת (manages), שני הערוצים לשאלה (coach-ask ב-CRM ו-ask_mentor של גבריאלה דרך askCoach), והתראת הבוקר coach_daily. Use when the user sends coaching material, scripts, objection handling, negotiation or management know-how "for the mentor", when changing what the mentor knows or says, when touching playbook.ts / prompts.ts (askSystemPrompt, TONES, AGENT_WHO_MANAGES) / _shared/coach/ask.ts / coach_preferences / ask_mentor / coach_daily, when a mentor answer cites a made-up statistic, names a franchise, promises a result or suggests a feature the system does not have, or when the mentor tests pass in deno and fail in CI. Also when touching the mentor's look or entry points - the avatar (assets/mentor-avatar.webp, COACH_FACE), the "המנטור" button on the CRM home page and the "המנטור שלי" layer (openCoachLayer, coachLayerKinds, coachRepaint in assets/crm-coach.js), or when someone asks to give the mentor a name, a picture or a character.
 ---
 
 # המנטור - הידע, הקהלים והערוצים
@@ -124,3 +124,32 @@ node --experimental-strip-types scripts/office_coach_test.ts
 python3 scripts/check_long_dash.py
 python3 scripts/check_edge_types.py
 ```
+
+## 8. הדמות ונקודות הכניסה
+
+**האווטאר:** `assets/mentor-avatar.webp` (‏160px, ‏4KB), דמות **שנוצרה ב-AI**, בעיגול
+עם טבעת זהב. ‏`COACH_FACE` ב-`assets/crm-coach.js` מציב אותו בכותרת של שלושת
+הכרטיסים, והוא מופיע גם בכפתור "המנטור" בדף הבית ובכותרת השכבה. החלטות של תומר
+(18.10.2026):
+
+- **השם נשאר "המנטור".** בלי שם פרטי ובלי ביוגרפיה: דמות שנראית אמיתית עם שם
+  ועבר נקראת כמו איש מקצוע שכותב לסוכנים. ה-"AI" בכותרת הוא מה שאומר שלא.
+- **אווטאר בלבד.** ינשוף עם רצועה רחבה בראש הכרטיס נוסה והוסר - הקו הנקי.
+  תמונה חדשה מחליפה את הקובץ (אותו שם, אותו גודל) ולא מוסיפה רצועה.
+- **לא בוואטסאפ.** שם מדברת גבריאלה, גם כשהיא מעבירה תשובה של המנטור
+  (`ask_mentor`). שתי דמויות באותה שיחה מבלבלות מי עונה.
+- **רק איפה שהמנטור מדבר.** לא על כרטיסי מדדים ולא כקישוט - אחרת היא מפסיקה
+  לסמן "כאן מדבר המנטור".
+
+**הכפתור והשכבה בדף הבית** (`#homeCoachBtn`, `#coachSheet`):
+
+- **הכפתור מוצג רק כשיש מה לפתוח** (`coachLayerKinds`): סיכום אישי קיים ו-
+  `is_active_agent` לא כבוי, צוות שאני מנהל/ת, או `role = 'manager'`. סוכן/ת בלי
+  סיכום (המנטור נדלק בהדרגה, `AGENT_COACH_ENABLED`) לא רואה כפתור שמבטיח משהו.
+- **כל ציור מחדש עובר דרך `coachRepaint(kind)` / `coachRepaintAll()`**, ולא ישירות
+  דרך `coachRerender[kind]`. אחרת "בוצע" או שינוי טון בשכבה לא מגיעים לדאשבורד,
+  או להפך.
+- **השכבה היא שכבת ניווט** (`navLayer = 'coach'`): נפתחת ב-`openNavLayer('coach')`
+  ונסגרת ב-`closeCoachLayer()` (הכללים בסקיל `crm-navigation`).
+- **הסיכום האישי נטען אחרי העלייה** (`requestIdleCallback` ב-`loadDashboard`), ולא
+  בתוך השרשרת. טעינה נוספת למנטור בעלייה - נמדדת עם `dashboard_load.mjs`.
