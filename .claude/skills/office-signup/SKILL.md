@@ -1,6 +1,6 @@
 ---
 name: office-signup
-description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שלושה צעדים, ולמנהל/ת גם "על המשרד"), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONBOARD_STEPS / agent_onboarding_state, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html). Also when a new office sees nothing under "נכסים ששותפו איתי" (agencies_share_backfill).
+description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שבעה צעדים בשני שלבים: רישיון, פרופיל, נכס; גבריאלה, לקוח/ה, יומן, העדפות לידים), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONB_STEP_DEFS / assets/crm-onboarding.js / agent_onboarding_state / agent_license_ok, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html). Also when a new office sees nothing under "נכסים ששותפו איתי" (agencies_share_backfill).
 ---
 
 # הצטרפות משרד, מדריך ההתחלה, ועיצוב המשרד
@@ -55,16 +55,21 @@ description: עבודה על מסלול ההצטרפות של משרד חדש ב
 רשום אצל אחר/ת נופל על האינדקס הייחודי של `phone_e164` (‏23505) - והמשרד
 עדיין נפתח. אל תעבירו אותו לתוך ה-INSERT: אז 23505 מפיל משרד שלם.
 
-## מדריך ההתחלה - שלושה צעדים (ולמנהל/ת ארבעה), והמצב במסד
+## מדריך ההתחלה - שבעה צעדים בשני שלבים, והמצב במסד
 
-גבריאלה, נכס ראשון, תמונת פרופיל (ולמנהל/ת לוגו), ולמנהל/ת "על המשרד"
-(‏`agencies.description`, ‏`about_done`, ‏`20270328090000`). התנאים ב-
-`agent_onboarding_state()` / `agent_onboarding_photos_done()`
-(`20270318090000_onboarding_three_steps.sql`), והכרטיס ב-`ONBOARD_STEPS`
-קורא את הדגלים - **לא מחשב שוב**. צעד שמשתנה משתנה בשניהם באותו PR; אחרת
-הכרטיס אומר "נשאר צעד" והמדריך כבר נסגר, או להפך.
+להופיע באתר: רישיון, תמונה + משפט עליך (20 תווים) + אזורי שירות, נכס ראשון.
+להתחיל לעבוד: גבריאלה, לקוח/ה ראשון/ה, יומן Google, העדפות לידים. ועוד צעדי
+רשות (תמונת נושא, חוות דעת, ולמנהל/ת המשרד והזמנת סוכנים). התנאים ב-
+`agent_onboarding_state()` (`20270602100000_onboarding_seven_steps.sql`),
+והכרטיס ב-`assets/crm-onboarding.js` (`ONB_STEP_DEFS`) קורא את הדגלים - **לא
+מחשב שוב**. צעד שמשתנה משתנה בשניהם באותו PR; אחרת הכרטיס אומר "נשאר צעד"
+והמדריך כבר נסגר, או להפך. פירוט: `docs/agent-onboarding.md`.
 
-* יומן Google **אינו** צעד. ראו הטבלה למעלה.
+* **רישיון מאושר = `agent_license_ok()`**, אותה פונקציה ששחרור המודעות קורא
+  לה. אל תכתבו תנאי שני.
+* **יומן Google הוא צעד** (החלטה של תומר, שלב 7), וההצעה אחרי הפגישה הראשונה
+  נשארת למי שדילג/ה. גבריאלה והיומן מגודרים ל-mid/premium ולא נספרים בלעדיהם.
+* מנהל/ת שאינו/ה סוכן/ת פעיל/ה רואה רק את צעדי המשרד (`agent_steps`).
 * "חיבור גבריאלה בלחיצה" פותח את הצ'אט כשיש `currentAgent.phone`, וזה נכון
   רק כי הטלפון נשאל בהרשמה.
 * **באנדרואיד הצ'אט נפתח בוואטסאפ ביזנס** (`assistantWaUrl` ב-`crm.js`:
