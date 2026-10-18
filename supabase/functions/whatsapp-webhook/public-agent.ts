@@ -1,6 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
@@ -2518,6 +2519,7 @@ export async function runPublicTurn(opts: {
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
         `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
     );
+    logAiUsage(anthropicRow("gabriela_public", response.model || MODEL, response.usage));
 
     const responseText = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

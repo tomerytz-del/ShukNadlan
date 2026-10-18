@@ -92,6 +92,10 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 היא רק מאפסת את המטמון בשקט, ו-`cache_read_input_tokens` בלוג חוזר 0. כל
 מה שמשתנה הולך ל-`sessionContext`, שיושב אחרי נקודת השבירה.
 
+וכל קריאה למודל בתור כותבת שורה ל-`ai_usage_log` (‏`logAiUsage(anthropicRow("gabriela_agent" /
+"gabriela_public", ...))`) - מזה הפאנל "עלויות" יודע כמה גבריאלה עולה. ‏`cache_write_1h_tokens`
+נשמר בנפרד כי ה-ttl של שעה מתומחר פי 2. ‏`docs/platform-costs.md`, "עלות AI לפי יכולת".
+
 ## הודעה עם כפתורים
 
 `sendButtons` ב-`whatsapp.ts` (`interactive · button`). המגבלות של Meta

@@ -11,6 +11,7 @@
 // ומשמש בכל ערוץ) ופוסט קצר (post_text). הפרדה לשתי קריאות הייתה מכפילה עלות
 // ומזמינה שני נוסחים שלא מדברים זה עם זה.
 // ============================================================================
+import { anthropicRow, logAiUsage } from "./ai-usage.ts";
 
 /** שורת העובדות של נכס אחד — התוצאה של property_marketing_facts במסד. */
 // deno-lint-ignore no-explicit-any
@@ -255,6 +256,7 @@ export async function generateMarketingCopy(
   }
 
   const data = await res.json();
+  logAiUsage(anthropicRow("marketing_copy", data?.model || opts.model, data?.usage));
   const text = (data?.content ?? [])
     // deno-lint-ignore no-explicit-any
     .filter((b: any) => b?.type === "text")

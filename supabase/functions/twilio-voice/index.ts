@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
@@ -1020,6 +1021,7 @@ async function summarize(transcript: string, knownName: string | null, places = 
       return null;
     }
     const data = await res.json();
+    logAiUsage(anthropicRow("call_summary", data?.model || CLAUDE_MODEL, data?.usage));
     // deno-lint-ignore no-explicit-any
     const text = (data?.content ?? []).filter((b: any) => b?.type === "text").map((b: any) => b.text).join("")
       .trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");

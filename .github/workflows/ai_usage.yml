@@ -1,0 +1,40 @@
+name: כל קריאה למודל נרשמת ליומן העלויות
+
+# ‏הפאנל "עלויות" מפרק את חשבוניות ה-AI לפי יכולת מתוך ai_usage_log. קריאה
+# חדשה למודל בלי שורה ליומן אינה שוברת כלום - היא נעלמת מהפירוט, והפער מול
+# החשבונית גדל בשקט. כך היה עם גבריאלה עד אוקטובר 2026.
+# docs/platform-costs.md, "עלות AI לפי יכולת". קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "lead_engine/**"
+      - "news_engine/**"
+      - "deals_engine/**"
+      - "ops_agent/**"
+      - "assets/crm.js"
+      - "ai_usage.py"
+      - "scripts/check_ai_usage.py"
+      - ".github/workflows/ai_usage.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "lead_engine/**"
+      - "news_engine/**"
+      - "assets/crm.js"
+      - "scripts/check_ai_usage.py"
+      - ".github/workflows/ai_usage.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: יומן העלויות
+        run: python3 scripts/check_ai_usage.py
