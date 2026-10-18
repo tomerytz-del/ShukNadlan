@@ -133,7 +133,7 @@ update public.neighborhoods n set city_id = public.city_id_for_name(n.city)
   השרת ענה 400, ודף הבית של עפולה הציג את שלושת נכסי הדמו
   (‏`FALLBACK_PROPERTIES`) במקום 200 נכסים - בלי שגיאה גלויה. מאז הסינון הוא
   לפי העמודה המחושבת `market_slug(properties)`
-  (‏`20270530090000_properties_market_slug.sql`), ואורכו קבוע. **אל תחזירו
+  (‏`20270529100000_properties_market_slug.sql`), ואורכו קבוע. **אל תחזירו
   רשימת ערים לכתובת**, גם לא לטבלה אחרת: ‏`check_markets.py` חוסם
   `city_id not in` ב-`assets/` ובדפי השורש. טבלה אחרת שצריכה סינון שוק בשרת
   מקבלת עמודה מחושבת משלה באותו דפוס.

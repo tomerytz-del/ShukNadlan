@@ -173,7 +173,7 @@ def main() -> int:
     # ‏7. סינון שוק ברירת המחדל לפי רשימת ערים בכתובת. הרשימה גדלה עם כל שוק,
     # וב-18.10.2026 (‏617 ערים, כ-23KB) השרת ענה 400 ודף הבית של עפולה הציג
     # שלושה נכסי דמו במקום 200. הסינון הוא market_slug (‏MarketScope.orFilter,
-    # ‏20270530090000_properties_market_slug.sql), שאורכו קבוע.
+    # ‏20270529100000_properties_market_slug.sql), שאורכו קבוע.
     url_list = re.compile(r"city_id\.not\.in|not\(\s*['\"]city_id['\"]\s*,\s*['\"]in['\"]")
     for f in sorted(list((ROOT / "assets").glob("*.js")) + list(ROOT.glob("*.html"))):
         for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):

@@ -109,7 +109,7 @@
    *  לפי העמודה המחושבת `market_slug(properties)` ולא לפי רשימת הערים של
    *  השווקים האחרים: הרשימה ישבה בכתובת, גדלה עם כל שוק, וב-617 ערים (כ-23KB)
    *  השרת ענה 400 ודף הבית נפל לנכסי הדמו (18.10.2026,
-   *  ‏20270530090000_properties_market_slug.sql). לכן - לשאילתות properties בלבד. */
+   *  ‏20270529100000_properties_market_slug.sql). לכן - לשאילתות properties בלבד. */
   function orFilter(s) {
     if (!s || s.mode !== 'exclude') return null;
     return 'market_slug.is.null,market_slug.eq.' + s.slug;
