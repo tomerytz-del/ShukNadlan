@@ -4,9 +4,9 @@
    שלב 6 בשדרוג ה-CRM (docs/handoff/crm-redesign/HANDOFF.md, סעיף 6;
    docs/coaches.md). העיצוב: design/CoachCard.dc.html.
 
-     agent   "מאמן סוכני נדל״ן AI"  - בדשבורד שלי, יומי
-     team    "מאמן מנהלי צוותים AI" - בדאשבורד הצוות, שבועי
-     office  "מאמן AI לבעלי משרדים" - בדאשבורד המשרד, שבועי
+     agent   "מנטור סוכני נדל״ן AI"  - בדשבורד שלי, יומי
+     team    "מנטור מנהלי צוותים AI" - בדאשבורד הצוות, שבועי
+     office  "מנטור AI לבעלי משרדים" - בדאשבורד המשרד, שבועי
 
    הסיכומים נכתבים ב-supabase/functions/office-coach ונקראים כאן לפי RLS:
    סוכן/ת רואה רק את שלו/ה, מנהל/ת צוות את של הצוות, מנהלי המשרד את של
@@ -26,9 +26,9 @@
    ========================================================================== */
 
 const COACH_TITLES = {
-  agent:  'מאמן סוכני נדל״ן AI',
-  team:   'מאמן מנהלי צוותים AI',
-  office: 'מאמן AI לבעלי משרדים',
+  agent:  'מנטור סוכני נדל״ן AI',
+  team:   'מנטור מנהלי צוותים AI',
+  office: 'מנטור AI לבעלי משרדים',
 };
 
 const COACH_TABLES = {
@@ -47,7 +47,7 @@ const COACH_PRIORITY = {
 const coachState = { agent: undefined, team: undefined, office: undefined };
 /* מי מצייר מחדש אחרי "בוצע" - כל דאשבורד רושם את שלו */
 const coachRerender = {};
-/* "שאל את המאמן" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
+/* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };
 
 /* ---------- הכפתורים ----------
@@ -228,7 +228,7 @@ function coachCardHtml(kind, opts){
   </section>`;
 }
 
-/* ---------- "שאל את המאמן" ----------
+/* ---------- "שאל את המנטור" ----------
    שאלה חופשית מול הסיכום והמספרים של אותו מאמן (supabase/functions/coach-ask,
    שלב 8). תשובה בלבד - המאמן לא מבצע פעולות. מכסה יומית לחשבון; הקוד
    coach_ask_quota מתורגם ב-friendly-error.js. השאלות המוצעות - מהסיכום. */
@@ -237,8 +237,8 @@ function coachAskHtml(kind, questions){
   const id = 'coachAskQ-' + kind;
   return `<div class="coach-ask">
     <form class="coach-ask-form" data-coach-ask="${kind}">
-      <label class="sr-only" for="${id}">שאלה למאמן</label>
-      <input id="${id}" type="text" maxlength="300" autocomplete="off" placeholder="שאלה למאמן..."
+      <label class="sr-only" for="${id}">שאלה למנטור</label>
+      <input id="${id}" type="text" maxlength="300" autocomplete="off" placeholder="שאלה למנטור..."
         value="${escapeHtml(st.draft || '')}"${st.busy ? ' disabled' : ''}>
       <button type="submit" aria-label="שליחת השאלה"${st.busy ? ' disabled' : ''}>←</button>
     </form>
@@ -246,7 +246,7 @@ function coachAskHtml(kind, questions){
       `<button type="button" data-coach-q="${kind}" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
     ${st.q ? `<div class="coach-ask-out" aria-live="polite">
       <p class="coach-ask-q">${escapeHtml(st.q)}</p>
-      ${st.busy ? '<p class="coach-ask-a is-busy">המאמן חושב…</p>'
+      ${st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
         : st.err ? `<p class="coach-ask-a is-err">${escapeHtml(st.err)}</p>`
         : `<p class="coach-ask-a">${escapeHtml(st.a || '')}</p>`}
       ${st.remaining != null && !st.busy ? `<p class="coach-ask-left">${st.remaining
