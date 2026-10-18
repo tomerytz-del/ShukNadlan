@@ -365,6 +365,14 @@ check("הגבול עם ירושלים: 31.90 → ירושלים, 31.9001 → ב�
   reg.locate(31.90, 35.20)?.slug === "jerusalem" && reg.locate(31.9001, 35.20)?.slug === "binyamin");
 check("הגבול עם השומרון: 32.0799 → בנימין, 32.08 → השומרון (35.20)",
   reg.locate(32.0799, 35.20)?.slug === "binyamin" && reg.locate(32.08, 35.20)?.slug === "samaria");
+check("אפרת → gush-etzion", reg.locate(31.655, 35.15)?.slug === "gush-etzion");
+check("אלון שבות → gush-etzion", reg.locate(31.65, 35.13)?.slug === "gush-etzion");
+check("קריית ארבע → gush-etzion", reg.locate(31.53, 35.12)?.slug === "gush-etzion");
+check("כרמל (הר חברון) → gush-etzion", reg.locate(31.42, 35.13)?.slug === "gush-etzion");
+check("הגבול עם ירושלים: 31.6799 → גוש עציון, 31.68 → ירושלים (35.15)",
+  reg.locate(31.6799, 35.15)?.slug === "gush-etzion" && reg.locate(31.68, 35.15)?.slug === "jerusalem");
+check("הגבול עם באר שבע: 35.05 → באר שבע, 35.0501 → גוש עציון (31.40)",
+  reg.locate(31.40, 35.05)?.slug === "beer-sheva" && reg.locate(31.40, 35.0501)?.slug === "gush-etzion");
 check("הגבול עם מודיעין: 31.8599 → בית שמש, 31.86 → מודיעין (35.00)",
   reg.locate(31.8599, 35.00)?.slug === "beit-shemesh" && reg.locate(31.86, 35.00)?.slug === "modiin");
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
