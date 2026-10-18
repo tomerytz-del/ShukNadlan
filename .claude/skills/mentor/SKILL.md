@@ -95,6 +95,12 @@ description: המנטור AI של שוק נדל״ן (שלושת המאמנים -
 `\n`). פעמון + וואטסאפ דרך `notification-push`, סוג רגיל (לא עדיפות ולא רקע). כל
 שינוי בסוג - הסקיל `agent-notifications`.
 
+## 6א. עומס
+
+"יעמוד ב-1000 במקביל?" - מודדים, לא מעריכים: ‏`scripts/coach_load_test.ts` (או ה-workflow
+"מבחן עומס למנטור") שולח ישר ל-API ומדפיס 429 ומגבלות. עולה כסף, ולכן בלי `--yes`
+(‏`confirm=כן`) רק מדפיס תוכנית. ‏`docs/coaches.md`, "מבחן עומס".
+
 ## 7. הבדיקה רצה ב-node, לא ב-deno
 
 ‏CI מריץ `node --experimental-strip-types scripts/office_coach_test.ts`. לכן:
