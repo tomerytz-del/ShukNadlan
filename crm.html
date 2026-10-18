@@ -3439,6 +3439,95 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .teams-check small{display:block;font-weight:500;color:var(--nv-muted);font-size:.76rem}
 
   /* ==========================================================================
+     לוח היום בדף הבית (#homeBoard, assets/crm-home.js, docs/crm-home.md)
+     --------------------------------------------------------------------------
+     ארבעה כרטיסים: לידים שמחכים, היום שלי, איפה הלקוחות שלי והנכסים שלי.
+     בטלפון בטור, ומ-900px בשתי עמודות. הצבעים מטוקני העיצוב (--nv-*).
+     ========================================================================== */
+  .dash-brief{margin:-6px 0 12px;font-size:.92rem;font-weight:700;color:var(--nv-accent-ink)}
+  body.crm-night #dashboard .dash-brief{color:#cfdcff}
+  #dashboard.is-compact .dash-brief{display:none}
+  .home-board{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:14px 0 4px}
+  .home-board[hidden]{display:none}
+  @media(min-width:900px){.home-board{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
+  .hb-card{
+    background:#fff;border:1px solid var(--nv-line);border-radius:18px;padding:14px 14px 12px;
+    display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--nv-ink);
+  }
+  body.crm-night #dashboard .hb-card{background:rgba(255,255,255,.97)}
+  .hb-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .hb-head h3{margin:0;font-family:inherit;font-size:1rem;font-weight:800;color:var(--nv-ink)}
+  .hb-link{border:none;background:transparent;color:var(--nv-accent);font-size:.82rem;font-weight:800;padding:6px 2px;min-height:32px}
+  .hb-link:hover{color:var(--nv-accent-h);text-decoration:underline}
+  .hb-link:focus-visible,.hb-btn:focus-visible,.hb-add:focus-visible,.hb-ag:focus-visible,.hb-prop.is-click:focus-visible{
+    outline:2px solid var(--nv-accent);outline-offset:2px}
+  .hb-empty{display:flex;align-items:center;gap:8px;margin:2px 0;font-size:.88rem;color:var(--nv-muted)}
+  .hb-empty svg{width:18px;height:18px;flex-shrink:0;color:#166534}
+  .hb-more{margin:0;font-size:.8rem;color:var(--nv-muted)}
+
+  /* לידים שמחכים */
+  .hb-lead{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px;
+    border-radius:14px;background:var(--nv-ground);
+  }
+  .hb-lead-text{flex:1 1 180px;min-width:0;display:flex;flex-direction:column}
+  .hb-lead-t{font-size:.9rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb-lead-s{font-size:.8rem;color:var(--nv-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* שעון הבלעדיות: כתום של "דחוף", כי כשהוא נגמר הליד פתוח גם לאחרים */
+  .hb-excl{
+    flex-shrink:0;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;
+    background:#FDE7D9;color:#9A3412;font-size:.78rem;font-weight:800;font-variant-numeric:tabular-nums;
+  }
+  .hb-excl svg{width:14px;height:14px}
+  .hb-excl-l{font-weight:700}
+  .hb-lead-acts{flex:1 1 100%;display:flex;gap:8px}
+  @media(min-width:900px){.hb-lead-acts{flex:0 0 auto}}
+  .hb-btn{
+    flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:0 12px;border:1px solid var(--nv-line);border-radius:10px;background:#fff;
+    color:var(--nv-ink);font-size:.84rem;font-weight:800;text-decoration:none;white-space:nowrap;
+  }
+  .hb-btn svg{width:16px;height:16px;flex-shrink:0}
+  .hb-btn:hover{border-color:var(--nv-accent)}
+  .hb-btn-main{background:var(--nv-accent);border-color:var(--nv-accent);color:#fff}
+  .hb-btn-main:hover{background:var(--nv-accent-h)}
+  .hb-wa{display:inline-flex;color:#128C4A}
+  .hb-wa svg{width:16px;height:16px}
+
+  /* היום שלי */
+  .hb-ag{
+    display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 8px;
+    border:none;border-radius:12px;background:transparent;text-align:start;color:var(--nv-ink);
+  }
+  .hb-ag:hover{background:var(--nv-ground)}
+  .hb-ag-time{flex-shrink:0;width:52px;font-size:.84rem;font-weight:800;color:var(--nv-accent-ink);font-variant-numeric:tabular-nums}
+  .hb-ag.is-late .hb-ag-time{color:#9A3412}
+  .hb-ag-text{flex:1;min-width:0;display:flex;flex-direction:column}
+  .hb-ag-t{font-size:.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb-ag-s{font-size:.78rem;color:var(--nv-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb-add{align-self:flex-start;border:none;background:transparent;color:var(--nv-accent);font-weight:800;font-size:.84rem;padding:6px 8px;min-height:36px}
+
+  /* איפה הלקוחות שלי */
+  .hb-pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .hb-stage{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:var(--nv-ground)}
+  .hb-stage-n{font-size:1.3rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .hb-stage-l{font-size:.74rem;font-weight:700;color:var(--nv-muted);text-align:center}
+  .hb-stage-bar{width:10px;height:38px;border-radius:5px;background:#DDE2EC;display:flex;align-items:flex-end;overflow:hidden;margin-top:4px}
+  .hb-stage-bar span{display:block;width:100%;border-radius:5px;background:var(--nv-accent)}
+  .hb-st-won .hb-stage-bar span{background:#166534}
+
+  /* הנכסים שלי */
+  .hb-prop{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;min-height:44px}
+  .hb-prop.is-click{cursor:pointer}
+  .hb-prop.is-click:hover{background:var(--nv-ground)}
+  .hb-prop-text{flex:1;min-width:0;display:flex;flex-direction:column}
+  .hb-prop-t{font-size:.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb-prop-s{font-size:.78rem;color:var(--nv-muted)}
+  .hb-prop .hb-btn{flex:0 0 auto;min-height:36px}
+  .hb-tag{flex-shrink:0;font-size:.74rem;font-weight:800;padding:2px 9px;border-radius:999px}
+  .hb-tag.is-ok{background:#E6F4EC;color:#166534}
+
+  /* ==========================================================================
      מדריך ההתחלה
      --------------------------------------------------------------------------
      הכרטיס היחיד בדשבורד שמטרתו להיעלם. הוא יושב מעל הכול כי הוא מוצג רק
@@ -6335,6 +6424,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="overviewBlock">
 
         <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
+        <!-- מה מחכה היום במשפט אחד (homeBrief ב-assets/crm-home.js). הברכה
+             שמעליו ומשפטי המוטיבציה לא משתנים. -->
+        <p class="dash-brief" id="dashBrief" hidden></p>
 
         <!-- ---------- שורת המדדים ----------
              שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
@@ -6439,6 +6531,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <div class="todo-rail" id="todoList"></div>
         </section>
+
+        <!-- ---------- לוח היום ----------
+             הלידים שמחכים, היום שלי, איפה הלקוחות שלי והנכסים שלי. נבנה ב-
+             renderHomeBoard (assets/crm-home.js) מנתונים שכבר נטענו - בלי
+             שאילתה משלו. docs/crm-home.md -->
+        <div class="home-board" id="homeBoard" hidden></div>
 
         <!-- ---------- פעולות מהירות ----------
              פעולות בלבד — לא ניווט. כל יעד שיש לו לשונית בסרגל התחתון,
@@ -10343,6 +10441,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-showcase.js"></script>
 <!-- צוותים בתוך המשרד ב"צוותים וסוכנים" (docs/teams.md) -->
 <script src="assets/crm-teams.js"></script>
+<!-- לוח היום בדף הבית (docs/crm-home.md). לפני crm.js כמו שאר המודולים;
+     הפונקציות שבו נקראות רק אחרי שהוא רץ. -->
+<script src="assets/crm-home.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>

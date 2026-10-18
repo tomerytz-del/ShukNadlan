@@ -166,8 +166,8 @@ function accSetCount(accId, value, n){
   scheduleNavCounts();
 }
 
-/* ‏refreshNavCounts בונה מחדש את "דורש טיפול מיידי", את הסרגל התחתון ואת
-   סרגל הצד. כל קטגוריה שנטענת קוראת ל-accSetCount, ובכניסה זה יצא 38 בניות
+/* ‏refreshNavCounts בונה מחדש את "דורש טיפול מיידי", את הסרגל התחתון, את
+   סרגל הצד ואת לוח היום. כל קטגוריה שנטענת קוראת ל-accSetCount, ובכניסה זה יצא 38 בניות
    מלאות בזו אחר זו - כשהקטגוריות נטענות במקביל, רובן באותו פריים. כאן הן
    מתקבצות לבנייה אחת לפריים. קריאה ישירה ל-refreshNavCounts (סוף
    loadDashboard, למשל) עדיין מיידית, ומבטלת את מה שממתין. */
@@ -18931,6 +18931,8 @@ async function saveLeadWork(lead, patch){
   const { error } = await sb.from('lead_work').upsert(row, { onConflict:'lead_id,agent_id' });
   if (error){ showToast('השמירה נכשלה: ' + heErr(error)); return false; }
   leadWork.set(lead.id, row);
+  // השלב משנה את "איפה הלקוחות שלי" ואת "לידים שמחכים לך" בדף הבית
+  scheduleNavCounts();
   return true;
 }
 
@@ -19379,6 +19381,8 @@ function buildLeadWork(wrap, lead, isArchived){
 function markLeadResponded(lead){
   if (!lead || !lead.id || lead._responded) return;
   lead._responded = true;
+  // ליד שפנו אליו יורד מ"לידים שמחכים לך" בדף הבית (assets/crm-home.js)
+  scheduleNavCounts();
   sb.rpc('mark_lead_responded', { p_lead: lead.id })
     .then(({ error }) => { if (error) console.warn('רישום הפנייה לליד נכשל:', error.message); });
 }
@@ -29865,6 +29869,9 @@ function refreshNavCounts(){
   renderTodoList();
   renderBottomNav();
   renderSideNav();
+  // לוח היום בדף הבית - אותו רגע בדיוק: כל טעינה שמשנה מונה (לידים, יומן,
+  // נכסים) היא גם טעינה שמשנה את הלוח (assets/crm-home.js)
+  if (typeof renderHomeBoard === 'function') renderHomeBoard();
 }
 
 /* ---------- מד המכסה החינמית ---------- */
