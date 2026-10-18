@@ -209,11 +209,14 @@ const COACH_EMPTY = {
   office: 'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד במשרד בשבוע שעבר, מה תקוע, ועד שלוש החלטות לשבוע הזה.',
 };
 
-const COACH_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>';
+/* הדמות של המנטור: אווטאר עגול (assets/mentor-avatar.webp, נחתך מתמונה
+   שנוצרה ב-AI). השם נשאר "המנטור" - בלי שם פרטי ובלי ביוגרפיה, כדי שלא
+   ייראה כמו איש מקצוע אמיתי שכותב. ‏alt ריק: השם כתוב ממילא בכותרת שלידה. */
+const COACH_FACE = '<img class="coach-ava" src="/assets/mentor-avatar.webp" width="48" height="48" alt="" decoding="async">';
 const COACH_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 
 function coachHead(kind, sub){
-  return `<div class="coach-head"><span class="coach-ico">${COACH_ICON}</span>
+  return `<div class="coach-head"><span class="coach-ico">${COACH_FACE}</span>
     <div><h2>${escapeHtml(COACH_TITLES[kind])}</h2><span class="coach-sub">${escapeHtml(sub)}</span></div></div>`;
 }
 
