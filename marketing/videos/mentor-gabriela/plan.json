@@ -1,0 +1,83 @@
+{
+  "title": "המנטור מייעץ. גבריאלה מבצעת.",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "רוצים לסגור יותר עסקאות, בלי לטבוע במשימות? הכירו את הצוות החדש שלכם.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["בלי לטבוע במשימות?", "הצוות החדש שלכם"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-40190d35"],
+      "notes": "LOOK: same series as call-to-meeting / property-intake (marketing/videos): warm off-white ground, sapphire #0e2a6b hero, gold #c9a227 accent, heebo, RTL. Audience: agents on the platform and agents considering it. ~30s. THREAD: two characters, the Mentor (a dashboard card with a compass glyph, right side) and Gabriela (her portrait / avatar, left side); they split the screen at the start and join at the end. Hook: task cards pile up and a phone rings on 'לטבוע במשימות'; on 'הצוות' the pile clears and the screen splits into the Mentor and Gabriela."
+    },
+    {
+      "id": "mentor",
+      "narration": "המנטור יושב בדאשבורד. כל בוקר הוא מנתח את המספרים, ואומר לכם על מה להתמקד היום.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["המנטור", "סיכום מוכן כל בוקר", "ליד מחכה 40 דק׳"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A CRM dashboard card titled 'המנטור'. Sun rises on 'בוקר'. Three metric tiles (זמן תגובה, המרה, בלעדיות) with mini bars on 'המספרים', no invented numbers. On 'להתמקד' a recommendation row with a red priority dot lands: 'ליד מחכה 40 דק׳ - לחזור אליו' with a button 'פתיחת הליד' (the user's own example)."
+    },
+    {
+      "id": "gabriela",
+      "narration": "וגבריאלה? העוזרת האישית שלכם בוואטסאפ. שולחים לה הודעה קולית, והיא פותחת כרטיס לקוח, ומוצאת לו התאמות.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["גבריאלה", "פותחת כרטיס לקוח", "מוצאת התאמות"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-d5da37c7", "a-8f045017"],
+      "notes": "The user's real WhatsApp screenshot (client name and phones blurred) in a phone frame. On 'הודעה קולית' highlight the 0:21 voice note; on 'כרטיס' highlight the 'הוספתי את ... קנייה, דירת 3 חד׳' bubble; on 'התאמות' scroll to the '5 התאמות' list and highlight it."
+    },
+    {
+      "id": "more",
+      "narration": "היא גם מעלה נכסים, שולחת הסכמים לחתימה, וקובעת פגישות ביומן.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["מעלה נכסים", "שולחת הסכמים לחתימה", "קובעת פגישות ביומן"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-d5da37c7"],
+      "notes": "Three action rows tick green one per spoken item, each with a glyph (house, signature, calendar). Gabriela avatar above."
+    },
+    {
+      "id": "payoff",
+      "narration": "המנטור מייעץ. גבריאלה מבצעת. פחות עבודה שחורה, יותר עסקאות.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["המנטור מייעץ.", "גבריאלה מבצעת."],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-d5da37c7"],
+      "notes": "The two characters slide together side by side: compass card right with 'המנטור מייעץ.', Gabriela left with 'גבריאלה מבצעת.' Then 'פחות עבודה שחורה' and 'יותר עסקאות' in gold."
+    },
+    {
+      "id": "cta",
+      "narration": "שניהם כבר מחכים לכם, בשוק נדל״ן.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["שניהם כבר מחכים לכם", "shuknadlan.co.il"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-3818936f"],
+      "notes": "Logo lands on 'בשוק', the line and the URL under it."
+    }
+  ]
+}
