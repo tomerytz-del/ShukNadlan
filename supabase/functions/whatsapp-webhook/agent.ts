@@ -1,6 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory } from "./prompt-cache.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
@@ -1382,9 +1383,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         service_markets: {
           type: "array",
-          items: { type: "string", enum: SERVICE_MARKET_LABELS },
-          description: "הרשימה **המלאה** של אזורי הפעילות אחרי השינוי - רק מתוך האזורים שלנו " +
-            "(פעילים ושאינם). \"תוסיף גם את חיפה\" = האזורים הקיימים (profile_get) ועוד \"חיפה והסביבה\". " +
+          // ‏**בלי enum**: הרשימה גדלה עם כל שוק חדש, ו-enum כאן היה משנה את הקידומת
+          // השמורה במטמון בכל פריסה - כתיבה מלאה (~$0.40) לכל בוט אחרי כל שוק.
+          // הרשימה מגיעה מ-profile_get (‏service_market_options), והעדכון בודק אותה.
+          items: { type: "string" },
+          description: "הרשימה **המלאה** של אזורי הפעילות אחרי השינוי - רק מתוך service_market_options " +
+            "ש-profile_get מחזיר (פעילים ושאינם). \"תוסיף גם את חיפה\" = האזורים הקיימים (profile_get) ועוד \"חיפה והסביבה\". " +
             "הסוכן/ת והמשרד מופיעים באתר בכל אזור שנבחר.",
         },
         credentials: { type: "string", description: "השכלה והסמכות, למשל \"B.A ומגשר מוסמך\". עד 80 תווים." },
@@ -6630,15 +6634,15 @@ export async function runAgentTurn(opts: {
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
 
+  // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
-    ...conv.history,
+    ...historyWithBreakpoint(conv.history),
     { role: "user", content: userContent },
   ];
 
   let finalText = "";
-  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות. נשמר כדי שאפשר יהיה
-  // להסיר ממנו את הסימון לפני שמסמנים את הבא — ראו ההסבר בלולאה.
-  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
+  // שתי נקודות השבירה האחרונות בלולאה - ראו ההסבר בלולאה וב-prompt-cache.ts
+  const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -6724,23 +6728,17 @@ export async function runAgentTurn(opts: {
     // יכול להחזיר מאתיים שורות — והיא נשלחת שוב בכל סבב שאחריה. בתור עם
     // ארבעה סבבים, התוצאה של הסבב הראשון משולמת ארבע פעמים.
     //
-    // **חייבים לנקות את הקודמת.** ל-API יש תקרה של ארבע נקודות שבירה
-    // לבקשה; סימון מצטבר היה עובר אותה בסבב הרביעי ומפיל את הבקשה כולה
-    // בשגיאה — כלומר תור ארוך היה נשבר דווקא אחרי שכבר נעשתה עבודה.
-    // הסרת הסימון הקודם אינה מאבדת את המטמון: התחילית הקצרה יותר עדיין
-    // תקפה, והסימון החדש רק מרחיב אותה.
+    // **שתיים, לא אחת ולא מצטבר.** ל-API יש תקרה של ארבע נקודות שבירה
+    // לבקשה (ההוראות, ההיסטוריה, ושתיים כאן); סימון מצטבר היה עובר אותה
+    // ומפיל תור ארוך בשגיאה. ונקודה אחת לא הספיקה: ה-API מחפש התאמה רק ~20
+    // בלוקים אחורה, ותור עם הרבה קריאות כלים במקביל עובר את זה - הסבב הבא
+    // כתב הכול מחדש (17 מ-36 סבבים, 18.10.2026). הנקודה על סוף הסבב הקודם
+    // היא התאמה מדויקת. ‏`RollingMarks` שומר את שתי האחרונות.
     //
     // הסימון נעשה **רק כשעומדים לקרוא שוב**, ולכן תור חד-סבבי אינו משלם על
     // כתיבה למטמון שאיש לא יקרא.
-    type Marked = { cache_control?: { type: "ephemeral" } };
-    if (rollingMark) delete rollingMark.cache_control;
-    rollingMark = null;
-
-    const last = results[results.length - 1] as (Anthropic.ToolResultBlockParam & Marked) | undefined;
-    if (last && i < MAX_TOOL_ITERATIONS - 1) {
-      last.cache_control = { type: "ephemeral" };
-      rollingMark = last;
-    }
+    const last = results[results.length - 1];
+    if (last && i < MAX_TOOL_ITERATIONS - 1) rolling.add(last as { cache_control?: { type: "ephemeral" } });
 
     messages.push({ role: "user", content: results });
   }
@@ -6752,11 +6750,13 @@ export async function runAgentTurn(opts: {
   // ההיסטוריה נשמרת כטקסט בלבד — בלי בלוקי הכלים ובלי התמונות. זה מספיק
   // כדי לפתור התייחסויות ("תוסיף לזה מרפסת"), ומונע היסטוריה שגדלה בלי גבול
   // ומצבים לא חוקיים של tool_result יתום אחרי גזימה.
-  conv.history = [
+  // גזימה במדרגות ולא slice(-HISTORY_LIMIT): חלון מחליק מזיז את תחילת
+  // ההיסטוריה בכל תור, ואז היא לא נקראת מהמטמון לעולם (prompt-cache.ts)
+  conv.history = trimHistory([
     ...conv.history,
     { role: "user", content: userSummary },
     { role: "assistant", content: finalText },
-  ].slice(-HISTORY_LIMIT);
+  ], HISTORY_LIMIT);
 
   return finalText;
 }
