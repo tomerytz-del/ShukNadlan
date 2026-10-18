@@ -22108,7 +22108,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   await loadClients();
   // בעל/ת נכס שהיה/הייתה מחפש/ת: ההתראות הפתוחות שלו/ה נמחקו בטריגר במסד
   // לקוח/ה שנסגר/ה או הושהה: ההתראות שלו/ה נמחקו (סגירה) או מוסתרות בפיד
-  // (השהיה) - 20270601170000. בלי הרענון הן נשארות על המסך
+  // (השהיה) - 20270608090000. בלי הרענון הן נשארות על המסך
   if (wasEditing && (ownerSaved || payload.status === 'closed' || payload.status === 'paused')) await loadClientAlerts();
   // לקוח/ה שנסגר/ה: התראות ההתאמה שלו/ה נמחקו בטריגר במסד, והפעמון מתעדכן
   if (wasEditing && payload.status === 'closed') loadNotifications(currentAgent.id);

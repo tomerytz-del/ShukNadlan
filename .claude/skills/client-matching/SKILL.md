@@ -175,7 +175,7 @@ description: עבודה על קובץ הלקוחות ומנוע ההתאמות �
 כי ביטול פגישה עם `client_notify` שולח ללקוח/ה הודעת ביטול. סגירה
 (`status = 'closed'`) מוחקת את התראות `client_match` בפעמון **ואת שורות
 `client_match_alerts` הפתוחות** (`new`/`seen`; ‏`dismissed` נשמרת) -
-‏`agent_client_closed_cleanup`, ‏`20270601170000`. פתיחה מחדש מריצה את ההתאמות
+‏`agent_client_closed_cleanup`, ‏`20270608090000`. פתיחה מחדש מריצה את ההתאמות
 שוב (`status` ברשימת `agent_clients_match_alerts_upd`). במחיקה `client_match_alerts`
 יורדת ב-`on delete cascade`.
 
