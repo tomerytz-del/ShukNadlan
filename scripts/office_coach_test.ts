@@ -35,6 +35,7 @@ import {
   summarySchema,
   summaryForAsk,
   askHistory,
+  experienceLabel,
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
@@ -315,11 +316,17 @@ check("ידע: תסריטים, קונים ומשא ומתן", ["תסריטי ש�
 check("ידע: 30 הימים הראשונים, דיווח שבועי והורדת מחיר", ["30 הימים הראשונים", "דיווח שבועי", "שיחת הורדת מחיר"].every((h) => PLAYBOOK.includes(h)));
 check("ידע: שגרת עבודה, וליד שנכנס באמצע הבלוק מקבל מענה", PLAYBOOK.includes("שגרת עבודה") && PLAYBOOK.includes("זמן התגובה נמדד"));
 // המנטור כותב בלי אימוג'י, ותבנית עם אימוג'י הייתה מלמדת אותו את ההפך
+check("ידע: פחד משיחות בבוקר, בלי ההסבר ההורמונלי", PLAYBOOK.includes("call reluctance") && PLAYBOOK.includes("חוק 5 השניות") && !PLAYBOOK.includes("קורטיזול") && !PLAYBOOK.includes("אני יודע שקיבלת"));
+check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום", ["BATNA", "שיחות נפרדות", "להקפיא ולעבור לסעיף אחר", "סכום בנאמנות", "מה שנאמר בחדר נשאר בחדר", "שאלות לשיחה הנפרדת", "בלי אישור מפורש ממך", "החזרה לחדר המשותף", "לחיצת יד היא לא חוזה"].every((h) => PLAYBOOK.includes(h)));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
-check("ידע: ארבעת צירי ההכשרה והתאמה לניסיון", PLAYBOOK.includes("ארבעה צירים") && PLAYBOOK.includes("experience_years") && PLAYBOOK.includes("ותיק/ה"));
-check("שאל agent: שנות הניסיון מתוארות בפרומפט", askSystemPrompt("agent").includes("experience_years"));
+check("ידע: ארבעת צירי ההכשרה והתאמה לניסיון", PLAYBOOK.includes("ארבעה צירים") && PLAYBOOK.includes("experience בנתונים") && PLAYBOOK.includes("ותיק/ה"));
+check("שאל agent: הוותק מתואר בפרומפט", askSystemPrompt("agent").includes("experience - כמה זמן"));
+// הוותק: התשובה הפרטית במנטור גוברת על השנים שבפרופיל הציבורי
+check("ותק: הטווח שנבחר גובר", experienceLabel("lt1", 12) === "פחות משנה");
+check("ותק: בלי בחירה - מהשנים בפרופיל", experienceLabel(null, 0) === "פחות משנה" && experienceLabel(null, 3) === "שנה עד 5 שנים" && experienceLabel(undefined, 5) === "5 שנים ומעלה");
+check("ותק: בלי כלום - null", experienceLabel(null, null) === null && experienceLabel("x", "") === null);
 check("ידע: מפנים לעו\"ד/רו\"ח בשאלות משפטיות ומס", PLAYBOOK.includes("עורך/ת דין") && PLAYBOOK.includes("רואה/ת חשבון"));
 check("טון: ברירת מחדל warm", cleanTone(undefined) === "warm" && cleanTone("x") === "warm" && cleanTone("direct") === "direct");
 check("טון: direct בשאלה", askSystemPrompt("agent", "direct").includes("מאמן ישיר וקשוח") && !askSystemPrompt("agent", "direct").includes("חבר/ה מקצועי/ת וחם/ה"));

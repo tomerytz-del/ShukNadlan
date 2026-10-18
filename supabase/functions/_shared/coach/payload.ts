@@ -398,6 +398,22 @@ export function cleanAnswer(raw: unknown): string {
   return t.length > 2400 ? t.slice(0, 2399).trimEnd() + "…" : t;
 }
 
+/* הוותק שהמנטור מקבל, כטווח בעברית: קודם מה שהסוכן/ת ענה/תה במנטור
+   (coach_preferences.experience, פרטי), ואם לא ענה/תה - מ-years_experience
+   שבפרופיל. בלי שניהם - null, והמנטור מסיק מהשאלה. */
+export const EXPERIENCE_LABELS: Record<string, string> = {
+  lt1: "פחות משנה",
+  "1to5": "שנה עד 5 שנים",
+  "5plus": "5 שנים ומעלה",
+};
+
+export function experienceLabel(band: unknown, years: unknown): string | null {
+  if (typeof band === "string" && EXPERIENCE_LABELS[band]) return EXPERIENCE_LABELS[band];
+  const y = years == null || years === "" ? NaN : Number(years);
+  if (!Number.isFinite(y) || y < 0) return null;
+  return y < 1 ? EXPERIENCE_LABELS.lt1 : y < 5 ? EXPERIENCE_LABELS["1to5"] : EXPERIENCE_LABELS["5plus"];
+}
+
 /* שיחת המשך: עד 3 השאלות והתשובות האחרונות של אותו/ה שואל/ת לאותו מנטור,
    מ-coach_questions, מהישנה לחדשה, כתורות user/assistant. שורה בלי תשובה
    (תשובה שלא נשמרה) לא נכנסת, כדי שהתורות יתחלפו. */

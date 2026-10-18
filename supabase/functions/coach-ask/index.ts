@@ -24,7 +24,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import {
-  addDays, askHistory, cleanAnswer, cleanQuestion, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
+  addDays, askHistory, cleanAnswer, cleanQuestion, experienceLabel, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
   Refs, type Row, summaryForAsk,
 } from "../_shared/coach/payload.ts";
 import { askSystemPrompt, cleanTone } from "../_shared/coach/prompts.ts";
@@ -66,7 +66,9 @@ async function latest(service: SupabaseClient, table: string, col: string, id: s
 
 /* ההקשר של כל מאמן: מי רשאי/ת, הסיכום האחרון, והמספרים. ‏service_role,
    אחרי שההרשאה נבדקה כאן - אותם תנאים של ה-RLS על טבלאות הסיכומים. */
-async function loadContext(service: SupabaseClient, kind: CoachKind, me: Member, day: string): Promise<Context> {
+async function loadContext(
+  service: SupabaseClient, kind: CoachKind, me: Member, day: string, experienceBand: unknown,
+): Promise<Context> {
   const from30 = addDays(day, -30), to = addDays(day, -1);
 
   if (kind === "agent") {
@@ -76,10 +78,10 @@ async function loadContext(service: SupabaseClient, kind: CoachKind, me: Member,
       latest(service, "agent_coach_summaries", "agent_id", me.id, "day"),
     ]);
     if (wk.error || mo.error) return { error: "db_error", status: 500 };
-    // שנות הניסיון (מהפרופיל, לא חובה) - כדי שהמנטור יתאים את העומק: תסריט
-    // מלא למתחיל/ה, שיחה בגובה העיניים לוותיק/ה (playbook.ts, "התאמה לניסיון")
+    // הוותק, כטווח - כדי שהמנטור יתאים את העומק: תסריט מלא למתחיל/ה, שיחה
+    // בגובה העיניים לוותיק/ה (playbook.ts, "התאמה לניסיון", ו-experienceLabel)
     const data = compactAgent(wk.data as Row, mo.data as Row, me.gender, new Refs());
-    return { summary, data: { ...data, experience_years: me.years_experience ?? null } };
+    return { summary, data: { ...data, experience: experienceLabel(experienceBand, me.years_experience) } };
   }
 
   if (!me.agency_id) return { error: "not_allowed", status: 403 };
@@ -155,19 +157,20 @@ Deno.serve(async (req: Request) => {
   if (usedErr || dayErr || !dayRaw) return json({ error: "db_error" }, 500);
   if (Number(used) >= DAILY) return json({ error: "coach_ask_quota", limit: DAILY, remaining: 0 }, 429);
 
-  const ctx = await loadContext(service, kind, me as Member, String(dayRaw));
-  if ("error" in ctx) return json({ error: ctx.error }, ctx.status);
 
   // שיחת המשך: השאלות של 12 השעות האחרונות לאותו מנטור, כדי ש"ואם הוא עדיין
   // מסרב?" יובן. רק של השואל/ת עצמו/ה. תקלה כאן אינה מפילה את השאלה.
-  // והטון שהשואל/ת בחר/ה בכרטיס (coach_preferences). בלי שורה - warm.
+  // והטון והוותק שהשואל/ת בחר/ה בכרטיס (coach_preferences). בלי שורה - warm.
   const [{ data: past }, { data: pref }] = await Promise.all([
     service.from("coach_questions").select("question, answer")
       .eq("agent_id", me.id).eq("kind", kind)
       .gte("created_at", new Date(Date.now() - 12 * 3600 * 1000).toISOString())
       .order("created_at", { ascending: false }).limit(3),
-    service.from("coach_preferences").select("tone").eq("agent_id", me.id).maybeSingle(),
+    service.from("coach_preferences").select("tone, experience").eq("agent_id", me.id).maybeSingle(),
   ]);
+
+  const ctx = await loadContext(service, kind, me as Member, String(dayRaw), pref?.experience);
+  if ("error" in ctx) return json({ error: ctx.error }, ctx.status);
 
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {

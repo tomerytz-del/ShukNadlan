@@ -56,6 +56,14 @@ const COACH_TONES = [
   { key:'warm',   label:'חבר מקצועי' },
   { key:'direct', label:'מאמן ישיר' },
 ];
+/* כמה זמן הקורא/ת מתווך/ת פעיל/ה - טווח ולא מספר, ופרטי: לא מוצג באתר
+   (בניגוד ל-agency_members.years_experience שבדף הסוכן/ת). null = לא נענה. */
+let coachExp = null;
+const COACH_EXP = [
+  { key:'lt1',   label:'פחות משנה' },
+  { key:'1to5',  label:'שנה עד 5' },
+  { key:'5plus', label:'5 שנים ומעלה' },
+];
 /* שאלות מקצועיות קבועות לצד השאלות שהסיכום מציע - כדי שיהיה ברור שאפשר לשאול
    גם "איך עושים", ולא רק על המספרים. הידע: _shared/coach/playbook.ts */
 const COACH_PRO_Q = {
@@ -135,26 +143,28 @@ async function coachLoad(kind, teamId){
   if (coachRerender[kind]) coachRerender[kind]();
 }
 
-/* ---------- הטון ---------- */
+/* ---------- הטון והוותק ---------- */
 async function coachToneLoad(){
   coachTone = 'warm';
-  const { data } = await sb.from('coach_preferences').select('tone').maybeSingle();
-  if (data && data.tone === 'direct'){
-    coachTone = 'direct';
-    Object.values(coachRerender).forEach(fn => fn && fn());
-  }
+  const { data } = await sb.from('coach_preferences').select('tone, experience').maybeSingle();
+  if (!data) return;
+  coachTone = data.tone === 'direct' ? 'direct' : 'warm';
+  coachExp = COACH_EXP.some(x => x.key === data.experience) ? data.experience : null;
+  Object.values(coachRerender).forEach(fn => fn && fn());
 }
 
-/* אופטימי, כמו "בוצע": הכרטיס מתעדכן מיד, ושגיאה מחזירה אותו */
-async function coachToneSave(tone){
-  if (!currentAgent || tone === coachTone) return;
-  const before = coachTone;
-  coachTone = tone;
+/* אופטימי, כמו "בוצע": הכרטיס מתעדכן מיד, ושגיאה מחזירה אותו. ‏upsert של
+   עמודה אחת משאיר את השנייה כמו שהיא. */
+async function coachPrefSave(field, value){
+  const cur = field === 'tone' ? coachTone : coachExp;
+  if (!currentAgent || value === cur) return;
+  const set = v => { if (field === 'tone') coachTone = v; else coachExp = v; };
+  set(value);
   Object.values(coachRerender).forEach(fn => fn && fn());
   const { error } = await sb.from('coach_preferences')
-    .upsert({ agent_id: currentAgent.id, tone, updated_at: new Date().toISOString() }, { onConflict: 'agent_id' });
+    .upsert({ agent_id: currentAgent.id, [field]: value, updated_at: new Date().toISOString() }, { onConflict: 'agent_id' });
   if (error){
-    coachTone = before;
+    set(cur);
     Object.values(coachRerender).forEach(fn => fn && fn());
     showToast('לא נשמר: ' + heErr(error));
   }
@@ -300,6 +310,10 @@ function coachAskHtml(kind, questions){
       <span>סגנון המנטור:</span>
       ${COACH_TONES.map(t => `<button type="button" data-coach-tone="${t.key}" aria-pressed="${t.key === tone}">${escapeHtml(t.label)}</button>`).join('')}
     </div>
+    ${kind === 'agent' ? `<div class="coach-tone" role="group" aria-label="ותק בתיווך" title="לא מוצג לאף אחד - רק כדי שהמנטור יתאים את התשובות">
+      <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
+      ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
+    </div>` : ''}
   </div>`;
 }
 
@@ -366,7 +380,9 @@ async function coachToggleDone(kind, i){
       return;
     }
     const toneBtn = e.target.closest('[data-coach-tone]');
-    if (toneBtn){ coachToneSave(toneBtn.dataset.coachTone); return; }
+    if (toneBtn){ coachPrefSave('tone', toneBtn.dataset.coachTone); return; }
+    const expBtn = e.target.closest('[data-coach-exp]');
+    if (expBtn){ coachPrefSave('experience', expBtn.dataset.coachExp); return; }
     const sugg = e.target.closest('[data-coach-q]');
     if (sugg){ coachAskSend(sugg.dataset.coachQ, sugg.dataset.q); return; }
     const meet = e.target.closest('[data-coach-meeting]');
