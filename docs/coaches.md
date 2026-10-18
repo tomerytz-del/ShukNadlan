@@ -291,7 +291,7 @@ select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tok
 | הסיכום היומי של הסוכן/ת | כן (`agentSystemPrompt`), והטון נכנס לטביעת האצבע - מי שהחליף/ה טון מקבל/ת מחר סיכום חדש ולא העתק |
 | הסיכומים השבועיים (צוות, משרד) | לא. הם נקראים בידי כמה מנהלים, ולכן נשארים בברירת המחדל |
 
-- הטבלה: `20270609100000_coach_preferences.sql`. שורה לכל סוכן/ת, RLS על השורה
+- הטבלה: `20270610100000_coach_preferences.sql`. שורה לכל סוכן/ת, RLS על השורה
   של עצמו/ה (select, insert, update, בלי delete), ואין שורה = `warm`.
 - טבלה משלה ולא עמודה ב-`agency_members`, כי
   `protect_sensitive_agency_member_fields` שומר שם על מה שהסוכן/ת לא משנה בעצמו/ה.
