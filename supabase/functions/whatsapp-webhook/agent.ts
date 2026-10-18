@@ -371,11 +371,20 @@ const TOOLS: Anthropic.Tool[] = [
       "באותה בדיקה של \"ייבוא מקובץ\" ב-CRM. מקבל את ה-job_id מהבלוק [ייבוא נכסים] שבהודעה עם הקובץ. " +
       "**רק אחרי שהסוכן/ת אישר/ה במפורש** את הקליטה. מודעה של יד2 שכבר אצל הסוכן/ת מתעדכנת " +
       "(מחיר, חזרה לפרסום, שדות ריקים) בלי לדרוס מה שמילא/ה; מודעה של עמית/ה במשרד נפסלת. " +
+      "ניחוש (מכירה/השכרה לפי מחיר, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
+      "לשאול קודם (\"78 מסחריים סווגו לפי מחיר - לאשר?\") ולהעביר את הסוגים שאושרו ב-accept_guesses. " +
+      "בלי accept_guesses, כשיש ניחושים, לא נקלט כלום וחוזר needs_confirmation. " +
       "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות.",
     input_schema: {
       type: "object",
       properties: {
         job_id: { type: "string", description: "המזהה מהבלוק [ייבוא נכסים] (job_id)." },
+        accept_guesses: {
+          type: "array",
+          items: { type: "string", enum: ["deal_type", "price", "property_type"] },
+          description: "סוגי הניחוש שהסוכן/ת אישר/ה במפורש. [] - אף אחד (השורות עם ניחוש יחכו לתיקון באשף). " +
+            "להשמיט רק כשאין בקובץ ניחושים.",
+        },
       },
       required: ["job_id"],
     },
@@ -1799,15 +1808,17 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, unknown>) {
   const jobId = String(input.job_id || "").trim();
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) return { ok: false, error: "חסר job_id תקין מהבלוק [ייבוא נכסים]." };
+  const accept = Array.isArray(input.accept_guesses) ? input.accept_guesses.map(String) : undefined;
   const res = await runImportJob(ctx.supabase, ctx.agent, jobId,
-    (city, street, house) => geocodeForProperty(ctx, city, street, house));
+    (city, street, house) => geocodeForProperty(ctx, city, street, house), accept);
   if (!res.ok) return res;
   const fixUrl = SITE_BASE_URL && res.problems?.length
     ? `${SITE_BASE_URL}/crm?goto=accProperties&import=${jobId}` : undefined;
   return {
     ...res,
     note: "לסכם במספרים: נקלטו, עודכנו, ללא שינוי, נפסלו. לשורות שנפסלו - מספר השורה, הסיבה ומה לעשות " +
-      "(כמו שחזר כאן), עד חמש. אם יש ניחושים (guessed) - לומר שכדאי לעבור עליהם. נכסים בלי תמונות - " +
+      "(כמו שחזר כאן), עד חמש. שורות שחיכו לאישור ניחוש ולא אושרו (held_unconfirmed) - לומר כמה, ושהן " +
+      "בתיקון השורות. נכסים בלי תמונות - " +
       "להזכיר שאפשר לשלוח תמונות כאן או להעלות ב-CRM.",
     // כפתור אחד: תיקון כשיש מה לתקן, ואחרת הרשימה עצמה
     ...(fixUrl

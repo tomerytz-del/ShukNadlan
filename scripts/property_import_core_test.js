@@ -128,6 +128,8 @@ assert.ok(r8.errors.some(e => /מופיעה כבר בשורה 2/.test(e)), fail(
 
 const sum = C.summarize(crm);
 assert.deepStrictEqual([sum.insert, sum.update, sum.same, sum.rejected], [4, 1, 1, 2]);
+// ניחושים לפי שדה - הבסיס לאישור בוואטסאפ (accept_guesses)
+assert.deepStrictEqual(sum.guessKinds, { deal_type: 2, price: 1 });
 
 // הודעות שמירה: לכל אחת סיבה ומה לעשות
 const t = C.insertErrorText({ code:'23514', message:'violates check constraint "properties_total_floors_check"' }, e => e.message);

@@ -1041,7 +1041,11 @@ function impParseAll(S){
 
 /* סיכום לשורת מצב או להודעה בוואטסאפ */
 function impSummarize(parsed){
-  const out = { total: parsed.length, insert: 0, update: 0, same: 0, rejected: 0, guessed: 0, reasons: [] };
+  // ‏guessKinds: כמה שורות הושלמו בניחוש, לפי השדה (deal_type / price /
+  // property_type). בוואטסאפ אין פקד תיקון, ולכן הסוכן/ת מאשר/ת כל סוג
+  // ניחוש לפני הקליטה (runImportJob, accept_guesses). שורה בלי שינוי
+  // (‏'same') אינה נכתבת, ולכן הניחוש שבה אינו נספר כאן.
+  const out = { total: parsed.length, insert: 0, update: 0, same: 0, rejected: 0, guessed: 0, guessKinds: {}, reasons: [] };
   const reasons = new Map();
   parsed.forEach(r=>{
     if (r.errors.length){
@@ -1050,7 +1054,9 @@ function impSummarize(parsed){
       return;
     }
     out[r.mode || 'insert']++;
-    if (Object.keys(r.guessed || {}).length) out.guessed++;
+    const kinds = r.mode === 'same' ? [] : Object.keys(r.guessed || {});
+    if (kinds.length) out.guessed++;
+    kinds.forEach(k => { out.guessKinds[k] = (out.guessKinds[k] || 0) + 1; });
   });
   out.reasons = [...reasons.entries()].sort((a, b) => b[1] - a[1]).map(([reason, count]) => ({ reason, count }));
   return out;
