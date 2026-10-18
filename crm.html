@@ -3665,65 +3665,101 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hb-tag.is-ok{background:#E6F4EC;color:#166534}
 
   /* ==========================================================================
-     מדריך ההתחלה
+     מדריך ההתחלה (#onbGuide, assets/crm-onboarding.js, docs/agent-onboarding.md)
      --------------------------------------------------------------------------
-     הכרטיס היחיד בדשבורד שמטרתו להיעלם. הוא יושב מעל הכול כי הוא מוצג רק
-     למי שאין לו/ה עדיין כלום למטה — לא נכסים, לא לקוחות, לא מספרים — ומרגע
-     שכל הצעדים נסגרו הוא לא חוזר.
-
-     הצעד הפתוח הבא הוא היחיד שנראה כמו משימה: רקע נייבי בהיר, כותרת מודגשת
-     וכפתור פעולה. הצעדים שאחריו קיימים אבל שקטים, וזה בכוונה — רשימה שכל
-     שורה בה צועקת היא רשימה שאי אפשר לדעת איפה מתחילים בה.
+     שבעה צעדים בשני שלבים (design/Onboarding-Desktop.dc.html). פס כהה עם
+     ההתקדמות ומצב "מוצג לגולשים", כרטיס "הצעד הבא" ותצוגת הדף, ואחריהם כל
+     הצעדים לפי שלבים. הכרטיס היחיד בדשבורד שמטרתו להיעלם.
      ========================================================================== */
-  .onb{
-    border:1px solid var(--edge);border-radius:var(--r-lg);background:var(--surface);
-    box-shadow:var(--sh-1);overflow:hidden;margin-bottom:14px;
+  .onb2{margin:0 0 16px;display:flex;flex-direction:column;gap:12px}
+  .onb2[hidden]{display:none}
+  .onb2-hero{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 20px 22px;
+             border-radius:20px;background:#13235B;color:#fff}
+  .onb2-hero.is-done{background:linear-gradient(135deg,#13235B,#1F5BF0)}
+  .onb2-ring{position:relative;flex-shrink:0;width:76px;height:76px}
+  .onb2-ring svg{width:100%;height:100%}
+  .onb2-ring span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+  .onb2-ring b{font-size:1.15rem;font-weight:800}
+  .onb2-ring small{font-size:.68rem;color:#C3CCE6}
+  .onb2-hero-main{flex:1;min-width:220px;display:flex;flex-direction:column;gap:6px}
+  .onb2-hero h2{margin:0;font-family:inherit;font-size:1.2rem;font-weight:800;color:#fff}
+  .onb2-hero p{margin:0;font-size:.88rem;line-height:1.55;color:#DCE3F5}
+  .onb2-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:.8rem;color:#C3CCE6}
+  .onb2-live{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#4A2A12;color:#F5C98A;font-weight:800}
+  .onb2-live i{width:8px;height:8px;border-radius:50%;background:#F59E0B}
+  .onb2-live.is-on{background:#1D3A2E;color:#9FE3BE}
+  .onb2-live.is-on i{background:#4ADE80}
+  .onb2-hero-acts{display:flex;gap:6px;align-self:flex-start}
+  .onb2-later{min-height:34px;padding:0 12px;border:1px solid #34457E;border-radius:10px;background:transparent;color:#fff;font-size:.82rem;font-weight:700}
+  .onb2-x{width:34px;height:34px;border:none;border-radius:10px;background:transparent;color:#C3CCE6;font-size:.95rem}
+  .onb2-later:hover,.onb2-x:hover{background:rgba(255,255,255,.12);color:#fff}
+  .onb2-bars{position:absolute;inset-inline:20px;bottom:9px;display:flex;gap:4px}
+  .onb2-bars i{flex:1;height:4px;border-radius:2px;background:#2A3A5E}
+  .onb2-bars i.is-done{background:#6E9BFF}
+  .onb2.is-compact .onb2-hero{padding:12px 16px 18px}
+  .onb2.is-compact .onb2-sub,.onb2.is-compact .onb2-ring{display:none}
+
+  .onb2-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  @media(min-width:900px){.onb2-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}}
+  .onb2-next,.onb2-prev,.onb2-stage{background:#fff;border:1px solid var(--nv-line);border-radius:18px;padding:16px;color:var(--nv-ink)}
+  .onb2-next{border-color:#BFD0FF;box-shadow:0 0 0 3px var(--nv-accent-soft)}
+  .onb2-next-top{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;font-weight:800;color:var(--nv-accent-ink)}
+  .onb2-next h3{margin:6px 0 4px;font-family:inherit;font-size:1.1rem;font-weight:800;color:var(--nv-ink)}
+  .onb2-next p{margin:0 0 12px;font-size:.9rem;line-height:1.55;color:#4A5468}
+  .onb2-time{flex-shrink:0;font-size:.74rem;font-weight:800;color:var(--nv-muted);background:var(--nv-ground);border-radius:999px;padding:2px 8px}
+  .onb2-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .onb2-go{min-height:42px;padding:0 18px;border:0;border-radius:12px;background:var(--nv-accent);color:#fff;font-size:.92rem;font-weight:800}
+  .onb2-go:hover{background:var(--nv-accent-h)}
+  .onb2-alt{min-height:42px;padding:0 14px;border:1px solid var(--nv-line);border-radius:12px;background:#fff;color:var(--nv-ink);font-size:.86rem;font-weight:700}
+  .onb2-link{border:0;background:transparent;color:var(--nv-accent);font-size:.82rem;font-weight:800;padding:6px 4px;min-height:32px;white-space:nowrap}
+  .onb2-go:focus-visible,.onb2-alt:focus-visible,.onb2-link:focus-visible,.onb2-later:focus-visible,.onb2-x:focus-visible{outline:2px solid #6E9BFF;outline-offset:2px}
+
+  .onb2-prev-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:.86rem}
+  .onb2-prev-h a{font-size:.8rem;font-weight:800;color:var(--nv-accent)}
+  .onb2-prev-card{border:1px solid var(--nv-line);border-radius:14px;overflow:hidden}
+  .onb2-prev-cover{height:54px;display:flex;align-items:center;justify-content:center;background:var(--nv-ground);font-size:.72rem;color:#8A93A6}
+  .onb2-prev-cover img{width:100%;height:100%;object-fit:cover}
+  .onb2-prev-who{display:flex;align-items:center;gap:10px;padding:0 12px;margin-top:-18px}
+  .onb2-prev-who b{display:block;font-size:.92rem;margin-top:16px}
+  .onb2-prev-who .is-ok{font-size:.74rem;font-weight:700;color:#166534}
+  .onb2-prev-who .is-wait{font-size:.74rem;font-weight:700;color:#9A3412}
+  .onb2-prev-photo{flex-shrink:0;width:48px;height:48px;border-radius:50%;overflow:hidden;background:#DCE6FF;color:var(--nv-accent-ink);
+                   border:3px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800}
+  .onb2-prev-photo img{width:100%;height:100%;object-fit:cover}
+  .onb2-prev-bio,.onb2-prev-prop{margin:10px 12px;padding:8px 10px;border-radius:10px;font-size:.8rem;line-height:1.5;color:#4A5468;background:var(--nv-ground)}
+  .onb2-prev-prop small{color:var(--nv-muted)}
+  .onb2 .is-missing{background:#fff;outline:1px dashed #B9C2D3;outline-offset:-1px;color:#8A93A6}
+  .onb2-prev-note{margin:8px 0 0;font-size:.74rem;color:var(--nv-muted)}
+
+  .onb2-stages{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  @media(min-width:900px){.onb2-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.onb2-stage.is-optional{grid-column:1 / -1}}
+  .onb2-stage-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .onb2-stage-h h3{margin:0;font-family:inherit;font-size:.98rem;font-weight:800;color:var(--nv-ink)}
+  .onb2-tag{font-size:.72rem;font-weight:800;border-radius:6px;padding:2px 8px;background:var(--nv-ground);color:var(--nv-muted)}
+  .onb2-tag.is-live{background:#FDE7D9;color:#9A3412}
+  .onb2-tag.is-work,.onb2-tag.is-office{background:#FFF1C7;color:#7A5300}
+  .onb2-tag.is-done{background:#E6F4EC;color:#166534}
+  .onb2-stage ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .onb2-step{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 8px;border-radius:12px}
+  .onb2-step.is-now{background:#F2F6FF}
+  .onb2-mark{flex-shrink:0;width:26px;height:26px;border-radius:50%;border:2px solid #C7CEDB;background:#fff;color:var(--nv-muted);
+             display:inline-flex;align-items:center;justify-content:center;font-size:.76rem;font-weight:800}
+  .onb2-step.is-now .onb2-mark{border-color:var(--nv-accent);color:var(--nv-accent)}
+  .onb2-step.is-done .onb2-mark{border-color:#15803D;background:#15803D;color:#fff}
+  .onb2-step-body{flex:1;min-width:0;display:flex;flex-direction:column}
+  .onb2-step-body b{font-size:.88rem;font-weight:800}
+  .onb2-step-body span{font-size:.76rem;color:var(--nv-muted)}
+  .onb2-step.is-done .onb2-step-body b{color:var(--nv-muted);text-decoration:line-through}
+  .onb2-step.is-done .onb2-step-body span{display:none}
+  .onb2-step.is-locked{opacity:.75}
+  @media(max-width:600px){
+    .onb2-hero{padding:14px 14px 20px;gap:12px}
+    .onb2-ring{width:60px;height:60px}
+    .onb2-hero h2{font-size:1.05rem}
+    .onb2-prev{display:none}
+    .onb2-step{min-height:40px}
+    .onb2-step .onb2-time{display:none}
   }
-  .onb[hidden]{display:none}
-  .onb-head{
-    display:flex;align-items:center;gap:10px;padding:11px 14px;
-    background:linear-gradient(135deg,var(--navy-2),var(--navy));color:#fff;
-  }
-  .onb-head h2{
-    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;color:#fff;
-    margin:0;flex:1;min-width:0;
-  }
-  .onb-prog{
-    flex:none;font-size:.7rem;font-weight:800;color:#fff;
-    background:rgba(255,255,255,.2);border-radius:999px;padding:3px 10px;
-  }
-  .onb-x{
-    flex:none;background:transparent;color:rgba(255,255,255,.82);
-    font-size:.95rem;line-height:1;padding:5px 7px;border-radius:8px;
-  }
-  .onb-x:hover{background:rgba(255,255,255,.16);color:#fff}
-  .onb-x:focus-visible{outline:2px solid #fff;outline-offset:-2px}
-  .onb-sub{font-size:.78rem;color:var(--txt-soft);line-height:1.5;margin:0;padding:11px 14px 0}
-  .onb-list{list-style:none;margin:0;padding:11px 14px 14px;display:flex;flex-direction:column;gap:8px}
-  .onb-step{
-    display:flex;align-items:flex-start;gap:10px;padding:10px 11px;
-    border:1px solid var(--edge);border-radius:var(--r-xs);background:var(--surface-2);
-  }
-  /* הצעד הפתוח הבא — היחיד עם כפתור, ולכן היחיד עם צבע */
-  .onb-step.is-now{background:var(--navy-tint);border-color:#cadcee}
-  .onb-step.is-done{background:var(--surface);border-style:dashed}
-  .onb-mark{
-    flex:none;width:22px;height:22px;border-radius:50%;display:flex;
-    align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
-    background:var(--surface);border:1.5px solid var(--edge);color:var(--txt-faint);
-  }
-  .onb-step.is-now .onb-mark{background:var(--navy);border-color:var(--navy);color:#fff}
-  .onb-step.is-done .onb-mark{background:var(--mint);border-color:var(--mint);color:#fff}
-  .onb-body{min-width:0;flex:1}
-  .onb-name{font-size:.85rem;font-weight:700;color:var(--txt)}
-  .onb-step.is-done .onb-name{color:var(--txt-soft);text-decoration:line-through}
-  .onb-text{font-size:.75rem;color:var(--txt-soft);line-height:1.5;margin:3px 0 0}
-  .onb-go{
-    margin-top:9px;background:var(--navy);color:#fff;border-radius:var(--r-xs);
-    padding:8px 14px;font-size:.8rem;font-weight:700;
-  }
-  .onb-go:hover{background:var(--navy-2)}
-  .onb-go:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 
   /* ---------- ברכה ---------- */
   .dash-greet{
@@ -6544,15 +6580,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מחוץ ל-#overviewBlock: המדריך אינו חלק מתמונת
            המצב אלא מה שמוביל אליה, ולכן הוא עומד גם בלשוניות האחרות של
            הסרגל התחתון — שאצל מי שרואה אותו ריקות ממילא. -->
-      <section class="onb" id="onbGuide" hidden aria-labelledby="onbTitle">
-        <div class="onb-head">
-          <h2 id="onbTitle">מדריך ההתחלה</h2>
-          <span class="onb-prog" id="onbProgress"></span>
-          <button type="button" class="onb-x" id="onbDismiss" aria-label="הסתרת מדריך ההתחלה" title="הסתרת המדריך">✕</button>
-        </div>
-        <p class="onb-sub" id="onbSub"></p>
-        <ol class="onb-list" id="onbList"></ol>
-      </section>
+      <!-- מדריך ההתחלה: שבעה צעדים בשני שלבים (assets/crm-onboarding.js,
+           docs/agent-onboarding.md). כל התוכן נבנה ב-renderOnboarding. -->
+      <section class="onb2" id="onbGuide" hidden aria-labelledby="onbTitle"></section>
 
       <!-- ==========================================================
            "ראשי" — תמונת המצב
@@ -10627,6 +10657,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- לוח היום בדף הבית (docs/crm-home.md). לפני crm.js כמו שאר המודולים;
      הפונקציות שבו נקראות רק אחרי שהוא רץ. -->
 <script src="assets/crm-home.js"></script>
+<!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
+     מ-loadDashboard, אחרי שהוא רץ. -->
+<script src="assets/crm-onboarding.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>
