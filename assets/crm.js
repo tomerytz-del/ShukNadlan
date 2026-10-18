@@ -3902,6 +3902,7 @@ async function loadAdminReport(){
    משהו אחר על אותו מסך. הפרטים: docs/pwa-install.md */
 const PWA_MODE_LABELS = {
   'prompt':     'אנדרואיד / כרום',
+  'samsung':    'אנדרואיד - סמסונג (הופנה לכרום)',
   'ios':        'אייפון - ספארי',
   'ios-other':  'אייפון - דפדפן אחר',
   'in-app':     'דפדפן פנימי (פייסבוק/אינסטגרם)',

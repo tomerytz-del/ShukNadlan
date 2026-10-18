@@ -238,6 +238,23 @@
      בדפדפן". זה המקרה הכי שכיח בקישור שמגיע מרשת חברתית. */
   var isInAppBrowser = /FBAN|FBAV|Instagram|LinkedInApp|Line\/|TikTok|MicroMessenger/i.test(ua);
 
+  /* ‏**הדפדפן של סמסונג באנדרואיד — מפנים לכרום במקום להתקין.**
+     גם הוא יורה ‎beforeinstallprompt‎, אבל את קובץ ההתקנה (‏WebAPK) הוא
+     בונה בשרת של סמסונג, ו-Google Play Protect חוסם אותו בהודעה "אפליקציה
+     לא בטוחה נחסמה - האפליקציה תוכננה לגרסה ישנה יותר של Android". הקובץ
+     אינו שלנו ואין בריפו שורה שמשנה אותו. בכרום את ה-WebAPK בונה וחותם
+     גוגל, וההתקנה עוברת בלי הודעה. דווח מהשטח ב-18.10.2026. */
+  var isSamsungAndroid = /SamsungBrowser/i.test(ua) && /Android/i.test(ua) && !isInAppBrowser;
+
+  /* הקישור שפותח את הדף הנוכחי בכרום. ‏pwa=chrome מסמן לכרום שהגולש/ת
+     הגיע/ה כדי להתקין (ראו FROM_SAMSUNG למטה). ה-hash נשמט: ‏intent://
+     משתמש ב-# בעצמו. כרום לא מותקן - אנדרואיד פותח את דף כרום בחנות. */
+  function chromeIntentUrl() {
+    var search = location.search ? location.search + '&pwa=chrome' : '?pwa=chrome';
+    return 'intent://' + location.host + location.pathname + search +
+           '#Intent;scheme=https;package=com.android.chrome;end';
+  }
+
   function isStandalone() {
     try {
       if (window.navigator.standalone === true) return true;           // אייפון
@@ -275,13 +292,15 @@
   var lastFocused = null;         // למי להחזיר את הפוקוס בסגירת החלון
   var barShown = false;
 
-  /* 'prompt'     — יש API להתקנה (כרום/אדג'/סמסונג)
+  /* 'prompt'     — יש API להתקנה (כרום/אדג')
+     'samsung'    — הדפדפן של סמסונג באנדרואיד: פתיחה בכרום (ראו isSamsungAndroid)
      'ios'        — ספארי באייפון/אייפד: הסבר
      'ios-other'  — דפדפן אחר באייפון: הסבר משלו
      'in-app'     — דפדפן פנימי של אפליקציה: צריך לצאת לדפדפן
      'mac-safari' — מק: הסבר, בלי באנר אוטומטי
      null         — אין מה להציע */
   function mode() {
+    if (isSamsungAndroid) return 'samsung';
     if (deferredPrompt) return 'prompt';
     if (isIOS) {
       if (isInAppBrowser) return 'in-app';
@@ -485,6 +504,7 @@
      צר — כל מילה מיותרת בו הופכת לשורה נוספת שמכסה את הדף. */
   var COPY = {
     'prompt':     { cta: 'התקנה',        sub: 'בלחיצה אחת, בלי חנות אפליקציות' },
+    'samsung':    { cta: 'פתיחה בכרום',  sub: 'להתקנה, פתחו את האתר בכרום' },
     'ios':        { cta: 'איך מוסיפים?', sub: 'שתי לחיצות בספארי, ויש לכם אפליקציה' },
     'ios-other':  { cta: 'איך מוסיפים?', sub: 'אפשר להוסיף את האתר כאפליקציה' },
     'in-app':     { cta: 'איך מוסיפים?', sub: 'אפשר להוסיף את האתר כאפליקציה' },
@@ -588,6 +608,12 @@
       } catch (e) {
         console.warn('‏בקשת ההתקנה נכשלה:', e);
       }
+      return;
+    }
+
+    if (m === 'samsung') {
+      hideBar();
+      location.href = chromeIntentUrl();
       return;
     }
 
@@ -830,6 +856,26 @@
      (‏8 מתוך 28 הצגות בעשרה ימים). */
   var FIRST_VISIT_OK = !!(script && script.getAttribute('data-first-visit') === 'show');
 
+  /* ‏**הגעה מהדפדפן של סמסונג דרך "פתיחה בכרום"** (‏?pwa=chrome).
+     לכרום יש אחסון משלו, ולכן זה בשבילו ביקור ראשון - והרצועה לא הייתה
+     עולה בכלל, בדיוק אחרי שהגולש/ת ביקש/ה להתקין. כאן מציעים מיד: בלי
+     סף הביקורים ובשנייה גלישה אחת. הפרמטר יורד מהכתובת כדי שלא יישאר
+     בסימניות ובשיתוף. */
+  var FROM_SAMSUNG = (function () {
+    try {
+      var params = new URLSearchParams(location.search);
+      if (params.get('pwa') !== 'chrome') return false;
+      params['delete']('pwa');
+      var rest = params.toString();
+      history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+      return true;
+    } catch (e) { return false; }
+  })();
+  if (FROM_SAMSUNG) {
+    FIRST_VISIT_OK = true;
+    SHOW_DELAY_MS = SHOW_DELAY_MIN_MS;
+  }
+
   /* נספר לפני כל השאר, כדי שגם יציאה מוקדמת מ-start() תספור את הביקור. */
   countVisit();
 
@@ -873,6 +919,10 @@
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();                 // בלי זה כרום מציג באנר משלו
+    /* בסמסונג לא שומרים את האירוע: ‏prompt() שלו הוא בדיוק ההתקנה
+       שנחסמת. ה-preventDefault נשאר, כדי שגם הבאנר של סמסונג לא יעלה.
+       הרצועה ('samsung') עולה מ-start(). */
+    if (isSamsungAndroid) return;
     deferredPrompt = e;
     /* מרגע שהאירוע הגיע, ידוע שזה מסלול 'prompt' — גם אם ההתקנה עצמה
        תיעשה בסוף מתפריט הדפדפן ולא מהכפתור שלנו. בלי השורה הזו התקנה
