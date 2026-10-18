@@ -74,7 +74,7 @@ export function placeLine(row: PropertyFacts): string {
  *  התעלם מהם, ונשאר עם החדרים, הקומה והמחיר בלבד - כלומר כתב פוסט שחוזר
  *  על שורות העובדות שמתחתיו. קוד שאין לו תווית (‏exclusive, price_dropped
  *  וכו') אינו תכונה של הנכס עצמו, ולכן אינו נכנס. */
-const FEATURE_LABELS: Record<string, string> = {
+export const FEATURE_LABELS: Record<string, string> = {
   moshav_kibbutz_only: "במושב/קיבוץ",
   parking: "חניה", elevator: "מעלית", balcony: "מרפסת", sun_balcony: "מרפסת שמש", ac: "מיזוג",
   bars: "סורגים", accessible: "גישה לנכים", renovated_feature: "משופצת", furnished: "מרוהטת",

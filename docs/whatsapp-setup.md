@@ -219,6 +219,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | כלי | מה זה עושה |
 |---|---|
 | `create_property` | יוצר נכס חדש במצב `active`, מצרף תמונות ממתינות, ומנסה למצוא קואורדינטות |
+| `import_properties_file` | קולט קובץ נכסים שנשלח בשיחה (Excel/CSV, כולל יד2) - כל השורות, באותה ליבה של האשף ב-CRM. רק אחרי אישור, עם ה-`job_id` מהבלוק `[ייבוא נכסים]`. מודעת יד2 שכבר אצל הסוכן/ת מתעדכנת בלי לדרוס; של עמית/ה נפסלת (`docs/property-import.md`) |
 | `update_property` | מעדכן שדות בנכס קיים |
 | `set_property_status` | `active` / `sold` / `rented` / `archived` |
 | `list_properties` | מחפש נכס לפי מה שהסוכן/ת מתאר/ת במילים (`query` על כותרת, רחוב, כתובת, עיר ומספר מודעה), ומחזיר גם `total`. מעבר להתאמה המדויקת יש גם סריקה סלחנית לכתיב (`fuzzy-text.ts`), ומה שנמצא רק בה חוזר מסומן `spelling_variant` - ראו "כתיב קרוב" למטה |
