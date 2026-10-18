@@ -3415,6 +3415,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .sn-quota-bar{display:none}
   }
 
+  /* ---------- צוותים בתוך המשרד (assets/crm-teams.js, docs/teams.md) ---------- */
+  .teams-panel{background:#fff;border:1px solid var(--nv-line);border-radius:16px;padding:14px;margin-bottom:14px;
+               display:flex;flex-direction:column;gap:10px}
+  .teams-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .teams-head h3{margin:0;font-family:inherit;font-size:1rem;font-weight:800;color:var(--nv-ink)}
+  .teams-add{padding:8px 14px;min-height:40px}
+  .teams-empty{margin:0;font-size:.84rem;color:var(--nv-muted);line-height:1.5}
+  .teams-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px;border-radius:12px;background:var(--nv-ground)}
+  .teams-info{flex:1 1 200px;min-width:0;display:flex;flex-direction:column}
+  .teams-info b{font-size:.92rem;color:var(--nv-ink)}
+  .teams-info span{font-size:.8rem;color:var(--nv-muted)}
+  .teams-warn{color:#9A3412 !important;font-weight:700}
+  .teams-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .teams-acts .rm-sel{min-height:40px;max-width:220px}
+  .teams-acts .btn{padding:8px 12px;min-height:40px}
+  .teams-del{color:var(--wine)}
+  .teams-member{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:10px}
+  .teams-field{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:700;color:var(--nv-muted)}
+  .teams-field .rm-sel{min-height:40px;width:auto;min-width:150px}
+  .teams-check{display:inline-flex;align-items:flex-start;gap:8px;font-size:.84rem;font-weight:700;color:var(--nv-ink);cursor:pointer}
+  .teams-check input{width:20px;height:20px;margin-top:1px;flex-shrink:0}
+  .teams-check small{display:block;font-weight:500;color:var(--nv-muted);font-size:.76rem}
+
   /* ==========================================================================
      מדריך ההתחלה
      --------------------------------------------------------------------------
@@ -8391,7 +8414,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <details class="acc" id="accTeam">
         <summary>
-          <span class="acc-title">צוות המשרד</span>
+          <span class="acc-title">צוותים וסוכנים</span>
           <span class="acc-count" id="accTeamCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
@@ -10318,6 +10341,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
      נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
 <script src="assets/crm-showcase.js"></script>
+<!-- צוותים בתוך המשרד ב"צוותים וסוכנים" (docs/teams.md) -->
+<script src="assets/crm-teams.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>
