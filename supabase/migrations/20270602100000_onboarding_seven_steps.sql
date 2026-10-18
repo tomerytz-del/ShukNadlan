@@ -90,7 +90,7 @@ returns table (
   lead_done         boolean,
   just_finished     boolean,
   about_done        boolean,
-  -- מכאן החדשות (20270601170000)
+  -- מכאן החדשות (20270602100000)
   license_done      boolean,
   bio_done          boolean,
   calendar_done     boolean,
@@ -143,7 +143,7 @@ begin
     from agency_members m
    where m.id = v_id;
 
-  -- ‏בלי גייט מסלול (עד 20270601170000 רק mid/premium): הרישיון, הפרופיל
+  -- ‏בלי גייט מסלול (עד 20270602100000 רק mid/premium): הרישיון, הפרופיל
   -- והנכס הראשון נחוצים לכל מסלול. גבריאלה, שמגודרת, מסומנת בנפרד.
   if not found or v_member.active is not true then
     return;

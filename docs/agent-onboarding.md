@@ -52,7 +52,7 @@
 | קובץ | תפקיד |
 | --- | --- |
 | `supabase/migrations/20261123090000_agent_onboarding.sql` | שתי העמודות, פונקציית המצב, ארבעת סוגי ההתראה וחמשת הטריגרים |
-| `supabase/migrations/20270601170000_onboarding_seven_steps.sql` | שבעת הצעדים, `agent_license_ok()` והמדריך לכל המסלולים |
+| `supabase/migrations/20270602100000_onboarding_seven_steps.sql` | שבעת הצעדים, `agent_license_ok()` והמדריך לכל המסלולים |
 | `assets/crm-onboarding.js` (‏`ONB_STEP_DEFS`, ‏`ONB_STAGES`) + `#onbGuide` ב-`crm.html` | הכרטיס: ההתקדמות, הצעד הבא, תצוגת הדף והצעדים |
 | `crm.html` → `NOTIF_TYPES` | הניתוב בלחיצה על ארבע התראות הדרבון |
 
@@ -60,7 +60,7 @@
 
 ## הצעדים
 
-**מאז `20270601170000_onboarding_seven_steps.sql` (שלב 7 בשדרוג ה-CRM) - שבעה
+**מאז `20270602100000_onboarding_seven_steps.sql` (שלב 7 בשדרוג ה-CRM) - שבעה
 צעדים בשני שלבים.** קודם להופיע באתר, אחר כך להתחיל לעבוד:
 
 | # | שלב | צעד | נסגר כש… | הכפתור |
@@ -137,7 +137,7 @@
 
 ### המסלול
 
-עד `20270601170000` המדריך היה ל-`mid` / `premium` בלבד, כי הצעד הראשון היה
+עד `20270602100000` המדריך היה ל-`mid` / `premium` בלבד, כי הצעד הראשון היה
 גבריאלה, שמגודרת (`whatsapp-webhook`, [`pricing-and-tiers.md`](pricing-and-tiers.md)).
 עכשיו הצעד הראשון הוא הרישיון, שנחוץ בכל מסלול, ולכן המדריך פתוח לכולם, וגם
 `agent_onboarding_active()` (הדרבון בפעמון) כבר לא בודקת מסלול. גבריאלה והיומן
