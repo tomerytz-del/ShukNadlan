@@ -2,7 +2,7 @@
 -- דאשבורד הצוות ו"לידים בצוות" (docs/team-dashboard.md)
 -- ----------------------------------------------------------------------------
 -- שלב 4 בשדרוג ה-CRM (docs/handoff/crm-redesign/HANDOFF.md, סעיף 4). תלוי ב-
--- 20270525130000_agency_teams.sql (current_led_team_id).
+-- 20270601130000_agency_teams.sql (current_led_team_id).
 --
 --   1. _office_dashboard_core מקבל רשימת סוכנים (p_agent_ids). **עותק אחד של
 --      החישוב:** הגוף עבר לגרסה בת 4 הפרמטרים, והגרסה בת ה-3 - זו שדאשבורד
