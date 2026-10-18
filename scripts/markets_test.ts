@@ -347,6 +347,11 @@ check("הגבול עם טבריה: 32.6199 → בית שאן, 32.62 → טברי
   reg.locate(32.6199, 35.55)?.slug === "beit-shean" && reg.locate(32.62, 35.55)?.slug === "tiberias");
 check("הגבול עם השומרון: 35.4501 → בית שאן, 35.45 → השומרון (32.45)",
   reg.locate(32.45, 35.4501)?.slug === "beit-shean" && reg.locate(32.45, 35.45)?.slug === "samaria");
+check("יקנעם עילית → yokneam", reg.locate(32.655, 35.105)?.slug === "yokneam");
+check("הגבול עם חיפה: 32.6999 → יקנעם, 32.70 → חיפה (35.10)",
+  reg.locate(32.6999, 35.10)?.slug === "yokneam" && reg.locate(32.70, 35.10)?.slug === "haifa");
+check("הגבול עם עפולה: 35.145 → יקנעם, 35.15 → עפולה (32.66)",
+  reg.locate(32.66, 35.145)?.slug === "yokneam" && reg.locate(32.66, 35.15)?.slug === "afula-emek");
 check("מרום גולן → golan", reg.locate(33.13, 35.78)?.slug === "golan");
 check("רמות (חוף הכנרת) → golan", reg.locate(32.85, 35.66)?.slug === "golan");
 check("הגבול עם קריית שמונה: 35.6999 → קריית שמונה, 35.70 → הגולן (33.24)",
