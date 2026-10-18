@@ -5728,7 +5728,11 @@ async function loadCostsReport(){
   if (refreshBtn) refreshBtn.disabled = true;
   host.innerHTML = '<div class="empty-state">טוען את העלויות…</div>';
 
-  const { data, error } = await sb.rpc('platform_costs_list', { p_from: range.prevFrom, p_to: range.to });
+  // ‏ai_usage_costs במקביל, וכשל שלו (מיגרציה שעוד לא רצה) אינו מפיל את הדוח
+  const [{ data, error }, ai] = await Promise.all([
+    sb.rpc('platform_costs_list', { p_from: range.prevFrom, p_to: range.to }),
+    sb.rpc('ai_usage_costs', { p_from: range.from, p_to: range.to }),
+  ]);
 
   costsBusy = false;
   if (refreshBtn) refreshBtn.disabled = false;
@@ -5745,14 +5749,14 @@ async function loadCostsReport(){
     return;
   }
 
-  costsLast = { report: data || {}, range };
+  costsLast = { report: data || {}, range, ai: ai.error ? null : (ai.data || {}) };
   renderCostsReport();
 }
 
 function renderCostsReport(){
   const host = document.getElementById('costsReport');
   if (!host || !costsLast) return;
-  const { report, range } = costsLast;
+  const { report, range, ai } = costsLast;
   host.innerHTML = '';
 
   const all = Array.isArray(report.rows) ? report.rows : [];
@@ -5853,6 +5857,9 @@ function renderCostsReport(){
   }
   host.appendChild(svcBlock);
 
+  /* ---- 3א. עלות AI לפי יכולת ---- */
+  host.appendChild(costsAiBlock(ai, bySvc.get('anthropic_api')));
+
   /* ---- 4. לפי חודש ---- */
   const months = [];
   for (let d = new Date(range.from.slice(0, 7) + '-01T00:00:00'); costYmd(d) <= range.to; d.setMonth(d.getMonth() + 1)){
@@ -5920,6 +5927,56 @@ function renderCostsReport(){
   host.appendChild(how);
 
   dashPanelsMeasure();
+}
+
+/* עלות ה-AI לפי יכולת - **הערכה** מהטוקנים ביומנים (‏ai_usage_costs), כפול
+   המחירון ai_model_prices. היא כבר כלולה בחשבונית של Anthropic שלמעלה, ולכן
+   מוצגת כפירוט ולא נוספת לסך. docs/platform-costs.md, "עלות AI לפי יכולת". */
+const AI_FEATURES = {
+  mentor_question: { label: 'שאלה למנטור', sub: 'CRM ו"שאלה למנטור" דרך גבריאלה', unit: 'לשאלה' },
+  agent_daily:     { label: 'סיכום יומי לסוכן/ת', sub: 'המנטור לסוכן/ת, כל בוקר', unit: 'לסיכום' },
+  team_weekly:     { label: 'סיכום שבועי לצוות', sub: 'מנטור מנהל/ת הצוות', unit: 'לסיכום' },
+  office_weekly:   { label: 'סיכום שבועי למשרד', sub: 'מנטור המשרד', unit: 'לסיכום' },
+};
+
+function costsAiBlock(ai, anthropicInvoice){
+  const block = admBlock('עלות AI לפי יכולת (הערכה)',
+    'לפי הטוקנים שכל קריאה רושמת, כפול המחירון. כבר כלול בחשבונית Claude API שלמעלה - לא נוסף לסך.');
+  if (!ai){
+    block.appendChild(admEl('div', 'empty-state', 'ההערכה לא זמינה עדיין - המיגרציה 20270620090000_ai_usage_costs.sql לא רצה.'));
+    return block;
+  }
+  const rows = Array.isArray(ai.rows) ? ai.rows : [];
+  const byFeat = new Map();
+  rows.forEach(r => {
+    const f = byFeat.get(r.feature) || { calls: 0, usd: 0, unpriced: 0, models: new Set() };
+    f.calls += r.calls; f.models.add(r.model);
+    if (r.usd === null) f.unpriced += r.calls; else f.usd += Number(r.usd);
+    byFeat.set(r.feature, f);
+  });
+  if (!byFeat.size){
+    block.appendChild(admEl('div', 'empty-state', 'לא נרשמו קריאות למנטור בתקופה הזו.'));
+    return block;
+  }
+  const totalIls = [...byFeat.values()].reduce((a, f) => a + costToIls(f.usd, 'USD'), 0);
+  const list = admEl('div', 'adm-rows');
+  [...byFeat.entries()].sort((a, b) => b[1].usd - a[1].usd).forEach(([key, f]) => {
+    const meta = AI_FEATURES[key] || { label: key, sub: '', unit: 'לקריאה' };
+    const ils = costToIls(f.usd, 'USD');
+    const priced = f.calls - f.unpriced;
+    const sub = [meta.sub, plural(f.calls, 'קריאה אחת', 'קריאות'),
+      priced ? 'ממוצע ' + costFmt(ils / priced, 'ILS') + ' ' + meta.unit + ' (' + costFmt(f.usd / priced, 'USD') + ')' : '',
+      f.unpriced ? plural(f.unpriced, 'קריאה אחת', 'קריאות') + ' בלי מחיר למודל' : '',
+      [...f.models].join(', ')].filter(Boolean).join(' · ');
+    list.appendChild(admRow(meta.label, sub, costFmt(ils, 'ILS'), totalIls ? (ils / totalIls) * 100 : 0, null));
+  });
+  list.appendChild(admRow('סה"כ מנטור (הערכה)', null, costFmt(totalIls, 'ILS'), null, null, true));
+  block.appendChild(list);
+  if (anthropicInvoice && anthropicInvoice.ils > 0){
+    block.appendChild(admEl('p', 'cst-howto', 'זה בערך ' +
+      Math.round((totalIls / anthropicInvoice.ils) * 100) + '% מחשבונית Claude API בתקופה. השאר: גבריאלה, תיאורים, מבזקים וסיכומי שיחות, שעוד לא נרשמים לפי יכולת.'));
+  }
+  return block;
 }
 
 function costsFillServices(){

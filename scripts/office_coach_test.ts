@@ -435,6 +435,18 @@ for (const kind of ["agent", "team", "office"] as const) {
 }
 
 // ---------------------------------------------------------------------------
+// עלות AI לפי יכולת (docs/platform-costs.md): כל קריאה רושמת את טוקני המטמון
+// בנפרד, אחרת ai_usage_costs מתמחר קריאת מטמון במחיר קלט מלא (פי 10)
+// ---------------------------------------------------------------------------
+{
+  const askLib = readFileSync(new URL("../supabase/functions/_shared/coach/ask.ts", import.meta.url), "utf8");
+  const coachFn = readFileSync(new URL("../supabase/functions/office-coach/index.ts", import.meta.url), "utf8");
+  check("עלות: askCoach רושם טוקני מטמון", /cache_read_tokens:/.test(askLib) && /cache_write_tokens:/.test(askLib));
+  check("עלות: שלושת הסיכומים רושמים טוקני מטמון",
+    (coachFn.match(/cache_read_tokens: out\.cache_read_tokens/g) ?? []).length === 3);
+}
+
+// ---------------------------------------------------------------------------
 // תאריכים
 // ---------------------------------------------------------------------------
 check("addDays חוצה חודש", addDays("2026-09-28", 7) === "2026-10-05");

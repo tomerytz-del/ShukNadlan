@@ -101,6 +101,14 @@ description: המנטור AI של שוק נדל״ן (שלושת המאמנים -
 "מבחן עומס למנטור") שולח ישר ל-API ומדפיס 429 ומגבלות. עולה כסף, ולכן בלי `--yes`
 (‏`confirm=כן`) רק מדפיס תוכנית. ‏`docs/coaches.md`, "מבחן עומס".
 
+## 6ב. עלות
+
+שאלה ≈ ₪0.26 (‏29K קלט, רובו הפרומפט עם הידע). כל קריאה למודל (‏`askCoach`, שלושת
+הסיכומים ב-`office-coach`) רושמת `cache_read_tokens` / `cache_write_tokens` בנפרד, ו-
+`ai_usage_costs` מתמחרת לפי `ai_model_prices` בפאנל "עלויות". קריאה חדשה בלי שתי
+השדות = מטמון שמתומחר כקלט מלא (‏`office_coach_test` בודק). מחיר מודל שמשתנה -
+מיגרציה לשורה ב-`ai_model_prices`. ‏`docs/platform-costs.md`, "עלות AI לפי יכולת".
+
 ## 7. הבדיקה רצה ב-node, לא ב-deno
 
 ‏CI מריץ `node --experimental-strip-types scripts/office_coach_test.ts`. לכן:
