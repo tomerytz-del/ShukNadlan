@@ -802,6 +802,75 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dup-actions{flex-direction:column}
   .dup-actions .dup-cancel{color:var(--ink-soft)}
   .pm-actions{display:flex;gap:8px;margin-top:16px}
+  /* ---------- הטמעת סוכנים (assets/crm-csm.js) ---------- */
+  .csm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+  .csm-tabs button{border:1.5px solid var(--line);background:var(--paper-raised);border-radius:999px;padding:7px 14px;font-weight:700;font-size:.8rem;color:var(--ink-soft);cursor:pointer}
+  .csm-tabs button[aria-selected="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  .csm-toolbar{display:flex;gap:8px;margin-bottom:6px}
+  .csm-search{flex:1;min-width:0;width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;background:#fff;margin-bottom:8px}
+  .csm-toolbar .csm-search{margin-bottom:0}
+  .csm-risk-txt{color:var(--gold-dark)}
+  .csm-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .csm-col{background:var(--paper-raised);border-radius:var(--radius-md);padding:10px;min-height:120px;scroll-snap-align:start}
+  .csm-col.is-risk{background:var(--gold-tint)}
+  .csm-col h4{font-size:.8rem;margin:0 0 8px;display:flex;justify-content:space-between;gap:6px}
+  .csm-col h4 span{background:#fff;border-radius:999px;padding:0 8px;font-size:.72rem}
+  .csm-col-empty{font-size:.75rem;color:var(--ink-soft);text-align:center;padding:14px 0}
+  .csm-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:.8rem}
+  .csm-card-head,.csm-fb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .csm-card-meta{color:var(--ink-soft);font-size:.72rem;margin:2px 0 6px}
+  .csm-health{font-weight:800;font-size:.72rem;border-radius:999px;padding:1px 8px;flex-shrink:0}
+  .csm-health.good{background:#DCEFE2;color:#1E5B33}
+  .csm-health.mid{background:#F6EBCF;color:#6B4E0E}
+  .csm-health.low{background:var(--gold-tint);color:var(--gold-dark)}
+  .csm-badge{font-size:.72rem;font-weight:700;border-radius:6px;padding:3px 7px;margin-bottom:5px;display:inline-block}
+  .csm-badge.risk{background:var(--gold-tint);color:var(--gold-dark)}
+  .csm-badge.due{background:var(--teal-tint);color:var(--teal)}
+  .csm-stats{display:flex;flex-wrap:wrap;gap:8px;font-size:.74rem;color:var(--ink-soft);margin:4px 0}
+  .csm-card-goal{font-size:.74rem;margin:4px 0}
+  .csm-stage-sel select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:6px;font-size:.75rem;margin:6px 0;background:#fff}
+  .csm-card-actions,.csm-cmd-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .csm-card-actions .btn,.csm-cmd-actions .btn{padding:6px 10px;font-size:.74rem}
+  .pm-card.csm-session-card{max-width:680px}
+  .csm-session-actions{position:sticky;bottom:-22px;background:#fff;padding:10px 0 4px}
+  .csm-part{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+  .csm-part h3{font-size:.95rem;margin:0 0 6px}
+  .csm-part h3 small{font-weight:600;color:var(--ink-soft);font-size:.72rem}
+  .csm-hint{font-size:.76rem;color:var(--ink-soft);margin:4px 0 8px;line-height:1.5}
+  .csm-q{border:0;padding:0;margin:0 0 10px}
+  .csm-q legend{font-weight:700;font-size:.82rem;margin-bottom:4px}
+  .csm-opt{display:flex;gap:8px;align-items:flex-start;font-size:.8rem;padding:3px 0;cursor:pointer;line-height:1.45}
+  .csm-opt input{margin-top:3px;flex-shrink:0}
+  .csm-rate{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .csm-rate legend{width:100%}
+  .csm-text,.csm-track select,.csm-fb-row select,.csm-session-card input[type=date],.csm-session-card textarea,.csm-form textarea,.csm-form select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font:inherit;font-size:.8rem;background:#fff}
+  .csm-track label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:4px}
+  .csm-win{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:8px}
+  .csm-win.is-rec{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .csm-win-tags{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
+  .csm-tag{font-size:.68rem;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--paper-raised);color:var(--ink-soft)}
+  .csm-tag.rec{background:var(--gold-tint);color:var(--gold-dark)}
+  .csm-tag.seen{background:#DCEFE2;color:#1E5B33}
+  .csm-cmd{background:var(--paper-raised);border-radius:var(--radius-sm);padding:8px;margin-top:4px}
+  .csm-cmd code{display:block;font-family:inherit;font-size:.78rem;line-height:1.5;margin-bottom:6px;white-space:normal;overflow-wrap:anywhere}
+  .csm-cmd-label{font-weight:700;font-size:.78rem;margin-bottom:3px}
+  #csmCmdList .csm-cmd{margin-bottom:8px}
+  .csm-fb-row{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
+  .csm-fb-row > *{flex:1 1 140px;min-width:0}
+  .csm-fb-row .btn{flex:0 0 auto}
+  .csm-form{background:var(--paper-raised);border-radius:var(--radius-md);padding:12px;margin-bottom:12px}
+  .csm-fb,.csm-story,.csm-lib{background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:.8rem}
+  .csm-fb.is-closed{opacity:.6}
+  .csm-votes{font-size:.72rem;font-weight:800;border-radius:999px;padding:1px 8px;background:var(--teal-tint);color:var(--teal);flex-shrink:0}
+  .csm-votes.hot{background:var(--gold);color:#fff}
+  .csm-fb-desc{margin:4px 0;line-height:1.5}
+  .csm-fb-who{font-size:.72rem;color:var(--ink-soft);margin-bottom:6px}
+  .csm-story blockquote{margin:6px 0;font-style:italic;line-height:1.5}
+  .csm-ba{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.76rem;margin-top:4px}
+  .csm-lib-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+  .csm-lib h4,.csm-sub{font-size:.85rem;margin:0 0 6px}
+  .csm-sub{margin-top:14px}
+  .csm-lib ul{margin:0 0 6px;padding-inline-start:18px;line-height:1.55}
   .pm-actions .btn{flex:1}
   .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 
@@ -9037,6 +9106,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            אישור כאן הוא גם ההיתר עצמו: השער בודק את broker_license_appeals
            לפני שהוא פונה ל-data.gov.il, ולכן "אישרתי" ו"פתחתי את המשרד" הם
            אותה פעולה. ראו docs/broker-registry.md. -->
+      <!-- הטמעת סוכנים (CSM): הצנרת, פגישת "הצלחה ראשונה", משוב ותעדוף,
+           סיפורי הצלחה וספריית ההדרכה. assets/crm-csm.js, docs/csm-adoption.md -->
+      <details class="acc" id="accCsm">
+        <summary>
+          <span class="acc-title">הטמעת סוכנים</span>
+          <span class="acc-count" id="accCsmCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            כל סוכן/ת בפיילוט, מההרשמה ועד שימוש עצמאי. המספר בכותרת הוא כמה סוכנים לא כתבו לגבריאלה 5 ימים ומעלה.
+          </p>
+          <div class="csm-tabs" role="tablist" aria-label="הטמעת סוכנים">
+            <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
+            <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
+            <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
+            <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
+          </div>
+          <div id="csmBody"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
       <details class="acc" id="accCoachGaps">
         <summary>
           <span class="acc-title">נושאים שחסרים למנטור</span>
@@ -10841,6 +10931,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- פגישת "הצלחה ראשונה" עם סוכן/ת: אבחון, צ'ק-ליסט, פקודות ומשוב.
+     התוכן נבנה ב-csmPaintSession() ב-assets/crm-csm.js -->
+<div class="pm-overlay" id="csmSessionModal" role="dialog" aria-modal="true" aria-labelledby="csmSessionTitle" style="display:none">
+  <div class="pm-card csm-session-card">
+    <div class="pm-title" id="csmSessionTitle">פגישת הצלחה ראשונה</div>
+    <div id="csmSessionBody"></div>
+    <datalist id="csmFbTitles"></datalist>
+    <div class="pm-actions csm-session-actions">
+      <button type="button" class="btn btn-ghost" id="csmSessionCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="csmSessionSave">שמירת הפגישה</button>
+    </div>
+  </div>
+</div>
+
 <!-- רמת השיתוף של נכס או של לקוח/ה. התוכן נבנה ב-openShareLevelModal() ב-assets/crm.js -->
 <div class="pm-overlay" id="shareLevelModal" role="dialog" aria-modal="true" aria-labelledby="shareLevelTitle" style="display:none">
   <div class="pm-card">
@@ -10902,6 +11006,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
 <script src="assets/crm-onboarding.js"></script>
+<!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
+     וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
+<script src="assets/crm-csm.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->

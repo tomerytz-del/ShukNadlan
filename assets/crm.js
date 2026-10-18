@@ -25945,6 +25945,7 @@ const NAV_GROUPS = [
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
+    { acc:'accCsm',           label:'הטמעת סוכנים',   icon:'user',    tab:'admin' },
     { acc:'accCoachGaps',     label:'חסר למנטור',     icon:'article', tab:'admin' },
     { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
