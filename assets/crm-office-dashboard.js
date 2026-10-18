@@ -68,7 +68,6 @@ const odState = {
   search: '',
   busy: false,
   loadedFor: null,     // מפתח התקופה של הנתונים שבזיכרון
-  coach: undefined,    // הסיכום השבועי האחרון: undefined = טרם נטען, null = אין
 };
 
 try{
@@ -459,7 +458,7 @@ async function loadOfficeDashboard(force){
   if (!force && odState.data && odState.loadedFor === key){ renderOfficeDashboard(); return; }
   if (odState.busy) return;
   odState.busy = true;
-  if (odState.coach === undefined) loadOfficeCoach();
+  if (coachState.office === undefined) coachLoad('office');
   if (!odState.data) host.innerHTML = odSkeleton();
   else host.classList.add('od-refreshing');
   const range = odPeriodRange(key);
@@ -480,44 +479,11 @@ async function loadOfficeDashboard(force){
   renderOfficeDashboard();
 }
 
-/* ‏הסיכום השבועי של מאמן ה-AI (office-coach). נטען בנפרד ובלי לחכות לו:
-   הוא לא תלוי בתקופה שנבחרה, ו-RLS מחזיר רק את המשרד של המנהל/ת. כשל
-   כאן לא מפיל את הדאשבורד - הכרטיס פשוט לא מוצג. ‏docs/office-coach.md */
-async function loadOfficeCoach(){
-  odState.coach = null;
-  const { data, error } = await sb.from('office_coach_summaries')
-    .select('week_start, summary, created_at')
-    .order('week_start', { ascending: false })
-    .limit(1);
-  if (error){ odState.coach = false; return; }
-  odState.coach = (data && data[0]) || null;
-  if (odState.data) renderOfficeDashboard();
-}
-
-function odCoachHtml(){
-  const c = odState.coach;
-  if (c === false || c === undefined) return '';
-  // שלושת המאמנים נקראים בשמות קבועים (HANDOFF סעיף 6.1): זה של המשרד
-  const head = (sub) => `<div class="od-sec-h"><h2>מאמן AI לבעלי משרדים</h2><p>${sub}</p></div>`;
-  if (!c || !c.summary || !Array.isArray(c.summary.points)){
-    return `<section class="od-sec od-coach">${head('מאמן ה-AI של המשרד')}
-      <p class="od-muted">הסיכום הראשון יגיע ביום ראשון בבוקר: שלוש נקודות על השבוע שעבר, מה השתפר, מה נתקע ומה כדאי לעשות השבוע.</p></section>`;
-  }
-  const s = c.summary;
-  const weekEnd = new Date(c.week_start + 'T00:00:00');
-  weekEnd.setDate(weekEnd.getDate() - 1);
-  const weekFrom = new Date(weekEnd); weekFrom.setDate(weekFrom.getDate() - 6);
-  const sub = 'מאמן ה-AI · השבוע ' + odRangeLabel({ from: odIso(weekFrom), to: odIso(weekEnd) }) +
-    ' · נכתב אוטומטית מהמספרים, כדאי לבדוק לפני שפועלים';
-  return `<section class="od-sec od-coach">${head(escapeHtml(sub))}
-    <p class="od-coach-hl">${escapeHtml(s.headline || '')}</p>
-    <div class="od-advice">${s.points.slice(0, 3).map((p, i) => `
-      <article class="od-tipcard${i === 0 ? ' p1' : ''}">
-        ${p.owner ? `<div class="top"><div><div class="owner">מוביל/ה: ${escapeHtml(p.owner)}</div></div></div>` : ''}
-        <h4>${escapeHtml(p.title || '')}</h4>
-        <p>${escapeHtml(p.body || '')}</p>
-      </article>`).join('')}</div></section>`;
-}
+/* ‏מאמן המשרד (office-coach): הכרטיס המשותף של שלושת המאמנים, ב-
+   assets/crm-coach.js. נטען בנפרד ובלי לחכות לו - הוא לא תלוי בתקופה
+   שנבחרה, ו-RLS מחזיר רק את המשרד של המנהל/ת. כשל כאן לא מפיל את
+   הדאשבורד: הכרטיס פשוט לא מוצג. ‏docs/coaches.md */
+coachRerender.office = () => { if (odState.data) renderOfficeDashboard(); };
 
 function odSkeleton(){
   return '<div class="od" aria-busy="true"><div class="od-sk od-sk-hero"></div>' +
@@ -565,7 +531,7 @@ function renderOfficeDashboard(){
     ${odBrandBar(data, range, picked)}
     ${odHero(full, view, data, range, picked)}
     ${odKpis(view, range)}
-    ${odCoachHtml()}
+    ${coachCardHtml('office')}
     ${odPendingHtml(raw)}
     ${odTeamsHtml(raw)}
     <section class="od-grid">
@@ -619,7 +585,7 @@ function renderOfficeDashboard(){
           <p>לידים לפי ערוץ, כמה קיבלו מענה וכמה הגיעו לפגישה או סיור. כל המשרד, בלי קשר לסינון.</p></div>
         <div class="od-tablewrap">${odSourcesHtml(data.lead_sources || [])}</div>
       </div>
-      <div class="od-card">
+      <div class="od-card" id="odExpiring">
         <div class="od-card-h"><h3>בלעדיות שפוקעות בקרוב</h3>
           <p>בלעדיות שמסתיימות ב-30 הימים הקרובים. כדאי לחדש או לעדכן מחיר לפני שהנכס עובר למתחרה.</p></div>
         <div class="od-tablewrap">${odExpiringHtml(data.expiring || [], full.agents)}</div>

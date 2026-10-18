@@ -3525,6 +3525,56 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .od-top-t small{font-size:.78rem;color:var(--od-muted)}
   .od-top-v{flex-shrink:0;font-weight:800;font-variant-numeric:tabular-nums}
 
+  /* ---------- שלושת מאמני ה-AI (assets/crm-coach.js, docs/coaches.md) ----------
+     כרטיס כהה אחד לשלושתם (design/CoachCard.dc.html): כותרת, סיכום, צ'יפ
+     החוזקה והפוקוס, ועד שלושה צעדים לבנים עם "בוצע" וכפתור. */
+  .coach{--coach-bg:#13235B;--coach-line:#34457E;--coach-soft:#C3CCE6;--coach-gold:#E0B84A;
+         background:var(--coach-bg);color:#fff;border-radius:22px;padding:22px;margin:0 0 18px;
+         display:flex;flex-direction:column;gap:14px}
+  .coach.is-compact{padding:16px}
+  .coach-head{display:flex;align-items:flex-start;gap:12px}
+  .coach-ico{flex-shrink:0;width:44px;height:44px;border-radius:14px;background:var(--coach-gold);color:var(--coach-bg);
+             display:inline-flex;align-items:center;justify-content:center}
+  .coach-head > div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .coach-head h2{margin:0;font-family:inherit;font-size:1.15rem;font-weight:800;color:#fff}
+  .coach-sub{font-size:.8rem;color:var(--coach-soft)}
+  .coach-hl{margin:0;font-size:1.05rem;font-weight:800;line-height:1.45}
+  .coach-sum{margin:0;font-size:1rem;line-height:1.6;font-weight:500}
+  .coach-empty{margin:0;font-size:.92rem;line-height:1.6;color:var(--coach-soft)}
+  .coach-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .coach-chip{border-radius:10px;padding:5px 10px;font-size:.8rem;font-weight:800}
+  .coach-chip.is-strength{background:#1D3A2E;color:#9FE3BE}
+  .coach-chip.is-focus{background:#3D2A14;color:#F5C98A}
+  .coach-acts-h{font-size:.8rem;font-weight:800;color:var(--coach-soft)}
+  .coach-acts{display:flex;flex-direction:column;gap:10px}
+  .coach-act{background:#fff;color:var(--nv-ink);border-radius:16px;padding:14px;display:flex;gap:12px;align-items:flex-start}
+  .coach-act.is-done{opacity:.62}
+  .coach-act.is-done .coach-act-top b{text-decoration:line-through}
+  .coach-check{flex-shrink:0;width:28px;height:28px;margin-top:2px;border-radius:50%;border:2px solid #B9C2D3;background:#fff;
+               color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+  .coach-check[aria-pressed="true"]{background:#15803D;border-color:#15803D}
+  .coach-act-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .coach-act-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .coach-act-top b{font-size:1rem;font-weight:800}
+  .coach-act-body p{margin:0;font-size:.88rem;line-height:1.5;color:#4A5468}
+  .coach-prio{font-size:.74rem;font-weight:800;border-radius:6px;padding:2px 7px}
+  .coach-prio.is-high{background:#FDE7D9;color:#9A3412}
+  .coach-prio.is-mid{background:#FFF1C7;color:#7A5300}
+  .coach-prio.is-win{background:var(--nv-accent-soft);color:var(--nv-accent-ink)}
+  .coach-prio.is-done{background:#E6F4EC;color:#166534}
+  .coach-act-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+  .coach-impact{font-size:.8rem;font-weight:800;color:#166534}
+  .coach-cta{min-height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--nv-accent);color:#fff;
+             font-size:.86rem;font-weight:800;cursor:pointer}
+  .coach-cta:hover{background:var(--nv-accent-h)}
+  .coach-cta.is-ghost{background:transparent;border:1px solid var(--coach-line);color:#fff;align-self:flex-start}
+  .coach-check:focus-visible,.coach-cta:focus-visible{outline:2px solid var(--coach-gold);outline-offset:2px}
+  .coach-agenda{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--coach-line);padding-top:12px}
+  .coach-agenda ol{margin:0;padding-inline-start:20px;display:flex;flex-direction:column;gap:4px;font-size:.9rem;line-height:1.5}
+  .coach-note{margin:0;font-size:.74rem;color:var(--coach-soft)}
+  .td-agent.is-focus{border-color:var(--nv-accent);box-shadow:0 0 0 3px var(--nv-accent-soft)}
+  @media(max-width:600px){.coach{padding:16px;border-radius:18px}}
+
   /* ==========================================================================
      מדריך ההתחלה
      --------------------------------------------------------------------------
@@ -10463,6 +10513,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/agency-markets.js"></script>
 <script src="assets/contact-import.js"></script>
 <script src="assets/crm-office.js"></script>
+<!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
+     שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
+<script src="assets/crm-coach.js"></script>
 <script src="assets/crm-office-dashboard.js"></script>
 <script src="assets/crm-my-dashboard.js"></script>
 <!-- הצוות שלי: דאשבורד הצוות, לידים בצוות והסוכנים בצוות (docs/team-dashboard.md).

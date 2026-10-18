@@ -72,6 +72,10 @@ const MD_AGR_KINDS = {
 };
 
 const mdState = { period: 'q_cur', data: null, busy: false, loadedFor: null };
+
+/* מאמן סוכני הנדל״ן: הכרטיס המשותף (assets/crm-coach.js). פרטי כמו הדף
+   הזה - ה-RLS מחזיר רק את הסיכום של הסוכן/ת עצמו/ה. ‏docs/coaches.md */
+coachRerender.agent = () => { if (mdState.data) renderMyDashboard(); };
 try{
   const saved = localStorage.getItem(MD_PERIOD_KEY);
   if (MD_PERIODS.some(p => p.key === saved)) mdState.period = saved;
@@ -310,6 +314,7 @@ async function loadMyDashboard(force){
   if (!force && mdState.data && mdState.loadedFor === key){ renderMyDashboard(); return; }
   if (mdState.busy) return;
   mdState.busy = true;
+  if (coachState.agent === undefined) coachLoad('agent');
   if (!mdState.data) host.innerHTML = odSkeleton();
   else host.classList.add('od-refreshing');
   const range = odPeriodRange(key);
@@ -398,6 +403,8 @@ function renderMyDashboard(){
         </div>
       </div>
     </header>
+
+    ${coachCardHtml('agent')}
 
     <section class="od-sec">
       <div class="od-sec-h"><h2>מה יקדם אותך היום</h2><p>ממוין לפי דחיפות · כל משימה פותחת את הפריט עצמו</p></div>
