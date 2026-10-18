@@ -72,6 +72,7 @@ const SDEROT = [31.525, 34.596];
 const NETIVOT = [31.42, 34.59];
 const OFAKIM = [31.315, 34.62];
 const BEER_SHEVA = [31.252, 34.791];
+const JERUSALEM = [31.778, 35.205];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -329,6 +330,13 @@ check("הגבול עם שדרות: 34.70 → שדרות, 34.7001 → באר שב
 check("הגבול עם קריית גת: 31.4999 → באר שבע, 31.50 → קריית גת (34.80)",
   reg.locate(31.4999, 34.80)?.slug === "beer-sheva" && reg.locate(31.50, 34.80)?.slug === "kiryat-gat");
 check("דימונה אינה בתיבה של באר שבע (החלטה)", !reg.contains(reg.bySlug("beer-sheva")!, 31.069, 35.033));
+check("ירושלים → jerusalem", reg.locate(JERUSALEM[0], JERUSALEM[1])?.slug === "jerusalem");
+check("מבשרת ציון → jerusalem", reg.locate(31.80, 35.15)?.slug === "jerusalem");
+check("צור הדסה → jerusalem", reg.locate(31.72, 35.10)?.slug === "jerusalem");
+check("רמות (צפון העיר, 31.87) → jerusalem", reg.locate(31.87, 35.19)?.slug === "jerusalem");
+check("הגבול עם מודיעין: 31.8599 → ירושלים, 31.86 → מודיעין (35.05)",
+  reg.locate(31.8599, 35.05)?.slug === "jerusalem" && reg.locate(31.86, 35.05)?.slug === "modiin");
+check("בית שמש אינה בתיבה של ירושלים (שוק נפרד)", !reg.contains(reg.bySlug("jerusalem")!, 31.75, 34.99));
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
 check("קואורדינטה פסולה → אין", reg.locate(NaN, 35) === null);
