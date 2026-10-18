@@ -105,13 +105,17 @@
     return membersPromise;
   }
 
-  /** ‏"exclude" כמחרוזת `or`, כדי שקורא שיש לו `or` משלו יאחד אותם לעץ אחד. */
+  /** ‏"exclude" כמחרוזת `or`, כדי שקורא שיש לו `or` משלו יאחד אותם לעץ אחד.
+   *  לפי העמודה המחושבת `market_slug(properties)` ולא לפי רשימת הערים של
+   *  השווקים האחרים: הרשימה ישבה בכתובת, גדלה עם כל שוק, וב-617 ערים (כ-23KB)
+   *  השרת ענה 400 ודף הבית נפל לנכסי הדמו (18.10.2026,
+   *  ‏20270530090000_properties_market_slug.sql). לכן - לשאילתות properties בלבד. */
   function orFilter(s) {
     if (!s || s.mode !== 'exclude') return null;
-    return 'city_id.is.null,city_id.not.in.(' + s.ids.join(',') + ')';
+    return 'market_slug.is.null,market_slug.eq.' + s.slug;
   }
 
-  /** מחיל על שאילתת supabase-js שאין בה `or` אחר. */
+  /** מחיל על שאילתת properties של supabase-js שאין בה `or` אחר. */
   function apply(query, s) {
     if (!s) return query;
     if (s.mode === 'include') return query.in('city_id', s.ids);
