@@ -10783,7 +10783,7 @@ async function loadTeam(agencyId, callerId){
   // ‏user_id ו-email נטענים כדי להבחין בין סוכן/ת שכבר נכנס/ה לבין הזמנה
   // שממתינה. בלי ההבחנה הזו כרטיס תקוע נראה ברשימה בדיוק כמו כרטיס פעיל,
   // ואף אחד לא יודע שהמייל לא הגיע ליעד.
-  // ‏team_id ו-is_active_agent (‏20270525130000, docs/teams.md) - עם נפילה
+  // ‏team_id ו-is_active_agent (‏20270601130000, docs/teams.md) - עם נפילה
   // לשאילתה הקודמת בדקה שבין פרסום ה-HTML לריצת המיגרציה
   const MEMBER_COLS = 'id, display_name, role, tier, active, license_number, user_id, email, phone, released_at';
   let [{ data: members, error }, teamsRes] = await Promise.all([
