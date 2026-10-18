@@ -321,7 +321,7 @@ check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום",
 check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה", "שעות זהב", "לצפות - ", "אלה דוגמאות", "מחוץ למערכת", "בהסכמתם"].every((h) => MANAGER_PLAYBOOK.includes(h))
   && !askSystemPrompt("agent").includes("משחקן למאמן") && askSystemPrompt("team").includes("משחקן למאמן") && askSystemPrompt("office").includes("משחקן למאמן"));
 check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי מקף ארוך", !/רימקס|RE\/MAX/i.test(MANAGER_PLAYBOOK) && !/[–—―]/.test(MANAGER_PLAYBOOK));
-check("ידע: ניהול משרד רק למנטור המשרד", ["שרשרת פיקוד", "ישיבת מנהלים שבועית", "הסוכנים המייצרים", "תוכנית שיפור", "מחוץ למערכת", "שואלים"].every((h) => OFFICE_PLAYBOOK.includes(h))
+check("ידע: ניהול משרד רק למנטור המשרד", ["שרשרת פיקוד", "ישיבת מנהלים שבועית", "הסוכנים המייצרים", "תוכנית שיפור", "מחוץ למערכת", "שואלים", "ישיבת ההנהלה השבועית", "מיומנות ניהולית"].every((h) => OFFICE_PLAYBOOK.includes(h))
   && askSystemPrompt("office").includes("שרשרת פיקוד") && !askSystemPrompt("team").includes("שרשרת פיקוד") && !askSystemPrompt("agent").includes("שרשרת פיקוד")
   && !/[–—―]/.test(OFFICE_PLAYBOOK) && !/\p{Extended_Pictographic}/u.test(OFFICE_PLAYBOOK));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
