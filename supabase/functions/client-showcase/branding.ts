@@ -13,6 +13,8 @@
 // בדוקה — כלומר מוסתרת. רק `NO` מפורש מהמודל פותח אותה.
 // ============================================================================
 
+import { geminiRow, logAiUsage } from "../_shared/ai-usage.ts";
+
 const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-lite";
 
 export const BRANDING_MODEL = VISION_MODEL;
@@ -58,6 +60,7 @@ export async function detectBranding(
 
   // deno-lint-ignore no-explicit-any
   const out: any = await res.json();
+  logAiUsage(geminiRow("showcase_branding", VISION_MODEL, out?.usageMetadata));
   const text = ((out?.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>)
     .map((p) => p?.text ?? "")
     .join(" ")

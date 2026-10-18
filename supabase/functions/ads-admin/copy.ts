@@ -18,6 +18,7 @@
 // הקמפיין (שלב 5).
 // ============================================================================
 
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { factsText, MarketingCopyAuthError, noLongDash, PROPERTY_COPY_RULES } from "../_shared/marketing-copy.ts";
 
 export type Audience = "property" | "platform";
@@ -241,6 +242,7 @@ export async function generateVariants(opts: {
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
 
   const data = await res.json();
+  logAiUsage(anthropicRow("ads_copy", data?.model || opts.model, data?.usage));
   const text = (data?.content ?? [])
     .filter((b: any) => b?.type === "text")
     .map((b: any) => b.text)

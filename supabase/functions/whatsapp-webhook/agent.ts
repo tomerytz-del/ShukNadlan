@@ -1,5 +1,6 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
@@ -6651,6 +6652,9 @@ export async function runAgentTurn(opts: {
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
         `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
     );
+    // ולפירוט העלות בפאנל "עלויות" (‏ai_usage_log) - שורה לכל קריאה בתור
+    logAiUsage(anthropicRow("gabriela_agent", response.model || MODEL, response.usage,
+      { agency_id: agent.agency_id, agent_id: agent.id }));
 
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
