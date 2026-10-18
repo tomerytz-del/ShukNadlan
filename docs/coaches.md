@@ -194,7 +194,7 @@ select day, count(*) filter (where model <> 'copy') calls, count(*) filter (wher
 | הפונקציה | `supabase/functions/coach-ask/index.ts`, ‏`verify_jwt = true` |
 | הפרומפט | `askSystemPrompt(kind)` ב-`_shared/coach/prompts.ts` |
 | מה יוצא ומה חוזר | `summaryForAsk`, ‏`cleanQuestion`, ‏`cleanAnswer` ב-`_shared/coach/payload.ts` |
-| היומן והמכסה | `supabase/migrations/20270603100000_coach_ask.sql` |
+| היומן והמכסה | `supabase/migrations/20270608100000_coach_ask.sql` |
 | הכרטיס | `coachAskHtml` ו-`coachAskSend` ב-`assets/crm-coach.js` |
 
 - **מי שואל/ת נגזר/ת מה-JWT**, לא מה-body. ההרשאה לכל מאמן היא אותה הרשאה של
@@ -269,7 +269,7 @@ curl -X POST ".../office-coach?kind=team&team=<uuid>&dry_run=1" -H "Authorizatio
 `dashboard_load.mjs`: בלי שינוי בעלייה (97 ו-137 בקשות), כי הסיכומים נטענים
 רק כשהדאשבורד נפתח.
 
-"שאל את המאמן" (`20270603100000`, פעמיים על Postgres מקומי): סוכן/ת רואה רק את
+"שאל את המאמן" (`20270608100000`, פעמיים על Postgres מקומי): סוכן/ת רואה רק את
 השאלות שלו/ה, ל-`authenticated` אין `insert` ואין `coach_ask_count_today`, ל-`anon`
 אין כלום, והספירה לא כוללת את אתמול. בדפדפן, ב-390px וב-1280px: שאלה מוצעת נשלחת
 ונענית עם מספר השאלות שנשארו, המכסה מוצגת בעברית, שאלה של שני תווים לא נשלחת, ואין

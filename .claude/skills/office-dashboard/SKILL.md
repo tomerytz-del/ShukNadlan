@@ -1,6 +1,6 @@
 ---
 name: office-dashboard
-description: עבודה על דאשבורד המשרד, הדשבורד האישי ומאמן ה-AI השבועי בריפו של שוק נדל״ן - office_dashboard והליבה _office_dashboard_core, my_dashboard, _agent_period_stats ועזרי _office_*_rows, זמן התגובה (leads.first_response_at, mark_lead_responded, כפתורי "חיוג"/"וואטסאפ" בכרטיס הליד), יעדים (agent_targets), ממוצע המשרד שנעלם מתחת לשלושה סוכנים, ושלושת מאמני ה-AI (office-coach עם kind=agent|team|office, office/team/agent_coach_summaries, compactPeriod, compactAgent, CTA_KINDS, assets/crm-coach.js). Use when adding or changing a metric in either dashboard, when the office and personal dashboards show different numbers for the same agent, when response time looks wrong or "ללא מענה מתועד", when adding a new way to contact a lead, when changing what any of the three coaches sends to Claude, which buttons it may suggest or which model it uses, when touching assets/crm-office-dashboard.js / crm-my-dashboard.js / crm-coach.js, or when a dashboard query gets slow.
+description: עבודה על דאשבורד המשרד, הדשבורד האישי ומאמן ה-AI השבועי בריפו של שוק נדל״ן - office_dashboard והליבה _office_dashboard_core, my_dashboard, _agent_period_stats ועזרי _office_*_rows, זמן התגובה (leads.first_response_at, mark_lead_responded, כפתורי "חיוג"/"וואטסאפ" בכרטיס הליד), יעדים (agent_targets), ממוצע המשרד שנעלם מתחת לשלושה סוכנים, ושלושת מאמני ה-AI (office-coach עם kind=agent|team|office, office/team/agent_coach_summaries, compactPeriod, compactAgent, CTA_KINDS, assets/crm-coach.js), ושאלה חופשית למאמן (coach-ask, coach_questions, COACH_ASK_DAILY). Use when adding or changing a metric in either dashboard, when the office and personal dashboards show different numbers for the same agent, when response time looks wrong or "ללא מענה מתועד", when adding a new way to contact a lead, when changing what any of the three coaches sends to Claude, which buttons it may suggest or which model it uses, when touching the "ask the coach" box or the coach-ask function, when touching assets/crm-office-dashboard.js / crm-my-dashboard.js / crm-coach.js, or when a dashboard query gets slow.
 ---
 
 # דאשבורד המשרד, הדשבורד האישי והמאמן השבועי
@@ -107,6 +107,27 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   מה שמשתנה עובר בהודעת המשתמש.
 - `office_coach_due()` מסננת משרדים בלי תנועה ב-30 יום - כל קריאה עולה כסף.
 - העלות האמיתית: `input_tokens`/`output_tokens` ב-`office_coach_summaries`.
+
+## ‏4א. "שאל את המאמן" (`coach-ask`)
+
+- **תשובה בלבד.** אין כלים, אין `cta`, והמודל לא מבצע כלום. מי שמוסיף/ה כאן
+  כלי או כפתור הופך/ת את השדה ממקום לשאול למקום לפעול - זו החלטה של תומר, לא
+  שינוי קוד.
+- **הקורא/ת מה-JWT בלבד** (`verify_jwt = true`), וההרשאה לכל `kind` היא אותה
+  הרשאה של הסיכום שלו: `agent` עצמו/ה, `team` רק `agency_teams.lead_member_id`,
+  ‏`office` רק `role = 'manager'`. kind חדש מקבל בדיקה ב-`loadContext` לפני
+  שהוא מקבל נתונים.
+- **מה יוצא למודל עובר באותו צמצום של הסיכום** (`compactPeriod`,
+  ‏`compactAgent`, ‏`summaryForAsk` ב-`_shared/coach/payload.ts`). לא מעבירים
+  שורות גולמיות "כי השאלה ספציפית" - מנהל/ת צוות לעולם לא מקבל/ת טלפון של ליד
+  או את ההודעה החופשית, גם לא דרך שאלה.
+- **המכסה נשענת על היומן.** ‏`coach_ask_count_today` סופרת שורות ב-
+  ‏`coach_questions` לפי היום בישראל, ולכן תשובה שלא נרשמה ביומן אינה נספרת.
+  מי שמשנה את סדר הכתיבה (תשובה ואז יומן) שומר/ת שהיומן נכתב לכל תשובה ששולמה.
+- הסודות: `COACH_ASK_DAILY` (ברירת מחדל 10) ו-`COACH_ASK_MODEL`. קוד שגיאה חדש
+  מהפונקציה מקבל שורה ב-`RULES` של `assets/friendly-error.js`.
+- הבדיקה: `node --experimental-strip-types scripts/office_coach_test.ts` (כולל
+  `cleanQuestion`, ‏`cleanAnswer` והפרומפט). הפרטים: `docs/coaches.md`.
 
 ## ‏5. ביצועים
 
