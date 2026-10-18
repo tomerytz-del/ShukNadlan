@@ -14,8 +14,8 @@
 - **הפאנל:** `<details class="acc" id="accOfficeDashboard">` ב-`crm.html`,
   ראשון בתוך `#managerSection`. הישיבה שם היא מה שמסתיר אותו מסוכנים, ולכן
   אין בדיקת תפקיד נוספת בדפדפן.
-- **הניווט:** ראשון בקבוצה "ניהול וביצועים" ב-`NAV_GROUPS`
-  (`assets/crm.js`). ‏`check_crm_nav.py` נכשל אם אחד מהשניים חסר.
+- **הניווט:** ראשון בקבוצה "ניהול המשרד" ב-`NAV_GROUPS`
+  (`assets/crm.js`, ‏[`crm-navigation.md`](crm-navigation.md)). ‏`check_crm_nav.py` נכשל אם אחד מהשניים חסר.
 - **הקוד:** `assets/crm-office-dashboard.js`, נטען לפני `crm.js` ומגדיר
   פונקציות בלבד. העיצוב מוטבע ב-`crm.html` תחת "דאשבורד משרד" (‏`.od-*`),
   כמו שאר ה-CSS של ה-CRM.

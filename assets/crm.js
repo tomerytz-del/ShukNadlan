@@ -26222,6 +26222,17 @@ const DASH_ICONS = {
   calendar:'<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M16 2.5v4"/><path d="M8 2.5v4"/><path d="M3 10h18"/><path d="m9 15 2 2 4-4"/>',
   store:'<path d="M3 9 4.5 4h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  /* הניווט החדש (docs/crm-navigation.md): המיני-סייט, יצירה, חיפוש, עזרה,
+     סגירה, כיווץ והרחבה של הסרגל, וקידום נכס בגיליון היצירה */
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17h.01"/>',
+  close:'<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
+  railClose:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m8 10 2 2-2 2"/>',
+  railOpen:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m10 10-2 2 2 2"/>',
+  megaphone:'<path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+  upload:'<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
 };
 
 function dashIcon(name, cls){
@@ -26249,9 +26260,14 @@ function gotoSection(accId, focusId, opts){
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
   // כאן ולא אצל הקוראים, כי הקוראים הם גם התראות הפעמון, גם data-goto
   // וגם כרטיסי המדדים.
+  navActive = accId;
   if (navFilterActive()){
     const tab = NAV_TAB_OF.get(accId) || 'more';
     if (tab !== navTab) setNavTab(tab, { silent:true });
+    else { renderBottomNav(); renderSideNav(); }
+  } else {
+    // בדסקטופ אין מקטע להחליף, אבל השורה המודגשת והקבוצה הפתוחה בסרגל כן
+    renderSideNav();
   }
   const el = openAcc(accId);
   if (!el) return;
@@ -26297,80 +26313,87 @@ document.addEventListener('click', (e)=>{
 const NAV_HOME = '__home';
 const NAV_ADMIN_HOME = '__adminHome';
 
-/* שלוש קבוצות בסרגל, בסדר חשיבות: ליבת העבודה (מה שעושים כל יום), הזירה
-   (מה שמגיע מבחוץ — לידים לקנייה, שותפים, מידע על האזור), והניהול (מה
-   שבודקים פעם בשבוע). ההגדרות האישיות אינן בסרגל: הן קבוצה רביעית עם
-   placement:'profile', שמוצגת רק בתפריט הפרופיל שמתחת לאווטאר (ראו
-   buildProfilePanel). ארבע-עשרה שורות של "פרטי הסוכן/ת" ו"סגירת החשבון"
-   מתחת ל"הנכסים שלי" היו מה שדחף את הסרגל לגלילה, והן לא עבודה יומית.
+/* ארבע קבוצות בסרגל (docs/crm-navigation.md): העבודה היומית, ההזדמנויות
+   (מה שמגיע מבחוץ - התאמות, לידים לקנייה, שותפים, מידע על האזור), הצמיחה
+   (הביצועים שלי והדף שלי), וניהול המשרד למנהל/ת בלבד. ההגדרות האישיות אינן
+   בסרגל: הן קבוצה עם placement:'profile', שמוצגת רק בתפריט הפרופיל (ראו
+   buildProfilePanel), ושם הן מקובצות לפי section.
+
+   ‏tab הוא ה"מקטע" במובייל - איזה אקורדיונים מוצגים יחד על המסך - ולא כפתור
+   בסרגל התחתון. עד שלב הניווט החדש אלה היו אותו דבר; היום בסרגל יש חמישה
+   כפתורים (בית, לידים, +, חיפוש, אני) והמקטעים נשארו כמו שהיו, כי עליהם
+   נשען כל קישור עמוק (gotoSection ← NAV_TAB_OF). מקטע שאין לו כפתור פשוט
+   מוצג בלי כפתור מודגש.
 
    ‏also: קטגוריות שנפתחות יחד עם הראשית תחת שורה אחת בתפריט. "שותף איתי"
    ו"משרדי שת״פ" הם שני צדדים של אותו שיתוף, והמידע התכנוני והעסקאות באזור
-   עונים על אותה שאלה — מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
-   בעמוד (ובאותה לשונית), רק הניווט אליהן אוחד. */
+   עונים על אותה שאלה - מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
+   בעמוד (ובאותו מקטע), רק הניווט אליהן אוחד. */
+const NAV_MINISITE = '__minisite';
+
 const NAV_GROUPS = [
-  /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: קודם הנכסים, אחריהם
-     הלידים והלקוחות, ואז ההתאמות, ההסכמים והמשימות של היום. */
-  { key:'core', label:'ליבת העבודה', icon:'briefcase', items:[
-    /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
-       הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
-    { acc:NAV_HOME,              label:'דשבורד ראשי',       icon:'home',     tab:'home' },
-    { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
-    /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
-       מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
-       בתוך חנות הלידים (ראו #shelfTabs). */
-    { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
-    { acc:'accClients',          label:'קובץ לקוחות',       icon:'users',    tab:'clients' },
-    { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
-    /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
+  { key:'daily', label:'עבודה יומית', icon:'briefcase', items:[
+    /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן בתפריט הבורגר
+       הוא מצויר ככפתור הפוך (ראו .menu-item.is-home) */
+    { acc:NAV_HOME,              label:'דף הבית',           icon:'home',     tab:'home' },
+    { acc:'accLeads',            label:'לידים',             icon:'inbox',    tab:'leads' },
+    { acc:'accClients',          label:'לקוחות',            icon:'users',    tab:'clients' },
+    { acc:'accProperties',       label:'נכסים',             icon:'building', tab:'props' },
+    /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
-    /* עד 2027-01 זה היה יעד מדומה שגלל לבלוק "דורש טיפול מיידי". היום זו
-       קטגוריה אמיתית - הפגישות והמשימות (docs/agent-agenda.md) - והבלוק
-       ההוא ממשיך להופיע בדף הבית, עם כרטיס משלה. ‏tab:'clients' ולא 'home':
-       בסינון המובייל לשונית הבית אינה מציגה קטגוריות בכלל. */
+    /* ‏tab:'clients' ולא 'home': בסינון המובייל המקטע של הבית אינו מציג
+       קטגוריות בכלל (docs/agent-agenda.md) */
     { acc:'accAgenda',           label:'יומן ומשימות',      icon:'calendar', tab:'clients' },
   ]},
-  { key:'market', label:'מודיעין וזירת שיתופי פעולה', short:'מודיעין ושיתופים', icon:'layers', items:[
+  { key:'opps', label:'הזדמנויות', icon:'target', items:[
+    { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
+    /* מדפי המשכנתאות ומחפשי הדירה הם מגירות בתוך חנות הלידים (#shelfTabs) */
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
-    { acc:'accSharedWithMe',     label:'שיתופי פעולה ומשרדים', icon:'handshake', tab:'props',
+    { acc:'accSharedWithMe',     label:'שיתופי פעולה',      icon:'handshake', tab:'props',
       also:['accSharePartners'] },
     { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
       also:['accDealsLookup'] },
   ]},
-  { key:'manage', label:'ניהול וביצועים', icon:'chart', items:[
-    /* לשעבר "דוחות וביצועים": הגרף נשאר בפנים, ומעליו הדשבורד האישי
-       (assets/crm-my-dashboard.js). לכל סוכן/ת, ולכן מחוץ ל-#managerSection */
+  { key:'grow', label:'צמיחה', icon:'chart', items:[
+    /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
+       לכל סוכן/ת, ולכן מחוץ ל-#managerSection */
     { acc:'accMyDashboard', label:'הדשבורד שלי', icon:'chart', tab:'more' },
-    /* התמונה של כל המשרד. יושב ב-#managerSection, ולכן navAccVisible מציג
-       אותו למנהל/ת משרד בלבד (assets/crm-office-dashboard.js) */
-    { acc:'accOfficeDashboard', label:'דאשבורד משרד', icon:'gauge', tab:'more' },
-    { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
-    /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
-       למנהל/ת משרד או זכיין/ית — בלי לשכפל כאן את בדיקת התפקיד */
-    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
-    // גם הוא ב-#managerSection: מנהל/ת משרד בלבד, בלי בדיקת תפקיד כפולה כאן
-    { acc:'accOfficeCalls', label:'שיחות המשרד', icon:'phone', tab:'more' },
+    /* אינו קטגוריה: דף הסוכן/ת הציבורי, בלשונית חדשה (navGo). "קידום ושיווק"
+       מהעיצוב אינו כאן - אין לו קטגוריה, והקידום עצמו יושב בכרטיס הנכס
+       ובגיליון היצירה. */
+    { acc:NAV_MINISITE,     label:'המיני-סייט שלי', icon:'globe', tab:'more' },
   ]},
-  /* ההגדרות — מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
-     מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל.
-     היא נשארת כאן ולא ברשימה נפרדת כדי שהלשוניות, navAccVisible ובדיקת
-     ‏check_crm_nav ימשיכו לראות מקור אמת אחד. */
+  /* כל הקבוצה יושבת ב-#managerSection / #managerBrandingSection, ולכן
+     navAccVisible מציג אותה למנהל/ת משרד בלבד - בלי לשכפל כאן את בדיקת
+     התפקיד. ‏accBranding עבר לכאן מתפריט הפרופיל: עיצוב דף המשרד הוא ניהול
+     ולא הגדרה אישית. */
+  { key:'manage', label:'ניהול המשרד', icon:'gauge', items:[
+    { acc:'accOfficeDashboard', label:'דאשבורד המשרד', icon:'gauge', tab:'more' },
+    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
+    { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
+    { acc:'accOfficeCalls', label:'שיחות המשרד', icon:'phone', tab:'more' },
+    { acc:'accBranding', label:'מיתוג דף המשרד', icon:'brush', tab:'more' },
+  ]},
+  /* ההגדרות - מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
+     מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל,
+     מקובצת לפי section (PROFILE_SECTIONS). היא נשארת כאן ולא ברשימה נפרדת
+     כדי שהמקטעים, navAccVisible ובדיקת check_crm_nav ימשיכו לראות מקור
+     אמת אחד. */
   { key:'account', label:'הגדרות חשבון', icon:'cog', placement:'profile', items:[
-    { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
-    { acc:'accWallet',        label:'הארנק והטעינות',    icon:'wallet',   tab:'more' },
-    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
-    { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more' },
-    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
-    { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more' },
-    { acc:'accLines',         label:'מספרים וירטואליים',  icon:'phone',    tab:'more' },
-    { acc:'accGcal',          label:'יומן Google',        icon:'calendar', tab:'more' },
-    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
-    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
-    { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more' },
-    /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
-       שכנה של פעולה שעושים כל יום. */
-    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
+    { acc:'accProfile',       label:'פרטים אישיים ורישיון', icon:'user',  tab:'more', section:'account' },
+    { acc:'accWallet',        label:'מנוי וארנק',        icon:'wallet',   tab:'more', section:'account' },
+    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more', section:'work' },
+    { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more', section:'work' },
+    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more', section:'work' },
+    { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more', section:'work' },
+    { acc:'accGcal',          label:'יומן Google',        icon:'calendar', tab:'more', section:'work' },
+    { acc:'accLines',         label:'מספרים וירטואליים',  icon:'phone',    tab:'more', section:'work' },
+    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more', section:'support' },
+    { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more', section:'support' },
+    /* אחרון, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא שכנה של
+       פעולה שעושים כל יום. */
+    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more', section:'support' },
   ]},
   /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
      הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות
@@ -26392,30 +26415,33 @@ const NAV_GROUPS = [
   ]},
 ];
 
-const NAV_TABS = [
-  { key:'home',    label:'ראשי',   icon:'home' },
-  { key:'props',   label:'נכסים',  icon:'building' },
-  { key:'leads',   label:'לידים',  icon:'flame' },
-  { key:'clients', label:'לקוחות', icon:'contact' },
-  { key:'docs',    label:'הסכמים', icon:'sign' },
-  { key:'more',    label:'עוד',    icon:'dots' },
+/* ---------- הסרגל התחתון (מובייל) ----------
+   חמישה כפתורים ולא חמש לשוניות (docs/crm-navigation.md): שניים מציגים מקטע
+   (בית, לידים), ושלושה פותחים שכבה מעל המסך (יצירה, חיפוש, אני). שאר
+   המקטעים - נכסים, לקוחות, הסכמים, "עוד" - לא נעלמו: הם נפתחים מכפתור
+   התפריט בכותרת, מהקיצורים בדף הבית ומהחיפוש, וכל קישור עמוק אליהם עובר
+   כמו קודם דרך gotoSection ← NAV_TAB_OF. */
+const BOTTOM_NAV = [
+  { key:'home',   label:'בית',   icon:'home',   section:'home' },
+  { key:'leads',  label:'לידים', icon:'inbox',  section:'leads' },
+  { key:'create', label:'יצירה', icon:'plus',   layer:'create' },
+  { key:'search', label:'חיפוש', icon:'search', layer:'search' },
+  { key:'me',     label:'אני',   icon:'user',   layer:'me' },
 ];
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
 const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accLicenseAppeals']);
-const NAV_TAB_BADGE = {
-  props:   [],
-  leads:   ['accLeads'],
-  clients: ['accAlerts', 'accAgenda'],
-  /* ‏docs נשארת בלי תגית אדומה בכוונה: המונה שם הוא "ממתינים לחתימה", וזו
-     המתנה ללקוח/ה ולא חוב של הסוכן/ת. */
-  docs:    [],
-  more:    ['accReviews'],
-};
+/* התגיות בנייד. הלידים על כפתור הלידים. מה שהיה מסומן על הלשוניות שנעלמו
+   (התאמות ויומן על "לקוחות", ביקורות על "עוד") עובר לכפתור התפריט בכותרת,
+   שהוא הדרך אליהן עכשיו - אחרת דבר דחוף היה מתחבא מאחורי מקטע בלי כפתור.
+   ‏"הסכמים" נשארת בלי תגית בכוונה: המונה שם הוא "ממתינים לחתימה", וזו
+   המתנה ללקוח/ה ולא חוב של הסוכן/ת. */
+const NAV_LEADS_BADGE = ['accLeads'];
+const NAV_MENU_BADGE  = ['accAlerts', 'accAgenda', 'accReviews'];
 
-/* accId → הלשונית שהוא שייך אליה. קטגוריה שב-also יושבת באותה לשונית
-   כמו הראשית שלה, אחרת במובייל היא הייתה נפתחת בלשונית שאינה על המסך. */
+/* accId → המקטע שהוא שייך אליו. קטגוריה שב-also יושבת באותו מקטע כמו
+   הראשית שלה, אחרת במובייל היא הייתה נפתחת במקטע שאינו על המסך. */
 const NAV_TAB_OF = new Map();
 NAV_GROUPS.forEach(g => g.items.forEach(it => {
   NAV_TAB_OF.set(it.acc, it.tab);
@@ -26429,6 +26455,11 @@ const accCounts = {};
 
 let dashView = 'agent';   // 'agent' | 'admin'
 let navTab   = 'home';
+/* הקטגוריה האחרונה שאליה ניווטו (gotoSection) - השורה המודגשת בסרגל הצד,
+   והקבוצה שלה תמיד פתוחה. בדסקטופ אין מקטעים, ולכן navTab אינו יודע את זה. */
+let navActive = NAV_HOME;
+/* השכבה הפתוחה מעל המסך: 'create' | 'search' | 'me' | null */
+let navLayer = null;
 
 function accCountOf(accId){
   const n = Number(accCounts[accId]);
@@ -26451,6 +26482,7 @@ function navAccVisible(accId){
 function navItemVisible(item){
   if (item.acc === NAV_HOME) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
+  if (item.acc === NAV_MINISITE) return dashView === 'agent' && !!currentAgent;
   // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
   return [item.acc, ...(item.also || [])].some(navAccVisible);
 }
@@ -26467,6 +26499,11 @@ function navItemCount(item){
   return accCountOf(navItemTarget(item));
 }
 
+function navItemIsActive(item){
+  if (navIsHomeItem(item)) return navActive === NAV_HOME;
+  return [item.acc, ...(item.also || [])].includes(navActive);
+}
+
 function navGroupsForView(){
   const admin = dashView === 'admin';
   return NAV_GROUPS
@@ -26479,26 +26516,31 @@ function navReduceMotion(){
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/* ---------- סרגל הצד (דסקטופ) ----------
-   גובה מסך אחד בלי פס גלילה: רשימה בראש (‏.sn-list, גמישה) וכרטיס הארנק
-   נעוץ בתחתית (‏.sn-foot). כך היתרה, הטעינה והיציאה נמצאות תמיד באותה
-   נקודה, בלי לגלול אליהן מתחת לשלוש-עשרה שורות.
+function navBadgeSum(accs){
+  return accs.filter(navAccVisible).reduce((sum, acc) => sum + accCountOf(acc), 0);
+}
 
-   צבע המונה הוא ההבדל בין "יש כאן" ל"מחכה לך": אדום רק ל-NAV_HOT_ACCS
-   (לידים שלא נפתחו, התאמות חדשות, ביקורות), וכל השאר — סך הנכסים, הסכמים,
-   המשימות — בגלולה אפורה ושקטה. */
-/* הקבוצות בסרגל מתקפלות, כמו בתפריט הבורגר: כותרת היא כפתור, והפריטים
-   שלה נפתחים ונסגרים בלחיצה עליה. ברירת המחדל סגורה — שלוש כותרות וכפתור
-   הבית — ומה שנפתח נשמר ב-localStorage תחת מפתח משלו (לא של הבורגר: בטלפון
-   ובמחשב מחפשים דברים אחרים). כך גם אין גלילה בסרגל: שלוש-עשרה שורות
-   פרושות לא נכנסו במסך לפטופ עם סרגלי דפדפן. */
-const SIDE_GROUP_KEY = 'crmSideGroupsOpen';
+/* ---------- סרגל הצד (דסקטופ) ----------
+   גובה מסך אחד: כפתור "יצירה חדשה" בראש, הקבוצות באמצע (‏.sn-list, גמישה
+   וגוללת אם צריך), והארנק והכיווץ נעוצים בתחתית (‏.sn-foot).
+
+   קבוצה נפתחת ונסגרת בלחיצה על הכותרת, והמצב נשמר ב-localStorage תחת
+   ‏crmNavOpen. ברירת המחדל: "עבודה יומית" פתוחה. הקבוצה של הקטגוריה הפעילה
+   תמיד פתוחה, וקבוצה סגורה מציגה באדום את סכום מה שדחוף בה (NAV_HOT_ACCS) -
+   כך הקיפול אינו מסתיר עבודה שממתינה.
+
+   מצב "פס אייקונים" (72px): רק אייקונים, עם title ו-aria-label, והמונים
+   יושבים על האייקון. נשמר תחת crmNavRail. מי שלא בחר/ה - מכווץ אוטומטית
+   מתחת ל-1100px, שם 264px של סרגל הם רבע מהמסך. */
+const SIDE_GROUP_KEY = 'crmNavOpen';
+const SIDE_RAIL_KEY  = 'crmNavRail';
+const SIDE_GROUP_DEFAULT = { daily:true };
 
 function sideGroupsOpen(){
   try {
-    const raw = JSON.parse(localStorage.getItem(SIDE_GROUP_KEY) || '{}');
-    return (raw && typeof raw === 'object') ? raw : {};
-  } catch { return {}; }
+    const raw = JSON.parse(localStorage.getItem(SIDE_GROUP_KEY) || 'null');
+    return (raw && typeof raw === 'object') ? raw : { ...SIDE_GROUP_DEFAULT };
+  } catch { return { ...SIDE_GROUP_DEFAULT }; }
 }
 
 function sideGroupSetOpen(key, open){
@@ -26507,16 +26549,35 @@ function sideGroupSetOpen(key, open){
   try { localStorage.setItem(SIDE_GROUP_KEY, JSON.stringify(state)); } catch {}
 }
 
-function sideNavItem(item){
+function sideRailOn(){
+  let saved = null;
+  try { saved = localStorage.getItem(SIDE_RAIL_KEY); } catch {}
+  if (saved === '1') return true;
+  if (saved === '0') return false;
+  return window.matchMedia('(max-width:1099px)').matches;
+}
+
+function sideRailSet(on){
+  try { localStorage.setItem(SIDE_RAIL_KEY, on ? '1' : '0'); } catch {}
+  renderSideNav();
+}
+
+function sideNavItem(item, rail){
   const count = navItemCount(item);
   const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
-  const isHome = navIsHomeItem(item);
+  const on = navItemIsActive(item);
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'sn-item' + (isHome && navTab === 'home' ? ' is-on' : '');
+  btn.className = 'sn-item' + (on ? ' is-on' : '');
+  if (on) btn.setAttribute('aria-current', 'page');
+  // בפס האייקונים השם אינו על המסך, ולכן הוא יושב ב-title וב-aria-label
+  if (rail){
+    btn.title = item.label + (count ? ' (' + count + ')' : '');
+    btn.setAttribute('aria-label', btn.title);
+  }
   btn.innerHTML = dashIcon(item.icon, 'sn-ico')
     + '<span class="sn-label">' + esc(item.label) + '</span>'
-    + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
+    + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(count > 99 ? '99+' : String(count)) + '</span>' : '');
   btn.addEventListener('click', ()=> navGo(item));
   return btn;
 }
@@ -26524,27 +26585,40 @@ function sideNavItem(item){
 function renderSideNav(){
   const nav = document.getElementById('sideNav');
   if (!nav) return;
+  const rail = sideRailOn();
+  nav.classList.toggle('is-rail', rail);
+  const shell = nav.closest('.dash-shell');
+  if (shell) shell.classList.toggle('nav-rail', rail);
   nav.innerHTML = '';
+
+  /* "יצירה חדשה" - אותו גיליון של כפתור ה-+ בנייד (openCreateSheet), עם
+     קיצור N. רק בתצוגת הסוכן/ת: אין מה ליצור בכלי הפלטפורמה. */
+  if (dashView === 'agent'){
+    const create = document.createElement('button');
+    create.type = 'button';
+    create.className = 'sn-create';
+    create.setAttribute('aria-haspopup', 'dialog');
+    create.title = 'יצירה חדשה (N)';
+    if (rail) create.setAttribute('aria-label', 'יצירה חדשה');
+    create.innerHTML = dashIcon('plus', 'sn-ico') + '<span class="sn-label">יצירה חדשה</span>';
+    create.addEventListener('click', (e)=>{ e.stopPropagation(); openCreateSheet(); });
+    nav.appendChild(create);
+  }
+
   const list = document.createElement('div');
   list.className = 'sn-list';
   const saved = sideGroupsOpen();
-
-  // כפתור הבית נעוץ בראש, מחוץ לקבוצות — אותו כלל של תפריט הבורגר: הדרך
-  // חזרה לא מסתתרת מאחורי קבוצה סגורה
-  const groups = navGroupsForView().map(g => ({ ...g, items: g.items.filter(it =>{
-    if (navIsHomeItem(it)){ list.appendChild(sideNavItem(it)); return false; }
-    return true;
-  }) })).filter(g => g.items.length);
+  const groups = navGroupsForView();
+  const activeKey = (groups.find(g => g.items.some(navItemIsActive)) || {}).key;
 
   groups.forEach(group=>{
-    const open = saved[group.key] === true;
+    const isActive = group.key === activeKey;
+    const open = rail || isActive || saved[group.key] === true;
     const sub = document.createElement('div');
     sub.className = 'sn-sub';
     sub.id = 'sideGroup-' + group.key;
     sub.hidden = !open;
 
-    /* על קבוצה סגורה: סכום מה שמחכה בתוכה באדום (רק NAV_HOT_ACCS), ואחרת
-       מספר הפריטים. בלי זה הקיפול היה מסתיר עבודה שממתינה. */
     const hotSum = group.items.reduce(
       (sum, it) => sum + (NAV_HOT_ACCS.has(navItemTarget(it)) ? navItemCount(it) : 0), 0);
 
@@ -26553,78 +26627,99 @@ function renderSideNav(){
     head.className = 'sn-group';
     head.setAttribute('aria-expanded', String(open));
     head.setAttribute('aria-controls', sub.id);
+    head.innerHTML = '<span class="sn-glabel">' + esc(group.short || group.label) + '</span>'
+      + (hotSum ? '<span class="sn-gcount">' + esc(String(hotSum)) + '</span>' : '')
+      + '<svg class="sn-gchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
     if (group.short) head.title = group.label;
-    head.innerHTML = dashIcon(group.icon, 'sn-gico')
-      // לצד המונה והחץ הכותרת המלאה נחתכה; ‏short (אם יש) והמלאה ב-title
-      + '<span class="sn-glabel">' + esc(group.short || group.label) + '</span>'
-      + (hotSum ? '<span class="sn-gcount is-hot">' + esc(String(hotSum)) + '</span>'
-                : '<span class="sn-gcount">' + esc(String(group.items.length)) + '</span>')
-      + '<svg class="sn-gchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
-    head.addEventListener('click', ()=>{
-      const nowOpen = head.getAttribute('aria-expanded') !== 'true';
-      head.setAttribute('aria-expanded', String(nowOpen));
-      sub.hidden = !nowOpen;
-      sideGroupSetOpen(group.key, nowOpen);
-    });
+    /* הקבוצה של המסך הפתוח אינה מתקפלת: הסרגל נבנה מחדש עם כל שינוי מונה,
+       והיא הייתה קופצת חזרה פתוחה תוך שנייה. */
+    if (isActive){
+      head.classList.add('is-pinned');
+      head.title = 'כאן נמצא המסך הפתוח';
+    } else {
+      head.addEventListener('click', ()=>{
+        const nowOpen = head.getAttribute('aria-expanded') !== 'true';
+        head.setAttribute('aria-expanded', String(nowOpen));
+        sub.hidden = !nowOpen;
+        sideGroupSetOpen(group.key, nowOpen);
+      });
+    }
     list.appendChild(head);
 
-    group.items.forEach(item => sub.appendChild(sideNavItem(item)));
+    group.items.forEach(item => sub.appendChild(sideNavItem(item, rail)));
     list.appendChild(sub);
   });
 
   nav.appendChild(list);
-  // הארנק וההגדרות שייכים לסוכן/ת. בתצוגת מנהל/ת הפלטפורמה הסרגל הוא
-  // כלי הפלטפורמה בלבד.
-  if (dashView === 'agent') nav.appendChild(sideNavFoot());
+  nav.appendChild(sideNavFoot(rail));
 }
 
-/* כרטיס הארנק בתחתית הסרגל. היתרה נקראת מ-currentAgent, שאליו כותב
-   ‏setAgentBalance — והוא גם קורא ל-accSetCount('accWallet'), כך שהכרטיס
-   נבנה מחדש עם כל שינוי יתרה בלי מאזין משלו. */
-function sideNavFoot(){
+/* תחתית הסרגל: מכסת הלידים החינמיים (במסלול החינמי בלבד, כמו מד המכסה
+   בדף הבית), היתרה בארנק, עזרה וכיווץ. היתרה נקראת מ-currentAgent, שאליו
+   כותב setAgentBalance — והוא גם קורא ל-accSetCount('accWallet'), כך שהכרטיס
+   נבנה מחדש עם כל שינוי יתרה בלי מאזין משלו. בתצוגת מנהל/ת הפלטפורמה
+   והארנק אינו שלה, ונשארים רק העזרה והכיווץ. */
+function sideNavFoot(rail){
   const foot = document.createElement('div');
   foot.className = 'sn-foot';
-  const balance = currentAgent ? Number(currentAgent.credit_balance) || 0 : null;
-  foot.innerHTML =
-      '<div class="sn-wallet">'
-    +   '<div class="sn-wallet-top">'
-    +     dashIcon('wallet', 'sn-ico')
-    +     '<span class="sn-wallet-title">יתרת ארנק</span>'
-    +   '</div>'
-    +   '<div class="sn-wallet-row">'
-    +     '<span class="sn-wallet-sum">' + esc(shekel(balance)) + '</span>'
-    +     '<button type="button" class="sn-topup" data-sn="topup">+ טעינה</button>'
-    +   '</div>'
-    + '</div>'
-    + '<div class="sn-links">'
-    +   '<button type="button" class="sn-link" data-sn="settings" aria-controls="profilePanel">'
-    +     dashIcon('cog', 'sn-ico') + '<span>הגדרות חשבון</span></button>'
-    +   '<button type="button" class="sn-link sn-signout" data-sn="signout">'
-    +     dashIcon('logout', 'sn-ico') + '<span>יציאה</span></button>'
+  let html = '';
+  if (dashView === 'agent' && !rail){
+    const balance = currentAgent ? Number(currentAgent.credit_balance) || 0 : null;
+    let quota = '';
+    if (currentAgent && currentAgent.tier === 'free'){
+      const total = priceOf('free_lead_quota_monthly', 10);
+      const used = Math.min(quotaUsedThisCycle(), total);
+      const pct = total > 0 ? Math.round(used / total * 100) : 0;
+      quota = '<div class="sn-quota-row"><span>לידים חינם החודש</span><span class="sn-quota-n">'
+        + esc(used + ' / ' + total) + '</span></div>'
+        + '<div class="sn-quota-bar"><span style="width:' + pct + '%"></span></div>';
+    }
+    html += '<div class="sn-wallet">' + quota
+      + '<div class="sn-wallet-row">'
+      +   '<span class="sn-wallet-sum">בארנק ' + esc(shekel(balance)) + '</span>'
+      +   '<button type="button" class="sn-topup" data-sn="topup">טעינה</button>'
+      + '</div></div>';
+  }
+  html += '<div class="sn-links">'
+    + '<button type="button" class="sn-link" data-sn="help"' + (rail ? ' title="עזרה" aria-label="עזרה"' : '') + '>'
+    +   dashIcon('help', 'sn-ico') + '<span class="sn-label">עזרה</span></button>'
+    + '<button type="button" class="sn-link" data-sn="rail" aria-pressed="' + rail + '"'
+    +   (rail ? ' title="הרחבת התפריט" aria-label="הרחבת התפריט"' : '') + '>'
+    +   dashIcon(rail ? 'railOpen' : 'railClose', 'sn-ico')
+    +   '<span class="sn-label">כווץ תפריט</span></button>'
     + '</div>';
-  foot.querySelector('[data-sn="topup"]').addEventListener('click', ()=>
-    gotoSection('accWallet', 'topupAmount'));
-  // ההגדרות הן תפריט הפרופיל שמתחת לאווטאר — מקום אחד לכל ההגדרות.
-  // ‏stopPropagation: המאזין של document סוגר את התפריט בכל לחיצה, והיה
-  // סוגר אותו מיד אחרי שנפתח מכאן.
-  foot.querySelector('[data-sn="settings"]').addEventListener('click', (e)=>{
+  foot.innerHTML = html;
+  const topup = foot.querySelector('[data-sn="topup"]');
+  if (topup) topup.addEventListener('click', ()=> gotoSection('accWallet', 'topupAmount'));
+  foot.querySelector('[data-sn="help"]').addEventListener('click', (e)=>{
     e.stopPropagation();
-    document.getElementById('avatarBtn').click();
+    openSearch('help');
   });
-  // הכפתור המקורי נשאר נקודת היציאה היחידה — כאן רק לוחצים עליו
-  foot.querySelector('[data-sn="signout"]').addEventListener('click', ()=>
-    document.getElementById('logoutBtn').click());
+  foot.querySelector('[data-sn="rail"]').addEventListener('click', ()=> sideRailSet(!rail));
   return foot;
+}
+
+/* דף הסוכן/ת הציבורי - "המיני-סייט שלי". אותה כתובת של "צפייה בדף הסוכן/ת
+   שלי" בטופס הפרופיל. */
+function miniSiteUrl(){
+  if (!currentAgent) return '/';
+  return '/agent?slug=' + encodeURIComponent(currentAgent.slug || currentAgent.id);
+}
+
+function openMiniSite(){
+  window.open(miniSiteUrl(), '_blank', 'noopener');
 }
 
 /* יעד ניווט אחד לכל שלושת הניווטים ולכל הכרטיסים */
 function navGo(item){
+  closeNavLayers();
+  if (item.acc === NAV_MINISITE){ openMiniSite(); return; }
   if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
     setNavTab('home');
     return;
   }
   const target = navItemTarget(item);
-  gotoSection(target, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+  gotoSection(target, item.focus);   // הוא זה שמעביר למקטע הנכון
   // השורה המאוחדת פותחת גם את השכנות שלה, בלי לגלול אליהן: הן יושבות
   // מיד אחרי הראשית בעמוד
   (item.also || []).filter(acc => acc !== target && navAccVisible(acc)).forEach(openAcc);
@@ -26633,23 +26728,86 @@ function navGo(item){
 /* ---------- הסרגל התחתון (מובייל) ---------- */
 function renderBottomNav(){
   const nav = document.getElementById('bottomNav');
-  if (!nav) return;
-  nav.innerHTML = '';
-  NAV_TABS.forEach(tab=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'bn-tab';
-    btn.setAttribute('role', 'tab');
-    btn.setAttribute('aria-selected', String(navTab === tab.key));
-    const badge = (NAV_TAB_BADGE[tab.key] || [])
-      .filter(navAccVisible)
-      .reduce((sum, acc) => sum + accCountOf(acc), 0);
-    btn.innerHTML = dashIcon(tab.icon)
-      + '<span>' + esc(tab.label) + '</span>'
-      + '<span class="bn-badge">' + (badge ? esc(badge > 9 ? '9+' : String(badge)) : '') + '</span>';
-    btn.addEventListener('click', ()=> setNavTab(tab.key));
-    nav.appendChild(btn);
-  });
+  if (nav){
+    nav.innerHTML = '';
+    BOTTOM_NAV.forEach(tab=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bn-tab' + (tab.key === 'create' ? ' bn-create' : '');
+      const on = tab.layer ? navLayer === tab.layer : (!navLayer && navTab === tab.section);
+      btn.classList.toggle('is-on', on);
+      if (tab.layer){
+        btn.setAttribute('aria-haspopup', 'dialog');
+        btn.setAttribute('aria-expanded', String(on));
+      } else if (on){
+        btn.setAttribute('aria-current', 'page');
+      }
+      const badge = tab.key === 'leads' ? navBadgeSum(NAV_LEADS_BADGE) : 0;
+      let icon = dashIcon(tab.icon);
+      let label = tab.label;
+      if (tab.key === 'create' && on){ icon = dashIcon('close'); label = 'סגירה'; }
+      if (tab.key === 'me') icon = bottomNavAvatar();
+      btn.setAttribute('aria-label', label + (badge ? ', ' + badge + ' ממתינים' : ''));
+      btn.innerHTML = '<span class="bn-pill">' + icon
+        + '<span class="bn-badge">' + (badge ? esc(badge > 9 ? '9+' : String(badge)) : '') + '</span></span>'
+        + '<span class="bn-label">' + esc(label) + '</span>';
+      btn.addEventListener('click', (e)=>{
+        // המאזינים של document סוגרים כל תפריט פתוח בלחיצה, והיו סוגרים
+        // מיד את השכבה שהכפתור הזה פתח
+        e.stopPropagation();
+        if (tab.layer){
+          if (navLayer === tab.layer) closeNavLayers();
+          else openNavLayer(tab.layer);
+          return;
+        }
+        closeNavLayers();
+        setNavTab(tab.section);
+      });
+      nav.appendChild(btn);
+    });
+  }
+  renderMenuBadge();
+}
+
+/* "אני" נושא את האווטאר של הכותרת - התמונה, או האות הראשונה */
+function bottomNavAvatar(){
+  const photo = document.getElementById('avatarPhoto');
+  if (photo && !photo.hidden && photo.getAttribute('src')){
+    return '<img class="bn-avatar" src="' + esc(photo.getAttribute('src')) + '" alt="">';
+  }
+  const initial = (document.getElementById('avatarInitial') || {}).textContent || '';
+  return '<span class="bn-avatar">' + esc(initial.trim() || '·') + '</span>';
+}
+
+/* התגית על כפתור התפריט בכותרת - הדחוף שאין לו כפתור בסרגל התחתון */
+function renderMenuBadge(){
+  const el = document.getElementById('menuBadge');
+  if (!el) return;
+  const n = dashView === 'agent' ? navBadgeSum(NAV_MENU_BADGE) : 0;
+  el.textContent = n ? (n > 9 ? '9+' : String(n)) : '';
+  const btn = document.getElementById('menuBtn');
+  if (btn) btn.setAttribute('aria-label', 'תפריט הדשבורד' + (n ? ', ' + n + ' ממתינים' : ''));
+}
+
+/* ---------- השכבות: יצירה, חיפוש, אני ----------
+   אחת בכל פעם. פתיחה של אחת סוגרת את האחרות (ואת תפריט הבורגר והפעמון),
+   וכל אחת מעדכנת את הסרגל התחתון כדי שהכפתור שלה יסומן. */
+function openNavLayer(layer){
+  closeNavLayers();
+  if (layer === 'create') openCreateSheet();
+  else if (layer === 'search') openSearch();
+  else if (layer === 'me') openProfilePanel();
+}
+
+function closeNavLayers(){
+  closeCreateSheet();
+  closeSearch();
+  closeProfilePanel();
+}
+
+function setNavLayer(layer){
+  navLayer = layer;
+  renderBottomNav();
 }
 
 /* ---------- הסינון ----------
@@ -26697,7 +26855,7 @@ function applyNavFilter(){
   const head = document.getElementById('sectionsHead');
   if (head) head.hidden = filtering || isAdminView;
 
-  // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר לשונית הוא בדיוק הרגע
+  // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
   updateScrollUi();
   // רכבת שהייתה מוסתרת לא ידעה למדוד את עצמה: ברגע שהיא חוזרת למסך צריך
@@ -26707,17 +26865,48 @@ function applyNavFilter(){
 
 function setNavTab(key, opts){
   navTab = key;
+  if (key === 'home') navActive = NAV_HOME;
   applyNavFilter();
   renderBottomNav();
   renderSideNav();
   if (opts && opts.silent) return;
   window.scrollTo({ top:0, behavior: navReduceMotion() ? 'auto' : 'smooth' });
-  // לשונית שיש בה קטגוריה אחת בלבד נפתחת מיד: לחיצה נוספת רק כדי לראות את
+  // מקטע שיש בו קטגוריה אחת בלבד נפתח מיד: לחיצה נוספת רק כדי לראות את
   // התוכן היחיד שיש שם היא לחיצה מיותרת
   const shown = [...document.querySelectorAll('#dashboard details.acc')]
     .filter(a => !a.classList.contains('nav-off') && navAccVisible(a.id));
   if (shown.length === 1) openAcc(shown[0].id);
 }
+
+/* ---------- קיצורי מקלדת ----------
+   ‏N - יצירה חדשה, ‏Ctrl/⌘+K - חיפוש. לפי e.code ולא e.key: במקלדת עברית
+   ‏N היא "מ", ו-K היא "ל". לא בזמן הקלדה בשדה, ולא כששכבה אחרת פתוחה. */
+function navTypingIn(el){
+  if (!el) return false;
+  const tag = (el.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+}
+
+// חלון של אשף או ייבוא שפתוח עכשיו - N שם הוא אות בשם, לא פקודה
+function navOverlayOpen(){
+  return [...document.querySelectorAll('.imp-overlay,.pm-overlay')]
+    .some(el => getComputedStyle(el).display !== 'none');
+}
+
+document.addEventListener('keydown', (e)=>{
+  if (!document.body.classList.contains('dash-active')) return;
+  if (e.code === 'KeyK' && (e.ctrlKey || e.metaKey) && !e.altKey){
+    e.preventDefault();
+    if (navLayer === 'search') closeSearch(); else openNavLayer('search');
+    return;
+  }
+  if (e.code === 'KeyN' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
+      && !navTypingIn(e.target) && !navLayer && dashView === 'agent'
+      && !navOverlayOpen()){
+    e.preventDefault();
+    openNavLayer('create');
+  }
+});
 
 /* ==========================================================================
    קמפיינים ממומנים - קונסולת השיווק (דשבורד 7)
@@ -30138,40 +30327,97 @@ document.addEventListener('keydown', (e)=>{
    הרשימה היא הקבוצה placement:'profile' ב-NAV_GROUPS — ההגדרות שיצאו מסרגל
    הצד ומתפריט הבורגר כדי לפנות אותם לעבודה היומית. היא מסוננת ב-
    navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה שאינה קיימת לסוכן/ת
-   הזה/הזו (עיצוב דף המשרד למי שאינו מנהל/ת) לא תופיע כאן. "סגירת החשבון"
+   הזה/הזו לא תופיע כאן. בנייד הוא נפתח גם מכפתור "אני" בסרגל התחתון,
+   ושם הוא מסך מלא. "סגירת החשבון"
    מופרדת בקו ונצבעת אדום, כמו האקורדיון שלה (‏.acc-danger).
    ========================================================================== */
 const PROFILE_MENU = NAV_GROUPS.find(g => g.placement === 'profile').items;
+/* שלוש קבוצות (docs/crm-navigation.md, "אני"): מה שהוא החשבון, איך אני
+   עובד/ת, ותמיכה. אותו מקור (placement:'profile'), רק מקובץ לפי section. */
+const PROFILE_SECTIONS = [
+  { key:'account', label:'החשבון שלי' },
+  { key:'work',    label:'איך אני עובד/ת' },
+  { key:'support', label:'תמיכה' },
+];
+
+function profileMenuItem(icon, label, extra, onClick, cls){
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'menu-item' + (cls ? ' ' + cls : '');
+  btn.innerHTML = dashIcon(icon, 'mi-ico')
+    + '<span class="mi-label">' + esc(label) + '</span>'
+    + (extra ? '<span class="mi-count">' + esc(extra) + '</span>' : '')
+    + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  btn.addEventListener('click', onClick);
+  return btn;
+}
 
 function buildProfilePanel(){
   const panel = document.getElementById('profilePanel');
   if (!panel) return;
   panel.innerHTML = '';
 
+  /* הכותרת: התמונה, השם, המשרד והמסלול, ושתי הפעולות שעוסקות בדף הציבורי.
+     בנייד התפריט הוא מסך מלא, ולכן יש בו גם כפתור סגירה. */
   const head = document.createElement('div');
-  head.className = 'menu-head';
+  head.className = 'menu-head pp-head-card';
   const agency = document.getElementById('agentAgency');
-  head.innerHTML = '<b>' + esc(document.getElementById('agentName').textContent || '') + '</b>'
-    + (agency && agency.textContent ? '<span>' + esc(agency.textContent) + '</span>' : '');
+  const tier = document.getElementById('tierBadge');
+  const photo = document.getElementById('avatarPhoto');
+  const initial = (document.getElementById('avatarInitial') || {}).textContent || '';
+  const avatar = (photo && !photo.hidden && photo.getAttribute('src'))
+    ? '<img class="ph-avatar" src="' + esc(photo.getAttribute('src')) + '" alt="">'
+    : '<span class="ph-avatar">' + esc(initial.trim() || '·') + '</span>';
+  head.innerHTML =
+      '<div class="ph-row">' + avatar
+    +   '<div class="ph-text"><b>' + esc(document.getElementById('agentName').textContent || '') + '</b>'
+    +     (agency && agency.textContent ? '<span>' + esc(agency.textContent) + '</span>' : '')
+    +     (tier && tier.textContent.trim() && tier.textContent.trim() !== '-'
+            ? '<span class="ph-tier">' + esc(tier.textContent.trim()) + '</span>' : '')
+    +   '</div>'
+    +   '<button type="button" class="ph-close" aria-label="סגירה">' + dashIcon('close') + '</button>'
+    + '</div>'
+    + (dashView === 'agent' && currentAgent
+        ? '<div class="ph-actions">'
+          + '<a class="ph-act" href="' + esc(miniSiteUrl()) + '" target="_blank" rel="noopener">'
+          +   dashIcon('globe') + '<span>צפייה במיני-סייט</span></a>'
+          + '<button type="button" class="ph-act" data-ph="share">' + dashIcon('share') + '<span>שיתוף כרטיס ביקור</span></button>'
+          + '</div>'
+        : '');
+  head.querySelector('.ph-close').addEventListener('click', ()=>{
+    closeProfilePanel();
+    document.getElementById('avatarBtn').focus({ preventScroll:true });
+  });
+  const share = head.querySelector('[data-ph="share"]');
+  if (share) share.addEventListener('click', shareAgentCard);
   panel.appendChild(head);
 
-  PROFILE_MENU.filter(item => navAccVisible(item.acc)).forEach(item=>{
-    const danger = item.acc === 'accCloseAccount';
-    if (danger) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'menu-item' + (danger ? ' is-danger' : '');
-    const count = accCountOf(item.acc);
-    btn.innerHTML = dashIcon(item.icon, 'mi-ico')
-      + '<span class="mi-label">' + esc(item.label) + '</span>'
+  PROFILE_SECTIONS.forEach(section=>{
+    const items = PROFILE_MENU.filter(it => it.section === section.key && navAccVisible(it.acc));
+    const rows = [];
+    // "עזרה" ראשונה בתמיכה: החיפוש האחוד בלשונית העזרה (crm-help.json)
+    if (section.key === 'support'){
+      rows.push(profileMenuItem('help', 'עזרה', '', (e)=>{
+        e.stopPropagation();
+        openNavLayer('search');
+        setSearchScope('help');
+      }));
+    }
+    items.forEach(item=>{
+      const danger = item.acc === 'accCloseAccount';
+      const count = accCountOf(item.acc);
       // ‏accWallet נושא את היתרה כטקסט ("₪1,240"), ולכן הוא מוצג כפי שהוא
       // ולא כמספר שחולץ ממנו
-      + (item.acc === 'accWallet' && currentAgent
-          ? '<span class="mi-count">' + esc(shekel(Number(currentAgent.credit_balance) || 0)) + '</span>'
-          : count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
-      + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-    btn.addEventListener('click', ()=>{ closeProfilePanel(); gotoSection(item.acc); });
-    panel.appendChild(btn);
+      const extra = item.acc === 'accWallet' && currentAgent
+        ? shekel(Number(currentAgent.credit_balance) || 0)
+        : count ? String(count) : '';
+      rows.push(profileMenuItem(item.icon, item.label, extra,
+        ()=>{ closeProfilePanel(); gotoSection(item.acc); }, danger ? 'is-danger' : ''));
+    });
+    if (!rows.length) return;
+    panel.appendChild(Object.assign(document.createElement('div'),
+      { className:'menu-group', textContent: section.label }));
+    rows.forEach(r => panel.appendChild(r));
   });
 
   panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
@@ -30179,7 +30425,7 @@ function buildProfilePanel(){
   const out = document.createElement('button');
   out.type = 'button';
   out.className = 'menu-item is-signout';
-  out.innerHTML = '<span class="mi-label">יציאה מהחשבון</span>';
+  out.innerHTML = dashIcon('logout', 'mi-ico') + '<span class="mi-label">יציאה מהחשבון</span>';
   // הכפתור המקורי נשאר נקודת היציאה היחידה — כאן רק לוחצים עליו
   out.addEventListener('click', ()=>{
     closeProfilePanel();
@@ -30188,26 +30434,55 @@ function buildProfilePanel(){
   panel.appendChild(out);
 }
 
-function closeProfilePanel(){
-  const panel = document.getElementById('profilePanel');
-  if (!panel || !panel.classList.contains('is-open')) return;
-  panel.classList.remove('is-open');
-  document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
+/* "שיתוף כרטיס ביקור": הקישור לדף הסוכן/ת הציבורי. בטלפון - חלון השיתוף
+   של המערכת, ובמחשב (שאין בו כזה) - העתקה. */
+async function shareAgentCard(){
+  const url = location.origin + miniSiteUrl();
+  const title = document.getElementById('agentName').textContent || 'שוק נדל״ן';
+  if (navigator.share){
+    try { await navigator.share({ title, url }); return; }
+    catch(err){ if (err && err.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('הקישור לדף שלך הועתק');
+  } catch {
+    showToast(url, 6000);
+  }
 }
 
-document.getElementById('avatarBtn').addEventListener('click', (e)=>{
-  e.stopPropagation();
+function openProfilePanel(){
   const panel = document.getElementById('profilePanel');
-  if (panel.classList.contains('is-open')){ closeProfilePanel(); return; }
+  if (!panel) return;
   closeMenuPanel();
   const bell = document.getElementById('bellPanel');
   bell.style.display = 'none';
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
   buildProfilePanel();
   panel.classList.add('is-open');
+  // בנייד הפאנל הוא מסך מלא (position:fixed), וה-backdrop-filter של הכותרת
+  // היה הופך אותה לבלוק המכיל שלו - ראו html.pp-open ב-CSS
+  document.documentElement.classList.add('pp-open');
   document.getElementById('avatarBtn').setAttribute('aria-expanded', 'true');
-  const first = panel.querySelector('.menu-item');
+  setNavLayer('me');
+  const first = panel.querySelector('.ph-act,.menu-item');
   if (first) first.focus({ preventScroll:true });
+}
+
+function closeProfilePanel(){
+  const panel = document.getElementById('profilePanel');
+  if (!panel || !panel.classList.contains('is-open')) return;
+  panel.classList.remove('is-open');
+  document.documentElement.classList.remove('pp-open');
+  document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
+  if (navLayer === 'me') setNavLayer(null);
+}
+
+document.getElementById('avatarBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const panel = document.getElementById('profilePanel');
+  if (panel.classList.contains('is-open')){ closeProfilePanel(); return; }
+  openNavLayer('me');
 });
 
 document.getElementById('profilePanel').addEventListener('click', e => e.stopPropagation());
@@ -30218,6 +30493,441 @@ document.addEventListener('keydown', (e)=>{
   closeProfilePanel();
   document.getElementById('avatarBtn').focus({ preventScroll:true });
 });
+
+/* ==========================================================================
+   שכבה מעל המסך - העוטף המשותף לגיליון היצירה ולחיפוש
+   --------------------------------------------------------------------------
+   ‏.nav-layer הוא רקע ופאנל: בנייד גיליון שעולה מלמטה ונעצר מעל הסרגל
+   התחתון (כדי שכפתור ה-X של ה-+ יישאר על המסך), ובמחשב חלון במרכז.
+   ‏Escape ולחיצה על הרקע סוגרים, והמיקוד חוזר למה שפתח אותה.
+   ========================================================================== */
+const navLayerReturn = {};
+
+function navLayerShow(id, layer, focusSel){
+  const el = document.getElementById(id);
+  if (!el) return null;
+  navLayerReturn[id] = document.activeElement;
+  el.hidden = false;
+  document.body.classList.add('nav-layer-open');
+  setNavLayer(layer);
+  // מיד ולא ב-setTimeout: מי שפותח/ת ב-Ctrl+K ומקליד/ה מיד היה מאבד/ת
+  // את האותיות הראשונות
+  const f = focusSel && el.querySelector(focusSel);
+  if (f) f.focus({ preventScroll:true });
+  return el;
+}
+
+function navLayerHide(id, layer){
+  const el = document.getElementById(id);
+  if (!el || el.hidden) return;
+  el.hidden = true;
+  if (!document.querySelector('.nav-layer:not([hidden])')) document.body.classList.remove('nav-layer-open');
+  if (navLayer === layer) setNavLayer(null);
+  const back = navLayerReturn[id];
+  navLayerReturn[id] = null;
+  if (back && document.contains(back) && typeof back.focus === 'function') back.focus({ preventScroll:true });
+}
+
+document.addEventListener('click', (e)=>{
+  const closer = e.target.closest('.nav-layer [data-close]');
+  if (!closer) return;
+  const layer = closer.closest('.nav-layer');
+  if (layer.id === 'createSheet') closeCreateSheet();
+  if (layer.id === 'searchSheet') closeSearch();
+});
+
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape') return;
+  if (navLayer === 'create'){ closeCreateSheet(); e.preventDefault(); }
+  else if (navLayer === 'search'){ closeSearch(); e.preventDefault(); }
+});
+
+/* ==========================================================================
+   גיליון היצירה - כפתור ה-+ בנייד ו"יצירה חדשה" (N) בסרגל הצד
+   --------------------------------------------------------------------------
+   כל פריט מפעיל פונקציה שכבר קיימת (QUICK_ACTIONS, openAgendaForm,
+   openContactImport), ונראה רק כשהקטגוריה שלו גלויה לסוכן/ת - כמו
+   QUICK_ACTIONS. "ליד חדש" ו"העלאת מסמך לתיק לקוח" מהעיצוב אינם כאן: אין
+   להם יכולת במערכת, והוחלט להוריד אותם (docs/crm-navigation.md). גם "הקלטה
+   מהירה" אינה כאן - היא תלויה בפענוח טקסט חופשי, ותיבנה בנפרד.
+   ========================================================================== */
+const CREATE_ACTIONS = [
+  { acc:'accProperties', icon:'building', title:'נכס חדש',
+    run:()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
+  { acc:'accClients',    icon:'contact',  title:'לקוח/ה חדש/ה',
+    run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
+  { acc:'accAgreements', icon:'sign',     title:'הסכם תיווך',
+    run:()=> openAgreementWizard() },
+  { acc:'accAgenda',     icon:'calendar', title:'פגישה / סיור',
+    run:()=> openAgendaForm({ kind:'meeting' }) },
+  { acc:'accAgenda',     icon:'check',    title:'משימה / תזכורת',
+    run:()=> openAgendaForm({ kind:'task' }) },
+];
+const CREATE_MORE = [
+  /* בוחרים נכס, והכרטיס שלו נפתח - שם יושבים כפתורי הקידום וההקפצה, עם
+     המחיר והתנאים של היום. אין כאן עותק שני של הקידום. */
+  { acc:'accProperties', icon:'megaphone', title:'קידום נכס / הקפצה',
+    run:()=> renderCreateSheet('promote'), stay:true },
+  { acc:'accClients',    icon:'upload',    title:'ייבוא אנשי קשר',
+    run:()=> openContactImport() },
+];
+
+function openCreateSheet(){
+  if (navLayer === 'create') return;
+  closeMenuPanel();
+  closeSearch();
+  closeProfilePanel();
+  renderCreateSheet('main');
+  navLayerShow('createSheet', 'create', '.cs-item');
+}
+
+function closeCreateSheet(){
+  navLayerHide('createSheet', 'create');
+}
+
+function createRun(action){
+  if (!action.stay) closeCreateSheet();
+  action.run();
+}
+
+function renderCreateSheet(view){
+  const body = document.getElementById('createSheetBody');
+  const title = document.getElementById('createSheetTitle');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (view === 'promote'){
+    title.textContent = 'איזה נכס לקדם?';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'cs-back';
+    back.innerHTML = dashIcon('chevRight') + '<span>חזרה</span>';
+    back.addEventListener('click', ()=> renderCreateSheet('main'));
+    body.appendChild(back);
+    const active = (typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])
+      .filter(p => p.status === 'active');
+    if (!active.length){
+      body.insertAdjacentHTML('beforeend',
+        '<p class="cs-empty">אין כרגע נכסים פעילים לקידום.</p>');
+      return;
+    }
+    const list = document.createElement('div');
+    list.className = 'cs-list';
+    active.forEach(p=>{
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'cs-row';
+      row.innerHTML = dashIcon('building')
+        + '<span class="cs-row-t">' + esc(p.title || p.address || 'נכס') + '</span>'
+        + '<span class="cs-row-s">' + esc([p.city, p.price ? shekel(p.price) : ''].filter(Boolean).join(' · ')) + '</span>';
+      row.addEventListener('click', ()=>{
+        closeCreateSheet();
+        gotoSection('accProperties');
+        openPropertyFromParam(p.id);
+      });
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    body.insertAdjacentHTML('beforeend',
+      '<p class="cs-hint">הכרטיס של הנכס ייפתח, ושם כפתורי הקידום וההקפצה.</p>');
+    const first = list.querySelector('.cs-row');
+    if (first) first.focus({ preventScroll:true });
+    return;
+  }
+
+  title.textContent = 'מה ליצור?';
+  const grid = document.createElement('div');
+  grid.className = 'cs-grid';
+  CREATE_ACTIONS.filter(a => navAccVisible(a.acc)).forEach(a=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cs-item';
+    btn.innerHTML = '<span class="cs-ico">' + dashIcon(a.icon) + '</span><span>' + esc(a.title) + '</span>';
+    btn.addEventListener('click', ()=> createRun(a));
+    grid.appendChild(btn);
+  });
+  body.appendChild(grid);
+
+  const more = CREATE_MORE.filter(a => navAccVisible(a.acc));
+  if (more.length){
+    const box = document.createElement('div');
+    box.className = 'cs-more';
+    box.innerHTML = '<span class="cs-more-h">עוד</span>';
+    more.forEach(a=>{
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'cs-row';
+      row.innerHTML = dashIcon(a.icon) + '<span class="cs-row-t">' + esc(a.title) + '</span>';
+      row.addEventListener('click', (e)=>{ e.stopPropagation(); createRun(a); });
+      box.appendChild(row);
+    });
+    body.appendChild(box);
+  }
+}
+
+/* ==========================================================================
+   חיפוש אחוד - כפתור "חיפוש" בנייד, השדה בכותרת ו-Ctrl/⌘+K במחשב
+   --------------------------------------------------------------------------
+   ‏crm_search (מיגרציה 20270601120000) מחזירה לכל קבוצה ספירה מלאה מהמסד
+   ועד שש תוצאות. היא security invoker: לקוחות לפי ה-RLS של agent_clients,
+   לידים דרך leads_masked (ליד נעול חוזר בשם ממוסך), ונכסים והסכמים שלי
+   בלבד. **אף טלפון אינו חוזר** - גם כשמחפשים לפי טלפון, חוזר הפריט.
+
+   הלחיצה על תוצאה פותחת את הפריט עצמו באותן פונקציות של הקישור העמוק
+   (open*FromParam), אחרי gotoSection שמעבירה למקטע הנכון בנייד.
+
+   ‏"עזרה" היא קובץ סטטי (assets/crm-help.json) שמחופש בדפדפן, ונטען רק
+   בפעם הראשונה שפותחים את החיפוש.
+   ========================================================================== */
+const SEARCH_SCOPES = [
+  { key:'all',     label:'הכל' },
+  { key:'clients', label:'לקוחות' },
+  { key:'props',   label:'נכסים' },
+  { key:'leads',   label:'לידים' },
+  { key:'deals',   label:'הסכמים' },
+  { key:'help',    label:'עזרה' },
+];
+const SEARCH_GROUP_LABEL = { clients:'לקוחות', props:'נכסים', leads:'לידים', deals:'הסכמים' };
+const SEARCH_MIN = 2;
+let searchScope = 'all';
+let searchTimer = 0;
+let searchSeq = 0;
+let searchData = null;
+let crmHelp = null;
+let crmHelpLoading = null;
+
+function openSearch(scope){
+  if (navLayer !== 'search'){
+    closeMenuPanel();
+    closeCreateSheet();
+    closeProfilePanel();
+    navLayerShow('searchSheet', 'search', '#crmSearchInput');
+  }
+  setSearchScope(scope || searchScope);
+  loadCrmHelp();
+}
+
+function closeSearch(){
+  navLayerHide('searchSheet', 'search');
+}
+
+function setSearchScope(scope){
+  searchScope = SEARCH_SCOPES.some(s => s.key === scope) ? scope : 'all';
+  renderSearch();
+}
+
+function loadCrmHelp(){
+  if (crmHelp || crmHelpLoading) return crmHelpLoading;
+  crmHelpLoading = fetch('/assets/crm-help.json', { cache:'no-cache' })
+    .then(r => r.ok ? r.json() : [])
+    .then(list => { crmHelp = Array.isArray(list) ? list : []; })
+    .catch(() => { crmHelp = []; })
+    .finally(() => { crmHelpLoading = null; if (navLayer === 'search') renderSearch(); });
+  return crmHelpLoading;
+}
+
+function searchQuery(){
+  const input = document.getElementById('crmSearchInput');
+  return input ? input.value.trim() : '';
+}
+
+/* התאמה בעזרה: כל מילה שהוקלדה (2 תווים ומעלה) מופיעה בשאלה, בתשובה או
+   במילות המפתח. בלי מילים - כל השאלות, כרשימת "שאלות נפוצות". */
+function searchHelp(q){
+  const list = crmHelp || [];
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length >= SEARCH_MIN);
+  if (!words.length) return list;
+  return list.filter(h => {
+    const hay = [h.q, h.a, (h.k || []).join(' ')].join(' ').toLowerCase();
+    return words.every(w => hay.includes(w));
+  });
+}
+
+function srchMark(text, q){
+  const t = String(text == null ? '' : text);
+  const i = q ? t.toLowerCase().indexOf(q.toLowerCase()) : -1;
+  if (i < 0) return esc(t);
+  return esc(t.slice(0, i)) + '<mark>' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length));
+}
+
+function srchDate(v){
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d) ? d.toLocaleDateString('he-IL', { day:'numeric', month:'numeric', year:'2-digit' }) : '';
+}
+
+function runSearch(){
+  clearTimeout(searchTimer);
+  const q = searchQuery();
+  if (q.length < SEARCH_MIN){ searchData = null; renderSearch(); return; }
+  if (searchData && searchData.q === q) { renderSearch(); return; }
+  const seq = ++searchSeq;
+  searchData = { q, loading:true };
+  renderSearch();
+  sb.rpc('crm_search', { p_q:q, p_limit:6 }).then(({ data, error })=>{
+    if (seq !== searchSeq) return;   // הוקלד משהו חדש בינתיים
+    searchData = error ? { q, error } : { ...(data || {}), q };
+    renderSearch();
+  });
+}
+
+function renderSearch(){
+  const chips = document.getElementById('crmSearchChips');
+  const out = document.getElementById('crmSearchResults');
+  if (!chips || !out) return;
+  const q = searchQuery();
+  const counts = (searchData && searchData.counts) || {};
+  const helpHits = searchHelp(q);
+  const total = ['clients','props','leads','deals'].reduce((s, k) => s + (Number(counts[k]) || 0), 0);
+
+  chips.innerHTML = '';
+  SEARCH_SCOPES.forEach(s=>{
+    const n = s.key === 'all' ? total + helpHits.length
+            : s.key === 'help' ? helpHits.length : Number(counts[s.key]) || 0;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'srch-chip' + (s.key === searchScope ? ' is-on' : '');
+    chip.setAttribute('aria-pressed', String(s.key === searchScope));
+    chip.textContent = s.label + (q.length >= SEARCH_MIN && n ? ' · ' + n : '');
+    chip.addEventListener('click', ()=> setSearchScope(s.key));
+    chips.appendChild(chip);
+  });
+
+  out.innerHTML = '';
+  if (searchScope !== 'help'){
+    if (q.length < SEARCH_MIN){
+      out.innerHTML = '<p class="srch-hint">חפשו לקוח/ה, נכס, ליד, הסכם או מספר טלפון. לפחות שני תווים.</p>';
+    } else if (searchData && searchData.loading){
+      out.innerHTML = '<p class="srch-hint">מחפש…</p>';
+    } else if (searchData && searchData.error){
+      out.innerHTML = '<p class="srch-hint is-err">החיפוש נכשל: ' + esc(heErr(searchData.error)) + '</p>';
+    } else if (searchData){
+      const keys = searchScope === 'all' ? ['clients','props','leads','deals'] : [searchScope];
+      keys.forEach(k => {
+        const rows = searchData[k] || [];
+        if (!rows.length) return;
+        out.appendChild(searchGroup(k, rows.slice(0, searchScope === 'all' ? 3 : rows.length),
+                                    Number(counts[k]) || rows.length, q));
+      });
+      if (!out.children.length && !helpHits.length){
+        out.innerHTML = '<p class="srch-hint">לא נמצא דבר עבור "' + esc(q) + '".</p>';
+      }
+    }
+  }
+  if (searchScope === 'help' || searchScope === 'all') out.appendChild(searchHelpBlock(helpHits, q));
+}
+
+function searchGroup(key, rows, count, q){
+  const sec = document.createElement('section');
+  sec.className = 'srch-group';
+  sec.setAttribute('aria-label', SEARCH_GROUP_LABEL[key]);
+  const head = document.createElement('div');
+  head.className = 'srch-gh';
+  head.innerHTML = '<span>' + esc(SEARCH_GROUP_LABEL[key] + ' · ' + count) + '</span>';
+  if (searchScope === 'all' && count > rows.length){
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.className = 'srch-all';
+    all.textContent = 'הכל';
+    all.addEventListener('click', ()=> setSearchScope(key));
+    head.appendChild(all);
+  }
+  sec.appendChild(head);
+  rows.forEach(r => sec.appendChild(searchRow(key, r, q)));
+  if (searchScope === key && count > rows.length){
+    sec.insertAdjacentHTML('beforeend', '<p class="srch-hint">מוצגות ' + rows.length + ' מתוך '
+      + count + '. כדאי לחדד את החיפוש.</p>');
+  }
+  return sec;
+}
+
+function searchRow(key, r, q){
+  let icon, title, sub, open;
+  if (key === 'clients'){
+    icon = 'contact';
+    title = r.full_name || 'לקוח/ה';
+    sub = [r.client_kind === 'owner' ? 'בעל/ת נכס' : 'מחפש/ת',
+           INV_VALUE_LABELS[r.deal_type] || '',
+           (r.cities || [])[0] || '',
+           r.max_price ? 'עד ' + shekelShort(r.max_price) : ''];
+    open = ()=>{ gotoSection('accClients'); openClientFromParam(r.id); };
+  } else if (key === 'props'){
+    icon = 'building';
+    title = r.title || r.address || 'נכס';
+    sub = [r.city, r.address && r.address !== title ? r.address : '', r.price ? shekel(r.price) : '',
+           INV_VALUE_LABELS[r.status] || ''];
+    open = ()=>{ gotoSection('accProperties'); openPropertyFromParam(r.id); };
+  } else if (key === 'leads'){
+    icon = 'inbox';
+    title = r.display_name || 'ליד';
+    sub = [LX_TYPES[r.lead_type] || 'ליד', INV_VALUE_LABELS[r.deal_type] || '', r.city, srchDate(r.created_at)];
+    open = ()=>{ gotoSection('accLeads'); openLeadFromParam(r.id); };
+  } else {
+    icon = 'sign';
+    title = r.title || INV_VALUE_LABELS[r.kind] || 'הסכם';
+    sub = [(AGR_STATUS[r.status] || {}).label || '',
+           r.exclusive_until ? 'בלעדיות עד ' + srchDate(r.exclusive_until) : ''];
+    open = ()=>{ gotoSection('accAgreements'); openAgreementFromParam(r.id); };
+  }
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'srch-row';
+  btn.innerHTML = dashIcon(icon, 'srch-ico')
+    + '<span class="srch-text"><span class="srch-t">' + srchMark(title, q) + '</span>'
+    + '<span class="srch-s">' + esc(sub.filter(Boolean).join(' · ')) + '</span></span>';
+  btn.addEventListener('click', ()=>{ closeSearch(); open(); });
+  return btn;
+}
+
+function searchHelpBlock(hits, q){
+  const sec = document.createElement('section');
+  sec.className = 'srch-help';
+  sec.setAttribute('aria-label', 'עזרה');
+  const shown = searchScope === 'help' ? hits : hits.slice(0, 3);
+  let html = '<div class="srch-gh"><span>' + dashIcon('help', 'srch-ico') + 'עזרה במערכת</span></div>';
+  if (crmHelp === null) html += '<p class="srch-hint">טוען…</p>';
+  else if (!shown.length && searchScope === 'help') html += '<p class="srch-hint">אין שאלה שמתאימה לחיפוש.</p>';
+  sec.innerHTML = html;
+  shown.forEach(h=>{
+    const item = document.createElement('details');
+    item.className = 'srch-faq';
+    item.innerHTML = '<summary>' + srchMark(h.q, q) + '</summary><p>' + esc(h.a) + '</p>';
+    if (h.acc && navAccVisible(h.acc)){
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'srch-go';
+      go.textContent = (h.go || 'למסך הזה') + ' ←';
+      go.addEventListener('click', ()=>{ closeSearch(); gotoSection(h.acc, h.focus); });
+      item.appendChild(go);
+    }
+    sec.appendChild(item);
+  });
+  // שאלה שאין לה תשובה כאן - לגבריאלה, דרך כרטיס החיבור הקיים (המסלול,
+  // המספר הרשום וקישור הוואטסאפ כבר מטופלים שם)
+  if (navAccVisible('accWhatsapp')){
+    const ask = document.createElement('button');
+    ask.type = 'button';
+    ask.className = 'srch-go';
+    ask.textContent = 'לשאול את גבריאלה בוואטסאפ ←';
+    ask.addEventListener('click', ()=>{ closeSearch(); gotoSection('accWhatsapp'); });
+    sec.appendChild(ask);
+  }
+  return sec;
+}
+
+(function initCrmSearch(){
+  const input = document.getElementById('crmSearchInput');
+  if (input){
+    input.addEventListener('input', ()=>{
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 250);
+    });
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter'){ e.preventDefault(); runSearch(); }
+    });
+  }
+  const hdr = document.getElementById('hdrSearchBtn');
+  if (hdr) hdr.addEventListener('click', (e)=>{ e.stopPropagation(); openSearch(); });
+})();
 
 /* ---------- לשונית שלא היא זו שהתחברה ----------
    ‏supabase-js פותח BroadcastChannel על מפתח האחסון שלו, וכל לשונית פתוחה
