@@ -13102,6 +13102,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     tour_3d_url: tour3dUrl,
     video_url: videoUrl,
     listing_expires_at: document.getElementById('npExpiresAt').value || null,
+    yad2_listing_id: /^\d{4,12}$/.test(document.getElementById('npYad2Id').value.trim())
+      ? Number(document.getElementById('npYad2Id').value.trim()) : null,
     agent2_name: document.getElementById('npAgent2Name').value.trim() || null,
     agent2_phone: document.getElementById('npAgent2Phone').value.trim() || null,
     condition: currentCategory === 'commercial' ? null : (document.getElementById('npCondition').value || null),
@@ -13781,7 +13783,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -15124,6 +15126,10 @@ function propertyStatusErrorText(error){
     return heErr(error);
   }
   if (error.code === '23503') return 'אי אפשר למחוק את הנכס - מקושרים אליו חוזה או עסקה שמורים.';
+  // ‏properties_agency_yad2_listing_uniq - מודעה של יד2 פעם אחת למשרד
+  if (error.code === '23505' && /yad2/.test(String(error.message || '') + String(error.details || ''))){
+    return 'מספר המודעה ביד2 כבר רשום על נכס אחר במשרד. בדקו את המספר, או פתחו את הנכס הקיים.';
+  }
   return heErr(error) || 'שגיאה לא ידועה';
 }
 
@@ -16912,6 +16918,7 @@ function openEditProperty(p){
   document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
   document.getElementById('npTour3dUrl').value = p.tour_3d_url || '';
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
+  document.getElementById('npYad2Id').value = p.yad2_listing_id ?? '';
   document.getElementById('npAgent2Name').value = p.agent2_name || '';
   document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
   // אסינכרונית (שליפת הצוות) — ולכן אחרי הצבת השדות עצמם, שממנה היא נגזרת
@@ -17013,6 +17020,9 @@ const IMPORT_FIELDS = [
   { key:'title', label:'כותרת', hint:'אם ריק - תיווצר כותרת אוטומטית מסוג הנכס והכתובת', aliases:['כותרת','שם','שם הנכס','כותרת המודעה','title','name'] },
   { key:'status', label:'סטטוס', hint:'פעיל / נמכר / הושכר / לא פעיל - ברירת מחדל: פעיל', aliases:['סטטוס','מצב מודעה','status'] },
   { key:'category', label:'קטגוריה', hint:'מגורים / מסחרי - ברירת מחדל: מגורים', aliases:['קטגוריה','category'] },
+  // בלי הכינוי "מספר מודעה" לבדו: בייצוא שלנו זה listing_number. בקובץ של
+  // יד2 העמודה ממופה לכאן מפורשות (impReadFile).
+  { key:'yad2_listing_id', label:'מספר מודעה ביד2', hint:'מודעה של יד2 נקלטת פעם אחת למשרד', aliases:['מספר מודעה ביד2','מספר מודעה ביד 2','מספר מודעה יד2','yad2_listing_id'] },
   { key:'property_type', label:'סוג נכס', required:true, aliases:['סוג נכס','סוג הנכס','סוג','property_type','type'] },
   { key:'deal_type', label:'סוג עסקה', required:true, hint:'מכירה / השכרה', aliases:['סוג עסקה','עסקה','deal_type','deal','מכירה השכרה'] },
   { key:'price', label:'מחיר', required:true, aliases:['מחיר','מחיר מבוקש','price','מחיר בשח'] },
@@ -17104,7 +17114,8 @@ function salePriceFromMillions(price, deal){
 }
 
 const IMP_TRUE_WORDS = ['כן','true','yes','1','v','✓','y','נכון','כן!'];
-const IMP_FALSE_WORDS = ['לא','false','no','0','n','שגוי'];
+// ‏"ללא" הוא הערך השלילי בייצוא של יד2 בכל עמודות המאפיינים
+const IMP_FALSE_WORDS = ['לא','ללא','אין','false','no','0','n','שגוי'];
 function impBool(v){
   if (typeof v === 'boolean') return v;
   const s = impNorm(v);
@@ -17159,6 +17170,13 @@ const IMP_PROJECT_STATUS = {
   'ניתן היתר בנייה':'permit_issued','יש היתר':'permit_issued','היתר':'permit_issued','permit_issued':'permit_issued',
   'הבנייה הסתיימה':'construction_complete','הסתיימה':'construction_complete','construction_complete':'construction_complete',
 };
+/* ‏"חדש (נכס בן עד 10 שנים)" - יד2 מוסיפה הסבר בסוגריים לכל מצב, ו"בחר מצב
+   הנכס" הוא הערך של מודעה שבה לא נבחר מצב. */
+function impConditionKey(v){
+  const s = impNorm(String(v == null ? '' : v).replace(/\([^)]*\)/g, ' '));
+  return s.startsWith('בחר') ? '' : s;
+}
+
 const IMP_LOCATION = { 'בבניין':'building','בניין':'building','building':'building','בנכס':'unit','בדירה':'unit','unit':'unit' };
 
 /* סטטוס המודעה בקובץ. "נמכר"/"הושכר" נכנסים כמו שהם — הטריגר שמייצר
@@ -17296,6 +17314,9 @@ function impInitState(){
     overrides: Object.create(null),
     existingKeys: null,             // כותרת|מחיר של נכסים קיימים, לבדיקת כפילות
     forceStep3: false,              // אישור מעבר לבדיקה בלי מיפוי שדה חובה
+    yad2: false, yad2Agent1: null,  // קובץ "המודעות שלי" של יד2 - ראו impDetectYad2
+    hoodAliases: null,              // neighborhood_aliases: [{ neighborhood_id, alias }]
+    yad2Taken: null,                // מספר מודעה ביד2 -> שם הסוכן/ת שכבר מחזיק/ה אותה במשרד
     parsed: [], failed: [], busy: false,
   };
 }
@@ -17400,6 +17421,13 @@ async function impReadFile(file){
     importState.headers = headers;
     importState.rows = rows;
     importState.mapping = impAutoMap(headers);
+    importState.yad2 = impDetectYad2(headers);
+    if (importState.yad2){
+      importState.mapping.listing_expires_at = -1;
+      const at = (name)=> headers.findIndex(h => impNorm(h) === impNorm(name));
+      importState.yad2Agent1 = { name: at('סוכן 1'), phone: at('טלפון 1') };
+      if ((importState.mapping.yad2_listing_id ?? -1) < 0) importState.mapping.yad2_listing_id = at('מספר מודעה');
+    }
     impSetStep(2);
   } catch(err){
     console.error(err);
@@ -17459,6 +17487,58 @@ function impDetectFeatureColumns(headers, mapping){
   return columns;
 }
 
+/* קובץ "המודעות שלי" שיורד מיד2 (docs/property-import.md). שלוש הכותרות
+   האלה אינן בייצוא שלנו ולא בתבנית, ולכן הן מזהות אותו בלי לנחש.
+   מה שהזיהוי משנה - ורק בקובץ כזה:
+   - "תוקף" הוא תוקף המודעה ביד2, לא תום הבלעדיות שלנו, ולכן אינו ממופה
+     (אחרת כל המלאי היה מקבל תזכורת "פג תוקף" באותו יום);
+   - "סוג עסקה" = "מסחרי" אינו אומר מכירה או השכרה (ראו impBuildRow);
+   - תאריך כניסה שעבר הוא "כניסה מיידית";
+   - "סוכן 1" נקרא כדי שהשותף/ה יירשם/תירשם נכון כשהמייבא/ת הוא/היא סוכן 2. */
+const YAD2_SIGNATURE = ['מספר מודעה', 'תאריך הקפצה', 'סוג מודעה'];
+function impDetectYad2(headers){
+  const normalized = new Set(headers.map(impNorm));
+  return YAD2_SIGNATURE.every(h => normalized.has(impNorm(h)));
+}
+
+/* מחיר מסחרי בלי מכירה/השכרה: שכירות חודשית של נכס מסחרי אינה מגיעה
+   ל-100 אלף, ומכירה אינה יורדת אליו. בקובץ הראשון (114 מודעות) הפער היה
+   בין 38,400 ל-120,000. */
+const YAD2_COMMERCIAL_SALE_FROM = 100000;
+/* ומתחת לזה זה מחיר למ"ר לחודש ולא שכירות - "75" לחנות של 500 מ"ר. */
+const YAD2_PRICE_PER_SQM_BELOW = 200;
+
+function impPhoneKey(v){
+  const d = String(v == null ? '' : v).replace(/\D/g, '');
+  return d.startsWith('972') ? '0' + d.slice(3) : d;
+}
+
+/* שם שכונה מקובץ חיצוני מול הרשימה שלנו, כשאין התאמה מדויקת. יד2 כותבת
+   "דרום עפולה", "רובע יזרעאל סביוני העמק", "אזור תעשיה א" - ואצלנו "דרום
+   העיר", "רובע יזרעאל", "אזור התעשייה". משווים מילים אחרי שמורידים את שם
+   העיר, ה' הידיעה ויו"ד כפולה, ומקבלים רק כשמילות האחד כלולות כולן בשני
+   ויש מועמד/ת אחד/ת בלבד. השורה מקבלת אזהרה עם השם שנבחר.
+   "העיר" עצמה נשארת מילה: בלעדיה "מרכז עפולה עלית" התאים גם ל"מרכז העיר". */
+function impHoodWords(name, city){
+  const cityWords = new Set(impWords(city));
+  return impWords(name)
+    .filter(w => !cityWords.has(w))
+    .map(w => w.replace(/יי/g, 'י').replace(/וו/g, 'ו'))
+    .map(w => w.length > 2 && w.startsWith('ה') ? w.slice(1) : w);
+}
+function impFuzzyNeighborhood(raw, city, hoods){
+  const words = impHoodWords(raw, city);
+  if (!words.length) return null;
+  const has = (set, list) => list.every(w => set.has(w));
+  const rawSet = new Set(words);
+  const hits = hoods.filter(n=>{
+    const own = impHoodWords(n.name, n.city || city);
+    if (!own.length) return false;
+    return has(rawSet, own) || has(new Set(own), words);
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+
 function impRenderStep2(){
   const options = importState.headers
     .map((h, i) => `<option value="${i}">${impEscape(h)}</option>`).join('');
@@ -17477,6 +17557,10 @@ function impRenderStep2(){
   impBodyEl.innerHTML = `
     <p>נקראו <strong>${importState.rows.length}</strong> שורות מתוך <strong>${impEscape(importState.fileName)}</strong>.
        זיהינו את העמודות אוטומטית - עברו ותקנו במידת הצורך. שדות עם <span class="imp-req">*</span> הם חובה.</p>
+    ${importState.yad2 ? `<div class="imp-note"><strong>זוהה קובץ מודעות מיד2.</strong>
+       התמונות והסרטונים לא נמצאים בקובץ (רק "כן/ללא") - מעלים אותם לכל נכס אחרי הייבוא.
+       "תוקף" של יד2 אינו נקלט כתוקף המודעה אצלנו, ומודעה מסחרית שבקובץ אין לה מכירה/השכרה
+       מסווגת לפי המחיר - תראו הצעה לאישור בשלב הבדיקה.</div>` : ''}
     ${featureColumns.length ? `<div class="imp-note">עמודות מאפיין (כן/לא) שייקלטו אוטומטית כמאפייני נכס:
        <strong>${featureColumns.map(c => impEscape(c.label)).join(' · ')}</strong></div>` : ''}
     <div class="imp-note" id="impMapWarn" style="min-height:1.2em"></div>
@@ -17497,6 +17581,8 @@ function impRenderStep2(){
       // התיקונים הידניים נעשו מול המיפוי הקודם — עמודה חדשה לשדה שתוקן
       // הייתה נשארת מוסתרת מאחורי התיקון הישן.
       importState.overrides = Object.create(null);
+      // הבדיקה מול המשרד נשלפת לפי העמודה של מספר המודעה - עמודה אחרת, שליפה אחרת
+      if (sel.dataset.field === 'yad2_listing_id') importState.yad2Taken = null;
       warnEl.textContent = '';
       nextBtn.textContent = 'בדיקת הנתונים';
     });
@@ -17529,8 +17615,10 @@ function impBuildRow(rawRow, rowNumber){
   // שדות שהושלמו בניחוש (ולא מהקובץ ולא מתיקון ידני) — שלב הבדיקה מציג
   // אותם בפקד התיקון עם הערך המוצע, כדי שאפשר יהיה לאשר או להחליף.
   const guessed = Object.create(null);
-  const fail = (key, message)=>{
-    errors.push(message);
+  // ‏fix: מה לעשות, בלשון פנייה. כל שורה שנדחית אומרת גם למה וגם איך לתקן -
+  // "סוג נכס לא תקין" לבד השאיר סוכנים לנחש מה המערכת רוצה.
+  const fail = (key, message, fix)=>{
+    errors.push(fix ? `${message}. לתיקון: ${fix}` : message);
     if (!errorFields.includes(key)) errorFields.push(key);
   };
   const overrides = importState.overrides[rowNumber] || null;
@@ -17555,6 +17643,11 @@ function impBuildRow(rawRow, rowNumber){
     if (IMP_CATEGORY[rawCategory]) category = IMP_CATEGORY[rawCategory];
     else warnings.push(`קטגוריה "${impText(cell('category'))}" לא זוהתה - נקלט כמגורים`);
   }
+  // ביד2 "מסחרי" יושב בעמודת סוג העסקה ולא בקטגוריה. נקרא מהתא שבקובץ ולא
+  // דרך cell(): אחרי שבוחרים מכירה/השכרה בתיקון הידני הנכס עדיין מסחרי.
+  const dealIdx = importState.mapping.deal_type ?? -1;
+  const fileDealCommercial = dealIdx > -1 && impNorm(rawRow[dealIdx]) === 'מסחרי';
+  if (!rawCategory && fileDealCommercial) category = 'commercial';
   payload.category = category;
 
   let ptype = impMatchPropertyType(cell('property_type'), category);
@@ -17578,43 +17671,101 @@ function impBuildRow(rawRow, rowNumber){
         + '. בדקו ותקנו במידת הצורך.');
     }
   }
-  if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
+  if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`,
+    'בחרו סוג מהרשימה בשורה שמתחת (אפשר להחיל על כל השורות עם אותה בעיה), או כתבו בקובץ סוג מהגיליון "ערכים חוקיים" שבקובץ התבנית');
   else payload.property_type = ptype;
 
-  const deal = IMP_DEAL[impNorm(cell('deal_type'))];
-  if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" - יש לרשום מכירה או השכרה`);
+  let deal = IMP_DEAL[impNorm(cell('deal_type'))];
+  let rawPrice = impNumber(cell('price'));
+  if (!deal && fileDealCommercial && rawPrice > 0){
+    // הצעה ולא החלטה: הפקד נשאר פתוח עם הערך, כמו סוג נכס שנוחש מהכותרת
+    deal = rawPrice < YAD2_COMMERCIAL_SALE_FROM ? 'rent' : 'sale';
+    guessed.deal_type = deal === 'rent' ? 'השכרה' : 'מכירה';
+    warnings.push(`בקובץ כתוב "מסחרי" בלי מכירה/השכרה - לפי המחיר סווג כ${guessed.deal_type}. בדקו ותקנו במידת הצורך.`);
+  }
+  if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" אינו מכירה או השכרה`,
+    'בחרו מכירה או השכרה בשורה שמתחת, או כתבו "מכירה"/"השכרה" בעמודת סוג העסקה בקובץ');
   else payload.deal_type = deal;
 
-  const rawPrice = impNumber(cell('price'));
+  if (category === 'commercial' && deal === 'rent' && rawPrice > 0 && rawPrice < YAD2_PRICE_PER_SQM_BELOW
+      && !(overrides && 'price' in overrides)){
+    const area = impNumber(cell('built_size_sqm')) || impNumber(cell('size_sqm'));
+    if (area > 0){
+      const monthly = Math.round(rawPrice * area);
+      warnings.push(`המחיר ${rawPrice} ₪ נראה כמחיר למ"ר - חושב שכר דירה חודשי: ${monthly.toLocaleString('he-IL')} ₪ (${area} מ"ר). בדקו ותקנו במידת הצורך.`);
+      guessed.price = monthly;
+      rawPrice = monthly;
+    }
+  }
+
   const price = rawPrice === null ? null : salePriceFromMillions(rawPrice, deal);
-  if (price === null) fail('price', 'חסר מחיר או שאינו מספר');
-  else if (price <= 0) fail('price', 'המחיר חייב להיות גדול מאפס');
+  if (price === null) fail('price', `חסר מחיר${impText(cell('price')) ? ` ("${impText(cell('price'))}" אינו מספר)` : ''}`,
+    'הקלידו מחיר בשקלים בשורה שמתחת - ספרות בלבד, למשל 1500000 (או 1.5 למיליון)');
+  else if (price <= 0) fail('price', 'המחיר הוא 0 או שלילי',
+    'הקלידו את המחיר המבוקש בשורה שמתחת. אם המחיר "לפי פנייה", רשמו מחיר משוער ותקנו אחר כך בכרטיס הנכס');
   else {
     payload.price = price;
     if (price !== rawPrice) warnings.push(`המחיר ${rawPrice} פורש כמיליונים: ${price.toLocaleString('he-IL')} ₪`);
     if (deal === 'sale' && price < 10000) warnings.push('מחיר נמוך במיוחד למכירה - ודאו שהמחיר בשקלים ולא באלפים');
   }
 
-  const city = impText(cell('city'));
-  if (!city) fail('city', 'חסרה עיר');
+  let city = impText(cell('city'));
+  // ‏"אזור תעשייה אלון התבור" ביד2 הוא יישוב, ואצלנו שכונה בעפולה. שם יישוב
+  // שאינו עיר של אף שכונה ושווה לשם של שכונה אחת בדיוק - עובר לעיר שלה.
+  let hoodFromCity = null;
+  if (city && !allNeighborhoods.some(n => hoodCityKey(n.city) === hoodCityKey(city))){
+    const named = allNeighborhoods.filter(n => impNorm(n.name) === impNorm(city));
+    if (named.length === 1){
+      hoodFromCity = named[0];
+      warnings.push(`"${city}" הוא שכונה ב${hoodFromCity.city} - נקלט כ${hoodFromCity.city}, שכונת ${hoodFromCity.name}`);
+      city = hoodFromCity.city;
+    }
+  }
+  if (!city) fail('city', 'חסרה עיר', 'הקלידו את שם היישוב בשורה שמתחת (מוצעים שמות מהרשימה)');
   else payload.city = city;
 
+  // ‏0 בחדרים, בקומות ובשטחים הוא "לא מולא" (כך בכל מודעה מסחרית ביד2) ולא
+  // ערך שגוי, ולכן נשאר ריק בלי אזהרה. קומה 0 היא קרקע ונקלטת.
   const rooms = impNumber(cell('rooms'));
-  if (rooms !== null){
-    if (rooms <= 0) warnings.push('מספר חדרים לא תקין - לא נקלט');
+  if (rooms !== null && rooms !== 0){
+    if (rooms < 0) warnings.push('מספר חדרים לא תקין - לא נקלט');
     else payload.rooms = rooms;
   }
 
-  // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע
+  // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע.
+  // ‏hoodFallback: שכונה שנקבעה מכינוי או מהתאמה רכה ולא מהשם עצמו. בשלב
+  // הקליטה, כשיש כתובת מלאה, הפין מכריע קודם והיא נכנסת רק אם הוא לא הכריע
+  // (impApplyHoodFallbacks).
+  let hoodFallback = null;
   const rawNeighborhood = impNorm(cell('neighborhood'));
-  if (rawNeighborhood){
+  if (hoodFromCity){
+    payload.neighborhood_id = hoodFromCity.id;
+  } else if (rawNeighborhood){
     // בתוך העיר של השורה: "מרכז העיר" קיים בעפולה ובקריית אתא, והתאמה לפי
     // שם בלבד הייתה משייכת נכס בעפולה לשכונה בקריית אתא.
     const cityKey = hoodCityKey(city);
-    const match = allNeighborhoods.find(n => impNorm(n.name) === rawNeighborhood
-                                          && (!cityKey || hoodCityKey(n.city) === cityKey));
+    const inCity = allNeighborhoods.filter(n => !cityKey || hoodCityKey(n.city) === cityKey);
+    const match = inCity.find(n => impNorm(n.name) === rawNeighborhood);
+    // כינוי שנקבע בהכרעה (‏neighborhood_aliases) - לפני ההתאמה הרכה, כי הוא
+    // החלטה ולא ניחוש: "שכון עובדים" = מרכז העיר
+    const aliased = match ? null : (()=>{
+      const ids = new Set((importState.hoodAliases || [])
+        .filter(a => impNorm(a.alias) === rawNeighborhood).map(a => a.neighborhood_id));
+      const hits = inCity.filter(n => ids.has(n.id));
+      return hits.length === 1 ? hits[0] : null;
+    })();
+    const fuzzy = (match || aliased) ? null : impFuzzyNeighborhood(cell('neighborhood'), city, inCity);
     if (match) payload.neighborhood_id = match.id;
-    else warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות - לא נקלטה`);
+    else if (aliased || fuzzy){
+      hoodFallback = aliased || fuzzy;
+      payload.neighborhood_id = hoodFallback.id;
+      warnings.push(`השכונה "${impText(cell('neighborhood'))}" שויכה ל"${hoodFallback.name}"`
+        + (cell('street') && cell('house_number') ? ' - אלא אם הכתובת תמוקם בשכונה אחרת' : ''));
+    }
+    // ביישוב קטן יד2 כותבת את שם היישוב גם כשכונה - אין כאן מה לשייך
+    else if (rawNeighborhood !== impNorm(city)){
+      warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות - לא נקלטה`);
+    }
   }
 
   const salesArea = impText(cell('sales_area'));
@@ -17650,8 +17801,8 @@ function impBuildRow(rawRow, rowNumber){
   }
 
   const totalFloors = impNumber(cell('total_floors'));
-  if (totalFloors !== null){
-    if (totalFloors <= 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין - לא נקלט');
+  if (totalFloors !== null && totalFloors !== 0){
+    if (totalFloors < 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין - לא נקלט');
     else payload.total_floors = Math.round(totalFloors);
   }
 
@@ -17666,8 +17817,8 @@ function impBuildRow(rawRow, rowNumber){
 
   [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה']].forEach(([key, label])=>{
     const n = impNumber(cell(key));
-    if (n !== null){
-      if (n <= 0) warnings.push(`${label} לא תקין - לא נקלט`);
+    if (n !== null && n !== 0){
+      if (n < 0) warnings.push(`${label} לא תקין - לא נקלט`);
       else payload[key] = n;
     }
   });
@@ -17677,6 +17828,20 @@ function impBuildRow(rawRow, rowNumber){
     const value = impText(cell(key));
     if (value) payload[key] = value.slice(0, max);
   });
+
+  // ביד2 שני הסוכנים מתחלפים בין המודעות. כשסוכן 2 הוא המייבא/ת עצמו/ה, השותף/ה
+  // הוא/היא סוכן 1 - אחרת המודעה הייתה מציגה את המייבא/ת פעמיים.
+  const a1 = importState.yad2Agent1;
+  const myPhone = impPhoneKey(currentAgent.phone);
+  if (a1 && myPhone && payload.agent2_phone && impPhoneKey(payload.agent2_phone) === myPhone){
+    const name1 = a1.name > -1 ? impText(rawRow[a1.name]) : '';
+    const phone1 = a1.phone > -1 ? impText(rawRow[a1.phone]) : '';
+    delete payload.agent2_name; delete payload.agent2_phone;
+    if (phone1 && impPhoneKey(phone1) !== myPhone){
+      if (name1) payload.agent2_name = name1.slice(0, 100);
+      payload.agent2_phone = phone1.slice(0, 40);
+    }
+  }
 
   const expires = impDate(cell('listing_expires_at'));
   if (expires === undefined) warnings.push('תוקף המודעה לא זוהה - לא נקלט');
@@ -17703,7 +17868,7 @@ function impBuildRow(rawRow, rowNumber){
   if (category === 'commercial'){
     payload.condition = null;
   } else {
-    const raw = impNorm(cell('condition'));
+    const raw = impConditionKey(cell('condition'));
     if (raw){
       const value = IMP_CONDITION[raw];
       if (value) payload.condition = value;
@@ -17720,14 +17885,17 @@ function impBuildRow(rawRow, rowNumber){
 
   const moveIn = impDate(cell('move_in_date'));
   if (moveIn === undefined) warnings.push('תאריך כניסה לא זוהה - לא נקלט');
+  // ביד2 תאריך שעבר הוא "כניסה מיידית" - בקובץ הראשון היו כאלה משנת 2024
+  else if (moveIn && importState.yad2 && moveIn <= impDate(new Date())) payload.move_in_soon = true;
   else if (moveIn) payload.move_in_date = moveIn;
 
   const soon = impBool(cell('move_in_soon'));
   if (soon === undefined) warnings.push('"כניסה קרובה" לא זוהה - יש לרשום כן/לא');
   else if (soon !== null) payload.move_in_soon = soon;
 
+  // ‏"תוספות" ביד2 היא עמודת כן/ללא ולא רשימה - אין בה מאפיין לקלוט
   const rawFeatures = impText(cell('features'));
-  if (rawFeatures){
+  if (rawFeatures && typeof impBool(rawFeatures) !== 'boolean'){
     const map = impFeatureMap();
     const unknown = [];
     rawFeatures.split(/[,;|]/).forEach(part=>{
@@ -17754,8 +17922,10 @@ function impBuildRow(rawRow, rowNumber){
     warnings.push('נדרשים גם קו רוחב וגם קו אורך - לא נקלטו');
   }
 
+  // ביד2 "תמונות" ו"ווידאו" הן כן/ללא - הקבצים עצמם אינם בייצוא, ושלב 2
+  // אומר זאת פעם אחת לכל הקובץ במקום אזהרה על כל שורה
   const rawImages = impText(cell('images'));
-  if (rawImages){
+  if (rawImages && typeof impBool(rawImages) !== 'boolean'){
     const urls = [], bad = [];
     rawImages.split(/[,;|\s]+/).forEach(part=>{
       const url = part.trim();
@@ -17778,7 +17948,7 @@ function impBuildRow(rawRow, rowNumber){
   // נופל כאן עם אזהרה במקום להפיל את כל שורת הייבוא
   [['tour_3d_url','הקישור לסיור הווירטואלי'], ['video_url','הקישור לסרטון']].forEach(([key, label])=>{
     const url = impText(cell(key));
-    if (!url) return;
+    if (!url || typeof impBool(url) === 'boolean') return;
     if (/^https?:\/\/\S+$/i.test(url)) payload[key] = url.slice(0, 1000);
     else warnings.push(`${label} אינו כתובת מלאה - לא נקלט`);
   });
@@ -17794,7 +17964,8 @@ function impBuildRow(rawRow, rowNumber){
       payload.title = parts.join(', ').slice(0, 200);
       warnings.push('אין עמודת כותרת - נוצרה כותרת אוטומטית: ' + payload.title);
     } else {
-      fail('title', 'חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)');
+      fail('title', 'חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)',
+        'הקלידו כותרת בשורה שמתחת, או מלאו בקובץ את סוג הנכס ואת העיר');
     }
   }
 
@@ -17809,6 +17980,19 @@ function impBuildRow(rawRow, rowNumber){
     warnings.push(`סטטוס "${impText(cell('status'))}" לא זוהה - הנכס נקלט כפעיל`);
   }
 
+  // מספר המודעה ביד2. מודעה שכבר קיימת במשרד נדחית כאן ולא באינדקס הייחודי
+  // באמצע הקליטה - כך היא מקבלת הסבר, ולא נופלת עם הודעה של מסד הנתונים.
+  const rawYad2 = impText(cell('yad2_listing_id'));
+  if (rawYad2){
+    const id = /^\d{4,12}$/.test(rawYad2.replace(/\.0+$/, '')) ? Number(rawYad2.replace(/\.0+$/, '')) : null;
+    if (!id) warnings.push(`מספר המודעה ביד2 "${rawYad2}" אינו מספר - לא נקלט`);
+    else if (importState.yad2Taken && importState.yad2Taken.has(id)){
+      const who = importState.yad2Taken.get(id);
+      fail('yad2_listing_id', `מודעה ${id} ביד2 כבר קיימת במשרד${who ? ' (אצל ' + who + ')' : ''}`,
+        'אין צורך לייבא אותה שוב - לעדכון פתחו את הנכס הקיים ב"הנכסים שלי". אם זה נכס אחר, תקנו את מספר המודעה בקובץ');
+    } else payload.yad2_listing_id = id;
+  }
+
   // פרטי הבעלים לא יושבים ב-properties אלא ב-property_owners, ולכן הם נשמרים
   // בצד ה-row ולא ב-payload, ונכנסים בשלב נפרד אחרי שנוצר ה-property_id.
   const owner = {
@@ -17820,6 +18004,7 @@ function impBuildRow(rawRow, rowNumber){
     rowNumber, raw: rawRow, payload, errors, warnings, errorFields, guessed,
     fixedFields: overrides ? Object.keys(overrides) : [],
     owner: (owner.owner_name || owner.owner_phone) ? owner : null,
+    hoodFallback: hoodFallback ? hoodFallback.id : null,
   };
 }
 
@@ -17857,6 +18042,16 @@ function impSetOverride(rowNumber, field, value){
    על כל הקובץ ביחד ואחרי impRevalidate — ולא שורה-שורה. */
 function impMarkDuplicates(){
   const seen = new Map();
+  // אותה מודעה של יד2 פעמיים בקובץ: השנייה הייתה נופלת על האינדקס הייחודי
+  const seenYad2 = new Map();
+  importState.parsed.forEach(row=>{
+    const id = row.payload.yad2_listing_id;
+    if (!id || row.errors.length) return;
+    if (seenYad2.has(id)){
+      row.errors.push(`מודעה ${id} ביד2 מופיעה כבר בשורה ${seenYad2.get(id)}. לתיקון: מחקו מהקובץ את אחת משתי השורות`);
+      row.errorFields.push('yad2_listing_id');
+    } else seenYad2.set(id, row.rowNumber);
+  });
   importState.parsed.forEach(row=>{
     if (row.errors.length) return;
     const key = `${impNorm(row.payload.title)}|${row.payload.price}|${impNorm(row.payload.address || '')}`;
@@ -17924,7 +18119,7 @@ function impFixRowHtml(row, colspan, pendingCount){
            ${(done || guess) ? '' : 'disabled'}>↧ גם ב-${plural(others, 'שורה אחת', 'שורות')} שנכשלו</button>`
       : '';
     const state = done ? ' done' : (guess ? ' guess' : '');
-    const mark = done ? ' ✓' : (guess ? ' · הושלם מהכותרת' : '');
+    const mark = done ? ' ✓' : (guess ? (key === 'property_type' ? ' · הושלם מהכותרת' : ' · הצעה לאישור') : '');
     return `<div class="fix-field${state}">
         <span class="fix-label">${IMPORT_FIX_FIELDS[key].label}${mark}</span>${control}
       </div>${all}`;
@@ -18023,6 +18218,30 @@ async function impRenderStep3(){
     } catch(err){ console.warn('duplicate check failed', err); }
   }
 
+  // כינויי השכונות (אותם שהבוט ועסקאות רשות המסים משתמשים בהם)
+  if (!importState.hoodAliases){
+    try{
+      const { data } = await sb.from('neighborhood_aliases').select('neighborhood_id, alias');
+      importState.hoodAliases = data || [];
+    } catch(err){ console.warn('neighborhood aliases failed', err); importState.hoodAliases = []; }
+  }
+
+  // מספרי מודעה של יד2 שכבר קיימים במשרד - גם אצל עמיתים ובארכיון, שה-RLS
+  // אינו מראה. כשל כאן אינו פותח פתח לכפילות: האינדקס הייחודי עדיין חוסם.
+  if (!importState.yad2Taken){
+    importState.yad2Taken = new Map();
+    const idx = importState.mapping.yad2_listing_id ?? -1;
+    const ids = idx < 0 ? [] : [...new Set(importState.rows
+      .map(r => Number(impText(r[idx]).replace(/\.0+$/, ''))).filter(n => Number.isInteger(n) && n > 0))];
+    if (ids.length){
+      try{
+        const { data, error } = await sb.rpc('yad2_listing_ids_taken', { p_ids: ids });
+        if (error) throw error;
+        (data || []).forEach(r => importState.yad2Taken.set(Number(r.yad2_listing_id), r.agent_name || ''));
+      } catch(err){ console.warn('yad2 duplicate check failed', err); }
+    }
+  }
+
   impRevalidate();
 
   const cities = [...new Set(allNeighborhoods.map(n => n.city).filter(Boolean))]
@@ -18070,6 +18289,99 @@ impBodyEl.addEventListener('click', (e)=>{
 });
 
 /* ---------- שלב 4: ההכנסה עצמה ---------- */
+
+/* שורה שהמסד דחה בשמירה: למה, ומה לעשות - באותו פורמט של שורה שנדחתה
+   בבדיקה ("... לתיקון: ..."), כדי שקובץ השגיאות יפצל את שתיהן לעמודות.
+   לפני זה הגיעה הודעת המסד כמו שהיא, ולפעמים באנגלית ("violates check
+   constraint"), בלי שום דרך לדעת איזה תא בקובץ לתקן. */
+const IMP_CHECK_FIELDS = {
+  properties_total_floors_check:     ['מספר הקומות בבניין', 'רשמו מספר בין 1 ל-200, או השאירו ריק'],
+  properties_arnona_chk:             ['הארנונה', 'רשמו סכום חיובי או השאירו ריק'],
+  properties_maintenance_fee_chk:    ['ועד הבית', 'רשמו סכום חיובי או השאירו ריק'],
+  properties_garden_sqm_check:       ['שטח הגינה', 'רשמו מספר חיובי או השאירו ריק'],
+  properties_tour_3d_url_check:      ['הקישור לסיור הווירטואלי', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
+  properties_video_url_check:        ['הקישור לסרטון', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
+  properties_condition_check:        ['מצב הנכס', 'רשמו אחד מ: חדש מקבלן, חדש, משופץ, במצב שמור, דרוש שיפוץ'],
+  properties_restrooms_location_check: ['מיקום השירותים', 'רשמו "בבניין" או "בנכס"'],
+  properties_storage_location_check: ['מיקום המחסן', 'רשמו "בבניין" או "בנכס"'],
+  properties_mamad_location_check:   ['מיקום הממ"ד', 'רשמו "בבניין" או "בנכס"'],
+  properties_project_status_check:   ['סטטוס הפרויקט', 'רשמו אחד מהערכים בגיליון "ערכים חוקיים" שבקובץ התבנית'],
+};
+const IMP_DB_HINT_FIX = {
+  duplicate_same_agency: 'אם זו אותה דירה - אין צורך בשורה הזו. אם זו דירה אחרת באותה כתובת, הוסיפו בקובץ את הקומה ומספר החדרים שמבדילים ביניהן',
+  duplicate_elsewhere: 'אם יש לכם בלעדיות על הנכס - החתימו את הבעלים על הסכם בלעדיות ב-CRM ותבעו את הנכס מכרטיס הבלעדיות. אחרת ייבאו את השורה בסטטוס "לא פעיל"',
+  exclusive_elsewhere: 'הנכס בבלעדיות של משרד אחר ולא ניתן לפרסם אותו עד שהיא תסתיים. אפשר לייבא את השורה בסטטוס "לא פעיל" כדי לשמור אותה אצלך',
+};
+// הודעת המסד מסתיימת לפעמים בנקודה - בלי זה יוצא "שנייה.. לתיקון"
+function impReason(text){ return String(text || '').trim().replace(/[.\s]+$/, ''); }
+function impInsertErrorText(error){
+  const code = error && error.code;
+  const text = String((error && (error.message || error.details)) || '');
+  if (error && IMP_DB_HINT_FIX[error.hint]) return `${impReason(heErr(error))}. לתיקון: ${IMP_DB_HINT_FIX[error.hint]}`;
+  if (code === '23505' && /yad2/.test(text + String(error.details || ''))){
+    return 'מספר המודעה ביד2 כבר רשום על נכס אחר במשרד. לתיקון: אם זה אותו נכס - אין צורך לייבא שוב; אחרת תקנו את מספר המודעה בקובץ';
+  }
+  if (code === '23514'){
+    const name = Object.keys(IMP_CHECK_FIELDS).find(k => text.includes(k));
+    if (name){
+      const [label, fix] = IMP_CHECK_FIELDS[name];
+      return `הערך של ${label} אינו תקין. לתיקון: ${fix}`;
+    }
+    return 'אחד הערכים בשורה מחוץ לטווח המותר. לתיקון: בדקו מספרים שליליים או ריקים בעמודות המספריות ונסו שוב';
+  }
+  if (code === '22001') return 'אחד הטקסטים בשורה ארוך מדי. לתיקון: קצרו את הכותרת או את התיאור ונסו שוב';
+  if (code === '22P02' || code === '22003') return 'אחד המספרים בשורה אינו מספר תקין. לתיקון: בדקו שבעמודות המחיר, השטח והקומות יש ספרות בלבד';
+  if (code === '42501' || /row-level security/i.test(text)){
+    return 'אין הרשאה לשמור את הנכס בחשבון הזה. לתיקון: רעננו את הדף, ודאו שאתם מחוברים לחשבון שלכם ונסו שוב';
+  }
+  if (!code && /fetch|network|timeout/i.test(text)){
+    return 'החיבור נקטע והשורה לא נשמרה. לתיקון: הורידו את קובץ השגיאות והעלו אותו שוב - ייקלטו רק השורות שנכשלו';
+  }
+  return `${impReason(propertyStatusErrorText(error))}. לתיקון: נסו שוב, ואם זה חוזר - שלחו את קובץ השגיאות לתמיכה בוואטסאפ`;
+}
+
+/* שכונה מכינוי ("שכון עובדים" = מרכז העיר) או מהתאמה רכה היא ברירת מחדל,
+   לא החלטה: כשיש רחוב ומספר בית, הכתובת מכריעה. השורה מקבלת כאן פין
+   (אותו גאוקוד של טופס הנכס ושל חיפוש העסקאות), והשכונה יורדת מה-payload -
+   ‏properties_set_neighborhood_trg ממלא אותה מהמצולע בשמירה. מה שהפין לא
+   הכריע (מחוץ לכל מצולע, או בשניים) מקבל את ברירת המחדל אחר כך
+   (impApplyHoodFallbacks). שורה בלי מספר בית שומרת את ברירת המחדל כמו שהיא.
+
+   ארבע בקשות במקביל: מעבר לזה שכבת העירייה מתחילה לדחות. */
+async function impLocateFallbackRows(queue, textEl){
+  const todo = queue.filter(r => r.hoodFallback && r.payload.street && r.payload.house_number
+                              && r.payload.lat == null && r.payload.lng == null);
+  if (!todo.length) return;
+  let n = 0;
+  const worker = async ()=>{
+    while (todo.length){
+      const row = todo.shift();
+      if (textEl) textEl.textContent = `מאתר כתובות לשיוך שכונה… ${++n}`;
+      const coords = await dealsLookupCoords(row.payload.city, row.payload.street, row.payload.house_number);
+      if (coords){
+        row.payload.lat = coords.lat;
+        row.payload.lng = coords.lng;
+        delete row.payload.neighborhood_id;
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+
+async function impApplyHoodFallbacks(rows, inserted){
+  const byHood = new Map();
+  rows.forEach((row, i)=>{
+    const got = inserted[i];
+    if (!row.hoodFallback || !got || !got.id || got.neighborhood_id) return;
+    if (!byHood.has(row.hoodFallback)) byHood.set(row.hoodFallback, []);
+    byHood.get(row.hoodFallback).push(got.id);
+  });
+  for (const [hood, ids] of byHood){
+    const { error } = await sb.from('properties').update({ neighborhood_id: hood }).in('id', ids);
+    if (error) console.warn('neighborhood fallback failed', error);
+  }
+}
+
 async function impRenderStep4(){
   const queue = importState.parsed.filter(r => !r.errors.length);
   importState.busy = true;
@@ -18114,19 +18426,23 @@ async function impRenderStep4(){
     }
   };
 
+  await impLocateFallbackRows(queue, text);
+
   for (let i = 0; i < queue.length; i += IMPORT_CHUNK){
     const chunk = queue.slice(i, i + IMPORT_CHUNK);
     const { data: insertedRows, error } = await sb.from('properties')
-      .insert(chunk.map(r => r.payload)).select('id');
+      .insert(chunk.map(r => r.payload)).select('id, neighborhood_id');
+    if (!error) await impApplyHoodFallbacks(chunk, insertedRows || []);
     if (error){
       // ‏insert קבוצתי נכשל כולו בגלל שורה אחת פגומה, ולכן חוזרים על המנה
       // שורה-שורה כדי לבודד את הנופלות ולהציל את השאר.
       for (const row of chunk){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
-          .insert(row.payload).select('id').single();
-        // ‏propertyStatusErrorText ולא message גולמי: שורה שנדחתה בגלל נכס
-        // שכבר מפורסם במערכת מקבלת את ההסבר בעברית בקובץ השגיאות
-        if (rowError) importState.failed.push({ raw: row.raw, message: propertyStatusErrorText(rowError) });
+          .insert(row.payload).select('id, neighborhood_id').single();
+        if (!rowError) await impApplyHoodFallbacks([row], [insertedRow]);
+        // ‏impInsertErrorText ולא message גולמי: כל שורה שנדחתה מקבלת בקובץ
+        // השגיאות את הסיבה בעברית ואת מה לעשות
+        if (rowError) importState.failed.push({ raw: row.raw, message: impInsertErrorText(rowError) });
         else { ok++; if (!rowHasImage(row)) noImage++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
@@ -18148,7 +18464,7 @@ async function impRenderStep4(){
       ${failedTotal ? `<span class="imp-chip bad">${failedTotal} לא נקלטו</span>` : ''}
     </div>
     <p>${ok ? 'הנכסים מפורסמים באתר ומופיעים ברשימת "הנכסים שלי".' : 'לא נקלט אף נכס.'}</p>
-    ${importState.failed.length ? `<p class="imp-note">${plural(importState.failed.length, 'שורה אחת נדחתה', 'שורות נדחו')} על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
+    ${importState.failed.length ? `<p class="imp-note">${plural(importState.failed.length, 'שורה אחת נדחתה', 'שורות נדחו')} על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות - לכל שורה כתובים בו הסיבה ומה לעשות, ואפשר לתקן בו ולהעלות אותו שוב.</p>` : ''}
     ${noImage ? `<p class="imp-note"><b>${plural(noImage, 'נכס אחד נוצר', 'נכסים נוצרו')} בלי תמונות, ולכן לא יפורסמו בדף הפייסבוק של האתר.</b> הפוסט ייצא מעצמו כ-20 דקות אחרי שתעלו את התמונה הראשונה לכל נכס - אין צורך לבקש שוב.</p>` : ''}
     <p class="imp-note">נכסים ללא קו רוחב/אורך לא יופיעו כסימון על מפת עמוד הבית. אפשר להשלים מיקום וכתובת דרך "עריכה" בכל נכס, ואז גם ייקלט המידע התכנוני.</p>
     ${ok && !noImage ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות - מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
@@ -18243,10 +18559,17 @@ async function impDownloadErrors(rows){
   let XLSX;
   try { XLSX = await loadImportLib(); }
   catch(err){ showToast(heErr(err)); return; }
-  const header = [...importState.headers, 'סיבת הדחייה'];
-  const data = rows.map(r => [...importState.headers.map((_, i) => impText(r.raw[i])), r.message]);
+  // הסיבה ומה לעשות בשתי עמודות: ההודעות נבנות "... לתיקון: ...", ושורה
+  // שנכשלה על כמה שדות מחוברת ב-" · ". שתי העמודות אינן כינוי של אף שדה,
+  // ולכן הקובץ המתוקן עולה בחזרה כמו שהוא.
+  const header = [...importState.headers, 'סיבת הדחייה', 'מה לעשות'];
+  const data = rows.map(r=>{
+    const parts = String(r.message || '').split(' · ').map(p => p.split('. לתיקון: '));
+    return [...importState.headers.map((_, i) => impText(r.raw[i])),
+      parts.map(p => p[0]).join(' · '), parts.map(p => p[1]).filter(Boolean).join(' · ')];
+  });
   const sheet = XLSX.utils.aoa_to_sheet([header, ...data]);
-  sheet['!cols'] = header.map((_, i) => ({ wch: i === header.length - 1 ? 60 : 18 }));
+  sheet['!cols'] = header.map((_, i) => ({ wch: i >= header.length - 2 ? 60 : 18 }));
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'שורות שנדחו');
   XLSX.writeFile(book, 'שגיאות-ייבוא-נכסים.xlsx');
