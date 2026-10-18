@@ -134,6 +134,9 @@ export async function askCoach(
     service.from("coach_preferences").select("tone, experience").eq("agent_id", me.id).maybeSingle(),
   ]);
 
+  // אילו פרקים מהידע נשלחים: לפי השאלה ולפי השאלות הקודמות בשיחה (המשך כמו
+  // "ואם הוא מסרב?" לא מזכיר שוב את הנושא)
+  const topicText = [question, ...((past as Row[] | null) ?? []).map((r) => String(r.question ?? ""))].join("\n");
   const ctx = await loadContext(service, kind, me as Member, String(dayRaw), pref?.experience);
   if ("error" in ctx) return { error: ctx.error, status: ctx.status };
 
@@ -144,7 +147,7 @@ export async function askCoach(
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       max_tokens: 2000,
-      system: [{ type: "text", text: askSystemPrompt(kind, cleanTone(pref?.tone), ctx.manages ?? null), cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: askSystemPrompt(kind, cleanTone(pref?.tone), ctx.manages ?? null, topicText), cache_control: { type: "ephemeral" } }],
       messages: [
         ...askHistory(past as Row[] | null),
         {

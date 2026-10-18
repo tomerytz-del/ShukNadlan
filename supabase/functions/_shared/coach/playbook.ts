@@ -537,10 +537,40 @@ const BUSINESS_SALE = `מכירת עסק פעיל: מוכרים תזרים מז�
 - הוצאות: כל צד ליועצים שלו.
 - המתווה ברובו אינו מחייב, וסודיות ובלעדיות כן. איזה סעיף מחייב ואיך מנסחים - עורך/ת הדין קובע/ת, ולא מחתימים עליו לבד.`;
 
-export const PLAYBOOK = [
-  INTRO, LISTING, PRICING, SELLER_OBJECTIONS, DONT_SAY, LAUNCH, SCRIPTS, BUYERS, NEGOTIATION, MEDIATION, ROUTINE, CALL_RELUCTANCE, AGRI_LAND, NAHALA, COMMERCIAL, PROPERTY_MGMT, NEW_BUILD, BUSINESS_SALE, TRAINING,
-]
-  .join("\n\n");
+/* הליבה - נשלחת בכל שאלה. */
+const CORE = [
+  INTRO, LISTING, PRICING, SELLER_OBJECTIONS, DONT_SAY, LAUNCH, SCRIPTS, BUYERS, NEGOTIATION, MEDIATION, ROUTINE, CALL_RELUCTANCE, TRAINING,
+];
+
+/* פרקים לפי תחום - נשלחים רק כשהשאלה (או השאלות הקודמות בשיחה) נוגעת בהם,
+   כדי שכל שאלה לא תשלם על כל הידע. ‏re רחב בכוונה: פרק מיותר עולה מעט,
+   פרק חסר נראה למודל כמו "אין ידע". פרק חדש לפי תחום נכנס כאן, לא ב-CORE. */
+export const TOPICS: { key: string; title: string; text: string; re: RegExp }[] = [
+  { key: "agri", title: "קרקע חקלאית", text: AGRI_LAND,
+    re: /חקלא|קרקע|מגרש|דונם|תקן 22|איחוד וחלוקה|הפשר|היטל השבחה|מס שבח|הפקע|תמ"א|תב"ע/ },
+  { key: "nahala", title: "נחלה ומשק חקלאי", text: NAHALA,
+    re: /נחל[הות]|משק חקלאי|משק במושב|מושב|חלקה א|אגודה|ועדת קבלה|בן ממשיך|דמי הסכמה|דמי רכישה|רמ"י|פלח"ק|פלד"ח/ },
+  { key: "commercial", title: "נדל\"ן מסחרי", text: COMMERCIAL,
+    re: /מסחרי|חנות|חנויות|מחסן|תעשי|לוגיסט|משרדים|שטח משרד|נכס מניב|תשואה|NOI|היוון|רישיון עסק|ארנונה|מעטפת|LOI/i },
+  { key: "mgmt", title: "ניהול נכסים", text: PROPERTY_MGMT,
+    re: /ניהול נכס|ניהול נכסים|מנהל נכס|שוכר|שוכרים|משכיר|השכר|שכירות|פיקדון|ערבו|ערב |ערבים|פרוטוקול מסירה|דמי ניהול|ריטיינר/ },
+  { key: "newbuild", title: "יד ראשונה (קבלן ויזם)", text: NEW_BUILD,
+    re: /קבלן|יזם|יזמ|יד ראשונה|פרויקט|חוק המכר|ליווי בנקאי|שוברים|20\/80|10\/90|פריסייל|תוכנית מכר|משרד מכירות|על הנייר/ },
+  { key: "business", title: "מכירת עסק פעיל", text: BUSINESS_SALE,
+    re: /מכירת עסק|למכור עסק|עסק פעיל|עסק חי|מוניטין|מניות|אי.תחרות|סודיות|NDA|מכפיל|term sheet|מתווה/i },
+];
+
+/* הידע לשאלה: הליבה, רשימת הפרקים שקיימים בשיטה, והפרקים שהשאלה נוגעת בהם */
+export function playbookFor(text: string): { text: string; topics: string[] } {
+  const t = String(text || "");
+  const hit = TOPICS.filter((x) => x.re.test(t));
+  const index = `פרקים נוספים בשיטה, שמצורפים רק כשהשאלה עוסקת בהם: ${TOPICS.map((x) => x.title).join(", ")}. ` +
+    `שאלה על אחד מהם שהפרק שלו לא מצורף כאן - אינה "נושא חסר": עונים מהידע הכללי שלמטה ומבקשים לשאול שוב ולציין את הנושא במפורש.`;
+  return { text: [...CORE, index, ...hit.map((x) => x.text)].join("\n\n"), topics: hit.map((x) => x.key) };
+}
+
+/* כל הידע (לבדיקות ולתיעוד) */
+export const PLAYBOOK = [...CORE, ...TOPICS.map((x) => x.text)].join("\n\n");
 
 /* רק למנטור הצוות ולמנטור המשרד */
 export const MANAGER_PLAYBOOK = [LEADERSHIP, LEADERSHIP_PRACTICE].join("\n\n");

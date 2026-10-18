@@ -41,7 +41,7 @@ import {
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
-import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
+import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -394,6 +394,17 @@ check("ידע: יד ראשונה - חוק המכר, גילוי שהעמלה מה
 check("ידע: מכירת עסק - דיסקרטיות, לא עסקת מקרקעין, ומתווה שלא מחתימים לבד",
   ["מכירת עסק פעיל", "אינה עסקת מקרקעין", "פרופיל \"עיוור\"", "נאכף רק כשהוא סביר", "ולא מחתימים עליו לבד"].every((h) => PLAYBOOK.includes(h))
   && !PLAYBOOK.includes("סעיף 30 לחוק מע\"מ"));
+{
+  const base = playbookFor("מה להכין לפגישת גיוס?");
+  const agri = playbookFor("איך מוכרים שטח חקלאי");
+  const lease = playbookFor("איך מסננים שוכר לדירה");
+  const proj = playbookFor("ליד מקמפיין של פרויקט קבלן");
+  const biz = playbookFor("רוצה למכור עסק פעיל של המוניטין");
+  check("ידע לפי נושא: שאלה כללית - הליבה ורשימת הפרקים בלבד", base.topics.length === 0 && base.text.includes("פרקים נוספים בשיטה") && !base.text.includes("תקן 22") && base.text.includes("מה לא אומרים"), base.topics);
+  check("ידע לפי נושא: כל פרק נבחר לפי השאלה", agri.topics.includes("agri") && lease.topics.includes("mgmt") && proj.topics.includes("newbuild") && biz.topics.includes("business") && playbookFor("נחלה במושב").topics.includes("nahala") && playbookFor("השכרת מחסן לוגיסטי").topics.includes("commercial"));
+  check("ידע לפי נושא: שאלת המשך יורשת את הנושא מהשאלות הקודמות", askSystemPrompt("agent", "warm", null, "ואם הוא מסרב?\nאיך מוכרים שטח חקלאי").includes("תקן 22") && !askSystemPrompt("agent").includes("תקן 22"));
+  check("ידע לפי נושא: הפרקים חוסכים - שאלה כללית קצרה בהרבה מכל הידע", base.text.length < PLAYBOOK.length * 0.7 && TOPICS.length === 6, [base.text.length, PLAYBOOK.length]);
+}
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
@@ -420,7 +431,7 @@ for (const kind of ["agent", "team", "office"] as const) {
   check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("העברת ליד"));
   check(`שאל ${kind}: תשובה בלבד, בלי פעולות`, p.includes("לא מבצע/ת פעולות"));
   check(`שאל ${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(p));
-  check(`שאל ${kind}: הידע המקצועי בפרומפט`, p.includes(PLAYBOOK));
+  check(`שאל ${kind}: הידע המקצועי (הליבה) בפרומפט`, p.includes(playbookFor("").text));
 }
 
 // ---------------------------------------------------------------------------
