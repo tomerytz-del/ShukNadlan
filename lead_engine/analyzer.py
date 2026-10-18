@@ -12,6 +12,8 @@ from typing import Optional
 
 import anthropic
 
+from ai_usage import log_ai_usage
+
 from .config import Settings
 from .models import FeedEntry, LeadAnalysis
 
@@ -135,6 +137,10 @@ class LeadAnalyzer:
         except anthropic.APIConnectionError as err:
             log.error("שגיאת רשת בניתוח %s: %s", entry.source_url, err)
             return None
+
+        # לפירוט העלות בפאנל "עלויות" - גם כשהתשובה תיזרק למטה, כי שולם עליה
+        log_ai_usage(self._settings.supabase_url, self._settings.supabase_service_role_key,
+                     "lead_analyzer", response)
 
         if response.stop_reason == "refusal":
             log.warning("המודל סירב לנתח את %s", entry.source_url)

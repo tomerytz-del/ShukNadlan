@@ -18,6 +18,8 @@ from typing import Optional
 import anthropic
 from pydantic import ValidationError
 
+from ai_usage import log_ai_usage
+
 from .config import Settings
 from .models import MAX_HEADLINE_CHARS, NewsAnalysis
 from .relevance import shorten_headline
@@ -163,6 +165,10 @@ class NewsAnalyzer:
             # ולא מפילה את ההרצה על עשרים וארבע הידיעות שאחריה.
             log.error("שגיאה לא צפויה מ-Claude בניתוח %s: %s", url, err)
             return None
+
+        # לפירוט העלות בפאנל "עלויות" - גם כשהתשובה תיזרק למטה, כי שולם עליה
+        log_ai_usage(self._settings.supabase_url, self._settings.supabase_service_role_key,
+                     "news_analyzer", response)
 
         if response.stop_reason == "refusal":
             log.warning("המודל סירב לנתח את %s", url)

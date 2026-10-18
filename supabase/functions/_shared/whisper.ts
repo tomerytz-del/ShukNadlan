@@ -8,6 +8,7 @@
  * עוברים כפרמטר.
  */
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { logAiUsage, unitsRow } from "./ai-usage.ts";
 
 /** ‏Whisper מקבל עד 25MB לקובץ. */
 export const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
@@ -128,6 +129,8 @@ async function whisperOnce(
   form.append("file", new Blob([bytes], { type: mime }), `call.${ext}`);
   form.append("model", "whisper-1");
   form.append("language", "he");
+  // ‏verbose_json: אותו text, ובנוסף duration - Whisper מחויב לפי דקות (ai_usage_log)
+  form.append("response_format", "verbose_json");
   if (hint) form.append("prompt", hint);
   return await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -155,7 +158,11 @@ export async function transcribe(
   try {
     for (const [b, e, m] of attempts) {
       const res = await whisperOnce(openaiKey, b, m, e, hint);
-      if (res.ok) return (((await res.json())?.text as string) || "").trim() || null;
+      if (res.ok) {
+        const out = await res.json();
+        logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
+        return ((out?.text as string) || "").trim() || null;
+      }
       const body = (await res.text()).slice(0, 300);
       console.error("whisper failed", res.status, `as .${e} (${m})${b === bytes ? "" : " rebranded"}`,
         `sniff=${kind}`, body);

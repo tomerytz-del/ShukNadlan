@@ -5776,8 +5776,21 @@ function renderCostsReport(){
   /* ---- 1. ארבעת המספרים ---- */
   const totalNow = sumIls(cur), totalPrev = sumIls(prev);
   const tiles = admEl('div', 'adm-tiles');
+  /* הנתון המסכם: כל העלויות בתקופה לחלק לסוכנים הפעילים (‏active ו-is_active_agent,
+     תמונת מצב של היום - platform_costs_list). בתקופה של כמה חודשים - גם לחודש. */
+  const agents = Number(report.agents) || 0;
+  const periodMonths = Math.max(1, Math.round((new Date(range.to) - new Date(range.from)) / (30.44 * 86400000)));
+  const perAgent = agents ? totalNow / agents : null;
+  const heroTile = tiles.appendChild(admTile('עלות ממוצעת לסוכן/ת', perAgent === null ? 'אין סוכנים' : costFmt(perAgent, 'ILS'),
+    { wine: true,
+      delta: agents ? admDeltaChip(Math.round(perAgent), Math.round(totalPrev / agents)) : null,
+      note: [agents ? 'כל העלויות בתקופה ל-' + plural(agents, 'סוכן/ת פעיל/ה אחד/ת', 'סוכנים פעילים') : '',
+             agents && periodMonths > 1 ? costFmt(perAgent / periodMonths, 'ILS') + ' לחודש' : '',
+             report.agents_with_login !== undefined && report.agents_with_login !== agents
+               ? report.agents_with_login + ' מהם נכנסו למערכת' : ''].filter(Boolean).join(' · ') }));
+  heroTile.classList.add('adm-tile-hero');
   tiles.appendChild(admTile('סה"כ בתקופה (הערכה בשקלים)', admMoney(totalNow),
-    { wine: true, delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
+    { delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
       note: range.label + ' · מול ' + admMoney(totalPrev) }));
   tiles.appendChild(admTile('חיובים בדולר', costFmt(sumCur(cur, 'USD'), 'USD'),
     { note: plural(cur.filter(r => counted(r) && r.currency === 'USD').length, 'חיוב אחד', 'חיובים') }));
@@ -5858,7 +5871,7 @@ function renderCostsReport(){
   host.appendChild(svcBlock);
 
   /* ---- 3א. עלות AI לפי יכולת ---- */
-  host.appendChild(costsAiBlock(ai, bySvc.get('anthropic_api')));
+  host.appendChild(costsAiBlock(ai, bySvc));
 
   /* ---- 4. לפי חודש ---- */
   const months = [];
@@ -5929,33 +5942,51 @@ function renderCostsReport(){
   dashPanelsMeasure();
 }
 
-/* עלות ה-AI לפי יכולת - **הערכה** מהטוקנים ביומנים (‏ai_usage_costs), כפול
-   המחירון ai_model_prices. היא כבר כלולה בחשבונית של Anthropic שלמעלה, ולכן
-   מוצגת כפירוט ולא נוספת לסך. docs/platform-costs.md, "עלות AI לפי יכולת". */
+/* עלות ה-AI לפי יכולת - **הערכה** מהיומנים (‏ai_usage_costs: יומני המנטור ו-
+   ai_usage_log), כפול המחירון ai_model_prices. היא כבר כלולה בחשבוניות הספקים
+   שלמעלה, ולכן מוצגת כפירוט ולא נוספת לסך. docs/platform-costs.md, "עלות AI
+   לפי יכולת". יכולת חדשה שכותבת ליומן מקבלת כאן שורה. */
 const AI_FEATURES = {
-  mentor_question: { label: 'שאלה למנטור', sub: 'CRM ו"שאלה למנטור" דרך גבריאלה', unit: 'לשאלה' },
-  agent_daily:     { label: 'סיכום יומי לסוכן/ת', sub: 'המנטור לסוכן/ת, כל בוקר', unit: 'לסיכום' },
-  team_weekly:     { label: 'סיכום שבועי לצוות', sub: 'מנטור מנהל/ת הצוות', unit: 'לסיכום' },
-  office_weekly:   { label: 'סיכום שבועי למשרד', sub: 'מנטור המשרד', unit: 'לסיכום' },
+  gabriela_agent:    { label: 'גבריאלה לסוכנים', sub: 'העוזרת בוואטסאפ, כל קריאה למודל בתור', unit: 'לקריאה' },
+  gabriela_public:   { label: 'גבריאלה לגולשים', sub: 'הבוט הציבורי בוואטסאפ', unit: 'לקריאה' },
+  mentor_question:   { label: 'שאלה למנטור', sub: 'CRM ו"שאלה למנטור" דרך גבריאלה', unit: 'לשאלה' },
+  agent_daily:       { label: 'סיכום יומי לסוכן/ת', sub: 'המנטור לסוכן/ת, כל בוקר', unit: 'לסיכום' },
+  team_weekly:       { label: 'סיכום שבועי לצוות', sub: 'מנטור מנהל/ת הצוות', unit: 'לסיכום' },
+  office_weekly:     { label: 'סיכום שבועי למשרד', sub: 'מנטור המשרד', unit: 'לסיכום' },
+  marketing_copy:    { label: 'תיאור שיווקי ופוסט', sub: 'דף הנכס ופייסבוק', unit: 'לנכס' },
+  ads_copy:          { label: 'נוסחי מודעות', sub: 'קונסולת השיווק', unit: 'לבקשה' },
+  media_extract:     { label: 'קריאת PDF', sub: 'קבצים שנשלחו לגבריאלה', unit: 'לקובץ' },
+  call_summary:      { label: 'סיכום שיחה', sub: 'יומן השיחות', unit: 'לשיחה' },
+  transcribe:        { label: 'תמלול הקלטות', sub: 'שיחות והודעות קוליות', unit: 'להקלטה' },
+  image_classify:    { label: 'סיווג תמונות', sub: 'תמונות נכסים', unit: 'לתמונה' },
+  image_visualize:   { label: 'הדמיות', sub: 'שיפוץ והלבשת בית', unit: 'להדמיה' },
+  showcase_branding: { label: 'בדיקת לוגו בתמונה', sub: 'המיניסייט ללקוח/ה', unit: 'לתמונה' },
+  lead_analyzer:     { label: 'מנוע הלידים', sub: 'פוסטים מ-RSS', unit: 'לפוסט' },
+  news_analyzer:     { label: 'מנוע המבזקים', sub: 'ידיעות', unit: 'לידיעה' },
 };
+// הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
+const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };
 
-function costsAiBlock(ai, anthropicInvoice){
+function costsAiBlock(ai, bySvc){
   const block = admBlock('עלות AI לפי יכולת (הערכה)',
-    'לפי הטוקנים שכל קריאה רושמת, כפול המחירון. כבר כלול בחשבונית Claude API שלמעלה - לא נוסף לסך.');
+    'לפי הטוקנים (או הדקות) שכל קריאה רושמת, כפול המחירון. כבר כלול בחשבוניות שלמעלה - לא נוסף לסך.');
   if (!ai){
-    block.appendChild(admEl('div', 'empty-state', 'ההערכה לא זמינה עדיין - המיגרציה 20270620090000_ai_usage_costs.sql לא רצה.'));
+    block.appendChild(admEl('div', 'empty-state', 'ההערכה לא זמינה עדיין - המיגרציה 20270622090000_ai_usage_log.sql לא רצה.'));
     return block;
   }
   const rows = Array.isArray(ai.rows) ? ai.rows : [];
   const byFeat = new Map();
+  const byProv = new Map();
   rows.forEach(r => {
-    const f = byFeat.get(r.feature) || { calls: 0, usd: 0, unpriced: 0, models: new Set() };
+    const f = byFeat.get(r.feature) || { calls: 0, usd: 0, unpriced: 0, units: 0, unitLabel: r.unit_label, models: new Set() };
     f.calls += r.calls; f.models.add(r.model);
+    if (r.units !== null && r.units !== undefined) f.units += Number(r.units);
     if (r.usd === null) f.unpriced += r.calls; else f.usd += Number(r.usd);
     byFeat.set(r.feature, f);
+    if (r.usd !== null) byProv.set(r.provider, (byProv.get(r.provider) || 0) + Number(r.usd));
   });
   if (!byFeat.size){
-    block.appendChild(admEl('div', 'empty-state', 'לא נרשמו קריאות למנטור בתקופה הזו.'));
+    block.appendChild(admEl('div', 'empty-state', 'לא נרשמו קריאות למודלים בתקופה הזו.'));
     return block;
   }
   const totalIls = [...byFeat.values()].reduce((a, f) => a + costToIls(f.usd, 'USD'), 0);
@@ -5965,16 +5996,24 @@ function costsAiBlock(ai, anthropicInvoice){
     const ils = costToIls(f.usd, 'USD');
     const priced = f.calls - f.unpriced;
     const sub = [meta.sub, plural(f.calls, 'קריאה אחת', 'קריאות'),
+      f.units ? Math.round(f.units).toLocaleString('he-IL') + ' ' + (f.unitLabel === 'דקה' ? 'דקות' : (f.unitLabel || 'יחידות')) : '',
       priced ? 'ממוצע ' + costFmt(ils / priced, 'ILS') + ' ' + meta.unit + ' (' + costFmt(f.usd / priced, 'USD') + ')' : '',
       f.unpriced ? plural(f.unpriced, 'קריאה אחת', 'קריאות') + ' בלי מחיר למודל' : '',
       [...f.models].join(', ')].filter(Boolean).join(' · ');
-    list.appendChild(admRow(meta.label, sub, costFmt(ils, 'ILS'), totalIls ? (ils / totalIls) * 100 : 0, null));
+    list.appendChild(admRow(meta.label, sub, f.unpriced === f.calls ? 'בלי מחיר' : costFmt(ils, 'ILS'),
+      totalIls ? (ils / totalIls) * 100 : 0, null));
   });
-  list.appendChild(admRow('סה"כ מנטור (הערכה)', null, costFmt(totalIls, 'ILS'), null, null, true));
+  list.appendChild(admRow('סה"כ AI (הערכה)', null, costFmt(totalIls, 'ILS'), null, null, true));
   block.appendChild(list);
-  if (anthropicInvoice && anthropicInvoice.ils > 0){
-    block.appendChild(admEl('p', 'cst-howto', 'זה בערך ' +
-      Math.round((totalIls / anthropicInvoice.ils) * 100) + '% מחשבונית Claude API בתקופה. השאר: גבריאלה, תיאורים, מבזקים וסיכומי שיחות, שעוד לא נרשמים לפי יכולת.'));
+  const shares = [...byProv.entries()].map(([prov, usd]) => {
+    const inv = bySvc.get(AI_PROVIDER_INVOICE[prov]);
+    return inv && inv.ils > 0
+      ? costLabel(AI_PROVIDER_INVOICE[prov]) + ': ' + Math.round((costToIls(usd, 'USD') / inv.ils) * 100) + '% מהחשבונית'
+      : '';
+  }).filter(Boolean);
+  if (shares.length){
+    block.appendChild(admEl('p', 'cst-howto', 'מול החשבוניות בתקופה - ' + shares.join(' · ') +
+      '. פער גדול = קריאות שעוד לא נרשמות ליומן, או מחיר במחירון שהשתנה.'));
   }
   return block;
 }

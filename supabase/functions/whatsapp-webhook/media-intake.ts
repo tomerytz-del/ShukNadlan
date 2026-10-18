@@ -20,6 +20,7 @@
  */
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { strFromU8, unzipSync } from "npm:fflate@0.8.2";
 import { agentPlaces, sniff, transcribe, WHISPER_DOMAIN, WHISPER_MAX_BYTES } from "../_shared/whisper.ts";
 
@@ -419,6 +420,7 @@ async function pdfToText(bytes: Uint8Array): Promise<MediaResult> {
       : fail("לא הצלחתי לקרוא את ה-PDF. אפשר לנסות לשלוח אותו שוב?", `pdf_failed:${res.status}`);
   }
   const data = await res.json();
+  logAiUsage(anthropicRow("media_extract", data?.model || EXTRACT_MODEL, data?.usage));
   // deno-lint-ignore no-explicit-any
   const text = (data?.content ?? []).filter((b: any) => b?.type === "text").map((b: any) => b.text).join("").trim();
   if (!text) return fail("לא מצאתי טקסט ב-PDF. אפשר לשלוח אותו שוב או לצלם?", "pdf_empty");

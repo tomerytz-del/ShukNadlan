@@ -15,6 +15,8 @@
 // שיפוץ, ונכס להשכרה מקבל הלבשת בית בלבד — ראו RenderMode.
 // ============================================================================
 
+import { geminiRow, logAiUsage } from "./ai-usage.ts";
+
 const IMAGE_MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image-preview";
 const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-lite";
 
@@ -599,6 +601,7 @@ async function generateOnce(apiKey: string, mime: string, data: string, prompt: 
   }
 
   const json = await res.json();
+  logAiUsage(geminiRow("image_visualize", IMAGE_MODEL, json?.usageMetadata));
   for (const part of json?.candidates?.[0]?.content?.parts ?? []) {
     const inline = part.inlineData || part.inline_data;
     if (inline?.data) {
@@ -710,6 +713,7 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
   }
 
   const json = await res.json();
+  logAiUsage(geminiRow("image_classify", VISION_MODEL, json?.usageMetadata));
   // כל החלקים ולא parts[0]: מודל חושב מחזיר לפעמים חלק של מחשבה לפני
   // התשובה, ואז parts[0] אינו הסיווג אלא ההסבר לעצמו.
   const text = (json?.candidates?.[0]?.content?.parts ?? [])
