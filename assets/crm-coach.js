@@ -327,8 +327,8 @@ function coachAskHtml(kind, questions){
   return `<div class="coach-ask">
     <form class="coach-ask-form" data-coach-ask="${kind}">
       <label class="sr-only" for="${id}">שאלה למנטור</label>
-      <input id="${id}" type="text" maxlength="300" autocomplete="off" placeholder="שאלה למנטור..."
-        value="${escapeHtml(st.draft || '')}"${st.busy ? ' disabled' : ''}>
+      <textarea id="${id}" maxlength="300" autocomplete="off" placeholder="שאלה למנטור..." enterkeyhint="send"
+        rows="${String(st.draft || '').length > 40 ? 3 : 1}"${st.busy ? ' disabled' : ''}>${escapeHtml(st.draft || '')}</textarea>
       <button type="submit" aria-label="שליחת השאלה"${st.busy ? ' disabled' : ''}>←</button>
     </form>
     ${sugg.length && !st.q ? `<div class="coach-ask-sugg">${sugg.map(q =>
@@ -349,7 +349,8 @@ function coachAskHtml(kind, questions){
       <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
       ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
     </div>` : ''}
-    ${kind === 'agent' ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
+    ${kind === 'agent' && typeof assistantTierOk === 'function' && assistantTierOk()
+      ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
   </div>`;
 }
 
@@ -472,7 +473,16 @@ async function loadCoachGaps(){
     const form = e.target.closest('[data-coach-ask]');
     if (!form) return;
     e.preventDefault();
-    coachAskSend(form.dataset.coachAsk, form.querySelector('input').value);
+    coachAskSend(form.dataset.coachAsk, form.querySelector('textarea').value);
+  });
+  /* השדה הוא textarea (שאלה מוכנה מכרטיס הליד ארוכה משורה), ולכן Enter שולח
+     ו-Shift+Enter יורד שורה - כמו בשדה של שורה אחת */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    const form = e.target.closest && e.target.closest('[data-coach-ask]');
+    if (!form || e.target.tagName !== 'TEXTAREA') return;
+    e.preventDefault();
+    coachAskSend(form.dataset.coachAsk, e.target.value);
   });
   /* מה שהוקלד נשמר כשהדאשבורד מצויר מחדש (למשל אחרי "בוצע") */
   document.addEventListener('input', e => {
@@ -673,3 +683,46 @@ function coachLayerRender(){
     if (e.target.closest('[data-coach-cta]')) closeCoachLayer();
   }, true);
 })();
+
+/* ---------- "שאל את המנטור על הליד הזה" (כרטיס הליד) ----------
+   השאלה עולה כשהליד מול העיניים, ולכן הכפתור יושב בכרטיס הליד: הוא פותח את
+   שכבת "המנטור שלי" על המנטור האישי, עם שאלה מוכנה **בשדה** - לא נשלחת לבד.
+   הסוכן/ת עורך/ת ושולח/ת, והמכסה נספרת רק אז.
+
+   **בשאלה רק מה שמתאר את הצורך, בלי מה שמזהה את הפונה:** סוג הליד, סוג
+   העסקה והנכס, כמה זמן עבר והשלב. לא שם, לא טלפון, לא ההודעה (שיכולה להכיל
+   טלפון), ולא עיר או כתובת - אותה רשימה סגורה של מה שהמנטור מקבל
+   (docs/coaches.md, "מה נשלח"). המיסוך של ליד נעול נשמר ממילא: אין כאן אף
+   שדה שהוא ממסך. */
+function coachLeadQuestion(lead){
+  const rent = lead.deal_type === 'rent';
+  const who = lead.lead_type === 'owner_inbound' ? (rent ? 'בעל/ת נכס שרוצה להשכיר' : 'בעל/ת נכס שרוצה למכור')
+    : lead.lead_type === 'agent_direct_inquiry' ? 'פנייה ישירה על נכס שלי'
+    : lead.lead_type === 'visualization' ? 'מתעניין/ת שביקש/ה הדמיה'
+    : (rent ? 'מחפש/ת דירה לשכירות' : 'מחפש/ת נכס לקנייה');
+  const type = lead.property_type ? ', ' + lead.property_type : '';
+  const ago = typeof leadAgeMinutes === 'function' ? ', נכנס ' + opsAgo(leadAgeMinutes(lead)) : '';
+  if (lead.status !== 'unlocked'){
+    return 'יש לי ליד נעול: ' + who + type + ago + '. איך להחליט אם לפתוח אותו, ומה להגיד בשיחה הראשונה?';
+  }
+  const w = typeof leadWork !== 'undefined' && leadWork.get(lead.id);
+  const stage = (w && w.stage) || 'new';
+  const where = stage === 'contacted' ? 'כבר דיברנו פעם אחת'
+    : stage === 'meeting' ? 'קבענו פגישה או סיור'
+    : 'עוד לא דיברנו';
+  return 'יש לי ליד: ' + who + type + ago + '. ' + where + '. מה הצעד הנכון עכשיו, ומה להגיד לו/ה?';
+}
+
+function coachAskAboutLead(lead){
+  if (!coachLayerKinds().includes('agent')) return;
+  coachAsk.agent.draft = coachLeadQuestion(lead);
+  coachLayerKind = 'agent';
+  openNavLayer('coach');
+  setTimeout(() => {
+    const input = document.getElementById('coachAskQ-agent');
+    if (!input) return;
+    input.focus({ preventScroll:true });
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.scrollIntoView({ block:'nearest' });
+  }, 60);
+}

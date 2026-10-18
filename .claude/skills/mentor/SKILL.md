@@ -168,6 +168,11 @@ python3 scripts/check_edge_types.py
   ונסגרת ב-`closeCoachLayer()` (הכללים בסקיל `crm-navigation`).
 - **הסיכום האישי נטען אחרי העלייה** (`requestIdleCallback` ב-`loadDashboard`), ולא
   בתוך השרשרת. טעינה נוספת למנטור בעלייה - נמדדת עם `dashboard_load.mjs`.
+- **"שאל את המנטור" בכרטיס הליד** (`coachAskAboutLead`): שאלה מוכנה בשדה, לא
+  נשלחת לבד, ובלי שם, טלפון, הודעה או עיר - מה שמזהה את הפונה לא יוצא למודל
+  גם מליד פתוח. כלל המיסוך של הכרטיס בסקיל `lead-card`.
+- **"גם בוואטסאפ, דרך גבריאלה"** רק כש-`assistantTierOk()`. כל משפט שמזכיר את
+  גבריאלה בהקשר של המנטור עובר את אותו תנאי.
 - **מנהל/ת שעובד/ת כסוכן/ת מקבל/ת את שני המנטורים** (`agent_coach_due` לפי
   `is_active_agent` בלבד). אם אין לו/ה סיכום אישי, בדקו קודם שה-cron
   `agent-coach` רץ בכלל (`cron.job_run_details`) ושהסוד `AGENT_COACH_ENABLED=1`.

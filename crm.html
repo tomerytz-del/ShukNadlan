@@ -3605,8 +3605,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-ask{display:flex;flex-direction:column;gap:8px}
   .coach-ask-form{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 6px 0 12px;border-radius:14px;
                   background:#1E2F6E;border:1px solid var(--coach-line)}
-  .coach-ask-form input{flex:1;min-width:0;border:0;outline:none;background:transparent;color:#fff;font-size:.95rem;padding:10px 6px}
-  .coach-ask-form input::placeholder{color:#AEB8D6}
+  .coach-ask-form textarea{flex:1;min-width:0;border:0;outline:none;background:transparent;color:#fff;font:inherit;font-size:.95rem;
+    padding:10px 6px;resize:none;line-height:1.45;field-sizing:content;max-height:7.5em}
+  .coach-ask-form textarea::placeholder{color:#AEB8D6}
   .coach-ask-form button{flex-shrink:0;width:36px;height:36px;border:0;border-radius:10px;background:var(--coach-gold);color:var(--coach-bg);
                          font-size:1.05rem;font-weight:800;cursor:pointer}
   .coach-ask-form button:disabled{opacity:.6;cursor:default}
