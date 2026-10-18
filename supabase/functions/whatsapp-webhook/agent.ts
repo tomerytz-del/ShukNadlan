@@ -1,4 +1,5 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
+import { askCoach } from "../_shared/coach/ask.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
@@ -32,6 +33,7 @@ import {
   googleCalendarConfigured,
   GoogleRevokedError,
 } from "../_shared/google-calendar.ts";
+import { configureImportVocab, runImportJob } from "./property-import.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -135,6 +137,10 @@ const PROJECT_STATUSES = [
   "planning", "permit_requested", "permit_issued", "construction_complete",
 ];
 const STATUSES = ["active", "sold", "rented", "archived"];
+
+// ליבת ייבוא הנכסים מקובץ (משותפת עם האשף ב-CRM) מקבלת את אותם סוגי נכס
+// שהבוט מכיר - בלי רשימה מקבילה נוספת (property-import.ts)
+configureImportVocab(RESIDENTIAL_PTYPES, COMMERCIAL_PTYPES);
 
 const CLIENT_STATUSES = ["active", "paused", "closed"];
 
@@ -356,6 +362,22 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["property_type", "deal_type", "price"],
+    },
+  },
+  {
+    name: "import_properties_file",
+    description:
+      "קולט קובץ נכסים (Excel/CSV, כולל הקובץ שיורד מיד2) שהסוכן/ת שלח/ה - כל השורות בבת אחת, " +
+      "באותה בדיקה של \"ייבוא מקובץ\" ב-CRM. מקבל את ה-job_id מהבלוק [ייבוא נכסים] שבהודעה עם הקובץ. " +
+      "**רק אחרי שהסוכן/ת אישר/ה במפורש** את הקליטה. מודעה של יד2 שכבר אצל הסוכן/ת מתעדכנת " +
+      "(מחיר, חזרה לפרסום, שדות ריקים) בלי לדרוס מה שמילא/ה; מודעה של עמית/ה במשרד נפסלת. " +
+      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות.",
+    input_schema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "המזהה מהבלוק [ייבוא נכסים] (job_id)." },
+      },
+      required: ["job_id"],
     },
   },
   {
@@ -1125,6 +1147,30 @@ const TOOLS: Anthropic.Tool[] = [
   },
 
   // -------------------------------------------------------------------------
+  // המנטור
+  // -------------------------------------------------------------------------
+  {
+    name: "ask_mentor",
+    description:
+      "שאלה למנטור AI (אותו מנטור שבדשבורד ב-CRM): איך מתכוננים לפגישת גיוס, מה עונים " +
+      "על התנגדות, משא ומתן, שגרת עבודה, ולמנהלים - ניהול הצוות או המשרד; וגם על המספרים " +
+      "של 30 הימים האחרונים. **רק כשהסוכן/ת מבקש/ת את המנטור במפורש** (\"שאלה למנטור\", " +
+      "\"תשאלי את המנטור\"). עד 10 שאלות ביום, יחד עם ה-CRM.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "השאלה, במילים של הסוכן/ת. בלי שמות וטלפונים של לקוחות." },
+        kind: {
+          type: "string",
+          enum: ["agent", "team", "office"],
+          description: "agent (ברירת מחדל) - המנטור האישי. team / office - רק כשמנהל/ת שואל/ת על הצוות או המשרד.",
+        },
+      },
+      required: ["question"],
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // לידים והתראות
   // -------------------------------------------------------------------------
   {
@@ -1742,6 +1788,32 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     ...(hoodWarning || {}),
     link: propertyLink(data.id),
     ...crmButton(ctx, crmPropertyLink(data.id)),
+  };
+}
+
+/**
+ * קליטת קובץ נכסים שהגיע בשיחה (‏property-import.ts). הפין הוא של
+ * create_property, כדי ששכונה מכינוי תוכרע לפי הכתובת כמו באשף. השורות
+ * שנפסלו נפתחות לתיקון באשף מאותו קובץ - בלי לשלוח אותו שוב.
+ */
+async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, unknown>) {
+  const jobId = String(input.job_id || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(jobId)) return { ok: false, error: "חסר job_id תקין מהבלוק [ייבוא נכסים]." };
+  const res = await runImportJob(ctx.supabase, ctx.agent, jobId,
+    (city, street, house) => geocodeForProperty(ctx, city, street, house));
+  if (!res.ok) return res;
+  const fixUrl = SITE_BASE_URL && res.problems?.length
+    ? `${SITE_BASE_URL}/crm?goto=accProperties&import=${jobId}` : undefined;
+  return {
+    ...res,
+    note: "לסכם במספרים: נקלטו, עודכנו, ללא שינוי, נפסלו. לשורות שנפסלו - מספר השורה, הסיבה ומה לעשות " +
+      "(כמו שחזר כאן), עד חמש. אם יש ניחושים (guessed) - לומר שכדאי לעבור עליהם. נכסים בלי תמונות - " +
+      "להזכיר שאפשר לשלוח תמונות כאן או להעלות ב-CRM.",
+    // כפתור אחד: תיקון כשיש מה לתקן, ואחרת הרשימה עצמה
+    ...(fixUrl
+      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנפסלו פתוחות לתיקון באשף, מאותו קובץ:", "fix_link")
+      : crmButton(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
+        "🏠 הנכסים שלי", "לנכסים שנקלטו:", "properties_link")),
   };
 }
 
@@ -5228,6 +5300,31 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
 }
 
 // ---------------------------------------------------------------------------
+// המנטור - אותה פונקציה של הכרטיס ב-CRM (_shared/coach/ask.ts): אותה הרשאה,
+// אותה מכסה ואותו יומן. הזהות היא הסוכן/ת שזוהה/תה לפי הטלפון, לא פרמטר.
+// ---------------------------------------------------------------------------
+const MENTOR_ERRORS: Record<string, string> = {
+  coach_ask_quota: "נגמרו השאלות למנטור להיום (המכסה משותפת לוואטסאפ ול-CRM). אפשר לשאול שוב מחר.",
+  not_allowed: "המנטור הזה פתוח רק למנהל/ת הצוות או המשרד.",
+  bad_question: "צריך לכתוב שאלה של כמה מילים לפחות.",
+};
+
+async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
+  const kind = ["team", "office"].includes(String(input.kind)) ? String(input.kind) as "team" | "office" : "agent";
+  const r = await askCoach(ctx.supabase, ctx.agent.id, kind, input.question);
+  if ("error" in r) {
+    return { ok: false, error: r.error, message: MENTOR_ERRORS[r.error] || "המנטור לא זמין כרגע. אפשר לנסות שוב בעוד כמה דקות." };
+  }
+  return {
+    ok: true,
+    answer: r.answer,
+    remaining_today: r.remaining,
+    note: "העבירי את answer כמו שהוא, בלי לקצר ובלי להוסיף, ופתחי במילים \"המנטור עונה:\". " +
+      "אם remaining_today הוא 0 - ציייני שזו השאלה האחרונה להיום.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
@@ -5968,6 +6065,7 @@ async function runTool(
     switch (name) {
       // נכסים
       case "create_property": return await toolCreateProperty(ctx, input);
+      case "import_properties_file": return await toolImportPropertiesFile(ctx, input);
       case "update_property": return await toolUpdateProperty(ctx, input);
       case "set_property_status": return await toolSetStatus(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);
@@ -6007,6 +6105,9 @@ async function runTool(
       case "agreement_sign_links": return await toolAgreementSignLinks(ctx, input);
       case "agreement_details": return await toolAgreementDetails(ctx, input);
       case "prepare_agreement": return await toolPrepareAgreement(ctx, input);
+      // המנטור
+      case "ask_mentor": return await toolAskMentor(ctx, input);
+
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
@@ -6361,6 +6462,11 @@ const SYSTEM_STATIC: string = (() => {
       "מופיעות גם ביומן Google של הסוכן/ת, אם חובר. החיבור עצמו נעשה רק בדשבורד " +
       "(יומן Google → חיבור מאובטח ל-Google Calendar) - אי אפשר לחבר מכאן. כש-agenda_add מחזיר " +
       "gcal_offer - הצע/י אותו פעם אחת, אחרי אישור הפגישה.",
+    "",
+    "המנטור:",
+    "- \"שאלה למנטור\" / \"תשאלי את המנטור\" = ask_mentor. את לא המנטור ולא עונה במקומו: " +
+      "את השאלה מעבירים במילים של הסוכן/ת, ואת התשובה מחזירים כמו שהיא. בלי בקשה מפורשת " +
+      "למנטור - עונים כרגיל ולא קוראים לו.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +

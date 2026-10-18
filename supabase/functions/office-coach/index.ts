@@ -35,11 +35,11 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
-  addDays, agentFingerprintSource, cleanSummaryV2, type CoachKind, type CoachSummaryV2, compactAgent,
+  addDays, agentFingerprintSource, cleanSummaryV2, coachNotification, type CoachKind, type CoachSummaryV2, compactAgent,
   compactPeriod, compactTeams, type Genders, monthlyTotals, previousTitles, type RefMap, Refs, type Row,
   summarySchema, targetPct,
 } from "../_shared/coach/payload.ts";
-import { SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
+import { agentSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -79,7 +79,7 @@ type CoachOut =
   | { ok: true; summary: CoachSummaryV2; input_tokens: number; output_tokens: number; model: string }
   | { ok: false; reason: string };
 
-async function coach(kind: CoachKind, payload: unknown, refs: RefMap): Promise<CoachOut> {
+async function coach(kind: CoachKind, payload: unknown, refs: RefMap, system = SYSTEM_PROMPTS[kind]): Promise<CoachOut> {
   const model = kind === "agent" ? AGENT_MODEL : OFFICE_MODEL;
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {
@@ -93,7 +93,7 @@ async function coach(kind: CoachKind, payload: unknown, refs: RefMap): Promise<C
       // (ראו generateMarketingCopy, 1.10.2026), ולכן יש מקום.
       max_tokens: 8000,
       output_config: { effort: kind === "agent" ? "low" : "medium", format: { type: "json_schema", schema: summarySchema(kind) } },
-      system: [{ type: "text", text: SYSTEM_PROMPTS[kind], cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: JSON.stringify(payload) }],
     });
   } catch (err) {
@@ -310,19 +310,23 @@ async function runTeam(supabase: SupabaseClient, url: URL, dryRun: boolean, star
 async function runAgentOne(
   supabase: SupabaseClient, agent: { agent_id: string; agency_id: string }, day: string, dryRun: boolean,
 ): Promise<Row> {
-  const [wk, mo, me, prev] = await Promise.all([
+  const [wk, mo, me, prev, pref] = await Promise.all([
     supabase.rpc("_my_dashboard_core", { p_agent: agent.agent_id, p_from: addDays(day, -7), p_to: addDays(day, -1) }),
     supabase.rpc("_my_dashboard_core", { p_agent: agent.agent_id, p_from: addDays(day, -30), p_to: addDays(day, -1) }),
     supabase.from("agency_members").select("gender").eq("id", agent.agent_id).maybeSingle(),
     supabase.from("agent_coach_summaries").select("day, summary, input_hash, actions_done")
       .eq("agent_id", agent.agent_id).lt("day", day)
       .order("day", { ascending: false }).limit(1).maybeSingle(),
+    // הטון שהסוכן/ת בחר/ה בכרטיס. בלי שורה, או בתקלה - ברירת המחדל (warm).
+    supabase.from("coach_preferences").select("tone").eq("agent_id", agent.agent_id).maybeSingle(),
   ]);
   if (wk.error || mo.error) return { agent_id: agent.agent_id, error: "db_error", detail: (wk.error ?? mo.error)?.message };
 
   const refs = new Refs();
   const data = compactAgent(wk.data as Row, mo.data as Row, me.data?.gender as string | null, refs);
-  const hash = await sha256(agentFingerprintSource(data));
+  const tone = cleanTone(pref.data?.tone);
+  // הטון בטביעת האצבע: מי שהחליף/ה טון מקבל/ת מחר סיכום חדש ולא העתק של אתמול
+  const hash = await sha256(tone + "|" + agentFingerprintSource(data));
 
   // יום בלי שינוי מאתמול: אותו סיכום, בלי קריאה למודל. ה-ref-ים של אתמול
   // תקפים, כי אותם פריטים בדיוק.
@@ -338,7 +342,7 @@ async function runAgentOne(
   }
 
   const payload = { ...data, yesterday_actions: previousTitles(prev.data?.summary) };
-  const out = await coach("agent", payload, refs.map);
+  const out = await coach("agent", payload, refs.map, agentSystemPrompt(tone));
   if (!out.ok) {
     console.error("agent-coach failed", agent.agent_id, out.reason);
     return { agent_id: agent.agent_id, error: out.reason };
@@ -349,6 +353,14 @@ async function runAgentOne(
       model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
     }, { onConflict: "agent_id,day" });
     if (error) return { agent_id: agent.agent_id, error: "db_error", detail: error.message };
+    // התראת הבוקר - רק על סיכום חדש (יום שהועתק מאתמול אינו מצלצל). בפעמון,
+    // ובוואטסאפ דרך notification-push עם השקט והתקרה של הסוכן/ת. כשל כאן
+    // אינו מפיל את הסיכום, שכבר נשמר.
+    const n = coachNotification(out.summary);
+    const { error: nErr } = await supabase.from("notifications").insert({
+      agent_id: agent.agent_id, type: "coach_daily", title: n.title, body: n.body,
+    });
+    if (nErr) console.error("agent-coach notification failed", agent.agent_id, nErr.message);
   }
   return {
     agent_id: agent.agent_id, ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,

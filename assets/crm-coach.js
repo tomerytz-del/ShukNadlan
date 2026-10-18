@@ -49,6 +49,28 @@ const coachState = { agent: undefined, team: undefined, office: undefined };
 const coachRerender = {};
 /* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };
+/* הטון שהקורא/ת בחר/ה (coach_preferences, 20270615100000): 'warm' | 'direct'.
+   null = טרם נטען. אחד לכל המנטורים של אותו אדם. */
+let coachTone = null;
+const COACH_TONES = [
+  { key:'warm',   label:'חבר מקצועי' },
+  { key:'direct', label:'מאמן ישיר' },
+];
+/* כמה זמן הקורא/ת מתווך/ת פעיל/ה - טווח ולא מספר, ופרטי: לא מוצג באתר
+   (בניגוד ל-agency_members.years_experience שבדף הסוכן/ת). null = לא נענה. */
+let coachExp = null;
+const COACH_EXP = [
+  { key:'lt1',   label:'פחות משנה' },
+  { key:'1to5',  label:'שנה עד 5' },
+  { key:'5plus', label:'5 שנים ומעלה' },
+];
+/* שאלות מקצועיות קבועות לצד השאלות שהסיכום מציע - כדי שיהיה ברור שאפשר לשאול
+   גם "איך עושים", ולא רק על המספרים. הידע: _shared/coach/playbook.ts */
+const COACH_PRO_Q = {
+  agent:  ['מה להכין לפגישת גיוס?', 'איך עונים על "אמכור לבד"?'],
+  team:   ['איך בונים קליטה של 90 יום לסוכן חדש?', 'מה לבדוק בשיחה האישית השבועית?'],
+  office: ['איך מחזקים בלעדיות במשרד?', 'איך מצמצמים נשירת סוכנים?'],
+};
 
 /* ---------- הכפתורים ----------
    label קבוע (לא טקסט של המודל), acc לבדיקת נראות, ו-run שמפעיל יכולת
@@ -109,6 +131,7 @@ function coachOpenAgent(kind, id){
    ב-RLS את כל הצוותים, ולכן מסננים). כשל - הכרטיס לא מוצג. */
 async function coachLoad(kind, teamId){
   coachState[kind] = null;
+  if (coachTone === null) coachToneLoad();
   const t = COACH_TABLES[kind];
   let q = sb.from(t.table).select('*').order(t.date, { ascending:false }).limit(1);
   if (kind === 'team'){
@@ -118,6 +141,33 @@ async function coachLoad(kind, teamId){
   const { data, error } = await q;
   coachState[kind] = error ? false : ((data && data[0]) || null);
   if (coachRerender[kind]) coachRerender[kind]();
+}
+
+/* ---------- הטון והוותק ---------- */
+async function coachToneLoad(){
+  coachTone = 'warm';
+  const { data } = await sb.from('coach_preferences').select('tone, experience').maybeSingle();
+  if (!data) return;
+  coachTone = data.tone === 'direct' ? 'direct' : 'warm';
+  coachExp = COACH_EXP.some(x => x.key === data.experience) ? data.experience : null;
+  Object.values(coachRerender).forEach(fn => fn && fn());
+}
+
+/* אופטימי, כמו "בוצע": הכרטיס מתעדכן מיד, ושגיאה מחזירה אותו. ‏upsert של
+   עמודה אחת משאיר את השנייה כמו שהיא. */
+async function coachPrefSave(field, value){
+  const cur = field === 'tone' ? coachTone : coachExp;
+  if (!currentAgent || value === cur) return;
+  const set = v => { if (field === 'tone') coachTone = v; else coachExp = v; };
+  set(value);
+  Object.values(coachRerender).forEach(fn => fn && fn());
+  const { error } = await sb.from('coach_preferences')
+    .upsert({ agent_id: currentAgent.id, [field]: value, updated_at: new Date().toISOString() }, { onConflict: 'agent_id' });
+  if (error){
+    set(cur);
+    Object.values(coachRerender).forEach(fn => fn && fn());
+    showToast('לא נשמר: ' + heErr(error));
+  }
 }
 
 /* ---------- הכרטיס ---------- */
@@ -235,6 +285,10 @@ function coachCardHtml(kind, opts){
 function coachAskHtml(kind, questions){
   const st = coachAsk[kind] || {};
   const id = 'coachAskQ-' + kind;
+  // עד שתיים מהסיכום, ואחריהן המקצועיות הקבועות, בלי כפילויות
+  const sugg = [...new Set([...questions.slice(0, 2), ...(COACH_PRO_Q[kind] || [])])];
+  const tone = coachTone || 'warm';
+  const toneNote = kind === 'agent' ? 'חל על הסיכום היומי ועל התשובות' : 'חל על התשובות לשאלות';
   return `<div class="coach-ask">
     <form class="coach-ask-form" data-coach-ask="${kind}">
       <label class="sr-only" for="${id}">שאלה למנטור</label>
@@ -242,7 +296,7 @@ function coachAskHtml(kind, questions){
         value="${escapeHtml(st.draft || '')}"${st.busy ? ' disabled' : ''}>
       <button type="submit" aria-label="שליחת השאלה"${st.busy ? ' disabled' : ''}>←</button>
     </form>
-    ${questions.length && !st.q ? `<div class="coach-ask-sugg">${questions.slice(0, 3).map(q =>
+    ${sugg.length && !st.q ? `<div class="coach-ask-sugg">${sugg.map(q =>
       `<button type="button" data-coach-q="${kind}" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
     ${st.q ? `<div class="coach-ask-out" aria-live="polite">
       <p class="coach-ask-q">${escapeHtml(st.q)}</p>
@@ -252,6 +306,15 @@ function coachAskHtml(kind, questions){
       ${st.remaining != null && !st.busy ? `<p class="coach-ask-left">${st.remaining
         ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : ''}
     </div>` : ''}
+    <div class="coach-tone" role="group" aria-label="סגנון המנטור" title="${escapeHtml(toneNote)}">
+      <span>סגנון המנטור:</span>
+      ${COACH_TONES.map(t => `<button type="button" data-coach-tone="${t.key}" aria-pressed="${t.key === tone}">${escapeHtml(t.label)}</button>`).join('')}
+    </div>
+    ${kind === 'agent' ? `<div class="coach-tone" role="group" aria-label="ותק בתיווך" title="לא מוצג לאף אחד - רק כדי שהמנטור יתאים את התשובות">
+      <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
+      ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
+    </div>` : ''}
+    ${kind === 'agent' ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
   </div>`;
 }
 
@@ -317,6 +380,10 @@ async function coachToggleDone(kind, i){
       if (spec) spec.run(a, kind);
       return;
     }
+    const toneBtn = e.target.closest('[data-coach-tone]');
+    if (toneBtn){ coachPrefSave('tone', toneBtn.dataset.coachTone); return; }
+    const expBtn = e.target.closest('[data-coach-exp]');
+    if (expBtn){ coachPrefSave('experience', expBtn.dataset.coachExp); return; }
     const sugg = e.target.closest('[data-coach-q]');
     if (sugg){ coachAskSend(sugg.dataset.coachQ, sugg.dataset.q); return; }
     const meet = e.target.closest('[data-coach-meeting]');

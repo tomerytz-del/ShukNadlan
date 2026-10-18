@@ -3593,6 +3593,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-ask-a.is-busy{color:var(--nv-muted)}
   .coach-ask-a.is-err{color:#9A3412}
   .coach-ask-left{margin:0;font-size:.74rem;color:var(--nv-muted)}
+  /* סגנון המנטור (coach_preferences): שתי גלולות, הנבחרת זהובה */
+  .coach-tone{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.76rem;color:#AEB8D6}
+  .coach-tone button{min-height:30px;padding:0 12px;border:1px solid var(--coach-line);border-radius:15px;background:transparent;
+                     color:#DCE3F5;font-size:.76rem;font-weight:700;cursor:pointer}
+  .coach-tone button[aria-pressed="true"]{background:var(--coach-gold);border-color:var(--coach-gold);color:var(--coach-bg)}
   @media(max-width:600px){.coach{padding:16px;border-radius:18px}}
 
   /* ==========================================================================
@@ -10738,6 +10743,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
 <script src="assets/crm-onboarding.js"></script>
+<!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
+     (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
+     ואת עזרי impNorm/impText בזמן הטעינה. -->
+<script src="assets/property-import-core.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>

@@ -20,6 +20,7 @@
 
 import {
   addDays,
+  coachNotification,
   agentFingerprintSource,
   cleanAnswer,
   cleanQuestion,
@@ -34,9 +35,13 @@ import {
   Refs,
   summarySchema,
   summaryForAsk,
+  askHistory,
+  experienceLabel,
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
-import { askSystemPrompt, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
+import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
+import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
+import { readFileSync } from "node:fs";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -302,12 +307,93 @@ check("שאל: בלי סיכום - null", summaryForAsk(null) === null);
 check("שאל: שאלה נחתכת ל-300 ומנוקה", cleanQuestion("  א\nב " + "x".repeat(400)).length === 300 && !cleanQuestion("א\nב").includes("\n"));
 const ans = cleanAnswer("## כותרת\n**חשוב** — כך\n* אחד\n\n\n\nשני");
 check("שאל: התשובה בלי Markdown ובלי מקף ארוך", ans === "כותרת\nחשוב - כך\n- אחד\n\nשני", ans);
-check("שאל: תשובה ארוכה נחתכת", cleanAnswer("a".repeat(3000)).length === 1200);
+check("שאל: תשובה ארוכה נחתכת ב-2,400", cleanAnswer("a".repeat(3000)).length === 2400);
+check("שאל: תשובה מקצועית של 250 מילים לא נחתכת", cleanAnswer("מילה ".repeat(250)).length < 2400);
+
+// ידע מקצועי (playbook.ts) וטון (coach_preferences)
+check("ידע: עמלה 2% ובלעדיות 4-6 חודשים", PLAYBOOK.includes("2%") && PLAYBOOK.includes("4-6 חודשים"));
+check("ידע: מה לא אומרים בפגישת גיוס", PLAYBOOK.includes("אביא לך את המחיר שאתה רוצה") && PLAYBOOK.includes("ארד ל-1%"));
+check("ידע: אין מקף ארוך", !/[–—―]/.test(PLAYBOOK));
+check("ידע: תסריטים, קונים ומשא ומתן", ["תסריטי שיחה", "חידוש בלעדיות", "עבודה עם קונים", "הצעה נגדית", "שני קונים במקביל"].every((h) => PLAYBOOK.includes(h)));
+check("ידע: 30 הימים הראשונים, דיווח שבועי והורדת מחיר", ["30 הימים הראשונים", "דיווח שבועי", "שיחת הורדת מחיר"].every((h) => PLAYBOOK.includes(h)));
+check("ידע: שגרת עבודה, וליד שנכנס באמצע הבלוק מקבל מענה", PLAYBOOK.includes("שגרת עבודה") && PLAYBOOK.includes("זמן התגובה נמדד"));
+// המנטור כותב בלי אימוג'י, ותבנית עם אימוג'י הייתה מלמדת אותו את ההפך
+check("ידע: פחד משיחות בבוקר, בלי ההסבר ההורמונלי", PLAYBOOK.includes("call reluctance") && PLAYBOOK.includes("חוק 5 השניות") && !PLAYBOOK.includes("קורטיזול") && !PLAYBOOK.includes("אני יודע שקיבלת"));
+check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום", ["BATNA", "שיחות נפרדות", "להקפיא ולעבור לסעיף אחר", "סכום בנאמנות", "מה שנאמר בחדר נשאר בחדר", "שאלות לשיחה הנפרדת", "בלי אישור מפורש ממך", "החזרה לחדר המשותף", "לחיצת יד היא לא חוזה"].every((h) => PLAYBOOK.includes(h)));
+check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה", "שעות זהב", "לצפות - ", "אלה דוגמאות", "מחוץ למערכת", "בהסכמתם"].every((h) => MANAGER_PLAYBOOK.includes(h))
+  && !askSystemPrompt("agent").includes("משחקן למאמן") && askSystemPrompt("team").includes("משחקן למאמן") && askSystemPrompt("office").includes("משחקן למאמן"));
+check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי מקף ארוך", !/רימקס|RE\/MAX/i.test(MANAGER_PLAYBOOK) && !/[–—―]/.test(MANAGER_PLAYBOOK));
+check("ידע: ניהול משרד רק למנטור המשרד", ["שרשרת פיקוד", "ישיבת מנהלים שבועית", "הסוכנים המייצרים", "תוכנית שיפור", "מחוץ למערכת", "שואלים", "ישיבת ההנהלה השבועית", "מיומנות ניהולית"].every((h) => OFFICE_PLAYBOOK.includes(h))
+  && askSystemPrompt("office").includes("שרשרת פיקוד") && !askSystemPrompt("team").includes("שרשרת פיקוד") && !askSystemPrompt("agent").includes("שרשרת פיקוד")
+  && !/[–—―]/.test(OFFICE_PLAYBOOK) && !/\p{Extended_Pictographic}/u.test(OFFICE_PLAYBOOK));
+check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הסוכן/ת מקבל/ת ידע ניהול לפי manages",
+  !askSystemPrompt("agent").includes("משחקן למאמן")
+  && askSystemPrompt("agent", "warm", "team").includes("משחקן למאמן") && !askSystemPrompt("agent", "warm", "team").includes("שרשרת פיקוד")
+  && askSystemPrompt("agent", "warm", "office").includes("שרשרת פיקוד")
+  && askSystemPrompt("agent", "warm", "team").includes("בדאשבורד הצוות"));
+check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות והמשרד עונים על שאלת שטח ומפנים למספרים האישיים", ["team", "office"].every((k) => askSystemPrompt(k as "team" | "office").includes('ב"הדשבורד שלי"')) && !askSystemPrompt("agent").includes("רוב המנהלים הם גם סוכנים"));
+// שאלה למנטור דרך גבריאלה: אותה פונקציה של ה-CRM, ולא בתורים שהטקסט בהם נכתב בידי אחרים
+{
+  const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
+  const emailSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/email-intake.ts", import.meta.url), "utf8");
+  const mediaSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/media-intake.ts", import.meta.url), "utf8");
+  const askSrc = readFileSync(new URL("../supabase/functions/coach-ask/index.ts", import.meta.url), "utf8");
+  const set = (src: string, name: string) => (src.match(new RegExp(name + "[^=]*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)")) || [])[1] || "";
+  check("גבריאלה: ask_mentor מוגדר ומנותב, דרך askCoach המשותפת",
+    agentSrc.includes('name: "ask_mentor"') && agentSrc.includes('case "ask_mentor"') && agentSrc.includes("askCoach(ctx.supabase, ctx.agent.id")
+    && askSrc.includes("askCoach(service"));
+  check("גבריאלה: ask_mentor לא בתור מייל ולא בתור הקלטה/מסמך",
+    set(emailSrc, "EMAIL_TOOLS").length > 0 && set(mediaSrc, "MEDIA_TOOLS").length > 0
+    && !set(emailSrc, "EMAIL_TOOLS").includes("ask_mentor") && !set(mediaSrc, "MEDIA_TOOLS").includes("ask_mentor"));
+  // ask.ts נשען על Deno ועל npm:/jsr: - רץ רק תחת deno (ב-CI הבדיקה רצה ב-node)
+  // deno-lint-ignore no-explicit-any
+  const Deno = (globalThis as any).Deno;
+  if (Deno) {
+    const { askCoach } = await import("../supabase/functions/_shared/coach/ask.ts");
+    const prevKey = Deno.env.get("ANTHROPIC_API_KEY");
+    Deno.env.set("ANTHROPIC_API_KEY", "test");
+    // deno-lint-ignore no-explicit-any
+    const noDb = null as any;
+    const badKind = await askCoach(noDb, "x", "boss" as "agent", "שאלה ארוכה מספיק");
+    const badQ = await askCoach(noDb, "x", "agent", "א");
+    check("askCoach: סוג ושאלה נבדקים לפני המסד", "error" in badKind && badKind.error === "bad_kind" && "error" in badQ && badQ.error === "bad_question");
+    if (prevKey === undefined) Deno.env.delete("ANTHROPIC_API_KEY"); else Deno.env.set("ANTHROPIC_API_KEY", prevKey);
+  }
+}
+check("המנטורים יודעים שאפשר לשאול דרך גבריאלה", askSystemPrompt("agent").includes("שאלה למנטור"));
+{
+  const n = coachNotification({ v: 2, headline: "יום\nשל גיוס", summary: "s", strength: "", focus: "f",
+    actions: [{ priority: "high", title: "לחזור\nלליד", why: "", impact: "", cta: null }, { priority: "mid", title: "CMA לפגישה", why: "", impact: "", cta: null }],
+    questions: [] });
+  check("התראת הבוקר: שורה אחת, כותרת וצעדים ממוספרים", n.title === "המנטור: יום של גיוס" && n.body === "1. לחזור לליד · 2. CMA לפגישה" && !/\n/.test(n.title + n.body), n);
+}
+check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
+// שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
+check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
+check("ידע: ארבעת צירי ההכשרה והתאמה לניסיון", PLAYBOOK.includes("ארבעה צירים") && PLAYBOOK.includes("experience בנתונים") && PLAYBOOK.includes("ותיק/ה"));
+check("שאל agent: הוותק מתואר בפרומפט", askSystemPrompt("agent").includes("experience - כמה זמן"));
+// הוותק: התשובה הפרטית במנטור גוברת על השנים שבפרופיל הציבורי
+check("ותק: הטווח שנבחר גובר", experienceLabel("lt1", 12) === "פחות משנה");
+check("ותק: בלי בחירה - מהשנים בפרופיל", experienceLabel(null, 0) === "פחות משנה" && experienceLabel(null, 3) === "שנה עד 5 שנים" && experienceLabel(undefined, 5) === "5 שנים ומעלה");
+check("ותק: בלי כלום - null", experienceLabel(null, null) === null && experienceLabel("x", "") === null);
+check("ידע: מפנים לעו\"ד/רו\"ח בשאלות משפטיות ומס", PLAYBOOK.includes("עורך/ת דין") && PLAYBOOK.includes("רואה/ת חשבון"));
+check("טון: ברירת מחדל warm", cleanTone(undefined) === "warm" && cleanTone("x") === "warm" && cleanTone("direct") === "direct");
+check("טון: direct בשאלה", askSystemPrompt("agent", "direct").includes("מאמן ישיר וקשוח") && !askSystemPrompt("agent", "direct").includes("חבר/ה מקצועי/ת וחם/ה"));
+check("טון: warm כברירת מחדל בשאלה", askSystemPrompt("office").includes("חבר/ה מקצועי/ת וחם/ה"));
+check("טון: הסיכום היומי נושא את הטון", agentSystemPrompt("direct").startsWith(SYSTEM_PROMPTS.agent) && agentSystemPrompt("direct").includes("מאמן ישיר"));
+const hist = askHistory([
+  { question: "ג", answer: "3" }, { question: "ב", answer: null }, { question: "א", answer: "1" }, { question: "ז", answer: "0" },
+]);
+// השורות מגיעות מהחדשה לישנה (order desc); בלי התשובה החסרה נשארות שלוש
+check("שיחת המשך: מהישנה לחדשה, בלי שאלה בלי תשובה, עד 3", JSON.stringify(hist.map((m) => m.content)) ===
+  JSON.stringify(["השאלה: ז", "0", "השאלה: א", "1", "השאלה: ג", "3"]), hist);
+check("שיחת המשך: התורות מתחלפות", hist.every((m, i) => m.role === (i % 2 ? "assistant" : "user")));
 for (const kind of ["agent", "team", "office"] as const) {
   const p = askSystemPrompt(kind);
   check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("העברת ליד"));
   check(`שאל ${kind}: תשובה בלבד, בלי פעולות`, p.includes("לא מבצע/ת פעולות"));
   check(`שאל ${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(p));
+  check(`שאל ${kind}: הידע המקצועי בפרומפט`, p.includes(PLAYBOOK));
 }
 
 // ---------------------------------------------------------------------------

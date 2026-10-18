@@ -16,6 +16,7 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | כל מה שיוצא ל-Meta: טקסט, תמונה, כפתורים, איש קשר, תבנית |
 | `assets/bot-link.js` | המספר, הקישור והמתג `ENABLED` של הכפתורים באתר |
 | `supabase/functions/whatsapp-webhook/media-intake.ts` | קובץ הקלטה ומסמך → טקסט, ותור שרק מציע (`MEDIA_TOOLS`) |
+| `supabase/functions/whatsapp-webhook/property-import.ts` | קובץ נכסים → עבודת ייבוא וסיכום יבש, והקליטה אחרי אישור (`import_properties_file`) - ליבה משותפת עם האשף ב-CRM (הסקיל `property-import`) |
 | `supabase/functions/whatsapp-webhook/catalog-link.ts` | קישור לפריט בקטלוג וואטסאפ (`wa.me/p/...`) → טיוטת נכס |
 
 ## השם חי בהרבה מקומות, ומשתנה בכולם יחד
@@ -525,6 +526,12 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
   מהבתים (`audioExt`), לא רק מ-`mime_type` - בלעדי זה `AUD-...` מאנדרואיד נדחה
   ב-`Invalid file format` (‏11.10.2026).
 
+* **קובץ נכסים הוא היוצא מן הכלל שמבצע - ועדיין לא בתור שלו.** גיליון/CSV שנראה
+  כקובץ נכסים נשמר כעבודה ב-`property_import_jobs`, והבלוק `[ייבוא נכסים]` עם
+  `job_id` נכתב **אחרי** המסמך, כדי שישרוד את `mediaForHistory`. הקליטה עצמה -
+  `import_properties_file` בתור הבא, אחרי "כן". זה כלי כתיבה, ולכן אינו ב-
+  `MEDIA_TOOLS` ולא ב-`EMAIL_TOOLS`. הליבה והכללים: הסקיל `property-import`.
+
 * **אותם מחלצים קוראים גם קבצים מצורפים במייל** (`readAttachments` ב-
   `email-intake.ts`). שינוי ב-`documentToText` / `transcribeMedia` / `docKind`,
   או בנוסח של `reply` בכישלון, משנה את שני הערוצים - ראו הסקיל `email-intake`.
@@ -558,6 +565,14 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 יכולת שנוגעת ללידים** (הודעה יוזמת, תבנית Meta לפנייה ראשונה) מעדכן/ת באותו PR
 את `TOOLS` ב-`supabase/functions/_shared/coach/prompts.ts`. אחרת המאמנים ימשיכו
 לכתוב שזה לא קיים. ‏`docs/coaches.md`.
+
+## שאלה למנטור: `ask_mentor`
+
+גבריאלה מעבירה שאלה למנטור AI דרך `askCoach` (‏`_shared/coach/ask.ts`) - **אותה
+פונקציה** של הכרטיס ב-CRM, ולכן אותה הרשאה, מכסה יומית משותפת ויומן. מי שמשנה
+את הכלי שומר/ת על שלושה: הזהות היא `ctx.agent.id` ולא פרמטר, הכלי נקרא רק בבקשה
+מפורשת למנטור, והוא לא נכנס ל-`EMAIL_TOOLS` ול-`MEDIA_TOOLS` (‏`office_coach_test.ts`
+בודק). ‏`docs/coaches.md`, "שאל את המנטור".
 
 ## לפני הדחיפה
 
