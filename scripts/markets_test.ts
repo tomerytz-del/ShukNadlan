@@ -335,6 +335,9 @@ check("ירושלים → jerusalem", reg.locate(JERUSALEM[0], JERUSALEM[1])?.sl
 check("מבשרת ציון → jerusalem", reg.locate(31.80, 35.15)?.slug === "jerusalem");
 check("צור הדסה → jerusalem", reg.locate(31.72, 35.10)?.slug === "jerusalem");
 check("רמות (צפון העיר, 31.87) → jerusalem", reg.locate(31.87, 35.19)?.slug === "jerusalem");
+check("מעלה אדומים (מזרח העיר, 35.33) → jerusalem", reg.locate(31.775, 35.33)?.slug === "jerusalem");
+check("גבעת זאב → jerusalem", reg.locate(31.862, 35.17)?.slug === "jerusalem");
+check("ביתר עילית (31.69) → jerusalem", reg.locate(31.69, 35.115)?.slug === "jerusalem");
 check("הגבול עם מודיעין: 31.8599 → ירושלים, 31.86 → מודיעין (35.05)",
   reg.locate(31.8599, 35.05)?.slug === "jerusalem" && reg.locate(31.86, 35.05)?.slug === "modiin");
 check("בית שמש אינה בתיבה של ירושלים (שוק נפרד)", !reg.contains(reg.bySlug("jerusalem")!, 31.75, 34.99));
