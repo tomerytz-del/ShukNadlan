@@ -26133,6 +26133,17 @@ function renderSideNav(){
 
   const list = document.createElement('div');
   list.className = 'sn-list';
+
+  /* הסרגל הרחב מציג את אותן קבוצות של תפריט הבורגר - כותרות נייבי שנפתחות
+     ונסגרות - ולכן הבורגר יורד מהכותרת במחשב (crm.html, ‎.burger-wrap‎).
+     פס האייקונים נשאר בצורה שלו: כותרת נייבי בלי שם אינה נכנסת ב-72px. */
+  if (!rail){
+    appendMenuGroups(list, { side:true });
+    nav.appendChild(list);
+    nav.appendChild(sideNavFoot(rail));
+    return;
+  }
+
   const saved = sideGroupsOpen();
   const groups = navGroupsForView();
   const activeKey = (groups.find(g => g.items.some(navItemIsActive)) || {}).key;
@@ -29683,13 +29694,16 @@ function navIsHomeItem(item){
 /* פריט ניווט אחד בתפריט. דף הבית הוא היעד היחיד שאינו קטגוריה בעמוד אלא
    חזרה להתחלה, ולכן הוא נראה אחרת מכל השאר: כפתור מלא בצבעים הפוכים ועם
    אייקון בית, בלי חץ "המשך לקטגוריה" שאין לו לאן להוביל. */
-function menuItemButton(navItem){
+function menuItemButton(navItem, side){
   const count  = navItemCount(navItem);
   const hot    = count > 0 && NAV_HOT_ACCS.has(navItemTarget(navItem));
   const isHome = navIsHomeItem(navItem);
+  // בסרגל הצד, שנשאר על המסך, השורה של המסך הפתוח מסומנת
+  const on     = side && navItemIsActive(navItem);
   const item = document.createElement('button');
   item.type = 'button';
-  item.className = 'menu-item' + (isHome ? ' is-home' : '');
+  item.className = 'menu-item' + (isHome ? ' is-home' : '') + (on ? ' is-on' : '');
+  if (on) item.setAttribute('aria-current', 'page');
   /* אותו אייקון שמופיע בשורה של הקטגוריה בסרגל הצד. בטור של עשרים שורות
      טקסט בעברית האייקון הוא מה שמאפשר לזהות שורה בלי לקרוא אותה. */
   item.innerHTML =
@@ -29708,6 +29722,15 @@ function buildMenuPanel(){
   const panel = document.getElementById('menuPanel');
   if (!panel) return;
   panel.innerHTML = '';
+  appendMenuGroups(panel, {});
+  appendInstallMenuItem(panel);
+}
+
+/* כפתור הבית והקבוצות המתקפלות - לתפריט הבורגר (בנייד) ולסרגל הצד הרחב
+   (במחשב). ‏side: הסרגל נבנה מחדש עם כל שינוי מונה, ולכן קבוצה שנסגרה ביד
+   נשארת סגורה גם כשהמסך הפתוח בתוכה - אחרת היא הייתה קופצת חזרה פתוחה. */
+function appendMenuGroups(panel, opts){
+  const side = !!(opts && opts.side);
   const saved = menuGroupsOpen();
 
   /* כפתור הבית יוצא מהקבוצה ונעוץ בראש התפריט. בתוך קבוצה מתקפלת הוא היה
@@ -29724,7 +29747,7 @@ function buildMenuPanel(){
     }))
     .filter(g => g.items.length);
 
-  homeItems.forEach(it => panel.appendChild(menuItemButton(it)));
+  homeItems.forEach(it => panel.appendChild(menuItemButton(it, side)));
 
   groups.forEach((group, gi)=>{
     if (gi > 0) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
@@ -29739,7 +29762,7 @@ function buildMenuPanel(){
     const hotSum = group.items.reduce(
       (s, it) => s + (NAV_HOT_ACCS.has(it.acc) ? accCountOf(it.acc) : 0), 0);
 
-    const open = menuGroupInitiallyOpen(group, saved);
+    const open = (side && saved[group.key] === false) ? false : menuGroupInitiallyOpen(group, saved);
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'menu-gtoggle';
@@ -29760,15 +29783,13 @@ function buildMenuPanel(){
     panel.appendChild(toggle);
 
     sub.hidden = !open;
-    group.items.forEach(navItem => sub.appendChild(menuItemButton(navItem)));
+    group.items.forEach(navItem => sub.appendChild(menuItemButton(navItem, side)));
     panel.appendChild(sub);
   });
 
   if (!groups.length && !homeItems.length){
     panel.innerHTML = '<div class="menu-empty">אין קטגוריות להצגה</div>';
   }
-
-  appendInstallMenuItem(panel);
 }
 
 /* ---------- "התקנת האפליקציה" בתחתית התפריט ----------
