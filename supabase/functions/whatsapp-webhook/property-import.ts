@@ -14,9 +14,12 @@
  * מה שהאשף עושה ו**לא** כאן:
  *   • שם רחוב אינו מיושר לרשימת הרחובות (canonicalStreet בדפדפן נשען על
  *     הרשימה שנטענת שם). הגאוקוד בשרת מתמודד עם כתיב בעצמו.
- *   • אין תיקון ידני ואין אישור של ניחוש. ניחוש (מכירה/השכרה לפי מחיר, מחיר
- *     למ"ר) נקלט כמו שהוא, והסיכום אומר כמה כאלה היו - כדי שיעברו עליהם.
- *     שורה שנפסלה נפתחת לתיקון באשף, מאותו קובץ (‏/crm?...&import=<id>).
+ *   • אין תיקון ידני. במקומו **ניחוש מחכה לאישור**: מכירה/השכרה לפי המחיר,
+ *     מחיר למ"ר וסוג נכס מהכותרת נמסרים בסיכום לפי סוג, עם דוגמאות, וגבריאלה
+ *     שואלת לפני הקליטה ("78 מסחריים סווגו לפי מחיר - לאשר?"). הכלי מקבל את
+ *     הסוגים שאושרו (‏accept_guesses); בלי התשובה הוא מחזיר
+ *     ‏needs_confirmation ואינו קולט, ושורה עם ניחוש שלא אושר נשארת בחוץ
+ *     ונפתחת לתיקון באשף, יחד עם השורות שנפסלו (‏/crm?...&import=<id>).
  */
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
@@ -151,16 +154,56 @@ async function buildState(supabase: SupabaseClient, agentId: string, agencyId: s
   return S;
 }
 
+/** סוגי הניחוש שהליבה עושה (‏guessed ב-impBuildRow), כמו שהסוכן/ת שומע/ת אותם */
+export const GUESS_KINDS: Record<string, string> = {
+  deal_type: 'מכירה/השכרה שנקבעו לפי המחיר (בקובץ כתוב "מסחרי")',
+  price: 'מחיר למ"ר שהומר לשכר דירה חודשי',
+  property_type: "סוג נכס שהושלם מהכותרת",
+};
+
+/** טקסט מהקובץ בתוך הבלוק: בלי סוגריים מרובעים (שלא ייסגר הבלוק מבפנים)
+ *  ובלי שורות. קובץ ממייל נכתב בידי אחרים, ובלוק הייבוא אינו עובר safe. */
+function clip(v: unknown, n = 40): string {
+  const s = String(v ?? "").replace(/\[/g, "(").replace(/\]/g, ")").replace(/\s+/g, " ").trim();
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
+const shekel = (n: unknown) => Number(n) > 0 ? `${Number(n).toLocaleString("he-IL")} ₪` : "";
+
+/** שורה שתיכתב (חדשה או עדכון) ושיש בה ניחוש */
+function writable(r: Row): boolean {
+  return !r.errors.length && r.mode !== "same";
+}
+
+/** דוגמה אחת לניחוש - מספיק כדי שהסוכן/ת יזהה/תזהה את הנכס ויחליט/תחליט */
+function guessExample(r: Row, kind: string): string {
+  const p = r.payload || {};
+  const what = clip(p.property_type || p.title, 30);
+  const value = kind === "price" ? `${shekel(r.guessed.price)} לחודש (${clip(p.built_size_sqm || p.size_sqm, 8)} מ"ר)`
+    : kind === "deal_type" ? `${clip(r.guessed.deal_type, 10)} (${shekel(p.price)})`
+    : `"${clip(p.title, 40)}" → ${clip(r.guessed.property_type, 20)}`;
+  return `שורה ${r.rowNumber}${kind === "property_type" ? "" : ` ${what}`}: ${value}`;
+}
+
+/** הניחושים לפי סוג: כמה, ושלוש דוגמאות */
+function guessDetails(parsed: Row[]): Row[] {
+  return Object.keys(GUESS_KINDS).map((kind) => {
+    const rows = parsed.filter((r) => writable(r) && r.guessed && kind in r.guessed);
+    return { kind, label: GUESS_KINDS[kind], count: rows.length, examples: rows.slice(0, 3).map((r) => guessExample(r, kind)) };
+  }).filter((g) => g.count);
+}
+
 /** הסיכום שגבריאלה מקבלת - מספרים וסיבות, בלי שורות הקובץ עצמן */
 function summaryLines(sum: Row, parsed: Row[]): string[] {
   const lines = [
     `${sum.total} שורות: ${sum.insert} חדשים, ${sum.update} כבר אצל הסוכן/ת ויעודכנו, ` +
       `${sum.same} כבר אצלו/ה בלי שינוי, ${sum.rejected} ייפסלו.`,
   ];
-  if (sum.guessed) {
-    lines.push(`${sum.guessed} מהשורות הושלמו בניחוש (למשל מכירה/השכרה לפי המחיר ב"מסחרי" של יד2, או מחיר למ"ר) - כדאי לעבור עליהן אחרי הקליטה.`);
+  const guesses = guessDetails(parsed);
+  if (guesses.length) {
+    lines.push(`ניחושים שמחכים לאישור הסוכן/ת - בלי אישור, השורות האלה לא ייקלטו:`);
+    guesses.forEach((g) => lines.push(`• ${g.kind} - ${g.count} שורות: ${g.label}. לדוגמה: ${g.examples.join("; ")}`));
   }
-  sum.reasons.slice(0, 5).forEach((r: Row) => lines.push(`נפסלו ${r.count}: ${r.reason}`));
+  sum.reasons.slice(0, 5).forEach((r: Row) => lines.push(`נפסלו ${r.count}: ${clip(r.reason, 200)}`));
   const noImages = parsed.filter((r) => !r.errors.length && r.mode === "insert" && !r.payload?.images?.length).length;
   if (noImages) lines.push(`${noImages} נכסים חדשים בלי תמונות (בקובץ של יד2 אין תמונות) - צריך להעלות אחר כך.`);
   return lines;
@@ -202,6 +245,10 @@ export async function prepareImportJob(
       `[ייבוא נכסים] זוהה קובץ נכסים${S.yad2 ? " מיד2" : ""} (job_id: ${job.id}).`,
       ...summaryLines(sum, parsed),
       `אפשר לקלוט אותו עכשיו, בלי האשף: אחרי אישור הסוכן/ת - הכלי import_properties_file עם job_id הזה.`,
+      ...(sum.guessed
+        ? [`לפני הקליטה לשאול על כל סוג ניחוש בנפרד אם לאשר (עם המספר והדוגמאות), ולהעביר ב-accept_guesses ` +
+          `את הסוגים שאושרו בלבד ([] אם אף אחד). "כן" כללי לקליטה אינו אישור של הניחושים.`]
+        : []),
       `[סוף ייבוא נכסים]`,
     ].join("\n");
   } catch (err) {
@@ -240,6 +287,8 @@ export async function runImportJob(
   agent: { id: string; agency_id: string | null },
   jobId: string,
   geocode: (city: string, street: string, house: string) => Promise<{ lat: number; lng: number } | null>,
+  /** סוגי הניחוש שהסוכן/ת אישר/ה (‏GUESS_KINDS). ‏undefined - עוד לא נשאל/ה. */
+  acceptGuesses?: string[] | null,
 ): Promise<Row> {
   if (!agent.agency_id) return { ok: false, error: "לסוכן/ת אין משרד משויך - צריך להשלים הרשמה בדשבורד." };
   const { data: job } = await supabase.from("property_import_jobs")
@@ -258,10 +307,33 @@ export async function runImportJob(
   try {
     const S = await buildState(supabase, agent.id, agent.agency_id, job.headers, job.rows);
     const parsed: Row[] = PIC.parseAll(S);
-    const ready = parsed.filter((r) => !r.errors.length);
+    const guesses = guessDetails(parsed);
+    if (guesses.length && !Array.isArray(acceptGuesses)) {
+      // עוד לא נשאל/ה: לא קולטים כלום, והקובץ חוזר להמתנה
+      await supabase.from("property_import_jobs").update({ status: "pending" }).eq("id", job.id);
+      return {
+        ok: false, needs_confirmation: true, guesses,
+        error: "יש בקובץ ניחושים שהסוכן/ת עוד לא אישר/ה. לשאול על כל סוג (עם המספר והדוגמאות), " +
+          "ואז לקרוא שוב עם accept_guesses - הסוגים שאושרו, או [] אם אף אחד.",
+      };
+    }
+    const accepted = new Set((acceptGuesses || []).filter((k) => k in GUESS_KINDS));
+    // שורה עם ניחוש שלא אושר נשארת בחוץ - לתיקון באשף, כמו שורה שנפסלה
+    const held: Row[] = [];
+    const ready = parsed.filter((r) => {
+      if (r.errors.length) return false;
+      const open = writable(r) ? Object.keys(r.guessed || {}).filter((k) => !accepted.has(k)) : [];
+      if (!open.length) return true;
+      held.push({
+        row: r.rowNumber,
+        message: open.map((k) => `${GUESS_KINDS[k] || k} - הניחוש לא אושר`).join(" · ") +
+          ". לתיקון: לבחור את הערך בעצמכם בתיקון השורות, או לשלוח את הקובץ שוב ולאשר את הניחוש",
+      });
+      return false;
+    });
     const toInsert = ready.filter((r) => (r.mode || "insert") === "insert");
     const toUpdate = ready.filter((r) => r.mode === "update");
-    const failed: Row[] = [];
+    const failed: Row[] = [...held];
 
     // שכונה מכינוי/התאמה רכה: הכתובת מכריעה קודם (כמו impLocateFallbackRows)
     for (const r of toInsert) {
@@ -301,8 +373,9 @@ export async function runImportJob(
       .map((r) => ({ row: r.rowNumber, message: r.errors.join(" · ") }));
     const result = {
       inserted: inserted.length, updated, unchanged: ready.filter((r) => r.mode === "same").length,
-      rejected: rejected.length + failed.length,
-      guessed: ready.filter((r) => Object.keys(r.guessed || {}).length).length,
+      rejected: rejected.length + failed.length - held.length,
+      held_unconfirmed: held.length,
+      guessed: ready.filter((r) => writable(r) && Object.keys(r.guessed || {}).length).length,
       no_images: inserted.filter(({ row }) => !row.payload?.images?.length).length,
       problems: [...rejected, ...failed].sort((a, b) => a.row - b.row),
     };
