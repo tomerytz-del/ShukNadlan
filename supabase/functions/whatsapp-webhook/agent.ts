@@ -33,6 +33,7 @@ import {
   googleCalendarConfigured,
   GoogleRevokedError,
 } from "../_shared/google-calendar.ts";
+import { configureImportVocab, runImportJob } from "./property-import.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -136,6 +137,10 @@ const PROJECT_STATUSES = [
   "planning", "permit_requested", "permit_issued", "construction_complete",
 ];
 const STATUSES = ["active", "sold", "rented", "archived"];
+
+// ליבת ייבוא הנכסים מקובץ (משותפת עם האשף ב-CRM) מקבלת את אותם סוגי נכס
+// שהבוט מכיר - בלי רשימה מקבילה נוספת (property-import.ts)
+configureImportVocab(RESIDENTIAL_PTYPES, COMMERCIAL_PTYPES);
 
 const CLIENT_STATUSES = ["active", "paused", "closed"];
 
@@ -357,6 +362,22 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["property_type", "deal_type", "price"],
+    },
+  },
+  {
+    name: "import_properties_file",
+    description:
+      "קולט קובץ נכסים (Excel/CSV, כולל הקובץ שיורד מיד2) שהסוכן/ת שלח/ה - כל השורות בבת אחת, " +
+      "באותה בדיקה של \"ייבוא מקובץ\" ב-CRM. מקבל את ה-job_id מהבלוק [ייבוא נכסים] שבהודעה עם הקובץ. " +
+      "**רק אחרי שהסוכן/ת אישר/ה במפורש** את הקליטה. מודעה של יד2 שכבר אצל הסוכן/ת מתעדכנת " +
+      "(מחיר, חזרה לפרסום, שדות ריקים) בלי לדרוס מה שמילא/ה; מודעה של עמית/ה במשרד נפסלת. " +
+      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות.",
+    input_schema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "המזהה מהבלוק [ייבוא נכסים] (job_id)." },
+      },
+      required: ["job_id"],
     },
   },
   {
@@ -1767,6 +1788,32 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     ...(hoodWarning || {}),
     link: propertyLink(data.id),
     ...crmButton(ctx, crmPropertyLink(data.id)),
+  };
+}
+
+/**
+ * קליטת קובץ נכסים שהגיע בשיחה (‏property-import.ts). הפין הוא של
+ * create_property, כדי ששכונה מכינוי תוכרע לפי הכתובת כמו באשף. השורות
+ * שנפסלו נפתחות לתיקון באשף מאותו קובץ - בלי לשלוח אותו שוב.
+ */
+async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, unknown>) {
+  const jobId = String(input.job_id || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(jobId)) return { ok: false, error: "חסר job_id תקין מהבלוק [ייבוא נכסים]." };
+  const res = await runImportJob(ctx.supabase, ctx.agent, jobId,
+    (city, street, house) => geocodeForProperty(ctx, city, street, house));
+  if (!res.ok) return res;
+  const fixUrl = SITE_BASE_URL && res.problems?.length
+    ? `${SITE_BASE_URL}/crm?goto=accProperties&import=${jobId}` : undefined;
+  return {
+    ...res,
+    note: "לסכם במספרים: נקלטו, עודכנו, ללא שינוי, נפסלו. לשורות שנפסלו - מספר השורה, הסיבה ומה לעשות " +
+      "(כמו שחזר כאן), עד חמש. אם יש ניחושים (guessed) - לומר שכדאי לעבור עליהם. נכסים בלי תמונות - " +
+      "להזכיר שאפשר לשלוח תמונות כאן או להעלות ב-CRM.",
+    // כפתור אחד: תיקון כשיש מה לתקן, ואחרת הרשימה עצמה
+    ...(fixUrl
+      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנפסלו פתוחות לתיקון באשף, מאותו קובץ:", "fix_link")
+      : crmButton(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
+        "🏠 הנכסים שלי", "לנכסים שנקלטו:", "properties_link")),
   };
 }
 
@@ -6018,6 +6065,7 @@ async function runTool(
     switch (name) {
       // נכסים
       case "create_property": return await toolCreateProperty(ctx, input);
+      case "import_properties_file": return await toolImportPropertiesFile(ctx, input);
       case "update_property": return await toolUpdateProperty(ctx, input);
       case "set_property_status": return await toolSetStatus(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);

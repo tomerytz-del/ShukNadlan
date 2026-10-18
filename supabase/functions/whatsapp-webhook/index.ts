@@ -11,6 +11,7 @@ import {
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
+import { prepareImportJob } from "./property-import.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import {
@@ -1301,6 +1302,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           (caption ? `\nהסוכן/ת כתב/ה עם הקובץ: ${caption}` : "");
       } else {
         userText = wrapDocument(result.text, fileName, caption, forwarded);
+        // קובץ נכסים (Excel/CSV, כולל יד2): עותק לקליטה וסיכום יבש באותה ליבה
+        // של האשף ב-CRM. אחרי "כן" הקובץ כבר אינו בשיחה (ההיסטוריה שומרת ממנו
+        // 2,500 תווים), ולכן הקליטה עצמה רצה מהעותק (property-import.ts).
+        if (kind === "sheet" || (kind === "text" && /\.(csv|tsv)$/i.test(fileName))) {
+          const importBlock = await prepareImportJob(supabase, agent, file.bytes, fileName);
+          if (importBlock) userText += "\n\n" + importBlock;
+        }
       }
       // ביומן: התמלול (כמו בהודעה קולית), ומסמך - רק שמו. תוכן המסמך אינו
       // נשמר בשום מקום מעבר לתור.
