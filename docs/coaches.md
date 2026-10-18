@@ -350,7 +350,7 @@ select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tok
   הסוד `ANTHROPIC_API_KEY`). ‏`levels=1` - בקשה אחת שמספיקה לקרוא את המגבלות; אחר כך
   למשל `10,50,100`, עם דקה בין גלים. ‏`confirm=כן` כדי לשלוח.
 - **מקומית:** ‏`ANTHROPIC_API_KEY=... node --experimental-strip-types scripts/coach_load_test.ts --levels=10,50 --yes`.
-- מה שלא נבדק כאן: תקרת הריצות במקביל של Edge Functions לפי תוכנית Supabase.
+- תקרת הריצות של Edge Functions והאתר - במבחן הנפרד, ‏`docs/load-testing.md`.
 
 ## כשאין למנטור ידע (`gap_topic`)
 
