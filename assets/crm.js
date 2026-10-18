@@ -10977,6 +10977,9 @@ async function loadTeam(agencyId, callerId){
    סוכן/ת שהכרטיס שלו/ה קיים אבל מקושר לכתובת אחרת (או לחשבון שנוצר על כתובת
    שהוקלדה שגוי) מזדהה במספר הרישיון, וההחלטה מגיעה לכאן. זה מה שמאפשר לתקן
    שיוך שבור מתוך הממשק - עד היום התיקון היחיד היה עריכה ידנית במסד. */
+/* כמה בקשות שיוך ממתינות - ל"ממתין לאישורך" בדאשבורד המשרד */
+let officePendingClaims = 0;
+
 async function loadClaimRequests(agencyId, callerId){
   const el = document.getElementById('claimRequests');
   if (!el) return;
@@ -10987,6 +10990,7 @@ async function loadClaimRequests(agencyId, callerId){
     .order('created_at', { ascending:true });
 
   // כשל בשליפה לא מוחק את רשימת הצוות שכבר מוצגת מעליה
+  officePendingClaims = (!error && claims) ? claims.length : 0;
   if (error || !claims || !claims.length){ el.innerHTML = ''; return; }
 
   const { data: members } = await sb

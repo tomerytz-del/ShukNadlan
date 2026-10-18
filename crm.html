@@ -3485,6 +3485,46 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .td-st-not_relevant{color:var(--nv-muted)}
   @media(max-width:600px){.td-lead-side{align-items:flex-start;text-align:start}}
 
+  /* ---------- דאשבורד המשרד, שלב 5: ממתין לאישורך, צוותים, מצטיינים ---------- */
+  .od-export{min-height:36px;padding:0 14px;border:1px solid var(--od-line);border-radius:999px;background:#fff;
+             color:var(--od-ink);font-size:.8rem;font-weight:700}
+  .od-export:hover{border-color:var(--od-sap)}
+  .od-pend-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+  .od-pend{display:flex;align-items:center;gap:12px;min-height:60px;padding:10px 14px;border:1px solid var(--od-line);
+           border-radius:14px;background:#fff;text-align:start;color:var(--od-ink)}
+  .od-pend:hover{border-color:var(--od-sap)}
+  .od-pend:focus-visible,.od-team:focus-visible{outline:2px solid #1F5BF0;outline-offset:2px}
+  .od-pend-n{flex-shrink:0;min-width:34px;height:34px;border-radius:10px;background:#FDE7D9;color:#9A3412;
+             font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .od-pend-t{flex:1;min-width:0;display:flex;flex-direction:column}
+  .od-pend-t b{font-size:.9rem}
+  .od-pend-t small{font-size:.78rem;color:var(--od-muted)}
+  .od-pend-cta{flex-shrink:0;font-size:.8rem;font-weight:800;color:#1F5BF0}
+  .od-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .od-team{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--od-line);border-radius:16px;
+           background:#fff;text-align:start;color:var(--od-ink)}
+  .od-team:hover{border-color:var(--od-sap)}
+  .od-team.is-on{border-color:#1F5BF0;box-shadow:0 0 0 2px #EAF0FF}
+  .od-team-h{display:flex;flex-direction:column}
+  .od-team-h b{font-size:1rem}
+  .od-team-h small{font-size:.8rem;color:var(--od-muted)}
+  .od-team-warn{color:#9A3412;font-weight:700}
+  .od-team-goal>span{display:flex;justify-content:space-between;font-size:.78rem;color:var(--od-muted)}
+  .od-team-goal b{color:var(--od-ink)}
+  .od-team-goal i{display:block;height:6px;border-radius:3px;background:#DDE2EC;margin-top:4px;overflow:hidden}
+  .od-team-goal em{display:block;height:100%;border-radius:3px;background:#1F5BF0}
+  .od-team-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .od-team-stats>span{display:flex;flex-direction:column;background:var(--od-bg);border-radius:10px;padding:6px 8px}
+  .od-team-stats small{font-size:.72rem;color:var(--od-muted)}
+  .od-team-stats b{font-size:.92rem}
+  .od-top-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .od-top-list li{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--od-line);border-radius:14px;background:#fff}
+  .od-top-rank{flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--od-gold-tint);color:var(--od-gold-ink);
+               font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .od-top-t{flex:1;min-width:0;display:flex;flex-direction:column}
+  .od-top-t small{font-size:.78rem;color:var(--od-muted)}
+  .od-top-v{flex-shrink:0;font-weight:800;font-variant-numeric:tabular-nums}
+
   /* ==========================================================================
      מדריך ההתחלה
      --------------------------------------------------------------------------
@@ -5349,11 +5389,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ========================================================================== */
   #officeDash.od-refreshing .od{opacity:.55;transition:opacity .2s}
   .od{
-    --od-sap:#0e2a6b; --od-sap-deep:#0d1b3d; --od-sap-soft:#b7c6e8; --od-sap-tint:#eef2fa;
+    /* טוקני העיצוב החדש (HANDOFF סעיף 1, שלב 5): ink, accent, ok/warn/urgent,
+       line, muted ו-ground. הפליז נשאר: הוא האקסנט של המאמן ושל העמלות. חל
+       על דאשבורד המשרד, דאשבורד הצוות והדשבורד האישי - שלושתם .od. */
+    --od-sap:#1F3F99; --od-sap-deep:#0E1A33; --od-sap-soft:#B9CCFA; --od-sap-tint:#EAF0FF;
     --od-brass:#c9a227; --od-brass-l:#e5c76a; --od-gold-ink:#8a6b12; --od-gold-tint:#faf3dc;
-    --od-mint:#0d7a68; --od-sand:#8a6b12;
-    --od-ok:#0f7a4f; --od-warn:#a16207; --od-bad:#b42318;
-    --od-line:#e6eaf0; --od-muted:#64748b; --od-ink:#0f172a; --od-panel:#fff; --od-bg:#f8fafc;
+    --od-mint:#166534; --od-sand:#7A5300;
+    --od-ok:#166534; --od-warn:#7A5300; --od-bad:#C2410C;
+    --od-line:#E3E7EF; --od-muted:#5A6478; --od-ink:#0E1A33; --od-panel:#fff; --od-bg:#F4F6FA;
     display:flex;flex-direction:column;gap:18px;color:var(--od-ink);font-family:'Heebo',sans-serif;
   }
   .od *{box-sizing:border-box}

@@ -63,6 +63,7 @@ const odState = {
   data: null,
   view: null,
   picked: null,        // agent_id שנבחר/ה בטבלה, או null
+  team: null,          // team_id שנבחר בכרטיסי הצוותים, או null (docs/office-dashboard.md)
   sort: { k:'commission', dir:-1 },
   search: '',
   busy: false,
@@ -496,7 +497,8 @@ async function loadOfficeCoach(){
 function odCoachHtml(){
   const c = odState.coach;
   if (c === false || c === undefined) return '';
-  const head = (sub) => `<div class="od-sec-h"><h2>סיכום השבוע</h2><p>${sub}</p></div>`;
+  // שלושת המאמנים נקראים בשמות קבועים (HANDOFF סעיף 6.1): זה של המשרד
+  const head = (sub) => `<div class="od-sec-h"><h2>מאמן AI לבעלי משרדים</h2><p>${sub}</p></div>`;
   if (!c || !c.summary || !Array.isArray(c.summary.points)){
     return `<section class="od-sec od-coach">${head('מאמן ה-AI של המשרד')}
       <p class="od-muted">הסיכום הראשון יגיע ביום ראשון בבוקר: שלוש נקודות על השבוע שעבר, מה השתפר, מה נתקע ומה כדאי לעשות השבוע.</p></section>`;
@@ -529,7 +531,9 @@ function odSkeleton(){
 function renderOfficeDashboard(){
   const host = document.getElementById('officeDash');
   if (!host || !odState.data) return;
-  const data = odState.data;
+  const raw = odState.data;
+  if (odState.team && !(raw.teams || []).some(t => t.team_id === odState.team)) odState.team = null;
+  const data = odScopeTeam(raw, odState.team);
   const full = odDerive(data, null);
   const view = odState.picked ? odDerive(data, odState.picked) : full;
   odState.view = full;
@@ -562,6 +566,8 @@ function renderOfficeDashboard(){
     ${odHero(full, view, data, range, picked)}
     ${odKpis(view, range)}
     ${odCoachHtml()}
+    ${odPendingHtml(raw)}
+    ${odTeamsHtml(raw)}
     <section class="od-grid">
       <div class="od-card">
         <div class="od-card-h"><h3>דורש תשומת לב עכשיו</h3>
@@ -579,6 +585,7 @@ function renderOfficeDashboard(){
         <p>נגזרות מהנתונים של התקופה · לכל המלצה מי מוביל/ה ומה ההשפעה הצפויה</p></div>
       ${odAdviceHtml(advice)}
     </section>
+    ${odTopHtml(full.agents, range)}
     <section class="od-sec">
       <div class="od-sec-h"><h2>ביצועי סוכנים</h2>
         <input class="od-search" id="odSearch" type="search" placeholder="חיפוש סוכן/ת" aria-label="חיפוש סוכן/ת" value="${escapeHtml(odState.search)}"></div>
@@ -634,12 +641,106 @@ function odBrandBar(data, range, picked){
     <div class="od-chips">
       <span class="od-chip">${escapeHtml(odRangeLabel(period))} · מול ${escapeHtml(odRangeLabel({ from: period.prev_from, to: period.prev_to }))}</span>
       ${picked ? `<button type="button" class="od-picked" data-od-unpick>מסונן: ${escapeHtml(picked.agent)} ×</button>` : ''}
+      ${odState.team ? `<button type="button" class="od-picked" data-od-team="">צוות: ${escapeHtml(((data.teams || []).find(t => t.team_id === odState.team) || {}).name || '')} ×</button>` : ''}
       <div class="od-periods" role="group" aria-label="בחירת תקופה">
         ${OD_PERIODS.map(p => `<button type="button" data-od-period="${p.key}" aria-pressed="${p.key === odState.period}">${p.label}</button>`).join('')}
       </div>
       <button type="button" class="od-refresh" data-od-refresh aria-label="רענון הנתונים" title="רענון">↻</button>
+      ${document.getElementById('openExportProperties') ? '<button type="button" class="od-export" data-od-export>ייצוא לאקסל</button>' : ''}
     </div>
   </div>`;
+}
+
+/* ==========================================================================
+   צוותים, "ממתין לאישורך" ומצטייני התקופה (שלב 5, docs/office-dashboard.md)
+   ========================================================================== */
+
+/* הנתונים מצומצמים לצוות אחד: הסוכנים, ההתפלגויות והחודשים שלהם, והבלעדיות
+   שלהם. מקורות הלידים נשארים של כל המשרד - והכרטיס אומר את זה. ‏teams
+   נשאר מלא, כדי שכרטיסי הצוותים ימשיכו להציג את כולם. */
+function odScopeTeam(data, teamId){
+  if (!teamId) return data;
+  const ids = new Set((data.agents || []).filter(a => a.team_id === teamId).map(a => a.agent_id));
+  const keep = r => ids.has(r.agent_id);
+  return Object.assign({}, data, {
+    agents: (data.agents || []).filter(keep),
+    response_buckets: (data.response_buckets || []).filter(keep),
+    monthly: (data.monthly || []).filter(keep),
+    expiring: (data.expiring || []).filter(keep),
+  });
+}
+
+/* ‏"ממתין לאישורך": מה שרק מנהל/ת המשרד יכול/ה לסגור. שלושה מקורות שכבר
+   נטענים - ביקורות (accReviews), בקשות שיוך (officePendingClaims, מ-
+   loadClaimRequests) וצוות בלי מנהל/ת (teams מהליבה). אין כאן שאילתה. */
+function odPendingHtml(data){
+  const items = [];
+  const reviews = typeof accCountOf === 'function' ? accCountOf('accReviews') : 0;
+  if (reviews) items.push({ n: reviews, t: odCount(reviews, 'ביקורת אחת לאישור', 'ביקורות לאישור'),
+    s: 'חוות דעת של לקוחות שמחכות לפרסום', cta: 'לאישור', acc: 'accReviews' });
+  const claims = typeof officePendingClaims === 'number' ? officePendingClaims : 0;
+  if (claims) items.push({ n: claims, t: odCount(claims, 'בקשת שיוך אחת', 'בקשות שיוך'),
+    s: 'מתווכים שביקשו להצטרף למשרד', cta: 'לבדיקה', acc: 'accTeam' });
+  (data.teams || []).filter(t => !t.lead_member_id).forEach(t => items.push({ n: 1,
+    t: 'מינוי מנהל/ת צוות', s: 'לצוות ' + t.name + ' אין מנהל/ת', cta: 'למינוי', acc: 'accTeam' }));
+  if (!items.length) return '';
+  return `<section class="od-sec od-pending" aria-label="ממתין לאישורך">
+    <div class="od-sec-h"><h2>ממתין לאישורך</h2></div>
+    <div class="od-pend-list">${items.map(i => `
+      <button type="button" class="od-pend" data-od-goto="${i.acc}">
+        <span class="od-pend-n">${odInt(i.n)}</span>
+        <span class="od-pend-t"><b>${escapeHtml(i.t)}</b><small>${escapeHtml(i.s)}</small></span>
+        <span class="od-pend-cta">${i.cta} ←</span>
+      </button>`).join('')}</div>
+  </section>`;
+}
+
+/* כרטיס לכל צוות. לחיצה מסננת את כל הדאשבורד לצוות (odScopeTeam), ולחיצה
+   נוספת מבטלת. בלי צוותים - בלי הקטע: חלוקה לצוותים היא רשות. */
+function odTeamsHtml(data){
+  const teams = data.teams || [];
+  if (!teams.length) return '';
+  return `<section class="od-sec" aria-label="הצוותים">
+    <div class="od-sec-h"><h2>הצוותים</h2>
+      <button type="button" class="od-link" data-od-goto="accTeam">ניהול צוותים וסוכנים ←</button></div>
+    <div class="od-teams">${teams.map(t => {
+      const pct = odNum(t.commission_target) ? odNum(t.commission_in_target) / odNum(t.commission_target) : null;
+      const excl = odNum(t.recruited) ? odNum(t.exclusives) / odNum(t.recruited) : null;
+      const on = odState.team === t.team_id;
+      return `<button type="button" class="od-team${on ? ' is-on' : ''}" aria-pressed="${on}" data-od-team="${escapeHtml(t.team_id)}">
+        <span class="od-team-h"><b>${escapeHtml(t.name)}</b>
+          <small>${t.lead ? escapeHtml(t.lead) : '<span class="od-team-warn">בלי מנהל/ת</span>'} · ${odCount(t.agents, 'סוכן/ת אחד/ת', 'סוכנים')}</small></span>
+        <span class="od-team-goal"><span><span>יעד התקופה</span><b>${pct == null ? 'אין יעד' : odPct(pct)}</b></span>
+          <i><em style="width:${pct == null ? 0 : Math.min(100, pct * 100).toFixed(1)}%"></em></i></span>
+        <span class="od-team-stats">
+          <span><small>עסקאות</small><b>${odInt(t.deals)}</b></span>
+          <span><small>תגובה</small><b>${t.avg_response_min == null ? '-' : odDur(t.avg_response_min)}</b></span>
+          <span><small>בלעדיות</small><b>${odPct(excl)}</b></span>
+        </span>
+      </button>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+/* מצטייני התקופה: שלושת הראשונים לפי עמלות, ואחריהן עסקאות והסכמים. רק מי
+   שעשה/תה משהו בתקופה - אחרת "מקום ראשון" הוא אפס. */
+function odTopHtml(agents, range){
+  const top = agents.filter(a => odNum(a.commission) || odNum(a.deals) || odNum(a.agreements) || odNum(a.recruited))
+    .sort((a, b) => odNum(b.commission) - odNum(a.commission) || odNum(b.deals) - odNum(a.deals)
+      || odNum(b.agreements) - odNum(a.agreements)).slice(0, 3);
+  if (!top.length) return '';
+  return `<section class="od-sec od-top" aria-label="מצטייני התקופה">
+    <div class="od-sec-h"><h2>מצטייני התקופה</h2><p>${escapeHtml(odRangeLabel(range))}</p></div>
+    <ol class="od-top-list">${top.map((a, i) => `<li>
+      <span class="od-top-rank">${i + 1}</span>
+      <span class="od-top-t"><b>${escapeHtml(a.agent)}</b><small>${[
+        odNum(a.deals) ? odCount(a.deals, 'עסקה אחת', 'עסקאות') : '',
+        odNum(a.agreements) ? odCount(a.agreements, 'הסכם אחד', 'הסכמים') : '',
+        a.avg_response_min != null ? 'תגובה ' + odDur(a.avg_response_min) : '',
+      ].filter(Boolean).join(' · ')}</small></span>
+      <span class="od-top-v">${odIls(a.commission)}</span>
+    </li>`).join('')}</ol>
+  </section>`;
 }
 
 function odGreeting(){
@@ -1055,6 +1156,17 @@ function odOpenProperty(id){
     if (e.target.closest('[data-od-refresh]')){ loadOfficeDashboard(true); return; }
     if (e.target.closest('[data-od-more]')){ odState.allAdvice = true; renderOfficeDashboard(); return; }
     if (e.target.closest('[data-od-unpick]')){ odPick(null); return; }
+    const team = e.target.closest('[data-od-team]');
+    if (team){
+      const id = team.dataset.odTeam || null;
+      odState.team = (!id || odState.team === id) ? null : id;
+      odState.picked = null;
+      renderOfficeDashboard();
+      return;
+    }
+    const go = e.target.closest('[data-od-goto]');
+    if (go){ gotoSection(go.dataset.odGoto); return; }
+    if (e.target.closest('[data-od-export]')){ document.getElementById('openExportProperties').click(); return; }
     const sort = e.target.closest('[data-od-sort]');
     if (sort){
       const k = sort.dataset.odSort;
