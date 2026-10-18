@@ -146,6 +146,7 @@ function csmEnsureCss(){
 let csmLoaded = false;
 let csmTab = 'pipeline';
 let csmFilter = '';
+let csmStage = '';      // '' = כל השלבים; אחרת שלב אחד בלבד בצנרת
 let csmSession = null;   // { agent, draft }
 
 function csmFmtDate(v){
@@ -228,16 +229,29 @@ function csmPipelineHtml(){
       <button type="button" class="btn btn-ghost" data-csm-refresh>רענון</button>
     </div>
     <p class="acc-sub">${csmRows.length} סוכנים · ${risk ? `<strong class="csm-risk-txt">${risk} בלי גבריאלה 5+ ימים</strong>` : 'אין סוכנים בסיכון כרגע'}</p>`;
+  /* ‏בלי גלילה לצד: היא לא נראתה במחשב והייתה לא נוחה (18.10.2026). במקומה
+     שורת שלבים עם מספר לכל אחד - לחיצה מציגה שלב אחד בלבד, והכרטיסים שלו
+     מתפרסים ברשת על כל הרוחב. "כל השלבים" מציג את העמודות בשורות. */
+  const sorted = list => list.slice()
+    .sort((a, b) => (csmRisk(b) ? 1 : 0) - (csmRisk(a) ? 1 : 0) || csmHealth(a) - csmHealth(b));
+  const chips = `<div class="csm-stage-chips" role="tablist" aria-label="סינון לפי שלב">
+      <button type="button" role="tab" data-csm-stage-filter="" aria-selected="${!csmStage}">כל השלבים <span>${rows.length}</span></button>
+      ${CSM_STAGES.map(st => `<button type="button" role="tab" data-csm-stage-filter="${st.key}" aria-selected="${csmStage === st.key}"${st.key === 'at_risk' ? ' class="is-risk"' : ''}>${escapeHtml(st.label)} <span>${rows.filter(r => r.stage === st.key).length}</span></button>`).join('')}
+    </div>`;
+  if (csmStage){
+    const st = CSM_STAGES.find(x => x.key === csmStage) || CSM_STAGES[0];
+    const list = sorted(rows.filter(r => r.stage === st.key));
+    return head + chips + `<div class="csm-cards">${list.map(csmCardHtml).join('') || '<div class="csm-col-empty">אין כאן אף אחד/ת</div>'}</div>`;
+  }
   const cols = CSM_STAGES.map(st => {
-    const list = rows.filter(r => r.stage === st.key)
-      .sort((a, b) => (csmRisk(b) ? 1 : 0) - (csmRisk(a) ? 1 : 0) || csmHealth(a) - csmHealth(b));
+    const list = sorted(rows.filter(r => r.stage === st.key));
     return `
       <section class="csm-col${st.key === 'at_risk' ? ' is-risk' : ''}" aria-label="${escapeHtml(st.label)}">
         <h4>${escapeHtml(st.label)} <span>${list.length}</span></h4>
         ${list.map(csmCardHtml).join('') || '<div class="csm-col-empty">אין כאן אף אחד/ת</div>'}
       </section>`;
   }).join('');
-  return head + '<div class="csm-board">' + cols + '</div>';
+  return head + chips + '<div class="csm-board">' + cols + '</div>';
 }
 
 function csmCardHtml(r){
@@ -267,9 +281,13 @@ function csmCardHtml(r){
       <label class="csm-stage-sel"><span class="sr-only">שלב</span>
         <select data-csm-stage="${escapeHtml(r.agent_id)}">${opts}</select>
       </label>
+      ${r.phone ? `<div class="csm-contact">
+        <a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞 התקשרות</a>
+        <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(r.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>
+        <span class="csm-phone" dir="ltr">${escapeHtml(r.phone)}</span>
+      </div>` : '<div class="csm-card-meta">אין טלפון בכרטיס</div>'}
       <div class="csm-card-actions">
         <button type="button" class="btn btn-gold" data-csm-session="${escapeHtml(r.agent_id)}">${r.sessions ? 'פגישה נוספת' : 'פגישת הצלחה ראשונה'}</button>
-        ${r.phone ? `<a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ לסוכן/ת (נפתח בלשונית חדשה)">וואטסאפ</a>` : ''}
       </div>
     </article>`;
 }
@@ -329,12 +347,12 @@ function csmOfficesHtml(){
     ${list.map(o => `<article class="csm-office">
       <div class="csm-fb-head"><strong>${escapeHtml(o.name)}</strong><span class="csm-health ${o.health >= 60 ? 'good' : o.health >= 30 ? 'mid' : 'low'}" title="ציון בריאות ממוצע">${o.health}</span></div>
       <div class="csm-card-meta">${o.address ? escapeHtml(o.address) + ' · ' : ''}${o.agents.length} סוכנים · ${o.active7} פעילים בגבריאלה השבוע · ${o.listings} נכסים פעילים${o.risk ? ` · <strong class="csm-risk-txt">${o.risk} בסיכון</strong>` : ''}</div>
-      ${o.managers.length ? `<div class="csm-office-mgr">מנהל/ת: ${o.managers.map(m => `${escapeHtml(m.display_name || '')}${m.phone ? ` <a href="tel:${escapeHtml(m.phone)}" dir="ltr">${escapeHtml(m.phone)}</a>` : ''}`).join(' · ')}${o.managerActive ? ' <span class="csm-tag seen">משתמש/ת בגבריאלה</span>' : ''}</div>` : ''}
+      ${o.managers.length ? `<div class="csm-office-mgr">מנהל/ת: ${o.managers.map(m => `${escapeHtml(m.display_name || '')}${m.phone ? ` <a class="btn btn-call btn-sm" href="tel:${escapeHtml(m.phone)}" aria-label="התקשרות ל${escapeHtml(m.display_name || 'מנהל/ת')}">📞 <span dir="ltr">${escapeHtml(m.phone)}</span></a>` : ''}`).join(' · ')}${o.managerActive ? ' <span class="csm-tag seen">משתמש/ת בגבריאלה</span>' : ''}</div>` : ''}
       <details class="csm-more"><summary>הסוכנים במשרד</summary>
         <ul class="csm-office-agents">${o.agents.map(r => `<li>
           <span>${escapeHtml(r.display_name || 'ללא שם')}</span>
           <span class="csm-card-meta">${escapeHtml((CSM_STAGES.find(s => s.key === r.stage) || {}).label || '')} · 💬 ${r.gabriela_7d || 0} · 🏠 ${r.active_listings || 0}</span>
-          ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" dir="ltr">${escapeHtml(r.phone)}</a>` : ''}
+          ${r.phone ? `<a class="btn btn-call btn-sm" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞 <span dir="ltr">${escapeHtml(r.phone)}</span></a>` : ''}
         </li>`).join('')}</ul>
       </details>
     </article>`).join('') || '<div class="empty-state">לא נמצא משרד.</div>'}`;
@@ -890,6 +908,8 @@ function csmLibraryHtml(){
     const tab = e.target.closest('[data-csm-tab]');
     if (tab){ csmTab = tab.dataset.csmTab; csmRender(); return; }
     if (e.target.closest('[data-csm-refresh]')){ loadCsm(true); return; }
+    const sf = e.target.closest('[data-csm-stage-filter]');
+    if (sf){ csmStage = sf.dataset.csmStageFilter; csmRender(); return; }
     const ses = e.target.closest('[data-csm-session]');
     if (ses){ csmOpenSession(ses.dataset.csmSession); return; }
     const mq = e.target.closest('[data-csm-mq]');
