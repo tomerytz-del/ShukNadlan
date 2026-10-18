@@ -6458,6 +6458,8 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
   feedback.style.color = 'var(--blue)';
   feedback.textContent = 'ההעדפות נשמרו בהצלחה!';
   accSetCount('accPrefs', active ? 'פעיל' : 'כבוי');
+  // צעד 7 במדריך ההתחלה (העדפות לידים) נסגר בשמירה הזו
+  refreshOnboarding();
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
 });
 
@@ -7544,104 +7546,11 @@ function labelPromoGift(strip, promo, agent){
 })();
 
 /* ==========================================================================
-   מדריך ההתחלה
-   --------------------------------------------------------------------------
-   סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה נוחת/ת על דשבורד מלא ביכולות שכולן
-   מחכות שיחפשו אותן. ששת הצעדים כאן הם הסדר שבו הן מתחילות לעבוד, והוא
-   השרשרת העסקית עצמה — מלאי, התחייבות, ומאיפה מגיע הלקוח/ה הבא/ה:
-
-     1. גבריאלה בוואטסאפ — משם נפתחים נכסים ולקוחות מהטלפון
-     2. הנכס הראשון
-     3. תמונת פרופיל (ולמנהל/ת משרד — גם לוגו המשרד)
-
-   שלושה ולא שבעה (20270318090000_onboarding_three_steps.sql): לקוח, הסכם
-   וליד ראשונים הם עבודה רגילה ולא "הקמה", ורשימה של שבעה צעדים נקראה
-   כמשימה כבדה לפני שהתחילו. יומן Google **אינו** צעד: הוא מוצע ברגע
-   שנקבעת פגישה (offerGcalAfterMeeting), כשיש סיבה לאשר את מסך ההרשאות.
-
-   **המצב אינו נשמר כאן ואינו נשמר כצ׳קליסט.** ‏agent_onboarding_state()
-   מחשבת אותו במסד מהמציאות בכל קריאה — יש שיחה בוואטסאפ? יש photo_url? יש
-   נכס? — ולכן צעד שנסגר מחוץ לדשבורד נסגר גם בכרטיס. זה לא ניואנס: הצעד
-   הראשון הוא בדיוק הכלי שבו נפתח לא פעם הנכס הראשון, וכרטיס שמסמן "בוצע"
-   רק על מה שנעשה בטופס היה מדווח שקר לכל מי שעשה/תה בדיוק מה שביקשנו.
-
-   דרבון בפעמון נשאר רק על הנכס הראשון (‏onboarding_property, אחרי שמירת
-   התמונה); שלושת האחרים ירדו עם הצעדים שלהם.
-
-   ראו docs/agent-onboarding.md.
+   מדריך ההתחלה: assets/crm-onboarding.js (שלב 7 בשדרוג ה-CRM,
+   docs/agent-onboarding.md). שם ONB_STEP_DEFS, ‏loadOnboarding,
+   ‏refreshOnboarding ו-renderOnboarding; כאן נשאר רק כרטיס הרישיון.
    ========================================================================== */
 
-/* ‏done נקרא מהשורה שהמסד החזיר, ולא מחושב כאן שוב: תנאי משוכפל בין שרת
-   לדפדפן מתפצל, ואז ההתראה יוצאת בזמן שהכרטיס עוד מציג את הצעד כפתוח. */
-const ONBOARD_STEPS = [
-  /* המספר כבר נשמר בהרשמה, ולכן "בלחיצה": הכפתור פותח צ'אט עם גבריאלה
-     ישירות. רק מי שאין לו/ה מספר שמור עובר/ת קודם להגדרות. */
-  { key:'whatsapp', name:'חיבור גבריאלה לוואטסאפ (10 שניות)',
-    text:'שולחים תמונה או הודעה קולית - וגבריאלה בונה את דף הנכס לבד.',
-    cta:'חיבור גבריאלה בלחיצה',
-    done: s => s.whatsapp_done,
-    run:  ()=> {
-      if (currentAgent && String(currentAgent.phone || '').trim()){
-        // אנדרואיד - וואטסאפ ביזנס ישירות (assistantWaUrl), אחרת wa.me בלשונית חדשה
-        if (IS_ANDROID) location.href = assistantWaUrl(ASSISTANT_WA_HELLO);
-        else window.open(assistantWaUrl(ASSISTANT_WA_HELLO), '_blank', 'noopener');
-      } else {
-        gotoSection('accWhatsapp', 'waPhone');
-      }
-    } },
-  { key:'property', name:'העלאת הנכס הראשון',
-    text:'בדוק איך הנכס שלך ייראה לרוכשים ולשוכרים ברשת.',
-    cta:'יצירת מודעה חדשה',
-    done: s => s.property_done,
-    run:  ()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
-  /* לסוכן/ת - תמונת פרופיל; למנהל/ת - גם לוגו המשרד. שני מסכים, ולכן
-     הכפתור הולך למה שעוד חסר: קודם הפרופיל, אחריו המיתוג. */
-  { key:'profile', name: '', nameFor: s => s.is_manager ? 'הוספת לוגו ותמונת פרופיל' : 'הוספת תמונת פרופיל',
-    text:'כרטיס הביקור הדיגיטלי שלך ייראה מושלם וממותג.',
-    cta:'עיצוב הפרופיל',
-    done: s => s.profile_done && s.agency_done,
-    run:  ()=> gotoSection(onboardState && onboardState.profile_done ? 'accBranding' : 'accProfile') },
-  /* למנהל/ת בלבד: "על המשרד" (agencies.description). הוא הטקסט שבראש דף
-     המשרד, ומה שגוגל ומנועי AI קוראים עליו - בלעדיו הדף הוא שם ורשימה.
-     ‏about_done חסר בשורה עד שהמיגרציה רצה; אז הצעד פשוט לא מוצג. */
-  { key:'about', name:'כתיבת "על המשרד"',
-    when: s => s.is_manager && s.about_done !== undefined,
-    text:'כמה משפטים על הניסיון, האזורים וסוגי הנכסים. הם מוצגים בראש דף המשרד, ומהם גוגל ומנועי AI לומדים מי אתם - בלי תיאור, דף המשרד הוא רק שם ורשימת נכסים.',
-    cta:'כתיבת התיאור',
-    done: s => s.about_done,
-    run:  ()=> gotoSection('accBranding', 'brDescription') },
-];
-
-/* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
-   הסימון של ארבע התראות הדרבון מוצגות ב"התראות והודעות" רק כל עוד המדריך חי. */
-let onboardState = null;
-let onboardLastLoad = 0;
-
-function onboardingLive(){ return !!onboardState; }
-
-async function loadOnboarding(){
-  const box = document.getElementById('onbGuide');
-  if (!box) return;
-  onboardLastLoad = Date.now();
-  try{
-    const { data, error } = await sb.rpc('agent_onboarding_state');
-    if (error) throw error;
-    onboardState = (Array.isArray(data) ? data[0] : data) || null;
-    renderOnboarding();
-  } catch(err){
-    // ‏Netlify מפרסם את ה-HTML תוך שניות, והמיגרציה רצה ב-Actions — יש חלון
-    // של דקות שבו הפונקציה עוד לא קיימת. הכרטיס פשוט לא מוצג, כמו שאר
-    // היכולות שנשענות על מיגרציה טרייה (ראו loadDashboard).
-    console.warn('מדריך ההתחלה אינו זמין:', err);
-    onboardState = null;
-    box.hidden = true;
-  }
-}
-
-/* מה שנקרא אחרי שמירה שעשויה לסגור צעד. שתי קריאות ולא אחת: הדרבון על הצעד
-   הבא נולד בטריגר במסד **באותה שמירה**, והפעמון נטען בכניסה לדשבורד בלבד —
-   בלי הרענון כאן ההתראה שמעודדת את הצעד הבא הייתה מופיעה רק בטעינה הבאה,
-   כלומר בדיוק לא ברגע שבו היא רלוונטית. שתיהן קורות רק בזמן המדריך. */
 /* ================= רישיון שעוד לא אושר =================
    החשבון נפתח לפני אישור הרישיון, ומה שמחכה הוא האוויר: דף הסוכן/ת, דף
    המשרד והמודעות (20270216090000_license_hold.sql). הכרטיס הזה הוא המקום
@@ -7758,99 +7667,11 @@ document.getElementById('lhSaveBtn').addEventListener('click', async ()=>{
     }
     await refreshLicenseHold();
     if (data.license.cleared) loadProperties(currentAgent.id);
+    // צעד 1 במדריך ההתחלה (אימות הרישיון)
+    if (data.license.cleared) refreshOnboarding();
   } finally{
     btn.disabled = false; btn.textContent = 'שמירה ובדיקה';
   }
-});
-
-function refreshOnboarding(){
-  if (!onboardingLive()) return;
-  loadOnboarding();
-  if (currentAgent) loadNotifications(currentAgent.id);
-}
-
-function renderOnboarding(){
-  const box = document.getElementById('onbGuide');
-  if (!box) return;
-  const state = onboardState;
-  if (!state){ box.hidden = true; return; }
-
-  const steps = ONBOARD_STEPS.filter(s => !s.when || s.when(state));
-  const doneCount = steps.filter(s => s.done(state)).length;
-  const list = document.getElementById('onbList');
-  const sub  = document.getElementById('onbSub');
-  const prog = document.getElementById('onbProgress');
-
-  // ‏just_finished מגיע מהקריאה שסגרה את המדריך, והיא היחידה — בקריאה הבאה
-  // הפונקציה כבר מחזירה אפס שורות. זה בדיוק אורך החיים הנכון של "סיימת".
-  if (state.just_finished){
-    document.getElementById('onbTitle').textContent = 'סיימת את מדריך ההתחלה';
-    prog.textContent = '✓';
-    sub.textContent = 'גבריאלה מחוברת, הנכס הראשון עלה והפרופיל ממותג. מכאן זה המסך הרגיל שלך - והמדריך לא יחזור.';
-    list.innerHTML = '';
-    box.hidden = false;
-    return;
-  }
-
-  document.getElementById('onbTitle').textContent = 'מדריך ההתחלה';
-  prog.textContent = doneCount + ' מתוך ' + steps.length;
-  // מספר הצעדים נגזר מהרשימה ולא נכתב במילים: טקסט שאומר "שלושה" מול
-  // רשימה שהשתנתה הוא טקסט שלא נקרא שוב אחרי שנכתב.
-  sub.textContent = doneCount
-    ? 'נשאר לסגור את מה שמסומן למטה. אפשר בכל סדר.'
-    : steps.length + ' צעדים קצרים, ואת/ה באוויר.';
-
-  // הצעד הפתוח הראשון הוא היחיד שמקבל כפתור: מדריך שכל שורה בו מציעה פעולה
-  // הוא רשימה, ורשימה לא אומרת במה מתחילים.
-  const nextKey = (steps.find(s => !s.done(state)) || {}).key;
-
-  list.innerHTML = '';
-  steps.forEach((step, i)=>{
-    const isDone = step.done(state);
-    const isNow  = step.key === nextKey;
-    const li = document.createElement('li');
-    li.className = 'onb-step' + (isDone ? ' is-done' : isNow ? ' is-now' : '');
-    li.innerHTML =
-      '<span class="onb-mark" aria-hidden="true">' + (isDone ? '✓' : String(i + 1)) + '</span>'
-      + '<div class="onb-body">'
-      +   '<div class="onb-name">' + esc(step.nameFor ? step.nameFor(state) : step.name) + '</div>'
-      +   (isDone ? '' : '<p class="onb-text">' + esc(step.text) + '</p>')
-      + '</div>';
-    if (isNow){
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'onb-go';
-      btn.textContent = step.cta;
-      btn.addEventListener('click', ()=> step.run());
-      li.querySelector('.onb-body').appendChild(btn);
-    }
-    list.appendChild(li);
-  });
-  box.hidden = false;
-}
-
-/* הסתרה היא בקשה להפסיק, ולא רק להעלים כרטיס: אותה חותמת במסד סוגרת גם את
-   ארבע התראות הדרבון. לכן היא נאמרת במפורש בשאלה. */
-document.getElementById('onbDismiss').addEventListener('click', async ()=>{
-  if (!confirm('להסתיר את מדריך ההתחלה? גם ההתראות שמזכירות את הצעדים הבאים ייפסקו.')) return;
-  try{
-    const { error } = await sb.rpc('agent_onboarding_dismiss');
-    if (error) throw error;
-  } catch(err){
-    console.warn('הסתרת מדריך ההתחלה נכשלה:', err);
-  }
-  onboardState = null;
-  document.getElementById('onbGuide').hidden = true;
-});
-
-/* הצעד הראשון נסגר **מחוץ לדף הזה** — בשיחה בוואטסאפ — ולכן החזרה ללשונית
-   היא הרגע שבו כדאי לשאול שוב. החניקה ל-15 שניות היא כדי שמעבר בין
-   לשוניות לא יהפוך לקריאה בכל החלפה. */
-document.addEventListener('visibilitychange', ()=>{
-  if (document.visibilityState !== 'visible') return;
-  if (!onboardingLive() || !currentAgent) return;
-  if (Date.now() - onboardLastLoad < 15000) return;
-  loadOnboarding();
 });
 
 /* ---------- שער הבחירה ----------
