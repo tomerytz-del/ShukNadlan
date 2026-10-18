@@ -66,6 +66,12 @@ const BEIT_DAGAN = [31.999, 34.829];
 const ASHDOD = [31.80, 34.65];
 const KIRYAT_MALACHI = [31.73, 34.745];
 const NITZAN = [31.74, 34.635];
+const ASHKELON = [31.668, 34.571];
+const KIRYAT_GAT = [31.61, 34.77];
+const SDEROT = [31.525, 34.596];
+const NETIVOT = [31.42, 34.59];
+const OFAKIM = [31.315, 34.62];
+const BEER_SHEVA = [31.252, 34.791];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -285,6 +291,28 @@ check("הגבול עם רחובות: 34.6949 → אשדוד, 34.695 → רחוב
   reg.locate(31.80, 34.6949)?.slug === "ashdod" && reg.locate(31.80, 34.695)?.slug === "rehovot");
 check("גן יבנה נשארת ברחובות", reg.locate(GAN_YAVNE[0], GAN_YAVNE[1])?.slug === "rehovot");
 check("אשקלון אינה בתיבה של אשדוד", !reg.contains(reg.bySlug("ashdod")!, 31.668, 34.571));
+check("אשקלון → ashkelon", reg.locate(ASHKELON[0], ASHKELON[1])?.slug === "ashkelon");
+check("יד מרדכי → ashkelon", reg.locate(31.588, 34.556)?.slug === "ashkelon");
+check("הגבול עם אשדוד: 31.6799 → אשקלון, 31.68 → אשדוד (34.62)",
+  reg.locate(31.6799, 34.62)?.slug === "ashkelon" && reg.locate(31.68, 34.62)?.slug === "ashdod");
+check("שדרות אינה בתיבה של אשקלון", !reg.contains(reg.bySlug("ashkelon")!, 31.525, 34.596));
+check("קריית גת אינה בתיבה של אשקלון", !reg.contains(reg.bySlug("ashkelon")!, 31.61, 34.77));
+check("קריית גת → kiryat-gat", reg.locate(KIRYAT_GAT[0], KIRYAT_GAT[1])?.slug === "kiryat-gat");
+check("בית גוברין → kiryat-gat", reg.locate(31.61, 34.895)?.slug === "kiryat-gat");
+check("הגבול עם אשקלון: 34.70 → אשקלון, 34.7001 → קריית גת (31.62)",
+  reg.locate(31.62, 34.70)?.slug === "ashkelon" && reg.locate(31.62, 34.7001)?.slug === "kiryat-gat");
+check("קריית מלאכי נשארת באשדוד", reg.locate(KIRYAT_MALACHI[0], KIRYAT_MALACHI[1])?.slug === "ashdod");
+check("שדרות אינה בתיבה של קריית גת", !reg.contains(reg.bySlug("kiryat-gat")!, 31.525, 34.596));
+check("שדרות → sderot-netivot", reg.locate(SDEROT[0], SDEROT[1])?.slug === "sderot-netivot");
+check("נתיבות → sderot-netivot", reg.locate(NETIVOT[0], NETIVOT[1])?.slug === "sderot-netivot");
+check("אופקים → sderot-netivot", reg.locate(OFAKIM[0], OFAKIM[1])?.slug === "sderot-netivot");
+check("ברור חיל (31.547) → sderot-netivot, לא אשקלון", reg.locate(31.547, 34.645)?.slug === "sderot-netivot");
+check("הגבול עם אשקלון: 31.57 → שדרות, 31.5701 → אשקלון (34.60)",
+  reg.locate(31.57, 34.60)?.slug === "sderot-netivot" && reg.locate(31.5701, 34.60)?.slug === "ashkelon");
+check("הגבול עם קריית גת: 34.70 → שדרות, 34.7001 → קריית גת (31.52)",
+  reg.locate(31.52, 34.70)?.slug === "sderot-netivot" && reg.locate(31.52, 34.7001)?.slug === "kiryat-gat");
+check("נתיב העשרה (31.57) נשארת באשקלון", reg.locate(31.5705, 34.53)?.slug === "ashkelon");
+check("באר שבע אינה בתיבה של שדרות", !reg.contains(reg.bySlug("sderot-netivot")!, 31.252, 34.791));
 check("הגבול עם ראשון: 34.84 → ראשון, 34.8401 → לוד (31.97)",
   reg.locate(31.97, 34.84)?.slug === "rishon" && reg.locate(31.97, 34.8401)?.slug === "lod-ramla");
 check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → תל אביב (34.76)",
@@ -292,7 +320,15 @@ check("הגבול עם יפו: 32.0299 → חולון ובת ים, 32.03 → ת�
 check("הגבול עם אור יהודה: 32.0249 → חולון ובת ים, 32.025 → רמת גן (34.82)",
   reg.locate(32.0249, 34.82)?.slug === "holon-bat-yam" && reg.locate(32.025, 34.82)?.slug === "ramat-gan");
 check("אילת → אין שוק (ולא הקרוב ביותר)", reg.locate(EILAT[0], EILAT[1]) === null);
-check("באר שבע → אין שוק (ולא הקרוב ביותר)", reg.locate(31.252, 34.791) === null);
+check("באר שבע → beer-sheva", reg.locate(BEER_SHEVA[0], BEER_SHEVA[1])?.slug === "beer-sheva");
+check("עומר → beer-sheva", reg.locate(31.265, 34.85)?.slug === "beer-sheva");
+check("להבים → beer-sheva", reg.locate(31.372, 34.813)?.slug === "beer-sheva");
+check("מיתר → beer-sheva", reg.locate(31.325, 34.937)?.slug === "beer-sheva");
+check("הגבול עם שדרות: 34.70 → שדרות, 34.7001 → באר שבע (31.30)",
+  reg.locate(31.30, 34.70)?.slug === "sderot-netivot" && reg.locate(31.30, 34.7001)?.slug === "beer-sheva");
+check("הגבול עם קריית גת: 31.4999 → באר שבע, 31.50 → קריית גת (34.80)",
+  reg.locate(31.4999, 34.80)?.slug === "beer-sheva" && reg.locate(31.50, 34.80)?.slug === "kiryat-gat");
+check("דימונה אינה בתיבה של באר שבע (החלטה)", !reg.contains(reg.bySlug("beer-sheva")!, 31.069, 35.033));
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
 check("קואורדינטה פסולה → אין", reg.locate(NaN, 35) === null);

@@ -147,7 +147,7 @@
 ### חיפוש אחוד
 
 **במסד: `crm_search(p_q text, p_limit int default 6) returns jsonb`**
-(‏`supabase/migrations/20270525120000_crm_search.sql`). לכל קבוצה ספירה מלאה
+(‏`supabase/migrations/20270601120000_crm_search.sql`). לכל קבוצה ספירה מלאה
 (במסד, לא בהורדת שורות) ועד `p_limit` פריטים, הטריים קודם:
 
 ```jsonc
