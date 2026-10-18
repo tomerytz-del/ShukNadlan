@@ -2,7 +2,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
-import { historyWithBreakpoint, RollingMarks, trimHistory } from "./prompt-cache.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
@@ -2432,23 +2432,16 @@ export async function warmPublicPromptCache(): Promise<Anthropic.Message> {
 }
 
 /**
- * ‏`system` כשני בלוקים: הקבוע (במטמון) ואחריו המשתנה.
- *
- * הבלוק השני מושמט כשאין בו תוכן — שיחה ותיקה בלי נכס אחרון מחזירה מחרוזת
- * ריקה, ובלוק טקסט ריק נדחה ב-400. נקודת השבירה נשארת על הראשון בכל מקרה.
+ * ‏`system` כבלוק אחד, הקבוע (במטמון). ההקשר המשתנה (‏sessionContext) יושב
+ * בהודעה הנוכחית, אחרי ההיסטוריה - ראו withTurnContext ב-prompt-cache.ts.
  */
-function buildSystem(
-  conv: PublicConversationState,
-  hasProfileName: boolean,
-): Anthropic.TextBlockParam[] {
-  const head: Anthropic.TextBlockParam = {
+function buildSystem(): Anthropic.TextBlockParam[] {
+  return [{
     type: "text",
     text: SYSTEM_STATIC,
     // ‏ttl של שעה (14.10.2026): בחמש דקות, חצי מהשיחות התחילו בלי מטמון
     cache_control: { type: "ephemeral", ttl: "1h" },
-  };
-  const tail = sessionContext(conv, hasProfileName).trim();
-  return tail ? [head, { type: "text", text: tail }] : [head];
+  }];
 }
 
 /** החלק המשתנה — יושב אחרי נקודת השבירה ולכן אינו מבטל את המטמון. */
@@ -2501,7 +2494,8 @@ export async function runPublicTurn(opts: {
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
-    { role: "user", content: userText },
+    // ההקשר כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה (prompt-cache.ts)
+    { role: "user", content: withTurnContext(sessionContext(conv, !!profileName), userText) },
   ];
 
   let finalText = "";
@@ -2523,12 +2517,9 @@ export async function runPublicTurn(opts: {
       // שהחזיק את medium - ליד בלי בקשה - נחסם עכשיו בקוד (‏userConsented),
       // ולא רק בהבנה של המודל. חזרה ל-medium בלי פריסה: WHATSAPP_PUBLIC_BOT_EFFORT.
       output_config: { effort: PUBLIC_EFFORT },
-      // ההוראות הקבועות במטמון, והחלק המשתנה אחריהן. סדר הרינדור הוא
-      // ‏tools → system → messages, ולכן נקודת השבירה תופסת גם את אחד-עשר
-      // הכלים. ראו SYSTEM_STATIC ב-agent.ts להסבר המלא.
-      // הבלוק השני נוסף רק כשיש בו משהו: בשיחה ותיקה בלי נכס אחרון
-      // ‏`sessionContext` מחזירה מחרוזת ריקה, ובלוק טקסט ריק נדחה ב-400.
-      system: buildSystem(conv, !!profileName),
+      // ההוראות הקבועות במטמון. סדר הרינדור הוא tools → system → messages,
+      // ולכן נקודת השבירה תופסת גם את הכלים. ההקשר המשתנה - בהודעה הנוכחית.
+      system: buildSystem(),
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
