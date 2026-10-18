@@ -108,7 +108,7 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
 - `office_coach_due()` מסננת משרדים בלי תנועה ב-30 יום - כל קריאה עולה כסף.
 - העלות האמיתית: `input_tokens`/`output_tokens` ב-`office_coach_summaries`.
 
-## ‏4א. "שאל את המאמן" (`coach-ask`)
+## ‏4א. "שאל את המנטור" (`coach-ask`)
 
 - **תשובה בלבד.** אין כלים, אין `cta`, והמודל לא מבצע כלום. מי שמוסיף/ה כאן
   כלי או כפתור הופך/ת את השדה ממקום לשאול למקום לפעול - זו החלטה של תומר, לא
@@ -138,6 +138,9 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
 ## ‏6. בממשק
 
 - טקסט עם לוכסן (סוכן/ת, את/ה) - אין עמודת מין ב-`agency_members`.
+- **בממשק קוראים להם "מנטור", בקוד "coach" / "מאמן".** כותרת, כפתור, הודעת שגיאה
+  או שורה בדף המסלולים - "מנטור" (וכך גם הזהות של המודל בפרומפטים, כי הוא כותב
+  את מה שמוצג). הערות, שמות קבצים וטבלאות נשארים. `docs/coaches.md`.
 - בלי מקף ארוך (`check_long_dash.py`), בלי d3 - הגרפים בנויים ידנית.
 - קישור מתוך הדשבורד פותח את הפריט עצמו (`openLeadFromParam`,
   ‏`openPropertyFromParam`, ‏`openAgreementFromParam`), לא קטגוריה.
