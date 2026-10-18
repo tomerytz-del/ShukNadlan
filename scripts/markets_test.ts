@@ -334,6 +334,13 @@ check("ראש פינה → safed", reg.locate(32.97, 35.54)?.slug === "safed");
 check("חצור הגלילית → safed", reg.locate(32.98, 35.545)?.slug === "safed");
 check("סאסא → safed", reg.locate(33.03, 35.39)?.slug === "safed");
 check("קצרין → golan", reg.locate(32.99, 35.69)?.slug === "golan");
+check("טבריה → tiberias", reg.locate(32.795, 35.531)?.slug === "tiberias");
+check("יבנאל → tiberias", reg.locate(32.70, 35.50)?.slug === "tiberias");
+check("עין גב → tiberias", reg.locate(32.78, 35.64)?.slug === "tiberias");
+check("הגבול עם הגולן: 35.6499 → טבריה, 35.6501 → הגולן (32.80)",
+  reg.locate(32.80, 35.6499)?.slug === "tiberias" && reg.locate(32.80, 35.6501)?.slug === "golan");
+check("הגבול עם צפת: 32.8799 → טבריה, 32.8801 → צפת (35.50)",
+  reg.locate(32.8799, 35.50)?.slug === "tiberias" && reg.locate(32.8801, 35.50)?.slug === "safed");
 check("מרום גולן → golan", reg.locate(33.13, 35.78)?.slug === "golan");
 check("רמות (חוף הכנרת) → golan", reg.locate(32.85, 35.66)?.slug === "golan");
 check("הגבול עם קריית שמונה: 35.6999 → קריית שמונה, 35.70 → הגולן (33.24)",
