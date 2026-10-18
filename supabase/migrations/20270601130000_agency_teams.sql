@@ -171,7 +171,7 @@ begin
     new.role := old.role;
     new.active := old.active;
     new.agency_id := old.agency_id;
-    -- צוות (20270525130000): השיוך לצוות נקבע בידי מנהל/ת המשרד בלבד. ה-RLS
+    -- צוות (20270601130000): השיוך לצוות נקבע בידי מנהל/ת המשרד בלבד. ה-RLS
     -- כבר מגביל עדכון של שורה אחרת למנהלים, ולכן כאן נחסם רק העדכון העצמי.
     new.team_id := old.team_id;
     -- "גם סוכן/ת פעיל/ה": סוכן/ת אינו/ה מוציא/ה את עצמו/ה מרוטציית הלידים.
@@ -348,7 +348,7 @@ begin
   v_m0    := (date_trunc('month', p_to) - interval '11 months')::date;
 
   -- הסף של שלושה סוכנים והממוצע עצמו - רק סוכנים פעילים (is_active_agent,
-  -- ‏20270525130000). מנהל/ת שאינו/ה עובד/ת כמתווך/ת היה מושך/ת את הממוצע לאפס.
+  -- ‏20270601130000). מנהל/ת שאינו/ה עובד/ת כמתווך/ת היה מושך/ת את הממוצע לאפס.
   select count(*) into v_n
     from public.agency_members m where m.agency_id = v_agency and m.active and m.is_active_agent;
 

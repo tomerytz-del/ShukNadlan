@@ -1,7 +1,7 @@
 # צוותים בתוך משרד, ו"גם סוכן/ת פעיל/ה"
 
 שלב 3 בשדרוג ה-CRM (`docs/handoff/crm-redesign/HANDOFF.md`, סעיף 3). המיגרציה:
-`supabase/migrations/20270525130000_agency_teams.sql`. הממשק: "צוותים וסוכנים"
+`supabase/migrations/20270601130000_agency_teams.sql`. הממשק: "צוותים וסוכנים"
 (`accTeam`) ב-CRM, `assets/crm-teams.js`. ראו גם `docs/agent-invitations.md`
 (מינוי מנהל/ת) והסקיל `office-team`.
 
