@@ -1116,7 +1116,12 @@ const FALLBACK_AGENTS = [
 const MEMBER_BASE = 'id, display_name, slug, photo_url, agency_id, has_ethics_badge, phone_e164';
 const MEMBER_ACTIVE = ', active';
 const MEMBER_EXTRAS = ', photo_position, years_experience, specialties, service_area';
+/* ‏is_active_agent (‏20270525130000, docs/teams.md): מנהל/ת משרד שאינו/ה
+   עובד/ת כמתווך/ת לא מופיע/ה במדריך - כן בדף שלו/ה ובדף המשרד. מדרגה
+   ראשונה משלה, ובלעדיה (view שעוד לא עודכן) כולם מוצגים כמו קודם. */
+const MEMBER_AGENT_FLAG = ', is_active_agent';
 const MEMBER_TIERS = [
+  MEMBER_BASE + MEMBER_ACTIVE + MEMBER_EXTRAS + MEMBER_AGENT_FLAG,
   MEMBER_BASE + MEMBER_ACTIVE + MEMBER_EXTRAS,
   MEMBER_BASE + MEMBER_ACTIVE,
   MEMBER_BASE + MEMBER_EXTRAS,
@@ -1255,7 +1260,7 @@ function applyDeepLink(){
 
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const members = (await loadMembers(sb)).filter(m => m.active !== false);
+    const members = (await loadMembers(sb)).filter(m => m.active !== false && m.is_active_agent !== false);
     if (!members.length) throw new Error('empty');
 
     // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares

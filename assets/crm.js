@@ -10783,11 +10783,19 @@ async function loadTeam(agencyId, callerId){
   // ‏user_id ו-email נטענים כדי להבחין בין סוכן/ת שכבר נכנס/ה לבין הזמנה
   // שממתינה. בלי ההבחנה הזו כרטיס תקוע נראה ברשימה בדיוק כמו כרטיס פעיל,
   // ואף אחד לא יודע שהמייל לא הגיע ליעד.
-  const { data: members, error } = await sb
-    .from('agency_members')
-    .select('id, display_name, role, tier, active, license_number, user_id, email, phone, released_at')
-    .eq('agency_id', agencyId)
-    .order('role', { ascending:false });
+  // ‏team_id ו-is_active_agent (‏20270601130000, docs/teams.md) - עם נפילה
+  // לשאילתה הקודמת בדקה שבין פרסום ה-HTML לריצת המיגרציה
+  const MEMBER_COLS = 'id, display_name, role, tier, active, license_number, user_id, email, phone, released_at';
+  let [{ data: members, error }, teamsRes] = await Promise.all([
+    sb.from('agency_members').select(MEMBER_COLS + TEAM_COLUMNS)
+      .eq('agency_id', agencyId).order('role', { ascending:false }),
+    teamsLoad(agencyId),
+  ]);
+  if (teamsSchemaMissing(error)){
+    ({ data: members, error } = await sb.from('agency_members').select(MEMBER_COLS)
+      .eq('agency_id', agencyId).order('role', { ascending:false }));
+    teamsRes = { ok:false, teams:[] };
+  }
 
   if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + esc(heErr(error)) + '</div>'; return; }
   accSetCount('accTeam', (members||[]).length);
@@ -10820,8 +10828,10 @@ async function loadTeam(agencyId, callerId){
   }
 
   const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
+  const teamsCtx = { ...teamsRes, members: members || [], agencyId, callerId };
 
   el.innerHTML = '';
+  if (teamsCtx.ok) el.appendChild(teamsPanel(teamsCtx));
   members.forEach(m=>{
     const counts = dealCounts && dealCounts[m.id];
     // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
@@ -10871,6 +10881,7 @@ async function loadTeam(agencyId, callerId){
         // כשפותחים שדה עריכה. כרטיס בלי מספר אינו מציג תגית ריקה — ‏tagsHtml
         // מסנן, וכפתור הפעולה שמתחת ממילא אומר "הוספת נייד".
         m.phone && { text:'📱 ' + localPhone(m.phone) },
+        ...teamsMemberTags(m, teamsCtx),
       ])}
       ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
         ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה - כאן מתקנים ושולחים שוב.
@@ -10882,6 +10893,7 @@ async function loadTeam(agencyId, callerId){
       </p>` : ''}
       <div class="lead-actions"></div>
     `;
+    teamsMemberControls(el2.querySelector('.lead-actions'), m, teamsCtx);
     if (pending){
       const actions = el2.querySelector('.lead-actions');
       addCardAction(actions, {
@@ -26374,7 +26386,7 @@ const NAV_GROUPS = [
      ולא הגדרה אישית. */
   { key:'manage', label:'ניהול המשרד', icon:'gauge', items:[
     { acc:'accOfficeDashboard', label:'דאשבורד המשרד', icon:'gauge', tab:'more' },
-    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
+    { acc:'accTeam',     label:'צוותים וסוכנים', icon:'users', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
     { acc:'accOfficeCalls', label:'שיחות המשרד', icon:'phone', tab:'more' },
     { acc:'accBranding', label:'מיתוג דף המשרד', icon:'brush', tab:'more' },

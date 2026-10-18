@@ -125,7 +125,7 @@
 | `supabase/functions/_shared/lead-routing.ts` | הרישום המשותף + הסלמת המייל |
 | `supabase/functions/_shared/platform-mail-client.ts` | הפנייה ל-`platform-mail`; שליחה שנכשלה אינה זורקת |
 | `supabase/functions/platform-mail/index.ts` | המשלוח עצמו: Gmail SMTP, ובנפילה Resend |
-| `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס; גם הקוראת היחידה של `order_lead_candidates` |
+| `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס; גם הקוראת היחידה של `order_lead_candidates`, שמדלגת על מי שאינו/ה סוכן/ת פעיל/ה (`is_active_agent`, ‏[`teams.md`](teams.md)) |
 | `supabase/functions/mortgage-lead-intake/index.ts` | רישום ליד משכנתא |
 | `supabase/functions/saved-search-intake/index.ts` | רישום ליד מחפש/ת דירה |
 | `index.html` | שולח `source` מכל וידג'ט |
