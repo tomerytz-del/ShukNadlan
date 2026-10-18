@@ -7499,6 +7499,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </select>
         </div>
         <div class="field"><label for="npExpiresAt">תוקף המודעה (לא חובה)</label><input type="date" id="npExpiresAt"></div>
+        <!-- properties.yad2_listing_id - ייחודי במשרד, ולכן ייבוא חוזר של קובץ יד2 אינו מכפיל (docs/property-import.md) -->
+        <div class="field"><label for="npYad2Id">מספר מודעה ביד2 (לא חובה)</label><input type="text" id="npYad2Id" inputmode="numeric" pattern="\d{4,12}" maxlength="12" placeholder="לדוגמה: 55793452"></div>
       </section>
 
       <!-- ====== מקטע 2: מיקום ורישום מקרקעין ====== -->
