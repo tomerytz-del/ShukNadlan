@@ -26228,6 +26228,8 @@ function renderSideNav(){
     create.innerHTML = dashIcon('plus', 'sn-ico') + '<span class="sn-label">יצירה חדשה</span>';
     create.addEventListener('click', (e)=>{ e.stopPropagation(); openCreateSheet(); });
     nav.appendChild(create);
+    const mentor = navMentorButton(rail);
+    if (mentor) nav.appendChild(mentor);
   }
 
   const list = document.createElement('div');
@@ -29819,10 +29821,36 @@ function menuItemButton(navItem, side){
   return item;
 }
 
+/* "המנטור" - כפתור קבוע בראש סרגל הצד (מתחת ל"יצירה חדשה") ובראש תפריט
+   הבורגר. אינו קטגוריה ב-NAV_GROUPS: הוא פותח את שכבת "המנטור שלי"
+   (openCoachLayer ב-assets/crm-coach.js), כמו ש"יצירה חדשה" פותח גיליון.
+   מוצג כשיש מנטור לקורא/ת (coachLayerKinds) - לכל סוכן/ת פעיל/ה ולכל מנהל/ת.
+   תומר, 18.10.2026: המנטור צריך מקום בולט בשימוש היומיומי. */
+function navMentorButton(rail, inMenu){
+  if (typeof coachLayerKinds !== 'function' || !coachLayerKinds().length) return null;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = inMenu ? 'menu-mentor' : 'sn-mentor';
+  btn.setAttribute('aria-haspopup', 'dialog');
+  if (rail){ btn.title = 'המנטור'; btn.setAttribute('aria-label', 'המנטור'); }
+  btn.innerHTML = '<img src="/assets/mentor-avatar.webp" width="28" height="28" alt="" decoding="async">'
+    + '<span class="sn-label"><b>המנטור</b><small>שאלה, או הצעדים של היום</small></span>';
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    closeMenuPanel();
+    openNavLayer('coach');
+  });
+  return btn;
+}
+
 function buildMenuPanel(){
   const panel = document.getElementById('menuPanel');
   if (!panel) return;
   panel.innerHTML = '';
+  if (dashView === 'agent'){
+    const mentor = navMentorButton(false, true);
+    if (mentor) panel.appendChild(mentor);
+  }
   appendMenuGroups(panel, {});
   appendInstallMenuItem(panel);
 }

@@ -5323,18 +5323,55 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 
   /* ---------- "המנטור שלי" (#coachSheet, assets/crm-coach.js) ---------- */
-  .home-coach-btn{
-    display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;margin:0 0 12px;
-    border:none;border-radius:22px;background:#13235B;color:#fff;font:inherit;font-size:.9rem;font-weight:700;
-  }
-  .home-coach-btn[hidden]{display:none}
-  .home-coach-btn{padding-inline-start:6px}
-  .home-coach-btn img{width:32px;height:32px;border-radius:50%;box-shadow:0 0 0 2px #E0B84A}
+  /* שורת "שאל את המנטור" בדף הבית (#homeCoachRow) - בצבעי כרטיס המנטור */
+  .home-ask{background:#13235B;color:#fff;border-radius:18px;padding:10px 12px;margin:0 0 14px}
+  .home-ask[hidden]{display:none}
+  .home-ask-form{display:flex;align-items:center;gap:10px}
+  .home-ask-form img{flex-shrink:0;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px #E0B84A}
+  .home-ask-form input{flex:1;min-width:0;min-height:44px;border:1px solid #34457E;border-radius:12px;
+    background:#1B2F74;color:#fff;font:inherit;font-size:.95rem;padding:0 12px}
+  .home-ask-form input::placeholder{color:#AEB9DA}
+  .home-ask-form input:focus{outline:2px solid #E0B84A;outline-offset:1px}
+  .home-ask-send{flex-shrink:0;width:44px;height:44px;border:none;border-radius:12px;background:#E0B84A;
+    color:#13235B;font-size:1.2rem;font-weight:800}
+  .home-ask-send:disabled{opacity:.6}
+  .home-ask-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin-top:8px}
+  .home-ask-sugg{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+  .home-ask-sugg button{min-height:32px;border:1px solid #34457E;border-radius:999px;background:transparent;
+    color:#DCE3F5;font:inherit;font-size:.8rem;padding:0 11px}
+  .home-ask-sugg button:hover{border-color:#E0B84A;color:#fff}
+  .home-ask-steps{min-height:32px;border:none;background:transparent;color:#E0B84A;font:inherit;font-size:.85rem;font-weight:700;padding:0 4px}
+  .home-ask-steps:hover{text-decoration:underline}
+  .home-ask-out{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff;color:var(--nv-ink)}
+  .home-ask-out[hidden]{display:none}
+  .home-ask-out .q{margin:0 0 4px;font-size:.82rem;font-weight:700;color:var(--nv-muted)}
+  .home-ask-out .a{margin:0;font-size:.93rem;line-height:1.65;white-space:pre-line}
+  .home-ask-out .a.is-busy{color:var(--nv-muted)}
+  .home-ask-out .a.is-err{color:#9A3412}
+  .home-ask-out .left{margin:6px 0 0;font-size:.74rem;color:var(--nv-muted)}
+  .home-ask-sugg button:focus-visible,.home-ask-steps:focus-visible,.home-ask-send:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
+  @media(max-width:520px){.home-ask-sugg button:nth-child(n+2){display:none}}
   .cl-title{display:flex;align-items:center;gap:10px}
   .cl-title img{width:36px;height:36px;border-radius:50%;box-shadow:0 0 0 2px #E0B84A}
-  .home-coach-btn:hover{background:#1B2F74}
-  .home-coach-btn:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
   .nav-coach .nl-panel{background:var(--nv-ground)}
+  /* השאלה החופשית בשכבה, מתחת לכרטיס - בצבעי הכרטיס, כי הסגנון שלה (‏.coach-ask)
+     בנוי לרקע כהה ולמשתנים של .coach */
+  .cl-ask{--coach-bg:#13235B;--coach-line:#34457E;--coach-soft:#C3CCE6;--coach-gold:#E0B84A;
+          background:#13235B;color:#fff;border-radius:18px;padding:14px;margin-top:10px}
+  /* "המנטור" בסרגל הצד ובתפריט (navMentorButton ב-crm.js) */
+  .sn-mentor,.menu-mentor{
+    width:100%;display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 10px;margin:8px 0 4px;
+    border:1px solid #E0B84A;border-radius:12px;background:#13235B;color:#fff;text-align:start;font:inherit;
+  }
+  .sn-mentor:hover,.menu-mentor:hover{background:#1B2F74}
+  .sn-mentor:focus-visible,.menu-mentor:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
+  .sn-mentor img,.menu-mentor img{flex-shrink:0;width:28px;height:28px;border-radius:50%;box-shadow:0 0 0 2px #E0B84A}
+  .sn-mentor .sn-label,.menu-mentor .sn-label{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  .sn-mentor b,.menu-mentor b{font-size:.92rem}
+  .sn-mentor small,.menu-mentor small{font-size:.72rem;color:#C3CCE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu-mentor{margin:0 0 8px}
+  .dash-side.is-rail .sn-mentor{justify-content:center;padding:8px 0}
+  .dash-side.is-rail .sn-mentor .sn-label{display:none}
   .nav-coach .coach{margin:0}
   .cl-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;border-radius:14px;background:#E3E7EF}
   .cl-tab{flex:1;min-height:40px;border:none;border-radius:10px;background:transparent;
@@ -6737,12 +6774,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- מה מחכה היום במשפט אחד (homeBrief ב-assets/crm-home.js). הברכה
              שמעליו ומשפטי המוטיבציה לא משתנים. -->
         <p class="dash-brief" id="dashBrief" hidden></p>
-        <!-- "המנטור" (design/Mobile-Coach.dc.html): פותח את השכבה #coachSheet.
-             מוצג רק כשיש מה להראות (homeCoachSync ב-assets/crm-coach.js). -->
-        <button type="button" class="home-coach-btn" id="homeCoachBtn" hidden aria-haspopup="dialog">
-          <img src="/assets/mentor-avatar.webp" width="32" height="32" alt="" decoding="async">
-          <span>המנטור</span>
-        </button>
+        <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
+             "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
+             (homeCoachSync ב-assets/crm-coach.js), ונבנית פעם אחת - כך שציור
+             מחדש של דף הבית לא מוחק את מה שמוקלד. -->
+        <section class="home-ask" id="homeCoachRow" hidden aria-label="שאלה למנטור">
+          <form class="home-ask-form" id="homeAskForm">
+            <img src="/assets/mentor-avatar.webp" width="40" height="40" alt="" decoding="async">
+            <label class="sr-only" for="homeAskInput">שאלה למנטור</label>
+            <input id="homeAskInput" type="text" maxlength="300" autocomplete="off" enterkeyhint="send"
+                   placeholder="מה לשאול את המנטור?">
+            <button type="submit" class="home-ask-send" aria-label="שליחת השאלה">←</button>
+          </form>
+          <div class="home-ask-foot">
+            <div class="home-ask-sugg" id="homeAskSugg"></div>
+            <button type="button" class="home-ask-steps" data-home-coach-open aria-haspopup="dialog">הצעדים של היום ←</button>
+          </div>
+          <div class="home-ask-out" id="homeAskOut" aria-live="polite" hidden></div>
+        </section>
 
         <!-- ---------- שורת המדדים ----------
              שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
