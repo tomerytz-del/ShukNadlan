@@ -39,7 +39,7 @@ import {
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
-import { PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
+import { MANAGER_PLAYBOOK, PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -318,6 +318,9 @@ check("ידע: שגרת עבודה, וליד שנכנס באמצע הבלוק מ
 // המנטור כותב בלי אימוג'י, ותבנית עם אימוג'י הייתה מלמדת אותו את ההפך
 check("ידע: פחד משיחות בבוקר, בלי ההסבר ההורמונלי", PLAYBOOK.includes("call reluctance") && PLAYBOOK.includes("חוק 5 השניות") && !PLAYBOOK.includes("קורטיזול") && !PLAYBOOK.includes("אני יודע שקיבלת"));
 check("ידע: גישור ומבוי סתום, בלי לחשוף קו אדום", ["BATNA", "שיחות נפרדות", "להקפיא ולעבור לסעיף אחר", "סכום בנאמנות", "מה שנאמר בחדר נשאר בחדר", "שאלות לשיחה הנפרדת", "בלי אישור מפורש ממך", "החזרה לחדר המשותף", "לחיצת יד היא לא חוזה"].every((h) => PLAYBOOK.includes(h)));
+check("ידע: ניהול צוות רק למנהלים", ["ניהול צוות", "90 הימים הראשונים", "משחקן למאמן", "תוכנית התנעה"].every((h) => MANAGER_PLAYBOOK.includes(h))
+  && !askSystemPrompt("agent").includes("משחקן למאמן") && askSystemPrompt("team").includes("משחקן למאמן") && askSystemPrompt("office").includes("משחקן למאמן"));
+check("ידע: ניהול צוות כללי, בלי שם של רשת, ובלי מקף ארוך", !/רימקס|RE\/MAX/i.test(MANAGER_PLAYBOOK) && !/[–—―]/.test(MANAGER_PLAYBOOK));
 check("ידע: בלי אימוג'י", !/\p{Extended_Pictographic}/u.test(PLAYBOOK));
 // שני משפטים מהמקור שסותרים את "מה לא אומרים" - לא נכנסים בחזרה
 check("ידע: לא מבטיחים קונה סגור, ולא ממציאים סיורים", !PLAYBOOK.includes("מתחייב להביא לך קונה") && !PLAYBOOK.includes("יש לי עוד שני סיורים"));
