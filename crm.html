@@ -3573,6 +3573,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-agenda ol{margin:0;padding-inline-start:20px;display:flex;flex-direction:column;gap:4px;font-size:.9rem;line-height:1.5}
   .coach-note{margin:0;font-size:.74rem;color:var(--coach-soft)}
   .td-agent.is-focus{border-color:var(--nv-accent);box-shadow:0 0 0 3px var(--nv-accent-soft)}
+  /* "שאל את המאמן" (coach-ask, docs/coaches.md) */
+  .coach-ask{display:flex;flex-direction:column;gap:8px}
+  .coach-ask-form{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 6px 0 12px;border-radius:14px;
+                  background:#1E2F6E;border:1px solid var(--coach-line)}
+  .coach-ask-form input{flex:1;min-width:0;border:0;outline:none;background:transparent;color:#fff;font-size:.95rem;padding:10px 6px}
+  .coach-ask-form input::placeholder{color:#AEB8D6}
+  .coach-ask-form button{flex-shrink:0;width:36px;height:36px;border:0;border-radius:10px;background:var(--coach-gold);color:var(--coach-bg);
+                         font-size:1.05rem;font-weight:800;cursor:pointer}
+  .coach-ask-form button:disabled{opacity:.6;cursor:default}
+  .coach-ask-form:focus-within{outline:2px solid var(--coach-gold);outline-offset:2px}
+  .coach-ask-sugg{display:flex;flex-wrap:wrap;gap:6px}
+  .coach-ask-sugg button{min-height:32px;padding:0 12px;border:1px solid var(--coach-line);border-radius:16px;background:transparent;
+                         color:#DCE3F5;font-size:.8rem;font-weight:700;cursor:pointer;text-align:start}
+  .coach-ask-sugg button:hover{border-color:var(--coach-gold)}
+  .coach-ask-out{background:#fff;color:var(--nv-ink);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+  .coach-ask-q{margin:0;font-size:.82rem;font-weight:800;color:var(--nv-accent-ink)}
+  .coach-ask-a{margin:0;font-size:.9rem;line-height:1.6;white-space:pre-line}
+  .coach-ask-a.is-busy{color:var(--nv-muted)}
+  .coach-ask-a.is-err{color:#9A3412}
+  .coach-ask-left{margin:0;font-size:.74rem;color:var(--nv-muted)}
   @media(max-width:600px){.coach{padding:16px;border-radius:18px}}
 
   /* ==========================================================================

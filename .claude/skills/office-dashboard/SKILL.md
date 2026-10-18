@@ -79,7 +79,7 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   פעילים.** במשרד של שניים, ממוצע ועוד המספר שלי הם המספר של העמית/ה. לא
   "מתקנים" את זה כשמנהל/ת שואל/ת למה הממוצע נעלם.
 - **המאמן שולח לקלוד רשימה סגורה** (`keep` ב-`compactPeriod`,
-  ‏`supabase/functions/office-coach/payload.ts`). מדד שנוסף לליבה **לא** יוצא
+  ‏`supabase/functions/_shared/coach/payload.ts`). מדד שנוסף לליבה **לא** יוצא
   למודל מעצמו - וזה הרצוי. מוסיפים ל-`keep` רק מספר, אף פעם טקסט (כותרת,
   שם פונה, הערה), ומריצים
   `node --experimental-strip-types scripts/office_coach_test.ts`.

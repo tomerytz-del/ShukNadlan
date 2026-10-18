@@ -1,5 +1,5 @@
 /* ============================================================================
-   ‏הבדיקה של supabase/functions/office-coach/payload.ts
+   ‏הבדיקה של supabase/functions/_shared/coach/payload.ts
    ----------------------------------------------------------------------------
    ‏שלושת המאמנים (סוכן/ת, צוות, משרד) מבטיחים דברים שאי אפשר לראות שנשברו:
 
@@ -21,6 +21,8 @@
 import {
   addDays,
   agentFingerprintSource,
+  cleanAnswer,
+  cleanQuestion,
   cleanSummaryV2,
   compactAgent,
   compactPeriod,
@@ -31,9 +33,10 @@ import {
   previousTitles,
   Refs,
   summarySchema,
+  summaryForAsk,
   targetPct,
-} from "../supabase/functions/office-coach/payload.ts";
-import { SYSTEM_PROMPTS } from "../supabase/functions/office-coach/prompts.ts";
+} from "../supabase/functions/_shared/coach/payload.ts";
+import { askSystemPrompt, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -284,6 +287,28 @@ for (const kind of ["agent", "team", "office"] as const) {
   check(`${kind}: הפרומפט אוסר העברת ליד`, SYSTEM_PROMPTS[kind].includes("העברת ליד"));
 }
 check("אין העברת ליד ברשימת הכפתורים", !Object.keys(CTA_KINDS).some((k) => /transfer|route|assign/.test(k)));
+
+// ---------------------------------------------------------------------------
+// "שאל את המאמן" (coach-ask): מה יוצא עם השאלה, ומה חוזר
+// ---------------------------------------------------------------------------
+const askSummary = summaryForAsk({
+  v: 2, headline: "h", summary: "s", strength: "x", focus: "y", questions: ["q"],
+  actions: [{ priority: "high", title: "t", why: "w", impact: "i", cta: { kind: "open_lead", ref: LEAD_ID } }],
+});
+check("שאל: הסיכום יוצא בלי מזהי הכפתורים", askSummary !== null && !JSON.stringify(askSummary).includes(LEAD_ID), askSummary);
+check("שאל: הצעדים יוצאים כטקסט", JSON.stringify((askSummary as Record<string, unknown>).actions) === '[{"title":"t","why":"w","impact":"i"}]');
+check("שאל: סיכום v1 נקרא", (summaryForAsk({ headline: "h", points: [{ title: "a", body: "b", owner: "o" }] }) as Record<string, unknown>)?.points !== undefined);
+check("שאל: בלי סיכום - null", summaryForAsk(null) === null);
+check("שאל: שאלה נחתכת ל-300 ומנוקה", cleanQuestion("  א\nב " + "x".repeat(400)).length === 300 && !cleanQuestion("א\nב").includes("\n"));
+const ans = cleanAnswer("## כותרת\n**חשוב** — כך\n* אחד\n\n\n\nשני");
+check("שאל: התשובה בלי Markdown ובלי מקף ארוך", ans === "כותרת\nחשוב - כך\n- אחד\n\nשני", ans);
+check("שאל: תשובה ארוכה נחתכת", cleanAnswer("a".repeat(3000)).length === 1200);
+for (const kind of ["agent", "team", "office"] as const) {
+  const p = askSystemPrompt(kind);
+  check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("העברת ליד"));
+  check(`שאל ${kind}: תשובה בלבד, בלי פעולות`, p.includes("לא מבצע/ת פעולות"));
+  check(`שאל ${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(p));
+}
 
 // ---------------------------------------------------------------------------
 // תאריכים

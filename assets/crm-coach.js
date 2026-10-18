@@ -13,7 +13,7 @@
    המשרד ושל הצוותים בו. מנהל/ת **לא** רואה את הסיכום של סוכן/ת.
 
    **הכפתורים: רשימה סגורה (COACH_CTA), וכל אחד מפעיל פונקציה שכבר קיימת
-   ב-CRM.** זו אותה רשימה כמו CTA_KINDS ב-office-coach/payload.ts - סוג
+   ב-CRM.** זו אותה רשימה כמו CTA_KINDS ב-_shared/coach/payload.ts - סוג
    שהמודל החזיר ואינו כאן לא מקבל כפתור, וגם cleanSummaryV2 כבר זרקה אותו.
    כפתור שהקטגוריה שלו מוסתרת לקורא/ת (navAccVisible) לא מוצג.
 
@@ -47,6 +47,8 @@ const COACH_PRIORITY = {
 const coachState = { agent: undefined, team: undefined, office: undefined };
 /* מי מצייר מחדש אחרי "בוצע" - כל דאשבורד רושם את שלו */
 const coachRerender = {};
+/* "שאל את המאמן" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
+const coachAsk = { agent: {}, team: {}, office: {} };
 
 /* ---------- הכפתורים ----------
    label קבוע (לא טקסט של המודל), acc לבדיקת נראות, ו-run שמפעיל יכולת
@@ -181,6 +183,7 @@ function coachCardHtml(kind, opts){
           <p>${escapeHtml(p.body || '')}</p>
           ${p.owner ? `<span class="coach-impact">מוביל/ה: ${escapeHtml(p.owner)}</span>` : ''}
         </div></article>`).join('')}</div>
+      ${o.compact ? '' : coachAskHtml(kind, [])}
       ${disclaimer}</section>`;
   }
 
@@ -220,8 +223,65 @@ function coachCardHtml(kind, opts){
       ${typeof navAccVisible !== 'function' || navAccVisible('accAgenda')
         ? '<button type="button" class="coach-cta is-ghost" data-coach-meeting="team">קביעת ישיבת צוות ביומן</button>' : ''}
     </div>` : ''}
+    ${o.compact ? '' : coachAskHtml(kind, Array.isArray(s.questions) ? s.questions : [])}
     ${disclaimer}
   </section>`;
+}
+
+/* ---------- "שאל את המאמן" ----------
+   שאלה חופשית מול הסיכום והמספרים של אותו מאמן (supabase/functions/coach-ask,
+   שלב 8). תשובה בלבד - המאמן לא מבצע פעולות. מכסה יומית לחשבון; הקוד
+   coach_ask_quota מתורגם ב-friendly-error.js. השאלות המוצעות - מהסיכום. */
+function coachAskHtml(kind, questions){
+  const st = coachAsk[kind] || {};
+  const id = 'coachAskQ-' + kind;
+  return `<div class="coach-ask">
+    <form class="coach-ask-form" data-coach-ask="${kind}">
+      <label class="sr-only" for="${id}">שאלה למאמן</label>
+      <input id="${id}" type="text" maxlength="300" autocomplete="off" placeholder="שאלה למאמן..."
+        value="${escapeHtml(st.draft || '')}"${st.busy ? ' disabled' : ''}>
+      <button type="submit" aria-label="שליחת השאלה"${st.busy ? ' disabled' : ''}>←</button>
+    </form>
+    ${questions.length && !st.q ? `<div class="coach-ask-sugg">${questions.slice(0, 3).map(q =>
+      `<button type="button" data-coach-q="${kind}" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
+    ${st.q ? `<div class="coach-ask-out" aria-live="polite">
+      <p class="coach-ask-q">${escapeHtml(st.q)}</p>
+      ${st.busy ? '<p class="coach-ask-a is-busy">המאמן חושב…</p>'
+        : st.err ? `<p class="coach-ask-a is-err">${escapeHtml(st.err)}</p>`
+        : `<p class="coach-ask-a">${escapeHtml(st.a || '')}</p>`}
+      ${st.remaining != null && !st.busy ? `<p class="coach-ask-left">${st.remaining
+        ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+async function coachAskSend(kind, question){
+  const q = String(question || '').trim();
+  const st = coachAsk[kind];
+  if (!q || st.busy) return;
+  if (q.length < 3){ showToast('צריך לכתוב שאלה של כמה מילים לפחות.'); return; }
+  Object.assign(st, { q, a: '', err: '', busy: true, draft: '' });
+  if (coachRerender[kind]) coachRerender[kind]();
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw { code: 'session_not_found', message: 'session_not_found' };
+    const res = await fetch(SUPABASE_URL + '/functions/v1/coach-ask', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ kind, question: q }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error){
+      if (data.remaining != null) st.remaining = data.remaining;
+      throw { code: data.error || String(res.status), message: data.error || ('HTTP ' + res.status) };
+    }
+    st.a = data.answer || '';
+    st.remaining = data.remaining;
+  } catch(err){
+    st.err = heErr(err);
+  }
+  st.busy = false;
+  if (coachRerender[kind]) coachRerender[kind]();
 }
 
 /* ---------- "סמן כבוצע" ----------
@@ -257,6 +317,8 @@ async function coachToggleDone(kind, i){
       if (spec) spec.run(a, kind);
       return;
     }
+    const sugg = e.target.closest('[data-coach-q]');
+    if (sugg){ coachAskSend(sugg.dataset.coachQ, sugg.dataset.q); return; }
     const meet = e.target.closest('[data-coach-meeting]');
     if (meet){
       const row = coachState.team;
@@ -265,5 +327,16 @@ async function coachToggleDone(kind, i){
       const notes = document.getElementById('agNotes');
       if (notes) notes.value = agenda.map((x, n) => (n + 1) + '. ' + x).join('\n');
     }
+  });
+  document.addEventListener('submit', e => {
+    const form = e.target.closest('[data-coach-ask]');
+    if (!form) return;
+    e.preventDefault();
+    coachAskSend(form.dataset.coachAsk, form.querySelector('input').value);
+  });
+  /* מה שהוקלד נשמר כשהדאשבורד מצויר מחדש (למשל אחרי "בוצע") */
+  document.addEventListener('input', e => {
+    const form = e.target.closest && e.target.closest('[data-coach-ask]');
+    if (form) coachAsk[form.dataset.coachAsk].draft = e.target.value;
   });
 })();

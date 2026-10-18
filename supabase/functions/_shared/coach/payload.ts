@@ -1,5 +1,5 @@
 // ============================================================================
-// office-coach/payload.ts — מה נשלח למודל ומה נשמר ממנו
+// _shared/coach/payload.ts — מה נשלח למודל ומה נשמר ממנו
 //
 // פונקציות טהורות, בלי Deno ובלי רשת, כדי שאפשר יהיה לבדוק אותן לבד
 // (scripts/office_coach_test.ts): הצמצום לאגרגטים - שזה כל ההבטחה של
@@ -10,7 +10,7 @@
 //   team   - "מאמן מנהלי צוותים AI", שבועי, למנהל/ת הצוות
 //   office - "מאמן AI לבעלי משרדים", שבועי, למנהלי המשרד
 // ============================================================================
-import { noLongDash } from "../_shared/marketing-copy.ts";
+import { noLongDash } from "../marketing-copy.ts";
 
 export type CoachKind = "agent" | "team" | "office";
 export type Row = Record<string, unknown>;
@@ -358,4 +358,42 @@ export function previousTitles(summary: unknown): string[] | null {
   if (Array.isArray(s.actions)) return (s.actions as Row[]).map((a) => String(a.title ?? "")).filter(Boolean);
   if (Array.isArray(s.points)) return (s.points as Row[]).map((p) => String(p.title ?? "")).filter(Boolean);
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// "שאל את המאמן" (coach-ask)
+// ---------------------------------------------------------------------------
+/* הסיכום האחרון, כפי שהוא נשלח עם השאלה: טקסט בלבד. ‏cta.ref הוא מזהה
+   אמיתי (UUID) אחרי cleanSummaryV2, ולכן הכפתורים לא יוצאים בכלל. קורא גם v1. */
+export function summaryForAsk(summary: unknown): Row | null {
+  const s = summary as Row | null;
+  if (!s || typeof s !== "object") return null;
+  if (Array.isArray(s.actions)) {
+    return {
+      headline: s.headline ?? null, summary: s.summary ?? null, strength: s.strength ?? null, focus: s.focus ?? null,
+      actions: (s.actions as Row[]).map((a) => ({ title: a.title ?? null, why: a.why ?? null, impact: a.impact ?? null })),
+      ...(Array.isArray(s.agenda) ? { agenda: s.agenda } : {}),
+    };
+  }
+  if (Array.isArray(s.points)) {
+    return { headline: s.headline ?? null, points: (s.points as Row[]).map((p) => ({ title: p.title ?? null, body: p.body ?? null })) };
+  }
+  return null;
+}
+
+/* השאלה: טקסט רגיל, עד 300 תווים */
+export function cleanQuestion(raw: unknown): string {
+  return String(raw ?? "").replace(/[\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
+/* התשובה לפני שהיא מוצגת ונשמרת: בלי מקף ארוך, בלי כותרות ו-** של Markdown,
+   ועד 1,200 תווים. */
+export function cleanAnswer(raw: unknown): string {
+  const t = noLongDash(String(raw ?? ""))
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/^\s*[*•]\s+/gm, "- ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return t.length > 1200 ? t.slice(0, 1199).trimEnd() + "…" : t;
 }

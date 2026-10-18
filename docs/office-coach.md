@@ -21,9 +21,9 @@
 | --- | --- |
 | המיגרציה | `supabase/migrations/20270407090000_office_coach.sql` |
 | הפונקציה | `supabase/functions/office-coach/index.ts` |
-| מה יוצא למודל ומה נשמר | `supabase/functions/office-coach/payload.ts` |
+| מה יוצא למודל ומה נשמר | `supabase/functions/_shared/coach/payload.ts` |
 | הבדיקה | `scripts/office_coach_test.ts` (רצה ב-CI, ב-`edge_types.yml`) |
-| הפרומפטים | `supabase/functions/office-coach/prompts.ts` |
+| הפרומפטים | `supabase/functions/_shared/coach/prompts.ts` |
 | הכרטיס | `coachCardHtml('office')` ב-`assets/crm-coach.js` |
 
 1. **pg_cron** (`office-coach`, ‏`10 5-9 * * 0` ב-UTC, כלומר ביום ראשון
@@ -98,7 +98,7 @@ p_to)`, שמקבלת משרד ואינה בודקת תפקיד. היא `security
 סוכנים - ומנהל/ת שפועל/ת לפי הסיכום מחפש/ת כפתור שאין.
 
 **כלי חדש במערכת, או שינוי במה שכלי קיים עושה, מקבל שורה ברשימה** (`TOOLS`
-ב-`supabase/functions/office-coach/prompts.ts`, משותפת לשלושת המאמנים). יכולת שנוספה (למשל הודעה אוטומטית
+ב-`supabase/functions/_shared/coach/prompts.ts`, משותפת לשלושת המאמנים). יכולת שנוספה (למשל הודעה אוטומטית
 ללידים) יוצאת מרשימת "אין במערכת" באותו PR.
 
 ## עלות
