@@ -1,12 +1,12 @@
 ---
 name: office-dashboard
-description: עבודה על דאשבורד המשרד, הדשבורד האישי ומאמן ה-AI השבועי בריפו של שוק נדל״ן - office_dashboard והליבה _office_dashboard_core, my_dashboard, _agent_period_stats ועזרי _office_*_rows, זמן התגובה (leads.first_response_at, mark_lead_responded, כפתורי "חיוג"/"וואטסאפ" בכרטיס הליד), יעדים (agent_targets), ממוצע המשרד שנעלם מתחת לשלושה סוכנים, והמאמן (office-coach, office_coach_summaries, compactPeriod). Use when adding or changing a metric in either dashboard, when the office and personal dashboards show different numbers for the same agent, when response time looks wrong or "ללא מענה מתועד", when adding a new way to contact a lead, when changing what the weekly coach sends to Claude or which model it uses, when touching assets/crm-office-dashboard.js / crm-my-dashboard.js, or when a dashboard query gets slow.
+description: עבודה על דאשבורד המשרד, הדשבורד האישי ומאמן ה-AI השבועי בריפו של שוק נדל״ן - office_dashboard והליבה _office_dashboard_core, my_dashboard, _agent_period_stats ועזרי _office_*_rows, זמן התגובה (leads.first_response_at, mark_lead_responded, כפתורי "חיוג"/"וואטסאפ" בכרטיס הליד), יעדים (agent_targets), ממוצע המשרד שנעלם מתחת לשלושה סוכנים, ושלושת מאמני ה-AI (office-coach עם kind=agent|team|office, office/team/agent_coach_summaries, compactPeriod, compactAgent, CTA_KINDS, assets/crm-coach.js). Use when adding or changing a metric in either dashboard, when the office and personal dashboards show different numbers for the same agent, when response time looks wrong or "ללא מענה מתועד", when adding a new way to contact a lead, when changing what any of the three coaches sends to Claude, which buttons it may suggest or which model it uses, when touching assets/crm-office-dashboard.js / crm-my-dashboard.js / crm-coach.js, or when a dashboard query gets slow.
 ---
 
 # דאשבורד המשרד, הדשבורד האישי והמאמן השבועי
 
 התיעוד המלא: `docs/office-dashboard.md`, ‏`docs/my-dashboard.md`,
-‏`docs/office-coach.md`. כאן - מה שנשבר בשקט.
+‏`docs/office-coach.md`, ‏`docs/coaches.md` (שלושת המאמנים). כאן - מה שנשבר בשקט.
 
 ## ‏1. חישוב אחד, שלושה צרכנים
 
@@ -15,9 +15,17 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
         └─ _agent_period_stats(agency, from, to)      ← מדד לכל סוכן/ת
               ├─ _office_dashboard_core(agency, from, to)
               │     ├─ office_dashboard()   ← עטיפה: מנהל/ת בלבד (42501)
-              │     └─ office-coach         ← service_role
-              └─ my_dashboard()             ← current_agent_id() בלבד
+              │     ├─ office-coach         ← service_role (משרד; צוות עם p_agent_ids)
+              │     └─ team_dashboard()     ← מנהל/ת צוות
+              └─ _my_dashboard_core(agent, from, to)
+                    ├─ my_dashboard()       ← עטיפה: current_agent_id() בלבד
+                    └─ office-coach?kind=agent ← service_role
 ```
+
+**`my_dashboard()` היא עטיפה מאז `20270601160000_coaches.sql`**, כמו
+`office_dashboard()`. הגוף ב-`_my_dashboard_core`, כדי שמאמן הסוכן/ת (cron,
+בלי משתמש/ת) יחשב בדיוק את המספרים של "הדשבורד שלי". מי שמשנה את הדשבורד
+האישי משנה את הליבה.
 
 - **מדד חדש נכנס ל-`_agent_period_stats`** (או לעזר שמזין אותה), לא לאחד
   הצרכנים. מדד שנוסף רק ב-`my_dashboard` או רק בצד ה-JS מציג לסוכן/ת מספר
@@ -77,6 +85,11 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   `node --experimental-strip-types scripts/office_coach_test.ts`.
 - `office_coach_summaries` נקראת בידי מנהלי המשרד בלבד (RLS). הסיכום כותב
   שמות סוכנים, ולכן הוא לא מוצג בדשבורד האישי.
+- **מאמן הסוכן/ת** (`compactAgent`) לא שולח את שם הסוכן/ת, שמות עמיתים, שם
+  פונה, כותרת נכס, עיר או כותרת של פריט ביומן. פריט שאפשר לפתוח יוצא כאסימון
+  (`L1`), לא כמזהה. `agent_coach_summaries` נקראת **רק** בידי הסוכן/ת עצמו/ה.
+- **כפתור במאמן רק מ-`CTA_KINDS`** (`payload.ts`), ובאותה רשימה ב-`COACH_CTA`
+  (`assets/crm-coach.js`). אין העברת ליד ואין ניתוב בידי מנהל/ת.
 
 ## ‏4. המאמן: עלות ומודל
 

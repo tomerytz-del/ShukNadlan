@@ -1,44 +1,62 @@
 // ============================================================================
-// office-coach — מאמן ה-AI השבועי של דאשבורד המשרד ("סיכום השבוע")
+// office-coach — שלושת מאמני ה-AI של ה-CRM
 //
-// פעם בשבוע (pg_cron, יום ראשון בבוקר; 20270407090000_office_coach.sql) לכל
-// משרד פעיל שעוד אין לו סיכום לשבוע הנוכחי:
-//   1. מחשבת את מספרי המשרד דרך _office_dashboard_core - אותה פונקציה שמזינה
-//      את הדאשבורד, כך שהמאמן מדבר על אותם מספרים שהמנהל/ת רואה/ה.
-//   2. מצמצמת אותם לאגרגטים בלבד: שמות סוכנים ומספרים. **לא** שם, טלפון או
-//      טקסט של פונה, וגם לא כותרות נכסים - המודל לא צריך אותם כדי לייעץ.
-//   3. מבקשת מ-Claude כותרת ושלוש נקודות, ב-JSON לפי סכמה.
-//   4. שומרת ב-office_coach_summaries. הדאשבורד מציג את האחרונה.
+//   ?kind=office (ברירת מחדל) "מאמן AI לבעלי משרדים" - שבועי, לכל משרד
+//   ?kind=team                "מאמן מנהלי צוותים AI" - שבועי, לכל צוות
+//   ?kind=agent               "מאמן סוכני נדל״ן AI"  - יומי, לכל סוכן/ת פעיל/ה
+//
+// ‏pg_cron קורא לכל kind רק כשיש מי שמחכה (office_coach_due, team_coach_due,
+// agent_coach_due; ‏20270407090000, ‏20270601160000). לכל אחד:
+//   1. המספרים מאותה פונקציה שמזינה את הדאשבורד שלו (_office_dashboard_core,
+//      עם רשימת סוכנים לצוות; ‏_my_dashboard_core לסוכן/ת) - המאמן מדבר על
+//      אותם מספרים שהקורא/ת רואה.
+//   2. צמצום לאגרגטים (payload.ts). **לא** שם, טלפון או טקסט של פונה, לא
+//      כותרות נכסים ולא מזהים - פריט שאפשר לפתוח יוצא כאסימון ("L1").
+//   3. ‏Claude מחזיר JSON לפי סכמה (חוזה v2), ו-cleanSummaryV2 מנקה, חותכת,
+//      מוחקת כפתור שאינו ברשימה של המאמן הזה ומחזירה את האסימונים למזהים.
+//   4. שמירה ב-office_coach_summaries / team_coach_summaries / agent_coach_summaries.
+//
+// מאמן הסוכן/ת כבוי עד שמגדירים AGENT_COACH_ENABLED=1: זו קריאה למודל לכל
+// סוכן/ת לכל בוקר. יום שבו לא השתנה דבר מאתמול מעתיק את הסיכום בלי קריאה.
 //
 // ‏verify_jwt = false: נקראת מ-pg_cron עם x-alert-cron-secret, או ידנית עם
 // מפתח service_role (‏_shared/cron-auth.ts, fail-closed).
 //
 // פרמטרים לקריאה ידנית (service_role):
 //   ?dry_run=1        מחשב ומחזיר את הסיכום בלי לשמור
-//   ?agency=<uuid>    משרד אחד בלבד, גם אם אינו ברשימת ה-due
+//   ?agency=<uuid>    משרד אחד (kind=office)
+//   ?team=<uuid>      צוות אחד (kind=team)
+//   ?agent=<uuid>     סוכן/ת אחד/ת (kind=agent), גם כשהמאמן כבוי
 //
-// ‏docs/office-coach.md
+// ‏docs/coaches.md, ‏docs/office-coach.md
 // ============================================================================
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
-  addDays, cleanSummary, type CoachSummary, compactPeriod, type Genders, monthlyTotals, type Row, SUMMARY_SCHEMA,
+  addDays, agentFingerprintSource, cleanSummaryV2, type CoachKind, type CoachSummaryV2, compactAgent,
+  compactPeriod, compactTeams, type Genders, monthlyTotals, previousTitles, type RefMap, Refs, type Row,
+  summarySchema, targetPct,
 } from "./payload.ts";
+import { SYSTEM_PROMPTS } from "./prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 
 // המודל כסוד עם ברירת מחדל, כמו בשאר הפונקציות שקוראות ל-Claude: שינוי
-// מודל הוא החלטת איכות ועלות, ולא אמור לקרות בשקט בפריסה.
-const MODEL = Deno.env.get("OFFICE_COACH_MODEL") || "claude-opus-5-5";
+// מודל הוא החלטת איכות ועלות, ולא אמור לקרות בשקט בפריסה. מאמן הסוכן/ת
+// רץ על כל סוכן/ת כל יום, ולכן ברירת המחדל שלו מודל קטן יותר.
+const OFFICE_MODEL = Deno.env.get("OFFICE_COACH_MODEL") || "claude-opus-5-5";
+const AGENT_MODEL = Deno.env.get("AGENT_COACH_MODEL") || "claude-sonnet-5-5";
+const AGENT_ENABLED = Deno.env.get("AGENT_COACH_ENABLED") === "1";
 
-// ‏Edge Function נעצרת אחרי 150 שניות. משרד שלא הספקנו נלקח בהרצה השעתית
-// הבאה של יום ראשון (office_coach_due מחזירה רק מי שעוד אין לו סיכום).
+// ‏Edge Function נעצרת אחרי 150 שניות. מה שלא הספקנו נלקח בהרצה הבאה
+// (פונקציות ה-due מחזירות רק מי שעוד אין לו סיכום).
 const TIME_BUDGET_MS = 100_000;
 const BATCH = 25;
+const AGENT_PARALLEL = 4;
 
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
 
@@ -55,74 +73,27 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-// ---------------------------------------------------------------------------
-// הפרומפט. יציב לגמרי (בלי תאריך ובלי שם משרד), ולכן נשמר במטמון בין המשרדים
-// של אותה הרצה. כל מה שמשתנה עובר בהודעת המשתמש.
-// ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `את/ה מאמן/ת ניהולי/ת למשרדי תיווך נדל"ן בישראל, בתוך מערכת "שוק נדל״ן".
-פעם בשבוע את/ה כותב/ת למנהל/ת המשרד סיכום קצר: כותרת אחת ושלוש נקודות.
+const UUID_RE = /^[0-9a-f-]{36}$/i;
 
-מה מקבלים: מספרים מצטברים של המשרד - לשבוע שהסתיים ול-30 הימים האחרונים, לכל סוכן/ת
-ולמשרד כולו: לידים, זמן תגובה, גיוסים, בלעדיות, הסכמי תיווך, פגישות, עסקאות ועמלות
-(הערכה), וגם בלעדיות שפוקעות ומקורות לידים. לפעמים גם הנקודות של השבוע הקודם.
+type CoachOut =
+  | { ok: true; summary: CoachSummaryV2; input_tokens: number; output_tokens: number; model: string }
+  | { ok: false; reason: string };
 
-שלוש הנקודות:
-1. מה עבד השבוע - הישג אמיתי מהמספרים, עם שם הסוכן/ת כשיש.
-2. מה תקוע - הבעיה החשובה ביותר שהמספרים מראים (לידים בלי מענה, זמן תגובה, בלעדיות
-   שפוקעות, נפילה במשפך, פיגור ביעד).
-3. על מה לשים את השבוע - פעולה אחת ברורה, מי מוביל/ה אותה, ומה ייחשב הצלחה.
-
-כללים:
-- כל נקודה נשענת על מספר מהנתונים. לא להמציא מספרים, שמות או אירועים שאינם בנתונים.
-- כשהנתונים דלים (משרד קטן, שבוע שקט), לומר זאת בפשטות ולהציע צעד אחד קטן. לא לנפח.
-- מספר קטן (ליד אחד, עסקה אחת) אינו מגמה. לא להסיק ממנו מסקנות.
-- להעדיף כלים שכבר קיימים במערכת כשהם רלוונטיים, ולהמליץ על כל כלי רק במה שכתוב עליו
-  כאן. יכולת שלא מופיעה ברשימה לא קיימת, ולא ממליצים עליה.
-  - כפתורי "חיוג" ו"וואטסאפ" בכרטיס הליד: הסוכן/ת פונה לליד מהטלפון שלו/ה. זו הדרך
-    היחידה שבה מענה לליד נרשם במערכת ונספר בזמן התגובה.
-  - דוח CMA: עסקאות דומות בסביבה, להכנה לפגישת גיוס או לשיחת מחיר עם בעלים.
-  - סרטון שיווקי לנכס: הסוכן/ת מפיק/ה סרטון לנכס קיים. העלות לפי המסלול.
-  - הדמיות בדף הנכס: גולשים מבקשים הדמיה של הנכס, ובקשה עם פרטים נכנסת כליד.
-  - מיניסייט ללקוח/ה: עמוד אישי עם נכסים מתאימים, שהסוכן/ת שולח/ת ללקוח/ה.
-  - התאמות חכמות: התראה לסוכן/ת כשנכס מתאים ללקוח/ה מקובץ הלקוחות.
-  - החתמה דיגיטלית: שליחת הסכם תיווך או בלעדיות לחתימה בטלפון.
-  - גבריאלה: עוזרת אישית לסוכן/ת בוואטסאפ (נכסים, לקוחות, יומן, רשימת הלידים),
-    ובוט ציבורי שעונה למי שפונה אליו בעצמו. גבריאלה אינה פונה ללידים ואינה עונה להם.
-- אין במערכת, ולכן לא ממליצים: מענה אוטומטי או ראשוני ללידים, העברת ליד מסוכן/ת
-  לסוכן/ת, ושליחת הודעות ללקוחות בשם הסוכן/ת. חלוקת עבודה בצוות מנסחים כהחלטה של
-  המנהל/ת ("מי מתקשר/ת ללידים של השבוע"), ולא כפעולה במערכת.
-- עמלות הן הערכה. השפעה צפויה היא הערכה או מדד הצלחה, לא הבטחה.
-- לא לחזור על אותן נקודות של השבוע הקודם אם לא השתנה דבר - לומר מה התקדם או לא.
-- הטון חם, ישיר ומקצועי. בלי אימוג'י ובלי סימני קריאה מיותרים. לא להאשים סוכן/ת.
-
-כתיבה:
-- עברית. ניסוח מגדרי עם לוכסן (סוכן/ת, מוביל/ה) רק כשמדברים על תפקיד או על קבוצה.
-- לסוכן/ת שיש לו/ה gender בנתונים ("male" או "female"), כותבים בלשון המתאימה: פועל,
-  תואר וכינוי ("טל גייסה", "תומר קבע 7 פגישות", "אין לה לידים פתוחים").
-- לסוכן/ת בלי gender אין מין ידוע, ולכן לא כותבים פועל, תואר או כינוי בלוכסן ("טל גייס/ה"
-  אסור) וגם לא מנחשים ("אין לו" אסור). מנסחים סביב השם, גם בהמשך המשפט: "10 גיוסים של
-  טל השבוע", "אצל תומר: 7 פגישות", "לטל אין כרגע לידים פתוחים".
-- מקף רגיל (-) בלבד, לעולם לא מקף ארוך.
-- כותרת: עד 12 מילים. כותרת של נקודה: עד 8 מילים. גוף נקודה: עד 45 מילים.
-- owner: מי מוביל/ה את הנקודה - שם סוכן/ת מהנתונים, "מנהל/ת המשרד" או "כל הצוות".`;
-
-async function coach(payload: unknown): Promise<
-  | { ok: true; summary: CoachSummary; input_tokens: number; output_tokens: number; model: string }
-  | { ok: false; reason: string }
-> {
+async function coach(kind: CoachKind, payload: unknown, refs: RefMap): Promise<CoachOut> {
+  const model = kind === "agent" ? AGENT_MODEL : OFFICE_MODEL;
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {
     response = await anthropic.beta.messages.create({
-      model: MODEL,
+      model,
       // מודל שסירב (סיווג בטיחות שגוי על נתוני מכירות) מועבר בשרת למודל גיבוי
-      // באותה קריאה, במקום שהמשרד יישאר בלי סיכום השבוע.
+      // באותה קריאה, במקום שהקורא/ת יישאר/תישאר בלי סיכום.
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       // ‏max_tokens כולל גם את החשיבה הנסתרת. תקרה נמוכה מחזירה תשובה ריקה
       // (ראו generateMarketingCopy, 1.10.2026), ולכן יש מקום.
       max_tokens: 8000,
-      output_config: { effort: "medium", format: { type: "json_schema", schema: SUMMARY_SCHEMA } },
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      output_config: { effort: kind === "agent" ? "low" : "medium", format: { type: "json_schema", schema: summarySchema(kind) } },
+      system: [{ type: "text", text: SYSTEM_PROMPTS[kind], cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: JSON.stringify(payload) }],
     });
   } catch (err) {
@@ -131,8 +102,7 @@ async function coach(payload: unknown): Promise<
     return { ok: false, reason: "network" };
   }
 
-  // ‏refusal אחרי הגיבוי: כל השרשרת סירבה. אין מה לנסות שוב - המשרד יידלג השבוע,
-  // ויופיע ביומן.
+  // ‏refusal אחרי הגיבוי: כל השרשרת סירבה. מדלגים, וזה מופיע ביומן.
   if (response.stop_reason === "refusal") return { ok: false, reason: "refusal" };
   if (response.stop_reason === "max_tokens") return { ok: false, reason: "max_tokens" };
 
@@ -146,7 +116,7 @@ async function coach(payload: unknown): Promise<
   } catch {
     return { ok: false, reason: "bad_json" };
   }
-  const summary = cleanSummary(parsed);
+  const summary = cleanSummaryV2(parsed, kind, refs);
   if (!summary) return { ok: false, reason: "empty_summary" };
   return {
     ok: true,
@@ -156,6 +126,282 @@ async function coach(payload: unknown): Promise<
       (response.usage.cache_creation_input_tokens ?? 0),
     output_tokens: response.usage.output_tokens,
   };
+}
+
+async function sha256(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function gendersOf(supabase: SupabaseClient, col: "agency_id" | "team_id", id: string): Promise<Genders> {
+  // כשל כאן אינו מפיל: בלי מין המודל פשוט מנסח סביב השמות
+  const { data } = await supabase.from("agency_members").select("id, gender").eq(col, id);
+  return Object.fromEntries(((data ?? []) as { id: string; gender: string | null }[]).map((m) => [m.id, m.gender]));
+}
+
+// ---------------------------------------------------------------------------
+// office: משרד לשבוע
+// ---------------------------------------------------------------------------
+async function runOffice(supabase: SupabaseClient, url: URL, dryRun: boolean, started: number) {
+  const { data: weekStartRaw, error: wsErr } = await supabase.rpc("office_coach_week_start");
+  if (wsErr || !weekStartRaw) return json({ error: "db_error", detail: wsErr?.message }, 500);
+  const weekStart = String(weekStartRaw);
+
+  const only = url.searchParams.get("agency");
+  let queue: { agency_id: string }[];
+  if (only) {
+    if (!UUID_RE.test(only)) return json({ error: "bad_agency" }, 400);
+    queue = [{ agency_id: only }];
+  } else {
+    const { data, error } = await supabase.rpc("office_coach_due", { p_limit: BATCH });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    queue = (data ?? []) as { agency_id: string }[];
+  }
+
+  // השבוע שהסתיים: ראשון עד שבת שלפני week_start. ועוד 30 יום, להקשר.
+  const lastWeek = { from: addDays(weekStart, -7), to: addDays(weekStart, -1) };
+  const last30 = { from: addDays(weekStart, -30), to: addDays(weekStart, -1) };
+
+  const results: Row[] = [];
+  for (const office of queue) {
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      results.push({ agency_id: office.agency_id, skipped: "time_budget" });
+      continue;
+    }
+    const [wk, mo, prev, genders] = await Promise.all([
+      supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: lastWeek.from, p_to: lastWeek.to }),
+      supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: last30.from, p_to: last30.to }),
+      supabase.from("office_coach_summaries").select("summary")
+        .eq("agency_id", office.agency_id).lt("week_start", weekStart)
+        .order("week_start", { ascending: false }).limit(1).maybeSingle(),
+      gendersOf(supabase, "agency_id", office.agency_id),
+    ]);
+    if (wk.error || mo.error) {
+      results.push({ agency_id: office.agency_id, error: "db_error", detail: (wk.error ?? mo.error)?.message });
+      continue;
+    }
+    const refs = new Refs();
+    const payload = {
+      week: lastWeek,
+      response_time_method: (wk.data as Row)?.data_notes,
+      last_week: compactPeriod(wk.data as Row, genders, refs),
+      last_30_days: compactPeriod(mo.data as Row, genders, refs),
+      teams_last_week: compactTeams(wk.data as Row),
+      teams_last_30_days: compactTeams(mo.data as Row),
+      monthly_office_totals_12m: monthlyTotals(mo.data as Row),
+      previous_week_actions: previousTitles(prev.data?.summary),
+    };
+    const out = await coach("office", payload, refs.map);
+    if (!out.ok) {
+      console.error("office-coach failed", office.agency_id, out.reason);
+      results.push({ agency_id: office.agency_id, error: out.reason });
+      continue;
+    }
+    if (!dryRun) {
+      const { error } = await supabase.from("office_coach_summaries").upsert({
+        agency_id: office.agency_id, week_start: weekStart, summary: out.summary, model: out.model,
+        input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+      }, { onConflict: "agency_id,week_start" });
+      if (error) {
+        results.push({ agency_id: office.agency_id, error: "db_error", detail: error.message });
+        continue;
+      }
+    }
+    results.push({
+      agency_id: office.agency_id, ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,
+      ...(dryRun ? { summary: out.summary, payload } : {}),
+    });
+  }
+  return report("office", { week_start: weekStart }, dryRun, results);
+}
+
+// ---------------------------------------------------------------------------
+// team: צוות לשבוע. אותה ליבה, עם רשימת סוכני הצוות (שלב 4).
+// ---------------------------------------------------------------------------
+async function runTeam(supabase: SupabaseClient, url: URL, dryRun: boolean, started: number) {
+  const { data: weekStartRaw, error: wsErr } = await supabase.rpc("office_coach_week_start");
+  if (wsErr || !weekStartRaw) return json({ error: "db_error", detail: wsErr?.message }, 500);
+  const weekStart = String(weekStartRaw);
+
+  const only = url.searchParams.get("team");
+  let queue: { team_id: string; agency_id: string; team_name: string }[];
+  if (only) {
+    if (!UUID_RE.test(only)) return json({ error: "bad_team" }, 400);
+    const { data, error } = await supabase.from("agency_teams").select("id, agency_id, name").eq("id", only).maybeSingle();
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    if (!data) return json({ error: "not_found" }, 404);
+    queue = [{ team_id: data.id, agency_id: data.agency_id, team_name: data.name }];
+  } else {
+    const { data, error } = await supabase.rpc("team_coach_due", { p_limit: BATCH });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    queue = (data ?? []) as typeof queue;
+  }
+
+  const lastWeek = { from: addDays(weekStart, -7), to: addDays(weekStart, -1) };
+  const last30 = { from: addDays(weekStart, -30), to: addDays(weekStart, -1) };
+
+  const results: Row[] = [];
+  for (const team of queue) {
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      results.push({ team_id: team.team_id, skipped: "time_budget" });
+      continue;
+    }
+    // סוכני הצוות הפעילים - כמו team_dashboard
+    const { data: members, error: mErr } = await supabase.from("agency_members")
+      .select("id, gender").eq("team_id", team.team_id).eq("active", true);
+    if (mErr) {
+      results.push({ team_id: team.team_id, error: "db_error", detail: mErr.message });
+      continue;
+    }
+    const ids = (members ?? []).map((m) => m.id as string);
+    if (!ids.length) {
+      results.push({ team_id: team.team_id, skipped: "no_members" });
+      continue;
+    }
+    const genders: Genders = Object.fromEntries((members ?? []).map((m) => [m.id, m.gender]));
+    const [wk, mo, prev] = await Promise.all([
+      supabase.rpc("_office_dashboard_core", { p_agency: team.agency_id, p_from: lastWeek.from, p_to: lastWeek.to, p_agent_ids: ids }),
+      supabase.rpc("_office_dashboard_core", { p_agency: team.agency_id, p_from: last30.from, p_to: last30.to, p_agent_ids: ids }),
+      supabase.from("team_coach_summaries").select("summary")
+        .eq("team_id", team.team_id).lt("week_start", weekStart)
+        .order("week_start", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (wk.error || mo.error) {
+      results.push({ team_id: team.team_id, error: "db_error", detail: (wk.error ?? mo.error)?.message });
+      continue;
+    }
+    const refs = new Refs();
+    const payload = {
+      week: lastWeek,
+      team: team.team_name,
+      response_time_method: (wk.data as Row)?.data_notes,
+      last_week: compactPeriod(wk.data as Row, genders, refs),
+      last_30_days: compactPeriod(mo.data as Row, genders, refs),
+      team_target_pct_30_days: targetPct(mo.data as Row),
+      previous_week_actions: previousTitles(prev.data?.summary),
+    };
+    const out = await coach("team", payload, refs.map);
+    if (!out.ok) {
+      console.error("team-coach failed", team.team_id, out.reason);
+      results.push({ team_id: team.team_id, error: out.reason });
+      continue;
+    }
+    if (!dryRun) {
+      const { error } = await supabase.from("team_coach_summaries").upsert({
+        agency_id: team.agency_id, team_id: team.team_id, week_start: weekStart, summary: out.summary,
+        model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+      }, { onConflict: "team_id,week_start" });
+      if (error) {
+        results.push({ team_id: team.team_id, error: "db_error", detail: error.message });
+        continue;
+      }
+    }
+    results.push({
+      team_id: team.team_id, ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,
+      ...(dryRun ? { summary: out.summary, payload } : {}),
+    });
+  }
+  return report("team", { week_start: weekStart }, dryRun, results);
+}
+
+// ---------------------------------------------------------------------------
+// agent: סוכן/ת ליום. ‏_my_dashboard_core - אותם מספרים של "הדשבורד שלי".
+// ---------------------------------------------------------------------------
+async function runAgentOne(
+  supabase: SupabaseClient, agent: { agent_id: string; agency_id: string }, day: string, dryRun: boolean,
+): Promise<Row> {
+  const [wk, mo, me, prev] = await Promise.all([
+    supabase.rpc("_my_dashboard_core", { p_agent: agent.agent_id, p_from: addDays(day, -7), p_to: addDays(day, -1) }),
+    supabase.rpc("_my_dashboard_core", { p_agent: agent.agent_id, p_from: addDays(day, -30), p_to: addDays(day, -1) }),
+    supabase.from("agency_members").select("gender").eq("id", agent.agent_id).maybeSingle(),
+    supabase.from("agent_coach_summaries").select("day, summary, input_hash, actions_done")
+      .eq("agent_id", agent.agent_id).lt("day", day)
+      .order("day", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (wk.error || mo.error) return { agent_id: agent.agent_id, error: "db_error", detail: (wk.error ?? mo.error)?.message };
+
+  const refs = new Refs();
+  const data = compactAgent(wk.data as Row, mo.data as Row, me.data?.gender as string | null, refs);
+  const hash = await sha256(agentFingerprintSource(data));
+
+  // יום בלי שינוי מאתמול: אותו סיכום, בלי קריאה למודל. ה-ref-ים של אתמול
+  // תקפים, כי אותם פריטים בדיוק.
+  if (prev.data && prev.data.day === addDays(day, -1) && prev.data.input_hash === hash) {
+    if (!dryRun) {
+      const { error } = await supabase.from("agent_coach_summaries").upsert({
+        agency_id: agent.agency_id, agent_id: agent.agent_id, day, summary: prev.data.summary, input_hash: hash,
+        model: "copy", input_tokens: 0, output_tokens: 0, actions_done: prev.data.actions_done ?? [],
+      }, { onConflict: "agent_id,day" });
+      if (error) return { agent_id: agent.agent_id, error: "db_error", detail: error.message };
+    }
+    return { agent_id: agent.agent_id, ok: true, copied: true };
+  }
+
+  const payload = { ...data, yesterday_actions: previousTitles(prev.data?.summary) };
+  const out = await coach("agent", payload, refs.map);
+  if (!out.ok) {
+    console.error("agent-coach failed", agent.agent_id, out.reason);
+    return { agent_id: agent.agent_id, error: out.reason };
+  }
+  if (!dryRun) {
+    const { error } = await supabase.from("agent_coach_summaries").upsert({
+      agency_id: agent.agency_id, agent_id: agent.agent_id, day, summary: out.summary, input_hash: hash,
+      model: out.model, input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+    }, { onConflict: "agent_id,day" });
+    if (error) return { agent_id: agent.agent_id, error: "db_error", detail: error.message };
+  }
+  return {
+    agent_id: agent.agent_id, ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,
+    ...(dryRun ? { summary: out.summary, payload } : {}),
+  };
+}
+
+async function runAgent(supabase: SupabaseClient, url: URL, dryRun: boolean, started: number) {
+  const only = url.searchParams.get("agent");
+  if (!AGENT_ENABLED && !only) return json({ kind: "agent", disabled: true, detail: "AGENT_COACH_ENABLED אינו 1" });
+
+  const { data: dayRaw, error: dErr } = await supabase.rpc("coach_today");
+  if (dErr || !dayRaw) return json({ error: "db_error", detail: dErr?.message }, 500);
+  const day = String(dayRaw);
+
+  let queue: { agent_id: string; agency_id: string }[];
+  if (only) {
+    if (!UUID_RE.test(only)) return json({ error: "bad_agent" }, 400);
+    const { data, error } = await supabase.from("agency_members").select("id, agency_id").eq("id", only).maybeSingle();
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    if (!data || !data.agency_id) return json({ error: "not_found" }, 404);
+    queue = [{ agent_id: data.id, agency_id: data.agency_id }];
+  } else {
+    const { data, error } = await supabase.rpc("agent_coach_due", { p_limit: BATCH });
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    queue = (data ?? []) as typeof queue;
+  }
+
+  // כמה סוכנים במקביל: קריאה אחת למודל היא כמה שניות, ו-25 ברצף לא נכנסים
+  // ב-150 השניות של הפונקציה
+  const results: Row[] = [];
+  for (let i = 0; i < queue.length; i += AGENT_PARALLEL) {
+    const chunk = queue.slice(i, i + AGENT_PARALLEL);
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      for (const a of chunk) results.push({ agent_id: a.agent_id, skipped: "time_budget" });
+      continue;
+    }
+    results.push(...await Promise.all(chunk.map((a) => runAgentOne(supabase, a, day, dryRun))));
+  }
+  return report("agent", { day }, dryRun, results);
+}
+
+function report(kind: CoachKind, extra: Row, dryRun: boolean, results: Row[]) {
+  return json({
+    kind,
+    ...extra,
+    dry_run: dryRun,
+    processed: results.filter((r) => r.ok).length,
+    copied: results.filter((r) => r.copied).length,
+    failed: results.filter((r) => r.error).length,
+    deferred: results.filter((r) => r.skipped).length,
+    results,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -170,101 +416,13 @@ Deno.serve(async (req: Request) => {
   if (!ANTHROPIC_KEY) return json({ error: "anthropic_not_configured", detail: "‏ANTHROPIC_API_KEY אינו מוגדר." }, 503);
 
   const url = new URL(req.url);
+  const kind = (url.searchParams.get("kind") || "office") as CoachKind;
   const dryRun = url.searchParams.get("dry_run") === "1";
-  const onlyAgency = url.searchParams.get("agency");
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const started = Date.now();
 
-  const { data: weekStartRaw, error: wsErr } = await supabase.rpc("office_coach_week_start");
-  if (wsErr || !weekStartRaw) return json({ error: "db_error", detail: wsErr?.message }, 500);
-  const weekStart = String(weekStartRaw);
-
-  // מי בתור: משרד אחד בקריאה ידנית, אחרת מי שעוד אין לו סיכום השבוע
-  let queue: { agency_id: string; agency_name: string }[];
-  if (onlyAgency) {
-    if (!/^[0-9a-f-]{36}$/i.test(onlyAgency)) return json({ error: "bad_agency" }, 400);
-    const { data, error } = await supabase.from("agencies").select("id, name").eq("id", onlyAgency).maybeSingle();
-    if (error) return json({ error: "db_error", detail: error.message }, 500);
-    if (!data) return json({ error: "not_found" }, 404);
-    queue = [{ agency_id: data.id, agency_name: data.name }];
-  } else {
-    const { data, error } = await supabase.rpc("office_coach_due", { p_limit: BATCH });
-    if (error) return json({ error: "db_error", detail: error.message }, 500);
-    queue = (data ?? []) as { agency_id: string; agency_name: string }[];
-  }
-
-  // השבוע שהסתיים: ראשון עד שבת שלפני week_start. ועוד 30 יום, להקשר.
-  const lastWeek = { from: addDays(weekStart, -7), to: addDays(weekStart, -1) };
-  const last30 = { from: addDays(weekStart, -30), to: addDays(weekStart, -1) };
-
-  const results: Row[] = [];
-  for (const office of queue) {
-    if (Date.now() - started > TIME_BUDGET_MS) {
-      results.push({ agency_id: office.agency_id, skipped: "time_budget" });
-      continue;
-    }
-    const [wk, mo, prev, members] = await Promise.all([
-      supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: lastWeek.from, p_to: lastWeek.to }),
-      supabase.rpc("_office_dashboard_core", { p_agency: office.agency_id, p_from: last30.from, p_to: last30.to }),
-      supabase.from("office_coach_summaries").select("week_start, summary")
-        .eq("agency_id", office.agency_id).lt("week_start", weekStart)
-        .order("week_start", { ascending: false }).limit(1).maybeSingle(),
-      // ‏מין לכל סוכן/ת, לניסוח בלשון הנכונה. כשל כאן אינו מפיל את המשרד:
-      // בלי מין המודל פשוט מנסח סביב השמות.
-      supabase.from("agency_members").select("id, gender").eq("agency_id", office.agency_id),
-    ]);
-    const genders: Genders = Object.fromEntries(
-      ((members.data ?? []) as { id: string; gender: string | null }[]).map((m) => [m.id, m.gender]),
-    );
-    if (wk.error || mo.error) {
-      results.push({ agency_id: office.agency_id, error: "db_error", detail: (wk.error ?? mo.error)?.message });
-      continue;
-    }
-    const prevSummary = (prev.data?.summary ?? null) as CoachSummary | null;
-    const payload = {
-      week: lastWeek,
-      response_time_method: (wk.data as Row)?.data_notes,
-      last_week: compactPeriod(wk.data as Row, genders),
-      last_30_days: compactPeriod(mo.data as Row, genders),
-      monthly_office_totals_12m: monthlyTotals(mo.data as Row),
-      previous_week_points: prevSummary?.points?.map((p) => p.title) ?? null,
-    };
-
-    const out = await coach(payload);
-    if (!out.ok) {
-      console.error("office-coach failed", office.agency_id, out.reason);
-      results.push({ agency_id: office.agency_id, error: out.reason });
-      continue;
-    }
-    if (!dryRun) {
-      const { error } = await supabase.from("office_coach_summaries").upsert({
-        agency_id: office.agency_id,
-        week_start: weekStart,
-        summary: out.summary,
-        model: out.model,
-        input_tokens: out.input_tokens,
-        output_tokens: out.output_tokens,
-      }, { onConflict: "agency_id,week_start" });
-      if (error) {
-        results.push({ agency_id: office.agency_id, error: "db_error", detail: error.message });
-        continue;
-      }
-    }
-    results.push({
-      agency_id: office.agency_id,
-      ok: true,
-      input_tokens: out.input_tokens,
-      output_tokens: out.output_tokens,
-      ...(dryRun ? { summary: out.summary, payload } : {}),
-    });
-  }
-
-  return json({
-    week_start: weekStart,
-    dry_run: dryRun,
-    processed: results.filter((r) => r.ok).length,
-    failed: results.filter((r) => r.error).length,
-    deferred: results.filter((r) => r.skipped).length,
-    results,
-  });
+  if (kind === "office") return runOffice(supabase, url, dryRun, started);
+  if (kind === "team") return runTeam(supabase, url, dryRun, started);
+  if (kind === "agent") return runAgent(supabase, url, dryRun, started);
+  return json({ error: "bad_kind" }, 400);
 });

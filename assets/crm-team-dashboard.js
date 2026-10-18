@@ -68,6 +68,10 @@ async function loadMyRoles(){
 
 function tdRange(){ return odPeriodRange(tdState.period); }
 
+/* מאמן מנהלי הצוותים: הכרטיס המשותף (assets/crm-coach.js), של הצוות
+   שהקורא/ת מנהל/ת. נטען פעם אחת, במקביל לדאשבורד. ‏docs/coaches.md */
+coachRerender.team = () => { if (tdState.data) renderTeamDashboard(); };
+
 /* ---------- דאשבורד הצוות ---------- */
 async function loadTeamDashboard(force){
   const host = document.getElementById('teamDash');
@@ -76,6 +80,7 @@ async function loadTeamDashboard(force){
   if (!force && tdState.data && tdState.loadedFor === key){ renderTeamDashboard(); return; }
   if (tdState.busy) return;
   tdState.busy = true;
+  if (coachState.team === undefined) coachLoad('team', myRoles && myRoles.led_team_id);
   if (!tdState.data) host.innerHTML = odSkeleton();
   else host.classList.add('od-refreshing');
   const range = tdRange();
@@ -168,6 +173,7 @@ function renderTeamDashboard(){
   host.innerHTML = `<div class="od td" dir="rtl">
     ${tdHeader(data, range)}
     ${odKpis(view, range)}
+    ${coachCardHtml('team')}
     <section class="od-grid">
       <div class="od-card">
         <div class="od-card-h"><h3>דורש תשומת לב</h3>
@@ -218,7 +224,7 @@ function renderTeamAgents(){
   }
   const canMeet = navAccVisible('accAgenda');
   host.innerHTML = '<div class="td-agents">' + agents.map(a => `
-    <article class="td-agent">
+    <article class="td-agent" data-td-agent="${escapeHtml(a.agent_id)}">
       <div class="td-agent-top">${odAvatar(a)}<div><b>${escapeHtml(a.agent)}</b>
         <span>${odCount(a.active_listings, 'נכס פעיל אחד', 'נכסים פעילים')}${a.target_pct != null ? ' · ' + odPct(a.target_pct) + ' מהיעד' : ''}</span></div></div>
       <div class="td-agent-stats">
