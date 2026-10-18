@@ -73,6 +73,7 @@ const NETIVOT = [31.42, 34.59];
 const OFAKIM = [31.315, 34.62];
 const BEER_SHEVA = [31.252, 34.791];
 const JERUSALEM = [31.778, 35.205];
+const BEIT_SHEMESH = [31.747, 34.988];
 const RAMAT_GAN = [32.068, 34.824];
 const GIVATAYIM = [32.071, 34.81];
 const RG_BURSA = [32.083, 34.803];
@@ -337,6 +338,16 @@ check("רמות (צפון העיר, 31.87) → jerusalem", reg.locate(31.87, 35.
 check("הגבול עם מודיעין: 31.8599 → ירושלים, 31.86 → מודיעין (35.05)",
   reg.locate(31.8599, 35.05)?.slug === "jerusalem" && reg.locate(31.86, 35.05)?.slug === "modiin");
 check("בית שמש אינה בתיבה של ירושלים (שוק נפרד)", !reg.contains(reg.bySlug("jerusalem")!, 31.75, 34.99));
+check("בית שמש → beit-shemesh", reg.locate(BEIT_SHEMESH[0], BEIT_SHEMESH[1])?.slug === "beit-shemesh");
+check("צרעה → beit-shemesh", reg.locate(31.776, 34.985)?.slug === "beit-shemesh");
+check("נחשון → beit-shemesh", reg.locate(31.83, 34.965)?.slug === "beit-shemesh");
+check("צפרירים (עמק האלה) → beit-shemesh", reg.locate(31.665, 34.96)?.slug === "beit-shemesh");
+check("הגבול עם ירושלים: 35.0299 → בית שמש, 35.03 → ירושלים (31.75)",
+  reg.locate(31.75, 35.0299)?.slug === "beit-shemesh" && reg.locate(31.75, 35.03)?.slug === "jerusalem");
+check("הגבול עם קריית גת: 34.95 → קריית גת, 34.9501 → בית שמש (31.70)",
+  reg.locate(31.70, 34.95)?.slug === "kiryat-gat" && reg.locate(31.70, 34.9501)?.slug === "beit-shemesh");
+check("הגבול עם מודיעין: 31.8599 → בית שמש, 31.86 → מודיעין (35.00)",
+  reg.locate(31.8599, 35.00)?.slug === "beit-shemesh" && reg.locate(31.86, 35.00)?.slug === "modiin");
 check("רק שווקים חיים: קריית ביאליק → אין (הקריות עוד לא נפתחו)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
 check("קואורדינטה פסולה → אין", reg.locate(NaN, 35) === null);
