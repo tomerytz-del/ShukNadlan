@@ -2143,6 +2143,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('managerBrandingSection').style.display = managerDisplay;
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
   syncOfficeExportButtons();
+  // מנהל/ת צוות? (my_roles, docs/team-dashboard.md). בלי לחכות: האזור נפתח
+  // כשהתשובה מגיעה, ושום טעינה אחרת לא תלויה בו
+  loadMyRoles().catch(err => console.warn('טעינת התפקידים נכשלה:', err));
   if (agent.role === 'manager'){
     // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
     await Promise.all([
@@ -26375,6 +26378,14 @@ const NAV_GROUPS = [
        מהעיצוב אינו כאן - אין לו קטגוריה, והקידום עצמו יושב בכרטיס הנכס
        ובגיליון היצירה. */
     { acc:NAV_MINISITE,     label:'המיני-סייט שלי', icon:'globe', tab:'more' },
+  ]},
+  /* מנהל/ת צוות (docs/team-dashboard.md): הקבוצה יושבת ב-#teamLeadSection,
+     שמוצג לפי my_roles().led_team_id - ולכן navAccVisible מסתיר אותה מכל
+     השאר בלי בדיקה כאן. */
+  { key:'team', label:'הצוות שלי', icon:'users', items:[
+    { acc:'accTeamDashboard', label:'דאשבורד הצוות', icon:'gauge', tab:'more' },
+    { acc:'accTeamLeads',     label:'לידים בצוות',   icon:'inbox', tab:'more' },
+    { acc:'accTeamAgents',    label:'הסוכנים בצוות', icon:'users', tab:'more' },
   ]},
   /* כל הקבוצה יושבת ב-#managerSection / #managerBrandingSection, ולכן
      navAccVisible מציג אותה למנהל/ת משרד בלבד - בלי לשכפל כאן את בדיקת
