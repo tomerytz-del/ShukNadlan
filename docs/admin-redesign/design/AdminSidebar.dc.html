@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>תפריט צד למנהל הפלטפורמה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&amp;family=Assistant:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="ניהול הפלטפורמה" style="width: 280px; min-height: 1180px; height: 100%; box-sizing: border-box; background: #0E1A33; color: #C9D3E6; font-family: Assistant, sans-serif; direction: rtl; display: flex; flex-direction: column; gap: 14px; padding: 18px 14px">
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px">
+    <div style="width: 38px; height: 38px; border-radius: 11px; background: #1F5BF0; display: flex; align-items: center; justify-content: center; color: #FFFFFF">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-family: Rubik, sans-serif; font-weight: 700; font-size: 17px; color: #FFFFFF">שוק נדל״ן</span>
+      <span style="font-size: 12.5px; color: #E0B84A; font-weight: 700">מנהל/ת פלטפורמה</span>
+    </div>
+  </div>
+
+  <div role="group" aria-label="תצוגה" style="display: flex; background: #18264A; border-radius: 12px; padding: 4px; gap: 4px">
+    <button type="button" style="flex: 1; height: 36px; border: 0; border-radius: 9px; background: transparent; color: #C9D3E6; font: 600 13.5px Assistant, sans-serif; cursor: pointer">תצוגת סוכן/ת</button>
+    <button type="button" aria-pressed="true" style="flex: 1; height: 36px; border: 0; border-radius: 9px; background: #FFFFFF; color: #0E1A33; font: 700 13.5px Assistant, sans-serif; cursor: pointer">ניהול פלטפורמה</button>
+  </div>
+
+  <button type="button" style="height: 44px; border: 0; border-radius: 12px; background: #1F5BF0; color: #FFFFFF; font: 700 15px Assistant, sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"></path></svg>
+    פעולה מהירה
+    <kbd style="font: 600 11px Rubik, sans-serif; background: #1846C2; border-radius: 6px; padding: 2px 6px; color: #FFFFFF">N</kbd>
+  </button>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="true" style="display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; letter-spacing: .3px; cursor: pointer">היום
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px; {{st.home}}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h6V4H4z M14 20h6v-9h-6z M14 4h6v3h-6z M4 20h6v-3H4z"></path></svg>
+      <span style="flex: 1">מרכז הפיקוד</span>
+    </a>
+    <a href="Admin-Inbox.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px; {{st.inbox}}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l3-8h12l3 8v6H3z M3 13h5l1 3h6l1-3h5"></path></svg>
+      <span style="flex: 1">תיבת משימות</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">21</span>
+    </a>
+    <a href="Admin-Inbox.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+      <span style="flex: 1">לידים ללא יעד</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">4</span>
+    </a>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="true" style="display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">שוק ומשתמשים
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <a href="Admin-Growth.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px; {{st.markets}}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4l6 2 6-2v16l-6 2-6-2-6 2V6z M9 4v16 M15 6v16"></path></svg>
+      <span style="flex: 1">שווקים מקומיים</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5l8-3 8 3v16 M9 21v-4h6v4 M8 8h2 M14 8h2 M8 12h2 M14 12h2"></path></svg>
+      <span style="flex: 1">משרדים וסוכנים</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10h18"></path></svg>
+      <span style="flex: 1">מנויים ומסלולים</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5h6v2"></path></svg>
+      <span style="flex: 1">בעלי מקצוע</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #2A3A62; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">3</span>
+    </a>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="true" style="display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">צמיחה ושיווק
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <a href="Admin-Growth.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px; {{st.campaigns}}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4h4l8 5V5L7 10z M18 9a4 4 0 0 1 0 6"></path></svg>
+      <span style="flex: 1">קמפיינים · Meta ו-Google</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z M14 3v5h5 M9 13h7 M9 17h5"></path></svg>
+      <span style="flex: 1">כתבות ובלוגים</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #2A3A62; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">9</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <span style="flex: 1">SEO ושכונות</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #2A3A62; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">99+</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19h.01 M5 12a7 7 0 0 1 7 7 M5 5a14 14 0 0 1 14 14"></path></svg>
+      <span style="flex: 1">טיקר חדשות · RSS</span>
+    </a>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="true" style="display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">כסף
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"></path></svg>
+      <span style="flex: 1">הכנסות ודוח חודשי</span>
+    </a>
+    <a href="Admin-Inbox.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M16 12.5h2"></path></svg>
+      <span style="flex: 1">ארנקים והחזרים</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">2</span>
+    </a>
+    <a href="#" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 10px; color: #C9D3E6; text-decoration: none; font-size: 15px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10 M9 10h5"></path></svg>
+      <span style="flex: 1">עלויות תפעול ו-AI</span>
+    </a>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">
+      <span style="flex: 1; text-align: right">אמון ובקרה</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">3</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </button>
+    <span style="font-size: 12px; color: #8C9AB5; padding: 0 8px">ערעורי רישיון · ביקורות · יומן ביקורת</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">
+      <span style="flex: 1; text-align: right">נתונים ותכנון</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </button>
+    <span style="font-size: 12px; color: #8C9AB5; padding: 0 8px">עסקאות ויישובים · GovMap · תב״ע</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 2px">
+    <button type="button" aria-expanded="false" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border: 0; background: transparent; color: #8C9AB5; font: 700 12px Assistant, sans-serif; cursor: pointer">
+      <span style="flex: 1; text-align: right">מערכת</span>
+      <span style="min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: #B45309; color: #FFFFFF; font: 700 12px Rubik, sans-serif; display: inline-flex; align-items: center; justify-content: center">1</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </button>
+    <span style="font-size: 12px; color: #8C9AB5; padding: 0 8px">בריאות המערכת · חסר למאמן · כלי ניהול</span>
+  </div>
+
+  <div style="flex: 1"></div>
+
+  <div style="background: #18264A; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span style="width: 9px; height: 9px; border-radius: 50%; background: #34D399"></span>
+      <span style="font-weight: 700; color: #FFFFFF; font-size: 14px">גבריאלה פעילה בוואטסאפ</span>
+    </div>
+    <span style="font-size: 12.5px; color: #C9D3E6">[n] שיחות היום · [n] שגיאות</span>
+  </div>
+
+  <div style="display: flex; gap: 6px">
+    <button type="button" style="flex: 1; height: 40px; border: 0; border-radius: 10px; background: transparent; color: #C9D3E6; font: 600 13.5px Assistant, sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7 M12 17v.01"></path></svg>עזרה</button>
+    <button type="button" style="flex: 1; height: 40px; border: 0; border-radius: 10px; background: transparent; color: #C9D3E6; font: 600 13.5px Assistant, sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg>כווץ תפריט</button>
+  </div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","inbox","markets","campaigns"],"default":"home"},"$preview":{"width":280,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.active ?? 'home';
+    const on = 'background:#1F5BF0;color:#FFFFFF;font-weight:700';
+    const st = {};
+    ['home', 'inbox', 'markets', 'campaigns'].forEach((k) => { st[k] = k === a ? on : ''; });
+    return { st };
+  }
+}
+</script>
+</body>
+</html>
