@@ -34,9 +34,11 @@ import {
   Refs,
   summarySchema,
   summaryForAsk,
+  askHistory,
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
-import { askSystemPrompt, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
+import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
+import { PLAYBOOK } from "../supabase/functions/_shared/coach/playbook.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -302,12 +304,31 @@ check("שאל: בלי סיכום - null", summaryForAsk(null) === null);
 check("שאל: שאלה נחתכת ל-300 ומנוקה", cleanQuestion("  א\nב " + "x".repeat(400)).length === 300 && !cleanQuestion("א\nב").includes("\n"));
 const ans = cleanAnswer("## כותרת\n**חשוב** — כך\n* אחד\n\n\n\nשני");
 check("שאל: התשובה בלי Markdown ובלי מקף ארוך", ans === "כותרת\nחשוב - כך\n- אחד\n\nשני", ans);
-check("שאל: תשובה ארוכה נחתכת", cleanAnswer("a".repeat(3000)).length === 1200);
+check("שאל: תשובה ארוכה נחתכת ב-2,400", cleanAnswer("a".repeat(3000)).length === 2400);
+check("שאל: תשובה מקצועית של 250 מילים לא נחתכת", cleanAnswer("מילה ".repeat(250)).length < 2400);
+
+// ידע מקצועי (playbook.ts) וטון (coach_preferences)
+check("ידע: עמלה 2% ובלעדיות 4-6 חודשים", PLAYBOOK.includes("2%") && PLAYBOOK.includes("4-6 חודשים"));
+check("ידע: מה לא אומרים בפגישת גיוס", PLAYBOOK.includes("אביא לך את המחיר שאתה רוצה") && PLAYBOOK.includes("ארד ל-1%"));
+check("ידע: אין מקף ארוך", !/[–—―]/.test(PLAYBOOK));
+check("ידע: מפנים לעו\"ד/רו\"ח בשאלות משפטיות ומס", PLAYBOOK.includes("עורך/ת דין") && PLAYBOOK.includes("רואה/ת חשבון"));
+check("טון: ברירת מחדל warm", cleanTone(undefined) === "warm" && cleanTone("x") === "warm" && cleanTone("direct") === "direct");
+check("טון: direct בשאלה", askSystemPrompt("agent", "direct").includes("מאמן ישיר וקשוח") && !askSystemPrompt("agent", "direct").includes("חבר/ה מקצועי/ת וחם/ה"));
+check("טון: warm כברירת מחדל בשאלה", askSystemPrompt("office").includes("חבר/ה מקצועי/ת וחם/ה"));
+check("טון: הסיכום היומי נושא את הטון", agentSystemPrompt("direct").startsWith(SYSTEM_PROMPTS.agent) && agentSystemPrompt("direct").includes("מאמן ישיר"));
+const hist = askHistory([
+  { question: "ג", answer: "3" }, { question: "ב", answer: null }, { question: "א", answer: "1" }, { question: "ז", answer: "0" },
+]);
+// השורות מגיעות מהחדשה לישנה (order desc); בלי התשובה החסרה נשארות שלוש
+check("שיחת המשך: מהישנה לחדשה, בלי שאלה בלי תשובה, עד 3", JSON.stringify(hist.map((m) => m.content)) ===
+  JSON.stringify(["השאלה: ז", "0", "השאלה: א", "1", "השאלה: ג", "3"]), hist);
+check("שיחת המשך: התורות מתחלפות", hist.every((m, i) => m.role === (i % 2 ? "assistant" : "user")));
 for (const kind of ["agent", "team", "office"] as const) {
   const p = askSystemPrompt(kind);
   check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("העברת ליד"));
   check(`שאל ${kind}: תשובה בלבד, בלי פעולות`, p.includes("לא מבצע/ת פעולות"));
   check(`שאל ${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(p));
+  check(`שאל ${kind}: הידע המקצועי בפרומפט`, p.includes(PLAYBOOK));
 }
 
 // ---------------------------------------------------------------------------

@@ -24,10 +24,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import {
-  addDays, cleanAnswer, cleanQuestion, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
+  addDays, askHistory, cleanAnswer, cleanQuestion, type CoachKind, compactAgent, compactPeriod, compactTeams, type Genders,
   Refs, type Row, summaryForAsk,
 } from "../_shared/coach/payload.ts";
-import { askSystemPrompt } from "../_shared/coach/prompts.ts";
+import { askSystemPrompt, cleanTone } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -152,6 +152,17 @@ Deno.serve(async (req: Request) => {
   const ctx = await loadContext(service, kind, me as Member, String(dayRaw));
   if ("error" in ctx) return json({ error: ctx.error }, ctx.status);
 
+  // שיחת המשך: השאלות של 12 השעות האחרונות לאותו מנטור, כדי ש"ואם הוא עדיין
+  // מסרב?" יובן. רק של השואל/ת עצמו/ה. תקלה כאן אינה מפילה את השאלה.
+  // והטון שהשואל/ת בחר/ה בכרטיס (coach_preferences). בלי שורה - warm.
+  const [{ data: past }, { data: pref }] = await Promise.all([
+    service.from("coach_questions").select("question, answer")
+      .eq("agent_id", me.id).eq("kind", kind)
+      .gte("created_at", new Date(Date.now() - 12 * 3600 * 1000).toISOString())
+      .order("created_at", { ascending: false }).limit(3),
+    service.from("coach_preferences").select("tone").eq("agent_id", me.id).maybeSingle(),
+  ]);
+
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {
     response = await anthropic.beta.messages.create({
@@ -159,14 +170,17 @@ Deno.serve(async (req: Request) => {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       max_tokens: 2000,
-      system: [{ type: "text", text: askSystemPrompt(kind), cache_control: { type: "ephemeral" } }],
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: JSON.stringify({ latest_summary: summaryForAsk(ctx.summary), data: ctx.data }) },
-          { type: "text", text: "השאלה: " + question },
-        ],
-      }],
+      system: [{ type: "text", text: askSystemPrompt(kind, cleanTone(pref?.tone)), cache_control: { type: "ephemeral" } }],
+      messages: [
+        ...askHistory(past as Row[] | null),
+        {
+          role: "user",
+          content: [
+            { type: "text", text: JSON.stringify({ latest_summary: summaryForAsk(ctx.summary), data: ctx.data }) },
+            { type: "text", text: "השאלה: " + question },
+          ],
+        },
+      ],
     });
   } catch (err) {
     console.error("coach-ask failed", err instanceof Anthropic.APIError ? err.status : "network");

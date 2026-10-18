@@ -387,7 +387,7 @@ export function cleanQuestion(raw: unknown): string {
 }
 
 /* התשובה לפני שהיא מוצגת ונשמרת: בלי מקף ארוך, בלי כותרות ו-** של Markdown,
-   ועד 1,200 תווים. */
+   ועד 2,400 תווים - שאלה מקצועית מקבלת עד 250 מילים (askSystemPrompt). */
 export function cleanAnswer(raw: unknown): string {
   const t = noLongDash(String(raw ?? ""))
     .replace(/^#{1,6}\s*/gm, "")
@@ -395,5 +395,17 @@ export function cleanAnswer(raw: unknown): string {
     .replace(/^\s*[*•]\s+/gm, "- ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return t.length > 1200 ? t.slice(0, 1199).trimEnd() + "…" : t;
+  return t.length > 2400 ? t.slice(0, 2399).trimEnd() + "…" : t;
+}
+
+/* שיחת המשך: עד 3 השאלות והתשובות האחרונות של אותו/ה שואל/ת לאותו מנטור,
+   מ-coach_questions, מהישנה לחדשה, כתורות user/assistant. שורה בלי תשובה
+   (תשובה שלא נשמרה) לא נכנסת, כדי שהתורות יתחלפו. */
+export function askHistory(rows: Row[] | null | undefined): { role: "user" | "assistant"; content: string }[] {
+  const out: { role: "user" | "assistant"; content: string }[] = [];
+  for (const r of (rows ?? []).filter((x) => x && x.question && x.answer).slice(0, 3).reverse()) {
+    out.push({ role: "user", content: "השאלה: " + cleanQuestion(r.question) });
+    out.push({ role: "assistant", content: String(r.answer) });
+  }
+  return out;
 }

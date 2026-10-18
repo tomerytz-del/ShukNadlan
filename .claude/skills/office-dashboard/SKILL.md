@@ -126,6 +126,12 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   מי שמשנה את סדר הכתיבה (תשובה ואז יומן) שומר/ת שהיומן נכתב לכל תשובה ששולמה.
 - הסודות: `COACH_ASK_DAILY` (ברירת מחדל 10) ו-`COACH_ASK_MODEL`. קוד שגיאה חדש
   מהפונקציה מקבל שורה ב-`RULES` של `assets/friendly-error.js`.
+- **הידע המקצועי הוא קובץ, והוא השיטה של תומר** (`_shared/coach/playbook.ts`):
+  עמלה 2%, בלעדיות 4-6 חודשים, פגישת גיוס, התנגדויות ו"מה לא אומרים". שינוי
+  בו עובר ב-PR ובאישור, ולא מוסיפים לו סטטיסטיקות שלא נמדדו - המודל יצטט אותן.
+- **הטון לפי הקורא/ת** (`coach_preferences.tone`, ‏`warm` / `direct`): חל על
+  "שאל את המנטור" ועל הסיכום היומי (והוא בטביעת האצבע שלו), ולא על הסיכומים
+  השבועיים, שיש להם כמה קוראים.
 - הבדיקה: `node --experimental-strip-types scripts/office_coach_test.ts` (כולל
   `cleanQuestion`, ‏`cleanAnswer` והפרומפט). הפרטים: `docs/coaches.md`.
 
