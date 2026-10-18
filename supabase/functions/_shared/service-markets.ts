@@ -43,6 +43,7 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "gush-etzion", label: "גוש עציון והר חברון" },
   { slug: "dimona-arad", label: "דימונה, ערד וירוחם" },
   { slug: "eilat", label: "אילת והסביבה" },
+  { slug: "kiryat-shmona", label: "קריית שמונה והגליל העליון" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);
