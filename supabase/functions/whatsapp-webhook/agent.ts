@@ -6590,6 +6590,12 @@ export async function callClaude(
  * אותו `SYSTEM_STATIC` עם אותו `cache_control`, ואותו `effort` (הוא מרונדר לתוך
  * הפרומפט). שינוי שם בלי כאן = בקשה שכותבת מטמון שאף תור אינו קורא.
  */
+/** הקידומת הקבועה (כלים והוראות) - בשביל scripts/gabriela_model_eval.ts בלבד,
+ *  שמשווה מודלים מול הפרומפט האמיתי בלי להריץ כלים. */
+export function evalPromptParts(): { tools: Anthropic.Tool[]; system: string; model: string } {
+  return { tools: TOOLS, system: SYSTEM_STATIC, model: MODEL };
+}
+
 export async function warmPromptCache(): Promise<Anthropic.Message> {
   const response = await callClaude({
     model: MODEL,
