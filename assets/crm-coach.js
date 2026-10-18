@@ -534,9 +534,36 @@ function coachLayerKinds(){
    המנטור שנשאל: הראשון ב-coachLayerKinds (האישי, ואם אין - הצוות או המשרד).
    ‏**המבנה נבנה פעם אחת ב-HTML**: homeCoachSync רץ עם כל ציור של דף הבית
    (refreshNavCounts), וציור מחדש של השדה היה מוחק את מה שמוקלד ואת המיקוד.
-   כאן מתעדכנים רק ההצעות, התשובה והנראות. */
+   כאן מתעדכנים רק התשובה והנראות.
+
+   **שורה אחת:** אווטאר (פותח את השכבה - הצעדים והשיחה), שדה ושליחה. השאלות
+   המוצעות מוקלדות בתוך השדה ומתחלפות (homeAskTyper), במקום שורת כפתורים
+   ו"עוד מהמנטור" מתחתיו - תומר, 19.10.2026: "לצמצם את השורה הנוספת ולגוון
+   את השאלות". שליחה בשדה ריק שולחת את השאלה שמוצגת בו. */
+/* שאלות של יום עבודה, לצד המקצועיות של COACH_PRO_Q - כדי שיהיה ברור שהמנטור
+   עונה גם על "מה עושים עכשיו" ולא רק על נושאים */
+const COACH_DAILY_Q = {
+  agent:  ['מה לכתוב בהודעה ראשונה לליד חדש?', 'איך חוזרים לליד שלא ענה?', 'איך מבקשים בלעדיות בלי להישמע לחוץ?',
+           'מה עונים ל"העמלה גבוהה מדי"?', 'איך מתמחרים דירה כשהבעלים רוצה יותר מהשוק?', 'מה לבדוק לפני סיור עם קונה?'],
+  team:   ['איך מעלים את זמן התגובה של הצוות?', 'מה לעשות עם סוכן שלא מגייס בלעדיות?'],
+  office: ['איך מגייסים סוכן טוב למשרד?', 'איך מודדים אם המשרד בכיוון הנכון?'],
+};
+
 function homeAskKind(){
   return coachLayerKinds()[0] || null;
+}
+
+/* השאלות שמוקלדות בשדה: עד שתיים מהסיכום של היום, ואחריהן היומיומיות
+   והמקצועיות, בסדר שמתחלף לפי היום - כדי שכל ביקור יתחיל משאלה אחרת. */
+function homeAskPhrases(){
+  const kind = homeAskKind();
+  if (!kind) return [];
+  const row = coachState[kind];
+  const fromSum = row && row.summary && Array.isArray(row.summary.questions) ? row.summary.questions.slice(0, 2) : [];
+  const pool = [...(COACH_DAILY_Q[kind] || []), ...(COACH_PRO_Q[kind] || [])];
+  const day = Math.floor(Date.now() / 86400000);
+  const turned = pool.length ? pool.map((_, n) => pool[(n + day) % pool.length]) : [];
+  return [...new Set([...fromSum, ...turned])].filter(Boolean);
 }
 
 function homeCoachSync(){
@@ -547,31 +574,12 @@ function homeCoachSync(){
   if (!kind) return;
   row.dataset.kind = kind;
   const st = coachAsk[kind] || {};
-
-  const steps = row.querySelector('[data-home-coach-open]');
-  const cur = coachState[kind];
-  if (steps) steps.textContent = cur && cur.summary
-    ? (kind === 'agent' ? 'הצעדים של היום ←' : 'הסיכום השבועי ←') : 'עוד מהמנטור ←';
+  homeAskTyper.start();
 
   const send = row.querySelector('.home-ask-send');
   const input = document.getElementById('homeAskInput');
   if (send) send.disabled = !!st.busy;
   if (input) input.disabled = !!st.busy;
-
-  // הצעות: עד אחת מהסיכום ואחת מקצועית, רק לפני שאלה ראשונה
-  const sugg = document.getElementById('homeAskSugg');
-  if (sugg){
-    const row0 = coachState[kind];
-    const fromSum = row0 && row0.summary && Array.isArray(row0.summary.questions) ? row0.summary.questions : [];
-    const pro = COACH_PRO_Q[kind] || [];
-    const day = Math.floor(Date.now() / 86400000);
-    const list = st.q ? [] : [...new Set([fromSum[0], pro.length ? pro[day % pro.length] : null].filter(Boolean))];
-    const key = list.join('|');
-    if (sugg.dataset.key !== key){
-      sugg.dataset.key = key;
-      sugg.innerHTML = list.map(q => `<button type="button" data-home-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('');
-    }
-  }
 
   const out = document.getElementById('homeAskOut');
   if (out){
@@ -587,13 +595,88 @@ function homeCoachSync(){
   }
 }
 
+/* ---------- השאלות המתחלפות בשדה ----------
+   אותה מכונה כמו בחיפוש בדף הבית של האתר (assets/sentence-search.js, typer):
+   אות אחר אות עם עצירה בין מילים, החזקה, מחיקה ומעבר לבאה. השכבה יושבת מעל
+   שדה ריק ולא בתוך ה-placeholder, כדי שקורא מסך ישמע את התווית פעם אחת.
+   נעצרת בפוקוס, כשיש טקסט, בלשונית מוסתרת, כשהשורה מחוץ למסך או מוסתרת.
+   ‏prefers-reduced-motion: השאלה השלמה מתחלפת כל 3.5 שניות, בלי הקלדה. */
+const homeAskTyper = (function(){
+  const CHAR_MS = 45, WORD_PAUSE = 140, HOLD_MS = 2200, DEL_MS = 18, GAP_MS = 380, SWAP_MS = 3500;
+  let i = Math.floor(Date.now() / 86400000), timer = 0, running = false, visible = true, wired = false, shown = '';
+  const el = () => ({
+    row: document.getElementById('homeCoachRow'),
+    input: document.getElementById('homeAskInput'),
+    out: document.querySelector('#homeCoachRow .home-ask-text'),
+    field: document.querySelector('#homeCoachRow .home-ask-field'),
+  });
+  const noMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function blocked(){
+    const e = el();
+    return !e.out || !e.row || e.row.hidden || document.hidden || !visible
+      || document.activeElement === e.input || e.input.value !== '' || e.input.disabled || !homeAskPhrases().length;
+  }
+  function sync(){
+    const e = el();
+    if (!e.field) return;
+    e.field.classList.toggle('has-value', !!e.input && e.input.value !== '');
+    e.field.classList.toggle('is-typing', running);
+  }
+  function stop(){ running = false; shown = ''; clearTimeout(timer); sync(); }
+  function phrase(){ const l = homeAskPhrases(); return l[i % l.length]; }
+  function type(n){
+    if (blocked()) return stop();
+    const p = phrase();
+    el().out.textContent = p.slice(0, n);
+    if (n >= p.length){ shown = p; timer = setTimeout(() => erase(p.length), HOLD_MS); return; }
+    timer = setTimeout(() => type(n + 1), CHAR_MS + (p.charAt(n) === ' ' ? WORD_PAUSE : 0));
+  }
+  function erase(n){
+    if (blocked()) return stop();
+    shown = '';
+    const out = el().out;
+    out.textContent = out.textContent.slice(0, n);
+    if (n <= 0){ i++; timer = setTimeout(() => type(0), GAP_MS); return; }
+    timer = setTimeout(() => erase(n - 1), DEL_MS);
+  }
+  function swap(){
+    if (blocked()) return stop();
+    shown = phrase();
+    el().out.textContent = shown;
+    i++;
+    timer = setTimeout(swap, SWAP_MS);
+  }
+  function wire(){
+    const e = el();
+    if (wired || !e.input || !e.field) return;
+    wired = true;
+    e.input.addEventListener('focus', stop);
+    e.input.addEventListener('input', () => { if (e.input.value !== '') stop(); sync(); });
+    e.input.addEventListener('blur', () => { sync(); setTimeout(start, 600); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+    if ('IntersectionObserver' in window){
+      new IntersectionObserver(en => { visible = en[0].isIntersecting; if (visible) start(); else stop(); }).observe(e.field);
+    }
+  }
+  function start(){
+    wire();
+    if (running || blocked()) return;
+    running = true; sync();
+    if (noMotion()) swap(); else type(0);
+  }
+  return { start, stop, current: () => shown };
+})();
+
 function homeAskSubmit(question){
   const kind = homeAskKind();
   if (!kind) return;
   const input = document.getElementById('homeAskInput');
-  const q = String(question || '').trim();
-  if (!q) return;
+  // שדה ריק: השאלה שמוצגת בו עכשיו (מוקלדת עד הסוף) - לחיצה על השליחה
+  // היא "כן, את זה"
+  const q = String(question || '').trim() || homeAskTyper.current();
+  if (!q){ if (input) input.focus(); return; }
   if (input && q.length >= 3) input.value = '';
+  homeAskTyper.stop();
   coachAskSend(kind, q);
 }
 
@@ -665,8 +748,6 @@ function coachLayerRender(){
   document.addEventListener('click', e => {
     const open = e.target.closest('[data-home-coach-open]');
     if (open){ e.stopPropagation(); openNavLayer('coach'); return; }
-    const hq = e.target.closest('[data-home-q]');
-    if (hq){ homeAskSubmit(hq.dataset.homeQ); return; }
     if (!e.target.closest('#coachSheet')) return;
     const tab = e.target.closest('[data-cl-kind]');
     if (tab){
