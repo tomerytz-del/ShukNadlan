@@ -50,3 +50,18 @@ select a.name as משרד, a.address as כתובת, a.created_at::date as נוצ
   from public.agencies a
  where a.city_id is null
  order by a.created_at desc;
+
+-- 4. יישובים בלי שוק, לפי נפה - בדיקת הפערים לפני ואחרי כל גל של שווקים.
+--    יישובים ערביים, בדואיים ודרוזיים נשארים מחוץ לשווקים בהחלטה (18.10.2026),
+--    וכך גם מחנות צבא ומוסדות. כל יישוב יהודי אחר שחוזר כאן הוא פער: שורה
+--    במיגרציה (docs/regional-pages.md, "מה נשאר בלי שוק").
+--    אין עמודת מגזר ב-cities, ולכן ההכרעה ביד - לפי השם.
+select cbs_nafa                                   as נפה,
+       count(*)                                   as יישובים,
+       sum(coalesce(population, 0))               as תושבים,
+       string_agg(name || ' (' || muni_code || ', ' || coalesce(population, 0) || ')', ', '
+                  order by population desc nulls last) as היישובים
+  from public.cities
+ where market_slug is null and active is not false
+ group by 1
+ order by 3 desc;
