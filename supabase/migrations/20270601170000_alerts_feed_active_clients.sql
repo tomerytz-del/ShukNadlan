@@ -73,3 +73,36 @@ comment on function public.client_match_alerts_feed(text, int) is
 
 revoke all on function public.client_match_alerts_feed(text, int) from public, anon, authenticated;
 grant execute on function public.client_match_alerts_feed(text, int) to authenticated;
+
+-- סגירת כרטיס מוחקת גם את התראות ההתאמה הפתוחות (new/seen), ולא רק את
+-- התראות הפעמון. dismissed נשמרת, כמו במעבר לבעל/ת נכס
+-- (agent_clients_owner_clear_alerts). פתיחה מחדש מריצה את ההתאמות שוב דרך
+-- agent_clients_match_alerts_upd (status ברשימה שלו), ולכן לא אובד דבר.
+-- מחיקת כרטיס כבר מוחקת אותן - client_match_alerts.client_id הוא on delete cascade.
+-- העתק מלא של 20270502090000, ושורת delete אחת נוספה.
+create or replace function public.agent_client_closed_cleanup()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.notifications n
+   where n.related_client_id = new.id
+     and n.type = 'client_match';
+
+  delete from public.client_match_alerts a
+   where a.client_id = new.id
+     and a.status in ('new', 'seen');
+  return null;
+end;
+$$;
+
+revoke all on function public.agent_client_closed_cleanup() from public, anon, authenticated;
+
+-- למפרע: לקוחות שכבר סגורים.
+delete from public.client_match_alerts a
+ using public.agent_clients c
+ where a.client_id = c.id
+   and c.status = 'closed'
+   and a.status in ('new', 'seen');
