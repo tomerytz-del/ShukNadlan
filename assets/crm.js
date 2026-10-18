@@ -13102,6 +13102,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     tour_3d_url: tour3dUrl,
     video_url: videoUrl,
     listing_expires_at: document.getElementById('npExpiresAt').value || null,
+    yad2_listing_id: /^\d{4,12}$/.test(document.getElementById('npYad2Id').value.trim())
+      ? Number(document.getElementById('npYad2Id').value.trim()) : null,
     agent2_name: document.getElementById('npAgent2Name').value.trim() || null,
     agent2_phone: document.getElementById('npAgent2Phone').value.trim() || null,
     condition: currentCategory === 'commercial' ? null : (document.getElementById('npCondition').value || null),
@@ -13781,7 +13783,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -15124,6 +15126,10 @@ function propertyStatusErrorText(error){
     return heErr(error);
   }
   if (error.code === '23503') return 'אי אפשר למחוק את הנכס - מקושרים אליו חוזה או עסקה שמורים.';
+  // ‏properties_agency_yad2_listing_uniq - מודעה של יד2 פעם אחת למשרד
+  if (error.code === '23505' && /yad2/.test(String(error.message || '') + String(error.details || ''))){
+    return 'מספר המודעה ביד2 כבר רשום על נכס אחר במשרד. בדקו את המספר, או פתחו את הנכס הקיים.';
+  }
   return heErr(error) || 'שגיאה לא ידועה';
 }
 
@@ -16912,6 +16918,7 @@ function openEditProperty(p){
   document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
   document.getElementById('npTour3dUrl').value = p.tour_3d_url || '';
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
+  document.getElementById('npYad2Id').value = p.yad2_listing_id ?? '';
   document.getElementById('npAgent2Name').value = p.agent2_name || '';
   document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
   // אסינכרונית (שליפת הצוות) — ולכן אחרי הצבת השדות עצמם, שממנה היא נגזרת
@@ -17013,6 +17020,9 @@ const IMPORT_FIELDS = [
   { key:'title', label:'כותרת', hint:'אם ריק - תיווצר כותרת אוטומטית מסוג הנכס והכתובת', aliases:['כותרת','שם','שם הנכס','כותרת המודעה','title','name'] },
   { key:'status', label:'סטטוס', hint:'פעיל / נמכר / הושכר / לא פעיל - ברירת מחדל: פעיל', aliases:['סטטוס','מצב מודעה','status'] },
   { key:'category', label:'קטגוריה', hint:'מגורים / מסחרי - ברירת מחדל: מגורים', aliases:['קטגוריה','category'] },
+  // בלי הכינוי "מספר מודעה" לבדו: בייצוא שלנו זה listing_number. בקובץ של
+  // יד2 העמודה ממופה לכאן מפורשות (impReadFile).
+  { key:'yad2_listing_id', label:'מספר מודעה ביד2', hint:'מודעה של יד2 נקלטת פעם אחת למשרד', aliases:['מספר מודעה ביד2','מספר מודעה ביד 2','מספר מודעה יד2','yad2_listing_id'] },
   { key:'property_type', label:'סוג נכס', required:true, aliases:['סוג נכס','סוג הנכס','סוג','property_type','type'] },
   { key:'deal_type', label:'סוג עסקה', required:true, hint:'מכירה / השכרה', aliases:['סוג עסקה','עסקה','deal_type','deal','מכירה השכרה'] },
   { key:'price', label:'מחיר', required:true, aliases:['מחיר','מחיר מבוקש','price','מחיר בשח'] },
@@ -17305,6 +17315,8 @@ function impInitState(){
     existingKeys: null,             // כותרת|מחיר של נכסים קיימים, לבדיקת כפילות
     forceStep3: false,              // אישור מעבר לבדיקה בלי מיפוי שדה חובה
     yad2: false, yad2Agent1: null,  // קובץ "המודעות שלי" של יד2 - ראו impDetectYad2
+    hoodAliases: null,              // neighborhood_aliases: [{ neighborhood_id, alias }]
+    yad2Taken: null,                // מספר מודעה ביד2 -> שם הסוכן/ת שכבר מחזיק/ה אותה במשרד
     parsed: [], failed: [], busy: false,
   };
 }
@@ -17414,6 +17426,7 @@ async function impReadFile(file){
       importState.mapping.listing_expires_at = -1;
       const at = (name)=> headers.findIndex(h => impNorm(h) === impNorm(name));
       importState.yad2Agent1 = { name: at('סוכן 1'), phone: at('טלפון 1') };
+      if ((importState.mapping.yad2_listing_id ?? -1) < 0) importState.mapping.yad2_listing_id = at('מספר מודעה');
     }
     impSetStep(2);
   } catch(err){
@@ -17568,6 +17581,8 @@ function impRenderStep2(){
       // התיקונים הידניים נעשו מול המיפוי הקודם — עמודה חדשה לשדה שתוקן
       // הייתה נשארת מוסתרת מאחורי התיקון הישן.
       importState.overrides = Object.create(null);
+      // הבדיקה מול המשרד נשלפת לפי העמודה של מספר המודעה - עמודה אחרת, שליפה אחרת
+      if (sel.dataset.field === 'yad2_listing_id') importState.yad2Taken = null;
       warnEl.textContent = '';
       nextBtn.textContent = 'בדיקת הנתונים';
     });
@@ -17688,7 +17703,18 @@ function impBuildRow(rawRow, rowNumber){
     if (deal === 'sale' && price < 10000) warnings.push('מחיר נמוך במיוחד למכירה - ודאו שהמחיר בשקלים ולא באלפים');
   }
 
-  const city = impText(cell('city'));
+  let city = impText(cell('city'));
+  // ‏"אזור תעשייה אלון התבור" ביד2 הוא יישוב, ואצלנו שכונה בעפולה. שם יישוב
+  // שאינו עיר של אף שכונה ושווה לשם של שכונה אחת בדיוק - עובר לעיר שלה.
+  let hoodFromCity = null;
+  if (city && !allNeighborhoods.some(n => hoodCityKey(n.city) === hoodCityKey(city))){
+    const named = allNeighborhoods.filter(n => impNorm(n.name) === impNorm(city));
+    if (named.length === 1){
+      hoodFromCity = named[0];
+      warnings.push(`"${city}" הוא שכונה ב${hoodFromCity.city} - נקלט כ${hoodFromCity.city}, שכונת ${hoodFromCity.name}`);
+      city = hoodFromCity.city;
+    }
+  }
   if (!city) fail('city', 'חסרה עיר');
   else payload.city = city;
 
@@ -17700,19 +17726,35 @@ function impBuildRow(rawRow, rowNumber){
     else payload.rooms = rooms;
   }
 
-  // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע
+  // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע.
+  // ‏hoodFallback: שכונה שנקבעה מכינוי או מהתאמה רכה ולא מהשם עצמו. בשלב
+  // הקליטה, כשיש כתובת מלאה, הפין מכריע קודם והיא נכנסת רק אם הוא לא הכריע
+  // (impApplyHoodFallbacks).
+  let hoodFallback = null;
   const rawNeighborhood = impNorm(cell('neighborhood'));
-  if (rawNeighborhood){
+  if (hoodFromCity){
+    payload.neighborhood_id = hoodFromCity.id;
+  } else if (rawNeighborhood){
     // בתוך העיר של השורה: "מרכז העיר" קיים בעפולה ובקריית אתא, והתאמה לפי
     // שם בלבד הייתה משייכת נכס בעפולה לשכונה בקריית אתא.
     const cityKey = hoodCityKey(city);
     const inCity = allNeighborhoods.filter(n => !cityKey || hoodCityKey(n.city) === cityKey);
     const match = inCity.find(n => impNorm(n.name) === rawNeighborhood);
-    const fuzzy = match ? null : impFuzzyNeighborhood(cell('neighborhood'), city, inCity);
+    // כינוי שנקבע בהכרעה (‏neighborhood_aliases) - לפני ההתאמה הרכה, כי הוא
+    // החלטה ולא ניחוש: "שכון עובדים" = מרכז העיר
+    const aliased = match ? null : (()=>{
+      const ids = new Set((importState.hoodAliases || [])
+        .filter(a => impNorm(a.alias) === rawNeighborhood).map(a => a.neighborhood_id));
+      const hits = inCity.filter(n => ids.has(n.id));
+      return hits.length === 1 ? hits[0] : null;
+    })();
+    const fuzzy = (match || aliased) ? null : impFuzzyNeighborhood(cell('neighborhood'), city, inCity);
     if (match) payload.neighborhood_id = match.id;
-    else if (fuzzy){
-      payload.neighborhood_id = fuzzy.id;
-      warnings.push(`השכונה "${impText(cell('neighborhood'))}" שויכה ל"${fuzzy.name}"`);
+    else if (aliased || fuzzy){
+      hoodFallback = aliased || fuzzy;
+      payload.neighborhood_id = hoodFallback.id;
+      warnings.push(`השכונה "${impText(cell('neighborhood'))}" שויכה ל"${hoodFallback.name}"`
+        + (cell('street') && cell('house_number') ? ' - אלא אם הכתובת תמוקם בשכונה אחרת' : ''));
     }
     // ביישוב קטן יד2 כותבת את שם היישוב גם כשכונה - אין כאן מה לשייך
     else if (rawNeighborhood !== impNorm(city)){
@@ -17931,6 +17973,18 @@ function impBuildRow(rawRow, rowNumber){
     warnings.push(`סטטוס "${impText(cell('status'))}" לא זוהה - הנכס נקלט כפעיל`);
   }
 
+  // מספר המודעה ביד2. מודעה שכבר קיימת במשרד נדחית כאן ולא באינדקס הייחודי
+  // באמצע הקליטה - כך היא מקבלת הסבר, ולא נופלת עם הודעה של מסד הנתונים.
+  const rawYad2 = impText(cell('yad2_listing_id'));
+  if (rawYad2){
+    const id = /^\d{4,12}$/.test(rawYad2.replace(/\.0+$/, '')) ? Number(rawYad2.replace(/\.0+$/, '')) : null;
+    if (!id) warnings.push(`מספר המודעה ביד2 "${rawYad2}" אינו מספר - לא נקלט`);
+    else if (importState.yad2Taken && importState.yad2Taken.has(id)){
+      const who = importState.yad2Taken.get(id);
+      fail('yad2_listing_id', `מודעה ${id} ביד2 כבר קיימת במשרד${who ? ' (אצל ' + who + ')' : ''} - לא תיקלט שוב`);
+    } else payload.yad2_listing_id = id;
+  }
+
   // פרטי הבעלים לא יושבים ב-properties אלא ב-property_owners, ולכן הם נשמרים
   // בצד ה-row ולא ב-payload, ונכנסים בשלב נפרד אחרי שנוצר ה-property_id.
   const owner = {
@@ -17942,6 +17996,7 @@ function impBuildRow(rawRow, rowNumber){
     rowNumber, raw: rawRow, payload, errors, warnings, errorFields, guessed,
     fixedFields: overrides ? Object.keys(overrides) : [],
     owner: (owner.owner_name || owner.owner_phone) ? owner : null,
+    hoodFallback: hoodFallback ? hoodFallback.id : null,
   };
 }
 
@@ -17979,6 +18034,16 @@ function impSetOverride(rowNumber, field, value){
    על כל הקובץ ביחד ואחרי impRevalidate — ולא שורה-שורה. */
 function impMarkDuplicates(){
   const seen = new Map();
+  // אותה מודעה של יד2 פעמיים בקובץ: השנייה הייתה נופלת על האינדקס הייחודי
+  const seenYad2 = new Map();
+  importState.parsed.forEach(row=>{
+    const id = row.payload.yad2_listing_id;
+    if (!id || row.errors.length) return;
+    if (seenYad2.has(id)){
+      row.errors.push(`מודעה ${id} ביד2 מופיעה כבר בשורה ${seenYad2.get(id)}`);
+      row.errorFields.push('yad2_listing_id');
+    } else seenYad2.set(id, row.rowNumber);
+  });
   importState.parsed.forEach(row=>{
     if (row.errors.length) return;
     const key = `${impNorm(row.payload.title)}|${row.payload.price}|${impNorm(row.payload.address || '')}`;
@@ -18145,6 +18210,30 @@ async function impRenderStep3(){
     } catch(err){ console.warn('duplicate check failed', err); }
   }
 
+  // כינויי השכונות (אותם שהבוט ועסקאות רשות המסים משתמשים בהם)
+  if (!importState.hoodAliases){
+    try{
+      const { data } = await sb.from('neighborhood_aliases').select('neighborhood_id, alias');
+      importState.hoodAliases = data || [];
+    } catch(err){ console.warn('neighborhood aliases failed', err); importState.hoodAliases = []; }
+  }
+
+  // מספרי מודעה של יד2 שכבר קיימים במשרד - גם אצל עמיתים ובארכיון, שה-RLS
+  // אינו מראה. כשל כאן אינו פותח פתח לכפילות: האינדקס הייחודי עדיין חוסם.
+  if (!importState.yad2Taken){
+    importState.yad2Taken = new Map();
+    const idx = importState.mapping.yad2_listing_id ?? -1;
+    const ids = idx < 0 ? [] : [...new Set(importState.rows
+      .map(r => Number(impText(r[idx]).replace(/\.0+$/, ''))).filter(n => Number.isInteger(n) && n > 0))];
+    if (ids.length){
+      try{
+        const { data, error } = await sb.rpc('yad2_listing_ids_taken', { p_ids: ids });
+        if (error) throw error;
+        (data || []).forEach(r => importState.yad2Taken.set(Number(r.yad2_listing_id), r.agent_name || ''));
+      } catch(err){ console.warn('yad2 duplicate check failed', err); }
+    }
+  }
+
   impRevalidate();
 
   const cities = [...new Set(allNeighborhoods.map(n => n.city).filter(Boolean))]
@@ -18192,6 +18281,49 @@ impBodyEl.addEventListener('click', (e)=>{
 });
 
 /* ---------- שלב 4: ההכנסה עצמה ---------- */
+
+/* שכונה מכינוי ("שכון עובדים" = מרכז העיר) או מהתאמה רכה היא ברירת מחדל,
+   לא החלטה: כשיש רחוב ומספר בית, הכתובת מכריעה. השורה מקבלת כאן פין
+   (אותו גאוקוד של טופס הנכס ושל חיפוש העסקאות), והשכונה יורדת מה-payload -
+   ‏properties_set_neighborhood_trg ממלא אותה מהמצולע בשמירה. מה שהפין לא
+   הכריע (מחוץ לכל מצולע, או בשניים) מקבל את ברירת המחדל אחר כך
+   (impApplyHoodFallbacks). שורה בלי מספר בית שומרת את ברירת המחדל כמו שהיא.
+
+   ארבע בקשות במקביל: מעבר לזה שכבת העירייה מתחילה לדחות. */
+async function impLocateFallbackRows(queue, textEl){
+  const todo = queue.filter(r => r.hoodFallback && r.payload.street && r.payload.house_number
+                              && r.payload.lat == null && r.payload.lng == null);
+  if (!todo.length) return;
+  let n = 0;
+  const worker = async ()=>{
+    while (todo.length){
+      const row = todo.shift();
+      if (textEl) textEl.textContent = `מאתר כתובות לשיוך שכונה… ${++n}`;
+      const coords = await dealsLookupCoords(row.payload.city, row.payload.street, row.payload.house_number);
+      if (coords){
+        row.payload.lat = coords.lat;
+        row.payload.lng = coords.lng;
+        delete row.payload.neighborhood_id;
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+
+async function impApplyHoodFallbacks(rows, inserted){
+  const byHood = new Map();
+  rows.forEach((row, i)=>{
+    const got = inserted[i];
+    if (!row.hoodFallback || !got || !got.id || got.neighborhood_id) return;
+    if (!byHood.has(row.hoodFallback)) byHood.set(row.hoodFallback, []);
+    byHood.get(row.hoodFallback).push(got.id);
+  });
+  for (const [hood, ids] of byHood){
+    const { error } = await sb.from('properties').update({ neighborhood_id: hood }).in('id', ids);
+    if (error) console.warn('neighborhood fallback failed', error);
+  }
+}
+
 async function impRenderStep4(){
   const queue = importState.parsed.filter(r => !r.errors.length);
   importState.busy = true;
@@ -18236,16 +18368,20 @@ async function impRenderStep4(){
     }
   };
 
+  await impLocateFallbackRows(queue, text);
+
   for (let i = 0; i < queue.length; i += IMPORT_CHUNK){
     const chunk = queue.slice(i, i + IMPORT_CHUNK);
     const { data: insertedRows, error } = await sb.from('properties')
-      .insert(chunk.map(r => r.payload)).select('id');
+      .insert(chunk.map(r => r.payload)).select('id, neighborhood_id');
+    if (!error) await impApplyHoodFallbacks(chunk, insertedRows || []);
     if (error){
       // ‏insert קבוצתי נכשל כולו בגלל שורה אחת פגומה, ולכן חוזרים על המנה
       // שורה-שורה כדי לבודד את הנופלות ולהציל את השאר.
       for (const row of chunk){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
-          .insert(row.payload).select('id').single();
+          .insert(row.payload).select('id, neighborhood_id').single();
+        if (!rowError) await impApplyHoodFallbacks([row], [insertedRow]);
         // ‏propertyStatusErrorText ולא message גולמי: שורה שנדחתה בגלל נכס
         // שכבר מפורסם במערכת מקבלת את ההסבר בעברית בקובץ השגיאות
         if (rowError) importState.failed.push({ raw: row.raw, message: propertyStatusErrorText(rowError) });
