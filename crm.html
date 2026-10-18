@@ -5336,13 +5336,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .home-ask-send{flex-shrink:0;width:44px;height:44px;border:none;border-radius:12px;background:#E0B84A;
     color:#13235B;font-size:1.2rem;font-weight:800}
   .home-ask-send:disabled{opacity:.6}
-  .home-ask-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin-top:8px}
-  .home-ask-sugg{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-  .home-ask-sugg button{min-height:32px;border:1px solid #34457E;border-radius:999px;background:transparent;
-    color:#DCE3F5;font:inherit;font-size:.8rem;padding:0 11px}
-  .home-ask-sugg button:hover{border-color:#E0B84A;color:#fff}
-  .home-ask-steps{min-height:32px;border:none;background:transparent;color:#E0B84A;font:inherit;font-size:.85rem;font-weight:700;padding:0 4px}
-  .home-ask-steps:hover{text-decoration:underline}
+  .home-ask-face{flex-shrink:0;width:44px;height:44px;border:none;border-radius:50%;padding:0;background:transparent;display:inline-flex;align-items:center;justify-content:center}
+  .home-ask-face:hover img{box-shadow:0 0 0 3px #E0B84A}
+  .home-ask-face:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
+  .home-ask-field{position:relative;flex:1;min-width:0;display:flex}
+  .home-ask-field input{width:100%}
+  .home-ask-typer{position:absolute;inset:0;display:flex;align-items:center;padding:0 13px;pointer-events:none;
+    white-space:nowrap;overflow:hidden;font-size:.95rem}
+  .home-ask-pre{color:#AEB9DA;white-space:pre}
+  .home-ask-text{color:#fff;white-space:pre;overflow:hidden;text-overflow:ellipsis}
+  .home-ask-caret{display:inline-block;flex:none;width:2px;height:1.15em;margin-inline-start:2px;background:#E0B84A;animation:homeAskBlink 1s steps(1) infinite}
+  @keyframes homeAskBlink{50%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){.home-ask-caret{animation:none}}
+  .home-ask-field.is-typing input::placeholder{color:transparent}
+  .home-ask-field:not(.is-typing) .home-ask-typer,
+  .home-ask-field:focus-within .home-ask-typer,
+  .home-ask-field.has-value .home-ask-typer{display:none}
+  @media(max-width:600px){.home-ask-pre{display:none}}
   .home-ask-out{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff;color:var(--nv-ink)}
   .home-ask-out[hidden]{display:none}
   .home-ask-out .q{margin:0 0 4px;font-size:.82rem;font-weight:700;color:var(--nv-muted)}
@@ -5350,8 +5360,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .home-ask-out .a.is-busy{color:var(--nv-muted)}
   .home-ask-out .a.is-err{color:#9A3412}
   .home-ask-out .left{margin:6px 0 0;font-size:.74rem;color:var(--nv-muted)}
-  .home-ask-sugg button:focus-visible,.home-ask-steps:focus-visible,.home-ask-send:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
-  @media(max-width:520px){.home-ask-sugg button:nth-child(n+2){display:none}}
+  .home-ask-send:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
   .cl-title{display:flex;align-items:center;gap:10px}
   .cl-title img{width:36px;height:36px;border-radius:50%;box-shadow:0 0 0 2px #E0B84A}
   .nav-coach .nl-panel{background:var(--nv-ground)}
@@ -6781,16 +6790,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מחדש של דף הבית לא מוחק את מה שמוקלד. -->
         <section class="home-ask" id="homeCoachRow" hidden aria-label="שאלה למנטור">
           <form class="home-ask-form" id="homeAskForm">
-            <img src="/assets/mentor-avatar.webp" width="40" height="40" alt="" decoding="async">
-            <label class="sr-only" for="homeAskInput">שאלה למנטור</label>
-            <input id="homeAskInput" type="text" maxlength="300" autocomplete="off" enterkeyhint="send"
-                   placeholder="מה לשאול את המנטור?">
+            <!-- האווטאר הוא הכניסה לשכבה (הצעדים והשיחה) - במקום שורת קישור נפרדת -->
+            <button type="button" class="home-ask-face" data-home-coach-open aria-haspopup="dialog"
+                    title="המנטור: הצעדים של היום" aria-label="פתיחת המנטור - הצעדים של היום">
+              <img src="/assets/mentor-avatar.webp" width="40" height="40" alt="" decoding="async">
+            </button>
+            <div class="home-ask-field">
+              <label class="sr-only" for="homeAskInput">שאלה למנטור</label>
+              <input id="homeAskInput" type="text" maxlength="300" autocomplete="off" enterkeyhint="send"
+                     placeholder="שאלו את המנטור כל שאלה מקצועית">
+              <!-- שאלות מתחלפות שמוקלדות בשדה, כמו בחיפוש בדף הבית של האתר
+                   (assets/sentence-search.js). ‏aria-hidden: קורא מסך שומע את
+                   התווית פעם אחת, ולא כל אות. -->
+              <span class="home-ask-typer" aria-hidden="true"><span class="home-ask-pre">שאלו את המנטור: </span><span class="home-ask-text"></span><span class="home-ask-caret"></span></span>
+            </div>
             <button type="submit" class="home-ask-send" aria-label="שליחת השאלה">←</button>
           </form>
-          <div class="home-ask-foot">
-            <div class="home-ask-sugg" id="homeAskSugg"></div>
-            <button type="button" class="home-ask-steps" data-home-coach-open aria-haspopup="dialog">הצעדים של היום ←</button>
-          </div>
           <div class="home-ask-out" id="homeAskOut" aria-live="polite" hidden></div>
         </section>
 
