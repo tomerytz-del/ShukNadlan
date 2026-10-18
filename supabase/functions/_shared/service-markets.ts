@@ -47,6 +47,7 @@ export const SERVICE_MARKETS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "safed", label: "צפת, ראש פינה וחצור" },
   { slug: "golan", label: "רמת הגולן וקצרין" },
   { slug: "tiberias", label: "טבריה והכנרת" },
+  { slug: "beit-shean", label: "בית שאן ועמק המעיינות" },
 ];
 
 export const SERVICE_MARKET_LABELS: string[] = SERVICE_MARKETS.map((m) => m.label);
