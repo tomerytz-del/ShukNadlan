@@ -2,6 +2,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory } from "./prompt-cache.ts";
 import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
@@ -2497,14 +2498,15 @@ export async function runPublicTurn(opts: {
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
+  // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
-    ...conv.history,
+    ...historyWithBreakpoint(conv.history),
     { role: "user", content: userText },
   ];
 
   let finalText = "";
-  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות.
-  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
+  // שתי נקודות השבירה האחרונות בלולאה (prompt-cache.ts)
+  const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -2572,19 +2574,10 @@ export async function runPublicTurn(opts: {
       });
     }
 
-    // נקודת שבירה מתגלגלת על תוצאות הכלים, כמו ב-agent.ts. **חובה לנקות את
-    // הקודמת** — תקרת ה-API היא ארבע נקודות שבירה לבקשה, וסימון מצטבר היה
-    // מפיל תור ארוך בשגיאה.
-    if (rollingMark) delete rollingMark.cache_control;
-    rollingMark = null;
-
-    const last = results[results.length - 1] as
-      | (Anthropic.ToolResultBlockParam & { cache_control?: { type: "ephemeral" } })
-      | undefined;
-    if (last && i < MAX_TOOL_ITERATIONS - 1) {
-      last.cache_control = { type: "ephemeral" };
-      rollingMark = last;
-    }
+    // נקודות שבירה מתגלגלות על תוצאות הכלים, כמו ב-agent.ts: שתי האחרונות,
+    // לא מצטבר - תקרת ה-API היא ארבע לבקשה (ההוראות, ההיסטוריה ושתיים כאן).
+    const last = results[results.length - 1];
+    if (last && i < MAX_TOOL_ITERATIONS - 1) rolling.add(last as { cache_control?: { type: "ephemeral" } });
 
     messages.push({ role: "user", content: results });
 
@@ -2596,11 +2589,11 @@ export async function runPublicTurn(opts: {
   if (ctx.offerSent) {
     // ‏text ריק = אין מה לשלוח, ההודעה כבר יצאה. בהיסטוריה נרשם גוף ההצעה,
     // כדי שלחיצה על "כן" בתור הבא תדע על מה היא עונה.
-    conv.history = [
+    conv.history = trimHistory([
       ...conv.history,
       { role: "user" as const, content: userText },
       { role: "assistant" as const, content: ctx.offerSent },
-    ].slice(-HISTORY_LIMIT);
+    ], HISTORY_LIMIT);
     return { text: "", shareContact: false };
   }
 
@@ -2611,11 +2604,12 @@ export async function runPublicTurn(opts: {
 
   // כמו אצל הסוכנים: ההיסטוריה נשמרת כטקסט בלבד, בלי בלוקי הכלים. מספיק
   // כדי ש"והשני הזה?" יעבוד, ומונע tool_result יתום אחרי גזימה.
-  conv.history = [
+  // גזימה במדרגות ולא slice: חלון מחליק לא נקרא מהמטמון לעולם (prompt-cache.ts)
+  conv.history = trimHistory([
     ...conv.history,
     { role: "user", content: userText },
     { role: "assistant", content: finalText },
-  ].slice(-HISTORY_LIMIT);
+  ], HISTORY_LIMIT);
 
   // כרטיס איש הקשר: אחרי שמירת חיפוש ("שמרתי, וזה המספר שלי לפעם הבאה"),
   // אחרי הצטרפות ליריד, או אחרי חיפוש שנגמר בטקסט ולא בכפתורים. **לעולם לא אחרי כפתורים** -
