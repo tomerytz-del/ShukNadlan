@@ -118,6 +118,16 @@ export type CoachAction = {
   impact: string;
   cta: { kind: string; ref?: string } | null;
 };
+/* ההתראה של הבוקר (coach_daily): הכותרת והצעדים, שורה אחת - בתבנית וואטסאפ
+   Meta דוחה \n (סקיל agent-notifications, סעיף 5). רק טקסט שהמודל כתב ונוקה. */
+export function coachNotification(s: CoachSummaryV2): { title: string; body: string } {
+  const flat = (t: string) => t.replace(/\s+/g, " ").trim();
+  const title = ("המנטור: " + flat(s.headline || "הסיכום של היום")).slice(0, 140);
+  const steps = (s.actions || []).map((a, i) => `${i + 1}. ${flat(a.title)}`);
+  const body = (steps.length ? steps.join(" · ") : flat(s.focus || s.summary || "")).slice(0, 400);
+  return { title, body };
+}
+
 export type CoachSummaryV2 = {
   v: 2;
   headline: string;
@@ -387,7 +397,7 @@ export function cleanQuestion(raw: unknown): string {
 }
 
 /* התשובה לפני שהיא מוצגת ונשמרת: בלי מקף ארוך, בלי כותרות ו-** של Markdown,
-   ועד 1,200 תווים. */
+   ועד 2,400 תווים - שאלה מקצועית מקבלת עד 250 מילים (askSystemPrompt). */
 export function cleanAnswer(raw: unknown): string {
   const t = noLongDash(String(raw ?? ""))
     .replace(/^#{1,6}\s*/gm, "")
@@ -395,5 +405,33 @@ export function cleanAnswer(raw: unknown): string {
     .replace(/^\s*[*•]\s+/gm, "- ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return t.length > 1200 ? t.slice(0, 1199).trimEnd() + "…" : t;
+  return t.length > 2400 ? t.slice(0, 2399).trimEnd() + "…" : t;
+}
+
+/* הוותק שהמנטור מקבל, כטווח בעברית: קודם מה שהסוכן/ת ענה/תה במנטור
+   (coach_preferences.experience, פרטי), ואם לא ענה/תה - מ-years_experience
+   שבפרופיל. בלי שניהם - null, והמנטור מסיק מהשאלה. */
+export const EXPERIENCE_LABELS: Record<string, string> = {
+  lt1: "פחות משנה",
+  "1to5": "שנה עד 5 שנים",
+  "5plus": "5 שנים ומעלה",
+};
+
+export function experienceLabel(band: unknown, years: unknown): string | null {
+  if (typeof band === "string" && EXPERIENCE_LABELS[band]) return EXPERIENCE_LABELS[band];
+  const y = years == null || years === "" ? NaN : Number(years);
+  if (!Number.isFinite(y) || y < 0) return null;
+  return y < 1 ? EXPERIENCE_LABELS.lt1 : y < 5 ? EXPERIENCE_LABELS["1to5"] : EXPERIENCE_LABELS["5plus"];
+}
+
+/* שיחת המשך: עד 3 השאלות והתשובות האחרונות של אותו/ה שואל/ת לאותו מנטור,
+   מ-coach_questions, מהישנה לחדשה, כתורות user/assistant. שורה בלי תשובה
+   (תשובה שלא נשמרה) לא נכנסת, כדי שהתורות יתחלפו. */
+export function askHistory(rows: Row[] | null | undefined): { role: "user" | "assistant"; content: string }[] {
+  const out: { role: "user" | "assistant"; content: string }[] = [];
+  for (const r of (rows ?? []).filter((x) => x && x.question && x.answer).slice(0, 3).reverse()) {
+    out.push({ role: "user", content: "השאלה: " + cleanQuestion(r.question) });
+    out.push({ role: "assistant", content: String(r.answer) });
+  }
+  return out;
 }
