@@ -17615,8 +17615,10 @@ function impBuildRow(rawRow, rowNumber){
   // שדות שהושלמו בניחוש (ולא מהקובץ ולא מתיקון ידני) — שלב הבדיקה מציג
   // אותם בפקד התיקון עם הערך המוצע, כדי שאפשר יהיה לאשר או להחליף.
   const guessed = Object.create(null);
-  const fail = (key, message)=>{
-    errors.push(message);
+  // ‏fix: מה לעשות, בלשון פנייה. כל שורה שנדחית אומרת גם למה וגם איך לתקן -
+  // "סוג נכס לא תקין" לבד השאיר סוכנים לנחש מה המערכת רוצה.
+  const fail = (key, message, fix)=>{
+    errors.push(fix ? `${message}. לתיקון: ${fix}` : message);
     if (!errorFields.includes(key)) errorFields.push(key);
   };
   const overrides = importState.overrides[rowNumber] || null;
@@ -17669,7 +17671,8 @@ function impBuildRow(rawRow, rowNumber){
         + '. בדקו ותקנו במידת הצורך.');
     }
   }
-  if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
+  if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`,
+    'בחרו סוג מהרשימה בשורה שמתחת (אפשר להחיל על כל השורות עם אותה בעיה), או כתבו בקובץ סוג מהגיליון "ערכים חוקיים" שבקובץ התבנית');
   else payload.property_type = ptype;
 
   let deal = IMP_DEAL[impNorm(cell('deal_type'))];
@@ -17680,7 +17683,8 @@ function impBuildRow(rawRow, rowNumber){
     guessed.deal_type = deal === 'rent' ? 'השכרה' : 'מכירה';
     warnings.push(`בקובץ כתוב "מסחרי" בלי מכירה/השכרה - לפי המחיר סווג כ${guessed.deal_type}. בדקו ותקנו במידת הצורך.`);
   }
-  if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" - יש לרשום מכירה או השכרה`);
+  if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" אינו מכירה או השכרה`,
+    'בחרו מכירה או השכרה בשורה שמתחת, או כתבו "מכירה"/"השכרה" בעמודת סוג העסקה בקובץ');
   else payload.deal_type = deal;
 
   if (category === 'commercial' && deal === 'rent' && rawPrice > 0 && rawPrice < YAD2_PRICE_PER_SQM_BELOW
@@ -17695,8 +17699,10 @@ function impBuildRow(rawRow, rowNumber){
   }
 
   const price = rawPrice === null ? null : salePriceFromMillions(rawPrice, deal);
-  if (price === null) fail('price', 'חסר מחיר או שאינו מספר');
-  else if (price <= 0) fail('price', 'המחיר חייב להיות גדול מאפס');
+  if (price === null) fail('price', `חסר מחיר${impText(cell('price')) ? ` ("${impText(cell('price'))}" אינו מספר)` : ''}`,
+    'הקלידו מחיר בשקלים בשורה שמתחת - ספרות בלבד, למשל 1500000 (או 1.5 למיליון)');
+  else if (price <= 0) fail('price', 'המחיר הוא 0 או שלילי',
+    'הקלידו את המחיר המבוקש בשורה שמתחת. אם המחיר "לפי פנייה", רשמו מחיר משוער ותקנו אחר כך בכרטיס הנכס');
   else {
     payload.price = price;
     if (price !== rawPrice) warnings.push(`המחיר ${rawPrice} פורש כמיליונים: ${price.toLocaleString('he-IL')} ₪`);
@@ -17715,7 +17721,7 @@ function impBuildRow(rawRow, rowNumber){
       city = hoodFromCity.city;
     }
   }
-  if (!city) fail('city', 'חסרה עיר');
+  if (!city) fail('city', 'חסרה עיר', 'הקלידו את שם היישוב בשורה שמתחת (מוצעים שמות מהרשימה)');
   else payload.city = city;
 
   // ‏0 בחדרים, בקומות ובשטחים הוא "לא מולא" (כך בכל מודעה מסחרית ביד2) ולא
@@ -17958,7 +17964,8 @@ function impBuildRow(rawRow, rowNumber){
       payload.title = parts.join(', ').slice(0, 200);
       warnings.push('אין עמודת כותרת - נוצרה כותרת אוטומטית: ' + payload.title);
     } else {
-      fail('title', 'חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)');
+      fail('title', 'חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)',
+        'הקלידו כותרת בשורה שמתחת, או מלאו בקובץ את סוג הנכס ואת העיר');
     }
   }
 
@@ -17981,7 +17988,8 @@ function impBuildRow(rawRow, rowNumber){
     if (!id) warnings.push(`מספר המודעה ביד2 "${rawYad2}" אינו מספר - לא נקלט`);
     else if (importState.yad2Taken && importState.yad2Taken.has(id)){
       const who = importState.yad2Taken.get(id);
-      fail('yad2_listing_id', `מודעה ${id} ביד2 כבר קיימת במשרד${who ? ' (אצל ' + who + ')' : ''} - לא תיקלט שוב`);
+      fail('yad2_listing_id', `מודעה ${id} ביד2 כבר קיימת במשרד${who ? ' (אצל ' + who + ')' : ''}`,
+        'אין צורך לייבא אותה שוב - לעדכון פתחו את הנכס הקיים ב"הנכסים שלי". אם זה נכס אחר, תקנו את מספר המודעה בקובץ');
     } else payload.yad2_listing_id = id;
   }
 
@@ -18040,7 +18048,7 @@ function impMarkDuplicates(){
     const id = row.payload.yad2_listing_id;
     if (!id || row.errors.length) return;
     if (seenYad2.has(id)){
-      row.errors.push(`מודעה ${id} ביד2 מופיעה כבר בשורה ${seenYad2.get(id)}`);
+      row.errors.push(`מודעה ${id} ביד2 מופיעה כבר בשורה ${seenYad2.get(id)}. לתיקון: מחקו מהקובץ את אחת משתי השורות`);
       row.errorFields.push('yad2_listing_id');
     } else seenYad2.set(id, row.rowNumber);
   });
@@ -18282,6 +18290,56 @@ impBodyEl.addEventListener('click', (e)=>{
 
 /* ---------- שלב 4: ההכנסה עצמה ---------- */
 
+/* שורה שהמסד דחה בשמירה: למה, ומה לעשות - באותו פורמט של שורה שנדחתה
+   בבדיקה ("... לתיקון: ..."), כדי שקובץ השגיאות יפצל את שתיהן לעמודות.
+   לפני זה הגיעה הודעת המסד כמו שהיא, ולפעמים באנגלית ("violates check
+   constraint"), בלי שום דרך לדעת איזה תא בקובץ לתקן. */
+const IMP_CHECK_FIELDS = {
+  properties_total_floors_check:     ['מספר הקומות בבניין', 'רשמו מספר בין 1 ל-200, או השאירו ריק'],
+  properties_arnona_chk:             ['הארנונה', 'רשמו סכום חיובי או השאירו ריק'],
+  properties_maintenance_fee_chk:    ['ועד הבית', 'רשמו סכום חיובי או השאירו ריק'],
+  properties_garden_sqm_check:       ['שטח הגינה', 'רשמו מספר חיובי או השאירו ריק'],
+  properties_tour_3d_url_check:      ['הקישור לסיור הווירטואלי', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
+  properties_video_url_check:        ['הקישור לסרטון', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
+  properties_condition_check:        ['מצב הנכס', 'רשמו אחד מ: חדש מקבלן, חדש, משופץ, במצב שמור, דרוש שיפוץ'],
+  properties_restrooms_location_check: ['מיקום השירותים', 'רשמו "בבניין" או "בנכס"'],
+  properties_storage_location_check: ['מיקום המחסן', 'רשמו "בבניין" או "בנכס"'],
+  properties_mamad_location_check:   ['מיקום הממ"ד', 'רשמו "בבניין" או "בנכס"'],
+  properties_project_status_check:   ['סטטוס הפרויקט', 'רשמו אחד מהערכים בגיליון "ערכים חוקיים" שבקובץ התבנית'],
+};
+const IMP_DB_HINT_FIX = {
+  duplicate_same_agency: 'אם זו אותה דירה - אין צורך בשורה הזו. אם זו דירה אחרת באותה כתובת, הוסיפו בקובץ את הקומה ומספר החדרים שמבדילים ביניהן',
+  duplicate_elsewhere: 'אם יש לכם בלעדיות על הנכס - החתימו את הבעלים על הסכם בלעדיות ב-CRM ותבעו את הנכס מכרטיס הבלעדיות. אחרת ייבאו את השורה בסטטוס "לא פעיל"',
+  exclusive_elsewhere: 'הנכס בבלעדיות של משרד אחר ולא ניתן לפרסם אותו עד שהיא תסתיים. אפשר לייבא את השורה בסטטוס "לא פעיל" כדי לשמור אותה אצלך',
+};
+// הודעת המסד מסתיימת לפעמים בנקודה - בלי זה יוצא "שנייה.. לתיקון"
+function impReason(text){ return String(text || '').trim().replace(/[.\s]+$/, ''); }
+function impInsertErrorText(error){
+  const code = error && error.code;
+  const text = String((error && (error.message || error.details)) || '');
+  if (error && IMP_DB_HINT_FIX[error.hint]) return `${impReason(heErr(error))}. לתיקון: ${IMP_DB_HINT_FIX[error.hint]}`;
+  if (code === '23505' && /yad2/.test(text + String(error.details || ''))){
+    return 'מספר המודעה ביד2 כבר רשום על נכס אחר במשרד. לתיקון: אם זה אותו נכס - אין צורך לייבא שוב; אחרת תקנו את מספר המודעה בקובץ';
+  }
+  if (code === '23514'){
+    const name = Object.keys(IMP_CHECK_FIELDS).find(k => text.includes(k));
+    if (name){
+      const [label, fix] = IMP_CHECK_FIELDS[name];
+      return `הערך של ${label} אינו תקין. לתיקון: ${fix}`;
+    }
+    return 'אחד הערכים בשורה מחוץ לטווח המותר. לתיקון: בדקו מספרים שליליים או ריקים בעמודות המספריות ונסו שוב';
+  }
+  if (code === '22001') return 'אחד הטקסטים בשורה ארוך מדי. לתיקון: קצרו את הכותרת או את התיאור ונסו שוב';
+  if (code === '22P02' || code === '22003') return 'אחד המספרים בשורה אינו מספר תקין. לתיקון: בדקו שבעמודות המחיר, השטח והקומות יש ספרות בלבד';
+  if (code === '42501' || /row-level security/i.test(text)){
+    return 'אין הרשאה לשמור את הנכס בחשבון הזה. לתיקון: רעננו את הדף, ודאו שאתם מחוברים לחשבון שלכם ונסו שוב';
+  }
+  if (!code && /fetch|network|timeout/i.test(text)){
+    return 'החיבור נקטע והשורה לא נשמרה. לתיקון: הורידו את קובץ השגיאות והעלו אותו שוב - ייקלטו רק השורות שנכשלו';
+  }
+  return `${impReason(propertyStatusErrorText(error))}. לתיקון: נסו שוב, ואם זה חוזר - שלחו את קובץ השגיאות לתמיכה בוואטסאפ`;
+}
+
 /* שכונה מכינוי ("שכון עובדים" = מרכז העיר) או מהתאמה רכה היא ברירת מחדל,
    לא החלטה: כשיש רחוב ומספר בית, הכתובת מכריעה. השורה מקבלת כאן פין
    (אותו גאוקוד של טופס הנכס ושל חיפוש העסקאות), והשכונה יורדת מה-payload -
@@ -18382,9 +18440,9 @@ async function impRenderStep4(){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
           .insert(row.payload).select('id, neighborhood_id').single();
         if (!rowError) await impApplyHoodFallbacks([row], [insertedRow]);
-        // ‏propertyStatusErrorText ולא message גולמי: שורה שנדחתה בגלל נכס
-        // שכבר מפורסם במערכת מקבלת את ההסבר בעברית בקובץ השגיאות
-        if (rowError) importState.failed.push({ raw: row.raw, message: propertyStatusErrorText(rowError) });
+        // ‏impInsertErrorText ולא message גולמי: כל שורה שנדחתה מקבלת בקובץ
+        // השגיאות את הסיבה בעברית ואת מה לעשות
+        if (rowError) importState.failed.push({ raw: row.raw, message: impInsertErrorText(rowError) });
         else { ok++; if (!rowHasImage(row)) noImage++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
@@ -18406,7 +18464,7 @@ async function impRenderStep4(){
       ${failedTotal ? `<span class="imp-chip bad">${failedTotal} לא נקלטו</span>` : ''}
     </div>
     <p>${ok ? 'הנכסים מפורסמים באתר ומופיעים ברשימת "הנכסים שלי".' : 'לא נקלט אף נכס.'}</p>
-    ${importState.failed.length ? `<p class="imp-note">${plural(importState.failed.length, 'שורה אחת נדחתה', 'שורות נדחו')} על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
+    ${importState.failed.length ? `<p class="imp-note">${plural(importState.failed.length, 'שורה אחת נדחתה', 'שורות נדחו')} על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות - לכל שורה כתובים בו הסיבה ומה לעשות, ואפשר לתקן בו ולהעלות אותו שוב.</p>` : ''}
     ${noImage ? `<p class="imp-note"><b>${plural(noImage, 'נכס אחד נוצר', 'נכסים נוצרו')} בלי תמונות, ולכן לא יפורסמו בדף הפייסבוק של האתר.</b> הפוסט ייצא מעצמו כ-20 דקות אחרי שתעלו את התמונה הראשונה לכל נכס - אין צורך לבקש שוב.</p>` : ''}
     <p class="imp-note">נכסים ללא קו רוחב/אורך לא יופיעו כסימון על מפת עמוד הבית. אפשר להשלים מיקום וכתובת דרך "עריכה" בכל נכס, ואז גם ייקלט המידע התכנוני.</p>
     ${ok && !noImage ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות - מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
@@ -18501,10 +18559,17 @@ async function impDownloadErrors(rows){
   let XLSX;
   try { XLSX = await loadImportLib(); }
   catch(err){ showToast(heErr(err)); return; }
-  const header = [...importState.headers, 'סיבת הדחייה'];
-  const data = rows.map(r => [...importState.headers.map((_, i) => impText(r.raw[i])), r.message]);
+  // הסיבה ומה לעשות בשתי עמודות: ההודעות נבנות "... לתיקון: ...", ושורה
+  // שנכשלה על כמה שדות מחוברת ב-" · ". שתי העמודות אינן כינוי של אף שדה,
+  // ולכן הקובץ המתוקן עולה בחזרה כמו שהוא.
+  const header = [...importState.headers, 'סיבת הדחייה', 'מה לעשות'];
+  const data = rows.map(r=>{
+    const parts = String(r.message || '').split(' · ').map(p => p.split('. לתיקון: '));
+    return [...importState.headers.map((_, i) => impText(r.raw[i])),
+      parts.map(p => p[0]).join(' · '), parts.map(p => p[1]).filter(Boolean).join(' · ')];
+  });
   const sheet = XLSX.utils.aoa_to_sheet([header, ...data]);
-  sheet['!cols'] = header.map((_, i) => ({ wch: i === header.length - 1 ? 60 : 18 }));
+  sheet['!cols'] = header.map((_, i) => ({ wch: i >= header.length - 2 ? 60 : 18 }));
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, 'שורות שנדחו');
   XLSX.writeFile(book, 'שגיאות-ייבוא-נכסים.xlsx');
