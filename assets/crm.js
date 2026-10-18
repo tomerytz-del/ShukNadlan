@@ -5776,8 +5776,21 @@ function renderCostsReport(){
   /* ---- 1. ארבעת המספרים ---- */
   const totalNow = sumIls(cur), totalPrev = sumIls(prev);
   const tiles = admEl('div', 'adm-tiles');
+  /* הנתון המסכם: כל העלויות בתקופה לחלק לסוכנים הפעילים (‏active ו-is_active_agent,
+     תמונת מצב של היום - platform_costs_list). בתקופה של כמה חודשים - גם לחודש. */
+  const agents = Number(report.agents) || 0;
+  const periodMonths = Math.max(1, Math.round((new Date(range.to) - new Date(range.from)) / (30.44 * 86400000)));
+  const perAgent = agents ? totalNow / agents : null;
+  const heroTile = tiles.appendChild(admTile('עלות ממוצעת לסוכן/ת', perAgent === null ? 'אין סוכנים' : costFmt(perAgent, 'ILS'),
+    { wine: true,
+      delta: agents ? admDeltaChip(Math.round(perAgent), Math.round(totalPrev / agents)) : null,
+      note: [agents ? 'כל העלויות בתקופה ל-' + plural(agents, 'סוכן/ת פעיל/ה אחד/ת', 'סוכנים פעילים') : '',
+             agents && periodMonths > 1 ? costFmt(perAgent / periodMonths, 'ILS') + ' לחודש' : '',
+             report.agents_with_login !== undefined && report.agents_with_login !== agents
+               ? report.agents_with_login + ' מהם נכנסו למערכת' : ''].filter(Boolean).join(' · ') }));
+  heroTile.classList.add('adm-tile-hero');
   tiles.appendChild(admTile('סה"כ בתקופה (הערכה בשקלים)', admMoney(totalNow),
-    { wine: true, delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
+    { delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
       note: range.label + ' · מול ' + admMoney(totalPrev) }));
   tiles.appendChild(admTile('חיובים בדולר', costFmt(sumCur(cur, 'USD'), 'USD'),
     { note: plural(cur.filter(r => counted(r) && r.currency === 'USD').length, 'חיוב אחד', 'חיובים') }));

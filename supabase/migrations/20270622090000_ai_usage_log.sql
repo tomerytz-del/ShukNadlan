@@ -160,3 +160,51 @@ comment on function public.ai_usage_costs(date, date) is
 
 revoke all on function public.ai_usage_costs(date, date) from public, anon, authenticated;
 grant execute on function public.ai_usage_costs(date, date) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 4. ‏platform_costs_list — גם מספר הסוכנים, לאריח "עלות לסוכן/ת" בראש הפאנל
+--
+-- סוכן/ת = `active and is_active_agent` (כמו בדשבורדים): מנהל/ת שאינו/ה סוכן/ת
+-- פעיל/ה ומי שעזב/ה אינם נספרים. זו תמונת מצב של היום, לא ממוצע על התקופה -
+-- וכך כתוב באריח. ‏agents_with_login - מי שגם נכנס/ה למערכת (‏user_id).
+-- אותה פונקציה בדיוק כמו ב-20270206090000, עם שני השדות בסוף.
+-- ---------------------------------------------------------------------------
+create or replace function public.platform_costs_list(p_from date, p_to date)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_from date := coalesce(p_from, (date_trunc('month', now()) - interval '5 months')::date);
+  v_to   date := coalesce(p_to, now()::date);
+begin
+  if not current_is_platform_admin() then
+    raise exception 'not_platform_admin' using errcode = '42501';
+  end if;
+
+  return jsonb_build_object(
+    'generated_at', now(),
+    'from', v_from,
+    'to', v_to,
+    'rows', coalesce((
+      select jsonb_agg(to_jsonb(c) - 'created_by' order by c.charged_on desc, c.id desc)
+        from platform_costs c
+       where c.charged_on between v_from and v_to
+    ), '[]'::jsonb),
+    'pending', coalesce((
+      select jsonb_agg(to_jsonb(c) - 'created_by' order by c.charged_on desc, c.id desc)
+        from platform_costs c
+       where c.status = 'pending'
+    ), '[]'::jsonb),
+    'last_mail_at', (select max(created_at) from platform_costs where source = 'mail'),
+    'agents', (select count(*) from agency_members m where m.active and m.is_active_agent),
+    'agents_with_login', (select count(*) from agency_members m
+                           where m.active and m.is_active_agent and m.user_id is not null)
+  );
+end;
+$$;
+
+revoke all on function public.platform_costs_list(date, date) from public, anon, authenticated;
+grant execute on function public.platform_costs_list(date, date) to authenticated;

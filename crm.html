@@ -4038,6 +4038,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* שורת הכותרות: ארבעת המספרים שעונים על "מה קרה החודש" */
   .adm-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   @media(min-width:700px){.adm-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  /* הנתון המסכם בראש פאנל העלויות - שורה משלו מעל ארבעת האריחים */
+  .adm-tile-hero{grid-column:1/-1}
+  .adm-tile-hero .adm-tile-val{font-size:2rem}
   .adm-tile{
     background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
     padding:13px 14px;display:flex;flex-direction:column;gap:3px;min-width:0;
