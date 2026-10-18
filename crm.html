@@ -39,21 +39,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- החיבור ל-Supabase נפתח כבר כאן, במקביל להורדת הקוד, ולא בשאילתה
      הראשונה שאחרי הכניסה. ‏crossorigin כי supabase-js שולח fetch עם כותרות,
-     כלומר בקשת CORS - בלעדיו הדפדפן פותח חיבור שאינו מתאים לה. ל-jsdelivr
-     אין צורך: הסורק המקדים מגלה אותו מה-<link> שמיד אחרי. -->
+     כלומר בקשת CORS - בלעדיו הדפדפן פותח חיבור שאינו מתאים לה. -->
 <link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
+<!-- ‏supabase-js ו-Leaflet מוגשים מהאתר עצמו (‏/vendor/, docs/vendor.md) ולא
+     מ-jsdelivr: שניהם חוסמים את הדף, ובכל כניסה ראשונה הם עלו חיבור חדש
+     לשרת זר. הקבצים זהים בייט-בייט לחבילות ב-npm, וה-integrity נשאר כדי
+     שיישאר כך. גרסה בנתיב, ולכן ‏_headers שומר אותם שנה. -->
+<link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
 <!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תדע לחזור לכאן
      ולא ל-developer-crm. ראו assets/auth-return.js -->
 <script src="assets/auth-return.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/vendor/supabase-js@2.116.0/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
+<script src="/vendor/leaflet@1.9.4/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
      הוא מורכב רק כשהדשבורד עולה (ראו showScreen), כי מסכי הכניסה נשארים
      על פלטת הנייר שלהם. -->
