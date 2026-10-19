@@ -68,7 +68,7 @@ type Scene = VideoProps["manifest"]["scenes"][number];
 const Voice: React.FC<{ s: Scene; urls: VideoProps["urls"]; group: VideoProps["manifest"]["captions"] }> = ({ s, urls, group }) => (
   <>
     <div style={{ position: "absolute", inset: 0, transform: "scale(0.5)", transformOrigin: "50% 98%" }}>
-      <Captions words={s.words} group={group} mode="pop" highlight={P.accent} face={heebo} rtl bottom={0.035} />
+      <Captions words={s.words.map((w) => ({ ...w, word: w.word.replace(/[\u0591-\u05C7]/g, "") }))} group={group} mode="pop" highlight={P.accent} face={heebo} rtl bottom={0.035} />
     </div>
     {s.voiceoverKey ? <Voiceover src={urls[s.voiceoverKey]} /> : null}
   </>

@@ -268,11 +268,11 @@ const Ask: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
           </div>
         </Place>
       </div>
-      <PhoneFrame x={0.8} y={0.55} h={0.74} aspect={0.55} delay={wa}>
+      <PhoneFrame x={0.8} y={0.6} h={0.66} aspect={0.55} delay={wa}>
         <ChatThread
           name={GABI}
           avatar={urls[IMG.gabriela]}
-          phoneH={0.72}
+          phoneH={0.64}
           text={0.031}
           font={heebo}
           messages={[

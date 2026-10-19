@@ -164,7 +164,7 @@ const Social: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
 };
 
 const Alert: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
-  const mail = onWord(s, "התראה");
+  const mail = onWord(s, "מקבלים");
   return (
     <>
       <SceneTitle kicker="קונים" title="התראה מיידית לקונים" kickerAt={2} titleAt={onWord(s, "מקבלים")} ink={P.hero} accent={P.accent} font={heebo} />
@@ -180,14 +180,14 @@ const Alert: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
           from="שוק הנדל״ן"
           subject="נכס חדש שמתאים לחיפוש שלך"
           time="עכשיו"
-          greeting="שלום דנה, עלה נכס שמתאים בדיוק למה שחיפשת:"
+          greeting="שלום דנה, עלה נכס חדש בשבילך:"
           photo={urls[IMG.roomAfter]}
           price="1,100,000 ₪"
           title="דירה · 4 חדרים למכירה"
           place="הרצל, עפולה"
           button="לצפייה בנכס"
           bannerAt={mail}
-          openAt={onWord(s, "מיד") + 4}
+          openAt={onWord(s, "התראה") + 6}
           phoneH={0.78}
           hero={P.hero}
           ink={P.ink}
