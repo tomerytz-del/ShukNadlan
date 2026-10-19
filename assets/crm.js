@@ -2276,9 +2276,21 @@ function handleGotoParam(){
   }
 
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
-  if (!/^acc[A-Za-z0-9]{1,40}$/.test(raw)) return;
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
+  /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
+     dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
+     על הדשבורד של הסוכן/ת. docs/admin-navigation.md */
+  let switched = false;
+  if (NAV_TAB_OF.get(raw) === 'admin' && currentAgent && currentAgent.is_platform_admin
+      && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
   if (!navAccVisible(raw)) return;
   gotoSection(raw);
+  /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
+     גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
+  if (switched) setTimeout(()=>{
+    const el = document.getElementById(raw);
+    if (el) scrollToTopOf(el);
+  }, 900);
   /* הקישור הישיר מהתראה (notification-push): הקטגוריה נפתחת קודם, ואז הפריט
      עצמו. פריט שלא נמצא (נמחק, נמסר לסוכן/ת אחר/ת) משאיר את הקטגוריה פתוחה -
      נחיתה רכה, כמו בפעמון. */
@@ -3867,42 +3879,6 @@ document.getElementById('marketPicker')?.addEventListener('click', (e)=>{
   loadMarketReport();
 });
 document.getElementById('marketRefreshBtn')?.addEventListener('click', ()=> loadMarketReport({ live: true }));
-
-/* ---------- סרגל הניווט של תצוגת המנהל/ת ----------
-   תוכן עניינים לחמשת הפאנלים. לחיצה פותחת את הפאנל (ושומרת את זה, כמו
-   לחיצה על הכותרת שלו) וגוללת אליו. הסרגל דביק, כך שהוא זמין גם מלמטה. */
-const ADMIN_NAV = [
-  { id: 'dashPanelMarkets',   label: 'שווקים',        dot: '#9a7418' },
-  { id: 'dashPanelAdmin',     label: 'דוח חודשי',     dot: '#a03449' },
-  { id: 'dashPanelLeads',     label: 'לידים',         dot: '#22456e' },
-  { id: 'dashPanelOps',       label: 'בריאות המערכת', dot: '#1f6f63' },
-  { id: 'dashPanelInventory', label: 'מצבת',          dot: '#2f4f7a' },
-  { id: 'dashPanelCosts',     label: 'עלויות',        dot: '#5b6b2f' },
-  { id: 'dashPanelAds',       label: 'קמפיינים',      dot: '#1d4ed8' },
-  { id: 'platformAdminSection', label: 'כלי ניהול',   dot: '#6b7280' },
-];
-
-function renderAdminNav(){
-  const nav = document.getElementById('adminNav');
-  if (!nav || nav.dataset.ready) return;
-  nav.dataset.ready = '1';
-  ADMIN_NAV.forEach(item => {
-    if (!document.getElementById(item.id)) return;
-    const b = admEl('button', null, item.label);
-    b.type = 'button';
-    b.style.setProperty('--nav-dot', item.dot);
-    b.addEventListener('click', ()=>{
-      const target = document.getElementById(item.id);
-      if (!target) return;
-      if (target.classList.contains('dash-panel')){
-        dashPanelsMeasure();
-        dashPanelSetOpen(target, true, true);
-      }
-      target.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block: 'start' });
-    });
-    nav.appendChild(b);
-  });
-}
 
 async function loadAdminReport(){
   const host = document.getElementById('adminReport');
@@ -25869,7 +25845,7 @@ function gotoSection(accId, focusId, opts){
     // בדסקטופ אין מקטע להחליף, אבל השורה המודגשת והקבוצה הפתוחה בסרגל כן
     renderSideNav();
   }
-  const el = openAcc(accId);
+  const el = openDashPanel(accId) || openAcc(accId);
   if (!el) return;
   const reduce = navReduceMotion();
   // ‏getClientRects: פאנל שעוד לא הוצג (‏display:none) מחזיר קופסה ריקה,
@@ -25883,6 +25859,16 @@ function gotoSection(accId, focusId, opts){
       if (target) target.focus({ preventScroll:true });
     }, reduce ? 0 : 420);
   }
+}
+
+/* פאנל של מנהל/ת הפלטפורמה (‏.dash-panel) כיעד ניווט: נפתח ונשמר פתוח כמו
+   לחיצה על הכותרת שלו. ‏null לכל דבר אחר - אז gotoSection פותח אקורדיון. */
+function openDashPanel(id){
+  const el = document.getElementById(id);
+  if (!el || !el.classList.contains('dash-panel')) return null;
+  dashPanelsMeasure();
+  dashPanelSetOpen(el, true, true);
+  return el;
 }
 
 document.addEventListener('click', (e)=>{
@@ -26003,25 +25989,52 @@ const NAV_GROUPS = [
        פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more', section:'support' },
   ]},
-  /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
-     הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות
-     "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
-  { key:'admin', label:'ניהול מערכת', icon:'shield', adminOnly:true, items:[
-    { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
-    { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
-    { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
-    { acc:'accCsm',           label:'הטמעת סוכנים',   icon:'user',    tab:'admin' },
-    { acc:'accCoachGaps',     label:'חסר למנטור',     icon:'article', tab:'admin' },
-    { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
-    { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
-    { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
-    { acc:'accDealSettlements', label:'יישובים לעסקאות', icon:'chart', tab:'admin' },
-    { acc:'accDealsImport',   label:'מצב העסקאות',    icon:'chart',   tab:'admin' },
-    { acc:'accGovmapBackfill', label:'נתוני GovMap',  icon:'map',     tab:'admin' },
-    { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
-    { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
-    { acc:'accProfessionals', label:'בעלי מקצוע',     icon:'user',    tab:'admin' },
-    { acc:'accUnroutedLeads', label:'לידים ללא יעד',  icon:'alert',   tab:'admin' },
+  /* כלי הפלטפורמה מופיעים אך ורק בתצוגת מנהל/ת (adminOnly). זו כל הנקודה:
+     הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות "ניהול
+     מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי".
+
+     שבע קבוצות ולא אחת (docs/admin-navigation.md, HANDOFF סעיף 2.1). עד
+     19.10.2026 הייתה כאן קבוצה של 15 פריטים, ולצידה שורת לשוניות בראש הדף
+     (#adminNav) לשבעת הפאנלים - שני תפריטים לאותו אזור. הפאנלים עצמם
+     (‏dashPanel*) הם יעדים כאן כמו כל אקורדיון: gotoSection פותח וגולל.
+     ‏open: הקבוצה פתוחה כברירת מחדל (ADMIN_GROUP_DEFAULT נגזר מכאן). */
+  { key:'aToday', label:'היום', icon:'gauge', adminOnly:true, open:true, items:[
+    { acc:NAV_ADMIN_HOME,       label:'מרכז הפיקוד',      icon:'gauge',   tab:'admin' },
+    { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
+  ]},
+  { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
+    { acc:'dashPanelMarkets',   label:'שווקים מקומיים',   icon:'map',     tab:'admin' },
+    { acc:'dashPanelInventory', label:'משרדים וסוכנים',   icon:'users',   tab:'admin' },
+    { acc:'accSubscriptions',   label:'מנויים ומסלולים',  icon:'wallet',  tab:'admin' },
+    { acc:'accProfessionals',   label:'בעלי מקצוע',       icon:'user',    tab:'admin' },
+    { acc:'accCsm',             label:'הטמעת סוכנים',     icon:'user',    tab:'admin' },
+  ]},
+  { key:'aGrowth', label:'צמיחה ושיווק', icon:'chart', adminOnly:true, open:true, items:[
+    { acc:'dashPanelAds',       label:'קמפיינים · Meta ו-Google', icon:'megaphone', tab:'admin' },
+    /* בקרת מנוע הלידים - מאיפה נכנסים הלידים. אין לה שורה בטבלה של
+       ההעברה; היא שאלה של שיווק ולא של כסף או מערכת */
+    { acc:'dashPanelLeads',     label:'מקורות הלידים',    icon:'inbox',   tab:'admin' },
+    { acc:'accArticles',        label:'כתבות ובלוגים',    icon:'article', tab:'admin' },
+    { acc:'accNeighborhoods',   label:'SEO ושכונות',      icon:'map',     tab:'admin' },
+    { acc:'accRssSources',      label:'טיקר חדשות · RSS', icon:'rss',     tab:'admin' },
+  ]},
+  { key:'aMoney', label:'כסף', icon:'wallet', adminOnly:true, open:true, items:[
+    { acc:'dashPanelAdmin',     label:'הכנסות ודוח חודשי', icon:'chart',  tab:'admin' },
+    { acc:'accRefundQueue',     label:'ארנקים והחזרים',   icon:'wallet',  tab:'admin' },
+    { acc:'dashPanelCosts',     label:'עלויות תפעול ו-AI', icon:'chart',  tab:'admin' },
+  ]},
+  { key:'aTrust', label:'אמון ובקרה', icon:'shield', adminOnly:true, items:[
+    { acc:'accLicenseAppeals',  label:'ערעורי רישיון',    icon:'shield',  tab:'admin' },
+    { acc:'accSecurityAudit',   label:'יומן ביקורת',      icon:'shield',  tab:'admin' },
+  ]},
+  { key:'aData', label:'נתונים ותכנון', icon:'map', adminOnly:true, items:[
+    { acc:'accDealsImport',     label:'מצב העסקאות',      icon:'chart',   tab:'admin' },
+    { acc:'accDealSettlements', label:'יישובים לעסקאות',  icon:'chart',   tab:'admin' },
+    { acc:'accGovmapBackfill',  label:'נתוני GovMap',     icon:'map',     tab:'admin' },
+  ]},
+  { key:'aSystem', label:'מערכת', icon:'cog', adminOnly:true, items:[
+    { acc:'dashPanelOps',       label:'בריאות המערכת',    icon:'alert',   tab:'admin' },
+    { acc:'accCoachGaps',       label:'חסר למנטור',       icon:'article', tab:'admin' },
   ]},
 ];
 
@@ -26083,9 +26096,10 @@ function accCountOf(accId){
    לקטגוריה שהסינון עצמו הסתיר — ואז הניווט היה מוחק את הלשונית שהוא מציג. */
 function navAccVisible(accId){
   const el = document.getElementById(accId);
-  if (!el || el.style.display === 'none') return false;
+  // ‏hidden - פאנלי מנהל/ת הפלטפורמה (dashPanel*) מוסתרים בו ולא ב-style
+  if (!el || el.hidden || el.style.display === 'none') return false;
   for (let n = el.parentElement; n && n !== document.body; n = n.parentElement){
-    if (n.style && n.style.display === 'none') return false;
+    if (n.hidden || (n.style && n.style.display === 'none')) return false;
   }
   return true;
 }
@@ -26198,7 +26212,7 @@ function navGroupsForView(){
   const admin = dashView === 'admin';
   let groups = NAV_GROUPS
     .filter(g => !!g.adminOnly === admin && !g.placement)
-    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, items:g.items.filter(navItemVisible) }));
+    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, open:!!g.open, items:g.items.filter(navItemVisible) }));
   if (!admin && navIsManager()){
     if (!navIsActiveAgent()){
       groups = groups.map(g => NAV_PERSONAL_GROUPS.has(g.key)
@@ -26294,7 +26308,8 @@ function sideNavKey(rail){
   const items = navGroupsForView().map(g => g.key + ':' + g.items.map(it =>
     it.acc + '=' + navItemCount(it) + '/' + accCountOf(it.acc) + (navItemIsActive(it) ? '*' : '')).join(','));
   let open = '';
-  try { open = (localStorage.getItem(MENU_GROUP_KEY) || '') + '|' + (localStorage.getItem(SIDE_GROUP_KEY) || ''); } catch {}
+  try { open = (localStorage.getItem(MENU_GROUP_KEY) || '') + '|' + (localStorage.getItem(SIDE_GROUP_KEY) || '')
+    + '|' + (localStorage.getItem(ADMIN_GROUP_KEY) || ''); } catch {}
   const a = currentAgent || {};
   return JSON.stringify([dashView, rail, navTab, items, open,
     typeof coachLayerKinds === 'function' ? coachLayerKinds().length : 0,
@@ -26310,9 +26325,16 @@ function renderSideNav(){
   if (key === sideNavLastKey && nav.firstChild) return;
   sideNavLastKey = key;
   nav.classList.toggle('is-rail', rail);
+  // תפריט כהה במצב ניהול - מה שמבדיל אותו מה-CRM של הסוכן/ת (HANDOFF סעיף 1)
+  nav.classList.toggle('is-admin', dashView === 'admin');
   const shell = nav.closest('.dash-shell');
   if (shell) shell.classList.toggle('nav-rail', rail);
   nav.innerHTML = '';
+
+  if (!rail){
+    const sw = sideViewSwitch();
+    if (sw) nav.appendChild(sw);
+  }
 
   /* "יצירה חדשה" - אותו גיליון של כפתור ה-+ בנייד (openCreateSheet), עם
      קיצור N. רק בתצוגת הסוכן/ת: אין מה ליצור בכלי הפלטפורמה. */
@@ -26388,6 +26410,31 @@ function renderSideNav(){
 
   nav.appendChild(list);
   nav.appendChild(sideNavFoot(rail));
+}
+
+/* מתג "תצוגת סוכן/ת / ניהול פלטפורמה" בראש סרגל הצד, למנהל/ת הפלטפורמה
+   בלבד. אותו setDashView של #viewSwitch שבראש התוכן - ובמחשב ההוא מוסתר
+   (crm.html), כי מתג אחד בראש התפריט מספיק. בנייד אין סרגל צד, ו-#viewSwitch
+   נשאר. HANDOFF סעיף 2.2. */
+function sideViewSwitch(){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return null;
+  const wrap = document.createElement('div');
+  wrap.className = 'nav-mode sn-view';
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'מעבר בין תצוגת סוכן/ת לניהול הפלטפורמה');
+  [['agent', 'תצוגת סוכן/ת'], ['admin', 'ניהול פלטפורמה']].forEach(([view, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'nav-mode-btn';
+    b.setAttribute('aria-pressed', String(dashView === view));
+    b.textContent = label;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (dashView !== view) setDashView(view);
+    });
+    wrap.appendChild(b);
+  });
+  return wrap;
 }
 
 /* תחתית הסרגל: מכסת הלידים החינמיים (במסלול החינמי בלבד, כמו מד המכסה
@@ -26568,8 +26615,6 @@ function applyNavFilter(){
   if (adsPanel) adsPanel.classList.toggle('nav-off', !isAdminView);
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.classList.toggle('nav-off', !isAdminView);
-  const adminNav = document.getElementById('adminNav');
-  if (adminNav) adminNav.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -28941,12 +28986,11 @@ function setDashView(view, opts){
   if (adsPanel) adsPanel.hidden = (dashView !== 'admin');
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.hidden = (dashView !== 'admin');
-  const adminNav = document.getElementById('adminNav');
-  if (adminNav){
-    adminNav.hidden = (dashView !== 'admin');
-    if (dashView === 'admin') renderAdminNav();
-  }
   if (!initial) navTab = 'home';
+  // החיפוש בכותרת מחפש בתצוגת הניהול דבר אחר (admin_search), והנוסח אומר מה
+  const searchLabel = document.getElementById('hdrSearchLabel');
+  if (searchLabel) searchLabel.textContent = dashView === 'admin'
+    ? 'חיפוש משרד, סוכן/ת, נכס או מסך' : 'חיפוש לקוח, נכס, ליד או הסכם';
   renderViewSwitch();
   applyNavFilter();
   renderSideNav();
@@ -29906,6 +29950,32 @@ function menuGroupInitiallyOpen(group, saved){
   return saved[group.key] === true;
 }
 
+/* תצוגת מנהל/ת הפלטפורמה שומרת את הקבוצות הפתוחות בנפרד (adminNavOpen):
+   שבע הקבוצות שלה אינן קבוצות הסוכן/ת, ומפתח משותף היה מערבב בין השתיים.
+   ברירת המחדל - ‏open:true ב-NAV_GROUPS (היום, שוק ומשתמשים, צמיחה וכסף);
+   אמון ובקרה, נתונים ותכנון ומערכת מקופלות. HANDOFF סעיף 2.2. */
+const ADMIN_GROUP_KEY = 'adminNavOpen';
+
+function adminGroupsOpen(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(ADMIN_GROUP_KEY) || '{}');
+    return (raw && typeof raw === 'object') ? raw : {};
+  } catch { return {}; }
+}
+
+function adminGroupSetOpen(key, open){
+  const state = adminGroupsOpen();
+  state[key] = open;
+  try { localStorage.setItem(ADMIN_GROUP_KEY, JSON.stringify(state)); } catch {}
+}
+
+/* הקבוצה של המסך הפתוח תמיד פתוחה; אחרת מה שנשמר, ואחרת ברירת המחדל.
+   ‏navTab אינו עוזר כאן: כל פריטי הניהול באותו מקטע ('admin'). */
+function adminGroupInitiallyOpen(group, saved){
+  if (navActive !== NAV_HOME && group.items.some(it => navItemIsActive(it))) return true;
+  return typeof saved[group.key] === 'boolean' ? saved[group.key] : !!group.open;
+}
+
 function navIsHomeItem(item){
   return item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
 }
@@ -29976,7 +30046,8 @@ function buildMenuPanel(){
    נשארת סגורה גם כשהמסך הפתוח בתוכה - אחרת היא הייתה קופצת חזרה פתוחה. */
 function appendMenuGroups(panel, opts){
   const side = !!(opts && opts.side);
-  const saved = menuGroupsOpen();
+  const admin = dashView === 'admin';
+  const saved = admin ? adminGroupsOpen() : menuGroupsOpen();
 
   /* כפתור הבית יוצא מהקבוצה ונעוץ בראש התפריט. בתוך קבוצה מתקפלת הוא היה
      נעלם בדיוק במצב ברירת המחדל — והדרך חזרה היא הדבר האחרון שצריך לחפש
@@ -29988,6 +30059,7 @@ function appendMenuGroups(panel, opts){
       // בתפריט הצר כותרת ארוכה נחתכה ל"פעילות עסק…" — ‏short היא הגרסה שנכנסת
       label: g.short || g.label,
       icon:  g.icon,
+      open:  g.open,
       items: g.items.filter(it => { if (navIsHomeItem(it)){ homeItems.push(it); return false; } return true; }),
     }))
     .filter(g => g.items.length);
@@ -30009,7 +30081,15 @@ function appendMenuGroups(panel, opts){
     const hotSum = group.items.reduce(
       (s, it) => s + (NAV_HOT_ACCS.has(it.acc) ? accCountOf(it.acc) : 0), 0);
 
-    const open = (side && saved[group.key] === false) ? false : menuGroupInitiallyOpen(group, saved);
+    const open = (side && saved[group.key] === false) ? false
+      : admin ? adminGroupInitiallyOpen(group, saved) : menuGroupInitiallyOpen(group, saved);
+    /* בתצוגת מנהל/ת המונה הוא מה שממתין בקבוצה ולא מספר הפריטים בה: אדום
+       כשיש בה דבר דחוף, כהה כשיש בה מה שממתין, וכלום כשאין. כך גם קבוצה
+       מקופלת אומרת אם יש בה עבודה (HANDOFF סעיף 2.2). */
+    const waiting = admin ? group.items.reduce((s, it) => s + navItemCount(it), 0) : 0;
+    const count = hotSum ? '<span class="mg-count is-hot">' + esc(String(hotSum)) + '</span>'
+      : admin ? (waiting ? '<span class="mg-count is-wait">' + esc(String(waiting)) + '</span>' : '')
+      : '<span class="mg-count">' + esc(String(group.items.length)) + '</span>';
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'menu-gtoggle';
@@ -30018,16 +30098,23 @@ function appendMenuGroups(panel, opts){
     toggle.innerHTML =
       dashIcon(group.icon, 'mg-ico')
       + '<span class="mg-label">' + esc(group.label) + '</span>'
-      + (hotSum ? '<span class="mg-count is-hot">' + esc(String(hotSum)) + '</span>'
-                : '<span class="mg-count">' + esc(String(group.items.length)) + '</span>')
+      + count
       + '<svg class="mg-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    /* קבוצה מקופלת בתצוגת מנהל/ת מראה מה יש בה - שורת שמות, כדי שלא יהיה
+       צריך לפתוח אותה רק כדי לגלות שהמסך שמחפשים לא שם */
+    const summary = admin ? Object.assign(document.createElement('div'), {
+      className:'menu-gsum', textContent: group.items.map(it => it.label).join(' · '),
+    }) : null;
+    if (summary) summary.hidden = open;
     toggle.addEventListener('click', ()=>{
       const nowOpen = toggle.getAttribute('aria-expanded') !== 'true';
       toggle.setAttribute('aria-expanded', String(nowOpen));
       sub.hidden = !nowOpen;
-      menuGroupSetOpen(group.key, nowOpen);
+      if (summary) summary.hidden = nowOpen;
+      (admin ? adminGroupSetOpen : menuGroupSetOpen)(group.key, nowOpen);
     });
     panel.appendChild(toggle);
+    if (summary) panel.appendChild(summary);
 
     sub.hidden = !open;
     group.items.forEach(navItem => sub.appendChild(menuItemButton(navItem, side)));
@@ -30503,7 +30590,32 @@ const SEARCH_SCOPES = [
   { key:'deals',   label:'הסכמים' },
   { key:'help',    label:'עזרה' },
 ];
-const SEARCH_GROUP_LABEL = { clients:'לקוחות', props:'נכסים', leads:'לידים', deals:'הסכמים' };
+/* בתצוגת מנהל/ת הפלטפורמה החיפוש אחר: admin_search (20270630090000) על כל
+   הפלטפורמה - משרדים, סוכנים ונכסים - ו"מסכים" שהם פריטי התפריט של הניהול,
+   בדפדפן. בלי לידים ובלי עזרה: שם הפונה הוא מידע אישי, והעזרה נכתבה
+   לסוכנים. docs/admin-navigation.md, "חיפוש". */
+const ADMIN_SEARCH_SCOPES = [
+  { key:'all',      label:'הכל' },
+  { key:'agencies', label:'משרדים' },
+  { key:'agents',   label:'סוכנים' },
+  { key:'aprops',   label:'נכסים' },
+  { key:'screens',  label:'מסכים' },
+];
+const ADMIN_SEARCH_KEYS = ['screens', 'agencies', 'agents', 'aprops'];
+const SEARCH_GROUP_LABEL = { clients:'לקוחות', props:'נכסים', leads:'לידים', deals:'הסכמים',
+  agencies:'משרדים', agents:'סוכנים', aprops:'נכסים', screens:'מסכים' };
+
+function searchScopes(){
+  return dashView === 'admin' ? ADMIN_SEARCH_SCOPES : SEARCH_SCOPES;
+}
+
+/* פריטי התפריט של הניהול שהשם שלהם מכיל את מה שהוקלד - "יומן", "עלויות" */
+function searchAdminScreens(q){
+  const t = q.toLowerCase();
+  if (t.length < SEARCH_MIN) return [];
+  return navGroupsForView().flatMap(g => g.items)
+    .filter(it => it.label.toLowerCase().includes(t));
+}
 const SEARCH_MIN = 2;
 let searchScope = 'all';
 let searchTimer = 0;
@@ -30520,6 +30632,8 @@ function openSearch(scope){
     navLayerShow('searchSheet', 'search', '#crmSearchInput');
   }
   setSearchScope(scope || searchScope);
+  // מה שהוקלד נשאר בשדה; אם התצוגה התחלפה מאז, התוצאות שלו שייכות לאחרת
+  if (searchQuery().length >= SEARCH_MIN && (!searchData || searchData.view !== dashView)) runSearch();
   loadCrmHelp();
 }
 
@@ -30528,7 +30642,7 @@ function closeSearch(){
 }
 
 function setSearchScope(scope){
-  searchScope = SEARCH_SCOPES.some(s => s.key === scope) ? scope : 'all';
+  searchScope = searchScopes().some(s => s.key === scope) ? scope : 'all';
   renderSearch();
 }
 
@@ -30575,13 +30689,14 @@ function runSearch(){
   clearTimeout(searchTimer);
   const q = searchQuery();
   if (q.length < SEARCH_MIN){ searchData = null; renderSearch(); return; }
-  if (searchData && searchData.q === q) { renderSearch(); return; }
+  const view = dashView;
+  if (searchData && searchData.q === q && searchData.view === view) { renderSearch(); return; }
   const seq = ++searchSeq;
-  searchData = { q, loading:true };
+  searchData = { q, view, loading:true };
   renderSearch();
-  sb.rpc('crm_search', { p_q:q, p_limit:6 }).then(({ data, error })=>{
+  sb.rpc(view === 'admin' ? 'admin_search' : 'crm_search', { p_q:q, p_limit:6 }).then(({ data, error })=>{
     if (seq !== searchSeq) return;   // הוקלד משהו חדש בינתיים
-    searchData = error ? { q, error } : { ...(data || {}), q };
+    searchData = error ? { q, view, error } : { ...(data || {}), q, view };
     renderSearch();
   });
 }
@@ -30591,12 +30706,17 @@ function renderSearch(){
   const out = document.getElementById('crmSearchResults');
   if (!chips || !out) return;
   const q = searchQuery();
-  const counts = (searchData && searchData.counts) || {};
-  const helpHits = searchHelp(q);
-  const total = ['clients','props','leads','deals'].reduce((s, k) => s + (Number(counts[k]) || 0), 0);
+  const admin = dashView === 'admin';
+  // תוצאות של התצוגה האחרת (מי שעבר/ה תצוגה עם החיפוש פתוח) אינן מוצגות
+  const data = searchData && searchData.view === dashView ? searchData : null;
+  const screens = admin ? searchAdminScreens(q) : [];
+  const counts = { ...((data && data.counts) || {}), screens: screens.length };
+  const helpHits = admin ? [] : searchHelp(q);
+  const groupKeys = admin ? ADMIN_SEARCH_KEYS : ['clients','props','leads','deals'];
+  const total = groupKeys.reduce((s, k) => s + (Number(counts[k]) || 0), 0);
 
   chips.innerHTML = '';
-  SEARCH_SCOPES.forEach(s=>{
+  searchScopes().forEach(s=>{
     const n = s.key === 'all' ? total + helpHits.length
             : s.key === 'help' ? helpHits.length : Number(counts[s.key]) || 0;
     const chip = document.createElement('button');
@@ -30611,15 +30731,17 @@ function renderSearch(){
   out.innerHTML = '';
   if (searchScope !== 'help'){
     if (q.length < SEARCH_MIN){
-      out.innerHTML = '<p class="srch-hint">חפשו לקוח/ה, נכס, ליד, הסכם או מספר טלפון. לפחות שני תווים.</p>';
-    } else if (searchData && searchData.loading){
+      out.innerHTML = admin
+        ? '<p class="srch-hint">חפשו משרד, סוכן/ת, נכס (גם לפי מספר מודעה) או מסך בניהול. לפחות שני תווים.</p>'
+        : '<p class="srch-hint">חפשו לקוח/ה, נכס, ליד, הסכם או מספר טלפון. לפחות שני תווים.</p>';
+    } else if (data && data.loading && !screens.length){
       out.innerHTML = '<p class="srch-hint">מחפש…</p>';
-    } else if (searchData && searchData.error){
-      out.innerHTML = '<p class="srch-hint is-err">החיפוש נכשל: ' + esc(heErr(searchData.error)) + '</p>';
-    } else if (searchData){
-      const keys = searchScope === 'all' ? ['clients','props','leads','deals'] : [searchScope];
+    } else if (data && data.error && !screens.length){
+      out.innerHTML = '<p class="srch-hint is-err">החיפוש נכשל: ' + esc(heErr(data.error)) + '</p>';
+    } else if (data || screens.length){
+      const keys = searchScope === 'all' ? groupKeys : [searchScope];
       keys.forEach(k => {
-        const rows = searchData[k] || [];
+        const rows = k === 'screens' ? screens : ((data && data[k]) || []);
         if (!rows.length) return;
         out.appendChild(searchGroup(k, rows.slice(0, searchScope === 'all' ? 3 : rows.length),
                                     Number(counts[k]) || rows.length, q));
@@ -30629,7 +30751,7 @@ function renderSearch(){
       }
     }
   }
-  if (searchScope === 'help' || searchScope === 'all') out.appendChild(searchHelpBlock(helpHits, q));
+  if (!admin && (searchScope === 'help' || searchScope === 'all')) out.appendChild(searchHelpBlock(helpHits, q));
 }
 
 function searchGroup(key, rows, count, q){
@@ -30677,6 +30799,28 @@ function searchRow(key, r, q){
     title = r.display_name || 'ליד';
     sub = [LX_TYPES[r.lead_type] || 'ליד', INV_VALUE_LABELS[r.deal_type] || '', r.city, srchDate(r.created_at)];
     open = ()=>{ gotoSection('accLeads'); openLeadFromParam(r.id); };
+  } else if (key === 'screens'){
+    // פריט תפריט של הניהול - אותו navGo של לחיצה בתפריט
+    icon = r.icon;
+    title = r.label;
+    sub = ['מסך בניהול'];
+    open = ()=> navGo(r);
+  } else if (key === 'agencies'){
+    // אין כרטיס משרד ב-CRM של הניהול; הדף הציבורי הוא מה שמנהל/ת מחפש/ת
+    icon = 'building';
+    title = r.name || 'משרד';
+    sub = [r.city, (Number(r.agents) || 0) + ' סוכנים'];
+    open = ()=> window.open('/agency?slug=' + encodeURIComponent(r.slug || r.id), '_blank', 'noopener');
+  } else if (key === 'agents'){
+    icon = 'user';
+    title = r.display_name || 'סוכן/ת';
+    sub = [r.agency, r.role === 'manager' ? 'מנהל/ת משרד' : '', r.tier && window.Tiers ? 'מסלול ' + Tiers.label(r.tier) : ''];
+    open = ()=> window.open('/agent?slug=' + encodeURIComponent(r.slug || r.id), '_blank', 'noopener');
+  } else if (key === 'aprops'){
+    icon = 'building';
+    title = r.title || 'נכס';
+    sub = [r.city, r.agency, INV_VALUE_LABELS[r.status] || '', r.listing_number ? 'מס׳ ' + r.listing_number : ''];
+    open = ()=> window.open('/property?id=' + encodeURIComponent(r.id), '_blank', 'noopener');
   } else {
     icon = 'sign';
     title = r.title || INV_VALUE_LABELS[r.kind] || 'הסכם';
