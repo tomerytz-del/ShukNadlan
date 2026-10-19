@@ -58,9 +58,10 @@ const BY_DOMAIN: [string, string][] = [
 /**
  * החשבוניות של morning הן חשבוניות **שאנחנו** הנפקנו (טעינות ארנק של
  * סוכנים) — הכנסה, לא הוצאה. הן מגיעות לאותה תיבה ובאותו נוסח של "חשבונית
- * מס / קבלה", ולכן נחסמות בשם ולא לפי הנוסח.
+ * מס / קבלה", ולכן נחסמות בשם ולא לפי הנוסח. ‏grow.security ("אישור תשלום
+ * משוק הנדל״ן") הוא אישור הסליקה של אותה טעינה, מהצד של הסולק.
  */
-const NEVER: string[] = ["morning.co", "greeninvoice.co.il"];
+const NEVER: string[] = ["morning.co", "greeninvoice.co.il", "grow.security"];
 
 function domainOf(email: string): string {
   return (email.split("@")[1] || "").toLowerCase();
@@ -199,12 +200,31 @@ export function stripForwardPrefix(subject: string): string {
  * השולח המקורי מתוך גוף של מייל שהועבר ידנית ("---------- Forwarded message
  * ---------\nFrom: Netlify <noreply@netlify.com>"). ‏**לא מאומת** — ולכן
  * נקרא רק כשמי שהעביר/ה הוא/היא מנהל/ת פלטפורמה מאומת/ת.
+ *
+ * ‏`מקור:` — הכותרת שהסוכן של תומר כותב כשהוא מעביר קבלות אוטומטית ("הודעה
+ * זו הועברה אוטומטית…\nמקור: "Netlify, Inc." <noreply@netlify.com>"). בלעדיה
+ * כל קבלה שהוא העביר נכנסה כ-`other` (18.10.2026: 30 שורות).
  */
 export function forwardedSender(text: string): string | null {
-  const marker = text.search(/Forwarded message|הודעה שהועברה|הודעה מצורפת|Original Message/i);
+  const marker = text.search(/Forwarded message|הודעה שהועברה|הועברה אוטומטית|הודעה מצורפת|Original Message/i);
   const tail = marker >= 0 ? text.slice(marker) : text;
-  const m = tail.match(/^(?:From|מאת)\s*:\s*[^\n]*?<?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>?/m);
+  const m = tail.match(
+    /^[‎‏\s]*(?:From|מאת|מקור)\s*:\s*[^\n]*?<?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>?/m,
+  );
   return m ? m[1].toLowerCase() : null;
+}
+
+/**
+ * הטקסט שבו מחפשים את הקבלה: חלק הטקסט, ואחריו חלק ה-HTML כשיש את שניהם.
+ * ‏`parseMail` מעדיף את חלק הטקסט, וזה נכון לעוזר — אבל בהעברה האוטומטית
+ * חלק הטקסט הוא רק כותרת ההעברה, והסכום, מספר החשבונית ותאריך החיוב
+ * יושבים כולם ב-HTML.
+ */
+export function receiptText(text: string, htmlText: string): string {
+  const t = (text || "").trim();
+  const h = (htmlText || "").trim();
+  if (!h || h === t) return t;
+  return t ? `${t}\n\n${h}` : h;
 }
 
 /**

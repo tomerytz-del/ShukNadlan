@@ -27,7 +27,7 @@ import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
-import { forwardedSender, parseCostMail, stripForwardPrefix } from "./cost-mail.ts";
+import { forwardedSender, parseCostMail, receiptText, stripForwardPrefix } from "./cost-mail.ts";
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
 import { prepareImportJob } from "./property-import.ts";
 
@@ -219,6 +219,12 @@ interface ParsedMail {
   date: string;
   messageId: string | null;
   text: string;
+  /**
+   * חלק ה-HTML כטקסט, כשיש **גם** חלק טקסט (אחרת הוא כבר ב-`text`). העוזר
+   * אינו קורא אותו; הקבלות כן — העברה של הסוכן של תומר שמה בחלק הטקסט
+   * שורת "מקור:" בלבד, והקבלה המקורית (סכום, חשבונית, תאריך) כולה ב-HTML.
+   */
+  htmlText: string;
   attachments: MailAttachment[];
 }
 
@@ -253,7 +259,9 @@ function addr(a?: PostalAddress): string {
  */
 export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail> {
   const email = await PostalMime.parse(raw) as PostalEmail;
-  let text = (email.text || "").trim() || htmlToText(email.html || "");
+  const plain = (email.text || "").trim();
+  let text = plain || htmlToText(email.html || "");
+  let htmlText = plain ? htmlToText(email.html || "") : "";
   const attachments: MailAttachment[] = [];
 
   for (const a of email.attachments || []) {
@@ -262,6 +270,7 @@ export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail>
       const inner = await parseMail(toBytes(a.content), depth + 1);
       text += `\n\n---------- הודעה מצורפת ----------\n` +
         `מאת: ${inner.from}\nנושא: ${inner.subject}\nתאריך: ${inner.date}\n\n${inner.text}`;
+      if (inner.htmlText) htmlText += (htmlText ? "\n\n" : "") + inner.htmlText;
       attachments.push(...inner.attachments);
     } else {
       const mime = (a.mimeType || "application/octet-stream").toLowerCase();
@@ -279,6 +288,7 @@ export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail>
     date: email.date || "",
     messageId: email.messageId || null,
     text,
+    htmlText,
     attachments,
   };
 }
@@ -738,7 +748,7 @@ async function handleCostMail(
     {
       sender: vendor,
       subject: mail.subject,
-      text: mail.text,
+      text: receiptText(mail.text, mail.htmlText),
       mailDate: mail.date ? new Date(mail.date) : null,
     },
     byAdmin ? "other" : null,
