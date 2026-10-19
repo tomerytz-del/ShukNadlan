@@ -727,11 +727,14 @@ async function handleCostMail(
   const row = claimed as ClaimRow;
 
   let mail: ParsedMail;
+  let sizes = "";
   try {
     const fetched = await imap.uidFetch([uid], `BODY.PEEK[]<0.${COSTS_FETCH_BYTES}>`);
     const raw = fetched.get(uid)?.bytes;
     if (!raw || !raw.length) return finish(sb, row, "failed", "costs: empty_fetch");
     mail = await parseMail(raw);
+    // ‏קבלה בלי סכום — מה הגיע בפועל: בתים מול RFC822.SIZE, ואורך הטקסט וה-HTML.
+    sizes = ` [raw ${raw.length}/${fetched.get(uid)?.size ?? "?"}, text ${mail.text.length}, html ${mail.htmlText.length}]`;
   } catch (err) {
     console.error("cost mail fetch/parse failed", err);
     return finish(sb, row, "failed", `costs: fetch: ${String((err as Error)?.message || err)}`);
@@ -771,7 +774,7 @@ async function handleCostMail(
   }
   await finish(
     sb, row, "done",
-    `costs: ${draft.service} ${draft.amount ?? "?"} ${draft.currency} ${draft.status}`,
+    `costs: ${draft.service} ${draft.amount ?? "?"} ${draft.currency} ${draft.status}${draft.amount === null ? sizes : ""}`,
   );
 }
 
