@@ -94,7 +94,7 @@ $('csmGoogle').addEventListener('click', async () => {
   btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
   // ‏origin + pathname בלי query: חייב להיות ברשימת ה-Redirect URLs של Supabase
   if (window.AuthReturn) AuthReturn.remember();
-  const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin + location.pathname } });
+  const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin + location.pathname, queryParams:{ prompt:'select_account' } } });
   if (error){
     btn.disabled = false;
     btn.querySelector('.gl-label').textContent = 'התחברות עם Google';
