@@ -76,12 +76,15 @@ platform_costs  (source = 'mail')
 | `fal_ai` | Orb (`withorb.com`) עם "fal" בנושא | כנ"ל |
 | `supabase` | `supabase.com` | `Invoice from …: $X due` |
 | `anthropic_api` | `mail.anthropic.com` | Stripe: `Amount paid $X`, ‏`Invoice number` |
+| `replicate` | `replicate.com` | Stripe: `Amount paid -$X` (במינוס; ה-`$0.00 Due` שבכותרת הוא היתרה) |
 | `make` | `make.com` | Stripe |
 | `openai` | `openai.com` | `We charged $X` (אין מספר חשבונית) |
-| `claude_subscription` | Google Play, רק כשכתוב Anthropic/Claude | `סה"כ: X ₪`, ‏`מספר הזמנה: GPA…` |
+| `twilio` | `twilio.com` | `We charged the … Credit Card ( **** 3417 ) $X`, ‏`transaction CX…` כמספר |
+| `gemini` | `payments-noreply@google.com` (‏Google Cloud) | `התשלום שלך בסך X ₪`, ‏`סימוכין CLOUD …`, ‏`בתאריך 11 באוק׳ 2026` |
+| `claude_subscription` | Google Play, רק כשכתוב Anthropic/Claude | `סה"כ: X ₪` (גם `סה״כ`, וסימני כיוון בין המספר ל-₪), ‏`מספר הזמנה: GPA…` |
 | `meta` | `facebookmail.com` | הסכום ב-PDF → **ממתין בלי סכום** |
 | `domain` | `box.co.il` | `שולם X` |
-| `twilio`, `github`, `resend`, `gemini` | לפי הדומיין | תבנית כללית (`Total $X`) → **ממתין** |
+| `github`, `resend` | לפי הדומיין | תבנית כללית (`Total $X`) → **ממתין** |
 
 **מה נחסם בשם ולא לפי הנוסח:** ‏`morning.co` / `greeninvoice.co.il`. החשבוניות
 שמגיעות משם הן חשבוניות **שאנחנו** הנפקנו (טעינות ארנק של סוכנים), כלומר

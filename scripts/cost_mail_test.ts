@@ -172,6 +172,54 @@ ok(
   findDuplicate({ ...n52!, amount: 10 }, [{ id: 9, amount: 10, invoice_no: null, status: "confirmed" }]) === null,
 );
 
+// ---------------------------------------------------------------------------
+// ספקים שנכנסו בלי סכום (19.10.2026) - הנוסח מהמיילים המקוריים
+// ---------------------------------------------------------------------------
+
+const direct2 = (sender: string, subject: string, text: string) =>
+  parseCostMail({ sender, subject, text, mailDate: new Date("2026-10-19T08:00:00Z") });
+
+const twilio = direct2(
+  "noreply@twilio.com",
+  "Your Twilio account has been funded",
+  "We charged the ShukNadlan Credit Card ( **** **** **** 3417 ) $50.00\nto bring the balance to $50.00.\nand transaction CX7b53ab469ca71c459587842ae95fb88f",
+);
+ok("Twilio - $50 מאושר", twilio?.service === "twilio" && twilio?.amount === 50 && twilio?.status === "confirmed", twilio);
+ok("Twilio - מזהה העסקה כמספר", twilio?.invoice_no === "CX7b53ab469ca71c459587842ae95fb88f", twilio?.invoice_no);
+
+const openai = direct2(
+  "noreply@tm.openai.com",
+  "Your OpenAI API account has been funded",
+  "Hi there, We charged $20.00 to your credit card ending in 2687 to fund your OpenAI API credit balance.",
+);
+ok("OpenAI - עדיין $20", openai?.service === "openai" && openai?.amount === 20, openai);
+
+const gcloud = direct2(
+  "payments-noreply@google.com",
+  "Google Cloud Platform & APIs: קיבלנו את התשלום שלך עבור 01066F-004CEE-7EAB07",
+  "התשלום שלך בסך 300.00 ₪ (סימוכין CLOUD xBMKTW ב-מאסטרקארד  • • • • 3417)\nהוחל על Google Cloud Platform & APIs בתאריך 11 באוק׳ 2026.",
+);
+ok("Google Cloud - ₪300 מאושר", gcloud?.service === "gemini" && gcloud?.amount === 300 && gcloud?.currency === "ILS" && gcloud?.status === "confirmed", gcloud);
+ok("Google Cloud - סימוכין ותאריך", gcloud?.invoice_no === "CLOUD xBMKTW" && gcloud?.charged_on === "2026-10-11", gcloud);
+const gnot = direct2("payments-noreply@google.com", "אפשרות הוספת הכסף האוטומטית מופעלת", "הפעלת הוספה אוטומטית");
+ok("Google Payments שאינו חיוב - לא נכנס", gnot === null, gnot);
+
+const play = direct2(
+  "googleplay-noreply@google.com",
+  "הקבלה שלך על הזמנה ב-Google Play מ-9 ביולי 2026",
+  "מספר הזמנה: GPA.3309-0629-0926-75028\nתאריך הזמנה: 9 ביולי 2026 17:47:55 GMT+3\nClaude Pro Subscription (Claude by Anthropic) 88.00 ₪/חודש\nסה״כ:‏ 88.00‏ ₪/חודש",
+);
+ok("Google Play - ₪88 גם עם גרשיים וסימני כיוון", play?.service === "claude_subscription" && play?.amount === 88 && play?.currency === "ILS", play);
+ok("Google Play - תאריך ההזמנה", play?.charged_on === "2026-07-09", play?.charged_on);
+
+const replicate = direct2(
+  "invoice+statements@replicate.com",
+  "New invoice from Replicate, LLC #6P70QIZE-0001",
+  "Invoice from Replicate, LLC $0.00 Due August 12, 2026\nInvoice #6P70QIZE-0001 One-time credit purchase Qty 1 $20.00 Total due $20.00 Amount paid -$20.00 Amount remaining $0.00",
+);
+ok("Replicate - שירות משלו ו-$20 (לא $0 של 'Due')", replicate?.service === "replicate" && replicate?.amount === 20 && replicate?.status === "confirmed", replicate);
+ok("Replicate - מספר החשבונית ותאריך", replicate?.invoice_no === "6P70QIZE-0001" && replicate?.charged_on === "2026-08-12", replicate);
+
 if (fail) {
   console.error(`\n${fail} בדיקות נכשלו`);
   process.exit(1);

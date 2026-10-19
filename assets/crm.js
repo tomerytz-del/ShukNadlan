@@ -5677,6 +5677,7 @@ const COST_SERVICES = [
   { key: 'openai',              label: 'OpenAI',         sub: 'תמלול הקלטות (Whisper)' },
   { key: 'gemini',              label: 'Google Gemini',  sub: 'סיווג תמונות והדמיות' },
   { key: 'fal_ai',              label: 'fal.ai',         sub: 'סרטוני נכסים' },
+  { key: 'replicate',           label: 'Replicate',      sub: 'מודלים של AI' },
   { key: 'meta',                label: 'Meta',           sub: 'וואטסאפ ופייסבוק' },
   { key: 'twilio',              label: 'Twilio',         sub: 'יומן שיחות' },
   { key: 'make',                label: 'Make.com',       sub: 'פרסום לפייסבוק ולאינסטגרם' },
