@@ -129,6 +129,56 @@ Deno.serve(async (req: Request) => {
   if (months < 1 || months > 12) return json({ error: "invalid_months" }, 400);
 
   try {
+    // ---- פרסום חינם בכפוף לאישור --------------------------------------
+    // כשהמתג דלוק (‏pricing_config.professional_card_free_publishing) אין
+    // סולק ואין הטבה חד-פעמית: הכרטיסייה נוצרת כ-`pending_approval`, ומנהל/ת
+    // הפלטפורמה מעלה אותה לאוויר מה-CRM. האסימון מוחזר מיד, כדי שאפשר יהיה
+    // למלא את העמוד בזמן ההמתנה. ראו `20270701090000_professional_free_publishing.sql`.
+    const { data: freeCfg } = await supabase
+      .from("pricing_config")
+      .select("value")
+      .eq("key", "professional_card_free_publishing")
+      .maybeSingle();
+    if (Number(freeCfg?.value) > 0) {
+      const { data: placement, error: insertErr } = await supabase
+        .from("ad_placements")
+        .insert({
+          placement_type: "professional_card",
+          advertiser_name,
+          business_name: trimmedOrNull(body.business_name),
+          advertiser_type,
+          contact_email,
+          target_region: target_region || "עפולה",
+          creative_url: safeUrl(body.creative_url),
+          click_url: safeUrl(body.click_url),
+          status: "pending_approval",
+          price_model: "flat_monthly",
+          test_mode: false,
+        })
+        .select()
+        .single();
+      if (insertErr) return json({ error: "db_error", detail: insertErr.message }, 500);
+
+      const { data: access, error: accessErr } = await supabase
+        .from("ad_placement_access")
+        .insert({ placement_id: placement.id })
+        .select("manage_token")
+        .single();
+      if (accessErr) console.error("manage token creation failed", accessErr.message);
+
+      // ההתראה למנהל/ת היא כאן הבקשה לאישור - בלעדיה הרישום ממתין בשקט.
+      await announceProfessionalSignup(supabase, placement.id, { pendingApproval: true });
+
+      return json({
+        success: true,
+        paid: false,
+        free: true,
+        pending_approval: true,
+        placement_id: placement.id,
+        manage_token: access?.manage_token ?? null,
+      });
+    }
+
     // ---- הטבת ההצטרפות: חודשי פרסום חינם, פעם אחת לכל אימייל -------------
     // הזכאות נבדקת **לפני** שנוצרת שורה: מי שכבר מימש/ה את ההטבה לחץ/ה על
     // כפתור שהבטיח "חינם", ולא יועבר/תועבר לעמוד תשלום בלי שנאמר לו/ה. הטופס

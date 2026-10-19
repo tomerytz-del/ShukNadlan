@@ -295,7 +295,7 @@ interface PlacementRow {
 export async function announceProfessionalSignup(
   supabase: Client,
   placementId: string,
-  payment: { months: number; amount: number } | { freeMonths: number } | null,
+  payment: { months: number; amount: number } | { freeMonths: number } | { pendingApproval: true } | null,
 ): Promise<void> {
   try {
     const { data: p, error } = await (supabase
@@ -312,7 +312,10 @@ export async function announceProfessionalSignup(
     const who = p.advertiser_name || p.business_name || "ללא שם";
     const field = PROFESSIONAL_TYPE_LABELS[p.advertiser_type || ""] || "בעל/ת מקצוע";
 
-    const payLine = payment && "freeMonths" in payment
+    // פרסום חינם: ההודעה היא הבקשה לאישור, ולכן היא אומרת איפה מאשרים.
+    const payLine = payment && "pendingApproval" in payment
+      ? `פרסום חינם · ממתין/ה לאישור שלך ב-CRM (בעלי מקצוע) - ${SITE_BASE}/crm?goto=accProfessionals`
+      : payment && "freeMonths" in payment
       ? `הטבת הצטרפות · ${payment.freeMonths} חודשים חינם · הכרטיסייה באוויר`
       : payment
       ? `הופנה/תה לתשלום · ${payment.months} חודשים · ₪${Math.round(payment.amount)}`
