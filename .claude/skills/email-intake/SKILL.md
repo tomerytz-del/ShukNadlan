@@ -60,6 +60,9 @@ description: עבודה על קליטה מהמייל בריפו של שוק נד
    (‏`מקור: <ספק>`) והקבלה כולה ב-HTML, ו-`parseMail` מעדיף את חלק הטקסט.
    מי שנוגע ב-`parseMail` שומר על `htmlText`; מי שמוסיף צורת כותרת העברה -
    ב-`forwardedSender`, עם שורה ב-`scripts/cost_mail_test.ts`.
+   **כפילות:** האינדקס על `(service, invoice_no)`, ולקבלה בלי מספר -
+   ‏`findDuplicate` (אותו שירות ואותו `charged_on`) לפני ה-insert. קבלה שנשלחת
+   שוב היא מקרה רגיל כאן, לא חריג - ‏`docs/platform-costs.md`, "שני כללים".
 
 9. **ההנחיות בטקסט התור (`buildEmailPrompt`) ולא ב-`SYSTEM_STATIC`** - אחרת
    המטמון של כל התורים הרגילים נשבר בגלל ערוץ שרובם אינם שייכים לו.

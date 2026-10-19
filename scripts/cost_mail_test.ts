@@ -17,6 +17,7 @@
        node --experimental-strip-types scripts/cost_mail_test.ts
    ========================================================================== */
 import {
+  findDuplicate,
   forwardedSender,
   parseCostMail,
   receiptText,
@@ -29,10 +30,10 @@ const ok = (name: string, cond: boolean, got?: unknown) => {
 };
 
 /** כותרת ההעברה של הסוכן, כמו בחלק הטקסט של ההודעה האמיתית. */
-const agentHeader = (from: string, subject: string) =>
+const agentHeader = (from: string, subject: string, date = "Sun, 18 Oct 2026 09:45:32 +0000") =>
   `הודעה זו הועברה אוטומטית על ידי הסוכן של תומר לצורך מעקב הוצאות אתר שוק הנדל"ן.\n` +
   `מקור: ${from}\n` +
-  `תאריך מקורי: Sun, 18 Oct 2026 09:45:32 +0000\n` +
+  `תאריך מקורי: ${date}\n` +
   `נושא מקורי: ${subject}\n\n` +
   `המייל המקורי מצורף בשלמותו למטה.\n${subject}`;
 
@@ -129,6 +130,47 @@ const direct = parseCostMail({
   mailDate: null,
 });
 ok("קבלה ישירה מהספק - כמו קודם", direct?.service === "netlify" && direct?.amount === 10 && direct?.status === "confirmed", direct);
+
+// ---------------------------------------------------------------------------
+// ההעברה שהגיעה בפועל: כותרת בלבד, בלי HTML (19.10.2026: text 278, html 0)
+// ---------------------------------------------------------------------------
+
+const bare = (from: string, subject: string, date: string) =>
+  parseCostMail(
+    {
+      sender: forwardedSender(agentHeader(from, subject, date)) || "",
+      subject: `Fwd: ${subject}`,
+      text: receiptText(agentHeader(from, subject, date), ""),
+      mailDate: new Date("2026-10-18T18:32:51Z"),
+    },
+    "other",
+  );
+
+const n52 = bare(`"Netlify, Inc." <noreply@netlify.com>`, "Payment received for Netlify, Inc. invoice (#NWIXDA-00052)", "Mon, 21 Sep 2026 22:30:00 +0000");
+ok("בלי גוף - מספר החשבונית של Orb מהנושא", n52?.invoice_no === "NWIXDA-00052", n52?.invoice_no);
+ok("בלי גוף - תאריך החיוב מ'תאריך מקורי', בשעון ישראל", n52?.charged_on === "2026-09-22", n52?.charged_on);
+ok("בלי גוף - ממתין בלי סכום", n52?.amount === null && n52?.status === "pending", n52);
+
+const anth = bare(`"Anthropic, PBC" <invoice+statements@mail.anthropic.com>`, "Your receipt from Anthropic, PBC #2184-5046-9629", "Tue, 22 Sep 2026 11:10:00 +0000");
+ok("Anthropic - מספר הקבלה מהנושא אינו נלקח כמספר חשבונית", anth?.service === "anthropic_api" && anth?.invoice_no === null, anth);
+
+const repl = bare("Replicate <invoice+statements@replicate.com>", "New invoice from Replicate, LLC #6P70QIZE-0001", "Tue, 22 Sep 2026 11:10:00 +0000");
+ok("Stripe - מספר חשבונית מהנושא", repl?.invoice_no === "6P70QIZE-0001", repl?.invoice_no);
+
+// ---------------------------------------------------------------------------
+// כפילות בלי מספר חשבונית
+// ---------------------------------------------------------------------------
+
+const backfill = { id: 7, amount: "60.00", invoice_no: "QEKGK6A2-0002", status: "confirmed" };
+ok("קבלה בלי מספר ובלי סכום מול שורה מאותו יום - כפולה", findDuplicate(anth!, [backfill])?.id === 7);
+ok("קבלה בלי מספר עם אותו סכום - כפולה", findDuplicate({ ...anth!, amount: 60 }, [backfill])?.id === 7);
+ok("קבלה בלי מספר עם סכום אחר - לא כפולה", findDuplicate({ ...anth!, amount: 25 }, [backfill]) === null);
+ok("ספק לא מוכר (other) אינו נבדק לפי יום", findDuplicate({ ...anth!, service: "other" }, [backfill]) === null);
+ok("שורה שנדחתה אינה תופסת", findDuplicate(anth!, [{ ...backfill, status: "rejected" }]) === null);
+ok(
+  "קבלה עם מספר חשבונית אינה נבדקת כאן (שתי חשבוניות של $10 ביום אחד)",
+  findDuplicate({ ...n52!, amount: 10 }, [{ id: 9, amount: 10, invoice_no: null, status: "confirmed" }]) === null,
+);
 
 if (fail) {
   console.error(`\n${fail} בדיקות נכשלו`);
