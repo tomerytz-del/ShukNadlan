@@ -123,7 +123,8 @@ const PAID: { re: RegExp; currency: Currency }[] = [
   // ‏OpenAI: "We charged $20.00", ‏Twilio: "We charged the … Credit Card ( **** 3417 ) $50.00"
   { re: /We charged [^$\n]{0,80}?\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" },
   { re: /Invoice from [^:\n]+:\s*\$\s?([\d,]+(?:\.\d{1,2})?) due/i, currency: "USD" }, // Orb, חשבונית חדשה
-  { re: new RegExp(`סה["״]כ:${D}${N}${D}₪`), currency: "ILS" }, // Google Play
+  // ‏Google Play. ב-HTML ‏"סה&quot;כ</span>: <span>" — רווח לפני הנקודתיים אחרי htmlToText
+  { re: new RegExp(`סה["״]כ${D}:${D}${N}${D}₪`), currency: "ILS" },
   { re: new RegExp(`התשלום שלך בסך${D}${N}${D}₪`), currency: "ILS" }, // Google Cloud
   { re: /שולם\s*([\d,]+(?:\.\d{1,2})?)/, currency: "ILS" }, // box.co.il
 ];
@@ -190,9 +191,14 @@ export function chargeDate(text: string): string | null {
     const m = EN_MONTH[en[1].slice(0, 3).toLowerCase()];
     if (m) return ymd(Number(en[3]), m, Number(en[2]));
   }
-  // ‏Google Play: "תאריך הזמנה: 9 ביולי 2026", ‏Google Cloud: "הוחל על … בתאריך 11 באוק׳ 2026"
-  const he = text.match(/(?:תאריך הזמנה:|בתאריך)\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/);
-  if (he) {
+  // ‏Google Play: "תאריך הזמנה: 9 ביולי 2026", ‏Google Cloud: "הוחל על … בתאריך 11 באוק׳ 2026".
+  // לא "בתאריך" לבדו: בקבלה של Google Play יש גם "יתחדש אוטומטית בתאריך 9 באוג׳".
+  for (const re of [
+    /תאריך הזמנה:\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/,
+    /הוחל על [^\n]{0,80}?בתאריך\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/,
+  ]) {
+    const he = text.match(re);
+    if (!he) continue;
     const hit = HE_MONTH.find(([p]) => he[2].startsWith(p));
     if (hit) return ymd(Number(he[3]), hit[1], Number(he[1]));
   }
