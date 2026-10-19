@@ -742,6 +742,10 @@ async function handleCostMail(
     mail = await parseMail(raw);
     // ‏קבלה בלי סכום — מה הגיע בפועל: בתים מול RFC822.SIZE, ואורך הטקסט וה-HTML.
     sizes = ` [raw ${raw.length}/${fetched.get(uid)?.size ?? "?"}, text ${mail.text.length}, html ${mail.htmlText.length}]`;
+    // ‏מבנה ה-MIME כפי שהגיע (שורות Content-Type בלבד, בלי תוכן) — ההעברה
+    // ששמורה ב"נשלחו" שוקלת 92KB, ומה שמגיע לכאן 25KB בלי HTML.
+    const types = new TextDecoder("latin1").decode(raw).match(/^Content-Type:[^\r\n;]*/gim) || [];
+    console.log("cost mail", uid, sizes.trim(), `attachments ${mail.attachments.length}`, types.slice(0, 15).join(" | "));
   } catch (err) {
     console.error("cost mail fetch/parse failed", err);
     return finish(sb, row, "failed", `costs: fetch: ${String((err as Error)?.message || err)}`);
