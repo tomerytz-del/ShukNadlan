@@ -1,0 +1,136 @@
+{
+  "title": "מה זה שוק הנדל״ן",
+  "aspect": "16:9",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "שוק הנדל״ן: מערכת אחת, שמחברת בין המשרד שלך, המשרדים שסביבך, והקונים!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "המשרד",
+        "המשרדים",
+        "הקונים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-89868cb2"
+      ],
+      "notes": "LOOK: deep blue #003DA5 hero, red #DC1C2E as a single accent, white and light grey #F4F6FA ground, heebo, RTL. No brand marks of any network, no balloon, no red-white-blue stripes. AUDIENCE: brokerage office owners, 16:9 for a meeting, about 48 s. THREAD: three circles (office, offices, buyers) joined by red lines; every scene zooms into one circle and the dashboard scene pulls all three into one screen. Screens are rebuilt in code with demo data and a small 'נתוני הדגמה' tag."
+    },
+    {
+      "id": "office",
+      "narration": "בתוך המשרד: מערכת ניהול מלאה, וגבריאלה, עוזרת בינה מלאכותית, שחוסכת לכל סוכן שעות עבודה!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "CRM + עוזרת AI",
+        "חוסכת שעות לכל סוכן"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-b743cf52"
+      ],
+      "notes": "Circle 1 opens into a CRM window (KPI tiles, demo numbers). On 'גבריאלה' a phone slides in with the real agent chat (demo names): add client, she opens a card and finds 2 matches."
+    },
+    {
+      "id": "offices",
+      "narration": "בין המשרדים: שיתופי פעולה מקומיים, והתאמות בין הנכסים שלך, ללקוחות שלהם!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שיתופי פעולה והתאמות"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Circle 2: several office nodes on a regional map grid; a property card travels from one office to another, a client chip on the other side, and a red match line with '100% התאמה'."
+    },
+    {
+      "id": "buyers",
+      "narration": "ומול הקונים: כל נכס עולה לאתר, עם חיפוש בגבריאלה ועל המפה, הדמיות בינה מלאכותית, ומחשבון משכנתא. וכל פנייה חוזרת אליך כליד!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "חיפוש בגבריאלה",
+        "מפה",
+        "הדמיות AI",
+        "מחשבון משכנתא",
+        "כל פנייה היא ליד"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-aa6d409b",
+        "a-cb9dd542",
+        "a-233e5c3e",
+        "a-c25e0fbb",
+        "a-1b5c46e5",
+        "a-1c7fb3e8"
+      ],
+      "notes": "Circle 3: the real public site in a phone (search, then the map); on הדמיות a real before/after wipe of a living room, then of a commercial shop; chips tick on their words; on פנייה a lead card flies back to the CRM."
+    },
+    {
+      "id": "dashboard",
+      "narration": "ואתה? רואה הכול בדאשבורד אחד: מי בעניינים, מי מאחר עם ליד, ואיזו בלעדיות נגמרת.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "הכול בדאשבורד אחד"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-816ff4b0"
+      ],
+      "notes": "The three circles fly into one office dashboard (rebuilt, demo data): KPI tiles, agents table with target bars; rows light on 'בעניינים', 'מאחר', 'בלעדיות'."
+    },
+    {
+      "id": "mentor",
+      "narration": "ומעל הכול: מנטור מקצועי, שעוקב אחרי הסוכן, מנהל הצוות ומנהל המשרד, ונותן לכל אחד צעדים לשיפור התוצאות. ואפשר לשאול אותו כל שאלה מקצועית!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מנטור לסוכן · לצוות · למשרד",
+        "שאל את המנטור"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-dad4ffb2",
+        "a-816ff4b0"
+      ],
+      "notes": "Three mentor cards (agent, team, office) open one per word, each with one step highlighted in red. On 'לשאול' the question is typed into the ask field and the answer scrolls."
+    },
+    {
+      "id": "close",
+      "narration": "יותר התאמות. יותר עסקאות. שוק הנדל״ן!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "יותר התאמות. יותר עסקאות.",
+        "shuknadlan.co.il"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-89868cb2"
+      ],
+      "notes": "Two lines land on their words, then the logo on white and the address."
+    }
+  ]
+}

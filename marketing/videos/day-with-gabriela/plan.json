@@ -1,0 +1,95 @@
+{
+  "title": "יום עם גבריאלה",
+  "aspect": "16:9",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "וואטסאפ אחד לגבריאלה, והיא ממשיכה משם!",
+      "treatment": "motion-graphic",
+      "onScreenText": ["הודעה אחת"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-6122196d"],
+      "notes": "LOOK: same series as 'מה זה שוק הנדל״ן' - deep blue #003DA5, one red accent #DC1C2E, pale ground, heebo, RTL. No network names or marks. AUDIENCE: brokerage office owners, 16:9, about 55 s. THREAD: a WhatsApp chat with Gabriela on a phone carries every scene; supporting cards beside it. Demo names only (יואב כהן, דנה לוי, רותי), generic streets, no phone numbers or links. The real agent photo is used for the demo agent."
+    },
+    {
+      "id": "intake",
+      "narration": "נכס חדש? מספיק לכתוב, או לשלוח תמונה. גבריאלה פותחת את הנכס, מפרסמת אותו, ומוצאת לו קונה.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["נכס חדש", "פורסם באתר", "התאמה 100%"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-8f4fe71f"],
+      "notes": "Chat: a typed listing, then a photo of a shop; Gabriela answers 'נוצר ופורסם' and a 100% match. Three chips tick on פותחת / מפרסמת / קונה."
+    },
+    {
+      "id": "client",
+      "narration": "לקוחה חדשה? היא פותחת לה כרטיס, ומוצאת התאמות. אצלך, ובמשרדים שמשתפים איתך.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["כרטיס לקוחה", "התאמות אצלך ובשת״פ"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Chat: new client, card opened, two 100% matches; two match cards land on אצלך and ובמשרדים."
+    },
+    {
+      "id": "minisite",
+      "narration": "בלחיצה, הלקוחה מקבלת מיניסייט אישי: מסמנת מה אהבה, ובוחרת מועד לסיור.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["מיניסייט אישי"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-990af4c3", "a-72c525ed"],
+      "notes": "A personal mini-site in a phone (rebuilt): agent card, a property, 'אהבתי' pressed on אהבה, then a day and time picker on מועד."
+    },
+    {
+      "id": "coord",
+      "narration": "וגבריאלה מתאמת את הביקור מול הבעלים והמתווכים, בודקת את היומן, ושולחת ללקוחה אישור ותזכורת.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["תיאום", "יומן", "אישור ותזכורת"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Owner phone: request with three buttons, 'מאשרת' pressed. Agent phone: 'רותי אישרה', calendar checked, tour set, client got confirmation and a reminder."
+    },
+    {
+      "id": "data",
+      "narration": "צריך נתונים? עסקאות אמת ברחוב, ודוח השוואת שוק ממותג, בהודעה אחת.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["עסקאות אמת", "דוח השוואת שוק"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-ff244031"],
+      "notes": "Chat: the deals on a street; beside it the real CMA gauges card."
+    },
+    {
+      "id": "close",
+      "narration": "וכל זה נרשם במערכת, ומופיע בדאשבורד שלך. פחות עבודה שחורה, יותר עסקאות. שוק הנדל״ן!",
+      "treatment": "motion-graphic",
+      "onScreenText": ["פחות עבודה שחורה.", "יותר עסקאות."],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": ["a-4f1348c2"],
+      "notes": "The phone shrinks into a dashboard window (demo data), then two lines and the logo."
+    }
+  ]
+}
