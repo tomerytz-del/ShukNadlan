@@ -6426,7 +6426,9 @@ async function loadProfessionalCardsAdmin(){
       head.appendChild(proPill('בדיקה', 'background:var(--gold-tint);color:var(--gold-dark)'));
     }
     // הטבת ההצטרפות (6 חודשים חינם): באוויר כמו מפרסם/ת משלם/ת, בלי שעבר כסף.
-    if (card.free_until && !card.paid_at){
+    // רק כשיש לה עדיין תאריך סיום: מאז הפרסום החינמי (‏20270701090000)
+    // כרטיסייה מאושרת היא בלי ends_at, וההטבה כבר אינה מה שמחזיק אותה באוויר.
+    if (card.free_until && !card.paid_at && card.ends_at){
       head.appendChild(proPill('הטבת הצטרפות', 'background:var(--green-tint);color:var(--green)'));
     }
     if (!card.profile_filled){
