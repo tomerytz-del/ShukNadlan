@@ -314,6 +314,28 @@ async function runTeam(supabase: SupabaseClient, url: URL, dryRun: boolean, star
 // ---------------------------------------------------------------------------
 // agent: סוכן/ת ליום. ‏_my_dashboard_core - אותם מספרים של "הדשבורד שלי".
 // ---------------------------------------------------------------------------
+/* הנכסים הפעילים של הסוכן/ת ומספר הלידים של כל אחד ב-14 הימים האחרונים, בשביל
+   quietListings (מה מותר להציע לקדם). תקלה כאן אינה מפילה את הסיכום - בלי
+   רשימה המנטור פשוט לא מציע קידום. */
+async function activeListings(supabase: SupabaseClient, agentId: string): Promise<Row[]> {
+  const props = await supabase.from("properties").select("id, created_at, promoted_until")
+    .eq("agent_id", agentId).eq("status", "active").order("created_at").limit(200);
+  if (props.error || !props.data?.length) {
+    if (props.error) console.error("agent-coach listings failed", agentId, props.error.message);
+    return [];
+  }
+  const ids = props.data.map((p) => p.id as string);
+  const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
+  const leads = await supabase.from("leads").select("property_id").in("property_id", ids).gte("created_at", since).limit(1000);
+  if (leads.error) {
+    console.error("agent-coach listings leads failed", agentId, leads.error.message);
+    return [];
+  }
+  const count = new Map<string, number>();
+  for (const l of leads.data ?? []) count.set(l.property_id as string, (count.get(l.property_id as string) ?? 0) + 1);
+  return props.data.map((p) => ({ ...p, leads_14d: count.get(p.id as string) ?? 0 }));
+}
+
 async function runAgentOne(
   supabase: SupabaseClient, agent: { agent_id: string; agency_id: string }, day: string, dryRun: boolean,
 ): Promise<Row> {
@@ -330,7 +352,10 @@ async function runAgentOne(
   if (wk.error || mo.error) return { agent_id: agent.agent_id, error: "db_error", detail: (wk.error ?? mo.error)?.message };
 
   const refs = new Refs();
-  const data = compactAgent(wk.data as Row, mo.data as Row, me.data?.gender as string | null, refs);
+  const data = compactAgent(
+    wk.data as Row, mo.data as Row, me.data?.gender as string | null, refs, new Date(),
+    await activeListings(supabase, agent.agent_id),
+  );
   const tone = cleanTone(pref.data?.tone);
   // הטון בטביעת האצבע: מי שהחליף/ה טון מקבל/ת מחר סיכום חדש ולא העתק של אתמול
   const hash = await sha256(tone + "|" + agentFingerprintSource(data));
