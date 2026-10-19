@@ -751,6 +751,9 @@ function showLoginCard(message){
   // יצירת החשבון נפתחת רק למי שבאמת הוזמן/ה. זו לא "הרשמה לאתר": חשבון בלי
   // כרטיס ממתין במשרד לא יוביל לשום מקום מלבד מסך "מי את/ה?".
   document.getElementById('inviteSignup').style.display = invited ? 'block' : 'none';
+  // מוזמן/ת או מי שכבר באמצע פתיחת משרד לא צריך/ה את "פתיחת משרד חדש" -
+  // בשבילם/ן זה מסלול שני ומבלבל, ומוזמן/ת שילחץ/תלחץ עליו יפתח/תפתח משרד מיותר.
+  document.getElementById('authJoinWrap').style.display = (invited || openingAgency) ? 'none' : '';
   resetGoogleButton();
   showScreen('login');
 }
@@ -968,7 +971,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   showResendConfirm(false);
   btn.disabled = true; btn.textContent = 'מתחבר…';
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  btn.disabled = false; btn.textContent = 'כניסה';
+  btn.disabled = false; btn.textContent = 'כניסה למערכת';
   if (error){
     errEl.textContent = authErrorText(error, 'שגיאת התחברות: ');
     showResendConfirm(error.code === 'email_not_confirmed' || error.message === 'Email not confirmed');
