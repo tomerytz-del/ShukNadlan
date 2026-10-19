@@ -53,6 +53,7 @@ const BY_DOMAIN: [string, string][] = [
   ["github.com", "github"],
   ["resend.com", "resend"],
   ["fal.ai", "fal_ai"],
+  ["replicate.com", "replicate"],
 ];
 
 /**
@@ -110,13 +111,20 @@ function num(s: string): number {
   return Math.round(Number(s.replace(/,/g, "")) * 100) / 100;
 }
 
+/* סימני כיוון שמיילים בעברית שותלים בין מספר לסימן המטבע. */
+const D = "[\\s\\u200e\\u200f]*";
+const N = "([\\d,]+(?:\\.\\d{1,2})?)";
+
 /* תבניות שהן קבלה מפורשת: סכום ששולם. התאמה כאן = `confirmed`. */
 const PAID: { re: RegExp; currency: Currency }[] = [
   { re: /\$\s?([\d,]+(?:\.\d{1,2})?) has been charged/i, currency: "USD" }, // Orb
-  { re: /Amount paid\s*\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" }, // Stripe
-  { re: /We charged \$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" }, // OpenAI
+  // ‏Stripe. ‏"Amount paid -$20.00" — ב-Replicate הסכום ששולם מופיע במינוס
+  { re: /Amount paid\s*-?\s*\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" },
+  // ‏OpenAI: "We charged $20.00", ‏Twilio: "We charged the … Credit Card ( **** 3417 ) $50.00"
+  { re: /We charged [^$\n]{0,80}?\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" },
   { re: /Invoice from [^:\n]+:\s*\$\s?([\d,]+(?:\.\d{1,2})?) due/i, currency: "USD" }, // Orb, חשבונית חדשה
-  { re: /סה"כ:\s*([\d,]+(?:\.\d{1,2})?)\s*₪/, currency: "ILS" }, // Google Play
+  { re: new RegExp(`סה["״]כ:${D}${N}${D}₪`), currency: "ILS" }, // Google Play
+  { re: new RegExp(`התשלום שלך בסך${D}${N}${D}₪`), currency: "ILS" }, // Google Cloud
   { re: /שולם\s*([\d,]+(?:\.\d{1,2})?)/, currency: "ILS" }, // box.co.il
 ];
 
@@ -130,6 +138,8 @@ const INVOICE: RegExp[] = [
   /מספר הזמנה:\s*(GPA\.[0-9.\-]+)/,
   /Meta Invoice (\d{5,})/,
   /Receipt (?:number|#)\s*([0-9][0-9-]{3,})/,
+  /\btransaction (CX[0-9a-f]{16,})/, // Twilio
+  /סימוכין\s+(CLOUD\s+[A-Za-z0-9]+)/, // Google Cloud
 ];
 
 /**
@@ -174,13 +184,14 @@ export function israelDate(at: Date): string {
  */
 export function chargeDate(text: string): string | null {
   const en = text.match(
-    /(?:Paid on|Paid|Date paid|due)\s+([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s*(\d{4})/,
+    /(?:Paid on|Paid|Date paid|due)\s+([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s*(\d{4})/i,
   );
   if (en) {
     const m = EN_MONTH[en[1].slice(0, 3).toLowerCase()];
     if (m) return ymd(Number(en[3]), m, Number(en[2]));
   }
-  const he = text.match(/תאריך הזמנה:\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/);
+  // ‏Google Play: "תאריך הזמנה: 9 ביולי 2026", ‏Google Cloud: "הוחל על … בתאריך 11 באוק׳ 2026"
+  const he = text.match(/(?:תאריך הזמנה:|בתאריך)\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/);
   if (he) {
     const hit = HE_MONTH.find(([p]) => he[2].startsWith(p));
     if (hit) return ymd(Number(he[3]), hit[1], Number(he[1]));

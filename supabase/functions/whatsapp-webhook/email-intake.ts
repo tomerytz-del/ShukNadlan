@@ -197,6 +197,10 @@ export function verifiedSender(headers: string, mailboxUser: string): string | n
 // המייל כטקסט
 // ---------------------------------------------------------------------------
 
+function safeChar(code: number): string {
+  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
+}
+
 function htmlToText(html: string): string {
   return html
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
@@ -206,6 +210,10 @@ function htmlToText(html: string): string {
     .replace(/<\/(td|th|span)>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
+    // ‏ישויות מספריות ("&#8362;" הוא ₪, "&#34;" הוא מירכאות) — לפני &amp;, כדי
+    // ש-"&amp;#39;" לא יפוענח פעמיים
+    .replace(/&#(\d{1,6});/g, (_, n) => safeChar(Number(n)))
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h) => safeChar(parseInt(h, 16)))
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
