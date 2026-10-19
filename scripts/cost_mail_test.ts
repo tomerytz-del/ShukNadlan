@@ -210,6 +210,18 @@ const play = direct2(
   "מספר הזמנה: GPA.3309-0629-0926-75028\nתאריך הזמנה: 9 ביולי 2026 17:47:55 GMT+3\nClaude Pro Subscription (Claude by Anthropic) 88.00 ₪/חודש\nסה״כ:‏ 88.00‏ ₪/חודש",
 );
 ok("Google Play - ₪88 גם עם גרשיים וסימני כיוון", play?.service === "claude_subscription" && play?.amount === 88 && play?.currency === "ILS", play);
+const playHtml = direct2(
+  "googleplay-noreply@google.com",
+  "הקבלה שלך על הזמנה ב-Google Play מ-9 ביולי 2026",
+  "מספר הזמנה:  GPA.3309-0629-0926-75028\nClaude Pro Subscription (Claude by Anthropic)\nסה\"כ : \r\n\u200f88.00 \u200f₪/חודש",
+);
+const playRenew = direct2(
+  "googleplay-noreply@google.com",
+  "הקבלה שלך על הזמנה ב-Google Play מ-9 ביולי 2026",
+  "Claude by Anthropic, PBC ב-Google Play. המינוי שלך יתחדש אוטומטית בתאריך 9 באוג׳ 2026\nתאריך הזמנה:  9 ביולי 2026 17:47:55\nסה\"כ : 88.00 ₪",
+);
+ok("Google Play - תאריך ההזמנה ולא תאריך החידוש", playRenew?.charged_on === "2026-07-09", playRenew?.charged_on);
+ok("Google Play מה-HTML - רווח לפני הנקודתיים", playHtml?.amount === 88, playHtml?.amount);
 ok("Google Play - תאריך ההזמנה", play?.charged_on === "2026-07-09", play?.charged_on);
 
 const replicate = direct2(
