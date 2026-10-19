@@ -890,7 +890,7 @@ el('googleBtn').addEventListener('click', async ()=>{
   if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: location.origin + location.pathname },
+    options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } },
   });
   if (error){
     btn.disabled = false;
