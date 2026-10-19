@@ -333,12 +333,12 @@ function coachAskHtml(kind, questions){
     </form>
     ${sugg.length && !st.q ? `<div class="coach-ask-sugg">${sugg.map(q =>
       `<button type="button" data-coach-q="${kind}" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
-    ${st.q ? `<div class="coach-ask-out" aria-live="polite">
-      <p class="coach-ask-q">${escapeHtml(st.q)}</p>
-      ${st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
+    ${st.q ? `<div class="coach-ask-out${st.folded ? ' is-folded' : ''}" aria-live="polite">
+      <div class="coach-ask-head"><p class="coach-ask-q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>
+      ${st.folded ? '' : st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
         : st.err ? `<p class="coach-ask-a is-err">${escapeHtml(st.err)}</p>`
         : `<p class="coach-ask-a">${escapeHtml(st.a || '')}</p>`}
-      ${st.remaining != null && !st.busy ? `<p class="coach-ask-left">${st.remaining
+      ${st.remaining != null && !st.busy && !st.folded ? `<p class="coach-ask-left">${st.remaining
         ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : ''}
     </div>` : ''}
     <div class="coach-tone" role="group" aria-label="סגנון המנטור" title="${escapeHtml(toneNote)}">
@@ -354,12 +354,21 @@ function coachAskHtml(kind, questions){
   </div>`;
 }
 
+/* תשובה ארוכה תפסה את כל המסך בדף הבית בטלפון, ולא הייתה דרך להקטין אותה
+   (19.10.2026). הכפתור מקפל אותה לשורת השאלה ופותח שוב; שאלה חדשה נפתחת
+   תמיד. בזמן שהמנטור חושב אין מה לקפל. */
+function coachFoldBtn(kind, st){
+  if (st.busy) return '';
+  return `<button type="button" class="coach-ask-fold" data-coach-fold="${kind}" aria-expanded="${!st.folded}">`
+    + (st.folded ? 'הצגת התשובה' : 'צמצום') + '</button>';
+}
+
 async function coachAskSend(kind, question){
   const q = String(question || '').trim();
   const st = coachAsk[kind];
   if (!q || st.busy) return;
   if (q.length < 3){ showToast('צריך לכתוב שאלה של כמה מילים לפחות.'); return; }
-  Object.assign(st, { q, a: '', err: '', busy: true, draft: '' });
+  Object.assign(st, { q, a: '', err: '', busy: true, draft: '', folded: false });
   coachRepaint(kind);
   try{
     const { data: { session } } = await sb.auth.getSession();
@@ -460,6 +469,12 @@ async function loadCoachGaps(){
     if (expBtn){ coachPrefSave('experience', expBtn.dataset.coachExp); return; }
     const sugg = e.target.closest('[data-coach-q]');
     if (sugg){ coachAskSend(sugg.dataset.coachQ, sugg.dataset.q); return; }
+    const fold = e.target.closest('[data-coach-fold]');
+    if (fold){
+      const st = coachAsk[fold.dataset.coachFold];
+      if (st){ st.folded = !st.folded; coachRepaint(fold.dataset.coachFold); }
+      return;
+    }
     const meet = e.target.closest('[data-coach-meeting]');
     if (meet){
       const row = coachState.team;
@@ -585,11 +600,12 @@ function homeCoachSync(){
   if (out){
     out.hidden = !st.q;
     if (st.q){
-      out.innerHTML = `<p class="q">${escapeHtml(st.q)}</p>`
-        + (st.busy ? '<p class="a is-busy">המנטור חושב…</p>'
+      out.classList.toggle('is-folded', !!st.folded);
+      out.innerHTML = `<div class="head"><p class="q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>`
+        + (st.folded ? '' : st.busy ? '<p class="a is-busy">המנטור חושב…</p>'
           : st.err ? `<p class="a is-err">${escapeHtml(st.err)}</p>`
           : `<p class="a">${escapeHtml(st.a || '')}</p>`)
-        + (st.remaining != null && !st.busy ? `<p class="left">${st.remaining
+        + (st.remaining != null && !st.busy && !st.folded ? `<p class="left">${st.remaining
             ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : '');
     }
   }

@@ -33,6 +33,7 @@ import {
   ctaKindsFor,
   monthlyTotals,
   previousTitles,
+  quietListings,
   Refs,
   summarySchema,
   summaryForAsk,
@@ -232,6 +233,39 @@ check("טביעת אצבע: מספר השתנה - שונה",
 // cleanSummaryV2: מה שנשמר
 // ---------------------------------------------------------------------------
 const act = (cta: Record<string, unknown> | null, title = "צעד") => ({ priority: "high", title, why: "למה — כי", impact: "+2", cta });
+// נכסים שקטים: רק מהם מותר להציע קידום (promote_property)
+const QUIET_ID = "77777777-7777-4777-8777-777777777777";
+const listingRows = [
+  { id: QUIET_ID, created_at: "2026-09-01T00:00:00Z", promoted_until: null, leads_14d: 0 },
+  { id: "q-new", created_at: "2026-10-10T00:00:00Z", promoted_until: null, leads_14d: 0 },
+  { id: "q-leads", created_at: "2026-08-01T00:00:00Z", promoted_until: null, leads_14d: 2 },
+  { id: "q-promo", created_at: "2026-08-01T00:00:00Z", promoted_until: "2026-11-01T00:00:00Z", leads_14d: 0 },
+  { id: "q-old-promo", created_at: "2026-07-01T00:00:00Z", promoted_until: "2026-09-01T00:00:00Z", leads_14d: 0 },
+];
+const quiet = quietListings(listingRows, now);
+check("שקטים: 14 יום ומעלה, בלי ליד ובלי קידום פעיל, הוותיק קודם",
+  quiet.map((q) => q.id).join(",") === "q-old-promo," + QUIET_ID, quiet);
+const qRefs = new Refs();
+const withQuiet = compactAgent(myDash(), myDash(), null, qRefs, now, listingRows);
+const tq = (withQuiet.todo as Record<string, Record<string, unknown>[]>).listings_quiet;
+check("שקטים: אסימון וימים בלבד, בלי מזהה", tq.length === 2 && /^P\d$/.test(String(tq[0].ref)) &&
+  !JSON.stringify(withQuiet).includes(QUIET_ID), tq);
+check("שקטים: ריק כשאין נכסים", (agentOut.todo as Record<string, unknown[]>).listings_quiet.length === 0);
+const qLater = compactAgent(myDash(), myDash(), null, new Refs(), new Date("2026-10-19T06:00:00Z"), listingRows);
+check("טביעת אצבע: יום נוסף של נכס שקט - זהה", agentFingerprintSource(qLater) === agentFingerprintSource(withQuiet));
+const qTok = String(tq[0].ref);
+const promoOk = cleanSummaryV2({ headline: "x", actions: [act({ kind: "promote_property", ref: qTok }, "לקדם את הנכס שפעיל 48 יום")] }, "agent", qRefs.map);
+check("קידום: כפתור הקידום עם נכס שקט נשאר", promoOk?.actions[0].cta?.kind === "promote_property", promoOk?.actions[0]);
+for (const wrong of ["open_prefs", "open_leads_unanswered"]) {
+  const s = cleanSummaryV2({ headline: "x", actions: [act({ kind: wrong }, "קדם/י נכס אחד מתוך ה-13")] }, "agent", qRefs.map);
+  check(`קידום: כפתור ${wrong} על צעד קידום יורד`, s?.actions[0].cta === null, s?.actions[0]);
+}
+const hop = cleanSummaryV2({ headline: "x", actions: [act({ kind: "open_prefs" }, "להקפיץ את המודעה")] }, "agent", qRefs.map);
+check("קידום: גם 'להקפיץ'", hop?.actions[0].cta === null);
+const progress = cleanSummaryV2({ headline: "x", actions: [act({ kind: "new_agenda_item" }, "לבדוק את ההתקדמות עם הבעלים")] }, "agent", qRefs.map);
+check("קידום: 'התקדמות' אינה קידום - הכפתור נשאר", progress?.actions[0].cta?.kind === "new_agenda_item");
+check("פרומפט הסוכן/ת: קידום רק מ-listings_quiet", /רק לנכס מ-listings_quiet/.test(SYSTEM_PROMPTS.agent));
+
 const v2 = cleanSummaryV2({
   headline: "בוקר טוב — יש ליד שמחכה",
   summary: "סיכום",

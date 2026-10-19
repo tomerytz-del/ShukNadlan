@@ -3671,6 +3671,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-ask-sugg button:hover{border-color:var(--coach-gold)}
   .coach-ask-out{background:#fff;color:var(--nv-ink);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
   .coach-ask-q{margin:0;font-size:.82rem;font-weight:800;color:var(--nv-accent-ink)}
+  .coach-ask-head,.home-ask-out .head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .coach-ask-fold{flex:none;border:1px solid var(--nv-line,#E3E8F0);background:#fff;color:var(--nv-accent-ink);border-radius:999px;padding:3px 12px;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;min-height:28px}
+  .coach-ask-fold:hover{background:#F4F7FB}
+  .coach-ask-out.is-folded .coach-ask-q,.home-ask-out.is-folded .q{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .coach-ask-a{margin:0;font-size:.9rem;line-height:1.6;white-space:pre-line}
   .coach-ask-a.is-busy{color:var(--nv-muted)}
   .coach-ask-a.is-err{color:#9A3412}
@@ -5116,6 +5120,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .home-ask-out{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff;color:var(--nv-ink)}
   .home-ask-out[hidden]{display:none}
   .home-ask-out .q{margin:0 0 4px;font-size:.82rem;font-weight:700;color:var(--nv-muted)}
+  .home-ask-out .head .q{flex:1;min-width:0}
+  .coach-ask-head .coach-ask-q{flex:1;min-width:0}
   .home-ask-out .a{margin:0;font-size:.93rem;line-height:1.65;white-space:pre-line}
   .home-ask-out .a.is-busy{color:var(--nv-muted)}
   .home-ask-out .a.is-err{color:#9A3412}
