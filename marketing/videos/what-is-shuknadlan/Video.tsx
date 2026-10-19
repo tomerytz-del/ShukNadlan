@@ -44,6 +44,7 @@ const IMG = {
   roomAfter: "assets/user/a-c25e0fbb-viz-room-after.jpg",
   shopBefore: "assets/user/a-1b5c46e5-viz-shop-before.jpg",
   shopAfter: "assets/user/a-1c7fb3e8-viz-shop-after.jpg",
+  calc: "assets/user/a-ff1abb8f-mortgage-calc.jpg",
 };
 const SFX = {
   whoosh: "assets/lib/sfx-ui-soft-whoosh/clip.mp3",
@@ -172,38 +173,46 @@ const Buyers: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) =
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const viz = onWord(s, "הדמיות");
-  const shop = onWord(s, "מלאכותית");
+  const shop = onWord(s, "AI");
+  const calc = onWord(s, "משכנתא");
   const lead = onWord(s, "פנייה");
-  const vizOut = interpolate(frame, [lead - 4, lead + 6], [1, 0], clamp);
+  const vizOut = interpolate(frame, [calc - 6, calc + 2], [1, 0], clamp);
+  const calcOut = interpolate(frame, [lead - 4, lead + 6], [1, 0], clamp);
   const t = interpolate(frame, [lead, lead + 20], [0, 1], { ...clamp, easing: (v: number) => 1 - Math.pow(1 - v, 3) });
   return (
     <>
-      <SceneTitle kicker="מול הקונים" title="כל נכס עולה לאתר" kickerAt={2} titleAt={onWord(s, "עולה")} ink={P.hero} accent={P.accent} font={heebo} />
+      <SceneTitle kicker="מול הקונים" title="כל נכס עולה ישירות לאתר" kickerAt={2} titleAt={onWord(s, "עולה")} ink={P.hero} accent={P.accent} font={heebo} />
       <PhoneFrame src={urls[IMG.search]} src2={urls[IMG.map]} swapAt={onWord(s, "המפה")} x={0.86} y={0.56} h={0.7} delay={onWord(s, "לאתר")} />
-      <div style={{ position: "absolute", right: width * 0.25, top: height * 0.34, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: height * 0.025, direction: "ltr" }}>
-        <FeatureChip label="חיפוש בגבריאלה" glyph="chat" delay={onWord(s, "בגבריאלה")} size={0.042} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
-        <FeatureChip label="חיפוש על המפה" glyph="pin" delay={onWord(s, "המפה")} size={0.042} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
-        <FeatureChip label="הדמיות AI" glyph="spark" delay={viz} size={0.042} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
-        <FeatureChip label="מחשבון משכנתא" glyph="calc" delay={onWord(s, "ומחשבון")} size={0.042} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
+      <div style={{ position: "absolute", right: width * 0.25, top: height * 0.3, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: height * 0.022, direction: "ltr" }}>
+        <FeatureChip label="הדמיות AI" glyph="spark" delay={viz} size={0.04} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
+        <FeatureChip label="סרטון שיווקי לנכס" glyph="spark" delay={onWord(s, "וסרטונים")} size={0.04} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
+        <FeatureChip label="חיפוש עם גבריאלה" glyph="chat" delay={onWord(s, "גבריאלה")} size={0.04} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
+        <FeatureChip label="חיפוש על המפה" glyph="pin" delay={onWord(s, "המפה")} size={0.04} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
+        <FeatureChip label="מחשבון משכנתא" glyph="calc" delay={calc} size={0.04} ink={P.ink} hero={P.hero} surface={P.surface} font={heebo} />
       </div>
       <div style={{ position: "absolute", inset: 0, opacity: vizOut }}>
-        <BeforeAfter before={urls[IMG.roomBefore]} after={urls[IMG.roomAfter]} x={0.27} y={0.56} w={0.4} delay={viz} wipeAt={viz + 3} frames={20} handle={P.accent} label="סלון · מודרני נקי" labelBg={P.hero} font={heebo} />
+        <BeforeAfter before={urls[IMG.roomBefore]} after={urls[IMG.roomAfter]} x={0.25} y={0.56} w={0.38} delay={viz} wipeAt={viz + 3} frames={20} handle={P.accent} label="סלון · מודרני נקי" labelBg={P.hero} font={heebo} />
         {frame >= shop - 2 ? (
-          <BeforeAfter before={urls[IMG.shopBefore]} after={urls[IMG.shopAfter]} x={0.27} y={0.56} w={0.4} delay={shop - 2} wipeAt={shop + 3} frames={20} handle={P.accent} label="חלל עסק · מינימרקט" labelBg={P.hero} font={heebo} />
+          <BeforeAfter before={urls[IMG.shopBefore]} after={urls[IMG.shopAfter]} x={0.25} y={0.56} w={0.38} delay={shop - 2} wipeAt={shop + 3} frames={20} handle={P.accent} label="חלל עסק · מינימרקט" labelBg={P.hero} font={heebo} />
         ) : null}
       </div>
+      {frame >= calc - 2 ? (
+        <div style={{ position: "absolute", inset: 0, opacity: calcOut }}>
+          <PhoneFrame src={urls[IMG.calc]} x={0.25} y={0.56} h={0.72} aspect={0.62} delay={calc - 2} />
+        </div>
+      ) : null}
       {frame >= lead ? (
-        <div style={{ position: "absolute", left: width * (0.62 - 0.4 * t), top: height * (0.6 - 0.1 * t), opacity: interpolate(frame - lead, [0, 3], [0, 1], clamp), direction: "rtl", background: P.surface, border: `3px solid ${P.hero}`, borderRadius: width * 0.012, padding: `${height * 0.02}px ${width * 0.015}px`, boxShadow: "0 16px 36px rgba(11,27,63,0.22)", display: "flex", alignItems: "center", gap: width * 0.01 }}>
+        <div style={{ position: "absolute", left: width * (0.5 - 0.4 * t), top: height * (0.62 - 0.1 * t), opacity: interpolate(frame - lead, [0, 3], [0, 1], clamp), direction: "rtl", background: P.surface, border: `3px solid ${P.hero}`, borderRadius: width * 0.012, padding: `${height * 0.02}px ${width * 0.015}px`, boxShadow: "0 16px 36px rgba(11,27,63,0.22)", display: "flex", alignItems: "center", gap: width * 0.01 }}>
           <div style={{ width: width * 0.03, height: width * 0.03, borderRadius: "50%", background: P.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg viewBox="0 0 24 24" width={width * 0.018} height={width * 0.018} fill="none" stroke={P.surface} strokeWidth={2.2} strokeLinecap="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
           </div>
           <div>
-            <div style={{ fontFamily: heebo, fontWeight: 800, fontSize: width * 0.016, color: P.ink, whiteSpace: "nowrap" }}>ליד חדש מהאתר</div>
-            <div style={{ fontFamily: heebo, fontWeight: 500, fontSize: width * 0.012, color: P.dim, whiteSpace: "nowrap" }}>נכנס ישר ל-CRM של הסוכן</div>
+            <div style={{ fontFamily: heebo, fontWeight: 800, fontSize: width * 0.016, color: P.ink, whiteSpace: "nowrap" }}>פנייה חדשה מהאתר</div>
+            <div style={{ fontFamily: heebo, fontWeight: 500, fontSize: width * 0.012, color: P.dim, whiteSpace: "nowrap" }}>מגיעה ישר ל-CRM של הסוכן</div>
           </div>
         </div>
       ) : null}
-      <Pill text="כל פנייה היא ליד" at={onWord(s, "כליד")} x={0.5} y={0.4} size={0.028} />
+      <Pill text="כל פנייה מגיעה אליך" at={onWord(s, "אליך")} x={0.48} y={0.4} size={0.028} />
     </>
   );
 };

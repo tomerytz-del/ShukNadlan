@@ -35,6 +35,23 @@ reelkit install --agent claude      # הסקיל ל-Claude Code
 התחברות: `reelkit auth login --start`, לפתוח את הקישור ולאשר, ואז
 `reelkit auth login --finish`.
 
+## רינדור ב-`--chunk`: הסאונד יוצא שבור, ובונים אותו מחדש
+
+ב-Reelkit 0.19.1, ‏`reelkit render --chunk` מחבר את הסאונד של החלקים לא במקום:
+שורות קריינות נוחתות בסצנה אחרת או נעלמות, והמוזיקה והאפקטים נשארים - כלומר
+"יש רק צלילים". כך יצאו שתי גרסאות של "מה זה שוק הנדל״ן". הבדיקות של Reelkit
+עוברות ירוק, ולכן זה לא נראה בפלט.
+
+```sh
+python3 -I tools/remix.py <project>             # out/sounds.json -> out/video.fixed.mp4
+cd <project> && reelkit export out/video.fixed.mp4 --preset iphone
+tools/verify.sh <project> $PWD/<project>/out/video.fixed.mp4   # תמלול מול זמני הסצנות
+```
+
+**לפני ששולחים:** כל שורה בתמלול נמצאת בסצנה שלה, ובדיקת עוצמה לכל שנייה
+מראה שהקול לא נעלם באמצע. האצה של הקול עושים ב-`rubberband` ולא ב-`atempo`
+(שהשאיר הד), ומחלקים את זמני המילים ב-`assets/voiceovers.json` באותו יחס.
+
 ## בנייה מחדש של "מהשיחה לפגישה"
 
 ```sh
