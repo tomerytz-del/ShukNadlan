@@ -187,7 +187,7 @@ CRM ← תצוגת מנהל/ת ← **ניהול שכונות** ← "ייבוא �
 | ‏CRM: עיר לשכונה חדשה, שכונות לפי העיר בטופס, עיר המשרד כברירת מחדל | `assets/crm.js`, `crm.html` |
 | ‏`geocode-backfill` בוחר ספק לפי העיר של השורה | `supabase/functions/geocode-backfill/index.ts` |
 | בוט הסוכנים: עיר המשרד כברירת מחדל, ופין בכל עיר עם ספק | `supabase/functions/whatsapp-webhook/agent.ts` |
-| תצוגת שוק למנהל/ת הפלטפורמה, וסרגל ניווט בין לוחות המנהל/ת | `platform_market_report`, `market_snapshots` (מ-`20270628090000`), פאנל `#dashPanelMarkets` ב-`crm.html` |
+| תצוגת שוק למנהל/ת הפלטפורמה, וסרגל ניווט בין לוחות המנהל/ת | `platform_market_report`, `market_snapshots` (מ-`20270629090000`), פאנל `#dashPanelMarkets` ב-`crm.html` |
 | בדיקות: חמשת המקומות מסכימים, וההתנהגות (40 מקרים) | `scripts/check_markets.py`, `scripts/markets_test.ts`, `.github/workflows/markets.yml` |
 
 **שני סקילים מלווים את הקליטה של כל שוק הבא:** `new-market` (פתיחה כ"נפתחים
@@ -759,7 +759,7 @@ G6, B4.
   `service-markets.ts`** - `check_markets.py` חוסם כשהשתיים אינן זהות. המסד
   בודק צורה בלבד (slug תקין, עד 12), כי הרשימה אינה במסד.
 
-## התמונה השמורה של פאנל השווקים (מיגרציה `20270628090000`, 19.10.2026)
+## התמונה השמורה של פאנל השווקים (מיגרציה `20270629090000`, 19.10.2026)
 
 **מה היה שבור:** פאנל "שווקים מקומיים" הציג "שגיאה בטעינת השוק: השרת לא
 ענה בזמן" (18.10.2026), והמסך היה ריק. ‏`platform_market_report` רצה

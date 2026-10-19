@@ -85,7 +85,7 @@ jobs:
         run: python3 scripts/ops_agency_no_city_test.py
 
       # ‏התמונה השמורה של פאנל השווקים: שוק שהרענון שלו נכשל, ורענון שנעצר.
-      # שקט כשהטבלה עוד לא קיימת ובסבב אחד באיחור (20270628090000).
+      # שקט כשהטבלה עוד לא קיימת ובסבב אחד באיחור (20270629090000).
       - name: ‏market_snapshot מדווחת בדיוק מתי שצריך
         run: python3 scripts/ops_market_snapshot_test.py
 
