@@ -60,6 +60,8 @@ description: עבודה על קליטה מהמייל בריפו של שוק נד
    (‏`מקור: <ספק>`) והקבלה כולה ב-HTML, ו-`parseMail` מעדיף את חלק הטקסט.
    מי שנוגע ב-`parseMail` שומר על `htmlText`; מי שמוסיף צורת כותרת העברה -
    ב-`forwardedSender`, עם שורה ב-`scripts/cost_mail_test.ts`.
+   הקבלה של הסוכן מגיעה **כקובץ `text/html` מצורף** ולא כגוף - ‏`receiptHtml`
+   קורא גם אותו. מבנה ה-MIME של כל קבלה נרשם בלוג (`cost mail <uid> …`).
    **כפילות:** האינדקס על `(service, invoice_no)`, ולקבלה בלי מספר -
    ‏`findDuplicate` (אותו שירות ואותו `charged_on`) לפני ה-insert. קבלה שנשלחת
    שוב היא מקרה רגיל כאן, לא חריג - ‏`docs/platform-costs.md`, "שני כללים".
