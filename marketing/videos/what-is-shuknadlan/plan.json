@@ -2,7 +2,7 @@
   "title": "מה זה שוק הנדל״ן",
   "aspect": "16:9",
   "mode": "motion",
-  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "voiceId": "nPczCjzI2devNBz1zQrb",
   "pace": "fast",
   "gap": "tight",
   "captions": "phrase",
@@ -44,7 +44,7 @@
     },
     {
       "id": "offices",
-      "narration": "בין המשרדים: שיתופי פעולה מקומיים, והתאמות בין הנכסים שלך, ללקוחות שלהם!",
+      "narration": "בין המשרדים: שיתופי פעולה מקומיים, וְהַתְאָמוֹת בין הנכסים שלך, ללקוחות שלהם!",
       "treatment": "motion-graphic",
       "onScreenText": [
         "שיתופי פעולה והתאמות"
@@ -117,7 +117,7 @@
     },
     {
       "id": "close",
-      "narration": "יותר התאמות. יותר עסקאות. שוק הנדל״ן!",
+      "narration": "יותר הַתְאָמוֹת. יותר עסקאות. שוק הנדל״ן!",
       "treatment": "motion-graphic",
       "onScreenText": [
         "יותר התאמות. יותר עסקאות.",
