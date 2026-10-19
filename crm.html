@@ -37,18 +37,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
+<!-- החיבור ל-Supabase נפתח כבר כאן, במקביל להורדת הקוד, ולא בשאילתה
+     הראשונה שאחרי הכניסה. ‏crossorigin כי supabase-js שולח fetch עם כותרות,
+     כלומר בקשת CORS - בלעדיו הדפדפן פותח חיבור שאינו מתאים לה. -->
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
+<!-- ‏supabase-js ו-Leaflet מוגשים מהאתר עצמו (‏/vendor/, docs/vendor.md) ולא
+     מ-jsdelivr: שניהם חוסמים את הדף, ובכל כניסה ראשונה הם עלו חיבור חדש
+     לשרת זר. הקבצים זהים בייט-בייט לחבילות ב-npm, וה-integrity נשאר כדי
+     שיישאר כך. גרסה בנתיב, ולכן ‏_headers שומר אותם שנה. -->
+<link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
 <!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תדע לחזור לכאן
      ולא ל-developer-crm. ראו assets/auth-return.js -->
 <script src="assets/auth-return.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/vendor/supabase-js@2.116.0/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
+<script src="/vendor/leaflet@1.9.4/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
      הוא מורכב רק כשהדשבורד עולה (ראו showScreen), כי מסכי הכניסה נשארים
      על פלטת הנייר שלהם. -->
@@ -2892,7 +2897,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .crm-sky .sky-moon{
     position:absolute;top:9vh;left:7vw;width:64px;height:64px;border-radius:50%;
     background:radial-gradient(circle at 38% 36%,#fffbea 0%,#f3e9c6 55%,#d9cfa8 100%);
-    box-shadow:0 0 40px 8px rgba(255,244,210,.22),0 0 120px 40px rgba(160,180,255,.10);
+  }
+  /* ההילה פועמת בשקיפות של שכבה משלה, ולא באנימציה של box-shadow: צל
+     ברדיוס 140px שמשתנה מצויר מחדש בכל פריים, וזה החזיק את הדשבורד עסוק
+     כ-25% מהזמן בלילה גם בלי שנגעו בו (‏714-779ms מכל 3 שניות, מול
+     171-303 בלעדיו; ‏docs/crm-night-sky.md). שקיפות מורכבת בכרטיס הגרפי. */
+  .crm-sky .sky-moon::before{
+    content:'';position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 48px 10px rgba(255,244,210,.28),0 0 140px 48px rgba(160,180,255,.13);
+    opacity:.65;will-change:opacity;
     animation:skyMoon 9s ease-in-out infinite alternate;
   }
   /* הצל שהופך עיגול לסהר */
@@ -2900,8 +2913,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     content:'';position:absolute;top:-6px;left:16px;width:64px;height:64px;border-radius:50%;
     background:#0a1430;opacity:.92;
   }
-  @keyframes skyMoon{from{box-shadow:0 0 36px 6px rgba(255,244,210,.18),0 0 110px 36px rgba(160,180,255,.08)}
-                     to{box-shadow:0 0 48px 10px rgba(255,244,210,.28),0 0 140px 48px rgba(160,180,255,.13)}}
+  @keyframes skyMoon{from{opacity:.65}to{opacity:1}}
 
   /* כוכב נופל: קו דק שחוצה באלכסון פעם בכ-17 שניות. רוב המחזור הוא
      המתנה (‏opacity:0), כדי שיהיה הפתעה ולא הבהוב קבוע. */
@@ -2919,10 +2931,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     100%{opacity:0;transform:rotate(-24deg) translateX(-260px)}
   }
   @media(prefers-reduced-motion:reduce){
-    .crm-sky *,.crm-sky *::after{animation:none!important}
+    .crm-sky *,.crm-sky *::before,.crm-sky *::after{animation:none!important}
     .crm-sky .sky-shoot{display:none}
   }
-  html.a11y-nomotion .crm-sky *,html.a11y-nomotion .crm-sky *::after{animation:none!important}
+  html.a11y-nomotion .crm-sky *,html.a11y-nomotion .crm-sky *::before,html.a11y-nomotion .crm-sky *::after{animation:none!important}
   html.a11y-nomotion .crm-sky .sky-shoot{display:none}
 
   /* ---------- טקסט שיושב ישר על השמיים ----------
@@ -8686,6 +8698,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            אישור כאן הוא גם ההיתר עצמו: השער בודק את broker_license_appeals
            לפני שהוא פונה ל-data.gov.il, ולכן "אישרתי" ו"פתחתי את המשרד" הם
            אותה פעולה. ראו docs/broker-registry.md. -->
+      <!-- הטמעת סוכנים (CSM) - תצוגת הפיקוח של מנהל/ת הפלטפורמה. אותו מודול של
+           אזור ההטמעה (csm.html): assets/crm-csm.js, ‏assets/csm-workspace.css
+           (נטען בפתיחה), docs/csm-adoption.md -->
+      <details class="acc" id="accCsm">
+        <summary>
+          <span class="acc-title">הטמעת סוכנים</span>
+          <span class="acc-count" id="accCsmCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            פיקוח על ההטמעה והזמנת צוות ההטמעה. מנהלת ההטמעה עובדת באזור משלה, /csm. המספר בכותרת הוא כמה סוכנים לא כתבו לגבריאלה 5 ימים ומעלה.
+          </p>
+          <div class="csm-tabs" role="tablist" aria-label="הטמעת סוכנים">
+            <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
+            <button type="button" role="tab" data-csm-tab="offices" aria-selected="false">משרדים</button>
+            <button type="button" role="tab" data-csm-tab="mentor" aria-selected="false" hidden>המנטור</button>
+            <button type="button" role="tab" data-csm-tab="calls" aria-selected="false" hidden>הקלטות</button>
+            <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
+            <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
+            <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
+            <button type="button" role="tab" data-csm-tab="staff" aria-selected="false" hidden>צוות ההטמעה</button>
+          </div>
+          <div id="csmBody"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
       <details class="acc" id="accCoachGaps">
         <summary>
           <span class="acc-title">נושאים שחסרים למנטור</span>
@@ -10490,6 +10528,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- פגישת "הצלחה ראשונה" עם סוכן/ת: אבחון, צ'ק-ליסט, פקודות ומשוב.
+     התוכן נבנה ב-csmPaintSession() ב-assets/crm-csm.js -->
+<div class="pm-overlay" id="csmSessionModal" role="dialog" aria-modal="true" aria-labelledby="csmSessionTitle" style="display:none">
+  <div class="pm-card csm-session-card">
+    <div class="pm-title" id="csmSessionTitle">פגישת הצלחה ראשונה</div>
+    <div id="csmSessionBody"></div>
+    <datalist id="csmFbTitles"></datalist>
+    <div class="pm-actions csm-session-actions">
+      <button type="button" class="btn btn-ghost" id="csmSessionCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="csmSessionSave">שמירת הפגישה</button>
+    </div>
+  </div>
+</div>
+
 <!-- רמת השיתוף של נכס או של לקוח/ה. התוכן נבנה ב-openShareLevelModal() ב-assets/crm.js -->
 <div class="pm-overlay" id="shareLevelModal" role="dialog" aria-modal="true" aria-labelledby="shareLevelTitle" style="display:none">
   <div class="pm-card">
@@ -10551,6 +10603,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
 <script src="assets/crm-onboarding.js"></script>
+<!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
+     וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
+<script src="assets/crm-csm.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->

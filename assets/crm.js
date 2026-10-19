@@ -1950,6 +1950,18 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // סל סובלני: סביבה שהמיגרציה עוד לא רצה בה נכנסת לדשבורד בלי מקטע הסגירה,
   // ולא נתקעת במסך שגיאה.
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
+  /* שם המשרד היה סבב שני בטור לפני שהמסך מופיע: הוא תלוי ב-agency_id, ו-
+     embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
+     נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
+     ב-await. התוצאה נלקחת רק אם המזהה זהה למה שחזר; אחרת שאילתה רגילה. */
+  const AGENCY_FIELDS = 'name, address, city_id';
+  const agencyCacheKey = 'crmAgencyId:' + user.id;
+  let cachedAgencyId = null;
+  try { cachedAgencyId = localStorage.getItem(agencyCacheKey); } catch {}
+  const agencyEarly = cachedAgencyId
+    ? sb.from('agencies').select(AGENCY_FIELDS).eq('id', cachedAgencyId).maybeSingle().then(r => r, () => ({ data: null }))
+    : null;
+
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
     .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
@@ -1988,7 +2000,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   let agencyName = '';
   if (agent.agency_id){
     // הכתובת נטענת יחד עם השם כי היא נכנסת לבלוק "לבין" בהסכמי התיווך
-    const { data: agency } = await sb.from('agencies').select('name, address, city_id').eq('id', agent.agency_id).maybeSingle();
+    const { data: agency } = (agencyEarly && cachedAgencyId === agent.agency_id)
+      ? await agencyEarly
+      : await sb.from('agencies').select(AGENCY_FIELDS).eq('id', agent.agency_id).maybeSingle();
+    try { localStorage.setItem(agencyCacheKey, agent.agency_id); } catch {}
     agencyName = agency?.name || '';
     window.currentAgency = agency || null;
     // ‏השוק של המשרד נגזר מהעיר הזו (agentMarketSlug) - הוא מה שמגביל את
@@ -3887,6 +3902,7 @@ async function loadAdminReport(){
    משהו אחר על אותו מסך. הפרטים: docs/pwa-install.md */
 const PWA_MODE_LABELS = {
   'prompt':     'אנדרואיד / כרום',
+  'samsung':    'אנדרואיד - סמסונג (הופנה לכרום)',
   'ios':        'אייפון - ספארי',
   'ios-other':  'אייפון - דפדפן אחר',
   'in-app':     'דפדפן פנימי (פייסבוק/אינסטגרם)',
@@ -5971,6 +5987,10 @@ const AI_FEATURES = {
   showcase_branding: { label: 'בדיקת לוגו בתמונה', sub: 'המיניסייט ללקוח/ה', unit: 'לתמונה' },
   lead_analyzer:     { label: 'מנוע הלידים', sub: 'פוסטים מ-RSS', unit: 'לפוסט' },
   news_analyzer:     { label: 'מנוע המבזקים', sub: 'ידיעות', unit: 'לידיעה' },
+  // אזור ההטמעה (docs/csm-adoption.md)
+  csm_mentor:        { label: 'מנטור ההטמעה', sub: 'שאלות של צוות ההטמעה', unit: 'לשאלה' },
+  csm_call:          { label: 'ניתוח הקלטות - הטמעה', sub: 'סיכום והמלצות לשיחה (התמלול בשורת התמלול)', unit: 'לשיחה' },
+  gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };
@@ -25942,6 +25962,7 @@ const NAV_GROUPS = [
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
+    { acc:'accCsm',           label:'הטמעת סוכנים',   icon:'user',    tab:'admin' },
     { acc:'accCoachGaps',     label:'חסר למנטור',     icon:'article', tab:'admin' },
     { acc:'accSecurityAudit',  label:'יומן ביקורת',    icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
@@ -26213,10 +26234,33 @@ function sideNavItem(item, rail){
   return btn;
 }
 
+/* הסרגל נבנה מחדש מכל accSetCount, כלומר כ-15 פעמים בכניסה, וברובן אין בו
+   שום שינוי. ‏sideNavKey הוא כל מה שהבנייה קוראת; כשהוא זהה לקודם - אין מה
+   לבנות. ומתחת ל-1024px הסרגל מוסתר (‎.dash-side{display:none}‎), ולכן לא
+   נבנה בכלל: מאזין ה-resize קורא ל-renderSideNav, והמפתח שאופס בונה אותו
+   כשהחלון מתרחב. מי שמוסיף/ה לסרגל נתון חדש - מוסיף/ה אותו גם למפתח. */
+let sideNavLastKey = '';
+const SIDE_NAV_MQ = window.matchMedia('(min-width:1024px)');
+
+function sideNavKey(rail){
+  const items = navGroupsForView().map(g => g.key + ':' + g.items.map(it =>
+    it.acc + '=' + navItemCount(it) + '/' + accCountOf(it.acc) + (navItemIsActive(it) ? '*' : '')).join(','));
+  let open = '';
+  try { open = (localStorage.getItem(MENU_GROUP_KEY) || '') + '|' + (localStorage.getItem(SIDE_GROUP_KEY) || ''); } catch {}
+  const a = currentAgent || {};
+  return JSON.stringify([dashView, rail, navTab, items, open,
+    typeof coachLayerKinds === 'function' ? coachLayerKinds().length : 0,
+    a.credit_balance, a.tier, a.tier === 'free' ? quotaUsedThisCycle() : 0]);
+}
+
 function renderSideNav(){
   const nav = document.getElementById('sideNav');
   if (!nav) return;
+  if (!SIDE_NAV_MQ.matches){ sideNavLastKey = ''; return; }
   const rail = sideRailOn();
+  const key = sideNavKey(rail);
+  if (key === sideNavLastKey && nav.firstChild) return;
+  sideNavLastKey = key;
   nav.classList.toggle('is-rail', rail);
   const shell = nav.closest('.dash-shell');
   if (shell) shell.classList.toggle('nav-rail', rail);

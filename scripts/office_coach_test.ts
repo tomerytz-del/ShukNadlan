@@ -41,7 +41,10 @@ import {
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
 import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
-import { MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
+import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
+import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
+import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
+import { CSM_GREETING, CSM_TOOLS, csmCapabilities, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -444,6 +447,93 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("עלות: askCoach רושם טוקני מטמון", /cache_read_tokens:/.test(askLib) && /cache_write_tokens:/.test(askLib));
   check("עלות: שלושת הסיכומים רושמים טוקני מטמון",
     (coachFn.match(/cache_read_tokens: out\.cache_read_tokens/g) ?? []).length === 3);
+}
+
+// ---------------------------------------------------------------------------
+// אזור ההטמעה: המנטור, ניתוח ההקלטות וגבריאלה מול הצוות (docs/csm-adoption.md)
+// ---------------------------------------------------------------------------
+{
+  const now = Date.parse("2026-10-18T09:00:00Z");
+  const d = (n: number) => new Date(now - n * 86400000).toISOString();
+  const rows = [
+    { agent_id: "a1", display_name: "דנה", phone: "+972501234567", email: "dana@example.com", agency_id: "o1",
+      agency_name: "משרד צפון", agency_address: "הרצל 1", agency_city: "עפולה", role: "manager", tier: "premium",
+      joined_at: d(30), last_gabriela_at: d(1), gabriela_7d: 9, active_listings: 4, clients: 3, stage: "active_pilot", sessions: 1 },
+    { agent_id: "a2", display_name: "יוסי", phone: "0527654321", email: "yossi@example.com", agency_id: "o1",
+      agency_name: "משרד צפון", role: "agent", tier: "mid", joined_at: d(20), last_gabriela_at: d(9),
+      gabriela_7d: 0, active_listings: 1, clients: 0, stage: "onboarded", sessions: 1, next_followup_at: d(1) },
+    { agent_id: "a3", display_name: "חדשה", phone: "0520000000", agency_id: "o2", agency_name: "משרד דרום",
+      role: "agent", tier: "free", joined_at: d(2), last_gabriela_at: null, stage: "registered" },
+  ];
+  const p = csmPortfolio(rows, [{ title: "שדה מחסן", category: "pilot_blocker", severity: "blocker", votes: 3 }], now);
+  const out = JSON.stringify(p);
+  check("מנטור ההטמעה: טלפון, מייל וכתובת לא יוצאים למודל",
+    !/972501234567|0527654321|0520000000|example\.com|הרצל/.test(out), out);
+  check("מנטור ההטמעה: מי בסיכון - 5 ימים בלי גבריאלה, ולא מי שהצטרף/ה לפני יומיים",
+    p.at_risk.length === 1 && p.at_risk[0].name === "יוסי", p.at_risk);
+  check("מנטור ההטמעה: משרד מסוכם עם מנהל/ת שמשתמש/ת וסוכנים פעילים",
+    p.offices[0].office === "משרד צפון" && p.offices[0].manager_uses_gabriela === true && p.offices[0].agents_active_on_gabriela_7d === 1);
+  check("מנטור ההטמעה: מועד קשר שהגיע, ובקשות פיתוח עם מספר המבקשים",
+    p.followups_due.length === 1 && p.followups_due[0].name === "יוסי" && p.open_feedback[0].requested_by === 3);
+  check("מנטור ההטמעה: הידע וסימון החוסר בפרומפט, בלי מקף ארוך",
+    CSM_SYSTEM.includes(CSM_PLAYBOOK) && CSM_SYSTEM.includes("[נושא חסר:") && !/[–—]/.test(CSM_SYSTEM));
+  check("מנטור ההטמעה: הידע שלו לא מגיע לשלושת המנטורים של הסוכנים",
+    (["agent", "team", "office"] as const).every((k) => !askSystemPrompt(k, "warm", k === "agent" ? "office" : null, "גיוס משרד הטמעה").includes("משרדי מגדלור")));
+  check("מנטור ההטמעה: בלי שם רשת ובלי אחוז שלא נמדד",
+    !/רימקס|re\/max|אנגלו|century|keller/i.test(CSM_PLAYBOOK) && !/\d+%/.test(CSM_PLAYBOOK));
+
+  // ניתוח הקלטה: רק השדות הצפויים, שלב רק מהרשימה, בלי מקף ארוך
+  const a = cleanCallAnalysis({
+    summary: "שיחה עם מנהל המשרד — סיכמנו פיילוט", mood: "hesitant", pains: ["אין זמן", ""],
+    suggested_stage: "admin", followup_date: "2026-10-23", next_steps: [{ action: "פגישה", when: "מחר" }],
+    feedback_items: [{ title: "שדה מחסן", severity: "huge" }], message_draft: "היי – נדבר בחמישי", extra: "x",
+  });
+  check("ניתוח הקלטה: ניקוי - מקף ארוך, שלב לא מוכר, תאריך לא תקין וחומרה לא מוכרת",
+    !!a && !/[–—]/.test(JSON.stringify(a)) && a.suggested_stage === null && a.followup_date === "2026-10-23"
+      && a.next_steps[0].when === null && a.feedback_items[0].severity === "usability" && a.pains.length === 1
+      && !("extra" in (a as unknown as Record<string, unknown>)), a);
+  check("ניתוח הקלטה: בלי סיכום - לא נשמר", cleanCallAnalysis({ mood: "positive" }) === null);
+  check("ניתוח הקלטה: ההודעה בוואטסאפ עם הסיכום, הצעדים וההודעה לסוכן/ת",
+    !!a && /סיכום השיחה עם דנה/.test(callAnalysisText(a, "דנה")) && /הודעה מוצעת/.test(callAnalysisText(a)));
+  check("ניתוח הקלטה: הפרומפט עם השיטה ובלי מקף ארוך",
+    csmCallSystem().includes(CSM_PLAYBOOK) && !/[–—]/.test(csmCallSystem()));
+
+  const src = (f: string) => readFileSync(new URL("../supabase/functions/" + f, import.meta.url), "utf8");
+  const agentSrc = src("whatsapp-webhook/agent.ts");
+  const indexSrc = src("whatsapp-webhook/index.ts");
+  const chatSrc = src("whatsapp-webhook/csm-chat.ts");
+  const emailSrc = src("whatsapp-webhook/email-intake.ts");
+  const mediaSrc = src("whatsapp-webhook/media-intake.ts");
+  const wsSrc = src("csm-workspace/index.ts");
+  check("גבריאלה לצוות ההטמעה: תור נפרד - העוזרת של הסוכנים לא נגעה בכלי ההטמעה",
+    !/csm_|csm-tools|csm-chat/.test(agentSrc) && chatSrc.includes("tools: CSM_TOOLS"));
+  const iAgent = indexSrc.indexOf('.eq("phone_e164", from)');
+  const iStaff = indexSrc.indexOf('from("csm_staff")');
+  const iPublic = indexSrc.indexOf("await handlePublicMessage(msg)");
+  check("גבריאלה לצוות ההטמעה: מזוהה אחרי הסוכנים ולפני הבוט הציבורי",
+    iAgent > 0 && iStaff > iAgent && iPublic > iStaff);
+  check("גבריאלה לצוות ההטמעה: כלי ההטמעה לא בתור מייל ולא בתור הקלטה/מסמך",
+    !/csm_/.test(emailSrc) && !/csm_/.test(mediaSrc));
+  // "מה אפשר לעשות כאן": נוסח קבוע שמכסה כל כלי, ונשלח בהודעה הראשונה
+  const caps = csmCapabilities("רותם", true);
+  const capAreas: Record<string, RegExp> = {
+    csm_overview: /תמונת מצב/, csm_find_agent: /סוכן\/ת או משרד/, csm_office: /משרד/, csm_set_stage: /שלב ומועד קשר/,
+    csm_log_session: /לרשום פגישה/, csm_add_feedback: /בקשת פיתוח/, csm_recent_calls: /הקלטת שיחה/,
+    csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
+  };
+  check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
+    CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
+      && !/[\u2013\u2014]/.test(caps) && !csmCapabilities(null, false).startsWith("היי"),
+    CSM_TOOLS.map((t) => t.name).filter((n) => !capAreas[n]));
+  check("גבריאלה לצוות ההטמעה: \"מה אפשר לעשות כאן\" מזוהה, ובקשה רגילה לא",
+    ["מה אני יכולה לעשות כאן?", "מה אפשר לעשות פה", "מה את יודעת לעשות", "עזרה", "תפריט"].every(isCapabilitiesQuestion)
+      && !["מי בסיכון?", "תני לי את הטלפון של יוסי", "מה אפשר לעשות עם יוסי?", "מה את יודעת על המשרד בעפולה?"].some(isCapabilitiesQuestion)
+      && CSM_GREETING.test("היי") && !CSM_GREETING.test("היי, מי בסיכון?"));
+  check("גבריאלה לצוות ההטמעה: ההיכרות בהודעה הראשונה ובשאלה, ולפני התור",
+    chatSrc.indexOf("csmCapabilities(staff.display_name, first)") > 0
+      && chatSrc.indexOf("csmCapabilities(staff.display_name, first)") < chatSrc.indexOf("answer = await runCsmTurn"));
+  check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
+    /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
 }
 
 // ---------------------------------------------------------------------------

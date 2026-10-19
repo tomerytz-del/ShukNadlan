@@ -42,7 +42,7 @@ PERSONAL_MANIFEST = "/app-crm.webmanifest"
 
 # אותה רשימה בדיוק שקובעת מי טוען את events.js (ראו CLAUDE.md): דפי
 # האזור האישי. הם גם אלה שמקבלים מניפסט שנפתח על ה-CRM ולא על דף הבית.
-PERSONAL_PAGES = {"crm.html", "developer-crm.html", "professional-manage.html"}
+PERSONAL_PAGES = {"crm.html", "developer-crm.html", "professional-manage.html", "csm.html"}
 
 REQUIRED = [
     (
