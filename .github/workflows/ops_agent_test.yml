@@ -16,6 +16,7 @@ on:
       - "scripts/ops_market_data_test.py"
       - "scripts/ops_deal_sync_test.py"
       - "scripts/ops_agency_no_city_test.py"
+      - "scripts/ops_market_snapshot_test.py"
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
@@ -34,6 +35,7 @@ on:
       - "scripts/ops_market_data_test.py"
       - "scripts/ops_deal_sync_test.py"
       - "scripts/ops_agency_no_city_test.py"
+      - "scripts/ops_market_snapshot_test.py"
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
@@ -81,6 +83,11 @@ jobs:
       # ‏משרד בלי עיר: חמשת המשרדים מעפולה של 27.9.2026, ושקט כשלכולם יש עיר.
       - name: ‏agency_no_city מדווחת בדיוק מתי שצריך
         run: python3 scripts/ops_agency_no_city_test.py
+
+      # ‏התמונה השמורה של פאנל השווקים: שוק שהרענון שלו נכשל, ורענון שנעצר.
+      # שקט כשהטבלה עוד לא קיימת ובסבב אחד באיחור (20270628090000).
+      - name: ‏market_snapshot מדווחת בדיוק מתי שצריך
+        run: python3 scripts/ops_market_snapshot_test.py
 
       # ‏תרחיש Make כבוי: חמור כשהערוץ דלוק, שקט כשהוא כבוי, ושורות התור
       # שהשרת סימן - גם בלי טוקן. על המקרה של 27.9.2026.

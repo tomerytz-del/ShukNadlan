@@ -3568,9 +3568,38 @@ function renderMarketPicker(){
   });
 }
 
-async function loadMarketReport(){
+/* התמונה השמורה של השוק (market_snapshots, ‏20270628090000): מחושבת פעם
+   בשעה ב-pg_cron ובכל רענון חי. הטעינה קוראת ממנה ומציגה מיד; רק כפתור
+   הרענון מחשב עכשיו. ‏null = אין תמונה (שוק חדש, או שהמיגרציה טרם רצה). */
+async function marketSnapshot(slug){
+  const { data, error } = await sb.from('market_snapshots')
+    .select('data, computed_at, last_error, last_error_at')
+    .eq('market_slug', slug)
+    .maybeSingle();
+  if (error || !data || !data.data) return null;
+  return data;
+}
+
+function marketStamp(iso){
+  return new Date(iso).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+}
+
+/* פס מעל הדוח כשמה שמוצג אינו עדכני - החישוב החי נכשל עכשיו, או שהרענון
+   המתוזמן נכשל אחרי התמונה האחרונה. הנתונים נשארים: מסך ריק לא עוזר לאף אחד. */
+function marketStaleNote(text){
+  const host = document.getElementById('marketReport');
+  if (!host) return;
+  const note = admEl('div', 'mkt-card', text);
+  note.style.cssText = 'border:1.5px solid #E0A63B;background:#FFF8EC;margin-bottom:12px;font-size:.86rem';
+  host.insertBefore(note, host.firstChild);
+}
+
+/* ‏opts.live - חישוב עכשיו (כפתור הרענון). בלי - התמונה השמורה, ורק אם אין
+   כזו חישוב חי. חישוב חי שנכשל נופל לתמונה השמורה עם השעה שלה. */
+async function loadMarketReport(opts){
   const host = document.getElementById('marketReport');
   if (!host || marketReportBusy) return;
+  const live = !!(opts && opts.live);
   const list = marketList();
   renderMarketPicker();
   if (!list.length){
@@ -3583,18 +3612,37 @@ async function loadMarketReport(){
   marketReportBusy = true;
   const refreshBtn = document.getElementById('marketRefreshBtn');
   if (refreshBtn) refreshBtn.disabled = true;
-  host.innerHTML = '<div class="empty-state">טוען את נתוני השוק…</div>';
+  if (!live) host.innerHTML = '<div class="empty-state">טוען את נתוני השוק…</div>';
 
-  const { data, error } = await sb.rpc('platform_market_report', { p_market: market.slug });
+  let snap = live ? null : await marketSnapshot(market.slug);
+  let data = null, error = null;
+  if (!snap) ({ data, error } = await sb.rpc('platform_market_report', { p_market: market.slug }));
 
   marketReportBusy = false;
   if (refreshBtn) refreshBtn.disabled = false;
 
+  if (snap){
+    renderMarketReport(market, snap.data);
+    if (snap.last_error_at && new Date(snap.last_error_at) > new Date(snap.computed_at)){
+      marketStaleNote('הרענון האוטומטי האחרון נכשל - מוצגים הנתונים מ-' + marketStamp(snap.computed_at) + '. אפשר לנסות "רענון".');
+    }
+    renderAgenciesWithoutCity();
+    return;
+  }
+
   if (error){
+    const denied = error.code === '42501' || /not_platform_admin/.test(error.message || '');
+    const fallback = denied ? null : await marketSnapshot(market.slug);
+    if (fallback){
+      renderMarketReport(market, fallback.data);
+      marketStaleNote('החישוב העדכני לא הצליח (' + heErr(error) + '). מוצגים הנתונים השמורים מ-' + marketStamp(fallback.computed_at) + '.');
+      renderAgenciesWithoutCity();
+      return;
+    }
     host.innerHTML = '';
     const msg = (error.code === '42883' || error.code === 'PGRST202')
       ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270112090000_markets.sql טרם רצה.'
-      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+      : denied
         ? 'התצוגה פתוחה למנהל/ת פלטפורמה בלבד.'
         : 'שגיאה בטעינת השוק: ' + heErr(error);
     host.appendChild(admEl('div', 'empty-state', msg));
@@ -3818,7 +3866,7 @@ document.getElementById('marketPicker')?.addEventListener('click', (e)=>{
   try{ localStorage.setItem(MARKET_VIEW_KEY, btn.dataset.market); }catch(err){}
   loadMarketReport();
 });
-document.getElementById('marketRefreshBtn')?.addEventListener('click', loadMarketReport);
+document.getElementById('marketRefreshBtn')?.addEventListener('click', ()=> loadMarketReport({ live: true }));
 
 /* ---------- סרגל הניווט של תצוגת המנהל/ת ----------
    תוכן עניינים לחמשת הפאנלים. לחיצה פותחת את הפאנל (ושומרת את זה, כמו
