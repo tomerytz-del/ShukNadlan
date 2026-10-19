@@ -132,6 +132,21 @@ const INVOICE: RegExp[] = [
   /Receipt (?:number|#)\s*([0-9][0-9-]{3,})/,
 ];
 
+/**
+ * מספר החשבונית מתוך הנושא, כשאין אותו בגוף (ההעברה של הסוכן של תומר שמה
+ * בגוף רק את כותרת ההעברה). רק הצורות שהן **מספר חשבונית**, כי זה מה שנשמר
+ * כבר בטבלה ושמולו נבדקת כפילות:
+ *   Orb (Netlify, Supabase, fal) — "invoice (#NWIXDA-00052)"
+ *   Stripe — "New invoice from Replicate, LLC #6P70QIZE-0001"
+ * ‏"Your receipt from Anthropic, PBC #2139-8272-9584" הוא מספר **קבלה**, שאינו
+ * מספר החשבונית שנשמר (QEKGK6A2-0003) — ולכן אינו נלקח, והכפילות שלו נתפסת
+ * לפי שירות ותאריך (‏`findDuplicate`).
+ */
+const SUBJECT_INVOICE: RegExp[] = [
+  /\(#([A-Z0-9]{4,}-\d{3,})\)/,
+  /#([A-Z0-9]{8}-\d{4})\b/,
+];
+
 const EN_MONTH: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
@@ -169,6 +184,45 @@ export function chargeDate(text: string): string | null {
   if (he) {
     const hit = HE_MONTH.find(([p]) => he[2].startsWith(p));
     if (hit) return ymd(Number(he[3]), hit[1], Number(he[1]));
+  }
+  // ‏ההעברה של הסוכן של תומר: "תאריך מקורי: Sun, 18 Oct 2026 09:45:32 +0000".
+  // בלעדיה כל קבלה שהועברה באצווה נרשמה ליום ההעברה.
+  const orig = text.match(/תאריך מקורי:\s*([^\n]+)/);
+  if (orig) {
+    const at = new Date(orig[1].trim());
+    if (!Number.isNaN(at.getTime())) return israelDate(at);
+  }
+  return null;
+}
+
+/** שורה קיימת ב-`platform_costs`, כפי שהיא נקראת לבדיקת כפילות. */
+export interface ExistingCost {
+  id: number;
+  amount: number | string | null;
+  invoice_no: string | null;
+  status: string;
+}
+
+/**
+ * השכבה השנייה נגד כפילות (הראשונה היא האינדקס הייחודי על
+ * ‏`(service, invoice_no)`): קבלה **בלי מספר חשבונית** מול שורה של אותו שירות
+ * באותו יום חיוב. נועדה לקבלה שנשלחת שוב בלי המספר שנשמר — קבלה של Stripe
+ * שבנושא שלה מספר קבלה ולא חשבונית, או העברה בלי גוף.
+ *
+ * קבלה **עם** מספר חשבונית אינה נבדקת כאן: המספר הוא המפתח, ושני חיובים של
+ * ‏$10 ב-Netlify באותו יום הם שתי חשבוניות ולא כפילות.
+ *
+ * ‏`rows` — השורות של אותו שירות ואותו `charged_on`. שורה היא כפולה כשלא
+ * נדחתה, והסכומים שווים או שלאחת מהן אין סכום.
+ */
+export function findDuplicate(draft: CostDraft, rows: ExistingCost[]): ExistingCost | null {
+  // ‏`other` הוא כמה ספקים שונים תחת שם אחד — שני ספקים באותו יום אינם כפילות.
+  if (draft.invoice_no || draft.service === "other") return null;
+  for (const r of rows) {
+    if (r.status === "rejected") continue;
+    const amt = r.amount === null ? null : Number(r.amount);
+    if (draft.amount !== null && amt !== null && Math.abs(draft.amount - amt) > 0.005) continue;
+    return r;
   }
   return null;
 }
@@ -270,7 +324,7 @@ export function parseCostMail(input: CostMailInput, fallbackService: string | nu
   if (service === fallbackService) status = "pending";
 
   let invoice: string | null = null;
-  for (const re of INVOICE) {
+  for (const re of [...INVOICE, ...SUBJECT_INVOICE]) {
     const m = (subject + "\n" + text).match(re);
     if (m) {
       invoice = m[1];
