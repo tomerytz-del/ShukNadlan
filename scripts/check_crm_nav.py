@@ -46,6 +46,13 @@ def main():
     accs = dict(re.findall(
         r'<details class="acc[^"]*" id="(\w+)"[^>]*>\s*<summary>\s*<span class="acc-title">([^<]*)',
         html))
+    # פאנלי מנהל/ת הפלטפורמה (‏<section class="dash-panel" id="dashPanel…">) הם
+    # יעדי ניווט כמו אקורדיון מאז שהתפריט שלהם (#adminNav) ירד לתפריט הצד
+    # (docs/admin-navigation.md). הכיוון הראשון חל גם עליהם: פאנל שאינו
+    # בתפריט הוא מסך שאי אפשר להגיע אליו.
+    panels = dict(re.findall(
+        r'<section class="dash-panel[^"]*" id="(\w+)"[^>]*aria-label="([^"]*)"', html))
+    accs.update(panels)
     # מזהים שמוגדרים כקבוע (NAV_ADMIN_HOME) נפתרים לערך שלהם
     consts = dict(re.findall(r"const\s+(NAV_\w+)\s*=\s*'(\w+)'", js))
     nav = set(re.findall(r"\{\s*acc:\s*'(\w+)'", js))

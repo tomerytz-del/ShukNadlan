@@ -3326,6 +3326,50 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:1024px){
     #dashboard .header-actions .burger-wrap{display:none}
   }
+  /* ---------- תצוגת מנהל/ת הפלטפורמה: תפריט כהה ----------
+     מה שמבדיל את מצב הניהול מה-CRM של הסוכן/ת (docs/admin-navigation.md,
+     והטוקנים ב-docs/admin-redesign/HANDOFF.md סעיף 1). רקע #0E1A33, טקסט
+     #C9D3E6, כותרות קבוצה #8C9AB5, פריט פעיל #1F5BF0. רק בסרגל הצד: בנייד
+     תפריט הבורגר נשאר בהיר, כי הוא שכבה מעל התוכן ולא חלק מהמסגרת. */
+  .dash-side.is-admin{background:#0E1A33;border-color:#0E1A33;color:#C9D3E6}
+  .dash-side.is-admin .nav-mode{background:rgba(255,255,255,.08)}
+  .dash-side.is-admin .nav-mode-btn{color:#C9D3E6}
+  .dash-side.is-admin .nav-mode-btn[aria-pressed="true"]{background:#1F5BF0;color:#fff;box-shadow:none}
+  .dash-side.is-admin .nav-mode-btn:focus-visible{outline-color:#fff}
+  .dash-side.is-admin .menu-gtoggle{background:transparent;color:#8C9AB5;font-size:.74rem;
+    padding:9px 8px;margin-top:6px;border-top:1px solid rgba(255,255,255,.08);border-radius:0}
+  .dash-side.is-admin .menu-gtoggle:hover{background:rgba(255,255,255,.05);color:#fff}
+  .dash-side.is-admin .menu-gtoggle .mg-chev{color:#8C9AB5}
+  .dash-side.is-admin .menu-sep{display:none}
+  .dash-side.is-admin .menu-item{color:#C9D3E6;font-weight:600}
+  .dash-side.is-admin .menu-item:hover{background:rgba(255,255,255,.06);color:#fff}
+  .dash-side.is-admin .menu-item:focus-visible{outline-color:#fff}
+  .dash-side.is-admin .menu-item .mi-ico{color:#C9D3E6}
+  .dash-side.is-admin .menu-item .mi-chev{display:none}
+  .dash-side.is-admin .menu-item .mi-count{background:rgba(255,255,255,.12);color:#fff}
+  .dash-side.is-admin .menu-item .mi-count.is-hot,
+  .dash-side.is-admin .menu-gtoggle .mg-count.is-hot{background:#C2410C;color:#fff}
+  .dash-side.is-admin .menu-item.is-on:not(.is-home),
+  .dash-side.is-admin .menu-item.is-home.is-on{background:#1F5BF0;color:#fff;font-weight:700}
+  .dash-side.is-admin .menu-item.is-on .mi-ico{color:#fff}
+  .dash-side.is-admin .menu-item.is-home{background:rgba(255,255,255,.08);box-shadow:none}
+  .dash-side.is-admin .sn-foot{border-top-color:rgba(255,255,255,.1)}
+  .dash-side.is-admin .sn-link{color:#8C9AB5}
+  .dash-side.is-admin .sn-link:hover{background:rgba(255,255,255,.06);color:#fff}
+  /* מונה כהה על קבוצה: יש בה מה שממתין, ולא דחוף (אדום הוא ‏.is-hot) */
+  .menu-gtoggle .mg-count.is-wait{background:rgba(255,255,255,.22)}
+  .dash-side.is-admin .menu-gtoggle .mg-count.is-wait{background:#C9D3E6;color:#0E1A33}
+  /* שורת התקציר של קבוצה מקופלת (appendMenuGroups, תצוגת מנהל/ת) */
+  .menu-gsum{font-size:.72rem;color:var(--txt-faint);padding:0 10px 6px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu-gsum[hidden]{display:none}
+  .dash-side.is-admin .menu-gsum{color:#8C9AB5;padding:0 8px 4px}
+  /* המתג בראש סרגל הצד מחליף את #viewSwitch שבראש התוכן במחשב. בפס
+     האייקונים (‏.nav-rail) אין לו מקום בסרגל, ולכן שם #viewSwitch נשאר */
+  .sn-view{flex-shrink:0;margin-bottom:6px}
+  @media(min-width:1024px){
+    .dash-shell:not(.nav-rail) #viewSwitch{display:none}
+  }
   /* כותרת קבוצה: 12px מודגש באפור, וקו דק מעל כל קבוצה חוץ מהראשונה. היא
      גבול בין קבוצות ולא שורה בפני עצמה, ולכן שקטה מהשורות שתחתיה. */
   .sn-group{
@@ -3941,22 +3985,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ads-pick-list[hidden]{display:none}
   .ads-pick-list button{display:block;width:100%;text-align:start;border:0;background:none;padding:8px 10px;font-size:.76rem;cursor:pointer;color:var(--txt)}
   .ads-pick-list button:hover{background:var(--surface-2)}
-
-  /* ---- סרגל הניווט של תצוגת המנהל/ת ---- */
-  .adm-nav{
-    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;
-    position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg,#f6f4ef) 70%,transparent);
-  }
-  .adm-nav::-webkit-scrollbar{display:none}
-  .adm-nav[hidden]{display:none}
-  .adm-nav button{
-    flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--edge);
-    background:var(--surface);border-radius:999px;padding:7px 14px;
-    font-size:.76rem;font-weight:800;color:var(--txt-soft);white-space:nowrap;
-  }
-  .adm-nav button::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--nav-dot,#22456e)}
-  .adm-nav button:hover{color:var(--txt);border-color:var(--txt-faint)}
-  .adm-nav button b{font-weight:800;color:var(--txt)}
 
   /* ---- תצוגת השוק ---- */
   #marketReport{display:flex;flex-direction:column;gap:18px}
@@ -6320,7 +6348,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              הכפתור כאן מוצג מ-1024px בלבד. docs/crm-navigation.md -->
         <button type="button" class="hdr-search" id="hdrSearchBtn" aria-haspopup="dialog" aria-controls="searchSheet">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <span>חיפוש לקוח, נכס, ליד או הסכם</span>
+          <span id="hdrSearchLabel">חיפוש לקוח, נכס, ליד או הסכם</span>
           <kbd>Ctrl K</kbd>
         </button>
         <!-- כפתור היציאה ירד מהכותרת ונכנס לתפריט הפרופיל: הוא נלחץ פעם
@@ -6636,14 +6664,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       </div>
 
-      <!-- ==========================================================
-           ניווט בתצוגת מנהל/ת
-           ----------------------------------------------------------
-           חמישה פאנלים מכווצים זה מתחת לזה, וכל אחד עונה על שאלה אחרת.
-           עד היום הדרך למצוא את הרביעי הייתה לגלול מעבר לשלושה, ומי
-           שפתח/ה אחד מהם דחף/ה את השאר מטה. הסרגל כאן הוא תוכן העניינים:
-           לחיצה פותחת את הפאנל וגוללת אליו. ‏renderAdminNav ב-assets/crm.js -->
-      <nav class="adm-nav" id="adminNav" aria-label="ניווט בין לוחות המנהל/ת" hidden></nav>
+      <!-- הניווט בין הפאנלים של מנהל/ת הפלטפורמה יושב בתפריט הצד (NAV_GROUPS,
+           הקבוצות aToday…aSystem). שורת הלשוניות שהייתה כאן (#adminNav) ירדה
+           ב-19.10.2026: שני תפריטים לאותו אזור. docs/admin-navigation.md -->
 
       <!-- ==========================================================
            שווקים מקומיים — תצוגת השוק של מנהל/ת הפלטפורמה
