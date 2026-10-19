@@ -33,6 +33,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _market_data(ctx)
     yield from _deal_sync_cycle(ctx)
     yield from _agencies_no_city(ctx)
+    yield from _market_snapshots(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -892,3 +893,70 @@ def _agencies_no_city(ctx) -> Iterator[Finding]:
         evidence={"agencies": [{"name": r.get("name"), "joined": r.get("joined"),
                                 "props": int(r.get("props") or 0)} for r in rows[:20]]},
     )
+
+
+# ‏התמונה השמורה מתעדכנת כל שעה (בדקה 17); שלוש שעות = שני סבבים שהוחמצו,
+# ולא סבב אחד שרץ באיחור או תפס את הטעינה הראשונה של שוק חדש.
+MARKET_SNAPSHOT_STALE_HOURS = 3
+
+
+def _market_snapshots(ctx) -> Iterator[Finding]:
+    """פאנל "שווקים מקומיים" מציג את market_snapshots - ומה אם היא נעצרה.
+
+    ‏**למה זה שקט בלי הבדיקה:** הפאנל מציג את התמונה השמורה עם השעה שלה,
+    ולכן גם תמונה בת שבוע נראית תקינה לגמרי. עד 20270629090000 הוא חישב
+    בכל טעינה, וכשהחישוב עבר את 8 השניות של authenticated המסך היה ריק -
+    גלוי, אבל גם שבור. עכשיו הוא אף פעם לא ריק, ולכן מי שאומר שהנתונים
+    נעצרו הוא הממצא הזה.
+
+    שני מקרים: הרענון השעתי לא רץ (pg_cron כבוי, הפונקציה נכשלה כולה), או
+    שהוא רץ ונכשל על שוק מסוים - ‏last_error אחרי computed_at.
+    """
+    if not ctx.db.has_table("market_snapshots"):
+        return
+    ctx.count()
+    rows = ctx.db.rows(
+        """
+        select market_slug,
+               extract(epoch from now() - computed_at) / 3600.0 as age_hours,
+               last_error,
+               (last_error_at is not null
+                and (computed_at is null or last_error_at > computed_at)) as failing
+          from public.market_snapshots
+         order by market_slug
+        """
+    ) or []
+    if not rows:
+        return
+    failing = [r for r in rows if r.get("failing")]
+    if failing:
+        slugs = [str(r.get("market_slug")) for r in failing]
+        yield Finding(
+            area="behavior", code="market_snapshot_error", severity="medium",
+            subject="market_snapshots",
+            title="‏%d שווקים שהרענון השעתי שלהם נכשל" % len(failing),
+            detail="פאנל השווקים מציג להם את הנתונים מהחישוב האחרון שהצליח. "
+                   "השווקים: " + ", ".join(slugs[:10]) + ("…" if len(slugs) > 10 else "")
+                   + ". השגיאה: " + str(failing[0].get("last_error") or "")[:200],
+            suggestion="market_snapshots_refresh() רושמת את השגיאה ב-last_error. "
+                       "‏explain analyze על _platform_market_report_core(<השוק>). "
+                       "‏docs/regional-pages.md, 'התמונה השמורה'.",
+            metric=len(failing), metric_unit="שווקים",
+            evidence={"markets": [{"slug": r.get("market_slug"),
+                                   "error": str(r.get("last_error") or "")[:200]}
+                                  for r in failing[:20]]},
+        )
+    ages = [float(r["age_hours"]) for r in rows if r.get("age_hours") is not None]
+    oldest = max(ages) if ages else None
+    if oldest is not None and oldest > MARKET_SNAPSHOT_STALE_HOURS:
+        yield Finding(
+            area="behavior", code="market_snapshot_stale", severity="medium",
+            subject="market_snapshots",
+            title="תמונת השווקים לא התעדכנה %d שעות" % int(oldest),
+            detail="הרענון רץ כל שעה. פאנל השווקים מציג את מה שנשמר עם השעה שלו, "
+                   "ולכן נתונים ישנים נראים בו תקינים.",
+            suggestion="לבדוק ב-cron.job_run_details את market-snapshots-refresh. "
+                       "‏docs/regional-pages.md, 'התמונה השמורה'.",
+            metric=round(oldest, 1), metric_unit="שעות",
+            evidence={"oldest_hours": round(oldest, 1)},
+        )
