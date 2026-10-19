@@ -27,7 +27,14 @@ import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
-import { forwardedSender, parseCostMail, receiptText, stripForwardPrefix } from "./cost-mail.ts";
+import {
+  type ExistingCost,
+  findDuplicate,
+  forwardedSender,
+  parseCostMail,
+  receiptText,
+  stripForwardPrefix,
+} from "./cost-mail.ts";
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
 import { prepareImportJob } from "./property-import.ts";
 
@@ -757,6 +764,17 @@ async function handleCostMail(
     byAdmin ? "other" : null,
   );
   if (!draft) return finish(sb, row, "skipped", `costs: not_a_charge (${vendor || "unknown"})`);
+
+  // ‏כפילות בלי מספר חשבונית (‏findDuplicate). עם מספר — האינדקס הייחודי.
+  if (!draft.invoice_no) {
+    const { data: same } = await sb.from("platform_costs")
+      .select("id, amount, invoice_no, status")
+      .eq("service", draft.service)
+      .eq("charged_on", draft.charged_on)
+      .limit(20);
+    const dup = findDuplicate(draft, (same as ExistingCost[]) || []);
+    if (dup) return finish(sb, row, "skipped", `costs: duplicate of #${dup.id} (${draft.service} ${draft.charged_on})`);
+  }
 
   const { error } = await sb.from("platform_costs").insert({
     ...draft,
