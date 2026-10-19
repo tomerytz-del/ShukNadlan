@@ -1995,6 +1995,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     // גם הוא מגיע לכאן בלי כרטיס. הבדיקה רצה רק בענף הזה, כך שכניסה רגילה
     // לא משלמת עליה.
     if (await mfaGateOnMissingAgent()) return;
+    // ‏מנהלת ההטמעה שנכנסה דרך /crm (הכניסה של הסוכנים) נחתה כאן ונתבקשה
+    // מספר רישיון תיווך. החשבון שלה אינו סוכן/ת - ‏csm_claim מחברת אותו להזמנה
+    // לפי המייל המאומת, ומעבירים לאזור שלה (docs/csm-adoption.md, "הכניסה").
+    try {
+      const { data: csm } = await sb.rpc('csm_claim');
+      if (csm && csm.id){ location.replace('/csm'); return; }
+    } catch {}
     await resolveMembership(user, { alreadyResolved });
     return;
   }
