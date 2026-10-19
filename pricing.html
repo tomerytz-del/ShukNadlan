@@ -897,8 +897,10 @@ document.getElementById('planCards').innerHTML = Tiers.list().map(function(tier)
     '<div><div class="plan-name">' + esc(tier.name) + '</div>' +
     '<span class="plan-tagline">' + esc(tier.tagline) + '</span></div>' +
     priceBlock(tier) +
-    (tier.quotaLine ? '<div class="plan-quota">' + esc(tier.quotaLine) + '</div>' : '') +
     '<ul class="plan-list">' + feats + '</ul>' +
+    /* שורת המכסה בתחתית הכרטיס, מעל הכפתור (בקשה של תומר, 20.10.2026):
+       ‏plan-list נמתחת (flex-grow), ולכן השורה יושבת באותו גובה בכל הכרטיסים. */
+    (tier.quotaLine ? '<div class="plan-quota">' + esc(tier.quotaLine) + '</div>' : '') +
     ctaHtml +
     '<div class="plan-foot">' + esc(cta.foot || '') + '</div>' +
   '</article>';

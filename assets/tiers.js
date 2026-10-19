@@ -77,7 +77,7 @@
      ב-CRM קורא ממנה (שלוש השורות הראשונות, וה-strong בהשוואת שדרוג).
      ‏cardFeatures היא שש השורות הקצרות שבכרטיסים של pricing.html, והיא
      של הדף הזה בלבד: ‏{ text, on, bold? } - ‏bold הוא הרישא המודגשת, ו-text
-     ממשיך אותה. ‏quotaLine היא השורה שמתחת למחיר בכרטיס. ‏tagline ו-badge
+     ממשיך אותה. ‏quotaLine היא שורת המכסה בתחתית הכרטיס, מעל הכפתור. ‏tagline ו-badge
      מוצגים רק ב-pricing.html (נבדק ב-19.10.2026). */
   var CATALOG = [
     {

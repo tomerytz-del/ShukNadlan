@@ -99,7 +99,7 @@ DISPLAY = [
     ('pricing.html', r'ומעבר\s+לזה ₪' + N + r' לפנייה',                'ppl_price_buyer_renter'),
     ('assets/tiers.js', r'₪' + N + r' לפנייה',                         'ppl_price_buyer_renter'),
     ('assets/tiers.js', r"'" + N + r' פניות בחינם בחודש',              'free_lead_quota_monthly'),
-    # ‏quotaLine של Pay&GO - השורה שמתחת למחיר בכרטיס
+    # ‏quotaLine של Pay&GO - שורת המכסה בתחתית הכרטיס
     ('assets/tiers.js', r"'" + N + r' פניות בחודש כלולות',             'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
     ('assets/tiers.js', r'₪' + N + r' לליד',                           'ppl_price_owner_mid'),
