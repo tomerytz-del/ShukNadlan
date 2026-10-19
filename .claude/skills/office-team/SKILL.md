@@ -1,6 +1,6 @@
 ---
 name: office-team
-description: עבודה על צוות המשרד ותפקידים בריפו של שוק נדל״ן - מנהל/ת מול סוכן/ת (role = 'manager' הוא כל ההרשאה, אין "בעלים"), מינוי מנהל/ת נוסף/ת והורדה (addRoleAction / setMemberRole ב-assets/crm.js), הטריגר protect_sensitive_agency_member_fields שחוסם קידום עצמי, איחוד שני משרדים שנפתחו בטעות לאותו משרד (כל הטבלאות שמפנות ל-agencies, property_shares ו-agent_share_exclusions עם המפתחות הייחודיים), ושינוי slug של סוכן/ת (אין הפניה מהישן). Use when a manager wants to appoint another manager, when someone asks who "owns" an office, when an office was opened twice and needs merging, when moving an agent between offices, when an agent page URL carries the office name instead of the agent's, or when touching loadTeam / updateMemberField / the role column.
+description: עבודה על צוות המשרד ותפקידים בריפו של שוק נדל״ן - מנהל/ת מול סוכן/ת (role = 'manager' הוא כל ההרשאה, אין "בעלים"), מינוי מנהל/ת נוסף/ת והורדה (addRoleAction / setMemberRole ב-assets/crm.js), הטריגר protect_sensitive_agency_member_fields שחוסם קידום עצמי, איחוד שני משרדים שנפתחו בטעות לאותו משרד (כל הטבלאות שמפנות ל-agencies, property_shares ו-agent_share_exclusions עם המפתחות הייחודיים), ושינוי slug של סוכן/ת (אין הפניה מהישן), והחלפת המייל שאיתו סוכן/ת נכנס/ת (העברת user_id לחשבון החדש, ובקשת שיוך של מנהל/ת יחיד/ה שאיש אינו יכול לאשר). Use when a manager wants to appoint another manager, when someone asks who "owns" an office, when an office was opened twice and needs merging, when moving an agent between offices, when an agent page URL carries the office name instead of the agent's, when an agent needs to log in with a different email / Google account or sees "מי את/ה?" for an existing card, or when touching loadTeam / updateMemberField / the role column.
 ---
 
 # צוות המשרד, מנהלים, ואיחוד משרדים
@@ -106,3 +106,29 @@ description: עבודה על צוות המשרד ותפקידים בריפו ש�
 מ-slug ישן**, ולכן שינוי שובר קישורים ששותפו: לשנות כשהחשבון חדש, או לומר
 במפורש שהקישור הישן יפסיק לעבוד. במיגרציה - לסנן לפי ה-slug הישן ולבדוק שה-
 slug החדש פנוי (`20270417092000_nissim_ben_ezra_slug.sql`).
+
+## החלפת חשבון הכניסה (המייל) של סוכן/ת
+
+הכרטיס (`agency_members`) קשור לחשבון ב-`auth.users` דרך `user_id`, ולא דרך
+המייל. סוכן/ת שנכנס/ת עם Google בכתובת אחרת מקבל/ת **משתמש חדש בלי כרטיס**
+ומסך "מי את/ה?" - ולא את הכרטיס הקיים. המסלול הרגיל הוא בקשת שיוך לפי
+מספר רישיון (`join-agency`, ‏`claim`), שמנהל/ת המשרד מאשר/ת (`decide`).
+
+**המלכודת: המנהל/ת היחיד/ה שמבקש/ת לשייך את הכרטיס של עצמו/ה.** את הבקשה
+יכול/ה לאשר רק מנהל/ת מחובר/ת - כלומר החשבון הישן, שבדיוק אליו לא נכנסים.
+הבקשה נשארת `pending` לנצח (כך תמיר ברגר, נדל"ן צפון, 19.10.2026 - שלוש
+בקשות). התיקון ידני, ועושה **בדיוק** מה ש-`decide` עושה:
+
+1. לוודא ששני המשתמשים קיימים ב-`auth.users`, ושלחשבון החדש אין כרטיס
+   משלו (`user_id` ייחודי - התנגשות היא `23505`).
+2. לבדוק את הטבלאות שמפנות ל-`auth.users` (‏`pg_constraint` עם
+   ‏`confrelid = 'auth.users'::regclass`) - בדרך כלל אין מה להעביר מלבד
+   הכרטיס.
+3. בעסקה אחת: `update agency_members set user_id = <חדש>, email = <חדש>`
+   עם תנאי על ה-`user_id` הישן, וסימון הבקשה הפתוחה `approved`.
+   זה DML ולא DDL, ולכן מותר דרך `execute_sql`.
+4. לא למחוק את המשתמש הישן - הוא פשוט מפסיק לפתוח את הכרטיס.
+
+**ובצד הלקוח:** כפתורי Google שולחים `prompt: 'select_account'`, אחרת
+Google נכנסת בשקט עם החשבון שכבר מחובר בדפדפן ואי אפשר לבחור באחר.
+כפתור Google חדש חייב לשלוח אותו גם (`docs/google-login.md`).
