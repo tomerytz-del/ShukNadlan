@@ -29,6 +29,12 @@
     kitchenette:'מטבחון', alarm:'אזעקה', meeting_room:'חדר ישיבות', loading_ramp:'רמפת העמסה',
     comms:'תקשורת', cold_room:'חדר קירור', ev_charger:'עמדת טעינה לרכב חשמלי', moshav_kibbutz_only:'במושב/קיבוץ',
   };
+  // אותם ערכים כמו CONDITION_LABELS ב-property.js. בלי המיפוי הכרטיס הציג את הקוד
+  // הגולמי ("maintained") ללקוח/ה.
+  const CONDITION_LABELS = {
+    new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
+    maintained:'במצב שמור', needs_renovation:'דרוש שיפוץ',
+  };
   const REASONS = [
     ['price','המחיר'], ['location','המיקום'], ['size','הגודל'], ['condition','מצב הנכס'],
     ['layout','החלוקה'], ['floor','הקומה'], ['photos','לא אהבתי מהתמונות'], ['other','משהו אחר'],
@@ -282,7 +288,7 @@
       it.built_size_sqm && it.built_size_sqm !== it.size_sqm && `בנוי ${it.built_size_sqm} מ״ר`,
       it.garden_sqm && `🌿 גינה ${it.garden_sqm} מ״ר`,
       it.floor != null && `🏢 קומה ${it.floor}${it.total_floors ? ' מתוך ' + it.total_floors : ''}`,
-      it.condition && `✨ ${it.condition}`,
+      CONDITION_LABELS[it.condition] && `✨ ${CONDITION_LABELS[it.condition]}`,
       it.move_in_soon ? '🔑 כניסה מיידית' : (it.move_in_date && `🔑 כניסה ${new Date(it.move_in_date).toLocaleDateString('he-IL')}`),
       it.maintenance_fee && `ועד בית ${shekel(it.maintenance_fee)}`,
       it.arnona && `ארנונה ${shekel(it.arnona)}`,
