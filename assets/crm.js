@@ -915,7 +915,9 @@ googleLoginBtn.addEventListener('click', async ()=>{
   if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
+    // select_account: בלי זה Google נכנסת בשקט עם החשבון שכבר מחובר בדפדפן,
+    // ומי שצריך/ה חשבון אחר אינו/ה יכול/ה לבחור בו. docs/google-login.md
+    options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } }
   });
   if (error){
     resetGoogleButton();

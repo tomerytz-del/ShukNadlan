@@ -262,7 +262,7 @@ el('googleBtn').addEventListener('click', async ()=>{
   if (window.AuthReturn) AuthReturn.remember(new URL(crmUrl()).pathname);
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: crmUrl() },
+    options: { redirectTo: crmUrl(), queryParams: { prompt: 'select_account' } },
   });
   if (error){
     btn.disabled = false;

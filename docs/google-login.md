@@ -8,9 +8,17 @@ Google OAuth דרך Supabase Auth. המסמך הזה מתאר את מסלול ה
 ## המסלול המלא
 
 1. הסוכן/ת לוחצ/ת על "התחברות עם Google" ב-`crm.html`.
-2. `sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo } })`
+2. `sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo, queryParams:{ prompt:'select_account' } } })`
    מנתב את הדפדפן ל-Google. הכפתור ננעל ומציג "מעבירים ל-Google…" — כדי
    שלחיצה שנייה לא תפתח ניתוב מקביל.
+
+   **‏`prompt: 'select_account'` הוא חובה, בכל ארבעת הכפתורים** (‏`crm.js`,
+   ‏`developer-crm.html`, ‏`developer-signup.html`, ‏`csm-page.js`). בלעדיו
+   Google נכנסת בשקט עם החשבון שכבר מחובר בדפדפן, ומי שצריך/ה להיכנס
+   בחשבון אחר אינו/ה יכול/ה לבחור בו — כך תמיר ברגר (19.10.2026) נכנס שוב
+   ושוב בחשבון של הכרטיס הישן ולא בחשבון שלו. החלפת הכתובת שעל כרטיס קיים
+   נעשתה אז במסד, בדיוק כמו אישור בקשת שיוך (`join-agency`, ‏`decide`):
+   ‏`agency_members.user_id` ו-`email` לחשבון החדש, והבקשה מסומנת `approved`.
 3. Google מחזיר את הדפדפן לכתובת שב-`redirectTo`, עם התשובה בכתובת עצמה:
    `#access_token=…` בהצלחה (flow מסוג implicit) או `?code=…` (PKCE), ובכישלון
    `error` / `error_description`.
