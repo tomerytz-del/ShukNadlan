@@ -1,0 +1,123 @@
+{
+  "title": "המשרד שלך, בשליטה",
+  "aspect": "16:9",
+  "mode": "motion",
+  "voiceId": "nPczCjzI2devNBz1zQrb",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "מה קורה במשרד שלך, כשאתה לא שם?",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מה קורה במשרד?"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: same series - deep blue #003DA5, one red accent #DC1C2E, pale ground, heebo, RTL, no network names or marks. AUDIENCE: office managers and team leads, 16:9, about 55 s. All screens rebuilt in code with demo data and a 'נתוני הדגמה' tag; demo names only."
+    },
+    {
+      "id": "dash",
+      "narration": "דאשבורד המשרד מראה לך מי גייס, מי החתים, ומי עונה לליד תוך רבע שעה, ומי אחרי יומיים.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "גיוסים · החתמות · זמן תגובה"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Office dashboard; columns light on their words; fast and slow responders flagged."
+    },
+    {
+      "id": "teams",
+      "narration": "אתה קובע יעד לכל סוכן, ורואה כל צוות מול היעד שלו. ולכל מנהל צוות, דאשבורד משלו.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "יעדים · צוותים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A target typed for an agent; team bars against the target line; a team-lead dashboard window pops."
+    },
+    {
+      "id": "calls",
+      "narration": "שיחות המשרד מוקלטות ומסוכמות, ואתה יכול להאזין לכל שיחה.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שיחות המשרד"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A calls list with summaries; a play button pressed and a waveform runs."
+    },
+    {
+      "id": "weekly",
+      "narration": "כל יום ראשון, המנטור קורא את כל המספרים, ונותן לך עד שלוש החלטות לשבוע, ומי מוביל כל אחת.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "3 החלטות לשבוע"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "The office mentor card: three decisions tick in, each with 'מוביל:'."
+    },
+    {
+      "id": "agent",
+      "narration": "ולכל סוכן, מנטור אישי שכותב לו כל בוקר: מה הכי חשוב היום, איפה הוא חזק, ואיך להשתפר. בטון שהוא בוחר.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "כל בוקר · בטון שלו"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Agent hero card 'עברת את היעד!', mentor card with today's step, strengths, and the tone toggle."
+    },
+    {
+      "id": "ask",
+      "narration": "ויש לו את מי לשאול: התנגדות של בעלים, משא ומתן, גיוס בלעדיות. תשובה מקצועית, במערכת או בוואטסאפ.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שאל את המנטור"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Topic chips tick on their words; the ask box in the CRM and the same question through Gabriela in WhatsApp."
+    },
+    {
+      "id": "close",
+      "narration": "אתה מנהל, המנטור מאמן, והסוכנים מתקדמים. שוק הנדל״ן!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "אתה מנהל. המנטור מאמן."
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Three short lines and the logo."
+    }
+  ]
+}

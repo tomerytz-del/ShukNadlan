@@ -131,11 +131,6 @@ const Office: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) =
           ]}
         />
       </PhoneFrame>
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "מערכת")} volume={0.24} />
-      <Sfx src={urls[SFX.ticks]} at={crm + 6} volume={0.2} />
-      <Sfx src={urls[SFX.send]} at={wordFrame(s, "עוזרת")} volume={0.24} />
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "מלאכותית")} volume={0.24} />
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "סוכן")} volume={0.22} />
     </>
   );
 };
@@ -168,9 +163,7 @@ const Offices: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) 
         surface={P.surface}
         font={heebo}
       />
-      <Sfx src={urls[SFX.tap]} at={wordFrame(s, "שיתופי")} volume={0.24} />
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "הנכסים")} volume={0.24} />
-      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "שלהם")} volume={0.28} />
+      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "שלהם")} volume={0.16} />
     </>
   );
 };
@@ -211,13 +204,6 @@ const Buyers: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) =
         </div>
       ) : null}
       <Pill text="כל פנייה היא ליד" at={onWord(s, "כליד")} x={0.5} y={0.4} size={0.028} />
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "לאתר")} volume={0.22} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "בגבריאלה")} volume={0.22} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "המפה")} volume={0.22} />
-      <Sfx src={urls[SFX.sparkle]} at={wordFrame(s, "הדמיות")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "ומחשבון")} volume={0.22} />
-      <Sfx src={urls[SFX.send]} at={wordFrame(s, "פנייה")} volume={0.26} />
-      <Sfx src={urls[SFX.impact]} at={wordFrame(s, "כליד")} volume={0.26} />
     </>
   );
 };
@@ -268,11 +254,6 @@ const Dashboard: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }
           </Entrance>
         </div>
       </AppWindow>
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "בדאשבורד")} volume={0.22} />
-      <Sfx src={urls[SFX.ticks]} at={dash + 4} volume={0.2} />
-      <Sfx src={urls[SFX.tap]} at={wordFrame(s, "בעניינים")} volume={0.24} />
-      <Sfx src={urls[SFX.tap]} at={wordFrame(s, "מאחר")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "בלעדיות")} volume={0.24} />
     </>
   );
 };
@@ -317,14 +298,6 @@ const Mentor: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) =
         </div>
       ) : null}
       <div style={{ position: "absolute", left: width * 0.05, top: height * 0.09, fontFamily: heebo, fontWeight: 600, fontSize: width * 0.011, color: P.dim, background: P.surface, border: `1px solid ${P.line}`, borderRadius: width * 0.02, padding: `${height * 0.005}px ${width * 0.01}px`, direction: "rtl", whiteSpace: "nowrap" }}>נתוני הדגמה</div>
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "הסוכן")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "הצוות")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "המשרד")} volume={0.24} />
-      <Sfx src={urls[SFX.sparkle]} at={wordFrame(s, "צעדים")} volume={0.22} />
-      <Sfx src={urls[SFX.keys]} at={ask} volume={0.22} />
-      <Sfx src={urls[SFX.click]} at={ask + 18} volume={0.24} />
-      <Sfx src={urls[SFX.ping]} at={ask + 22} volume={0.2} />
-      <Sfx src={urls[SFX.click]} at={steps} volume={0.2} />
     </>
   );
 };
@@ -343,10 +316,8 @@ const Close: React.FC<{ s: Scene; urls: VideoProps["urls"] }> = ({ s, urls }) =>
         </div>
         <div style={{ fontFamily: heebo, fontWeight: 700, fontSize: width * 0.02, color: P.dim, direction: "ltr" }}>shuknadlan.co.il</div>
       </Entrance>
-      <Sfx src={urls[SFX.impact]} at={wordFrame(s, "התאמות")} volume={0.24} />
-      <Sfx src={urls[SFX.impact]} at={wordFrame(s, "עסקאות")} volume={0.24} />
-      <Sfx src={urls[SFX.riser]} at={Math.max(0, wordFrame(s, "שוק") - 18)} volume={0.22} />
-      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "שוק")} volume={0.26} />
+      <Sfx src={urls[SFX.riser]} at={Math.max(0, wordFrame(s, "שוק") - 18)} volume={0.18} />
+      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "שוק")} volume={0.16} />
     </>
   );
 };
@@ -366,37 +337,28 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
       <SceneFrame from={hook.startFrame} durationInFrames={hook.durationFrames} exit="zoom-through" origin={{ x: 0.8, y: 0.62 }}>
         <Hook s={hook} urls={urls} />
         <Voice s={hook} urls={urls} group={g} />
-        <Sfx src={urls[SFX.pop]} at={wordFrame(hook, "המשרד")} volume={0.26} />
-        <Sfx src={urls[SFX.pop]} at={wordFrame(hook, "המשרדים")} volume={0.26} />
-        <Sfx src={urls[SFX.pop]} at={wordFrame(hook, "והקונים")} volume={0.26} />
       </SceneFrame>
       <SceneFrame from={office.startFrame} durationInFrames={office.durationFrames} enter="zoom-through" origin={{ x: 0.8, y: 0.62 }}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Office s={office} urls={urls} />
         <Voice s={office} urls={urls} group={g} />
       </SceneFrame>
       <SceneFrame from={offices.startFrame} durationInFrames={offices.durationFrames}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Offices s={offices} urls={urls} />
         <Voice s={offices} urls={urls} group={g} />
       </SceneFrame>
       <SceneFrame from={buyers.startFrame} durationInFrames={buyers.durationFrames}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Buyers s={buyers} urls={urls} />
         <Voice s={buyers} urls={urls} group={g} />
       </SceneFrame>
       <SceneFrame from={dashboard.startFrame} durationInFrames={dashboard.durationFrames}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Dashboard s={dashboard} urls={urls} />
         <Voice s={dashboard} urls={urls} group={g} />
       </SceneFrame>
       <SceneFrame from={mentor.startFrame} durationInFrames={mentor.durationFrames}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Mentor s={mentor} urls={urls} />
         <Voice s={mentor} urls={urls} group={g} />
       </SceneFrame>
       <SceneFrame from={close.startFrame} durationInFrames={close.durationFrames}>
-        <Sfx src={urls[SFX.whip]} at={0} volume={0.26} />
         <Close s={close} urls={urls} />
         <Voice s={close} urls={urls} group={g} />
       </SceneFrame>

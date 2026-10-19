@@ -1,0 +1,142 @@
+{
+  "title": "מהגיוס ועד הקונה",
+  "aspect": "16:9",
+  "mode": "motion",
+  "voiceId": "nPczCjzI2devNBz1zQrb",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "סוכן גייס נכס? הקונים כבר בדרך!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "הקונים כבר בדרך!"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-e1e2cbb7"
+      ],
+      "notes": "LOOK: same series - deep blue #003DA5, one red accent #DC1C2E, pale ground, heebo, RTL, no network names or marks. AUDIENCE: brokerage office owners, 16:9, about 50 s. THREAD: one property card travels through the film: signed, created, published, posted, sent to buyers, shared, counted on the dashboard. Demo names, generic streets; social posts rebuilt in code with real photos and real stats of the platform's own accounts."
+    },
+    {
+      "id": "intake",
+      "narration": "הוא מחתים את הבעלים דיגיטלית, ומכניס את הנכס בהודעה לגבריאלה, או ב-CRM.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "חתימה דיגיטלית",
+        "גבריאלה · CRM"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-d6761345"
+      ],
+      "notes": "A signing page (rebuilt, no ID number), then the chat where Gabriela answers that the property was created."
+    },
+    {
+      "id": "live",
+      "narration": "הנכס עולה לאתר, עם תיאור שיווקי שנכתב לבד, והדמיות AI.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "תיאור שיווקי",
+        "הדמיות AI"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-a2365c8a",
+        "a-c5c6ac37",
+        "a-8ee14b56"
+      ],
+      "notes": "The site in a phone; the description types itself; a before/after wipe."
+    },
+    {
+      "id": "social",
+      "narration": "פוסט עם התמונות עולה אוטומטית לפייסבוק ולאינסטגרם.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "פייסבוק · אינסטגרם",
+        "35 אלף צפיות בחודש"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-bd24dbf9",
+        "a-c330645a"
+      ],
+      "notes": "A Facebook post and an Instagram post side by side (rebuilt with real photos), and the platform's real Instagram reach: 35.4K views in 30 days, shown as 35 אלף."
+    },
+    {
+      "id": "alert",
+      "narration": "קונים ששמרו חיפוש כזה באתר מקבלים התראה מיד!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "התראה מיידית לקונים"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "An alert email lands on a buyer's phone (rebuilt in code)."
+    },
+    {
+      "id": "share",
+      "narration": "בלחיצת כפתור או בהודעה לגבריאלה, הנכס משותף עם כל המתווכים בפלטפורמה.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "שיתוף בלחיצה"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A share button on the property card and a message to Gabriela; the property spreads to offices on a network."
+    },
+    {
+      "id": "manager",
+      "narration": "ואתה רואה כל גיוס, כל בלעדיות, וכל מה שצריך כדי לנהל צוות מנצח.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "כל מה שצריך לצוות מנצח"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-c2956f46"
+      ],
+      "notes": "The office dashboard (demo data): recruitments chart, expiring exclusivities, agents table."
+    },
+    {
+      "id": "close",
+      "narration": "גיוס אחד, חשיפה בכל הערוצים. שוק הנדל״ן!",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "גיוס אחד.",
+        "חשיפה בכל הערוצים."
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-e1e2cbb7"
+      ],
+      "notes": "Two lines and the logo."
+    }
+  ]
+}

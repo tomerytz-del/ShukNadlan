@@ -109,9 +109,6 @@ const Hook: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
           <div style={{ fontFamily: heebo, fontWeight: 600, fontSize: width * 0.018, color: P.dim, whiteSpace: "nowrap" }}>העוזרת האישית של הסוכן, בוואטסאפ</div>
         </div>
       </div>
-      <Sfx src={urls[SFX.keys]} at={2} volume={0.2} />
-      <Sfx src={urls[SFX.send]} at={wordFrame(s, "לגבריאלה")} volume={0.26} />
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "ממשיכה")} volume={0.26} />
     </>
   );
 };
@@ -134,11 +131,7 @@ const Intake: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => (
       {chip("פורסם באתר", "spark", onWord(s, "מפרסמת"))}
       {chip("התאמה 100% לקונה", "lead", onWord(s, "קונה"), true)}
     </Column>
-    <Sfx src={urls[SFX.send]} at={wordFrame(s, "לכתוב")} volume={0.22} />
-    <Sfx src={urls[SFX.send]} at={wordFrame(s, "תמונה")} volume={0.22} />
-    <Sfx src={urls[SFX.pop]} at={wordFrame(s, "פותחת")} volume={0.24} />
-    <Sfx src={urls[SFX.pop]} at={wordFrame(s, "מפרסמת")} volume={0.24} />
-    <Sfx src={urls[SFX.chime]} at={wordFrame(s, "קונה")} volume={0.28} />
+    <Sfx src={urls[SFX.chime]} at={wordFrame(s, "קונה")} volume={0.16} />
   </>
 );
 
@@ -159,10 +152,6 @@ const Client: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
         <MatchCard title="הרצל 52" sub="4 חדרים · 1,100,000 ₪" tag="הנכס שלך" delay={onWord(s, "אצלך")} w={0.34} hero={P.hero} accent={P.accent} ink={P.ink} dim={P.dim} surface={P.surface} font={heebo} />
         <MatchCard title="הנרקיסים 65" sub="4 חדרים · 1,150,000 ₪" tag="משרד שותף" delay={onWord(s, "ובמשרדים")} w={0.34} hero={P.hero} accent={P.accent} ink={P.ink} dim={P.dim} surface={P.surface} font={heebo} />
       </div>
-      <Sfx src={urls[SFX.send]} at={4} volume={0.22} />
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "כרטיס")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "אצלך")} volume={0.24} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "ובמשרדים")} volume={0.24} />
     </>
   );
 };
@@ -216,11 +205,6 @@ const Minisite: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
           font={heebo}
         />
       </div>
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "מיניסייט")} volume={0.22} />
-      <Sfx src={urls[SFX.click]} at={wordFrame(s, "אהבה")} volume={0.26} />
-      <Sfx src={urls[SFX.click]} at={wordFrame(s, "מועד")} volume={0.24} />
-      <Sfx src={urls[SFX.click]} at={wordFrame(s, "לסיור")} volume={0.22} />
-      <Sfx src={urls[SFX.send]} at={wordFrame(s, "לסיור") + 8} volume={0.22} />
     </>
   );
 };
@@ -258,12 +242,7 @@ const Coord: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
         {chip("בדיקת יומן", "check", onWord(s, "היומן"))}
         {chip("אישור ותזכורת", "lead", onWord(s, "אישור"), true)}
       </Column>
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "הבעלים")} volume={0.24} />
-      <Sfx src={urls[SFX.click]} at={10} volume={0.22} />
-      <Sfx src={urls[SFX.click]} at={press} volume={0.26} />
-      <Sfx src={urls[SFX.ping]} at={press + 10} volume={0.22} />
-      <Sfx src={urls[SFX.pop]} at={wordFrame(s, "היומן")} volume={0.22} />
-      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "אישור")} volume={0.28} />
+      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "אישור")} volume={0.16} />
     </>
   );
 };
@@ -292,9 +271,6 @@ const Data: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
           <Img src={urls[IMG.cma]} style={{ display: "block", width: "100%" }} />
         </div>
       ) : null}
-      <Sfx src={urls[SFX.send]} at={wordFrame(s, "נתונים")} volume={0.22} />
-      <Sfx src={urls[SFX.ping]} at={wordFrame(s, "ברחוב")} volume={0.24} />
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "ודוח")} volume={0.24} />
     </>
   );
 };
@@ -329,12 +305,8 @@ const Close: React.FC<{ s: Scene; urls: Urls }> = ({ s, urls }) => {
         </div>
         <div style={{ fontFamily: heebo, fontWeight: 700, fontSize: width * 0.02, color: P.dim, direction: "ltr" }}>shuknadlan.co.il</div>
       </Entrance>
-      <Sfx src={urls[SFX.whoosh]} at={wordFrame(s, "נרשם")} volume={0.22} />
-      <Sfx src={urls[SFX.ticks]} at={dash + 4} volume={0.2} />
-      <Sfx src={urls[SFX.riser]} at={Math.max(0, wordFrame(s, "שוק") - 18)} volume={0.22} />
-      <Sfx src={urls[SFX.impact]} at={wordFrame(s, "פחות")} volume={0.24} />
-      <Sfx src={urls[SFX.impact]} at={wordFrame(s, "יותר")} volume={0.24} />
-      <Sfx src={urls[SFX.sparkle]} at={wordFrame(s, "שוק")} volume={0.26} />
+      <Sfx src={urls[SFX.riser]} at={Math.max(0, wordFrame(s, "שוק") - 18)} volume={0.18} />
+      <Sfx src={urls[SFX.chime]} at={wordFrame(s, "שוק")} volume={0.16} />
     </>
   );
 };
@@ -357,7 +329,6 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         const s = sceneById(manifest, id) as Scene;
         return (
           <SceneFrame key={id} from={s.startFrame} durationInFrames={s.durationFrames}>
-            {id !== "hook" ? <Sfx src={urls[SFX.whip]} at={0} volume={0.26} /> : null}
             <Body s={s} urls={urls} />
             <Voice s={s} urls={urls} group={g} />
           </SceneFrame>
