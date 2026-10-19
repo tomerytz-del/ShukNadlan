@@ -6381,11 +6381,14 @@ async function loadProfessionalCardsAdmin(){
     return;
   }
 
-  const cards = Array.isArray(data) ? data : [];
+  // פרסום חינם בכפוף לאישור (‏20270701090000): הממתינים/ות לאישור ראשונים.
+  const cards = (Array.isArray(data) ? data : [])
+    .sort((a, b) => (b.status === 'pending_approval') - (a.status === 'pending_approval'));
   const live = cards.filter(proCardIsLive).length;
+  const waiting = cards.filter(c => c.status === 'pending_approval').length;
   accSetCount('accProfessionals', cards.length);
   accSetSummary('accProfessionals', cards.length
-    ? live + ' מתוך ' + cards.length + ' מוצגות באתר'
+    ? live + ' מתוך ' + cards.length + ' מוצגות באתר' + (waiting ? ' · ' + waiting + ' ממתינים/ות לאישור' : '')
     : '');
 
   if (!cards.length){
@@ -6410,9 +6413,11 @@ async function loadProfessionalCardsAdmin(){
       PRO_TYPE_LABELS[card.advertiser_type] || card.advertiser_type || 'בעל/ת מקצוע',
       'background:var(--teal-tint);color:var(--ink-soft)'));
 
-    if (!proCardIsLive(card)){
+    if (card.status === 'pending_approval'){
+      head.appendChild(proPill('ממתין/ה לאישור', 'background:var(--red);color:#fff'));
+    } else if (!proCardIsLive(card)){
       head.appendChild(proPill(
-        card.status !== 'active' ? 'לא פעילה' : 'מחוץ לתקופת הפרסום',
+        card.status === 'paused' ? 'מושהית' : card.status !== 'active' ? 'לא פעילה' : 'מחוץ לתקופת הפרסום',
         'background:var(--gold-tint);color:var(--gold-dark)'));
     }
     // רישום בדיקה נראה על המסך בדיוק כמו מפרסם משלם. הדגל הזה הוא ההבדל,
@@ -6467,6 +6472,27 @@ async function loadProfessionalCardsAdmin(){
     viewLink.href = '/professional?slug=' + encodeURIComponent(card.slug || card.id);
     viewLink.textContent = 'צפייה';
     actions.appendChild(viewLink);
+
+    // אישור מעלה לאוויר בלי תאריך סיום (פרסום חינם); השהיה מורידה מהאתר
+    // בלי למחוק את הפרופיל. ‏admin_set_professional_card_status.
+    const statusBtn = document.createElement('button');
+    statusBtn.type = 'button';
+    statusBtn.className = proCardIsLive(card) ? 'btn btn-ghost' : 'btn';
+    statusBtn.style.padding = '5px 12px';
+    statusBtn.textContent = proCardIsLive(card) ? 'השהיה' : card.status === 'pending_approval' ? 'אישור ופרסום' : 'החזרה לפרסום';
+    statusBtn.addEventListener('click', async ()=>{
+      const action = proCardIsLive(card) ? 'pause' : 'approve';
+      statusBtn.disabled = true;
+      const { data: res, error: stErr } = await sb.rpc('admin_set_professional_card_status', { p_id: card.id, p_action: action });
+      if (stErr || (res && res.error)){
+        showToast('שגיאה: ' + heErr(stErr || res.error));
+        statusBtn.disabled = false;
+        return;
+      }
+      showToast(action === 'approve' ? 'הכרטיסייה עלתה לאתר' : 'הכרטיסייה הושהתה');
+      await loadProfessionalCardsAdmin();
+    });
+    actions.appendChild(statusBtn);
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';

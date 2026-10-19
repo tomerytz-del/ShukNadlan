@@ -1927,7 +1927,11 @@ async function renderExpertBanner(){
   const host = document.getElementById('expertBanner');
   if (!host) return;
   const pros = await professionalsReady;
-  if (!pros.length){ host.hidden = true; return; }
+  // ההזמנה לבעלי מקצוע: הפרסום בחינם (‏20270701090000). קישור נפרד מתחת
+  // לבאנר ולא בתוכו - הבאנר כולו הוא <a>, וקישור בתוך קישור אינו HTML תקין.
+  const join = `<a class="expert-join" href="/professional-signup">בעלי מקצוע? <b>הפרסום באתר בחינם</b> - הצטרפו עכשיו ←</a>`;
+  // אין עדיין אף בעל/ת מקצוע: אין לאן לשלוח מחפשים, אבל ההזמנה נשארת.
+  if (!pros.length){ host.innerHTML = join; host.hidden = false; return; }
 
   const present = new Set(pros.map(p => p.advertiser_type));
   const fields = EXPERT_ORDER.filter(t => present.has(t)).map(t => EXPERT_PLURAL[t]);
@@ -1959,7 +1963,7 @@ async function renderExpertBanner(){
         `</span>` +
       `</span>` +
       `<span class="oh-promo-cta">למציאת מומחה ←</span>` +
-    `</a>`;
+    `</a>` + join;
   host.hidden = false;
 }
 renderExpertBanner();

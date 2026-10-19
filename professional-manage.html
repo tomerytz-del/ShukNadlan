@@ -521,7 +521,9 @@ function fillForm(card){
   const live = card.status === 'active' && (!card.ends_at || card.ends_at >= new Date().toISOString().slice(0,10));
   el('statusBadge').textContent = live
     ? (ends ? 'הפרופיל פעיל עד ' + ends.toLocaleDateString('he-IL') : 'הפרופיל פעיל')
-    : 'הפרופיל אינו מוצג כרגע באתר';
+    : card.status === 'pending_approval'
+      ? 'הפרופיל ממתין לאישור הנהלת האתר. אפשר כבר למלא אותו - הוא יעלה לאוויר עם האישור.'
+      : 'הפרופיל אינו מוצג כרגע באתר';
 
   // ‏slug נוצר בשמירה הראשונה; עד אז הקישור לעמוד עובד לפי המזהה
   const key = card.slug || card.id;
@@ -538,6 +540,8 @@ function fillForm(card){
    המחיר מגיע מהשרת (pricing_config) רק לתצוגה; הסכום שנגבה נקבע שוב במסד
    כשההזמנה נפתחת. */
 let pricing = null;
+// פרסום חינם בכפוף לאישור (‏20270701090000): אין הארכה בתשלום.
+let freePublishing = false;
 let renewal = null;
 let extendMonths = [1, 3, 6, 12];
 
@@ -594,7 +598,7 @@ const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
 function renderExtend(card, live){
   const box = el('extendBox');
   // מושהית = הורדה בידי מנהל/ת הפלטפורמה; אין מה להאריך מכאן.
-  if (card.status === 'paused'){ box.hidden = true; return; }
+  if (card.status === 'paused' || card.status === 'pending_approval' || freePublishing){ box.hidden = true; return; }
   const today = new Date(new Date().toISOString().slice(0,10) + 'T00:00:00');
   const ends = card.ends_at ? new Date(card.ends_at + 'T00:00:00') : null;
   const daysLeft = ends ? Math.round((ends - today) / 86400000) : null;
@@ -772,6 +776,7 @@ el('saveBtn').addEventListener('click', async ()=>{
       return;
     }
     if (data.pricing) pricing = data.pricing;
+    freePublishing = !!data.free_publishing;
     renewal = data.renewal || null;
     if (Array.isArray(data.extend_months) && data.extend_months.length) extendMonths = data.extend_months;
     fillForm(data.card);
