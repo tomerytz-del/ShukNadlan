@@ -537,30 +537,42 @@ async function csmUploadCall(){
 const CSM_STAFF_ERR = {
   invalid_email:'כתובת המייל אינה תקינה.',
   phone_is_agent:'הנייד הזה רשום לסוכן/ת במערכת. גבריאלה מזהה סוכנים קודם, ולכן צריך נייד אחר.',
-  phone_taken:'הנייד הזה כבר רשום לאיש/אשת צוות אחר/ת.',
+  phone_taken:'הנייד הזה כבר רשום לאשת צוות שכבר נכנסה לאזור.',
+  already_joined:'היא כבר נכנסה לאזור, ולכן המייל נשאר כמו שהוא. אפשר לעדכן שם ונייד.',
+  duplicate:'המייל או הנייד כבר רשומים בהזמנה אחרת ברשימה.',
+  not_found:'ההזמנה לא נמצאה. כדאי לרענן.',
 };
+let csmStaffRows = [];
+let csmStaffEditId = null;   // עריכה של הזמנה קיימת (csm_staff_update), או null להזמנה חדשה
 
 async function csmLoadStaff(){
   const host = document.getElementById('csmBody');
   const { data, error } = await sb.rpc('csm_staff_list');
   if (csmTab !== 'staff') return;
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
-  const rows = data || [];
+  const rows = csmStaffRows = data || [];
+  const ed = csmStaffEditId ? rows.find(r => r.id === csmStaffEditId) : null;
+  if (!ed) csmStaffEditId = null;
   host.innerHTML = `
     <p class="acc-sub">מנהלת ההדרכות וההטמעה היא תפקיד נפרד: אזור משלה ב-<a href="/csm" target="_blank" rel="noopener">shuknadlan.co.il/csm</a>, בלי ניהול הפלטפורמה, בלי משרד ובלי נכסים.
       מזמינים כאן במייל שאיתו היא נכנסת ל-Google, ובנייד שממנו היא כותבת לגבריאלה.</p>
     <form class="csm-form" id="csmStaffForm">
       <div class="csm-fb-row">
-        <div class="field"><label for="csmStName">שם</label><input type="text" id="csmStName" maxlength="120"></div>
-        <div class="field"><label for="csmStEmail">מייל (Google)</label><input type="email" id="csmStEmail" required dir="ltr"></div>
-        <div class="field"><label for="csmStPhone">נייד (לגבריאלה)</label><input type="tel" id="csmStPhone" dir="ltr"></div>
+        <div class="field"><label for="csmStName">שם</label><input type="text" id="csmStName" maxlength="120" value="${escapeHtml(ed ? ed.display_name || '' : '')}"></div>
+        <div class="field"><label for="csmStEmail">מייל (Google)</label><input type="email" id="csmStEmail" required dir="ltr" value="${escapeHtml(ed ? ed.email : '')}"${ed && ed.joined ? ' readonly title="היא כבר נכנסה - המייל נשאר"' : ''}></div>
+        <div class="field"><label for="csmStPhone">נייד (לגבריאלה)</label><input type="tel" id="csmStPhone" dir="ltr" value="${escapeHtml(ed ? ed.phone || '' : '')}"></div>
       </div>
-      <button type="submit" class="btn btn-gold">הזמנה / עדכון</button>
+      <button type="submit" class="btn btn-gold">${ed ? 'שמירת השינויים' : 'הזמנה'}</button>
+      ${ed ? '<button type="button" class="btn btn-ghost" data-csm-staff-cancel>ביטול העריכה</button>' : ''}
+      ${ed && !ed.joined ? '<p class="csm-hint">היא עוד לא נכנסה, ולכן אפשר לתקן את המייל. אחרי השמירה היא נכנסת עם Google במייל המתוקן.</p>' : ''}
     </form>
     ${rows.map(r => `<div class="csm-staff-row">
       <div><strong>${escapeHtml(r.display_name || r.email)}</strong>
         <div class="csm-card-meta" dir="auto">${escapeHtml([r.email, r.phone].filter(Boolean).join(' · '))} · ${r.joined ? 'נכנסה לאזור' : 'עוד לא נכנסה'}${r.active ? '' : ' · מושבתת'}</div></div>
-      <button type="button" class="btn ${r.active ? 'btn-ghost' : 'btn-gold'}" data-csm-staff="${escapeHtml(r.id)}" data-on="${r.active ? '0' : '1'}">${r.active ? 'השבתה' : 'הפעלה'}</button>
+      <div class="csm-staff-btns">
+        <button type="button" class="btn btn-ghost" data-csm-staff-edit="${escapeHtml(r.id)}">עריכה</button>
+        <button type="button" class="btn ${r.active ? 'btn-ghost' : 'btn-gold'}" data-csm-staff="${escapeHtml(r.id)}" data-on="${r.active ? '0' : '1'}">${r.active ? 'השבתה' : 'הפעלה'}</button>
+      </div>
     </div>`).join('') || '<div class="empty-state">עוד אין צוות הטמעה.</div>'}`;
 }
 
@@ -923,6 +935,13 @@ function csmLibraryHtml(){
       });
       return;
     }
+    const stEdit = e.target.closest('[data-csm-staff-edit]');
+    if (stEdit){
+      csmStaffEditId = stEdit.dataset.csmStaffEdit;
+      csmLoadStaff().then(() => { const f = document.getElementById('csmStaffForm'); if (f) f.scrollIntoView({ block:'center' }); });
+      return;
+    }
+    if (e.target.closest('[data-csm-staff-cancel]')){ csmStaffEditId = null; csmLoadStaff(); return; }
     const callBtn = e.target.closest('[data-csm-call]');
     if (callBtn){ csmCallOpen = csmCallOpen === callBtn.dataset.csmCall ? null : callBtn.dataset.csmCall; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
     const retry = e.target.closest('[data-csm-call-retry]');
@@ -1022,14 +1041,20 @@ function csmLibraryHtml(){
         return;
       }
       if (e.target.id === 'csmStaffForm'){
-        const { data, error } = await sb.rpc('csm_staff_save', {
+        const fields = {
           p_email: document.getElementById('csmStEmail').value,
           p_name: document.getElementById('csmStName').value,
           p_phone: document.getElementById('csmStPhone').value,
-        });
+        };
+        const { data, error } = csmStaffEditId
+          ? await sb.rpc('csm_staff_update', Object.assign({ p_id: csmStaffEditId }, fields))
+          : await sb.rpc('csm_staff_save', fields);
         if (error) throw error;
         if (data && data.error){ showToast(CSM_STAFF_ERR[data.error] || 'לא נשמר.'); return; }
-        showToast('נשמר. עכשיו היא נכנסת ל-shuknadlan.co.il/csm עם Google באותו מייל.');
+        showToast(data && data.replaced_email
+          ? 'המייל בהזמנה תוקן (במקום ' + data.replaced_email + '). עכשיו היא נכנסת ל-shuknadlan.co.il/csm עם Google במייל החדש.'
+          : 'נשמר. היא נכנסת ל-shuknadlan.co.il/csm עם Google במייל שבהזמנה.');
+        csmStaffEditId = null;
         csmLoadStaff();
         return;
       }
