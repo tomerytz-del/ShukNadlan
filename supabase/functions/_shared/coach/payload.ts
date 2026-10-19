@@ -166,7 +166,7 @@ export function cleanSummaryV2(raw: unknown, kind: CoachKind, refs: RefMap = {})
         title: txt(a.title, 120),
         why: txt(a.why, 400),
         impact: txt(a.impact, 120),
-        cta: cleanCta(a.cta, allowed, refs),
+        cta: ctaFitsTitle(String(a.title), cleanCta(a.cta, allowed, refs)),
       };
     })
     .filter((a) => a.title && a.why)
@@ -186,6 +186,17 @@ export function cleanSummaryV2(raw: unknown, kind: CoachKind, refs: RefMap = {})
     out.agenda = (Array.isArray(r.agenda) ? r.agenda : []).map((q) => txt(q, 160)).filter(Boolean).slice(0, 6);
   }
   return out;
+}
+
+/* צעד של קידום מקבל רק את כפתור הקידום. בבוקר הראשון (19.10.2026) 22 מתוך 67
+   צעדים היו "קדם/י נכס", ולאף אחד לא היה נכס עם אסימון - והמודל הצמיד להם
+   "ההגדרות" או "לידים שלא נענו" (אצל מי שאין לו/ה לידים). כפתור שמוביל למקום
+   אחר גרוע מצעד בלי כפתור. */
+// בתחילת מילה בלבד: "התקדמות" ו"מקדמה" אינם קידום
+const PROMOTE_TITLE = /(^|[\s"'(])[ולבה]?(קד[םמ]|קידום|הקפצ|הקפיץ)/;
+function ctaFitsTitle(title: string, cta: CoachAction["cta"]): CoachAction["cta"] {
+  if (cta && PROMOTE_TITLE.test(title) && cta.kind !== "promote_property" && cta.kind !== "open_property") return null;
+  return cta;
 }
 
 function cleanCta(raw: unknown, allowed: Set<string>, refs: RefMap): CoachAction["cta"] {
@@ -324,7 +335,29 @@ const daysUntil = (iso: unknown, now: Date) =>
 /* מה שיוצא למודל על סוכן/ת אחד/ת. ‏office_avg רק כשהמסד החזיר אותו (שלושה
    סוכנים פעילים ומעלה). פריטי ה-todo יוצאים כאסימון, סוג ומספרים בלבד:
    **לא** שם פונה, כותרת נכס, עיר, כותרת משימה או טלפון. */
-export function compactAgent(week: Row, month: Row, gender: string | null | undefined, refs: Refs, now = new Date()) {
+/* נכסים שקטים: פעילים 14 יום ומעלה, בלי ליד ב-14 הימים האחרונים ובלי קידום
+   פעיל. אלה הנכסים היחידים שהמנטור יכול להציע לקדם (promote_property), כי רק
+   להם יש אסימון. בלי הרשימה הוא המליץ "קדם/י נכס אחד מתוך ה-13" והצמיד כפתור
+   שגוי. עד שלושה, הוותיקים קודם. יוצאים מספרים בלבד - לא כותרת ולא עיר.
+   ‏rows: ‏{ id, created_at, promoted_until, leads_14d } מ-runAgentOne. */
+const QUIET_DAYS = 14;
+export function quietListings(rows: Row[], now = new Date()): Row[] {
+  const day = 86_400_000;
+  return rows
+    .map((p) => ({
+      id: p.id,
+      days_listed: typeof p.created_at === "string" ? Math.floor((now.getTime() - Date.parse(p.created_at)) / day) : null,
+      promoted: typeof p.promoted_until === "string" && Date.parse(p.promoted_until) > now.getTime(),
+      leads: num(p.leads_14d),
+    }))
+    .filter((p) => typeof p.id === "string" && p.days_listed !== null && p.days_listed >= QUIET_DAYS && !p.promoted && p.leads === 0)
+    .sort((a, b) => (b.days_listed as number) - (a.days_listed as number))
+    .slice(0, 3);
+}
+
+export function compactAgent(
+  week: Row, month: Row, gender: string | null | undefined, refs: Refs, now = new Date(), listings: Row[] = [],
+) {
   const todo = (month.todo as Row | undefined) ?? {};
   const list = (k: string) => ((todo[k] as Row[] | undefined) ?? []);
   const out: Row = {
@@ -351,6 +384,9 @@ export function compactAgent(week: Row, month: Row, gender: string | null | unde
         ref: refs.add("agenda", a.ref_id), agenda_kind: a.agenda_kind ?? null,
         overdue: typeof a.due_at === "string" ? Date.parse(a.due_at) < now.getTime() : false,
       })),
+      listings_quiet: quietListings(listings, now).map((p) => ({
+        ref: refs.add("property", p.id), days_listed: p.days_listed, leads_14_days: 0,
+      })),
     },
   };
   if (gender === "male" || gender === "female") out.gender = gender;
@@ -365,6 +401,7 @@ export function agentFingerprintSource(p: Row): string {
   const stable = Object.fromEntries(
     Object.entries(todo).map(([k, items]) => [k, (items ?? []).map((i) => ({
       ...i, hours_waiting: undefined, days_left: undefined, days_since_sent: undefined, overdue: undefined,
+      days_listed: undefined,
     }))]),
   );
   return JSON.stringify({ a: p.last_7_days, b: p.last_30_days, t: stable, g: p.gender ?? null });

@@ -71,7 +71,14 @@ async function wfsQuery(xmlBody, label) {
   return await res.json();
 }
 
-async function addressToCoords(street, houseNumber) {
+async function addressToCoords(street, rawHouseNumber) {
+  // ‏מספר_בית בשכבה הוא integer, ו-"8 ב" נענה ב-400 על כל צורות הרחוב. זה
+  // התיקון של municipal-wfs.ts מ-12.10.2026, שלא הגיע לכאן: ארבעה נכסים
+  // ("8 ב", "15 א", "13 א'", "53 ב") נכשלו בכל סבב של planning-backfill
+  // (‏יומן 18-19.10). האות אינה בשכבה, ולכן שואלים על המספר - הבניין של 8 הוא
+  // הקרוב ל-8 ב, והחלקה זהה. בלי ספרות - תשובה סופית ולא 400.
+  const houseNumber = (String(rawHouseNumber || "").match(/\d+/) || [""])[0];
+  if (!houseNumber) return null;
   let lastError = null;
   for (const variant of streetVariants(street)) {
     const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
