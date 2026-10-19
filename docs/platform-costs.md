@@ -57,6 +57,12 @@ platform_costs  (source = 'mail')
 (נכון לעוזר, שאינו צריך את ה-HTML), ולכן היא מחזירה את ה-HTML גם בנפרד
 (‏`htmlText`), ו-`receiptText()` מחבר את שניהם לפני `parseCostMail`. עד
 19.10.2026 שני אלה חסרו, וכ-30 קבלות נכנסו כ"אחר" בלי סכום.
+**ובפועל הקבלה מגיעה כקובץ HTML מצורף.** ההעברה שמגיעה לתיבה (לא זו ששמורה
+ב"נשלחו") בנויה כ-`multipart/mixed` ← ‏`text/plain` (הכותרת) + `text/html`
+מצורף, ו-PostalMime מסווג אותו כקובץ ולא כגוף. לכן `receiptHtml()` ב-
+`email-intake.ts` מצרף ל-HTML של הגוף גם כל קובץ `text/html` / ‏`.html`. זה
+התגלה משורת הלוג `cost mail <uid> [raw …, text …, html 0] attachments 1 Content-Type: …`
+שכל קבלה כותבת - המבנה בלבד, בלי תוכן.
 ‏`scripts/cost_mail_test.ts` (ב-CI, ‏`edge_types.yml`) בודק את ההודעה בצורה
 שבה היא הגיעה.
 

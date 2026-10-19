@@ -202,6 +202,8 @@ function htmlToText(html: string): string {
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|tr|li|h\d)>/gi, "\n")
+    // ‏תא או span שנסגרים צמודים לבא אחריהם ("NWIXDA-00042</span><span>Paid")
+    .replace(/<\/(td|th|span)>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -714,6 +716,19 @@ async function handleOne(
  *
  * כל השאר — נרשם ב-`email_intake_messages` כ-skipped ולא נוגע בטבלה.
  */
+/**
+ * ה-HTML של הקבלה: חלק ה-HTML של המייל, ואחריו קובצי HTML מצורפים. הסוכן של
+ * תומר מצרף את הקבלה המקורית **כקובץ** `text/html` (‏19.10.2026: ‏multipart/mixed
+ * ← text/plain + text/html מצורף), ו-PostalMime מסווג קובץ כזה כמצורף ולא
+ * כגוף — כך שהסכום, החשבונית והתאריך לא הגיעו לקבלה.
+ */
+export function receiptHtml(mail: ParsedMail): string {
+  const files = mail.attachments
+    .filter((a) => a.mime === "text/html" || /\.html?$/i.test(a.name))
+    .map((a) => htmlToText(new TextDecoder().decode(a.bytes)));
+  return [mail.htmlText, ...files].filter(Boolean).join("\n\n");
+}
+
 async function handleCostMail(
   sb: SupabaseClient,
   imap: ImapClient,
@@ -762,7 +777,7 @@ async function handleCostMail(
     {
       sender: vendor,
       subject: mail.subject,
-      text: receiptText(mail.text, mail.htmlText),
+      text: receiptText(mail.text, receiptHtml(mail)),
       mailDate: mail.date ? new Date(mail.date) : null,
     },
     byAdmin ? "other" : null,
