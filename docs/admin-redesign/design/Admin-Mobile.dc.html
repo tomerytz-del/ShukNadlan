@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מרכז הפיקוד בנייד</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&amp;family=Assistant:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button{font-family:Assistant,sans-serif}
+</style>
+</helmet>
+<div style="width: 390px; height: 1500px; box-sizing: border-box; background: #F4F6FA; color: #0E1A33; font-family: Assistant, sans-serif; direction: rtl; display: flex; flex-direction: column; position: relative; overflow: hidden">
+
+  <header style="background: #0E1A33; color: #FFFFFF; padding: 18px 16px 20px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="flex: 1; display: flex; flex-direction: column">
+        <span style="font-size: 12.5px; color: #E0B84A; font-weight: 700">מנהל/ת פלטפורמה</span>
+        <span style="font: 700 21px Rubik, sans-serif">ערב טוב, תומר</span>
+      </span>
+      <button type="button" aria-label="התראות, 9 חדשות" style="position: relative; width: 44px; height: 44px; border-radius: 12px; border: 0; background: #18264A; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z M10 21h4"></path></svg>
+        <span style="position: absolute; top: -4px; left: -4px; min-width: 18px; height: 18px; border-radius: 999px; background: #C2410C; font: 700 11px Rubik, sans-serif; display: flex; align-items: center; justify-content: center; padding: 0 4px">9</span>
+      </button>
+      <button type="button" aria-label="תפריט ניהול מלא" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #18264A; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16 M4 12h16 M4 17h16"></path></svg>
+      </button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #18264A; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 12.5px; color: #B9C4DE; font-weight: 600">{{k.label}}</span>
+          <span style="font: 700 24px Rubik, sans-serif">{{k.value}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 100px">
+
+    <a href="#" style="display: flex; align-items: center; gap: 10px; background: #FDE7D9; color: #9A3412; border-radius: 14px; padding: 12px 14px; text-decoration: none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z M12 10v5 M12 18v.01"></path></svg>
+      <span style="flex: 1; font-size: 14.5px; font-weight: 700">שווקים מקומיים לא נטענים מאז 22:48</span>
+      <span style="font-size: 13px; font-weight: 700">ללוג</span>
+    </a>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 14px 16px 6px; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px">
+        <h2 style="margin: 0; font: 700 18px Rubik, sans-serif">דורש אותך · 21</h2>
+        <a href="Admin-Inbox.dc.html" style="font-weight: 700; font-size: 14px">הכל</a>
+      </div>
+      <sc-for list="{{tasks}}" as="t" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid #EEF1F6">
+          <span style="width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; {{t.dot}}"></span>
+          <span style="flex: 1; display: flex; flex-direction: column">
+            <span style="font-weight: 700; font-size: 15px">{{t.title}}</span>
+            <span style="font-size: 13px; color: #5A6478">{{t.sub}}</span>
+          </span>
+          <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: #EAF0FF; color: #1846C2; font-weight: 700; font-size: 13.5px">{{t.cta}}</button>
+        </div>
+      </sc-for>
+    </section>
+
+    <section style="background: #13235B; color: #E6EBF7; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font: 700 16px Rubik, sans-serif; color: #FFFFFF; display: flex; align-items: center; gap: 8px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#E0B84A" stroke="#E0B84A" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"></path></svg>
+        מאמן AI למנהל הפלטפורמה
+      </span>
+      <span style="font-size: 14.5px; line-height: 1.5; color: #FFFFFF">פחות מליד אחד לסוכן/ת החודש. הצעד הכי משתלם השבוע: קמפיין לידי בעלים בעפולה והעמק.</span>
+      <a href="Admin-Growth.dc.html" style="align-self: flex-start; height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 10px; background: #E0B84A; color: #13235B; font-weight: 700; font-size: 14px; text-decoration: none">צור קמפיין</a>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font: 700 18px Rubik, sans-serif">פעולות מהירות</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{quick}}" as="q" hint-placeholder-count="6">
+          <button type="button" style="min-height: 52px; border-radius: 12px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; font-weight: 700; font-size: 14px; padding: 8px 10px; text-align: right">{{q}}</button>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+      <h2 style="margin: 0 0 6px; font: 700 18px Rubik, sans-serif">בריאות המערכת</h2>
+      <sc-for list="{{health}}" as="h" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #EEF1F6">
+          <span style="width: 10px; height: 10px; border-radius: 50%; {{h.dot}}"></span>
+          <span style="flex: 1; font-size: 14.5px; font-weight: 600">{{h.name}}</span>
+          <span style="font-size: 13px; color: #5A6478">{{h.note}}</span>
+        </div>
+      </sc-for>
+    </section>
+  </div>
+
+  <nav aria-label="ניווט ראשי" style="position: absolute; bottom: 0; left: 0; right: 0; height: 76px; background: #FFFFFF; border-top: 1px solid #E3E7EF; display: flex; align-items: center; justify-content: space-around; padding: 0 8px">
+    <a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; color: #1F5BF0; text-decoration: none; font-size: 12px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h6V4H4z M14 20h6v-9h-6z M14 4h6v3h-6z M4 20h6v-3H4z"></path></svg>מרכז</a>
+    <a href="Admin-Inbox.dc.html" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; color: #5A6478; text-decoration: none; font-size: 12px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l3-8h12l3 8v6H3z M3 13h5l1 3h6l1-3h5"></path></svg>משימות
+      <span style="position: absolute; top: -6px; left: 6px; min-width: 18px; height: 18px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font: 700 11px Rubik, sans-serif; display: flex; align-items: center; justify-content: center; padding: 0 4px">21</span></a>
+    <button type="button" aria-label="פעולה מהירה" style="width: 56px; height: 56px; border-radius: 18px; border: 0; background: #1F5BF0; color: #FFFFFF; display: flex; align-items: center; justify-content: center; margin-top: -22px; box-shadow: 0 6px 16px rgba(31,91,240,.35)">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"></path></svg></button>
+    <a href="Admin-Growth.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; color: #5A6478; text-decoration: none; font-size: 12px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"></path></svg>צמיחה</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; color: #5A6478; text-decoration: none; font-size: 12px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>חיפוש</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const kpis = [
+      { label: 'משרדים החודש', value: '16' }, { label: 'סוכנים החודש', value: '34' },
+      { label: 'לידים החודש', value: '32' }, { label: 'הכנסות החודש', value: '₪90' }
+    ];
+    const r = 'background:#C2410C', y = 'background:#D97706', b = 'background:#1F5BF0', g = 'background:#16A34A';
+    const tasks = [
+      { title: '4 לידים ללא יעד', sub: 'הוותיק מחכה 6 שעות', cta: 'לשבץ', dot: r },
+      { title: '2 בקשות החזר', sub: '₪100 ו-₪200 · 3 ימים', cta: 'לבדיקה', dot: r },
+      { title: 'ערעור רישיון', sub: 'הוגש אתמול', cta: 'לפתוח', dot: y },
+      { title: '9 כתבות לאישור', sub: 'הישנה: 5 ימים', cta: 'לסקירה', dot: b },
+      { title: '3 כרטיסי בעלי מקצוע', sub: '₪350 לחודש לכרטיס', cta: 'לאשר', dot: b }
+    ];
+    const quick = ['קמפיין חדש', 'פוסט עם AI', 'הזמנת משרד', 'הודעה לסוכנים', 'כתבה חדשה', 'סנכרון GovMap'];
+    const health = [
+      { name: 'אתר ו-API', note: 'תקין', dot: g },
+      { name: 'שווקים מקומיים', note: 'פסק זמן', dot: r },
+      { name: 'Edge Functions', note: '[n] שגיאות', dot: y },
+      { name: 'עלויות AI', note: '₪[X] מתוך ₪[Y]', dot: g }
+    ];
+    return { kpis, tasks, quick, health };
+  }
+}
+</script>
+</body>
+</html>
