@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { lookupPlanning } from "../_shared/afula-planning.ts";
+import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 
 // ============================================================================
 // השלמת מידע תכנוני לנכסים שכבר במסד
@@ -66,8 +67,13 @@ Deno.serve(async (req: Request) => {
     if (Date.now() - startedAt > DEADLINE_MS) { ranOut = true; break; }
 
     try {
+      // התור כבר מחזיר את השם הקנוני לפי name_key, אבל "קינמון" אינו
+      // name_key של "יעקב קינמון" - מילה שחסרה בהקלדה. אותו מתרגם כמו
+      // geocode-backfill, ורק בהתאמה אחת ויחידה.
+      const typed = String(row.street || "").trim();
+      const street = (await officialStreetFor(supabase, "עפולה", typed)) || typed;
       const result = await lookupPlanning({
-        street: String(row.street || "").trim(),
+        street,
         house_number: String(row.house_number || "").trim(),
       });
       streak = 0;

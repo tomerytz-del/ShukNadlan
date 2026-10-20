@@ -5,6 +5,7 @@ import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } fro
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
+import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -3720,6 +3721,11 @@ async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<s
       .eq("city", "עפולה").eq("alias_key", key)
       .limit(1).maybeSingle();
     if (alias?.name) return String(alias.name);
+    // מילה שחסרה בהקלדה: "קינמון" הוא "יעקב קינמון" בשכבה, ו-name_key אינו
+    // מגשר על זה. סוכן שאל "מה הגוש של קינמון 9" וקיבל "לא מופיע במפות" על
+    // נכס פעיל משלו. אותו מתרגם כמו הגאוקוד - רק בהתאמה אחת ויחידה.
+    const official = await officialStreetFor(ctx.supabase, "עפולה", street);
+    if (official) return official;
   } catch (err) {
     console.warn("canonicalAfulaStreet failed", err);
   }

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
+import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 
 // ============================================================================
 // מידע תכנוני לסוכן/ת מחובר/ת — הכלי ב-CRM ובטופס הנכס
@@ -45,7 +46,8 @@ Deno.serve(async (req) => {
 
   let body;
   try { body = await req.json(); } catch (e) { return json({ error: "invalid_json" }, 400); }
-  const street = body.street, house_number = body.house_number, gush = body.gush, helka = body.helka;
+  const house_number = body.house_number, gush = body.gush, helka = body.helka;
+  let street = body.street;
   if (!(street && house_number) && !(gush && helka)) {
     return json({ error: "missing_fields", detail: "צריך street+house_number או gush+helka" }, 400);
   }
@@ -97,6 +99,13 @@ Deno.serve(async (req) => {
     }, { onConflict: "property_id" });
     if (error) console.error("planning: save to property failed", propertyId, error.message);
     return !error;
+  }
+
+  // השכבה רושמת את השם המלא ("יעקב קינמון"), והשאילתה היא השוואה מדויקת.
+  // נכס שנשמר כ-"קינמון" (בוט, ייבוא, שורה ישנה) מתורגם לשם הרשמי - רק
+  // בהתאמה אחת ויחידה (_shared/geocode/street-resolve.ts).
+  if (street && !(gush && helka)) {
+    street = (await officialStreetFor(supabase, "עפולה", String(street))) || street;
   }
 
   const lookupKey = planningLookupKey({ street, house_number, gush, helka });
