@@ -6391,7 +6391,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:#fff;box-shadow:0 24px 60px rgba(14,26,51,.25)}
   .sug-dialog::backdrop{background:rgba(14,26,51,.45)}
   .sug-dialog form,.sug-done{display:flex;flex-direction:column;gap:12px}
-  .sug-head{display:flex;gap:14px;align-items:flex-start}
+  /* האייקון בשורה של הכותרת, וההסבר מתחת לשניהם ברוחב מלא - כשהאייקון
+     תפס עמודה משלו, ההסבר נשבר לארבע שורות בטלפון */
+  .sug-head{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;row-gap:6px;align-items:center}
+  .sug-head>div{display:contents}
+  .sug-head .ui-h2{margin:0}
+  .sug-head .ui-hint{grid-column:1 / -1;margin:0}
+  @media(max-width:480px){.sug-dialog{padding:20px}}
   .sug-text{width:100%;min-height:120px;resize:vertical;border:1px solid var(--nv-chip-line);border-radius:12px;padding:12px 14px;
     font:inherit;font-size:16px;color:var(--nv-ink)}
   .sug-meta{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--nv-muted)}
