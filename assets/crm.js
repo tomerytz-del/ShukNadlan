@@ -226,6 +226,7 @@ function topValue(values){
 }
 
 function openAcc(accId){
+  accId = accResolve(accId);   // קטגוריה שאוחדה לתוך אחרת (crm-properties.js)
   const el = document.getElementById(accId);
   if (!el) return null;
   if (!el.open){
@@ -2303,7 +2304,7 @@ function handleGotoParam(){
   let switched = false;
   if (NAV_TAB_OF.get(raw) === 'admin' && currentAgent && currentAgent.is_platform_admin
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
-  if (!navAccVisible(raw)) return;
+  if (!navAccVisible(accAliasTarget(raw))) return;
   gotoSection(raw);
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
@@ -2344,8 +2345,12 @@ function openSharedFromParam(id){
   if (!UUID_PARAM_RE.test(id || '')) return;
   const r = sharedWithMeRows.find(x => x.property_id === id);
   if (!r) return;
+  propOwnerTab('shared');
   ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
     .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  ['sharedMatchChip','sharedNewChip','sharedSavedChip']
+    .forEach(cid => document.getElementById(cid).setAttribute('aria-pressed', 'false'));
+  sharedShown = Math.max(sharedShown, sharedWithMeRows.length);
   // קישור לנכס מסוים פותח אותו גם כשהוא מחוץ לאזורי הפעילות
   if (r.fits_me === false) document.getElementById('sharedMineChip').setAttribute('aria-pressed', 'false');
   const key = r.share_id || r.property_id;
@@ -2394,7 +2399,7 @@ const REMINDER_FILTERS = {
    שנוסף לשניים מהם ולא לשלישי השאיר נכס מבוקש מוסתר מאחורי סינון ישן. */
 const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter',
   'propCityFilter','propRoomsFilter','propPriceMin','propPriceMax','propSizeMin','propSizeMax',
-  'propPsmMin','propPsmMax','propExtraFilter'];
+  'propPsmMin','propPsmMax','propExtraFilter','propSmartFilter'];
 
 const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -2406,6 +2411,7 @@ function openPropertyFilterFromParam(filter){
   const extra = document.getElementById('propExtraFilter');
   if (!extra || ![...extra.options].some(o => o.value === filter && o.value)) return;
   PROP_FILTER_IDS.forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  propOwnerTab('mine');
   document.getElementById('propStatusFilter').value = 'active';
   extra.value = filter;
   renderPropertiesFromTop();
@@ -2427,6 +2433,7 @@ function openPropertyFromParam(id){
 }
 
 function openPropertyFromParamKeepFilters(id){
+  propOwnerTab('mine');
   const f = propertyFilterState();
   const idx = sortProperties(myPropertyRows, f.sort).findIndex(p => p.id === id);
   propTabsShown = Math.max(propTabsShown, idx + 1);
@@ -2462,7 +2469,7 @@ function openLeadFromParam(id){
 function openNotificationTarget(n){
   const clientId = n.related_client_id;
   const go = (acc, open) => {
-    if (!navAccVisible(acc)) return false;
+    if (!navAccVisible(accAliasTarget(acc))) return false;
     gotoSection(acc);
     open();
     return true;
@@ -13819,13 +13826,12 @@ function propertyStatusPillClass(status){
    ורק לחיצה על טאב פותחת מתחתיו את הכרטיס המלא כפי שהיה, על כל התגיות
    והפעולות שבו.
 
-   הרשימה עצמה היא אזור גלילה בגובה של כעשרה טאבים: גוללים בתוכה למעלה
-   ולמטה, בלי כפתורי דפדוף. הטאבים נבנים בקבוצות של עשרה תוך כדי גלילה
-   (‏IntersectionObserver על סוף הרשימה) — כך גם חמש מאות נכסים לא בונים
-   חמש מאות שורות DOM בטעינה הראשונה. */
+   עשרה טאבים בכל פעם, "מוצגים X מתוך Y" מעליהם ו"עוד 10 נכסים" מתחתיהם
+   (סעיף 1.2.4 בעיצוב מחדש, docs/properties-unified.md). עד שלב 5 זה היה
+   אזור גלילה פנימי שנטען תוך כדי גלילה - גלילה בתוך גלילה, שבטלפון בלעה
+   את המחווה של הדף. גם כך חמש מאות נכסים לא בונים חמש מאות שורות DOM. */
 const PROP_TABS_CHUNK = 10;
 let propTabsShown = PROP_TABS_CHUNK;
-let propTabsObserver = null;
 const expandedPropertyIds = new Set();
 
 let myPropertyRows = [];
@@ -13971,6 +13977,7 @@ function propertyFilterState(){
     size:  propRange(val('propSizeMin'),  val('propSizeMax')),
     psm:   propRange(val('propPsmMin'),   val('propPsmMax')),
     extra: val('propExtraFilter'),
+    smart: val('propSmartFilter'),   // "דורש תשומת לב" (PR_SMART, crm-properties.js)
     sort: val('propSort') || 'created_desc',
   };
 }
@@ -13997,7 +14004,7 @@ function inPropRange(value, range){
 // האם משהו מסונן - לשורת הספירה, לכפתור האיפוס, ולתיבת "רק מה שמסונן" בייצוא
 function propertyFilterActive(f){
   return !!(f.q || f.status || f.deal || f.type || f.city || f.rooms
-    || f.price || f.size || f.psm || f.extra);
+    || f.price || f.size || f.psm || f.extra || f.smart);
 }
 
 function filterProperties(rows, f){
@@ -14021,6 +14028,7 @@ function filterProperties(rows, f){
     if (f.extra === 'expiring'   && !propertyIsExpiring(p)) return false;
     if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
+    if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
     return propertySearchBlob(p).includes(f.q);
   });
@@ -14056,6 +14064,10 @@ function renderProperties(){
   if (!listEl) return;
 
   if (toolbar) toolbar.hidden = myPropertyRows.length === 0;
+  prRenderSmart();
+  prSyncOwnerSubs();
+  const countLine = document.getElementById('prCountLine');
+  if (countLine) countLine.textContent = '';
 
   if (myPropertyRows.length === 0){
     listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
@@ -14071,7 +14083,7 @@ function renderProperties(){
   // והמיון אינו סינון; כל טווח (מחיר, שטח, מחיר למ״ר) נספר פעם אחת -
   // propRange מחזירה null כששני השדות שלו ריקים.
   const activeFilters = [f.status, f.deal, f.type, f.city, f.rooms,
-    f.price, f.size, f.psm, f.extra].filter(Boolean).length;
+    f.price, f.size, f.psm, f.extra, f.smart].filter(Boolean).length;
   const badge = document.getElementById('propFilterBadge');
   if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
@@ -14091,8 +14103,6 @@ function clearPropertyFilters(){
 // אינו אומר דבר על הרשימה החדשה
 function renderPropertiesFromTop(){
   propTabsShown = PROP_TABS_CHUNK;
-  const scroller = document.querySelector('#propertiesList .prop-scroll');
-  if (scroller) scroller.scrollTop = 0;
   renderProperties();
 }
 
@@ -14270,80 +14280,32 @@ function propertyTabAddress(p){
 }
 
 function renderPropertyTabs(listEl, rows, agentId){
-  // פעולה על נכס (קידום, סימון כנמכר, עריכה) טוענת את הרשימה מחדש. בלי
-  // שמירת מקום הגלילה הרשימה הייתה קופצת לראשה אחרי כל פעולה, והנכס
-  // שעבדו עליו נעלם מהמסך.
-  const keepScroll = listEl.querySelector('.prop-scroll')?.scrollTop || 0;
-  propTabsObserver?.disconnect();
-  propTabsObserver = null;
   propTabsShown = Math.min(Math.max(propTabsShown, PROP_TABS_CHUNK), rows.length);
-
-  listEl.innerHTML = `
-    <div class="prop-scroll" tabindex="0" role="region" aria-label="רשימת הנכסים שלי - ניתן לגלול">
-      <div class="prop-progress" aria-hidden="true"><span></span></div>
-      <div class="prop-tabs"></div>
-      <div class="prop-tail" aria-hidden="true"></div>
-    </div>
-    <div class="prop-scroll-foot">
-      <span class="prop-scroll-hint" aria-live="polite"></span>
-      <button type="button" class="prop-to-top" hidden>↑ לראש הרשימה</button>
-    </div>`;
-
-  const scroller = listEl.querySelector('.prop-scroll');
+  listEl.innerHTML = '<div class="prop-tabs"></div><div class="ui-scope ui-more-row pr-more-row"></div>';
   const tabsWrap = listEl.querySelector('.prop-tabs');
-  const tail     = listEl.querySelector('.prop-tail');
-  const hint     = listEl.querySelector('.prop-scroll-hint');
-  const toTop    = listEl.querySelector('.prop-to-top');
+  const moreRow  = listEl.querySelector('.pr-more-row');
+  const countLine = document.getElementById('prCountLine');
 
   const drawTabs = ()=>{
     for (let i = tabsWrap.childElementCount; i < propTabsShown; i++){
       tabsWrap.appendChild(buildPropertyTab(rows[i], agentId));
     }
-    hint.textContent = propTabsShown >= rows.length
-      ? `כל ${rows.length} הנכסים ברשימה`
-      : `מוצגים ${propTabsShown} מתוך ${rows.length} · גללו להמשך`;
-    // מד ההתקדמות מופיע רק כשיש מה לגלול
-    scroller.classList.toggle('is-scrollable', scroller.scrollHeight > scroller.clientHeight + 4);
+    const left = rows.length - propTabsShown;
+    const next = Math.min(PROP_TABS_CHUNK, left);
+    moreRow.innerHTML = left > 0
+      ? `<button type="button" class="ui-more">עוד ${next === 1 ? 'נכס אחד' : next + ' נכסים'}${left > next ? ` (נשארו ${left})` : ''}</button>`
+      : '';
+    if (countLine) countLine.textContent = `מוצגים ${propTabsShown} מתוך ${rows.length}`;
   };
-
-  const growList = ()=>{
-    if (propTabsShown >= rows.length) return;
+  moreRow.addEventListener('click', e => {
+    if (!e.target.closest('.ui-more')) return;
+    const first = propTabsShown;
     propTabsShown = Math.min(propTabsShown + PROP_TABS_CHUNK, rows.length);
     drawTabs();
-    if (propTabsShown >= rows.length){ propTabsObserver?.disconnect(); propTabsObserver = null; }
-    fillViewport();
-  };
-
-  // ‏IntersectionObserver מדווח על *שינוי* חיתוך, ולכן סוף רשימה שנשאר גלוי
-  // אחרי הוספת קבוצה לא היה מדווח שוב והטעינה הייתה נעצרת. הבדיקה הזו
-  // ממשיכה למלא כל עוד סוף הרשימה עדיין בתוך אזור הגלילה.
-  const fillViewport = ()=> requestAnimationFrame(()=>{
-    if (propTabsShown >= rows.length || !tail.isConnected) return;
-    if (tail.getBoundingClientRect().top <= scroller.getBoundingClientRect().bottom + 160) growList();
+    // המיקוד עובר לנכס הראשון שנוסף, ולא נשאר על כפתור שנעלם
+    tabsWrap.children[first]?.querySelector('.prop-tab-head')?.focus({ preventScroll:true });
   });
-
   drawTabs();
-  if (propTabsShown < rows.length){
-    if ('IntersectionObserver' in window){
-      propTabsObserver = new IntersectionObserver(entries => {
-        if (entries.some(e => e.isIntersecting)) growList();
-      }, { root: scroller, rootMargin: '160px' });
-      propTabsObserver.observe(tail);
-      fillViewport();
-    } else {
-      propTabsShown = rows.length;
-      drawTabs();
-    }
-  }
-
-  scroller.scrollTop = keepScroll;
-  const syncToTop = ()=>{ toTop.hidden = scroller.scrollTop < 240; };
-  scroller.addEventListener('scroll', syncToTop, { passive:true });
-  toTop.addEventListener('click', ()=>{
-    scroller.scrollTo({ top:0, behavior:'smooth' });
-    scroller.focus({ preventScroll:true });
-  });
-  syncToTop();
 }
 
 /* ---------- שורת הטאב הגנרית ----------
@@ -14418,29 +14380,32 @@ function buildPropertyTab(p, agentId){
   const isOpen = expandedPropertyIds.has(p.id);
   const el = document.createElement('div');
   // ‏property-tab - אחיזה למה שנכון רק ל"הנכסים שלי" (שורת המשנה נשברת)
-  el.className = 'prop-tab property-tab' + (isOpen ? ' is-open' : '');
+  el.className = 'prop-tab property-tab' + (isOpen ? ' is-open' : '')
+    + (p.status === 'archived' ? ' is-archived' : '');
   const panelId = 'propTabPanel-' + esc(String(p.id));
-  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '')
-    + (p.category === 'commercial' && p.price_includes_vat !== true ? ' <span class="per">+ מע״מ</span>' : '');
+  // המחיר בגדול, ומתחתיו "לחודש + מע״מ" (3.13)
+  const priceNote = [p.deal_type === 'rent' ? 'לחודש' : '',
+    p.category === 'commercial' && p.price_includes_vat !== true ? '+ מע״מ' : ''].filter(Boolean).join(' ');
+  const priceHtml = `<span>${shekel(p.price)}</span>` + (priceNote ? `<span class="per">${priceNote}</span>` : '');
   // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
   // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
   // ‏**וגם הימים בשוק** (propertyDaysOnMarket), לנכס שבאוויר: זה המספר
   // שאומר באיזה נכס לחזור לבעלים, ובסריקה של הרשימה הסגורה הוא נקרא בלי
   // לפתוח כרטיס. בכרטיס עצמו הוא לא חוזר - שם הוא היה יורד אל מאחורי "+N".
-  const dom = p.status === 'active' ? propertyDaysOnMarket(p) : null;
+  // הסטטוס והימים הם תגית אחת בצבע (prStatusPill, crm-properties.js)
   const sub = [
-    `מודעה #${esc(String(p.listing_number ?? '-'))}`,
-    esc(propertyStatusLabel(p)),
-    dom === null ? '' : dom === 0 ? 'עלה היום' : `${dom === 1 ? 'יום אחד' : dom + ' ימים'} בשוק`,
-    propertyIsPromoted(p) ? '🌟 מקודם' : '',
-    OpenHouse.live(p) ? '🏷 ביריד' : '',
-    p.referred_by ? '🤝 הפנייה' : '',
-  ].filter(Boolean).join(' · ');
+    `<span>#${esc(String(p.listing_number ?? '-'))}</span>`,
+    prStatusPill(p),
+    propertyIsPromoted(p) ? '<span>🌟 מקודם</span>' : '',
+    OpenHouse.live(p) ? '<span>🏷 ביריד</span>' : '',
+    p.referred_by ? '<span>🤝 הפנייה</span>' : '',
+  ].filter(Boolean).join('');
 
   el.innerHTML = `
     <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
+      ${prTypeIcon(p)}
       <span class="prop-tab-main">
-        <span class="prop-tab-title">${esc(p.property_type || 'נכס')} · ${esc(propertyTabAddress(p))}</span>
+        <span class="prop-tab-title">${esc(p.property_type || 'נכס')} <span class="pr-addr">${esc(propertyTabAddress(p))}</span></span>
         <span class="prop-tab-sub">${sub}</span>
       </span>
       <span class="prop-tab-price">${priceHtml}</span>
@@ -14453,7 +14418,10 @@ function buildPropertyTab(p, agentId){
   const panel = el.querySelector('.prop-tab-panel');
   // הכרטיס נבנה בפתיחה ונזרק בסגירה: עשרה כרטיסים מלאים בזיכרון הם בדיוק
   // המסך שממנו ברחנו, וגם מאזיני הפעולות שבהם נשארים תלויים
-  const fillPanel = ()=> panel.appendChild(buildPropertyCard(p, agentId));
+  const fillPanel = ()=>{
+    panel.appendChild(buildPropertyCard(p, agentId));
+    panel.appendChild(prToolsRow(p, panel));   // "כלים לנכס" (3.13)
+  };
   if (isOpen) fillPanel();
 
   head.addEventListener('click', ()=>{
@@ -20384,6 +20352,7 @@ function renderSharePartners(){
   const q = document.getElementById('partnerSearch').value.trim().toLowerCase();
   const total = sharePartnerAgencies.length;
   accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '', total ? sharePartnerCount() : 0);
+  prSyncPartnersSub();   // "32 מתוך 32 משרדים" בכרטיס שבלשונית השיתופים
 
   if (total === 0){
     listEl.innerHTML = '<div class="empty-state">אין עדיין משרד תיווך נוסף במערכת לשיתוף פעולה.</div>';
@@ -20651,6 +20620,9 @@ async function loadSharedWithMe(){
     : '');
   syncSharedFilters();
   renderSharedWithMe();
+  /* ההתאמות והסימניות תלויות ברשימה: אם הלשונית כבר נפתחה (קישור מהתראה,
+     "רענון"), טוענים אותן מחדש מול הרשימה החדשה */
+  if (prSharedExtrasP) prEnsureSharedExtras(true);
 }
 
 // רשימות הסינון נבנות ממה ששותף בפועל, לא מרשימה קבועה
@@ -20707,13 +20679,33 @@ function renderSharedWithMe(){
 
   // תחום ואזורי הפעילות (docs/area-scope.md). ‏fits_me חסר (לפני המיגרציה) = מתאים
   const outside = sharedWithMeRows.filter(r => r.fits_me === false).length;
+  const pressed = id => document.getElementById(id).getAttribute('aria-pressed') === 'true';
   const mineChip = document.getElementById('sharedMineChip');
-  document.getElementById('sharedScopeRow').hidden = !outside;
-  const mineOnly = !!outside && mineChip.getAttribute('aria-pressed') === 'true';
+  mineChip.hidden = !outside;
+  document.getElementById('sharedAreaLink').hidden = !outside;
+  const mineOnly = !!outside && pressed('sharedMineChip');
   document.getElementById('sharedMineN').textContent = sharedWithMeRows.length - outside;
 
-  const unsorted = sharedWithMeRows.filter(r => {
-    if (mineOnly && r.fits_me === false) return false;
+  /* שלושת הצ'יפים האחרים (3.14) - מצטברים, וסופרים בתוך האזורים שנבחרו.
+     ההתאמות והסימניות נטענות בפתיחת הלשונית (prEnsureSharedExtras) */
+  const inScope = sharedWithMeRows.filter(r => !(mineOnly && r.fits_me === false));
+  const weekAgo = Date.now() - 7 * 86400000;
+  const isMatch = r => (sharedMatchCounts[r.property_id] || 0) > 0;
+  const isNew = r => r.shared_at && new Date(r.shared_at).getTime() >= weekAgo;
+  const isSaved = r => prBookmarks.has(r.property_id);
+  document.getElementById('sharedMatchN').textContent = inScope.filter(isMatch).length;
+  document.getElementById('sharedNewN').textContent = inScope.filter(isNew).length;
+  document.getElementById('sharedSavedN').textContent = inScope.filter(isSaved).length;
+  document.getElementById('sharedSavedChip').hidden = !prBookmarksReady;
+  const onlyMatch = pressed('sharedMatchChip');
+  const onlyNew = pressed('sharedNewChip');
+  const onlySaved = prBookmarksReady && pressed('sharedSavedChip');
+  prSyncOwnerSubs();
+
+  const unsorted = inScope.filter(r => {
+    if (onlyMatch && !isMatch(r)) return false;
+    if (onlyNew && !isNew(r)) return false;
+    if (onlySaved && !isSaved(r)) return false;
     if (agencyId && r.owner_agency_id !== agencyId) return false;
     if (deal && r.deal_type !== deal) return false;
     if (city && r.city !== city) return false;
@@ -20737,7 +20729,10 @@ function renderSharedWithMe(){
   const filtered = unsorted.slice().sort(sharedComparators[sort] || sharedComparators.shared_desc);
 
   updateFilterFoot('sharedFilterCount', 'sharedClearFilters',
-    filtered.length, sharedWithMeRows.length, !!(q || agencyId || deal || city || type));
+    filtered.length, sharedWithMeRows.length,
+    !!(q || agencyId || deal || city || type || onlyMatch || onlyNew || onlySaved));
+  const countLine = document.getElementById('sharedCountLine');
+  countLine.textContent = '';
 
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
@@ -20747,10 +20742,48 @@ function renderSharedWithMe(){
     return;
   }
 
-  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
-  listEl.innerHTML = '<div class="prop-tabs shared-tabs"></div>';
+  /* הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow(). עשרה
+     בכל פעם, ובמיון לפי מועד השיתוף מקובצת: היום / השבוע / החודש / קודם */
+  sharedShown = Math.min(Math.max(sharedShown, SHARED_CHUNK), filtered.length);
+  const byDate = sort === 'shared_desc' || sort === 'shared_asc';
+  listEl.innerHTML = '<div class="prop-tabs shared-tabs"></div><div class="ui-scope ui-more-row pr-more-row"></div>';
   const tabsWrap = listEl.querySelector('.prop-tabs');
-  filtered.forEach(r => tabsWrap.appendChild(buildSharedTab(r)));
+  const moreRow = listEl.querySelector('.pr-more-row');
+  let lastGroup = null;
+  const draw = ()=>{
+    for (let i = tabsWrap.querySelectorAll('.prop-tab').length; i < sharedShown; i++){
+      const r = filtered[i];
+      const group = byDate ? prSharedGroup(r.shared_at) : null;
+      if (group && group !== lastGroup){
+        const h = document.createElement('div');
+        h.className = 'pr-group-head';
+        h.textContent = group;
+        tabsWrap.appendChild(h);
+        lastGroup = group;
+      }
+      tabsWrap.appendChild(buildSharedTab(r));
+    }
+    const left = filtered.length - sharedShown;
+    const next = Math.min(SHARED_CHUNK, left);
+    moreRow.innerHTML = left > 0
+      ? `<button type="button" class="ui-more">עוד ${next === 1 ? 'נכס אחד' : next + ' נכסים'}${left > next ? ` (נשארו ${left})` : ''}</button>` : '';
+    countLine.textContent = `מוצגים ${sharedShown} מתוך ${filtered.length}`;
+  };
+  moreRow.addEventListener('click', e => {
+    if (!e.target.closest('.ui-more')) return;
+    const first = sharedShown;
+    sharedShown = Math.min(sharedShown + SHARED_CHUNK, filtered.length);
+    draw();
+    tabsWrap.querySelectorAll('.prop-tab')[first]?.querySelector('.prop-tab-head')?.focus({ preventScroll:true });
+  });
+  draw();
+}
+const SHARED_CHUNK = 10;
+let sharedShown = SHARED_CHUNK;
+/* כל שינוי בסינון מחזיר את הרשימה לעשרה הראשונים */
+function renderSharedFromTop(){
+  sharedShown = SHARED_CHUNK;
+  renderSharedWithMe();
 }
 
 /* ---------- נכס ששותף איתי, כשורה ----------
@@ -20775,16 +20808,23 @@ function sharedTabSub(r){
    שאורכו נע בין שלוש מילים לשורה וחצי, ובשורה שנחתכת בקצה היא דוחקת החוצה
    דווקא את מה שמזהה — הכתובת. המקורית נשארת בכרטיס. */
 function buildSharedTab(r){
-  return buildTabRow({
+  /* "מתאים ל-N מהלקוחות שלך" (3.14) במקום גלולת העסקה, כשיש התאמה - זה מה
+     שגורם לפתוח את הנכס. העסקה עוברת לשורת המשנה. */
+  const fit = sharedMatchCounts[r.property_id] || 0;
+  const el = buildTabRow({
     key: r.share_id || r.property_id, list:'shared', expanded: expandedSharedIds,
     cls:'lead-tab kind-shared', icon:'🤝',
     title: (r.property_type || 'נכס') + ' · ' + propertyTabAddress(r),
-    sub: sharedTabSub(r),
-    pill: { text: r.deal_type === 'rent' ? 'השכרה' : 'מכירה', cls:'status-pill status-shared' },
+    sub: fit ? [r.deal_type === 'rent' ? 'השכרה' : 'מכירה', sharedTabSub(r)].join(' · ') : sharedTabSub(r),
+    pill: fit
+      ? { text: fit === 1 ? 'מתאים ללקוח/ה שלך' : `מתאים ל-${fit} מהלקוחות שלך`, cls:'tab-flag pr-fit' }
+      : { text: r.deal_type === 'rent' ? 'השכרה' : 'מכירה', cls:'status-pill status-shared' },
     price: shekel(r.price),
     priceNote: r.deal_type === 'rent' ? 'לחודש' : '',
     buildCard: ()=> buildSharedCard(r),
   });
+  prAddBookmark(el, r);
+  return el;
 }
 
 function buildSharedCard(r){
@@ -20849,16 +20889,19 @@ document.getElementById('partnerClearAll').addEventListener('click', ()=>{
 });
 document.getElementById('savePartnersBtn').addEventListener('click', saveSharePartners);
 
-document.getElementById('sharedSearch').addEventListener('input', renderSharedWithMe);
+document.getElementById('sharedSearch').addEventListener('input', renderSharedFromTop);
 ['sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter','sharedSort'].forEach(id =>
-  document.getElementById(id).addEventListener('change', renderSharedWithMe));
+  document.getElementById(id).addEventListener('change', renderSharedFromTop));
 document.getElementById('sharedClearFilters').addEventListener('click', ()=>{
   ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
-  renderSharedWithMe();
+  ['sharedMatchChip','sharedNewChip','sharedSavedChip']
+    .forEach(id => document.getElementById(id).setAttribute('aria-pressed', 'false'));
+  renderSharedFromTop();
 });
 document.getElementById('sharedRefreshBtn').addEventListener('click', ()=> loadSharedWithMe());
-document.getElementById('sharedMineChip').addEventListener('input', renderSharedWithMe);
+['sharedMineChip','sharedMatchChip','sharedNewChip','sharedSavedChip'].forEach(id =>
+  document.getElementById(id).addEventListener('input', renderSharedFromTop));
 
 /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
    הלקוחות יושבים ב-agent_clients, ולהם ה-RLS הצר ביותר בפרויקט: רק הסוכן/ת
@@ -25688,6 +25731,7 @@ function scrollToTopOf(el){
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function gotoSection(accId, focusId, opts){
+  accId = accResolve(accId);
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
   // כאן ולא אצל הקוראים, כי הקוראים הם גם התראות הפעמון, גם data-goto
@@ -25792,8 +25836,9 @@ const NAV_GROUPS = [
     { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
     /* מדפי המשכנתאות ומחפשי הדירה הם מגירות בתוך חנות הלידים (#shelfTabs) */
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
-    { acc:'accSharedWithMe',     label:'שיתופי פעולה',      icon:'handshake', tab:'props',
-      also:['accSharePartners'] },
+    /* "שותפו איתי" הוא לשונית ב"נכסים" (crm-properties.js); כאן נשארו
+       משרדי השת"פ, עד שגם הם יעברו ללשונית (שלב 9 בעיצוב) */
+    { acc:'accSharePartners',    label:'משרדי שיתוף',       icon:'handshake', tab:'props' },
     { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
       also:['accDealsLookup'] },
   ]},
@@ -29061,6 +29106,7 @@ function renderTodoList(){
    ו-block:'center' הביא את אמצעו למרכז החלון — כלומר נחת באמצע השדות
    במקום בשדה הראשון. */
 function openInlineForm(accId, formId, toggleId, afterOpen){
+  if (accId === 'accProperties') propOwnerTab('mine');   // הטופס בלשונית "הנכסים שלי"
   gotoSection(accId);
   const reduce = navReduceMotion();
   setTimeout(()=>{

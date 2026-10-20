@@ -472,7 +472,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 | ביקורת ממתינה, למי שמאשר/ת | `/crm?goto=accReviews&review=<id>` - הכרטיס בתור האישור |
 | ביקורת שפורסמה | `/agent?slug=<slug>#reviewsSec` - דף הסוכן/ת. ביקורת על עצמך שממתינה - אין יעד |
 | `client_match` עם לקוח/ה אחד/ת | `/crm?goto=accClients&client=<id>&focus=matches` - הכרטיס עם רשימת ההתאמות פתוחה |
-| נכס של משרד אחר ("נכס חדש שותף איתך") | `/crm?goto=accSharedWithMe&property=<id>` - ב"שותפו איתי", לפי `property_mine` מה-claim |
+| נכס של משרד אחר ("נכס חדש שותף איתך") | `/crm?goto=accSharedWithMe&property=<id>` - בלשונית "שיתופים" של "נכסים" (‏`accSharedWithMe` הוא כינוי, `ACC_ALIAS`), לפי `property_mine` מה-claim |
 | נכס (חוץ מ-`client_match` ו-`deal_closed`) | `/crm?goto=accProperties&property=<id>` - הכרטיס של הנכס, גם אם הוא ישן או מסונן |
 | לקוח/ה | `/crm?goto=accClients&client=<id>` |
 | ליד | `/crm?goto=accLeads&lead=<id>` |

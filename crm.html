@@ -1238,66 +1238,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .tab-pill.status-pill,.tab-pill.score-pill{font-size:.64rem;padding:2px 7px}
   }
 
-  /* ---------- אזור הגלילה של הרשימה ----------
-     גובה של כעשרה טאבים, וגלילה בתוכו במקום כפתורי דפדוף. ‏overscroll-behavior
-     חוסם את המשך הגלילה לעמוד כשמגיעים לקצה הרשימה — בלעדיו כל גלילה בתוך
-     הרשימה הייתה בורחת לדשבורד ברגע שהיא נגמרת.
-
-     ‏**`overflow-x:hidden` מפורש, וזו לא כפילות.** ציר שאינו `visible` הופך
-     את הציר השני מ-`visible` ל-`auto` - כלומר `overflow-y:auto` לבדו עשה
-     כאן גם גלילה אופקית. היא לא נראתה עד שמשהו בפנים גלש, ואז הכרטיס
-     הפתוח **זז הצידה** מתחת לאגודל שגלל את הרשימה למטה: בדיוק המחווה
-     שנשללה כשבלוק הסטטוס היה רצועה נגללת (ראו `.prop-status-panel`),
-     רק שהפעם היא חלה על הכרטיס כולו.
-
-     ‏`hidden` ו-`auto` חותכים אותו דבר, ולכן זה אינו קוטע דבר שלא נקטע
-     ממילא - הוא רק מונע את התזוזה. הגלישה עצמה תוקנה ב-`.prop-tabs`
-     למעלה; השורה הזו היא מה שמונע מהתקלה לחזור בגלישה הבאה. */
-  .prop-scroll{max-height:min(70vh,600px);overflow-y:auto;overflow-x:hidden;
-    overscroll-behavior:contain;
-    scrollbar-width:thin;scrollbar-color:var(--edge,var(--line)) transparent}
-  .prop-scroll:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-  .prop-scroll::-webkit-scrollbar{width:7px}
-  .prop-scroll::-webkit-scrollbar-thumb{background:var(--edge,var(--line));border-radius:999px}
-  .prop-tail{height:1px}
-  .prop-scroll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
-    margin-top:8px;flex-wrap:wrap}
-  .prop-scroll-hint{font-size:.74rem;color:var(--txt-faint,var(--ink-soft))}
-  .prop-to-top{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
-    border-radius:999px;padding:5px 12px;font:inherit;font-size:.74rem;font-weight:700;
-    color:var(--txt,var(--ink));cursor:pointer;white-space:nowrap;
-    animation:propToTopIn .22s ease both}
-  .prop-to-top:hover{border-color:var(--teal);color:var(--teal)}
-  .prop-to-top[hidden]{display:none}
-  @keyframes propToTopIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-
-  /* ---------- אנימציות גלילה ----------
-     שתיהן ‏scroll-driven animations של ה-CSS: אין כאן מאזין scroll ואין
-     requestAnimationFrame, הדפדפן מקדם אותן מול מיקום הגלילה עצמו. הן
-     עטופות ב-@supports (מי שאין לו — פשוט לא רואה אותן) וב-prefers-reduced-
-     motion, כי תנועה על כל שורה ברשימה היא בדיוק מה שהעדפה הזו מבקשת לכבות. */
-
-  /* מד התקדמות דק בראש הרשימה: כמה מתוכה כבר נגללה. הוא מחליף את
-     "נכסים 11–20 מתוך 55" שהיה בכפתורי הדפדוף. */
-  /* בלי ‎overflow:hidden‎ על המסילה: ‎overflow‎ הופך אלמנט ל-scroll container
-     בעצמו, ואז ‎scroll(nearest)‎ של המילוי נתפס עליו — על מסילה שאין בה מה
-     לגלול — במקום על רשימת הנכסים. העיגול יושב על המילוי עצמו. */
-  .prop-progress{display:none;position:sticky;top:0;z-index:3;height:3px;margin-bottom:6px;
-    border-radius:999px;background:var(--surface-2,rgba(28,58,94,.08))}
-  .prop-progress span{display:block;height:100%;border-radius:999px;background:var(--teal);
-    transform:scaleX(0);transform-origin:right center}
-  /* ‏longhand ולא הקיצור ‎animation:‎ — הקיצור מאפס את ‎animation-duration‎
-     ל-0s, ואנימציה מונעת-גלילה חייבת ‎auto‎ כדי להימתח על כל הציר. */
-  @supports (animation-timeline: scroll()){
-    /* רק כשיש מה לגלול — רשימה של שלושה נכסים לא צריכה מד התקדמות */
-    .prop-scroll.is-scrollable .prop-progress{display:block}
-    .prop-progress span{
-      animation-name:propScrollProgress;animation-duration:auto;
-      animation-timing-function:linear;animation-fill-mode:both;
-      animation-timeline:scroll(nearest);
-    }
-  }
-  @keyframes propScrollProgress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
   /* מתחילים מ-‎.2‎ ולא מ-0: השורה שנחשפת בקצה התחתון של הרשימה נראית עמומה
      ולא חסרה — הדהייה אומרת "יש עוד", היא לא מסתירה שורה שאפשר לקרוא. */
@@ -1956,7 +1896,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ושלושה טווחים - מחיר, שטח ומחיר למ״ר - ואז סינון מהיר ומיון.
      ‏@container ולא @media: הרוחב שקובע הוא של האקורדיון, שבמחשב יושב לצד
      סרגל ניווט. */
-  #propToolbar{container-type:inline-size}
   .list-toolbar .toolbar-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
   @container (min-width:640px){
     .list-toolbar .toolbar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -2017,8 +1956,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @container (max-width:639px){
     .client-filter-toggle{display:inline-flex;align-items:center}
     #clientToolbar:not(.is-filters-open) .client-toolbar-grid{display:none}
-    /* "הנכסים שלי" - אותו קיפול; ‏#propToolbar הוא ה-container שלו */
-    #propToolbar:not(.is-filters-open) #propFilterGrid{display:none}
   }
   @container (min-width:640px){
     .list-toolbar .client-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -6453,6 +6390,89 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sug-body{margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
   .sug-acts{display:flex;justify-content:flex-end}
 
+  /* "נכסים" - שתי לשוניות, "דורש תשומת לב" ו"כלים לנכס" (assets/crm-properties.js,
+     docs/properties-unified.md). הרשימה עצמה היא עדיין .prop-tab, והכרטיס
+     שנפתח הוא buildPropertyCard כמו שהיה. */
+  .pr-owners{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+  .pr-owner{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:10px 16px;border-radius:16px;
+    border:1px solid var(--nv-line);background:#fff;color:var(--nv-ink);font:inherit;text-align:start;cursor:pointer;min-width:0}
+  .pr-owner[aria-selected="true"]{border-color:var(--nv-ink);background:var(--nv-ink);color:#fff}
+  .pr-owner-t{font-size:16px;font-weight:700}
+  .pr-owner-s{font-size:13px;opacity:.85;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #prMinePane[hidden],#prSharedPane[hidden]{display:none}
+  .pr-smart{margin-bottom:12px}
+  .pr-smart .ui-chip{min-height:44px;font-size:14px;white-space:nowrap}
+  .pr-toolbar{background:#fff;border:1px solid var(--nv-line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .pr-search-row{display:flex;gap:8px}
+  .pr-search{position:relative;flex:1;min-width:0}
+  .pr-search input{width:100%;box-sizing:border-box;min-height:46px;padding:0 40px 0 12px;border-radius:12px;border:1px solid var(--nv-chip-line);
+    font:inherit;font-size:15px;color:var(--nv-ink);background:#fff}
+  .pr-search svg{position:absolute;right:12px;top:13px;color:var(--nv-muted);pointer-events:none}
+  .pr-adv-btn{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:46px;padding:0 14px;border-radius:12px;
+    border:1px solid var(--nv-chip-line);background:#fff;color:var(--nv-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .pr-adv-btn[aria-expanded="true"]{border:1.5px solid var(--nv-accent);background:var(--nv-accent-soft);color:var(--nv-accent-h)}
+  .pr-pills .ui-pill-select{flex:none;min-height:44px}
+  .pr-adv{display:none;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;border-top:1px solid var(--nv-line-soft);padding-top:10px}
+  .pr-toolbar.is-filters-open .pr-adv{display:grid}
+  .pr-adv>*{min-height:44px}
+  .pr-toolbar .toolbar-foot:has(.list-count:empty):has(.clear-filters[hidden]){display:none}
+  .pr-count{padding:0 4px;margin-bottom:8px}
+  .pr-count:empty{display:none}
+  /* השורה: אייקון סוג (מוסתר בנייד), סוג · כתובת, מספר ותגית מצב, מחיר */
+  .property-tab .prop-tab-head{gap:12px;padding:10px 14px;min-height:64px}
+  .pr-thumb{width:48px;height:48px;flex:none;border-radius:12px;background:#EEF2F8;color:var(--nv-navy);
+    display:flex;align-items:center;justify-content:center}
+  .property-tab .prop-tab-title{font-size:16px}
+  .property-tab .prop-tab-title .pr-addr{font-weight:400;color:#3A4458}
+  .property-tab .prop-tab-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--nv-muted)}
+  .pr-st{font-weight:700;border-radius:999px;padding:1px 8px;background:#F1F3F8;color:#3A4458;white-space:nowrap}
+  .pr-st.is-new{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .pr-st.is-stale{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .pr-st.is-off{background:#F1F3F8;color:var(--nv-muted)}
+  .property-tab .prop-tab-price{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;color:var(--nv-ink);
+    display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+  .property-tab .prop-tab-price .per{font-family:'Heebo',system-ui,sans-serif;font-size:11px;font-weight:500}
+  .property-tab.is-archived{opacity:.75}
+  .property-tab.is-archived.is-open{opacity:1}
+  .pr-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 6px 2px}
+  .pr-tools-label{font-size:12px;font-weight:700;color:var(--nv-muted)}
+  .pr-tool{min-height:44px;font:inherit;font-size:13px;font-weight:600;background:#fff;border:1px solid var(--nv-line);border-radius:999px;
+    padding:0 14px;color:var(--nv-accent);cursor:pointer}
+  .pr-tool:hover{border-color:#C9D6F7;background:var(--nv-accent-soft)}
+  .pr-more-row{margin-top:12px}
+  /* שיתופים */
+  .pr-shared-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .pr-partners{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 16px;border-radius:16px;border:1px solid var(--nv-line);
+    background:#fff;color:var(--nv-ink);font:inherit;text-align:start;cursor:pointer;width:100%}
+  .pr-partners:hover{border-color:#C9D6F7}
+  .pr-partners-ico{width:36px;height:36px;flex:none;border-radius:10px;background:var(--nv-accent-soft);color:var(--nv-accent);
+    display:flex;align-items:center;justify-content:center}
+  .pr-partners-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .pr-partners-t{font-size:15px;font-weight:700}
+  .pr-partners-s{font-size:13px;color:var(--nv-muted)}
+  .pr-partners-go{font-size:14px;font-weight:700;color:var(--nv-accent)}
+  .pr-area-link{align-self:flex-start;padding-top:0}
+  .pr-group-head{display:flex;align-items:center;gap:10px;margin:10px 2px 2px;font-size:13px;font-weight:700;color:var(--nv-muted)}
+  .pr-group-head::after{content:"";flex:1;height:1px;background:var(--nv-line-soft)}
+  .pr-group-head:first-child{margin-top:0}
+  /* הסימנייה יושבת ליד הכותרת ולא בתוכה - כפתור בתוך כפתור אינו תקין */
+  .prop-tab.has-mark{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .prop-tab.has-mark>.prop-tab-panel{grid-column:1/-1}
+  .pr-mark{width:44px;height:44px;margin-inline-end:6px;border:0;border-radius:10px;background:transparent;color:var(--nv-muted);
+    display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .pr-mark:hover{background:var(--nv-ground)}
+  .pr-mark[aria-pressed="true"]{color:var(--nv-accent)}
+  .pr-mark[aria-pressed="true"] svg{fill:currentColor}
+  .tab-flag.pr-fit{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  @media (max-width:640px){
+    .pr-thumb{display:none}
+    .property-tab .prop-tab-head{gap:8px;padding:10px 12px}
+    .property-tab .prop-tab-price{font-size:16px}
+    .pr-toolbar{padding:10px}
+    /* בטלפון הכתובת צריכה את הרוחב; שכירות כבר מסומנת ב"לחודש" שליד המחיר */
+    .shared-tabs .tab-pill.status-shared{display:none}
+  }
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -7723,11 +7743,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <details class="acc" id="accProperties" open>
       <summary>
-        <span class="acc-title">הנכסים שלי<span class="acc-sum" id="accPropertiesSum"></span></span>
+        <span class="acc-title">נכסים<span class="acc-sum" id="accPropertiesSum"></span></span>
         <span class="acc-count" id="accPropertiesCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
+    <!-- ====== "נכסים" - מסך אחד, שתי לשוניות ======
+         (assets/crm-properties.js, docs/properties-unified.md; העיצוב: 3.13-3.14).
+         "הנכסים שלי" ו"ששותפו איתי" היו שתי קטגוריות; ‏accSharedWithMe נשאר
+         ככינוי (ACC_ALIAS ב-crm.js), כדי שקישורים מהתראות שכבר נשלחו ימשיכו
+         לפתוח את הלשונית הנכונה. -->
+    <div class="ui-scope pr-owners" role="tablist" aria-label="נכסים">
+      <button type="button" role="tab" class="pr-owner" id="prTabMine" data-pr-owner="mine" aria-selected="true" aria-controls="prMinePane">
+        <span class="pr-owner-t">הנכסים שלי</span><span class="pr-owner-s" id="prMineSub"></span>
+      </button>
+      <button type="button" role="tab" class="pr-owner" id="prTabShared" data-pr-owner="shared" aria-selected="false" aria-controls="prSharedPane" tabindex="-1">
+        <span class="pr-owner-t">שיתופים</span><span class="pr-owner-s" id="prSharedSub"></span>
+      </button>
+    </div>
+    <div id="prMinePane" role="tabpanel" aria-labelledby="prTabMine">
     <div class="share-notice" id="propertyShareNotice" hidden></div>
     <!-- שלושה כפתורים בשורה אחת נחתכים בטלפון. במקומם חלוקה לפי משמעות:
          הוספת נכס היא הפעולה הראשית ויושבת לבדה, ושתי פעולות הקובץ —
@@ -8139,17 +8173,59 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
     </form>
-    <div class="list-toolbar" id="propToolbar" hidden>
-      <!-- בטלפון: החיפוש וכפתור "סינון" בשורה אחת, ושמונה התיבות נפתחות רק
-           בלחיצה - כמו בקובץ הלקוחות. ממחשב הכפתור נעלם והרשת תמיד גלויה.
-           הכפתור אינו פקד סינון, ולכן אינו ב-PROP_FILTER_IDS. -->
-      <div class="client-search-row">
-        <input type="search" id="propSearch" class="filter-input"
-               placeholder="כותרת, עיר, רחוב, מס׳ מודעה או בעלים">
-        <button type="button" class="btn btn-ghost client-filter-toggle" id="propFilterToggle"
-                aria-expanded="false" aria-controls="propFilterGrid">⚙ סינון<span class="cft-count" id="propFilterBadge" hidden></span></button>
+    <!-- "דורש תשומת לב" (3.13): צ'יפים עם מונים, בחירה אחת או אף אחת. הערך
+         יושב בשדה הנסתר, כדי שיהיה עוד פקד ב-PROP_FILTER_IDS ויתאפס יחד עם
+         כולם (הסקיל property-card, כלל 1) -->
+    <input type="hidden" id="propSmartFilter" value="">
+    <div class="ui-scope ui-chips ui-chips--scroll pr-smart" id="prSmart" role="group" aria-label="דורש תשומת לב" hidden></div>
+    <!-- חיפוש וכפתור "סינון" בשורה אחת; מתחתיהם הגלולות שבשימוש יומיומי
+         (עסקה, סוג, עיר, חדרים, מיון), ומאחורי "סינון" הסטטוס, הסינון המהיר
+         ושלושת הטווחים. הכפתור אינו פקד סינון, ולכן אינו ב-PROP_FILTER_IDS. -->
+    <div class="list-toolbar ui-scope pr-toolbar" id="propToolbar" hidden>
+      <div class="pr-search-row">
+        <span class="pr-search">
+          <input type="search" id="propSearch" aria-label="חיפוש נכס"
+                 placeholder="רחוב, עיר, מס׳ מודעה או בעלים">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        </span>
+        <button type="button" class="pr-adv-btn" id="propFilterToggle"
+                aria-expanded="false" aria-controls="propFilterGrid"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>סינון<span class="cft-count" id="propFilterBadge" hidden></span></button>
       </div>
-      <div class="toolbar-grid" id="propFilterGrid">
+      <div class="ui-filters pr-pills">
+        <select id="propDealFilter" class="ui-pill-select" aria-label="סינון לפי סוג עסקה">
+          <option value="">מכירה והשכרה</option>
+          <option value="sale">מכירה</option>
+          <option value="rent">השכרה</option>
+        </select>
+        <select id="propTypeFilter" class="ui-pill-select" aria-label="סינון לפי סוג נכס">
+          <option value="">כל סוגי הנכס</option>
+        </select>
+        <select id="propCityFilter" class="ui-pill-select" aria-label="סינון לפי עיר">
+          <option value="">כל הערים</option>
+        </select>
+        <!-- "לפחות" ולא "בדיוק": מי שמחפש/ת 4 חדרים מוכן/ה לראות גם 4.5 ו-5.
+             נכס בלי מספר חדרים (מסחרי, מגרש) לא עובר סינון שנבחר בו מספר. -->
+        <select id="propRoomsFilter" class="ui-pill-select" aria-label="סינון לפי מספר חדרים">
+          <option value="">כל החדרים</option>
+          <option value="1">1+ חדרים</option>
+          <option value="2">2+ חדרים</option>
+          <option value="3">3+ חדרים</option>
+          <option value="4">4+ חדרים</option>
+          <option value="5">5+ חדרים</option>
+        </select>
+        <select id="propSort" class="ui-pill-select" aria-label="מיון">
+          <option value="created_desc">מיון: החדשים</option>
+          <option value="created_asc">מיון: הוותיקים</option>
+          <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
+          <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
+          <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
+          <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
+          <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
+          <option value="views_desc">מיון: הכי נצפים</option>
+          <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
+        </select>
+      </div>
+      <div class="pr-adv" id="propFilterGrid">
         <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
           <option value="">כל הסטטוסים</option>
           <option value="active">מפורסם</option>
@@ -8158,26 +8234,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="rented">הושכר</option>
           <option value="archived">בארכיון</option>
         </select>
-        <select id="propDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-          <option value="">מכירה והשכרה</option>
-          <option value="sale">מכירה</option>
-          <option value="rent">השכרה</option>
-        </select>
-        <select id="propTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
-          <option value="">כל סוגי הנכס</option>
-        </select>
-        <select id="propCityFilter" class="filter-input" aria-label="סינון לפי עיר">
-          <option value="">כל הערים</option>
-        </select>
-        <!-- "לפחות" ולא "בדיוק": מי שמחפש/ת 4 חדרים מוכן/ה לראות גם 4.5 ו-5.
-             נכס בלי מספר חדרים (מסחרי, מגרש) לא עובר סינון שנבחר בו מספר. -->
-        <select id="propRoomsFilter" class="filter-input" aria-label="סינון לפי מספר חדרים">
-          <option value="">כל החדרים</option>
-          <option value="1">1+ חדרים</option>
-          <option value="2">2+ חדרים</option>
-          <option value="3">3+ חדרים</option>
-          <option value="4">4+ חדרים</option>
-          <option value="5">5+ חדרים</option>
+        <select id="propExtraFilter" class="filter-input" aria-label="סינון מהיר">
+          <option value="">כל הנכסים</option>
+          <option value="promoted">מקודמים כרגע</option>
+          <option value="exclusive">בבלעדיות</option>
+          <option value="not_exclusive">בלי בלעדיות</option>
+          <option value="shared">פתוחים לשת״פ</option>
+          <option value="not_shared">לא פתוחים לשת״פ</option>
+          <option value="matched">יש לקוחות מתאימים</option>
+          <option value="no_images">ללא תמונות</option>
+          <option value="no_video">בלי סרטון או סיור</option>
+          <option value="expiring">תוקף נגמר בקרוב</option>
+          <option value="stale">לא עודכנו מזמן</option>
+          <option value="expired">פג תוקף</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
           <input type="number" id="propPriceMin" inputmode="numeric" min="0" step="any" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
@@ -8194,38 +8263,76 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="filter-range-sep" aria-hidden="true">-</span>
           <input type="number" id="propPsmMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי למ״ר">
         </div>
-        <select id="propExtraFilter" class="filter-input" aria-label="סינון מהיר">
-          <option value="">כל הנכסים</option>
-          <option value="promoted">מקודמים כרגע</option>
-          <option value="exclusive">בבלעדיות</option>
-          <option value="not_exclusive">בלי בלעדיות</option>
-          <option value="shared">פתוחים לשת״פ</option>
-          <option value="not_shared">לא פתוחים לשת״פ</option>
-          <option value="matched">יש לקוחות מתאימים</option>
-          <option value="no_images">ללא תמונות</option>
-          <option value="no_video">בלי סרטון או סיור</option>
-          <option value="expiring">תוקף נגמר בקרוב</option>
-          <option value="stale">לא עודכנו מזמן</option>
-          <option value="expired">פג תוקף</option>
-        </select>
-        <select id="propSort" class="filter-input" aria-label="מיון">
-          <option value="created_desc">מיון: החדשים</option>
-          <option value="created_asc">מיון: הוותיקים</option>
-          <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
-          <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
-          <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
-          <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
-          <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
-          <option value="views_desc">מיון: הכי נצפים</option>
-          <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
-        </select>
       </div>
       <div class="toolbar-foot">
         <p class="list-count" id="propFilterCount"></p>
         <button type="button" class="clear-filters" id="propClearFilters" hidden>✕ איפוס סינונים</button>
       </div>
     </div>
+    <div class="ui-scope ui-count pr-count" id="prCountLine"></div>
     <div id="propertiesList"></div>
+    </div>
+    <div id="prSharedPane" role="tabpanel" aria-labelledby="prTabShared" hidden>
+    <div class="ui-scope pr-shared-top">
+      <p class="ui-hint"><span>נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולך.</span><span>בכל נכס: המשרד המשתף והסוכן/ת שאחראי/ת עליו.</span></p>
+      <button type="button" class="pr-partners" data-goto="accSharePartners">
+        <span class="pr-partners-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+        <span class="pr-partners-text"><span class="pr-partners-t">עם מי אני משתף/ת</span><span class="pr-partners-s" id="prPartnersSub">המשרדים שיקבלו נכס שתפתחו לשת״פ</span></span>
+        <span class="pr-partners-go">ניהול</span>
+      </button>
+      <!-- ‏"באזורי הפעילות שלי" דלוק כברירת מחדל, ומוצג רק כשיש נכס ששותף מחוץ
+           להם (shared_properties_for_me.fits_me, docs/area-scope.md). השאר
+           מצטברים (וגם): מתאים ללקוחות שלי, חדשים מהשבוע, שמורים. -->
+      <div class="ui-chips ui-chips--scroll pr-shared-chips" id="sharedScopeRow" role="group" aria-label="סינון שיתופים">
+        <button type="button" class="ui-chip" data-ui-chip id="sharedMineChip" aria-pressed="true" hidden>באזורי הפעילות שלי <span class="ui-chip-n" id="sharedMineN"></span></button>
+        <button type="button" class="ui-chip" data-ui-chip id="sharedMatchChip" aria-pressed="false">מתאים ללקוחות שלי <span class="ui-chip-n" id="sharedMatchN"></span></button>
+        <button type="button" class="ui-chip" data-ui-chip id="sharedNewChip" aria-pressed="false">חדשים מהשבוע <span class="ui-chip-n" id="sharedNewN"></span></button>
+        <button type="button" class="ui-chip" data-ui-chip id="sharedSavedChip" aria-pressed="false" hidden>שמורים <span class="ui-chip-n" id="sharedSavedN"></span></button>
+      </div>
+      <button type="button" class="ui-link pr-area-link" id="sharedAreaLink" data-goto="accProfile" data-focus="pfAreas" hidden>עריכת התחום והאזורים</button>
+    </div>
+    <div class="list-toolbar ui-scope pr-toolbar">
+      <div class="pr-search-row">
+        <span class="pr-search">
+          <input type="search" id="sharedSearch" aria-label="חיפוש בנכסים ששותפו" placeholder="כתובת, עיר, סוג נכס, משרד או סוכן/ת">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        </span>
+        <button type="button" class="pr-adv-btn" id="sharedRefreshBtn">רענון</button>
+      </div>
+      <div class="ui-filters pr-pills">
+        <select id="sharedAgencyFilter" class="ui-pill-select" aria-label="סינון לפי משרד">
+              <option value="">כל המשרדים</option>
+            </select>
+        <select id="sharedDealFilter" class="ui-pill-select" aria-label="סינון לפי סוג עסקה">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+            </select>
+        <select id="sharedCityFilter" class="ui-pill-select" aria-label="סינון לפי עיר">
+              <option value="">כל הערים</option>
+            </select>
+        <select id="sharedTypeFilter" class="ui-pill-select" aria-label="סינון לפי סוג נכס">
+              <option value="">כל סוגי הנכס</option>
+            </select>
+        <select id="sharedSort" class="ui-pill-select" aria-label="מיון">
+              <option value="shared_desc">מיון: שותפו לאחרונה</option>
+              <option value="shared_asc">מיון: שותפו מזמן</option>
+              <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
+              <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
+              <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
+              <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
+              <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
+              <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
+            </select>
+      </div>
+      <div class="toolbar-foot">
+        <p class="list-count" id="sharedFilterCount"></p>
+        <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
+      </div>
+    </div>
+    <div class="ui-scope ui-count pr-count" id="sharedCountLine"></div>
+    <div id="sharedWithMeList"></div>
+    </div>
       </div>
     </details>
 
@@ -8817,62 +8924,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="form-subheading">הלידים שרכשתי</div>
           <div id="purchasedMortgageList"></div>
         </div>
-      </div>
-    </details>
-
-    <details class="acc" id="accSharedWithMe" open>
-      <summary>
-        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
-        <span class="acc-count hot" id="accSharedWithMeCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
-
-        <!-- תחום ואזורי הפעילות (docs/area-scope.md): דלוק כברירת מחדל, ומוצג רק
-             כשיש נכס ששותף מחוץ להם (shared_properties_for_me.fits_me) -->
-        <div class="ui-scope shared-scope" id="sharedScopeRow" hidden>
-          <button type="button" class="ui-chip" data-ui-chip id="sharedMineChip" aria-pressed="true">באזורי הפעילות שלי <span class="ui-chip-n" id="sharedMineN"></span></button>
-          <button type="button" class="ui-link" data-goto="accProfile" data-focus="pfAreas">עריכת התחום והאזורים</button>
-        </div>
-        <div class="list-toolbar">
-          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי - כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
-          <div class="toolbar-row">
-            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
-              <option value="">כל המשרדים</option>
-            </select>
-            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-              <option value="">מכירה והשכרה</option>
-              <option value="sale">מכירה</option>
-              <option value="rent">השכרה</option>
-            </select>
-            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
-              <option value="">כל הערים</option>
-            </select>
-            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
-              <option value="">כל סוגי הנכס</option>
-            </select>
-          </div>
-          <div class="toolbar-row">
-            <select id="sharedSort" class="filter-input" aria-label="מיון">
-              <option value="shared_desc">מיון: שותפו לאחרונה</option>
-              <option value="shared_asc">מיון: שותפו מזמן</option>
-              <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
-              <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
-              <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
-              <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
-              <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
-              <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="sharedFilterCount"></p>
-            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
-          </div>
-        </div>
-
-        <div id="sharedWithMeList"></div>
       </div>
     </details>
 
@@ -11326,6 +11377,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-profile-pages.js"></script>
 <!-- "הלידים שלי" - רשימה אחת לפי סדר עדיפות (docs/leads-unified.md) -->
 <script src="assets/crm-leads.js"></script>
+<!-- "נכסים" - שתי הלשוניות, "דורש תשומת לב" וכלים לנכס (docs/properties-unified.md) -->
+<script src="assets/crm-properties.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
 <script src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
