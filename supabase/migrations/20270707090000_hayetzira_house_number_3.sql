@@ -51,8 +51,8 @@ begin
   -- 1. מצב התיאור השיווקי לפני: מי טרי, ומאיפה הוא בא
   create temp table _hy_before on commit drop as
     select p.id,
-           p.marketing_description_source as src,
-           p.marketing_description_at     as at,
+           p.marketing_description_source as old_source,
+           p.marketing_description_at     as old_at,
            (p.marketing_description_fingerprint is not null
             and p.marketing_description_fingerprint = public.property_marketing_fingerprint(p)) as fresh
       from public.properties p
@@ -71,13 +71,19 @@ begin
   raise notice 'היצירה: % שורות', v_rows;
 
   -- 3. המקור, התאריך וטביעת האצבע - כפי שהיו, למי שהיה טרי
+  --
+  --    ‏`cur` ולא `src`: בגרסה הראשונה של הקובץ עמודה בטבלה הזמנית נקראה
+  --    ‏`src`, ושם עמודה גובר על כינוי טבלה בתוך קריאה לפונקציה - כך
+  --    ש-`property_marketing_fingerprint(src)` קיבלה text, והמיגרציה נכשלה
+  --    בצינור (20.10.2026, בלי שינוי נתונים - טרנזקציה אחת). לכן שמות
+  --    העמודות כאן `old_*`, והכינוי אינו מתנגש באף אחת מהן.
   update public.properties p
-     set marketing_description_source      = b.src,
-         marketing_description_at          = b.at,
-         marketing_description_fingerprint = public.property_marketing_fingerprint(src)
-    from _hy_before b, public.properties src
+     set marketing_description_source      = b.old_source,
+         marketing_description_at          = b.old_at,
+         marketing_description_fingerprint = public.property_marketing_fingerprint(cur)
+    from _hy_before b, public.properties cur
    where b.id = p.id
-     and src.id = p.id
+     and cur.id = p.id
      and b.fresh;
   get diagnostics v_rows = row_count;
   raise notice 'טביעות אצבע שהוחזרו: % שורות', v_rows;
