@@ -76,6 +76,7 @@ create policy improvement_suggestions_update_admin on public.improvement_suggest
 
 revoke all on table public.improvement_suggestions from anon;
 grant select, insert, update on table public.improvement_suggestions to authenticated;
+grant select, insert, update, delete on table public.improvement_suggestions to service_role;
 
 -- ---------------------------------------------------------------------------
 -- לפני הכתיבה: המשרד נקבע מהשורה של הסוכן/ת (לא מהדפדפן), והתקרה נבדקת
