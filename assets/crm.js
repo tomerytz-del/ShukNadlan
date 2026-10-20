@@ -6910,18 +6910,50 @@ const SPECIALTY_OPTIONS = [
 const MAX_SPECIALTIES = 4;
 
 /* עד ארבעה תחומים — מעבר לזה שורת התגיות בראש הדף נשברת לשלוש שורות
-   ומפסיקה להיסרק במבט אחד. הנעילה היא ויזואלית: מה שכבר מסומן תמיד נשאר לחיץ. */
+   ומפסיקה להיסרק במבט אחד. צ'יפים לפי **סדר הבחירה** (סעיף 3.4): המספר על
+   כל צ'יפ הוא המקום שלו בשורת התגיות בדף, והשאר ננעלים כשמגיעים לארבעה. */
+let pfSpecOrder = [];
+
 function renderSpecialtyChoices(selected){
   const container = document.getElementById('pfSpecialties');
-  const chosen = Array.isArray(selected) ? selected : [];
-  container.innerHTML = SPECIALTY_OPTIONS.map(label => `
-    <label class="checkbox-item"><input type="checkbox" value="${label}" ${chosen.includes(label) ? 'checked' : ''}> ${label}</label>
-  `).join('');
-  container.querySelectorAll('input').forEach(input => {
-    input.addEventListener('change', ()=>{ enforceSpecialtyLimit(); renderProfilePreview(); });
-  });
+  // ערך ישן שאינו ברשימה נשאר, כדי ששמירה לא תמחק אותו בשקט
+  pfSpecOrder = (Array.isArray(selected) ? selected : []).slice(0, MAX_SPECIALTIES);
+  const options = SPECIALTY_OPTIONS.concat(pfSpecOrder.filter(l => !SPECIALTY_OPTIONS.includes(l)));
+  container.innerHTML = options.map(label =>
+    `<button type="button" class="ui-chip pf-spec" data-spec="${esc(label)}" aria-pressed="false"><span>${esc(label)}</span></button>`).join('');
   enforceSpecialtyLimit();
 }
+
+function selectedSpecialties(){
+  return pfSpecOrder.slice();
+}
+
+function enforceSpecialtyLimit(){
+  const full = pfSpecOrder.length >= MAX_SPECIALTIES;
+  document.querySelectorAll('#pfSpecialties [data-spec]').forEach(btn => {
+    const i = pfSpecOrder.indexOf(btn.dataset.spec);
+    btn.setAttribute('aria-pressed', String(i >= 0));
+    btn.disabled = full && i < 0;
+    let n = btn.querySelector('.ui-chip-n');
+    if (i >= 0){
+      if (!n){ n = document.createElement('span'); n.className = 'ui-chip-n'; btn.prepend(n); }
+      n.textContent = String(i + 1);
+      n.setAttribute('aria-label', 'מקום ' + (i + 1));
+    } else if (n) n.remove();
+  });
+  const count = document.getElementById('pfSpecCount');
+  if (count) count.textContent = `${pfSpecOrder.length} מתוך ${MAX_SPECIALTIES} נבחרו.`;
+}
+
+document.getElementById('pfSpecialties').addEventListener('click', e => {
+  const btn = e.target.closest('[data-spec]');
+  if (!btn || btn.disabled) return;
+  const label = btn.dataset.spec;
+  pfSpecOrder = pfSpecOrder.includes(label) ? pfSpecOrder.filter(l => l !== label) : pfSpecOrder.concat(label);
+  enforceSpecialtyLimit();
+  renderProfilePreview();
+  btn.dispatchEvent(new Event('input', { bubbles:true }));
+});
 
 /* ---- אזורי הפעילות ----
    הרשימה הסגורה של השווקים (ShukMarkets.list), פעילים ושאינם. נשמר כ-slug-ים
@@ -7016,17 +7048,6 @@ async function loadAgentMarkets(agentId){
   }
 }
 
-function selectedSpecialties(){
-  return Array.from(document.querySelectorAll('#pfSpecialties input:checked')).map(el => el.value);
-}
-
-function enforceSpecialtyLimit(){
-  const full = selectedSpecialties().length >= MAX_SPECIALTIES;
-  document.querySelectorAll('#pfSpecialties input').forEach(input => {
-    input.disabled = full && !input.checked;
-    input.closest('.checkbox-item').style.opacity = input.disabled ? '.45' : '';
-  });
-}
 
 /* ---- מיקוד תמונת הסוכן/ת ----
    התמונה מוצגת בכל הדפים ב-object-fit:cover, כלומר תמיד נחתכת למידות של
@@ -7407,6 +7428,8 @@ function renderProfilePreview(){
   } else {
     avatar.textContent = (name || '?')[0];
   }
+  // הבאנר, "מלא ב-X%" ומה שסביב הטופס (assets/crm-profile-pages.js)
+  if (typeof pgProfileSync === 'function') pgProfileSync();
 }
 
 ['pfName','pfLicense','pfBio','pfYears','pfCredentials'].forEach(id=>{
@@ -7565,6 +7588,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
 
     feedback.style.color = 'var(--green)';
     feedback.textContent = 'הפרטים נשמרו - דף הסוכן/ת שלך מעודכן.' + licenseNote;
+    if (typeof pgMarkClean === 'function') pgMarkClean('pf', true);
     showToast('פרטי הסוכן/ת עודכנו');
     // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
     refreshOnboarding();
@@ -10544,6 +10568,7 @@ function renderBrandPreview(){
     specsRow.innerHTML = Specialties.chipsHtml(brandingState.specialties, { className:'bp-spec' });
   }
 
+  if (typeof pgBrandingSync === 'function') pgBrandingSync();
 }
 
 /* ---------- לוגו ותמונת נושא ---------- */
@@ -10766,7 +10791,8 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     }
     renderGalleryAdmin(); // התגית "ממתין לשמירה" יורדת מהתמונות שהועלו
     feedback.style.color = 'var(--teal)';
-    feedback.textContent = 'המיתוג נשמר - דף המשרד מעודכן.';
+    feedback.textContent = 'נשמר - דף המשרד מעודכן.';
+    if (typeof pgMarkClean === 'function') pgMarkClean('br', true);
     showToast('המיתוג של המשרד עודכן');
     refreshOnboarding();
   } catch(err){
@@ -33295,6 +33321,7 @@ function crmUnsavedInput(){
   // ‏uiAnyDirty: פס שמירה של ערכת הרכיבים (assets/crm-ui.js) - צ'יפים ומתגים
   // אינם שדות של form, ולכן הם נספרים שם ולא כאן
   return (typeof uiAnyDirty === 'function' && uiAnyDirty())
+    || (typeof pgAnyDirty === 'function' && pgAnyDirty())
     || Array.from(document.querySelectorAll('#dashboard form'))
       .some(form => form.dataset.touched === '1' && crmFormHasContent(form));
 }

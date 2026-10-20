@@ -6348,6 +6348,37 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .np2-kinds{display:flex;flex-direction:column}
   .np2-kind:first-child{border-top:0}
 
+  /* הפרופיל שלי ודף המשרד (assets/crm-profile-pages.js, docs/crm-profile-pages.md).
+     שני טורים ב-flex-wrap ולא ב-@media: התוכן flex:999 והצד 280px, ולכן ברוחב
+     צר הצד יורד מתחת לבד */
+  .pg{display:flex;flex-direction:column;gap:16px}
+  .pg-layout{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+  .pg-main{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:16px}
+  .pg-side{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:12px}
+  @media (min-width:1100px){ .pg-side{position:sticky;top:96px} }
+  .pg-side-title{font-size:13px;font-weight:700;color:var(--nv-muted)}
+  .pg-card{display:flex;flex-direction:column;gap:12px}
+  .pg-card-head{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
+  .pg-card .field{margin-bottom:12px}
+  .pg-card .form-subheading{margin-top:14px;color:var(--nv-ink);font-size:14px;font-weight:700}
+  .pg-field-hint{font-size:.74rem;color:var(--nv-muted);margin:6px 0 0}
+  .pg-field-hint:empty{display:none}
+  .pg-missing-tag{margin-inline-start:6px;vertical-align:middle}
+  .pg select.ui-missing,.pg textarea.ui-missing{border-color:var(--nv-gold);box-shadow:0 0 0 3px rgba(224,184,74,.25)}
+  .pg-savebar{margin-top:4px}
+  .pg-complete{display:flex;flex-direction:column;gap:10px;padding:18px 20px}
+  .pg-complete-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 8px}
+  .pg-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .pg-checks li{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--nv-muted);min-height:36px}
+  .pg-check-btn{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;border:0;background:none;padding:0;
+    font:inherit;font-size:14px;font-weight:700;color:var(--nv-urgent-ink);cursor:pointer;text-align:start}
+  .pg-check-btn:hover{text-decoration:underline}
+  .pg-check{width:20px;height:20px;flex:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;color:#fff;background:var(--nv-ok)}
+  .pg-check-btn .pg-check{background:#fff;border:2px solid var(--nv-urgent)}
+  .pf-spec .ui-chip-n{background:var(--nv-accent);color:#fff}
+  #brandPreview.is-missing-about .bp-tagline{outline:2px dashed var(--nv-gold);outline-offset:3px}
+
   /* תחום ואזורי פעילות (assets/crm-areas.js) */
   .area-picker{display:flex;flex-direction:column;gap:16px;margin:4px 0 8px}
   .area-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
@@ -10018,23 +10049,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כך אתם מוצגים ללקוחות בדף הסוכן/ת שלכם. השינוי נכנס לתוקף מיד לאחר השמירה.</p>
-
-        <div class="profile-preview" id="profilePreview">
-          <div class="pp-cover" id="ppCover"></div>
-          <div class="pp-body">
-            <div class="pp-avatar" id="ppAvatar">·</div>
-            <div class="pp-text">
-              <div class="pp-name" id="ppName">-</div>
-              <div class="pp-license" id="ppLicense"></div>
-              <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
-              <div class="pp-pills" id="ppPills"></div>
-              <p class="pp-bio" id="ppBio"></p>
-            </div>
-          </div>
-        </div>
-
-        <form id="profileForm" style="margin-bottom:0">
+        <!-- הפרופיל שלי (docs/crm-profile-pages.md; העיצוב: סעיף 3.4). מה שחסר למעלה,
+             ואחריו פרטים ורישיון, תמונה, הצגה מקצועית, תחום ואזורים וגלריה. בצד -
+             "הפרופיל מלא ב-X%" והתצוגה המקדימה, ובנייד הם יורדים מתחת. כל ה-id-ים
+             נשארו, וכך גם השמירה (submit של profileForm). -->
+        <div class="ui-scope pg" id="pfPage">
+          <p class="ui-hint"><span>כך מציגים אותך ללקוחות בדף שלך.</span><span>השינוי נכנס לתוקף מיד אחרי השמירה.</span></p>
+          <div class="ui-banner ui-banner--warn" id="pfGenderBanner" hidden><span class="ui-banner-text">חסרה לשון פנייה. כך המערכת יודעת איך לכתוב עליך ואליך.</span><button type="button" class="ui-link" data-pg-focus="pfGender">לבחירה</button></div>
+          <form id="profileForm" style="margin-bottom:0">
+          <div class="pg-layout">
+          <div class="pg-main">
+          <section class="ui-card pg-card" aria-labelledby="pfCardDetails">
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardDetails">פרטים ורישיון</h3></div>
           <div class="field">
             <label for="pfName">שם מלא</label>
             <input type="text" id="pfName" maxlength="80" autocomplete="name" required>
@@ -10052,62 +10078,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric" data-il-id>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
           </div>
-          <!-- ‏מין: לניסוח טקסטים שהמערכת כותבת על הסוכן/ת בשמו/ה (סיכום השבוע של
-               מאמן ה-AI). לא חובה, ולא מוצג בדף הציבורי. ריק = מנסחים סביב השם.
-               agency_members.gender, ‏20270418090000_agent_gender.sql -->
+          <!-- ‏לשון פנייה (היה "מין"): לניסוח טקסטים שהמערכת כותבת על הסוכן/ת
+               ואליו/ה (סיכום השבוע, המנטור). לא מוצג בדף הציבורי. ריק = מנסחים
+               סביב השם, ומסומן כחסר. agency_members.gender, 20270418090000 -->
           <div class="field">
-            <label for="pfGender">מין</label>
+            <label for="pfGender">לשון פנייה <span class="ui-tag ui-tag--warn pg-missing-tag" id="pfGenderTag" hidden>חסר</span></label>
             <select id="pfGender">
               <option value="">לא נבחר</option>
-              <option value="male">זכר</option>
-              <option value="female">נקבה</option>
+              <option value="male">בלשון זכר</option>
+              <option value="female">בלשון נקבה</option>
             </select>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">כדי שהמערכת תכתוב עליך בלשון הנכונה, למשל בסיכום השבועי של המשרד. לא מוצג בדף הסוכן/ת.</p>
+            <p class="pg-field-hint">כך המערכת כותבת עליך ואליך, למשל בסיכום השבועי. לא מוצג בדף שלך.</p>
           </div>
-          <div class="field">
-            <label for="pfBio">תיאור</label>
-            <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
-          </div>
-
-          <!-- תגיות הפרופיל: מה שעד היום היה קבור בתוך פסקת התיאור (ותק,
-               התמחות, הסמכות, אזור) יושב כאן בשדות נפרדים, כדי שדף הסוכן/ת
-               יציג אותו כתגיות שנסרקות בשנייה ולא כמשפט שצריך לקרוא. -->
-          <div class="form-subheading">תגיות הפרופיל</div>
-          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">כל השדות כאן הם רשות. מה שתמלאו יופיע כתגית בראש דף הסוכן/ת; מה שתשאירו ריק פשוט לא יוצג.</p>
-          <div class="field">
-            <label for="pfYears">שנות ותק בנדל״ן</label>
-            <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
-          </div>
-          <!-- ‏תחום ואזורי הפעילות (assets/crm-areas.js, docs/area-scope.md): באילו
-               נכסים ובאילו אזורים - לפיהם נקבע במה משתפים את הסוכן/ת ועל מה
-               מגיעה התראה, ובאיזה דף אזור הוא/היא מופיע/ה באתר
-               (‏agency_members.service_markets, property_scope). -->
-          <div class="field">
-            <div class="form-subheading">תחום ואזורי פעילות</div>
-            <div id="pfAreas"></div>
-          </div>
-          <div class="field">
-            <label for="pfCredentials">תארים והסמכות</label>
-            <input type="text" id="pfCredentials" maxlength="80" placeholder="למשל B.A ומגשר מוסמך">
-          </div>
-          <div class="field">
-            <label>תחומי התמחות</label>
-            <div class="checkbox-grid" id="pfSpecialties"></div>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים - התגיות הראשונות הן אלה שנראות בראש הדף.</p>
-          </div>
-
-          <!-- אין כאן בחירת עיצוב: דף הסוכן/ת לובש את ערכת המשרד, שמנהל/ת
-               המשרד בוחר/ת במקטע המיתוג - זהה לכל הסוכנים -->
-          <p style="font-size:.72rem;color:var(--ink-soft);background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;margin:12px 0 0">
-            🎨 הצבעים והרקע של הדף שלך נקבעים בידי מנהל/ת המשרד, ומשותפים לכל הסוכנים במשרד.
-          </p>
-
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="pfCardPhoto">
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardPhoto">תמונת פרופיל</h3><p class="ui-hint"><span>פורטרט ברור, פנים מול המצלמה.</span></p></div>
           <!-- ---------- תמונת הפרופיל ----------
                האזור המודגש בטופס: זו התמונה שהלקוח/ה רואה בדף הסוכן/ת ובכל
                נכס, וצעד 2 במדריך ההתחלה. תמונת נושא אישית אין: הרצועה בראש
                הדף היא תמונת הנושא של המשרד, שמנהל/ת המשרד קובע/ת. -->
-          <div class="form-subheading">תמונת הפרופיל שלך</div>
           <div class="img-dropzone img-hero" id="pfPhotoHero">
             <div class="ih-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
             <div class="ih-body">
@@ -10132,13 +10121,52 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="office-cover-note">
             <div class="oc-thumb" id="pfOfficeCoverThumb"></div>
-            <p><b>תמונת הנושא היא של המשרד.</b> הרצועה בראש הדף שלך מציגה את תמונת הנושא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.</p>
+            <p><b>תמונת הנושא והצבעים שייכים למשרד.</b> הרצועה בראש הדף שלך מציגה את תמונת הנושא של המשרד, ומנהל/ת המשרד קובע/ת אותה לכל הסוכנים.</p>
           </div>
 
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="pfCardPro">
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardPro">הצגה מקצועית</h3><p class="ui-hint"><span>מה שלקוחות קוראים עליך. כל השדות כאן רשות.</span></p></div>
+          <div class="field">
+            <label for="pfBio">תיאור</label>
+            <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
+          </div>
+
+          <!-- תגיות הפרופיל: מה שעד היום היה קבור בתוך פסקת התיאור (ותק,
+               התמחות, הסמכות, אזור) יושב כאן בשדות נפרדים, כדי שדף הסוכן/ת
+               יציג אותו כתגיות שנסרקות בשנייה ולא כמשפט שצריך לקרוא. -->
+          <div class="field">
+            <label for="pfYears">שנות ותק בנדל״ן</label>
+            <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
+            <p class="pg-field-hint" id="pfYearsShow"></p>
+          </div>
+          <div class="field">
+            <label for="pfCredentials">תארים והסמכות</label>
+            <input type="text" id="pfCredentials" maxlength="80" placeholder="למשל B.A ומגשר מוסמך">
+          </div>
+          <div class="field">
+            <label>תחומי התמחות</label>
+            <div class="ui-chips" id="pfSpecialties" role="group" aria-label="תחומי התמחות"></div>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים, לפי סדר הבחירה - הראשונים נראים בראש הדף. <span id="pfSpecCount"></span></p>
+          </div>
+
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="pfCardAreas">
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardAreas">תחום ואזורי פעילות</h3></div>
+          <!-- ‏תחום ואזורי הפעילות (assets/crm-areas.js, docs/area-scope.md): באילו
+               נכסים ובאילו אזורים - לפיהם נקבע במה משתפים את הסוכן/ת ועל מה
+               מגיעה התראה, ובאיזה דף אזור הוא/היא מופיע/ה באתר
+               (‏agency_members.service_markets, property_scope). -->
+          <div class="field">
+            <div id="pfAreas"></div>
+          </div>
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="pfCardGallery">
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardGallery">הגלריה שלי</h3></div>
           <!-- ---------- הגלריה האישית ----------
                מקטע הגלריה בדף הסוכן/ת, והמקור היחיד שלו. בלי תמונות כאן
                המקטע פשוט לא מופיע בדף — גלריית המשרד אינה מחליפה אותו. -->
-          <div class="form-subheading">הגלריה שלי</div>
           <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
             תמונות מהעבודה שלך - מסירת מפתחות, עסקאות שנסגרו, לקוחות מרוצים ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי"). זו הגלריה שמופיעה בדף הסוכן/ת שלך; בלי תמונות כאן מקטע הגלריה לא מוצג בדף.
           </p>
@@ -10147,13 +10175,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="file" id="pfGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
             <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
           </div>
+          <div class="ui-count" id="pfGalleryCount"></div>
           <div class="gallery-admin" id="pfGalleryGrid"></div>
           <div id="pfGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה שלך.</div>
 
-          <button type="submit" class="btn btn-gold btn-block" id="pfSaveBtn" style="margin-top:16px">שמירת הפרטים</button>
-          <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-          <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
-        </form>
+          </section>
+          </div>
+          <aside class="pg-side" aria-label="מילוי הפרופיל ותצוגה מקדימה">
+            <div class="ui-card pg-complete" id="pfComplete"></div>
+            <div class="pg-side-title">כך הלקוחות רואים אותך</div>
+        <div class="profile-preview" id="profilePreview">
+          <div class="pp-cover" id="ppCover"></div>
+          <div class="pp-body">
+            <div class="pp-avatar" id="ppAvatar">·</div>
+            <div class="pp-text">
+              <div class="pp-name" id="ppName">-</div>
+              <div class="pp-license" id="ppLicense"></div>
+              <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
+              <div class="pp-pills" id="ppPills"></div>
+              <p class="pp-bio" id="ppBio"></p>
+            </div>
+          </div>
+        </div>
+
+          <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" class="ui-link">צפייה בדף הסוכן/ת שלי ←</a>
+          </aside>
+          </div>
+          <div class="ui-savebar ui-savebar--sticky pg-savebar" id="pfSavebar">
+            <div id="pfFeedback" class="ui-savebar-text" role="status"></div>
+          <div class="ui-savebar-acts"><button type="button" class="ui-btn ui-btn--secondary" id="pfResetBtn" hidden>ביטול שינויים</button><button type="submit" class="ui-btn" id="pfSaveBtn">שמירת הפרטים</button></div>
+          </div>
+          </form>
+        </div>
       </div>
     </details>
 
@@ -10168,14 +10221,118 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
-        <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת - השינוי נכנס לתוקף מיד לאחר השמירה.</p>
+        <!-- דף המשרד (docs/crm-profile-pages.md; העיצוב: סעיף 3.5). הסדר: מה שחסר
+             למעלה, תמונות, תוכן, תחום ואזורים, גלריה, וצבעים בסוף. בצד - התצוגה
+             המקדימה, ובנייד היא יורדת מתחת. כל ה-id-ים נשארו, וכך גם הקוד. -->
+        <div class="ui-scope pg" id="brPage">
+          <p class="ui-hint"><span>כך ייראה דף המשרד ללקוחות.</span><span>השינוי נכנס לתוקף מיד אחרי השמירה.</span></p>
+          <div class="ui-banner ui-banner--warn" id="brAboutBanner" hidden><span class="ui-banner-text">חסר תיאור "על המשרד". גוגל משתמש בו כדי לתאר את המשרד.</span><button type="button" class="ui-link" data-pg-focus="brDescription">לכתיבת התיאור</button></div>
+          <div class="pg-layout">
+          <div class="pg-main">
+          <section class="ui-card pg-card" aria-labelledby="brCardImg">
+            <div class="pg-card-head"><h3 class="ui-h3" id="brCardImg">לוגו ותמונת נושא</h3><p class="ui-hint"><span>תמונת הנושא מופיעה גם בראש הדפים של כל סוכני המשרד.</span></p></div>
+        <!-- הלוגו ותמונת הנושא של המשרד - אזורים מודגשים. תמונת הנושא חלה
+             גם על דפי כל הסוכנים של המשרד; לסוכן/ת אין תמונת נושא אישית. -->
+        <div class="single-img-row">
+          <div class="img-hero-col">
+            <div class="img-dropzone img-hero" id="brLogoHero">
+              <div class="ih-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>
+              <div class="ih-body">
+                <div class="ih-title">לוגו המשרד <span class="ih-tag">חשוב</span></div>
+                <div class="hint">מרובע · בראש דף המשרד ובכל נכס של הצוות</div>
+                <label class="pick" for="brLogoInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת לוגו</span></label>
+                <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
+              </div>
+            </div>
+            <div class="img-preview" id="brLogoPreview"></div>
+          </div>
+          <div class="img-hero-col">
+            <div class="img-dropzone img-hero" id="brCoverHero">
+              <div class="ih-icon wide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+              <div class="ih-body">
+                <div class="ih-title">תמונת נושא <span class="ih-tag">חשוב</span></div>
+                <div class="hint">רצועה רחבה, מומלץ 1600×600 · בראש דף המשרד <b>ובראש דפי כל הסוכנים</b></div>
+                <label class="pick" for="brCoverInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת נושא</span></label>
+                <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
+              </div>
+            </div>
+            <div class="img-preview" id="brCoverPreview"></div>
+          </div>
+        </div>
 
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="brCardContent">
+            <div class="pg-card-head"><h3 class="ui-h3" id="brCardContent">תוכן הדף</h3></div>
+        <!-- ‏60 תווים ולא 120: המוטו מוצג בדף המשרד בשורה אחת מתחת לשם, ומוטו
+             ארוך יותר נחתך שם בשלוש נקודות. עדיף שהגבול יורגש כאן, בזמן
+             הכתיבה, מאשר בדף הציבורי. -->
+        <div class="form-subheading">משפט המוטו</div>
+        <div class="field">
+          <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
+          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
+        </div>
+
+        <!-- ---------- על המשרד ----------
+             הטקסט שבראש דף המשרד, והתיאור שגוגל ומנועי AI קוראים. משרד שלא
+             כתב מקבל משפט עובדתי מהשם והכתובת (‏assets/agency-about.js). -->
+        <div class="form-subheading">על המשרד</div>
+        <div class="field">
+          <span class="ui-tag ui-tag--warn pg-missing-tag" id="brAboutTag" hidden>חסר</span>
+          <textarea id="brDescription" rows="5" maxlength="1200" placeholder="למשל: משרד משפחתי שפועל בעפולה מאז 2008, מתמחה בדירות בגבעת המורה ובעפולה עילית ובליווי משפחות שמוכרות כדי לקנות. שורה ריקה מתחילה פסקה חדשה."></textarea>
+          <div class="hint">מוצג בראש דף המשרד ומשמש את גוגל לתיאור המשרד. כמה משפטים על הניסיון, האזורים וסוגי הנכסים. עד 1,200 תווים <span id="brDescriptionCount"></span></div>
+        </div>
+
+        <!-- ---------- כתובת המשרד ----------
+             שדה חופשי ולא רחוב/מספר/עיר נפרדים: משרדים יושבים גם בקניונים
+             ובמרכזים מסחריים, וחלוקה לשדות הייתה מכריחה אותם למלא טופס
+             שלא מתאים לכתובת שלהם. -->
+        <div class="form-subheading">כתובת המשרד</div>
+        <div class="field">
+          <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
+          <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
+        </div>
+
+        <!-- ---------- תחומי התמחות ----------
+             מוצגים כתגיות בראש דף המשרד, מעל אזורי הפעילות. משרד שלא בוחר
+             כאן דבר לא נשאר בלי תגיות — הדף גוזר אותן מהנכסים שלו — אבל
+             גזירה לא יכולה לדעת על פינוי בינוי או פרויקטים מקבלן. -->
+        <div class="form-subheading">תחומי התמחות</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          מה שתסמנו כאן יופיע כתגיות בראש דף המשרד. עד <span id="brSpecMax">6</span> תחומים - <span id="brSpecCount">0</span> נבחרו.
+        </p>
+        <div class="spec-grid" id="brSpecGrid"></div>
+        <div class="spec-suggest" id="brSpecSuggest" style="display:none"></div>
+
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="brCardAreas">
+            <div class="pg-card-head"><h3 class="ui-h3" id="brCardAreas">תחום ואזורי פעילות</h3></div>
+        <!-- תחום ואזורי הפעילות של המשרד (assets/crm-areas.js, docs/area-scope.md):
+             ברירת המחדל לכל סוכני המשרד, וכל סוכן/ת מוסיף/ה אזורים משלו/ה -->
+        <div id="brAreas"></div>
+
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="brCardGallery">
+            <div class="pg-card-head"><h3 class="ui-h3" id="brCardGallery">גלריית המשרד</h3></div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          תמונות מחיי המשרד - עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי").
+        </p>
+        <div class="img-dropzone">
+          <label class="pick" for="brGalleryInput">+ הוספת תמונות לגלריה</label>
+          <input type="file" id="brGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
+        </div>
+        <div class="gallery-admin" id="brGalleryGrid"></div>
+        <div id="brGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה.</div>
+
+          </section>
+          <section class="ui-card pg-card" aria-labelledby="brCardColors">
+            <div class="pg-card-head"><h3 class="ui-h3" id="brCardColors">צבעים ורקע</h3><p class="ui-hint"><span>חלים על דף המשרד ועל הדפים של כל הסוכנים.</span></p></div>
         <!-- ---------- ערכת העיצוב ----------
              חמש ערכות מובנות וחזרה לברירת המחדל - ולא בוררי צבע חופשיים.
              הערכה נבחרת כאן פעם אחת, בידי מנהל/ת המשרד בלבד (‏RLS על
              ‏agencies), והיא חלה על דף המשרד ועל דפי כל הסוכנים שלו: לסוכן/ת
              אין עיצוב אישי. כל ערכה נבדקה מראש לניגודיות, ולכן אין כאן אזהרות. -->
-        <div class="form-subheading" style="margin-top:0">ערכת עיצוב</div>
+        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
         <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מחמש הערכות, או חזרו לברירת המחדל. הערכה חלה על דף המשרד ועל דפי כל הסוכנים במשרד.</p>
         <div class="palette-grid" id="paletteGrid"></div>
 
@@ -10191,6 +10348,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </p>
         <div class="bg-choice" id="brBgChoice"></div>
 
+          </section>
+          </div>
+          <aside class="pg-side" aria-label="תצוגה מקדימה של דף המשרד">
+            <div class="pg-side-title">תצוגה מקדימה</div>
         <div class="brand-preview" id="brandPreview">
           <div class="bp-cover" id="bpCover"></div>
           <div class="bp-body">
@@ -10228,95 +10389,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
 
-        <!-- ‏60 תווים ולא 120: המוטו מוצג בדף המשרד בשורה אחת מתחת לשם, ומוטו
-             ארוך יותר נחתך שם בשלוש נקודות. עדיף שהגבול יורגש כאן, בזמן
-             הכתיבה, מאשר בדף הציבורי. -->
-        <div class="form-subheading">משפט המוטו</div>
-        <div class="field">
-          <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
-          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
-        </div>
-
-        <!-- ---------- על המשרד ----------
-             הטקסט שבראש דף המשרד, והתיאור שגוגל ומנועי AI קוראים. משרד שלא
-             כתב מקבל משפט עובדתי מהשם והכתובת (‏assets/agency-about.js). -->
-        <div class="form-subheading">על המשרד</div>
-        <div class="field">
-          <textarea id="brDescription" rows="5" maxlength="1200" placeholder="למשל: משרד משפחתי שפועל בעפולה מאז 2008, מתמחה בדירות בגבעת המורה ובעפולה עילית ובליווי משפחות שמוכרות כדי לקנות. שורה ריקה מתחילה פסקה חדשה."></textarea>
-          <div class="hint">מוצג בראש דף המשרד ומשמש את גוגל לתיאור המשרד. כמה משפטים על הניסיון, האזורים וסוגי הנכסים. עד 1,200 תווים <span id="brDescriptionCount"></span></div>
-        </div>
-
-        <!-- ---------- כתובת המשרד ----------
-             שדה חופשי ולא רחוב/מספר/עיר נפרדים: משרדים יושבים גם בקניונים
-             ובמרכזים מסחריים, וחלוקה לשדות הייתה מכריחה אותם למלא טופס
-             שלא מתאים לכתובת שלהם. -->
-        <div class="form-subheading">כתובת המשרד</div>
-        <div class="field">
-          <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
-          <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
-        </div>
-
-        <!-- ---------- תחומי התמחות ----------
-             מוצגים כתגיות בראש דף המשרד, מעל אזורי הפעילות. משרד שלא בוחר
-             כאן דבר לא נשאר בלי תגיות — הדף גוזר אותן מהנכסים שלו — אבל
-             גזירה לא יכולה לדעת על פינוי בינוי או פרויקטים מקבלן. -->
-        <div class="form-subheading">תחומי התמחות</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          מה שתסמנו כאן יופיע כתגיות בראש דף המשרד. עד <span id="brSpecMax">6</span> תחומים - <span id="brSpecCount">0</span> נבחרו.
-        </p>
-        <div class="spec-grid" id="brSpecGrid"></div>
-        <div class="spec-suggest" id="brSpecSuggest" style="display:none"></div>
-
-        <!-- תחום ואזורי הפעילות של המשרד (assets/crm-areas.js, docs/area-scope.md):
-             ברירת המחדל לכל סוכני המשרד, וכל סוכן/ת מוסיף/ה אזורים משלו/ה -->
-        <div class="form-subheading">תחום ואזורי פעילות</div>
-        <div id="brAreas"></div>
-
-        <!-- הלוגו ותמונת הנושא של המשרד - אזורים מודגשים. תמונת הנושא חלה
-             גם על דפי כל הסוכנים של המשרד; לסוכן/ת אין תמונת נושא אישית. -->
-        <div class="form-subheading">לוגו ותמונת נושא</div>
-        <div class="single-img-row">
-          <div class="img-hero-col">
-            <div class="img-dropzone img-hero" id="brLogoHero">
-              <div class="ih-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>
-              <div class="ih-body">
-                <div class="ih-title">לוגו המשרד <span class="ih-tag">חשוב</span></div>
-                <div class="hint">מרובע · בראש דף המשרד ובכל נכס של הצוות</div>
-                <label class="pick" for="brLogoInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת לוגו</span></label>
-                <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
-              </div>
-            </div>
-            <div class="img-preview" id="brLogoPreview"></div>
+        <a href="#" id="brViewPageLink" target="_blank" rel="noopener" class="ui-link">צפייה בדף המשרד ←</a>
+          </aside>
           </div>
-          <div class="img-hero-col">
-            <div class="img-dropzone img-hero" id="brCoverHero">
-              <div class="ih-icon wide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-              <div class="ih-body">
-                <div class="ih-title">תמונת נושא <span class="ih-tag">חשוב</span></div>
-                <div class="hint">רצועה רחבה, מומלץ 1600×600 · בראש דף המשרד <b>ובראש דפי כל הסוכנים</b></div>
-                <label class="pick" for="brCoverInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת נושא</span></label>
-                <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
-              </div>
-            </div>
-            <div class="img-preview" id="brCoverPreview"></div>
+          <div class="ui-savebar ui-savebar--sticky pg-savebar" id="brSavebar">
+            <div id="brFeedback" class="ui-savebar-text" role="status"></div>
+            <div class="ui-savebar-acts"><button type="button" class="ui-btn ui-btn--secondary" id="brResetBtn" hidden>ביטול שינויים</button><button type="button" class="ui-btn" id="brSaveBtn">שמירת דף המשרד</button></div>
           </div>
         </div>
-
-        <div class="form-subheading">גלריית המשרד</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          תמונות מחיי המשרד - עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי").
-        </p>
-        <div class="img-dropzone">
-          <label class="pick" for="brGalleryInput">+ הוספת תמונות לגלריה</label>
-          <input type="file" id="brGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
-          <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
-        </div>
-        <div class="gallery-admin" id="brGalleryGrid"></div>
-        <div id="brGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה.</div>
-
-        <button type="button" class="btn btn-gold btn-block" id="brSaveBtn" style="margin-top:16px">שמירת המיתוג</button>
-        <div id="brFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        <a href="#" id="brViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף המשרד ←</a>
         </div>
       </details>
     </div>
@@ -11150,6 +11230,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-settings.js"></script>
 <!-- תחום ואזורי פעילות - רכיב אחד לפרופיל ולדף המשרד (docs/area-scope.md) -->
 <script src="assets/crm-areas.js"></script>
+<!-- הפרופיל שלי ודף המשרד: הבאנרים, "מלא ב-X%" ופס השמירה (docs/crm-profile-pages.md) -->
+<script src="assets/crm-profile-pages.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
 <script src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
