@@ -1573,12 +1573,21 @@ function renderOpenHouseBanner(count){
 
   /* ‏**אוקטובר 2026:** כרטיס כהה עם תמונה - הטקסט מימין, ונוף העמק משמאל
      שנמוג אל הכהה (בטלפון: התמונה למעלה). אותם משפטים, אותו יעד. ‏.oh-feature
-     ב-index.html; ‏.oh-promo נשאר לבאנר בעלי המקצוע ולדף היריד. */
+     ב-index.html; ‏.oh-promo נשאר לבאנר בעלי המקצוע ולדף היריד.
+
+     ‏**אוקטובר 2026, גרסה 2 של דף היריד:** אותו נוסח בדיוק של ראש הדף -
+     שם היריד ב-kicker, והעיר בכותרת (שם השוק הפעיל, כמו ב-data-market-label
+     של הדף). הבאנר והדף חייבים לדבר באותה שפה. */
+  let label = 'עפולה והעמק';
+  try {
+    const m = window.CityContext && CityContext.market && CityContext.market();
+    if (m && m.label) label = m.label;
+  } catch(e){ /* נשאר שוק ברירת המחדל */ }
   host.innerHTML =
     `<a class="oh-feature" href="/open-house">` +
       `<span class="oh-feature-copy">` +
-        `<span class="oh-feature-kicker">אל תחמיצו את ההזדמנות!</span>` +
-        `<h2 class="oh-feature-title">יריד דירות ללא עמלת תיווך,<br>לזמן מוגבל</h2>` +
+        `<span class="oh-feature-kicker">יריד הבתים הפתוחים · אל תחמיצו!</span>` +
+        `<h2 class="oh-feature-title">דירות ב${escapeHtml(label)} ${OpenHouse.NO_FEE}<br>- לזמן מוגבל!</h2>` +
         `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
         `<span class="oh-feature-cta">לצפייה בדירות ביריד ←</span>` +
       `</span>` +
