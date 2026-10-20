@@ -2339,6 +2339,8 @@ function openSharedFromParam(id){
   if (!r) return;
   ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
     .forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  // קישור לנכס מסוים פותח אותו גם כשהוא מחוץ לאזורי הפעילות
+  if (r.fits_me === false) document.getElementById('sharedMineChip').setAttribute('aria-pressed', 'false');
   const key = r.share_id || r.property_id;
   expandedSharedIds.add(key);
   renderSharedWithMe();
@@ -6930,18 +6932,49 @@ function marketOptions(){
   return list.map(m => ({ slug: m.slug, label: m.label, live: !!m.live }));
 }
 
+/* ‏תחום ואזורי הפעילות בפרופיל - הרכיב המשותף עם דף המשרד (assets/crm-areas.js,
+   docs/area-scope.md). אזורי המשרד מוצגים נעולים; נשמרים כאן רק האזורים של
+   הסוכן/ת עצמו/ה, ו-property_scope (null = כמו המשרד). */
+let pfAreaPicker = null;
+let pfPropertyScope = null;
+let agencyAreaDefaults = { kind:'all', markets:[] };
+
+function ensurePfAreaPicker(){
+  if (pfAreaPicker || typeof AreaPicker === 'undefined') return pfAreaPicker;
+  const host = document.getElementById('pfAreas');
+  if (!host) return null;
+  pfAreaPicker = AreaPicker.mount(host, { scope:'agent', prefix:'pfA' });
+  host.addEventListener('input', renderProfilePreview);
+  return pfAreaPicker;
+}
+
 function renderMarketChoices(selected){
-  const container = document.getElementById('pfMarkets');
-  if (!container) return;
-  const chosen = Array.isArray(selected) ? selected : [];
-  container.innerHTML = marketOptions().map(m => `
-    <label class="checkbox-item"><input type="checkbox" value="${esc(m.slug)}" ${chosen.includes(m.slug) ? 'checked' : ''}> ${esc(m.label)}${m.live ? '' : ' <span style="font-size:.7rem;color:var(--ink-soft)">(בקרוב)</span>'}</label>
-  `).join('');
-  container.querySelectorAll('input').forEach(input => input.addEventListener('change', renderProfilePreview));
+  const picker = ensurePfAreaPicker();
+  if (!picker) return;
+  picker.set({ kind: pfPropertyScope, markets: Array.isArray(selected) ? selected : [], office: agencyAreaDefaults });
 }
 
 function selectedMarkets(){
-  return Array.from(document.querySelectorAll('#pfMarkets input:checked')).map(el => el.value);
+  return pfAreaPicker ? pfAreaPicker.read().markets : [];
+}
+
+/* ברירת המחדל של המשרד. עמודה שעוד לא קיימת (לפני המיגרציה 20270707090000)
+   משאירה "הכל, בלי אזורים" - כלומר בדיוק ההתנהגות של היום */
+/* בקשה אחת לפרופיל ולמיתוג יחד - שניהם נטענים בכניסה. אחרי שמירה במיתוג
+   agencyAreaDefaults מתעדכן ישירות, ולכן הקוראים קוראים אותו ולא את התוצאה */
+let agencyAreaDefaultsLoad = null;
+function loadAgencyAreaDefaults(agencyId){
+  if (!agencyId) return Promise.resolve(agencyAreaDefaults);
+  if (agencyAreaDefaultsLoad && agencyAreaDefaultsLoad.id === agencyId) return agencyAreaDefaultsLoad.p;
+  const p = sb.from('agencies').select('service_markets, property_scope').eq('id', agencyId).maybeSingle()
+    .then(({ data, error }) => {
+      if (!error && data){
+        agencyAreaDefaults = { kind: data.property_scope || 'all', markets: Array.isArray(data.service_markets) ? data.service_markets : [] };
+      }
+      return agencyAreaDefaults;
+    }, () => agencyAreaDefaults);
+  agencyAreaDefaultsLoad = { id: agencyId, p };
+  return p;
 }
 
 /* שמות האזורים לשדה הטקסט הישן - עד 60 תווים, בלי לחתוך שם באמצע */
@@ -6969,8 +7002,13 @@ function guessMarketsFromText(text){
 
 async function loadAgentMarkets(agentId){
   try{
-    const { data, error } = await sb.from('agency_members').select('service_markets').eq('id', agentId).maybeSingle();
+    let { data, error } = await sb.from('agency_members').select('service_markets, property_scope').eq('id', agentId).maybeSingle();
+    // ‏property_scope נולדה ב-20270707090000; לפני שהמיגרציה רצה - בלעדיה
+    if (error && /property_scope/.test(error.message || '')){
+      ({ data, error } = await sb.from('agency_members').select('service_markets').eq('id', agentId).maybeSingle());
+    }
     if (error) throw error;
+    pfPropertyScope = data?.property_scope || null;
     return Array.isArray(data?.service_markets) ? data.service_markets : [];
   }catch(e){
     console.warn('אזורי הפעילות לא נטענו:', e);
@@ -7070,7 +7108,7 @@ function loadProfileSettings(agent){
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
   renderMarketChoices(Array.isArray(agent.service_markets) ? agent.service_markets : []);
-  loadAgentMarkets(agent.id).then(slugs => {
+  Promise.all([loadAgentMarkets(agent.id), loadAgencyAreaDefaults(agent.agency_id)]).then(([slugs]) => {
     agent.service_markets = slugs;
     renderMarketChoices(slugs.length ? slugs : guessMarketsFromText(agent.service_area));
   });
@@ -7491,9 +7529,14 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
 
     // אזורי הפעילות - עדכון נפרד (ראו loadAgentMarkets)
     {
-      const { error: mErr } = await sb.from('agency_members').update({ service_markets: serviceMarkets }).eq('id', currentAgent.id);
+      const scope = pfAreaPicker ? pfAreaPicker.read().kind : pfPropertyScope;
+      let { error: mErr } = await sb.from('agency_members')
+        .update({ service_markets: serviceMarkets, property_scope: scope }).eq('id', currentAgent.id);
+      if (mErr && /property_scope/.test(mErr.message || '')){
+        ({ error: mErr } = await sb.from('agency_members').update({ service_markets: serviceMarkets }).eq('id', currentAgent.id));
+      }
       if (mErr) console.warn('אזורי הפעילות לא נשמרו:', mErr);
-      else saved.service_markets = serviceMarkets;
+      else { saved.service_markets = serviceMarkets; pfPropertyScope = scope; }
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -10183,6 +10226,7 @@ function readableOn(hex){
   return onWhite >= onInk ? '#ffffff' : ON_COLOR_INK;
 }
 
+let brAreaPicker = null;
 async function loadBranding(agencyId){
   const { data: agency, error } = await sb.from('agencies')
     .select('name, slug, tagline, description, address, specialties, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
@@ -10190,6 +10234,15 @@ async function loadBranding(agencyId){
     document.getElementById('brFeedback').textContent = 'לא ניתן לטעון את הגדרות המיתוג.';
     return;
   }
+  // תחום ואזורי הפעילות של המשרד (assets/crm-areas.js). שאילתה נפרדת, כדי
+  // שעמודה שעוד לא קיימת לא תפיל את טעינת המיתוג כולה
+  loadAgencyAreaDefaults(agencyId).then(() => {
+    const def = agencyAreaDefaults;
+    if (!brAreaPicker && typeof AreaPicker !== 'undefined' && document.getElementById('brAreas')){
+      brAreaPicker = AreaPicker.mount(document.getElementById('brAreas'), { scope:'office', prefix:'brA' });
+    }
+    if (brAreaPicker) brAreaPicker.set({ kind: def.kind, markets: def.markets });
+  });
   const stored = agency.colors || {};
   // שורה בלי צבע ראשי היא ברירת המחדל - כך נשמרת, וכך נראים כל המשרדים
   // שמעולם לא נגעו במקטע הזה
@@ -10695,6 +10748,16 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
       gallery: brandingState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
     }).eq('id', currentAgent.agency_id);
     if (error) throw error;
+
+    // תחום ואזורי הפעילות - עדכון נפרד: עמודות שנולדו ב-20270707090000, ולפני
+    // שהמיגרציה רצה הן היו מפילות את שמירת המיתוג כולה
+    if (brAreaPicker){
+      const a = brAreaPicker.read();
+      const { error: aErr } = await sb.from('agencies')
+        .update({ service_markets: a.markets, property_scope: a.kind || 'all' }).eq('id', currentAgent.agency_id);
+      if (aErr) console.warn('תחום ואזורי הפעילות של המשרד לא נשמרו:', aErr);
+      else agencyAreaDefaults = { kind: a.kind || 'all', markets: a.markets };
+    }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
     if (brandingState.pendingDeletes.length){
@@ -20656,7 +20719,15 @@ function renderSharedWithMe(){
   const type = document.getElementById('sharedTypeFilter').value;
   const sort = document.getElementById('sharedSort').value || 'shared_desc';
 
+  // תחום ואזורי הפעילות (docs/area-scope.md). ‏fits_me חסר (לפני המיגרציה) = מתאים
+  const outside = sharedWithMeRows.filter(r => r.fits_me === false).length;
+  const mineChip = document.getElementById('sharedMineChip');
+  document.getElementById('sharedScopeRow').hidden = !outside;
+  const mineOnly = !!outside && mineChip.getAttribute('aria-pressed') === 'true';
+  document.getElementById('sharedMineN').textContent = sharedWithMeRows.length - outside;
+
   const unsorted = sharedWithMeRows.filter(r => {
+    if (mineOnly && r.fits_me === false) return false;
     if (agencyId && r.owner_agency_id !== agencyId) return false;
     if (deal && r.deal_type !== deal) return false;
     if (city && r.city !== city) return false;
@@ -20801,6 +20872,7 @@ document.getElementById('sharedClearFilters').addEventListener('click', ()=>{
   renderSharedWithMe();
 });
 document.getElementById('sharedRefreshBtn').addEventListener('click', ()=> loadSharedWithMe());
+document.getElementById('sharedMineChip').addEventListener('input', renderSharedWithMe);
 
 /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
    הלקוחות יושבים ב-agent_clients, ולהם ה-RLS הצר ביותר בפרויקט: רק הסוכן/ת
