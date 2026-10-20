@@ -4157,6 +4157,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .adm-range button.is-on{background:var(--wine);color:#fff;box-shadow:0 2px 8px rgba(139,35,50,.28)}
   .adm-range button:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+  /* קיפול רשימות ארוכות בניהול הפלטפורמה - admFold ב-assets/crm.js */
+  .adm-fold-hidden{display:none !important}
+  .adm-fold-btn{display:block;margin:8px 0 4px;padding:7px 14px;border:1.5px solid var(--line);border-radius:999px;
+    background:var(--surface-2);color:var(--ink);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+  .adm-fold-btn:hover{border-color:var(--wine);color:var(--wine)}
+  .adm-fold-btn:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+  /* בורר השווקים - select עם קבוצות לפי מצב, במקום שורת כפתורים שנחתכה */
+  .mkt-select{min-width:220px;max-width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:999px;
+    background:#fff;color:var(--ink);font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}
+  .mkt-select:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
   .adm-refresh{
     display:inline-flex;align-items:center;gap:6px;border:1px solid var(--edge);
     background:var(--surface);border-radius:999px;padding:6px 13px;
@@ -6786,7 +6796,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="dp-body" id="dashPanelMarketsBody">
           <div class="dp-inner">
             <div class="adm-toolbar">
-              <div class="adm-range" id="marketPicker" role="group" aria-label="בחירת שוק"></div>
+              <div id="marketPicker"></div>
               <button type="button" class="adm-refresh" id="marketRefreshBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
                 רענון

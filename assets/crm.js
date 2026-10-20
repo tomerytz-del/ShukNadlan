@@ -2699,6 +2699,8 @@ async function loadNeighborhoodsAdmin(){
   rows.forEach(n=>{
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
+    // שכונה בלי גבול היא עבודה שנשארה - היא נשארת גלויה כשהרשימה מקופלת (admFold)
+    if (!hasShape(n)) row.dataset.attn = '1';
     row.innerHTML = `<span style="font-size:.88rem;flex:1 1 auto;min-width:0">${esc(n.name)} <span style="color:var(--ink-soft);font-size:.74rem">(${esc(n.city)})</span></span>`;
 
     // מסומנת או לא — מה שקובע איך השכונה נראית במפת החיפוש. הקישור פותח את
@@ -2760,6 +2762,7 @@ async function loadNeighborhoodsAdmin(){
     row.appendChild(delBtn);
     listEl.appendChild(row);
   });
+  admFold(listEl, { rows: Array.from(listEl.children).slice(1), keep: 0, noun: 'שכונות מסומנות' });
 }
 
 /* הערים שאפשר לשייך אליהן שכונה: כל עיר ששויכה לשוק (cities.market_slug).
@@ -3556,6 +3559,99 @@ let adminReportMonths = 6;
 let adminReportBusy = false;
 
 /* ==========================================================================
+   קיפול רשימות ארוכות בניהול הפלטפורמה
+   --------------------------------------------------------------------------
+   רשימה של 160 שכונות שכולן מסומנות, או 40 ממצאי מידע, דוחפות את מה שדורש
+   טיפול אל מתחת לשלושה מסכים. ‏admFold משאיר גלוי את מה שדורש טיפול
+   (‏data-attn על השורה או בתוכה, או סימני is-warn/is-bad/is-danger/is-pending,
+   או opts.attn) ועוד opts.keep שורות ראשונות, ומקפל את השאר מאחורי כפתור
+   "עוד N". השורות לא זזות ולא נמחקות - רק מוסתרות - ולכן מאזינים ומיון
+   נשארים כמו שהם.
+
+   ‏admAutoFold מפעיל את זה על כל טבלה ורשימה ארוכה בתצוגת הניהול (MutationObserver
+   על #platformAdminSection ועל פאנלי dashPanel*), כדי שרשימה חדשה תקבל את
+   זה בלי לזכור. רשימה שלא צריכה קיפול (טופס עריכה) - data-nofold.
+   ========================================================================== */
+const ADM_FOLD_ATTN = '[data-attn], .is-warn, .is-bad, .is-danger, .is-pending';
+
+function admFold(container, opts){
+  if (!container) return;
+  opts = opts || {};
+  const rows = opts.rows || Array.from(container.children);
+  const keep = opts.keep == null ? 5 : opts.keep;
+  const attn = opts.attn || (el => el.matches(ADM_FOLD_ATTN) || !!el.querySelector(ADM_FOLD_ATTN));
+  if (container._foldBtn){ container._foldBtn.remove(); container._foldBtn = null; }
+  let budget = keep;
+  const hidden = [];
+  rows.forEach(r => {
+    r.classList.remove('adm-fold-hidden');
+    if (attn(r)) return;
+    if (budget > 0){ budget--; return; }
+    hidden.push(r);
+  });
+  container.dataset.fold = String(rows.length);
+  // שתיים-שלוש שורות מאחורי כפתור הן לחיצה מיותרת
+  if (hidden.length < 3) return;
+  const open = container.dataset.foldOpen === '1';
+  hidden.forEach(r => r.classList.toggle('adm-fold-hidden', !open));
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'adm-fold-btn';
+  const noun = opts.noun || 'שורות שלא דורשות טיפול';
+  const label = isOpen => isOpen ? 'הסתרה ▴' : 'עוד ' + admInt(hidden.length) + ' ' + noun + ' ▾';
+  btn.textContent = label(open);
+  btn.setAttribute('aria-expanded', String(open));
+  btn.addEventListener('click', ()=>{
+    const nowOpen = container.dataset.foldOpen !== '1';
+    container.dataset.foldOpen = nowOpen ? '1' : '';
+    hidden.forEach(r => r.classList.toggle('adm-fold-hidden', !nowOpen));
+    btn.textContent = label(nowOpen);
+    btn.setAttribute('aria-expanded', String(nowOpen));
+    if (typeof dashPanelsMeasure === 'function') dashPanelsMeasure();
+  });
+  // טבלה: הכפתור אחרי העטיפה שלה, לא בתוך tbody
+  const after = container.tagName === 'TBODY'
+    ? (container.closest('.adm-table-wrap') || container.closest('table'))
+    : (container.lastElementChild && rows.includes(container.lastElementChild) && !/^(UL|OL)$/.test(container.tagName))
+      ? null : container;
+  if (after) after.insertAdjacentElement('afterend', btn);
+  else container.appendChild(btn);
+  container._foldBtn = btn;
+}
+
+const ADM_FOLD_MIN = 10;
+function admAutoFold(root){
+  root.querySelectorAll('tbody, ul, ol, .adm-rows, .adm-facts').forEach(el => {
+    if (el.closest('[data-nofold]')) return;
+    const n = el.tagName === 'TBODY'
+      ? el.rows.length
+      : Array.from(el.children).filter(c => !c.classList.contains('adm-fold-btn')).length;
+    if (n <= ADM_FOLD_MIN) return;
+    const rows = el.tagName === 'TBODY' ? Array.from(el.rows)
+               : Array.from(el.children).filter(c => !c.classList.contains('adm-fold-btn'));
+    // אותה רשימה בדיוק - כבר מקופלת. רינדור מחדש (חיפוש, רענון) מחליף את
+    // השורות, ואז גם אם המספר זהה השורה הראשונה אחרת.
+    if (el.dataset.fold === String(n) && el._foldFirst === rows[0]) return;
+    el._foldFirst = rows[0];
+    admFold(el, { rows });
+  });
+}
+
+(function admAutoFoldWatch(){
+  let frame = 0;
+  const roots = () => [document.getElementById('platformAdminSection'),
+    ...document.querySelectorAll('section.dash-panel[id^="dashPanel"]')].filter(Boolean);
+  const run = () => { frame = 0; roots().forEach(admAutoFold); };
+  const obs = new MutationObserver(() => { if (!frame) frame = requestAnimationFrame(run); });
+  const start = () => {
+    roots().forEach(r => obs.observe(r, { childList: true, subtree: true }));
+    run();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+
+/* ==========================================================================
    שווקים מקומיים - תצוגת השוק של מנהל/ת הפלטפורמה
    --------------------------------------------------------------------------
    בוחרים שוק ורואים רק אותו: מה חסר עד שהוא נדלק (משרד אחד ו-10 נכסים
@@ -3578,18 +3674,57 @@ function marketViewSlug(){
   return list.some(m => m.slug === slug) ? slug : (list[0] ? list[0].slug : '');
 }
 
+/* הבורר הוא <select> ולא שורת כפתורים: עם 13 שווקים ומעלה השורה נחתכה
+   בצד, ושווקים שמעבר לרוחב המסך לא היו בהישג יד. השווקים מקובצים לפי
+   מצב - חיים, מוכנים לפתיחה, מתקרבים לסף (MARKET_NEAR נכסים, אותו מספר
+   של market_near בסוכן התפעולי) ונפתחים בקרוב - כדי שמה שדורש החלטה יהיה
+   למעלה. המספרים מהתמונות השמורות (market_snapshots), בקריאה אחת לכולם. */
+const MARKET_NEAR = 7;
+let marketTotals = {};
+
+async function loadMarketTotals(){
+  const { data, error } = await sb.from('market_snapshots').select('market_slug, totals:data->totals');
+  if (error || !Array.isArray(data)) return;
+  marketTotals = {};
+  data.forEach(r => { marketTotals[r.market_slug] = r.totals || {}; });
+}
+
+function marketStage(m){
+  const t = marketTotals[m.slug];
+  if (m.live) return 'live';
+  if (!t) return 'soon';
+  const props = Number(t.props_active) || 0;
+  const agencies = Number(t.agencies) || 0;
+  if (agencies >= MARKET_GATE.agencies && props >= MARKET_GATE.props) return 'ready';
+  return props >= MARKET_NEAR ? 'near' : 'soon';
+}
+
 function renderMarketPicker(){
   const host = document.getElementById('marketPicker');
   if (!host) return;
   const current = marketViewSlug();
-  host.innerHTML = '';
-  marketList().forEach(m => {
-    const b = admEl('button', m.slug === current ? 'is-on' : '', m.label);
-    b.type = 'button';
-    b.dataset.market = m.slug;
-    b.setAttribute('aria-pressed', String(m.slug === current));
-    host.appendChild(b);
+  const groups = [['ready', 'מוכנים לפתיחה'], ['near', 'מתקרבים לסף'],
+                  ['live', 'חיים באתר'], ['soon', 'נפתחים בקרוב']];
+  const sel = document.createElement('select');
+  sel.className = 'mkt-select';
+  sel.setAttribute('aria-label', 'בחירת שוק');
+  groups.forEach(([stage, label]) => {
+    const ms = marketList().filter(m => marketStage(m) === stage);
+    if (!ms.length) return;
+    const og = document.createElement('optgroup');
+    og.label = label + ' (' + ms.length + ')';
+    ms.forEach(m => {
+      const t = marketTotals[m.slug];
+      const o = document.createElement('option');
+      o.value = m.slug;
+      o.textContent = m.label + (t ? ' · ' + admInt(t.props_active) + ' נכסים' : '');
+      o.selected = m.slug === current;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
   });
+  host.innerHTML = '';
+  host.appendChild(sel);
 }
 
 /* התמונה השמורה של השוק (market_snapshots, ‏20270629090000): מחושבת פעם
@@ -3625,6 +3760,7 @@ async function loadMarketReport(opts){
   if (!host || marketReportBusy) return;
   const live = !!(opts && opts.live);
   const list = marketList();
+  if (!(opts && opts.keepPicker)) await loadMarketTotals();
   renderMarketPicker();
   if (!list.length){
     host.innerHTML = '';
@@ -3884,11 +4020,11 @@ function renderMarketReport(market, report){
   dashPanelsMeasure();
 }
 
-document.getElementById('marketPicker')?.addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-market]');
-  if (!btn) return;
-  try{ localStorage.setItem(MARKET_VIEW_KEY, btn.dataset.market); }catch(err){}
-  loadMarketReport();
+document.getElementById('marketPicker')?.addEventListener('change', (e)=>{
+  const sel = e.target.closest('select');
+  if (!sel) return;
+  try{ localStorage.setItem(MARKET_VIEW_KEY, sel.value); }catch(err){}
+  loadMarketReport({ keepPicker: true });
 });
 document.getElementById('marketRefreshBtn')?.addEventListener('click', ()=> loadMarketReport({ live: true }));
 
@@ -5240,7 +5376,10 @@ function renderOpsReport(report){
       ? 'אין ממצאים פתוחים. הסריקה האחרונה עברה נקייה.'
       : 'אין נתונים עדיין.'));
   } else {
-    findings.forEach(f => block.appendChild(opsItem(f)));
+    const items = findings.map(f => block.appendChild(opsItem(f)));
+    // בינוני ומעלה גלויים; נמוך ומידע מקופלים - הם לא "דורש טיפול מיידי"
+    admFold(block, { rows: items, keep: 0, noun: 'ממצאים בדרגה נמוכה ומידע',
+      attn: el => /^(critical|high|medium)$/.test(el.getAttribute('data-sev') || '') });
   }
   host.appendChild(block);
 
@@ -24317,6 +24456,13 @@ const NOTIF_TYPES = [
     sub:'אחרי כל הרצה של "עדכן עסקאות": כמה יישובים עודכנו, כמה עסקאות נוספו, מה נכשל ולמה, וכמה יישובים עוד ממתינים.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadDealSyncRuns() },
+  /* שוק מקומי שמתקרב לסף (7 נכסים), עובר אותו (משרד ו-10 נכסים) או חי ויורד
+     מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270703090000). */
+  { type:'market_alert', tone:'alert', goto:'dashPanelMarkets',
+    view:'admin',
+    title:'שווקים מקומיים',
+    sub:'שוק שמתקרב לסף הפתיחה, שעבר אותו ואפשר להדליק אותו לגולשים, או שוק חי שירד מתחת לסף. נשלח כשזה קורה, לא בכל סריקה.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
   /* ממצא אבטחה בדרגה high או critical שנפתח בסריקה של הסוכן התפעולי
      (מיגרציה 20270421100000). היעד הוא פאנל "בריאות המערכת" ולא קטגוריה,
      ולכן הלחיצה עוברת דרך openAdminOpsPanel ולא דרך goto. */

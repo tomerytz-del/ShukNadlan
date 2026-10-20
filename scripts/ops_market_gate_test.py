@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""הבדיקה של הבדיקה: ‏`market_below_gate` / `market_ready` / `listings_no_market`.
+"""הבדיקה של הבדיקה: ‏`market_below_gate` / `market_ready` / `market_near` / `listings_no_market`.
 
 אותו נימוק של `ops_stand_in_pin_test.py`: ‏probe שתפקידו לשתוק רוב הזמן
 הוא ה-probe שבאג בו אינו מתגלה לעולם. אם התנאי הפוך, "חיפה עברה את הסף"
@@ -86,7 +86,20 @@ got = codes([{"market_slug": "haifa", "props": 10, "agencies": 1}])
 check("חיפה סגורה ובדיוק בסף - 'מוכן לפתיחה'", got == [("market_ready", "market:haifa")])
 
 got = codes([{"market_slug": "haifa", "props": 30, "agencies": 0}])
-check("30 נכסים בלי משרד - עדיין לא מוכן", got == [])
+check("30 נכסים בלי משרד - 'מתקרב', לא 'מוכן'", got == [("market_near", "market:haifa")])
+
+got = codes([{"market_slug": "haifa", "props": 6, "agencies": 1}])
+check("חיפה סגורה עם 6 נכסים - עוד לא 'מתקרב'", got == [])
+
+got = codes([{"market_slug": "haifa", "props": 7, "agencies": 1}])
+check("חיפה סגורה עם 7 נכסים - 'מתקרב לסף'", got == [("market_near", "market:haifa")])
+
+f = list(_market_gate(_Ctx([{"market_slug": "haifa", "props": 11, "agencies": 1, "pinned": 1}])))
+check("11 נכסים ופין אחד - 'מוכן', ו-10 בלי פין כתובים בפירוט",
+      [x.code for x in f] == ["market_ready"] and "10 מהם בלי פין" in f[0].detail)
+
+got = codes([{"market_slug": "haifa", "props": 8, "agencies": 1}], root=OPEN)
+check("חיפה חיה עם 8 נכסים - 'מתחת לסף' ולא 'מתקרב'", got == [("market_below_gate", "market:haifa")])
 
 got = codes([{"market_slug": "afula-emek", "props": 0, "agencies": 0}])
 check("שוק ברירת המחדל ריק - לא מדווח כ'מתחת לסף'", got == [])
