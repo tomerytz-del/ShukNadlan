@@ -497,15 +497,15 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
    אותו שינוי בשני, בדיוק כמו maskHouseNumber — אחרת הסורק והגולש/ת רואים
    שני דברים שונים, וזה גם מה שגוגל קוראת לו "תוכן שונה מהמובטח". */
 
-/* ‏העתק של TYPE_LABELS ב-professional.html */
+/* ‏העתק של TYPE_LABELS ב-professional.html - יחיד, בלי לוכסן */
 const TYPE_LABELS: Record<string, string> = {
-  mortgage_advisor: "יועץ/ת משכנתאות",
-  appraiser: "שמאי/ת מקרקעין",
-  architect: "אדריכל/ית",
-  interior_designer: "מעצב/ת פנים",
+  mortgage_advisor: "יועץ משכנתאות",
+  appraiser: "שמאי מקרקעין",
+  architect: "אדריכל",
+  interior_designer: "מעצב פנים",
   cleaning: "חברת ניקיון",
   real_estate_lawyer: "עו״ד מקרקעין",
-  general: "בעל/ת מקצוע",
+  general: "בעל מקצוע",
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -609,7 +609,7 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   const p = got.row;
 
   const name = p.advertiser_name || "בעל מקצוע";
-  const role = TYPE_LABELS[String(p.advertiser_type || "")] || "בעל/ת מקצוע";
+  const role = TYPE_LABELS[String(p.advertiser_type || "")] || TYPE_LABELS.general;
   const title = [name, p.business_name].filter(Boolean).join(" · ");
   const description = clamp(
     String(p.headline || p.description || "") ||
@@ -620,6 +620,9 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   const canonical = canonicalBySlug("professional", p, key);
   const headline = String(p.headline || "").trim();
   const about = String(p.description || "").trim();
+  const personName = String(p.advertiser_name || "").trim();
+  const heading = String(p.business_name || "").trim() || personName || "בעל מקצוע";
+  const person = personName && personName !== heading ? personName : "";
 
   const service: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -643,11 +646,14 @@ async function professionalMeta(key: string): Promise<MetaResult> {
     canonical,
     jsonLd: service,
     fills: [
-      { id: "profileName", text: String(p.advertiser_name || "בעל/ת מקצוע") },
+      // אותו כלל של renderHeader בדף: הכותרת היא שם העסק, ושם האדם
+      // בשורת המשנה רק כשהוא שונה ממנה
+      { id: "profileName", text: heading },
+      { id: "profilePerson", text: person },
       { id: "profileHeadline", text: headline },
       { id: "profileDescription", text: about },
     ],
-    reveal: [...(headline ? ["profileHeadline"] : []), ...(about ? ["aboutBlock"] : [])],
+    reveal: [...(person || headline ? ["profileSub"] : []), ...(about ? ["aboutBlock"] : [])],
   };
 }
 
