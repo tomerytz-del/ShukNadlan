@@ -126,7 +126,7 @@ professional.html?slug=… → אותו view → עמוד הפרופיל המל�
 
 | איפה | מה מוצג | מאיפה |
 | --- | --- | --- |
-| רצועת "בעלי מקצוע נבחרים" בדף הבית | ארבעה אריחים ברוטציה הוגנת בין התחומים | `professional_cards_public` |
+| דף הבית: באנר "מומחה אמיתי", ומתחתיו רצועת "בעלי מקצוע נבחרים" (‏`#proStrip`) | עד ארבעה כרטיסים אופקיים, אחד מכל תחום, בסדר אקראי | `professional_cards_public` |
 | `professionals.html` | כל מי שפעיל, עם חיפוש חופשי וסינון לפי תחום ואזור | `professional_cards_public` |
 | `professional.html?slug=…` | הפרופיל המלא של אחד/ת | `professional_cards_public` |
 

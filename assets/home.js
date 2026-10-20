@@ -1851,9 +1851,10 @@ function safeExternalUrl(u){
     return /^https?:$/.test(url.protocol) ? url.href : '';
   } catch(e){ return ''; }
 }
+/* יחיד ובלי לוכסן - אותן תוויות של professionals.html ו-professional.html */
 const TYPE_LABELS = {
-  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+  mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', architect:'אדריכל',
+  interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל מקצוע',
 };
 
 /* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
@@ -1866,7 +1867,7 @@ const professionalsReady = (async function loadProfessionals(){
     if (!sb) return [];
     const { data, error } = await sb
       .from('professional_cards_public')
-      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, cover_url, click_url')
+      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, cover_url, click_url, services, phone_e164, years_experience')
       .limit(50);
     if (error) throw error;
     return data || [];
@@ -1967,6 +1968,69 @@ async function renderExpertBanner(){
   host.hidden = false;
 }
 renderExpertBanner();
+
+/* ============================================================
+   "בעלי מקצוע נבחרים" - כרטיסים אופקיים מתחת לבאנר המומחה
+   ------------------------------------------------------------
+   עד ארבעה, אחד מכל תחום, בסדר אקראי בכל טעינה - כדי שאף תחום לא
+   יחזיק את הראש קבוע. רק בעלי מקצוע אמיתיים: בלי אף אחד הרצועה hidden
+   (ההזמנה להצטרף כבר יושבת מתחת לבאנר). docs/professional-cards.md.
+   ============================================================ */
+const PRO_PHONE_RE = /^\d{9,15}$/;
+function proInitials(name){
+  return String(name || '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
+}
+function proStripCard(p){
+  const name = String(p.advertiser_name || '').trim();
+  const title = String(p.business_name || '').trim() || name || 'בעל מקצוע';
+  const key = p.slug || p.id;
+  const href = '/professional?slug=' + encodeURIComponent(key);
+  const photo = safeExternalUrl(p.creative_url);
+  const years = Number(p.years_experience) || 0;
+  const region = String(p.target_region || '').trim();
+  const pill = [TYPE_LABELS[p.advertiser_type] || TYPE_LABELS.general, years > 0 ? years + ' שנות ניסיון' : region]
+    .filter(Boolean).join(' · ');
+  // שורת המשנה: שלושה שירותים והאזור; בלי שירותים - שם האדם, אם שונה מהכותרת
+  const services = (Array.isArray(p.services) ? p.services : []).map(v => String(v || '').trim()).filter(Boolean).slice(0, 3);
+  const sub = services.length
+    ? services.join(', ') + (region ? ' · ' + region : '')
+    : (name && name !== title ? name : region);
+  const phone = PRO_PHONE_RE.test(String(p.phone_e164 || '')) ? p.phone_e164 : '';
+  const waText = ['היי' + (name ? ' ' + name : '') + ',',
+    'הגעתי דרך שוק הנדל״ן של עפולה והסביבה ואשמח לשמוע פרטים.',
+    location.origin + href].join('\n');
+  // ‏data-professional: פנייה לבעל מקצוע, לא למתווך/ת (contact_professional)
+  const wa = phone
+    ? `<a class="ps-wa" data-professional href="${escAttr('https://wa.me/' + phone + '?text=' + encodeURIComponent(waText))}" target="_blank" rel="noopener" aria-label="${escAttr('וואטסאפ ל' + title)}">` +
+        `<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.2c.2 2.9 2.7 5.4 5.8 5.8l1-1.6-2-.9-.9.8a4 4 0 0 1-1.9-1.9l.8-.9-.9-2z"/></svg>וואטסאפ</a>`
+    : '';
+  return `<article class="ps-item">` +
+    `<div class="ps-media"><span class="ps-initials" aria-hidden="true">${escAttr(proInitials(name || title))}</span>` +
+      (photo ? `<img src="${escAttr(photo)}" alt="" loading="lazy" onerror="this.remove()">` : '') + `</div>` +
+    `<div class="ps-body">` +
+      `<span class="ps-pill">${escAttr(pill)}</span>` +
+      `<h3>${escAttr(title)}</h3>` +
+      (sub ? `<p class="ps-sub">${escAttr(sub)}</p>` : '') +
+      `<div class="ps-actions"><a class="ps-go" href="${escAttr(href)}">לעמוד המלא</a>${wa}</div>` +
+    `</div></article>`;
+}
+async function renderProStrip(){
+  const host = document.getElementById('proStrip');
+  if (!host) return;
+  const pros = (await professionalsReady).filter(p => p.slug || p.id);
+  if (!pros.length) return;
+  const shuffled = pros.slice().sort(() => Math.random() - .5);
+  const picked = [], seen = new Set();
+  shuffled.forEach(p => {
+    const t = p.advertiser_type || 'general';
+    if (!seen.has(t) && picked.length < 4){ seen.add(t); picked.push(p); }
+  });
+  host.innerHTML =
+    `<div class="ps-head"><h2 id="proStripTitle">בעלי מקצוע נבחרים</h2><a href="/professionals">לכל בעלי המקצוע ←</a></div>` +
+    `<div class="ps-grid">${picked.map(proStripCard).join('')}</div>`;
+  host.hidden = false;
+}
+renderProStrip();
 
 /* ============================================================
    האנשים מאחורי העסקאות
