@@ -9,7 +9,7 @@
 
 **תחום חדש נוגע בשלושה מקומות:** ה-check ‏`ad_placements_advertiser_type_check`
 במסד (מיגרציה חדשה שיוצרת אותו מחדש עם הערך), ‏`VALID_TYPES` ב-`professional-signup`
-וב-`professional-manage`, והתוויות בכל דף שמציג תחום. ה-check לא הופיע באף
+וב-`professional-manage`, והתוויות בכל דף שמציג תחום. בשני דפי בעלי המקצוע אלה חמש רשימות משוכפלות (‏`TYPE_LABELS`, ‏`TYPE_PLURAL`, ‏`TYPE_FIELD`, ‏`PATHS`, ‏`TILE_TYPES`) - הסקיל `professionals-pages`. ה-check לא הופיע באף
 מיגרציה עד `20270129090000_professional_cleaning_category.sql` - חיפוש בריפו לא
 מוצא אותו, וההוספה של "חברת ניקיון" נפלה עליו בפעם הראשונה ב-`db push`.
 
