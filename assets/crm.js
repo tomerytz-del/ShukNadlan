@@ -6542,7 +6542,7 @@ let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
 
 async function loadAllNeighborhoods(){
   const [{ data: hoods }, { data: mc }] = await Promise.all([
-    sb.from('neighborhoods').select('id, city, name, city_id').order('name'),
+    sb.from('neighborhoods').select('id, city, name, city_id, is_planned, is_industrial').order('name'),
     marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
   ]);
   allNeighborhoods = hoods || [];
@@ -6569,92 +6569,8 @@ function marketNeighborhoods(){
   return allNeighborhoods.filter(n => !n.city_id || marketCityMap.get(n.city_id) === slug);
 }
 
-async function loadPreferences(agentId){
-  await loadAllNeighborhoods();
-
-  const { data: prefs } = await sb
-    .from('agent_lead_preferences')
-    .select('preferred_neighborhoods, preferred_property_types, preferred_deal_types, active')
-    .eq('agent_id', agentId)
-    .maybeSingle();
-
-  renderNeighborhoodCheckboxes(prefs?.preferred_neighborhoods || []);
-
-  document.querySelectorAll('.prefPropertyType').forEach(cb=>{
-    cb.checked = (prefs?.preferred_property_types || []).includes(cb.value);
-  });
-  document.querySelectorAll('.prefDealType').forEach(cb=>{
-    cb.checked = (prefs?.preferred_deal_types || []).includes(cb.value);
-  });
-  document.getElementById('prefsActive').checked = prefs ? prefs.active : true;
-  accSetCount('accPrefs', (prefs && prefs.active) ? 'פעיל' : 'כבוי');
-}
-
-/* השכונות בשוק של הסוכן/ת, ובשוק של כמה ערים (חיפה והקריות: שבע) - לפי
-   עיר, עם כותרת, כי "מרכז העיר" קיים בכמה מהן. שכונה שכבר נבחרה ואינה
-   בשוק (בחירה ישנה) נשארת מסומנת בסוף, כדי ששמירה לא תמחק אותה בשקט. */
-function renderNeighborhoodCheckboxes(selectedIds){
-  const el = document.getElementById('neighborhoodCheckboxes');
-  el.innerHTML = '';
-  const list = marketNeighborhoods();
-  const extra = allNeighborhoods.filter(n => selectedIds.includes(n.id) && !list.includes(n));
-  const byCity = new Map();
-  [...list, ...extra].forEach(n => {
-    const c = n.city || '';
-    if (!byCity.has(c)) byCity.set(c, []);
-    byCity.get(c).push(n);
-  });
-  const multi = byCity.size > 1;
-  [...byCity.keys()].sort((a, b) => a.localeCompare(b, 'he')).forEach(city => {
-    if (multi){
-      const h = document.createElement('div');
-      h.style.cssText = 'width:100%;font-size:.75rem;font-weight:700;color:var(--muted);margin:8px 0 2px';
-      h.textContent = city || 'ללא עיר';
-      el.appendChild(h);
-    }
-    byCity.get(city).forEach(n => {
-      const label = document.createElement('label');
-      label.style.cssText = 'font-weight:400;font-size:.8rem;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer';
-      label.innerHTML = `<input type="checkbox" class="prefNeighborhood" value="${esc(n.id)}" style="margin:0" ${selectedIds.includes(n.id) ? 'checked' : ''}> ${esc(n.name)}`;
-      el.appendChild(label);
-    });
-  });
-}
-
-document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!currentAgent) return;
-  const btn = document.getElementById('savePrefsBtn');
-  const feedback = document.getElementById('prefsFeedback');
-  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
-
-  const preferred_neighborhoods = Array.from(document.querySelectorAll('.prefNeighborhood:checked')).map(cb=>cb.value);
-  const preferred_property_types = Array.from(document.querySelectorAll('.prefPropertyType:checked')).map(cb=>cb.value);
-  const preferred_deal_types = Array.from(document.querySelectorAll('.prefDealType:checked')).map(cb=>cb.value);
-  const active = document.getElementById('prefsActive').checked;
-
-  const { error } = await sb.from('agent_lead_preferences').upsert({
-    agent_id: currentAgent.id,
-    preferred_neighborhoods,
-    preferred_property_types,
-    preferred_deal_types,
-    active,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'agent_id' });
-
-  btn.disabled = false; btn.textContent = 'שמירת העדפות';
-  if (error){
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאה: ' + heErr(error);
-    return;
-  }
-  feedback.style.color = 'var(--blue)';
-  feedback.textContent = 'ההעדפות נשמרו בהצלחה!';
-  accSetCount('accPrefs', active ? 'פעיל' : 'כבוי');
-  // צעד 7 במדריך ההתחלה (העדפות לידים) נסגר בשמירה הזו
-  refreshOnboarding();
-  setTimeout(()=>{ feedback.textContent=''; }, 2500);
-});
+/* העדפות הלידים (loadPreferences ושאר הטופס) עברו ל-assets/crm-settings.js,
+   כחלק מ"ההגדרות שלי" (docs/crm-settings.md). */
 
 /* ---------- WhatsApp ----------
    מספר הטלפון כאן הוא מפתח הזיהוי של הבוט: ה-Edge Function ‏whatsapp-webhook
@@ -24555,174 +24471,8 @@ async function loadNotifPrefs(agentId){
   renderNotifPrefs();
 }
 
-function renderNotifPrefs(){
-  const el = document.getElementById('notifPrefsList');
-  if (!el) return;
-  const types = notifVisibleTypes();
-  el.innerHTML = '';
-  const tierOk = assistantTierOk();
-  types.forEach(t=>{
-    const muted = notifMutedTypes.includes(t.type);
-    const row = document.createElement('div');
-    row.className = 'np-row' + (muted || !tierOk ? ' is-off' : '');
-    row.dataset.type = t.type;
-    /* שורה אחת לסוג: הטקסט, ושני מתגים בעמודות קבועות ("בפעמון",
-       "בוואטסאפ" - הכותרות פעם אחת מעל הרשימה, ‏.np-cols). כל מתג הוא
-       <label> נפרד, ולכן לחיצה על הטקסט אינה מחליפה אף אחד מהם. */
-    row.innerHTML = `
-      <span class="np-text"><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>
-      <label class="np-sw"><input type="checkbox" class="notifPrefType" value="${esc(t.type)}"
-          aria-label="${esc(t.title)} - בפעמון" ${muted ? '' : 'checked'}></label>
-      <label class="np-sw np-sw-wa"><input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
-          aria-label="${esc(t.title)} - בוואטסאפ"
-          ${notifWaOn(t) && !muted ? 'checked' : ''}
-          ${muted || !tierOk ? 'disabled' : ''}></label>`;
-    el.appendChild(row);
-  });
-  syncNotifPrefsCount();
-  syncNotifWaNote();
-}
-
-/* סוג שכובה בפעמון אינו נוצר במסד מלכתחילה (הטריגר
-   ‏notifications_apply_preferences מחזיר null), ולכן אין ממה לשלוח הודעה.
-   במקום להשאיר תיבה שלא עושה כלום — היא מכובה ומנוקה יחד עם הפעמון. */
-function syncNotifWaRow(type){
-  const row = document.querySelector(`.np-row[data-type="${type}"]`);
-  if (!row) return;
-  const bell = row.querySelector('.notifPrefType');
-  const wa = row.querySelector('.notifPrefWa');
-  const allowed = bell.checked && assistantTierOk();
-  // סוג שחזר לפעמון חוזר גם לוואטסאפ - זו ברירת המחדל (20270303090000).
-  if (allowed && wa.disabled) wa.checked = true;
-  row.classList.toggle('is-off', !allowed);
-  wa.disabled = !allowed;
-  if (!bell.checked) wa.checked = false;
-}
-
-/* ההערה אומרת את המצב בפועל ולא אזהרה כללית. סוכן/ת שסימן/ה "גם בוואטסאפ"
-   בלי מספר שמור היה/הייתה מחכה להודעה שלא תגיע לעולם — וזה בדיוק סוג
-   הכשל ששותק. */
-function syncNotifWaNote(){
-  const note = document.getElementById('notifWaNote');
-  if (!note) return;
-
-  /* המסלול קודם לכל השאר: אין טעם לומר "צריך מספר" למי שממילא אינו/ה
-     במסלול שבו הערוץ פועל. וזה נאמר גם כשאין אף סימון — אחרת תיבות
-     מכובות בלי הסבר נראות כמו תקלה. */
-  if (!assistantTierOk()){
-    note.innerHTML = 'שליחת ההתראות בוואטסאפ היא חלק מגבריאלה, העוזרת האישית, שזמינה במסלולים ' +
-      'PROFESSIONAL ו-Elite. ההתראות בפעמון עובדות בכל מסלול. ' +
-      '<a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
-    return;
-  }
-
-  const on = document.querySelectorAll('.notifPrefWa:checked').length;
-  if (!on){ note.textContent = ''; return; }
-  note.textContent = (currentAgent && currentAgent.phone)
-    ? `${plural(on, 'סוג התראה אחד יישלח', 'סוגי התראה יישלחו')} גם לוואטסאפ שלך (${currentAgent.phone}).`
-    : 'כדי שההתראות יגיעו בוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ" - בלעדיו הסימון כאן לא יעשה דבר.';
-}
-
-/* המונה על הקטגוריה: "הכול" כשאין מושתקים, ואחרת כמה מתוך כמה פעילים —
-   כדי שאפשר יהיה לראות מהדשבורד שההתראות הצטמצמו בלי לפתוח את הקטגוריה. */
-function syncNotifPrefsCount(){
-  const boxes = Array.from(document.querySelectorAll('.notifPrefType'));
-  if (!boxes.length){ accSetCount('accNotifPrefs', ''); return; }
-  const on = boxes.filter(b => b.checked).length;
-  accSetCount('accNotifPrefs', on === boxes.length ? 'הכול' : on + '/' + boxes.length);
-}
-
-/* האזנה אחת על המכיל, ולא מאזין לכל תיבה: הרשימה נבנית מחדש בכל טעינה. */
-document.getElementById('notifPrefsList').addEventListener('change', (e)=>{
-  if (e.target.classList.contains('notifPrefType')) syncNotifWaRow(e.target.value);
-  syncNotifPrefsCount();
-  syncNotifWaNote();
-});
-
-/* "סימון הכל" / "ניקוי הכל" נוגעים בפעמון, והוואטסאפ הולך אחריו דרך
-   syncNotifWaRow: ניקוי מוריד אותו (סוג שכובה בפעמון לא נוצר במסד ואין ממה
-   לשלוח), וסימון מחזיר אותו לברירת המחדל - דלוק. */
-document.getElementById('notifPrefsAllBtn').addEventListener('click', ()=>{
-  document.querySelectorAll('.notifPrefType').forEach(cb => {
-    cb.checked = true;
-    syncNotifWaRow(cb.value);
-  });
-  syncNotifPrefsCount();
-  syncNotifWaNote();
-});
-
-document.getElementById('notifPrefsNoneBtn').addEventListener('click', ()=>{
-  document.querySelectorAll('.notifPrefType').forEach(cb => {
-    cb.checked = false;
-    syncNotifWaRow(cb.value);
-  });
-  syncNotifPrefsCount();
-  syncNotifWaNote();
-});
-
-/* שמירת חצי ההתראות של הטופס (‏agent_notification_preferences). מחזירה
-   { error, text } ואינה נוגעת בכפתור: הטופס אחד ושומר שתי טבלאות, ומי
-   שמנהל את הכפתור ואת ההודעה הוא ה-submit שבסוף "התראות והודעות". */
-async function saveNotifPrefsRows(){
-  // רק סוגים שגלויים לתפקיד הזה נשקלים. כך מנהל/ת שהורד/ה לסוכן/ת רגיל/ה
-  // לא "מדליק/ה" בשקט התראות שכיבה/תה כשעדיין היה/הייתה מנהל/ת.
-  const shown = notifVisibleTypes().map(t => t.type);
-  const checked = new Set(Array.from(document.querySelectorAll('.notifPrefType:checked')).map(cb => cb.value));
-  const muted = notifMutedTypes
-    .filter(type => !shown.includes(type))
-    .concat(shown.filter(type => !checked.has(type)));
-
-  /* אותו היגיון בדיוק על ערוץ הוואטסאפ (גם הוא רשימת כבויים): סוג שאינו
-     גלוי לתפקיד הזה נשאר כפי שהוא, ומה שהוצג ולא סומן נכנס לרשימה. סוג
-     שכובה בפעמון נכנס אליה בכל מקרה - הוא לא ייווצר במסד, ותיבה שמבטיחה
-     הודעה שלא תישלח היא שקר שקשה לאתר. */
-  const waChecked = new Set(Array.from(document.querySelectorAll('.notifPrefWa:checked')).map(cb => cb.value));
-  const whatsappOff = notifWhatsappOffTypes
-    .filter(type => !shown.includes(type))
-    .concat(shown.filter(type => !(waChecked.has(type) && checked.has(type))));
-
-  const { error } = await sb.from('agent_notification_preferences').upsert({
-    agent_id: currentAgent.id,
-    muted_types: muted,
-    whatsapp_off_types: whatsappOff,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'agent_id' });
-  if (error) return { error };
-
-  notifMutedTypes = muted;
-  notifWhatsappOffTypes = whatsappOff;
-  syncNotifPrefsCount();
-  syncNotifWaNote();
-  const bits = [muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'כל ההתראות פעילות'];
-  const waOn = notifVisibleTypes().filter(t => !muted.includes(t.type)
-    && !whatsappOff.includes(t.type)).length;
-  if (waOn) bits.push(waOn + ' מהן גם בוואטסאפ');
-  return { text: bits.join(', ') };
-}
-
-/* כפתור אחד לשתי הטבלאות. השמירות במקביל ואינן תלויות זו בזו: כשל באחת
-   לא מבטל את השנייה, וההודעה אומרת איזו נכשלה - "שגיאה" כללית אחרי
-   שחצי נשמר הייתה שולחת לשמור שוב משהו שכבר נשמר. */
-document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!currentAgent) return;
-  const btn = document.getElementById('saveNotifPrefsBtn');
-  const feedback = document.getElementById('notifPrefsFeedback');
-  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
-
-  const [notif, rem] = await Promise.all([saveNotifPrefsRows(), saveReminderPrefs()]);
-
-  btn.disabled = false; btn.textContent = 'שמירה';
-  const failed = [notif.error && 'ההתראות', rem.error && 'התזכורות'].filter(Boolean);
-  if (failed.length){
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שמירת ' + failed.join(' ו') + ' נכשלה: ' + heErr(notif.error || rem.error);
-    return;
-  }
-  feedback.style.color = 'var(--blue)';
-  feedback.textContent = 'נשמר - ' + notif.text + '. תזכורות: ' + rem.text + '.';
-  setTimeout(()=>{ feedback.textContent=''; }, 3500);
-});
+/* הציור והשמירה של "התראות והודעות" (renderNotifPrefs, saveNotifPrefsRows,
+   syncNotifWaNote) ב-assets/crm-settings.js. */
 
 /* ==========================================================================
    יומן ומשימות
@@ -25591,81 +25341,8 @@ function renderReminders(){
   accSetCount('accReminders', reminderFindings.length);
 }
 
-function renderReminderPrefs(){
-  const cadence = document.getElementById('rmCadence');
-  if (!cadence) return;
-
-  document.getElementById('rmChEmail').checked    = reminderPrefs.channels.includes('email');
-  document.getElementById('rmChWhatsapp').checked = reminderPrefs.channels.includes('whatsapp');
-  cadence.value = ['daily','weekly','off'].includes(reminderPrefs.cadence) ? reminderPrefs.cadence : 'weekly';
-  document.getElementById('rmCap').value = reminderPrefs.max_per_30_days;
-
-  // שתי רשימות של 24 שעות. נבנות בקוד ולא ב-HTML כדי שלא יהיו 48 שורות
-  // ידניות שמישהו יצטרך לתחזק.
-  [['rmQuietFrom', reminderPrefs.quiet_from_hour], ['rmQuietTo', reminderPrefs.quiet_to_hour]]
-    .forEach(([id, value])=>{
-      const sel = document.getElementById(id);
-      if (sel.options.length !== 24){
-        sel.innerHTML = '';
-        for (let h = 0; h < 24; h++){
-          const o = document.createElement('option');
-          o.value = String(h);
-          o.textContent = String(h).padStart(2,'0') + ':00';
-          sel.appendChild(o);
-        }
-      }
-      sel.value = String(value);
-    });
-
-  // שבעה כפתורים בשורה אחת: האות של היום, והשם המלא לקורא המסך
-  const days = document.getElementById('rmQuietDays');
-  if (days){
-    days.innerHTML = REMINDER_WEEKDAYS.map((name, d) =>
-      `<label class="np-day" title="${esc(name)}"><input type="checkbox" class="rmQuietDay" value="${d}"
-        aria-label="${esc(name)}" ${reminderPrefs.quiet_days.includes(d) ? 'checked' : ''}><span>${esc(REMINDER_WEEKDAY_SHORT[d])}</span></label>`).join('');
-  }
-
-  renderReminderKinds();
-  syncReminderFoldSum();
-  syncReminderChannelsNote();
-}
-
-function renderReminderKinds(){
-  const el = document.getElementById('reminderKindsList');
-  if (!el) return;
-  el.innerHTML = '';
-  // אותה שורה של סוגי ההתראות (‏.np-row), עם מתג אחד
-  REMINDER_KINDS.forEach(k=>{
-    const row = document.createElement('div');
-    row.className = 'np-row np-row-1';
-    row.innerHTML = `
-      <span class="np-text"><span class="np-title">${esc(k.title)}</span><span class="np-sub">${esc(k.sub)}</span></span>
-      <label class="np-sw"><input type="checkbox" class="rmKind" value="${esc(k.kind)}"
-          aria-label="${esc(k.title)}" ${reminderPrefs.muted_kinds.includes(k.kind) ? '' : 'checked'}></label>`;
-    el.appendChild(row);
-  });
-}
-
-/* ההערה מתחת לערוצים אומרת את המצב בפועל ולא אזהרה כללית: מה קורה כשאין אף
-   ערוץ, ומה חסר כדי שהוואטסאפ יעבוד. סוכן/ת שסימן/ה וואטסאפ בלי מספר מאומת
-   היה/הייתה מחכה להודעה שלא תגיע לעולם. */
-function syncReminderChannelsNote(){
-  const note = document.getElementById('rmChannelsNote');
-  if (!note) return;
-  const email = document.getElementById('rmChEmail').checked;
-  const wa = document.getElementById('rmChWhatsapp').checked;
-  const parts = [];
-  if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה - הרשימה למעלה ממשיכה להתעדכן כרגיל.');
-  // בלי מספר המסד שולח במייל במקום (‏agent_reminder_due_agents), והטופס
-  // אומר את זה - אחרת סימון הוואטסאפ נראה כאילו הוא עובד.
-  if (wa && !(currentAgent && currentAgent.phone))
-    parts.push(email
-      ? 'לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ".'
-      : 'לוואטסאפ צריך מספר שמור בקטגוריית "גבריאלה בוואטסאפ" - עד שיישמר, התזכורות יישלחו במייל.');
-  if (email && !(currentAgent && currentAgent.email))
-    parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
-  note.textContent = parts.join(' ');
-}
+/* הציור של הגדרות סיכום התזכורות ושעות השקט (renderReminderPrefs) ב-
+   assets/crm-settings.js. */
 
 /* "ההודעה האחרונה נשלחה ב…" — הדבר היחיד שאי אפשר להסיק מהטופס עצמו, והוא
    מה שעונה על "האם זה בכלל עובד". קריאה נפרדת וקצרה, ושגיאה בה שותקת: זו
@@ -25692,87 +25369,7 @@ async function loadReminderLastSent(agentId){
     : 'ההודעה האחרונה נרשמה ב-' + new Date(when).toLocaleString('he-IL') + ' ולא יצאה באף ערוץ.';
 }
 
-['rmChEmail','rmChWhatsapp'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', syncReminderChannelsNote);
-});
-
-/* שמירת חצי התזכורות של "התראות והודעות" (‏agent_reminder_preferences),
-   כולל שעות השקט והימים השקטים שחלים גם על ההתראות. מחזירה { error, text }.
-
-   ‏**לא שומרת לפני שהטופס צויר:** שעות השקט הן <select> שמתמלא רק ב-
-   renderReminderPrefs(). שמירה לפני כן הייתה קוראת '' → 0 בשני השדות -
-   כלומר "בלי שעות שקט" - ודורסת בשקט את מה שבחרו, רק כי לחצו "שמירה"
-   על ההתראות. */
-async function saveReminderPrefs(){
-  if (document.getElementById('rmQuietFrom').options.length !== 24)
-    return { text: 'לא נטענו, לא שונו' };
-
-  const channels = [];
-  if (document.getElementById('rmChEmail').checked) channels.push('email');
-  if (document.getElementById('rmChWhatsapp').checked) channels.push('whatsapp');
-
-  const checked = new Set(Array.from(document.querySelectorAll('.rmKind:checked')).map(cb => cb.value));
-  /* אותו היגיון כמו בהתראות: נשמרת רשימת ה**מושתקים**, וסוג שלא הוצג
-     בטופס (סוג שנוסף במסד וטרם נרשם ב-REMINDER_KINDS) שומר על מצבו הקודם
-     ולא "נדלק" בשקט בשמירה. */
-  const shown = REMINDER_KINDS.map(k => k.kind);
-  const muted = reminderPrefs.muted_kinds
-    .filter(kind => !shown.includes(kind))
-    .concat(shown.filter(kind => !checked.has(kind)));
-
-  // ‏clamp ולא הסתמכות על האילוץ במסד: 200 בשדה מספרי היה חוזר כשגיאת
-  // constraint מנוסחת באנגלית, ואין שום סיבה שהסוכן/ת יראה/תראה אותה.
-  const cap = Math.min(60, Math.max(0, Math.round(Number(document.getElementById('rmCap').value) || 0)));
-
-  const payload = {
-    agent_id: currentAgent.id,
-    channels,
-    muted_kinds: muted,
-    cadence: document.getElementById('rmCadence').value,
-    max_per_30_days: cap,
-    quiet_from_hour: Number(document.getElementById('rmQuietFrom').value),
-    quiet_to_hour: Number(document.getElementById('rmQuietTo').value),
-    quiet_days: Array.from(document.querySelectorAll('.rmQuietDay:checked')).map(cb => Number(cb.value)),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await sb.from('agent_reminder_preferences')
-    .upsert(payload, { onConflict: 'agent_id' });
-  if (error) return { error };
-
-  reminderPrefs = {
-    channels, muted_kinds: muted, cadence: payload.cadence,
-    max_per_30_days: cap,
-    quiet_from_hour: payload.quiet_from_hour,
-    quiet_to_hour: payload.quiet_to_hour,
-    quiet_days: payload.quiet_days,
-  };
-  document.getElementById('rmCap').value = cap;
-  syncReminderFoldSum();
-  // הרשימה נצבעת מחדש כי ההשתקה משנה את המצב של השורות (‏is-muted), לא את
-  // תוכנן
-  renderReminders();
-
-  return { text: payload.cadence === 'off' || !channels.length || cap === 0
-    ? 'לא יישלחו'
-    : (payload.cadence === 'daily' ? 'עד אחת ביום' : 'עד אחת בשבוע') + ', לכל היותר ' + cap + ' ב-30 יום' };
-}
-
-/* השורה שעל "סיכום תזכורות" המקופל: מה מוגדר עכשיו, בלי לפתוח. */
-function syncReminderFoldSum(){
-  const el = document.getElementById('rmFoldSum');
-  if (!el) return;
-  const cadence = document.getElementById('rmCadence').value;
-  const ch = [
-    document.getElementById('rmChWhatsapp').checked ? 'וואטסאפ' : '',
-    document.getElementById('rmChEmail').checked ? 'מייל' : '',
-  ].filter(Boolean);
-  el.textContent = cadence === 'off' || !ch.length ? 'כבוי'
-    : (cadence === 'daily' ? 'יומי' : 'שבועי') + ' · ' + ch.join(' + ');
-}
-['rmCadence','rmChEmail','rmChWhatsapp'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', syncReminderFoldSum);
-});
+/* השמירה (saveReminderPrefs) ב-assets/crm-settings.js. */
 
 /* ==========================================================================
    דשבורד הביצועים של הסוכן/ת
@@ -26016,9 +25613,11 @@ const NAV_GROUPS = [
      כדי שהמקטעים, navAccVisible ובדיקת check_crm_nav ימשיכו לראות מקור
      אמת אחד. */
   { key:'account', label:'הגדרות חשבון', icon:'cog', placement:'profile', items:[
+    /* "ההגדרות שלי" (docs/crm-settings.md): ה-id נשאר accPrefs, כי העדפות
+       הלידים יושבות שם וכל הקישורים אליהן (מדריך ההתחלה, המנטור) ממשיכים */
+    { acc:'accPrefs',         label:'ההגדרות שלי',       icon:'cog',      tab:'more', section:'account' },
     { acc:'accProfile',       label:'פרטים אישיים ורישיון', icon:'user',  tab:'more', section:'account' },
     { acc:'accWallet',        label:'מנוי וארנק',        icon:'wallet',   tab:'more', section:'account' },
-    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more', section:'work' },
     { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more', section:'work' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more', section:'work' },
     { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more', section:'work' },

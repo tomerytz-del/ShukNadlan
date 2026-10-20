@@ -234,6 +234,13 @@ document.addEventListener('click', e => {
       });
     }
     uiFoldSet(fold, open);
+    return;
+  }
+  // לחיצה על הכותרת עצמה (לא על מתג או כפתור שבה) פותחת וסוגרת כמו החץ
+  const head = e.target.closest('.ui-fold-head');
+  if (head && !e.target.closest('button, a, input, select, textarea, label')){
+    const btn = head.querySelector('[data-ui-fold]');
+    if (btn) btn.click();
   }
 });
 

@@ -6079,6 +6079,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-scope{color:var(--nv-ink);font-family:'Heebo',system-ui,sans-serif}
   .ui-scope h1,.ui-scope h2{color:var(--nv-ink)}
   .ui-scope :is(button,a,select,input,[tabindex]):focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+  /* כל רכיב כאן מגדיר display (flex, grid), וזה גובר על [hidden] של הדפדפן -
+     באנר "מושהה" שהיה מוצג ליד מתג דלוק. כלל אחד במקום כלל לכל רכיב */
+  .ui-scope [hidden],.ui-scope[hidden]{display:none!important}
 
   /* כרטיס, וכרטיס "hero" כהה (יתרה, סיכום, התקדמות) */
   .ui-card{background:#fff;border:1px solid var(--nv-line);border-radius:20px;padding:24px 28px}
@@ -6140,6 +6143,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     align-items:center;justify-content:flex-start;background:#C5CCD9;box-sizing:content-box}
   .ui-switch::before{content:"";width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(14,26,51,.3);
     transition:transform .15s ease}
+  /* המסלול 38px כמו בעיצוב, ושטח הלחיצה 50px - שכבה שקופה סביבו */
+  .ui-switch{position:relative}
+  .ui-switch::after{content:"";position:absolute;inset:-6px -4px}
   .ui-switch[aria-pressed="true"]{background:var(--nv-accent)}
   /* RTL: ההתחלה היא ימין, ולכן "דלוק" זז שמאלה */
   .ui-switch[aria-pressed="true"]::before{transform:translateX(-24px)}
@@ -6223,6 +6229,113 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* שדה חסר: מסגרת זהב ותגית "חסר" */
   .ui-missing{border-color:var(--nv-gold)!important;box-shadow:0 0 0 3px rgba(224,184,74,.25)}
 
+  .ui-fold-head{cursor:pointer}
+  button.ui-fold-foot{width:100%;border-inline:0;border-bottom:0;font:inherit;text-align:start;cursor:pointer}
+  button.ui-fold-foot:hover{background:var(--nv-ground)}
+
+  /* ---------- "ההגדרות שלי" ו"התראות והודעות" (assets/crm-settings.js) ---------- */
+  .set-hub,.np2{display:flex;flex-direction:column;gap:20px}
+  .set-profile{display:flex;flex-wrap:wrap;align-items:center;gap:16px;width:100%;text-align:start;font:inherit;color:var(--nv-ink);
+    background:#fff;border:1px solid var(--nv-line);border-radius:20px;padding:20px 24px;cursor:pointer}
+  .set-profile:hover{border-color:#C9D6F7}
+  .set-profile-img{width:64px;height:64px;flex:none;border-radius:50%;object-fit:cover}
+  .set-profile-img.is-empty{background:var(--nv-navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700}
+  .set-profile-main{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .set-profile-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13px}
+  .set-profile-name{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:700}
+  .set-bar{display:block;height:8px;border-radius:999px;background:var(--nv-line-soft);overflow:hidden}
+  .set-bar>span{display:block;height:100%;border-radius:999px;background:var(--nv-accent)}
+  .set-profile-state{font-size:13px;font-weight:600;color:var(--nv-ok)}
+  .set-profile-state.is-warn{color:var(--nv-warn)}
+  .set-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .set-tile{display:flex;gap:12px;align-items:center;min-height:44px;padding:16px;border-radius:16px;border:1px solid var(--nv-line);
+    background:#fff;color:var(--nv-ink);font:inherit;text-align:start;cursor:pointer}
+  .set-tile:hover{border-color:#C9D6F7}
+  .set-tile-ico{width:40px;height:40px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    background:var(--nv-accent-soft);color:var(--nv-accent)}
+  .set-tile-ico.is-ok{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .set-tile-ico.is-warn{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .set-tile-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .set-tile-label{font-size:13px;color:var(--nv-muted)}
+  .set-tile-value{font-size:15px;font-weight:700}
+  .set-tile-value.is-ok{color:var(--nv-ok)}
+  .set-tile-value.is-warn{color:var(--nv-warn)}
+  .set-switch-label{font-size:15px;font-weight:600}
+  .set-block{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .set-block-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 12px}
+  .set-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px}
+  .set-hood-group{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .set-group-head{display:flex;align-items:center;gap:10px}
+  .set-group-title{font-size:13px;font-weight:700;color:var(--nv-muted)}
+  .set-group-n{font-size:12px;font-weight:600;color:var(--nv-muted);background:#F1F3F8;border-radius:999px;padding:2px 8px}
+  .set-group-line{flex:1;height:1px;background:var(--nv-line-soft)}
+  .set-manage{display:flex;flex-direction:column;gap:4px}
+  .set-manage .set-block-head{margin-bottom:6px}
+  .set-foot-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+
+  /* שעות השקט */
+  .set-quiet{display:flex;flex-direction:column;gap:16px}
+  .set-quiet-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  .set-field{display:flex;flex-direction:column;gap:6px}
+  .set-field>label,.set-field-label{font-size:13px;font-weight:600;color:var(--nv-muted)}
+  .set-select{min-height:48px;min-width:130px;padding:0 14px;border-radius:12px;border:1px solid var(--nv-chip-line);background:#fff;
+    font:inherit;font-size:17px;font-weight:600;color:var(--nv-ink)}
+  .set-num{min-width:0;width:120px}
+  .set-quiet-viz{flex:1 1 260px;display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
+  .set-quiet-bar{position:relative;height:12px;border-radius:999px;background:var(--nv-ok-soft);overflow:hidden}
+  .set-quiet-bar>span{position:absolute;top:0;bottom:0;background:var(--nv-navy)}
+  .set-quiet-scale{display:flex;justify-content:space-between;font-size:12px;color:var(--nv-muted)}
+  .set-quiet-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--nv-muted)}
+  .set-quiet-legend>span{display:inline-flex;align-items:center;gap:6px}
+  .set-quiet-legend i{width:10px;height:10px;border-radius:3px;background:#B9E2C9}
+  .set-quiet-legend i.is-quiet{background:var(--nv-navy)}
+  .set-days{display:flex;flex-wrap:wrap;gap:8px}
+  .set-day{width:48px;height:48px;border-radius:14px;border:1px solid var(--nv-chip-line);background:#fff;color:var(--nv-chip-ink);
+    font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+  .set-day[aria-pressed="true"]{border-color:var(--nv-navy);background:var(--nv-navy);color:#fff;font-weight:700}
+
+  /* קיצור הדרך בראש "הלידים שלי" */
+  .lead-prefs-link{min-height:56px;border:1px solid var(--nv-line);border-radius:14px;background:#fff;padding:8px 14px;margin-bottom:12px}
+  .lead-prefs-link:hover{border-color:#C9D6F7}
+
+  /* התראות והודעות */
+  .np2-sec{display:flex;flex-direction:column;gap:14px}
+  .np2-presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .np2-preset{display:flex;align-items:flex-start;gap:10px;min-height:64px;padding:12px 14px;border-radius:14px;border:1px solid var(--nv-chip-line);
+    background:#fff;color:var(--nv-ink);font:inherit;text-align:start;cursor:pointer}
+  .np2-preset[aria-checked="true"]{border:2px solid var(--nv-accent);background:var(--nv-accent-soft);padding:11px 13px}
+  .np2-preset:disabled{opacity:.55;cursor:not-allowed}
+  .np2-dot{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid #A7B0C2;background:#fff;margin-top:1px}
+  .np2-preset[aria-checked="true"] .np2-dot{border:6px solid var(--nv-accent)}
+  .np2-preset-t{display:block;font-size:15px;font-weight:700}
+  .np2-preset-h{display:block;font-size:13px;color:var(--nv-muted);margin-top:2px}
+  .np2 .is-warn{color:var(--nv-warn);font-weight:600}
+  .np2-types{display:flex;flex-direction:column;gap:12px}
+  .np2-legend{display:inline-flex;gap:14px;font-size:13px;color:var(--nv-muted)}
+  .np2-legend>span{display:inline-flex;align-items:center;gap:6px}
+  .np2-mini{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center}
+  .np2-mini.is-bell{background:var(--nv-accent-soft);color:var(--nv-accent)}
+  .np2-mini.is-wa{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  #npGroups{display:flex;flex-direction:column;gap:10px}
+  .np2-group{border-radius:14px}
+  .np2-group.is-open{border-color:#C9D6F7;background:#FAFBFE}
+  .np2-group .ui-fold-head{padding:16px 20px}
+  .np2-group .ui-fold-body{padding:4px 20px 12px;gap:0}
+  .np2-row,.np2-kind{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--nv-line-soft)}
+  .np2-row:first-child{border-top:0}
+  .np2-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .np2-title{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+  .np2-sub{font-size:13px;color:var(--nv-muted);line-height:1.5}
+  .np2-ch{display:flex;gap:8px;flex:none}
+  .np2-ch-btn{width:44px;height:44px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    border:1px dashed #C5CCD9;background:#fff;color:#8D97AB;padding:0}
+  .np2-ch-btn.is-bell[aria-pressed="true"]{border:0;background:var(--nv-accent-soft);color:var(--nv-accent)}
+  .np2-ch-btn.is-wa[aria-pressed="true"]{border:0;background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .np2-ch-btn:disabled{opacity:.45;cursor:not-allowed}
+  .np2-rem{display:flex;flex-direction:column;gap:16px;padding:4px 0 16px}
+  .np2-kinds{display:flex;flex-direction:column}
+  .np2-kind:first-child{border-top:0}
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -6235,6 +6348,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       margin-inline:-12px;padding-inline:12px;-webkit-overflow-scrolling:touch}
     .ui-filters::-webkit-scrollbar,.ui-chips.ui-chips--scroll::-webkit-scrollbar{display:none}
     .ui-filters>*,.ui-chips--scroll>*{flex:none}
+    .set-profile{padding:16px}
+    .set-profile .ui-btn{width:100%}
+    .np2-group .ui-fold-head{padding:14px 16px}
+    .np2-group .ui-fold-body{padding:4px 16px 12px}
+    .set-quiet-row>.set-field{flex:1 1 120px}
+    .set-select{min-width:0;width:100%}
+    .set-num{width:120px}
+    .set-day{width:44px;height:44px}
   }
   @media (prefers-reduced-motion:reduce){
     .ui-switch::before,.ui-icon-btn svg{transition:none}
@@ -8006,6 +8127,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
              מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
              מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
+        <!-- קיצור דרך להעדפות הלידים (החלטה של תומר, 20.10.2026). ההגדרות
+             עצמן ב"ההגדרות שלי" (accPrefs); השורה רק מראה מצב ופותחת אותן -->
+        <button type="button" class="ui-row-link lead-prefs-link ui-scope" id="leadPrefsLink">
+          <span><span class="ui-row-title">הגדרות לידים</span><span class="ui-row-sub" id="leadPrefsLinkSub"></span></span>
+          <span class="ui-link" aria-hidden="true">עריכה ←</span>
+        </button>
         <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
           <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
           <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
@@ -9557,42 +9684,109 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
+    <!-- ---------- ההגדרות שלי ----------
+         המסך שמרכז את ההגדרות האישיות (docs/handoff/crm-settings-redesign,
+         סעיף 3.1; docs/crm-settings.md). ‏id נשאר accPrefs: מדריך ההתחלה,
+         המנטור וקישורים עמוקים מגיעים לכאן בשביל העדפות הלידים, והן כאן -
+         בחלק המקופל הראשון, שנפתח מעצמו למי שעוד לא הגדיר/ה אותן.
+         הכל נבנה ב-assets/crm-settings.js, מהרכיבים של assets/crm-ui.js. -->
     <details class="acc" id="accPrefs">
       <summary>
-        <span class="acc-title">העדפות לידים אישיות</span>
+        <span class="acc-title">ההגדרות שלי</span>
         <span class="acc-count" id="accPrefsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">קובע לאילו לידי בעל-נכס (מוכר/משכיר) תתאים ותקבל התראה. ללא הגדרה כאן, לא תקבל לידים כאלה כלל.</p>
-    <form id="prefsForm" style="margin-bottom:0">
-      <div class="field">
-        <label>שכונות מועדפות</label>
-        <div id="neighborhoodCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-        <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">הרשימה מנוהלת על ידי הנהלת הפלטפורמה בלבד</p>
-      </div>
-      <div class="field">
-        <label>סוגי נכס</label>
-        <div style="display:flex;flex-wrap:wrap;gap:12px">
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="דירה"> דירה</label>
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="בית פרטי"> בית פרטי</label>
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="דירת גן"> דירת גן</label>
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="מגרש"> מגרש</label>
+        <div class="ui-scope set-hub" id="setHub">
+          <p class="ui-hint"><span>כאן קובעים אילו לידים מגיעים, מתי אפשר להפריע ואילו חיבורים פעילים.</span></p>
+
+          <!-- הפרופיל: אחוז המילוי ומה חסר (profileChecks ב-crm-settings.js) -->
+          <button type="button" class="set-profile" id="setProfileCard" data-goto="accProfile"></button>
+
+          <!-- מצב החיבורים: מספרים, יומן Google, ארנק. קישורים ולא הגדרות -->
+          <nav class="set-tiles" id="setTiles" aria-label="מצב החיבורים"></nav>
+
+          <!-- העדפות לידים מבעלי נכסים (agent_lead_preferences). המתג בכותרת
+               נשמר מיד ועובד גם כשהחלק סגור; השאר דרך פס השמירה -->
+          <section class="ui-fold" id="setLeadPrefs" data-ui-fold-group="settings" aria-labelledby="setLeadTitle">
+            <div class="ui-fold-head">
+              <div class="ui-fold-title">
+                <span class="ui-badge-ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span>
+                <div><h2 class="ui-h2" id="setLeadTitle">העדפות לידים אישיות</h2><div class="ui-fold-summary" id="setLeadSummary"></div></div>
+              </div>
+              <div class="ui-fold-tools">
+                <span class="set-switch-label" id="setOwnerLabel">לידים מבעלי נכסים</span>
+                <button type="button" class="ui-switch" data-ui-switch id="setOwnerSwitch" aria-pressed="true" aria-labelledby="setOwnerLabel"></button>
+                <span class="ui-tag ui-tag--ok" id="setOwnerTag">פעיל</span>
+                <button type="button" class="ui-icon-btn" data-ui-fold aria-expanded="false" aria-controls="setLeadPrefsBody" aria-label="פתיחה וסגירה של העדפות הלידים"><svg class="ui-chev" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+            </div>
+            <div class="ui-fold-body" id="setLeadPrefsBody" hidden>
+              <div class="ui-banner ui-banner--info" id="setLeadInfo"><span class="ui-banner-text" id="setLeadInfoText"></span></div>
+              <div class="ui-banner ui-banner--warn" id="setLeadPaused" hidden><span class="ui-banner-text">קבלת הלידים מושהית. לידים מבעלי נכסים לא יגיעו עד להפעלה מחדש, וההגדרות נשמרות.</span></div>
+
+              <div class="set-block">
+                <div class="set-block-head"><h3 class="ui-h3">שכונות ואזורים</h3><span class="ui-count" id="setHoodCount"></span></div>
+                <div id="setHoodGroups"></div>
+                <p class="ui-hint"><span>חסר אזור? כתבו לנו דרך "עזרה" ונוסיף אותו.</span></p>
+              </div>
+
+              <div class="set-cols">
+                <div class="set-block">
+                  <div class="set-block-head"><h3 class="ui-h3" id="setTypesTitle">סוגי נכס</h3><span class="ui-count" id="setTypesCount"></span></div>
+                  <div class="ui-chips" id="setTypes" role="group" aria-labelledby="setTypesTitle"></div>
+                </div>
+                <div class="set-block">
+                  <div class="set-block-head"><h3 class="ui-h3" id="setDealsTitle">סוגי עסקה</h3><span class="ui-count" id="setDealsCount"></span></div>
+                  <div class="ui-chips" id="setDeals" role="group" aria-labelledby="setDealsTitle"></div>
+                </div>
+              </div>
+
+              <div class="ui-savebar">
+                <span class="ui-savebar-text" role="status"></span>
+                <div class="ui-savebar-acts">
+                  <button type="button" class="ui-btn ui-btn--secondary" data-ui-reset>ביטול שינויים</button>
+                  <button type="button" class="ui-btn" data-ui-save>שמירת העדפות</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- שעות השקט והימים השקטים (agent_reminder_preferences). אותו עורך
+               יושב גם בראש "התראות והודעות"; שמירה כאן כותבת רק את שלושת
+               השדות של השקט -->
+          <section class="ui-fold" id="setQuiet" data-ui-fold-group="settings" aria-labelledby="setQuietTitle">
+            <div class="ui-fold-head">
+              <div class="ui-fold-title">
+                <span class="ui-badge-ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+                <div><h2 class="ui-h2" id="setQuietTitle">התראות והודעות</h2><div class="ui-fold-summary" id="setQuietSummary"></div></div>
+              </div>
+              <div class="ui-fold-tools">
+                <button type="button" class="ui-icon-btn" data-ui-fold aria-expanded="false" aria-controls="setQuietBody" aria-label="פתיחה וסגירה של שעות השקט"><svg class="ui-chev" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+            </div>
+            <div class="ui-fold-body" id="setQuietBody" hidden>
+              <div id="setQuietEditor"></div>
+              <div class="ui-savebar">
+                <span class="ui-savebar-text" role="status"></span>
+                <div class="ui-savebar-acts">
+                  <button type="button" class="ui-btn ui-btn--secondary" data-ui-reset>ביטול שינויים</button>
+                  <button type="button" class="ui-btn" data-ui-save>שמירת שעות השקט</button>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="ui-fold-foot" data-goto="accNotifPrefs">
+              <span class="set-foot-text"><span class="ui-row-title" id="setNotifSummary">כל סוגי ההתראות</span><span class="ui-row-sub">לידים, יומן, עסקאות וביקורות - מה מגיע ולאן</span></span>
+              <span class="ui-link" aria-hidden="true">לכל ההתראות ←</span>
+            </button>
+          </section>
+
+          <!-- ניהול המשרד: למנהל/ת משרד בלבד (navAccVisible) -->
+          <section class="ui-card set-manage" id="setManage" aria-labelledby="setManageTitle" hidden>
+            <div class="set-block-head"><h2 class="ui-h2" id="setManageTitle">ניהול המשרד</h2><span class="ui-tag ui-tag--navy">מנהל/ת משרד</span></div>
+            <div id="setManageRows"></div>
+          </section>
         </div>
-      </div>
-      <div class="field">
-        <label>סוגי עסקה</label>
-        <div style="display:flex;gap:12px">
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefDealType" value="sale"> מכירה</label>
-          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefDealType" value="rent"> השכרה</label>
-        </div>
-      </div>
-      <div class="field">
-        <label style="font-weight:400;font-size:.85rem"><input type="checkbox" id="prefsActive" checked> פעיל - קבלת לידי בעל-נכס מופעלת</label>
-      </div>
-      <button type="submit" class="btn btn-gold btn-block" id="savePrefsBtn">שמירת העדפות</button>
-      <div id="prefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-    </form>
       </div>
     </details>
 
@@ -10059,15 +10253,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- ---------- התראות והודעות ----------
-         מקום אחד לשאלה "מה מגיע אליי, לאן ומתי". עד 10.2026 היו כאן שתי
-         קטגוריות: "ניהול התראות" (הפעמון ו"גם בוואטסאפ") ו"תזכורות וטיפים"
-         (שבה ישבו גם שעות השקט - כי שם נולדה הטבלה, ‏agent_reminder_preferences).
-         שעות השקט והימים השקטים חלים על שני השולחים, ולכן הם ראשונים כאן.
+         מקום אחד לשאלה "מה מגיע אליי, לאן ומתי" (docs/crm-settings.md;
+         העיצוב: docs/handoff/crm-settings-redesign, סעיף 3.6). שלושה חלקים:
+         שעות השקט (אותו עורך כמו ב"ההגדרות שלי"), "מה נשלח לוואטסאפ" - שלוש
+         בחירות במקום 42 מתגים - והסוגים בחמש קבוצות, פעמון וצ'אט לכל סוג.
 
-         שתי טבלאות במסד, וטופס אחד: השמירה כותבת את שתיהן במקביל
-         (‏saveNotifPrefsRows ו-saveReminderPrefs ב-crm.js). רשימת הסוגים
-         נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש יופיע כאן
-         אוטומטית. -->
+         שתי טבלאות במסד ופס שמירה אחד: השמירה כותבת את שתיהן במקביל
+         (saveNotifPrefsRows ו-saveReminderPrefs ב-assets/crm-settings.js).
+         הסוגים נבנים מ-NOTIF_TYPES, כדי שסוג חדש יופיע כאן אוטומטית. -->
     <details class="acc" id="accNotifPrefs">
       <summary>
         <span class="acc-title">התראות והודעות</span>
@@ -10075,74 +10268,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">מה מגיע אליך, לאן ומתי. <strong>התראות</strong> הן אירועים (ליד חדש, ביקורת, עסקה), <strong>תזכורות</strong> הן סיכום של מה כדאי לטפל בו במודעות שלך.</p>
-    <form id="notifPrefsForm" style="margin-bottom:0">
+        <div class="ui-scope np2" id="npScreen">
+          <p class="ui-hint"><span>מה מגיע אליך, לאן ומתי.</span><span>התראות הן אירועים (ליד, ביקורת, עסקה), ותזכורות הן סיכום של מה כדאי לטפל בו.</span></p>
 
-      <section class="np-sec">
-        <h3 class="np-h">🌙 מתי לא להפריע</h3>
-        <div class="rm-quiet">
-          <span>בין</span>
-          <select class="rm-sel" id="rmQuietFrom" aria-label="תחילת שעות השקט"></select>
-          <span>ל-</span>
-          <select class="rm-sel" id="rmQuietTo" aria-label="סוף שעות השקט"></select>
-        </div>
-        <div class="np-days" id="rmQuietDays" role="group" aria-label="ימים שקטים"></div>
-        <p class="rm-note">בשעות ובימים האלה (שעון ישראל) לא יוצאות הודעות בוואטסאפ ובמייל - הן ממתינות לאחריהם. הפעמון בדשבורד ותזכורות לפגישות מהיומן לא מושפעים. שעה זהה בשני השדות = בלי שעות שקט.</p>
-      </section>
+          <section class="ui-card np2-sec" aria-labelledby="npQuietTitle">
+            <h3 class="ui-h3" id="npQuietTitle">מתי לא להפריע</h3>
+            <div id="npQuietEditor"></div>
+          </section>
 
-      <section class="np-sec">
-        <h3 class="np-h">🔔 התראות</h3>
-        <div class="np-cols" aria-hidden="true"><span></span><span>בפעמון</span><span>בוואטסאפ</span></div>
-        <div id="notifPrefsList" class="np-list"></div>
-        <p class="rm-note" id="notifWaNote"></p>
-        <div class="np-bulk">
-          <button type="button" class="np-link" id="notifPrefsAllBtn">הפעלת הכל</button>
-          <button type="button" class="np-link" id="notifPrefsNoneBtn">כיבוי הכל</button>
-        </div>
-        <p class="rm-note">כיבוי בפעמון מכבה רק את ההתראה: הליד עדיין נכנס והעסקה עדיין נרשמת. בוואטסאפ ההודעות מקובצות (הכול מחמש הדקות האחרונות בהודעה אחת) ומוגבלות בתקרה יומית.</p>
-      </section>
+          <section class="ui-card np2-sec" aria-labelledby="npWaTitle">
+            <div class="set-block-head"><h3 class="ui-h3" id="npWaTitle">מה נשלח לוואטסאפ</h3><span class="ui-count" id="npWaCount"></span></div>
+            <div class="np2-presets" id="npWaPresets" role="radiogroup" aria-labelledby="npWaTitle">
+              <button type="button" class="np2-preset" role="radio" aria-checked="false" data-preset="all"><span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">הכל</span><span class="np2-preset-h">כל סוגי ההתראות גם בוואטסאפ</span></span></button>
+              <button type="button" class="np2-preset" role="radio" aria-checked="false" data-preset="urgent"><span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">רק דחוף</span><span class="np2-preset-h">לידים, סיורים, חתימות ותזכורות מהיומן. השאר בפעמון.</span></span></button>
+              <button type="button" class="np2-preset" role="radio" aria-checked="false" data-preset="custom"><span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">בחירה אישית</span><span class="np2-preset-h">לפי מה שמסומן ברשימה למטה</span></span></button>
+            </div>
+            <p class="ui-hint" id="npWaNote"></p>
+          </section>
 
-      <!-- מקופל כברירת מחדל: הגדרה של פעם אחת, ובתוכה הכי הרבה שדות -->
-      <details class="np-sec np-fold" id="rmPrefsFold">
-        <summary><span class="np-h">📋 סיכום תזכורות</span><span class="np-fold-sum" id="rmFoldSum"></span></summary>
+          <section class="np2-types" aria-labelledby="npTypesTitle">
+            <div class="set-block-head">
+              <h3 class="ui-h3" id="npTypesTitle">לפי סוג התראה</h3>
+              <span class="np2-legend" aria-hidden="true"><span><span class="np2-mini is-bell"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>בפעמון</span><span><span class="np2-mini is-wa"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>בוואטסאפ</span></span>
+            </div>
+            <div id="npGroups"></div>
+          </section>
 
-        <div class="field">
-          <label>לאן לשלוח</label>
-          <div class="checkbox-grid">
-            <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ (ברירת המחדל)</label>
-            <label class="checkbox-item"><input type="checkbox" id="rmChEmail"> גם במייל</label>
-          </div>
-          <!-- המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש מספר מאומת בקטגוריית
-               "גבריאלה בוואטסאפ", ובלי אף ערוץ התזכורות פשוט לא נשלחות. -->
-          <p class="rm-note" id="rmChannelsNote"></p>
-        </div>
-
-        <div class="rm-grid">
-          <div class="field">
-            <label for="rmCadence">תדירות</label>
-            <select class="rm-sel" id="rmCadence">
-              <option value="weekly">פעם בשבוע</option>
-              <option value="daily">עד פעם ביום</option>
-              <option value="off">כבוי - בלי הודעות</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="rmCap">מקסימום ב-30 יום</label>
-            <input type="number" id="rmCap" min="0" max="60" step="1" inputmode="numeric">
+          <div class="ui-savebar ui-savebar--sticky">
+            <span class="ui-savebar-text" role="status"></span>
+            <div class="ui-savebar-acts">
+              <button type="button" class="ui-btn ui-btn--secondary" data-ui-reset>ביטול שינויים</button>
+              <button type="button" class="ui-btn" data-ui-save>שמירה</button>
+            </div>
           </div>
         </div>
-
-        <div class="field" style="margin-bottom:0">
-          <label>אילו תזכורות יישלחו</label>
-          <div id="reminderKindsList" class="np-list"></div>
-          <p class="rm-note">הסרת סימון מכבה את ה<strong>הודעה</strong> בלבד - הממצא ממשיך להופיע ב"תזכורות וטיפים".</p>
-        </div>
-        <p class="rm-last" id="rmLastSent"></p>
-      </details>
-
-      <button type="submit" class="btn btn-gold btn-block" id="saveNotifPrefsBtn">שמירה</button>
-      <div id="notifPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-    </form>
       </div>
     </details>
 
@@ -10889,6 +11048,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
      לפני שאר המודולים, שבונים ממנה את המסכים -->
 <script src="assets/crm-ui.js"></script>
+<!-- "ההגדרות שלי" ו"התראות והודעות" (docs/crm-settings.md). אחרי crm-ui.js,
+     שממנו הם נבנים, ולפני crm.js -->
+<script src="assets/crm-settings.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
      שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
 <script src="assets/crm-coach.js"></script>
