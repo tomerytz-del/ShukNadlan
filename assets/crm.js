@@ -420,7 +420,9 @@ function walletHeroSync(){
   const promote = Number(priceOf('promote_price', 0));
   const uses = document.getElementById('wlUses');
   uses.innerHTML = '<li><strong>מה משלמים מהארנק:</strong></li>'
-    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש</li>` : '')
+    // ב-Elite המספר הראשון כלול, וכל נוסף מהארנק (החלטה של תומר, 20.10.2026)
+    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש${currentAgent && currentAgent.tier === 'premium'
+        ? ' - הראשון כלול במסלול Elite, כל מספר נוסף מהארנק' : ''}</li>` : '')
     + (promote ? `<li>קידום נכס · <b>${esc(shekel(promote))}</b></li>` : '')
     + '<li>לידים מחנות הלידים</li>';
   const note = document.getElementById('wlLineNote');
