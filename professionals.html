@@ -102,230 +102,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
   }
 
-  /* ====== Header ====== */
-  header.site{
-    position:sticky;top:0;z-index:100;background:var(--paper-raised);
-    border-bottom:1px solid var(--line);padding:12px 0;
-  }
-  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .logo{display:flex;align-items:center;gap:10px;min-width:0}
-  .logo-img{height:44px;width:auto;flex:0 0 auto}
-  .logo-word{
-    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
-    font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
-  }
-  .logo-word span{color:var(--gold-dark);font-weight:700}
-  @media(min-width:900px){
-    .logo-img{height:52px;width:auto}
-    .logo-word{font-size:.95rem;white-space:nowrap}
-  }
-  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--gold);padding-bottom:2px}
-
-  /* ====== Hero ====== */
-  .hero{text-align:center;padding:40px 0 22px}
-  .hero h1{font-size:1.75rem;margin-top:10px;text-wrap:balance}
-  @media(min-width:760px){.hero h1{font-size:2.5rem}}
-  .hero .lede{
-    font-size:.95rem;color:var(--ink-soft);margin:12px auto 0;max-width:56ch;text-wrap:balance;
-  }
-  @media(min-width:760px){.hero .lede{font-size:1.05rem}}
-
-  /* ====== סרגל הכלים: חיפוש, סינון ומיון ======
-     כרטיס אחד ולא חמש שורות נפרדות, בדיוק כמו בעמוד משרדי התיווך: כל מה
-     שמצמצם את הרשימה (חיפוש, משרד, התמחות, דירוג) יושב יחד, ומה שמשנה רק
-     את הסידור בשורה נפרדת מתחת לקו. */
-  .toolbar{
-    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:var(--radius-2xl);
-    box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:14px;
-  }
-  @media(min-width:760px){.toolbar{padding:20px 22px}}
-
-  .search-box{position:relative;width:100%}
-  .search-box input{
-    width:100%;border:1.5px solid var(--line);border-radius:0;
-    background:#fff;padding:13px 46px 13px 16px;font-size:.95rem;color:var(--ink);
-  }
-  .search-box input:focus{border-color:var(--teal)}
-  .search-box svg{
-    position:absolute;inset-inline-start:17px;top:50%;transform:translateY(-50%);
-    width:19px;height:19px;color:var(--ink-soft);pointer-events:none;
-  }
-
-  /* שורת פקדים: תווית קצרה ואחריה קבוצת גלולות שנגללת אופקית במסך צר
-     במקום להישבר לארבע שורות */
-  .tool-row{display:flex;align-items:center;gap:10px;min-width:0}
-  .tool-label{
-    font-size:.74rem;font-weight:800;color:var(--ink-soft);white-space:nowrap;flex:0 0 auto;
-    letter-spacing:.02em;
-  }
-  .pill-group{
-    display:flex;gap:8px;flex:1 1 auto;min-width:0;overflow-x:auto;padding-bottom:2px;
-    scrollbar-width:none;-ms-overflow-style:none;
-  }
-  .pill-group::-webkit-scrollbar{display:none}
-  @media(min-width:900px){.pill-group{flex-wrap:wrap;overflow:visible}}
-  .pill{
-    flex:0 0 auto;background:#fff;border:1.5px solid var(--line);color:var(--ink-soft);
-    border-radius:0;padding:8px 15px;font-size:.82rem;font-weight:700;white-space:nowrap;
-    display:inline-flex;align-items:center;gap:4px;
-    transition:border-color .15s ease, color .15s ease, background .15s ease;
-  }
-  .pill:hover{border-color:var(--teal);color:var(--teal-dark)}
-  .pill[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
-  /* המונה שעל הגלולה אומר כמה מתווכים יישארו אחרי הלחיצה — סינון שמחזיר
-     אפס נראה כמו תקלה, ולכן עדיף לדעת לפני */
-  .pill .n{opacity:.62;font-weight:600;margin-inline-start:5px;font-size:.76em}
-  .pill[aria-pressed="true"] .n{opacity:.8}
-  .pill:disabled{opacity:.42;cursor:default}
-  .pill:disabled:hover{border-color:var(--line);color:var(--ink-soft)}
-  /* הכוכב שעל גלולות הדירוג צהוב גם כשהגלולה לא נבחרה — הוא מה שמסמן
-     שהשורה הזו מדברת על דירוג ולא על עוד קטגוריה */
-  .pill .pill-star{color:var(--star);font-size:.9em}
-  .pill[aria-pressed="true"] .pill-star{color:#FFD98A}
-
-  .tool-divider{height:1px;background:var(--line);opacity:.7;margin:0}
-  .result-count{font-size:.82rem;color:var(--ink-soft);font-weight:600;min-height:1.2em}
-  .reset-btn{
-    font-size:.78rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);
-    padding:0 0 1px;margin-inline-start:10px;
-  }
-
-  /* ====== הגריד ====== */
-  .grid{display:grid;grid-template-columns:1fr;gap:18px;padding:22px 0 10px}
-  @media(min-width:620px){.grid{grid-template-columns:repeat(2,1fr)}}
-  @media(min-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
-
-  /* ====== כרטיס מתווך/ת ======
-     שלושה חלקים: תמונה עם התגים שיושבים עליה, גוף עם הזהות והדירוג, ורגל
-     עם הפעולות. הכרטיס כולו הוא grid בשלוש שורות כדי שהרגל תיצמד לתחתית
-     גם כשהגוף קצר יותר משכניו. */
-  .ag-card{
-    display:grid;grid-template-rows:auto 1fr auto;
-    background:#fff;border:1px solid var(--line);border-radius:var(--radius-2xl);
-    overflow:hidden;box-shadow:var(--shadow-sm);
-    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  }
-  .ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}
-  .ag-card:focus-within{border-color:var(--teal)}
-
-  /* ---- ראש הכרטיס: התמונה ---- */
-  .ag-media{
-    position:relative;height:230px;overflow:hidden;
-    background:linear-gradient(155deg,var(--gold),var(--teal) 68%);
-  }
-  /* אות ההתחלה נשארת מתחת לתמונה תמיד: אם קובץ התמונה נשבר ה-img מסיר את
-     עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון תמונה שבורה */
-  .ag-initial{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:3.4rem;color:rgba(255,255,255,.92);
-  }
-  .ag-photo{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-    object-position:var(--photo-pos,50% 28%);
-  }
-  /* צעיף כהה בתחתית: התגים והמונה יושבים על התמונה, ובלעדיו הם נבלעים
-     בתמונה בהירה */
-  .ag-media::after{
-    content:"";position:absolute;inset:auto 0 0 0;height:56%;pointer-events:none;
-    background:linear-gradient(180deg,rgba(6,20,34,0) 0%,rgba(6,20,34,.55) 100%);
-  }
-  .ag-media > .ag-overlay{position:absolute;z-index:2}
-  .ag-rank{
-    inset-block-start:12px;inset-inline-end:12px;
-    background:rgba(255,255,255,.94);color:var(--gold-dark);
-    font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:0;
-    box-shadow:0 2px 6px rgba(6,20,34,.22);
-  }
-  .ag-badge{inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px}
-  .ag-badge img{width:100%;height:100%;border-radius:50%;filter:drop-shadow(0 2px 6px rgba(6,20,34,.4))}
-  .ag-count{
-    inset-block-end:12px;inset-inline-end:14px;
-    display:inline-flex;align-items:baseline;gap:4px;
-    background:rgba(18,40,64,.92);color:#fff;
-    font-weight:700;font-size:.74rem;padding:5px 11px;border-radius:0;
-    box-shadow:0 2px 10px rgba(6,20,34,.3);
-  }
-  .ag-count b{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700}
-
-  /* ---- גוף הכרטיס ---- */
-  .ag-body{padding:14px 16px;display:flex;flex-direction:column;gap:7px}
-  /* לשם ולשורת המשרד יש גובה קבוע: בלעדיו מתווך/ת עם שם ארוך מגביה/ה את
-     הכרטיס מעל שכניו ברשת, והדירוגים מפסיקים להיות באותו קו */
-  .ag-name{
-    font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--ink);line-height:1.3;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-    overflow-wrap:anywhere;
-  }
-  .ag-agency{
-    display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:var(--teal);
-    min-height:1.3em;
-  }
-  .ag-agency svg{width:14px;height:14px;flex:0 0 auto;color:var(--gold-dark)}
-  .ag-agency .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  a.ag-agency:hover .txt{text-decoration:underline}
-
-  /* שורת הדירוג: חמישה כוכבים מלאים־חלקית ולא רק מספר, כי זה מה שהעמוד
-     הזה מבטיח לסנן לפיו */
-  .ag-rating{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--ink-soft);min-height:1.5em}
-  .stars{
-    position:relative;display:inline-block;flex:0 0 auto;line-height:1;
-    font-size:.95rem;letter-spacing:1px;color:var(--star-off);
-  }
-  .stars::before{content:"★★★★★"}
-  .stars i{
-    position:absolute;inset-block:0;inset-inline-start:0;overflow:hidden;
-    white-space:nowrap;color:var(--star);font-style:normal;
-  }
-  .stars i::before{content:"★★★★★"}
-  .ag-rating .score{font-weight:800;color:var(--ink)}
-  .ag-rating .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-  .ag-meta{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--ink-soft)}
-  .ag-meta svg{width:14px;height:14px;flex:0 0 auto;color:var(--gold-dark)}
-  .ag-meta .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-  /* צ'יפים של תחומי התמחות: אפור־כחלחל שקט, כדי שלא יתחרו בשם ובדירוג */
-  .ag-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-  .ag-chip{
-    background:#EEF3F8;border:1px solid #DCE6EF;color:#3D5773;
-    font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:0;
-  }
-  .ag-chip.exp{background:#F5F4F1;border-color:#E4E2DC;color:#5B5F63}
-
-  /* ---- רגל הכרטיס ---- */
-  .ag-actions{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid #EEF1F4;margin-top:4px}
-  .ag-cta{
-    flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    background:var(--teal);color:#fff;border-radius:0;padding:11px 12px;
-    font-size:.85rem;font-weight:700;transition:background .15s ease;
-  }
-  .ag-cta:hover{background:var(--teal-dark)}
-  .ag-cta.is-static{background:#EDF0F3;color:var(--ink-soft);cursor:default}
-  /* כפתורי הקשר הם אייקון בלבד: הם משניים לכניסה לעמוד האישי, ושורה של
-     שלושה כפתורי טקסט ברוחב כרטיס אחד לא נושמת */
-  .ag-icon-btn{
-    flex:0 0 auto;width:44px;height:44px;border-radius:0;
-    display:inline-flex;align-items:center;justify-content:center;
-    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
-    transition:border-color .15s ease, color .15s ease, background .15s ease;
-  }
-  .ag-icon-btn svg{width:20px;height:20px;fill:currentColor}
-  .ag-icon-btn.wa:hover{border-color:#25D366;color:#128C4A;background:#EAFBF1}
-  .ag-icon-btn.tel:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-tint)}
-
-  .state{padding:56px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
-  .state h2{font-size:1.2rem;margin-bottom:8px}
-
-  /* ====== הזמנה להצטרפות, בתחתית הרשימה ====== */
-  .join-band{
-    background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--radius-lg);
-    box-shadow:var(--shadow-sm);text-align:center;padding:30px 20px;margin-top:26px;
-  }
-  .join-band h2{font-size:1.3rem}
-  .join-band p{font-size:.9rem;color:var(--ink-soft);margin:10px auto 18px;max-width:52ch}
-  .join-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-
-  /* ====== Footer (זהה לשאר הדפים) ====== */
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -333,48 +109,250 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
 <style>
-  /* ====== מה שנוסף מעל הגיליון המשותף עם agents.html ======
-     העמוד הזה הוא אותו סוג עמוד בדיוק — רשימה מלאה עם סרגל חיפוש מעליה —
-     ולכן הוא נשען על אותם ‎.toolbar‎, ‎.pill‎, ‎.grid‎ ו-‎.ag-card‎. כאן יושבים
-     רק ההבדלים: תג התחום שעל התמונה (במקום מונה הנכסים), משפט הפתיחה
-     שבגוף הכרטיס, והבאנר הכהה שקורא להצטרף. */
-
-  /* תג התחום יושב במקום ‎.ag-count‎ ובאותה פינה: זו הזהות המקצועית, וזה מה
-     שהעין מחפשת כשעוברים על רשת של כרטיסים. */
-  .pro-role{
-    inset-block-end:12px;inset-inline-end:14px;
-    background:rgba(18,40,64,.92);color:#fff;
-    font-weight:700;font-size:.78rem;padding:5px 12px;border-radius:0;
-    box-shadow:0 2px 10px rgba(6,20,34,.3);
+  /* ====== העיצוב של אוקטובר 2026 (docs/professional-cards.md, "דף הרשימה") ======
+     כל הסגנון של הדף יושב כאן, אחרי design-system.css, ולא בבלוק הראשון:
+     הגיליון המשותף מחזיר כותרות ל-Heebo, צובע קישור בריחוף בספיר (וכפתור
+     כחול עם טקסט כחול נעלם), ומעגל פינות לפי תבנית בשם המחלקה (‎-card‎,
+     ‎-btn‎, ‎-chip‎, ‎-badge‎) עם ‎!important‎. לכן שמות המחלקות כאן נמנעים
+     מהתבניות האלה, וכל קישור צבעוני מגדיר גם את מצב הריחוף שלו. */
+  :root{
+    --wa:#1a7f4b;            /* כפתור וואטסאפ, ניגודיות 5:1 מול לבן */
+    --slot-bg:#f7f1e2;       /* כרטיס "התחום פנוי" */
+    --slot-border:#c9a227;
+    --slot-ink:#4a3a12;
+    --slot-accent:#8a5a00;   /* "התחום פנוי" באריחים */
+    --ph:#dfe6f5;
+    --on-dark:#c6d0e8;       /* טקסט משני על #0d1b3d */
+    --mark:#c9a227;
   }
-  /* משפט הפתיחה מוגבל לשתי שורות: הוא טקסט חופשי, וכרטיס אחד ארוך היה
-     מותח את כל השורה ברשת. */
-  .pro-headline{
-    font-size:.85rem;color:var(--ink-soft);line-height:1.45;
+  h1,h2,h3{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{
+    outline:3px solid var(--mark);outline-offset:2px;
+  }
+  .wrap{padding:0 16px}
+  @media(min-width:760px){.wrap{padding:0 24px}}
+
+  /* ====== הכותרת ====== */
+  header.site{position:sticky;top:0;z-index:100;padding:12px 0}
+  .header-inner{display:flex;align-items:center;gap:28px}
+  .site-nav{display:none;gap:24px;flex:1 1 auto;font-size:15px;font-weight:500}
+  .site-nav a,.site-nav a:hover{color:var(--ink-soft)}
+  .site-nav a:hover{color:var(--teal)}
+  .site-nav a[aria-current="page"]{color:var(--teal);font-weight:700;border-bottom:2px solid var(--mark);padding-bottom:4px}
+  @media(min-width:900px){.site-nav{display:flex}}
+  .join-cta{
+    margin-inline-start:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:10px;
+    background:var(--mark);color:#0d1b3d;font-weight:700;font-size:14px;
+    padding:6px 16px 6px 8px;border-radius:999px;min-height:44px;
+  }
+  .join-cta:hover{color:#0d1b3d;background:#dcb63c}
+  .free-tag{background:#0d1b3d;color:#fff;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
+  @media(max-width:420px){.join-cta{font-size:13px;gap:8px;padding-inline-start:12px}}
+
+  /* ====== ה-hero ====== */
+  .pro-hero{background:#0d1b3d;color:#fff}
+  .pro-hero .wrap{padding-top:44px;padding-bottom:84px;display:flex;flex-direction:column;gap:18px}
+  @media(min-width:760px){.pro-hero .wrap{padding-top:64px;padding-bottom:88px;gap:20px}}
+  .crumbs{font-size:14px;color:#b9c4e0;display:flex;gap:8px;flex-wrap:wrap}
+  .crumbs a,.crumbs a:hover{color:#b9c4e0}
+  .crumbs a:hover{text-decoration:underline}
+  .crumbs [aria-current]{color:#fff}
+  .pro-hero h1{
+    margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;
+    font-size:36px;line-height:1.08;max-width:760px;color:#fff;
+  }
+  @media(min-width:760px){.pro-hero h1{font-size:56px}}
+  .pro-hero .lede{margin:0;font-size:17px;line-height:1.6;color:var(--on-dark);max-width:640px}
+  @media(min-width:760px){.pro-hero .lede{font-size:19px}}
+
+  /* תיבת החיפוש: הקו של המיקוד יושב על הטופס כולו, כי לשדה עצמו אין מסגרת */
+  .hero-search{
+    margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;background:#fff;
+    border-radius:16px;padding:8px;max-width:720px;
+  }
+  .hero-search:focus-within{box-shadow:0 0 0 3px var(--mark)}
+  .hero-search label{display:flex;align-items:center;gap:10px;flex:1 1 220px;padding:0 12px;color:var(--ink-soft);min-width:0}
+  .hero-search label svg{flex:0 0 auto}
+  .hero-search input{
+    border:0;outline:none;background:transparent;font:inherit;font-size:17px;color:var(--ink);
+    width:100%;min-height:48px;padding:0;
+  }
+  .hero-search input:focus-visible{outline:none}
+  .hero-go{
+    flex:0 0 auto;font-weight:700;font-size:16px;background:var(--mark);color:#0d1b3d;
+    border-radius:12px;padding:0 28px;min-height:52px;
+  }
+  .hero-go:hover{background:#dcb63c}
+  @media(max-width:480px){.hero-go{flex:1 1 100%}}
+  .trust{list-style:none;margin:8px 0 0;padding:0;display:flex;gap:10px 28px;flex-wrap:wrap}
+  .trust li{display:flex;align-items:center;gap:8px;font-size:15px;color:#dfe5f3}
+  .trust svg{flex:0 0 auto}
+
+  /* ====== אריחי התחומים ======
+     עולים 48px על ה-hero. כל התחומים מוצגים תמיד, גם בלי אף בעל מקצוע:
+     האריח הריק הוא ההזמנה להיות הראשון בתחום, ולא מבוי סתום. */
+  .type-rail{position:relative;z-index:1;margin-top:-48px}
+  .type-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .type-tile{
+    position:relative;text-align:start;background:#fff;border:1px solid var(--line);
+    border-radius:16px;padding:18px 16px;display:flex;flex-direction:column;gap:10px;
+    color:var(--ink);min-height:120px;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .type-tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(14,42,107,.45)}
+  .type-tile[aria-pressed="true"]{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
+  .type-tile[aria-pressed="true"]:hover{box-shadow:0 0 0 1px var(--teal),0 10px 24px -14px rgba(14,42,107,.45)}
+  .tt-ico{width:40px;height:40px;border-radius:12px;background:var(--teal-tint);color:var(--teal);display:grid;place-items:center}
+  .tt-name{font-weight:700;font-size:16px;line-height:1.3}
+  .tt-count{font-size:13px;color:var(--ink-soft);min-height:1.4em}
+  .tt-count.is-open{color:var(--slot-accent);font-weight:600}
+
+  /* ====== סרגל התוצאות ====== */
+  .results{padding-top:40px;scroll-margin-top:80px}
+  @media(min-width:760px){.results{padding-top:48px}}
+  .results-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .results-bar h2{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;font-size:28px;color:var(--ink)}
+  @media(min-width:760px){.results-bar h2{font-size:32px}}
+  .result-count{margin:4px 0 0;font-size:15px;color:var(--ink-soft);line-height:1.5}
+  .reset-btn{
+    font-size:14px;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--mark);
+    padding:0 0 1px;margin-inline-start:10px;
+  }
+  .results-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .area-field{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft)}
+  .area-field select{
+    font:inherit;font-size:15px;color:var(--ink);background:#fff;border:1px solid #d3daea;
+    padding:0 12px;min-height:44px;min-width:160px;
+  }
+  .seg{display:flex;background:#fff;border:1px solid #d3daea;border-radius:12px;padding:3px}
+  .seg-opt{
+    font-size:14px;border-radius:9px;padding:0 14px;min-height:40px;
+    background:transparent;color:var(--ink-soft);
+  }
+  .seg-opt:hover{color:var(--teal)}
+  .seg-opt[aria-pressed="true"]{background:var(--teal);color:#fff;font-weight:600}
+
+  .state{padding:48px 18px;text-align:center;color:var(--ink-soft);font-size:15px}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+
+  /* ====== הכרטיסיות ====== */
+  .pros-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:24px}
+  .pro-item{
+    background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:box-shadow .2s ease, transform .2s ease;
+  }
+  .pro-item:hover{box-shadow:0 18px 40px -18px rgba(6,20,34,.42);transform:translateY(-3px)}
+  .pro-item:focus-within{border-color:var(--teal)}
+  /* המדיה: ראשי התיבות ואייקון התחום יושבים תמיד מתחת לתמונה. תמונה שלא
+     נטענה מסירה את עצמה, והכרטיס חוזר למצב "בלי תמונה" ולא לאייקון שבור. */
+  .pi-media{position:relative;aspect-ratio:4/3;background:#0e2a6b;overflow:hidden;display:grid;place-items:center}
+  .pi-initials{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:96px;line-height:1;color:#fff;letter-spacing:2px}
+  .pi-mark{position:absolute;bottom:-14px;inset-inline-end:-10px;color:var(--mark);opacity:.55;line-height:0}
+  .pi-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .pi-type,.pi-years{position:absolute;z-index:1;font-size:13px;padding:6px 12px;border-radius:999px}
+  .pi-type{top:14px;inset-inline-start:14px;background:#fff;color:var(--ink);font-weight:700}
+  .pi-years{bottom:14px;inset-inline-end:14px;background:#0d1b3d;color:#fff;font-weight:600}
+  .pi-body{padding:20px 20px 4px;display:flex;flex-direction:column;gap:10px;flex:1 1 auto}
+  .pi-title{display:flex;flex-direction:column;gap:2px}
+  .pi-body h3{
+    margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;
+    font-size:26px;line-height:1.15;color:var(--ink);overflow-wrap:anywhere;
+  }
+  .pi-person{font-size:15px;color:var(--ink-soft)}
+  .pi-head{
+    margin:0;font-size:15px;line-height:1.5;color:var(--ink);font-style:italic;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
+  .pi-areas{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink-soft)}
+  .pi-areas svg{flex:0 0 auto}
+  .pi-tags{display:flex;flex-wrap:wrap;gap:6px}
+  .pi-tag{font-size:13px;background:var(--teal-tint);color:var(--teal);padding:5px 10px;border-radius:8px}
+  .pi-more{font-size:13px;color:var(--ink-soft);padding:5px 4px}
+  .pi-actions{padding:16px 20px 20px;display:flex;gap:8px}
+  .pi-go{
+    flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--teal);color:#fff;font-weight:700;font-size:15px;border-radius:12px;min-height:48px;
+  }
+  .pi-go:hover{background:#08194a;color:#fff}
+  .pi-go.is-static,.pi-go.is-static:hover{background:#edf0f3;color:var(--ink-soft)}
+  .pi-wa,.pi-tel{flex:0 0 48px;width:48px;min-height:48px;border-radius:12px;display:grid;place-items:center}
+  .pi-wa,.pi-wa:hover{background:var(--wa);color:#fff}
+  .pi-wa:hover{background:#156a3e}
+  .pi-tel,.pi-tel:hover{background:var(--teal-tint);color:var(--teal)}
+  .pi-tel:hover{background:#dbe5f8}
 
-  /* ====== הבאנר הכהה: הצטרפות לפרסום באתר ======
-     אותו באנר של "איזה משרד תיווך מתאים לכם?" בדף הבית — רקע כהה, כפתור
-     זהב — כי זו אותה קריאה לפעולה ובאותה עוצמה. הוא יושב מתחת לרשימה:
-     קודם רואים מי כבר שם, ואז מוזמנים להצטרף. */
+  /* ---- "התחום פנוי": כרטיס הצטרפות ולא בעל מקצוע ---- */
+  .pro-slot{
+    background:var(--slot-bg);border:2px dashed var(--slot-border);border-radius:20px;
+    padding:32px 28px;display:flex;flex-direction:column;gap:14px;justify-content:center;
+  }
+  @media(min-width:620px){.pro-slot{min-height:420px}}
+  .slot-ico{width:56px;height:56px;border-radius:16px;background:#fff;color:var(--slot-accent);display:grid;place-items:center}
+  .pro-slot h3{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;font-size:26px;line-height:1.2;color:var(--ink)}
+  .pro-slot p{margin:0;font-size:15px;line-height:1.6;color:var(--slot-ink)}
+  .slot-go{
+    align-self:flex-start;display:inline-flex;align-items:center;gap:8px;
+    background:#0d1b3d;color:#fff;font-weight:700;font-size:15px;padding:0 20px;border-radius:12px;min-height:48px;
+  }
+  .slot-go:hover{background:#08194a;color:#fff}
+
+  /* ====== "את מי צריך, ומתי" ====== */
+  .journey{padding-top:56px;padding-bottom:56px}
+  .journey-box{
+    background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px 22px;
+    display:flex;flex-direction:column;gap:28px;
+  }
+  @media(min-width:760px){.journey-box{padding:40px}}
+  .journey-head{display:flex;flex-direction:column;gap:6px}
+  .journey-kicker{margin:0;font-size:14px;font-weight:700;color:var(--slot-accent);letter-spacing:.5px}
+  .journey h2{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;font-size:28px;color:var(--ink)}
+  @media(min-width:760px){.journey h2{font-size:34px}}
+  .journey ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:24px}
+  @media(min-width:760px){.journey ol{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}}
+  .journey li{display:flex;flex-direction:column;gap:10px;border-top:3px solid var(--teal);padding-top:18px}
+  .j-num{font-family:'Frank Ruhl Libre',serif;font-size:44px;font-weight:900;color:var(--mark);line-height:1}
+  .journey h3{margin:0;font-size:20px;font-weight:700;color:var(--ink)}
+  .journey li p{margin:0;font-size:15px;color:var(--ink-soft);line-height:1.6}
+  .j-links{display:flex;gap:4px 16px;flex-wrap:wrap}
+  .j-links a{font-size:15px;font-weight:600;color:var(--teal);min-height:32px;display:inline-flex;align-items:center}
+  .j-links a:hover{color:#08194a;text-decoration:underline}
+
+  /* ====== פס ההצטרפות ====== */
+  .join-wrap{padding-bottom:72px}
   .cta-band{
-    background:var(--teal-dark);color:#fff;border-radius:var(--radius-lg);
-    padding:28px 22px;margin:30px 0 10px;text-align:center;
-    box-shadow:0 18px 40px -22px rgba(6,20,34,.6);
+    background:#0e2a6b;color:#fff;border-radius:24px;padding:32px 22px;
+    display:flex;gap:24px 32px;align-items:center;justify-content:space-between;flex-wrap:wrap;
   }
-  .cta-band h2{color:#fff;font-size:1.35rem;text-wrap:balance}
-  .cta-band p{font-size:.92rem;color:rgba(255,255,255,.84);margin:12px auto 20px;max-width:54ch;text-wrap:balance}
-  .cta-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-  .cta-band .btn-gold{background:var(--star);color:#0d1b3d;font-size:.95rem;padding:14px 30px}
-  .cta-band .btn-gold:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(201,162,39,.35)}
-  .cta-band .btn-outline{
-    background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);padding:14px 26px;font-size:.95rem;
+  @media(min-width:760px){.cta-band{padding:48px}}
+  .free-seal{
+    flex:0 0 auto;width:96px;height:96px;border-radius:50%;background:var(--mark);color:#0d1b3d;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-8deg);
   }
-  .cta-band .btn-outline:hover{border-color:#fff}
+  .free-seal b{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:30px;line-height:1}
+  .free-seal small{font-size:10px;font-weight:700;margin-top:4px}
   @media(min-width:760px){
-    .cta-band{padding:38px 30px}
-    .cta-band h2{font-size:1.7rem}
+    .free-seal{width:150px;height:150px}
+    .free-seal b{font-size:44px}
+    .free-seal small{font-size:13px}
+  }
+  .cta-copy{display:flex;flex-direction:column;gap:10px;flex:1 1 380px;min-width:0}
+  .cta-band h2{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;font-size:26px;color:#fff}
+  @media(min-width:760px){.cta-band h2{font-size:36px}}
+  .cta-band p{margin:0;font-size:17px;line-height:1.6;color:var(--on-dark)}
+  .cta-actions{display:flex;gap:12px;flex-wrap:wrap}
+  .cta-gold,.cta-line{
+    display:inline-flex;align-items:center;font-size:16px;padding:0 24px;border-radius:12px;min-height:52px;
+  }
+  .cta-gold,.cta-gold:hover{background:var(--mark);color:#0d1b3d;font-weight:700}
+  .cta-gold:hover{background:#dcb63c}
+  .cta-line,.cta-line:hover{background:transparent;color:#fff;border:1px solid #6f82b5;font-weight:600}
+  .cta-line:hover{border-color:#fff}
+
+  @media(prefers-reduced-motion:reduce){
+    .type-tile,.pro-item{transition:none}
+    .type-tile:hover,.pro-item:hover{transform:none}
   }
 </style>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
@@ -397,85 +375,121 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
-    <a href="/" class="back-link">← לדף הבית</a>
+    <!-- הניווט הראשי: אותם יעדים של הפוטר. בטלפון הוא יורד, וכפתור ההצטרפות
+         נשאר - זו הפעולה שהדף הזה מבקש מבעלי מקצוע. -->
+    <nav class="site-nav" aria-label="ניווט ראשי">
+      <a href="/#allProps">נכסים</a>
+      <a href="/agents">מתווכים</a>
+      <a href="/professionals" aria-current="page">בעלי מקצוע</a>
+      <a href="/#calc">מחשבונים</a>
+      <a href="/articles">מגזין</a>
+    </nav>
+    <a href="/professional-signup" class="join-cta"><span class="free-tag">חינם</span>פרסום לבעלי מקצוע</a>
   </div>
 </header>
 
 <main id="main">
-  <div class="wrap">
 
-    <div class="hero">
-      <p class="eyebrow">בעלי מקצוע</p>
-      <h1>כל בעלי המקצוע בעפולה והעמק</h1>
-      <p class="lede">
-        יועצי משכנתאות, שמאי מקרקעין, עורכי דין, אדריכלים ומעצבי פנים -
-        חפשו לפי שם, לפי תחום או לפי אזור הפעילות
-      </p>
+  <section class="pro-hero">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="פירורי לחם">
+        <a href="/">דף הבית</a><span aria-hidden="true">›</span><span aria-current="page">בעלי מקצוע</span>
+      </nav>
+      <h1>כל אנשי המקצוע של העסקה, במקום אחד</h1>
+      <p class="lede">יועצי משכנתאות, שמאים, עורכי דין, אדריכלים, מעצבי פנים וחברות ניקיון מ<span data-market-label>עפולה והעמק</span>. פונים ישירות בוואטסאפ, בלי טפסים ובלי מתווכים.</p>
+      <form class="hero-search" role="search" id="proSearchForm">
+        <label for="proSearch">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="sr-only">חיפוש בעלי מקצוע</span>
+          <input type="search" id="proSearch" placeholder="חפשו לפי שם, תחום או שירות" autocomplete="off">
+        </label>
+        <button type="submit" class="hero-go">חיפוש</button>
+      </form>
+      <ul class="trust">
+        <li><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>עמוד מלא לכל בעל מקצוע</li>
+        <li><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>פנייה ישירה, בלי תיווך</li>
+        <li><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>מקומיים מ<span data-market-label>עפולה והעמק</span></span></li>
+      </ul>
     </div>
+  </section>
 
-    <!-- ====== סרגל חיפוש, סינון ומיון ======
-         אותו סרגל של עמוד המתווכים ועמוד משרדי התיווך: תיבת חיפוש חופשי
-         ואחריה שורות גלולות שמצמצמות את הרשימה, ומתחת לקו — המיון. -->
-    <div class="toolbar" id="toolbar" hidden>
-      <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
-        </svg>
-        <input type="search" id="proSearch" placeholder="חיפוש לפי שם, עסק, תחום או שירות…"
-               aria-label="חיפוש לפי שם בעל/ת מקצוע, שם עסק, תחום או שירות" autocomplete="off">
+  <!-- אריחי התחומים: נבנים ב-buildTiles מ-TILE_TYPES, כולם, גם תחום ריק -->
+  <section class="wrap type-rail" aria-label="תחומים">
+    <div class="type-tiles" id="typeTiles"></div>
+  </section>
+
+  <section class="wrap results" id="results" aria-labelledby="resultsHeading">
+    <div class="results-bar">
+      <div>
+        <h2 id="resultsHeading">כל בעלי המקצוע</h2>
+        <p class="result-count" id="resultCount" aria-live="polite"></p>
       </div>
-
-      <div class="tool-row">
-        <span class="tool-label" id="typeLabel">תחום</span>
-        <div class="pill-group" id="typePills" role="group" aria-labelledby="typeLabel"></div>
+      <div class="results-tools">
+        <label class="area-field" id="areaRow" hidden>אזור
+          <select id="areaSelect"></select>
+        </label>
+        <div class="seg" id="sortPills" role="group" aria-label="מיון"></div>
       </div>
-
-      <div class="tool-row" id="areaRow">
-        <span class="tool-label" id="areaLabel">אזור</span>
-        <div class="pill-group" id="areaPills" role="group" aria-labelledby="areaLabel"></div>
-      </div>
-
-      <hr class="tool-divider">
-
-      <div class="tool-row">
-        <span class="tool-label" id="sortLabel">מיון</span>
-        <div class="pill-group" id="sortPills" role="group" aria-labelledby="sortLabel"></div>
-      </div>
-
-      <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
     <div class="state" id="loadingState">טוען את רשימת בעלי המקצוע…</div>
 
-    <div class="state" id="emptyState" hidden>
-      <h2>אין כאן בעלי מקצוע עדיין</h2>
-      <p>הרשימה בהרצה. אם אתם מלווים עסקאות נדל״ן באזור - זה בדיוק הרגע להיות הראשונים כאן.</p>
-      <a href="/professional-signup" class="btn btn-teal" style="margin-top:16px">הצטרפות כבעל/ת מקצוע - בחינם</a>
-    </div>
-
     <div class="state" id="noResultsState" hidden>
-      <h2>לא נמצא בעל/ת מקצוע מתאים/ה</h2>
+      <h2>לא נמצאו בעלי מקצוע מתאימים</h2>
       <p>נסו מילה אחרת, תחום אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
       <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
     </div>
 
-    <div class="grid" id="prosGrid"></div>
+    <div class="pros-grid" id="prosGrid" hidden></div>
+  </section>
 
-    <!-- ====== ההזמנה להצטרף ======
-         מוצג תמיד, גם כשהרשימה ריקה וגם כשהיא מלאה: זו הדרך של בעל/ת מקצוע
-         להגיע לעמוד הזה, והמקום הטבעי לשאול היא אחרי שרואים מי כבר בפנים. -->
-    <section class="cta-band" id="ctaBand">
-      <h2>גם אתם מלווים עסקאות נדל״ן בעפולה והעמק?</h2>
-      <p>
-        פרופיל מלא באתר - תמונות, שירותים, גלריה, וידאו וכפתור וואטסאפ ישיר -
-        מול מי שכבר מחפש דירה, בודק משכנתא או שוקל השקעה באזור. בלי עמלות, בלי לידים שנמכרים פעמיים - והפרסום כרגע בחינם.
-      </p>
-      <div class="cta-actions">
-        <a href="/professional-signup" class="btn btn-gold">לפרסום בחינם ←</a>
-        <a href="mailto:shuknadlan@gmail.com?subject=%D7%A4%D7%A8%D7%A1%D7%95%D7%9D%20%D7%9B%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2" data-site-contact class="btn btn-outline">יש לי שאלה לפני</a>
+  <!-- מדריך קצר: סטטי, וכל קישור בו הוא כתובת אמיתית (‏?type=) - בלחיצה הוא
+       מחליף את האריח בלי טעינה מחדש, ולסורק הוא קישור פנימי לכל תחום. -->
+  <section class="wrap journey" aria-labelledby="journeyTitle">
+    <div class="journey-box">
+      <div class="journey-head">
+        <p class="journey-kicker">מדריך קצר</p>
+        <h2 id="journeyTitle">את מי צריך, ומתי, בעסקת נדל״ן</h2>
       </div>
-    </section>
-  </div>
+      <ol>
+        <li>
+          <span class="j-num" aria-hidden="true">1</span>
+          <h3>לפני שמחפשים</h3>
+          <p>בודקים כמה משכנתא אפשר לקבל, ומחפשים בתקציב הנכון.</p>
+          <span class="j-links"><a href="/professionals?type=mortgage_advisor" data-type="mortgage_advisor">יועצי משכנתאות ←</a></span>
+        </li>
+        <li>
+          <span class="j-num" aria-hidden="true">2</span>
+          <h3>לפני שחותמים</h3>
+          <p>שמאי קובע את שווי הנכס, ועורך דין בודק את החוזה ואת הרישום.</p>
+          <span class="j-links"><a href="/professionals?type=appraiser" data-type="appraiser">שמאים ←</a><a href="/professionals?type=real_estate_lawyer" data-type="real_estate_lawyer">עורכי דין ←</a></span>
+        </li>
+        <li>
+          <span class="j-num" aria-hidden="true">3</span>
+          <h3>אחרי קבלת המפתח</h3>
+          <p>מתכננים, מעצבים ומכינים את הבית לכניסה.</p>
+          <span class="j-links"><a href="/professionals?type=architect" data-type="architect">אדריכלים ←</a><a href="/professionals?type=interior_designer" data-type="interior_designer">מעצבי פנים ←</a><a href="/professionals?type=cleaning" data-type="cleaning">ניקיון ←</a></span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ====== ההזמנה להצטרף ======
+       מוצגת תמיד, גם כשהרשימה ריקה וגם כשהיא מלאה: זו הדרך של בעלי מקצוע
+       להגיע לעמוד הזה, והמקום הטבעי לשאול הוא אחרי שרואים מי כבר בפנים. -->
+  <section class="wrap join-wrap">
+    <div class="cta-band" id="ctaBand">
+      <div class="free-seal" aria-hidden="true"><b>חינם</b><small>בלי כרטיס אשראי</small></div>
+      <div class="cta-copy">
+        <h2>בעלי מקצוע בנדל״ן? הפרסום אצלנו בחינם</h2>
+        <p>עמוד מלא עם תמונות, שירותים, גלריה, וידאו וכפתור וואטסאפ ישיר. לקוחות מ<span data-market-label>עפולה והעמק</span> פונים אליכם בלי מתווכים.</p>
+      </div>
+      <div class="cta-actions">
+        <a href="/professional-signup" class="cta-gold">פרסום חינם באתר</a>
+        <a href="mailto:shuknadlan@gmail.com?subject=%D7%A4%D7%A8%D7%A1%D7%95%D7%9D%20%D7%9B%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2" data-site-contact class="cta-line">יש לי שאלה לפני</a>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer class="site">
@@ -825,22 +839,46 @@ function safeUrl(u){
 const PHONE_RE = /^\d{9,15}$/;
 const hasPhone = v => PHONE_RE.test(String(v || ''));
 
-const ICON = {
-  wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>',
-  tel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"></path></svg>',
-  office: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V6.5L12 3l8 3.5V21"/><path d="M2 21h20"/><path d="M9.5 21v-5h5v5"/><path d="M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/></svg>',
-  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+/* אייקוני קו (‏24×24, ‏stroke) — של כל תחום, ושל הפעולות בכרטיסייה. אותם
+   ציורים של professional.html, כדי שתחום ייראה אותו דבר בשני הדפים. */
+const PATHS = {
+  all:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  mortgage_advisor:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M14.5 12.5l-5 5"/><circle cx="10" cy="13" r=".9"/><circle cx="14" cy="17" r=".9"/>',
+  appraiser:'<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7 8v3M11 8v4M15 8v3M19 8v2"/>',
+  real_estate_lawyer:'<path d="M12 4v16M7 20h10M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/>',
+  architect:'<circle cx="12" cy="5" r="2"/><path d="M11 7l-5 13M13 7l5 13M8 15h8"/>',
+  interior_designer:'<path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2z"/><path d="M5 18v2M19 18v2"/>',
+  cleaning:'<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  arrow:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  wa:'<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.3z"/><path d="M9 9.2c.2 2.9 2.7 5.4 5.8 5.8l1-1.6-2-.9-.9.8a4 4 0 0 1-1.9-1.9l.8-.9-.9-2z"/>',
+  tel:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
 };
+const icon = (key, size = 22, stroke = 2) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" ` +
+  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[key] || PATHS.all}</svg>`;
 
-/* אותן תוויות של דף הבית ושל עמוד הפרופיל — התחום נשמר כמפתח באנגלית
-   ומתורגם רק בתצוגה, ושלוש הנקודות שבהן הוא מוצג חייבות לומר את אותו דבר. */
+/* התחום נשמר כמפתח באנגלית ומתורגם רק בתצוגה. שלוש צורות, ובלי לוכסן:
+   יחיד על הכרטיסייה ("שמאי מקרקעין"), רבים באריחים ובכותרות ("שמאי
+   מקרקעין", "אדריכלים"), ושם התחום עצמו למשפט שמונה את התחומים הפנויים.
+   professional.html מחזיק את אותן שתי הראשונות. */
 const TYPE_LABELS = {
-  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
-  interior_designer:'מעצב/ת פנים', cleaning:'חברת ניקיון', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+  mortgage_advisor:'יועץ משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עו״ד מקרקעין',
+  architect:'אדריכל', interior_designer:'מעצב פנים', cleaning:'חברת ניקיון', general:'בעל מקצוע',
 };
-/* סדר קבוע לגלולות התחום, כדי שהשורה לא תתחלף בין טעינות. תחום שלא ברשימה
-   (‏advertiser_type שנוסף בעתיד) נופל לסוף לפי א׳–ב׳. */
+const TYPE_PLURAL = {
+  mortgage_advisor:'יועצי משכנתאות', appraiser:'שמאי מקרקעין', real_estate_lawyer:'עורכי דין מקרקעין',
+  architect:'אדריכלים', interior_designer:'מעצבי פנים', cleaning:'חברות ניקיון', general:'בעלי מקצוע',
+};
+const TYPE_FIELD = {
+  mortgage_advisor:'משכנתאות', appraiser:'שמאות', real_estate_lawyer:'עריכת דין',
+  architect:'אדריכלות', interior_designer:'עיצוב פנים', cleaning:'ניקיון',
+};
+/* סדר קבוע לאריחים ולמיון "לפי תחום". ‏general ("אחר" בטופס ההרשמה) אינו
+   אריח: מי שבחר בו מופיע תחת "כל התחומים". */
 const TYPE_ORDER = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','cleaning','general'];
+const TILE_TYPES = TYPE_ORDER.filter(k => k !== 'general');
 
 /* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה — אותו נוסח שבעמוד
    הפרופיל, כדי שהפנייה תיראה זהה משני המסלולים. */
@@ -857,18 +895,17 @@ function waLink(phone, name){
    מצב התצוגה
    ============================================================================ */
 let pros = [];
-let typeOptions = [];   // [{key, label}] — נבנה מהתחומים שנטענו בפועל
-let areaOptions = [];   // [{key, label}] — אזורי הפעילות שהוקלדו בפרופיל
+let loaded = false;
 let filters = { query:'', type:'all', area:'all' };
 let sortMode = 'type';
 
 const SORTS = [
-  { key:'type',       label:'לפי תחום' },
-  { key:'experience', label:'ותק' },
-  { key:'name',       label:'א׳-ב׳' },
+  { key:'type',       label:'לפי תחום', desc:'לפי תחום' },
+  { key:'experience', label:'ותק',      desc:'לפי ותק' },
+  { key:'name',       label:'א״ב',      desc:'לפי א״ב' },
 ];
 
-const byName = (x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'he');
+const byName = (x, y) => String(x.title || '').localeCompare(String(y.title || ''), 'he');
 /* מיון "לפי תחום" שוזר לפי הסדר הקבוע של TYPE_ORDER ולא לפי א׳–ב׳ של
    המפתח באנגלית — הרשימה נקראת אז כמו תוכן עניינים ולא כמו ערבוב. */
 const typeRank = p => {
@@ -881,16 +918,19 @@ const COMPARE = {
   name: byName,
 };
 
+const many = n => n === 1 ? 'בעל מקצוע אחד' : n + ' בעלי מקצוע';
+const totalOf = key => key === 'all' ? pros.length : pros.filter(p => p.type === key).length;
+
 /* ============================================================================
    סינון
    ----------------------------------------------------------------------------
    הכל מקומי: הרשימה נטענת במלואה בטעינה אחת. החיפוש החופשי נוגע בדיוק במה
-   שהתיבה מבטיחה — שם, שם עסק, תחום ושירותים — ובנוסף באזורי הפעילות
-   ובמשפט הפתיחה, שהם ניסוח נפוץ של אותה שאלה ("מי עושה הום סטיילינג").
+   שהתיבה מבטיחה — שם, שם עסק, תחום ושירותים — ובנוסף באזורי הפעילות,
+   במשפט הפתיחה ובתיאור, שהם ניסוח נפוץ של אותה שאלה ("מי עושה הום סטיילינג").
    ============================================================================ */
 function matchesQuery(p, q){
   if (!q) return true;
-  return [p.name, p.business, p.typeLabel, p.headline, ...p.services, ...p.areas]
+  return [p.name, p.business, p.typeLabel, p.typePlural, p.headline, p.description, ...p.services, ...p.areas]
     .some(v => String(v || '').toLowerCase().includes(q));
 }
 const matchesType = (p, key) => key === 'all' || p.type === key;
@@ -907,10 +947,14 @@ function passes(p, f, except){
 function visiblePros(){
   return pros.filter(p => passes(p, filters)).sort(COMPARE[sortMode]);
 }
-const isFiltered = ()=> !!filters.query.trim() || filters.type !== 'all' || filters.area !== 'all';
+const isNarrowed = ()=> !!filters.query.trim() || filters.area !== 'all';
 
 /* ============================================================================
-   רכיב הכרטיס
+   הכרטיסייה
+   ----------------------------------------------------------------------------
+   שלושה מצבים (‏docs/professional-cards.md): עם תמונה, בלי תמונה (ראשי תיבות
+   ואייקון התחום), ו"התחום פנוי" — שהוא כרטיס הצטרפות ולא בעל מקצוע. כשאין
+   משפט פתיחה מקומו נשאר ריק: לא ממציאים טקסט בשם מישהו.
    ============================================================================ */
 function proCardHtml(p){
   // professional.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן
@@ -919,120 +963,166 @@ function proCardHtml(p){
   const href = key ? '/professional?slug=' + encodeURIComponent(key) : null;
 
   const photo = safeUrl(p.photo);
-  const media = photo
-    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.remove()">`
-    : '';
-
-  // ראשי תיבות ולא אות אחת: לבעל/ת מקצוע בלי תמונה זה כל מה שיש על
-  // האריח, ושתי אותיות מזהות טוב יותר מאחת — בדיוק כמו ברצועה בדף הבית.
+  // ראשי תיבות ולא אות אחת: לבעל מקצוע בלי תמונה זה כל מה שיש על האריח,
+  // ושתי אותיות מזהות טוב יותר מאחת.
   const initials = String(p.name).trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
 
-  const businessRow = p.business
-    ? `<span class="ag-agency">${ICON.office}<span class="txt">${escapeHtml(p.business)}</span></span>`
-    : '<span class="ag-agency"></span>';
+  // הוותק יושב על התמונה; בלי תמונה אין לו מקום שם, והוא נכנס לתגיות.
+  const yearsText = p.years > 0 ? p.years + ' שנות ניסיון' : '';
+  const yearsOnMedia = photo && yearsText;
 
-  const areaText = p.areas.join(' · ') || p.region;
+  const areas = p.areas.length
+    ? p.areas.slice(0, 3).join(' · ') + (p.areas.length > 3 ? ' ועוד ' + (p.areas.length - 3) : '')
+    : p.region;
 
-  // השירותים קודם ואחריהם הוותק: השירות עונה על "מה הוא עושה" והוותק על
-  // "כמה זמן". שלושה שירותים הם התקרה שכרטיס בעמודה של שליש מסך מחזיק
-  // בשתי שורות — מעבר לזה הם מתחילים לדחוק את הפעולות.
-  const chips = [
-    ...p.services.slice(0, 3).map(s => `<span class="ag-chip">${escapeHtml(s)}</span>`),
-    ...(p.years > 0 ? [`<span class="ag-chip exp">${p.years}+ שנות ניסיון</span>`] : []),
-  ].join('');
+  // שלושה שירותים ואז "+N": יותר מזה דוחק את הפעולות לשורה שלישית
+  const tags = [
+    ...(!yearsOnMedia && yearsText ? [yearsText] : []),
+    ...p.services.slice(0, 3),
+  ];
+  const more = p.services.length > 3 ? '+' + (p.services.length - 3) : '';
 
-  // ‏data-professional: פנייה לבעל/ת מקצוע ולא למתווך/ת — contact_professional
+  // ‏data-professional: פנייה לבעל מקצוע ולא למתווך/ת — contact_professional
   const contact = hasPhone(p.phone)
-    ? `<a class="ag-icon-btn wa" data-professional href="${escapeHtml(waLink(p.phone, p.name))}"
+    ? `<a class="pi-wa" data-professional href="${escapeHtml(waLink(p.phone, p.name))}"
           target="_blank" rel="noopener noreferrer"
-          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + p.name)}" title="וואטסאפ">${ICON.wa}</a>
-       <a class="ag-icon-btn tel" data-professional href="tel:+${escapeHtml(p.phone)}"
-          aria-label="${escapeHtml('חיוג ל' + p.name)}" title="חיוג">${ICON.tel}</a>`
+          aria-label="${escapeHtml('וואטסאפ ל' + p.title)}">${icon('wa', 22, 1.9)}</a>
+       <a class="pi-tel" data-professional href="tel:+${escapeHtml(p.phone)}"
+          aria-label="${escapeHtml('חיוג ל' + p.title)}">${icon('tel', 20)}</a>`
     : '';
 
   return `
-    <article class="ag-card">
-      <div class="ag-media">
-        <span class="ag-initial" aria-hidden="true">${escapeHtml(initials)}</span>
-        ${media}
-        <span class="ag-overlay pro-role">${escapeHtml(p.typeLabel)}</span>
+    <article class="pro-item">
+      <div class="pi-media">
+        <span class="pi-initials" aria-hidden="true">${escapeHtml(initials)}</span>
+        <span class="pi-mark" aria-hidden="true">${icon(p.type, 120, .6)}</span>
+        ${photo ? `<img class="pi-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(p.title)}" loading="lazy" onerror="this.remove()">` : ''}
+        <span class="pi-type">${escapeHtml(p.typeLabel)}</span>
+        ${yearsOnMedia ? `<span class="pi-years">${escapeHtml(yearsText)}</span>` : ''}
       </div>
-      <div class="ag-body">
-        <h2 class="ag-name">${escapeHtml(p.name)}</h2>
-        ${businessRow}
-        ${p.headline ? `<p class="pro-headline">${escapeHtml(p.headline)}</p>` : ''}
-        ${areaText ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(areaText)}</span></div>` : ''}
-        ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
+      <div class="pi-body">
+        <div class="pi-title">
+          <h3>${escapeHtml(p.title)}</h3>
+          ${p.person ? `<span class="pi-person">${escapeHtml(p.person)}</span>` : ''}
+        </div>
+        ${p.headline ? `<p class="pi-head" dir="auto">״${escapeHtml(p.headline)}״</p>` : ''}
+        ${areas ? `<div class="pi-areas">${icon('pin', 16)}<span>${escapeHtml(areas)}</span></div>` : ''}
+        ${tags.length ? `<div class="pi-tags">${tags.map(t => `<span class="pi-tag">${escapeHtml(t)}</span>`).join('')}${more ? `<span class="pi-more">${escapeHtml(more)}</span>` : ''}</div>` : ''}
       </div>
-      <div class="ag-actions">
+      <div class="pi-actions">
         ${href
-          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד בעל/ת המקצוע</a>`
-          : '<span class="ag-cta is-static">העמוד האישי בהכנה</span>'}
+          ? `<a class="pi-go" href="${escapeHtml(href)}">לעמוד המלא${icon('arrow', 18, 2.2)}</a>`
+          : '<span class="pi-go is-static">העמוד בהכנה</span>'}
         ${contact}
       </div>
     </article>`;
 }
 
+/* "התחום פנוי": בתחום שנבחר ואין בו אף אחד הוא בא במקום מצב "לא נמצא",
+   וב"כל התחומים" הוא כרטיס אחד בסוף הרשת שמונה את התחומים הפנויים בפועל. */
+function slotCardHtml({ key, ico, title, text }){
+  const href = '/professional-signup' + (key ? '?type=' + encodeURIComponent(key) : '');
+  return `
+    <article class="pro-slot">
+      <span class="slot-ico" aria-hidden="true">${icon(ico, 28)}</span>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(text)}</p>
+      <a class="slot-go" href="${escapeHtml(href)}">הצטרפות בחינם${icon('arrow', 18, 2.2)}</a>
+    </article>`;
+}
+function openFieldsText(keys){
+  const names = keys.map(k => TYPE_FIELD[k]);
+  const list = names.length > 1
+    ? names.slice(0, -1).join(', ') + ' ו' + names[names.length - 1]
+    : names[0];
+  return list + (names.length > 1 ? ' עדיין מחכים' : ' עדיין מחכה') + ' לבעלי המקצוע הראשונים באזור. הפרסום בחינם.';
+}
+
 /* ============================================================================
    רינדור
    ============================================================================ */
-function renderCounts(list){
-  const many = n => n === 1 ? 'בעל/ת מקצוע אחד/ת' : n + ' בעלי מקצוע';
-  el('resultCount').innerHTML = list.length
-    ? (isFiltered()
-        ? `${escapeHtml(many(list.length))} מתוך ${pros.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
-        : `${escapeHtml(many(pros.length))} בפלטפורמה`)
-    : '';
-  const reset = el('resetBtn');
-  if (reset) reset.addEventListener('click', resetFilters);
-
-  // המונה שעל כל גלולה נספר מול שאר הסינונים הפעילים ולא מול הסינון שהיא
-  // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
-  countPills('typePills', 'type', matchesType);
-  countPills('areaPills', 'area', matchesArea);
+function renderTiles(){
+  // הספירה שעל כל אריח נספרת מול שאר הסינונים הפעילים ולא מול סינון התחום
+  // עצמו — אחרת כל אריח שאינו הנבחר היה מציג 0
+  const pool = pros.filter(p => passes(p, filters, 'type'));
+  el('typeTiles').querySelectorAll('.type-tile').forEach(btn=>{
+    const key = btn.dataset.key;
+    btn.setAttribute('aria-pressed', String(filters.type === key));
+    const slot = btn.querySelector('.tt-count');
+    if (!loaded){ slot.textContent = ''; return; }
+    const open = key !== 'all' && totalOf(key) === 0;
+    const n = pool.filter(p => matchesType(p, key)).length;
+    slot.classList.toggle('is-open', open);
+    slot.textContent = open ? 'התחום פנוי' : (n || key === 'all' ? many(n) : 'אין התאמה');
+  });
 }
 
-function countPills(containerId, group, test){
-  const container = el(containerId);
-  if (!container) return;
-  const pool = pros.filter(p => passes(p, filters, group));
-  container.querySelectorAll('.pill').forEach(btn=>{
-    const key = btn.dataset.key;
-    const n = pool.filter(p => test(p, key)).length;
-    const slot = btn.querySelector('.n');
-    if (slot) slot.textContent = n;
-    // גלולה שתחזיר רשימה ריקה מעומעמת ומנוטרלת, כדי שלא תוביל למסך ריק
-    btn.disabled = n === 0 && key !== filters[group];
-  });
+function renderSummary(list){
+  el('resultsHeading').textContent = filters.type === 'all' ? 'כל בעלי המקצוע' : TYPE_PLURAL[filters.type];
+  const total = totalOf(filters.type);
+  const sort = SORTS.find(s => s.key === sortMode);
+  let html;
+  if (!total) html = filters.type === 'all' ? '' : 'התחום עדיין פנוי';
+  else if (isNarrowed()) html = `${escapeHtml(many(list.length))} מתוך ${total} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`;
+  else if (filters.type === 'all') html = escapeHtml(many(list.length) + ' · ממוינים ' + sort.desc);
+  else html = list.length === 1 ? 'בעל מקצוע אחד בתחום' : list.length + ' בעלי מקצוע בתחום';
+  el('resultCount').innerHTML = html;
+  const reset = el('resetBtn');
+  if (reset) reset.addEventListener('click', resetFilters);
 }
 
 function render(){
+  if (!loaded) return;
   const list = visiblePros();
-  renderCounts(list);
-  el('noResultsState').hidden = list.length > 0;
-  el('prosGrid').hidden = !list.length;
-  el('prosGrid').innerHTML = list.map(proCardHtml).join('');
+  renderTiles();
+  renderSummary(list);
+
+  let html = list.map(proCardHtml).join('');
+  if (filters.type !== 'all' && !totalOf(filters.type)){
+    html = slotCardHtml({
+      key: filters.type, ico: filters.type,
+      title: 'עוד אין כאן ' + TYPE_PLURAL[filters.type],
+      text: 'המקום הראשון בתחום עדיין פנוי, והפרסום בחינם. מי שמצטרף עכשיו יופיע ראשון בחיפוש.',
+    });
+  } else if (filters.type === 'all' && !isNarrowed()){
+    const open = TILE_TYPES.filter(k => !totalOf(k));
+    if (open.length) html += slotCardHtml({ key:'', ico:'plus', title:'המקום הזה שמור לכם', text: openFieldsText(open) });
+  }
+  // ‏#noResultsState נשאר רק לחיפוש חופשי (או אזור) שלא החזיר כלום
+  el('noResultsState').hidden = !!html;
+  el('prosGrid').hidden = !html;
+  el('prosGrid').innerHTML = html;
 }
 
 /* ============================================================================
-   פקדי סרגל הכלים — זהים לאלה של עמוד המתווכים
+   הפקדים
    ============================================================================ */
-function buildPills(container, items, group, withCount){
-  container.innerHTML = '';
-  items.forEach(item=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pill';
-    btn.dataset.key = item.key;
-    btn.innerHTML = escapeHtml(item.label) + (withCount ? ' <span class="n"></span>' : '');
-    btn.setAttribute('aria-pressed', String(filters[group] === item.key));
-    btn.addEventListener('click', ()=>{
-      filters[group] = item.key;
-      syncPills(container, item.key);
-      render();
-    });
-    container.appendChild(btn);
+function buildTiles(){
+  const items = [{ key:'all', name:'כל התחומים' }, ...TILE_TYPES.map(k => ({ key:k, name:TYPE_PLURAL[k] }))];
+  const box = el('typeTiles');
+  box.innerHTML = items.map(t =>
+    `<button type="button" class="type-tile" data-key="${escapeHtml(t.key)}" aria-pressed="${filters.type === t.key}">` +
+    `<span class="tt-ico">${icon(t.key)}</span><span class="tt-name">${escapeHtml(t.name)}</span>` +
+    `<span class="tt-count"></span></button>`
+  ).join('');
+  box.addEventListener('click', e=>{
+    const btn = e.target.closest('.type-tile');
+    if (btn) selectType(btn.dataset.key);
   });
+}
+
+/* בחירת תחום משנה גם את ‏?type= בכתובת (בלי טעינה): קישור שמעתיקים מהדפדפן
+   פותח אצל מי שמקבל אותו את אותו תחום. */
+function selectType(key, scroll){
+  filters.type = key;
+  try{
+    const u = new URL(location.href);
+    if (key === 'all') u.searchParams.delete('type'); else u.searchParams.set('type', key);
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch(e){}
+  render();
+  renderTiles();
+  if (scroll) el('results').scrollIntoView({ block:'start', behavior:'smooth' });
 }
 
 function buildSortPills(container){
@@ -1040,40 +1130,57 @@ function buildSortPills(container){
   SORTS.forEach(item=>{
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'pill';
+    btn.className = 'seg-opt';
     btn.dataset.key = item.key;
     btn.textContent = item.label;
     btn.setAttribute('aria-pressed', String(sortMode === item.key));
     btn.addEventListener('click', ()=>{
       sortMode = item.key;
-      syncPills(container, item.key);
+      [...container.children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.key === item.key)));
       render();
     });
     container.appendChild(btn);
   });
 }
 
-function syncPills(container, key){
-  [...container.children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.key === key)));
+/* אזורי הפעילות נבנים רק ממה שהוקלד בפרופילים שנטענו: אזור שאין בו אף
+   אחד הוא מבוי סתום. אם אף אחד לא מילא אזורים, הבורר לא מוצג. */
+function buildAreaSelect(){
+  const areas = dedupe(pros.flatMap(p => p.areas)).sort((a, b)=> a.localeCompare(b, 'he'));
+  const select = el('areaSelect');
+  select.innerHTML = '<option value="all">כל האזורים</option>' +
+    areas.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  el('areaRow').hidden = !areas.length;
+  select.addEventListener('change', ()=>{ filters.area = select.value; render(); });
 }
 
 function resetFilters(){
-  filters = { query:'', type:'all', area:'all' };
+  filters.query = '';
+  filters.area = 'all';
   el('proSearch').value = '';
-  syncPills(el('typePills'), 'all');
-  syncPills(el('areaPills'), 'all');
+  el('areaSelect').value = 'all';
   render();
-  el('toolbar').scrollIntoView({ block:'start', behavior:'smooth' });
+  el('results').scrollIntoView({ block:'start', behavior:'smooth' });
 }
 
 el('proSearch').addEventListener('input', (e)=>{ filters.query = e.target.value; render(); });
+el('proSearchForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  filters.query = el('proSearch').value;
+  render();
+  el('results').scrollIntoView({ block:'start', behavior:'smooth' });
+});
 el('noResultsReset').addEventListener('click', resetFilters);
+document.querySelectorAll('.j-links a[data-type]').forEach(a => a.addEventListener('click', e=>{
+  e.preventDefault();
+  selectType(a.dataset.type, true);
+}));
 
-/* ‏?type=appraiser בכתובת פותח את העמוד כשהסינון כבר מוחל — זה מה שמאפשר
+/* ‏?type=appraiser בכתובת פותח את העמוד כשהאריח כבר נבחר — זה מה שמאפשר
    לקשר מבחוץ (ומהפוטר) ישירות ל"שמאים בעפולה" ולא רק לרשימה הכללית. */
 function applyDeepLink(){
   const type = new URLSearchParams(location.search).get('type');
-  if (type && typeOptions.some(o => o.key === type)) filters.type = type;
+  if (type && TILE_TYPES.includes(type)) filters.type = type;
 }
 
 /* ============================================================================
@@ -1085,21 +1192,28 @@ function applyDeepLink(){
    בטבלה), והוא לא כולל את כתובת החיוב של המפרסם.
 
    אין כאן נתוני דמה: עמוד ייעודי שמציג בעלי מקצוע מומצאים הוא הבטחה שאי
-   אפשר לעמוד בה. רשימה ריקה מציגה את מצב ה"אין עדיין" יחד עם ההזמנה
-   להצטרף — וזה בדיוק מה שהיא.
+   אפשר לעמוד בה. רשימה ריקה מציגה את כל התחומים כפנויים, עם כרטיס
+   ההצטרפות — וזה בדיוק מה שהיא.
    ============================================================================ */
 const dedupe = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
 
 function shapePro(row){
   const type = row.advertiser_type || 'general';
+  const name = String(row.advertiser_name || '').trim() || 'בעל מקצוע';
+  const business = String(row.business_name || '').trim();
   return {
     id: row.id,
     slug: row.slug,
-    name: row.advertiser_name || 'בעל/ת מקצוע',
-    business: row.business_name || '',
+    name,
+    business,
+    // הכותרת היא שם העסק, ושם האדם מתחתיו — רק אם הוא אומר משהו נוסף
+    title: business || name,
+    person: business && business !== name ? name : '',
     type,
     typeLabel: TYPE_LABELS[type] || TYPE_LABELS.general,
-    headline: row.headline || row.description || '',
+    typePlural: TYPE_PLURAL[type] || '',
+    headline: String(row.headline || '').trim(),
+    description: row.description || '',
     services: dedupe(Array.isArray(row.services) ? row.services : []),
     areas: dedupe(Array.isArray(row.service_areas) ? row.service_areas : []),
     region: String(row.target_region || '').trim(),
@@ -1109,45 +1223,17 @@ function shapePro(row){
   };
 }
 
-/* גלולה נבנית רק מערכים שקיימים בפועל ברשימה שנטענה: שורת סינון שמציעה
-   תחום שאין בו אף אחד היא מבוי סתום. */
-function buildTypeOptions(list){
-  const keys = dedupe(list.map(p => p.type));
-  keys.sort((a, b)=>{
-    const ia = TYPE_ORDER.indexOf(a), ib = TYPE_ORDER.indexOf(b);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, 'he');
-  });
-  return keys.map(k => ({ key:k, label: TYPE_LABELS[k] || TYPE_LABELS.general }));
-}
-function buildAreaOptions(list){
-  const areas = dedupe(list.flatMap(p => p.areas));
-  areas.sort((a, b)=> a.localeCompare(b, 'he'));
-  return areas.map(a => ({ key:a, label:a }));
-}
-
 (async function init(){
+  applyDeepLink();
+  buildTiles();
+  buildSortPills(el('sortPills'));
+
   const finish = (list)=>{
     pros = list;
+    loaded = true;
     el('loadingState').hidden = true;
     el('loadingState').style.display = 'none';
-
-    if (!pros.length){
-      el('emptyState').hidden = false;
-      return;
-    }
-
-    typeOptions = buildTypeOptions(pros);
-    areaOptions = buildAreaOptions(pros);
-    applyDeepLink();
-
-    buildPills(el('typePills'), [{ key:'all', label:'כל התחומים' }, ...typeOptions], 'type', true);
-    buildPills(el('areaPills'), [{ key:'all', label:'הכל' }, ...areaOptions], 'area', true);
-    buildSortPills(el('sortPills'));
-    // אף אחד לא מילא אזורי פעילות — שורה עם גלולה אחת ("הכל") היא רעש,
-    // ולכן היא פשוט לא מוצגת עד שיהיה בה מה לסנן
-    el('areaRow').hidden = areaOptions.length === 0;
-
-    el('toolbar').hidden = false;
+    buildAreaSelect();
     render();
   };
 

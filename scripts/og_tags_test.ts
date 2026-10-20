@@ -322,9 +322,10 @@ bodies.push(
     ldOf(devPage)?.logo === "https://shuknadlan.co.il/l.png" && /id="devName">יזם בע&quot;מ<\/h1>/.test(devPage) &&
     /id="devAbout">על החברה<\/div>/.test(devPage)],
   ["בעל/ת מקצוע: ProfessionalService עם employee, H1, כותרת ותיאור בשרת", ldOf(proPage)?.["@type"] === "ProfessionalService" &&
-    ldOf(proPage)?.employee?.name === "רון" && ldOf(proPage)?.serviceType === "שמאי/ת מקרקעין" &&
-    /id="profileName">רון<\/h1>/.test(proPage) && /id="profileHeadline">שמאי מוסמך<\/p>/.test(proPage) &&
-    /id="aboutBlock">/.test(proPage)],
+    ldOf(proPage)?.employee?.name === "רון" && ldOf(proPage)?.serviceType === "שמאי מקרקעין" &&
+    /id="profileName">שמאות רון<\/h1>/.test(proPage) && /id="profilePerson">רון<\/span>/.test(proPage) &&
+    /id="profileHeadline" dir="auto">שמאי מוסמך<\/span>/.test(proPage) &&
+    /id="profileSub">/.test(proPage) && /id="aboutBlock">/.test(proPage)],
 );
 for (const [name, pass] of bodies) {
   if (!pass) failed++;
