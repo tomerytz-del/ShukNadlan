@@ -6704,6 +6704,73 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .call-del-ask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:8px;padding:10px 12px;border-radius:12px;background:#FFF8F3;font-size:14px}
   .call-del-note{margin:6px 0 0;font-size:12px;color:var(--nv-muted)}
 
+  /* מנוי וארנק (3.7) */
+  .wl-hero{background:var(--nv-ink);color:#fff;border-radius:20px;padding:18px 22px;display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center;margin-bottom:12px}
+  .wl-bal{display:flex;flex-direction:column;gap:2px}
+  .wl-bal span{font-size:14px;color:#B8C2D9}
+  .wl-bal b{font-family:'Frank Ruhl Libre',serif;font-size:40px;line-height:1}
+  .wl-uses{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#C9D2E6;flex:1 1 220px}
+  .wl-uses b{color:#fff}
+  .wl-low{margin-bottom:12px}
+  .wl-amounts{margin-bottom:8px}
+  .wl-amt-note{font-size:12px;font-weight:600;color:var(--nv-muted)}
+  .wl-after{margin:0 0 10px;font-size:14px;color:#3A4458}
+  .wl-secure{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--nv-muted)}
+
+  /* המספרים (3.2) */
+  .ln-sum{background:var(--nv-ink);color:#fff;border-radius:18px;padding:14px 18px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 22px;margin:0 0 12px}
+  .ln-sum span{display:inline-flex;align-items:baseline;gap:6px;font-size:14px;color:#C9D2E6}
+  .ln-sum b{font-family:'Frank Ruhl Libre',serif;font-size:24px;color:#fff}
+  .ln-sum .is-bad b{color:#F3B48E}
+  .ln-sum-h{width:100%;font-weight:700;color:#E0B84A!important}
+  .ln-missed{margin:0 0 12px}
+  .line-stats{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .line-stats>span{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 10px;border-radius:12px;background:#F4F6FA;font-size:12px;color:var(--nv-muted)}
+  .line-stats>span b{font-size:18px;color:var(--nv-ink)}
+  .line-stats>span.is-bad{background:var(--nv-urgent-soft)}
+  .line-stats>span.is-bad b{color:var(--nv-urgent)}
+  .line-stats>span.is-good{background:var(--nv-ok-soft)}
+  .line-stats>span.is-good b{color:var(--nv-ok)}
+  .line-min{display:flex;flex-direction:column;gap:4px;margin:8px 0;font-size:13px;color:#3A4458}
+  @media (max-width:640px){.line-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+  /* השיחות של המשרד (3.9) */
+  .oc-sum{background:var(--nv-ink);color:#fff;border-radius:18px;padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;margin:0 0 12px}
+  .oc-sum span{display:inline-flex;align-items:baseline;gap:6px;font-size:14px;color:#C9D2E6}
+  .oc-sum b{font-family:'Frank Ruhl Libre',serif;font-size:24px;color:#fff}
+  .oc-sum .is-bad b{color:#F3B48E}
+  .oc-ring{position:relative;width:56px;height:56px}
+  .oc-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .oc-ring circle{fill:none;stroke-width:3.5}
+  .oc-ring .bg{stroke:rgba(255,255,255,.18)}
+  .oc-ring .fg{stroke:#7FD6A4;stroke-linecap:round}
+  .oc-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:13px}
+
+  /* עם מי אני משתף/ת (3.17) */
+  .sp-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .sp-big{margin:0;display:flex;flex-direction:column;gap:2px}
+  .sp-big b{font-family:'Frank Ruhl Libre',serif;font-size:40px;line-height:1}
+  .sp-big span{font-size:15px;color:#3A4458}
+  .sp-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .sp-pick[hidden]{display:none}
+  .sp-list{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+  .sp-list .checkbox-item{min-height:48px;padding:10px 12px;border:1px solid var(--nv-line);border-radius:12px;background:#fff;display:flex;align-items:center;gap:8px}
+  .sp-list .checkbox-item:has(input:not(:checked)){opacity:.55}
+
+  /* חנות הלידים (3.18) */
+  .shelf-hint{margin-bottom:10px}
+  .shelf-bar{background:var(--nv-ink);color:#fff;border-radius:18px;padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;margin:0 0 12px}
+  .shelf-bar-price{display:flex;align-items:baseline;gap:6px}
+  .shelf-bar-price b{font-family:'Frank Ruhl Libre',serif;font-size:28px}
+  .shelf-bar-price span,.shelf-bar-bal{font-size:14px;color:#C9D2E6}
+  .shelf-bar-bal{display:flex;flex-direction:column;gap:2px}
+  .shelf-bar-bal b{color:#fff}
+  .shelf-bar-btn{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;
+    font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .shelf-bar-note{flex:1 1 100%;font-size:12px;color:#B8C2D9}
+
+  .team-hint{margin-bottom:12px}
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -8969,6 +9036,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          מה שנקבע שם מופיע כאן, ומה שנקבע כאן מתריע שם. ההתראות עצמן אינן
          מנגנון נפרד - הן שורות מסוג agenda_reminder בפעמון, ומשם יוצאות
          לוואטסאפ. ראו docs/agent-agenda.md. -->
+    <!-- יומן Google - כרטיס בראש "יומן ומשימות" (סעיף 2.0, שלב 8): באותו מסך
+         (also של accAgenda), ולכן הוא יושב לפניו -->
+    <details class="acc" id="accGcal">
+      <summary>
+        <span class="acc-title">יומן Google</span>
+        <span class="acc-count" id="accGcalCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
+             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
+        <div class="ag-gcal" id="agGcal">
+          <div class="ag-gcal-head">
+            <span class="ag-gcal-title">יומן Google</span>
+            <span class="rm-badge" id="agGcalStatus"></span>
+          </div>
+          <p class="rm-note" id="agGcalNote"></p>
+          <div class="ag-form-btns">
+            <button type="button" class="btn btn-gold" id="agGcalConnect">📅 חיבור מאובטח ל-Google Calendar</button>
+            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
+          </div>
+        </div>
+
+      </div>
+    </details>
     <details class="acc" id="accAgenda">
       <summary>
         <span class="acc-title">יומן ומשימות<span class="acc-sum" id="accAgendaSum"></span></span>
@@ -9149,7 +9241,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כל הלידים שעומדים למכירה במקום אחד - מוכרים, קונים ומשכנתאות. כל ליד עולה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק ונמכר לסוכן/ת אחד/ת בלבד.</p>
+        <!-- חנות הלידים (3.18): פס כהה עם המחיר, היתרה וכמה לידים היא מספיקה
+             (shelfBarSync). ליד שנרכש עובר ל"הלידים שלי" (docs/leads-unified.md) -->
+        <p class="ui-hint shelf-hint"><span>לידים טריים מקבוצות ומלוחות, ממוינים אוטומטית.</span><span>כל ליד נמכר לסוכן/ת אחד/ת בלבד.</span></p>
+        <section class="ui-scope shelf-bar" aria-label="מחיר ויתרה">
+          <span class="shelf-bar-price"><b id="shelfPriceLabel">₪50</b><span>לליד</span></span>
+          <span class="shelf-bar-bal"><span>בארנק <b id="shelfBarBal">-</b></span><span id="shelfBarEnough"></span></span>
+          <button type="button" class="shelf-bar-btn" data-goto="accWallet" data-focus="topupAmount">טעינת הארנק</button>
+          <span class="shelf-bar-note">המנוע סורק כל 30 דקות. ליד שנרכש עובר ל"הלידים שלי".</span>
+        </section>
 
         <div class="view-switch shelf-switch" id="shelfTabs" role="group" aria-label="מעבר בין מדפי חנות הלידים">
           <button type="button" data-shelf-tab="rss" aria-pressed="true">מוכרים וקונים · <span id="shelfTabRssCount">0</span></button>
@@ -9228,22 +9328,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <details class="acc" id="accSharePartners">
       <summary>
-        <span class="acc-title">משרדי שיתוף פעולה</span>
+        <span class="acc-title">עם מי אני משתף/ת</span>
         <span class="acc-count" id="accSharePartnersCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת - כולל משרדים שיצטרפו בעתיד - והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
-          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
-          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
+        <!-- "עם מי אני משתף/ת" (3.17, docs/property-sharing.md): המספר הגדול, בחירה
+             מפורשת בין "כל המשרדים (כולל עתידיים)" ל"רק משרדים שבחרתי"
+             (agency_members.share_mode, 20270715090000), והמשרדים ככרטיסים -->
+        <div class="ui-scope sp-top">
+          <p class="sp-big"><b id="spCount">-</b><span id="spCountText"></span></p>
+          <div class="sp-modes" role="radiogroup" aria-label="עם מי לשתף">
+            <button type="button" class="np2-preset" role="radio" data-sp-mode="all" aria-checked="true">
+              <span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">כל המשרדים במערכת</span><span class="np2-preset-h">כולל משרדים שיצטרפו בעתיד</span></span></button>
+            <button type="button" class="np2-preset" role="radio" data-sp-mode="selected" aria-checked="false">
+              <span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">רק משרדים שבחרתי</span><span class="np2-preset-h">משרד חדש לא ייכנס בלי שתבחרו בו</span></span></button>
+          </div>
         </div>
 
-        <div class="share-partner-list" id="sharePartnerList"></div>
+        <div class="ui-scope sp-pick" id="spPick">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px" aria-label="חיפוש משרד">
+            <button type="button" class="ui-link" id="partnerSelectAll">סימון הכל</button>
+            <button type="button" class="ui-link" id="partnerClearAll">ניקוי</button>
+          </div>
+          <div class="share-partner-list sp-list" id="sharePartnerList"></div>
+          <div class="ui-more-row" id="spMore"></div>
+        </div>
 
-        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
+        <button type="button" class="ui-btn ui-btn--block" id="savePartnersBtn" style="margin-top:12px">שמירה</button>
         <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
         <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס - משרד שהוסר יאבד אז את הגישה אליו.</p>
       </div>
@@ -9450,15 +9563,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
 
       <!-- שיחות המשרד: המספרים והשיחות של כל סוכני המשרד, עם האזנה להקלטות.
-           קריאה בלבד - ארכוב ומחיקה נשארים של הסוכן/ת. docs/call-tracking.md -->
+           בלי ארכוב והוספה לקובץ (של הסוכן/ת); המחיקה - רק כאן, למנהל/ת (4.x).
+           docs/call-tracking.md -->
       <details class="acc" id="accOfficeCalls">
         <summary>
-          <span class="acc-title">שיחות המשרד</span>
+          <span class="acc-title">השיחות</span>
           <span class="acc-count" id="accOfficeCallsCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
           <div class="imp-note" style="margin-bottom:8px">30 הימים האחרונים, לכל סוכן/ת ולכל מספר. ההקלטות והתמלולים פתוחים לך כמנהל/ת המשרד, והסוכנים רואים שזה כך.</div>
+          <!-- הסיכום (3.9): כמה נענו, שיחות, לא נענו ודקות החודש (renderOfficeCallsSummary) -->
+          <section class="ui-scope oc-sum" id="ocSummary" aria-label="סיכום השיחות" hidden></section>
           <div id="officeAgentStats" class="lines-panel"></div>
           <!-- התראה על שיחה שלא נענתה ולא סומנה "חזרתי" (claim_missed_call_sla_alerts) -->
           <div class="call-actions calls-filter" style="margin-top:10px">
@@ -9477,7 +9593,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div id="officeLinesAdmin" class="lines-panel"></div>
           <div class="call-actions" style="margin:10px 0 6px">
             <select id="officeCallsAgent" class="btn btn-ghost" aria-label="סינון לפי סוכן/ת"><option value="">כל הסוכנים</option></select>
-            <label class="call-meta" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="officeCallsMissed"> רק שיחות שלא נענו</label>
+            <!-- הכל / נענו / לא נענו (3.9). התיבה נשארת הערך של "לא נענו" -->
+            <span class="ui-scope ui-chips" id="ocFilter" data-ui-single role="group" aria-label="סינון לפי מענה">
+              <button type="button" class="ui-chip" data-ui-chip data-value="all" aria-pressed="true">הכל <span class="ui-chip-n" id="ocNAll"></span></button>
+              <button type="button" class="ui-chip" data-ui-chip data-value="answered" aria-pressed="false">נענו <span class="ui-chip-n" id="ocNAns"></span></button>
+              <button type="button" class="ui-chip" data-ui-chip data-value="missed" aria-pressed="false">לא נענו <span class="ui-chip-n is-warn" id="ocNMiss"></span></button>
+            </span>
+            <input type="checkbox" id="officeCallsMissed" hidden>
           </div>
           <div class="call-actions calls-filter">
             <input type="search" id="officeCallsSearch" class="calls-search" placeholder="חיפוש לפי שם המתקשר/ת, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות המשרד">
@@ -9493,16 +9615,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
-      <details class="acc" id="accReviews">
-        <summary>
-          <span class="acc-title">ביקורות ממתינות לאישור</span>
-          <span class="acc-count hot" id="accReviewsCount"></span>
-          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </summary>
-        <div class="acc-body">
-          <div id="reviewModerationList"></div>
-        </div>
-      </details>
 
       <details class="acc" id="accTeam">
         <summary>
@@ -9511,6 +9623,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
+      <!-- ההסבר מסעיף 3.8 בעיצוב מחדש. הטפסים סגורים כברירת מחדל - הרשימה למעלה -->
+      <p class="ui-scope ui-hint team-hint"><span>משרד עם כמה סוכנים יכול לחלק אותם לצוותים, ולכל צוות מנהל/ת שרואה את הדאשבורד שלו.</span><span>במשרד קטן אפשר לוותר על צוותים - הכל ממשיך לעבוד גם בלעדיהם.</span></p>
       <div id="claimRequests"></div>
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
       <!-- ---------- הזמנת סוכן/ת: שני פרטי קשר, וזהו ----------
@@ -10070,7 +10184,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <details class="acc" id="accWallet">
       <summary>
-        <span class="acc-title">טעינת ארנק</span>
+        <span class="acc-title">מנוי וארנק</span>
         <span class="acc-count" id="accWalletCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -10081,16 +10195,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="topupModeBadge" style="margin-bottom:10px;display:none">
         <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">הסליקה אינה פעילה כרגע</span>
       </div>
+      <!-- מנוי וארנק (3.7, docs/wallet-payments.md): כרטיס יתרה כהה ו"מה משלמים
+           מהארנק", ובאנר כשהיתרה לא מכסה חודש של מספר וירטואלי (walletHeroSync) -->
+      <section class="ui-scope wl-hero" aria-label="היתרה בארנק">
+        <span class="wl-bal"><span>בארנק</span><b id="wlHeroBal">-</b></span>
+        <ul class="wl-uses" id="wlUses"></ul>
+      </section>
+      <div class="ui-scope ui-banner ui-banner--warn wl-low" id="wlLow" hidden></div>
       <p class="acc-sub" id="topupModeNote">הסכום שתטענו יעמוד לרשותכם לרכישת לידים ולהקפצת נכסים.</p>
+      <!-- הסכומים כצ'יפים. הבורר נשאר (מוסתר לעין): הוא הערך שנשלח לעמוד
+           התשלום, ויעד הקפיצה data-focus="topupAmount" מכל מקום ב-CRM -->
+      <div class="ui-scope ui-chips wl-amounts" id="wlAmounts" data-ui-single role="group" aria-label="סכום הטעינה">
+        <button type="button" class="ui-chip" data-ui-chip data-value="100" aria-pressed="true">₪100 <span class="wl-amt-note" id="wlLineNote"></span></button>
+        <button type="button" class="ui-chip" data-ui-chip data-value="200" aria-pressed="false">₪200</button>
+        <button type="button" class="ui-chip" data-ui-chip data-value="300" aria-pressed="false">₪300</button>
+        <button type="button" class="ui-chip" data-ui-chip data-value="400" aria-pressed="false">₪400</button>
+        <button type="button" class="ui-chip" data-ui-chip data-value="500" aria-pressed="false">₪500</button>
+      </div>
+      <p class="ui-scope wl-after" id="wlAfter"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+        <label class="sr-only" for="topupAmount">סכום הטעינה</label>
+        <select id="topupAmount" class="sr-only">
           <option value="100">₪100</option>
           <option value="200">₪200</option>
           <option value="300">₪300</option>
           <option value="400">₪400</option>
           <option value="500">₪500</option>
         </select>
-        <button class="btn btn-gold" id="topupBtn" style="white-space:nowrap">טעינת הארנק</button>
+        <button class="btn btn-gold wl-pay" id="topupBtn" style="white-space:nowrap">טעינת הארנק</button>
+        <span class="wl-secure"><span aria-hidden="true">🔒</span> תשלום מאובטח בעמוד של מורנינג</span>
       </div>
       <div id="topupFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em"></div>
 
@@ -10456,29 +10589,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- ---------- יומן Google ----------
          חיבור של פעם אחת. מוסתר כולו כשהמסלול אינו כולל את היומן
          (renderGcal). ‏docs/google-calendar.md -->
-    <details class="acc" id="accGcal">
-      <summary>
-        <span class="acc-title">יומן Google</span>
-        <span class="acc-count" id="accGcalCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <!-- יומן Google: תהליך נפרד, שמתחיל רק בלחיצה על "חבר/י יומן". הכניסה
-             ל-CRM עם Google אינה מבקשת הרשאת יומן. ראו docs/google-calendar.md. -->
-        <div class="ag-gcal" id="agGcal">
-          <div class="ag-gcal-head">
-            <span class="ag-gcal-title">יומן Google</span>
-            <span class="rm-badge" id="agGcalStatus"></span>
-          </div>
-          <p class="rm-note" id="agGcalNote"></p>
-          <div class="ag-form-btns">
-            <button type="button" class="btn btn-gold" id="agGcalConnect">📅 חיבור מאובטח ל-Google Calendar</button>
-            <button type="button" class="btn btn-ghost" id="agGcalDisconnect" hidden>ניתוק</button>
-          </div>
-        </div>
-
-      </div>
-    </details>
 
     <!-- ---------- עדכון פרטי הסוכן/ת ----------
          היעד של הלחיצה על האווטאר בכותרת. כותב ישירות ל-agency_members, ולכן
@@ -10839,6 +10949,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ui-savebar-acts"><button type="button" class="ui-btn ui-btn--secondary" id="brResetBtn" hidden>ביטול שינויים</button><button type="button" class="ui-btn" id="brSaveBtn">שמירת דף המשרד</button></div>
           </div>
         </div>
+        </div>
+      </details>
+      <!-- ביקורות לקוחות - סעיף בדף המשרד (סעיף 2.0, שלב 8), מתחת לתוכן הדף -->
+      <details class="acc" id="accReviews">
+        <summary>
+          <span class="acc-title">ביקורות ממתינות לאישור</span>
+          <span class="acc-count hot" id="accReviewsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <div id="reviewModerationList"></div>
         </div>
       </details>
     </div>

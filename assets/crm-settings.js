@@ -506,7 +506,7 @@ function mountHubQuiet(){
 const NOTIF_GROUPS = [
   { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
   { key:'agenda',  title:'יומן והמנטור', types:['agenda_reminder', 'coach_daily', '__reminders', 'onboarding_property', 'onboarding_client', 'onboarding_agreement', 'onboarding_lead'] },
-  { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match'] },
+  { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match', 'call_deleted_by_manager'] },
   { key:'reviews', title:'ביקורות', types:['review_new', 'review_request'] },
   { key:'admin',   title:'ניהול הפלטפורמה', admin:true, types:['review_alert', 'lead_unrouted', 'platform_signup', 'deal_data_gap', 'deal_sync_summary', 'access_review', 'security_alert', 'platform_upgrade', 'improvement_suggestion'] },
 ];

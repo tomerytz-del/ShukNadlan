@@ -403,8 +403,73 @@ function setAgentBalance(value){
   const el = document.getElementById('creditBalance');
   if (el) el.textContent = shekel(n);
   accSetCount('accWallet', shekel(n));
+  walletHeroSync();
   return n;
 }
+
+/* "מנוי וארנק" (3.7): היתרה בגדול, מה משלמים מהארנק, ובאנר כשהיתרה לא
+   מכסה חודש של מספר וירטואלי. **הארנק לפני מע״מ** (סקיל wallet-charges):
+   טעינת ₪100 מזכה ₪100, ובעמוד התשלום יתווסף מע״מ - ולכן לא כתוב כאן
+   "לתשלום ₪100". המחירים מ-pricing_config (priceOf), לא מועתקים. */
+function walletHeroSync(){
+  const bal = Number(currentAgent && currentAgent.credit_balance) || 0;
+  const el = document.getElementById('wlHeroBal');
+  if (!el) return;
+  el.textContent = shekel(bal);
+  const line = Number(priceOf('phone_line_monthly_price', 0));
+  const promote = Number(priceOf('promote_price', 0));
+  const uses = document.getElementById('wlUses');
+  uses.innerHTML = '<li><strong>מה משלמים מהארנק:</strong></li>'
+    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש</li>` : '')
+    + (promote ? `<li>קידום נכס · <b>${esc(shekel(promote))}</b></li>` : '')
+    + '<li>לידים מחנות הלידים</li>';
+  const note = document.getElementById('wlLineNote');
+  if (note) note.textContent = line && line <= 100 ? '· מכסה חודש של מספר' : '';
+  // באנר: יש מספר בתשלום, והיתרה לא מכסה את החודש הבא שלו
+  // monthly_price ריק = מספר של הפלטפורמה, included = כלול במסלול - שניהם לא מחויבים
+  const paidLines = lineRows.filter(l => l.active && l.monthly_price && !l.included);
+  const monthly = paidLines.reduce((sum, l) => sum + Number(l.monthly_price || 0), 0);
+  const low = document.getElementById('wlLow');
+  low.hidden = !(monthly && bal < monthly);
+  if (!low.hidden){
+    low.innerHTML = `<span>בארנק ${esc(shekel(bal))}, והחידוש הבא של המספר הווירטואלי הוא ${esc(shekel(monthly))}.</span>`
+      + '<span>בלי יתרה החידוש לא יבוצע. כדאי לטעון.</span>';
+  }
+  walletAfterSync();
+  shelfBarSync();
+}
+
+/* הפס הכהה בחנות הלידים (3.18): היתרה, וכמה לידים היא מספיקה */
+function shelfBarSync(){
+  const el = document.getElementById('shelfBarBal');
+  if (!el) return;
+  const bal = Number(currentAgent && currentAgent.credit_balance) || 0;
+  el.textContent = shekel(bal);
+  const price = Number(priceOf('rss_lead_price', 50)) || 0;
+  const n = price ? Math.floor(bal / price) : 0;
+  document.getElementById('shelfBarEnough').textContent = !price ? ''
+    : n === 0 ? 'לא מספיק לליד - צריך לטעון' : n === 1 ? 'מספיק לליד אחד' : `מספיק ל-${n} לידים`;
+}
+function walletAfterSync(){
+  const sel = document.getElementById('topupAmount');
+  const after = document.getElementById('wlAfter');
+  if (!sel || !after) return;
+  const amt = Number(sel.value) || 0;
+  const bal = Number(currentAgent && currentAgent.credit_balance) || 0;
+  after.textContent = `אחרי הטעינה: ${shekel(bal + amt)} בארנק. בעמוד התשלום יתווסף מע״מ.`;
+  const btn = document.getElementById('topupBtn');
+  if (btn) btn.textContent = `טעינת ${shekel(amt)}`;
+}
+document.getElementById('wlAmounts')?.addEventListener('input', e => {
+  const chip = e.target.closest('[data-value]');
+  if (!chip) return;
+  document.getElementById('topupAmount').value = chip.dataset.value;
+  walletAfterSync();
+});
+document.getElementById('topupAmount')?.addEventListener('change', e => {
+  uiSetChips(document.getElementById('wlAmounts'), [e.target.value]);
+  walletAfterSync();
+});
 
 /* היתרה שעל המסך מתיישנת אחרי כל רכישה, וברגע שמציגים אותה לפני חיוב היא
    חייבת להיות אמיתית. השאילתה היא שורה אחת, והחלון כבר פתוח בזמן שהיא רצה —
@@ -19416,6 +19481,7 @@ async function loadLeadShelf(agentId){
 
   rssLeadPrice = priceOf('rss_lead_price', 50);
   document.getElementById('shelfPriceLabel').textContent = shekel(rssLeadPrice);
+  shelfBarSync();
 
   if (error){
     // הטבלאות נוצרות ב-schema.sql + מיגרציית הרכישה; עד שהן קיימות אין טעם להבהיל
@@ -20320,9 +20386,11 @@ async function loadSharePartners(agent){
   const listEl = document.getElementById('sharePartnerList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
-  const [agenciesRes, exclusionsRes] = await Promise.all([
+  const [agenciesRes, exclusionsRes, modeRes] = await Promise.all([
     sb.from('agencies').select('id, name'),
     sb.from('agent_share_exclusions').select('agency_id').eq('agent_id', agent.id),
+    // ‏share_mode (‏20270715090000) בנפרד, עם נפילה: לפני המיגרציה המצב נגזר מההסרות
+    sb.from('agency_members').select('share_mode').eq('id', agent.id).maybeSingle(),
   ]);
 
   if (exclusionsRes.error){
@@ -20344,13 +20412,29 @@ async function loadSharePartners(agent){
     .filter(a => a.id !== agent.agency_id)
     .sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
   shareExcludedIds = new Set((exclusionsRes.data || []).map(r => r.agency_id));
+  shareModeReady = !modeRes.error;
+  shareMode = !modeRes.error && modeRes.data && modeRes.data.share_mode
+    ? modeRes.data.share_mode : (shareExcludedIds.size ? 'selected' : 'all');
   renderSharePartners();
 }
+
+/* "כל המשרדים (כולל עתידיים)" / "רק משרדים שבחרתי" (3.17) */
+let shareMode = 'all';
+let shareModeReady = false;
+const SP_STEP = 18;
+let spShown = SP_STEP;
 
 function renderSharePartners(){
   const listEl = document.getElementById('sharePartnerList');
   const q = document.getElementById('partnerSearch').value.trim().toLowerCase();
   const total = sharePartnerAgencies.length;
+  document.querySelectorAll('[data-sp-mode]').forEach(b => b.setAttribute('aria-checked', String(b.dataset.spMode === shareMode)));
+  document.getElementById('spPick').hidden = shareMode === 'all';
+  const n = shareMode === 'all' ? total : sharePartnerCount();
+  document.getElementById('spCount').textContent = total ? `${n} מתוך ${total}` : '0';
+  document.getElementById('spCountText').textContent = shareMode === 'all'
+    ? 'כל משרדי התיווך במערכת יקבלו נכס שתפתחו לשת״פ, גם משרדים שיצטרפו בהמשך.'
+    : 'רק המשרדים שסימנתם יקבלו נכס שתפתחו לשת״פ. משרד חדש לא ייכנס בלי שתבחרו בו.';
   accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '', total ? sharePartnerCount() : 0);
   prSyncPartnersSub();   // "32 מתוך 32 משרדים" בכרטיס שבלשונית השיתופים
 
@@ -20365,7 +20449,10 @@ function renderSharePartners(){
   }
 
   listEl.innerHTML = '';
-  shown.forEach(a => {
+  const more = document.getElementById('spMore');
+  const left = shown.length - spShown;
+  more.innerHTML = left > 0 ? `<button type="button" class="ui-more" id="spMoreBtn">עוד ${Math.min(SP_STEP, left)} משרדים (נשארו ${left})</button>` : '';
+  shown.slice(0, spShown).forEach(a => {
     const label = document.createElement('label');
     label.className = 'checkbox-item';
     const cb = document.createElement('input');
@@ -20376,6 +20463,7 @@ function renderSharePartners(){
     cb.addEventListener('change', ()=>{
       if (cb.checked) shareExcludedIds.delete(a.id); else shareExcludedIds.add(a.id);
       accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total, sharePartnerCount());
+      document.getElementById('spCount').textContent = `${sharePartnerCount()} מתוך ${total}`;
     });
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + a.name));
@@ -20394,11 +20482,16 @@ async function saveSharePartners(){
   // סדר הפעולות מכוון: קודם מוסיפים את ההסרות ורק אחר כך מוחקים את מי שחזר
   // לשת"פ. אם השלב השני נכשל, המצב שנשאר הוא המחמיר — לא משתפים עם מי
   // שהוסר — ולא הפוך.
+  // "כל המשרדים": set_share_mode('all') מנקה את ההסרות במסד, וכאן מנקים בזיכרון
+  if (shareMode === 'all') shareExcludedIds.clear();
   const excluded = [...shareExcludedIds];
   const included = sharePartnerAgencies.map(a => a.id).filter(id => !shareExcludedIds.has(id));
   let error = null;
+  if (shareModeReady){
+    ({ error } = await sb.rpc('set_share_mode', { p_mode: shareMode }));
+  }
 
-  if (excluded.length){
+  if (!error && excluded.length){
     ({ error } = await sb.from('agent_share_exclusions').upsert(
       excluded.map(id => ({ agent_id: currentAgent.id, agency_id: id })),
       { onConflict: 'agent_id,agency_id', ignoreDuplicates: true }));
@@ -20415,7 +20508,8 @@ async function saveSharePartners(){
     return;
   }
   feedback.style.color = 'var(--teal)';
-  feedback.textContent = 'נשמר - ' + sharePartnerCount() + ' משרדי שת״פ.';
+  feedback.textContent = shareMode === 'all' ? 'נשמר - כל המשרדים, כולל עתידיים.' : 'נשמר - ' + sharePartnerCount() + ' משרדי שת״פ.';
+  renderSharePartners();
   showToast('רשימת השת״פ עודכנה');
 }
 
@@ -20888,6 +20982,15 @@ document.getElementById('partnerClearAll').addEventListener('click', ()=>{
   renderSharePartners();
 });
 document.getElementById('savePartnersBtn').addEventListener('click', saveSharePartners);
+document.querySelectorAll('[data-sp-mode]').forEach(b => b.addEventListener('click', ()=>{
+  shareMode = b.dataset.spMode;
+  renderSharePartners();
+}));
+document.getElementById('spMore').addEventListener('click', e => {
+  if (!e.target.closest('#spMoreBtn')) return;
+  spShown += SP_STEP;
+  renderSharePartners();
+});
 
 document.getElementById('sharedSearch').addEventListener('input', renderSharedFromTop);
 ['sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter','sharedSort'].forEach(id =>
@@ -22333,6 +22436,7 @@ async function loadCalls(){
     .select('id, twilio_number, active, status, label, source_type, property_id, monthly_price, paid_until, payment_failed_at, twilio_sid, forward_to, external_number, included, downgrade_deadline, downgrade_keep, ring_mode, ring_agents')
     .eq('agent_id', currentAgent.id).neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
+  walletHeroSync();   // הבאנר "היתרה לא מכסה חודש של מספר" (3.7)
   // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
   const { data: quota } = await sb.rpc('my_phone_line_quota');
   lineQuota = quota || null;
@@ -22471,14 +22575,15 @@ function renderLines(){
         <span class="call-meta">${esc(meta)}</span>
       </div>
       <div class="line-stats">
-        <span>30 יום: <b>${st.calls}</b> שיחות</span>
-        <span>נענו <b>${st.answered}</b></span>
-        <span>לא נענו <b>${st.missed}</b></span>
-        <span>מתקשרים <b>${st.callers.size}</b></span>
-        <span>מהקובץ <b>${st.known}</b></span>
-        <span>נוספו לקובץ <b>${st.added.size}</b></span>
-        ${l.monthly_price ? `<span>דקות החודש <b>${st.monthMin || 0}</b> מתוך ${esc(String(capMin))}</span>` : ''}
+        <span><b>${st.calls}</b>שיחות</span>
+        <span><b>${st.answered}</b>נענו</span>
+        <span class="${st.missed ? 'is-bad' : ''}"><b>${st.missed}</b>לא נענו</span>
+        <span><b>${st.callers.size}</b>מתקשרים</span>
+        <span><b>${st.known}</b>מהקובץ</span>
+        <span class="${st.added.size ? 'is-good' : ''}"><b>${st.added.size}</b>נוספו לקובץ</span>
       </div>
+      ${l.monthly_price ? `<div class="line-min"><span>דקות החודש: <b>${st.monthMin || 0}</b> מתוך ${esc(String(capMin))}</span>
+        <span class="set-bar" role="progressbar" aria-label="דקות החודש" aria-valuemin="0" aria-valuemax="${esc(String(capMin))}" aria-valuenow="${st.monthMin || 0}"><span style="width:${Math.min(100, Math.round((st.monthMin || 0) / capMin * 100))}%"></span></span></div>` : ''}
       ${l.monthly_price && (st.monthMin || 0) >= capMin
         ? `<div class="line-warn">נוצלו כל ${esc(String(capMin))} הדקות של החודש - כל דקה נוספת ${shekel(overRate)} מהארנק. בלי יתרה השיחות ממשיכות להגיע, אבל בלי הקלטה וסיכום.</div>` : ''}
       ${l.ring_mode === 'round_robin' ? `<div class="call-meta">🔄 מתחלק בסבב בין ${(l.ring_agents || []).length} סוכנים - מנהל/ת המשרד קובע/ת מי בתור</div>`
@@ -22491,7 +22596,7 @@ function renderLines(){
         ${l.downgrade_deadline ? (l.downgrade_keep
           ? '<span class="call-badge">✓ המספר הזה נשאר</span>'
           : '<button type="button" class="btn btn-gold" data-line-act="keep">להשאיר את המספר הזה</button>') : ''}
-        ${l.twilio_sid ? '<button type="button" class="btn btn-ghost" data-line-act="release">✖ ביטול המספר</button>' : ''}
+        ${l.twilio_sid ? '<button type="button" class="call-del" data-line-act="release">ביטול המספר</button>' : ''}
         ${renew ? `<span class="call-meta">${esc(renew)}</span>` : ''}
       </div>
     </div>`;
@@ -22510,8 +22615,29 @@ function renderLines(){
          ? `מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. במסלול Elite המספר הראשון כלול ואפשר להוסיף עוד.
             <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a>`
          : 'מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע'}</span>`;
-  box.innerHTML = rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
+  box.innerHTML = linesSummaryHtml() + rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
   accSetCount('accLines', lineRows.length || '');
+}
+
+/* פס הסיכום של כל המספרים, 30 יום (3.2), ופס כתום כשיש שיחות שלא נענו
+   ועוד לא חזרו אליהן (handled_at, אותו סימון של "חזרתי") */
+function linesSummaryHtml(){
+  if (!lineRows.length) return '';
+  const t = { calls:0, answered:0, missed:0, added:0 };
+  Object.values(lineStats).forEach(st => {
+    t.calls += st.calls; t.answered += st.answered; t.missed += st.missed; t.added += st.added.size;
+  });
+  const since = Date.now() - 30 * 86400000;
+  const open = callRows.filter(c => c.status !== 'answered' && c.status !== 'ringing' && !c.handled_at
+    && !c.archived_at && new Date(c.created_at).getTime() >= since).length;
+  return `<section class="ui-scope ln-sum" aria-label="המספרים שלי ב-30 הימים האחרונים">
+      <span class="ln-sum-h">30 הימים האחרונים</span>
+      <span><b>${t.calls}</b>שיחות</span><span><b>${t.answered}</b>נענו</span>
+      <span class="${t.missed ? 'is-bad' : ''}"><b>${t.missed}</b>לא נענו</span>
+      <span><b>${t.added}</b>לקוחות חדשים בקובץ</span>
+    </section>`
+    + (open ? `<div class="ui-scope ui-banner ui-banner--warn ln-missed"><span>${esc(plural(open, 'שיחה אחת לא נענתה', 'שיחות לא נענו'))}. כדאי לחזור ${open === 1 ? 'אליה' : 'אליהן'} היום.</span>`
+      + '<button type="button" class="ui-link" data-goto="accLines" data-focus="callsSearch">חזרה למתקשרים</button></div>' : '');
 }
 
 document.getElementById('linesPanel').addEventListener('click', e => {
@@ -22776,6 +22902,8 @@ function renderOfficeCalls(){
   const list = document.getElementById('officeCallsList');
   const agent = document.getElementById('officeCallsAgent').value;
   const missedOnly = document.getElementById('officeCallsMissed').checked;
+  const answeredOnly = ocFilterValue === 'answered';
+  renderOfficeCallsSummary();
   // חיפוש ומיון מקומיים: 30 הימים כבר בזיכרון. שם מהקובץ של סוכן/ת אחר/ת
   // אינו בידי המנהל/ת, ולכן השם הוא מה שנאמר בשיחה (extracted.caller_name).
   const term = document.getElementById('officeCallsSearch').value.trim().toLowerCase();
@@ -22788,6 +22916,7 @@ function renderOfficeCalls(){
   const rows = officeCallRows.filter(c => {
     if (agent && c.agent_id !== agent) return false;
     if (missedOnly && (c.status === 'answered' || c.status === 'ringing')) return false;
+    if (answeredOnly && c.status !== 'answered') return false;
     const t = new Date(c.created_at).getTime();
     if (t < fromT || t >= toT) return false;
     if (!term) return true;
@@ -22801,6 +22930,39 @@ function renderOfficeCalls(){
   const lineLabel = new Map(officeLines.map(l => [l.id, l.label || callLocalPhone(l.twilio_number)]));
   list.innerHTML = rows.map(c => officeCallRowHtml(c, officeMembers.get(c.agent_id), lineLabel.get(c.line_id))).join('');
 }
+
+/* הסיכום בראש "השיחות" (3.9): טבעת "% נענו", שיחות, לא נענו ודקות החודש -
+   על 30 הימים שכבר בזיכרון, ולפי הסוכן/ת שנבחר/ה */
+let ocFilterValue = 'all';
+function renderOfficeCallsSummary(){
+  const box = document.getElementById('ocSummary');
+  if (!box) return;
+  const agent = document.getElementById('officeCallsAgent').value;
+  const rows = officeCallRows.filter(c => !agent || c.agent_id === agent);
+  const answered = rows.filter(c => c.status === 'answered').length;
+  const missed = rows.filter(c => c.status !== 'answered' && c.status !== 'ringing').length;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const minutes = rows.filter(c => new Date(c.created_at).getTime() >= monthStart)
+    .reduce((sum, c) => sum + Math.ceil((c.duration_sec || 0) / 60), 0);
+  box.hidden = !rows.length;
+  document.getElementById('ocNAll').textContent = rows.length;
+  document.getElementById('ocNAns').textContent = answered;
+  document.getElementById('ocNMiss').textContent = missed;
+  if (!rows.length) return;
+  const pct = Math.round(answered / Math.max(1, answered + missed) * 100);
+  const c = 2 * Math.PI * 15.5;
+  box.innerHTML = `<span class="oc-ring" role="img" aria-label="${pct}% נענו"><svg viewBox="0 0 36 36" aria-hidden="true">`
+    + `<circle class="bg" cx="18" cy="18" r="15.5"></circle><circle class="fg" cx="18" cy="18" r="15.5" style="stroke-dasharray:${c};stroke-dashoffset:${c * (1 - pct / 100)}"></circle></svg><b>${pct}%</b></span>`
+    + `<span><b>${rows.length}</b>שיחות</span><span class="${missed ? 'is-bad' : ''}"><b>${missed}</b>לא נענו</span>`
+    + `<span><b>${minutes}</b>דקות החודש</span>`;
+}
+document.getElementById('ocFilter')?.addEventListener('input', e => {
+  const chip = e.target.closest('[data-value]');
+  if (!chip) return;
+  ocFilterValue = chip.dataset.value;
+  document.getElementById('officeCallsMissed').checked = ocFilterValue === 'missed';
+  renderOfficeCalls();
+});
 
 /* המספרים של המשרד: שיוך לסוכן/ת (office_phone_line_assign) וחלוקה בסבב
    (office_phone_line_set_ring). המספר עובר עם החיוב - האישור אומר את זה. */
@@ -26589,10 +26751,17 @@ function renderScreenCrumb(){
   el.hidden = !hit;
   if (!hit) return;
   const group = hit.group.placement === 'profile' ? 'החשבון שלי' : hit.group.label;
+  // תת-מסך (tabs:'quiet', משרדי השת"פ): עוד שלב, וקישור חזרה לראשית
+  const sub = hit.item.tabs === 'quiet' && navActive !== hit.item.acc
+    ? (document.querySelector('#' + navActive + ' > summary .acc-title') || {}).textContent : '';
   el.innerHTML = '<button type="button" class="ui-link screen-crumb-home">דף הבית</button>'
     + '<span aria-hidden="true">›</span><span>' + esc(group) + '</span>'
-    + '<span aria-hidden="true">›</span><span aria-current="page">' + esc(hit.item.label) + '</span>';
+    + '<span aria-hidden="true">›</span>'
+    + (sub ? '<button type="button" class="ui-link screen-crumb-up">' + esc(hit.item.label) + '</button>'
+        + '<span aria-hidden="true">›</span><span aria-current="page">' + esc(sub.trim()) + '</span>'
+      : '<span aria-current="page">' + esc(hit.item.label) + '</span>');
   el.querySelector('.screen-crumb-home').addEventListener('click', ()=> setNavTab('home'));
+  el.querySelector('.screen-crumb-up')?.addEventListener('click', ()=> gotoSection(hit.item.acc));
 }
 
 /* ---------- לשוניות בתוך מסך (tabs:true בשורה) ----------
