@@ -22,7 +22,7 @@ description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - 
 | האייקון | `PATHS` | `PATHS` |
 | הסדר | `TYPE_ORDER` (ומתוכו `TILE_TYPES`) | `TILE_TYPES` |
 
-**ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
+**`TYPE_LABELS` מופיע גם ב-`assets/home.js`** (רצועת `#proStrip` בדף הבית - הסקיל `home-page`). **ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
 (‏`professionalMeta`), שבונה בשרת את הכותרת, ה-JSON-LD ואת תוכן הפרופיל
 לסורק.
 
