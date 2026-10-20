@@ -434,6 +434,10 @@ def _stand_in_pins(ctx) -> Iterator[Finding]:
 # ואת המבקר/ת הראשון/ה שהאתר ריק.
 MARKET_GATE_AGENCIES = 1
 MARKET_GATE_PROPERTIES = 10
+# ‏"מתקרב לסף" - 70% מהנכסים. שוק סגור שעבר את זה מקבל ממצא info, וההתראה
+# למנהל/ת הפלטפורמה (‏market_alert, מיגרציה 20270705090000) יוצאת כשהוא נפתח -
+# כלומר פעם אחת בדרך לסף, ופעם נוספת כשהסף עצמו נחצה (‏market_ready).
+MARKET_NEAR_PROPERTIES = 7
 
 
 def _load_markets(root) -> list[dict]:
@@ -473,6 +477,9 @@ def _market_gate(ctx) -> Iterator[Finding]:
         """
         select c.market_slug,
                count(distinct p.id) filter (where p.status = 'active') as props,
+               count(distinct p.id) filter (where p.status = 'active'
+                                              and p.lat is not null
+                                              and p.lng is not null)   as pinned,
                count(distinct a.id)                                    as agencies
           from public.cities c
           left join public.properties p on p.city_id = c.id
@@ -488,9 +495,18 @@ def _market_gate(ctx) -> Iterator[Finding]:
         r = by_slug.get(m["slug"]) or {}
         props = int(r.get("props") or 0)
         agencies = int(r.get("agencies") or 0)
+        pinned = int(r.get("pinned") or 0)
         ready = agencies >= MARKET_GATE_AGENCIES and props >= MARKET_GATE_PROPERTIES
         evidence = {"market": m["slug"], "live": m["live"], "active_properties": props,
-                    "agencies": agencies, "gate": [MARKET_GATE_AGENCIES, MARKET_GATE_PROPERTIES]}
+                    "pinned": pinned, "agencies": agencies,
+                    "gate": [MARKET_GATE_AGENCIES, MARKET_GATE_PROPERTIES]}
+        # ‏נכס בלי פין אינו על המפה של דף השוק - שוק שעבר את הסף בנכסים שאין
+        # להם מיקום נפתח על מפה ריקה. הסקיל market-go-live, סעיף 1.
+        unpinned = props - pinned
+        # ‏השם ולא ה-slug: הכותרת יוצאת גם בוואטסאפ (‏market_alert).
+        name = m.get("label") or m["slug"]
+        pin_note = (" %d מהם בלי פין ולא יופיעו על המפה - צריך כתובת מלאה "
+                    "(רחוב ומספר) בכרטיס הנכס ב-CRM." % unpinned) if unpinned else ""
 
         # ‏שוק ברירת המחדל הוא דף הבית של כל האתר - הוא לא נסגר, ולכן אין
         # על מה לדווח אם הוא מתחת לסף (הוא יהיה שם גם כשהמסד ריק לגמרי).
@@ -499,7 +515,7 @@ def _market_gate(ctx) -> Iterator[Finding]:
                 area="health", code="market_below_gate", severity="high",
                 subject="market:%s" % m["slug"],
                 title="השוק %s חי עם %d נכסים פעילים ו-%d משרדים - מתחת לסף"
-                      % (m["slug"], props, agencies),
+                      % (name, props, agencies),
                 detail="שוק חי הוא דף הבית של כל מי שנמצא/ת באזור, והסף הוא "
                        "משרד אחד ו-10 נכסים פעילים. מתחתיו הדף דל: גוגל לומדת "
                        "שהאתר דק, והמבקר/ת הראשון/ה רואה אתר ריק.",
@@ -513,11 +529,29 @@ def _market_gate(ctx) -> Iterator[Finding]:
                 area="health", code="market_ready", severity="info",
                 subject="market:%s" % m["slug"],
                 title="השוק %s עבר את הסף: %d נכסים פעילים ו-%d משרדים"
-                      % (m["slug"], props, agencies),
+                      % (name, props, agencies),
                 detail="הכתובת שלו עדיין מגישה 'נפתחים בקרוב'. אפשר להדליק "
-                       "אותו לגולשים.",
-                suggestion="הסקיל market-go-live: ‏live: true, ‏_redirects ל-/index, "
-                           "שורה ב-sitemap.xml, והערים חיות במסד.",
+                       "אותו לגולשים." + pin_note,
+                suggestion="לבקש מ-Claude לפתוח את השוק (הסקיל market-go-live: "
+                           "live: true, ‏_redirects ל-/index ושורה ב-sitemap.xml, "
+                           "ב-PR אחד).",
+                metric=props, metric_unit="נכסים", evidence=evidence,
+            )
+        elif not m["live"] and not ready and props >= MARKET_NEAR_PROPERTIES:
+            missing = []
+            if props < MARKET_GATE_PROPERTIES:
+                missing.append("%d נכסים" % (MARKET_GATE_PROPERTIES - props))
+            if agencies < MARKET_GATE_AGENCIES:
+                missing.append("משרד")
+            yield Finding(
+                area="health", code="market_near", severity="info",
+                subject="market:%s" % m["slug"],
+                title="השוק %s מתקרב לסף: %d נכסים פעילים ו-%d משרדים"
+                      % (name, props, agencies),
+                detail="חסרים עד הפתיחה: %s. הסף הוא משרד אחד ו-10 נכסים פעילים."
+                       % " ו-".join(missing) + pin_note,
+                suggestion="לגייס עוד מלאי באזור. כשהשוק יעבור את הסף תגיע "
+                           "התראה נוספת.",
                 metric=props, metric_unit="נכסים", evidence=evidence,
             )
 
