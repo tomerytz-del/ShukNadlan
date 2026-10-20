@@ -1,12 +1,12 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-10-03 16:45:54",
+    "exportTime": "2026-10-20 14:24:02",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/12",
+        "path": "accounts/6376638087/containers/264013397/versions/13",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "12",
-        "name": "Meta pixel noscript fix",
+        "containerVersionId": "13",
+        "name": "יריד - מחשבון החיסכון",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -2055,6 +2055,78 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "76",
+                "name": "GA4 — oh_calc_used",
+                "type": "gaawe",
+                "notes": "תזוזה ראשונה של מחשבון החיסכון בדף היריד (פעם אחת לטעינת דף)",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "src"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - src}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "oh_calc_used"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1792506063066",
+                "firingTriggerId": [
+                    "75"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -2582,6 +2654,31 @@
                     }
                 ],
                 "fingerprint": "1791041163395"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "75",
+                "name": "CE — oh_calc_used",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "oh_calc_used"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1792506063065"
             }
         ],
         "variable": [
@@ -3329,7 +3426,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1791045931422",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/12?apiLink=version"
+        "fingerprint": "1792506200886",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/13?apiLink=version"
     }
 }
