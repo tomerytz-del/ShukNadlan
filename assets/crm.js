@@ -23068,7 +23068,7 @@ function officeCallRowHtml(c, agentName, lineName){
   const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
   const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
   const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
-  return `<div class="call-row" data-call="${esc(c.id)}">
+  return `<div class="call-row${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -23078,6 +23078,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
       ${badge === 'missed' ? (c.handled_at ? ' · <span class="call-badge answered">חזרו אליו/ה</span>' : ' · <span class="call-badge missed">לא סומן שחזרו</span>') : ''}</div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ''}
+    ${callInsightsHtml(c)}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
@@ -23200,7 +23201,7 @@ function callRowHtml(c, inCard){
   const needsObj = (c.extracted && c.extracted.needs) || {};
   const canUpdate = client && Object.keys(needsObj).length > 0;
   const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
-  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}" data-call="${esc(c.id)}">
+  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -23209,6 +23210,7 @@ function callRowHtml(c, inCard){
     </div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
     ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
+    ${callInsightsHtml(c)}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}

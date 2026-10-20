@@ -780,6 +780,8 @@ async function analyzeCall(
   const ownerCall = summary?.needs?.client_kind === "owner";
   if (summary?.needs_text) lines.push("", `${ownerCall ? "*הנכס:*" : "*מחפש/ת:*"} ${summary.needs_text}`);
   if (summary?.next_step) lines.push(`*להמשך:* ${summary.next_step}`);
+  // הודעה קולית היא מטבעה חד-צדדית - "נקטעה" שם אינו אומר כלום
+  if (!voicemail && summary?.call_status === "cut_off") lines.push("", "⚠️ *השיחה לא הסתיימה* - כדאי לחזור.");
   // השאלות והכפתורים - הודעה נפרדת אחרי ההקלטה, כדי שיהיו הדבר האחרון במסך
   const asks: string[] = [];
   const buttons: string[] = [];
@@ -839,6 +841,12 @@ export type CallNeeds = {
 
 type CallTask = { kind: "meeting" | "send_material" | "call_back" | "other"; text: string };
 
+/** ‏facts - תגיות קצרות למה שזוהה בשיחה ("קנייה", "עפולה", "4 חדרים"), שהכרטיס
+ *  ב-CRM מציג כצ'יפים. ‏call_status - האם השיחה הגיעה לסיום, או נקטעה באמצע
+ *  (ניתוק, "אחזור אליך עוד רגע" ולא חזר) - ואז "כדאי לחזור". שניהם יושבים
+ *  ב-agent_calls.extracted, כמו שאר השדות. docs/call-tracking.md */
+export type CallStatus = "completed" | "cut_off";
+
 type CallSummary = {
   summary: string;
   caller_name: string | null;
@@ -846,6 +854,8 @@ type CallSummary = {
   next_step: string | null;
   needs: CallNeeds;
   tasks: CallTask[];
+  facts: string[];
+  call_status: CallStatus;
 };
 
 /** כפתור לכל סוג משימה. הכותרת היא מה שגבריאלה מקבלת כשלוחצים, ולכן היא
@@ -865,6 +875,19 @@ function cleanTasks(raw: unknown): CallTask[] {
     .filter((t) => t && typeof t === "object" && kinds.has((t as any).kind) && String((t as any).text || "").trim())
     .map((t) => ({ kind: (t as any).kind, text: noLongDash(String((t as any).text).trim()).slice(0, 200) }))
     .slice(0, 4) as CallTask[];
+}
+
+/** עד שש תגיות, קצרות, בלי כפילויות - תגית ארוכה היא משפט ולא צ'יפ */
+export function cleanFacts(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const f of raw) {
+    const t = noLongDash(String(f ?? "").trim()).replace(/\s+/g, " ");
+    if (!t || t.length > 30 || out.includes(t)) continue;
+    out.push(t);
+    if (out.length === 6) break;
+  }
+  return out;
 }
 
 function cleanNeeds(raw: unknown): CallNeeds {
@@ -918,6 +941,12 @@ const SUMMARY_PROMPT = [
   "  או מה שהלקוח/ה ביקש/ה. kind: meeting = לקבוע פגישה, סיור או צפייה בנכס; send_material = לשלוח",
   "  נכסים, פרטים, תמונות או מסמכים; call_back = לחזור ללקוח/ה; other = כל משימה אחרת. text - משפט",
   "  קצר בעברית, עם שם הלקוח/ה ומועד אם נאמר (\"לקבוע עם אריאל סיור ביום ג׳\"). אין משימות - [].",
+  "facts - עד שש תגיות קצרות (מילה עד ארבע מילים) למה שנאמר במפורש: סוג העסקה, עיר או שכונה,",
+  "  חדרים, תקציב, מועד כניסה, דרישה בולטת. למשל [\"קנייה\", \"עפולה\", \"4 חדרים\", \"1.1-1.5 מיליון ₪\"].",
+  "  בלי משפטים ובלי מה שלא נאמר. לא עלה כלום - [].",
+  "call_status - \"completed\" אם השיחה הגיעה לסיום טבעי (נפרדו, סוכם משהו או שהלקוח/ה סיים/ה),",
+  "  \"cut_off\" אם היא נקטעה באמצע: ניתוק, משפט שנחתך, \"אחזור אליך עוד רגע\", או שיחה שנגמרה",
+  "  לפני שהלקוח/ה אמר/ה מה רצה. בספק - completed.",
   "כתוב/כתבי בעברית, עם מקף רגיל (-) ולא מקף ארוך.",
   // ‏structured outputs: מירכאה רגילה בתוך ערך סוגרת את המחרוזת, וכך יצא
   // "4,500 ש" בשיחה של 4.10.2026. סכום נכתב עם ₪, וראשי תיבות עם ״ העברי.
@@ -951,6 +980,8 @@ const SUMMARY_SCHEMA = {
       required: ["client_kind", "deal_type", "cities", "min_rooms", "min_price", "max_price"],
       additionalProperties: false,
     },
+    facts: { type: "array", items: { type: "string" } },
+    call_status: { type: "string", enum: ["completed", "cut_off"] },
     tasks: {
       type: "array",
       items: {
@@ -964,7 +995,7 @@ const SUMMARY_SCHEMA = {
       },
     },
   },
-  required: ["summary", "caller_name", "needs_text", "next_step", "needs", "tasks"],
+  required: ["summary", "caller_name", "needs_text", "next_step", "needs", "tasks", "facts", "call_status"],
   additionalProperties: false,
 };
 
@@ -1041,6 +1072,8 @@ async function summarize(transcript: string, knownName: string | null, places = 
       next_step: clean(parsed?.next_step),
       needs: cleanNeeds(parsed?.needs),
       tasks: cleanTasks(parsed?.tasks),
+      facts: cleanFacts(parsed?.facts),
+      call_status: parsed?.call_status === "cut_off" ? "cut_off" : "completed",
     };
   } catch (err) {
     console.error("summary failed", err);

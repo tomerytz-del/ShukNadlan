@@ -65,9 +65,12 @@ function leadAgo(iso){
   return new Date(iso).toLocaleDateString('he-IL', { day:'numeric', month:'numeric' });
 }
 
-/* מה זוהה בשיחה - מ-agent_calls.extracted.needs (twilio-voice) */
+/* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
+   שהשדה נולד - נגזר מ-extracted.needs */
 function leadCallFacts(call){
-  const n = (call && call.extracted && call.extracted.needs) || {};
+  const x = (call && call.extracted) || {};
+  if (Array.isArray(x.facts) && x.facts.length) return x.facts.slice(0, 6);
+  const n = x.needs || {};
   const out = [];
   if (n.deal_type === 'sale') out.push('קנייה');
   if (n.deal_type === 'rent') out.push('שכירות');
@@ -79,6 +82,20 @@ function leadCallFacts(call){
     out.push(lo && hi ? `${lo}-${hi}` : (hi ? 'עד ' + hi : 'מ-' + lo));
   }
   return out;
+}
+
+/* שיחה שנקטעה באמצע (extracted.call_status) - "כדאי לחזור" */
+function callCutOff(c){
+  return !!(c && c.extracted && c.extracted.call_status === 'cut_off');
+}
+
+/* תגיות "מה זוהה" והצעד הבא - אותו בלוק בשורת השיחה ובתצוגת המשרד */
+function callInsightsHtml(c){
+  const facts = leadCallFacts(c);
+  const next = c && c.extracted && c.extracted.next_step;
+  return (facts.length ? `<div class="call-facts" aria-label="מה זוהה בשיחה">${facts.map(f => `<span class="call-fact">${esc(f)}</span>`).join('')}</div>` : '')
+    + (next ? `<p class="call-next"><b>הצעד הבא:</b> ${esc(next)}</p>` : '')
+    + (callCutOff(c) ? '<p class="call-cut">כדאי לחזור: השיחה לא הסתיימה</p>' : '');
 }
 
 function leadWants(l, call){
@@ -212,6 +229,7 @@ function buildLeadPriorityCard(group, rank, agentId){
   let why = meta.why;
   if (src === 'owner' && !excl) why = 'ליד בעלים';
   if (src === 'call' && call && call.status && call.status !== 'answered') why = 'התקשר/ה ולא נענה/תה';
+  else if (src === 'call' && callCutOff(call)) why = 'השיחה לא הסתיימה - כדאי לחזור';
   const facts = src === 'call' ? leadCallFacts(call) : [];
   const wants = leadWants(lead, call);
 
