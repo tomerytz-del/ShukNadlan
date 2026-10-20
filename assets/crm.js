@@ -6997,7 +6997,7 @@ function selectedMarkets(){
   return pfAreaPicker ? pfAreaPicker.read().markets : [];
 }
 
-/* ברירת המחדל של המשרד. עמודה שעוד לא קיימת (לפני המיגרציה 20270707090000)
+/* ברירת המחדל של המשרד. עמודה שעוד לא קיימת (לפני המיגרציה 20270711090000)
    משאירה "הכל, בלי אזורים" - כלומר בדיוק ההתנהגות של היום */
 /* בקשה אחת לפרופיל ולמיתוג יחד - שניהם נטענים בכניסה. אחרי שמירה במיתוג
    agencyAreaDefaults מתעדכן ישירות, ולכן הקוראים קוראים אותו ולא את התוצאה */
@@ -7042,7 +7042,7 @@ function guessMarketsFromText(text){
 async function loadAgentMarkets(agentId){
   try{
     let { data, error } = await sb.from('agency_members').select('service_markets, property_scope').eq('id', agentId).maybeSingle();
-    // ‏property_scope נולדה ב-20270707090000; לפני שהמיגרציה רצה - בלעדיה
+    // ‏property_scope נולדה ב-20270711090000; לפני שהמיגרציה רצה - בלעדיה
     if (error && /property_scope/.test(error.message || '')){
       ({ data, error } = await sb.from('agency_members').select('service_markets').eq('id', agentId).maybeSingle());
     }
@@ -10781,7 +10781,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     }).eq('id', currentAgent.agency_id);
     if (error) throw error;
 
-    // תחום ואזורי הפעילות - עדכון נפרד: עמודות שנולדו ב-20270707090000, ולפני
+    // תחום ואזורי הפעילות - עדכון נפרד: עמודות שנולדו ב-20270711090000, ולפני
     // שהמיגרציה רצה הן היו מפילות את שמירת המיתוג כולה
     if (brAreaPicker){
       const a = brAreaPicker.read();

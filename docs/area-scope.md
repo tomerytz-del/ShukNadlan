@@ -16,7 +16,7 @@
 | `agent_share_fit(agent, category, city_id)` | האם נכס מתאים לסוכן/ת |
 | `shared_properties_for_me.fits_me` | אותה שאלה, לכל נכס ב"שותפו איתי" |
 | `share_property_for_agent` | ההתראה על נכס ששותף - רק למי שמתאים |
-| מיגרציה `20270707090000_area_scope.sql` | כל השינויים במסד |
+| מיגרציה `20270711090000_area_scope.sql` | כל השינויים במסד |
 
 ## משרד וסוכן/ת
 

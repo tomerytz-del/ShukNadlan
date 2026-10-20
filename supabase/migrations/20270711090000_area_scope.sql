@@ -212,7 +212,7 @@ begin
       join public.agency_members m
         on m.agency_id = ins.shared_with_agency_id
        and m.active = true
-     -- תחום ואזורי הפעילות (20270707090000): השיתוף לכולם, הצלצול רק למי שמתאים
+     -- תחום ואזורי הפעילות (20270711090000): השיתוף לכולם, הצלצול רק למי שמתאים
      where public.agent_share_fit(m.id, v_prop.category, v_prop.city_id)
     returning 1
   )
