@@ -2752,10 +2752,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     }
     html body .hero-stats.trust .hero-stat{padding:2px 0}
     html body .hero-stats.trust .hero-stat i{font-size:14px;font-weight:600}
-    html body .hero-stats.trust .hero-marks{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 4px;width:100%}
+    /* כל שורה היא קופסה משלה (ולא display:contents), כדי שהבועה תיפתח ליד
+       השורה שלה: העליונה כלפי מטה, והתחתונה כלפי מעלה - היא סוף ה-hero
+       (overflow:hidden), ובועה כלפי מטה ממנה נחתכה */
+    html body .hero-stats.trust .hero-marks{display:flex;flex-direction:column;gap:10px;width:100%}
+    html body .hero-stats.trust .hero-marks-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));column-gap:4px;position:relative;align-items:start}
     html body .hero-stats.trust .hero-marks-row > .hero-mark{grid-column:span 2}
     html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(1){grid-column:2 / span 2}
     html body .hero-stats.trust .hero-marks-row.is-lower > .hero-mark:nth-child(2){grid-column:4 / span 2}
+    html body .hero-stats.trust .hero-marks-row.is-lower .hero-mark[data-info]::after{top:auto;bottom:calc(100% + 10px)}
     html body .hero-stats.trust .hero-mark{flex-direction:column;align-items:center;gap:5px;padding:2px;min-width:0;text-align:center}
     html body .hero-stats.trust .hero-mark-ico,html body .hero-stats.trust .hero-mark-seal{width:34px;height:34px}
     html body .hero-stats.trust .hero-mark-cap{font-size:12.5px;line-height:1.2;white-space:normal;text-wrap:balance}

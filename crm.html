@@ -3226,10 +3226,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏[hidden] מנוצח על ידי ה-display של .icon-btn, ולכן הוא נאמר כאן במפורש */
   .icon-btn[hidden]{display:none}
   /* ---------- תפריט הפרופיל ----------
-     נפתח מהאווטאר שבצד הימני של הכותרת, ולכן הוא מיושר לימין פיזית (‏right)
-     ולא לפי כיוון הכתיבה: הקצה שאסור לו לחרוג מהמסך הוא הימני. */
+     נפתח מהאווטאר שבקצה השמאלי של הכותרת, ולכן הוא מיושר לשמאל פיזית (‏left)
+     ולא לפי כיוון הכתיבה: הקצה שאסור לו לחרוג מהמסך הוא השמאלי.
+     ‏right:0 נשאר מהתקופה שבה האווטאר ישב בימין, ומאז ש-‎.agent-id‎ קיבל
+     ‏flex:1 ונמתח עד גלולת הפעולות, הקצה הימני שלו הוא אמצע הכותרת - והתפריט
+     נפתח שם, רחוק מהאווטאר שפתח אותו. */
   .profile-wrap{position:relative}
-  .profile-panel{left:auto;right:0;width:270px}
+  .profile-panel{inset-inline:auto;left:0;right:auto;width:270px}
   @media(max-width:720px){
     #dashboard .profile-wrap{position:static}
     #dashboard .profile-panel{top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none}
