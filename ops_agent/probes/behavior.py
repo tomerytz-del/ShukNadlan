@@ -435,7 +435,7 @@ def _stand_in_pins(ctx) -> Iterator[Finding]:
 MARKET_GATE_AGENCIES = 1
 MARKET_GATE_PROPERTIES = 10
 # ‏"מתקרב לסף" - 70% מהנכסים. שוק סגור שעבר את זה מקבל ממצא info, וההתראה
-# למנהל/ת הפלטפורמה (‏market_alert, מיגרציה 20270703090000) יוצאת כשהוא נפתח -
+# למנהל/ת הפלטפורמה (‏market_alert, מיגרציה 20270705090000) יוצאת כשהוא נפתח -
 # כלומר פעם אחת בדרך לסף, ופעם נוספת כשהסף עצמו נחצה (‏market_ready).
 MARKET_NEAR_PROPERTIES = 7
 

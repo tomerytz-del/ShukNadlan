@@ -99,7 +99,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminOps.
   // מיגרציה 20270421100000, docs/ops-agent.md.
   security_alert: "adminOps",
-  // ‏שוק שמתקרב לסף, עובר אותו או יורד מתחתיו (20270703090000) - לפאנל
+  // ‏שוק שמתקרב לסף, עובר אותו או יורד מתחתיו (20270705090000) - לפאנל
   // "שווקים מקומיים", שה-goto ב-crm.js פותח בתצוגת הניהול.
   market_alert: "dashPanelMarkets",
   // ‏סקירת הרשאות חצי-שנתית (docs/access-review.md)

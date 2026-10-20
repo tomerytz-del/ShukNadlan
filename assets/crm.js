@@ -24457,7 +24457,7 @@ const NOTIF_TYPES = [
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadDealSyncRuns() },
   /* שוק מקומי שמתקרב לסף (7 נכסים), עובר אותו (משרד ו-10 נכסים) או חי ויורד
-     מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270703090000). */
+     מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270705090000). */
   { type:'market_alert', tone:'alert', goto:'dashPanelMarkets',
     view:'admin',
     title:'שווקים מקומיים',
