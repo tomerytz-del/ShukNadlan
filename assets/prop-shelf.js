@@ -301,7 +301,10 @@
        מגיעים כולם מ-assets/property-card.js, ולכן האריח כאן זהה בשלושת
        הדפים. מה שנשאר לעמוד הוא ממלא־המקום (‏cfg.fallback) ומה שהוא רוצה
        להוסיף על התמונה (‏cfg.overlay — כפתור המועדפים בדף הסוכן/ת, סרט
-       הספירה לאחור בדף היריד; ‏cfg.rowExtra הוא אותו הדבר לשורה הדחוסה). */
+       הספירה לאחור בדף היריד; ‏cfg.rowExtra הוא אותו הדבר לשורה הדחוסה).
+       ‏cfg.priceExtra הוא שורה שיושבת **מתחת למחיר** ולא על התמונה — "חוסכים
+       כ-₪X בעמלה" בדף היריד — והוא חל גם על האריח וגם על השורה הדחוסה, כי
+       משפט שמפרש את המחיר שייך ליד המחיר בשתי התצוגות. */
     function propCard(p) {
       var el = document.createElement('div');
       el.className = 'prop-card pc-cover';
@@ -316,6 +319,7 @@
         '</div>' +
         '<div class="body">' +
           PropertyCard.priceHtml(p) +
+          (cfg.priceExtra ? cfg.priceExtra(p) : '') +
           PropertyCard.titleHtml(p) +
           PropertyCard.whereHtml(p, cfg.whereOpts) +
           PropertyCard.factsHtml(p) +
@@ -388,6 +392,7 @@
           '<span class="pr-line pr-what">' + escAttr(what) + '</span>' +
           '<span class="pr-line pr-facts">' + escAttr(facts.join(' · ')) + '</span>' +
           '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span></span>' +
+          (cfg.priceExtra ? cfg.priceExtra(p) : '') +
         '</span>' +
         '<svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';

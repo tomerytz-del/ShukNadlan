@@ -34,11 +34,12 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEBHOOK = ROOT / "supabase/functions/whatsapp-webhook/index.ts"
 MIGRATION = ROOT / "supabase/migrations/20270214090000_whatsapp_public_entry.sql"
-HELLO_FILES = [ROOT / "assets/home.js", ROOT / "assets/bot-link.js"]
+HELLO_FILES = [ROOT / "assets/home.js", ROOT / "assets/bot-link.js", ROOT / "open-house.html"]
 
 # משתנים שמחזיקים הודעת פתיחה ונבדקים בסעיף 1. ‏`hello` הוא הפרמטר של
-# ‏`draw()` ב-renderEmptyBotLink, ושני הערכים שלו נבדקים שם.
-KNOWN_HELLO_VARS = {"GAB_HELLO", "hello"}
+# ‏`draw()` ב-renderEmptyBotLink, ושני הערכים שלו נבדקים שם. ‏`FAIR_BOT_HELLO`
+# ‏הוא הקישור מתחת לטופס ההרשמה בדף היריד (‏open-house.html, בתוך HELLO_FILES).
+KNOWN_HELLO_VARS = {"GAB_HELLO", "hello", "FAIR_BOT_HELLO"}
 
 # ‏bot-link.js מגדיר את ShukBot ואת הקישור עצמו - הקריאות שבו אינן נקודת כניסה
 SKIP_CALLS_IN = {"assets/bot-link.js"}

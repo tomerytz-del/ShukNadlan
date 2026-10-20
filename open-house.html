@@ -42,10 +42,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="יריד הבתים הפתוחים של שוק הנדל״ן: נכסים בעפולה והעמק שמוצעים לקונים ללא עמלת תיווך, לתקופה מוגבלת שהמתווך/ת הגדיר/ה לכל נכס. כל המשתתפים, על המפה ובמדף אחד.">
+<meta name="description" content="דירות בעפולה והעמק ללא עמלת תיווך, לזמן מוגבל. כל הדירות ביריד, עם שעון שמראה כמה זמן נשאר - על המפה ובמדף אחד.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="יריד הבתים הפתוחים - דירות ללא עמלת תיווך | שוק נדל״ן">
-<meta property="og:description" content="נכסים בעפולה והעמק שמוצעים לקונים ללא עמלת תיווך, לתקופה מוגבלת. כל המשתתפים ביריד במקום אחד.">
+<meta property="og:description" content="דירות בעפולה והעמק ללא עמלת תיווך, לזמן מוגבל. כל הדירות ביריד, עם שעון שמראה כמה זמן נשאר - על המפה ובמדף אחד.">
+<!-- ‏"רגע, איפה הקאץ׳?" כ-FAQPage. סטטי בכוונה, וזהה מילה במילה לשלושת
+     ה-<details> שבגוף הדף (‏#fairFaq) - מי שמשנה נוסח שם משנה גם כאן. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "למה אין עמלת תיווך?",
+      "acceptedAnswer": { "@type": "Answer", "text": "המתווך/ת בחר/ה להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שהוא/היא קבע/ה מראש. אין אותיות קטנות." }
+    },
+    {
+      "@type": "Question",
+      "name": "עד מתי זה בתוקף?",
+      "acceptedAnswer": { "@type": "Answer", "text": "על כל דירה רץ שעון שמראה בדיוק כמה זמן נשאר. כשהוא נעצר, הדירה יוצאת מהיריד." }
+    },
+    {
+      "@type": "Question",
+      "name": "איך מתאמים ביקור?",
+      "acceptedAnswer": { "@type": "Answer", "text": "נכנסים לדירה ופונים ישירות למתווך/ת בוואטסאפ או בטלפון." }
+    }
+  ]
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
@@ -63,6 +88,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/open-house.js"></script>
 <script src="assets/property-card.js"></script>
 <script src="assets/prop-shelf.js"></script>
+<!-- הקישור לגבריאלה ברצועת ההרשמה - אותו מקור של דף הבית, כולל המתג
+     ENABLED (‏docs/whatsapp-public-bot.md) -->
+<script src="assets/bot-link.js"></script>
 <style>
   /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
      ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
@@ -141,13 +169,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .oh-head-art{grid-area:art;display:flex;align-items:center}
   .oh-head-art-svg{height:clamp(56px,17vw,72px);width:auto;direction:ltr}
   .oh-head-text{grid-area:text;min-width:0}
-  .oh-head-kicker{margin:0 0 3px;font-size:clamp(.74rem,3.55vw,.95rem);font-weight:900;color:#e9c35c;white-space:nowrap}
+  /* ‏3.1vw ולא 3.55vw: מאז גרסה 2 ה-kicker נושא גם את שם היריד ("יריד הבתים
+     הפתוחים · אל תחמיצו!"), והגודל הקודם גלש ב-10-16px בטלפון של 360-390px */
+  .oh-head-kicker{margin:0 0 3px;font-size:clamp(.68rem,3.1vw,.95rem);font-weight:900;color:#e9c35c;white-space:nowrap}
   /* שלושת חלקי הכותרת הם שלוש שורות בטלפון (כמו בבאנר), ושורה אחת במחשב */
   .oh-head h1{
     margin:0;color:#fff;font-weight:900;line-height:1.1;letter-spacing:-.01em;
     font-size:clamp(1.2rem,5vw,1.5rem);text-shadow:0 2px 10px rgba(0,0,0,.35);
   }
-  .oh-head h1 span{display:block}
+  /* ‏‎> span‎ ולא ‎span‎: בתוך השורה הראשונה יושב ‎data-market-label‎ (שם
+     השוק), ו-‎display:block‎ עליו היה שובר את "דירות ב|עפולה והעמק" לשתיים */
+  .oh-head h1 > span{display:block}
   .oh-head-body{grid-area:body;min-width:0;display:flex;flex-direction:column;gap:10px}
 
   /* שורת הנתונים: שורה אחת קטנה ולא צ׳יפים — "2 דירות ביריד · הראשונה
@@ -184,7 +216,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .oh-head-art-svg{height:112px}
     .oh-head-kicker{font-size:1.05rem}
     .oh-head h1{font-size:clamp(1.5rem,2.6vw,2.1rem)}
-    .oh-head h1 span{display:inline}
+    /* כל חלק ‎nowrap‎: בין 760 ל-1000px הכותרת הארוכה לא נכנסת בשורה אחת,
+       ואז היא נשברת **בין** החלקים ולא באמצע "ללא עמלת תיווך" */
+    .oh-head h1 > span{display:inline;white-space:nowrap}
     .oh-head-body{flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px 22px}
     .oh-head-stats{font-size:.9rem}
     .oh-head-cta{align-self:center}
@@ -350,6 +384,88 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* המדף נבנה ב-assets/prop-shelf.js, בדיוק כמו בדף הבית ובדף המשרד */
   .pp-grid{margin-top:4px}
+
+  /* ====== שורת החיסכון על האריח (‏cfg.priceExtra) ======
+     ירוק החיסכון (‏--verified) ולא האדום של היריד: האדום אומר "זה ביריד",
+     והירוק אומר כמה זה שווה. מתחת למחיר, כי היא מפרשת אותו. ‏#fairProps
+     בבורר כדי לגבור על design-system.css, שנטען אחרי הבלוק הזה. */
+  #fairProps .oh-save{
+    display:block;align-self:flex-start;width:max-content;max-width:100%;
+    margin:4px 0 2px;padding:3px 9px;font-size:.78rem;font-weight:700;line-height:1.35;
+    color:var(--verified,#14713f);background:var(--verified-tint,#e5f5ed);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  #fairProps .prop-row .oh-save{margin:3px 0 0;padding:2px 7px;font-size:.72rem}
+
+  /* ====== כמה זה שווה לכם? (‏.oh-calc-box) ======
+     ‏-box ולא -card: הכלל הגלובלי ‎[class*="-card"]‎ מיישר פינות. הקופסה לבנה
+     עם קו זהב עליון, כמו ‏.oh-steps — אותה משפחה של "הסבר קצר" בעמוד. */
+  .oh-calc{padding-block:22px 0}
+  .oh-calc-box{
+    background:#fff;border:1px solid var(--line);border-top:3px solid #e0b54a;
+    padding:16px;display:flex;flex-direction:column;gap:12px;
+  }
+  .oh-calc-head h2{font-size:1.2rem;font-weight:700}
+  .oh-calc-head label{display:block;margin-top:2px;font-size:.86rem;color:var(--ink-soft)}
+  /* ‏!important על המסגרת והריפוד: design-system.css נותן לכל input מסגרת
+     של שדה טקסט, ועל פס גרירה היא נראית כתיבה ריקה סביבו */
+  .oh-calc-box input[type=range]{
+    width:100%;min-width:0;height:28px;margin:0;accent-color:#e0b54a;cursor:pointer;
+    border:0 !important;padding:0 !important;background:transparent !important;box-shadow:none !important;
+  }
+  .oh-calc-out{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:#0e1938;color:#dfe5f4;padding:10px 16px;
+  }
+  .oh-calc-out span{font-size:.86rem;line-height:1.4}
+  .oh-calc-out span bdi{white-space:nowrap}
+  .oh-calc-out output{
+    flex:none;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.7rem;line-height:1;
+    color:#e9c35c;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .oh-calc-note{margin:0;font-size:.74rem;color:var(--ink-muted);text-wrap:pretty}
+  @media(min-width:900px){
+    .oh-calc-box{flex-direction:row;flex-wrap:wrap;align-items:center;gap:14px 32px;padding:20px 24px}
+    .oh-calc-head{flex:none}
+    .oh-calc-head h2{font-size:1.35rem}
+    .oh-calc-box input[type=range]{flex:1 1 220px;width:auto}
+    .oh-calc-out{flex:none;padding:10px 18px}
+    .oh-calc-out output{font-size:1.9rem}
+    .oh-calc-note{flex:1 1 100%}
+  }
+
+  /* ====== נגמרים בקרוב: שורת המשנה ====== */
+  .oh-split-head .oh-split-sub{display:block;margin-top:1px;font-size:.74rem;font-weight:400;color:var(--ink-soft);white-space:normal}
+
+  /* ====== רגע, איפה הקאץ׳? ======
+     שלושה ‎<details>‎, הראשון פתוח. ‏list-style:none + ‎::-webkit-details-marker‎
+     מורידים את המשולש של הדפדפן, והחץ שלנו מתהפך כשהשאלה פתוחה. */
+  .oh-faq{max-width:860px}
+  .oh-faq h2{text-align:center;font-size:clamp(1.25rem,3.4vw,1.6rem);margin-bottom:14px;text-wrap:balance}
+  .oh-faq-list{display:grid;gap:10px}
+  .oh-faq details{background:#fff;border:1px solid var(--line)}
+  .oh-faq summary{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px;font-weight:700;font-size:1rem;cursor:pointer;list-style:none;
+  }
+  .oh-faq summary::-webkit-details-marker{display:none}
+  .oh-faq summary::after{
+    content:"";flex:none;width:9px;height:9px;margin-top:-4px;
+    /* גבול פיזי ולא ‎inline-end‎: החץ מצביע מטה/מעלה, וזה לא מתהפך ב-RTL */
+    border-right:2px solid var(--brass);border-bottom:2px solid var(--brass);
+    transform:rotate(45deg);transition:transform .15s ease;
+  }
+  .oh-faq details[open] summary::after{transform:rotate(-135deg);margin-top:4px}
+  .oh-faq details p{margin:0;padding:0 18px 16px;color:var(--ink-soft);font-size:.92rem;max-width:70ch;text-wrap:pretty}
+
+  /* ====== הקישור לגבריאלה מתחת לטופס ההרשמה ====== */
+  .oh-signup-bot{
+    display:inline-block;margin-top:10px;font-size:.88rem;font-weight:700;color:#e9c35c;
+    white-space:nowrap;text-decoration:underline;text-underline-offset:4px;
+  }
+  .oh-signup-bot:hover{color:#fff}
+  .oh-empty-signup .oh-signup-bot{color:var(--sapphire,#0e2a6b)}
+  .oh-empty-signup .oh-signup-bot:hover{color:var(--gold-dark)}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -406,8 +522,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="oh-head-box">
         <div class="oh-head-art" id="fairArt" aria-hidden="true"></div>
         <div class="oh-head-text">
-          <p class="oh-head-kicker">אל תחמיצו את ההזדמנות!</p>
-          <h1><span>יריד דירות</span> <span>ללא עמלת תיווך</span> <span>לזמן מוגבל!</span></h1>
+          <!-- שם היריד כאן ולא רק בכותרת הטאב, והעיר בכותרת (‏SEO) - שם
+               השוק הפעיל מ-data-market-label. אותו נוסח בבאנר בדף הבית
+               (‏renderOpenHouseBanner ב-assets/home.js). -->
+          <p class="oh-head-kicker">יריד הבתים הפתוחים · אל תחמיצו!</p>
+          <h1><span>דירות ב<span data-market-label>עפולה והעמק</span></span> <span>ללא עמלת תיווך</span> <span>- לזמן מוגבל!</span></h1>
         </div>
         <!-- שורה אחת של נתונים ולא צ׳יפים: "2 דירות ביריד · הראשונה יוצאת
              27.9". פסקת ההסבר שישבה כאן ירדה — "איך זה עובד" שמתחת אומר
@@ -416,6 +535,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="oh-head-stats" id="fairStats" hidden>
             <span class="oh-stat is-primary" id="fairStatCount"></span>
             <span class="oh-stat" id="fairStatSoon" hidden></span>
+            <span class="oh-stat" id="fairStatSave" hidden></span>
           </p>
           <!-- מוצג רק כשהיריד ריק: אז אין דירות לראות, וההרשמה היא הפעולה.
                כשיש דירות — ההרשמה יושבת בתחתית העמוד. -->
@@ -432,9 +552,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="wrap oh-how" aria-labelledby="fairHowTitle">
     <h2 id="fairHowTitle" class="sr-only">איך זה עובד</h2>
     <ol class="oh-steps">
-      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>דירה נכנסת ליריד</b></li>
-      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span><b>בלי עמלת תיווך לקונה</b></li>
-      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span><b>לתקופה קצובה בלבד</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>מתווכי האזור מכניסים דירה</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span><b>אתם קונים ללא עמלת תיווך</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span><b>רק עד שהשעון נעצר</b></li>
     </ol>
   </section>
 
@@ -445,6 +565,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        תגיות שנבנות מהמלאי, מיון ועימוד. הוא נשאר מוסתר כשאין משתתפים,
        ובמקומו נדלק #fairEmpty. -->
   <section class="section wrap oh-props-section" id="fairProps" hidden></section>
+
+  <!-- ====== כמה זה שווה לכם? ======
+       אחרי המדף ולא בראש העמוד: מי שראה/תה את הדירות שואל/ת עכשיו כמה זה
+       שווה, ומחשבון בראש היה דוחף את הדירות מטה. מוסתר כשהיריד ריק.
+       הנוסחה זהה לשורת החיסכון על האריחים (‏fairSaving): 2% + מע״מ, מעוגל
+       למאה. הערכים ההתחלתיים כאן הם של ‎1,500,000‎ גם בלי JS. -->
+  <section class="wrap oh-calc" id="fairCalc" aria-labelledby="fairCalcTitle" hidden>
+    <div class="oh-calc-box">
+      <div class="oh-calc-head">
+        <h2 id="fairCalcTitle">כמה זה שווה לכם?</h2>
+        <label for="fairCalcPrice">הזיזו למחיר הדירה שאתם מחפשים</label>
+      </div>
+      <input type="range" id="fairCalcPrice" min="500000" max="3500000" step="50000" value="1500000"
+             aria-valuetext="1,500,000 ₪">
+      <div class="oh-calc-out">
+        <span>בדירה של <bdi id="fairCalcPriceText">₪1,500,000</bdi><br>נשארים לכם בכיס</span>
+        <output id="fairCalcSave" for="fairCalcPrice" aria-live="polite">₪35,400</output>
+      </div>
+      <p class="oh-calc-note">לפי עמלת קונה מקובלת של 2% + מע״מ. החיסכון בפועל תלוי בנכס ובמתווך/ת.</p>
+    </div>
+  </section>
 
   <!-- ====== הנכסים שביריד: רשימה ומפה ======
        יושב מתחת למדף, בלי כותרת גלויה ובלי פסקת הסבר
@@ -459,7 +600,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="oh-split">
       <div class="oh-split-list">
         <div class="oh-split-head">
-          <b>נגמרים בקרוב</b>
+          <b>נגמרים בקרוב<small class="oh-split-sub">על מה כדאי להרים טלפון היום</small></b>
           <span id="fairSplitCount"></span>
         </div>
         <div class="oh-split-rows" id="fairSplitRows"></div>
@@ -479,8 +620,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        באותו עמוד. -->
   <section class="section wrap" id="fairEmptyWrap" hidden>
     <div class="state" id="fairEmpty">
-      <h2>היריד סגור כרגע</h2>
-      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש ברגע שמתווך/ת מכניס/ה אליו נכס - השאירו אימייל ותהיו הראשונים לדעת.</p>
+      <h2>היריד בהפסקה קצרה</h2>
+      <p>כרגע אין דירות ביריד. מתווכי האזור מכניסים דירות חדשות כל הזמן - השאירו מייל ותהיו הראשונים לדעת כשהיריד נפתח.</p>
       <div class="oh-empty-signup" id="fairEmptySignup"></div>
     </div>
   </section>
@@ -501,6 +642,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        השליחה היא אל open-house-subscribe — רשימה נפרדת מרשימת התפוצה
        הכללית, כי היא מבטיחה דבר אחר לגמרי: התראה על אירוע מסוים ולא
        סיכום תקופתי. ראו docs/open-house-fair.md. -->
+  <!-- ====== רגע, איפה הקאץ׳? ======
+       שלוש השאלות שקונה שואל/ת לפני שמרים טלפון על הבטחה של "ללא עמלת
+       תיווך". רק כשיש משתתפים (‏initFair). הנוסח זהה ל-FAQPage שב-<head>. -->
+  <section class="section wrap oh-faq" id="fairFaq" aria-labelledby="fairFaqTitle" hidden>
+    <h2 id="fairFaqTitle">רגע, איפה הקאץ׳?</h2>
+    <div class="oh-faq-list">
+      <details open>
+        <summary>למה אין עמלת תיווך?</summary>
+        <p>המתווך/ת בחר/ה להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שהוא/היא קבע/ה מראש. אין אותיות קטנות.</p>
+      </details>
+      <details>
+        <summary>עד מתי זה בתוקף?</summary>
+        <p>על כל דירה רץ שעון שמראה בדיוק כמה זמן נשאר. כשהוא נעצר, הדירה יוצאת מהיריד.</p>
+      </details>
+      <details>
+        <summary>איך מתאמים ביקור?</summary>
+        <p>נכנסים לדירה ופונים ישירות למתווך/ת בוואטסאפ או בטלפון.</p>
+      </details>
+    </div>
+  </section>
+
   <section class="section wrap" id="fairSignup" aria-labelledby="fairSignupTitle">
     <!-- באנר קומפקטי (ספטמבר 2026): כותרת, שלוש שורות קצרות וכפתור אחד
          בולט עם סמן יד מהבהב. במקום פסקת הסבר — שלוש עובדות שנקראות במבט.
@@ -514,12 +676,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="oh-signup-copy">
         <div class="oh-signup-head">
           <span id="fairSignupMark" aria-hidden="true"></span>
-          <h2 id="fairSignupTitle">תהיו הראשונים לדעת על נכסים ללא תיווך!</h2>
+          <h2 id="fairSignupTitle">דירה חדשה נכנסה ליריד? תדעו ראשונים.</h2>
         </div>
+        <!-- "לא יותר ממייל אחד בשעה" הוא MIN_GAP_MINUTES = 60 ב-
+             supabase/functions/open-house-notify. מי שמשנה שם משנה כאן. -->
         <ul class="oh-signup-points">
-          <li>עדכון מיידי כשנכס חדש נכנס ליריד</li>
-          <li>ראשונים לראות דירות שרק עלו</li>
-          <li>בלי דמי תיווך - חיסכון אמיתי</li>
+          <li>מייל ברגע שדירה נכנסת ליריד</li>
+          <li>רק נכסים ללא עמלת תיווך</li>
+          <li>לא יותר ממייל אחד בשעה</li>
         </ul>
       </div>
       <!-- ‏#fairSignupBox היא יחידה אחת — טופס, הודעה, מצב "נרשמתם" והערה —
@@ -533,7 +697,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- הסמן הוא אח של הכפתור ולא ילד שלו: השליחה מחליפה את
                ‎btn.textContent‎ ("רגע…"), וזה היה מוחק אותו. -->
           <span class="oh-signup-cta">
-            <button type="submit" id="fairSignupBtn">אני רוצה לקבל עדכונים!</button>
+            <button type="submit" id="fairSignupBtn">שלחו לי כשנכנסת דירה!</button>
             <svg class="oh-signup-cursor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M9 11.2V4.6a1.6 1.6 0 0 1 3.2 0v5.2l.1-1.1a1.6 1.6 0 0 1 3.2.3v1.2a1.6 1.6 0 0 1 3.1.4v1.1a1.6 1.6 0 0 1 3.1.5v4.3c0 3.6-2.6 6.3-6.2 6.3h-1.8c-2 0-3.5-.8-4.7-2.4L4.6 16a1.6 1.6 0 0 1 2.4-2.1L9 15.6z"
                     fill="#fff" stroke="#1b1406" stroke-width="1.3" stroke-linejoin="round"></path>
@@ -547,7 +711,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span id="fairSignupDoneMark" aria-hidden="true"></span>
           <span><b>נרשמתם</b>שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.</span>
         </div>
-        <p class="oh-signup-note">רק עדכוני נכסים - לא ניוזלטר. אפשר להסיר בכל עת.</p>
+        <p class="oh-signup-note">רק עדכוני יריד, לא ניוזלטר. הסרה בלחיצה מכל מייל.</p>
+        <!-- מי שלא רוצה מייל: גבריאלה בוואטסאפ. נבנה ב-JS מ-ShukBot (‏data-bot,
+             והמתג ENABLED שם) - כשהעוזרת כבויה אין כאן קישור בכלל. -->
+        <span id="fairSignupBot"></span>
       </div>
     </div>
   </section>
@@ -941,11 +1108,39 @@ async function loadFairProperties(){
     }));
 }
 
+/* ---------- החיסכון ----------
+   עמלת קונה מקובלת: 2% + מע״מ (‏18%), מעוגל למאה. נוסחה אחת לשלושה
+   מקומות - "חוסכים עד" שבראש, השורה על כל אריח והמחשבון - כדי שהמספרים
+   לא יסתרו זה את זה בעמוד אחד.
+
+   **רק דירה למכירה עם מחיר כולל.** במסד אין עמודת יחידת מחיר, ולכן
+   "מחיר כולל" נגזר משלושה תנאים: עסקת מכירה, לא מסחרי (שם המחיר נמסר
+   לפני מע״מ ולפעמים למ״ר - ‏docs/property-import.md), ומחיר של לפחות
+   ‏100,000 ₪: מספר נמוך מזה בנכס למכירה הוא מחיר למ״ר או טעות הקלדה,
+   ו"חוסכים כ-₪200" עליו הוא הבטחה שגויה. */
+const FEE_RATE = 0.02 * 1.18;
+const SAVE_MIN_PRICE = 100000;
+
+function feeSaving(price){ return Math.round(price * FEE_RATE / 100) * 100; }
+
+function fairSaving(p){
+  const n = Number(p.price);
+  if (p.deal_type !== 'sale' || p.category === 'commercial') return 0;
+  return (isFinite(n) && n >= SAVE_MIN_PRICE) ? feeSaving(n) : 0;
+}
+
+function fairSaveHtml(p){
+  const save = fairSaving(p);
+  if (save) return `<span class="oh-save">חוסכים כ-₪${save.toLocaleString('he-IL')} בעמלה</span>`;
+  if (p.deal_type === 'rent' && p.category !== 'commercial') return '<span class="oh-save">ללא דמי תיווך על השכירות</span>';
+  return '';
+}
+
 /* ---------- המדף ----------
    ‏PropShelf.create() בדיוק כמו בדף הבית: אותו אריח, אותן תגיות שנבנות
    מהמלאי, אותו עימוד. מה שמשתנה הוא רק הכותרת והמונה. */
 const fairShelf = PropShelf.create({
-  mount:'fairProps', titleId:'fairPropsTitle', title:'הנכסים שביריד',
+  mount:'fairProps', titleId:'fairPropsTitle', title:'הדירות שביריד עכשיו',
   info:'כל הנכסים שמוצעים כרגע ללא עמלת תיווך לקונה - מכירה, השכרה ומסחרי יחד, לפי סדר ההעלאה',
   roomsType:'דירה', roomsLabel:'דירות',
   sortId:'fairSort',
@@ -955,6 +1150,9 @@ const fairShelf = PropShelf.create({
      כדי שהטלפון לא יציג את אותם נכסים בלי מה שמבדיל ביניהם. */
   overlay: p => OpenHouse.countdownHtml(p, { className:'oh-card-countdown', label:false }),
   rowExtra: p => OpenHouse.countdownHtml(p, { className:'oh-row-countdown', label:false }),
+  /* כמה שווה ה"ללא עמלת תיווך" על הנכס הזה, מתחת למחיר - באריח ובשורה
+     הדחוסה (‏cfg.priceExtra ב-assets/prop-shelf.js) */
+  priceExtra: fairSaveHtml,
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
@@ -976,8 +1174,49 @@ function renderFairStats(list){
   const soon = el('fairStatSoon');
   soon.textContent = (list.length > 1 ? 'הראשונה יוצאת ' : 'יוצאת ') + OpenHouse.endLabel(soonest);
   soon.hidden = false;
+
+  // "חוסכים עד" - מהדירה היקרה ביותר שמותר לחשב עליה (‏fairSaving), מתוך
+  // אותה רשימה שכבר עברה OpenHouse.live. אין כזו - החלק פשוט לא מוצג.
+  const top = Math.max(0, ...list.map(fairSaving));
+  const save = el('fairStatSave');
+  save.innerHTML = top ? `חוסכים עד <b>₪${top.toLocaleString('he-IL')}</b> בעמלה` : '';
+  save.hidden = !top;
   stats.hidden = false;
 }
+
+/* ---------- כמה זה שווה לכם? ----------
+   אירוע ‎oh_calc_used‎ אחד, בתזוזה הראשונה בלבד, בלי שום פרמטר משלו: מה
+   שמעניין הוא אם המחשבון בשימוש, ולא איזה מחיר מישהו בדק. */
+function bindFairCalc(){
+  const range = el('fairCalcPrice');
+  let tracked = false;
+  const paint = () => {
+    const price = Number(range.value);
+    const text = '₪' + price.toLocaleString('he-IL');
+    el('fairCalcPriceText').textContent = text;
+    el('fairCalcSave').textContent = '₪' + feeSaving(price).toLocaleString('he-IL');
+    range.setAttribute('aria-valuetext', price.toLocaleString('he-IL') + ' ₪');
+  };
+  range.addEventListener('input', () => {
+    paint();
+    if (!tracked && window.shukTrack){ tracked = true; shukTrack('oh_calc_used'); }
+  });
+  paint();
+}
+
+/* ---------- גבריאלה מתחת לטופס ----------
+   ‏ShukBot.anchorHtml נותן ‎data-bot‎ (נספר כ-contact_bot ולא כפנייה
+   למתווך/ת). הודעת הפתיחה נושאת "הגעתי מהאתר", ולכן siteEntryOf ב-
+   whatsapp-webhook חותם את השיחה ככניסה מהאתר. כבויה - אין קישור. */
+const FAIR_BOT_HELLO = 'היי גבריאלה, הגעתי מהאתר (יריד הבתים הפתוחים) ואשמח שתחפשי לי דירה ללא עמלת תיווך';
+function renderFairBot(){
+  const host = el('fairSignupBot');
+  if (!host || !(window.ShukBot && ShukBot.enabled())) return;
+  host.innerHTML = ShukBot.anchorHtml(FAIR_BOT_HELLO, 'מעדיפים וואטסאפ? גבריאלה תחפש בשבילכם ←', 'oh-signup-bot');
+  const a = host.querySelector('a');
+  if (a) a.setAttribute('data-bot-entry', 'open_house');
+}
+renderFairBot();
 
 /* ---------- המפה ----------
    אותם אריחים ואותן מחוות של מפת דף הבית. היא נבנית רק כשיש למי שיצייר:
@@ -1198,6 +1437,11 @@ signupForm.addEventListener('submit', async (e) => {
     }
     renderFairStats(list);
     fairShelf.set(list);
+    // המחשבון והשאלות שייכים ליריד שיש בו דירות: ביריד ריק אין על מה
+    // לחשב, ו"איך מתאמים ביקור" עונה על שאלה שאין לה כרגע נכס
+    el('fairCalc').hidden = false;
+    bindFairCalc();
+    el('fairFaq').hidden = false;
     renderFairSplit(list);
     renderFairMap(list);
   } catch(e){
