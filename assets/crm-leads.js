@@ -101,6 +101,21 @@ async function loadLeadCalls(leads){
 }
 
 /* ---------- הציור ---------- */
+/* סדר העדיפות: בעלים, נרכש, שיחה, אתר - ובתוך כל מקור החדש ביותר */
+function leadsPrioritySort(list){
+  return list.slice().sort((a, b) => (LEAD_PRIO[leadSrcKey(a)] - LEAD_PRIO[leadSrcKey(b)])
+    || (new Date(b.created_at) - new Date(a.created_at)));
+}
+
+/* הלידים החדשים שלי בסדר העדיפות, מקובצים לפי פונה - "לחזור אליהם קודם"
+   ו"מחכה לך" בדף הבית (crm-home.js) קוראים מכאן, כדי שהסדר יהיה אותו סדר */
+function leadsPriorityGroups(){
+  if (typeof allLeads === 'undefined' || !currentAgent) return [];
+  const fresh = allLeads.filter(l => !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new'
+    && (!l.agent_id || l.agent_id === currentAgent.id));
+  return groupLeadsByVisitor(leadsPrioritySort(fresh));
+}
+
 function renderLeadsUnified(agentId){
   const listEl = document.getElementById('leadsList');
   if (!listEl) return;
@@ -137,8 +152,7 @@ function renderLeadsUnified(agentId){
   const filtered = pool.filter(l => leadsSrc === 'all' || leadSrcKey(l) === leadsSrc || (leadsSrc === 'prop' && leadSrcKey(l) === 'site'));
   const sorted = leadsTab === 'archive'
     ? filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    : filtered.slice().sort((a, b) => (LEAD_PRIO[leadSrcKey(a)] - LEAD_PRIO[leadSrcKey(b)])
-        || (new Date(b.created_at) - new Date(a.created_at)));
+    : leadsPrioritySort(filtered);
 
   // לידים של אותו/ה פונה יחד - הכרטיס של הדחוף, והשאר ב"פרטים"
   const groups = groupLeadsByVisitor(sorted);

@@ -23365,29 +23365,9 @@ async function loadClientAlerts(){
   renderClientAlerts();
 }
 
+/* מקובץ לפי לקוח/ה או לפי נכס - assets/crm-matches.js (3.12) */
 function renderClientAlerts(){
-  const listEl = document.getElementById('alertsList');
-  const unseen = alertRows.filter(a => a.status === 'new').length;
-
-  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '', unseen);
-  document.getElementById('alertsMarkAll').hidden = unseen === 0;
-  document.getElementById('alertsFilterCount').textContent = alertRows.length
-    ? plural(alertRows.length, 'התראה אחת', 'התראות')
-        + (unseen ? ' · ' + plural(unseen, 'אחת חדשה', 'חדשות') : '')
-    : '';
-
-  if (alertRows.length === 0){
-    listEl.innerHTML = '<div class="empty-state">' +
-      (alertScope() === 'new'
-        ? 'אין התראות חדשות. כשייכנס נכס שעונה על הדרישות של אחד הלקוחות בקובץ - הוא יופיע כאן.'
-        : 'עדיין לא נפתחו התראות התאמה.') + '</div>';
-    return;
-  }
-
-  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד - ראו buildTabRow()
-  listEl.innerHTML = '<div class="prop-tabs alert-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
-  alertRows.forEach(a => tabsWrap.appendChild(buildAlertTab(a)));
+  renderMatchesGrouped();
 }
 
 /* ---------- התראת התאמה כשורה ----------
@@ -25748,6 +25728,8 @@ function gotoSection(accId, focusId, opts){
     // בדסקטופ אין מקטע להחליף, אבל השורה המודגשת והקבוצה הפתוחה בסרגל כן
     renderSideNav();
   }
+  // המסך עצמו (navScreenAccs) - בכל רוחב
+  applyNavFilter();
   const el = openDashPanel(accId) || openAcc(accId);
   if (!el) return;
   const reduce = navReduceMotion();
@@ -25825,33 +25807,34 @@ const NAV_GROUPS = [
     /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן בתפריט הבורגר
        הוא מצויר ככפתור הפוך (ראו .menu-item.is-home) */
     { acc:NAV_HOME,              label:'דף הבית',           icon:'home',     tab:'home' },
-    { acc:'accLeads',            label:'לידים',             icon:'inbox',    tab:'leads' },
-    { acc:'accClients',          label:'לקוחות',            icon:'users',    tab:'clients' },
-    { acc:'accProperties',       label:'נכסים',             icon:'building', tab:'props' },
-    /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
-       שצריך לגלול */
-    { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
+    /* שלב 6 בעיצוב מחדש (סעיף 2.1): כל שורה היא מסך, ו-also הוא מה שיושב
+       באותו מסך מתחתיה (applyNavFilter). קבוצת "הזדמנויות" נעלמה - ההתאמות
+       עם הלקוחות, חנות הלידים עם הלידים, משרדי השת"פ עם הנכסים. */
+    { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads',
+      also:['accLeadShelf'], sub:'כולל חנות הלידים' },
     /* ‏tab:'clients' ולא 'home': בסינון המובייל המקטע של הבית אינו מציג
        קטגוריות בכלל (docs/agent-agenda.md) */
-    { acc:'accAgenda',           label:'יומן ומשימות',      icon:'calendar', tab:'clients' },
-  ]},
-  { key:'opps', label:'הזדמנויות', icon:'target', items:[
-    { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
-    /* מדפי המשכנתאות ומחפשי הדירה הם מגירות בתוך חנות הלידים (#shelfTabs) */
-    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
-    /* "שותפו איתי" הוא לשונית ב"נכסים" (crm-properties.js); כאן נשארו
-       משרדי השת"פ, עד שגם הם יעברו ללשונית (שלב 9 בעיצוב) */
-    { acc:'accSharePartners',    label:'משרדי שיתוף',       icon:'handshake', tab:'props' },
+    { acc:'accAgenda',           label:'יומן ומשימות',      icon:'calendar', tab:'clients',
+      also:['accGcal'], sub:'כולל יומן Google' },
+    { acc:'accClients',          label:'לקוחות',            icon:'users',    tab:'clients',
+      also:['accAlerts'], sub:'כולל התאמות' },
+    { acc:'accProperties',       label:'נכסים',             icon:'building', tab:'props',
+      also:['accSharePartners'], sub:'כולל שיתופים' },
+    /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
+       שצריך לגלול */
+    { acc:'accAgreements',       label:'הסכמים',            icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
-      also:['accDealsLookup'] },
+      also:['accDealsLookup'], sub:'מידע תכנוני · עסקאות באזור' },
   ]},
   { key:'grow', label:'צמיחה', icon:'chart', items:[
     /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
        לכל סוכן/ת, ולכן מחוץ ל-#managerSection */
     { acc:'accMyDashboard', label:'הדשבורד שלי', icon:'chart', tab:'more' },
-    /* אינו קטגוריה: דף הסוכן/ת הציבורי, בלשונית חדשה (navGo). "קידום ושיווק"
-       מהעיצוב אינו כאן - אין לו קטגוריה, והקידום עצמו יושב בכרטיס הנכס
-       ובגיליון היצירה. */
+    /* השיחות והמספרים - מסך אחד. ‏accOfficeCalls יושב ב-#managerSection, ולכן
+       לסוכן/ת השורה פותחת את המספרים שלו/ה (navItemTarget) */
+    { acc:'accOfficeCalls', label:'שיחות ומספרים', icon:'phone', tab:'more',
+      also:['accLines'] },
+    /* אינו קטגוריה: דף הסוכן/ת הציבורי, בלשונית חדשה (navGo). */
     { acc:NAV_MINISITE,     label:'המיני-סייט שלי', icon:'globe', tab:'more' },
   ]},
   /* מנהל/ת צוות (docs/team-dashboard.md): הקבוצה יושבת ב-#teamLeadSection,
@@ -25869,9 +25852,9 @@ const NAV_GROUPS = [
   { key:'manage', label:'ניהול המשרד', icon:'gauge', items:[
     { acc:'accOfficeDashboard', label:'דאשבורד המשרד', icon:'gauge', tab:'more' },
     { acc:'accTeam',     label:'צוותים וסוכנים', icon:'users', tab:'more' },
-    { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
-    { acc:'accOfficeCalls', label:'שיחות המשרד', icon:'phone', tab:'more' },
-    { acc:'accBranding', label:'מיתוג דף המשרד', icon:'brush', tab:'more' },
+    /* הביקורות הן סעיף בדף המשרד (סעיף 2.0); המונה של הממתינות על השורה */
+    { acc:'accBranding', label:'דף המשרד', icon:'brush', tab:'more',
+      also:['accReviews'], sub:'כולל ביקורות לקוחות' },
   ]},
   /* ההגדרות - מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
      מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל,
@@ -25881,14 +25864,12 @@ const NAV_GROUPS = [
   { key:'account', label:'הגדרות חשבון', icon:'cog', placement:'profile', items:[
     /* "ההגדרות שלי" (docs/crm-settings.md): ה-id נשאר accPrefs, כי העדפות
        הלידים יושבות שם וכל הקישורים אליהן (מדריך ההתחלה, המנטור) ממשיכים */
+    { acc:'accProfile',       label:'הפרופיל שלי',       icon:'user',     tab:'more', section:'account' },
     { acc:'accPrefs',         label:'ההגדרות שלי',       icon:'cog',      tab:'more', section:'account' },
-    { acc:'accProfile',       label:'פרטים אישיים ורישיון', icon:'user',  tab:'more', section:'account' },
     { acc:'accWallet',        label:'מנוי וארנק',        icon:'wallet',   tab:'more', section:'account' },
     { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more', section:'work' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more', section:'work' },
     { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more', section:'work' },
-    { acc:'accGcal',          label:'יומן Google',        icon:'calendar', tab:'more', section:'work' },
-    { acc:'accLines',         label:'מספרים וירטואליים',  icon:'phone',    tab:'more', section:'work' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more', section:'support' },
     { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more', section:'support' },
     /* אחרון, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא שכנה של
@@ -26049,7 +26030,7 @@ function navItemIsActive(item){
    מהתפריט, כדי שהוא יהיה תפריט של מי שמנהל/ת. ‏myRoles נטען ב-
    loadMyRoles (assets/crm-team-dashboard.js), וממילא בונה את הסרגל מחדש. */
 const NAV_MODE_KEY = 'crmNavMode';
-const NAV_PERSONAL_GROUPS = new Set(['daily', 'opps', 'grow']);
+const NAV_PERSONAL_GROUPS = new Set(['daily', 'grow']);
 
 function navRoles(){
   return typeof myRoles !== 'undefined' ? myRoles : null;
@@ -26076,8 +26057,8 @@ function navMode(){
 /* מנהל/ת משרד - "המשרד שלי" (גם כשהוא/היא מנהל/ת צוות: המשרד כולל אותו) */
 function navManageTarget(){
   return currentAgent && currentAgent.role === 'manager'
-    ? { acc:'accOfficeDashboard', label:'המשרד שלי' }
-    : { acc:'accTeamDashboard',   label:'הצוות שלי' };
+    ? { acc:'accOfficeDashboard', label:'תצוגת המשרד' }
+    : { acc:'accTeamDashboard',   label:'תצוגת הצוות' };
 }
 
 function navSetMode(mode){
@@ -26100,7 +26081,7 @@ function navModeToggle(){
   wrap.className = 'nav-mode';
   wrap.setAttribute('role', 'group');
   wrap.setAttribute('aria-label', 'תצוגה');
-  [['personal', 'אני כסוכן/ת'], ['manage', navManageTarget().label]].forEach(([key, label]) => {
+  [['personal', 'התצוגה שלי'], ['manage', navManageTarget().label]].forEach(([key, label]) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'nav-mode-btn';
@@ -26249,7 +26230,8 @@ function renderSideNav(){
     create.innerHTML = dashIcon('plus', 'sn-ico') + '<span class="sn-label">יצירה חדשה</span>';
     create.addEventListener('click', (e)=>{ e.stopPropagation(); openCreateSheet(); });
     nav.appendChild(create);
-    const mentor = navMentorButton(rail);
+    // בדף הבית המנטור הוא כרטיס הגיבור עצמו (3.0), ושורה שנייה בסרגל מיותרת
+    const mentor = (navActive === NAV_HOME && !rail) ? null : navMentorButton(rail);
     if (mentor) nav.appendChild(mentor);
   }
 
@@ -26452,6 +26434,12 @@ function renderBottomNav(){
           return;
         }
         closeNavLayers();
+        // לשונית שאינה הבית (לידים) היא מסך: הקטגוריה הראשונה שלה
+        if (tab.section !== 'home'){
+          const first = NAV_GROUPS.flatMap(g => g.items)
+            .find(it => it.tab === tab.section && navAccVisible(navItemTarget(it)));
+          if (first){ gotoSection(navItemTarget(first)); return; }
+        }
         setNavTab(tab.section);
       });
       nav.appendChild(btn);
@@ -26502,10 +26490,43 @@ function navFilterActive(){
   return dashView === 'admin' || !window.matchMedia('(min-width:1024px)').matches;
 }
 
+/* ---------- מסך לכל קטגוריה (שלב 6, סעיף 3.0) ----------
+   בתצוגת הסוכן/ת, בכל רוחב, מוצג מסך אחד: דף הבית (#overviewBlock), או
+   השורה שבתפריט שאליה ניווטו - הקטגוריה שלה וה-also שלה, זו מתחת לזו. עד
+   שלב 6 במחשב הוצגו כל הקטגוריות ברצף מתחת לדף הבית ("הפעילות שלי"), וכל
+   קישור גלל אל אחת מהן בתוך עמוד של עשרות מסכים. gotoSection מעדכן את
+   navActive ואז קורא לכאן, ולכן כל קישור עמוק ממשיך לעבוד. */
+function navScreenItem(acc){
+  for (const g of NAV_GROUPS) for (const it of g.items){
+    if (it.acc === acc || (it.also || []).includes(acc)) return { group:g, item:it };
+  }
+  return null;
+}
+function navScreenAccs(){
+  if (navActive === NAV_HOME || !navActive) return [];
+  const hit = navScreenItem(navActive);
+  return hit ? [hit.item.acc, ...(hit.item.also || [])] : [navActive];
+}
+
+function renderScreenCrumb(){
+  const el = document.getElementById('screenCrumb');
+  if (!el) return;
+  const hit = dashView === 'agent' && navActive !== NAV_HOME ? navScreenItem(navActive) : null;
+  el.hidden = !hit;
+  if (!hit) return;
+  const group = hit.group.placement === 'profile' ? 'החשבון שלי' : hit.group.label;
+  el.innerHTML = '<button type="button" class="ui-link screen-crumb-home">דף הבית</button>'
+    + '<span aria-hidden="true">›</span><span>' + esc(group) + '</span>'
+    + '<span aria-hidden="true">›</span><span aria-current="page">' + esc(hit.item.label) + '</span>';
+  el.querySelector('.screen-crumb-home').addEventListener('click', ()=> setNavTab('home'));
+}
+
 function applyNavFilter(){
   const isAdminView = dashView === 'admin';
   const filtering = navFilterActive();
-  const showHome = !filtering || navTab === 'home';
+  // בתצוגת הסוכן/ת: דף הבית רק כשהוא היעד, וכל קטגוריה כמסך משלה
+  const showHome = isAdminView ? (!filtering || navTab === 'home') : navActive === NAV_HOME;
+  const screen = isAdminView ? null : navScreenAccs();
 
   const overview = document.getElementById('overviewBlock');
   if (overview) overview.classList.toggle('nav-off', isAdminView || !showHome);
@@ -26530,13 +26551,14 @@ function applyNavFilter(){
     let show;
     if (isAdminView)     show = isAdminAcc;
     else if (isAdminAcc) show = false;
-    else if (!filtering) show = true;
-    else                 show = (navTab !== 'home' && tab === navTab);
+    else                 show = screen.includes(acc.id);
     acc.classList.toggle('nav-off', !show);
   });
 
+  // "הפעילות שלי" ירד מדף הבית (3.0) - כל קטגוריה היא מסך משלה
   const head = document.getElementById('sectionsHead');
-  if (head) head.hidden = filtering || isAdminView;
+  if (head) head.hidden = true;
+  renderScreenCrumb();
 
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
@@ -26556,6 +26578,7 @@ function setNavTab(key, opts){
   const shown = [...document.querySelectorAll('#dashboard details.acc')]
     .filter(a => !a.classList.contains('nav-off') && navAccVisible(a.id));
   if (shown.length === 1) openAcc(shown[0].id);
+  else if (navActive && navActive !== NAV_HOME && navAccVisible(navActive)) openAcc(navActive);
 }
 
 /* ---------- קיצורי מקלדת ----------
@@ -29136,20 +29159,38 @@ const QUICK_ACTIONS = [
   { key:'sign',   acc:'accAgreements', icon:'sign',   tone:'navy', title:'החתמת לקוח',
     id:'signClientCta',  aria:'החתמת לקוח - הזמנת שירותי תיווך', pinned:true,
     run:()=> openAgreementWizard() },
-  { key:'wa',     acc:'accProperties', icon:'chat',   tone:'mint', title:'שליחת נכס בוואטסאפ',
-    run:()=> openWaShare() },
-  { key:'match',  acc:'accAlerts',     icon:'target', tone:'mint', title:'התאמות חכמות', badge:'accAlerts',
-    run:()=> gotoSection('accAlerts') },
   /* ‏agent_cma_report מגודר במסד ל-PROFESSIONAL ומעלה; כאן רק לא מציגים
      כפתור שיסורב. בוחרים נכס למכירה בגיליון, והדוח נפתח כמו מכרטיס הנכס. */
   { key:'cma',    acc:'accProperties', icon:'chart',  tone:'sand', title:'דוח CMA לבעלים',
     show:()=> !!currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium'),
     run:()=> openCmaPicker() },
+  { key:'wa',     acc:'accProperties', icon:'chat',   tone:'mint', title:'שליחת נכס בוואטסאפ',
+    run:()=> openWaShare() },
   { key:'plan',   acc:'accPlanning',   icon:'map',    tone:'sand', title:'מידע תכנוני',
     run:()=> gotoSection('accPlanning') },
-  { key:'shelf',  acc:'accLeadShelf',  icon:'layers', tone:'navy', title:'חנות הלידים', badge:'accLeadShelf',
-    run:()=> gotoSection('accLeadShelf') },
+  { key:'meet',   acc:'accAgenda',     icon:'calendar', tone:'navy', title:'קביעת פגישה או סיור',
+    run:()=> openAgendaForm({ kind:'meeting' }) },
+  /* הקפצה וקידום הם כפתורים בכרטיס הנכס, עם המחיר של היום - הגיליון בוחר נכס */
+  { key:'bump',   acc:'accProperties', icon:'building', tone:'sand', title:'הקפצת נכס',
+    run:()=> openPromotePicker() },
+  { key:'deals',  acc:'accDealsLookup', icon:'chart', tone:'sand', title:'עסקאות באזור',
+    run:()=> gotoSection('accDealsLookup') },
 ];
+/* "התאמה אישית" (3.21): עד 6 פעולות, ההחתמה תמיד בפנים. "התאמות חכמות"
+   ו"חנות הלידים" יצאו מכאן - הן אריחים ב"מחכה לך עכשיו" */
+const QUICK_DEFAULT = ['sign', 'cma', 'wa', 'plan', 'meet', 'bump'];
+const QUICK_MAX = 6;
+const QUICK_PICK_KEY = 'crmQuickPick';
+function quickPicked(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(QUICK_PICK_KEY) || 'null');
+    if (Array.isArray(raw) && raw.length) return ['sign', ...raw.filter(k => k !== 'sign')].slice(0, QUICK_MAX);
+  } catch {}
+  return QUICK_DEFAULT.slice();
+}
+function quickSetPicked(keys){
+  try { localStorage.setItem(QUICK_PICK_KEY, JSON.stringify(keys)); } catch {}
+}
 
 /* "שלב ב'" בהעברה: הסדר לפי השימוש האישי. ספירה בדפדפן בלבד, בלי כתיבה
    למסד; מצב פרטי או אחסון חסום - הסדר הקבוע. */
@@ -29171,7 +29212,7 @@ function renderQuickActions(){
   const use = quickUse();
   const list = QUICK_ACTIONS
     .map((a, i) => ({ a, i }))
-    .filter(({ a }) => navAccVisible(a.acc) && (!a.show || a.show()))
+    .filter(({ a }) => navAccVisible(a.acc) && (!a.show || a.show()) && quickPicked().includes(a.key))
     .sort((x, y) => (y.a.pinned ? 1 : 0) - (x.a.pinned ? 1 : 0)
       || (Number(use[y.a.key]) || 0) - (Number(use[x.a.key]) || 0) || x.i - y.i)
     .map(({ a }) => a);
@@ -29190,9 +29231,48 @@ function renderQuickActions(){
   });
   const sub = document.getElementById('quickSub');
   if (sub) sub.hidden = !Object.keys(use).length;
+  renderQuickCustom();
   syncQuickBadges();
   // ה-FAB נשען על מיקומו של כפתור ההחתמה, והוא נולד מחדש בכל רינדור
   if (typeof updateScrollUi === 'function') updateScrollUi();
+}
+
+function renderQuickCustom(){
+  const box = document.getElementById('quickCustomChips');
+  if (!box) return;
+  const picked = quickPicked();
+  const avail = QUICK_ACTIONS.filter(a => navAccVisible(a.acc) && (!a.show || a.show()));
+  box.innerHTML = avail.map(a => {
+    const on = picked.includes(a.key);
+    const full = !on && picked.length >= QUICK_MAX;
+    return `<button type="button" class="ui-chip" data-qa-pick="${a.key}" aria-pressed="${on}"`
+      + `${a.pinned || full ? ' disabled' : ''}${a.pinned ? ' title="החתמת לקוח תמיד ראשונה"' : full ? ' title="אפשר לבחור עד 6"' : ''}>`
+      + `${esc(a.title)}</button>`;
+  }).join('');
+}
+document.getElementById('quickCustomBtn')?.addEventListener('click', e => {
+  const box = document.getElementById('quickCustom');
+  box.hidden = !box.hidden;
+  e.currentTarget.setAttribute('aria-expanded', String(!box.hidden));
+  if (!box.hidden) renderQuickCustom();
+});
+document.getElementById('quickCustomChips')?.addEventListener('click', e => {
+  const b = e.target.closest('[data-qa-pick]');
+  if (!b || b.disabled) return;
+  const picked = quickPicked();
+  const key = b.dataset.qaPick;
+  quickSetPicked(picked.includes(key) ? picked.filter(k => k !== key) : [...picked, key].slice(0, QUICK_MAX));
+  renderQuickActions();
+});
+
+/* "הקפצת נכס": אותו גיליון של "קידום נכס" ביצירה החדשה - בוחרים נכס, וכפתורי
+   ההקפצה והקידום בכרטיס שלו */
+function openPromotePicker(){
+  closeMenuPanel();
+  closeSearch();
+  closeProfilePanel();
+  renderCreateSheet('promote');
+  navLayerShow('createSheet', 'create', '.cs-row');
 }
 
 /* המונים על "התאמות חכמות" ו"חנות הלידים" - מאותו accCounts של הסרגל */

@@ -6473,6 +6473,178 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .shared-tabs .tab-pill.status-shared{display:none}
   }
 
+  /* ---------- דף הבית (שלב 6, סעיף 3.0; assets/crm-home.js, docs/crm-home.md) ---------- */
+  .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:4px 20px;margin:0 0 16px}
+  .hm-head-text{min-width:0;flex:1 1 280px;display:flex;flex-direction:column;gap:4px}
+  .hm-head .dash-greet{font-family:'Frank Ruhl Libre',serif;font-size:34px;font-weight:700;line-height:1.15;margin:0;color:var(--nv-ink)}
+  .hm-head .dash-brief{margin:0;font-size:16px;font-weight:500;color:#3A4458}
+  .hm-date{font-size:14px;color:var(--nv-muted)}
+  #dashboard.is-compact .hm-date{display:none}
+  .hm-sec-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 8px;margin:0 0 10px}
+  .hm-sec-head h2{margin:0;font-size:19px;font-weight:800;color:var(--nv-ink)}
+  /* המנטור - כרטיס גיבור: נייבי בגרדיאנט, מסגרת זהב, התמונה בגובה מלא משמאל */
+  .home-ask.hm-mentor{position:relative;overflow:hidden;background:linear-gradient(135deg,#0E1A33 0%,#1C3A5E 100%);
+    border:1px solid #B8862B;border-radius:24px;padding:22px 24px 20px;padding-inline-end:236px;min-height:230px;
+    display:flex;flex-direction:column;gap:14px;margin:0 0 22px;box-sizing:border-box}
+  .home-ask.hm-mentor[hidden]{display:none}
+  .hm-mentor-cut{position:absolute;inset-inline-end:10px;bottom:0;width:216px;height:auto;pointer-events:none}
+  .hm-mentor-head{display:flex;flex-direction:column;gap:4px}
+  .hm-mentor-title{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hm-mentor-title h2{margin:0;font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:700;color:#fff}
+  .hm-mentor-tag{font-size:11px;font-weight:800;color:#0E1A33;background:#E0B84A;border-radius:999px;padding:2px 9px}
+  .hm-mentor-sub{font-size:14px;color:#C9D2E6}
+  .hm-mentor .home-ask-form input{min-height:52px;border-radius:14px;border-color:#3A5482;background:rgba(255,255,255,.08);font-size:16px}
+  .hm-mentor .home-ask-send{width:52px;height:52px;border-radius:14px;color:#0E1A33}
+  /* במחשב האווטאר העגול יורד - התמונה המלאה במקומו */
+  .hm-mentor .home-ask-face{display:none}
+  .hm-steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .hm-steps[hidden]{display:none}
+  .hm-steps-h{font-size:13px;font-weight:700;color:#E0B84A}
+  .hm-step{min-height:40px;padding:0 12px;border-radius:999px;border:1px solid #3A5482;background:rgba(255,255,255,.06);color:#fff;
+    font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-align:start}
+  .hm-step-box{width:18px;height:18px;border-radius:6px;border:1.5px solid #6B7A99;display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;flex:none}
+  .hm-step[aria-pressed="true"]{color:#8A97B3;text-decoration:line-through}
+  .hm-step[aria-pressed="true"] .hm-step-box{border:0;background:#E0B84A;color:#0E1A33}
+  .hm-step:focus-visible{outline:2px solid #E0B84A;outline-offset:2px}
+  /* "מחכה לך עכשיו" */
+  .hm-wait-sec{margin:0 0 22px}
+  .hm-wait{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .hm-tile{text-align:start;font:inherit;color:var(--nv-ink);background:#fff;border:1px solid var(--nv-line);border-radius:18px;padding:14px;
+    display:flex;flex-direction:column;gap:6px;min-height:120px;box-sizing:border-box;cursor:pointer;min-width:0}
+  .hm-tile:hover{border-color:#B8C2D9}
+  .hm-tile-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .hm-tile-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--nv-accent-soft);color:var(--nv-accent)}
+  .hm-tile-ico svg{width:18px;height:18px}
+  .hm-tile-n{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:700;line-height:1}
+  .hm-tile-l{font-size:15px;font-weight:700;line-height:1.3}
+  .hm-tile-h{font-size:12px;color:var(--nv-muted);line-height:1.4}
+  .hm-tile.is-hot{border:1.5px solid #F3B48E;background:#FFF8F3}
+  .hm-tile.is-hot .hm-tile-ico{background:var(--nv-urgent-soft);color:var(--nv-urgent-ink)}
+  .hm-tile.is-hot .hm-tile-n{color:var(--nv-urgent)}
+  .hm-tile.is-warn .hm-tile-ico{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .hm-tile.is-zero .hm-tile-n{color:var(--nv-muted)}
+  /* "דורש טיפול מיידי" יצא מדף הבית של הסוכן/ת - "מחכה לך" במקומו */
+  #overviewBlock #todoSection{display:none}
+  /* לוח היום: שתי עמודות, פעמיים (לחזור אליהם | היום שלי, הלקוחות | הנכסים) */
+  .home-board{margin:0 0 22px;gap:16px}
+  .hb-card{border-radius:20px;padding:20px 22px;gap:6px}
+  .hb-head{margin-bottom:6px}
+  .hb-head h3{font-size:19px;flex:1}
+  .hb-head-sub{font-size:13px;color:var(--nv-muted)}
+  .hb-link{font-size:14px}
+  .hb-pr{display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:14px;border-top:1px solid #F1F3F8}
+  .hb-pr:hover{background:#F8F9FC}
+  .hb-rank{width:28px;height:28px;border-radius:50%;background:var(--nv-navy);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;flex:none}
+  .hb-rank.is-1{background:var(--nv-urgent)}
+  .hb-rank.is-2{background:#B8862B}
+  .hb-pr-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .hb-pr-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .hb-pr-top strong{font-size:15px}
+  .hb-pr-top .ui-tag{font-size:11px;padding:1px 8px}
+  .hb-pr-what{font-size:13px;color:#3A4458;line-height:1.4;overflow-wrap:anywhere}
+  .hb-pr-why{font-size:12px;font-weight:700;color:var(--nv-muted)}
+  .hb-pr-why.is-hot{color:var(--nv-urgent-ink)}
+  .hb-call{min-width:44px;height:44px;padding:0 12px;box-sizing:border-box;border-radius:12px;background:var(--nv-accent);color:#fff;border:0;
+    display:flex;align-items:center;justify-content:center;gap:6px;flex:none;text-decoration:none;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .hb-call:hover{background:var(--nv-accent-h);color:#fff}
+  .hb-call svg{width:18px;height:18px}
+  .hb-wa-btn{width:44px;height:44px;border-radius:12px;background:var(--nv-ok-soft);color:var(--nv-ok);display:flex;align-items:center;justify-content:center;flex:none}
+  .hb-wa-btn svg{width:18px;height:18px}
+  .hb-ag{padding:10px 4px;border-top:1px solid #F1F3F8;border-radius:0;align-items:flex-start}
+  .hb-ag:hover{background:transparent}
+  .hb-ag-time{width:48px;padding-top:2px;font-size:14px;color:var(--nv-muted)}
+  .hb-ag.is-next .hb-ag-time{color:var(--nv-accent-h)}
+  .hb-ag-text{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:start;cursor:pointer;gap:2px}
+  .hb-ag-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .hb-ag-t{font-size:15px;white-space:normal}
+  .hb-ag-s{font-size:13px}
+  .hb-flag{font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px}
+  .hb-flag.is-late{color:var(--nv-urgent-ink);background:var(--nv-urgent-soft)}
+  .hb-flag.is-next{color:var(--nv-accent-h);background:var(--nv-accent-soft)}
+  .hb-check{width:44px;height:44px;border-radius:10px;flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--nv-chip-line);background:#fff;color:transparent}
+  .hb-check:hover{color:var(--nv-muted)}
+  .hb-check[aria-pressed="true"]{border:0;background:var(--nv-ok);color:#fff}
+  .hb-ag-foot{display:flex;flex-wrap:wrap;gap:4px 16px}
+  .hb-add{min-height:44px;font-size:14px}
+  .hb-add.is-quiet{color:#3A4458;font-weight:600}
+  .hb-stage.is-stuck{background:var(--nv-accent-soft);color:var(--nv-accent-h);box-shadow:inset 0 0 0 1.5px var(--nv-accent)}
+  .hb-advice{margin:8px 0 0;font-size:13px;color:#3A4458;line-height:1.5;background:#FFF8F3;border-radius:12px;padding:10px 12px;
+    display:flex;flex-direction:column;gap:2px}
+  /* פעולות מהירות: "התאמה אישית" */
+  .hq-tools{display:inline-flex;align-items:baseline;gap:12px}
+  .hq-custom{border:0;background:none;color:var(--nv-accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;padding:0 4px}
+  .hq-custom-box{background:#fff;border:1px solid var(--nv-line);border-radius:16px;padding:14px;margin:0 0 10px;display:flex;flex-direction:column;gap:10px}
+  .hq-custom-box[hidden]{display:none}
+  /* "התיק שלי" בתחתית. הטיפ בשתי שורות מלאות, בלי "..." (3.0) */
+  .hm-kpi-sec{margin:22px 0 0}
+  .hm-kpi-sec .hk-ins-t small{white-space:normal;overflow:visible;text-overflow:clip}
+  /* פירור הלחם של המסך */
+  .screen-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:13px;font-weight:600;color:var(--nv-muted);margin:0 0 8px}
+  .screen-crumb .ui-link{min-height:44px;padding:0;font-size:13px}
+  .screen-crumb [aria-current]{color:var(--nv-ink)}
+  /* מסלול Elite: זהב על כהה (3.0), במקום הבורדו */
+  #dashboard .tier-premium{background:#0E1A33;color:#E0B84A;box-shadow:0 0 0 1px #B8862B inset}
+  @media (max-width:900px){
+    .hm-wait{display:flex;overflow-x:auto;scrollbar-width:none;margin-inline:-12px;padding-inline:12px}
+    .hm-wait::-webkit-scrollbar{display:none}
+    .hm-wait>.hm-tile{flex:0 0 150px}
+  }
+  @media (max-width:640px){
+    .hm-head .dash-greet{font-size:26px}
+    .home-ask.hm-mentor{padding:16px;min-height:0}
+    .hm-mentor-cut{display:none}
+    .hm-mentor .home-ask-face{display:inline-flex}
+    .hb-card{padding:16px}
+    .hb-btxt{display:none}
+    .hb-call{padding:0;width:44px}
+  }
+
+  /* "התאמות חדשות" (3.12, assets/crm-matches.js) */
+  .mt-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .mt-summary{background:var(--nv-ink);color:#fff;border-radius:20px;padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px}
+  .mt-summary-n{display:flex;align-items:baseline;gap:8px}
+  .mt-summary-n b{font-family:'Frank Ruhl Libre',serif;font-size:44px;font-weight:700;line-height:1}
+  .mt-summary-n span{font-size:16px;color:#B8C2D9}
+  .mt-summary-t{flex:1 1 220px;font-size:15px}
+  .mt-summary-btn{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;
+    font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .mt-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .mt-refresh{margin-inline-start:auto}
+  .mt-list{display:flex;flex-direction:column;gap:10px}
+  .mt-card{background:#fff;border:1px solid var(--nv-line);border-radius:18px;overflow:hidden}
+  .mt-head{width:100%;padding:16px 18px;border:0;background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;
+    color:var(--nv-ink);text-align:start;font:inherit;min-height:64px}
+  .mt-ava{width:46px;height:46px;border-radius:50%;background:var(--nv-accent-soft);color:var(--nv-accent-h);font-size:15px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;flex:none}
+  .mt-head-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .mt-name{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+  .mt-sub{font-size:13px;color:var(--nv-muted)}
+  .mt-count{font-size:13px;font-weight:700;color:#fff;background:var(--nv-urgent);border-radius:999px;padding:4px 10px;flex:none}
+  .mt-chev{color:var(--nv-muted);flex:none;transition:transform .15s}
+  .mt-card.is-open .mt-chev{transform:rotate(180deg)}
+  .mt-body{border-top:1px solid var(--nv-line-soft)}
+  .mt-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 18px;border-bottom:1px solid #F1F3F8}
+  .mt-sel{width:28px;height:28px;border-radius:8px;border:1.5px solid #A7B0C2;background:#fff;color:transparent;display:flex;
+    align-items:center;justify-content:center;flex:none;cursor:pointer;position:relative}
+  .mt-sel::after{content:"";position:absolute;inset:-8px}
+  .mt-sel[aria-pressed="true"]{border-color:var(--nv-accent);background:var(--nv-accent);color:#fff}
+  .mt-row-text{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .mt-row-t{font-size:15px;font-weight:700;overflow-wrap:anywhere}
+  .mt-row-s{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--nv-muted)}
+  .mt-row-s .ui-tag{font-size:11px;padding:1px 8px}
+  .mt-new{font-weight:700;color:var(--nv-urgent-ink)}
+  .mt-row-end{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
+  .mt-price{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700}
+  .mt-score{font-size:11px;font-weight:700;color:var(--nv-ok);background:var(--nv-ok-soft);border-radius:999px;padding:1px 8px}
+  .mt-det{min-height:44px}
+  .mt-row-card{flex:1 1 100%}
+  .mt-row-card[hidden]{display:none}
+  .mt-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;background:#F8F9FC}
+  .mt-send.is-off{background:var(--nv-off);color:var(--nv-muted);cursor:default}
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -7019,6 +7191,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מוצג רק ל-is_platform_admin (renderViewSwitch). יושב בראש התוכן ולא
            בכותרת: הכותרת מחזיקה לוגו ממורכז ב-absolute, והמתג לצידו נחת עליו
            במסך צר. -->
+      <!-- פירור הלחם של המסך (renderScreenCrumb): "דף הבית › עבודה יומית › נכסים".
+           מוסתר בדף הבית -->
+      <nav class="ui-scope screen-crumb" id="screenCrumb" aria-label="מיקום" hidden></nav>
       <div class="view-switch" id="viewSwitch" role="group" aria-label="מעבר בין תצוגת סוכן/ת לתצוגת מנהל/ת" hidden>
         <button type="button" data-view="agent" aria-pressed="true">תצוגת סוכן/ת</button>
         <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
@@ -7077,15 +7252,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            ========================================================== -->
       <div id="overviewBlock">
 
-        <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
-        <!-- מה מחכה היום במשפט אחד (homeBrief ב-assets/crm-home.js). הברכה
-             שמעליו ומשפטי המוטיבציה לא משתנים. -->
-        <p class="dash-brief" id="dashBrief" hidden></p>
+        <!-- דף הבית בסדר של שלב 6 (3.0, docs/crm-home.md): ברכה ושורת סיכום,
+             המנטור, "מחכה לך עכשיו", שתי עמודות פעמיים, פעולות מהירות, ובסוף
+             "התיק שלי" - המדדים הם מצב ולא משימה. -->
+        <header class="hm-head">
+          <div class="hm-head-text">
+            <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
+            <!-- אותם מספרים של "מחכה לך" במשפט אחד (homeBrief ב-assets/crm-home.js).
+                 הברכה שמעליו ומשפטי המוטיבציה לא משתנים. -->
+            <p class="dash-brief" id="dashBrief" hidden></p>
+          </div>
+          <span class="hm-date" id="hmDate"></span>
+        </header>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
              (homeCoachSync ב-assets/crm-coach.js), ונבנית פעם אחת - כך שציור
              מחדש של דף הבית לא מוחק את מה שמוקלד. -->
-        <section class="home-ask" id="homeCoachRow" hidden aria-label="שאלה למנטור">
+        <!-- כרטיס גיבור (3.0): התמונה בגובה מלא במחשב, והאווטאר העגול בנייד
+             (home-ask-face, פותח את השכבה) -->
+        <section class="home-ask hm-mentor" id="homeCoachRow" hidden aria-labelledby="hmMentorT">
+          <img class="hm-mentor-cut" src="/assets/mentor-cutout.webp" alt="" width="216" height="272" decoding="async" loading="lazy">
+          <div class="hm-mentor-head">
+            <span class="hm-mentor-title"><h2 id="hmMentorT">המנטור שלך</h2><span class="hm-mentor-tag">זמין עכשיו</span></span>
+            <span class="hm-mentor-sub">ניסיון של שנים בתיווך, תמיד ליד היד. שאלה מקצועית, תסריט שיחה או החלטה על מחיר.</span>
+          </div>
           <form class="home-ask-form" id="homeAskForm">
             <!-- האווטאר הוא הכניסה לשכבה (הצעדים והשיחה) - במקום שורת קישור נפרדת -->
             <button type="button" class="home-ask-face" data-home-coach-open aria-haspopup="dialog"
@@ -7104,47 +7294,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="submit" class="home-ask-send" aria-label="שליחת השאלה">←</button>
           </form>
           <div class="home-ask-out" id="homeAskOut" aria-live="polite" hidden></div>
+          <div class="hm-steps" id="hmSteps" hidden></div>
         </section>
 
-        <!-- ---------- שלושת המדדים (HANDOFF 2.7, design/Home-KPI*.dc.html) ----------
-             כרטיס אחד, שלוש פעמים: משטח אחיד (לבן ביום, ‏#13224A בלילה לפי
-             body.crm-night), וצבע התחום רק באייקון, בפס ובשורת התובנה - כסף
-             נייבי, נכסים חול, אנשים מנטה. עד 19.10.2026 היו כאן שלושה סגנונות
-             (גרדיאנט, חול-זהב, מנטה) שנראו כמו שלושה מוצרים, והבהירים סנוורו
-             בלילה. בכל כרטיס: המספר ותגית שינוי במילים ("+6 החודש"), פס פיצול
-             עם מקרא, ושורת תובנה אחת עם פעולה (renderKpiInsights ב-crm.js).
-             הכרטיס כולו לחיץ דרך .hk-hit (שכבה על כל הכרטיס), וה-"i" ופעולת
-             התובנה יושבים מעליה - בלי כפתור בתוך כפתור. המספרים עצמם לא
-             השתנו: אותו חישוב, ‏syncStickyKpis מעתיק אותם לפס הדביק. -->
-        <section class="hk" aria-label="המדדים שלי">
-            <article class="hk-card hk-money">
-              <button type="button" class="hk-hit" data-goto="accMyDashboard" aria-label="עמלות פוטנציאליות - המגמה בדשבורד שלי"></button>
-              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></span>
-              <span class="hk-label">עמלות פוטנציאליות</span>
-              <button type="button" class="hk-info" data-hk-how="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." title="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." aria-label="איך מחושב: עמלות פוטנציאליות">i</button>
-              <div class="hk-num"><span class="hk-value" id="kpiCommissionValue">₪0</span><span class="hk-delta" id="kpiCommissionDelta" hidden></span></div>
-              <div class="hk-split" id="kpiCommissionSplit"></div>
-              <div class="hk-ins" id="kpiCommissionIns" hidden></div>
-            </article>
-            <article class="hk-card hk-prop">
-              <button type="button" class="hk-hit" data-goto="accProperties" aria-label="הנכסים הפעילים שלי"></button>
-              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg></span>
-              <span class="hk-label">נכסים פעילים</span>
-              <button type="button" class="hk-info" data-hk-how="נכסים בסטטוס פעיל, מכירה והשכרה." title="נכסים בסטטוס פעיל, מכירה והשכרה." aria-label="איך מחושב: נכסים פעילים">i</button>
-              <div class="hk-num"><span class="hk-value" id="kpiActiveValue">0</span><span class="hk-delta" id="kpiActiveDelta" hidden></span></div>
-              <div class="hk-split" id="kpiActiveSplit"></div>
-              <div class="hk-ins" id="kpiActiveIns" hidden></div>
-            </article>
-            <article class="hk-card hk-people">
-              <button type="button" class="hk-hit" data-goto="accClients" aria-label="הלקוחות המחפשים שלי"></button>
-              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21a6 6 0 0 0-12 0"/><circle cx="10" cy="7" r="4"/><path d="M22 21a6 6 0 0 0-4-5.6"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg></span>
-              <span class="hk-label">לקוחות מחפשים</span>
-              <button type="button" class="hk-info" data-hk-how="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." title="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." aria-label="איך מחושב: לקוחות מחפשים">i</button>
-              <div class="hk-num"><span class="hk-value" id="kpiClientsValue">0</span><span class="hk-delta" id="kpiClientsDelta" hidden></span></div>
-              <div class="hk-split" id="kpiClientsSplit"></div>
-              <div class="hk-ins" id="kpiClientsIns" hidden></div>
-            </article>
+        <!-- "מחכה לך עכשיו" - חמישה אריחים (homeWaitTiles ב-crm-home.js). מחליף
+             את "דורש טיפול מיידי" בדף הבית של הסוכן/ת -->
+        <section class="ui-scope hm-wait-sec" id="homeWait" aria-labelledby="hmWaitT" hidden>
+          <div class="hm-sec-head"><h2 id="hmWaitT">מחכה לך עכשיו</h2><span class="ui-muted">כתום = דורש פעולה ממך</span></div>
+          <div class="hm-wait"></div>
         </section>
+
         <!-- ---------- דורש טיפול מיידי ----------
              מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרכבת
              נבנית ב-renderTodoList() מאותם מונים של הקטגוריות, והבלוק כולו
@@ -7184,7 +7343,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <section class="hq" aria-label="פעולות מהירות">
           <div class="section-head">
             <h2 class="section-h">פעולות מהירות</h2>
-            <span class="hq-sub" id="quickSub" hidden>לפי מה שהכי שימושי לך</span>
+            <span class="hq-tools"><span class="hq-sub" id="quickSub" hidden>לפי מה שהכי שימושי לך</span>
+              <button type="button" class="hq-custom" id="quickCustomBtn" aria-expanded="false" aria-controls="quickCustom">התאמה אישית</button></span>
+          </div>
+          <!-- "התאמה אישית" (3.21): עד 6 מתוך 9, נשמר ב-localStorage (QUICK_PICK_KEY) -->
+          <div class="ui-scope hq-custom-box" id="quickCustom" hidden>
+            <p class="ui-hint"><span>בחירה של עד 6 פעולות.</span><span>הסדר ממשיך להתעדכן לפי השימוש שלך.</span></p>
+            <div class="ui-chips" id="quickCustomChips" role="group" aria-label="פעולות מהירות"></div>
           </div>
           <div class="hq-row" id="quickGrid"></div>
           <!-- ---------- שורת הארנק ----------
@@ -7197,6 +7362,50 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <span class="hw-quota"><span id="quotaLabel">לידי קונה/שוכר:</span> <b id="quotaUsed">-</b></span>
             <button type="button" class="hw-topup" data-goto="accWallet" data-focus="topupAmount">טעינה</button>
           </div>
+        </section>
+
+        <!-- ---------- שלושת המדדים (HANDOFF 2.7, design/Home-KPI*.dc.html) ----------
+             כרטיס אחד, שלוש פעמים: משטח אחיד (לבן ביום, ‏#13224A בלילה לפי
+             body.crm-night), וצבע התחום רק באייקון, בפס ובשורת התובנה - כסף
+             נייבי, נכסים חול, אנשים מנטה. עד 19.10.2026 היו כאן שלושה סגנונות
+             (גרדיאנט, חול-זהב, מנטה) שנראו כמו שלושה מוצרים, והבהירים סנוורו
+             בלילה. בכל כרטיס: המספר ותגית שינוי במילים ("+6 החודש"), פס פיצול
+             עם מקרא, ושורת תובנה אחת עם פעולה (renderKpiInsights ב-crm.js).
+             הכרטיס כולו לחיץ דרך .hk-hit (שכבה על כל הכרטיס), וה-"i" ופעולת
+             התובנה יושבים מעליה - בלי כפתור בתוך כפתור. המספרים עצמם לא
+             השתנו: אותו חישוב, ‏syncStickyKpis מעתיק אותם לפס הדביק. -->
+        <!-- "התיק שלי" - בתחתית מאז שלב 6 (3.0) -->
+        <section class="hm-kpi-sec" aria-labelledby="hmKpiT">
+        <div class="hm-sec-head"><h2 id="hmKpiT">התיק שלי</h2><button type="button" class="ui-link" data-goto="accMyDashboard">לדשבורד המלא ›</button></div>
+        <section class="hk" aria-label="המדדים שלי">
+            <article class="hk-card hk-money">
+              <button type="button" class="hk-hit" data-goto="accMyDashboard" aria-label="עמלות פוטנציאליות - המגמה בדשבורד שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></span>
+              <span class="hk-label">עמלות פוטנציאליות</span>
+              <button type="button" class="hk-info" data-hk-how="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." title="2% ממחיר המכירה, או חודש שכירות בהשכרה, על כל נכס פעיל." aria-label="איך מחושב: עמלות פוטנציאליות">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiCommissionValue">₪0</span><span class="hk-delta" id="kpiCommissionDelta" hidden></span></div>
+              <div class="hk-split" id="kpiCommissionSplit"></div>
+              <div class="hk-ins" id="kpiCommissionIns" hidden></div>
+            </article>
+            <article class="hk-card hk-prop">
+              <button type="button" class="hk-hit" data-goto="accProperties" aria-label="הנכסים הפעילים שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg></span>
+              <span class="hk-label">נכסים פעילים</span>
+              <button type="button" class="hk-info" data-hk-how="נכסים בסטטוס פעיל, מכירה והשכרה." title="נכסים בסטטוס פעיל, מכירה והשכרה." aria-label="איך מחושב: נכסים פעילים">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiActiveValue">0</span><span class="hk-delta" id="kpiActiveDelta" hidden></span></div>
+              <div class="hk-split" id="kpiActiveSplit"></div>
+              <div class="hk-ins" id="kpiActiveIns" hidden></div>
+            </article>
+            <article class="hk-card hk-people">
+              <button type="button" class="hk-hit" data-goto="accClients" aria-label="הלקוחות המחפשים שלי"></button>
+              <span class="hk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21a6 6 0 0 0-12 0"/><circle cx="10" cy="7" r="4"/><path d="M22 21a6 6 0 0 0-4-5.6"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg></span>
+              <span class="hk-label">לקוחות מחפשים</span>
+              <button type="button" class="hk-info" data-hk-how="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." title="לקוחות פעילים שמחפשים נכס (בלי בעלי נכסים), ומתוכם כמה עם נכס מתאים במאגר." aria-label="איך מחושב: לקוחות מחפשים">i</button>
+              <div class="hk-num"><span class="hk-value" id="kpiClientsValue">0</span><span class="hk-delta" id="kpiClientsDelta" hidden></span></div>
+              <div class="hk-split" id="kpiClientsSplit"></div>
+              <div class="hk-ins" id="kpiClientsIns" hidden></div>
+            </article>
+        </section>
         </section>
 
       </div>
@@ -8658,25 +8867,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <details class="acc" id="accAlerts" open>
       <summary>
-        <span class="acc-title">התראות התאמה</span>
+        <span class="acc-title">התאמות חדשות</span>
         <span class="acc-count hot" id="accAlertsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כל נכס שנכנס למערכת - שלך, של המשרד או כזה ששותף איתך - נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה-נכס מתריע פעם אחת בלבד. ההתאמות נכנסות לכאן מיד, וההתראה בפעמון ובוואטסאפ מגיעה כסיכום שלוש פעמים ביום: ב-8:30, ב-12:07 וב-16:07.</p>
-
-        <div class="list-toolbar">
-          <div class="toolbar-row">
-            <select id="alertScopeFilter" class="filter-input" aria-label="סינון התראות">
-              <option value="new">חדשות בלבד</option>
-              <option value="all">כל ההתראות</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="alertsRefreshBtn" style="white-space:nowrap">רענון</button>
+        <!-- "התאמות חדשות" (3.12, assets/crm-matches.js, docs/client-matching.md):
+             מקובצות לפי לקוח/ה (או לפי נכס), כרטיס אחד פתוח בכל פעם, ושליחה
+             מרוכזת של כמה נכסים ללקוח/ה בהודעת וואטסאפ אחת. -->
+        <div class="ui-scope mt-top">
+          <p class="ui-hint"><span>כל נכס חדש או הוזלה נבדקים מול הלקוחות שלך.</span><span>סיכום מגיע בפעמון ובוואטסאפ 3 פעמים ביום: 8:30, 12:07 ו-16:07.</span></p>
+          <section class="mt-summary" id="mtSummary" aria-label="סיכום" hidden>
+            <span class="mt-summary-n"><b id="mtSummaryN">0</b><span>התאמות חדשות</span></span>
+            <span class="mt-summary-t" id="mtSummaryT"></span>
+            <button type="button" class="mt-summary-btn" id="alertsMarkAll" hidden>סימון הכל כנצפה</button>
+          </section>
+          <div class="mt-controls">
+            <div class="ui-tabs" role="radiogroup" aria-label="קיבוץ" id="mtView">
+              <button type="button" class="ui-tab" role="radio" data-mt-view="client" aria-checked="true" aria-selected="true">לפי לקוח</button>
+              <button type="button" class="ui-tab" role="radio" data-mt-view="property" aria-checked="false" aria-selected="false">לפי נכס</button>
+            </div>
+            <!-- הערך שהטעינה קוראת (alertScope) - "חדשות בלבד" הוא הצ'יפ -->
+            <input type="hidden" id="alertScopeFilter" value="new">
+            <button type="button" class="ui-chip" id="mtNewOnly" aria-pressed="true">חדשות בלבד</button>
+            <button type="button" class="pr-adv-btn mt-refresh" id="alertsRefreshBtn">רענון</button>
           </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="alertsFilterCount"></p>
-            <button type="button" class="clear-filters" id="alertsMarkAll" hidden>סימון הכל כנצפה</button>
-          </div>
+          <p class="ui-count" id="alertsFilterCount"></p>
         </div>
 
         <div id="alertsList"></div>
@@ -11379,6 +11595,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-leads.js"></script>
 <!-- "נכסים" - שתי הלשוניות, "דורש תשומת לב" וכלים לנכס (docs/properties-unified.md) -->
 <script src="assets/crm-properties.js"></script>
+<!-- "התאמות חדשות" מקובצות לפי לקוח/ה, ושליחה מרוכזת (docs/client-matching.md) -->
+<script src="assets/crm-matches.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
 <script src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
