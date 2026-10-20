@@ -782,15 +782,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* מוני הנכסים הפעילים לצד שם חבר/ת הצוות. שני הקודים זהים ל---deal-sale
      ול---deal-rent שב-index.html, כדי שהצבע ייקרא אותו דבר כאן ובמקרא
      שמתחת למפה בדף הבית. */
-  .team-deals{font-weight:400;font-size:.85rem;color:var(--txt-soft,var(--ink-soft));white-space:nowrap;margin-inline-start:4px}
-  /* isolate על כל מספר בנפרד: בלעדיו אלגוריתם ה-bidi מאחד את שתי הספרות
-     והמפריד לרצף LTR אחד, וסדר המכירה/השכרה על המסך משתנה לפי אורך
-     המספרים. עם בידוד הסדר תמיד נקרא כמו בקוד — מכירה ואז השכרה. */
-  .team-deals,.team-deals b{unicode-bidi:isolate}
+  /* שורה מתחת לשם: "נכסים פעילים: 1 למכירה · 2 להשכרה · 9 מסחריים" - כל
+     מספר עם המילה שלו, בגלולה בצבע הסוג. ‏isolate על כל גלולה: בלעדיו
+     אלגוריתם ה-bidi מאחד ספרות סמוכות לרצף LTR אחד והסדר משתנה. */
+  .team-deals{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px;font-size:.8rem;font-weight:400;
+    color:var(--txt-soft,var(--ink-soft))}
+  .team-deals .td-h{font-weight:600}
+  .team-deals .td-kind{unicode-bidi:isolate;display:inline-flex;align-items:baseline;gap:3px;border-radius:999px;padding:1px 9px;
+    background:#F1F3F8;white-space:nowrap}
   .team-deals b{font-weight:800;font-variant-numeric:tabular-nums}
-  .team-deals .td-sale{color:#1C3A5E}
-  .team-deals .td-rent{color:#8B2332}
-  .team-deals .td-commercial{color:#B85C00}
+  .team-deals .td-sale{color:#1C3A5E;background:#E7ECF3}
+  .team-deals .td-rent{color:#8B2332;background:#F7E6E9}
+  .team-deals .td-commercial{color:#8A4600;background:#FCEBD9}
   .team-deals .td-none{color:var(--txt-faint,var(--ink-soft))}
   /* ‏nowrap: מספר טלפון שנשבר באמצע לשתי שורות נקרא כמו שני מספרים */
   .lead-phone{font-size:.85rem;color:var(--ink-soft);direction:ltr;text-align:right;white-space:nowrap}

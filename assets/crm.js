@@ -11088,14 +11088,14 @@ async function loadTeam(agencyId, callerId){
     const counts = dealCounts && dealCounts[m.id];
     // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
     const shown = counts ? TEAM_DEAL_KINDS.filter(k => counts[k.key] > 0) : [];
-    // role="img" + aria-label: הצבע לבדו לא נגיש, ולכן הסוגריים מוסתרות
-    // מהקורא ומוחלפות במשפט מלא
-    const dealsHtml = !counts ? '' : ` <span class="team-deals" role="img"
-          title="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
-          aria-label="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
-      >(${shown.length
-            ? shown.map(k => `<b class="td-${k.key}">${counts[k.key]}</b>`).join(' · ')
-            : '<b class="td-none">0</b>'})</span>`;
+    /* שורה משלה מתחת לשם, וכל מספר עם המילה שלו (בקשה של תומר, 20.10.2026):
+       "(1 · 2 · 9)" בצבעים לבדם לא נקרא כ"1 למכירה, 2 להשכרה, 9 מסחריים".
+       הצבע של כל סוג נשאר - זה של מקרא המפה בדף הבית. */
+    const dealsHtml = !counts ? '' : '<div class="team-deals"><span class="td-h">נכסים פעילים:</span>'
+      + (shown.length
+          ? shown.map(k => '<span class="td-kind td-' + k.key + '"><b>' + counts[k.key] + '</b> ' + esc(k.label) + '</span>').join('')
+          : '<span class="td-kind td-none">אין</span>')
+      + '</div>';
     // כרטיס בלי user_id הוא הזמנה שטרם נענתה. זה הסימן היחיד שמגלה כתובת
     // שהוקלדה שגוי — קודם לא היה סימן כזה בכלל, כי הכרטיס נקשר מיד לחשבון
     // שנוצר על הכתובת השגויה ונראה פעיל לחלוטין.
@@ -11109,7 +11109,7 @@ async function loadTeam(agencyId, callerId){
     el2.innerHTML = `
       <div class="lead-top">
         <div>
-          <div class="lead-name">${esc(m.display_name || 'סוכן/ת חדש/ה')}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
+          <div class="lead-name">${esc(m.display_name || 'סוכן/ת חדש/ה')}${m.id === callerId ? ' (את/ה)' : ''}</div>${dealsHtml}
           ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
         </div>
         <span class="status-pill status-${(pending || released || !m.active) ? 'masked' : 'unlocked'}">${statusLabel}</span>
