@@ -6336,6 +6336,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .np2-kinds{display:flex;flex-direction:column}
   .np2-kind:first-child{border-top:0}
 
+  /* הצעות לשיפור (assets/crm-suggestions.js) */
+  .sug-dialog{width:min(520px,calc(100vw - 24px));max-height:calc(100dvh - 24px);border:0;border-radius:20px;padding:24px;
+    background:#fff;box-shadow:0 24px 60px rgba(14,26,51,.25)}
+  .sug-dialog::backdrop{background:rgba(14,26,51,.45)}
+  .sug-dialog form,.sug-done{display:flex;flex-direction:column;gap:12px}
+  .sug-head{display:flex;gap:14px;align-items:flex-start}
+  .sug-text{width:100%;min-height:120px;resize:vertical;border:1px solid var(--nv-chip-line);border-radius:12px;padding:12px 14px;
+    font:inherit;font-size:16px;color:var(--nv-ink)}
+  .sug-meta{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--nv-muted)}
+  .sug-err{margin:0;font-size:14px;font-weight:600;color:var(--nv-urgent-ink)}
+  .sug-err:empty{display:none}
+  .sug-dialog-acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+  .sug-done{align-items:flex-start}
+  .sug-admin{display:flex;flex-direction:column;gap:12px}
+  .sug-list{display:flex;flex-direction:column;gap:10px}
+  .sug-item{background:#fff;border:1px solid var(--nv-line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+  .sug-item-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:14px}
+  .sug-when{margin-inline-start:auto;font-size:13px}
+  .sug-body{margin:0;font-size:15px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+  .sug-acts{display:flex;justify-content:flex-end}
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -9552,6 +9573,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
+      <!-- הצעות לשיפור שסוכנים שולחים מהכפתור עם הזבוב בתפריט
+           (assets/crm-suggestions.js, docs/improvement-suggestions.md) -->
+      <details class="acc" id="accSuggestions">
+        <summary>
+          <span class="acc-title">הצעות לשיפור</span>
+          <span class="acc-count hot" id="accSuggestionsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body ui-scope sug-admin">
+          <p class="ui-hint"><span>מה שסוכנים כתבו בכפתור "הצעה לשיפור", מהחדש לישן.</span><span>"סימון כטופל" מעביר ל"טופלו" - שום הצעה לא נמחקת.</span></p>
+          <div class="ui-chips" data-ui-single id="sugTabs" role="group" aria-label="סינון ההצעות"></div>
+          <div class="ui-count" id="sugCountLine"></div>
+          <div id="sugAdminList" class="sug-list"></div>
+        </div>
+      </details>
+
       <!-- לידים שנקלטו ואין להם קהל. הפעמון מתריע על כל אחד בנפרד; כאן
            רואים את כולם יחד, ובעיקר *למה* — קהל ריק (אין יועצי משכנתאות
            רשומים) הוא בעיה אחרת לגמרי מליד בודד שלא עבר סף. -->
@@ -11039,6 +11076,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="toast" id="toast"></div>
 
+<!-- "הצעה לשיפור" - נפתח מהכפתור עם הזבוב (assets/crm-suggestions.js).
+     מחוץ ל-#dashboard בכוונה: crmUnsavedInput סופר טפסים שם, וחלון שנסגר
+     עם טקסט אינו "טופס שלא נשמר" של מסך -->
+<dialog class="ui-scope sug-dialog" id="sugDialog" aria-labelledby="sugTitle">
+  <form id="sugForm">
+    <div class="sug-head">
+      <span class="ui-badge-ico"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg></span>
+      <div>
+        <h2 class="ui-h2" id="sugTitle">הצעה לשיפור</h2>
+        <p class="ui-hint"><span>משהו לא עובד, חסר, או יכול להיות נוח יותר?</span><span>ההצעה מגיעה ישר לצוות של שוק נדל״ן.</span></p>
+      </div>
+    </div>
+    <label class="set-field-label" for="sugBody">מה כדאי לשפר?</label>
+    <textarea id="sugBody" class="sug-text" rows="5" maxlength="2000" placeholder="למשל: הייתי רוצה לסנן לידים לפי שכונה"></textarea>
+    <div class="sug-meta"><span id="sugScreen"></span><span id="sugCount">0/2000</span></div>
+    <p class="sug-err" id="sugErr" role="alert"></p>
+    <div class="sug-dialog-acts">
+      <button type="button" class="ui-btn ui-btn--secondary" id="sugCancel">ביטול</button>
+      <button type="submit" class="ui-btn" id="sugSend" disabled>שליחה</button>
+    </div>
+  </form>
+  <div class="sug-done" id="sugDone" hidden>
+    <h2 class="ui-h2">תודה! ההצעה נשלחה</h2>
+    <p class="ui-hint"><span>אנחנו קוראים כל הצעה.</span><span>אם יהיו לנו שאלות, נחזור אליך.</span></p>
+    <button type="button" class="ui-btn" id="sugDoneBtn">סגירה</button>
+  </div>
+</dialog>
+
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
      מנהל/ת הפלטפורמה. docs/regional-pages.md -->
 <script src="assets/markets.js"></script>
@@ -11051,6 +11116,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- "ההגדרות שלי" ו"התראות והודעות" (docs/crm-settings.md). אחרי crm-ui.js,
      שממנו הם נבנים, ולפני crm.js -->
 <script src="assets/crm-settings.js"></script>
+<!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
+<script src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
      שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
 <script src="assets/crm-coach.js"></script>

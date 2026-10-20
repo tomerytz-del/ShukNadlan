@@ -2205,6 +2205,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       loadArticlesAdmin(),
       loadProfessionalCardsAdmin(),
       loadUnroutedLeads(),
+      loadSuggestionsAdmin(),
     ]);
   }
 
@@ -24255,6 +24256,14 @@ const NOTIF_TYPES = [
     sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. הטבת ההשקה אינה נספרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
+  /* הצעה לשיפור מהכפתור עם הזבוב (20270705090000, docs/improvement-suggestions.md).
+     בלי מזהה פריט - היעד הוא הרשימה */
+  { type:'improvement_suggestion', tone:'', goto:'accSuggestions', focus:'#sugAdminList',
+    view:'admin',
+    title:'הצעה לשיפור מסוכן/ת',
+    sub:'סוכן/ת כתב/ה מה כדאי לשפר, מהכפתור עם הזבוב שבתפריט. כל ההצעות ב"הצעות לשיפור".',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadSuggestionsAdmin() },
 ];
 
 const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
@@ -25441,6 +25450,7 @@ const DASH_ICONS = {
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
   plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  bug:'<path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17h.01"/>',
   close:'<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
   railClose:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="m8 10 2 2-2 2"/>',
@@ -25641,6 +25651,7 @@ const NAV_GROUPS = [
   { key:'aToday', label:'היום', icon:'gauge', adminOnly:true, open:true, items:[
     { acc:NAV_ADMIN_HOME,       label:'מרכז הפיקוד',      icon:'gauge',   tab:'admin' },
     { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
+    { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
   ]},
   { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
     { acc:'dashPanelMarkets',   label:'שווקים מקומיים',   icon:'map',     tab:'admin' },
@@ -25695,7 +25706,7 @@ const BOTTOM_NAV = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accLicenseAppeals','accCoachGaps']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLicenseAppeals','accCoachGaps']);
 /* התגיות בנייד. הלידים על כפתור הלידים. מה שהיה מסומן על הלשוניות שנעלמו
    (התאמות ויומן על "לקוחות", ביקורות על "עוד") עובר לכפתור התפריט בכותרת,
    שהוא הדרך אליהן עכשיו - אחרת דבר דחוף היה מתחבא מאחורי מקטע בלי כפתור.
@@ -26100,6 +26111,9 @@ function sideNavFoot(rail){
   html += '<div class="sn-links">'
     + '<button type="button" class="sn-link" data-sn="help"' + (rail ? ' title="עזרה" aria-label="עזרה"' : '') + '>'
     +   dashIcon('help', 'sn-ico') + '<span class="sn-label">עזרה</span></button>'
+    /* הצעה לשיפור (assets/crm-suggestions.js, docs/improvement-suggestions.md) */
+    + '<button type="button" class="sn-link" data-sn="suggest"' + (rail ? ' title="הצעה לשיפור" aria-label="הצעה לשיפור"' : '') + '>'
+    +   dashIcon('bug', 'sn-ico') + '<span class="sn-label">הצעה לשיפור</span></button>'
     + '<button type="button" class="sn-link" data-sn="rail" aria-pressed="' + rail + '"'
     +   (rail ? ' title="הרחבת התפריט" aria-label="הרחבת התפריט"' : '') + '>'
     +   dashIcon(rail ? 'railOpen' : 'railClose', 'sn-ico')
@@ -26111,6 +26125,10 @@ function sideNavFoot(rail){
   foot.querySelector('[data-sn="help"]').addEventListener('click', (e)=>{
     e.stopPropagation();
     openSearch('help');
+  });
+  foot.querySelector('[data-sn="suggest"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    openSuggestDialog();
   });
   foot.querySelector('[data-sn="rail"]').addEventListener('click', ()=> sideRailSet(!rail));
   return foot;
@@ -29909,6 +29927,10 @@ function buildProfilePanel(){
         e.stopPropagation();
         openNavLayer('search');
         setSearchScope('help');
+      }));
+      rows.push(profileMenuItem('bug', 'הצעה לשיפור', '', ()=>{
+        closeProfilePanel();
+        openSuggestDialog();
       }));
     }
     items.forEach(item=>{

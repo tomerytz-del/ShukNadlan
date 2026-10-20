@@ -27,6 +27,7 @@
 | `supabase/migrations/20261104090000_platform_signup_alert.sql` | הסוג `platform_signup`, והדלקת הערוץ למנהל/ת הפלטפורמה |
 | `supabase/functions/_shared/platform-signup-alert.ts` | ההתראה על כל מי שמצטרף/ת — משרד, מתווך/ת, בעל/ת מקצוע ויזם |
 | `supabase/migrations/20261106090000_platform_upgrade_alert.sql` | הסוג `platform_upgrade` והטריגר על `tier_changes` |
+| `supabase/migrations/20270705090000_improvement_suggestions.sql` | הסוג `improvement_suggestion` והטריגר על `improvement_suggestions` (`docs/improvement-suggestions.md`) |
 | `supabase/migrations/20261118090000_notifications_delete_policy.sql` | ‏policy המחיקה של הפעמון, שעד היום חי רק בפרודקשן |
 | `supabase/migrations/20261123090000_agent_onboarding.sql` | ארבעת סוגי הדרבון של מדריך ההתחלה, וחמשת הטריגרים שמייצרים אותם |
 | `supabase/migrations/20270320093000_notification_direct_links.sql` | ‏`related_property_id` ו-`related_client_id`, שמונה הפונקציות שכותבות אותם, וה-claim שמחזיר אותם לוואטסאפ |
@@ -52,6 +53,7 @@
 | `marketing_copy` | תוכן שיווקי שנוצר לנכס: תיאור שנכתב אוטומטית, **וסרטון שיווקי שהפקתו נגמרה או נכשלה** | הסוכן/ת בעל/ת הנכס |
 | `platform_signup` | **חדש** — משרד, מתווך/ת, בעל/ת מקצוע או חברה יזמית שהצטרפו | מנהל/ת הפלטפורמה |
 | `platform_upgrade` | **חדש** — כסף: מעבר למסלול בתשלום, בקשת שדרוג שממתינה, ותשלום של בעל/ת מקצוע | מנהל/ת הפלטפורמה |
+| `improvement_suggestion` | הצעה לשיפור שסוכן/ת שלח/ה מהכפתור עם הזבוב בתפריט. בלי מזהה פריט - מוביל ל"הצעות לשיפור" (`accSuggestions`) | מנהל/ת הפלטפורמה |
 | `deal_sync_summary` | סיכום של כל הרצת "עדכן עסקאות" - יישובים, עסקאות שנוספו, כשלים וממתינים. בלי פריט (מכסה הרבה יישובים), והקישור למסך "יישובים לעסקאות" (‏`docs/settlement-deals.md`) | מנהל/ת הפלטפורמה |
 | `onboarding_property` | דרבון חד-פעמי במדריך ההתחלה: הפרופיל הושלם ועוד אין נכס | סוכן/ת חדש/ה ב-`mid`/`premium` |
 | `onboarding_client` | דרבון חד-פעמי במדריך ההתחלה: הנכס הראשון נוצר ועוד אין לקוח/ה | סוכן/ת חדש/ה ב-`mid`/`premium` |

@@ -75,6 +75,7 @@ const WA_OPTED_OUT = 131050;
 // ב-assets/crm.js, ו-scripts/check_notif_links.py חוסם ב-CI כל פער. סוג שאינו
 // כאן נופל ל-MANAGE_ACC - הגדרות ההתראות - וזה לעולם לא היעד הנכון.
 const ACC_BY_TYPE: Record<string, string> = {
+  improvement_suggestion: "accSuggestions",
   new_lead: "accLeads",
   client_match: "accAlerts",
   listing_match: "accProperties",

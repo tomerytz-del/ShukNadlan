@@ -506,7 +506,7 @@ const NOTIF_GROUPS = [
   { key:'agenda',  title:'יומן והמנטור', types:['agenda_reminder', 'coach_daily', '__reminders', 'onboarding_property', 'onboarding_client', 'onboarding_agreement', 'onboarding_lead'] },
   { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match'] },
   { key:'reviews', title:'ביקורות', types:['review_new', 'review_request'] },
-  { key:'admin',   title:'ניהול הפלטפורמה', admin:true, types:['review_alert', 'lead_unrouted', 'platform_signup', 'deal_data_gap', 'deal_sync_summary', 'access_review', 'security_alert', 'platform_upgrade'] },
+  { key:'admin',   title:'ניהול הפלטפורמה', admin:true, types:['review_alert', 'lead_unrouted', 'platform_signup', 'deal_data_gap', 'deal_sync_summary', 'access_review', 'security_alert', 'platform_upgrade', 'improvement_suggestion'] },
 ];
 /* "רק דחוף" בוואטסאפ: אדם מחכה בצד השני, או שהשעה נקבעה מראש */
 const NOTIF_URGENT = new Set(['new_lead', 'showcase_meeting', 'agenda_reminder', 'agreement_signed', 'lead_unrouted', 'security_alert']);
