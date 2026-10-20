@@ -3366,7 +3366,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     --nv-ink:#0E1A33; --nv-muted:#5A6478; --nv-line:#E3E7EF; --nv-ground:#F4F6FA;
     --nv-accent:#1F5BF0; --nv-accent-h:#1846C2; --nv-accent-soft:#EAF0FF; --nv-accent-ink:#1F3F99;
     --nv-urgent:#C2410C;
+    /* ההמשך של אותה מערכת לאזורי העבודה, ההגדרות והניהול
+       (docs/handoff/crm-settings-redesign, סעיף 1.1; docs/crm-ui-kit.md) */
+    --nv-line-soft:#EEF1F6; --nv-chip-line:#D5DBE6; --nv-chip-ink:#3A4458; --nv-off:#E3E7EF;
+    --nv-navy:#1C3A5E; --nv-urgent-ink:#9A3412; --nv-urgent-soft:#FDE7D9;
+    --nv-warn:#7A5300; --nv-warn-soft:#FFF1C7; --nv-ok:#166534; --nv-ok-soft:#E6F4EC;
+    --nv-gold:#E0B84A; --nv-gold-dark:#B8862B;
   }
+  /* הכפתור הראשי של המערכת כחול. הבורדו הוא צבע המיתוג של המשרד ולא של
+     ה-CRM (סעיף 1.2 במסמך ההעברה). מסך הכניסה שומר על הגרדיאנט שלו
+     (#loginScreen .btn-gold), כי שם הוא המותג ולא פעולה בתוך המערכת. */
+  .btn-gold{background:var(--nv-accent);color:#fff}
+  .btn-gold:not(:disabled):hover{background:var(--nv-accent-h)}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
   /* "יצירה חדשה" בראש הסרגל - אותו גיליון של ה-+ בנייד */
@@ -6052,6 +6063,181 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .lc-grid{display:grid;grid-template-columns:minmax(170px,.9fr) minmax(0,1.6fr) minmax(220px,1fr);gap:18px;align-items:start}
     .lc-need{background:transparent;border:0;border-inline:1px solid var(--edge,var(--line));border-radius:0;padding:0 18px}
     .lc-secondary{justify-content:flex-start}
+  }
+
+  /* ==========================================================================
+     ערכת הרכיבים של אזורי העבודה, ההגדרות והניהול (ui-*)
+     --------------------------------------------------------------------------
+     שלב 1 בעיצוב מחדש (docs/handoff/crm-settings-redesign/HANDOFF.md, סעיפים
+     1 ו-6; המדריך: docs/crm-ui-kit.md). הרכיבים כאן הם מה שכל מסך בשלבים
+     הבאים נבנה ממנו, כדי שלא ייוולדו שוב עשרים גרסאות של "צ'יפ" ו"פס שמירה".
+     ההתנהגות (פתיחה, סימון, מצב "יש שינויים", "עוד X") ב-assets/crm-ui.js.
+
+     הטוקנים הם ה---nv-* שלמעלה. אין כאן @media מלבד הנייד בסוף: כל רכיב
+     נשבר לבד ב-flex-wrap, ורק הריפודים והכותרות קטנים ב-640px.
+     ========================================================================== */
+  .ui-scope{color:var(--nv-ink);font-family:'Heebo',system-ui,sans-serif}
+  .ui-scope h1,.ui-scope h2{color:var(--nv-ink)}
+  .ui-scope :is(button,a,select,input,[tabindex]):focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+
+  /* כרטיס, וכרטיס "hero" כהה (יתרה, סיכום, התקדמות) */
+  .ui-card{background:#fff;border:1px solid var(--nv-line);border-radius:20px;padding:24px 28px}
+  .ui-card--flush{padding:0;overflow:hidden}
+  .ui-hero{background:var(--nv-ink);color:#fff;border-radius:20px;padding:20px 24px}
+  .ui-hero .ui-muted{color:#B9C3D6}
+  .ui-muted{color:var(--nv-muted)}
+  .ui-h1{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:36px;line-height:1.15;color:var(--nv-ink)}
+  .ui-h2{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:24px;line-height:1.25;color:var(--nv-ink)}
+  .ui-h3{margin:0;font-size:18px;font-weight:700;color:var(--nv-ink)}
+
+  /* הסבר: עד שתי שורות, וכל משפט בשורה משלו - כך שמשפט לא נשבר באמצע */
+  .ui-hint{margin:0;font-size:15px;line-height:1.55;color:var(--nv-muted)}
+  .ui-hint>span{display:block}
+
+  /* כפתורים. הראשי כחול; כשאין מה לעשות (אין שינוי) הוא אפור ולא מעומעם.
+     פעולה הרסנית (ביטול, ניתוק, מחיקה, השעיה) היא קישור טקסט ולא כפתור מלא. */
+  .ui-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;
+    border-radius:12px;border:0;background:var(--nv-accent);color:#fff;font:inherit;font-size:15px;font-weight:700;
+    text-decoration:none;cursor:pointer;white-space:nowrap}
+  .ui-btn:hover{background:var(--nv-accent-h);color:#fff}
+  .ui-btn:disabled,.ui-btn[aria-disabled="true"]{background:var(--nv-off);color:var(--nv-muted);cursor:default}
+  .ui-btn--secondary{background:#fff;border:1px solid var(--nv-chip-line);color:var(--nv-ink);font-weight:600}
+  .ui-btn--secondary:hover{background:var(--nv-ground);color:var(--nv-ink)}
+  .ui-btn--sm{min-height:44px;padding:0 14px;font-size:14px}
+  .ui-btn--block{width:100%}
+  .ui-link{background:none;border:0;padding:10px 4px;min-height:44px;font:inherit;font-size:14px;font-weight:600;
+    color:var(--nv-accent);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .ui-link:hover{color:var(--nv-accent-h);text-decoration:underline}
+  .ui-link--danger{color:var(--nv-urgent-ink)}
+  .ui-link--danger:hover{color:#7C2D12}
+  .ui-icon-btn{width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--nv-line);background:#fff;
+    color:var(--nv-muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  .ui-icon-btn svg{transition:transform .18s ease}
+  [aria-expanded="true"]>.ui-chev,.ui-icon-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+  /* צ'יפ בחירה (aria-pressed). עד 6 אפשרויות - צ'יפים ולא רשימה נפתחת */
+  .ui-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .ui-chip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;
+    border:1px solid var(--nv-chip-line);background:#fff;color:var(--nv-chip-ink);font:inherit;font-size:15px;font-weight:500;
+    cursor:pointer;white-space:nowrap}
+  .ui-chip[aria-pressed="true"]{border:1.5px solid var(--nv-accent);background:var(--nv-accent-soft);color:var(--nv-accent-h);font-weight:600}
+  .ui-chip:disabled{opacity:.55;cursor:not-allowed}
+  .ui-chip .ui-chip-n{font-size:12px;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--nv-line-soft);color:var(--nv-muted)}
+  .ui-chip .ui-chip-n.is-warn{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .ui-chip .ui-chip-n.is-hot{background:var(--nv-urgent);color:#fff}
+  /* הסימן שבצ'יפ: וי כשמסומן, פלוס כשלא. ב-JS (uiChip), שני ה-SVG בפנים */
+  .ui-chip .ui-ico-on{display:none}
+  .ui-chip[aria-pressed="true"] .ui-ico-on{display:block}
+  .ui-chip[aria-pressed="true"] .ui-ico-off{display:none}
+
+  /* שורת מסננים: select קטנים בצורת גלולה. בנייד השורה גוללת לצדדים */
+  .ui-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .ui-pill-select{min-height:44px;padding:0 12px;border-radius:999px;border:1px solid var(--nv-chip-line);background:#fff;
+    font:inherit;font-size:14px;color:var(--nv-ink);max-width:100%}
+
+  /* מתג הפעלה (aria-pressed) */
+  .ui-switch{width:56px;height:32px;flex:none;border-radius:999px;border:0;padding:3px;cursor:pointer;display:flex;
+    align-items:center;justify-content:flex-start;background:#C5CCD9;box-sizing:content-box}
+  .ui-switch::before{content:"";width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(14,26,51,.3);
+    transition:transform .15s ease}
+  .ui-switch[aria-pressed="true"]{background:var(--nv-accent)}
+  /* RTL: ההתחלה היא ימין, ולכן "דלוק" זז שמאלה */
+  .ui-switch[aria-pressed="true"]::before{transform:translateX(-24px)}
+  [dir="ltr"] .ui-switch[aria-pressed="true"]::before{transform:translateX(24px)}
+  .ui-switch:disabled{opacity:.5;cursor:not-allowed}
+
+  /* תגיות מקור וסטטוס - בצבע, במקום טקסט אפור ארוך */
+  .ui-tag{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;border-radius:999px;padding:3px 10px;
+    white-space:nowrap;background:var(--nv-line-soft);color:var(--nv-muted)}
+  .ui-tag--accent{background:var(--nv-accent-soft);color:var(--nv-accent-ink)}
+  .ui-tag--navy{background:var(--nv-navy);color:#fff}
+  .ui-tag--ok{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .ui-tag--warn{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .ui-tag--urgent{background:var(--nv-urgent-soft);color:var(--nv-urgent-ink)}
+
+  /* באנרים: מה שחסר (צהוב) או דחוף (פס כהה עם עיגול כתום) - למעלה, עם קישור
+     ישיר לשדה או לפריט. ומידע (כחול עדין) */
+  .ui-banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-radius:14px;padding:14px 16px;font-size:15px;line-height:1.5}
+  .ui-banner>.ui-banner-text{flex:1 1 240px;min-width:0}
+  .ui-banner--warn{background:var(--nv-warn-soft);color:var(--nv-warn);font-weight:600}
+  .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
+  .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
+  .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
+  .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
+    box-shadow:0 0 0 4px rgba(194,65,12,.3)}
+  .ui-banner--urgent .ui-link{color:#fff;text-decoration:underline}
+
+  /* חלק מקופל. הכותרת נשארת עם שורת סיכום ומה שעובד גם כשסגור (מתג),
+     והגוף נפתח מכפתור עם aria-expanded. ‏[hidden] על הגוף, כך שבלי JS
+     ובקורא מסך המצב אחד. */
+  .ui-fold{background:#fff;border:1px solid var(--nv-line);border-radius:20px;overflow:hidden}
+  .ui-fold-head{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:24px 28px}
+  .ui-fold.is-open>.ui-fold-head{border-bottom:1px solid var(--nv-line-soft)}
+  .ui-fold-title{display:flex;gap:14px;align-items:center;min-width:0;flex:1 1 260px}
+  .ui-fold-title>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .ui-fold-summary{font-size:14px;color:var(--nv-muted)}
+  .ui-fold-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .ui-fold-body{padding:24px 28px;display:flex;flex-direction:column;gap:24px}
+  /* display:flex גובר על [hidden] של הדפדפן, ובלי זה מקופל סגור נשאר פתוח */
+  .ui-fold-body[hidden]{display:none}
+  .ui-fold-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px;
+    background:#F8F9FC;border-top:1px solid var(--nv-line-soft);color:var(--nv-ink);text-decoration:none}
+  .ui-badge-ico{width:48px;height:48px;flex:none;border-radius:14px;background:var(--nv-accent-soft);color:var(--nv-accent);
+    display:flex;align-items:center;justify-content:center}
+
+  /* פס שמירה: מופיע במצב "יש שינויים שלא נשמרו", עם "ביטול שינויים".
+     בלי שינוי - הכפתור אפור ו"כל השינויים שמורים"; אחרי שמירה - "נשמר".
+     ‏--sticky בדפים ארוכים. ההתנהגות: uiSaveBar ב-assets/crm-ui.js */
+  .ui-savebar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px;
+    background:#F8F9FC;border-top:1px solid var(--nv-line-soft)}
+  .ui-savebar--sticky{position:sticky;bottom:0;z-index:5;border:1px solid var(--nv-line);border-radius:16px;
+    box-shadow:0 -6px 20px rgba(14,26,51,.08);margin-bottom:calc(8px + var(--sa-bottom))}
+  .ui-savebar-text{font-size:14px;color:var(--nv-muted)}
+  .ui-savebar.is-dirty .ui-savebar-text{font-weight:700;color:var(--nv-urgent-ink)}
+  .ui-savebar.is-saved .ui-savebar-text{font-weight:700;color:var(--nv-ok)}
+  .ui-savebar-acts{display:flex;gap:8px;flex-wrap:wrap}
+  .ui-savebar:not(.is-dirty) [data-ui-reset]{display:none}
+
+  /* רשימה במנות: "מוצגים X מתוך Y" מעליה ו"עוד X" מתחתיה (uiPager) */
+  .ui-count{font-size:14px;color:var(--nv-muted)}
+  .ui-more{align-self:center;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--nv-chip-line);
+    background:#fff;font:inherit;font-size:15px;font-weight:700;color:var(--nv-ink);cursor:pointer}
+  .ui-more:hover{background:var(--nv-ground)}
+  .ui-more-row{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+
+  /* לשוניות (role="tablist") - גלולה מקובצת. החצים עוברים בין לשוניות */
+  .ui-tabs{display:inline-flex;background:#E9ECF2;border-radius:12px;padding:4px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .ui-tabs::-webkit-scrollbar{display:none}
+  .ui-tab{min-height:44px;padding:0 16px;border-radius:9px;border:0;background:transparent;font:inherit;font-size:15px;
+    font-weight:600;color:var(--nv-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .ui-tab[aria-selected="true"]{background:#fff;color:var(--nv-ink);font-weight:700;box-shadow:0 1px 3px rgba(14,26,51,.12)}
+
+  /* שורת קישור עם מצב (ניהול המשרד, "לכל ההתראות") */
+  .ui-row-link{display:flex;align-items:center;gap:12px;min-height:64px;border-top:1px solid var(--nv-line-soft);
+    color:var(--nv-ink);text-decoration:none;background:none;border-inline:0;border-bottom:0;width:100%;padding:0;font:inherit;text-align:start;cursor:pointer}
+  .ui-row-link>span:first-child{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .ui-row-title{font-size:16px;font-weight:700}
+  .ui-row-sub{font-size:13px;color:var(--nv-muted)}
+  .ui-row-sub.is-warn{color:var(--nv-warn);font-weight:600}
+
+  /* שדה חסר: מסגרת זהב ותגית "חסר" */
+  .ui-missing{border-color:var(--nv-gold)!important;box-shadow:0 0 0 3px rgba(224,184,74,.25)}
+
+  /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
+     צ'יפים ומסננים גוללות לצדדים במקום להישבר */
+  @media (max-width:640px){
+    .ui-card,.ui-fold-head,.ui-fold-body{padding:16px}
+    .ui-fold-foot,.ui-savebar{padding:14px 16px}
+    .ui-hero{padding:18px 16px}
+    .ui-h1{font-size:28px}
+    .ui-h2{font-size:20px}
+    .ui-filters,.ui-chips.ui-chips--scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+      margin-inline:-12px;padding-inline:12px;-webkit-overflow-scrolling:touch}
+    .ui-filters::-webkit-scrollbar,.ui-chips.ui-chips--scroll::-webkit-scrollbar{display:none}
+    .ui-filters>*,.ui-chips--scroll>*{flex:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .ui-switch::before,.ui-icon-btn svg{transition:none}
   }
 </style>
 </head>
@@ -10700,6 +10886,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/agency-markets.js"></script>
 <script src="assets/contact-import.js"></script>
 <script src="assets/crm-office.js"></script>
+<!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
+     לפני שאר המודולים, שבונים ממנה את המסכים -->
+<script src="assets/crm-ui.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
      שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
 <script src="assets/crm-coach.js"></script>

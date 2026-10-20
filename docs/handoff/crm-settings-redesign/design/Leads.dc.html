@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הלידים שלי</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button{font-family:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="padding: 16px 18px"]{padding:14px 12px!important}h1{font-size:28px!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-direction: column; gap: 6px">
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">עבודה יומית ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">הלידים שלי</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5A6478"><span style="display: block">כל מי שפנה אליך, במקום אחד: דפי נכסים, דף הסוכן, שיחות וחנות הלידים.</span><span style="display: block">ליד שהפך ללקוח עובר לקובץ הלקוחות.</span></p>
+</header>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; overflow: hidden">
+<button type="button" aria-expanded="{{setOpenStr}}" onClick="{{toggleSet}}" style="width: 100%; min-height: 64px; padding: 10px 18px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #0E1A33; text-align: right">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #F1F3F8; color: #1C3A5E; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">הגדרות לידים</span><span style="font-size: 13px; color: #5A6478">{{setSummary}}</span></span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{setChev}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{setOpen}}" hint-placeholder-val="{{ false }}">
+<div style="border-top: 1px solid #EEF1F6; padding: 0 18px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #F1F3F8">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 15px; font-weight: 700">לידים מבעלי נכסים</span><span style="font-size: 13px; color: #5A6478">9 שכונות בעפולה · 4 סוגי נכס · מכירה והשכרה · 12 שעות בלעדיות לכל ליד</span><a href="Main.dc.html" style="font-size: 13px; font-weight: 700">עריכת שכונות וסוגי נכס</a></span>
+<button type="button" aria-pressed="{{ownerStr}}" aria-label="לידים מבעלי נכסים" onClick="{{toggleOwner}}" style="{{ownerTrack}}"><span style="width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.3)"></span></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #F1F3F8">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 15px; font-weight: 700">לחזור לליד חדש תוך שעה</span><span style="font-size: 13px; color: #5A6478">כל ליד חדש פותח לך משימה ביומן (בשעות העבודה)</span></span>
+<button type="button" aria-pressed="{{taskStr}}" aria-label="לחזור לליד חדש תוך שעה" onClick="{{toggleTask}}" style="{{taskTrack}}"><span style="width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.3)"></span></button>
+</div>
+<a href="Notifications.dc.html" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid #F1F3F8"><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">איך מודיעים לך על ליד חדש</span><span style="font-size: 13px; color: #5A6478">בפעמון ובוואטסאפ, גם בשעות השקט</span></span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></a>
+<a href="Agent-Profile.dc.html" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid #F1F3F8"><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">תחום ואזורי פעילות</span><span style="font-size: 13px; color: #5A6478">קובע אילו פניות מהאתר ושיתופים מגיעים אליך</span></span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></a>
+<a href="Numbers.dc.html" style="text-decoration: none; color: #0E1A33; display: flex; align-items: center; gap: 12px; min-height: 60px"><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">מספרים וירטואליים</span><span style="font-size: 13px; color: #5A6478">2 מספרים · כל שיחה נכנסת לכאן כליד</span></span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></a>
+</div>
+</sc-if>
+</section>
+
+<sc-if value="{{hasUrgent}}" hint-placeholder-val="{{ true }}">
+<section aria-label="דחוף" style="background: #0E1A33; color: #FFFFFF; border-radius: 20px; padding: 16px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+<span style="width: 44px; height: 44px; border-radius: 50%; background: #C2410C; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2 2M9 2h6"></path></svg></span>
+<span style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 700">{{urgentTitle}}</span><span style="font-size: 13px; color: #B8C2D9">ליד שמקבל מענה בשעה הראשונה נסגר הרבה יותר בקלות.</span></span>
+</section>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<div role="tablist" aria-label="שלב" style="display: inline-flex; background: #E9ECF2; border-radius: 12px; padding: 4px; gap: 2px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{sources}}" as="s" hint-placeholder-count="6"><button type="button" aria-pressed="{{s.pressed}}" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button></sc-for>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5A6478"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"></path></svg><span>{{orderNote}}</span><span>· בעלים, נרכשו, שיחות ואז פניות מהאתר</span></div>
+<sc-for list="{{leads}}" as="l" hint-placeholder-count="3">
+<article style="{{l.card}}">
+<div style="display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px">
+<span style="{{l.avatar}}">{{l.initial}}</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<span style="width: 24px; height: 24px; border-radius: 50%; background: #0E1A33; color: #FFFFFF; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{l.rank}}</span>
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">{{l.name}}</h3>
+<span style="{{l.srcStyle}}">{{l.src}}</span>
+<span style="margin-right: auto; font-size: 13px; color: #5A6478">{{l.when}}</span>
+</div>
+<span style="font-size: 14px; color: #3A4458">{{l.wants}}</span>
+<span style="font-size: 12px; font-weight: 600; color: #5A6478">למה עכשיו: {{l.why}}</span>
+<sc-if value="{{l.hasFacts}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{l.facts}}" as="f" hint-placeholder-count="3"><span style="font-size: 12px; font-weight: 600; background: #F6F7FA; border: 1px solid #E3E7EF; border-radius: 999px; padding: 2px 9px">{{f}}</span></sc-for></div>
+</sc-if>
+<div aria-label="{{l.stageLabel}}" style="display: flex; align-items: center; gap: 4px; margin-top: 4px">
+<sc-for list="{{l.steps}}" as="st" hint-placeholder-count="4">
+<span style="display: flex; align-items: center; gap: 4px"><span style="{{st.dot}}"></span><span style="{{st.text}}">{{st.label}}</span><span style="{{st.line}}"></span></span>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 18px 14px">
+<button type="button" onClick="{{l.call}}" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>התקשרות</button>
+<button type="button" onClick="{{l.call}}" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #166534; font-size: 14px; font-weight: 700; cursor: pointer">וואטסאפ</button>
+<sc-if value="{{l.isCall}}" hint-placeholder-val="{{ false }}"><button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; cursor: pointer">האזנה</button></sc-if>
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; cursor: pointer">הוספה כלקוח/ה</button>
+<button type="button" onClick="{{l.archive}}" style="margin-right: auto; min-height: 44px; padding: 0 8px; border: 0; background: none; color: #5A6478; font-size: 14px; font-weight: 600; cursor: pointer">לארכיון</button>
+</div>
+</article>
+</sc-for>
+
+<sc-if value="{{hasMore}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{showMore}}" style="align-self: center; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 15px; font-weight: 700; color: #0E1A33; cursor: pointer">{{moreLabel}}</button></sc-if>
+<sc-if value="{{canLess}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{showLess}}" style="align-self: center; min-height: 44px; padding: 0 16px; border: 0; background: none; font-size: 14px; font-weight: 600; color: #5A6478; cursor: pointer">הצגת 3 בלבד</button></sc-if>
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<div style="text-align: center; padding: 28px 16px; border: 1px dashed #C5CCD9; border-radius: 16px; background: #FFFFFF; color: #5A6478; font-size: 15px">אין כאן לידים כרגע.</div>
+</sc-if>
+
+<a href="LeadStore.dc.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; padding: 14px 18px; color: #0E1A33">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">רוצה עוד לידים?</span><span style="font-size: 13px; color: #5A6478">בחנות הלידים יש 1 ליד זמין ב-₪50. ליד שתרכוש/י יופיע כאן מיד.</span></span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'new', src: 'all', stage: {}, archived: [], setOpen: false, owner: true, task: true, limit: 3 };
+  }
+  renderVals() {
+    const s = this.state;
+    const SRC = {
+      prop: { label: 'דף נכס', style: 'color: #1846C2; background: #EAF0FF' },
+      agent: { label: 'דף הסוכן', style: 'color: #1846C2; background: #EAF0FF' },
+      call: { label: 'שיחה', style: 'color: #7A5300; background: #FFF1C7' },
+      store: { label: 'חנות הלידים', style: 'color: #FFFFFF; background: #1C3A5E' },
+      owner: { label: 'ליד בעלים', style: 'color: #9A3412; background: #FDE7D9' }
+    };
+    const raw = [
+      { id: 'l1', name: 'תומר יצחק', src: 'owner', srcExtra: ' · 12 שעות בלעדיות', when: 'לפני 3 שעות', wants: 'השכרה · עפולה · חנויות / שטח מסחרי', urgent: true },
+      { id: 'l2', name: 'חן חמו', src: 'call', srcExtra: ' · שלט ליד המשטרה', when: '7.10 · 11:21', wants: 'מחפשת דירה לקנייה בעפולה', facts: ['4 חדרים', 'מרפסת', '1.1-1.5 מיליון ₪'], call: true },
+      { id: 'l3', name: 'אופרידרו', src: 'call', srcExtra: ' · שלט ליד המשטרה', when: '7.10 · 00:08', wants: 'מחפשת דירה או בית עם גינה בעפולה', facts: ['גינה', '1-1.5 מיליון ₪'], call: true },
+      { id: 'l4', name: 'עמית', src: 'prop', srcExtra: ' · 2 נכסים', when: '14.10', wants: 'ביקש/ה 2 הדמיות · עפולה' },
+      { id: 'l5', name: 'עדי מלול', src: 'prop', srcExtra: ' · 2 נכסים', when: '30.9', wants: 'ביקש/ה 2 הדמיות · עפולה' },
+      { id: 'l6', name: '[שם]', src: 'store', srcExtra: ' · נרכש ב-₪50', when: '[מתי]', wants: '[מה מחפש/ת]' }
+    ];
+    const stageNames = ['חדש', 'יצרתי קשר', 'פגישה', 'נסגר'];
+    const stageOf = (id) => s.stage[id] || 0;
+    const tabMatch = (l) => s.archived.includes(l.id) ? s.tab === 'archive' : (s.tab === 'new' ? stageOf(l.id) === 0 : s.tab === 'work' ? stageOf(l.id) > 0 : false);
+    const prio = { owner: 0, store: 1, call: 2, prop: 3, agent: 3 };
+    const visAll = raw.map((l, i) => Object.assign({ i }, l)).filter((l) => tabMatch(l) && (s.src === 'all' || l.src === s.src));
+    visAll.sort((a, b) => prio[a.src] - prio[b.src] || a.i - b.i);
+    const vis = visAll.slice(0, s.limit);
+    const more = visAll.length - vis.length;
+    const leads = vis.map((l, idx) => {
+      const st = stageOf(l.id);
+      const urgent = l.urgent && st === 0;
+      return {
+        rank: idx + 1, why: l.src === 'owner' ? 'בלעדיות שעומדת להיגמר' : l.src === 'store' ? 'ליד ששילמת עליו' : l.src === 'call' ? 'התקשר/ה אליך' : 'פנייה מהאתר',
+        name: l.name, initial: l.name.charAt(0), when: l.when, wants: l.wants, facts: l.facts || [], hasFacts: !!l.facts, isCall: !!l.call,
+        src: SRC[l.src].label + l.srcExtra,
+        srcStyle: 'font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 9px; ' + SRC[l.src].style,
+        avatar: 'width: 44px; height: 44px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; ' + (urgent ? 'background: #C2410C; color: #FFFFFF' : 'background: #EEF2F8; color: #1C3A5E'),
+        card: 'background: #FFFFFF; border-radius: 18px; overflow: hidden; ' + (urgent ? 'border: 1.5px solid #E8A07A; box-shadow: inset -4px 0 0 #C2410C' : 'border: 1px solid #E3E7EF'),
+        stageLabel: 'שלב: ' + stageNames[st],
+        steps: stageNames.map((n, i) => ({
+          label: n,
+          dot: 'width: 10px; height: 10px; border-radius: 50%; flex: none; ' + (i <= st ? 'background: #1F5BF0' : 'background: #D5DBE6'),
+          text: 'font-size: 12px; ' + (i === st ? 'font-weight: 700; color: #0E1A33' : 'color: #8A93A6'),
+          line: i < 3 ? 'width: 16px; height: 2px; border-radius: 2px; background: ' + (i < st ? '#1F5BF0' : '#E3E7EF') : 'display: none'
+        })),
+        call: () => { const n = Object.assign({}, s.stage); n[l.id] = Math.max(1, st); this.setState({ stage: n }); },
+        archive: () => this.setState({ archived: s.archived.concat(l.id) })
+      };
+    });
+    const newCount = raw.filter((l) => !s.archived.includes(l.id) && stageOf(l.id) === 0).length;
+    const workCount = raw.filter((l) => !s.archived.includes(l.id) && stageOf(l.id) > 0).length;
+    const seg = (on) => 'min-height: 38px; padding: 0 14px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; white-space: nowrap; ' + (on ? 'background: #FFFFFF; color: #0E1A33; font-weight: 700; box-shadow: 0 1px 3px rgba(14,26,51,0.12)' : 'background: transparent; color: #5A6478; font-weight: 600');
+    const tabs = [['new', 'חדשים · ' + newCount], ['work', 'בטיפול · ' + workCount], ['archive', 'ארכיון · ' + (61 + s.archived.length)]].map(([id, label]) => ({ label, sel: s.tab === id ? 'true' : 'false', style: seg(s.tab === id), pick: () => this.setState({ tab: id }) }));
+    const chip = (on) => 'flex: none; min-height: 38px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; white-space: nowrap; ' + (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600');
+    const sources = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['store', 'חנות הלידים']].map(([id, label]) => ({ label, pressed: s.src === id ? 'true' : 'false', style: chip(s.src === id), pick: () => this.setState({ src: id }) }));
+    const urgentOpen = raw.filter((l) => l.urgent && stageOf(l.id) === 0 && !s.archived.includes(l.id));
+    const track = (on) => 'width: 52px; height: 30px; flex: none; border-radius: 999px; border: 0; padding: 3px; cursor: pointer; display: flex; align-items: center; justify-content: ' + (on ? 'flex-end' : 'flex-start') + '; background: ' + (on ? '#1F5BF0' : '#C5CCD9');
+    return {
+      setOpen: s.setOpen, setOpenStr: s.setOpen ? 'true' : 'false', toggleSet: () => this.setState({ setOpen: !s.setOpen }),
+      setChev: 'flex: none; transform: rotate(' + (s.setOpen ? '180' : '0') + 'deg)',
+      setSummary: (s.owner ? 'לידי בעלים פעילים · 9 שכונות' : 'לידי בעלים כבויים') + ' · פעמון ווואטסאפ · מספרים וירטואליים',
+      ownerStr: s.owner ? 'true' : 'false', toggleOwner: () => this.setState({ owner: !s.owner }), ownerTrack: track(s.owner),
+      taskStr: s.task ? 'true' : 'false', toggleTask: () => this.setState({ task: !s.task }), taskTrack: track(s.task),
+      leads, tabs, sources, empty: leads.length === 0,
+      hasMore: more > 0, moreLabel: 'עוד ' + Math.min(3, more) + ' לידים (נשארו ' + more + ')',
+      showMore: () => this.setState({ limit: s.limit + 3 }),
+      canLess: s.limit > 3 && more === 0 && visAll.length > 3, showLess: () => this.setState({ limit: 3 }),
+      orderNote: 'לפי סדר עדיפות: ' + vis.length + ' מתוך ' + visAll.length,
+      hasUrgent: urgentOpen.length > 0,
+      urgentTitle: urgentOpen.length ? 'ליד בעלים של ' + urgentOpen[0].name + ' מחכה לתגובה כבר 3 שעות' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

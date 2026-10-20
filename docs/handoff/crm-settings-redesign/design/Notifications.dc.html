@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>התראות והודעות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="margin: 0 -20px"]{margin:0 -12px!important}[style*="padding: 24px 28px"]{padding:20px 16px!important}[style*="padding: 20px 24px"]{padding:18px 16px!important}[style*="padding: 16px 28px"],[style*="padding: 18px 28px"],[style*="padding: 14px 28px"]{padding:14px 16px!important}[style*="padding: 20px 28px"]{padding:16px!important}[style*="padding: 0 28px"]{padding:0 16px!important}[style*="padding: 4px 28px 24px"]{padding:4px 16px 20px!important}[style*="margin: 0 28px"]{margin:0 16px!important}[style*="minmax(190px"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,select{font-family:inherit}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 0; box-sizing: border-box">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; flex-direction: column; gap: 6px">
+<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">ההגדרות שלי ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">התראות והודעות</h1>
+<p style="margin: 0; font-size: 16px; color: #5A6478"><strong style="color: #0E1A33">התראות</strong> הן אירועים (ליד חדש, ביקורת, עסקה). <strong style="color: #0E1A33">תזכורות</strong> הן סיכום של מה כדאי לטפל בו. כאן קובעים מה מגיע, לאן ומתי.</p>
+</header>
+
+<section aria-labelledby="qTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 36px; height: 36px; border-radius: 10px; background: #13235B; color: #E0B84A; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"></path></svg></span>
+<h2 id="qTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">שעות שקט</h2>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end">
+<div style="display: flex; align-items: flex-end; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="qFrom" style="font-size: 13px; font-weight: 600; color: #5A6478">משעה</label>
+<select id="qFrom" style="min-height: 48px; min-width: 120px; padding: 0 12px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 17px; font-weight: 600; color: #0E1A33"><option>21:00</option><option>22:00</option><option>23:00</option></select>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="qTo" style="font-size: 13px; font-weight: 600; color: #5A6478">עד</label>
+<select id="qTo" style="min-height: 48px; min-width: 120px; padding: 0 12px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 17px; font-weight: 600; color: #0E1A33"><option>09:00</option><option>08:00</option><option>07:00</option></select>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 600; color: #5A6478">בימים</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{days}}" as="dy" hint-placeholder-count="7">
+<button type="button" aria-pressed="{{dy.pressed}}" aria-label="{{dy.full}}" onClick="{{dy.toggle}}" style="{{dy.style}}">{{dy.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #5A6478; line-height: 1.55">בשעות ובימים האלה (שעון ישראל) הודעות וואטסאפ ומייל ממתינות ויוצאות אחר כך. הפעמון בדשבורד ותזכורות לפגישות מהיומן ממשיכים כרגיל. אותה שעה בשני השדות = בלי שעות שקט.</p>
+</section>
+
+<section aria-labelledby="waTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 36px; height: 36px; border-radius: 10px; background: #E6F4EC; color: #166534; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="waTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">מה נשלח לוואטסאפ</h2>
+<span style="font-size: 13px; color: #5A6478">למספר <span dir="ltr">054-692-9991</span> · <a href="#">שינוי</a></span>
+</div>
+</div>
+<span style="font-size: 14px; color: #5A6478"><strong style="color: #0E1A33">{{waCount}}</strong> מתוך {{total}} סוגים</span>
+</div>
+<div role="radiogroup" aria-label="מה נשלח לוואטסאפ" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px">
+<sc-for list="{{presets}}" as="p" hint-placeholder-count="3">
+<button type="button" role="radio" aria-checked="{{p.checked}}" onClick="{{p.pick}}" style="{{p.style}}">
+<span style="{{p.dot}}"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: right"><span style="font-size: 15px; font-weight: 700">{{p.label}}</span><span style="font-size: 12px; color: #5A6478; line-height: 1.4">{{p.hint}}</span></span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="typesTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<h2 id="typesTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">לפי סוג התראה</h2>
+<div style="display: flex; gap: 16px; font-size: 13px; color: #5A6478">
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F5BF0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>פעמון</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>וואטסאפ</span>
+</div>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+<div style="{{g.wrap}}">
+<button type="button" aria-expanded="{{g.openStr}}" onClick="{{g.toggleOpen}}" style="width: 100%; min-height: 60px; padding: 8px 14px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #0E1A33; text-align: right">
+<span style="{{g.chev}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="font-size: 16px; font-weight: 700">{{g.title}}</span><sc-if value="{{g.admin}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 2px 8px">מנהלי פלטפורמה בלבד</span></sc-if></span>
+<span style="font-size: 13px; color: #5A6478">{{g.summary}}</span>
+</span>
+</button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; padding: 0 14px 8px">
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #EEF1F6">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="font-size: 15px; font-weight: 700">{{r.title}}</span><sc-if value="{{r.urgent}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: #9A3412; background: #FDE7D9; border-radius: 999px; padding: 2px 8px">דחוף</span></sc-if><sc-if value="{{r.hasFreq}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 2px 8px">{{r.freq}}</span></sc-if></span>
+<span style="font-size: 13px; color: #5A6478; line-height: 1.5">{{r.desc}}</span>
+</div>
+<button type="button" aria-pressed="{{r.bellStr}}" aria-label="{{r.bellLabel}}" onClick="{{r.toggleBell}}" style="{{r.bellStyle}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+<button type="button" aria-pressed="{{r.waStr}}" aria-label="{{r.waLabel}}" onClick="{{r.toggleWa}}" style="{{r.waStyle}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<p style="margin: 4px 0 0; font-size: 13px; color: #5A6478; line-height: 1.55">כיבוי בפעמון מכבה רק את ההתראה: הליד, הנכס והעסקה עדיין נרשמים. הודעות וואטסאפ מקובצות (כל מה שהגיע ב-5 הדקות האחרונות בהודעה אחת) ומוגבלות בתקרה יומית.</p>
+</section>
+
+<div style="position: sticky; bottom: 0; margin: 0 -20px; padding: 14px 20px; background: rgba(255,255,255,0.96); border-top: 1px solid #E3E7EF; box-shadow: 0 -6px 20px rgba(14,26,51,0.06)">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="{{saveTextStyle}}">{{saveText}}</span>
+<button type="button" onClick="{{save}}" style="{{saveStyle}}">שמירה</button>
+</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"isAdmin":{"editor":"boolean","default":true,"section":"מצב הדגמה"},"$preview":{"width":1280,"height":2200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const G = this.defs();
+    const bell = {}, wa = {};
+    G.forEach((g) => g.rows.forEach((r) => { bell[r.id] = true; wa[r.id] = true; }));
+    this.state = { bell, wa, open: 'leads', days: { 0: false, 1: false, 2: false, 3: false, 4: false, 5: true, 6: true }, dirty: false, saved: false };
+  }
+  defs() {
+    return [
+      { id: 'leads', title: 'לידים ולקוחות', rows: [
+        { id: 'newLead', t: 'ליד חדש', d: 'פנייה חדשה שהגיעה אליך: בעלי נכס, מתעניינים בנכס או פנייה ישירה.', u: true },
+        { id: 'tour', t: 'בקשת סיור מהמיניסייט', d: 'לקוח בחר מועד לסיור. בוואטסאפ ההודעה יוצאת מיד, גם אחרי התקרה היומית.', u: true },
+        { id: 'miniAct', t: 'פעילות במיניסייט של לקוח', d: 'לקוח פתח את המיניסייט, סימן נכס, שאל שאלה או ביטל סיור.' },
+        { id: 'matches', t: 'סיכום התאמות', d: 'נכסים חדשים שמתאימים ללקוחות שלך, ונכסים שלך שמתאימים ללקוחות של סוכנים אחרים.', f: '3 פעמים ביום' },
+        { id: 'expiring', t: 'כרטיס לקוח שעומד להימחק', d: 'כרטיס בלי עדכון יימחק בעוד שבוע. כל עדכון בכרטיס משאיר אותו.' }
+      ] },
+      { id: 'agenda', title: 'יומן והמנטור', rows: [
+        { id: 'cal', t: 'תזכורות מהיומן', d: 'פגישה מתקרבת, משימה שהגיע זמנה או שבאיחור. נשלחות גם בשעות השקט, כי את השעה קבעת בעצמך.', u: true },
+        { id: 'mentor', t: 'הסיכום היומי של המנטור', d: 'מה מומלץ לעשות היום לפי המספרים שלך. רק כשיש משהו חדש.', f: 'כל בוקר' },
+        { id: 'remind', t: 'סיכום תזכורות', d: 'כל מה שכדאי לטפל בו, בהודעה אחת.', f: 'שבועי' }
+      ] },
+      { id: 'deals', title: 'עסקאות, הסכמים ונכסים', rows: [
+        { id: 'signed', t: 'הסכם שנחתם מרחוק', d: 'לקוח חתם בקישור ששלחת. חתימה במעמד אינה מצלצלת, כי ראית אותה קורית.', u: true },
+        { id: 'teamDeal', t: 'עסקה שנסגרה בצוות', d: 'נכס שסומן כנמכר או כהושכר אצל אחד הסוכנים במשרד, עם שם הסוכן ופרטי הנכס.' },
+        { id: 'autoDesc', t: 'תיאור שיווקי שנכתב אוטומטית', d: 'נכס שנשמר בלי תיאור שיווקי קיבל אחד מהנתונים שהוזנו. כדאי לעבור עליו.' },
+        { id: 'shares', t: 'שיתופי נכסים ועדכוני מערכת', d: 'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' }
+      ] },
+      { id: 'reviews', title: 'ביקורות', rows: [
+        { id: 'newReview', t: 'ביקורת חדשה', d: 'חוות דעת שהתקבלה עליך. מנהלי משרד מקבלים גם ביקורות שממתינות לאישור.' },
+        { id: 'askReview', t: 'תזכורת לבקש חוות דעת', d: 'אחרי סגירת עסקה, או כשליד פתוח זמן רב ועדיין אין עליו חוות דעת.' }
+      ] },
+      { id: 'admin', title: 'ניהול הפלטפורמה', admin: true, rows: [
+        { id: 'oneStar', t: 'הסלמת ביקורת כוכב אחד', d: 'ביקורת של כוכב אחד שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.' },
+        { id: 'orphan', t: 'ליד שאין למי להפנות', d: 'פנייה שאין סוכן שיקבל אותה, למשל ליד משכנתא בלי יועץ רשום.', u: true },
+        { id: 'joined', t: 'הצטרפות חדשה לפלטפורמה', d: 'משרד, מתווך, בעל מקצוע או חברה יזמית שנרשמו, עם השם והמסלול.' },
+        { id: 'missingDeals', t: 'חסרות עסקאות במאגר', d: 'סוכן חיפש עסקאות ולא קיבל תוצאה בגלל הנתונים. "עדכן עסקאות" בדפדפן פותר.' },
+        { id: 'dealsSync', t: 'סיכום עדכון עסקאות', d: 'אחרי כל הרצה: כמה יישובים עודכנו, כמה עסקאות נוספו ומה נכשל.' },
+        { id: 'access', t: 'סקירת הרשאות חצי-שנתית', d: 'לעבור על מנהלי הפלטפורמה, מנהלי המשרדים ומי שלא נכנס 90 יום.' },
+        { id: 'security', t: 'ממצאי אבטחה', d: 'ממצא חמור מהסורק התקופתי. נשלח כשממצא חדש נפתח, לא בכל סריקה.', u: true },
+        { id: 'billing', t: 'תשלומים ושדרוגי מסלול', d: 'מעבר מסלול, תשלום שבוצע או נכשל, ותשלום של בעל מקצוע.' }
+      ] }
+    ];
+  }
+  renderVals() {
+    const s = this.state;
+    const isAdmin = this.props.isAdmin ?? true;
+    const G = this.defs().filter((g) => isAdmin || !g.admin);
+    const all = G.flatMap((g) => g.rows);
+    const urgentIds = all.filter((r) => r.u).map((r) => r.id);
+    const waOn = all.filter((r) => s.wa[r.id]);
+    const isAllWa = waOn.length === all.length;
+    const isUrgent = waOn.length === urgentIds.length && urgentIds.every((id) => s.wa[id]);
+    const preset = isAllWa ? 'all' : isUrgent ? 'urgent' : 'custom';
+    const setWa = (fn) => { const wa = {}; all.forEach((r) => { wa[r.id] = fn(r); }); this.setState({ wa, dirty: true }); };
+    const presetDefs = [
+      { id: 'all', label: 'הכל', hint: 'כל סוגי ההתראות גם בוואטסאפ', apply: () => setWa(() => true) },
+      { id: 'urgent', label: 'רק דחוף', hint: 'לידים, סיורים, חתימות ותזכורות מהיומן. השאר בפעמון.', apply: () => setWa((r) => !!r.u) },
+      { id: 'custom', label: 'בחירה אישית', hint: 'לפי מה שמסומן ברשימה למטה', apply: () => this.setState({ open: G[0].id }) }
+    ];
+    const presets = presetDefs.map((p) => {
+      const on = p.id === preset;
+      return {
+        label: p.label, hint: p.hint, checked: on ? 'true' : 'false', pick: p.apply,
+        style: 'display: flex; align-items: flex-start; gap: 10px; min-height: 64px; padding: 12px 14px; border-radius: 14px; cursor: pointer; width: 100%; color: #0E1A33; ' + (on ? 'border: 2px solid #1F5BF0; background: #EAF0FF' : 'border: 1px solid #D5DBE6; background: #FFFFFF'),
+        dot: 'width: 20px; height: 20px; border-radius: 50%; flex: none; box-sizing: border-box; margin-top: 1px; ' + (on ? 'border: 6px solid #1F5BF0; background: #FFFFFF' : 'border: 2px solid #A7B0C2; background: #FFFFFF')
+      };
+    });
+    const iconBtn = (on, tone) => 'width: 44px; height: 44px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer; ' +
+      (on ? (tone === 'wa' ? 'border: 0; background: #E6F4EC; color: #166534' : 'border: 0; background: #EAF0FF; color: #1F5BF0') : 'border: 1px dashed #C5CCD9; background: #FFFFFF; color: #A7B0C2');
+    const flip = (key, id) => { const n = Object.assign({}, s[key]); n[id] = !n[id]; this.setState({ [key]: n, dirty: true }); };
+    const groups = G.map((g) => {
+      const open = s.open === g.id;
+      const waN = g.rows.filter((r) => s.wa[r.id]).length;
+      const bellN = g.rows.filter((r) => s.bell[r.id]).length;
+      return {
+        title: g.title, admin: !!g.admin, open, openStr: open ? 'true' : 'false',
+        summary: g.rows.length + ' סוגים · ' + bellN + ' בפעמון · ' + waN + ' בוואטסאפ',
+        toggleOpen: () => this.setState({ open: open ? null : g.id }),
+        chev: 'display: flex; color: #5A6478; transform: rotate(' + (open ? '180' : '0') + 'deg)',
+        wrap: 'border-radius: 14px; ' + (open ? 'border: 1px solid #C9D6F7; background: #FAFBFE' : 'border: 1px solid #E3E7EF; background: #FFFFFF'),
+        rows: g.rows.map((r) => ({
+          title: r.t, desc: r.d, urgent: !!r.u, hasFreq: !!r.f, freq: r.f || '',
+          bellStr: s.bell[r.id] ? 'true' : 'false', waStr: s.wa[r.id] ? 'true' : 'false',
+          bellLabel: 'פעמון: ' + r.t, waLabel: 'וואטסאפ: ' + r.t,
+          bellStyle: iconBtn(s.bell[r.id], 'bell'), waStyle: iconBtn(s.wa[r.id], 'wa'),
+          toggleBell: () => flip('bell', r.id), toggleWa: () => flip('wa', r.id)
+        }))
+      };
+    });
+    const dayNames = [['א', 'ראשון'], ['ב', 'שני'], ['ג', 'שלישי'], ['ד', 'רביעי'], ['ה', 'חמישי'], ['ו', 'שישי'], ['ש', 'שבת']];
+    const days = dayNames.map(([label, full], i) => {
+      const on = !!s.days[i];
+      return {
+        label, full: 'יום ' + full, pressed: on ? 'true' : 'false',
+        style: 'width: 44px; height: 44px; border-radius: 12px; font-size: 15px; cursor: pointer; ' + (on ? 'border: 0; background: #1C3A5E; color: #FFFFFF; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600'),
+        toggle: () => { const d = Object.assign({}, s.days); d[i] = !d[i]; this.setState({ days: d, dirty: true }); }
+      };
+    });
+    return {
+      days, presets, groups, total: all.length, waCount: waOn.length,
+      saveText: s.dirty ? 'יש שינויים שלא נשמרו' : (s.saved ? 'נשמר' : 'כל ההגדרות שמורות'),
+      saveTextStyle: s.dirty ? 'font-size: 14px; font-weight: 700; color: #9A3412' : 'font-size: 14px; color: #5A6478',
+      saveStyle: 'min-height: 48px; padding: 0 28px; border-radius: 12px; border: 0; font-size: 16px; font-weight: 700; ' + (s.dirty ? 'background: #1F5BF0; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default'),
+      save: () => { if (s.dirty) this.setState({ dirty: false, saved: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

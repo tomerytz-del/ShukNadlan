@@ -33453,8 +33453,11 @@ function crmFormHasContent(form){
 }
 
 function crmUnsavedInput(){
-  return Array.from(document.querySelectorAll('#dashboard form'))
-    .some(form => form.dataset.touched === '1' && crmFormHasContent(form));
+  // ‏uiAnyDirty: פס שמירה של ערכת הרכיבים (assets/crm-ui.js) - צ'יפים ומתגים
+  // אינם שדות של form, ולכן הם נספרים שם ולא כאן
+  return (typeof uiAnyDirty === 'function' && uiAnyDirty())
+    || Array.from(document.querySelectorAll('#dashboard form'))
+      .some(form => form.dataset.touched === '1' && crmFormHasContent(form));
 }
 
 // אחרי cleanAuthParamsFromUrl: היא כותבת מחדש את הרשומה הנוכחית בהיסטוריה,

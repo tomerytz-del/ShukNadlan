@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>עסקאות שנסגרו באזור</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="padding: 24px 28px"]{padding:18px 16px!important}[style*="padding: 16px 28px"]{padding:14px 16px!important}[style*="margin: 0 -20px"]{margin:0 -12px!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 0; box-sizing: border-box">
+<div style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; flex-direction: column; gap: 6px">
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">הזדמנויות ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">עסקאות שנסגרו באזור</h1>
+<p style="margin: 0; font-size: 15px; color: #5A6478">מה נמכר בפועל ליד כתובת, ממאגר עסקאות המקרקעין של רשות המסים. החיפוש לפי מרחק מהכתובת, לא לפי שם הרחוב.</p>
+</header>
+
+<section aria-label="חיפוש" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; grid-column: span 2; min-width: 0">
+<label for="dStreet" style="font-size: 13px; font-weight: 700">רחוב ומספר <span style="font-weight: 500; color: #5A6478">(ריק = כל העיר)</span></label>
+<div style="position: relative">
+<input id="dStreet" type="text" placeholder="למשל: הנרקיסים 12" style="width: 100%; box-sizing: border-box; min-height: 50px; padding: 0 44px 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<span style="position: absolute; right: 14px; top: 15px; color: #5A6478"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="dCity" style="font-size: 13px; font-weight: 700">עיר</label>
+<input id="dCity" type="text" value="עפולה" style="min-height: 50px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="dType" style="font-size: 13px; font-weight: 700">סוג נכס</label>
+<select id="dType" style="min-height: 50px; padding: 0 12px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 16px; color: #0E1A33"><option>כל סוגי הנכס</option><option>דירה</option><option>בית פרטי</option><option>דירת גן</option><option>מגרש</option></select>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px 28px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 13px; font-weight: 700; padding: 0; margin-bottom: 8px">{{g.label}}</legend>
+<div style="display: inline-flex; background: #F1F3F8; border-radius: 12px; padding: 4px; gap: 2px">
+<sc-for list="{{g.opts}}" as="o" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+</sc-for>
+</div>
+</fieldset>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #EEF1F6; padding-top: 16px">
+<span style="font-size: 14px; color: #5A6478">{{phrase}}</span>
+<button type="button" onClick="{{search}}" style="min-height: 52px; padding: 0 28px; border-radius: 14px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 17px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>חיפוש עסקאות</button>
+</div>
+</section>
+
+<sc-if value="{{notSearched}}" hint-placeholder-val="{{ true }}">
+<div style="background: #FFFFFF; border: 1px dashed #C5CCD9; border-radius: 20px; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="width: 56px; height: 56px; border-radius: 16px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"></path></svg></span>
+<span style="font-size: 17px; font-weight: 700">כמה באמת שווה הנכס?</span>
+<span style="font-size: 14px; color: #5A6478; max-width: 460px; line-height: 1.5">הקלידו כתובת, ונראה את העסקאות האחרונות סביבה. מסמנים את המתאימות ויוצרים מהן דוח CMA לבעלים בלחיצה.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{searched}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="resTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; overflow: hidden">
+<div style="padding: 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="resTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">{{resTitle}}</h2>
+<span style="font-size: 13px; color: #5A6478">מקור: רשות המסים · מעודכן ל-[תאריך עדכון]</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
+<div style="background: #0E1A33; color: #FFFFFF; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #B8C2D9">מחיר חציוני</span><span style="font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">₪[חציון]</span></div>
+<div style="background: #F6F7FA; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #5A6478">ממוצע למ"ר</span><span style="font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">₪[למ"ר]</span></div>
+<div style="background: #F6F7FA; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #5A6478">טווח מחירים</span><span style="font-family: 'Frank Ruhl Libre', serif; font-size: 20px; font-weight: 700">₪[מ-] - ₪[עד]</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{deals}}" as="d" hint-placeholder-count="5">
+<article style="{{d.style}}">
+<button type="button" aria-pressed="{{d.pressed}}" aria-label="{{d.selLabel}}" onClick="{{d.toggle}}" style="{{d.box}}"><sc-if value="{{d.on}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></button>
+<div style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="font-size: 16px; font-weight: 700">[רחוב ומספר]</span><span style="font-size: 12px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 2px 8px">[מרחק] מ׳ ממך</span></div>
+<span style="font-size: 13px; color: #5A6478">[סוג] · [חדרים] חד׳ · [שטח] מ"ר · קומה [קומה] · נמכר ב-[חודש ושנה]</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none">
+<span style="font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">₪[מחיר]</span>
+<span style="font-size: 12px; color: #5A6478">₪[למ"ר] למ"ר</span>
+</div>
+</article>
+</sc-for>
+</div>
+<button type="button" style="align-self: center; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #0E1A33; cursor: pointer">עוד 5 עסקאות</button>
+</div>
+
+<div style="position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: #F8F9FC; border-top: 1px solid #EEF1F6">
+<span style="font-size: 14px; color: #5A6478">{{selText}}</span>
+<button type="button" style="{{cmaStyle}}">{{cmaLabel}}</button>
+</div>
+</section>
+</sc-if>
+
+<div style="height: 48px"></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { radius: 300, months: 24, count: 5, searched: true, sel: [0, 1, 2] };
+  }
+  renderVals() {
+    const s = this.state;
+    const seg = (on) => 'min-height: 40px; padding: 0 14px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; white-space: nowrap; ' + (on ? 'background: #FFFFFF; color: #0E1A33; font-weight: 700; box-shadow: 0 1px 3px rgba(14,26,51,0.12)' : 'background: transparent; color: #5A6478; font-weight: 600');
+    const mk = (key, label, vals, fmt) => ({ label, opts: vals.map((v) => ({ label: fmt(v), pressed: s[key] === v ? 'true' : 'false', style: seg(s[key] === v), pick: () => this.setState({ [key]: v }) })) });
+    const groups = [
+      mk('radius', 'מרחק מהכתובת', [100, 300, 500, 1000], (v) => v >= 1000 ? 'ק"מ' : v + ' מ׳'),
+      mk('months', 'תקופה', [6, 12, 24, 36], (v) => v + ' חודשים'),
+      mk('count', 'כמה עסקאות', [5, 10, 20], (v) => String(v))
+    ];
+    const r = s.radius >= 1000 ? 'קילומטר' : s.radius + ' מטר';
+    const deals = [0, 1, 2, 3, 4].map((i) => {
+      const on = s.sel.includes(i);
+      return {
+        on, pressed: on ? 'true' : 'false', selLabel: 'בחירת עסקה ' + (i + 1) + ' לדוח',
+        toggle: () => this.setState({ sel: on ? s.sel.filter((x) => x !== i) : s.sel.concat(i) }),
+        style: 'display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; ' + (on ? 'border: 1.5px solid #1F5BF0; background: #FAFBFE' : 'border: 1px solid #E3E7EF; background: #FFFFFF'),
+        box: 'width: 28px; height: 28px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; color: #FFFFFF; cursor: pointer; padding: 0; box-sizing: border-box; ' + (on ? 'border: 0; background: #1F5BF0' : 'border: 2px solid #A7B0C2; background: #FFFFFF')
+      };
+    });
+    const n = s.sel.length;
+    return {
+      groups, deals,
+      phrase: s.count + ' העסקאות האחרונות, עד ' + r + ' מהכתובת, ב-' + s.months + ' החודשים האחרונים',
+      search: () => this.setState({ searched: true }),
+      searched: s.searched, notSearched: !s.searched,
+      resTitle: 'עסקאות בעפולה, עד ' + r,
+      selText: n ? 'נבחרו ' + n + ' עסקאות להשוואה' : 'סמנו עסקאות דומות כדי ליצור דוח לבעלים',
+      cmaLabel: n ? 'יצירת דוח CMA לבעלים (' + n + ')' : 'יצירת דוח CMA',
+      cmaStyle: 'min-height: 48px; padding: 0 22px; border-radius: 12px; border: 0; font-size: 15px; font-weight: 700; ' + (n ? 'background: #1F5BF0; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default')
+    };
+  }
+}
+</script>
+</body>
+</html>

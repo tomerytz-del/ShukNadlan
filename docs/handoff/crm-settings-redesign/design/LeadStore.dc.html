@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>חנות הלידים</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,select{font-family:inherit}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="padding: 20px 24px"]{padding:16px!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px">
+
+<header style="display: flex; flex-direction: column; gap: 6px">
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">הזדמנויות ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">חנות הלידים</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5A6478"><span style="display: block">לידים טריים מקבוצות ומלוחות, ממוינים אוטומטית.</span><span style="display: block">כל ליד נמכר לסוכן/ת אחד/ת בלבד.</span></p>
+</header>
+
+<section aria-label="ארנק ומחיר" style="background: #0E1A33; color: #FFFFFF; border-radius: 20px; padding: 20px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #B8C2D9">מחיר לליד</span><span style="font-family: 'Frank Ruhl Libre', serif; font-size: 36px; font-weight: 700; line-height: 1">₪50</span></div>
+<div style="width: 1px; align-self: stretch; background: rgba(255,255,255,0.15)"></div>
+<div style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 15px">בארנק <strong>{{balance}}</strong> · {{canBuy}}</span>
+<span style="font-size: 13px; color: #B8C2D9">המנוע סורק את המקורות כל 30 דקות</span>
+</div>
+<a href="Wallet.dc.html" style="min-height: 44px; padding: 0 16px; border-radius: 12px; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center">טעינת הארנק</a>
+</section>
+
+<section aria-labelledby="storeTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<h2 id="storeTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">לידים זמינים</h2>
+<div role="tablist" aria-label="סוג ליד" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="{{t.style}}"><span>{{t.label}}</span><span style="{{t.countStyle}}">{{t.count}}</span></button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="lsCity" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">עיר</label>
+<select id="lsCity" style="min-height: 40px; padding: 0 10px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; color: #0E1A33"><option>באזורי הפעילות שלי</option><option>כל הערים</option></select>
+<label for="lsKind" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">סוג פנייה</label>
+<select id="lsKind" style="min-height: 40px; padding: 0 10px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; color: #0E1A33"><option>כל סוגי הפנייה</option><option>מכירה</option><option>השכרה</option></select>
+<button type="button" aria-label="רענון" title="רענון" style="width: 40px; height: 40px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+</div>
+
+<sc-if value="{{showLead}}" hint-placeholder-val="{{ true }}">
+<article style="border: 1px solid #E3E7EF; border-radius: 16px; overflow: hidden">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="font-size: 12px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 3px 10px">מחפש/ת דירה</span>
+<span style="font-size: 12px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 3px 10px">בלעדי - נמכר פעם אחת</span>
+<span style="margin-right: auto; font-size: 13px; color: #5A6478">לפני [X] שעות · מ[מקור]</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="font-size: 14px; background: #F6F7FA; border-radius: 10px; padding: 8px 12px"><span style="color: #5A6478">עיר:</span> <strong>[עיר]</strong></span>
+<span style="font-size: 14px; background: #F6F7FA; border-radius: 10px; padding: 8px 12px"><span style="color: #5A6478">עסקה:</span> <strong>[קנייה / שכירות]</strong></span>
+<span style="font-size: 14px; background: #F6F7FA; border-radius: 10px; padding: 8px 12px"><span style="color: #5A6478">חדרים:</span> <strong>[X]</strong></span>
+<span style="font-size: 14px; background: #F6F7FA; border-radius: 10px; padding: 8px 12px"><span style="color: #5A6478">תקציב:</span> <strong>[טווח]</strong></span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; border: 1.5px dashed #C5CCD9; border-radius: 12px; padding: 12px 14px; color: #5A6478">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+<span style="font-size: 14px">שם, טלפון והפוסט המקורי נחשפים מיד אחרי הרכישה</span>
+</div>
+</div>
+<sc-if value="{{notConfirming}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; justify-content: flex-end; padding: 12px 16px; background: #F8F9FC; border-top: 1px solid #EEF1F6">
+<button type="button" onClick="{{startBuy}}" style="min-height: 48px; padding: 0 24px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 16px; font-weight: 700; cursor: pointer">רכישה ב-₪50</button>
+</div>
+</sc-if>
+<sc-if value="{{confirming}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; background: #EAF0FF; border-top: 1px solid #C9D6F7">
+<span style="font-size: 15px"><strong>לרכוש את הליד ב-₪50?</strong> אחרי הרכישה יישארו בארנק ₪11.</span>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{cancelBuy}}" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 15px; font-weight: 600; color: #0E1A33; cursor: pointer">ביטול</button>
+<button type="button" onClick="{{confirmBuy}}" style="min-height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer">כן, לרכוש</button>
+</div>
+</div>
+</sc-if>
+</article>
+</sc-if>
+
+<sc-if value="{{showEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 28px 16px; border: 1px dashed #C5CCD9; border-radius: 16px; background: #F8F9FC">
+<span style="font-size: 16px; font-weight: 700">{{emptyTitle}}</span>
+<span style="font-size: 14px; color: #5A6478">המנוע בודק שוב בעוד כמה דקות. ליד חדש יופיע כאן מיד.</span>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="boughtTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between"><h2 id="boughtTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">הלידים שרכשתי</h2><span style="font-size: 13px; color: #5A6478">{{boughtCount}}</span></div>
+<sc-if value="{{noBought}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 14px; color: #5A6478">ליד שתרכוש/י עובר מיד ל<a href="Leads.dc.html" style="font-weight: 700">הלידים שלי</a> עם כל פרטי הקשר.</span>
+</sc-if>
+<sc-if value="{{hasBought}}" hint-placeholder-val="{{ false }}">
+<article style="border: 1.5px solid #8FE0B0; background: #F4FBF7; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="font-size: 17px; font-weight: 700">[שם הפונה]</span><span dir="ltr" style="font-size: 14px; color: #3A4458">[טלפון]</span><span style="font-size: 12px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 2px 8px">נרכש עכשיו</span></div>
+<p style="margin: 0; font-size: 14px; color: #3A4458; line-height: 1.6; background: #FFFFFF; border-radius: 10px; padding: 10px 12px">"[הטקסט של הפוסט המקורי]"</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<a href="#" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center">התקשרות</a>
+<a href="#" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #166534; font-size: 14px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center">וואטסאפ</a>
+<a href="#" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center">לפוסט המקורי</a>
+</div>
+</article>
+</sc-if>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'seekers', confirming: false, bought: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const defs = [['sellers', 'מוכרים וקונים', 0], ['seekers', 'מחפשי דירה', s.bought ? 0 : 1], ['mortgage', 'משכנתאות', 0]];
+    const tabs = defs.map(([id, label, n]) => {
+      const on = s.tab === id;
+      return { label, count: n, sel: on ? 'true' : 'false', pick: () => this.setState({ tab: id, confirming: false }),
+        style: 'display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 44px; padding: 0 16px; border-radius: 12px; font-size: 15px; cursor: pointer; white-space: nowrap; ' + (on ? 'border: 0; background: #0E1A33; color: #FFFFFF; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600'),
+        countStyle: 'min-width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; ' + (n > 0 ? 'background: #C2410C; color: #FFFFFF' : (on ? 'background: rgba(255,255,255,0.18); color: #FFFFFF' : 'background: #F1F3F8; color: #5A6478')) };
+    });
+    const showLead = s.tab === 'seekers' && !s.bought;
+    const balance = s.bought ? 11 : 61;
+    const names = { sellers: 'מוכרים וקונים', seekers: 'מחפשי דירה', mortgage: 'משכנתאות' };
+    return {
+      tabs, showLead, showEmpty: !showLead,
+      emptyTitle: 'אין כרגע לידים חדשים ב"' + names[s.tab] + '"',
+      balance: '₪' + balance, canBuy: balance >= 50 ? 'מספיק לליד ' + (Math.floor(balance / 50) === 1 ? 'אחד' : Math.floor(balance / 50)) : 'לא מספיק לליד נוסף',
+      confirming: s.confirming, notConfirming: !s.confirming,
+      startBuy: () => this.setState({ confirming: true }),
+      cancelBuy: () => this.setState({ confirming: false }),
+      confirmBuy: () => this.setState({ confirming: false, bought: true }),
+      hasBought: s.bought, noBought: !s.bought, boughtCount: s.bought ? 'ליד אחד' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>
