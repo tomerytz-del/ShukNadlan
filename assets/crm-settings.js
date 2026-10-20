@@ -352,19 +352,21 @@ function openLeadPrefs(){
 function syncLeadPrefsLink(){
   const sub = document.getElementById('leadPrefsLinkSub');
   if (!sub) return;
+  // "הגדרות לידים" שבתחתית "הלידים שלי" (assets/crm-leads.js)
+  if (typeof syncLeadsSettings === 'function') syncLeadsSettings();
   const row = leadPrefsRow;
   if (!row){
-    sub.textContent = 'עוד לא הוגדרו - לידים מבעלי נכסים לא מגיעים אליך';
+    sub.textContent = 'עוד לא הוגדרו, ולכן לידים מבעלי נכסים לא מגיעים אליך';
     sub.classList.add('is-warn');
     return;
   }
   sub.classList.toggle('is-warn', !row.active);
   sub.textContent = row.active
-    ? 'לידים מבעלי נכסים: פעיל · ' + leadPrefsSummary({
+    ? 'פעיל · ' + leadPrefsSummary({
         hoods: row.preferred_neighborhoods || [], types: row.preferred_property_types || [], deals: row.preferred_deal_types || [] })
-    : 'לידים מבעלי נכסים: מושהה';
+    : 'מושהה. ההגדרות נשמרות.';
 }
-document.getElementById('leadPrefsLink').addEventListener('click', openLeadPrefs);
+
 
 /* ==========================================================================
    שעות השקט והימים השקטים - עורך אחד, שני מופעים ('set' ו-'np')

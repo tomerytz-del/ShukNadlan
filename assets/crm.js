@@ -346,6 +346,13 @@ function leadKind(lead){
   if (lead.lead_type === 'owner_inbound'){
     return { cls:'kind-owner', icon:'🔑', label: rent ? 'ליד משכיר · בעל/ת נכס' : 'ליד מוכר · בעל/ת נכס' };
   }
+  // שיחה למספר וירטואלי וליד שנרכש בחנות (20270712090000, docs/leads-unified.md)
+  if (lead.lead_type === 'call'){
+    return { cls:'kind-buyer', icon:'📞', label:'שיחה למספר וירטואלי' + (lead.source_detail ? ' · ' + lead.source_detail : '') };
+  }
+  if (lead.lead_type === 'store'){
+    return { cls:'kind-buyer', icon:'🛒', label:'נרכש בחנות' + (lead.source_detail ? ' · ' + lead.source_detail : '') };
+  }
   if (lead.lead_type === 'agent_direct_inquiry'){
     return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
   }
@@ -2437,7 +2444,7 @@ function openPropertyFromParamKeepFilters(id){
 function openLeadFromParam(id){
   if (!UUID_PARAM_RE.test(id || '')) return;
   if (!allLeads.some(l => l.id === id)) return;
-  leadsView = archivedLeadIds.has(id) ? 'archived' : 'active';
+  openLeadUnified(id);
   expandedLeadIds.add(id);
   // ליד בתוך קבוצה של אותו/ה פונה נמצא מתחת לשורת הקבוצה - פותחים גם אותה
   const visitor = leadVisitorOf.get(id);
@@ -18497,12 +18504,7 @@ let leadsView = 'active';
 /* המתג יושב ב-HTML ולא נבנה מחדש בכל רינדור, ולכן המאזין נרשם פעם אחת.
    ‏currentAgent הוא מקור ה-agentId גם כאן: ‎renderLeads‎ מעביר אותו הלאה
    לכפתורי הארכוב שבכרטיסים. */
-document.getElementById('leadsSwitch').addEventListener('click', (e)=>{
-  const btn = e.target.closest('[data-leads-view]');
-  if (!btn || btn.dataset.leadsView === leadsView) return;
-  leadsView = btn.dataset.leadsView;
-  renderLeads(currentAgent?.id);
-});
+/* המעבר בין פעילים לארכיון הוא עכשיו לשוניות (assets/crm-leads.js) */
 
 /* טבלה שטרם נוצרה מחזירה שני קודים שונים, ושניהם צריכים להיתפס: ‏42P01 הוא
    השגיאה של Postgres עצמו, אבל ‏PostgREST כמעט תמיד עוצר קודם — הוא בונה את
@@ -18703,60 +18705,18 @@ async function loadLeads(agentId){
   leadWork = work;
   leadVisitorOf = visitors;
   allLeads = leads || [];
+  // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
+  await loadLeadCalls(allLeads);
   renderLeads(agentId);
 }
 
 /* הפרדה בין הטעינה לתצוגה: מעבר בין הלשוניות וארכוב של כרטיס בודד מציירים
    מחדש מהנתונים שכבר ביד, בלי לחזור לשרת. */
+/* "הלידים שלי" - רשימה אחת לפי סדר עדיפות, בלשוניות לפי שלב
+   (assets/crm-leads.js, docs/leads-unified.md). הפונקציה נשארת כאן כי כל
+   המקומות שמשנים ליד (ארכוב, שלב, פתיחה) קוראים לה. */
 function renderLeads(agentId){
-  const listEl = document.getElementById('leadsList');
-  const active   = allLeads.filter(l => !archivedLeadIds.has(l.id));
-  const archived = allLeads.filter(l =>  archivedLeadIds.has(l.id));
-
-  // המונה בכותרת מציג לידים שעדיין לא נפתחו — זה מה שדורש טיפול. ליד שארוכב
-  // הוצא מהמסך בכוונה, ולכן הוא לא נספר גם אם לא נפתח.
-  accSetCount('accLeads', active.filter(l => l.status !== 'unlocked').length);
-  // המונה אומר "כמה ממתינים"; הסיכום אומר מה יש שם בכלל
-  accSetSummary('accLeads', active.length
-    ? plural(active.length, 'ליד אחד', 'לידים') + ' · ' + plural(active.filter(l => l.status === 'unlocked').length, 'אחד מהם נפתח', 'נפתחו')
-    : '');
-
-  const sw = document.getElementById('leadsSwitch');
-  document.getElementById('leadsActiveCount').textContent = active.length;
-  document.getElementById('leadsArchivedCount').textContent = archived.length;
-  // המתג מופיע רק כשיש בין מה למה לעבור. עד אז הוא שאלה על משהו שלא קיים.
-  sw.hidden = archived.length === 0;
-  if (sw.hidden) leadsView = 'active';
-  sw.querySelectorAll('[data-leads-view]').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.leadsView === leadsView ? 'true' : 'false'));
-
-  /* פאנל "הלידים החמים" ירד — הוא היה תמצית של הרשימה הזו במקום נפרד. מה
-     שהוא נתן, הסדר נותן: ליד שעדיין לא נפתח עולה לראש הרשימה הפעילה, ובתוך
-     כל קבוצה החדש קודם. הארכיון נשאר כרונולוגי — שם אין "דורש טיפול". */
-  const showing = leadsView === 'archived' ? archived
-    : active.slice().sort((a,b)=>{
-        const openA = a.status === 'unlocked' ? 1 : 0;
-        const openB = b.status === 'unlocked' ? 1 : 0;
-        if (openA !== openB) return openA - openB;
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      });
-  if (showing.length === 0){
-    listEl.innerHTML = '<div class="empty-state">' + (
-      leadsView === 'archived'
-        ? 'אין לידים בארכיון.'
-        : (allLeads.length === 0
-            ? 'אין עדיין לידים משויכים אליך.<br>ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.'
-            : 'כל הלידים שלך בארכיון. עברו ללשונית הארכיון כדי להחזיר מהם.')
-    ) + '</div>';
-    return;
-  }
-
-  // הרשימה היא טאבים, באותה שפה של "הנכסים שלי" ו"קובץ הלקוחות".
-  // ראו ההערה מעל buildLeadTab().
-  listEl.innerHTML = '<div class="prop-tabs lead-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
-  groupLeadsByVisitor(showing).forEach(item => tabsWrap.appendChild(
-    item.length > 1 ? buildLeadGroupTab(item, agentId) : buildLeadTab(item[0], agentId)));
+  renderLeadsUnified(agentId);
 }
 
 /* הקבוצה יושבת במקום של הליד הדחוף שבה (הרשימה כבר ממוינת), והלידים בתוכה
@@ -21064,9 +21024,13 @@ function renderClients(){
   const category = document.getElementById('clientCategoryFilter').value;
   const type = document.getElementById('clientTypeFilter').value;
   const city = document.getElementById('clientCityFilter').value;
-  const sort = document.getElementById('clientSort').value || 'created_desc';
+  const sort = document.getElementById('clientSort').value || 'matches_desc';
+  // הראש של הקובץ: הלידים, האריחים והלשוניות (assets/crm-leads.js)
+  renderClientsTop();
 
   const unsorted = clientRows.filter(c => {
+    if (clientsKind === 'seekers' && isOwnerClient(c)) return false;
+    if (clientsKind === 'owners' && !isOwnerClient(c)) return false;
     if (status && c.status !== status) return false;
     // ‏"owner" בסינון הוא בעלי הנכסים; קנייה ושכירות הם מחפשים בלבד
     if (deal === 'owner' ? !isOwnerClient(c) : (deal && (isOwnerClient(c) || c.deal_type !== deal))) return false;

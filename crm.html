@@ -6379,6 +6379,49 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-spec .ui-chip-n{background:var(--nv-accent);color:#fff}
   #brandPreview.is-missing-about .bp-tagline{outline:2px dashed var(--nv-gold);outline-offset:3px}
 
+  /* "הלידים שלי" (assets/crm-leads.js, docs/leads-unified.md) */
+  .leads-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .lp-list{display:flex;flex-direction:column;gap:12px}
+  .lp-card{background:#fff;border:1px solid var(--nv-line);border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+  .lp-card.is-urgent{border:1.5px solid #E8A07A;box-shadow:inset -4px 0 0 var(--nv-urgent)}
+  .lp-head{display:flex;align-items:center;gap:12px}
+  .lp-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--nv-ink);color:#fff;font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+  .lp-avatar{width:44px;height:44px;flex:none;border-radius:50%;background:#EEF2F8;color:var(--nv-navy);font-size:16px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+  .lp-card.is-urgent .lp-avatar{background:var(--nv-urgent);color:#fff}
+  .lp-who{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+  .lp-name{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+  .lp-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px}
+  .lp-wants{margin:0;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+  .lp-why{margin:0;font-size:14px;color:var(--nv-muted)}
+  .lp-why strong{color:var(--nv-ink)}
+  .lp-facts{display:flex;flex-wrap:wrap;gap:6px}
+  .lp-steps{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+  .lp-step{min-height:44px;padding:0 12px;border-radius:999px;border:1px solid var(--nv-chip-line);background:#fff;font:inherit;font-size:13px;
+    color:var(--nv-muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .lp-step::before{content:"";width:10px;height:10px;border-radius:50%;background:#D5DBE6}
+  .lp-step.is-on::before{background:var(--nv-accent)}
+  .lp-step.is-current{border-color:var(--nv-accent);color:var(--nv-ink);font-weight:700;background:var(--nv-accent-soft)}
+  .lp-step:disabled{cursor:default}
+  .lp-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .lp-acts .lp-archive{color:var(--nv-urgent-ink);margin-inline-start:auto}
+  .lp-audio{max-width:100%;height:44px}
+  .lp-details{border-top:1px solid var(--nv-line-soft);padding-top:10px}
+  .clients-top{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+  .clients-leads-link{border:1px solid var(--nv-line);border-radius:14px;background:#fff;padding:8px 14px;min-height:56px}
+  .clients-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .clients-tile{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-radius:16px;border:1px solid var(--nv-line);background:#fff;
+    color:var(--nv-ink);font:inherit;text-align:start;min-height:44px}
+  button.clients-tile{cursor:pointer}
+  .clients-tile b{font-family:'Frank Ruhl Libre',serif;font-size:28px;line-height:1.1}
+  .clients-tile span{font-size:13px;color:var(--nv-muted)}
+  .clients-tile.is-dark{background:var(--nv-ink);border-color:var(--nv-ink);color:#fff}
+  .clients-tile.is-dark span{color:#C9D3E6}
+  .leads-settings{margin-top:16px}
+  .leads-set-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .leads-set-links{display:flex;flex-wrap:wrap;gap:4px 16px}
+
   /* תחום ואזורי פעילות (assets/crm-areas.js) */
   .area-picker{display:flex;flex-direction:column;gap:16px;margin:4px 0 8px}
   .area-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
@@ -8201,17 +8244,49 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
              מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
              מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
-        <!-- קיצור דרך להעדפות הלידים (החלטה של תומר, 20.10.2026). ההגדרות
-             עצמן ב"ההגדרות שלי" (accPrefs); השורה רק מראה מצב ופותחת אותן -->
-        <button type="button" class="ui-row-link lead-prefs-link ui-scope" id="leadPrefsLink">
-          <span><span class="ui-row-title">הגדרות לידים</span><span class="ui-row-sub" id="leadPrefsLinkSub"></span></span>
-          <span class="ui-link" aria-hidden="true">עריכה ←</span>
-        </button>
-        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
-          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
-          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
+        <!-- ====== "הלידים שלי" - רשימה אחת לפי סדר עדיפות ======
+             (assets/crm-leads.js, docs/leads-unified.md; העיצוב: סעיף 3.10).
+             פניות מהאתר, לידי בעלים, שיחות ולידים שנרכשו - כולם שורות ב-leads
+             מאז 20270712090000. הלשוניות לפי שלב (lead_work), והמקור כצ'יפ.
+             הכרטיס המלא הקיים (buildLeadCard) נפתח מתחת לכל ליד ב"פרטים". -->
+        <div class="ui-scope leads-top">
+          <p class="ui-hint"><span>כל הלידים במקום אחד: פניות מהאתר, לידי בעלים, שיחות ולידים שנרכשו.</span><span>מסודרים לפי מי שכדאי לחזור אליו קודם.</span></p>
+          <div class="ui-banner ui-banner--urgent" id="leadsUrgent" hidden><span class="ui-banner-text" id="leadsUrgentText"></span><button type="button" class="ui-link" id="leadsUrgentGo">לליד</button></div>
+          <div class="ui-tabs" role="tablist" id="leadsTabs" aria-label="שלב הטיפול">
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
+          </div>
+          <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
+          <div class="ui-count" id="leadsCountLine"></div>
         </div>
-        <div id="leadsList"></div>
+        <div id="leadsList" class="lp-list"></div>
+        <div class="ui-more-row ui-scope" id="leadsMore"></div>
+
+        <!-- "הגדרות לידים" - קיצור, לא עותק: ההעדפות עצמן ב"ההגדרות שלי"
+             (החלטה של תומר, 20.10.2026), והמתג של לידי הבעלים הוא אותו מתג -->
+        <section class="ui-fold ui-scope leads-settings" id="leadsSettings" aria-labelledby="leadsSetTitle">
+          <div class="ui-fold-head">
+            <div class="ui-fold-title"><div><h3 class="ui-h3" id="leadsSetTitle">הגדרות לידים</h3><div class="ui-fold-summary" id="leadsSetSummary"></div></div></div>
+            <div class="ui-fold-tools"><button type="button" class="ui-icon-btn" data-ui-fold aria-expanded="false" aria-controls="leadsSetBody" aria-label="פתיחה וסגירה של הגדרות הלידים"><svg class="ui-chev" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button></div>
+          </div>
+          <div class="ui-fold-body" id="leadsSetBody" hidden>
+            <div class="leads-set-row">
+              <div><div class="ui-row-title" id="leadsOwnerLabel">לידים מבעלי נכסים</div><div class="ui-row-sub" id="leadPrefsLinkSub"></div></div>
+              <button type="button" class="ui-switch" data-ui-switch id="leadsOwnerSwitch" aria-pressed="false" aria-labelledby="leadsOwnerLabel"></button>
+            </div>
+            <button type="button" class="ui-link" id="leadsEditPrefs">עריכת שכונות וסוגי נכס ←</button>
+            <div class="leads-set-row">
+              <div><div class="ui-row-title" id="leadsFollowLabel">לחזור לליד חדש תוך שעה</div><div class="ui-row-sub">משימה אוטומטית ביומן לכל ליד חדש, בשעות העבודה.</div></div>
+              <button type="button" class="ui-switch" data-ui-switch id="leadsFollowupSwitch" aria-pressed="true" aria-labelledby="leadsFollowLabel"></button>
+            </div>
+            <div class="leads-set-links">
+              <button type="button" class="ui-link" data-goto="accNotifPrefs">איך מודיעים לך על ליד</button>
+              <button type="button" class="ui-link" data-goto="accProfile" data-focus="pfAreas">תחום ואזורי פעילות</button>
+              <button type="button" class="ui-link" data-goto="accLines">מספרים וירטואליים</button>
+            </div>
+          </div>
+        </section>
       </div>
     </details>
 
@@ -8222,7 +8297,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כל לקוח/ה עם דרישות החיפוש שלו/ה. המערכת מצליבה אותן מול הנכסים שלך, של המשרד ושל כל מה ששותף איתך - ומדרגת כל התאמה בציון, עם הסבר על כל פער. שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן.</p>
+        <!-- הראש של קובץ הלקוחות (סעיף 3.11, assets/crm-leads.js): שורה ללידים
+             החדשים, שלושה אריחים, ולשוניות מחפשים / מוכרים ומשכירים / הכל.
+             "שיחות אחרונות" עברו ל"מספרים וירטואליים" - שיחה ממספר חדש היא ליד. -->
+        <div class="ui-scope clients-top">
+          <p class="ui-hint"><span>כל לקוח/ה עם מה שהוא/היא מחפש/ת.</span><span>המערכת מצליבה אוטומטית מול כל הנכסים ומציעה התאמות.</span></p>
+          <button type="button" class="ui-row-link clients-leads-link" id="clientsLeadsLink" data-goto="accLeads" hidden>
+            <span><span class="ui-row-title" id="clientsLeadsText"></span><span class="ui-row-sub">ליד שמתאים הופך ללקוח/ה ב"הוספה כלקוח/ה"</span></span>
+            <span class="ui-link" aria-hidden="true">ללידים ←</span>
+          </button>
+          <div class="clients-tiles" id="clientsTiles"></div>
+          <div class="ui-tabs" role="tablist" id="clientsKindTabs" aria-label="סוג הלקוח/ה">
+            <button type="button" class="ui-tab" role="tab" data-clients-kind="seekers" aria-selected="true">מחפשים · <span data-n>0</span></button>
+            <button type="button" class="ui-tab" role="tab" data-clients-kind="owners" aria-selected="false">מוכרים ומשכירים · <span data-n>0</span></button>
+            <button type="button" class="ui-tab" role="tab" data-clients-kind="all" aria-selected="false">הכל · <span data-n>0</span></button>
+          </div>
+        </div>
 
         <!-- ההסבר על רמות השיתוף ועל סיכום ההתאמות (20270426090000). נסגר
              בלחיצה ונשאר סגור בדפדפן הזה (share-level-notice ב-localStorage).
@@ -8249,42 +8339,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" role="menuitem" id="openBulkRefer" style="display:none">🤝 מסירת לקוחות לסוכן/ת</button>
             </div>
           </details>
-        </div>
-
-        <!-- יומן שיחות (פיילוט Twilio): מוצג רק למי שיש לו/ה מספר ב-agent_phone_lines.
-             הקלטה, תמלול וסיכום לכל שיחה. docs/call-tracking.md -->
-        <div id="callsBlock" class="calls-block" style="display:none">
-          <div class="calls-head">
-            <!-- בטלפון הכותרת היא כפתור שפותח את היומן: מקופל הוא שורה אחת
-                 במקום מסך שלם בין "הוספת לקוח/ה" לבין החיפוש. ממחשב (640px של
-                 הבלוק) הוא תמיד פתוח והחץ נעלם. -->
-            <h3 class="cf-title" style="margin:0"><button type="button" class="calls-toggle" id="callsToggle"
-                aria-expanded="false" aria-controls="callsBody"><span class="cf-ico" aria-hidden="true">📞</span>שיחות אחרונות<span class="calls-caret" aria-hidden="true">▾</span></button></h3>
-            <span class="imp-note" id="callsLine"></span>
-            <!-- מנהל/ת הפלטפורמה בלבד: כל הצינור על הקלטה שמעלים, בלי Twilio -->
-            <button type="button" class="btn btn-ghost" id="callSimBtn" style="display:none;padding:5px 11px;font-size:.78rem">🧪 סימולציית שיחה</button>
-            <input type="file" id="callSimFile" accept="audio/*,.ogg,.opus,.m4a,.mp3,.wav,.webm" hidden>
-            <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
-            <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
-          </div>
-          <div class="calls-body" id="callsBody">
-          <!-- חיפוש ומיון: שם לקוח/ה, טלפון, מילה מהסיכום, וטווח תאריכים - בשרת,
-               כי הרשימה שנטענת היא רק 60 האחרונות (refreshCallList) -->
-          <div class="call-actions calls-filter" id="callsFilter">
-            <input type="search" id="callsSearch" class="calls-search" placeholder="חיפוש לפי שם לקוח/ה, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות">
-            <label class="call-meta">מ-<input type="date" id="callsFrom" aria-label="מתאריך"></label>
-            <label class="call-meta">עד<input type="date" id="callsTo" aria-label="עד תאריך"></label>
-            <select id="callsSort" aria-label="מיון">
-              <option value="new">החדשות קודם</option>
-              <option value="old">הישנות קודם</option>
-              <option value="long">הארוכות קודם</option>
-            </select>
-            <a href="#" class="call-meta" data-goto="accLines">📞 המספרים הווירטואליים שלי ←</a>
-          </div>
-          <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
-          <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
-          <div id="callsList"></div>
-          </div>
         </div>
 
         <!-- ====== טופס הלקוח/ה: שני כרטיסים ======
@@ -8477,9 +8531,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <option value="">כל הערים</option>
             </select>
             <select id="clientSort" class="filter-input" aria-label="מיון">
+              <option value="matches_desc" selected>מיון: הכי הרבה התאמות</option>
               <option value="created_desc">מיון: החדשים</option>
               <option value="created_asc">מיון: הוותיקים</option>
-              <option value="matches_desc">מיון: הכי הרבה התאמות</option>
               <option value="name_asc">מיון: לפי שם</option>
               <option value="budget_desc">מיון: תקציב גבוה</option>
               <option value="budget_asc">מיון: תקציב נמוך</option>
@@ -10008,6 +10062,44 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
         <p class="acc-sub">מספר לכל שלט, מודעה או קמפיין - השיחות מנותבות לנייד, מוקלטות ומסוכמות בוואטסאפ, ותדעו מאיפה כל לקוח/ה הגיע/ה. כאן נותנים כינוי, בוחרים לאן לנתב, מחברים מספר קיים ומזמינים מספר חדש.</p>
         <div id="linesPanel" class="lines-panel"></div>
+        <!-- יומן שיחות (פיילוט Twilio): מוצג רק למי שיש לו/ה מספר ב-agent_phone_lines.
+             עבר לכאן מקובץ הלקוחות בשלב 4 (docs/leads-unified.md): שיחה ממספר
+             חדש היא עכשיו ליד ב"הלידים שלי", והיומן המלא - חיפוש והאזנה - כאן.
+             הקלטה, תמלול וסיכום לכל שיחה. docs/call-tracking.md -->
+        <div id="callsBlock" class="calls-block" style="display:none">
+          <div class="calls-head">
+            <!-- בטלפון הכותרת היא כפתור שפותח את היומן: מקופל הוא שורה אחת
+                 במקום מסך שלם בין "הוספת לקוח/ה" לבין החיפוש. ממחשב (640px של
+                 הבלוק) הוא תמיד פתוח והחץ נעלם. -->
+            <h3 class="cf-title" style="margin:0"><button type="button" class="calls-toggle" id="callsToggle"
+                aria-expanded="false" aria-controls="callsBody"><span class="cf-ico" aria-hidden="true">📞</span>שיחות אחרונות<span class="calls-caret" aria-hidden="true">▾</span></button></h3>
+            <span class="imp-note" id="callsLine"></span>
+            <!-- מנהל/ת הפלטפורמה בלבד: כל הצינור על הקלטה שמעלים, בלי Twilio -->
+            <button type="button" class="btn btn-ghost" id="callSimBtn" style="display:none;padding:5px 11px;font-size:.78rem">🧪 סימולציית שיחה</button>
+            <input type="file" id="callSimFile" accept="audio/*,.ogg,.opus,.m4a,.mp3,.wav,.webm" hidden>
+            <!-- שיחות בארכיון מוסתרות כברירת מחדל; הכפתור מציג אותן (ומונה כמה יש) -->
+            <button type="button" class="btn btn-ghost" id="callsArchiveToggle" style="display:none;padding:5px 11px;font-size:.78rem">🗄 ארכיון</button>
+          </div>
+          <div class="calls-body" id="callsBody">
+          <!-- חיפוש ומיון: שם לקוח/ה, טלפון, מילה מהסיכום, וטווח תאריכים - בשרת,
+               כי הרשימה שנטענת היא רק 60 האחרונות (refreshCallList) -->
+          <div class="call-actions calls-filter" id="callsFilter">
+            <input type="search" id="callsSearch" class="calls-search" placeholder="חיפוש לפי שם לקוח/ה, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות">
+            <label class="call-meta">מ-<input type="date" id="callsFrom" aria-label="מתאריך"></label>
+            <label class="call-meta">עד<input type="date" id="callsTo" aria-label="עד תאריך"></label>
+            <select id="callsSort" aria-label="מיון">
+              <option value="new">החדשות קודם</option>
+              <option value="old">הישנות קודם</option>
+              <option value="long">הארוכות קודם</option>
+            </select>
+            <a href="#" class="call-meta" data-goto="accLines">📞 המספרים הווירטואליים שלי ←</a>
+          </div>
+          <!-- שקיפות: בסוכן/ת במשרד עם מנהל/ת, ההקלטות פתוחות גם למנהל/ת (20270222090000) -->
+          <div class="imp-note" id="callsManagerNote" style="display:none;margin:6px 0"></div>
+          <div id="callsList"></div>
+          </div>
+        </div>
+
       </div>
     </details>
 
@@ -11232,6 +11324,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-areas.js"></script>
 <!-- הפרופיל שלי ודף המשרד: הבאנרים, "מלא ב-X%" ופס השמירה (docs/crm-profile-pages.md) -->
 <script src="assets/crm-profile-pages.js"></script>
+<!-- "הלידים שלי" - רשימה אחת לפי סדר עדיפות (docs/leads-unified.md) -->
+<script src="assets/crm-leads.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
 <script src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
