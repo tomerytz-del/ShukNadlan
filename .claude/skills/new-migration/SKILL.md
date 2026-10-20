@@ -155,6 +155,37 @@ python3 scripts/check_function_grants.py
 התקדים: חמש פונקציות כאלה היו פתוחות ל-`anon`, ואחת מהן אפשרה לשנות את
 המסלול של כל מנוי/ה בשתי בקשות HTTP בלי התחברות.
 
+#### ‏4א. טבלה או view חדשים - `grant` מפורש, לא רק `revoke`
+
+**מ-30.10.2026 Supabase אינה מעניקה הרשאות לטבלה חדשה ב-`public`**, גם
+בפרויקט הקיים. עד אז כל טבלה נולדה עם `select, insert, update, delete`
+ל-`anon`, ל-`authenticated` ול-`service_role`, ולכן המיגרציות כאן רק
+**הורידו** מה שלא רצו (‏`revoke all on table ... from anon`) ונשענו על השאר.
+אותו קובץ יוצר מאותו יום טבלה שאיש אינו ניגש אליה: ה-CRM מקבל
+‏`permission denied`, וגם פונקציות ה-Edge - ‏`service_role` עוקף RLS, לא
+הרשאות טבלה. הטבלאות הקיימות שומרות את מה שיש להן.
+
+```sql
+create table if not exists public.my_table (...);
+alter table public.my_table enable row level security;
+-- להחליט על כל אחד משלושת התפקידים בשם, לפי מי שבאמת ניגש:
+grant select, insert, update, delete on table public.my_table to authenticated, service_role;
+revoke all on table public.my_table from anon;
+```
+
+‏`revoke` הוא החלטה תקפה ("לתפקיד הזה אין גישה"). ‏`grant` לא מחליף RLS:
+טבלה שהדפדפן ניגש אליה נשארת עם RLS ו-policy, וה-`grant` רק פותח את
+הדלת ש-RLS שומר עליה. אותו כלל חל על **view חדש** (‏`alter default
+privileges ... on tables` חל ב-Postgres גם על views); החלפת view קיים
+ב-`create or replace` שומרת את ההרשאות שלו.
+
+```sh
+python3 scripts/check_table_grants.py
+```
+
+הבדיקה חוסמת ב-CI, באותו job `הרשאות פונקציות`, טבלה או view שנוצרו
+אחרי `CUTOFF` בלי `grant`/`revoke` שמונה כל אחד משלושת התפקידים.
+
 ### 5. גרש בתוך מחרוזת מוכפל, ולא מוברח בבקסלאש
 
 ```sql
@@ -257,7 +288,7 @@ grep -rnE "\.from\(['\"]<הטבלה>['\"]\)" supabase/functions assets *.html \
 | שם ה-job | מה הוא תופס |
 | --- | --- |
 | `גרסאות מיגרציה` | ‏version כפול, שם פסול, version שאינו גדול מהאחרון |
-| `הרשאות פונקציות` | ‏`grant` שמדיר תפקיד בלי `revoke` שמוציא אותו |
+| `הרשאות פונקציות` | ‏`grant` שמדיר תפקיד בלי `revoke` שמוציא אותו, וטבלה או view חדשים בלי החלטה מפורשת לשלושת התפקידים |
 | `מיתרים במיגרציות` | מחרוזת שלא נסגרה, וגרש מוברח בבקסלאש |
 
 **למה הן רצות על כל PR ולא רק על PR שנוגע במיגרציות:** בדיקה נדרשת

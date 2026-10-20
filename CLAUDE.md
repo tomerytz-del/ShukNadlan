@@ -633,6 +633,13 @@ Remote migration versions not found in local migrations directory.
    רק מ-`grant`, ולכן `saved_search_quiet_now()` עברה בלי grant ובלי
    revoke ונשארה פתוחה חודשים. מעכשיו `SECURITY DEFINER` חדשה בלי החלטה
    לשני התפקידים נחסמת גם היא.
+6. **טבלה או view חדשים - `grant` מפורש לשלושת התפקידים.** מ-30.10.2026
+   ‏Supabase אינה מעניקה הרשאות לטבלה חדשה ב-`public`, ולכן הדפוס הישן -
+   ‏`revoke ... from anon` ולסמוך על השאר - יוצר טבלה שה-CRM וגם פונקציות
+   ה-Edge מקבלים עליה `permission denied`, אחרי מיגרציה שעברה ירוק. כל
+   ‏`create table` מחליט במפורש על `anon`, ‏`authenticated` ו-`service_role`
+   (‏`grant` או `revoke`), ו-`scripts/check_table_grants.py` חוסם ב-CI
+   באותו job **`הרשאות פונקציות`**. הטבלאות הקיימות לא נפגעות.
 
 ### אחרי מיזוג שכולל מיגרציה
 

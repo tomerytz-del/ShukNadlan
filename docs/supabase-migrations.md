@@ -264,6 +264,39 @@
    ‏`service_role` אינו נבדק: הוא המנוע של ה-Edge Functions, וההענקה
    אליו היא תמיד מכוונת.
 
+7. **הרשאות טבלה חדשה: `grant` מפורש לשלושת התפקידים.** זה הכיוון ההפוך
+   של כלל 6. עד 30.10.2026 Supabase העניקה `select, insert, update,
+   delete` ל-`anon`, ל-`authenticated` ול-`service_role` על כל טבלה חדשה
+   ב-`public`, והמיגרציות כאן נכתבו בהתאם: `revoke` למה שלא רוצים, ושאר
+   התפקידים נשענים על מה שניתן מעצמו. מ-30.10.2026 זה נפסק גם בפרויקט
+   הקיים (‏[ההודעה](https://github.com/orgs/supabase/discussions/45329)),
+   וטבלה חדשה נולדת בלי הרשאה לאף אחד. הטבלאות הקיימות לא נפגעות.
+
+   **מה זה היה שובר:** כשהכלל נכתב (20.10.2026), כל אחת מ-18 הטבלאות
+   שנוצרו מיוני 2027 נשענה על ה-`service_role` האוטומטי, ותשע הטבלאות של
+   ‏`csm_adoption` גם על `authenticated`. אותה מיגרציה אחרי 30.10 עוברת
+   ירוק בצינור, ואז ה-CRM מקבל `permission denied` וכך גם פונקציות ה-Edge
+   (‏`service_role` עוקף RLS, לא הרשאות טבלה).
+
+   ```sql
+   grant select, insert, update, delete on table public.my_table to authenticated, service_role;
+   revoke all on table public.my_table from anon;
+   ```
+
+   ‏`scripts/check_table_grants.py` חוסם ב-CI, באותו job `הרשאות פונקציות`,
+   טבלה או view שנוצרו לראשונה אחרי `CUTOFF` (‏`20270705090000`, האחרונה
+   ב-main ביום הכלל) בלי `grant` או `revoke` שמונה כל אחד משלושת
+   התפקידים. ‏`revoke` נספר כהחלטה, כי זו ההצהרה "אין גישה". ‏view נבדק
+   כי ברירת המחדל של Postgres ל-`tables` חלה גם עליו, והחלפת view קיים
+   אינה נספרת כיצירה. ‏`grant` דינמי ב-`do $$` (‏`format(... public.%I
+   ...)` על מערך שמות) נספר. ‏`check_table_grants_test.py` בודק את הבדיקה
+   עצמה, כי היום אין אף טבלה אחרי הסף וההרצה על הריפו ירוקה בכל מקרה.
+
+   **מה שלא מכוסה:** sequence של עמודת `serial` (‏`nextval` דורש `usage`
+   לתפקיד שמכניס). ההודעה של Supabase מדברת על טבלאות בלבד, ולכן זה לא
+   ודאי; ‏`generated ... as identity` אינו דורש הרשאה על ה-sequence, ולכן
+   הוא הבחירה הבטוחה לטבלה חדשה שהדפדפן מכניס אליה.
+
 ## אם ההרצה נכשלה
 
 הלוג של ה-workflow מדפיס `supabase migration list` **לפני** ההרצה, כך שרואים
