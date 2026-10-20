@@ -26172,9 +26172,10 @@ function navItemIsActive(item){
 
 /* ---------- תצוגה אישית מול תצוגת ניהול (החלטה 2 בהעברה) ----------
    מנהל/ת משרד או צוות שהוא/היא **גם** סוכן/ת פעיל/ה רואה בראש התפריט מתג
-   "אני כסוכן/ת" / "הצוות שלי" או "המשרד שלי". המתג קובע את סדר הקבוצות -
-   בתצוגת הניהול קבוצות הניהול ראשונות, ובאישית אחרונות - ומעביר לדאשבורד
-   של התצוגה. נשמר תחת crmNavMode.
+   "אני כסוכן/ת" / "הצוות שלי" או "המשרד שלי". המתג מעביר לדאשבורד של
+   התצוגה, ונשמר תחת crmNavMode. סדר הקבוצות קבוע בשתיהן (20.10.2026): כשהמתג
+   העלה את קבוצות הניהול לראש, האישיות ירדו אל מתחת לחלק הגלוי של הסרגל
+   ונראו כאילו נעלמו, והתפריט "קפץ" בכל החלפה.
 
    מנהל/ת שאינו/ה סוכן/ת פעיל/ה (my_roles().is_active_agent = false,
    docs/teams.md) אינו/ה מקבל/ת מתג, ובתפריט נשארים רק דף הבית וקבוצות
@@ -26182,7 +26183,6 @@ function navItemIsActive(item){
    מהתפריט, כדי שהוא יהיה תפריט של מי שמנהל/ת. ‏myRoles נטען ב-
    loadMyRoles (assets/crm-team-dashboard.js), וממילא בונה את הסרגל מחדש. */
 const NAV_MODE_KEY = 'crmNavMode';
-const NAV_MANAGE_GROUPS = new Set(['team', 'manage']);
 const NAV_PERSONAL_GROUPS = new Set(['daily', 'opps', 'grow']);
 
 function navRoles(){
@@ -26254,15 +26254,9 @@ function navGroupsForView(){
   let groups = NAV_GROUPS
     .filter(g => !!g.adminOnly === admin && !g.placement)
     .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, open:!!g.open, items:g.items.filter(navItemVisible) }));
-  if (!admin && navIsManager()){
-    if (!navIsActiveAgent()){
-      groups = groups.map(g => NAV_PERSONAL_GROUPS.has(g.key)
-        ? { ...g, items:g.items.filter(navIsHomeItem) } : g);
-    }
-    if (navMode() === 'manage'){
-      groups = groups.filter(g => NAV_MANAGE_GROUPS.has(g.key))
-        .concat(groups.filter(g => !NAV_MANAGE_GROUPS.has(g.key)));
-    }
+  if (!admin && navIsManager() && !navIsActiveAgent()){
+    groups = groups.map(g => NAV_PERSONAL_GROUPS.has(g.key)
+      ? { ...g, items:g.items.filter(navIsHomeItem) } : g);
   }
   return groups.filter(g => g.items.length);
 }
