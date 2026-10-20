@@ -86,7 +86,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   review_request: "accLeads",
   deal_closed: "accTeam",
   marketing_copy: "accProperties",
-  system: "accSharedWithMe",
+  // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
+  // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
+  system: "accProperties",
   platform_signup: "accSubscriptions",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",

@@ -24436,7 +24436,10 @@ const NOTIF_TYPES = [
     sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
     // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
     when: ()=> false },
-  { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
+  /* "שותפו איתי" הוא לשונית ב"נכסים" (docs/properties-unified.md). ‏goto הוא
+     id אמיתי (check_notif_links.py), והלשונית נבחרת ב-refresh */
+  { type:'system',         tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
+    refresh: ()=> propOwnerTab('shared'),
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
   { type:'review_alert',   tone:'alert',  goto:'accReviews',  focus:'#reviewModerationList',
