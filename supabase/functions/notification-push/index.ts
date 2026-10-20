@@ -86,6 +86,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   review_request: "accLeads",
   deal_closed: "accTeam",
   marketing_copy: "accProperties",
+  // מנהל/ת המשרד מחק/ה שיחה (twilio-voice?task=delete) - השיחות והמספרים
+  call_deleted_by_manager: "accLines",
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",

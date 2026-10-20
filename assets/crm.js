@@ -22917,6 +22917,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
+      ${callCanDelete() ? '<button type="button" class="call-del" data-call-act="delete">מחיקת השיחה וההקלטה</button>' : ''}
     </div>
   </div>`;
 }
@@ -23054,9 +23055,17 @@ function callRowHtml(c, inCard){
         ? '<button type="button" class="btn btn-ghost" data-call-act="unhandle" title="ביטול הסימון">✓ חזרתי</button>'
         : '<button type="button" class="btn btn-gold" data-call-act="handled" title="סימון שחזרת ללקוח/ה - מנהל/ת המשרד לא יקבל/תקבל התראה">✔ חזרתי</button>') : ''}
       <button type="button" class="btn btn-ghost" data-call-act="archive" title="${c.archived_at ? 'החזרה מהארכיון' : 'הסתרה מהרשימה, בלי למחוק'}">${c.archived_at ? '↩ מהארכיון' : '🗄 ארכוב'}</button>
-      <button type="button" class="btn btn-ghost" data-call-act="delete" title="מחיקת השיחה וההקלטה">🗑 מחיקה</button>
+      ${callCanDelete() ? '<button type="button" class="call-del" data-call-act="delete">מחיקת השיחה וההקלטה</button>' : ''}
     </div>
+    ${callCanDelete() ? '' : '<p class="call-del-note">מחיקה אפשרית רק למנהל/ת המשרד</p>'}
   </div>`;
+}
+
+/* מחיקת שיחה - רק מנהל/ת המשרד (החלטה של תומר, 20.10.2026; docs/call-tracking.md).
+   הבדיקה האמיתית בשרת (twilio-voice?task=delete, ‏403 not_manager); כאן רק
+   לא מציגים כפתור שיסורב. לסוכן/ת נשאר הארכוב - הסתרה בלי מחיקה. */
+function callCanDelete(){
+  return !!currentAgent && currentAgent.role === 'manager';
 }
 
 // מאזין אחד לכל השורות - בבלוק השיחות ובכרטיסי הלקוחות
@@ -23122,8 +23131,22 @@ document.addEventListener('click', async e => {
 
 /* מחיקה - ההקלטה והשורה, דרך twilio-voice?task=delete (מחיקה מ-storage
    מהדפדפן אינה אפשרית: ה-policy של הדלי מתיר רק קריאה). */
+/* האישור בתוך הכרטיס ולא confirm() (4.x): מה נמחק, ושהסוכן/ת יקבל/תקבל הודעה */
 async function deleteCall(c, row, btn){
-  if (!confirm('למחוק את השיחה, ההקלטה והתמלול? אי אפשר לשחזר.')) return;
+  if (!btn.classList.contains('is-confirm')){
+    row.querySelector('.call-del-ask')?.remove();
+    const own = c.agent_id === undefined || c.agent_id === currentAgent.id;
+    const ask = document.createElement('div');
+    ask.className = 'call-del-ask';
+    ask.setAttribute('role', 'alert');
+    ask.innerHTML = '<span>אי אפשר לשחזר.' + (own ? '' : ' הסוכן/ת יקבל/תקבל הודעה שהשיחה נמחקה.') + '</span>'
+      + '<button type="button" class="call-del is-confirm" data-call-act="delete">מחיקה</button>'
+      + '<button type="button" class="ui-link" data-call-del-cancel>ביטול</button>';
+    ask.querySelector('[data-call-del-cancel]').addEventListener('click', () => ask.remove());
+    row.appendChild(ask);
+    ask.querySelector('.is-confirm').focus();
+    return;
+  }
   btn.disabled = true;
   try {
     const { data: { session } } = await sb.auth.getSession();
@@ -23133,11 +23156,15 @@ async function deleteCall(c, row, btn){
       body: JSON.stringify({ call_ids: [c.id] }),
     });
     const out = await res.json().catch(() => ({}));
+    if (res.status === 403 && out.error === 'not_manager') throw new Error('מחיקת שיחות אפשרית רק למנהל/ת המשרד');
     if (!res.ok || !out.deleted) throw new Error(out.error || res.status);
     callById.delete(c.id);
     callRows = callRows.filter(x => x.id !== c.id);
+    const inOffice = !!row.closest('#officeCallsList');
+    officeCallRows = officeCallRows.filter(x => x.id !== c.id);
     if (row.closest('.client-calls')) row.remove();
     renderCalls();
+    if (inOffice) renderOfficeCalls();
     showToast('השיחה נמחקה');
   } catch (err){
     btn.disabled = false;
@@ -24418,6 +24445,10 @@ const NOTIF_TYPES = [
     when: ()=> false },
   /* "שותפו איתי" הוא לשונית ב"נכסים" (docs/properties-unified.md). ‏goto הוא
      id אמיתי (check_notif_links.py), והלשונית נבחרת ב-refresh */
+  /* מנהל/ת המשרד מחק/ה שיחה של הסוכן/ת (4.x, twilio-voice?task=delete) */
+  { type:'call_deleted_by_manager', tone:'', goto:'accLines', focus:'#callsBlock',
+    title:'שיחה נמחקה על ידי מנהל/ת המשרד',
+    sub:'כשמנהל/ת המשרד מוחק/ת שיחה מהמספר שלך, עם ההקלטה והתמלול.' },
   { type:'system',         tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
     refresh: ()=> propOwnerTab('shared'),
     title:'שיתופי נכסים ועדכוני מערכת',
@@ -24909,6 +24940,7 @@ function renderAgenda(){
     ? ' · ' + plural(b.today.length, 'אחת להיום', 'להיום') + (late ? ' · ' + late + ' באיחור' : '')
     : '');
   if (typeof renderTodoList === 'function') renderTodoList();
+  agendaProgress(b, tierOk);
 
   document.querySelectorAll('#agTabs [data-ag-tab]').forEach(btn =>
     btn.setAttribute('aria-pressed', String(btn.dataset.agTab === agendaTab)));
@@ -24929,7 +24961,19 @@ function renderAgenda(){
     return;
   }
   listEl.innerHTML = '';
-  rows.forEach(it => listEl.appendChild(buildAgendaRow(it)));
+  /* בלשונית "היום" - קבוצות (3.20): באיחור (פס כתום) ← בהמשך ← בוצע היום */
+  if (agendaTab === 'today'){
+    const late = rows.filter(agendaIsLate);
+    const next = rows.filter(it => !agendaIsLate(it));
+    const doneToday = agendaDone.filter(it => it.completed_at && new Date(it.completed_at) >= agendaDayStart(0));
+    [['באיחור', late, 'is-late'], ['בהמשך', next, ''], ['בוצע היום', doneToday, 'is-done']].forEach(([label, list, cls]) => {
+      if (!list.length) return;
+      listEl.insertAdjacentHTML('beforeend', `<div class="ag-group ${cls}"><span>${esc(label)}</span><b>${list.length}</b></div>`);
+      list.forEach(it => listEl.appendChild(buildAgendaRow(it)));
+    });
+  } else {
+    rows.forEach(it => listEl.appendChild(buildAgendaRow(it)));
+  }
 
   if (agendaFocusId){
     const el = document.getElementById('ag-' + agendaFocusId);
@@ -24941,6 +24985,31 @@ function renderAgenda(){
     }
   }
 }
+
+/* פס ההתקדמות: מה בוצע היום מתוך כל מה שהיה להיום (הפתוח + מה שסומן היום) */
+function agendaProgress(b, tierOk){
+  const box = document.getElementById('agProgress');
+  if (!box) return;
+  const doneToday = agendaDone.filter(it => it.completed_at && new Date(it.completed_at) >= agendaDayStart(0)).length;
+  const total = b.today.length + doneToday;
+  box.hidden = !total;
+  if (!total) return;
+  const late = b.today.filter(agendaIsLate).length;
+  const left = b.today.length;
+  document.getElementById('agRingText').textContent = `${doneToday}/${total}`;
+  document.getElementById('agRing').setAttribute('aria-label', `בוצעו ${doneToday} מתוך ${total}`);
+  const c = 2 * Math.PI * 15.5;
+  const fg = document.getElementById('agRingFg');
+  fg.style.strokeDasharray = c;
+  fg.style.strokeDashoffset = c * (1 - doneToday / total);
+  document.getElementById('agProgressTitle').textContent = left
+    ? `עוד ${plural(left, 'פריט אחד', 'פריטים')} להיום` : 'סיימת את כל היום. כל הכבוד!';
+  document.getElementById('agProgressSub').textContent = late ? `${late} באיחור` : (left ? 'הכל בזמן' : '');
+  const move = document.getElementById('agMoveLate');
+  move.hidden = !late || !tierOk;
+  move.textContent = late === 1 ? 'להעביר את הפריט שבאיחור למחר' : `להעביר את כל ${late} האיחורים למחר`;
+}
+document.getElementById('agMoveLate')?.addEventListener('click', e => agendaMoveLateToTomorrow(e.currentTarget));
 
 function buildAgendaRow(it){
   const client = it.client_id ? (clientRows || []).find(c => c.id === it.client_id) : null;
@@ -24965,7 +25034,7 @@ function buildAgendaRow(it){
       ${it.google_sync_state === 'error' ? `<span class="rm-badge" title="${esc(it.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
       ${it.client_notify ? `<span class="rm-badge">${esc(AGENDA_FEEDBACK_BADGES[it.client_feedback] || AGENDA_CLIENT_BADGES[it.client_response] || '📲 הלקוח/ה מקבל/ת תזכורת')}</span>` : ''}
     </div>
-    <div class="ag-when">${esc(AGENDA_KIND_LABELS[it.kind] || '')} · ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
+    <div class="ag-when"><span class="ag-kind ag-kind-${esc(it.kind || 'task')}">${esc(AGENDA_KIND_LABELS[it.kind] || '')}</span> ${esc(agendaWhenText(it))}${late ? ' · באיחור' : ''}</div>
     ${meta ? `<p class="rm-body">${esc(meta)}</p>` : ''}
     ${it.notes ? `<p class="rm-body">${esc(it.notes)}</p>` : ''}
     <div class="ag-acts"></div>`;
@@ -25217,6 +25286,9 @@ function renderAgendaAuto(){
     el.appendChild(row);
   });
   document.getElementById('agAutoSave').hidden = !tierOk;
+  const on = AGENDA_AUTO_KINDS.filter(k => !agendaAutoOff.includes(k.kind)).length;
+  const sum = document.getElementById('agAutoSummary');
+  if (sum) sum.textContent = `${on} מתוך ${AGENDA_AUTO_KINDS.length} פעילות`;
 }
 
 document.getElementById('agAutoSave').addEventListener('click', async ()=>{
@@ -25811,20 +25883,22 @@ const NAV_GROUPS = [
        באותו מסך מתחתיה (applyNavFilter). קבוצת "הזדמנויות" נעלמה - ההתאמות
        עם הלקוחות, חנות הלידים עם הלידים, משרדי השת"פ עם הנכסים. */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads',
-      also:['accLeadShelf'], sub:'כולל חנות הלידים' },
+      also:['accLeadShelf'], sub:'כולל חנות הלידים', tabs:true },
     /* ‏tab:'clients' ולא 'home': בסינון המובייל המקטע של הבית אינו מציג
        קטגוריות בכלל (docs/agent-agenda.md) */
     { acc:'accAgenda',           label:'יומן ומשימות',      icon:'calendar', tab:'clients',
       also:['accGcal'], sub:'כולל יומן Google' },
     { acc:'accClients',          label:'לקוחות',            icon:'users',    tab:'clients',
-      also:['accAlerts'], sub:'כולל התאמות' },
+      also:['accAlerts'], sub:'כולל התאמות', tabs:true },
+    /* ‏tabs:'quiet' - משרדי השת"פ הם תת-מסך של לשונית השיתופים (3.17): לא
+       לשונית משלהם, רק מסך נפרד שמגיעים אליו מהכרטיס "עם מי אני משתף/ת" */
     { acc:'accProperties',       label:'נכסים',             icon:'building', tab:'props',
-      also:['accSharePartners'], sub:'כולל שיתופים' },
+      also:['accSharePartners'], sub:'כולל שיתופים', tabs:'quiet' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים',            icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
-      also:['accDealsLookup'], sub:'מידע תכנוני · עסקאות באזור' },
+      also:['accDealsLookup'], sub:'מידע תכנוני · עסקאות באזור', tabs:true },
   ]},
   { key:'grow', label:'צמיחה', icon:'chart', items:[
     /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
@@ -25833,7 +25907,7 @@ const NAV_GROUPS = [
     /* השיחות והמספרים - מסך אחד. ‏accOfficeCalls יושב ב-#managerSection, ולכן
        לסוכן/ת השורה פותחת את המספרים שלו/ה (navItemTarget) */
     { acc:'accOfficeCalls', label:'שיחות ומספרים', icon:'phone', tab:'more',
-      also:['accLines'] },
+      also:['accLines'], tabs:true },
     /* אינו קטגוריה: דף הסוכן/ת הציבורי, בלשונית חדשה (navGo). */
     { acc:NAV_MINISITE,     label:'המיני-סייט שלי', icon:'globe', tab:'more' },
   ]},
@@ -26521,12 +26595,48 @@ function renderScreenCrumb(){
   el.querySelector('.screen-crumb-home').addEventListener('click', ()=> setNavTab('home'));
 }
 
+/* ---------- לשוניות בתוך מסך (tabs:true בשורה) ----------
+   מסכים מאוחדים מקבלים לשוניות בראש (2.1): לידים / חנות, לקוחות / התאמות,
+   שיחות / מספרים, מידע תכנוני / עסקאות. מוצגת קטגוריה אחת בכל פעם - זו
+   שאליה ניווטו (navActive), או הראשית. שם הלשונית הוא כותרת הקטגוריה. */
+function screenTabAccs(){
+  const hit = dashView === 'agent' && navActive !== NAV_HOME ? navScreenItem(navActive) : null;
+  if (!hit || !hit.item.tabs) return null;
+  const accs = [hit.item.acc, ...(hit.item.also || [])].filter(navAccVisible);
+  return accs.length > 1 ? accs : null;
+}
+function renderScreenTabs(accs){
+  const el = document.getElementById('screenTabs');
+  if (!el) return;
+  const hit = accs ? navScreenItem(navActive) : null;
+  el.hidden = !accs || (hit && hit.item.tabs === 'quiet');
+  if (el.hidden) return;
+  const cur = accs.includes(navActive) ? navActive : accs[0];
+  el.innerHTML = accs.map(acc => {
+    const t = document.querySelector('#' + acc + ' > summary .acc-title');
+    const label = t ? (t.firstChild && t.firstChild.textContent || t.textContent).trim() : acc;
+    const n = accCountOf(acc);
+    // בלי תבנית בתוך תבנית: הסורק של check_long_dash.py מאבד בה את המקום
+    const badge = n ? ' <span class="screen-tab-n' + (NAV_HOT_ACCS.has(acc) ? ' is-hot' : '') + '">'
+      + (n > 99 ? '99+' : n) + '</span>' : '';
+    return '<button type="button" class="ui-tab" role="tab" data-screen-tab="' + acc + '" aria-selected="' + (acc === cur) + '"'
+      + ' tabindex="' + (acc === cur ? 0 : -1) + '">' + esc(label) + badge + '</button>';
+  }).join('');
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-screen-tab]');
+  if (t) gotoSection(t.dataset.screenTab);
+});
+
 function applyNavFilter(){
   const isAdminView = dashView === 'admin';
   const filtering = navFilterActive();
   // בתצוגת הסוכן/ת: דף הבית רק כשהוא היעד, וכל קטגוריה כמסך משלה
   const showHome = isAdminView ? (!filtering || navTab === 'home') : navActive === NAV_HOME;
-  const screen = isAdminView ? null : navScreenAccs();
+  let screen = isAdminView ? null : navScreenAccs();
+  // מסך עם לשוניות: רק הקטגוריה של הלשונית הפעילה
+  const tabAccs = isAdminView ? null : screenTabAccs();
+  if (tabAccs) screen = [tabAccs.includes(navActive) ? navActive : tabAccs[0]];
 
   const overview = document.getElementById('overviewBlock');
   if (overview) overview.classList.toggle('nav-off', isAdminView || !showHome);
@@ -26559,6 +26669,7 @@ function applyNavFilter(){
   const head = document.getElementById('sectionsHead');
   if (head) head.hidden = true;
   renderScreenCrumb();
+  renderScreenTabs(tabAccs);
 
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
@@ -29553,6 +29664,7 @@ function refreshNavCounts(){
   // שורות התובנה בשלושת המדדים ומוני הפעולות המהירות - מאותם מונים ונתונים
   renderKpiInsights();
   syncQuickBadges();
+  renderScreenTabs(screenTabAccs());   // המונים על לשוניות המסך
 }
 
 /* ה-"i" בכל מדד: ההסבר איך הוא מחושב. ‏title מספיק בעכבר, ובטלפון אין
@@ -31074,8 +31186,10 @@ function renderAgreements(){
   const kind = document.getElementById('agrKindFilter').value;
   const active = !!(q || status || kind);
 
+  renderAgreementTiles(status);
   const rows = agreementRows.filter(a => {
-    if (status && a.status !== status) return false;
+    if (status === 'awaiting'){ if (!AGR_AWAITING.includes(a.status)) return false; }
+    else if (status && a.status !== status) return false;
     if (kind && a.kind !== kind) return false;
     return !q || agrSearchBlob(a).includes(q);
   });
@@ -31092,8 +31206,46 @@ function renderAgreements(){
   // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
   listEl.innerHTML = '<div class="prop-tabs agr-tabs"></div>';
   const tabsWrap = listEl.querySelector('.prop-tabs');
-  rows.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
+  /* בלי סינון מצב: "דורשים פעולה ממך" (טיוטות וממתינים) למעלה, ו"נחתמו" מתחת */
+  if (!status){
+    const groups = [
+      ['דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
+      ['נחתמו', rows.filter(a => a.status === 'signed')],
+      ['בוטלו', rows.filter(a => a.status === 'cancelled')],
+    ];
+    groups.forEach(([label, list]) => {
+      if (!list.length) return;
+      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h">${esc(label)} · ${list.length}</div>`);
+      list.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
+    });
+  } else {
+    rows.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
+  }
 }
+
+/* ארבעת האריחים-מסננים (3.19). לחיצה על האריח הפעיל מבטלת אותו */
+const AGR_AWAITING = ['sent', 'viewed'];
+function renderAgreementTiles(status){
+  const box = document.getElementById('agrTiles');
+  if (!box) return;
+  const n = f => agreementRows.filter(f).length;
+  const tiles = [
+    ['', 'כל ההסכמים', agreementRows.length, false],
+    ['draft', 'טיוטות', n(a => a.status === 'draft'), true],
+    ['awaiting', 'ממתינים לחתימה', n(a => AGR_AWAITING.includes(a.status)), true],
+    ['signed', 'נחתמו', n(a => a.status === 'signed'), false],
+  ];
+  box.innerHTML = tiles.map(([v, label, count, warn]) =>
+    `<button type="button" class="agr-tile${warn && count ? ' is-warn' : ''}" data-agr-tile="${v}" aria-pressed="${(status || '') === v}">`
+    + `<b>${count}</b><span>${esc(label)}</span></button>`).join('');
+}
+document.getElementById('agrTiles')?.addEventListener('click', e => {
+  const t = e.target.closest('[data-agr-tile]');
+  if (!t) return;
+  const sel = document.getElementById('agrStatusFilter');
+  sel.value = sel.value === t.dataset.agrTile ? '' : t.dataset.agrTile;
+  renderAgreements();
+});
 
 /* ---------- הסכם כשורה ----------
    **הכותרת היא מי חותם/ת, לא שם המסמך.** ‏`a.title` הוא סוג ההסכם

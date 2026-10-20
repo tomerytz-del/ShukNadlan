@@ -6645,6 +6645,65 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mt-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;background:#F8F9FC}
   .mt-send.is-off{background:var(--nv-off);color:var(--nv-muted);cursor:default}
 
+  /* יומן ומשימות (3.20) */
+  .ag-hint{margin-bottom:12px}
+  .ag-progress{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;background:var(--nv-ink);color:#fff;border-radius:20px;padding:16px 20px;margin:0 0 14px}
+  .ag-ring{position:relative;width:64px;height:64px;flex:none}
+  .ag-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .ag-ring circle{fill:none;stroke-width:3.5}
+  .ag-ring-bg{stroke:rgba(255,255,255,.18)}
+  .ag-ring-fg{stroke:#E0B84A;stroke-linecap:round;transition:stroke-dashoffset .4s}
+  .ag-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .ag-progress-text{flex:1 1 180px;display:flex;flex-direction:column;gap:2px}
+  .ag-progress-text strong{font-size:17px}
+  .ag-progress-text span{font-size:14px;color:#C9D2E6}
+  .ag-move-late{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;
+    font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  .ag-move-late[hidden]{display:none}
+  .ag-group{display:flex;align-items:center;gap:8px;margin:12px 2px 6px;font-size:13px;font-weight:700;color:var(--nv-muted)}
+  .ag-group b{font-size:12px;background:#F1F3F8;border-radius:999px;padding:1px 8px}
+  .ag-group.is-late{color:var(--nv-urgent-ink);border-inline-start:4px solid var(--nv-urgent);padding-inline-start:8px}
+  .ag-group.is-late b{background:var(--nv-urgent-soft)}
+  .ag-group.is-done{color:var(--nv-ok)}
+  .ag-group:first-child{margin-top:0}
+  .ag-kind{font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px;background:#F1F3F8;color:#3A4458}
+  .ag-kind-meeting{background:var(--nv-accent-soft);color:var(--nv-accent-h)}
+  .ag-kind-showing{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .ag-kind-call{background:var(--nv-warn-soft);color:var(--nv-warn)}
+
+  .ag-auto{margin-top:16px;background:#fff;border:1px solid var(--nv-line);border-radius:16px;padding:0 16px}
+  .ag-auto>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:56px;cursor:pointer;font-weight:700}
+  .ag-auto-n{font-size:13px;font-weight:600;color:var(--nv-muted)}
+  .ag-auto[open]{padding-bottom:12px}
+
+  /* הסכמים (3.19) */
+  .agr-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .agr-top-row{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 16px}
+  .agr-top-row .ui-hint{flex:1 1 260px}
+  .agr-how{background:#F3F6FD;border:1px solid #DCE5FB;border-radius:14px;padding:0 14px}
+  .agr-how>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:700;font-size:14px}
+  .agr-how p{margin:0 0 12px;font-size:14px;line-height:1.6;color:#3A4458}
+  .agr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .agr-tile{display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-height:76px;padding:12px 14px;border-radius:16px;border:1px solid var(--nv-line);
+    background:#fff;color:var(--nv-ink);font:inherit;text-align:start;cursor:pointer}
+  .agr-tile b{font-family:'Frank Ruhl Libre',serif;font-size:26px;line-height:1}
+  .agr-tile span{font-size:13px;font-weight:600;color:var(--nv-muted)}
+  .agr-tile[aria-pressed="true"]{border:1.5px solid var(--nv-accent);background:var(--nv-accent-soft)}
+  .agr-tile.is-warn b{color:var(--nv-warn)}
+  .agr-group-h{margin:12px 2px 6px;font-size:13px;font-weight:700;color:var(--nv-muted)}
+  .agr-group-h:first-child{margin-top:0}
+  @media (max-width:640px){.agr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  .screen-tabs{margin:0 0 12px}
+  .screen-tab-n{font-size:12px;font-weight:700;color:var(--nv-muted);background:#F1F3F8;border-radius:999px;padding:1px 7px}
+  .screen-tab-n.is-hot{color:#fff;background:var(--nv-urgent)}
+
+  /* מחיקת שיחה - טקסט אדום, ואישור בתוך הכרטיס (4.x) */
+  .call-del{border:0;background:none;color:var(--nv-urgent-ink);font:inherit;font-size:14px;font-weight:600;min-height:44px;padding:0 6px;cursor:pointer}
+  .call-del.is-confirm{background:var(--nv-urgent-soft);border-radius:10px;padding:0 12px;font-weight:700}
+  .call-del-ask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:8px;padding:10px 12px;border-radius:12px;background:#FFF8F3;font-size:14px}
+  .call-del-note{margin:6px 0 0;font-size:12px;color:var(--nv-muted)}
+
   /* נייד (סעיף 1.4): ריפוד צד 12px, כרטיסים 16px, h1 28 ו-h2 20, ושורות
      צ'יפים ומסננים גוללות לצדדים במקום להישבר */
   @media (max-width:640px){
@@ -7194,6 +7253,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <!-- פירור הלחם של המסך (renderScreenCrumb): "דף הבית › עבודה יומית › נכסים".
            מוסתר בדף הבית -->
       <nav class="ui-scope screen-crumb" id="screenCrumb" aria-label="מיקום" hidden></nav>
+      <!-- לשוניות של מסך מאוחד (renderScreenTabs): לידים / חנות, לקוחות / התאמות... -->
+      <div class="ui-scope ui-tabs screen-tabs" id="screenTabs" role="tablist" aria-label="לשוניות המסך" hidden></div>
       <div class="view-switch" id="viewSwitch" role="group" aria-label="מעבר בין תצוגת סוכן/ת לתצוגת מנהל/ת" hidden>
         <button type="button" data-view="agent" aria-pressed="true">תצוגת סוכן/ת</button>
         <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
@@ -8915,8 +8976,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">פגישות עם לקוחות, סיורים בנכסים ומשימות - עם תזכורת בפעמון ובוואטסאפ בזמן שקבעת. אפשר לקבוע גם דרך גבריאלה בוואטסאפ ("תזכירי לי מחר ב-10 להתקשר לרונית"), וזה יופיע כאן.</p>
+        <p class="ui-hint ag-hint"><span>פגישות, סיורים ומשימות, עם תזכורת בפעמון ובוואטסאפ.</span><span>אפשר לקבוע גם דרך גבריאלה בוואטסאפ, וזה יופיע כאן.</span></p>
         <p class="acc-sub" id="agTierNote" hidden></p>
+
+        <!-- פס ההתקדמות של היום (3.20, agendaProgress): טבעת "בוצעו מתוך",
+             כמה נשארו, ו"להעביר את כל האיחורים למחר" -->
+        <section class="ui-scope ag-progress" id="agProgress" aria-label="ההתקדמות של היום" hidden>
+          <span class="ag-ring" id="agRing" role="img"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" class="ag-ring-bg"></circle><circle cx="18" cy="18" r="15.5" class="ag-ring-fg" id="agRingFg"></circle></svg><b id="agRingText"></b></span>
+          <span class="ag-progress-text"><strong id="agProgressTitle"></strong><span id="agProgressSub"></span></span>
+          <button type="button" class="ag-move-late" id="agMoveLate" hidden></button>
+        </section>
 
 
         <div class="view-switch ag-tabs" id="agTabs" role="group" aria-label="מה להציג ביומן">
@@ -9009,11 +9078,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </form>
         </details>
 
-        <p class="form-subheading">משימות אוטומטיות</p>
-        <p class="rm-note">המערכת פותחת לך משימה כשקורה משהו שדורש המשך. כולן דלוקות כברירת מחדל, וכל אחת ניתנת לכיבוי.</p>
-        <div id="agAutoList" class="notif-prefs"></div>
-        <button type="button" class="btn btn-ghost btn-block" id="agAutoSave">שמירת המשימות האוטומטיות</button>
-        <div id="agAutoFeedback" class="ag-feedback"></div>
+        <!-- משימות אוטומטיות - מקופל בתחתית, עם "X מתוך Y פעילות" (3.20) -->
+        <details class="ag-auto">
+          <summary><span class="ag-auto-t">משימות אוטומטיות</span><span class="ag-auto-n" id="agAutoSummary"></span></summary>
+          <p class="rm-note">המערכת פותחת לך משימה כשקורה משהו שדורש המשך. כולן דלוקות כברירת מחדל, וכל אחת ניתנת לכיבוי.</p>
+          <div id="agAutoList" class="notif-prefs"></div>
+          <button type="button" class="btn btn-ghost btn-block" id="agAutoSave">שמירת המשימות האוטומטיות</button>
+          <div id="agAutoFeedback" class="ag-feedback"></div>
+        </details>
       </div>
     </details>
 
@@ -9024,9 +9096,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">הזמנת שירותי תיווך בכתב - קניה, מכירה, שכירות ובלעדיות. הפרטים שכבר במערכת נכנסים למסמך לבד, והחתימה אפשרית בשתי דרכים: הלקוח/ה חותם/ת על המכשיר שלך במעמד הפגישה, או מקבל/ת קישור אישי במייל או בוואטסאפ וחותם/ת מהטלפון. כשכל הצדדים חתמו, העותק החתום נשלח לכולם במייל.</p>
-
-        <button class="btn btn-gold btn-block" id="newAgreementBtn" style="margin-bottom:12px">+ הסכם חדש</button>
+        <!-- הסכמים (3.19): "הסכם חדש" ככפתור, ארבעה אריחים-מסננים, ומה שדורש
+             פעולה ממך למעלה (renderAgreements) -->
+        <div class="ui-scope agr-top">
+          <div class="agr-top-row">
+            <p class="ui-hint"><span>הזמנת שירותי תיווך בכתב - קניה, מכירה, שכירות ובלעדיות.</span><span>הפרטים שכבר במערכת נכנסים למסמך לבד.</span></p>
+            <button class="ui-btn" id="newAgreementBtn">+ הסכם חדש</button>
+          </div>
+          <details class="agr-how">
+            <summary>שתי דרכים להחתים</summary>
+            <p>הלקוח/ה חותם/ת על המכשיר שלך במעמד הפגישה, או מקבל/ת קישור אישי במייל או בוואטסאפ וחותם/ת מהטלפון. כשכל הצדדים חתמו, העותק החתום נשלח לכולם במייל.</p>
+          </details>
+          <div class="agr-tiles" id="agrTiles" role="group" aria-label="סינון לפי מצב"></div>
+        </div>
 
         <div class="list-toolbar">
           <input type="search" id="agrSearch" class="filter-input"
@@ -9035,6 +9117,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <select id="agrStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
               <option value="">כל הסטטוסים</option>
               <option value="draft">טיוטה</option>
+              <option value="awaiting">ממתינים לחתימה</option>
               <option value="sent">נשלח לחתימה</option>
               <option value="viewed">נצפה</option>
               <option value="signed">נחתם</option>

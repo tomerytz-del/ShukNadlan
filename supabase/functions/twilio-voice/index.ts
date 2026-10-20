@@ -1094,10 +1094,15 @@ function corsJson(body: unknown, status = 200): Response {
 }
 
 /**
- * מחיקת שיחות - ההקלטה מהדלי והשורה מ-agent_calls. מהכפתור ב-CRM (‏JWT:
- * רק שיחות של הסוכן/ת עצמו/ה), או בקריאה פנימית (‏service_role / סוד ה-cron)
- * לניקוי חד-פעמי, כמו שיחות הניסיון של הפיילוט. ההקלטה נמחקת דרך ה-Storage
- * API ולא ב-SQL, כי מחיקת שורה מ-storage.objects משאירה את הקובץ יתום.
+ * מחיקת שיחות - ההקלטה מהדלי והשורה מ-agent_calls. מהכפתור ב-CRM (‏JWT), או
+ * בקריאה פנימית (‏service_role / סוד ה-cron) לניקוי חד-פעמי, כמו שיחות
+ * הניסיון של הפיילוט. ההקלטה נמחקת דרך ה-Storage API ולא ב-SQL, כי מחיקת
+ * שורה מ-storage.objects משאירה את הקובץ יתום.
+ *
+ * ‏**מ-CRM - רק מנהל/ת המשרד** (החלטה של תומר, 20.10.2026; docs/call-tracking.md):
+ * ‏role = 'manager', ורק שיחות של סוכני אותו משרד. סוכן/ת מקבל/ת 403
+ * ‏not_manager - הכפתור מוסתר בדפדפן, וזו הבדיקה שבאמת חוסמת. סוכן/ת שהשיחה
+ * שלו/ה נמחקה בידי מנהל/ת אחר/ת מקבל/ת התראה (call_deleted_by_manager).
  */
 async function deleteCalls(req: Request): Promise<Response> {
   const body = await req.json().catch(() => ({}));
@@ -1105,7 +1110,8 @@ async function deleteCalls(req: Request): Promise<Response> {
     .map((x: unknown) => String(x)).filter((x: string) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 200);
   if (!ids.length) return corsJson({ error: "no_ids" }, 400);
 
-  let q = supabase.from("agent_calls").select("id, recording_path").in("id", ids);
+  const q = supabase.from("agent_calls").select("id, recording_path, agent_id, from_number, created_at").in("id", ids);
+  let manager: { id: string; agency_id: string } | null = null;
   if (!authorizeInternalCaller(req).ok) {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
     const { data: userData } = token ? await supabase.auth.getUser(token) : { data: null };
@@ -1114,12 +1120,23 @@ async function deleteCalls(req: Request): Promise<Response> {
     const mfa = await mfaGate(token);
     if (mfa) return corsJson({ error: mfa.error }, mfa.status);
     const { data: me } = await supabase.from("agency_members")
-      .select("id").eq("user_id", uid).eq("active", true).maybeSingle();
+      .select("id, role, agency_id").eq("user_id", uid).eq("active", true).maybeSingle();
     if (!me) return corsJson({ error: "forbidden" }, 403);
-    q = q.eq("agent_id", me.id);
+    if (me.role !== "manager" || !me.agency_id) return corsJson({ error: "not_manager" }, 403);
+    manager = { id: me.id, agency_id: me.agency_id };
   }
-  const { data: rows, error } = await q;
+  const { data: all, error } = await q;
   if (error) return corsJson({ error: error.message }, 500);
+  let rows = all || [];
+  if (manager) {
+    // רק שיחות של סוכני המשרד שלי
+    const agentIds = [...new Set(rows.map((r) => r.agent_id).filter(Boolean))];
+    const { data: members } = agentIds.length
+      ? await supabase.from("agency_members").select("id").in("id", agentIds).eq("agency_id", manager.agency_id)
+      : { data: [] };
+    const mine = new Set((members || []).map((m) => m.id));
+    rows = rows.filter((r) => mine.has(r.agent_id));
+  }
   const paths = (rows || []).map((r) => r.recording_path).filter(Boolean) as string[];
   if (paths.length) {
     const { error: rmErr } = await supabase.storage.from(BUCKET).remove(paths);
@@ -1129,6 +1146,23 @@ async function deleteCalls(req: Request): Promise<Response> {
   if (found.length) {
     const { error: delErr } = await supabase.from("agent_calls").delete().in("id", found);
     if (delErr) return corsJson({ error: delErr.message }, 500);
+  }
+  // הסוכן/ת שהשיחה שלו/ה נמחקה יודע/ת על זה. בלי מזהה פריט - השיחה כבר איננה
+  if (manager) {
+    const notes = rows.filter((r) => r.agent_id && r.agent_id !== manager!.id).map((r) => {
+      const when = new Date(r.created_at).toLocaleString("he-IL",
+        { timeZone: "Asia/Jerusalem", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+      const from = String(r.from_number || "").replace(/^\+972/, "0") || "מספר חסוי";
+      return {
+        agent_id: r.agent_id, type: "call_deleted_by_manager",
+        title: "מנהל/ת המשרד מחק/ה שיחה",
+        body: `השיחה מ-${from} (${when}) נמחקה מהמספר שלך, יחד עם ההקלטה והתמלול.`,
+      };
+    });
+    if (notes.length) {
+      const { error: nErr } = await supabase.from("notifications").insert(notes);
+      if (nErr) console.error("call delete notify:", nErr.message);
+    }
   }
   return corsJson({ deleted: found.length, recordings: paths.length });
 }
