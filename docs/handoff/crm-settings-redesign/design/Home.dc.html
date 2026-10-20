@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>דף הבית</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}
+button,input{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+.hm-tile:hover{border-color:#B8C2D9!important}
+.hm-row:hover{background:#F8F9FC}
+@media (max-width: 640px){
+  .hm-page{padding:16px 12px 40px!important}
+  .hm-h1{font-size:26px!important}
+  .hm-mentor{padding:16px!important;min-height:0!important}
+  .hm-mentor-cut{display:none!important}
+  .hm-mentor-face{display:block!important}
+  .hm-wait{display:flex!important;overflow-x:auto!important;flex-wrap:nowrap!important}
+  .hm-wait>a{flex:0 0 150px!important}
+  .hm-two{grid-template-columns:1fr!important}
+  .hm-kpis{grid-template-columns:1fr!important}
+  .hm-qa{flex-wrap:nowrap!important;overflow-x:auto!important}
+  .hm-card{padding:16px!important}
+  .hm-btxt{display:none}
+  .hm-callbtn{padding:0!important;width:44px}
+}
+</style>
+</helmet>
+<div class="hm-page" dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 32px 28px 56px; box-sizing: border-box">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+
+<div aria-label="התיק שלי בקצרה" style="position: sticky; top: 0; z-index: 5; align-self: center; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.92); border: 1px solid #E3E7EF; border-radius: 999px; padding: 6px 16px; font-size: 14px; color: #5A6478; box-shadow: 0 4px 14px rgba(14,26,51,0.06)">
+<a href="#kpiT" style="text-decoration: none; color: #5A6478"><strong style="color: #0E1A33; font-size: 15px">₪1.6 מ׳</strong> עמלות</a><span aria-hidden="true">·</span>
+<a href="Properties.dc.html" style="text-decoration: none; color: #5A6478"><strong style="color: #0E1A33; font-size: 15px">67</strong> נכסים</a><span aria-hidden="true">·</span>
+<a href="Clients.dc.html" style="text-decoration: none; color: #5A6478"><strong style="color: #0E1A33; font-size: 15px">25</strong> לקוחות</a>
+<span style="font-size: 11px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 8px">נדבק בגלילה</span>
+</div>
+
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 20px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 class="hm-h1" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 34px; font-weight: 700; line-height: 1.15">ערב טוב, תומר</h1>
+<p style="margin: 0; font-size: 16px; color: #3A4458">3 לידים ו-4 משימות באיחור מחכים לך. עוד שיחה אחת ונסגור.</p>
+</div>
+<span style="font-size: 14px; color: #5A6478">יום שלישי, 20.10</span>
+</header>
+
+<section class="hm-mentor" aria-labelledby="mentorT" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #0E1A33 0%, #1C3A5E 100%); border: 1px solid #B8862B; border-radius: 24px; padding: 22px 24px 20px; padding-left: 230px; display: flex; flex-direction: column; gap: 14px; min-height: 230px; box-sizing: border-box">
+<img class="hm-mentor-cut" src="assets/mentor-cutout.webp" alt="" width="216" height="272" style="position: absolute; left: 10px; bottom: 0; width: 216px; height: auto; pointer-events: none">
+<div style="display: flex; align-items: center; gap: 12px">
+<button type="button" class="hm-mentor-face" aria-label="פתיחת המנטור - הצעדים של היום" aria-haspopup="dialog" style="display: none; width: 48px; height: 48px; border-radius: 50%; padding: 0; border: 2px solid #E0B84A; background: #1C3A5E; overflow: hidden; flex: none; cursor: pointer"><img src="assets/mentor-avatar.webp" alt="" width="48" height="48" style="width: 100%; height: 100%; object-fit: cover"></button>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="display: inline-flex; align-items: center; gap: 8px"><h2 id="mentorT" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 26px; font-weight: 700; color: #FFFFFF">המנטור שלך</h2><span style="font-size: 11px; font-weight: 800; color: #0E1A33; background: #E0B84A; border-radius: 999px; padding: 2px 9px">זמין עכשיו</span></span>
+<span style="font-size: 14px; color: #C9D2E6">ניסיון של שנים בתיווך, תמיד ליד היד. שאלה מקצועית, תסריט שיחה או החלטה על מחיר.</span>
+</div>
+</div>
+<form onSubmit="{{noop}}" style="display: flex; align-items: center; gap: 10px">
+<label style="flex: 1; min-width: 0; position: relative">
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">שאלה למנטור</span>
+<input type="text" placeholder="{{mentorPh}}" style="width: 100%; box-sizing: border-box; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 1px solid #3A5482; background: rgba(255,255,255,0.08); color: #FFFFFF; font-size: 16px">
+</label>
+<button type="submit" aria-label="שליחה למנטור" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: #E0B84A; color: #0E1A33; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button>
+</form>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #E0B84A">הצעדים שהמנטור ממליץ להיום:</span>
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="3">
+<button type="button" onClick="{{st.toggle}}" aria-pressed="{{st.doneStr}}" style="{{st.style}}"><span style="{{st.box}}">{{st.mark}}</span>{{st.label}}</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-labelledby="waitT" style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="waitT" style="margin: 0; font-size: 19px; font-weight: 800">מחכה לך עכשיו</h2>
+<span style="font-size: 13px; color: #5A6478">כתום = דורש פעולה ממך</span>
+</div>
+<div class="hm-wait" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px">
+<sc-for list="{{waiting}}" as="w" hint-placeholder-count="5">
+<a href="{{w.href}}" class="hm-tile" style="{{w.style}}">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 6px"><span style="{{w.icoStyle}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{w.icon}}"></path></svg></span><span style="{{w.numStyle}}">{{w.n}}</span></span>
+<span style="font-size: 15px; font-weight: 700; line-height: 1.3">{{w.label}}</span>
+<span style="font-size: 12px; color: #5A6478; line-height: 1.4">{{w.hint}}</span>
+</a>
+</sc-for>
+</div>
+</section>
+
+<div class="hm-two" style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start">
+
+<section class="hm-card" aria-labelledby="leadsT" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+<h2 id="leadsT" style="margin: 0; flex: 1; font-size: 19px; font-weight: 800">לחזור אליהם קודם</h2>
+<a href="Leads.dc.html" style="font-size: 14px; font-weight: 700; text-decoration: none">לכל הלידים ›</a>
+</div>
+<sc-for list="{{leads}}" as="l" hint-placeholder-count="3">
+<div class="hm-row" style="display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 14px; border-top: 1px solid #F1F3F8">
+<span style="{{l.rankStyle}}">{{l.rank}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px"><strong style="font-size: 15px">{{l.name}}</strong><span style="{{l.srcStyle}}">{{l.src}}</span></span>
+<span style="font-size: 13px; color: #3A4458; line-height: 1.4">{{l.what}}</span>
+<span style="{{l.whyStyle}}">{{l.why}}</span>
+</span>
+<a href="#" aria-label="{{l.callLabel}}" class="hm-callbtn" style="min-width: 44px; height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 12px; background: #1F5BF0; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 6px; flex: none; text-decoration: none; font-size: 14px; font-weight: 700"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg><span class="hm-btxt">התקשרות</span></a>
+<a href="#" aria-label="{{l.waLabel}}" style="width: 44px; height: 44px; border-radius: 12px; background: #E6F4EC; color: #166534; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></a>
+</div>
+</sc-for>
+</section>
+
+<section class="hm-card" aria-labelledby="dayT" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+<h2 id="dayT" style="margin: 0; flex: 1; font-size: 19px; font-weight: 800">היום שלי</h2>
+<span style="font-size: 13px; color: #5A6478">8 להיום · 4 באיחור</span>
+<a href="Agenda.dc.html" style="font-size: 14px; font-weight: 700; text-decoration: none">ליומן ›</a>
+</div>
+<sc-for list="{{day}}" as="d" hint-placeholder-count="4">
+<div style="display: flex; gap: 12px; align-items: flex-start; padding: 10px 4px; border-top: 1px solid #F1F3F8">
+<span style="{{d.timeStyle}}">{{d.time}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px"><span style="{{d.titleStyle}}">{{d.title}}</span><sc-if value="{{d.late}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 800; color: #9A3412; background: #FDE7D9; border-radius: 999px; padding: 1px 8px">באיחור</span></sc-if><sc-if value="{{d.next}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 8px">הבא בתור</span></sc-if></span>
+<span style="font-size: 13px; color: #5A6478">{{d.where}}</span>
+</span>
+<button type="button" onClick="{{d.toggle}}" aria-pressed="{{d.doneStr}}" aria-label="{{d.doneLabel}}" style="{{d.checkStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></button>
+</div>
+</sc-for>
+<a href="Agenda.dc.html" style="font-size: 13px; color: #5A6478; text-decoration: none; padding: 6px 4px 0">ועוד 4 פריטים ביומן ›</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 16px">
+<button type="button" style="min-height: 40px; padding: 0 4px; border: 0; background: none; color: #1F5BF0; font-size: 14px; font-weight: 700; cursor: pointer">+ פגישה או משימה</button>
+<button type="button" style="min-height: 40px; padding: 0 4px; border: 0; background: none; color: #3A4458; font-size: 14px; font-weight: 600; cursor: pointer">העברת 4 הבאיחור למחר</button>
+</div>
+</section>
+</div>
+
+<div class="hm-two" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start">
+<section class="hm-card" aria-labelledby="pipeT" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 8px">
+<h2 id="pipeT" style="margin: 0; flex: 1; font-size: 19px; font-weight: 800">איפה הלקוחות שלי</h2>
+<a href="Leads.dc.html" style="font-size: 14px; font-weight: 700; text-decoration: none">ללידים ›</a>
+</div>
+<ol aria-label="שלבי הטיפול" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px">
+<sc-for list="{{pipe}}" as="p" hint-placeholder-count="4">
+<li style="{{p.style}}"><span style="font-family: Frank Ruhl Libre, serif; font-size: 28px; font-weight: 700; line-height: 1">{{p.n}}</span><span style="font-size: 13px; font-weight: 600">{{p.label}}</span><span aria-hidden="true" style="{{p.bar}}"></span></li>
+</sc-for>
+</ol>
+<p style="margin: 0; font-size: 13px; color: #3A4458; line-height: 1.5; background: #FFF8F3; border-radius: 12px; padding: 10px 12px"><strong>5 לידים עדיין בשלב "חדש".</strong><br>שיחה ראשונה מעבירה אותם ל"בקשר" ומשפרת את הסיכוי לסגירה.</p>
+</section>
+<section class="hm-card" aria-labelledby="mypT" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+<h2 id="mypT" style="margin: 0; flex: 1; font-size: 19px; font-weight: 800">הנכסים שלי</h2>
+<a href="Properties.dc.html" style="font-size: 14px; font-weight: 700; text-decoration: none">לכל הנכסים ›</a>
+</div>
+<sc-for list="{{myProps}}" as="mp" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid #F1F3F8">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700; line-height: 1.35">{{mp.title}}</span><span style="font-size: 13px; color: #5A6478">{{mp.stats}}</span></span>
+<sc-if value="{{mp.isTag}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 3px 10px; flex: none">{{mp.tag}}</span></sc-if>
+<sc-if value="{{mp.isAct}}" hint-placeholder-val="{{ true }}"><button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 13px; font-weight: 700; cursor: pointer; flex: none">{{mp.act}}</button></sc-if>
+</div>
+</sc-for>
+</section>
+</div>
+
+<section aria-labelledby="qaT" style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="qaT" style="margin: 0; font-size: 19px; font-weight: 800">פעולות מהירות</h2>
+<span style="display: flex; gap: 12px; align-items: baseline"><span style="font-size: 13px; color: #5A6478">לפי מה שהכי שימושי לך</span><a href="#" style="font-size: 13px; font-weight: 700; text-decoration: none">התאמה אישית</a></span>
+</div>
+<div class="hm-qa" style="display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 2px">
+<sc-for list="{{qa}}" as="a" hint-placeholder-count="6">
+<button type="button" style="flex: none; min-height: 50px; padding: 0 14px 0 16px; border-radius: 14px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; white-space: nowrap"><span style="width: 32px; height: 32px; border-radius: 10px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{a.icon}}"></path></svg></span>{{a.label}}</button>
+</sc-for>
+</div>
+<a href="Wallet.dc.html" style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 14px; padding: 12px 16px; text-decoration: none; color: #0E1A33; font-size: 14px"><span>בארנק <strong>₪61</strong></span><span aria-hidden="true" style="color: #B8C2D9">·</span><span><span style="color: #5A6478">לידי קונה/שוכר:</span> <strong>ללא הגבלה במסלול</strong></span><span style="margin-right: auto; font-weight: 700; color: #1F5BF0">טעינה</span></a>
+</section>
+
+<section aria-labelledby="kpiT" style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="kpiT" style="margin: 0; font-size: 19px; font-weight: 800">התיק שלי</h2>
+<a href="#" style="font-size: 13px; font-weight: 700; text-decoration: none">לדשבורד המלא ›</a>
+</div>
+<div class="hm-kpis" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="3">
+<article class="hm-card" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="{{k.icoStyle}}"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{k.icon}}"></path></svg></span>
+<h3 style="margin: 0; flex: 1; font-size: 15px; font-weight: 700; color: #3A4458">{{k.title}}</h3>
+<button type="button" onClick="{{k.toggleInfo}}" aria-expanded="{{k.infoStr}}" aria-label="{{k.infoLabel}}" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid #D5DBE6; background: #FFFFFF; color: #5A6478; font-size: 13px; font-weight: 700; cursor: pointer">i</button>
+</div>
+<div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
+<span style="font-family: 'Frank Ruhl Libre', serif; font-size: 40px; font-weight: 700; line-height: 1">{{k.value}}</span>
+<span style="font-size: 13px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 2px 10px">{{k.delta}}</span>
+</div>
+<sc-if value="{{k.infoOpen}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 13px; color: #3A4458; line-height: 1.5; background: #F8F9FC; border-radius: 10px; padding: 8px 10px">{{k.info}}</p></sc-if>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px"><span style="{{k.barA}}"></span><span style="{{k.barB}}"></span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #3A4458"><span>{{k.a}}</span><span>{{k.b}}</span></div>
+</div>
+<div style="{{k.tipStyle}}">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0"><strong style="font-size: 14px">{{k.tip1}}</strong><span style="font-size: 13px; color: #3A4458">{{k.tip2}}</span></span>
+<button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: #0E1A33; color: #FFFFFF; font-size: 13px; font-weight: 700; cursor: pointer; flex: none">{{k.cta}}</button>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { steps: {}, done: {}, info: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const I = {
+      leads: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      cal: 'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18',
+      sign: 'M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z',
+      target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+      store: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
+      wa: 'M7.9 20A9 9 0 1 0 4 16.1L2 22Z',
+      chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
+      up: 'M12 19V5M5 12l7-7 7 7',
+      props: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6',
+      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      deals: 'M9 3 3 6v15l6-3 6 3 6-3V3l-6 3zM9 3v15M15 6v15'
+    };
+    const steps = [['s1', 'לחזור ל[שם] · ליד מבעל נכס'], ['s2', 'להציע בלעדיות על [רחוב]'], ['s3', 'לשלוח 21 התאמות']].map(([id, label]) => {
+      const done = !!s.steps[id];
+      return { label, doneStr: done ? 'true' : 'false', mark: done ? '✓' : '',
+        toggle: () => this.setState({ steps: Object.assign({}, s.steps, { [id]: !done }) }),
+        box: 'width: 18px; height: 18px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex: none; ' + (done ? 'background: #E0B84A; color: #0E1A33' : 'border: 1.5px solid #6B7A99'),
+        style: 'min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #3A5482; background: rgba(255,255,255,0.06); color: ' + (done ? '#8A97B3; text-decoration: line-through' : '#FFFFFF') + '; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer' };
+    });
+    const W = [
+      ['3', 'לידים חדשים', 'הוותיק מחכה 6 שעות', 'Leads.dc.html', I.leads, 'hot'],
+      ['4', 'משימות באיחור', 'ועוד 4 ביומן להיום', 'Agenda.dc.html', I.cal, 'hot'],
+      ['2', 'הסכמים לשליחה', 'נוצרו ולא נשלחו', 'Agreements.dc.html', I.sign, 'warn'],
+      ['60', 'התאמות חדשות', 'ל-21 לקוחות', 'Matches.dc.html', I.target, 'calm'],
+      ['1', 'ליד בחנות', 'מתאים לאזור שלך', 'LeadStore.dc.html', I.store, 'calm']
+    ];
+    const waiting = W.map(([n, label, hint, href, icon, tone]) => ({ n, label, hint, href, icon,
+      style: 'text-decoration: none; color: #0E1A33; background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; box-sizing: border-box; border: ' + (tone === 'hot' ? '1.5px solid #F3B48E; background: #FFF8F3' : '1px solid #E3E7EF'),
+      icoStyle: 'width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; ' + (tone === 'hot' ? 'background: #FDE7D9; color: #9A3412' : tone === 'warn' ? 'background: #FFF1C7; color: #7A5300' : 'background: #EAF0FF; color: #1F5BF0'),
+      numStyle: 'font-family: Frank Ruhl Libre, serif; font-size: 28px; font-weight: 700; line-height: 1; color: ' + (tone === 'hot' ? '#C2410C' : '#0E1A33') }));
+    const rankC = ['#C2410C', '#B8862B', '#1C3A5E'];
+    const leads = [
+      ['[שם הפונה]', 'בקשת הדמיה', 'חנות, מרכז העיר, ירושלים 27 · 50 מ״ר', 'תומר יצחק · לפני 6 שעות · עוד לא חזרת', true],
+      ['[שם הפונה]', 'בקשת הדמיה', 'משרד, אזור תעשייה א, שד׳ מנחם בגין 80', 'עמית · לפני 6 ימים · עוד לא חזרת', true],
+      ['[שם הפונה]', 'בקשת הדמיה', 'משרד, אזור תעשייה א, יצחק רבין 1 · 100 מ״ר', 'עמית · לפני 6 ימים', false]
+    ].map(([name, src, what, why, hot], i) => ({ name, src, what, why, rank: i + 1, callLabel: 'חיוג אל ' + name, waLabel: 'וואטסאפ אל ' + name,
+      rankStyle: 'width: 28px; height: 28px; border-radius: 50%; background: ' + rankC[i] + '; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex: none',
+      srcStyle: 'font-size: 11px; font-weight: 700; color: #1C3A5E; background: #EEF2F8; border-radius: 999px; padding: 1px 8px',
+      whyStyle: 'font-size: 12px; font-weight: 700; color: ' + (hot ? '#9A3412' : '#5A6478') }));
+    const D = [
+      ['d1', '[שעה]', 'פגישה עם צארלי צדיק', 'דבורה הנביאה, עפולה', true],
+      ['d2', '[שעה]', 'פגישה עם עדי (הריבוע הכחול) ודודו (שומרת הזורע)', 'פגישה', true],
+      ['d3', '[שעה]', 'סיור עם מיכאל (מסעדה)', 'שד׳ מנחם בגין 70, עפולה', true],
+      ['d4', '[שעה]', 'לצלם את המשרד של פודי אצל זוהר הספרית', 'משימה', true]
+    ];
+    let nextSet = false;
+    const day = D.map(([id, time, title, where, late]) => {
+      const done = !!s.done[id];
+      const next = !done && !late && !nextSet; if (next) nextSet = true;
+      return { time, title, where, late: late && !done, next, doneStr: done ? 'true' : 'false', doneLabel: (done ? 'בוטל סימון: ' : 'סימון כבוצע: ') + title,
+        toggle: () => this.setState({ done: Object.assign({}, s.done, { [id]: !done }) }),
+        timeStyle: 'width: 48px; flex: none; padding-top: 1px; font-size: 14px; font-weight: 700; color: ' + (late && !done ? '#9A3412' : next ? '#1846C2' : '#5A6478'),
+        titleStyle: 'font-size: 15px; font-weight: 700; ' + (done ? 'color: #8A97B3; text-decoration: line-through' : ''),
+        checkStyle: 'width: 36px; height: 36px; border-radius: 10px; flex: none; cursor: pointer; display: flex; align-items: center; justify-content: center; ' + (done ? 'border: 0; background: #166534; color: #FFFFFF' : 'border: 1.5px solid #D5DBE6; background: #FFFFFF; color: transparent') };
+    });
+    const qa = [['החתמת לקוח', I.sign], ['דוח CMA לבעלים', I.chart], ['שליחת נכס בוואטסאפ', I.wa], ['מידע תכנוני', I.deals], ['קביעת פגישה או סיור', I.cal], ['הקפצת נכס', I.up]].map(([label, icon]) => ({ label, icon }));
+    const K = [
+      { id: 'k1', title: 'עמלות פוטנציאליות', icon: I.chart, tone: '#1C3A5E', soft: '#EEF2F8', value: '₪1.6 מ׳', delta: '+₪265 א׳ החודש', a: 'מכירה ₪857 א׳', b: 'השכרה ₪734 א׳', pa: 54,
+        info: 'סכום העמלות הצפוי מכל הנכסים הפעילים, לפי אחוז העמלה שהוגדר בכל הסכם.', tip1: 'העמלה הגבוהה בתיק: ₪230 א׳', tip2: 'מגרש, חרוד 1 · 2,300 מ״ר', cta: 'לנכס', tipBg: '#F1F4FA' },
+      { id: 'k2', title: 'נכסים פעילים', icon: I.props, tone: '#7A5300', soft: '#FFF1C7', value: '67', delta: '+7 החודש', a: 'מכירה 20', b: 'השכרה 47', pa: 30,
+        info: 'נכסים שמפורסמים כרגע באתר. נכסים בארכיון לא נספרים.', tip1: 'רק 1 מתוך 67 בבלעדיות', tip2: 'בלעדיות מגדילה את סיכויי הסגירה', cta: 'להחתים', tipBg: '#FFF8E6' },
+      { id: 'k3', title: 'לקוחות מחפשים', icon: I.users, tone: '#166534', soft: '#E6F4EC', value: '25', delta: '+35 החודש', a: 'עם נכס מתאים 21', b: 'בלי התאמה 4', pa: 84,
+        info: 'לקוחות פעילים עם דרישה פתוחה. "עם נכס מתאים" = יש להם לפחות התאמה אחת.', tip1: '21 לקוחות מחכים להצעה', tip2: 'יש להם נכס מתאים שעוד לא נשלח', cta: 'לשלוח', tipBg: '#EEF8F2' }
+    ];
+    const kpis = K.map(k => ({ ...k,
+      infoOpen: s.info === k.id, infoStr: s.info === k.id ? 'true' : 'false', infoLabel: 'הסבר על ' + k.title,
+      toggleInfo: () => this.setState({ info: s.info === k.id ? null : k.id }),
+      icoStyle: 'width: 38px; height: 38px; border-radius: 12px; background: ' + k.soft + '; color: ' + k.tone + '; display: flex; align-items: center; justify-content: center; flex: none',
+      barA: 'width: ' + k.pa + '%; background: ' + k.tone + '; border-radius: 999px',
+      barB: 'flex: 1; background: ' + k.soft + '; border-radius: 999px',
+      tipStyle: 'display: flex; align-items: center; gap: 10px; background: ' + k.tipBg + '; border-radius: 14px; padding: 12px 14px' }));
+    const pipe = [['5', 'חדש', true], ['0', 'בקשר', false], ['0', 'פגישה / סיור', false], ['0', 'נסגר', false]].map(([n, label, on]) => ({ n, label,
+      style: 'display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 14px; text-align: center; ' + (on ? 'background: #EAF0FF; color: #1846C2' : 'background: #F4F6FA; color: #5A6478'),
+      bar: 'width: 70%; height: 6px; border-radius: 999px; background: ' + (on ? '#1F5BF0' : '#DDE2EB') }));
+    const myProps = [
+      ['למכירה ברחוב העלייה · דירת 4 חדרים מעלית ומרפסת', '233 צפיות · 0 פניות', 'מוביל', ''],
+      ['משרדים בעפולה', 'חסרות תמונות', '', 'להוספת תמונות'],
+      ['משרד, יהושע חנקין 1 · 180 מ״ר', '0 צפיות · 0 פניות', '', 'לקידום']
+    ].map(([title, stats, tag, act]) => ({ title, stats, tag, act, isTag: !!tag, isAct: !!act }));
+    return { pipe, myProps, steps, waiting, leads, day, qa, kpis, mentorPh: 'שאלו את המנטור: איך מקצרים זמן תגובה ללידים?', noop: (e) => { if (e && e.preventDefault) e.preventDefault(); } };
+  }
+}
+</script>
+</body>
+</html>

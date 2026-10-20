@@ -73,6 +73,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 </sc-if>
 </section>
 
+<sc-if value="{{notMine}}" hint-placeholder-val="{{ false }}">
+<a href="Partners.dc.html" style="text-decoration: none; color: #0E1A33; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-height: 56px">
+<span style="width: 36px; height: 36px; border-radius: 10px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">עם מי אני משתף/ת</span><span style="font-size: 13px; color: #5A6478">32 מתוך 32 משרדים באזור · אפשר להוסיף ולהסיר</span></span>
+<span style="font-size: 14px; font-weight: 700; color: #1F5BF0">ניהול</span>
+</a>
+</sc-if>
 <span style="font-size: 13px; color: #5A6478; padding: 0 4px">{{countText}}</span>
 
 <div style="display: flex; flex-direction: column; gap: 8px">
@@ -168,7 +175,7 @@ class Component extends DCLogic {
       };
     });
     const tab = (on) => 'display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 10px 16px; border-radius: 16px; cursor: pointer; text-align: right; ' + (on ? 'border: 0; background: #0E1A33; color: #FFFFFF' : 'border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33');
-    const owners = [['mine', 'הנכסים שלי', '67 מפורסמים · 2 בארכיון'], ['shared', 'ששותפו איתי', '80 נכסים ממשרדים אחרים']].map(([id, label, sub]) => ({ label, sub, sel: s.owner === id ? 'true' : 'false', style: tab(s.owner === id), pick: () => this.setState({ owner: id, smart: null, open: null }) }));
+    const owners = [['mine', 'הנכסים שלי', '67 מפורסמים · 2 בארכיון'], ['shared', 'שיתופים', '80 נכסים שקיבלת · משתף/ת עם 32 משרדים']].map(([id, label, sub]) => ({ label, sub, sel: s.owner === id ? 'true' : 'false', style: tab(s.owner === id), pick: () => this.setState({ owner: id, smart: null, open: null }) }));
     const chip = (on) => 'display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; white-space: nowrap; ' + (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600');
     const smart = [['today', 'עלו היום', '1', false], ['stale', '14+ ימים בשוק', '3', true], ['nophoto', 'בלי תמונות', '[N]', true], ['excl', 'בלעדיות מסתיימת', '[N]', true], ['archive', 'בארכיון', '2', false]].map(([id, label, count, warn]) => ({
       label, count, pressed: s.smart === id ? 'true' : 'false', style: chip(s.smart === id), toggle: () => this.setState({ smart: s.smart === id ? null : id, open: null }),
@@ -183,7 +190,7 @@ class Component extends DCLogic {
     ];
     const ranges = [['מחיר (₪)', 'מחיר מ-', 'מחיר עד'], ['שטח (מ"ר)', 'שטח מ-', 'שטח עד'], ['מחיר למ"ר (₪)', 'מחיר למ"ר מ-', 'מחיר למ"ר עד']].map(([label, fromLabel, toLabel]) => ({ label, fromLabel, toLabel }));
     return {
-      owners, smart, selects, ranges, props, mine: isMine,
+      owners, smart, selects, ranges, props, mine: isMine, notMine: !isMine,
       adv: s.adv, advStr: s.adv ? 'true' : 'false', toggleAdv: () => this.setState({ adv: !s.adv }),
       advStyle: 'min-height: 46px; padding: 0 14px; border-radius: 12px; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex: none; ' + (s.adv ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33'),
       countText: 'מוצגים ' + props.length + ' מתוך ' + (isMine ? '69' : '80') + (isMine ? ' · מחירים ₪2,000 לחודש - ₪12 מיליון' : '')

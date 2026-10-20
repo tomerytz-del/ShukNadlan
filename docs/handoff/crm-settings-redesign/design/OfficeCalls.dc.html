@@ -22,11 +22,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 
 <header style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between">
 <div style="display: flex; flex-direction: column; gap: 6px">
-<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">ניהול המשרד ›</a>
-<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">שיחות המשרד</h1>
-<p style="margin: 0; font-size: 15px; color: #5A6478">30 הימים האחרונים. ההקלטות והתמלולים פתוחים לך כמנהל/ת המשרד, והסוכנים יודעים על כך.</p>
+<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">צמיחה ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">שיחות ומספרים</h1>
+<p style="margin: 0; font-size: 15px; color: #5A6478">30 הימים האחרונים. כמנהל/ת המשרד את/ה רואה את שיחות כל הסוכנים, והם יודעים על כך.</p>
 </div>
 </header>
+<nav aria-label="שיחות ומספרים" style="display: inline-flex; align-self: flex-start; background: #E9ECF2; border-radius: 12px; padding: 4px; gap: 2px">
+<a href="OfficeCalls.dc.html" aria-current="page" style="min-height: 38px; padding: 0 16px; border-radius: 9px; font-size: 14px; font-weight: 700; color: #0E1A33; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.12); text-decoration: none; display: inline-flex; align-items: center">השיחות</a>
+<a href="Numbers.dc.html" style="min-height: 38px; padding: 0 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: #5A6478; text-decoration: none; display: inline-flex; align-items: center">המספרים</a>
+</nav>
 
 <section aria-label="סיכום" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
 <div style="background: #0E1A33; color: #FFFFFF; border-radius: 18px; padding: 18px 20px; display: flex; align-items: center; gap: 14px">
@@ -124,6 +128,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 <sc-if value="{{c.trOpen}}" hint-placeholder-val="{{ false }}">
 <div style="border-top: 1px solid #EEF1F6; padding-top: 10px; font-size: 14px; color: #3A4458; line-height: 1.7">[התמלול המלא של השיחה, מחולק לפי דובר]</div>
 </sc-if>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; border-top: 1px solid #EEF1F6; padding-top: 8px">
+<button type="button" title="הסתרה מהרשימה, בלי למחוק" style="min-height: 40px; padding: 0 6px; border: 0; background: none; font-size: 13px; font-weight: 600; color: #3A4458; cursor: pointer">ארכוב</button>
+<sc-if value="{{c.canDelete}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{c.askDelete}}" aria-expanded="{{c.delOpenStr}}" style="min-height: 40px; padding: 0 6px; border: 0; background: none; font-size: 13px; font-weight: 600; color: #9A3412; cursor: pointer">מחיקת השיחה וההקלטה</button>
+</sc-if>
+<sc-if value="{{c.cantDelete}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #5A6478">מחיקה אפשרית רק למנהל/ת המשרד</span>
+</sc-if>
+</div>
+<sc-if value="{{c.delOpen}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-label="אישור מחיקה" style="background: #FFF8F3; border: 1px solid #F3D3BE; border-radius: 12px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="flex: 1 1 260px; font-size: 14px; line-height: 1.5"><strong>למחוק את השיחה, ההקלטה והתמלול?</strong><br>אי אפשר לשחזר. הסוכן/ת יקבל/תקבל הודעה שהשיחה נמחקה.</span>
+<button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: #9A3412; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">מחיקה</button>
+<button type="button" onClick="{{c.askDelete}}" style="min-height: 40px; padding: 0 10px; border: 0; background: none; color: #3A4458; font-size: 14px; font-weight: 600; cursor: pointer">ביטול</button>
+</div>
+</sc-if>
 </article>
 </sc-for>
 </div>
@@ -186,7 +206,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1900}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1900},"isAdmin":{"type":"boolean","default":true,"label":"מנהל/ת משרד"}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -202,6 +222,7 @@ class Component extends DCLogic {
   }
   renderVals() {
     const s = this.state;
+    const isAdmin = (this.props || {}).isAdmin !== false;
     const calls = [
       { id: 'c1', day: 'יום שלישי, 7.10', name: 'חן חמו', initials: 'ח״ח', phone: '058-747-1362', time: '11:21', dur: 'דקה', agent: 'תומר יצחק', source: 'שלט ליד המשטרה', sign: true, ok: true,
         summary: 'מחפשת דירה לקנייה בעפולה: 4 חדרים, מרפסת, קומה גבוהה, תקציב 1,100,000-1,500,000 ₪. תומר יציג לה כמה דירות מתאימות בוואטסאפ ויתאם סיור.',
@@ -230,6 +251,8 @@ class Component extends DCLogic {
         nextStyle: 'display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 6px 10px; ' + (c.tone === 'warn' ? 'color: #7A5300; background: #FFF1C7' : 'color: #166534; background: #E6F4EC'),
         playing, paused: !playing, playLabel: (playing ? 'השהיית ההקלטה של ' : 'השמעת ההקלטה של ') + c.name,
         togglePlay: () => this.setState({ playing: playing ? null : c.id }),
+        canDelete: isAdmin, cantDelete: !isAdmin, delOpen: isAdmin && s.del === c.id, delOpenStr: s.del === c.id ? 'true' : 'false',
+        askDelete: () => this.setState({ del: s.del === c.id ? null : c.id }),
         wave: this.wave(c.id.charCodeAt(1), playing ? 0.35 : 0),
         trOpen: s.tr === c.id, trOpenStr: s.tr === c.id ? 'true' : 'false',
         toggleTr: () => this.setState({ tr: s.tr === c.id ? null : c.id })
