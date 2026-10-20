@@ -132,6 +132,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){.pro-id h1{font-size:52px}}
   .id-sub{margin:0;font-size:17px;color:var(--ink-soft);line-height:1.5}
   .id-sub .sub-head{font-style:italic;color:var(--ink)}
+  /* המפריד רק כשיש משני צדיו - גם כשהשרת מילא את השורה לפני ה-JS */
+  .id-sub .sub-name:empty + .sub-sep,.id-sub .sub-sep:has(+ .sub-head:empty){display:none}
 
   /* כפתורי הקשר: וואטסאפ ירוק, חיוג כחול בהיר, והשיתוף כאייקון */
   .contact-row{display:flex;gap:10px;flex-wrap:wrap}
@@ -362,7 +364,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="id-text">
         <div class="id-pills" id="profilePills"></div>
         <h1 id="profileName">-</h1>
-        <p class="id-sub" id="profileSub" hidden></p>
+        <!-- שלושת ה-id כאן ממולאים גם בשרת (‏og-tags.ts, professionalMeta) -->
+        <p class="id-sub" id="profileSub" hidden><span class="sub-name" id="profilePerson"></span><span class="sub-sep" aria-hidden="true"> · </span><span class="sub-head" id="profileHeadline" dir="auto"></span></p>
       </div>
       <div class="contact-row" id="contactRow"></div>
       <ul class="facts" id="profileFacts" hidden></ul>
@@ -529,13 +532,9 @@ function renderHeader(p){
   el('profileName').textContent = title;
   // שורת המשנה: שם האדם (רק אם הכותרת היא שם העסק) ומשפט הפתיחה
   const person = name && name !== title ? name : '';
-  const parts = [];
-  if (person) parts.push(`<span class="sub-name">${escapeHtml(person)}</span>`);
-  if (p.headline) parts.push(`<span class="sub-head" dir="auto">${escapeHtml(p.headline)}</span>`);
-  if (parts.length){
-    el('profileSub').innerHTML = parts.join('<span class="sub-sep" aria-hidden="true"> · </span>');
-    el('profileSub').hidden = false;
-  }
+  el('profilePerson').textContent = person;
+  el('profileHeadline').textContent = p.headline || '';
+  el('profileSub').hidden = !person && !p.headline;
 
   renderFacts(p);
 }

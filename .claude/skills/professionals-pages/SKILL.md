@@ -22,6 +22,10 @@ description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - 
 | האייקון | `PATHS` | `PATHS` |
 | הסדר | `TYPE_ORDER` (ומתוכו `TILE_TYPES`) | `TILE_TYPES` |
 
+**ועותק שלישי של `TYPE_LABELS` יושב ב-`netlify/edge-functions/og-tags.ts`**
+(‏`professionalMeta`), שבונה בשרת את הכותרת, ה-JSON-LD ואת תוכן הפרופיל
+לסורק.
+
 ובנוסף, מחוץ לשני הדפים: ה-check במסד, `VALID_TYPES` בשתי פונקציות הקצה,
 וה-`<option>` ב-`professional-signup.html` - שהוא גם מה ש-`?type=` נבדק מולו
 (‏`docs/professional-cards.md`, ראש המסמך). ‏`general` ("אחר") **אינו אריח**.
@@ -45,6 +49,16 @@ description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - 
 6. **שאילתת supabase-js יוצאת רק ב-`then`.** "עוד בעלי מקצוע" עטופה
    ב-`Promise.resolve(...)` כדי לצאת במקביל לפרופיל, וכשל בה לא נוגע בפרופיל.
 
+## הפרופיל מתמלא גם בשרת
+
+‏`og-tags.ts` ממלא לפי id את `profileName` (שם העסק, או שם האדם),
+‏`profilePerson`, ‏`profileHeadline` ו-`profileDescription`, ומסיר `hidden`
+מ-`profileSub` ומ-`aboutBlock`. **שינוי במבנה או ב-id האלה ב-`professional.html`
+מחייב את אותו שינוי ב-`professionalMeta` וב-`scripts/og_tags_test.ts`** -
+אחרת הסורק רואה עמוד אחר מהגולש, וה-CI נכשל על המקרה "בעל/ת מקצוע".
+המילוי הוא regex על `<tag id="…">טקסט</tag>`: האלמנט חייב להיות ריק או
+טקסט בלבד, בלי תגיות בתוכו.
+
 ## לפני דחיפה
 
 ```sh
@@ -52,6 +66,7 @@ python scripts/check_long_dash.py
 python scripts/check_events.py
 python scripts/check_escapers.py
 python scripts/check_canonical.py
+node --experimental-strip-types scripts/og_tags_test.ts
 grep -nE "/ת|/ה|/ית" professionals.html professional.html   # רק הערות ובאנר הפוטר המשותף
 ```
 
