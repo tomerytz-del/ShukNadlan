@@ -248,6 +248,8 @@ or (open_house_start is not null and open_house_end is not null
 `docs/gtm-open-house-import.json`, ו-`check_gtm_container.py` אדום עד
 שהם מיובאים, הגרסה מתפרסמת והמכולה מיוצאת מחדש - אותו מחזור של
 `contact_professional` (‏`gtm/README.md`).
+**נסגר ב-20.10.2026 בגרסה 13** - 24 תגיות ו-22 טריגרים, והייצוא שב-
+`gtm/container.json` הוא שלה.
 
 **"רגע, איפה הקאץ׳?" - FAQPage סטטי.** הנוסח ב-JSON-LD ובשלושת ה-
 `<details>` חייב להיות זהה. שני דברים לדעת: גוגל מציגה כיום תוצאה מועשרת
