@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>צוותים וסוכנים</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="margin: 0 -20px"]{margin:0 -12px!important}[style*="padding: 24px 28px"]{padding:20px 16px!important}[style*="padding: 20px 24px"]{padding:18px 16px!important}[style*="padding: 16px 28px"],[style*="padding: 18px 28px"],[style*="padding: 14px 28px"]{padding:14px 16px!important}[style*="padding: 20px 28px"]{padding:16px!important}[style*="padding: 0 28px"]{padding:0 16px!important}[style*="padding: 4px 28px 24px"]{padding:4px 16px 20px!important}[style*="margin: 0 28px"]{margin:0 16px!important}[style*="minmax(190px"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">ניהול המשרד ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">צוותים וסוכנים</h1>
+<p style="margin: 0; font-size: 16px; color: #5A6478">{{memberCount}} סוכנים · {{teamCount}}</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" onClick="{{openForm}}" style="min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>צוות חדש</button>
+<button type="button" style="min-height: 48px; padding: 0 18px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>הזמנת סוכן/ת למשרד</button>
+</div>
+</header>
+
+<section aria-labelledby="tTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="tTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">הצוותים במשרד</h2>
+<span style="font-size: 14px; color: #5A6478">משרד עם כמה סוכנים יכול לחלק אותם לצוותים, למשל צוות מגורים וצוות מסחרי, ולמנות לכל צוות מנהל/ת. מנהל/ת הצוות רואה את הביצועים והלידים של הצוות, בלי מספרי הטלפון של הלקוחות. במשרד קטן אפשר לוותר על צוותים - הכל ממשיך לעבוד גם בלעדיהם.</span>
+</div>
+</div>
+
+<sc-if value="{{noTeams}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{formClosed}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{openForm}}" style="min-height: 88px; border-radius: 16px; border: 2px dashed #C5CCD9; background: #F8F9FC; color: #1F5BF0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer">
+<span style="font-size: 16px; font-weight: 700">יצירת הצוות הראשון</span>
+<span style="font-size: 13px; color: #5A6478">שם, מנהל/ת וסוכנים - פחות מדקה</span>
+</button>
+</sc-if>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px">
+<sc-for list="{{teams}}" as="t" hint-placeholder-count="1">
+<article style="border: 1px solid #E3E7EF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 18px; font-weight: 700">{{t.name}}</h3>
+<span style="font-size: 12px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 3px 10px">{{t.count}}</span>
+</div>
+<sc-if value="{{t.hasLead}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="color: #B8862B; display: flex"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zM5 20h14"></path></svg></span><span>מנהל/ת: <strong>{{t.lead}}</strong></span></div>
+</sc-if>
+<sc-if value="{{t.noLead}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 13px; font-weight: 700; color: #7A5300; background: #FFF1C7; border-radius: 10px; padding: 8px 10px">אין מנהל/ת לצוות</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{t.members}}" as="m" hint-placeholder-count="2">
+<span style="font-size: 13px; background: #F1F3F8; border-radius: 999px; padding: 4px 10px">{{m}}</span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; border-top: 1px solid #EEF1F6; padding-top: 10px">
+<button type="button" onClick="{{t.edit}}" style="min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #0E1A33; cursor: pointer">עריכה</button>
+<a href="#" style="min-height: 40px; display: inline-flex; align-items: center; padding: 0 8px; font-size: 14px; font-weight: 600; text-decoration: none">דאשבורד הצוות</a>
+<button type="button" onClick="{{t.remove}}" style="margin-right: auto; min-height: 40px; padding: 0 8px; border: 0; background: none; font-size: 14px; font-weight: 600; color: #9A3412; cursor: pointer">פירוק הצוות</button>
+</div>
+</article>
+</sc-for>
+</div>
+
+<sc-if value="{{formOpen}}" hint-placeholder-val="{{ true }}">
+<div style="border: 2px solid #1F5BF0; border-radius: 16px; padding: 20px; background: #FAFBFE; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h3 style="margin: 0; font-size: 18px; font-weight: 700">{{formTitle}}</h3>
+<button type="button" aria-label="סגירה" onClick="{{closeForm}}" style="width: 40px; height: 40px; border-radius: 10px; border: 0; background: #F1F3F8; color: #3A4458; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tName" style="font-size: 14px; font-weight: 700">שם הצוות</label>
+<input id="tName" type="text" value="{{fName}}" onChange="{{onName}}" placeholder="למשל: צוות מגורים, צוות מסחרי, צוות עפולה עילית" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 16px; color: #0E1A33">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tLead" style="font-size: 14px; font-weight: 700">מנהל/ת הצוות</label>
+<select id="tLead" value="{{fLead}}" onChange="{{onLead}}" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 16px; color: #0E1A33">
+<option value="">בלי מנהל/ת בינתיים</option>
+<sc-for list="{{people}}" as="p" hint-placeholder-count="2"><option value="{{p.id}}">{{p.name}}</option></sc-for>
+</select>
+<span style="font-size: 12px; color: #5A6478">מנהל/ת צוות אחד לכל צוות. מקבל/ת את דאשבורד הצוות ואת מאמן מנהלי הצוותים.</span>
+</div>
+</div>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 8px">סוכנים בצוות</legend>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{pick}}" as="p" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{p.pressed}}" onClick="{{p.toggle}}" style="{{p.style}}">
+<span style="{{p.avatar}}">{{p.initials}}</span>
+<span style="display: flex; flex-direction: column; text-align: right"><span style="font-size: 14px; font-weight: 700">{{p.name}}</span><span style="font-size: 12px; color: #5A6478">{{p.note}}</span></span>
+</button>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #5A6478">סוכן/ת יכול/ה להיות בצוות אחד בלבד. מי שכבר בצוות אחר יעבור לצוות הזה.</span>
+</fieldset>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{saveTeam}}" style="{{saveTeamStyle}}">{{saveTeamLabel}}</button>
+<button type="button" onClick="{{closeForm}}" style="min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; cursor: pointer">ביטול</button>
+</div>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="mTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<h2 id="mTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">הסוכנים במשרד</h2>
+<span style="font-size: 13px; color: #5A6478">[מדד א] · [מדד ב] · [מדד ג] - 30 יום</span>
+</div>
+
+<sc-for list="{{members}}" as="m" hint-placeholder-count="2">
+<article style="border: 1px solid #E3E7EF; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start">
+<span style="width: 52px; height: 52px; border-radius: 50%; background: #1C3A5E; color: #FFFFFF; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none">{{m.initials}}</span>
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<h3 style="margin: 0; font-size: 18px; font-weight: 700">{{m.name}}</h3>
+<sc-if value="{{m.isMe}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #5A6478">(את/ה)</span></sc-if>
+<span style="font-size: 12px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 2px 8px">פעיל</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{m.roles}}" as="r" hint-placeholder-count="2"><span style="{{r.style}}">{{r.label}}</span></sc-for>
+<span style="font-size: 12px; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 3px 10px">מסלול Elite</span>
+<span style="font-size: 12px; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 3px 10px">רישיון {{m.license}}</span>
+<span dir="ltr" style="font-size: 12px; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 3px 10px">{{m.phone}}</span>
+</div>
+</div>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{m.stats}}" as="s" hint-placeholder-count="3">
+<span style="min-width: 52px; text-align: center; background: #F6F7FA; border-radius: 10px; padding: 6px 8px; font-family: 'Frank Ruhl Libre', serif; font-size: 20px; font-weight: 700">{{s}}</span>
+</sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; background: #F8F9FC; border-radius: 12px; padding: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="{{m.selId}}" style="font-size: 12px; font-weight: 700; color: #5A6478">צוות</label>
+<select id="{{m.selId}}" value="{{m.teamVal}}" onChange="{{m.onTeam}}" style="min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 15px; color: #0E1A33">
+<option value="">בלי צוות</option>
+<sc-for list="{{teamOptions}}" as="o" hint-placeholder-count="1"><option value="{{o.id}}">{{o.name}}</option></sc-for>
+</select>
+</div>
+<sc-if value="{{m.isManager}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">גם סוכן/ת פעיל/ה</span><span style="font-size: 12px; color: #5A6478; line-height: 1.4">מקבל/ת לידים ברוטציה, נספר/ת בממוצע המשרד ומופיע/ה במדריך הסוכנים</span></span>
+<button type="button" aria-pressed="{{activeStr}}" aria-label="גם סוכן/ת פעיל/ה" onClick="{{toggleActive}}" style="{{trackStyle}}"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.3)"></span></button>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{m.notManager}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8862B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zM5 20h14"></path></svg>מינוי למנהל/ת משרד</button>
+<sc-if value="{{m.canLead}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{m.makeLead}}" style="min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; cursor: pointer">{{m.leadLabel}}</button></sc-if>
+<button type="button" style="min-height: 44px; padding: 0 10px; border: 0; background: none; color: #1F5BF0; font-size: 14px; font-weight: 600; cursor: pointer">עדכון הנייד</button>
+<button type="button" style="margin-right: auto; min-height: 44px; padding: 0 10px; border: 0; background: none; color: #9A3412; font-size: 14px; font-weight: 600; cursor: pointer">השעיה וניתוק מהמשרד</button>
+</div>
+</sc-if>
+</article>
+</sc-for>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: #5A6478; border-top: 1px solid #EEF1F6; padding-top: 12px">
+<span><strong style="color: #0E1A33">מנהל/ת משרד</strong> - רואה את כל המשרד ומנהל/ת צוותים וסוכנים</span>
+<span><strong style="color: #0E1A33">מנהל/ת צוות</strong> - רואה מדדים ולידים של הצוות, בלי טלפונים</span>
+<span><strong style="color: #0E1A33">סוכן/ת</strong> - רואה רק את שלו/ה</span>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.people = [
+      { id: 'tomer', name: 'תומר יצחק', initials: 'ת״י', license: '3134355', phone: '054-692-9991', manager: true, me: true, stats: [12, 1, 54] },
+      { id: 'tal', name: 'טל אטדגי', initials: 'ט״א', license: '322960', phone: '054-802-7883', manager: false, stats: [1, 2, 9] }
+    ];
+    this.state = { teams: [], form: { open: false, editId: null, name: '', lead: '', members: [] }, active: true, seq: 1 };
+  }
+  setForm(patch) { this.setState({ form: Object.assign({}, this.state.form, patch) }); }
+  renderVals() {
+    const s = this.state;
+    const P = this.people;
+    const nameOf = (id) => (P.find((p) => p.id === id) || {}).name;
+    const teamOf = (pid) => s.teams.find((t) => t.members.includes(pid));
+    const leadOf = (pid) => s.teams.find((t) => t.lead === pid);
+    const f = s.form;
+    const saveTeam = () => {
+      if (!f.name.trim()) return;
+      let teams = s.teams.map((t) => Object.assign({}, t, { members: t.members.filter((m) => !f.members.includes(m) || t.id === f.editId) }));
+      const members = f.lead && !f.members.includes(f.lead) ? f.members.concat(f.lead) : f.members;
+      if (f.editId) teams = teams.map((t) => t.id === f.editId ? { id: t.id, name: f.name.trim(), lead: f.lead, members } : t);
+      else teams = teams.concat({ id: 't' + s.seq, name: f.name.trim(), lead: f.lead, members });
+      this.setState({ teams, seq: s.seq + 1, form: { open: false, editId: null, name: '', lead: '', members: [] } });
+    };
+    const teams = s.teams.map((t) => ({
+      name: t.name, count: t.members.length + ' סוכנים', lead: nameOf(t.lead), hasLead: !!t.lead, noLead: !t.lead,
+      members: t.members.map(nameOf),
+      edit: () => this.setState({ form: { open: true, editId: t.id, name: t.name, lead: t.lead, members: t.members.slice() } }),
+      remove: () => this.setState({ teams: s.teams.filter((x) => x.id !== t.id) })
+    }));
+    const pick = P.map((p) => {
+      const on = f.members.includes(p.id) || f.lead === p.id;
+      const other = teamOf(p.id);
+      return {
+        name: p.name, initials: p.initials, pressed: on ? 'true' : 'false',
+        note: f.lead === p.id ? 'מנהל/ת הצוות' : (other && other.id !== f.editId ? 'כרגע ב' + other.name : 'בלי צוות'),
+        toggle: () => { if (f.lead === p.id) return; this.setForm({ members: on ? f.members.filter((x) => x !== p.id) : f.members.concat(p.id) }); },
+        style: 'display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 14px 6px 8px; border-radius: 14px; cursor: pointer; color: #0E1A33; ' + (on ? 'border: 2px solid #1F5BF0; background: #EAF0FF' : 'border: 1px solid #D5DBE6; background: #FFFFFF'),
+        avatar: 'width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; ' + (on ? 'background: #1F5BF0; color: #FFFFFF' : 'background: #E3E7EF; color: #3A4458')
+      };
+    });
+    const members = P.map((p) => {
+      const t = teamOf(p.id);
+      const led = leadOf(p.id);
+      const roles = [];
+      if (p.manager) roles.push({ label: 'מנהל/ת משרד', style: 'font-size: 12px; font-weight: 700; color: #FFFFFF; background: #1C3A5E; border-radius: 999px; padding: 3px 10px' });
+      if (led) roles.push({ label: 'מנהל/ת ' + led.name, style: 'font-size: 12px; font-weight: 700; color: #7A5300; background: #FFF1C7; border-radius: 999px; padding: 3px 10px' });
+      if (!p.manager && !led) roles.push({ label: 'סוכן/ת', style: 'font-size: 12px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 3px 10px' });
+      return {
+        name: p.name, initials: p.initials, license: p.license, phone: p.phone, isMe: !!p.me, stats: p.stats, roles,
+        isManager: p.manager, notManager: !p.manager, selId: 'team-' + p.id, teamVal: t ? t.id : '',
+        canLead: !!t, leadLabel: led ? 'הסרה ממנהל/ת הצוות' : 'מינוי למנהל/ת ' + (t ? t.name : 'הצוות'),
+        makeLead: () => { if (!t) return; this.setState({ teams: s.teams.map((x) => x.id === t.id ? Object.assign({}, x, { lead: led ? '' : p.id }) : x) }); },
+        onTeam: (e) => {
+          const v = e.target.value;
+          const teams = s.teams.map((x) => {
+            const m = x.members.filter((id) => id !== p.id);
+            return Object.assign({}, x, { members: x.id === v ? m.concat(p.id) : m, lead: x.lead === p.id && x.id !== v ? '' : x.lead });
+          });
+          this.setState({ teams });
+        }
+      };
+    });
+    const ready = !!f.name.trim();
+    return {
+      memberCount: P.length,
+      teamCount: s.teams.length === 0 ? 'עוד אין צוותים' : s.teams.length + (s.teams.length === 1 ? ' צוות' : ' צוותים'),
+      noTeams: s.teams.length === 0, teams, teamOptions: s.teams.map((t) => ({ id: t.id, name: t.name })),
+      formOpen: f.open, formClosed: !f.open, formTitle: f.editId ? 'עריכת צוות' : 'צוות חדש',
+      openForm: () => this.setState({ form: { open: true, editId: null, name: '', lead: '', members: [] } }),
+      closeForm: () => this.setForm({ open: false }),
+      fName: f.name, fLead: f.lead, people: P.map((p) => ({ id: p.id, name: p.name })),
+      onName: (e) => this.setForm({ name: e.target.value }),
+      onLead: (e) => this.setForm({ lead: e.target.value }),
+      pick, members, saveTeam,
+      saveTeamLabel: f.editId ? 'שמירת השינויים' : 'יצירת הצוות',
+      saveTeamStyle: 'min-height: 48px; padding: 0 22px; border-radius: 12px; border: 0; font-size: 15px; font-weight: 700; ' + (ready ? 'background: #1F5BF0; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default'),
+      activeStr: s.active ? 'true' : 'false',
+      toggleActive: () => this.setState({ active: !s.active }),
+      trackStyle: 'width: 56px; height: 32px; flex: none; border-radius: 999px; border: 0; padding: 3px; cursor: pointer; display: flex; align-items: center; justify-content: ' + (s.active ? 'flex-end' : 'flex-start') + '; background: ' + (s.active ? '#1F5BF0' : '#C5CCD9')
+    };
+  }
+}
+</script>
+</body>
+</html>

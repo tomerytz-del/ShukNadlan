@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הזמנת מספר וירטואלי</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF}
+@media (max-width: 640px){[style*="padding: 24px 28px"]{padding:18px 16px!important}[style*="padding: 16px 28px"]{padding:12px 16px 20px!important}h2{font-size:22px!important}}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+input::placeholder{color:#7A8499}
+</style>
+</helmet>
+<div dir="rtl" role="dialog" aria-labelledby="dlgTitle" style="width: 100%; min-height: 1240px; box-sizing: border-box; background: #FFFFFF; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; display: flex; flex-direction: column">
+
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 28px 20px; border-bottom: 1px solid #EEF1F6">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="dlgTitle" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 26px; font-weight: 700">מספר וירטואלי חדש</h2>
+<p style="margin: 0; font-size: 15px; color: #5A6478; line-height: 1.5">מספר קווי ישראלי שמנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ.</p>
+</div>
+<button type="button" aria-label="סגירה" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #F1F3F8; color: #3A4458; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+
+<div style="flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="nick" style="font-size: 15px; font-weight: 700">כינוי למספר</label>
+<input id="nick" type="text" placeholder="למשל: שלט - האורנים 13" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<span style="font-size: 13px; color: #5A6478">הכינוי פנימי בלבד ומופיע בסיכום של כל שיחה.</span>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="font-size: 15px; font-weight: 700; padding: 0; margin-bottom: 10px">איפה המספר מפורסם</legend>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{places}}" as="p" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}" style="{{p.style}}">
+<span style="{{p.dotStyle}}"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: right"><span style="font-size: 15px; font-weight: 700">{{p.label}}</span><span style="font-size: 12px; color: #5A6478; font-weight: 500">{{p.hint}}</span></span>
+</button>
+</sc-for>
+</div>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="prop" style="font-size: 15px; font-weight: 700">קשור לנכס <span style="font-weight: 500; color: #5A6478">(לא חובה)</span></label>
+<select id="prop" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 16px; color: #0E1A33"><option>בלי נכס - מספר כללי למשרד</option><option>[בחירת נכס מהרשימה]</option></select>
+<span style="font-size: 13px; color: #5A6478">כשהמספר קשור לנכס, כל שיחה נרשמת גם בכרטיס הנכס.</span>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 15px; font-weight: 700; padding: 0; margin-bottom: 10px">לאן להעביר את השיחות</legend>
+<button type="button" aria-pressed="{{fwdMineStr}}" onClick="{{pickMine}}" style="{{fwdMineStyle}}">
+<span style="{{fwdMineDot}}"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: right"><span style="font-size: 15px; font-weight: 700">לנייד שלי</span><span dir="ltr" style="font-size: 13px; color: #5A6478; text-align: right">[מספר הנייד שבפרופיל]</span></span>
+</button>
+<button type="button" aria-pressed="{{fwdOtherStr}}" onClick="{{pickOther}}" style="{{fwdOtherStyle}}">
+<span style="{{fwdOtherDot}}"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: right"><span style="font-size: 15px; font-weight: 700">למספר אחר</span><span style="font-size: 13px; color: #5A6478">מזכירות, שותף או קו המשרד</span></span>
+</button>
+<sc-if value="{{fwdOther}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding-right: 36px">
+<label for="fwdNum" style="font-size: 13px; font-weight: 600; color: #5A6478">מספר להעברה</label>
+<input id="fwdNum" type="tel" dir="ltr" placeholder="05X-XXXXXXX" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; text-align: right">
+</div>
+</sc-if>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="prefix" style="font-size: 15px; font-weight: 700">קידומת</label>
+<select id="prefix" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 16px; color: #0E1A33"><option>04 - צפון</option></select>
+</div>
+
+<div style="border: 1px solid #E3E7EF; border-radius: 14px; overflow: hidden">
+<button type="button" aria-expanded="{{portOpenStr}}" onClick="{{togglePort}}" style="width: 100%; min-height: 52px; padding: 0 16px; border: 0; background: #F8F9FC; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; color: #0E1A33; font-size: 15px; font-weight: 600">
+<span>יש לך כבר מספר מפורסם על שלט או במודעה?</span>
+<span style="{{chevStyle}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
+</button>
+<sc-if value="{{portOpen}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #EEF1F6">
+<label for="oldNum" style="font-size: 13px; font-weight: 600; color: #5A6478">המספר הקיים</label>
+<input id="oldNum" type="tel" dir="ltr" placeholder="0X-XXXXXXX" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; text-align: right">
+<span style="font-size: 13px; color: #5A6478">נסביר איך להפנות אותו למספר החדש, בלי להחליף שלט.</span>
+</div>
+</sc-if>
+</div>
+
+<div style="border-radius: 16px; background: #0E1A33; color: #FFFFFF; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<span style="font-size: 15px; color: #B8C2D9">חיוב חודשי מהארנק</span>
+<span><strong style="font-family: 'Frank Ruhl Libre', serif; font-size: 34px">₪89</strong><span style="font-size: 14px; color: #B8C2D9"> לחודש</span></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 17px">150 דקות</strong><span style="font-size: 12px; color: #B8C2D9">כלולות בחודש</span></div>
+<div style="background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 17px">₪0.5</strong><span style="font-size: 12px; color: #B8C2D9">לכל דקה נוספת</span></div>
+<div style="background: rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px"><strong style="font-size: 17px">ביטול בכל עת</strong><span style="font-size: 12px; color: #B8C2D9">מתחדש אוטומטית</span></div>
+</div>
+<sc-if value="{{walletLow}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #FDE7D9; color: #9A3412; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600">
+<span>בארנק ₪61. חסרים ₪28 לחודש הראשון.</span>
+<a href="#" style="color: #9A3412; font-weight: 700; white-space: nowrap">טעינת הארנק</a>
+</div>
+</sc-if>
+<sc-if value="{{walletOk}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px; background: rgba(143,224,176,0.14); color: #8FE0B0; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+<span>היתרה בארנק מכסה את החודש הראשון</span>
+</div>
+</sc-if>
+<span style="font-size: 12px; color: #B8C2D9; line-height: 1.5">אם המסלול יורד מ-Elite, נשאר מספר אחד לבחירתך ב-₪89 לחודש והשאר משתחררים.</span>
+</div>
+</div>
+
+<div style="display: flex; gap: 10px; padding: 16px 28px 24px; border-top: 1px solid #EEF1F6">
+<button type="button" style="{{ctaStyle}}">{{ctaLabel}}</button>
+<button type="button" style="min-height: 52px; padding: 0 22px; border-radius: 14px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 16px; font-weight: 600; cursor: pointer">ביטול</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"walletLow":{"editor":"boolean","default":true,"section":"מצב הדגמה"},"$preview":{"width":560,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { place: 'sign', fwd: 'mine', port: false };
+  }
+  card(on) {
+    return 'display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; border-radius: 14px; cursor: pointer; color: #0E1A33; width: 100%; ' +
+      (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF' : 'border: 1px solid #D5DBE6; background: #FFFFFF');
+  }
+  dot(on) {
+    return 'width: 20px; height: 20px; border-radius: 50%; flex: none; box-sizing: border-box; ' +
+      (on ? 'border: 6px solid #1F5BF0; background: #FFFFFF' : 'border: 2px solid #A7B0C2; background: #FFFFFF');
+  }
+  renderVals() {
+    const s = this.state;
+    const defs = [['sign', 'שלט', 'על נכס או במשרד'], ['ad', 'מודעה', 'יד2, פייסבוק, עיתון'], ['campaign', 'קמפיין', 'ממומן בגוגל או במטא'], ['other', 'אחר', 'כרטיס ביקור, פלייר']];
+    const places = defs.map(([id, label, hint]) => {
+      const on = s.place === id;
+      return { label, hint, pressed: on ? 'true' : 'false', style: this.card(on), dotStyle: this.dot(on), pick: () => this.setState({ place: id }) };
+    });
+    const mine = s.fwd === 'mine';
+    const low = this.props.walletLow ?? true;
+    return {
+      places,
+      fwdMineStr: mine ? 'true' : 'false', fwdOtherStr: mine ? 'false' : 'true',
+      fwdMineStyle: this.card(mine), fwdOtherStyle: this.card(!mine),
+      fwdMineDot: this.dot(mine), fwdOtherDot: this.dot(!mine),
+      fwdOther: !mine,
+      pickMine: () => this.setState({ fwd: 'mine' }),
+      pickOther: () => this.setState({ fwd: 'other' }),
+      portOpen: s.port, portOpenStr: s.port ? 'true' : 'false',
+      togglePort: () => this.setState({ port: !s.port }),
+      chevStyle: 'display: flex; color: #5A6478; transform: rotate(' + (s.port ? '180' : '0') + 'deg)',
+      walletLow: low, walletOk: !low,
+      ctaLabel: low ? 'טעינה והזמנת המספר' : 'הזמנת המספר · ₪89 לחודש',
+      ctaStyle: 'flex: 1; min-height: 52px; border-radius: 14px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 16px; font-weight: 700; cursor: pointer'
+    };
+  }
+}
+</script>
+</body>
+</html>

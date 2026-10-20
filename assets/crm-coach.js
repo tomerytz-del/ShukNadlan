@@ -52,10 +52,13 @@ const coachRerender = {};
 function coachRepaint(kind){
   if (coachRerender[kind]) coachRerender[kind]();
   coachLayerRender();
+  // הצעדים בכרטיס הגיבור בדף הבית (crm-home.js)
+  if (kind === 'agent' && typeof homeMentorSteps === 'function') homeMentorSteps();
 }
 function coachRepaintAll(){
   Object.values(coachRerender).forEach(fn => fn && fn());
   coachLayerRender();
+  if (typeof homeMentorSteps === 'function') homeMentorSteps();
 }
 /* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };

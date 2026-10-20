@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>יומן ומשימות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button{font-family:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="padding: 20px 24px"]{padding:16px 12px!important}h1{font-size:28px!important}.time-col{width:52px!important}[style*="padding-right: 116px"]{padding-right:0!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">עבודה יומית ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">יומן ומשימות</h1>
+<p style="margin: 0; font-size: 14px; color: #5A6478">טיפ: אפשר לקבוע גם דרך גבריאלה בוואטסאפ - "תזכירי לי מחר ב-10 להתקשר לרונית".</p>
+</div>
+<button type="button" style="min-height: 52px; padding: 0 22px; border-radius: 14px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>פגישה או משימה</button>
+</header>
+
+<section aria-label="התקדמות היום" style="background: #0E1A33; color: #FFFFFF; border-radius: 20px; padding: 18px 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px">
+<div style="position: relative; width: 60px; height: 60px; flex: none">
+<svg role="img" aria-label="{{ringLabel}}" width="60" height="60" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"></circle><circle cx="18" cy="18" r="15.5" fill="none" stroke="#8FE0B0" stroke-width="4" stroke-linecap="round" stroke-dasharray="{{dash}}" transform="rotate(-90 18 18)"></circle></svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">{{doneN}}/8</span>
+</div>
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 700">{{headline}}</span>
+<span style="font-size: 13px; color: #B8C2D9">{{subline}}</span>
+</div>
+<sc-if value="{{hasLate}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{moveLate}}" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 700; cursor: pointer">להעביר את כל האיחורים למחר</button>
+</sc-if>
+</section>
+
+<div role="tablist" aria-label="תצוגה" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+</sc-for>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 0"><span style="{{g.labelStyle}}">{{g.label}}</span><span style="flex: 1; height: 1px; background: #E3E7EF"></span></div>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+<article style="{{it.card}}">
+<div style="display: flex; gap: 12px; align-items: flex-start">
+<button type="button" aria-pressed="{{it.doneStr}}" aria-label="{{it.doneLabel}}" onClick="{{it.toggleDone}}" style="{{it.check}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></button>
+<div class="time-col" style="width: 64px; flex: none; display: flex; flex-direction: column; gap: 2px; padding-top: 2px">
+<span style="{{it.timeStyle}}">{{it.time}}</span>
+<span style="font-size: 11px; color: #5A6478">{{it.day}}</span>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<span style="{{it.kindStyle}}">{{it.kind}}</span>
+<sc-if value="{{it.auto}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 2px 8px">אוטומטית</span></sc-if>
+<sc-if value="{{it.late}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: #9A3412; background: #FDE7D9; border-radius: 999px; padding: 2px 8px">באיחור</span></sc-if>
+</div>
+<h3 style="{{it.titleStyle}}">{{it.title}}</h3>
+<sc-if value="{{it.hasPlace}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #5A6478">{{it.place}}</span></sc-if>
+<sc-if value="{{it.hasNote}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 13px; color: #3A4458; line-height: 1.55; background: #F8F9FC; border-radius: 10px; padding: 8px 10px">{{it.note}}</p></sc-if>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px">
+<sc-for list="{{it.syncs}}" as="sy" hint-placeholder-count="2"><span style="font-size: 11px; color: #5A6478; border: 1px solid #E3E7EF; border-radius: 999px; padding: 2px 8px">{{sy}}</span></sc-for>
+<sc-if value="{{it.hasLink}}" hint-placeholder-val="{{ false }}"><a href="#" style="font-size: 13px; font-weight: 700; margin-right: 4px">{{it.link}}</a></sc-if>
+</div>
+</div>
+</div>
+<sc-if value="{{it.notDone}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px; padding-right: 116px">
+<button type="button" onClick="{{it.snooze}}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 13px; font-weight: 600; color: #0E1A33; cursor: pointer">עוד שעה</button>
+<button type="button" onClick="{{it.snooze}}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 13px; font-weight: 600; color: #0E1A33; cursor: pointer">למחר</button>
+<button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: transparent; font-size: 13px; font-weight: 600; color: #1F5BF0; cursor: pointer">עריכה</button>
+<button type="button" style="min-height: 36px; padding: 0 8px; border: 0; background: transparent; font-size: 13px; font-weight: 600; color: #9A3412; cursor: pointer">ביטול</button>
+</div>
+</sc-if>
+</article>
+</sc-for>
+</section>
+</sc-for>
+
+<button type="button" style="min-height: 56px; border-radius: 14px; border: 2px dashed #C5CCD9; background: #FFFFFF; color: #1F5BF0; font-size: 15px; font-weight: 700; cursor: pointer">+ פגישה, תזכורת או משימה</button>
+
+<section aria-labelledby="gcalTitle" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #E6F4EC; color: #166534; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path><path d="m9 16 2 2 4-4"></path></svg></span>
+<span style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px"><span id="gcalTitle" style="font-size: 16px; font-weight: 700">יומן Google</span><span style="font-size: 13px; color: #5A6478"><span dir="ltr">tomerytz@gmail.com</span> · סונכרן היום 10:01</span></span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 4px 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #16A34A"></span>מחובר</span>
+</div>
+<span style="font-size: 13px; color: #3A4458; line-height: 1.5">פגישות, סיורים וחתימות נכנסים ליומן "שוק נדל״ן" בחשבון שלך. גבריאלה רואה רק שעות פנויות ותפוסות, בלי פרטים.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 14px; font-weight: 600; cursor: pointer">חיבור מחדש</button>
+<button type="button" style="min-height: 40px; padding: 0 8px; border: 0; background: none; color: #9A3412; font-size: 14px; font-weight: 600; cursor: pointer">ניתוק היומן</button>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; overflow: hidden">
+<button type="button" aria-expanded="{{autoOpenStr}}" onClick="{{toggleAuto}}" style="width: 100%; min-height: 64px; padding: 0 20px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #0E1A33; text-align: right">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">משימות אוטומטיות</span><span style="font-size: 13px; color: #5A6478">{{autoSummary}}</span></span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{autoChev}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{autoOpen}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 20px 12px; border-top: 1px solid #EEF1F6">
+<p style="margin: 12px 0 4px; font-size: 13px; color: #5A6478">המערכת פותחת לך משימה כשקורה משהו שדורש המשך.</p>
+<sc-for list="{{autos}}" as="a" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #F1F3F8">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">{{a.title}}</span><span style="font-size: 13px; color: #5A6478; line-height: 1.45">{{a.desc}}</span></span>
+<button type="button" aria-pressed="{{a.onStr}}" aria-label="{{a.title}}" onClick="{{a.toggle}}" style="{{a.track}}"><span style="width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.3)"></span></button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'today', done: [], moved: [], autoOpen: false, autoOff: [] };
+  }
+  renderVals() {
+    const s = this.state;
+    const W = 'וואטסאפ', G = 'ביומן Google', C = 'הלקוח/ה מקבל/ת תזכורת';
+    const items = [
+      { id: 1, kind: 'פגישה', title: 'פגישה עם צארלי צדיק', time: '17:00', day: 'א׳ 18.10', late: true, place: 'דבורה הנביאה, עפולה · לקוח: צארלי צדיק', syncs: [W, G, C], link: 'לכרטיס הלקוח' },
+      { id: 2, kind: 'פגישה', title: 'פגישה עם עדי (הריבוע הכחול) ודודו (שומרת הזורע)', time: '13:30', day: 'אתמול', late: true, place: '', syncs: [W, G] },
+      { id: 3, kind: 'סיור', title: 'סיור עם מיכאל (מסעדה)', time: '14:30', day: 'אתמול', late: true, place: 'שדרות מנחם בגין 70, עפולה', note: 'מחפש מקום למסעדה להשכרה במרכז העיר, קומת קרקע, מינימום 500 מ"ר. חשוב לו מקום מרובע עם אפשרות להוציא ארובה. תקציב לא נסגר.', syncs: [W, G] },
+      { id: 4, kind: 'משימה', title: 'לצלם את המשרד של פודי אצל זוהר הספרית', time: '11:00', day: 'היום', late: true, place: '', syncs: [W] },
+      { id: 5, kind: 'פגישה', title: 'פגישה ליד החנות של ששה', time: '12:00', day: 'היום', late: true, place: 'ליד החנות של ששה', syncs: [W, G] },
+      { id: 6, kind: 'פגישה', title: 'פגישה ברימקס עפולה', time: '12:30', day: 'היום', late: true, place: 'רימקס, עפולה', syncs: [W, G] },
+      { id: 7, kind: 'שיחה', title: 'לחזור לליד חדש', time: '12:47', day: 'היום', late: true, auto: true, place: 'עפולה · חנויות / שטח מסחרי · השכרה', syncs: [], link: 'לליד' },
+      { id: 8, kind: 'סיור', title: 'סיור - ניצן קרוננברג מביא לקוח, העלייה 7', time: '17:00', day: 'היום', late: false, place: 'העלייה 7, עפולה', note: 'הנכס בהעלייה 7: דירת 3 חדרים, מודעה 1139.', syncs: [W, G], link: 'לנכס' }
+    ];
+    const kindColor = { 'פגישה': 'color: #1846C2; background: #EAF0FF', 'סיור': 'color: #166534; background: #E6F4EC', 'משימה': 'color: #3A4458; background: #F1F3F8', 'שיחה': 'color: #7A5300; background: #FFF1C7' };
+    const mk = (it) => {
+      const done = s.done.includes(it.id);
+      const late = it.late && !done && !s.moved.includes(it.id);
+      return {
+        kind: it.kind, title: it.title, time: s.moved.includes(it.id) ? '09:00' : it.time, day: s.moved.includes(it.id) ? 'מחר' : it.day,
+        place: it.place, hasPlace: !!it.place, note: it.note || '', hasNote: !!it.note && !done, syncs: it.syncs, link: it.link || '', hasLink: !!it.link && !done,
+        auto: !!it.auto, late, notDone: !done,
+        doneStr: done ? 'true' : 'false', doneLabel: (done ? 'ביטול סימון: ' : 'סימון כבוצע: ') + it.title,
+        toggleDone: () => this.setState({ done: done ? s.done.filter((x) => x !== it.id) : s.done.concat(it.id) }),
+        snooze: () => this.setState({ moved: s.moved.concat(it.id) }),
+        check: 'width: 40px; height: 40px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; ' + (done ? 'border: 0; background: #16A34A; color: #FFFFFF' : 'border: 2px solid ' + (late ? '#E8A07A' : '#C5CCD9') + '; background: #FFFFFF; color: transparent'),
+        timeStyle: 'font-size: 17px; font-weight: 700; ' + (late ? 'color: #9A3412' : 'color: #0E1A33'),
+        kindStyle: 'font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; ' + kindColor[it.kind],
+        titleStyle: 'margin: 0; font-size: 16px; font-weight: 700; ' + (done ? 'text-decoration: line-through; color: #8A93A6' : ''),
+        card: 'display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 16px; background: #FFFFFF; ' + (done ? 'border: 1px solid #E3E7EF; opacity: 0.6' : late ? 'border: 1px solid #F3C9B3; box-shadow: inset -4px 0 0 #E8A07A' : 'border: 1px solid #E3E7EF')
+      };
+    };
+    const lateItems = items.filter((i) => i.late && !s.done.includes(i.id) && !s.moved.includes(i.id));
+    const rest = items.filter((i) => !lateItems.includes(i) && !s.done.includes(i.id));
+    const doneItems = items.filter((i) => s.done.includes(i.id));
+    const groups = [];
+    if (lateItems.length) groups.push({ label: 'באיחור · ' + lateItems.length, labelStyle: 'font-size: 13px; font-weight: 700; color: #9A3412', items: lateItems.map(mk) });
+    if (rest.length) groups.push({ label: 'בהמשך', labelStyle: 'font-size: 13px; font-weight: 700; color: #5A6478', items: rest.map(mk) });
+    if (doneItems.length) groups.push({ label: 'בוצע היום · ' + doneItems.length, labelStyle: 'font-size: 13px; font-weight: 700; color: #166534', items: doneItems.map(mk) });
+    const tdefs = [['today', 'היום · 8'], ['week', 'השבוע · 5'], ['open', 'כל הפתוחות · 13'], ['done', 'בוצעו']];
+    const tabs = tdefs.map(([id, label]) => ({ label, sel: s.tab === id ? 'true' : 'false', pick: () => this.setState({ tab: id }),
+      style: 'flex: none; min-height: 44px; padding: 0 16px; border-radius: 12px; font-size: 15px; cursor: pointer; white-space: nowrap; ' + (s.tab === id ? 'border: 0; background: #0E1A33; color: #FFFFFF; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600') }));
+    const n = s.done.length;
+    const autoDefs = [
+      ['lead', 'לחזור לליד חדש', 'ליד שהשתייך אליך פותח משימה מיוחדת לחזור אליו תוך שעה (בשעות העבודה).'],
+      ['signed', 'המשך טיפול אחרי חתימה', 'הסכם שכל הצדדים חתמו עליו פותח משימה למחרת בבוקר.'],
+      ['excl', 'בלעדיות שמסתיימת', 'שבוע לפני שהבלעדיות בהסכם חתום נגמרת: לחדש או לסכם עם הלקוח/ה.'],
+      ['ad', 'תוקף מודעה שנגמר', 'שבוע לפני שתוקף ההתקשרות על נכס פעיל נגמר והמודעה יורדת מהמדפים.'],
+      ['tour', 'לחזור ללקוח/ה אחרי סיור', 'לשאול איך היה הסיור: לחזור עם הצעה או לשלוח נכסים אחרים.']
+    ];
+    const autos = autoDefs.map(([id, title, desc]) => {
+      const on = !s.autoOff.includes(id);
+      return { title, desc, onStr: on ? 'true' : 'false', toggle: () => this.setState({ autoOff: on ? s.autoOff.concat(id) : s.autoOff.filter((x) => x !== id) }),
+        track: 'width: 52px; height: 30px; flex: none; border-radius: 999px; border: 0; padding: 3px; cursor: pointer; display: flex; align-items: center; justify-content: ' + (on ? 'flex-end' : 'flex-start') + '; background: ' + (on ? '#1F5BF0' : '#C5CCD9') };
+    });
+    return {
+      tabs, groups, autos, doneN: n,
+      dash: (97.4 * n / 8).toFixed(1) + ' 97.4', ringLabel: n + ' מתוך 8 הושלמו',
+      headline: n === 8 ? 'סיימת את כל היום. כל הכבוד!' : n === 0 ? 'יום עמוס: 8 פריטים' : 'עוד ' + (8 - n) + ' פריטים להיום',
+      subline: lateItems.length ? lateItems.length + ' באיחור - סמן/י מה בוצע או דחה/י' : 'אין איחורים. ממשיכים כך!',
+      hasLate: lateItems.length > 0,
+      moveLate: () => this.setState({ moved: s.moved.concat(lateItems.map((i) => i.id)) }),
+      autoOpen: s.autoOpen, autoOpenStr: s.autoOpen ? 'true' : 'false', toggleAuto: () => this.setState({ autoOpen: !s.autoOpen }),
+      autoChev: 'transform: rotate(' + (s.autoOpen ? '180' : '0') + 'deg)',
+      autoSummary: (5 - s.autoOff.length) + ' מתוך 5 פעילות'
+    };
+  }
+}
+</script>
+</body>
+</html>

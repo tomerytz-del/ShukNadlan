@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>נייד - סרגל תחתון</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+button,input{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+</style>
+</helmet>
+<div dir="rtl" style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33">
+
+<header style="height: 60px; display: flex; align-items: center; gap: 4px; padding: 0 8px; background: #FFFFFF; border-bottom: 1px solid #E3E7EF">
+<button type="button" onClick="{{openMenu}}" aria-label="תפריט, 3 ממתינים" aria-expanded="{{menuOpenStr}}" style="position: relative; width: 44px; height: 44px; border: 0; background: none; color: #0E1A33; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg><span aria-hidden="true" style="position: absolute; top: 6px; left: 4px; min-width: 17px; height: 17px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box; border: 2px solid #FFFFFF">3</span></button>
+<a href="#" aria-label="לאתר שוק הנדל״ן (נפתח בלשונית חדשה)" style="width: 34px; height: 34px; border-radius: 10px; background: #0E1A33; color: #E0B84A; display: flex; align-items: center; justify-content: center; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; text-decoration: none; flex: none">ש</a>
+<span style="flex: 1; padding-right: 6px; font-family: 'Frank Ruhl Libre', serif; font-size: 19px; font-weight: 700">{{title}}</span>
+<a href="Agent-Profile.dc.html" aria-label="הפרופיל שלי" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none"><span style="width: 34px; height: 34px; border-radius: 50%; background: #1C3A5E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">ג</span><span aria-hidden="true" style="position: absolute; bottom: 6px; left: 6px; width: 11px; height: 11px; border-radius: 50%; background: #E0B84A; border: 2px solid #FFFFFF"></span></a>
+</header>
+
+<main style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="height: 120px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E3E7EF"></div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"><div style="height: 80px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E3E7EF"></div><div style="height: 80px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E3E7EF"></div></div>
+<div style="height: 260px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E3E7EF"></div>
+</main>
+
+<sc-if value="{{anyLayer}}" hint-placeholder-val="{{ true }}">
+<div aria-hidden="true" onClick="{{close}}" style="{{backdropStyle}}"></div>
+</sc-if>
+
+<!-- יצירה -->
+<sc-if value="{{isCreate}}" hint-placeholder-val="{{ true }}">
+<section role="dialog" aria-modal="true" aria-labelledby="csTitle" style="position: absolute; right: 0; left: 0; bottom: 76px; max-height: 700px; overflow-y: auto; background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 16px 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 -10px 40px rgba(14,26,51,0.18)">
+<span aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #D3D9E4"></span>
+<h2 id="csTitle" style="margin: 0; font-size: 19px; font-weight: 800">מה ליצור?</h2>
+
+<a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; border-radius: 16px; background: #EAF0FF; text-decoration: none; color: #0E1A33">
+<span style="width: 38px; height: 38px; border-radius: 12px; background: #1F5BF0; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 800">נכס חדש</span><span style="font-size: 12px; color: #3A4458">מתאים למסך שאת/ה בו עכשיו</span></span>
+<span style="font-size: 11px; font-weight: 800; color: #1846C2; background: #FFFFFF; border-radius: 999px; padding: 2px 8px">חדש</span>
+</a>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px">
+<sc-for list="{{createItems}}" as="c" hint-placeholder-count="6">
+<button type="button" style="position: relative; min-height: 88px; border: 1px solid #E3E7EF; background: #FFFFFF; border-radius: 16px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; cursor: pointer; color: #0E1A33">
+<span style="{{c.icoStyle}}"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{c.icon}}"></path></svg></span>
+<span style="font-size: 13px; font-weight: 700; line-height: 1.25; text-align: center">{{c.label}}</span>
+<sc-if value="{{c.isNew}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></sc-if>
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; border-top: 1px solid #EEF1F6; padding-top: 6px">
+<span style="font-size: 12px; font-weight: 700; color: #5A6478; padding: 6px 4px">עוד</span>
+<sc-for list="{{moreItems}}" as="m" hint-placeholder-count="3">
+<button type="button" style="min-height: 48px; border: 0; background: none; display: flex; align-items: center; gap: 12px; padding: 0 4px; cursor: pointer; color: #0E1A33; text-align: right">
+<svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{m.icon}}"></path></svg>
+<span style="flex: 1; font-size: 15px; font-weight: 600">{{m.label}}</span>
+<sc-if value="{{m.isNew}}" hint-placeholder-val="{{ false }}"><span style="font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></sc-if>
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #EEF1F6; padding-top: 10px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #5A6478">להמשיך מאיפה שעצרת <span style="font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></span>
+<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px">
+<a href="#" style="flex: none; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #D5DBE6; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #0E1A33; font-size: 13px; font-weight: 600">טיוטת נכס · [רחוב]</a>
+<a href="#" style="flex: none; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #D5DBE6; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #0E1A33; font-size: 13px; font-weight: 600">הסכם לא נשלח · [שם]</a>
+</div>
+</div>
+</section>
+</sc-if>
+
+<!-- חיפוש -->
+<sc-if value="{{isSearch}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-modal="true" aria-label="חיפוש" style="position: absolute; right: 0; left: 0; bottom: 76px; height: 700px; background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 16px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 -10px 40px rgba(14,26,51,0.18)">
+<span aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #D3D9E4"></span>
+<label style="position: relative; display: block"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">חיפוש</span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F5BF0" stroke-width="2" stroke-linecap="round" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input type="search" placeholder="שם, טלפון, רחוב או מס׳ מודעה" style="width: 100%; box-sizing: border-box; min-height: 50px; padding: 0 42px 0 14px; border-radius: 14px; border: 1.5px solid #1F5BF0; font-size: 16px; color: #0E1A33"></label>
+<div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{scopes}}" as="sc" hint-placeholder-count="6">
+<button type="button" onClick="{{sc.pick}}" aria-pressed="{{sc.pressed}}" style="{{sc.style}}">{{sc.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #5A6478">חיפושים אחרונים <span style="font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></span>
+<sc-for list="{{recent}}" as="r" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-bottom: 1px solid #EEF1F6">
+<span style="width: 36px; height: 36px; border-radius: 11px; background: #F1F3F8; color: #3A4458; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{r.icon}}"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; min-width: 0"><span style="font-size: 15px; font-weight: 700">{{r.title}}</span><span style="font-size: 12px; color: #5A6478">{{r.sub}}</span></span>
+<sc-if value="{{r.canCall}}" hint-placeholder-val="{{ false }}">
+<a href="#" aria-label="{{r.callLabel}}" style="width: 40px; height: 40px; border-radius: 12px; background: #E6F4EC; color: #166534; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></a>
+<a href="#" aria-label="{{r.waLabel}}" style="width: 40px; height: 40px; border-radius: 12px; background: #E6F4EC; color: #166534; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></a>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #5A6478">קפיצה למסך <span style="font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="Agreements.dc.html" style="min-height: 38px; padding: 0 12px; border-radius: 10px; background: #F1F3F8; display: inline-flex; align-items: center; text-decoration: none; color: #0E1A33; font-size: 13px; font-weight: 600">הסכמים</a>
+<a href="Agenda.dc.html" style="min-height: 38px; padding: 0 12px; border-radius: 10px; background: #F1F3F8; display: inline-flex; align-items: center; text-decoration: none; color: #0E1A33; font-size: 13px; font-weight: 600">יומן ומשימות</a>
+<a href="Wallet.dc.html" style="min-height: 38px; padding: 0 12px; border-radius: 10px; background: #F1F3F8; display: inline-flex; align-items: center; text-decoration: none; color: #0E1A33; font-size: 13px; font-weight: 600">מנוי וארנק</a>
+</div>
+<span style="font-size: 12px; color: #5A6478">כשמקלידים "ארנק" או "יומן", המסך עצמו מופיע בתוצאות.</span>
+</div>
+</section>
+</sc-if>
+
+<!-- התראות -->
+<sc-if value="{{isBell}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-modal="true" aria-labelledby="bellTitle" style="position: absolute; right: 0; left: 0; bottom: 76px; max-height: 700px; overflow-y: auto; background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 16px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -10px 40px rgba(14,26,51,0.18)">
+<span aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #D3D9E4"></span>
+<div style="display: flex; align-items: center; gap: 8px">
+<h2 id="bellTitle" style="margin: 0; flex: 1; font-size: 19px; font-weight: 800">התראות</h2>
+<button type="button" style="min-height: 40px; padding: 0 10px; border: 0; background: none; color: #1F5BF0; font-size: 13px; font-weight: 700; cursor: pointer">סימון הכל כנקרא</button>
+<a href="Notifications.dc.html" aria-label="הגדרות התראות" style="width: 40px; height: 40px; border-radius: 12px; color: #5A6478; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg></a>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #9A3412">דורש פעולה ממך <span style="font-size: 10px; font-weight: 800; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 1px 6px">חדש</span></span>
+<sc-for list="{{actNotifs}}" as="n" hint-placeholder-count="2">
+<article style="border: 1px solid #F3D3BE; background: #FFF8F3; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; gap: 8px; align-items: baseline"><strong style="flex: 1; font-size: 14px">{{n.title}}</strong><span style="font-size: 12px; color: #5A6478">{{n.when}}</span></span>
+<span style="font-size: 13px; color: #3A4458">{{n.body}}</span>
+<div style="display: flex; gap: 8px"><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 10px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 13px; font-weight: 700; cursor: pointer">{{n.cta}}</button><button type="button" style="min-height: 40px; padding: 0 10px; border: 0; background: none; color: #5A6478; font-size: 13px; font-weight: 600; cursor: pointer">אחר כך</button></div>
+</article>
+</sc-for>
+<span style="font-size: 12px; font-weight: 700; color: #5A6478; margin-top: 4px">לידיעה</span>
+<sc-for list="{{infoNotifs}}" as="n" hint-placeholder-count="3">
+<div style="display: flex; gap: 10px; align-items: flex-start; min-height: 52px; padding: 8px 0; border-bottom: 1px solid #EEF1F6">
+<span aria-hidden="true" style="{{n.dot}}"></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">{{n.title}}</span><span style="font-size: 12px; color: #5A6478">{{n.when}}</span></span>
+</div>
+</sc-for>
+<button type="button" style="align-self: flex-start; min-height: 40px; border: 0; background: none; padding: 0 4px; color: #9A3412; font-size: 13px; font-weight: 600; cursor: pointer">ניקוי ההתראות שנקראו</button>
+</section>
+</sc-if>
+
+<!-- תפריט (בורגר) -->
+<sc-if value="{{isMenu}}" hint-placeholder-val="{{ false }}">
+<section role="dialog" aria-modal="true" aria-label="כל המסכים" style="position: absolute; z-index: 30; top: 0; right: 0; bottom: 0; width: 320px; overflow-y: auto; overscroll-behavior: contain; background: #F4F6FA; padding: 16px 14px calc(32px + env(safe-area-inset-bottom)); box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; box-shadow: -10px 0 40px rgba(14,26,51,0.2)">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex: 1; font-family: 'Frank Ruhl Libre', serif; font-size: 20px; font-weight: 700">התפריט</span>
+<button type="button" onClick="{{close}}" aria-label="סגירת התפריט" style="width: 44px; height: 44px; border: 0; background: #FFFFFF; border-radius: 12px; color: #0E1A33; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+<a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; border-radius: 16px; background: #0E1A33; border: 1px solid #B8862B; color: #FFFFFF; text-decoration: none">
+<span style="width: 40px; height: 40px; border-radius: 50%; background: #1C3A5E; border: 2px solid #E0B84A; display: flex; align-items: center; justify-content: center; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: #E0B84A; flex: none"><img src="assets/mentor-avatar.webp" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%"></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 16px; font-weight: 700">המנטור</span><span style="font-size: 12px; color: #B8C2D9">3 צעדים להיום · או לשאול שאלה</span></span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E0B84A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+</a>
+<sc-if value="{{isAdminV}}" hint-placeholder-val="{{ true }}">
+<div role="radiogroup" aria-label="מה מוצג בדשבורד" style="display: grid; grid-template-columns: 1fr 1fr; background: #E9ECF2; border-radius: 12px; padding: 3px; gap: 2px">
+<button type="button" role="radio" aria-checked="{{vMe}}" onClick="{{pickMe}}" style="{{vMeStyle}}">התצוגה שלי</button>
+<button type="button" role="radio" aria-checked="{{vOff}}" onClick="{{pickOff}}" style="{{vOffStyle}}">תצוגת המשרד</button>
+</div>
+</sc-if>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; padding: 0 4px; font-size: 12px; font-weight: 700; color: #5A6478">{{g.title}}</h2>
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; overflow: hidden">
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+<a href="{{it.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 12px; text-decoration: none; color: #0E1A33; border-top: 1px solid #F1F3F8">
+<span style="width: 34px; height: 34px; border-radius: 10px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{it.icon}}"></path></svg></span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">{{it.label}}</span>
+<sc-if value="{{it.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{it.badgeStyle}}">{{it.badge}}</span></sc-if>
+</a>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</section>
+</sc-if>
+
+<nav aria-label="ניווט ראשי" style="position: absolute; right: 0; left: 0; bottom: 0; height: 76px; background: #FFFFFF; border-top: 1px solid #E3E7EF; box-shadow: 0 -6px 24px rgba(14,26,51,0.06); display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; padding: 0 4px 10px; box-sizing: border-box">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<button type="button" onClick="{{t.pick}}" aria-current="{{t.current}}" aria-expanded="{{t.expanded}}" aria-label="{{t.aria}}" style="{{t.style}}">
+<span style="{{t.pill}}"><svg aria-hidden="true" width="{{t.size}}" height="{{t.size}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{t.icon}}"></path></svg>
+<sc-if value="{{t.hasBadge}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; top: -4px; left: 4px; min-width: 18px; height: 18px; border-radius: 999px; background: #C2410C; color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; box-sizing: border-box; border: 2px solid #FFFFFF">{{t.badge}}</span></sc-if>
+</span>
+<span>{{t.label}}</span>
+</button>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844},"layer":{"editor":"enum","options":["create","search","bell","menu","none"],"default":"create"},"isAdmin":{"type":"boolean","default":true,"label":"מנהל/ת משרד"},"isTeamLead":{"type":"boolean","default":false,"label":"מנהל/ת צוות"}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'home', layer: null, scope: 'all', view: 'me' };
+  }
+  renderVals() {
+    const s = this.state, p = this.props || {};
+    const isAdmin = p.isAdmin !== false;
+    const layer = s.layer === null ? (p.layer ?? 'create') : s.layer;
+    const L = (v) => this.setState({ layer: layer === v ? 'none' : v });
+    const I = {
+      home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+      leads: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+      plus: 'M12 5v14M5 12h14', x: 'M18 6 6 18M6 6l12 12',
+      search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-3.5-3.5',
+      bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
+      contact: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      sign: 'M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z',
+      cal: 'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18',
+      check: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+      wa: 'M7.9 20A9 9 0 1 0 4 16.1L2 22Z',
+      cam: 'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      mega: 'M3 11l18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6',
+      upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+      chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
+      props: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6',
+      clients: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      calls: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+      site: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20',
+      office: 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18zM10 6h4M10 10h4M10 14h4',
+      team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      grid: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
+      wallet: 'M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4',
+      map: 'M9 3 3 6v15l6-3 6 3 6-3V3l-6 3zM9 3v15M15 6v15',
+      help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+      gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'
+    };
+    const createOn = layer === 'create';
+    const T = [
+      ['home', 'בית', I.home, '', null], ['leads', 'לידים', I.leads, '5', null],
+      ['create', createOn ? 'סגירה' : 'יצירה', createOn ? I.x : I.plus, '', 'create'],
+      ['search', 'חיפוש', I.search, '', 'search'], ['alerts', 'התראות', I.bell, '3', 'bell']
+    ];
+    const tabs = T.map(([key, label, icon, badge, lay]) => {
+      const on = lay ? layer === lay : ((layer === 'none' || layer === 'menu') && s.tab === key);
+      const big = key === 'create';
+      return {
+        label, icon, badge, hasBadge: !!badge, size: big ? '26' : '22',
+        current: !lay && on ? 'page' : 'false', expanded: lay ? (on ? 'true' : 'false') : 'false',
+        aria: label + (badge ? ', ' + badge + ' ממתינים' : ''),
+        pick: () => lay ? L(lay) : this.setState({ tab: key, layer: 'none' }),
+        pill: big
+          ? 'position: relative; width: 56px; height: 56px; border-radius: 20px; display: flex; align-items: center; justify-content: center; border: 4px solid #FFFFFF; color: #FFFFFF; ' + (on ? 'background: #0E1A33; box-shadow: 0 8px 20px rgba(14,26,51,0.3)' : 'background: #1F5BF0; box-shadow: 0 8px 20px rgba(31,91,240,0.35)')
+          : 'position: relative; width: 48px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; ' + (on ? 'background: #EAF0FF; color: #1F5BF0' : 'color: #5A6478'),
+        style: 'border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; min-height: 58px; padding: 0; font-size: 12px; font-weight: 700; ' + (big ? 'margin-top: -26px; color: #0E1A33' : (on ? 'color: #1F5BF0' : 'color: #5A6478'))
+      };
+    });
+    const ico = (n) => 'width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; ' + (n ? 'background: #E6F4EC; color: #166534' : 'background: #EAF0FF; color: #1F5BF0');
+    const createItems = [
+      ['לקוח/ה חדש/ה', I.contact, false], ['הסכם תיווך', I.sign, false], ['פגישה / סיור', I.cal, false],
+      ['משימה / תזכורת', I.check, false], ['שליחת נכס בוואטסאפ', I.wa, true], ['צילום נכס חדש', I.cam, true]
+    ].map(([label, icon, isNew]) => ({ label, icon, isNew, icoStyle: ico(isNew) }));
+    const moreItems = [['קידום נכס / הקפצה', I.mega, false], ['דוח CMA לנכס', I.chart, false], ['ייבוא אנשי קשר', I.upload, false]].map(([label, icon, isNew]) => ({ label, icon, isNew }));
+    const chip = (on) => 'flex: none; min-height: 38px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; ' + (on ? 'border: 0; background: #0E1A33; color: #FFFFFF; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600');
+    const scopes = [['all', 'הכל'], ['clients', 'לקוחות'], ['props', 'נכסים'], ['leads', 'לידים'], ['deals', 'הסכמים'], ['help', 'עזרה']].map(([k, label]) => ({ label, pressed: s.scope === k ? 'true' : 'false', style: chip(s.scope === k), pick: () => this.setState({ scope: k }) }));
+    const recent = [
+      ['[שם לקוח/ה]', 'לקוח/ה · 4 חד׳ בעפולה עד ₪1.6 מיליון', I.contact, true],
+      ['[רחוב ומספר], עפולה', 'נכס · מס׳ מודעה [N]', I.props, false],
+      ['[שם פונה]', 'ליד · פנה אתמול מדף הנכס', I.leads, true]
+    ].map(([title, sub, icon, canCall]) => ({ title, sub, icon, canCall, callLabel: 'חיוג אל ' + title, waLabel: 'וואטסאפ אל ' + title }));
+    const actNotifs = [
+      { title: 'ליד חדש מבעל נכס', when: 'לפני 12 דק׳', body: '[שם] רוצה למכור 4 חד׳ ב[שכונה]. עוד לא חזרת אליו.', cta: 'חיוג עכשיו' },
+      { title: 'ביקורת חדשה ממתינה לאישור', when: 'היום 09:40', body: '5 כוכבים מ[שם הלקוח]. היא תופיע בדף המשרד אחרי אישור.', cta: 'אישור' }
+    ];
+    const dot = (u) => 'width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; background: ' + (u ? '#1F5BF0' : 'transparent');
+    const infoNotifs = [['3 התאמות חדשות ללקוחות שלך', 'לפני שעה', true], ['הנכס ב[רחוב] הוקפץ לראש הרשימה', 'אתמול', false], ['[שם סוכן/ת] הצטרף/ה למשרד', 'לפני יומיים', false]].map(([title, when, u]) => ({ title, when, dot: dot(u) }));
+    const bs = (u) => 'min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; ' + (u ? 'background: #C2410C; color: #FFFFFF' : 'background: #F1F3F8; color: #3A4458');
+    const G = [
+      ['עבודה יומית', [['יומן ומשימות', 'Agenda.dc.html', I.cal, '7', true], ['לקוחות והתאמות', 'Clients.dc.html', I.clients, '60', false], ['נכסים ושיתופים', 'Properties.dc.html', I.props, '', false], ['הסכמים', 'Agreements.dc.html', I.sign, '2', false], ['מידע אזורי ותכנוני', 'Planning.dc.html', I.map, '', false]]],
+      ['צמיחה', [['הדשבורד שלי', '#', I.chart, '', false], ['שיחות ומספרים', 'OfficeCalls.dc.html', I.calls, '', false], ['המיני-סייט שלי', '#', I.site, '', false]]]
+    ];
+    if (p.isTeamLead) G.push(['הצוות שלי', [['דאשבורד הצוות', '#', I.grid, '', false], ['לידים בצוות', '#', I.leads, '', false], ['הסוכנים בצוות', '#', I.team, '', false]]]);
+    if (isAdmin) G.push(['ניהול המשרד', [['דאשבורד המשרד', '#', I.grid, '', false], ['צוותים וסוכנים', 'Team.dc.html', I.team, '', false], ['דף המשרד וביקורות', 'Office-Branding.dc.html', I.office, '[N]', true]]]);
+    G.push(['החשבון שלי', [['מנוי וארנק', 'Wallet.dc.html', I.wallet, '₪61', false], ['הגדרות', 'Main.dc.html', I.gear, '', false], ['עזרה ומדריכים', '#', I.help, '', false]]]);
+    const groups = G.map(([title, items]) => ({ title, items: items.map(([label, href, icon, badge, u]) => ({ label, href, icon, badge, hasBadge: !!badge, badgeStyle: bs(u) })) }));
+    const names = { home: 'דף הבית', leads: 'הלידים שלי' };
+    return {
+      tabs, createItems, moreItems, scopes, recent, actNotifs, infoNotifs, groups,
+      title: names[s.tab] || 'דף הבית',
+      anyLayer: layer !== 'none', isCreate: createOn, isSearch: layer === 'search', isBell: layer === 'bell', isMenu: layer === 'menu',
+      menuOpenStr: layer === 'menu' ? 'true' : 'false',
+      isAdminV: isAdmin, vMe: s.view === 'me' ? 'true' : 'false', vOff: s.view === 'office' ? 'true' : 'false',
+      pickMe: () => this.setState({ view: 'me' }), pickOff: () => this.setState({ view: 'office' }),
+      vMeStyle: 'min-height: 40px; border: 0; border-radius: 9px; font-size: 14px; cursor: pointer; ' + (s.view === 'me' ? 'background: #FFFFFF; color: #0E1A33; font-weight: 700' : 'background: transparent; color: #5A6478; font-weight: 600'),
+      vOffStyle: 'min-height: 40px; border: 0; border-radius: 9px; font-size: 14px; cursor: pointer; ' + (s.view === 'office' ? 'background: #FFFFFF; color: #0E1A33; font-weight: 700' : 'background: transparent; color: #5A6478; font-weight: 600'),
+      backdropStyle: 'position: absolute; inset: 0; background: rgba(14,26,51,0.45); z-index: ' + (layer === 'menu' ? '20' : '0'),
+      openMenu: () => L('menu'), close: () => this.setState({ layer: 'none' })
+    };
+  }
+}
+</script>
+</body>
+</html>
