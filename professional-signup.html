@@ -325,6 +325,14 @@ async function pollOrder(orderId, attempt){
   }
 }
 
+/* ‏?type=appraiser - כרטיס "התחום פנוי" ב-professionals.html שולח לכאן עם
+   התחום, והוא נבחר מראש. ערך שאינו אחת האפשרויות בטופס פשוט לא נבחר. */
+(function preselectType(){
+  const type = new URLSearchParams(location.search).get('type');
+  const select = document.getElementById('advType');
+  if (type && [...select.options].some(o => o.value === type)) select.value = type;
+})();
+
 (function handlePaymentReturn(){
   const params = new URLSearchParams(location.search);
   const orderId = params.get('order_id');
