@@ -24402,7 +24402,7 @@ const NOTIF_TYPES = [
     sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. הטבת ההשקה אינה נספרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
-  /* הצעה לשיפור מהכפתור עם הזבוב (20270705090000, docs/improvement-suggestions.md).
+  /* הצעה לשיפור מהכפתור עם הזבוב (20270706090000, docs/improvement-suggestions.md).
      בלי מזהה פריט - היעד הוא הרשימה */
   { type:'improvement_suggestion', tone:'', goto:'accSuggestions', focus:'#sugAdminList',
     view:'admin',

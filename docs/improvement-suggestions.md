@@ -10,7 +10,7 @@
 | `crm.html`, `#sugDialog` | החלון: מה כדאי לשפר, ומאיזה מסך |
 | `crm.html`, `#accSuggestions` | "הצעות לשיפור" - הרשימה של מנהלי הפלטפורמה (קבוצת "היום") |
 | `assets/crm-suggestions.js` | החלון, השליחה והרשימה |
-| `improvement_suggestions` (`20270705090000`) | הטבלה, ה-RLS והטריגרים |
+| `improvement_suggestions` (`20270706090000`) | הטבלה, ה-RLS והטריגרים |
 
 ## למה טבלה ולא וואטסאפ
 
