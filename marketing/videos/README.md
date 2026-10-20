@@ -48,6 +48,13 @@ cd <project> && reelkit export out/video.fixed.mp4 --preset iphone
 tools/verify.sh <project> $PWD/<project>/out/video.fixed.mp4   # תמלול מול זמני הסצנות
 ```
 
+**ואם הסשן אותחל באמצע רינדור:** החלקים שנשמרו ב-`.reelkit/chunks` מפנים לשרת
+מקומי שכבר אינו קיים (`ECONNREFUSED 127.0.0.1:<port>`), והחיבור נכשל בכל ניסיון -
+ו-`out/sounds.json` נדרס לריק. מחברים את החלקים ב-ffmpeg (`-f concat`, ‏`-an -c:v copy`)
+ל-`out/video.mp4`, ובונים את `sounds.json` מקובצי `*.audio.json` של החלקים (‏`src`
+בלי הכתובת המקומית, ‏`start`, `end`, `volume` - הזמנים מוחלטים, ומסירים כפילויות).
+אחר כך `remix.py` כרגיל.
+
 **לפני ששולחים:** כל שורה בתמלול נמצאת בסצנה שלה, ובדיקת עוצמה לכל שנייה
 מראה שהקול לא נעלם באמצע. האצה של הקול עושים ב-`rubberband` ולא ב-`atempo`
 (שהשאיר הד), ומחלקים את זמני המילים ב-`assets/voiceovers.json` באותו יחס.
