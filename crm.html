@@ -658,6 +658,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .acc-body{padding:16px}
   .acc-body>:last-child{margin-bottom:0}
   .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
+  /* ---- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md) ---- */
+  .inbx-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+  .inbx-chip{border:1px solid #E3E7EF;background:#fff;border-radius:999px;padding:6px 12px;min-height:36px;
+    font:inherit;font-size:.78rem;font-weight:700;color:#5A6478;cursor:pointer}
+  .inbx-chip[aria-pressed="true"]{background:#0E1A33;border-color:#0E1A33;color:#fff}
+  .inbx-chip .n.is-late{color:#C2410C}
+  .inbx-chip[aria-pressed="true"] .n.is-late{color:#FDBA8C}
+  .inbx-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #EEF1F6}
+  .inbx-row:last-child{border-bottom:0}
+  .inbx-main{flex:1;min-width:0}
+  .inbx-kind{font-size:.68rem;font-weight:800;color:#5A6478;letter-spacing:.02em}
+  .inbx-title{font-size:.86rem;font-weight:700;color:#0E1A33;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .inbx-sub{font-size:.74rem;color:#5A6478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .inbx-wait{flex-shrink:0;font-size:.72rem;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .inbx-wait.is-ok{background:#E6F4EC;color:#166534}
+  .inbx-wait.is-warn{background:#FFF1C7;color:#7A5300}
+  .inbx-wait.is-late{background:#FDE7D9;color:#9A3412}
+  .inbx-open{flex-shrink:0;min-height:36px;border:none;border-radius:10px;background:#1F5BF0;color:#fff;
+    font:inherit;font-size:.78rem;font-weight:800;padding:0 12px;cursor:pointer}
+  .inbx-open:hover{background:#1846C2}
+  .inbx-open:focus-visible,.inbx-chip:focus-visible{outline:2px solid #1F5BF0;outline-offset:2px}
+  .inbx-sla{margin-top:12px;font-size:.8rem}
+  .inbx-sla summary{cursor:pointer;font-weight:700;color:#5A6478}
+  .inbx-sla-row{display:flex;align-items:center;gap:8px;padding:6px 0}
+  .inbx-sla-row label{flex:1;min-width:0}
+  .inbx-sla-row input{width:72px;border:1.5px solid #E3E7EF;border-radius:8px;padding:6px 8px;font:inherit}
+  @media(max-width:520px){ .inbx-row{flex-wrap:wrap} .inbx-main{flex-basis:100%} }
 
   /* ---------- אזור הסכנה: סגירת חשבון ----------
      האדום כאן אינו קישוט. הקטגוריה הזו יושבת ברשימה אחת עם "עדכון פרטים"
@@ -9727,6 +9754,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div id="platformAdminSection" style="display:none">
+      <!-- תיבת המשימות: ארבעת התורים שמחכים למנהל/ת (לידים ללא יעד, החזרים,
+           ערעורי רישיון, חסר למנטור) ברשימה אחת, לפי הדחיפות ביחס לזמן היעד.
+           ראשונה בסקציה: היא התשובה ל"מה מחכה לי". ההחלטה עצמה נשארת במסך
+           של כל תור - השורה פותחת אותו. admin_inbox, docs/admin-inbox.md -->
+      <details class="acc" id="accAdminInbox">
+        <summary>
+          <span class="acc-title">תיבת משימות</span>
+          <span class="acc-count" id="accAdminInboxCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">כל מה שמחכה לך, מהוותיק ביחס לזמן היעד שלו. ירוק בזמן, צהוב אחרי חצי מהזמן, אדום כשחרג. הטיפול עצמו נעשה במסך של כל סוג.</p>
+          <div class="inbx-chips" id="adminInboxChips" role="group" aria-label="סינון לפי סוג"></div>
+          <div id="adminInboxList"><div class="empty-state">טוען…</div></div>
+          <details class="inbx-sla" id="adminSlaBox">
+            <summary>כללי זמן תגובה</summary>
+            <div id="adminSlaList"></div>
+          </details>
+        </div>
+      </details>
+
       <!-- תור בקשות ההחזר. ראשון בסקציה בכוונה: זו הפעולה היחידה כאן שמישהו
            מחכה לה, והכסף שלה כבר ירד מהיתרה שלו/ה. -->
       <details class="acc" id="accRefundQueue">
@@ -11848,6 +11896,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
      וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
 <script src="assets/crm-csm.js"></script>
+<!-- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md). לפני crm.js;
+     מגדירה פונקציות בלבד, ו-loadDashboard קוראת ל-loadAdminInbox. -->
+<script src="assets/crm-admin-inbox.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
