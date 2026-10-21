@@ -24730,6 +24730,15 @@ const NOTIF_TYPES = [
     sub:'ממצא אבטחה חמור שהסוכן התפעולי מצא בסריקה: טבלה שנפתחה לכולם, פונקציה בלי בדיקת הרשאה, סוד בקוד. נשלח כשהממצא נפתח, לא בכל סריקה.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadOpsReport() },
+  /* ממצא חמור (critical) בכל תחום שאינו אבטחה או שוק - יומן גישה שעומד, טוקן
+     שפג, workflow שנכשל. נולד אחרי שממצאים כאלה ישבו שבוע בפאנל בלי שאיש
+     ראה (מיגרציה 20270720090000). היעד כמו security_alert. */
+  { type:'ops_alert', tone:'alert',
+    view:'admin',
+    title:'ממצאים חמורים במערכת',
+    sub:'ממצא חמור שהסוכן התפעולי מצא בסריקה: תהליך שעומד, טוקן שפג, נתונים שלא נשמרים. נשלח כשהממצא נפתח, לא בכל סריקה.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadOpsReport() },
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
@@ -24804,7 +24813,7 @@ async function loadNotifications(agentId){
       // הסוכן/ת מכבה ב-display:none — כלומר navAccVisible שמתחת היה מחזיר
       // false והלחיצה לא הייתה עושה דבר. המעבר לתצוגה קודם לבדיקה, ורק למי
       // שהתצוגה פתוחה בפניו/ה.
-      if (n.type === 'security_alert'){ openAdminOpsPanel(); return; }
+      if (n.type === 'security_alert' || n.type === 'ops_alert'){ openAdminOpsPanel(); return; }
       if (target.view === 'admin' && dashView !== 'admin'
           && currentAgent && currentAgent.is_platform_admin) {
         setDashView('admin');
