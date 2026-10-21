@@ -14051,6 +14051,91 @@ function propertySearchBlob(p){
   ].filter(v => v !== null && v !== undefined && v !== '').join(' ').toLowerCase();
 }
 
+/* ---------- החיפוש החופשי בנכסים - אותו מפענח של האתר ----------
+   שדה החיפוש ב"הנכסים שלי" וב"נכסים ששותפו" היה substring על טקסט הנכס:
+   "דירה עם ממד" מצא נכס שבתיאור שלו כתוב "ללא ממ״ד", "רום יעל" לא מצא את
+   "יעל רום", ו"ברובע" לא מצא כלום. עכשיו הוא עובר באותו מפענח של השדה החכם
+   בדף הבית (‏SentenceSearch.Core.compileQuery + SearchCore,
+   ‏docs/search-core.md, "ב-CRM"):
+
+     • **משהו זוהה** (סוג, חדרים, תקציב, עסקה, שכונה, רחוב, מאפיין) - מסננים
+       לפיו בלבד, בדיוק כמו באתר. **לא** חוזרים לטקסט: זה מה שהחזיר את
+       "ללא ממ״ד" לחיפוש של ממ״ד.
+     • **לא זוהה דבר** (שם בעלים, טלפון, מספר מודעה) - טקסט, בכל סדר וחלק
+       מהמילה מספיק (‏SearchCore.textHas). מספר לבד הוא תמיד טקסט: "1162" הוא
+       מספר מודעה, לא תקציב.
+     • **שם קודם לפענוח** (‏namesOf): "משרד שותף" הוא שם של משרד ולא סוג נכס
+       "משרד", ו"כהן" הוא בעלים. אם הטקסט מתאים לשם של בעלים, משרד, סוכן/ת
+       או טלפון באחת השורות - זה חיפוש טקסט. **שמות בלבד, לא התיאור** - התיאור
+       הוא בדיוק המקום שבו "ללא ממ״ד" מתאים ל"ממד".
+
+   שני הקבצים (‏~25KB דחוסים) נטענים רק בהקלדה הראשונה בשדה - לא בפתיחת
+   ה-CRM. עד שהם מגיעים החיפוש עובד כמו קודם, ואז מצויר מחדש. */
+let crmQueryAliases = null;
+let crmQueryLoading = null;
+
+function crmQueryReady(){
+  return !!(window.SentenceSearch && window.SentenceSearch.Core && window.SearchCore && crmQueryAliases);
+}
+
+function ensureCrmQuery(){
+  if (crmQueryReady()) return Promise.resolve(true);
+  if (crmQueryLoading) return crmQueryLoading;
+  const load = src => new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = reject;
+    document.head.appendChild(el);
+  });
+  crmQueryLoading = (window.SearchCore ? Promise.resolve() : load('/assets/search-core.js'))
+    .then(() => (window.SentenceSearch ? null : load('/assets/sentence-search.js')))
+    // הכינויים ("סי 1", "גבעה") - אותה טבלה של האתר והבוטים; בלעדיהם, רק השמות
+    .then(() => sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })))
+    .then(r => { crmQueryAliases = (r && r.data) || []; return true; })
+    .catch(() => false)
+    .finally(() => {
+      crmQueryLoading = null;
+      if (!crmQueryReady()) return;
+      if (document.getElementById('propSearch')?.value.trim()) renderProperties();
+      if (document.getElementById('sharedSearch')?.value.trim()) renderSharedWithMe();
+    });
+  return crmQueryLoading;
+}
+
+/* ‏{ rows: Set של השורות שמתאימות, note: מה הובן } - או null כשהמפענח עוד לא
+   נטען (ואז הקורא/ת נשאר/ת עם החיפוש הישן). ‏asSearchRow ממפה שורה לצורה
+   של נכס באתר (‏neighborhood_name, ‏id). */
+function crmQueryMatches(rows, q, blobOf, asSearchRow, namesOf){
+  if (!q) return null;
+  if (!crmQueryReady()){ ensureCrmQuery(); return null; }
+  const SC = window.SearchCore, Core = window.SentenceSearch.Core;
+  const plain = () => ({ rows: new Set(rows.filter(r => SC.textHas(blobOf(r), q))), note: '' });
+  if (/^[#\d\s\-+()]+$/.test(q)) return plain();
+  if (namesOf && rows.some(r => SC.textHas(namesOf(r), q))) return plain();
+  const mapped = rows.map(r => Object.assign(asSearchRow(r), { __row: r }));
+  const areas = Core.deriveAreas(mapped, crmQueryAliases);
+  const ctx = { areaIndex: areas.index };
+  const cq = Core.compileQuery(q, Core.defaultState(), areas, mapped, ctx, []);
+  if (!cq.fields.length && !cq.features.length) return plain();
+  // באתר שם העיר הוא "כל השוק"; ב-CRM, בתיק שיש בו כמה ערים, הוא העיר עצמה
+  const patch = Object.assign({}, cq.patch);
+  if (patch.area === 'all' && areas.mainCity) patch.area = 'city:' + areas.mainCity;
+  const st = Core.applyPatch(Core.defaultState(), patch);
+  const note = [Core.parsedNote(cq.fields, st, areas, { marketLabel: 'הערים' }),
+    cq.features.length ? Core.featuresNote(cq.features) : ''].filter(Boolean).join(' · ');
+  return {
+    rows: new Set(mapped.filter(p => Core.matches(p, st, ctx) && SC.hasFeatures(p, cq.features)).map(p => p.__row)),
+    note,
+  };
+}
+
+// השמות שבנכס (בעלים, טלפון, סוכן/ת שני/ה) - "שם קודם לפענוח" ב-crmQueryMatches
+function propertyNamesBlob(p){
+  const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+  return [ownerRow?.owner_name, ownerRow?.owner_phone, p.agent2_name, p.agent2_phone].filter(Boolean).join(' ');
+}
+
 function propertyIsPromoted(p){
   return !!p.is_promoted && (!p.promoted_until || msLeft(p.promoted_until) > 0);
 }
@@ -14168,6 +14253,10 @@ function propertyFilterActive(f){
 }
 
 function filterProperties(rows, f){
+  // החיפוש החופשי - פעם אחת על כל התיק, כי רחוב נבדק מול המלאי (crmQueryMatches)
+  const query = crmQueryMatches(rows, f.q, propertySearchBlob, p => ({ ...p,
+    neighborhood_name: allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '' }), propertyNamesBlob);
+  propQueryNote = query ? query.note : '';
   return rows.filter(p => {
     if (f.status && p.status !== f.status) return false;
     if (f.deal && p.deal_type !== f.deal) return false;
@@ -14190,9 +14279,11 @@ function filterProperties(rows, f){
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
     if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
-    return propertySearchBlob(p).includes(f.q);
+    return query ? query.rows.has(p) : propertySearchBlob(p).includes(f.q);
   });
 }
+// מה החיפוש החופשי הבין ("דירה · 3 חדרים · ממ״ד") - נכתב לשורת הספירה
+let propQueryNote = '';
 
 function sortProperties(rows, sort){
   const sorted = rows.slice();
@@ -14239,6 +14330,10 @@ function renderProperties(){
   const active = propertyFilterActive(f);
   const rows = sortProperties(filterProperties(myPropertyRows, f), f.sort);
   updateFilterFoot('propFilterCount', 'propClearFilters', rows.length, myPropertyRows.length, active);
+  if (propQueryNote){
+    const countEl = document.getElementById('propFilterCount');
+    if (countEl) countEl.textContent += ' · הבנתי: ' + propQueryNote;
+  }
   // המונה על כפתור "סינון" בטלפון, שם התיבות מקופלות. החיפוש גלוי ממילא,
   // והמיון אינו סינון; כל טווח (מחיר, שטח, מחיר למ״ר) נספר פעם אחת -
   // propRange מחזירה null כששני השדות שלו ריקים.
@@ -20857,6 +20952,12 @@ function waLink(phone){
   return 'https://wa.me/' + (digits.startsWith('972') ? digits : '972' + digits.replace(/^0+/, ''));
 }
 
+function sharedSearchBlob(r){
+  return [r.title, r.city, r.street, r.house_number, r.property_type,
+          r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+
 function renderSharedWithMe(){
   const listEl = document.getElementById('sharedWithMeList');
   const q = document.getElementById('sharedSearch').value.trim().toLowerCase();
@@ -20891,6 +20992,10 @@ function renderSharedWithMe(){
   const onlySaved = prBookmarksReady && pressed('sharedSavedChip');
   prSyncOwnerSubs();
 
+  // אותו מפענח של "הנכסים שלי" ושל האתר (crmQueryMatches)
+  const query = crmQueryMatches(inScope, q, sharedSearchBlob, r => ({ ...r, id: r.property_id,
+    neighborhood_name: allNeighborhoods.find(n => n.id === r.neighborhood_id)?.name || '' }),
+    r => [r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone].filter(Boolean).join(' '));
   const unsorted = inScope.filter(r => {
     if (onlyMatch && !isMatch(r)) return false;
     if (onlyNew && !isNew(r)) return false;
@@ -20900,9 +21005,7 @@ function renderSharedWithMe(){
     if (city && r.city !== city) return false;
     if (type && r.property_type !== type) return false;
     if (!q) return true;
-    return [r.title, r.city, r.street, r.house_number, r.property_type,
-            r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone]
-      .filter(Boolean).join(' ').toLowerCase().includes(q);
+    return query ? query.rows.has(r) : sharedSearchBlob(r).includes(q);
   });
 
   const sharedComparators = {
@@ -20920,6 +21023,10 @@ function renderSharedWithMe(){
   updateFilterFoot('sharedFilterCount', 'sharedClearFilters',
     filtered.length, sharedWithMeRows.length,
     !!(q || agencyId || deal || city || type || onlyMatch || onlyNew || onlySaved));
+  if (query && query.note){
+    const countEl = document.getElementById('sharedFilterCount');
+    if (countEl) countEl.textContent += ' · הבנתי: ' + query.note;
+  }
   const countLine = document.getElementById('sharedCountLine');
   countLine.textContent = '';
 

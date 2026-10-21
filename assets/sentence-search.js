@@ -552,6 +552,36 @@
 
   /* "הבנתי: שכירות · גבעת המורה · 4 חדרים · עד ₪5,500" - מה שהפירוש שינה,
      כפי שהוא מופיע עכשיו במשפט. */
+  /* ---------- טקסט חופשי ← מצב ----------
+     ‏parse, ואחריו מה שאפשר להכריע רק מול המלאי: רחוב, או שם שאינו שכונה,
+     אם יש נכסים שהוא כתוב אצלם (‏SearchCore.textMatches - בכל סדר, וחלק
+     מהשם מספיק). **פונקציה אחת לשדה החכם בדף הבית ולחיפוש בנכסים ב-CRM**
+     ("הנכסים שלי", "נכסים ששותפו") - כך סוכן/ת וגולש/ת מקבלים אותה תשובה
+     לאותה מילה. ‏docs/search-core.md. */
+  function compileQuery(text, st, areas, props, ctx, places) {
+    text = String(text || '').trim();
+    var res = parse(text, st, areas, places);
+    var fields = res.fields.slice();
+    var patch = res.patch;
+    /* לא זוהה כלום - אולי זה שם רחוב. השדה הישן ("עיר, שכונה או רחוב")
+       ידע לחפש כתובת, ומי שכותב/ת "הנרקיס" לא צריך/ה ללמוד שזה כבר לא
+       עובד: אם יש נכסים שהטקסט מופיע בכתובת או בכותרת שלהם, זה האזור. */
+    if (!fields.length && text.length >= 2 && text.length <= 40) {
+      var asText = 'text:' + text;
+      if (filter(props, applyPatch(st, { area: asText }), ctx, 'price').length) { patch = { area: asText }; fields = ['area']; }
+    } else if (!('area' in patch) && !res.place) {
+      /* ‏"דירה ברחוב רום יעל עם ממד": זוהו סוג ומאפיין, והרחוב נזרק בשקט -
+         החיפוש היה בכל האזור (21.10.2026). שם מקום שאינו שכונה, ושיש נכסים
+         שהוא כתוב אצלם, הוא האזור. אחרת - הוא שם שלא זוהה (‏onAreaMiss). */
+      var cand = SC.areaCandidate(text, { exclude: [areas && areas.mainCity] });
+      if (cand && filter(props, applyPatch(st, assign(patch, { area: 'text:' + cand })), ctx, 'price').length) {
+        patch = assign(patch, { area: 'text:' + cand });
+        fields = SLOT_ORDER.filter(function (sl) { return fields.indexOf(sl) >= 0 || sl === 'area'; });
+      }
+    }
+    return { res: res, patch: patch, fields: fields, features: res.features || [] };
+  }
+
   function parsedNote(fields, st, areas, ctx) {
     return fields.map(function (s) {
       if (s === 'deal') return st.deal === 'rent' ? 'שכירות' : 'קנייה';
@@ -705,7 +735,7 @@
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
     slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
-    parse: parse, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
+    parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
   };
 
@@ -1149,26 +1179,9 @@
       var text = (input.value || '').trim();
       parsedText = text;
       if (!text) return false;
-      var res = parse(text, st, areas, opts.places);
-      var fields = res.fields.slice();
-      var patch = res.patch;
-      /* לא זוהה כלום - אולי זה שם רחוב. השדה הישן ("עיר, שכונה או רחוב")
-         ידע לחפש כתובת, ומי שכותב/ת "הנרקיס" לא צריך/ה ללמוד שזה כבר לא
-         עובד: אם יש נכסים שהטקסט מופיע בכתובת או בכותרת שלהם, זה האזור. */
-      if (!fields.length && text.length >= 2 && text.length <= 40) {
-        var asText = 'text:' + text;
-        if (filter(props, applyPatch(st, { area: asText }), ctx, 'price').length) { patch = { area: asText }; fields = ['area']; }
-      } else if (!('area' in patch) && !res.place) {
-        /* ‏"דירה ברחוב רום יעל עם ממד": זוהו סוג ומאפיין, והרחוב נזרק בשקט -
-           החיפוש היה בכל האזור (21.10.2026). שם מקום שאינו שכונה, ושיש נכסים
-           שהוא כתוב אצלם (‏SearchCore.textMatches: בכל סדר, וחלק מהשם מספיק),
-           הוא האזור. אחרת - הוא שם שלא זוהה, ונרשם (‏onAreaMiss, למטה). */
-        var cand = SC.areaCandidate(text, { exclude: [areas.mainCity] });
-        if (cand && filter(props, applyPatch(st, assign(patch, { area: 'text:' + cand })), ctx, 'price').length) {
-          patch = assign(patch, { area: 'text:' + cand });
-          fields = SLOT_ORDER.filter(function (sl) { return fields.indexOf(sl) >= 0 || sl === 'area'; });
-        }
-      }
+      // אותו פענוח לשדה החכם כאן ולחיפוש בנכסים ב-CRM (‏compileQuery, למעלה)
+      var cq = compileQuery(text, st, areas, props, ctx, opts.places);
+      var res = cq.res, fields = cq.fields, patch = cq.patch;
       active = null;
       keyboardOpen = false;
       /* המאפיינים - דרך הדף, כמו הסינון המתקדם. נקרא גם עם רשימה ריקה, כדי

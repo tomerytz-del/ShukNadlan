@@ -315,10 +315,14 @@
       .map(function (w) { return w.length > 3 ? w.replace(/^ה/, '') : w; });
   }
   function textMatches(p, q) {
+    var hood = p.neighborhood_name || (p.neighborhoods && p.neighborhoods.name) || '';
+    return textHas([p.title, p.street, p.address, p.city, hood, p.sales_area].join(' '), q);
+  }
+
+  /* אותו כלל על כל טקסט - ב-CRM גם שם הבעלים, הטלפון ומספר המודעה. */
+  function textHas(hay, q) {
     var needle = norm(q);
     if (!needle) return true;
-    var hood = p.neighborhood_name || (p.neighborhoods && p.neighborhoods.name) || '';
-    var hay = [p.title, p.street, p.address, p.city, hood, p.sales_area].join(' ');
     if (norm(hay).indexOf(needle) >= 0) return true;
     var qw = textWords(q);
     if (!qw.length) return false;
@@ -372,7 +376,7 @@
   }
 
   var SearchCore = {
-    norm: norm, textMatches: textMatches, areaCandidate: areaCandidate,
+    norm: norm, textMatches: textMatches, textHas: textHas, areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,
     findAreas: findAreas, propertyAreas: propertyAreas, inAreas: inAreas, hasWord: hasWord,
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,

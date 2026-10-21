@@ -366,4 +366,19 @@ test('רחוב בתוך משפט אינו נזרק, ובכל סדר (‏search-c
   assert.deepStrictEqual(C.filter(PROPS, st, { areaIndex: AREAS.index }).map(p => p.id), ['i']);
 });
 
+test('compileQuery - אותו פענוח לשדה החכם ולחיפוש בנכסים ב-CRM', () => {
+  const ctx = { areaIndex: AREAS.index };
+  // רחוב בתוך משפט: הסוג זוהה, והרחוב נבדק מול המלאי
+  let cq = C.compileQuery('דירת גן ברחוב הנרקיס', C.defaultState(), AREAS, PROPS, ctx, []);
+  assert.strictEqual(cq.patch.area, 'text:הנרקיס');
+  assert.ok(cq.fields.includes('area') && cq.fields.includes('type'));
+  // שכונה מכינוי, ומאפיין
+  cq = C.compileQuery('3 חדרים בגבעה עם ממד', C.defaultState(), AREAS, PROPS, ctx, []);
+  assert.strictEqual(cq.patch.area, 'hood:1');
+  assert.deepStrictEqual(cq.features, ['mamad']);
+  // שם שאינו מקום ואינו במלאי - לא מומצא אזור
+  cq = C.compileQuery('כהן', C.defaultState(), AREAS, PROPS, ctx, []);
+  assert.ok(!cq.fields.length && !cq.features.length);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));
