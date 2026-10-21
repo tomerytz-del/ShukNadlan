@@ -1,6 +1,6 @@
 ---
 name: property-card
-description: עבודה על קטגוריית "הנכסים שלי" ב-CRM של שוק נדל״ן - שורת הפעולות שבראשה (.prop-actbar, תפריט "⋯ עוד" #propMoreMenu), סרגל הסינון (PROP_FILTER_IDS, propertyFilterState / propertyFilterActive / filterProperties, הרשת ב-#propToolbar), שורת הטאב (buildPropertyTab, ימים בשוק) וכרטיס הנכס הפתוח (buildPropertyCard - אריחי הפעולות וה-tone שלהם, שורת התגיות ו-clampCardTags, בלעדיות מ-property_exclusivities, לקוחות מתאימים מ-client_match_alerts, מונה ודפדוף תמונות). Use when adding a filter or a sort to "הנכסים שלי", when a filter "doesn't reset" or a linked property stays hidden, when adding a tile, tag or button to the property card, when choosing a tile color, when a tag "disappears" behind +N, when adding a manager-only action to the top bar, or when check_long_dash.py suddenly reports dozens of dashes in crm.js after an edit near the card.
+description: קטגוריית "הנכסים שלי" ב-CRM של שוק נדל״ן - .prop-actbar ותפריט "⋯ עוד", הסינון (PROP_FILTER_IDS, propertyFilterActive), buildPropertyTab ו-buildPropertyCard (אריחים ו-tone, clampCardTags). Use when adding a filter or sort, when a filter "doesn't reset" or a linked property stays hidden, when adding a tile, tag or button to the property card, when a tag disappears behind +N, or when check_long_dash.py reports many dashes in crm.js after an edit near the card.
 ---
 
 # "הנכסים שלי" וכרטיס הנכס

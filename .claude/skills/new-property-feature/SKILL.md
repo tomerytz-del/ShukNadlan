@@ -1,6 +1,6 @@
 ---
 name: new-property-feature
-description: הוספה או שינוי של מאפיין נכס בריפו של שוק נדל״ן (חניה, ממ״ד, עמדת טעינה...) - הקוד במערך properties.features, ושתים-עשרה הרשימות המקבילות שבהן הוא חייב להופיע - CRM, ייבוא, דף הבית ופאנל החיפוש, דף הנכס, המיניסייט, התיאור השיווקי, שני הבוטים, הסכמי התיווך, אשף הערכת השווי ופרויקטים. Use when adding a property feature/amenity checkbox, when a feature is saved but not shown somewhere (property page, showcase, Facebook post), when a feature can't be filtered on, when the bot can't set or search a feature, or when adding a row to the agreement property table that comes from a feature.
+description: מאפיין נכס חדש או שינוי בו בריפו של שוק נדל״ן (חניה, ממ״ד, עמדת טעינה) - properties.features ושתים-עשרה הרשימות המקבילות (CRM, ייבוא, חיפוש, דף הנכס, המיניסייט, התיאור השיווקי, הבוטים, הסכמים). Use when adding a property feature/amenity checkbox, when a feature is saved but not shown somewhere (property page, showcase, Facebook post), when a feature can't be filtered on, when the bot can't set or search a feature, or when an agreement row comes from a feature.
 ---
 
 # מאפיין נכס חדש

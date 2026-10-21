@@ -1,6 +1,6 @@
 ---
 name: property-video
-description: עבודה על הסרטון השיווקי לנכס בריפו של שוק נדל״ן - property-video-create ו-property-video-callback, ההפקה ב-fal.ai (Kling + merge-videos), החיוב מראש ב-start_property_video_job והזיכוי ב-fail_property_video_job דרך failVideoJob, ה-reconcile מול תור fal (falAppPath), webhook שאבד, המסלולים (MID בתשלום, Premium עם מכסה), אורך הסצנה שאי אפשר לקצר, והכפתור ב-CRM ובבוט. Use when touching _shared/property-video.ts / property-video-create / property-video-callback / property_video_jobs / property_video_clips, when an agent says a video failed and the money did not come back, when a video is stuck "בהפקה", when changing the fal model or the merge step, when adding a new failure path to the pipeline, or when the CRM or the bot tells the agent what happened to the charge.
+description: הסרטון השיווקי לנכס בריפו של שוק נדל״ן - property-video-create / property-video-callback, fal.ai (Kling), החיוב מראש והזיכוי דרך failVideoJob, ה-reconcile מול fal (falAppPath), ואורך הסצנה. Use when touching _shared/property-video.ts / property_video_jobs, when a video failed and the money did not come back, when a video is stuck "בהפקה", when changing the fal model or merge step, when adding a failure path, or when telling the agent what happened to the charge.
 ---
 
 # הסרטון השיווקי לנכס

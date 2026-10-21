@@ -1,6 +1,6 @@
 ---
 name: meeting-followup
-description: עבודה על הפולואפ ללקוח/ה על פגישה בריפו של שוק נדל״ן - אישור בוואטסאפ עם הוספה ליומן, תזכורת יום לפני ושעה לפני עם כפתורי אישור/ביטול/מועד אחר, עדכון והודעת ביטול, משוב אחרי סיור שפותח משימה, והתראה לסוכן/ת כשאין תשובה. התור agent_agenda_client_messages, הפונקציה meeting-client, meeting.html, client_notify ב-agent_agenda_items, ה-payload ‏mtg:<קוד>:<token> ושלוש התבניות ב-Meta. Use when touching meeting-client / _shared/meeting-client.ts / meeting.html / assets/meeting.js / agent_agenda_client_* / client_notify, when a client did not get a meeting confirmation or reminder, when a client got a message twice or after the meeting was canceled, when a button press in a reminder reached the public bot instead, when adding a new kind of client follow-up message, when changing agenda_add/agenda_update in the agent bot, or when changing the agenda form in the CRM.
+description: הפולואפ ללקוח/ה על פגישה בריפו של שוק נדל״ן - אישור בוואטסאפ עם הוספה ליומן, תזכורות עם כפתורים ומשוב אחרי סיור. agent_agenda_client_messages, meeting-client, meeting.html, client_notify, ה-payload mtg:<קוד>. Use when touching meeting-client / _shared/meeting-client.ts / assets/meeting.js, when a client got no confirmation or reminder, got a message twice or after cancel, when a reminder button reached the public bot, or when changing agenda_add/agenda_update.
 ---
 
 # פולואפ ללקוח/ה על פגישה

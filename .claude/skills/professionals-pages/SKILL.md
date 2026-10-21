@@ -1,6 +1,6 @@
 ---
 name: professionals-pages
-description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - professionals.html (הרשימה, אריחי התחומים, הכרטיסייה בשלושה מצבים, כרטיס "התחום פנוי") ו-professional.html (הפרופיל, שורת העובדות, הפסיפס, "עוד בעלי מקצוע", הסרגל הקבוע בטלפון), ו-?type= ב-professional-signup.html. Use when adding a professional field (advertiser_type), changing TYPE_LABELS / TYPE_PLURAL / TYPE_FIELD / PATHS / TILE_TYPES, adding a field to the card or the profile, when a style on these pages "doesn't apply" or a blue button's text disappears on hover, when a fact appears that is not in the database, or when a contact link on these pages is counted as contact_agent.
+description: דפי בעלי המקצוע בשוק נדל״ן - professionals.html, professional.html ו-?type= ב-professional-signup.html. Use when adding a professional field (advertiser_type), changing TYPE_LABELS / TYPE_PLURAL / TYPE_FIELD / PATHS / TILE_TYPES, adding a field to the card or profile, when a style on these pages "doesn't apply" or a button's text disappears on hover, when a fact appears that is not in the database, or when a contact link there is counted as contact_agent.
 ---
 
 # דפי בעלי המקצוע

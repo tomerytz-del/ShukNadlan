@@ -1,6 +1,6 @@
 ---
 name: pricing-change
-description: שינוי מחיר, מכסה או תקרה בריפו של שוק נדל״ן (דמי מנוי, מספר וירטואלי, דקות, ליד, קידום, סרטון) - המיגרציה ל-pricing_config, PRICES ב-scripts/check_pricing.py, ושישה מקומות תצוגה (טבלת ההשוואה, השאלות הנפוצות, הכרטיסים ב-assets/tiers.js, TIER_PRICES, תגית ה-description והתיעוד). Use when changing what anything costs or how much is included, when a price on pricing.html looks different from what the wallet charged, when check_pricing.py fails, when adding a new paid item to the pricing page, or when rewording a pricing row that carries a number.
+description: שינוי מחיר, מכסה או תקרה בריפו של שוק נדל״ן - המיגרציה ל-pricing_config, PRICES ב-scripts/check_pricing.py, ומקומות התצוגה (pricing.html, assets/tiers.js, TIER_PRICES). Use when changing what anything costs or how much is included, when a price on pricing.html differs from what the wallet charged, when check_pricing.py fails, when adding a new paid item to the pricing page, or when rewording a pricing row that carries a number.
 ---
 
 # שינוי מחיר

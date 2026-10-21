@@ -1,6 +1,6 @@
 ---
 name: cma-report
-description: עבודה על דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״ן - agent_cma_report והעטיפה agent_cma_report_full, הסולם (חדרים, קומה לנכס מסחרי, תת-סוג לבית/דירת גן/פנטהאוז, רדיוס עד 2,000 מ'), ההשתקה מתחת לסף, property_type_class / property_kind / floor_group, בחירת 8 העסקאות להצגה, ותצוגת הדוח הממותגת עם לוח המדדים והשעונים (renderCmaReport, loadCmaBrand). Use when touching agent_cma_report / agent_cma_report_full / cma_deal_pool / cma_report, renderCmaReport / cmaSampleNote / cmaGaugeCard in assets/crm.js, toolCmaReport in the WhatsApp bot, when a CMA shows a number that looks wrong (a shop at +186%, a penthouse priced like a regular flat), when adding a property type to the site or to deals_engine, when the report "has no average", or when changing what the client sees in the printed report.
+description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״ן - agent_cma_report / agent_cma_report_full, הסולם (חדרים, קומה למסחרי, תת-סוג, רדיוס עד 2,000 מ'), ההשתקה מתחת לסף, property_type_class / property_kind, ו-renderCmaReport. Use when touching cma_deal_pool / cma_report / toolCmaReport, when a CMA number looks wrong (a shop at +186%, a penthouse priced like a flat), when adding a property type to the site or deals_engine, or when the report "has no average".
 ---
 
 # דוח ה-CMA

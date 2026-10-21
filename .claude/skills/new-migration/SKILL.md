@@ -1,6 +1,6 @@
 ---
 name: new-migration
-description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן — שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found". Also when adding a foreign key to a table that already references the same target (e.g. a second column pointing at agency_members) — that breaks every unqualified PostgREST embed with PGRST201.
+description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן - שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found". Also when adding a second foreign key to the same target (e.g. agency_members), which breaks PostgREST embeds with PGRST201.
 ---
 
 # מיגרציה חדשה

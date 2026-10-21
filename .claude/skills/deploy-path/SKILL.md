@@ -1,6 +1,6 @@
 ---
 name: deploy-path
-description: המסלול לפרודקשן בריפו של שוק נדל״ן - מתי מיזוג ל-main עולה דיפלוי ב-Netlify (‏netlify.toml ו-scripts/netlify_ignore.sh), איחוד מיזוגים כדי לחסוך קרדיטים, הסדר בין האתר, המיגרציות וה-Edge Functions, ואיך לא לדרוס PR אחר (מיזוג main, מספור מיגרציה מחדש, רשימות סגורות). Use when about to open, split or merge a PR, when suggesting a deploy, when a change touches both site files and supabase/, when renumbering a migration, when merging main into a branch, when touching netlify.toml or netlify_ignore.sh, or when Netlify credits or costs come up.
+description: המסלול לפרודקשן בריפו של שוק נדל״ן - מתי מיזוג ל-main עולה דיפלוי ב-Netlify (netlify.toml, scripts/netlify_ignore.sh), איחוד מיזוגים לחיסכון בקרדיטים, הסדר בין האתר למיגרציות, ואיך לא לדרוס PR אחר. Use when about to open, split or merge a PR, when suggesting a deploy, when a change touches both site files and supabase/, when renumbering a migration, when merging main into a branch, or when Netlify credits come up.
 ---
 
 # המסלול לפרודקשן
