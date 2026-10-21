@@ -226,6 +226,12 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 המגרש - מ-`kvuz_trg`; ‏`14` נותנת את ייעוד תוכנית המתאר, גס יותר. אין
 להציג את האיחוד כ"כל התוכניות החלות" (`docs/govmap.md`, הרצה 2).
 
+**איפה זה בנוי (22.10.2026):** ‏`GovmapLookup.plansAt` ← `govmap_plans`
+(עמודה נפרדת, **גם בעפולה**) ← `planning_plans_merged` לדף הנכס ולגבריאלה,
+ו-`mergedPlanningPlans` ב-`crm.js` ל-CMA ולכלי התכנון. שני האיחודים חייבים
+אותו סדר. שדה חדש מ-203 עובר בשלושה מקומות: `cleanPlanLayers`,
+‏`govmap_plans_write` (רשימה סגורה) ו-`planning_plans_merged`.
+
 ## בדיקה מהירה של הטוקן
 
 בקונסול של `https://shuknadlan.co.il` (לא localhost):

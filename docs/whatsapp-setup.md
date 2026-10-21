@@ -603,6 +603,11 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | הגייט | ‏mid/premium עם `billing_status = 'active'`, כמו `afula-planning-lookup`. הוובהוק בודק בכניסה גם את `billing_status` (מ-26.9.2026); הבדיקה בכלי נשארת כשכבה שנייה |
 | הכיסוי | **עפולה בלבד.** כתובת בעיר אחרת מחזירה `city_not_supported`; חלקה שאינה בקדסטר של עפולה - `parcel_not_found`. בשניהם חוזר `govmap_url`, קישור לחיפוש ב-GovMap |
 
+**`planning_info` (נכס שבמערכת) מקבלת גם את שכבות 203/14:** תוכניות
+ארציות, תוכנית מתאר והודעות לפי סעיף 77-78, דרך `agent_property_planning`
+(‏`planning_plans_merged`). כשיש הודעה חוזר `plans_guidance`: לומר "ייתכנו
+מגבלות על היתרים" ולהציע את הקישור למבא"ת - לא "אסור לבנות" (‏`docs/govmap.md`).
+
 **למה לא GovMap בשרת:** מפ"י ענו ב-12.10.2026 שה-API נצרך מצד הלקוח בלבד
 (`docs/govmap.md`, "תשובות מפ"י"). לכן הכלי אומר ביושר "רק עפולה" ומפנה
 למפה - ולא מנחש. הדרך להרחיב אותו אינה קריאה ל-GovMap אלא קריאה של מה

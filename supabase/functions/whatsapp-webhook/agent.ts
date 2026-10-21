@@ -644,8 +644,10 @@ const TOOLS: Anthropic.Tool[] = [
       "מידע תכנוני ובנייה על הנכס: ייעוד קרקע, אחוזי בנייה, יחידות דיור " +
       "וקומות מותרות, הערה תכנונית, סטטוס רישום החלקה והתוכניות החלות. " +
       "מחבר את מה שהסוכן/ת הצהיר/ה בטופס הנכס עם מה שנקלט מה-GIS של עיריית " +
-      "עפולה. זה הכלי ל\"מה מותר לבנות שם\" ו\"מה הייעוד של המגרש\". על " +
-      "נכס של סוכן/ת אחר/ת חוזר רק מה שמוצג בדף הנכס הפומבי, בלי גוש וחלקה.",
+      "עפולה, ועם התוכניות הארציות, תוכנית המתאר וההודעות לפי סעיף 77-78 " +
+      "מ-GovMap (בכל תוכנית: kind, stage, notice, permits, url למבא\"ת). זה " +
+      "הכלי ל\"מה מותר לבנות שם\", \"מה הייעוד של המגרש\" ו\"יש תוכנית בהכנה " +
+      "באזור\". על נכס של סוכן/ת אחר/ת חוזר רק מה שמוצג בדף הנכס הפומבי, בלי גוש וחלקה.",
     input_schema: {
       type: "object",
       properties: { property_id: { type: "string" } },
@@ -3442,6 +3444,18 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+/**
+ * הודעה לפי סעיף 77-78 היא תוכנית **בהכנה** שהוועדה רשאית להגביל בגללה
+ * היתרים באזור כולו (בעפולה: שדה תעופה משלים). זה מידע שקונה/ת רוצה לדעת,
+ * ולכן הוא נאמר - אבל כ"ייתכנו מגבלות", לא כאיסור, ועם הקישור למבא"ת.
+ * ‏docs/govmap.md, "plans-probe.js".
+ */
+const PLAN_NOTICE_GUIDANCE =
+  "יש לפחות תוכנית אחת עם notice: true - הודעה לפי סעיף 77-78 על הכנת תוכנית. " +
+  "אמור/י זאת במפורש: ייתכנו מגבלות על היתרי בנייה באזור עד שהתוכנית תאושר או תבוטל. " +
+  "אל תציג/י זאת כאיסור בנייה, והצע/י את ה-url של התוכנית במבא\"ת לפרטים. " +
+  "permits: false פירושו שמכוח התוכנית עצמה לא מוציאים היתרים (תוכנית מתאר), לא שאסור לבנות.";
+
 async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
 
@@ -3478,10 +3492,12 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
   // ‏agent_property_planning מצנזרת אותם בכל נכס אחר, ובלעדיהם אין מה לחפש.
   const gis = (info.gis || {}) as Record<string, unknown>;
   const ownership = await landOwnership(ctx, gis.gush, gis.helka);
+  const plans = (Array.isArray(gis.applicable_plans) ? gis.applicable_plans : []) as Record<string, unknown>[];
   return {
     ok: true,
     ...info,
     ...(ownership ? { ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
+    ...(plans.some((p) => p.notice === true) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
   };
 }
 
@@ -3550,9 +3566,10 @@ const OWNERSHIP_GUIDANCE =
  * שפג נבדק כאן (‏`.claude/skills/new-tier-capability`).
  *
  * ‏**רק עפולה, ביושר.** השכבות הן של העירייה. ‏GovMap נותן את אותו מידע
- * לכל הארץ, אבל הטוקן שלו נעול לדפדפן ועוד לא ידוע אם הוא עונה לשרת
- * (‏`docs/govmap.md`). עד אז מחוץ לעפולה חוזר `city_not_supported` עם קישור
- * לחיפוש ב-GovMap - ולא ניחוש.
+ * לכל הארץ, אבל מפ"י מתירים צריכה מצד הלקוח בלבד (12.10.2026,
+ * ‏`docs/govmap.md`), ולכן הבוט אינו שואל אותו. מחוץ לעפולה חוזר
+ * `city_not_supported` עם קישור לחיפוש ב-GovMap - ולא ניחוש. נכס שכבר
+ * במערכת מקבל את מה שהדפדפן שמר דרך planning_info.
  */
 async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknown>) {
   const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");

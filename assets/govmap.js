@@ -49,6 +49,21 @@
     neighborhoods_area: ['fname', 'setl_name', 'nbr_code'],
   };
 
+  /* התוכניות החלות (מפ"י, 12.10.2026; נמדד 22.10.2026 - docs/govmap.md).
+     ‏203 = גבול כל תוכנית (קו כחול), 14 = ייעודי הקרקע של מבא"ת לכל תוכנית.
+     **השם נשלח כמחרוזת:** ‏`name: 203` כמספר עונה 400 ומפיל את כל הבקשה.
+     שאילתה נפרדת מ-LAYER_FIELDS: אלה העשרה, ותקלה בהן אינה מפילה את הגוש,
+     החלקה והייעוד. ‏203 אינה מכילה את התוכניות המפורטות הוותיקות - אלה
+     מגיעות מ-tochnit של retzefMigrashim או משכבת העירייה. */
+  var PLAN_LAYER_FIELDS = {
+    '203': ['pl_number', 'pl_name', 'entity_subtype_desc', 'depositing_date', 'pl_date_8',
+            'plan_charactor_name', 'pl_url'],
+    '14': ['mavat_name', 'mavat_code', 'pl_number'],
+  };
+  // "ייעוד עפ"י תכנית מאושרת אחרת" ו"גבול הודעה" אינם ייעוד - הם אומרים "לא כאן"
+  var MAVAT_NOT_A_DESIGNATION = { 994: 1, 995: 1 };
+  var MAVAT_URL_RE = /^https:\/\/mavat\.iplan\.gov\.il\/[A-Za-z0-9\/]+$/;
+
   var pending = null;
   var projPending = null;
 
@@ -297,6 +312,74 @@
         neighborhood: nbr ? nbr.fname || null : null,
         cbs_settlement_code: lot && lot.kodishuv ? Number(lot.kodishuv) : null,
       };
+    });
+  }
+
+  /* מפתח השוואה למספר תוכנית: ‏203 כותבת "תמא/ 15/ ד", העירייה "תמא/15/ד". */
+  function planKey(n) { return String(n || '').replace(/\s+/g, ''); }
+
+  function dateOnly(v) {
+    var s = v == null ? '' : String(v);
+    return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+  }
+
+  /* תשובת השכבות 203 ו-14 -> רשימת תוכניות בצורה של govmap_plans. טהורה,
+     כדי שתיבדק בלי GovMap (scripts/govmap_plans_test.cjs). */
+  function cleanPlanLayers(layers) {
+    var byKey = {};
+    var out = [];
+    ((layers && layers['203']) || []).forEach(function (f) {
+      var a = (f && f.attributes) || {};
+      var number = String(a.pl_number || '').replace(/\s+/g, ' ').trim();
+      if (!number || byKey[planKey(number)]) return;
+      var kind = String(a.entity_subtype_desc || '').trim();
+      var notice = /סעיף\s*-?\s*77/.test(kind + ' ' + number);
+      var chr = String(a.plan_charactor_name || '');
+      var approved = dateOnly(a.pl_date_8);
+      var p = {
+        number: number,
+        name: String(a.pl_name || '').trim() || null,
+        kind: notice ? 'הודעה על הכנת תוכנית (סעיף 77-78)' : (kind || null),
+        // ‏pl_date_8 בהודעה הוא תאריך פרסום ההודעה, לא אישור תוכנית
+        stage: notice ? 'notice' : approved ? 'approved' : dateOnly(a.depositing_date) ? 'deposited' : null,
+        date: approved || dateOnly(a.depositing_date),
+        // ‏"שמכוחה ניתן להוציא היתרים" מול "לא ניתן" - שני הנוסחים כוללים "ניתן"
+        permits: /לא ניתן/.test(chr) ? false : /ניתן/.test(chr) ? true : null,
+        notice: notice,
+        url: MAVAT_URL_RE.test(String(a.pl_url || '')) ? String(a.pl_url) : null,
+        designation: null,
+      };
+      byKey[planKey(number)] = p;
+      out.push(p);
+    });
+    ((layers && layers['14']) || []).forEach(function (f) {
+      var a = (f && f.attributes) || {};
+      var p = byKey[planKey(a.pl_number)];
+      var name = String(a.mavat_name || '').trim();
+      if (p && name && !p.designation && !MAVAT_NOT_A_DESIGNATION[Number(a.mavat_code)]) p.designation = name;
+    });
+    return out;
+  }
+
+  /** התוכניות משכבות 203/14 בנקודה (ITM). ‏[] = ענה ואין. ‏throw = לא הצלחנו. */
+  function plansAt(point) {
+    return govmapReady().then(function (gm) {
+      return gm.getLayerFeaturesByLocation({
+        geometry: 'POINT(' + point.x + ' ' + point.y + ')',
+        radius: 0,
+        layers: Object.keys(PLAN_LAYER_FIELDS).map(function (name) { return { name: name, fields: PLAN_LAYER_FIELDS[name] }; }),
+      }, GOVMAP_TOKEN);
+    }).then(function (r) {
+      assertNoLayerErrors(r);
+      return cleanPlanLayers(r.layers);
+    });
+  }
+
+  /** אותו דבר מ-lat/lng - לנכס שכבר יש לו פין (עפולה, וההשלמה לנכסים קיימים). */
+  function plansAtLatLng(lat, lng) {
+    return projReady().then(function (proj4) {
+      var xy = proj4('WGS84', ITM_DEF, [Number(lng), Number(lat)]);
+      return plansAt({ x: xy[0], y: xy[1] });
     });
   }
 
@@ -652,7 +735,10 @@
     lookupAddress: lookupAddress,
     lookupParcel: lookupParcel,
     planningAt: planningAt,
+    plansAt: plansAt,
+    plansAtLatLng: plansAtLatLng,
     lookupProperty: lookupProperty,
+    _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,
     _textKey: textKey,                 // לבדיקות בלבד
