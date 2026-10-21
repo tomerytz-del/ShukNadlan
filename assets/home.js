@@ -1069,6 +1069,9 @@ const PROPERTY_SELECT =
   /* הסינון המתקדם של החיפוש במשפט רץ בדפדפן, על אותה רשימה - ולכן העמודות
      שהוא מסנן לפיהן נטענות כאן (‏applyAdvancedFilters). */
   'condition, project_status, move_in_soon, move_in_date, restrooms_location, storage_location, ' +
+  /* ‏sales_area - השכונה של נכס שאין לו neighborhood_id, דרך המפענח המשותף
+     (‏SearchCore.propertyAreas). לנכס עם שכונה הוא אינו נקרא. */
+  'sales_area, ' +
   /* מיקום משוער (אזור תעשייה, חלקה גדולה): הפין מסומן ככזה במפה, עם הבועית
      של assets/approx-location.js. docs/property-map.md */
   'location_precision, location_radius_m, ' +
@@ -4345,17 +4348,27 @@ let hoodShapes = [];
 /* ‏select('*') בכוונה: העמודות הגאוגרפיות (lat/lng/radius_m) נוספות
    במיגרציה 20260830120000, ובחירה מפורשת בהן הייתה מפילה את הטעינה בכל
    סביבה שהמיגרציה עוד לא רצה בה. הטבלה קטנה ואין בה שדות רגישים. */
+// ‏neighborhood_aliases של השוק - נטענים עם השכונות ועוברים לחיפוש במשפט
+let hoodAliases = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
-    const [{ data, error }, spec] = await Promise.all([
+    const [{ data, error }, spec, aliasRes] = await Promise.all([
       sb.from('neighborhoods').select('*'),
       marketFilterSpec(),
+      /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
+         ששם שגולש/ת מקליד/ה יזוהה כאן ושם אותו דבר (‏docs/search-core.md).
+         כשל כאן אינו מפיל את השכונות: בלי כינויים, רק השמות עצמם. */
+      sb.from('neighborhood_aliases').select('neighborhood_id, alias')
+        .then(r => r, () => ({ data: [] })),
     ]);
     if (error) throw error;
     // ‏השכונות של השוק בלבד - אותו כלל של הנכסים (MARKET_FILTER), על city_id
     // של השכונה. בלעדיו גלולות השכונה של חיפה היו מופיעות בדף הבית של עפולה.
-    return (data || []).filter(n => inMarket(spec, n.city_id));
+    const rows = (data || []).filter(n => inMarket(spec, n.city_id));
+    const ids = new Set(rows.map(n => n.id));
+    hoodAliases = ((aliasRes && aliasRes.data) || []).filter(a => ids.has(a.neighborhood_id));
+    return rows;
   } catch(e){
     console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
     return [];
@@ -4615,7 +4628,7 @@ try {
     renderHomeProps(properties);
 
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
-    if (sentence) sentence.setProperties(properties);
+    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
     else if (!searchHasRun) renderPropertyGrid(properties);
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —

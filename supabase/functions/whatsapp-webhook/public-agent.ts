@@ -340,7 +340,7 @@ const PROPERTY_FIELDS = [
   "street", "address", "house_number", "sales_area", "features", "condition",
   "project_status", "images", "listing_number", "is_promoted", "bumped_at",
   "created_at", "has_virtual_tour", "video_url", "open_house",
-  "open_house_start", "open_house_end", "neighborhoods(name)",
+  "open_house_start", "open_house_end", "neighborhood_id", "neighborhoods(name)",
 ].join(", ");
 
 function propertyUrl(id: string): string {

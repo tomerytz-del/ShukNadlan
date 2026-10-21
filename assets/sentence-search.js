@@ -27,7 +27,7 @@
 
   /* הכללים המשותפים לכל מנגנוני החיפוש - נרמול, מאפיינים, עסקה מתוך תקציב
      (‏assets/search-core.js, נטען לפני הקובץ הזה; ‏docs/search-core.md). */
-  var SC = root.SearchCore || (typeof require === 'function' ? require('./search-core.js') : null);
+  var SC = (typeof require === 'function' ? require('./search-core.js') : null) || root.SearchCore;
   if (!SC) throw new Error('search-core.js לא נטען לפני sentence-search.js');
 
   /* ---------- סוגי הנכס ----------
@@ -119,8 +119,15 @@
   /* ---------- אזורים ----------
      נגזרים מהנכסים עצמם ולא מרשימה קבועה: מוצג רק מה שיש בו לפחות נכס אחד.
      שכונות לפי ‎neighborhood_id‎, ויישובים לפי ‎city‎ - חוץ מהיישוב העיקרי
-     של השוק, שהוא ממילא "כל ‎<השוק>‎" ("עפולה" לבד = כל עפולה). */
-  function deriveAreas(props) {
+     של השוק, שהוא ממילא "כל ‎<השוק>‎" ("עפולה" לבד = כל עפולה).
+
+     **איך שם שהוקלד הופך לשכונה, ואיזו שכונה של נכס - בליבה המשותפת**
+     (‏SearchCore.findAreas / propertyAreas, ‏docs/search-core.md): אותו מפתח
+     השוואה ("סי 1" = C1), הכינויים מ-`neighborhood_aliases` (‏aliases =
+     ‎[{ neighborhood_id, alias }]‎ מהדף; עד 21.10.2026 היו כאן כינויים משלו
+     בקוד, והבוט הכיר אחרים), ו-`sales_area` רק לנכס בלי שכונה. השכונות של
+     כל נכס נשמרות ב-`p._areas`, כי המונים מריצים את matches אלפי פעמים. */
+  function deriveAreas(props, aliases) {
     var hoods = {}, cities = {};
     (props || []).forEach(function (p) {
       if (p._away) return;   // נכס משוק אחר אינו אזור של השוק הזה (findPlace)
@@ -132,63 +139,39 @@
     });
     var cityNames = Object.keys(cities).sort(function (a, b) { return cities[b] - cities[a]; });
     var mainCity = cityNames[0] || '';
-    var list = Object.keys(hoods).map(function (k) { return hoods[k]; })
-      .sort(function (a, b) { return b.count - a.count || a.label.localeCompare(b.label, 'he'); });
-    cityNames.slice(1).forEach(function (c) { list.push({ key: 'city:' + c, label: c, count: cities[c] }); });
+    var byHood = {};
+    (aliases || []).forEach(function (a) {
+      if (a && a.alias && a.neighborhood_id) (byHood[a.neighborhood_id] = byHood[a.neighborhood_id] || []).push(a.alias);
+    });
+    var list = Object.keys(hoods).map(function (k) { return hoods[k]; });
+    list.forEach(function (a) { a.aliases = byHood[a.key.slice(5)] || []; });
+    cityNames.slice(1).forEach(function (c) { list.push({ key: 'city:' + c, label: c, count: cities[c], aliases: [] }); });
+    var index = SC.areaIndex(list.map(function (a) { return { target: a.key, label: a.label, aliases: a.aliases }; }));
+    // נכס בלי שכונה: ‏sales_area דרך אותו מפענח - ונספר באזור שזוהה
+    (props || []).forEach(function (p) {
+      p._areas = SC.propertyAreas(p, index, hoodKey);
+      if (!p._away && !p.neighborhood_id && p._areas.length === 1 && hoods[p._areas[0].slice(5)]) hoods[p._areas[0].slice(5)].count++;
+    });
+    list.sort(function (a, b) {
+      var ah = a.key.indexOf('hood:') === 0, bh = b.key.indexOf('hood:') === 0;
+      if (ah !== bh) return ah ? -1 : 1;
+      return ah ? (b.count - a.count || a.label.localeCompare(b.label, 'he')) : 0;
+    });
     list.mainCity = mainCity;
+    list.index = index;
     return list;
   }
+  function hoodKey(id) { return 'hood:' + id; }
 
-  /* השמות שהטקסט החופשי יכול להתאים להם, לכל אזור: השם המלא, בלי הסוגריים,
-     מה שבתוך הסוגריים, ובלי הסיומת הלטינית ("לב העמק C1" → "לב העמק").
-     ‏ALIASES הם כינויים שאינם נגזרים מהשם. */
-  var ALIASES = [
-    [/(^| )[ובלמה]{0,2}גבעה( |$)/, 'גבעת המורה'],
-    [/(^| )[ובלמה]{0,2}עפולה ע( |$)/, 'עפולה עלית'],
-    [/(^| )[ובלמה]{0,2}ע ?עלית( |$)/, 'עפולה עלית'],
-    [/(^| )[ובלמה]{0,2}עלית( |$)/, 'עפולה עלית'],
-  ];
+  function hasWord(t, name) { return SC.hasWord(t, name); }
 
-  function areaNames(a) {
-    var full = norm(a.label);
-    var names = [full];
-    var noParen = norm(a.label.replace(/\([^)]*\)/g, ''));
-    if (noParen && noParen !== full) names.push(noParen);
-    var paren = a.label.match(/\(([^)]*)\)/);
-    if (paren && norm(paren[1])) names.push(norm(paren[1]));
-    var noLatin = norm(a.label.replace(/[A-Za-z0-9]+/g, ''));
-    if (noLatin && names.indexOf(noLatin) < 0) names.push(noLatin);
-    // ‏"ביוגב" ולא "בהיוגב": ה' הידיעה בראש השם נבלעת אחרי אות יחס
-    if (/^ה[^ ]{3,}/.test(full) && names.indexOf(full.slice(1)) < 0) names.push(full.slice(1));
-    return names.filter(function (n) { return n.length >= 2; });
-  }
-
-  /* השם כמילה שלמה, ומותר לפניו צירוף של אותיות השימוש: "בגבעת המורה",
-     "וליד מרכז העיר" → "ול", "מהיוגב". */
-  function hasWord(t, name) {
-    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('(^| )[ובלמהשכ]{0,3}' + esc + '( |$)').test(t);
-  }
-
+  /* אזור אחד מהרשימה, או - לכינוי שמכסה כמה שכונות ("הדר") - ‎text:‎ שמתפענח
+     שוב ב-matches לאותן שכונות. */
   function findArea(text, areas) {
-    /* ‏"דירה עם מעלית" היא מ+"עלית" - והכינוי של עפולה עלית תפס אותה
-       (‏14.10.2026). המילה יורדת לפני החיפוש; היא מאפיין (‏FEATURE_WORDS ב-search-core.js). */
-    var t = norm(text).replace(/(^| )[ובלה]?מעלית(?= |$)/g, ' ');
-    var best = null, bestLen = 0;
-    (areas || []).forEach(function (a) {
-      areaNames(a).forEach(function (n) {
-        if (n.length > bestLen && hasWord(t, n)) { best = a; bestLen = n.length; }
-      });
-    });
-    if (best) return best;
-    for (var i = 0; i < ALIASES.length; i++) {
-      if (ALIASES[i][0].test(t)) {
-        var target = norm(ALIASES[i][1]);
-        var hit = (areas || []).filter(function (a) { return areaNames(a).indexOf(target) >= 0; })[0];
-        if (hit) return hit;
-      }
-    }
-    return null;
+    var hit = SC.findAreas(text, areas && areas.index);
+    if (!hit) return null;
+    if (hit.targets.length === 1) return (areas || []).filter(function (a) { return a.key === hit.targets[0]; })[0] || null;
+    return { key: 'text:' + hit.text, label: hit.text };
   }
 
   function areaLabel(key, areas, ctx) {
@@ -236,12 +219,16 @@
 
     if (skip !== 'area' && st.area && st.area !== 'all') {
       var a = st.area;
-      if (a.indexOf('hood:') === 0) { if (String(p.neighborhood_id) !== a.slice(5)) return false; }
+      // ‏p._areas - מ-deriveAreas (‏SearchCore.propertyAreas); בלעדיו, השכונה עצמה
+      var mine = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
+      if (a.indexOf('hood:') === 0) { if (mine.indexOf(a) < 0) return false; }
       else if (a.indexOf('city:') === 0) { if (p.city !== a.slice(5)) return false; }
       else if (a.indexOf('text:') === 0) {
         var q = norm(a.slice(5));
-        var hay = norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' '));
-        if (q && hay.indexOf(q) < 0) return false;
+        // כינוי של כמה שכונות ("הדר") - השכונות שלו; אחרת רחוב, כותרת או עיר
+        var named = ctx.areaIndex ? SC.findAreas(q, ctx.areaIndex) : null;
+        if (named) { if (!named.targets.some(function (x) { return mine.indexOf(x) >= 0; })) return false; }
+        else if (!SC.textMatches(p, q)) return false;
       }
       else if (a === 'near') {
         if (!ctx.near || !p.lat || !p.lng) return false;
@@ -636,8 +623,8 @@
     if (!st.area || st.area.indexOf('text:') !== 0) return st;
     var q = norm(st.area.slice(5));
     if (areas && areas.mainCity && q === norm(areas.mainCity)) return assign(st, { area: 'all' });
-    var hit = (areas || []).filter(function (a) { return areaNames(a).indexOf(q) >= 0; })[0] || findArea(q, areas);
-    return hit ? assign(st, { area: hit.key }) : st;
+    var hit = findArea(q, areas);
+    return hit && hit.key !== st.area ? assign(st, { area: hit.key }) : st;
   }
 
   /* ‏"3-4" הוא [3, 4.5] - כמו התווית "3-4 חדרים" - ו-"4" לבד הוא בדיוק 4, כמו
@@ -767,6 +754,7 @@
     var liveEl = ids('ssLive');
 
     var props = [];
+    var aliasList = [];           // ‏neighborhood_aliases מהדף (‏setProperties)
     var areas = [];
     var loaded = false;
     var ctx = {
@@ -1571,7 +1559,9 @@
       setProperties: function (list, extra) {
         props = (list || []).slice();
         awayFor = null;
-        areas = deriveAreas(props);
+        if (extra && extra.aliases) aliasList = extra.aliases;
+        areas = deriveAreas(props, aliasList);
+        ctx.areaIndex = areas.index;
         loaded = true;
         if (extra && extra.aiIds) ctx.aiIds = extra.aiIds;
         st = resolveArea(st, areas);

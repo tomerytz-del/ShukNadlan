@@ -2070,7 +2070,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 const AGENT_SEARCH_FIELDS =
   "id, listing_number, title, property_type, deal_type, category, price, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
-  "agent_id, agency_id, is_promoted, created_at, neighborhoods(name), " +
+  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, neighborhoods(name), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
 
 const SOURCE_ORDER: Record<string, number> = { own: 0, agency: 1, shared: 2, market: 3 };

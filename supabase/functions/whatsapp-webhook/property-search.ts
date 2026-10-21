@@ -42,27 +42,7 @@ export function likeSafe(value: string): string {
   return `%${value.replace(/[%_\\]/g, "\\$&")}%`;
 }
 
-/**
- * מפתח השוואה לשם שכונה/אזור. גולשים כותבים "סי 1", "C-1", "שכונת c1" על
- * מה שבמסד הוא "לב העמק C1", והשוואת substring גולמית החזירה 0 בזמן שארבע
- * דירות 5 חדרים חיו שם (‏4.10.2026). לכן: אותיות לטיניות שנכתבו בעברית
- * חוזרות ללטינית, ורווחים, מקפים וגרשים נמחקים משני הצדדים.
- */
-const HEB_LATIN: [RegExp, string][] = [
-  [/(^|[^א-ת])סי(?=[\s\-]*\d)/g, "$1c"],
-  [/(^|[^א-ת])בי(?=[\s\-]*\d)/g, "$1b"],
-  [/(^|[^א-ת])די(?=[\s\-]*\d)/g, "$1d"],
-  [/(^|[^א-ת])אי(?=[\s\-]*\d)/g, "$1a"],
-];
-export function areaKey(value: string): string {
-  let s = value.toLowerCase();
-  for (const [re, to] of HEB_LATIN) s = s.replace(re, to);
-  return s.replace(/[^0-9a-zא-ת]/g, "");
-}
-/** "שכונת C1" → "C1": המילה הכללית אינה חלק מהשם שבמסד. */
-export function areaNeedle(value: string): string {
-  return areaKey(value.replace(/^\s*(שכונת|שכונה|שכ'|אזור|איזור|באזור|בשכונת)\s+/, ""));
-}
+// מפתח ההשוואה לשמות אזורים (‏"סי 1" = C1) - ‏SearchCore.areaKey, משותף לאתר.
 
 /**
  * סוגי הנכס במסד אינם אחידים ("מגרש" ו-"מגרשים", "גג/פנטהאוז"), ו-`in`
@@ -171,19 +151,25 @@ export function applyPropertyFilters(
 }
 
 /**
- * סינון השכונה על שורות שכבר נשלפו (עם `neighborhoods(name)` ו-`sales_area`).
+ * סינון השכונה על שורות שכבר נשלפו - **באותו מפענח של האתר**
+ * (‏SearchCore.findAreas / inAreas, ‏_shared/search-core.js, docs/search-core.md).
  *
- * השכונה יושבת בטבלה אחרת ואזור המכירה בעמודת טקסט חופשי; סינון על שתיהן
- * בשאילתה אחת דורש embed מסוג inner, שמפיל נכסים בלי שכונה משויכת.
+ * עד 21.10.2026 היה כאן מפענח משלו, והוא נפרד מזה של האתר בשלושה מקומות:
  *
- * כינויים שנקבעו בהכרעה (‏`neighborhood_aliases`): "C1" ו"לב העמק" הם
- * "לב העמק C1". ‏"ברובע" / "במרכז" - אות היחס נופלת לפני ההשוואה לכינוי.
+ *   ‏• **`sales_area` כ-substring.** הוא טקסט חופשי של הסוכן/ת - "מרכז העיר"
+ *     כתוב על נכסים באזור התעשייה, "אזור עפולה והעמקים" על חצי עיר - וחיפוש
+ *     "מרכז העיר" החזיר אותם. עכשיו השכונה של נכס היא `neighborhood_id`,
+ *     ו-`sales_area` נקרא רק כשאין שכונה, ורק דרך אותו מפענח שמות.
+ *   ‏• **כינויים.** כאן - מהטבלה; באתר - רשימה בקוד. עכשיו הטבלה לשניהם.
+ *   ‏• **"כינוי מדויק גובר".** עכשיו: ההתאמה הארוכה כמילה שלמה, ובשוויון
+ *     השם על הכינוי - "מרכז עפולה עלית" הוא עפולה עלית, "מרכז" הוא מרכז העיר.
  *
- * **כינוי מדויק גובר על ה-substring.** "מרכז" הוא מרכז העיר בעפולה
- * (‏5.10.2026), אבל כ-substring הוא תפס גם את "מרכז עפולה עלית" ב-
- * `sales_area` של בית בעפולה עלית, ו"מרכז עפולה" תפס **רק** אותו. כשהשם
- * הוא כינוי במדויק - מתאימים רק לשכונות של הכינוי (בשם השכונה או
- * ב-`sales_area` שכתוב בשם הזה), ולא בהתאמה חלקית.
+ * שם שאינו שכונה (רחוב, יישוב, שם פרויקט) - ‏SearchCore.textMatches, כמו
+ * ‎text:‎ באתר: כותרת, רחוב, כתובת, עיר, שכונה ו-`sales_area`. כאן נשארת התאמה חלקית לשם השכונה (‏partial: "המורה" ←
+ * גבעת המורה), כי `area` של הכלי הוא שם של אזור ולא משפט שלם.
+ *
+ * השכונות נטענות רק לערים של השורות שכבר נשלפו: "מרכז העיר" קיים בעשרות
+ * ערים, ושכונה מעיר אחרת אינה יכולה להיות התשובה.
  *
  * ‏`hint` חוזר כשהשם עצמו אינו מוכר: 0 תוצאות אז אינו "אין נכסים שם" אלא
  * "לא הבנתי איפה" - ובלי הרמז הבוט אמר "לא מצאתי ב-21" כאילו בדק.
@@ -195,51 +181,36 @@ export async function filterByArea<T>(
   city: string | null,
   opts: { withHint: boolean },
 ): Promise<{ rows: T[]; hint: Record<string, unknown> }> {
-  const needle = areaNeedle(area) || areaKey(area);
-  if (!needle) return { rows: [], hint: {} };
-  const bare = needle.replace(/^(וב|ב|ה)(?=.{3})/, "");
+  if (!SearchCore.areaKey(area)) return { rows: [], hint: {} };
 
-  const aliasHoods = new Set<string>();
-  let exactAlias = false;
-  const { data: aliases } = await supabase
-    .from("neighborhood_aliases")
-    .select("alias, neighborhoods(name, city)");
-  for (const a of aliases || []) {
-    // deno-lint-ignore no-explicit-any
-    const n = (a as any).neighborhoods;
-    if (!n?.name || (city && !String(n.city || "").includes(city))) continue;
-    const k = areaKey(String(a.alias));
-    if (!k) continue;
-    const exact = k === needle || k === bare;
-    if (exact || k.includes(needle)) aliasHoods.add(areaKey(n.name));
-    if (exact) exactAlias = true;
-  }
-
-  const out = rows.filter((p) => {
-    // deno-lint-ignore no-explicit-any
-    const hood = areaKey((p as any).neighborhoods?.name || "");
-    // deno-lint-ignore no-explicit-any
-    const sales = areaKey((p as any).sales_area || "");
-    if (exactAlias) return aliasHoods.has(hood) || aliasHoods.has(sales);
-    return hood.includes(needle) || sales.includes(needle) || aliasHoods.has(hood);
-  });
-
-  if (out.length || !opts.withHint || aliasHoods.size) return { rows: out, hint: {} };
-
-  let hoods = supabase.from("neighborhoods").select("name");
-  if (city) hoods = hoods.ilike("city", likeSafe(city));
-  let sales = supabase.from("properties").select("sales_area")
-    .eq("status", "active").not("sales_area", "is", null);
-  if (city) sales = sales.ilike("city", likeSafe(city));
-  const [{ data: known }, { data: salesRows }] = await Promise.all([
-    hoods.limit(200),
-    sales.limit(AREA_SCAN_LIMIT),
+  // deno-lint-ignore no-explicit-any
+  const cities = [...new Set(rows.map((p) => String((p as any).city || "")).filter(Boolean))].slice(0, 30);
+  let hq = supabase.from("neighborhoods").select("id, name, city");
+  if (city) hq = hq.ilike("city", likeSafe(city));
+  else if (cities.length) hq = hq.in("city", cities);
+  const [{ data: hoods }, { data: aliases }] = await Promise.all([
+    hq.limit(1000),
+    supabase.from("neighborhood_aliases").select("neighborhood_id, alias"),
   ]);
-  const names = [...new Set((known || []).map((n) => String(n.name)))];
-  const salesAreas = (salesRows || []).map((r) => String(r.sales_area));
-  if ([...names, ...salesAreas].some((n) => areaKey(n).includes(needle))) {
-    return { rows: out, hint: {} };
+  const byHood: Record<string, string[]> = {};
+  for (const a of aliases || []) {
+    const id = String(a.neighborhood_id);
+    (byHood[id] = byHood[id] || []).push(String(a.alias));
   }
+  const index = SearchCore.areaIndex((hoods || []).map((h) => ({
+    target: String(h.id), label: String(h.name), aliases: byHood[String(h.id)] || [],
+  })));
+
+  const hit = SearchCore.findAreas(area, index, { partial: true }) as { targets: string[] } | null;
+  let out: T[];
+  if (hit) {
+    out = rows.filter((p) => SearchCore.inAreas(p, hit.targets, index));
+  } else {
+    out = rows.filter((p) => SearchCore.textMatches(p, area));
+  }
+
+  if (out.length || !opts.withHint || hit) return { rows: out, hint: {} };
+  const names = [...new Set((hoods || []).map((n) => String(n.name)))];
   return {
     rows: out,
     hint: {

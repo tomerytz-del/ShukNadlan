@@ -48,6 +48,24 @@ SPEC.deals.forEach(c => {
   test('עסקה מ-' + c.price, () => assert.strictEqual(SC.dealFromPrice(c.price), c.deal));
 });
 
+// ---------- אזורים: אותו מפענח לאתר ולבוטים ----------
+const A = SPEC.areas;
+const INDEX = SC.areaIndex(A.hoods.map(h => ({ target: h.id, label: h.name, aliases: h.aliases })));
+A.phrases.forEach(c => {
+  test('אזור: ' + c.text, () => {
+    const hit = SC.findAreas(c.text, INDEX);
+    assert.deepStrictEqual(hit ? hit.targets : [], c.hoods);
+    const part = SC.findAreas(c.text, INDEX, { partial: true });
+    assert.deepStrictEqual(part ? part.targets : [], c.partial || c.hoods);
+  });
+});
+A.properties.forEach(c => {
+  test('נכס בשכונה: ' + c.name, () => assert.strictEqual(SC.inAreas(c.property, [c.hood], INDEX), c.match));
+});
+A.text.forEach(c => {
+  test('טקסט: ' + c.name, () => assert.strictEqual(SC.textMatches(c.property, c.q), c.match));
+});
+
 test('מחסן הוא מאפיין רק במגורים', () => {
   assert.deepStrictEqual(SC.featuresIn('עם מחסן', { residential: true }), ['storage']);
   assert.deepStrictEqual(SC.featuresIn('עם מחסן', { residential: false }), []);
