@@ -1,6 +1,6 @@
 ---
 name: crm-navigation
-description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GROUPS כמקור אמת יחיד (סרגל הצד, תפריט הבורגר ותפריט הפרופיל, ו-check_crm_nav.py), הסרגל התחתון בנייד (BOTTOM_NAV - בית · לידים · + · חיפוש · התראות), השכבות (openNavLayer / closeNavLayers / navLayer - יצירה, חיפוש, פרופיל ופאנל ההתראות דרך openBellPanel / closeBellPanel), גלולת הפעולות בכותרת (המבורגר, סמל הבית שנפתח באתר בלשונית חדשה, הפעמון מ-1024px), אשכול הזהות (אווטאר, שם ותגית המסלול שהמתנה בתוכה - .tier-chip ו-wirePromoGift), והכיווץ בגלילה (.is-compact). Use when adding a category or a destination to the CRM menu, adding or changing a bottom-nav button, opening a new panel/sheet from the header or the bottom nav, touching the bell, the header pill, the avatar/profile menu, the tier badge or the launch-promo gift, or when a panel opens under another one, a bottom-nav button stays highlighted after its panel closed, or a fixed panel inside the header is positioned wrong.
+description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GROUPS כמקור אמת יחיד (check_crm_nav.py), BOTTOM_NAV, השכבות (openNavLayer / closeNavLayers), הפעמון (openBellPanel), האווטאר ותגית המסלול (.tier-chip). Use when adding a destination to the CRM menu, changing a bottom-nav button, opening a new panel from the header or bottom nav, when a panel opens under another, a bottom-nav button stays highlighted after its panel closed, or a fixed panel in the header is misplaced.
 ---
 
 # הניווט והכותרת ב-CRM

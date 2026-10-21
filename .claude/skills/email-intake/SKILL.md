@@ -1,6 +1,6 @@
 ---
 name: email-intake
-description: עבודה על קליטה מהמייל בריפו של שוק נדל״ן - מייל שסוכן/ת שולח/ת או מעביר/ה ל-shuknadlan@gmail.com (זיהוי לפי שולח שגוגל אימת) או ל-shuknadlan+<token>@gmail.com, וגבריאלה מזהה מי שלח ומה צריך ועונה בוואטסאפ. email-intake.ts, ‏_shared/imap.ts, ‏EMAIL_TOOLS, ‏verifiedSender, ‏readAttachments (קבצים מצורפים - PDF, ‏Word, ‏Excel, תמונות, הקלטות), הסמן email_intake_cursor, היומן email_intake_messages, וחלון 24 השעות. Use when touching supabase/functions/whatsapp-webhook/email-intake.ts or _shared/imap.ts, adding a tool the email turn may use, changing how the sender is identified, when an agent says Gabriela did not answer a forwarded email, when an attachment was not read, when an email row is stuck in processing or failed with "fetch", or when the +costs receipts path changes.
+description: קליטה מהמייל בריפו של שוק נדל״ן - מייל שסוכן/ת מעביר/ה ל-shuknadlan@gmail.com או ל-shuknadlan+<token>@gmail.com, וגבריאלה עונה בוואטסאפ. email-intake.ts, _shared/imap.ts, EMAIL_TOOLS, verifiedSender, readAttachments. Use when touching email-intake.ts or imap.ts, adding a tool the email turn may use, changing how the sender is identified, when Gabriela did not answer a forwarded email, when an attachment was not read, or when an email row is stuck in processing.
 ---
 
 # קליטה מהמייל

@@ -1,6 +1,6 @@
 ---
 name: office-signup
-description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שבעה צעדים בשני שלבים: רישיון, פרופיל, נכס; גבריאלה, לקוח/ה, יומן, העדפות לידים), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONB_STEP_DEFS / assets/crm-onboarding.js / agent_onboarding_state / agent_license_ok, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html). Also when a new office sees nothing under "נכסים ששותפו איתי" (agencies_share_backfill).
+description: הצטרפות משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה, הכניסה האוטומטית, חלון "ברוכים הבאים", מדריך ההתחלה (ONB_STEP_DEFS, agent_license_ok), מה מבקשים ומתי, וערכות העיצוב (assets/agency-theme.js). Use when adding or removing a signup field, changing signup or login copy, touching signInAfterSignup / maybeShowWelcome / crm-onboarding.js, when a new office "has to log in again", or when touching office colors or covers.
 ---
 
 # הצטרפות משרד, מדריך ההתחלה, ועיצוב המשרד

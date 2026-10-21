@@ -13881,12 +13881,6 @@ function propertyStatusLabel(p){
   return PROPERTY_STATUS_LABELS[p?.status] || p?.status || '';
 }
 
-function propertyStatusPillClass(status){
-  if (status === 'active') return 'status-unlocked';
-  if (status === 'unpublished') return 'status-masked';
-  return 'status-off';
-}
-
 /* ---------- הרשימה כטאבים ----------
    כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
    מסכים כדי למצוא אחד. לכן הרשימה מציגה טאבים קצרים — סוג, כתובת ומחיר —
@@ -21115,28 +21109,6 @@ function clientStatusLabel(c){
   return CLIENT_STATUS_LABELS[c.status] || c.status;
 }
 
-function clientRequirementLine(c){
-  // לבעל/ת נכס אין פרופיל חיפוש - השדות נשארים במסד אבל אינם אומרים דבר
-  if (isOwnerClient(c)) return [clientSideLabel(c), c.category === 'commercial' ? 'מסחרי' : 'מגורים'].join(' · ');
-  const parts = [
-    clientSideLabel(c),
-    c.category === 'commercial' ? 'מסחרי' : 'מגורים',
-    (c.cities || []).length ? c.cities.join(', ') : null,
-    (c.property_types || []).length ? c.property_types.join(' / ') : null,
-    (c.min_price || c.max_price)
-      ? (c.min_price ? shekel(c.min_price) : '') + '-' + (c.max_price ? shekel(c.max_price) : 'ללא תקרה')
-      : null,
-    (c.min_rooms || c.max_rooms)
-      ? ((c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים') : null,
-    (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
-      : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
-      : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : null,
-    c.max_floor != null ? 'עד קומה ' + c.max_floor : null,
-    (c.required_features || []).length ? c.required_features.map(featureLabel).join(', ') : null,
-  ].filter(Boolean);
-  return parts.join(' · ');
-}
-
 /* רשימות הסינון של הלקוחות נבנות ממה שהוזן בפועל בכרטיסים — סוג הנכס והעיר
    הם מערכים על השורה, ולכן הם משוטחים לרשימה אחת של ערכים ייחודיים.        */
 function syncClientFilterOptions(){
@@ -23563,38 +23535,9 @@ function renderClientAlerts(){
   renderMatchesGrouped();
 }
 
-/* ---------- התראת התאמה כשורה ----------
-   ההתראה היא זוג: נכס שנכנס ולקוח/ה שהוא מתאים לו/ה. הכותרת היא הנכס,
-   באותה צורה שבה הוא נכתב בכל שאר הרשימות (סוג · כתובת), ושם הלקוח/ה הוא
-   הפרט הראשון בשורת המשנה - כלומר זה שלעולם אינו נחתך. שני הכיוונים
-   קורים בשטח: נכס אחד שמתאים לשלושה לקוחות, ולקוח/ה אחד/ת ששלושה נכסים
-   מתאימים לו/ה, ולכן אף אחד מהשניים אינו לבדו מפתח שמבדיל בין השורות.
-
-   הפס הצדדי הזהוב מסמן את מה שטרם נצפה - בלי זה רשימת ההתראות אחידה
-   לגמרי והחדש נבלע בין מה שכבר טופל. זו אותה החלטה שכבר עמדה מאחורי
-   `.alert-card.is-new`, והיא פשוט עברה לשורה. */
-const expandedAlertIds = new Set();
-
+/* כתובת ההתראה בשורה אחת. משמשת גם את assets/crm-matches.js */
 function alertAddressLine(a){
   return [a.city, [a.street, a.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-}
-
-function buildAlertTab(a){
-  const isNew = a.status === 'new';
-  return buildTabRow({
-    key: a.id, list:'alert', expanded: expandedAlertIds,
-    cls: 'alert-tab' + (isNew ? ' is-new' : ''),
-    icon: a.source === 'shared' ? '🤝' : '🔔',
-    title: (a.property_type || 'נכס') + ' · ' + (alertAddressLine(a) || a.title || ''),
-    sub: ['ל' + (a.client_name || '-'),
-          // המשרד שמפרסם רלוונטי רק כשהוא לא שלי - בנכס שלי זה רעש
-          a.source === 'shared' ? (a.listing_agency_name || 'משרד שותף') : null,
-          tabShortDate(a.created_at)].filter(Boolean).join(' · '),
-    pill: { text: a.score + '%', cls: 'score-pill ' + (a.score >= 85 ? 'score-high' : 'score-mid') },
-    price: shekel(a.price),
-    priceNote: a.deal_type === 'rent' ? 'לחודש' : '',
-    buildCard: ()=> buildAlertCard(a),
-  });
 }
 
 function buildAlertCard(a){
@@ -23697,7 +23640,6 @@ async function setAlertStatus(row, status, btn){
 
   if (status === 'dismissed' || alertScope() === 'new'){
     alertRows = alertRows.filter(r => r.id !== row.id);
-    expandedAlertIds.delete(row.id);   // ההתראה ירדה מהרשימה
   } else {
     row.status = status;
     row.seen_at = row.seen_at || new Date().toISOString();

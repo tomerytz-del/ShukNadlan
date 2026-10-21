@@ -1,6 +1,6 @@
 ---
 name: home-page
-description: עבודה על דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, שורת החיפוש החופשית, המפה שנפתחת ב"הצג במפה" (map-closed / map-open), סדר הסקציות מתחת ל-hero, הערכת השווי וההסתייגות על השמאי, והפינות המעוגלות מול design-system.css. Use when changing anything in the home page hero or sections, adding a section or a button to index.html, when a style in index.html "doesn't apply" or a corner comes out square, when the Gabriela button drops below the fold on mobile, when touching the owner valuation wizard, or when a sentence on the page breaks in the middle. Also when a modal or overlay on the home page is covered by the search results or its clicks fall through, or when the property-type list under להשכרה/למכירה/מסחרי is missing a type. Also when changing the buyer wizard ("מחפשים נכס?" banner, buyHoodChips / buyCity, assets/buyer-banner.js, agent.html, agency.html) - its city selector and neighborhoods.
+description: דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, החיפוש, המפה (map-closed / map-open), הערכת השווי, ו-design-system.css שנטען אחרי ה-style. Use when changing the hero or sections of index.html, when a style "doesn't apply" or a corner is square, when the Gabriela button drops below the fold on mobile, when touching the valuation wizard, when a home-page modal is covered or clicks fall through, or when changing the buyer wizard (assets/buyer-banner.js).
 ---
 
 # דף הבית
@@ -188,7 +188,9 @@ Leaflet מאותחל בטעינה בגודל 0, ולכן כל פתיחה קור�
 
 design-system.css נותן `text-wrap:balance` לכותרות ו-`pretty` לפסקאות. צירוף
 שחייב להישאר יחד ("פחות מדקה", "1.6 מיליון ₪", "הכל כאן.") עוטפים ב-
-`<span class="nw">`. כפתור שהכיתוב שלו לא נכנס בטלפון צר - מקטינים גופן
+`<span class="nw">`. כותרת ארוכה (יותר משש מילים) - **כל צירוף ב-`nw` משלו**,
+כי `balance` מאזן אורכים ולא יודע מה צירוף (כך נשבר "של / העסקה" בכותרת של
+בעלי המקצוע); ושם עיר בתוכה מסומן `data-market-city` (הסקיל `new-page`). כפתור שהכיתוב שלו לא נכנס בטלפון צר - מקטינים גופן
 מתחת ל-375px, וגם ב-760-899 (מחשב צר: הדמות שבצד משאירה לגוף ‎360-460px‎, והכפתור
 לגבריאלה נחתך ב-800), לא נותנים לו להישבר; ורק אם גם זה לא מספיק (כפתור הסוכן במצב
 הכבוי) - שתי שורות **מאוזנות**.

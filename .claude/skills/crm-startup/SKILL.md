@@ -1,6 +1,6 @@
 ---
 name: crm-startup
-description: מה ה-CRM של שוק נדל״ן טוען אחרי הכניסה, ואיך מוסיפים לזה בלי להאט - loadDashboard() והשרשראות שבה (propsP, clientsP, pricingP), ה-Promise.all בתוך loadProperties, loadClients והמדפים, שאילתת supabase-js שיוצאת רק ב-then, תקרת 1,000 השורות של PostgREST, ספירה במסד (property_view_counts) במקום הורדת שורות, scheduleNavCounts, ומדידה עם dashboard_load.mjs. Use when adding a load, a query or an RPC that runs when the CRM opens, when touching loadDashboard / loadProperties / loadClients / loadLeadShelf / loadSavedSearchShelf / accSetCount / refreshNavCounts, when someone says the CRM is slow to open, when a count in the CRM looks capped at 1,000, or when a database function behind a CRM panel takes seconds (pg_stat_statements, explain analyze).
+description: מה ה-CRM של שוק נדל״ן טוען אחרי הכניסה, ואיך מוסיפים בלי להאט - loadDashboard() והשרשראות (propsP, clientsP, pricingP), תקרת 1,000 השורות של PostgREST, ספירה במסד, scheduleNavCounts ו-dashboard_load.mjs. Use when adding a load, query or RPC that runs when the CRM opens, when touching loadDashboard / loadProperties / loadClients, when the CRM is slow to open, when a count looks capped at 1,000, or when a CRM panel's DB function is slow (pg_stat_statements).
 ---
 
 # מה ה-CRM טוען אחרי הכניסה

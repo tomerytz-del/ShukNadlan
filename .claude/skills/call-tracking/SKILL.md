@@ -1,6 +1,6 @@
 ---
 name: call-tracking
-description: עבודה על המספרים הווירטואליים ויומן השיחות בריפו של שוק נדל״ן - Twilio, twilio-voice, הקלטה, תמלול Whisper וסיכום בוואטסאפ, הזמנת מספר מהארנק, המסלולים (אחד כלול ב-Elite, אחד בתשלום בשאר, ירידת מסלול), תקרת 150 הדקות, ה-caller ID שקובע את המחיר, וחתימת ה-Webhook. Use when touching supabase/functions/twilio-voice, the office calls view (accOfficeCalls, manager listening), agent_phone_lines / agent_calls / phone_line_charges, the lines panel or call rows in assets/crm.js, when a call returns 403 or "אירעה שגיאת יישום", when a transcription or summary fails, when an order fails or charges twice, when changing what a tracking number costs or includes, or when an agent says calls stopped being recorded.
+description: המספרים הווירטואליים ויומן השיחות בריפו של שוק נדל״ן - Twilio, twilio-voice, הקלטה ותמלול, הזמנת מספר מהארנק, המסלולים, תקרת 150 הדקות וחתימת ה-Webhook. Use when touching supabase/functions/twilio-voice, agent_phone_lines / agent_calls / phone_line_charges, accOfficeCalls or the lines panel in assets/crm.js, when a call returns 403 or "אירעה שגיאת יישום", when a transcription fails, when an order charges twice, or when changing what a tracking number costs.
 ---
 
 # מספרים וירטואליים ויומן שיחות
