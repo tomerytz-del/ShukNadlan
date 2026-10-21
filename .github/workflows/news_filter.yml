@@ -1,0 +1,33 @@
+name: סינון המבזקים
+
+# ‏scripts/news_filter_test.py בודק את סינון מילות המפתח של מנוע המבזקים
+# (‏news_engine/relevance.py) - החלק שמכווננים בו הכי הרבה. הוא היה קיים
+# ועבר, אבל אף workflow לא הריץ אותו, ולכן מילה שנוספה ל-REALTY_TERMS ושברה
+# סיווג קיים התגלתה רק כשמבזק שגוי עלה לאתר. קוד טהור: בלי רשת, בלי סודות
+# ובלי תלויות מעבר לספרייה הסטנדרטית.
+
+on:
+  pull_request:
+    paths:
+      - "news_engine/**"
+      - "scripts/news_filter_test.py"
+      - ".github/workflows/news_filter.yml"
+  push:
+    branches: [main]
+    paths:
+      - "news_engine/**"
+      - "scripts/news_filter_test.py"
+      - ".github/workflows/news_filter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: בדיקת הסינון
+        run: python3 scripts/news_filter_test.py

@@ -41,7 +41,7 @@
 | ‏`supabase/` (מיגרציות ופונקציות - נפרסות ב-Actions) | ‏`netlify/` (פונקציות ה-edge) |
 | ‏`scripts/`, ‏`.github/`, ‏`gtm/` | ‏`_headers`, ‏`_redirects`, ‏`netlify.toml` |
 | המנועים: `ops_agent/`, ‏`news_engine/`, ‏`lead_engine/`, ‏`deals_engine/`, ‏`*.py` בשורש | ‏`robots.txt`, ‏`sitemap.xml`, ‏`sw.js`, מניפסטים, ‏`llms.txt` |
-| ‏`marketing/`, ‏`shots/`, ‏`requirements.txt`, ‏`schema.sql` | **כל תיקייה חדשה שלא ברשימה** |
+| ‏`marketing/`, ‏`requirements.txt`, ‏`schema.sql` | **כל תיקייה חדשה שלא ברשימה** |
 
 על 40 המיזוגים האחרונים לפני השינוי הוא היה מדלג על 13. כולם נגעו רק
 במיגרציות, בפונקציות של Supabase או בבדיקות.
