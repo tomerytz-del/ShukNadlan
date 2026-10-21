@@ -6533,10 +6533,9 @@ function applyAdvancedFilters(){
     else checks.push(p => feats(p).includes(code));
   });
   const propFeats = [...s.propertyFeatures];
-  /* ‏"מרפסת" מתקיימת גם במרפסת שמש: חלק מהמודעות מסמנות רק sun_balcony
-     (‏14.10.2026), והן נעלמו מחיפוש של מרפסת. אותו כלל ב-property-search.ts. */
-  const hasFeat = (p, f) => feats(p).includes(f) || (f === 'balcony' && feats(p).includes('sun_balcony'));
-  if (propFeats.length) checks.push(p => propFeats.every(f => hasFeat(p, f)));
+  /* מה נחשב "יש בנכס" (מרפסת ← גם מרפסת שמש, ממ״ד ← גם ממ״ד בנכס מסחרי) -
+     כלל אחד לאתר ולבוטים, ב-assets/search-core.js. */
+  if (propFeats.length) checks.push(p => SearchCore.hasFeatures(p, propFeats));
   const featChecks = checks.length;
   const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
   const range = (field, lo, hi)=>{

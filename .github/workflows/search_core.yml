@@ -1,0 +1,42 @@
+name: ליבת החיפוש — עותק אחד ובדיקה
+
+# ‏שורת החיפוש בדף הבית ושני הבוטים בוואטסאפ מחליטים "האם הנכס מתאים" לפי
+# אותם כללים, מ-search-core.js שקיים פעמיים: ב-assets/ (לדפדפן) וב-
+# supabase/functions/_shared/ (לשרת). עותק שנשכח מאחור אינו שובר כלום - האתר
+# והבוט פשוט מחזירים נכסים שונים לאותה בקשה. ‏docs/search-core.md.
+#
+# קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "assets/search-core.js"
+      - "supabase/functions/_shared/search-core.js"
+      - "scripts/check_search_core.py"
+      - "scripts/search_core_test.cjs"
+      - "scripts/search_feature_cases.json"
+      - ".github/workflows/search_core.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/search-core.js"
+      - "supabase/functions/_shared/search-core.js"
+      - "scripts/check_search_core.py"
+      - "scripts/search_core_test.cjs"
+      - "scripts/search_feature_cases.json"
+      - ".github/workflows/search_core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: בדיקת ליבת החיפוש
+        run: python3 scripts/check_search_core.py

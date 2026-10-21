@@ -25,6 +25,11 @@
 (function (root) {
   'use strict';
 
+  /* הכללים המשותפים לכל מנגנוני החיפוש - נרמול, מאפיינים, עסקה מתוך תקציב
+     (‏assets/search-core.js, נטען לפני הקובץ הזה; ‏docs/search-core.md). */
+  var SC = root.SearchCore || (typeof require === 'function' ? require('./search-core.js') : null);
+  if (!SC) throw new Error('search-core.js לא נטען לפני sentence-search.js');
+
   /* ---------- סוגי הנכס ----------
      כל סוג הוא קבוצה של ערכי property_type מהמסד (אותן מחרוזות שב-
      RESIDENTIAL_PTYPES / COMMERCIAL_PTYPES ב-home.js). ‏url הוא הערך
@@ -109,17 +114,7 @@
      אותו נרמול לשמות האזורים ולטקסט החופשי: בלי גרשיים ומרכאות, מקף הוא
      רווח, ו"עילית" היא "עלית" - כך כתוב במסד ("עפולה עלית"), ואילו גולשים
      כותבים בשתי הצורות. */
-  function norm(s) {
-    return String(s || '').toLowerCase()
-      .replace(/(\d),(?=\d{3})/g, '$1')        // 1,600,000 → 1600000
-      .replace(/(\d)\.(?=\d)/g, '$1\u0000')     // 2.8 שורד את ניקוי הנקודות
-      .replace(/[׳'"״`]/g, '')
-      .replace(/[-\u05BE\u2013\u2014.,:;!?()]/g, ' ')
-      .replace(/עילית/g, 'עלית')
-      .replace(/\u0000/g, '.')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  function norm(s) { return SC.norm(s); }
 
   /* ---------- אזורים ----------
      נגזרים מהנכסים עצמם ולא מרשימה קבועה: מוצג רק מה שיש בו לפחות נכס אחד.
@@ -177,7 +172,7 @@
 
   function findArea(text, areas) {
     /* ‏"דירה עם מעלית" היא מ+"עלית" - והכינוי של עפולה עלית תפס אותה
-       (‏14.10.2026). המילה יורדת לפני החיפוש; היא מאפיין (‏FEATURE_WORDS). */
+       (‏14.10.2026). המילה יורדת לפני החיפוש; היא מאפיין (‏FEATURE_WORDS ב-search-core.js). */
     var t = norm(text).replace(/(^| )[ובלה]?מעלית(?= |$)/g, ' ');
     var best = null, bestLen = 0;
     (areas || []).forEach(function (a) {
@@ -511,10 +506,8 @@
     if (value) {
       /* סכום בלי מילת עסקה מספר בעצמו מה מחפשים: 1.7 מיליון אינו שכר דירה,
          ו-5,500 אינו מחיר של דירה. */
-      if (!patch.deal) {
-        if (value >= 200000 && st.deal !== 'sale') patch.deal = 'sale';
-        else if (value <= 30000 && st.deal !== 'rent') patch.deal = 'rent';
-      }
+      var byPrice = patch.deal ? null : SC.dealFromPrice(value);
+      if (byPrice && st.deal !== byPrice) patch.deal = byPrice;
       /* התקציב שנאמר הוא התקציב. עד 14.10.2026 הוא עוגל **למעלה** למדרגת
          הבורר ("עד 1.5 מיליון" ← עד 1.6, "עד 3000" ← עד 4000), והתוצאות
          הציגו נכסים מעל מה שהגולש/ת אמר/ה. הבורר מוסיף ערך שאינו מדרגה
@@ -524,14 +517,8 @@
 
     /* מאפיינים ("עם מעלית", "מרוהטת") - נזרקו בשקט, והתוצאות הציגו נכסים
        בלעדיהם. הם אינם חלק מהמשפט; הדף מחיל אותם כמו את הסינון המתקדם
-       (‏opts.onFeatures). מחסן הוא מאפיין רק כשהנכס הוא למגורים. */
-    var features = [];
-    FEATURE_WORDS.forEach(function (fw) {
-      if (fw[0].test(t) && features.indexOf(fw[1]) < 0) features.push(fw[1]);
-    });
-    if (features.indexOf('sun_balcony') >= 0) features = features.filter(function (f) { return f !== 'balcony'; });
-    var finalType = typeDef(patch.type || st.type);
-    if (finalType.residential && /(^| )[ובלה]?מחסן( |$)/.test(t)) features.push('storage');
+       (‏opts.onFeatures). המילים, השלילה ("בלי מעלית") והמחסן - בליבה. */
+    var features = SC.featuresIn(t, { residential: !!typeDef(patch.type || st.type).residential });
 
     var area = findArea(t, areas);
     var place = null;
@@ -546,24 +533,7 @@
     return { patch: patch, fields: fields, place: place, features: features };
   }
 
-  var FEATURE_WORDS = [
-    [/חני[יה]|חנייה|חניות/, 'parking'],
-    [/(^| )[ובלה]?מעלית( |$)/, 'elevator'],
-    [/מרפסת שמש/, 'sun_balcony'],
-    [/מרפסת|מרפסות/, 'balcony'],
-    [/(^| )[ובלה]?ממד( |$)/, 'mamad'],
-    [/מרוהט/, 'furnished'],
-    [/מיזוג|ממוזג|מזגן/, 'ac'],
-    [/משופצ/, 'renovated_feature'],
-    [/נגיש|גישה לנכים/, 'accessible'],
-    [/עמדת טעינה|טעינה לרכב/, 'ev_charger'],
-  ];
-  var FEATURE_LABELS = { parking: 'חניה', elevator: 'מעלית', sun_balcony: 'מרפסת שמש', balcony: 'מרפסת',
-    mamad: 'ממ״ד', furnished: 'מרוהטת', ac: 'מיזוג', renovated_feature: 'משופצת', accessible: 'נגישה',
-    ev_charger: 'עמדת טעינה', storage: 'מחסן' };
-  function featuresNote(list) {
-    return (list || []).map(function (f) { return FEATURE_LABELS[f] || f; }).join(', ');
-  }
+  function featuresNote(list) { return SC.featuresNote(list); }
 
   /* ‏"דירה בנוף הגליל" באתר של עפולה: האזורים נגזרים מהנכסים, ולכן עיר בלי
      נכסים בשוק הזה לא זוהתה, נזרקה בשקט, והחיפוש החזיר את כל הדירות בעפולה.

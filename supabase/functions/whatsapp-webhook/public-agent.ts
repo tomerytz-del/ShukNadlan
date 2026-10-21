@@ -12,6 +12,7 @@ import {
   filterByArea,
   likeSafe,
   text,
+  SearchCore,
 } from "./property-search.ts";
 import {
   LEAD_PURPOSES,
@@ -904,14 +905,26 @@ async function searchProperties(
   const area = text(args.area);
 
   /* רשת ביטחון לעסקה: "דירה עד 4,000" בלי "להשכרה" היא שכירות, ו"עד 1.5
-     מיליון" היא קנייה - אותו כלל של דף הבית (‏parse ב-sentence-search.js).
+     מיליון" היא קנייה - הכלל של האתר, מהליבה המשותפת (‏SearchCore).
      בלעדיה, מודל ששכח את deal_type החזיר נכסים למכירה לחיפוש שכירות. */
   if (!text(args.deal_type)) {
-    const cap = Number(args.max_price ?? args.min_price);
-    if (Number.isFinite(cap) && cap > 0) {
-      if (cap <= 30000) args = { ...args, deal_type: "rent" };
-      else if (cap >= 200000) args = { ...args, deal_type: "sale" };
-    }
+    const byPrice = SearchCore.dealFromPrice(args.max_price ?? args.min_price);
+    if (byPrice) args = { ...args, deal_type: byPrice };
+  }
+
+  /* רשת ביטחון למאפיינים (21.10.2026): מה שהפונה כתב/ה בהודעה הזו ("עם ממ״ד",
+     "חניה") נקרא באותו מפרש של האתר, ומה שהמודל השמיט נוסף. רק מוסיפים -
+     "בלי מעלית" אינו בקשה (‏featuresIn מדלג על שלילה), ומאפיין שהמודל הוסיף
+     מהקשר קודם נשאר. ‏features_from_message בתוצאה אומר מה נוסף, כדי שהתשובה
+     תוכל לומר על מה חופש. */
+  let addedFeatures: string[] = [];
+  if (!args._relaxed && ctx.userText) {
+    const said = SearchCore.featuresIn(ctx.userText, {
+      residential: text(args.category) !== "commercial",
+    }) as string[];
+    const have = Array.isArray(args.features) ? args.features.map((f) => String(f)) : [];
+    addedFeatures = said.filter((f) => !have.includes(f) && !(f === "balcony" && have.includes("sun_balcony")));
+    if (addedFeatures.length) args = { ...args, features: [...have, ...addedFeatures] };
   }
 
   const built = applyPropertyFilters(
@@ -1054,6 +1067,7 @@ async function searchProperties(
         "בטקסט: להציג אותם, עם במה כל אחד שונה לפי relaxed_on."
       : undefined,
     all_listings_url: `${SITE_BASE}/`,
+    features_from_message: addedFeatures.length ? addedFeatures : undefined,
     ...areaHint,
   };
 }

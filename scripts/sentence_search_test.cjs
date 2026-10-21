@@ -345,4 +345,9 @@ test('חיפוש עם ממ״ד שאין לו התאמה: לא מציגים בל�
   assert.strictEqual(C.widenHint(st, PROPS, Object.assign({}, ctx, { extraLabel: null })).action, 'נקה סינון מתקדם');
 });
 
+test('"בלי מעלית" אינו בקשה למעלית - והממ״ד שאחריו כן (‏search-core.js)', () => {
+  assert.deepStrictEqual(C.parse('3 חדרים בלי מעלית ועם ממד', C.defaultState(), AREAS).features, ['mamad']);
+  assert.deepStrictEqual(C.parse('דירה ללא חנייה', C.defaultState(), AREAS).features, []);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

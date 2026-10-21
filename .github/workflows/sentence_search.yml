@@ -11,12 +11,14 @@ on:
   pull_request:
     paths:
       - "assets/sentence-search.js"
+      - "assets/search-core.js"
       - "scripts/sentence_search_test.cjs"
       - ".github/workflows/sentence_search.yml"
   push:
     branches: [main]
     paths:
       - "assets/sentence-search.js"
+      - "assets/search-core.js"
       - "scripts/sentence_search_test.cjs"
       - ".github/workflows/sentence_search.yml"
   workflow_dispatch:

@@ -10,6 +10,12 @@
 // ============================================================================
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+// הכללים המשותפים לאתר ולבוטים - מה נחשב "יש בנכס", המילים, עסקה מתוך
+// תקציב. עותק זהה של assets/search-core.js (‏check_search_core.py).
+import "../_shared/search-core.js";
+
+// deno-lint-ignore no-explicit-any
+export const SearchCore = (globalThis as any).SearchCore;
 
 export const DEAL_TYPES = ["sale", "rent"];
 export const CATEGORIES = ["residential", "commercial"];
@@ -125,15 +131,15 @@ export function applyPropertyFilters(
       .filter((t): t is string => !!t);
     if (patterns.length) groups.push(patterns);
   }
-  /* ‏"מרפסת" מתקיימת גם במרפסת שמש: חלק מהמודעות מסמנות רק sun_balcony
-     (‏14.10.2026), והן נעלמו מחיפוש של מרפסת. אותו כלל ב-assets/home.js.
-     ה"או" הזה נכנס ל-groups - `or` אחד בלבד בבקשה (ראו למעלה). */
+  /* מה נחשב "יש בנכס" - מאותה טבלה שהאתר מסנן לפיה (‏SearchCore.featureFilter):
+     מרפסת ← גם מרפסת שמש, ממ״ד ← גם mamad_location = 'unit'. כל "או" כזה
+     נכנס ל-groups - `or` אחד בלבד בבקשה (ראו למעלה). */
   const feats = Array.isArray(args.features)
     ? args.features.map((f) => text(f)).filter((f): f is string => !!f).slice(0, 8)
     : [];
-  const strictFeats = feats.filter((f) => f !== "balcony");
-  if (strictFeats.length) query = query.contains("features", strictFeats);
-  if (strictFeats.length !== feats.length) groups.push(["features.cs.{balcony}", "features.cs.{sun_balcony}"]);
+  const ff = SearchCore.featureFilter(feats) as { strict: string[]; groups: string[][] };
+  if (ff.strict.length) query = query.contains("features", ff.strict);
+  ff.groups.forEach((g) => groups.push(g));
 
   if (groups.length === 1) query = query.or(groups[0].join(","));
   else if (groups.length > 1) {
