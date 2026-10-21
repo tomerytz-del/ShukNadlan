@@ -332,4 +332,17 @@ test('הדוגמאות המוקלדות לפני שהמלאי נטען: רק כ�
   list.forEach(p => assert.ok(C.parse(p, C.defaultState(), []).fields.length >= 2, p));
 });
 
+test('חיפוש עם ממ״ד שאין לו התאמה: לא מציגים בלעדיו, ואומרים על מה מוותרים', () => {
+  const st = C.applyPatch(C.defaultState(), { deal: 'sale', rooms: [3, 3.5] });
+  const ctx = Object.assign({}, CTX, { extra: p => (p.features || []).includes('mamad'), extraLabel: 'ממ״ד' });
+  assert.strictEqual(C.filter(PROPS, st, ctx).length, 0);
+  const hint = C.widenHint(st, PROPS, ctx);
+  assert.strictEqual(hint.slot, 'extra');
+  assert.strictEqual(hint.text, 'בלי ממ״ד');
+  assert.strictEqual(hint.action, 'גם בלי ממ״ד');
+  assert.strictEqual(hint.count, C.filter(PROPS, st, CTX).length);
+  // בלי תווית (סינון מתקדם מעורב) - הנוסח הכללי
+  assert.strictEqual(C.widenHint(st, PROPS, Object.assign({}, ctx, { extraLabel: null })).action, 'נקה סינון מתקדם');
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

@@ -404,7 +404,12 @@
   function widenHint(st, props, ctx) {
     if (ctx && ctx.extra) {
       var withoutExtra = filter(props, st, ctx, 'extra').length;
-      if (withoutExtra > 0) return { slot: 'extra', patch: {}, count: withoutExtra, text: 'בלי הסינון המתקדם', action: 'נקה סינון מתקדם' };
+      /* ‏extraLabel: כשהסינון המתקדם הוא רק מאפיינים, אומרים מה מוותרים -
+         "בלי ממ״ד יש 12 נכסים" ולא "בלי הסינון המתקדם". */
+      var lbl = ctx.extraLabel;
+      if (withoutExtra > 0) return lbl
+        ? { slot: 'extra', patch: {}, count: withoutExtra, text: 'בלי ' + lbl, action: lbl.length <= 14 ? 'גם בלי ' + lbl : 'בלי המאפיינים' }
+        : { slot: 'extra', patch: {}, count: withoutExtra, text: 'בלי הסינון המתקדם', action: 'נקה סינון מתקדם' };
     }
     for (var i = 0; i < WIDEN.length; i++) {
       var w = WIDEN[i];
@@ -1031,6 +1036,10 @@
       try {
         var url = new URL(root.location.href);
         var qs = toParams(st, areas, ctx);
+        /* המאפיינים (‏"עם ממ״ד") אינם חלק מהמשפט, והדף כותב אותם (‏opts.urlExtra).
+           בלעדיהם חזרה מדף נכס פתחה את אותו חיפוש בלי ממ״ד, והוצגו דירות בלעדיו. */
+        var extraQs = ctx.extra && typeof opts.urlExtra === 'function' ? opts.urlExtra() : '';
+        if (extraQs) qs = qs ? qs + '&' + extraQs : extraQs;
         url.search = qs ? '?' + qs : '';
         root.history.replaceState(root.history.state, '', url);
       } catch (e) { /* דפדפן שחוסם היסטוריה - החיפוש עדיין עובד */ }
@@ -1621,11 +1630,12 @@
       },
       setType: function (type) { touched.type = true; change({ type: type }, 'legend'); },
       /* הסינון המתקדם: פרדיקט מהדף (או null לניקוי) */
-      setExtra: function (fn) { ctx.extra = fn || null; change({}, 'extra'); },
+      setExtra: function (fn) { ctx.extra = fn || null; ctx.extraLabel = null; change({}, 'extra'); },
       /* המודאל של הסינון המתקדם: מה שיש לו מקום במשפט (חדרים, מחיר, סוג,
          עסקה) נכנס למשפט, והשאר הוא הפרדיקט. שינוי אחד, ציור אחד. */
-      applyAdvanced: function (patch, fn) {
+      applyAdvanced: function (patch, fn, label) {
         ctx.extra = fn || null;
+        ctx.extraLabel = fn && label ? String(label) : null;
         var d = defaultState();
         Object.keys(patch).forEach(function (k) {
           var slot = k === 'priceMax' ? 'price' : k;
@@ -1658,6 +1668,7 @@
         touched = {};
         rollIndex = 0;
         ctx.extra = null;
+        ctx.extraLabel = null;
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },

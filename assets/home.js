@@ -6286,7 +6286,7 @@ function applyDeepLinkFilters(){
   if (isReload()){
     try {
       const url = new URL(location.href);
-      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'ai'].forEach(k => url.searchParams.delete(k));
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'ai', 'features'].forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה */ }
     return;
@@ -6309,6 +6309,7 @@ function applyDeepLinkFilters(){
     : [...RESIDENTIAL_PTYPES.apt, ...RESIDENTIAL_PTYPES.house, ...RESIDENTIAL_PTYPES.other];
   const ptype = params.get('ptype');
   if (ptype && allPtypes.includes(ptype)) s.ptypes.add(ptype);
+  featuresFromParam(params.get('features'), isCommercial).forEach(f => s.propertyFeatures.add(f));
 
   // המחירים נכתבים גם לשדות המודאל ולא רק ל-searchState: ‏collectFormValues()
   // קורא מהשדות בכל חיפוש, וערך שהיה רק ב-state היה נמחק בחיפוש הבא
@@ -6406,6 +6407,18 @@ let sentenceDeepLink = false;
    על כל מונה. לכן גם עם סינון מתקדם "הצג N נכסים" הוא מספר הפינים.
    ============================================================ */
 let advancedCount = 0;
+// המאפיינים שהסינון המתקדם החיל - נכתבים לכתובת (‏urlExtra), כדי שחזרה מדף נכס תשמור עליהם
+let appliedFeatures = [];
+// ‏?features=mamad מקישור: מוחל כשהנכסים נטענים (ראו onSentenceChange)
+let deepLinkFeatures = null;
+// מונע ציור כפול כשהמאפיינים מהכתובת מוחלים בתוך הטעינה
+let sentenceQuiet = false;
+
+/* ‏?features=mamad,parking - רק קודים שקיימים בסינון של הלשונית */
+function featuresFromParam(raw, commercial){
+  const known = new Set((commercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES).map(f => f[0]));
+  return String(raw || '').split(',').map(v => v.trim()).filter(v => known.has(v));
+}
 
 function renderAdvancedBadge(){
   const el = document.getElementById('ssAdvancedCount');
@@ -6455,6 +6468,7 @@ function applyAdvancedFilters(){
      (‏14.10.2026), והן נעלמו מחיפוש של מרפסת. אותו כלל ב-property-search.ts. */
   const hasFeat = (p, f) => feats(p).includes(f) || (f === 'balcony' && feats(p).includes('sun_balcony'));
   if (propFeats.length) checks.push(p => propFeats.every(f => hasFeat(p, f)));
+  const featChecks = checks.length;
   const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
   const range = (field, lo, hi)=>{
     lo = num(lo); hi = num(hi);
@@ -6479,7 +6493,16 @@ function applyAdvancedFilters(){
   if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
 
   advancedCount = checks.length;
-  sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null);
+  appliedFeatures = propFeats;
+  /* כשהסינון הוא רק מאפיינים, ההודעה על חיפוש ריק אומרת על מה מוותרים
+     ("בלי ממ״ד יש 12 נכסים") - ולא "בלי הסינון המתקדם". */
+  let label = null;
+  if (propFeats.length && checks.length === featChecks && featChecks === 1){
+    const names = new Map([...(commercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES)]);
+    const list = propFeats.map(f => names.get(f) || f);
+    label = list.length > 1 ? list.slice(0, -1).join(', ') + ' ו' + list[list.length - 1] : list[0];
+  }
+  sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null, label);
 }
 
 function clearAdvancedFilters(){
@@ -6517,9 +6540,22 @@ document.getElementById('ssQuery')?.addEventListener('input', renderClearButton)
 function onSentenceChange(results, st, reason){
   renderAdvancedBadge();
   renderClearButton();
+  if (sentenceQuiet) return;
   if (reason === 'load' && sentenceDeepLink){
     sentenceDeepLink = false;
     syncSearchStateFromSentence(st);
+    /* ‏"3 חדרים עם ממ״ד" שחזר מהכתובת: בלי זה החיפוש נפתח בלי הממ״ד,
+       והוצגו דירות בלעדיו (‏21.10.2026). */
+    if (deepLinkFeatures && deepLinkFeatures.length){
+      const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
+      deepLinkFeatures.forEach(f => s.propertyFeatures.add(f));
+      sentenceQuiet = true;
+      try { applyAdvancedFilters(); } finally { sentenceQuiet = false; }
+      results = sentence.results();
+      st = sentence.state();
+      renderAdvancedBadge();
+    }
+    deepLinkFeatures = null;
     setAiFilter(!!st.ai);
     MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
     showSentenceResults({ track:false });
@@ -6723,6 +6759,7 @@ let freeTextFeatures = new Set();
     },
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
+    urlExtra: ()=> appliedFeatures.length ? 'features=' + encodeURIComponent(appliedFeatures.join(',')) : '',
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),
     onClearExtra: clearAdvancedFilters,
@@ -6745,7 +6782,7 @@ let freeTextFeatures = new Set();
 
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
-  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai'];
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai', 'features'];
   /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
 
      הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה
@@ -6782,6 +6819,7 @@ let freeTextFeatures = new Set();
     } catch(e){ /* דפדפן שחוסם היסטוריה - הדף עדיין נפתח נקי */ }
   } else if (hasSearch){
     sentence.setFromParams(params);
+    deepLinkFeatures = featuresFromParam(params.get('features'), params.get('deal') === 'commercial');
     /* הרשימה המסוננת מגיעה כשהנכסים נטענים (‏setProperties → onChange עם
        'load'), ואז נפתחות גם השורות והתצוגה המפוצלת - כמו בחיפוש */
     sentenceDeepLink = true;
