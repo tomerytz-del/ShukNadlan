@@ -163,6 +163,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:36px;line-height:1.08;max-width:760px;color:#fff;
   }
   @media(min-width:760px){.pro-hero h1{font-size:56px}}
+  /* הכותרת נשברת רק בין צירופים, לא באמצע אחד מהם */
+  .pro-hero h1 .h1-chunk{white-space:nowrap}
   .pro-hero .lede{margin:0;font-size:17px;line-height:1.6;color:var(--on-dark);max-width:640px}
   @media(min-width:760px){.pro-hero .lede{font-size:19px}}
 
@@ -395,7 +397,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <nav class="crumbs" aria-label="פירורי לחם">
         <a href="/">דף הבית</a><span aria-hidden="true">›</span><span aria-current="page">בעלי מקצוע</span>
       </nav>
-      <h1>כל אנשי המקצוע של העסקה, במקום אחד</h1>
+      <h1><span class="h1-chunk">כל אנשי המקצוע</span> <span class="h1-chunk">מתחום הנדל״ן,</span> <span class="h1-chunk">ב<span data-market-city>עפולה</span> והסביבה</span> <span class="h1-chunk">במקום אחד</span></h1>
       <p class="lede">יועצי משכנתאות, שמאים, עורכי דין, אדריכלים, מעצבי פנים וחברות ניקיון מ<span data-market-label>עפולה והעמק</span>. פונים ישירות בוואטסאפ, בלי טפסים ובלי מתווכים.</p>
       <form class="hero-search" role="search" id="proSearchForm">
         <label for="proSearch">
