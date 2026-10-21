@@ -50,6 +50,10 @@ MIN_CHUNK = timedelta(seconds=30)
 ROW_CAP = 1000
 # הפסקה בין בקשות, כדי לא להגיע למגבלת הקצב מלכתחילה
 PACE = 2.0
+# ‏ה-job נחתך ב-20 דקות (‏timeout-minutes). ההשלמה של 21.10.2026 נחתכה שם
+# באמצע - ריצה "cancelled" שלא עדכנה last_run_at. אחרי 14 דקות לא מתחילים
+# חלון חדש; חלון אחד עם כל ההמתנות של 429 הוא עד ~5 דקות.
+TIME_BUDGET = timedelta(minutes=14)
 
 
 class RateLimited(RuntimeError):
@@ -232,8 +236,12 @@ def main() -> int:
     # אדומה בכל שעה עד שההשלמה נגמרת. ‏429 בלי שום התקדמות - נכשל.
     partial = None
     t = start
+    deadline = time.monotonic() + TIME_BUDGET.total_seconds()
     try:
         while t < end:
+            if t > start and time.monotonic() > deadline:
+                partial = t
+                break
             t2 = min(t + CHUNK, end)
             try:
                 rows = [api_row(r) for r in fetch_window(token, api_sql, t, t2)]
@@ -251,7 +259,8 @@ def main() -> int:
                         "update public.data_access_log_sync set synced_until = %s where id = 1", (t2,))
                 conn.commit()
             total += len(rows)
-            print(f"{_iso(t)} .. {_iso(t2)}: {len(rows)} rows")
+            # ‏flush: בריצה שנחתכה לא נשאר ביומן של GitHub אף חלון
+            print(f"{_iso(t)} .. {_iso(t2)}: {len(rows)} rows", flush=True)
             t = t2
     except Exception as e:  # noqa: BLE001 - נרשם בסמן ומפיל את הריצה
         conn.rollback()
@@ -274,7 +283,7 @@ def main() -> int:
         print(f"::error::הסנכרון נכשל: {error}", file=sys.stderr)
         return 1
     if partial:
-        print(f"::warning::מגבלת קצב של Supabase - נעצר ב-{_iso(partial)},"
+        print(f"::warning::השלמה חלקית (מגבלת קצב או זמן) - נעצר ב-{_iso(partial)},"
               f" הריצה הבאה ממשיכה משם ({total} שורות נכתבו)")
     print(f"done: {total} rows {'(dry run)' if args.dry_run else 'written'}")
     return 0
