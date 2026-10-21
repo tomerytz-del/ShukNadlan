@@ -1,7 +1,7 @@
 # תיבת המשימות של מנהל/ת הפלטפורמה
 
 שלב 3 בשדרוג אזור הניהול (`docs/admin-redesign/HANDOFF.md`, סעיף 4). מיגרציה
-`20270718090000_admin_inbox.sql`, ‏`assets/crm-admin-inbox.js`, והאקורדיון
+`20270719090000_admin_inbox.sql`, ‏`assets/crm-admin-inbox.js`, והאקורדיון
 `#accAdminInbox` בראש `#platformAdminSection` ("היום ← תיבת משימות").
 
 ## למה
