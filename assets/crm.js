@@ -30668,6 +30668,20 @@ function buildMenuPanel(){
 /* כפתור הבית והקבוצות המתקפלות - לתפריט הבורגר (בנייד) ולסרגל הצד הרחב
    (במחשב). ‏side: הסרגל נבנה מחדש עם כל שינוי מונה, ולכן קבוצה שנסגרה ביד
    נשארת סגורה גם כשהמסך הפתוח בתוכה - אחרת היא הייתה קופצת חזרה פתוחה. */
+/* קבוצה שנפתחה בתחתית סרגל הצד נפתחת מתחת לקצה הרשימה הגוללת, ונראה שהלחיצה
+   לא עשתה דבר - כך "נתונים ותכנון", הקבוצה שלפני האחרונה בתצוגת הניהול
+   (21.10.2026). הרשימה גוללת עד שהפריטים גלויים, אבל לא מעבר לכותרת שנלחצה.
+   בתפריט הבורגר הגלילה היא של הפאנל עצמו (scroller). */
+function sideRevealGroup(toggle, sub, scroller){
+  const list = scroller || sub.closest('.sn-list');
+  if (!list) return;
+  const box = list.getBoundingClientRect();
+  const over = sub.getBoundingClientRect().bottom - box.bottom;
+  if (over <= 0) return;
+  const room = toggle.getBoundingClientRect().top - box.top;
+  list.scrollBy({ top: Math.max(0, Math.min(over + 8, room)), behavior: navReduceMotion() ? 'auto' : 'smooth' });
+}
+
 function appendMenuGroups(panel, opts){
   const side = !!(opts && opts.side);
   const admin = dashView === 'admin';
@@ -30740,6 +30754,7 @@ function appendMenuGroups(panel, opts){
       sub.hidden = !nowOpen;
       if (summary) summary.hidden = nowOpen;
       (admin ? adminGroupSetOpen : menuGroupSetOpen)(group.key, nowOpen);
+      if (nowOpen) sideRevealGroup(toggle, sub, side ? null : panel);
     });
     panel.appendChild(toggle);
     if (summary) panel.appendChild(summary);
