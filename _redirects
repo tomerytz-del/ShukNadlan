@@ -1,5 +1,42 @@
 # כללי ניתוב של Netlify. הקובץ מפורסם משורש הריפו יחד עם שאר ה-HTML.
 
+# ‏**מה שאינו אתר אינו מוגש.** ‏Netlify מפרסם את שורש הריפו כולו, ולכן עד
+# 21.10.2026 כל אחד/ת יכול/ה היה להוריד את קוד הפונקציות (‏/supabase/...), את
+# המיגרציות, את התיעוד, את CLAUDE.md ואת הסקריפטים. אין בהם סודות (הם יושבים
+# ב-GitHub וב-Supabase), אבל הם מפת דרכים מלאה של המערכת. ‏404! ולא 404: הסימן
+# מכריח את הכלל גם כשהקובץ קיים - וזה כל העניין.
+#
+# הרשימה כאן ו-NOT_SITE ב-scripts/netlify_ignore.sh הן אותה רשימה מכיוונים
+# שונים, ו-scripts/check_not_published.py חוסם ב-CI תיקייה או קובץ בשורש
+# שאינם אתר ואינם חסומים כאן. ‏docs/netlify-usage.md.
+/docs/*                     /404.html    404!
+/supabase/*                 /404.html    404!
+/scripts/*                  /404.html    404!
+/netlify/*                  /404.html    404!
+/.claude/*                  /404.html    404!
+/.github/*                  /404.html    404!
+/.git/*                     /404.html    404!
+/ops_agent/*                /404.html    404!
+/news_engine/*              /404.html    404!
+/lead_engine/*              /404.html    404!
+/deals_engine/*             /404.html    404!
+/marketing/*                /404.html    404!
+/gtm/*                      /404.html    404!
+/shots/*                    /404.html    404!
+/CLAUDE.md                  /404.html    404!
+/schema.sql                 /404.html    404!
+/requirements.txt           /404.html    404!
+/netlify.toml               /404.html    404!
+/.env.example               /404.html    404!
+/.gitignore                 /404.html    404!
+/.gitleaks.toml             /404.html    404!
+/ai_usage.py                /404.html    404!
+/deals_scraper.py           /404.html    404!
+/land_ownership_loader.py   /404.html    404!
+/news_scraper.py            /404.html    404!
+/ops_scan.py                /404.html    404!
+/scraper.py                 /404.html    404!
+
 # קישורי בקשת חוות דעת שנשלחו ללקוחות לפני התיקון ב-crm.html: הקישור נבנה אז
 # בהחלפת 'crm.html' בנתיב, ובפרודקשן הדף מוגש בלי הסיומת (/crm) — כך שהתוצאה
 # הייתה /crmreview-request.html, עמוד 404. ההודעות שכבר יצאו בוואטסאפ אי אפשר
