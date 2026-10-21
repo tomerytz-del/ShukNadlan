@@ -94,6 +94,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   platform_signup: "accSubscriptions",
   // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
   admin_overdue: "accAdminInbox",
+  // ‏הודעה לכל הסוכנים מהפלטפורמה (admin_broadcast) - לרשימת ההודעות
+  platform_broadcast: "accPlatformNews",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
