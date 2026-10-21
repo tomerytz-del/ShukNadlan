@@ -1,6 +1,6 @@
 ---
 name: meta-ads
-description: Plan, create, analyze and manage Meta ads (Facebook, Instagram, Click-to-WhatsApp) via the Marketing API — including lead-form campaigns, carousels, boosting Page posts, publishing Page posts, downloading leads, and writing Hebrew real-estate ad copy and creative. Use when the user mentions Meta/FB/IG ads, Ads Manager, lead ads, Instant Forms, ROAS, CPA, CPL, CTR, ad spend, campaign or ad set performance, creative fatigue, pausing an ad, changing a budget, duplicating a winner, launching a campaign, or writing ad copy/posts for a property. Trigger on Hebrew like פרסום בפייסבוק/באינסטגרם, קמפיין, צור קמפיין, מודעת לידים, טופס לידים, לידים מפייסבוק, קרוסלה, קידום פוסט, פוסט לדף, מודעה לנכס, קופי למודעה, ביצועי קמפיין. Trigger even if auth isn't set up — the skill walks through setup. Do NOT use for organic Instagram analytics or Google Ads.
+description: Plan, create, analyze and manage Meta ads (Facebook, Instagram, Click-to-WhatsApp) via the Marketing API - lead forms, carousels, boosting posts, downloading leads, Hebrew real-estate ad copy. Use when the user mentions Meta/FB/IG ads, Ads Manager, lead ads, ROAS, CPL, ad spend, pausing an ad or changing a budget. Trigger on Hebrew like פרסום בפייסבוק, קמפיין, מודעת לידים, טופס לידים, קרוסלה, קידום פוסט, even without auth. Not for organic Instagram or Google Ads.
 ---
 
 # Meta Ads (Marketing API)

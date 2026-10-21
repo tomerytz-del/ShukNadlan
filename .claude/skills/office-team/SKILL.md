@@ -1,6 +1,6 @@
 ---
 name: office-team
-description: עבודה על צוות המשרד ותפקידים בריפו של שוק נדל״ן - מנהל/ת מול סוכן/ת (role = 'manager' הוא כל ההרשאה, אין "בעלים"), מינוי מנהל/ת נוסף/ת והורדה (addRoleAction / setMemberRole ב-assets/crm.js), הטריגר protect_sensitive_agency_member_fields שחוסם קידום עצמי, איחוד שני משרדים שנפתחו בטעות לאותו משרד (כל הטבלאות שמפנות ל-agencies, property_shares ו-agent_share_exclusions עם המפתחות הייחודיים), ושינוי slug של סוכן/ת (אין הפניה מהישן), והחלפת המייל שאיתו סוכן/ת נכנס/ת (העברת user_id לחשבון החדש, ובקשת שיוך של מנהל/ת יחיד/ה שאיש אינו יכול לאשר). Use when a manager wants to appoint another manager, when someone asks who "owns" an office, when an office was opened twice and needs merging, when moving an agent between offices, when an agent page URL carries the office name instead of the agent's, when an agent needs to log in with a different email / Google account or sees "מי את/ה?" for an existing card, or when touching loadTeam / updateMemberField / the role column.
+description: צוות המשרד ותפקידים בריפו של שוק נדל״ן - role = 'manager' הוא כל ההרשאה ואין "בעלים", מינוי מנהל/ת (setMemberRole), protect_sensitive_agency_member_fields, איחוד שני משרדים, slug של סוכן/ת והחלפת מייל הכניסה. Use when appointing another manager, when someone asks who "owns" an office, when an office was opened twice and needs merging, when moving an agent between offices, when an agent must log in with a different email or sees "מי את/ה?".
 ---
 
 # צוות המשרד, מנהלים, ואיחוד משרדים

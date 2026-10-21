@@ -1,6 +1,6 @@
 ---
 name: csm-adoption
-description: אזור ההטמעה של שוק נדל״ן (/csm) - התפקיד החדש של מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff וההזמנה לפי מייל (csm_claim, כניסה עם Google), current_is_csm, הצנרת והפגישה (crm-csm.js, משותף ל-csm.html ולתצוגת הפיקוח ב-crm.html דרך CSM_CTX), csm_agents_overview (פרטי קשר ורמת שימוש), הקלטות שיחה (csm_calls, csm-workspace, _shared/csm-call.ts), מנטור ההטמעה (CSM_PLAYBOOK, csm_mentor_questions), וגבריאלה מול הצוות (csm-chat.ts, csm-tools.ts, ההיכרות "מה אפשר לעשות כאן"). Use when touching csm.html / assets/csm-page.js / assets/crm-csm.js / assets/csm-workspace.css / any csm_* table or function / csm-workspace / csm-chat.ts / csm-tools.ts / csm-call*.ts / coach/csm*.ts, when adding a tool or a tab for the adoption team, when the CSM cannot log in or sees "אין גישה", when a recording is stuck in processing or failed, when Gabriela answers the CSM like an agent (or an agent like the CSM), or when someone asks to give the CSM access to more data.
+description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff, csm_claim, current_is_csm, crm-csm.js, הקלטות שיחה (csm_calls), מנטור ההטמעה וגבריאלה מול הצוות (csm-chat.ts). Use when touching csm.html / csm-page.js / any csm_* table or function / csm-workspace / csm-tools.ts, when adding a tool for the adoption team, when the CSM sees "אין גישה", when a recording is stuck, or when Gabriela answers the CSM like an agent.
 ---
 
 # אזור ההטמעה (CSM)

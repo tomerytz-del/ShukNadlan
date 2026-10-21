@@ -1,6 +1,6 @@
 ---
 name: govmap
-description: עבודה מול GovMap (פורטל המפות הממשלתי) בריפו של שוק נדל״ן — הטוקן והדומיין, רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות, ה-CSP, והמיפוי לחוזה הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer (schools, parcels, bus stops), or when a GovMap call silently returns nothing.
+description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין, רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות, ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, or when a GovMap call silently returns nothing.
 ---
 
 # ‏GovMap
@@ -55,7 +55,8 @@ Function (שאין לה Origin של האתר) **לא נבדק**, וזו השאל
 
 ## ‏3. המיפוי לחוזה הגאוקוד
 
-ספק GovMap נרשם ב-`_shared/geocode/providers/govmap.ts` ומקיים את החוזה
+ספק GovMap, כשייכתב, יירשם ב-`_shared/geocode/providers/govmap.ts` (הקובץ
+**עדיין לא קיים** - הספק היחיד היום הוא `municipal-wfs.ts`) ויקיים את החוזה
 שבראש `_shared/geocode/types.ts` **בלי יוצא מן הכלל**:
 
 | תשובת GovMap | ‏`precision` | מה מחזירים |

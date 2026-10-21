@@ -1,6 +1,6 @@
 ---
 name: broker-license
-description: עבודה על אימות רישיון התיווך בריפו של שוק נדל״ן - רשם המתווכים, הערעור (צילום רישיון), ומודל "קודם חשבון, אחר כך אוויר" - החשבון נפתח תמיד, ודף הסוכן/ת, דף המשרד והמודעות מחכים לאישור (license_hold_at, agency_members_public, agency_is_live). Use when touching agency-signup / create-own-agency / join-agency / broker-license-appeal / broker-license-gate.ts, when writing code that sets license_number or license_status, when a listing "doesn't go live" or an agent page/office page is missing from the site, when someone without a valid license appears on the site, when adding a new way to join the platform, or when changing the licenseHoldCard in the CRM.
+description: אימות רישיון התיווך בריפו של שוק נדל״ן - רשם המתווכים, הערעור, ו"קודם חשבון, אחר כך אוויר" (license_hold_at, agency_is_live). Use when touching agency-signup / create-own-agency / join-agency / broker-license-appeal / broker-license-gate.ts, when code sets license_number or license_status, when a listing, agent page or office page "doesn't go live", or when someone without a valid license appears on the site.
 ---
 
 # רישיון תיווך: קודם חשבון, אחר כך אוויר

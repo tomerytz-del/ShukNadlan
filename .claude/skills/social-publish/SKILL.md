@@ -1,6 +1,6 @@
 ---
 name: social-publish
-description: פרסום נכס לדף הפייסבוק ולחשבון האינסטגרם של שוק נדל״ן - פרסום ידני של נכס לערוץ מסוים, מילוי החשבון בכמה פוסטים, בחירת נכסים, ומה עושים כשפרסום נכשל בלי ליצור פוסט כפול (הקפאת השורה, History ב-Make, סימני [make-unconfirmed] ו-[make-scenario-off]); אינסטגרם במסלול Graph הישיר - הטוקן של ה-System User, ההמתנה לעיבוד המכל ושגיאת 9007. Use when asked to post/publish/share a property to Facebook or Instagram, to "fill" the Instagram account with posts, when a post failed or "Scenario failed to complete", when a post went up twice, or when a property never reached Instagram.
+description: פרסום נכס לפייסבוק ולאינסטגרם של שוק נדל״ן - פרסום ידני, מילוי החשבון בפוסטים, ומה עושים כשפרסום נכשל בלי פוסט כפול (History ב-Make, [make-unconfirmed]); אינסטגרם ב-Graph הישיר ושגיאת 9007. Use when asked to post/publish/share a property to Facebook or Instagram, to "fill" the Instagram account, when a post failed or "Scenario failed to complete", when a post went up twice, or when a property never reached Instagram.
 ---
 
 # פרסום לרשתות

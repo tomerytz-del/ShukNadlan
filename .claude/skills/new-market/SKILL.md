@@ -1,6 +1,6 @@
 ---
 name: new-market
-description: פתיחת שוק מקומי חדש באתר שוק נדל״ן (אזור כמו "חיפה והקריות", "עפולה והעמק") או הוספת עיר לשוק קיים - השורה ב-assets/markets.js, המיגרציה ששייכת ערים, ה-_redirects, ה-config.path של market-pages.ts, בדיקת ה-GPS, ונתוני העיר (גאוקוד, רחובות, שכונות, עסקאות). Use when adding a new region/market or city, onboarding offices in a new area, when a URL like /krayot or /nazareth-area is needed, when properties in a new city don't appear under any market, or when cities.market_slug needs changing.
+description: פתיחת שוק מקומי חדש באתר שוק נדל״ן ("חיפה והקריות") או הוספת עיר לשוק - assets/markets.js, המיגרציה ששייכת ערים, _redirects, market-pages.ts, בדיקת ה-GPS ונתוני העיר. Use when adding a new region/market or city, onboarding offices in a new area, when a URL like /krayot or /nazareth-area is needed, when properties in a new city don't appear under any market, or when cities.market_slug needs changing.
 ---
 
 # שוק מקומי חדש
