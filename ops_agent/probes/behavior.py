@@ -30,6 +30,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _listings_without_images(ctx)
     yield from _saved_search_silence(ctx)
     yield from _search_rules_drift(ctx)
+    yield from _area_names_unrecognized(ctx)
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
     yield from _market_data(ctx)
@@ -430,6 +431,49 @@ def _search_rules_drift(ctx) -> Iterator[Finding]:
                    "ב-search_feature_cases.json שגויה.",
         metric=len(wrong), metric_unit="דוגמאות",
         evidence={"wrong": wrong},
+    )
+
+
+def _area_names_unrecognized(ctx) -> Iterator[Finding]:
+    """שמות מקום שאנשים חיפשו ולא זוהו - באתר או אצל גבריאלה.
+
+    זה הצד המדווח של הלולאה (‏docs/search-core.md, "הלולאה"): שם שאינו
+    שכונה, כינוי או יישוב נזרק בשקט באתר ונגמר ב"לא הבנתי איפה" בבוט.
+    ‏_area_miss_report() מסננת מה שכבר מזוהה ומה שנדחה, ומציעה שכונה. כאן
+    נספר רק מה שחיפשו לפחות שני מבקרים - שם של אדם אחד הוא עדיין לא דפוס.
+    הממצא נסגר מעצמו כשכל השמות אושרו או נדחו ב-CRM.
+    """
+    if not ctx.db.has_table("area_name_misses"):
+        return
+    ctx.count()
+    rows = ctx.db.rows(
+        """
+        select phrase, city, searches::int as searches, sessions::int as sessions,
+               suggestion_name
+          from public._area_miss_report(30)
+         where sessions >= 2
+         limit 20
+        """
+    )
+    if not rows:
+        return
+
+    def label(r):
+        where = (" ב" + r["city"]) if r.get("city") else ""
+        hint = (" - אולי " + r["suggestion_name"]) if r.get("suggestion_name") else ""
+        return "%s%s (%d מבקרים%s)" % (r["phrase"], where, r["sessions"], hint)
+
+    yield Finding(
+        area="behavior", code="area_names_unrecognized", severity="low",
+        subject="area_name_misses",
+        title="%d שמות מקום שחיפשו ולא זוהו" % len(rows),
+        detail="; ".join(label(r) for r in rows[:5]) + ".",
+        suggestion="ב-CRM, בדשבורד של מנהל/ת הפלטפורמה, בבלוק \"שמות שלא זוהו\": "
+                   "לאשר כל שם ככינוי של שכונה (ואז האתר וגבריאלה מזהים אותו), "
+                   "או לדחות אותו (רחוב, טעות הקלדה, לא מקום).",
+        metric=len(rows), metric_unit="שמות",
+        evidence={"names": [{k: r.get(k) for k in ("phrase", "city", "searches", "sessions", "suggestion_name")}
+                            for r in rows]},
     )
 
 

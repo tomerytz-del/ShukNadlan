@@ -199,7 +199,7 @@ export async function filterByArea<T>(
   }
   const index = SearchCore.areaIndex((hoods || []).map((h) => ({
     target: String(h.id), label: String(h.name), aliases: byHood[String(h.id)] || [],
-  })));
+  })), { stop: city ? [city, ...cities] : cities }); // שם העיר אינו מילה מזהה של שכונה
 
   const hit = SearchCore.findAreas(area, index, { partial: true }) as { targets: string[] } | null;
   let out: T[];
@@ -210,6 +210,20 @@ export async function filterByArea<T>(
   }
 
   if (out.length || !opts.withHint || hit) return { rows: out, hint: {} };
+
+  /* שם שאינו שכונה, כינוי, רחוב או יישוב, ולא נמצא דבר - לדוח "שמות שלא
+     זוהו" (‏area_name_misses). מנהל/ת מאשר/ת אותו ככינוי ב-CRM, ומאותו רגע
+     גבריאלה והאתר מזהים אותו (‏docs/search-core.md, "הלולאה"). כשל ברישום
+     אינו מפיל את החיפוש. */
+  const phrase = area.trim().replace(/\s+/g, " ");
+  if (phrase.length >= 2 && phrase.length <= 60 && !phrase.includes("@") && !/[0-9]{9,}/.test(phrase)) {
+    try {
+      await supabase.from("area_name_misses").insert({
+        phrase, city: city ? city.slice(0, 60) : null, source: "whatsapp", result_count: 0,
+      });
+    } catch (_e) { /* מדידה, לא תקלה */ }
+  }
+
   const names = [...new Set((hoods || []).map((n) => String(n.name)))];
   return {
     rows: out,

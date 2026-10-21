@@ -55,6 +55,8 @@ PROBE_CODES = {
                  "listings_", "saved_search_", "market_", "agency_",
                  # ‏ליבת החיפוש מול פונקציות המסד (‏_search_rules_drift)
                  "search_rules_",
+                 # ‏שמות מקום שלא זוהו (‏_area_names_unrecognized)
+                 "area_names_",
                  # ‏מחזור העדכון של העסקאות (‏_deal_sync_cycle)
                  "deal_sync_"),
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא

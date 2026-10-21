@@ -1042,6 +1042,38 @@ function logSearchToDb(row){
   } catch(e){ /* מדידה לא שוברת אתר */ }
 }
 
+/* ---------- שם מקום שלא זוהה ----------
+   ‏"דירה ביוקה פארק": השם אינו שכונה, כינוי או יישוב שאנחנו מכירים, והחיפוש
+   ממשיך בלעדיו. הוא נרשם ל-area_name_misses, ומשם מנהל/ת הפלטפורמה רואה
+   אותו בדשבורד ("שמות שלא זוהו") ומאשר/ת אותו ככינוי של שכונה - ומאותו רגע
+   האתר והבוטים מזהים אותו (‏docs/search-core.md, "הלולאה"). אותן הגנות של
+   מונה החיפושים: עד 60 תווים, בלי @ ובלי רצף ספרות, insert בלבד. */
+const AREA_MISSES_URL = SUPABASE_URL + '/rest/v1/area_name_misses';
+function logAreaMiss(phrase, resultCount, city){
+  try{
+    const t = String(phrase || '').trim().replace(/\s+/g, ' ');
+    if (t.length < 2 || t.length > 60 || t.indexOf('@') !== -1 || /[0-9]{9,}/.test(t)) return;
+    fetch(AREA_MISSES_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        // ‏insert בלבד ל-anon - בלי returning (ראו logSearchToDb)
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        phrase: t,
+        city: String(city || '').slice(0, 60) || null,
+        source: 'site',
+        result_count: Math.max(0, Math.min(100000, Number(resultCount) || 0)),
+        session_id: visitorSessionId()
+      }),
+      keepalive: true
+    })['catch'](function(){ /* מדידה, לא תקלה */ });
+  } catch(e){ /* מדידה לא שוברת אתר */ }
+}
+
 /* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
    כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
    שנכס לא יישאר עם סרט "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
@@ -6838,6 +6870,7 @@ let freeTextFeatures = new Set();
     },
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
+    onAreaMiss: logAreaMiss,
     urlExtra: ()=> appliedAdvancedQs,
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),

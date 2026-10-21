@@ -50,7 +50,7 @@ SPEC.deals.forEach(c => {
 
 // ---------- אזורים: אותו מפענח לאתר ולבוטים ----------
 const A = SPEC.areas;
-const INDEX = SC.areaIndex(A.hoods.map(h => ({ target: h.id, label: h.name, aliases: h.aliases })));
+const INDEX = SC.areaIndex(A.hoods.map(h => ({ target: h.id, label: h.name, aliases: h.aliases })), { stop: A.stop || [] });
 A.phrases.forEach(c => {
   test('אזור: ' + c.text, () => {
     const hit = SC.findAreas(c.text, INDEX);
@@ -64,6 +64,18 @@ A.properties.forEach(c => {
 });
 A.text.forEach(c => {
   test('טקסט: ' + c.name, () => assert.strictEqual(SC.textMatches(c.property, c.q), c.match));
+});
+
+test('שם מקום שלא זוהה: מה שאחרי "ב", בלי המילים המוכרות', () => {
+  const ex = { exclude: ['עפולה'] };
+  assert.strictEqual(SC.areaCandidate('דירה ביוקה פארק', ex), 'יוקה פארק');
+  assert.strictEqual(SC.areaCandidate('3 חדרים בנווה עמק עם ממד', ex), 'נווה עמק');
+  assert.strictEqual(SC.areaCandidate('למכירה בשכונת הפרחים', ex), 'הפרחים');
+  assert.strictEqual(SC.areaCandidate('דירה בעפולה', ex), null);
+  assert.strictEqual(SC.areaCandidate('בית ב3 חדרים', ex), null);
+  assert.strictEqual(SC.areaCandidate('דירה במחיר טוב', ex), null);
+  assert.strictEqual(SC.areaCandidate('יוקה פארק', ex), null);
+  assert.strictEqual(SC.areaCandidate('יוקה פארק', Object.assign({ whole: true }, ex)), 'יוקה פארק');
 });
 
 test('מחסן הוא מאפיין רק במגורים', () => {
