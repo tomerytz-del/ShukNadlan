@@ -125,6 +125,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   onboarding_client: "accClients",
   onboarding_lead: "accLeadShelf",
   onboarding_agreement: "accAgreements",
+  // ‏תזכורת אימות רישיון (20270723090000) - לכרטיס הרישיון בראש הדשבורד,
+  // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את license.
+  onboarding_license: "license",
   // ‏הסיכום היומי של המנטור (office-coach) - לכרטיס שלו ב"הדשבורד שלי"
   coach_daily: "accMyDashboard",
 };
