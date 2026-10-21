@@ -358,4 +358,12 @@ test('"בלי מעלית" אינו בקשה למעלית - והממ״ד שאחר
   assert.deepStrictEqual(C.parse('דירה ללא חנייה', C.defaultState(), AREAS).features, []);
 });
 
+test('רחוב בתוך משפט אינו נזרק, ובכל סדר (‏search-core.js, 21.10.2026)', () => {
+  // נכס i - רחוב הנרקיס. עד כאן "דירה ברחוב הנרקיס" חיפש בכל האזור
+  const r = C.parse('דירת גן ברחוב הנרקיס', C.defaultState(), AREAS);
+  assert.ok(!('area' in r.patch), 'parse עצמו אינו מכיר רחובות - runParse משלים מול המלאי');
+  const st = C.applyPatch(C.defaultState(), { area: 'text:נרקיס' });
+  assert.deepStrictEqual(C.filter(PROPS, st, { areaIndex: AREAS.index }).map(p => p.id), ['i']);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

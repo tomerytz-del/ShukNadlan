@@ -198,7 +198,10 @@
 
   /* האינדקס: ‏areas = [{ target, label, aliases? }]. ‏target הוא מה שחוזר -
      ‏'hood:<id>' באתר, מזהה השכונה בבוט, ‏'city:<שם>' ליישוב באתר. */
-  function areaIndex(areas) {
+  /* ‏opts.stop - שמות שמילה מתוכם לעולם אינה "מזהה" (היישוב העיקרי, העיר
+     של הבוט): "בעפולה" אינו עפולה עלית. */
+  var NOT_DISTINCT = ['שכונה', 'שכונת', 'השכונה', 'אזור', 'איזור', 'האזור', 'עיר', 'העיר'];
+  function areaIndex(areas, opts) {
     var entries = [];
     (areas || []).forEach(function (a) {
       areaNames(a.label).forEach(function (k) { entries.push({ key: k, target: a.target, name: true, text: a.label }); });
@@ -207,7 +210,27 @@
         if (k.length >= 2) entries.push({ key: k, target: a.target, name: false, text: al });
       });
     });
+    /* מילה מזהה: מופיעה בשמות ובכינויים של אזור אחד בלבד ("רובע" ← רובע
+       יזרעאל, "המורה" ← גבעת המורה). מילה של שני אזורים - אינה מזהה. */
+    var stop = {};
+    ((opts && opts.stop) || []).forEach(function (x) { areaKey(x).split(' ').forEach(function (w) { if (w) stop[w] = true; }); });
+    var owners = {};
+    entries.forEach(function (e) {
+      e.words = e.key.split(' ');
+      e.words.forEach(function (w) { (owners[w] = owners[w] || {})[e.target] = e.text; });
+    });
+    var distinct = {};
+    Object.keys(owners).forEach(function (w) {
+      var targets = Object.keys(owners[w]);
+      if (targets.length === 1 && w.length >= 3 && !/^\d+$/.test(w) && !stop[w] && NOT_DISTINCT.indexOf(w) < 0) distinct[w] = targets[0];
+    });
+    entries.distinct = distinct;
     return entries;
+  }
+
+  function hasLocWord(t, key) {
+    var esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(^| )(?:ו?ב|ו?מה?|ו?ל)' + esc + '( |$)').test(t);
   }
 
   function hasWord(t, key) {
@@ -231,6 +254,24 @@
         if (e.key === best.key && e.name === best.name && targets.indexOf(e.target) < 0) targets.push(e.target);
       });
       return { targets: targets, text: best.text, exact: true };
+    }
+    /* כל המילים של שם, בסדר אחר: "המורה גבעת", "יזרעאל רובע" */
+    var multi = null;
+    index.forEach(function (e) {
+      if (e.words.length < 2 || !e.words.every(function (w) { return hasWord(t, w); })) return;
+      if (!multi || e.key.length > multi.key.length || (e.key.length === multi.key.length && e.name && !multi.name)) multi = e;
+    });
+    if (multi) return { targets: [multi.target], text: multi.text, exact: false };
+    /* מילה מזהה אחת: "ברובע" ← רובע יזרעאל. בשורת החיפוש באתר רק אחרי מילת
+       מקום ("ב", "מה", "ל") - שם הטקסט הוא משפט שלם; בשדה area של הבוט בכל מקום. */
+    var dist = index.distinct || {}, found = {}, foundText = '';
+    Object.keys(dist).forEach(function (w) {
+      if (opts && opts.partial ? hasWord(t, w) : hasLocWord(t, w)) { found[dist[w]] = true; foundText = foundText || w; }
+    });
+    var ft = Object.keys(found);
+    if (ft.length === 1) {
+      var lbl = index.filter(function (e) { return e.target === ft[0] && e.name; })[0];
+      return { targets: ft, text: lbl ? lbl.text : foundText, exact: false };
     }
     if (opts && opts.partial) {
       var needle = t.replace(/^(?:(?:שכונת|שכונה|אזור|איזור|באזור|בשכונת) )+/, '').replace(/ /g, '');
@@ -265,15 +306,73 @@
   /* שם שאינו שכונה (רחוב, יישוב, שם פרויקט - "עפולה ירוקה", "יוקה פארק"):
      הטקסט של הנכס. כאן `sales_area` כן נקרא - הוא בדיוק המקום שבו סוכן/ת
      כותב/ת שם פרויקט - כי השאלה אינה "באיזו שכונה" אלא "איפה כתוב". */
+  /* ‏**בכל סדר, וחלק מהשם מספיק** (21.10.2026): "רום יעל" הוא "יעל רום",
+     ו"הנשיא" הוא "הנשיא ויצמן". כל מילה של החיפוש צריכה להופיע כמילה (או
+     כתחילת מילה) בטקסט של הנכס; ה' הידיעה ו"רחוב"/"שדרות" אינם חלק מההשוואה. */
+  var STREET_WORDS = ['רחוב', 'רח', 'שדרות', 'שד', 'דרך', 'סמטת', 'כיכר'];
+  function textWords(s) {
+    return areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
+      .map(function (w) { return w.length > 3 ? w.replace(/^ה/, '') : w; });
+  }
   function textMatches(p, q) {
     var needle = norm(q);
     if (!needle) return true;
     var hood = p.neighborhood_name || (p.neighborhoods && p.neighborhoods.name) || '';
-    return norm([p.title, p.street, p.address, p.city, hood, p.sales_area].join(' ')).indexOf(needle) >= 0;
+    var hay = [p.title, p.street, p.address, p.city, hood, p.sales_area].join(' ');
+    if (norm(hay).indexOf(needle) >= 0) return true;
+    var qw = textWords(q);
+    if (!qw.length) return false;
+    var hw = textWords(hay);
+    return qw.every(function (w) {
+      return hw.some(function (h) { return h === w || (w.length >= 3 && h.indexOf(w) === 0); });
+    });
+  }
+
+  /* ---------- שם מקום שלא זוהה ----------
+     מה שגולש/ת כתב/ה אחרי "ב" ואינו שכונה, יישוב או מילה מוכרת: "דירה ביוקה
+     פארק עם ממד" ← "יוקה פארק". זה מה שנרשם ל-area_name_misses, ומשם
+     מנהל/ת מאשר/ת אותו ככינוי - כך האתר והבוטים לומדים את השמות המקומיים
+     (‏docs/search-core.md, "הלולאה"). עד 3 מילים, בלי ספרות, ועד המילה
+     המוכרת הבאה. ‏opts.exclude - שמות שאינם חסרים (היישוב העיקרי);
+     ‏opts.whole - כשלא זוהה דבר, הטקסט כולו (עד 3 מילים) הוא המועמד. */
+  var KNOWN_WORD = new RegExp('^(?:' + [
+    'דירה', 'דירת', 'דירות', 'בית', 'בתים', 'נכס', 'נכסים', 'משרד', 'משרדים', 'חנות', 'חנויות', 'מגרש', 'מגרשים',
+    'פנטהאוז', 'פנטהאוס', 'דופלקס', 'סטודיו', 'קוטג', 'וילה', 'גג', 'גן', 'יחידת', 'יחידה', 'דיור', 'מחסן',
+    'חדר', 'חדרים', 'חד', 'עם', 'בלי', 'ללא', 'עד', 'מעל', 'מתחת', 'מיליון', 'אלף', 'אלפים', 'שח', 'שקל', 'שקלים',
+    'למכירה', 'להשכרה', 'לקנות', 'לקנייה', 'לקניה', 'לשכור', 'קנייה', 'קניה', 'מכירה', 'השכרה', 'שכירות',
+    'מחיר', 'תקציב', 'זול', 'זולה', 'גדול', 'גדולה', 'קטן', 'קטנה', 'חדש', 'חדשה', 'קומה', 'קומת', 'קרקע',
+    'מעלית', 'חניה', 'חנייה', 'ממד', 'ממק', 'מרפסת', 'מרפסות', 'שמש', 'מרוהטת', 'מרוהט', 'משופצת', 'משופץ', 'מיזוג',
+    'ו', 'או', 'של', 'את', 'יש', 'רוצה', 'רוצים', 'מחפש', 'מחפשת', 'מחפשים', 'אני', 'אנחנו', 'לי', 'לנו', 'גם', 'כל',
+    'אזור', 'האזור', 'שכונה', 'השכונה', 'העיר', 'עיר', 'מרכזי', 'מיידית', 'כניסה', 'מיידי', 'משפחה', 'זוג', 'ילדים',
+  ].join('|') + ')$');
+  var AREA_LEAD = /^ו?(?:באזור|בשכונת|בשכונה|ברחוב|בישוב|ביישוב|בקיבוץ|במושב)$/;
+
+  function areaCandidate(text, opts) {
+    opts = opts || {};
+    var words = areaKey(text).split(' ').filter(Boolean);
+    var known = function (w) { return /\d/.test(w) || KNOWN_WORD.test(w) || KNOWN_WORD.test(w.replace(/^[ובלה]/, '')); };
+    var out = null;
+    for (var i = 0; i < words.length && !out; i++) {
+      var w = words[i], first = null, start = i + 1;
+      if (AREA_LEAD.test(w)) { first = words[i + 1]; start = i + 2; if (first && known(first)) first = null; }
+      else {
+        var m = w.match(/^ו?ב(.{2,})$/);
+        if (m && !known(w) && !known(m[1])) first = m[1];
+      }
+      if (!first) continue;
+      var got = [first];
+      for (var j = start; j < words.length && got.length < 3 && !known(words[j]); j++) got.push(words[j]);
+      out = got.join(' ');
+    }
+    if (!out && opts.whole && words.length && words.length <= 3 && !words.some(known)) out = words.join(' ');
+    if (!out || out.length < 2) return null;
+    var key = compactKey(out);
+    if ((opts.exclude || []).some(function (x) { return x && compactKey(x) === key; })) return null;
+    return out;
   }
 
   var SearchCore = {
-    norm: norm, textMatches: textMatches,
+    norm: norm, textMatches: textMatches, areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,
     findAreas: findAreas, propertyAreas: propertyAreas, inAreas: inAreas, hasWord: hasWord,
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,
