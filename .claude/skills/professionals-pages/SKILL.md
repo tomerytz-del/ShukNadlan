@@ -1,6 +1,6 @@
 ---
 name: professionals-pages
-description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - professionals.html (הרשימה, אריחי התחומים, הכרטיסייה בשלושה מצבים, כרטיס "התחום פנוי") ו-professional.html (הפרופיל, שורת העובדות, הפסיפס, "עוד בעלי מקצוע", הסרגל הקבוע בטלפון), ו-?type= ב-professional-signup.html. Use when adding a professional field (advertiser_type), changing TYPE_LABELS / TYPE_PLURAL / TYPE_FIELD / PATHS / TILE_TYPES, adding a field to the card or the profile, when a style on these pages "doesn't apply" or a blue button's text disappears on hover, when a fact appears that is not in the database, or when a contact link on these pages is counted as contact_agent.
+description: דפי בעלי המקצוע בשוק נדל״ן - professionals.html, professional.html ו-?type= ב-professional-signup.html. Use when adding a professional field (advertiser_type), changing TYPE_LABELS / TYPE_PLURAL / TYPE_FIELD / PATHS / TILE_TYPES, adding a field to the card or profile, when a style on these pages "doesn't apply" or a button's text disappears on hover, when a fact appears that is not in the database, or when a contact link there is counted as contact_agent.
 ---
 
 # דפי בעלי המקצוע
@@ -46,7 +46,12 @@ description: עבודה על דפי בעלי המקצוע בשוק נדל״ן - 
    שנספר ידנית ב-`shukTrack('share')`, כי `events.js` סופר רק קישורים.
 4. **בלי לוכסן ובלי מקף ארוך בטקסט גלוי.** "בעלי מקצוע", "מי שמצטרף".
 5. **"התחום פנוי" נבנה מהנתונים**: התחומים הריקים בפועל, לא רשימה קבועה.
-6. **שאילתת supabase-js יוצאת רק ב-`then`.** "עוד בעלי מקצוע" עטופה
+6. **כותרת שלא נשברת באמצע צירוף, ועיר שמתחלפת לפי השוק.** ה-`<h1>` של
+   `professionals.html` בנוי מצירופים, כל אחד ב-`<span class="nw">`, והעיר
+   בתוכו `ב<span data-market-city>עפולה</span>` (‏`assets/market-text.js`
+   מחליף אותה בשוק אחר). נוסח חדש לכותרת נבנה באותה צורה ונבדק בצילום ב-360
+   וב-390. ‏`balance` לבדו השאיר "של" בסוף שורה ו"העסקה" בתחילת הבאה.
+7. **שאילתת supabase-js יוצאת רק ב-`then`.** "עוד בעלי מקצוע" עטופה
    ב-`Promise.resolve(...)` כדי לצאת במקביל לפרופיל, וכשל בה לא נוגע בפרופיל.
 
 ## הפרופיל מתמלא גם בשרת

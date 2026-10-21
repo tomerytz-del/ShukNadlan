@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>התאמות חכמות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button{font-family:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="padding: 16px 18px"]{padding:14px 12px!important}h1{font-size:28px!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-direction: column; gap: 6px">
+<a href="Clients.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">לקוחות ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">התאמות חכמות</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5A6478"><span style="display: block">כל נכס חדש או הוזלה נבדקים מול הלקוחות שלך.</span><span style="display: block">סיכום מגיע בפעמון ובוואטסאפ 3 פעמים ביום.</span></p>
+</header>
+<nav aria-label="לקוחות" style="display: inline-flex; align-self: flex-start; background: #E9ECF2; border-radius: 12px; padding: 4px; gap: 2px">
+<a href="Clients.dc.html" style="min-height: 40px; padding: 0 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: #5A6478; text-decoration: none; display: inline-flex; align-items: center">הלקוחות · 39</a>
+<a href="Matches.dc.html" aria-current="page" style="min-height: 40px; padding: 0 16px; border-radius: 9px; font-size: 14px; font-weight: 700; color: #0E1A33; background: #FFFFFF; box-shadow: 0 1px 3px rgba(14,26,51,0.12); text-decoration: none; display: inline-flex; align-items: center; gap: 6px">התאמות חדשות <span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #C2410C; border-radius: 999px; padding: 1px 7px">60</span></a>
+</nav>
+
+<section aria-label="סיכום" style="background: #0E1A33; color: #FFFFFF; border-radius: 20px; padding: 18px 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px">
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font-family: 'Frank Ruhl Libre', serif; font-size: 44px; font-weight: 700; line-height: 1">60</span><span style="font-size: 16px; color: #B8C2D9">התאמות חדשות</span></div>
+<span style="flex: 1 1 220px; font-size: 15px">ל-[N] לקוחות. הכי הרבה: <strong>שירה קאץ</strong> עם 5 נכסים ב-100% התאמה.</span>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">סימון הכל כנצפה</button>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<div role="radiogroup" aria-label="קיבוץ" style="display: inline-flex; background: #E9ECF2; border-radius: 12px; padding: 4px; gap: 2px">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{v.checked}}" onClick="{{v.pick}}" style="{{v.style}}">{{v.label}}</button>
+</sc-for>
+</div>
+<button type="button" aria-pressed="{{newOnlyStr}}" onClick="{{toggleNew}}" style="{{newStyle}}">חדשות בלבד</button>
+<button type="button" aria-label="רענון" title="רענון" style="width: 40px; height: 40px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: auto"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+</div>
+
+<sc-for list="{{clients}}" as="c" hint-placeholder-count="4">
+<article style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; overflow: hidden">
+<button type="button" aria-expanded="{{c.openStr}}" onClick="{{c.toggle}}" style="width: 100%; padding: 16px 18px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; cursor: pointer; color: #0E1A33; text-align: right">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EAF0FF; color: #1846C2; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none">{{c.initials}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 17px; font-weight: 700">{{c.name}}</span>
+<span style="font-size: 13px; color: #5A6478">{{c.wants}}</span>
+</span>
+<span style="font-size: 13px; font-weight: 700; color: #FFFFFF; background: #C2410C; border-radius: 999px; padding: 4px 10px; flex: none">{{c.count}}</span>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5A6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{c.chev}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{c.open}}" hint-placeholder-val="{{ false }}">
+<div style="border-top: 1px solid #EEF1F6">
+<sc-for list="{{c.props}}" as="p" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #F1F3F8">
+<button type="button" aria-pressed="{{p.selStr}}" aria-label="{{p.selLabel}}" onClick="{{p.toggle}}" style="{{p.box}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></button>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 15px; font-weight: 700">{{p.addr}}</span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #5A6478"><span style="{{p.srcStyle}}">{{p.src}}</span><span>{{p.date}}</span></span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none">
+<span style="font-family: 'Frank Ruhl Libre', serif; font-size: 18px; font-weight: 700">{{p.price}}</span>
+<span style="font-size: 11px; font-weight: 700; color: #166534; background: #E6F4EC; border-radius: 999px; padding: 1px 8px">{{p.score}} התאמה</span>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 18px; background: #F8F9FC">
+<button type="button" onClick="{{c.dismiss}}" style="min-height: 44px; padding: 0 10px; border: 0; background: none; font-size: 14px; font-weight: 600; color: #5A6478; cursor: pointer">סימון כנצפה</button>
+<button type="button" style="{{c.sendStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>{{c.sendLabel}}</button>
+</div>
+</div>
+</sc-if>
+</article>
+</sc-for>
+
+<button type="button" style="align-self: center; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 15px; font-weight: 700; color: #0E1A33; cursor: pointer">עוד לקוחות עם התאמות</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'client', newOnly: true, open: 'shira', sel: { shira: [1, 2, 3, 4, 5] }, seen: [] };
+  }
+  renderVals() {
+    const s = this.state;
+    const data = [
+      { id: 'shira', name: 'שירה קאץ', initials: 'ש״ק', wants: 'קנייה · דירה · עפולה · [תקציב]', props: [
+        { n: 1, addr: 'דירה · עלייה 52, עפולה', src: 'מהמשרד שלך', own: true, date: '20.10', price: '₪1,100,000' },
+        { n: 2, addr: 'דירה · שדרות רובע יזרעאל 10, עפולה', src: 'טריו נכסים', date: '20.10', price: '₪1,470,000' },
+        { n: 3, addr: 'דירה · נגבה 9, עפולה', src: 'L.R נכסים', date: '20.10', price: '₪1,460,000' },
+        { n: 4, addr: 'דירה · ירושלים 65, עפולה', src: 'א.ב. נדל"ן', date: '20.10', price: '₪1,150,000' },
+        { n: 5, addr: 'דירה · החורש 17, עפולה', src: 'מהמשרד שלך', own: true, date: '20.10', price: '₪1,550,000' }
+      ] },
+      { id: 'c2', name: '[לקוח/ה]', initials: '?', wants: '[מה מחפש/ת]', props: [{ n: 1, addr: '[נכס]', src: '[משרד]', date: '[תאריך]', price: '₪[מחיר]' }] },
+      { id: 'c3', name: '[לקוח/ה]', initials: '?', wants: '[מה מחפש/ת]', props: [{ n: 1, addr: '[נכס]', src: '[משרד]', date: '[תאריך]', price: '₪[מחיר]' }] }
+    ].filter((c) => !s.seen.includes(c.id));
+    const clients = data.map((c) => {
+      const open = s.open === c.id;
+      const sel = s.sel[c.id] || [];
+      return {
+        name: c.name, initials: c.initials, wants: c.wants, open, openStr: open ? 'true' : 'false',
+        count: c.props.length + (c.props.length === 1 ? ' חדש' : ' חדשים'),
+        toggle: () => this.setState({ open: open ? null : c.id }),
+        chev: 'flex: none; transform: rotate(' + (open ? '180' : '0') + 'deg)',
+        dismiss: () => this.setState({ seen: s.seen.concat(c.id), open: null }),
+        sendLabel: sel.length ? 'שליחה ל' + c.name.split(' ')[0] + ' בוואטסאפ (' + sel.length + ')' : 'בחרו נכסים לשליחה',
+        sendStyle: 'min-height: 44px; padding: 0 18px; border-radius: 12px; border: 0; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; ' + (sel.length ? 'background: #166534; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default'),
+        props: c.props.map((p) => {
+          const on = sel.includes(p.n);
+          return {
+            addr: p.addr, src: p.src, date: p.date, price: p.price, score: '100%',
+            srcStyle: 'border-radius: 999px; padding: 1px 8px; font-weight: 600; ' + (p.own ? 'color: #FFFFFF; background: #1C3A5E' : 'color: #3A4458; background: #F1F3F8'),
+            selStr: on ? 'true' : 'false', selLabel: 'בחירה לשליחה: ' + p.addr,
+            toggle: () => { const n = Object.assign({}, s.sel); n[c.id] = on ? sel.filter((x) => x !== p.n) : sel.concat(p.n); this.setState({ sel: n }); },
+            box: 'width: 26px; height: 26px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; box-sizing: border-box; ' + (on ? 'border: 0; background: #1F5BF0; color: #FFFFFF' : 'border: 2px solid #A7B0C2; background: #FFFFFF; color: transparent')
+          };
+        })
+      };
+    });
+    const seg = (on) => 'min-height: 36px; padding: 0 14px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; ' + (on ? 'background: #FFFFFF; color: #0E1A33; font-weight: 700; box-shadow: 0 1px 3px rgba(14,26,51,0.12)' : 'background: transparent; color: #5A6478; font-weight: 600');
+    const views = [['client', 'לפי לקוח'], ['prop', 'לפי נכס']].map(([id, label]) => ({ label, checked: s.view === id ? 'true' : 'false', style: seg(s.view === id), pick: () => this.setState({ view: id }) }));
+    return {
+      clients, views, newOnlyStr: s.newOnly ? 'true' : 'false', toggleNew: () => this.setState({ newOnly: !s.newOnly }),
+      newStyle: 'min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; ' + (s.newOnly ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600')
+    };
+  }
+}
+</script>
+</body>
+</html>

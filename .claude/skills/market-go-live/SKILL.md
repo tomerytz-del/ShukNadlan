@@ -1,6 +1,6 @@
 ---
 name: market-go-live
-description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והסביבה) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live: true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa from "coming soon" to the real home page, or when check_markets.py fails on a live market.
+description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והסביבה) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live = true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa from "coming soon" to the real home page, or when check_markets.py fails on a live market.
 ---
 
 # הדלקת שוק

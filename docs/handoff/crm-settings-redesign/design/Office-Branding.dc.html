@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מיתוג ועיצוב דף המשרד</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="margin: 0 -20px"]{margin:0 -12px!important}[style*="padding: 24px 28px"]{padding:20px 16px!important}[style*="padding: 20px 24px"]{padding:18px 16px!important}[style*="padding: 16px 28px"],[style*="padding: 18px 28px"],[style*="padding: 14px 28px"]{padding:14px 16px!important}[style*="padding: 20px 28px"]{padding:16px!important}[style*="padding: 0 28px"]{padding:0 16px!important}[style*="padding: 4px 28px 24px"]{padding:4px 16px 20px!important}[style*="margin: 0 28px"]{margin:0 16px!important}[style*="minmax(190px"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select,textarea{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 0; box-sizing: border-box">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">ניהול המשרד ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">דף המשרד</h1>
+<p style="margin: 0; font-size: 16px; color: #5A6478">כך דף המשרד נראה ללקוחות. הלוגו, תמונת הנושא והצבעים חלים גם על דפי כל הסוכנים.</p>
+</div>
+<a href="#" style="min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px">צפייה בדף המשרד<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a>
+</header>
+
+<sc-if value="{{aboutMissing}}" hint-placeholder-val="{{ true }}">
+<a href="#about" style="text-decoration: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; background: #FFF1C7; color: #7A5300; border-radius: 16px; padding: 16px 20px">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+<span style="flex: 1 1 320px; font-size: 15px; line-height: 1.5"><strong>חסר תיאור "על המשרד".</strong> הוא מוצג בראש הדף, ו-Google משתמש בו כדי לתאר את המשרד בתוצאות החיפוש.</span>
+<span style="font-size: 15px; font-weight: 700; text-decoration: underline">לכתיבת התיאור</span>
+</a>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section aria-labelledby="sImg" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"></path></svg></span>
+<h2 id="sImg" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">לוגו ותמונת נושא</h2>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px">
+<div style="border: 1px solid #E3E7EF; border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center">
+<img src="/_blob/e2a377a85e4d2507a8061446524819f2" alt="הלוגו של נדל&quot;ן עפולה" style="width: 76px; height: 76px; border-radius: 14px; object-fit: cover; border: 1px solid #E3E7EF; flex: none">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span style="font-size: 15px; font-weight: 700">לוגו המשרד</span>
+<span style="font-size: 12px; color: #5A6478">מרובע · בראש דף המשרד ובכל נכס של הצוות</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #0E1A33; cursor: pointer">החלפה</button>
+<button type="button" style="min-height: 40px; padding: 0 10px; border: 0; background: none; font-size: 14px; font-weight: 600; color: #9A3412; cursor: pointer">הסרה</button>
+</div>
+</div>
+</div>
+<div style="border: 1px solid #E3E7EF; border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center">
+<img src="/_blob/62fe37d99ff58d05e9a0d1411233f305" alt="תמונת הנושא של המשרד" style="width: 112px; height: 76px; border-radius: 12px; object-fit: cover; flex: none">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span style="font-size: 15px; font-weight: 700">תמונת נושא</span>
+<span style="font-size: 12px; color: #5A6478">רחבה, מומלץ 1600×600 · בראש דף המשרד <strong style="color: #0E1A33">ובראש דפי כל הסוכנים</strong></span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" style="min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #0E1A33; cursor: pointer">החלפה</button>
+<button type="button" style="min-height: 40px; padding: 0 10px; border: 0; background: none; font-size: 14px; font-weight: 600; color: #9A3412; cursor: pointer">הסרה</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section id="about" aria-labelledby="sText" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"></path></svg></span>
+<h2 id="sText" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">תוכן הדף</h2>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fTag" style="font-size: 14px; font-weight: 700">סלוגן</label>
+<input id="fTag" type="text" maxlength="60" value="{{tagline}}" onChange="{{onTag}}" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #5A6478"><span>שורה אחת מתחת לשם המשרד.</span><span dir="ltr">{{tagLen}}/60</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px">
+<label for="fAbout" style="font-size: 14px; font-weight: 700">על המשרד</label>
+<sc-if value="{{aboutMissing}}" hint-placeholder-val="{{ true }}"><span style="font-size: 12px; font-weight: 700; color: #7A5300; background: #FFF1C7; border-radius: 999px; padding: 2px 8px">חסר</span></sc-if>
+</div>
+<textarea id="fAbout" rows="5" maxlength="1200" value="{{about}}" onChange="{{onAbout}}" placeholder="למשל: משרד משפחתי שפועל בעפולה מאז 2008, מתמחה בדירות בגבעת המורה ובעפולה עילית ובליווי משפחות שמוכרות כדי לקנות." style="{{aboutStyle}}"></textarea>
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #5A6478"><span>כמה משפטים: ניסיון, אזורים וסוגי נכסים. שורה ריקה פותחת פסקה.</span><span dir="ltr">{{aboutLen}}/1200</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fAddr" style="font-size: 14px; font-weight: 700">כתובת המשרד <span style="font-weight: 500; color: #5A6478">(לא חובה)</span></label>
+<div style="position: relative">
+<input id="fAddr" type="text" value="חטיבה תשע 18 עפולה" onChange="{{dirtyIt}}" style="width: 100%; box-sizing: border-box; min-height: 48px; padding: 0 44px 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<span style="position: absolute; right: 14px; top: 14px; color: #5A6478"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+</div>
+<span style="font-size: 13px; color: #5A6478">מוצגת ב"יצירת קשר", עם קישור למפה.</span>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="display: flex; width: 100%; padding: 0; margin-bottom: 10px"><span style="font-size: 14px; font-weight: 700">תחומי התמחות</span><span style="margin-right: auto; font-size: 13px; color: #5A6478">{{specCount}} מתוך 6</span></legend>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px">
+<sc-for list="{{specs}}" as="sp" hint-placeholder-count="10">
+<button type="button" aria-pressed="{{sp.pressed}}" disabled="{{sp.disabled}}" onClick="{{sp.toggle}}" style="{{sp.style}}">
+<span style="{{sp.boxStyle}}"><sc-if value="{{sp.on}}" hint-placeholder-val="{{ true }}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: right; min-width: 0"><span style="font-size: 14px; font-weight: 700">{{sp.label}}</span><span style="font-size: 12px; color: #5A6478">{{sp.hint}}</span></span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{specFull}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #5A6478">אפשר עד 6 תחומים. כדי להוסיף, יש להסיר אחד.</span></sc-if>
+</fieldset>
+</section>
+
+<dc-import name="AreaPicker" scope="office" hint-size="100%,760px"></dc-import>
+
+<section aria-labelledby="sGal" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="14" rx="2"></rect><path d="M6 2h14a2 2 0 0 1 2 2v12"></path></svg></span>
+<h2 id="sGal" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">גלריית המשרד</h2>
+</div>
+<span style="font-size: 13px; color: #5A6478">8 מתוך 24 · גרירה לשינוי הסדר</span>
+</div>
+<span style="font-size: 14px; color: #5A6478; line-height: 1.5">חיי המשרד: עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <strong style="color: #0E1A33">לא</strong> תמונות נכסים - הן נכנסות דרך "הנכסים שלי".</span>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px">
+<sc-for list="{{gallery}}" as="g" hint-placeholder-count="8">
+<div style="position: relative; border-radius: 12px; overflow: hidden; border: 1px solid #E3E7EF">
+<img src="{{g.src}}" alt="{{g.alt}}" style="width: 100%; height: 110px; object-fit: cover; display: block">
+<sc-if value="{{g.first}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; bottom: 6px; right: 6px; font-size: 11px; font-weight: 700; color: #FFFFFF; background: rgba(14,26,51,0.8); border-radius: 999px; padding: 2px 8px">תמונה ראשית</span></sc-if>
+<button type="button" aria-label="{{g.removeLabel}}" style="position: absolute; top: 6px; left: 6px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(14,26,51,0.75); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+</sc-for>
+<button type="button" style="min-height: 112px; border-radius: 12px; border: 2px dashed #C5CCD9; background: #F8F9FC; color: #1F5BF0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+<span style="font-size: 14px; font-weight: 700">הוספת תמונות</span>
+</button>
+</div>
+<span style="font-size: 13px; color: #5A6478">לחיצה על תמונה פותחת עריכת כיתוב.</span>
+</section>
+<section aria-labelledby="sReviews" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<h2 id="sReviews" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 700">ביקורות לקוחות</h2>
+<span style="font-size: 12px; font-weight: 700; color: #9A3412; background: #FDE7D9; border-radius: 999px; padding: 2px 10px">[N] ממתינות לאישור</span>
+</div>
+<p style="margin: 0; font-size: 14px; color: #5A6478; line-height: 1.5">ביקורת מופיעה בדף המשרד רק אחרי שאישרת אותה.<br>ביקורת מוסתרת לא נמחקת, ואפשר להחזיר אותה בכל רגע.</p>
+<article style="border: 1px solid #EEF1F6; border-radius: 14px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center">
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; gap: 8px; align-items: center"><strong style="font-size: 15px">[שם הלקוח]</strong><span aria-label="5 כוכבים" style="color: #B8862B; letter-spacing: 1px">★★★★★</span><span style="font-size: 12px; color: #5A6478">[תאריך]</span></span>
+<span style="font-size: 14px; color: #3A4458; line-height: 1.5">"[טקסט הביקורת כפי שהלקוח כתב]"</span>
+</div>
+<div style="display: flex; gap: 8px"><button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">אישור</button><button type="button" style="min-height: 44px; padding: 0 12px; border: 0; background: none; color: #5A6478; font-size: 14px; font-weight: 600; cursor: pointer">הסתרה</button></div>
+</article>
+<a href="#" style="align-self: flex-start; font-size: 14px; font-weight: 700; color: #1F5BF0; text-decoration: none; min-height: 32px; display: inline-flex; align-items: center">לכל הביקורות ›</a>
+</section>
+
+<section aria-labelledby="sLook" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1"></circle><circle cx="17.5" cy="10.5" r="1"></circle><circle cx="8.5" cy="7.5" r="1"></circle><circle cx="6.5" cy="12.5" r="1"></circle><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0 0 22 10.7C22 5.9 17.5 2 12 2z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="sLook" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">צבעים ורקע</h2>
+<span style="font-size: 14px; color: #5A6478">התצוגה המקדימה מתעדכנת מיד.</span>
+</div>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+<legend style="font-size: 15px; font-weight: 700; padding: 0; margin-bottom: 12px">ערכת צבעים</legend>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="6">
+<button type="button" aria-pressed="{{t.pressed}}" onClick="{{t.pick}}" style="{{t.cardStyle}}">
+<span style="display: flex; height: 40px; border-radius: 10px; overflow: hidden">
+<span style="{{t.sw1}}"></span><span style="{{t.sw2}}"></span><span style="{{t.sw3}}"></span>
+</span>
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-size: 15px; font-weight: 700">{{t.name}}</span>
+<sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}"><span style="width: 22px; height: 22px; border-radius: 50%; background: #1F5BF0; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span></sc-if>
+</span>
+<span style="font-size: 12px; color: #5A6478; text-align: right; line-height: 1.4">{{t.desc}}</span>
+<sc-if value="{{t.isDefault}}" hint-placeholder-val="{{ false }}"><span style="align-self: flex-start; font-size: 11px; font-weight: 700; color: #3A4458; background: #F1F3F8; border-radius: 999px; padding: 2px 8px">ברירת מחדל</span></sc-if>
+</button>
+</sc-for>
+</div>
+</fieldset>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+<legend style="font-size: 15px; font-weight: 700; padding: 0; margin-bottom: 12px">רקע הדף</legend>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<button type="button" aria-pressed="{{bgSiteStr}}" onClick="{{pickSite}}" style="{{bgSiteStyle}}">
+<span style="height: 44px; border-radius: 10px; background: linear-gradient(180deg, #FBE3C8 0%, #EAF1F4 45%, #4C7C86 100%)"></span>
+<span style="font-size: 14px; font-weight: 700; text-align: right">הרקע של האתר</span>
+<span style="font-size: 12px; color: #5A6478; text-align: right">שמש, קו רקיע וגלים, כמו בדף הבית</span>
+</button>
+<button type="button" aria-pressed="{{bgPlainStr}}" onClick="{{pickPlain}}" style="{{bgPlainStyle}}">
+<span style="{{plainSwatch}}"></span>
+<span style="font-size: 14px; font-weight: 700; text-align: right">רקע חלק</span>
+<span style="font-size: 12px; color: #5A6478; text-align: right">צבע נייר אחיד לפי הערכה, בלי תנועה</span>
+</button>
+</div>
+</fieldset>
+</section>
+</div>
+
+<aside aria-label="תצוגה מקדימה של דף המשרד" style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 13px; font-weight: 700; color: #5A6478">תצוגה מקדימה</span>
+<span style="font-size: 12px; color: #5A6478">{{themeName}}</span>
+</div>
+<div style="{{pvPage}}">
+<div style="background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 24px rgba(14,26,51,0.10)">
+<img src="/_blob/62fe37d99ff58d05e9a0d1411233f305" alt="" style="width: 100%; height: 92px; object-fit: cover; display: block">
+<div style="{{pvLine}}"></div>
+<div style="padding: 0 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<img src="/_blob/e2a377a85e4d2507a8061446524819f2" alt="" style="width: 64px; height: 64px; border-radius: 12px; object-fit: cover; border: 3px solid #FFFFFF; margin-top: -32px; box-shadow: 0 2px 8px rgba(14,26,51,0.18)">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="{{pvName}}">נדל"ן עפולה</span>
+<span style="font-size: 13px; color: #5A6478; font-style: italic">{{tagline}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 5px">
+<sc-for list="{{specTags}}" as="st" hint-placeholder-count="6">
+<span style="{{st.style}}">{{st.label}}</span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 6px; font-size: 12px; color: #3A4458">
+<span style="background: #F4F6FA; border-radius: 8px; padding: 4px 8px"><strong>12</strong> נכסים פעילים</span>
+<span style="background: #F4F6FA; border-radius: 8px; padding: 4px 8px"><strong>4.8</strong> דירוג ממוצע</span>
+</div>
+<sc-if value="{{aboutMissing}}" hint-placeholder-val="{{ true }}">
+<div style="border: 1.5px dashed #E0B84A; border-radius: 10px; padding: 10px; font-size: 12px; color: #7A5300; background: #FFFBEB">כאן יופיע "על המשרד"</div>
+</sc-if>
+<sc-if value="{{aboutFilled}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 13px; line-height: 1.6; color: #3A4458">{{about}}</p>
+</sc-if>
+<div style="display: flex; gap: 6px">
+<span style="{{pvBtn1}}">וואטסאפ למשרד</span>
+<span style="{{pvBtn2}}">שיחה עם המשרד</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+
+<div style="position: sticky; bottom: 0; margin: 0 -20px; padding: 14px 20px; background: rgba(255,255,255,0.96); border-top: 1px solid #E3E7EF; box-shadow: 0 -6px 20px rgba(14,26,51,0.06)">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="{{saveTextStyle}}">{{saveText}}</span>
+<div style="display: flex; gap: 8px">
+<sc-if value="{{dirty}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{reset}}" style="min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; cursor: pointer">ביטול שינויים</button></sc-if>
+<button type="button" onClick="{{save}}" style="{{saveStyle}}">שמירה ופרסום</button>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":3300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.initial = {
+      theme: 'navygold', bg: 'site',
+      tagline: 'המומחים לנדל"ן מסחרי ומגורים בעפולה',
+      about: '',
+      specs: ['private', 'rent', 'commercial', 'invest', 'land', 'industry']
+    };
+    this.state = Object.assign({ dirty: false, saved: false }, JSON.parse(JSON.stringify(this.initial)));
+  }
+  renderVals() {
+    const s = this.state;
+    const themes = [
+      { id: 'shuk', name: 'צבעי שוק נדל"ן', desc: 'כחול כהה ונקי - העיצוב של האתר', main: '#16224F', acc: '#2A4FA8', paper: '#F3F5FA', isDefault: true },
+      { id: 'navygold', name: 'נייבי וזהב', desc: 'קלאסי ויוקרתי - הנפוץ בענף', main: '#1C2B45', acc: '#B8862B', paper: '#F7F3EA' },
+      { id: 'emerald', name: 'אמרלד ואבן', desc: 'בוטיק ירוק - נכסי יוקרה ופרויקטים', main: '#1F4D36', acc: '#8C6A2F', paper: '#F2F4EF' },
+      { id: 'terra', name: 'טרקוטה וחול', desc: 'ים-תיכוני חם - וילות ובתים פרטיים', main: '#7A2E1A', acc: '#2E6B5E', paper: '#F8F1E8' },
+      { id: 'graphite', name: 'גרפיט ונחושת', desc: 'אורבני ומודרני - דירות בעיר ומשרדים', main: '#262A33', acc: '#B5562B', paper: '#F3F3F2' },
+      { id: 'bordeaux', name: 'בורדו ושמנת', desc: 'חמים ומכובד - משרדי בוטיק ונכסי מורשת', main: '#5A1A2A', acc: '#9C7A3C', paper: '#F8F2EC' }
+    ];
+    const cur = themes.find((t) => t.id === s.theme) || themes[0];
+    const tv = themes.map((t) => {
+      const on = t.id === s.theme;
+      return {
+        name: t.name, desc: t.desc, on, isDefault: !!t.isDefault, pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ theme: t.id, dirty: true }),
+        cardStyle: 'display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 14px; cursor: pointer; background: #FFFFFF; color: #0E1A33; text-align: right; ' + (on ? 'border: 2px solid #1F5BF0; box-shadow: 0 0 0 3px #EAF0FF' : 'border: 1px solid #E3E7EF'),
+        sw1: 'flex: 3; background: ' + t.main, sw2: 'flex: 1; background: ' + t.acc, sw3: 'flex: 1.4; background: ' + t.paper
+      };
+    });
+    const card = (on) => 'display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; cursor: pointer; background: #FFFFFF; color: #0E1A33; ' + (on ? 'border: 2px solid #1F5BF0; box-shadow: 0 0 0 3px #EAF0FF' : 'border: 1px solid #E3E7EF');
+    const specDefs = [
+      ['private', 'קנייה ומכירה של נכסים פרטיים', 'דירות, בתים פרטיים, דירות גן', 'מכירה'],
+      ['rent', 'השכרת דירות ובתים', 'שוק השכירות למגורים', 'השכרה'],
+      ['commercial', 'נכסים מסחריים', 'חנויות, משרדים וקליניקות', 'מסחרי'],
+      ['invest', 'נכסים מניבים ולהשקעה', 'נכסים לפי תשואה, למשקיעים', 'נכסים מניבים'],
+      ['land', 'קרקעות ומגרשים', 'מגרשים, קרקעות חקלאיות ונחלות', 'קרקעות ומגרשים'],
+      ['industry', 'מבני תעשייה ולוגיסטיקה', 'מבני תעשייה, מחסנים ואחסנה', 'תעשייה ולוגיסטיקה'],
+      ['urban', 'פינוי בינוי והתחדשות עירונית', 'תמ"א 38, פינוי בינוי', 'התחדשות עירונית'],
+      ['new', 'פרויקטים חדשים מקבלן', 'שיווק פרויקטים ודירות על הנייר', 'פרויקטים חדשים'],
+      ['lux', 'נכסי יוקרה ווילות', 'וילות, בתי יוקרה ונכסים ייחודיים', 'יוקרה'],
+      ['mgmt', 'ניהול נכסים', 'ניהול שוטף עבור בעלי הנכסים', 'ניהול נכסים']
+    ];
+    const full = s.specs.length >= 6;
+    const specs = specDefs.map(([id, label, hint]) => {
+      const on = s.specs.includes(id);
+      const disabled = !on && full;
+      return {
+        label, hint, on, disabled, pressed: on ? 'true' : 'false',
+        style: 'display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; border-radius: 14px; width: 100%; color: #0E1A33; ' +
+          (on ? 'border: 1.5px solid #1F5BF0; background: #F3F6FD; cursor: pointer' : disabled ? 'border: 1px dashed #D5DBE6; background: #FFFFFF; opacity: 0.6; cursor: not-allowed' : 'border: 1px solid #D5DBE6; background: #FFFFFF; cursor: pointer'),
+        boxStyle: 'width: 22px; height: 22px; border-radius: 7px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: #FFFFFF; box-sizing: border-box; ' + (on ? 'background: #1F5BF0' : 'border: 2px solid #A7B0C2; background: #FFFFFF'),
+        toggle: () => {
+          if (on) this.setState({ specs: s.specs.filter((x) => x !== id), dirty: true });
+          else if (!full) this.setState({ specs: s.specs.concat(id), dirty: true });
+        }
+      };
+    });
+    const shortOf = Object.fromEntries(specDefs.map((d) => [d[0], d[3]]));
+    const srcs = ['/_blob/6047b025872b631776705d15cf90db3e', '/_blob/bef9bdf8da03070b21524f884a902bac', '/_blob/7f9aa0d201fa916cc614124b5ec32b3b', '/_blob/a40346fe65339cfba782c70ebc9da29c', '/_blob/602ea33b0f2c4fdfa51b0747f060b53f', '/_blob/0c529f0c4461d053746120d154417282', '/_blob/578f7913f4cadfef30095e51ab2faf35', '/_blob/9d61dd2467d1a1e7b0e1a37124ef45bd'];
+    const gallery = srcs.map((src, i) => ({ src, first: i === 0, alt: 'תמונה ' + (i + 1) + ' מגלריית המשרד', removeLabel: 'הסרת תמונה ' + (i + 1) }));
+    const aboutMissing = s.about.trim().length === 0;
+    return {
+      themes: tv, themeName: cur.name,
+      bgSiteStr: s.bg === 'site' ? 'true' : 'false', bgPlainStr: s.bg === 'plain' ? 'true' : 'false',
+      bgSiteStyle: card(s.bg === 'site'), bgPlainStyle: card(s.bg === 'plain'),
+      pickSite: () => this.setState({ bg: 'site', dirty: true }), pickPlain: () => this.setState({ bg: 'plain', dirty: true }),
+      plainSwatch: 'height: 44px; border-radius: 10px; background: ' + cur.paper + '; border: 1px solid #E3E7EF',
+      tagline: s.tagline, tagLen: s.tagline.length,
+      onTag: (e) => this.setState({ tagline: e.target.value, dirty: true }),
+      about: s.about, aboutLen: s.about.length, aboutMissing, aboutFilled: !aboutMissing,
+      onAbout: (e) => this.setState({ about: e.target.value, dirty: true }),
+      aboutStyle: 'padding: 14px; border-radius: 12px; font-size: 16px; line-height: 1.6; color: #0E1A33; resize: vertical; border: ' + (aboutMissing ? '1.5px solid #E0B84A; background: #FFFDF5' : '1px solid #D5DBE6; background: #FFFFFF'),
+      dirtyIt: () => this.setState({ dirty: true }),
+      specs, specCount: s.specs.length, specFull: full,
+      specTags: s.specs.map((id) => ({ label: shortOf[id], style: 'font-size: 11px; font-weight: 600; color: ' + cur.main + '; border: 1px solid ' + cur.acc + '; border-radius: 999px; padding: 3px 8px; background: #FFFFFF' })),
+      gallery,
+      pvPage: 'border-radius: 20px; padding: 16px; border: 1px solid #E3E7EF; background: ' + (s.bg === 'site' ? 'linear-gradient(180deg, #FBE3C8 0%, #EAF1F4 40%, #9DBDC3 100%)' : cur.paper),
+      pvLine: 'height: 4px; background: ' + cur.acc,
+      pvName: "font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700; color: " + cur.main,
+      pvBtn1: 'flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: #FFFFFF; background: ' + cur.main + '; border-radius: 999px; padding: 8px 6px',
+      pvBtn2: 'flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: ' + cur.main + '; border: 1.5px solid ' + cur.acc + '; border-radius: 999px; padding: 7px 6px',
+      dirty: s.dirty,
+      saveText: s.dirty ? 'יש שינויים שלא פורסמו' : (s.saved ? 'פורסם. הדף עודכן לכל הסוכנים.' : 'הדף מעודכן'),
+      saveTextStyle: s.dirty ? 'font-size: 14px; font-weight: 700; color: #9A3412' : 'font-size: 14px; color: #5A6478',
+      saveStyle: 'min-height: 48px; padding: 0 28px; border-radius: 12px; border: 0; font-size: 16px; font-weight: 700; ' + (s.dirty ? 'background: #1F5BF0; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default'),
+      save: () => { if (s.dirty) this.setState({ dirty: false, saved: true }); },
+      reset: () => this.setState(Object.assign({ dirty: false }, JSON.parse(JSON.stringify(this.initial))))
+    };
+  }
+}
+</script>
+</body>
+</html>

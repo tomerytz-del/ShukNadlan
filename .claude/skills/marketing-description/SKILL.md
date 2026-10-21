@@ -1,6 +1,6 @@
 ---
 name: marketing-description
-description: עבודה על התיאור השיווקי של נכס בריפו של שוק נדל״ן - איזה שדה מוצג בדף הנכס ובבוט (marketing_description מול description), טביעת האצבע וה-stale, התור האוטומטי, כפתור הרענון ב-CRM, הפרומפט המשותף עם פייסבוק, ומיגרציה שנוגעת בטקסט של נכסים. Use when "refreshed the description and nothing changed", when adding a field to the property form that the copy should mention, when touching property-description / marketing-copy.ts / renderDescription, when writing a migration that updates properties.title/description/marketing_description or fixes a fingerprinted field like price/rooms, or when a property is wrongly flagged "כדאי לרענן תיאור".
+description: התיאור השיווקי של נכס בריפו של שוק נדל״ן - marketing_description מול description, טביעת האצבע וה-stale, כפתור הרענון, והפרומפט המשותף עם פייסבוק. Use when "refreshed the description and nothing changed", when adding a property field the copy should mention, when touching property-description / marketing-copy.ts / renderDescription, when a migration updates property text or a fingerprinted field, or when a property is wrongly flagged "כדאי לרענן תיאור".
 ---
 
 # תיאור שיווקי לנכס

@@ -1,0 +1,32 @@
+name: דילוג על דיפלוי ב-Netlify, ומה שאינו מתפרסם
+
+# ‏scripts/netlify_ignore.sh מחליט אם דחיפה מפורסמת ב-Netlify (‏netlify.toml).
+# הכשל המסוכן בו שקט: תיקייה של האתר שנכנסה בטעות לרשימת הדילוג, ומאותו
+# רגע שינויים בה לא עולים לאוויר. הבדיקה בונה ריפו זמני ומוודאת שכל סוג
+# קובץ אתר בונה ושכל סוג קובץ אחר מדלג.
+#
+# ‏check_not_published.py מוודא שמה שאינו אתר חסום ב-_redirects (‏404!), ושאף
+# נתיב של האתר אינו חסום. הוא רץ על **כל** PR, בלי סינון נתיבים: תיקייה
+# או סקריפט חדשים בשורש הם בדיוק מה שהוא צריך לתפוס, ושום רשימת paths
+# אינה יודעת מראש איך הם ייקראו. ‏docs/netlify-usage.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: בדיקת ההחלטה
+        run: bash scripts/netlify_ignore_test.sh
+
+      - name: מה שאינו אתר אינו מתפרסם
+        run: python3 scripts/check_not_published.py

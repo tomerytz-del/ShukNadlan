@@ -1,6 +1,6 @@
 ---
 name: client-showcase
-description: עבודה על המיניסייט האישי ללקוח/ה בריפו של שוק נדל״ן - showcase.html, ה-Edge Function client-showcase, assets/crm-showcase.js והטבלאות client_showcase_*. הדף ממותג במשרד ובסוכן/ת והנכסים בלי מיתוג וכולם באותו טיפול (כדי שלא יידעו מה הגיע בשת"פ), זיהוי הלוגו בתמונות שנכשל סגור, ניקוי התיאור, המאגר שממנו מותר לשלוח, תיאום השת"פ אחרי "אהבתי", וההסרה בשני שלבים. Use when touching showcase.html / assets/showcase.js / client-showcase / crm-showcase.js / showcase_add_properties, when adding a field to what the client sees, when a property or image "disappeared" from a client's mini-site, when a client could tell a property came from another office, or when changing the first WhatsApp message that sends the link. Also when touching showing-coord.ts / showing_coord_* / the "📨 תיאום עם הבעלים והמתווכים" button, when an owner or a partner agent did not get a visit-coordination request, when a reply (scr: button) did not reach the agent, or when the pre-visit summary or the reminder came out wrong or twice.
+description: המיניסייט האישי ללקוח/ה בריפו של שוק נדל״ן - showcase.html, client-showcase, crm-showcase.js, client_showcase_*, נכסים בלי מיתוג, זיהוי לוגו, ותיאום ביקור (showing-coord.ts, showing_coord_*). Use when adding a field the client sees, when a property or image "disappeared" from the mini-site, when a client could tell a property came from another office, or when an owner or partner agent got no visit-coordination request or reply.
 ---
 
 # המיניסייט האישי ללקוח/ה

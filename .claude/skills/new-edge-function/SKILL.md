@@ -1,6 +1,6 @@
 ---
 name: new-edge-function
-description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן — verify_jwt ב-config.toml, ההצהרה ב-PUBLIC_EDGE_FUNCTIONS, CORS, סודות ופריסה. Use when the ops agent reports "Edge Function פתוחה בלי אימות", when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function. Also when a function suddenly answers 404/not_found for rows that exist, or when writing a select with an embed like agency_members(…).
+description: הוספת Edge Function ל-Supabase בריפו של שוק נדל״ן - verify_jwt ב-config.toml, PUBLIC_EDGE_FUNCTIONS, CORS, סודות ופריסה. Use when the ops agent reports "Edge Function פתוחה בלי אימות", when adding a function under supabase/functions, when a public form or webhook suddenly returns 401, or when wiring a cron job to a function. Also when a function answers 404/not_found for rows that exist, or when writing a select with an embed like agency_members(…).
 ---
 
 # ‏Edge Function חדשה
