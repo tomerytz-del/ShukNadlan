@@ -2795,6 +2795,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cma-facts>div{border:1px solid var(--cma-line);border-radius:10px;padding:8px 10px}
   .cma-facts dt{font-size:.66rem;color:var(--cma-ink-3);font-weight:700}
   .cma-facts dd{margin:2px 0 0;font-size:.84rem;font-weight:600}
+  /* רשימת התוכניות (planRowHtml ב-crm.js) - בדוח ה-CMA ובכלי המידע התכנוני */
+  .gm-plans{margin-top:12px}
+  .gm-plans-h{font-size:.7rem;font-weight:700;color:var(--cma-ink-3,var(--ink-soft));margin:0 0 6px}
+  .gm-plan{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:7px 0;
+    border-bottom:1px solid var(--cma-line,var(--line));font-size:.8rem}
+  .gm-plan:last-child{border-bottom:0}
+  .gm-plan-n{font-weight:800}
+  .gm-plan-d{color:var(--cma-ink-2,var(--ink-soft));min-width:0}
+  .gm-plan a{color:inherit;text-decoration:underline}
+  .gm-plan.is-notice{background:#fdf6e3;border:1px solid #e9b949;border-radius:8px;padding:7px 9px;margin:4px 0}
+  .gm-plan-flag{flex-basis:100%;font-size:.72rem;font-weight:700;color:#8a5a00}
+  .gm-plans-src{font-size:.66rem;color:var(--cma-ink-3,var(--ink-soft));margin-top:6px}
   .cma-table td.cma-c-rank{color:var(--cma-ink-3,var(--ink-soft));font-weight:700;width:1%}
   .cma-basis.is-same{border-color:var(--cma-accent,var(--gold));color:var(--cma-ink,var(--ink));font-weight:700}
   .cma-method .cma-note{background:var(--cma-soft)}
@@ -10182,11 +10194,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             פין קיים לא זז, ומידע תכנוני נשמר רק לנכס של מנוי/ה PROFESSIONAL או Elite.
             "השלמת מיקום לעסקאות" ממקמת את העסקאות הרשמיות (ובעפולה - רק עסקאות בלי כתובת, לפי החלקה), כדי שחיפוש
             העסקאות ודוח ה-CMA יעבדו לפי מרחק. כל לחיצה מטפלת בעד 150 מיקומים.
+            "השלמת תוכניות" מוסיפה לכל נכס עם מיקום - גם בעפולה - את התוכניות הארציות, תוכנית המתאר
+            וההודעות לפי סעיף 77-78, למנויי PROFESSIONAL ו-Elite. נכס נבדק שוב אחרי 90 יום.
           </p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
             <button type="button" class="btn btn-gold" id="govmapBackfillBtn">השלמת נתונים חסרים</button>
             <button type="button" class="btn btn-ghost" id="govmapParityBtn">השוואה מול עפולה (בלי שמירה)</button>
             <button type="button" class="btn btn-ghost" id="govmapDealsBtn">השלמת מיקום לעסקאות</button>
+            <button type="button" class="btn btn-ghost" id="govmapPlansBtn">השלמת תוכניות</button>
           </div>
           <div id="govmapBackfillStatus" class="acc-sub" style="margin-bottom:10px"></div>
           <div id="govmapBackfillResult"></div>

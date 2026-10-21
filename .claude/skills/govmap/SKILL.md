@@ -1,6 +1,6 @@
 ---
 name: govmap
-description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין, רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות, ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, or when a GovMap call silently returns nothing.
+description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, or when a GovMap call silently returns nothing.
 ---
 
 # ‏GovMap
@@ -25,15 +25,18 @@ description: עבודה מול GovMap בריפו של שוק נדל״ן - הטו
 (‏`GOVMAP_TOKEN`). לא בכל דף, לא ב-HTML. אותה סיבה כמו `escapeHtml`: שני
 עותקים של ערך הם שני ערכים ביום שמחליפים אחד.
 
-**סוד בצד השרת (`GOVMAP_TOKEN` ב-Supabase) — רק אחרי אימות.** ה-API מתועד
-כ-JS שרץ בדפדפן מהדומיין המאושר. האם אפשר לקרוא לנקודות הקצה שלו מ-Edge
-Function (שאין לה Origin של האתר) **לא נבדק**, וזו השאלה שמכריעה אם
-`geocode-backfill` יכול להשתמש בו. לפני שכותבים ספק בצד השרת: לפתוח את
-האתר החי, DevTools → Network, להריץ `govmap.search` מהקונסול, ולרשום את
-כתובת הבקשה, הכותרות והאם הטוקן נשלח ככותרת או כפרמטר. **אין לזייף
-`Origin`/`Referer` כדי לעקוף את נעילת הדומיין** — זה עקיפה של תנאי השימוש
-של מפ"י, ומפתח שנחסם עוצר את כל האתר ולא רק את הצינור. אם צד השרת אינו
-נתמך, פונים למפ"י בבקשה להרשאת שרת-לשרת.
+**אין GovMap בצד השרת — מפ"י אסרו (12.10.2026).** התשובה בכתב: "לא ניתן
+לצרוך את ה-API מצד שרת אלא מצד הלקוח בלבד" (תשובה קודמת, "כן", מ-5.10
+תוקנה). לכן אין `GOVMAP_TOKEN` בסודות של Supabase או של GitHub, אין
+`providers/govmap.ts` שרץ ב-Edge Function, ואין cron או workflow שקורא
+ל-GovMap. גם לא "רק לבדוק אם זה עונה": שימוש מעבר לתיעוד "אינו מורשה".
+**ואין עקיפה** — לא `Origin`/`Referer` מזויפים ולא דפדפן headless בשרת שטוען
+את הדף כדי לקרוא בשמו. מפתח שנחסם עוצר את כל האתר, לא רק את הצינור.
+
+מה שצריך נתוני GovMap בשרת (העוזר בוואטסאפ, דוח ה-CMA) קורא את מה
+**שהדפדפן כבר שמר במסד** — ולא את GovMap. הכתיבה עוברת דרך RPC שמאמת
+(‏`govmap_save_planning`, ‏`govmap_admin_save`, ‏`govmap_deal_save`), כי
+הדפדפן אינו מקור אמין. כל התשובות של מפ"י: `docs/govmap.md`, "תשובות מפ"י".
 
 ## ‏2. שלוש רשתות קואורדינטות, ואף אחת לא מכריזה על עצמה
 
@@ -55,9 +58,9 @@ Function (שאין לה Origin של האתר) **לא נבדק**, וזו השאל
 
 ## ‏3. המיפוי לחוזה הגאוקוד
 
-ספק GovMap, כשייכתב, יירשם ב-`_shared/geocode/providers/govmap.ts` (הקובץ
-**עדיין לא קיים** - הספק היחיד היום הוא `municipal-wfs.ts`) ויקיים את החוזה
-שבראש `_shared/geocode/types.ts` **בלי יוצא מן הכלל**:
+הספק בפועל הוא `GovmapLookup` בדפדפן (`assets/govmap.js`). ‏`_shared/geocode/
+providers/govmap.ts` **לא ייכתב** (סעיף 1), אבל החוזה שבראש
+`_shared/geocode/types.ts` חל על הספק בדפדפן **בלי יוצא מן הכלל**:
 
 | תשובת GovMap | ‏`precision` | מה מחזירים |
 | --- | --- | --- |
@@ -187,7 +190,7 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 - **סבב שכולו כשלים עוצר**, ויש תקרת סבבים (`GOVMAP_MAX_ROUNDS`). סבב
   כזה הוא אותם פריטים שיחזרו שוב ושוב, כלומר תקלה ב-GovMap ולא עבודה.
 
-אין לזה גרסת cron בשרת כל עוד הטוקן נעול לדומיין (סעיף 1).
+אין לזה גרסת cron בשרת, ולא תהיה: מפ"י מתירים צד לקוח בלבד (סעיף 1).
 
 ## שכבות שנמדדו כפתוחות לטוקן (24.9.2026)
 
@@ -199,7 +202,35 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 | `SUB_GUSH_ALL` | `name`, `gush_num` | 18,597 |
 
 ‏`search` על `16742/96` או `גוש 16742 חלקה 96` מחזיר `type: "parcel"` עם
-מרכז החלקה — דרך המילוט כשהכתובת אינה בשכבת הכתובות.
+מרכז החלקה — דרך המילוט כשהכתובת אינה בשכבת הכתובות. שכבת הכתובות
+מתעדכנת פעם ברבעון (מפ"י), ולכן רחוב חדש חסר בה חודשים. כתובת חסרה
+מדווחים ל-`service@mapi.gov.il` ברשימה פשוטה (יישוב, רחוב, מספר).
+
+**שכבות שלא קיימות ל-API, ולא מחפשים:** עסקאות הנדל"ן — מפ"י: "אין גישה".
+**התוכניות החלות: `203` ו-`14`** (מפ"י, 12.10.2026; נמדד 22.10.2026). שם
+השכבה ל-API הוא המספר מ-`lay=`:
+
+| שכבה | מה | שדות עיקריים | ישויות |
+| --- | --- | --- | --- |
+| `203` | גבול כל תוכנית (קו כחול) | `pl_number`, `pl_name`, `entity_subtype_desc`, `internet_short_status`, `pl_date_8`, `pl_url` | 37,708 |
+| `14` | ייעוד קרקע מבא"ת לכל תוכנית | `mavat_name`, `mavat_code`, `pl_number` | 564,050 |
+| `migrashim_msbs` | מגרשי משרד הבינוי | `land_use`, `yhdot_diur`, `level_count` | 241,586 |
+
+**שם השכבה תמיד מחרוזת:** `getLayerFilterFields` מקבלת גם `203`, אבל
+`getLayerFeaturesByLocation` עם `name: 203` (מספר) מחזירה 400 - ואחת כזו
+מפילה את כל הבקשה. `name: '203'`.
+
+**`203` אינה "כל התוכניות":** היא מחזירה ארציות, כוללניות והודעות 77-78,
+ולא את התוכניות המפורטות הוותיקות (בעפולה חסרו ג/20010, ג/בת/180,
+ג/12567). התוכנית המפורטת מגיעה מ-`tochnit` של `retzefMigrashim`. ייעוד
+המגרש - מ-`kvuz_trg`; ‏`14` נותנת את ייעוד תוכנית המתאר, גס יותר. אין
+להציג את האיחוד כ"כל התוכניות החלות" (`docs/govmap.md`, הרצה 2).
+
+**איפה זה בנוי (22.10.2026):** ‏`GovmapLookup.plansAt` ← `govmap_plans`
+(עמודה נפרדת, **גם בעפולה**) ← `planning_plans_merged` לדף הנכס ולגבריאלה,
+ו-`mergedPlanningPlans` ב-`crm.js` ל-CMA ולכלי התכנון. שני האיחודים חייבים
+אותו סדר. שדה חדש מ-203 עובר בשלושה מקומות: `cleanPlanLayers`,
+‏`govmap_plans_write` (רשימה סגורה) ו-`planning_plans_merged`.
 
 ## בדיקה מהירה של הטוקן
 
@@ -214,4 +245,4 @@ document.head.appendChild(s);
 ```
 
 תוצאה עם `type: "address"` ו-`centroid` ב-ITM ⇒ הטוקן והדומיין תקינים.
-באותה הזדמנות: לשונית Network, לרשום את נקודת הקצה (סעיף 1).
+(‏`www.shuknadlan.co.il` נחשב אותו דומיין לפי מפ"י.)

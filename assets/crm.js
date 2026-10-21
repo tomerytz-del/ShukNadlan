@@ -10303,6 +10303,7 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
   }
 });
 
+let planningPlansSeq = 0;
 function renderPlanningResult(d){
   const fieldsEl = document.getElementById('planFields');
   const plansEl = document.getElementById('planPlansList');
@@ -10322,11 +10323,22 @@ function renderPlanningResult(d){
       <div style="font-size:.9rem;margin-top:2px">${value}</div>
     </div>`).join('');
 
-  const plans = d.applicable_plans || [];
-  plansEl.innerHTML = plans.length
-    ? `<div style="font-size:.75rem;font-weight:700;color:var(--ink-soft);margin-bottom:6px">תוכניות תכנון החלות על החלקה (${plans.length})</div>` +
-      plans.map(p => `<div style="font-size:.82rem;padding:6px 0;border-bottom:1px solid var(--line)">${p.number || '-'}${p.description ? ' · ' + p.description : ''}</div>`).join('')
-    : '<div style="font-size:.8rem;color:var(--ink-soft)">לא נמצאו תוכניות תכנון החלות על החלקה</div>';
+  const renderPlans = () => {
+    const plans = mergedPlanningPlans(d);
+    plansEl.innerHTML = plans.length
+      ? plansListHtml(plans, 'תוכניות תכנון החלות על החלקה')
+      : '<div style="font-size:.8rem;color:var(--ink-soft)">לא נמצאו תוכניות תכנון החלות על החלקה</div>';
+  };
+  renderPlans();
+  // ארציות, כוללניות והודעות 77-78 - משכבות 203/14 של GovMap, בדפדפן. העשרה:
+  // הרשימה של העירייה כבר מוצגת, וכישלון כאן רק נרשם. תשובה שמגיעה אחרי
+  // בדיקה חדשה אינה מציירת מעליה
+  const seq = ++planningPlansSeq;
+  if (window.GovmapLookup && d.lat && d.lng && !d.govmap_plans){
+    GovmapLookup.plansAtLatLng(d.lat, d.lng)
+      .then(plans => { if (seq !== planningPlansSeq) return; d.govmap_plans = plans; renderPlans(); })
+      .catch(err => console.warn('GovMap plan layers failed:', err));
+  }
 
   resultPanel.style.display = 'block';
 
@@ -12507,11 +12519,94 @@ async function fetchGovmapPlanning(propertyId, q, statusEl){
     statusEl.textContent = res.pinSource === 'parcel'
       ? 'מידע תכנוני נשמר ✓ (הכתובת לא נמצאה, המיקום לפי החלקה)'
       : 'מידע תכנוני עודכן ונשמר לנכס ✓';
+    if (res.itm) await saveGovmapPlans(propertyId, () => GovmapLookup.plansAt(res.itm));
   } catch(err){
     // תקלת רשת או תשובה לא צפויה מ-GovMap - לא "לא נמצא"
     console.warn('GovMap planning failed:', err);
     statusEl.textContent = 'לא הצלחנו לפנות ל-GovMap כרגע. המידע ייקלט בעריכה הבאה של הכתובת';
   }
+}
+
+/* ==========================================================================
+   התוכניות משכבות 203/14 של GovMap - ארציות, כוללניות והודעות 77-78
+   --------------------------------------------------------------------------
+   לכל עיר, **כולל עפולה**: שכבת העירייה אינה נותנת אותן. נשמרות בעמודה
+   נפרדת (‏govmap_plans), כי בעפולה applicable_plans נכתבת בשרת ושני כותבים
+   היו מוחקים זה את זה (מיגרציה 20270724090000, docs/govmap.md).
+
+   העשרה: כישלון נרשם בקונסול ולא בהודעה לסוכן/ת. נכס שלא נקלט ייאסף
+   ב"השלמת תוכניות" של מנהל/ת הפלטפורמה.
+   ========================================================================== */
+async function saveGovmapPlans(propertyId, fetchPlans){
+  if (!window.GovmapLookup || !propertyId) return;
+  try{
+    const plans = await fetchPlans();
+    const { error } = await sb.rpc('govmap_save_plans', { p_property_id: propertyId, p_plans: plans });
+    if (error){ console.warn('govmap_save_plans:', error); return; }
+    propertyPlanningInfo[propertyId] = Object.assign({}, propertyPlanningInfo[propertyId] || {},
+      { govmap_plans: plans, govmap_plans_at: new Date().toISOString() });
+  } catch(err){
+    console.warn('GovMap plan layers failed:', err);
+  }
+}
+
+/* אותו איחוד של planning_plans_merged במסד (מיגרציה 20270724090000), לדוח
+   ה-CMA ולכלי המידע התכנוני, שמקבלים את השורה הגולמית. מי שמשנה אחד משנה
+   את השני: המפורטות קודם, אחריהן ארציות וכוללניות, והודעות 77-78 בסוף. */
+function mergedPlanningPlans(info){
+  const key = n => String(n || '').replace(/\s+/g, '');
+  const extras = g => g ? {
+    kind: g.kind || null, stage: g.stage || null, notice: g.notice === true,
+    permits: typeof g.permits === 'boolean' ? g.permits : null,
+    url: g.url || null, designation: g.designation || null,
+  } : {};
+  const gov = (Array.isArray(info && info.govmap_plans) ? info.govmap_plans : []).filter(p => p && p.number);
+  const local = (Array.isArray(info && info.applicable_plans) ? info.applicable_plans : []).filter(p => p && p.number);
+  const byKey = new Map(gov.map(g => [key(g.number), g]));
+  const seen = new Set();
+  const out = local.map(p => {
+    const g = byKey.get(key(p.number));
+    seen.add(key(p.number));
+    return Object.assign(extras(g), { number: p.number,
+      description: p.description || (g && g.name) || null,
+      year: String(p.date || (g && g.date) || '').slice(0, 4) || null });
+  });
+  const rest = gov.filter(g => !seen.has(key(g.number)));
+  rest.filter(g => !g.notice).concat(rest.filter(g => g.notice)).forEach(g => {
+    out.push(Object.assign(extras(g), { number: g.number, description: g.name || null,
+      year: String(g.date || '').slice(0, 4) || null }));
+  });
+  return out;
+}
+
+const PLAN_STAGE_LABEL = { approved:'אושרה', deposited:'הופקדה' };
+
+function planRowHtml(p){
+  const url = /^https:\/\/mavat\.iplan\.gov\.il\//.test(p.url || '') ? p.url : null;
+  const num = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.number)}</a>`
+    : esc(p.number);
+  const bits = [
+    p.description,
+    p.notice ? null : p.kind,
+    p.designation ? 'ייעוד: ' + p.designation : null,
+    PLAN_STAGE_LABEL[p.stage] ? PLAN_STAGE_LABEL[p.stage] + (p.year ? ' ' + p.year : '') : p.year,
+    p.permits === false && !p.notice ? 'לא ניתן להוציא מכוחה היתרים' : null,
+  ].filter(Boolean);
+  return `<div class="gm-plan${p.notice ? ' is-notice' : ''}">`
+    + (p.notice ? '<span class="gm-plan-flag">הודעה על הכנת תוכנית (סעיף 77-78) - ייתכנו מגבלות על היתרי בנייה</span>' : '')
+    + `<span class="gm-plan-n">${num}</span>`
+    + (bits.length ? `<span class="gm-plan-d">${esc(bits.join(' · '))}</span>` : '')
+    + '</div>';
+}
+
+function plansListHtml(plans, title){
+  if (!plans.length) return '';
+  const fromGovmap = plans.some(p => p.kind || p.url || p.notice);
+  return `<div class="gm-plans"><p class="gm-plans-h">${esc(title)} (${plans.length})</p>`
+    + plans.map(planRowHtml).join('')
+    + (fromGovmap ? '<p class="gm-plans-src">מקור התוכניות הארציות וההודעות: GovMap, המרכז למיפוי ישראל, ומבא"ת. הקישורים פותחים את התוכנית באתר מבא"ת.</p>' : '')
+    + '</div>';
 }
 
 /* העיר של כלי המידע התכנוני. ‏afula-planning-lookup עובדת מול שכבת עפולה
@@ -13900,6 +13995,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const planData = await res.json();
       if (res.ok && planData.data && planData.saved){
         planningStatus.textContent = 'מידע תכנוני עודכן ונשמר לנכס ✓';
+        // שכבת העירייה אינה נותנת ארציות והודעות 77-78 - אלה מ-GovMap, בדפדפן
+        if (planData.data.lat && planData.data.lng){
+          await saveGovmapPlans(newPropertyId, () => GovmapLookup.plansAtLatLng(planData.data.lat, planData.data.lng));
+        }
       } else if (res.ok && planData.data){
         planningStatus.textContent = 'המידע התכנוני נשלף אך לא נשמר - ייקלט בסבב ההשלמה הבא';
       } else if (planData.error === 'upgrade_required'){
@@ -24373,7 +24472,8 @@ function renderCmaReport(r, brand){
           + `(${esc(ownSplit.private_sample)}) · קרקע מדינה ${shekel(ownSplit.state_median_price_per_sqm)} (${esc(ownSplit.state_sample)}).</div>`
         : '');
 
-  const plans = (r.planning && Array.isArray(r.planning.applicable_plans)) ? r.planning.applicable_plans : [];
+  // התוכניות של העירייה / retzefMigrashim יחד עם 203/14 (ארציות, כוללניות, 77-78)
+  const plans = r.planning ? mergedPlanningPlans(r.planning) : [];
 
   /* שורת המקורות נבנית ממה שבאמת נכנס לדוח (`sources` מה-RPC) ולא מטקסט
      קבוע. כך מקור חדש שייכנס למאגר יופיע כאן מעצמו, ודוח בלי נתונים לא
@@ -24406,9 +24506,9 @@ function renderCmaReport(r, brand){
     plan && (plan.gush || plan.helka) ? ['גוש / חלקה', `${esc(plan.gush || '-')} / ${esc(plan.helka || '-')}`] : null,
     plan && plan.parcel_area_sqm ? ['שטח החלקה', `${esc(plan.parcel_area_sqm)} מ״ר`] : null,
     plan && plan.land_use_designation ? ['ייעוד קרקע', esc(plan.land_use_designation)] : null,
-    plans.length ? ['תוכניות חלות', plans.map(p => esc(p.number || p.description)).join(', ')] : null,
   ].filter(Boolean);
-  const landBlock = (!ownCode && !landFacts.length && !(own && plan)) ? '' : `
+  const plansHtml = plansListHtml(plans, 'תוכניות החלות על הקרקע');
+  const landBlock = (!ownCode && !landFacts.length && !plans.length && !(own && plan)) ? '' : `
     <section class="cma-sec cma-land">
       <h3 class="cma-h">הקרקע</h3>
       <div class="cma-land-grid">
@@ -24422,6 +24522,7 @@ function renderCmaReport(r, brand){
         </div>
         ${landFacts.length ? `<dl class="cma-facts">${landFacts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
       </div>
+      ${plansHtml}
       ${ownNote}
     </section>`;
 
@@ -34268,7 +34369,7 @@ function govmapDistanceMeters(lat1, lng1, lat2, lng2){
 let govmapBusy = false;
 function govmapSetBusy(on){
   govmapBusy = on;
-  ['govmapBackfillBtn', 'govmapParityBtn', 'govmapDealsBtn'].forEach(id => {
+  ['govmapBackfillBtn', 'govmapParityBtn', 'govmapDealsBtn', 'govmapPlansBtn'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = on;
   });
@@ -34483,7 +34584,63 @@ async function runGovmapDeals(){
   }
 }
 
+/* השלמת התוכניות משכבות 203/14 לנכסים קיימים, כולל עפולה:
+   govmap_plans_candidates -> GovMap -> govmap_admin_save_plans. אותן שתי
+   תכונות של כל לולאת השלמה (SKILL.md סעיף 7): כל תשובה, גם [], נרשמת
+   ומוציאה את הנכס מהתור; סבב שכולו כשלים עוצר. */
+async function runGovmapPlansBackfill(){
+  if (govmapBusy || !window.GovmapLookup) return;
+  const status = document.getElementById('govmapBackfillStatus');
+  const out = document.getElementById('govmapBackfillResult');
+  govmapSetBusy(true);
+  out.innerHTML = '';
+  status.textContent = 'טוען את רשימת הנכסים…';
+  let total = 0, withPlans = 0, notices = 0, errors = 0, stalled = false, more = false;
+  try{
+    for (let round = 1; ; round++){
+      if (round > GOVMAP_MAX_ROUNDS){ more = true; break; }
+      const { data: rows, error } = await sb.rpc('govmap_plans_candidates', { p_limit: 40 });
+      if (error) throw error;
+      if (!rows || !rows.length) break;
+      const errorsBefore = errors;
+      for (let i = 0; i < rows.length; i++){
+        const r = rows[i];
+        status.textContent = `סבב ${round}, ${i + 1} מתוך ${rows.length}${r.city ? ' (' + r.city + ')' : ''}`;
+        try{
+          const plans = await GovmapLookup.plansAtLatLng(r.lat, r.lng);
+          const { error: saveErr } = await sb.rpc('govmap_admin_save_plans', { p_property_id: r.id, p_plans: plans });
+          if (saveErr) throw saveErr;
+          if (plans.length) withPlans++;
+          if (plans.some(p => p.notice)) notices++;
+        } catch(err){
+          // תקלה זמנית - לא נרשם, והנכס יחזור בלחיצה הבאה
+          console.warn('GovMap plans backfill:', r.id, err);
+          errors++;
+        }
+      }
+      total += rows.length;
+      if (errors - errorsBefore === rows.length){ stalled = true; break; }
+    }
+    if (!total){
+      status.textContent = 'אין נכסים שממתינים להשלמת תוכניות.';
+      return;
+    }
+    status.textContent = '';
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(total))} נכסים:
+      ${esc(String(withPlans))} עם תוכניות, ${esc(String(notices))} מהם עם הודעה לפי סעיף 77-78,
+      ${esc(String(errors))} נכשלו (ינוסו שוב בלחיצה הבאה).
+      ${stalled ? '<br>ההשלמה נעצרה: סבב שלם נכשל, כנראה תקלה ב-GovMap. אפשר לנסות שוב מאוחר יותר.' : ''}
+      ${more ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
+  } catch(err){
+    console.warn('GovMap plans backfill failed:', err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);
+  } finally {
+    govmapSetBusy(false);
+  }
+}
+
 document.getElementById('govmapBackfillBtn')?.addEventListener('click', runGovmapBackfill);
+document.getElementById('govmapPlansBtn')?.addEventListener('click', runGovmapPlansBackfill);
 document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDeals);
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 

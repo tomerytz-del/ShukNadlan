@@ -21,6 +21,7 @@ on:
       - "scripts/markets_test.ts"
       - "scripts/convert_market_text.py"
       - "scripts/govmap_hoods_test.cjs"
+      - "scripts/govmap_plans_test.cjs"
       - "assets/govmap.js"
       - "scripts/street_gov_test.ts"
       - "supabase/functions/street-registry-sync/**"
@@ -67,6 +68,10 @@ jobs:
       # ‏ייבוא השכונות מ-GovMap (GovMap ו-proj4 מדומים - הטוקן נעול לדומיין)
       - name: סריקת השכונות מ-GovMap
         run: node scripts/govmap_hoods_test.cjs
+
+      # ‏התוכניות משכבות 203/14 (התשובות האמיתיות מ-22.10.2026, מדומות)
+      - name: תוכניות ארציות והודעות 77-78 מ-GovMap
+        run: node scripts/govmap_plans_test.cjs
 
       # ‏רשימות הרחובות מ-data.gov.il (המאגר מדומה - הוא אינו זמין מ-CI)
       - name: רחובות מ-data.gov.il

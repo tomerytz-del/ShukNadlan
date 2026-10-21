@@ -1083,10 +1083,22 @@ function renderPlanningInfo(row){
     plansEl.innerHTML =
       `<p class="plan-list-title">תוכניות תכנון החלות על הקרקע (${plans.length})</p>` +
       plans.map(pl => {
-        const detail = [pl.description, pl.year].filter(Boolean).join(' · ');
-        return `<div class="plan-row"><span class="num">${escapeHtml(pl.number)}</span>` +
+        // ‏kind / notice / url / designation מגיעים משכבות 203/14 של GovMap
+        // (planning_plans_merged, מיגרציה 20270724090000); לתוכנית של העירייה
+        // אין אותם, והשורה נשארת כמו שהייתה
+        const detail = [pl.description, pl.notice ? null : pl.kind,
+          pl.designation ? 'ייעוד: ' + pl.designation : null, pl.year].filter(Boolean).join(' · ');
+        const url = /^https:\/\/mavat\.iplan\.gov\.il\//.test(pl.url || '') ? pl.url : null;
+        const num = url
+          ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(pl.number)}</a>`
+          : escapeHtml(pl.number);
+        return `<div class="plan-row${pl.notice ? ' is-notice' : ''}">` +
+               (pl.notice ? '<span class="flag">הודעה על הכנת תוכנית (סעיף 77-78) - ייתכנו מגבלות על היתרי בנייה</span>' : '') +
+               `<span class="num">${num}</span>` +
                (detail ? `<span class="desc">${escapeHtml(detail)}</span>` : '') + `</div>`;
-      }).join('');
+      }).join('') +
+      (plans.some(pl => pl.kind || pl.url)
+        ? '<p class="plan-src">מקור התוכניות הארציות וההודעות: GovMap, המרכז למיפוי ישראל, ומבא"ת.</p>' : '');
     plansEl.hidden = false;
   }
 
