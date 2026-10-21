@@ -26,6 +26,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _views_without_leads(ctx)
     yield from _pwa_funnel(ctx)
     yield from _alert_failures(ctx)
+    yield from _wa_template_delivery(ctx)
     yield from _untouched_leads(ctx)
     yield from _listings_without_images(ctx)
     yield from _saved_search_silence(ctx)
@@ -173,6 +174,87 @@ def _alert_failures(ctx) -> Iterator[Finding]:
                    "האחרונות." % ((row["sample"] or "—")[:200]),
         metric=round(rate * 100, 1), metric_unit="%",
         evidence={"attempts": attempts, "failed": failed},
+    )
+
+
+def _wa_template_delivery(ctx) -> Iterator[Finding]:
+    """הודעות התבנית לסוכנים בוואטסאפ: מי חסם/ה אותן, וכמה לא הגיעו.
+
+    ‏**למה זה צריך בדיקה:** התבנית היא Marketing (‏Meta סירבה ל-Utility
+    שלוש פעמים, ‏docs/whatsapp-setup.md). סוכן/ת שבחר/ה בוואטסאפ "הפסק
+    לקבל הודעות קידום מכירות" לא מקבל/ת יותר אף התראה מחוץ לחלון 24
+    השעות - ו-Meta מודיעה על כך (‏131050) רק בעדכון סטטוס, אחרי ש-"sent"
+    כבר נרשם. עד 20270720090000 לא נשמר מזהה ההודעה, ולכן זה לא נראה.
+
+    ‏**מה נספר:** לכל סוכן/ת - הדיווח האחרון של Meta על הודעת תבנית ב-30
+    ימים. ‏failed עם 131050 = חסום/ה עכשיו. מסירה מאוחרת יותר (ביטל/ה את
+    החסימה) מוציאה אותו/ה מהרשימה, ולכן הממצא נסגר מעצמו.
+    """
+    t = ctx.settings.thresholds
+    if not ctx.db.has_column("notification_push_log", "delivery_status"):
+        return
+    ctx.count()
+    blocked = ctx.db.rows(
+        """
+        select m.display_name as name, x.delivery_at as since
+          from (select distinct on (l.agent_id) l.agent_id, l.delivery_status,
+                       l.delivery_detail, l.delivery_at
+                  from public.notification_push_log l
+                 where l.channel_mode = 'template'
+                   and l.delivery_status in ('delivered', 'read', 'failed')
+                   and l.created_at > now() - interval '30 days'
+                 order by l.agent_id, l.created_at desc, l.delivery_at desc nulls last) x
+          join public.agency_members m on m.id = x.agent_id
+         where x.delivery_status = 'failed'
+           and split_part(coalesce(x.delivery_detail, ''), ' · ', 1) = '131050'
+         order by x.delivery_at desc
+        """
+    )
+    if blocked:
+        names = ", ".join((r["name"] or "ללא שם") for r in blocked[:15])
+        yield Finding(
+            area="health", code="wa_marketing_blocked", severity="medium",
+            subject="whatsapp_template",
+            title=("סוכן/ת אחד/ת חסם/ה את ההתראות בוואטסאפ" if len(blocked) == 1
+                   else "%d סוכנים חסמו את ההתראות בוואטסאפ" % len(blocked)),
+            detail="בחרו בוואטסאפ \"הפסק לקבל הודעות קידום מכירות\", ולכן לא מקבלים "
+                   "אף התראה מחוץ לחלון 24 השעות (התבנית מסווגת כשיווק): %s." % names,
+            suggestion="לפנות אליהם ולבקש לבטל את החסימה: בשיחה עם המספר שלנו בוואטסאפ, "
+                       "בפרטי העסק - \"קבלת הודעות קידום מכירות\". בתוך 24 שעות מהודעה "
+                       "שלהם לגבריאלה ההתראות ממשיכות להגיע כרגיל. docs/whatsapp-setup.md",
+            metric=len(blocked), metric_unit="סוכנים",
+            evidence={"agents": [r["name"] for r in blocked]},
+        )
+
+    row = ctx.db.one(
+        """
+        select count(*) filter (where delivery_status is not null)          as reported,
+               count(*) filter (where delivery_status = 'failed')           as failed,
+               (array_agg(delivery_detail order by created_at desc)
+                 filter (where delivery_status = 'failed'))[1]              as sample
+          from public.notification_push_log
+         where channel_mode = 'template'
+           and created_at > now() - interval '7 days'
+        """
+    )
+    reported = int((row or {}).get("reported") or 0)
+    if reported < t.alert_min_attempts:
+        return
+    failed = int(row["failed"] or 0)
+    rate = failed / reported
+    if rate < t.alert_fail_rate:
+        return
+    yield Finding(
+        area="health", code="wa_template_undelivered", severity="high",
+        subject="whatsapp_template",
+        title="הודעות התבנית לסוכנים לא מגיעות - %.0f%%" % (rate * 100),
+        detail="%d מתוך %d הודעות שעליהן Meta דיווחה בשבוע האחרון נכשלו במסירה."
+               % (failed, reported),
+        suggestion="השגיאה האחרונה: %s. 131050 - הנמען/ת חסם/ה הודעות שיווק; 131049 - "
+                   "Meta הגבילה הודעות שיווק לאותו אדם (לרוב זמני); 132xxx - התבנית "
+                   "עצמה (שם, שפה או פרמטרים)." % ((row["sample"] or "-")[:200]),
+        metric=round(rate * 100, 1), metric_unit="%",
+        evidence={"reported": reported, "failed": failed},
     )
 
 

@@ -58,7 +58,9 @@ PROBE_CODES = {
                  # ‏שמות מקום שלא זוהו (‏_area_names_unrecognized)
                  "area_names_",
                  # ‏מחזור העדכון של העסקאות (‏_deal_sync_cycle)
-                 "deal_sync_"),
+                 "deal_sync_",
+                 # ‏מסירת הודעות התבנית לסוכנים (‏_wa_template_delivery)
+                 "wa_"),
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
     # ‏make_scenario_off (‏critical) לא היה נסגר לעולם, וה-Issue שהוא פותח
     # היה נשאר פתוח גם אחרי שהתרחיש הודלק.

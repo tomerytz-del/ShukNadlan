@@ -1180,6 +1180,33 @@ WHATSAPP_BOT_MODEL = claude-sonnet-5
 הפעמון בדשבורד ו-`muted_types` אינם נוגעים בזה — זה כיבוי של ערוץ, לא של
 ההתראות.
 
+**אבל חסימה של הודעות שיווק אינה מגיעה בתשובה לשליחה.** ‏Meta מקבלת את
+הודעת התבנית (‏"sent"), ומודיעה על 131050 רק אחר כך, בעדכון סטטוס ל-webhook.
+עד 21.10.2026 `notification-push` לא שמרה את מזהה ההודעה, ולכן עדכון כזה
+לא מצא שורה, ו-865 הודעות תבנית בשבועיים נרשמו "sent" בלי שנדע אם הגיעו.
+
+מאז `20270720090000`:
+
+| מה | איפה |
+| --- | --- |
+| מזהה ההודעה (‏wamid) | `notification_push_log.wa_message_id`, נכתב אחרי שליחה מוצלחת |
+| מה Meta דיווחה אחר כך | `delivery_status` (‏sent / delivered / read / failed), `delivery_detail` ("קוד · כותרת · הודעה"), `delivery_at` - נכתבים ב-`record_whatsapp_status` |
+| מי חסם/ה | ממצא `wa_marketing_blocked` בפאנל "בריאות המערכת", עם השמות: הדיווח האחרון על תבנית ב-30 ימים הוא `failed` עם 131050. מסירה מאוחרת יותר מוציאה מהרשימה |
+| כמה לא הגיע | ממצא `wa_template_undelivered` מ-15% כישלון בשבוע (מ-20 דיווחים) |
+
+**חסימה כזו אינה מכבה את הערוץ**, בכוונה: היא חוסמת רק תבניות שיווק.
+בתוך 24 שעות מהודעה של הסוכן/ת לגבריאלה ההתראות יוצאות כטקסט חופשי
+ומגיעות. כיבוי היה מוחק גם אותן. ‏131049 (‏Meta הגבילה הודעות שיווק לאותו
+אדם) נרשם ונספר, ולרוב הוא זמני.
+
+```sql
+select m.display_name, l.delivery_status, l.delivery_detail, l.delivery_at
+  from public.notification_push_log l
+  join public.agency_members m on m.id = l.agent_id
+ where l.channel_mode = 'template' and l.delivery_status = 'failed'
+ order by l.created_at desc limit 20;
+```
+
 ### בדיקה והרצה ידנית
 
 ```bash

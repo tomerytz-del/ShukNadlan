@@ -106,6 +106,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminOps.
   // מיגרציה 20270421100000, docs/ops-agent.md.
   security_alert: "adminOps",
+  // ‏ממצא חמור שאינו אבטחה (20270720090000) - לאותו פאנל
+  ops_alert: "adminOps",
   // ‏שוק שמתקרב לסף, עובר אותו או יורד מתחתיו (20270705090000) - לפאנל
   // "שווקים מקומיים", שה-goto ב-crm.js פותח בתצוגת הניהול.
   market_alert: "dashPanelMarkets",
@@ -349,7 +351,7 @@ async function sendWhatsapp(
   name: string | null,
   items: Item[],
   mode: string,
-): Promise<void> {
+): Promise<string | null> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
@@ -441,6 +443,14 @@ async function sendWhatsapp(
     } catch { /* גוף שאינו JSON — נשמר כטקסט ב-last_error */ }
     throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
   }
+  // ‏wamid: דרכו record_whatsapp_status (ה-webhook) מוצאת את השורה כש-Meta
+  // מדווחת delivered / read / failed. בלעדיו "sent" הוא כל מה שנדע - וחסימה
+  // של הודעות שיווק (131050) מגיעה רק שם, לא בתשובה הזו.
+  try {
+    return (await res.json())?.messages?.[0]?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -463,9 +473,10 @@ Deno.serve(async (req: Request) => {
     const items = arrange((row.items || []) as Item[]);
     let status = "failed";
     let lastError: string | null = null;
+    let waId: string | null = null;
 
     try {
-      await sendWhatsapp(row.phone_e164, row.display_name, items, row.channel_mode);
+      waId = await sendWhatsapp(row.phone_e164, row.display_name, items, row.channel_mode);
       status = "sent";
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
@@ -489,6 +500,12 @@ Deno.serve(async (req: Request) => {
       p_error: lastError ? lastError.slice(0, 500) : null,
     });
     if (markErr) console.error("mark failed", row.log_id, markErr.message);
+    if (waId) {
+      // לא קריטי: בלי המזהה ההודעה כבר יצאה, רק המסירה שלה לא תירשם
+      const { error: idErr } = await sb.from("notification_push_log")
+        .update({ wa_message_id: waId }).eq("id", row.log_id);
+      if (idErr) console.error("wa_message_id not saved", row.log_id, idErr.message);
+    }
 
     if (status === "sent") sent++;
     else failed++;
