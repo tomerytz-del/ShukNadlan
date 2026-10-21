@@ -1,6 +1,6 @@
 ---
 name: mentor
-description: המנטור AI של שוק נדל״ן (שלושת המאמנים - סוכן/ת, צוות, משרד) כמנטור מקצועי - הידע ב-_shared/coach/playbook.ts (PLAYBOOK לכולם, MANAGER_PLAYBOOK לצוות ולמשרד, OFFICE_PLAYBOOK למשרד), איך מכניסים חומר שתומר שולח (מה משנים ומדווחים, לאיזה קהל, בדיקה ושורה בתיעוד), הטון והוותק ב-coach_preferences, מנהל/ת שהוא/היא גם סוכן/ת (manages), שני הערוצים לשאלה (coach-ask ב-CRM ו-ask_mentor של גבריאלה דרך askCoach), והתראת הבוקר coach_daily. Use when the user sends coaching material, scripts, objection handling, negotiation or management know-how "for the mentor", when changing what the mentor knows or says, when touching playbook.ts / prompts.ts (askSystemPrompt, TONES, AGENT_WHO_MANAGES) / _shared/coach/ask.ts / coach_preferences / ask_mentor / coach_daily, when a mentor answer cites a made-up statistic, names a franchise, promises a result or suggests a feature the system does not have, or when the mentor tests pass in deno and fail in CI.
+description: המנטור AI של שוק נדל״ן (סוכן/ת, צוות, משרד) - _shared/coach/playbook.ts (PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK), חומר שתומר שולח, coach_preferences, askCoach (coach-ask, ask_mentor) ו-coach_daily. Use when the user sends coaching material "for the mentor", when changing what the mentor knows, when touching playbook.ts / prompts.ts, when an answer cites a made-up statistic, when tests pass in deno and fail in CI, or when touching crm-coach.js.
 ---
 
 # המנטור - הידע, הקהלים והערוצים
@@ -124,3 +124,68 @@ node --experimental-strip-types scripts/office_coach_test.ts
 python3 scripts/check_long_dash.py
 python3 scripts/check_edge_types.py
 ```
+
+## 8. הדמות ונקודות הכניסה
+
+**האווטאר:** `assets/mentor-avatar.webp` (‏160px, ‏4KB), דמות **שנוצרה ב-AI**, בעיגול
+עם טבעת זהב. ‏`COACH_FACE` ב-`assets/crm-coach.js` מציב אותו בכותרת של שלושת
+הכרטיסים, והוא מופיע גם בכפתור "המנטור" בדף הבית ובכותרת השכבה. החלטות של תומר
+(18.10.2026):
+
+- **השם נשאר "המנטור".** בלי שם פרטי ובלי ביוגרפיה: דמות שנראית אמיתית עם שם
+  ועבר נקראת כמו איש מקצוע שכותב לסוכנים. ה-"AI" בכותרת הוא מה שאומר שלא.
+- **אווטאר בלבד.** ינשוף עם רצועה רחבה בראש הכרטיס נוסה והוסר - הקו הנקי.
+  תמונה חדשה מחליפה את הקובץ (אותו שם, אותו גודל) ולא מוסיפה רצועה.
+- **לא בוואטסאפ.** שם מדברת גבריאלה, גם כשהיא מעבירה תשובה של המנטור
+  (`ask_mentor`). שתי דמויות באותה שיחה מבלבלות מי עונה.
+- **רק איפה שהמנטור מדבר - או נמכר.** לא על כרטיסי מדדים ולא כקישוט - אחרת היא
+  מפסיקה לסמן "כאן מדבר המנטור". היוצא מן הכלל הוא השיווק: בדף המחירים יש כרטיס
+  מודגש עם דיוקן (‏`.mate.mentor` לצד הכרטיס של גבריאלה, ‏`assets/mentor-cutout.webp`).
+- **הכרטיס בדף המחירים מבטיח רק מה שקיים.** "כלול בכל המסלולים" נשען על כך שאין
+  גייט; "כל בוקר" על `AGENT_COACH_ENABLED`; "בוואטסאפ" רק במסלולים עם גבריאלה. שינוי
+  באחד מאלה מעדכן את הכרטיס, את השאלה הנפוצה ואת שתי שורות הטבלה באותו PR -
+  הטבלה המלאה ב-`docs/coaches.md`, "בדף המחירים".
+
+**המנטור בראש כל דאשבורד** (`coachLeadHtml(kind, side)`): הדבר הראשון בדשבורד
+האישי ובדאשבורד המשרד, ומיד אחרי המדדים בדאשבורד הצוות, ולצדו הבלוק של "מה
+דורש טיפול". דאשבורד חדש שמציג מנטור משתמש בה ולא ב-`coachCardHtml` ישירות -
+אחרת הכרטיס חוזר להיקבר מתחת לפתיח ("המנטור קבור למטה בגלילה", 18.10.2026).
+בלי סיכום היא מחזירה `null`, והבלוק שלצד חוזר למקומו.
+
+**שלוש כניסות ושכבה אחת** (`#coachSheet`, ‏`docs/coaches.md`, "המנטור בשימוש היומיומי"):
+"המנטור" בזהב בסרגל הצד ובראש הבורגר (`navMentorButton` ב-`assets/crm.js`), ושורת
+שאלה בדף הבית (`#homeCoachRow`). השכבה = כרטיס מקוצר + שאלה חופשית.
+
+- **מוצג לכל סוכן/ת פעיל/ה, גם בלי סיכום** (`coachLayerKinds`): השאלה עובדת
+  בלעדיו. בלי סיכום - "עוד אין סיכום יומי", ולא הבטחה של "מחר".
+- **שורת השאלה בדף הבית היא שורה אחת**, והשאלות המוצעות מוקלדות בתוך השדה
+  (`homeAskTyper`; המאגר ב-`homeAskPhrases` - הסיכום, `COACH_DAILY_Q`,
+  `COACH_PRO_Q`). שאלה מוצעת חדשה נכנסת לאחד המערכים, לא ככפתור. שליחה בשדה
+  ריק שולחת את השאלה שמוצגת.
+- **שורת השאלה בדף הבית נבנית פעם אחת ב-HTML.** `homeCoachSync` רץ עם כל ציור
+  של דף הבית, ומעדכן רק הצעות, תשובה ונראות - ציור מחדש של השדה מוחק את
+  המוקלד ואת המיקוד.
+- **כל ציור מחדש עובר דרך `coachRepaint(kind)` / `coachRepaintAll()`**, ולא ישירות
+  דרך `coachRerender[kind]`. אחרת "בוצע" או שינוי טון בשכבה לא מגיעים לדאשבורד,
+  או להפך. ו-`coachLoad` קורא ל-`scheduleNavCounts`, כדי שהכפתורים יופיעו.
+- **השכבה היא שכבת ניווט** (`navLayer = 'coach'`): נפתחת ב-`openNavLayer('coach')`
+  ונסגרת ב-`closeCoachLayer()` (הכללים בסקיל `crm-navigation`).
+- **הסיכום האישי נטען אחרי העלייה** (`requestIdleCallback` ב-`loadDashboard`), ולא
+  בתוך השרשרת. טעינה נוספת למנטור בעלייה - נמדדת עם `dashboard_load.mjs`.
+- **"שאל את המנטור" בכרטיס הליד** (`coachAskAboutLead`): שאלה מוכנה בשדה, לא
+  נשלחת לבד, ובלי שם, טלפון, הודעה או עיר - מה שמזהה את הפונה לא יוצא למודל
+  גם מליד פתוח. כלל המיסוך של הכרטיס בסקיל `lead-card`.
+- **"גם בוואטסאפ, דרך גבריאלה"** רק כש-`assistantTierOk()`. כל משפט שמזכיר את
+  גבריאלה בהקשר של המנטור עובר את אותו תנאי.
+- **מנהל/ת שעובד/ת כסוכן/ת מקבל/ת את שני המנטורים** (`agent_coach_due` לפי
+  `is_active_agent` בלבד). אם אין לו/ה סיכום אישי, בדקו קודם שה-cron
+  `agent-coach` רץ בכלל (`cron.job_run_details`) ושהסוד `AGENT_COACH_ENABLED=1`.
+
+## 9. מנטור ההטמעה - רביעי, ונפרד
+
+לצוות ההטמעה (`csm_staff`), לא לסוכנים: `_shared/coach/csm.ts` ו-`csm-prompt.ts`, הידע
+ב-`CSM_PLAYBOOK`, היומן והמכסה ב-`csm_mentor_questions`. אינו `CoachKind` ואינו עובר דרך
+`askCoach`. **‏`CSM_PLAYBOOK` לא נכנס ל-`askSystemPrompt`** (הבדיקה חוסמת), וחומר
+שתומר שולח "למנטור של מנהלת ההטמעה" נכנס לשם, תחת כללי העריכה של סעיף 2. הסקיל
+`csm-adoption`.
+

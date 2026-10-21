@@ -1,6 +1,6 @@
 ---
 name: market-go-live
-description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והסביבה) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live: true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa from "coming soon" to the real home page, or when check_markets.py fails on a live market.
+description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והסביבה) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live = true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa from "coming soon" to the real home page, or when check_markets.py fails on a live market.
 ---
 
 # הדלקת שוק
@@ -30,8 +30,14 @@ description: הדלקת שוק מקומי לגולשים באתר שוק נדל�
 איפה רואים:
 
 - ‏CRM ← תצוגת מנהל/ת ← **שווקים מקומיים** ← השוק. המדים "מה חסר עד
-  הפתיחה" הם בדיוק הסף.
+  הפתיחה" הם בדיוק הסף. **הפאנל מציג תמונה שמורה** (`market_snapshots`,
+  מתעדכנת פעם בשעה, "עודכן [שעה]" בראשו) - לפני החלטה על הדלקה לוחצים
+  "רענון", כדי שהמספר יהיה של עכשיו ולא של לפני שעה.
 - או ב-SQL: `.claude/skills/new-market/status.sql`, השאילתה הראשונה.
+- **ובהתראה:** שוק סגור שמגיע ל-7 נכסים (`market_near`) ושוק שעובר את הסף
+  (`market_ready`) שולחים `market_alert` לכל מנהל/ת פלטפורמה בפעמון ובוואטסאפ,
+  פעם אחת כשהממצא נפתח (‏`20270705090000`, ‏`docs/regional-pages.md`). בבורר
+  השווקים בפאנל הם מקובצים למעלה - "מוכנים לפתיחה" ו"מתקרבים לסף".
 
 **ומה לבדוק שם מעבר למספר:**
 
@@ -72,7 +78,8 @@ description: הדלקת שוק מקומי לגולשים באתר שוק נדל�
   מחליף את ה-noindex בעצמו לפי `live`).
 - **הבורר.** השוק עובר מ"בקרוב" ל"בחירת אזור" ב-`assets/city-menu.js`.
 - **הסוכן התפעולי.** `market_ready` נסגר מעצמו, ומעכשיו `market_below_gate`
-  מתריע אם השוק יורד מתחת לסף.
+  מתריע אם השוק יורד מתחת לסף. שלושתם (עם `market_near`) שולחים התראת
+  `market_alert` למנהלי הפלטפורמה כשהם נפתחים (‏`20270705090000`).
 - **פס "נפתחים בקרוב" יורד.** עד ההדלקה, מי שבאזור ראה/תה בדף הבית פס
   שמזמין משרדים להצטרף (‏`assets/market-soon-strip.js`). שוק חי אינו מקבל
   `soon` מ-`decide()`, והדפדפן בודק `live` גם על עוגייה ישנה - כך שהפס

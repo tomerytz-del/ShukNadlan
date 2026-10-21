@@ -39,7 +39,8 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `search_submit` | "הצג N נכסים" בחיפוש במשפט | `result_count` |
 | `search_empty_widen` | ההרחבה המוצעת כשאין תוצאות | `slot` (כולל `extra` - הסינונים המתקדמים) |
 | `viz_jump_click` | לחיצה על כרטיס ההדמיה שעל התמונה הראשית בדף הנכס (‏`docs/property-visualizations.md`) | `preview`: ‏`thumbs` \| `text`; ‏`viz_mode`: ‏`renovation` \| `staging` \| `commercial` |
-| `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
+| `oh_calc_used` | תזוזה ראשונה של מחשבון החיסכון "כמה זה שווה לכם?" בדף היריד - פעם אחת לטעינת דף (‏`docs/open-house-fair.md`). **המחיר שנבחר לא נשלח** | — |
+| `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `samsung` \| `ios` \| `ios-other` \| `in-app` |
 | `pwa_banner_dismiss` | ✕ ברצועה | `mode` |
 | `pwa_install_click` | לחיצה על כפתור ההתקנה (ברצועה או בתפריט) | `mode` |
 | `pwa_install_result` | תשובת המשתמש/ת לדיאלוג ההתקנה של המערכת | `outcome`: ‏`accepted` \| `dismissed` |
@@ -309,6 +310,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | --- | --- |
 | `docs/gtm-events-import.json` | שמונת אירועי האתר: 8 טריגרים, 8 תגיות GA4, 17 משתני `DLV` |
 | `docs/gtm-pwa-import.json` | ששת אירועי ה-PWA: 6 טריגרים, 6 תגיות, 3 משתנים |
+| `docs/gtm-open-house-import.json` | ‏`oh_calc_used` של דף היריד: טריגר ותגית, בלי משתנים חדשים (‏`page_type` ו-`src` דרך ה-`DLV` הקיימים) |
 
 שניהם ב-`Admin ← Import Container` במצב `Merge`. ‏`gtm/README.md`.
 

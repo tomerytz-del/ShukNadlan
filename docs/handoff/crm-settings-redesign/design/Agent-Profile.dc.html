@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הפרופיל שלי</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}[style*="margin: 0 -20px"]{margin:0 -12px!important}[style*="padding: 24px 28px"]{padding:20px 16px!important}[style*="padding: 20px 24px"]{padding:18px 16px!important}[style*="padding: 16px 28px"],[style*="padding: 18px 28px"],[style*="padding: 14px 28px"]{padding:14px 16px!important}[style*="padding: 20px 28px"]{padding:16px!important}[style*="padding: 0 28px"]{padding:0 16px!important}[style*="padding: 4px 28px 24px"]{padding:4px 16px 20px!important}[style*="margin: 0 28px"]{margin:0 16px!important}[style*="minmax(190px"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}h1{font-size:28px!important}h2{font-size:20px!important}}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select,textarea{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 0; box-sizing: border-box">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a href="Main.dc.html" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">ההגדרות שלי ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">הפרופיל שלי</h1>
+<p style="margin: 0; font-size: 16px; color: #5A6478">כל מה שלקוחות רואים בדף האישי שלך. שינויים עולים לאוויר מיד עם השמירה.</p>
+</div>
+<a href="#" style="min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px">צפייה בדף שלי<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a>
+</header>
+
+<sc-if value="{{genderMissing}}" hint-placeholder-val="{{ true }}">
+<a href="#basic" style="text-decoration: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; background: #FFF1C7; color: #7A5300; border-radius: 16px; padding: 16px 20px">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+<span style="flex: 1 1 320px; font-size: 15px; line-height: 1.5"><strong>חסרה לשון פנייה.</strong> בלעדיה ההודעות והמאמן לא יודעים אם לפנות אליך בלשון זכר או נקבה.</span>
+<span style="font-size: 15px; font-weight: 700; text-decoration: underline">להשלמה</span>
+</a>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section id="basic" aria-labelledby="sBasic" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span>
+<h2 id="sBasic" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">פרטים ורישיון</h2>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fName" style="font-size: 14px; font-weight: 700">שם מלא</label>
+<input id="fName" type="text" value="תומר יצחק" onChange="{{noop}}" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fLic" style="font-size: 14px; font-weight: 700">מספר רישיון תיווך</label>
+<input id="fLic" type="text" inputmode="numeric" value="3134355" onChange="{{noop}}" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<span style="font-size: 13px; color: #5A6478">מוצג בדף שלך. מספר חדש נבדק מול רשם המתווכים בשמירה.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 700">ת.ז. / ח"פ</span>
+<div style="min-height: 48px; padding: 0 6px 0 14px; border-radius: 12px; border: 1px solid #E3E7EF; background: #F8F9FC; display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 16px; color: #3A4458"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span dir="ltr">•••••5265</span></span>
+<button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: transparent; color: #1F5BF0; font-size: 14px; font-weight: 700; cursor: pointer">החלפה</button>
+</div>
+<span style="font-size: 13px; color: #5A6478">שמורה ומוצפנת. נדרשת להזמנת שירותי תיווך בכתב, ולא מוצגת לאיש מלבד הצדדים להסכם.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px">
+<label for="fGender" style="font-size: 14px; font-weight: 700">לשון פנייה</label>
+<sc-if value="{{genderMissing}}" hint-placeholder-val="{{ true }}"><span style="font-size: 12px; font-weight: 700; color: #7A5300; background: #FFF1C7; border-radius: 999px; padding: 2px 8px">חסר</span></sc-if>
+</div>
+<select id="fGender" onChange="{{onGender}}" style="{{genderStyle}}"><option value="">לא נבחר</option><option value="m">בלשון זכר</option><option value="f">בלשון נקבה</option></select>
+<span style="font-size: 13px; color: #5A6478">כדי שהמערכת והמאמן יכתבו עליך בלשון הנכונה. לא מוצג בדף.</span>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="sPhoto" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+<h2 id="sPhoto" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">תמונת פרופיל</h2>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center">
+<div style="position: relative; width: 120px; height: 120px; flex: none">
+<img src="/_blob/c804ca04c354ebd70ac3344943da43c3" alt="תמונת הפרופיל של תומר יצחק" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; object-position: 50% 30%; border: 4px solid #FFFFFF; box-shadow: 0 0 0 1px #E3E7EF">
+<span style="position: absolute; bottom: 4px; left: 4px; width: 30px; height: 30px; border-radius: 50%; background: #166534; color: #FFFFFF; display: flex; align-items: center; justify-content: center; border: 3px solid #FFFFFF"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+</div>
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 14px; color: #5A6478; line-height: 1.5">פורטרט ברור, פנים מול המצלמה. התמונה מופיעה בדף שלך ובכל נכס שלך. לחיצה על הפנים ממקדת אותן בכל החיתוכים.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>החלפת התמונה</button>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path></svg>מיקוד הפנים</button>
+</div>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; background: #F8F9FC; border: 1px solid #EEF1F6; border-radius: 14px; padding: 12px">
+<img src="/_blob/62fe37d99ff58d05e9a0d1411233f305" alt="תמונת הנושא של המשרד" style="width: 112px; height: 56px; border-radius: 8px; object-fit: cover; flex: none">
+<span style="font-size: 14px; line-height: 1.5; color: #3A4458"><strong style="color: #0E1A33">תמונת הנושא והצבעים שייכים למשרד.</strong> מנהל/ת המשרד קובע/ת אותם לכל הסוכנים, ב"מיתוג ועיצוב דף המשרד".</span>
+</div>
+</section>
+
+<section aria-labelledby="sAbout" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="sAbout" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">הצגה מקצועית</h2>
+<span style="font-size: 14px; color: #5A6478">הדבר הראשון שלקוחות קוראים. ותק, תארים ותחומי התמחות מופיעים כתגיות בראש הדף.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fBio" style="font-size: 14px; font-weight: 700">תיאור מקצועי</label>
+<textarea id="fBio" rows="4" maxlength="600" value="{{bio}}" onChange="{{onBio}}" style="padding: 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; line-height: 1.6; color: #0E1A33; resize: vertical"></textarea>
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #5A6478">
+<span>2-3 משפטים: תחום ההתמחות, האזור, ומה מייחד את השירות שלך.</span>
+<span dir="ltr">{{bioLen}}/600</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fYears" style="font-size: 14px; font-weight: 700">שנות ותק בנדל"ן</label>
+<div style="display: flex; align-items: center; gap: 10px">
+<input id="fYears" type="number" min="0" value="15" onChange="{{noop}}" style="width: 110px; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+<span style="font-size: 13px; color: #5A6478">יוצג כ: <strong style="color: #0E1A33">+15 שנות ניסיון</strong></span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="fDeg" style="font-size: 14px; font-weight: 700">תארים והסמכות</label>
+<input id="fDeg" type="text" value="יועץ נדלן מוסמך, B.A ומגשר" onChange="{{noop}}" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 16px; color: #0E1A33">
+</div>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="display: flex; width: 100%; padding: 0; margin-bottom: 10px"><span style="font-size: 14px; font-weight: 700">תחומי התמחות</span><span style="margin-right: auto; font-size: 13px; color: #5A6478">{{specCount}} מתוך 4 · מוצגים לפי סדר הבחירה</span></legend>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{specs}}" as="sp" hint-placeholder-count="8">
+<button type="button" aria-pressed="{{sp.pressed}}" disabled="{{sp.disabled}}" onClick="{{sp.toggle}}" style="{{sp.style}}">
+<sc-if value="{{sp.on}}" hint-placeholder-val="{{ true }}"><span style="width: 20px; height: 20px; border-radius: 50%; background: #1F5BF0; color: #FFFFFF; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{sp.order}}</span></sc-if>
+<span>{{sp.label}}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{specFull}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #5A6478">אפשר עד 4 תחומים. כדי להוסיף, יש להסיר אחד.</span></sc-if>
+</fieldset>
+</section>
+
+<dc-import name="AreaPicker" scope="agent" hint-size="100%,560px"></dc-import>
+
+<section aria-labelledby="sPhotos" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"></path></svg></span>
+<h2 id="sPhotos" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">הגלריה שלי</h2>
+<span style="margin-right: auto; font-size: 13px; color: #5A6478">2 מתוך 24</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 14px; color: #5A6478; line-height: 1.5">רגעים מהעבודה: מסירת מפתחות, עסקאות שנסגרו, לקוחות מרוצים ואירועים. <strong style="color: #0E1A33">לא</strong> תמונות נכסים - הן נכנסות דרך "הנכסים שלי". בלי תמונות, הגלריה לא מוצגת בדף.</span>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px">
+<div style="border: 1px solid #E3E7EF; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+<div style="position: relative"><img src="/_blob/6a3fb2085fe10212e4e9eb304a2a802e" alt="תמונה מהגלריה: ישיבת צוות" style="width: 100%; height: 120px; object-fit: cover; display: block"><button type="button" aria-label="הסרת התמונה" style="position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(14,26,51,0.75); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+<label style="display: flex; flex-direction: column"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">כיתוב לתמונה 1</span><input type="text" placeholder="הוספת כיתוב (לא חובה)" style="border: 0; border-top: 1px solid #EEF1F6; min-height: 44px; padding: 0 12px; font-size: 14px; color: #0E1A33"></label>
+</div>
+<div style="border: 1px solid #E3E7EF; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column">
+<div style="position: relative"><img src="/_blob/338654b7e16fccdf6fc9c3fb6a5d85bb" alt="תמונה מהגלריה: מפגש צוות" style="width: 100%; height: 120px; object-fit: cover; display: block"><button type="button" aria-label="הסרת התמונה" style="position: absolute; top: 6px; left: 6px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(14,26,51,0.75); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+<label style="display: flex; flex-direction: column"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">כיתוב לתמונה 2</span><input type="text" placeholder="הוספת כיתוב (לא חובה)" style="border: 0; border-top: 1px solid #EEF1F6; min-height: 44px; padding: 0 12px; font-size: 14px; color: #0E1A33"></label>
+</div>
+<button type="button" style="min-height: 166px; border-radius: 14px; border: 2px dashed #C5CCD9; background: #F8F9FC; color: #1F5BF0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 12px">
+<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+<span style="font-size: 15px; font-weight: 700">הוספת תמונות</span>
+<span style="font-size: 12px; color: #5A6478">התמונות מוקטנות אוטומטית</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+
+<aside aria-label="תצוגה מקדימה" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-size: 15px; font-weight: 700">הפרופיל מלא ב-{{pct}}%</span>
+<span style="font-size: 13px; color: #5A6478">{{doneCount}} מתוך 7</span>
+</div>
+<div style="height: 8px; border-radius: 999px; background: #EEF1F6; overflow: hidden"><div style="{{pctBar}}"></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="7">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+<span style="{{c.iconStyle}}">
+<sc-if value="{{c.done}}" hint-placeholder-val="{{ true }}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+</span>
+<span style="{{c.textStyle}}">{{c.label}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; overflow: hidden">
+<div style="font-size: 12px; font-weight: 700; color: #5A6478; padding: 10px 16px; background: #F8F9FC; border-bottom: 1px solid #EEF1F6">כך זה נראה בדף שלך</div>
+<img src="/_blob/62fe37d99ff58d05e9a0d1411233f305" alt="" style="width: 100%; height: 96px; object-fit: cover; display: block">
+<div style="padding: 0 18px 18px; display: flex; flex-direction: column; gap: 10px">
+<img src="/_blob/c804ca04c354ebd70ac3344943da43c3" alt="" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover; object-position: 50% 30%; border: 4px solid #FFFFFF; margin-top: -42px; box-shadow: 0 2px 8px rgba(14,26,51,0.15)">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">תומר יצחק</span>
+<span style="font-size: 13px; color: #5A6478">רישיון תיווך 3134355</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #1C3A5E; border-radius: 999px; padding: 4px 10px">+15 שנות ניסיון</span>
+<sc-for list="{{specTags}}" as="t" hint-placeholder-count="4">
+<span style="font-size: 12px; font-weight: 600; color: #1C3A5E; background: #EEF2F8; border-radius: 999px; padding: 4px 10px">{{t}}</span>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #5A6478">יועץ נדלן מוסמך, B.A ומגשר</span>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3A4458">{{bio}}</p>
+</div>
+</div>
+</aside>
+</div>
+
+<div style="position: sticky; bottom: 0; margin: 0 -20px; padding: 14px 20px; background: rgba(255,255,255,0.96); border-top: 1px solid #E3E7EF; box-shadow: 0 -6px 20px rgba(14,26,51,0.06)">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="{{saveTextStyle}}">{{saveText}}</span>
+<div style="display: flex; gap: 8px">
+<sc-if value="{{dirty}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{reset}}" style="min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; cursor: pointer">ביטול שינויים</button></sc-if>
+<button type="button" onClick="{{save}}" style="{{saveStyle}}">שמירת הפרטים</button>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.initial = {
+      bio: 'נסיון עשיר של כ15 שנה , מתמחה בתחום המסחרי ומגורים. B.a ומגשר. דברו איתי לגבי עסקת הנדל"ן הבאה שלכם',
+      gender: '',
+      specs: ['res', 'com', 'land', 'invest']
+    };
+    this.state = Object.assign({ dirty: false, saved: false, soonOpen: false }, JSON.parse(JSON.stringify(this.initial)));
+  }
+  renderVals() {
+    const s = this.state;
+    const specDefs = [['res', 'מגורים'], ['com', 'מסחרי'], ['land', 'מגרשים וקרקעות'], ['invest', 'השקעות ונכסים מניבים'], ['dev', 'יזמות ופרויקטים'], ['rent', 'שכירות'], ['tama', 'תמ"א והתחדשות עירונית'], ['farm', 'משקי בית ונחלות']];
+    const full = s.specs.length >= 4;
+    const labelOf = Object.fromEntries(specDefs);
+    const specs = specDefs.map(([id, label]) => {
+      const idx = s.specs.indexOf(id);
+      const on = idx > -1;
+      const disabled = !on && full;
+      return {
+        label, on, order: idx + 1, pressed: on ? 'true' : 'false', disabled,
+        style: 'display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; font-size: 15px; ' +
+          (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 600; cursor: pointer'
+              : disabled ? 'border: 1px dashed #D5DBE6; background: #FFFFFF; color: #8A93A6; font-weight: 500; cursor: not-allowed'
+              : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 500; cursor: pointer'),
+        toggle: () => {
+          if (on) this.setState({ specs: s.specs.filter((x) => x !== id), dirty: true });
+          else if (!full) this.setState({ specs: s.specs.concat(id), dirty: true });
+        }
+      };
+    });
+    const soon = ['נוף הגליל ומגדל העמק', 'בית שאן ועמק המעיינות', 'יקנעם, רמת ישי והסביבה', 'טבריה והכנרת', 'חיפה והסביבה', 'הקריות והסביבה', 'עכו ונהריה', 'כרמיאל ומשגב', 'צפת, ראש פינה וחצור', 'קריית שמונה והגליל העליון', 'רמת הגולן וקצרין', 'חדרה והסביבה', 'נתניה והסביבה', 'כפר סבא ורעננה', 'הרצליה ורמת השרון', 'תל אביב-יפו', 'רמת גן וגבעתיים', 'בני ברק ואלעד', 'פתח תקווה וראש העין', 'חולון ובת ים', 'ראשון לציון', 'רחובות ונס ציונה', 'לוד ורמלה', 'מודיעין והסביבה', 'ירושלים והסביבה', 'בית שמש והסביבה', 'בנימין ומודיעין עילית', 'אריאל והשומרון', 'אשדוד והסביבה', 'אשקלון והסביבה', 'קריית גת והסביבה', 'שדרות, נתיבות ואופקים', 'באר שבע והסביבה', 'אילת והסביבה'];
+    const checks = [
+      ['תמונת פרופיל', true], ['רישיון תיווך', true], ['תיאור מקצועי', s.bio.trim().length > 0],
+      ['אזור פעילות', true], ['תחומי התמחות', s.specs.length > 0], ['תמונות בגלריה', true], ['לשון פנייה', !!s.gender]
+    ].map(([label, done]) => ({
+      label, done,
+      iconStyle: 'width: 20px; height: 20px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; color: #FFFFFF; box-sizing: border-box; ' + (done ? 'background: #166534' : 'border: 2px solid #C2410C; background: #FFFFFF'),
+      textStyle: done ? 'color: #5A6478' : 'color: #9A3412; font-weight: 700'
+    }));
+    const doneCount = checks.filter((c) => c.done).length;
+    const pct = Math.round((doneCount / checks.length) * 100);
+    return {
+      bio: s.bio, bioLen: s.bio.length,
+      onBio: (e) => this.setState({ bio: e.target.value, dirty: true }),
+      noop: () => this.setState({ dirty: true }),
+      genderMissing: !s.gender,
+      genderStyle: 'min-height: 48px; padding: 0 14px; border-radius: 12px; background: #FFFFFF; font-size: 16px; color: #0E1A33; border: ' + (s.gender ? '1px solid #D5DBE6' : '1.5px solid #E0B84A'),
+      onGender: (e) => this.setState({ gender: e.target.value, dirty: true }),
+      specs, specCount: s.specs.length, specFull: full,
+      specTags: s.specs.map((id) => labelOf[id]),
+      soon, soonCount: soon.length, soonOpen: s.soonOpen, soonOpenStr: s.soonOpen ? 'true' : 'false',
+      toggleSoon: () => this.setState({ soonOpen: !s.soonOpen }),
+      soonChev: 'display: flex; color: #5A6478; transform: rotate(' + (s.soonOpen ? '180' : '0') + 'deg)',
+      checks, doneCount, pct,
+      pctBar: 'height: 100%; border-radius: 999px; width: ' + pct + '%; background: ' + (pct === 100 ? '#166534' : '#1F5BF0'),
+      dirty: s.dirty,
+      saveText: s.dirty ? 'יש שינויים שלא נשמרו' : (s.saved ? 'נשמר. הדף שלך עודכן.' : 'כל הפרטים שמורים'),
+      saveTextStyle: s.dirty ? 'font-size: 14px; font-weight: 700; color: #9A3412' : 'font-size: 14px; color: #5A6478',
+      saveStyle: 'min-height: 48px; padding: 0 28px; border-radius: 12px; border: 0; font-size: 16px; font-weight: 700; ' + (s.dirty ? 'background: #1F5BF0; color: #FFFFFF; cursor: pointer' : 'background: #E3E7EF; color: #5A6478; cursor: default'),
+      save: () => { if (s.dirty) this.setState({ dirty: false, saved: true }); },
+      reset: () => this.setState(Object.assign({ dirty: false }, JSON.parse(JSON.stringify(this.initial))))
+    };
+  }
+}
+</script>
+</body>
+</html>

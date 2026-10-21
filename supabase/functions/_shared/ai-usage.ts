@@ -19,6 +19,8 @@
 export type AiFeature =
   | "gabriela_agent"
   | "gabriela_public"
+  | "gabriela_agent_warm"
+  | "gabriela_public_warm"
   | "media_extract"
   | "marketing_copy"
   | "ads_copy"
@@ -28,7 +30,11 @@ export type AiFeature =
   | "image_visualize"
   | "showcase_branding"
   | "lead_analyzer"
-  | "news_analyzer";
+  | "news_analyzer"
+  // אזור ההטמעה (docs/csm-adoption.md): מנטור ההטמעה, ניתוח הקלטות, וגבריאלה מול הצוות
+  | "csm_mentor"
+  | "csm_call"
+  | "gabriela_csm";
 
 export type AiUsageRow = {
   feature: AiFeature;

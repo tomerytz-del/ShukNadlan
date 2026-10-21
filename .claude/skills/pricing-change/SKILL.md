@@ -1,6 +1,6 @@
 ---
 name: pricing-change
-description: שינוי מחיר, מכסה או תקרה בריפו של שוק נדל״ן (דמי מנוי, מספר וירטואלי, דקות, ליד, קידום, סרטון) - המיגרציה ל-pricing_config, PRICES ב-scripts/check_pricing.py, ושישה מקומות תצוגה (טבלת ההשוואה, השאלות הנפוצות, הכרטיסים ב-assets/tiers.js, TIER_PRICES, תגית ה-description והתיעוד). Use when changing what anything costs or how much is included, when a price on pricing.html looks different from what the wallet charged, when check_pricing.py fails, when adding a new paid item to the pricing page, or when rewording a pricing row that carries a number.
+description: שינוי מחיר, מכסה או תקרה בריפו של שוק נדל״ן - המיגרציה ל-pricing_config, PRICES ב-scripts/check_pricing.py, ומקומות התצוגה (pricing.html, assets/tiers.js, TIER_PRICES). Use when changing what anything costs or how much is included, when a price on pricing.html differs from what the wallet charged, when check_pricing.py fails, when adding a new paid item to the pricing page, or when rewording a pricing row that carries a number.
 ---
 
 # שינוי מחיר
@@ -72,3 +72,19 @@ python scripts/check_pricing.py
 הורדת מחיר - פשוטה. **העלאה, או צמצום של מה שכלול** (פחות דקות, פחות
 סרטונים), נוגעת במי שנרשם/ה על הנוסח הישן. זו החלטה מסחרית ומשפטית ולא
 הנדסית - ‏`docs/pricing-and-tiers.md`. לשאול לפני שכותבים את המיגרציה.
+
+## בעלי מקצוע: כרגע חינם, מאחורי מתג
+
+הפרסום לבעלי מקצוע **אינו נגבה** (‏`pricing_config.professional_card_free_publishing = 1`,
+‏`20270701090000`): כל הרשמה ממתינה לאישור מנהל/ת הפלטפורמה ב-CRM, ואין
+סולק. ‏`professional_card_monthly_price` (‏350) נשאר במסד בשביל היום שבו
+יחזרו לגבות, ואינו ב-`check_pricing.py` - **אף דף לא מציג אותו** כרגע, חוץ
+ממסלול התשלום הנסתר ב-`professional-signup.html`.
+
+החזרה לתשלום היא מיגרציה שמכבה את המתג, **ועוד** הטקסטים שמבטיחים "חינם":
+התג, הכפתור וההערה ב-`professional-signup.html`, ‏`terms.html` §15, ‏`faq.html`
+(שני מקומות - ה-JSON-LD וה-HTML), שורת `.expert-join` ב-`renderExpertBanner`
+(‏`assets/home.js`), וה-CTA ב-`professionals.html` וב-`professional.html`.
+‏§15 ו-§25 בתקנון מתירים את השינוי ("הטבה זמנית"), ומחייבים שאף אחד/ת לא
+יחויב/תחויב בלי לבחור בכך במפורש - כלומר הפסקת ההטבה היא הסרה מהאתר ולא
+חיוב. ‏`docs/professional-cards.md`, "פרסום חינם".

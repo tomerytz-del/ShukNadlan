@@ -1,0 +1,41 @@
+name: גבריאלה - השוואת מודלים
+
+# ‏הרצה ידנית בלבד. אותן בקשות טיפוסיות של סוכן/ת לכל מודל, מול הכלים וההוראות
+# של agent.ts כמו שהם, עד שלושה סבבים - **בלי להריץ כלים** (תוצאה מדומה), ולכן
+# בלי מסד, בלי וואטסאפ ובלי נתוני לקוחות. מדפיס הצלחות, בחירת כלי, עלות וזמן.
+# **עולה כסף** (כ-$2-4). ‏docs/platform-costs.md, "מעבר מודל".
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "מודלים להשוואה, מופרדים בפסיק"
+        default: "claude-opus-5,claude-opus-5-5"
+        required: true
+      confirm:
+        description: "לכתוב כן כדי לשלוח באמת (עולה כסף)"
+        default: "לא"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: השוואת מודלים
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - name: ההשוואה
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODELS: ${{ inputs.models }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          YES=""
+          if [ "$CONFIRM" = "כן" ]; then YES="--yes"; fi
+          deno run -A scripts/gabriela_model_eval.ts "--models=$MODELS" $YES

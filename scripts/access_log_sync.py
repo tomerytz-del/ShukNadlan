@@ -42,9 +42,22 @@ MAX_BACKFILL = timedelta(days=6)
 OVERLAP = timedelta(minutes=15)
 # שורות לוג מגיעות באיחור; את 3 הדקות האחרונות משאירים לריצה הבאה
 LAG = timedelta(minutes=3)
-CHUNK = timedelta(hours=1)
+# ‏3 שעות ולא שעה: השלמה של 6 ימים הייתה 288 בקשות, ו-Supabase חסמה ב-429
+# אחרי כעשר (21.10.2026). ‏~5,200 שורות ביום הן ~650 לחלון - מתחת לתקרה, ומה
+# שעובר אותה מתפצל ב-fetch_window.
+CHUNK = timedelta(hours=3)
 MIN_CHUNK = timedelta(seconds=30)
 ROW_CAP = 1000
+# הפסקה בין בקשות, כדי לא להגיע למגבלת הקצב מלכתחילה
+PACE = 2.0
+# ‏ה-job נחתך ב-20 דקות (‏timeout-minutes). ההשלמה של 21.10.2026 נחתכה שם
+# באמצע - ריצה "cancelled" שלא עדכנה last_run_at. אחרי 14 דקות לא מתחילים
+# חלון חדש; חלון אחד עם כל ההמתנות של 429 הוא עד ~5 דקות.
+TIME_BUDGET = timedelta(minutes=14)
+
+
+class RateLimited(RuntimeError):
+    """‏429 שלא עבר גם אחרי ההמתנות. הריצה עוצרת ושומרת את מה שהספיקה."""
 
 # ‏טבלאות עזר ציבוריות ונכסים ציבוריים: אין בהם מידע אישי, והם ~40% מהתעבורה.
 # **כל טבלה שמחזיקה מידע על אדם נשארת ביומן.** מי שמוסיף/ה כאן שורה מוודא/ת
@@ -125,17 +138,22 @@ def query_logs(token: str, sql: str, start: datetime, end: datetime) -> list[dic
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
     })
+    time.sleep(PACE)
     for attempt in range(5):
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 body = json.load(r)
             break
         except urllib.error.HTTPError as e:
-            # ‏429: מגבלת קצב של ה-Management API - מחכים ומנסים שוב
+            # ‏429: מגבלת קצב של ה-Management API - מחכים (‏Retry-After אם נשלח)
+            # ומנסים שוב. ההמתנות הקודמות (‏3-24 שניות) לא הספיקו לחלון שלה.
             if e.code in (429, 500, 502, 503, 504) and attempt < 4:
-                time.sleep(2 ** attempt * 3)
+                retry_after = e.headers.get("Retry-After", "") if e.headers else ""
+                wait = int(retry_after) if retry_after.isdigit() else 10 * 2 ** attempt
+                time.sleep(min(wait, 120))
                 continue
-            raise RuntimeError(f"logs API {e.code}: {e.read()[:300]!r}") from None
+            msg = f"logs API {e.code}: {e.read()[:300]!r}"
+            raise (RateLimited if e.code == 429 else RuntimeError)(msg) from None
     if body.get("error"):
         raise RuntimeError(f"logs API error: {json.dumps(body['error'])[:300]}")
     return body.get("result") or []
@@ -213,22 +231,37 @@ def main() -> int:
 
     total = 0
     error = None
+    # ‏429 אחרי שחלונות כבר נכתבו אינו כישלון: בהשלמה ארוכה (אחרי השבתה) זה
+    # צפוי, והריצה הבאה ממשיכה מהסמן. ריצה כזו יוצאת ירוקה עם אזהרה, ולא
+    # אדומה בכל שעה עד שההשלמה נגמרת. ‏429 בלי שום התקדמות - נכשל.
+    partial = None
     t = start
+    deadline = time.monotonic() + TIME_BUDGET.total_seconds()
     try:
         while t < end:
+            if t > start and time.monotonic() > deadline:
+                partial = t
+                break
             t2 = min(t + CHUNK, end)
-            rows = [api_row(r) for r in fetch_window(token, api_sql, t, t2)]
-            rows += [auth_row(r) for r in fetch_window(token, auth_sql, t, t2)]
-            if rows and not args.dry_run:
+            try:
+                rows = [api_row(r) for r in fetch_window(token, api_sql, t, t2)]
+                rows += [auth_row(r) for r in fetch_window(token, auth_sql, t, t2)]
+            except RateLimited:
+                if t == start:
+                    raise
+                partial = t
+                break
+            if not args.dry_run:
                 with conn.cursor() as cur:
-                    psycopg2.extras.execute_values(cur, INSERT, rows, page_size=500)
+                    if rows:
+                        psycopg2.extras.execute_values(cur, INSERT, rows, page_size=500)
                     cur.execute(
                         "update public.data_access_log_sync set synced_until = %s where id = 1", (t2,))
                 conn.commit()
             total += len(rows)
-            print(f"{_iso(t)} .. {_iso(t2)}: {len(rows)} rows")
+            # ‏flush: בריצה שנחתכה לא נשאר ביומן של GitHub אף חלון
+            print(f"{_iso(t)} .. {_iso(t2)}: {len(rows)} rows", flush=True)
             t = t2
-            time.sleep(0.5)
     except Exception as e:  # noqa: BLE001 - נרשם בסמן ומפיל את הריצה
         conn.rollback()
         error = str(e)[:500]
@@ -238,7 +271,7 @@ def main() -> int:
             if error is None:
                 cur.execute(
                     "update public.data_access_log_sync set synced_until = %s, last_run_at = now(),"
-                    " last_rows = %s, last_error = null where id = 1", (end, total))
+                    " last_rows = %s, last_error = null where id = 1", (partial or end, total))
             else:
                 cur.execute(
                     "update public.data_access_log_sync set last_run_at = now(), last_rows = %s,"
@@ -249,6 +282,9 @@ def main() -> int:
     if error:
         print(f"::error::הסנכרון נכשל: {error}", file=sys.stderr)
         return 1
+    if partial:
+        print(f"::warning::השלמה חלקית (מגבלת קצב או זמן) - נעצר ב-{_iso(partial)},"
+              f" הריצה הבאה ממשיכה משם ({total} שורות נכתבו)")
     print(f"done: {total} rows {'(dry run)' if args.dry_run else 'written'}")
     return 0
 

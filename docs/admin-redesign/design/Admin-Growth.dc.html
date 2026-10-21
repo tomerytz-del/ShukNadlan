@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>שווקים וצמיחה · מנהל הפלטפורמה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&amp;family=Assistant:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button{font-family:Assistant,sans-serif}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F4F6FA; color: #0E1A33; font-family: Assistant, sans-serif; direction: rtl; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <div style="flex: 0 0 280px; display: flex">
+    <dc-import name="AdminSidebar" active="markets" hint-size="280px,1180px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 22px">
+
+    <section style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font: 700 30px Rubik, sans-serif">שווקים וצמיחה</h1>
+        <span style="font-size: 15px; color: #5A6478">איפה לגייס משרדים, איפה להביא לידים, ומה עובד בפרסום.</span>
+      </div>
+      <div role="tablist" aria-label="תצוגה" style="display: flex; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 12px; padding: 4px; gap: 2px">
+        <button type="button" role="tab" aria-selected="true" style="height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: #0E1A33; color: #FFFFFF; font-weight: 700; font-size: 14px; cursor: pointer">שווקים</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: #5A6478; font-weight: 600; font-size: 14px; cursor: pointer">קמפיינים</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: #5A6478; font-weight: 600; font-size: 14px; cursor: pointer">תוכן ו-SEO</button>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; background: #0E1A33; color: #E6EBF7; border-radius: 18px; padding: 18px 22px">
+      <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font: 700 17px Rubik, sans-serif; color: #FFFFFF">כלל הפתיחה של שוק</span>
+        <span style="font-size: 14px; color: #B9C4DE">הכלל הקיים במערכת. המוכנות של כל אזור מחושבת לפיו.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <span style="background: #18264A; border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 15px">[תנאי 1 מהכלל הקיים]</span>
+        <span style="background: #18264A; border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 15px">[תנאי 2]</span>
+        <span style="background: #18264A; border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 15px">[תנאי 3]</span>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 0 8px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 22px; flex-wrap: wrap">
+        <h2 style="margin: 0; font: 700 20px Rubik, sans-serif">מוכנות לפי אזור</h2>
+        <span style="font-size: 13px; color: #5A6478">נטען מהמטמון אם השרת לא עונה · עודכן 22:48</span>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 980px; border-collapse: collapse; font-size: 14.5px">
+          <thead>
+            <tr style="color: #5A6478; font-size: 13px; text-align: right">
+              <th scope="col" style="padding: 10px 22px; font-weight: 700">אזור</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700">משרדים</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700">סוכנים</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700">נכסים</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700">לידים, 30 יום</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700; width: 170px">מוכנות</th>
+              <th scope="col" style="padding: 10px 8px; font-weight: 700">מה חסר</th>
+              <th scope="col" style="padding: 10px 22px; font-weight: 700">הצעד הבא</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{markets}}" as="m" hint-placeholder-count="9">
+              <tr style="border-top: 1px solid #EEF1F6">
+                <th scope="row" style="padding: 12px 22px; text-align: right; font-weight: 700; white-space: nowrap">{{m.name}}</th>
+                <td style="padding: 12px 8px; font-family: Rubik, sans-serif">{{m.o}}</td>
+                <td style="padding: 12px 8px; font-family: Rubik, sans-serif">{{m.a}}</td>
+                <td style="padding: 12px 8px; font-family: Rubik, sans-serif">{{m.p}}</td>
+                <td style="padding: 12px 8px; font-family: Rubik, sans-serif">{{m.l}}</td>
+                <td style="padding: 12px 8px">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div style="flex: 1; height: 8px; background: #EEF1F6; border-radius: 99px; overflow: hidden"><div style="height: 100%; border-radius: 99px; {{m.bar}}"></div></div>
+                    <span style="font: 600 13px Rubik, sans-serif; width: 38px">{{m.pct}}</span>
+                  </div>
+                </td>
+                <td style="padding: 12px 8px; color: #5A6478">{{m.miss}}</td>
+                <td style="padding: 12px 22px"><button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; cursor: pointer; {{m.btn}}">{{m.cta}}</button></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h2 style="margin: 0; font: 700 20px Rubik, sans-serif">משפך גיוס משרדים</h2>
+        <span style="font-size: 14px; color: #5A6478">איפה משרדים נתקעים בין ההרשמה לתשלום הראשון.</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <sc-for list="{{acq}}" as="s" hint-placeholder-count="5">
+          <div style="flex: 1 1 150px; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; {{s.box}}">
+            <span style="font-size: 13.5px; font-weight: 700">{{s.k}}</span>
+            <span style="font: 700 28px Rubik, sans-serif">{{s.v}}</span>
+            <span style="font-size: 12.5px">{{s.note}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap">
+        <h2 style="margin: 0; font: 700 20px Rubik, sans-serif">קמפיינים פעילים</h2>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-weight: 700; font-size: 14.5px; cursor: pointer">קמפיין חדש</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px">
+        <sc-for list="{{camps}}" as="c" hint-placeholder-count="3">
+          <div style="flex: 1 1 300px; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font: 700 12px Rubik, sans-serif; border-radius: 8px; padding: 3px 8px; {{c.netStyle}}">{{c.net}}</span>
+              <span style="flex: 1; font-weight: 700; font-size: 15.5px">{{c.name}}</span>
+              <span style="font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; {{c.stStyle}}">{{c.st}}</span>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <sc-for list="{{c.m}}" as="x" hint-placeholder-count="3">
+                <div style="flex: 1; background: #F4F6FA; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-size: 12.5px; color: #5A6478; font-weight: 600">{{x.k}}</span>
+                  <span style="font: 700 18px Rubik, sans-serif">{{x.v}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px">
+              <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; font-weight: 700; font-size: 13.5px; cursor: pointer">{{c.toggle}}</button>
+              <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; font-weight: 700; font-size: 13.5px; cursor: pointer">תקציב</button>
+              <button type="button" style="height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33; font-weight: 700; font-size: 13.5px; cursor: pointer">שכפל לאזור אחר</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px">
+        <h2 style="margin: 0; font: 700 20px Rubik, sans-serif">לוח תוכן · 7 הימים הקרובים</h2>
+        <a href="#" style="font-weight: 700; font-size: 14px">ללוח המלא</a>
+      </div>
+      <sc-for list="{{content}}" as="p" hint-placeholder-count="5">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 11px 0; border-top: 1px solid #EEF1F6">
+          <span style="flex: 0 0 90px; font: 600 14px Rubik, sans-serif; color: #5A6478">{{p.day}}</span>
+          <span style="flex: 0 0 96px; text-align: center; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 4px 0; background: #EEF1F6; color: #2A3550">{{p.ch}}</span>
+          <span style="flex: 1 1 240px; font-weight: 600; font-size: 15px">{{p.t}}</span>
+          <span style="font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; {{p.stStyle}}">{{p.st}}</span>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const W = (w, c) => 'width:' + w + '%;background:' + c;
+    const pri = 'background:#1F5BF0;color:#FFFFFF', sec = 'background:#EAF0FF;color:#1846C2';
+    const M = (name, o, a, p, l, pct, miss, cta, primary) => ({ name, o, a, p, l, pct: pct + '%', miss, cta,
+      bar: W(pct, pct >= 100 ? '#166534' : pct >= 50 ? '#1F5BF0' : '#9DB6F7'), btn: primary ? pri : sec });
+    const markets = [
+      M('עפולה והעמק', '[X]', '[X]', '[X]', '[X]', 100, 'לידים: פחות מליד לסוכן/ת', 'קמפיין לידים', true),
+      M('חיפה והסביבה', '[X]', '[X]', '[X]', '[X]', 62, 'משרד אחד ו-[X] נכסים', 'הזמנת משרדים', true),
+      M('הקריות', '[X]', '[X]', '[X]', '[X]', 48, 'סוכנים מאומתים', 'הזמנת משרדים'),
+      M('נוף הגליל ומגדל העמק', '[X]', '[X]', '[X]', '[X]', 40, 'נכסים', 'תזכורת להעלאה'),
+      M('עכו ונהריה', '[X]', '[X]', '[X]', '[X]', 22, 'משרדים', 'הזמנת משרדים'),
+      M('כרמיאל ומשגב', '[X]', '[X]', '[X]', '[X]', 18, 'משרדים', 'הזמנת משרדים'),
+      M('חדרה והסביבה', '[X]', '[X]', '[X]', '[X]', 10, 'הכל', 'רשימת משרדים'),
+      M('נתניה והסביבה', '[X]', '[X]', '[X]', '[X]', 6, 'הכל', 'רשימת משרדים'),
+      M('כפר סבא', '[X]', '[X]', '[X]', '[X]', 4, 'הכל', 'רשימת משרדים')
+    ];
+    const n = 'background:#F4F6FA;color:#0E1A33', drop = 'background:#FDE7D9;color:#9A3412', win = 'background:#E6F4EC;color:#166534';
+    const acq = [
+      { k: 'הוזמנו', v: '[X]', note: 'קישורי הזמנה שנשלחו', box: n },
+      { k: 'נרשמו', v: '16', note: 'החודש', box: n },
+      { k: 'אימתו רישיון', v: '[X]', note: 'בלי רישיון הדף לא מוצג', box: drop },
+      { k: 'העלו נכס ראשון', v: '[X]', note: 'תזכורת אוטומטית אחרי 48 שעות', box: n },
+      { k: 'משלמים', v: '[X]', note: 'Mid או Premium', box: win }
+    ];
+    const meta = 'background:#EAF0FF;color:#1846C2', goog = 'background:#FFF1C7;color:#7A5300';
+    const on = 'background:#E6F4EC;color:#166534', off = 'background:#EEF1F6;color:#5A6478';
+    const camps = [
+      { net: 'Meta', netStyle: meta, name: 'לידי בעלים · עפולה והעמק', st: 'פעיל', stStyle: on, toggle: 'השהה',
+        m: [{ k: 'הוצאה', v: '₪[X]' }, { k: 'לידים', v: '[X]' }, { k: 'עלות לליד', v: '₪[X]' }] },
+      { net: 'Google', netStyle: goog, name: 'דירות למכירה בעפולה', st: 'פעיל', stStyle: on, toggle: 'השהה',
+        m: [{ k: 'הוצאה', v: '₪[X]' }, { k: 'קליקים', v: '[X]' }, { k: 'עלות לפנייה', v: '₪[X]' }] },
+      { net: 'Meta', netStyle: meta, name: 'גיוס משרדים · חיפה והקריות', st: 'מושהה', stStyle: off, toggle: 'הפעל',
+        m: [{ k: 'הוצאה', v: '₪[X]' }, { k: 'הרשמות', v: '[X]' }, { k: 'עלות למשרד', v: '₪[X]' }] }
+    ];
+    const ready = 'background:#E6F4EC;color:#166534', draft = 'background:#FFF1C7;color:#7A5300', idea = 'background:#EEF1F6;color:#5A6478';
+    const content = [
+      { day: 'ב׳ 19.10', ch: 'כתבה', t: 'מה נמכר בעפולה החודש: עסקאות מ-GovMap', st: 'טיוטת AI', stStyle: draft },
+      { day: 'ג׳ 20.10', ch: 'פייסבוק', t: 'נכס השבוע מ[שם משרד]', st: 'מתוזמן', stStyle: ready },
+      { day: 'ד׳ 21.10', ch: 'דף שכונה', t: 'תיאורים ל-10 שכונות בעפולה', st: 'טיוטת AI', stStyle: draft },
+      { day: 'ה׳ 22.10', ch: 'אינסטגרם', t: 'גבריאלה: כך מעלים נכס מהוואטסאפ', st: 'רעיון', stStyle: idea },
+      { day: 'א׳ 25.10', ch: 'ניוזלטר', t: 'סיכום שבועי לסוכנים', st: 'אוטומטי', stStyle: ready }
+    ];
+    return { markets, acq, camps, content };
+  }
+}
+</script>
+</body>
+</html>

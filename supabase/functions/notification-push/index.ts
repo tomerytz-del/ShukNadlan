@@ -75,6 +75,7 @@ const WA_OPTED_OUT = 131050;
 // ב-assets/crm.js, ו-scripts/check_notif_links.py חוסם ב-CI כל פער. סוג שאינו
 // כאן נופל ל-MANAGE_ACC - הגדרות ההתראות - וזה לעולם לא היעד הנכון.
 const ACC_BY_TYPE: Record<string, string> = {
+  improvement_suggestion: "accSuggestions",
   new_lead: "accLeads",
   client_match: "accAlerts",
   listing_match: "accProperties",
@@ -85,7 +86,11 @@ const ACC_BY_TYPE: Record<string, string> = {
   review_request: "accLeads",
   deal_closed: "accTeam",
   marketing_copy: "accProperties",
-  system: "accSharedWithMe",
+  // מנהל/ת המשרד מחק/ה שיחה (twilio-voice?task=delete) - השיחות והמספרים
+  call_deleted_by_manager: "accLines",
+  // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
+  // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
+  system: "accProperties",
   platform_signup: "accSubscriptions",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
@@ -99,6 +104,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminOps.
   // מיגרציה 20270421100000, docs/ops-agent.md.
   security_alert: "adminOps",
+  // ‏שוק שמתקרב לסף, עובר אותו או יורד מתחתיו (20270705090000) - לפאנל
+  // "שווקים מקומיים", שה-goto ב-crm.js פותח בתצוגת הניהול.
+  market_alert: "dashPanelMarkets",
   // ‏סקירת הרשאות חצי-שנתית (docs/access-review.md)
   access_review: "accSecurityAudit",
   // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על
@@ -301,6 +309,7 @@ function ctaLabel(url: string): string {
   if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
   if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
   if (url.includes("accMyDashboard")) return "🧭 לסיכום המנטור";
+  if (url.includes("dashPanelMarkets")) return "🗺️ לשווקים המקומיים";
   return "👈 פתיחה";
 }
 

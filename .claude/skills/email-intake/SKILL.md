@@ -1,6 +1,6 @@
 ---
 name: email-intake
-description: עבודה על קליטה מהמייל בריפו של שוק נדל״ן - מייל שסוכן/ת שולח/ת או מעביר/ה ל-shuknadlan@gmail.com (זיהוי לפי שולח שגוגל אימת) או ל-shuknadlan+<token>@gmail.com, וגבריאלה מזהה מי שלח ומה צריך ועונה בוואטסאפ. email-intake.ts, ‏_shared/imap.ts, ‏EMAIL_TOOLS, ‏verifiedSender, ‏readAttachments (קבצים מצורפים - PDF, ‏Word, ‏Excel, תמונות, הקלטות), הסמן email_intake_cursor, היומן email_intake_messages, וחלון 24 השעות. Use when touching supabase/functions/whatsapp-webhook/email-intake.ts or _shared/imap.ts, adding a tool the email turn may use, changing how the sender is identified, when an agent says Gabriela did not answer a forwarded email, when an attachment was not read, when an email row is stuck in processing or failed with "fetch", or when the +costs receipts path changes.
+description: קליטה מהמייל בריפו של שוק נדל״ן - מייל שסוכן/ת מעביר/ה ל-shuknadlan@gmail.com או ל-shuknadlan+<token>@gmail.com, וגבריאלה עונה בוואטסאפ. email-intake.ts, _shared/imap.ts, EMAIL_TOOLS, verifiedSender, readAttachments. Use when touching email-intake.ts or imap.ts, adding a tool the email turn may use, changing how the sender is identified, when Gabriela did not answer a forwarded email, when an attachment was not read, or when an email row is stuck in processing.
 ---
 
 # קליטה מהמייל
@@ -55,6 +55,16 @@ description: עבודה על קליטה מהמייל בריפו של שוק נד
 8. **‏`+costs` לפני כל זיהוי של סוכן/ת**, ועל משיכה של 2MB
    (`COSTS_FETCH_BYTES`) - קבלה נקראת מהטקסט, ומנהל/ת שמעביר/ה קבלה הוא/היא
    גם סוכן/ת רשום/ה. בלי הסדר הזה הקבלה הופכת לתור של העוזר.
+   **והקבלה נקראת מהטקסט וגם מה-HTML** (‏`receiptText(mail.text,
+   mail.htmlText)`): הסוכן של תומר מעביר קבלות עם חלק טקסט שהוא רק כותרת
+   (‏`מקור: <ספק>`) והקבלה כולה ב-HTML, ו-`parseMail` מעדיף את חלק הטקסט.
+   מי שנוגע ב-`parseMail` שומר על `htmlText`; מי שמוסיף צורת כותרת העברה -
+   ב-`forwardedSender`, עם שורה ב-`scripts/cost_mail_test.ts`.
+   הקבלה של הסוכן מגיעה **כקובץ `text/html` מצורף** ולא כגוף - ‏`receiptHtml`
+   קורא גם אותו. מבנה ה-MIME של כל קבלה נרשם בלוג (`cost mail <uid> …`).
+   **כפילות:** האינדקס על `(service, invoice_no)`, ולקבלה בלי מספר -
+   ‏`findDuplicate` (אותו שירות ואותו `charged_on`) לפני ה-insert. קבלה שנשלחת
+   שוב היא מקרה רגיל כאן, לא חריג - ‏`docs/platform-costs.md`, "שני כללים".
 
 9. **ההנחיות בטקסט התור (`buildEmailPrompt`) ולא ב-`SYSTEM_STATIC`** - אחרת
    המטמון של כל התורים הרגילים נשבר בגלל ערוץ שרובם אינם שייכים לו.

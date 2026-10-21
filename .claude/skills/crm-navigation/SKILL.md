@@ -1,6 +1,6 @@
 ---
 name: crm-navigation
-description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GROUPS כמקור אמת יחיד (סרגל הצד, תפריט הבורגר ותפריט הפרופיל, ו-check_crm_nav.py), הסרגל התחתון בנייד (BOTTOM_NAV - בית · לידים · + · חיפוש · התראות), השכבות (openNavLayer / closeNavLayers / navLayer - יצירה, חיפוש, פרופיל ופאנל ההתראות דרך openBellPanel / closeBellPanel), גלולת הפעולות בכותרת (המבורגר, סמל הבית שנפתח באתר בלשונית חדשה, הפעמון מ-1024px), אשכול הזהות (אווטאר, שם ותגית המסלול שהמתנה בתוכה - .tier-chip ו-wirePromoGift), והכיווץ בגלילה (.is-compact). Use when adding a category or a destination to the CRM menu, adding or changing a bottom-nav button, opening a new panel/sheet from the header or the bottom nav, touching the bell, the header pill, the avatar/profile menu, the tier badge or the launch-promo gift, or when a panel opens under another one, a bottom-nav button stays highlighted after its panel closed, or a fixed panel inside the header is positioned wrong.
+description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GROUPS כמקור אמת יחיד (check_crm_nav.py), BOTTOM_NAV, השכבות (openNavLayer / closeNavLayers), הפעמון (openBellPanel), האווטאר ותגית המסלול (.tier-chip). Use when adding a destination to the CRM menu, changing a bottom-nav button, opening a new panel from the header or bottom nav, when a panel opens under another, a bottom-nav button stays highlighted after its panel closed, or a fixed panel in the header is misplaced.
 ---
 
 # הניווט והכותרת ב-CRM
@@ -18,6 +18,19 @@ description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GRO
 ומהקיצורים. `gotoSection(accId)` מעביר למקטע הנכון לבד, ולכן כל קישור `?goto=`
 עובד בלי קשר לסרגל.
 
+**סרגל הצד הרחב ותפריט הבורגר הם אותו קוד** (`appendMenuGroups`, עם
+`{side:true}` בסרגל): "דף הבית" בנייבי וקבוצות נייבי מתקפלות. לכן מ-1024px
+הבורגר מוסתר (`.burger-wrap`) - שינוי בצורת הקבוצות משנה את שניהם, ואין
+להחזיר את הבורגר במחשב (זה תפריט כפול). פס האייקונים (כיווץ) נשאר עם
+`.sn-*` המקורי. בסרגל, קבוצה שנסגרה ביד נשארת סגורה (`saved[key] === false`),
+כי הוא נבנה מחדש עם כל שינוי מונה.
+
+**תצוגת מנהל/ת הפלטפורמה** היא שבע קבוצות `adminOnly` (‏`aToday` … `aSystem`),
+ושבעת הפאנלים (`dashPanel*`) הם יעדים בהן כמו אקורדיון: `gotoSection` פותח
+אותם דרך `openDashPanel`, ו-`check_crm_nav.py` סופר גם אותם. פאנל ניהול חדש
+נכנס לקבוצה, לא לשורת לשוניות (`#adminNav` ירד ב-19.10.2026). מצב הקבוצות
+שלה נשמר בנפרד (`adminNavOpen`). ‏`docs/admin-navigation.md`.
+
 ## ‏2. ‏`BOTTOM_NAV`: חמישה כפתורים, ואחד מהם הוא הפעמון
 
 **בית · לידים · + · חיפוש · התראות.** "התראות" הוא הפעמון של הכותרת, שירד לסרגל
@@ -30,7 +43,7 @@ description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GRO
 
 ## ‏3. שכבה נפתחת דרך `openNavLayer`, ונסגרת דרך הפונקציה שלה
 
-יצירה, חיפוש, פרופיל והתראות הן **שכבות**: אחת בכל פעם, ו-`navLayer` אומר לסרגל
+יצירה, חיפוש, פרופיל, התראות והמנטור (`coachSheet` - מ"המנטור" בזהב בסרגל הצד ובראש הבורגר, `navMentorButton`, ומשורת השאלה בדף הבית) הן **שכבות**: אחת בכל פעם, ו-`navLayer` אומר לסרגל
 איזה כפתור לסמן. הכללים:
 
 - **פתיחה רק דרך `openNavLayer(layer)`**, שסוגר את האחרות קודם. פתיחה ישירה
@@ -44,6 +57,13 @@ description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GRO
 - כפתור שפותח שכבה עוצר את הלחיצה (`stopPropagation`), כי המאזינים של `document`
   סוגרים כל פאנל פתוח - בלי זה הלחיצה שפתחה את השכבה סוגרת אותה מיד. תפריט
   הבורגר **אינו** שכבה, ולכן כל פתיחה של שכבה קוראת גם ל-`closeMenuPanel()`.
+
+**מתג התצוגה למנהלים** (`navModeToggle`, ‏`crmNavMode`) רק מעביר דאשבורד (דף
+הבית / דאשבורד המשרד או הצוות). **סדר הקבוצות קבוע בשתי התצוגות** - עד
+20.10.2026 המתג העלה את הניהול לראש, והקבוצות האישיות ירדו מתחת לחלק הגלוי
+של הסרגל ונראו כאילו נעלמו. אין להחזיר סדר שתלוי בתצוגה. מנהל/ת שאינו/ה
+סוכן/ת פעיל/ה מקבל/ת ב-`navGroupsForView` רק את דף הבית וקבוצות הניהול; קבוצה
+חדשה של עבודה אישית נכנסת ל-`NAV_PERSONAL_GROUPS`, אחרת היא נשארת אצלו/ה.
 
 ## ‏4. הכותרת: מה יושב איפה
 
@@ -75,6 +95,13 @@ description: הניווט והכותרת ב-CRM של שוק נדל״ן - NAV_GRO
   `.icon-btn[hidden]{display:none}`, וכפתור חדש מסוג אחר צריך כלל משלו.
 - קישור החוצה בכותרת או בתפריט: `target="_blank" rel="noopener"`, ו-`aria-label`
   שאומר שהוא נפתח בלשונית חדשה.
+
+## ‏5א. ‏`sideNavKey`: נתון חדש בסרגל נכנס למפתח
+
+‏`renderSideNav` יוצאת בלי לבנות כשהמפתח (`sideNavKey`) זהה לקודם, ומתחת
+ל-1024px היא לא בונה בכלל. מי שמוסיף/ה לסרגל משהו שנקרא מנתון שאינו במפתח
+(מונה חדש, מצב, מסלול) מוסיף/ה אותו גם ל-`sideNavKey` - אחרת הסרגל נשאר עם
+הערך הישן בשקט. ‏`docs/agent-dashboard.md`, "הטעינה אחרי הכניסה".
 
 ## ‏6. בדיקה
 

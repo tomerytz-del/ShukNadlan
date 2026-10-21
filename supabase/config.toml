@@ -144,6 +144,9 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.office-coach]
 verify_jwt = false          # ‏pg_cron (משרד וצוות ביום ראשון, סוכנים כל בוקר) + x-alert-cron-secret / service role ידני. docs/coaches.md
 
+[functions.csm-workspace]
+verify_jwt = true           # אזור ההטמעה (/csm): מנטור והקלטות. אשת הצוות נגזרת מה-JWT (csm_staff.user_id). docs/csm-adoption.md
+
 [functions.coach-ask]
 verify_jwt = true           # "שאל את המאמן" מה-CRM: הסוכן/ת נגזר/ת מה-JWT בלבד. docs/coaches.md
 
@@ -164,12 +167,6 @@ verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט �
 # בקוד, ולכן הקלט לא יכול להפנות אותה לנכס אחר; ה-handler דורש service_role
 # או x-alert-cron-secret. ‏verify_jwt=false כדי שקריאה פנימית מ-pg_net תגיע.
 [functions.migrate-legacy-videos]
-verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
-
-# העברה חד-פעמית של תמונות הנכסים מהפרויקט הישן. התור מגיע מ-legacy_photo_queue
-# ולא מהקלט, ולכן קריאה לא יכולה להפנות אותה לקובץ אחר; ה-handler דורש
-# service_role או x-alert-cron-secret.
-[functions.migrate-legacy-photos]
 verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
 
 # ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role

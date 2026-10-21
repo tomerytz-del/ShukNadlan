@@ -362,6 +362,12 @@ function renderMyDashboard(){
   const best = monthly.reduce((b, m) => odNum(m.commission) > odNum(b.commission || 0) ? m : b, {});
   const vsLabel = v.hasAvg ? 'ממוצע המשרד' : 'התקופה הקודמת';
 
+  const todo = `<section class="od-sec">
+      <div class="od-sec-h"><h2>מה יקדם אותך היום</h2><p>ממוין לפי דחיפות · כל משימה פותחת את הפריט עצמו</p></div>
+      ${mdTodoHtml(v.todo)}
+    </section>`;
+  // המנטור ולצדו "מה יקדם אותך היום", מיד אחרי הכותרת (coachLeadHtml)
+  const agentLead = coachLeadHtml('agent', todo);
   host.innerHTML = `
   <div class="od md${mdState.firstPaintDone ? '' : ' od-first'}" dir="rtl">
     <div class="od-brand">
@@ -375,6 +381,8 @@ function renderMyDashboard(){
         <button type="button" class="od-refresh" data-md-refresh aria-label="רענון הנתונים" title="רענון">↻</button>
       </div>
     </div>
+
+    ${agentLead || ''}
 
     <header class="od-hero">
       <div class="od-hero-main">
@@ -404,12 +412,7 @@ function renderMyDashboard(){
       </div>
     </header>
 
-    ${coachCardHtml('agent')}
-
-    <section class="od-sec">
-      <div class="od-sec-h"><h2>מה יקדם אותך היום</h2><p>ממוין לפי דחיפות · כל משימה פותחת את הפריט עצמו</p></div>
-      ${mdTodoHtml(v.todo)}
-    </section>
+    ${agentLead ? '' : todo}
 
     ${mdKpisHtml(v, vsLabel)}
 

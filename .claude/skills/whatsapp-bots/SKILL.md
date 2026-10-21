@@ -1,6 +1,6 @@
 ---
 name: whatsapp-bots
-description: עבודה על שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - העוזרת של הסוכנים (agent.ts) והבוט הציבורי (public-agent.ts): הפרסונה והשם בכל המקומות, ההיכרות בהודעה הראשונה, הודעות עם כפתורים (offer_save_search), כרטיס איש הקשר, מטמון הפרומפט, והכפתור באתר (bot-link.js ENABLED, וכרטיס גבריאלה בדף הבית). Use when changing what the bots say or how they introduce themselves, renaming the assistant, adding a WhatsApp interactive/button/contact message, adding a tool to public-agent.ts or agent.ts, when a button message is rejected by Meta, when cache_read_input_tokens drops to 0, when turning the site's "ask Gabriela" button on or off, when changing an opening (hello) message on the site or the "Gabriela inquiries from the site" panel shows zero, when touching the open-house fair offer / the agent-help question after saving a search, or when an agent pastes a WhatsApp catalog link (wa.me/p/...) and the draft, price or image comes out wrong. Also when an agent says Gabriela "can't find" a property that exists (a misspelled street, list_properties / fuzzy-text.ts / spelling_variant), or when the bot reports fewer matches than the CRM (client_matches / property_matches total vs count, match-cut.ts).
+description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבריאלה) - agent.ts ו-public-agent.ts, השם בכל המקומות, ההיכרות, הודעות כפתורים, מטמון הפרומפט, ו-bot-link.js ENABLED. Use when changing what the bots say, renaming the assistant, adding a tool, when Meta rejects a button message, when cache_read_input_tokens drops to 0, when toggling the site's "ask Gabriela" button, when a wa.me/p catalog link makes a bad draft, or when Gabriela "can't find" a property (fuzzy-text.ts).
 ---
 
 # הבוטים בוואטסאפ - גבריאלה
@@ -95,6 +95,17 @@ description: עבודה על שני הבוטים בוואטסאפ של שוק נ
 וכל קריאה למודל בתור כותבת שורה ל-`ai_usage_log` (‏`logAiUsage(anthropicRow("gabriela_agent" /
 "gabriela_public", ...))`) - מזה הפאנל "עלויות" יודע כמה גבריאלה עולה. ‏`cache_write_1h_tokens`
 נשמר בנפרד כי ה-ttl של שעה מתומחר פי 2. ‏`docs/platform-costs.md`, "עלות AI לפי יכולת".
+
+**ושמירת המטמון** (‏`task=cache-warm`, ‏`warmPromptCache` / `warmPublicPromptCache`) שולחת בשעות
+היום בקשה ריקה עם **אותה קידומת** - מודל, `TOOLS`, `SYSTEM_STATIC`, ‏`cache_control` ו-`effort`.
+מי שמשנה אחד מהם ב-`runAgentTurn` / `runPublicTurn` משנה אותו גם שם, אחרת השמירה כותבת
+מטמון שאף תור אינו קורא (‏`docs/platform-costs.md`, "המטמון של גבריאלה").
+
+**ונקודות השבירה בתוך התור** - דרך `prompt-cache.ts` בלבד, בשני הבוטים: ההיסטוריה
+(‏`historyWithBreakpoint`, כל ההודעות כבלוקים), שתי האחרונות בלולאת הכלים (‏`RollingMarks`),
+וגזימה במדרגות (‏`trimHistory`, לא `slice(-N)` - חלון מחליק לא נקרא מהמטמון). עם ההוראות
+זה **ארבע, התקרה** - נקודה חמישית מפילה את הבקשה. ורשימה שגדלה (אזורים, שווקים) לא
+נכנסת ל-`enum` של כלי: היא משנה את הקידומת בכל פריסה. ‏`scripts/prompt_cache_test.ts`.
 
 ## הודעה עם כפתורים
 
@@ -473,7 +484,13 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
   `FALLBACK_HELLO`? הביטוי נשאר, או שהרשימה מתעדכנת. אחרת הכפתור עובד וכל
   הפניות ממנו עוברות בשקט ל-`direct`. ‏`scripts/check_bot_entry.py` חוסם.
 * נקודת כניסה חדשה עוברת ב-`ShukBot.link` / `anchorHtml` עם הודעה שמכילה ביטוי.
-  משתנה חדש שמחזיק הודעה נכנס ל-`KNOWN_HELLO_VARS` בבדיקה.
+  משתנה חדש שמחזיק הודעה נכנס ל-`KNOWN_HELLO_VARS` בבדיקה, **והקובץ שמגדיר
+  אותו נכנס ל-`HELLO_FILES`** - אחרת שם המשתנה מאושר והטקסט שלו אינו נבדק
+  כלל. כך נוסף `FAIR_BOT_HELLO` של `open-house.html` (הקישור מתחת לטופס
+  ההרשמה ליריד).
+* ליטרל ישירות בתוך הקריאה עובד רק בלי פסיק: הבדיקה קוראת את הארגומנט
+  הראשון עד הפסיק הראשון, ולכן `anchorHtml('היי גבריאלה, הגעתי מהאתר…', …)`
+  נקרא כ-`'היי גבריאלה` ונכשל. הודעה עם פסיק - במשתנה `…_HELLO`.
 * "פנייה" = הודעה עם היסטוריה ריקה (ראשונה, או אחרי 12 שעות שקט). שינוי
   `PUBLIC_IDLE_RESET_HOURS` משנה גם את מה שהפאנל סופר.
 
@@ -577,6 +594,13 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 את הכלי שומר/ת על שלושה: הזהות היא `ctx.agent.id` ולא פרמטר, הכלי נקרא רק בבקשה
 מפורשת למנטור, והוא לא נכנס ל-`EMAIL_TOOLS` ול-`MEDIA_TOOLS` (‏`office_coach_test.ts`
 בודק). ‏`docs/coaches.md`, "שאל את המנטור".
+
+## צוות ההטמעה - תור שלישי, נפרד
+
+אחרי זיהוי הסוכנים ולפני הבוט הציבורי, `index.ts` בודק `csm_staff` לפי `phone_e164`
+ומעביר ל-`handleCsmMessage` (`csm-chat.ts`): פרומפט, היסטוריה וכלים משלו. **שום כלי
+או הוראה שלו לא נכנסים ל-`agent.ts`** - זה משנה את המטמון של כל הסוכנים ופותח לה
+כלים של סוכנים. ההיכרות שלו נוסח קבוע (`csmCapabilities`). הסקיל `csm-adoption`.
 
 ## לפני הדחיפה
 

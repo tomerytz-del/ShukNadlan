@@ -1,6 +1,6 @@
 ---
 name: agreement-signing
-description: עבודה על החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, ה-Edge Function agreement-sign, האימות לפני הצגת ההסכם (הודעת וואטסאפ נכנסת "אימות חתימה", קוד במייל, תבנית AUTHENTICATION עתידית), חתימה פנים מול פנים לפי ה-JWT של הסוכן/ת, prepare_agreement בבוט, והנעילה של גוף המסמך. Use when a signer is stuck on the verification screen, when "הקישור אינו תקין" appears on a valid link, when touching sign.html / agreement-sign / agreement-wa-verify.ts / whatsapp-otp.ts / prepare_agreement, when adding a verification channel, when changing how the WhatsApp webhook routes inbound messages, or when touching an ID-number (ת.ז.) field in a signing form, the agreement wizard, the client card, the agent profile or office opening (assets/il-id.js, "המספר נכון - לאשר בכל זאת"). Also when anything reads or writes an ID number: agents' IDs are encrypted (id_number_enc, my_id_number / member_id_number), clients' IDs are never stored (self_fill only, typed on the signing page), and a signed agreement opens only through agreement_open, which logs the view.
+description: החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, agreement-sign, האימות לפני הצגת ההסכם (וואטסאפ נכנסת, קוד במייל), חתימה פנים מול פנים, prepare_agreement, ות.ז. Use when a signer is stuck on verification or sees "הקישור אינו תקין", when touching sign.html / agreement-sign / agreement-wa-verify.ts / prepare_agreement, when adding a verification channel, or when anything reads or writes an ID number (id_number_enc, assets/il-id.js, agreement_open).
 ---
 
 # החתמת לקוחות על הסכם
@@ -120,11 +120,15 @@ description: עבודה על החתמת לקוחות על הסכמי תיווך 
   אינו חוסם: `agrMissingItems` שואלת שוב לפני השליחה.
 - דרכון אינו נבדק (`data-il-id="off"`), ושדה `readOnly` (מולא מראש) גם לא.
 - שדה ת.ז. חדש: `data-il-id` + `IlId.check(input)` לפני השליחה, ושורה בטבלה במסמך.
-- **בבוט** הבדיקה יושבת ב-`missingForAgreement` (‏`_shared/il-id.ts`, תאום של
-  `assets/il-id.js` - אלגוריתם אחד בשני קבצים, משנים יחד), והעקיפה היא
-  `client_id_confirmed` / `extra_signers[].id_confirmed`. הפרומפט אוסר לסמן
-  אותה בלי אישור מפורש של הסוכן/ת - מודל ש"מתקן" ספרה או מאשר לבד הוא בדיוק
-  הכשל השקט: ההסכם נוצר, ננעל, ונראה תקין.
+- **בבוט** הבדיקה יושבת ב-`missingForAgreement` (‏`_shared/agreement-build.ts`),
+  והאלגוריתם ב-`ilIdStatus` (‏`_shared/il-id.ts`, תאום של `assets/il-id.js` -
+  אלגוריתם אחד בשני קבצים, משנים יחד). **הבוט אינו מקבל ת.ז. של לקוח/ה כלל:**
+  ‏`prepare_agreement` בונה את הלקוח/ה ואת כל `extra_signers` (‏`full_name`,
+  ‏`phone`, ‏`email` בלבד) כ-`self_fill` עם `id_number: ""`, והת.ז. מוקלדת בדף
+  החתימה. הבדיקה בבוט חלה רק על ת.ז. שכבר מולאה - בפועל של הסוכן/ת
+  (‏`member_id_number`). העקיפה `id_confirmed` קיימת בחותם/ת (‏`AgreementSigner`)
+  ובדף החתימה, לא כפרמטר של הבוט. מי שמוסיף/ה לבוט שדה ת.ז. של לקוח/ה שובר/ת
+  את הכלל ש"של לקוחות לא נשמרת".
 
 ## חותם/ת שמשלים/ה פרטים בקישור (`self_fill`)
 

@@ -41,6 +41,8 @@ on:
     paths:
       - "supabase/migrations/*.sql"
       - "scripts/check_function_grants.py"
+      - "scripts/check_table_grants.py"
+      - "scripts/check_table_grants_test.py"
       - ".github/workflows/function_grants.yml"
   workflow_dispatch:
 
@@ -60,3 +62,15 @@ jobs:
       # הפלט מצביע על הקובץ, על השורה ועל שורת ה-revoke שחסרה.
       - name: בדיקת הרשאות פונקציות
         run: python3 scripts/check_function_grants.py
+
+      # ‏ומאותה משפחה, בכיוון ההפוך: מ-30.10.2026 Supabase אינה מעניקה
+      # הרשאות לטבלה חדשה ב-public, ולכן טבלה או view חדשים חייבים grant
+      # או revoke מפורש ל-anon, ל-authenticated ול-service_role. באותו job
+      # ולא ב-workflow חדש, כדי שהבדיקה הנדרשת הקיימת תכסה גם אותה.
+      # הבדיקה העצמית קודם: היום אין אף טבלה אחרי הסף, ולכן ההרצה על
+      # הריפו עוברת גם כשה-regex שבור.
+      - name: בדיקה עצמית - הרשאות טבלאות
+        run: python3 scripts/check_table_grants_test.py
+
+      - name: בדיקת הרשאות טבלאות חדשות
+        run: python3 scripts/check_table_grants.py

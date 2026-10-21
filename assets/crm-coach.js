@@ -47,6 +47,19 @@ const COACH_PRIORITY = {
 const coachState = { agent: undefined, team: undefined, office: undefined };
 /* מי מצייר מחדש אחרי "בוצע" - כל דאשבורד רושם את שלו */
 const coachRerender = {};
+/* ציור מחדש של כל מקום שמציג את המנטור: הדאשבורד של אותו kind, ושכבת
+   "המנטור שלי" מדף הבית כשהיא פתוחה (coachLayerRender למטה). */
+function coachRepaint(kind){
+  if (coachRerender[kind]) coachRerender[kind]();
+  coachLayerRender();
+  // הצעדים בכרטיס הגיבור בדף הבית (crm-home.js)
+  if (kind === 'agent' && typeof homeMentorSteps === 'function') homeMentorSteps();
+}
+function coachRepaintAll(){
+  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachLayerRender();
+  if (typeof homeMentorSteps === 'function') homeMentorSteps();
+}
 /* "שאל את המנטור" (coach-ask): השאלה האחרונה והתשובה לכל מאמן, עד רענון הדף */
 const coachAsk = { agent: {}, team: {}, office: {} };
 /* הטון שהקורא/ת בחר/ה (coach_preferences, 20270615100000): 'warm' | 'direct'.
@@ -140,7 +153,9 @@ async function coachLoad(kind, teamId){
   }
   const { data, error } = await q;
   coachState[kind] = error ? false : ((data && data[0]) || null);
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
+  // כפתור "המנטור" בסרגל ובתפריט מופיע לפי מה שנטען (coachLayerKinds)
+  if (typeof scheduleNavCounts === 'function') scheduleNavCounts();
 }
 
 /* ---------- הטון והוותק ---------- */
@@ -150,7 +165,7 @@ async function coachToneLoad(){
   if (!data) return;
   coachTone = data.tone === 'direct' ? 'direct' : 'warm';
   coachExp = COACH_EXP.some(x => x.key === data.experience) ? data.experience : null;
-  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachRepaintAll();
 }
 
 /* אופטימי, כמו "בוצע": הכרטיס מתעדכן מיד, ושגיאה מחזירה אותו. ‏upsert של
@@ -160,12 +175,12 @@ async function coachPrefSave(field, value){
   if (!currentAgent || value === cur) return;
   const set = v => { if (field === 'tone') coachTone = v; else coachExp = v; };
   set(value);
-  Object.values(coachRerender).forEach(fn => fn && fn());
+  coachRepaintAll();
   const { error } = await sb.from('coach_preferences')
     .upsert({ agent_id: currentAgent.id, [field]: value, updated_at: new Date().toISOString() }, { onConflict: 'agent_id' });
   if (error){
     set(cur);
-    Object.values(coachRerender).forEach(fn => fn && fn());
+    coachRepaintAll();
     showToast('לא נשמר: ' + heErr(error));
   }
 }
@@ -193,17 +208,23 @@ function coachSub(kind, row){
 }
 
 const COACH_EMPTY = {
-  // מאמן הסוכן/ת לא מציג "יגיע מחר": הוא נדלק בהדרגה (AGENT_COACH_ENABLED),
-  // והבטחה שלא מתקיימת גרועה מכרטיס שלא קיים. ראו coachCardHtml.
+  // מאמן הסוכן/ת לא מבטיח "יגיע מחר": הוא נדלק בהדרגה (AGENT_COACH_ENABLED),
+  // ונכתב רק למי שהייתה לו/ה תנועה ב-14 יום (agent_coach_due). אבל השאלה
+  // החופשית עובדת גם בלי סיכום (coach-ask), ולכן הכרטיס קיים ומציע אותה -
+  // תומר, 18.10.2026: המנטור צריך מקום בשימוש היומיומי.
+  agent:  'עוד אין סיכום יומי בחשבון שלך. כשיהיה, הוא יופיע כאן בבוקר עם עד שלושה צעדים להיום. בינתיים אפשר לשאול את המנטור כל שאלה מקצועית.',
   team:   'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד בצוות בשבוע שעבר, מה תקוע, שלושה צעדים לשבוע וסדר יום לישיבת הצוות.',
   office: 'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד במשרד בשבוע שעבר, מה תקוע, ועד שלוש החלטות לשבוע הזה.',
 };
 
-const COACH_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>';
+/* הדמות של המנטור: אווטאר עגול (assets/mentor-avatar.webp, נחתך מתמונה
+   שנוצרה ב-AI). השם נשאר "המנטור" - בלי שם פרטי ובלי ביוגרפיה, כדי שלא
+   ייראה כמו איש מקצוע אמיתי שכותב. ‏alt ריק: השם כתוב ממילא בכותרת שלידה. */
+const COACH_FACE = '<img class="coach-ava" src="/assets/mentor-avatar.webp" width="48" height="48" alt="" decoding="async">';
 const COACH_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 
 function coachHead(kind, sub){
-  return `<div class="coach-head"><span class="coach-ico">${COACH_ICON}</span>
+  return `<div class="coach-head"><span class="coach-ico">${COACH_FACE}</span>
     <div><h2>${escapeHtml(COACH_TITLES[kind])}</h2><span class="coach-sub">${escapeHtml(sub)}</span></div></div>`;
 }
 
@@ -215,8 +236,9 @@ function coachCardHtml(kind, opts){
   if (!row || !row.summary){
     if (!COACH_EMPTY[kind]) return '';
     return `<section class="coach" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-      ${coachHead(kind, kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
-      <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p></section>`;
+      ${coachHead(kind, kind === 'agent' ? 'סיכום יומי אישי' : kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
+      <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p>
+      ${o.compact ? '' : coachAskHtml(kind, [])}</section>`;
   }
   const s = row.summary;
   const disclaimer = '<p class="coach-note">נכתב אוטומטית מהמספרים. כדאי לבדוק לפני שפועלים.</p>';
@@ -278,6 +300,18 @@ function coachCardHtml(kind, opts){
   </section>`;
 }
 
+/* המנטור בראש הדאשבורד, ולצדו הבלוק של "מה דורש טיפול" (design/
+   Desktop-TeamLead, ‏Desktop-Office, ‏Desktop-Performance). עד 18.10.2026 הוא
+   ישב מתחת לפתיח ולשורת המדדים - בדאשבורד המשרד 900px ויותר מראש הדאשבורד,
+   כלומר מתחת למסך. בלי סיכום (הכרטיס ריק) מחזיר null, והדאשבורד מצייר את
+   הבלוק במקומו הרגיל. ‏side ריק - המנטור לבד, ברוחב מלא. */
+function coachLeadHtml(kind, side){
+  const card = coachCardHtml(kind);
+  if (!card) return null;
+  if (!side) return `<div class="coach-lead is-solo">${card}</div>`;
+  return `<div class="coach-lead">${card}<div class="coach-lead-side">${side}</div></div>`;
+}
+
 /* ---------- "שאל את המנטור" ----------
    שאלה חופשית מול הסיכום והמספרים של אותו מאמן (supabase/functions/coach-ask,
    שלב 8). תשובה בלבד - המאמן לא מבצע פעולות. מכסה יומית לחשבון; הקוד
@@ -296,18 +330,18 @@ function coachAskHtml(kind, questions){
   return `<div class="coach-ask">
     <form class="coach-ask-form" data-coach-ask="${kind}">
       <label class="sr-only" for="${id}">שאלה למנטור</label>
-      <input id="${id}" type="text" maxlength="300" autocomplete="off" placeholder="שאלה למנטור..."
-        value="${escapeHtml(st.draft || '')}"${st.busy ? ' disabled' : ''}>
+      <textarea id="${id}" maxlength="300" autocomplete="off" placeholder="שאלה למנטור..." enterkeyhint="send"
+        rows="${String(st.draft || '').length > 40 ? 3 : 1}"${st.busy ? ' disabled' : ''}>${escapeHtml(st.draft || '')}</textarea>
       <button type="submit" aria-label="שליחת השאלה"${st.busy ? ' disabled' : ''}>←</button>
     </form>
     ${sugg.length && !st.q ? `<div class="coach-ask-sugg">${sugg.map(q =>
       `<button type="button" data-coach-q="${kind}" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
-    ${st.q ? `<div class="coach-ask-out" aria-live="polite">
-      <p class="coach-ask-q">${escapeHtml(st.q)}</p>
-      ${st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
+    ${st.q ? `<div class="coach-ask-out${st.folded ? ' is-folded' : ''}" aria-live="polite">
+      <div class="coach-ask-head"><p class="coach-ask-q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>
+      ${st.folded ? '' : st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
         : st.err ? `<p class="coach-ask-a is-err">${escapeHtml(st.err)}</p>`
         : `<p class="coach-ask-a">${escapeHtml(st.a || '')}</p>`}
-      ${st.remaining != null && !st.busy ? `<p class="coach-ask-left">${st.remaining
+      ${st.remaining != null && !st.busy && !st.folded ? `<p class="coach-ask-left">${st.remaining
         ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : ''}
     </div>` : ''}
     <div class="coach-tone" role="group" aria-label="סגנון המנטור" title="${escapeHtml(toneNote)}">
@@ -318,8 +352,18 @@ function coachAskHtml(kind, questions){
       <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
       ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
     </div>` : ''}
-    ${kind === 'agent' ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
+    ${kind === 'agent' && typeof assistantTierOk === 'function' && assistantTierOk()
+      ? '<p class="coach-ask-left">אפשר לשאול את המנטור גם בוואטסאפ, דרך גבריאלה</p>' : ''}
   </div>`;
+}
+
+/* תשובה ארוכה תפסה את כל המסך בדף הבית בטלפון, ולא הייתה דרך להקטין אותה
+   (19.10.2026). הכפתור מקפל אותה לשורת השאלה ופותח שוב; שאלה חדשה נפתחת
+   תמיד. בזמן שהמנטור חושב אין מה לקפל. */
+function coachFoldBtn(kind, st){
+  if (st.busy) return '';
+  return `<button type="button" class="coach-ask-fold" data-coach-fold="${kind}" aria-expanded="${!st.folded}">`
+    + (st.folded ? 'הצגת התשובה' : 'צמצום') + '</button>';
 }
 
 async function coachAskSend(kind, question){
@@ -327,8 +371,8 @@ async function coachAskSend(kind, question){
   const st = coachAsk[kind];
   if (!q || st.busy) return;
   if (q.length < 3){ showToast('צריך לכתוב שאלה של כמה מילים לפחות.'); return; }
-  Object.assign(st, { q, a: '', err: '', busy: true, draft: '' });
-  if (coachRerender[kind]) coachRerender[kind]();
+  Object.assign(st, { q, a: '', err: '', busy: true, draft: '', folded: false });
+  coachRepaint(kind);
   try{
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw { code: 'session_not_found', message: 'session_not_found' };
@@ -348,7 +392,7 @@ async function coachAskSend(kind, question){
     st.err = heErr(err);
   }
   st.busy = false;
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
 }
 
 /* ---------- "סמן כבוצע" ----------
@@ -360,7 +404,7 @@ async function coachToggleDone(kind, i){
   const before = (row.actions_done || []).slice();
   const on = !before.map(Number).includes(i);
   row.actions_done = on ? before.concat(i) : before.filter(x => Number(x) !== i);
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
   const { data, error } = await sb.rpc('coach_action_done', { p_kind: kind, p_summary_id: row.id, p_index: i, p_done: on });
   if (error){
     row.actions_done = before;
@@ -368,7 +412,7 @@ async function coachToggleDone(kind, i){
   } else {
     row.actions_done = data || [];
   }
-  if (coachRerender[kind]) coachRerender[kind]();
+  coachRepaint(kind);
 }
 
 /* ---------- נושאים שחסרים למנטור (מנהל/ת פלטפורמה) ----------
@@ -428,6 +472,12 @@ async function loadCoachGaps(){
     if (expBtn){ coachPrefSave('experience', expBtn.dataset.coachExp); return; }
     const sugg = e.target.closest('[data-coach-q]');
     if (sugg){ coachAskSend(sugg.dataset.coachQ, sugg.dataset.q); return; }
+    const fold = e.target.closest('[data-coach-fold]');
+    if (fold){
+      const st = coachAsk[fold.dataset.coachFold];
+      if (st){ st.folded = !st.folded; coachRepaint(fold.dataset.coachFold); }
+      return;
+    }
     const meet = e.target.closest('[data-coach-meeting]');
     if (meet){
       const row = coachState.team;
@@ -441,7 +491,16 @@ async function loadCoachGaps(){
     const form = e.target.closest('[data-coach-ask]');
     if (!form) return;
     e.preventDefault();
-    coachAskSend(form.dataset.coachAsk, form.querySelector('input').value);
+    coachAskSend(form.dataset.coachAsk, form.querySelector('textarea').value);
+  });
+  /* השדה הוא textarea (שאלה מוכנה מכרטיס הליד ארוכה משורה), ולכן Enter שולח
+     ו-Shift+Enter יורד שורה - כמו בשדה של שורה אחת */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+    const form = e.target.closest && e.target.closest('[data-coach-ask]');
+    if (!form || e.target.tagName !== 'TEXTAREA') return;
+    e.preventDefault();
+    coachAskSend(form.dataset.coachAsk, e.target.value);
   });
   /* מה שהוקלד נשמר כשהדאשבורד מצויר מחדש (למשל אחרי "בוצע") */
   document.addEventListener('input', e => {
@@ -449,3 +508,321 @@ async function loadCoachGaps(){
     if (form) coachAsk[form.dataset.coachAsk].draft = e.target.value;
   });
 })();
+
+/* ---------- "המנטור שלי": השכבה מדף הבית (HANDOFF 6.8) ----------
+   design/Mobile-Coach.dc.html: "הצעדים של היום" בשורת המנטור בדף הבית
+   (#homeCoachRow, למטה) פותח שכבה עם הכרטיס המקוצר (שני צעדים), ולמנהלים מתג בין המנטורים:
+   "אני כסוכן/ת" / "הצוות שלי" / "המשרד שלי". הכרטיס המלא, עם "שאל את
+   המנטור", נשאר בדאשבורד של אותו kind, ולכן בתחתית יש קישור אליו.
+
+   **הכפתור מוצג רק כשיש מה לפתוח.** מנטור הסוכן/ת נדלק בהדרגה
+   (AGENT_COACH_ENABLED), וסוכן/ת בלי סיכום לא רואה כפתור שמוביל להבטחה.
+   למנהלים יש תמיד מה להציג: הסיכום, או "הסיכום הראשון יגיע ביום ראשון".
+   מנהל/ת שאינו/ה סוכן/ת פעיל/ה (my_roles().is_active_agent) לא מקבל/ת את
+   הלשונית האישית. */
+const COACH_LAYER_TABS = { agent:'אני כסוכן/ת', team:'הצוות שלי', office:'המשרד שלי' };
+const COACH_LAYER_DASH = { agent:'accMyDashboard', team:'accTeamDashboard', office:'accOfficeDashboard' };
+let coachLayerKind = null;
+const coachLayerBusy = {};
+
+function coachRoles(){
+  return typeof myRoles !== 'undefined' ? myRoles : null;
+}
+
+function coachLayerKinds(){
+  if (typeof dashView !== 'undefined' && dashView !== 'agent') return [];
+  if (!currentAgent) return [];
+  const roles = coachRoles();
+  const kinds = [];
+  const a = coachState.agent;
+  // המנטור האישי: לכל סוכן/ת פעיל/ה, גם בלי סיכום - השאלה עובדת בלעדיו.
+  // ‏undefined = טרם נטען, false = הטבלה לא נקראה (מסד בלי המיגרציה)
+  if (!(roles && roles.is_active_agent === false) && a !== undefined && a !== false) kinds.push('agent');
+  if (roles && roles.led_team_id && navAccVisible('accTeamDashboard')) kinds.push('team');
+  if (currentAgent.role === 'manager' && navAccVisible('accOfficeDashboard')) kinds.push('office');
+  return kinds;
+}
+
+/* ---------- "שאל את המנטור" בחזית דף הבית (#homeCoachRow) ----------
+   השאלה הייתה רחוקה שלושה קליקים וגלילה (תומר, 18.10.2026): השדה ישב רק
+   בכרטיס המלא בדאשבורד. כאן היא שורה אחת מתחת לברכה, והתשובה מוצגת מתחתיה.
+   אותו coachAskSend ואותו מצב (coachAsk) של הכרטיס - ולכן אותה מכסה, ושאלה
+   ששאלת כאן מופיעה גם בכרטיס בדאשבורד.
+
+   המנטור שנשאל: הראשון ב-coachLayerKinds (האישי, ואם אין - הצוות או המשרד).
+   ‏**המבנה נבנה פעם אחת ב-HTML**: homeCoachSync רץ עם כל ציור של דף הבית
+   (refreshNavCounts), וציור מחדש של השדה היה מוחק את מה שמוקלד ואת המיקוד.
+   כאן מתעדכנים רק התשובה והנראות.
+
+   **שורה אחת:** אווטאר (פותח את השכבה - הצעדים והשיחה), שדה ושליחה. השאלות
+   המוצעות מוקלדות בתוך השדה ומתחלפות (homeAskTyper), במקום שורת כפתורים
+   ו"עוד מהמנטור" מתחתיו - תומר, 19.10.2026: "לצמצם את השורה הנוספת ולגוון
+   את השאלות". שליחה בשדה ריק שולחת את השאלה שמוצגת בו. */
+/* שאלות של יום עבודה, לצד המקצועיות של COACH_PRO_Q - כדי שיהיה ברור שהמנטור
+   עונה גם על "מה עושים עכשיו" ולא רק על נושאים */
+const COACH_DAILY_Q = {
+  agent:  ['מה לכתוב בהודעה ראשונה לליד חדש?', 'איך חוזרים לליד שלא ענה?', 'איך מבקשים בלעדיות בלי להישמע לחוץ?',
+           'מה עונים ל"העמלה גבוהה מדי"?', 'איך מתמחרים דירה כשהבעלים רוצה יותר מהשוק?', 'מה לבדוק לפני סיור עם קונה?'],
+  team:   ['איך מעלים את זמן התגובה של הצוות?', 'מה לעשות עם סוכן שלא מגייס בלעדיות?'],
+  office: ['איך מגייסים סוכן טוב למשרד?', 'איך מודדים אם המשרד בכיוון הנכון?'],
+};
+
+function homeAskKind(){
+  return coachLayerKinds()[0] || null;
+}
+
+/* השאלות שמוקלדות בשדה: עד שתיים מהסיכום של היום, ואחריהן היומיומיות
+   והמקצועיות, בסדר שמתחלף לפי היום - כדי שכל ביקור יתחיל משאלה אחרת. */
+function homeAskPhrases(){
+  const kind = homeAskKind();
+  if (!kind) return [];
+  const row = coachState[kind];
+  const fromSum = row && row.summary && Array.isArray(row.summary.questions) ? row.summary.questions.slice(0, 2) : [];
+  const pool = [...(COACH_DAILY_Q[kind] || []), ...(COACH_PRO_Q[kind] || [])];
+  const day = Math.floor(Date.now() / 86400000);
+  const turned = pool.length ? pool.map((_, n) => pool[(n + day) % pool.length]) : [];
+  return [...new Set([...fromSum, ...turned])].filter(Boolean);
+}
+
+function homeCoachSync(){
+  const row = document.getElementById('homeCoachRow');
+  if (!row) return;
+  const kind = homeAskKind();
+  row.hidden = !kind;
+  if (!kind) return;
+  row.dataset.kind = kind;
+  const st = coachAsk[kind] || {};
+  homeAskTyper.start();
+
+  const send = row.querySelector('.home-ask-send');
+  const input = document.getElementById('homeAskInput');
+  if (send) send.disabled = !!st.busy;
+  if (input) input.disabled = !!st.busy;
+
+  const out = document.getElementById('homeAskOut');
+  if (out){
+    out.hidden = !st.q;
+    if (st.q){
+      out.classList.toggle('is-folded', !!st.folded);
+      out.innerHTML = `<div class="head"><p class="q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>`
+        + (st.folded ? '' : st.busy ? '<p class="a is-busy">המנטור חושב…</p>'
+          : st.err ? `<p class="a is-err">${escapeHtml(st.err)}</p>`
+          : `<p class="a">${escapeHtml(st.a || '')}</p>`)
+        + (st.remaining != null && !st.busy && !st.folded ? `<p class="left">${st.remaining
+            ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : '');
+    }
+  }
+}
+
+/* ---------- השאלות המתחלפות בשדה ----------
+   אותה מכונה כמו בחיפוש בדף הבית של האתר (assets/sentence-search.js, typer):
+   אות אחר אות עם עצירה בין מילים, החזקה, מחיקה ומעבר לבאה. השכבה יושבת מעל
+   שדה ריק ולא בתוך ה-placeholder, כדי שקורא מסך ישמע את התווית פעם אחת.
+   נעצרת בפוקוס, כשיש טקסט, בלשונית מוסתרת, כשהשורה מחוץ למסך או מוסתרת.
+   ‏prefers-reduced-motion: השאלה השלמה מתחלפת כל 3.5 שניות, בלי הקלדה. */
+const homeAskTyper = (function(){
+  const CHAR_MS = 45, WORD_PAUSE = 140, HOLD_MS = 2200, DEL_MS = 18, GAP_MS = 380, SWAP_MS = 3500;
+  let i = Math.floor(Date.now() / 86400000), timer = 0, running = false, visible = true, wired = false, shown = '';
+  const el = () => ({
+    row: document.getElementById('homeCoachRow'),
+    input: document.getElementById('homeAskInput'),
+    out: document.querySelector('#homeCoachRow .home-ask-text'),
+    field: document.querySelector('#homeCoachRow .home-ask-field'),
+  });
+  const noMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function blocked(){
+    const e = el();
+    return !e.out || !e.row || e.row.hidden || document.hidden || !visible
+      || document.activeElement === e.input || e.input.value !== '' || e.input.disabled || !homeAskPhrases().length;
+  }
+  function sync(){
+    const e = el();
+    if (!e.field) return;
+    e.field.classList.toggle('has-value', !!e.input && e.input.value !== '');
+    e.field.classList.toggle('is-typing', running);
+  }
+  function stop(){ running = false; shown = ''; clearTimeout(timer); sync(); }
+  function phrase(){ const l = homeAskPhrases(); return l[i % l.length]; }
+  function type(n){
+    if (blocked()) return stop();
+    const p = phrase();
+    el().out.textContent = p.slice(0, n);
+    if (n >= p.length){ shown = p; timer = setTimeout(() => erase(p.length), HOLD_MS); return; }
+    timer = setTimeout(() => type(n + 1), CHAR_MS + (p.charAt(n) === ' ' ? WORD_PAUSE : 0));
+  }
+  function erase(n){
+    if (blocked()) return stop();
+    shown = '';
+    const out = el().out;
+    out.textContent = out.textContent.slice(0, n);
+    if (n <= 0){ i++; timer = setTimeout(() => type(0), GAP_MS); return; }
+    timer = setTimeout(() => erase(n - 1), DEL_MS);
+  }
+  function swap(){
+    if (blocked()) return stop();
+    shown = phrase();
+    el().out.textContent = shown;
+    i++;
+    timer = setTimeout(swap, SWAP_MS);
+  }
+  function wire(){
+    const e = el();
+    if (wired || !e.input || !e.field) return;
+    wired = true;
+    e.input.addEventListener('focus', stop);
+    e.input.addEventListener('input', () => { if (e.input.value !== '') stop(); sync(); });
+    e.input.addEventListener('blur', () => { sync(); setTimeout(start, 600); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+    if ('IntersectionObserver' in window){
+      new IntersectionObserver(en => { visible = en[0].isIntersecting; if (visible) start(); else stop(); }).observe(e.field);
+    }
+  }
+  function start(){
+    wire();
+    if (running || blocked()) return;
+    running = true; sync();
+    if (noMotion()) swap(); else type(0);
+  }
+  return { start, stop, current: () => shown };
+})();
+
+function homeAskSubmit(question){
+  const kind = homeAskKind();
+  if (!kind) return;
+  const input = document.getElementById('homeAskInput');
+  // שדה ריק: השאלה שמוצגת בו עכשיו (מוקלדת עד הסוף) - לחיצה על השליחה
+  // היא "כן, את זה"
+  const q = String(question || '').trim() || homeAskTyper.current();
+  if (!q){ if (input) input.focus(); return; }
+  if (input && q.length >= 3) input.value = '';
+  homeAskTyper.stop();
+  coachAskSend(kind, q);
+}
+
+async function coachLayerEnsure(kind){
+  if (coachState[kind] !== undefined || coachLayerBusy[kind]) return;
+  coachLayerBusy[kind] = true;
+  coachLayerRender();
+  const roles = coachRoles();
+  try { await coachLoad(kind, kind === 'team' ? roles && roles.led_team_id : undefined); }
+  catch(e){ coachState[kind] = false; }
+  coachLayerBusy[kind] = false;
+  coachLayerRender();
+}
+
+function openCoachLayer(){
+  if (navLayer === 'coach') return;
+  const kinds = coachLayerKinds();
+  if (!kinds.length) return;
+  closeMenuPanel();
+  if (!kinds.includes(coachLayerKind)) coachLayerKind = kinds[0];
+  const el = navLayerShow('coachSheet', 'coach');
+  if (!el) return;
+  coachLayerRender();
+  coachLayerEnsure(coachLayerKind);
+  const first = el.querySelector('.cl-tab[aria-selected="true"], .nl-close');
+  if (first) first.focus({ preventScroll:true });
+}
+
+function closeCoachLayer(){
+  navLayerHide('coachSheet', 'coach');
+}
+
+function coachLayerRender(){
+  homeCoachSync();
+  const sheet = document.getElementById('coachSheet');
+  const host = document.getElementById('coachSheetBody');
+  if (!sheet || !host || sheet.hidden) return;
+  const kinds = coachLayerKinds();
+  if (!kinds.includes(coachLayerKind)) coachLayerKind = kinds[0] || null;
+  const kind = coachLayerKind;
+  if (!kind){ closeCoachLayer(); return; }
+
+  const tabs = kinds.length > 1 ? `<div class="cl-tabs" role="tablist" aria-label="איזה מנטור">
+    ${kinds.map(k => `<button type="button" role="tab" class="cl-tab" data-cl-kind="${k}"
+      aria-selected="${k === kind}">${escapeHtml(COACH_LAYER_TABS[k])}</button>`).join('')}</div>` : '';
+
+  const row = coachState[kind];
+  let body;
+  if (row === undefined || coachLayerBusy[kind]) body = '<p class="cl-wait">טוען את המנטור…</p>';
+  else if (row === false) body = '<p class="cl-wait">לא הצלחנו לטעון את המנטור כרגע. אפשר לנסות שוב בעוד רגע.</p>';
+  else body = coachCardHtml(kind, { compact:true });
+
+  // השכבה היא הבית של המנטור: הצעדים, ומתחתם השאלה החופשית (הכרטיס המקוצר
+  // לא נושא אותה)
+  const s = row && row.summary;
+  const ask = row !== undefined && row !== false && !coachLayerBusy[kind]
+    ? `<div class="cl-ask">${coachAskHtml(kind, s && Array.isArray(s.questions) ? s.questions : [])}</div>` : '';
+  host.innerHTML = tabs + `<div role="tabpanel">${body}${ask}</div>`
+    + (navAccVisible(COACH_LAYER_DASH[kind])
+        ? `<button type="button" class="cl-more" data-cl-dash="${kind}">לדאשבורד המלא ←</button>` : '');
+}
+
+(function wireCoachLayer(){
+  document.addEventListener('submit', e => {
+    if (e.target.id !== 'homeAskForm') return;
+    e.preventDefault();
+    homeAskSubmit(document.getElementById('homeAskInput').value);
+  });
+  document.addEventListener('click', e => {
+    const open = e.target.closest('[data-home-coach-open]');
+    if (open){ e.stopPropagation(); openNavLayer('coach'); return; }
+    if (!e.target.closest('#coachSheet')) return;
+    const tab = e.target.closest('[data-cl-kind]');
+    if (tab){
+      coachLayerKind = tab.dataset.clKind;
+      coachLayerRender();
+      coachLayerEnsure(coachLayerKind);
+      const on = document.querySelector('#coachSheet .cl-tab[aria-selected="true"]');
+      if (on) on.focus({ preventScroll:true });
+      return;
+    }
+    const dash = e.target.closest('[data-cl-dash]');
+    if (dash){ closeCoachLayer(); gotoSection(COACH_LAYER_DASH[dash.dataset.clDash]); return; }
+    /* כפתור פעולה מהכרטיס עובר למסך אחר - השכבה נסגרת לפניו */
+    if (e.target.closest('[data-coach-cta]')) closeCoachLayer();
+  }, true);
+})();
+
+/* ---------- "שאל את המנטור על הליד הזה" (כרטיס הליד) ----------
+   השאלה עולה כשהליד מול העיניים, ולכן הכפתור יושב בכרטיס הליד: הוא פותח את
+   שכבת "המנטור שלי" על המנטור האישי, עם שאלה מוכנה **בשדה** - לא נשלחת לבד.
+   הסוכן/ת עורך/ת ושולח/ת, והמכסה נספרת רק אז.
+
+   **בשאלה רק מה שמתאר את הצורך, בלי מה שמזהה את הפונה:** סוג הליד, סוג
+   העסקה והנכס, כמה זמן עבר והשלב. לא שם, לא טלפון, לא ההודעה (שיכולה להכיל
+   טלפון), ולא עיר או כתובת - אותה רשימה סגורה של מה שהמנטור מקבל
+   (docs/coaches.md, "מה נשלח"). המיסוך של ליד נעול נשמר ממילא: אין כאן אף
+   שדה שהוא ממסך. */
+function coachLeadQuestion(lead){
+  const rent = lead.deal_type === 'rent';
+  const who = lead.lead_type === 'owner_inbound' ? (rent ? 'בעל/ת נכס שרוצה להשכיר' : 'בעל/ת נכס שרוצה למכור')
+    : lead.lead_type === 'agent_direct_inquiry' ? 'פנייה ישירה על נכס שלי'
+    : lead.lead_type === 'visualization' ? 'מתעניין/ת שביקש/ה הדמיה'
+    : (rent ? 'מחפש/ת דירה לשכירות' : 'מחפש/ת נכס לקנייה');
+  const type = lead.property_type ? ', ' + lead.property_type : '';
+  const ago = typeof leadAgeMinutes === 'function' ? ', נכנס ' + opsAgo(leadAgeMinutes(lead)) : '';
+  if (lead.status !== 'unlocked'){
+    return 'יש לי ליד נעול: ' + who + type + ago + '. איך להחליט אם לפתוח אותו, ומה להגיד בשיחה הראשונה?';
+  }
+  const w = typeof leadWork !== 'undefined' && leadWork.get(lead.id);
+  const stage = (w && w.stage) || 'new';
+  const where = stage === 'contacted' ? 'כבר דיברנו פעם אחת'
+    : stage === 'meeting' ? 'קבענו פגישה או סיור'
+    : 'עוד לא דיברנו';
+  return 'יש לי ליד: ' + who + type + ago + '. ' + where + '. מה הצעד הנכון עכשיו, ומה להגיד לו/ה?';
+}
+
+function coachAskAboutLead(lead){
+  if (!coachLayerKinds().includes('agent')) return;
+  coachAsk.agent.draft = coachLeadQuestion(lead);
+  coachLayerKind = 'agent';
+  openNavLayer('coach');
+  setTimeout(() => {
+    const input = document.getElementById('coachAskQ-agent');
+    if (!input) return;
+    input.focus({ preventScroll:true });
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.scrollIntoView({ block:'nearest' });
+  }, 60);
+}

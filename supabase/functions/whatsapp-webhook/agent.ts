@@ -1,9 +1,11 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
+import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -1382,9 +1384,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         service_markets: {
           type: "array",
-          items: { type: "string", enum: SERVICE_MARKET_LABELS },
-          description: "הרשימה **המלאה** של אזורי הפעילות אחרי השינוי - רק מתוך האזורים שלנו " +
-            "(פעילים ושאינם). \"תוסיף גם את חיפה\" = האזורים הקיימים (profile_get) ועוד \"חיפה והסביבה\". " +
+          // ‏**בלי enum**: הרשימה גדלה עם כל שוק חדש, ו-enum כאן היה משנה את הקידומת
+          // השמורה במטמון בכל פריסה - כתיבה מלאה (~$0.40) לכל בוט אחרי כל שוק.
+          // הרשימה מגיעה מ-profile_get (‏service_market_options), והעדכון בודק אותה.
+          items: { type: "string" },
+          description: "הרשימה **המלאה** של אזורי הפעילות אחרי השינוי - רק מתוך service_market_options " +
+            "ש-profile_get מחזיר (פעילים ושאינם). \"תוסיף גם את חיפה\" = האזורים הקיימים (profile_get) ועוד \"חיפה והסביבה\". " +
             "הסוכן/ת והמשרד מופיעים באתר בכל אזור שנבחר.",
         },
         credentials: { type: "string", description: "השכלה והסמכות, למשל \"B.A ומגשר מוסמך\". עד 80 תווים." },
@@ -3716,6 +3721,11 @@ async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<s
       .eq("city", "עפולה").eq("alias_key", key)
       .limit(1).maybeSingle();
     if (alias?.name) return String(alias.name);
+    // מילה שחסרה בהקלדה: "קינמון" הוא "יעקב קינמון" בשכבה, ו-name_key אינו
+    // מגשר על זה. סוכן שאל "מה הגוש של קינמון 9" וקיבל "לא מופיע במפות" על
+    // נכס פעיל משלו. אותו מתרגם כמו הגאוקוד - רק בהתאמה אחת ויחידה.
+    const official = await officialStreetFor(ctx.supabase, "עפולה", street);
+    if (official) return official;
   } catch (err) {
     console.warn("canonicalAfulaStreet failed", err);
   }
@@ -6157,8 +6167,9 @@ async function runTool(
  * הפיצול הוא לפי מי שהתוכן משתנה איתו:
  *
  *   ‏· כאן — ההוראות. זהות לכולם, ולכן המטמון משותף **בין כל הסוכנים**.
- *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב אחרי
- *     נקודת השבירה כדי שלא יבטל את מה שלפניו.
+ *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב **בהודעה
+ *     הנוכחית**, אחרי ההיסטוריה (‏withTurnContext, ‏prompt-cache.ts): הוא כולל את
+ *     השעה בדקות, וכבלוק שני ב-system הוא ביטל את מטמון ההיסטוריה בכל תור.
  *
  * סדר הרינדור של ה-API הוא `tools` → `system` → `messages`, ולכן נקודת
  * שבירה אחת בסוף הבלוק הזה תופסת גם את הגדרות הכלים שלפניו.
@@ -6576,6 +6587,36 @@ export async function callClaude(
 }
 
 /**
+ * שומר את המטמון של הפרומפט חי בשעות היום (‏task=cache-warm, ‏docs/platform-costs.md,
+ * "המטמון של גבריאלה"). התור הראשון אחרי שעה של שקט כותב את כל הכלים וההוראות
+ * (~40K טוקנים) למטמון של שעה - פי 2 ממחיר הקלט, כ-$0.40 על Opus 5 - במקום לקרוא
+ * אותם ב-$0.02. בקשה עם `max_tokens: 0` קוראת את אותה קידומת, מאפסת את השעון,
+ * ולא מחזירה פלט.
+ *
+ * **הקידומת חייבת להיות זהה לזו של `runAgentTurn`**: אותו מודל, אותם `TOOLS`,
+ * אותו `SYSTEM_STATIC` עם אותו `cache_control`, ואותו `effort` (הוא מרונדר לתוך
+ * הפרומפט). שינוי שם בלי כאן = בקשה שכותבת מטמון שאף תור אינו קורא.
+ */
+/** הקידומת הקבועה (כלים והוראות) - בשביל scripts/gabriela_model_eval.ts בלבד,
+ *  שמשווה מודלים מול הפרומפט האמיתי בלי להריץ כלים. */
+export function evalPromptParts(): { tools: Anthropic.Tool[]; system: string; model: string } {
+  return { tools: TOOLS, system: SYSTEM_STATIC, model: MODEL };
+}
+
+export async function warmPromptCache(): Promise<Anthropic.Message> {
+  const response = await callClaude({
+    model: MODEL,
+    max_tokens: 0,
+    output_config: { effort: "medium" },
+    system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
+    tools: TOOLS,
+    messages: [{ role: "user", content: "." }],
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming);
+  logAiUsage(anthropicRow("gabriela_agent_warm", response.model || MODEL, response.usage));
+  return response;
+}
+
+/**
  * מריץ תור אחד של שיחה: קלט הסוכן/ת -> (כלים) -> טקסט תשובה.
  * ‏conv מתעדכן במקום (pending_images / last_property_id) ונשמר על ידי הקורא.
  */
@@ -6606,15 +6647,16 @@ export async function runAgentTurn(opts: {
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
 
+  // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
-    ...conv.history,
-    { role: "user", content: userContent },
+    ...historyWithBreakpoint(conv.history),
+    // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps), userContent) },
   ];
 
   let finalText = "";
-  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות. נשמר כדי שאפשר יהיה
-  // להסיר ממנו את הסימון לפני שמסמנים את הבא — ראו ההסבר בלולאה.
-  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
+  // שתי נקודות השבירה האחרונות בלולאה - ראו ההסבר בלולאה וב-prompt-cache.ts
+  const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -6628,16 +6670,15 @@ export async function runAgentTurn(opts: {
       // בצ'אט נעשית מורגשת — לחזור ל-low ולהצר את רשימת הכלים, לא לוותר על
       // הדיוק.
       output_config: { effort: "medium" },
-      // שני בלוקים, ונקודת שבירה אחת ביניהם. סדר הרינדור הוא
-      // ‏tools → system → messages, ולכן ה-`cache_control` כאן תופס **גם את
-      // עשרים ותשעה הגדרות הכלים שלפניו** — יחד זה הרוב המוחלט של הקלט.
-      // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
+      // בלוק אחד, קבוע. סדר הרינדור הוא tools → system → messages, ולכן
+      // ה-`cache_control` כאן תופס **גם את הגדרות הכלים שלפניו** — יחד זה הרוב
+      // המוחלט של הקלט. ההקשר המשתנה (‏sessionContext) יושב בהודעה הנוכחית,
+      // אחרי ההיסטוריה (‏withTurnContext, ‏prompt-cache.ts). ראו SYSTEM_STATIC.
       system: [
         // ‏**ttl של שעה** (14.10.2026): בחמש הדקות של ברירת המחדל 41% מהתורים
         // התחילו בלי מטמון (‏cache_read=0, ‏~15K טוקנים מעובדים מחדש) - ההודעות
         // דלילות. הכתיבה יקרה מעט יותר, הקריאה זולה בהרבה, והתור הראשון מהיר.
         { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } },
-        { type: "text", text: sessionContext(agent, conv, gaps) },
       ],
       tools,
       messages,
@@ -6700,23 +6741,17 @@ export async function runAgentTurn(opts: {
     // יכול להחזיר מאתיים שורות — והיא נשלחת שוב בכל סבב שאחריה. בתור עם
     // ארבעה סבבים, התוצאה של הסבב הראשון משולמת ארבע פעמים.
     //
-    // **חייבים לנקות את הקודמת.** ל-API יש תקרה של ארבע נקודות שבירה
-    // לבקשה; סימון מצטבר היה עובר אותה בסבב הרביעי ומפיל את הבקשה כולה
-    // בשגיאה — כלומר תור ארוך היה נשבר דווקא אחרי שכבר נעשתה עבודה.
-    // הסרת הסימון הקודם אינה מאבדת את המטמון: התחילית הקצרה יותר עדיין
-    // תקפה, והסימון החדש רק מרחיב אותה.
+    // **שתיים, לא אחת ולא מצטבר.** ל-API יש תקרה של ארבע נקודות שבירה
+    // לבקשה (ההוראות, ההיסטוריה, ושתיים כאן); סימון מצטבר היה עובר אותה
+    // ומפיל תור ארוך בשגיאה. ונקודה אחת לא הספיקה: ה-API מחפש התאמה רק ~20
+    // בלוקים אחורה, ותור עם הרבה קריאות כלים במקביל עובר את זה - הסבב הבא
+    // כתב הכול מחדש (17 מ-36 סבבים, 18.10.2026). הנקודה על סוף הסבב הקודם
+    // היא התאמה מדויקת. ‏`RollingMarks` שומר את שתי האחרונות.
     //
     // הסימון נעשה **רק כשעומדים לקרוא שוב**, ולכן תור חד-סבבי אינו משלם על
     // כתיבה למטמון שאיש לא יקרא.
-    type Marked = { cache_control?: { type: "ephemeral" } };
-    if (rollingMark) delete rollingMark.cache_control;
-    rollingMark = null;
-
-    const last = results[results.length - 1] as (Anthropic.ToolResultBlockParam & Marked) | undefined;
-    if (last && i < MAX_TOOL_ITERATIONS - 1) {
-      last.cache_control = { type: "ephemeral" };
-      rollingMark = last;
-    }
+    const last = results[results.length - 1];
+    if (last && i < MAX_TOOL_ITERATIONS - 1) rolling.add(last as { cache_control?: { type: "ephemeral" } });
 
     messages.push({ role: "user", content: results });
   }
@@ -6728,11 +6763,13 @@ export async function runAgentTurn(opts: {
   // ההיסטוריה נשמרת כטקסט בלבד — בלי בלוקי הכלים ובלי התמונות. זה מספיק
   // כדי לפתור התייחסויות ("תוסיף לזה מרפסת"), ומונע היסטוריה שגדלה בלי גבול
   // ומצבים לא חוקיים של tool_result יתום אחרי גזימה.
-  conv.history = [
+  // גזימה במדרגות ולא slice(-HISTORY_LIMIT): חלון מחליק מזיז את תחילת
+  // ההיסטוריה בכל תור, ואז היא לא נקראת מהמטמון לעולם (prompt-cache.ts)
+  conv.history = trimHistory([
     ...conv.history,
     { role: "user", content: userSummary },
     { role: "assistant", content: finalText },
-  ].slice(-HISTORY_LIMIT);
+  ], HISTORY_LIMIT);
 
   return finalText;
 }

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>נכסים</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6FA}
+a{color:#1F5BF0}a:hover{color:#1846C2}
+button,input,select{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9DB8FF;outline-offset:2px}
+@media (max-width: 640px){[style*="padding: 40px 20px"]{padding-top:20px!important;padding-left:12px!important;padding-right:12px!important}h1{font-size:28px!important}.thumb{display:none!important}}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100%; background: #F4F6FA; font-family: Heebo, system-ui, sans-serif; color: #0E1A33; padding: 40px 20px 64px; box-sizing: border-box">
+<div style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a href="#" style="font-size: 13px; font-weight: 600; color: #5A6478; text-decoration: none">עבודה יומית ›</a>
+<h1 style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; line-height: 1.15">נכסים</h1>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33; font-size: 15px; font-weight: 600; cursor: pointer">ייבוא מקובץ</button>
+<button type="button" style="min-height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: #1F5BF0; color: #FFFFFF; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>נכס חדש</button>
+</div>
+</header>
+
+<div role="tablist" aria-label="נכסים" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{owners}}" as="o" hint-placeholder-count="2">
+<button type="button" role="tab" aria-selected="{{o.sel}}" onClick="{{o.pick}}" style="{{o.style}}">
+<span style="font-size: 16px; font-weight: 700">{{o.label}}</span>
+<span style="font-size: 13px; opacity: 0.8">{{o.sub}}</span>
+</button>
+</sc-for>
+</div>
+
+<sc-if value="{{mine}}" hint-placeholder-val="{{ true }}">
+<section aria-label="דורש תשומת לב" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{smart}}" as="q" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{q.pressed}}" onClick="{{q.toggle}}" style="{{q.style}}"><span>{{q.label}}</span><span style="{{q.countStyle}}">{{q.count}}</span></button>
+</sc-for>
+</section>
+</sc-if>
+
+<section aria-label="סינון" style="background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 8px">
+<div style="position: relative; flex: 1">
+<label for="pSearch" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">חיפוש נכס</label>
+<input id="pSearch" type="search" placeholder="רחוב, עיר, מס׳ מודעה או בעלים" style="width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 40px 0 12px; border-radius: 12px; border: 1px solid #D5DBE6; font-size: 15px; color: #0E1A33">
+<span style="position: absolute; right: 12px; top: 13px; color: #5A6478"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+</div>
+<button type="button" aria-expanded="{{advStr}}" onClick="{{toggleAdv}}" style="{{advStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>סינון</button>
+</div>
+<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{selects}}" as="f" hint-placeholder-count="5">
+<span style="position: relative; flex: none"><label for="{{f.id}}" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">{{f.label}}</label>
+<select id="{{f.id}}" style="min-height: 40px; padding: 0 10px; border-radius: 999px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 14px; color: #0E1A33"><sc-for list="{{f.opts}}" as="op" hint-placeholder-count="2"><option>{{op}}</option></sc-for></select></span>
+</sc-for>
+</div>
+<sc-if value="{{adv}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; border-top: 1px solid #EEF1F6; padding-top: 10px">
+<sc-for list="{{ranges}}" as="r" hint-placeholder-count="3">
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px"><legend style="font-size: 13px; font-weight: 700; padding: 0; margin-bottom: 6px">{{r.label}}</legend>
+<div style="display: flex; gap: 6px; align-items: center"><input type="number" aria-label="{{r.fromLabel}}" placeholder="מ-" style="width: 100%; min-width: 0; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid #D5DBE6; font-size: 14px"><span style="color: #5A6478">-</span><input type="number" aria-label="{{r.toLabel}}" placeholder="עד" style="width: 100%; min-width: 0; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid #D5DBE6; font-size: 14px"></div></fieldset>
+</sc-for>
+</div>
+</sc-if>
+</section>
+
+<sc-if value="{{notMine}}" hint-placeholder-val="{{ false }}">
+<a href="Partners.dc.html" style="text-decoration: none; color: #0E1A33; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-height: 56px">
+<span style="width: 36px; height: 36px; border-radius: 10px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">עם מי אני משתף/ת</span><span style="font-size: 13px; color: #5A6478">32 מתוך 32 משרדים באזור · אפשר להוסיף ולהסיר</span></span>
+<span style="font-size: 14px; font-weight: 700; color: #1F5BF0">ניהול</span>
+</a>
+</sc-if>
+<span style="font-size: 13px; color: #5A6478; padding: 0 4px">{{countText}}</span>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{props}}" as="p" hint-placeholder-count="7">
+<article style="{{p.card}}">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px">
+<span class="thumb" style="width: 56px; height: 56px; border-radius: 12px; background: #EEF2F8; color: #1C3A5E; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{p.icon}}"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px"><span style="font-size: 16px; font-weight: 700">{{p.type}}</span><span style="font-size: 15px; color: #3A4458">{{p.addr}}</span></span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #5A6478"><span>#{{p.id}}</span><span style="{{p.statusStyle}}">{{p.status}}</span><sc-if value="{{p.hasSrc}}" hint-placeholder-val="{{ false }}"><span>{{p.src}}</span></sc-if></span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none">
+<span style="font-family: 'Frank Ruhl Libre', serif; font-size: 19px; font-weight: 700; white-space: nowrap">{{p.price}}</span>
+<span style="font-size: 11px; color: #5A6478">{{p.priceNote}}</span>
+</div>
+<button type="button" aria-expanded="{{p.openStr}}" aria-label="{{p.openLabel}}" onClick="{{p.toggle}}" style="width: 40px; height: 40px; border-radius: 10px; border: 0; background: #F1F3F8; color: #3A4458; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{p.chev}}"><path d="m6 9 6 6 6-6"></path></svg></button>
+</div>
+<sc-if value="{{p.open}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px 14px; background: #F8F9FC; border-top: 1px solid #EEF1F6; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{p.actions}}" as="a" hint-placeholder-count="4"><a href="{{a.href}}" style="{{a.style}}">{{a.label}}</a></sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<span style="font-size: 12px; font-weight: 700; color: #5A6478">כלים לנכס:</span>
+<a href="Deals.dc.html" style="font-size: 13px; font-weight: 600; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 999px; padding: 6px 12px; text-decoration: none">עסקאות שנסגרו באזור</a>
+<a href="Planning.dc.html" style="font-size: 13px; font-weight: 600; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 999px; padding: 6px 12px; text-decoration: none">מידע תכנוני</a>
+<a href="Matches.dc.html" style="font-size: 13px; font-weight: 600; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 999px; padding: 6px 12px; text-decoration: none">לקוחות מתאימים</a>
+</div>
+</div>
+</sc-if>
+</article>
+</sc-for>
+</div>
+<button type="button" style="align-self: center; min-height: 48px; padding: 0 22px; border-radius: 12px; border: 1px solid #D5DBE6; background: #FFFFFF; font-size: 15px; font-weight: 700; color: #0E1A33; cursor: pointer">עוד 10 נכסים</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { owner: 'mine', smart: null, adv: false, open: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const I = {
+      office: 'M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2',
+      apt: 'M4 21V4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v17M2 21h20M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2',
+      house: 'M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      industry: 'M2 20h20M4 20V10l5 3V10l5 3V6h6v14',
+      shop: 'M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6'
+    };
+    const mine = [
+      { id: 1323, type: 'משרדים', addr: 'המלאכה, עפולה', icon: I.office, st: 'live', days: 0, price: '₪900,000', note: '+ מע"מ' },
+      { id: 1245, type: 'משרדים', addr: 'ארלוזורוב 17, עפולה', icon: I.office, st: 'live', days: 9, price: '₪20,000', note: 'לחודש + מע"מ' },
+      { id: 1226, type: 'מבני תעשייה', addr: 'מבואות הגלבוע', icon: I.industry, st: 'live', days: 11, price: '₪138,039', note: 'לחודש + מע"מ' },
+      { id: 1178, type: 'דירה', addr: 'קינמון 9, עפולה', icon: I.apt, st: 'live', days: 14, price: '₪1,500,000', note: '' },
+      { id: 1169, type: 'דירה', addr: 'פרץ ציוני 3, עפולה', icon: I.apt, st: 'live', days: 14, price: '₪1,390,000', note: '' },
+      { id: 1168, type: 'חנויות / שטח מסחרי', addr: 'פרץ ציוני 3, עפולה', icon: I.shop, st: 'live', days: 15, price: '₪1,320,000', note: '+ מע"מ' },
+      { id: 1301, type: 'דירה', addr: 'גלבוע 47, עפולה', icon: I.apt, st: 'archive', days: 0, price: '₪1,540,000', note: '' }
+    ];
+    const shared = [
+      { id: '[מס׳]', type: 'משרדים', addr: 'המלאכה 25, עפולה', icon: I.office, st: 'shared', src: 'יעד נדל"ן', price: '₪3,000', note: 'לחודש' },
+      { id: '[מס׳]', type: 'בית פרטי / קוטג׳', addr: 'תאשור, עפולה', icon: I.house, st: 'shared', src: 'נדל"ן צפון', price: '₪4,900,000', note: '' },
+      { id: '[מס׳]', type: 'דירה', addr: 'שדרות יצחק רבין 14, עפולה', icon: I.apt, st: 'shared', src: 'יעד נדל"ן', price: '₪1,850,000', note: '' }
+    ];
+    const isMine = s.owner === 'mine';
+    let list = isMine ? mine : shared;
+    if (isMine && s.smart === 'today') list = list.filter((p) => p.st === 'live' && p.days === 0);
+    if (isMine && s.smart === 'stale') list = list.filter((p) => p.days >= 14);
+    if (isMine && s.smart === 'archive') list = list.filter((p) => p.st === 'archive');
+    const btn = (primary) => 'min-height: 40px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; ' + (primary ? 'background: #1F5BF0; color: #FFFFFF' : 'background: #FFFFFF; color: #0E1A33; border: 1px solid #D5DBE6');
+    const props = list.map((p, i) => {
+      const key = s.owner + i;
+      const open = s.open === key;
+      let status, sst;
+      if (p.st === 'archive') { status = 'בארכיון'; sst = 'color: #5A6478; background: #F1F3F8'; }
+      else if (p.st === 'shared') { status = 'שותף איתך'; sst = 'color: #1846C2; background: #EAF0FF'; }
+      else if (p.days === 0) { status = 'עלה היום'; sst = 'color: #166534; background: #E6F4EC'; }
+      else if (p.days >= 14) { status = p.days + ' ימים בשוק'; sst = 'color: #7A5300; background: #FFF1C7'; }
+      else { status = p.days + ' ימים בשוק'; sst = 'color: #3A4458; background: #F1F3F8'; }
+      const actions = isMine
+        ? (p.st === 'archive' ? [{ label: 'החזרה לפרסום', href: '#', style: btn(true) }, { label: 'עריכה', href: '#', style: btn(false) }]
+          : [{ label: 'עריכה', href: '#', style: btn(false) }, { label: 'הקפצה ב-₪20', href: '#', style: btn(true) }, { label: 'שליחה בוואטסאפ', href: '#', style: btn(false) }, { label: 'דוח CMA לבעלים', href: '#', style: btn(false) }, { label: 'לארכיון', href: '#', style: btn(false) }])
+        : [{ label: 'פנייה לסוכן/ת', href: '#', style: btn(false) }, { label: 'שליחה ללקוח', href: '#', style: btn(true) }];
+      return {
+        id: p.id, type: p.type, addr: p.addr, icon: p.icon, price: p.price, priceNote: p.note, status, src: p.src || '', hasSrc: !!p.src,
+        statusStyle: 'font-weight: 700; border-radius: 999px; padding: 1px 8px; ' + sst,
+        card: 'background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 16px; overflow: hidden; ' + (p.st === 'archive' ? 'opacity: 0.7' : ''),
+        open, openStr: open ? 'true' : 'false', openLabel: 'פעולות: ' + p.addr,
+        toggle: () => this.setState({ open: open ? null : key }),
+        chev: 'transform: rotate(' + (open ? '180' : '0') + 'deg)', actions
+      };
+    });
+    const tab = (on) => 'display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 10px 16px; border-radius: 16px; cursor: pointer; text-align: right; ' + (on ? 'border: 0; background: #0E1A33; color: #FFFFFF' : 'border: 1px solid #E3E7EF; background: #FFFFFF; color: #0E1A33');
+    const owners = [['mine', 'הנכסים שלי', '67 מפורסמים · 2 בארכיון'], ['shared', 'שיתופים', '80 נכסים שקיבלת · משתף/ת עם 32 משרדים']].map(([id, label, sub]) => ({ label, sub, sel: s.owner === id ? 'true' : 'false', style: tab(s.owner === id), pick: () => this.setState({ owner: id, smart: null, open: null }) }));
+    const chip = (on) => 'display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; white-space: nowrap; ' + (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 700' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 600');
+    const smart = [['today', 'עלו היום', '1', false], ['stale', '14+ ימים בשוק', '3', true], ['nophoto', 'בלי תמונות', '[N]', true], ['excl', 'בלעדיות מסתיימת', '[N]', true], ['archive', 'בארכיון', '2', false]].map(([id, label, count, warn]) => ({
+      label, count, pressed: s.smart === id ? 'true' : 'false', style: chip(s.smart === id), toggle: () => this.setState({ smart: s.smart === id ? null : id, open: null }),
+      countStyle: 'min-width: 20px; height: 20px; border-radius: 999px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; ' + (warn ? 'background: #FFF1C7; color: #7A5300' : 'background: #F1F3F8; color: #3A4458')
+    }));
+    const selects = [
+      { id: 'pDeal', label: 'עסקה', opts: ['מכירה והשכרה', 'מכירה', 'השכרה'] },
+      { id: 'pType', label: 'סוג נכס', opts: ['כל סוגי הנכס', 'דירה', 'בית פרטי', 'משרדים', 'מסחרי', 'תעשייה'] },
+      { id: 'pCity', label: 'עיר', opts: ['כל הערים', 'עפולה'] },
+      { id: 'pRooms', label: 'חדרים', opts: ['כל החדרים', '1-2', '3', '4', '5+'] },
+      { id: 'pSort', label: 'מיון', opts: ['מיון: החדשים', 'מחיר: מהנמוך', 'מחיר: מהגבוה', 'הכי הרבה ימים בשוק'] }
+    ];
+    const ranges = [['מחיר (₪)', 'מחיר מ-', 'מחיר עד'], ['שטח (מ"ר)', 'שטח מ-', 'שטח עד'], ['מחיר למ"ר (₪)', 'מחיר למ"ר מ-', 'מחיר למ"ר עד']].map(([label, fromLabel, toLabel]) => ({ label, fromLabel, toLabel }));
+    return {
+      owners, smart, selects, ranges, props, mine: isMine, notMine: !isMine,
+      adv: s.adv, advStr: s.adv ? 'true' : 'false', toggleAdv: () => this.setState({ adv: !s.adv }),
+      advStyle: 'min-height: 46px; padding: 0 14px; border-radius: 12px; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex: none; ' + (s.adv ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #0E1A33'),
+      countText: 'מוצגים ' + props.length + ' מתוך ' + (isMine ? '69' : '80') + (isMine ? ' · מחירים ₪2,000 לחודש - ₪12 מיליון' : '')
+    };
+  }
+}
+</script>
+</body>
+</html>

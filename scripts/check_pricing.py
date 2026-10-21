@@ -75,6 +75,8 @@ DISPLAY = [
     ('checkout.html', r'const VAT_RATE = ' + N,                        'vat_rate'),
     # המספר הווירטואלי
     ('pricing.html', r'₪' + N + r' לחודש \+ מע״מ',                     'phone_line_monthly_price'),
+    # ‏WITH_LINE - התא של היכולות שמגיעות עם המספר (במקום "עם המספר")
+    ('pricing.html', r'בתוספת מספר וירטואלי \(₪' + N + r'\)',          'phone_line_monthly_price'),
     ('assets/tiers.js', r'₪' + N + r' לחודש \+ מע״מ',                  'phone_line_monthly_price'),
     ('pricing.html', r"'" + N + r' בחודש, ואז ₪[\d.]+ לדקה',          'phone_line_included_minutes'),
     ('pricing.html', r'כולל ' + N + r' דקות שיחה',                     'phone_line_included_minutes'),
@@ -87,6 +89,8 @@ DISPLAY = [
     ('assets/tiers.js', r'₪' + N + r' להפקה',                          'property_video_price_mid'),
     ('pricing.html', r"'" + N + r' בחודש · ללא חיוב',                  'property_video_premium_monthly_cap'),
     ('assets/tiers.js', r"'" + N + r' סרטונים שיווקיים בחודש',         'property_video_premium_monthly_cap'),
+    # האריח בסקשן "הנשק הסודי" - HTML סטטי
+    ('pricing.html', r'<b>' + N + r' סרטונים שיווקיים בחודש',          'property_video_premium_monthly_cap'),
     # לידים
     ('pricing.html', r"'" + N + r" בחודש, ואז ₪\d+'",                 'free_lead_quota_monthly'),
     ('pricing.html', r"'\d+ בחודש, ואז ₪" + N + "'",                   'ppl_price_buyer_renter'),
@@ -95,6 +99,8 @@ DISPLAY = [
     ('pricing.html', r'ומעבר\s+לזה ₪' + N + r' לפנייה',                'ppl_price_buyer_renter'),
     ('assets/tiers.js', r'₪' + N + r' לפנייה',                         'ppl_price_buyer_renter'),
     ('assets/tiers.js', r"'" + N + r' פניות בחינם בחודש',              'free_lead_quota_monthly'),
+    # ‏quotaLine של Pay&GO - שורת המכסה בתחתית הכרטיס
+    ('assets/tiers.js', r"'" + N + r' פניות בחודש כלולות',             'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
     ('assets/tiers.js', r'₪' + N + r' לליד',                           'ppl_price_owner_mid'),
 ]

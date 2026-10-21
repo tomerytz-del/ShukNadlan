@@ -53,14 +53,16 @@ const BY_DOMAIN: [string, string][] = [
   ["github.com", "github"],
   ["resend.com", "resend"],
   ["fal.ai", "fal_ai"],
+  ["replicate.com", "replicate"],
 ];
 
 /**
  * החשבוניות של morning הן חשבוניות **שאנחנו** הנפקנו (טעינות ארנק של
  * סוכנים) — הכנסה, לא הוצאה. הן מגיעות לאותה תיבה ובאותו נוסח של "חשבונית
- * מס / קבלה", ולכן נחסמות בשם ולא לפי הנוסח.
+ * מס / קבלה", ולכן נחסמות בשם ולא לפי הנוסח. ‏grow.security ("אישור תשלום
+ * משוק הנדל״ן") הוא אישור הסליקה של אותה טעינה, מהצד של הסולק.
  */
-const NEVER: string[] = ["morning.co", "greeninvoice.co.il"];
+const NEVER: string[] = ["morning.co", "greeninvoice.co.il", "grow.security"];
 
 function domainOf(email: string): string {
   return (email.split("@")[1] || "").toLowerCase();
@@ -109,13 +111,21 @@ function num(s: string): number {
   return Math.round(Number(s.replace(/,/g, "")) * 100) / 100;
 }
 
+/* סימני כיוון שמיילים בעברית שותלים בין מספר לסימן המטבע. */
+const D = "[\\s\\u200e\\u200f]*";
+const N = "([\\d,]+(?:\\.\\d{1,2})?)";
+
 /* תבניות שהן קבלה מפורשת: סכום ששולם. התאמה כאן = `confirmed`. */
 const PAID: { re: RegExp; currency: Currency }[] = [
   { re: /\$\s?([\d,]+(?:\.\d{1,2})?) has been charged/i, currency: "USD" }, // Orb
-  { re: /Amount paid\s*\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" }, // Stripe
-  { re: /We charged \$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" }, // OpenAI
+  // ‏Stripe. ‏"Amount paid -$20.00" — ב-Replicate הסכום ששולם מופיע במינוס
+  { re: /Amount paid\s*-?\s*\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" },
+  // ‏OpenAI: "We charged $20.00", ‏Twilio: "We charged the … Credit Card ( **** 3417 ) $50.00"
+  { re: /We charged [^$\n]{0,80}?\$\s?([\d,]+(?:\.\d{1,2})?)/i, currency: "USD" },
   { re: /Invoice from [^:\n]+:\s*\$\s?([\d,]+(?:\.\d{1,2})?) due/i, currency: "USD" }, // Orb, חשבונית חדשה
-  { re: /סה"כ:\s*([\d,]+(?:\.\d{1,2})?)\s*₪/, currency: "ILS" }, // Google Play
+  // ‏Google Play. ב-HTML ‏"סה&quot;כ</span>: <span>" — רווח לפני הנקודתיים אחרי htmlToText
+  { re: new RegExp(`סה["״]כ${D}:${D}${N}${D}₪`), currency: "ILS" },
+  { re: new RegExp(`התשלום שלך בסך${D}${N}${D}₪`), currency: "ILS" }, // Google Cloud
   { re: /שולם\s*([\d,]+(?:\.\d{1,2})?)/, currency: "ILS" }, // box.co.il
 ];
 
@@ -129,6 +139,23 @@ const INVOICE: RegExp[] = [
   /מספר הזמנה:\s*(GPA\.[0-9.\-]+)/,
   /Meta Invoice (\d{5,})/,
   /Receipt (?:number|#)\s*([0-9][0-9-]{3,})/,
+  /\btransaction (CX[0-9a-f]{16,})/, // Twilio
+  /סימוכין\s+(CLOUD\s+[A-Za-z0-9]+)/, // Google Cloud
+];
+
+/**
+ * מספר החשבונית מתוך הנושא, כשאין אותו בגוף (ההעברה של הסוכן של תומר שמה
+ * בגוף רק את כותרת ההעברה). רק הצורות שהן **מספר חשבונית**, כי זה מה שנשמר
+ * כבר בטבלה ושמולו נבדקת כפילות:
+ *   Orb (Netlify, Supabase, fal) — "invoice (#NWIXDA-00052)"
+ *   Stripe — "New invoice from Replicate, LLC #6P70QIZE-0001"
+ * ‏"Your receipt from Anthropic, PBC #2139-8272-9584" הוא מספר **קבלה**, שאינו
+ * מספר החשבונית שנשמר (QEKGK6A2-0003) — ולכן אינו נלקח, והכפילות שלו נתפסת
+ * לפי שירות ותאריך (‏`findDuplicate`).
+ */
+const SUBJECT_INVOICE: RegExp[] = [
+  /\(#([A-Z0-9]{4,}-\d{3,})\)/,
+  /#([A-Z0-9]{8}-\d{4})\b/,
 ];
 
 const EN_MONTH: Record<string, number> = {
@@ -158,16 +185,61 @@ export function israelDate(at: Date): string {
  */
 export function chargeDate(text: string): string | null {
   const en = text.match(
-    /(?:Paid on|Paid|Date paid|due)\s+([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s*(\d{4})/,
+    /(?:Paid on|Paid|Date paid|due)\s+([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s*(\d{4})/i,
   );
   if (en) {
     const m = EN_MONTH[en[1].slice(0, 3).toLowerCase()];
     if (m) return ymd(Number(en[3]), m, Number(en[2]));
   }
-  const he = text.match(/תאריך הזמנה:\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/);
-  if (he) {
+  // ‏Google Play: "תאריך הזמנה: 9 ביולי 2026", ‏Google Cloud: "הוחל על … בתאריך 11 באוק׳ 2026".
+  // לא "בתאריך" לבדו: בקבלה של Google Play יש גם "יתחדש אוטומטית בתאריך 9 באוג׳".
+  for (const re of [
+    /תאריך הזמנה:\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/,
+    /הוחל על [^\n]{0,80}?בתאריך\s*(\d{1,2})\s+ב-?([א-ת]+)[׳']?\s+(\d{4})/,
+  ]) {
+    const he = text.match(re);
+    if (!he) continue;
     const hit = HE_MONTH.find(([p]) => he[2].startsWith(p));
     if (hit) return ymd(Number(he[3]), hit[1], Number(he[1]));
+  }
+  // ‏ההעברה של הסוכן של תומר: "תאריך מקורי: Sun, 18 Oct 2026 09:45:32 +0000".
+  // בלעדיה כל קבלה שהועברה באצווה נרשמה ליום ההעברה.
+  const orig = text.match(/תאריך מקורי:\s*([^\n]+)/);
+  if (orig) {
+    const at = new Date(orig[1].trim());
+    if (!Number.isNaN(at.getTime())) return israelDate(at);
+  }
+  return null;
+}
+
+/** שורה קיימת ב-`platform_costs`, כפי שהיא נקראת לבדיקת כפילות. */
+export interface ExistingCost {
+  id: number;
+  amount: number | string | null;
+  invoice_no: string | null;
+  status: string;
+}
+
+/**
+ * השכבה השנייה נגד כפילות (הראשונה היא האינדקס הייחודי על
+ * ‏`(service, invoice_no)`): קבלה **בלי מספר חשבונית** מול שורה של אותו שירות
+ * באותו יום חיוב. נועדה לקבלה שנשלחת שוב בלי המספר שנשמר — קבלה של Stripe
+ * שבנושא שלה מספר קבלה ולא חשבונית, או העברה בלי גוף.
+ *
+ * קבלה **עם** מספר חשבונית אינה נבדקת כאן: המספר הוא המפתח, ושני חיובים של
+ * ‏$10 ב-Netlify באותו יום הם שתי חשבוניות ולא כפילות.
+ *
+ * ‏`rows` — השורות של אותו שירות ואותו `charged_on`. שורה היא כפולה כשלא
+ * נדחתה, והסכומים שווים או שלאחת מהן אין סכום.
+ */
+export function findDuplicate(draft: CostDraft, rows: ExistingCost[]): ExistingCost | null {
+  // ‏`other` הוא כמה ספקים שונים תחת שם אחד — שני ספקים באותו יום אינם כפילות.
+  if (draft.invoice_no || draft.service === "other") return null;
+  for (const r of rows) {
+    if (r.status === "rejected") continue;
+    const amt = r.amount === null ? null : Number(r.amount);
+    if (draft.amount !== null && amt !== null && Math.abs(draft.amount - amt) > 0.005) continue;
+    return r;
   }
   return null;
 }
@@ -199,12 +271,31 @@ export function stripForwardPrefix(subject: string): string {
  * השולח המקורי מתוך גוף של מייל שהועבר ידנית ("---------- Forwarded message
  * ---------\nFrom: Netlify <noreply@netlify.com>"). ‏**לא מאומת** — ולכן
  * נקרא רק כשמי שהעביר/ה הוא/היא מנהל/ת פלטפורמה מאומת/ת.
+ *
+ * ‏`מקור:` — הכותרת שהסוכן של תומר כותב כשהוא מעביר קבלות אוטומטית ("הודעה
+ * זו הועברה אוטומטית…\nמקור: "Netlify, Inc." <noreply@netlify.com>"). בלעדיה
+ * כל קבלה שהוא העביר נכנסה כ-`other` (18.10.2026: 30 שורות).
  */
 export function forwardedSender(text: string): string | null {
-  const marker = text.search(/Forwarded message|הודעה שהועברה|הודעה מצורפת|Original Message/i);
+  const marker = text.search(/Forwarded message|הודעה שהועברה|הועברה אוטומטית|הודעה מצורפת|Original Message/i);
   const tail = marker >= 0 ? text.slice(marker) : text;
-  const m = tail.match(/^(?:From|מאת)\s*:\s*[^\n]*?<?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>?/m);
+  const m = tail.match(
+    /^[‎‏\s]*(?:From|מאת|מקור)\s*:\s*[^\n]*?<?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>?/m,
+  );
   return m ? m[1].toLowerCase() : null;
+}
+
+/**
+ * הטקסט שבו מחפשים את הקבלה: חלק הטקסט, ואחריו חלק ה-HTML כשיש את שניהם.
+ * ‏`parseMail` מעדיף את חלק הטקסט, וזה נכון לעוזר — אבל בהעברה האוטומטית
+ * חלק הטקסט הוא רק כותרת ההעברה, והסכום, מספר החשבונית ותאריך החיוב
+ * יושבים כולם ב-HTML.
+ */
+export function receiptText(text: string, htmlText: string): string {
+  const t = (text || "").trim();
+  const h = (htmlText || "").trim();
+  if (!h || h === t) return t;
+  return t ? `${t}\n\n${h}` : h;
 }
 
 /**
@@ -250,7 +341,7 @@ export function parseCostMail(input: CostMailInput, fallbackService: string | nu
   if (service === fallbackService) status = "pending";
 
   let invoice: string | null = null;
-  for (const re of INVOICE) {
+  for (const re of [...INVOICE, ...SUBJECT_INVOICE]) {
     const m = (subject + "\n" + text).match(re);
     if (m) {
       invoice = m[1];

@@ -1,6 +1,6 @@
 ---
 name: lead-card
-description: עבודה על כרטיס הליד בקטגוריית "לידים" ב-CRM של שוק נדל״ן - buildLeadCard / buildLeadWork / buildLeadTab ב-assets/crm.js, שלושת האזורים (מי ומתי, מה מחפש/ת, פעולות) וה-container query ב-crm.html, ליד נעול מול פתוח (המיסוך ב-leads_masked), טריות ("חדש", "התקבל לפני"), הקשר הנכס מ-myPropertyRows, הודעת הוואטסאפ המוכנה, ושלב הטיפול וההערה בטבלה lead_work. Use when adding a field or a button to the lead card, when a locked lead shows something it should not (or hides what should sell it), when changing the lead stages, when the stage or note does not save, when the card looks wrong on desktop or phone, or when adding a new way to contact a lead from the card. Also when touching the lead archive (archiveLead, askLeadArchiveStage, lead_archives, lead_archive_finalize) or grouping leads by visitor (lead_visitor_groups, buildLeadGroupTab) - e.g. an archived lead still sends reminders, or one visitor shows up as several rows.
+description: כרטיס הליד ב-CRM של שוק נדל״ן - buildLeadCard / buildLeadWork / buildLeadTab ב-assets/crm.js, ה-container query, ליד נעול מול פתוח (leads_masked), ושלב והערה ב-lead_work. Use when adding a field or button to the lead card, when a locked lead shows what it should not, when changing lead stages, when the card looks wrong on phone, or when touching the lead archive (archiveLead, lead_archives) or visitor grouping (lead_visitor_groups).
 ---
 
 # כרטיס הליד
@@ -39,6 +39,11 @@ description: עבודה על כרטיס הליד בקטגוריית "לידים"
 
 5. **טקסט שמוצג - בלי מקף ארוך**, כולל `title`, `placeholder` והודעת
    הוואטסאפ ב-`leadWhatsAppText()`. ‏`python scripts/check_long_dash.py`.
+
+6. **כפתור שמוציא מידע על הליד החוצה** (כמו "🧭 שאל את המנטור",
+   `coachAskAboutLead`) מוציא רק את מה שמתאר את הצורך - סוג, עסקה, נכס,
+   זמן ושלב. לא שם, טלפון, הודעה, עיר או כתובת, גם בליד פתוח: המודל לא צריך
+   אותם, והשאלה נשמרת ביומן `coach_questions`.
 
 ## ארכיון וקיבוץ לפי פונה
 

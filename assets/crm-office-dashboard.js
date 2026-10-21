@@ -526,13 +526,15 @@ function renderOfficeDashboard(){
     return;
   }
 
+  // המנטור ולצדו "ממתין לאישורך", בראש הדאשבורד (coachLeadHtml)
+  const officeLead = coachLeadHtml('office', odPendingHtml(raw));
   host.innerHTML = `
   <div class="od${odState.firstPaintDone ? '' : ' od-first'}" dir="rtl">
     ${odBrandBar(data, range, picked)}
+    ${officeLead || ''}
     ${odHero(full, view, data, range, picked)}
     ${odKpis(view, range)}
-    ${coachCardHtml('office')}
-    ${odPendingHtml(raw)}
+    ${officeLead ? '' : odPendingHtml(raw)}
     ${odTeamsHtml(raw)}
     <section class="od-grid">
       <div class="od-card">

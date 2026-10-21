@@ -1,6 +1,6 @@
 ---
 name: wallet-charges
-description: עבודה על הארנק הדיגיטלי בריפו של שוק נדל״ן - הארנק לפני מע״מ (טעינת ₪100 נגבית ₪118, charged_amount, vat_gross), חיוב מהארנק (ליד, קידום, סרטון, מספר וירטואלי, דקות, לידי משכנתא וחנות), חלון האישור confirmPurchase, הסדר "מחייבים ואז קונים", החזר כשהפעולה נכשלה, חידוש חודשי, החזר יתרה, טעינה בסליקה (מורנינג) והמע״מ. Use when adding a new paid action, writing a function that touches credit_balance, when an agent was charged twice or charged for something that failed, when a purchase "went through" without a charge, when touching confirmPurchase / checkout.html / wallet-topup / complete_wallet_topup / request_wallet_refund, or when a question about VAT on wallet charges comes up.
+description: הארנק הדיגיטלי בריפו של שוק נדל״ן - הארנק לפני מע״מ (₪100 נגבית ₪118, charged_amount, vat_gross), confirmPurchase, "מחייבים ואז קונים", החזר וחידוש. Use when adding a new paid action, writing a function that touches credit_balance, when an agent was charged twice or for something that failed, when a purchase went through without a charge, when touching checkout.html / wallet-topup / complete_wallet_topup / request_wallet_refund, or about VAT.
 ---
 
 # הארנק: כל כסף שיוצא
@@ -105,7 +105,9 @@ locked`, ובלי יתרה מסמן `payment_failed_at`, מתריע בפעמון
 מסלול (‏`subscription_orders`) וכרטיסיית בעל/ת מקצוע (‏`ad_orders`) **אינם**
 יורדים מהארנק: הם נגבים מהכרטיס, וה-`amount` שלהם כולל מע״מ. חידוש חודשי -
 `billing_subscriptions` + `billing-renew`, מאחורי `recurring_charging_enabled`
-(עדיין 0). שלושה כללים שחוזרים בשני הסוגים:
+(עדיין 0). **כרטיסיית בעל/ת מקצוע אינה נגבה כרגע בכלל** - הפרסום חינם
+בכפוף לאישור (‏`professional_card_free_publishing`, הסקיל `pricing-change`).
+שלושה כללים שחוזרים בשני הסוגים:
 
 * **המנוי מתעדכן רק בטריגר על טבלת ההזמנות** - ההזמנה נסגרת בשלושה מקומות.
 * **`charging_order_id` נקבע לפני הפנייה למורנינג** - לעולם לא חיוב כפול.

@@ -1,6 +1,6 @@
 ---
 name: new-market
-description: פתיחת שוק מקומי חדש באתר שוק נדל״ן (אזור כמו "חיפה והקריות", "עפולה והעמק") או הוספת עיר לשוק קיים - השורה ב-assets/markets.js, המיגרציה ששייכת ערים, ה-_redirects, ה-config.path של market-pages.ts, בדיקת ה-GPS, ונתוני העיר (גאוקוד, רחובות, שכונות, עסקאות). Use when adding a new region/market or city, onboarding offices in a new area, when a URL like /krayot or /nazareth-area is needed, when properties in a new city don't appear under any market, or when cities.market_slug needs changing.
+description: פתיחת שוק מקומי חדש באתר שוק נדל״ן ("חיפה והקריות") או הוספת עיר לשוק - assets/markets.js, המיגרציה ששייכת ערים, _redirects, market-pages.ts, בדיקת ה-GPS ונתוני העיר. Use when adding a new region/market or city, onboarding offices in a new area, when a URL like /krayot or /nazareth-area is needed, when properties in a new city don't appear under any market, or when cities.market_slug needs changing.
 ---
 
 # שוק מקומי חדש
@@ -138,6 +138,35 @@ update public.neighborhoods n set city_id = public.city_id_for_name(n.city)
   `city_id not in` ב-`assets/` ובדפי השורש. טבלה אחרת שצריכה סינון שוק בשרת
   מקבלת עמודה מחושבת משלה באותו דפוס.
 
+### התבנית שבשימוש מאז 18.10.2026: `update` לפי סמל הלמ"ס
+
+כל היישובים כבר ברישום, ולכן מיגרציית שוק היא `update` לפי `muni_code`,
+עם slug אמיתי **רק לרשויות** ורק כשה-slug עדיין זמני, ובלוק אימות שמונה כמה
+נכנסו לכל שוק ומזהיר על כל יישוב שכבר היה משויך לשוק אחר (ולכן לא נדרס).
+העתיקו מ-`20270621090000_yokneam_market.sql` (שוק חדש) או מ-
+`20270623090000_north_gaps.sql` (השלמה לשווקים קיימים):
+
+```sql
+update public.cities c
+   set market_slug = coalesce(c.market_slug, v.market),
+       slug        = case when v.slug is not null and c.slug = 'c-' || c.muni_code
+                          then v.slug else c.slug end
+  from (values
+    ('240', 'yokneam-illit', 'yokneam'),
+    ('270', null, 'yokneam')      -- עין השופט
+  ) as v(muni_code, slug, market)
+ where c.muni_code = v.muni_code;
+```
+
+**לפני שכותבים:** `select muni_code, name, market_slug, slug from cities where
+muni_code in (...)` - לוודא שכולם עדיין `null`. יישוב שכבר משויך הוא החלטה
+של מישהו, ושאלה למשתמש/ת ולא שורה במיגרציה.
+
+**מי לא נכנס לשום שוק (החלטה של 18.10.2026):** יישובים ערביים, בדואיים
+ודרוזיים, ומחנות צבא ומוסדות. אין עמודת מגזר ב-`cities`, ולכן הסינון ביד
+לפי השם. בדיקת הפערים: שאילתה 4 ב-`status.sql`, והרשימה המלאה של מה שנשאר
+בחוץ - `docs/regional-pages.md`, "מה נשאר בלי שוק".
+
 ## 3-4. הכתובת
 
 ```
@@ -146,6 +175,22 @@ update public.neighborhoods n set city_id = public.city_id_for_name(n.city)
 
 ב-`_redirects`, ו-`"/krayot"` במערך `config.path` של `market-pages.ts`
 (ליטרל - Netlify קורא אותו בזמן הבנייה, ולכן אי אפשר לגזור אותו מהרשימה).
+
+### תיבות בגבול: נוגעות = חופפות
+
+הבדיקה ב-`markets_test.ts` כוללת את הקצוות (`a[1] <= b[3]`), ולכן שתי
+תיבות שחולקות קו - `35.064` כאן ו-`35.064` שם - נכשלות כ"חפיפה". השכנה
+מתחילה `0.0001` אחרי: `35.0641`, `32.4501`. כך כל התיבות בקובץ בנויות.
+
+**שוק חדש בין שווקים קיימים מקטין את התיבה של השכן באותו PR** (יקנעם
+הגביהה את התיבה השנייה של חיפה ל-32.70; בית שאן קיצרה את התיבה הצפונית
+של השומרון מזרחה ל-35.45). המסגרת (`bbox`) של השכן נשארת - היא משמשת את
+ייבוא השכונות, ומותר לה לחפוף. וכשמצמצמים, לבדוק מה **יוצא** מהתיבה: אם
+יישוב של השכן נשאר בחוץ, הוא עובר בשקט לשוק הקרוב. תיעדו בהערה של
+השוק את היישובים שמגיעים לשכן ב-GPS.
+
+**ל-`cities` של יישוב קטן לרוב אין `lat`/`lng`**, ולכן אי אפשר לבדוק את
+ה-GPS שלו מהמסד. נקודות הבדיקה הן קואורדינטות ידועות של המקום.
 
 ## 5. מקרה `locate` בבדיקה
 
@@ -263,6 +308,21 @@ check("קריית מוצקין → krayot", reg.locate(32.8378, 35.0795)?.slug =
 שריצה חוזרת לא תדרוס אזור שהסוכן/ת הוסיף/ה. **נכסים אינם זזים** - נכס בשוק
 של העיר שלו בלבד. ‏`docs/regional-pages.md`, "כתובת המשרד ואזורי הפעילות".
 
+## PR-ים מקבילים: גרסת המיגרציה והענף שמאחור
+
+סשנים אחרים ממזגים מיגרציות כל הזמן, ושלוש פעמים ב-18.10.2026 הגרסה
+שבחרתי נתפסה בין הפתיחה למיזוג (‎#811, ‎#818, ‎#820). לכן:
+
+- **ממש לפני המיזוג:** `git fetch origin main` ו-`git diff --name-only
+  HEAD...origin/main | grep migrations`. גרסה שנתפסה - `git mv` לגרסה הבאה,
+  ולעדכן אותה גם ב-`docs/regional-pages.md` (שורת השוק ושורת התוכנית).
+- **"405 ... required status checks are expected"** במיזוג פירושו שהענף
+  מאחורי `main` (ההגנה דורשת "up to date"), לא שהבדיקות נכשלו. ממזגים את
+  `main` לענף, מריצים שוב את הבדיקות ודוחפים.
+- **מחליפים את המספר רק בקבצים של ה-PR, לא ב-`sed` על כל הריפו.** ‏‎#791
+  עשה את זה, וההחלפה שינתה גם הפניות לגרסה הישנה בתיעוד ובהערות של
+  מיגרציה אחרת (מודיעין), שתוקנו ב-‎#792.
+
 ## בסוף
 
 1. `python scripts/check_markets.py` ו-`markets_test.ts` - ירוקים.
@@ -271,5 +331,8 @@ check("קריית מוצקין → krayot", reg.locate(32.8378, 35.0795)?.slug =
    - "הצג N נכסים" צריך להראות את המלאי האמיתי ולא 3 (נכסי הדמו הם הסימן
    שהשאילתה נכשלה). ואז CRM ← תצוגת מנהל/ת ← שווקים
    מקומיים ← השוק החדש. שם רואים את הערים, המשרדים, כמה חסר עד הפתיחה,
-   ואת הקישור להפצה.
-4. בדיקת מצב מהירה ב-SQL: `.claude/skills/new-market/status.sql`.
+   ואת הקישור להפצה. **שוק חדש מקבל תמונה ב-`market_snapshots` לבד** -
+   ‏`market_snapshots_refresh()` עוברת על כל `cities.market_slug` פעם בשעה, ועד
+   אז הפאנל מחשב חי. בלי שום שורה בקוד בשבילו.
+4. בדיקת מצב מהירה ב-SQL: `.claude/skills/new-market/status.sql` - כולל
+   בדיקת הפערים (שאילתה 4), אחרי כל גל של שווקים.

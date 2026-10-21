@@ -1,6 +1,6 @@
 ---
 name: marketing-video-production
-description: הפקת סרטון שיווק או הדרכה לפלטפורמה של שוק נדל״ן (לא סרטון לנכס) - Reelkit בסשן ענן (reelkit.cc ברשימת הדומיינים, NODE_USE_ENV_PROXY=1), התסריט והאישור לפני ההקלטה, עברית RTL, קול אמיתי במקום קול סינתטי (marketing/videos/tools), גרסאות 9:16 ו-1:1 מאותו קוד, העלאה לספריית הסרטונים עם רעיון וגרסה לניסוי A/B, ושמירת המקור ב-marketing/videos בלי קבצים בינאריים. Use when asked to make, edit or re-cut a promo, recruitment, explainer or tutorial video for the platform, a new A/B version of an existing video, a square or feed version, when the user sends a voice recording for a video, when reelkit says "Cannot reach the Reelkit API" or returns 403, or when a finished video needs to get into a campaign. For a property's AI video (fal.ai, paid by the agent) use property-video instead.
+description: סרטון שיווק או הדרכה לפלטפורמה של שוק נדל״ן (לא סרטון לנכס) - Reelkit בסשן ענן (reelkit.cc, NODE_USE_ENV_PROXY=1), תסריט לאישור, קול אמיתי, 9:16 ו-1:1, וספריית הסרטונים עם A/B. המקור ב-marketing/videos. Use when asked to make or re-cut a promo, recruitment or tutorial video for the platform, a new A/B version, when the user sends a voice recording for a video, or when reelkit says "Cannot reach the Reelkit API" or 403. For a property video use property-video.
 ---
 
 # הפקת סרטון שיווק

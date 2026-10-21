@@ -176,9 +176,16 @@ Deno.serve(async (req: Request) => {
     if (action === "load") {
       // המחיר לחודש, לתיבת ההארכה. הסכום שנגבה בפועל נקבע שוב ב-start_ad_order.
       const { data: pricing } = await supabase.rpc("professional_card_price", { p_months: 1 });
+      // פרסום חינם (‏20270701090000): אין מה להאריך בתשלום, והמסך מסתיר את התיבה.
+      const { data: freeCfg } = await supabase
+        .from("pricing_config")
+        .select("value")
+        .eq("key", "professional_card_free_publishing")
+        .maybeSingle();
       return json({
         success: true,
         card,
+        free_publishing: Number(freeCfg?.value) > 0,
         pricing: pricing && !pricing.error ? pricing : null,
         extend_months: EXTEND_MONTHS,
         renewal: await loadRenewal(supabase, access.placement_id),

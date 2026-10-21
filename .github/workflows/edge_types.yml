@@ -19,6 +19,8 @@ on:
       - "scripts/check_edge_types.py"
       - "scripts/edge_types_baseline.json"
       - "scripts/catalog_link_test.ts"
+      - "scripts/cost_mail_test.ts"
+      - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
@@ -28,6 +30,8 @@ on:
       - "scripts/check_edge_types.py"
       - "scripts/edge_types_baseline.json"
       - "scripts/catalog_link_test.ts"
+      - "scripts/cost_mail_test.ts"
+      - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
@@ -61,6 +65,16 @@ jobs:
 
       - name: קישור לקטלוג וואטסאפ
         run: node --experimental-strip-types scripts/catalog_link_test.ts
+
+      # ‏קבלות ל-+costs (‏whatsapp-webhook/cost-mail.ts): העברה של הסוכן של
+      # תומר ("מקור:", הקבלה ב-HTML), ומה שאינו הוצאה (‏docs/platform-costs.md).
+      - name: קליטת קבלות לעלויות
+        run: node --experimental-strip-types scripts/cost_mail_test.ts
+
+      # נקודות השבירה של המטמון בשני הבוטים: עד ארבע לבקשה, היסטוריה שנשלחת
+      # זהה בין תורים, וגזימה במדרגות (‏docs/platform-costs.md, "המטמון של גבריאלה")
+      - name: המטמון של גבריאלה
+        run: node --experimental-strip-types scripts/prompt_cache_test.ts
 
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה

@@ -2,11 +2,14 @@
    דף הבית של הסוכן/ת - "לוח היום" (#homeBoard)
    --------------------------------------------------------------------------
    שלב 2 בשדרוג ה-CRM (docs/handoff/crm-redesign/HANDOFF.md, סעיף 2.6;
-   docs/crm-home.md). ארבעה בלוקים מתחת לשורת "דורש טיפול מיידי":
+   docs/crm-home.md). בשלב 6 של העיצוב מחדש (3.0, docs/crm-home.md):
 
-     1. לידים שמחכים לך - הלידים עצמם, עם חיוג ווואטסאפ ושעון בלעדיות
-     2. היום שלי        - הפגישות והמשימות של היום ומה שבאיחור
-     3. איפה הלקוחות שלי - כמה לידים בכל שלב טיפול (lead_work.stage)
+     0. "מחכה לך עכשיו"   - חמישה אריחים עם מונים (homeWaitTiles)
+     1. לחזור אליהם קודם - שלושת הלידים הראשונים לפי סדר העדיפות של "הלידים
+                            שלי" (leadsPriorityGroups), עם חיוג, וואטסאפ ו"למה עכשיו"
+     2. היום שלי        - ציר זמן: באיחור, הבא בתור, סימון בוצע, והעברת
+                            מה שבאיחור למחר (agendaMoveLateToTomorrow)
+     3. איפה הלקוחות שלי - כמה לידים בכל שלב, השלב התקוע ושורת "מה לעשות"
      4. הנכסים שלי       - צפיות ופניות לכל נכס פעיל, ומה כדאי לעשות
 
    **אין כאן שום שאילתה.** כל מה שמוצג כבר בזיכרון מהטעינה של הדשבורד:
@@ -26,9 +29,6 @@
 const HOME_LEADS_MAX = 3;
 const HOME_AGENDA_MAX = 4;
 const HOME_PROPS_MAX = 3;
-/* ליד פתוח נחשב "מחכה" רק בשבועיים הראשונים. ליד מלפני חודש בלי שלב הוא
-   ליד שנשכח לעדכן, לא ליד שמחכה לטלפון - והוא היה תופס את הבלוק לעד. */
-const HOME_WAITING_DAYS = 14;
 /* השלבים בצנרת, בסדר שבו ליד מתקדם. "לא רלוונטי / לא ענה" אינו שלב בדרך
    לעסקה, ולכן אינו עמודה - הוא נספר בשורה שמתחת. */
 const HOME_PIPE = [
@@ -37,8 +37,6 @@ const HOME_PIPE = [
   ['meeting',   'פגישה / סיור'],
   ['won',       'נסגר'],
 ];
-
-let homeTick = 0;
 
 function homeMine(lead){
   return !!(lead && currentAgent && lead.agent_id === currentAgent.id);
@@ -52,90 +50,6 @@ function homeActiveLeads(){
 function homeStageOf(lead){
   const w = leadWork.get(lead.id);
   return (w && w.stage) || 'new';
-}
-
-/* חלון הבלעדיות של ליד בעלים - אותו תנאי של claim_lead במסד
-   (20261230090000): owner_inbound שלא הגיע מהדף של הסוכן/ת או המשרד,
-   ונעול. השעות מ-pricing_config (owner_lead_exclusivity_hours). אחרי
-   החלון הליד פתוח גם לאחרים, ולכן השעון הוא הסיבה לפתוח אותו עכשיו. */
-function homeExclusiveEnd(lead){
-  if (lead.lead_type !== 'owner_inbound' || lead.status === 'unlocked') return null;
-  if (lead.source === 'agency_page' || lead.source === 'agent_page') return null;
-  const hours = Number(priceOf('owner_lead_exclusivity_hours', 0));
-  const born = new Date(lead.created_at || 0).getTime();
-  if (!hours || !born) return null;
-  const end = born + hours * 3600e3;
-  return end > Date.now() ? end : null;
-}
-
-function homeClock(ms){
-  const m = Math.max(0, Math.floor(ms / 60000));
-  return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
-}
-
-/* מי מחכה: ליד נעול שלי (מחכה שאפתח אותו), וליד פתוח בשלב "חדש" מהשבועיים
-   האחרונים שעוד לא פניתי אליו מהמסך הזה. קודם מה שהבלעדיות שלו נגמרת
-   ראשונה, ואחריו הטרי ביותר. */
-function homeWaitingLeads(){
-  const horizon = HOME_WAITING_DAYS * 1440;
-  return homeActiveLeads()
-    .filter(l => l.status !== 'unlocked'
-      || (homeStageOf(l) === 'new' && !l._responded && leadAgeMinutes(l) < horizon))
-    .map(l => ({ lead:l, end: homeExclusiveEnd(l) }))
-    .sort((a, b) => (a.end || Infinity) - (b.end || Infinity)
-      || new Date(b.lead.created_at) - new Date(a.lead.created_at));
-}
-
-function homeLeadRow(item){
-  const lead = item.lead;
-  const ctx = leadPropertyContext(lead);
-  const kind = leadKind(lead);
-  const unlocked = lead.status === 'unlocked';
-  const about = ctx.title || [lead.property_type, lead.city].filter(Boolean).join(' · ');
-  const row = document.createElement('div');
-  row.className = 'hb-lead';
-  row.innerHTML =
-      '<div class="hb-lead-text">'
-    +   '<span class="hb-lead-t">' + esc(kind.label.split(' · ')[0] + (about ? ' · ' + about : '')) + '</span>'
-    +   '<span class="hb-lead-s">' + (unlocked ? '' : '🔒 ') + esc(lead.display_name || 'פונה')
-    +     ' · ' + esc(opsAgo(leadAgeMinutes(lead))) + '</span>'
-    + '</div>'
-    + (item.end ? '<span class="hb-excl" data-end="' + item.end + '" title="עד אז הליד שמור לך">'
-        + dashIcon('clock') + '<span class="hb-excl-t">' + esc(homeClock(item.end - Date.now())) + '</span>'
-        + '<span class="hb-excl-l">בלעדיות</span></span>' : '');
-
-  const acts = document.createElement('div');
-  acts.className = 'hb-lead-acts';
-  const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
-  const wa = unlocked ? waLink(lead.display_phone) : null;
-  if (unlocked && tel.replace(/\D/g, '').length >= 9){
-    const a = document.createElement('a');
-    a.className = 'hb-btn hb-btn-main';
-    a.href = 'tel:' + tel;
-    a.innerHTML = dashIcon('phone') + '<span>התקשרות</span>';
-    a.addEventListener('click', ()=> markLeadResponded(lead));
-    acts.appendChild(a);
-  }
-  if (wa){
-    const a = document.createElement('a');
-    a.className = 'hb-btn';
-    a.href = wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, ctx));
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.innerHTML = '<span class="hb-wa">' + waGlyph() + '</span><span>וואטסאפ</span>';
-    a.addEventListener('click', ()=> markLeadResponded(lead));
-    acts.appendChild(a);
-  }
-  if (!acts.children.length){
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'hb-btn hb-btn-main';
-    b.innerHTML = dashIcon('inbox') + '<span>' + (unlocked ? 'לכרטיס הליד' : 'לפתיחת הליד') + '</span>';
-    b.addEventListener('click', ()=>{ gotoSection('accLeads'); openLeadFromParam(lead.id); });
-    acts.appendChild(b);
-  }
-  row.appendChild(acts);
-  return row;
 }
 
 function homeCard(id, title, linkText, onLink){
@@ -158,23 +72,85 @@ function homeCard(id, title, linkText, onLink){
   return card;
 }
 
+/* ---------- לחזור אליהם קודם ----------
+   אותו סדר של "הלידים שלי" (crm-leads.js): בעלים, נרכש, שיחה, אתר - ובתוך
+   כל מקור החדש ביותר. ליד של אותו/ה פונה הוא שורה אחת. */
 function homeLeadsCard(){
   if (!navAccVisible('accLeads')) return null;
-  const waiting = homeWaitingLeads();
-  const card = homeCard('hbLeads', 'לידים שמחכים לך',
-    waiting.length ? 'לכל הלידים' : '', ()=> gotoSection('accLeads'));
-  if (!waiting.length){
+  const groups = typeof leadsPriorityGroups === 'function' ? leadsPriorityGroups() : [];
+  const card = homeCard('hbLeads', 'לחזור אליהם קודם',
+    groups.length ? 'לכל הלידים' : '', ()=> gotoSection('accLeads'));
+  if (!groups.length){
     card.insertAdjacentHTML('beforeend',
       '<p class="hb-empty">' + dashIcon('check') + '<span>אין ליד שמחכה לך עכשיו</span></p>');
     return card;
   }
-  waiting.slice(0, HOME_LEADS_MAX).forEach(item => card.appendChild(homeLeadRow(item)));
-  const more = waiting.length - HOME_LEADS_MAX;
+  groups.slice(0, HOME_LEADS_MAX).forEach((g, i) => card.appendChild(homePriorityRow(g, i + 1)));
+  const more = groups.length - HOME_LEADS_MAX;
   if (more > 0){
     card.insertAdjacentHTML('beforeend',
       '<p class="hb-more">ועוד ' + esc(plural(more, 'ליד אחד', 'לידים')) + ' ברשימה</p>');
   }
   return card;
+}
+
+function homePriorityRow(group, rank){
+  const lead = group[0];
+  const src = leadSrcKey(lead);
+  const meta = LEAD_SRC[src];
+  const call = leadCallById.get(lead.id);
+  const unlocked = lead.status === 'unlocked';
+  const excl = leadExclusiveEnd(lead);
+  const name = lead.display_name || (call && call.extracted && call.extracted.caller_name)
+    || (src === 'call' ? callLocalPhone(lead.display_phone) : 'ללא שם');
+  const what = leadWants(lead, call) || [lead.property_type, lead.city].filter(Boolean).join(' · ');
+  const hot = !!excl || (Date.now() - new Date(lead.created_at)) > 3 * 3600e3;
+  const why = (excl ? 'בלעדיות עוד ' + plural(Math.max(1, Math.ceil((excl - Date.now()) / 3600e3)), 'שעה', 'שעות')
+    : leadAgo(lead.created_at)) + (leadStageOf(lead) === 'new' ? ' · עוד לא חזרת' : '');
+  const row = document.createElement('div');
+  row.className = 'hb-pr';
+  row.innerHTML =
+      '<span class="hb-rank is-' + rank + '" aria-label="עדיפות ' + rank + '">' + rank + '</span>'
+    + '<span class="hb-pr-text"><span class="hb-pr-top"><strong>' + (unlocked ? '' : '🔒 ') + esc(name) + '</strong>'
+    +   '<span class="ui-tag ui-tag--' + esc(meta.tone) + '">' + esc(meta.label) + '</span></span>'
+    +   (what ? '<span class="hb-pr-what">' + esc(what) + '</span>' : '')
+    +   '<span class="hb-pr-why' + (hot ? ' is-hot' : '') + '">' + esc(why) + '</span></span>';
+  const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
+  const wa = unlocked ? waLink(lead.display_phone) : null;
+  const contacted = ()=>{
+    markLeadResponded(lead);
+    if (leadWorkReady && leadStageOf(lead) === 'new') saveLeadWork(lead, { stage:'contacted' });
+  };
+  if (unlocked && tel.replace(/\D/g, '').length >= 9){
+    const a = document.createElement('a');
+    a.className = 'hb-call';
+    a.href = 'tel:' + tel;
+    a.setAttribute('aria-label', 'חיוג אל ' + name);
+    a.innerHTML = dashIcon('phone') + '<span class="hb-btxt">התקשרות</span>';
+    a.addEventListener('click', contacted);
+    row.appendChild(a);
+  }
+  if (wa){
+    const a = document.createElement('a');
+    a.className = 'hb-wa-btn';
+    a.href = wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, leadPropertyContext(lead)));
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.setAttribute('aria-label', 'וואטסאפ אל ' + name);
+    a.innerHTML = waGlyph();
+    a.addEventListener('click', contacted);
+    row.appendChild(a);
+  }
+  if (!unlocked || (!wa && tel.replace(/\D/g, '').length < 9)){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hb-call';
+    b.innerHTML = dashIcon('inbox') + '<span class="hb-btxt">' + (unlocked ? 'לליד' : 'לפתיחה') + '</span>';
+    b.setAttribute('aria-label', (unlocked ? 'לכרטיס הליד של ' : 'פתיחת הליד של ') + name);
+    b.addEventListener('click', ()=>{ gotoSection('accLeads'); openLeadFromParam(lead.id); });
+    row.appendChild(b);
+  }
+  return row;
 }
 
 /* ---------- היום שלי ----------
@@ -184,36 +160,90 @@ function homeAgendaCard(){
   if (!navAccVisible('accAgenda') || typeof agendaBuckets !== 'function') return null;
   const today = agendaBuckets().today
     .slice().sort((a, b) => (agendaDue(a) || 0) - (agendaDue(b) || 0));
+  const late = today.filter(agendaIsLate);
   const card = homeCard('hbToday', 'היום שלי', 'ליומן', ()=> gotoSection('accAgenda'));
+  if (today.length){
+    card.querySelector('.hb-head h3').insertAdjacentHTML('afterend', '<span class="hb-head-sub">'
+      + esc(plural(today.length, 'פריט אחד להיום', 'להיום') + (late.length ? ' · ' + late.length + ' באיחור' : '')) + '</span>');
+  }
   if (!today.length){
     card.insertAdjacentHTML('beforeend',
       '<p class="hb-empty">' + dashIcon('calendar') + '<span>אין פגישות או משימות להיום</span></p>');
   }
+  const canAct = typeof assistantTierOk !== 'function' || assistantTierOk();
+  let nextSet = false;
   today.slice(0, HOME_AGENDA_MAX).forEach(it=>{
-    const late = agendaIsLate(it);
+    const isLate = agendaIsLate(it);
+    const next = !isLate && !nextSet;
+    if (next) nextSet = true;
     const d = agendaDue(it);
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'hb-ag' + (late ? ' is-late' : '');
+    const row = document.createElement('div');
+    row.className = 'hb-ag' + (isLate ? ' is-late' : '') + (next ? ' is-next' : '');
     row.innerHTML =
-        '<span class="hb-ag-time">' + esc(late ? 'באיחור'
-          : d ? d.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' }) : '') + '</span>'
-      + '<span class="hb-ag-text"><span class="hb-ag-t">' + esc(it.title || '') + '</span>'
-      + (it.location ? '<span class="hb-ag-s">' + esc(it.location) + '</span>' : '') + '</span>';
-    row.addEventListener('click', ()=> agendaFocus(it.id));
+        '<span class="hb-ag-time">' + esc(d ? d.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' }) : '') + '</span>'
+      + '<button type="button" class="hb-ag-text"><span class="hb-ag-top"><span class="hb-ag-t">' + esc(it.title || '') + '</span>'
+      +   (isLate ? '<span class="hb-flag is-late">באיחור</span>' : next ? '<span class="hb-flag is-next">הבא בתור</span>' : '') + '</span>'
+      +   (it.location ? '<span class="hb-ag-s">' + esc(it.location) + '</span>' : '') + '</button>';
+    row.querySelector('.hb-ag-text').addEventListener('click', ()=> agendaFocus(it.id));
+    if (canAct){
+      const done = document.createElement('button');
+      done.type = 'button';
+      done.className = 'hb-check';
+      done.setAttribute('aria-pressed', 'false');
+      done.setAttribute('aria-label', 'סימון כבוצע: ' + (it.title || ''));
+      done.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>';
+      done.addEventListener('click', ()=>{
+        done.disabled = true;
+        done.setAttribute('aria-pressed', 'true');
+        agendaUpdate(it.id, { status:'done' }, 'סומן כבוצע');
+      });
+      row.appendChild(done);
+    }
     card.appendChild(row);
   });
   if (today.length > HOME_AGENDA_MAX){
     card.insertAdjacentHTML('beforeend', '<p class="hb-more">ועוד '
       + esc(plural(today.length - HOME_AGENDA_MAX, 'פריט אחד', 'פריטים')) + ' ביומן</p>');
   }
+  const foot = document.createElement('div');
+  foot.className = 'hb-ag-foot';
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'hb-add';
   add.textContent = '+ פגישה או משימה';
   add.addEventListener('click', ()=> openAgendaForm({ kind:'meeting' }));
-  card.appendChild(add);
+  foot.appendChild(add);
+  if (canAct && late.length){
+    const move = document.createElement('button');
+    move.type = 'button';
+    move.className = 'hb-add is-quiet';
+    move.textContent = late.length === 1 ? 'העברת הפריט שבאיחור למחר' : `העברת ${late.length} הבאיחור למחר`;
+    move.addEventListener('click', ()=> agendaMoveLateToTomorrow(move));
+    foot.appendChild(move);
+  }
+  card.appendChild(foot);
   return card;
+}
+
+/* "להעביר את כל האיחורים למחר" (3.0, 3.20): כל פריט פתוח שמועדו עבר עובר
+   למחר, באותה שעה (agendaPostpone 'tomorrow'). עדכון לכל פריט, וטעינה
+   אחת בסוף. התזכורות ללקוח/ה נבנות מהמועד בזמן השליחה (meeting-followup),
+   ולכן הן זזות יחד עם הפריט. */
+async function agendaMoveLateToTomorrow(btn){
+  const late = (agendaItems || []).filter(agendaIsLate);
+  if (!late.length) return;
+  if (!confirm(late.length === 1 ? 'להעביר את הפריט שבאיחור למחר?' : `להעביר ${late.length} פריטים שבאיחור למחר, באותה שעה?`)) return;
+  if (btn) btn.disabled = true;
+  const tomorrow = agendaDayStart(1);
+  const results = await Promise.all(late.map(it => {
+    const next = new Date(agendaDue(it));
+    next.setFullYear(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    return sb.from('agent_agenda_items').update({ due_at: next.toISOString() }).eq('id', it.id);
+  }));
+  const failed = results.filter(r => r.error).length;
+  showToast(failed ? `${late.length - failed} הועברו למחר, ${failed} לא הועברו - כדאי לנסות שוב`
+    : plural(late.length, 'פריט אחד הועבר', 'פריטים הועברו') + ' למחר');
+  await loadAgenda();
 }
 
 /* ---------- איפה הלקוחות שלי ----------
@@ -237,6 +267,20 @@ function homePipelineCard(){
       + '<span class="hb-stage-bar"><span style="height:' + Math.round(n / max * 100) + '%"></span></span></div>');
   });
   card.appendChild(grid);
+  /* השלב התקוע: החדש כשיש בו לידים (הצעד הבא תמיד בידיים שלך), ואחרת השלב
+     שהכי הרבה לידים עומדים בו לפני הסגירה */
+  const stuck = counts.new ? 'new'
+    : ['contacted', 'meeting'].sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).find(k => counts[k]);
+  if (stuck){
+    grid.querySelector('.hb-st-' + stuck).classList.add('is-stuck');
+    const n = counts[stuck];
+    const advice = {
+      new: [plural(n, 'ליד אחד עדיין בשלב "חדש".', 'לידים עדיין בשלב "חדש".'), 'שיחה ראשונה מעבירה אותם ל"בקשר" ומשפרת את הסיכוי לסגירה.'],
+      contacted: [plural(n, 'ליד אחד בקשר בלי פגישה.', 'לידים בקשר בלי פגישה.'), 'הצעה לסיור או לפגישה היא הצעד הבא.'],
+      meeting: [plural(n, 'ליד אחד אחרי פגישה.', 'לידים אחרי פגישה.'), 'שיחת המשך היום שומרת על המומנטום.'],
+    }[stuck];
+    card.insertAdjacentHTML('beforeend', '<p class="hb-advice"><strong>' + esc(advice[0]) + '</strong><span>' + esc(advice[1]) + '</span></p>');
+  }
   const off = counts.not_relevant || 0;
   if (off){
     card.insertAdjacentHTML('beforeend', '<p class="hb-more">'
@@ -301,22 +345,84 @@ function homePropsCard(){
   return card;
 }
 
-/* השורה שמתחת לברכה: מה מחכה היום, במשפט אחד. הברכה עצמה ומשפטי
-   המוטיבציה (GREETINGS) לא משתנים - החלטה של תומר. */
+/* ---------- מחכה לך עכשיו (3.0) ----------
+   חמישה אריחים מאותם מונים של התפריט (accCounts), כדי שהמספר כאן והמספר
+   בסרגל יהיו אותו מספר. כתום ("hot") רק למה שדורש פעולה ממך עכשיו - לידים
+   חדשים ומשימות באיחור. התאמות לא בכתום: 60 התאמות בעיגול אדום הן עייפות
+   התראות, לא דחיפות. */
+function homeWaitData(){
+  const late = navAccVisible('accAgenda') && typeof agendaBuckets === 'function'
+    ? agendaBuckets().today.filter(agendaIsLate) : [];
+  const todayLeft = navAccVisible('accAgenda') && typeof agendaBuckets === 'function'
+    ? agendaBuckets().today.length - late.length : 0;
+  const fresh = typeof leadsPriorityGroups === 'function' ? leadsPriorityGroups() : [];
+  const oldest = fresh.map(g => g[0]).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
+  const drafts = typeof agreementRows !== 'undefined' ? agreementRows.filter(a => a.status === 'draft').length : 0;
+  const matches = accCountOf('accAlerts');
+  const shelf = accCountOf('accLeadShelf');
+  return [
+    { acc:'accLeads', n: accCountOf('accLeads'), label:'לידים חדשים', icon:'inbox', tone:'hot',
+      hint: oldest ? 'הוותיק מחכה ' + leadAgo(oldest.created_at).replace(/^לפני /, '') : 'אין ליד שמחכה' },
+    { acc:'accAgenda', n: late.length, label:'משימות באיחור', icon:'calendar', tone:'hot',
+      hint: todayLeft ? 'ועוד ' + todayLeft + ' ביומן להיום' : 'היומן של היום פנוי' },
+    { acc:'accAgreements', n: drafts, label:'הסכמים לשליחה', icon:'sign', tone:'warn', hint:'נוצרו ולא נשלחו' },
+    { acc:'accAlerts', n: matches, label:'התאמות חדשות', icon:'target', tone:'calm', hint:'נכסים ללקוחות שלך' },
+    { acc:'accLeadShelf', n: shelf, label:'ליד בחנות', icon:'store', tone:'calm', hint:'לידים טריים לרכישה' },
+  ].filter(t => navAccVisible(t.acc));
+}
+
+function homeWaitTiles(){
+  const host = document.getElementById('homeWait');
+  if (!host) return;
+  const tiles = homeWaitData();
+  host.hidden = !tiles.length;
+  host.querySelector('.hm-wait').innerHTML = tiles.map(t => {
+    const on = t.n > 0;
+    return `<button type="button" class="hm-tile is-${on ? t.tone : 'calm'}${on ? '' : ' is-zero'}" data-goto="${t.acc}"`
+      + ` aria-label="${esc(t.label + ': ' + t.n)}">`
+      + `<span class="hm-tile-top"><span class="hm-tile-ico">${dashIcon(t.icon)}</span><span class="hm-tile-n">${esc(String(t.n))}</span></span>`
+      + `<span class="hm-tile-l">${esc(t.label)}</span><span class="hm-tile-h">${esc(t.hint)}</span></button>`;
+  }).join('');
+}
+
+/* השורה שמתחת לברכה: אותם מספרים של "מחכה לך" (לידים ומשימות באיחור), במשפט
+   אחד. הברכה עצמה ומשפטי המוטיבציה (GREETINGS) לא משתנים - החלטה של תומר. */
 function homeBrief(){
   const el = document.getElementById('dashBrief');
   if (!el) return;
-  const leads = navAccVisible('accLeads') ? homeWaitingLeads().length : 0;
-  const meetings = navAccVisible('accAgenda') && typeof agendaBuckets === 'function'
-    ? agendaBuckets().today.filter(it => it.kind !== 'task' && !agendaIsLate(it)).length : 0;
+  const data = homeWaitData();
+  const leads = (data.find(t => t.acc === 'accLeads') || {}).n || 0;
+  const late = (data.find(t => t.acc === 'accAgenda') || {}).n || 0;
   const parts = [];
-  if (leads) parts.push(plural(leads, 'ליד אחד מחכה לך', 'לידים מחכים לך'));
-  if (meetings) parts.push(plural(meetings, 'פגישה אחת היום', 'פגישות היום'));
-  el.textContent = parts.length ? parts.join(' ויש ') + '.' : '';
-  el.hidden = !parts.length;
+  if (leads) parts.push(plural(leads, 'ליד אחד', 'לידים'));
+  if (late) parts.push(plural(late, 'משימה אחת באיחור', 'משימות באיחור'));
+  el.textContent = parts.length
+    ? parts.join(' ו-') + ((leads + late) === 1 ? ' מחכה לך.' : ' מחכים לך.')
+    : 'אין משהו שמחכה לך עכשיו. זה זמן טוב לפעולות מהירות.';
+  el.hidden = false;
+  const date = document.getElementById('hmDate');
+  if (date) date.textContent = new Date().toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'numeric' });
+}
+
+/* הצעדים שהמנטור ממליץ להיום - צ'יפים בכרטיס הגיבור. אותו "בוצע" של
+   השכבה (data-coach-done, crm-coach.js) */
+function homeMentorSteps(){
+  const box = document.getElementById('hmSteps');
+  if (!box) return;
+  const row = typeof coachState !== 'undefined' ? coachState.agent : null;
+  const s = row && row.summary;
+  const acts = s && s.v === 2 ? (s.actions || []).slice(0, 3) : [];
+  box.hidden = !acts.length;
+  if (!acts.length) return;
+  const done = new Set((row.actions_done || []).map(Number));
+  box.innerHTML = '<span class="hm-steps-h">הצעדים שהמנטור ממליץ להיום:</span>'
+    + acts.map((a, i) => `<button type="button" class="hm-step" data-coach-done="agent" data-coach-i="${i}" aria-pressed="${done.has(i)}"`
+      + ` aria-label="${esc((done.has(i) ? 'בוצע: ' : 'סימון כבוצע: ') + (a.title || ''))}"><span class="hm-step-box" aria-hidden="true">${done.has(i) ? '✓' : ''}</span>${esc(a.title || '')}</button>`).join('');
 }
 
 function renderHomeBoard(){
+  // כפתור "המנטור" - לפי מה שנטען עד עכשיו (assets/crm-coach.js)
+  if (typeof homeCoachSync === 'function') homeCoachSync();
   const host = document.getElementById('homeBoard');
   if (!host) return;
   if (dashView !== 'agent' || !currentAgent){ host.hidden = true; return; }
@@ -324,24 +430,7 @@ function renderHomeBoard(){
   host.innerHTML = '';
   cards.forEach(c => host.appendChild(c));
   host.hidden = !cards.length;
+  homeWaitTiles();
+  homeMentorSteps();
   homeBrief();
-  homeArmTick();
-}
-
-/* השעון של הבלעדיות זז בלי לבנות את הלוח מחדש: פעם בחצי דקה, רק הטקסט.
-   כשהזמן נגמר - בנייה מלאה, כי הליד כבר אינו שמור ויוצא מהמיון. */
-function homeArmTick(){
-  const any = document.querySelector('#homeBoard .hb-excl');
-  if (!any){ if (homeTick){ clearInterval(homeTick); homeTick = 0; } return; }
-  if (homeTick) return;
-  homeTick = setInterval(()=>{
-    let expired = false;
-    document.querySelectorAll('#homeBoard .hb-excl').forEach(el=>{
-      const left = Number(el.dataset.end) - Date.now();
-      if (left <= 0) expired = true;
-      const t = el.querySelector('.hb-excl-t');
-      if (t) t.textContent = homeClock(left);
-    });
-    if (expired) renderHomeBoard();
-  }, 30000);
 }

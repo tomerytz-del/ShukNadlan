@@ -1,6 +1,6 @@
 ---
 name: new-migration
-description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן — שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found". Also when adding a foreign key to a table that already references the same target (e.g. a second column pointing at agency_members) — that breaks every unqualified PostgREST embed with PGRST201.
+description: כתיבת מיגרציה ל-Supabase בריפו של שוק נדל״ן - שם קובץ, אידמפוטנטיות, ואיסור החלת DDL מחוץ לצינור. Use when changing the database schema, adding a table/column/index/policy/function/trigger, writing a file under supabase/migrations, or when db push fails with "Remote migration versions not found". Also when adding a second foreign key to the same target (e.g. agency_members), which breaks PostgREST embeds with PGRST201.
 ---
 
 # מיגרציה חדשה
@@ -46,37 +46,10 @@ ls supabase/migrations | tail -3     # ממה להמשיך
 python3 scripts/check_migration_versions.py --base-ref origin/main
 ```
 
-הבדיקה חוסמת ב-CI. **ומה שהיא אינה תופסת:** ‏PR אחר שמוזג אחרי שה-PR
-שלכם עבר ירוק ולוקח את אותו מספר — בדיוק מה שקרה ב-`20261225090000`,
-‏25 שניות לפני המיזוג. לכן לפני מיזוג, כשיש עוד PR פתוח שנוגע
-במיגרציות, שווה למשוך את הבסיס ולהריץ שוב.
-
-### מספור מחדש של מיגרציה שכבר כתובה
-
-כשהמספר נתפס (PR ותיק, או PR מקביל שמוזג קודם), מעבירים את הקובץ ב-
-`git mv` למספר שגדול מהאחרון ב-`main`, ואז מחפשים את **המספר הישן** בכל
-הריפו - קוד, הערות ותיעוד מפנים למיגרציה לפי המספר שלה:
-
-```sh
-git grep -n "<המספר הישן>"
-```
-
-**ולא מחליפים בעיוורון.** מספר שהיה כפול שייך גם למיגרציה של `main`, וחלק
-מההפניות אליו הן שלה. ב-#702 ‏`20270416090000` היה גם `mfa_enforcement`
-וגם `property_view_counts` של `main`, וההפניה ב-`assets/crm.js` הייתה
-לשנייה. החלפה גורפת הייתה שוברת אותה. בודקים כל הפניה בהקשר שלה, או
-מחליפים רק בקבצים שה-PR עצמו הוסיף או שינה.
-
-**וב-PR של מישהו אחר:** ממזגים את `main` במיזוג רגיל (לא rebase), וכל שינוי
-שלכם בקומיט נפרד. באמצע מיזוג **אסור** `git checkout HEAD -- <קובץ>`: זה
-מחזיר את הגרסה של הענף ומוחק בשקט את מה שהמיזוג הביא מ-`main` לאותו קובץ.
-אם צריך להתחיל מחדש - `git merge --abort`, ומיזוג נקי. ובסוף, הבדיקה
-שהמיזוג לא איבד דבר: ההבדל בין התוצאה ל-`main` הוא בדיוק השינויים של ה-PR.
-
-```sh
-B=$(git merge-base <ראש-ה-PR-המקורי> origin/main)
-diff <(git diff --name-only origin/main HEAD | sort) <(git diff --name-only $B <ראש-ה-PR-המקורי> | sort)
-```
+הבדיקה חוסמת ב-CI. **מה שהיא אינה תופסת** - ‏PR אחר שמוזג אחרי שה-PR
+שלכם עבר ירוק ולוקח את אותו מספר - ואיך ממספרים מחדש בלי לשבור הפניות של
+המיגרציה של `main`: הסקיל `deploy-path`, סעיף 3. שם גם מיזוג `main` לענף
+של מישהו אחר בלי לאבד דבר.
 
 ## שמונה כללי כתיבה
 
@@ -98,9 +71,13 @@ end $$;
 
 הכנסת עמודה באמצע מפילה את ההחלפה.
 
-### 3. הקוד והמיגרציה באותו PR
+### 3. הקוד והמיגרציה נכנסים יחד - או המיגרציה קודם
 
-זו כל הנקודה. אחרת ה-HTML באוויר והסכימה לא.
+קוד בלי המיגרציה שלו הוא HTML באוויר בלי סכימה. אבל גם באותו PR יש חלון:
+‏Netlify מפרסם תוך שניות, והמיגרציה רצה דקות אחריו. קוד שקורא עמודה חדשה
+סובל את היעדרה, או שהמיגרציה נכנסת קודם ב-PR משלה (חינם - PR של מיגרציה
+בלבד אינו עולה דיפלוי). ‏`drop`/`rename` - בסדר ההפוך. הטבלה המלאה:
+הסקיל `deploy-path`, סעיף 2.
 
 ### 4. פונקציה חדשה — להחליט על ההרשאות במפורש
 
@@ -154,6 +131,37 @@ python3 scripts/check_function_grants.py
 
 התקדים: חמש פונקציות כאלה היו פתוחות ל-`anon`, ואחת מהן אפשרה לשנות את
 המסלול של כל מנוי/ה בשתי בקשות HTTP בלי התחברות.
+
+#### ‏4א. טבלה או view חדשים - `grant` מפורש, לא רק `revoke`
+
+**מ-30.10.2026 Supabase אינה מעניקה הרשאות לטבלה חדשה ב-`public`**, גם
+בפרויקט הקיים. עד אז כל טבלה נולדה עם `select, insert, update, delete`
+ל-`anon`, ל-`authenticated` ול-`service_role`, ולכן המיגרציות כאן רק
+**הורידו** מה שלא רצו (‏`revoke all on table ... from anon`) ונשענו על השאר.
+אותו קובץ יוצר מאותו יום טבלה שאיש אינו ניגש אליה: ה-CRM מקבל
+‏`permission denied`, וגם פונקציות ה-Edge - ‏`service_role` עוקף RLS, לא
+הרשאות טבלה. הטבלאות הקיימות שומרות את מה שיש להן.
+
+```sql
+create table if not exists public.my_table (...);
+alter table public.my_table enable row level security;
+-- להחליט על כל אחד משלושת התפקידים בשם, לפי מי שבאמת ניגש:
+grant select, insert, update, delete on table public.my_table to authenticated, service_role;
+revoke all on table public.my_table from anon;
+```
+
+‏`revoke` הוא החלטה תקפה ("לתפקיד הזה אין גישה"). ‏`grant` לא מחליף RLS:
+טבלה שהדפדפן ניגש אליה נשארת עם RLS ו-policy, וה-`grant` רק פותח את
+הדלת ש-RLS שומר עליה. אותו כלל חל על **view חדש** (‏`alter default
+privileges ... on tables` חל ב-Postgres גם על views); החלפת view קיים
+ב-`create or replace` שומרת את ההרשאות שלו.
+
+```sh
+python3 scripts/check_table_grants.py
+```
+
+הבדיקה חוסמת ב-CI, באותו job `הרשאות פונקציות`, טבלה או view שנוצרו
+אחרי `CUTOFF` בלי `grant`/`revoke` שמונה כל אחד משלושת התפקידים.
 
 ### 5. גרש בתוך מחרוזת מוכפל, ולא מוברח בבקסלאש
 
@@ -257,7 +265,7 @@ grep -rnE "\.from\(['\"]<הטבלה>['\"]\)" supabase/functions assets *.html \
 | שם ה-job | מה הוא תופס |
 | --- | --- |
 | `גרסאות מיגרציה` | ‏version כפול, שם פסול, version שאינו גדול מהאחרון |
-| `הרשאות פונקציות` | ‏`grant` שמדיר תפקיד בלי `revoke` שמוציא אותו |
+| `הרשאות פונקציות` | ‏`grant` שמדיר תפקיד בלי `revoke` שמוציא אותו, וטבלה או view חדשים בלי החלטה מפורשת לשלושת התפקידים |
 | `מיתרים במיגרציות` | מחרוזת שלא נסגרה, וגרש מוברח בבקסלאש |
 
 **למה הן רצות על כל PR ולא רק על PR שנוגע במיגרציות:** בדיקה נדרשת
@@ -273,10 +281,5 @@ grep -rnE "\.from\(['\"]<הטבלה>['\"]\)" supabase/functions assets *.html \
 ## אחרי המיזוג
 
 **מבט אחד ב-Actions.** workflow אדום שם הוא **תקלת פרודקשן ולא רעש CI**:
-ה-HTML כבר באוויר, והסכימה לא.
-
-אם הרשומה שחוסמת נוצרה מהחלה מחוץ לצינור של מיגרציה שקיימת כקובץ —
-ה-workflow מיישר אותה בעצמו ומדווח באזהרה. בכל מקרה אחר הוא נכשל ומדפיס
-את ה-DDL של הרשומה, כדי שההחלטה תהיה מבוססת.
-
-הסיפור המלא: `docs/supabase-migrations.md`.
+ה-HTML כבר באוויר, והסכימה לא. מה ה-workflow מיישר בעצמו ומתי הוא נכשל:
+הסקיל `deploy-path`, סעיף 2. הסיפור המלא: `docs/supabase-migrations.md`.

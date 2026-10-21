@@ -1,6 +1,6 @@
 ---
 name: crm-startup
-description: מה ה-CRM של שוק נדל״ן טוען אחרי הכניסה, ואיך מוסיפים לזה בלי להאט - loadDashboard() והשרשראות שבה (propsP, clientsP, pricingP), ה-Promise.all בתוך loadProperties, loadClients והמדפים, שאילתת supabase-js שיוצאת רק ב-then, תקרת 1,000 השורות של PostgREST, ספירה במסד (property_view_counts) במקום הורדת שורות, scheduleNavCounts, ומדידה עם dashboard_load.mjs. Use when adding a load, a query or an RPC that runs when the CRM opens, when touching loadDashboard / loadProperties / loadClients / loadLeadShelf / loadSavedSearchShelf / accSetCount / refreshNavCounts, when someone says the CRM is slow to open, when a count in the CRM looks capped at 1,000, or when a database function behind a CRM panel takes seconds (pg_stat_statements, explain analyze).
+description: מה ה-CRM של שוק נדל״ן טוען אחרי הכניסה, ואיך מוסיפים בלי להאט - loadDashboard() והשרשראות (propsP, clientsP, pricingP), תקרת 1,000 השורות של PostgREST, ספירה במסד, scheduleNavCounts ו-dashboard_load.mjs. Use when adding a load, query or RPC that runs when the CRM opens, when touching loadDashboard / loadProperties / loadClients, when the CRM is slow to open, when a count looks capped at 1,000, or when a CRM panel's DB function is slow (pg_stat_statements).
 ---
 
 # מה ה-CRM טוען אחרי הכניסה
@@ -73,6 +73,17 @@ const topsP = sb.rpc('client_match_top').then(r => r); // יצאה עכשיו
 ‏`scheduleNavCounts()` מקבצת לבנייה אחת לפריים (10). **מי שצריך את הניווט
 מעודכן מיד** - קורא ל-`refreshNavCounts()` ישירות; היא מבטלת את מה שממתין.
 
+**6. מה שדף הבית מציג מכמה טעינות נבנה ב-`refreshNavCounts`, לא בכל טעינה.**
+כך לוח היום (`renderHomeBoard`), שורות התובנה בשלושת המדדים (`renderKpiInsights`)
+ומוני הפעולות המהירות (`syncQuickBadges`): הם תלויים בנכסים, בלקוחות, בהסכמים
+ובמונים, שנטענים בנפרד, ו-`scheduleNavCounts` מאחד אותם לבנייה אחת לפריים. אין
+להם שאילתה משלהם - נתון חדש לתובנה נלקח ממה שכבר בזיכרון, או שהוא טעינה חדשה
+לפי כלל 1, ונמדד.
+
+**6. שם המשרד יוצא במקביל לשורת הסוכן/ת** לפי `agency_id` שנשמר בכניסה
+הקודמת (`crmAgencyId:<user_id>`), ונלקח רק אם המזהה תואם. שאילתה חדשה שתלויה
+רק ב-`agency_id` יכולה להצטרף לאותו `agencyEarly` באותה צורה - לא לטור.
+
 ## מדידה
 
 ```sh
@@ -112,6 +123,20 @@ node "$REPO/.claude/skills/crm-startup/dashboard_load.mjs" "$REPO" agent
 עסקאות הוא 31,847 קריאות לפונקציה - 7.2 שניות. קיבוץ לפי שם העיר קודם
 (49 שמות) נתן אותה ספירה ב-63ms. **פונקציה על עמודה, בתוך `where` על
 טבלה גדולה = קבצו לפי העמודה קודם.**
+
+**ו"לקבץ קודם" אינו מובטח בלי גדר.** התיקון הזה החזיק חצי שנה ונשבר בשקט
+(‏20270629090000): התנאי `where city_id_for_name(g.city) = ...` יושב על
+**מפתח הקיבוץ**, ולכן המתכנן רשאי לדחוף אותו אל מתחת ל-`GroupAggregate` - וכשהמאגר
+גדל ל-67,633 עסקאות הוא עשה את זה, והפונקציה חזרה לרוץ לכל שורה (14.8 שניות,
+מעל תקרת 8 השניות של `authenticated`, ופאנל ריק). הגדר היא
+`with g as materialized (...)`. וב-`explain` בודקים **איפה יושב ה-`Filter`**
+(על ה-Scan של הטבלה הגדולה = נדחף), לא רק את הזמן: על נתונים קטנים שתי
+הגרסאות מהירות.
+
+**ופאנל ניהול שמחשב אגרגציה כבדה בכל פתיחה - חשבו מראש.** פאנל השווקים
+קורא מ-`market_snapshots` (פעם בשעה ב-pg_cron, ובכל "רענון"), וכשהחישוב
+החי נכשל הוא מציג את השמור עם השעה שלו ולא מסך ריק. ‏`docs/regional-pages.md`,
+"התמונה השמורה".
 
 ## מה עוד לא נעשה, ולמה
 

@@ -27,7 +27,14 @@ import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
-import { forwardedSender, parseCostMail, stripForwardPrefix } from "./cost-mail.ts";
+import {
+  type ExistingCost,
+  findDuplicate,
+  forwardedSender,
+  parseCostMail,
+  receiptText,
+  stripForwardPrefix,
+} from "./cost-mail.ts";
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
 import { prepareImportJob } from "./property-import.ts";
 
@@ -190,13 +197,23 @@ export function verifiedSender(headers: string, mailboxUser: string): string | n
 // המייל כטקסט
 // ---------------------------------------------------------------------------
 
+function safeChar(code: number): string {
+  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
+}
+
 function htmlToText(html: string): string {
   return html
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|tr|li|h\d)>/gi, "\n")
+    // ‏תא או span שנסגרים צמודים לבא אחריהם ("NWIXDA-00042</span><span>Paid")
+    .replace(/<\/(td|th|span)>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
+    // ‏ישויות מספריות ("&#8362;" הוא ₪, "&#34;" הוא מירכאות) — לפני &amp;, כדי
+    // ש-"&amp;#39;" לא יפוענח פעמיים
+    .replace(/&#(\d{1,6});/g, (_, n) => safeChar(Number(n)))
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h) => safeChar(parseInt(h, 16)))
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -219,6 +236,12 @@ interface ParsedMail {
   date: string;
   messageId: string | null;
   text: string;
+  /**
+   * חלק ה-HTML כטקסט, כשיש **גם** חלק טקסט (אחרת הוא כבר ב-`text`). העוזר
+   * אינו קורא אותו; הקבלות כן — העברה של הסוכן של תומר שמה בחלק הטקסט
+   * שורת "מקור:" בלבד, והקבלה המקורית (סכום, חשבונית, תאריך) כולה ב-HTML.
+   */
+  htmlText: string;
   attachments: MailAttachment[];
 }
 
@@ -253,7 +276,9 @@ function addr(a?: PostalAddress): string {
  */
 export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail> {
   const email = await PostalMime.parse(raw) as PostalEmail;
-  let text = (email.text || "").trim() || htmlToText(email.html || "");
+  const plain = (email.text || "").trim();
+  let text = plain || htmlToText(email.html || "");
+  let htmlText = plain ? htmlToText(email.html || "") : "";
   const attachments: MailAttachment[] = [];
 
   for (const a of email.attachments || []) {
@@ -262,6 +287,7 @@ export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail>
       const inner = await parseMail(toBytes(a.content), depth + 1);
       text += `\n\n---------- הודעה מצורפת ----------\n` +
         `מאת: ${inner.from}\nנושא: ${inner.subject}\nתאריך: ${inner.date}\n\n${inner.text}`;
+      if (inner.htmlText) htmlText += (htmlText ? "\n\n" : "") + inner.htmlText;
       attachments.push(...inner.attachments);
     } else {
       const mime = (a.mimeType || "application/octet-stream").toLowerCase();
@@ -279,6 +305,7 @@ export async function parseMail(raw: Uint8Array, depth = 0): Promise<ParsedMail>
     date: email.date || "",
     messageId: email.messageId || null,
     text,
+    htmlText,
     attachments,
   };
 }
@@ -697,6 +724,19 @@ async function handleOne(
  *
  * כל השאר — נרשם ב-`email_intake_messages` כ-skipped ולא נוגע בטבלה.
  */
+/**
+ * ה-HTML של הקבלה: חלק ה-HTML של המייל, ואחריו קובצי HTML מצורפים. הסוכן של
+ * תומר מצרף את הקבלה המקורית **כקובץ** `text/html` (‏19.10.2026: ‏multipart/mixed
+ * ← text/plain + text/html מצורף), ו-PostalMime מסווג קובץ כזה כמצורף ולא
+ * כגוף — כך שהסכום, החשבונית והתאריך לא הגיעו לקבלה.
+ */
+export function receiptHtml(mail: ParsedMail): string {
+  const files = mail.attachments
+    .filter((a) => a.mime === "text/html" || /\.html?$/i.test(a.name))
+    .map((a) => htmlToText(new TextDecoder().decode(a.bytes)));
+  return [mail.htmlText, ...files].filter(Boolean).join("\n\n");
+}
+
 async function handleCostMail(
   sb: SupabaseClient,
   imap: ImapClient,
@@ -717,11 +757,18 @@ async function handleCostMail(
   const row = claimed as ClaimRow;
 
   let mail: ParsedMail;
+  let sizes = "";
   try {
     const fetched = await imap.uidFetch([uid], `BODY.PEEK[]<0.${COSTS_FETCH_BYTES}>`);
     const raw = fetched.get(uid)?.bytes;
     if (!raw || !raw.length) return finish(sb, row, "failed", "costs: empty_fetch");
     mail = await parseMail(raw);
+    // ‏קבלה בלי סכום — מה הגיע בפועל: בתים מול RFC822.SIZE, ואורך הטקסט וה-HTML.
+    sizes = ` [raw ${raw.length}/${fetched.get(uid)?.size ?? "?"}, text ${mail.text.length}, html ${mail.htmlText.length}]`;
+    // ‏מבנה ה-MIME כפי שהגיע (שורות Content-Type בלבד, בלי תוכן) — ההעברה
+    // ששמורה ב"נשלחו" שוקלת 92KB, ומה שמגיע לכאן 25KB בלי HTML.
+    const types = new TextDecoder("latin1").decode(raw).match(/^Content-Type:[^\r\n;]*/gim) || [];
+    console.log("cost mail", uid, sizes.trim(), `attachments ${mail.attachments.length}`, types.slice(0, 15).join(" | "));
   } catch (err) {
     console.error("cost mail fetch/parse failed", err);
     return finish(sb, row, "failed", `costs: fetch: ${String((err as Error)?.message || err)}`);
@@ -738,12 +785,23 @@ async function handleCostMail(
     {
       sender: vendor,
       subject: mail.subject,
-      text: mail.text,
+      text: receiptText(mail.text, receiptHtml(mail)),
       mailDate: mail.date ? new Date(mail.date) : null,
     },
     byAdmin ? "other" : null,
   );
   if (!draft) return finish(sb, row, "skipped", `costs: not_a_charge (${vendor || "unknown"})`);
+
+  // ‏כפילות בלי מספר חשבונית (‏findDuplicate). עם מספר — האינדקס הייחודי.
+  if (!draft.invoice_no) {
+    const { data: same } = await sb.from("platform_costs")
+      .select("id, amount, invoice_no, status")
+      .eq("service", draft.service)
+      .eq("charged_on", draft.charged_on)
+      .limit(20);
+    const dup = findDuplicate(draft, (same as ExistingCost[]) || []);
+    if (dup) return finish(sb, row, "skipped", `costs: duplicate of #${dup.id} (${draft.service} ${draft.charged_on})`);
+  }
 
   const { error } = await sb.from("platform_costs").insert({
     ...draft,
@@ -761,7 +819,7 @@ async function handleCostMail(
   }
   await finish(
     sb, row, "done",
-    `costs: ${draft.service} ${draft.amount ?? "?"} ${draft.currency} ${draft.status}`,
+    `costs: ${draft.service} ${draft.amount ?? "?"} ${draft.currency} ${draft.status}${draft.amount === null ? sizes : ""}`,
   );
 }
 

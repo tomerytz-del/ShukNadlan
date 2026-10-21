@@ -1,6 +1,6 @@
 ---
 name: office-signup
-description: עבודה על מסלול ההצטרפות של משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה ב-crm.html, טופס הפתיחה במסלול Google, הכניסה האוטומטית אחרי ההרשמה, חלון "ברוכים הבאים", מדריך ההתחלה (שבעה צעדים בשני שלבים: רישיון, פרופיל, נכס; גבריאלה, לקוח/ה, יומן, העדפות לידים), ומה מבקשים ומתי (טלפון בהרשמה, ת.ז. בהסכם הראשון, יומן Google בפגישה הראשונה); וגם ערכות העיצוב ותמונת הנושא של המשרד שחלות על כל הסוכנים (assets/agency-theme.js). Use when adding or removing a field in office signup, changing the signup or login copy, touching signInAfterSignup / maybeShowWelcome / ONB_STEP_DEFS / assets/crm-onboarding.js / agent_onboarding_state / agent_license_ok, when a new office "has to log in again" after signup, when asking the agent for a new permission or personal detail, or when touching office colors, page background or cover photos (BRAND_PALETTES, BRAND_DEFAULT, agency.html applyBranding, agent.html). Also when a new office sees nothing under "נכסים ששותפו איתי" (agencies_share_backfill).
+description: הצטרפות משרד חדש בריפו של שוק נדל״ן - agency-signup.html, מסך הכניסה, הכניסה האוטומטית, חלון "ברוכים הבאים", מדריך ההתחלה (ONB_STEP_DEFS, agent_license_ok), מה מבקשים ומתי, וערכות העיצוב (assets/agency-theme.js). Use when adding or removing a signup field, changing signup or login copy, touching signInAfterSignup / maybeShowWelcome / crm-onboarding.js, when a new office "has to log in again", or when touching office colors or covers.
 ---
 
 # הצטרפות משרד, מדריך ההתחלה, ועיצוב המשרד
@@ -47,6 +47,32 @@ description: עבודה על מסלול ההצטרפות של משרד חדש ב
   `stateBlocked` / `stateDone` בדף ההרשמה הם רק גיבוי לכשל בכניסה.
 * `WELCOME_KEY` מוגדר בשני הקבצים (`agency-signup.html`, `assets/crm.js`),
   אותו ערך. `markWelcome()` מדליק אותו גם במסלול Google.
+
+## מסך הכניסה ב-CRM - שני מסלולים, ולא שורת קישור
+
+`#loginCardMain` ב-`crm.html` בנוי משני חלקים נפרדים לעין, והסדר הזה הוא
+מה שעונה למי שהגיע/ה על "מה אני עושה כאן?":
+
+1. **"כבר יש לך חשבון? כניסה"** - Google ראשון (‏`#googleLoginBtn`), ואז
+   "או עם אימייל וסיסמה" והטופס (‏`#loginBtn` - "כניסה למערכת").
+2. **"חדש/ה כאן?"** - כרטיס כחול כהה נפרד (‏`.auth-join`) עם כפתור זהב מלא ל-
+   `/agency-signup`, ו"6 חודשים במתנה" בתוכו. היה כאן קישור טקסט קטן מתחת
+   לכפתור הכניסה, ומי שהגיע/ה בפעם הראשונה לא ראה/תה אותו.
+3. מתחת - שורה לסוכן/ת במשרד שכבר רשום: **אין להירשם**, נכנסים עם המייל
+   שהמנהל/ת רשם/ה. בלעדיה סוכן/ת חדש/ה לוחץ/ת "הצטרפות" ופותח/ת משרד מיותר.
+
+* **אייקונים ולא מספרים** ליד הכותרות (🔑, 🏢). "1" ו-"2" נקראים כשני צעדים
+  ברצף, והם שתי חלופות.
+* **`#authJoinWrap` מוסתר** ב-`showLoginCard()` כשיש אסימון הזמנה או
+  `readNewAgencyIntent()`. מי שמוסיף/ה מצב שלישי למסך מחליט/ה גם עליו.
+* **הטקסט של `#loginBtn` נכתב גם ב-JS** (‏`btn.textContent` אחרי הניסיון
+  ב-`assets/crm.js`). שינוי נוסח ב-HTML בלבד חוזר לישן אחרי סיסמה שגויה.
+* **העיצוב ("השער") יושב על `#loginScreen`** - רקע כחול בצבעי הלוגו וכרטיס
+  לבן - וחל על **כל** הכרטיסים בתוכו (אימות וואטסאפ, "מי את/ה?", הבקשה
+  נשלחה). כרטיס חדש שם יורש אותו מעצמו; אל תתנו לו רקע משלו.
+* מזהי ה-JS (`googleLoginBtn`, `.gl-label`, `loginForm`, `loginError`,
+  `inviteBanner`, `inviteSignup`) נשארים - גם `assets/csm-page.js` נשען על
+  `.gl-label`.
 
 ## הטלפון - נשמר, לא חוסם
 

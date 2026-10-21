@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>תחום ואזורי פעילות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&amp;family=Heebo:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<section dir="rtl" aria-labelledby="sAreas" style="width: 100%; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E3E7EF; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; gap: 22px; font-family: Heebo, system-ui, sans-serif; color: #0E1A33">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EAF0FF; color: #1F5BF0; display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="sAreas" style="margin: 0; font-family: 'Frank Ruhl Libre', serif; font-size: 22px; font-weight: 700">תחום ואזורי פעילות</h2>
+<span style="font-size: 14px; color: #5A6478">{{subtitle}}</span>
+</div>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="display: flex; align-items: center; gap: 8px; padding: 0; margin-bottom: 10px"><span style="width: 24px; height: 24px; border-radius: 50%; background: #0E1A33; color: #FFFFFF; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">1</span><span style="font-size: 16px; font-weight: 700">באילו נכסים</span></legend>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px">
+<sc-for list="{{kinds}}" as="k" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}" style="{{k.style}}">
+<span style="{{k.dot}}"></span>
+<span style="display: flex; flex-direction: column; gap: 3px; text-align: right"><span style="font-size: 15px; font-weight: 700">{{k.label}}</span><span style="font-size: 12px; color: #5A6478; line-height: 1.4">{{k.hint}}</span></span>
+</button>
+</sc-for>
+</div>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; border-radius: 50%; background: #0E1A33; color: #FFFFFF; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">2</span><span style="font-size: 16px; font-weight: 700">באילו אזורים</span><span style="font-size: 13px; color: #5A6478">אפשר לבחור כמה</span></div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 44px">
+<span style="font-size: 13px; font-weight: 700; color: #5A6478">נבחרו {{selCount}}:</span>
+<sc-for list="{{selected}}" as="s" hint-placeholder-count="1">
+<span style="display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 6px 0 12px; border-radius: 999px; background: #EAF0FF; color: #1846C2; font-size: 14px; font-weight: 600">{{s.label}}<button type="button" aria-label="{{s.removeLabel}}" onClick="{{s.remove}}" style="width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: #1846C2; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
+</sc-for>
+<sc-if value="{{noneSel}}" hint-placeholder-val="{{ false }}"><span style="font-size: 14px; color: #9A3412; font-weight: 600">עוד לא נבחר אזור</span></sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{regions}}" as="r" hint-placeholder-count="3">
+<div style="{{r.wrapStyle}}">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px">
+<button type="button" aria-expanded="{{r.openStr}}" onClick="{{r.toggleOpen}}" style="flex: 1; min-height: 48px; padding: 0 10px; border: 0; background: transparent; display: flex; align-items: center; gap: 10px; cursor: pointer; color: #0E1A33; text-align: right">
+<span style="{{r.chev}}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
+<span style="font-size: 16px; font-weight: 700">{{r.name}}</span>
+<span style="font-size: 13px; color: #5A6478">{{r.cities}}</span>
+<span style="{{r.countStyle}}">{{r.countText}}</span>
+</button>
+<button type="button" onClick="{{r.toggleRegion}}" style="min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #D5DBE6; background: #FFFFFF; color: #1F5BF0; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap">{{r.regionLabel}}</button>
+</div>
+<sc-if value="{{r.open}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 16px 16px">
+<sc-for list="{{r.items}}" as="a" hint-placeholder-count="8">
+<button type="button" aria-pressed="{{a.pressed}}" onClick="{{a.toggle}}" style="{{a.style}}">
+<sc-if value="{{a.on}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+<span>{{a.label}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start; background: #0E1A33; color: #FFFFFF; border-radius: 14px; padding: 14px 16px">
+<span style="color: #E0B84A; flex: none; margin-top: 2px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; font-weight: 700; color: #B8C2D9">בסיכום</span><span style="font-size: 15px; line-height: 1.55">{{summary}}</span></span>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"scope":{"editor":"enum","options":["agent","office"],"default":"agent"},"$preview":{"width":720,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { kind: 'all', sel: ['afula'], open: 'north' };
+  }
+  renderVals() {
+    const s = this.state;
+    const office = (this.props.scope ?? 'agent') === 'office';
+    const R = [
+      { id: 'north', name: 'צפון', items: [['afula', 'עפולה והעמק'], ['nof', 'נוף הגליל ומגדל העמק'], ['beitshean', 'בית שאן ועמק המעיינות'], ['yokneam', 'יקנעם, רמת ישי והסביבה'], ['tiberias', 'טבריה והכנרת'], ['haifa', 'חיפה והסביבה'], ['krayot', 'הקריות והסביבה'], ['akko', 'עכו ונהריה'], ['karmiel', 'כרמיאל ומשגב'], ['safed', 'צפת, ראש פינה וחצור'], ['ks', 'קריית שמונה והגליל העליון'], ['golan', 'רמת הגולן וקצרין']] },
+      { id: 'center', name: 'מרכז', items: [['hadera', 'חדרה והסביבה'], ['netanya', 'נתניה והסביבה'], ['ks2', 'כפר סבא ורעננה'], ['herzliya', 'הרצליה ורמת השרון'], ['tlv', 'תל אביב-יפו'], ['rg', 'רמת גן וגבעתיים'], ['bb', 'בני ברק ואלעד'], ['pt', 'פתח תקווה וראש העין'], ['holon', 'חולון ובת ים'], ['rishon', 'ראשון לציון'], ['rehovot', 'רחובות ונס ציונה'], ['lod', 'לוד ורמלה'], ['modiin', 'מודיעין והסביבה'], ['jlm', 'ירושלים והסביבה'], ['bs', 'בית שמש והסביבה'], ['binyamin', 'בנימין ומודיעין עילית'], ['ariel', 'אריאל והשומרון']] },
+      { id: 'south', name: 'דרום', items: [['ashdod', 'אשדוד והסביבה'], ['ashkelon', 'אשקלון והסביבה'], ['kg', 'קריית גת והסביבה'], ['sderot', 'שדרות, נתיבות ואופקים'], ['b7', 'באר שבע והסביבה'], ['eilat', 'אילת והסביבה']] }
+    ];
+    const kindDefs = [
+      { id: 'private', label: 'נכסים פרטיים בלבד', hint: 'דירות, בתים פרטיים, דירות גן ומגרשים למגורים', phrase: 'בנכסים פרטיים בלבד' },
+      { id: 'commercial', label: 'מסחריים ותעשייה בלבד', hint: 'חנויות, משרדים, מבני תעשייה ולוגיסטיקה', phrase: 'בנכסים מסחריים ובאזורי תעשייה בלבד' },
+      { id: 'all', label: 'כל סוגי הנכסים', hint: 'פרטיים, מסחריים ותעשייה', phrase: 'בכל סוגי הנכסים' }
+    ];
+    const kinds = kindDefs.map((k) => {
+      const on = s.kind === k.id;
+      return {
+        label: k.label, hint: k.hint, pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ kind: k.id }),
+        style: 'display: flex; align-items: flex-start; gap: 10px; min-height: 72px; padding: 12px 14px; border-radius: 14px; cursor: pointer; width: 100%; color: #0E1A33; ' + (on ? 'border: 2px solid #1F5BF0; background: #EAF0FF' : 'border: 1px solid #D5DBE6; background: #FFFFFF'),
+        dot: 'width: 20px; height: 20px; border-radius: 50%; flex: none; box-sizing: border-box; margin-top: 1px; ' + (on ? 'border: 6px solid #1F5BF0; background: #FFFFFF' : 'border: 2px solid #A7B0C2; background: #FFFFFF')
+      };
+    });
+    const labels = {};
+    R.forEach((r) => r.items.forEach(([id, l]) => { labels[id] = l; }));
+    const has = (id) => s.sel.includes(id);
+    const regions = R.map((r) => {
+      const ids = r.items.map((i) => i[0]);
+      const n = ids.filter(has).length;
+      const full = n === ids.length;
+      const open = s.open === r.id;
+      return {
+        name: r.name, open, openStr: open ? 'true' : 'false',
+        cities: r.items.length + ' אזורים',
+        countText: full ? 'כל ה' + r.name : n + ' נבחרו',
+        countStyle: n > 0 ? 'margin-right: auto; font-size: 12px; font-weight: 700; color: #1846C2; background: #EAF0FF; border-radius: 999px; padding: 3px 10px' : 'display: none',
+        chev: 'display: flex; color: #5A6478; transform: rotate(' + (open ? '180' : '0') + 'deg)',
+        wrapStyle: 'border-radius: 14px; ' + (open ? 'border: 1px solid #C9D6F7; background: #FAFBFE' : 'border: 1px solid #E3E7EF; background: #FFFFFF'),
+        toggleOpen: () => this.setState({ open: open ? null : r.id }),
+        regionLabel: full ? 'ניקוי' : 'כל ה' + r.name,
+        toggleRegion: () => {
+          const rest = s.sel.filter((x) => !ids.includes(x));
+          this.setState({ sel: full ? rest : rest.concat(ids), open: r.id });
+        },
+        items: r.items.map(([id, label]) => {
+          const on = has(id);
+          return {
+            label, on, pressed: on ? 'true' : 'false',
+            style: 'display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; font-size: 14px; cursor: pointer; ' + (on ? 'border: 1.5px solid #1F5BF0; background: #EAF0FF; color: #1846C2; font-weight: 600' : 'border: 1px solid #D5DBE6; background: #FFFFFF; color: #3A4458; font-weight: 500'),
+            toggle: () => this.setState({ sel: on ? s.sel.filter((x) => x !== id) : s.sel.concat(id) })
+          };
+        })
+      };
+    });
+    const selected = s.sel.map((id) => ({ label: labels[id], removeLabel: 'הסרת ' + labels[id], remove: () => this.setState({ sel: s.sel.filter((x) => x !== id) }) }));
+    const kind = kindDefs.find((k) => k.id === s.kind);
+    const fullRegions = R.filter((r) => r.items.every(([id]) => has(id)));
+    const fullIds = fullRegions.flatMap((r) => r.items.map((i) => i[0]));
+    const parts = fullRegions.map((r) => 'כל ה' + r.name).concat(s.sel.filter((id) => !fullIds.includes(id)).map((id) => labels[id]));
+    const where = parts.length === 0 ? null : parts.length === 1 ? parts[0] : parts.slice(0, -1).join(', ') + ' ו' + parts[parts.length - 1];
+    const who = office ? 'סוכני המשרד ישותפו ' : 'יגיעו אליך שיתופים ';
+    let summary = where ? who + kind.phrase + ', ב' + where + '.' : 'יש לבחור לפחות אזור אחד כדי לקבל שיתופים.';
+    if (where && s.kind === 'commercial') summary += office ? ' הם לא ישותפו בנכסים פרטיים (דירות ובתים).' : ' שיתופים בנכסים פרטיים (דירות ובתים) לא יגיעו אליך.';
+    if (where && s.kind === 'private') summary += office ? ' הם לא ישותפו בנכסים מסחריים ובתעשייה.' : ' שיתופים בנכסים מסחריים ובתעשייה לא יגיעו אליך.';
+    return {
+      subtitle: office
+        ? 'סוגי הנכסים והאזורים שבהם המשרד פועל. לפיהם נקבע במה משתפים את סוכני המשרד.'
+        : 'סוגי הנכסים והאזורים שבהם הפעילות שלך. לפיהם נקבע במה משתפים אותך.',
+      kinds, regions, selected, selCount: s.sel.length, noneSel: s.sel.length === 0, summary
+    };
+  }
+}
+</script>
+</body>
+</html>

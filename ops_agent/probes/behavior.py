@@ -33,6 +33,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _market_data(ctx)
     yield from _deal_sync_cycle(ctx)
     yield from _agencies_no_city(ctx)
+    yield from _market_snapshots(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -433,6 +434,10 @@ def _stand_in_pins(ctx) -> Iterator[Finding]:
 # ואת המבקר/ת הראשון/ה שהאתר ריק.
 MARKET_GATE_AGENCIES = 1
 MARKET_GATE_PROPERTIES = 10
+# ‏"מתקרב לסף" - 70% מהנכסים. שוק סגור שעבר את זה מקבל ממצא info, וההתראה
+# למנהל/ת הפלטפורמה (‏market_alert, מיגרציה 20270705090000) יוצאת כשהוא נפתח -
+# כלומר פעם אחת בדרך לסף, ופעם נוספת כשהסף עצמו נחצה (‏market_ready).
+MARKET_NEAR_PROPERTIES = 7
 
 
 def _load_markets(root) -> list[dict]:
@@ -472,6 +477,9 @@ def _market_gate(ctx) -> Iterator[Finding]:
         """
         select c.market_slug,
                count(distinct p.id) filter (where p.status = 'active') as props,
+               count(distinct p.id) filter (where p.status = 'active'
+                                              and p.lat is not null
+                                              and p.lng is not null)   as pinned,
                count(distinct a.id)                                    as agencies
           from public.cities c
           left join public.properties p on p.city_id = c.id
@@ -487,9 +495,18 @@ def _market_gate(ctx) -> Iterator[Finding]:
         r = by_slug.get(m["slug"]) or {}
         props = int(r.get("props") or 0)
         agencies = int(r.get("agencies") or 0)
+        pinned = int(r.get("pinned") or 0)
         ready = agencies >= MARKET_GATE_AGENCIES and props >= MARKET_GATE_PROPERTIES
         evidence = {"market": m["slug"], "live": m["live"], "active_properties": props,
-                    "agencies": agencies, "gate": [MARKET_GATE_AGENCIES, MARKET_GATE_PROPERTIES]}
+                    "pinned": pinned, "agencies": agencies,
+                    "gate": [MARKET_GATE_AGENCIES, MARKET_GATE_PROPERTIES]}
+        # ‏נכס בלי פין אינו על המפה של דף השוק - שוק שעבר את הסף בנכסים שאין
+        # להם מיקום נפתח על מפה ריקה. הסקיל market-go-live, סעיף 1.
+        unpinned = props - pinned
+        # ‏השם ולא ה-slug: הכותרת יוצאת גם בוואטסאפ (‏market_alert).
+        name = m.get("label") or m["slug"]
+        pin_note = (" %d מהם בלי פין ולא יופיעו על המפה - צריך כתובת מלאה "
+                    "(רחוב ומספר) בכרטיס הנכס ב-CRM." % unpinned) if unpinned else ""
 
         # ‏שוק ברירת המחדל הוא דף הבית של כל האתר - הוא לא נסגר, ולכן אין
         # על מה לדווח אם הוא מתחת לסף (הוא יהיה שם גם כשהמסד ריק לגמרי).
@@ -498,7 +515,7 @@ def _market_gate(ctx) -> Iterator[Finding]:
                 area="health", code="market_below_gate", severity="high",
                 subject="market:%s" % m["slug"],
                 title="השוק %s חי עם %d נכסים פעילים ו-%d משרדים - מתחת לסף"
-                      % (m["slug"], props, agencies),
+                      % (name, props, agencies),
                 detail="שוק חי הוא דף הבית של כל מי שנמצא/ת באזור, והסף הוא "
                        "משרד אחד ו-10 נכסים פעילים. מתחתיו הדף דל: גוגל לומדת "
                        "שהאתר דק, והמבקר/ת הראשון/ה רואה אתר ריק.",
@@ -512,11 +529,29 @@ def _market_gate(ctx) -> Iterator[Finding]:
                 area="health", code="market_ready", severity="info",
                 subject="market:%s" % m["slug"],
                 title="השוק %s עבר את הסף: %d נכסים פעילים ו-%d משרדים"
-                      % (m["slug"], props, agencies),
+                      % (name, props, agencies),
                 detail="הכתובת שלו עדיין מגישה 'נפתחים בקרוב'. אפשר להדליק "
-                       "אותו לגולשים.",
-                suggestion="הסקיל market-go-live: ‏live: true, ‏_redirects ל-/index, "
-                           "שורה ב-sitemap.xml, והערים חיות במסד.",
+                       "אותו לגולשים." + pin_note,
+                suggestion="לבקש מ-Claude לפתוח את השוק (הסקיל market-go-live: "
+                           "live: true, ‏_redirects ל-/index ושורה ב-sitemap.xml, "
+                           "ב-PR אחד).",
+                metric=props, metric_unit="נכסים", evidence=evidence,
+            )
+        elif not m["live"] and not ready and props >= MARKET_NEAR_PROPERTIES:
+            missing = []
+            if props < MARKET_GATE_PROPERTIES:
+                missing.append("%d נכסים" % (MARKET_GATE_PROPERTIES - props))
+            if agencies < MARKET_GATE_AGENCIES:
+                missing.append("משרד")
+            yield Finding(
+                area="health", code="market_near", severity="info",
+                subject="market:%s" % m["slug"],
+                title="השוק %s מתקרב לסף: %d נכסים פעילים ו-%d משרדים"
+                      % (name, props, agencies),
+                detail="חסרים עד הפתיחה: %s. הסף הוא משרד אחד ו-10 נכסים פעילים."
+                       % " ו-".join(missing) + pin_note,
+                suggestion="לגייס עוד מלאי באזור. כשהשוק יעבור את הסף תגיע "
+                           "התראה נוספת.",
                 metric=props, metric_unit="נכסים", evidence=evidence,
             )
 
@@ -892,3 +927,70 @@ def _agencies_no_city(ctx) -> Iterator[Finding]:
         evidence={"agencies": [{"name": r.get("name"), "joined": r.get("joined"),
                                 "props": int(r.get("props") or 0)} for r in rows[:20]]},
     )
+
+
+# ‏התמונה השמורה מתעדכנת כל שעה (בדקה 17); שלוש שעות = שני סבבים שהוחמצו,
+# ולא סבב אחד שרץ באיחור או תפס את הטעינה הראשונה של שוק חדש.
+MARKET_SNAPSHOT_STALE_HOURS = 3
+
+
+def _market_snapshots(ctx) -> Iterator[Finding]:
+    """פאנל "שווקים מקומיים" מציג את market_snapshots - ומה אם היא נעצרה.
+
+    ‏**למה זה שקט בלי הבדיקה:** הפאנל מציג את התמונה השמורה עם השעה שלה,
+    ולכן גם תמונה בת שבוע נראית תקינה לגמרי. עד 20270629090000 הוא חישב
+    בכל טעינה, וכשהחישוב עבר את 8 השניות של authenticated המסך היה ריק -
+    גלוי, אבל גם שבור. עכשיו הוא אף פעם לא ריק, ולכן מי שאומר שהנתונים
+    נעצרו הוא הממצא הזה.
+
+    שני מקרים: הרענון השעתי לא רץ (pg_cron כבוי, הפונקציה נכשלה כולה), או
+    שהוא רץ ונכשל על שוק מסוים - ‏last_error אחרי computed_at.
+    """
+    if not ctx.db.has_table("market_snapshots"):
+        return
+    ctx.count()
+    rows = ctx.db.rows(
+        """
+        select market_slug,
+               extract(epoch from now() - computed_at) / 3600.0 as age_hours,
+               last_error,
+               (last_error_at is not null
+                and (computed_at is null or last_error_at > computed_at)) as failing
+          from public.market_snapshots
+         order by market_slug
+        """
+    ) or []
+    if not rows:
+        return
+    failing = [r for r in rows if r.get("failing")]
+    if failing:
+        slugs = [str(r.get("market_slug")) for r in failing]
+        yield Finding(
+            area="behavior", code="market_snapshot_error", severity="medium",
+            subject="market_snapshots",
+            title="‏%d שווקים שהרענון השעתי שלהם נכשל" % len(failing),
+            detail="פאנל השווקים מציג להם את הנתונים מהחישוב האחרון שהצליח. "
+                   "השווקים: " + ", ".join(slugs[:10]) + ("…" if len(slugs) > 10 else "")
+                   + ". השגיאה: " + str(failing[0].get("last_error") or "")[:200],
+            suggestion="market_snapshots_refresh() רושמת את השגיאה ב-last_error. "
+                       "‏explain analyze על _platform_market_report_core(<השוק>). "
+                       "‏docs/regional-pages.md, 'התמונה השמורה'.",
+            metric=len(failing), metric_unit="שווקים",
+            evidence={"markets": [{"slug": r.get("market_slug"),
+                                   "error": str(r.get("last_error") or "")[:200]}
+                                  for r in failing[:20]]},
+        )
+    ages = [float(r["age_hours"]) for r in rows if r.get("age_hours") is not None]
+    oldest = max(ages) if ages else None
+    if oldest is not None and oldest > MARKET_SNAPSHOT_STALE_HOURS:
+        yield Finding(
+            area="behavior", code="market_snapshot_stale", severity="medium",
+            subject="market_snapshots",
+            title="תמונת השווקים לא התעדכנה %d שעות" % int(oldest),
+            detail="הרענון רץ כל שעה. פאנל השווקים מציג את מה שנשמר עם השעה שלו, "
+                   "ולכן נתונים ישנים נראים בו תקינים.",
+            suggestion="לבדוק ב-cron.job_run_details את market-snapshots-refresh. "
+                       "‏docs/regional-pages.md, 'התמונה השמורה'.",
+            metric=round(oldest, 1), metric_unit="שעות",
+            evidence={"oldest_hours": round(oldest, 1)},
+        )
