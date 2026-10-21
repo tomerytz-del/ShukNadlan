@@ -24885,6 +24885,13 @@ const NOTIF_TYPES = [
     sub:'משרד תיווך שנפתח, מתווך/ת שנכנס/ת לראשונה, בעל/ת מקצוע שנרשם/ה או חברה יזמית - עם השם והמסלול.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
+  /* הודעה שמנהל/ת הפלטפורמה שלח/ה לכל הסוכנים (admin_broadcast). אין פריט -
+     הקישור הוא לרשימת ההודעות, שם אפשר לקרוא אותה שוב. בוואטסאפ באותם שערים
+     של כל התראה (docs/admin-command-center.md) */
+  { type:'platform_broadcast', tone:'', goto:'accPlatformNews', focus:'#platformNewsList',
+    title:'הודעה מהפלטפורמה',
+    sub:'הודעה שצוות שוק נדל״ן שלח לכל הסוכנים - עדכון, שינוי או בקשה.',
+    refresh: ()=> loadPlatformNews() },
   /* פריט בתיבת המשימות שחרג מזמן היעד שלו - פעם אחת לפריט, וכמה שחרגו באותו
      סבב בהתראה אחת (admin_inbox_notify_overdue, docs/admin-inbox.md) */
   { type:'admin_overdue', tone:'alert', goto:'accAdminInbox', focus:'#adminInboxList',
@@ -26374,6 +26381,9 @@ const NAV_GROUPS = [
     { acc:'accPrefs',         label:'ההגדרות שלי',       icon:'cog',      tab:'more', section:'account' },
     { acc:'accWallet',        label:'מנוי וארנק',        icon:'wallet',   tab:'more', section:'account' },
     { acc:'accNotifPrefs',    label:'התראות והודעות',    icon:'bell',     tab:'more', section:'work' },
+    /* ההודעות שמנהל/ת הפלטפורמה שלח/ה לכל הסוכנים (admin_broadcast) - לקריאה
+       חוזרת. docs/admin-command-center.md */
+    { acc:'accPlatformNews',  label:'הודעות מהפלטפורמה', icon:'megaphone', tab:'more', section:'work' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more', section:'work' },
     { acc:'accWhatsapp',      label:'גבריאלה בוואטסאפ',   icon:'chat',     tab:'more', section:'work' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more', section:'support' },
@@ -27115,6 +27125,8 @@ function applyNavFilter(){
   if (adsPanel) adsPanel.classList.toggle('nav-off', !isAdminView);
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.classList.toggle('nav-off', !isAdminView);
+  const command = document.getElementById('adminCommand');
+  if (command) command.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -29489,6 +29501,9 @@ function setDashView(view, opts){
   if (adsPanel) adsPanel.hidden = (dashView !== 'admin');
   const marketPanel = document.getElementById('dashPanelMarkets');
   if (marketPanel) marketPanel.hidden = (dashView !== 'admin');
+  // מרכז הפיקוד - דף הבית של הניהול (assets/crm-command-center.js)
+  const command = document.getElementById('adminCommand');
+  if (command) command.hidden = (dashView !== 'admin');
   if (!initial) navTab = 'home';
   // החיפוש בכותרת מחפש בתצוגת הניהול דבר אחר (admin_search), והנוסח אומר מה
   const searchLabel = document.getElementById('hdrSearchLabel');
@@ -29508,6 +29523,7 @@ function setDashView(view, opts){
   // לתשובה הוא לרוב רק הכותרת שלו. טעינה בטור הייתה מעכבת את הרביעי
   // בגלל הראשון בלי סיבה.
   if (dashView === 'admin'){
+    loadCommandCenter();
     loadMarketReport();
     loadAdminReport();
     loadLeadReport();

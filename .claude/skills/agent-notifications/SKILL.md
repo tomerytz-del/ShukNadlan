@@ -179,6 +179,10 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
 (מאות ביום) ואינו דורש פעולה עכשיו? אז רקע - ב-`notification_push_is_ambient`
 וב-`isShare`/`isSignup` (‏`arrange`) ב-`notification-push`. אחרת - כלום.
 
+**הודעה לכל הסוכנים (`platform_broadcast`, ‏`admin_broadcast`) היא "כל השאר" בכוונה:**
+היא נכתבת לכל הסוכנים בבת אחת, ולכן בדיוק היא אסור לה לעקוף את התקרה. הודעה
+שנשלחת בערב מגיעה בוואטסאפ בבוקר. ‏`docs/admin-command-center.md`.
+
 **ואל תוסיף/י סוג קיים לעדיפות כדי "לתקן עיכוב"** בלי לבדוק את הנפח שלו
 (`select type, count(*) from notifications where created_at > now()-interval '7 days' group by 1`):
 עדיפות עוקפת את התקרה, וסוג רועש בה הוא הדרך לחסימה של המספר מול Meta.
