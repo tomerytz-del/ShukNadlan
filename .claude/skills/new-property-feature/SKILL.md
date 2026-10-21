@@ -21,7 +21,7 @@ description: מאפיין נכס חדש או שינוי בו בריפו של ש�
 | --- | --- |
 | טופס הנכס וטופס הלקוח ב-CRM | `assets/crm.js` - `RESIDENTIAL_/COMMERCIAL_PROPERTY_FEATURES`, ואייקון ב-`FEATURE_ICONS` |
 | ייבוא מקובץ | `assets/property-import-core.js` - `IMP_FEATURE_SYNONYMS` (כתיבים נפוצים שאינם התווית); עורכים שם ומעתיקים ל-`_shared` ב-`python scripts/check_import_core.py --fix`. התוויות עצמן מגיעות מהטופס ב-CRM ומ-`FEATURE_LABELS` בשרת |
-| סינון מתקדם בדף הבית | `assets/home.js` - **עותק** של אותן שתי רשימות |
+| סינון מתקדם וחיפוש מוקלד בדף הבית | `assets/home.js` - **עותק** של אותן שתי רשימות (ממנו גם נקרא `?features=` שבכתובת - קוד שחסר שם נזרק מקישור); ו-`assets/sentence-search.js` - `FEATURE_WORDS` (המילים שגולש/ת מקליד/ה) ו-`FEATURE_LABELS`, ובדיקה ב-`sentence_search_test.cjs`. בלי זה "דירה עם <מאפיין>" מחזירה דירות בלעדיו |
 | פאנל "מה אתם מחפשים" | `index.html` - `.hs-check` (רק למאפיין שמחפשים לפיו הרבה; ראו הסקיל `home-page`) |
 | דף הנכס | `assets/property.js` - `FEATURE_LABELS` ו-`FEATURE_ICONS` (שם אייקון מתוך `ICONS`; בלי - וי) |
 | המיניסייט ללקוח/ה | `assets/showcase.js` - `FEATURE_LABELS` |
