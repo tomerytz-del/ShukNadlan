@@ -4263,7 +4263,7 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
-  loadAdminSearchReport().then(loadAdminGabrielaReport);
+  loadAdminSearchReport().then(loadAdminAreaMisses).then(loadAdminGabrielaReport);
 }
 
 /* ---------- מה מחפשים באתר ----------
@@ -4436,6 +4436,103 @@ function gabDayLabel(day){
   const d = new Date(day + 'T12:00:00');
   return isNaN(d) ? day
     : d.toLocaleDateString('he-IL', { weekday:'short', day:'numeric', month:'numeric' });
+}
+
+/* ---------- שמות שלא זוהו ----------
+   הצד המאשר של הלולאה (docs/search-core.md, "הלולאה"): שם מקום שגולש/ת כתב/ה
+   באתר או לגבריאלה, ושאינו שכונה, כינוי או יישוב שאנחנו מכירים - ולכן
+   החיפוש התעלם ממנו. "אישור" כותב שורה ל-neighborhood_aliases
+   (area_alias_approve), ומאותו רגע האתר, שני הבוטים ושיוך העסקאות מזהים
+   את השם. "דחייה" (רחוב, טעות הקלדה, לא מקום) מוציאה אותו מהרשימה. שום דבר
+   כאן אינו נכתב מעצמו - ההצעה היא רק ברירת המחדל בבורר. */
+async function loadAdminAreaMisses(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('area_miss_report', { p_days: adminReportMonths * 30 });
+  const block = admBlock('שמות שלא זוהו',
+    'שמות מקום שגולשים כתבו באתר או לגבריאלה, ושאינם שכונה או כינוי שאנחנו מכירים - ולכן החיפוש התעלם מהם. אישור ככינוי של שכונה מלמד את האתר ואת גבריאלה לזהות אותו מעכשיו.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270718090000_area_name_misses.sql.'
+      : 'שגיאה בטעינת השמות שלא זוהו: ' + heErr(error);
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length){
+    block.appendChild(admEl('div', 'empty-state',
+      'אין כרגע שמות שלא זוהו. כל שם מקום שגולש/ת יכתוב ולא נזהה יופיע כאן.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  // השכונות לבחירה - של הערים שבדוח בלבד: כינוי שייך לשכונה בעיר שלו
+  const cities = [...new Set(rows.map(r => r.city).filter(Boolean))];
+  let hoods = [];
+  if (cities.length){
+    const res = await sb.from('neighborhoods').select('id, name, city').in('city', cities).order('name');
+    hoods = res.data || [];
+  }
+
+  const SOURCE = { site: 'באתר', whatsapp: 'אצל גבריאלה' };
+  const list = admEl('div', 'adm-facts adm-facts-wide');
+  rows.forEach(r => {
+    const item = admEl('div', 'adm-fact');
+    item.style.flexDirection = 'column';
+    item.style.alignItems = 'stretch';
+    item.style.gap = '6px';
+    // textContent ולא innerHTML: זה טקסט שגולש/ת הקליד/ה
+    item.appendChild(admEl('span', 'adm-fact-lbl', r.phrase + (r.city ? ' · ' + r.city : '')));
+    const srcs = (r.sources || []).map(x => SOURCE[x] || x).join(' ו');
+    item.appendChild(admEl('span', 'adm-fact-val',
+      plural(Number(r.sessions) || 0, 'מבקר/ת אחד/ת', 'מבקרים', admInt(r.sessions)) + ' · ' +
+      plural(Number(r.searches) || 0, 'חיפוש אחד', 'חיפושים', admInt(r.searches)) + (srcs ? ' · ' + srcs : '')));
+
+    const opts = hoods.filter(h => h.city === r.city);
+    if (!opts.length && r.suggestion_id) opts.push({ id: r.suggestion_id, name: r.suggestion_name });
+    const ctl = admEl('div');
+    ctl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+    const sel = document.createElement('select');
+    sel.className = 'rm-sel';
+    sel.style.cssText = 'width:auto;flex:1 1 180px';
+    sel.setAttribute('aria-label', 'השכונה ש"' + r.phrase + '" הוא כינוי שלה');
+    sel.appendChild(new Option('בחרו שכונה', ''));
+    opts.forEach(h => sel.appendChild(new Option(h.name + (h.id === r.suggestion_id ? ' (הצעה)' : ''), h.id)));
+    if (r.suggestion_id) sel.value = r.suggestion_id;
+    const ok = admEl('button', 'btn btn-gold', 'אישור ככינוי');
+    ok.type = 'button';
+    const no = admEl('button', 'btn btn-ghost', 'דחייה');
+    no.type = 'button';
+    const done = text => { ctl.replaceChildren(admEl('span', 'adm-fact-val', text)); };
+    ok.addEventListener('click', async () => {
+      if (!sel.value){ showToast('בחרו את השכונה שהשם הוא כינוי שלה'); return; }
+      ok.disabled = no.disabled = true;
+      const { data: added, error: e } = await sb.rpc('area_alias_approve', { p_phrase: r.phrase, p_neighborhood_id: sel.value });
+      if (e){ ok.disabled = no.disabled = false; showToast('האישור נכשל: ' + heErr(e)); return; }
+      const hood = sel.options[sel.selectedIndex].text.replace(' (הצעה)', '');
+      done(added ? '✓ "' + r.phrase + '" הוא עכשיו כינוי של ' + hood : '"' + r.phrase + '" כבר היה כינוי של ' + hood);
+    });
+    no.addEventListener('click', async () => {
+      ok.disabled = no.disabled = true;
+      const { error: e } = await sb.rpc('area_miss_dismiss', { p_phrase_key: r.phrase_key, p_city: r.city || '' });
+      if (e){ ok.disabled = no.disabled = false; showToast('הדחייה נכשלה: ' + heErr(e)); return; }
+      done('נדחה - לא יופיע שוב');
+    });
+    ctl.appendChild(sel);
+    ctl.appendChild(ok);
+    ctl.appendChild(no);
+    item.appendChild(ctl);
+    list.appendChild(item);
+  });
+  block.appendChild(list);
+  host.appendChild(block);
+  dashPanelsMeasure();
 }
 
 async function loadAdminGabrielaReport(){

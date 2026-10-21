@@ -21,6 +21,7 @@ on:
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_search_rules_test.py"
+      - "scripts/ops_area_names_test.py"
       - "scripts/search_feature_cases.json"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
@@ -42,6 +43,7 @@ on:
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_search_rules_test.py"
+      - "scripts/ops_area_names_test.py"
       - "scripts/search_feature_cases.json"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
@@ -126,3 +128,8 @@ jobs:
       # מסכימות, ומדווח איזו דוגמה ואיזה מנגנון כשאחת חלוקה.
       - name: ‏search_rules_drift מדווח בדיוק מתי שצריך
         run: python3 scripts/ops_search_rules_test.py
+
+      # ‏שמות מקום שלא זוהו (‏docs/search-core.md, "הלולאה"): שותק בלי שמות,
+      # ומדווח שם, עיר והצעה כשחיפשו אותו לפחות שני מבקרים.
+      - name: ‏area_names_unrecognized מדווח בדיוק מתי שצריך
+        run: python3 scripts/ops_area_names_test.py

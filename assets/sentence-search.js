@@ -146,7 +146,8 @@
     var list = Object.keys(hoods).map(function (k) { return hoods[k]; });
     list.forEach(function (a) { a.aliases = byHood[a.key.slice(5)] || []; });
     cityNames.slice(1).forEach(function (c) { list.push({ key: 'city:' + c, label: c, count: cities[c], aliases: [] }); });
-    var index = SC.areaIndex(list.map(function (a) { return { target: a.key, label: a.label, aliases: a.aliases }; }));
+    // stop: "בעפולה" הוא כל השוק ולא עפולה עלית (מילה מזהה, SearchCore.areaIndex)
+    var index = SC.areaIndex(list.map(function (a) { return { target: a.key, label: a.label, aliases: a.aliases }; }), { stop: [mainCity] });
     // נכס בלי שכונה: ‏sales_area דרך אותו מפענח - ונספר באזור שזוהה
     (props || []).forEach(function (p) {
       p._areas = SC.propertyAreas(p, index, hoodKey);
@@ -453,7 +454,7 @@
 
     if (/פנטהאוז|פנטהאוס|פנטהויז|דירת גג|(^| )גג( |$)/.test(t)) patch.type = 'penthouse';
     else if (/דירות? גן|(^| )גן( |$)/.test(t)) patch.type = 'garden';
-    else if (/(^| )בית|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) patch.type = 'house';
+    else if (/(^| )[ובלה]?בית( |$)|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) patch.type = 'house';
     else if (/מגרש|(^| )קרקע/.test(t)) patch.type = /מסחר/.test(t) ? 'comm_land' : 'land';
     else if (/חנות|חנויות|שטח מסחרי/.test(t)) patch.type = 'shop';
     else if (/משרד/.test(t)) patch.type = 'office';
@@ -755,6 +756,7 @@
 
     var props = [];
     var aliasList = [];           // ‏neighborhood_aliases מהדף (‏setProperties)
+    var lastMiss = '';            // שם שלא זוהה נרשם פעם אחת ברצף (‏onAreaMiss)
     var areas = [];
     var loaded = false;
     var ctx = {
@@ -1156,6 +1158,16 @@
       if (!fields.length && text.length >= 2 && text.length <= 40) {
         var asText = 'text:' + text;
         if (filter(props, applyPatch(st, { area: asText }), ctx, 'price').length) { patch = { area: asText }; fields = ['area']; }
+      } else if (!('area' in patch) && !res.place) {
+        /* ‏"דירה ברחוב רום יעל עם ממד": זוהו סוג ומאפיין, והרחוב נזרק בשקט -
+           החיפוש היה בכל האזור (21.10.2026). שם מקום שאינו שכונה, ושיש נכסים
+           שהוא כתוב אצלם (‏SearchCore.textMatches: בכל סדר, וחלק מהשם מספיק),
+           הוא האזור. אחרת - הוא שם שלא זוהה, ונרשם (‏onAreaMiss, למטה). */
+        var cand = SC.areaCandidate(text, { exclude: [areas.mainCity] });
+        if (cand && filter(props, applyPatch(st, assign(patch, { area: 'text:' + cand })), ctx, 'price').length) {
+          patch = assign(patch, { area: 'text:' + cand });
+          fields = SLOT_ORDER.filter(function (sl) { return fields.indexOf(sl) >= 0 || sl === 'area'; });
+        }
       }
       active = null;
       keyboardOpen = false;
@@ -1198,6 +1210,19 @@
           noteEl.textContent = 'לא זיהיתי - נסו לכתוב סוג נכס, אזור או תקציב' + (ex ? ', למשל: ' + ex : '');
         } else {
           noteEl.textContent = 'לא זיהיתי - נסו לבחור במשפט למעלה';
+        }
+      }
+      /* שם מקום שלא זוהה ("דירה ביוקה פארק") - לדוח "שמות שלא זוהו" במסד, ומשם
+         מנהל/ת מאשר/ת אותו ככינוי והוא נלמד כאן ובבוטים (‏docs/search-core.md). */
+      if (!('area' in patch) && !res.place) {
+        var miss = SC.areaCandidate(text, { exclude: [areas.mainCity], whole: !fields.length && !feats.length });
+        if (miss && noteEl && fields.length + feats.length) {
+          // לא בשקט: מי שכתב/ה מקום צריך/ה לדעת שהחיפוש אינו מצומצם אליו
+          noteEl.textContent += ' · את "' + miss + '" לא זיהיתי, אז מחפשים ב' + areaLabel('all', areas, ctx);
+        }
+        if (miss && miss !== lastMiss && typeof opts.onAreaMiss === 'function') {
+          lastMiss = miss;
+          opts.onAreaMiss(miss, filter(props, st, ctx).length, areas.mainCity || '');
         }
       }
       track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });
