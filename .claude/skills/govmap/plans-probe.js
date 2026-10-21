@@ -14,7 +14,8 @@
 (async () => {
   const T = 'a888579d-2bc4-4768-97d5-bd1642e2633b';
   // המספרים מהקישור קודם; אחריהם שמות שמופיעים בקטלוג או מנוחשים
-  const CANDIDATES = ['203', '14', 203, 14, 'migrashim_msbs', 'mavat', 'kav_kachol', 'blue_lines', 'tochniyot'];
+  // שם שכבה כמספר (203) עונה ב-getLayerFilterFields ונדחה ב-400 ב-getLayerFeaturesByLocation
+  const CANDIDATES = ['203', '14', 'migrashim_msbs'];
   // התשובה ידועה מעפולה (property_planning_info): 5-7 תוכניות לחלקה, כולל מתאר
   const REFS = [
     { q: '16742/96', addr: 'החורש 8', plans: ['ג/20010', 'ג/12567', '215-0898114'] },
