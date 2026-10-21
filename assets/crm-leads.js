@@ -141,15 +141,20 @@ function renderLeadsUnified(agentId){
   const fresh = active.filter(l => leadStageOf(l) === 'new');
   const work = active.filter(l => leadStageOf(l) !== 'new');
 
-  accSetCount('accLeads', fresh.length);
+  /* כל מונה כאן סופר פונים ולא שורות ב-leads, כמו הרשימה: פונה עם שתי
+     פניות הוא כרטיס אחד, ו"4" מעל רשימה של 2 נקרא כבאג (docs/lead-card.md) */
+  const people = list => groupLeadsByVisitor(list).length;
+  const nFresh = people(fresh), nActive = people(active);
+
+  accSetCount('accLeads', nFresh);
   syncLeadsSettings();
   renderClientsTop();
-  accSetSummary('accLeads', active.length
-    ? plural(active.length, 'ליד פתוח אחד', 'לידים פתוחים') + (fresh.length ? ' · ' + plural(fresh.length, 'אחד חדש', 'חדשים') : '')
+  accSetSummary('accLeads', nActive
+    ? plural(nActive, 'ליד פתוח אחד', 'לידים פתוחים') + (nFresh ? ' · ' + plural(nFresh, 'אחד חדש', 'חדשים') : '')
     : '');
 
   // הלשוניות
-  const counts = { new: fresh.length, work: work.length, archive: archived.length };
+  const counts = { new: nFresh, work: people(work), archive: people(archived) };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
@@ -158,15 +163,16 @@ function renderLeadsUnified(agentId){
   const pool = leadsTab === 'archive' ? archived : leadsTab === 'work' ? work : fresh;
 
   // צ'יפים של מקור - רק מקורות שיש בהם משהו בלשונית הזו
+  // המונה הוא מספר הכרטיסים שהלחיצה על הצ'יפ תציג
+  const inSrc = (l, src) => src === 'all' || leadSrcKey(l) === src || (src === 'prop' && leadSrcKey(l) === 'site');
   const srcCount = {};
-  pool.forEach(l => { const k = leadSrcKey(l); srcCount[k] = (srcCount[k] || 0) + 1; });
+  LEAD_SRC_FILTERS.forEach(([k]) => { srcCount[k] = people(pool.filter(l => inSrc(l, k))); });
   if (leadsSrc !== 'all' && !srcCount[leadsSrc]) leadsSrc = 'all';
   document.getElementById('leadsSrc').innerHTML = LEAD_SRC_FILTERS
-    .filter(([k]) => k === 'all' || srcCount[k] || (k === 'prop' && srcCount.site))
-    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false,
-      count: k === 'all' ? pool.length : (srcCount[k] || 0) + (k === 'prop' ? (srcCount.site || 0) : 0) })).join('');
+    .filter(([k]) => k === 'all' || srcCount[k])
+    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false, count: srcCount[k] })).join('');
 
-  const filtered = pool.filter(l => leadsSrc === 'all' || leadSrcKey(l) === leadsSrc || (leadsSrc === 'prop' && leadSrcKey(l) === 'site'));
+  const filtered = pool.filter(l => inSrc(l, leadsSrc));
   const sorted = leadsTab === 'archive'
     ? filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     : leadsPrioritySort(filtered);
