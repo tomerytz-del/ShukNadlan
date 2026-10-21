@@ -2172,7 +2172,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
-  refreshLicenseHold();
+  licenseHoldP = refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -2366,6 +2366,7 @@ function handleGotoParam(){
   }
 
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
+  if (raw === 'license'){ openLicenseCard(); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
   /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
      dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
@@ -8062,6 +8063,8 @@ function labelPromoGift(strip, promo, agent){
    היחיד שבו רואים את זה - ומכאן שולחים צילום, מתקנים מספר ובודקים סטטוס.
    הנתונים מ-join-agency (‏license_status), כי טבלת הערעורים סגורה לדפדפן. */
 let licenseState = null;
+// הטעינה של העלייה - openLicenseCard ממתינה לה ולא שולחת קריאה שנייה
+let licenseHoldP = null;
 
 const LH_COMPACT_KEY = 'shuknadlan.lh_compact';
 async function refreshLicenseHold(){
@@ -8104,6 +8107,20 @@ async function refreshLicenseHold(){
   try { compact = sessionStorage.getItem(LH_COMPACT_KEY) === '1'; } catch(_){ }
   card.classList.toggle('is-compact', compact);
   card.hidden = false;
+}
+
+/* הקישור מתזכורת הרישיון (/crm?goto=license, והלחיצה בפעמון): הכרטיס נפתח
+   במלואו וגולל אליו. הוא עשוי עוד לא להיות מוצג - refreshLicenseHold אסינכרונית
+   ורצה בעלייה - ולכן ממתינים לה. רישיון שכבר אושר: הכרטיס מוסתר, ואין לאן. */
+async function openLicenseCard(){
+  const card = document.getElementById('licenseHoldCard');
+  if (!card) return;
+  if (card.hidden) await (licenseHoldP || refreshLicenseHold());
+  if (card.hidden) return;
+  if (dashView === 'admin') setDashView('agent');
+  try { sessionStorage.removeItem(LH_COMPACT_KEY); } catch(_){ }
+  card.classList.remove('is-compact');
+  scrollToTopOf(card);
 }
 
 /* "המשך ללוח הבקרה" מקפל את הכרטיס לשורה אחת עד סוף הביקור - הוא נשאר
@@ -24757,6 +24774,13 @@ const NOTIF_TYPES = [
     sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
     // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
     when: ()=> false },
+  /* תזכורת לאימות רישיון, 48 שעות ושבוע אחרי ההרשמה (license-reminder). היעד
+     הוא כרטיס הרישיון בראש הדשבורד, שאינו קטגוריה - ולכן בלי goto, והלחיצה
+     עוברת ב-openLicenseCard (כמו security_alert). ‏when: רק כל עוד יש מה לאשר. */
+  { type:'onboarding_license', tone:'',
+    title:'אימות הרישיון',
+    sub:'תזכורת אחרי יומיים ואחרי שבוע, כל עוד הרישיון לא אושר ולא נשלח אישור לבדיקה.',
+    when: ()=> !!(licenseState && !licenseState.cleared) },
   /* "שותפו איתי" הוא לשונית ב"נכסים" (docs/properties-unified.md). ‏goto הוא
      id אמיתי (check_notif_links.py), והלשונית נבחרת ב-refresh */
   /* מנהל/ת המשרד מחק/ה שיחה של הסוכן/ת (4.x, twilio-voice?task=delete) */
@@ -24928,6 +24952,7 @@ async function loadNotifications(agentId){
       // false והלחיצה לא הייתה עושה דבר. המעבר לתצוגה קודם לבדיקה, ורק למי
       // שהתצוגה פתוחה בפניו/ה.
       if (n.type === 'security_alert' || n.type === 'ops_alert'){ openAdminOpsPanel(); return; }
+      if (n.type === 'onboarding_license'){ openLicenseCard(); return; }
       if (target.view === 'admin' && dashView !== 'admin'
           && currentAgent && currentAgent.is_platform_admin) {
         setDashView('admin');

@@ -120,6 +120,12 @@ pg_proc where proname = '<name>'`). **ובודקים ש-`main` לא הגדיר �
    ‏`scripts/check_notif_links.py` חוסם ב-CI.
 4. ‏`itemPath()` ו-`openNotificationTarget()` - אם הסוג נושא פריט אחד.
 
+**יעד שאינו קטגוריה** (פאנל, כרטיס בראש הדשבורד): בלי `goto` ב-`NOTIF_TYPES`,
+מילה קצרה ב-`ACC_BY_TYPE`, וענף משלה גם בלחיצה בפעמון וגם ב-`handleGotoParam`.
+כך `security_alert` → `adminOps`, ו-`onboarding_license` → `license`
+(‏`openLicenseCard`, כרטיס הרישיון). הבדיקה מצליבה רק יעדי `acc*`, ולכן ענף
+שנשכח באחד משני המקומות אינו נתפס בה.
+
 ## 5. התבנית בוואטסאפ
 
 מחוץ לחלון 24 השעות ההודעה היא תבנית, והקישור הישיר נכנס **לסוף הפריט
