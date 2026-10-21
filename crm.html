@@ -748,6 +748,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .inbx-sla-row label{flex:1;min-width:0}
   .inbx-sla-row input{width:72px;border:1.5px solid #E3E7EF;border-radius:8px;padding:6px 8px;font:inherit}
   @media(max-width:520px){ .inbx-row{flex-wrap:wrap} .inbx-main{flex-basis:100%} }
+  /* ---- שווקים וצמיחה (docs/admin-growth.md) ---- */
+  .gr-rule{font-size:.8rem;color:#5A6478;line-height:1.6;margin:0 0 10px}
+  .gr-h{font-size:.86rem;margin:16px 0 4px;color:#0E1A33}
+  .gr-tr{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(4,minmax(48px,.6fr)) minmax(90px,1fr) minmax(90px,1.1fr) minmax(120px,1.2fr);
+    gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF1F6;font-size:.8rem;color:#0E1A33}
+  .gr-th{font-size:.7rem;font-weight:800;color:#5A6478}
+  .gr-nm b{display:block;font-size:.86rem}
+  .gr-nm small{font-size:.7rem;color:#5A6478}
+  .gr-pct{display:flex;align-items:center;gap:6px}
+  .gr-pct .cc-bar{flex:1}
+  .gr-miss{color:#7A5300}
+  .gr-done{font-size:.74rem;color:#166534;font-weight:700}
+  .gr-planned{margin-top:12px;padding:12px;border-radius:12px;background:#F6F8FB;font-size:.82rem}
+  .gr-planned p{margin:6px 0 10px;color:#5A6478;line-height:1.7;font-size:.78rem}
+  .gr-funnels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .gr-funnel h4{font-size:.8rem;margin:0 0 6px;color:#5A6478}
+  .gr-stage{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:#F6F8FB;margin-bottom:6px;font-size:.82rem}
+  .gr-stage.is-key{background:#FFF1C7}
+  .gr-stage small{display:block;font-size:.7rem;color:#5A6478;font-weight:400}
+  .gr-stage .n{font-weight:800;white-space:nowrap}
+  @media(max-width:720px){
+    .gr-th{display:none}
+    .gr-tr{grid-template-columns:repeat(4,1fr);row-gap:4px}
+    .gr-nm,.gr-pct,.gr-miss,.gr-step{grid-column:1/-1}
+    .gr-tr [data-l]::before{content:attr(data-l) " ";color:#5A6478;font-size:.7rem}
+    .gr-funnels{grid-template-columns:1fr}
+  }
 
   /* ---------- אזור הסכנה: סגירת חשבון ----------
      האדום כאן אינו קישוט. הקטגוריה הזו יושבת ברשימה אחת עם "עדכון פרטים"
@@ -9890,6 +9917,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
+      <!-- שווקים וצמיחה (שלב 6, docs/admin-growth.md): מוכנות כל השווקים עם
+           הצעד הבא, משפך גיוס המשרדים, והקמפיינים מקונסולת השיווק בקריאה
+           בלבד. ‏admin_growth, ‏assets/crm-growth.js -->
+      <details class="acc" id="accGrowth">
+        <summary>
+          <span class="acc-title">שווקים וצמיחה</span>
+          <span class="acc-count" id="accGrowthCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">כל השווקים מול הכלל לפתיחה, ומה הצעד הבא בכל אחד. מי מהמשרדים שנרשמו הגיע עד הסוף, ואיפה נתקעו.</p>
+          <div class="inbx-chips" id="growthTabs" role="group" aria-label="לשוניות"></div>
+          <div id="growthBody"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
+
       <!-- תור בקשות ההחזר. ראשון בסקציה בכוונה: זו הפעולה היחידה כאן שמישהו
            מחכה לה, והכסף שלה כבר ירד מהיתרה שלו/ה. -->
       <details class="acc" id="accRefundQueue">
@@ -12034,6 +12077,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-admin-inbox.js"></script>
 <!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
 <script src="assets/crm-command-center.js"></script>
+<script src="assets/crm-growth.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->

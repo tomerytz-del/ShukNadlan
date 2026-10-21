@@ -121,7 +121,7 @@ function renderCcMonth(report, cc){
 /* תג הכסף: "בתחילת הדרך" עד 10 מנויים בתשלום (במסד), ואחר כך לפי שינוי
    ההכנסה בין שני החודשים המלאים האחרונים - 10% ומעלה צומח, ירידה חלש. */
 function ccMoneyTag(cc, report){
-  if (cc.marketplace.money_early) return 'early';
+  if (!cc.marketplace || cc.marketplace.money_early) return 'early';
   const m = (report && report.months) || [];
   if (m.length < 3) return 'early';
   const a = Number(m[m.length - 3].revenue_total) || 0, b = Number(m[m.length - 2].revenue_total) || 0;
@@ -256,6 +256,17 @@ function renderCcTools(cc){
     document.getElementById('ccBcCnt').textContent = body.value.length + ' / 600';
   });
   document.getElementById('ccBcSend').addEventListener('click', sendBroadcast);
+}
+
+/* ה-+ בסרגל התחתון של הניהול (ADMIN_BOTTOM_NAV ב-crm.js): חזרה למרכז הפיקוד
+   ופתיחת ההודעה לכל הסוכנים. */
+function openBroadcastComposer(){
+  setNavTab('home', { silent:true });
+  const box = document.getElementById('ccBc');
+  const openBtn = document.getElementById('ccBcOpen');
+  if (!box || !openBtn) return;
+  if (box.hidden) openBtn.click();
+  scrollToTopOf(document.getElementById('ccTools') || box);
 }
 
 async function sendBroadcast(){

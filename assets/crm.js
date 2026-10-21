@@ -788,7 +788,7 @@ function showScreen(name){
   if (!onDashboard) document.getElementById('devMenu').style.display = 'none';
   // הסרגל התחתון הוא position:fixed, ובלי זה הוא היה נשאר על מסך הכניסה
   const bnav = document.getElementById('bottomNav');
-  if (bnav) bnav.hidden = !onDashboard || dashView === 'admin';
+  if (bnav) bnav.hidden = !onDashboard;
   // ה-FAB של ההחתמה הוא position:fixed מאותה סיבה בדיוק, ויורד מכאן איתו
   updateScrollUi();
   // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
@@ -24912,6 +24912,11 @@ const NOTIF_TYPES = [
   /* הודעה שמנהל/ת הפלטפורמה שלח/ה לכל הסוכנים (admin_broadcast). אין פריט -
      הקישור הוא לרשימת ההודעות, שם אפשר לקרוא אותה שוב. בוואטסאפ באותם שערים
      של כל התראה (docs/admin-command-center.md) */
+  /* תזכורת לסוכני שוק שעוד לא נפתח: "עוד N נכסים ודף האזור נפתח". מנהל/ת
+     הפלטפורמה שולח/ת אותה מ"שווקים וצמיחה", פעם בשבוע לשוק (admin_market_nudge) */
+  { type:'market_nudge', tone:'', goto:'accProperties', focus:'#propertiesList',
+    title:'פתיחת האזור שלך באתר',
+    sub:'כשדף האזור קרוב לפתיחה לגולשים וחסרים בו עוד נכסים פעילים.' },
   { type:'platform_broadcast', tone:'', goto:'accPlatformNews', focus:'#platformNewsList',
     title:'הודעה מהפלטפורמה',
     sub:'הודעה שצוות שוק נדל״ן שלח לכל הסוכנים - עדכון, שינוי או בקשה.',
@@ -26433,6 +26438,7 @@ const NAV_GROUPS = [
     { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
   ]},
   { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
+    { acc:'accGrowth',          label:'שווקים וצמיחה',    icon:'chart',   tab:'admin' },
     { acc:'dashPanelMarkets',   label:'שווקים מקומיים',   icon:'map',     tab:'admin' },
     { acc:'dashPanelInventory', label:'משרדים וסוכנים',   icon:'users',   tab:'admin' },
     { acc:'accSubscriptions',   label:'מנויים ומסלולים',  icon:'wallet',  tab:'admin' },
@@ -26481,6 +26487,16 @@ const BOTTOM_NAV = [
   { key:'search', label:'חיפוש', icon:'search', layer:'search' },
   // הפעמון שירד מהכותרת. הפרופיל ("אני" עד כאן) נפתח מהתמונה שבכותרת
   { key:'alerts', label:'התראות', icon:'bell',  layer:'bell' },
+];
+/* בתצוגת הניהול (HANDOFF 2.3): מרכז · משימות · + · צמיחה · חיפוש. ה-+ הוא
+   הפעולה המהירה היחידה שיש לה מימוש - הודעה לכל הסוכנים במרכז הפיקוד.
+   ‏acc: יעד בתפריט (gotoSection), כמו פריט ב-NAV_GROUPS. docs/admin-growth.md */
+const ADMIN_BOTTOM_NAV = [
+  { key:'center', label:'מרכז',   icon:'gauge',  section:'home' },
+  { key:'inbox',  label:'משימות', icon:'inbox',  acc:'accAdminInbox' },
+  { key:'create', label:'הודעה',  icon:'plus',   action:'broadcast' },
+  { key:'growth', label:'צמיחה',  icon:'chart',  acc:'accGrowth' },
+  { key:'search', label:'חיפוש',  icon:'search', layer:'search' },
 ];
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
@@ -26966,11 +26982,15 @@ function renderBottomNav(){
   const nav = document.getElementById('bottomNav');
   if (nav){
     nav.innerHTML = '';
-    BOTTOM_NAV.forEach(tab=>{
+    const tabs = dashView === 'admin' ? ADMIN_BOTTOM_NAV : BOTTOM_NAV;
+    tabs.forEach(tab=>{
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'bn-tab' + (tab.key === 'create' ? ' bn-create' : '');
-      const on = tab.layer ? navLayer === tab.layer : (!navLayer && navTab === tab.section);
+      const on = tab.layer ? navLayer === tab.layer
+               : tab.acc ? (!navLayer && navTab !== 'home' && navActive === tab.acc)
+               : tab.action ? false
+               : (!navLayer && navTab === tab.section);
       btn.classList.toggle('is-on', on);
       if (tab.layer){
         btn.setAttribute('aria-haspopup', 'dialog');
@@ -26979,7 +26999,8 @@ function renderBottomNav(){
         btn.setAttribute('aria-current', 'page');
       }
       const badge = tab.key === 'leads' ? navBadgeSum(NAV_LEADS_BADGE)
-                  : tab.key === 'alerts' ? notifUnread : 0;
+                  : tab.key === 'alerts' ? notifUnread
+                  : tab.key === 'inbox' ? accCountOf('accAdminInbox') : 0;
       let icon = dashIcon(tab.icon);
       let label = tab.label;
       if (tab.key === 'create' && on){ icon = dashIcon('close'); label = 'סגירה'; }
@@ -26997,6 +27018,8 @@ function renderBottomNav(){
           return;
         }
         closeNavLayers();
+        if (tab.acc){ gotoSection(tab.acc); return; }
+        if (tab.action === 'broadcast'){ openBroadcastComposer(); return; }
         // לשונית שאינה הבית (לידים) היא מסך: הקטגוריה הראשונה שלה
         if (tab.section !== 'home'){
           const first = NAV_GROUPS.flatMap(g => g.items)
@@ -29538,8 +29561,6 @@ function setDashView(view, opts){
   applyNavFilter();
   renderSideNav();
   renderBottomNav();
-  const bnav = document.getElementById('bottomNav');
-  if (bnav) bnav.hidden = (dashView === 'admin');
   // ארבעת הדוחות נטענים יחד. הם עונים על ארבע שאלות שונות — מה קרה בעסק
   // החודש, מאיפה נכנסים הלידים, מה שבור או איטי, וכמה יש מכל דבר — ומי
   // שנכנס/ת לתצוגת מנהל/ת שואל/ת את כולן.
