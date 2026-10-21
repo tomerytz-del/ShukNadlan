@@ -141,6 +141,11 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.promo-lifecycle]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+# תזכורת לאימות רישיון, 48 שעות ו-7 ימים אחרי ההרשמה (docs/broker-registry.md).
+# רצה פעם ביום מ-pg_cron בלבד ואינה מקבלת קלט שמשפיע על מי מטופל/ת.
+[functions.license-reminder]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 [functions.office-coach]
 verify_jwt = false          # ‏pg_cron (משרד וצוות ביום ראשון, סוכנים כל בוקר) + x-alert-cron-secret / service role ידני. docs/coaches.md
 
