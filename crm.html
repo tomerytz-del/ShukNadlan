@@ -658,6 +658,69 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .acc-body{padding:16px}
   .acc-body>:last-child{margin-bottom:0}
   .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
+  /* ---- מרכז הפיקוד (docs/admin-command-center.md). הטוקנים של HANDOFF סעיף 1 ---- */
+  .cc-wrap{display:flex;flex-direction:column;gap:14px}
+  .cc-wrap[hidden]{display:none}
+  .cc-hello{margin:0;font-size:1.35rem;font-weight:800;color:#0E1A33}
+  .cc-sub{margin:4px 0 0;font-size:.88rem;color:#5A6478}
+  .cc-alert{border-radius:14px;padding:10px 14px;background:#FDE7D9;color:#9A3412;font-size:.84rem;font-weight:700}
+  .cc-alert[hidden]{display:none}
+  .cc-alert button{background:none;border:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;padding:0 4px}
+  .cc-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+  @media(min-width:900px){ .cc-grid{grid-template-columns:minmax(0,2fr) minmax(0,1fr)} }
+  .cc-card{background:#fff;border:1px solid #E3E7EF;border-radius:18px;padding:14px 16px;min-width:0}
+  .cc-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .cc-card-head h3{margin:0;font-size:.95rem;font-weight:800;color:#0E1A33}
+  .cc-link{background:none;border:none;color:#1F5BF0;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;min-height:36px;padding:0 4px}
+  .cc-link:focus-visible{outline:2px solid #1F5BF0;outline-offset:2px;border-radius:6px}
+  .cc-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:900px){ .cc-tiles{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .cc-tile{background:#fff;border:1px solid #E3E7EF;border-radius:18px;padding:12px 14px}
+  .cc-tile .l{font-size:.76rem;color:#5A6478;font-weight:700}
+  .cc-tile .v{font-size:1.5rem;font-weight:800;color:#0E1A33;font-variant-numeric:tabular-nums}
+  .cc-tile .n{font-size:.74rem;color:#5A6478}
+  .cc-tile.is-focus{border-color:#1F5BF0;box-shadow:0 0 0 1px #1F5BF0 inset}
+  .cc-health3{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  @media(min-width:720px){ .cc-health3{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .cc-col{border:1px solid #EEF1F6;border-radius:14px;padding:10px 12px}
+  .cc-col-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;font-weight:800;color:#0E1A33;font-size:.86rem}
+  .cc-tag{font-size:.7rem;font-weight:800;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .cc-tag.is-growing{background:#E6F4EC;color:#166534}
+  .cc-tag.is-stable{background:#EAF0FF;color:#1F3F99}
+  .cc-tag.is-weak{background:#FDE7D9;color:#9A3412}
+  .cc-tag.is-early{background:#FFF1C7;color:#7A5300}
+  .cc-row{display:flex;justify-content:space-between;gap:8px;font-size:.8rem;color:#5A6478;padding:3px 0}
+  .cc-row b{color:#0E1A33;font-variant-numeric:tabular-nums}
+  .cc-note{font-size:.72rem;color:#8C9AB5;margin-top:4px}
+  .cc-mkt{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #EEF1F6;font-size:.82rem}
+  .cc-mkt:last-child{border-bottom:0}
+  .cc-mkt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#0E1A33;font-weight:700}
+  .cc-bar{width:90px;flex-shrink:0;height:6px;border-radius:3px;background:#EEF1F6;overflow:hidden}
+  .cc-bar span{display:block;height:100%;background:#1F5BF0}
+  .cc-mkt .st,.cc-mkt .ld{width:84px;flex-shrink:0;text-align:end;color:#5A6478}
+  /* בטלפון שם השוק הוא העיקר: הלידים יורדים והפס מתקצר */
+  @media(max-width:520px){ .cc-mkt .ld{display:none} .cc-mkt .cc-bar{width:56px} .cc-mkt .st{width:76px} }
+  .cc-tools{display:flex;flex-direction:column;gap:6px}
+  .cc-tool{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:1px solid #E3E7EF;border-radius:12px;background:#F4F6FA;
+    font:inherit;font-size:.84rem;font-weight:700;color:#0E1A33;cursor:pointer;padding:0 12px;text-align:start}
+  .cc-tool:hover{border-color:#1F5BF0}
+  .cc-tool:focus-visible{outline:2px solid #1F5BF0;outline-offset:2px}
+  .cc-tool.is-primary{background:#1F5BF0;border-color:#1F5BF0;color:#fff}
+  .cc-tool.is-primary:hover{background:#1846C2}
+  .cc-bc{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .cc-bc[hidden]{display:none}
+  .cc-bc input,.cc-bc textarea{width:100%;border:1.5px solid #E3E7EF;border-radius:10px;padding:8px 10px;font:inherit;font-size:.84rem;box-sizing:border-box}
+  .cc-bc textarea{min-height:90px;resize:vertical}
+  .cc-bc .cnt{font-size:.72rem;color:#8C9AB5;text-align:end}
+  .cc-sys{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:.82rem;color:#0E1A33}
+  .cc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#166534}
+  .cc-dot.is-warn{background:#B7791F}
+  .cc-dot.is-bad{background:#C2410C}
+  .pn-item{padding:10px 0;border-bottom:1px solid var(--line)}
+  .pn-item:last-child{border-bottom:0}
+  .pn-item b{display:block;font-size:.88rem}
+  .pn-item p{margin:4px 0 0;font-size:.82rem;line-height:1.6;white-space:pre-line}
+  .pn-item time{font-size:.72rem;color:var(--muted)}
   /* ---- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md) ---- */
   .inbx-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
   .inbx-chip{border:1px solid #E3E7EF;background:#fff;border-radius:999px;padding:6px 12px;min-height:36px;
@@ -7593,6 +7656,46 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            ב-19.10.2026: שני תפריטים לאותו אזור. docs/admin-navigation.md -->
 
       <!-- ==========================================================
+           מרכז הפיקוד - דף הבית של מנהל/ת הפלטפורמה (שלב 4, HANDOFF סעיף 3)
+           ----------------------------------------------------------
+           מה מחכה (admin_inbox), ארבעת מספרי החודש, בריאות המרקטפלייס עם
+           התגים, מוכנות השווקים, כלים (כולל הודעה לכל הסוכנים) ובריאות
+           המערכת. ‏admin_command_center, ‏assets/crm-command-center.js,
+           ‏docs/admin-command-center.md. מוצג רק בתצוגת הניהול (setDashView). -->
+      <section class="cc-wrap" id="adminCommand" aria-label="מרכז הפיקוד" hidden>
+        <div class="cc-head">
+          <h2 class="cc-hello" id="ccHello">מרכז הפיקוד</h2>
+          <p class="cc-sub" id="ccSub"></p>
+        </div>
+        <div class="cc-alert" id="ccAlert" hidden></div>
+        <div class="cc-grid">
+          <div class="cc-card cc-span2">
+            <div class="cc-card-head"><h3>דורש אותך היום</h3><button type="button" class="cc-link" data-goto="accAdminInbox">לכל התיבה</button></div>
+            <div id="ccInbox"><div class="empty-state">טוען…</div></div>
+          </div>
+          <div class="cc-card">
+            <div class="cc-card-head"><h3>כלי עבודה</h3></div>
+            <div class="cc-tools" id="ccTools"></div>
+          </div>
+        </div>
+        <div class="cc-tiles" id="ccMonth"></div>
+        <div class="cc-card">
+          <div class="cc-card-head"><h3>בריאות המרקטפלייס · 30 יום</h3></div>
+          <div class="cc-health3" id="ccMarket"><div class="empty-state">טוען…</div></div>
+        </div>
+        <div class="cc-grid">
+          <div class="cc-card cc-span2">
+            <div class="cc-card-head"><h3>שווקים מקומיים</h3><button type="button" class="cc-link" data-goto="dashPanelMarkets">לכל השווקים</button></div>
+            <div id="ccMarkets"><div class="empty-state">טוען…</div></div>
+          </div>
+          <div class="cc-card">
+            <div class="cc-card-head"><h3>בריאות המערכת</h3><button type="button" class="cc-link" data-goto="dashPanelOps">פירוט</button></div>
+            <div id="ccSystem"><div class="empty-state">טוען…</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
            שווקים מקומיים — תצוגת השוק של מנהל/ת הפלטפורמה
            ----------------------------------------------------------
            בוחרים שוק (עפולה והעמק, חיפה והקריות…) ורואים רק אותו: מה
@@ -11035,6 +11138,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
     </div>
 
+    <!-- ---------- הודעות מהפלטפורמה ----------
+         ההודעות שמנהל/ת הפלטפורמה שלח/ה לכל הסוכנים (admin_broadcast). כל
+         הודעה מגיעה גם לפעמון ולוואטסאפ (platform_broadcast), וכאן אפשר לקרוא
+         אותה שוב. ‏docs/admin-command-center.md -->
+    <details class="acc" id="accPlatformNews">
+      <summary>
+        <span class="acc-title">הודעות מהפלטפורמה</span>
+        <span class="acc-count" id="accPlatformNewsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <div id="platformNewsList"><div class="empty-state">טוען…</div></div>
+      </div>
+    </details>
+
     <!-- ---------- התראות והודעות ----------
          מקום אחד לשאלה "מה מגיע אליי, לאן ומתי" (docs/crm-settings.md;
          העיצוב: docs/handoff/crm-settings-redesign, סעיף 3.6). שלושה חלקים:
@@ -11899,6 +12017,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md). לפני crm.js;
      מגדירה פונקציות בלבד, ו-loadDashboard קוראת ל-loadAdminInbox. -->
 <script src="assets/crm-admin-inbox.js"></script>
+<!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
+<script src="assets/crm-command-center.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
