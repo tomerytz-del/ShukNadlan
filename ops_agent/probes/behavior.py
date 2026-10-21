@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 
 from typing import Iterator
 
@@ -28,6 +29,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _untouched_leads(ctx)
     yield from _listings_without_images(ctx)
     yield from _saved_search_silence(ctx)
+    yield from _search_rules_drift(ctx)
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
     yield from _market_data(ctx)
@@ -353,6 +355,81 @@ def _saved_search_silence(ctx) -> Iterator[Finding]:
                    "ביקוש שאיש אינו מספק.",
         metric=round(silent / total * 100, 1), metric_unit="%",
         evidence={"silent": silent, "total": total},
+    )
+
+
+# כל דוגמה מ-search_feature_cases.json הופכת לחיפוש שמור ולכרטיס לקוח/ה
+# מינימליים (רק הדרישה למאפיינים) ולנכס פעיל, ונבדקת בשתי פונקציות המסד.
+# ‏jsonb_populate_record - בלי לכתוב שורה: הסריקה היא קריאה בלבד.
+SEARCH_RULES_SQL = """
+with c as (
+  select x->>'name' as name,
+         (x->>'match')::boolean as expect,
+         x->'property' || jsonb_build_object(
+           'status', 'active', 'deal_type', 'sale',
+           'category', coalesce(x->'property'->>'category', 'residential')) as prop,
+         coalesce(x->'property'->>'category', 'residential') as cat,
+         array(select jsonb_array_elements_text(x->'require')) as req
+    from jsonb_array_elements(%s::jsonb) x
+)
+select name, expect,
+       public.saved_search_matches(
+         jsonb_populate_record(null::public.saved_searches, jsonb_build_object(
+           'deal_type', 'sale', 'category', cat, 'cities', '[]'::jsonb,
+           'neighborhood_ids', '[]'::jsonb, 'property_types', '[]'::jsonb,
+           'required_features', to_jsonb(req))),
+         jsonb_populate_record(null::public.properties, prop)) as saved,
+       exists(select 1 from public.client_property_match(
+         jsonb_populate_record(null::public.agent_clients, jsonb_build_object(
+           'client_kind', 'seeker', 'deal_type', 'sale', 'category', cat,
+           'cities', '[]'::jsonb, 'property_types', '[]'::jsonb,
+           'required_features', to_jsonb(req))),
+         jsonb_populate_record(null::public.properties, prop))) as client
+  from c
+"""
+
+
+def _search_rules_drift(ctx) -> Iterator[Finding]:
+    """ההתראות וההתאמות במסד חלוקות עם האתר והבוטים על "מה יש בנכס".
+
+    ארבעה מנגנונים מחליטים אם נכס מתאים לבקשה; שניים מהם ב-SQL, שאינו
+    יכול להריץ את assets/search-core.js. לכן ‏scripts/search_feature_cases.json
+    הוא החוזה: ב-CI הדוגמאות רצות מול הליבה, וכאן - מול
+    ‏saved_search_matches ו-client_property_match. ממצא אומר שאותה בקשה
+    מקבלת באתר תשובה אחת ובהתראה (או בקובץ הלקוחות) תשובה אחרת - כך
+    חיפוש שמור עם "מרפסת" לא התריע על 15 נכסים עם מרפסת שמש
+    (‏20270716090000). ‏docs/search-core.md.
+    """
+    path = ctx.root / "scripts" / "search_feature_cases.json"
+    if not path.exists() or not ctx.db.has_table("saved_searches") \
+            or not ctx.db.has_table("agent_clients"):
+        return
+    cases = json.loads(path.read_text(encoding="utf-8")).get("cases") or []
+    if not cases:
+        return
+    ctx.count()
+    rows = ctx.db.rows(SEARCH_RULES_SQL, (json.dumps(cases, ensure_ascii=False),))
+    wrong = []
+    for r in rows:
+        where = [label for label, got in (("התראות", r.get("saved")), ("קובץ הלקוחות", r.get("client")))
+                 if bool(got) != bool(r.get("expect"))]
+        if where:
+            wrong.append({"case": r.get("name"), "expect": bool(r.get("expect")), "in": where})
+    if not wrong:
+        return
+    yield Finding(
+        area="behavior", code="search_rules_drift", severity="high",
+        subject="search_feature_cases",
+        title="ההתראות או קובץ הלקוחות מסננים מאפיינים אחרת מהאתר",
+        detail="%d מתוך %d דוגמאות: %s." % (
+            len(wrong), len(rows),
+            "; ".join("%s (%s)" % (w["case"], ", ".join(w["in"])) for w in wrong[:5])),
+        suggestion="הכלל מוגדר ב-FEATURES שב-assets/search-core.js. פונקציית המסד "
+                   "שחלוקה צריכה מיגרציה שמיישרת אותה לאותו ביטוי (ראו "
+                   "20270716090000_saved_search_feature_rules.sql), או שהדוגמה "
+                   "ב-search_feature_cases.json שגויה.",
+        metric=len(wrong), metric_unit="דוגמאות",
+        evidence={"wrong": wrong},
     )
 
 

@@ -20,6 +20,8 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_search_rules_test.py"
+      - "scripts/search_feature_cases.json"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
       - "scripts/ops_ads_test.py"
@@ -39,6 +41,8 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_search_rules_test.py"
+      - "scripts/search_feature_cases.json"
       - "scripts/ops_anon_rpc_test.py"
       - "scripts/ops_live_queue_test.py"
       - "scripts/ops_ads_test.py"
@@ -117,3 +121,8 @@ jobs:
       # וקמפיין תנועה שמעולם לא הביא לידים אינו "קמפיין בלי לידים".
       - name: ‏ads_* מדווחות בדיוק מתי שצריך, ונסגרות
         run: python3 scripts/ops_ads_test.py
+
+      # ‏ליבת החיפוש מול פונקציות המסד (‏docs/search-core.md): שותק כשהן
+      # מסכימות, ומדווח איזו דוגמה ואיזה מנגנון כשאחת חלוקה.
+      - name: ‏search_rules_drift מדווח בדיוק מתי שצריך
+        run: python3 scripts/ops_search_rules_test.py

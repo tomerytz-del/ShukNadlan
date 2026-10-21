@@ -1,0 +1,423 @@
+{
+  "_comment": "החוזה של 'מה נחשב יש בנכס' - אותן דוגמאות רצות מול assets/search-core.js (scripts/search_core_test.cjs, ב-CI) ומול saved_search_matches ו-client_property_match במסד (ops_agent, search_rules_drift). דוגמה חדשה כאן נבדקת בכל הארבעה. docs/search-core.md",
+  "cases": [
+    {
+      "name": "ממ״ד במערך",
+      "property": {
+        "features": [
+          "mamad",
+          "parking"
+        ]
+      },
+      "require": [
+        "mamad"
+      ],
+      "match": true
+    },
+    {
+      "name": "בלי ממ״ד - מקלט בבניין אינו ממ״ד",
+      "property": {
+        "features": [
+          "building_shelter",
+          "ac"
+        ]
+      },
+      "require": [
+        "mamad"
+      ],
+      "match": false
+    },
+    {
+      "name": "ממ״ק אינו ממ״ד",
+      "property": {
+        "features": [
+          "mamak"
+        ]
+      },
+      "require": [
+        "mamad"
+      ],
+      "match": false
+    },
+    {
+      "name": "ממ״ד בנכס מסחרי - בעמודת המיקום",
+      "property": {
+        "category": "commercial",
+        "features": [],
+        "mamad_location": "unit"
+      },
+      "require": [
+        "mamad"
+      ],
+      "match": true
+    },
+    {
+      "name": "ממ״ד בבניין (מסחרי) אינו ממ״ד בנכס",
+      "property": {
+        "category": "commercial",
+        "features": [],
+        "mamad_location": "building"
+      },
+      "require": [
+        "mamad"
+      ],
+      "match": false
+    },
+    {
+      "name": "מרפסת שמש היא מרפסת",
+      "property": {
+        "features": [
+          "sun_balcony"
+        ]
+      },
+      "require": [
+        "balcony"
+      ],
+      "match": true
+    },
+    {
+      "name": "מרפסת אינה מרפסת שמש",
+      "property": {
+        "features": [
+          "balcony"
+        ]
+      },
+      "require": [
+        "sun_balcony"
+      ],
+      "match": false
+    },
+    {
+      "name": "שני מאפיינים - שניהם קיימים",
+      "property": {
+        "features": [
+          "mamad",
+          "elevator",
+          "parking"
+        ]
+      },
+      "require": [
+        "mamad",
+        "elevator"
+      ],
+      "match": true
+    },
+    {
+      "name": "שני מאפיינים - אחד חסר",
+      "property": {
+        "features": [
+          "mamad",
+          "parking"
+        ]
+      },
+      "require": [
+        "mamad",
+        "elevator"
+      ],
+      "match": false
+    },
+    {
+      "name": "מערך ריק",
+      "property": {
+        "features": []
+      },
+      "require": [
+        "parking"
+      ],
+      "match": false
+    },
+    {
+      "name": "בלי דרישה - כל נכס",
+      "property": {
+        "features": []
+      },
+      "require": [],
+      "match": true
+    }
+  ],
+  "phrases": [
+    {
+      "text": "3 חדרים לקנייה עם ממד",
+      "features": [
+        "mamad"
+      ]
+    },
+    {
+      "text": "דירת 3 חדרים עם ממ\"ד",
+      "features": [
+        "mamad"
+      ]
+    },
+    {
+      "text": "דירה עם ממ״ד וחניה",
+      "features": [
+        "parking",
+        "mamad"
+      ]
+    },
+    {
+      "text": "דירה בלי מעלית",
+      "features": []
+    },
+    {
+      "text": "ללא חנייה, עם מרפסת שמש",
+      "features": [
+        "sun_balcony"
+      ]
+    },
+    {
+      "text": "לא צריך חניה אבל חייב ממד",
+      "features": [
+        "mamad"
+      ]
+    },
+    {
+      "text": "אין צורך בממד",
+      "features": []
+    },
+    {
+      "text": "ובלי ממד",
+      "features": []
+    },
+    {
+      "text": "דירה בעפולה עלית",
+      "features": []
+    },
+    {
+      "text": "עם מעלית ומרפסת",
+      "features": [
+        "elevator",
+        "balcony"
+      ]
+    }
+  ],
+  "deals": [
+    {
+      "price": 4000,
+      "deal": "rent"
+    },
+    {
+      "price": 30000,
+      "deal": "rent"
+    },
+    {
+      "price": 100000,
+      "deal": null
+    },
+    {
+      "price": 200000,
+      "deal": "sale"
+    },
+    {
+      "price": 1500000,
+      "deal": "sale"
+    }
+  ],
+  "areas": {
+    "_comment": "שכונות וכינויים כפי שהם במסד (עפולה, 21.10.2026). phrases: מה שהוקלד ← השכונה; partial רק בבוט (area הוא שם של אזור). properties: האם הנכס בשכונה - neighborhood_id קודם, sales_area רק כשאין שכונה.",
+    "hoods": [
+      {
+        "id": "gm",
+        "name": "גבעת המורה",
+        "aliases": [
+          "גבעה",
+          "הגבעה",
+          "נוף יזרעאל",
+          "נווה יוסף"
+        ]
+      },
+      {
+        "id": "c1",
+        "name": "לב העמק C1",
+        "aliases": [
+          "לב העמק",
+          "C1",
+          "סי 1"
+        ]
+      },
+      {
+        "id": "mc",
+        "name": "מרכז העיר",
+        "aliases": [
+          "מרכז",
+          "מרכז עפולה",
+          "שכון עובדים",
+          "שיכון עובדים"
+        ]
+      },
+      {
+        "id": "ai",
+        "name": "עפולה עלית",
+        "aliases": [
+          "עפולה הצעירה",
+          "עלית",
+          "ע עלית",
+          "עפולה ע"
+        ]
+      },
+      {
+        "id": "iz",
+        "name": "אזור התעשייה",
+        "aliases": [
+          "אזור תעשיה ומסחר",
+          "אזור תעשייה ג"
+        ]
+      },
+      {
+        "id": "mz",
+        "name": "מערב העיר (שיכון גאולים)",
+        "aliases": [
+          "בנה ביתך"
+        ]
+      }
+    ],
+    "phrases": [
+      {
+        "text": "דירה בגבעת המורה",
+        "hoods": [
+          "gm"
+        ]
+      },
+      {
+        "text": "דירה בגבעה",
+        "hoods": [
+          "gm"
+        ]
+      },
+      {
+        "text": "בסי 1",
+        "hoods": [
+          "c1"
+        ]
+      },
+      {
+        "text": "c-1",
+        "hoods": [
+          "c1"
+        ]
+      },
+      {
+        "text": "משרד בלב העמק",
+        "hoods": [
+          "c1"
+        ]
+      },
+      {
+        "text": "במרכז",
+        "hoods": [
+          "mc"
+        ]
+      },
+      {
+        "text": "מרכז עפולה",
+        "hoods": [
+          "mc"
+        ]
+      },
+      {
+        "text": "מרכז עפולה עלית",
+        "hoods": [
+          "ai"
+        ]
+      },
+      {
+        "text": "בית בעפולה עילית",
+        "hoods": [
+          "ai"
+        ]
+      },
+      {
+        "text": "דירה עם מעלית",
+        "hoods": []
+      },
+      {
+        "text": "בשיכון גאולים",
+        "hoods": [
+          "mz"
+        ]
+      },
+      {
+        "text": "דירה בעפולה",
+        "hoods": []
+      },
+      {
+        "text": "המורה",
+        "hoods": [],
+        "partial": [
+          "gm"
+        ]
+      },
+      {
+        "text": "יוקה פארק",
+        "hoods": []
+      }
+    ],
+    "properties": [
+      {
+        "name": "השכונה מהמפה גוברת על sales_area",
+        "property": {
+          "neighborhood_id": "iz",
+          "sales_area": "מרכז העיר"
+        },
+        "hood": "mc",
+        "match": false
+      },
+      {
+        "name": "השכונה מהמפה",
+        "property": {
+          "neighborhood_id": "mc",
+          "sales_area": "אזור עפולה והעמקים"
+        },
+        "hood": "mc",
+        "match": true
+      },
+      {
+        "name": "בלי שכונה - sales_area דרך המפענח",
+        "property": {
+          "neighborhood_id": null,
+          "sales_area": "שכון עובדים"
+        },
+        "hood": "mc",
+        "match": true
+      },
+      {
+        "name": "בלי שכונה - sales_area שאינו שם",
+        "property": {
+          "neighborhood_id": null,
+          "sales_area": "אזור עפולה והעמקים"
+        },
+        "hood": "mc",
+        "match": false
+      }
+    ],
+    "text": [
+      {
+        "name": "שם פרויקט ב-sales_area",
+        "property": {
+          "title": "דירה",
+          "sales_area": "עפולה ירוקה"
+        },
+        "q": "עפולה ירוקה",
+        "match": true
+      },
+      {
+        "name": "רחוב",
+        "property": {
+          "title": "דירה",
+          "street": "הנרקיס"
+        },
+        "q": "הנרקיס",
+        "match": true
+      },
+      {
+        "name": "לא כתוב",
+        "property": {
+          "title": "דירה",
+          "street": "הנרקיס"
+        },
+        "q": "יוקה",
+        "match": false
+      }
+    ]
+  }
+}

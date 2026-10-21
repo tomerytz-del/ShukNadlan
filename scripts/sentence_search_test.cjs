@@ -21,7 +21,15 @@ const PROPS = [
   P({ id: 'h', deal_type: 'sale', property_type: 'מגרש', rooms: null, price: 3900000, city: 'היוגב' }),
   P({ id: 'i', deal_type: 'sale', property_type: 'דירת גן', rooms: 4, price: null, neighborhood_id: 2, neighborhood_name: 'מרכז העיר', street: 'הנרקיס' }),
 ];
-const AREAS = C.deriveAreas(PROPS);
+/* הכינויים כפי שהם ב-neighborhood_aliases (‏21.10.2026) - מקור אחד לאתר
+   ולבוטים. "עלית" נוסף במיגרציה 20270717090000 (היה עד אז ALIASES בקוד). */
+const ALIASES = [
+  { neighborhood_id: 1, alias: 'גבעה' }, { neighborhood_id: 1, alias: 'הגבעה' }, { neighborhood_id: 1, alias: 'נוף יזרעאל' },
+  { neighborhood_id: 3, alias: 'עלית' }, { neighborhood_id: 3, alias: 'עפולה הצעירה' },
+  { neighborhood_id: 4, alias: 'לב העמק' }, { neighborhood_id: 4, alias: 'C1' }, { neighborhood_id: 4, alias: 'סי 1' },
+  { neighborhood_id: 2, alias: 'מרכז' }, { neighborhood_id: 2, alias: 'מרכז עפולה' },
+];
+const AREAS = C.deriveAreas(PROPS, ALIASES);
 const CTX = { marketLabel: 'עפולה והעמק' };
 
 let passed = 0;
@@ -343,6 +351,11 @@ test('חיפוש עם ממ״ד שאין לו התאמה: לא מציגים בל�
   assert.strictEqual(hint.count, C.filter(PROPS, st, CTX).length);
   // בלי תווית (סינון מתקדם מעורב) - הנוסח הכללי
   assert.strictEqual(C.widenHint(st, PROPS, Object.assign({}, ctx, { extraLabel: null })).action, 'נקה סינון מתקדם');
+});
+
+test('"בלי מעלית" אינו בקשה למעלית - והממ״ד שאחריו כן (‏search-core.js)', () => {
+  assert.deepStrictEqual(C.parse('3 חדרים בלי מעלית ועם ממד', C.defaultState(), AREAS).features, ['mamad']);
+  assert.deepStrictEqual(C.parse('דירה ללא חנייה', C.defaultState(), AREAS).features, []);
 });
 
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

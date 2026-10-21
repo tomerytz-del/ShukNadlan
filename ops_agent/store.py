@@ -53,6 +53,8 @@ PROBE_CODES = {
     # קוד שאינו מכוסה כאן, כי זו כבר הפעם השלישית (אחרי "make_").
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
                  "listings_", "saved_search_", "market_", "agency_",
+                 # ‏ליבת החיפוש מול פונקציות המסד (‏_search_rules_drift)
+                 "search_rules_",
                  # ‏מחזור העדכון של העסקאות (‏_deal_sync_cycle)
                  "deal_sync_"),
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
