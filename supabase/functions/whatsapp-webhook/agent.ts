@@ -3995,6 +3995,8 @@ async function toolListCalls(ctx: ToolContext, input: Record<string, unknown>) {
       needs_text: r.extracted?.needs_text ?? null,
       needs: r.extracted?.needs ?? null,
       next_step: r.extracted?.next_step ?? null,
+      // שיחה שנקטעה באמצע - "כדאי לחזור" (twilio-voice, call_status)
+      cut_off: r.extracted?.call_status === "cut_off",
       processing: r.status === "answered" && !r.summary && !r.error,
     })),
   };

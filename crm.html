@@ -461,6 +461,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .call-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .call-actions .btn{padding:5px 11px;font-size:.78rem}
   .call-row.is-archived{opacity:.6}
+  /* מה זוהה בשיחה, הצעד הבא, ושיחה שנקטעה (extracted.facts / next_step / call_status) */
+  .call-facts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .call-fact{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#EEF2F6;color:#334155}
+  .call-next{font-size:.82rem;line-height:1.6;margin:6px 0 0;color:var(--green,#0f766e)}
+  .call-row.is-cutoff{background:#FFF8E6;border-radius:12px;padding-inline:10px}
+  .call-cut{font-size:.8rem;font-weight:700;color:#7a4f00;margin:6px 0 0}
   .lines-panel{margin:6px 0 12px}
   #plModal .field select{width:100%;padding:11px 12px;border:1px solid #CBD5E1;border-radius:10px;font:inherit;background:#fff}
   .line-row{border:1px solid #EEF2F6;border-radius:12px;padding:10px 12px;margin-top:8px;background:#FFF}
@@ -3283,16 +3289,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dash-side{display:none}
   @media(min-width:1024px){
     .dash-shell{grid-template-columns:264px minmax(0,1fr);gap:26px;align-items:start;
-                padding-top:26px;padding-bottom:56px}
+                padding-top:26px;padding-bottom:20px}
     .dash-main{grid-column:2;grid-row:1;gap:22px}
-    /* גובה מסך אחד, בלי פס גלילה. ‏116px הם הכותרת (74px) והריווח שמעל
-       הסרגל לפני גלילה (26px) ועוד נשימה מתחת — כך גם בראש הדף, לפני שה-
-       sticky נתפס, התחתית לא נחתכת. ‏dvh אחרי vh — דפדפן שאינו מכיר אותו
-       נשאר עם הראשון. */
+    /* גובה מסך אחד, בלי פס גלילה, **ובלי לזוז**. ‏top:101px הוא המקום הטבעי של
+       הסרגל בראש הדף (הכותרת 75px והריווח 26px), ולכן ה-sticky לא מזיז אותו
+       כשגוללים; עד 21.10.2026 הוא היה 84px, והסרגל קפץ 17px בכל ניווט שגלל
+       את הדף. ‏121px = ‏101 מלמעלה ועוד 20 מלמטה, שהם בדיוק ה-padding-bottom של
+       ‏.dash-shell: סרגל שתחתיתו נמוכה מזה נדחף למעלה בתחתית של מסך קצר.
+       ‏dvh אחרי vh - דפדפן שאינו מכיר אותו נשאר עם הראשון. */
     .dash-side{
       display:flex;flex-direction:column;justify-content:space-between;gap:8px;
-      grid-column:1;grid-row:1;position:sticky;top:84px;
-      height:calc(100vh - 116px);height:calc(100dvh - 116px);overflow:hidden;
+      grid-column:1;grid-row:1;position:sticky;top:101px;
+      height:calc(100vh - 121px);height:calc(100dvh - 121px);overflow:hidden;
       background:rgba(255,255,255,.92);border:1px solid var(--edge);
       border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:10px 10px 12px;
     }
@@ -3464,6 +3472,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--nv-muted);font-size:.8rem;font-weight:700;transition:background .14s ease;
   }
   .sn-link .sn-ico{width:18px;height:18px}
+  .sn-link .sn-label{min-width:0}
+  .sn-link{min-width:0}
+  .sn-link.sn-rail-btn{flex:0 0 36px;justify-content:center;padding:0}
+  /* "עזרה" ברוחב שלה, והשאר ל"הצעה לשיפור" - בחלוקה שווה היא נחתכה */
+  .sn-link[data-sn="help"]{flex:0 0 auto}
+  .sn-links .sn-link{padding:0 8px;gap:6px}
   .sn-link:hover{background:var(--nv-ground);color:var(--nv-ink)}
   .sn-link:focus-visible{outline:2px solid var(--nv-accent);outline-offset:-2px}
 
@@ -3480,7 +3494,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .dash-side.is-rail .sn-group{height:9px;padding:0;pointer-events:none}
     .dash-side.is-rail .sn-item,
     .dash-side.is-rail .sn-create,
-    .dash-side.is-rail .sn-link{justify-content:center;padding:0}
+    .dash-side.is-rail .sn-link{justify-content:center;padding:0;flex:0 0 36px}
     .dash-side.is-rail .sn-links{flex-direction:column}
     .dash-side.is-rail .sn-count{
       position:absolute;top:1px;inset-inline-end:4px;min-width:18px;height:18px;
@@ -6377,7 +6391,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:#fff;box-shadow:0 24px 60px rgba(14,26,51,.25)}
   .sug-dialog::backdrop{background:rgba(14,26,51,.45)}
   .sug-dialog form,.sug-done{display:flex;flex-direction:column;gap:12px}
-  .sug-head{display:flex;gap:14px;align-items:flex-start}
+  /* האייקון בשורה של הכותרת, וההסבר מתחת לשניהם ברוחב מלא - כשהאייקון
+     תפס עמודה משלו, ההסבר נשבר לארבע שורות בטלפון */
+  .sug-head{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;row-gap:6px;align-items:center}
+  .sug-head>div{display:contents}
+  .sug-head .ui-h2{margin:0}
+  .sug-head .ui-hint{grid-column:1 / -1;margin:0}
+  @media(max-width:480px){.sug-dialog{padding:20px}}
   .sug-text{width:100%;min-height:120px;resize:vertical;border:1px solid var(--nv-chip-line);border-radius:12px;padding:12px 14px;
     font:inherit;font-size:16px;color:var(--nv-ink)}
   .sug-meta{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--nv-muted)}

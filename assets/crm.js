@@ -23040,7 +23040,7 @@ function officeCallRowHtml(c, agentName, lineName){
   const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
   const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
   const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
-  return `<div class="call-row" data-call="${esc(c.id)}">
+  return `<div class="call-row${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -23050,6 +23050,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
       ${badge === 'missed' ? (c.handled_at ? ' · <span class="call-badge answered">חזרו אליו/ה</span>' : ' · <span class="call-badge missed">לא סומן שחזרו</span>') : ''}</div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ''}
+    ${callInsightsHtml(c)}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
@@ -23172,7 +23173,7 @@ function callRowHtml(c, inCard){
   const needsObj = (c.extracted && c.extracted.needs) || {};
   const canUpdate = client && Object.keys(needsObj).length > 0;
   const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
-  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}" data-call="${esc(c.id)}">
+  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -23181,6 +23182,7 @@ function callRowHtml(c, inCard){
     </div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
     ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
+    ${callInsightsHtml(c)}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
@@ -26391,6 +26393,11 @@ function renderSideNav(){
   nav.classList.toggle('is-admin', dashView === 'admin');
   const shell = nav.closest('.dash-shell');
   if (shell) shell.classList.toggle('nav-rail', rail);
+  /* הסרגל נבנה מחדש בכל ניווט (השורה המסומנת היא חלק מהמפתח), ו-innerHTML
+     ריק מאפס את הגלילה של הרשימה - כל לחיצה הקפיצה אותה לראש. שומרים את
+     המיקום ומחזירים אותו, ורק שורה שיצאה מהתצוגה נגללת אליה (nearest). */
+  const prevList = nav.querySelector('.sn-list');
+  const prevScroll = prevList ? prevList.scrollTop : 0;
   nav.innerHTML = '';
 
   if (!rail){
@@ -26410,8 +26417,9 @@ function renderSideNav(){
     create.innerHTML = dashIcon('plus', 'sn-ico') + '<span class="sn-label">יצירה חדשה</span>';
     create.addEventListener('click', (e)=>{ e.stopPropagation(); openCreateSheet(); });
     nav.appendChild(create);
-    // בדף הבית המנטור הוא כרטיס הגיבור עצמו (3.0), ושורה שנייה בסרגל מיותרת
-    const mentor = (navActive === NAV_HOME && !rail) ? null : navMentorButton(rail);
+    /* המנטור נשאר בסרגל גם בדף הבית, אף שהוא כרטיס הגיבור שם (3.0): שורה
+       שנעלמת בדף הבית וחוזרת בכל מסך אחר הזיזה את כל הרשימה בכל לחיצה */
+    const mentor = navMentorButton(rail);
     if (mentor) nav.appendChild(mentor);
   }
 
@@ -26425,6 +26433,7 @@ function renderSideNav(){
     appendMenuGroups(list, { side:true });
     nav.appendChild(list);
     nav.appendChild(sideNavFoot(rail));
+    sideNavKeepScroll(list, prevScroll);
     return;
   }
 
@@ -26473,6 +26482,7 @@ function renderSideNav(){
 
   nav.appendChild(list);
   nav.appendChild(sideNavFoot(rail));
+  sideNavKeepScroll(list, prevScroll);
 }
 
 /* מתג "תצוגת סוכן/ת / ניהול פלטפורמה" בראש סרגל הצד, למנהל/ת הפלטפורמה
@@ -26505,6 +26515,12 @@ function sideViewSwitch(){
    כותב setAgentBalance — והוא גם קורא ל-accSetCount('accWallet'), כך שהכרטיס
    נבנה מחדש עם כל שינוי יתרה בלי מאזין משלו. בתצוגת מנהל/ת הפלטפורמה
    והארנק אינו שלה, ונשארים רק העזרה והכיווץ. */
+function sideNavKeepScroll(list, top){
+  list.scrollTop = top;
+  const on = list.querySelector('.is-on');
+  if (on) on.scrollIntoView({ block:'nearest' });
+}
+
 function sideNavFoot(rail){
   const foot = document.createElement('div');
   foot.className = 'sn-foot';
@@ -26532,10 +26548,10 @@ function sideNavFoot(rail){
     /* הצעה לשיפור (assets/crm-suggestions.js, docs/improvement-suggestions.md) */
     + '<button type="button" class="sn-link" data-sn="suggest"' + (rail ? ' title="הצעה לשיפור" aria-label="הצעה לשיפור"' : '') + '>'
     +   dashIcon('bug', 'sn-ico') + '<span class="sn-label">הצעה לשיפור</span></button>'
-    + '<button type="button" class="sn-link" data-sn="rail" aria-pressed="' + rail + '"'
-    +   (rail ? ' title="הרחבת התפריט" aria-label="הרחבת התפריט"' : '') + '>'
-    +   dashIcon(rail ? 'railOpen' : 'railClose', 'sn-ico')
-    +   '<span class="sn-label">כווץ תפריט</span></button>'
+    /* כיווץ - אייקון בלבד גם בסרגל הרחב: שלוש תוויות לא נכנסו ב-264px */
+    + '<button type="button" class="sn-link sn-rail-btn" data-sn="rail" aria-pressed="' + rail + '"'
+    +   (rail ? ' title="הרחבת התפריט" aria-label="הרחבת התפריט"' : ' title="כיווץ התפריט" aria-label="כיווץ התפריט"') + '>'
+    +   dashIcon(rail ? 'railOpen' : 'railClose', 'sn-ico') + '</button>'
     + '</div>';
   foot.innerHTML = html;
   const topup = foot.querySelector('[data-sn="topup"]');
@@ -30295,7 +30311,11 @@ function appendMenuGroups(panel, opts){
     const hotSum = group.items.reduce(
       (s, it) => s + (NAV_HOT_ACCS.has(it.acc) ? accCountOf(it.acc) : 0), 0);
 
+    /* בסרגל הצד: קבוצה פתוחה אם נפתחה (או שהמסך הפתוח בתוכה) ונשארת פתוחה.
+       עד 21.10.2026 היא נפתחה לפי navTab, וכל ניווט סגר קבוצה אחת ופתח
+       אחרת - הרשימה קפצה. לחיצה על פריט שומרת את הקבוצה שלו פתוחה (למטה). */
     const open = (side && saved[group.key] === false) ? false
+      : (side && !admin) ? (saved[group.key] === true || group.items.some(navItemIsActive))
       : admin ? adminGroupInitiallyOpen(group, saved) : menuGroupInitiallyOpen(group, saved);
     /* בתצוגת מנהל/ת המונה הוא מה שממתין בקבוצה ולא מספר הפריטים בה: אדום
        כשיש בה דבר דחוף, כהה כשיש בה מה שממתין, וכלום כשאין. כך גם קבוצה
@@ -30332,6 +30352,10 @@ function appendMenuGroups(panel, opts){
 
     sub.hidden = !open;
     group.items.forEach(navItem => sub.appendChild(menuItemButton(navItem, side)));
+    // ‏capture: נשמר לפני navGo, שבונה את הסרגל מחדש
+    if (side) sub.addEventListener('click', e => {
+      if (e.target.closest('.menu-item')) (admin ? adminGroupSetOpen : menuGroupSetOpen)(group.key, true);
+    }, true);
     panel.appendChild(sub);
   });
 
