@@ -1,6 +1,6 @@
 ---
 name: govmap
-description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין, רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות, ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, or when a GovMap call silently returns nothing.
+description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, or when a GovMap call silently returns nothing.
 ---
 
 # ‏GovMap

@@ -1084,7 +1084,7 @@ function renderPlanningInfo(row){
       `<p class="plan-list-title">תוכניות תכנון החלות על הקרקע (${plans.length})</p>` +
       plans.map(pl => {
         // ‏kind / notice / url / designation מגיעים משכבות 203/14 של GovMap
-        // (planning_plans_merged, מיגרציה 20270722090000); לתוכנית של העירייה
+        // (planning_plans_merged, מיגרציה 20270723090000); לתוכנית של העירייה
         // אין אותם, והשורה נשארת כמו שהייתה
         const detail = [pl.description, pl.notice ? null : pl.kind,
           pl.designation ? 'ייעוד: ' + pl.designation : null, pl.year].filter(Boolean).join(' · ');
