@@ -474,7 +474,7 @@ CRM ← תצוגת מנהל/ת ← **ניהול שכונות** ← "ייבוא �
 | D5 | ‏`neighborhoods` לפי עיר: כפתור ההוספה ב-CRM שומר `city: 'עפולה'` קבוע | `crm.js:1862` | 1 |
 | D6 | שכונות חיפה והקריות: ייבוא מ-`neighborhoods_area` של GovMap (שם + יישוב) | סקריפט חד-פעמי; פוליגונים בהמשך | 3 |
 | D7 | ‏`geocode-backfill` קורא תמיד לשכבת עפולה - לבחור ספק לפי עיר | `geocode-backfill/index.ts:98` | 1 |
-| D8 | ספק GovMap בשרת (`providers/govmap.ts`) ומאגר רחובות לעיר | `docs/govmap.md` שלבים 1-2 | 3 |
+| D8 | מאגר רחובות לעיר מ-GovMap - **בדפדפן**: מפ"י אינם מתירים קריאת שרת (12.10.2026), ולכן אין `providers/govmap.ts` | `docs/govmap.md` שלבים 1-2 | 3 |
 | D9 | עסקאות רשמיות: `DEALS_CITIES` כולל את ערי השוק | משתנה ב-GitHub | 3 |
 
 ### דף הבית (`index.html`, `assets/home.js`)

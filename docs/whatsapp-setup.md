@@ -603,10 +603,11 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | הגייט | ‏mid/premium עם `billing_status = 'active'`, כמו `afula-planning-lookup`. הוובהוק בודק בכניסה גם את `billing_status` (מ-26.9.2026); הבדיקה בכלי נשארת כשכבה שנייה |
 | הכיסוי | **עפולה בלבד.** כתובת בעיר אחרת מחזירה `city_not_supported`; חלקה שאינה בקדסטר של עפולה - `parcel_not_found`. בשניהם חוזר `govmap_url`, קישור לחיפוש ב-GovMap |
 
-**למה לא GovMap בשרת, כבר עכשיו:** הטוקן נעול לדומיין ולדפדפן, ועוד לא
-ידוע אם הוא עונה לקריאת שרת (`docs/govmap.md`). עד שמפ"י יענו, הכלי אומר
-ביושר "רק עפולה" ומפנה למפה - ולא מנחש. כשתהיה גישת שרת, ענף GovMap נכנס
-ל-`toolPlanningLookup` ו-`city_not_supported` יורד.
+**למה לא GovMap בשרת:** מפ"י ענו ב-12.10.2026 שה-API נצרך מצד הלקוח בלבד
+(`docs/govmap.md`, "תשובות מפ"י"). לכן הכלי אומר ביושר "רק עפולה" ומפנה
+למפה - ולא מנחש. הדרך להרחיב אותו אינה קריאה ל-GovMap אלא קריאה של מה
+שהדפדפן כבר שמר ב-`property_planning_info` (‏`source = 'govmap'`) לנכסים
+שבמאגר.
 
 **שלוש תשובות שאינן "לא נמצא":** ‏`gis_unavailable` (השכבה לא ענתה - לנסות
 שוב, **לא** "הכתובת לא קיימת"), ‏`city_not_supported` ו-`parcel_not_found`.
