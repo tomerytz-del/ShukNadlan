@@ -235,7 +235,7 @@
 | --- | --- | --- |
 | השליפה | `GovmapLookup.plansAt` / `plansAtLatLng` ב-`assets/govmap.js` | שאילתה נפרדת מהגוש והחלקה, כדי שתקלה בה לא תפיל אותם. שם השכבה כמחרוזת |
 | הניקוי | `cleanPlanLayers` (נבדק ב-`scripts/govmap_plans_test.cjs` על התשובות האמיתיות) | הודעה, שלב, היתרים, ייעוד מ-14 (בלי 994/995), קישור רק למבא"ת |
-| השמירה | `property_planning_info.govmap_plans` דרך `govmap_save_plans` / `govmap_admin_save_plans` (מיגרציה `20270723090000`) | עמודה נפרדת: בעפולה `applicable_plans` נכתבת בשרת, ושני כותבים היו מוחקים זה את זה. ‏`[]` = נבדק ואין |
+| השמירה | `property_planning_info.govmap_plans` דרך `govmap_save_plans` / `govmap_admin_save_plans` (מיגרציה `20270724090000`) | עמודה נפרדת: בעפולה `applicable_plans` נכתבת בשרת, ושני כותבים היו מוחקים זה את זה. ‏`[]` = נבדק ואין |
 | מתי | שמירת נכס עם שליפת תכנון - **גם בעפולה**, אחרי `afula-planning-lookup`; ו"השלמת תוכניות" אצל מנהל/ת הפלטפורמה לנכסים קיימים (נבדק שוב אחרי 90 יום) | מסלול mid/premium פעיל, כמו שאר המידע התכנוני |
 | האיחוד | `planning_plans_merged` במסד, ו-`mergedPlanningPlans` ב-`crm.js` (אותו סדר) | המפורטות קודם, ארציות וכוללניות אחריהן, הודעות 77-78 בסוף. מספר שבשתיהן - פעם אחת |
 
