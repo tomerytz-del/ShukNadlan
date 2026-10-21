@@ -2281,6 +2281,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       loadProfessionalCardsAdmin(),
       loadUnroutedLeads(),
       loadSuggestionsAdmin(),
+      // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
+      loadAdminInbox(),
     ]);
   }
 
@@ -24578,6 +24580,14 @@ const NOTIF_TYPES = [
     sub:'משרד תיווך שנפתח, מתווך/ת שנכנס/ת לראשונה, בעל/ת מקצוע שנרשם/ה או חברה יזמית - עם השם והמסלול.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
+  /* פריט בתיבת המשימות שחרג מזמן היעד שלו - פעם אחת לפריט, וכמה שחרגו באותו
+     סבב בהתראה אחת (admin_inbox_notify_overdue, docs/admin-inbox.md) */
+  { type:'admin_overdue', tone:'alert', goto:'accAdminInbox', focus:'#adminInboxList',
+    view:'admin',
+    title:'חריגה מזמן היעד',
+    sub:'פריט בתיבת המשימות (ליד ללא יעד, החזר, ערעור רישיון, חסר למנטור) שמחכה יותר מזמן היעד שלו.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadAdminInbox() },
   /* החלוקה בין שני הסוגים היא לפי השאלה ולא לפי הקהל: platform_signup הוא
      "מי הגיע", וזה "כסף". לכן גם תשלום של בעל/ת מקצוע יושב כאן ולא שם.
      ‏tone:'alert' כי בקשת שדרוג ממתינה לאישור, וכל עוד אין סליקה באתר היא
@@ -26069,6 +26079,7 @@ const NAV_GROUPS = [
      ‏open: הקבוצה פתוחה כברירת מחדל (ADMIN_GROUP_DEFAULT נגזר מכאן). */
   { key:'aToday', label:'היום', icon:'gauge', adminOnly:true, open:true, items:[
     { acc:NAV_ADMIN_HOME,       label:'מרכז הפיקוד',      icon:'gauge',   tab:'admin' },
+    { acc:'accAdminInbox',      label:'תיבת משימות',      icon:'inbox',   tab:'admin' },
     { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
     { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
   ]},
@@ -26126,6 +26137,13 @@ const BOTTOM_NAV = [
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
 const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLicenseAppeals','accCoachGaps']);
+/* קטגוריות שאדומות לפי מצב ולא לפי סוג: תיבת המשימות של הניהול
+   (assets/crm-admin-inbox.js) אדומה רק כשיש בה פריט שחרג מזמן היעד, ואחרת
+   המונה שלה כהה - "ממתין", לא "דחוף" (docs/admin-inbox.md). */
+const navHotNow = new Set();
+function navAccHot(acc){
+  return NAV_HOT_ACCS.has(acc) || navHotNow.has(acc);
+}
 /* התגיות בנייד. הלידים על כפתור הלידים. מה שהיה מסומן על הלשוניות שנעלמו
    (התאמות ויומן על "לקוחות", ביקורות על "עוד") עובר לכפתור התפריט בכותרת,
    שהוא הדרך אליהן עכשיו - אחרת דבר דחוף היה מתחבא מאחורי מקטע בלי כפתור.
@@ -26342,7 +26360,7 @@ function sideRailSet(on){
 
 function sideNavItem(item, rail){
   const count = navItemCount(item);
-  const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
+  const hot = count > 0 && navAccHot(navItemTarget(item));
   const on = navItemIsActive(item);
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -26375,7 +26393,7 @@ function sideNavKey(rail){
   try { open = (localStorage.getItem(MENU_GROUP_KEY) || '') + '|' + (localStorage.getItem(SIDE_GROUP_KEY) || '')
     + '|' + (localStorage.getItem(ADMIN_GROUP_KEY) || ''); } catch {}
   const a = currentAgent || {};
-  return JSON.stringify([dashView, rail, navTab, items, open,
+  return JSON.stringify([dashView, rail, navTab, items, open, [...navHotNow].join(','),
     typeof coachLayerKinds === 'function' ? coachLayerKinds().length : 0,
     a.credit_balance, a.tier, a.tier === 'free' ? quotaUsedThisCycle() : 0]);
 }
@@ -26450,7 +26468,7 @@ function renderSideNav(){
     sub.hidden = !open;
 
     const hotSum = group.items.reduce(
-      (sum, it) => sum + (NAV_HOT_ACCS.has(navItemTarget(it)) ? navItemCount(it) : 0), 0);
+      (sum, it) => sum + (navAccHot(navItemTarget(it)) ? navItemCount(it) : 0), 0);
 
     const head = document.createElement('button');
     head.type = 'button';
@@ -26746,7 +26764,7 @@ function renderScreenTabs(accs){
     const label = t ? (t.firstChild && t.firstChild.textContent || t.textContent).trim() : acc;
     const n = accCountOf(acc);
     // בלי תבנית בתוך תבנית: הסורק של check_long_dash.py מאבד בה את המקום
-    const badge = n ? ' <span class="screen-tab-n' + (NAV_HOT_ACCS.has(acc) ? ' is-hot' : '') + '">'
+    const badge = n ? ' <span class="screen-tab-n' + (navAccHot(acc) ? ' is-hot' : '') + '">'
       + (n > 99 ? '99+' : n) + '</span>' : '';
     return '<button type="button" class="ui-tab" role="tab" data-screen-tab="' + acc + '" aria-selected="' + (acc === cur) + '"'
       + ' tabindex="' + (acc === cur ? 0 : -1) + '">' + esc(label) + badge + '</button>';
@@ -30215,7 +30233,7 @@ function navIsHomeItem(item){
    אייקון בית, בלי חץ "המשך לקטגוריה" שאין לו לאן להוביל. */
 function menuItemButton(navItem, side){
   const count  = navItemCount(navItem);
-  const hot    = count > 0 && NAV_HOT_ACCS.has(navItemTarget(navItem));
+  const hot    = count > 0 && navAccHot(navItemTarget(navItem));
   const isHome = navIsHomeItem(navItem);
   // בסרגל הצד, שנשאר על המסך, השורה של המסך הפתוח מסומנת
   const on     = side && navItemIsActive(navItem);
@@ -30309,7 +30327,7 @@ function appendMenuGroups(panel, opts){
        "לידים חמים 3" בתוך קבוצה מקופלת הוא בדיוק ההתראה שהמסך הזה נועד
        להבליט. נספרות רק הקטגוריות שמותר להן להיות אדומות (NAV_HOT_ACCS). */
     const hotSum = group.items.reduce(
-      (s, it) => s + (NAV_HOT_ACCS.has(it.acc) ? accCountOf(it.acc) : 0), 0);
+      (s, it) => s + (navAccHot(it.acc) ? accCountOf(it.acc) : 0), 0);
 
     /* בסרגל הצד: קבוצה פתוחה אם נפתחה (או שהמסך הפתוח בתוכה) ונשארת פתוחה.
        עד 21.10.2026 היא נפתחה לפי navTab, וכל ניווט סגר קבוצה אחת ופתח

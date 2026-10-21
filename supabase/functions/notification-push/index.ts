@@ -92,6 +92,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",
   platform_signup: "accSubscriptions",
+  // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
+  admin_overdue: "accAdminInbox",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
