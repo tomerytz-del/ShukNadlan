@@ -55,7 +55,8 @@ Function (שאין לה Origin של האתר) **לא נבדק**, וזו השאל
 
 ## ‏3. המיפוי לחוזה הגאוקוד
 
-ספק GovMap נרשם ב-`_shared/geocode/providers/govmap.ts` ומקיים את החוזה
+ספק GovMap, כשייכתב, יירשם ב-`_shared/geocode/providers/govmap.ts` (הקובץ
+**עדיין לא קיים** - הספק היחיד היום הוא `municipal-wfs.ts`) ויקיים את החוזה
 שבראש `_shared/geocode/types.ts` **בלי יוצא מן הכלל**:
 
 | תשובת GovMap | ‏`precision` | מה מחזירים |
