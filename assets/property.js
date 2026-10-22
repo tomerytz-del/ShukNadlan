@@ -224,10 +224,11 @@ async function loadProperty(){
     // גם ההדמיות נטענות ברקע: הן דורשות קריאת RPC נוספת ואין סיבה שהן
     // יעכבו את רינדור הנכס עצמו.
     //
-    // קרקע לא מקבלת הדמיה אלא מידע תכנוני — שתי הסקציות אף פעם לא עולות
-    // יחד, ולכן ההחלטה נופלת כאן פעם אחת ולא בתוך כל אחת מהן.
-    if (isLandProperty(data)) loadPlanningInfo(data);
-    else loadVisualizations(data);
+    // קרקע לא מקבלת הדמיה. מידע תכנוני עולה לכל נכס (מ-22.10.2026 גם לדירות:
+    // התוכניות החלות והודעות 77-78 נוגעות לקונה דירה בדיוק כמו לקונה מגרש,
+    // docs/land-planning.md), והסקציה נעלמת מעצמה כשאין מה להציג.
+    loadPlanningInfo(data);
+    if (!isLandProperty(data)) loadVisualizations(data);
     // הסיור 360° נטען ברקע גם הוא, ורק לנכס שהדגל שלו דולק — כך שרוב
     // הנכסים אינם משלמים אפילו על השאילתה
     if (data.has_virtual_tour) loadVirtualTour(data);
@@ -1025,7 +1026,7 @@ document.addEventListener('keydown', (e)=>{
   if (e.key === 'Escape' && document.getElementById('mapFull').classList.contains('open')) mapFullClose();
 });
 
-/* ---------- קרקע: מידע תכנוני במקום הדמיה ----------
+/* ---------- מידע תכנוני (לכל נכס), וקרקע: בלי הדמיה ----------
    סוג הנכס גובר על ה-category, בדיוק כמו בגזירת תחומי ההתמחות
    (assets/specialties.js): מגרש שסומן "מסחרי" הוא עדיין קרקע, ומגרש שסומן
    "מגורים" הוא עדיין לא דירה. הביטוי כאן הוא עותק של TYPE_RULES שם, וכמו
@@ -1047,13 +1048,13 @@ async function loadPlanningInfo(p){
     const { data, error } = await sb.rpc('property_planning_public', { p_property_id: p.id });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
-    if (row) renderPlanningInfo(row);
+    if (row) renderPlanningInfo(row, isLandProperty(p));
   } catch(e){
     console.warn('טעינת מידע תכנוני נכשלה:', e);
   }
 }
 
-function renderPlanningInfo(row){
+function renderPlanningInfo(row, isLandRow){
   const num = v => Number(v).toLocaleString('he-IL');
   // שטח המגרש עצמו לא חוזר כאן — הוא כבר קפסולה בסרגל הנתונים שמעל.
   const facts = [
@@ -1081,7 +1082,7 @@ function renderPlanningInfo(row){
   const plansEl = document.getElementById('planningPlans');
   if (plans.length){
     plansEl.innerHTML =
-      `<p class="plan-list-title">תוכניות תכנון החלות על הקרקע (${plans.length})</p>` +
+      `<p class="plan-list-title">תוכניות תכנון החלות על ${isLandRow ? 'הקרקע' : 'המקום'} (${plans.length})</p>` +
       plans.map(pl => {
         // ‏kind / notice / url / designation מגיעים משכבות 203/14 של GovMap
         // (planning_plans_merged, מיגרציה 20270724090000); לתוכנית של העירייה

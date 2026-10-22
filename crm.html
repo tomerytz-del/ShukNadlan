@@ -9529,17 +9529,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <details class="acc" id="accPlanning">
       <summary>
-        <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
+        <span class="acc-title">מידע תכנוני על נכס</span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-      <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה - הזינו כתובת או גוש/חלקה</p>
+      <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה - הזינו כתובת או גוש/חלקה, בכל עיר.
+        בעפולה מהשכבה של העירייה, ובשאר הארץ מ-GovMap.</p>
+      <input type="text" id="planCity" value="עפולה" placeholder="עיר" style="margin-bottom:8px;width:100%">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב (למשל: דפנה)">
-        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הכלי הזה הוא עפולה
-             בלבד (כך גם כותרת האקורדיון), בעוד שהרשימה בטופס עוקבת אחרי
-             שדה העיר. ‏datalist משותף היה מציג כאן את רחובות העיר שהוקלדה
-             בטופס — רשימה שגויה, בלי שום סימן לכך. -->
+        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הרשימה כאן עוקבת
+             אחרי שדה העיר **של הכלי** (planCity), והרשימה בטופס אחרי שדה
+             העיר של הטופס. ‏datalist משותף היה מציג כאן את רחובות העיר
+             שהוקלדה בטופס — רשימה שגויה, בלי שום סימן לכך. -->
         <datalist id="planStreetOptions"></datalist>
         <input type="text" id="planHouseNum" placeholder="מספר בית">
       </div>
