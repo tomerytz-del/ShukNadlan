@@ -19,14 +19,14 @@ const ADS_CHANNELS = {
 function adsMoney(n){ return '₪' + Math.round(Number(n) || 0).toLocaleString('he-IL'); }
 function adsInt(n){ return (Math.round(Number(n) || 0)).toLocaleString('he-IL'); }
 
-/* ‏data - admin_ads_spend. ‏null - המיגרציה טרם רצה */
-function adsSpendHtml(data){
+/* ‏data - admin_ads_spend. ‏null - המיגרציה טרם רצה. ‏label - מה הסכום מכסה */
+function adsSpendHtml(data, label){
   if (!data) return '<div class="empty-state">ההוצאה על פרסום עוד לא זמינה במסד - המיגרציה 20270726090000 טרם רצה.</div>';
   const chans = Array.isArray(data.channels) ? data.channels : [];
   const ncamp = chans.reduce((s, c) => s + ((c.campaigns || []).length), 0);
   let html = '<div class="ads-total"><b>' + esc(adsMoney(data.total)) + '</b><span>'
-    + esc('החודש, בכל הערוצים' + (ncamp ? ' · ' + ncamp + (ncamp === 1 ? ' קמפיין' : ' קמפיינים') : '')) + '</span></div>';
-  if (!chans.length) return html + '<div class="empty-state">אין הוצאה על פרסום החודש.</div>';
+    + esc((label || 'החודש') + ', בכל הערוצים' + (ncamp ? ' · ' + ncamp + (ncamp === 1 ? ' קמפיין' : ' קמפיינים') : '')) + '</span></div>';
+  if (!chans.length) return html + '<div class="empty-state">אין הוצאה על פרסום בתקופה הזו.</div>';
   html += chans.map(c => {
     const def = ADS_CHANNELS[c.channel] || { label: c.channel, leads: 'המרות' };
     const leads = Number(c.leads) || 0;

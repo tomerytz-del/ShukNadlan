@@ -115,6 +115,17 @@ begin
   return jsonb_build_object(
     'from', v_from, 'to', v_to,
     'total', coalesce((select round(sum(s.spend), 2) from public._ads_spend(v_from, v_to, v_rate) s), 0),
+    -- לפי חודש, לגרף "לפי חודש" בפאנל העלויות
+    'months', coalesce((select jsonb_agg(jsonb_build_object('month', x.m, 'spend', round(x.v, 2)) order by x.m)
+      from (select to_char(u.day, 'YYYY-MM') m, sum(u.v) v
+              from (select i.day, coalesce(i.spend, 0) v
+                      from public.ads_insights_daily i
+                     where i.level = 'campaign' and i.day between v_from and v_to
+                    union all
+                    select d.day, case when d.currency = 'USD' then d.spend * v_rate else d.spend end
+                      from public.ads_channel_daily d
+                     where d.day between v_from and v_to) u
+             group by 1) x), '[]'::jsonb),
     'synced', jsonb_build_object(
       'meta', (select max(i.synced_at) from public.ads_insights_daily i),
       'google', (select max(d.synced_at) from public.ads_channel_daily d where d.channel = 'google')),
