@@ -52,7 +52,7 @@
 | הפקת סיור וירטואלי 360° בדף הנכס | ✗ | ✗ | ✓ |
 | עוזר אישי בוואטסאפ (נכסים, לקוחות, התאמות, דוח שוק, מידע תכנוני, הכנת הסכמים, מיילים מועברים) | ✗ | ✓ | ✓ |
 | התראות הפעמון גם בוואטסאפ | ✗ | ✓ | ✓ |
-| מדריך התחלה מלווה בצעדים הראשונים | ✗ | ✓ | ✓ |
+| מדריך התחלה מלווה בצעדים הראשונים | ✓ | ✓ | ✓ |
 | מספר טלפון בתיאור המודעה ובביו | ✗ (מוסר בשמירה) | ✓ | ✓ |
 | יריד בתים פתוחים, ייבוא/ייצוא, ארנק, התראות ותזכורות | ✓ | ✓ | ✓ |
 | מיניסייט אישי ללקוח/ה, מסירה בתוך המשרד | ✓ | ✓ | ✓ |
@@ -83,7 +83,7 @@
 | יומן פגישות ומשימות | `agent_agenda_enabled` — `mid`/`premium` + `billing_status`. נאכף בטריגר `agent_agenda_items_before` על כל הוספה שאינה של המערכת (גם מהבוט, שעוקף RLS), ושוב ב-`agent_agenda_dispatch` ובמשימות האוטומטיות (`agent_agenda_add_auto`). החיבור ליומן Google: אותו גייט ב-`google-calendar-connect` וב-`google-calendar-callback`, ובכל סבב של `google_calendar_sync_claim`; ו-`GCAL_PUBLISHED` (‏true מ-30.9.2026, אחרי אימות האפליקציה ב-Google) - כש-false, מנהל/ת הפלטפורמה בלבד, והשורה ב-`pricing.html` אינה מזכירה את Google. ראו `docs/agent-agenda.md`, `docs/google-calendar.md` |
 | אישור פגישה ללקוח/ה, תזכורות ומשוב | `agent_agenda_enabled` — הפולואפ יוצא רק מפריט ביומן (`client_notify`), וכל פריט עובר את הטריגר של היומן. ראו `docs/meeting-client-followup.md` |
 | תיאום ביקור עם הבעלים והמתווכים | `agent_agenda_enabled` — נבדק ב-`agent_showing_coord_start` (הכפתור ב-CRM דרך `showing_coord_request`, וה"כן" בוואטסאפ), וההצעה של גבריאלה (`showing_coord_offer_claim`) יוצאת רק למי שעומד/ת בו. ראו `docs/showing-coordination.md` |
-| מדריך ההתחלה | `agent_onboarding_active` — `mid`/`premium`, והמצב שהדשבורד קורא הוא `agent_onboarding_state`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
+| מדריך ההתחלה | **פתוח לכל המסלולים** מאז `20270602100000` — הצעד הראשון הוא הרישיון, שנחוץ בכל מסלול, ו-`agent_onboarding_active` / `agent_onboarding_state` אינן בודקות מסלול. רק צעדי גבריאלה והיומן בתוכו נשענים על `whatsapp_included` (`mid`/`premium`), ומוצגים "במסלול..." למי שאינו כלול (ראו `docs/agent-onboarding.md`) |
 | מספר טלפון בתיאור המודעה ובביו | `paygo_text_rules_apply` — **ההגבלה ההפוכה מכל השאר**: ב-Pay&GO המספר מוסר בשמירה, בטריגר על `properties` ועל `agency_members`. ההסרה חד-כיוונית (ראו `docs/public-text-policy.md`) |
 | מספר טלפון וירטואלי | `phone_line_included_eligible` — `premium` + `billing_status` + `active`. ב-Elite המספר הראשון כלול ונוספים ב-89 ₪ מהארנק; בשאר המסלולים מספר אחד ב-89 ₪. נאכף ב-`order_phone_line` (סירוב `tier_required` למספר שני), ובירידת מסלול ב-`phone_line_tier_sweep`: 7 ימים לבחור איזה מספר נשאר, והשאר משתחררים (`docs/call-tracking.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |
