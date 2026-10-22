@@ -1,0 +1,35 @@
+name: בדיקת שכבת החלקות הפתוחה
+
+# לפני שכותבים טוען לשכבת החלקות של המרכז למיפוי ישראל מ-data.gov.il:
+# האם שרת הקבצים עונה ל-GitHub, ומה השדות. קריאה בלבד - בלי מסד ובלי סודות.
+# ‏scripts/parcels_probe.py, ‏docs/govmap.md ("תנאי השימוש").
+
+on:
+  workflow_dispatch:
+    inputs:
+      list_only:
+        description: "רק מה שיש ב-CKAN, בלי הורדה"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install "requests>=2.34.2,<3" "pyshp>=2.3,<3"
+
+      - name: בדיקה
+        run: |
+          args=()
+          [ "${{ inputs.list_only }}" = "true" ] && args+=(--list-only)
+          python3 scripts/parcels_probe.py "${args[@]}"
