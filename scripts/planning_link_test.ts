@@ -1,15 +1,14 @@
 /* ============================================================================
-   דף הבדיקה התכנונית (/plan) - הסיכום וההודעה לוואטסאפ, בלי רשת
+   דף הבדיקה התכנונית (/plan) - הסיכום שנשמר, בלי רשת
 
-   ‏planning-link מקבלת רשומה מהדפדפן - קלט זר - ושולחת ממנה הודעה לסוכן/ת.
-   נבדק: קישור רק למבא"ת, מספרים לא תקינים נזרקים, הייעוד של המגרש קודם,
-   הודעת 77-78 מסומנת, אין מקף ארוך, ו"לא נמצא" אומר מה לעשות.
+   ‏planning-link מקבלת רשומה מהדפדפן - קלט זר - ושומרת ממנה סיכום.
+   נבדק: קישור רק למבא"ת, מספרים לא תקינים נזרקים, הייעוד של המגרש קודם.
 
        node --experimental-strip-types scripts/planning_link_test.ts
 
    ‏docs/govmap.md, "דף הבדיקה".
    ========================================================================== */
-import { summarize, whatsappMessage } from "../supabase/functions/planning-link/summary.ts";
+import { summarize, targetLabel } from "../supabase/functions/planning-link/summary.ts";
 
 let fail = 0;
 const ok = (name: string, cond: unknown) => {
@@ -40,16 +39,8 @@ ok("בלי ייעוד מגרש - של התוכנית המאושרת, לא של �
 ok("רשומה ריקה / מערך / null -> לא נמצא", summarize(null) === null && summarize([]) === null);
 ok("עד 8 תוכניות", summarize({ ...REC, govmap_plans: Array(20).fill(REC.govmap_plans[1]) })!.plans.length === 8);
 
-const msg = whatsappMessage({ city: "עפולה", street: "דפנה", house_number: "4" }, s, "https://shuknadlan.co.il/plan?k=abc");
-ok("הכתובת בכותרת", msg.includes("דפנה 4, עפולה"));
-ok("גוש וחלקה ושטח בהודעה", msg.includes("גוש 16746 חלקה 147") && msg.includes('512 מ"ר'));
-ok("הודעת 77-78 מסומנת ומוסברת", msg.includes("⚠️") && msg.includes("ייתכנו מגבלות"));
-ok("התוכנית המפורטת מופיעה", msg.includes("ג/20010"));
-ok("הקישור לדף וה-disclaimer", msg.includes("/plan?k=abc") && msg.includes("אינו תחליף"));
-ok("אין מקף ארוך", !/[–—]/.test(msg));
-ok("אין הדגשה כפולה", !msg.includes("**"));
-const none = whatsappMessage({ gush: "1", helka: "2" }, null, "x");
-ok("לא נמצא - אומר מה לעשות", none.includes("גוש 1 חלקה 2") && none.includes("שלח/י לי אותם"));
+ok("תווית כתובת", targetLabel({ city: "עפולה", street: "דפנה", house_number: "4" }) === "דפנה 4, עפולה");
+ok("תווית גוש/חלקה", targetLabel({ gush: "1", helka: "2" }) === "גוש 1 חלקה 2");
 
 if (fail) {
   console.log(`${fail} נכשלו`);

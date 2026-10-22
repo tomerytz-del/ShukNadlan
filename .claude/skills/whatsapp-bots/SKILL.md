@@ -621,3 +621,9 @@ node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב
 
 ואחרי המיזוג: הפריסה של הפונקציה היא `supabase_functions.yml` ב-Actions.
 כל עוד הריצה לא ירוקה, הבוט עדיין רץ בגרסה הקודמת.
+
+## מידע תכנוני - כפתור, לא טקסט
+
+‏`planning_lookup` ו-`planning_info` שולחות כפתור "📄 מידע תכנוני" לדף הבדיקה
+(‏`planningButton`), וגבריאלה כותבת שורה אחת בלבד. **לא** מידע תכנוני בטקסט ולא
+הודעה עם התוצאה - החלטה של תומר (22.10.2026). הסקיל `planning-page`.

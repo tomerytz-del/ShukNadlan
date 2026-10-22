@@ -57,7 +57,7 @@
 
   /* הסיכום כאן מגיע או מהדפדפן (‏addressRecord) או מהשרת (‏result של קישור
      שכבר נענה) - ובשני המקרים כל ערך עובר esc, וקישור יוצא רק למבא"ת. */
-  function render(link, s, sentNote){
+  function render(link, s){
     if (!s) {
       app.innerHTML = '<div class="card"><h1>' + esc(label(link)) + '</h1>' +
         '<p class="sub">GovMap לא מצא את הכתובת בשכבת הכתובות. אם הגוש והחלקה ידועים, ' +
@@ -70,6 +70,9 @@
     if (s.area_sqm) facts.push([Number(s.area_sqm).toLocaleString('he-IL') + ' מ"ר', 'שטח רשום']);
     if (s.parcel_status) facts.push([s.parcel_status, 'סטטוס']);
     if (s.neighborhood) facts.push([s.neighborhood, 'שכונה']);
+    if (s.ownership && s.ownership.type) {
+      facts.push([s.ownership.type + (s.ownership.mixed_units ? ' (מעורבת ביחידות)' : ''), 'בעלות בטאבו']);
+    }
     const plans = (s.plans || []).map(p =>
       '<div class="plan"><div class="plan-num">' + esc(p.number) + (p.name ? ' · ' + esc(p.name) : '') + '</div>' +
       '<div class="plan-meta">' + esc([p.notice ? STAGE.notice : p.kind, !p.notice && p.stage ? STAGE[p.stage] : '',
@@ -85,11 +88,15 @@
       '<div class="fact wide"><b>' + esc(s.designation || 'לא נמצא בשכבות') + '</b><span>ייעוד קרקע</span></div></div>' +
       ((s.plans || []).some(p => p.notice)
         ? '<div class="notice">יש הודעה לפי סעיף 77-78: ייתכנו מגבלות על היתרים באזור עד שהתוכנית תאושר או תבוטל.</div>' : '') +
+      (s.ownership && s.ownership.type === 'מדינה'
+        ? '<div class="notice">קרקע מדינה: בדרך כלל בניהול רמ"י ומוחכרת ולא נמכרת - העברה עשויה לדרוש הסכמת רמ"י, ' +
+          'ולפעמים דמי היתר. כדאי לבדוק בנסח טאבו.</div>' : '') +
       '</div>' +
       ((plans || detailed) ? '<div class="card"><p class="sec-title">תוכניות החלות במקום</p>' + detailed + plans + '</div>' : '') +
-      (sentNote ? '<div class="status ' + sentNote[0] + '">' + esc(sentNote[1]) + '</div>' : '') +
       actionsHtml(shareState.text) +
       '<p class="note">המידע כללי, מבוסס על GovMap (המרכז למיפוי ישראל) ומבא"ת, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה. ' +
+      (s.ownership ? 'סוג הבעלות מפנקסי המקרקעין' + (s.ownership.as_of ? ' (נכון ל-' + esc(s.ownership.as_of) + ')' : '') +
+        ' ואינו קובע זכות משפטית. ' : '') +
       'כל זכויות היוצרים שמורות למרכז למיפוי ישראל.</p>';
   }
 
@@ -105,6 +112,7 @@
       .filter(Boolean).join(' · ');
     if (parcel) lines.push(parcel);
     lines.push('ייעוד: ' + (s.designation || 'לא נמצא בשכבות'));
+    if (s.ownership && s.ownership.type) lines.push('בעלות בטאבו: ' + s.ownership.type);
     const plans = (s.detailed || []).slice(0, 3).map(n => '• ' + n + ' (תוכנית מפורטת)')
       .concat((s.plans || []).map(p => '• ' + p.number + (p.name ? ' ' + p.name : '') +
         (p.notice ? ' (הודעה לפי סעיף 77-78)' : p.stage && STAGE[p.stage] ? ' (' + STAGE[p.stage] + ')' : '') +
@@ -220,9 +228,8 @@
     render(link, s);
     try {
       const res = await call('complete', { record });
-      // רק כתובת נשמרת במטמון של גבריאלה; גוש/חלקה היא כבר עונה מהשכבה הפתוחה
-      const cached = link.street && s ? ', ובפעם הבאה אענה על הכתובת הזו ישירות בוואטסאפ' : '';
-      render(link, s, ['ok', (res.sent ? 'שלחתי לך את התוצאה גם בוואטסאפ' : 'התוצאה נשמרה') + cached + '.']);
+      // סוג הבעלות בטאבו מגיע מהשרת (‏land_ownership_of) - הדף מוצג מחדש איתו
+      if (s && res.ownership) { s.ownership = res.ownership; render(link, s); }
     } catch(err) {
       console.warn('planning-link complete:', err);
     }

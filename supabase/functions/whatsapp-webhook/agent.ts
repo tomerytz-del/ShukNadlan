@@ -4,9 +4,6 @@ import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
-import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
-import { primaryDesignation, xplanPlansAt } from "../_shared/xplan.ts";
-import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -642,13 +639,9 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "planning_info",
     description:
-      "מידע תכנוני ובנייה על הנכס: ייעוד קרקע, אחוזי בנייה, יחידות דיור " +
-      "וקומות מותרות, הערה תכנונית, סטטוס רישום החלקה והתוכניות החלות. " +
-      "מחבר את מה שהסוכן/ת הצהיר/ה בטופס הנכס עם מה שנקלט מה-GIS של עיריית " +
-      "עפולה, ועם התוכניות הארציות, תוכנית המתאר וההודעות לפי סעיף 77-78 " +
-      "מ-GovMap (בכל תוכנית: kind, stage, notice, permits, url למבא\"ת). זה " +
-      "הכלי ל\"מה מותר לבנות שם\", \"מה הייעוד של המגרש\" ו\"יש תוכנית בהכנה " +
-      "באזור\". על נכס של סוכן/ת אחר/ת חוזר רק מה שמוצג בדף הנכס הפומבי, בלי גוש וחלקה.",
+      "מידע תכנוני על נכס של הסוכן/ת (\"מה מותר לבנות שם\", \"מה הייעוד\", \"יש תוכנית בהכנה\"). " +
+      "שולח כפתור לדף הבדיקה עם הכתובת של הנכס (או הגוש והחלקה שבטופס) - הדף מציג גוש, חלקה, " +
+      "ייעוד, תוכניות, הודעות 77-78 וסוג הבעלות, עם שיתוף והורדה. לא מחזיר את המידע עצמו.",
     input_schema: {
       type: "object",
       properties: { property_id: { type: "string" } },
@@ -658,18 +651,10 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "planning_lookup",
     description:
-      "מידע תכנוני על **כתובת או גוש/חלקה** - בלי שיהיה נכס במערכת. זה הכלי " +
-      "ל\"מה הגוש והחלקה של הרצל 20\", ל\"מה הייעוד בגוש 16742 חלקה 96\" ול\"אילו " +
-      "תוכניות חלות על הכתובת\". מחזיר גוש, חלקה, שטח החלקה הרשום, סטטוס רישום, " +
-      "ייעוד קרקע, והתוכניות החלות (מספר, תיאור, תאריך). " +
-      "תן/י **או** street + house_number **או** gush + helka. " +
-      "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
-      "נתמכת ישירות - הכלי עונה מהמטמון של GovMap כשהכתובת שם (source: govmap), ואחרת " +
-      "מחזיר גוש, חלקה, שטח וסטטוס מהשכבה הפתוחה של מפ\"י, וייעוד ותוכניות מ-XPlan של מינהל התכנון (source: parcels_open+xplan; partial: true כשאין ייעוד) כשיש, " +
-      "ואחרת city_not_supported - ובשני המקרים planning_url, קישור לדף בדיקה שעובד בכל עיר. " +
-      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
-      "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
-      "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
+      "מידע תכנוני על **כתובת או גוש/חלקה** בכל הארץ, בלי שיהיה נכס במערכת (\"מה הגוש והחלקה של " +
+      "הרצל 20\", \"מה הייעוד בגוש 16742 חלקה 96\", \"אילו תוכניות חלות\", \"זה קרקע מדינה?\"). " +
+      "תן/י **או** street + house_number **או** gush + helka. שולח כפתור לדף הבדיקה, שמריץ את " +
+      "GovMap מיד ומציג גוש, חלקה, ייעוד, תוכניות, הודעות 77-78 וסוג הבעלות. לא מחזיר את המידע עצמו.",
     input_schema: {
       type: "object",
       properties: {
@@ -1502,10 +1487,54 @@ async function planningPageUrl(
   return planningToolUrl(q);
 }
 
-const PLANNING_URL_GUIDANCE =
-  "כשאת/ה שולח/ת את planning_url, הנוסח קבוע (תומר, 22.10.2026): בדיוק \"כל המידע לגבי הנכס נמצא בקישור המצורף:\" " +
-  "ובשורה הבאה הקישור - ולא יותר. בלי \"אין לי גישה\", בלי התנצלות, בלי פירוט של מה יש בדף ובלי הבטחות. " +
-  "(הדף מריץ את הבדיקה מיד, והתוצאה נשלחת לסוכן/ת גם כאן בוואטסאפ - אין צורך לומר זאת.)";
+/**
+ * **מידע תכנוני דרך גבריאלה = כפתור לדף הבדיקה, ותו לא** (תומר, 22.10.2026).
+ * לא טקסט עם גוש, ייעוד או תוכניות, ולא הודעה עם התוצאה אחרי הבדיקה: הדף
+ * (‏/plan) מציג, משתף ומוריד, והוא המקום היחיד. ‏`planning_lookup` ו-
+ * `planning_info` שתיהן מגיעות לכאן. הסקיל `planning-page`.
+ *
+ * הכפתור ב-20 תווים (Meta דוחה מעבר לזה את ההודעה כולה), ולכן הנוסח
+ * המלא - "לצפייה במידע תכנוני לנכס המבוקש" - הוא גוף ההודעה שמעליו.
+ */
+const PLANNING_BUTTON_LABEL = "📄 מידע תכנוני";
+const PLANNING_BUTTON_BODY = "לצפייה במידע תכנוני לנכס המבוקש:";
+
+async function planningButton(
+  ctx: ToolContext,
+  q: { city?: string; street?: string; house_number?: string; gush?: string; helka?: string },
+  target: string,
+): Promise<Record<string, unknown>> {
+  const url = await planningPageUrl(ctx, q);
+  if (!url) {
+    return { ok: false, error: "link_failed", guidance: "לא נוצר קישור לדף. אמור/י שכדאי לנסות שוב בעוד רגע." };
+  }
+  return {
+    ok: true,
+    target,
+    ...crmButton(ctx, url, PLANNING_BUTTON_LABEL, PLANNING_BUTTON_BODY, "planning_url"),
+    guidance: ctx.outbox
+      ? `הכפתור לדף המידע התכנוני יוצא אוטומטית מיד אחרי התשובה שלך. כתוב/כתבי רק "${target} 👇" - ` +
+        "בלי קישור ובלי שום מידע תכנוני (גם לא גוש, חלקה או ייעוד שכבר ידועים לך), בלי התנצלות ובלי הסבר."
+      : `כתוב/כתבי רק "${PLANNING_BUTTON_BODY}" ובשורה הבאה את planning_url - בלי שום מידע תכנוני.`,
+  };
+}
+
+/** מסלול mid/premium עם מנוי פעיל, כמו afula-planning-lookup. ‏null = מותר. */
+async function planningTierGate(ctx: ToolContext): Promise<Record<string, unknown> | null> {
+  const { data: member, error } = await ctx.supabase
+    .from("agency_members").select("tier, active, billing_status")
+    .eq("id", ctx.agent.id).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!member?.active || member.billing_status !== "active" || (member.tier !== "mid" && member.tier !== "premium")) {
+    return {
+      ok: false,
+      error: "tier_required",
+      detail: "מידע תכנוני זמין במסלולים PROFESSIONAL ו-Elite עם מנוי פעיל.",
+      upgrade_to: "PROFESSIONAL",
+    };
+  }
+  return null;
+}
 
 // קריאה לנקודת קצה אחרת של הפרויקט. ‏`create_property_video` הוא הכלי היחיד
 // שעושה את זה — ההפקה חיה ב-`property-video-create` ולא כאן, כדי שהחיוב
@@ -3486,275 +3515,54 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
-/**
- * הודעה לפי סעיף 77-78 היא תוכנית **בהכנה** שהוועדה רשאית להגביל בגללה
- * היתרים באזור כולו (בעפולה: שדה תעופה משלים). זה מידע שקונה/ת רוצה לדעת,
- * ולכן הוא נאמר - אבל כ"ייתכנו מגבלות", לא כאיסור, ועם הקישור למבא"ת.
- * ‏docs/govmap.md, "plans-probe.js".
- */
-const PLAN_NOTICE_GUIDANCE =
-  "יש לפחות תוכנית אחת עם notice: true - הודעה לפי סעיף 77-78 על הכנת תוכנית. " +
-  "אמור/י זאת במפורש: ייתכנו מגבלות על היתרי בנייה באזור עד שהתוכנית תאושר או תבוטל. " +
-  "אל תציג/י זאת כאיסור בנייה, והצע/י את ה-url של התוכנית במבא\"ת לפרטים. " +
-  "permits: false פירושו שמכוח התוכנית עצמה לא מוציאים היתרים (תוכנית מתאר), לא שאסור לבנות.";
 
 async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
-
-  const { data, error } = await ctx.supabase.rpc("agent_property_planning", {
-    p_agent_id: ctx.agent.id,
-    p_property_id: propertyId,
-  });
-  if (error) return { ok: false, error: error.message };
-
-  const info = (data || {}) as Record<string, unknown>;
-  if (info.error === "property_not_found") {
-    return { ok: false, error: "לא נמצא נכס כזה." };
-  }
-  if (info.error) {
-    return { ok: false, error: String(info.detail || info.error) };
-  }
-
-  ctx.conv.last_property_id = propertyId;
-
-  if (!info.has_data) {
+  const property = await ownedProperty(ctx, propertyId);
+  if (!property) {
     return {
-      ok: true,
-      has_data: false,
-      property_id: propertyId,
-      title: info.title,
-      is_land: info.is_land,
-      // המידע התכנוני נקלט אוטומטית בשמירת נכס עם רחוב ומספר בית בעפולה.
-      // נכס בעיר אחרת, או כזה שנשמר בלי כתובת מלאה, פשוט אין לו מה להציג.
-      note: "אין מידע תכנוני שמור על הנכס הזה. הקליטה האוטומטית עובדת על כתובת בעפולה עם רחוב ומספר בית; בדיקה נקודתית לפי הכתובת או לפי גוש/חלקה אפשרית עם planning_lookup.",
+      ok: false,
+      error: "not_own_property",
+      guidance: "מידע תכנוני לפי נכס - רק לנכס שלך. לנכס אחר אפשר planning_lookup עם הכתובת או הגוש והחלקה.",
     };
   }
+  const gate = await planningTierGate(ctx);
+  if (gate) return gate;
+  ctx.conv.last_property_id = propertyId;
 
-  // בעלות רק כשהגוש והחלקה חזרו - כלומר על נכס של הסוכן/ת עצמו/ה.
-  // ‏agent_property_planning מצנזרת אותם בכל נכס אחר, ובלעדיהם אין מה לחפש.
-  const gis = (info.gis || {}) as Record<string, unknown>;
-  const ownership = await landOwnership(ctx, gis.gush, gis.helka);
-  const plans = (Array.isArray(gis.applicable_plans) ? gis.applicable_plans : []) as Record<string, unknown>[];
+  if (property.street && property.house_number && property.city) {
+    return await planningButton(
+      ctx, { city: property.city, street: property.street, house_number: String(property.house_number) },
+      `${property.street} ${property.house_number}, ${property.city}`);
+  }
+  // נכס בלי כתובת מלאה: הגוש והחלקה שהסוכן/ת הזין/ה בטופס
+  const { data: pi } = await ctx.supabase.from("property_planning_info")
+    .select("gush, helka").eq("property_id", propertyId).maybeSingle();
+  if (pi?.gush && pi?.helka) {
+    return await planningButton(ctx, { gush: String(pi.gush), helka: String(pi.helka) }, `גוש ${pi.gush} חלקה ${pi.helka}`);
+  }
   return {
-    ok: true,
-    ...info,
-    ...(ownership ? { ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-    ...(plans.some((p) => p.notice === true) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
+    ok: false,
+    error: "no_address",
+    guidance: "לנכס אין רחוב ומספר בית או גוש וחלקה. בקש/י אחד מהם בשאלה קצרה, ואז planning_lookup.",
   };
 }
 
-/**
- * סוג הבעלות בחלקה, מפנקסי המקרקעין (‏`land_ownership`, docs/land-ownership.md).
- *
- * ‏**ארצי, בניגוד למידע התכנוני:** השכבות התכנוניות הן של עפולה, אבל
- * הטאבו מכסה את כל הארץ. לכן גוש/חלקה מחוץ לעפולה מקבלים בעלות גם כשאין
- * להם ייעוד.
- *
- * ‏null = אין במאגר (קרקע לא מוסדרת, חלקה שעוד לא נרשמה, או שעוד לא נטען
- * כלום). **זו לא "פרטית"** - היעדר אינו ראיה. לעולם לא זורקת: זו העשרה,
- * ותקלה בה אינה מפילה את התשובה.
- */
-const OWNERSHIP_LABEL: Record<string, string> = {
-  P: "פרטית",
-  S: "מדינה",
-  L: "רשות מקומית",
-  M: "מעורבת",
-  O: "אחר",
-};
-
-async function landOwnership(ctx: ToolContext, gush: unknown, helka: unknown) {
-  if (!gush || !helka) return null;
-  try {
-    const { data, error } = await ctx.supabase.rpc("land_ownership_of", {
-      p_gush: String(gush), p_helka: String(helka),
-    });
-    if (error || !data) return null;
-    const row = data as { ownership: string; mixed_units: boolean; as_of: string | null };
-    return {
-      type: OWNERSHIP_LABEL[row.ownership] || null,
-      mixed_units: row.mixed_units,
-      as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
-    };
-  } catch (err) {
-    console.warn("landOwnership failed", err);
-    return null;
-  }
-}
-
-// הנחיה ולא נתון. "מדינה" נשמע לרוב הקונים כמו פרט טכני, והוא משנה את כל
-// העסקה - ולכן המודל מקבל גם מה לומר עליו, וגם מה אסור לו להסיק.
-const OWNERSHIP_GUIDANCE =
-  "ownership הוא סוג הבעלות הרשום בטאבו. אמור/י אותו בשורה אחת אחרי הגוש והחלקה. " +
-  "אם הוא \"מדינה\" - הוסף/הוסיפי שבדרך כלל זו קרקע בניהול רשות מקרקעי ישראל שמוחכרת ולא נמכרת, " +
-  "ולכן העברה עשויה לדרוש הסכמת רמ\"י ולפעמים דמי היתר - כדאי לבדוק בנסח טאבו. " +
-  "אם mixed_units - בחלקה יש יחידות בסוגי בעלות שונים. " +
-  "אם ownership הוא null - אל תאמר/י דבר על הבעלות, ובפרט אל תסיק/י \"פרטית\". " +
-  "ציין/י את as_of כתאריך הנתונים, ושהמידע אינו קובע זכות משפטית.";
 
 /**
- * מידע תכנוני לפי כתובת או גוש/חלקה, בלי נכס.
- *
- * ‏`planning_info` עונה רק על נכס שכבר במערכת. אבל השאלה "מה הגוש והחלקה
- * של הרצל 20" נשאלת **לפני** שיש נכס - בשיחה הראשונה עם בעלים, או כשמתווך/ת
- * בודק/ת מגרש. בדשבורד זה הכלי "מידע תכנוני"; כאן זה אותו מנוע בדיוק.
- *
- * ‏**אותה שליפה, לא עותק:** ‏`lookupPlanning` מ-`_shared/afula-planning.ts`,
- * שגם `afula-planning-lookup` וגם `planning-backfill` קוראות לה. ואותו
- * מטמון (‏`planning_lookups`, ‏24 שעות, אותו `lookup_key`), כך ששאלה בבוט
- * ובדשבורד על אותה כתובת עולה קריאת WFS אחת.
+ * מידע תכנוני לפי כתובת או גוש/חלקה, בלי נכס - כפתור לדף הבדיקה (‏planningButton).
  *
  * ‏**הגייט:** אותו מסלול כמו `afula-planning-lookup` - ‏mid/premium עם
  * ‏`billing_status = 'active'`. הוובהוק בודק רק `tier` בכניסה, ולכן מנוי
  * שפג נבדק כאן (‏`.claude/skills/new-tier-capability`).
- *
- * ‏**רק עפולה, ביושר.** השכבות הן של העירייה. ‏GovMap נותן את אותו מידע
- * לכל הארץ, אבל מפ"י מתירים צריכה מצד הלקוח בלבד (12.10.2026,
- * ‏`docs/govmap.md`), ולכן הבוט אינו שואל אותו. מחוץ לעפולה חוזר
- * `city_not_supported` עם קישור לחיפוש ב-GovMap - ולא ניחוש. נכס שכבר
- * במערכת מקבל את מה שהדפדפן שמר דרך planning_info.
  */
-/**
- * מטמון הכתובות (‏govmap_address_planning, מיגרציה 20270731090000): מידע
- * תכנוני מ-GovMap שנשלף מראש בדפדפן של מנהל/ת הפלטפורמה, לכתובות שבהן
- * נרשמו עסקאות בערי השווקים. הבוט עצמו אינו שואל את GovMap - מפ"י מתירים
- * צד לקוח בלבד. ‏null = אין במטמון, והקורא נופל לקישור לכלי ב-CRM.
- */
-async function govmapCachedPlanning(
-  ctx: ToolContext,
-  q: { city?: string; street?: string; house_number?: string; gush?: string; helka?: string },
-): Promise<Record<string, unknown> | null> {
-  const { data, error } = await ctx.supabase.rpc("govmap_address_planning_get", {
-    p_city: q.city ?? null, p_street: q.street ?? null, p_house_number: q.house_number ?? null,
-    p_gush: q.gush ?? null, p_helka: q.helka ?? null,
-  });
-  if (error) {
-    // מסד שהמיגרציה טרם רצה בו, או תקלה: לא חוסם - נופלים לקישור
-    console.warn("planning_lookup: address cache failed", error.message);
-    return null;
-  }
-  const row = (data || null) as Record<string, unknown> | null;
-  if (!row) return null;
-  const plans = ((row.plans || []) as Record<string, unknown>[]).slice(0, 8);
-  const lat = Number(row.lat), lng = Number(row.lng);
-  const ownership = await landOwnership(ctx, row.gush, row.helka);
-  return {
-    ok: true,
-    cached: true,
-    source: "govmap",
-    city: row.city,
-    queried: q.gush ? { gush: q.gush, helka: q.helka } : { street: q.street, house_number: q.house_number },
-    gush: row.gush ?? null,
-    helka: row.helka ?? null,
-    parcel_area_sqm: row.parcel_area_sqm ?? null,
-    parcel_status: row.parcel_status ?? null,
-    land_use_designation: row.land_use_designation ?? null,
-    neighborhood: row.neighborhood ?? null,
-    applicable_plans: plans,
-    plans_total: ((row.plans || []) as unknown[]).length,
-    ownership,
-    ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-    ...(plans.some((p) => p.notice === true) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
-    map_url: Number.isFinite(lat) && Number.isFinite(lng)
-      ? `https://www.google.com/maps?q=${lat},${lng}`
-      : null,
-    guidance:
-      "פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות (המפורטת קודם, אחריה ארציות ומתאר). " +
-      (row.pin_source === "parcel"
-        ? "הכתובת אינה בשכבת הכתובות של GovMap, והמידע לפי הגוש והחלקה שנרשמו בעסקה בכתובת הזו - אמור/י זאת. "
-        : "") +
-      "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
-    disclaimer:
-      "המידע כללי, מבוסס על GovMap (המרכז למיפוי ישראל) ומבא\"ת, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה.",
-  };
-}
-
-/**
- * חלקה מהעותק שלנו של שכבת החלקות הפתוחה (‏parcels_open, ‏data.gov.il,
- * ‏docs/parcels-open.md) - גוש, חלקה, שטח רשום, סטטוס ויישוב בכל הארץ, מהשרת
- * ובלי GovMap. ייעוד ותוכניות לא בשכבה: הם באים מ-XPlan של מינהל התכנון
- * במרכז החלקה (‏_shared/xplan.ts, דרך הממסר ב-Netlify). כש-XPlan לא ענה, או
- * שאין בו ייעוד, התשובה `partial` ומפנה ב-planning_url. כתובת מתורגמת
- * לגוש/חלקה רק לפי עסקאות רשות המיסים שנרשמו בה (‏address_parcel_from_deals).
- * ‏null = אין, והקורא נופל לקישור. לעולם לא זורקת.
- */
-async function openParcelAnswer(
-  ctx: ToolContext,
-  q: { gush?: string; helka?: string; city?: string; street?: string; house_number?: string },
-  planningUrl: string | undefined,
-): Promise<Record<string, unknown> | null> {
-  try {
-    let gush = q.gush, helka = q.helka, deals: number | null = null;
-    if (!gush || !helka) {
-      const { data, error } = await ctx.supabase.rpc("address_parcel_from_deals", {
-        p_city: q.city ?? null, p_street: q.street ?? null, p_house_number: q.house_number ?? null,
-      });
-      if (error || !data) return null;
-      const d = data as { gush: string; helka: string; deals: number };
-      gush = String(d.gush); helka = String(d.helka); deals = Number(d.deals) || null;
-    }
-    const { data: p, error } = await ctx.supabase.rpc("parcel_open_of", { p_gush: gush, p_helka: helka });
-    if (error || !p) return null;
-    const row = p as Record<string, unknown>;
-    const lat = Number(row.lat), lng = Number(row.lng);
-    const hasPoint = row.lat != null && Number.isFinite(lat) && Number.isFinite(lng);
-    const [ownership, xplan] = await Promise.all([
-      landOwnership(ctx, gush, helka),
-      hasPoint ? xplanPlansAt(lat, lng) : Promise.resolve(null),
-    ]);
-    const plans = (xplan || []).slice(0, 8);
-    const designation = xplan ? primaryDesignation(xplan) : null;
-    const partial = !designation;
-    return {
-      ok: true,
-      partial,
-      source: xplan ? "parcels_open+xplan" : "parcels_open",
-      queried: q.gush ? { gush: q.gush, helka: q.helka } : { street: q.street, house_number: q.house_number, city: q.city },
-      gush, helka,
-      ...(deals ? { from_deals: deals } : {}),
-      parcel_area_sqm: row.legal_area ?? null,
-      parcel_status: row.status_text ?? null,
-      locality: row.locality_name ?? null,
-      municipality: row.municipality ?? null,
-      as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
-      land_use_designation: designation,
-      ...(xplan ? { applicable_plans: plans, plans_total: xplan.length } : {}),
-      ownership,
-      ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-      ...(plans.some((p) => p.notice) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
-      map_url: hasPoint ? `https://www.google.com/maps?q=${lat},${lng}` : null,
-      ...(planningUrl ? { planning_url: planningUrl, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}),
-      guidance:
-        "גוש, חלקה, שטח רשום, סטטוס ויישוב - מהשכבה הפתוחה של המרכז למיפוי ישראל. " +
-        (deals ? "הגוש והחלקה לפי עסקאות שנרשמו בכתובת הזו ברשות המיסים - אמור/י זאת. " : "") +
-        (xplan
-          ? "הייעוד והתוכניות מ-XPlan של מינהל התכנון, במרכז החלקה: פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות. " +
-            "XPlan כולל תוכניות שהוגשו מקוון מ-2011 ותוכניות ארציות ומחוזיות - תוכנית מקומית ותיקה עשויה לחסור, " +
-            "ולכן אל תאמר/י \"אלה כל התוכניות\". "
-          : "") +
-        (partial
-          ? "אין כאן ייעוד: אל תנחש/י אותו. אחרי מה שיש, שלח/י את planning_url בנוסח של planning_url_guidance. "
-          : "אפשר להציע את planning_url לבדיקה מלאה יותר. ") +
-        "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
-      disclaimer: xplan
-        ? "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל ועל XPlan של מינהל התכנון, ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית לתכנון ובנייה."
-        : "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל (data.gov.il), ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית.",
-    };
-  } catch (err) {
-    console.warn("openParcelAnswer failed", err);
-    return null;
-  }
-}
-
 async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknown>) {
   const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");
+  const clean = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
   const gush = digits(input.gush);
   const helka = digits(input.helka);
-  // ‏lookupPlanning משרשרת רחוב ומספר לתוך XML של שאילתת ה-WFS בלי בריחה.
-  // בדשבורד הקלט עובר בשדה מרשימה; כאן הוא טקסט חופשי מהמודל, ו-`<` או `&`
-  // היו שוברים את השאילתה ומחזירים "השכבה לא ענתה" על כתובת תקינה.
-  const xmlSafe = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
-  let street = xmlSafe(input.street);
-  const houseNumber = xmlSafe(input.house_number);
+  const street = clean(input.street);
+  const houseNumber = clean(input.house_number);
   const byParcel = Boolean(gush && helka);
 
   if (!byParcel && !(street && houseNumber)) {
@@ -3764,187 +3572,13 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       guidance: "צריך רחוב ומספר בית, או גוש וחלקה. שאל/י בשאלה אחת קצרה מה חסר.",
     };
   }
+  const gate = await planningTierGate(ctx);
+  if (gate) return gate;
 
-  const { data: member, error: memberErr } = await ctx.supabase
-    .from("agency_members").select("tier, active, billing_status")
-    .eq("id", ctx.agent.id).maybeSingle();
-  if (memberErr) return { ok: false, error: memberErr.message };
-  if (
-    !member?.active || member.billing_status !== "active" ||
-    (member.tier !== "mid" && member.tier !== "premium")
-  ) {
-    return {
-      ok: false,
-      error: "tier_required",
-      detail: "מידע תכנוני זמין במסלולים PROFESSIONAL ו-Elite עם מנוי פעיל.",
-      upgrade_to: "PROFESSIONAL",
-    };
-  }
-
-  const city = String(input.city || "").trim() || await agencyDefaultCity(ctx);
-  const query = byParcel
-    ? `גוש ${gush} חלקה ${helka}`
-    : `${street} ${houseNumber} ${city}`;
-  const govmapUrl = "https://www.govmap.gov.il/?q=" + encodeURIComponent(query);
-  // מחוץ לעפולה הבוט אינו שואל את GovMap (מפ"י מתירים צד לקוח בלבד) - הדפדפן
-  // של הסוכן/ת כן, בדף הבדיקה (‏planningPageUrl). נוצר רק כשצריך אותו.
-  let planningUrlP: Promise<string | undefined> | null = null;
-  const planningUrl = () =>
-    planningUrlP ??= planningPageUrl(ctx, byParcel ? { gush, helka } : { city, street, house_number: houseNumber });
-
-  // גוש/חלקה הם מזהה ארצי, ולכן העיר אינה חוסמת אותם: שכבת הקדסטר של
-  // עפולה פשוט לא תמצא חלקה מחוץ לתחומה, וזה מטופל למטה. כתובת, לעומת זאת,
-  // תיבדק מול רחובות עפולה - ו"הרצל 20" בחיפה היה מחזיר את הרצל 20 בעפולה.
-  if (!byParcel && city !== "עפולה") {
-    // מה שמנהל/ת הפלטפורמה כבר שמר/ה מ-GovMap בדפדפן (מטמון הכתובות) - תשובה מלאה בלי קישור
-    const fromCache = await govmapCachedPlanning(ctx, { city, street, house_number: houseNumber });
-    if (fromCache) return fromCache;
-    // לא במטמון: נרשם, וההשלמה הבאה של מנהל/ת הפלטפורמה מטפלת בה קודם
-    const { error: reqErr } = await ctx.supabase.rpc("govmap_address_request", {
-      p_city: city, p_street: street, p_house_number: houseNumber,
-    });
-    if (reqErr) console.warn("planning_lookup: address request failed", reqErr.message);
-    // בינתיים, מה שיש לנו בעצמנו: גוש/חלקה מהעסקאות, ושטח וסטטוס מהשכבה הפתוחה
-    const url = await planningUrl();
-    const fromOpen = await openParcelAnswer(ctx, { city, street, house_number: houseNumber }, url);
-    if (fromOpen) return fromOpen;
-    return {
-      ok: false,
-      error: "city_not_supported",
-      city,
-      govmap_url: govmapUrl,
-      ...(url ? { planning_url: url, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}),
-      guidance:
-        "שלח/י את planning_url בנוסח הקבוע של planning_url_guidance, ותו לא. אם אין planning_url - " +
-        "הצע/י את govmap_url. אל תנחש/י גוש, חלקה או ייעוד.",
-    };
-  }
-
-  if (!byParcel) street = await canonicalAfulaStreet(ctx, street);
-
-  const lookupKey = byParcel
-    ? planningLookupKey({ gush, helka })
-    : planningLookupKey({ street, house_number: houseNumber });
-  let record: Record<string, unknown>;
-  let cached = false;
-
-  const { data: hit } = await ctx.supabase
-    .from("planning_lookups").select("*").eq("lookup_key", lookupKey).maybeSingle();
-  if (hit && new Date(hit.looked_up_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) {
-    record = hit as Record<string, unknown>;
-    cached = true;
-  } else {
-    let result: Awaited<ReturnType<typeof lookupPlanning>>;
-    try {
-      result = await lookupPlanning({
-        street: byParcel ? undefined : street,
-        house_number: byParcel ? undefined : houseNumber,
-        gush: byParcel ? gush : undefined,
-        helka: byParcel ? helka : undefined,
-      });
-    } catch (err) {
-      // תקלת שכבה אינה "לא נמצא" - ואסור שתיאמר כך לסוכן/ת.
-      console.error("planning_lookup: WFS failed", err);
-      return {
-        ok: false,
-        error: "gis_unavailable",
-        guidance: "שכבות ה-GIS של העירייה לא ענו כרגע. אמור/י שכדאי לנסות שוב בעוד כמה דקות, ואל תאמר/י שהכתובת לא קיימת.",
-      };
-    }
-    if (!result.ok && byParcel && result.error === "parcel_not_found") {
-      const fromCache = await govmapCachedPlanning(ctx, { gush, helka });
-      if (fromCache) return fromCache;
-      const fromOpen = await openParcelAnswer(ctx, { gush, helka }, await planningUrl());
-      if (fromOpen) return fromOpen;
-    }
-    if (!result.ok) {
-      // גוש/חלקה מחוץ לעפולה: אין ייעוד, אבל יש בעלות - הטאבו ארצי.
-      const ownership = byParcel ? await landOwnership(ctx, gush, helka) : null;
-      return {
-        ok: false,
-        error: result.error,
-        govmap_url: govmapUrl,
-        ...(byParcel ? await planningUrl().then((u) => u ? { planning_url: u, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}) : {}),
-        ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-        guidance: result.error === "parcel_not_found"
-          ? "שלח/י את planning_url בנוסח של planning_url_guidance, ותו לא. אם אין - הצע/י את govmap_url."
-          : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
-      };
-    }
-    record = result.record as Record<string, unknown>;
-    const { error: upErr } = await ctx.supabase
-      .from("planning_lookups").upsert(record, { onConflict: "lookup_key" });
-    if (upErr) console.warn("planning_lookup: cache write failed", upErr.message);
-  }
-
-  // תוכניות: מספר, תיאור ושנה. ‏area_sqm של תוכנית לא נחוץ בצ'אט, ורשימה של
-  // שבע תוכניות מלאות בהודעת וואטסאפ מסתירה את השורה החשובה - הייעוד.
-  const plans = ((record.applicable_plans || []) as Record<string, unknown>[])
-    .slice(0, 8)
-    .map((p) => ({
-      number: p.number ?? null,
-      description: p.description ?? null,
-      year: p.date ? String(p.date).slice(0, 4) : null,
-    }));
-  const lat = Number(record.lat), lng = Number(record.lng);
-  const ownership = await landOwnership(ctx, record.gush, record.helka);
-
-  return {
-    ok: true,
-    cached,
-    city: "עפולה",
-    queried: byParcel ? { gush, helka } : { street, house_number: houseNumber },
-    gush: record.gush ?? null,
-    helka: record.helka ?? null,
-    parcel_area_sqm: record.parcel_area_sqm ?? null,
-    parcel_status: record.parcel_status ?? null,
-    land_use_designation: record.land_use_designation ?? null,
-    applicable_plans: plans,
-    plans_total: ((record.applicable_plans || []) as unknown[]).length,
-    ownership,
-    ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-    map_url: Number.isFinite(lat) && Number.isFinite(lng)
-      ? `https://www.google.com/maps?q=${lat},${lng}`
-      : null,
-    guidance:
-      "פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות. אם גוש או חלקה חזרו ריקים - " +
-      "אמור/י שהכתובת נמצאה אבל החלקה לא זוהתה, ואל תשלים/י אותם. סיים/י במשפט ה-disclaimer.",
-    disclaimer:
-      "המידע כללי, מבוסס על שכבות ה-GIS של עיריית עפולה, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה.",
-  };
-}
-
-/**
- * שם הרחוב הקנוני מרשימת הרחובות של עפולה, או מה שהוקלד אם אין התאמה.
- *
- * ‏`planning-backfill` למדה את זה בדרך הקשה: "יצחק רבין 1" לא נמצא, כי
- * בשכבה זה "שדרות יצחק רבין" - ו-`streetVariants` אינו מכסה תחילית שלמה.
- * הרשימה (ושמות נרדפים ממאגר רשות האוכלוסין) יודעת לתרגם. לעולם לא זורקת:
- * זה תיקון כתיב, ולא תנאי לשליפה.
- */
-async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<string> {
-  try {
-    const { data: key } = await ctx.supabase.rpc("street_name_key", { p_name: street });
-    if (!key) return street;
-    const { data: exact } = await ctx.supabase
-      .from("street_registry").select("name")
-      .eq("city", "עפולה").eq("name_key", key).eq("active", true)
-      .limit(1).maybeSingle();
-    if (exact?.name) return String(exact.name);
-    const { data: alias } = await ctx.supabase
-      .from("street_registry_aliases").select("name")
-      .eq("city", "עפולה").eq("alias_key", key)
-      .limit(1).maybeSingle();
-    if (alias?.name) return String(alias.name);
-    // מילה שחסרה בהקלדה: "קינמון" הוא "יעקב קינמון" בשכבה, ו-name_key אינו
-    // מגשר על זה. סוכן שאל "מה הגוש של קינמון 9" וקיבל "לא מופיע במפות" על
-    // נכס פעיל משלו. אותו מתרגם כמו הגאוקוד - רק בהתאמה אחת ויחידה.
-    const official = await officialStreetFor(ctx.supabase, "עפולה", street);
-    if (official) return official;
-  } catch (err) {
-    console.warn("canonicalAfulaStreet failed", err);
-  }
-  return street;
+  const city = clean(input.city) || await agencyDefaultCity(ctx);
+  return byParcel
+    ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
+    : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -6482,15 +6116,11 @@ const SYSTEM_STATIC: string = (() => {
       "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב). " +
       "\"עסקאות בשכונה X\" / \"מה נמכר בגבעת המורה\" = market_deals_lookup עם neighborhood (בלי רחוב): " +
       "גבעת המורה, מרכז העיר, עפולה עלית ודומיהן הן **שכונות** ולא רחובות.",
-    "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
-      "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
-    "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
-      "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
-      "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
-      "את planning_url (או govmap_url) כשיש, לפי planning_url_guidance; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
-      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל. " +
-      "\"מה סוג הבעלות\" / \"זה קרקע מדינה?\" / \"זה רמ\"י?\" = planning_lookup עם גוש+חלקה או כתובת. " +
-      "אם חזר ownership_guidance - בצע/י אותו.",
+    "- **מידע תכנוני (גוש, חלקה, ייעוד, תוכניות, 77-78, סוג בעלות) - רק כפתור לדף הבדיקה.** " +
+      "נכס במערכת = planning_info; כתובת או גוש+חלקה = planning_lookup. שניהם שולחים כפתור " +
+      "\"📄 מידע תכנוני\" אוטומטית אחרי התשובה; את/ה כותב/ת רק את מה שה-guidance אומר. **לעולם " +
+      "אל תכתוב/תכתבי מידע תכנוני בטקסט** - גם לא גוש או ייעוד שכבר ידועים לך מכלי אחר - ואל תנחש/י. " +
+      "אם חזר tier_required - אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
       "בלי תמונות או בלי קידום - זו התשובה, ואמור/אמרי אותה.",
     "",
