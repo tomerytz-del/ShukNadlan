@@ -181,7 +181,8 @@ def main() -> int:
                                                                    "metadata_modified", "description")},
                                             ensure_ascii=False))
             newest = max(meta["resources"], key=lambda r: r.get("last_modified") or r.get("created") or "")
-            inspect_zip(s, newest["url"])
+            # כמו direct_url ב-parcels_open_loader.py: aws-e עונה ל-GitHub ב-HTML
+            inspect_zip(s, newest["url"].replace("://aws-e.data.gov.il/", "://data.gov.il/"))
         except Exception as e:  # noqa: BLE001
             print("✗ xplan2:", e)
             ok = False
