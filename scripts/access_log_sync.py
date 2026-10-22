@@ -143,7 +143,6 @@ def query_logs(token: str, sql: str, start: datetime, end: datetime) -> list[dic
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 body = json.load(r)
-            break
         except urllib.error.HTTPError as e:
             # ‏429: מגבלת קצב של ה-Management API - מחכים (‏Retry-After אם נשלח)
             # ומנסים שוב. ההמתנות הקודמות (‏3-24 שניות) לא הספיקו לחלון שלה.
@@ -154,6 +153,12 @@ def query_logs(token: str, sql: str, start: datetime, end: datetime) -> list[dic
                 continue
             msg = f"logs API {e.code}: {e.read()[:300]!r}"
             raise (RateLimited if e.code == 429 else RuntimeError)(msg) from None
+        # ‏"Backend error! Retry your query." מגיע ב-200 עם שדה error, ולא כ-5xx.
+        # הוא חולף - ובלי הניסיון החוזר הזה הוא הפיל את הריצה של 22.10.2026.
+        if body.get("error") and "retry" in json.dumps(body["error"]).lower() and attempt < 4:
+            time.sleep(10 * 2 ** attempt)
+            continue
+        break
     if body.get("error"):
         raise RuntimeError(f"logs API error: {json.dumps(body['error'])[:300]}")
     return body.get("result") or []
