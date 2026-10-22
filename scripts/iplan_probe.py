@@ -11,7 +11,13 @@
 
 1. השרת עונה ל-GitHub, **עם אימות TLS רגיל**? (לא מבטלים אימות.)
 2. מה חוזר לנקודה - בעפולה (מול השכבה העירונית) ומחוץ לה.
-3. יש גם מאגר להורדה ב-data.gov.il ("תוכניות מקוונות")?
+3. יש גם מאגר להורדה ב-data.gov.il ("תוכניות מקוונות")? - יש (‏xplan2), עם
+   תאריך 2022 במטא-דאטה. ‏--zip מוריד אותו ובודק מה בפנים ומה התאריכים.
+
+**ריצה 1 (22.10.2026):** ‏SSLV3_ALERT_HANDSHAKE_FAILURE - השרת מציע רק צפנים
+ישנים. כאן מורידים את רמת הצופן (‏SECLEVEL=1) **ומשאירים את אימות התעודה** -
+לא ‏CERT_NONE כמו בסקריפט שהגיע אלינו: בלי אימות, כל מי שבאמצע מחליף את
+התשובה.
 
 קריאה בלבד, בלי מסד ובלי סודות. ‏.github/workflows/iplan_probe.yml.
 """
@@ -19,9 +25,14 @@
 from __future__ import annotations
 
 import json
+import os
+import ssl
 import sys
+import tempfile
+import zipfile
 
 import requests
+from requests.adapters import HTTPAdapter
 
 BASE = "https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic"
 XPLAN = f"{BASE}/Xplan_6991/MapServer"
@@ -36,6 +47,60 @@ POINTS = [
     ("ראשון לציון - מרכז", 34.8044, 31.9642, 4326),
     ("חיפה - הדר", 34.9896, 32.8065, 4326),
 ]
+
+
+class LegacyCipherAdapter(HTTPAdapter):
+    """צפנים ישנים, **עם** אימות תעודה ושם שרת."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
+def inspect_zip(session, url: str) -> None:
+    fd, path = tempfile.mkstemp(suffix=".zip")
+    with os.fdopen(fd, "wb") as out, session.get(url, stream=True, timeout=900) as res:
+        print(f"\nהורדה: {res.status_code} {res.headers.get('Content-Type')} "
+              f"{res.headers.get('Content-Length')} | Last-Modified: {res.headers.get('Last-Modified')}")
+        if res.status_code != 200:
+            return
+        for chunk in res.iter_content(1 << 20):
+            out.write(chunk)
+    print(f"הורדו {os.path.getsize(path) / 1e6:.1f} MB")
+    tmp = tempfile.mkdtemp()
+    with zipfile.ZipFile(path) as z:
+        infos = z.infolist()
+        print("בקובץ:", json.dumps([(i.filename, i.file_size, "%04d-%02d-%02d" % i.date_time[:3]) for i in infos[:60]],
+                                    ensure_ascii=False))
+        z.extractall(tmp)
+    import shapefile  # pyshp
+
+    for root, _dirs, files in os.walk(tmp):
+        for f in files:
+            if not f.lower().endswith(".shp"):
+                continue
+            base = os.path.join(root, f[:-4])
+            for enc in ("utf-8", "cp1255"):
+                try:
+                    sf = shapefile.Reader(base, encoding=enc)
+                    fields = [x[0] for x in sf.fields[1:]]
+                    print(f"\n== {f} | {enc} | {len(sf)} רשומות | {sf.shapeTypeName} | bbox {sf.bbox}")
+                    print("שדות:", fields)
+                    for i in range(min(2, len(sf))):
+                        print("דוגמה:", json.dumps(sf.record(i).as_dict(), ensure_ascii=False, default=str)[:900])
+                    # התאריך המאוחר ביותר בכל שדה תאריך - כמה טרי המאגר באמת
+                    dates = [k for k, t, *_ in sf.fields[1:] if t == "D" or "date" in k.lower() or "DATE" in k]
+                    for k in dates[:6]:
+                        vals = [str(r[k]) for r in sf.iterRecords(fields=[k]) if r[k]]
+                        print(f"  {k}: מקסימום {max(vals) if vals else None}")
+                    break
+                except UnicodeDecodeError:
+                    continue
+                except Exception as e:  # noqa: BLE001
+                    print(f"✗ {f}:", e)
+                    break
 
 
 def get(session, url, **params):
@@ -59,6 +124,7 @@ def point_query(session, layer: int, x: float, y: float, sr: int) -> list[dict]:
 def main() -> int:
     s = requests.Session()
     s.headers["User-Agent"] = USER_AGENT
+    s.mount("https://ags.iplan.gov.il/", LegacyCipherAdapter())
     ok = True
 
     try:
@@ -106,6 +172,19 @@ def main() -> int:
                                       ensure_ascii=False))
         except Exception as e:  # noqa: BLE001
             print(f"✗ CKAN '{q}':", e)
+
+    if "--zip" in sys.argv:
+        try:
+            meta = get(s, f"{CKAN}/package_show", id="xplan2")["result"]
+            for r in meta.get("resources", []):
+                print("\nמשאב:", json.dumps({k: r.get(k) for k in ("name", "url", "size", "last_modified", "created",
+                                                                   "metadata_modified", "description")},
+                                            ensure_ascii=False))
+            newest = max(meta["resources"], key=lambda r: r.get("last_modified") or r.get("created") or "")
+            inspect_zip(s, newest["url"])
+        except Exception as e:  # noqa: BLE001
+            print("✗ xplan2:", e)
+            ok = False
 
     return 0 if ok else 1
 

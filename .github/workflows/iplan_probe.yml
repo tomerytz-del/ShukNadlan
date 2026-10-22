@@ -21,7 +21,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install "requests>=2.34.2,<3"
+      - run: pip install "requests>=2.34.2,<3" "pyshp>=2.3,<4"
 
       - name: בדיקה
-        run: python3 scripts/iplan_probe.py
+        run: python3 scripts/iplan_probe.py --zip
+
+      # ‏Edge Functions רצות ב-Deno, ש-TLS שלו (rustls) אינו מציע צפנים ישנים
+      # בכלל. אם זה נכשל כאן, הבוט לא יוכל לשאול את XPlan בזמן אמת.
+      - name: Deno מול XPlan
+        if: always()
+        continue-on-error: true
+        run: |
+          npm i -g deno@2.5.6 >/dev/null
+          deno eval 'const r = await fetch("https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan_6991/MapServer?f=json"); console.log(r.status, (await r.text()).slice(0, 300));'
