@@ -52,7 +52,7 @@ create index if not exists govmap_address_planning_parcel_idx
   on public.govmap_address_planning (gush, helka) where status = 'found';
 
 comment on table public.govmap_address_planning is
-  'מטמון מידע תכנוני מ-GovMap לכתובות בשווקים, שנשלף בדפדפן של מנהל/ת הפלטפורמה. הבוט קורא ממנו. מיגרציה 20270729090000, docs/govmap.md.';
+  'מטמון מידע תכנוני מ-GovMap לכתובות בשווקים, שנשלף בדפדפן של מנהל/ת הפלטפורמה. הבוט קורא ממנו. מיגרציה 20270731090000, docs/govmap.md.';
 
 alter table public.govmap_address_planning enable row level security;
 revoke all on table public.govmap_address_planning from public, anon, authenticated;
