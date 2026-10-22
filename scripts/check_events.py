@@ -101,7 +101,8 @@ BOT_PHONE = "972532494740"
 # סוכן/ת ללקוח/ה שלו/ה: חיוג משם הוא לקוח/ה קיים/ת ולא פנייה חדשה, מאותו
 # נימוק בדיוק (docs/client-showcase.md). ‏meeting הוא דף הפגישה שהלקוח/ה מקבל/ת
 # אחרי שהסוכן/ת קבע/ה איתו/ה פגישה (docs/meeting-client-followup.md).
-PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "showcase", "meeting", "csm"}
+# ‏plan הוא דף הבדיקה התכנונית שגבריאלה שולחת לסוכן/ת (docs/govmap.md) - כלי עבודה, לא גולשים.
+PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "showcase", "meeting", "csm", "plan"}
 
 EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 

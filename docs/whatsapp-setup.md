@@ -608,16 +608,19 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 (‏`planning_plans_merged`). כשיש הודעה חוזר `plans_guidance`: לומר "ייתכנו
 מגבלות על היתרים" ולהציע את הקישור למבא"ת - לא "אסור לבנות" (‏`docs/govmap.md`).
 
-**מחוץ לעפולה - קישור לכלי ב-CRM (22.10.2026):** `city_not_supported` ו-`parcel_not_found`
-מחזירים `crm_planning_url` (‏`planningToolUrl`): `/crm?goto=accPlanning&plan_city=…&plan_street=…&plan_num=…`
-או `plan_gush`/`plan_helka`. הקישור פותח את כלי המידע התכנוני ב-CRM עם הכתובת ומריץ אותו
-(`runPlanningFromParam` ב-`crm.js`), והבדיקה רצה בדפדפן מול GovMap - מה שהבוט עצמו אינו
-רשאי לעשות. גבריאלה כבר לא אומרת "רק בעפולה" אלא שולחת את הקישור.
+**מחוץ לעפולה - דף הבדיקה (22.10.2026):** `city_not_supported` ו-`parcel_not_found` (וגם
+תשובה `partial` מהשכבה הפתוחה) מחזירים `planning_url` (‏`planningPageUrl`): קישור אישי
+`/plan?k=<32 תווים>` לדף קטן שמריץ את GovMap מיד בדפדפן, בלי כניסה ובלי ה-CRM. התוצאה
+נשמרת במטמון הכתובות ונשלחת לסוכן/ת בוואטסאפ (‏`planning-link`). **הנוסח:** שורה אחת -
+"פתח/י את הקישור והבדיקה תרוץ מיד; התוצאה תגיע גם לכאן" - בלי התנצלות ובלי הבטחה "לענות
+בפעם הבאה", שהייתה נכונה רק אם מישהו מילא את המטמון (‏`PLANNING_URL_GUIDANCE`). אם הקישור
+לא נוצר (תקרה של 40 ביום, תקלה) - הקישור הישן לכלי ב-CRM (‏`planningToolUrl`). ‏`docs/govmap.md`,
+"דף הבדיקה".
 
 **ולפני הקישור - מטמון הכתובות:** כתובת מחוץ לעפולה נבדקת קודם ב-`govmap_address_planning`
 (‏`govmapCachedPlanning`), שמולא מראש מ-GovMap בדפדפן לכל כתובת עם עסקה בערי השווקים. נמצא -
 תשובה מלאה בוואטסאפ (`source: "govmap"`); לא נמצא - הכתובת נרשמת לתור (`govmap_address_request`)
-ונשלח הקישור. ‏`docs/govmap.md`, "מטמון הכתובות".
+ונשלח הקישור לדף הבדיקה. ‏`docs/govmap.md`, "מטמון הכתובות".
 
 **למה לא GovMap בשרת:** מפ"י ענו ב-12.10.2026 שה-API נצרך מצד הלקוח בלבד
 (`docs/govmap.md`, "תשובות מפ"י"). לכן הכלי אומר ביושר "רק עפולה" ומפנה

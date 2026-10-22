@@ -13,7 +13,7 @@
 | `new-tier-capability` | יכולת שתלויה במסלול — הגייט במסד, השורה ב-`pricing.html`, והשורה בתיעוד |
 | `new-search-page` | עמוד תוצאות (חיפוש פופולרי) — הרשימה בפונקציה, ה-`sitemap`, והקישור בפוטר |
 | `perf-measure` | כל טענה על ביצועים — השרת שמחקה את Netlify, שני התרחישים, והמוקשים |
-| `govmap` | כל עבודה מול GovMap — הטוקן והדומיין (**צד לקוח בלבד**, לפי מפ"י), ITM מול WGS84, החוזה `null`/`throw`, ה-CSP, ושכבות התוכניות 203/14 (ארציות, מתאר, הודעות 77-78); ובשרת - רק ממאגרים פתוחים (`parcels_open` מ-data.gov.il, ‏XPlan של מינהל התכנון בלי לבטל אימות תעודה) ולא מ-GovMap (`docs/govmap.md`, `docs/parcels-open.md`) |
+| `govmap` | כל עבודה מול GovMap — הטוקן והדומיין (**צד לקוח בלבד**, לפי מפ"י), ITM מול WGS84, החוזה `null`/`throw`, ה-CSP, ושכבות התוכניות 203/14 (ארציות, מתאר, הודעות 77-78); ובשרת - רק ממאגרים פתוחים (`parcels_open` מ-data.gov.il, ‏XPlan של מינהל התכנון בלי לבטל אימות תעודה) ולא מ-GovMap; ומה שהבוט לא יודע - דף הבדיקה `/plan?k=` (‏`planning-link`) שמריץ GovMap בדפדפן ושומר דרך `_govmap_address_store` (`docs/govmap.md`, `docs/parcels-open.md`) |
 | `new-market` | שוק מקומי חדש או עיר חדשה בשוק — `markets.js`, השיוך במסד, `_redirects`, `market-pages.ts`, ונתוני העיר (`docs/regional-pages.md`) |
 | `market-go-live` | הדלקת שוק לגולשים — הסף (משרד ו-10 נכסים), סינון דף הבית, `live`, ה-`sitemap`, והבדיקות שאחרי |
 | `marketing-description` | התיאור השיווקי — איזה שדה מוצג בדף הנכס ובבוט, טביעת האצבע וה-stale, ומיגרציה שמשכתבת טקסט של נכסים (`docs/marketing-description.md`) |

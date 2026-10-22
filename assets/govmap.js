@@ -737,6 +737,37 @@
     });
   }
 
+  /* רשומת מידע תכנוני לכתובת (או לגוש/חלקה כשאין כתובת): גוש, חלקה, ייעוד,
+     התוכנית המפורטת, ושכבות 203/14. ‏null = לא נמצא. הצורה של
+     govmap_address_save / _govmap_address_store. משותפת להשלמה ב-CRM
+     (‏govmapAddressRecord) ולדף הבדיקה (‏assets/plan.js). */
+  function addressRecord(r) {
+    var pinSource = 'address';
+    var byAddress = r.street && r.house_number
+      ? lookupAddress({ street: r.street, houseNumber: r.house_number, city: r.city })
+      : Promise.resolve(null);
+    return byAddress.then(function (pt) {
+      // הכתובת אינה בשכבת הכתובות: הגוש והחלקה שבעסקה עצמה
+      if (pt || !(r.gush && r.helka)) return pt;
+      pinSource = 'parcel';
+      return lookupParcel(r.gush, r.helka);
+    }).then(function (pt) {
+      if (!pt) return null;
+      return planningAt(pt).then(function (planning) {
+        if (!planning) return null;
+        // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
+        return Promise.all([
+          plansAt(pt).catch(function (err) { console.warn('GovMap plans:', err); return null; }),
+          latLngOf(pt),
+        ]).then(function (res) {
+          var out = Object.assign({}, planning, { lat: res[1].lat, lng: res[1].lng, pin_source: pinSource });
+          if (res[0]) out.govmap_plans = res[0];
+          return out;
+        });
+      });
+    });
+  }
+
   window.GOVMAP_TOKEN = GOVMAP_TOKEN;
   window.govmapReady = govmapReady;
   window.GovmapLookup = {
@@ -747,6 +778,7 @@
     plansAtLatLng: plansAtLatLng,
     latLngOf: latLngOf,
     lookupProperty: lookupProperty,
+    addressRecord: addressRecord,
     _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,

@@ -34890,18 +34890,8 @@ async function runGovmapPlansBackfill(){
 const GOVMAP_ADDR_ROUNDS = 8;
 
 async function govmapAddressRecord(r){
-  let pt = await GovmapLookup.lookupAddress({ street: r.street, houseNumber: r.house_number, city: r.city });
-  let pinSource = 'address';
-  // הכתובת אינה בשכבת הכתובות: הגוש והחלקה שבעסקה עצמה
-  if (!pt && r.gush && r.helka){ pt = await GovmapLookup.lookupParcel(r.gush, r.helka); pinSource = 'parcel'; }
-  if (!pt) return null;
-  const planning = await GovmapLookup.planningAt(pt);
-  if (!planning) return null;
-  // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
-  const plans = await GovmapLookup.plansAt(pt).catch(err => { console.warn('GovMap plans:', err); return null; });
-  const ll = await GovmapLookup.latLngOf(pt);
-  return Object.assign({}, planning, { lat: ll.lat, lng: ll.lng, pin_source: pinSource },
-    plans ? { govmap_plans: plans } : {});
+  // משותפת לדף הבדיקה (‏/plan, ‏assets/plan.js) - ב-assets/govmap.js
+  return GovmapLookup.addressRecord(r);
 }
 
 async function runGovmapAddressBackfill(){

@@ -198,6 +198,11 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 (‏`govmap_my_candidates`, עד 10 נכסים בפתיחה, פעם ב-12 שעות). לולאה כזו לא נכנסת
 לשרשראות של `loadDashboard` (הסקיל `crm-startup`) - היא רצה אחריו ובהשהיה.
 
+**ומה שהבוט לא יודע - דף הבדיקה, לא ה-CRM:** `planning_url` הוא `/plan?k=` (‏`plan.html`,
+‏`planning-link`), שמריץ את `GovmapLookup.addressRecord` מיד ושומר דרך `_govmap_address_store`
+- אותן בדיקות כמו `govmap_address_save`. שינוי ברשומה נעשה פעם אחת, ב-`addressRecord`
+(‏`assets/govmap.js`), ומשרת את שניהם. ‏`docs/govmap.md`, "דף הבדיקה".
+
 **והבוט קורא ממטמון, לא מ-GovMap:** `govmap_address_planning` ממולא בדפדפן ("כתובות לגבריאלה"),
 ו-`govmap_address_planning_get` מגישה ממנו. מי שמוסיף לבוט נתון מ-GovMap - מוסיף אותו
 למילוי (`govmapAddressRecord` ב-`crm.js`) ול-`govmap_address_save`, לא לקריאה מהשרת.
@@ -257,8 +262,8 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 
 **הסדר ב-`planning_lookup` מחוץ לעפולה:** מטמון GovMap (מה שדפדפן שמר) ←
 השכבה הפתוחה + XPlan (‏`openParcelAnswer`; ‏`partial: true` רק כשאין ייעוד) ←
-`city_not_supported`. בכל השלושה יוצא `crm_planning_url` לכלי ב-CRM, שעובד
-מול GovMap בדפדפן ומשלים את מה שחסר.
+`city_not_supported`. בכל השלושה יוצא `planning_url` - דף הבדיקה, שמריץ את
+GovMap בדפדפן ומשלים את מה שחסר.
 
 **שלוש מלכודות שכבר נפלנו בהן:**
 
