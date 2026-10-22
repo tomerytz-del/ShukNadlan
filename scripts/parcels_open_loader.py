@@ -161,7 +161,16 @@ def resolve_source(session) -> tuple[str, str | None]:
     if not body.get("success"):
         raise RuntimeError(f"CKAN החזיר success=false: {str(body)[:300]}")
     r = body["result"]
-    return r["url"], r.get("last_modified") or r.get("metadata_modified")
+    return direct_url(r["url"]), r.get("last_modified") or r.get("metadata_modified")
+
+
+def direct_url(url: str) -> str:
+    """‏resource_show מחזיר את הקובץ דרך aws-e.data.gov.il, שעונה ל-GitHub ב-200
+    עם עמוד HTML (‏22.10.2026, טעינה ראשונה). אותו קובץ בנתיב של data.gov.il
+    ירד באותו יום, 667MB (‏parcels_probe.py, שלוקחת את הכתובת מ-package_search)."""
+    for host in ("://aws-e.data.gov.il/", "://e.data.gov.il/"):
+        url = url.replace(host, "://data.gov.il/")
+    return url
 
 
 def download(session, url: str) -> str:
