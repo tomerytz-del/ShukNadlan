@@ -2309,6 +2309,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // הוא חייב לרוץ אחרי שהניווט וההרשאות כבר במקומם.
   handleGotoParam();
   handleShareParam();
+  // אחרי הכול ובהשהיה - ראו scheduleGovmapAutoComplete
+  scheduleGovmapAutoComplete(agent);
 }
 
 /* ---------- ‏?goto=accXxx — נחיתה ישירה בקטגוריה ----------
@@ -10289,13 +10291,51 @@ async function loadBillingHistory(){
 }
 
 /* ---------- Planning lookup tool: clean fields + parcel map (not raw JSON) ---------- */
+
+/* הכלי לכל עיר שאינה עפולה: GovMap בדפדפן (מפ"י מתירים צד לקוח בלבד,
+   docs/govmap.md). אותו גידור מסלול כמו בעפולה - כאן בדפדפן, כי זו בדיקה
+   שאינה שומרת כלום, והנתונים עצמם פומביים ב-GovMap. ‏null = GovMap ענה ואין
+   כזו כתובת או חלקה; ‏throw = לא הצלחנו לשאול. */
+async function govmapPlanningLookup(q, feedback, upgradeNotice){
+  if (!currentAgent || (currentAgent.tier !== 'mid' && currentAgent.tier !== 'premium')){
+    upgradeNotice.style.display = 'block';
+    return;
+  }
+  if (!window.GovmapLookup){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'לא הצלחנו לטעון את GovMap - נסו לרענן את הדף';
+    return;
+  }
+  try{
+    const res = await GovmapLookup.lookupProperty({ street: q.street, houseNumber: q.houseNum, city: q.city,
+      gush: q.gush, helka: q.helka });
+    if (!res || !res.planning){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = (q.gush && q.helka)
+        ? 'לא נמצאה ב-GovMap חלקה תואמת לגוש/חלקה שהוזנו'
+        : 'הכתובת לא נמצאה ב-GovMap. אפשר לנסות לפי גוש וחלקה';
+      return;
+    }
+    if (res.pinSource === 'parcel'){
+      feedback.style.color = 'var(--ink-soft)';
+      feedback.textContent = 'הכתובת לא נמצאה ב-GovMap - המידע לפי הגוש והחלקה';
+    }
+    renderPlanningResult(Object.assign({}, res.planning, {
+      lat: res.lat, lng: res.lng, looked_up_at: new Date().toISOString() }));
+  } catch(err){
+    console.warn('GovMap planning lookup failed:', err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'לא הצלחנו לפנות ל-GovMap כרגע - נסו שוב בעוד רגע';
+  }
+}
 let planningMap = null;
 document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
   /* אותו תיקון כתיב כמו בטופס הנכס, ובלי חסימה: הכלי הזה הוא בדיקה ולא
      שמירה, ולמי שהכתיב שלו עקשן יש ממילא את מסלול גוש+חלקה שאינו עובר דרך
      שכבת הכתובות. מה שכן — "העליה" שברשימה כתובה "עלייה" יישלח כ-"עלייה",
      במקום לחזור עם 404 שנראה כמו כתובת שאינה קיימת. */
-  const street = canonicalStreet(document.getElementById('planStreet').value, STREET_PLANNING_CITY).name;
+  const city = document.getElementById('planCity').value.trim() || STREET_PLANNING_CITY;
+  const street = canonicalStreet(document.getElementById('planStreet').value, city).name;
   document.getElementById('planStreet').value = street;
   const houseNum = document.getElementById('planHouseNum').value.trim();
   const gush = document.getElementById('planGush').value.trim();
@@ -10317,6 +10357,11 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
   }
 
   btn.disabled = true; btn.textContent = 'בודק…';
+  if (city !== STREET_PLANNING_CITY){
+    try{ await govmapPlanningLookup({ city, street, houseNum, gush, helka }, feedback, upgradeNotice); }
+    finally{ btn.disabled = false; btn.textContent = 'בדיקת מידע תכנוני'; }
+    return;
+  }
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
@@ -12597,6 +12642,67 @@ async function saveGovmapPlans(propertyId, fetchPlans){
   }
 }
 
+/* השלמה אוטומטית בדפדפן של הסוכן/ת, לנכסים של עצמו/ה (מיגרציה
+   20270726090000, docs/govmap.md "השלמה אוטומטית"). נכס שנכנס מאשף הייבוא
+   או מגבריאלה לא עבר בטופס, ולכן לא נשלף לו כלום; כאן הוא נשלף בפתיחה הבאה
+   של ה-CRM. אין לזה גרסת שרת - מפ"י מתירים צד לקוח בלבד.
+
+   **לא נכנס לשרשראות של loadDashboard** (הסקיל crm-startup): רץ 20 שניות
+   אחרי שהדשבורד נבנה, פעם ב-12 שעות לסוכן/ת, עד 10 נכסים, וקריאה אחת
+   ל-GovMap בכל פעם. "לא נמצא" נרשם (govmap_my_attempt) ומוציא את הנכס
+   מהתור לשבוע; תקלה זמנית אינה נרשמת. פין אינו נקבע כאן - הוא נשאר של
+   טופס הנכס ושל ההשלמה של מנהל/ת הפלטפורמה. */
+const GOVMAP_AUTO_LIMIT = 10;
+const GOVMAP_AUTO_EVERY_MS = 12 * 3600 * 1000;
+let govmapAutoRunning = false;
+
+function scheduleGovmapAutoComplete(agent){
+  if (!agent || (agent.tier !== 'mid' && agent.tier !== 'premium') || !window.GovmapLookup) return;
+  const key = 'govmapAutoAt:' + agent.id;
+  try{ if (Date.now() - Number(localStorage.getItem(key) || 0) < GOVMAP_AUTO_EVERY_MS) return; } catch(e){}
+  setTimeout(() => runGovmapAutoComplete(key), 20000);
+}
+
+async function runGovmapAutoComplete(key){
+  if (govmapAutoRunning) return;
+  govmapAutoRunning = true;
+  try{
+    const { data: rows, error } = await sb.rpc('govmap_my_candidates', { p_limit: GOVMAP_AUTO_LIMIT });
+    if (error) throw error;
+    // רק אחרי שהתור נקרא: מסד שהמיגרציה טרם רצה בו ינסה שוב בפתיחה הבאה
+    try{ localStorage.setItem(key, String(Date.now())); } catch(e){}
+    for (const r of rows || []){
+      try{
+        let itm = null;
+        if (r.need_planning){
+          const res = await GovmapLookup.lookupProperty({ street: r.street, houseNumber: r.house_number,
+            city: r.city, gush: r.gush, helka: r.helka });
+          if (res && res.planning){
+            const { error: saveErr } = await sb.rpc('govmap_save_planning', { p_property_id: r.id,
+              p_record: Object.assign({}, res.planning, { lat: res.lat, lng: res.lng }) });
+            if (saveErr) throw saveErr;
+            await sb.rpc('govmap_my_attempt', { p_property_id: r.id, p_result: 'saved' });
+            itm = res.itm;
+          } else {
+            await sb.rpc('govmap_my_attempt', { p_property_id: r.id, p_result: 'not_found' });
+          }
+        }
+        if (itm || r.need_plans){
+          const plans = await (itm ? GovmapLookup.plansAt(itm) : GovmapLookup.plansAtLatLng(r.lat, r.lng));
+          const { error: plansErr } = await sb.rpc('govmap_save_plans', { p_property_id: r.id, p_plans: plans });
+          if (plansErr) throw plansErr;
+        }
+      } catch(err){
+        console.warn('GovMap auto-complete:', r.id, err);
+      }
+    }
+  } catch(err){
+    console.warn('GovMap auto-complete failed:', err);
+  } finally {
+    govmapAutoRunning = false;
+  }
+}
+
 /* אותו איחוד של planning_plans_merged במסד (מיגרציה 20270724090000), לדוח
    ה-CMA ולכלי המידע התכנוני, שמקבלים את השורה הגולמית. מי שמשנה אחד משנה
    את השני: המפורטות קודם, אחריהן ארציות וכוללניות, והודעות 77-78 בסוף. */
@@ -12656,8 +12762,8 @@ function plansListHtml(plans, title){
     + '</div>';
 }
 
-/* העיר של כלי המידע התכנוני. ‏afula-planning-lookup עובדת מול שכבת עפולה
-   בלבד, וכך גם כותרת האקורדיון. */
+/* העיר שבה כלי המידע התכנוני עובר דרך afula-planning-lookup (שכבת
+   העירייה). כל עיר אחרת שמוקלדת בכלי עוברת דרך GovMap - govmapPlanningLookup. */
 const STREET_PLANNING_CITY = 'עפולה';
 
 let streetRegistry = null;            // null = טרם נטענה
@@ -12761,14 +12867,15 @@ function populateStreetOptions(listId, city){
   list.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
 }
 
-/* שלוש הרשימות יחד: זו של הטופס לפי שדה העיר, זו של המידע התכנוני על
-   עפולה, וזו של חיפוש העסקאות לפי שדה העיר שלו. כל אחת עוקבת אחרי העיר
+/* שלוש הרשימות יחד: זו של הטופס לפי שדה העיר, זו של המידע התכנוני לפי
+   שדה העיר שלו, וזו של חיפוש העסקאות לפי שדה העיר שלו. כל אחת עוקבת אחרי העיר
    **שלה** - רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. */
 function refreshStreetOptions(){
   populateStreetOptions('streetOptions', propertyCity());
-  populateStreetOptions('planStreetOptions', STREET_PLANNING_CITY);
+  populateStreetOptions('planStreetOptions', document.getElementById('planCity')?.value.trim() || STREET_PLANNING_CITY);
   populateStreetOptions('mdStreetOptions', document.getElementById('mdCity')?.value || '');
 }
+document.getElementById('planCity')?.addEventListener('change', refreshStreetOptions);
 
 function streetEnforced(city){
   return streetRegistryReady && streetEnforcedCities.has(String(city || '').trim());
