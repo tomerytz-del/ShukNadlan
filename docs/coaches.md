@@ -479,6 +479,7 @@ select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tok
 | המדד המרכזי | לידים לסוכן/ת (החלטה 4): כשצריך לבחור - לידים לשווקים פתוחים לפני שוק חדש |
 | הכפתורים | `open_inbox` (מסונן לסוג), `open_market` (השורה בשווקים וצמיחה), `new_campaign`, `open_health`, `open_content`, `open_costs` |
 | איפה | בראש מרכז הפיקוד (`#ccCoach`). "סמן כבוצע" דרך `coach_action_done('platform', ...)` |
+| "סיכום עכשיו" | כפתור מתחת לכרטיס (`ccCoachNow`): אותה פונקציה עם ה-JWT של מנהל/ת הפלטפורמה (`adminCaller`, רק ל-`kind=platform`). תמיד סיכום מלא שנשמר, מחליף את של היום ומצלצל; השרת מסרב לשני בתוך 10 דקות (`platform_coach_recent`). כל לחיצה היא קריאה למודל |
 | התראה | `platform_coach` לכל מנהלי הפלטפורמה, על כל סיכום שנכתב. הלחיצה - `openAdminHome` (`goto=adminHome`) |
 | עלות | `ai_usage_log` עם `platform_coach` (פאנל "עלויות"), כי `ai_usage_costs` קוראת רק את שלוש הטבלאות של המשרדים |
 
