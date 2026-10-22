@@ -83,8 +83,8 @@ python3 scripts/parcels_open_loader.py --file parcels.zip --dry-run
 995 - ואז התשובה `partial`. לכן הבוט לא אומר "אלה כל התוכניות", ומפנה לכלי
 ב-CRM (‏GovMap, ‏`retzefMigrashim` - שם יש גם את המפורטות הוותיקות).
 
-**עלות:** הפעלה של הממסר רק כשסוכן/ת שואל/ת את הבוט על כתובת מחוץ לעפולה
-שאינה במטמון. שינוי בקובץ עולה דיפלוי של האתר (‏`netlify/` אינו ברשימת
+**עלות:** אין הפעלות כרגע - הבוט כבר לא קורא לממסר (מידע תכנוני רק ככפתור
+לדף הבדיקה, הסקיל `planning-page`). שינוי בקובץ עולה דיפלוי של האתר (‏`netlify/` אינו ברשימת
 "לא אתר" של `netlify_ignore.sh`).
 
 ```sh
@@ -92,4 +92,7 @@ node --experimental-strip-types scripts/plan_layers_test.ts   # הניקוי ו�
 ```
 
 הבדיקה החיה (‏Python, ‏Deno והממסר עצמו מול XPlan): ‏Actions ← "בדיקת XPlan
-של מינהל התכנון" (‏`scripts/iplan_probe.py`).
+של מינהל התכנון" (‏`scripts/iplan_probe.py`). שלבי ה-Deno והממסר הם **מידע ולא
+שער** (‏`continue-on-error`): התוצאה בלוג. XPlan עונה לפעמים אחרי יותר מ-9
+השניות של הממסר, וריצה אדומה על שירות חיצוני איטי נספרה בסוכן התפעולי
+כ-`workflow_failing` חמור.
