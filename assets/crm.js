@@ -2345,6 +2345,17 @@ function openAdminOpsPanel(){
   return true;
 }
 
+/* מרכז הפיקוד, שבראשו המנטור של הפלטפורמה (platform_coach). אינו קטגוריה,
+   ולכן יעד משלו - כמו adminOps. */
+function openAdminHome(){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return false;
+  if (dashView !== 'admin') setDashView('admin');
+  setNavTab('home');
+  const el = document.getElementById('ccCoach') || document.getElementById('adminCommand');
+  if (el) setTimeout(()=> scrollToTopOf(el), 50);
+  return true;
+}
+
 function handleGotoParam(){
   const params = new URLSearchParams(location.search);
   const raw = params.get('goto');
@@ -2373,6 +2384,7 @@ function handleGotoParam(){
 
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
   if (raw === 'license'){ openLicenseCard(); return; }
+  if (raw === 'adminHome'){ openAdminHome(); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
   /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
      dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
@@ -6423,6 +6435,8 @@ const AI_FEATURES = {
   csm_mentor:        { label: 'מנטור ההטמעה', sub: 'שאלות של צוות ההטמעה', unit: 'לשאלה' },
   csm_call:          { label: 'ניתוח הקלטות - הטמעה', sub: 'סיכום והמלצות לשיחה (התמלול בשורת התמלול)', unit: 'לשיחה' },
   gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
+  neighborhood_describe: { label: 'תיאורי שכונות', sub: 'טיוטה שבועית לדפי השכונות', unit: 'לשכונה' },
+  platform_coach:    { label: 'המנטור של מנהל/ת הפלטפורמה', sub: 'סיכום שבועי, ועדכון על חריגה חדשה', unit: 'לסיכום' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };
@@ -25131,6 +25145,14 @@ const NOTIF_TYPES = [
   /* שוק מקומי שמתקרב לסף (7 נכסים), עובר אותו (משרד ו-10 נכסים) או חי ויורד
      מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270705090000). */
   /* קטגוריה שעברה 80% או 100% מתקציב החודש המאושר (20270727090000) */
+  /* המנטור של הפלטפורמה (office-coach?kind=platform, 20270730090000): בראשון
+     הסיכום השבועי, ובאמצע השבוע רק על חריגה חדשה. היעד הוא הכרטיס בראש מרכז
+     הפיקוד, שאינו קטגוריה - בלי goto, והלחיצה עוברת ב-openAdminHome. */
+  { type:'platform_coach', tone:'',
+    view:'admin',
+    title:'המנטור של הפלטפורמה',
+    sub:'סיכום שבועי ביום ראשון, ובאמצע השבוע רק כשמשהו חורג: פריט באיחור, ממצא חמור, תקציב או ירידה בלידים.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
   { type:'budget_alert', tone:'alert', goto:'dashPanelCosts',
     view:'admin',
     title:'עלויות מול תקציב',
@@ -25242,6 +25264,7 @@ async function loadNotifications(agentId){
       // שהתצוגה פתוחה בפניו/ה.
       if (n.type === 'security_alert' || n.type === 'ops_alert'){ openAdminOpsPanel(); return; }
       if (n.type === 'onboarding_license'){ openLicenseCard(); return; }
+      if (n.type === 'platform_coach'){ openAdminHome(); return; }
       if (target.view === 'admin' && dashView !== 'admin'
           && currentAgent && currentAgent.is_platform_admin) {
         setDashView('admin');

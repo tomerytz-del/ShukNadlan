@@ -463,6 +463,30 @@ select created_at::date day, kind, count(*), sum(input_tokens) i, sum(output_tok
 (‏`office_coach_test` בודק), והיומן ב-`csm_mentor_questions`. חומר חדש לידע הזה
 עובר את אותם כללי עריכה (סעיף "הידע המקצועי"). הפרטים: `docs/csm-adoption.md`.
 
+## המנטור של מנהל/ת הפלטפורמה (`?kind=platform`)
+
+רביעי באותו רכיב ובאותו חוזה (v2), אבל **אינו `CoachKind`**: אין לו "שאל את
+המנטור", ולכן הוא `SummaryKind` - רק הסכמה, הכפתורים והניקוי מכירים אותו. שלב 9
+בשדרוג אזור הניהול (`docs/admin-redesign/HANDOFF.md`, סעיף 9). תומר, 22.10.2026:
+**"שבועי + חריגות".**
+
+| | |
+| --- | --- |
+| מתי | cron `platform-coach` כל בוקר 05:37 UTC. ראשון (או הבוקר הראשון באותו שבוע שבו ההרצה הצליחה) - `weekly`. שאר הימים - `exception` **רק כשיש חריגה שלא הייתה בסיכום האחרון**; בלעדיה אין קריאה למודל ואין שורה |
+| החריגות | `platformTriggers` (`payload.ts`): פריט בתיבה שחרג מזמן היעד (לכל סוג), ממצא high, משימה מתוזמנת שנכשלה, שגיאה בתמונת השווקים, קטגוריה **מאושרת** מעל 100% מהתקציב, ולידים ב-30 יום מתחת ל-70% מה-30 שלפניהם (מ-10 ומעלה). השורה שומרת אותן ב-`triggers`, ו-`newTriggers` משווה מולן |
+| הקלט | `platform_coach_input()` - שש הפונקציות של מרכז הפיקוד, כפי שמנהל/ת רואה/ה אותן (הפונקציה מציבה בטרנזקציה claims של מנהל/ת פלטפורמה, כי כל אחת בודקת `current_is_platform_admin()`). service_role בלבד |
+| מה יוצא למודל | `compactPlatform` - רשימות סגורות, מספרים בלבד. **לא** שמות משרדים (רישיון תקוע נספר), לא שמות קמפיינים, לא מזהים. שוק יוצא כ-slug עם עד שלוש ערים (`market_city_names`), סוג בתיבה כמו שהוא (`Refs.own`) |
+| המדד המרכזי | לידים לסוכן/ת (החלטה 4): כשצריך לבחור - לידים לשווקים פתוחים לפני שוק חדש |
+| הכפתורים | `open_inbox` (מסונן לסוג), `open_market` (השורה בשווקים וצמיחה), `new_campaign`, `open_health`, `open_content`, `open_costs` |
+| איפה | בראש מרכז הפיקוד (`#ccCoach`). "סמן כבוצע" דרך `coach_action_done('platform', ...)` |
+| התראה | `platform_coach` לכל מנהלי הפלטפורמה, על כל סיכום שנכתב. הלחיצה - `openAdminHome` (`goto=adminHome`) |
+| עלות | `ai_usage_log` עם `platform_coach` (פאנל "עלויות"), כי `ai_usage_costs` קוראת רק את שלוש הטבלאות של המשרדים |
+
+```sh
+# עכשיו, בלי לשמור, גם בלי חריגה (mode=weekly|exception)
+curl -X POST ".../office-coach?kind=platform&mode=weekly&dry_run=1" -H "Authorization: Bearer $SERVICE_ROLE_KEY"
+```
+
 ## הרצה ידנית
 
 ```sh

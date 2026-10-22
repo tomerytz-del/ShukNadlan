@@ -18,6 +18,7 @@
 | `license_appeal` | `broker_license_appeals`, ‏`status = 'pending'` | 12 שעות | `accLicenseAppeals` |
 | `refund` | `wallet_refunds`, ‏`status = 'requested'` | 48 שעות | `accRefundQueue` |
 | `coach_gap` | `coach_questions` שלא נענו, לפי `gap_topic` (כמו `coach_knowledge_gaps`) | 72 שעות | `accCoachGaps` |
+| `hood_draft` | `neighborhood_descriptions`, ‏`status = 'draft'` - טיוטת AI לדף שכונה (20270729090000, ‏`docs/neighborhood-pages.md`) | 72 שעות | `accNeighborhoods` |
 
 זמני היעד הם החלטה של תומר (19-21.10.2026), ונשמרים ב-`admin_sla`. מנהל/ת
 עורך/ת אותם בתיבה, תחת "כללי זמן תגובה" (`admin_sla_set`, ‏15 דקות עד 30 יום).

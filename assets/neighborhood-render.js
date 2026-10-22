@@ -80,10 +80,26 @@
       + '</span></a></li>';
   }
 
-  /* הגוף: מספרים, הנכסים, העסקאות לפי חדרים, ושכונות אחרות בעיר. התיאור
-     שנכתב ב-AI ואושר יתווסף כאן בחלק ב (HANDOFF סעיף 8). */
+  /* התיאור שאושר בתיבת המשימות (‏about, ‏20270729090000). טקסט בלבד, מוברח -
+     פסקה לכל שורה ריקה. טיוטה שלא אושרה אינה מגיעה לכאן בכלל. */
+  function paras(t) {
+    return String(t || '').split(/\n\s*\n/).map(function (x) { return x.trim(); }).filter(Boolean)
+      .map(function (x) { return '<p>' + escapeHtml(x) + '</p>'; }).join('');
+  }
+  function about(d) {
+    var a = d.about;
+    if (!a || !a.intro) return '';
+    var faq = Array.isArray(a.faq) ? a.faq : [];
+    return '<section class="hood-about">' + paras(a.intro)
+      + (a.fits ? '<h2>למי השכונה מתאימה</h2>' + paras(a.fits) : '')
+      + (faq.length ? '<h2>שאלות נפוצות על ' + escapeHtml(d.name) + '</h2>'
+          + faq.map(function (f) { return '<h3>' + escapeHtml(f.q) + '</h3><p>' + escapeHtml(f.a) + '</p>'; }).join('') : '')
+      + '</section>';
+  }
+
+  /* הגוף: התיאור (כשאושר), מספרים, הנכסים, העסקאות לפי חדרים, ושכונות אחרות בעיר. */
   function render(d) {
-    var html = '<div class="deals-cards">'
+    var html = about(d) + '<div class="deals-cards">'
       + card('נכסים פעילים', num(d.props_active),
           [d.props_sale ? num(d.props_sale) + ' למכירה' : '', d.props_rent ? num(d.props_rent) + ' להשכרה' : ''].filter(Boolean).join(' · '))
       + (d.sale_min ? card('טווח מחירים למכירה', money(d.sale_min) + ' - ' + money(d.sale_max)) : '')
@@ -142,6 +158,10 @@
       { '@type': 'Place', name: 'שכונת ' + d.name + ', ' + d.city, url: url,
         containedInPlace: { '@type': 'City', name: d.city } }
     ];
+    var faq = d.about && Array.isArray(d.about.faq) ? d.about.faq : [];
+    if (faq.length) graph.push({ '@type': 'FAQPage', mainEntity: faq.map(function (f) {
+      return { '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } };
+    }) });
     return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c');
   }
 

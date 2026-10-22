@@ -134,6 +134,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   onboarding_license: "license",
   // ‏הסיכום היומי של המנטור (office-coach) - לכרטיס שלו ב"הדשבורד שלי"
   coach_daily: "accMyDashboard",
+  // ‏המנטור של מנהל/ת הפלטפורמה (20270730090000) - לכרטיס בראש מרכז הפיקוד,
+  // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminHome.
+  platform_coach: "adminHome",
 };
 
 function json(obj: unknown, status = 200) {
