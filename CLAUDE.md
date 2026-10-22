@@ -66,7 +66,7 @@
   כשהמיזוג נוגע בקובצי האתר: `scripts/netlify_ignore.sh` מדלג על דיפלוי של
   תיעוד, סקילים, מיגרציות ופונקציות Supabase, כי כל דיפלוי עולה קרדיטים
   (`docs/netlify-usage.md`, הסקיל `deploy-path`).
-  שבע פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
+  שמונה פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
   אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
   (`docs/social-preview.md`), `sitemap.ts` מוסיפה ל-`sitemap.xml` את
   הכתובות שנוצרות מהמסד (`docs/sitemap.md`), `search-pages.ts` נותנת
@@ -76,7 +76,8 @@
   מפנה את הקישור הקצר שבפוסטים (`/p/1162`) לדף הנכס, ו-`prices-page.ts`
   ממלאת בשרת את טבלאות מחירי הדירות ב-`/prices` (‏`docs/city-prices.md`), ו-
   `deals-page.ts` ממלאת את דף העסקאות של כל יישוב ב-`/deals/afula`
-  (‏`docs/settlement-deals.md`). רשימת השווקים
+  (‏`docs/settlement-deals.md`), ו-`neighborhood-page.ts` ממלאת את דף
+  השכונה ב-`/n/afula/גבעת-המורה` (‏`docs/neighborhood-pages.md`). רשימת השווקים
   אחת לשרת ולדפדפן, ב-`assets/markets.js`, ו-`check_markets.py` מצליב
   אותה מול `_redirects`, ה-`sitemap` והמיגרציות (`docs/regional-pages.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-

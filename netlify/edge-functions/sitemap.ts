@@ -198,6 +198,16 @@ const SOURCES: Source[] = [
     query: `rpc/deal_settlements_public?select=slug,updated_at&limit=${LIMIT}`,
     path: (v) => `/deals/${encodeURIComponent(v)}`,
   },
+  {
+    // ‏דף לכל שכונה שיש בה נכס פעיל או 5 עסקאות ב-24 חודשים
+    // (‏docs/neighborhood-pages.md). ‏path_key = "afula/גבעת-המורה".
+    name: "שכונות",
+    page: "neighborhood",
+    key: "slug",
+    field: "path_key",
+    query: `rpc/neighborhood_pages_public?select=path_key&limit=${LIMIT}`,
+    path: (v) => `/n/${v.split("/").map(encodeURIComponent).join("/")}`,
+  },
 ];
 
 function entries(source: Source, rows: Record<string, unknown>[]): string[] {

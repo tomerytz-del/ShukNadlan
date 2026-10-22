@@ -91,6 +91,14 @@ DETAIL = {
     "developer",
     "professional",
     "article",
+    # ‏/n/{עיר}/{שכונה} - ה-canonical מהכתובת, ב-neighborhood-page.ts
+    "neighborhood",
+}
+
+# ‏דפי פירוט שהפונקציה שלהם אינה og-tags.ts: היא ממלאת את הדף ומזריקה את
+# ה-canonical מהכתובת עצמה (‏docs/neighborhood-pages.md).
+OWN_EDGE = {
+    "neighborhood": "neighborhood-page.ts",
 }
 
 # ‏דפים שאינם אמורים להיות בגוגל: האזור האישי, החתימה, וכתובות עם טוקן.
@@ -255,6 +263,18 @@ def edge_registered(page: str) -> list[str]:
             "אינו ב-SOURCES של netlify/edge-functions/sitemap.ts — הרשומות\n"
             "            שלו לא ייכנסו ל-sitemap, וגוגל לא תדע שהן קיימות"
         )
+
+    # דף פירוט בצורת נתיב (‏/n/{עיר}/{שכונה}) ממולא בפונקציה משלו, שמזריקה את
+    # ה-canonical מהכתובת - כמו deals-page.ts. היא מחליפה את og-tags.ts.
+    own = OWN_EDGE.get(page)
+    if own:
+        src = (ROOT / "netlify/edge-functions" / own).read_text(encoding="utf-8")
+        if '"/%s"' % page not in src.split("export const config")[-1] or 'rel="canonical"' not in src:
+            missing.append(
+                "netlify/edge-functions/%s אינה רשומה לדף או אינה מזריקה\n"
+                "            canonical - ולכן אין לו canonical בכלל" % own
+            )
+        return missing
 
     og_ts = (ROOT / "netlify/edge-functions/og-tags.ts").read_text(encoding="utf-8")
     config = og_ts.split("export const config")[-1]
