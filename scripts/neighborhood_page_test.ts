@@ -46,6 +46,8 @@ const HOOD = {
   median_price: 1430000, median_ppsqm: 13600,
   by_rooms: [{ rooms: 4, deals: 60, median_price: 1450000, median_ppsqm: 13500 }, { rooms: 6, deals: 3, median_price: null, median_ppsqm: null }],
   siblings: [{ name: "מרכז העיר", slug: "מרכז-העיר" }],
+  about: { intro: "פסקה ראשונה על השכונה, עם מספיק מילים כדי להיות פסקה.\n\nפסקה שנייה </script>", fits: "למשפחות",
+    faq: [{ q: "כמה עולה דירת 4 חדרים?", a: "החציון הוא 1,450,000 ש\"ח." }] },
 };
 
 const URL_HOOD = "https://shuknadlan.co.il/n/afula/" + encodeURIComponent("גבעת-המורה");
@@ -79,6 +81,8 @@ function check(name: string, ok: boolean) {
   check("מטמון", !!res.headers.get("Netlify-CDN-Cache-Control"));
   check("שם עם </script> מוברח", !html.includes("</script><b>x"));
   check("תמונה זרה לא נכנסת", !html.includes("evil.example"));
+  check("תיאור מאושר: פסקאות ושאלות", html.includes("<p>פסקה ראשונה") && html.includes("<h3>כמה עולה דירת 4 חדרים?</h3>"));
+  check("FAQPage ב-JSON-LD", html.includes('"@type":"FAQPage"'));
   check("קישור לשכונה סמוכה", html.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
 }
 {

@@ -20,6 +20,8 @@ const ADMIN_INBOX_KINDS = {
   license_appeal: { label:'ערעור רישיון',   acc:'accLicenseAppeals' },
   refund:         { label:'בקשת החזר',      acc:'accRefundQueue' },
   coach_gap:      { label:'חסר למנטור',     acc:'accCoachGaps' },
+  // טיוטת AI לדף שכונה - האישור ב"SEO ושכונות" (assets/crm-hood-drafts.js)
+  hood_draft:     { label:'תיאור שכונה',    acc:'accNeighborhoods' },
 };
 
 let adminInboxKind = null;      // הצ'יפ הנבחר; null = הכל
@@ -53,6 +55,9 @@ function inboxRowText(row){
   }
   if (row.kind === 'license_appeal'){
     return { title: m.name || 'פונה', sub: m.license ? 'רישיון ' + m.license : '' };
+  }
+  if (row.kind === 'hood_draft'){
+    return { title: m.name || 'שכונה', sub: [m.city, 'טיוטת AI לאישור'].filter(Boolean).join(' · ') };
   }
   if (row.kind === 'coach_gap'){
     const n = Number(m.asked) || 0;

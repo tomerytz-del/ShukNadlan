@@ -4387,6 +4387,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cst-err{margin:0;font-size:.75rem;font-weight:700;color:#b91c1c}
   .cst-form-btns{display:flex;gap:8px}
   .cst-form-btns .btn{padding:9px 18px;font-size:.82rem}
+  /* טיוטות תיאור לדפי השכונות (assets/crm-hood-drafts.js) */
+  #hoodDraftsBox:not(:empty){margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  .hd-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .hd-head h4{margin:0;font-size:.95rem}
+  .hd-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:#fff}
+  .hd-title{font-size:.86rem;margin-bottom:8px}
+  .hd-title a{color:var(--gold-dark,#8a6a1f);margin-inline-start:6px}
+  .hd-card label{display:block;font-size:.76rem;font-weight:700;color:var(--muted);margin-top:8px}
+  .hd-card textarea,.hd-card input{display:block;width:100%;margin-top:4px;border:1.5px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:.86rem;line-height:1.6;box-sizing:border-box}
+  .hd-faq{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+  .hd-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   /* פרסום מכל הערוצים (assets/crm-ads-spend.js) */
   .ads-total{display:flex;align-items:baseline;gap:8px;margin:0 0 8px}
   .ads-total b{font-size:1.3rem}
@@ -10122,6 +10133,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
+          <!-- טיוטות AI לדפי השכונות שממתינות לאישור (assets/crm-hood-drafts.js,
+               docs/neighborhood-pages.md). ריק עד שהמיגרציה 20270729090000 רצה. -->
+          <div id="hoodDraftsBox"></div>
           <p class="acc-sub">רשימה סגורה - רק כאן ניתן להוסיף/לערוך/למחוק. סוכנים בוחרים מהרשימה בלבד.</p>
           <div style="display:flex;gap:8px;margin-bottom:14px">
             <!-- העיר של השכונה. עד היום כל שכונה חדשה נשמרה "עפולה" קבוע, ולכן
@@ -12123,6 +12137,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/crm-growth.js"></script>
 <script src="assets/crm-budget.js"></script>
 <script src="assets/crm-ads-spend.js"></script>
+<script src="assets/crm-hood-drafts.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
