@@ -28,7 +28,10 @@ import {
   cleanSummaryV2,
   compactAgent,
   compactPeriod,
+  compactPlatform,
   compactTeams,
+  newTriggers,
+  platformTriggers,
   CTA_KINDS,
   ctaKindsFor,
   monthlyTotals,
@@ -41,7 +44,7 @@ import {
   experienceLabel,
   targetPct,
 } from "../supabase/functions/_shared/coach/payload.ts";
-import { agentSystemPrompt, askSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
+import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, SYSTEM_PROMPTS } from "../supabase/functions/_shared/coach/prompts.ts";
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
@@ -479,8 +482,11 @@ for (const kind of ["agent", "team", "office"] as const) {
   const askLib = readFileSync(new URL("../supabase/functions/_shared/coach/ask.ts", import.meta.url), "utf8");
   const coachFn = readFileSync(new URL("../supabase/functions/office-coach/index.ts", import.meta.url), "utf8");
   check("עלות: askCoach רושם טוקני מטמון", /cache_read_tokens:/.test(askLib) && /cache_write_tokens:/.test(askLib));
-  check("עלות: שלושת הסיכומים רושמים טוקני מטמון",
-    (coachFn.match(/cache_read_tokens: out\.cache_read_tokens/g) ?? []).length === 3);
+  // ‏3 טבלאות המנטורים של המשרדים, ו-platform_coach_summaries (שגם נרשמת ב-ai_usage_log)
+  check("עלות: ארבעת הסיכומים רושמים טוקני מטמון",
+    (coachFn.match(/cache_read_tokens: out\.cache_read_tokens/g) ?? []).length === 4);
+  check("עלות: המנטור של הפלטפורמה ביומן ai_usage_log, כי ai_usage_costs לא קוראת את הטבלה שלו",
+    /logAiUsage\(anthropicRow\("platform_coach"/.test(coachFn));
 }
 
 // ---------------------------------------------------------------------------
@@ -568,6 +574,79 @@ for (const kind of ["agent", "team", "office"] as const) {
       && chatSrc.indexOf("csmCapabilities(staff.display_name, first)") < chatSrc.indexOf("answer = await runCsmTurn"));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
     /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
+}
+
+// ---------------------------------------------------------------------------
+// מנהל/ת הפלטפורמה (?kind=platform): אגרגטים בלבד, חריגות, וכפתורים משלו
+// ---------------------------------------------------------------------------
+{
+  const raw = {
+    generated_at: "2026-10-22T08:00:00Z",
+    cc: {
+      marketplace: { agents_active: 60, agencies: 35, leads_30d: 34, leads_prev_30d: 60, paying: 0, on_promo: 50,
+        response: { total: 34, measured: 5, within_12h: 4, median_hours: 2.1, secret: "x" }, owner_phone: "0501234567" },
+      health: { findings_high: 1, findings_medium: 3, cron_failed_24h: ["deals-sync"], markets_errors: 0,
+        news_last_at: "2026-10-22T02:00:00Z" },
+    },
+    report: {
+      months: [{ month: "2026-08", leads_total: 1 }, { month: "2026-09", leads_total: 60, agencies_new: 5 },
+        { month: "2026-10", leads_total: 34, revenue_total: 140, leads: { rss: 0 } }],
+      agencies: [{ name: "משרד הדוגמה בע\"מ", agents: 4 }],
+    },
+    counts: { total: 3, overdue: 2, kinds: { refund: { total: 2, overdue: 2 }, article: { total: 0, overdue: 0 },
+      license_appeal: { total: 1, overdue: 0 } } },
+    growth: {
+      funnel: { "30d": { signed: 23, licensed: 22, first_property: 14, paying: 0 }, all: { signed: 33 } },
+      markets: [{ slug: "afula-emek", agencies: 32, agents: 55, props_active: 207, props_new_30d: 132, leads_30d: 37 },
+        { slug: "safed", agencies: 0, agents: 0, props_active: 0, leads_30d: 0 }],
+      stuck_license: [{ id: "4ac2f5e9-9759-41bd-a6d1-5189f50ef11b", name: "משרד תקוע", slug: "stuck" }],
+      campaigns: [{ name: "קמפיין סודי" }],
+    },
+    budget: { categories: [{ key: "ai", spent: 1633, budget: 1250, pct: 131, approved: false },
+      { key: "infra", spent: 1780, budget: 1350, pct: 132, approved: true }] },
+    ads: { total: 546.99, channels: [{ channel: "google", spend: 454, clicks: 67, leads: 0,
+      campaigns: [{ name: "שוק נדלן | גיוס מתווכים", spend: 231 }] }] },
+  };
+  const refs = new Refs();
+  const p = compactPlatform(raw, refs, { "afula-emek": ["עפולה", "בית שאן", "עפולה עילית", "גבע"] });
+  const out = JSON.stringify(p);
+  check("מנהל/ת הפלטפורמה: בלי שם משרד, שם קמפיין, טלפון או מזהה",
+    !out.includes("משרד הדוגמה") && !out.includes("משרד תקוע") && !out.includes("קמפיין סודי")
+      && !out.includes("גיוס מתווכים") && !out.includes("0501234567") && !out.includes("4ac2f5e9") && !out.includes("secret"), out);
+  check("מנהל/ת הפלטפורמה: לידים לסוכן/ת - המדד המרכזי", (p.marketplace_30_days as Record<string, unknown>).leads_per_agent === 0.57);
+  check("מנהל/ת הפלטפורמה: רק שווקים עם פעילות, עם עד 3 ערים, ו-ref שהוא ה-slug",
+    p.markets.length === 1 && p.markets[0].ref === "afula-emek" && p.markets[0].cities.length === 3 && p.markets_planned_empty === 1);
+  check("מנהל/ת הפלטפורמה: חודשיים אחרונים בלבד, בלי פירוט הלידים", p.months.length === 2 && !("leads" in p.months[1]));
+  check("מנהל/ת הפלטפורמה: תיבת המשימות - רק סוגים עם פריטים", p.inbox.kinds.map((k) => k.ref).join() === "refund,license_appeal");
+  check("מנהל/ת הפלטפורמה: רישיון תקוע נספר ולא נקרא בשמו", p.recruitment.license_stuck === 1);
+  const trig = platformTriggers(p);
+  check("חריגות: איחור בתיבה, ממצא, cron, תקציב מאושר מעל 100% וירידת לידים - לא תקציב שלא אושר",
+    trig.join() === ["budget_over:infra", "cron_failed", "findings_high", "inbox_overdue:refund", "leads_drop"].join(), trig);
+  check("חריגות: מה שכבר היה בסיכום האחרון אינו חדש",
+    newTriggers(trig, ["cron_failed", "findings_high", "inbox_overdue:refund", "leads_drop", "budget_over:infra"]).length === 0
+      && newTriggers(trig, null).length === 5 && newTriggers(["findings_high"], ["cron_failed"]).join() === "findings_high");
+  const ps = cleanSummaryV2({
+    headline: "שבוע של גיוס", summary: "", strength: "", focus: "", questions: [],
+    actions: [
+      { priority: "high", title: "בקשות החזר שמחכות", why: "שתיים חרגו", impact: "", cta: { kind: "open_inbox", ref: "refund" } },
+      { priority: "mid", title: "שוק שלא קיים", why: "x", impact: "", cta: { kind: "open_market", ref: "tel-aviv" } },
+      { priority: "win", title: "ליד", why: "x", impact: "", cta: { kind: "open_lead", ref: "afula-emek" } },
+    ],
+  }, "platform", refs.map);
+  check("מנהל/ת הפלטפורמה: כפתור מהרשימה שלו, ref רק משוק או סוג שנשלחו",
+    ps?.actions[0].cta?.kind === "open_inbox" && ps?.actions[0].cta?.ref === "refund"
+      && ps?.actions[1].cta === null && ps?.actions[2].cta === null, ps);
+  check("מנהל/ת הפלטפורמה: הכפתורים של המשרדים אינם שלו, ושלו אינם של המשרדים",
+    !ctaKindsFor("platform").includes("open_lead") && !ctaKindsFor("office").includes("open_inbox")
+      && ctaKindsFor("platform").sort().join() === "new_campaign,open_content,open_costs,open_health,open_inbox,open_market");
+  check("מנהל/ת הפלטפורמה: הפרומפט - לידים לסוכן/ת, שבועי וחריגה, ובלי מקף ארוך",
+    PLATFORM_SYSTEM_PROMPT.includes("המדד המרכזי הוא לידים לסוכן/ת") && PLATFORM_SYSTEM_PROMPT.includes("new_exceptions")
+      && !/[\u2013\u2014]/.test(PLATFORM_SYSTEM_PROMPT));
+  check("מנהל/ת הפלטפורמה: כל כפתור בסכמה מתואר בפרומפט",
+    ctaKindsFor("platform").every((k) => PLATFORM_SYSTEM_PROMPT.includes("- " + k)));
+  const ui = readFileSync(new URL("../assets/crm-coach.js", import.meta.url), "utf8");
+  check("מנהל/ת הפלטפורמה: כל כפתור קיים גם ב-COACH_CTA",
+    ctaKindsFor("platform").every((k) => new RegExp("\\b" + k + ":\\s*\\{").test(ui)));
 }
 
 // ---------------------------------------------------------------------------

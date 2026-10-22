@@ -4,6 +4,8 @@
 //   ?kind=office (ברירת מחדל) "מאמן AI לבעלי משרדים" - שבועי, לכל משרד
 //   ?kind=team                "מאמן מנהלי צוותים AI" - שבועי, לכל צוות
 //   ?kind=agent               "מאמן סוכני נדל״ן AI"  - יומי, לכל סוכן/ת פעיל/ה
+//   ?kind=platform            "מנטור AI למנהל הפלטפורמה" - שבועי בראשון, ובשאר
+//                             הימים רק על חריגה חדשה (runPlatform)
 //
 // ‏pg_cron קורא לכל kind רק כשיש מי שמחכה (office_coach_due, team_coach_due,
 // agent_coach_due; ‏20270407090000, ‏20270601160000). לכל אחד:
@@ -27,6 +29,7 @@
 //   ?agency=<uuid>    משרד אחד (kind=office)
 //   ?team=<uuid>      צוות אחד (kind=team)
 //   ?agent=<uuid>     סוכן/ת אחד/ת (kind=agent), גם כשהמאמן כבוי
+//   ?mode=weekly|exception  (kind=platform) לכתוב עכשיו, גם בלי חריגה חדשה
 //
 // ‏docs/coaches.md, ‏docs/office-coach.md
 // ============================================================================
@@ -34,12 +37,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import {
-  addDays, agentFingerprintSource, cleanSummaryV2, coachNotification, type CoachKind, type CoachSummaryV2, compactAgent,
-  compactPeriod, compactTeams, type Genders, monthlyTotals, previousTitles, type RefMap, Refs, type Row,
-  summarySchema, targetPct,
+  addDays, agentFingerprintSource, cleanSummaryV2, coachNotification, type CoachSummaryV2, compactAgent,
+  compactPeriod, compactPlatform, compactTeams, type Genders, monthlyTotals, newTriggers, platformTriggers, previousTitles,
+  type RefMap, Refs, type Row, summarySchema, type SummaryKind, targetPct,
 } from "../_shared/coach/payload.ts";
-import { agentSystemPrompt, cleanTone, SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
+import { agentSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -82,7 +86,10 @@ type CoachOut =
   }
   | { ok: false; reason: string };
 
-async function coach(kind: CoachKind, payload: unknown, refs: RefMap, system = SYSTEM_PROMPTS[kind]): Promise<CoachOut> {
+async function coach(
+  kind: SummaryKind, payload: unknown, refs: RefMap,
+  system = kind === "platform" ? PLATFORM_SYSTEM_PROMPT : SYSTEM_PROMPTS[kind],
+): Promise<CoachOut> {
   const model = kind === "agent" ? AGENT_MODEL : OFFICE_MODEL;
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {
@@ -436,7 +443,96 @@ async function runAgent(supabase: SupabaseClient, url: URL, dryRun: boolean, sta
   return report("agent", { day }, dryRun, results);
 }
 
-function report(kind: CoachKind, extra: Row, dryRun: boolean, results: Row[]) {
+// ---------------------------------------------------------------------------
+// platform: מנהל/ת הפלטפורמה. שבועי, ובאמצע השבוע רק על חריגה חדשה.
+// ---------------------------------------------------------------------------
+/* כל בוקר (cron platform-coach, ‏20270730090000):
+     1. כבר נכתב היום - לא עושים כלום.
+     2. אין סיכום שבועי מאז ראשון - weekly.
+     3. אחרת - חריגה שלא הייתה בסיכום האחרון (newTriggers) - exception.
+     4. אחרת - בלי קריאה למודל. זה רוב הימים, ובכוונה: "רק על חריגות".
+   השורה נושאת את החריגות של אותו בוקר, כדי שמחר לא יחזרו כחדשות. */
+async function runPlatform(supabase: SupabaseClient, url: URL, dryRun: boolean) {
+  const forced = url.searchParams.get("mode");
+  if (forced && forced !== "weekly" && forced !== "exception") return json({ error: "bad_mode" }, 400);
+
+  const [dayR, wsR, input, last, lastWeekly] = await Promise.all([
+    supabase.rpc("coach_today"),
+    supabase.rpc("office_coach_week_start"),
+    supabase.rpc("platform_coach_input"),
+    supabase.from("platform_coach_summaries").select("day, summary, triggers")
+      .order("day", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("platform_coach_summaries").select("day").eq("kind", "weekly")
+      .order("day", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const dbErr = dayR.error ?? wsR.error ?? input.error ?? last.error ?? lastWeekly.error;
+  if (dbErr || !dayR.data || !wsR.data) return json({ error: "db_error", detail: dbErr?.message }, 500);
+  const day = String(dayR.data);
+  const weekStart = String(wsR.data);
+  if (last.data?.day === day && !forced) return report("platform", { day, skipped: "already_today" }, dryRun, []);
+
+  // שמות הערים בכל שוק, כדי שהמנטור יכתוב "עפולה" ולא slug. כשל - בלי שמות.
+  const raw = input.data as Row;
+  const slugs = (((raw.growth as Row | undefined)?.markets as Row[] | undefined) ?? []).map((m) => String(m.slug));
+  const names = await supabase.from("market_city_names").select("market_slug, name").in("market_slug", slugs);
+  const cities: Record<string, string[]> = {};
+  for (const r of (names.data ?? []) as { market_slug: string; name: string }[]) {
+    (cities[r.market_slug] ??= []).push(r.name);
+  }
+
+  const refs = new Refs();
+  const data = compactPlatform(raw, refs, cities);
+  const triggers = platformTriggers(data);
+  const fresh = newTriggers(triggers, last.data?.triggers as string[] | null);
+  const weeklyDue = !lastWeekly.data || String(lastWeekly.data.day) < weekStart;
+  const mode = forced ?? (weeklyDue ? "weekly" : fresh.length ? "exception" : null);
+  if (!mode) return report("platform", { day, skipped: "no_new_exception", triggers }, dryRun, []);
+
+  const payload = {
+    mode,
+    ...(mode === "exception" ? { new_exceptions: fresh } : {}),
+    exceptions_now: triggers,
+    ...data,
+    previous_actions: previousTitles(last.data?.summary),
+  };
+  const out = await coach("platform", payload, refs.map);
+  if (!out.ok) {
+    console.error("platform-coach failed", out.reason);
+    return report("platform", { day, mode }, dryRun, [{ error: out.reason }]);
+  }
+  // ‏ai_usage_log ולא עמודות הטבלה: ai_usage_costs (פאנל "עלויות") קורא את
+  // היומן, ואת שלוש טבלאות המנטורים של המשרדים בלבד
+  logAiUsage(anthropicRow("platform_coach", out.model, {
+    input_tokens: Math.max(0, out.input_tokens - out.cache_read_tokens - out.cache_write_tokens),
+    output_tokens: out.output_tokens,
+    cache_read_input_tokens: out.cache_read_tokens,
+    cache_creation_input_tokens: out.cache_write_tokens,
+  }));
+  if (!dryRun) {
+    const { error } = await supabase.from("platform_coach_summaries").upsert({
+      day, kind: mode, summary: out.summary, triggers, model: out.model,
+      input_tokens: out.input_tokens, output_tokens: out.output_tokens, actions_done: [],
+      cache_read_tokens: out.cache_read_tokens, cache_write_tokens: out.cache_write_tokens,
+    }, { onConflict: "day" });
+    if (error) return report("platform", { day, mode }, dryRun, [{ error: "db_error", detail: error.message }]);
+    // לכל מנהלי הפלטפורמה. כשל כאן אינו מפיל את הסיכום, שכבר נשמר.
+    const n = coachNotification(out.summary);
+    const { data: admins } = await supabase.from("agency_members").select("id")
+      .eq("is_platform_admin", true).eq("active", true);
+    if (admins?.length) {
+      const { error: nErr } = await supabase.from("notifications").insert(admins.map((a) => ({
+        agent_id: a.id, type: "platform_coach", title: n.title, body: n.body,
+      })));
+      if (nErr) console.error("platform-coach notification failed", nErr.message);
+    }
+  }
+  return report("platform", { day, mode }, dryRun, [{
+    ok: true, input_tokens: out.input_tokens, output_tokens: out.output_tokens,
+    ...(dryRun ? { summary: out.summary, payload } : {}),
+  }]);
+}
+
+function report(kind: SummaryKind, extra: Row, dryRun: boolean, results: Row[]) {
   return json({
     kind,
     ...extra,
@@ -461,7 +557,7 @@ Deno.serve(async (req: Request) => {
   if (!ANTHROPIC_KEY) return json({ error: "anthropic_not_configured", detail: "‏ANTHROPIC_API_KEY אינו מוגדר." }, 503);
 
   const url = new URL(req.url);
-  const kind = (url.searchParams.get("kind") || "office") as CoachKind;
+  const kind = (url.searchParams.get("kind") || "office") as SummaryKind;
   const dryRun = url.searchParams.get("dry_run") === "1";
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const started = Date.now();
@@ -469,5 +565,6 @@ Deno.serve(async (req: Request) => {
   if (kind === "office") return runOffice(supabase, url, dryRun, started);
   if (kind === "team") return runTeam(supabase, url, dryRun, started);
   if (kind === "agent") return runAgent(supabase, url, dryRun, started);
+  if (kind === "platform") return runPlatform(supabase, url, dryRun);
   return json({ error: "bad_kind" }, 400);
 });

@@ -7,6 +7,8 @@
      agent   "מנטור סוכני נדל״ן AI"  - בדשבורד שלי, יומי
      team    "מנטור מנהלי צוותים AI" - בדאשבורד הצוות, שבועי
      office  "מנטור AI לבעלי משרדים" - בדאשבורד המשרד, שבועי
+     platform "מנטור AI למנהל הפלטפורמה" - במרכז הפיקוד, שבועי ועל חריגה.
+              בלי "שאל את המנטור" (askCoach אינו מכיר אותו). docs/coaches.md
 
    הסיכומים נכתבים ב-supabase/functions/office-coach ונקראים כאן לפי RLS:
    סוכן/ת רואה רק את שלו/ה, מנהל/ת צוות את של הצוות, מנהלי המשרד את של
@@ -29,12 +31,14 @@ const COACH_TITLES = {
   agent:  'מנטור סוכני נדל״ן AI',
   team:   'מנטור מנהלי צוותים AI',
   office: 'מנטור AI לבעלי משרדים',
+  platform: 'מנטור AI למנהל הפלטפורמה',
 };
 
 const COACH_TABLES = {
   agent:  { table:'agent_coach_summaries',  date:'day' },
   team:   { table:'team_coach_summaries',   date:'week_start' },
   office: { table:'office_coach_summaries', date:'week_start' },
+  platform: { table:'platform_coach_summaries', date:'day' },
 };
 
 const COACH_PRIORITY = {
@@ -44,7 +48,7 @@ const COACH_PRIORITY = {
 };
 
 /* undefined = טרם נטען, null = אין סיכום, false = הטעינה נכשלה */
-const coachState = { agent: undefined, team: undefined, office: undefined };
+const coachState = { agent: undefined, team: undefined, office: undefined, platform: undefined };
 /* מי מצייר מחדש אחרי "בוצע" - כל דאשבורד רושם את שלו */
 const coachRerender = {};
 /* ציור מחדש של כל מקום שמציג את המנטור: הדאשבורד של אותו kind, ושכבת
@@ -102,6 +106,14 @@ const COACH_CTA = {
   open_matches:          { label:'להתאמות',           acc:'accAlerts',      run: () => gotoSection('accAlerts') },
   open_team_agent:       { label:'לסוכן/ת',           acc:null,             run: (a, kind) => coachOpenAgent(kind, a.cta.ref) },
   open_expiring:         { label:'לבלעדיות שפוקעות',  acc:'accOfficeDashboard', run: () => coachScrollTo('odExpiring') },
+  // מנהל/ת הפלטפורמה (CTA_KINDS ב-payload.ts). ‏ref של open_inbox הוא סוג בתיבה,
+  // של open_market ו-new_campaign ה-slug של השוק
+  open_inbox:   { label:'לתיבת המשימות',     acc:'accAdminInbox',  run: a => coachOpenInbox(a.cta.ref) },
+  open_market:  { label:'לשוק',              acc:'accGrowth',      run: a => coachOpenMarket(a.cta.ref) },
+  new_campaign: { label:'לקונסולת הקמפיינים', acc:'dashPanelAds',  run: () => gotoSection('dashPanelAds') },
+  open_health:  { label:'לבריאות המערכת',    acc:null,             run: () => openAdminOpsPanel() },
+  open_content: { label:'לכתבות ובלוגים',     acc:'accArticles',    run: () => gotoSection('accArticles') },
+  open_costs:   { label:'לעלויות מול תקציב', acc:'dashPanelCosts', run: () => gotoSection('dashPanelCosts') },
 };
 
 function coachCtaFor(kind, action){
@@ -132,6 +144,29 @@ function coachOpenAgent(kind, id){
   if (typeof renderTeamAgents === 'function') renderTeamAgents();
   setTimeout(() => {
     const el = document.querySelector(`[data-td-agent="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.classList.add('is-focus');
+    el.scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(() => el.classList.remove('is-focus'), 2600);
+  }, 450);
+}
+
+/* תיבת המשימות מסוננת לסוג (crm-admin-inbox.js). סוג שאינו מוכר - הכל. */
+function coachOpenInbox(kind){
+  if (typeof adminInboxKind !== 'undefined'){
+    adminInboxKind = (typeof ADMIN_INBOX_KINDS !== 'undefined' && ADMIN_INBOX_KINDS[kind]) ? kind : null;
+  }
+  gotoSection('accAdminInbox');
+  if (typeof loadAdminInbox === 'function') loadAdminInbox();
+}
+
+/* השורה של השוק בלשונית השווקים של "שווקים וצמיחה" (data-market, crm-growth.js) */
+function coachOpenMarket(slug){
+  if (typeof growthTab !== 'undefined') growthTab = 'markets';
+  gotoSection('accGrowth');
+  if (typeof renderGrowthTabs === 'function'){ renderGrowthTabs(); renderGrowth(); }
+  setTimeout(() => {
+    const el = document.querySelector(`[data-market="${CSS.escape(slug)}"]`);
     if (!el) return;
     el.classList.add('is-focus');
     el.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -203,6 +238,9 @@ function coachWeekLabel(weekStart){
 }
 
 function coachSub(kind, row){
+  if (kind === 'platform'){
+    return (row.kind === 'exception' ? 'עדכון על חריגה · ' : 'סיכום שבועי · ') + coachDateLabel(row.day);
+  }
   if (kind === 'agent') return 'עודכן ' + coachDateLabel(row.day) + ' · מבוסס על 30 הימים האחרונים שלך';
   return 'סיכום שבועי · ' + coachWeekLabel(row.week_start);
 }
@@ -215,6 +253,7 @@ const COACH_EMPTY = {
   agent:  'עוד אין סיכום יומי בחשבון שלך. כשיהיה, הוא יופיע כאן בבוקר עם עד שלושה צעדים להיום. בינתיים אפשר לשאול את המנטור כל שאלה מקצועית.',
   team:   'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד בצוות בשבוע שעבר, מה תקוע, שלושה צעדים לשבוע וסדר יום לישיבת הצוות.',
   office: 'הסיכום הראשון יגיע ביום ראשון בבוקר: מה עבד במשרד בשבוע שעבר, מה תקוע, ועד שלוש החלטות לשבוע הזה.',
+  platform: 'הסיכום הראשון יגיע ביום ראשון בבוקר: הביקוש לסוכן/ת, השווקים, הגיוס והכסף, ועד שלוש החלטות לשבוע. באמצע השבוע המנטור כותב רק כשמשהו חורג.',
 };
 
 /* הדמות של המנטור: אווטאר עגול (assets/mentor-avatar.webp, נחתך מתמונה
@@ -236,9 +275,10 @@ function coachCardHtml(kind, opts){
   if (!row || !row.summary){
     if (!COACH_EMPTY[kind]) return '';
     return `<section class="coach" aria-label="${escapeHtml(COACH_TITLES[kind])}">
-      ${coachHead(kind, kind === 'agent' ? 'סיכום יומי אישי' : kind === 'team' ? 'סיכום שבועי לצוות' : 'סיכום שבועי למשרד')}
+      ${coachHead(kind, kind === 'agent' ? 'סיכום יומי אישי' : kind === 'team' ? 'סיכום שבועי לצוות'
+        : kind === 'platform' ? 'סיכום שבועי ועדכון על חריגות' : 'סיכום שבועי למשרד')}
       <p class="coach-empty">${escapeHtml(COACH_EMPTY[kind])}</p>
-      ${o.compact ? '' : coachAskHtml(kind, [])}</section>`;
+      ${o.compact || kind === 'platform' ? '' : coachAskHtml(kind, [])}</section>`;
   }
   const s = row.summary;
   const disclaimer = '<p class="coach-note">נכתב אוטומטית מהמספרים. כדאי לבדוק לפני שפועלים.</p>';
@@ -261,7 +301,8 @@ function coachCardHtml(kind, opts){
 
   const done = new Set((row.actions_done || []).map(Number));
   const actions = (s.actions || []).slice(0, o.compact ? 2 : 3);
-  const actsTitle = kind === 'agent' ? 'צעדים להיום' : kind === 'team' ? 'מה לעשות השבוע' : 'החלטות לשבוע הזה';
+  const actsTitle = kind === 'agent' ? 'צעדים להיום' : kind === 'team' ? 'מה לעשות השבוע'
+    : kind === 'platform' && row.kind === 'exception' ? 'מה לעשות עכשיו' : 'החלטות לשבוע הזה';
   return `<section class="coach${o.compact ? ' is-compact' : ''}" aria-label="${escapeHtml(COACH_TITLES[kind])}">
     ${coachHead(kind, coachSub(kind, row))}
     ${s.headline ? `<p class="coach-hl">${escapeHtml(s.headline)}</p>` : ''}
@@ -295,7 +336,7 @@ function coachCardHtml(kind, opts){
       ${typeof navAccVisible !== 'function' || navAccVisible('accAgenda')
         ? '<button type="button" class="coach-cta is-ghost" data-coach-meeting="team">קביעת ישיבת צוות ביומן</button>' : ''}
     </div>` : ''}
-    ${o.compact ? '' : coachAskHtml(kind, Array.isArray(s.questions) ? s.questions : [])}
+    ${o.compact || kind === 'platform' ? '' : coachAskHtml(kind, Array.isArray(s.questions) ? s.questions : [])}
     ${disclaimer}
   </section>`;
 }
