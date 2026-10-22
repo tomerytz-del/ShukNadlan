@@ -96,6 +96,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   admin_overdue: "accAdminInbox",
   // ‏הודעה לכל הסוכנים מהפלטפורמה (admin_broadcast) - לרשימת ההודעות
   platform_broadcast: "accPlatformNews",
+  // ‏"דף האזור קרוב לפתיחה" (20270725090000) - להעלאת נכס
+  market_nudge: "accProperties",
   platform_upgrade: "accSubscriptions",
   agenda_reminder: "accAgenda",
   showcase_activity: "accClients",
