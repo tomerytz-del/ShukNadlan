@@ -34,3 +34,18 @@ jobs:
         run: |
           npm i -g deno@2.5.6 >/dev/null
           deno eval 'const r = await fetch("https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan_6991/MapServer?f=json"); console.log(r.status, (await r.text()).slice(0, 300));'
+
+      # ‏הממסר עצמו (‏netlify/functions/xplan.mjs) מול XPlan, ב-Node - לפני שהוא
+      # עולה ל-Netlify. דפנה 4 עפולה: צריך לחזור "מגורים" מהמתאר הכוללנית.
+      - name: הממסר מול XPlan
+        if: always()
+        run: |
+          node --input-type=module -e '
+            process.env.XPLAN_RELAY_TOKEN = "probe";
+            const m = await import("./netlify/functions/xplan.mjs");
+            for (const [name, q] of [["דפנה 4 עפולה", "lat=32.614662&lng=35.294593"], ["ראשון לציון", "lat=31.9642&lng=34.8044"]]) {
+              const r = await m.default(new Request("https://shuknadlan.co.il/.netlify/functions/xplan?" + q, { headers: { "x-relay-token": "probe" } }));
+              const body = await r.text();
+              console.log(name, r.status, body.length, body.slice(0, 1200));
+              if (r.status !== 200) process.exitCode = 1;
+            }'
