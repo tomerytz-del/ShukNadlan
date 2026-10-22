@@ -28,12 +28,13 @@ async function loadCommandCenter(){
   const host = document.getElementById('adminCommand');
   if (!host || ccBusy) return;
   ccBusy = true;
-  const [cc, inbox, counts, report, budget] = await Promise.all([
+  const [cc, inbox, counts, report, budget, ads] = await Promise.all([
     sb.rpc('admin_command_center'),
     sb.rpc('admin_inbox', { p_kind: null, p_limit: 7, p_offset: 0 }),
     sb.rpc('admin_inbox_counts'),
     sb.rpc('platform_admin_monthly_report', { p_months: 3 }),
     sb.rpc('platform_budget_status'),
+    sb.rpc('admin_ads_spend', {}),
   ]);
   ccBusy = false;
 
@@ -41,6 +42,8 @@ async function loadCommandCenter(){
   renderCcInbox(inbox.error ? null : inbox.data);
   renderCcTools(cc.error ? null : cc.data);
   renderCcMonth(report.error ? null : report.data, cc.error ? null : cc.data);
+  const adsHost = document.getElementById('ccAds');
+  if (adsHost && typeof adsSpendHtml === 'function') adsHost.innerHTML = adsSpendHtml(ads.error ? null : ads.data);
 
   if (cc.error){
     // ‏PGRST202 - האתר עולה לפני המסד (הסקיל deploy-path)

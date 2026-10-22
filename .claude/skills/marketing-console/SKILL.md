@@ -215,3 +215,12 @@ python scripts/check_duplicate_ids.py    # id חדש בפאנל שכבר קיי�
 שינוי ב-SQL של `probes/ads.py` נבדק גם מול Postgres מקומי עם המיגרציות
 האמיתיות של `ads_*`. הבדיקה ב-`ops_ads_test.py` מחזירה שורות קבועות, ולכן
 שם עמודה שגוי עובר בה.
+
+## ערוץ פרסום חדש, והסכום של כל הערוצים
+
+הניהול מציג את סך הפרסום מכל הערוצים, עם פירוט לכל קמפיין (`admin_ads_spend`,
+‏`assets/crm-ads-spend.js`). מטא מ-`ads_insights_daily`, וכל ערוץ אחר מ-
+`ads_channel_daily` - גוגל נכתבת שם מ-`google_sync_insights`. **ערוץ חדש** (TikTok,
+יד2) כותב שורות ליום ולקמפיין לאותה טבלה עם `channel` משלו, ומקבל שם בעברית
+ב-`ADS_CHANNELS`. בלי זה ההוצאה שלו לא נספרת בתקציב הפרסום ולא בכרטיס במרכז הפיקוד
+(`docs/platform-costs.md`, "פרסום: מכל הערוצים").

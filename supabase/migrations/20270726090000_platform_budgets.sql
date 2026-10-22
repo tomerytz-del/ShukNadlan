@@ -10,6 +10,13 @@
 -- בפאנל, אבל תקציב הוא כסף שיצא, ומה שיצא הוא הקבלה. כך גם מנוי Claude
 -- וטעינות הקרדיט נספרים, ואין ספירה כפולה של אותה הוצאה.
 --
+-- **הפרסום נמדד מהערוצים, לא מהקבלות** (תומר, 22.10.2026: "סך כל הפרסומים
+-- מכל הערוצים, עם פירוט בלחיצה של כל קמפיין - מטא, גוגל ומי שעוד נכניס").
+-- הקבלה של מטא מגיעה כ-PDF וממתינה בלי סכום, וגוגל לא שולחת קבלה למייל;
+-- ההוצאה היומית לכל קמפיין כבר אצלנו. מטא ב-`ads_insights_daily` (הסנכרון
+-- הלילי הקיים), וכל ערוץ אחר ב-`ads_channel_daily` - גוגל מהלילה, וערוץ חדש
+-- כותב לשם שורות עם `channel` משלו, בלי מיגרציה.
+--
 -- **הסכומים הראשונים הם הצעה** (תומר, 22.10.2026: "לפי ההוצאה בפועל"):
 -- ממוצע שלושת החודשים האחרונים בכל קטגוריה, מעוגל כלפי מעלה ל-50 ₪. הצעה
 -- (`approved_at is null`) מוצגת עם "לאישור" ואינה מתריעה - התראה על סכום
@@ -38,6 +45,95 @@ alter table public.platform_budgets enable row level security;
 revoke all on table public.platform_budgets from anon, authenticated, service_role;
 grant select on table public.platform_budgets to service_role;
 
+-- ---------------------------------------------------------------------------
+-- 0. ההוצאה על פרסום, מכל הערוצים
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.ads_channel_daily (
+  channel         text not null check (channel ~ '^[a-z0-9_]{2,30}$'),
+  day             date not null,
+  campaign_id     text not null,
+  campaign_name   text,
+  campaign_status text,
+  spend           numeric not null default 0,
+  currency        text not null default 'ILS' check (currency in ('ILS', 'USD')),
+  clicks          bigint not null default 0,
+  impressions     bigint not null default 0,
+  conversions     numeric not null default 0,
+  synced_at       timestamptz not null default now(),
+  primary key (channel, day, campaign_id)
+);
+
+comment on table public.ads_channel_daily is
+  'הוצאה יומית לכל קמפיין בערוצי פרסום שאינם מטא (מטא ב-ads_insights_daily). גוגל נכתבת מ-ads-admin google_sync_insights. ערוץ חדש = channel חדש. docs/platform-costs.md';
+
+alter table public.ads_channel_daily enable row level security;
+-- נכתבת מ-ads-admin (service_role) ונקראת דרך admin_ads_spend
+revoke all on table public.ads_channel_daily from anon, authenticated, service_role;
+grant select, insert, update, delete on table public.ads_channel_daily to service_role;
+
+-- שורה לכל ערוץ וקמפיין בטווח, בשקלים. מטא: חשבון המודעות בשקלים (הקונסולה
+-- מציגה ₪), ולכן בלי המרה. ‏leads - לידים במטא, המרות בגוגל.
+create or replace function public._ads_spend(p_from date, p_to date, p_rate numeric)
+returns table (channel text, campaign_id text, campaign_name text, spend numeric, clicks bigint, leads numeric)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select 'meta', i.campaign_id, max(i.object_name), sum(coalesce(i.spend, 0)),
+         sum(coalesce(i.link_clicks, i.clicks, 0))::bigint, sum(coalesce(i.leads, 0))
+    from public.ads_insights_daily i
+   where i.level = 'campaign' and i.day between p_from and p_to
+   group by i.campaign_id
+  union all
+  select d.channel, d.campaign_id, max(d.campaign_name),
+         sum(case when d.currency = 'USD' then d.spend * p_rate else d.spend end),
+         sum(d.clicks)::bigint, sum(d.conversions)
+    from public.ads_channel_daily d
+   where d.day between p_from and p_to
+   group by d.channel, d.campaign_id;
+$$;
+
+revoke all on function public._ads_spend(date, date, numeric) from public, anon, authenticated;
+
+create or replace function public.admin_ads_spend(p_from date default null, p_to date default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_from date := coalesce(p_from, date_trunc('month', (now() at time zone 'Asia/Jerusalem'))::date);
+  v_to   date := coalesce(p_to, (now() at time zone 'Asia/Jerusalem')::date);
+  v_rate numeric := coalesce((select b.amount from public.platform_budgets b where b.key = 'usd_rate'), 3.7);
+begin
+  if not public.current_is_platform_admin() then
+    raise exception 'not_platform_admin' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'from', v_from, 'to', v_to,
+    'total', coalesce((select round(sum(s.spend), 2) from public._ads_spend(v_from, v_to, v_rate) s), 0),
+    'synced', jsonb_build_object(
+      'meta', (select max(i.synced_at) from public.ads_insights_daily i),
+      'google', (select max(d.synced_at) from public.ads_channel_daily d where d.channel = 'google')),
+    'channels', coalesce((select jsonb_agg(jsonb_build_object(
+        'channel', c.channel, 'spend', c.spend, 'clicks', c.clicks, 'leads', c.leads, 'campaigns', c.campaigns)
+        order by c.spend desc)
+      from (select s.channel, round(sum(s.spend), 2) spend, sum(s.clicks) clicks, sum(s.leads) leads,
+                   jsonb_agg(jsonb_build_object('id', s.campaign_id, 'name', s.campaign_name,
+                     'spend', round(s.spend, 2), 'clicks', s.clicks, 'leads', s.leads) order by s.spend desc) campaigns
+              from public._ads_spend(v_from, v_to, v_rate) s
+             group by s.channel) c), '[]'::jsonb));
+end $$;
+
+comment on function public.admin_ads_spend(date, date) is
+  'ההוצאה על פרסום בכל הערוצים (מטא, גוגל ומה שיתווסף), עם פירוט לכל קמפיין, בשקלים. ברירת המחדל: החודש עד היום. מנהל/ת פלטפורמה בלבד (42501).';
+
+revoke all on function public.admin_ads_spend(date, date) from public, anon, authenticated;
+grant execute on function public.admin_ads_spend(date, date) to authenticated;
+
 -- השירות → הקטגוריה. ספק שאינו AI ואינו פרסום הוא תשתית: Netlify, Supabase,
 -- הדומיין, Twilio, Make, ‏morning ושאר מה שמחזיק את המערכת.
 create or replace function public.platform_cost_category(p_service text)
@@ -56,7 +152,8 @@ $$;
 revoke all on function public.platform_cost_category(text) from public, anon, authenticated;
 
 -- ההוצאה בשקלים לקטגוריה בחודש. ‏status = 'confirmed' בלבד: סכום שממתין אינו
--- נספר, כמו בכל הפאנל (docs/platform-costs.md, "שני כללים בטבלה").
+-- נספר, כמו בכל הפאנל (docs/platform-costs.md, "שני כללים בטבלה"). הפרסום -
+-- מהערוצים (`_ads_spend`), והקבלות של מטא וגוגל אינן נספרות שוב.
 create or replace function public._platform_spend(p_month date, p_rate numeric)
 returns table (category text, spent numeric)
 language sql
@@ -69,9 +166,15 @@ as $$
     from public.platform_costs c
    where c.status = 'confirmed' and c.amount is not null
      and c.currency in ('USD', 'ILS')
+     and public.platform_cost_category(c.service) <> 'ads'
      and c.charged_on >= date_trunc('month', p_month)::date
      and c.charged_on <  (date_trunc('month', p_month) + interval '1 month')::date
-   group by 1;
+   group by 1
+  union all
+  select 'ads', round(sum(a.spend), 2)
+    from public._ads_spend(date_trunc('month', p_month)::date,
+                           (date_trunc('month', p_month) + interval '1 month - 1 day')::date, p_rate) a
+  having sum(a.spend) is not null;
 $$;
 
 revoke all on function public._platform_spend(date, numeric) from public, anon, authenticated;
@@ -230,6 +333,34 @@ comment on function public.platform_budget_notify() is
 
 revoke all on function public.platform_budget_notify() from public, anon, authenticated;
 grant execute on function public.platform_budget_notify() to service_role;
+
+-- הסנכרון הלילי של גוגל, רבע שעה אחרי זה של מטא (ads-insights-sync, 00:10).
+-- נורה רק כש-ads_settings.enabled, כמו של מטא (הבדיקה ב-ads-admin).
+do $$
+declare
+  v_url text := 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/ads-admin';
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise notice 'pg_cron אינו מותקן - סנכרון גוגל לא תוזמן';
+    return;
+  end if;
+  perform cron.unschedule('ads-google-sync')
+    where exists (select 1 from cron.job where jobname = 'ads-google-sync');
+  perform cron.schedule('ads-google-sync', '25 0 * * *', format($cron$
+    select net.http_post(
+      url := %L,
+      body := jsonb_build_object('action', 'google_sync_insights', 'via', 'cron'),
+      headers := jsonb_strip_nulls(jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-alert-cron-secret', (select decrypted_secret from vault.decrypted_secrets
+                                 where name = 'alert_cron_secret' limit 1))),
+      timeout_milliseconds := 60000
+    )
+    where exists (select 1 from public.ads_settings
+                   where key = 'enabled' and value = 'true'::jsonb)
+  $cron$, v_url));
+end;
+$$;
 
 -- קבלות נקלטות כל שתי דקות, אבל תקציב חודשי לא צריך יותר מבדיקה בשעה
 do $$

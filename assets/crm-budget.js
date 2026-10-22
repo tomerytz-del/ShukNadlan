@@ -17,7 +17,7 @@
 const BUDGET_LABELS = { ai: 'AI', ads: 'פרסום', infra: 'תשתית' };
 const BUDGET_NOTES = {
   ai: 'Anthropic, מנוי Claude, fal, Gemini, OpenAI',
-  ads: 'Meta ו-Google',
+  ads: 'כל הערוצים: מטא, גוגל ומה שיתווסף',
   infra: 'Netlify, Supabase, Twilio, הדומיין ושאר הספקים',
 };
 
@@ -25,8 +25,9 @@ function budgetTone(pct){
   return pct == null ? '' : pct >= 100 ? ' is-over' : pct >= 80 ? ' is-warn' : '';
 }
 
-/* ‏status - platform_budget_status; ‏revenue - הכנסות החודש (‏null = לא ידוע) */
-function costsBudgetBlock(status, revenue){
+/* ‏status - platform_budget_status; ‏revenue - הכנסות החודש (‏null = לא ידוע);
+   ‏ads - admin_ads_spend, הפירוט של שורת הפרסום לכל ערוץ וקמפיין */
+function costsBudgetBlock(status, revenue, ads){
   const block = admBlock('החודש מול התקציב',
     'חיובים מאושרים בלבד, בשקלים לפני מע״מ. התראה לפעמון ב-80% וב-100% של תקציב מאושר.');
   if (!status){
@@ -78,6 +79,15 @@ function costsBudgetBlock(status, revenue){
       edit.appendChild(admEl('span', 'bdg-prop', 'הצעה לפי ממוצע 3 החודשים האחרונים. לא מתריעה עד האישור.'));
     }
     row.appendChild(edit);
+    // הפרסום נמדד מהערוצים עצמם: הפירוט לכל ערוץ וקמפיין, בלחיצה
+    if (c.key === 'ads' && ads && typeof adsSpendHtml === 'function'){
+      const more = admEl('details', 'bdg-more');
+      more.appendChild(admEl('summary', null, 'פירוט לפי ערוץ וקמפיין'));
+      const inner = admEl('div');
+      inner.innerHTML = adsSpendHtml(ads);
+      more.appendChild(inner);
+      row.appendChild(more);
+    }
     block.appendChild(row);
   });
 
