@@ -64,6 +64,7 @@
         'שלח/י אותם לגבריאלה בוואטסאפ והיא תבדוק לפיהם.</p></div>';
       return;
     }
+    shareState = { link, s, text: shareText(link, s) };
     const facts = [];
     if (s.gush && s.helka) facts.push(['גוש ' + s.gush + ' חלקה ' + s.helka, 'גוש וחלקה']);
     if (s.area_sqm) facts.push([Number(s.area_sqm).toLocaleString('he-IL') + ' מ"ר', 'שטח רשום']);
@@ -87,9 +88,88 @@
       '</div>' +
       ((plans || detailed) ? '<div class="card"><p class="sec-title">תוכניות החלות במקום</p>' + detailed + plans + '</div>' : '') +
       (sentNote ? '<div class="status ' + sentNote[0] + '">' + esc(sentNote[1]) + '</div>' : '') +
+      actionsHtml(shareState.text) +
       '<p class="note">המידע כללי, מבוסס על GovMap (המרכז למיפוי ישראל) ומבא"ת, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה. ' +
       'כל זכויות היוצרים שמורות למרכז למיפוי ישראל.</p>';
   }
+
+  /* ---------- שיתוף והורדה ----------
+     הטקסט הוא אותו סיכום של ההודעה בוואטסאפ (‏summary.ts), **בלי הקישור לדף**:
+     הקישור אישי לסוכן/ת, ואין סיבה שיגיע ללקוח/ה. ה-disclaimer נוסע תמיד. */
+  let shareState = null;
+
+  function shareText(link, s){
+    const lines = ['מידע תכנוני - ' + label(link)];
+    const parcel = [s.gush && s.helka ? 'גוש ' + s.gush + ' חלקה ' + s.helka : '',
+      s.area_sqm ? Number(s.area_sqm).toLocaleString('he-IL') + ' מ"ר' : '', s.parcel_status || '']
+      .filter(Boolean).join(' · ');
+    if (parcel) lines.push(parcel);
+    lines.push('ייעוד: ' + (s.designation || 'לא נמצא בשכבות'));
+    const plans = (s.detailed || []).slice(0, 3).map(n => '• ' + n + ' (תוכנית מפורטת)')
+      .concat((s.plans || []).map(p => '• ' + p.number + (p.name ? ' ' + p.name : '') +
+        (p.notice ? ' (הודעה לפי סעיף 77-78)' : p.stage && STAGE[p.stage] ? ' (' + STAGE[p.stage] + ')' : '') +
+        (p.url && MAVAT_RE.test(p.url) ? '\n  ' + p.url : '')));
+    if (plans.length) lines.push('', 'תוכניות:', ...plans);
+    if ((s.plans || []).some(p => p.notice)) {
+      lines.push('', 'יש הודעה לפי סעיף 77-78: ייתכנו מגבלות על היתרים באזור עד שהתוכנית תאושר או תבוטל.');
+    }
+    lines.push('', 'המידע כללי, מבוסס על GovMap (המרכז למיפוי ישראל) ומבא"ת, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה.',
+      'נבדק ב' + new Date().toLocaleDateString('he-IL') + ' דרך שוק נדל״ן');
+    return lines.join('\n');
+  }
+
+  function actionsHtml(text){
+    const wa = 'https://wa.me/?text=' + encodeURIComponent(text);
+    const mail = 'mailto:?subject=' + encodeURIComponent('מידע תכנוני') + '&body=' + encodeURIComponent(text);
+    return '<div class="card actions"><p class="sec-title">שיתוף והורדה</p><div class="act-grid">' +
+      '<a class="act act-wa" data-share href="' + esc(wa) + '" target="_blank" rel="noopener">שיתוף בוואטסאפ</a>' +
+      (navigator.share ? '<button class="act" type="button" data-act="share">שיתוף…</button>' : '') +
+      '<button class="act" type="button" data-act="copy">העתקה</button>' +
+      '<a class="act" data-share href="' + esc(mail) + '">שליחה במייל</a>' +
+      '<button class="act" type="button" data-act="pdf">הורדה כ-PDF</button>' +
+      '<button class="act" type="button" data-act="txt">הורדה כקובץ טקסט</button>' +
+      '</div><p class="act-msg" id="actMsg" role="status"></p></div>';
+  }
+
+  function fileName(link){
+    return ('מידע-תכנוני-' + label(link)).replace(/[\\/:*?"<>|,]+/g, ' ').replace(/\s+/g, '-').slice(0, 80);
+  }
+
+  function actMsg(t){
+    const el = document.getElementById('actMsg');
+    if (el) el.textContent = t;
+  }
+
+  app.addEventListener('click', async function(e){
+    const btn = e.target.closest('[data-act]');
+    if (!btn || !shareState) return;
+    const { link, text } = shareState;
+    const act = btn.getAttribute('data-act');
+    if (act === 'share') {
+      try { await navigator.share({ title: 'מידע תכנוני - ' + label(link), text }); }
+      catch(_){ /* בוטל */ }
+    } else if (act === 'copy') {
+      try { await navigator.clipboard.writeText(text); actMsg('הועתק. אפשר להדביק בכל מקום.'); }
+      catch(_){ actMsg('ההעתקה לא הצליחה בדפדפן הזה - אפשר לסמן את הטקסט ולהעתיק ידנית.'); }
+    } else if (act === 'pdf') {
+      // ‏"שמירה כ-PDF" בחלון ההדפסה - עובד במחשב ובטלפון, בלי ספרייה
+      const prev = document.title;
+      document.title = fileName(link);
+      window.print();
+      setTimeout(() => { document.title = prev; }, 1000);
+    } else if (act === 'txt') {
+      const url = URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' }));
+      const a = document.createElement('a');
+      // שם באנגלית: דפדפנים מוחקים שם עברי בהורדת blob ומורידים "download" (נבדק ב-Chromium)
+      const id = shareState.s && shareState.s.gush && shareState.s.helka
+        ? shareState.s.gush + '-' + shareState.s.helka : new Date().toISOString().slice(0, 10);
+      a.href = url; a.download = 'planning-' + id + '.txt';
+      document.body.appendChild(a); a.click();
+      // הסרה מיידית אחרי click מוחקת את שם הקובץ בחלק מהדפדפנים ("download")
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 2000);
+      actMsg('הקובץ ירד.');
+    }
+  });
 
   /* אותו סיכום שהשרת שומר (‏summary.ts) - כדי שהדף והוואטסאפ יראו אותו דבר */
   function summarize(r){
