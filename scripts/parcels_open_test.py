@@ -42,6 +42,11 @@ ok("שטח 0 -> null, לא נדחה", L.to_row(dict(REC, LEGAL_AREA=0), None, id
 far = lambda x, y: (40.0, 10.0)  # noqa: E731
 ok("נקודה מחוץ לישראל -> בלי נקודה", L.to_row(REC, (1, 1), far)["lat"] is None)
 
+as_read = lambda b: b.decode("latin1")  # noqa: E731 - מה ש-pyshp מחזיר ב-encoding="latin1"
+ok("שדה UTF-8 מפוענח", L.clean_text(as_read("מוסדר".encode("utf-8"))) == "מוסדר")
+ok("שדה cp1255 מפוענח", L.clean_text(as_read(b"\xee\xe5\xf1\xe3\xf8")) == "מוסדר")
+ok("שדה ריק -> None", L.clean_text(as_read(b"   ")) is None)
+
 ok("כתובת aws-e -> data.gov.il",
    L.direct_url("https://aws-e.data.gov.il/dataset/x/resource/y/download/parcel_all.zip")
    == "https://data.gov.il/dataset/x/resource/y/download/parcel_all.zip")

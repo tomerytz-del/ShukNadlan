@@ -1,6 +1,6 @@
 ---
 name: govmap
-description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, when planning info is needed server-side outside Afula (parcels_open from data.gov.il, address_parcel_from_deals, Planning Administration XPlan), when a data.gov.il download returns HTML, or when a GovMap call silently returns nothing.
+description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, when planning info is needed server-side outside Afula (parcels_open from data.gov.il, address_parcel_from_deals, Planning Administration XPlan via netlify/functions/xplan.mjs and XPLAN_RELAY_TOKEN), when a data.gov.il download returns HTML, or when a GovMap call silently returns nothing.
 ---
 
 # ‏GovMap
@@ -253,10 +253,10 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 | --- | --- | --- |
 | גוש, חלקה, שטח, סטטוס, יישוב, נקודה | שכבת החלקות של מפ"י, data.gov.il | `parcels_open` ← `parcel_open_of` (‏`docs/parcels-open.md`) |
 | כתובת ← גוש/חלקה | עסקאות רשות המיסים שלנו | `address_parcel_from_deals` |
-| ייעוד ותוכניות | XPlan של מינהל התכנון - **בבדיקה** | `scripts/iplan_probe.py` |
+| ייעוד ותוכניות | XPlan של מינהל התכנון, במרכז החלקה | `xplanPlansAt` ב-`_shared/xplan.ts` ← הממסר `netlify/functions/xplan.mjs` |
 
 **הסדר ב-`planning_lookup` מחוץ לעפולה:** מטמון GovMap (מה שדפדפן שמר) ←
-השכבה הפתוחה (‏`openParcelAnswer`, ‏`partial: true` - בלי ייעוד ותוכניות) ←
+השכבה הפתוחה + XPlan (‏`openParcelAnswer`; ‏`partial: true` רק כשאין ייעוד) ←
 `city_not_supported`. בכל השלושה יוצא `crm_planning_url` לכלי ב-CRM, שעובד
 מול GovMap בדפדפן ומשלים את מה שחסר.
 
@@ -270,6 +270,9 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
   שניות). פותרים את העיר פעם אחת, ומשווים מפתחות שם (‏`city_name_key`).
 - **קובץ פייתון בשורש הריפו** חשוף באתר ומחייב שורה ב-`_redirects` - שינוי
   שעולה דיפלוי. טוען חדש נכנס ל-`scripts/`.
+- **dbf מעורב:** שכבת החלקות היא UTF-8 ברובה ו-cp1255 בחלקה, ו-pyshp ב-
+  `encoding="utf-8"` נופל באמצע. קוראים ב-`latin1` ומפענחים כל שדה לבד
+  (‏`fix_hebrew`).
 
 **XPlan (‏`ags.iplan.gov.il`):** שירות ArcGIS ציבורי בלי טוקן - שכבה 4
 ייעודי קרקע (מבא"ת), שכבה 1 קווים כחולים - ועמוד השירות ב-gov.il אומר
@@ -278,10 +281,22 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 הצופן (‏`SECLEVEL=1`) ולעולם לא את אימות התעודה** - סקריפט שהגיע אלינו
 עשה `CERT_NONE`, ובלי אימות כל מי שבאמצע מחליף את התשובה. אותו סקריפט
 גם שאל את `api.govmap.gov.il` מהשרת עם `Origin` מזויף - בדיוק מה שסעיף 1
-אוסר. ‏Deno (‏Edge Functions) אינו מציע צפנים ישנים בכלל; אם הוא לא מגיע,
-XPlan נשאל מ-GitHub Actions למטמון, או נטען מהמאגר הפתוח (‏`xplan2`
-ב-data.gov.il) ל-PostGIS. **XPlan מכסה תוכניות מקוונות מ-2011 ותמ"א/תמ"מ** -
-תוכנית מקומית ותיקה חסרה בו, ולכן לא מציגים אותו כ"כל התוכניות החלות".
+אוסר.
+
+**‏Deno (כל Edge Function, וגם `netlify/edge-functions`) נכשל ב-
+HandshakeFailure, ואין לו הגדרה שמשנה את זה** - ולכן הבוט שואל דרך ממסר
+ב-Node: ‏`netlify/functions/xplan.mjs`. הוא סגור בלי `XPLAN_RELAY_TOKEN`
+(אותו ערך במשתני הסביבה של Netlify ובסודות של Supabase) ועונה 503, והבוט
+נופל אז לקישור - כלומר סוד חסר אינו תקלה שקטה בפרודקשן, הוא המצב של
+לפני. הממסר מחזיר בדיוק את הצורה של 203/14 ב-GovMap (תאריכים מ-epoch ל-
+ISO), ולכן `cleanPlanLayers` זהה: העתק ב-`_shared/xplan.ts`, ו-
+`scripts/plan_layers_test.ts` משווה אותו לזה שב-`assets/govmap.js`. **שדה
+חדש מהשכבות נכנס עכשיו לחמישה מקומות** - `PLAN_LAYER_FIELDS`,
+‏`cleanPlanLayers` בשני העותקים, ‏`LAYERS` בממסר, ‏`govmap_plans_write`.
+
+המאגר הפתוח (‏`xplan2` ב-data.gov.il) **אינו** חלופה: הוא GDB מדצמבר 2022.
+**XPlan מכסה תוכניות מקוונות מ-2011 ותמ"א/תמ"מ** - תוכנית מקומית ותיקה
+חסרה בו, ולכן לא מציגים אותו כ"כל התוכניות החלות".
 
 ## בדיקה מהירה של הטוקן
 

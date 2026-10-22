@@ -22,6 +22,9 @@ on:
       - "scripts/convert_market_text.py"
       - "scripts/govmap_hoods_test.cjs"
       - "scripts/govmap_plans_test.cjs"
+      - "scripts/plan_layers_test.ts"
+      - "supabase/functions/_shared/xplan.ts"
+      - "netlify/functions/**"
       - "assets/govmap.js"
       - "scripts/street_gov_test.ts"
       - "supabase/functions/street-registry-sync/**"
@@ -72,6 +75,10 @@ jobs:
       # ‏התוכניות משכבות 203/14 (התשובות האמיתיות מ-22.10.2026, מדומות)
       - name: תוכניות ארציות והודעות 77-78 מ-GovMap
         run: node scripts/govmap_plans_test.cjs
+
+      # ‏אותן תוכניות מ-XPlan בבוט: הניקוי זהה לאתר, והממסר סגור בלי הסוד
+      - name: תוכניות מ-XPlan - הבוט והממסר
+        run: node --experimental-strip-types scripts/plan_layers_test.ts
 
       # ‏רשימות הרחובות מ-data.gov.il (המאגר מדומה - הוא אינו זמין מ-CI)
       - name: רחובות מ-data.gov.il

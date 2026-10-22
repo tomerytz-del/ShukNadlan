@@ -5,6 +5,7 @@ import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } fro
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
+import { primaryDesignation, xplanPlansAt } from "../_shared/xplan.ts";
 import { officialStreetFor } from "../_shared/geocode/street-resolve.ts";
 import {
   addMonthsIso,
@@ -664,7 +665,7 @@ const TOOLS: Anthropic.Tool[] = [
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
       "נתמכת ישירות - הכלי עונה מהמטמון של GovMap כשהכתובת שם (source: govmap), ואחרת " +
-      "מחזיר גוש, חלקה, שטח וסטטוס מהשכבה הפתוחה של מפ\"י (source: parcels_open, partial: true - בלי ייעוד ותוכניות) כשיש, " +
+      "מחזיר גוש, חלקה, שטח וסטטוס מהשכבה הפתוחה של מפ\"י, וייעוד ותוכניות מ-XPlan של מינהל התכנון (source: parcels_open+xplan; partial: true כשאין ייעוד) כשיש, " +
       "ואחרת city_not_supported - ובשני המקרים קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
       "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
       "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
@@ -3644,10 +3645,11 @@ async function govmapCachedPlanning(
 /**
  * חלקה מהעותק שלנו של שכבת החלקות הפתוחה (‏parcels_open, ‏data.gov.il,
  * ‏docs/parcels-open.md) - גוש, חלקה, שטח רשום, סטטוס ויישוב בכל הארץ, מהשרת
- * ובלי GovMap. **בלי ייעוד ותוכניות** - אלה לא בשכבה, ולכן התשובה מפנה
- * אליהם ב-crm_planning_url. כתובת מתורגמת לגוש/חלקה רק לפי עסקאות רשות
- * המיסים שנרשמו בה (‏address_parcel_from_deals). ‏null = אין, והקורא נופל
- * לקישור. לעולם לא זורקת.
+ * ובלי GovMap. ייעוד ותוכניות לא בשכבה: הם באים מ-XPlan של מינהל התכנון
+ * במרכז החלקה (‏_shared/xplan.ts, דרך הממסר ב-Netlify). כש-XPlan לא ענה, או
+ * שאין בו ייעוד, התשובה `partial` ומפנה ב-crm_planning_url. כתובת מתורגמת
+ * לגוש/חלקה רק לפי עסקאות רשות המיסים שנרשמו בה (‏address_parcel_from_deals).
+ * ‏null = אין, והקורא נופל לקישור. לעולם לא זורקת.
  */
 async function openParcelAnswer(
   ctx: ToolContext,
@@ -3668,11 +3670,18 @@ async function openParcelAnswer(
     if (error || !p) return null;
     const row = p as Record<string, unknown>;
     const lat = Number(row.lat), lng = Number(row.lng);
-    const ownership = await landOwnership(ctx, gush, helka);
+    const hasPoint = row.lat != null && Number.isFinite(lat) && Number.isFinite(lng);
+    const [ownership, xplan] = await Promise.all([
+      landOwnership(ctx, gush, helka),
+      hasPoint ? xplanPlansAt(lat, lng) : Promise.resolve(null),
+    ]);
+    const plans = (xplan || []).slice(0, 8);
+    const designation = xplan ? primaryDesignation(xplan) : null;
+    const partial = !designation;
     return {
       ok: true,
-      partial: true,
-      source: "parcels_open",
+      partial,
+      source: xplan ? "parcels_open+xplan" : "parcels_open",
       queried: q.gush ? { gush: q.gush, helka: q.helka } : { street: q.street, house_number: q.house_number, city: q.city },
       gush, helka,
       ...(deals ? { from_deals: deals } : {}),
@@ -3681,18 +3690,28 @@ async function openParcelAnswer(
       locality: row.locality_name ?? null,
       municipality: row.municipality ?? null,
       as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
+      land_use_designation: designation,
+      ...(xplan ? { applicable_plans: plans, plans_total: xplan.length } : {}),
       ownership,
       ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
-      map_url: Number.isFinite(lat) && Number.isFinite(lng) && row.lat != null
-        ? `https://www.google.com/maps?q=${lat},${lng}` : null,
+      ...(plans.some((p) => p.notice) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
+      map_url: hasPoint ? `https://www.google.com/maps?q=${lat},${lng}` : null,
       ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
       guidance:
-        "יש כאן גוש, חלקה, שטח רשום, סטטוס ויישוב - מהשכבה הפתוחה של המרכז למיפוי ישראל. " +
+        "גוש, חלקה, שטח רשום, סטטוס ויישוב - מהשכבה הפתוחה של המרכז למיפוי ישראל. " +
         (deals ? "הגוש והחלקה לפי עסקאות שנרשמו בכתובת הזו ברשות המיסים - אמור/י זאת. " : "") +
-        "ייעוד ותוכניות אינם כאן: אל תנחש/י אותם, ושלח/י את crm_planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). " +
-        "סיים/י במשפט ה-disclaimer.",
-      disclaimer:
-        "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל (data.gov.il), ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית.",
+        (xplan
+          ? "הייעוד והתוכניות מ-XPlan של מינהל התכנון, במרכז החלקה: פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות. " +
+            "XPlan כולל תוכניות שהוגשו מקוון מ-2011 ותוכניות ארציות ומחוזיות - תוכנית מקומית ותיקה עשויה לחסור, " +
+            "ולכן אל תאמר/י \"אלה כל התוכניות\". "
+          : "") +
+        (partial
+          ? "אין כאן ייעוד: אל תנחש/י אותו, ושלח/י את crm_planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). "
+          : "אפשר להציע את crm_planning_url לבדיקה מלאה יותר. ") +
+        "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
+      disclaimer: xplan
+        ? "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל ועל XPlan של מינהל התכנון, ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית לתכנון ובנייה."
+        : "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל (data.gov.il), ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית.",
     };
   } catch (err) {
     console.warn("openParcelAnswer failed", err);
