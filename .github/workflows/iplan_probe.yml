@@ -37,8 +37,15 @@ jobs:
 
       # ‏הממסר עצמו (‏netlify/functions/xplan.mjs) מול XPlan, ב-Node - לפני שהוא
       # עולה ל-Netlify. דפנה 4 עפולה: צריך לחזור "מגורים" מהמתאר הכוללנית.
+      #
+      # ‏**מידע ולא שער**, כמו שלב ה-Deno: XPlan עונה לפעמים אחרי יותר מ-9 השניות
+      # של הממסר (‏22.10.2026: עפולה 502 timeout, ראשון לציון 200 באותה ריצה),
+      # והבוט כבר לא קורא לממסר (הסקיל planning-page). ריצה אדומה כאן נספרה
+      # בסוכן התפעולי כ-workflow_failing חמור על שירות חיצוני איטי. התוצאה
+      # בלוג, ושם קוראים אותה.
       - name: הממסר מול XPlan
         if: always()
+        continue-on-error: true
         run: |
           node --input-type=module -e '
             process.env.XPLAN_RELAY_TOKEN = "probe";
