@@ -29,6 +29,8 @@ on:
       - "assets/agency-about.js"
       - "scripts/deals_page_test.ts"
       - "assets/deals-render.js"
+      - "scripts/neighborhood_page_test.ts"
+      - "assets/neighborhood-render.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -46,6 +48,8 @@ on:
       - "assets/agency-about.js"
       - "scripts/deals_page_test.ts"
       - "assets/deals-render.js"
+      - "scripts/neighborhood_page_test.ts"
+      - "assets/neighborhood-render.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -89,3 +93,8 @@ jobs:
       # ענה, ו-noindex רק כשהמסד ענה שאין יישוב (‏docs/settlement-deals.md).
       - name: התנהגות דפי העסקאות
         run: node --experimental-strip-types scripts/deals_page_test.ts
+
+      # ‏ו-/n/{עיר}/{שכונה}: אותו כלל - canonical מהכתובת, noindex רק לשכונה
+      # שהמסד אמר שאינה קיימת או לדף דל (‏docs/neighborhood-pages.md).
+      - name: התנהגות דפי השכונות
+        run: node --experimental-strip-types scripts/neighborhood_page_test.ts

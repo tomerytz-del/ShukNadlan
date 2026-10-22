@@ -101,6 +101,11 @@
 # הכתובת בדפדפן נשארת של היישוב.
 /deals/*    /deals    200
 
+# ‏דף לכל שכונה (docs/neighborhood-pages.md). ‏neighborhood.html מגיש את
+# /n/afula/גבעת-המורה וחבריו; ‏netlify/edge-functions/neighborhood-page.ts
+# קורא את העיר והשכונה מהכתובת וממלא את הדף.
+/n/*    /neighborhood    200
+
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST

@@ -2289,6 +2289,29 @@ function publicAddressText(p){
     .filter(Boolean).join(', ');
 }
 
+/* קישור לדף השכונה (‏/n/{עיר}/{שכונה}, docs/neighborhood-pages.md) - רק לשכונה
+   שיש לה דף שנכנס לאינדקס. קריאה נפרדת ולא חלק מהשליפה של הנכס: היא נשענת על
+   מיגרציה (20270728090000), והאתר עולה לפני המסד; כשל בה פשוט משאיר את
+   הכתובת בלי קישור. */
+function linkNeighborhoodPage(p, addressEl){
+  const name = p.neighborhoods && p.neighborhoods.name;
+  if (!name || !addressEl) return;
+  // ‏GET עם סינון על תוצאת הפונקציה - שורה אחת ולא כל השכונות
+  const q = 'name=eq.' + encodeURIComponent(name) + (p.city ? '&city=eq.' + encodeURIComponent(p.city) : '')
+    + '&select=city_slug,slug&limit=1';
+  fetch(SUPABASE_URL + '/rest/v1/rpc/neighborhood_pages_public?' + q, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+  }).then(r => r.ok ? r.json() : null).then(rows => {
+    const hit = Array.isArray(rows) && rows[0];
+    if (!hit) return;
+    const a = document.createElement('a');
+    a.className = 'prop-hood-link';
+    a.href = '/n/' + encodeURIComponent(hit.city_slug) + '/' + encodeURIComponent(hit.slug);
+    a.textContent = 'על השכונה ←';
+    addressEl.appendChild(a);
+  }).catch(() => {});
+}
+
 function publicTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
@@ -2340,6 +2363,7 @@ function renderProperty(p){
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
+  linkNeighborhoodPage(p, addressEl);
   renderOpenHouseBand(p);
 
   renderSpecPills(p);
