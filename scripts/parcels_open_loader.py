@@ -89,8 +89,21 @@ def as_int(v) -> int | None:
 
 
 def clean_text(v, limit: int = 100) -> str | None:
-    s = str(v or "").strip()
+    s = fix_hebrew(str(v or "")).strip()
     return s[:limit] or None
+
+
+def fix_hebrew(s: str) -> str:
+    """ה-dbf מעורב: רוב הרשומות UTF-8, וחלקן cp1255 (‏"מוסדר" כ-ee e5 f1 e3 f8 -
+    הטעינה השנייה, 22.10.2026). הקובץ נקרא ב-latin1, שמחזיר כל בית כמו שהוא,
+    וכל שדה מפוענח לבד: UTF-8 אם הוא תקין, אחרת cp1255."""
+    if any(ord(c) > 0xFF for c in s):
+        return s  # כבר מפוענח (לא מ-Reader של latin1)
+    raw = s.encode("latin1")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1255", errors="replace")
 
 
 def to_row(rec: dict, centroid_itm: tuple[float, float] | None, to_wgs) -> dict | None:
@@ -134,7 +147,8 @@ def make_transform():
 def iter_rows(shp_base: str, to_wgs, stats: collections.Counter) -> Iterator[dict]:
     import shapefile  # pyshp
 
-    sf = shapefile.Reader(shp_base, encoding="utf-8")
+    # ‏latin1 לא נכשל על אף בית; הפענוח האמיתי לכל שדה - ב-fix_hebrew
+    sf = shapefile.Reader(shp_base, encoding="latin1")
     for sr in sf.iterShapeRecords():
         stats["read"] += 1
         shape = sr.shape
