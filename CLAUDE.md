@@ -77,7 +77,10 @@
   ממלאת בשרת את טבלאות מחירי הדירות ב-`/prices` (‏`docs/city-prices.md`), ו-
   `deals-page.ts` ממלאת את דף העסקאות של כל יישוב ב-`/deals/afula`
   (‏`docs/settlement-deals.md`), ו-`neighborhood-page.ts` ממלאת את דף
-  השכונה ב-`/n/afula/גבעת-המורה` (‏`docs/neighborhood-pages.md`). רשימת השווקים
+  השכונה ב-`/n/afula/גבעת-המורה` (‏`docs/neighborhood-pages.md`). ופונקציה
+  אחת ב-`netlify/functions/` (‏Node, לא edge): `xplan.mjs`, הממסר שדרכו
+  גבריאלה שואלת את XPlan של מינהל התכנון, כי Deno נכשל בצפנים הישנים שלו
+  (‏`docs/parcels-open.md`). רשימת השווקים
   אחת לשרת ולדפדפן, ב-`assets/markets.js`, ו-`check_markets.py` מצליב
   אותה מול `_redirects`, ה-`sitemap` והמיגרציות (`docs/regional-pages.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
