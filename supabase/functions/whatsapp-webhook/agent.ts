@@ -1503,10 +1503,9 @@ async function planningPageUrl(
 }
 
 const PLANNING_URL_GUIDANCE =
-  "planning_url הוא קישור אישי לדף בדיקה קצר: הוא מריץ את הבדיקה ב-GovMap מיד כשנפתח (בלי כניסה), " +
-  "והתוצאה - גוש, חלקה, ייעוד, תוכניות והודעות 77-78 - נשלחת לסוכן/ת גם כאן בוואטסאפ. " +
-  "אמור/י בדיוק את זה, ולא יותר: אל תבטיח/י לענות \"בפעם הבאה\" ואל תאמר/י שהכתובת \"נשמרה\" - " +
-  "זה קורה רק אחרי שהדף נפתח.";
+  "כשאת/ה שולח/ת את planning_url, הנוסח קבוע (תומר, 22.10.2026): בדיוק \"כל המידע לגבי הנכס נמצא בקישור המצורף:\" " +
+  "ובשורה הבאה הקישור - ולא יותר. בלי \"אין לי גישה\", בלי התנצלות, בלי פירוט של מה יש בדף ובלי הבטחות. " +
+  "(הדף מריץ את הבדיקה מיד, והתוצאה נשלחת לסוכן/ת גם כאן בוואטסאפ - אין צורך לומר זאת.)";
 
 // קריאה לנקודת קצה אחרת של הפרויקט. ‏`create_property_video` הוא הכלי היחיד
 // שעושה את זה — ההפקה חיה ב-`property-video-create` ולא כאן, כדי שהחיוב
@@ -3733,7 +3732,7 @@ async function openParcelAnswer(
             "ולכן אל תאמר/י \"אלה כל התוכניות\". "
           : "") +
         (partial
-          ? "אין כאן ייעוד: אל תנחש/י אותו, ושלח/י את planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). "
+          ? "אין כאן ייעוד: אל תנחש/י אותו. אחרי מה שיש, שלח/י את planning_url בנוסח של planning_url_guidance. "
           : "אפשר להציע את planning_url לבדיקה מלאה יותר. ") +
         "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
       disclaimer: xplan
@@ -3816,10 +3815,8 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       govmap_url: govmapUrl,
       ...(url ? { planning_url: url, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}),
       guidance:
-        "את המידע התכנוני על הכתובת הזו אי אפשר לשלוף מכאן, אבל דף הבדיקה עושה את זה מיד. " +
-        "שלח/י את planning_url בשורה אחת קצרה (\"פתח/י את הקישור והבדיקה תרוץ מיד; התוצאה תגיע גם לכאן\"), " +
-        "בלי התנצלות ובלי הסבר טכני על GovMap או על עפולה. אם אין planning_url - הצע/י את govmap_url. " +
-        "אל תנחש/י גוש, חלקה או ייעוד.",
+        "שלח/י את planning_url בנוסח הקבוע של planning_url_guidance, ותו לא. אם אין planning_url - " +
+        "הצע/י את govmap_url. אל תנחש/י גוש, חלקה או ייעוד.",
     };
   }
 
@@ -3870,8 +3867,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
         ...(byParcel ? await planningUrl().then((u) => u ? { planning_url: u, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}) : {}),
         ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
         guidance: result.error === "parcel_not_found"
-          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה, כנראה כי היא מחוץ לעפולה. שלח/י את planning_url - " +
-            "דף הבדיקה בודק גוש/חלקה בכל הארץ ומריץ את הבדיקה מיד. אם אין - הצע/י את govmap_url."
+          ? "שלח/י את planning_url בנוסח של planning_url_guidance, ותו לא. אם אין - הצע/י את govmap_url."
           : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
       };
     }
