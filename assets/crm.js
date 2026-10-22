@@ -6423,6 +6423,7 @@ const AI_FEATURES = {
   csm_mentor:        { label: 'מנטור ההטמעה', sub: 'שאלות של צוות ההטמעה', unit: 'לשאלה' },
   csm_call:          { label: 'ניתוח הקלטות - הטמעה', sub: 'סיכום והמלצות לשיחה (התמלול בשורת התמלול)', unit: 'לשיחה' },
   gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
+  neighborhood_describe: { label: 'תיאורי שכונות', sub: 'טיוטה שבועית לדפי השכונות', unit: 'לשכונה' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };

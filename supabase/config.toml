@@ -146,6 +146,11 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.license-reminder]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+# טיוטות תיאור לדפי השכונות (docs/neighborhood-pages.md). pg_cron פעם בשבוע,
+# או מנהל/ת פלטפורמה מה-CRM - הפונקציה בודקת current_is_platform_admin בעצמה.
+[functions.neighborhood-describe]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / JWT של מנהל/ת
+
 [functions.office-coach]
 verify_jwt = false          # ‏pg_cron (משרד וצוות ביום ראשון, סוכנים כל בוקר) + x-alert-cron-secret / service role ידני. docs/coaches.md
 
