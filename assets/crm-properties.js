@@ -161,18 +161,17 @@ function prStatusPill(p){
 
 /* ---------- כלים לנכס ----------
    מתחת לכרטיס שנפתח. הכלים עצמם הם המסכים הקיימים (accDealsLookup,
-   accPlanning) - כאן רק ממלאים את הכתובת ומריצים. המידע התכנוני הוא עפולה
-   בלבד (STREET_PLANNING_CITY); לנכס בעיר אחרת הכלי מופיע רק כשכבר נשמר
-   לו מידע תכנוני. */
+   accPlanning) - כאן רק ממלאים את הכתובת ומריצים. המידע התכנוני עובד בכל
+   עיר: בעפולה מהשכבה של העירייה, בשאר הארץ מ-GovMap. */
 function prToolsRow(p, panel){
   const row = document.createElement('div');
   row.className = 'ui-scope pr-tools';
-  const planningCity = typeof STREET_PLANNING_CITY !== 'undefined' ? STREET_PLANNING_CITY : 'עפולה';
   const planning = typeof propertyPlanningInfo !== 'undefined' && propertyPlanningInfo[p.id];
   const matched = (typeof propertyMatchedClients !== 'undefined' && propertyMatchedClients[p.id]) || [];
   const tools = [
     p.city && { key:'deals', label:'עסקאות שנסגרו באזור' },
-    (planning || p.city === planningCity) && { key:'plan', label:'מידע תכנוני' },
+    // בכל עיר: בעפולה מהעירייה, בשאר הארץ מ-GovMap (כלי המידע התכנוני, crm.js)
+    (planning || p.city) && { key:'plan', label:'מידע תכנוני' },
     matched.length && { key:'match', label: matched.length === 1 ? 'לקוח/ה מתאים/ה' : `${matched.length} לקוחות מתאימים` },
   ].filter(Boolean);
   if (!tools.length) return row;
@@ -216,6 +215,8 @@ function prOpenPlanning(p, planning){
     gotoSection('accPlanning', null, { scrollTo:'#planResultPanel' });
     return;
   }
+  prSetVal('planCity', p.city);
+  if (typeof refreshStreetOptions === 'function') refreshStreetOptions();
   prSetVal('planStreet', p.street);
   prSetVal('planHouseNum', p.house_number);
   prSetVal('planGush', '');
