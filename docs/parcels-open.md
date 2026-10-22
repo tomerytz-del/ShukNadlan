@@ -29,7 +29,7 @@ GovMap נותן את אותה שכבה (‏`PARCEL_ALL`), אבל מפ"י מתי�
 
 ## הטעינה
 
-‏`parcels_open_loader.py`, ב-workflow ‏`parcels_open.yml`: ה-18 בכל חודש, ורק
+‏`scripts/parcels_open_loader.py`, ב-workflow ‏`parcels_open.yml`: ה-18 בכל חודש, ורק
 אם תאריך העדכון של המשאב ב-CKAN השתנה מאז הטעינה האחרונה שהצליחה (‏`--force`
 עוקף). אותו דפוס של [land-ownership.md](land-ownership.md):
 
@@ -46,7 +46,7 @@ GovMap נותן את אותה שכבה (‏`PARCEL_ALL`), אבל מפ"י מתי�
 
 ```sh
 python3 scripts/parcels_open_test.py                    # בדיקת הצמצום וההמרה, בלי רשת
-python3 parcels_open_loader.py --file parcels.zip --dry-run
+python3 scripts/parcels_open_loader.py --file parcels.zip --dry-run
 ```
 
 ## מי קורא

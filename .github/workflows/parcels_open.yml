@@ -59,4 +59,4 @@ jobs:
           args=()
           [ "${{ inputs.force }}" = "true" ] && args+=(--force)
           [ "${{ inputs.dry_run }}" = "true" ] && args+=(--dry-run)
-          python3 parcels_open_loader.py "${args[@]}"
+          python3 scripts/parcels_open_loader.py "${args[@]}"

@@ -18,9 +18,9 @@
   חלקות. הורדה שנקטעה לא מוחקת חצי מדינה.
 * **פעם בחודש, ורק אם הקובץ השתנה** (תאריך העדכון ב-CKAN מול הטעינה האחרונה).
 
-    python3 parcels_open_loader.py                 # טעינה (דילוג אם לא השתנה)
-    python3 parcels_open_loader.py --force         # טעינה גם אם לא השתנה
-    python3 parcels_open_loader.py --file x.zip --dry-run   # ניתוח בלבד
+    python3 scripts/parcels_open_loader.py                 # טעינה (דילוג אם לא השתנה)
+    python3 scripts/parcels_open_loader.py --force         # טעינה גם אם לא השתנה
+    python3 scripts/parcels_open_loader.py --file x.zip --dry-run   # ניתוח בלבד
 """
 
 from __future__ import annotations
