@@ -67,7 +67,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .status.bad{background:var(--bad-tint);color:var(--bad)}
   .btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:12px;font:inherit;font-weight:700;border:none;cursor:pointer;background:var(--blue);color:#fff;margin-top:10px}
   .note{color:var(--ink-soft);font-size:.8rem;margin:10px 0 0}
+  .act-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .act{display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 12px;border-radius:12px;
+    font:inherit;font-weight:700;font-size:.92rem;border:none;cursor:pointer;background:var(--blue-tint);color:var(--blue);text-decoration:none;text-align:center}
+  .act-wa{background:#1f8f4e;color:#fff;grid-column:1 / -1}
+  .act-msg{color:var(--ok);font-size:.85rem;margin:8px 0 0;min-height:1em}
   .foot{text-align:center;color:var(--ink-soft);font-size:.78rem;margin-top:18px}
+  /* ‏"הורדה כ-PDF" היא חלון ההדפסה: בלי הכפתורים, ובלי צללים שיוצאים אפורים */
+  @media print{
+    body{background:#fff}
+    .actions,.status,.foot{display:none}
+    .card{box-shadow:none;border-color:#ccc;break-inside:avoid}
+    .plan a::after{content:" " attr(href);font-size:.75rem;color:#555}
+  }
   .foot a{color:inherit}
 </style>
 </head>
