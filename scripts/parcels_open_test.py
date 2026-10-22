@@ -42,6 +42,11 @@ ok("שטח 0 -> null, לא נדחה", L.to_row(dict(REC, LEGAL_AREA=0), None, id
 far = lambda x, y: (40.0, 10.0)  # noqa: E731
 ok("נקודה מחוץ לישראל -> בלי נקודה", L.to_row(REC, (1, 1), far)["lat"] is None)
 
+ok("כתובת aws-e -> data.gov.il",
+   L.direct_url("https://aws-e.data.gov.il/dataset/x/resource/y/download/parcel_all.zip")
+   == "https://data.gov.il/dataset/x/resource/y/download/parcel_all.zip")
+ok("כתובת data.gov.il נשארת", L.direct_url("https://data.gov.il/a.zip") == "https://data.gov.il/a.zip")
+
 try:
     to_wgs = L.make_transform()
     lng, lat = to_wgs(227673.75, 724876.11)
