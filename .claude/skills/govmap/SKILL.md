@@ -1,6 +1,6 @@
 ---
 name: govmap
-description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, or when a GovMap call silently returns nothing.
+description: עבודה מול GovMap בריפו של שוק נדל״ן - הטוקן והדומיין (צד לקוח בלבד, לפי מפ"י), רשת ישראל החדשה מול WGS84, מנוע החיפוש (search / getSearchResultData), גוש/חלקה, שכבות (כולל 203/14 - תוכניות ארציות, מתאר והודעות 77-78, govmap_plans), ה-CSP, והחוזה של הגאוקוד (`null` מול `throw`, `precision`). Use when adding GovMap as a geocode provider, pulling streets or coordinates for a new city, looking up gush/helka, embedding a GovMap map or iframe, querying a GovMap layer, when adding a field from the plan layers (cleanPlanLayers, govmap_plans_write, planning_plans_merged), when someone proposes calling GovMap from a server, when planning info is needed server-side outside Afula (parcels_open from data.gov.il, address_parcel_from_deals, Planning Administration XPlan), when a data.gov.il download returns HTML, or when a GovMap call silently returns nothing.
 ---
 
 # ‏GovMap
@@ -241,6 +241,47 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 ו-`mergedPlanningPlans` ב-`crm.js` ל-CMA ולכלי התכנון. שני האיחודים חייבים
 אותו סדר. שדה חדש מ-203 עובר בשלושה מקומות: `cleanPlanLayers`,
 ‏`govmap_plans_write` (רשימה סגורה) ו-`planning_plans_merged`.
+
+## ‏8. בשרת, בלי GovMap: מקורות פתוחים
+
+מה שהבוט צריך בשרת מחוץ לעפולה לא בא מ-GovMap (סעיף 1), ולא ממטמון
+שממולא ממנו בהיקף - תנאי השימוש של GovMap אוסרים איסוף אוטומטי והורדה
+בכמויות בלי אישור בכתב (`docs/govmap.md`, "תנאי השימוש"). הוא בא ממאגרים
+**פתוחים**, שנטענים אלינו בהורדה מסודרת:
+
+| מה | מקור | איפה |
+| --- | --- | --- |
+| גוש, חלקה, שטח, סטטוס, יישוב, נקודה | שכבת החלקות של מפ"י, data.gov.il | `parcels_open` ← `parcel_open_of` (‏`docs/parcels-open.md`) |
+| כתובת ← גוש/חלקה | עסקאות רשות המיסים שלנו | `address_parcel_from_deals` |
+| ייעוד ותוכניות | XPlan של מינהל התכנון - **בבדיקה** | `scripts/iplan_probe.py` |
+
+**הסדר ב-`planning_lookup` מחוץ לעפולה:** מטמון GovMap (מה שדפדפן שמר) ←
+השכבה הפתוחה (‏`openParcelAnswer`, ‏`partial: true` - בלי ייעוד ותוכניות) ←
+`city_not_supported`. בכל השלושה יוצא `crm_planning_url` לכלי ב-CRM, שעובד
+מול GovMap בדפדפן ומשלים את מה שחסר.
+
+**שלוש מלכודות שכבר נפלנו בהן:**
+
+- **הורדה מ-data.gov.il שמחזירה 200 עם HTML.** ‏`resource_show` נותן את
+  הקובץ ב-`aws-e.data.gov.il`, שעונה ל-GitHub בעמוד HTML; אותו קובץ ב-
+  `data.gov.il/dataset/.../download/...` יורד. ‏`direct_url` ב-
+  `scripts/parcels_open_loader.py`. ובודקים `Content-Type`, לא רק סטטוס.
+- **‏`city_id_for_name` בתוך `where` על טבלת עסקאות** רצה לכל שורה (37
+  שניות). פותרים את העיר פעם אחת, ומשווים מפתחות שם (‏`city_name_key`).
+- **קובץ פייתון בשורש הריפו** חשוף באתר ומחייב שורה ב-`_redirects` - שינוי
+  שעולה דיפלוי. טוען חדש נכנס ל-`scripts/`.
+
+**XPlan (‏`ags.iplan.gov.il`):** שירות ArcGIS ציבורי בלי טוקן - שכבה 4
+ייעודי קרקע (מבא"ת), שכבה 1 קווים כחולים - ועמוד השירות ב-gov.il אומר
+שהנתונים הגולמיים "ניתנים לשימוש חופשי". השרת מציע רק צפנים ישנים
+(‏`SSLV3_ALERT_HANDSHAKE_FAILURE` מ-GitHub, 22.10.2026). **מורידים את רמת
+הצופן (‏`SECLEVEL=1`) ולעולם לא את אימות התעודה** - סקריפט שהגיע אלינו
+עשה `CERT_NONE`, ובלי אימות כל מי שבאמצע מחליף את התשובה. אותו סקריפט
+גם שאל את `api.govmap.gov.il` מהשרת עם `Origin` מזויף - בדיוק מה שסעיף 1
+אוסר. ‏Deno (‏Edge Functions) אינו מציע צפנים ישנים בכלל; אם הוא לא מגיע,
+XPlan נשאל מ-GitHub Actions למטמון, או נטען מהמאגר הפתוח (‏`xplan2`
+ב-data.gov.il) ל-PostGIS. **XPlan מכסה תוכניות מקוונות מ-2011 ותמ"א/תמ"מ** -
+תוכנית מקומית ותיקה חסרה בו, ולכן לא מציגים אותו כ"כל התוכניות החלות".
 
 ## בדיקה מהירה של הטוקן
 
