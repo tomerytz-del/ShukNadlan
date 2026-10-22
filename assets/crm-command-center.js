@@ -2,6 +2,7 @@
    מרכז הפיקוד של מנהל/ת הפלטפורמה (שלב 4 בשדרוג האדמין,
    docs/admin-command-center.md), והודעה לכל הסוכנים
    --------------------------------------------------------------------------
+   המנטור של הפלטפורמה נטען לצדן (coachLoad('platform'), ‏crm-coach.js).
    שלוש קריאות במקביל, כל אחת למה שיש לה מקור משלה:
      admin_command_center      - בריאות המרקטפלייס והתגים, בריאות המערכת,
                                  מוכנות השווקים (20270722090000)
@@ -37,6 +38,10 @@ async function loadCommandCenter(){
     sb.rpc('admin_ads_spend', {}),
   ]);
   ccBusy = false;
+  // המנטור בטעינה משלו (crm-coach.js), כדי שלא יעכב את שאר הכרטיסים
+  if (typeof coachLoad === 'function' && coachState.platform === undefined){
+    coachLoad('platform').catch(err => console.warn('טעינת המנטור נכשלה:', err));
+  }
 
   renderCcHead(counts.error ? null : counts.data);
   renderCcInbox(inbox.error ? null : inbox.data);
@@ -59,6 +64,15 @@ async function loadCommandCenter(){
   renderCcMarket(cc.data, report.error ? null : report.data);
   renderCcMarkets(cc.data);
   renderCcSystem(cc.data, budget.error ? null : budget.data);
+}
+
+/* המנטור בראש מרכז הפיקוד. בלי הטבלה (המיגרציה 20270730090000 טרם רצה) -
+   coachState.platform הוא false, והכרטיס פשוט לא מוצג. */
+if (typeof coachRerender !== 'undefined'){
+  coachRerender.platform = () => {
+    const host = document.getElementById('ccCoach');
+    if (host) host.innerHTML = coachCardHtml('platform');
+  };
 }
 
 function renderCcHead(counts){

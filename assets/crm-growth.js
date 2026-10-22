@@ -123,7 +123,7 @@ function growthMarketsHtml(g){
     + '<div class="gr-tr gr-th" role="row"><span role="columnheader">שוק</span><span role="columnheader">משרדים</span>'
     + '<span role="columnheader">סוכנים</span><span role="columnheader">נכסים</span><span role="columnheader">לידים 30 יום</span>'
     + '<span role="columnheader">מוכנות</span><span role="columnheader">מה חסר</span><span role="columnheader">הצעד הבא</span></div>'
-    + rows.filter(r => r.rank > 0).map(r => '<div class="gr-tr" role="row">'
+    + rows.filter(r => r.rank > 0).map(r => '<div class="gr-tr" role="row" data-market="' + esc(r.m.slug) + '">'
       + '<span class="gr-nm" role="cell"><b>' + esc(r.m.label) + '</b><small>' + esc(r.status) + '</small></span>'
       + '<span role="cell" data-l="משרדים">' + grInt(r.ag) + '</span>'
       + '<span role="cell" data-l="סוכנים">' + grInt(r.agents) + '</span>'

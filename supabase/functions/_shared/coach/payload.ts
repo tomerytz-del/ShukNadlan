@@ -9,10 +9,14 @@
 //   agent  - "מנטור סוכני נדל״ן AI", יומי, לסוכן/ת עצמו/ה
 //   team   - "מנטור מנהלי צוותים AI", שבועי, למנהל/ת הצוות
 //   office - "מנטור AI לבעלי משרדים", שבועי, למנהלי המשרד
+//   platform - "מנטור AI למנהל הפלטפורמה", שבועי ועל חריגה (compactPlatform)
 // ============================================================================
 import { noLongDash } from "../marketing-copy.ts";
 
 export type CoachKind = "agent" | "team" | "office";
+/* ‏platform אינו CoachKind: אין לו "שאל את המנטור" (askCoach), ולכן הוא מופיע
+   רק במה שנוגע לסיכום - הסכמה, הכפתורים והניקוי. */
+export type SummaryKind = CoachKind | "platform";
 export type Row = Record<string, unknown>;
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 
@@ -22,8 +26,8 @@ const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 // ‏ref: איזה סוג מזהה אטום הכפתור צריך. "required" - בלי ref תקין אין כפתור;
 // ‏"optional" - בלי ref הכפתור פותח את הקטגוריה. סוג חדש נכנס גם ל-COACH_CTA
 // ב-assets/crm-coach.js (שם התווית והפעולה), וגם לרשימת הכלים בפרומפט.
-type RefType = "lead" | "property" | "agreement" | "agenda" | "agent";
-export const CTA_KINDS: Record<string, { kinds: CoachKind[]; ref?: RefType; refRequired?: boolean }> = {
+type RefType = "lead" | "property" | "agreement" | "agenda" | "agent" | "inbox" | "market";
+export const CTA_KINDS: Record<string, { kinds: SummaryKind[]; ref?: RefType; refRequired?: boolean }> = {
   open_lead: { kinds: ["agent"], ref: "lead", refRequired: true },
   open_leads_unanswered: { kinds: ["agent"] },
   open_property: { kinds: ["agent"], ref: "property", refRequired: true },
@@ -37,9 +41,17 @@ export const CTA_KINDS: Record<string, { kinds: CoachKind[]; ref?: RefType; refR
   open_matches: { kinds: ["agent"] },
   open_team_agent: { kinds: ["team", "office"], ref: "agent", refRequired: true },
   open_expiring: { kinds: ["office"] },
+  // מנהל/ת הפלטפורמה (HANDOFF סעיף 9). ‏ref של inbox הוא סוג בתיבה, של market
+  // ה-slug של השוק - שניהם אינם מזהים של אדם, ולכן יוצאים כמו שהם (Refs.own)
+  open_inbox: { kinds: ["platform"], ref: "inbox" },
+  open_market: { kinds: ["platform"], ref: "market", refRequired: true },
+  new_campaign: { kinds: ["platform"], ref: "market" },
+  open_health: { kinds: ["platform"] },
+  open_content: { kinds: ["platform"] },
+  open_costs: { kinds: ["platform"] },
 };
 
-export function ctaKindsFor(kind: CoachKind): string[] {
+export function ctaKindsFor(kind: SummaryKind): string[] {
   return Object.keys(CTA_KINDS).filter((k) => CTA_KINDS[k].kinds.includes(kind));
 }
 
@@ -48,7 +60,9 @@ export function ctaKindsFor(kind: CoachKind): string[] {
 // ("L1", "P2", "S3"), והמודל מחזיר ref רק מתוכם. cleanSummaryV2 ממירה את
 // האסימון חזרה למזהה האמיתי, ומוחקת אסימון שלא נשלח.
 // ---------------------------------------------------------------------------
-const REF_PREFIX: Record<RefType, string> = { lead: "L", property: "P", agreement: "G", agenda: "A", agent: "S" };
+const REF_PREFIX: Record<RefType, string> = {
+  lead: "L", property: "P", agreement: "G", agenda: "A", agent: "S", inbox: "I", market: "M",
+};
 export type RefMap = Record<string, { type: RefType; id: string }>;
 
 export class Refs {
@@ -66,13 +80,20 @@ export class Refs {
     this.seen.set(key, token);
     return token;
   }
+  /* ‏ref שהוא הערך עצמו - לסוג בתיבה ול-slug של שוק, שאין בהם מה להסתיר
+     ושהמודל צריך לקרוא כדי לכתוב עליהם */
+  own(type: RefType, id: unknown): string | null {
+    if (typeof id !== "string" || !/^[a-z0-9_-]{1,40}$/.test(id)) return null;
+    this.map[id] = { type, id };
+    return id;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // סכמת הפלט, לפי סוג המאמן. ‏agenda (סדר יום לישיבת צוות) - לצוות בלבד.
 // אין minItems/maxItems: החיתוך לשלושה נעשה ב-cleanSummaryV2.
 // ---------------------------------------------------------------------------
-export function summarySchema(kind: CoachKind) {
+export function summarySchema(kind: SummaryKind) {
   const props: Row = {
     headline: { type: "string" },
     summary: { type: "string" },
@@ -153,7 +174,7 @@ const txt = (s: unknown, max: number) => noLongDash(String(s ?? "").trim().repla
 /* הניקוי לפני שמירה: מקף ארוך, אורכים, עד 3 צעדים, ‏cta.kind מהרשימה של
    המאמן הזה בלבד, ו-ref שהומר למזהה אמיתי. כפתור שלא עבר - הצעד נשאר בלי
    כפתור, לא נזרק. תשובה בלי כותרת או בלי צעד אחד תקין אינה נשמרת. */
-export function cleanSummaryV2(raw: unknown, kind: CoachKind, refs: RefMap = {}): CoachSummaryV2 | null {
+export function cleanSummaryV2(raw: unknown, kind: SummaryKind, refs: RefMap = {}): CoachSummaryV2 | null {
   const r = raw as Row | null;
   if (!r || typeof r !== "object" || !Array.isArray(r.actions)) return null;
   const allowed = new Set(ctaKindsFor(kind));
@@ -480,4 +501,111 @@ export function askHistory(rows: Row[] | null | undefined): { role: "user" | "as
     out.push({ role: "assistant", content: String(r.answer) });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// מנהל/ת הפלטפורמה: מ-platform_coach_input (שש הפונקציות של מרכז הפיקוד)
+// ---------------------------------------------------------------------------
+/* **רשימות סגורות, מספרים בלבד.** הקלט הגולמי מכיל שמות משרדים (stuck_license,
+   ‏report.agencies) ושמות קמפיינים; שום דבר מהם לא יוצא. מה שיש לו שם הוא שוק
+   (slug) וסוג בתיבה - שניהם שלנו ולא של אדם. ‏office_coach_test בודק. */
+const PC_MONTH_KEEP = [
+  "month", "agencies_new", "agents_new", "managers_new", "paid_agents_new", "leads_total",
+  "properties_new", "deals_closed", "revenue_total", "topups",
+];
+const PC_MARKET_KEEP = [
+  "agents_active", "agencies", "props_active", "props_new_7d", "props_new_30d", "leads_30d", "leads_prev_30d",
+  "paying", "on_promo", "supply_per_agent", "demand_per_agent", "supply_tag", "demand_tag",
+];
+const PC_RESPONSE_KEEP = ["total", "measured", "within_12h", "median_hours"];
+const PC_FUNNEL_KEEP = ["signed", "licensed", "first_property", "paying"];
+const PC_BUDGET_KEEP = ["key", "spent", "budget", "pct", "approved"];
+const PC_CHANNEL_KEEP = ["channel", "spend", "clicks", "leads"];
+
+const perAgent = (n: unknown, agents: unknown) => (num(agents) ? Math.round((num(n) / num(agents)) * 100) / 100 : null);
+
+/* ‏cities: slug → שמות הערים בשוק (market_city_names), כדי שהמודל יכתוב
+   "עפולה" ולא "afula-emek". עד שלוש לשוק. */
+export function compactPlatform(raw: Row, refs: Refs, cities: Record<string, string[]> = {}) {
+  const cc = (raw.cc as Row | undefined) ?? {};
+  const mk = (cc.marketplace as Row | undefined) ?? {};
+  const health = (cc.health as Row | undefined) ?? {};
+  const months = ((raw.report as Row | undefined)?.months as Row[] | undefined) ?? [];
+  const growth = (raw.growth as Row | undefined) ?? {};
+  const counts = (raw.counts as Row | undefined) ?? {};
+  const budget = (raw.budget as Row | undefined) ?? {};
+  const ads = (raw.ads as Row | undefined) ?? {};
+
+  const markets = ((growth.markets as Row[] | undefined) ?? []);
+  const active = markets.filter((m) => num(m.agencies) || num(m.agents) || num(m.props_active));
+  const kinds = (counts.kinds as Record<string, Row> | undefined) ?? {};
+  const funnel = (growth.funnel as Record<string, Row> | undefined) ?? {};
+  const newsAt = typeof health.news_last_at === "string" ? Date.parse(health.news_last_at) : NaN;
+
+  return {
+    // הקודם והנוכחי (החודש הנוכחי חלקי)
+    months: months.slice(-2).map((m) => pick(m, PC_MONTH_KEEP)),
+    marketplace_30_days: {
+      ...pick(mk, PC_MARKET_KEEP),
+      leads_per_agent: perAgent(mk.leads_30d, mk.agents_active),
+      response: pick(mk.response as Row | undefined, PC_RESPONSE_KEEP),
+    },
+    markets: active.map((m) => ({
+      ref: refs.own("market", m.slug),
+      cities: (cities[String(m.slug)] ?? []).slice(0, 3),
+      agencies: num(m.agencies), agents: num(m.agents), props_active: num(m.props_active),
+      props_new_30d: num(m.props_new_30d), leads_30d: num(m.leads_30d),
+      leads_per_agent: perAgent(m.leads_30d, m.agents),
+    })),
+    markets_planned_empty: markets.length - active.length,
+    recruitment: {
+      last_30_days: pick(funnel["30d"], PC_FUNNEL_KEEP),
+      all_time: pick(funnel.all, PC_FUNNEL_KEEP),
+      license_stuck: ((growth.stuck_license as unknown[] | undefined) ?? []).length,
+    },
+    inbox: {
+      total: num(counts.total),
+      overdue: num(counts.overdue),
+      kinds: Object.entries(kinds).filter(([, v]) => num(v?.total)).map(([k, v]) => ({
+        ref: refs.own("inbox", k), total: num(v.total), overdue: num(v.overdue),
+      })),
+    },
+    system: {
+      findings_high: num(health.findings_high),
+      findings_medium: num(health.findings_medium),
+      cron_failed_24h: ((health.cron_failed_24h as unknown[] | undefined) ?? []).length,
+      markets_errors: num(health.markets_errors),
+      markets_data_hours: health.markets_oldest_hours ?? null,
+      news_hours_since: Number.isFinite(newsAt) ? Math.round((Date.parse(String(raw.generated_at)) - newsAt) / 3_600_000) : null,
+    },
+    costs_this_month: ((budget.categories as Row[] | undefined) ?? []).map((c) => pick(c, PC_BUDGET_KEEP)),
+    ads_this_month: {
+      total: num(ads.total),
+      channels: ((ads.channels as Row[] | undefined) ?? []).map((c) => pick(c, PC_CHANNEL_KEEP)),
+    },
+  };
+}
+
+/* החריגות: מה מצדיק עדכון באמצע השבוע. קוד יציב לכל אחת - הסוג או השם
+   בתוכו - כדי שאותה חריגה לא תשלח עדכון כל בוקר (newTriggers). מחושבות
+   מהקלט המצומצם, כך שאין כאן מה שלא יצא למודל. */
+export function platformTriggers(p: ReturnType<typeof compactPlatform>): string[] {
+  const out: string[] = [];
+  for (const k of p.inbox.kinds) if (k.overdue && k.ref) out.push("inbox_overdue:" + k.ref);
+  if (p.system.findings_high) out.push("findings_high");
+  if (p.system.cron_failed_24h) out.push("cron_failed");
+  if (p.system.markets_errors) out.push("markets_errors");
+  for (const c of p.costs_this_month) {
+    if (c.approved && num(c.pct) >= 100) out.push("budget_over:" + String(c.key));
+  }
+  const mk = p.marketplace_30_days as Row;
+  if (num(mk.leads_prev_30d) >= 10 && num(mk.leads_30d) < num(mk.leads_prev_30d) * 0.7) out.push("leads_drop");
+  return out.sort();
+}
+
+/* חריגה שלא הייתה בסיכום האחרון. חריגה שנמשכת אינה חדשה; כזו שנעלמה וחזרה
+   אחרי סיכום שלא כלל אותה - חדשה. */
+export function newTriggers(now: string[], prev: string[] | null | undefined): string[] {
+  const had = new Set(prev ?? []);
+  return now.filter((t) => !had.has(t));
 }

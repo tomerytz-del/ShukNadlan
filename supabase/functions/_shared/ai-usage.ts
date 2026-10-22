@@ -36,7 +36,9 @@ export type AiFeature =
   | "csm_call"
   | "gabriela_csm"
   // טיוטות תיאור לדפי השכונות (docs/neighborhood-pages.md)
-  | "neighborhood_describe";
+  | "neighborhood_describe"
+  // המנטור של מנהל/ת הפלטפורמה (office-coach?kind=platform, docs/coaches.md)
+  | "platform_coach";
 
 export type AiUsageRow = {
   feature: AiFeature;

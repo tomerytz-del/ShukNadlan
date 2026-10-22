@@ -754,6 +754,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .gr-tr{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(4,minmax(48px,.6fr)) minmax(90px,1fr) minmax(90px,1.1fr) minmax(120px,1.2fr);
     gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF1F6;font-size:.8rem;color:#0E1A33}
   .gr-th{font-size:.7rem;font-weight:800;color:#5A6478}
+  /* השוק שהמנטור של הפלטפורמה פתח (coachOpenMarket) */
+  .gr-tr.is-focus{background:#EEF4FF;box-shadow:0 0 0 2px #1F5BF0 inset;border-radius:8px}
   .gr-nm b{display:block;font-size:.86rem}
   .gr-nm small{font-size:.7rem;color:#5A6478}
   .gr-pct{display:flex;align-items:center;gap:6px}
@@ -7754,6 +7756,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="cc-sub" id="ccSub"></p>
         </div>
         <div class="cc-alert" id="ccAlert" hidden></div>
+        <!-- המנטור של מנהל/ת הפלטפורמה - שבועי ועל חריגה (assets/crm-coach.js, docs/coaches.md) -->
+        <div id="ccCoach"></div>
         <div class="cc-grid">
           <div class="cc-card cc-span2">
             <div class="cc-card-head"><h3>דורש אותך היום</h3><button type="button" class="cc-link" data-goto="accAdminInbox">לכל התיבה</button></div>
