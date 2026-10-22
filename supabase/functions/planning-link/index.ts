@@ -5,23 +5,21 @@
 // שולחת קישור לדף קטן שעושה את זה בדפדפן של הסוכן/ת. הפונקציה הזו:
 //
 //   open      - הכתובת של הקישור (‏planning_link_open). קישור לא תקין / שפג -> 404.
-//   complete  - התוצאה מהדפדפן: נשמרת במטמון של גבריאלה (‏planning_link_complete
-//               -> _govmap_address_store) ונשלחת לסוכן/ת בוואטסאפ.
+//   complete  - התוצאה מהדפדפן: נשמרת (‏planning_link_complete -> _govmap_address_store),
+//               ומקבלת את סוג הבעלות מהטאבו (‏land_ownership_of) להצגה בדף.
+//
+// **אין הודעת וואטסאפ עם התוצאה** (תומר, 22.10.2026): הדף הוא המקום היחיד
+// למידע תכנוני מגבריאלה - הוא מציג, משתף ומוריד. הסקיל planning-page.
 //
 // **ההרשאה היא הקישור:** 32 תווים אקראיים, 7 ימים, ותוצאה אחת. בלי חשבון -
 // אחרת חזרנו להתחברות, וזו כל הסיבה לדף. ‏docs/govmap.md, "דף הבדיקה".
 // ============================================================================
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { noLongDash } from "../_shared/marketing-copy.ts";
-import { summarize, targetLabel, whatsappMessage } from "./summary.ts";
+import { summarize, targetLabel } from "./summary.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SITE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/$/, "");
-const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
-const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
-const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 
 const TOKEN_RE = /^[0-9a-f]{32}$/;
 const MAX_BODY = 60_000;
@@ -40,22 +38,19 @@ function json(obj: unknown, status = 200) {
 const gone = () =>
   json({ error: "not_found", message: "הקישור פג תוקף או שכבר אינו תקין. בקש/י מגבריאלה קישור חדש." }, 404);
 
-/** ‏null = נשלח. אחרת - למה לא (נשמר ב-notify_error). */
-async function sendWhatsapp(to: string, body: string): Promise<{ id: string | null; error: string | null }> {
-  if (!WA_TOKEN || !WA_PHONE_ID) return { id: null, error: "whatsapp not configured" };
-  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp", recipient_type: "individual", to, type: "text",
-      text: { preview_url: false, body: noLongDash(body).slice(0, 4000) },
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  // ‏131047 = מחוץ לחלון 24 השעות: הסוכן/ת פתח/ה את הקישור אחרי יותר מיממה.
-  // התוצאה כבר שמורה, והיא מוצגת בדף - ההודעה היא תוספת.
-  if (!res.ok) return { id: null, error: `${res.status} ${JSON.stringify(data?.error ?? data).slice(0, 300)}` };
-  return { id: data?.messages?.[0]?.id ?? null, error: null };
+const OWNERSHIP_LABEL: Record<string, string> = {
+  P: "פרטית", S: "מדינה", L: "רשות מקומית", M: "מעורבת", O: "אחר",
+};
+
+/** סוג הבעלות בטאבו (docs/land-ownership.md). ‏null = אין במאגר - **לא** "פרטית". */
+// deno-lint-ignore no-explicit-any
+async function ownershipOf(supabase: any, gush: string | null, helka: string | null) {
+  if (!gush || !helka) return null;
+  const { data, error } = await supabase.rpc("land_ownership_of", { p_gush: gush, p_helka: helka });
+  if (error || !data) return null;
+  const row = data as { ownership: string; mixed_units: boolean; as_of: string | null };
+  const type = OWNERSHIP_LABEL[row.ownership];
+  return type ? { type, mixed_units: !!row.mixed_units, as_of: row.as_of ? String(row.as_of).slice(0, 10) : null } : null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -79,8 +74,10 @@ Deno.serve(async (req: Request) => {
 
   if (body.action === "complete") {
     const summary = summarize(body.record);
+    const ownership = summary ? await ownershipOf(supabase, summary.gush, summary.helka) : null;
+    const result = summary ? { ...summary, ownership } : null;
     const { data, error } = await supabase.rpc("planning_link_complete", {
-      p_id: k, p_record: summary ? body.record : null, p_result: summary,
+      p_id: k, p_record: summary ? body.record : null, p_result: result,
     });
     if (error) {
       console.warn("planning-link complete:", error.message);
@@ -89,23 +86,8 @@ Deno.serve(async (req: Request) => {
     }
     if (!data) return gone();
     const row = data as Record<string, string>;
-    let sent = false;
-    if (row.phone) {
-      const message = whatsappMessage(row, summary, `${SITE}/plan?k=${k}`);
-      const res = await sendWhatsapp(row.phone, message);
-      sent = !!res.id;
-      // כל הודעה יוצאת נרשמת ביומן - מעקב מסירה (docs/whatsapp-setup.md)
-      await supabase.from("whatsapp_messages").insert({
-        wa_message_id: res.id, direction: "out", wa_phone: row.phone, agent_id: row.agent_id,
-        msg_type: "text", body: noLongDash(message).slice(0, 2000), status: res.id ? "sent" : null,
-        error: res.error,
-      });
-      await supabase.from("planning_links").update({
-        notified_at: res.id ? new Date().toISOString() : null, notify_error: res.error,
-      }).eq("id", k);
-    }
-    console.log("planning-link:", targetLabel(row), row.status, sent ? "sent" : "not sent");
-    return json({ ok: true, status: row.status, sent });
+    console.log("planning-link:", targetLabel(row), row.status);
+    return json({ ok: true, status: row.status, ownership });
   }
 
   return json({ error: "bad_action" }, 400);

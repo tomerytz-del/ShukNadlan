@@ -198,14 +198,10 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 (‏`govmap_my_candidates`, עד 10 נכסים בפתיחה, פעם ב-12 שעות). לולאה כזו לא נכנסת
 לשרשראות של `loadDashboard` (הסקיל `crm-startup`) - היא רצה אחריו ובהשהיה.
 
-**ומה שהבוט לא יודע - דף הבדיקה, לא ה-CRM:** `planning_url` הוא `/plan?k=` (‏`plan.html`,
-‏`planning-link`), שמריץ את `GovmapLookup.addressRecord` מיד ושומר דרך `_govmap_address_store`
-- אותן בדיקות כמו `govmap_address_save`. שינוי ברשומה נעשה פעם אחת, ב-`addressRecord`
-(‏`assets/govmap.js`), ומשרת את שניהם. ‏`docs/govmap.md`, "דף הבדיקה".
-
-**והבוט קורא ממטמון, לא מ-GovMap:** `govmap_address_planning` ממולא בדפדפן ("כתובות לגבריאלה"),
-ו-`govmap_address_planning_get` מגישה ממנו. מי שמוסיף לבוט נתון מ-GovMap - מוסיף אותו
-למילוי (`govmapAddressRecord` ב-`crm.js`) ול-`govmap_address_save`, לא לקריאה מהשרת.
+**ומידע תכנוני בגבריאלה - רק כפתור לדף הבדיקה** (‏`/plan?k=`, הסקיל `planning-page`).
+הדף מריץ את `GovmapLookup.addressRecord` בדפדפן ושומר דרך `_govmap_address_store` -
+אותן בדיקות כמו `govmap_address_save`. שינוי ברשומה נעשה פעם אחת, ב-`addressRecord`
+(‏`assets/govmap.js`), ומשרת את ההשלמה ב-CRM ואת הדף.
 
 ## שכבות שנמדדו כפתוחות לטוקן (24.9.2026)
 
@@ -258,12 +254,10 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 | --- | --- | --- |
 | גוש, חלקה, שטח, סטטוס, יישוב, נקודה | שכבת החלקות של מפ"י, data.gov.il | `parcels_open` ← `parcel_open_of` (‏`docs/parcels-open.md`) |
 | כתובת ← גוש/חלקה | עסקאות רשות המיסים שלנו | `address_parcel_from_deals` |
-| ייעוד ותוכניות | XPlan של מינהל התכנון, במרכז החלקה | `xplanPlansAt` ב-`_shared/xplan.ts` ← הממסר `netlify/functions/xplan.mjs` |
+| ייעוד ותוכניות | XPlan של מינהל התכנון, במרכז החלקה | `xplanPlansAt` ב-`_shared/xplan.ts` ← הממסר `netlify/functions/xplan.mjs` (לא בשימוש בבוט) |
 
-**הסדר ב-`planning_lookup` מחוץ לעפולה:** מטמון GovMap (מה שדפדפן שמר) ←
-השכבה הפתוחה + XPlan (‏`openParcelAnswer`; ‏`partial: true` רק כשאין ייעוד) ←
-`city_not_supported`. בכל השלושה יוצא `planning_url` - דף הבדיקה, שמריץ את
-GovMap בדפדפן ומשלים את מה שחסר.
+**הבוט אינו קורא אותם היום:** מידע תכנוני מגבריאלה הוא רק כפתור לדף הבדיקה (הסקיל
+`planning-page`). הם נשארו כנכסי נתונים, ומי שמחבר אותם מחדש לתשובה בטקסט - קודם תומר.
 
 **שלוש מלכודות שכבר נפלנו בהן:**
 

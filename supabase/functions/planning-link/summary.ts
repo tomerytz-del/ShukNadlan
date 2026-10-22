@@ -1,9 +1,9 @@
 // ============================================================================
-// התוצאה של דף הבדיקה (/plan) - ניקוי, וההודעה לסוכן/ת בוואטסאפ
+// התוצאה של דף הבדיקה (/plan) - ניקוי
 //
 // הרשומה מגיעה מהדפדפן (‏GovmapLookup.addressRecord), ולכן היא קלט זר: כל
-// שדה כאן נבדק ונחתך, וקישור יוצא רק למבא"ת. המטמון של גבריאלה מאמת בנפרד
-// במסד (‏_govmap_address_store) - כאן זה הסיכום שנשמר בקישור ונשלח בהודעה.
+// שדה כאן נבדק ונחתך, וקישור יוצא רק למבא"ת. המטמון מאמת בנפרד במסד
+// (‏_govmap_address_store) - כאן זה הסיכום שנשמר בקישור ומוצג כשהדף נפתח שוב.
 //
 // טהור, בלי רשת: ‏scripts/planning_link_test.ts.
 // ============================================================================
@@ -83,8 +83,6 @@ export function summarize(record: unknown): PlanningSummary | null {
   };
 }
 
-const STAGE_LABEL: Record<string, string> = { approved: "מאושרת", deposited: "בהפקדה" };
-
 export interface LinkTarget {
   city?: string | null;
   street?: string | null;
@@ -96,35 +94,4 @@ export interface LinkTarget {
 export function targetLabel(t: LinkTarget): string {
   if (t.street && t.house_number) return `${t.street} ${t.house_number}${t.city ? ", " + t.city : ""}`;
   return `גוש ${t.gush} חלקה ${t.helka}`;
-}
-
-/** ההודעה לוואטסאפ. בלי מקף ארוך ובלי `**` - וואטסאפ מדגיש בכוכבית אחת. */
-export function whatsappMessage(t: LinkTarget, s: PlanningSummary | null, pageUrl: string): string {
-  const head = `תוצאת הבדיקה התכנונית - ${targetLabel(t)}:`;
-  if (!s) {
-    return `${head}\nGovMap לא מצא את הכתובת. אם הגוש והחלקה ידועים, שלח/י לי אותם ואבדוק לפיהם.`;
-  }
-  const lines = [head];
-  const parcel = [
-    s.gush && s.helka ? `גוש ${s.gush} חלקה ${s.helka}` : null,
-    s.area_sqm ? `${s.area_sqm.toLocaleString("en-US")} מ"ר` : null,
-    s.parcel_status,
-  ].filter(Boolean).join(" · ");
-  if (parcel) lines.push(parcel);
-  if (s.pin_source === "parcel") lines.push("(הכתובת אינה בשכבת הכתובות - לפי הגוש והחלקה)");
-  lines.push(`ייעוד: ${s.designation || "לא נמצא בשכבות"}`);
-  if (s.plans.length || s.detailed.length) {
-    lines.push("", "תוכניות:");
-    for (const n of s.detailed.slice(0, 3)) lines.push(`• ${n} (תוכנית מפורטת)`);
-    for (const p of s.plans) {
-      const tag = p.notice ? "⚠️ הודעה לפי סעיף 77-78" : [p.kind, p.stage ? STAGE_LABEL[p.stage] : null].filter(Boolean).join(", ");
-      lines.push(`• ${p.number}${p.name ? " " + p.name : ""}${tag ? " (" + tag + ")" : ""}`);
-    }
-  }
-  if (s.plans.some((p) => p.notice)) {
-    lines.push("", "יש הודעה לפי סעיף 77-78: ייתכנו מגבלות על היתרים באזור עד שהתוכנית תאושר או תבוטל.");
-  }
-  lines.push("", `לפרטים וקישורים למבא"ת: ${pageUrl}`,
-    "המידע כללי, מבוסס על GovMap ומבא\"ת, ואינו תחליף לבדיקה מול הוועדה המקומית.");
-  return lines.join("\n");
 }

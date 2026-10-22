@@ -56,7 +56,7 @@ python3 scripts/parcels_open_loader.py --file parcels.zip --dry-run
 | --- | --- |
 | `parcel_open_of(gush, helka)` | חלקה אחת, ‏service_role בלבד |
 | `address_parcel_from_deals(city, street, house_number)` | כתובת → הגוש והחלקה הנפוצים בעסקאות רשות המיסים שנרשמו בה. ‏62ms; ‏`city_id_for_name` נקראת פעם אחת ולא לכל עסקה (שם זה היה 37 שניות) |
-| `planning_lookup` בבוט (‏`openParcelAnswer` ב-`agent.ts`) | כתובת מחוץ לעפולה שאינה במטמון של GovMap, וגוש/חלקה שאינם בקדסטר של עפולה: גוש, חלקה, שטח, סטטוס, בעלות מהטאבו ומפה, ועם XPlan גם ייעוד ותוכניות (‏`source: "parcels_open+xplan"`). ‏`partial: true` רק כשאין ייעוד, ואז ההפניה ב-`planning_url` (דף הבדיקה, ‏`docs/govmap.md`) |
+| הבוט | **לא קורא מכאן** מאז 22.10.2026: מידע תכנוני מגבריאלה הוא רק כפתור לדף הבדיקה (הסקיל `planning-page`). הטבלה, ‏`address_parcel_from_deals` והממסר ל-XPlan נשארים כנכסי נתונים |
 
 **הגבול של כתובת:** בלי שכבת כתובות פתוחה, כתובת מתורגמת לחלקה רק אם נרשמה
 בה עסקה. כתובת בלי עסקה - עדיין `city_not_supported` עם הקישור.
