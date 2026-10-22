@@ -2358,9 +2358,13 @@ function handleGotoParam(){
   const reviewId = params.get('review');
   const filter = params.get('filter');
   const importJob = params.get('import');
+  // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
+  const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
+    .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import']
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import',
+     'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
       .forEach(k => params.delete(k));
     const search = params.toString();
     history.replaceState(history.state, '',
@@ -2399,6 +2403,25 @@ function handleGotoParam(){
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
   if (raw === 'accAgenda' && UUID_PARAM_RE.test(agendaId || '')) agendaFocus(agendaId);
+  if (raw === 'accPlanning') runPlanningFromParam(planQ);
+}
+
+/* ‏?goto=accPlanning&plan_city=…&plan_street=…&plan_num=… (או plan_gush +
+   plan_helka) - "בדוק לי מידע תכנוני" מגבריאלה מחוץ לעפולה. הבוט אינו יכול
+   לשאול את GovMap (מפ"י מתירים צד לקוח בלבד), ולכן הוא שולח לכאן, והבדיקה
+   רצה בדפדפן. הערכים רק ממלאים שדות - לא נכתבים ל-innerHTML. */
+function runPlanningFromParam(q){
+  const hasAddr = q.plan_street && q.plan_num;
+  const hasParcel = /^\d{1,7}$/.test(q.plan_gush) && /^\d{1,5}$/.test(q.plan_helka);
+  if (!hasAddr && !hasParcel) return;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  set('planCity', q.plan_city || STREET_PLANNING_CITY);
+  set('planStreet', hasParcel ? '' : q.plan_street);
+  set('planHouseNum', hasParcel ? '' : q.plan_num);
+  set('planGush', hasParcel ? q.plan_gush : '');
+  set('planHelka', hasParcel ? q.plan_helka : '');
+  refreshStreetOptions();
+  document.getElementById('planLookupBtn')?.click();
 }
 
 /* פותח שורה ברשימת טאבים (buildTabRow) וגולל אליה. ‏key ו-list הם מה שבנה

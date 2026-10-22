@@ -608,6 +608,12 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 (‏`planning_plans_merged`). כשיש הודעה חוזר `plans_guidance`: לומר "ייתכנו
 מגבלות על היתרים" ולהציע את הקישור למבא"ת - לא "אסור לבנות" (‏`docs/govmap.md`).
 
+**מחוץ לעפולה - קישור לכלי ב-CRM (22.10.2026):** `city_not_supported` ו-`parcel_not_found`
+מחזירים `crm_planning_url` (‏`planningToolUrl`): `/crm?goto=accPlanning&plan_city=…&plan_street=…&plan_num=…`
+או `plan_gush`/`plan_helka`. הקישור פותח את כלי המידע התכנוני ב-CRM עם הכתובת ומריץ אותו
+(`runPlanningFromParam` ב-`crm.js`), והבדיקה רצה בדפדפן מול GovMap - מה שהבוט עצמו אינו
+רשאי לעשות. גבריאלה כבר לא אומרת "רק בעפולה" אלא שולחת את הקישור.
+
 **למה לא GovMap בשרת:** מפ"י ענו ב-12.10.2026 שה-API נצרך מצד הלקוח בלבד
 (`docs/govmap.md`, "תשובות מפ"י"). לכן הכלי אומר ביושר "רק עפולה" ומפנה
 למפה - ולא מנחש. הדרך להרחיב אותו אינה קריאה ל-GovMap אלא קריאה של מה

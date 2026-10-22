@@ -663,7 +663,7 @@ const TOOLS: Anthropic.Tool[] = [
       "ייעוד קרקע, והתוכניות החלות (מספר, תיאור, תאריך). " +
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
-      "נתמכת עדיין - הכלי מחזיר city_not_supported עם קישור לחיפוש ב-GovMap. " +
+      "נתמכת בוואטסאפ - הכלי מחזיר city_not_supported עם קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
       "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
       "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
       "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
@@ -1464,6 +1464,19 @@ function agentPageUrl(slug: unknown): string | undefined {
 }
 
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "").replace(/\/$/, "");
+
+/** כלי המידע התכנוני ב-CRM, מלא, שמריץ את הבדיקה בפתיחה (handleGotoParam). */
+function planningToolUrl(q: { city?: string; street?: string; house_number?: string; gush?: string; helka?: string }): string | undefined {
+  if (!SITE_BASE_URL) return undefined;
+  const p = new URLSearchParams({ goto: "accPlanning" });
+  if (q.gush && q.helka) { p.set("plan_gush", q.gush); p.set("plan_helka", q.helka); }
+  else {
+    if (q.city) p.set("plan_city", q.city);
+    if (q.street) p.set("plan_street", q.street);
+    if (q.house_number) p.set("plan_num", q.house_number);
+  }
+  return `${SITE_BASE_URL}/crm?${p.toString()}`;
+}
 
 // קריאה לנקודת קצה אחרת של הפרויקט. ‏`create_property_video` הוא הכלי היחיד
 // שעושה את זה — ההפקה חיה ב-`property-video-create` ולא כאן, כדי שהחיוב
@@ -3612,6 +3625,10 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     ? `גוש ${gush} חלקה ${helka}`
     : `${street} ${houseNumber} ${city}`;
   const govmapUrl = "https://www.govmap.gov.il/?q=" + encodeURIComponent(query);
+  // מחוץ לעפולה הבוט אינו שואל את GovMap (מפ"י מתירים צד לקוח בלבד), אבל כלי
+  // המידע התכנוני ב-CRM כן - בדפדפן. הקישור פותח אותו מלא ומריץ את הבדיקה
+  // (handleGotoParam ב-crm.js, docs/govmap.md).
+  const crmPlanningUrl = planningToolUrl(byParcel ? { gush, helka } : { city, street, house_number: houseNumber });
 
   // גוש/חלקה הם מזהה ארצי, ולכן העיר אינה חוסמת אותם: שכבת הקדסטר של
   // עפולה פשוט לא תמצא חלקה מחוץ לתחומה, וזה מטופל למטה. כתובת, לעומת זאת,
@@ -3622,10 +3639,12 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       error: "city_not_supported",
       city,
       govmap_url: govmapUrl,
+      ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
       guidance:
-        "המידע התכנוני האוטומטי זמין כרגע רק בעפולה. אמור/י זאת, והצע/י את govmap_url " +
-        "(חיפוש הכתובת במפה הממשלתית, שם אפשר ללחוץ על החלקה). אם הסוכן/ת יודע/ת " +
-        "גוש וחלקה - אפשר לנסות איתם. אל תנחש/י גוש, חלקה או ייעוד.",
+        "בוואטסאפ את/ה בודק/ת מידע תכנוני רק בעפולה, אבל כלי המידע התכנוני ב-CRM עובד בכל עיר. " +
+        "שלח/י את crm_planning_url: הקישור פותח את הכלי עם הכתובת ומריץ את הבדיקה מיד - גוש, " +
+        "חלקה, ייעוד, תוכניות והודעות 77-78. אל תאמר/י שהמידע זמין רק בעפולה. אם אין " +
+        "crm_planning_url - הצע/י את govmap_url. אל תנחש/י גוש, חלקה או ייעוד.",
     };
   }
 
@@ -3667,9 +3686,11 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
         ok: false,
         error: result.error,
         govmap_url: govmapUrl,
+        ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
         ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
         guidance: result.error === "parcel_not_found"
-          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה. ייתכן שהיא מחוץ לעפולה - המידע האוטומטי מכסה כרגע רק אותה. הצע/י את govmap_url."
+          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה, כנראה כי היא מחוץ לעפולה. שלח/י את crm_planning_url - " +
+            "כלי המידע התכנוני ב-CRM בודק גוש/חלקה בכל הארץ ומריץ את הבדיקה מיד. אם אין - הצע/י את govmap_url."
           : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
       };
     }
@@ -6289,7 +6310,7 @@ const SYSTEM_STATIC: string = (() => {
     "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
       "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
       "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
-      "את govmap_url כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
+      "את crm_planning_url (או govmap_url) כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
       "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל. " +
       "\"מה סוג הבעלות\" / \"זה קרקע מדינה?\" / \"זה רמ\"י?\" = planning_lookup עם גוש+חלקה או כתובת. " +
       "אם חזר ownership_guidance - בצע/י אותו.",
