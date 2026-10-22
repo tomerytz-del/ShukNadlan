@@ -1,0 +1,62 @@
+name: שכבת החלקות הפתוחה - מפ"י
+
+# טוען ל-`parcels_open` את שכבת החלקות של המרכז למיפוי ישראל מ-data.gov.il
+# ("חלקות shape", רישיון פתוח). שורה לחלקה, ~1.1 מיליון, ונקודה במקום צורה.
+# **לא GovMap**: תנאי השימוש שם אוסרים איסוף בהיקף (docs/govmap.md,
+# "תנאי השימוש"). הפירוט: docs/parcels-open.md.
+#
+# **פעם בחודש, ורק אם הקובץ השתנה** - כמו land_ownership.yml.
+#
+# **כשל כאן אינו מוחק דבר.** הנתונים הקודמים נמחקים רק ב-
+# `parcels_open_finish`, ורק אם נכתבו לפחות מיליון חלקות.
+
+on:
+  schedule:
+    # ה-18 בחודש, 04:23 UTC. לא בדקה עגולה, ולא באותו יום של הטאבו.
+    - cron: "23 4 18 * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "לטעון גם אם הקובץ לא השתנה"
+        type: boolean
+        default: false
+      dry_run:
+        description: "הרצה יבשה - להוריד ולנתח בלי לכתוב"
+        type: boolean
+        default: false
+
+concurrency:
+  group: parcels-open
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt "pyshp>=2.3,<4" "pyproj>=3.6,<4"
+
+      # לפני שנוגעים ברשת: אם ההמרה ל-WGS84 שבורה, כל נקודה תיטען במקום הלא נכון.
+      - name: בדיקת ההמרה
+        run: python3 scripts/parcels_open_test.py
+
+      - name: טעינה
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          args=()
+          [ "${{ inputs.force }}" = "true" ] && args+=(--force)
+          [ "${{ inputs.dry_run }}" = "true" ] && args+=(--dry-run)
+          python3 scripts/parcels_open_loader.py "${args[@]}"

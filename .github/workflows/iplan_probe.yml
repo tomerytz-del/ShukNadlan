@@ -1,0 +1,27 @@
+name: בדיקת XPlan של מינהל התכנון
+
+# לפני שבונים על שירות XPlan (‏ags.iplan.gov.il) - ייעודי קרקע ותוכניות לכל
+# הארץ, בלי GovMap: האם הוא עונה ל-GitHub ומה חוזר לנקודה. קריאה בלבד - בלי
+# מסד ובלי סודות. ‏scripts/iplan_probe.py, ‏docs/parcels-open.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - run: pip install "requests>=2.34.2,<3"
+
+      - name: בדיקה
+        run: python3 scripts/iplan_probe.py

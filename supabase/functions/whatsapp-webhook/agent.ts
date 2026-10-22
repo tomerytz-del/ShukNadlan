@@ -664,7 +664,8 @@ const TOOLS: Anthropic.Tool[] = [
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
       "נתמכת ישירות - הכלי עונה מהמטמון של GovMap כשהכתובת שם (source: govmap), ואחרת " +
-      "מחזיר city_not_supported עם קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
+      "מחזיר גוש, חלקה, שטח וסטטוס מהשכבה הפתוחה של מפ\"י (source: parcels_open, partial: true - בלי ייעוד ותוכניות) כשיש, " +
+      "ואחרת city_not_supported - ובשני המקרים קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
       "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
       "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
       "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
@@ -3640,6 +3641,65 @@ async function govmapCachedPlanning(
   };
 }
 
+/**
+ * חלקה מהעותק שלנו של שכבת החלקות הפתוחה (‏parcels_open, ‏data.gov.il,
+ * ‏docs/parcels-open.md) - גוש, חלקה, שטח רשום, סטטוס ויישוב בכל הארץ, מהשרת
+ * ובלי GovMap. **בלי ייעוד ותוכניות** - אלה לא בשכבה, ולכן התשובה מפנה
+ * אליהם ב-crm_planning_url. כתובת מתורגמת לגוש/חלקה רק לפי עסקאות רשות
+ * המיסים שנרשמו בה (‏address_parcel_from_deals). ‏null = אין, והקורא נופל
+ * לקישור. לעולם לא זורקת.
+ */
+async function openParcelAnswer(
+  ctx: ToolContext,
+  q: { gush?: string; helka?: string; city?: string; street?: string; house_number?: string },
+  crmPlanningUrl: string | undefined,
+): Promise<Record<string, unknown> | null> {
+  try {
+    let gush = q.gush, helka = q.helka, deals: number | null = null;
+    if (!gush || !helka) {
+      const { data, error } = await ctx.supabase.rpc("address_parcel_from_deals", {
+        p_city: q.city ?? null, p_street: q.street ?? null, p_house_number: q.house_number ?? null,
+      });
+      if (error || !data) return null;
+      const d = data as { gush: string; helka: string; deals: number };
+      gush = String(d.gush); helka = String(d.helka); deals = Number(d.deals) || null;
+    }
+    const { data: p, error } = await ctx.supabase.rpc("parcel_open_of", { p_gush: gush, p_helka: helka });
+    if (error || !p) return null;
+    const row = p as Record<string, unknown>;
+    const lat = Number(row.lat), lng = Number(row.lng);
+    const ownership = await landOwnership(ctx, gush, helka);
+    return {
+      ok: true,
+      partial: true,
+      source: "parcels_open",
+      queried: q.gush ? { gush: q.gush, helka: q.helka } : { street: q.street, house_number: q.house_number, city: q.city },
+      gush, helka,
+      ...(deals ? { from_deals: deals } : {}),
+      parcel_area_sqm: row.legal_area ?? null,
+      parcel_status: row.status_text ?? null,
+      locality: row.locality_name ?? null,
+      municipality: row.municipality ?? null,
+      as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
+      ownership,
+      ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
+      map_url: Number.isFinite(lat) && Number.isFinite(lng) && row.lat != null
+        ? `https://www.google.com/maps?q=${lat},${lng}` : null,
+      ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
+      guidance:
+        "יש כאן גוש, חלקה, שטח רשום, סטטוס ויישוב - מהשכבה הפתוחה של המרכז למיפוי ישראל. " +
+        (deals ? "הגוש והחלקה לפי עסקאות שנרשמו בכתובת הזו ברשות המיסים - אמור/י זאת. " : "") +
+        "ייעוד ותוכניות אינם כאן: אל תנחש/י אותם, ושלח/י את crm_planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). " +
+        "סיים/י במשפט ה-disclaimer.",
+      disclaimer:
+        "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל (data.gov.il), ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית.",
+    };
+  } catch (err) {
+    console.warn("openParcelAnswer failed", err);
+    return null;
+  }
+}
+
 async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknown>) {
   const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");
   const gush = digits(input.gush);
@@ -3698,6 +3758,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       p_city: city, p_street: street, p_house_number: houseNumber,
     });
     if (reqErr) console.warn("planning_lookup: address request failed", reqErr.message);
+    // בינתיים, מה שיש לנו בעצמנו: גוש/חלקה מהעסקאות, ושטח וסטטוס מהשכבה הפתוחה
+    const fromOpen = await openParcelAnswer(ctx, { city, street, house_number: houseNumber }, crmPlanningUrl);
+    if (fromOpen) return fromOpen;
     return {
       ok: false,
       error: "city_not_supported",
@@ -3747,6 +3810,8 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     if (!result.ok && byParcel && result.error === "parcel_not_found") {
       const fromCache = await govmapCachedPlanning(ctx, { gush, helka });
       if (fromCache) return fromCache;
+      const fromOpen = await openParcelAnswer(ctx, { gush, helka }, crmPlanningUrl);
+      if (fromOpen) return fromOpen;
     }
     if (!result.ok) {
       // גוש/חלקה מחוץ לעפולה: אין ייעוד, אבל יש בעלות - הטאבו ארצי.
