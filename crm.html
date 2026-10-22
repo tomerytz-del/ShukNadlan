@@ -4387,6 +4387,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cst-err{margin:0;font-size:.75rem;font-weight:700;color:#b91c1c}
   .cst-form-btns{display:flex;gap:8px}
   .cst-form-btns .btn{padding:9px 18px;font-size:.82rem}
+  /* עלויות מול תקציב (assets/crm-budget.js) */
+  .bdg-top{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.84rem;margin:0 0 10px}
+  .bdg-top .is-neg{color:#9A3412}
+  .bdg-row{padding:10px 0;border-bottom:1px solid var(--edge)}
+  .bdg-row:last-of-type{border-bottom:0}
+  .bdg-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;align-items:baseline}
+  .bdg-name{font-weight:800;font-size:.86rem}
+  .bdg-name small{display:block;font-weight:400;font-size:.7rem;color:var(--txt-faint)}
+  .bdg-val{font-size:.8rem;font-weight:700}
+  .bdg-val.is-warn{color:#7A5300}
+  .bdg-val.is-over{color:#9A3412}
+  .bdg-bar{height:8px;border-radius:999px;background:#EEF1F6;overflow:hidden;margin:6px 0}
+  .bdg-bar span{display:block;height:100%;background:#166534;border-radius:999px}
+  .bdg-bar.is-warn span{background:#B7791F}
+  .bdg-bar.is-over span{background:#C2410C}
+  .bdg-edit{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.74rem;margin-top:4px}
+  .bdg-edit input{width:96px;border:1px solid var(--edge);border-radius:var(--r-xs);padding:4px 8px;font:inherit}
+  .bdg-prop{color:var(--txt-faint)}
   .cst-rate{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.7rem;color:var(--txt-faint)}
   .cst-rate input{width:68px;border:1px solid var(--edge);border-radius:var(--r-xs);padding:3px 6px;font:inherit;text-align:center}
   .cst-pend{display:flex;flex-direction:column;gap:6px}
@@ -12078,6 +12096,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
 <script src="assets/crm-command-center.js"></script>
 <script src="assets/crm-growth.js"></script>
+<script src="assets/crm-budget.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->

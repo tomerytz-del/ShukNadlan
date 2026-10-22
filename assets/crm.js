@@ -6111,9 +6111,12 @@ async function loadCostsReport(){
   host.innerHTML = '<div class="empty-state">טוען את העלויות…</div>';
 
   // ‏ai_usage_costs במקביל, וכשל שלו (מיגרציה שעוד לא רצה) אינו מפיל את הדוח
-  const [{ data, error }, ai] = await Promise.all([
+  // התקציב וההכנסות של החודש (crm-budget.js) - כשל שלהם אינו מפיל את הדוח
+  const [{ data, error }, ai, budget, revenue] = await Promise.all([
     sb.rpc('platform_costs_list', { p_from: range.prevFrom, p_to: range.to }),
     sb.rpc('ai_usage_costs', { p_from: range.from, p_to: range.to }),
+    sb.rpc('platform_budget_status'),
+    sb.rpc('platform_admin_monthly_report', { p_months: 1 }),
   ]);
 
   costsBusy = false;
@@ -6131,7 +6134,10 @@ async function loadCostsReport(){
     return;
   }
 
-  costsLast = { report: data || {}, range, ai: ai.error ? null : (ai.data || {}) };
+  const months = revenue.error || !revenue.data ? [] : (revenue.data.months || []);
+  costsLast = { report: data || {}, range, ai: ai.error ? null : (ai.data || {}),
+    budget: budget.error ? null : budget.data,
+    revenue: months.length ? Number(months[months.length - 1].revenue_total) || 0 : null };
   renderCostsReport();
 }
 
@@ -6198,6 +6204,9 @@ function renderCostsReport(){
   rate.appendChild(rateIn);
   rate.appendChild(admEl('span', null, 'לדולר. הסכומים המקוריים מוצגים בפירוט כמו שחויבו.'));
   host.appendChild(rate);
+
+  /* ---- התקציב של החודש מול ההוצאה וההכנסות (assets/crm-budget.js) ---- */
+  if (typeof costsBudgetBlock === 'function') host.appendChild(costsBudgetBlock(costsLast.budget, costsLast.revenue));
 
   /* ---- 2. ממתינים ---- */
   if (pending.length){
@@ -24953,6 +24962,12 @@ const NOTIF_TYPES = [
     refresh: ()=> loadDealSyncRuns() },
   /* שוק מקומי שמתקרב לסף (7 נכסים), עובר אותו (משרד ו-10 נכסים) או חי ויורד
      מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270705090000). */
+  /* קטגוריה שעברה 80% או 100% מתקציב החודש המאושר (20270726090000) */
+  { type:'budget_alert', tone:'alert', goto:'dashPanelCosts',
+    view:'admin',
+    title:'עלויות מול תקציב',
+    sub:'כשההוצאה של החודש על AI, פרסום או תשתית מגיעה ל-80% או ל-100% מהתקציב. פעם אחת לכל סף בחודש.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
   { type:'market_alert', tone:'alert', goto:'dashPanelMarkets',
     view:'admin',
     title:'שווקים מקומיים',
