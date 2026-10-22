@@ -6113,9 +6113,18 @@ async function loadCostsReport(){
   host.innerHTML = '<div class="empty-state">טוען את העלויות…</div>';
 
   // ‏ai_usage_costs במקביל, וכשל שלו (מיגרציה שעוד לא רצה) אינו מפיל את הדוח
-  const [{ data, error }, ai] = await Promise.all([
+  // התקציב וההכנסות של החודש (crm-budget.js) - כשל שלהם אינו מפיל את הדוח
+  const [{ data, error }, ai, budget, revenue, ads] = await Promise.all([
     sb.rpc('platform_costs_list', { p_from: range.prevFrom, p_to: range.to }),
     sb.rpc('ai_usage_costs', { p_from: range.from, p_to: range.to }),
+    sb.rpc('platform_budget_status'),
+    sb.rpc('platform_admin_monthly_report', { p_months: 1 }),
+    sb.rpc('admin_ads_spend', {}),
+  ]);
+  // הפרסום של התקופה ושל התקופה הקודמת - חלק מסך העלויות (docs/platform-costs.md)
+  const [adsCur, adsPrev] = await Promise.all([
+    sb.rpc('admin_ads_spend', { p_from: range.from, p_to: range.to }),
+    sb.rpc('admin_ads_spend', { p_from: range.prevFrom, p_to: range.prevTo }),
   ]);
 
   costsBusy = false;
@@ -6133,7 +6142,13 @@ async function loadCostsReport(){
     return;
   }
 
-  costsLast = { report: data || {}, range, ai: ai.error ? null : (ai.data || {}) };
+  const months = revenue.error || !revenue.data ? [] : (revenue.data.months || []);
+  costsLast = { report: data || {}, range, ai: ai.error ? null : (ai.data || {}),
+    budget: budget.error ? null : budget.data,
+    ads: ads.error ? null : ads.data,
+    adsCur: adsCur.error ? null : adsCur.data,
+    adsPrev: adsPrev.error ? null : adsPrev.data,
+    revenue: months.length ? Number(months[months.length - 1].revenue_total) || 0 : null };
   renderCostsReport();
 }
 
@@ -6145,7 +6160,12 @@ function renderCostsReport(){
 
   const all = Array.isArray(report.rows) ? report.rows : [];
   const pending = Array.isArray(report.pending) ? report.pending : [];
-  const counted = r => r.status === 'confirmed' && r.amount !== null;
+  /* הפרסום נספר מהערוצים עצמם (admin_ads_spend - כל הקמפיינים במטא, בגוגל ובמה
+     שיתווסף), ולכן הקבלה של מטא או של גוגל נשארת ברשימה ואינה נספרת שוב */
+  const adsSvc = s => s === 'meta' || s === 'google_ads';
+  const counted = r => r.status === 'confirmed' && r.amount !== null && !adsSvc(r.service);
+  const adsNow = costsLast.adsCur ? Number(costsLast.adsCur.total) || 0 : 0;
+  const adsBefore = costsLast.adsPrev ? Number(costsLast.adsPrev.total) || 0 : 0;
   const cur  = all.filter(r => r.charged_on >= range.from && r.charged_on <= range.to);
   const prev = all.filter(r => r.charged_on >= range.prevFrom && r.charged_on <= range.prevTo);
 
@@ -6158,7 +6178,7 @@ function renderCostsReport(){
     : '';
 
   /* ---- 1. ארבעת המספרים ---- */
-  const totalNow = sumIls(cur), totalPrev = sumIls(prev);
+  const totalNow = sumIls(cur) + adsNow, totalPrev = sumIls(prev) + adsBefore;
   const tiles = admEl('div', 'adm-tiles');
   /* הנתון המסכם: כל העלויות בתקופה לחלק לסוכנים הפעילים (‏active ו-is_active_agent,
      תמונת מצב של היום - platform_costs_list). בתקופה של כמה חודשים - גם לחודש. */
@@ -6175,7 +6195,10 @@ function renderCostsReport(){
   heroTile.classList.add('adm-tile-hero');
   tiles.appendChild(admTile('סה"כ בתקופה (הערכה בשקלים)', admMoney(totalNow),
     { delta: admDeltaChip(Math.round(totalNow), Math.round(totalPrev)),
-      note: range.label + ' · מול ' + admMoney(totalPrev) }));
+      note: range.label + ' · מול ' + admMoney(totalPrev) + (adsNow ? ' · כולל פרסום' : '') }));
+  tiles.appendChild(admTile('פרסום בכל הערוצים', admMoney(adsNow),
+    { delta: admDeltaChip(Math.round(adsNow), Math.round(adsBefore)),
+      note: costsLast.adsCur ? plural((costsLast.adsCur.channels || []).reduce((s, c) => s + (c.campaigns || []).length, 0), 'קמפיין אחד', 'קמפיינים') : 'עוד לא זמין' }));
   tiles.appendChild(admTile('חיובים בדולר', costFmt(sumCur(cur, 'USD'), 'USD'),
     { note: plural(cur.filter(r => counted(r) && r.currency === 'USD').length, 'חיוב אחד', 'חיובים') }));
   tiles.appendChild(admTile('חיובים בשקלים', costFmt(sumCur(cur, 'ILS'), 'ILS'),
@@ -6200,6 +6223,9 @@ function renderCostsReport(){
   rate.appendChild(rateIn);
   rate.appendChild(admEl('span', null, 'לדולר. הסכומים המקוריים מוצגים בפירוט כמו שחויבו.'));
   host.appendChild(rate);
+
+  /* ---- התקציב של החודש מול ההוצאה וההכנסות (assets/crm-budget.js) ---- */
+  if (typeof costsBudgetBlock === 'function') host.appendChild(costsBudgetBlock(costsLast.budget, costsLast.revenue, costsLast.ads));
 
   /* ---- 2. ממתינים ---- */
   if (pending.length){
@@ -6237,6 +6263,14 @@ function renderCostsReport(){
   });
   const prevBySvc = new Map();
   prev.filter(counted).forEach(r => prevBySvc.set(r.service, (prevBySvc.get(r.service) || 0) + costToIls(r.amount, r.currency)));
+  // הפרסום - שורה אחת לכל הערוצים, והפירוט לכל ערוץ וקמפיין בלחיצה מתחת
+  if (adsNow || adsBefore){
+    const chans = costsLast.adsCur ? (costsLast.adsCur.channels || []) : [];
+    bySvc.set('__ads', { ils: adsNow, n: 0, orig: new Map(),
+      sub: chans.map(c => ((typeof ADS_CHANNELS !== 'undefined' && ADS_CHANNELS[c.channel]) ? ADS_CHANNELS[c.channel].label.split(' ')[0] : c.channel)
+        + ' ' + admMoney(c.spend)).join(' · ') });
+    prevBySvc.set('__ads', adsBefore);
+  }
   if (!bySvc.size){
     svcBlock.appendChild(admEl('div', 'empty-state', 'אין חיובים מאושרים בתקופה הזו.'));
   } else {
@@ -6244,13 +6278,22 @@ function renderCostsReport(){
     [...bySvc.entries()].sort((a, b) => b[1].ils - a[1].ils).forEach(([key, s]) => {
       const orig = [...s.orig.entries()].map(([c, v]) => costFmt(v, c)).join(' + ');
       const meta = COST_SERVICE_OF.get(key);
-      const sub = [meta && meta.sub, plural(s.n, 'חיוב אחד', 'חיובים'), orig].filter(Boolean).join(' · ');
-      rows.appendChild(admRow(costLabel(key), sub, admMoney(s.ils),
+      const sub = key === '__ads' ? (s.sub || 'כל הקמפיינים')
+        : [meta && meta.sub, plural(s.n, 'חיוב אחד', 'חיובים'), orig].filter(Boolean).join(' · ');
+      rows.appendChild(admRow(key === '__ads' ? 'פרסום · כל הערוצים' : costLabel(key), sub, admMoney(s.ils),
         totalNow ? (s.ils / totalNow) * 100 : 0,
         admDeltaChip(Math.round(s.ils), Math.round(prevBySvc.get(key) || 0))));
     });
     rows.appendChild(admRow('סה"כ', null, admMoney(totalNow), null, null, true));
     svcBlock.appendChild(rows);
+    if (costsLast.adsCur && adsNow && typeof adsSpendHtml === 'function'){
+      const more = admEl('details', 'bdg-more');
+      more.appendChild(admEl('summary', null, 'פירוט הפרסום לפי ערוץ וקמפיין'));
+      const inner = admEl('div');
+      inner.innerHTML = adsSpendHtml(costsLast.adsCur, range.label);
+      more.appendChild(inner);
+      svcBlock.appendChild(more);
+    }
   }
   host.appendChild(svcBlock);
 
@@ -6261,7 +6304,8 @@ function renderCostsReport(){
   const months = [];
   for (let d = new Date(range.from.slice(0, 7) + '-01T00:00:00'); costYmd(d) <= range.to; d.setMonth(d.getMonth() + 1)){
     const ym = costYmd(d).slice(0, 7);
-    months.push({ month: ym, total: sumIls(cur.filter(r => r.charged_on.slice(0, 7) === ym)) });
+    const adsM = costsLast.adsCur ? (costsLast.adsCur.months || []).find(x => x.month === ym) : null;
+    months.push({ month: ym, total: sumIls(cur.filter(r => r.charged_on.slice(0, 7) === ym)) + (adsM ? Number(adsM.spend) || 0 : 0) });
   }
   if (months.length > 1){
     const mBlock = admBlock('לפי חודש', 'החודש האחרון מסומן בזהב אם הוא עוד לא נגמר.');
@@ -6286,6 +6330,9 @@ function renderCostsReport(){
       if (r.status !== 'confirmed'){
         name.appendChild(document.createTextNode(' '));
         name.appendChild(admEl('span', 'cst-tag ' + r.status, r.status === 'pending' ? 'ממתין' : 'נדחה'));
+      } else if (adsSvc(r.service)){
+        name.appendChild(document.createTextNode(' '));
+        name.appendChild(admEl('span', 'cst-tag', 'נספר בפרסום'));
       }
       tr.appendChild(name);
       tr.appendChild(admEl('td', 'num', r.charged_on));
@@ -25060,6 +25107,12 @@ const NOTIF_TYPES = [
     refresh: ()=> loadDealSyncRuns() },
   /* שוק מקומי שמתקרב לסף (7 נכסים), עובר אותו (משרד ו-10 נכסים) או חי ויורד
      מתחתיו - ממצא של הסוכן התפעולי שנפתח (מיגרציה 20270705090000). */
+  /* קטגוריה שעברה 80% או 100% מתקציב החודש המאושר (20270727090000) */
+  { type:'budget_alert', tone:'alert', goto:'dashPanelCosts',
+    view:'admin',
+    title:'עלויות מול תקציב',
+    sub:'כשההוצאה של החודש על AI, פרסום או תשתית מגיעה ל-80% או ל-100% מהתקציב. פעם אחת לכל סף בחודש.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
   { type:'market_alert', tone:'alert', goto:'dashPanelMarkets',
     view:'admin',
     title:'שווקים מקומיים',

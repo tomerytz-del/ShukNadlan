@@ -115,6 +115,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // ‏שוק שמתקרב לסף, עובר אותו או יורד מתחתיו (20270705090000) - לפאנל
   // "שווקים מקומיים", שה-goto ב-crm.js פותח בתצוגת הניהול.
   market_alert: "dashPanelMarkets",
+  // ‏עלויות מול תקציב, 80% ו-100% (20270727090000) - לפאנל העלויות
+  budget_alert: "dashPanelCosts",
   // ‏סקירת הרשאות חצי-שנתית (docs/access-review.md)
   access_review: "accSecurityAudit",
   // ‏שבעת אלה חסרו עד 10.2026 ונפלו ל-MANAGE_ACC - כלומר הקישור בוואטסאפ על

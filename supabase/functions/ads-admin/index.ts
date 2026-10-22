@@ -55,6 +55,9 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   google_status    Google Ads: הסודות קיימים? החשבון, המטבע, אזור הזמן
 //   google_campaigns ‏{days} - קמפיינים עם הוצאה, קליקים והמרות. קריאה בלבד
 //                    (‏_shared/google-ads.ts, שלב 7)
+//   google_sync_insights ‏{days?} - ההוצאה היומית לכל קמפיין → ads_channel_daily
+//                    (‏channel = 'google'), בשביל הסכום של כל הערוצים בניהול
+//                    (‏admin_ads_spend, docs/platform-costs.md). ה-cron מורשה
 //   google_directions   כיווני הפרסום (‏google-directions.ts) - בלי קריאה לגוגל
 //   google_create_campaign ‏{direction, market, market_path, daily_budget, radius_km,
 //                    max_cpc?, keywords, negatives, headlines, descriptions, dry_run}
@@ -1299,6 +1302,59 @@ async function actionGoogleCampaigns(body: any) {
   }
 }
 
+// ההוצאה היומית של גוגל נשמרת כמו של מטא, כדי שהסכום של כל ערוצי הפרסום יהיה
+// שאילתה אחת ולא קריאה חיה לכל ערוץ (‏admin_ads_spend). חלון של 3 ימים כמו
+// במטא - גוגל מעדכנת המרות כמה ימים אחורה - ובסנכרון הראשון 31 יום, כדי
+// שהחודש יהיה שלם מהיום הראשון.
+async function actionGoogleSyncInsights(sb: SupabaseClient, body: any) {
+  const { config } = googleAdsConfig((k) => Deno.env.get(k));
+  if (!config) return json({ ok: true, skipped: "google_not_configured" });
+  let days = Number(body?.days);
+  if (!Number.isFinite(days) || days <= 0) {
+    const { count } = await sb.from("ads_channel_daily").select("day", { count: "exact", head: true }).eq("channel", "google");
+    days = count ? 3 : 31;
+  }
+  days = Math.min(Math.max(Math.floor(days), 1), 90);
+  const ymd = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const to = new Date();
+  const from = new Date(to.getTime() - (days - 1) * 86_400_000);
+  try {
+    const rows = await gaql(config, `
+      SELECT campaign.id, campaign.name, campaign.status, customer.currency_code, segments.date,
+             metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
+        FROM campaign
+       WHERE segments.date BETWEEN '${ymd(from)}' AND '${ymd(to)}'
+         AND campaign.status != 'REMOVED'`);
+    const now = new Date().toISOString();
+    const skipped = new Set<string>();
+    const records = rows.flatMap((r: any) => {
+      const currency = String(r.customer?.currencyCode || "ILS");
+      if (currency !== "ILS" && currency !== "USD") { skipped.add(currency); return []; }
+      return [{
+        channel: "google",
+        day: r.segments?.date,
+        campaign_id: String(r.campaign?.id || ""),
+        campaign_name: r.campaign?.name || null,
+        campaign_status: r.campaign?.status || null,
+        spend: fromMicros(r.metrics?.costMicros),
+        currency,
+        clicks: Number(r.metrics?.clicks || 0),
+        impressions: Number(r.metrics?.impressions || 0),
+        conversions: Number(r.metrics?.conversions || 0),
+        synced_at: now,
+      }];
+    }).filter((r: any) => r.day && r.campaign_id);
+    if (records.length) {
+      const { error } = await sb.from("ads_channel_daily").upsert(records, { onConflict: "channel,day,campaign_id" });
+      if (error) return json({ error: "db_error", detail: error.message }, 500);
+    }
+    return json({ ok: true, from: ymd(from), to: ymd(to), rows: records.length,
+      skipped_currencies: [...skipped] });
+  } catch (e) {
+    return googleErrorResponse(e);
+  }
+}
+
 async function actionGoogleKeywordIdeas(sb: SupabaseClient, body: any) {
   const { config } = googleAdsConfig((k) => Deno.env.get(k));
   if (!config) return json({ error: "google_not_configured" }, 503);
@@ -1441,7 +1497,9 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action ?? "");
 
   // ה-cron מורשה לשני סנכרונים בלבד - שום פעולה שמשנה קמפיין או שולחת ליד ידנית.
-  if (!caller.full && action !== "sync_insights" && action !== "sync_leads") return json({ error: "forbidden_for_cron" }, 403);
+  if (!caller.full && action !== "sync_insights" && action !== "sync_leads" && action !== "google_sync_insights") {
+    return json({ error: "forbidden_for_cron" }, 403);
+  }
 
   // ה-cron יורה רק כש-enabled; הבדיקה כאן מכסה את הפער בין כיבוי לבין
   // הרצה שכבר הייתה בדרך.
@@ -1468,6 +1526,7 @@ Deno.serve(async (req: Request) => {
   // גוגל - חשבון נפרד וסודות נפרדים, ולכן לפני הבדיקה של מטא.
   if (action === "google_status") return await actionGoogleStatus();
   if (action === "google_campaigns") return await actionGoogleCampaigns(body);
+  if (action === "google_sync_insights") return await actionGoogleSyncInsights(sb, body);
   if (action === "google_directions") return json({ directions: DIRECTIONS });
   if (action === "google_keyword_ideas") return await actionGoogleKeywordIdeas(sb, body);
   if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);

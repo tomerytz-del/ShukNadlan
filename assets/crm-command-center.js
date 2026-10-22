@@ -28,11 +28,13 @@ async function loadCommandCenter(){
   const host = document.getElementById('adminCommand');
   if (!host || ccBusy) return;
   ccBusy = true;
-  const [cc, inbox, counts, report] = await Promise.all([
+  const [cc, inbox, counts, report, budget, ads] = await Promise.all([
     sb.rpc('admin_command_center'),
     sb.rpc('admin_inbox', { p_kind: null, p_limit: 7, p_offset: 0 }),
     sb.rpc('admin_inbox_counts'),
     sb.rpc('platform_admin_monthly_report', { p_months: 3 }),
+    sb.rpc('platform_budget_status'),
+    sb.rpc('admin_ads_spend', {}),
   ]);
   ccBusy = false;
 
@@ -40,6 +42,8 @@ async function loadCommandCenter(){
   renderCcInbox(inbox.error ? null : inbox.data);
   renderCcTools(cc.error ? null : cc.data);
   renderCcMonth(report.error ? null : report.data, cc.error ? null : cc.data);
+  const adsHost = document.getElementById('ccAds');
+  if (adsHost && typeof adsSpendHtml === 'function') adsHost.innerHTML = adsSpendHtml(ads.error ? null : ads.data);
 
   if (cc.error){
     // ‏PGRST202 - האתר עולה לפני המסד (הסקיל deploy-path)
@@ -54,7 +58,7 @@ async function loadCommandCenter(){
   }
   renderCcMarket(cc.data, report.error ? null : report.data);
   renderCcMarkets(cc.data);
-  renderCcSystem(cc.data);
+  renderCcSystem(cc.data, budget.error ? null : budget.data);
 }
 
 function renderCcHead(counts){
@@ -195,7 +199,7 @@ function renderCcMarkets(cc){
       + '<span class="ld">' + esc(ccInt(r.d.leads_30d) + ' לידים') + '</span></div>').join('');
 }
 
-function renderCcSystem(cc){
+function renderCcSystem(cc, budget){
   const host = document.getElementById('ccSystem');
   const alert = document.getElementById('ccAlert');
   if (!host) return;
@@ -213,6 +217,17 @@ function renderCcSystem(cc){
     [newsH == null || newsH > 24 ? 'warn' : 'ok',
       newsH == null ? 'אין מבזקים' : 'מבזק אחרון לפני ' + Math.round(newsH) + ' שע׳'],
   ];
+  // עלויות מול תקציב (שלב 7): הקטגוריה הכי קרובה לתקציב המאושר שלה. ‏budget
+  // ‏null - המיגרציה טרם רצה, והשורה פשוט לא מוצגת
+  const cats = budget && Array.isArray(budget.categories) ? budget.categories.filter(c => c.approved && c.pct != null) : [];
+  if (budget){
+    const worst = cats.sort((a, b) => b.pct - a.pct)[0];
+    const name = worst ? ({ ai:'AI', ads:'פרסום', infra:'תשתית' })[worst.key] : '';
+    rows.push(worst
+      ? [worst.pct >= 100 ? 'bad' : worst.pct >= 80 ? 'warn' : 'ok',
+         'עלויות ' + name + ': ' + worst.pct + '% מתקציב החודש']
+      : ['warn', 'עלויות: עוד לא אושר תקציב חודשי']);
+  }
   host.innerHTML = rows.map(([lvl, text]) =>
     '<div class="cc-sys"><span class="cc-dot' + (lvl === 'ok' ? '' : ' is-' + lvl) + '"></span>' + esc(text) + '</div>').join('');
   // פס "תקלה פעילה": רק כשמשהו חמור - ממצא חמור או משימה מתוזמנת שנכשלה
