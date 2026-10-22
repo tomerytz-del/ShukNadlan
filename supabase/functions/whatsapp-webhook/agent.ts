@@ -666,7 +666,7 @@ const TOOLS: Anthropic.Tool[] = [
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
       "נתמכת ישירות - הכלי עונה מהמטמון של GovMap כשהכתובת שם (source: govmap), ואחרת " +
       "מחזיר גוש, חלקה, שטח וסטטוס מהשכבה הפתוחה של מפ\"י, וייעוד ותוכניות מ-XPlan של מינהל התכנון (source: parcels_open+xplan; partial: true כשאין ייעוד) כשיש, " +
-      "ואחרת city_not_supported - ובשני המקרים קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
+      "ואחרת city_not_supported - ובשני המקרים planning_url, קישור לדף בדיקה שעובד בכל עיר. " +
       "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
       "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
       "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
@@ -1480,6 +1480,33 @@ function planningToolUrl(q: { city?: string; street?: string; house_number?: str
   }
   return `${SITE_BASE_URL}/crm?${p.toString()}`;
 }
+
+/**
+ * קישור אישי לדף הבדיקה התכנונית (‏/plan?k=, ‏planning_links): דף קטן שמריץ את
+ * GovMap מיד בדפדפן, בלי כניסה ובלי ה-CRM - שטעינה שלו לקחה זמן וסוכנים נטשו
+ * באמצע. התוצאה נשמרת במטמון של גבריאלה ונשלחת לסוכן/ת בוואטסאפ
+ * (‏planning-link). כשלא נוצר קישור (תקרה יומית, תקלה) - הקישור ל-CRM.
+ */
+async function planningPageUrl(
+  ctx: ToolContext,
+  q: { city?: string; street?: string; house_number?: string; gush?: string; helka?: string },
+): Promise<string | undefined> {
+  if (SITE_BASE_URL) {
+    const { data, error } = await ctx.supabase.rpc("planning_link_create", {
+      p_agent: ctx.agent.id, p_city: q.city ?? null, p_street: q.street ?? null,
+      p_house_number: q.house_number ?? null, p_gush: q.gush ?? null, p_helka: q.helka ?? null,
+    });
+    if (error) console.warn("planning link:", error.message);
+    if (data) return `${SITE_BASE_URL}/plan?k=${data}`;
+  }
+  return planningToolUrl(q);
+}
+
+const PLANNING_URL_GUIDANCE =
+  "planning_url הוא קישור אישי לדף בדיקה קצר: הוא מריץ את הבדיקה ב-GovMap מיד כשנפתח (בלי כניסה), " +
+  "והתוצאה - גוש, חלקה, ייעוד, תוכניות והודעות 77-78 - נשלחת לסוכן/ת גם כאן בוואטסאפ. " +
+  "אמור/י בדיוק את זה, ולא יותר: אל תבטיח/י לענות \"בפעם הבאה\" ואל תאמר/י שהכתובת \"נשמרה\" - " +
+  "זה קורה רק אחרי שהדף נפתח.";
 
 // קריאה לנקודת קצה אחרת של הפרויקט. ‏`create_property_video` הוא הכלי היחיד
 // שעושה את זה — ההפקה חיה ב-`property-video-create` ולא כאן, כדי שהחיוב
@@ -3647,14 +3674,14 @@ async function govmapCachedPlanning(
  * ‏docs/parcels-open.md) - גוש, חלקה, שטח רשום, סטטוס ויישוב בכל הארץ, מהשרת
  * ובלי GovMap. ייעוד ותוכניות לא בשכבה: הם באים מ-XPlan של מינהל התכנון
  * במרכז החלקה (‏_shared/xplan.ts, דרך הממסר ב-Netlify). כש-XPlan לא ענה, או
- * שאין בו ייעוד, התשובה `partial` ומפנה ב-crm_planning_url. כתובת מתורגמת
+ * שאין בו ייעוד, התשובה `partial` ומפנה ב-planning_url. כתובת מתורגמת
  * לגוש/חלקה רק לפי עסקאות רשות המיסים שנרשמו בה (‏address_parcel_from_deals).
  * ‏null = אין, והקורא נופל לקישור. לעולם לא זורקת.
  */
 async function openParcelAnswer(
   ctx: ToolContext,
   q: { gush?: string; helka?: string; city?: string; street?: string; house_number?: string },
-  crmPlanningUrl: string | undefined,
+  planningUrl: string | undefined,
 ): Promise<Record<string, unknown> | null> {
   try {
     let gush = q.gush, helka = q.helka, deals: number | null = null;
@@ -3696,7 +3723,7 @@ async function openParcelAnswer(
       ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
       ...(plans.some((p) => p.notice) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
       map_url: hasPoint ? `https://www.google.com/maps?q=${lat},${lng}` : null,
-      ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
+      ...(planningUrl ? { planning_url: planningUrl, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}),
       guidance:
         "גוש, חלקה, שטח רשום, סטטוס ויישוב - מהשכבה הפתוחה של המרכז למיפוי ישראל. " +
         (deals ? "הגוש והחלקה לפי עסקאות שנרשמו בכתובת הזו ברשות המיסים - אמור/י זאת. " : "") +
@@ -3706,8 +3733,8 @@ async function openParcelAnswer(
             "ולכן אל תאמר/י \"אלה כל התוכניות\". "
           : "") +
         (partial
-          ? "אין כאן ייעוד: אל תנחש/י אותו, ושלח/י את crm_planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). "
-          : "אפשר להציע את crm_planning_url לבדיקה מלאה יותר. ") +
+          ? "אין כאן ייעוד: אל תנחש/י אותו, ושלח/י את planning_url לבדיקה המלאה (ייעוד, תוכניות והודעות 77-78). "
+          : "אפשר להציע את planning_url לבדיקה מלאה יותר. ") +
         "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
       disclaimer: xplan
         ? "המידע כללי, מבוסס על שכבת החלקות של המרכז למיפוי ישראל ועל XPlan של מינהל התכנון, ואינו תחליף לנסח טאבו או לבדיקה מול הוועדה המקומית לתכנון ובנייה."
@@ -3760,10 +3787,11 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     ? `גוש ${gush} חלקה ${helka}`
     : `${street} ${houseNumber} ${city}`;
   const govmapUrl = "https://www.govmap.gov.il/?q=" + encodeURIComponent(query);
-  // מחוץ לעפולה הבוט אינו שואל את GovMap (מפ"י מתירים צד לקוח בלבד), אבל כלי
-  // המידע התכנוני ב-CRM כן - בדפדפן. הקישור פותח אותו מלא ומריץ את הבדיקה
-  // (handleGotoParam ב-crm.js, docs/govmap.md).
-  const crmPlanningUrl = planningToolUrl(byParcel ? { gush, helka } : { city, street, house_number: houseNumber });
+  // מחוץ לעפולה הבוט אינו שואל את GovMap (מפ"י מתירים צד לקוח בלבד) - הדפדפן
+  // של הסוכן/ת כן, בדף הבדיקה (‏planningPageUrl). נוצר רק כשצריך אותו.
+  let planningUrlP: Promise<string | undefined> | null = null;
+  const planningUrl = () =>
+    planningUrlP ??= planningPageUrl(ctx, byParcel ? { gush, helka } : { city, street, house_number: houseNumber });
 
   // גוש/חלקה הם מזהה ארצי, ולכן העיר אינה חוסמת אותם: שכבת הקדסטר של
   // עפולה פשוט לא תמצא חלקה מחוץ לתחומה, וזה מטופל למטה. כתובת, לעומת זאת,
@@ -3778,20 +3806,20 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     });
     if (reqErr) console.warn("planning_lookup: address request failed", reqErr.message);
     // בינתיים, מה שיש לנו בעצמנו: גוש/חלקה מהעסקאות, ושטח וסטטוס מהשכבה הפתוחה
-    const fromOpen = await openParcelAnswer(ctx, { city, street, house_number: houseNumber }, crmPlanningUrl);
+    const url = await planningUrl();
+    const fromOpen = await openParcelAnswer(ctx, { city, street, house_number: houseNumber }, url);
     if (fromOpen) return fromOpen;
     return {
       ok: false,
       error: "city_not_supported",
       city,
       govmap_url: govmapUrl,
-      ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
+      ...(url ? { planning_url: url, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}),
       guidance:
-        "בוואטסאפ את/ה בודק/ת מידע תכנוני רק בעפולה, אבל כלי המידע התכנוני ב-CRM עובד בכל עיר. " +
-        "שלח/י את crm_planning_url: הקישור פותח את הכלי עם הכתובת ומריץ את הבדיקה מיד - גוש, " +
-        "חלקה, ייעוד, תוכניות והודעות 77-78. אל תאמר/י שהמידע זמין רק בעפולה. אפשר להוסיף " +
-        "שהכתובת נרשמה, ובפעם הבאה סביר שתוכל/י לענות עליה ישירות. אם אין " +
-        "crm_planning_url - הצע/י את govmap_url. אל תנחש/י גוש, חלקה או ייעוד.",
+        "את המידע התכנוני על הכתובת הזו אי אפשר לשלוף מכאן, אבל דף הבדיקה עושה את זה מיד. " +
+        "שלח/י את planning_url בשורה אחת קצרה (\"פתח/י את הקישור והבדיקה תרוץ מיד; התוצאה תגיע גם לכאן\"), " +
+        "בלי התנצלות ובלי הסבר טכני על GovMap או על עפולה. אם אין planning_url - הצע/י את govmap_url. " +
+        "אל תנחש/י גוש, חלקה או ייעוד.",
     };
   }
 
@@ -3829,7 +3857,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     if (!result.ok && byParcel && result.error === "parcel_not_found") {
       const fromCache = await govmapCachedPlanning(ctx, { gush, helka });
       if (fromCache) return fromCache;
-      const fromOpen = await openParcelAnswer(ctx, { gush, helka }, crmPlanningUrl);
+      const fromOpen = await openParcelAnswer(ctx, { gush, helka }, await planningUrl());
       if (fromOpen) return fromOpen;
     }
     if (!result.ok) {
@@ -3839,11 +3867,11 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
         ok: false,
         error: result.error,
         govmap_url: govmapUrl,
-        ...(crmPlanningUrl ? { crm_planning_url: crmPlanningUrl } : {}),
+        ...(byParcel ? await planningUrl().then((u) => u ? { planning_url: u, planning_url_guidance: PLANNING_URL_GUIDANCE } : {}) : {}),
         ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
         guidance: result.error === "parcel_not_found"
-          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה, כנראה כי היא מחוץ לעפולה. שלח/י את crm_planning_url - " +
-            "כלי המידע התכנוני ב-CRM בודק גוש/חלקה בכל הארץ ומריץ את הבדיקה מיד. אם אין - הצע/י את govmap_url."
+          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה, כנראה כי היא מחוץ לעפולה. שלח/י את planning_url - " +
+            "דף הבדיקה בודק גוש/חלקה בכל הארץ ומריץ את הבדיקה מיד. אם אין - הצע/י את govmap_url."
           : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
       };
     }
@@ -6463,7 +6491,7 @@ const SYSTEM_STATIC: string = (() => {
     "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
       "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
       "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
-      "את crm_planning_url (או govmap_url) כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
+      "את planning_url (או govmap_url) כשיש, לפי planning_url_guidance; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
       "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל. " +
       "\"מה סוג הבעלות\" / \"זה קרקע מדינה?\" / \"זה רמ\"י?\" = planning_lookup עם גוש+חלקה או כתובת. " +
       "אם חזר ownership_guidance - בצע/י אותו.",

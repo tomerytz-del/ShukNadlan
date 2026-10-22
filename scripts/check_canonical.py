@@ -115,6 +115,8 @@ PRIVATE = {
     "showcase",
     # ‏דף הפגישה ללקוח/ה - קישור עם טוקן (docs/meeting-client-followup.md)
     "meeting",
+    # ‏דף הבדיקה התכנונית לסוכן/ת - קישור עם טוקן מגבריאלה (docs/govmap.md)
+    "plan",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,

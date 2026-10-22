@@ -36,6 +36,10 @@ Disallow: /showcase.html
 Disallow: /meeting
 Disallow: /meeting.html
 
+# דף הבדיקה התכנונית לסוכן/ת - קישור עם טוקן מגבריאלה (docs/govmap.md)
+Disallow: /plan
+Disallow: /plan.html
+
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary
 Disallow: /neighborhood-boundary.html
