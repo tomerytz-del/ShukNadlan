@@ -147,7 +147,7 @@ morning (למשל "קבלה - נייטס אנטרטיינמנט") נחסם גם 
 ## תקציב חודשי
 
 שלב 7 בשדרוג אזור הניהול (`docs/admin-redesign/HANDOFF.md`, סעיף 10). מיגרציה
-`20270726090000_platform_budgets.sql`, ‏`assets/crm-budget.js`. הבלוק "החודש מול
+`20270727090000_platform_budgets.sql`, ‏`assets/crm-budget.js`. הבלוק "החודש מול
 התקציב" בפאנל מציג את ההוצאה של החודש בשלוש קטגוריות, מול התקציב, **ואת הכנסות
 החודש לצדה** (‏`platform_admin_monthly_report`), כדי שהפער ייראה מיד.
 

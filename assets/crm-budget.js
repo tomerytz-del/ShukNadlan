@@ -31,7 +31,7 @@ function costsBudgetBlock(status, revenue, ads){
   const block = admBlock('החודש מול התקציב',
     'חיובים מאושרים בלבד, בשקלים לפני מע״מ. התראה לפעמון ב-80% וב-100% של תקציב מאושר.');
   if (!status){
-    block.appendChild(admEl('div', 'empty-state', 'התקציב עוד לא זמין במסד - המיגרציה 20270726090000 טרם רצה.'));
+    block.appendChild(admEl('div', 'empty-state', 'התקציב עוד לא זמין במסד - המיגרציה 20270727090000 טרם רצה.'));
     return block;
   }
   const cats = status.categories || [];

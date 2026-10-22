@@ -3,7 +3,7 @@
    --------------------------------------------------------------------------
    תומר, 22.10.2026: "סך כל הפרסומים מכל הערוצים, עם פירוט בלחיצה של כל
    קמפיין - מטא, גוגל ומי שעוד נכניס". מקור אחד, admin_ads_spend (מיגרציה
-   20270726090000): מטא מ-ads_insights_daily, וכל ערוץ אחר מ-ads_channel_daily.
+   20270727090000): מטא מ-ads_insights_daily, וכל ערוץ אחר מ-ads_channel_daily.
    ערוץ חדש שכותב לשם מופיע כאן מעצמו; השם היפה שלו - שורה ב-ADS_CHANNELS.
 
    מוצג בשני מקומות, באותו רינדור: כרטיס "פרסום החודש" במרכז הפיקוד, והשורה
@@ -21,7 +21,7 @@ function adsInt(n){ return (Math.round(Number(n) || 0)).toLocaleString('he-IL');
 
 /* ‏data - admin_ads_spend. ‏null - המיגרציה טרם רצה. ‏label - מה הסכום מכסה */
 function adsSpendHtml(data, label){
-  if (!data) return '<div class="empty-state">ההוצאה על פרסום עוד לא זמינה במסד - המיגרציה 20270726090000 טרם רצה.</div>';
+  if (!data) return '<div class="empty-state">ההוצאה על פרסום עוד לא זמינה במסד - המיגרציה 20270727090000 טרם רצה.</div>';
   const chans = Array.isArray(data.channels) ? data.channels : [];
   const ncamp = chans.reduce((s, c) => s + ((c.campaigns || []).length), 0);
   let html = '<div class="ads-total"><b>' + esc(adsMoney(data.total)) + '</b><span>'
