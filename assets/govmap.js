@@ -383,6 +383,14 @@
     });
   }
 
+  /** נקודה ב-ITM -> {lat, lng}. לשמירה במטמון הכתובות (govmap_address_planning). */
+  function latLngOf(point) {
+    return projReady().then(function (proj4) {
+      var ll = itmToWgs84(proj4, point.x, point.y);
+      return { lat: ll[1], lng: ll[0] };
+    });
+  }
+
   /** גאומטריית החלקה ב-WGS84 (GeoJSON MultiPolygon), או null. לא זורקת:
       צורת החלקה היא העשרה, ואסור לה להפיל את כל השליפה. */
   function parcelGeometryWgs84(gush, helka) {
@@ -737,6 +745,7 @@
     planningAt: planningAt,
     plansAt: plansAt,
     plansAtLatLng: plansAtLatLng,
+    latLngOf: latLngOf,
     lookupProperty: lookupProperty,
     _cleanPlanLayers: cleanPlanLayers,
     addressLatLng: addressLatLng,

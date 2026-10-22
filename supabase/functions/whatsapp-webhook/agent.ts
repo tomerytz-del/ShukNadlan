@@ -663,7 +663,8 @@ const TOOLS: Anthropic.Tool[] = [
       "ייעוד קרקע, והתוכניות החלות (מספר, תיאור, תאריך). " +
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
-      "נתמכת בוואטסאפ - הכלי מחזיר city_not_supported עם קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
+      "נתמכת ישירות - הכלי עונה מהמטמון של GovMap כשהכתובת שם (source: govmap), ואחרת " +
+      "מחזיר city_not_supported עם קישור לכלי התכנון ב-CRM, שעובד בכל עיר. " +
       "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
       "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
       "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
@@ -3584,6 +3585,61 @@ const OWNERSHIP_GUIDANCE =
  * `city_not_supported` עם קישור לחיפוש ב-GovMap - ולא ניחוש. נכס שכבר
  * במערכת מקבל את מה שהדפדפן שמר דרך planning_info.
  */
+/**
+ * מטמון הכתובות (‏govmap_address_planning, מיגרציה 20270729090000): מידע
+ * תכנוני מ-GovMap שנשלף מראש בדפדפן של מנהל/ת הפלטפורמה, לכתובות שבהן
+ * נרשמו עסקאות בערי השווקים. הבוט עצמו אינו שואל את GovMap - מפ"י מתירים
+ * צד לקוח בלבד. ‏null = אין במטמון, והקורא נופל לקישור לכלי ב-CRM.
+ */
+async function govmapCachedPlanning(
+  ctx: ToolContext,
+  q: { city?: string; street?: string; house_number?: string; gush?: string; helka?: string },
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await ctx.supabase.rpc("govmap_address_planning_get", {
+    p_city: q.city ?? null, p_street: q.street ?? null, p_house_number: q.house_number ?? null,
+    p_gush: q.gush ?? null, p_helka: q.helka ?? null,
+  });
+  if (error) {
+    // מסד שהמיגרציה טרם רצה בו, או תקלה: לא חוסם - נופלים לקישור
+    console.warn("planning_lookup: address cache failed", error.message);
+    return null;
+  }
+  const row = (data || null) as Record<string, unknown> | null;
+  if (!row) return null;
+  const plans = ((row.plans || []) as Record<string, unknown>[]).slice(0, 8);
+  const lat = Number(row.lat), lng = Number(row.lng);
+  const ownership = await landOwnership(ctx, row.gush, row.helka);
+  return {
+    ok: true,
+    cached: true,
+    source: "govmap",
+    city: row.city,
+    queried: q.gush ? { gush: q.gush, helka: q.helka } : { street: q.street, house_number: q.house_number },
+    gush: row.gush ?? null,
+    helka: row.helka ?? null,
+    parcel_area_sqm: row.parcel_area_sqm ?? null,
+    parcel_status: row.parcel_status ?? null,
+    land_use_designation: row.land_use_designation ?? null,
+    neighborhood: row.neighborhood ?? null,
+    applicable_plans: plans,
+    plans_total: ((row.plans || []) as unknown[]).length,
+    ownership,
+    ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
+    ...(plans.some((p) => p.notice === true) ? { plans_guidance: PLAN_NOTICE_GUIDANCE } : {}),
+    map_url: Number.isFinite(lat) && Number.isFinite(lng)
+      ? `https://www.google.com/maps?q=${lat},${lng}`
+      : null,
+    guidance:
+      "פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות (המפורטת קודם, אחריה ארציות ומתאר). " +
+      (row.pin_source === "parcel"
+        ? "הכתובת אינה בשכבת הכתובות של GovMap, והמידע לפי הגוש והחלקה שנרשמו בעסקה בכתובת הזו - אמור/י זאת. "
+        : "") +
+      "אל תשלים/י שדה שחזר ריק. סיים/י במשפט ה-disclaimer.",
+    disclaimer:
+      "המידע כללי, מבוסס על GovMap (המרכז למיפוי ישראל) ומבא\"ת, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה.",
+  };
+}
+
 async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknown>) {
   const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");
   const gush = digits(input.gush);
@@ -3634,6 +3690,14 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   // עפולה פשוט לא תמצא חלקה מחוץ לתחומה, וזה מטופל למטה. כתובת, לעומת זאת,
   // תיבדק מול רחובות עפולה - ו"הרצל 20" בחיפה היה מחזיר את הרצל 20 בעפולה.
   if (!byParcel && city !== "עפולה") {
+    // מה שמנהל/ת הפלטפורמה כבר שמר/ה מ-GovMap בדפדפן (מטמון הכתובות) - תשובה מלאה בלי קישור
+    const fromCache = await govmapCachedPlanning(ctx, { city, street, house_number: houseNumber });
+    if (fromCache) return fromCache;
+    // לא במטמון: נרשם, וההשלמה הבאה של מנהל/ת הפלטפורמה מטפלת בה קודם
+    const { error: reqErr } = await ctx.supabase.rpc("govmap_address_request", {
+      p_city: city, p_street: street, p_house_number: houseNumber,
+    });
+    if (reqErr) console.warn("planning_lookup: address request failed", reqErr.message);
     return {
       ok: false,
       error: "city_not_supported",
@@ -3643,7 +3707,8 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       guidance:
         "בוואטסאפ את/ה בודק/ת מידע תכנוני רק בעפולה, אבל כלי המידע התכנוני ב-CRM עובד בכל עיר. " +
         "שלח/י את crm_planning_url: הקישור פותח את הכלי עם הכתובת ומריץ את הבדיקה מיד - גוש, " +
-        "חלקה, ייעוד, תוכניות והודעות 77-78. אל תאמר/י שהמידע זמין רק בעפולה. אם אין " +
+        "חלקה, ייעוד, תוכניות והודעות 77-78. אל תאמר/י שהמידע זמין רק בעפולה. אפשר להוסיף " +
+        "שהכתובת נרשמה, ובפעם הבאה סביר שתוכל/י לענות עליה ישירות. אם אין " +
         "crm_planning_url - הצע/י את govmap_url. אל תנחש/י גוש, חלקה או ייעוד.",
     };
   }
@@ -3678,6 +3743,10 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
         error: "gis_unavailable",
         guidance: "שכבות ה-GIS של העירייה לא ענו כרגע. אמור/י שכדאי לנסות שוב בעוד כמה דקות, ואל תאמר/י שהכתובת לא קיימת.",
       };
+    }
+    if (!result.ok && byParcel && result.error === "parcel_not_found") {
+      const fromCache = await govmapCachedPlanning(ctx, { gush, helka });
+      if (fromCache) return fromCache;
     }
     if (!result.ok) {
       // גוש/חלקה מחוץ לעפולה: אין ייעוד, אבל יש בעלות - הטאבו ארצי.

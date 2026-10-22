@@ -34588,7 +34588,7 @@ function govmapDistanceMeters(lat1, lng1, lat2, lng2){
 let govmapBusy = false;
 function govmapSetBusy(on){
   govmapBusy = on;
-  ['govmapBackfillBtn', 'govmapParityBtn', 'govmapDealsBtn', 'govmapPlansBtn'].forEach(id => {
+  ['govmapBackfillBtn', 'govmapParityBtn', 'govmapDealsBtn', 'govmapPlansBtn', 'govmapAddrBtn'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = on;
   });
@@ -34858,8 +34858,86 @@ async function runGovmapPlansBackfill(){
   }
 }
 
+/* מטמון הכתובות לגבריאלה (מיגרציה 20270729090000): הבוט רץ בשרת ואינו רשאי
+   לשאול את GovMap, ולכן התשובות נשמרות כאן מראש - לכל כתובת שבה נרשמה עסקה
+   בערי השווקים, עיר אחר עיר. אותן תכונות של כל לולאת השלמה: "לא נמצא"
+   נשמר ומוציא מהתור, תקלה זמנית אינה נרשמת, וסבב שכולו כשלים עוצר. הקצב
+   מכוון לאט בכוונה (מכסה של מפ"י לא ידועה): עד 400 כתובות בלחיצה. */
+const GOVMAP_ADDR_ROUNDS = 8;
+
+async function govmapAddressRecord(r){
+  let pt = await GovmapLookup.lookupAddress({ street: r.street, houseNumber: r.house_number, city: r.city });
+  let pinSource = 'address';
+  // הכתובת אינה בשכבת הכתובות: הגוש והחלקה שבעסקה עצמה
+  if (!pt && r.gush && r.helka){ pt = await GovmapLookup.lookupParcel(r.gush, r.helka); pinSource = 'parcel'; }
+  if (!pt) return null;
+  const planning = await GovmapLookup.planningAt(pt);
+  if (!planning) return null;
+  // ארציות, מתאר ו-77-78 הן העשרה: תקלה בהן אינה מפילה את הגוש והייעוד
+  const plans = await GovmapLookup.plansAt(pt).catch(err => { console.warn('GovMap plans:', err); return null; });
+  const ll = await GovmapLookup.latLngOf(pt);
+  return Object.assign({}, planning, { lat: ll.lat, lng: ll.lng, pin_source: pinSource },
+    plans ? { govmap_plans: plans } : {});
+}
+
+async function runGovmapAddressBackfill(){
+  if (govmapBusy || !window.GovmapLookup) return;
+  const status = document.getElementById('govmapBackfillStatus');
+  const out = document.getElementById('govmapBackfillResult');
+  govmapSetBusy(true);
+  out.innerHTML = '';
+  status.textContent = 'טוען את רשימת הכתובות…';
+  let total = 0, found = 0, notFound = 0, errors = 0, stalled = false, last = null;
+  const cities = new Set();
+  try{
+    for (let round = 1; round <= GOVMAP_ADDR_ROUNDS; round++){
+      const { data: rows, error } = await sb.rpc('govmap_address_candidates', { p_limit: 50 });
+      if (error) throw error;
+      if (!rows || !rows.length){ last = null; break; }
+      last = rows[0];
+      const errorsBefore = errors;
+      for (let i = 0; i < rows.length; i++){
+        const r = rows[i];
+        cities.add(r.city);
+        status.textContent = `${r.city}: ${i + 1} מתוך ${rows.length} בסבב ${round} (נשארו בעיר ${r.city_remaining})`;
+        try{
+          const record = await govmapAddressRecord(r);
+          const { data: res, error: saveErr } = await sb.rpc('govmap_address_save', {
+            p_city: r.city, p_street: r.street, p_house_number: r.house_number, p_record: record });
+          if (saveErr) throw saveErr;
+          if (res === 'found') found++; else notFound++;
+        } catch(err){
+          console.warn('GovMap address:', r.city, r.street, r.house_number, err);
+          errors++;
+        }
+        await new Promise(res => setTimeout(res, 150));
+      }
+      total += rows.length;
+      if (errors - errorsBefore === rows.length){ stalled = true; break; }
+    }
+    if (!total){
+      status.textContent = 'כל הכתובות בערי השווקים כבר במטמון.';
+      return;
+    }
+    status.textContent = '';
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(total))} כתובות ב-${esc([...cities].join(', '))}:
+      ${esc(String(found))} עם מידע תכנוני, ${esc(String(notFound))} לא נמצאו ב-GovMap,
+      ${esc(String(errors))} נכשלו (ינוסו שוב בלחיצה הבאה).
+      ${stalled ? '<br>ההשלמה נעצרה: סבב שלם נכשל, כנראה תקלה ב-GovMap. אפשר לנסות שוב מאוחר יותר.' : ''}
+      ${last ? (last.cities_left == null
+        ? '<br>טופלו קודם כתובות שגבריאלה נשאלה עליהן. לחצו שוב להמשך.'
+        : `<br>נשארו עוד ערים (${esc(String(last.cities_left))}) - לחצו שוב להמשך.`) : ''}</p>`;
+  } catch(err){
+    console.warn('GovMap address backfill failed:', err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && heErr(err)) || err);
+  } finally {
+    govmapSetBusy(false);
+  }
+}
+
 document.getElementById('govmapBackfillBtn')?.addEventListener('click', runGovmapBackfill);
 document.getElementById('govmapPlansBtn')?.addEventListener('click', runGovmapPlansBackfill);
+document.getElementById('govmapAddrBtn')?.addEventListener('click', runGovmapAddressBackfill);
 document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDeals);
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
