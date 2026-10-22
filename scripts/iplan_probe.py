@@ -141,8 +141,12 @@ def main() -> int:
             lm = get(s, f"{XPLAN}/{lid}", f="json")
             print(f"  שכבה {lid}: maxRecordCount={lm.get('maxRecordCount')} | שדות:",
                   json.dumps([f["name"] for f in lm.get("fields", [])], ensure_ascii=False))
-            cnt = get(s, f"{XPLAN}/{lid}/query", where="1=1", returnCountOnly="true", f="json")
-            print(f"  שכבה {lid}: {cnt.get('count')} ישויות")
+            # ספירה על כל השכבה - מידע בלבד, ונתקעת אחרי 60 שניות (ריצה 2). לא נכשלים עליה.
+            try:
+                cnt = get(s, f"{XPLAN}/{lid}/query", where="1=1", returnCountOnly="true", f="json")
+                print(f"  שכבה {lid}: {cnt.get('count')} ישויות")
+            except Exception as e:  # noqa: BLE001
+                print(f"  שכבה {lid}: הספירה לא חזרה ({e})")
     except Exception as e:  # noqa: BLE001
         print("✗ מטא-דאטה:", e)
         ok = False
