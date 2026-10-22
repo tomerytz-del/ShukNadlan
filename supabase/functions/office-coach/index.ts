@@ -22,7 +22,9 @@
 // סוכן/ת לכל בוקר. יום שבו לא השתנה דבר מאתמול מעתיק את הסיכום בלי קריאה.
 //
 // ‏verify_jwt = false: נקראת מ-pg_cron עם x-alert-cron-secret, או ידנית עם
-// מפתח service_role (‏_shared/cron-auth.ts, fail-closed).
+// מפתח service_role (‏_shared/cron-auth.ts, fail-closed). ‏kind=platform בלבד
+// נקרא גם בידי מנהל/ת פלטפורמה מחובר/ת - כפתור "סיכום עכשיו" במרכז הפיקוד
+// (adminCaller): תמיד סיכום מלא שנשמר, ולא יותר מפעם ב-10 דקות.
 //
 // פרמטרים לקריאה ידנית (service_role):
 //   ?dry_run=1        מחשב ומחזיר את הסיכום בלי לשמור
@@ -46,6 +48,7 @@ import {
 import { agentSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, SYSTEM_PROMPTS } from "../_shared/coach/prompts.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 
@@ -452,8 +455,18 @@ async function runAgent(supabase: SupabaseClient, url: URL, dryRun: boolean, sta
      3. אחרת - חריגה שלא הייתה בסיכום האחרון (newTriggers) - exception.
      4. אחרת - בלי קריאה למודל. זה רוב הימים, ובכוונה: "רק על חריגות".
    השורה נושאת את החריגות של אותו בוקר, כדי שמחר לא יחזרו כחדשות. */
-async function runPlatform(supabase: SupabaseClient, url: URL, dryRun: boolean) {
-  const forced = url.searchParams.get("mode");
+async function runPlatform(supabase: SupabaseClient, url: URL, dryRun: boolean, byAdmin = false) {
+  // ‏"סיכום עכשיו": סיכום מלא (weekly) שנשמר ומצלצל, בלי פרמטרים מהדפדפן
+  const forced = byAdmin ? "weekly" : url.searchParams.get("mode");
+  if (byAdmin) {
+    dryRun = false;
+    const { data: recent, error } = await supabase.from("platform_coach_summaries").select("created_at")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) return json({ error: "db_error", detail: error.message }, 500);
+    if (recent && Date.now() - Date.parse(recent.created_at) < 10 * 60_000) {
+      return json({ error: "platform_coach_recent" }, 429);
+    }
+  }
   if (forced && forced !== "weekly" && forced !== "exception") return json({ error: "bad_mode" }, 400);
 
   const [dayR, wsR, input, last, lastWeekly] = await Promise.all([
@@ -532,6 +545,16 @@ async function runPlatform(supabase: SupabaseClient, url: URL, dryRun: boolean) 
   }]);
 }
 
+/* מנהל/ת פלטפורמה מחובר/ת - רק ל-kind=platform. ה-JWT נבדק במסד
+   (current_is_platform_admin), לא בפענוח מקומי. */
+async function adminCaller(req: Request): Promise<boolean> {
+  const auth = req.headers.get("Authorization") || "";
+  if (!auth) return false;
+  const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } } });
+  const { data, error } = await authed.rpc("current_is_platform_admin");
+  return !error && data === true;
+}
+
 function report(kind: SummaryKind, extra: Row, dryRun: boolean, results: Row[]) {
   return json({
     kind,
@@ -552,12 +575,13 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST" && req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
 
-  const auth = authorizeInternalCaller(req);
-  if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
-  if (!ANTHROPIC_KEY) return json({ error: "anthropic_not_configured", detail: "‏ANTHROPIC_API_KEY אינו מוגדר." }, 503);
-
   const url = new URL(req.url);
   const kind = (url.searchParams.get("kind") || "office") as SummaryKind;
+  const auth = authorizeInternalCaller(req);
+  const byAdmin = !auth.ok && kind === "platform" && await adminCaller(req);
+  if (!auth.ok && !byAdmin) return json({ error: auth.error, detail: auth.detail }, auth.status);
+  if (!ANTHROPIC_KEY) return json({ error: "anthropic_not_configured", detail: "‏ANTHROPIC_API_KEY אינו מוגדר." }, 503);
+
   const dryRun = url.searchParams.get("dry_run") === "1";
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const started = Date.now();
@@ -565,6 +589,6 @@ Deno.serve(async (req: Request) => {
   if (kind === "office") return runOffice(supabase, url, dryRun, started);
   if (kind === "team") return runTeam(supabase, url, dryRun, started);
   if (kind === "agent") return runAgent(supabase, url, dryRun, started);
-  if (kind === "platform") return runPlatform(supabase, url, dryRun);
+  if (kind === "platform") return runPlatform(supabase, url, dryRun, byAdmin);
   return json({ error: "bad_kind" }, 400);
 });

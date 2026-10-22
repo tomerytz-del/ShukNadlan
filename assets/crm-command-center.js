@@ -71,8 +71,41 @@ async function loadCommandCenter(){
 if (typeof coachRerender !== 'undefined'){
   coachRerender.platform = () => {
     const host = document.getElementById('ccCoach');
-    if (host) host.innerHTML = coachCardHtml('platform');
+    if (!host) return;
+    const card = coachCardHtml('platform');
+    // ‏"סיכום עכשיו" - רק כשהכרטיס קיים (בלי הטבלה הוא ריק, ואין מה להריץ)
+    host.innerHTML = card && card + '<div class="cc-coach-now">'
+      + '<button type="button" class="cc-link" id="ccCoachNow"' + (ccCoachBusy ? ' disabled' : '') + '>'
+      + (ccCoachBusy ? 'המנטור כותב… (עד דקה)' : 'סיכום עכשיו') + '</button></div>';
+    const btn = document.getElementById('ccCoachNow');
+    if (btn) btn.addEventListener('click', ccCoachNow);
   };
+}
+
+/* ‏"סיכום עכשיו": office-coach?kind=platform עם ה-JWT של מנהל/ת הפלטפורמה.
+   תמיד סיכום מלא שנשמר ומחליף את של היום; השרת מסרב לשני בתוך 10 דקות. */
+let ccCoachBusy = false;
+async function ccCoachNow(){
+  if (ccCoachBusy) return;
+  ccCoachBusy = true;
+  coachRepaint('platform');
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/office-coach?kind=platform', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + (session ? session.access_token : '') },
+      body: '{}',
+    });
+    const out = await res.json().catch(() => ({}));
+    if (out.error === 'platform_coach_recent') throw new Error('נכתב סיכום לפני פחות מ-10 דקות. אפשר לנסות שוב בעוד כמה דקות.');
+    if (!res.ok || out.error || out.failed) throw new Error((out.results && out.results[0] && out.results[0].error) || out.error || ('HTTP ' + res.status));
+    showToast('המנטור כתב סיכום חדש');
+  } catch(e){
+    showToast('הסיכום לא נכתב: ' + heErr(e));
+  }
+  ccCoachBusy = false;
+  await coachLoad('platform');
 }
 
 function renderCcHead(counts){
