@@ -57,7 +57,11 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 <script src="assets/events.js"></script>     ← דף ציבורי בלבד
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>… | שוק נדל״ן</title>
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
 ← כאן בלוק ה-PWA, מועתק מ-index.html כלשונו (ראו סעיף 3)
 ← ומיד אחריו תגית האימות של Search Console (ראו סעיף 4)
 ← ואחריה canonical — בדף ציבורי סטטי בלבד (ראו סעיף 7)
@@ -76,7 +80,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 
 ### 3. בלוק ה-PWA — האתר ניתן להתקנה, וגם הדף הזה
 
-מיד אחרי `<link rel="icon">`, מועתק מ-`index.html` כלשונו:
+מיד אחרי קישורי ה-favicon, מועתק מ-`index.html` כלשונו:
 
 ```html
 <link rel="manifest" href="/manifest.webmanifest">
