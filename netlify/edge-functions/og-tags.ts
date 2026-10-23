@@ -110,6 +110,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 
 const SITE = "https://shuknadlan.co.il";
 const DEFAULT_IMAGE = `${SITE}/assets/logo-shuknadlan.png`;
+/* ‏לוגו הארגון בנתונים המובנים. ה-PNG של השיתוף הוא 512×610, וגוגל מבקשת
+   לוגו ריבועי (לפחות 112). הריבוע הוא אותו סמל בריפוד, לא מתיחה. */
+const ORG_LOGO = `${SITE}/assets/logo-shuknadlan-square.png`;
 const SITE_NAME = "שוק נדל״ן";
 const FETCH_TIMEOUT_MS = 1200;
 
@@ -676,7 +679,7 @@ async function articleMeta(key: string): Promise<MetaResult> {
 
   /* ‏author: שם המחבר/ת כשיש, ואחרת האתר עצמו כארגון - כתבה בלי author
      היא מה שגוגל מסמנת כחסר, וכרגע אף כתבה לא נושאת שם (9.10.2026). */
-  const publisher = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/`, logo: DEFAULT_IMAGE };
+  const publisher = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/`, logo: ORG_LOGO };
   const author = String(a.author_name || "").trim();
   const article: Record<string, unknown> = {
     "@context": "https://schema.org",

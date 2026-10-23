@@ -21,7 +21,12 @@ on:
       - "assets/pwa-install.js"
       - "assets/icon-*.png"
       - "assets/apple-touch-icon.png"
+      - "assets/favicon*.png"
+      - "assets/favicon.svg"
+      - "assets/logo-shuknadlan-square.png"
+      - "favicon.ico"
       - "scripts/check_pwa.py"
+      - "scripts/check_favicon.py"
       - ".github/workflows/pwa.yml"
   push:
     branches: [main]
@@ -32,7 +37,12 @@ on:
       - "assets/pwa-install.js"
       - "assets/icon-*.png"
       - "assets/apple-touch-icon.png"
+      - "assets/favicon*.png"
+      - "assets/favicon.svg"
+      - "assets/logo-shuknadlan-square.png"
+      - "favicon.ico"
       - "scripts/check_pwa.py"
+      - "scripts/check_favicon.py"
       - ".github/workflows/pwa.yml"
   workflow_dispatch:
 
@@ -48,3 +58,8 @@ jobs:
       # ‏הפלט של הבדיקה הוא המקום שבו כתוב מה להדביק ואיפה.
       - name: בדיקת כיסוי PWA
         run: python3 scripts/check_pwa.py
+
+      # ‏אותו <head> משוכפל. favicon לא-ריבועי נראה תקין בלשונית ופשוט
+      # לא מופיע בגוגל.
+      - name: בדיקת favicon ושם האתר
+        run: python3 scripts/check_favicon.py
