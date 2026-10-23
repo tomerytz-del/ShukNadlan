@@ -940,7 +940,7 @@ document.getElementById('wizRestart').addEventListener('click', ()=>{
   [1,2,3].forEach(s => setError(s, ''));
   Object.assign(wizState, { address:'', condition:null, rooms:null, features:[], name:'', phone:'' });
   const submitBtn = document.getElementById('wizSubmitBtn');
-  submitBtn.textContent = 'קבלת הערכת שווי חינם';
+  submitBtn.textContent = 'שליחה למתווך מקומי';
   submitBtn.disabled = false;
   wizDone.hidden = true;
   wizForm.hidden = false;
@@ -4035,7 +4035,7 @@ function initGabChat(){
     ['דירה להשכרה עם מרפסת וחניה, עד 5,000 ₪', 'מצאתי כמה דירות. רוצה שאעדכן אותך כשתעלה עוד אחת?'],
     ['יש פרויקטים חדשים מקבלן ב' + city + '?', 'כן, יש פרויקטים בשיווק עכשיו. שולחת לך את הפרטים.'],
     ['כמה יהיה ההחזר החודשי על משכנתא של מיליון ₪?', 'חישבתי לך הערכה. רוצה שיועץ משכנתאות יחזור אליך?'],
-    ['אני רוצה למכור את הדירה שלי', 'בשמחה. אחבר אותך למשרד תיווך מהאזור להערכת שווי.'],
+    ['אני רוצה למכור את הדירה שלי', 'בשמחה. אחבר אותך למתווך מקומי מהאזור.'],
     ['צריך שמאי מקרקעין ב' + city, 'הנה שמאים מוסמכים שעובדים באזור, עם הטלפון שלהם.'],
   ];
   const TICKS = '<svg viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l3 3 6-7M6 9l1 1 6-8"/></svg>';

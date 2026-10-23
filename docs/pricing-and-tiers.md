@@ -38,7 +38,7 @@
 | | Pay&GO | PROFESSIONAL | Elite |
 |---|---|---|---|
 | מערכת CRM, פרסום נכסים והחתמת מסמכי תיווך | ✓ ללא הגבלה | ✓ | ✓ |
-| דף סוכן/ת ודף משרד, מחשבוני משכנתא ותשואה, הערכת שווי | ✓ | ✓ | ✓ |
+| דף סוכן/ת ודף משרד, מחשבוני משכנתא ותשואה, פניית מוכרים | ✓ | ✓ | ✓ |
 | שיתוף נכסים עם כל המתווכים (Co-Broke) | ✓ | ✓ | ✓ |
 | מערכת התאמות בין נכסים ללקוחות | ✓ | ✓ | ✓ |
 | הקפצה חינם + קידום ₪20 | ✓ | ✓ | ✓ |
@@ -101,7 +101,7 @@
 | טופס הפנייה בדף הנכס | `property_inquiry` | `property-inquiry-intake` |
 | טופס הפנייה בדף הסוכן/ת | `agent_direct_inquiry` | `agent-direct-inquiry-intake` |
 | בקשת הדמיה בדף הנכס | `visualization` | `property-visualize` |
-| הערכת שווי ומחשבון תשואה בדף המשרד/הסוכן/ת | `owner_inbound` / `property_inquiry` עם `source` | `owner-lead-intake` |
+| פניית מוכרים ומחשבון תשואה בדף המשרד/הסוכן/ת | `owner_inbound` / `property_inquiry` עם `source` | `owner-lead-intake` |
 
 **מה שמחוץ למכסה, ובכוונה:**
 

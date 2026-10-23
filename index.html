@@ -2952,8 +2952,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #ownerBannerWrap #ownerBanner::after{display:none}
   #ownerBannerWrap .owner-hero{flex:1 1 400px;min-width:0;display:flex;flex-direction:column;gap:14px;color:#fff;text-align:start}
   #ownerBannerWrap .owner-hero h2{margin:0;font-size:38px;font-weight:800;line-height:1.15;color:#fff}
-  #ownerBannerWrap .owner-hero h2 span{color:var(--brass-light)}
+  #ownerBannerWrap .owner-hero h2 span.owner-em{color:var(--brass-light)}
   #ownerBannerWrap .owner-hero p{margin:0;font-size:17px;line-height:1.6;color:#e6ebf5;max-width:480px}
+  #ownerBannerWrap .owner-hero p a{color:#fff;text-decoration:underline}
   .owner-steps{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
   .owner-steps li{display:flex;align-items:center;gap:12px;font-size:16px;line-height:1.4;color:#e6ebf5}
   .owner-steps li b{color:#fff;font-weight:700}
@@ -4098,7 +4099,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
     <button type="button" class="ai-promo-cta" id="aiPromoCta">
       <b>חושבים למכור או להשכיר?</b>
-      <span class="ai-promo-cta-long">השאירו פרטים לפגישה - כולל הדמיית AI לנכס שלכם</span>
+      <span class="ai-promo-cta-long">השאירו פרטים - מתווך מקומי יחזור אליכם</span>
       <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
     </button>
   </div>
@@ -4246,12 +4247,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap owner-sec" id="ownerBannerWrap" aria-labelledby="ownerTitle">
     <div class="lead-banner owner-banner is-open" id="ownerBanner">
       <div class="owner-hero">
-        <h2 id="ownerTitle">כמה שווה הנכס שלכם?<br><span>הערכת שווי חינם</span></h2>
-        <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
+        <h2 id="ownerTitle">מוכרים נכס ב<span data-market-city>עפולה</span>?<br><span class="owner-em">מכרו עם מתווך מקומי</span></h2>
+        <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם למכירה או להשכרה. <a href="/deals">ראו עסקאות שדווחו לרשות המסים ברחוב שלכם</a>.</p>
         <ol class="owner-steps">
           <li><span class="n" aria-hidden="true">1</span><span><b>ממלאים כתובת ופרטי נכס</b> <span class="nw">- פחות מדקה</span></span></li>
-          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מומלץ/ת מהאזור</b> <span class="nw">בודק/ת את הנכס</span></span></li>
-          <li><span class="n" aria-hidden="true">3</span><span><b>מקבלים הערכת שווי חינם</b><span class="nw">, בלי התחייבות</span></span></li>
+          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מקומי/ת מהאזור</b> <span class="nw">חוזר/ת אליכם</span></span></li>
+          <li><span class="n" aria-hidden="true">3</span><span><b>מתחילים במכירה או בהשכרה</b><span class="nw">, בלי התחייבות</span></span></li>
         </ol>
       </div>
       <button type="button" class="lead-teaser" id="ownerStartBtn" hidden
@@ -4264,11 +4265,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-title">כמה שווה הנכס שלכם היום?</span>
-          <span class="lead-teaser-sub">הערכת שווי חינם ממתווך מומלץ באזורכם</span>
+          <span class="lead-teaser-title">מוכרים נכס?</span>
+          <span class="lead-teaser-sub">מתווך מקומי, ועסקאות שדווחו לרשות המסים</span>
         </span>
         <span class="lead-teaser-go" aria-hidden="true">
-          <span class="lead-teaser-go-open">לבדיקה ←</span>
+          <span class="lead-teaser-go-open">פנייה ←</span>
           <span class="lead-teaser-go-close">סגירה ✕</span>
         </span>
       </button>
@@ -4276,11 +4277,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="lead-panel" id="ownerPanel">
       <div class="owner-intro" hidden>
         <h2 id="ownerHeadline">מוכר/משכיר?</h2>
-        <p>קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווך מומלץ באזורכם.</p>
+        <p>ספרו על הנכס ב-3 קליקים, ומתווך/ת מקומי/ת יחזור/תחזור אליכם.</p>
       </div>
 
       <div class="owner-wizard" id="ownerWizard">
-        <ol class="wiz-steps" id="wizSteps" aria-label="שלבי ההערכה">
+        <ol class="wiz-steps" id="wizSteps" aria-label="שלבי הפנייה">
           <li class="active" data-step="1"><span class="dot">1</span>עסקה וכתובת</li>
           <li data-step="2"><span class="dot">2</span>על הנכס</li>
           <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
@@ -4299,7 +4300,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="wiz-nav">
               <button type="button" class="btn btn-gold" data-next="2">להמשך ←</button>
             </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
+            <p class="wiz-disclaimer">* הטופס מחבר למתווך/ת מקומי/ת. הוא אינו שומה של שמאי/ת מקרקעין.</p>
           </section>
 
           <section class="wiz-panel" data-panel="2">
@@ -4344,7 +4345,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button>
               <button type="button" class="btn btn-gold" data-next="3">להמשך ←</button>
             </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
+            <p class="wiz-disclaimer">* הטופס מחבר למתווך/ת מקומי/ת. הוא אינו שומה של שמאי/ת מקרקעין.</p>
           </section>
 
           <section class="wiz-panel" data-panel="3">
@@ -4356,18 +4357,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="wiz-err" id="wizErr3"></p>
             <div class="wiz-nav">
               <button type="button" class="btn btn-ghost-light" data-back="2">→ חזרה</button>
-              <button type="submit" class="btn btn-gold" id="wizSubmitBtn">קבלת הערכת שווי חינם</button>
+              <button type="submit" class="btn btn-gold" id="wizSubmitBtn">שליחה למתווך מקומי</button>
             </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
+            <p class="wiz-disclaimer">* הטופס מחבר למתווך/ת מקומי/ת. הוא אינו שומה של שמאי/ת מקרקעין.</p>
           </section>
         </form>
 
         <div class="wiz-done" id="wizDone" hidden>
           <div class="wiz-done-mark" aria-hidden="true">✓</div>
-          <h3>הפרטים נשלחו לבדיקה</h3>
-          <p>סוכן מקומי יצור איתכם קשר תוך זמן קצר עם הערכת המחיר המדויקת לנכס.</p>
+          <h3>הפרטים נשלחו</h3>
+          <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם בקרוב לגבי המכירה או ההשכרה.</p>
           <button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>
-          <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
+          <p class="wiz-disclaimer">* הטופס מחבר למתווך/ת מקומי/ת. הוא אינו שומה של שמאי/ת מקרקעין.</p>
         </div>
       </div>
       </div>

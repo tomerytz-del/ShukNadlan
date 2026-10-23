@@ -489,7 +489,7 @@ function renderManagerContact(members){
       <div class="name">${escapeHtml(name)}</div>
       <div class="role">${escapeHtml(roleLabel(manager))} · ${escapeHtml(agencyName)}</div>
       ${agencyAddressHtml()}
-      <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
+      <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על מכירה או על השכרה בעפולה והעמק.</p>
     </div>
     <div class="contact-actions">
       <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
@@ -1433,11 +1433,11 @@ function initOwnerWizard(agency){
   // הבאנר מדבר בשם המשרד ולא בשם הפלטפורמה — זו הסיבה שהגולש/ת ישאיר/תשאיר
   // כאן פרטים ולא בדף הבית
   document.getElementById('ownerTeaserSub').textContent =
-    `הערכת שווי חינם ממתווכי ${agency.name}`;
+    `מתווכי ${agency.name} יחזרו אליכם`;
   document.getElementById('ownerLead').textContent =
-    `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווכי ${agency.name}.`;
+    `ספרו על הנכס ב-3 קליקים, ומתווך/ת מ${agency.name} יחזור/תחזור אליכם.`;
   document.getElementById('wizDoneNote').textContent =
-    `מתווך/ת מ${agency.name} יחזור/תחזור אליכם בזמן קצר עם הערכת המחיר לנכס.`;
+    `מתווך/ת מ${agency.name} יחזור/תחזור אליכם בזמן קצר לגבי המכירה או ההשכרה.`;
 
   // כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
   [['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
@@ -1503,7 +1503,7 @@ function initOwnerWizard(agency){
     [1,2,3].forEach(s => setError(s, ''));
     Object.assign(wizState, { address:'', condition:null, rooms:null, features:[], name:'', phone:'' });
     const submitBtn = document.getElementById('wizSubmitBtn');
-    submitBtn.textContent = 'קבלת הערכת שווי חינם';
+    submitBtn.textContent = 'שליחה למשרד';
     submitBtn.disabled = false;
     wizDone.hidden = true;
     wizForm.hidden = false;

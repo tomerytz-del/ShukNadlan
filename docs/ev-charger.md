@@ -23,7 +23,7 @@
 | העוזרת לסוכנים | `whatsapp-webhook/agent.ts` - `RESIDENTIAL_/COMMERCIAL_FEATURES` | |
 | הבוט הציבורי | `whatsapp-webhook/public-agent.ts` - תיאור `features` בכלי החיפוש | |
 | הסכמי תיווך (`sell`, `landlord`) | `agreement-templates.js` (שני העותקים), `AGR_FIELD_CHOICES` ו-`AGR_FEATURE_FROM_FIELD` ב-`crm.js` | שדה 41 בטבלת הנכס, מתמלא מ-`feature:ev_charger`, ו"יש" חוזר לכרטיס הנכס |
-| הערכת שווי (בעלי נכסים) | `index.html`, `agency.html`, `agent.html` - `.wiz-checks` | נשלח כטקסט ל-`owner-lead-intake` |
+| פניית מוכרים (בעלי נכסים) | `index.html`, `agency.html`, `agent.html` - `.wiz-checks` | נשלח כטקסט ל-`owner-lead-intake` |
 | פרויקטים חדשים | `_shared/projects.ts` - `PROJECT_FEATURES`, `assets/project-card.js` | התקרה ב-`project-manage` היא עכשיו אורך הרשימה ולא 16 קבוע |
 
 ## הפאנל: שורה אחת עם קומה ומחסן

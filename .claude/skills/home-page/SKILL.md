@@ -1,13 +1,13 @@
 ---
 name: home-page
-description: דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, החיפוש, המפה (map-closed / map-open), הערכת השווי, ו-design-system.css שנטען אחרי ה-style. Use when changing the hero or sections of index.html, when a style "doesn't apply" or a corner is square, when the Gabriela button drops below the fold on mobile, when touching the valuation wizard, when a home-page modal is covered or clicks fall through, or when changing the buyer wizard (assets/buyer-banner.js).
+description: דף הבית של שוק נדל״ן (index.html) - כרטיס גבריאלה ב-hero, החיפוש, המפה (map-closed / map-open), באנר המוכרים (בלי שומה), ו-design-system.css שנטען אחרי ה-style. Use when changing the hero or sections of index.html, when a style "doesn't apply" or a corner is square, when the Gabriela button drops below the fold on mobile, when touching the owner banner or owner wizard, when a home-page modal is covered or clicks fall through, or when changing the buyer wizard (assets/buyer-banner.js).
 ---
 
 # דף הבית
 
 אוקטובר 2026: ה-hero הוא כרטיס גבריאלה, המפה יוצאת ממנו ונפתחת בכפתור, והדף
 מתחתיו עבר לשפה מעוגלת ורכה. המסמכים: `docs/search-map-experience.md` סעיף 0.0
-(ה-hero והמפה), `docs/home-page-sections.md` (הסקציות, הערכת השווי, הפינות).
+(ה-hero והמפה), `docs/home-page-sections.md` (הסקציות, באנר המוכרים, הפינות).
 
 ## 1. סגנון שלא חל: ‏design-system.css נטען *אחרי* ה-`<style>`
 
@@ -177,18 +177,22 @@ Leaflet מאותחל בטעינה בגודל 0, ולכן כל פתיחה קור�
 ‏`updateSplitPanel`) בודק `mapViewIsOpen()` / `mapStripOn()`. כל דבר שפותח את
 המפה נושא `data-map-open="<מקור>"` - מאזין אחד מטפל בכולם.
 
-## 4. הערכת השווי - ההסתייגות בכל שלב
+## 4. באנר המוכרים - בלי שומה, וההסתייגות בכל שלב
 
-> \* הערכת השווי ניתנת על ידי מתווך/ת, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.
+הבאנר (`#ownerBannerWrap`) מחבר למתווך/ת מקומי/ת למכירה או להשכרה, ומפנה
+לעסקאות שדווחו לרשות המסים. **אין בו הצעת שומה, אין "הערכת שווי", ואין
+"חינם".** מי שנוגע/ת בנוסח לא מחזיר/ה את זה.
+
+> \* הטופס מחבר למתווך/ת מקומי/ת. הוא אינו שומה של שמאי/ת מקרקעין.
 
 שלב 2 הוא שתי רשימות בחירה (`#wizCondition`, ‏`#wizRooms`) ולא צ'יפים, והאשף
 קיים **בשלושה דפים** (`index.html`/`home.js`, ‏`agent.html`, ‏`agency.html`) -
-שינוי בו נכנס לשלושתם.
+שינוי בו נכנס לשלושתם. ההסתייגות יושבת **רק בדף הבית**.
 
-`.wiz-disclaimer` מתחת לכפתור **בכל שלב ובמסך התודה** - ארבעה עותקים. זו
-הסתייגות משפטית; מי שמוסיף/ה שלב לאשף מוסיף/ה גם אותה. מזהי האשף
-(`#ownerWizardForm`, ‏`#wizAddress`, ‏`#ownerStartBtn`…) לא משתנים - `home.js` נקשר
-אליהם.
+`.wiz-disclaimer` מתחת לכפתור **בכל שלב ובמסך התודה** - ארבעה עותקים
+ב-`index.html`. זו הסתייגות משפטית; מי שמוסיף/ה שלב לאשף בדף הבית מוסיף/ה
+גם אותה, בנוסח הזה. מזהי האשף (`#ownerWizardForm`, ‏`#wizAddress`,
+‏`#ownerStartBtn`…) לא משתנים - `home.js` נקשר אליהם.
 
 ## 5. פינות מעוגלות - ההעדפה
 
