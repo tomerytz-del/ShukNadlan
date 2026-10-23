@@ -670,7 +670,23 @@ const SITE_ENTRY_PHRASES: ReadonlyArray<[string, string]> = [
   ["הגעתי מהאתר", "site"],
 ];
 
+/* תג המקור שחלונית גבריאלה (‏assets/gabriela-widget.js) מוסיפה בסוף ההודעה:
+   "[site:property]". גובר על הביטויים, כי הוא אומר מאיזה **עמוד** (הביטוי
+   "מדף הבית" נכתב רק בכרטיס שב-hero). ‏data-page בדפים חייב להופיע כאן -
+   ‏scripts/check_bot_entry.py מצליב, וערך חדש כאן נכנס גם לאילוץ במסד
+   (‏whatsapp_messages_public_entry_check). התג יורד מהטקסט לפני גבריאלה. */
+const SITE_TAGS: Readonly<Record<string, string>> = {
+  home: "homepage",
+  property: "property",
+  agent: "agent",
+  agency: "agency",
+  page: "site",
+};
+const SITE_TAG_RE = /\s*\[site:([a-z]{2,12})\]/;
+
 function siteEntryOf(text: string): string {
+  const tag = text.match(SITE_TAG_RE);
+  if (tag && SITE_TAGS[tag[1]]) return SITE_TAGS[tag[1]];
   for (const [phrase, entry] of SITE_ENTRY_PHRASES) {
     if (text.includes(phrase)) return entry;
   }
@@ -772,14 +788,17 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     let { error } = await supabase.from("whatsapp_messages").update(stamp).eq("wa_message_id", msg.id);
     // עמודה או ערך שעוד לא במסד (הפונקציה נפרסה לפני המיגרציה): חותמים
     // לפחות את מה שהיה נחתם קודם, ולא מאבדים את הפנייה.
-    if (error && (ad.ref || ad.entry)) {
+    // עמוד שעוד אינו באילוץ (‏property / agent / agency) נחתם 'site' - מהאתר.
+    if (error) {
+      const entry = siteEntryOf(userText);
+      const legacy = ["homepage", "search_empty", "site", "direct"].includes(entry) ? entry : "site";
       ({ error } = await supabase.from("whatsapp_messages")
-        .update({ public_entry: siteEntryOf(userText) }).eq("wa_message_id", msg.id));
+        .update({ public_entry: legacy }).eq("wa_message_id", msg.id));
     }
     if (error) console.error("public entry stamp failed", error);
   }
   // הקוד נחתם; לגבריאלה הוא רעש, והיא עלולה לצטט אותו לפונה.
-  userText = userText.replace(AD_REF_RE, "").trim() || userText;
+  userText = userText.replace(AD_REF_RE, "").replace(SITE_TAG_RE, "").trim() || userText;
 
   let answer: string;
   let shareContact = false;

@@ -3989,46 +3989,8 @@ function gabrielaSplitRow(){
   return gabrielaMiniLink('split-gab', 'גבריאלה תעדכן אתכם על נכס חדש באזור', '', 'map_list');
 }
 
-/* החלונית הצפה "היי, אני גבריאלה" - עולה רק כשהכפתור שב-hero יצא מהמסך (אחרת
-   היא כפילות שלו), ונסגרת לכל הביקור ב-×. ‏body ולא בתוך ה-hero: ‏isolation של
-   ‏.hero-valley היה סוגר אותה מתחת ל-#searchResults. כשהעוזרת כבויה אין חלונית -
-   "המשך בוואטסאפ" בלי וואטסאפ היה הבטחה ריקה. docs/home-page-sections.md */
-const GAB_POP_KEY = 'gabPopClosed';
-function drawGabPop(){
-  document.getElementById('gabPop')?.remove();
-  if (!gabrielaBotOn()) return;
-  try { if (sessionStorage.getItem(GAB_POP_KEY)) return; } catch(e){ /* בלי אחסון - מוצגת */ }
-  // הכפתור עצמו ולא העוטף: ‏.gab-cta-wrap הוא display:contents, ו-IntersectionObserver לא רואה אותו לעולם
-  const hero = document.querySelector('#gabCtaWrap .gab-cta');
-  if (!hero || !('IntersectionObserver' in window)) return;
-  const pop = document.createElement('aside');
-  pop.id = 'gabPop';
-  pop.setAttribute('aria-label', 'גבריאלה, העוזרת בוואטסאפ');
-  pop.innerHTML =
-    '<button type="button" class="gab-pop-x" aria-label="סגירה">×</button>' +
-    '<div class="gab-pop-head"><img src="' + GAB_AVATAR + '" width="52" height="52" alt="גבריאלה" loading="lazy" decoding="async">' +
-    '<div><b>היי, אני גבריאלה</b><span>איך אפשר לעזור? אחפש לך נכס, משרד או משכנתא.</span>' +
-    '<span><i class="gab-pop-dot" aria-hidden="true"></i>זמינה עכשיו בוואטסאפ</span></div></div>' +
-    ShukBot.anchorHtml(GAB_HELLO, GAB_WA_ICON + '<span>המשך בוואטסאפ</span>', 'gab-pop-btn');
-  pop.querySelector('a')?.setAttribute('data-bot-entry', 'homepage_popup');
-  document.body.appendChild(pop);
-
-  let heroOn = true, ready = false, closed = false;
-  const sync = ()=>{ pop.classList.toggle('is-on', ready && !heroOn && !closed); };
-  // לא מיד בטעינה: גולש/ת שגולל/ה מהר מקבל/ת אותה אחרי רגע, לא באמצע התנועה
-  setTimeout(()=>{ ready = true; sync(); }, 4000);
-  new IntersectionObserver(en=>{ heroOn = en[0].isIntersecting; sync(); }).observe(hero);
-  const close = ()=>{
-    closed = true; sync();
-    try { sessionStorage.setItem(GAB_POP_KEY, '1'); } catch(e){ /* נסגרת לדף הזה בלבד */ }
-  };
-  pop.querySelector('.gab-pop-x').addEventListener('click', close);
-  pop.querySelector('a')?.addEventListener('click', close);
-}
-
 function renderGabrielaCta(){
   drawGabrielaCta(document.getElementById('gabCtaWrap'), 'homepage_hero');
-  drawGabPop();
   placeGabHand();
   if (!gabrielaBotOn()){
     // הכפתור פותח את הסוכן החכם ולא את וואטסאפ - הצעד הראשון בבועה בהתאם

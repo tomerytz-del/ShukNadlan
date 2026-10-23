@@ -2176,6 +2176,21 @@ function renderAgencyAvatar(agency){
 /* מספר המודעה הוא מה שהסוכן/ת מחפש/ת כדי לזהות על איזה נכס מדובר. במקום שורה
    מוצנעת בתחתית העמוד, שאיש לא מעתיק ממנה, הוא נכנס מראש לתיבת ההודעה בטופס
    הפנייה — הודעה מוכנה לשליחה שכבר נושאת את המספר. */
+/* חלונית גבריאלה (‏assets/gabriela-widget.js): "פרטים על הנכס הזה" נושא את הנכס
+   ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. ‏publicTitle ולא
+   ‏p.title - אותו כלל של כתובת מוסתרת שחל על הדף. */
+function setGabWidgetContext(p){
+  const hood = p.neighborhoods?.name || p.sales_area || '';
+  window.gabWidgetContext = { property: {
+    id: p.id,
+    title: publicTitle(p),
+    hood,
+    rooms: p.rooms ? Number(p.rooms).toLocaleString('he-IL') : '',
+    price: p.price ? priceLabel(p) : '',
+  } };
+  window.dispatchEvent(new Event('gabwidget:context'));
+}
+
 function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
@@ -2392,6 +2407,7 @@ function renderProperty(p){
   renderAgentCard(p);
   renderContactButtons(p);
   prefillInquiryMessage(p);
+  setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
   prefillInquiryContact();
   document.getElementById('agencyStrip').addEventListener('click', ()=>{

@@ -682,7 +682,7 @@ WHATSAPP_PUBLIC_BOT = on
 | הכרטיס ב-hero | `homepage_hero` |
 | שורת גבריאלה בתחתית התפריט הנייד | `menu` |
 | הכרטיס האחרון ברשימה שליד המפה הפתוחה | `map_list` |
-| החלונית הצפה "היי, אני גבריאלה" (אחרי שהכרטיס יצא מהמסך) | `homepage_popup` |
+| החלונית הצפה (‏`assets/gabriela-widget.js`), בכל הדפים שטוענים אותה | `widget_buy` / `widget_rent` / `widget_owner` / `widget_fair` / `widget_property` / `widget_free` |
 
 ‏`homepage_how` (הכפתור שהיה בחלון "איך זה עובד?") יצא באוקטובר 2026 עם
 החלון עצמו - "איך זה עובד?" הוא עכשיו בועה בכרטיס, בלי כפתור משלה. בנתונים
@@ -755,6 +755,23 @@ WHATSAPP_PUBLIC_BOT = on
 | "חיפשתי באתר" | `search_empty` | `renderEmptyBotLink` - מסך אפס התוצאות |
 | "הגעתי מהאתר" | `site` | `FALLBACK_HELLO` ב-`bot-link.js` |
 | (אחר) | `direct` | מספר שמור, כרטיס איש הקשר, הקלטה, או הודעה שנכתבה מחדש |
+
+**ותג המקור של החלונית הצפה גובר על הביטויים** (‏`SITE_TAGS`, אוקטובר 2026):
+‏`assets/gabriela-widget.js` מוסיפה לכל הודעה "[site:<עמוד>]", והתג יורד מהטקסט
+לפני שגבריאלה רואה אותו (כמו קוד המודעה).
+
+| תג | `public_entry` |
+| --- | --- |
+| `[site:home]` | `homepage` |
+| `[site:property]` | `property` |
+| `[site:agent]` | `agent` |
+| `[site:agency]` | `agency` |
+
+שלושת האחרונים נוספו לאילוץ ב-`20270804090000_gabriela_widget_entries.sql`, ונספרים
+"מהאתר". עד שהמיגרציה רצה הפונקציה חותמת אותם `site`. **הליד עצמו** נשאר עם
+המקור של הכלי (‏`whatsapp_bot_search_agent`, ‏`whatsapp_bot_owner_wizard`...) - מקור
+הליד אומר מאיזה **כלי**, והעמוד יושב על הפנייה ומוצלב לפי הטלפון, כמו המודעות.
+‏[`gabriela-widget.md`](gabriela-widget.md).
 
 **מי שמנסח מחדש הודעת פתיחה שומר/ת על הביטוי**, או מעדכן/ת את
 `SITE_ENTRY_PHRASES`. אחרת הכפתור ממשיך לעבוד וכל הפניות ממנו עוברות בשקט
