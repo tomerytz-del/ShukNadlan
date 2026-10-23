@@ -50,7 +50,7 @@ RULES = [
     # קישורי הפוטר "למכירה בעפולה" / "להשכרה בעפולה"
     (re.compile(r'>(למכירה|להשכרה) בעפולה<'),
      r'>\1 ב<span data-market-city>עפולה</span><'),
-    # בלוק "חיפושים פופולריים": 14 עמודי התוצאות הם של עפולה
+    # בלוק "חיפושים פופולריים": עמודי התוצאות הם של עפולה
     (re.compile(r'<details class="footer-wrap footer-seo" id="footerSeo"(?! data-market-default-only)'),
      '<details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only'),
     # ‏placeholder "לדוגמה: עפולה" בטופס המחפשים

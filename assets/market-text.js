@@ -21,7 +21,7 @@
    | `data-market-placeholder` | "עפולה" ← העיר, בתוך ה-placeholder |
    | `data-market-default-only` | מוסתר: תוכן שנכון רק לשוק ברירת המחדל |
 
-   הבלוק "חיפושים פופולריים" הוא `data-market-default-only`: 14 עמודי
+   הבלוק "חיפושים פופולריים" הוא `data-market-default-only`: עמודי
    התוצאות הם של עפולה (‏search-pages.ts), ועד שיהיו כאלה לכל שוק אסור
    שדף חיפה יקשר ל"דירות 4 חדרים בעפולה".
 

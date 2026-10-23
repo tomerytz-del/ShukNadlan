@@ -909,6 +909,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero.split-on .map-toolbar{inset-inline-start:var(--split-w)}
     .hero.split-on #hero-map{width:auto}
     .hero.split-on .hero-inner h1{font-size:1.3rem;max-width:none;text-align:center;white-space:nowrap}
+    /* כותרת עמוד תוצאות ארוכה מ"כל הנכסים…", ו-nowrap חותך אותה במפה הפתוחה */
+    .hero.split-on .hero-inner h1.is-topic{white-space:normal}
     .hero.split-on .hero-h1-break{display:inline}
     .hero.split-on .hero-badges,
     .hero.split-on .hero-stats{display:none}
@@ -3489,9 +3491,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h1>כל הנכסים ב<span id="heroCityName">עפולה והעמק</span><button type="button" class="mkt-menu-btn" data-market-menu hidden aria-label="בחירת אזור"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button> <span class="hero-h1-break">בכתובת אחת</span></h1>
           <script>
             /* ‏city-context.js נטען למעלה כ-‎<script src>‎ רגיל, ולכן הוא
-               כבר כאן. אם הוא לא נטען, הכיתוב שב-HTML נשאר כמו שהוא. */
+               כבר כאן. אם הוא לא נטען, הכיתוב שב-HTML נשאר כמו שהוא.
+               בעמוד תוצאות ה-H1 כבר הוזרק בשרת, והתגית אומרת לא לגעת בו. */
             try {
-              if (window.CityContext) {
+              if (window.CityContext && !document.querySelector('meta[name="shuk-search-heading"]')) {
                 var el = document.getElementById('heroCityName');
                 if (el) el.textContent = window.CityContext.label();
               }
@@ -4910,6 +4913,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
+      <a href="?deal=sale">דירות למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -4922,6 +4926,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="?deal=commercial">נכסים מסחריים בעפולה</a>
       <a href="?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/projects">פרויקטים חדשים בעפולה</a>
