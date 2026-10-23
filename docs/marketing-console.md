@@ -223,6 +223,15 @@ ads-leads-webhook  (Edge Function, verify_jwt = false — אימות בחתימ�
 שהעביר את השורה ל-`routing` שולח אותה. ליד שנכשל ינוסה שוב עד 5 פעמים,
 וכפתור "נסו שוב" בלשונית מאפס את המונה.
 
+**התראת וואטסאפ לתומר, על כל ליד.** אחרי `routeLead` (ב-webhook וב-
+`routePending`) `alertLead` שולח למספר שב-`ads_settings.lead_alert_phone`.
+התפיסה היא `alerted_at is null`, ליד ש-`created_time` שלו מלפני יותר מ-6
+שעות אינו נשלח, והסוגים המותרים ב-`lead_alert_kinds` (כולל טופס לא משויך,
+בלי `ignore`). בתוך 23 שעות מההודעה האחרונה של המספר יוצא טקסט חופשי;
+אחרת תבנית `WHATSAPP_LEAD_ALERT_TEMPLATE`, ובלעדיה תבנית ההתראות. כשל
+נכתב ל-`alert_error` ואינו משנה את ה-200 למטא. הנוסח להגשה ב-WhatsApp
+Manager: [`whatsapp-setup.md`](whatsapp-setup.md), "התראה על ליד חדש ממטא".
+
 **ה-webhook נכשל סגור:** בלי `META_APP_SECRET` כל POST נדחה (503), וחתימה
 שגויה נדחית (401). על POST חתום הוא עונה תמיד 200, גם כשליד בודד נכשל -
 מטא משביתה מנוי שעונה שגיאות שוב ושוב, והסנכרון ממילא ינסה שוב.
