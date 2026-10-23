@@ -22,6 +22,7 @@ on:
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
+      - "scripts/meta_lead_alert_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -33,6 +34,7 @@ on:
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
+      - "scripts/meta_lead_alert_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -81,3 +83,8 @@ jobs:
       # הסגורה (‏docs/coaches.md).
       - name: מאמני ה-AI - מה יוצא למודל ומה נשמר
         run: node --experimental-strip-types scripts/office_coach_test.ts
+
+      # התראת וואטסאפ על ליד מטופס מטא: פרמטר תבנית בשורה אחת, נפילה
+      # לתבנית ההתראות, ודילוג על ליד ישן או על סוג שאינו ברשימה.
+      - name: התראת ליד ממטא
+        run: node --experimental-strip-types scripts/meta_lead_alert_test.ts

@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { MetaClient } from "../_shared/meta-graph.ts";
-import { LEAD_FIELDS, leadgenIds, pageToken, routeLead, signatureValid, storeLead, timingSafeEqual } from "../_shared/meta-leads.ts";
+import { alertLead, LEAD_FIELDS, leadgenIds, pageToken, routeLead, signatureValid, storeLead, timingSafeEqual } from "../_shared/meta-leads.ts";
 
 // ============================================================================
 // ads-leads-webhook — מטא מודיעה על ליד חדש מטופס מיידי (שלב 4,
@@ -10,7 +10,8 @@ import { LEAD_FIELDS, leadgenIds, pageToken, routeLead, signatureValid, storeLea
 // ‏GET  ‏hub.mode=subscribe — אימות המנוי מול META_WEBHOOK_VERIFY_TOKEN.
 // ‏POST ‏leadgen — חתימת X-Hub-Signature-256 (HMAC-SHA256 של הגוף הגולמי עם
 //       ‏META_APP_SECRET), ואז לכל leadgen_id: שליפת הליד מ-Graph, שמירה
-//       ב-ads_leads, ושליחה למסלול (‏_shared/meta-leads.ts).
+//       ב-ads_leads, שליחה למסלול, והתראת וואטסאפ לבעל הפלטפורמה
+//       (‏_shared/meta-leads.ts). ההתראה לעולם אינה משנה את תשובת ה-200.
 //
 // ‏verify_jwt = false: מטא אינה שולחת JWT. האימות הוא החתימה, והיא
 // ‏fail-closed - בלי META_APP_SECRET כל POST נדחה ב-503, כי webhook שמקבל
@@ -76,8 +77,20 @@ Deno.serve(async (req: Request) => {
     try {
       const lead = await meta.get(id, { fields: LEAD_FIELDS });
       await storeLead(sb, lead, "webhook");
-      const r = await routeLead(sb, { supabaseUrl: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }, String(lead.id));
-      if (r.error) console.warn("ads-leads-webhook: ליד", id, r.status, r.error);
+      const leadId = String(lead.id);
+      try {
+        const r = await routeLead(sb, { supabaseUrl: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }, leadId);
+        if (r.error) console.warn("ads-leads-webhook: ליד", id, r.status, r.error);
+      } catch (e) {
+        // הניתוב נכשל אחרי שהשורה נשמרה. הסנכרון ינסה שוב, וההתראה עדיין יוצאת.
+        console.error("ads-leads-webhook: ניתוב נכשל", id, (e as Error).message);
+      }
+      try {
+        await alertLead(sb, leadId);
+      } catch (e) {
+        // alertLead אינה זורקת. השכבה הזו שומרת על 200 גם אם זה ישתנה.
+        console.error("ads-leads-webhook: התראת וואטסאפ נכשלה", id, (e as Error).message);
+      }
     } catch (e) {
       // הליד לא נשמר - הסנכרון השעתי ימשוך אותו לפי הטופס.
       console.error("ads-leads-webhook: שליפת ליד נכשלה", id, (e as Error).message);

@@ -14,7 +14,7 @@ import {
 } from "./copy.ts";
 import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
-import { LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
+import { alertLead, LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
 import { customerPath, fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas, mutate } from "../_shared/google-ads.ts";
 import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
@@ -684,6 +684,12 @@ async function routePending(sb: SupabaseClient, formId?: string) {
   for (const r of data ?? []) {
     const res = await routeLead(sb, ROUTE_OPTS, r.meta_lead_id);
     out[res.status] = (out[res.status] ?? 0) + 1;
+    try {
+      await alertLead(sb, r.meta_lead_id);
+    } catch (e) {
+      // ההתראה אינה חלק מתוצאת הניתוב. כשל שלה לא עוצר את שאר הלידים.
+      console.error("routePending alert", r.meta_lead_id, (e as Error).message);
+    }
   }
   return out;
 }
