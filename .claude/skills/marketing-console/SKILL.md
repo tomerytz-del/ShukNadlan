@@ -64,6 +64,11 @@ description: קונסולת השיווק ב-CRM של שוק נדל״ן - הפא�
 - ה-webhook **נכשל סגור**: בלי `META_APP_SECRET` הוא מחזיר 503, ועל חתימה
   שגויה 401. על POST חתום הוא עונה **תמיד 200**, גם כשליד בודד נכשל: מטא
   משביתה מנוי שעונה שגיאות שוב ושוב.
+- **התראת וואטסאפ לתומר על כל ליד** (`alertLead`, אחרי `routeLead` ב-webhook
+  וב-`routePending`). נעילה ב-`alerted_at is null`, דילוג מעל 6 שעות, ורק
+  הסוגים ב-`ads_settings.lead_alert_kinds`. כישלון נכתב ל-`alert_error`
+  ואינו משנה את ה-200. תבנית `ads_lead_alert` או נפילה ל-
+  `WHATSAPP_NOTIFY_TEMPLATE`. ‏`docs/whatsapp-setup.md`.
 - מקור חדש של `meta_ads_*` נכנס ל-`KNOWN_SOURCES` ב-`_shared/lead-routing.ts`,
   אחרת הוא מנורמל ל-`unattributed`.
 
