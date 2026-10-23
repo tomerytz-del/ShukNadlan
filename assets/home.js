@@ -5205,9 +5205,10 @@ function showSearchError(){
   const countEl = document.getElementById('searchResultsCount');
   const titleEl = document.getElementById('searchResultsTitle');
   if (section && rows){
-    section.hidden = false;
-    // הכותרת חוזרת מ"הנכסים שבתחום המפה" אם החיפוש נכשל בזמן שהמצב ההוא פעיל
+    // הכותרת חוזרת מ"הנכסים שבתחום המפה" אם החיפוש נכשל בזמן שהמצב ההוא פעיל.
+    // הטקסט נכתב לפני שהסקציה נחשפת, כדי שלא יהבהב "תוצאות החיפוש" ואז כותרת אחרת.
     if (titleEl) titleEl.textContent = 'תוצאות החיפוש';
+    section.hidden = false;
     if (countEl) countEl.textContent = '';
     rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש - נסו שוב</div>';
   }
@@ -5250,7 +5251,7 @@ function buildSearchRow(p, i){
         שהגולש/ת הזיז/ה או הגדיל/ה את המפה. ראו updateMapViewRows. */
 const MAP_VIEW_MAX_ROWS = 60;   // מעבר לזה הגלילה ארוכה מלהיות שימושית
 
-/* ‏הכתובת שבה נטען הדף. ‏14 עמודי התוצאות מוגשים מ-index.html לפי
+/* ‏הכתובת שבה נטען הדף. עמודי התוצאות מוגשים מ-index.html לפי
    הפרמטרים, ולכן הכותרת שמוזרקת להם תקפה רק כל עוד הפרמטרים לא השתנו:
    מי שהגיע/ה ל-"דירות 4 חדרים למכירה" ואז שינה/תה את המסננים מקבל/ת שוב
    "תוצאות החיפוש", ולא כותרת שמתארת חיפוש אחר. */
@@ -5281,11 +5282,13 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     return;
   }
 
-  section.hidden = false;
   // הכותרת אומרת מאיפה הרשימה הגיעה. "תוצאות החיפוש" מעל רשימה שנוצרה
   // מגרירה של המפה — ובלי שאיש חיפש דבר — היא כותרת שמשקרת.
+  // זו כותרת h2. ה-H1 של עמוד התוצאות מוזרק בשרת (search-pages.ts) ואינו
+  // נכתב כאן, כדי שלא יופיעו שתי כותרות ראשיות ולא יהבהב הטקסט הגנרי.
   if (titleEl) titleEl.textContent = mapView ? 'הנכסים שבתחום המפה'
                                              : (searchLandingHeading() || 'תוצאות החיפוש');
+  section.hidden = false;
 
   // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
   // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
@@ -6905,7 +6908,7 @@ let freeTextFeatures = new Set();
 
      עכשיו הכלל הפוך - הכתובת מוחלת רק כשברור שהגיעו אליה כחיפוש:
        1. עמוד חיפוש פופולרי - ‏search-pages.ts מזריקה לו
-          ‎<meta name="shuk-search-heading">‎, ורק ל-14 הכתובות שברשימה.
+          ‎<meta name="shuk-search-heading">‎, ורק לכתובות שברשימה.
        2. הגעה דרך קישור - מדף אחר באתר או מאתר אחר (גוגל). ה-referrer
           ריק בלשונית ששוחזרה, בכתובת שהוקלדה ובסימנייה.
      בכל מקרה אחר הפרמטרים יורדים מהכתובת, כדי ששורת הכתובת תתאים למסך.

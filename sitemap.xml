@@ -134,13 +134,18 @@
     <priority>0.3</priority>
   </url>
 
-  <!-- ‏14 עמודי התוצאות. ‏HTML אחד (‏index.html) מגיש אותם לפי הפרמטרים,
-       ו-netlify/edge-functions/search-pages.ts מזריקה לכל אחד כותרת, תיאור
-       ו-canonical משלו. הרשימה כאן, הרשימה שם והקישורים בבלוק "חיפושים
+  <!-- ‏16 עמודי התוצאות. ‏HTML אחד (‏index.html) מגיש אותם לפי הפרמטרים,
+       ו-netlify/edge-functions/search-pages.ts מזריקה לכל אחד כותרת, תיאור,
+       H1 ו-canonical משלו. הרשימה כאן, הרשימה שם והקישורים בבלוק "חיפושים
        פופולריים" שבפוטר חייבות להסכים - scripts/check_canonical.py בודק.
 
        ואין כאן lastmod בכוונה: התוכן משתנה עם כל מודעה חדשה, ותאריך מומצא
        גרוע מתאריך חסר (ראו netlify/edge-functions/sitemap.ts). -->
+  <url>
+    <loc>https://shuknadlan.co.il/?deal=sale</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
   <url>
     <loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=3</loc>
     <changefreq>daily</changefreq>
@@ -198,6 +203,11 @@
   </url>
   <url>
     <loc>https://shuknadlan.co.il/?deal=rent&amp;maxPrice=4000</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/?deal=commercial</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
