@@ -26,8 +26,19 @@ const KEY_SECRET = Deno.env.get("MORNING_API_KEY_SECRET") || "";
 // ברירת המחדל היא **סנדבוקס** בכוונה. סביבה שלא הוגדרה במפורש לא אמורה
 // להתחיל לגבות כסף אמיתי מאף אחד; מעבר לפרודקשן הוא פעולה מודעת של מי
 // שמגדיר/ה את הסוד, לא תוצאה של שכחה.
-const API_BASE = (Deno.env.get("MORNING_API_BASE") ||
+//
+// ‏`www.greeninvoice.co.il/api` היא התשתית הישנה, ומ-14.10.2026 כל קריאה
+// אליה נחסמת. הסוד נקבע ידנית ב-Supabase ואינו עובר ב-PR, ולכן ערך ישן בו
+// היה מפיל את כל הסליקה בשקט מבחינת הקוד. במקום לסמוך על כך שעודכן -
+// מתרגמים כאן לכתובת החדשה ומזהירים בלוג.
+const OLD_API_HOST = /^https?:\/\/(www\.)?greeninvoice\.co\.il\//i;
+const API_BASE_RAW = (Deno.env.get("MORNING_API_BASE") ||
   "https://sandbox.d.greeninvoice.co.il/api/v1").replace(/\/+$/, "");
+const API_BASE = API_BASE_RAW.replace(OLD_API_HOST, "https://api.greeninvoice.co.il/");
+if (API_BASE !== API_BASE_RAW) {
+  console.warn("morning: MORNING_API_BASE points at the retired host - using",
+    API_BASE, "instead. Update the secret in Supabase.");
+}
 
 // כתובת שרת האימות. **היא אינה `API_BASE`, וזו לא פליטת קולמוס:** האסימון
 // מונפק מדומיין נפרד בעוד שקריאות ה-API עצמן הולכות ל-greeninvoice. שני

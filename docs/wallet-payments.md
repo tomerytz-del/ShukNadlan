@@ -311,6 +311,11 @@ MORNING_WEBHOOK_SECRET=       # openssl rand -hex 32
 לא אמורה להתחיל לגבות כסף אמיתי. פרודקשן הוא
 `https://api.greeninvoice.co.il/api/v1`.
 
+**‏`www.greeninvoice.co.il/api` נחסמה ב-14.10.2026.** ערך ישן כזה בסוד מתורגם
+בקוד לכתובת החדשה (‏`OLD_API_HOST` ב-`_shared/morning.ts`) עם אזהרה בלוג
+"points at the retired host" - כלומר הסליקה ממשיכה לעבוד, אבל הסוד עצמו
+עדיין צריך תיקון.
+
 ### האימות — OAuth 2.0, ובשני דומיינים
 
 בעדכון התשתית של יוני 2026 מורנינג עברו ל-OAuth 2.0 והנתיבים הישנים נחסמו.
