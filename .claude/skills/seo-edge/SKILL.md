@@ -1,6 +1,6 @@
 ---
 name: seo-edge
-description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
+description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, silo-page, search-pages, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
 ---
 
 # רינדור ל-SEO ב-edge
@@ -24,6 +24,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 | timeout, סטטוס שאינו 200, זריקה, או גוף שאינו אובייקט (כולל מערך) | 503 | **לא** | `no-store` בשתי הכותרות, `Retry-After: 60` |
 | דף דק: יש רשומה, ומעט תוכן (שכונה בלי נכסים ופחות מ-5 עסקאות; יישוב עם פחות מ-5) | 200 | כן | מטמון ההצלחה |
 | מערך ריק (`prices`, אינדקס `/deals`, בלוק העסקאות ב-sitemap) | 200 | לא | מטמון ההצלחה |
+| דף נחיתה או מדור מתווכים: המסד ענה במערך ריק | 200 | כן | `no-store` בשתי הכותרות, בלי `Retry-After` |
+| אותו דף, כשל מסד (`undefined`) | 503 | **לא** | `no-store` בשתי הכותרות, `Retry-After: 60` |
 
 שתי כותרות המטמון, תמיד ביחד: `Cache-Control` ו-`Netlify-CDN-Cache-Control`.
 אחת בלי השנייה משאירה את התשובה ב-CDN. `Retry-After` רק על 503.
@@ -107,6 +109,19 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 סקריפטים שחסמו את הציור (Leaflet, supabase, כרטיסים) יושבים בסוף ה-`body`, עדיין בלי `defer`, מיד לפני `home.js`. `defer` היה מריץ את `home.js` לפניהם, או את גבריאלה לפני `home.js`.
 
+## 6. דף נחיתה עם המודעות
+
+עמוד תוצאות ב-`search-pages.ts` רק מחליף כותרת, תיאור, canonical ו-H1 בתוך `index.html`. המודעות נשארות ב-JS. דף שגוגל כבר מדרגת דרך מסנן (`/?deal=sale&rooms=3` וחבריו) וצריך לאנדקס את המודעות עצמן הוא דף נפרד, באותו דפוס של דף שכונה.
+
+- **כתובת נקובה**, לא wildcard. `/afula/בתים-פרטיים` ממופה ב-`_redirects` אל המעטפת (`/silo` 200). אין `/afula/*`: שני דפים תחת אותה עיר (נחיתה ומדור מתווכים) בולעים זה את זה, ונתיב לא מוכר היה 404.
+- **ה-canonical של המסנן מצביע על הדף**, כולל שתי הצורות של גרש בסוג הנכס (`'` ו-`%27`, וגם גרש עברי). `matchKey` מנרמל אותן לאותו מפתח. שורה ב-`SEARCH_PAGES` עם `landing` כותבת את ה-canonical אל הדף ולא אל `/?query`.
+- **הרשימה ב-HTML הראשון**, מאותו קובץ render שהדפדפן מריץ כשאין `data-ssr`. כרטיס ראשון עם מידות ו-`render/image`, כמו דף שכונה.
+- **רשימה ריקה אינה כשל.** מערך ריק הוא 200 עם `noindex` ו-`no-store`, בלי `Retry-After`. זה שונה במכוון משורת `prices` בטבלה למעלה: שם דף ריק הוא הדף. כאן אין מה לאנדקס. `undefined` נשאר 503 בלי `noindex`, עם ה-canonical של הכתובת כבר כתוב.
+- **שלושה בלוקי JSON-LD**, לא אחד במקום השני: `WebPage`, `BreadcrumbList`, `ItemList`. `<` בתוך JSON הוא `\u003c`. הבדיקה מפרסרת את שלושתם.
+- **השורה ב-sitemap סטטית** (`sitemap.xml`), בלי `lastmod`. לא מוסיפים את אותו URL גם כמקור ב-`sitemap.ts`: הוא היה מופיע פעמיים. `check_canonical.py` דורש את הכתובת ב-sitemap ואת הפונקציה ב-`OWN_EDGE`, ולא רושם את המעטפת כמקור דינמי.
+
+מדור מתווכים (`/afula/מתווכים`) יושב על אותו חוזה סטטוס. ה-`ItemList` שלו הוא `LocalBusiness` + `RealEstateAgent`, ועוד `BreadcrumbList`. הוא אינו מחליף את `/about`.
+
 ## מה לא לערבב לכאן
 
 מדיניות "שכונה דקה ב-sitemap", דף עיר `/n/{עיר}`, ו-HTML של רשימות שנבנה רק בדפדפן - החלטות נפרדות. שינוי שלהן אינו תיקון של הכללים למעלה. כללי ה-LCP של דף הבית יושבים בסעיף 5, לא כתוספת אגבית לתיקון סטטוס.
@@ -124,8 +139,11 @@ node --experimental-strip-types scripts/prices_page_test.ts
 node --experimental-strip-types scripts/og_tags_test.ts
 node --experimental-strip-types scripts/sitemap_test.ts
 node --experimental-strip-types scripts/property_hero_video_test.ts
+node --experimental-strip-types scripts/silo_page_test.ts
+node --experimental-strip-types scripts/search_pages_test.ts
 ```
 
 התיעוד: `docs/neighborhood-pages.md`, `docs/settlement-deals.md`,
 `docs/city-prices.md`, `docs/social-preview.md`, `docs/sitemap.md`,
-`docs/property-marketing-video.md`, `docs/search-map-experience.md`.
+`docs/property-marketing-video.md`, `docs/search-map-experience.md`,
+`docs/search-landing-pages.md`.
