@@ -112,6 +112,8 @@
 # ל-GET. docs/crm-contacts-import.md
 # ‏מתווכים בעפולה (docs/afula-brokers.md). brokers.html מגיש את הדף,
 # ו-brokers-page.ts ממלא את המשרדים ואת המתווכים.
+# הכלל בעברית לא התאים לבקשה המקודדת. השורה המקודדת היא זו שנתפסת.
+/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
 /afula/מתווכים    /brokers    200
 
 /crm-share    /crm?share=error    303

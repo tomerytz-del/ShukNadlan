@@ -140,10 +140,17 @@ export function inject(html: string, page: Page, data: Data): string {
 
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
+  const pathname = new URL(request.url).pathname;
+  const page = api().pageOf(pathname);
+  /* ‏כמו silo-page: נתיב עברי לא נתפס ב-Netlify. `/afula/*` כן. נתיב
+     שאינו הדף הזה חוזר כמו שהוא, כדי לא לבלוע דף נחיתה תחת אותה קידומת. */
+  if (!page) {
+    let path = pathname;
+    try { path = decodeURIComponent(path); } catch { /* נשאר כמו שהוא */ }
+    if (path.startsWith("/afula/")) return res;
+  }
   const type = res.headers.get("content-type") || "";
   if (!res.ok || !type.includes("text/html")) return res;
-
-  const page = api().pageOf(new URL(request.url).pathname);
   const html = await res.text();
   let out = html;
   let cache = false;
@@ -191,6 +198,7 @@ export default async function handler(request: Request, context: Context) {
 
 export const config: Config = {
   path: [
+    "/afula/*",
     "/brokers",
     "/brokers.html",
     "/afula/מתווכים",

@@ -113,6 +113,15 @@ function blocks(html: string): Record<string, unknown>[] {
   check("בלי הנתיב הוא 404", res.status === 404 && /noindex/.test(html));
 }
 
+{
+  const marker = "<!--other-page-->";
+  const res = await handler(new Request(SITE + "/afula/" + encodeURIComponent("בתים-פרטיים")), {
+    next: async () => new Response(marker, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never);
+  const html = await res.text();
+  check("נתיב /afula אחר עובר הלאה", res.status === 200 && html === marker);
+}
+
 if (failed) {
   console.error(`\n✗ ${failed}`);
   process.exit(1);
