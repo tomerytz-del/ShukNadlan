@@ -28363,9 +28363,24 @@ function gkwCampaignForm(pick){
 
 /* ---------- השקה מושהית ---------- */
 let adsLaunchState = { planOk: false, plan: null, creatives: null };
+function adsLaunchTargetingBlocks(){
+  const plan = adsLaunchState.plan;
+  if (!plan || plan.targeting_blocks_create) return true;
+  const hits = plan.targeting;
+  if (!Array.isArray(hits)) return true;
+  return hits.some(h => h && h.required && (h.status === 'missing' || h.status === 'unchecked'));
+}
 function adsLaunchCanCreate(){
   const c = adsLaunchState.creatives;
-  return !!(adsLaunchState.planOk && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+  return !!(adsLaunchState.planOk && !adsLaunchTargetingBlocks() && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+}
+function adsLaunchHitLine(h){
+  const q = h && h.query ? h.query : '';
+  if (h && h.status === 'found') return q + ' - נמצא: ' + (h.resolved_name || q) + ' (' + (h.id || '') + ')';
+  if (h && h.status === 'dropped') return q + ' - ירד מהטירגוט';
+  if (h && h.status === 'fallback') return q + ' - לא נמצא, גיבוי רדיוס 60 ק"מ סביב עפולה';
+  if (h && h.status === 'unchecked') return q + ' - לא נבדק';
+  return q + ' - לא נמצא';
 }
 function adsLaunchApplyGo(){
   const go = document.getElementById('adsLaunchGo');
@@ -28390,11 +28405,15 @@ function adsLaunchHtml(plan, creatives){
     parts.push('<p><b>' + esc(c.name) + '</b> · ' + esc(c.status) + (c.housing ? ' · HOUSING' : '') + '</p>');
     (c.ad_sets || []).forEach(a => {
       const ads = (a.ads || []).map(ad => esc(ad.name) + ' - ' + esc(ad.headline)).join('<br>');
-      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + '<br>' + ads + '</p>');
+      const formLine = a.lead_form_name ? '<br>טופס: ' + esc(a.lead_form_name) + ' (' + esc(a.lead_form_id || '') + ')' : '';
+      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + formLine + '<br>' + ads + '</p>');
     });
   });
   if ((plan.skipped || []).length){
     parts.push('<p><b>לא נוצר</b><br>' + plan.skipped.map(s => esc(s.key) + ' - ' + esc(s.reason)).join('<br>') + '</p>');
+  }
+  if ((plan.targeting || []).length){
+    parts.push('<p><b>טירגוט</b><br>' + plan.targeting.map(h => esc(adsLaunchHitLine(h))).join('<br>') + '</p>');
   }
   if ((plan.warnings || []).length){
     parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
