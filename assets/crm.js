@@ -357,7 +357,7 @@ function leadKind(lead){
   if (lead.lead_type === 'agent_direct_inquiry'){
     return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
   }
-  // פוסט בפייסבוק של מי שמחפש/ת, אחרי הסכמה (20270810090000, docs/scraped-leads.md)
+  // פוסט בפייסבוק של מי שמחפש/ת, אחרי הסכמה (20270812090000, docs/scraped-leads.md)
   if (lead.lead_type === 'seeker_inbound'){
     return { cls:'kind-buyer', icon:'🔎', label:(rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות') + (lead.source_detail ? ' · ' + lead.source_detail : '') };
   }

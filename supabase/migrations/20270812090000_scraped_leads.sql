@@ -525,7 +525,7 @@ begin
     when 'owner_inbound'         then 'ליד חדש: בעל נכס'
     when 'property_inquiry'      then 'ליד חדש: התעניינות בנכס'
     when 'agent_direct_inquiry'  then 'ליד חדש: פנייה ישירה אליך'
-    -- 20270810090000: פוסט בפייסבוק של מי שמחפש/ת, אחרי שהסכים/ה שנחזור
+    -- 20270812090000: פוסט בפייסבוק של מי שמחפש/ת, אחרי שהסכים/ה שנחזור
     when 'seeker_inbound'        then 'ליד חדש: מחפש/ת נכס'
     else 'ליד חדש'
   end;
