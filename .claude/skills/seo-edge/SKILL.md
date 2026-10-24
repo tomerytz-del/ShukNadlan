@@ -81,7 +81,7 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 ## 5. CLS ו-LCP של תמונה
 
-ארבעה כשלים שקטים. הדף נראה תקין, והמספר מתגלה רק ב-Lighthouse.
+הכשלים כאן שקטים. הדף נראה תקין, והמספר מתגלה רק ב-Lighthouse.
 
 ### מקום שמור לפני שהתוכן נכנס
 
@@ -95,6 +95,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
+תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה.
+
 ### כרטיס ראשון בדף שכונה
 
 התמונה הראשונה מהאחסון שלנו (`IMG_HOST`) היא `fetchpriority="high"` ובלי `loading="lazy"`. השאר `loading="lazy"`. הקובץ המלא (מאות KB) מוחלף ב-`render/image`: רוחב 400 ו-800, גובה 250 ו-500, `resize=cover`, איכות 60, עם `srcset`. `onerror` מוריד את ה-`srcset` וחוזר לכתובת המקורית. `preload` מצביע על כתובת ה-800, אותה כתובת כמו `src`. תמונה שאינה מהאחסון שלנו לא נכנסת ל-`src`.
@@ -106,6 +108,12 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 `neighborhoods` בטעינה בלי `boundary` (המצולע הוא רוב המשקל). העמודות שנשארות: `id,name,city,city_id,lat,lng,radius_m,is_planned`. בלי `is_planned` אזור בתכנון בלי נכסים חוזר לרשימה. `boundary` נטען ב-`drawHoodShapes` רק לשכונות שנבחרו; כשל מסמן `null` ומצייר עיגול.
 
 סקריפטים שחסמו את הציור (Leaflet, supabase, כרטיסים) יושבים בסוף ה-`body`, עדיין בלי `defer`, מיד לפני `home.js`. `defer` היה מריץ את `home.js` לפניהם, או את גבריאלה לפני `home.js`.
+
+תמונת ה-LCP של דף הבית היא רקע CSS על `#heroSection`: `hero-valley-800.webp` עד 759px, ו-`hero-valley.webp` משם. `preload` בלי `media` מוריד את שניהם בנייד. בלי `fetchpriority="high"` הוא לא הקדים את ההורדה. נמדד בעבר: כ-420ms פחות ב-LCP, וכ-320ms יותר ב-FCP.
+
+`city-context.js` ו-`bot-link.js` נשארים ב-`head`. `markets.js` יושב אחרי ה-CSS של התמונה ומיד לפני `CityContext.label()`: ההכרעה הראשונה נשמרת, ו-`market-pages` מזריק `SHUK_MARKET` לפני התג `src="assets/markets.js"`. סוף הדף היה נועל עיר לא נכונה. `auth-return.js` לפני `supabase.js`. `leaflet.css` עם `media="print"` ו-`onload` ל-`all` אינו חוסם את הציור הראשון.
+
+גופן שנטען מראש צריך `crossorigin` גם מאותו דומיין, אחרת ההורדה כפולה. Heebo בדף הבית הוא קובץ משתנה אחד לכל `unicode-range`, והעברית היא מה שנטען מראש. `font-display` נשאר `swap`.
 
 ## מה לא לערבב לכאן
 
