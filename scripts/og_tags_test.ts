@@ -516,6 +516,37 @@ propHttp.push(
     && !reel.includes("<video")],
   ["404 בלי חשיפת המודעה", !propMissHtml.includes("property-ready") && !propMissHtml.includes("bento-video-bg")],
 );
+const ORIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg?token=1";
+const PATH = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg";
+const R800 = `${PATH}?width=800&height=500&resize=cover&quality=60`;
+const R1200 = `${PATH}?width=1200&height=800&resize=cover&quality=60`;
+const amp = (s: string) => s.replace(/&/g, "&amp;");
+const stored = await visible({
+  ...VISIBLE_ROW,
+  images: [ORIG, "https://cdn.example/2.jpg"],
+}, { display_name: "דנה כהן" });
+const storedReel = await visible({
+  ...VISIBLE_ROW,
+  video_url: "https://cdn.example/property-videos/marketing-reel-a.mp4",
+  video_poster_url: ORIG,
+  images: ["https://cdn.example/1.jpg"],
+}, { display_name: "דנה כהן" });
+propHttp.push(
+  ["שער מהאחסון: render 800, srcset 1200, והמקור ב-og", stored.includes(`src="${amp(R800)}"`)
+    && stored.includes(`srcset="${amp(`${R800} 800w, ${R1200} 1200w`)}"`)
+    && stored.includes('sizes="(min-width:640px) 640px, 100vw"')
+    && stored.includes(`data-full="${amp(ORIG)}"`)
+    && stored.includes("this.removeAttribute('srcset')")
+    && stored.includes(`rel="preload" as="image" href="${amp(R800)}"`)
+    && stored.includes(`property="og:image" content="${ORIG}"`)
+    && stored.includes(`"${ORIG}"`)
+    && !stored.includes("<video")],
+  ["שער סרטון מהאחסון: אותה כתובת ב-src וב-preload", storedReel.includes('class="bento-video-bg"')
+    && storedReel.includes(`src="${amp(R800)}"`)
+    && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
+    && storedReel.includes(`data-full="${amp(ORIG)}"`)
+    && !storedReel.includes("<video")],
+);
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);

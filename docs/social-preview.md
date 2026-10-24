@@ -160,6 +160,15 @@ SEO/GEO מהקוד מצאה את שניהם:
 אותו `data-count` שה-JS מחשב, `preconnect` ל-Supabase ו-`preload` של
 התמונה. קובץ וידאו אינו מקבל `<video src>` כאן.
 
+תמונה מהאחסון שלנו (`/storage/v1/object/public/`) יורדת דרך
+`render/image`: `src` ו-`preload` הם 800×500, `cover`, איכות 60, ו-
+`srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`.
+`data-full` שומר את הקובץ המקורי, ו-`onerror` חוזר אליו. `posterForHero`
+ב-`assets/property.js` בונה את אותה כתובת 800. כתובת אחרת ב-`src`
+גורמת ל-`renderGallery` למחוק את הצומת, וההורדה מתחילה מחדש.
+`og:image` ונתוני ה-JSON-LD נשארים על הקובץ המקורי. תמונה שאינה
+מהאחסון שלנו נשארת כמו שהיא.
+
 **הכותרת והתיאור נכתבים לאותם id ש-`assets/property.js` כותב אליהם אחר כך**
 (`propTitle`, ‏`propDescription`, ו-`hidden` יורד מ-`descSection`), ובאותו
 ערך בדיוק. לכן בדפדפן לא משתנה כלום. בחירת התיאור היא העתק של

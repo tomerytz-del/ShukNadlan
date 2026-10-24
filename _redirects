@@ -112,10 +112,29 @@
 # קורא את העיר והשכונה מהכתובת וממלא את הדף.
 /n/*    /neighborhood    200
 
+# ‏דפי נחיתה עיר → סוג נכס (docs/search-landing-pages.md). silo.html מגיש
+# את שלושתן; netlify/edge-functions/silo-page.ts ממלא מודעות פעילות.
+# ‏200 ולא הפניה - הכתובת בדפדפן נשארת של הדף.
+# הכלל בעברית לא התאים לבקשה המקודדת (404 של Netlify, בלי שהפונקציה
+# רצה). השורה המקודדת היא זו שנתפסת. אין /afula/* כאן: הוא היה מגיש
+# גם /afula/מתווכים מאותו קובץ.
+/afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/afula/בתים-פרטיים    /silo    200
+/afula/דירות-גן    /silo    200
+/afula/דירות-3-חדרים    /silo    200
+
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST
 # ל-GET. docs/crm-contacts-import.md
+# ‏מתווכים בעפולה (docs/afula-brokers.md). brokers.html מגיש את הדף,
+# ו-brokers-page.ts ממלא את המשרדים ואת המתווכים.
+# הכלל בעברית לא התאים לבקשה המקודדת. השורה המקודדת היא זו שנתפסת.
+/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/afula/מתווכים    /brokers    200
+
 /crm-share    /crm?share=error    303
 
 # ‏החזרה מ-Google אחרי "חבר/י יומן" (docs/google-calendar.md). ‏200 = proxy:
