@@ -1,0 +1,114 @@
+# לידים מפייסבוק ומאינסטגרם (גבריאלה דרך Zernio)
+
+גבריאלה עונה לפניות בפייסבוק ובאינסטגרם (‏Zernio), ושולחת כל ליד לנקודת
+קליטה אחת: **`social-lead-intake`**. משם הוא עובר לפונקציית הקליטה הקיימת של
+אותו מסלול באתר - כמו ליד מטופס של מטא (‏`_shared/meta-leads.ts`) - כך שרוטציה,
+ניתוב, מחירים, התראות ויומן הניתוב זהים לליד מהאתר.
+
+**מה היה שבור עד 24.10.2026:** גבריאלה קראה ישירות לפונקציות הקליטה.
+‏`normalizeSource` מחק את המקור, ולכן ליד מפייסבוק נספר כ"פנייה מדף נכס" או
+כ-`homepage_*`; ושום דבר לא מנע מאותה פנייה להיכנס פעמיים.
+
+## הקריאה
+
+```
+POST https://obookujgolazrwycsiyn.supabase.co/functions/v1/social-lead-intake
+x-social-lead-secret: <SOCIAL_LEAD_SECRET>
+Content-Type: application/json
+```
+
+(‏`Authorization: Bearer <SOCIAL_LEAD_SECRET>` מתקבל גם הוא.)
+
+| שדה | חובה | מה |
+| --- | --- | --- |
+| `zernio_id` | כן | המזהה של הפנייה ב-Zernio. אותו מזהה פעמיים = אותו ליד |
+| `channel` | כן | `facebook_dm` · `facebook_comment` · `instagram_dm` · `instagram_comment` |
+| `kind` | כן | `property` (שאלה על נכס) · `buyer` (מחפש/ת) · `owner` (מוכר/ת או משכיר/ה) · `mortgage` |
+| `name` | | שם הפונה. בלעדיו - "פונה מפייסבוק" / "פונה מאינסטגרם" |
+| `phone` | כן, חוץ מ-`buyer` עם מייל | |
+| `email` | | |
+| `message` | | מה הפונה כתב/ה. נכנס לליד ומוצג לסוכן/ת אחרי פתיחה |
+| `property_id` / `listing_number` | ב-`property` | הנכס. אחד מהשניים |
+| `city`, `deal_type`, `property_type`, `rooms`, `min_rooms`, `max_rooms`, `min_price`, `max_price`, `neighborhood_id` | | הקריטריונים (‏`buyer`), או פרטי הנכס (‏`owner`: ‏`city` ו-`property_type` חובה) |
+| `consent_agent_contact` | ב-`buyer`: כן (`true`) | הסכמה שמתווך/ת יפנה/תפנה. בלעדיה אין ליד |
+| `subscribe_alerts` | | `true` = גם התראות על נכסים חדשים בוואטסאפ. ברירת המחדל - בלי |
+| `property_price`, `equity`, `owns_property` | | ‏`mortgage` |
+
+**התשובה:** `{ success: true, status: "routed", lead_id, fn, fallback, search_id }`.
+שליחה חוזרת של אותו `zernio_id` מחזירה את אותה תשובה עם `duplicate: true`, ולא
+יוצרת ליד שני. שגיאה: ‏`401` סוד שגוי, ‏`400` שדה חובה פסול, ‏`422` חסר מה
+שצריך למסלול (‏`missing_phone`, ‏`missing_consent`, ‏`missing_search_criteria`,
+‏`missing_city`, ‏`missing_property_type`), ‏`409` הפנייה כבר בטיפול, ‏`502` פונקציית
+הקליטה נכשלה. אחרי כישלון אפשר לשלוח שוב את אותו `zernio_id` (עד 5 ניסיונות).
+
+## הניתוב
+
+| `kind` | לאן | המקור בליד |
+| --- | --- | --- |
+| `property`, נכס פעיל | `property-inquiry-intake` - לסוכן/ת שמפרסם/ת | `leads.source` = הערוץ, `source_detail` = "פייסבוק · הודעה" |
+| `property`, נכס לא פעיל או לא נמצא | `saved-search-intake` עם `lead_only`, והקריטריונים מהנכס (עיר, סוג, חדרים, עסקה) | `saved_searches.source` |
+| `buyer` | `saved-search-intake` - `lead_only` אלא אם `subscribe_alerts` | `saved_searches.source` |
+| `owner` | `owner-lead-intake` - הרוטציה הרגילה | `leads.source`, `source_detail` |
+| `mortgage` | `mortgage-lead-intake` - מדף היועצים | `mortgage_leads.source` |
+
+כל ניתוב נרשם ב-`lead_routing_log` בפונקציית הקליטה עצמה (‏`docs/lead-routing.md`),
+עם המקור החברתי. ‏`social_leads` שומרת לכל `zernio_id` מה נשלח, לאן, ומה חזר
+(‏`target`, ‏`error`) - קריאה למנהל/ת הפלטפורמה בלבד.
+
+**נכס שירד מהאוויר:** הפונה עדיין מחפש/ת נכס כזה, ולכן הוא/היא נכנס/ת למגירת
+"מחפשי דירה" בחנות. פנייה על נכס היא בקשה שמתווך/ת יחזור/תחזור - כמו הטופס
+בדף הנכס - ולכן ההסכמה נלקחת ממנה, אלא אם גבריאלה שלחה `consent_agent_contact: false`.
+
+## מי רשאי/ת לסמן מקור חברתי
+
+פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי ו-`external_ref`
+מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח ה-service role
+(‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר `social-lead-intake`
+אחרי שאימתה את הסוד. מהדפדפן `source: "facebook_dm"` נופל לברירת המחדל של
+הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים "מפייסבוק" ולזהם את הדוח.
+אותו כלל ל-`lead_only` ב-`saved-search-intake`.
+
+## כפילויות - שתי שכבות
+
+1. **`social_leads.zernio_id`** (מפתח ראשי) ו-`social_lead_claim` - אותה תבנית
+   כמו `ads_leads`: השורה נשמרת קודם, וקורא אחד בלבד שולח למסלול.
+2. **`leads (source, external_ref)` ייחודי** - ‏`property-inquiry-intake`,
+   ‏`agent-direct-inquiry-intake` ו-`owner-lead-intake` מקבלים `external_ref`
+   ומחזירים `{ duplicate: true, lead_id }` כשהליד כבר קיים (גם במרוץ, דרך
+   ה-unique). **ה-ref אינו ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד
+   (‏`assets/crm-leads.js`), ושם יש תווית קריאה - "פייסבוק · הודעה".
+
+## ליד בלי התראות (`lead_only`)
+
+`saved-search-intake` תמיד רשם את הפונה להתראות. ‏`lead_only: true` (קורא פנימי
+בלבד) שומר את החיפוש `status = 'paused'`: מנוע ההתראות עובר רק על `active`,
+והמדף (‏`saved_search_leads_public`) מסנן רק `unsubscribed`. בלי
+`consent_agent_contact` אין בזה כלום - לא התראות ולא ליד - ולכן נדחה
+(‏`lead_only_requires_consent`).
+
+**סף הכוונה (45):** ליד מינימלי - טלפון ועיר - מקבל 40 + 4 (עיר) + 4 (טלפון) =
+‏48, ונכנס למדף. **בלי עיר הוא 44 ונשאר מחוץ למדף**, ולכן `social-lead-intake`
+דורשת לפחות קריטריון אחד. כמו כל ליד במדף, הציון דועך: אחרי 14 יום בלי
+פעילות הוא יורד ל-40 ויוצא. מחיר עונה, תקציב (+15) וחדרים (+8) מחזיקים אותו.
+
+## בחנות: המקור עובר לליד שנקנה
+
+`saved_searches.source` (‏20270806090000) נשמר בכל חיפוש חדש. כשסוכן/ת קונה ליד
+מהמגירה, ‏`store_purchase_to_lead` כותבת `source_detail = 'מחפשי דירה · פייסבוק · הודעה'`
+במקום `'מחפשי דירה'` בלבד (‏`lead_source_label()` במסד, אותה מפה כמו
+`SOCIAL_SOURCE_LABELS`). ‏`leads.source` נשאר `'store'` - הליד נקנה.
+
+## ב-CRM
+
+- **"הלידים שלי":** צ'יפ "רשתות חברתיות" (‏`leadSrcKey` → `social`). ליד בעלים
+  מהרשתות נשאר תחת "לידי בעלים" (הבלעדיות שלו דחופה יותר), וליד שנקנה בחנות -
+  תחת "חנות הלידים", עם התווית ב-`source_detail`.
+- **בקרת הלידים:** ערוץ `social` ב-`lead_source_channel()` (‏`docs/lead-analytics.md`).
+
+## להגדיר
+
+1. **הסוד:** Supabase → Edge Functions → Secrets → `SOCIAL_LEAD_SECRET` (מחרוזת
+   אקראית ארוכה). בלעדיו כל בקשה נענית `503`.
+2. **ב-Zernio / אצל גבריאלה:** הכתובת למעלה, וה-header `x-social-lead-secret`
+   עם אותו ערך. מפסיקים לקרוא ישירות ל-`property-inquiry-intake` ולחבריה: משם
+   המקור החברתי כבר אינו מתקבל.

@@ -1,0 +1,168 @@
+{
+    "exportFormatVersion": 2,
+    "exportTime": "2026-10-23 18:00:00",
+    "containerVersion": {
+        "path": "accounts/0/containers/0/versions/0",
+        "accountId": "0",
+        "containerId": "0",
+        "containerVersionId": "0",
+        "name": "חלונית גבריאלה - טריגר ותגית",
+        "description": "ייבוא חלקי: האירוע gab_widget_open של assets/gabriela-widget.js. מניח ש-DLV - page_type ו-DLV - src כבר במכולה. ראו docs/gabriela-widget.md.",
+        "fingerprint": "0",
+        "container": {
+            "path": "accounts/0/containers/0",
+            "accountId": "0",
+            "containerId": "0",
+            "name": "shuknadlan.co.il",
+            "publicId": "GTM-NZHD7ZHT",
+            "usageContext": [
+                "WEB"
+            ],
+            "fingerprint": "0"
+        },
+        "variable": [
+            {
+                "accountId": "0",
+                "containerId": "0",
+                "variableId": "300",
+                "name": "DLV - trigger",
+                "type": "v",
+                "fingerprint": "0",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "trigger"
+                    }
+                ],
+                "formatValue": {}
+            }
+        ],
+        "trigger": [
+            {
+                "accountId": "0",
+                "containerId": "0",
+                "triggerId": "310",
+                "name": "CE — gab_widget_open",
+                "type": "CUSTOM_EVENT",
+                "fingerprint": "0",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "gab_widget_open"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "tag": [
+            {
+                "accountId": "0",
+                "containerId": "0",
+                "tagId": "320",
+                "name": "GA4 — gab_widget_open",
+                "type": "gaawe",
+                "notes": "נפתחה חלונית גבריאלה הצפה (assets/gabriela-widget.js)",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "src"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - src}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "trigger"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - trigger}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "gab_widget_open"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "0",
+                "firingTriggerId": [
+                    "310"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            }
+        ]
+    }
+}

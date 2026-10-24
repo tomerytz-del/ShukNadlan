@@ -1,13 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { normalizeSource } from "../_shared/lead-routing.ts";
+import {
+  cleanExternalRef,
+  isInternalCaller,
+  logLeadRouting,
+  normalizeSource,
+  socialSourceLabel,
+} from "../_shared/lead-routing.ts";
 
 // מודול 1 (המנגנון המקורי) — פניית קונה/שוכר על נכס קיים.
 // שונה מ-owner-lead-intake בנקודה אחת חשובה: אין כאן מנגנון התאמה/רוטציה
 // (הסוכן ידוע מראש — property.agent_id) — אבל יש הבדל חשוב לפי tier:
 // Mid/Premium מקבלים את הליד פתוח מידית (ללא צורך claim ידני בכלל) —
 // זו בדיוק הכוונה המקורית של מודול 1 ("פתוח מלא, ללא הגבלה, ללא תשלום נוסף").
-// Free מקבל מוסתר, וצריך לעשות claim בעצמו (מול מכסה/₪10) דרך ה-CRM.
+// Free מקבל מוסתר, וצריך לעשות claim בעצמו (מול מכסה או תשלום) דרך ה-CRM.
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -40,14 +46,32 @@ Deno.serve(async (req: Request) => {
   // ‏leads.source נשאר null ובקרת הלידים גוזרת property_page_inquiry מסוג
   // הליד - כמו היום. ליד מטופס של מטא (ads-leads-webhook) נושא
   // meta_ads_property_form, ובלי זה היה נספר כפנייה מדף הנכס.
-  const source = normalizeSource(body?.source, "");
+  //
+  // מקור חברתי (‏facebook_dm...) ו-external_ref - רק מקורא פנימי: ‏social-lead-intake
+  // מאמתת את גבריאלה וקוראת לכאן עם ה-service role. ‏docs/social-leads.md.
+  const trusted = isInternalCaller(req);
+  const source = normalizeSource(body?.source, "", trusted);
+  const externalRef = trusted && source ? cleanExternalRef(body?.external_ref) : null;
   if (!property_id || !name || !phone) {
     return json({ error: "missing_fields", required: ["property_id", "name", "phone"] }, 400);
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  /* אותה פנייה שנשלחת שוב (ניסיון חוזר של גבריאלה, webhook כפול) מחזירה את
+     הליד הקיים ולא יוצרת שני. ‏unique (source, external_ref) במסד הוא השומר;
+     הבדיקה כאן רק חוסכת את ה-insert שייכשל. */
+  async function existingLead(): Promise<string | null> {
+    if (!externalRef) return null;
+    const { data } = await supabase.from("leads").select("id")
+      .eq("source", source).eq("external_ref", externalRef).maybeSingle();
+    return data?.id ?? null;
+  }
+
   try {
+    const dup = await existingLead();
+    if (dup) return json({ success: true, duplicate: true, lead_id: dup });
+
     const { data: property, error: propErr } = await supabase
       .from("properties")
       // ‏שם המפתח הזר מפורש: ל-properties שני מפתחות ל-agency_members
@@ -75,6 +99,10 @@ Deno.serve(async (req: Request) => {
       property_type: property.property_type,
     };
     if (source) insertPayload.source = source;
+    // ‏source_detail מוצג לסוכן/ת בכרטיס - תווית קריאה, לא המזהה של הספק
+    const detail = socialSourceLabel(source);
+    if (detail) insertPayload.source_detail = detail;
+    if (externalRef) insertPayload.external_ref = externalRef;
 
     if (autoUnlock) {
       insertPayload.status = "unlocked";
@@ -91,17 +119,49 @@ Deno.serve(async (req: Request) => {
       .select()
       .single();
 
-    if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
+    if (leadErr) {
+      // מרוץ: שתי שליחות של אותה פנייה ביחד - השנייה נופלת על ה-unique
+      if ((leadErr as any).code === "23505") {
+        const again = await existingLead();
+        if (again) return json({ success: true, duplicate: true, lead_id: again });
+      }
+      return json({ error: "db_error", detail: leadErr.message }, 500);
+    }
 
-    // TODO שלב המשך: חיבור notification_service (מודול 6 §4) — Push+CRM→SMS→WhatsApp
+    /* רישום הניתוב (‏docs/lead-routing.md). פנייה על נכס הולכת תמיד לסוכן/ת
+       שמפרסם/ת אותו, ולכן assigned. ‏property_page_inquiry - אותו שם שבקרת
+       הלידים גוזרת לליד בלי source. */
+    await logLeadRouting(supabase, {
+      source: source || "property_page_inquiry",
+      lead_kind: "agent_buyer",
+      lead_table: "leads",
+      lead_id: lead.id,
+      routing: property.agent_id ? "assigned" : "unrouted",
+      recipients: property.agent_id ? 1 : 0,
+      reason: property.agent_id ? null : "property_without_agent",
+      summary: [property.deal_type === "rent" ? "להשכרה" : "למכירה", property.property_type, property.city]
+        .filter(Boolean).join(" · "),
+      city: property.city,
+      deal_type: property.deal_type,
+      property_type: property.property_type,
+      assigned_agent_id: property.agent_id,
+    });
+
+    // המחיר מ-pricing_config (מה ש-claim_lead גובה בפועל), לא מספר בקוד
+    let note = "הסוכן במסלול פתוח/פרמיום - הליד נפתח מידית, ללא צורך פעולת claim";
+    if (!autoUnlock) {
+      const { data: price } = await supabase.from("pricing_config")
+        .select("value").eq("key", "ppl_price_buyer_renter").maybeSingle();
+      const n = Number(price?.value);
+      note = "הליד נשמר מוסתר - הסוכן יפתח אותו דרך ה-CRM (מכסה חינמית" +
+        (Number.isFinite(n) && n > 0 ? ` או ₪${n})` : " או תשלום)");
+    }
 
     return json({
       success: true,
       lead_id: lead.id,
       auto_unlocked: autoUnlock,
-      note: autoUnlock
-        ? "הסוכן במסלול פתוח/פרמיום - הליד נפתח מידית, ללא צורך פעולת claim"
-        : "הליד נשמר מוסתר - הסוכן יפתח אותו דרך ה-CRM (מכסה חינמית או ₪10)",
+      note,
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

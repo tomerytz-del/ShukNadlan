@@ -6,6 +6,9 @@ import {
   normalizeSource,
   resolveAgencyRouting,
   resolveAgentRouting,
+  cleanExternalRef,
+  isInternalCaller,
+  socialSourceLabel,
 } from "../_shared/lead-routing.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
@@ -220,6 +223,18 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // ליד מגבריאלה בפייסבוק/אינסטגרם (‏social-lead-intake, קורא פנימי בלבד):
+  // המקור נכתב לליד עצמו ולא רק ליומן, עם תווית לסוכן/ת ו-external_ref.
+  const trusted = isInternalCaller(req);
+  const socialSource = normalizeSource(body.source, "", trusted);
+  const socialLabel = socialSourceLabel(socialSource);
+  const externalRef = socialLabel ? cleanExternalRef(body.external_ref) : null;
+  if (externalRef) {
+    const { data: dup } = await supabase.from("leads").select("id")
+      .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
+    if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+  }
+
   try {
     let matchedAgentId: string | null = null;
     let matchType: "neighborhood" | "fallback" | "none" | "agency_page" | "agent_page" = "none";
@@ -318,6 +333,11 @@ Deno.serve(async (req: Request) => {
         { ...baseRow, lead_type: preferredType },
         { ...baseRow, lead_type: "owner_inbound" },
       ]
+      : socialLabel
+      ? [
+        { ...baseRow, lead_type: "owner_inbound", source: socialSource, source_detail: socialLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
       : [{ ...baseRow, lead_type: "owner_inbound" }];
 
     let lead: any = null;
@@ -326,6 +346,12 @@ Deno.serve(async (req: Request) => {
       ({ data: lead, error: leadErr } = await supabase
         .from("leads").insert(row).select().single());
       if (!leadErr) break;
+      // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
+      if (externalRef && (leadErr as any).code === "23505") {
+        const { data: dup } = await supabase.from("leads").select("id")
+          .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
+        if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+      }
     }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
@@ -348,6 +374,7 @@ Deno.serve(async (req: Request) => {
             ? `${pageSource}_yield_calc`
             : `${pageSource}_owner_wizard`)
           : "homepage_owner_wizard",
+        trusted,
       ),
       lead_kind: "agent_owner",
       lead_table: "leads",

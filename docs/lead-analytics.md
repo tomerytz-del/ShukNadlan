@@ -86,6 +86,7 @@ lead_routing_log.source    ← המדויק ביותר: מזהה הווידג'ט
 | `project_page` | מדף הפרויקטים ודפי הנחיתה |
 | `open_house` | יריד הבתים הפתוחים |
 | `meta_ads` | טפסי לידים במטא (‏`ads-leads-webhook` והסנכרון השעתי) - מוכר/ת, מחפש/ת, פנייה על נכס. ‏`docs/marketing-console.md` |
+| `social` | גבריאלה בפייסבוק ובאינסטגרם (‏`social-lead-intake`): ‏`facebook_dm`, ‏`facebook_comment`, ‏`instagram_dm`, ‏`instagram_comment`. ערוץ משלו מ-`20270806090000`; עד אז הלידים האלה נספרו כדף נכס או דף הבית. ‏`docs/social-leads.md` |
 | `rss_engine` | מנוע ה-RSS |
 | `unattributed` · `other` | מה שאין לו שיוך, ומה שאין לו עדיין ערוץ |
 
