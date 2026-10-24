@@ -27515,7 +27515,8 @@ const ADS_ERRORS = {
   a5_form_missing: 'A5 מחכה לטופס owner',
   lead_form_not_mapped: 'טופס הלידים לא משויך',
   lead_form_wrong_kind: 'טופס הלידים משויך לסוג הלא נכון',
-  creatives_not_in_storage: 'התמונות עדיין לא בדלי',
+  creatives_not_in_storage: 'התמונות עדיין לא בדלי. לוחצים על העלאת תמונות',
+  creatives_source_failed: 'העלאת התמונות לדלי נכשלה',
   creative_hash_mismatch: 'התמונות בדלי אינן הקבצים של החבילה',
   bad_audience_id: 'מזהה הקהל אינו מספר של מטא',
   targeting_unresolved: 'טירגוט לא נמצא במטא, ולא נוצר כלום',
@@ -28361,10 +28362,29 @@ function gkwCampaignForm(pick){
 }
 
 /* ---------- השקה מושהית ---------- */
-function adsLaunchHtml(plan){
-  if (!plan) return '';
-  const b = plan.budget || {};
+let adsLaunchState = { planOk: false, plan: null, creatives: null };
+function adsLaunchCanCreate(){
+  const c = adsLaunchState.creatives;
+  return !!(adsLaunchState.planOk && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+}
+function adsLaunchApplyGo(){
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = !adsLaunchCanCreate();
+}
+function adsLaunchRender(message){
+  const out = document.getElementById('adsLaunchOut');
+  if (!out) return;
+  out.hidden = false;
+  const head = message ? '<p>' + esc(message) + '</p>' : '';
+  out.innerHTML = head + adsLaunchHtml(adsLaunchState.plan, adsLaunchState.creatives);
+}
+function adsLaunchHtml(plan, creatives){
   const parts = [];
+  if (creatives && typeof creatives.total === 'number'){
+    parts.push('<p><b>תמונות בדלי: ' + esc(String(creatives.ready || 0)) + ' מתוך ' + esc(String(creatives.total)) + '</b></p>');
+  }
+  if (!plan) return parts.join('');
+  const b = plan.budget || {};
   parts.push('<p><b>תקציב יומי</b> מטא ' + esc(adsNis(b.metaDailyIls)) + ' + גוגל ' + esc(adsNis(b.googleDailyIls)) + ' = ' + esc(adsNis(b.totalDailyIls)) + ' מתוך תקרה ' + esc(adsNis(b.maxDailyIls)) + '</p>');
   (plan.campaigns || []).forEach(c => {
     parts.push('<p><b>' + esc(c.name) + '</b> · ' + esc(c.status) + (c.housing ? ' · HOUSING' : '') + '</p>');
@@ -28391,6 +28411,7 @@ function adsLaunchPayload(){
   return payload;
 }
 function adsLaunchLock(){
+  adsLaunchState.planOk = false;
   const go = document.getElementById('adsLaunchGo');
   if (go) go.disabled = true;
 }
@@ -28398,24 +28419,48 @@ document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock
 document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
 document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
-  const out = document.getElementById('adsLaunchOut');
   const go = document.getElementById('adsLaunchGo');
   btn.disabled = true;
   if (go) go.disabled = true;
   try {
     const r = await adsCall('create_paused_launch', Object.assign({ dry_run: true }, adsLaunchPayload()));
-    if (out){ out.hidden = false; out.innerHTML = adsLaunchHtml(r.plan); }
-    if (go && r && r.plan && r.plan.ok) go.disabled = false;
+    adsLaunchState = { planOk: !!(r && r.plan && r.plan.ok), plan: r.plan || null, creatives: r.creatives || null };
+    adsLaunchRender();
+    adsLaunchApplyGo();
     showToast('הבדיקה הושלמה. לא נוצר כלום במטא');
   } catch (ex) {
-    if (out){
-      out.hidden = false;
-      const plan = ex && ex.data && ex.data.plan;
-      out.innerHTML = '<p>' + esc(ex.message || 'הבדיקה נכשלה') + '</p>' + adsLaunchHtml(plan);
-    }
+    const plan = ex && ex.data && ex.data.plan;
+    const creatives = ex && ex.data && ex.data.creatives;
+    adsLaunchState = { planOk: !!(plan && plan.ok), plan: plan || null, creatives: creatives || adsLaunchState.creatives };
+    adsLaunchRender(ex.message || 'הבדיקה נכשלה');
+    adsLaunchApplyGo();
     showToast(heErr(ex), 5200);
   } finally {
     btn.disabled = false;
+  }
+});
+document.getElementById('adsLaunchUpload')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  btn.textContent = 'מעלה תמונות...';
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('upload_launch_creatives', adsLaunchPayload());
+    adsLaunchState.creatives = r.creatives || null;
+    adsLaunchRender();
+    adsLaunchApplyGo();
+    const uploaded = r.creatives && Array.isArray(r.creatives.uploaded) ? r.creatives.uploaded.length : 0;
+    showToast(uploaded ? 'התמונות הועלו לדלי' : 'התמונות כבר בדלי');
+  } catch (ex) {
+    const creatives = ex && ex.data && ex.data.creatives;
+    if (creatives) adsLaunchState.creatives = creatives;
+    adsLaunchRender(ex.message || 'ההעלאה נכשלה');
+    adsLaunchApplyGo();
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'העלאת תמונות';
   }
 });
 document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {

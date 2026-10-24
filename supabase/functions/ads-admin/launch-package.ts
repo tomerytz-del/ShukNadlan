@@ -229,6 +229,83 @@ const IMG = {
   rt2_916: im("rt2_9x16", "creatives/retargeting/RT2_saved_search_gabriela_9x16.png", "9x16", "72b1631224922c06ca61d0651ded81050dbeeddd487a45b54bbb8154983ea6ae"),
 };
 
+// הקומיט ב-main שבו נחתמו הקבצים (סקווש של #920, אותו עץ כמו
+// e489f1aed265f539d0a5f6428cae8f96a78f7bc7). ads-admin מושכת מהם לדלי,
+// בלי לאגד 27MB בפונקציה (התקרה 20MB). הכתובת ציבורית; ה-sha256 נבדק לפני השמירה.
+export const CREATIVE_GIT_COMMIT = "649ceb8925dc0fe712c31e58287eeabcb5b0a790";
+export const CREATIVE_GIT_REPO = "tomerytz-del/ShukNadlan";
+
+export const CREATIVE_BYTES: Record<string, number> = {
+  "20261024/creative/concept_D_v3_1x1.png": 344753,
+  "20261024/creative/concept_D_v3_4x5.png": 385361,
+  "20261024/creative/concept_E_v3_alt32_1x1.png": 302667,
+  "20261024/creative/concept_E_v3_alt32_4x5.png": 339002,
+  "20261024/creative/concept_G1_v3_1x1.png": 571809,
+  "20261024/creative/concept_G1_v3_4x5.png": 781639,
+  "20261024/creative/concept_G2_v3_1x1.png": 573327,
+  "20261024/creative/concept_G2_v3_4x5.png": 698312,
+  "20261024/creative/concept_H_v3_1x1.png": 581021,
+  "20261024/creative/concept_H_v3_4x5.png": 692798,
+  "20261024/creatives/brokers/B1_fomo_live55_match_1x1.png": 681457,
+  "20261024/creatives/brokers/B1_fomo_live55_match_9x16.png": 1084790,
+  "20261024/creatives/buyers/A1_first_apartment_viz_1x1.png": 1003550,
+  "20261024/creatives/buyers/A1_first_apartment_viz_9x16.png": 1412825,
+  "20261024/creatives/buyers/A2_upgraders_viz_1x1.png": 913284,
+  "20261024/creatives/buyers/A2_upgraders_viz_9x16.png": 1329100,
+  "20261024/creatives/buyers/A3_renters_gabriela_1x1.png": 678706,
+  "20261024/creatives/buyers/A3_renters_gabriela_9x16.png": 1093751,
+  "20261024/creatives/buyers/A4_investors_prices_1x1.png": 473512,
+  "20261024/creatives/buyers/A4_investors_prices_9x16.png": 744875,
+  "20261024/creatives/office_owners/OO1_dashboard_one_screen_1x1.png": 740106,
+  "20261024/creatives/office_owners/OO1_dashboard_one_screen_9x16.png": 877010,
+  "20261024/creatives/office_owners/OO2_mentor_weekly_1x1.png": 677847,
+  "20261024/creatives/office_owners/OO2_mentor_weekly_9x16.png": 1069459,
+  "20261024/creatives/office_owners/OO3_mentor_gabriela_1x1.png": 672061,
+  "20261024/creatives/office_owners/OO3_mentor_gabriela_9x16.png": 968782,
+  "20261024/creatives/office_owners/OO4_who_didnt_answer_1x1.png": 314439,
+  "20261024/creatives/office_owners/OO4_who_didnt_answer_9x16.png": 606302,
+  "20261024/creatives/owners_valuation/A5_owner_viz_1x1.png": 846794,
+  "20261024/creatives/owners_valuation/A5_owner_viz_9x16.png": 1241870,
+  "20261024/creatives/retargeting/RT1_back_to_viz_1x1.png": 1013719,
+  "20261024/creatives/retargeting/RT1_back_to_viz_9x16.png": 1450208,
+  "20261024/creatives/retargeting/RT2_saved_search_gabriela_1x1.png": 683227,
+  "20261024/creatives/retargeting/RT2_saved_search_gabriela_9x16.png": 1096632,
+};
+
+export function creativeSourceUrl(storagePath: string): string {
+  const clean = storagePath.replace(/^\/+/, "");
+  return `https://raw.githubusercontent.com/${CREATIVE_GIT_REPO}/${CREATIVE_GIT_COMMIT}/marketing/meta-creatives/${clean}`;
+}
+
+export type CreativeStorageReport = {
+  total: number;
+  ready: number;
+  missing: string[];
+  mismatched: string[];
+};
+
+// אובייקט בלי size נספר כמוכן אם הוא קיים. גודל שונה הוא קובץ אחר.
+export function creativeStorageReport(
+  images: ImageRef[],
+  objects: { path: string; size?: number | null }[],
+): CreativeStorageReport {
+  const byPath = new Map(objects.map((o) => [o.path, o.size ?? null]));
+  const missing: string[] = [];
+  const mismatched: string[] = [];
+  let ready = 0;
+  for (const image of images) {
+    if (!byPath.has(image.path)) {
+      missing.push(image.path);
+      continue;
+    }
+    const size = byPath.get(image.path);
+    const want = CREATIVE_BYTES[image.path];
+    if (typeof size === "number" && typeof want === "number" && size !== want) mismatched.push(image.path);
+    else ready++;
+  }
+  return { total: images.length, ready, missing, mismatched };
+}
+
 export function launchWillWrite(body: { dry_run?: unknown; confirm?: unknown } | null | undefined): boolean {
   return body?.dry_run === false && body?.confirm === true;
 }
