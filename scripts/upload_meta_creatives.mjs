@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// מעלה את תמונות חבילת ההשקה לדלי הפרטי marketing-creatives.
+// גיבוי למפעיל: מעלה את תמונות חבילת ההשקה לדלי הפרטי marketing-creatives.
+// הדרך הרגילה היא כפתור "העלאת תמונות" בלשונית "השקה מושהית" (הפעולה
+// upload_launch_creatives ב-ads-admin), בלי מפתח שירות על המחשב.
 //
 // ברירת המחדל היא הדפסה בלבד: נתיב, sha256, גודל. בלי רשת.
 //   node scripts/upload_meta_creatives.mjs
