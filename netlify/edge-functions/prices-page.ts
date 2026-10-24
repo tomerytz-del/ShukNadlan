@@ -8,9 +8,10 @@
 
    ## כישלון אינו שובר דף
 
-   ‏timeout, מסד שלא ענה או תשובה ריקה - הדף יוצא כמו שהוא, וה-JS שבו
-   (‏`assets/prices-render.js`, אותו קובץ שמיובא כאן) קורא לאותה פונקציה
-   מהדפדפן. כלומר כשל כאן מאבד את הגרסה לסורק, לא את הטבלה לגולש/ת.
+   ‏timeout, שגיאת HTTP או תשובה שאינה מערך - 503 עם אותו HTML, כדי
+   שה-JS (‏`assets/prices-render.js`, אותו קובץ שמיובא כאן) ימלא מהדפדפן
+   וגוגל תחזור. בלי מטמון. מערך ריק הוא תשובה מהמסד: 200 בלי מילוי, וה-JS
+   ממלא. הדף אחד, לא "רשומה חסרה", ולכן ריק אינו 404.
 
    התיעוד: ‎docs/city-prices.md‎.
    ========================================================================== */
@@ -46,7 +47,9 @@ function prices(): Prices {
   return (globalThis as unknown as { ShukPrices: Prices }).ShukPrices;
 }
 
-async function fetchRows(): Promise<PriceRow[] | null> {
+type RowsResult = { ok: true; rows: PriceRow[] } | { ok: false };
+
+async function fetchRows(): Promise<RowsResult> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -60,14 +63,25 @@ async function fetchRows(): Promise<PriceRow[] | null> {
       body: "{}",
       signal: ctrl.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false };
     const rows = await res.json();
-    return Array.isArray(rows) && rows.length ? rows as PriceRow[] : null;
+    if (!Array.isArray(rows)) return { ok: false };
+    return { ok: true, rows: rows as PriceRow[] };
   } catch {
-    return null;
+    return { ok: false };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/* ‏503 בלבד. דף שמולא אינו עובר כאן, וגם לא מערך ריק. */
+function failureHeaders(base: Headers): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  headers.set("Retry-After", "60");
+  return headers;
 }
 
 /* ‏ממלא את הדף. מחזיר את ה-HTML כמו שהוא אם הסמנים חסרים. */
@@ -104,13 +118,17 @@ export default async function handler(_request: Request, context: Context) {
   const type = res.headers.get("content-type") || "";
   if (!type.includes("text/html")) return res;
 
-  const rows = await fetchRows();
-  if (!rows) return res;
+  const got = await fetchRows();
+  if (!got.ok) {
+    return new Response(res.body, { status: 503, headers: failureHeaders(res.headers) });
+  }
+  /* ‏המסד ענה ואין שורות: הדף נשאר 200, וה-JS ממלא. */
+  if (!got.rows.length) return res;
   /* ‏הגוף נקרא פעם אחת - ובכל חריגה בהזרקה יוצא כמו שנקרא. */
   const html = await res.text();
   let out = html;
   try {
-    out = inject(html, rows);
+    out = inject(html, got.rows);
   } catch {
     out = html;
   }
