@@ -143,6 +143,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   // ‏המנטור של מנהל/ת הפלטפורמה (20270730090000) - לכרטיס בראש מרכז הפיקוד,
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את adminHome.
   platform_coach: "adminHome",
+  // ‏ביקוש פתוח מפוסט בפייסבוק (20270808090000) - ללשונית "ביקוש פתוח" ב"הלידים
+  // שלי"; ‏itemPath מוסיף tab=demand, ולכן גם כמה ביקושים בהודעה אחת הם כפתור
+  open_demand: "accLeads",
 };
 
 function json(obj: unknown, status = 200) {
@@ -235,6 +238,8 @@ function itemPath(it: Item): string | null {
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
   // אין פריט, אבל יש יעד אחד: חלק העדפות הלידים, שמקופל ב"ההגדרות שלי"
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
+  // ביקוש פתוח אינו ליד ואין לו מזהה בהתראה; כולם באותה לשונית
+  if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
@@ -351,6 +356,7 @@ function singleTarget(items: Item[]): string | null {
 /** כותרת הכפתור לפי היעד. עד 20 יחידות UTF-16 (נמדד: הארוכה 16). */
 function ctaLabel(url: string): string {
   if (url.includes("accAgenda")) return "📅 פתיחה ביומן";
+  if (url.includes("tab=demand")) return "📣 לביקוש הפתוח";
   if (url.includes("accLeads")) return "👈 פתיחת הליד";
   if (url.includes("accClients")) return "👤 כרטיס הלקוח";
   if (url.includes("accProperties") || url.includes("accSharedWithMe")) return "🏠 פתיחת הנכס";
