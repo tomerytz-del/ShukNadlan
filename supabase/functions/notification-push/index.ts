@@ -107,6 +107,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   showcase_meeting: "accClients",
   // ‏כרטיס שיימחק בעוד שבוע לפי מדיניות השמירה (docs/data-retention.md)
   retention_warning: "accClients",
+  // ‏העדפות לידים שהמערכת הגדירה לסוכן/ת שעוסק/ת במסחרי (20270807090000).
+  // ‏itemPath מוסיף focus=lead_prefs, שפותח את החלק המקופל
+  lead_prefs_default: "accPrefs",
   // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
   deal_sync_summary: "accDealSettlements",
   // ‏ממצא אבטחה חמור - למנהל/ת הפלטפורמה. היעד הוא פאנל "בריאות המערכת",
@@ -230,6 +233,8 @@ function itemPath(it: Item): string | null {
   if (lead && it.type === "agenda_reminder") return `/crm?goto=accLeads&lead=${lead}`;
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
+  // אין פריט, אבל יש יעד אחד: חלק העדפות הלידים, שמקופל ב"ההגדרות שלי"
+  if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
@@ -352,6 +357,7 @@ function ctaLabel(url: string): string {
   if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
   if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
   if (url.includes("accMyDashboard")) return "🧭 לסיכום המנטור";
+  if (url.includes("accPrefs")) return "⚙️ להעדפות הלידים";
   if (url.includes("dashPanelMarkets")) return "🗺️ לשווקים המקומיים";
   return "👈 פתיחה";
 }
