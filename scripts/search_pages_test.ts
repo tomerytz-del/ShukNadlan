@@ -117,12 +117,17 @@ function check(name: string, ok: boolean, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : "   " + detail}`);
 }
 
+/* דף נחיתה מחליף את כתובת הסינון. בלי שדה landing הכתובת היא הסינון עצמו. */
+function canonOf(page: { query: string; landing?: string }): string {
+  return page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
+}
+
 /* ‏1. כל צירוף שברשימה מקבל את הכתיב שלו עצמו, כותרת משלו, ותגית אחת */
 for (const page of SEARCH_PAGES) {
   const r = await serve("/?" + page.query);
   check(
     `‏${page.title}`,
-    r.canonical === `${SITE}/?${page.query}` &&
+    r.canonical === canonOf(page) &&
       r.canonicalCount === 1 &&
       r.title === `${page.title} | שוק נדל״ן` &&
       r.heading === page.title &&
@@ -150,7 +155,7 @@ for (const [name, url, query] of SAME) {
   const page = SEARCH_PAGES.find((p) => p.query === query)!;
   check(
     name,
-    r.canonical === `${SITE}/?${query}` && r.h1 === page.title && r.h1Count === 1,
+    r.canonical === canonOf(page) && r.h1 === page.title && r.h1Count === 1,
     JSON.stringify(r),
   );
 }
@@ -159,7 +164,22 @@ for (const [name, url, query] of SAME) {
 {
   const hebrew = SEARCH_PAGES.find((p) => p.query.includes("%D7%93"))!;
   const r = await serve("/?deal=sale&ptype=דירת גן");
-  check("עברית לא מקודדת", r.canonical === `${SITE}/?${hebrew.query}`, JSON.stringify(r));
+  check("עברית לא מקודדת", r.canonical === canonOf(hebrew), JSON.stringify(r));
+}
+
+/* גרש גולמי, %27 וגרש עברי (׳) של בית פרטי/קוטג' הם אותה כתובת */
+{
+  const house = SEARCH_PAGES.find((p) => p.landing === "/afula/בתים-פרטיים")!;
+  const raw = house.query.replace("%27", "'");
+  const geresh = house.query.replace("%27", "%D7%B3");
+  const a = await serve("/?" + raw);
+  const b = await serve("/?" + house.query);
+  const c = await serve("/?" + geresh);
+  check(
+    "קוטג' ו-%27 וגרש עברי לאותו canonical",
+    a.canonical === canonOf(house) && b.canonical === a.canonical && c.canonical === a.canonical,
+    JSON.stringify({ a: a.canonical, b: b.canonical, c: c.canonical }),
+  );
 }
 
 /* ‏3. מה שחייב לצאת כמו שהוא: הדף מצהיר על / ומתאחד אליו */
@@ -211,7 +231,7 @@ for (const [name, url] of UNTOUCHED) {
       !live.citySlot &&
       live.marketButtonInH1 &&
       live.title === `${offices.title} | שוק נדל״ן` &&
-      live.canonical === `${SITE}/?${offices.query}`,
+      live.canonical === canonOf(offices),
     JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title }),
   );
   check("דף הבית האמיתי יוצא כמו שהוא", home.untouched && home.h1 !== offices.title, `h1=${home.h1}`);

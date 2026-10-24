@@ -465,6 +465,45 @@ function isFileVideo(raw: unknown): boolean {
   }
 }
 
+/* תמונת שער מהאחסון שלנו יורדת בגודל התא, לא כ-JPEG המלא.
+   הנוסחה זהה ל-posterForHero ב-assets/property.js: src ו-preload הם
+   800, ו-srcset מוסיף 1200. כתובת אחרת ב-JS מוחקת את הצומת וההורדה
+   מתחילה מחדש. כתובת שאינה object/public נשארת כמו שהיא. */
+const HERO_OBJECT = "/storage/v1/object/public/";
+const HERO_SIZES = "(min-width:640px) 640px, 100vw";
+
+function heroRenderUrl(url: string, w: number, h: number): string {
+  const at = url.indexOf(HERO_OBJECT);
+  if (at < 0) return "";
+  const path = url.slice(at + HERO_OBJECT.length).split(/[?#]/)[0];
+  if (!path) return "";
+  return url.slice(0, at) + "/storage/v1/render/image/public/" + path
+    + `?width=${w}&height=${h}&resize=cover&quality=60`;
+}
+
+function heroImg(original: string, video: boolean): { tag: string; lcp: string } {
+  const src800 = heroRenderUrl(original, 800, 500);
+  const src1200 = heroRenderUrl(original, 1200, 800);
+  const transformed = !!(src800 && src1200);
+  const src = transformed ? src800 : original;
+  const bits = [
+    video ? 'class="bento-video-bg"' : "",
+    'data-lcp="1"',
+    `src="${esc(src)}"`,
+    transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
+    transformed ? `sizes="${HERO_SIZES}"` : "",
+    transformed ? `data-full="${esc(original)}"` : "",
+    'alt=""',
+    'fetchpriority="high"',
+    video ? 'style="filter:none;transform:none"' : "",
+    video ? 'aria-hidden="true"' : "",
+    transformed
+      ? 'onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"'
+      : "",
+  ].filter(Boolean);
+  return { tag: `<img ${bits.join(" ")}>`, lcp: src };
+}
+
 /* אותה ספירה ש-renderGallery כותב ל-data-count, כדי שהגובה לא יזוז
    כשה-JS מחליף את התאים. תמונת השער היא data-lcp. */
 function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string } {
@@ -477,21 +516,17 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
-    const main =
-      `<div class="bento-cell bento-main bento-video">` +
-      `<img class="bento-video-bg" data-lcp="1" src="${esc(poster)}" alt="" fetchpriority="high" style="filter:none;transform:none" aria-hidden="true">` +
-      `</div>`;
+    const shot = heroImg(poster, true);
+    const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
     const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
-    return { count, html: main + thumbs, lcp: poster };
+    return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const main =
-    `<div class="bento-cell bento-main">` +
-    `<img data-lcp="1" src="${esc(images[0])}" alt="" fetchpriority="high">` +
-    `</div>`;
+  const shot = heroImg(images[0], false);
+  const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
   const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
-  return { count: thumbEnd, html: main + thumbs, lcp: images[0] };
+  return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 
 /* ‏המחיר, המאפיינים, המשרד והסוכן/ת - אותם id ש-renderProperty כותב.
