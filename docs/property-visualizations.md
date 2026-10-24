@@ -745,7 +745,7 @@ scripts/visualizations_setup.sql   — חלק 1: מה מוגדר, מה חסר, �
 | `agent_slug` | `property.agency_members.slug` — הסוכן/ת שהנכס שלו/ה |
 | `agency_slug` | `property.agencies.slug` — רשת ביטחון לסוכן/ת בלי slug |
 | `city` | עירו של הנכס שבעמוד |
-| `property_type` | `'דירה'`, בדיוק כמו באשף שבדף הסוכן/ת |
+| `property_type` | `'דירה'` או `'מסחרי'` לפי המתג "מגורים / מסחרי", כמו באשף שבדף הסוכן/ת |
 | `deal_type` | מה שנבחר בכפתורי "רוצה למכור / רוצה להשכיר" |
 | `note` | `'פנייה מתיבת ההדמיות בדף הנכס'` — נכנס ל-`property_details` |
 | `source` | `property_page_owner_wizard` |

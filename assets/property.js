@@ -1433,6 +1433,7 @@ const INQUIRY_AUTO_PREFIX = 'שלום, ראיתי בשוק הנדל״ן את מ�
    ========================================================================== */
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 let ownerLeadDeal = 'sale';
+let ownerLeadKind = 'residential';   // 'residential' | 'commercial'
 
 function onVizLeadCta(){
   const panel = document.getElementById('ownerLeadPanel');
@@ -1497,10 +1498,19 @@ function initOwnerLeadForm(){
     if (panel && !panel.hidden) closeOwnerLead();
   });
 
-  form.querySelectorAll('.owner-lead-toggle button').forEach(btn=>{
+  form.querySelectorAll('.owner-lead-toggle button[data-kind]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      ownerLeadKind = btn.dataset.kind;
+      form.querySelectorAll('.owner-lead-toggle button[data-kind]').forEach(b=>{
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+    });
+  });
+
+  form.querySelectorAll('.owner-lead-toggle button[data-deal]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       ownerLeadDeal = btn.dataset.deal;
-      form.querySelectorAll('.owner-lead-toggle button').forEach(b=>{
+      form.querySelectorAll('.owner-lead-toggle button[data-deal]').forEach(b=>{
         b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
       });
       const title = document.getElementById('olTitle');
@@ -1539,9 +1549,10 @@ async function submitOwnerLead(ev){
         // הפונה: מי שמתעניין/ת בנכס בעפולה מוכר/ת בעפולה. השדה חובה
         // בפונקציה, והכתובת המדויקת ממילא נשלחת לצדו.
         city: p.city || 'עפולה',
-        // ‏'דירה' כברירת מחדל, בדיוק כמו באשף שבדף הסוכן/ת: הטופס הזה
-        // מבקש שלושה שדות ולא סוג נכס, והסוכן/ת מברר/ת בשיחה.
-        property_type: 'דירה',
+        // מגורים או מסחרי, כמו באשף שבדף הסוכן/ת. הטופס הזה לא שואל על
+        // סוג המשנה (דירה, בית, משרד), והסוכן/ת מברר/ת בשיחה. ‏'מסחרי' הוא
+        // הערך שבהעדפות הלידים של הסוכנים, והניתוב משווה אליו.
+        property_type: ownerLeadKind === 'commercial' ? 'מסחרי' : 'דירה',
         deal_type: ownerLeadDeal,
         address: address || null,
         name, phone,
