@@ -106,11 +106,18 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
    שה-JS כותב אחריו אינם יכולים להתפצל. */
 import "../../assets/article-body.js";
 import "../../assets/agency-about.js";
+/* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
+import "../../assets/markets.js";
+import "../../assets/agency-place.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
   ShukArticleBody: { parse: (text: string) => ArticleBlock[] };
   ShukAgencyAbout: { paragraphs: (a: Record<string, unknown>) => string[] };
+  ShukAgencyPlace?: {
+    officeCity: (a: Record<string, unknown>) => string;
+    title: (name: unknown, city: string) => string;
+  };
 };
 
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -465,6 +472,45 @@ function isFileVideo(raw: unknown): boolean {
   }
 }
 
+/* תמונת שער מהאחסון שלנו יורדת בגודל התא, לא כ-JPEG המלא.
+   הנוסחה זהה ל-posterForHero ב-assets/property.js: src ו-preload הם
+   800, ו-srcset מוסיף 1200. כתובת אחרת ב-JS מוחקת את הצומת וההורדה
+   מתחילה מחדש. כתובת שאינה object/public נשארת כמו שהיא. */
+const HERO_OBJECT = "/storage/v1/object/public/";
+const HERO_SIZES = "(min-width:640px) 640px, 100vw";
+
+function heroRenderUrl(url: string, w: number, h: number): string {
+  const at = url.indexOf(HERO_OBJECT);
+  if (at < 0) return "";
+  const path = url.slice(at + HERO_OBJECT.length).split(/[?#]/)[0];
+  if (!path) return "";
+  return url.slice(0, at) + "/storage/v1/render/image/public/" + path
+    + `?width=${w}&height=${h}&resize=cover&quality=60`;
+}
+
+function heroImg(original: string, video: boolean): { tag: string; lcp: string } {
+  const src800 = heroRenderUrl(original, 800, 500);
+  const src1200 = heroRenderUrl(original, 1200, 800);
+  const transformed = !!(src800 && src1200);
+  const src = transformed ? src800 : original;
+  const bits = [
+    video ? 'class="bento-video-bg"' : "",
+    'data-lcp="1"',
+    `src="${esc(src)}"`,
+    transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
+    transformed ? `sizes="${HERO_SIZES}"` : "",
+    transformed ? `data-full="${esc(original)}"` : "",
+    'alt=""',
+    'fetchpriority="high"',
+    video ? 'style="filter:none;transform:none"' : "",
+    video ? 'aria-hidden="true"' : "",
+    transformed
+      ? 'onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"'
+      : "",
+  ].filter(Boolean);
+  return { tag: `<img ${bits.join(" ")}>`, lcp: src };
+}
+
 /* אותה ספירה ש-renderGallery כותב ל-data-count, כדי שהגובה לא יזוז
    כשה-JS מחליף את התאים. תמונת השער היא data-lcp. */
 function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string } {
@@ -477,21 +523,17 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
-    const main =
-      `<div class="bento-cell bento-main bento-video">` +
-      `<img class="bento-video-bg" data-lcp="1" src="${esc(poster)}" alt="" fetchpriority="high" style="filter:none;transform:none" aria-hidden="true">` +
-      `</div>`;
+    const shot = heroImg(poster, true);
+    const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
     const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
-    return { count, html: main + thumbs, lcp: poster };
+    return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const main =
-    `<div class="bento-cell bento-main">` +
-    `<img data-lcp="1" src="${esc(images[0])}" alt="" fetchpriority="high">` +
-    `</div>`;
+  const shot = heroImg(images[0], false);
+  const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
   const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
-  return { count: thumbEnd, html: main + thumbs, lcp: images[0] };
+  return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 
 /* ‏המחיר, המאפיינים, המשרד והסוכן/ת - אותם id ש-renderProperty כותב.
@@ -597,6 +639,53 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
 /* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
 const MIN_REVIEWS_RATED = 2;
 
+/* ‏ספירת נכסים פעילים. כשל, timeout, או תשובה בלי Content-Range (הבדיקות
+   שמחזירות את שורת המשרד לכל קריאה) מחזירים null - והדף יוצא בלי מספר,
+   לא עם מספר מומצא. */
+async function activeListingCount(agencyId: string): Promise<number | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+          Prefer: "count=exact",
+          Range: "0-0",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    const range = res.headers.get("content-range") || "";
+    const m = /\/(\d+)\s*$/.exec(range);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function countPhrase(n: number): string {
+  if (n === 0) return "אין כרגע נכסים פעילים";
+  if (n === 1) return "נכס פעיל אחד";
+  return `${n} נכסים פעילים`;
+}
+
+/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText). */
+function agencyBlurb(name: unknown, city: string, count: number | null, aboutText: string): string {
+  if (!city && count == null) return aboutText;
+  const who = String(name || "").trim() || "משרד תיווך";
+  let lead = who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
+  if (count != null) lead += `, ${countPhrase(count)}`;
+  return clamp(`${lead}. ${aboutText}`, 200);
+}
+
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
     `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas`,
@@ -606,7 +695,9 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   /* ‏"על המשרד": התיאור שהמשרד כתב, או משפט עובדתי מהשם, הכתובת והאזורים -
      אותן פסקאות שאגף ה-JS של agency.html כותב (‏assets/agency-about.js). */
   const about = shared.ShukAgencyAbout.paragraphs(a);
-  const description = clamp(
+  /* ‏הטקסט של "על המשרד" נשאר ה-description ב-JSON-LD, כמו קודם. תגית
+     ה-meta מקבלת לפניו את העיר ואת מספר הנכסים, כשהספירה הצליחה. */
+  const aboutText = clamp(
     about.join(" ") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
     200,
   );
@@ -620,7 +711,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     "@id": `${canonical}#agency`,
     name: String(a.name || ""),
     url: canonical,
-    description,
+    description: aboutText,
     image,
   };
   if (a.logo_url) agency.logo = absolute(a.logo_url);
@@ -631,10 +722,17 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
      ‏score) ואותו סף (‏MIN_REVIEWS_SHOWN = 2 ב-agency.html). דירוג בנתונים
      המובנים שאינו מופיע בדף הוא הפרה של הנחיות גוגל, ולכן מתחת לסף - כלום.
      כשל בשאילתה השנייה אינו מפיל את הדף: הוא יוצא בלי דירוג. */
+  /* ‏הספירה משנית: כישלון שלה אינו מפיל את הדף, והכותרת יוצאת בלי מספר.
+     ‏206/416 עם Content-Range עדיין מספר; בלי הכותרת הזו אין מספר אמיתי. */
+  let listingCount: number | null = null;
   if (a.id) {
-    const r = await sbFetch(
-      `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
-    );
+    const [r, counted] = await Promise.all([
+      sbFetch(
+        `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
+      ),
+      activeListingCount(String(a.id)),
+    ]);
+    listingCount = counted;
     const score = r.kind === "row" ? Number(r.row.score) : NaN;
     const count = r.kind === "row" ? Number(r.row.review_count) : 0;
     if (r.kind === "row" && r.row.score != null && Number.isFinite(score) && count >= MIN_REVIEWS_RATED) {
@@ -648,9 +746,14 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     }
   }
 
+  const city = shared.ShukAgencyPlace?.officeCity(a) || "";
+  const title = shared.ShukAgencyPlace
+    ? shared.ShukAgencyPlace.title(a.name, city)
+    : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
+
   return {
-    title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),
-    description,
+    title,
+    description: agencyBlurb(a.name, city, listingCount, aboutText),
     image,
     canonical,
     jsonLd: agency,
@@ -1113,6 +1216,24 @@ function missingProperty(html: string): string {
 }
 
 export default async function handler(request: Request, context: Context) {
+  /* ‏/agency.html ו-/agency?slug= מגישים אותו משרד. הפונקציה הזו רצה על
+     שניהם ומחזירה 200 אחרי context.next(), ולכן הפניה ב-_redirects לבדה
+     לא רצה. ה-301 כאן, לפני next, שומר את השאילתה. יעד יחסי כדי שתצוגת
+     פריוויו לא תשלח לפרודקשן. */
+  try {
+    const early = new URL(request.url);
+    if (early.pathname === "/agency.html" && (request.method === "GET" || request.method === "HEAD")) {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: "/agency" + early.search,
+          "Cache-Control": "public, max-age=3600",
+          "Netlify-CDN-Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+  } catch { /* כתובת פגומה - ממשיכים לדף */ }
+
   const res = await context.next();
 
   // רק HTML. תמונות, CSS ו-JS עוברים כמו שהם.

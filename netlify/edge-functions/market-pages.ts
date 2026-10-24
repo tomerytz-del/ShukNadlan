@@ -21,9 +21,11 @@
 
    ## כישלון אינו שובר דף
 
-   אין כאן קריאת רשת. כל חריגה מחזירה את התשובה המקורית - ‏market-soon.html
-   נושא noindex משלו, ו-JS בתוכו מסיק את השוק מהכתובת. כלומר הזרקה שנכשלה
-   מאבדת את תגיות השיתוף, לא את הדף.
+   שם השוק נגזר מהכתובת, בלי רשת. רשימת השכונות היא הקריאה היחידה: כישלון
+   שלה משאיר בלוק עם `/prices` בלבד, לא משנה את הסטטוס ולא מוסיף noindex.
+   כל חריגה אחרת מחזירה את התשובה המקורית - ‏market-soon.html נושא noindex
+   משלו, ו-JS בתוכו מסיק את השוק מהכתובת. כלומר הזרקה שנכשלה מאבדת את
+   תגיות השיתוף, לא את הדף.
 
    התיעוד: ‎docs/regional-pages.md‎.
    ========================================================================== */
@@ -32,6 +34,15 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import { esc, type Market, registry } from "./lib/markets.ts";
 
 const SITE = "https://shuknadlan.co.il";
+const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
+const HOOD_TIMEOUT_MS = 1200;
+/* ‏מתחת ל-1,000 השורות של PostgREST. מעל זה שכונה עם מעט נכסים עלולה
+   להיחתך; היום יש כ-500. */
+const HOOD_FETCH_LIMIT = 1000;
+const HOOD_LINK_CAP = 36;
+
+const PRICES_ONLY = [{ href: "/prices", text: "מחירי דירות לפי עסקאות" }];
 
 /* ‏מה שהדפדפן צריך מהשוק, ולא יותר. ‏JSON בתוך `<script>` - ולכן `<` מוחלף
    ברצף הבריחה של JSON: תווית שמכילה ‎</script>‎ לא תסגור את התג. */
@@ -76,6 +87,75 @@ export function inject(html: string, m: Market): string {
   return out;
 }
 
+type HoodRow = { name?: unknown; city?: unknown; path_key?: unknown; props?: unknown };
+
+function cityNames(m: Market): Set<string> {
+  const extra = m as Market & { city?: string; places?: string[] };
+  return new Set(
+    [extra.city, ...(extra.places || [])]
+      .map((s) => String(s || "").trim())
+      .filter(Boolean),
+  );
+}
+
+/* ‏undefined = לא הצלחנו לשאול. מערך (גם ריק) = המסד ענה. */
+async function loadHoods(): Promise<HoodRow[] | undefined> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HOOD_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=${HOOD_FETCH_LIMIT}`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return undefined;
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function linksFor(m: Market, rows: HoodRow[]): { href: string; text: string }[] {
+  const names = cityNames(m);
+  const mine = rows.filter((r) => names.has(String(r.city || "").trim()));
+  mine.sort((a, b) => {
+    const d = Number(b.props || 0) - Number(a.props || 0);
+    return d || String(a.name || "").localeCompare(String(b.name || ""), "he");
+  });
+  const links = mine.slice(0, HOOD_LINK_CAP).flatMap((r) => {
+    const text = String(r.name || "").trim();
+    const key = String(r.path_key || "").trim();
+    const parts = key.split("/").filter(Boolean);
+    if (!text || parts.length < 2) return [];
+    return [{ href: "/n/" + parts.map(encodeURIComponent).join("/"), text }];
+  });
+  links.push(PRICES_ONLY[0]);
+  return links;
+}
+
+/* ‏מחליף רק את הבלוק המסומן. בלי הסמן ה-HTML נשאר. כישלון הקריאה מעביר
+   את קישור המחירים לבד, כדי שדף של חיפה לא יישאר עם שכונות עפולה. */
+export function fillAreaLinks(html: string, links: { href: string; text: string }[]): string {
+  const marker = /<!--area-links-->[\s\S]*?<!--\/area-links-->/;
+  const at = html.search(/<!--area-links-->/);
+  if (at < 0) return html;
+  const pills = /footer-seo-links/.test(html.slice(Math.max(0, at - 500), at));
+  const anchors = links
+    .filter((l) => l.href.startsWith("/") && !l.href.startsWith("//") && l.text)
+    .map((l) => `<a href="${esc(l.href)}">${esc(l.text)}</a>`);
+  const inner = pills ? anchors.join("\n") : anchors.join(" · ");
+  return html.replace(marker, `<!--area-links-->\n${inner}\n<!--/area-links-->`);
+}
+
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
   const type = res.headers.get("content-type") || "";
@@ -86,7 +166,10 @@ export default async function handler(request: Request, context: Context) {
     const market = reg && reg.byPath(new URL(request.url).pathname);
     if (!market || market.isDefault) return res;
 
-    const out = inject(await res.text(), market);
+    const html = await res.text();
+    const rows = await loadHoods();
+    const links = rows ? linksFor(market, rows) : PRICES_ONLY;
+    const out = fillAreaLinks(inject(html, market), links);
     const headers = new Headers(res.headers);
     headers.delete("content-length");
     return new Response(out, { status: res.status, headers });
