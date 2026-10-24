@@ -17,7 +17,7 @@
    ========================================================================== */
 
 import { decide, registry } from "../netlify/edge-functions/lib/markets.ts";
-import { inject } from "../netlify/edge-functions/market-pages.ts";
+import marketPages, { inject, fillAreaLinks, linksFor } from "../netlify/edge-functions/market-pages.ts";
 import searchPages from "../netlify/edge-functions/search-pages.ts";
 
 const reg = registry()!;
@@ -571,6 +571,60 @@ r = await searchPages(req("/", ""), ctx(IL(HAR_HARIF)));
 check("‎/‎ מהר חריף: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
 
 reg.bySlug("krayot")!.live = krayotLiveInFile;
+
+/* ---------- 5. קישורים לשכונות ול-/prices, ב-HTML ולא ב-JS ---------- */
+
+import { readFileSync } from "node:fs";
+const home = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const homeBlock = (home.split("<!--area-links-->")[1] || "").split("<!--/area-links-->")[0];
+check("דף הבית: 11 שכונות ו-/prices כקישורי <a>",
+  (homeBlock.match(/<a href="\/n\/afula\//g) || []).length === 11 &&
+  homeBlock.includes('href="/n/afula/גבעת-המורה"') &&
+  homeBlock.includes('href="/prices"') &&
+  !homeBlock.includes("onclick"));
+
+const soon = readFileSync(new URL("../market-soon.html", import.meta.url), "utf8");
+check("דף שוק: יש בלוק להחלפה וקישור /prices",
+  soon.includes("<!--area-links-->") && soon.includes('href="/prices"'));
+
+const SHELL =
+  `<!doctype html><html><head><title>x</title></head><body>` +
+  `<div class="footer-seo-links"><!--area-links-->` +
+  `<a href="/n/afula/גבעת-המורה">גבעת המורה</a>` +
+  `<!--/area-links--></div></body></html>`;
+const haifa = reg.bySlug("haifa")!;
+const filled = fillAreaLinks(SHELL, linksFor(haifa, [
+  { name: "הדר", city: "חיפה", path_key: "haifa/הדר", props: 4 },
+  { name: "גבעת המורה", city: "עפולה", path_key: "afula/גבעת-המורה", props: 9 },
+  { name: "<script>", city: "חיפה", path_key: "haifa/x", props: 1 },
+]));
+check("שוק חיפה: שכונה של חיפה, בלי שכונת עפולה",
+  filled.includes("/n/haifa/") && !filled.includes("גבעת המורה") && filled.includes('href="/prices"'));
+check("שם שכונה עם < אינו שובר את ה-HTML", filled.includes("&lt;script&gt;") && !filled.includes("<script>"));
+
+globalThis.fetch = (async () =>
+  new Response(JSON.stringify([
+    { name: "הדר", city: "חיפה", path_key: "haifa/הדר", props: 3 },
+    { name: "גבעת המורה", city: "עפולה", path_key: "afula/גבעת-המורה", props: 8 },
+  ]), { status: 200, headers: { "content-type": "application/json" } })
+) as typeof fetch;
+let cityRes = await marketPages(new Request("https://shuknadlan.co.il/haifa"), {
+  next: async () => new Response(SHELL, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+let cityHtml = await cityRes.text();
+check("דף חיפה: 200, שכונת חיפה, בלי עפולה, עם /prices",
+  cityRes.status === 200 && cityHtml.includes("/n/haifa/%D7%94%D7%93%D7%A8") &&
+  !cityHtml.includes("גבעת המורה") && cityHtml.includes('href="/prices"') &&
+  /noindex/.test(cityHtml));
+
+globalThis.fetch = (async () => { throw new Error("מסד למטה"); }) as typeof fetch;
+cityRes = await marketPages(new Request("https://shuknadlan.co.il/haifa"), {
+  next: async () => new Response(SHELL, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+cityHtml = await cityRes.text();
+check("כישלון מסד: 200, רק /prices, בלי שכונת עפולה ובלי noindex חדש מעבר למה שהיה",
+  cityRes.status === 200 && cityHtml.includes('href="/prices"') &&
+  !cityHtml.includes("גבעת המורה") && /noindex/.test(cityHtml));
 
 console.log(failed ? `\n✗ ${failed} מקרים נכשלו` : "\n✓ השווקים: זיהוי, הפניה והזרקה מתנהגים כמתוכנן.");
 if (failed) (globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1);
