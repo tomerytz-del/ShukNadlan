@@ -2547,6 +2547,7 @@ export async function runPublicTurn(opts: {
   const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
       max_tokens: 2048,
@@ -2572,7 +2573,8 @@ export async function runPublicTurn(opts: {
     console.log(
       `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
-        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
+        `ms=${Date.now() - llmStart}`,
     );
     logAiUsage(anthropicRow("gabriela_public", response.model || MODEL, response.usage));
 
@@ -2597,11 +2599,13 @@ export async function runPublicTurn(opts: {
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      const toolStart = Date.now();
       const result = await runTool(
         ctx,
         use.name,
         (use.input || {}) as Record<string, unknown>,
       );
+      console.log(`public-tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
       results.push({
         type: "tool_result",
         tool_use_id: use.id,

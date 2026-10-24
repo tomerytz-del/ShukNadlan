@@ -1042,15 +1042,31 @@ async function photoButtonReply(
     await saveConversation(agentId, from, conv);
     return true;
   }
+  // ‏**לחיצה מאוחרת** (24.10.2026): הסוכן/ת כבר כתב/ה את פרטי הנכס החדש,
+  // הנכס נפתח עם התמונות, ורק אז נלחץ "נכס חדש" - והתשובה "מה הנכס?" שאלה
+  // על נכס שכבר קיים (19.10). בלי תמונות ממתינות אין מה לשאול: לא נוגעים
+  // ב-last_property_id (הוא כבר הנכס החדש) ואומרים איפה התמונות.
+  if (!pending.length) {
+    const { data: recent } = await supabase.from("properties")
+      .select("title").eq("agent_id", agentId)
+      .gte("created_at", new Date(Date.now() - PHOTO_ASK_GAP_MS).toISOString())
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    await reply(
+      from,
+      recent
+        ? `הנכס החדש כבר נפתח עם התמונות: "${recent.title}" 🏠`
+        : "התמונות כבר שויכו. לנכס חדש - סוג, עסקה ומחיר (וכתובת אם יש).",
+      agentId,
+    );
+    return true;
+  }
   // נכס חדש: "הנכס האחרון" מתנקה, כדי שהתור הבא לא יצרף אליו, והתמונות
   // נשארות ממתינות - יצירת הנכס מצרפת אותן (agent.ts, create_property).
   conv.last_property_id = null;
   await saveConversation(agentId, from, conv);
   await reply(
     from,
-    pending.length
-      ? "מעולה, נכס חדש 🏠 התמונות שמורות בצד. מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש), ואפתח אותו עם התמונות."
-      : "מעולה, נכס חדש 🏠 מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש).",
+    "מעולה, נכס חדש 🏠 התמונות שמורות בצד. מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש), ואפתח אותו עם התמונות.",
     agentId,
   );
   return true;
