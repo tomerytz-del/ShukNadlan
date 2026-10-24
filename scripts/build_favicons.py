@@ -2,8 +2,8 @@
 """
 ‏אייקונים לגוגל מתוך הלוגו הקיים — ריפוד לריבוע, בלי למתוח.
 
-‏‎assets/logo-shuknadlan.png‎ הוא רסטר של ‎logo-shuknadlan.svg‎: ‏512×610,
-שקוף, והפין ממורכז. גוגל דורשת favicon ביחס 1:1, ולוגו ארגון שלפחות
+‏‎assets/logo-shuknadlan.png‎ נבנה ב-‎scripts/build_logo.py‎ מהרינדור של
+הלוגו: ‏512×610, שקוף, והפין ממורכז. גוגל דורשת favicon ביחס 1:1, ולוגו ארגון שלפחות
 ‏112×112. מוסיפים שוליים משני הצדדים עד שהקנבס ריבועי (‏610×610). הפיקסלים
 של הסמל עצמו אינם נדגמים מחדש.
 
@@ -13,8 +13,8 @@
   ‏‎assets/favicon-48.png‎, ‎-96‎, ‎-192‎ — ‎<link rel="icon">‎
   ‏‎favicon.ico‎ בשורש — 16, 32 ו-48
 
-ה-SVG של הלשונית (‎assets/favicon.svg‎) אינו נבנה כאן: הוא חייב להישאר
-וקטור עם ‎prefers-color-scheme‎. ה-viewBox שלו מרופד לאותו ריבוע ביד.
+ה-SVG של הלשונית (‎assets/favicon.svg‎) אינו נבנה כאן אלא ב-build_logo.py,
+עם viewBox ריבועי (‎-5 0 62 62‎) — אותו ריפוד.
 
     python3 scripts/build_favicons.py
 """
@@ -52,6 +52,13 @@ def square_pad(src: Image.Image) -> Image.Image:
     return canvas
 
 
+def save_png(im: Image.Image, path: Path) -> None:
+    """‏PNG בפלטה של 256 צבעים עם פיזור. הלוגו רינדור עם מעברי צבע, וב-RGBA
+    מלא הריבוע שקל 316KB; בפלטה הוא כשישית מזה, בלי הבדל שנראה בגודל אמיתי."""
+    pal = im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG)
+    pal.save(path, format="PNG", optimize=True)
+
+
 def write_ico(path: Path, images: list[Image.Image]) -> None:
     """‏ICO עם מסגרות PNG, כדי שהשקיפות תישמר (הפורמט הישן של BMP מאבד אותה)."""
     blobs = []
@@ -79,13 +86,13 @@ def main() -> int:
 
     master = square_pad(src)
     square_path = ASSETS / "logo-shuknadlan-square.png"
-    master.save(square_path, format="PNG")
+    save_png(master, square_path)
     print("✓ %s  (%dx%d)" % (square_path.relative_to(ROOT), SIDE, SIDE))
 
     for size in FAVICON_PNGS:
         im = master.resize((size, size), Image.Resampling.LANCZOS)
         out = ASSETS / ("favicon-%d.png" % size)
-        im.save(out, format="PNG")
+        save_png(im, out)
         print("✓ %s  (%dx%d)" % (out.relative_to(ROOT), size, size))
 
     # ‏16 ו-32 נגזרים מהמאסטר, לא מ-48 שכבר הוקטן

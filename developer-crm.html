@@ -110,9 +110,37 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* כרטיס ההמתנה. הוא המסך הראשון ולא טופס הכניסה, מאותה סיבה שתועדה
      ב-docs/google-login.md: בדיקת ה-session אסינכרונית, וטופס שנצבע לפניה
      מהבהב לכל מי שכבר מחובר/ת וגם למי שחוזר/ת מ-Google. */
-  .boot-spinner{width:30px;height:30px;margin:14px auto;border:3px solid var(--field);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @media (prefers-reduced-motion: reduce){.boot-spinner{animation-duration:2.4s}}
+  /* ‏‎.brand-loader‎ — הלוגו הוא ההמתנה. אותו רכיב כמו ב-crm.html, ושם
+     ההסבר המלא: פין שקופץ ונוחת, צל, פינג זהוב בנחיתה ופס ברק. */
+  .brand-loader{position:relative;width:110px;height:98px;margin:0 auto 14px}
+  .brand-loader .bl-pin{position:absolute;left:50%;top:4px;width:66px;margin-left:-33px;z-index:2;
+    animation:blBob 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-pin img{display:block;width:100%;height:auto}
+  .brand-loader .bl-pin::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.65) 50%,transparent 62%) 0 0/300% 100% no-repeat;
+    -webkit-mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    animation:blShine 3.2s ease-in-out infinite}
+  .brand-loader .bl-shadow{position:absolute;left:50%;bottom:9px;width:40px;height:9px;margin-left:-20px;
+    border-radius:50%;background:rgba(14,42,107,.34);filter:blur(2px);
+    animation:blShadow 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-ping{position:absolute;left:50%;bottom:1px;width:96px;height:24px;margin-left:-48px;
+    border-radius:50%;border:2px solid rgba(201,162,39,.85);opacity:0;animation:blPing 1.6s ease-out infinite}
+  .brand-loader .bl-ping-2{animation-delay:.8s}
+  @keyframes blBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  @keyframes blShadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}
+  @keyframes blShine{0%{background-position:100% 0}55%,100%{background-position:0 0}}
+  @keyframes blPing{0%{transform:scale(.3);opacity:0}15%{opacity:.9}100%{transform:scale(1);opacity:0}}
+  @media (prefers-reduced-motion:reduce){
+    .brand-loader .bl-pin,.brand-loader .bl-shadow{animation:none}
+    .brand-loader .bl-pin::after,.brand-loader .bl-ping{display:none}
+  }
+  /* תמונת הרקע של הכניסה — הפין התלת־ממדי, דהוי ומוטה בפינה (כמו ב-crm.html) */
+  #loginScreen,#bootScreen{position:relative;isolation:isolate;overflow:hidden;overflow:clip}
+  #loginScreen::after,#bootScreen::after{content:"";position:absolute;z-index:-1;pointer-events:none;
+    width:min(82vw,640px);aspect-ratio:380/480;inset-inline-end:-12%;bottom:-16%;
+    background:url(/assets/logo-shuknadlan-hd.webp) center/contain no-repeat;
+    opacity:.09;transform:rotate(-14deg);filter:blur(1.5px)}
 
   /* ====== שלד הדשבורד ====== */
   header.app{position:sticky;top:0;z-index:60;background:#fff;border-bottom:1px solid var(--line);padding:10px 0}
@@ -222,8 +250,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      המסך הראשון בכל טעינה. טופס הכניסה מוצג רק כשידוע שאין חיבור פעיל. -->
 <div id="bootScreen">
   <div class="login-card" style="text-align:center">
-    <a href="/" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
-    <div class="boot-spinner" role="status" aria-live="polite"></div>
+    <!-- הלוגו עצמו הוא ההמתנה (‎.brand-loader‎), ולכן אין כאן לוגו נפרד מעליו -->
+    <div class="brand-loader" role="status" aria-live="polite" aria-label="טוען">
+      <span class="bl-ping" aria-hidden="true"></span><span class="bl-ping bl-ping-2" aria-hidden="true"></span>
+      <span class="bl-pin" aria-hidden="true"><img src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"></span>
+      <span class="bl-shadow" aria-hidden="true"></span>
+    </div>
     <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
   </div>
 </div>

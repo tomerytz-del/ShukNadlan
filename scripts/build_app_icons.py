@@ -1,40 +1,23 @@
 #!/usr/bin/env python3
 """
-‏בניית אייקוני האפליקציה (PWA) מהגאומטריה של הלוגו.
+‏בניית אייקוני האפליקציה (PWA) מהלוגו.
 
 ## למה סקריפט ולא קובץ שמצויר ביד
 
-הסמל של האתר קיים כבר בשלושה קובצי SVG — ‎assets/logo-shuknadlan.svg‎,
-‏‎logo-shuknadlan-dark.svg‎ ו-‎favicon.svg‎ — ואותה גאומטריה בדיוק (הפין,
-הגג, האות ש) מופיעה בשלושתם. אייקון האפליקציה הוא המופע הרביעי שלה,
-והפעם כ-**PNG**: גם מנשק ההתקנה של כרום וגם מסך הבית של אייפון אינם
-מקבלים SVG.
+אייקון האפליקציה הוא **PNG**: גם מנשק ההתקנה של כרום וגם מסך הבית של
+אייפון אינם מקבלים SVG. הוא נבנה מ-‎assets/logo-shuknadlan.png‎ (הרינדור
+התלת־ממדי של הלוגו, שנכתב ב-‎scripts/build_logo.py‎), כדי ששינוי בלוגו
+יהיה הרצה ולא ציור:
 
-‏PNG שצויר ידנית פעם אחת הוא עותק שאיש לא יכול לעדכן: מי שישנה את הלוגו
-מחר יעדכן שלושה קובצי SVG, ואת ה-PNG-ים לא — כי אין לו/ה במה. הסקריפט
-הזה הוא ה"במה": הגאומטריה כתובה כאן פעם אחת, וכל האייקונים נבנים ממנה.
-
-**שינוי בלוגו נכנס גם לכאן**, ואז מריצים:
-
-    pip install cairosvg
+    python3 scripts/build_logo.py
     python3 scripts/build_app_icons.py
 
 הפלט נכתב ל-‎assets/‎ ונכנס לגיט (‏Netlify מפרסם קבצים סטטיים, אין שלב
 בנייה בפרסום — מה שלא בריפו לא קיים באתר).
 
-## הגופן
-
-האות ש היא טקסט ב-Heebo ExtraBold, אותו גופן שהאתר טוען. ‏cairosvg מרנדר
-טקסט דרך הגופנים המותקנים במכונה, ולכן לפני ההרצה צריך ש-Heebo יהיה
-מותקן — אחרת cairo ייפול לגופן ברירת מחדל והאות תיראה אחרת מהלוגו:
-
-    curl -L -o ~/.fonts/Heebo-ExtraBold.ttf \\
-      "https://fonts.gstatic.com/s/heebo/v28/NGSpv5_NC0k9P_v6ZUCbLRAHxK1ECSuccg.ttf"
-    fc-cache -f
-
-הסקריפט בודק שהגופן נמצא ונעצר אם לא. אייקון שנבנה בגופן אחר לא ייראה
-שבור — הוא רק לא יהיה הלוגו, ואת זה מגלים אחרי שהוא כבר על מסך הבית של
-אנשים.
+עד 24.10.2026 הסקריפט צייר את הסמל השטוח מהגאומטריה שלו ב-cairosvg, ודרש
+את הגופן Heebo מותקן. הלוגו החדש הוא רינדור ואין לו וקטור, ולכן שתי
+התלויות ירדו.
 
 ## למה שתי משפחות של אייקונים
 
@@ -51,70 +34,63 @@
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
+from PIL import Image, ImageFilter
+
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
-
-# ---------------------------------------------------------------------------
-# הגאומטריה — מועתקת מ-assets/logo-shuknadlan.svg (פין ספיר, גג לבן,
-# ‏ש מוזהבת). זו הווריאציה לרקע בהיר, כי הרקע של האייקון הוא נייר בהיר.
-# תיבת הציור המקורית היא 52×62.
-# ---------------------------------------------------------------------------
-LOGO_W, LOGO_H = 52.0, 62.0
-PIN_PATH = "M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z"
-ROOF_PATH = "M13 26 L26 14 L39 26"
-
-SAPPHIRE = "#0e2a6b"
-BRASS = "#c9a227"
+SOURCE = ASSETS / "logo-shuknadlan.png"
 
 # הרקע: לבן במרכז ונייר תכלכל בקצוות — אותה פלטה של האתר (‎--paper‎
 # ו-‎--teal-tint‎), ולא לבן שטוח. הגוון בקצוות הוא מה שמפריד את האייקון
 # מרקע לבן של מסך בית בהיר, בלי להוסיף מסגרת.
-PAPER = "#ffffff"
-PAPER_EDGE = "#e6edfa"
+PAPER = (255, 255, 255)
+PAPER_EDGE = (230, 237, 250)
+BRASS = (201, 162, 39)
 
-FONT_STACK = "Heebo, sans-serif"
+
+def radial(size: int, cx: float, cy: float, r: float) -> np.ndarray:
+    """מרחק מנורמל מהמרכז (‏0 במרכז, 1 ברדיוס), חתוך ל-1."""
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float64)
+    d = np.hypot(xx - cx * size, yy - cy * size) / (r * size)
+    return np.clip(d, 0, 1)[..., None]
 
 
-def icon_svg(size: int, logo_height_ratio: float) -> str:
-    """‏SVG של אייקון ריבועי: רקע נייר בהיר, והלוגו הספירי במרכזו.
+def background(size: int) -> Image.Image:
+    t = radial(size, 0.5, 0.34, 0.78)
+    bg = np.array(PAPER) * (1 - t) + np.array(PAPER_EDGE) * t
+    # הילה זהובה חלשה מאחורי הפין
+    g = (1 - radial(size, 0.5, 0.42, 0.62)) * 0.16
+    bg = bg * (1 - g) + np.array(BRASS) * g
+    return Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+
+
+def icon(logo: Image.Image, size: int, logo_height_ratio: float) -> Image.Image:
+    """אייקון ריבועי: רקע נייר בהיר, והלוגו במרכזו עם צל רך מתחתיו.
 
     ‏logo_height_ratio הוא הגובה של הלוגו כשבר מצלע הריבוע. הוא הפרמטר
     היחיד שמבדיל בין `any` ל-`maskable`: ב-maskable הלוגו קטן יותר, כדי
     שכל מה שנחתך יהיה רקע.
     """
-    scale = (size * logo_height_ratio) / LOGO_H
-    dx = (size - LOGO_W * scale) / 2
-    dy = (size - LOGO_H * scale) / 2
-    # רדיוס ההילה נגזר מהגודל כדי שהאייקון ייראה זהה בכל הרזולוציות.
-    glow = size * 0.62
+    h = round(size * logo_height_ratio)
+    w = round(logo.width * h / logo.height)
+    pin = logo.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
+    x, y = (size - w) // 2, (size - h) // 2
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}"
-     viewBox="0 0 {size} {size}">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="34%" r="78%">
-      <stop offset="0%" stop-color="{PAPER}"/>
-      <stop offset="100%" stop-color="{PAPER_EDGE}"/>
-    </radialGradient>
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="{BRASS}" stop-opacity="0.16"/>
-      <stop offset="100%" stop-color="{BRASS}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="{size}" height="{size}" fill="url(#bg)"/>
-  <circle cx="{size * 0.5:.2f}" cy="{size * 0.42:.2f}" r="{glow:.2f}" fill="url(#glow)"/>
-  <g transform="translate({dx:.3f} {dy:.3f}) scale({scale:.5f})">
-    <path d="{PIN_PATH}" fill="{SAPPHIRE}"/>
-    <path d="{ROOF_PATH}" fill="none" stroke="#ffffff" stroke-width="5"
-          stroke-linejoin="miter" stroke-linecap="butt"/>
-    <text x="26" y="41" text-anchor="middle" fill="{BRASS}"
-          font-family="{FONT_STACK}" font-weight="800" font-size="18">ש</text>
-  </g>
-</svg>"""
+    out = background(size)
+    # הצל: אותה צללית, כחולה-כהה, מוזזת מעט למטה ומטושטשת. הרינדור המקורי
+    # ישב על צל, ובלעדיו הפין נראה מודבק על הרקע.
+    shadow = Image.new("RGBA", (size, size), (14, 42, 107, 0))
+    a = Image.new("L", (size, size), 0)
+    a.paste(pin.getchannel("A"), (x, y + round(size * 0.02)))
+    a = a.filter(ImageFilter.GaussianBlur(size * 0.025)).point(lambda v: int(v * 0.35))
+    shadow.putalpha(a)
+    out.alpha_composite(shadow)
+    out.alpha_composite(pin, (x, y))
+    return out.convert("RGB")
 
 
 # שם הקובץ → (גודל בפיקסלים, שיעור הגובה של הלוגו)
@@ -131,39 +107,15 @@ TARGETS = {
 }
 
 
-def heebo_installed() -> bool:
-    if not shutil.which("fc-list"):
-        return True  # אין fontconfig — אי אפשר לבדוק, וההערה בתיעוד תצטרך להספיק
-    out = subprocess.run(["fc-list"], capture_output=True, text=True).stdout
-    return "heebo" in out.lower()
-
-
 def main() -> int:
-    try:
-        import cairosvg  # noqa: PLC0415  — תלות של הסקריפט בלבד, לא של האתר
-    except ImportError:
-        print("חסר cairosvg. התקנה:  pip install cairosvg")
-        return 1
-
-    if not heebo_installed():
-        print(
-            "‏Heebo אינו מותקן במכונה. בלעדיו האות ש תרונדר בגופן אחר,\n"
-            "והאייקון ייראה כמעט נכון — וזה הסוג הגרוע. ההתקנה:\n\n"
-            "  mkdir -p ~/.fonts && curl -L -o ~/.fonts/Heebo-ExtraBold.ttf \\\n"
-            '    "https://fonts.gstatic.com/s/heebo/v28/'
-            'NGSpv5_NC0k9P_v6ZUCbLRAHxK1ECSuccg.ttf"\n'
-            "  fc-cache -f"
-        )
-        return 1
+    src = Image.open(SOURCE).convert("RGBA")
+    # החיתוך הדוק לפין: ב-PNG של 512×610 יש שוליים שקופים
+    logo = src.crop(src.getchannel("A").getbbox())
 
     for name, (size, ratio) in TARGETS.items():
         out = ASSETS / name
-        cairosvg.svg2png(
-            bytestring=icon_svg(size, ratio).encode("utf-8"),
-            write_to=str(out),
-            output_width=size,
-            output_height=size,
-        )
+        # אטום (‏RGB) בכוונה: שקיפות במסך הבית של אייפון הופכת לשחור.
+        icon(logo, size, ratio).save(out, format="PNG", optimize=True)
         print("✓ %s  (%dx%d)" % (out.relative_to(ROOT), size, size))
 
     print("\nהאייקונים נבנו. ‏git add assets/*.png — בלי זה הם לא יגיעו לאתר.")
