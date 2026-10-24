@@ -55,13 +55,16 @@ const ROWS = [
 ];
 
 let calls = 0;
-async function run(url: string, status: number, body: unknown): Promise<Response> {
+async function run(url: string, status: number, body: unknown, page = PAGE): Promise<Response> {
   calls = 0;
   globalThis.fetch = (async () => {
     calls++;
     return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
-  return await handler(new Request(url), context());
+  const ctx = {
+    next: async () => new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never;
+  return await handler(new Request(url), ctx);
 }
 
 let failed = 0;
@@ -131,6 +134,13 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("נתיב בלי סוג הוא 404", res.status === 404 && calls === 0);
   check("404 עם noindex", /noindex/.test(html));
   check("404 בלי Retry-After", res.headers.get("Retry-After") == null);
+}
+
+{
+  const marker = "<!--other-page-->";
+  const res = await run(SITE + "/afula/" + encodeURIComponent("מתווכים"), 200, ROWS, marker);
+  const html = await res.text();
+  check("נתיב /afula אחר עובר הלאה, בלי 404 ובלי noindex", res.status === 200 && html.includes(marker) && !/noindex/.test(html) && calls === 0);
 }
 
 {

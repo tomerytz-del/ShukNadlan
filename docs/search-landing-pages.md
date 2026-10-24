@@ -150,6 +150,9 @@ node --experimental-strip-types scripts/search_pages_test.ts   # ההתנהגו�
 
 `silo.html` מגיש את שלושתן (`_redirects`, ‏200), ו-
 `netlify/edge-functions/silo-page.ts` ממלאה מודעות פעילות בעפולה.
+כלל בעברית ב-`_redirects` וב-`config.path` לא נתפס ב-Netlify (404 של
+הפלטפורמה). לכן יש גם שורה מקודדת (`%D7...`) ו-`/afula/*` בפונקציה.
+נתיב אחר תחת `/afula/` חוזר כמו שהוא, כדי לא לבלוע את `/afula/מתווכים`.
 `assets/silo-render.js` הוא אותו HTML בשרת ובדפדפן. השדה `landing`
 ב-`SEARCH_PAGES` אומר לכתובת הסינון להצהיר על הדף, כולל כשהגרש בסוג
 הנכס מגיע כ-`'` או כ-`%27` או כגרש עברי.

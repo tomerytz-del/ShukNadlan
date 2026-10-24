@@ -124,10 +124,19 @@ export function inject(html: string, page: Page, rows: Row[]): string {
 
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
+  const pathname = new URL(request.url).pathname;
+  const page = pageOf(pathname);
+  /* ‏נתיב עברי ב-config.path וב-_redirects לא נתפס ב-Netlify: הבקשה
+     המקודדת חזרה 404 של הפלטפורמה, בלי שהפונקציה רצה. ‏`/afula/*` כן
+     נתפס, כמו `/n/*`. נתיב שאינו אחד משלנו חוזר כמו שהוא, כדי שדף אחר
+     תחת אותה קידומת (מתווכים) לא ייעצר כאן ב-404. */
+  if (!page) {
+    let path = pathname;
+    try { path = decodeURIComponent(path); } catch { /* נשאר כמו שהוא */ }
+    if (path.startsWith("/afula/")) return res;
+  }
   const type = res.headers.get("content-type") || "";
   if (!res.ok || !type.includes("text/html")) return res;
-
-  const page = pageOf(new URL(request.url).pathname);
   const html = await res.text();
   let out = html;
   let cache = false;
@@ -176,6 +185,7 @@ export default async function handler(request: Request, context: Context) {
 
 export const config: Config = {
   path: [
+    "/afula/*",
     "/silo",
     "/silo.html",
     "/afula/בתים-פרטיים",
