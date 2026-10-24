@@ -767,7 +767,7 @@ WHATSAPP_PUBLIC_BOT = on
 | `[site:agent]` | `agent` |
 | `[site:agency]` | `agency` |
 
-שלושת האחרונים נוספו לאילוץ ב-`20270804090000_gabriela_widget_entries.sql`, ונספרים
+שלושת האחרונים נוספו לאילוץ ב-`20270805090000_gabriela_widget_entries.sql`, ונספרים
 "מהאתר". עד שהמיגרציה רצה הפונקציה חותמת אותם `site`. **הליד עצמו** נשאר עם
 המקור של הכלי (‏`whatsapp_bot_search_agent`, ‏`whatsapp_bot_owner_wizard`...) - מקור
 הליד אומר מאיזה **כלי**, והעמוד יושב על הפנייה ומוצלב לפי הטלפון, כמו המודעות.
