@@ -296,9 +296,11 @@ canonical סטטי (‏`scripts/check_canonical.py`). ‏`noindex` נכנס רק
 ### ‏sitemap
 
 ‏`/deals` ב-`sitemap.xml`; היישובים הפעילים **שיש להם עסקאות** מ-
-`sitemap.ts`, מקור "עסקאות לפי יישוב" - דרך `rpc/deal_settlements_public`
+`sitemap.ts`, מקור "עסקאות לפי יישוב" - ב-POST אל `rpc/deal_settlements_public`
 ולא ישירות מהטבלה, שמחזיקה גם את כל הכפרים בלי עסקאות - בצורת נתיב
-(‏`path`) ולא `?slug=`.
+(‏`path`) ולא `?slug=`. כשל של ה-RPC הזה, כשיש בקובץ כתובות ממקור אחר,
+הוא 503 בלי מטמון ולא 200 שהבלוק נעלם ממנו. מערך ריק נשאר 200.
+הפרטים: `docs/sitemap.md`.
 
 ## הבדיקה שנעשתה
 
