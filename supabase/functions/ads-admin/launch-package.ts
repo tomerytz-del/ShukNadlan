@@ -229,9 +229,10 @@ const IMG = {
   rt2_916: im("rt2_9x16", "creatives/retargeting/RT2_saved_search_gabriela_9x16.png", "9x16", "72b1631224922c06ca61d0651ded81050dbeeddd487a45b54bbb8154983ea6ae"),
 };
 
-// הקומיט שבו נחתמו הקבצים. ads-admin מושכת מהם לדלי, בלי לאגד 27MB
-// בפונקציה (התקרה 20MB). הכתובת ציבורית; ה-sha256 נבדק לפני השמירה.
-export const CREATIVE_GIT_COMMIT = "e489f1aed265f539d0a5f6428cae8f96a78f7bc7";
+// הקומיט ב-main שבו נחתמו הקבצים (סקווש של #920, אותו עץ כמו
+// e489f1aed265f539d0a5f6428cae8f96a78f7bc7). ads-admin מושכת מהם לדלי,
+// בלי לאגד 27MB בפונקציה (התקרה 20MB). הכתובת ציבורית; ה-sha256 נבדק לפני השמירה.
+export const CREATIVE_GIT_COMMIT = "649ceb8925dc0fe712c31e58287eeabcb5b0a790";
 export const CREATIVE_GIT_REPO = "tomerytz-del/ShukNadlan";
 
 export const CREATIVE_BYTES: Record<string, number> = {
