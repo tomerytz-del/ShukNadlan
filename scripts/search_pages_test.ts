@@ -162,6 +162,59 @@ for (const [name, url, query] of SAME) {
   check("עברית לא מקודדת", r.canonical === `${SITE}/?${hebrew.query}`, JSON.stringify(r));
 }
 
+/* ‏עיר על עמוד שכבר ברשימה: הכותרת של העיר, וה-canonical נשאר בלי העיר ובלי utm */
+{
+  const city = encodeURIComponent("עפולה");
+  const r = await serve(`/?deal=sale&rooms=3&city=${city}&utm_source=google&utm_campaign=3rooms&gclid=abc`);
+  const desc = decode((await handler(
+    new Request(`${SITE}/?deal=sale&rooms=3&city=${city}`),
+    context(),
+  ).then((res) => res.text())).match(/name="description" content="([^"]*)"/)?.[1]);
+  check(
+    "עיר על עמוד מוכר: כותרת של העיר, canonical של הרשימה",
+    r.canonical === `${SITE}/?deal=sale&rooms=3` &&
+      r.canonicalCount === 1 &&
+      r.h1 === "דירות 3 חדרים למכירה בעפולה" &&
+      r.heading === "דירות 3 חדרים למכירה בעפולה" &&
+      r.title === "דירות 3 חדרים למכירה בעפולה | שוק נדל״ן" &&
+      r.ogTitles.length === 1 && r.ogTitles[0] === r.title &&
+      r.ogUrls.length === 1 && r.ogUrls[0] === r.canonical &&
+      desc === "כל דירות 3 החדרים שמוצעות היום למכירה בעפולה, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים." &&
+      !r.citySlot,
+    JSON.stringify({ ...r, desc }),
+  );
+}
+{
+  const r = await serve("/?deal=sale&rooms=3&city=" + encodeURIComponent("מגדל העמק"));
+  check(
+    "עיר אחרת מחליפה את העמק בכותרת",
+    r.h1 === "דירות 3 חדרים למכירה במגדל העמק" &&
+      r.heading === r.h1 &&
+      r.canonical === `${SITE}/?deal=sale&rooms=3`,
+    JSON.stringify(r),
+  );
+}
+{
+  const base = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=3")!;
+  const plain = await serve("/?deal=sale&rooms=3");
+  const bad = await serve("/?deal=sale&rooms=3&city=" + encodeURIComponent("<script>"));
+  const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"));
+  const upperPage = SEARCH_PAGES.find((p) => p.title === "נכסים למכירה בעפולה עילית")!;
+  check("בלי עיר נשאר העמק", plain.h1 === base.title, plain.h1 || "");
+  check("עיר לא תקינה אינה משנה כותרת", bad.h1 === base.title && bad.canonical === `${SITE}/?${base.query}`, bad.h1 || "");
+  check(
+    "עפולה עילית אינה מתקצרת לעיר",
+    upper.h1 === upperPage.title,
+    upper.h1 || "",
+  );
+}
+{
+  const only = await serve("/?city=" + encodeURIComponent("עפולה"));
+  const extra = await serve("/?deal=sale&rooms=4&page=3&city=" + encodeURIComponent("עפולה"));
+  check("עיר לבדה אינה עמוד באינדקס", only.untouched, JSON.stringify(only));
+  check("צירוף שאינו ברשימה נשאר כמו שהוא גם עם עיר", extra.untouched, JSON.stringify(extra));
+}
+
 /* ‏3. מה שחייב לצאת כמו שהוא: הדף מצהיר על / ומתאחד אליו */
 const UNTOUCHED: [string, string][] = [
   ["דף הבית עצמו", "/"],
