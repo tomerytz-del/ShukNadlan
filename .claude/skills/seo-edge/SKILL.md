@@ -1,6 +1,6 @@
 ---
 name: seo-edge
-description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
+description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, silo-page, search-pages, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
 ---
 
 # רינדור ל-SEO ב-edge
@@ -24,6 +24,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 | timeout, סטטוס שאינו 200, זריקה, או גוף שאינו אובייקט (כולל מערך) | 503 | **לא** | `no-store` בשתי הכותרות, `Retry-After: 60` |
 | דף דק: יש רשומה, ומעט תוכן (שכונה בלי נכסים ופחות מ-5 עסקאות; יישוב עם פחות מ-5) | 200 | כן | מטמון ההצלחה |
 | מערך ריק (`prices`, אינדקס `/deals`, בלוק העסקאות ב-sitemap) | 200 | לא | מטמון ההצלחה |
+| דף נחיתה או מדור מתווכים: המסד ענה במערך ריק | 200 | כן | `no-store` בשתי הכותרות, בלי `Retry-After` |
+| אותו דף, כשל מסד (`undefined`) | 503 | **לא** | `no-store` בשתי הכותרות, `Retry-After: 60` |
 
 שתי כותרות המטמון, תמיד ביחד: `Cache-Control` ו-`Netlify-CDN-Cache-Control`.
 אחת בלי השנייה משאירה את התשובה ב-CDN. `Retry-After` רק על 503.
@@ -81,7 +83,7 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 ## 5. CLS ו-LCP של תמונה
 
-ארבעה כשלים שקטים. הדף נראה תקין, והמספר מתגלה רק ב-Lighthouse.
+הכשלים כאן שקטים. הדף נראה תקין, והמספר מתגלה רק ב-Lighthouse.
 
 ### מקום שמור לפני שהתוכן נכנס
 
@@ -95,6 +97,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
+תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה. הטרנספורם הראשון של כתובת חדשה איטי (נמדד כ-679ms מול 38ms אחרי שהתוצאה נשמרה). אגודל עצל של אותה תמונה עדיין יכול להוריד את הקובץ המלא.
+
 ### כרטיס ראשון בדף שכונה
 
 התמונה הראשונה מהאחסון שלנו (`IMG_HOST`) היא `fetchpriority="high"` ובלי `loading="lazy"`. השאר `loading="lazy"`. הקובץ המלא (מאות KB) מוחלף ב-`render/image`: רוחב 400 ו-800, גובה 250 ו-500, `resize=cover`, איכות 60, עם `srcset`. `onerror` מוריד את ה-`srcset` וחוזר לכתובת המקורית. `preload` מצביע על כתובת ה-800, אותה כתובת כמו `src`. תמונה שאינה מהאחסון שלנו לא נכנסת ל-`src`.
@@ -106,6 +110,25 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 `neighborhoods` בטעינה בלי `boundary` (המצולע הוא רוב המשקל). העמודות שנשארות: `id,name,city,city_id,lat,lng,radius_m,is_planned`. בלי `is_planned` אזור בתכנון בלי נכסים חוזר לרשימה. `boundary` נטען ב-`drawHoodShapes` רק לשכונות שנבחרו; כשל מסמן `null` ומצייר עיגול.
 
 סקריפטים שחסמו את הציור (Leaflet, supabase, כרטיסים) יושבים בסוף ה-`body`, עדיין בלי `defer`, מיד לפני `home.js`. `defer` היה מריץ את `home.js` לפניהם, או את גבריאלה לפני `home.js`.
+
+תמונת ה-LCP של דף הבית היא רקע CSS על `#heroSection`: `hero-valley-800.webp` עד 759px, ו-`hero-valley.webp` משם. `preload` בלי `fetchpriority="high"` לא הקדים את ההורדה. מדידה ישנה: כ-420ms פחות ב-LCP וכ-320ms יותר ב-FCP. `media` על התג לא מספיק: ב-Lighthouse לנייד ירד גם `hero-valley.webp` (כ-260KB).
+
+`city-context.js` ו-`bot-link.js` נשארים ב-`head`. `markets.js` יושב אחרי ה-CSS של התמונה ומיד לפני `CityContext.label()`: ההכרעה הראשונה נשמרת, ו-`market-pages` מזריק `SHUK_MARKET` לפני התג `src="assets/markets.js"`. סוף הדף היה נועל עיר לא נכונה. `auth-return.js` לפני `supabase.js`. `leaflet.css` עם `media="print"` ו-`onload` ל-`all` אינו חוסם את הציור הראשון.
+
+גופן שנטען מראש צריך `crossorigin` גם מאותו דומיין, אחרת ההורדה כפולה. Heebo בדף הבית הוא קובץ משתנה אחד לכל `unicode-range`, והעברית היא מה שנטען מראש. `font-display` נשאר `swap`. אחסון מקומי לא שיפר את ה-FCP במדידה: חמשת הקבצים יורדים מאותו מקור כמו תמונת ה-LCP.
+
+## 6. דף נחיתה עם המודעות
+
+עמוד תוצאות ב-`search-pages.ts` רק מחליף כותרת, תיאור, canonical ו-H1 בתוך `index.html`. המודעות נשארות ב-JS. דף שגוגל כבר מדרגת דרך מסנן (`/?deal=sale&rooms=3` וחבריו) וצריך לאנדקס את המודעות עצמן הוא דף נפרד, באותו דפוס של דף שכונה.
+
+- **הכתובת הציבורית נקובה, וההתאמה ב-Netlify מקודדת.** שורה עברית ב-`_redirects` וב-`config.path` לא נתפסת: הבקשה (`%D7...`) חוזרת 404 של הפלטפורמה, בלי שהפונקציה רצה. ב-`_redirects` יש שורה מקודדת אל המעטפת (`/silo` 200), בלי `/afula/*` שם, כי rewrite כזה היה מגיש גם את דף המתווכים מאותו קובץ. ב-`config.path` יש `/afula/*` (כמו `/n/*`). נתיב שאינו של הפונקציה חוזר מ-`context.next()` כמו שהוא, בלי 404: אחרת הפונקציה הראשונה בשרשרת בולעת את הדף השני. `/silo` בלי סוג נשאר 404 עם `noindex`.
+- **ה-canonical של המסנן מצביע על הדף**, כולל שתי הצורות של גרש בסוג הנכס (`'` ו-`%27`, וגם גרש עברי). `matchKey` מנרמל אותן לאותו מפתח. שורה ב-`SEARCH_PAGES` עם `landing` כותבת את ה-canonical אל הדף ולא אל `/?query`.
+- **הרשימה ב-HTML הראשון**, מאותו קובץ render שהדפדפן מריץ כשאין `data-ssr`. כרטיס ראשון עם מידות ו-`render/image`, כמו דף שכונה.
+- **רשימה ריקה אינה כשל.** מערך ריק הוא 200 עם `noindex` ו-`no-store`, בלי `Retry-After`. זה שונה במכוון משורת `prices` בטבלה למעלה: שם דף ריק הוא הדף. כאן אין מה לאנדקס. `undefined` נשאר 503 בלי `noindex`, עם ה-canonical של הכתובת כבר כתוב.
+- **שלושה בלוקי JSON-LD**, לא אחד במקום השני: `WebPage`, `BreadcrumbList`, `ItemList`. `<` בתוך JSON הוא `\u003c`. הבדיקה מפרסרת את שלושתם.
+- **השורה ב-sitemap סטטית** (`sitemap.xml`), בלי `lastmod`. לא מוסיפים את אותו URL גם כמקור ב-`sitemap.ts`: הוא היה מופיע פעמיים. `check_canonical.py` דורש את הכתובת ב-sitemap ואת הפונקציה ב-`OWN_EDGE`, ולא רושם את המעטפת כמקור דינמי.
+
+מדור מתווכים (`/afula/מתווכים`) יושב על אותו חוזה סטטוס. ה-`ItemList` שלו הוא `LocalBusiness` + `RealEstateAgent`, ועוד `BreadcrumbList`. הוא אינו מחליף את `/about`.
 
 ## מה לא לערבב לכאן
 
@@ -124,8 +147,11 @@ node --experimental-strip-types scripts/prices_page_test.ts
 node --experimental-strip-types scripts/og_tags_test.ts
 node --experimental-strip-types scripts/sitemap_test.ts
 node --experimental-strip-types scripts/property_hero_video_test.ts
+node --experimental-strip-types scripts/silo_page_test.ts
+node --experimental-strip-types scripts/search_pages_test.ts
 ```
 
 התיעוד: `docs/neighborhood-pages.md`, `docs/settlement-deals.md`,
 `docs/city-prices.md`, `docs/social-preview.md`, `docs/sitemap.md`,
-`docs/property-marketing-video.md`, `docs/search-map-experience.md`.
+`docs/property-marketing-video.md`, `docs/search-map-experience.md`,
+`docs/search-landing-pages.md`.

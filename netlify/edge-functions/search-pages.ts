@@ -70,10 +70,12 @@ const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
 
 export type SearchPage = {
-  /* הכתיב הקנוני של הפרמטרים. זו הכתובת שנכנסת ל-canonical ול-sitemap. */
+  /* הכתיב הקנוני של הפרמטרים. זו הכתובת שנכנסת ל-canonical ול-sitemap,
+     אלא אם יש landing: אז שתי צורות הקידוד של הסינון מצהירות על הדף ההוא. */
   query: string;
   title: string;
   description: string;
+  landing?: string;
 };
 
 /* ‏16 הצירופים שמקושרים מבלוק "חיפושים פופולריים" בפוטר. הוספה כאן מחייבת
@@ -90,6 +92,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=sale&rooms=3",
     title: "דירות 3 חדרים למכירה בעפולה והעמק",
     description: "כל דירות 3 החדרים שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
+    landing: "/afula/דירות-3-חדרים",
   },
   {
     query: "deal=sale&rooms=4",
@@ -110,6 +113,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=sale&ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F",
     title: "דירות גן למכירה בעפולה והעמק",
     description: "כל דירות הגן שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל, תמונות ופרטי קשר.",
+    landing: "/afula/דירות-גן",
   },
   {
     query: "deal=sale&ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96",
@@ -117,8 +121,9 @@ export const SEARCH_PAGES: SearchPage[] = [
     description: "כל הפנטהאוזים ודירות הגג שמוצעים היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר ותמונות.",
   },
   {
-    query: "deal=sale&ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'",
+    query: "deal=sale&ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92%27",
     title: "בתים פרטיים וקוטג׳ים למכירה בעפולה והעמק",
+    landing: "/afula/בתים-פרטיים",
     description: "כל הבתים הפרטיים והקוטג׳ים שמוצעים היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל ותמונות.",
   },
   {
@@ -189,7 +194,9 @@ function contentKey(params: URLSearchParams, drop?: ReadonlySet<string>): string
   const pairs: string[] = [];
   for (const [key, raw] of params) {
     if (NOT_CONTENT.has(key) || key.startsWith("utm_") || drop?.has(key)) continue;
-    const value = raw.trim();
+    /* גרש, גרשיים עבריים ו-%27 הם אותו סוג נכס. בלי זה
+       בית פרטי/קוטג' ו-קוטג%27 נופלים לשתי כתובות. */
+    const value = raw.trim().replace(/[\u2018\u2019\u05f3']/g, "'");
     if (!value) continue;
     pairs.push(`${key}=${value}`);
   }
@@ -230,6 +237,7 @@ function withCity(page: SearchPage, city: string): SearchPage {
     query: page.query,
     title: localizePlace(page.title, city),
     description: localizePlace(page.description, city),
+    landing: page.landing,
   };
 }
 
@@ -252,7 +260,7 @@ function fillMeta(html: string, selector: string, value: string): string | null 
 }
 
 function inject(html: string, page: SearchPage): string {
-  const canonical = `${SITE}/?${page.query}`;
+  const canonical = page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
   const title = `${page.title} | ${SITE_NAME}`;
   let out = html;
   const add: string[] = [];

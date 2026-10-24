@@ -117,12 +117,17 @@ function check(name: string, ok: boolean, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : "   " + detail}`);
 }
 
+/* דף נחיתה מחליף את כתובת הסינון. בלי שדה landing הכתובת היא הסינון עצמו. */
+function canonOf(page: { query: string; landing?: string }): string {
+  return page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
+}
+
 /* ‏1. כל צירוף שברשימה מקבל את הכתיב שלו עצמו, כותרת משלו, ותגית אחת */
 for (const page of SEARCH_PAGES) {
   const r = await serve("/?" + page.query);
   check(
     `‏${page.title}`,
-    r.canonical === `${SITE}/?${page.query}` &&
+    r.canonical === canonOf(page) &&
       r.canonicalCount === 1 &&
       r.title === `${page.title} | שוק נדל״ן` &&
       r.heading === page.title &&
@@ -150,7 +155,7 @@ for (const [name, url, query] of SAME) {
   const page = SEARCH_PAGES.find((p) => p.query === query)!;
   check(
     name,
-    r.canonical === `${SITE}/?${query}` && r.h1 === page.title && r.h1Count === 1,
+    r.canonical === canonOf(page) && r.h1 === page.title && r.h1Count === 1,
     JSON.stringify(r),
   );
 }
@@ -159,11 +164,27 @@ for (const [name, url, query] of SAME) {
 {
   const hebrew = SEARCH_PAGES.find((p) => p.query.includes("%D7%93"))!;
   const r = await serve("/?deal=sale&ptype=דירת גן");
-  check("עברית לא מקודדת", r.canonical === `${SITE}/?${hebrew.query}`, JSON.stringify(r));
+  check("עברית לא מקודדת", r.canonical === canonOf(hebrew), JSON.stringify(r));
 }
 
-/* ‏עיר על עמוד שכבר ברשימה: הכותרת של העיר, וה-canonical נשאר בלי העיר ובלי utm */
+/* גרש גולמי, %27 וגרש עברי (׳) של בית פרטי/קוטג' הם אותה כתובת */
 {
+  const house = SEARCH_PAGES.find((p) => p.landing === "/afula/בתים-פרטיים")!;
+  const raw = house.query.replace("%27", "'");
+  const geresh = house.query.replace("%27", "%D7%B3");
+  const a = await serve("/?" + raw);
+  const b = await serve("/?" + house.query);
+  const c = await serve("/?" + geresh);
+  check(
+    "קוטג' ו-%27 וגרש עברי לאותו canonical",
+    a.canonical === canonOf(house) && b.canonical === a.canonical && c.canonical === a.canonical,
+    JSON.stringify({ a: a.canonical, b: b.canonical, c: c.canonical }),
+  );
+}
+
+/* ‏עיר על עמוד שכבר ברשימה: הכותרת של העיר, וה-canonical נשאר של העמוד (בלי העיר ובלי utm) */
+{
+  const rooms = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=3")!;
   const city = encodeURIComponent("עפולה");
   const r = await serve(`/?deal=sale&rooms=3&city=${city}&utm_source=google&utm_campaign=3rooms&gclid=abc`);
   const desc = decode((await handler(
@@ -172,7 +193,7 @@ for (const [name, url, query] of SAME) {
   ).then((res) => res.text())).match(/name="description" content="([^"]*)"/)?.[1]);
   check(
     "עיר על עמוד מוכר: כותרת של העיר, canonical של הרשימה",
-    r.canonical === `${SITE}/?deal=sale&rooms=3` &&
+    r.canonical === canonOf(rooms) &&
       r.canonicalCount === 1 &&
       r.h1 === "דירות 3 חדרים למכירה בעפולה" &&
       r.heading === "דירות 3 חדרים למכירה בעפולה" &&
@@ -185,12 +206,13 @@ for (const [name, url, query] of SAME) {
   );
 }
 {
+  const rooms = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=3")!;
   const r = await serve("/?deal=sale&rooms=3&city=" + encodeURIComponent("מגדל העמק"));
   check(
     "עיר אחרת מחליפה את העמק בכותרת",
     r.h1 === "דירות 3 חדרים למכירה במגדל העמק" &&
       r.heading === r.h1 &&
-      r.canonical === `${SITE}/?deal=sale&rooms=3`,
+      r.canonical === canonOf(rooms),
     JSON.stringify(r),
   );
 }
@@ -201,7 +223,7 @@ for (const [name, url, query] of SAME) {
   const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"));
   const upperPage = SEARCH_PAGES.find((p) => p.title === "נכסים למכירה בעפולה עילית")!;
   check("בלי עיר נשאר העמק", plain.h1 === base.title, plain.h1 || "");
-  check("עיר לא תקינה אינה משנה כותרת", bad.h1 === base.title && bad.canonical === `${SITE}/?${base.query}`, bad.h1 || "");
+  check("עיר לא תקינה אינה משנה כותרת", bad.h1 === base.title && bad.canonical === canonOf(base), bad.h1 || "");
   check(
     "עפולה עילית אינה מתקצרת לעיר",
     upper.h1 === upperPage.title,
@@ -264,7 +286,7 @@ for (const [name, url] of UNTOUCHED) {
       !live.citySlot &&
       live.marketButtonInH1 &&
       live.title === `${offices.title} | שוק נדל״ן` &&
-      live.canonical === `${SITE}/?${offices.query}`,
+      live.canonical === canonOf(offices),
     JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title }),
   );
   check("דף הבית האמיתי יוצא כמו שהוא", home.untouched && home.h1 !== offices.title, `h1=${home.h1}`);

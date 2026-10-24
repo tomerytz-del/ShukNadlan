@@ -31,6 +31,10 @@ on:
       - "assets/deals-render.js"
       - "scripts/neighborhood_page_test.ts"
       - "assets/neighborhood-render.js"
+      - "scripts/brokers_page_test.ts"
+      - "assets/brokers-render.js"
+      - "scripts/silo_page_test.ts"
+      - "assets/silo-render.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -50,6 +54,10 @@ on:
       - "assets/deals-render.js"
       - "scripts/neighborhood_page_test.ts"
       - "assets/neighborhood-render.js"
+      - "scripts/brokers_page_test.ts"
+      - "assets/brokers-render.js"
+      - "scripts/silo_page_test.ts"
+      - "assets/silo-render.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -98,3 +106,11 @@ jobs:
       # שהמסד אמר שאינה קיימת או לדף דל (‏docs/neighborhood-pages.md).
       - name: התנהגות דפי השכונות
         run: node --experimental-strip-types scripts/neighborhood_page_test.ts
+
+      - name: התנהגות מתווכים בעפולה
+        run: node --experimental-strip-types scripts/brokers_page_test.ts
+
+      # ‏ו-/afula/{סוג}: מודעות ב-HTML, canonical מהכתובת, 503 בלי noindex,
+      # ו-noindex רק כשהמסד ענה שהרשימה ריקה (docs/search-landing-pages.md).
+      - name: התנהגות דפי הנחיתה
+        run: node --experimental-strip-types scripts/silo_page_test.ts

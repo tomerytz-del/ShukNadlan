@@ -333,6 +333,86 @@ for (const [name, pass] of bodies) {
   console.log(`${pass ? "✓" : "✗"} ${name}`);
 }
 
+/* כותרת המשרד, ספירת הנכסים, ו-301 מ-/agency.html. הספירה נקראת רק
+   כשיש Content-Range; מוק בלי הכותרת הזו משאיר את הדף בלי מספר. */
+const agTitle = (ag.match(/<title>([^<]*)<\/title>/) || [])[1];
+const agMeta = (ag.match(/<meta name="description" content="([^"]*)">/) || [])[1];
+const agLd = ldOf(ag);
+async function agencyCounted(row: Record<string, unknown>, range: string | null): Promise<string> {
+  const page = readFileSync(new URL("../agency.html", import.meta.url), "utf8");
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    if (u.includes("/properties?")) {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (range) headers["content-range"] = range;
+      return new Response("[]", { status: 200, headers });
+    }
+    return new Response(JSON.stringify(row), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const ctx = { next: async () => new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } }) } as never;
+  return (await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), ctx)).text();
+}
+const ADEL = {
+  id: "adel",
+  name: "אדל נכסים - פתרונות נדל״ן",
+  description: "משרד מקומי.",
+  address: "הולנד 12 עפולה",
+};
+const SP = {
+  id: "sp",
+  name: "s.p שיווק ניהול ומכירת נכסים",
+  description: "משרד מקומי.",
+  address: "יצחק נבון 3 עפולה",
+};
+const adelHtml = await agencyCounted(ADEL, "0-0/2");
+const spHtml = await agencyCounted(SP, "0-0/2");
+const oneHtml = await agencyCounted({ ...ADEL, description: "משרד מקומי." }, "0-0/1");
+const noRange = await agencyCounted(ADEL, null);
+const areasFirst = await agencyCounted({
+  id: "avia",
+  name: "אביה גולדברג - תיווך",
+  description: null,
+  address: "עפולה",
+  specialty_areas: ["בית שאן", "גבעת המורה"],
+}, null);
+function metaOf(html: string): string {
+  return (html.match(/<meta name="description" content="([^"]*)">/) || [])[1] || "";
+}
+function titleOf(html: string): string {
+  return (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+}
+let redirected = false;
+globalThis.fetch = (async () => { throw new Error("הפניה אינה קוראת למסד"); }) as typeof fetch;
+const redir = await handler(new Request("https://shuknadlan.co.il/agency.html?slug=%D7%90%D7%93%D7%9C&utm=1"), {
+  next: async () => { redirected = true; return new Response(PAGE, { headers: { "content-type": "text/html" } }); },
+} as never);
+const headRedir = await handler(new Request("https://shuknadlan.co.il/agency.html?slug=a", { method: "HEAD" }), {
+  next: async () => new Response(PAGE, { headers: { "content-type": "text/html" } }),
+} as never);
+const agencyHead: [string, boolean][] = [
+  ["משרד הדר: כותרת עם העיר מהכתובת", agTitle === "משרד הדר - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["בלי Content-Range: התיאור בלי מספר מומצא", !!agMeta && !agMeta.includes("נכסים פעילים") && agMeta.includes("פסקה א")],
+  ["JSON-LD נשאר RealEstateAgent והתיאור שבו הוא על המשרד, לא שורת הספירה",
+    agLd?.["@type"] === "RealEstateAgent" && agLd?.description === "פסקה א פסקה <ב>" && agLd?.name === "משרד הדר"],
+  ["אדל נכסים: כותרת ו-2 נכסים פעילים",
+    titleOf(adelHtml) === "אדל נכסים - פתרונות נדל״ן - משרד תיווך בעפולה | שוק נדל״ן"
+    && metaOf(adelHtml).includes("2 נכסים פעילים")],
+  ["s.p: כותרת עם העיר",
+    titleOf(spHtml) === "s.p שיווק ניהול ומכירת נכסים - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["נכס אחד: נכס פעיל אחד", metaOf(oneHtml).includes("נכס פעיל אחד")],
+  ["בלי Content-Range גם כשיש id: בלי מספר", !metaOf(noRange).includes("נכסים פעילים")],
+  ["הכתובת גוברת על עיר ארוכה יותר באזורי הפעילות",
+    titleOf(areasFirst) === "אביה גולדברג - תיווך - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["/agency.html?slug= מופנה ל-/agency עם אותה שאילתה, בלי לקרוא למסד",
+    redir.status === 301 && redir.headers.get("Location") === "/agency?slug=%D7%90%D7%93%D7%9C&utm=1" && !redirected],
+  ["HEAD ל-/agency.html מופנה גם הוא",
+    headRedir.status === 301 && headRedir.headers.get("Location") === "/agency?slug=a"],
+];
+for (const [name, pass] of agencyHead) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
 /* נכס: 404 כשאין רשומה, 503 בלי noindex כשהמסד נכשל, ושאר הדפים לא זזים. */
 async function responseOf(url: string, status: number, body: unknown): Promise<Response> {
   globalThis.fetch = (async () =>
@@ -435,6 +515,37 @@ propHttp.push(
     && reel.includes('rel="preconnect" href="https://cdn.example"')
     && !reel.includes("<video")],
   ["404 בלי חשיפת המודעה", !propMissHtml.includes("property-ready") && !propMissHtml.includes("bento-video-bg")],
+);
+const ORIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg?token=1";
+const PATH = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg";
+const R800 = `${PATH}?width=800&height=500&resize=cover&quality=60`;
+const R1200 = `${PATH}?width=1200&height=800&resize=cover&quality=60`;
+const amp = (s: string) => s.replace(/&/g, "&amp;");
+const stored = await visible({
+  ...VISIBLE_ROW,
+  images: [ORIG, "https://cdn.example/2.jpg"],
+}, { display_name: "דנה כהן" });
+const storedReel = await visible({
+  ...VISIBLE_ROW,
+  video_url: "https://cdn.example/property-videos/marketing-reel-a.mp4",
+  video_poster_url: ORIG,
+  images: ["https://cdn.example/1.jpg"],
+}, { display_name: "דנה כהן" });
+propHttp.push(
+  ["שער מהאחסון: render 800, srcset 1200, והמקור ב-og", stored.includes(`src="${amp(R800)}"`)
+    && stored.includes(`srcset="${amp(`${R800} 800w, ${R1200} 1200w`)}"`)
+    && stored.includes('sizes="(min-width:640px) 640px, 100vw"')
+    && stored.includes(`data-full="${amp(ORIG)}"`)
+    && stored.includes("this.removeAttribute('srcset')")
+    && stored.includes(`rel="preload" as="image" href="${amp(R800)}"`)
+    && stored.includes(`property="og:image" content="${ORIG}"`)
+    && stored.includes(`"${ORIG}"`)
+    && !stored.includes("<video")],
+  ["שער סרטון מהאחסון: אותה כתובת ב-src וב-preload", storedReel.includes('class="bento-video-bg"')
+    && storedReel.includes(`src="${amp(R800)}"`)
+    && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
+    && storedReel.includes(`data-full="${amp(ORIG)}"`)
+    && !storedReel.includes("<video")],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
