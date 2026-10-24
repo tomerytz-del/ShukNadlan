@@ -197,6 +197,53 @@ ads-leads-webhook  (Edge Function, verify_jwt = false — אימות בחתימ�
 בלבד (`meta-ads/references/real-estate-creative.md`), והקוד דוחה מיקום מחוץ
 לישראל. קהל מקומי מצומצם ממילא ברדיוס; interests רק מקטינים אותו.
 
+## השקה מושהית (חבילת 24.10.2026)
+
+`create_campaign` נשאר כמו שהוא: הקמפיין מושהה, הסט והמודעות פעילים. חבילת
+ההשקה היא פעולה נפרדת, `create_paused_launch` (`ads-admin/launch-package.ts`),
+כי כאן כל קמפיין, כל סט וכל מודעה נוצרים `PAUSED`. תומר מדליק אותם בעצמו
+ב-Ads Manager. ה-cron אינו מורשה לפעולה.
+
+**HOUSING רק על דיור.** קונים, ריטרגטינג, ו-A5 אם יופעל: `special_ad_categories:
+["HOUSING"]`, מדינה IL, גיל 18-65, בלי תחומי עניין, רדיוס 25 ק"מ סביב עפולה
+(15 מייל אצל מטא). גיוס מתווכים ובעלי משרדים אינם מודעת דיור: הצהרת HOUSING
+הייתה מוחקת טירגוט תפקידים ומכריחה גיל 18-65, וחבילת ההשקה מסמנת אותם במפורש
+כקטגוריה ריקה.
+
+**תקציב.** הסכום היומי של מטא בחבילה (בלי A5: ₪110) ועוד ₪30 של קמפיין הקונים
+בגוגל (`24350623422`) חייב להיות עד `max_daily_budget` (₪150). אי אפשר להוריד
+את ה-₪30 מהבקשה. קמפיין ה-Reach `120251311382930267` (₪50) לא נכלל בסכום, לא
+נקרא ולא משתנה. לפני שמפעילים את מודעות הקונים משהים אותו ב-Ads Manager.
+
+**מה נוצר, הכל מושהה:**
+
+| קמפיין | סט | תקציב | יעד |
+| --- | --- | --- | --- |
+| SN \| Brokers \| Leads \| Q4 | B1, חמש מודעות | ₪40 | טופס גיוס מתווכים - עפולה |
+| SN \| Brokers \| Registered \| LPV \| Q4 | B2, מודעה אחת | ₪7 | `/pricing` (קמפיין נפרד: מטא לא מערבבת לידים וצפיות בדף) |
+| SN \| Office owners \| Leads | OO1-OO4 | ₪13 | טופס בעלי משרדי תיווך - צפון |
+| SN \| Buyers \| HOUSING \| LPV \| Q4 | A1-A4 | ₪15+₪10+₪8+₪7 | דפי האתר |
+| SN \| Retargeting \| HOUSING \| LPV | RT1+RT2 בסט אחד | ₪10 | קהל אתר 30 יום מהפיקסל |
+
+A5 (הערכת שווי, ₪10, טופס owner) ו-OO5 (בלי קריאייטיב) לא נוצרים. A5 מצטרף רק
+עם `include_a5` וטופס `kind=owner`.
+
+**איך מפעילים, מהלשונית "השקה מושהית" בפאנל הקמפיינים:**
+
+1. בדיקה. כפתור "בדיקה (בלי יצירה)" שולח `dry_run: true`. לא נכתב כלום במטא.
+   המסך מציג שמות, תקציבים, קהלים, נוסח, וטביעות sha256 של התמונות.
+2. העלאת התמונות לדלי הפרטי, פעם אחת, מהמחשב שמחזיק את הסוד:
+   `node scripts/upload_meta_creatives.mjs` מדפיס, ו-`--confirm` כותב ל-
+   `marketing-creatives`. הסקריפט לא קורא למטא.
+3. יצירה. כפתור "יצירה מושהית במטא" נפתח רק אחרי בדיקה שהצליחה, שואל אישור,
+   ושולח `dry_run: false` יחד עם `confirm: true`. כל אובייקט נכתב `PAUSED`.
+   הרצה שנייה מדלגת על מה שכבר נשמר ב-`ads_launch_objects`.
+
+**מה רואים ב-Ads Manager:** חמישה קמפיינים חדשים, כולם בסטטוס מושהה, וכך גם
+כל סט וכל מודעה. על קמפייני הקונים והריטרגטינג מופיעה קטגוריית Housing.
+קמפייני המתווכים ובעלי המשרדים בלי הקטגוריה. שום קמפיין קיים, כולל ה-Reach,
+לא השתנה. ההפעלה היא מתג ב-Ads Manager, לא בקונסולה.
+
 ## לידים מטפסי מטא (שלב 4)
 
 ליד מטופס מיידי נכנס לפלטפורמה **דרך אותן Edge Functions כמו ליד מהאתר**,
@@ -290,6 +337,7 @@ META_WEBHOOK_VERIFY_TOKEN  מחרוזת אקראית
 | 3ב | מודיעין שווקים ומילות מפתח: `20270310090000_market_intel.sql`, ‏`ads-admin/intel.ts` (‏`intel_registry_refresh`, ‏`intel_places_scan`, ‏`intel_places_live`), ושתי לשוניות בפאנל | ראו "מודיעין שווקים ומילות מפתח". לא נבדק מול data.gov.il ו-Google אמיתיים - מול `fetch` מדומה ומסד מקומי |
 | 4 | לידים מטפסי מטא: `20270312090000_ads_leads_routing.sql` (‏`ads_lead_forms`, מצב ניתוב ב-`ads_leads`, ‏`ads_lead_claim()`, ערוץ `meta_ads` ב-`lead_source_channel()`, ה-cron `ads-leads-sync` בדקה 20 של כל שעה), `_shared/meta-leads.ts`, הפונקציה `ads-leads-webhook`, הפעולות `lead_forms` · `save_lead_form` · `sync_leads` · `retry_lead` · `subscribe_page`, והלשונית "לידים ממטא" | ראו "לידים מטפסי מטא". ליד נכנס **דרך אותן פונקציות כמו ליד מהאתר** ולא בנתיב משלו. ‏`meta.ts` עבר ל-`_shared/meta-graph.ts` כי שתי פונקציות משתמשות בו. ‏`property-inquiry-intake` שומרת מעכשיו `source` (מנורמל ב-`KNOWN_SOURCES`) - קודם התעלמה ממנו. נבדק מול Graph מדומה ומסד מקומי |
 | 5 | יצירת קמפיין מנוסח מאושר: `20270314090000_ads_campaigns.sql` (‏`ads_campaigns`, ו-`max_daily_budget` ‏/ `platform_landing_path` ב-`ads_settings`), ‏`ads-admin/campaign.ts`, הפעולות `create_campaign` ו-`discard_campaign`, וטופס היצירה מתחת לטיוטה מאושרת בלשונית "נוסחי מודעות" | ראו "יצירת קמפיין". נבדק מול Graph מדומה (סדר הקריאות, PAUSED/ACTIVE, כשל באמצע, תמונה בסוג שגוי), מסד מקומי ובדפדפן. לא נבדק מול חשבון מודעות אמיתי |
+| 5ב | השקה מושהית של חבילת 24.10.2026: `20270808090000_ads_paused_launch.sql` (`ads_launch_objects`, דלי `marketing-creatives`), `ads-admin/launch-package.ts`, הפעולה `create_paused_launch`, לשונית "השקה מושהית", ו-`scripts/upload_meta_creatives.mjs` | ראו "השקה מושהית". ברירת המחדל dry-run. כתיבה רק עם `confirm`, וכל העץ PAUSED. HOUSING רק על דיור. לא נבדק מול חשבון מודעות אמיתי, ובכוונה: אין קריאה ל-Graph מהבדיקה |
 | 6 | ‏`ops_agent/probes/ads.py` - שישה ממצאים בפאנל "בריאות המערכת": `ads_token_invalid` (קריטי), `ads_sync_silent` ו-`ads_leads_failed` (חמור), `ads_campaign_no_leads` ו-`ads_leads_unmapped` (בינוני), `ads_campaign_partial` (נמוך). הספים ב-`ops_agent/config.py`, והבדיקה ב-`scripts/ops_ads_test.py` | **מהמסד בלבד:** הטוקן יושב בסודות של Supabase ולא של GitHub, וכל מה שצריך כבר ביומן. **כל ממצא יכול להיסגר** (הלקח של `heavy_query`): הטוקן נבדק על הקריאה האחרונה למטא ולא על "היה כשל", הסנכרון מהמוצלח האחרון, והקמפיין בחלון נע של חמישה ימים מלאים בלי היום ואתמול (מטא מעדכנת לידים באיחור). **"בלי לידים" רק על קמפיין שאמור להביא לידים** - נוצר מהקונסולה עם טופס או וואטסאפ, או הביא לידים בחודש שלפני; קמפיין תנועה לאתר היה ממצא על יחידה אחרת. נבדק על Postgres מקומי עם המיגרציות האמיתיות |
 | 7א | Google Ads, חיבור וקריאה בלבד: `_shared/google-ads.ts` (‏access token מ-refresh token ושאילתת GAQL ב-`searchStream`, בלי ספרייה - הרשמית היא gRPC), הפעולות `google_status` ו-`google_campaigns` ב-`ads-admin`, והלשונית "גוגל" (סטטוס, אריחי הוצאה/קליקים/המרות, טבלת קמפיינים ל-7/30/90 יום) | **ב-`ads-admin` ולא בפונקציה נפרדת:** אותו אימות מנהל/ת, אותו יומן ואותו CORS. ה-cron אינו מורשה להן. הגרסה `v25` (‏`GOOGLE_ADS_API_VERSION` גובר - גוגל סוגרת גרסה כשנה אחרי שיצאה). שגיאות שמתורגמות לפעולה: `invalid_grant` (מסך ההסכמה ב-Testing מבטל את הטוקן אחרי 7 ימים), `DEVELOPER_TOKEN_NOT_APPROVED`, `USER_PERMISSION_DENIED`, ו"Cloud project is only approved for use with test accounts". נבדק מול החשבון האמיתי ב-9.10.2026 (Explorer לטוקן ולפרויקט) |
 | 7ב | Keyword Planner לפי כיוון פרסום: `keywordIdeas()` ב-`_shared/google-ads.ts` (‏`:generateKeywordIdeas`, עברית, ישראל), הכיוונים ב-`ads-admin/google-directions.ts`, הפעולות `google_directions` ו-`google_keyword_ideas`, ובלשונית "גוגל" בחירת כיוון ושוק, טבלת נפח/תחרות/מחיר לקליק, רשימה בהתאמת ביטוי להעתקה ומילות שלילה | ראו "כיווני הפרסום בגוגל" למטה. שליפה בלחיצה ולא בפתיחת הלשונית. **Keyword Planner דורש Basic** - ב-Explorer גוגל עונה `DEVELOPER_TOKEN_NOT_APPROVED` (‏"not allowed for use with explorer access", נבדק 14.10.2026), ולכן כשהשליפה חסומה הפאנל מציע קמפיין ממילות הזרע של הכיוון, בלי נפחים |

@@ -8159,6 +8159,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" role="tab" id="adsTabIntel" aria-selected="false" aria-controls="adsPaneIntel">מודיעין שווקים</button>
               <button type="button" role="tab" id="adsTabKw" aria-selected="false" aria-controls="adsPaneKw">מילות מפתח</button>
               <button type="button" role="tab" id="adsTabGoogle" aria-selected="false" aria-controls="adsPaneGoogle">גוגל</button>
+              <button type="button" role="tab" id="adsTabLaunch" aria-selected="false" aria-controls="adsPaneLaunch">השקה מושהית</button>
             </div>
 
             <div class="ads-pane" id="adsPanePerf" role="tabpanel" aria-labelledby="adsTabPerf">
@@ -8323,6 +8324,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
                 <div id="gkwReport"></div>
               </div>
+            </div>
+
+            <div class="ads-pane" id="adsPaneLaunch" role="tabpanel" aria-labelledby="adsTabLaunch" hidden>
+              <!-- חבילת ההשקה 24.10.2026. dry-run כברירת מחדל, ויצירה רק
+                   מושהית (create_paused_launch). docs/marketing-console.md -->
+              <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא. היצירה האמיתית דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב).</p>
+              <p class="adm-note">לפני יצירה אמיתית מעלים את התמונות לדלי: <span dir="ltr">node scripts/upload_meta_creatives.mjs --confirm</span></p>
+              <div class="adm-toolbar">
+                <label class="adm-note"><input type="checkbox" id="adsLaunchA5"> כלול את A5 אם יש טופס owner</label>
+                <label class="adm-note">קהל 55 המתווכים (מזהה מטא, אופציונלי)
+                  <input type="text" id="adsLaunchB2Audience" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="1234567890">
+                </label>
+              </div>
+              <div class="adm-toolbar">
+                <button type="button" class="adm-refresh" id="adsLaunchDry">בדיקה (בלי יצירה)</button>
+                <button type="button" class="adm-refresh" id="adsLaunchGo" disabled>יצירה מושהית במטא</button>
+              </div>
+              <div class="ads-state" id="adsLaunchOut" hidden></div>
             </div>
           </div>
         </div>
