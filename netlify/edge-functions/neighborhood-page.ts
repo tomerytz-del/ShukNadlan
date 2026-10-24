@@ -42,6 +42,7 @@ type Render = {
   description: (d: Hood) => string;
   jsonLd: (d: Hood, site: string) => string;
   path: (city: string, slug: string) => string;
+  lcpHref?: (d: Hood) => string;
 };
 
 function hood(): Render {
@@ -122,6 +123,8 @@ export function inject(html: string, d: Hood): string {
   const full = `${t} | שוק נדל״ן`;
   const desc = H.description(d);
   const h1 = `שכונת ${d.name}, ${d.city}`;
+  const lcp = H.lcpHref ? H.lcpHref(d) : "";
+  const preload = lcp ? `<link rel="preload" as="image" href="${attr(lcp)}" fetchpriority="high">\n` : "";
   return html
     .replace(box, () => `<div id="dealsBody" data-ssr="1">\n${H.render(d)}\n<!--/deals-->`)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
@@ -130,7 +133,7 @@ export function inject(html: string, d: Hood): string {
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
     .replace(/(<h1 id="dealsH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(h1)}${b}`)
     .replace(/(<p id="dealsLead">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(desc)}${b}`)
-    .replace(/<\/head>/i, () => `<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
