@@ -1,6 +1,6 @@
 ---
 name: seo-edge
-description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, וכללי LCP לווידאו. Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, a detail page's initial HTML, or the property hero video.
+description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
 ---
 
 # רינדור ל-SEO ב-edge
@@ -79,11 +79,37 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 מושתק; לחיצה שאחריה משאירה את מתג ההשתקה. `prefers-reduced-motion`,
 ‏Save-Data ו-2G נשארים בלי קובץ (`heroVideoSource` מחזיר `null`).
 
+## 5. CLS ו-LCP של תמונה
+
+ארבעה כשלים שקטים. הדף נראה תקין, והמספר מתגלה רק ב-Lighthouse.
+
+### מקום שמור לפני שהתוכן נכנס
+
+`#propertyContent{display:none}` עד שה-JS מצייר שם את `footer.site` במסך הראשון. כשהגוף נפתח הפוטר קופץ (נמדד סביב 0.9). `body.has-sticky-bar` שנוסף אחר כך מוסיף עוד 78px. בדף נכס **שנמצא**, `og-tags` מוסיף `property-ready` ו-`has-sticky-bar` כבר ב-HTML הראשון. 404 ו-503 לא מקבלים את המחלקות, כדי לא להציג שלד ריק.
+
+קבוצות הפוטר הן `<details open>`. `site-footer.js` סוגר אותן אחרי הטעינה, וזה בעצמו הזזה. במובייל הן מוסתרות מהציור הראשון (`html.fold-cols` עד 559px, `html.fold-seo` עד 759px). לחיצה במסך הצר פותחת עם `is-open` בלי להוריד את `open`, כדי שבלי JS הכל נשאר פרוש.
+
+### תמונת ה-LCP ב-HTML הראשון, לא אחרי ה-JS
+
+תמונה שנוצרת ב-JS משלמת את השהיית הטעינה (נמדד כ-80% מ-LCP של 12 שניות). בדף נכס התמונה נכתבת ל-`#bentoGrid` עם `data-lcp` ו-`fetchpriority="high"`, ו-`<link rel="preload" as="image">` **לאותה כתובת**, בלי `crossorigin`. `preconnect` ל-Supabase פעמיים: בלי `crossorigin` לתמונה, ועם `crossorigin` ל-REST. אין `<video>` ואין `src` של סרטון ב-HTML הזה.
+
+`data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
+
+### כרטיס ראשון בדף שכונה
+
+התמונה הראשונה מהאחסון שלנו (`IMG_HOST`) היא `fetchpriority="high"` ובלי `loading="lazy"`. השאר `loading="lazy"`. הקובץ המלא (מאות KB) מוחלף ב-`render/image`: רוחב 400 ו-800, גובה 250 ו-500, `resize=cover`, איכות 60, עם `srcset`. `onerror` מוריד את ה-`srcset` וחוזר לכתובת המקורית. `preload` מצביע על כתובת ה-800, אותה כתובת כמו `src`. תמונה שאינה מהאחסון שלנו לא נכנסת ל-`src`.
+
+### מפת דף הבית
+
+`heroMap` נוצר בטעינה. עשרות פונקציות בודקות `if (heroMap)`, ואתחול שנדחה משנה את הסדר שלהן. מה שנדחה הוא `MapLibre`: `MapTiles.addTo` מוריד כ-280KB גם כש-`#hero-map` הוא `display:none`. `armMapTiles` נקרא בפתיחת המפה, וגם מ-`IntersectionObserver` (מרווח 240px) אם המפה גלויה.
+
+`neighborhoods` בטעינה בלי `boundary` (המצולע הוא רוב המשקל). העמודות שנשארות: `id,name,city,city_id,lat,lng,radius_m,is_planned`. בלי `is_planned` אזור בתכנון בלי נכסים חוזר לרשימה. `boundary` נטען ב-`drawHoodShapes` רק לשכונות שנבחרו; כשל מסמן `null` ומצייר עיגול.
+
+סקריפטים שחסמו את הציור (Leaflet, supabase, כרטיסים) יושבים בסוף ה-`body`, עדיין בלי `defer`, מיד לפני `home.js`. `defer` היה מריץ את `home.js` לפניהם, או את גבריאלה לפני `home.js`.
+
 ## מה לא לערבב לכאן
 
-מדיניות "שכונה דקה ב-sitemap", דף עיר `/n/{עיר}`, HTML של רשימות
-שנבנה רק בדפדפן, ו-LCP של דף הבית - החלטות נפרדות. שינוי שלהן אינו
-תיקון של הכללים למעלה.
+מדיניות "שכונה דקה ב-sitemap", דף עיר `/n/{עיר}`, ו-HTML של רשימות שנבנה רק בדפדפן - החלטות נפרדות. שינוי שלהן אינו תיקון של הכללים למעלה. כללי ה-LCP של דף הבית יושבים בסעיף 5, לא כתוספת אגבית לתיקון סטטוס.
 
 מיגרציה שמקצרת שאילתה של דף edge (טבלה מוכנה מראש) נכנסת רק כקובץ
 ב-`supabase/migrations/`, עם version גדול מהאחרון ב-`main`, ואינה
@@ -102,4 +128,4 @@ node --experimental-strip-types scripts/property_hero_video_test.ts
 
 התיעוד: `docs/neighborhood-pages.md`, `docs/settlement-deals.md`,
 `docs/city-prices.md`, `docs/social-preview.md`, `docs/sitemap.md`,
-`docs/property-marketing-video.md`.
+`docs/property-marketing-video.md`, `docs/search-map-experience.md`.
