@@ -4591,7 +4591,7 @@ async function loadAdminAreaMisses(){
 }
 
 /* ---------- מה לומדים מהחיפושים ----------
-   ‏search_learning_report (‏20270813090000_search_learning.sql): ביקוש שאין לו
+   ‏search_learning_report (‏20270814090000_search_learning.sql): ביקוש שאין לו
    מלאי אצל גבריאלה, מה קרה אחרי התוצאות (דומים, שמירה, מתווך/ת, ניסיון
    נוסף), ובאתר - חיפושים שהובילו לצפייה בנכס. ‏docs/search-core.md. */
 const LEARN_OUTCOMES = [
@@ -4624,7 +4624,7 @@ async function loadAdminSearchLearning(){
 
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
-      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270813090000_search_learning.sql.'
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270814090000_search_learning.sql.'
       : 'שגיאה בטעינת הדוח: ' + heErr(error);
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);
@@ -4698,7 +4698,7 @@ async function loadAdminWordMisses(){
 
   if (error){
     const msg = (error.code === '42883' || error.code === 'PGRST202')
-      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270813090000_search_learning.sql.'
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270814090000_search_learning.sql.'
       : 'שגיאה בטעינת המילים שלא זוהו: ' + heErr(error);
     block.appendChild(admEl('div', 'empty-state', msg));
     host.appendChild(block);
