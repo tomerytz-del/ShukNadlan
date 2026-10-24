@@ -93,6 +93,8 @@ DETAIL = {
     "article",
     # ‏/n/{עיר}/{שכונה} - ה-canonical מהכתובת, ב-neighborhood-page.ts
     "neighborhood",
+    # ‏/afula/מתווכים - ה-canonical מהכתובת, ב-brokers-page.ts
+    "brokers",
     # ‏/afula/בתים-פרטיים וחבריו - ה-canonical מהכתובת, ב-silo-page.ts
     "silo",
 }
@@ -101,6 +103,7 @@ DETAIL = {
 # ה-canonical מהכתובת עצמה (‏docs/neighborhood-pages.md).
 OWN_EDGE = {
     "neighborhood": "neighborhood-page.ts",
+    "brokers": "brokers-page.ts",
     "silo": "silo-page.ts",
 }
 
@@ -263,9 +266,9 @@ def edge_registered(page: str) -> list[str]:
     missing: list[str] = []
 
     sitemap_ts = (ROOT / "netlify/edge-functions/sitemap.ts").read_text(encoding="utf-8")
-    # ‏silo: שלוש כתובות קבועות ב-sitemap.xml (check_silo). אין להן שורות
-    # במסד, ומקור ב-sitemap.ts היה משכפל אותן בכל בניית sitemap.
-    if page != "silo" and not re.search(r'page:\s*"%s"' % re.escape(page), sitemap_ts):
+    # ‏brokers ו-silo: כתובות קבועות ב-sitemap.xml. אין להן שורות במסד,
+    # ומקור ב-sitemap.ts היה משכפל את דפי הנחיתה בכל בניית sitemap.
+    if page not in ("brokers", "silo") and not re.search(r'page:\s*"%s"' % re.escape(page), sitemap_ts):
         missing.append(
             "אינו ב-SOURCES של netlify/edge-functions/sitemap.ts — הרשומות\n"
             "            שלו לא ייכנסו ל-sitemap, וגוגל לא תדע שהן קיימות"
@@ -363,6 +366,15 @@ def check_page(path: Path, rules: list[str], locs: list[str]) -> list[str]:
     return problems
 
 
+def broker_urls() -> set[str]:
+    """‏/afula/מתווכים - brokers.html מגיש אותה, הנתיב ב-brokers-render.js."""
+    path = ROOT / "assets" / "brokers-render.js"
+    if not path.exists():
+        return set()
+    found = re.findall(r'var PATH = "(/afula/[^"]+)"', path.read_text(encoding="utf-8"))
+    return {SITE + p for p in found}
+
+
 def silo_urls() -> set[str]:
     """‏כתובות דפי הנחיתה (/afula/בתים-פרטיים). אין להן קובץ משלהן:
     silo.html מגיש אותן, והנתיב כתוב ב-assets/silo-render.js."""
@@ -394,7 +406,7 @@ def check_silo(locs: list[str]) -> list[str]:
 
 def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
     """‏כתובת ב-sitemap שאין לה דף סטטי — שארית מדף שנמחק או שגיאת הקלדה."""
-    known = {page_url(n) for n in pages - DETAIL - PRIVATE} | market_urls() | silo_urls()
+    known = {page_url(n) for n in pages - DETAIL - PRIVATE} | market_urls() | broker_urls() | silo_urls()
     return [
         "<loc>%s</loc> — אין דף סטטי כזה בשורש" % loc
         for loc in locs
@@ -519,6 +531,12 @@ def main(argv: list[str]) -> int:
         for item in stale:
             print("      • %s" % item)
 
+    brokers = [url for url in sorted(broker_urls()) if url not in set(locs)]
+    if brokers:
+        print("✗ מתווכים בעפולה")
+        for item in brokers:
+            print("      • %s אינו ב-sitemap.xml" % item)
+
     silos = check_silo(locs)
     if silos:
         print("✗ דפי נחיתה")
@@ -539,7 +557,7 @@ def main(argv: list[str]) -> int:
         if len(links) > 20:
             print("      • ... ועוד %d" % (len(links) - 20))
 
-    if failed or stale or links or searches or silos:
+    if failed or stale or links or searches or brokers or silos:
         print(
             "\nכל אחד מהממצאים האלה נראה בדפדפן כמו דף תקין לגמרי — הוא פשוט\n"
             "אינו מופיע בגוגל, ואת זה מגלים מהודעה של Search Console חודש\n"

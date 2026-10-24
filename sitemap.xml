@@ -221,6 +221,11 @@
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/מתווכים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
 
   <!-- ‏דפי נחיתה עם המודעות עצמן (silo-page.ts). כתובות הסינון למעלה
        מצהירות עליהן ב-canonical. בלי lastmod, מאותה סיבה. -->
