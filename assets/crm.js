@@ -2416,6 +2416,8 @@ function handleGotoParam(){
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
   if (raw === 'accAgenda' && UUID_PARAM_RE.test(agendaId || '')) agendaFocus(agendaId);
   if (raw === 'accPlanning') runPlanningFromParam(planQ);
+  // ‏lead_prefs_default (notification-push, itemPath): חלק העדפות הלידים מקופל
+  if (raw === 'accPrefs' && focus === 'lead_prefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
 }
 
 /* ‏?goto=accPlanning&plan_city=…&plan_street=…&plan_num=… (או plan_gush +
@@ -2583,6 +2585,8 @@ function openNotificationTarget(n){
   };
   if (clientId && n.type === 'client_match')
     return go('accClients', () => openClientFromParam(clientId, 'matches'));
+  if (n.type === 'lead_prefs_default' && typeof openLeadPrefs === 'function'
+      && navAccVisible(accAliasTarget('accPrefs'))){ openLeadPrefs(); return true; }
   if (n.related_property_id && n.type !== 'client_match' && n.type !== 'deal_closed'
       && myPropertyRows.some(p => p.id === n.related_property_id))
     return go('accProperties', () => openPropertyFromParam(n.related_property_id));
@@ -25113,6 +25117,12 @@ const NOTIF_TYPES = [
      של כל התראה (docs/admin-command-center.md) */
   /* תזכורת לסוכני שוק שעוד לא נפתח: "עוד N נכסים ודף האזור נפתח". מנהל/ת
      הפלטפורמה שולח/ת אותה מ"שווקים וצמיחה", פעם בשבוע לשוק (admin_market_nudge) */
+  /* העדפות לידים שהמערכת הגדירה או השלימה לסוכן/ת שעוסק/ת במסחרי
+     (20270807090000). הפעמון פותח את חלק העדפות הלידים, שמקופל כברירת מחדל -
+     ראו openNotificationTarget ו-handleGotoParam (‏focus=lead_prefs). */
+  { type:'lead_prefs_default', tone:'', goto:'accPrefs', focus:'#setLeadPrefs',
+    title:'העדפות לידים שהוגדרו לך',
+    sub:'כשהמערכת מפעילה או משלימה לך העדפות לידים, למשל "מסחרי" כשהמשרד עוסק בנכסים מסחריים.' },
   { type:'market_nudge', tone:'', goto:'accProperties', focus:'#propertiesList',
     title:'פתיחת האזור שלך באתר',
     sub:'כשדף האזור קרוב לפתיחה לגולשים וחסרים בו עוד נכסים פעילים.' },
