@@ -17,8 +17,9 @@
    ## מה הפונקציה עושה
 
    רצה על ה-edge לפני שהתשובה יוצאת, מושכת את הנכס/המשרד/הסוכן מ-Supabase,
-   ומזריקה ל-‎<head>‎ תגיות ‎og:‎, ‎twitter:‎ ו-‎canonical‎. ה-HTML עצמו לא
-   משתנה בשום דרך אחרת, וה-JS שבדף ממשיך לעבוד בדיוק כמו קודם.
+   ומזריקה ל-‎<head>‎ תגיות ‎og:‎, ‎twitter:‎ ו-‎canonical‎. בדף נכס היא גם
+   חושפת את גוף המודעה ומכניסה את תמונת השער, כדי שהפוטר לא יקפוץ
+   וה-LCP לא יחכה ל-JS. שאר הדפים לא משתנים מעבר לתגיות.
 
    ## שני סוגי דפים, ולמה ההזרקה שונה בהם
 
@@ -225,6 +226,8 @@ type Meta = {
   /* ‏אלמנט ריק שמקבל מבנה ולא רק טקסט (‏גוף הכתבה, "על המשרד"). ה-HTML
      נבנה כאן בבריחה מלאה, וה-JS בונה אחריו את אותו מבנה ב-textContent. */
   inner?: { id: string; html: string }[];
+  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער. */
+  paint?: { count: number; html: string; lcp: string };
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -450,6 +453,47 @@ function highlightsHtml(p: Record<string, unknown>): string {
   return labels.map((label) => `<div class="highlight"><span>${esc(label)}</span></div>`).join("");
 }
 
+/* קובץ מדיה, לא יוטיוב. אותו סיומת ש-videoEmbed ב-assets/property.js מכיר.
+   בלי src על <video>: הניגון נשאר בלחיצה. */
+function isFileVideo(raw: unknown): boolean {
+  const s = String(raw || "").trim();
+  if (!/^https?:\/\//i.test(s)) return false;
+  try {
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(new URL(s).pathname);
+  } catch {
+    return false;
+  }
+}
+
+/* אותה ספירה ש-renderGallery כותב ל-data-count, כדי שהגובה לא יזוז
+   כשה-JS מחליף את התאים. תמונת השער היא data-lcp. */
+function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string } {
+  const images = (Array.isArray(p.images) ? p.images : []).map(absolute).filter(Boolean);
+  const video = isFileVideo(p.video_url);
+  const poster = (video && absolute(p.video_poster_url)) || images[0] || "";
+  if (!poster) return { count: 1, html: "", lcp: "" };
+  const thumb = (src: string, last: boolean) =>
+    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
+  if (video) {
+    const thumbEnd = Math.max(0, Math.min(images.length, 2));
+    const count = 1 + thumbEnd;
+    const main =
+      `<div class="bento-cell bento-main bento-video">` +
+      `<img class="bento-video-bg" data-lcp="1" src="${esc(poster)}" alt="" fetchpriority="high" style="filter:none;transform:none" aria-hidden="true">` +
+      `</div>`;
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
+    return { count, html: main + thumbs, lcp: poster };
+  }
+  const thumbEnd = Math.max(1, Math.min(images.length, 3));
+  const main =
+    `<div class="bento-cell bento-main">` +
+    `<img data-lcp="1" src="${esc(images[0])}" alt="" fetchpriority="high">` +
+    `</div>`;
+  const extra = images.slice(1, thumbEnd);
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
+  return { count: thumbEnd, html: main + thumbs, lcp: images[0] };
+}
+
 /* ‏המחיר, המאפיינים, המשרד והסוכן/ת - אותם id ש-renderProperty כותב.
    בלי אייקונים: ה-JS דורס את ה-innerHTML, והסורק צריך את הטקסט. */
 function propertyVisible(p: Record<string, unknown>, agentDisplay: string): Pick<Meta, "fills" | "inner" | "reveal"> {
@@ -492,7 +536,8 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
-    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)";
+    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)," +
+    "video_url,video_poster_url";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
@@ -545,6 +590,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     ],
     reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
     inner: visible.inner,
+    paint: heroPaint(p),
   };
 }
 
@@ -925,6 +971,42 @@ function unhide(html: string, id: string): string {
   return html.replace(re, (tag) => tag.replace(/\s+hidden(?=[\s>])/i, ""));
 }
 
+function addBodyClass(html: string, cls: string): string {
+  return html.replace(/<body(\s[^>]*)?>/i, (tag) => {
+    if (/\bclass="/i.test(tag)) return tag.replace(/\bclass="/i, `class="${cls} `);
+    return tag.replace(/<body/i, `<body class="${cls}"`);
+  });
+}
+
+/* תמונת השער נכנסת לרשת הריקה. data-count זהה לזה שה-JS יכתוב. */
+function fillHero(html: string, count: number, inner: string): string {
+  if (!inner) return html;
+  const re = /<div\b[^>]*\bid="bentoGrid"[^>]*>\s*<\/div>/i;
+  return html.replace(re, (tag) => {
+    const open = tag.replace(/\s*<\/div>\s*$/i, "").replace(/>\s*$/, "");
+    const withCount = /\bdata-count=/.test(open)
+      ? open.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`)
+      : `${open} data-count="${count}"`;
+    return `${withCount}>${inner}</div>`;
+  });
+}
+
+function heroHead(lcp: string): string[] {
+  const tags = [
+    `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
+    `<link rel="preconnect" href="${SUPABASE_URL}">`,
+  ];
+  if (!lcp) return tags;
+  try {
+    const origin = new URL(lcp).origin;
+    if (origin && origin !== SUPABASE_URL && /^https?:$/i.test(new URL(lcp).protocol)) {
+      tags.push(`<link rel="preconnect" href="${esc(origin)}">`);
+    }
+  } catch { /* כתובת יחסית כבר על הדומיין של האתר */ }
+  tags.push(`<link rel="preload" as="image" href="${esc(lcp)}" fetchpriority="high">`);
+  return tags;
+}
+
 /* התגיות שממולאות לפי id כשהן כבר בדף, ונכתבות מחדש כשאינן. */
 const BY_ID: [string, (m: Meta) => string, string][] = [
   ["metaDescription", (m) => m.description, `<meta name="description" content="%s">`],
@@ -972,6 +1054,11 @@ function inject(html: string, m: Meta): string {
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
   for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
+  if (m.paint) {
+    out = addBodyClass(out, "property-ready has-sticky-bar");
+    if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
+    add.push(...heroHead(m.paint.lcp));
+  }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח
     const json = JSON.stringify(m.jsonLd).replace(/</g, "\\u003c");
