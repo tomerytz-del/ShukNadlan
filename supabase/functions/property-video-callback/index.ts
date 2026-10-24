@@ -18,6 +18,7 @@ import {
   tokensMatch,
   failVideoJob,
 } from "../_shared/property-video.ts";
+import { fallbackToFal, handoffToSite } from "../_shared/reel-fallback.ts";
 
 // ============================================================================
 // מכונת המצבים של הסרטון השיווקי — מה שקורה אחרי ש-property-video-create
@@ -48,6 +49,14 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // בקשה שלא זזה יותר מזה נחשבת אבודה. ‏fal מסיים/ת קליף של 5 שניות תוך
 // דקות בודדות, ולכן 30 דקות הן כבר בבירור תקלה ולא תור עמוס.
 const STALE_MINUTES = 30;
+
+// תבנית D. ‏Grok דוגם את התור כל 2-3 דקות, ולכן בקשה שממתינה רבע שעה
+// היא מפיק שאינו שם. דופק שלא הגיע 20 דקות הוא רינדור שמת באמצע (רילס
+// לוקח דקות בודדות). ‏REEL_MAX_MINUTES: תקרה כוללת לבקשה שלא יצאה
+// מהתבנית - מעבר לה היא נסגרת ומזוכה, כמו ב-fal.
+const REEL_UNCLAIMED_MINUTES = 15;
+const REEL_STALE_HEARTBEAT_MINUTES = 20;
+const REEL_MAX_MINUTES = 120;
 
 function callbackBase(): string {
   const explicit = Deno.env.get("PROPERTY_VIDEO_CALLBACK_URL");
@@ -180,6 +189,59 @@ async function finalize(supabase: any, job: any, videoUrl: string): Promise<stri
 // נשארת פתוחה לנצח וגם חוסמת את הנכס מהפקה חדשה (יש אינדקס ייחודי על
 // בקשה פתוחה אחת לנכס).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// הגיבוי של תבנית D
+//
+// שלושה מעברים, כל אחד update מותנה (‏_shared/reel-fallback.ts):
+//   • ממתינה 15 דקות בלי שנלקחה         → הגיבוי של האתר (‏unclaimed_15m)
+//   • אצל Grok בלי דופק 20 דקות         → הגיבוי של האתר (‏stale_heartbeat_20m)
+//   • אצל הגיבוי בלי דופק 20 דקות       → fal (‏site_render_stale)
+// ומעל לכולם תקרה של שעתיים מהפתיחה, שסוגרת ומזכה.
+// ---------------------------------------------------------------------------
+async function reconcileReels(supabase: any, stats: Record<string, number>): Promise<void> {
+  const ago = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString();
+  const { data: jobs } = await supabase
+    .from("property_video_jobs")
+    .select("id, status, claimed_by, heartbeat_at, created_at")
+    .in("status", ["pending_reel", "rendering"])
+    .order("created_at")
+    .limit(20);
+
+  for (const job of jobs ?? []) {
+    const created = new Date(job.created_at).getTime();
+    const beat = job.heartbeat_at ? new Date(job.heartbeat_at).getTime() : created;
+
+    if (created < new Date(ago(REEL_MAX_MINUTES)).getTime()) {
+      stats.reel_checked++;
+      const closed = await failVideoJob(supabase, job.id, `reel_timed_out (${job.claimed_by ?? job.status})`);
+      closed.ok ? stats.failed++ : stats.unrefunded++;
+      continue;
+    }
+
+    if (job.status === "pending_reel") {
+      if (created >= new Date(ago(REEL_UNCLAIMED_MINUTES)).getTime()) continue;
+      stats.reel_checked++;
+      const r = await handoffToSite(supabase, job.id, "unclaimed_15m", null);
+      if (r !== "lost_race") stats.reel_handoff++;
+      continue;
+    }
+
+    if (beat >= new Date(ago(REEL_STALE_HEARTBEAT_MINUTES)).getTime()) continue;
+    stats.reel_checked++;
+    if (job.claimed_by === "grok_reel") {
+      const r = await handoffToSite(supabase, job.id, "stale_heartbeat_20m", "grok_reel");
+      if (r !== "lost_race") stats.reel_handoff++;
+    } else if (job.claimed_by === "site_reel") {
+      const r = await fallbackToFal(supabase, job.id, "site_render_stale");
+      if (r.error !== "lost_race") stats.reel_to_fal++;
+    } else {
+      // מחזיק שאינו מוכר - אין מי שיסיים אותה. סגירה וזיכוי, לא ניחוש.
+      const closed = await failVideoJob(supabase, job.id, `reel_unknown_owner: ${job.claimed_by}`);
+      closed.ok ? stats.failed++ : stats.unrefunded++;
+    }
+  }
+}
+
 async function reconcile(supabase: any): Promise<Record<string, number>> {
   const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
   const { data: jobs } = await supabase
@@ -191,7 +253,8 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
 
   // ‏unrefunded: בקשות שהסגירה שלהן (והזיכוי) לא אושרה. הן נשארות פתוחות
   // ונבדקות שוב בסבב הבא, והמספר בתשובה הוא מה שהופך את זה לגלוי.
-  const stats = { checked: 0, advanced: 0, failed: 0, unrefunded: 0 };
+  const stats = { checked: 0, advanced: 0, failed: 0, unrefunded: 0, reel_checked: 0, reel_handoff: 0, reel_to_fal: 0 };
+  await reconcileReels(supabase, stats);
 
   for (const job of jobs ?? []) {
     stats.checked++;

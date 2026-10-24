@@ -15868,32 +15868,28 @@ async function promoteProperty(property, btn, agentId){
    התמונות של הנכס נשלחות ל-fal.ai, כל אחת הופכת לקליפ קצר בתנועת מצלמה,
    והרצף נשמר על הנכס ב-‎video_url‎ - אותו שקע שאליו מעלים סרטון מהמכשיר.
 
-   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, fal מחזיר/ה
-   תשובה ל-‎property-video-callback‎, והסרטון נשמר גם אם ה-CRM נסגר באמצע.
+   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, מפיק הרילס
+   (‏Grok, הגיבוי, או fal כמוצא אחרון) מחזיר קובץ, והסרטון נשמר גם אם ה-CRM
+   נסגר באמצע. ‏docs/property-marketing-video.md, "תבנית D".
    ה-polling כאן הוא רק כדי להראות התקדמות למי שנשאר/ת לחכות.               */
 const VIDEO_POLL_MS = 5000;
-const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
+// ‏30 דקות: רבע שעה שבה הבקשה עשויה להמתין ל-Grok, ועוד הפקה בגיבוי.
+const VIDEO_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
   const price = isMid ? priceOf('property_video_price_mid', 25) : 0;
-  const maxClips = priceOf('property_video_clip_count', 5);
-  const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
 
-  // התקרה היא תקרה, לא יעד: הסרטון לוקח סצנה לכל תמונה עד המקסימום, ולכן
-  // המספר שמוצג הוא מה שהנכס הזה באמת יקבל ולא הבטחה גנרית.
-  const nImages = Array.isArray(property.images) ? property.images.filter(Boolean).length : 0;
-  const scenes  = Math.max(1, Math.min(nImages, maxClips));
-  const total   = Math.round(scenes * secs * 10) / 10;
-
+  // תבנית D (24.10.2026): רילס אנכי של כ-18 שניות עם קריינות, מוזיקה, פס
+  // סוכן/ת וכרטיס סיום - אותו אורך לכל נכס, ולכן אין כאן חישוב סצנות.
   const lines = [
-    `🎬 סרטון שיווקי · ${property.title || 'הנכס שלך'}`,
-    `${scenes} סצנות של ${secs} שניות - סרטון של כ-${total} שניות, בתנועת מצלמה כמו מרחפן.`,
-    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון בינתיים.',
+    `🎬 רילס שיווקי · ${property.title || 'הנכס שלך'}`,
+    'רילס אנכי של כ-18 שניות עם קריינות, מהתמונות והנתונים של הנכס, עם הפרטים שלך בסוף.',
+    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון. תישלח התראה כשהרילס יהיה מוכן.',
   ];
   // ההחלפה נאמרת במפורש ובשורה נפרדת: זה החלק שאי אפשר לבטל.
-  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הסרטון החדש יחליף אותו, והישן יימחק.');
+  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הרילס החדש יחליף אותו בדף הנכס.');
 
   const approved = await confirmPurchase({
     title: hasVideo ? 'החלפת הסרטון בסרטון מופק' : 'אישור הפקת סרטון',
@@ -15903,7 +15899,7 @@ async function produceMarketingVideo(property, btn, agentId){
     ackText: isMid
       ? `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור סרטון אחד.`
       : (hasVideo
-          ? 'אני מבין/ה שהסרטון הקיים יימחק ויוחלף בסרטון המופק.'
+          ? 'אני מבין/ה שהסרטון הקיים יוחלף ברילס המופק.'
           : 'אני מאשר/ת הפקת סרטון שיווקי לנכס הזה.'),
     confirmLabel: isMid ? `אישור והפקה · חיוב ${shekel(price)}` : 'אישור והפקה',
   });
@@ -15948,7 +15944,7 @@ async function produceMarketingVideo(property, btn, agentId){
     jobId = data.job_id;
     // חיוב יצא - היתרה שעל המסך צריכה לדעת מיד, כמו בקידום
     if (data.amount_charged > 0) await refreshAgentBalance();
-    showToast(`ההפקה החלה · ${data.clips} קליפים · כ-${data.estimated_seconds} שניות. אפשר לסגור את החלון`);
+    showToast('הסרטון בהפקה, תישלח התראה כשיהיה מוכן. אפשר לסגור את החלון');
   } catch(err){
     console.error(err);
     showToast('שגיאת רשת - נסו שוב');
@@ -15983,9 +15979,12 @@ async function produceMarketingVideo(property, btn, agentId){
       return;
     }
 
+    // ‏pending_reel / rendering: הרילס אצל המפיק (Grok או הגיבוי). אין לו
+    // קליפים לספור, ולכן "בהפקה" בלבד. השאר - מסלול fal, שנשאר מוצא אחרון.
     const label = row.status === 'merging' ? 'מחבר…'
       : row.status === 'uploading' ? 'שומר…'
-      : `מפיק… ${row.clips_done}/${row.clips_total}`;
+      : (row.status === 'generating_clips' && row.clips_total) ? `מפיק… ${row.clips_done}/${row.clips_total}`
+      : 'בהפקה…';
     setActionLabel(btn, label);
     setTimeout(poll, VIDEO_POLL_MS);
   };
@@ -27522,6 +27521,20 @@ const ADS_ERRORS = {
   market_required: 'בוחרים שוק לפני השליפה',
   market_not_found: 'אין ערים משויכות לשוק הזה',
   invalid_plan: 'הקמפיין לא תקין',
+  budget_cap: 'סכום התקציבים גבוה מהתקרה',
+  disclosure_missing: 'שורת הגילוי חסרה, ולא נוצרת מודעה בלעדיה',
+  page_missing: 'חסר מזהה דף הפייסבוק',
+  a5_form_missing: 'A5 מחכה לטופס owner',
+  lead_form_not_mapped: 'טופס הלידים לא משויך',
+  lead_form_wrong_kind: 'טופס הלידים משויך לסוג הלא נכון',
+  creatives_not_in_storage: 'התמונות עדיין לא בדלי. לוחצים על העלאת תמונות',
+  creatives_source_failed: 'העלאת התמונות לדלי נכשלה',
+  creative_hash_mismatch: 'התמונות בדלי אינן הקבצים של החבילה',
+  bad_audience_id: 'מזהה הקהל אינו מספר של מטא',
+  targeting_unresolved: 'טירגוט לא נמצא במטא, ולא נוצר כלום',
+  account_not_ils: 'חשבון המודעות אינו בשקלים',
+  refusing_protected_campaign: 'קמפיין ה-Reach הקיים לא משתנה',
+  db_error: 'הטבלה של ההשקה עדיין לא מוכנה',
 };
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
@@ -28360,10 +28373,131 @@ function gkwCampaignForm(pick){
   return box;
 }
 
+/* ---------- השקה מושהית ---------- */
+let adsLaunchState = { planOk: false, plan: null, creatives: null };
+function adsLaunchCanCreate(){
+  const c = adsLaunchState.creatives;
+  return !!(adsLaunchState.planOk && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+}
+function adsLaunchApplyGo(){
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = !adsLaunchCanCreate();
+}
+function adsLaunchRender(message){
+  const out = document.getElementById('adsLaunchOut');
+  if (!out) return;
+  out.hidden = false;
+  const head = message ? '<p>' + esc(message) + '</p>' : '';
+  out.innerHTML = head + adsLaunchHtml(adsLaunchState.plan, adsLaunchState.creatives);
+}
+function adsLaunchHtml(plan, creatives){
+  const parts = [];
+  if (creatives && typeof creatives.total === 'number'){
+    parts.push('<p><b>תמונות בדלי: ' + esc(String(creatives.ready || 0)) + ' מתוך ' + esc(String(creatives.total)) + '</b></p>');
+  }
+  if (!plan) return parts.join('');
+  const b = plan.budget || {};
+  parts.push('<p><b>תקציב יומי</b> מטא ' + esc(adsNis(b.metaDailyIls)) + ' + גוגל ' + esc(adsNis(b.googleDailyIls)) + ' = ' + esc(adsNis(b.totalDailyIls)) + ' מתוך תקרה ' + esc(adsNis(b.maxDailyIls)) + '</p>');
+  (plan.campaigns || []).forEach(c => {
+    parts.push('<p><b>' + esc(c.name) + '</b> · ' + esc(c.status) + (c.housing ? ' · HOUSING' : '') + '</p>');
+    (c.ad_sets || []).forEach(a => {
+      const ads = (a.ads || []).map(ad => esc(ad.name) + ' - ' + esc(ad.headline)).join('<br>');
+      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + '<br>' + ads + '</p>');
+    });
+  });
+  if ((plan.skipped || []).length){
+    parts.push('<p><b>לא נוצר</b><br>' + plan.skipped.map(s => esc(s.key) + ' - ' + esc(s.reason)).join('<br>') + '</p>');
+  }
+  if ((plan.warnings || []).length){
+    parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
+  }
+  parts.push('<p>' + esc((plan.images_to_upload || []).length) + ' תמונות יועלו למטא ביצירה.</p>');
+  return parts.join('');
+}
+function adsLaunchPayload(){
+  const a5 = document.getElementById('adsLaunchA5');
+  const aud = document.getElementById('adsLaunchB2Audience');
+  const payload = { include_a5: !!(a5 && a5.checked) };
+  const id = aud && aud.value.trim();
+  if (id) payload.b2_customer_audience_id = id;
+  return payload;
+}
+function adsLaunchLock(){
+  adsLaunchState.planOk = false;
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = true;
+}
+document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock);
+document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
+document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: true }, adsLaunchPayload()));
+    adsLaunchState = { planOk: !!(r && r.plan && r.plan.ok), plan: r.plan || null, creatives: r.creatives || null };
+    adsLaunchRender();
+    adsLaunchApplyGo();
+    showToast('הבדיקה הושלמה. לא נוצר כלום במטא');
+  } catch (ex) {
+    const plan = ex && ex.data && ex.data.plan;
+    const creatives = ex && ex.data && ex.data.creatives;
+    adsLaunchState = { planOk: !!(plan && plan.ok), plan: plan || null, creatives: creatives || adsLaunchState.creatives };
+    adsLaunchRender(ex.message || 'הבדיקה נכשלה');
+    adsLaunchApplyGo();
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('adsLaunchUpload')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  btn.textContent = 'מעלה תמונות...';
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('upload_launch_creatives', adsLaunchPayload());
+    adsLaunchState.creatives = r.creatives || null;
+    adsLaunchRender();
+    adsLaunchApplyGo();
+    const uploaded = r.creatives && Array.isArray(r.creatives.uploaded) ? r.creatives.uploaded.length : 0;
+    showToast(uploaded ? 'התמונות הועלו לדלי' : 'התמונות כבר בדלי');
+  } catch (ex) {
+    const creatives = ex && ex.data && ex.data.creatives;
+    if (creatives) adsLaunchState.creatives = creatives;
+    adsLaunchRender(ex.message || 'ההעלאה נכשלה');
+    adsLaunchApplyGo();
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'העלאת תמונות';
+  }
+});
+document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (!confirm('היצירה תישאר מושהית. כל קמפיין, סט ומודעה נוצרים במצב מושהה, וההפעלה נעשית אחר כך ב-Ads Manager. להמשיך?')) return;
+  const out = document.getElementById('adsLaunchOut');
+  btn.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: false, confirm: true }, adsLaunchPayload()));
+    if (out){
+      out.hidden = false;
+      const names = (r.campaigns || []).map(c => esc(c.name) + ' - ' + esc(c.status)).join('<br>');
+      out.innerHTML = '<p>נוצרו ' + esc(String((r.created || []).length)) + ' אובייקטים, כולם מושהים. דולגים על ' + esc(String((r.skipped || []).length)) + ' שכבר היו.</p><p>' + names + '</p><p>' + esc(r.note || '') + '</p>';
+    }
+    showToast('הקמפיינים נוצרו מושהים. ההפעלה ב-Ads Manager');
+  } catch (ex) {
+    if (out){ out.hidden = false; out.textContent = ex.message || 'היצירה נכשלה'; }
+    showToast(heErr(ex), 6400);
+  }
+});
+
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
   [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabVideos', 'adsPaneVideos'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
-   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
+   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle'], ['adsTabLaunch', 'adsPaneLaunch']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
     document.getElementById(p).hidden = !on;
@@ -28376,7 +28510,7 @@ function adsSelectTab(id){
   if (id === 'adsTabGoogle') loadGoogleAds();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle', 'adsTabLaunch'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{
