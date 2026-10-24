@@ -368,7 +368,14 @@ function renderGallery(p){
   const count = String(1 + thumbEnd - thumbStart);
   const poster = videoSrc ? (p.video_poster_url || galleryImages[0] || '') : (galleryImages[0] || '');
   const kept = grid.querySelector && grid.querySelector('img[data-lcp]');
-  const ssr = !!(kept && poster && kept.getAttribute('src') === poster && grid.getAttribute('data-count') === count);
+  /* data-count של סרטון ושל גלריה בלי סרטון מתלכד כשיש לפחות שתי תמונות.
+     reduced-motion / Save-Data / 2G מכבים את הסרטון רק בדפדפן, והשרת
+     לא יודע את זה. בלי בדיקת המחלקה היינו משאירים את פריסת הסרטון. */
+  const mainNow = elWithClass(grid, 'bento-main');
+  const paintedVideo = !!(mainNow && mainNow.classList && mainNow.classList.contains('bento-video'));
+  const ssr = !!(kept && poster && kept.getAttribute('src') === poster
+    && grid.getAttribute('data-count') === count
+    && !!videoSrc === paintedVideo);
   if (!ssr){
     grid.innerHTML = '';
     // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,

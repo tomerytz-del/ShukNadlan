@@ -225,6 +225,28 @@ function check(name: string, ok: boolean) {
 
 {
   const dom = makeDom();
+  dom.window.matchMedia = () => ({ matches: true });
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = "https://example.test/1.jpg";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "3");
+  g.renderGallery({
+    video_url: SRC,
+    images: ["https://example.test/1.jpg", "https://example.test/2.jpg", "https://example.test/3.jpg"],
+  });
+  check("reduced-motion על HTML של סרטון בונה גלריה בלי וידאו",
+    !grid.children.some((c: any) => c.classList && c.classList.contains("bento-video")));
+}
+
+{
+  const dom = makeDom();
   dom.sandbox.navigator.connection.saveData = true;
   const g = boot(dom);
   const grid = dom.document.getElementById("bentoGrid");
