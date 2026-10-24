@@ -90,8 +90,8 @@ ok("google campaign id fixed", plan.budget.googleCampaignId === GOOGLE_BUYERS_CA
 ok("five campaigns", plan.campaigns.length === 5, plan.campaigns.map((c) => c.key));
 ok("eight ad sets", plan.campaigns.reduce((n, c) => n + c.adSets.length, 0) === 8);
 ok("32 images", plan.images.length === 32, plan.images.length);
-ok("17 ads", plan.campaigns.reduce((n, c) => n + c.adSets.reduce((m, a) => m + a.ads.length, 0), 0) === 17);
-ok("ops built", built.errors.length === 0 && built.ops.length === 81, built.errors);
+ok("29 ads", plan.campaigns.reduce((n, c) => n + c.adSets.reduce((m, a) => m + a.ads.length, 0), 0) === 29);
+ok("ops built", built.errors.length === 0 && built.ops.length === 105, built.errors);
 
 const byKey = Object.fromEntries(plan.campaigns.map((c) => [c.key, c]));
 ok("brokers are not housing", byKey.brokers.housing === false && byKey.brokers_registered.housing === false && byKey.office_owners.housing === false);
@@ -105,24 +105,30 @@ ok("B1 five ads age 22 radius 15", b1.ads.length === 5 && b1.ageMin === 22 && b1
 ok("B1 one OR group and no audience exclusion", b1.flexible.length === 1 && b1.audienceKeys.length === 0);
 ok("B1 lead form", b1.leadFormId === BROKER_FORM_ID && b1.ads.every((a) => a.leadFormId === BROKER_FORM_ID && a.cta === "SIGN_UP"));
 ok("B1-1 is 1x1+9x16 and the legacy ads are 1x1+4x5", b1.ads[0].images.map((i) => i.ratio).join(",") === "1x1,9x16" && b1.ads.slice(1).every((a) => a.images.map((i) => i.ratio).join(",") === "1x1,4x5") && b1.ads.every((a) => a.images.length === 2));
-ok("B2 traffic landing and 4x5", b2.dailyBudgetIls === 7 && b2.ageMin === 22 && b2.destination === "website" && b2.geo.mode === "country" && b2.ads.length === 1 && b2.ads[0].landingUrl === "https://shuknadlan.co.il/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_registered" && b2.ads[0].images.map((i) => i.ratio).join(",") === "1x1,4x5");
+ok("B2 three ads, gabriela on G1 and the new copy on the mentor image", b2.dailyBudgetIls === 7 && b2.ageMin === 22 && b2.destination === "website" && b2.geo.mode === "country" && b2.ads.length === 3 && b2.ads[0].landingUrl === "https://shuknadlan.co.il/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_registered" && b2.ads[0].images.map((i) => i.key).join(",") === "concept_g1_1x1,concept_g1_4x5" && b2.ads[1].images.map((i) => i.key).join(",") === "concept_g2_1x1,concept_g2_4x5" && b2.ads[2].images[0].key === "concept_g2_1x1" && b2.ads[1].headline === "כל בוקר: מה לעשות היום כדי לסגור עסקה." && b2.ads[2].headline === "יש לך חשבון? קבל Elite חינם לחצי שנה." && (b2.ads[1].landingUrl || "").includes("utm_content=b2_2_mentor") && (b2.ads[2].landingUrl || "").includes("utm_content=b2_3_elite") && b2.ads.every((a) => a.images.map((i) => i.ratio).join(",") === "1x1,4x5"));
 ok("B3 four ads age 28 regions", b3.ads.length === 4 && b3.ageMin === 28 && b3.dailyBudgetIls === 13 && b3.leadFormId === OFFICE_FORM_ID && b3.geo.mode === "regions" && b3.geo.queries.join("|") === "Haifa District|Northern District" && b3.flexible.length === 2 && b3.ads.every((a) => a.images.map((i) => i.ratio).join(",") === "1x1,9x16"));
 
 const buyers = byKey.buyers.adSets;
 ok("buyer budgets 15+10+8+7", buyers.map((a) => a.dailyBudgetIls).join(",") === "15,10,8,7");
 ok("buyer housing radius and age", buyers.every((a) => a.ageMin === 18 && a.ageMax === 65 && a.geo.mode === "radius" && a.geo.radiusKm === HOUSING_MIN_RADIUS_KM && a.flexible.length === 0 && a.ads.every((ad) => ad.images.map((i) => i.ratio).join(",") === "1x1,9x16")));
-ok("A1 two ads share images", buyers[0].ads.length === 2 && buyers[0].ads[0].images[0].key === buyers[0].ads[1].images[0].key);
+ok("A1 four ads share images", buyers[0].ads.length === 4 && buyers[0].ads.every((ad) => ad.images[0].key === buyers[0].ads[0].images[0].key));
 ok("A2 and A4 headlines", buyers[1].ads[0].headline === "5 חדרים בעפולה. בסגנון שלך." && buyers[3].ads[0].headline === "כמה באמת עולה דירה בעפולה?");
 ok("A1 utm", (buyers[0].ads[0].landingUrl || "").includes("utm_campaign=buyers_housing_q4") && (buyers[0].ads[0].landingUrl || "").includes("utm_content=a1_viz") && (buyers[0].ads[1].landingUrl || "").includes("utm_content=a1_v1"));
 
 const rt = byKey.retargeting.adSets[0];
-ok("retargeting one ad set 10 with two ads", rt.dailyBudgetIls === 10 && rt.ads.length === 2 && rt.audienceKeys.join(",") === "site_visitors_30d" && rt.ageMin === 18 && rt.geo.mode === "radius" && rt.geo.radiusKm === 25);
-ok("rt utm kept", (rt.ads[0].landingUrl || "").includes("utm_content=rt1") && (rt.ads[0].landingUrl || "").includes("utm_source=meta") && (rt.ads[1].landingUrl || "").includes("utm_content=rt2") && !(rt.ads[0].landingUrl || "").includes("{{"));
+ok("retargeting one ad set 10 with four ads", rt.dailyBudgetIls === 10 && rt.ads.length === 4 && rt.audienceKeys.join(",") === "site_visitors_30d" && rt.ageMin === 18 && rt.geo.mode === "radius" && rt.geo.radiusKm === 25);
+ok("rt utm kept", (rt.ads[0].landingUrl || "").includes("utm_content=rt1") && (rt.ads[0].landingUrl || "").includes("utm_source=meta") && (rt.ads[1].landingUrl || "").includes("utm_content=rt2") && (rt.ads[2].landingUrl || "").endsWith("#calc") && (rt.ads[2].landingUrl || "").includes("utm_content=rt3") && (rt.ads[3].landingUrl || "").includes("utm_content=rt4") && !(rt.ads[0].landingUrl || "").includes("{{") && rt.ads[2].images[0].key === rt.ads[0].images[0].key && rt.ads[3].images[0].key === rt.ads[1].images[0].key);
 
 ok("A5 skipped by default", plan.skipped.some((s) => s.key === "A5") && !plan.campaigns.some((c) => c.key === "owners"));
 ok("OO5 skipped with TODO", plan.skipped.some((s) => s.key === "OO5" && s.reason.includes("TODO")));
 ok("disclosure once on every ad", plan.campaigns.every((c) => c.adSets.every((a) => a.ads.every((ad) => ad.message.split(DISCLOSURE_DEFAULT).length === 2))));
 ok("contact sheet is not an ad image", plan.images.every((i) => !i.path.includes("contact_sheet")) && summary.images_to_upload.every((i) => !i.path.includes("contact_sheet")));
+ok("buyer and retargeting variant counts", buyers.map((a) => a.ads.length).join(",") === "4,3,3,3");
+const a3contact = buyers[2].ads[2];
+ok("A3-3 drops the absolute contact claim", a3contact.headline === "להשכרה בעפולה: מחיר, תמונות ופרטי קשר." && a3contact.message.includes("רואים מחיר, תמונות ופרטי קשר") && !a3contact.message.includes("ישירים") && !a3contact.message.includes("בכל נכס"));
+const liveWarn = plan.warnings.find((w) => w.startsWith("מספרים חיים"));
+ok("dry-run lists ads with hard-coded counts", !!liveWarn && liveWarn.includes("A1-3 count (45)") && liveWarn.includes("A2-2 rooms (49)") && liveWarn.includes("A4-3 sqm (₪13,800, ₪17,400)") && !liveWarn.includes("B1"), liveWarn);
+ok("over-long descriptions are warned and still sent", plan.warnings.some((w) => w.startsWith("A4-2 deals: תיאור")) && plan.warnings.some((w) => w.startsWith("A4-3 sqm: תיאור")) && buyers[3].ads[2].description === "מחירי עסקאות לפי עיר ומספר חדרים");
 
 const noA5 = buildLaunchPlan(baseInput({ includeA5: true }));
 ok("A5 without a form is an error", !noA5.ok && noA5.errors.some((e) => e.code === "a5_form_missing") && !noA5.campaigns.some((c) => c.key === "owners"));
@@ -251,7 +257,7 @@ const first = await runExecute(new Map(), async (p, body) => {
   }
   return { id: "9000000000000" + String(n).padStart(3, "0") };
 });
-ok("first execute creates every object", first.result.error === undefined && first.result.created.length === 81 && first.posted.length === 81, first.result);
+ok("first execute creates every object", first.result.error === undefined && first.result.created.length === 105 && first.posted.length === 105, first.result);
 ok("posts stay on create paths and paused", first.posted.every((p) => /^act_\d+\/(adimages|customaudiences|campaigns|adsets|adcreatives|ads)$/.test(p.path)) && first.posted.every((p) => !p.body.status || p.body.status === PAUSED_STATUS) && first.posted.every((p) => !JSON.stringify(p.body).includes("{{")));
 
 const filled = new Map<string, ExistingRow>();
@@ -259,7 +265,7 @@ for (const op of built.ops) {
   filled.set(op.objectKey, op.kind === "image" ? { imageHash: "hash_kept" } : { metaId: "800000000000000" });
 }
 const second = await runExecute(filled, async () => { throw new Error("should not post"); });
-ok("second execute posts nothing", second.posted.length === 0 && second.result.created.length === 0 && second.result.skipped.length === 81 && !second.result.error, second.result);
+ok("second execute posts nothing", second.posted.length === 0 && second.result.created.length === 0 && second.result.skipped.length === 105 && !second.result.error, second.result);
 
 const poisoned = new Map<string, ExistingRow>([["campaign:brokers", { metaId: PROTECTED_CAMPAIGN_IDS[0] }]]);
 const poison = await runExecute(poisoned, async () => ({ id: "1" }));
@@ -310,7 +316,7 @@ const resume = await runExecute(resumed, async (p, body) => {
   resumeN++;
   return { id: "6100000000000" + String(resumeN).padStart(3, "0") };
 });
-ok("rerun reuses image hashes and does not reupload", !resume.result.error && resume.posted.length === 49 && resume.result.skipped.length === 32 && resume.posted.every((p) => !p.path.endsWith("/adimages")), resume.result);
+ok("rerun reuses image hashes and does not reupload", !resume.result.error && resume.posted.length === 73 && resume.result.skipped.length === 32 && resume.posted.every((p) => !p.path.endsWith("/adimages")), resume.result);
 
 ok("exact targeting match", pickTargetingMatch("Real Estate Agent", [{ id: "1", name: "Other" }, { id: "2", name: "Real Estate Agent" }])?.id === "2");
 ok("unrelated first row is not accepted", acceptedTargetingMatch("Owner", [{ id: "9", name: "Florist" }]) === null);
