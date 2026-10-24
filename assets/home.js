@@ -4472,7 +4472,7 @@ async function loadNeighborhoods(){
   if (!sb) return [];
   try{
     const [{ data, error }, spec, aliasRes] = await Promise.all([
-      sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m'),
+      sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned'),
       marketFilterSpec(),
       /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
          ששם שגולש/ת מקליד/ה יזוהה כאן ושם אותו דבר (‏docs/search-core.md).

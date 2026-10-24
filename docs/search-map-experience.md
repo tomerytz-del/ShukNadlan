@@ -1172,7 +1172,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
   הכפתורים לא מוצגים־ואז־לא־עובדים.
 * **`neighborhoods` בטעינה בלי `boundary`.** `select('*')` הוריד את המצולע
   של כל שכונה (מעל מגה של JSON) לפני שמישהו בחר שכונה. הטעינה מבקשת
-  `id,name,city,city_id,lat,lng,radius_m`. ‏`boundary` נטען ב-`drawHoodShapes`
+  `id,name,city,city_id,lat,lng,radius_m,is_planned`. ‏`boundary` נטען ב-`drawHoodShapes`
   רק לשכונות שנבחרו; כשל שם מצייר עיגול ולא מפיל את הגלולות.
 * **שמות שכונות מגיעים ל-DOM כ-`textContent`** ולא כ-HTML: הן מוזנות גם ע"י
   משתמשי הפלטפורמה (`neighborhoods.is_custom`).
