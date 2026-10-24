@@ -48,6 +48,12 @@
 /crmreview-request.html    /review-request    301
 /crm/review-request.html   /review-request    301
 
+# ‏/agency.html הוא קובץ, ולכן בלי סימן קריאה הכלל לא גובר עליו והדף
+# נשאר 200 עם אותן תגיות כמו /agency. היעד בלי query משלו: Netlify
+# מעביר את ?slug= כמו שהוא. og-tags.ts מחזירה את אותה 301 לפני
+# context.next(), כי הפונקציה רצה על הנתיב הזה וממלאת תגיות אם ממשיכים.
+/agency.html    /agency    301!
+
 # ‏השווקים המקומיים (docs/regional-pages.md). כל שוק שאינו ברירת המחדל מקבל
 # כתובת משלו, והשורה כאן אומרת איזה קובץ מגיש אותה: ‏index.html לשוק חי,
 # ‏market-soon.html ("נפתחים בקרוב", ‏noindex) לשוק שעוד לא נפתח. ‏‎200‎ ולא
