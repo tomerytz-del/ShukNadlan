@@ -1207,8 +1207,12 @@ function renderPlanningInfo(row, isLandRow){
   // מקופל בכל נכס, גם בקרקע (ההערה ב-property.html). שורת הסיכום אומרת
   // מה מחכה מאחורי הכפתור, והודעת 77-78 נקראת בשמה כי היא מגבלה ולא רקע.
   const notices = plans.filter(pl => pl.notice).length;
+  // בלי תוכניות הסיכום הוא שמות הנתונים, כדי שהסקציה המקופלת לא תהיה כותרת ריקה
+  const where = isLandRow ? 'הקרקע' : 'המקום';
   document.getElementById('planningSummary').textContent = [
-    plans.length ? `${plans.length} תוכניות החלות על ${isLandRow ? 'הקרקע' : 'המקום'}` : null,
+    plans.length === 1 ? `תוכנית אחת החלה על ${where}`
+      : plans.length ? `${plans.length} תוכניות החלות על ${where}`
+      : facts.map(f => f.k).slice(0, 3).join(', '),
     notices ? (notices === 1 ? 'הודעה אחת על הכנת תוכנית (77-78)' : `${notices} הודעות על הכנת תוכנית (77-78)`) : null,
   ].filter(Boolean).join(' · ');
 
@@ -1217,12 +1221,13 @@ function renderPlanningInfo(row, isLandRow){
   const setOpen = open => {
     body.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.textContent = open ? 'הסתרת המידע התכנוני' : 'הצגת המידע התכנוני';
+    toggle.setAttribute('aria-label', open ? 'הסתרת המידע התכנוני' : 'הצגת המידע התכנוני');
   };
   setOpen(false);
   if (!toggle.dataset.wired){
     toggle.dataset.wired = '1';
-    toggle.addEventListener('click', ()=> setOpen(body.hidden));
+    // המאזין על כל הכותרת; לחיצה על הכפתור עצמו מבעבעת לכאן, ולכן אין לו מאזין משלו
+    document.getElementById('planningHead').addEventListener('click', ()=> setOpen(body.hidden));
   }
 
   document.getElementById('planningSection').hidden = false;

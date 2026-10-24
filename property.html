@@ -1130,14 +1130,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan-row .flag{flex-basis:100%;font-size:.74rem;font-weight:700;color:#8a5a00}
   .plan-src{font-size:.7rem;color:var(--ink-soft);margin:8px 0 0}
   .plan-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
-  #planningSection .plan-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  #planningSection .plan-head{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+  #planningSection .plan-head-txt{min-width:0}
   #planningSection .plan-head h2{margin:0}
   #planningSection .plan-toggle{
-    background:var(--teal-tint);color:var(--teal-dark);border:0;border-radius:999px;
-    padding:8px 16px;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;
+    flex:none;width:36px;height:36px;padding:0;border:0;border-radius:50%;
+    display:grid;place-items:center;cursor:pointer;
+    background:var(--teal-tint);color:var(--teal-dark);
   }
-  #planningSection .plan-toggle:hover{text-decoration:underline}
-  #planningSection .plan-summary{margin:6px 0 0;font-size:.8rem;color:var(--ink-soft)}
+  #planningSection .plan-toggle svg{width:20px;height:20px;transition:transform .2s}
+  #planningSection .plan-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+  #planningSection .plan-head:hover h2{color:var(--teal-dark)}
+  #planningSection .plan-summary{margin:4px 0 0;font-size:.8rem;color:var(--ink-soft)}
   #planningSection .plan-summary:empty{display:none}
   #planningBody{margin-top:14px}
 </style>
@@ -1273,13 +1277,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <section class="panel" id="planningSection" hidden>
           <!-- המידע מקופל מאחורי כפתור בכל נכס, גם בקרקע: רוב הגולשים לא
                קוראים רשימה של תשע תוכניות, והיא דחפה את ההדמיות והמפה למטה.
-               שורת הסיכום אומרת מה מחכה מאחוריו (renderPlanningInfo). -->
-          <div class="plan-head">
-            <h2>מידע תכנוני</h2>
+               שורת הסיכום אומרת מה מחכה מאחוריו (renderPlanningInfo).
+               כל הכותרת לחיצה ולא רק החץ - בטלפון לוחצים על הכותרת עצמה.
+               הכפתור הוא הפקד הנגיש; הלחיצה על השאר מגיעה אליו מהמאזין. -->
+          <div class="plan-head" id="planningHead">
+            <div class="plan-head-txt">
+              <h2>מידע תכנוני</h2>
+              <p class="plan-summary" id="planningSummary"></p>
+            </div>
             <button type="button" class="plan-toggle" id="planningToggle"
-                    aria-expanded="false" aria-controls="planningBody">הצגת המידע התכנוני</button>
+                    aria-expanded="false" aria-controls="planningBody" aria-label="הצגת המידע התכנוני">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           </div>
-          <p class="plan-summary" id="planningSummary"></p>
           <div id="planningBody" hidden>
             <div class="spec-pills" id="planningFacts"></div>
             <div class="plan-list" id="planningPlans" hidden></div>
