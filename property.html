@@ -1126,6 +1126,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/gabriela-widget.js" defer data-page="property"></script>
 <script src="assets/buyer-banner.js" defer></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
@@ -1351,6 +1352,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="owner-lead-toggle" role="group" aria-label="מה תרצו לעשות עם הנכס">
                 <button type="button" data-deal="sale" aria-pressed="true">רוצה למכור</button>
                 <button type="button" data-deal="rent" aria-pressed="false">רוצה להשכיר</button>
+              </div>
+              <div class="owner-lead-toggle" role="group" aria-label="סוג הנכס">
+                <button type="button" data-kind="residential" aria-pressed="true">מגורים</button>
+                <button type="button" data-kind="commercial" aria-pressed="false">מסחרי</button>
               </div>
               <div class="field">
                 <input type="text" id="olAddress" placeholder="כתובת הנכס שלכם (לדוגמה: הרצל 24, עפולה)"

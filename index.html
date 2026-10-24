@@ -1249,6 +1249,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1.5px solid rgba(255,255,255,.35);color:#fff;
   }
   .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#fff}
+  /* מתג מגורים/מסחרי מתחת למתג העסקה באשף בעלי הנכסים */
+  .owner-kind{margin-top:8px}
 
   .owner-wizard{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
     border-radius:var(--radius-lg);padding:16px;text-align:right;
@@ -3309,6 +3311,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/gabriela-widget.js" defer data-page="home"></script>
 <script defer src="assets/market-text.js"></script>
 </head>
 <body>
@@ -4293,6 +4296,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="active" data-owner="sale">רוצה למכור</button>
               <button type="button" data-owner="rent">רוצה להשכיר</button>
             </div>
+            <div class="owner-toggle owner-kind" role="group" aria-label="סוג הנכס">
+              <button type="button" class="active" data-owner-kind="residential">מגורים</button>
+              <button type="button" data-owner-kind="commercial">מסחרי</button>
+            </div>
             <label class="wiz-label" for="wizAddress">כתובת מדויקת</label>
             <input type="text" id="wizAddress" class="wiz-input" placeholder="לדוגמה: הרצל 24, עפולה" data-market-placeholder autocomplete="street-address">
             <p class="wiz-err" id="wizErr1"></p>
@@ -4315,7 +4322,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <option value="needs_renovation">דרוש שיפוץ</option>
                 </select>
               </div>
-              <div>
+              <div id="wizRoomsBox">
                 <label class="wiz-label" for="wizRooms">מספר חדרים</label>
                 <select id="wizRooms" class="wiz-input wiz-select" data-pick="rooms">
                   <option value="" selected disabled>בחרו</option>
@@ -4329,14 +4336,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <option value="6">6+</option>
                 </select>
               </div>
+              <div id="wizSubtypeBox" hidden>
+                <label class="wiz-label" for="wizSubtype">סוג הנכס</label>
+                <select id="wizSubtype" class="wiz-input wiz-select" data-pick="subtype">
+                  <option value="" selected disabled>בחרו</option>
+                  <option value="משרד">משרד</option>
+                  <option value="חנות / שטח מסחרי">חנות / שטח מסחרי</option>
+                  <option value="קליניקה">קליניקה</option>
+                  <option value="מבנה תעשייה">מבנה תעשייה</option>
+                  <option value="מחסן">מחסן</option>
+                  <option value="אולם">אולם</option>
+                  <option value="אחר">אחר</option>
+                </select>
+              </div>
             </div>
 
+            <div id="wizSizeBox" hidden>
+              <label class="wiz-label" for="wizSize">שטח במ״ר (לא חובה)</label>
+              <input type="number" id="wizSize" class="wiz-input" inputmode="numeric" min="1" placeholder="לדוגמה: 120">
+            </div>
             <span class="wiz-label">מה יש בנכס?</span>
             <div class="wiz-checks">
-              <label><input type="checkbox" value="ממ״ד"> ממ״ד</label>
-              <label><input type="checkbox" value="מרפסת"> מרפסת</label>
+              <label data-kind="residential"><input type="checkbox" value="ממ״ד"> ממ״ד</label>
+              <label data-kind="residential"><input type="checkbox" value="מרפסת"> מרפסת</label>
               <label><input type="checkbox" value="מעלית"> מעלית</label>
               <label><input type="checkbox" value="עמדת טעינה לרכב חשמלי"> עמדת טעינה לרכב חשמלי</label>
+              <label data-kind="commercial" hidden><input type="checkbox" value="חניה"> חניה</label>
+              <label data-kind="commercial" hidden><input type="checkbox" value="חזית לרחוב"> חזית לרחוב</label>
             </div>
 
             <p class="wiz-err" id="wizErr2"></p>

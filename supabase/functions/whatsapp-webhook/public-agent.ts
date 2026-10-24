@@ -2488,6 +2488,29 @@ function sessionContext(conv: PublicConversationState, hasProfileName: boolean):
   return lines.join("\n");
 }
 
+/* הודעה מחלונית גבריאלה בדף נכס (‏assets/gabriela-widget.js) נושאת
+   "(מזהה: <uuid>)" או "מזהה: <uuid>)". הנכס נטען **בקוד** לפני הקריאה למודל:
+   זה חוסך סבב שלם (get_property) וגם לא תלוי בכך שהמודל ישים לב למזהה. */
+const ASKED_PROPERTY_RE = /מזהה:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+
+export function askedPropertyOf(text: string): string | null {
+  const m = String(text || "").match(ASKED_PROPERTY_RE);
+  return m ? m[1].toLowerCase() : null;
+}
+
+async function askedPropertyContext(ctx: PublicContext, id: string): Promise<string> {
+  // deno-lint-ignore no-explicit-any
+  const r = await getProperty(ctx, { property_id: id }) as any;
+  if (!r || r.error) return "";
+  if (!r.found) {
+    return `הפונה שואל/ת על נכס מהאתר (${id}) שאינו פעיל כרגע. לומר זאת במשפט, ` +
+      "ולהציע לחפש נכסים דומים (search_properties).";
+  }
+  return "הפונה הגיע/ה מדף הנכס באתר ושואל/ת על הנכס הזה. **הפרטים כבר נטענו - " +
+    "אין צורך ב-get_property**; לענות עליו ישירות, ולשאלה שאין לה תשובה כאן - " +
+    `contact_agent עם property_id ${r.id}.\nפרטי הנכס: ${JSON.stringify(r)}`;
+}
+
 // ---------------------------------------------------------------------------
 /**
  * מריץ תור אחד של שיחה ציבורית. ‏conv מתעדכן במקום ונשמר על ידי הקורא.
@@ -2505,11 +2528,18 @@ export async function runPublicTurn(opts: {
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
+  // נכס מדף הנכס באתר: נטען לפני ההקשר, כדי ש-last_property_id כבר יצביע עליו
+  const askedId = askedPropertyOf(userText);
+  const asked = askedId ? await askedPropertyContext(ctx, askedId) : "";
+
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה (prompt-cache.ts)
-    { role: "user", content: withTurnContext(sessionContext(conv, !!profileName), userText) },
+    {
+      role: "user",
+      content: withTurnContext(sessionContext(conv, !!profileName) + (asked ? "\n\n" + asked : ""), userText),
+    },
   ];
 
   let finalText = "";

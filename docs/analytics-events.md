@@ -25,7 +25,8 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | אירוע | מתי | פרמטרים ייחודיים |
 | --- | --- | --- |
 | `contact_agent` | לחיצה על `wa.me`, `tel:` או `mailto:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` \| `email` |
-| `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`) |
+| `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`, ובחלונית הצפה `widget_buy` \| `widget_rent` \| `widget_owner` \| `widget_fair` \| `widget_property` \| `widget_free`) |
+| `gab_widget_open` | נפתחה חלונית גבריאלה הצפה (‏`assets/gabriela-widget.js`) - הודעת הפתיחה האוטומטית, פעם בביקור, או לחיצה על הבועה | `trigger`: ‏`auto` \| `click` |
 | `contact_site` | לחיצה על המספר או המייל של **שוק נדל״ן עצמו** בבלוק הקשר | `method`: ‏`phone` \| `email` |
 | `contact_developer` | לחיצה על טלפון, מייל או וואטסאפ של **חברה יזמית** - בדף החברה או במשרד המכירות של פרויקט שלה | `method`: ‏`whatsapp` \| `phone` \| `email` |
 | `contact_professional` | לחיצה על וואטסאפ, טלפון או מייל של **בעל/ת מקצוע** (שמאי/ת, עו"ד, אדריכל/ית...) - בעמוד הפרופיל וברשימת בעלי המקצוע | `method`: ‏`whatsapp` \| `phone` \| `email` |

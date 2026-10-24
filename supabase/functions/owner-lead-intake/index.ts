@@ -6,6 +6,9 @@ import {
   normalizeSource,
   resolveAgencyRouting,
   resolveAgentRouting,
+  cleanExternalRef,
+  isInternalCaller,
+  socialSourceLabel,
 } from "../_shared/lead-routing.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
@@ -43,15 +46,25 @@ function cleanText(value: unknown, maxLen: number): string | null {
 // התשואה בדף המשרד, ששולח דרכו את המספרים שהגולש/ת הזין/ה. הוא נכנס
 // ל-property_details ולא ל-raw_message כי אין בו PII, ולכן הוא מוצג לסוכן/ת
 // כבר בליד המוסתר — וזה כל הערך שלו: בלי המספרים אי אפשר לדעת על מה לחזור.
+//
+// ‏subtype ו-sizeSqm באים מנכס מסחרי: property_type שלו הוא 'מסחרי' (הערך
+// שהניתוב משווה להעדפות הסוכנים), ולכן "משרד" או "חנות" והשטח נכנסים לכאן,
+// במקום החדרים.
 function buildPropertyDetails(
   rooms: unknown,
   condition: unknown,
   features: unknown,
   note?: unknown,
+  subtype?: unknown,
+  sizeSqm?: unknown,
 ): string | null {
   const parts: string[] = [];
   const noteText = cleanText(note, 180);
   if (noteText) parts.push(noteText);
+  const subtypeText = cleanText(subtype, 40);
+  if (subtypeText) parts.push(subtypeText);
+  const size = Number(sizeSqm);
+  if (Number.isFinite(size) && size > 0 && size < 1_000_000) parts.push(`${Math.round(size)} מ״ר`);
   const roomsText = cleanText(String(rooms ?? ""), 10);
   if (roomsText) parts.push(`${roomsText} חדרים`);
   const conditionText = cleanText(condition, 40);
@@ -198,7 +211,7 @@ Deno.serve(async (req: Request) => {
 
   const {
     city, neighborhood_id, property_type, deal_type, address, rooms, condition, features,
-    name, phone, agency_slug, agent_slug, intent, note,
+    name, phone, agency_slug, agent_slug, intent, note, property_subtype, size_sqm,
   } = body;
 
   if (!city || !property_type || !deal_type || !name || !phone) {
@@ -209,6 +222,18 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // ליד מגבריאלה בפייסבוק/אינסטגרם (‏social-lead-intake, קורא פנימי בלבד):
+  // המקור נכתב לליד עצמו ולא רק ליומן, עם תווית לסוכן/ת ו-external_ref.
+  const trusted = isInternalCaller(req);
+  const socialSource = normalizeSource(body.source, "", trusted);
+  const socialLabel = socialSourceLabel(socialSource);
+  const externalRef = socialLabel ? cleanExternalRef(body.external_ref) : null;
+  if (externalRef) {
+    const { data: dup } = await supabase.from("leads").select("id")
+      .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
+    if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+  }
 
   try {
     let matchedAgentId: string | null = null;
@@ -258,7 +283,7 @@ Deno.serve(async (req: Request) => {
     // הכתובת המדויקת היא PII של הליד ולכן נכנסת ל-raw_message (נחשף רק בפתיחה),
     // בעוד מפרט הנכס נשמר בנפרד ומוצג לסוכן כבר בליד המוסתר.
     const cleanAddress = cleanText(address, 160);
-    const propertyDetails = buildPropertyDetails(rooms, condition, features, note);
+    const propertyDetails = buildPropertyDetails(rooms, condition, features, note, property_subtype, size_sqm);
     const rawMessage = [cleanAddress, propertyDetails].filter(Boolean).join(" · ") || null;
 
     // ‏intent מבדיל בין שני הכלים שיושבים בדף המשרד ובדף הסוכן/ת. אשף הערכת
@@ -308,6 +333,11 @@ Deno.serve(async (req: Request) => {
         { ...baseRow, lead_type: preferredType },
         { ...baseRow, lead_type: "owner_inbound" },
       ]
+      : socialLabel
+      ? [
+        { ...baseRow, lead_type: "owner_inbound", source: socialSource, source_detail: socialLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
       : [{ ...baseRow, lead_type: "owner_inbound" }];
 
     let lead: any = null;
@@ -316,6 +346,12 @@ Deno.serve(async (req: Request) => {
       ({ data: lead, error: leadErr } = await supabase
         .from("leads").insert(row).select().single());
       if (!leadErr) break;
+      // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
+      if (externalRef && (leadErr as any).code === "23505") {
+        const { data: dup } = await supabase.from("leads").select("id")
+          .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
+        if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+      }
     }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
@@ -338,6 +374,7 @@ Deno.serve(async (req: Request) => {
             ? `${pageSource}_yield_calc`
             : `${pageSource}_owner_wizard`)
           : "homepage_owner_wizard",
+        trusted,
       ),
       lead_kind: "agent_owner",
       lead_table: "leads",

@@ -48,6 +48,48 @@ const KIND_LABELS: Record<LeadKind, string> = {
   mortgage_advisor: "ליד ייעוץ משכנתאות",
 };
 
+/* ---------------------------------------------------------------------------
+ * מקורות מהרשתות החברתיות
+ *
+ * ‏**רק social-lead-intake רשאית לסמן אותם**, והיא מאמתת את גבריאלה בסוד
+ * משותף. פונקציות הקליטה ציבוריות (‏verify_jwt = false), ולכן מקור חברתי
+ * מתקבל בהן רק מקורא פנימי (‏isInternalCaller - ‏service role, כמו
+ * ‏meta-leads.ts); מהדפדפן הוא נופל לברירת המחדל של הקורא. אחרת כל אחד
+ * היה יכול לייצר לידים "מפייסבוק" ולזהם את הדוח.
+ *
+ * התוויות - מה שהסוכן/ת רואה ב-source_detail. אותה מפה כמו
+ * ‏lead_source_label() במסד (‏20270806090000).
+ * ------------------------------------------------------------------------- */
+const SOCIAL_SOURCES_LIST = ["facebook_dm", "facebook_comment", "instagram_dm", "instagram_comment"] as const;
+export type SocialSource = typeof SOCIAL_SOURCES_LIST[number];
+export const SOCIAL_SOURCES: ReadonlySet<string> = new Set(SOCIAL_SOURCES_LIST);
+export const SOCIAL_SOURCE_LABELS: Readonly<Record<SocialSource, string>> = {
+  facebook_dm: "פייסבוק · הודעה",
+  facebook_comment: "פייסבוק · תגובה",
+  instagram_dm: "אינסטגרם · הודעה",
+  instagram_comment: "אינסטגרם · תגובה",
+};
+
+/** תווית קריאה ל-source_detail, או null למקור שאינו חברתי. */
+export function socialSourceLabel(source: string | null | undefined): string | null {
+  return source && SOCIAL_SOURCES.has(source) ? SOCIAL_SOURCE_LABELS[source as SocialSource] : null;
+}
+
+/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
+export function isInternalCaller(req: Request): boolean {
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!key || got.length !== key.length) return false;
+  let diff = 0;
+  for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+}
+
+/** מזהה אצל הספק (Zernio) - אותו אוצר תווים כמו leads_external_ref_format. */
+export function cleanExternalRef(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9._:/-]{1,128}$/.test(value) ? value : null;
+}
+
 /** ‏מזהי המקור מגיעים מהדפדפן, ולכן נגזרים לאוצר מילים סגור: המקור נכנס
  *  ליומן שמנהל/ת הפלטפורמה קורא/ת, ואין סיבה שטקסט חופשי יגיע לשם. */
 const KNOWN_SOURCES = new Set([
@@ -94,6 +136,9 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_owner_form",
   "meta_ads_buyer_form",
   "meta_ads_property_form",
+  // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
+  // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
+  ...SOCIAL_SOURCES_LIST,
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -175,8 +220,11 @@ export async function resolveAgentRouting(
   return { agencyId: member.agency_id, agentId: member.id, tier: member.tier ?? null };
 }
 
-export function normalizeSource(value: unknown, fallback: string): string {
-  return typeof value === "string" && KNOWN_SOURCES.has(value) ? value : fallback;
+/** ‏trusted = הקורא פנימי (‏isInternalCaller). מקור חברתי בלי זה - ברירת המחדל. */
+export function normalizeSource(value: unknown, fallback: string, trusted = false): string {
+  if (typeof value !== "string" || !KNOWN_SOURCES.has(value)) return fallback;
+  if (SOCIAL_SOURCES.has(value) && !trusted) return fallback;
+  return value;
 }
 
 /** כמה נמענים אפשריים יש היום לקהל הזה. ‏0 פירושו שהליד ייפול. */

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { cleanExternalRef, isInternalCaller, normalizeSource, socialSourceLabel } from "../_shared/lead-routing.ts";
 
 // מודול 3 §4.2 — פנייה ישירה מדף פרופיל סוכן אישי. אין property_id
 // (לא קשורה לנכס ספציפי) — הסוכן כבר ידוע, אז לא דורש מנגנון התאמה.
@@ -38,7 +39,24 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // מקור ו-external_ref - כמו ב-property-inquiry-intake: מקור חברתי רק מקורא
+  // פנימי, וכפילות לפי (source, external_ref) מחזירה את הליד הקיים.
+  const trusted = isInternalCaller(req);
+  // מקור כלשהו רק מקורא פנימי: עד היום הפונקציה לא כתבה source כלל, ובקרת
+  // הלידים גוזרת agent_page_direct מסוג הליד - פנייה מהדף נשארת כך.
+  const source = trusted ? normalizeSource(body.source, "", trusted) : "";
+  const externalRef = trusted && source ? cleanExternalRef(body.external_ref) : null;
+  async function existingLead(): Promise<string | null> {
+    if (!externalRef) return null;
+    const { data } = await supabase.from("leads").select("id")
+      .eq("source", source).eq("external_ref", externalRef).maybeSingle();
+    return data?.id ?? null;
+  }
+
   try {
+    const dup = await existingLead();
+    if (dup) return json({ success: true, duplicate: true, lead_id: dup });
+
     const { data: agent, error: agentErr } = await supabase
       .from("agency_members")
       .select("id, agency_id, tier, active")
@@ -58,6 +76,10 @@ Deno.serve(async (req: Request) => {
       raw_phone: phone,
       raw_message: message ?? null,
     };
+    if (source) insertPayload.source = source;
+    const detail = socialSourceLabel(source);
+    if (detail) insertPayload.source_detail = detail;
+    if (externalRef) insertPayload.external_ref = externalRef;
 
     if (autoUnlock) {
       insertPayload.status = "unlocked";
@@ -69,7 +91,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: lead, error: leadErr } = await supabase.from("leads").insert(insertPayload).select().single();
-    if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
+    if (leadErr) {
+      if ((leadErr as any).code === "23505") {
+        const again = await existingLead();
+        if (again) return json({ success: true, duplicate: true, lead_id: again });
+      }
+      return json({ error: "db_error", detail: leadErr.message }, 500);
+    }
 
     return json({
       success: true,

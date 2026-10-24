@@ -24,9 +24,12 @@ const LEAD_SRC = {
   prop:  { label:'דף נכס',      tone:'accent', why:'פנייה מהאתר' },
   agent: { label:'דף הסוכן',    tone:'accent', why:'פנייה מהדף שלך' },
   site:  { label:'האתר',        tone:'accent', why:'פנייה מהאתר' },
+  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק או מאינסטגרם' },
 };
-const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['store', 'חנות הלידים']];
-const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3 };
+const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
+const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
+/* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
+const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -42,6 +45,8 @@ function leadSrcKey(l){
   if (l.lead_type === 'store') return 'store';
   if (l.lead_type === 'call') return 'call';
   if (l.source === 'agent_page' || l.source === 'agency_page') return 'agent';
+  // לפני 'prop': פנייה מפייסבוק על נכס נושאת property_id, והייתה נספרת כדף נכס
+  if (LEAD_SOCIAL_SOURCES.has(l.source)) return 'social';
   if (l.property_id || l.lead_type === 'property_inquiry' || l.lead_type === 'visualization') return 'prop';
   return 'site';
 }

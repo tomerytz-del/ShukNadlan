@@ -20,6 +20,10 @@
   ‏2. כל קריאה ל-‏`ShukBot.link(` / ‏`ShukBot.anchorHtml(` בקובץ JS או HTML
      מקבלת הודעה שנבדקה בסעיף 1 (משתנה מוכר או מחרוזת שמכילה ביטוי).
   ‏3. כל ביטוי מופיע גם במילוי למפרע שבמיגרציה ‏20270214090000.
+  ‏4. חלונית גבריאלה (‏assets/gabriela-widget.js) מזוהה לפי **תג מקור** ולא לפי
+     ביטוי: ‏`taggedHello()` מוסיף "[site:<עמוד>]". נבדק שהיא עושה את זה, ושכל
+     ‏`data-page` שדף טוען איתו את החלונית מופיע ב-‏`SITE_TAGS` ב-index.ts -
+     אחרת הפניות מאותו עמוד נחתמות direct.
 
     python scripts/check_bot_entry.py
 
@@ -43,6 +47,18 @@ KNOWN_HELLO_VARS = {"GAB_HELLO", "hello", "FAIR_BOT_HELLO"}
 
 # ‏bot-link.js מגדיר את ShukBot ואת הקישור עצמו - הקריאות שבו אינן נקודת כניסה
 SKIP_CALLS_IN = {"assets/bot-link.js"}
+
+# החלונית הצפה: כל הודעה עוברת ב-taggedHello(), שמוסיפה את תג המקור
+WIDGET = ROOT / "assets/gabriela-widget.js"
+TAGGED_CALL = "taggedHello("
+
+
+def site_tags() -> set[str]:
+    src = WEBHOOK.read_text(encoding="utf-8")
+    block = re.search(r"SITE_TAGS[^=]*=\s*\{(.*?)\};", src, re.S)
+    if not block:
+        sys.exit(f"לא נמצא SITE_TAGS ב-{WEBHOOK.relative_to(ROOT)}")
+    return set(re.findall(r"^\s*([a-z]+)\s*:", block.group(1), re.M))
 
 
 def phrases() -> list[str]:
@@ -86,13 +102,31 @@ def main() -> int:
         for m in re.finditer(r"ShukBot\.(?:link|anchorHtml)\(\s*([^,)]*)", src):
             arg = m.group(1).strip()
             lit = re.fullmatch(r"'([^']*)'|\"([^\"]*)\"", arg)
-            ok = (arg in KNOWN_HELLO_VARS) or (lit and matches(lit.group(1) or lit.group(2) or ""))
+            ok = (arg in KNOWN_HELLO_VARS) or (lit and matches(lit.group(1) or lit.group(2) or "")) \
+                or (f == WIDGET and arg.startswith(TAGGED_CALL))
             if not ok:
                 line = src.count("\n", 0, m.start()) + 1
                 errors.append(
                     f"{rel}:{line}: קישור לגבריאלה עם הודעת פתיחה '{arg}' שהבדיקה אינה מכירה. "
                     f"ההודעה חייבת להכיל ביטוי מ-SITE_ENTRY_PHRASES, ואם היא במשתנה חדש - "
                     f"להוסיף אותו ל-KNOWN_HELLO_VARS ולבדוק אותו.")
+
+    tags = site_tags()
+    wsrc = WIDGET.read_text(encoding="utf-8")
+    if not re.search(r"function taggedHello\([^)]*\)\s*\{[^}]*\[site:", wsrc):
+        errors.append(f"{WIDGET.relative_to(ROOT)}: taggedHello() כבר אינה מוסיפה '[site:' - הפניות מהחלונית ייספרו direct.")
+    widget_pages = 0
+    for f in ROOT.glob("*.html"):
+        src = f.read_text(encoding="utf-8")
+        for m in re.finditer(r'<script[^>]*gabriela-widget\.js[^>]*>', src):
+            widget_pages += 1
+            page = re.search(r'data-page="([^"]*)"', m.group(0))
+            if not page or page.group(1) not in tags:
+                errors.append(
+                    f"{f.relative_to(ROOT)}: חלונית גבריאלה עם data-page="
+                    f"'{page.group(1) if page else ''}' שאינו ב-SITE_TAGS ({', '.join(sorted(tags))}).")
+    if widget_pages == 0:
+        errors.append("אף דף אינו טוען את assets/gabriela-widget.js - הבדיקה כבר אינה רואה את החלונית.")
 
     mig = MIGRATION.read_text(encoding="utf-8")
     for p in ph:
@@ -105,7 +139,7 @@ def main() -> int:
             print("  - " + e)
         print("\nהפרטים: docs/whatsapp-public-bot.md, \"כמה פניות מגיעות מהאתר\".")
         return 1
-    print(f"OK - {hellos} הודעות פתיחה, {len(ph)} ביטויים.")
+    print(f"OK - {hellos} הודעות פתיחה, {len(ph)} ביטויים, חלונית ב-{widget_pages} דפים.")
     return 0
 
 

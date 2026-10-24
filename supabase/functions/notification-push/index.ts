@@ -2,6 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { mapPool } from "../_shared/pool.ts";
+import {
+  LEAD_CTA, type LeadInfo, leadListTitle, leadTemplateLine, leadText, loadLeadInfo,
+} from "./lead-alert.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -104,6 +107,9 @@ const ACC_BY_TYPE: Record<string, string> = {
   showcase_meeting: "accClients",
   // ‏כרטיס שיימחק בעוד שבוע לפי מדיניות השמירה (docs/data-retention.md)
   retention_warning: "accClients",
+  // ‏העדפות לידים שהמערכת הגדירה לסוכן/ת שעוסק/ת במסחרי (20270807090000).
+  // ‏itemPath מוסיף focus=lead_prefs, שפותח את החלק המקופל
+  lead_prefs_default: "accPrefs",
   // ‏סיכום של הרצת "עדכן עסקאות" - למנהל/ת הפלטפורמה (docs/settlement-deals.md)
   deal_sync_summary: "accDealSettlements",
   // ‏ממצא אבטחה חמור - למנהל/ת הפלטפורמה. היעד הוא פאנל "בריאות המערכת",
@@ -161,7 +167,26 @@ type Item = {
   agreement_id?: string | null;
   review_id?: string | null;
   review_agent_slug?: string | null;
+  // ‏new_lead בלבד: נטען ב-loadLeadInfo (lead-alert.ts). חסר - הנוסח הגנרי.
+  lead?: LeadInfo | null;
 };
+
+/** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
+function richLead(items: Item[]): LeadInfo | null {
+  if (items.length !== 1) return null;
+  const it = items[0];
+  return it.type === "new_lead" && it.lead && itemPath(it) ? it.lead : null;
+}
+
+/** בהודעה מרוכזת: שם הפונה והערוץ במקום "ליד חדש: התעניינות בנכס". */
+function withLeadLines(items: Item[]): Item[] {
+  if (items.length < 2) return items;
+  return items.map((it) =>
+    it.type === "new_lead" && it.lead
+      ? { ...it, title: leadListTitle(it.lead), body: it.lead.what || it.body }
+      : it
+  );
+}
 
 class WhatsappError extends Error {
   constructor(message: string, readonly code: number | null) {
@@ -208,6 +233,8 @@ function itemPath(it: Item): string | null {
   if (lead && it.type === "agenda_reminder") return `/crm?goto=accLeads&lead=${lead}`;
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
+  // אין פריט, אבל יש יעד אחד: חלק העדפות הלידים, שמקופל ב"ההגדרות שלי"
+  if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
@@ -274,6 +301,11 @@ function arrange(items: Item[]): Item[] {
  */
 function textBody(name: string | null, items: Item[], noLinks = false): string {
   const first = firstName(name);
+  const li = richLead(items);
+  if (li) {
+    const link = noLinks ? null : `${SITE_BASE}${itemPath(items[0])}`;
+    return leadText(first, li, link, `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`).slice(0, 4000);
+  }
   const accs = noLinks ? [] : [...new Set(
     items.filter((it) => !itemPath(it)).map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC),
   )];
@@ -325,6 +357,7 @@ function ctaLabel(url: string): string {
   if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
   if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
   if (url.includes("accMyDashboard")) return "🧭 לסיכום המנטור";
+  if (url.includes("accPrefs")) return "⚙️ להעדפות הלידים";
   if (url.includes("dashPanelMarkets")) return "🗺️ לשווקים המקומיים";
   return "👈 פתיחה";
 }
@@ -348,6 +381,9 @@ function templateSummary(items: Item[]): string {
   return items
     .map((it) => {
       const path = itemPath(it);
+      if (it.type === "new_lead" && it.lead) {
+        return `• ${leadTemplateLine(it.lead, path ? `${SITE_BASE}${path}` : null, items.length === 1)}`;
+      }
       return `• ${it.title}${it.body ? `: ${it.body}` : ""}${path ? ` ${SITE_BASE}${path}` : ""}`;
     })
     .join(" ")
@@ -414,7 +450,7 @@ async function sendWhatsapp(
         interactive: {
           type: "cta_url",
           body: { text: ctaBody },
-          action: { name: "cta_url", parameters: { display_text: ctaLabel(target), url: target } },
+          action: { name: "cta_url", parameters: { display_text: richLead(items) ? LEAD_CTA : ctaLabel(target), url: target } },
         },
       }
       : {
@@ -481,8 +517,15 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0, failed = 0;
 
+  // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
+  const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
+
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
-    const items = arrange((row.items || []) as Item[]);
+    const items = withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
+      it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
+        ? { ...it, lead: leadInfo.get(it.lead_id) }
+        : it
+    )));
     let status = "failed";
     let lastError: string | null = null;
     let waId: string | null = null;
