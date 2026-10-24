@@ -110,6 +110,10 @@
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST
 # ל-GET. docs/crm-contacts-import.md
+# ‏מתווכים בעפולה (docs/afula-brokers.md). brokers.html מגיש את הדף,
+# ו-brokers-page.ts ממלא את המשרדים ואת המתווכים.
+/afula/מתווכים    /brokers    200
+
 /crm-share    /crm?share=error    303
 
 # ‏החזרה מ-Google אחרי "חבר/י יומן" (docs/google-calendar.md). ‏200 = proxy:

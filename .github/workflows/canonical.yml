@@ -31,6 +31,8 @@ on:
       - "assets/deals-render.js"
       - "scripts/neighborhood_page_test.ts"
       - "assets/neighborhood-render.js"
+      - "scripts/brokers_page_test.ts"
+      - "assets/brokers-render.js"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -50,6 +52,8 @@ on:
       - "assets/deals-render.js"
       - "scripts/neighborhood_page_test.ts"
       - "assets/neighborhood-render.js"
+      - "scripts/brokers_page_test.ts"
+      - "assets/brokers-render.js"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -98,3 +102,6 @@ jobs:
       # שהמסד אמר שאינה קיימת או לדף דל (‏docs/neighborhood-pages.md).
       - name: התנהגות דפי השכונות
         run: node --experimental-strip-types scripts/neighborhood_page_test.ts
+
+      - name: התנהגות מתווכים בעפולה
+        run: node --experimental-strip-types scripts/brokers_page_test.ts
