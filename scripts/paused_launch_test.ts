@@ -8,7 +8,7 @@
    ========================================================================== */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -17,6 +17,10 @@ import {
   BROKER_FORM_ID,
   buildLaunchPlan,
   collectWriteOps,
+  CREATIVE_BYTES,
+  CREATIVE_GIT_COMMIT,
+  creativeSourceUrl,
+  creativeStorageReport,
   DISCLOSURE_DEFAULT,
   executeLaunch,
   GOOGLE_BUYERS_CAMPAIGN,
@@ -315,8 +319,28 @@ ok("partial match is accepted", acceptedTargetingMatch("RE/MAX Israel", [{ id: "
 const indexSrc = readFileSync(path.join(root, "supabase/functions/ads-admin/index.ts"), "utf8");
 const cronIf = indexSrc.split("\n").find((l) => l.includes("!caller.full") && l.includes("sync_insights")) || "";
 ok("action is wired and cron cannot call it", indexSrc.includes('action === "create_paused_launch"') && indexSrc.includes("externalDailyIls: GOOGLE_BUYERS_DAILY_ILS") && cronIf.includes("sync_leads") && !cronIf.includes("create_paused_launch"));
+const uploadFn = indexSrc.slice(indexSrc.indexOf("async function actionUploadLaunchCreatives"), indexSrc.indexOf("async function actionCreatePausedLaunch"));
+ok("upload action is wired and cron cannot call it", indexSrc.includes('action === "upload_launch_creatives"') && !cronIf.includes("upload_launch_creatives") && !indexSrc.includes("upload_meta_creatives.mjs") && !uploadFn.includes("MetaClient") && !uploadFn.includes("graph.facebook.com"));
 const crm = readFileSync(path.join(root, "assets/crm.js"), "utf8");
+const crmHtml = readFileSync(path.join(root, "crm.html"), "utf8");
 ok("crm sends dry-run and a confirmed write", crm.includes("adsLaunchDry") && crm.includes("dry_run: false") && crm.includes("confirm: true") && crm.includes("create_paused_launch"));
+ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunchUpload") && crm.includes("upload_launch_creatives") && crm.includes("תמונות בדלי:") && crmHtml.includes('id="adsLaunchUpload"') && !crmHtml.includes("upload_meta_creatives.mjs"));
+
+const sampleUrl = creativeSourceUrl(plan.images[0].path);
+ok("creative bytes come from the pinned commit", sampleUrl === `https://raw.githubusercontent.com/tomerytz-del/ShukNadlan/${CREATIVE_GIT_COMMIT}/marketing/meta-creatives/${plan.images[0].path}` && !sampleUrl.includes("graph.facebook.com"));
+const listed = plan.images.map((image) => ({ path: image.path, size: CREATIVE_BYTES[image.path] }));
+const fullStore = creativeStorageReport(plan.images, listed);
+ok("full listing is 32 ready", plan.images.length === 32 && fullStore.ready === 32 && fullStore.missing.length === 0 && fullStore.mismatched.length === 0, fullStore);
+const emptyStore = creativeStorageReport(plan.images, []);
+ok("empty listing is 32 missing", emptyStore.ready === 0 && emptyStore.missing.length === 32 && emptyStore.total === 32);
+const wrongStore = creativeStorageReport(plan.images, listed.map((row, n) => n === 0 ? { path: row.path, size: 1 } : row));
+ok("one wrong size is mismatched", wrongStore.mismatched.length === 1 && wrongStore.ready === 31 && wrongStore.missing.length === 0);
+let byteMiss = 0;
+for (const image of withA5.images) {
+  const disk = statSync(path.join(root, "marketing", "meta-creatives", image.path)).size;
+  if (CREATIVE_BYTES[image.path] !== disk) byteMiss++;
+}
+ok("every ad image byte length matches the file", byteMiss === 0 && withA5.images.length === 34 && CREATIVE_BYTES["20261024/creatives/contact_sheet_20261024.jpg"] === undefined);
 
 const uploadOut = execFileSync(process.execPath, ["scripts/upload_meta_creatives.mjs"], { cwd: root, encoding: "utf8" });
 ok("upload script dry-run prints hashes and does not upload", uploadOut.includes("dry-run:") && uploadOut.includes("5c8a1cb54bc1597ed760eeb405b22d4ad8de7a3aab362016f131b7c8fcb8a6d7") && !uploadOut.includes("UPLOADED") && !/graph\.facebook\.com/.test(uploadOut));

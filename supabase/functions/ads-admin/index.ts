@@ -24,6 +24,9 @@ import {
   BROKER_FORM_ID,
   buildLaunchPlan,
   CREATIVE_BUCKET,
+  CREATIVE_BYTES,
+  creativeSourceUrl,
+  creativeStorageReport,
   executeLaunch,
   GOOGLE_BUYERS_DAILY_ILS,
   LAUNCH_KEY,
@@ -39,7 +42,10 @@ import {
   summarizeLaunch,
   termKey,
   termsNeedingIds,
+  type CreativeStorageReport,
   type ExistingRow,
+  type ImageRef,
+  type LaunchPlan,
 } from "./launch-package.ts";
 
 // ============================================================================
@@ -71,6 +77,8 @@ import {
 //   create_paused_launch  חבילת ההשקה (‏launch-package.ts). ברירת המחדל
 //                    dry-run. כתיבה רק עם dry_run:false ו-confirm:true, וכל
 //                    קמפיין, סט ומודעה נוצרים PAUSED. ה-cron אינו מורשה.
+//   upload_launch_creatives  מעלה את תמונות החבילה לדלי הפרטי. בלי מטא.
+//                    קובץ שכבר בדלי באותו גודל לא מועלה שוב.
 //   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
 //   save_video     ‏{id?, title, purpose, audience, aspect, storage_path, poster_path, ...}
 //                  - שורה בספריית הסרטונים (‏marketing_videos). הקובץ כבר בדלי
@@ -1522,6 +1530,95 @@ function jsonText(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+function objectByteSize(entry: any): number | null {
+  const raw = entry?.metadata?.size ?? entry?.metadata?.contentLength;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function listLaunchCreatives(
+  sb: SupabaseClient,
+  images: ImageRef[],
+): Promise<{ report: CreativeStorageReport; listError: string | null }> {
+  const dirs = [...new Set(images.map((image) => image.path.slice(0, image.path.lastIndexOf("/"))))];
+  const objects: { path: string; size: number | null }[] = [];
+  for (const dir of dirs) {
+    const listed = await sb.storage.from(CREATIVE_BUCKET).list(dir, { limit: 100 });
+    if (listed.error) {
+      console.error("marketing-creatives list", dir, listed.error.message);
+      return {
+        report: { total: images.length, ready: 0, missing: images.map((image) => image.path), mismatched: [] },
+        listError: listed.error.message || "list_failed",
+      };
+    }
+    for (const entry of listed.data || []) {
+      if (!entry?.name || entry.id == null) continue;
+      objects.push({ path: `${dir}/${entry.name}`, size: objectByteSize(entry) });
+    }
+  }
+  return { report: creativeStorageReport(images, objects), listError: null };
+}
+
+function storageBucketMissing(message: string): boolean {
+  const m = message.toLowerCase();
+  return (m.includes("bucket") && (m.includes("not found") || m.includes("does not exist")))
+    || m.includes("the resource was not found");
+}
+
+async function storeLaunchCreative(sb: SupabaseClient, image: ImageRef): Promise<"uploaded" | "hash" | "fetch" | "store"> {
+  let res: Response;
+  try {
+    res = await fetch(creativeSourceUrl(image.path), {
+      headers: { "User-Agent": "shuknadlan-ads-admin", Accept: "application/octet-stream" },
+    });
+  } catch (e) {
+    console.error("creative fetch", image.path, (e as Error)?.message);
+    return "fetch";
+  }
+  if (!res.ok) {
+    console.error("creative fetch", image.path, res.status);
+    return "fetch";
+  }
+  const buf = new Uint8Array(await res.arrayBuffer());
+  const hash = await sha256Hex(buf);
+  if (hash !== image.sha256 || buf.byteLength !== CREATIVE_BYTES[image.path]) return "hash";
+  const contentType = image.path.endsWith(".png") ? "image/png" : "image/jpeg";
+  const up = await sb.storage.from(CREATIVE_BUCKET).upload(image.path, buf, { contentType, upsert: true });
+  if (up.error) {
+    console.error("creative store", image.path, up.error.message);
+    return "store";
+  }
+  return "uploaded";
+}
+
+async function uploadMissingCreatives(sb: SupabaseClient, images: ImageRef[], report: CreativeStorageReport) {
+  const pending = new Set([...report.missing, ...report.mismatched]);
+  const uploaded: string[] = [];
+  const failed: string[] = [];
+  const queue = images.filter((image) => pending.has(image.path));
+  let cursor = 0;
+  async function worker() {
+    while (cursor < queue.length) {
+      const image = queue[cursor++];
+      const result = await storeLaunchCreative(sb, image);
+      if (result === "uploaded") uploaded.push(image.path);
+      else failed.push(image.path);
+    }
+  }
+  if (queue.length) await Promise.all(Array.from({ length: Math.min(4, queue.length) }, () => worker()));
+  const after = await listLaunchCreatives(sb, images);
+  const uploadedSet = new Set(uploaded);
+  const reportAfter = after.listError
+    ? {
+      total: images.length,
+      ready: report.ready + uploaded.length,
+      missing: report.missing.filter((p) => !uploadedSet.has(p)),
+      mismatched: report.mismatched.filter((p) => !uploadedSet.has(p)),
+    }
+    : after.report;
+  return { ...reportAfter, uploaded, skipped: images.length - pending.size, failed };
+}
+
 function searchRows(res: any): { id: string; name: string }[] {
   const data = Array.isArray(res?.data) ? res.data : [];
   return data
@@ -1529,7 +1626,7 @@ function searchRows(res: any): { id: string; name: string }[] {
     .filter((r: { id: string; name: string }) => r.id && r.name);
 }
 
-async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body: any) {
+async function preparePausedLaunch(sb: SupabaseClient, body: any): Promise<Response | { plan: LaunchPlan; summary: ReturnType<typeof summarizeLaunch>; includeA5: boolean }> {
   const includeA5 = body?.include_a5 === true;
   const bodyAudience = typeof body?.b2_customer_audience_id === "string" ? body.b2_customer_audience_id.trim() : "";
   const settingAudience = jsonText(await setting(sb, "b2_customer_audience_id")).trim();
@@ -1596,25 +1693,91 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     summary.warnings.push(`מזהה הדף בסודות שונה מהדף הצפוי ${PAGE_ID_EXPECTED}.`);
   }
   summary.warnings.push("מזהי תפקידים, מעסיקים ומחוזות יישלפו מחיפוש Graph רק ביצירה. הבדיקה לא קוראת למטא.");
-  summary.warnings.push("לפני יצירה אמיתית מעלים את התמונות לדלי הפרטי: node scripts/upload_meta_creatives.mjs --confirm");
+  return { plan, summary, includeA5 };
+}
+
+function creativesPublic(report: CreativeStorageReport) {
+  return { total: report.total, ready: report.ready, missing: report.missing, mismatched: report.mismatched };
+}
+
+function noteCreativeGap(summary: { warnings: string[] }, report: CreativeStorageReport) {
+  if (report.ready < report.total) {
+    summary.warnings.push(`בדלי ${report.ready} מתוך ${report.total} תמונות. כפתור "העלאת תמונות" ממלא את החסר, ואינו מפעיל מודעות.`);
+  }
+}
+
+async function actionUploadLaunchCreatives(sb: SupabaseClient, caller: Caller, body: any) {
+  const prepared = await preparePausedLaunch(sb, body);
+  if (prepared instanceof Response) return prepared;
+  const { plan, includeA5 } = prepared;
+  const listed = await listLaunchCreatives(sb, plan.images);
+  if (listed.listError && storageBucketMissing(listed.listError)) {
+    await log(sb, caller, {
+      action: "upload_launch_creatives", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { include_a5: includeA5 }, ok: false, error: "db_error",
+    });
+    return json({ error: "db_error", detail: "הדלי עדיין לא קיים. המיגרציה צריכה לרוץ קודם." }, 500);
+  }
+  if (listed.listError) {
+    await log(sb, caller, {
+      action: "upload_launch_creatives", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { include_a5: includeA5 }, ok: false, error: "creatives_source_failed",
+    });
+    return json({
+      error: "creatives_source_failed",
+      detail: "קריאת הדלי נכשלה. אפשר ללחוץ שוב על העלאת תמונות.",
+      creatives: creativesPublic(listed.report),
+    }, 409);
+  }
+  const stored = await uploadMissingCreatives(sb, plan.images, listed.report);
+  const creatives = {
+    ...creativesPublic(stored),
+    uploaded: stored.uploaded,
+    skipped: stored.skipped,
+    failed: stored.failed,
+  };
+  const ok = stored.failed.length === 0;
+  await log(sb, caller, {
+    action: "upload_launch_creatives", object_type: "launch", object_id: LAUNCH_KEY,
+    request: { include_a5: includeA5, pending: stored.uploaded.length + stored.failed.length },
+    response: { total: creatives.total, ready: creatives.ready, uploaded: stored.uploaded.length, skipped: stored.skipped, failed: stored.failed.length },
+    ok, error: ok ? null : "creatives_source_failed",
+  });
+  if (!ok) {
+    return json({
+      error: "creatives_source_failed",
+      detail: "העלאת התמונות לדלי נכשלה. אפשר ללחוץ שוב על העלאת תמונות.",
+      creatives,
+    }, 409);
+  }
+  return json({ ok: true, creatives });
+}
+
+async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body: any) {
+  const prepared = await preparePausedLaunch(sb, body);
+  if (prepared instanceof Response) return prepared;
+  const { plan, summary, includeA5 } = prepared;
+  const listed = await listLaunchCreatives(sb, plan.images);
+  const creatives = creativesPublic(listed.report);
+  noteCreativeGap(summary, creatives);
 
   if (!plan.ok) {
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
       request: { dry_run: !launchWillWrite(body), include_a5: includeA5 },
-      response: { errors: plan.errors, budget: plan.budget }, ok: false,
+      response: { errors: plan.errors, budget: plan.budget, creatives: { total: creatives.total, ready: creatives.ready } }, ok: false,
       error: plan.errors.map((e) => e.code).join(","),
     });
-    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" "), plan: summary }, 409);
+    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" "), plan: summary, creatives }, 409);
   }
 
   if (!launchWillWrite(body)) {
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-      request: { dry_run: true, include_a5: includeA5, has_b2_audience: Boolean(b2Audience) },
-      response: summary, ok: true,
+      request: { dry_run: true, include_a5: includeA5 },
+      response: { ...summary, creatives: { total: creatives.total, ready: creatives.ready } }, ok: true,
     });
-    return json({ ok: true, dry_run: true, will_write: false, plan: summary });
+    return json({ ok: true, dry_run: true, will_write: false, plan: summary, creatives });
   }
 
   if (!ADS_TOKEN || !AD_ACCOUNT) return json({ error: "meta_not_configured" }, 503);
@@ -1702,7 +1865,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     const code = mismatched.length ? "creative_hash_mismatch" : "creatives_not_in_storage";
     const detail = mismatched.length
       ? `התמונות בדלי אינן הקבצים של החבילה: ${mismatched.slice(0, 6).join(", ")}`
-      : `חסרות תמונות בדלי ${CREATIVE_BUCKET}. מריצים קודם node scripts/upload_meta_creatives.mjs --confirm. חסרות: ${missing.slice(0, 6).join(", ")}`;
+      : `חסרות תמונות בדלי. לוחצים על "העלאת תמונות" בלשונית, ואז יוצרים. חסרות: ${missing.slice(0, 6).join(", ")}`;
     await log(sb, caller, { action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY, request: { missing, mismatched }, ok: false, error: code });
     return json({ error: code, detail }, 409);
   }
@@ -1823,8 +1986,9 @@ Deno.serve(async (req: Request) => {
   if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);
   if (action === "google_set_status") return await actionGoogleSetStatus(sb, caller, body);
 
-  // לפני בדיקת הטוקן: dry-run של ההשקה לא קורא למטא.
+  // לפני בדיקת הטוקן: הבדיקה והעלאת התמונות לדלי לא קוראות למטא.
   if (action === "create_paused_launch") return await actionCreatePausedLaunch(sb, caller, body);
+  if (action === "upload_launch_creatives") return await actionUploadLaunchCreatives(sb, caller, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
