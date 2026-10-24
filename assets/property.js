@@ -305,6 +305,44 @@ function elWithClass(parent, cls){
   return null;
 }
 
+/* אותה נוסחה כמו heroRenderUrl ב-og-tags.ts. src של השער ו-preload
+   הם 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד את הקובץ פעמיים. */
+function heroRenderUrl(url, w, h){
+  var marker = '/storage/v1/object/public/';
+  var s = String(url || '');
+  var at = s.indexOf(marker);
+  if (at < 0) return '';
+  var path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return '';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path
+    + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+}
+function posterForHero(url){
+  return heroRenderUrl(url, 800, 500) || url || '';
+}
+function heroSrcset(url){
+  var small = heroRenderUrl(url, 800, 500);
+  var big = heroRenderUrl(url, 1200, 800);
+  if (!small || !big) return '';
+  return small + ' 800w, ' + big + ' 1200w';
+}
+function heroImgExtra(original){
+  var set = heroSrcset(original);
+  if (!set) return '';
+  return ' srcset="' + escapeAttr(set) + '" sizes="(min-width:640px) 640px, 100vw"'
+    + ' data-full="' + escapeAttr(original) + '"'
+    + ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"';
+}
+function paintHeroImg(img, original){
+  img.src = posterForHero(original);
+  var set = heroSrcset(original);
+  if (!set) return;
+  img.setAttribute('srcset', set);
+  img.setAttribute('sizes', '(min-width:640px) 640px, 100vw');
+  img.setAttribute('data-full', original);
+  img.setAttribute('onerror', "this.onerror=null;this.removeAttribute('srcset');this.src=this.getAttribute('data-full')");
+}
+
 /* הווידאו בלי src. תמונת data-lcp שכבר ב-HTML נשארת אותו צומת, כדי
    שה-LCP לא יתחיל מחדש אחרי שה-JS בונה את הגלריה. */
 function attachHeroVideo(main, videoSrc, poster){
@@ -329,7 +367,7 @@ function attachHeroVideo(main, videoSrc, poster){
     img = document.createElement('img');
     img.className = 'bento-video-bg';
     img.dataset.lcp = '1';
-    img.src = poster;
+    paintHeroImg(img, poster);
     img.alt = '';
     img.style.filter = 'none';
     img.style.transform = 'none';
@@ -367,13 +405,15 @@ function renderGallery(p){
   const thumbEnd = Math.max(thumbStart, Math.min(galleryImages.length, thumbStart + 2));
   const count = String(1 + thumbEnd - thumbStart);
   const poster = videoSrc ? (p.video_poster_url || galleryImages[0] || '') : (galleryImages[0] || '');
+  const heroSrc = posterForHero(poster);
   const kept = grid.querySelector && grid.querySelector('img[data-lcp]');
   /* data-count של סרטון ושל גלריה בלי סרטון מתלכד כשיש לפחות שתי תמונות.
      reduced-motion / Save-Data / 2G מכבים את הסרטון רק בדפדפן, והשרת
-     לא יודע את זה. בלי בדיקת המחלקה היינו משאירים את פריסת הסרטון. */
+     לא יודע את זה. בלי בדיקת המחלקה היינו משאירים את פריסת הסרטון.
+     ההשוואה היא לכתובת ה-render, אותה כתובת שה-edge שם ב-src. */
   const mainNow = elWithClass(grid, 'bento-main');
   const paintedVideo = !!(mainNow && mainNow.classList && mainNow.classList.contains('bento-video'));
-  const ssr = !!(kept && poster && kept.getAttribute('src') === poster
+  const ssr = !!(kept && heroSrc && kept.getAttribute('src') === heroSrc
     && grid.getAttribute('data-count') === count
     && !!videoSrc === paintedVideo);
   if (!ssr){
@@ -384,14 +424,17 @@ function renderGallery(p){
 
     // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
     // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
-    const makeCell = (cls, index, opensAt)=>{
+    const makeCell = (cls, index, opensAt, hero)=>{
       const cell = document.createElement('div');
       cell.className = 'bento-cell ' + cls;
       const open = document.createElement('button');
       open.type = 'button';
       open.className = 'cell-open';
       open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
-      open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
+      const raw = galleryImages[index];
+      open.innerHTML = hero
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="" fetchpriority="high"${heroImgExtra(raw)}>`
+        : `<img src="${escapeAttr(raw)}" alt="" ${index ? 'loading="lazy"' : ''}>`;
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -419,7 +462,7 @@ function renderGallery(p){
         </div>`;
       grid.appendChild(main);
     } else {
-      grid.appendChild(makeCell('bento-main', 0, 0));
+      grid.appendChild(makeCell('bento-main', 0, 0, true));
     }
 
     const restBuilt = galleryImages.length - thumbEnd;

@@ -263,6 +263,50 @@ function check(name: string, ok: boolean) {
   check("2G: בלי סרטון בשער", !grid.children.some((c: any) => c.classList && c.classList.contains("bento-video")));
 }
 
+const OBJECT = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg?token=1";
+const RENDER = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg?width=800&height=500&resize=cover&quality=60";
+const RENDER_BIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg?width=1200&height=800&resize=cover&quality=60";
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  check("posterForHero זהה ל-edge", g.posterForHero(OBJECT) === RENDER && g.posterForHero(POSTER) === POSTER);
+  const grid = dom.document.getElementById("bentoGrid");
+  g.renderGallery({
+    video_url: SRC,
+    video_poster_url: OBJECT,
+    images: ["https://example.test/1.jpg"],
+  });
+  const poster = grid.querySelector("img[data-lcp]");
+  check("שער חדש יורד ב-render ולא בקובץ המלא", poster
+    && poster.getAttribute("src") === RENDER
+    && poster.getAttribute("srcset") === `${RENDER} 800w, ${RENDER_BIG} 1200w`
+    && poster.getAttribute("sizes") === "(min-width:640px) 640px, 100vw"
+    && poster.getAttribute("data-full") === OBJECT);
+}
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = RENDER;
+  img.className = "bento-video-bg";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "2");
+  g.renderGallery({
+    video_url: SRC,
+    video_poster_url: OBJECT,
+    images: ["https://example.test/1.jpg"],
+  });
+  check("SSR עם כתובת ה-render שומר את אותו צומת", grid.querySelector("img[data-lcp]") === img);
+}
+
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);
   process.exit(1);
