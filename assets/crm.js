@@ -4314,7 +4314,8 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
-  loadAdminSearchReport().then(loadAdminAreaMisses).then(loadAdminGabrielaReport);
+  loadAdminSearchReport().then(loadAdminSearchLearning).then(loadAdminAreaMisses)
+    .then(loadAdminWordMisses).then(loadAdminGabrielaReport);
 }
 
 /* ---------- מה מחפשים באתר ----------
@@ -4582,6 +4583,157 @@ async function loadAdminAreaMisses(){
     ctl.appendChild(ok);
     ctl.appendChild(no);
     item.appendChild(ctl);
+    list.appendChild(item);
+  });
+  block.appendChild(list);
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- מה לומדים מהחיפושים ----------
+   ‏search_learning_report (‏20270813090000_search_learning.sql): ביקוש שאין לו
+   מלאי אצל גבריאלה, מה קרה אחרי התוצאות (דומים, שמירה, מתווך/ת, ניסיון
+   נוסף), ובאתר - חיפושים שהובילו לצפייה בנכס. ‏docs/search-core.md. */
+const LEARN_OUTCOMES = [
+  ['contact', 'ביקשו מתווך/ת'], ['saved', 'שמרו חיפוש'], ['similar', 'ביקשו דומים'],
+  ['refined', 'ניסו שוב במילים אחרות'], ['none', 'בלי פעולה'],
+];
+function learnDemandText(d){
+  const L = (window.SearchCore && window.SearchCore.FEATURE_LABELS) || {};
+  const types = (d.property_types || []);
+  const parts = [];
+  parts.push(types.length ? (types.length > 2 ? types[0] + ' ועוד' : types.join(' / ')) : 'נכס');
+  if (d.deal_type === 'sale') parts.push('למכירה');
+  else if (d.deal_type === 'rent') parts.push('להשכרה');
+  const where = [d.area, d.city].filter(Boolean).join(', ');
+  if (where) parts.push(where + (d.area_unrecognized ? ' (שם לא מוכר)' : ''));
+  // ‏"4 חדרים" נשמר כ-4 עד 4.5 (‏public-agent.ts), ולכן הטווח מוצג רק כשהוא באמת טווח
+  if (d.min_rooms) parts.push(d.min_rooms + (d.max_rooms && Math.floor(d.max_rooms) > d.min_rooms ? '-' + Math.floor(d.max_rooms) : '') + ' חדרים');
+  if (d.median_max_price) parts.push('עד ₪' + Math.round(d.median_max_price).toLocaleString('he-IL'));
+  if ((d.features || []).length) parts.push(d.features.map(f => L[f] || f).join(', '));
+  return parts.join(' · ');
+}
+
+async function loadAdminSearchLearning(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('search_learning_report', { p_days: adminReportMonths * 30 });
+  const block = admBlock('מה לומדים מהחיפושים',
+    'מה גבריאלה התבקשה למצוא ולא היה במלאי, ומה אנשים עשו אחרי שקיבלו תוצאות - אצלה ובאתר. "ביקוש בלי מלאי" הוא רשימת הנכסים שכדאי להשיג.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270813090000_search_learning.sql.'
+      : 'שגיאה בטעינת הדוח: ' + heErr(error);
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep = data || {};
+  const bot = rep.bot || {};
+  const site = rep.site || {};
+  const searches = Number(bot.searches) || 0;
+  const pct = (n, of) => of ? Math.round(100 * n / of) + '%' : '-';
+
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('חיפושים אצל גבריאלה', admInt(searches),
+    { note: plural(Number(bot.people) || 0, 'אדם אחד', 'אנשים', admInt(bot.people)) }));
+  tiles.appendChild(admTile('בלי אף נכס', admInt(bot.zero_results),
+    { wine: true, note: pct(Number(bot.zero_results) || 0, searches) + ' מהחיפושים' }));
+  tiles.appendChild(admTile('באתר: חיפוש שהוביל לצפייה', pct(Number(site.viewed_after) || 0, Number(site.searches) || 0),
+    { note: admInt(site.viewed_after) + ' מתוך ' + admInt(site.searches) + ' חיפושים באותו ביקור' }));
+  block.appendChild(tiles);
+
+  if (searches){
+    const out = bot.outcomes || {};
+    const facts = admEl('div', 'adm-facts');
+    LEARN_OUTCOMES.forEach(([k, label]) => {
+      const n = Number(out[k]) || 0;
+      const f = admEl('div', 'adm-fact');
+      f.appendChild(admEl('span', 'adm-fact-lbl', label));
+      f.appendChild(admEl('span', 'adm-fact-val', admInt(n) + ' · ' + pct(n, searches)));
+      facts.appendChild(f);
+    });
+    block.appendChild(admEl('p', 'adm-legend', 'מה קרה אחרי התוצאות אצל גבריאלה'));
+    block.appendChild(facts);
+  }
+
+  const demand = Array.isArray(rep.zero_demand) ? rep.zero_demand : [];
+  block.appendChild(admEl('p', 'adm-legend', 'ביקוש בלי מלאי'));
+  if (!demand.length){
+    block.appendChild(admEl('div', 'empty-state',
+      searches ? 'כל החיפושים אצל גבריאלה מצאו לפחות נכס אחד.' : 'עוד אין חיפושים אצל גבריאלה בתקופה הזו.'));
+  } else {
+    const list = admEl('div', 'adm-facts adm-facts-wide');
+    demand.forEach(d => {
+      const f = admEl('div', 'adm-fact');
+      // textContent ולא innerHTML: האזור הוא טקסט שגולש/ת כתב/ה
+      f.appendChild(admEl('span', 'adm-fact-lbl', learnDemandText(d)));
+      f.appendChild(admEl('span', 'adm-fact-val',
+        plural(Number(d.people) || 0, 'אדם אחד', 'אנשים', admInt(d.people)) +
+        (Number(d.with_close) ? ' · הוצעו קרובים ב-' + admInt(d.with_close) : '')));
+      list.appendChild(f);
+    });
+    block.appendChild(list);
+  }
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- מילים שלא זוהו ----------
+   ‏search_word_miss_report: מאפיין ("עם גינה") או סוג נכס ("יורט") שהאתר או
+   גבריאלה לא הכירו. **אין כאן "אישור"** כמו בשמות המקום: מילה חדשה היא כלל
+   בליבת החיפוש (‏assets/search-core.js) ונכנסת ב-PR. "הוסר" מוציא אותה מהרשימה
+   - כשנוספה, או כשאינה בקשה. ‏docs/search-core.md. */
+async function loadAdminWordMisses(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('search_word_miss_report', { p_days: adminReportMonths * 30 });
+  const block = admBlock('מילים שלא זוהו',
+    'מאפיינים וסוגי נכס שגולשים ביקשו באתר או מגבריאלה ואין לנו איך לסנן לפיהם - ולכן החיפוש נעשה בלעדיהם. מילה שחוזרת היא בקשה להוסיף אותה לחיפוש (שינוי קוד בליבת החיפוש).');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270813090000_search_learning.sql.'
+      : 'שגיאה בטעינת המילים שלא זוהו: ' + heErr(error);
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length){
+    block.appendChild(admEl('div', 'empty-state', 'אין כרגע מילים שלא זוהו.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const KIND = { feature: 'מאפיין', type: 'סוג נכס' };
+  const SOURCE = { site: 'באתר', whatsapp: 'אצל גבריאלה' };
+  const list = admEl('div', 'adm-facts adm-facts-wide');
+  rows.forEach(r => {
+    const item = admEl('div', 'adm-fact');
+    item.appendChild(admEl('span', 'adm-fact-lbl', (KIND[r.kind] || r.kind) + ': ' + r.phrase));
+    const srcs = (r.sources || []).map(x => SOURCE[x] || x).join(' ו');
+    const val = admEl('span', 'adm-fact-val',
+      plural(Number(r.people) || 0, 'אדם אחד', 'אנשים', admInt(r.people)) + (srcs ? ' · ' + srcs : '') + ' ');
+    const no = admEl('button', 'btn btn-ghost', 'הסרה');
+    no.type = 'button';
+    no.setAttribute('aria-label', 'הסרת "' + r.phrase + '" מהרשימה');
+    no.addEventListener('click', async () => {
+      no.disabled = true;
+      const { error: e } = await sb.rpc('search_word_miss_dismiss', { p_kind: r.kind, p_phrase_key: r.phrase_key });
+      if (e){ no.disabled = false; showToast('ההסרה נכשלה: ' + heErr(e)); return; }
+      val.textContent = 'הוסר - לא יופיע שוב';
+    });
+    val.appendChild(no);
+    item.appendChild(val);
     list.appendChild(item);
   });
   block.appendChild(list);

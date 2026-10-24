@@ -86,7 +86,7 @@ export function applyPropertyFilters(
   args: Record<string, unknown>,
   orGroups: string[][] = [],
   // deno-lint-ignore no-explicit-any
-): { query: any; parsed: ParsedFilters } {
+): { query: any; parsed: ParsedFilters; unknown: { types: string[]; features: string[] } } {
   const groups = orGroups.filter((g) => g.length);
   const dealType = text(args.deal_type);
   if (dealType && DEAL_TYPES.includes(dealType)) query = query.eq("deal_type", dealType);
@@ -102,21 +102,28 @@ export function applyPropertyFilters(
     if (pats.length) groups.push(pats);
   }
 
+  /* סוג הנכס - באותן קבוצות של האתר (‏SearchCore.botTypes, 24.10.2026): "וילה"
+     הוא בית פרטי, "דירה" כוללת דופלקס וסטודיו. עד אז מה שהמודל כתב נשלח כ-ilike
+     חלקי, ו"וילה" החזיר אפס. מה שאינו ערך במסד ואין לו מילה - ‏unknown.types,
+     לדוח "מילים שלא זוהו". */
+  const unknown: { types: string[]; features: string[] } = { types: [], features: [] };
   if (Array.isArray(args.property_types)) {
-    const patterns = args.property_types
-      .map((t) => text(t))
-      .filter((t): t is string => !!t)
-      .slice(0, 6)
-      .map(typePattern)
-      .filter((t): t is string => !!t);
+    const asked = args.property_types.map((t) => text(t)).filter((t): t is string => !!t).slice(0, 6);
+    const bt = SearchCore.botTypes(asked) as { types: string[]; unknown: string[] };
+    unknown.types = bt.unknown;
+    const patterns = bt.types.slice(0, 12).map(typePattern).filter((t): t is string => !!t);
     if (patterns.length) groups.push(patterns);
   }
   /* מה נחשב "יש בנכס" - מאותה טבלה שהאתר מסנן לפיה (‏SearchCore.featureFilter):
      מרפסת ← גם מרפסת שמש, ממ״ד ← גם mamad_location = 'unit'. כל "או" כזה
-     נכנס ל-groups - `or` אחד בלבד בבקשה (ראו למעלה). */
-  const feats = Array.isArray(args.features)
+     נכנס ל-groups - `or` אחד בלבד בבקשה (ראו למעלה).
+     ‏**קוד שאינו קיים בשום נכס יורד מהסינון** (‏SearchCore.knownFeature): מודל
+     ששלח "garden" קיבל `contains {garden}` ואפס תוצאות, והבוט אמר "אין". */
+  const feats0 = Array.isArray(args.features)
     ? args.features.map((f) => text(f)).filter((f): f is string => !!f).slice(0, 8)
     : [];
+  const feats = feats0.filter((f) => SearchCore.knownFeature(f));
+  unknown.features = feats0.filter((f) => !SearchCore.knownFeature(f));
   const ff = SearchCore.featureFilter(feats) as { strict: string[]; groups: string[][] };
   if (ff.strict.length) query = query.contains("features", ff.strict);
   ff.groups.forEach((g) => groups.push(g));
@@ -147,7 +154,90 @@ export function applyPropertyFilters(
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);
   if (parsed.maxFloor !== null) query = query.lte("floor", parsed.maxFloor);
 
-  return { query, parsed };
+  return { query, parsed, unknown };
+}
+
+// ---------------------------------------------------------------------------
+// גבריאלה לומדת מהחיפושים (24.10.2026, ‏20270813090000_search_learning.sql)
+//
+// כל חיפוש מול גולש/ת נרשם ל-`bot_search_events`, מה שקרה אחריו מסומן ב-
+// `bot_search_outcome`, ומילים שלא זוהו נכנסות ל-`search_word_misses`. משם
+// מנהל/ת הפלטפורמה רואה ביקוש שאין לו מלאי ומה לא הבנו (‏docs/search-core.md).
+// **כשל ברישום לעולם אינו מפיל את החיפוש** - זו מדידה.
+// ---------------------------------------------------------------------------
+
+/** ‏sha-256 של מספר הוואטסאפ, 16 תווים - לא הטלפון עצמו. */
+export async function visitorHash(phone: string | null | undefined): Promise<string | null> {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.length < 7) return null;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(digits));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
+const safeWord = (s: string) =>
+  s.length >= 2 && s.length <= 40 && !s.includes("@") && !/[0-9]{9,}/.test(s);
+
+export async function logWordMisses(
+  supabase: SupabaseClient,
+  unknown: { types: string[]; features: string[] },
+  city: string | null,
+  visitor: string | null,
+): Promise<void> {
+  const rows = [
+    ...unknown.features.map((w) => ({ kind: "feature", phrase: w })),
+    ...unknown.types.map((w) => ({ kind: "type", phrase: w })),
+  ].map((r) => ({ ...r, phrase: r.phrase.trim().replace(/\s+/g, " ") }))
+    .filter((r) => safeWord(r.phrase))
+    .slice(0, 6)
+    .map((r) => ({
+      ...r, source: "whatsapp", city: city ? city.slice(0, 60) : null,
+      visitor: visitor ? `wa_${visitor}` : null,
+    }));
+  if (!rows.length) return;
+  try {
+    await supabase.from("search_word_misses").insert(rows);
+  } catch (_e) { /* מדידה, לא תקלה */ }
+}
+
+export async function logBotSearch(
+  supabase: SupabaseClient,
+  row: {
+    visitor: string | null; args: Record<string, unknown>; parsed: ParsedFilters;
+    types: string[]; features: string[]; area: string | null; areaRecognized: boolean | null;
+    results: number; close: number;
+  },
+): Promise<void> {
+  const area = row.area ? row.area.trim().slice(0, 80) : null;
+  try {
+    await supabase.from("bot_search_events").insert({
+      visitor_hash: row.visitor,
+      city: row.parsed.city ? row.parsed.city.slice(0, 60) : null,
+      area: area && !area.includes("@") && !/[0-9]{9,}/.test(area) ? area : null,
+      area_recognized: area ? row.areaRecognized : null,
+      deal_type: text(row.args.deal_type, 20),
+      category: text(row.args.category, 20),
+      property_types: row.types.slice(0, 12).map((t) => t.slice(0, 40)),
+      features: row.features.slice(0, 12).map((f) => f.slice(0, 40)),
+      min_price: row.parsed.minPrice,
+      max_price: row.parsed.maxPrice,
+      min_rooms: row.parsed.minRooms,
+      max_rooms: row.parsed.maxRooms,
+      result_count: Math.min(row.results, 100000),
+      close_count: Math.min(row.close, 100000),
+    });
+  } catch (_e) { /* מדידה, לא תקלה */ }
+}
+
+/** מה קרה אחרי החיפוש האחרון של הפונה: similar / saved / contact. */
+export async function markSearchOutcome(
+  supabase: SupabaseClient,
+  visitor: string | null,
+  outcome: "similar" | "saved" | "contact",
+): Promise<void> {
+  if (!visitor) return;
+  try {
+    await supabase.rpc("bot_search_outcome", { p_visitor: visitor, p_outcome: outcome });
+  } catch (_e) { /* מדידה, לא תקלה */ }
 }
 
 /**

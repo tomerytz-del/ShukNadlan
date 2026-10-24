@@ -57,6 +57,8 @@ PROBE_CODES = {
                  "search_rules_",
                  # ‏שמות מקום שלא זוהו (‏_area_names_unrecognized)
                  "area_names_",
+                 # ‏מילים שלא זוהו (‏_search_words_unrecognized)
+                 "search_words_",
                  # ‏מחזור העדכון של העסקאות (‏_deal_sync_cycle)
                  "deal_sync_",
                  # ‏מסירת הודעות התבנית לסוכנים (‏_wa_template_delivery)
