@@ -129,7 +129,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      יורדות לשורה מתחת לראשית; מדסקטופ הן עמודה לצידה. מספר התמונות בפועל
      נכתב ל-data-count, כי מודעה עם תמונה אחת (רוב המודעות במערכת) צריכה
      תמונה ראשית ברוחב מלא ולא עמודה ריקה לצידה. */
-  .hero{margin-top:16px}
+  .hero{margin-top:16px;position:relative}
+  /* רשת ריקה שומרת את גובה השער עד שהתמונה נכנסת. בלי זה הפוטר עולה
+     ואז נדחף למטה ברגע שהגלריה נבנית. */
+  #bentoGrid:empty{aspect-ratio:16/10}
+  /* ב-HTML הראשון של נכס שנמצא (og-tags) התוכן כבר במקום, והסרגל
+     התחתון כבר שומר 78px. display:none עד אז היה דוחף את הפוטר למטה
+     אחרי הטעינה. */
+  body.property-ready #propertyContent{display:block}
+  body.property-ready #loadingState{display:none}
+  /* במובייל קבוצות הפוטר נסגרות ב-JS אחרי הטעינה. כאן הן סגורות
+     מהציור הראשון, והלחיצה פותחת עם is-open. במסך רחב אין את המחלקה. */
+  html.fold-cols details.footer-col:not(.is-open) > .footer-col-links{display:none}
+  html.fold-seo #footerSeo:not(.is-open) > .footer-seo-links{display:none}
   .bento{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
   .bento-cell{
     position:relative;overflow:hidden;border-radius:0;border:1px solid var(--hair);
@@ -1157,6 +1169,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
+<script>
+/* קיפול הפוטר לפני הציור הראשון. site-footer.js רץ אחרי defer וסוגר
+   את אותן קבוצות - אם הן נפתחות קודם, הפוטר זז. */
+(function(){
+  var html = document.documentElement;
+  if (!window.matchMedia) return;
+  var cols = matchMedia('(max-width:559px)');
+  var seo = matchMedia('(max-width:759px)');
+  var sync = function(){
+    html.classList.toggle('fold-cols', cols.matches);
+    html.classList.toggle('fold-seo', seo.matches);
+  };
+  sync();
+  if (cols.addEventListener){
+    cols.addEventListener('change', sync);
+    seo.addEventListener('change', sync);
+  }
+})();
+</script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -2007,6 +2038,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+
+  <script>
+  /* לחיצה במובייל פותחת קבוצה שצוירה סגורה. במסך רחב site-footer.js
+     משאיר את הקבוצה פתוחה וחוסם את הקיפול. */
+  (function(){
+    function bind(list, query){
+      for (var i = 0; i < list.length; i++){
+        (function(d){
+          var s = d.querySelector('summary');
+          if (!s) return;
+          s.addEventListener('click', function(e){
+            if (window.matchMedia(query).matches) return;
+            e.preventDefault();
+            d.classList.toggle('is-open');
+          });
+        })(list[i]);
+      }
+    }
+    bind(document.querySelectorAll('details.footer-col'), '(min-width:560px)');
+    var seo = document.getElementById('footerSeo');
+    if (seo) bind([seo], '(min-width:760px)');
+  })();
+  </script>
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>

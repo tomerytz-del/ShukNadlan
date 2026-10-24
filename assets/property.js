@@ -295,9 +295,68 @@ function heroVideoSource(p){
   return embed.src;
 }
 
+/* ילד לפי מחלקה. בלי querySelector של מחלקה, כי בדיקת הסרטון מחקה
+   DOM שמכיר רק img[data-lcp]. */
+function elWithClass(parent, cls){
+  const kids = parent && parent.children || [];
+  for (let i = 0; i < kids.length; i++){
+    if (kids[i].classList && kids[i].classList.contains(cls)) return kids[i];
+  }
+  return null;
+}
+
+/* הווידאו בלי src. תמונת data-lcp שכבר ב-HTML נשארת אותו צומת, כדי
+   שה-LCP לא יתחיל מחדש אחרי שה-JS בונה את הגלריה. */
+function attachHeroVideo(main, videoSrc, poster){
+  main.classList.add('bento-video');
+  const v = document.createElement('video');
+  v.dataset.pendingSrc = videoSrc;
+  v.preload = 'none';
+  v.autoplay = false;
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.setAttribute('aria-label', 'סרטון הנכס');
+  v.style.visibility = 'hidden';
+  let img = main.querySelector && main.querySelector('img[data-lcp]');
+  if (!img){
+    const kids = main.children || [];
+    for (let i = 0; i < kids.length; i++){
+      if (kids[i].dataset && kids[i].dataset.lcp){ img = kids[i]; break; }
+    }
+  }
+  if (!img && poster){
+    img = document.createElement('img');
+    img.className = 'bento-video-bg';
+    img.dataset.lcp = '1';
+    img.src = poster;
+    img.alt = '';
+    img.style.filter = 'none';
+    img.style.transform = 'none';
+    img.setAttribute('fetchpriority', 'high');
+    img.setAttribute('aria-hidden', 'true');
+    main.appendChild(img);
+  }
+  main.appendChild(v);
+  const portrait = ()=>{
+    if (main.classList.contains('is-portrait')) return;
+    main.classList.add('is-portrait');
+  };
+  if (isReelVideo(videoSrc)) portrait();
+  v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
+  v.addEventListener('playing', ()=>{
+    v.style.visibility = '';
+    const shot = (main.querySelector && main.querySelector('img[data-lcp]')) || img;
+    if (shot && main.classList.contains('is-portrait')){
+      shot.style.filter = '';
+      shot.style.transform = '';
+    }
+  });
+  heroVideoEl = v;
+}
+
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
-  grid.innerHTML = '';
   heroVideoEl = null;
   galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
 
@@ -306,93 +365,100 @@ function renderGallery(p){
   const videoSrc = heroVideoSource(p);
   const thumbStart = videoSrc ? 0 : 1;
   const thumbEnd = Math.max(thumbStart, Math.min(galleryImages.length, thumbStart + 2));
-  // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
-  // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
-  grid.setAttribute('data-count', String(1 + thumbEnd - thumbStart));
+  const count = String(1 + thumbEnd - thumbStart);
+  const poster = videoSrc ? (p.video_poster_url || galleryImages[0] || '') : (galleryImages[0] || '');
+  const kept = grid.querySelector && grid.querySelector('img[data-lcp]');
+  /* data-count של סרטון ושל גלריה בלי סרטון מתלכד כשיש לפחות שתי תמונות.
+     reduced-motion / Save-Data / 2G מכבים את הסרטון רק בדפדפן, והשרת
+     לא יודע את זה. בלי בדיקת המחלקה היינו משאירים את פריסת הסרטון. */
+  const mainNow = elWithClass(grid, 'bento-main');
+  const paintedVideo = !!(mainNow && mainNow.classList && mainNow.classList.contains('bento-video'));
+  const ssr = !!(kept && poster && kept.getAttribute('src') === poster
+    && grid.getAttribute('data-count') === count
+    && !!videoSrc === paintedVideo);
+  if (!ssr){
+    grid.innerHTML = '';
+    // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
+    // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
+    grid.setAttribute('data-count', count);
 
-  // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
-  // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
-  const makeCell = (cls, index, opensAt)=>{
-    const cell = document.createElement('div');
-    cell.className = 'bento-cell ' + cls;
-    const open = document.createElement('button');
-    open.type = 'button';
-    open.className = 'cell-open';
-    open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
-    open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
-    open.addEventListener('click', ()=> lbOpen(opensAt));
-    cell.appendChild(open);
-    return cell;
-  };
-
-  const main = document.createElement('div');
-  main.className = 'bento-cell bento-main';
-  if (videoSrc){
-    main.classList.add('bento-video');
-    const v = document.createElement('video');
-    // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
-    v.dataset.pendingSrc = videoSrc;
-    v.preload = 'none';
-    v.autoplay = false;
-    // ‏muted לפני כל play() עתידי. ניגון אוטומטי עם קול חסום, וגם לא ביקשו אותו.
-    v.muted = true;
-    v.loop = true;
-    v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
-    v.setAttribute('aria-label', 'סרטון הנכס');
-    // בלי פריים הסרטון היה מכסה את התמונה במלבן ריק, וה-LCP היה הוא ולא היא.
-    v.style.visibility = 'hidden';
-    // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
-    // ‏bento-video-bg כבר ממקם תמונה על כל התא (בלי לגעת ב-property.html).
-    // ה-filter המובנה של המחלקה הוא רקע מטושטש לרילס; כאן התמונה חדה עד הניגון.
-    const poster = p.video_poster_url || galleryImages[0];
-    if (poster){
-      const img = document.createElement('img');
-      img.className = 'bento-video-bg';
-      img.dataset.lcp = '1';
-      img.src = poster;
-      img.alt = '';
-      img.style.filter = 'none';
-      img.style.transform = 'none';
-      img.setAttribute('fetchpriority', 'high');
-      img.setAttribute('aria-hidden', 'true');
-      main.appendChild(img);
-    }
-    main.appendChild(v);
-    // סרטון אנכי נכנס שלם (ראו ‎.is-portrait‎ ב-property.html). רילס של
-    // המערכת ידוע מראש לפי שם הקובץ; כל קובץ אחר - לפי המידות שלו.
-    // בלי <img> שני: תמונת ה-LCP עצמה הופכת לרקע המטושטש ברגע שהניגון מתחיל.
-    const portrait = ()=>{
-      if (main.classList.contains('is-portrait')) return;
-      main.classList.add('is-portrait');
+    // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
+    // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
+    const makeCell = (cls, index, opensAt)=>{
+      const cell = document.createElement('div');
+      cell.className = 'bento-cell ' + cls;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'cell-open';
+      open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
+      open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
+      open.addEventListener('click', ()=> lbOpen(opensAt));
+      cell.appendChild(open);
+      return cell;
     };
-    if (isReelVideo(videoSrc)) portrait();
-    v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
-    v.addEventListener('playing', ()=>{
-      v.style.visibility = '';
-      const shot = main.querySelector('img[data-lcp]');
-      if (shot && main.classList.contains('is-portrait')){
-        shot.style.filter = '';
-        shot.style.transform = '';
-      }
-    });
-    heroVideoEl = v;
-    grid.appendChild(main);
-  } else if (!galleryImages.length){
-    main.classList.add('bento-empty');
-    // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
-    // ריק שנקרא כמו תמונה שבורה
-    const name = agencyNameOf(p);
-    const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
-    main.innerHTML = `<div class="empty-inner">
-        ${logo
-          ? `<img class="empty-logo" src="${escapeAttr(logo)}" alt="${escapeAttr(name)}" onerror="this.remove()">`
-          : `<span class="empty-logo empty-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`}
-        ${name ? `<div class="empty-agency">${escapeHtml(name)}</div>` : ''}
-        <div class="empty-note">${NO_PHOTOS_NOTE}</div>
-      </div>`;
-    grid.appendChild(main);
+
+    const main = document.createElement('div');
+    main.className = 'bento-cell bento-main';
+    if (videoSrc){
+      // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
+      // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
+      attachHeroVideo(main, videoSrc, poster);
+      grid.appendChild(main);
+    } else if (!galleryImages.length){
+      main.classList.add('bento-empty');
+      // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
+      // ריק שנקרא כמו תמונה שבורה
+      const name = agencyNameOf(p);
+      const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
+      main.innerHTML = `<div class="empty-inner">
+          ${logo
+            ? `<img class="empty-logo" src="${escapeAttr(logo)}" alt="${escapeAttr(name)}" onerror="this.remove()">`
+            : `<span class="empty-logo empty-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`}
+          ${name ? `<div class="empty-agency">${escapeHtml(name)}</div>` : ''}
+          <div class="empty-note">${NO_PHOTOS_NOTE}</div>
+        </div>`;
+      grid.appendChild(main);
+    } else {
+      grid.appendChild(makeCell('bento-main', 0, 0));
+    }
+
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = thumbStart; i < thumbEnd; i++){
+      // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
+      // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
+      const isLast = i === thumbEnd - 1;
+      const cell = makeCell('bento-thumb', i, (isLast && restBuilt > 0) ? thumbEnd : i);
+      if (isLast) cell.classList.add('carries-count');
+      grid.appendChild(cell);
+    }
+  } else if (videoSrc){
+    const main = elWithClass(grid, 'bento-main');
+    if (main) attachHeroVideo(main, videoSrc, poster);
+    let n = 0;
+    const kids = grid.children || [];
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = 0; i < kids.length; i++){
+      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
+      const index = thumbStart + n;
+      const isLast = index === thumbEnd - 1;
+      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
+      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
+      n++;
+    }
   } else {
-    grid.appendChild(makeCell('bento-main', 0, 0));
+    const main = elWithClass(grid, 'bento-main');
+    if (main) main.addEventListener('click', ()=> lbOpen(0));
+    let n = 0;
+    const kids = grid.children || [];
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = 0; i < kids.length; i++){
+      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
+      const index = thumbStart + n;
+      const isLast = index === thumbEnd - 1;
+      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
+      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
+      n++;
+    }
   }
 
   // התגיות המרחפות עוברות לתוך התא הראשי — כך הן תמיד על התמונה הגדולה
@@ -403,15 +469,6 @@ function renderGallery(p){
   });
 
   const rest = galleryImages.length - thumbEnd;
-  for (let i = thumbStart; i < thumbEnd; i++){
-    // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
-    // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
-    const isLast = i === thumbEnd - 1;
-    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? thumbEnd : i);
-    if (isLast) cell.classList.add('carries-count');
-    grid.appendChild(cell);
-  }
-
   // מונה התמונות יורד אל התמונה המשנית האחרונה במקום לשבת על הראשית: שם הוא
   // מפנה מקום לתמונה עצמה, והוא ממילא מדבר על כל הגלריה ולא על תמונת השער.
   const countHost = grid.querySelector('.bento-thumb.carries-count');

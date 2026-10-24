@@ -152,6 +152,14 @@ SEO/GEO מהקוד מצאה את שניהם:
 | גוגל, לתוצאה עשירה | דף, בלי לדעת שזה נכס | `RealEstateListing` עם `Offer` (מחיר ב-ILS, מכירה/השכרה), `Apartment` / `SingleFamilyResidence` עם חדרים, מ״ר וקומה, ו-`BreadcrumbList` |
 | ‏ChatGPT, ‏Perplexity, ‏Claude (לא מריצים JS) | `<h1>-</h1>` ותיאור ריק | הכותרת והתיאור השיווקי כבר ב-HTML |
 
+**המודעה גלויה כבר בתשובה, לא אחרי ה-JS.** `#propertyContent` היה
+`display:none` עד ש-`renderProperty` גמר לצייר, והפוטר ישב במסך הראשון
+ואז נדחף למטה (CLS). בנכס שנמצא ה-edge מוסיף ל-`body` את
+`property-ready` (התוכן נראה) ואת `has-sticky-bar` (78px שמורים לסרגל).
+ב-404 וב-503 המחלקות לא נוספות. תמונת השער נכנסת ל-`#bentoGrid` עם
+אותו `data-count` שה-JS מחשב, `preconnect` ל-Supabase ו-`preload` של
+התמונה. קובץ וידאו אינו מקבל `<video src>` כאן.
+
 **הכותרת והתיאור נכתבים לאותם id ש-`assets/property.js` כותב אליהם אחר כך**
 (`propTitle`, ‏`propDescription`, ו-`hidden` יורד מ-`descSection`), ובאותו
 ערך בדיוק. לכן בדפדפן לא משתנה כלום. בחירת התיאור היא העתק של
