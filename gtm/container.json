@@ -1,12 +1,13 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-10-20 14:24:02",
+    "exportTime": "2026-10-24 10:13:54",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/13",
+        "path": "accounts/6376638087/containers/264013397/versions/14",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "13",
-        "name": "יריד - מחשבון החיסכון",
+        "containerVersionId": "14",
+        "name": "Add GA4 gab_widget_open tag, trigger, and variable",
+        "description": "Tags:\n* Added a new \"GA4 — gab_widget_open\" tag (Google Analytics: GA4 Event) with measurement ID G-40ZLLXSRFY and event name \"gab_widget_open\", triggered by \"CE — gab_widget_open\".\n\nTriggers:\n* Added the \"CE — gab_widget_open\" custom event trigger, which fires on the event \"gab_widget_open\".\n\nVariables:\n* Added the \"DLV - trigger\" Data Layer Variable for \"trigger\".",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -2127,6 +2128,93 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "79",
+                "name": "GA4 — gab_widget_open",
+                "type": "gaawe",
+                "notes": "נפתחה חלונית גבריאלה הצפה (assets/gabriela-widget.js)",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "src"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - src}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "trigger"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - trigger}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "gab_widget_open"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1792836795354",
+                "firingTriggerId": [
+                    "78"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -2679,6 +2767,31 @@
                     }
                 ],
                 "fingerprint": "1792506063065"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "78",
+                "name": "CE — gab_widget_open",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "gab_widget_open"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1792836795354"
             }
         ],
         "variable": [
@@ -3392,6 +3505,32 @@
                 ],
                 "fingerprint": "1791041163396",
                 "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "77",
+                "name": "DLV - trigger",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "trigger"
+                    }
+                ],
+                "fingerprint": "1792836795354",
+                "formatValue": {}
             }
         ],
         "builtInVariable": [
@@ -3426,7 +3565,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1792506200886",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/13?apiLink=version"
+        "fingerprint": "1792836804628",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/14?apiLink=version"
     }
 }
