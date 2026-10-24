@@ -7390,6 +7390,38 @@ async function loadAgencyCover(agencyId){
   if (agencyCoverUrl) renderProfilePreview();
 }
 
+/* "הצג את התמונה שלי בפרסומים" (‏agency_members.show_photo_in_ads). נשמר מיד
+   בשינוי ולא בכפתור של הטופס, כי זו הסכמה ולא פרט פרופיל: מי שביטל/ה מצפה
+   שהרילס הבא כבר יצא בלי תמונה, גם אם לא שמר/ה את שאר הטופס.
+
+   ‏**נטען בשאילתה נפרדת ולא ב-AGENT_FIELDS:** האתר עולה דקות לפני המיגרציה,
+   ועמודה חסרה ב-select הראשי הייתה מפילה את כל טעינת ה-CRM. כאן כשל רק מסתיר
+   את הצ'קבוקס. ההרשאה היא של השורה (עצמי, או מנהל/ת המשרד) - ראו המיגרציה
+   20270810090000. */
+async function pfShowPhotoInAdsInit(agentId){
+  const box = document.getElementById('pfShowPhotoInAds');
+  if (!box || !agentId) return;
+  const wrap = box.closest('.pf-ads-photo');
+  const { data, error } = await sb.from('agency_members')
+    .select('show_photo_in_ads').eq('id', agentId).maybeSingle();
+  if (error || !data){ if (wrap) wrap.hidden = true; return; }
+  if (wrap) wrap.hidden = false;
+  box.checked = data.show_photo_in_ads !== false;
+  box.onchange = async ()=>{
+    const want = box.checked;
+    box.disabled = true;
+    const { error: saveErr } = await sb.from('agency_members')
+      .update({ show_photo_in_ads: want }).eq('id', agentId);
+    box.disabled = false;
+    if (saveErr){
+      box.checked = !want;
+      showToast(heErr(saveErr));
+      return;
+    }
+    showToast('נשמר');
+  };
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -7429,6 +7461,7 @@ function loadProfileSettings(agent){
   renderProfileImages();
   renderProfilePreview();
   loadAgencyCover(agent.agency_id);
+  pfShowPhotoInAdsInit(agent.id);
 }
 
 /* ---------- עיצוב דף הסוכן/ת ----------

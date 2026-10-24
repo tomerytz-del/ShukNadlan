@@ -115,8 +115,9 @@ async function renderData(supabase: Sb, propertyId: string) {
     supabase.from("ads_settings").select("value").eq("key", "disclosure_line").maybeSingle(),
   ]);
 
-  // ‏show_photo_in_ads עדיין אינה עמודה. כשתיווסף - היא תיקרא; עד אז
-  // "חסר = true", כמו שההנחיה קובעת.
+  // ‏show_photo_in_ads: הצ'קבוקס "הצג את התמונה שלי בפרסומים" בפרופיל
+  // (‏20270810090000). הנסיון השני בלעדיה הוא לדקות שבין פריסת הפונקציה
+  // להחלת המיגרציה - "חסר = true".
   const memberCols = "display_name, phone, phone_e164, photo_url, photo_position, license_number";
   let agentRes = await supabase.from("agency_members").select(`${memberCols}, show_photo_in_ads`)
     .eq("id", property.agent_id).maybeSingle();
