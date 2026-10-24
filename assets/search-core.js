@@ -16,6 +16,8 @@
      ‏• featuresIn - המילים שגולש/ת כותב/ת ("עם ממד", "מעלית") ← קודים,
                     ו"בלי מעלית" / "לא צריך חניה" **אינם** בקשה.
      ‏• dealFromPrice - "עד 4,000" הוא שכירות, "עד 1.5 מיליון" קנייה.
+     ‏• typeIn     - סוג הנכס מהמילים ("וילה" ← בית פרטי), והקבוצות שלו
+                    במסד (‏PROPERTY_TYPES, ‏botTypes לבוטים).
      ‏• norm       - נרמול הטקסט שכל הפירוש נשען עליו.
 
    **הקובץ קיים פעמיים, זהה בבית:** ‏assets/search-core.js (נטען בדף הבית לפני
@@ -95,11 +97,38 @@
     [/משופצ/, 'renovated_feature'],
     [/נגיש|גישה לנכים/, 'accessible'],
     [/עמדת טעינה|טעינה לרכב/, 'ev_charger'],
+    /* ‏24.10.2026: קודים שכבר יש במלאי ולא הייתה להם מילה - "דירה עם סורגים"
+       או "משרד עם חדר ישיבות" לא סיננו כלום. מילה כאן אינה כלל (‏FEATURES), ולכן
+       אינה מחייבת מיגרציה; הדוגמאות ב-search_feature_cases.json. */
+    [/סורגים/, 'bars'],
+    [/(^| )[ובלה]?ממק( |$)/, 'mamak'],
+    [/(^| )[ובלה]?מקלט( |$)/, 'building_shelter'],
+    [/תקרה גבוהה|תקרות גבוהות|גובה תקרה/, 'high_ceiling'],
+    [/מטבחון/, 'kitchenette'],
+    [/חדר ישיבות|חדרי ישיבות/, 'meeting_room'],
+    [/רמפ[הת] העמסה|רמפת פריקה/, 'loading_ramp'],
+    [/אזעקה/, 'alarm'],
+    [/מצלמות/, 'cameras'],
+    [/חדר קירור|חדרי קירור/, 'cold_room'],
   ];
   var STORAGE_WORD = /(^| )[ובלה]?מחסן( |$)/;
   var FEATURE_LABELS = { parking: 'חניה', elevator: 'מעלית', sun_balcony: 'מרפסת שמש', balcony: 'מרפסת',
     mamad: 'ממ״ד', furnished: 'מרוהטת', ac: 'מיזוג', renovated_feature: 'משופצת', accessible: 'נגישה',
-    ev_charger: 'עמדת טעינה', storage: 'מחסן' };
+    ev_charger: 'עמדת טעינה', storage: 'מחסן', bars: 'סורגים', mamak: 'ממ״ק', building_shelter: 'מקלט בבניין',
+    high_ceiling: 'תקרה גבוהה', kitchenette: 'מטבחון', meeting_room: 'חדר ישיבות', loading_ramp: 'רמפת העמסה',
+    alarm: 'אזעקה', cameras: 'מצלמות', cold_room: 'חדר קירור' };
+
+  /* ‏**כל הקודים שנכס יכול לשאת** - איחוד שתי הרשימות של טופס הנכס
+     (‏RESIDENTIAL_FEATURES / COMMERCIAL_FEATURES ב-agent.ts, ‏check_search_core.py
+     מצליב). קוד שאינו כאן אינו יכול להימצא בשום נכס: עד 24.10.2026 מודל ששלח
+     "garden" סינן `contains {garden}` וקיבל אפס תוצאות בשקט. עכשיו הבוטים
+     מורידים אותו מהסינון, אומרים זאת, ורושמים אותו ל"מילים שלא זוהו". */
+  var FEATURE_CODES = [
+    'parking', 'elevator', 'balcony', 'sun_balcony', 'ac', 'bars', 'accessible', 'renovated_feature',
+    'furnished', 'mamad', 'exclusive', 'building_shelter', 'mamak', 'storage', 'ev_charger',
+    'high_ceiling', 'cameras', 'kitchenette', 'alarm', 'meeting_room', 'loading_ramp', 'comms', 'cold_room',
+  ];
+  function knownFeature(code) { return FEATURE_CODES.indexOf(String(code || '')) >= 0; }
 
   /* ‏"בלי מעלית", "ללא חניה", "לא צריך ממד" - שלילה ממש לפני המילה. עד
      21.10.2026 הן נקראו כבקשה, ו"דירה בלי מעלית" סיננה דווקא דירות עם מעלית. */
@@ -143,6 +172,96 @@
     if (n <= RENT_MAX) return 'rent';
     if (n >= SALE_MIN) return 'sale';
     return null;
+  }
+
+  /* ---------- סוגי הנכס ----------
+     עד 24.10.2026 שני מפענחים: האתר זיהה מילים ("וילה" ← בית פרטי, "גג" ←
+     פנטהאוז) וסינן לפי קבוצות, והבוטים שלחו את מה שהמודל כתב כ-ilike חלקי -
+     ולכן "וילה" אצל גבריאלה החזיר אפס, ו"דירה" לא כלל דופלקס. עכשיו שניהם
+     קוראים לכאן: ‏typeIn - המילים ← מפתח קבוצה, ‏typePtypes - הקבוצה ← ערכי
+     property_type שבמסד. ‏'raw:<ערך>' - סוג שאינו קבוצה (‏"דופלקס").
+
+     ‏PTYPE_NAMES - כל הערכים שטופס הנכס מכיר (‏RESIDENTIAL_PTYPES /
+     COMMERCIAL_PTYPES ב-agent.ts, ‏check_search_core.py מצליב). */
+  var PROPERTY_TYPES = {
+    apt: ['דירה', 'דופלקס', 'טריפלקס', 'סטודיו/לופט', 'יחידת דיור', 'מרתף/פרטר'],
+    garden: ['דירת גן'],
+    penthouse: ['גג/פנטהאוז'],
+    house: ["בית פרטי/קוטג'", 'דו משפחתי', 'משק חקלאי/נחלה', 'משק עזר'],
+    land: ['מגרש', 'מגרשים'],
+    shop: ['חנויות/שטח מסחרי'],
+    office: ['משרדים'],
+    industry: ['מבני תעשייה'],
+    comm_land: ['מגרשים'],
+    warehouse: ['מחסנים'],
+  };
+  /* ערך גולמי שבמסד יש לו גם איות נוסף: "סטודיו" (מסחרי) ו"סטודיו/לופט" (מגורים) -
+     חיפוש סטודיו מצא רק את השני (נכס אחד פעיל נעלם, 24.10.2026). */
+  var RAW_ALSO = { 'סטודיו/לופט': ['סטודיו'] };
+  var PTYPE_NAMES = [
+    'דירה', 'דירת גן', 'גג/פנטהאוז', 'דופלקס', 'מרתף/פרטר', 'טריפלקס', 'יחידת דיור', 'סטודיו/לופט',
+    "בית פרטי/קוטג'", 'דו משפחתי', 'משק חקלאי/נחלה', 'משק עזר', 'מגרש', 'בניין מגורים', 'מחסן', 'חניה',
+    "קב' רכישה/זכות לנכס",
+    'משרדים', 'חנויות/שטח מסחרי', 'מבני תעשייה', 'אולמות', 'חלל עבודה משותף', 'בניין משרדים', 'מגרשים',
+    'מחסנים', 'סטודיו', 'כללי', 'מרתף', 'חניון', 'בית מלון', 'קליניקות',
+  ];
+
+  /* הסדר הוא ההכרעה: "דירת גן" לפני "דירה", "דירה עם מחסן" היא דירה. על טקסט
+     אחרי norm(). ← מפתח, 'raw:<ערך>', 'commercial' (מסחרי בלי סוג), או null. */
+  function typeIn(text) {
+    var t = norm(text);
+    if (!t) return null;
+    if (/פנטהאוז|פנטהאוס|פנטהויז|דירת גג|(^| )גג( |$)/.test(t)) return 'penthouse';
+    if (/דירות? גן|(^| )גן( |$)/.test(t)) return 'garden';
+    if (/(^| )[ובלה]?בית( |$)|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) return 'house';
+    if (/מגרש|(^| )קרקע/.test(t)) return /מסחר/.test(t) ? 'comm_land' : 'land';
+    if (/חנות|חנויות|שטח מסחרי/.test(t)) return 'shop';
+    if (/משרד/.test(t)) return 'office';
+    if (/מבנה תעשי|מבני תעשי|מפעל/.test(t)) return 'industry';
+    // ‏"אולם" לפני "מסחרי": ארבעה אולמות פעילים לא נמצאו בשום חיפוש (24.10.2026)
+    if (/(^| )[ובלה]?אולם( |$)|אולמות/.test(t)) return 'raw:אולמות';
+    if (/מסחרי|(^| )עסק|(^| )[בלה]?חלל( |$)/.test(t)) return 'commercial';
+    /* ‏"דופלקס" ו"סטודיו" לא זוהו, והחיפוש החזיר את כל 202 הנכסים
+       (‏14.10.2026). הם סוגים גולמיים - בדיוק הערך שבמסד. */
+    if (/דופלקס/.test(t)) return 'raw:דופלקס';
+    if (/טריפלקס/.test(t)) return 'raw:טריפלקס';
+    if (/סטודיו|לופט/.test(t)) return 'raw:סטודיו/לופט';
+    if (/דיר/.test(t)) return 'apt';
+    // אחרי "דיר": "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
+    if (/(^| )מחסן( |$)|מחסנים/.test(t)) return 'warehouse';
+    return null;
+  }
+
+  /* ← ערכי property_type, או null כשאין קבוצה (‏'commercial' - כל המסחרי) */
+  function typePtypes(key) {
+    if (typeof key === 'string' && key.indexOf('raw:') === 0) {
+      var v = key.slice(4);
+      return [v].concat(RAW_ALSO[v] || []);
+    }
+    return PROPERTY_TYPES[key] ? PROPERTY_TYPES[key].slice() : null;
+  }
+
+  /* מה שהבוט מקבל מהמודל: ‏["וילה"] ← ‏["בית פרטי/קוטג'", "דו משפחתי", ...] -
+     כמו באתר. ערך שכבר במסד נשאר כמו שהוא (המודל ביקש בדיוק אותו). ‏unknown -
+     מה שאינו ערך במסד ואין לו מילה, ל"מילים שלא זוהו".
+     ‏GROUP_HEADS - ערך במסד שהוא גם שם הקבוצה באתר: "דירה" באתר כולל דופלקס
+     וסטודיו, ולכן גם כאן. */
+  var GROUP_HEADS = { 'דירה': 'apt', "בית פרטי/קוטג'": 'house', 'מגרש': 'land' };
+  function botTypes(list) {
+    var out = [], unknown = [];
+    (list || []).forEach(function (raw) {
+      var s = String(raw || '').trim();
+      if (!s) return;
+      var add = function (v) { if (out.indexOf(v) < 0) out.push(v); };
+      if (GROUP_HEADS[s]) { PROPERTY_TYPES[GROUP_HEADS[s]].forEach(add); return; }
+      if (PTYPE_NAMES.indexOf(s) >= 0) { add(s); return; }
+      var pt = typePtypes(typeIn(s));
+      if (pt) { pt.forEach(add); return; }
+      add(s);
+      var ns = norm(s);
+      if (!PTYPE_NAMES.some(function (n) { return norm(n).indexOf(ns) >= 0 || ns.indexOf(norm(n)) >= 0; })) unknown.push(s);
+    });
+    return { types: out, unknown: unknown };
   }
 
   /* ---------- אזורים ושכונות ----------
@@ -348,6 +467,8 @@
     'מעלית', 'חניה', 'חנייה', 'ממד', 'ממק', 'מרפסת', 'מרפסות', 'שמש', 'מרוהטת', 'מרוהט', 'משופצת', 'משופץ', 'מיזוג',
     'ו', 'או', 'של', 'את', 'יש', 'רוצה', 'רוצים', 'מחפש', 'מחפשת', 'מחפשים', 'אני', 'אנחנו', 'לי', 'לנו', 'גם', 'כל',
     'אזור', 'האזור', 'שכונה', 'השכונה', 'העיר', 'עיר', 'מרכזי', 'מיידית', 'כניסה', 'מיידי', 'משפחה', 'זוג', 'ילדים',
+    'כולל', 'סורגים', 'מקלט', 'תקרה', 'גבוהה', 'מטבחון', 'ישיבות', 'אזעקה', 'מצלמות', 'קירור', 'מזגן', 'מיזוג',
+    'נגישה', 'נגיש', 'מעליות', 'חניות', 'אולם', 'אולמות', 'מסחרי', 'עסק', 'חלל', 'וילה', 'קוטג', 'סטודיו', 'דופלקס',
   ].join('|') + ')$');
   var AREA_LEAD = /^ו?(?:באזור|בשכונת|בשכונה|ברחוב|בישוב|ביישוב|בקיבוץ|במושב)$/;
 
@@ -375,6 +496,26 @@
     return out;
   }
 
+  /* ---------- מאפיין שלא זוהה ----------
+     אותה לולאה של שמות המקום, למאפיינים (24.10.2026): מה שאחרי "עם" / "כולל"
+     ואינו מילה מוכרת ואינו מאפיין שזוהה - "דירה עם גינה" ← "גינה", "משרד עם
+     נוף לעמק" ← "נוף לעמק". זה מה שנרשם ל-search_word_misses, ומשם מנהל/ת
+     רואה מה מבקשים ואין לו מילה. **ההוספה עצמה היא קוד** (‏FEATURE_WORDS
+     ודוגמה בחוזה) ולא טבלה: מאפיין חדש נוגע בטופס הנכס ובמסד, לא רק במילה. */
+  var FEATURE_LEAD = /^ו?(?:עם|כולל)$/;
+  function featureCandidate(text) {
+    var words = areaKey(text).split(' ').filter(Boolean);
+    var known = function (w) { return /\d/.test(w) || KNOWN_WORD.test(w) || KNOWN_WORD.test(w.replace(/^[ובלה]/, '')); };
+    for (var i = 0; i < words.length; i++) {
+      if (!FEATURE_LEAD.test(words[i])) continue;
+      var got = [];
+      for (var j = i + 1; j < words.length && got.length < 2 && !known(words[j]); j++) got.push(words[j]);
+      var out = got.join(' ');
+      if (out.length >= 2 && !featuresIn(out, { residential: true }).length) return out;
+    }
+    return null;
+  }
+
   var SearchCore = {
     norm: norm, textMatches: textMatches, textHas: textHas, areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,
@@ -382,6 +523,8 @@
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,
     FEATURE_WORDS: FEATURE_WORDS, FEATURE_LABELS: FEATURE_LABELS, featuresIn: featuresIn, featuresNote: featuresNote,
     RENT_MAX: RENT_MAX, SALE_MIN: SALE_MIN, dealFromPrice: dealFromPrice,
+    FEATURE_CODES: FEATURE_CODES, knownFeature: knownFeature, featureCandidate: featureCandidate,
+    PROPERTY_TYPES: PROPERTY_TYPES, PTYPE_NAMES: PTYPE_NAMES, typeIn: typeIn, typePtypes: typePtypes, botTypes: botTypes,
   };
   root.SearchCore = SearchCore;
   if (typeof module !== 'undefined' && module.exports) module.exports = SearchCore;
