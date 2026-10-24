@@ -87,4 +87,33 @@ test('לכל מילה יש תווית', () => {
   SC.FEATURE_WORDS.forEach(fw => assert.ok(SC.FEATURE_LABELS[fw[1]], fw[1]));
 });
 
+test('כל מילה מתורגמת לקוד שנכס יכול לשאת', () => {
+  SC.FEATURE_WORDS.forEach(fw => assert.ok(SC.knownFeature(fw[1]), fw[1]));
+  assert.ok(SC.knownFeature('storage'));
+  assert.ok(!SC.knownFeature('garden'));
+});
+
+// ---------- סוגי נכס: אותו מפענח לאתר ולבוטים ----------
+SPEC.types.words.forEach(c => {
+  test('סוג: ' + c.text, () => assert.strictEqual(SC.typeIn(c.text), c.type));
+});
+SPEC.types.bot.forEach(c => {
+  test('סוג בבוט: ' + c.in.join(','), () => assert.deepStrictEqual(SC.botTypes(c.in), { types: c.types, unknown: c.unknown }));
+});
+test('כל קבוצת סוג נשענת על ערכים שבמסד', () => {
+  Object.keys(SC.PROPERTY_TYPES).forEach(k => SC.PROPERTY_TYPES[k].forEach(v => assert.ok(SC.PTYPE_NAMES.includes(v), k + ': ' + v)));
+  assert.deepStrictEqual(SC.typePtypes('raw:סטודיו/לופט'), ['סטודיו/לופט', 'סטודיו']);
+  assert.strictEqual(SC.typePtypes('commercial'), null);
+});
+
+test('מאפיין שלא זוהה: מה שאחרי "עם", בלי מה שכבר מזוהה', () => {
+  assert.strictEqual(SC.featureCandidate('דירה עם גינה'), 'גינה');
+  assert.strictEqual(SC.featureCandidate('משרד עם נוף לעמק בעפולה'), 'נוף לעמק');
+  assert.strictEqual(SC.featureCandidate('דירה עם ממד'), null);
+  assert.strictEqual(SC.featureCandidate('דירה עם 3 חדרים'), null);
+  assert.strictEqual(SC.featureCandidate('דירה עם מרפסת שמש'), null);
+  assert.strictEqual(SC.featureCandidate('דירה בגבעת המורה'), null);
+  assert.strictEqual(SC.featureCandidate('בית עם מחסן וגינה'), null);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

@@ -49,9 +49,11 @@
    ‏property.html. **בלעדיה הפונקציה הזו הייתה מדליפה את מספר הבית לכל
    שיתוף בוואטסאפ** — כלומר הופכת את כלל הפרטיות לאות מתה.
 
-   ‏**3. כישלון אינו שובר דף.** כל קריאת רשת עטופה ב-timeout קצר וב-
-   ‏try/catch, וכל מסלול כושל מחזיר את התשובה המקורית כמו שהיא. דף בלי
-   תגיות שיתוף הוא מה שיש היום; דף שנתקע בגלל Supabase איטי הוא הרעה.
+   ‏**3. כישלון אינו noindex, ובנכס הוא גם אינו 200.** כל קריאת רשת עטופה
+   ב-timeout קצר. כשל (‏5xx, ‏401, ‏timeout) **אינו** מקבל noindex: הסקה
+   ממנו הייתה מוחקת נכסים חיים בגלל שנייה של Supabase איטי. בדף נכס הכשל
+   יוצא 503 עם Retry-After ו-no-store, וה-HTML המקורי נשאר כדי שה-JS ימלא.
+   בשאר דפי הפירוט הכשל עדיין מחזיר את התשובה המקורית כמו שהיא.
 
    ## ‏canonical, וכתובת אחת לכל דף
 
@@ -85,11 +87,16 @@
    נכסים אמיתיים אל ‎/property‎ ברגע הראשון של Supabase איטי — הכשל שכל
    הסעיף שמעל נבנה כדי למנוע.
 
+   בדף נכס, "אין רשומה" הוא **404** עם no-store (לא 200 שנשמר לדקה),
+   והמשפט "הנכס לא נמצא" הוא פסקה ולא H1. H1 יחיד נשאר ‎#propTitle‎.
+   שאר דפי הפירוט נשארים 200 עם noindex.
+
    ## מטמון
 
-   התשובה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate לחמש), כדי
-   שלא תצא קריאה ל-Supabase על כל צפייה. הדפדפן עצמו מקבל
-   ‎must-revalidate‎, כך שאין סיכון להגשת דף ישן אחרי פרסום.
+   תשובה שהתמלאה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate
+   לחמש), כדי שלא תצא קריאה ל-Supabase על כל צפייה. הדפדפן עצמו מקבל
+   ‎must-revalidate‎. ‏404 ו-503 של דף נכס הם no-store: נכס שפורסם אחר כך,
+   או כשל של דקה, לא נתקעים במטמון.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
@@ -334,11 +341,158 @@ function listingJsonLd(
   };
 }
 
+/* ‏התוויות הן עותק של assets/property.js (‏FEATURE_LABELS, CONDITION_LABELS,
+   PROJECT_STATUS_LABELS, CONDITION_HIGHLIGHTS). הקובץ אינו מודול, ולכן
+   אי אפשר לייבא אותו לכאן. שינוי שם בעברית חייב לקרות בשני המקומות. */
+const FEATURE_LABELS: Record<string, string> = {
+  moshav_kibbutz_only: "במושב/קיבוץ", price_dropped: "המחיר ירד לאחרונה",
+  parking: "חניה", elevator: "מעלית", balcony: "מרפסת", sun_balcony: "מרפסת שמש", ac: "מיזוג", bars: "סורגים",
+  accessible: "גישה לנכים", renovated_feature: "משופצת", furnished: "מרוהטת", mamad: "ממ״ד", exclusive: "בבלעדיות",
+  building_shelter: "מקלט בבניין", mamak: "ממ״ק", storage: "מחסן", high_ceiling: "תקרה גבוהה", cameras: "מצלמות",
+  kitchenette: "מטבחון", alarm: "אזעקה", meeting_room: "חדר ישיבות", loading_ramp: "רמפת העמסה",
+  comms: "תקשורת", cold_room: "חדר קירור", ev_charger: "עמדת טעינה לרכב חשמלי",
+};
+const CONDITION_LABELS: Record<string, string> = {
+  new_from_contractor: "חדש מקבלן", new: "חדש", renovated: "משופץ",
+  maintained: "שמור", needs_renovation: "דרוש שיפוץ",
+};
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  planning: "תכנון ראשוני", permit_requested: "הוגשה בקשה להיתר",
+  permit_issued: "ניתן היתר בנייה", construction_complete: "הבנייה הסתיימה",
+};
+const CONDITION_HIGHLIGHTS: Record<string, string> = {
+  new_from_contractor: "חדש מקבלן", new: "נכס חדש", renovated: "משופץ", maintained: "במצב שמור",
+};
+const PROTECTION_FEATURES = ["mamad", "mamak", "building_shelter"];
+const LOCATION_WORD: Record<string, string> = { unit: "בנכס", building: "בבניין" };
+
+function heNum(n: unknown): string {
+  if (n === null || n === undefined || String(n).trim() === "") return "";
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v.toLocaleString("he-IL") : "";
+}
+
+function agencyOf(p: Record<string, unknown>): string {
+  const a = p.agencies;
+  const row = Array.isArray(a) ? a[0] : a;
+  if (!row || typeof row !== "object") return "";
+  return String((row as { name?: string }).name || "");
+}
+
+/* ‏אותו פירוק של priceParts / priceFlat ב-property.js, בלי האייקון. */
+function priceBits(p: Record<string, unknown>): { num: string; flat: string; html: string } | null {
+  const n = heNum(p.price);
+  if (!n) return null;
+  const vat = p.category === "commercial" && p.price_includes_vat !== true ? " + מע״מ" : "";
+  const suffix = (p.deal_type === "rent" ? " / חודש" : "") + vat;
+  const num = `${n} ₪`;
+  const html = esc(num) + (suffix ? `<span class="suffix">${esc(suffix)}</span>` : "");
+  return { num, flat: num + suffix, html };
+}
+
+function floorLabel(p: Record<string, unknown>): string {
+  if (p.floor === null || p.floor === undefined || p.floor === "") return "";
+  const floor = Number(p.floor);
+  if (!Number.isFinite(floor)) return "";
+  const base = floor === 0 ? "קומת קרקע" : "קומה " + String(p.floor);
+  return p.total_floors ? base + " מ־" + p.total_floors : base;
+}
+
+function specPillsHtml(p: Record<string, unknown>): string {
+  const isRent = p.deal_type === "rent";
+  const moveIn = p.move_in_date
+    ? new Date(String(p.move_in_date)).toLocaleDateString("he-IL")
+    : (p.move_in_soon ? "כניסה מיידית" : "");
+  const pills: { v: string; k: string }[] = [];
+  const add = (v: string, k: string) => { if (v) pills.push({ v, k }); };
+  if (heNum(p.size_sqm)) add(heNum(p.size_sqm) + " מ״ר", "שטח הנכס");
+  if (heNum(p.rooms)) add(heNum(p.rooms) + " חדרים", "חדרים");
+  add(floorLabel(p), p.floor === 0 || p.floor === "0" ? "גישה ישירה" : "קומה");
+  if (heNum(p.price_per_sqm)) add(heNum(p.price_per_sqm) + " ₪", isRent ? "למ״ר לחודש" : "מחיר למ״ר");
+  if (heNum(p.built_size_sqm)) add(heNum(p.built_size_sqm) + " מ״ר", "שטח בנוי");
+  if (heNum(p.garden_sqm)) add(heNum(p.garden_sqm) + " מ״ר", "גינה");
+  add(CONDITION_LABELS[String(p.condition || "")] || "", "מצב הנכס");
+  add(moveIn, "תאריך כניסה");
+  add(PROJECT_STATUS_LABELS[String(p.project_status || "")] || "", "סטטוס הפרויקט");
+  if (p.furniture_details) add(String(p.furniture_details), "ריהוט");
+  if (heNum(p.maintenance_fee)) add(heNum(p.maintenance_fee) + " ₪ לחודש", "ועד בית / דמי ניהול");
+  if (heNum(p.arnona)) {
+    add(heNum(p.arnona) + (p.category === "commercial" ? " ₪ לחודש" : " ₪ לחודשיים"), "ארנונה");
+  }
+  return pills.map((c) =>
+    `<div class="spec-pill"><span class="txt"><span class="v">${esc(c.v)}</span><span class="k">${esc(c.k)}</span></span></div>`
+  ).join("");
+}
+
+function highlightsHtml(p: Record<string, unknown>): string {
+  const features = Array.isArray(p.features) ? p.features.map(String) : [];
+  const labels: string[] = [];
+  const loc = (code: unknown, noun: string) =>
+    LOCATION_WORD[String(code || "")] ? `${noun} ${LOCATION_WORD[String(code)]}` : "";
+  const mamadLoc = loc(p.mamad_location, "ממ״ד");
+  if (mamadLoc) labels.push(mamadLoc);
+  for (const code of PROTECTION_FEATURES) {
+    if (code === "mamad" && mamadLoc) continue;
+    if (features.includes(code) && FEATURE_LABELS[code]) labels.push(FEATURE_LABELS[code]);
+  }
+  const cond = CONDITION_HIGHLIGHTS[String(p.condition || "")];
+  if (cond) labels.push(cond);
+  if (p.move_in_soon) labels.push("כניסה מיידית");
+  const storageLoc = loc(p.storage_location, "מחסן");
+  if (storageLoc) labels.push(storageLoc);
+  const restLoc = loc(p.restrooms_location, "שירותים");
+  if (restLoc) labels.push(restLoc);
+  for (const code of features) {
+    if (PROTECTION_FEATURES.includes(code)) continue;
+    if (code === "storage" && storageLoc) continue;
+    if (FEATURE_LABELS[code]) labels.push(FEATURE_LABELS[code]);
+  }
+  return labels.map((label) => `<div class="highlight"><span>${esc(label)}</span></div>`).join("");
+}
+
+/* ‏המחיר, המאפיינים, המשרד והסוכן/ת - אותם id ש-renderProperty כותב.
+   בלי אייקונים: ה-JS דורס את ה-innerHTML, והסורק צריך את הטקסט. */
+function propertyVisible(p: Record<string, unknown>, agentDisplay: string): Pick<Meta, "fills" | "inner" | "reveal"> {
+  const fills: { id: string; text: string }[] = [];
+  const inner: { id: string; html: string }[] = [];
+  const reveal: string[] = [];
+  const price = priceBits(p);
+  if (price) {
+    inner.push({ id: "heroPriceNum", html: price.html });
+    fills.push(
+      { id: "heroPriceSub", text: heNum(p.price_per_sqm) ? heNum(p.price_per_sqm) + " ₪ למ״ר" : (p.deal_type === "rent" ? "להשכרה" : "למכירה") },
+      { id: "agentPriceLabel", text: p.deal_type === "rent" ? "שכר דירה חודשי" : "מחיר מבוקש" },
+      { id: "agentPriceValue", text: price.flat },
+      { id: "sbPriceLabel", text: p.deal_type === "rent" ? "לחודש" : "מחיר" },
+      { id: "sbPriceValue", text: price.flat },
+    );
+    reveal.push("heroPrice");
+  }
+  const office = agencyOf(p) || "משרד תיווך";
+  fills.push({ id: "agencyName", text: office });
+  fills.push({ id: "agentCardName", text: agentDisplay || agencyOf(p) || "צוות שוק נדל״ן" });
+  if (p.agent2_name) {
+    fills.push({ id: "agentName", text: "בשיתוף: " + String(p.agent2_name) });
+    reveal.push("agentName");
+  }
+  const pills = specPillsHtml(p);
+  if (pills) inner.push({ id: "specPills", html: pills });
+  const highlights = highlightsHtml(p);
+  if (highlights) {
+    inner.push({ id: "highlightsList", html: highlights });
+    reveal.push("highlightsSection");
+  }
+  return { fills, inner, reveal };
+}
+
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
     "rooms,size_sqm,status,neighborhoods(name)," +
-    "description,marketing_description,marketing_description_stale,property_type,floor,updated_at";
+    "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
+    "price_per_sqm,category,price_includes_vat,total_floors,built_size_sqm,garden_sqm,condition," +
+    "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
+    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
@@ -364,6 +518,17 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const marketing = p.marketing_description_stale && p.description ? "" : p.marketing_description;
   const body = String(marketing || p.description || "").trim();
 
+  /* ‏הסוכן/ת בשאילתה נפרדת, כמו ב-property.js: embed חוצה-שם אינו מובטח.
+     כשל כאן אינו מפיל את הדף - נשאר השם של המשרד או הפלייסהולדר. */
+  let agentDisplay = "";
+  if (p.agent_id) {
+    const agent = await sbFetch(
+      `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
+    );
+    if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
+  }
+  const visible = propertyVisible(p, agentDisplay);
+
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: clamp(bits.join(" · "), 200),
@@ -376,8 +541,10 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     fills: [
       { id: "propTitle", text: title },
       { id: "propDescription", text: body },
+      ...(visible.fills || []),
     ],
-    reveal: body ? ["descSection"] : [],
+    reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
+    inner: visible.inner,
   };
 }
 
@@ -835,6 +1002,29 @@ function noindex(html: string): string {
   return html.replace(/<\/head>/i, `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* ‏404 או 503 של דף נכס בלבד. דף שהתמלא, ודפי פירוט אחרים, אינם עוברים כאן. */
+function failureHeaders(base: Headers, status: number): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  if (status === 503) headers.set("Retry-After", "60");
+  return headers;
+}
+
+/* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
+function missingProperty(html: string): string {
+  let out = noindex(html);
+  if (out.includes('id="notFoundState"')) return out;
+  const block =
+    `<div id="notFoundState" class="wrap" style="display:block">` +
+    `<p class="prop-missing" style="font-size:1.3rem;font-weight:700">הנכס לא נמצא</p>` +
+    `<p style="color:var(--ink-soft)">ייתכן שהמודעה הוסרה או שהקישור שגוי.</p>` +
+    `<a href="/" class="btn btn-gold" style="margin-top:16px">חזרה לדף הבית</a></div>\n`;
+  if (/<div id="loadingState"/.test(out)) return out.replace(/<div id="loadingState"/, block + `<div id="loadingState"`);
+  return out.replace(/<\/body>/i, block + `</body>`);
+}
+
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
 
@@ -869,10 +1059,17 @@ export default async function handler(request: Request, context: Context) {
     } else if (page.endsWith("/article")) {
       meta = key ? await articleMeta(key) : "missing";
     }
-    // ‏null = לא ידענו (‏Supabase איטי, 5xx, הרשאה). הדף יוצא כמו שהוא.
-    if (!meta) return res;
+    const isProperty = page.endsWith("/property");
+    // ‏null = לא ידענו. בנכס זה 503 בלי noindex. בשאר הדפים התשובה המקורית.
+    if (!meta) {
+      if (!isProperty) return res;
+      return new Response(res.body, { status: 503, headers: failureHeaders(res.headers, 503) });
+    }
 
     const html = await res.text();
+    if (meta === "missing" && isProperty) {
+      return new Response(missingProperty(html), { status: 404, headers: failureHeaders(res.headers, 404) });
+    }
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
     const headers = new Headers(res.headers);
