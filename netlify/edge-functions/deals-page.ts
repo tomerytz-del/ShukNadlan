@@ -15,12 +15,15 @@
    כשהמסד ענה, דקה של Supabase איטי הייתה מאחדת את כל היישובים לאינדקס
    (‏הנימוק של דפי הפירוט, ‏scripts/check_canonical.py). לכן ה-canonical
    וה-og:url מוחלפים **לפני** הקריאה למסד, מה-slug שבכתובת. ‏noindex נכנס
-   רק כשהמסד ענה במפורש שאין יישוב כזה.
+   רק כשהמסד ענה במפורש שאין יישוב כזה, או כשה-slug פסול. timeout אינו
+   noindex.
 
-   ## כישלון אינו שובר דף
+   ## כישלון אינו מוחק את הדף, ואינו נשמר
 
-   ‏timeout או מסד שלא ענה - הדף יוצא עם ה-canonical הנכון ובלי נתונים, ו-
-   `assets/deals.js` (‏אותו `deals-render.js`) ממלא אותו מהדפדפן.
+   ‏timeout או מסד שלא ענה - 503 עם Retry-After, בלי noindex ובלי מטמון.
+   ה-HTML יוצא עם ה-canonical הנכון ובלי נתונים, ו-`assets/deals.js`
+   (‏אותו `deals-render.js`) ממלא אותו מהדפדפן. יישוב שהמסד אמר שאין,
+   או slug פסול - 404 עם noindex, גם הוא בלי מטמון.
 
    התיעוד: ‎docs/settlement-deals.md‎.
    ========================================================================== */
@@ -148,6 +151,16 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
+function failureHeaders(base: Headers, status: number): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  if (status === 503) headers.set("Retry-After", "60");
+  return headers;
+}
+
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
   const type = res.headers.get("content-type") || "";
@@ -157,22 +170,30 @@ export default async function handler(request: Request, context: Context) {
   const html = await res.text();
   let out = html;
   let cache = false;
+  let status = res.status;
 
   try {
     if (!slug) {
       const list = await rpc("deal_settlements_public", {});
-      if (Array.isArray(list) && list.length) {
-        out = injectIndex(html, list as IndexRow[]);
-        cache = out !== html;
+      if (Array.isArray(list)) {
+        if (list.length) {
+          out = injectIndex(html, list as IndexRow[]);
+          cache = out !== html;
+        }
+      } else {
+        /* ‏לא מערך: המסד לא ענה. רשימה ריקה היא תשובה תקינה ונשארת 200. */
+        status = 503;
       }
     } else if (!SLUG.test(slug)) {
       out = noindex(html);
+      status = 404;
     } else {
       out = withUrl(html, slug);
       const data = await rpc("deal_settlement_page", { p_slug: slug });
       if (data === null) {
         out = noindex(out);
-      } else if (data && typeof data === "object") {
+        status = 404;
+      } else if (data && typeof data === "object" && !Array.isArray(data)) {
         const filled = injectSettlement(out, data as Settlement);
         cache = filled !== out;
         out = filled;
@@ -180,11 +201,19 @@ export default async function handler(request: Request, context: Context) {
            פחות מ-THIN_DEALS עסקאות הוא תוכן דל בעיני גוגל - הוא נשאר
            לגולש/ת, אבל לא לאינדקס, וגם אינו ב-sitemap ובאינדקס /deals. */
         if (cache && Number((data as Settlement).deals || 0) < THIN_DEALS) out = noindex(out);
+      } else {
+        /* ‏undefined, או תשובה שאינה אובייקט: כשל זמני. בלי noindex. */
+        status = 503;
       }
     }
   } catch {
     out = slug && SLUG.test(slug) ? withUrl(html, slug) : html;
     cache = false;
+    status = 503;
+  }
+
+  if (status === 404 || status === 503) {
+    return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
   const headers = new Headers(res.headers);

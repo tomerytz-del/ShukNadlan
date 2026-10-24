@@ -32,6 +32,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _saved_search_silence(ctx)
     yield from _search_rules_drift(ctx)
     yield from _area_names_unrecognized(ctx)
+    yield from _search_words_unrecognized(ctx)
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
     yield from _market_data(ctx)
@@ -556,6 +557,47 @@ def _area_names_unrecognized(ctx) -> Iterator[Finding]:
         metric=len(rows), metric_unit="שמות",
         evidence={"names": [{k: r.get(k) for k in ("phrase", "city", "searches", "sessions", "suggestion_name")}
                             for r in rows]},
+    )
+
+
+def _search_words_unrecognized(ctx) -> Iterator[Finding]:
+    """מילים של מאפיין או סוג נכס שאנשים ביקשו ולא זוהו - באתר או אצל גבריאלה.
+
+    אחות של `_area_names_unrecognized` (‏docs/search-core.md, "גבריאלה לומדת
+    מהחיפושים"): "דירה עם גינה" באתר, או קוד מאפיין שהמודל המציא, חיפשו בלי
+    המילה. ‏_search_word_miss_report() מסננת מה שהוסר ב-CRM. כאן רק מה שביקשו
+    לפחות שני אנשים. **ההוספה היא קוד** (‏FEATURE_WORDS / typeIn בליבה), ולכן
+    ההצעה מפנה לשם ולא לכפתור. הממצא נסגר כשהרשימה מתרוקנת.
+    """
+    if not ctx.db.has_table("search_word_misses"):
+        return
+    ctx.count()
+    rows = ctx.db.rows(
+        """
+        select kind, phrase, searches::int as searches, people::int as people
+          from public._search_word_miss_report(30)
+         where people >= 2
+         limit 20
+        """
+    )
+    if not rows:
+        return
+    kinds = {"feature": "מאפיין", "type": "סוג נכס"}
+
+    def label(r):
+        return "%s \"%s\" (%d אנשים)" % (kinds.get(r["kind"], r["kind"]), r["phrase"], r["people"])
+
+    yield Finding(
+        area="behavior", code="search_words_unrecognized", severity="low",
+        subject="search_word_misses",
+        title="%d מילים שחיפשו ואין לנו איך לסנן לפיהן" % len(rows),
+        detail="; ".join(label(r) for r in rows[:5]) + ".",
+        suggestion="מאפיין שקיים בטופס הנכס - מילה ב-FEATURE_WORDS שב-assets/search-core.js "
+                   "ודוגמה ב-search_feature_cases.json; סוג נכס - ב-typeIn באותו קובץ; "
+                   "מאפיין שאינו קיים בכלל - הסקיל new-property-feature. אחרי ההוספה, "
+                   "או כשהמילה אינה בקשה: \"הסרה\" בבלוק \"מילים שלא זוהו\" ב-CRM.",
+        metric=len(rows), metric_unit="מילים",
+        evidence={"words": [{k: r.get(k) for k in ("kind", "phrase", "searches", "people")} for r in rows]},
     )
 
 
