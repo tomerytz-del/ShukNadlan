@@ -6464,7 +6464,7 @@ function applyDeepLinkFilters(){
   if (isReload()){
     try {
       const url = new URL(location.href);
-      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה */ }
     return;
@@ -7027,7 +7027,8 @@ let freeTextFeatures = new Set();
 
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
-  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
+  // city= מסנן ליישוב (sentence-search) בלי להיות עמוד חדש ברשימה הסגורה
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
   /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
 
      הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה

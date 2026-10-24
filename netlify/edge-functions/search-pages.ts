@@ -190,10 +190,10 @@ const NOT_CONTENT = new Set([
 /* ‏המפתח שמשווים לפיו: זוגות מפוענחים, ממוינים, בלי פרמטרי מעקב. כך
    ‎?rooms=4&deal=sale‎, ‎?deal=sale&rooms=4&src=pwa‎ וקידוד עברית גולמי
    נופלים כולם על אותה שורה ברשימה. */
-function matchKey(params: URLSearchParams): string {
+function contentKey(params: URLSearchParams, drop?: ReadonlySet<string>): string {
   const pairs: string[] = [];
   for (const [key, raw] of params) {
-    if (NOT_CONTENT.has(key) || key.startsWith("utm_")) continue;
+    if (NOT_CONTENT.has(key) || key.startsWith("utm_") || drop?.has(key)) continue;
     /* גרש, גרשיים עבריים ו-%27 הם אותו סוג נכס. בלי זה
        בית פרטי/קוטג' ו-קוטג%27 נופלים לשתי כתובות. */
     const value = raw.trim().replace(/[\u2018\u2019\u05f3']/g, "'");
@@ -201,6 +201,44 @@ function matchKey(params: URLSearchParams): string {
     pairs.push(`${key}=${value}`);
   }
   return pairs.sort().join("&");
+}
+
+/* מפתח התוכן, כולל city. הפניה לשוק המקומי רצה רק כשאין שום תוכן,
+   ו-?city=עפולה לבדה אינה דף הבית הריק. */
+function matchKey(params: URLSearchParams): string {
+  return contentKey(params);
+}
+
+/* city= מסנן את הרשימה (sentence-search) ואינו צירוף חדש ברשימה הסגורה.
+   בחיפוש העמוד הוא יורד, כדי ש-?deal=sale&rooms=3&city=עפולה יישאר העמוד
+   של 3 חדרים. ה-canonical נשאר בלי העיר ובלי utm. */
+const CITY_PARAM = new Set(["city"]);
+
+/* עיר לכותרת: עברית, רווח, גרש ומקף. ערך אחר אינו משנה את הכותרת. */
+function cityFromParams(params: URLSearchParams): string | null {
+  const raw = (params.get("city") || "").replace(/\s+/g, " ").trim();
+  if (!raw || raw.length > 40) return null;
+  if (!/^[\u0590-\u05FF][\u0590-\u05FF '"״׳-]{0,39}$/.test(raw)) return null;
+  return raw;
+}
+
+/* "בעפולה והעמק" הופך ל"בעפולה" (או "במגדל העמק"). "בעפולה עילית" נשארת:
+   זו שכונה, לא שם השוק. */
+function localizePlace(text: string, city: string): string {
+  const here = "ב" + city;
+  return text.replace(
+    /בעפולה והעמק|בעפולה ובעמק יזרעאל|בעפולה ובעמק|בעפולה(?! עילית)/g,
+    here,
+  );
+}
+
+function withCity(page: SearchPage, city: string): SearchPage {
+  return {
+    query: page.query,
+    title: localizePlace(page.title, city),
+    description: localizePlace(page.description, city),
+    landing: page.landing,
+  };
 }
 
 const BY_KEY = new Map(
@@ -324,11 +362,13 @@ export default async function handler(request: Request, context: Context) {
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
     if (page !== "/" && page !== "/index") return res;
 
-    // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף
-    const match = BY_KEY.get(matchKey(url.searchParams));
+    // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף.
+    // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
+    const params = url.searchParams;
+    const match = BY_KEY.get(contentKey(params, CITY_PARAM));
     if (!match) return res;
-
-    const out = inject(await res.text(), match);
+    const city = cityFromParams(params);
+    const out = inject(await res.text(), city ? withCity(match, city) : match);
 
     const headers = new Headers(res.headers);
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
