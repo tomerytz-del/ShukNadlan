@@ -18,6 +18,23 @@ description: הסרטון השיווקי לנכס בריפו של שוק נדל�
 | `supabase/functions/_shared/property-video.ts` | `falSubmit` / `falStatus` / `falResult`, ‏`failVideoJob`, בחירת סצנות, `extractVideoUrl` |
 | `assets/crm.js` · `produceMarketingVideo` | הכפתור, `confirmPurchase`, ה-polling והודעות השגיאה |
 | `whatsapp-webhook/agent.ts` · `VIDEO_BLOCKERS` | אותה נקודת כניסה מהבוט, עם `agent_id` במסלול הפנימי |
+| `supabase/functions/reel-producer/index.ts` | הממשק של מפיקי הרילס (Grok והגיבוי), זהות לפי הסוד |
+| `supabase/functions/_shared/reel-fallback.ts` | המעברים בין המפיקים, ו-`startFalLegacy` (לולאת fal שיצאה מ-create) |
+| `marketing/reel_worker/` + `.github/workflows/reel_render.yml` | הגיבוי של האתר. `tools/` הוא העתק כלשונו של reference_code מהערכה |
+
+## 0. תבנית D: מי מפיק, ומה אסור לשבור
+
+מאז 24.10.2026 הסרטון הוא רילס בתבנית D: ‏Grok (‏`pending_reel` → ‏`rendering`)
+→ הגיבוי ב-GitHub Actions (‏`site_reel`) → fal כמוצא אחרון. הפירוט ב-
+`docs/property-marketing-video.md`, "תבנית D". שלושה כללים:
+
+- **סטטוס פתוח חדש נכנס לכל המקומות** - האינדקסים, `start`/`quote`/`status`,
+  ה-reconcile, התנאי של ה-cron ו-`ops_agent/config.py`.
+- **מעבר בין מפיקים הוא update מותנה-סטטוס על `claimed_by`**, ו-
+  `complete_property_video_job` עם `p_producer` משלימה רק למחזיק/ה. מעבר ישיר
+  בלי התנאי מאפשר לשני מפיקים להשלים את אותה בקשה.
+- **`tools/` אינו נערך.** גרסה חדשה של התבנית היא העתקה של ארבעת הקבצים; כל
+  התאמה לסביבה ב-`run_job.py`. ‏`grok_daily` אינו בקשה: לא נספר במכסה ולא פתוח.
 
 ## 1. החיוב קודם, ולכן כל כישלון אחריו חייב זיכוי
 
@@ -55,8 +72,8 @@ description: הסרטון השיווקי לנכס בריפו של שוק נדל�
 
 ## 4. ה-reconcile הוא רשת הביטחון, וצריך לראות אותו
 
-- רץ כל 5 דקות **רק כשיש בקשה פתוחה** (`generating_clips` / `merging` /
-  `uploading`). אלה גם הסטטוסים שהסוכן התפעולי בודק ב-`ops_agent/config.py`;
+- רץ כל 5 דקות **רק כשיש בקשה פתוחה** (`pending_reel` / `rendering` /
+  `generating_clips` / `merging` / `uploading`). אלה גם הסטטוסים שהסוכן התפעולי בודק ב-`ops_agent/config.py`;
   סטטוס חדש נכנס לשני המקומות.
 - בקשה שלא זזה 30 דקות (`STALE_MINUTES`) נבדקת מול fal; בת שעתיים נסגרת
   ככושלת ומזוכה. הקבוע חי רק בשרת, לא בתנאי ה-cron.

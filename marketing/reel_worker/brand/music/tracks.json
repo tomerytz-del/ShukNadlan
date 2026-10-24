@@ -1,0 +1,116 @@
+{
+ "default": "pixabay_1",
+ "tracks": {
+  "funky_house": {
+   "file": "funky_house.mp3",
+   "title": "Funky House",
+   "artist": "Of Far Different Nature",
+   "page": "https://opengameart.org/content/funky-house",
+   "download": "https://opengameart.org/sites/default/files/Of%20Far%20Different%20Nature%20-%20Funky%20House%20%28CC0%29_0.mp3",
+   "license": "CC0 1.0 (public domain dedication) - https://creativecommons.org/publicdomain/zero/1.0/",
+   "bpm": 128.0,
+   "first_beat": 0.0725,
+   "start": 7.572,
+   "eq": "highshelf=f=6000:g=-4,lowpass=f=11000",
+   "beat_period": 0.46875
+  },
+  "pixabay_1": {
+   "file": "pixabay/candidate_1.mp3",
+   "title": "Upbeat Happy Corporate",
+   "artist": "kornevmusic",
+   "page": "https://pixabay.com/music/corporate-upbeat-happy-corporate-487426/",
+   "license": "Pixabay Content License (commercial use OK, no attribution required) - https://pixabay.com/service/license-summary/",
+   "bpm": 119.95,
+   "beat_period": 0.5002,
+   "start": 17.067,
+   "eq": "highshelf=f=7000:g=-2",
+   "analysis": {
+    "duration": 122.0,
+    "bpm": 119.95,
+    "beat_period": 0.5002,
+    "start": 17.067,
+    "hf_above_4k_pct": 2.38,
+    "hf_above_6k_pct": 1.1,
+    "centroid_hz": 2410,
+    "hf_transient_ratio": 4.3,
+    "segment_rms": 0.22
+   },
+   "preview": "pixabay/preview_1.mp3"
+  },
+  "pixabay_2": {
+   "file": "pixabay/candidate_2.mp3",
+   "title": "Real Estate - Real Estate Music",
+   "artist": "AtlasAudio",
+   "page": "https://pixabay.com/music/corporate-real-estate-real-estate-music-576653/",
+   "license": "Pixabay Content License (commercial use OK, no attribution required) - https://pixabay.com/service/license-summary/",
+   "bpm": 120.04,
+   "beat_period": 0.49982,
+   "start": 20.062,
+   "eq": "",
+   "analysis": {
+    "duration": 104.5,
+    "bpm": 120.04,
+    "beat_period": 0.49982,
+    "start": 20.062,
+    "hf_above_4k_pct": 0.12,
+    "hf_above_6k_pct": 0.08,
+    "centroid_hz": 1111,
+    "hf_transient_ratio": 8.7,
+    "segment_rms": 0.353
+   },
+   "preview": "pixabay/preview_2.mp3"
+  },
+  "pixabay_3": {
+   "file": "pixabay/candidate_3.mp3",
+   "title": "Positive House",
+   "artist": "MondaMusic",
+   "page": "https://pixabay.com/music/soft-house-positive-house-491683/",
+   "license": "Pixabay Content License (commercial use OK, no attribution required) - https://pixabay.com/service/license-summary/",
+   "bpm": 115.99,
+   "beat_period": 0.51727,
+   "start": 16.602,
+   "eq": "highshelf=f=6000:g=-3",
+   "analysis": {
+    "duration": 101.4,
+    "bpm": 115.99,
+    "beat_period": 0.51727,
+    "start": 16.602,
+    "hf_above_4k_pct": 0.45,
+    "hf_above_6k_pct": 0.34,
+    "centroid_hz": 1260,
+    "hf_transient_ratio": 17.1,
+    "segment_rms": 0.188
+   },
+   "preview": "pixabay/preview_3.mp3"
+  },
+  "pixabay_4": {
+   "file": "pixabay/candidate_4.mp3",
+   "title": "Pop - Upbeat Pop",
+   "artist": "Tatamusic",
+   "page": "https://pixabay.com/music/upbeat-pop-upbeat-pop-425328/",
+   "license": "Pixabay Content License (commercial use OK, no attribution required) - https://pixabay.com/service/license-summary/",
+   "bpm": 118.08,
+   "beat_period": 0.50811,
+   "start": 14.814,
+   "eq": "highshelf=f=6000:g=-3",
+   "analysis": {
+    "duration": 118.5,
+    "bpm": 118.08,
+    "beat_period": 0.50811,
+    "start": 14.814,
+    "hf_above_4k_pct": 1.97,
+    "hf_above_6k_pct": 0.75,
+    "centroid_hz": 2728,
+    "hf_transient_ratio": 8.5,
+    "segment_rms": 0.26
+   },
+   "preview": "pixabay/preview_4.mp3"
+  }
+ },
+ "ranking": [
+  "pixabay_1",
+  "pixabay_2",
+  "pixabay_4",
+  "pixabay_3"
+ ]
+}

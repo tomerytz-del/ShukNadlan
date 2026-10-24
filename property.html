@@ -153,6 +153,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שב-hero-tools. ‏object-fit:cover כמו בתמונה, כדי שסרטון אנכי מהטלפון
      ימלא את התא במקום להשאיר שתי רצועות שחורות. */
   .bento-video video{width:100%;height:100%;object-fit:cover;display:block}
+  /* רילס אנכי (תבנית D) נושא טקסט ופס סוכן/ת בתוך הפריים, ו-cover היה חותך
+     אותם בתא רחב. לכן הוא נכנס שלם (contain), ומאחוריו שער הרילס מטושטש
+     במקום רצועות שחורות. ‏is-portrait נקבע ב-heroVideo לפי הקובץ עצמו. */
+  .bento-video.is-portrait video{object-fit:contain;position:relative;z-index:0}
+  .bento-video .bento-video-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    filter:blur(22px) brightness(.6);transform:scale(1.15);transition:none}
+  .bento-video:hover .bento-video-bg{transform:scale(1.15)}
   /* שכבת הצללה בתחתית התמונה הראשית — בלעדיה תגית המחיר השקופה נבלעת
      בתמונות בהירות (קירות לבנים, שמיים) */
   .bento-main::after{
@@ -1029,6 +1036,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .video-frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#000}
   .video-frame video,.video-frame iframe{width:100%;height:100%;display:block;border:0}
   .video-frame video{object-fit:contain}
+  /* רילס אנכי בנגן: מסגרת 9:16 ממורכזת ולא 16:9 עם שני פסים שחורים רחבים
+     מכל צד. הגובה מוגבל כדי שהנגן ייכנס במסך אחד גם בטלפון. */
+  .video-frame.is-portrait{aspect-ratio:9/16;max-height:80vh;width:auto;margin-inline:auto}
 
   /* הבקשה בנכס מסחרי: הטופס נודד לתוך הרצועה הכהה, מעל הכפתור שמפעיל
      אותו. קודם הוא ישב מתחתיה בשפת הטפסים של הדף — ואז היה לו כפתור

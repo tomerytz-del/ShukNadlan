@@ -1,15 +1,130 @@
 # הפקת סרטון שיווקי לנכס
 
-סוכן/ת לוחץ/ת על כפתור בכרטיס הנכס ב-CRM — או כותב/ת *"תעשה סרטון לדירה
-בעלייה 20"* לעוזר בוואטסאפ — התמונות של הנכס נשלחות ל-**fal.ai** שהופך כל
-אחת לקליפ קצר בתנועת מצלמה, הקליפים מחוברים לרצף אחד של עד 20 שניות, והקובץ
-נשמר על הנכס. כשההפקה נגמרת יוצאת התראה.
+סוכן/ת לוחץ/ת על כפתור בכרטיס הנכס ב-CRM - או כותב/ת *"תעשה סרטון לדירה
+בעלייה 20"* לעוזר בוואטסאפ - ומקבל/ת **רילס אנכי בתבנית D**: ‏1080x1920, כ-18
+שניות, קריינות בעברית, מוזיקה, המחיר והמפרט למעלה, פס סוכן/ת בשקופית
+הראשונה וכרטיס סיום מונפש. הקובץ נשמר על הנכס, וכשההפקה נגמרת יוצאת התראה.
+
+עד 24.10.2026 הסרטון היה מיזוג של קליפים מ-**fal.ai** (‏Kling). המסלול הזה
+נשאר, אבל רק כמוצא אחרון - ראו "תבנית D" מיד למטה. רוב המסמך שאחריה מתאר
+אותו, וכל מה שכתוב בו על החיוב, הזיכוי וה-reconcile חל גם על הרילס.
 
 | דרגה | מה מקבל/ת |
 |---|---|
 | `premium` | הפקה ללא חיוב, עד `property_video_premium_monthly_cap` (8) סרטונים בחודש |
 | `mid` | הפקה בתשלום — `property_video_price_mid` (₪25) לסרטון, מיתרת הארנק |
 | `free` | הכפתור לא מוצג, וגם קריאה ישירה לפונקציה נדחית ב-`not_eligible` |
+
+---
+
+## תבנית D - שלושה מפיקים, חיוב אחד
+
+| מפיק | `producer` | מתי | איפה |
+|---|---|---|---|
+| Grok Bot | `grok_reel` | ראשי. דוגם את התור כל 2-3 דקות | מחוץ לריפו, מול `reel-producer` |
+| הגיבוי של האתר | `site_reel` | Grok לא לקח תוך 15 דק', נתקע 20 דק' בלי דופק, ויתר (`fail`), או לא דיווח דופק 10 דק' כשהבקשה נפתחה | `.github/workflows/reel_render.yml` → `marketing/reel_worker/run_job.py` |
+| fal / Kling | `fal_legacy` | הגיבוי נכשל, לא הופעל (אין `GH_DISPATCH_TOKEN`) או נתקע 20 דק' | `_shared/reel-fallback.ts` → `startFalLegacy` |
+
+**הרילס של הגיבוי זהה לזה של Grok, לא "דומה" לו.** ‏`marketing/reel_worker/tools/`
+הוא העתק כלשונו של `reference_code` מערכת התבנית (`reel.py`, `queue.py`,
+`cutout.py`, `watermark.py`), ו-`run_job.py` רק מתאים אותו לסביבה: הנתונים
+מ-`reel-producer` במקום snapshot, הקול מ-Azure Speech (אותו he-IL-AvriNeural)
+ו-rembg באותו python. **גרסה חדשה של התבנית נכנסת בהעתקת ארבעת הקבצים**, בלי
+עריכה. בדיקה מקומית בלי רשת: תמונות `file://` מהערכה וקול מדומה - כך נבדק
+הרילס של 1171 מול `samples/1171` (‏טקסט הקריינות זהה מילה במילה).
+
+### מכונת המצבים
+
+```
+start_property_video_job ──► pending_reel ──claim──► rendering (grok_reel) ──complete──► done
+          │ (Grok כבוי)            │ 15 דק'                 │ 20 דק' בלי דופק / fail
+          └──────────────► rendering (site_reel) ◄──────────┘
+                                   │ fail / 20 דק' בלי דופק / dispatch נכשל
+                                   ▼
+                           generating_clips (fal_legacy) ──► merging ──► uploading ──► done
+          כל אחד מהם, אחרי שעתיים מהפתיחה (או fal שנכשל) ──► failed + זיכוי
+```
+
+- **השורה נולדת בסטטוס הסופי שלה** (`p_initial_status` ב-`start_property_video_job`),
+  בתוך הטרנזקציה של החיוב - אין רגע שבו בקשה פתוחה אינה מוכרת לאינדקס הייחודי.
+- **מי מחזיק הוא `claimed_by`.** ‏`complete_property_video_job(p_producer)` משלימה
+  רק למחזיק/ה, ו-`reel_job_heartbeat` עונה `not_owner` למי שאיבד/ה את הבקשה
+  (‏Grok מפסיק, הגיבוי יוצא בשקט). כל מעבר הוא update מותנה-סטטוס.
+- **הסטטוסים הפתוחים** - `pending_reel, rendering, generating_clips, merging,
+  uploading` - מופיעים באינדקסים, ב-`start`/`quote`/`status`, ב-reconcile, ב-cron
+  וב-`ops_agent/config.py`. סטטוס שנשמט מאחד מהם הוא בקשה ששולמה ואיש אינו רואה.
+- הכשל של הגיבוי **אינו מזכה**: `run_job.py` מדווח `fail`, והבקשה עוברת ל-fal.
+  הזיכוי נשאר רק ב-`fail_property_video_job`, כמו תמיד.
+
+### `reel-producer`
+
+‏`verify_jwt = false`, והזהות נגזרת מהסוד שבכותרת `x-reel-producer-secret`:
+‏`REEL_PRODUCER_SECRET` הוא Grok, ‏`REEL_SITE_SECRET` הוא הגיבוי. שני סודות
+נפרדים: Grok אינו יכול להשלים בקשה שעברה לגיבוי, ודליפה של אחד אינה פותחת
+את השני.
+
+| action | מי | גוף | מה |
+|---|---|---|---|
+| `heartbeat` | Grok | `{version?, status?}` | `producer_heartbeat` |
+| `claim` | Grok | `{}` | הבקשה הוותיקה ב-`pending_reel` + כל הנתונים לרינדור, או `job: null` |
+| `job_data` | שניהם | `{job_id}` | אותם נתונים לבקשה שבידיו, וכתובת חתומה למוזיקה |
+| `job_heartbeat` | שניהם | `{job_id}` | `409 not_owner` = הבקשה עברה, לעצור |
+| `upload_urls` | שניהם | `{job_id}` | שתי כתובות העלאה חתומות: `marketing-reel-<uuid>.mp4` ו-`…-cover.jpg` |
+| `complete` | שניהם | `{job_id, video_path, cover_path}` | בודק שהקבצים בתיקיית הנכס ושהם קיימים, משלים, מוחק את הקודם רק אם המערכת יצרה אותו |
+| `fail` | שניהם | `{job_id, reason}` | Grok → הגיבוי; הגיבוי → fal. לא זיכוי |
+| `daily_upload_urls` | Grok | `{property_id}` | כמו `upload_urls`, בשם `marketing-reel-daily-…` |
+| `daily_attach` | Grok | `{property_id, video_path, cover_path, published_urls}` | הרילס היומי (למטה) |
+
+הנתונים לרינדור: שורת הנכס (בלי `property_owners` ובלי מספר בית), התמונות,
+`property_image_tags`, שם השכונה, הסוכן/ת (`name`, `phone`, `photo_url`,
+`show_photo_in_ads` - חסר = true, `license_number`), המשרד (`name`, `logo_url`),
+`is_tomer` ו-`disclosure_line` - שורת הגילוי של תומר יוצאת **רק** כש-
+`agent_id = 2f552dcf-…`. סוכנים אחרים במשרד שלו אינם תומר.
+
+### מה נחשב "סרטון שהמערכת יצרה"
+
+`property_video_is_system(url)`: קובץ בדלי `property-videos` ששמו מתחיל ב-
+`marketing-`, או כתובת שבקשה שהושלמה החזירה. סרטון כזה מוחלף **בלי** לשאול;
+‏`video_exists` חוזר רק על סרטון שהסוכן/ת העלה (או קישור יוטיוב), ורק שם
+נדרש `replace_existing`. ובמסלול הרילס, סרטון של הסוכן/ת שהוחלף באישור נשאר
+בדלי - נמחק רק מה שהמערכת יצרה.
+
+### הרילס היומי (‏`grok_daily`)
+
+Grok מפרסם עד שלושה רילסים ביום לרשתות, ושומר כל אחד גם כסרטון של הנכס דרך
+`daily_attach` → `attach_daily_reel`:
+
+| מה יש על הנכס | מה קורה |
+|---|---|
+| אין סרטון | נשמר, `attached: true` |
+| סרטון של המערכת שאינו רילס שהוזמן (Kling, או רילס יומי קודם) | מוחלף, הקודם נמחק מהדלי |
+| סרטון שהסוכן/ת העלה, או רילס שהוזמן (`grok_reel`/`site_reel`) | לא נוגעים. הקבצים שהועלו נמחקים, `attached: false, reason: agent_video_exists` |
+| בקשה פתוחה של הסוכן/ת | `attached: false, reason: job_in_progress` |
+
+בלי חיוב ובלי מכסה: נרשמת שורה ב-`property_video_jobs` עם `producer = grok_daily`,
+‏`status = done`, ‏₪0 - כלומר היא אינה פתוחה (לא חוסמת הזמנה), ו-`start`/`quote`
+מדלגות עליה בספירת המכסה. הזמנה עתידית של הסוכן/ת מחליפה אותה בלי לשאול.
+הסוכן/ת מקבל/ת התראה (`marketing_copy`) עם הקישורים מ-`published_urls`.
+אין לרילס היומי גיבוי: Grok כבוי = אין רילס יומי באותו יום.
+
+### תמונת השער
+
+`properties.video_poster_url` - נכתב ב-`complete_property_video_job` (‏`p_cover_url`)
+וב-`attach_daily_reel`, ומתאפס כשסרטון fal (בלי שער) מחליף רילס. דף הנכס משתמש
+בו כ-`poster`, ומציג רילס אנכי שלם (`object-fit: contain` על רקע השער המטושטש,
+ומסגרת 9:16 בנגן) - `cover` היה חותך את הטקסט ואת פס הסוכן/ת. סרטון 16:9 לא השתנה.
+
+### הפעלה (פעם אחת)
+
+| איפה | מה |
+|---|---|
+| Supabase → Edge Functions → Secrets | `REEL_PRODUCER_SECRET`, ‏`REEL_SITE_SECRET` (‏`openssl rand -hex 32` כל אחד), ‏`GH_DISPATCH_TOKEN` |
+| GitHub → Settings → Secrets → Actions | `REEL_SITE_SECRET` (אותו ערך), ‏`AZURE_SPEECH_KEY`, ‏`AZURE_SPEECH_REGION` |
+| Supabase → Storage → `reel-assets` | `music/pixabay/candidate_1.mp3` מהערכה. בלעדיו הגיבוי מתנגן על `funky_house` (‏CC0), עם אזהרה בלוג |
+| Grok Bot | `REEL_PRODUCER_SECRET` וכתובת הפונקציה: `https://obookujgolazrwycsiyn.supabase.co/functions/v1/reel-producer` |
+
+‏`GH_DISPATCH_TOKEN`: ‏fine-grained token על הריפו בלבד, **Actions: Read and write**.
+בלי Azure הגיבוי משתמש ב-edge-tts כמו הערכה (אותו קול, בלי הסכם שימוש).
 
 ---
 

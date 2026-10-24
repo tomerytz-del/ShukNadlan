@@ -286,6 +286,12 @@ verify_jwt = true
 [functions.property-video-callback]
 verify_jwt = false
 
+# ‏מפיקי הרילסים (‏Grok Bot והגיבוי ב-GitHub Actions) - לאף אחד מהם אין JWT
+# שלנו. האימות הוא ‎x-reel-producer-secret‎ מול REEL_PRODUCER_SECRET או
+# REEL_SITE_SECRET, והזהות (מי מחזיק בבקשה) נגזרת מהסוד שהתאים.
+[functions.reel-producer]
+verify_jwt = false
+
 # מורנינג קורא/ת לכאן מבחוץ בסיום תשלום, ואין לו/ה JWT שלנו.
 #
 # זו נקודת הקצה היחידה שמזכה ארנק, ולכן שווה לומר במפורש מה מגן עליה: סוד

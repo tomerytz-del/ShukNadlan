@@ -1,0 +1,72 @@
+name: רילס - הגיבוי של האתר (תבנית D)
+
+# מפיק רילס אחד בתבנית D כש-Grok Bot לא לקח בקשה של סוכן/ת תוך 15 דקות,
+# נתקע באמצע או ויתר. מופעל רק מ-workflow_dispatch: ה-reconcile של
+# property-video-callback (או property-video-create, כש-Grok כבוי) קורא ל-
+# GitHub API עם GH_DISPATCH_TOKEN ומעביר את מזהה הבקשה.
+#
+# **למה כאן ולא ב-Edge Function:** הרינדור הוא ffmpeg, ‏Chrome headless,
+# ‏rembg וכרטיס סיום שמצויר פריים-פריים ב-PIL. ‏Edge Function אינה יכולה
+# להריץ אף אחד מהם, ו-fal compose אינו יודע לעשות push-in עם crop עשרוני
+# וטשטוש במעבר - כלומר התוצאה לא הייתה זהה לזו של Grok. כאן רץ אותו
+# reel.py בדיוק (‏marketing/reel_worker/tools/), ולכן אין רילס "של גיבוי".
+#
+# כישלון כאן אינו מזכה: run_job.py מדווח action=fail, והבקשה עוברת ל-fal.
+# ריצה שמתה בלי לדווח נתפסת ב-reconcile אחרי 20 דקות בלי דופק.
+# ‏docs/property-marketing-video.md, "תבנית D".
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "property_video_jobs.id"
+        required: true
+        type: string
+
+concurrency:
+  group: reel-${{ inputs.job_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: marketing/reel_worker
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: marketing/reel_worker/requirements.txt
+
+      - name: ffmpeg וגופנים
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fontconfig >/dev/null
+          mkdir -p ~/.local/share/fonts
+          cp marketing/reel_worker/fonts/*.ttf ~/.local/share/fonts/
+          fc-cache -f >/dev/null
+          which google-chrome || which chromium
+
+      # מודל הסרת הרקע של rembg (‏u2net_human_seg, כ-170MB) יורד בהרצה
+      # הראשונה ונשמר כאן, כדי שגיבוי לא ימתין להורדה בכל פעם.
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.u2net
+          key: u2net-human-seg-v1
+
+      - run: pip install -q -r marketing/reel_worker/requirements.txt
+
+      - name: רינדור והעלאה
+        env:
+          JOB_ID: ${{ inputs.job_id }}
+          REEL_SITE_SECRET: ${{ secrets.REEL_SITE_SECRET }}
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+        run: python marketing/reel_worker/run_job.py --job "$JOB_ID"
