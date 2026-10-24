@@ -1,0 +1,4 @@
+pillow==13.0.0
+numpy==2.5.4
+rembg[cpu]==2.0.86
+edge-tts==7.3.1

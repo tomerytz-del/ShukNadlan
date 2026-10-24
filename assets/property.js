@@ -316,10 +316,28 @@ function renderGallery(p){
     v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
     v.autoplay = true;
     v.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
-    // התמונה הראשית היא ה-poster: כך התא נראה כמו קודם עד שהפריים הראשון
-    // מגיע, ובמקום שבו הניגון ייחסם נשארת התמונה במקום מלבן שחור.
-    if (galleryImages[0]) v.poster = galleryImages[0];
+    // ה-poster: שער הרילס כשיש (‏video_poster_url, תבנית D), אחרת התמונה
+    // הראשית - כך התא נראה כמו קודם עד שהפריים הראשון מגיע, ובמקום שבו
+    // הניגון ייחסם נשארת תמונה במקום מלבן שחור.
+    const poster = p.video_poster_url || galleryImages[0];
+    if (poster) v.poster = poster;
     main.appendChild(v);
+    // סרטון אנכי נכנס שלם (ראו ‎.is-portrait‎ ב-property.html). רילס של
+    // המערכת ידוע מראש לפי שם הקובץ; כל קובץ אחר - לפי המידות שלו.
+    const portrait = ()=>{
+      if (main.classList.contains('is-portrait')) return;
+      main.classList.add('is-portrait');
+      if (poster){
+        const bg = document.createElement('img');
+        bg.className = 'bento-video-bg';
+        bg.src = poster;
+        bg.alt = '';
+        bg.setAttribute('aria-hidden', 'true');
+        main.insertBefore(bg, v);
+      }
+    };
+    if (isReelVideo(videoSrc)) portrait();
+    v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
     heroVideoEl = v;
     grid.appendChild(main);
     // ‏play() נדחית בשקט כשהדפדפן מסרב — מצב חיסכון בסוללה באייפון הוא
@@ -461,13 +479,23 @@ function videoEmbed(raw){
 // את אותו סיור פעמיים בהפרש של כמה שניות.
 let panelVideoEl = null;
 
-function renderVideoPanel(embed){
+// רילס בתבנית D (1080x1920) - הקבצים שהמערכת שומרת בשם ‎marketing-reel-…‎.
+function isReelVideo(src){
+  return /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i.test(String(src || ''));
+}
+
+function renderVideoPanel(embed, poster){
   const frame = document.getElementById('videoFrame');
   frame.innerHTML = embed.type === 'iframe'
     ? `<iframe src="${escapeAttr(embed.src)}" title="סרטון הנכס" loading="lazy" ` +
       `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
-    : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline></video>`;
+    : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline` +
+      `${poster ? ` poster="${escapeAttr(poster)}"` : ''}></video>`;
   panelVideoEl = frame.querySelector('video');
+  frame.classList.toggle('is-portrait', embed.type === 'video' && isReelVideo(embed.src));
+  if (panelVideoEl) panelVideoEl.addEventListener('loadedmetadata', ()=>{
+    if (panelVideoEl.videoHeight > panelVideoEl.videoWidth) frame.classList.add('is-portrait');
+  });
   // מי שלחץ/ה נגן כאן ביקש/ה לצפות כאן. תמונת השער חוזרת להיות מושתקת,
   // וה-‏IntersectionObserver שלה ממילא יעצור אותה ברגע שיגללו לכאן.
   if (panelVideoEl) panelVideoEl.addEventListener('play', ()=>{
@@ -499,7 +527,7 @@ function renderMediaButtons(p){
   if (heroVideoEl) return;
 
   // כשהסרטון מנוגן בעמוד, הכפתור בהירו הוא קיצור דרך אליו ולא יציאה מהעמוד
-  renderVideoPanel(embed);
+  renderVideoPanel(embed, p.video_poster_url || null);
   const btn = document.getElementById('videoBtn');
   btn.href = '#videoSection';
   btn.removeAttribute('target');

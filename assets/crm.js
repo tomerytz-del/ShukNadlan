@@ -15859,32 +15859,28 @@ async function promoteProperty(property, btn, agentId){
    התמונות של הנכס נשלחות ל-fal.ai, כל אחת הופכת לקליפ קצר בתנועת מצלמה,
    והרצף נשמר על הנכס ב-‎video_url‎ - אותו שקע שאליו מעלים סרטון מהמכשיר.
 
-   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, fal מחזיר/ה
-   תשובה ל-‎property-video-callback‎, והסרטון נשמר גם אם ה-CRM נסגר באמצע.
+   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, מפיק הרילס
+   (‏Grok, הגיבוי, או fal כמוצא אחרון) מחזיר קובץ, והסרטון נשמר גם אם ה-CRM
+   נסגר באמצע. ‏docs/property-marketing-video.md, "תבנית D".
    ה-polling כאן הוא רק כדי להראות התקדמות למי שנשאר/ת לחכות.               */
 const VIDEO_POLL_MS = 5000;
-const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
+// ‏30 דקות: רבע שעה שבה הבקשה עשויה להמתין ל-Grok, ועוד הפקה בגיבוי.
+const VIDEO_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
   const price = isMid ? priceOf('property_video_price_mid', 25) : 0;
-  const maxClips = priceOf('property_video_clip_count', 5);
-  const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
 
-  // התקרה היא תקרה, לא יעד: הסרטון לוקח סצנה לכל תמונה עד המקסימום, ולכן
-  // המספר שמוצג הוא מה שהנכס הזה באמת יקבל ולא הבטחה גנרית.
-  const nImages = Array.isArray(property.images) ? property.images.filter(Boolean).length : 0;
-  const scenes  = Math.max(1, Math.min(nImages, maxClips));
-  const total   = Math.round(scenes * secs * 10) / 10;
-
+  // תבנית D (24.10.2026): רילס אנכי של כ-18 שניות עם קריינות, מוזיקה, פס
+  // סוכן/ת וכרטיס סיום - אותו אורך לכל נכס, ולכן אין כאן חישוב סצנות.
   const lines = [
-    `🎬 סרטון שיווקי · ${property.title || 'הנכס שלך'}`,
-    `${scenes} סצנות של ${secs} שניות - סרטון של כ-${total} שניות, בתנועת מצלמה כמו מרחפן.`,
-    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון בינתיים.',
+    `🎬 רילס שיווקי · ${property.title || 'הנכס שלך'}`,
+    'רילס אנכי של כ-18 שניות עם קריינות, מהתמונות והנתונים של הנכס, עם הפרטים שלך בסוף.',
+    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון. תישלח התראה כשהרילס יהיה מוכן.',
   ];
   // ההחלפה נאמרת במפורש ובשורה נפרדת: זה החלק שאי אפשר לבטל.
-  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הסרטון החדש יחליף אותו, והישן יימחק.');
+  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הרילס החדש יחליף אותו בדף הנכס.');
 
   const approved = await confirmPurchase({
     title: hasVideo ? 'החלפת הסרטון בסרטון מופק' : 'אישור הפקת סרטון',
@@ -15894,7 +15890,7 @@ async function produceMarketingVideo(property, btn, agentId){
     ackText: isMid
       ? `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור סרטון אחד.`
       : (hasVideo
-          ? 'אני מבין/ה שהסרטון הקיים יימחק ויוחלף בסרטון המופק.'
+          ? 'אני מבין/ה שהסרטון הקיים יוחלף ברילס המופק.'
           : 'אני מאשר/ת הפקת סרטון שיווקי לנכס הזה.'),
     confirmLabel: isMid ? `אישור והפקה · חיוב ${shekel(price)}` : 'אישור והפקה',
   });
@@ -15939,7 +15935,7 @@ async function produceMarketingVideo(property, btn, agentId){
     jobId = data.job_id;
     // חיוב יצא - היתרה שעל המסך צריכה לדעת מיד, כמו בקידום
     if (data.amount_charged > 0) await refreshAgentBalance();
-    showToast(`ההפקה החלה · ${data.clips} קליפים · כ-${data.estimated_seconds} שניות. אפשר לסגור את החלון`);
+    showToast('הסרטון בהפקה, תישלח התראה כשיהיה מוכן. אפשר לסגור את החלון');
   } catch(err){
     console.error(err);
     showToast('שגיאת רשת - נסו שוב');
@@ -15974,9 +15970,12 @@ async function produceMarketingVideo(property, btn, agentId){
       return;
     }
 
+    // ‏pending_reel / rendering: הרילס אצל המפיק (Grok או הגיבוי). אין לו
+    // קליפים לספור, ולכן "בהפקה" בלבד. השאר - מסלול fal, שנשאר מוצא אחרון.
     const label = row.status === 'merging' ? 'מחבר…'
       : row.status === 'uploading' ? 'שומר…'
-      : `מפיק… ${row.clips_done}/${row.clips_total}`;
+      : (row.status === 'generating_clips' && row.clips_total) ? `מפיק… ${row.clips_done}/${row.clips_total}`
+      : 'בהפקה…';
     setActionLabel(btn, label);
     setTimeout(poll, VIDEO_POLL_MS);
   };
