@@ -53,21 +53,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-gestures.js"></script>
-<script src="assets/map-draw.js"></script>
-<script src="assets/open-house.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/prop-shelf.js"></script>
-<script src="assets/project-card.js"></script>
-<script src="assets/exit-guard.js" data-auto></script>
 <style>
   /* ההסברים לעיצוב הזה: docs/home-page-notes.md. כל מה שנכתב כאן נשלח לכל גולש/ת. */
   :root{
@@ -5044,6 +5029,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button type="button" class="reset" id="a11yReset">איפוס הגדרות</button>
 </div>
 
+<!-- הספריות האלה רצות רק אחרי שה-hero כבר נסרק. ב-head הן חסמו את הציור
+     הראשון (מפה, supabase, כרטיסים). Leaflet.css נשאר למעלה. -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-tiles.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-gestures.js"></script>
+<script src="assets/map-draw.js"></script>
+<script src="assets/open-house.js"></script>
+<script src="assets/approx-location.js"></script>
+<script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
+<script src="assets/project-card.js"></script>
+<script src="assets/exit-guard.js" data-auto></script>
 <script src="assets/search-core.js"></script>
 <script src="assets/sentence-search.js"></script>
 <script src="assets/home.js"></script>
