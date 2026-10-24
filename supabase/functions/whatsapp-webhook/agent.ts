@@ -6521,6 +6521,7 @@ export async function runAgentTurn(opts: {
   const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
       max_tokens: 4096,
@@ -6553,7 +6554,8 @@ export async function runAgentTurn(opts: {
     console.log(
       `llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
-        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
+        `ms=${Date.now() - llmStart}`,
     );
     // ולפירוט העלות בפאנל "עלויות" (‏ai_usage_log) - שורה לכל קריאה בתור
     logAiUsage(anthropicRow("gabriela_agent", response.model || MODEL, response.usage,
@@ -6582,6 +6584,7 @@ export async function runAgentTurn(opts: {
     for (const use of toolUses) {
       // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
       // נאכף כאן ולא רק ברשימה שנשלחה אליו.
+      const toolStart = Date.now();
       const result = allowedTools && !allowedTools.has(use.name)
         ? { error: denied }
         : await runTool(
@@ -6589,6 +6592,10 @@ export async function runAgentTurn(opts: {
           use.name,
           (use.input || {}) as Record<string, unknown>,
         );
+      // ‏`ms=` כאן וב-`llm` (24.10.2026): בשבוע שאחרי 17.10 טקסט של סוכן/ת
+      // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
+      // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
+      console.log(`tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
       results.push({
         type: "tool_result",
         tool_use_id: use.id,
