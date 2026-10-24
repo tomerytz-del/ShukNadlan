@@ -262,7 +262,12 @@ let heroVideoEl = null;
      • חיבור 2G — שם הסרטון לא באמת יתחיל לנגן, הוא רק יחנוק את שאר העמוד.
 
    בכל שלושת המקרים לא נעלם כלום: התמונה הראשית חוזרת למקומה, והסרטון
-   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.                       */
+   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.
+
+   כשהסרטון כן תופס את השער, התמונה (הפוסטר) היא מה שנצבע ראשון. הכתובת
+   של הקובץ לא נכנסת ל-src לפני לחיצה או לפני שהדף סיים להיטען והדפדפן
+   פנוי, ו-preload=none כדי שהקובץ (עד 50MB) לא יתחרה בתמונה. ניגון רק
+   בלחיצה, לא בזמן הציור.                                                    */
 function heroVideoSource(p){
   const embed = videoEmbed(p.video_url);
   if (!embed || embed.type !== 'video') return null;
@@ -308,42 +313,53 @@ function renderGallery(p){
   if (videoSrc){
     main.classList.add('bento-video');
     const v = document.createElement('video');
-    v.src = videoSrc;
-    // ‏muted חייב להיות מוגדר לפני ‎play()‎ — ניגון אוטומטי עם קול חסום בכל
-    // דפדפן, וסרטון שמתחיל להשמיע קול מעצמו הוא ממילא לא מה שביקשו כאן.
+    // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
+    v.dataset.pendingSrc = videoSrc;
+    v.preload = 'none';
+    v.autoplay = false;
+    // ‏muted לפני כל play() עתידי. ניגון אוטומטי עם קול חסום, וגם לא ביקשו אותו.
     v.muted = true;
     v.loop = true;
     v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
-    v.autoplay = true;
-    v.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
-    // ה-poster: שער הרילס כשיש (‏video_poster_url, תבנית D), אחרת התמונה
-    // הראשית - כך התא נראה כמו קודם עד שהפריים הראשון מגיע, ובמקום שבו
-    // הניגון ייחסם נשארת תמונה במקום מלבן שחור.
+    v.setAttribute('aria-label', 'סרטון הנכס');
+    // בלי פריים הסרטון היה מכסה את התמונה במלבן ריק, וה-LCP היה הוא ולא היא.
+    v.style.visibility = 'hidden';
+    // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
+    // ‏bento-video-bg כבר ממקם תמונה על כל התא (בלי לגעת ב-property.html).
+    // ה-filter המובנה של המחלקה הוא רקע מטושטש לרילס; כאן התמונה חדה עד הניגון.
     const poster = p.video_poster_url || galleryImages[0];
-    if (poster) v.poster = poster;
+    if (poster){
+      const img = document.createElement('img');
+      img.className = 'bento-video-bg';
+      img.dataset.lcp = '1';
+      img.src = poster;
+      img.alt = '';
+      img.style.filter = 'none';
+      img.style.transform = 'none';
+      img.setAttribute('fetchpriority', 'high');
+      img.setAttribute('aria-hidden', 'true');
+      main.appendChild(img);
+    }
     main.appendChild(v);
     // סרטון אנכי נכנס שלם (ראו ‎.is-portrait‎ ב-property.html). רילס של
     // המערכת ידוע מראש לפי שם הקובץ; כל קובץ אחר - לפי המידות שלו.
+    // בלי <img> שני: תמונת ה-LCP עצמה הופכת לרקע המטושטש ברגע שהניגון מתחיל.
     const portrait = ()=>{
       if (main.classList.contains('is-portrait')) return;
       main.classList.add('is-portrait');
-      if (poster){
-        const bg = document.createElement('img');
-        bg.className = 'bento-video-bg';
-        bg.src = poster;
-        bg.alt = '';
-        bg.setAttribute('aria-hidden', 'true');
-        main.insertBefore(bg, v);
-      }
     };
     if (isReelVideo(videoSrc)) portrait();
     v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
+    v.addEventListener('playing', ()=>{
+      v.style.visibility = '';
+      const shot = main.querySelector('img[data-lcp]');
+      if (shot && main.classList.contains('is-portrait')){
+        shot.style.filter = '';
+        shot.style.transform = '';
+      }
+    });
     heroVideoEl = v;
     grid.appendChild(main);
-    // ‏play() נדחית בשקט כשהדפדפן מסרב — מצב חיסכון בסוללה באייפון הוא
-    // המקרה הנפוץ. אז הפוסטר נשאר, ופס הפקדים נדלק כדי שיהיה אפשר לנגן ביד.
-    const played = v.play();
-    if (played && played.catch) played.catch(()=>{ v.controls = true; });
   } else if (!galleryImages.length){
     main.classList.add('bento-empty');
     // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
@@ -396,45 +412,85 @@ function renderGallery(p){
 }
 
 /* ---------- מתג הקול של תמונת השער ----------
-   הסרטון רץ בלולאה ממילא, ולכן אין כאן כפתור ניגון אלא שאלה אחת: שומעים
-   אותו או לא. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם
-   השתקה שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.               */
+   הלחיצה הראשונה על התמונה מנגנת מושתק. אחר כך הלחיצה היא מתג הקול, כמו
+   קודם. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם השתקה
+   שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.
+
+   ה-src לא נקבע כאן בזמן הרינדור. אחרי שהחלון נטען: requestIdleCallback
+   (תקרה של 4 שניות), ובלי זה setTimeout של 2 שניות. זה רק מכניס את הכתובת.
+   preload=none נשאר, והקובץ יורד כשמנגנים.                              */
 function setupHeroSound(){
   const btn = document.getElementById('heroSoundBtn');
   if (!btn) return;
   if (!heroVideoEl){ btn.hidden = true; return; }
   const video = heroVideoEl;
+  const pending = video.dataset.pendingSrc || '';
+  let started = false;
 
+  const ensureSrc = ()=>{
+    if (pending && !video.getAttribute('src')) video.src = pending;
+  };
   const paint = ()=>{
+    if (!started){
+      btn.innerHTML = ICON.play;
+      btn.setAttribute('aria-label', 'ניגון הסרטון');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'ניגון';
+      return;
+    }
     btn.innerHTML = video.muted ? ICON.soundOff : ICON.soundOn;
     btn.setAttribute('aria-label', video.muted ? 'השמעת הקול של הסרטון' : 'השתקת הסרטון');
     btn.setAttribute('aria-pressed', String(!video.muted));
     btn.title = video.muted ? 'השמעת הקול' : 'השתקה';
   };
+  const begin = ()=>{
+    if (started) return;
+    ensureSrc();
+    started = true;
+    video.muted = true;
+    video.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
+    paint();
+    const played = video.play();
+    if (played && played.catch) played.catch(()=>{ video.controls = true; video.style.visibility = ''; });
+  };
 
   const toggle = ()=>{
+    ensureSrc();
+    started = true;
     video.muted = !video.muted;
     // ביטול השתקה על סרטון שנעצר הוא בקשה לנגן אותו, לא רק להוסיף לו קול
     if (!video.muted){
       if (panelVideoEl) panelVideoEl.pause();
       video.play().catch(()=>{});
     }
+    paint();
   };
-  btn.addEventListener('click', toggle);
-  // גם הסרטון עצמו — מי שרואה וידאו מנגן מושתק מקיש עליו, לא מחפש כפתור.
-  // הכפתור נשאר בכל זאת: הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
-  video.addEventListener('click', toggle);
+  // לחיצה ראשונה (כפתור, תמונה או סרטון): ניגון מושתק. אחר כך מתג הקול.
+  // הכפתור נשאר כי הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
+  const onSurface = ()=>{ if (!started) begin(); else toggle(); };
+  btn.addEventListener('click', onSurface);
+  video.addEventListener('click', onSurface);
+  const shot = video.parentElement && video.parentElement.querySelector('img[data-lcp]');
+  if (shot) shot.addEventListener('click', onSurface);
   video.addEventListener('volumechange', paint);
   paint();
   btn.hidden = false;
 
+  const arm = ()=> ensureSrc();
+  const schedule = ()=>{
+    if (window.requestIdleCallback) window.requestIdleCallback(arm, { timeout: 4000 });
+    else setTimeout(arm, 2000);
+  };
+  if (document.readyState === 'complete') schedule();
+  else window.addEventListener('load', schedule, { once: true });
+
   /* סרטון שממשיך לרוץ אחרי שגללו ממנו הוא סוללה וגלישה שנשרפות על משהו
-     שאיש לא רואה. מושתק = תמונת שער שזזה, ואפשר לעצור אותה בשקט; אחרי
-     שביקשו קול זו כבר האזנה מכוונת, ועצירה כאן הייתה קוטעת אותה. */
+     שאיש לא רואה. רק אחרי שהניגון התחיל, ורק כשהוא מושתק. בלי זה הגלריה
+     הייתה מנגנת מעצמה ברגע שהשער נראה. */
   if (!('IntersectionObserver' in window)) return;
   new IntersectionObserver((entries)=>{
     for (const entry of entries){
-      if (!video.muted) continue;
+      if (!started || !video.muted) continue;
       if (entry.isIntersecting) video.play().catch(()=>{});
       else video.pause();
     }
@@ -517,9 +573,9 @@ function renderMediaButtons(p){
   const embed = videoEmbed(p.video_url);
   if (!embed){ link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס'); return; }
 
-  /* הסרטון כבר מנגן בתמונה הראשית — נגן שני של אותו קובץ בהמשך העמוד הוא
-     רק אותו סיור פעם שנייה, וכפתור שמוביל אליו הוא קיצור דרך למקום שהצופה
-     כבר נמצא בו. שניהם יורדים.
+  /* הסרטון יושב בתמונה הראשית (גם לפני שלחצו לנגן) — נגן שני של אותו קובץ
+     בהמשך העמוד היה מוריד אותו פעמיים, וכפתור שמוביל אליו הוא קיצור דרך
+     למקום שהצופה כבר נמצא בו. שניהם יורדים.
 
      הסקציה נשארת בקוד ולא נמחקה, כי היא עדיין המסלול היחיד בכל מקרה
      שבו השער ויתר על הסרטון: יוטיוב ווימאו (שלא נכנסים לשער כ-iframe),
