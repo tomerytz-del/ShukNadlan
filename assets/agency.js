@@ -1323,7 +1323,7 @@ async function sendAgencyLead(payload){
     body: JSON.stringify({
       agency_slug: leadContext.slug,
       city: leadContext.city,
-      property_type: 'דירה', // שני הכלים מיועדים לדירות; סוג־נכס מלא נשאר בטופס הסוכן
+      property_type: 'דירה', // ברירת מחדל; אשף בעלי הנכסים שולח 'מסחרי' לנכס מסחרי
       ...payload,
     }),
   });
@@ -1350,7 +1350,24 @@ const ownerHeadline = document.getElementById('ownerHeadline');
 const wizForm = document.getElementById('ownerWizardForm');
 const wizDone = document.getElementById('wizDone');
 
-const wizState = { deal:'sale', address:'', condition:null, rooms:null, features:[], name:'', phone:'' };
+const wizState = { deal:'sale', kind:'residential', address:'', condition:null, rooms:null, subtype:null, size:null, features:[], name:'', phone:'' };
+
+/* מגורים או מסחרי - כמו באשף שבדף הבית. מסחרי מחליף בשלב 2 את החדרים
+   בסוג הנכס ובשטח, ואת המאפיינים של דירה (ממ״ד, מרפסת) בשל נכס מסחרי.
+   מה שסומן והוסתר יורד מהבחירה - אחרת חנות הייתה נשלחת עם "מרפסת". */
+function applyOwnerKind(){
+  const commercial = wizState.kind === 'commercial';
+  document.getElementById('wizRoomsBox').hidden = commercial;
+  document.getElementById('wizSubtypeBox').hidden = !commercial;
+  document.getElementById('wizSizeBox').hidden = !commercial;
+  wizForm.querySelectorAll('.wiz-checks label[data-kind]').forEach(l=>{
+    const off = l.dataset.kind !== wizState.kind;
+    l.hidden = off;
+    if (off) l.querySelector('input').checked = false;
+  });
+  wizState.features = Array.from(wizForm.querySelectorAll('.wiz-checks input:checked')).map(i=>i.value);
+  setError(2, '');
+}
 
 function setError(step, message){
   document.getElementById('wizErr' + step).textContent = message || '';
@@ -1388,8 +1405,12 @@ function validateStep(step){
     return true;
   }
   if (step === 2){
+    const commercial = wizState.kind === 'commercial';
+    const size = Number(document.getElementById('wizSize').value);
+    wizState.size = commercial && size > 0 ? Math.round(size) : null;
     if (!wizState.condition){ setError(2, 'נא לבחור את מצב הנכס'); return false; }
-    if (!wizState.rooms){ setError(2, 'נא לבחור מספר חדרים'); return false; }
+    if (commercial && !wizState.subtype){ setError(2, 'נא לבחור את סוג הנכס'); return false; }
+    if (!commercial && !wizState.rooms){ setError(2, 'נא לבחור מספר חדרים'); return false; }
     setError(2, '');
     return true;
   }
@@ -1458,12 +1479,20 @@ function initOwnerWizard(agency){
   });
 
   /* --- שלב 1: סוג עסקה + כתובת --- */
-  document.querySelectorAll('.owner-toggle button').forEach(btn=>{
+  document.querySelectorAll('.owner-toggle button[data-owner]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       wizState.deal = btn.dataset.owner;
       ownerHeadline.textContent = wizState.deal === 'sale' ? 'מוכר?' : 'משכיר?';
+    });
+  });
+  document.querySelectorAll('.owner-toggle button[data-owner-kind]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      wizState.kind = btn.dataset.ownerKind;
+      applyOwnerKind();
     });
   });
 
@@ -1472,6 +1501,7 @@ function initOwnerWizard(agency){
      "נא לבחור מספר חדרים" נשארת על המסך אחרי שהמשתמש כבר בחר. */
   bindSingleChoice('condition', v => { wizState.condition = v; setError(2, ''); });
   bindSingleChoice('rooms', v => { wizState.rooms = v; setError(2, ''); });
+  bindSingleChoice('subtype', v => { wizState.subtype = v; setError(2, ''); });
 
   document.querySelectorAll('.wiz-checks input').forEach(cb=>{
     cb.addEventListener('change', ()=>{
@@ -1501,7 +1531,7 @@ function initOwnerWizard(agency){
     wizForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
     wizForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
     [1,2,3].forEach(s => setError(s, ''));
-    Object.assign(wizState, { address:'', condition:null, rooms:null, features:[], name:'', phone:'' });
+    Object.assign(wizState, { address:'', condition:null, rooms:null, subtype:null, size:null, features:[], name:'', phone:'' });
     const submitBtn = document.getElementById('wizSubmitBtn');
     submitBtn.textContent = 'קבלת הערכת שווי חינם';
     submitBtn.disabled = false;
@@ -1521,9 +1551,13 @@ async function submitOwnerWizard(e){
   submitBtn.disabled = true;
   try{
     await sendAgencyLead({
+      // ‏'מסחרי' ולא סוג המשנה: זה הערך שבהעדפות הלידים של הסוכנים
+      property_type: wizState.kind === 'commercial' ? 'מסחרי' : 'דירה',
+      property_subtype: wizState.kind === 'commercial' ? wizState.subtype : null,
+      size_sqm: wizState.kind === 'commercial' ? wizState.size : null,
       deal_type: wizState.deal,
       address: wizState.address,
-      rooms: wizState.rooms,
+      rooms: wizState.kind === 'commercial' ? null : wizState.rooms,
       condition: CONDITION_LABELS[wizState.condition] || null,
       features: wizState.features,
       name: wizState.name,
