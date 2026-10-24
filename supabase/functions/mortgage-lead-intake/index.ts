@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { audienceSize, logLeadRouting } from "../_shared/lead-routing.ts";
+import { audienceSize, isInternalCaller, logLeadRouting, SOCIAL_SOURCES } from "../_shared/lead-routing.ts";
 
 // ============================================================================
 // קליטת ליד ייעוץ משכנתאות מטופס המחשבון בדף הבית.
@@ -76,7 +76,9 @@ Deno.serve(async (req: Request) => {
   // תווית נפרדת כי ליד שהגיע משיחה אינו אותו ליד שהגיע ממי שגרר סליידר —
   // וזו בדיוק ההבחנה שהמדף קיים כדי להציג ליועצ/ת.
   const SOURCES = ["homepage_calculator", "property_page", "whatsapp_bot"];
-  const source = SOURCES.includes(body.source) ? body.source : "homepage_calculator";
+  // מקור חברתי (גבריאלה בפייסבוק/אינסטגרם) - רק מ-social-lead-intake, ‏docs/social-leads.md
+  const social = typeof body.source === "string" && SOCIAL_SOURCES.has(body.source) && isInternalCaller(req);
+  const source = social ? body.source : SOURCES.includes(body.source) ? body.source : "homepage_calculator";
 
   // ‏property_id נכתב רק אם הוא UUID תקין. ערך שגוי היה מפיל את ה-insert על
   // ה-FK ומחזיר לפונה כישלון על משהו שאינו באשמתו.
@@ -126,7 +128,9 @@ Deno.serve(async (req: Request) => {
      להתראה אצל מנהל/ת הפלטפורמה. */
   const advisors = await audienceSize(serviceClient, "mortgage_advisor");
   await logLeadRouting(serviceClient, {
-    source: source === "property_page"
+    source: social
+      ? source
+      : source === "property_page"
       ? "property_page_mortgage_calc"
       : source === "whatsapp_bot"
       ? "whatsapp_bot_mortgage_calc"

@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   audienceSize,
+  isInternalCaller,
   logLeadRouting,
   normalizeSource,
   resolveAgencyRouting,
@@ -234,6 +235,22 @@ Deno.serve(async (req: Request) => {
     (consent ? await resolveAgencyRouting(serviceClient, body.agency_slug) : null);
   const pageSource = agentRouting ? "agent_page" : "agency_page";
 
+  /* ---- ליד בלי התראות (‏lead_only, ‏docs/social-leads.md) ------------------
+     פונה שגבריאלה פגשה בפייסבוק או באינסטגרם לא ביקש/ה התראות בוואטסאפ, ולא
+     נכון לשלוח לו/ה אותן. ‏lead_only שומר את החיפוש 'paused': מנוע ההתראות
+     עובר רק על 'active', והמדף ("מחפשי דירה") מסנן רק 'unsubscribed'. בלי
+     הסכמה ליצירת קשר אין בזה כלום - לא התראות ולא ליד - ולכן נדחה.
+     רק מקורא פנימי (‏social-lead-intake): מהדפדפן זה היה טופס שמוכר פרטים
+     בלי לתת דבר בתמורה. */
+  const trusted = isInternalCaller(req);
+  const leadOnly = trusted && body.lead_only === true;
+  if (leadOnly && !consent) return json({ error: "lead_only_requires_consent" }, 400);
+  const source = normalizeSource(
+    body.source,
+    (agentRouting || agencyRouting) ? `${pageSource}_buyer_wizard` : "homepage_search_agent",
+    trusted,
+  );
+
   const row = {
     full_name: fullName,
     phone: phone || null,
@@ -261,6 +278,9 @@ Deno.serve(async (req: Request) => {
     // ‏null בליד רגיל של הפלטפורמה — כלומר בדיוק ההתנהגות שהייתה כאן עד היום
     agency_id: agencyRouting?.agencyId ?? null,
     assigned_agent_id: agencyRouting?.agentId ?? null,
+    // ‏20270806090000: המקור נשמר בחיפוש, ועובר לליד כשסוכן/ת קונה אותו בחנות
+    source,
+    status: leadOnly ? "paused" : "active",
   };
 
   // ‏הכתיבה עצמה, התקרה לאותו טלפון וזיהוי הכפילות — הכול בטרנזקציה אחת
@@ -316,7 +336,7 @@ Deno.serve(async (req: Request) => {
     }
 
     await logLeadRouting(serviceClient, {
-      source: normalizeSource(body.source, assigned ? `${pageSource}_buyer_wizard` : "homepage_search_agent"),
+      source: normalizeSource(body.source, assigned ? `${pageSource}_buyer_wizard` : "homepage_search_agent", trusted),
       lead_kind: "agent_buyer",
       lead_table: "saved_searches",
       lead_id: result.search_id,
@@ -333,7 +353,8 @@ Deno.serve(async (req: Request) => {
               ? "below_min_intent"
               : "no_active_agents",
       summary: [row.label, dealType === "rent" ? "להשכרה" : "למכירה",
-                category === "commercial" ? "מסחרי" : null].filter(Boolean).join(" · "),
+                category === "commercial" ? "מסחרי" : null,
+                leadOnly ? "בלי התראות" : null].filter(Boolean).join(" · "),
       deal_type: dealType,
       city: cities[0] ?? null,
       neighborhood_id: neighborhoodIds[0] ?? null,

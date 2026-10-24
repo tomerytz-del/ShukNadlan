@@ -4963,6 +4963,7 @@ const LX_CHANNELS = {
   open_house:    'יריד הבתים הפתוחים',
   rss_engine:    'מנוע ה-RSS',
   meta_ads:      'מודעות ממומנות במטא',
+  social:        'גבריאלה בפייסבוק ובאינסטגרם',
   unattributed:  'ללא שיוך מקור',
   other:         'אחר',
 };
@@ -5007,6 +5008,10 @@ const LX_SOURCES = {
   whatsapp_bot_owner_wizard:   'הבוט בוואטסאפ · מסלול מוכר/ת',
   whatsapp_bot_search_agent:   'הבוט בוואטסאפ · מסלול מחפש/ת',
   whatsapp_bot_mortgage_calc:  'הבוט בוואטסאפ · מסלול משכנתא',
+  facebook_dm:                 'גבריאלה · הודעה בפייסבוק',
+  facebook_comment:            'גבריאלה · תגובה בפייסבוק',
+  instagram_dm:                'גבריאלה · הודעה באינסטגרם',
+  instagram_comment:           'גבריאלה · תגובה באינסטגרם',
   projects_page:               'מדף הפרויקטים החדשים',
   project_page:                'דף נחיתה של פרויקט',
   open_house_page:             'יריד הבתים הפתוחים',

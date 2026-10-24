@@ -100,9 +100,12 @@
 
 ### הכיסוי — ומה נשען עליו
 
-היומן מכסה את שלוש פונקציות הקליטה שלמעלה בלבד. ‏`property-inquiry-intake`,
-‏`agent-direct-inquiry-intake`, ‏`property-visualize`, ‏`project-lead-intake`
-ומנוע ה-RSS אינם כותבים אליו, וגם שום דבר שנקלט לפני 13.9.2026 אינו שם.
+היומן מכסה את שלוש פונקציות הקליטה שלמעלה, ומ-24.10.2026 גם את
+‏`property-inquiry-intake` (‏`agent_buyer`, ‏`assigned` לסוכן/ת שמפרסם/ת את הנכס,
+והמקור `property_page_inquiry` - אותו שם שהדוח גזר עד אז מסוג הליד - או
+המקור החברתי של גבריאלה, ‏`docs/social-leads.md`). ‏`agent-direct-inquiry-intake`,
+‏`property-visualize`, ‏`project-lead-intake` ומנוע ה-RSS עדיין אינם כותבים
+אליו, וגם שום דבר שנקלט לפני 13.9.2026 אינו שם.
 
 זה חשוב מפני שדוח בקרת הלידים (`docs/lead-analytics.md`) שואל בדיוק את השאלה
 שהיומן נבנה בשבילה — "מאיפה הליד הגיע" — ולכן הוא **אינו** נשען עליו לבדו:
