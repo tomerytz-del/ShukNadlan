@@ -27510,6 +27510,19 @@ const ADS_ERRORS = {
   market_required: 'בוחרים שוק לפני השליפה',
   market_not_found: 'אין ערים משויכות לשוק הזה',
   invalid_plan: 'הקמפיין לא תקין',
+  budget_cap: 'סכום התקציבים גבוה מהתקרה',
+  disclosure_missing: 'שורת הגילוי חסרה, ולא נוצרת מודעה בלעדיה',
+  page_missing: 'חסר מזהה דף הפייסבוק',
+  a5_form_missing: 'A5 מחכה לטופס owner',
+  lead_form_not_mapped: 'טופס הלידים לא משויך',
+  lead_form_wrong_kind: 'טופס הלידים משויך לסוג הלא נכון',
+  creatives_not_in_storage: 'התמונות עדיין לא בדלי',
+  creative_hash_mismatch: 'התמונות בדלי אינן הקבצים של החבילה',
+  bad_audience_id: 'מזהה הקהל אינו מספר של מטא',
+  targeting_unresolved: 'טירגוט לא נמצא במטא, ולא נוצר כלום',
+  account_not_ils: 'חשבון המודעות אינו בשקלים',
+  refusing_protected_campaign: 'קמפיין ה-Reach הקיים לא משתנה',
+  db_error: 'הטבלה של ההשקה עדיין לא מוכנה',
 };
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
@@ -28348,10 +28361,87 @@ function gkwCampaignForm(pick){
   return box;
 }
 
+/* ---------- השקה מושהית ---------- */
+function adsLaunchHtml(plan){
+  if (!plan) return '';
+  const b = plan.budget || {};
+  const parts = [];
+  parts.push('<p><b>תקציב יומי</b> מטא ' + esc(adsNis(b.metaDailyIls)) + ' + גוגל ' + esc(adsNis(b.googleDailyIls)) + ' = ' + esc(adsNis(b.totalDailyIls)) + ' מתוך תקרה ' + esc(adsNis(b.maxDailyIls)) + '</p>');
+  (plan.campaigns || []).forEach(c => {
+    parts.push('<p><b>' + esc(c.name) + '</b> · ' + esc(c.status) + (c.housing ? ' · HOUSING' : '') + '</p>');
+    (c.ad_sets || []).forEach(a => {
+      const ads = (a.ads || []).map(ad => esc(ad.name) + ' - ' + esc(ad.headline)).join('<br>');
+      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + '<br>' + ads + '</p>');
+    });
+  });
+  if ((plan.skipped || []).length){
+    parts.push('<p><b>לא נוצר</b><br>' + plan.skipped.map(s => esc(s.key) + ' - ' + esc(s.reason)).join('<br>') + '</p>');
+  }
+  if ((plan.warnings || []).length){
+    parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
+  }
+  parts.push('<p>' + esc((plan.images_to_upload || []).length) + ' תמונות יועלו למטא ביצירה.</p>');
+  return parts.join('');
+}
+function adsLaunchPayload(){
+  const a5 = document.getElementById('adsLaunchA5');
+  const aud = document.getElementById('adsLaunchB2Audience');
+  const payload = { include_a5: !!(a5 && a5.checked) };
+  const id = aud && aud.value.trim();
+  if (id) payload.b2_customer_audience_id = id;
+  return payload;
+}
+function adsLaunchLock(){
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = true;
+}
+document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock);
+document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
+document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const out = document.getElementById('adsLaunchOut');
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: true }, adsLaunchPayload()));
+    if (out){ out.hidden = false; out.innerHTML = adsLaunchHtml(r.plan); }
+    if (go && r && r.plan && r.plan.ok) go.disabled = false;
+    showToast('הבדיקה הושלמה. לא נוצר כלום במטא');
+  } catch (ex) {
+    if (out){
+      out.hidden = false;
+      const plan = ex && ex.data && ex.data.plan;
+      out.innerHTML = '<p>' + esc(ex.message || 'הבדיקה נכשלה') + '</p>' + adsLaunchHtml(plan);
+    }
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (!confirm('היצירה תישאר מושהית. כל קמפיין, סט ומודעה נוצרים במצב מושהה, וההפעלה נעשית אחר כך ב-Ads Manager. להמשיך?')) return;
+  const out = document.getElementById('adsLaunchOut');
+  btn.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: false, confirm: true }, adsLaunchPayload()));
+    if (out){
+      out.hidden = false;
+      const names = (r.campaigns || []).map(c => esc(c.name) + ' - ' + esc(c.status)).join('<br>');
+      out.innerHTML = '<p>נוצרו ' + esc(String((r.created || []).length)) + ' אובייקטים, כולם מושהים. דולגים על ' + esc(String((r.skipped || []).length)) + ' שכבר היו.</p><p>' + names + '</p><p>' + esc(r.note || '') + '</p>';
+    }
+    showToast('הקמפיינים נוצרו מושהים. ההפעלה ב-Ads Manager');
+  } catch (ex) {
+    if (out){ out.hidden = false; out.textContent = ex.message || 'היצירה נכשלה'; }
+    showToast(heErr(ex), 6400);
+  }
+});
+
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
   [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabVideos', 'adsPaneVideos'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
-   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
+   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle'], ['adsTabLaunch', 'adsPaneLaunch']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
     document.getElementById(p).hidden = !on;
@@ -28364,7 +28454,7 @@ function adsSelectTab(id){
   if (id === 'adsTabGoogle') loadGoogleAds();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle', 'adsTabLaunch'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{

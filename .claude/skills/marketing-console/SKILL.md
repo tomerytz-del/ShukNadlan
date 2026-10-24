@@ -51,6 +51,19 @@ description: קונסולת השיווק ב-CRM של שוק נדל״ן - הפא�
   `disclosure_line`. חסימה שמורידים ממנה תנאי היא בעיה משפטית, לא רק
   באג.
 
+## ‏3ב. השקה מושהית (`launch-package.ts`, `create_paused_launch`)
+
+לא משנים את `create_campaign` כדי ליצור את חבילת 24.10.2026. שם הסט
+והמודעות ACTIVE בכוונה. ההשקה היא פעולה נפרדת:
+
+- כל קמפיין, סט ומודעה `PAUSED`. אין `status: "ACTIVE"` בקובץ.
+- HOUSING רק על קונים, ריטרגטינג ו-A5. גיוס מתווכים ובעלי משרדים עם
+  `special_ad_categories: []`, כי תפקיד ומעסיק נופלים תחת דיור.
+- ברירת המחדל dry-run. כתיבה רק כש-`dry_run === false` וגם `confirm === true`.
+- ₪30 של גוגל נספרים תמיד מול `max_daily_budget`. קמפיין ה-Reach
+  `120251311382930267` ברשימת חסימה, והנתיבים המותרים הם יצירה בלבד.
+- אידמפוטנטיות ב-`ads_launch_objects`, לא ביומן. ה-cron לא מורשה.
+
 ## ‏4. לידים ממטא (`_shared/meta-leads.ts`)
 
 - **ליד נכנס דרך אותן פונקציות קליטה כמו ליד מהאתר**
@@ -219,6 +232,7 @@ python scripts/ops_ads_test.py
 python scripts/ops_probe_codes_test.py
 python scripts/check_long_dash.py        # הודעות לפאנל ושגיאות בעברית
 python scripts/check_duplicate_ids.py    # id חדש בפאנל שכבר קיים בדשבורד
+node --experimental-strip-types scripts/paused_launch_test.ts
 ```
 
 שינוי ב-SQL של `probes/ads.py` נבדק גם מול Postgres מקומי עם המיגרציות

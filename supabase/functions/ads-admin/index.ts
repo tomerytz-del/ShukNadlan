@@ -19,6 +19,28 @@ import { customerPath, fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywor
 import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput, type VideoRef } from "./campaign.ts";
+import {
+  acceptedTargetingMatch,
+  BROKER_FORM_ID,
+  buildLaunchPlan,
+  CREATIVE_BUCKET,
+  executeLaunch,
+  GOOGLE_BUYERS_DAILY_ILS,
+  LAUNCH_KEY,
+  launchWillWrite,
+  OFFICE_FORM_ID,
+  PAGE_ID_EXPECTED,
+  PAUSED_STATUS,
+  PIXEL_ID,
+  PROTECTED_CAMPAIGN_IDS,
+  regionQueries,
+  SEARCH_TYPE,
+  sha256Hex,
+  summarizeLaunch,
+  termKey,
+  termsNeedingIds,
+  type ExistingRow,
+} from "./launch-package.ts";
 
 // ============================================================================
 // ads-admin — קונסולת השיווק, שלב 2 (docs/marketing-console.md)
@@ -46,6 +68,9 @@ import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type 
 //   subscribe_page רישום הדף ל-leadgen באפליקציה (‏/{page}/subscribed_apps)
 //   create_campaign  ‏{draft_id, variants, destination, format, ...} - קמפיין
 //                    מנוסח מאושר (‏campaign.ts). ‏dry_run מחזיר את התוכנית
+//   create_paused_launch  חבילת ההשקה (‏launch-package.ts). ברירת המחדל
+//                    dry-run. כתיבה רק עם dry_run:false ו-confirm:true, וכל
+//                    קמפיין, סט ומודעה נוצרים PAUSED. ה-cron אינו מורשה.
 //   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
 //   save_video     ‏{id?, title, purpose, audience, aspect, storage_path, poster_path, ...}
 //                  - שורה בספריית הסרטונים (‏marketing_videos). הקובץ כבר בדלי
@@ -1486,6 +1511,266 @@ async function actionGoogleSetStatus(sb: SupabaseClient, caller: Caller, body: a
   }
 }
 
+// ---------------------------------------------------------------------------
+// create_paused_launch - חבילת ההשקה, הכל PAUSED (launch-package.ts)
+//
+// ברירת המחדל dry-run, בלי קריאה למטא. כתיבה רק כש-dry_run הוא false וגם
+// confirm הוא true. התקציב של גוגל נספר מהקבוע, לא מהבקשה. מזהי הטפסים
+// והתקציבים של הסטים גם הם לא מגיעים מהדפדפן.
+// ---------------------------------------------------------------------------
+function jsonText(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+function searchRows(res: any): { id: string; name: string }[] {
+  const data = Array.isArray(res?.data) ? res.data : [];
+  return data
+    .map((r: any) => ({ id: String(r?.id || r?.key || ""), name: String(r?.name || "") }))
+    .filter((r: { id: string; name: string }) => r.id && r.name);
+}
+
+async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body: any) {
+  const includeA5 = body?.include_a5 === true;
+  const bodyAudience = typeof body?.b2_customer_audience_id === "string" ? body.b2_customer_audience_id.trim() : "";
+  const settingAudience = jsonText(await setting(sb, "b2_customer_audience_id")).trim();
+  const b2Audience = bodyAudience || settingAudience;
+
+  const broker = await sb.from("ads_lead_forms").select("form_id, kind").eq("form_id", BROKER_FORM_ID).maybeSingle();
+  const office = await sb.from("ads_lead_forms").select("form_id, kind").eq("form_id", OFFICE_FORM_ID).maybeSingle();
+  if (broker.error || office.error) {
+    console.error("ads_lead_forms", broker.error?.message || office.error?.message);
+    return json({ error: "db_error", detail: "קריאת טפסי הלידים נכשלה." }, 500);
+  }
+  if (!broker.data) {
+    return json({ error: "lead_form_not_mapped", detail: "הטופס גיוס מתווכים - עפולה אינו משויך ב-ads_lead_forms." }, 409);
+  }
+  if (broker.data.kind !== "broker") {
+    return json({ error: "lead_form_wrong_kind", detail: "טופס גיוס המתווכים משויך לסוג שאינו broker." }, 409);
+  }
+  if (!office.data) {
+    return json({ error: "lead_form_not_mapped", detail: "הטופס בעלי משרדי תיווך - צפון אינו משויך ב-ads_lead_forms." }, 409);
+  }
+  if (office.data.kind !== "broker") {
+    return json({ error: "lead_form_wrong_kind", detail: "טופס בעלי המשרדים משויך לסוג שאינו broker." }, 409);
+  }
+
+  let ownerFormId = "";
+  if (includeA5) {
+    const requested = typeof body?.owner_form_id === "string" ? body.owner_form_id.trim() : "";
+    if (requested) {
+      const row = await sb.from("ads_lead_forms").select("form_id, kind").eq("form_id", requested).maybeSingle();
+      if (row.error) return json({ error: "db_error", detail: "קריאת טופס הבעלים נכשלה." }, 500);
+      if (!row.data || row.data.kind !== "owner") {
+        return json({ error: "a5_form_missing", detail: "A5 צריך טופס משויך מסוג owner. הוא לא נוצר." }, 409);
+      }
+      ownerFormId = row.data.form_id;
+    } else {
+      const rows = await sb.from("ads_lead_forms").select("form_id, kind").eq("kind", "owner");
+      if (rows.error) return json({ error: "db_error", detail: "קריאת טפסי הבעלים נכשלה." }, 500);
+      if (!rows.data || rows.data.length !== 1) {
+        return json({ error: "a5_form_missing", detail: "A5 מחכה לטופס owner אחד ב-ads_lead_forms, או ל-owner_form_id. הוא לא נוצר." }, 409);
+      }
+      ownerFormId = rows.data[0].form_id;
+    }
+  }
+
+  const disclosure = jsonText(await setting(sb, "disclosure_line")).trim();
+  const maxRaw = await setting(sb, "max_daily_budget");
+  const maxDailyBudget = typeof maxRaw === "number" ? maxRaw : Number(maxRaw);
+  const plan = buildLaunchPlan({
+    disclosure,
+    maxDailyBudget,
+    pageId: PAGE_ID,
+    instagramUserId: IG_ACCOUNT_ID || undefined,
+    pixelId: PIXEL_ID,
+    brokerFormId: BROKER_FORM_ID,
+    officeFormId: OFFICE_FORM_ID,
+    includeA5,
+    ownerFormId: ownerFormId || null,
+    b2CustomerAudienceId: b2Audience || null,
+    externalDailyIls: GOOGLE_BUYERS_DAILY_ILS,
+  });
+  const summary = summarizeLaunch(plan);
+  summary.warnings = [...summary.warnings];
+  if (PAGE_ID && PAGE_ID !== PAGE_ID_EXPECTED) {
+    summary.warnings.push(`מזהה הדף בסודות שונה מהדף הצפוי ${PAGE_ID_EXPECTED}.`);
+  }
+  summary.warnings.push("מזהי תפקידים, מעסיקים ומחוזות יישלפו מחיפוש Graph רק ביצירה. הבדיקה לא קוראת למטא.");
+  summary.warnings.push("לפני יצירה אמיתית מעלים את התמונות לדלי הפרטי: node scripts/upload_meta_creatives.mjs --confirm");
+
+  if (!plan.ok) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: !launchWillWrite(body), include_a5: includeA5 },
+      response: { errors: plan.errors, budget: plan.budget }, ok: false,
+      error: plan.errors.map((e) => e.code).join(","),
+    });
+    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" "), plan: summary }, 409);
+  }
+
+  if (!launchWillWrite(body)) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: true, include_a5: includeA5, has_b2_audience: Boolean(b2Audience) },
+      response: summary, ok: true,
+    });
+    return json({ ok: true, dry_run: true, will_write: false, plan: summary });
+  }
+
+  if (!ADS_TOKEN || !AD_ACCOUNT) return json({ error: "meta_not_configured" }, 503);
+  const meta = new MetaClient(ADS_TOKEN, APP_SECRET);
+  const { act } = normalizeAccountId(AD_ACCOUNT);
+
+  const stored = await sb.from("ads_launch_objects").select("object_key, meta_id, image_hash").eq("launch_key", LAUNCH_KEY);
+  if (stored.error) {
+    console.error("ads_launch_objects", stored.error.message);
+    return json({ error: "db_error", detail: "הטבלה ads_launch_objects עדיין לא קיימת. המיגרציה צריכה לרוץ לפני היצירה." }, 500);
+  }
+  const existing = new Map<string, ExistingRow>();
+  for (const row of stored.data || []) {
+    existing.set(row.object_key, { metaId: row.meta_id, imageHash: row.image_hash });
+    if (row.meta_id && PROTECTED_CAMPAIGN_IDS.includes(row.meta_id)) {
+      return json({ error: "refusing_protected_campaign", detail: "הרשימה השמורה מכילה את קמפיין ה-Reach הקיים. לא נוגעים בו." }, 409);
+    }
+  }
+
+  const termIds: Record<string, string> = {};
+  const regionKeys: Record<string, string> = {};
+  const unresolved: string[] = [];
+  try {
+    for (const term of termsNeedingIds(plan)) {
+      const spec = SEARCH_TYPE[term.type];
+      const params: Record<string, string> = { type: spec.type, q: term.name, limit: "25" };
+      if (spec.class) params.class = spec.class;
+      const match = acceptedTargetingMatch(term.name, searchRows(await meta.get("search", params)));
+      if (!match) unresolved.push(term.name);
+      else termIds[termKey(term)] = match.id;
+    }
+    for (const query of regionQueries(plan)) {
+      const match = acceptedTargetingMatch(query, searchRows(await meta.get("search", {
+        type: "adgeolocation",
+        location_types: JSON.stringify(["region"]),
+        q: query,
+        country_code: "IL",
+        limit: "25",
+      })));
+      if (!match) unresolved.push(query);
+      else regionKeys[query] = match.id;
+    }
+  } catch (e) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false }, ok: false, error: metaErrorText(e),
+    });
+    return json({ error: "targeting_unresolved", detail: "חיפוש הטירגוט במטא נכשל. לא נוצר כלום." }, 409);
+  }
+  if (unresolved.length) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { unresolved }, ok: false, error: "targeting_unresolved",
+    });
+    return json({ error: "targeting_unresolved", detail: `לא נמצא טירגוט עבור: ${unresolved.join(", ")}. לא נוצר כלום.` }, 409);
+  }
+
+  let account: any;
+  try {
+    account = await meta.get(act, { fields: "currency" });
+  } catch (e) {
+    await log(sb, caller, { action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY, ok: false, error: metaErrorText(e) });
+    return metaErrorResponse(e);
+  }
+  if (String(account?.currency || "") !== "ILS") {
+    return json({ error: "account_not_ils", detail: "חשבון המודעות אינו בשקלים. לא נוצר כלום." }, 409);
+  }
+
+  const images = new Map<string, Uint8Array>();
+  const missing: string[] = [];
+  const mismatched: string[] = [];
+  for (const image of plan.images) {
+    if (existing.get(`image:${image.key}`)?.imageHash) continue;
+    const file = await sb.storage.from(CREATIVE_BUCKET).download(image.path);
+    if (file.error || !file.data) {
+      missing.push(image.path);
+      continue;
+    }
+    const buf = new Uint8Array(await file.data.arrayBuffer());
+    const hash = await sha256Hex(buf);
+    if (hash !== image.sha256) mismatched.push(image.path);
+    else images.set(image.key, buf);
+  }
+  if (missing.length || mismatched.length) {
+    const code = mismatched.length ? "creative_hash_mismatch" : "creatives_not_in_storage";
+    const detail = mismatched.length
+      ? `התמונות בדלי אינן הקבצים של החבילה: ${mismatched.slice(0, 6).join(", ")}`
+      : `חסרות תמונות בדלי ${CREATIVE_BUCKET}. מריצים קודם node scripts/upload_meta_creatives.mjs --confirm. חסרות: ${missing.slice(0, 6).join(", ")}`;
+    await log(sb, caller, { action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY, request: { missing, mismatched }, ok: false, error: code });
+    return json({ error: code, detail }, 409);
+  }
+
+  const result = await executeLaunch({
+    act,
+    plan,
+    pageId: PAGE_ID,
+    instagramUserId: IG_ACCOUNT_ID || undefined,
+    pixelId: PIXEL_ID,
+    regionKeys,
+    termIds,
+    existing,
+    images,
+    post: (p, b) => meta.post(p, b),
+    record: async (row) => {
+      const up = await sb.from("ads_launch_objects").upsert({
+        launch_key: LAUNCH_KEY,
+        object_key: row.objectKey,
+        kind: row.kind,
+        meta_id: row.metaId ?? null,
+        image_hash: row.imageHash ?? null,
+        name: row.name,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "launch_key,object_key" });
+      if (up.error) {
+        console.error("ads_launch_objects upsert", up.error.message);
+        throw new Error(`db_error:${row.objectKey}`);
+      }
+      await log(sb, caller, {
+        action: "create_paused_launch",
+        object_type: row.kind,
+        object_id: row.metaId || row.imageHash || null,
+        request: { object_key: row.objectKey, name: row.name, status: PAUSED_STATUS },
+        ok: true,
+      });
+    },
+  });
+
+  if (result.error) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false }, response: { created: result.created, skipped: result.skipped },
+      ok: false, error: result.error,
+    });
+    const hebrew = result.error.startsWith("db_error")
+      ? "האובייקט נוצר במטא אבל השמירה שלו במסד נכשלה. לא ממשיכים, כדי לא לשכפל. מזהה השגיאה ביומן."
+      : `היצירה נעצרה אחרי ${result.created.length} אובייקטים. מה שנוצר נשאר מושהה, והרצה נוספת לא תשכפל אותו.`;
+    return json({ error: "meta_error", detail: hebrew, created: result.created, skipped: result.skipped }, 502);
+  }
+
+  await log(sb, caller, {
+    action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+    request: { dry_run: false, include_a5: includeA5 },
+    response: { created: result.created, skipped: result.skipped, campaigns: plan.campaigns.map((c) => c.name) },
+    ok: true,
+  });
+  return json({
+    ok: true,
+    dry_run: false,
+    created: result.created,
+    skipped: result.skipped,
+    campaigns: plan.campaigns.map((c) => ({ key: c.key, name: c.name, status: PAUSED_STATUS })),
+    budget: plan.budget,
+    note: "הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager.",
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -1537,6 +1822,9 @@ Deno.serve(async (req: Request) => {
   if (action === "google_keyword_ideas") return await actionGoogleKeywordIdeas(sb, body);
   if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);
   if (action === "google_set_status") return await actionGoogleSetStatus(sb, caller, body);
+
+  // לפני בדיקת הטוקן: dry-run של ההשקה לא קורא למטא.
+  if (action === "create_paused_launch") return await actionCreatePausedLaunch(sb, caller, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.
