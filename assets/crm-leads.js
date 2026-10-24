@@ -29,7 +29,9 @@ const LEAD_SRC = {
 const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
-const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment']);
+const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
+  // פוסט בקבוצה או במרקטפלייס, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
+  'facebook_group', 'facebook_marketplace']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -154,11 +156,14 @@ function renderLeadsUnified(agentId){
     : '');
 
   // הלשוניות
-  const counts = { new: fresh.length, work: work.length, archive: archived.length };
+  const counts = { new: fresh.length, work: work.length, archive: archived.length,
+                   demand: openDemandRows ? openDemandRows.length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
+  if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
 
   const pool = leadsTab === 'archive' ? archived : leadsTab === 'work' ? work : fresh;
 
@@ -366,6 +371,71 @@ function openLeadUnified(id){
   leadsShown = Math.max(leadsShown, allLeads.length);
 }
 
+/* ---------- ביקוש פתוח ----------
+   פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
+   docs/scraped-leads.md). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
+   תשלום, וגלוי לכל הסוכנים בעיר. הדרך היחידה לפנות היא הפוסט עצמו - ולכן
+   אין כאן חיוג, וואטסאפ או "הוספה כלקוח/ה". נטען רק כשהלשונית נפתחת. */
+let openDemandRows = null;
+let openDemandLoading = false;
+
+async function loadOpenDemand(){
+  if (openDemandLoading) return;
+  openDemandLoading = true;
+  const { data, error } = await sb.rpc('open_demand_list');
+  openDemandLoading = false;
+  if (error){ showToast(heErr(error)); openDemandRows = []; }
+  else openDemandRows = data || [];
+  if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+}
+
+function openDemandWants(d){
+  const owner = d.lead_type === 'owner_inbound';
+  const rent = d.deal_type === 'rent';
+  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות');
+  const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
+    ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
+  return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
+    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? 'עד ' + shekelCompact(d.budget) : '',
+    d.move_in ? 'כניסה: ' + d.move_in : '', d.property_details || ''].filter(Boolean).join(' · ');
+}
+
+function renderOpenDemand(listEl){
+  document.getElementById('leadsMore').innerHTML = '';
+  document.getElementById('leadsCountLine').textContent = openDemandRows && openDemandRows.length
+    ? plural(openDemandRows.length, 'ביקוש פתוח אחד', 'ביקושים פתוחים') + ' בעיר שלך' : '';
+  if (openDemandRows === null){
+    listEl.innerHTML = '<div class="empty-state">טוען...</div>';
+    loadOpenDemand();
+    return;
+  }
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים, ולא השאירו פרטים.</span>'
+    + '<span><strong>להגיב בתוך הפוסט או בהודעה בפייסבוק בלבד, לא לשלוח SMS או וואטסאפ.</strong></span></p>';
+  if (!openDemandRows.length){
+    listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
+    return;
+  }
+  listEl.innerHTML = hint + openDemandRows.map(d => {
+    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
+    const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
+    return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
+      + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
+      + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
+      + `<div class="lp-meta"><span class="ui-tag ui-tag--accent">${esc(src)}${d.source_detail ? ' · ' + esc(d.source_detail) : ''}</span>`
+      + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
+      + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
+      + `<p class="lp-why"><strong>חינם:</strong> מוצג לכל הסוכנים באזור. מי שעונה ראשון ובנימוס בפוסט - מרוויח.</p>`
+      + `<div class="lp-acts">${url ? `<a class="ui-btn" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : ''}</div>`
+      + `</article>`;
+  }).join('');
+}
+
+function openLeadsDemand(){
+  leadsTab = 'demand';
+  openDemandRows = null;
+  renderLeads(currentAgent && currentAgent.id);
+}
+
 /* ---------- המאזינים ---------- */
 (function wireLeads(){
   const tabs = document.getElementById('leadsTabs');
@@ -374,7 +444,9 @@ function openLeadUnified(id){
   tabs.addEventListener('click', e => {
     const b = e.target.closest('[data-leads-tab]');
     if (!b) return;
-    leadsTab = b.dataset.leadsTab; leadsShown = LEADS_STEP; rerender();
+    leadsTab = b.dataset.leadsTab; leadsShown = LEADS_STEP;
+    if (leadsTab === 'demand') openDemandRows = null;   // תמיד טרי: נוסף ונמחק כל שעה
+    rerender();
   });
   document.getElementById('leadsSrc').addEventListener('input', () => {
     leadsSrc = uiChipValues(document.getElementById('leadsSrc'))[0] || 'all'; leadsShown = LEADS_STEP; rerender();

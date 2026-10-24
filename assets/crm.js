@@ -357,6 +357,10 @@ function leadKind(lead){
   if (lead.lead_type === 'agent_direct_inquiry'){
     return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
   }
+  // פוסט בפייסבוק של מי שמחפש/ת, אחרי הסכמה (20270812090000, docs/scraped-leads.md)
+  if (lead.lead_type === 'seeker_inbound'){
+    return { cls:'kind-buyer', icon:'🔎', label:(rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות') + (lead.source_detail ? ' · ' + lead.source_detail : '') };
+  }
   /* בקשת הדמיה — אותו שם שבו קוראת לה תצוגת מנהל/ת הפלטפורמה
      (`ADM_LEAD_TYPES`), ולא שם רביעי לאותו דבר.
 
@@ -2369,12 +2373,13 @@ function handleGotoParam(){
   const reviewId = params.get('review');
   const filter = params.get('filter');
   const importJob = params.get('import');
+  const tab = params.get('tab');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
   const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2411,6 +2416,8 @@ function handleGotoParam(){
   if (raw === 'accProperties' && focus === 'new')
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
+  // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -2592,6 +2599,8 @@ function openNotificationTarget(n){
     return go('accProperties', () => openPropertyFromParam(n.related_property_id));
   if (clientId && clientRows.some(c => c.id === clientId))
     return go('accClients', () => openClientFromParam(clientId));
+  if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
+    return go('accLeads', openLeadsDemand);
   if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
@@ -25018,6 +25027,9 @@ const NOTIF_TYPES = [
   { type:'new_lead',       tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ליד חדש',
     sub:'פנייה חדשה שהשתייכה אליך - בעל/ת נכס, מתעניין/ת בנכס או פנייה ישירה.' },
+  { type:'open_demand',    tone:'',       goto:'accLeads',    focus:'#leadsList',
+    title:'ביקוש פתוח',
+    sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. חינם, לכל הסוכנים באזור.' },
   { type:'review_new',     tone:'review', goto:'accReviews',  focus:'#reviewModerationList',
     title:'ביקורת חדשה',
     sub:'חוות דעת שהתקבלה עליך, ולמנהל/ת המשרד גם ביקורת של סוכן/ת בצוות שממתינה לאישור.' },
