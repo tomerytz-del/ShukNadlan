@@ -177,11 +177,29 @@ function logPropertyView(propertyId){
 
 let currentProperty = null;
 
+/* ‏הבלוק אינו ב-HTML של הצלחה, כדי שלא יהיו שני H1. נוצר רק כשצריך,
+   ופסקה ולא כותרת: ה-H1 היחיד נשאר #propTitle. אם ה-edge כבר שתל אותו
+   (‏404), משתמשים בו. */
+function showNotFound(){
+  document.getElementById('loadingState').style.display = 'none';
+  let box = document.getElementById('notFoundState');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'notFoundState';
+    box.className = 'wrap';
+    box.innerHTML =
+      '<p class="prop-missing" style="font-size:1.3rem;font-weight:700">הנכס לא נמצא</p>' +
+      '<p style="color:var(--ink-soft)">ייתכן שהמודעה הוסרה או שהקישור שגוי.</p>' +
+      '<a href="/" class="btn btn-gold" style="margin-top:16px">חזרה לדף הבית</a>';
+    document.getElementById('loadingState').insertAdjacentElement('afterend', box);
+  }
+  box.style.display = 'block';
+}
+
 async function loadProperty(){
   const id = getPropertyIdFromUrl();
   if (!id){
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    showNotFound();
     return;
   }
   try{
@@ -234,8 +252,7 @@ async function loadProperty(){
     if (data.has_virtual_tour) loadVirtualTour(data);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    showNotFound();
   }
 }
 
