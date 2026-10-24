@@ -200,6 +200,31 @@ function check(name: string, ok: boolean) {
 
 {
   const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = POSTER;
+  img.className = "bento-video-bg";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "2");
+  g.renderGallery({
+    video_url: SRC,
+    video_poster_url: POSTER,
+    images: ["https://example.test/1.jpg"],
+  });
+  const cell = grid.children.find((c: any) => c.classList.contains("bento-video"));
+  const video = cell?.children.find((c: any) => c.tag === "video");
+  check("SSR שומר את אותו צומת של תמונת השער", grid.querySelector("img[data-lcp]") === img);
+  check("SSR מוסיף וידאו בלי src ובלי ניגון", video && !video.getAttribute("src") && video.preload === "none" && video._plays === 0);
+}
+
+{
+  const dom = makeDom();
   dom.sandbox.navigator.connection.saveData = true;
   const g = boot(dom);
   const grid = dom.document.getElementById("bentoGrid");
