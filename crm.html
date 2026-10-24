@@ -150,6 +150,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       radial-gradient(900px 520px at 100% -8%, rgba(201,162,39,.26), transparent 62%),
       radial-gradient(760px 520px at -12% 108%, rgba(139,35,50,.42), transparent 62%),
       linear-gradient(160deg,#17386a 0%,#0e2a52 48%,#09182e 100%)}
+  /* תמונת הרקע של השער: הפין התלת־ממדי, גדול, מוטה ודהוי, יוצא מהפינה.
+     זה אותו קובץ שמסך הפתיחה של האפליקציה משתמש בו (‎logo-shuknadlan-hd.webp‎),
+     והמעברים שמעל הם הרקע עד שהוא נטען — אין רגע שבו השער ריק.
+     ‏overflow:clip ולא hidden: הפין חורג מהמסך בכוונה, ו-clip חותך בלי
+     להפוך את השער למכל גלילה. */
+  #loginScreen{overflow:hidden;overflow:clip}
+  #loginScreen::after{content:"";position:absolute;z-index:-1;pointer-events:none;
+    width:min(82vw,640px);aspect-ratio:380/480;inset-inline-end:-12%;bottom:-16%;
+    background:url(/assets/logo-shuknadlan-hd.webp) center/contain no-repeat;
+    opacity:.14;transform:rotate(-14deg);filter:blur(1.5px)}
   #loginScreen::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
     background-image:radial-gradient(rgba(255,255,255,.07) 1px, transparent 1.4px);background-size:22px 22px;
     -webkit-mask-image:linear-gradient(180deg,#000,transparent 75%);mask-image:linear-gradient(180deg,#000,transparent 75%)}
@@ -615,9 +625,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      גם של מי שכבר מחובר/ת וגם החזרה מ-Google — התחילה בהבזק של טופס הסיסמה,
      כי בדיקת ה-session היא אסינכרונית ומסתיימת רק אחרי הציור הראשון. */
   .boot-card{text-align:center}
-  .boot-spinner{width:34px;height:34px;margin:4px auto 16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--teal);animation:bootSpin .9s linear infinite}
-  @keyframes bootSpin{to{transform:rotate(360deg)}}
-  @media (prefers-reduced-motion:reduce){ .boot-spinner{animation-duration:2.4s} }
+  /* ‏‎.brand-loader‎ — הלוגו הוא ההמתנה: הפין קופץ ונוחת, הצל מתכווץ כשהוא
+     באוויר, בכל נחיתה יוצא ממנו פינג זהוב, ופס ברק עובר עליו. מחזור אחד
+     (‏1.6s) לכולם, כדי שזה ייקרא כקפיצה אחת. אותו רכיב יושב גם ב-
+     developer-crm.html, ובגרסה כהה במסך ההדמיות (‎assets/ai-showcase.js‎).
+     הלוגו הוא כבר הקובץ שהכותרת טוענת, ולכן אין כאן בקשה נוספת. */
+  .brand-loader{position:relative;width:110px;height:98px;margin:0 auto 14px}
+  .brand-loader .bl-pin{position:absolute;left:50%;top:4px;width:66px;margin-left:-33px;z-index:2;
+    animation:blBob 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-pin img{display:block;width:100%;height:auto}
+  .brand-loader .bl-pin::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.65) 50%,transparent 62%) 0 0/300% 100% no-repeat;
+    -webkit-mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    mask:url(/assets/logo-shuknadlan.svg) center/100% 100% no-repeat;
+    animation:blShine 3.2s ease-in-out infinite}
+  .brand-loader .bl-shadow{position:absolute;left:50%;bottom:9px;width:40px;height:9px;margin-left:-20px;
+    border-radius:50%;background:rgba(14,42,107,.34);filter:blur(2px);
+    animation:blShadow 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  .brand-loader .bl-ping{position:absolute;left:50%;bottom:1px;width:96px;height:24px;margin-left:-48px;
+    border-radius:50%;border:2px solid rgba(201,162,39,.85);opacity:0;animation:blPing 1.6s ease-out infinite}
+  .brand-loader .bl-ping-2{animation-delay:.8s}
+  @keyframes blBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  @keyframes blShadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}
+  @keyframes blShine{0%{background-position:100% 0}55%,100%{background-position:0 0}}
+  @keyframes blPing{0%{transform:scale(.3);opacity:0}15%{opacity:.9}100%{transform:scale(1);opacity:0}}
+  @media (prefers-reduced-motion:reduce){
+    .brand-loader .bl-pin,.brand-loader .bl-shadow{animation:none}
+    .brand-loader .bl-pin::after,.brand-loader .bl-ping{display:none}
+  }
 
   /* ---------- Dashboard ---------- */
   #dashboard{display:none}
@@ -7013,8 +7048,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- כרטיס ההמתנה מוצג ראשון בכל טעינה; showScreen() מחליף אותו בכרטיס הנכון
        ברגע שידוע אם יש חיבור פעיל. ראו "ניהול מסכים" בסקריפט. -->
   <div class="card login-card boot-card" id="bootCard">
-    <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <div class="boot-spinner" role="status" aria-live="polite"></div>
+    <!-- הלוגו עצמו הוא ההמתנה (‎.brand-loader‎), ולכן אין כאן לוגו נפרד מעליו -->
+    <div class="brand-loader" role="status" aria-live="polite" aria-label="טוען">
+      <span class="bl-ping" aria-hidden="true"></span><span class="bl-ping bl-ping-2" aria-hidden="true"></span>
+      <span class="bl-pin" aria-hidden="true"><img src="assets/logo-shuknadlan.svg" alt="" width="52" height="62"></span>
+      <span class="bl-shadow" aria-hidden="true"></span>
+    </div>
     <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
   </div>
 
