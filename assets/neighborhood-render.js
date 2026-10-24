@@ -67,13 +67,39 @@
       + '</div>';
   }
 
-  function propCard(p) {
+  /* התא הוא 16/10. ‏render/image מקטין JPEG מלא (עד מאות KB) לרוחב התא.
+     אם הטרנספורם לא זמין, onerror חוזר לכתובת המקורית. */
+  function renderUrl(url, w, h) {
+    var marker = '/storage/v1/object/public/';
+    var at = url.indexOf(marker);
+    if (at < 0) return '';
+    var path = url.slice(at + marker.length).split(/[?#]/)[0];
+    if (!path) return '';
+    return url.slice(0, at) + '/storage/v1/render/image/public/' + path
+      + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+  }
+
+  function propCard(p, eager) {
     var img = typeof p.image === 'string' && p.image.indexOf(IMG_HOST) === 0 ? p.image : '';
     var meta = [p.property_type, p.rooms ? p.rooms + ' חדרים' : '', p.size_sqm ? num(p.size_sqm) + ' מ״ר' : '']
       .filter(Boolean).join(' · ');
+    var pic = '<span class="hood-noimg" aria-hidden="true"></span>';
+    if (img) {
+      var pri = eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
+      var small = renderUrl(img, 400, 250);
+      var large = renderUrl(img, 800, 500);
+      if (small && large) {
+        pic = '<img src="' + escapeHtml(large) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(large) + ' 800w"'
+          + ' sizes="(min-width:900px) 320px, 100vw" alt="' + escapeHtml(p.title || '') + '"'
+          + ' width="320" height="200"' + pri
+          + ' data-full="' + escapeHtml(img) + '"'
+          + ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')">';
+      } else {
+        pic = '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(p.title || '') + '" width="320" height="200"' + pri + '>';
+      }
+    }
     return '<li><a class="hood-prop" href="/property?id=' + encodeURIComponent(p.id) + '">'
-      + (img ? '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(p.title || '') + '" loading="lazy" width="320" height="200">'
-             : '<span class="hood-noimg" aria-hidden="true"></span>')
+      + pic
       + '<span class="hood-prop-body"><strong>' + escapeHtml(p.title || 'נכס') + '</strong>'
       + '<span>' + escapeHtml(meta) + '</span>'
       + '<b>' + escapeHtml(p.price ? money(p.price) + (p.deal_type === 'rent' ? ' לחודש' : '') : 'מחיר לפי פנייה') + '</b>'
@@ -109,7 +135,13 @@
 
     var props = Array.isArray(d.props) ? d.props : [];
     if (props.length) {
-      html += '<h2>נכסים בשכונה</h2><ul class="hood-props">' + props.map(propCard).join('') + '</ul>';
+      var firstPic = true;
+      html += '<h2>נכסים בשכונה</h2><ul class="hood-props">' + props.map(function (p) {
+        var own = p && typeof p.image === 'string' && p.image.indexOf(IMG_HOST) === 0;
+        var eager = !!(own && firstPic);
+        if (eager) firstPic = false;
+        return propCard(p, eager);
+      }).join('') + '</ul>';
       if (d.props_active > props.length) {
         html += '<p class="deals-note"><a href="/?q=' + encodeURIComponent(d.name) + '">לכל ' + num(d.props_active)
           + ' הנכסים בשכונה ←</a></p>';
@@ -147,6 +179,18 @@
   }
 
   /* ‏Place ו-BreadcrumbList. ‏`<` מוברח כדי ששם עם ‎</script>‎ לא יסגור את התגית. */
+  /* כתובת ה-preload של הכרטיס הראשון. ריקה אם אין תמונה מהאחסון שלנו. */
+  function lcpHref(d) {
+    var props = Array.isArray(d.props) ? d.props : [];
+    for (var i = 0; i < props.length; i++) {
+      var img = props[i] && typeof props[i].image === 'string' && props[i].image.indexOf(IMG_HOST) === 0
+        ? props[i].image : '';
+      if (!img) continue;
+      return renderUrl(img, 800, 500) || img;
+    }
+    return '';
+  }
+
   function jsonLd(d, site) {
     var url = site + path(d.city_slug, d.slug);
     var graph = [
@@ -165,5 +209,5 @@
     return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c');
   }
 
-  root.ShukHood = { render: render, title: title, description: description, jsonLd: jsonLd, path: path };
+  root.ShukHood = { render: render, title: title, description: description, jsonLd: jsonLd, path: path, lcpHref: lcpHref };
 })(typeof window !== 'undefined' ? window : globalThis);

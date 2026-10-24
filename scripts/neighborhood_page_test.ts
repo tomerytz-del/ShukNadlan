@@ -41,6 +41,8 @@ const HOOD = {
       image: "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg" },
     { id: "p2", title: "דירה", property_type: "דירה", deal_type: "rent", price: 4200, rooms: 3, size_sqm: 80,
       image: "https://evil.example/x.jpg" },
+    { id: "p3", title: "דירה שניה", property_type: "דירה", deal_type: "sale", price: 1600000, rooms: 3, size_sqm: 90,
+      image: "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/b.jpg" },
   ],
   deals: 151, period_start: "2024-09-01", period_end: "2026-08-31",
   median_price: 1430000, median_ppsqm: 13600,
@@ -81,6 +83,14 @@ function check(name: string, ok: boolean) {
   check("200 ומטמון", res.status === 200 && (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
   check("שם עם </script> מוברח", !html.includes("</script><b>x"));
   check("תמונה זרה לא נכנסת", !html.includes("evil.example"));
+  const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
+  const first = imgs.find((t) => t.includes("property-images/a.jpg"));
+  const second = imgs.find((t) => t.includes("property-images/b.jpg"));
+  check("כרטיס ראשון eager ובגודל התא", !!first && first.includes('fetchpriority="high"')
+    && first.includes("/render/image/") && first.includes("width=800") && !first.includes('loading="lazy"'));
+  check("שאר הכרטיסים lazy", !!second && second.includes('loading="lazy"') && !second.includes("fetchpriority"));
+  check("preload לתמונה הראשונה", html.includes('rel="preload" as="image"')
+    && html.includes("/render/image/public/property-images/a.jpg"));
   check("תיאור מאושר: פסקאות ושאלות", html.includes("<p>פסקה ראשונה") && html.includes("<h3>כמה עולה דירת 4 חדרים?</h3>"));
   check("FAQPage ב-JSON-LD", html.includes('"@type":"FAQPage"'));
   check("קישור לשכונה סמוכה", html.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
