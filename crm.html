@@ -8972,6 +8972,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
+            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md) -->
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="demand" aria-selected="false">ביקוש פתוח · <span data-n>·</span></button>
           </div>
           <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
           <div class="ui-count" id="leadsCountLine"></div>
@@ -10990,6 +10992,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <button type="button" class="photo-focus-reset" id="pfFocusReset">איפוס</button>
                 </div>
               </div>
+
+          <!-- תמונה בפרסומים האוטומטיים (רילס, סטוריז, מודעות). נשמר מיד בשינוי,
+               בנפרד מכפתור השמירה של הטופס - ראו pfShowPhotoInAdsInit. -->
+          <div class="field pf-ads-photo">
+            <label class="checkbox-item"><input type="checkbox" id="pfShowPhotoInAds" checked> הצג את התמונה שלי בסרטוני הרילס, בסטוריז ובמודעות שהאתר מפרסם</label>
+            <p class="hint">אם תבטל/י, הפרסומים יופיעו עם השם, הטלפון ולוגו המשרד בלבד, בלי תמונה.</p>
+          </div>
 
           <div class="office-cover-note">
             <div class="oc-thumb" id="pfOfficeCoverThumb"></div>

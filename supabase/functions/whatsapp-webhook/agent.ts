@@ -1394,6 +1394,11 @@ const TOOLS: Anthropic.Tool[] = [
           enum: ["profile"],
           description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל.",
         },
+        show_photo_in_ads: {
+          type: "boolean",
+          description: "האם תמונת הסוכן/ת מופיעה ברילסים, בסטוריז ובמודעות שהאתר מפיק. " +
+            "\"בלי תמונה שלי בסרטון\" = false; אז הפרסומים יוצאים עם השם, הטלפון ולוגו המשרד בלבד.",
+        },
       },
       required: [],
     },
@@ -5391,8 +5396,14 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     patch.photo_position = null;
   }
 
+  // תמונה בפרסומים האוטומטיים (רילס, סטוריז, מודעות). העמודה נקראת ב-
+  // reel-producer; הסוכן/ת קובע/ת אותה גם ב-CRM, ליד תמונת הפרופיל.
+  if (typeof input.show_photo_in_ads === "boolean") {
+    patch.show_photo_in_ads = input.show_photo_in_ads;
+  }
+
   if (!Object.keys(patch).length) {
-    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות ותמונות." };
+    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות, תמונות, והאם התמונה מופיעה בפרסומים." };
   }
 
   patch.updated_at = new Date().toISOString();

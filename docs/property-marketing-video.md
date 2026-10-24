@@ -76,9 +76,15 @@ start_property_video_job ──► pending_reel ──claim──► rendering (
 | `daily_upload_urls` | Grok | `{property_id}` | כמו `upload_urls`, בשם `marketing-reel-daily-…` |
 | `daily_attach` | Grok | `{property_id, video_path, cover_path, published_urls}` | הרילס היומי (למטה) |
 
+**תמונת הסוכן/ת בפרסום היא בחירה שלו/ה:** ‏`agency_members.show_photo_in_ads`
+(‏default true), צ'קבוקס ליד תמונת הפרופיל ב-CRM שנשמר מיד, ו-`show_photo_in_ads`
+בכלי `update_profile` של גבריאלה ("בלי תמונה שלי בסרטון"). ‏false = בלי תמונה בכלל
+- לא cutout, לא עיגול ולא ראשי תיבות - בפס ובכרטיס הסיום. ההרשאה היא של השורה:
+הסוכן/ת לעצמו/ה, ומנהל/ת המשרד לחברי הצוות, כמו `photo_url`.
+
 הנתונים לרינדור: שורת הנכס (בלי `property_owners` ובלי מספר בית), התמונות,
 `property_image_tags`, שם השכונה, הסוכן/ת (`name`, `phone`, `photo_url`,
-`show_photo_in_ads` - חסר = true, `license_number`), המשרד (`name`, `logo_url`),
+`show_photo_in_ads`, `license_number`), המשרד (`name`, `logo_url`),
 `is_tomer` ו-`disclosure_line` - שורת הגילוי של תומר יוצאת **רק** כש-
 `agent_id = 2f552dcf-…`. סוכנים אחרים במשרד שלו אינם תומר.
 

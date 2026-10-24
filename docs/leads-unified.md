@@ -18,6 +18,7 @@
 | --- | --- | --- |
 | שיחה נכנסת ממספר שאינו בקובץ הלקוחות | ב-insert של `agent_calls` | `agent_call_to_lead` (`a_agent_calls_to_lead`) |
 | ליד שנרכש - מחפשי דירה, משכנתאות, RSS | כש-`sold_to_agent_id` נקבע | `store_purchase_to_lead` |
+| פוסט בקבוצת פייסבוק או במרקטפלייס, אחרי הסכמה | `scraped_lead_set_consent(id, 'consented')` | אותה פונקציה (`docs/scraped-leads.md`) |
 
 - **שיחה מאותו מספר** שיש לו ליד פתוח מ-30 הימים האחרונים מצטרפת אליו
   (`agent_calls.lead_id`) ואינה יוצרת ליד שני.

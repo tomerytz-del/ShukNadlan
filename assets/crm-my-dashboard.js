@@ -63,6 +63,7 @@ const MD_QUOTES = [
 
 const MD_LEAD_TYPES = {
   owner_inbound:    'בעל/ת נכס',
+  seeker_inbound:   'מחפש/ת נכס',
   property_inquiry: 'פנייה על נכס',
   visualization:    'הדמיה',
 };
