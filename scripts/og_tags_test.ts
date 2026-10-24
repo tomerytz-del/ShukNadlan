@@ -366,6 +366,8 @@ const propHttp: [string, boolean][] = [
 /* מחיר, מאפיינים, משרד וסוכן/ת ב-HTML הראשון. שאילתת הסוכן/ת נפרדת. */
 const VISIBLE =
   `<!doctype html><html><head><title>x</title></head><body>` +
+  `<div id="loadingState">טוען</div><div id="propertyContent">` +
+  `<div class="bento" id="bentoGrid"></div>` +
   `<h1 id="propTitle">-</h1>` +
   `<div class="hero-price" id="heroPrice" hidden><div class="num" id="heroPriceNum"></div><div class="sub" id="heroPriceSub"></div></div>` +
   `<span id="agentPriceLabel">מחיר</span><span id="agentPriceValue">-</span>` +
@@ -374,7 +376,7 @@ const VISIBLE =
   `<div id="agentName" hidden></div>` +
   `<div id="specPills"></div>` +
   `<section id="highlightsSection" hidden><div id="highlightsList"></div></section>` +
-  `</body></html>`;
+  `</div></body></html>`;
 const VISIBLE_ROW = {
   ...PROPERTY,
   price_per_sqm: "15000",
@@ -409,9 +411,30 @@ propHttp.push(
     && seen.includes("בשיתוף: שותף &lt;ב&gt;") && seen.includes(">חניה<") && seen.includes(">ממ״ד<")
     && seen.includes("100 מ״ר") && seen.includes("4 חדרים")
     && /<div class="hero-price" id="heroPrice">/.test(seen)
-    && (seen.match(/<h1\b/g) || []).length === 1 && !seen.includes("הנכס לא נמצא")],
+    && (seen.match(/<h1\b/g) || []).length === 1 && !seen.includes("הנכס לא נמצא")
+    && /<body class="property-ready has-sticky-bar">/.test(seen)
+    && seen.includes('id="bentoGrid" data-count="1"')
+    && seen.includes('data-lcp="1" src="https://shuknadlan.co.il/a.jpg"')
+    && seen.includes('rel="preload" as="image" href="https://shuknadlan.co.il/a.jpg"')
+    && seen.includes(`rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co"`)
+    && !seen.includes("<video")],
   ["מסחרי להשכרה: מע״מ וחודש, וכשל סוכן/ת לא מפיל את הדף", commercial.includes("שכר דירה חודשי")
     && commercial.includes("/ חודש") && commercial.includes("+ מע״מ") && commercial.includes(">משרד הדר<")],
+);
+const reel = await visible({
+  ...VISIBLE_ROW,
+  video_url: "https://cdn.example/property-videos/marketing-reel-a.mp4",
+  video_poster_url: "https://cdn.example/poster.jpg",
+  images: ["https://cdn.example/1.jpg", "https://cdn.example/2.jpg"],
+}, { display_name: "דנה כהן" });
+propHttp.push(
+  ["שער סרטון ב-HTML בלי src, עם preload", reel.includes('class="bento-video-bg"')
+    && reel.includes('src="https://cdn.example/poster.jpg"')
+    && reel.includes('data-count="3"')
+    && reel.includes('rel="preload" as="image" href="https://cdn.example/poster.jpg"')
+    && reel.includes('rel="preconnect" href="https://cdn.example"')
+    && !reel.includes("<video")],
+  ["404 בלי חשיפת המודעה", !propMissHtml.includes("property-ready") && !propMissHtml.includes("bento-video-bg")],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;

@@ -129,7 +129,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      יורדות לשורה מתחת לראשית; מדסקטופ הן עמודה לצידה. מספר התמונות בפועל
      נכתב ל-data-count, כי מודעה עם תמונה אחת (רוב המודעות במערכת) צריכה
      תמונה ראשית ברוחב מלא ולא עמודה ריקה לצידה. */
-  .hero{margin-top:16px}
+  .hero{margin-top:16px;position:relative}
+  /* רשת ריקה שומרת את גובה השער עד שהתמונה נכנסת. בלי זה הפוטר עולה
+     ואז נדחף למטה ברגע שהגלריה נבנית. */
+  #bentoGrid:empty{aspect-ratio:16/10}
+  /* ב-HTML הראשון של נכס שנמצא (og-tags) התוכן כבר במקום, והסרגל
+     התחתון כבר שומר 78px. display:none עד אז היה דוחף את הפוטר למטה
+     אחרי הטעינה. */
+  body.property-ready #propertyContent{display:block}
+  body.property-ready #loadingState{display:none}
+  /* במובייל קבוצות הפוטר נסגרות ב-JS אחרי הטעינה. כאן הן סגורות
+     מהציור הראשון, והלחיצה פותחת עם is-open. במסך רחב אין את המחלקה. */
+  html.fold-cols details.footer-col:not(.is-open) > .footer-col-links{display:none}
+  html.fold-seo #footerSeo:not(.is-open) > .footer-seo-links{display:none}
   .bento{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
   .bento-cell{
     position:relative;overflow:hidden;border-radius:0;border:1px solid var(--hair);
@@ -1130,6 +1142,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan-row .flag{flex-basis:100%;font-size:.74rem;font-weight:700;color:#8a5a00}
   .plan-src{font-size:.7rem;color:var(--ink-soft);margin:8px 0 0}
   .plan-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
+  #planningSection .plan-head{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+  #planningSection .plan-head-txt{min-width:0}
+  #planningSection .plan-head h2{margin:0}
+  #planningSection .plan-toggle{
+    flex:none;width:36px;height:36px;padding:0;border:0;border-radius:50%;
+    display:grid;place-items:center;cursor:pointer;
+    background:var(--teal-tint);color:var(--teal-dark);
+  }
+  #planningSection .plan-toggle svg{width:20px;height:20px;transition:transform .2s}
+  #planningSection .plan-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+  #planningSection .plan-head:hover h2{color:var(--teal-dark)}
+  #planningSection .plan-summary{margin:4px 0 0;font-size:.8rem;color:var(--ink-soft)}
+  #planningSection .plan-summary:empty{display:none}
+  #planningBody{margin-top:14px}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1143,6 +1169,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
+<script>
+/* קיפול הפוטר לפני הציור הראשון. site-footer.js רץ אחרי defer וסוגר
+   את אותן קבוצות - אם הן נפתחות קודם, הפוטר זז. */
+(function(){
+  var html = document.documentElement;
+  if (!window.matchMedia) return;
+  var cols = matchMedia('(max-width:559px)');
+  var seo = matchMedia('(max-width:759px)');
+  var sync = function(){
+    html.classList.toggle('fold-cols', cols.matches);
+    html.classList.toggle('fold-seo', seo.matches);
+  };
+  sync();
+  if (cols.addEventListener){
+    cols.addEventListener('change', sync);
+    seo.addEventListener('change', sync);
+  }
+})();
+</script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -1261,14 +1306,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              הסינון עצמו יושב ב-RPC ‏property_planning_public ולא כאן — הצד
              הזה פשוט לא מקבל את השדות האלה. -->
         <section class="panel" id="planningSection" hidden>
-          <h2>מידע תכנוני</h2>
-          <div class="spec-pills" id="planningFacts"></div>
-          <div class="plan-list" id="planningPlans" hidden></div>
-          <p class="plan-note">
-            המידע התכנוני מוצג באופן כללי בלבד ואינו כולל גוש, חלקה או כתובת מדויקת.
-            הוא נאסף ממקורות תכנון פומביים ומהצהרת הסוכן/ת, עשוי להתעדכן,
-            ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה או לייעוץ מקצועי לפני רכישה.
-          </p>
+          <!-- המידע מקופל מאחורי כפתור בכל נכס, גם בקרקע: רוב הגולשים לא
+               קוראים רשימה של תשע תוכניות, והיא דחפה את ההדמיות והמפה למטה.
+               שורת הסיכום אומרת מה מחכה מאחוריו (renderPlanningInfo).
+               כל הכותרת לחיצה ולא רק החץ - בטלפון לוחצים על הכותרת עצמה.
+               הכפתור הוא הפקד הנגיש; הלחיצה על השאר מגיעה אליו מהמאזין. -->
+          <div class="plan-head" id="planningHead">
+            <div class="plan-head-txt">
+              <h2>מידע תכנוני</h2>
+              <p class="plan-summary" id="planningSummary"></p>
+            </div>
+            <button type="button" class="plan-toggle" id="planningToggle"
+                    aria-expanded="false" aria-controls="planningBody" aria-label="הצגת המידע התכנוני">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
+          <div id="planningBody" hidden>
+            <div class="spec-pills" id="planningFacts"></div>
+            <div class="plan-list" id="planningPlans" hidden></div>
+            <p class="plan-note">
+              המידע התכנוני מוצג באופן כללי בלבד ואינו כולל גוש, חלקה או כתובת מדויקת.
+              הוא נאסף ממקורות תכנון פומביים ומהצהרת הסוכן/ת, עשוי להתעדכן,
+              ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה או לייעוץ מקצועי לפני רכישה.
+            </p>
+          </div>
         </section>
 
       </div><!-- /main-col -->
@@ -1977,6 +2038,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+
+  <script>
+  /* לחיצה במובייל פותחת קבוצה שצוירה סגורה. במסך רחב site-footer.js
+     משאיר את הקבוצה פתוחה וחוסם את הקיפול. */
+  (function(){
+    function bind(list, query){
+      for (var i = 0; i < list.length; i++){
+        (function(d){
+          var s = d.querySelector('summary');
+          if (!s) return;
+          s.addEventListener('click', function(e){
+            if (window.matchMedia(query).matches) return;
+            e.preventDefault();
+            d.classList.toggle('is-open');
+          });
+        })(list[i]);
+      }
+    }
+    bind(document.querySelectorAll('details.footer-col'), '(min-width:560px)');
+    var seo = document.getElementById('footerSeo');
+    if (seo) bind([seo], '(min-width:760px)');
+  })();
+  </script>
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
