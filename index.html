@@ -9,15 +9,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
-<script src="assets/auth-return.js" data-catch></script>
-<script src="assets/esc.js"></script>
-<script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
-<script src="assets/market-scope.js"></script>
 <script defer src="assets/near-me.js"></script>
 <script defer src="assets/market-soon-strip.js"></script>
 <script defer src="assets/city-menu.js"></script>
-<script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>דירות למכירה ולהשכרה בעפולה והעמק | שוק נדל״ן</title>
@@ -50,9 +45,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- המפה סגורה בטעינה. media=print מוציא את הקובץ ממסלול הציור הראשון,
+     ו-onload מחזיר אותו למסך לפני שלוחצים "הצג במפה". -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
+<noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
+</noscript>
 <style>
   /* ההסברים לעיצוב הזה: docs/home-page-notes.md. כל מה שנכתב כאן נשלח לכל גולש/ת. */
   :root{
@@ -3526,6 +3528,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
 
           <h1>כל הנכסים ב<span id="heroCityName">עפולה והעמק</span><button type="button" class="mkt-menu-btn" data-market-menu hidden aria-label="בחירת אזור"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button> <span class="hero-h1-break">בכתובת אחת</span></h1>
+          <!-- markets.js אחרי ה-CSS של תמונת ה-hero, ומיד לפני ההכרעה.
+               ההכרעה הראשונה של CityContext נשמרת. market-pages מזריק את
+               SHUK_MARKET מיד לפני התג הזה, ולכן אסור לדחות אותו לסוף הדף. -->
+          <script src="assets/markets.js"></script>
           <script>
             /* ‏city-context.js נטען למעלה כ-‎<script src>‎ רגיל, ולכן הוא
                כבר כאן. אם הוא לא נטען, הכיתוב שב-HTML נשאר כמו שהוא.
@@ -5030,7 +5036,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <!-- הספריות האלה רצות רק אחרי שה-hero כבר נסרק. ב-head הן חסמו את הציור
-     הראשון (מפה, supabase, כרטיסים). Leaflet.css נשאר למעלה. -->
+     הראשון. auth-return לפני supabase: הוא מעביר קוד כניסה לפני שהלקוח
+     צורך אותו. esc, market-scope ו-events לפני home.js. home.js בלי defer. -->
+<script src="assets/auth-return.js" data-catch></script>
+<script src="assets/esc.js"></script>
+<script src="assets/market-scope.js"></script>
+<script src="assets/events.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
