@@ -24,9 +24,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 NOT_SITE_DIRS = {
     "docs", "supabase", "scripts", "netlify", ".claude", ".github", ".git",
     "ops_agent", "news_engine", "lead_engine", "deals_engine", "marketing",
-    "gtm",
+    "gtm", "mobile",
 }
-SITE_DIRS = {"assets", "vendor"}
+SITE_DIRS = {"assets", "vendor", ".well-known"}
 # קבצים בשורש שהאתר מגיש בכוונה.
 SITE_FILES = {
     "_headers", "_redirects", "robots.txt", "sitemap.xml", "llms.txt", "sw.js",

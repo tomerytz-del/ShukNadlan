@@ -1,0 +1,32 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.co.shuknadlan.app"],
+        "components": [
+          { "/": "/property", "?": { "id": "?*" } },
+          { "/": "/property/*" },
+          { "/": "/p/*" },
+          { "/": "/crm" },
+          { "/": "/crm/*" },
+          { "/": "/agent" },
+          { "/": "/agent/*" },
+          { "/": "/agency" },
+          { "/": "/agency/*" },
+          { "/": "/project" },
+          { "/": "/project/*" },
+          { "/": "/n/*" },
+          { "/": "/deals" },
+          { "/": "/deals/*" },
+          { "/": "/articles" },
+          { "/": "/articles/*" },
+          { "/": "/prices" },
+          { "/": "/prices/*" },
+          { "/": "/brokers" },
+          { "/": "/brokers/*" }
+        ]
+      }
+    ]
+  }
+}
