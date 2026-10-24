@@ -330,8 +330,25 @@ for (const kind of ["agent", "team", "office"] as const) {
   }
   check(`${kind}: agenda רק בצוות`, schema.required.includes("agenda") === (kind === "team"));
   check(`${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(SYSTEM_PROMPTS[kind]));
-  check(`${kind}: הפרומפט אוסר העברת ליד`, SYSTEM_PROMPTS[kind].includes("העברת ליד"));
+  check(`${kind}: הפרומפט מתאר מסירה בהפנייה של מנהל/ת המשרד`,
+    SYSTEM_PROMPTS[kind].includes("מסירה בהפנייה")
+    && SYSTEM_PROMPTS[kind].includes("רק אחרי שנפתח")
+    && SYSTEM_PROMPTS[kind].includes("עד 500")
+    && SYSTEM_PROMPTS[kind].includes("התראה בפעמון")
+    && SYSTEM_PROMPTS[kind].includes("הסכם בלעדיות")
+    && SYSTEM_PROMPTS[kind].includes("ממליצים עליה רק בשיחה עם מנהל/ת המשרד"));
+  check(`${kind}: הפרומפט אוסר העברת ליד מסוכן/ת לסוכן/ת`,
+    SYSTEM_PROMPTS[kind].includes("העברת ליד מסוכן/ת לסוכן/ת")
+    && SYSTEM_PROMPTS[kind].includes("מענה אוטומטי או ראשוני ללידים")
+    && SYSTEM_PROMPTS[kind].includes("שליחת הודעות ללקוחות בשם הסוכן/ת")
+    && SYSTEM_PROMPTS[kind].includes("\"זוג חונכות\"")
+    && SYSTEM_PROMPTS[kind].includes("\"מילה טובה\"")
+    && SYSTEM_PROMPTS[kind].includes("הודעה לצוות")
+    && !SYSTEM_PROMPTS[kind].includes("ניתוב לידים בידי מנהל/ת"));
 }
+check("משרד: ממליצים על מסירה כשליד לא מטופל או כשסוכן/ת עוזב/ת",
+  SYSTEM_PROMPTS.office.includes("ממליצים על מסירה בהפנייה") && SYSTEM_PROMPTS.office.includes("סוכן/ת שעוזב/ת"));
+check("צוות: מנהל/ת הצוות אינו/ה מוסר/ת בהפנייה", SYSTEM_PROMPTS.team.includes("אינו/ה** מוסר/ת בהפנייה"));
 check("אין העברת ליד ברשימת הכפתורים", !Object.keys(CTA_KINDS).some((k) => /transfer|route|assign/.test(k)));
 
 // ---------------------------------------------------------------------------
@@ -372,6 +389,16 @@ check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הסוכן/ת מ
   && askSystemPrompt("agent", "warm", "team").includes("משחקן למאמן") && !askSystemPrompt("agent", "warm", "team").includes("שרשרת פיקוד")
   && askSystemPrompt("agent", "warm", "office").includes("שרשרת פיקוד")
   && askSystemPrompt("agent", "warm", "team").includes("בדאשבורד הצוות"));
+check("מסירה בהפנייה: מנהל/ת משרד ששואל/ת כסוכן/ת יכול/ה לקבל המלצה, מנהל/ת צוות לא",
+  askSystemPrompt("agent", "warm", "office").includes("מסירה בהפנייה זמינה לשואל/ת")
+  && !askSystemPrompt("agent").includes("מסירה בהפנייה זמינה לשואל/ת")
+  && askSystemPrompt("agent", "warm", "team").includes("מסירה בהפנייה אינה של מנהל/ת צוות"));
+check("ידע: מסירה בהפנייה של מנהל/ת המשרד, בלי האיסור הישן",
+  MANAGER_PLAYBOOK.includes("מסירה בהפנייה") && OFFICE_PLAYBOOK.includes("מסירה בהפנייה")
+  && MANAGER_PLAYBOOK.includes("אינו/ה מעביר/ה ליד") && MANAGER_PLAYBOOK.includes("מחוץ למערכת")
+  && OFFICE_PLAYBOOK.includes("מחוץ למערכת")
+  && !MANAGER_PLAYBOOK.includes("אין העברת לידים בין סוכנים")
+  && !OFFICE_PLAYBOOK.includes("אין ניתוב לידים בידי מנהל/ת"));
 check("מנהל/ת שהוא/היא גם סוכן/ת: מנטור הצוות והמשרד עונים על שאלת שטח ומפנים למספרים האישיים", ["team", "office"].every((k) => askSystemPrompt(k as "team" | "office").includes('ב"הדשבורד שלי"')) && !askSystemPrompt("agent").includes("רוב המנהלים הם גם סוכנים"));
 // שאלה למנטור דרך גבריאלה: אותה פונקציה של ה-CRM, ולא בתורים שהטקסט בהם נכתב בידי אחרים
 {
@@ -468,7 +495,7 @@ check("שיחת המשך: מהישנה לחדשה, בלי שאלה בלי תשו
 check("שיחת המשך: התורות מתחלפות", hist.every((m, i) => m.role === (i % 2 ? "assistant" : "user")));
 for (const kind of ["agent", "team", "office"] as const) {
   const p = askSystemPrompt(kind);
-  check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("העברת ליד"));
+  check(`שאל ${kind}: אותה רשימת כלים`, p.includes("גבריאלה אינה פונה ללידים") && p.includes("מסירה בהפנייה") && p.includes("העברת ליד מסוכן/ת לסוכן/ת"));
   check(`שאל ${kind}: תשובה בלבד, בלי פעולות`, p.includes("לא מבצע/ת פעולות"));
   check(`שאל ${kind}: אין מקף ארוך בפרומפט`, !/[–—―]/.test(p));
   check(`שאל ${kind}: הידע המקצועי (הליבה) בפרומפט`, p.includes(playbookFor("").text));
