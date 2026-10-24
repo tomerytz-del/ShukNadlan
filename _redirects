@@ -106,6 +106,13 @@
 # קורא את העיר והשכונה מהכתובת וממלא את הדף.
 /n/*    /neighborhood    200
 
+# ‏דפי נחיתה עיר → סוג נכס (docs/search-landing-pages.md). silo.html מגיש
+# את שלושתן; netlify/edge-functions/silo-page.ts ממלא מודעות פעילות.
+# ‏200 ולא הפניה - הכתובת בדפדפן נשארת של הדף.
+/afula/בתים-פרטיים    /silo    200
+/afula/דירות-גן    /silo    200
+/afula/דירות-3-חדרים    /silo    200
+
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
 # ה-Worker עוד לא נרשם - במקום 404, חזרה ל-CRM עם הודעה. ‏303 הופך את ה-POST
