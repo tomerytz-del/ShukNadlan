@@ -10,6 +10,8 @@
 //      מסלול באתר (property-inquiry-intake / owner-lead-intake /
 //      saved-search-intake), עם source של meta_ads_*. כך רוטציה, ניתוב,
 //      מחירים, התראות למנהל/ת ויומן הניתוב עובדים בלי שורת קוד חדשה.
+//   4. ‏alertLead - וואטסאפ לבעל הפלטפורמה, פעם אחת (alerted_at). כישלון
+//      נרשם ב-alert_error ואינו נזרק: ה-webhook חייב להמשיך לענות 200.
 //
 // ‏**למה HTTP ולא insert ישיר.** אין RPC אחד שיוצר ליד - כל פונקציית קליטה
 // מכילה לוגיקה משלה (רוטציה, שיוך לשכונה, יומן ניתוב, התראה כשאין נמען).
@@ -21,7 +23,9 @@
 // בחיוב. טופס בלי שאלה כזו שולח false, והליד נשמר על המדף - כמו באתר.
 // ============================================================================
 
+import { alertKindAllowed, decideLeadAlert, leadAlertExpired, phoneDigits, type LeadField } from "./lead-alert.ts";
 import { MetaClient } from "./meta-graph.ts";
+import { waTemplate, waText } from "./wa-send.ts";
 
 export type LeadForm = {
   form_id: string;
@@ -232,6 +236,110 @@ export async function routeLead(
     error: null,
   }).eq("meta_lead_id", metaLeadId);
   return { status: "routed" };
+}
+
+// ---------------------------------------------------------------------------
+// התראת וואטסאפ לבעל הפלטפורמה. נקראת אחרי routeLead, גם כשהניתוב לא
+// הסתיים (טופס לא משויך עדיין ליד). לעולם אינה זורקת.
+// ---------------------------------------------------------------------------
+
+const ALERT_KEYS = ["lead_alert_phone", "lead_alert_kinds"];
+
+async function alertSettings(sb: any): Promise<{ phone: string; kinds: string[] | null }> {
+  const { data, error } = await sb.from("ads_settings").select("key, value").in("key", ALERT_KEYS);
+  if (error) throw new Error(`ads_settings: ${error.message}`);
+  let phone = "";
+  let kinds: string[] | null = null;
+  let sawKinds = false;
+  for (const row of data ?? []) {
+    if (row.key === "lead_alert_phone") phone = phoneDigits(row.value);
+    if (row.key === "lead_alert_kinds") {
+      sawKinds = true;
+      kinds = Array.isArray(row.value) ? row.value.filter((x: unknown) => typeof x === "string") : [];
+    }
+  }
+  return { phone, kinds: sawKinds ? kinds : null };
+}
+
+/** תפיסה אטומית: רק עדכון שהעביר את alerted_at מ-null מחזיר שורה. */
+async function claimAlert(sb: any, metaLeadId: string): Promise<any | null> {
+  const { data, error } = await sb.from("ads_leads")
+    .update({ alerted_at: new Date().toISOString() })
+    .eq("meta_lead_id", metaLeadId)
+    .is("alerted_at", null)
+    .select("meta_lead_id, created_time, form_id, field_data");
+  if (error) throw new Error(`ads_leads alert claim: ${error.message}`);
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ?? null;
+}
+
+/** הזמן של ההודעה האחרונה מהמספר, או null (ואז נשלחת תבנית). */
+async function latestMessageAt(sb: any, phone: string): Promise<string | null> {
+  const { data, error } = await sb.from("whatsapp_conversations")
+    .select("last_message_at")
+    .in("wa_phone", [phone, `+${phone}`])
+    .order("last_message_at", { ascending: false })
+    .limit(1);
+  // בלי חלון ידוע שולחים תבנית: טקסט חופשי מחוץ ל-24 שעות נדחה, תבנית לא.
+  if (error) {
+    console.warn("alertLead window", error.message);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.last_message_at ?? null;
+}
+
+async function writeAlertError(sb: any, metaLeadId: string, message: string): Promise<void> {
+  const alert_error = message.replace(/\s+/g, " ").trim().slice(0, 500);
+  try {
+    const { error } = await sb.from("ads_leads").update({ alert_error }).eq("meta_lead_id", metaLeadId);
+    if (error) console.error("alertLead error write", error.message);
+  } catch (e) {
+    console.error("alertLead error write", (e as Error).message);
+  }
+}
+
+/**
+ * וואטסאפ אחד על ליד חדש. בלי מספר בהגדרות - חוזר בלי לתפוס את השורה,
+ * כדי שכשהמספר יוגדר הליד (אם עודו בחלון 6 השעות) יישלח. אחרי התפיסה
+ * כל יציאה שקטה (ישן, סוג מסונן, מישהו אחר תפס) משאירה את alerted_at.
+ */
+export async function alertLead(sb: any, metaLeadId: string): Promise<void> {
+  let claimed = false;
+  try {
+    const settings = await alertSettings(sb);
+    if (!settings.phone) return;
+
+    const row = await claimAlert(sb, metaLeadId);
+    if (!row) return;
+    claimed = true;
+    // ליד ישן נתפס ולא נשלח. הסנכרון מושך 48 שעות; ההתראה היא רק על חדש.
+    if (leadAlertExpired(row.created_time)) return;
+
+    const { data: form, error: formErr } = await sb.from("ads_lead_forms")
+      .select("form_name, kind")
+      .eq("form_id", row.form_id ?? "")
+      .maybeSingle();
+    if (formErr) throw new Error(`ads_lead_forms: ${formErr.message}`);
+
+    const kind = form?.kind || "unmapped";
+    if (!alertKindAllowed(kind, settings.kinds)) return;
+    const decision = decideLeadAlert({
+      createdTime: row.created_time,
+      formName: form?.form_name || row.form_id,
+      kind,
+      kinds: settings.kinds,
+      fields: (row.field_data ?? []) as LeadField[],
+      lastMessageAt: await latestMessageAt(sb, settings.phone),
+    });
+    if (decision.action === "skip") return;
+    if (decision.action === "text") await waText(settings.phone, decision.text);
+    else await waTemplate(settings.phone, decision.params);
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    console.error("alertLead", metaLeadId, msg);
+    if (claimed) await writeAlertError(sb, metaLeadId, msg);
+  }
 }
 
 /** ‏Page token: לטפסים וללידים צריך טוקן של הדף, לא של המשתמש. נגזר מטוקן

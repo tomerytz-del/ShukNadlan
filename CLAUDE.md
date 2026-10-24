@@ -71,7 +71,7 @@
   אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
   (`docs/social-preview.md`), `sitemap.ts` מוסיפה ל-`sitemap.xml` את
   הכתובות שנוצרות מהמסד (`docs/sitemap.md`), `search-pages.ts` נותנת
-  ל-14 החיפושים הפופולריים כותרת ו-`canonical` משלהם
+  לחיפושים הפופולריים כותרת, H1 ו-`canonical` משלהם
   (`docs/search-landing-pages.md`) ומפנה מ-`/` לשוק המקומי, ו-
   `market-pages.ts` מגישה את דפי השווקים (`/haifa`), ו-`short-link.ts`
   מפנה את הקישור הקצר שבפוסטים (`/p/1162`) לדף הנכס, ו-`prices-page.ts`
@@ -317,7 +317,7 @@ python scripts/check_canonical.py        # בדיקה
 python scripts/check_canonical.py --fix  # שתילה בדף סטטי שחסר
 ```
 
-### ‏ו-14 עמודי תוצאות שמוגשים מאותו `index.html`
+### עמודי תוצאות שמוגשים מאותו `index.html`
 
 הבלוק "חיפושים פופולריים" שבפוטר מקשר ל-14 כתובות מסוננות
 (`/?deal=sale&rooms=4` וחבריהן). עד היום כולן הגישו אותה כותרת, אותו
