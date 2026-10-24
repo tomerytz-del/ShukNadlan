@@ -747,14 +747,14 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
             ad({
               key: "a4_2", name: "A4-2 deals", headline: "מחיר מודעה או מחיר עסקה?",
               message: "המחיר במודעה הוא מה שמבקשים. המחיר בעסקה הוא מה ששילמו בפועל.\nראו מחירים חציוניים בעפולה לפי מספר חדרים, מעסקאות שדווחו לרשות המסים.",
-              description: "נתונים רשמיים, לא מחירי מודעות",
+              description: "נתוני עסקאות רשמיים",
               cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
               landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_deals" }),
             }, D),
             ad({
               key: "a4_3", name: "A4-3 sqm", headline: "עפולה ₪13,800 למ\"ר. חיפה ₪17,400.",
               message: "מחיר חציוני למ\"ר בדירות 4 חדרים, לפי עסקאות שדווחו לרשות המסים (9.2025-9.2026).\nמשווים ערים ומספר חדרים בטבלה אחת.",
-              description: "מחירי עסקאות לפי עיר ומספר חדרים",
+              description: "מחירי עסקאות לפי עיר",
               cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
               landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_sqm" }),
             }, D),

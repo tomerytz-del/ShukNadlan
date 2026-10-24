@@ -128,7 +128,7 @@ const a3contact = buyers[2].ads[2];
 ok("A3-3 drops the absolute contact claim", a3contact.headline === "להשכרה בעפולה: מחיר, תמונות ופרטי קשר." && a3contact.message.includes("רואים מחיר, תמונות ופרטי קשר") && !a3contact.message.includes("ישירים") && !a3contact.message.includes("בכל נכס"));
 const liveWarn = plan.warnings.find((w) => w.startsWith("מספרים חיים"));
 ok("dry-run lists ads with hard-coded counts", !!liveWarn && liveWarn.includes("A1-3 count (45)") && liveWarn.includes("A2-2 rooms (49)") && liveWarn.includes("A4-3 sqm (₪13,800, ₪17,400)") && !liveWarn.includes("B1"), liveWarn);
-ok("over-long descriptions are warned and still sent", plan.warnings.some((w) => w.startsWith("A4-2 deals: תיאור")) && plan.warnings.some((w) => w.startsWith("A4-3 sqm: תיאור")) && buyers[3].ads[2].description === "מחירי עסקאות לפי עיר ומספר חדרים");
+ok("A4 descriptions fit and are not warned", buyers[3].ads[1].description === "נתוני עסקאות רשמיים" && buyers[3].ads[2].description === "מחירי עסקאות לפי עיר" && !plan.warnings.some((w) => w.includes("תיאור של")));
 
 const noA5 = buildLaunchPlan(baseInput({ includeA5: true }));
 ok("A5 without a form is an error", !noA5.ok && noA5.errors.some((e) => e.code === "a5_form_missing") && !noA5.campaigns.some((c) => c.key === "owners"));
