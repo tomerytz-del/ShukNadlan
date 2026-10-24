@@ -9,14 +9,14 @@
  *   APNS_KEY_P8                  מפתח .p8 (iOS)
  *   APNS_KEY_ID
  *   APNS_TEAM_ID
- *   APNS_BUNDLE_ID               ברירת מחדל co.shuknadlan.app
+ *   APNS_BUNDLE_ID               ברירת מחדל il.co.shuknadlan.app
  *   APNS_PRODUCTION              "1" לשליחה ל-api.push.apple.com
  */
 import crypto from 'node:crypto';
 import http2 from 'node:http2';
 import { pathToFileURL } from 'node:url';
 
-const BUNDLE_ID = process.env.APNS_BUNDLE_ID || 'co.shuknadlan.app';
+const BUNDLE_ID = process.env.APNS_BUNDLE_ID || 'il.co.shuknadlan.app';
 
 export function b64url(input) {
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input));

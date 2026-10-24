@@ -5,7 +5,7 @@
  * הנייטיב; כל השאר (וואטסאפ, מפות, Google) נפתח בחוץ.
  */
 const config = {
-  appId: 'co.shuknadlan.app',
+  appId: 'il.co.shuknadlan.app',
   appName: 'שוק נדל״ן',
   webDir: 'www',
   server: {

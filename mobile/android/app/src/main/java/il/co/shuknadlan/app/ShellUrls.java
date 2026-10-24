@@ -1,4 +1,4 @@
-package co.shuknadlan.app;
+package il.co.shuknadlan.app;
 
 import android.net.Uri;
 import java.util.LinkedHashMap;
@@ -12,7 +12,7 @@ import java.util.Map;
 public final class ShellUrls {
     public static final String SITE = "https://shuknadlan.co.il";
     public static final String SITE_HOST = "shuknadlan.co.il";
-    public static final String AUTH_CALLBACK = "co.shuknadlan.app://auth-callback";
+    public static final String AUTH_CALLBACK = "il.co.shuknadlan.app://auth-callback";
     public static final String OFFLINE = "https://localhost/offline.html";
 
     private ShellUrls() {}
@@ -70,7 +70,7 @@ public final class ShellUrls {
         Uri cb = parse(callbackUrl);
         if (cb == null) return null;
         if ("https".equals(scheme(cb)) && SITE_HOST.equals(host(cb))) return cb.toString();
-        if (!"co.shuknadlan.app".equals(scheme(cb))) return null;
+        if (!"il.co.shuknadlan.app".equals(scheme(cb))) return null;
         Uri dest = parse(returnTo);
         if (dest == null || !"https".equals(scheme(dest)) || !SITE_HOST.equals(host(dest))) {
             dest = Uri.parse(SITE + "/crm");

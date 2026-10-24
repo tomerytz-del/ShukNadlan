@@ -20,7 +20,7 @@ enum ShellUrls {
         var next = parts
         var items = next.queryItems ?? []
         items.removeAll { $0.name == "redirect_to" }
-        items.append(URLQueryItem(name: "redirect_to", value: "co.shuknadlan.app://auth-callback"))
+        items.append(URLQueryItem(name: "redirect_to", value: "il.co.shuknadlan.app://auth-callback"))
         next.queryItems = items
         return next.string
     }
@@ -43,7 +43,7 @@ enum ShellUrls {
     static func authReturn(_ callback: String, returnTo: String?) -> String? {
         guard let cb = URLComponents(string: callback) else { return nil }
         if cb.scheme == "https", cb.host == siteHost { return cb.string }
-        if cb.scheme != "co.shuknadlan.app" { return nil }
+        if cb.scheme != "il.co.shuknadlan.app" { return nil }
         var dest = URLComponents(string: returnTo ?? "") ?? URLComponents(string: site + "/crm")!
         if dest.scheme != "https" || dest.host != siteHost {
             dest = URLComponents(string: site + "/crm")!
@@ -176,7 +176,7 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
             let trimmed = current.split(separator: "#", maxSplits: 1).first.map(String.init) ?? current
             UserDefaults.standard.set(trimmed, forKey: "shuk_oauth_return")
         }
-        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "co.shuknadlan.app") { [weak webView] callback, _ in
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "il.co.shuknadlan.app") { [weak webView] callback, _ in
             guard let callback = callback, let webView = webView else { return }
             let back = UserDefaults.standard.string(forKey: "shuk_oauth_return")
             guard let dest = ShellUrls.authReturn(callback.absoluteString, returnTo: back),

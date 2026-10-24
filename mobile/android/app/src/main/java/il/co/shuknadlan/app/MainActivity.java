@@ -1,4 +1,4 @@
-package co.shuknadlan.app;
+package il.co.shuknadlan.app;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;

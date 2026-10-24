@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["TEAMID.co.shuknadlan.app"],
+        "appIDs": ["TEAMID.il.co.shuknadlan.app"],
         "components": [
           { "/": "/property", "?": { "id": "?*" } },
           { "/": "/property/*" },

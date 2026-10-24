@@ -9,7 +9,7 @@
   if (typeof window !== 'undefined') api.install(window);
 })(function () {
   var SITE_ORIGIN = 'https://shuknadlan.co.il';
-  var AUTH_CALLBACK = 'co.shuknadlan.app://auth-callback';
+  var AUTH_CALLBACK = 'il.co.shuknadlan.app://auth-callback';
   var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
@@ -49,7 +49,7 @@
     var cb;
     try { cb = new URL(String(callbackUrl)); } catch (e) { return null; }
     if (cb.protocol === 'https:' && cb.origin === SITE_ORIGIN) return cb.toString();
-    if (cb.protocol !== 'co.shuknadlan.app:') return null;
+    if (cb.protocol !== 'il.co.shuknadlan.app:') return null;
     var dest;
     try { dest = new URL(returnTo || (SITE_ORIGIN + '/crm')); } catch (e2) { dest = new URL(SITE_ORIGIN + '/crm'); }
     if (dest.origin !== SITE_ORIGIN) dest = new URL(SITE_ORIGIN + '/crm');
@@ -274,7 +274,7 @@
       var dest = authReturnUrl(url, returnTo || stored || (SITE_ORIGIN + '/crm'));
       if (dest && win.location && String(win.location.href) !== dest) win.location.replace(dest);
     };
-    if (shell && shell.consumeOAuthReturn && String(url).indexOf('co.shuknadlan.app:') === 0) {
+    if (shell && shell.consumeOAuthReturn && String(url).indexOf('il.co.shuknadlan.app:') === 0) {
       Promise.resolve(shell.consumeOAuthReturn()).then(function (res) {
         apply((res && res.url) || stored);
       }).catch(function () { apply(stored); });

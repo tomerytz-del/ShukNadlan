@@ -10,10 +10,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>co.shuknadlan.app</string>
+			<string>il.co.shuknadlan.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>co.shuknadlan.app</string>
+				<string>il.co.shuknadlan.app</string>
 			</array>
 		</dict>
 	</array>

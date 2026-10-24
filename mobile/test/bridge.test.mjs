@@ -32,7 +32,7 @@ test('whatsapp, phone and maps leave the webview', () => {
 
 test('auth callback returns to the page that started login', () => {
   const dest = authReturnUrl(
-    'co.shuknadlan.app://auth-callback?code=abc',
+    'il.co.shuknadlan.app://auth-callback?code=abc',
     'https://shuknadlan.co.il/crm',
   );
   assert.equal(dest, 'https://shuknadlan.co.il/crm?code=abc');
@@ -40,7 +40,7 @@ test('auth callback returns to the page that started login', () => {
 
 test('implicit hash and https deep links are preserved', () => {
   const hashed = authReturnUrl(
-    'co.shuknadlan.app://auth-callback#access_token=tok',
+    'il.co.shuknadlan.app://auth-callback#access_token=tok',
     'https://shuknadlan.co.il/developer-crm',
   );
   assert.equal(hashed, 'https://shuknadlan.co.il/developer-crm#access_token=tok');
@@ -52,7 +52,7 @@ test('implicit hash and https deep links are preserved', () => {
 
 test('callback cannot send the webview to another origin', () => {
   const dest = authReturnUrl(
-    'co.shuknadlan.app://auth-callback?code=abc',
+    'il.co.shuknadlan.app://auth-callback?code=abc',
     'https://evil.example/steal',
   );
   assert.equal(dest.startsWith(SITE_ORIGIN + '/crm?code=abc'), true);

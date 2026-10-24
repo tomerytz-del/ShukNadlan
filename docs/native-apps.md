@@ -4,7 +4,10 @@
 טוענת את [https://shuknadlan.co.il](https://shuknadlan.co.il) בתוך WebView,
 ומסך "אין רשת" מקומי נשאר בחבילה. שינוי באתר מגיע לאפליקציה בלי גרסה חדשה.
 
-מזהה האפליקציה: `co.shuknadlan.app`. השם: שוק נדל״ן. כיוון: RTL.
+מזהה האפליקציה: `il.co.shuknadlan.app`, היפוך של הדומיין
+shuknadlan.co.il. השם shuknadlan.co אינו דומיין ואינו נפתר. האתר, קישורי
+העומק, מדיניות הפרטיות וטיוטת החנות מצביעים כולם על
+https://shuknadlan.co.il. השם: שוק נדל״ן. כיוון: RTL.
 
 ## הפשרה
 
@@ -33,7 +36,7 @@
 - כניסה במייל וסיסמה נשארת בתוך האפליקציה. כניסת Google נפתחת ב-Chrome
   Custom Tabs / `ASWebAuthenticationSession`, כי גוגל חוסמת WebView
   (`disallowed_useragent`). אחרי האישור הקוד חוזר לכתובת
-  `co.shuknadlan.app://auth-callback` ונטען מחדש באתר, איפה שמאמת ה-PKCE
+  `il.co.shuknadlan.app://auth-callback` ונטען מחדש באתר, איפה שמאמת ה-PKCE
   כבר שמור.
 - קישורי עומק מוכנים לנתיבים `/property`, `/p/`, `/crm`, `/agent`,
   `/agency`, `/project`, `/n/`, `/deals`, `/articles`, `/prices`, `/brokers`.
@@ -55,7 +58,7 @@
 | ‏APNs | מפתח `.p8` בפורטל של אפל. ‏iOS כאן שולח ישירות ל-APNs, לא דרך FCM. |
 | צוות אפל | ‏`TEAMID` במקום המילה `TEAMID` ב-`.well-known/apple-app-site-association`, ויכולת Associated Domains. |
 | התראות בפרודקשן | אחרי המיגרציה על `main`, להריץ את workflow `שליחת התראות לאפליקציה`. בלי לוח זמנים התור מחכה. |
-| כניסת Google מהאפליקציה | ב-Supabase Auth, ב-Redirect URLs, להוסיף בדיוק `co.shuknadlan.app://auth-callback`. |
+| כניסת Google מהאפליקציה | ב-Supabase Auth, ב-Redirect URLs, להוסיף בדיוק `il.co.shuknadlan.app://auth-callback`. |
 | חנות | Google Play Console ו-Apple Developer Program. |
 
 קישור מייל עם `#access_token` בסוף הכתובת לא ישרוד כניסה דרך App Link
@@ -126,7 +129,7 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 | `APNS_KEY_P8` | תוכן מפתח ההתראות של אפל |
 | `APNS_KEY_ID` | מזהה המפתח |
 | `APNS_TEAM_ID` | צוות אפל |
-| `APNS_BUNDLE_ID` | אופציונלי. ברירת המחדל `co.shuknadlan.app` |
+| `APNS_BUNDLE_ID` | אופציונלי. ברירת המחדל `il.co.shuknadlan.app` |
 | `APNS_PRODUCTION` | `1` לשליחה לשרת הייצור של אפל. בלי זה נשלח ל-sandbox. |
 
 ‏`GoogleService-Info.plist` לא נדרש: ב-iOS האסימון הוא APNs והשליחה

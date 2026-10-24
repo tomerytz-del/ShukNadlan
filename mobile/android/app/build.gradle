@@ -3,10 +3,10 @@ apply plugin: 'com.android.application'
 def keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 
 android {
-    namespace "co.shuknadlan.app"
+    namespace "il.co.shuknadlan.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "co.shuknadlan.app"
+        applicationId "il.co.shuknadlan.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
