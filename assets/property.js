@@ -1204,7 +1204,7 @@ function renderPlanningInfo(row, isLandRow){
     plansEl.hidden = false;
   }
 
-  // מקופל כברירת מחדל, חוץ מקרקע (ההערה ב-property.html). שורת הסיכום אומרת
+  // מקופל בכל נכס, גם בקרקע (ההערה ב-property.html). שורת הסיכום אומרת
   // מה מחכה מאחורי הכפתור, והודעת 77-78 נקראת בשמה כי היא מגבלה ולא רקע.
   const notices = plans.filter(pl => pl.notice).length;
   document.getElementById('planningSummary').textContent = [
@@ -1219,7 +1219,7 @@ function renderPlanningInfo(row, isLandRow){
     toggle.setAttribute('aria-expanded', String(open));
     toggle.textContent = open ? 'הסתרת המידע התכנוני' : 'הצגת המידע התכנוני';
   };
-  setOpen(isLandRow);
+  setOpen(false);
   if (!toggle.dataset.wired){
     toggle.dataset.wired = '1';
     toggle.addEventListener('click', ()=> setOpen(body.hidden));
