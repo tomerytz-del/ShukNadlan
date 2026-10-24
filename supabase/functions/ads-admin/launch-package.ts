@@ -31,6 +31,7 @@ export const PAUSED_STATUS = "PAUSED";
 const SITE = "https://shuknadlan.co.il";
 const LEAD_LINK = "https://fb.me/";
 const HEADLINE_WARN = 40;
+const DESCRIPTION_LIMIT = 25;
 
 export type TermType = "interest" | "work_position" | "work_employer" | "behavior";
 export type Term = { type: TermType; name: string; id?: string };
@@ -64,6 +65,7 @@ export type AdDef = {
   name: string;
   headline: string;
   message: string;
+  description?: string;
   cta: string;
   images: ImageRef[];
   landingUrl: string | null;
@@ -323,6 +325,19 @@ export async function sha256Hex(buf: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function hasStandaloneCount(text: string, token: string): boolean {
+  let from = 0;
+  while (from < text.length) {
+    const i = text.indexOf(token, from);
+    if (i < 0) return false;
+    const before = i > 0 ? text[i - 1] : "";
+    const after = text[i + token.length] || "";
+    if (!/\d/.test(before) && !/\d/.test(after)) return true;
+    from = i + token.length;
+  }
+  return false;
+}
+
 function siteUrl(path: string, extra: Record<string, string>): string {
   const u = new URL(path, SITE);
   for (const [k, v] of Object.entries(extra)) {
@@ -547,8 +562,30 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
             headline: "הפעלת את גבריאלה?",
             message: "אתה כבר בשוק נדל\"ן. עכשיו תן לגבריאלה לעבוד בשבילך: חיבור בוואטסאפ בדקה, והיא מעלה נכסים, מתאמת פגישות ומוצאת התאמות בנכסים של שת\"פ.",
             cta: "LEARN_MORE",
-            images: [IMG.g211, IMG.g245],
+            images: [IMG.g111, IMG.g145],
             landingUrl: `${SITE}/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_registered`,
+            leadFormId: null,
+          }, D),
+          ad({
+            key: "b2_2",
+            name: "B2-2 mentor",
+            headline: "כל בוקר: מה לעשות היום כדי לסגור עסקה.",
+            message: "המנטור AI עובר על הלידים והנכסים שלך ונותן עד 3 משימות ברורות להיום. כבר כלול בחשבון שלך - רק להיכנס.",
+            description: "המנטור AI כלול בכל מסלול",
+            cta: "LEARN_MORE",
+            images: [IMG.g211, IMG.g245],
+            landingUrl: `${SITE}/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_2_mentor`,
+            leadFormId: null,
+          }, D),
+          ad({
+            key: "b2_3",
+            name: "B2-3 elite",
+            headline: "יש לך חשבון? קבל Elite חינם לחצי שנה.",
+            message: "ב-Elite גבריאלה שולחת לך בוואטסאפ עסקאות שנסגרו בפועל ברחוב של הנכס, מנתוני רשות המסים. חצי שנה ב-₪0, בלי כרטיס אשראי.",
+            description: "בלי כרטיס אשראי",
+            cta: "LEARN_MORE",
+            images: [IMG.g211, IMG.g245],
+            landingUrl: `${SITE}/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_3_elite`,
             leadFormId: null,
           }, D),
         ],
@@ -626,40 +663,102 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
               cta: "LEARN_MORE", images: [IMG.a1_11, IMG.a1_916], leadFormId: null,
               landingUrl: siteUrl("/?deal=sale&maxPrice=1500000", { ...BUYER_UTM, utm_content: "a1_v1" }),
             }, D),
+            ad({
+              key: "a1_3", name: "A1-3 count", headline: "45 דירות בעפולה עד ₪1.5 מיליון",
+              message: "45 דירות למכירה בעפולה עד ₪1,500,000, עם מחיר, תמונות ומפה.\nהדף כבר מסונן לתקציב. רק לבחור.",
+              description: "דירה ראשונה בעפולה",
+              cta: "LEARN_MORE", images: [IMG.a1_11, IMG.a1_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=sale&maxPrice=1500000", { ...BUYER_UTM, utm_content: "a1_count" }),
+            }, D),
+            ad({
+              key: "a1_4", name: "A1-4 alert", headline: "עלתה דירה שמתאימה לכם? תקבלו הודעה.",
+              message: "משאירים פעם אחת מה מחפשים: חדרים, מחיר ואזור. כשעולה לאתר דירה מתאימה - נשלח לכם הודעה בוואטסאפ או במייל.",
+              description: "עדכון על נכס חדש שמתאים",
+              cta: "LEARN_MORE", images: [IMG.a1_11, IMG.a1_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=sale&maxPrice=1500000", { ...BUYER_UTM, utm_content: "a1_alert" }),
+            }, D),
           ],
         },
         {
           key: "a2", name: "A2 Upgraders", dailyBudgetIls: 10, destination: "website", leadFormId: null,
           optimization: "LANDING_PAGE_VIEWS", ageMin: 18, ageMax: 65, geo: housingGeo(), flexible: [],
           audienceKeys: [], extraAudienceIds: [], notes: [],
-          ads: [ad({
-            key: "a2_viz", name: "A2 viz", headline: "5 חדרים בעפולה. בסגנון שלך.",
-            message: "ראו את הבית הבא שלכם בסגנון שאתם אוהבים.\nבחרו סגנון עיצוב וצפו בהדמיית AI מיידית של הנכס, לפני שמגיעים לסיור.\n(להמחשה בלבד)",
-            cta: "LEARN_MORE", images: [IMG.a2_11, IMG.a2_916], leadFormId: null,
-            landingUrl: siteUrl("/?deal=sale&rooms=5", { ...BUYER_UTM, utm_content: "a2_viz" }),
-          }, D)],
+          ads: [
+            ad({
+              key: "a2_viz", name: "A2 viz", headline: "5 חדרים בעפולה. בסגנון שלך.",
+              message: "ראו את הבית הבא שלכם בסגנון שאתם אוהבים.\nבחרו סגנון עיצוב וצפו בהדמיית AI מיידית של הנכס, לפני שמגיעים לסיור.\n(להמחשה בלבד)",
+              cta: "LEARN_MORE", images: [IMG.a2_11, IMG.a2_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=sale&rooms=5", { ...BUYER_UTM, utm_content: "a2_viz" }),
+            }, D),
+            ad({
+              key: "a2_2", name: "A2-2 rooms", headline: "צריכים עוד חדר? 49 נכסים בעפולה.",
+              message: "49 נכסים למכירה בעפולה עם 5 חדרים ומעלה, עם מחיר, תמונות ומפה.\nהדף כבר מסונן. רק לבחור.",
+              description: "5 חדרים ומעלה בעפולה",
+              cta: "LEARN_MORE", images: [IMG.a2_11, IMG.a2_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=sale&rooms=5", { ...BUYER_UTM, utm_content: "a2_rooms" }),
+            }, D),
+            ad({
+              key: "a2_3", name: "A2-3 types", headline: "פנטהאוז, דירת גן או בית פרטי?",
+              message: "דירות, פנטהאוזים, דירות גן ובתים פרטיים בעפולה, 5 חדרים ומעלה, בחיפוש אחד.\nבוחרים סוג נכס ומשווים מחירים.",
+              description: "5 חדרים ומעלה בעפולה",
+              cta: "LEARN_MORE", images: [IMG.a2_11, IMG.a2_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=sale&rooms=5", { ...BUYER_UTM, utm_content: "a2_types" }),
+            }, D),
+          ],
         },
         {
           key: "a3", name: "A3 Renters", dailyBudgetIls: 8, destination: "website", leadFormId: null,
           optimization: "LANDING_PAGE_VIEWS", ageMin: 18, ageMax: 65, geo: housingGeo(), flexible: [],
           audienceKeys: [], extraAudienceIds: [], notes: [],
-          ads: [ad({
-            key: "a3_viz", name: "A3 gabriela", headline: "מחפשים להשכיר? כתבו לגבריאלה.",
-            message: "לא בא לכם לגלול? כתבו לגבריאלה בוואטסאפ מה אתם מחפשים להשכרה, וקבלו נכסים מתאימים.",
-            cta: "LEARN_MORE", images: [IMG.a3_11, IMG.a3_916], leadFormId: null,
-            landingUrl: siteUrl("/?deal=rent", { ...BUYER_UTM, utm_content: "a3_gabriela" }),
-          }, D)],
+          ads: [
+            ad({
+              key: "a3_viz", name: "A3 gabriela", headline: "מחפשים להשכיר? כתבו לגבריאלה.",
+              message: "לא בא לכם לגלול? כתבו לגבריאלה בוואטסאפ מה אתם מחפשים להשכרה, וקבלו נכסים מתאימים.",
+              cta: "LEARN_MORE", images: [IMG.a3_11, IMG.a3_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=rent", { ...BUYER_UTM, utm_content: "a3_gabriela" }),
+            }, D),
+            ad({
+              key: "a3_2", name: "A3-2 alert", headline: "דירה להשכרה עולה? תדעו מיד.",
+              message: "ספרו לנו מה אתם מחפשים להשכרה, ונעדכן אתכם בוואטסאפ או במייל ברגע שעולה נכס שמתאים.\nבלי לרענן את האתר כל יום.",
+              description: "עדכון על נכס חדש להשכרה",
+              cta: "LEARN_MORE", images: [IMG.a3_11, IMG.a3_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=rent", { ...BUYER_UTM, utm_content: "a3_alert" }),
+            }, D),
+            ad({
+              key: "a3_3", name: "A3-3 contact", headline: "להשכרה בעפולה: מחיר, תמונות ופרטי קשר.",
+              message: "בלי 'פרטים בפרטי': רואים מחיר, תמונות ופרטי קשר. מסננים לפי חדרים ומחיר.",
+              description: "נכסים להשכרה בעפולה",
+              cta: "LEARN_MORE", images: [IMG.a3_11, IMG.a3_916], leadFormId: null,
+              landingUrl: siteUrl("/?deal=rent", { ...BUYER_UTM, utm_content: "a3_contact" }),
+            }, D),
+          ],
         },
         {
           key: "a4", name: "A4 Investors", dailyBudgetIls: 7, destination: "website", leadFormId: null,
           optimization: "LANDING_PAGE_VIEWS", ageMin: 18, ageMax: 65, geo: housingGeo(), flexible: [],
           audienceKeys: [], extraAudienceIds: [], notes: [],
-          ads: [ad({
-            key: "a4_viz", name: "A4 prices", headline: "כמה באמת עולה דירה בעפולה?",
-            message: "בדקו מחירי דירות בעפולה לפי עסקאות שדווחו לרשות המסים, וראו עסקאות אחרונות לפי יישוב.",
-            cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
-            landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_prices" }),
-          }, D)],
+          ads: [
+            ad({
+              key: "a4_viz", name: "A4 prices", headline: "כמה באמת עולה דירה בעפולה?",
+              message: "בדקו מחירי דירות בעפולה לפי עסקאות שדווחו לרשות המסים, וראו עסקאות אחרונות לפי יישוב.",
+              cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
+              landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_prices" }),
+            }, D),
+            ad({
+              key: "a4_2", name: "A4-2 deals", headline: "מחיר מודעה או מחיר עסקה?",
+              message: "המחיר במודעה הוא מה שמבקשים. המחיר בעסקה הוא מה ששילמו בפועל.\nראו מחירים חציוניים בעפולה לפי מספר חדרים, מעסקאות שדווחו לרשות המסים.",
+              description: "נתוני עסקאות רשמיים",
+              cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
+              landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_deals" }),
+            }, D),
+            ad({
+              key: "a4_3", name: "A4-3 sqm", headline: "עפולה ₪13,800 למ\"ר. חיפה ₪17,400.",
+              message: "מחיר חציוני למ\"ר בדירות 4 חדרים, לפי עסקאות שדווחו לרשות המסים (9.2025-9.2026).\nמשווים ערים ומספר חדרים בטבלה אחת.",
+              description: "מחירי עסקאות לפי עיר",
+              cta: "LEARN_MORE", images: [IMG.a4_11, IMG.a4_916], leadFormId: null,
+              landingUrl: siteUrl("/prices", { ...BUYER_UTM, utm_content: "a4_sqm" }),
+            }, D),
+          ],
         },
       ],
     },
@@ -694,6 +793,20 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
             message: "כתבו לגבריאלה בוואטסאפ מה אתם מחפשים, וקבלו נכסים מתאימים.",
             cta: "LEARN_MORE", images: [IMG.rt2_11, IMG.rt2_916], leadFormId: null,
             landingUrl: siteUrl("/?deal=sale&utm_campaign=retargeting_q4&utm_content=rt2", RT_UTM),
+          }, D),
+          ad({
+            key: "rt3", name: "RT3 calc", headline: "ראיתם נכס? כמה יהיה ההחזר החודשי?",
+            message: "מכניסים מחיר, הון עצמי, ריבית ותקופה, ורואים החזר חודשי משוער במחשבון המשכנתא באתר.\n(חישוב משוער בלבד)",
+            description: "מחשבון משכנתא חינמי",
+            cta: "LEARN_MORE", images: [IMG.rt1_11, IMG.rt1_916], leadFormId: null,
+            landingUrl: siteUrl("/?deal=sale&utm_campaign=retargeting_q4&utm_content=rt3#calc", RT_UTM),
+          }, D),
+          ad({
+            key: "rt4", name: "RT4 new", headline: "נכסים חדשים עולים כל שבוע.",
+            message: "בכל שבוע עולים לאתר נכסים חדשים למכירה בעפולה ובעמק.\nאולי מה שחיפשתם כבר כאן.",
+            description: "נכסים חדשים למכירה",
+            cta: "LEARN_MORE", images: [IMG.rt2_11, IMG.rt2_916], leadFormId: null,
+            landingUrl: siteUrl("/?deal=sale&utm_campaign=retargeting_q4&utm_content=rt4", RT_UTM),
           }, D),
         ],
       }],
@@ -769,6 +882,10 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
         if (one.headline.length > HEADLINE_WARN) {
           warnings.push(`${one.name}: כותרת של ${one.headline.length} תווים. בטלפון נחתך מעל ${HEADLINE_WARN}.`);
         }
+        const descLen = (one.description || "").length;
+        if (descLen > DESCRIPTION_LIMIT) {
+          warnings.push(`${one.name}: תיאור של ${descLen} תווים. מטא מציגה עד ${DESCRIPTION_LIMIT}.`);
+        }
         if (one.images.length < 1) errors.push({ code: "image_required", detail: one.name });
         if (c.housing && one.message.includes("הערכת שווי") && !one.message.includes("שמאי")) {
           errors.push({ code: "valuation_disclaimer", detail: one.name });
@@ -785,6 +902,24 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
         if (a.geo.mode === "country") errors.push({ code: "housing_country", detail: a.name });
       }
     }
+  }
+
+  const liveCountAds: string[] = [];
+  for (const c of campaigns) {
+    for (const a of c.adSets) {
+      for (const one of a.ads) {
+        const blob = `${one.headline}\n${one.message}\n${one.description || ""}`;
+        const hits: string[] = [];
+        if (hasStandaloneCount(blob, "45")) hits.push("45");
+        if (hasStandaloneCount(blob, "49")) hits.push("49");
+        if (hasStandaloneCount(blob, "13,800")) hits.push("₪13,800");
+        if (hasStandaloneCount(blob, "17,400")) hits.push("₪17,400");
+        if (hits.length) liveCountAds.push(`${one.name} (${hits.join(", ")})`);
+      }
+    }
+  }
+  if (liveCountAds.length) {
+    warnings.push(`מספרים חיים שצריך לרענן לפני היצירה: ${liveCountAds.join("; ")}.`);
   }
 
   const images: ImageRef[] = [];
@@ -1008,6 +1143,7 @@ export function collectWriteOps(plan: LaunchPlan, ctx: {
           image_hash: `{{hash:${feed.key}}}`,
           call_to_action: { type: one.cta, value: ctaValue },
         };
+        if (one.description) linkData.description = one.description;
         const oss: Record<string, unknown> = { page_id: ctx.pageId, link_data: linkData };
         if (ctx.instagramUserId) oss.instagram_user_id = ctx.instagramUserId;
         const creativeBody: Record<string, string> = {
@@ -1233,6 +1369,7 @@ export function summarizeLaunch(plan: LaunchPlan) {
           status: PAUSED_STATUS,
           headline: ad.headline,
           message: ad.message,
+          description: ad.description || "",
           cta: ad.cta,
           landing_url: ad.landingUrl,
           lead_form_id: ad.leadFormId,
