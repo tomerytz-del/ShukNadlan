@@ -760,8 +760,8 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_property_video",
     description:
-      "מפיק סרטון שיווקי מהתמונות של הנכס: כל תמונה הופכת לקליפ קצר בתנועת " +
-      "מצלמה, הקליפים מחוברים לרצף של עד 20 שניות, והסרטון מוצמד לנכס. " +
+      "מפיק לנכס רילס אנכי של כ-18 שניות עם קריינות: התמונות של הנכס, המחיר " +
+      "והמפרט, ובסוף כרטיס עם הפרטים של הסוכן/ת. הרילס מוצמד לנכס ומופיע בדף שלו. " +
       "ההפקה לוקחת כמה דקות ורצה ברקע - הסוכן/ת מקבל/ת התראה כשהיא נגמרת. " +
       "**במסלול PROFESSIONAL הכסף יורד מהארנק ברגע שהבקשה נפתחת**, ולכן " +
       "‏confirm הוא חובה ומותר להעביר אותו רק אחרי שהמחיר נאמר לסוכן/ת " +
@@ -785,8 +785,8 @@ const TOOLS: Anthropic.Tool[] = [
         },
         aspect_ratio: {
           type: "string",
-          enum: ["16:9", "9:16"],
-          description: "יחס התמונה. ברירת מחדל 16:9. ‏9:16 = אנכי לסטורי/רילס.",
+          enum: ["9:16"],
+          description: "תמיד 9:16 - הרילס אנכי. אפשר להשמיט.",
         },
       },
       required: ["property_id", "confirm"],
@@ -2721,7 +2721,11 @@ async function toolPropertyVideoInfo(ctx: ToolContext, input: Record<string, unk
         ? `כלול במסלול Elite (נשארו ${quote.monthly_left} הפקות החודש)`
         : `₪${Number(quote.price || 0)} מיתרת הארנק (יתרה: ₪${Number(quote.credit_balance || 0)})`)
       : undefined,
-    last_job: status.has_job ? status : undefined,
+    // ‏pending_reel / rendering הם "בהפקה" כמו סטטוסי fal - ‏in_production
+    // מגיע מהמסד, כדי שהבוט לא יחזיק עותק של רשימת הסטטוסים.
+    last_job: status.has_job
+      ? { ...status, status_text: status.in_production ? "הסרטון בהפקה, תישלח התראה כשיהיה מוכן" : undefined }
+      : undefined,
   };
 }
 
@@ -2756,7 +2760,7 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
       agent_id: ctx.agent.id,
       property_id: propertyId,
       replace_existing: input.replace_existing === true,
-      aspect_ratio: input.aspect_ratio === "9:16" ? "9:16" : "16:9",
+      aspect_ratio: "9:16",
     }),
   });
 
@@ -2782,13 +2786,12 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
   return {
     ok: true,
     property_id: propertyId,
-    clips: body.clips,
+    status: body.status,
     estimated_seconds: body.estimated_seconds,
     amount_charged: body.amount_charged,
     // ‏**הבוט אינו יוזם הודעה** (חלון 24 השעות של Meta), ולכן ההודעה על סיום
     // מגיעה בערוץ ההתראות ולא כהמשך של השיחה הזו.
-    note: "ההפקה רצה ברקע ולוקחת כמה דקות. תישלח התראה כשהסרטון יהיה מוכן, " +
-      "ואפשר גם לשאול בכל רגע מה מצבה.",
+    note: "הסרטון בהפקה, תישלח התראה כשיהיה מוכן. אפשר גם לשאול בכל רגע מה מצבו.",
   };
 }
 
@@ -6148,12 +6151,13 @@ const SYSTEM_STATIC: string = (() => {
       "המתנה לתשובה → create_property_video עם confirm. \"תעשה לי סרטון\" היא הבקשה, " +
       "לא האישור - ובמסלול PROFESSIONAL זה כסף שיורד מהארנק.",
     "- אם חזר blocker_text - אמור/אמרי אותו ואל תנסה/י להפיק בכל זאת.",
-    "- ‏video_exists אינו חסימה אלא שאלה: יש כבר סרטון על הנכס, והוא עלול להיות סיור " +
-      "שהסוכן/ת צילם/ה בעצמו/ה. שאל/י אם להחליף, ורק אחרי \"כן\" קרא/י שוב עם " +
-      "replace_existing.",
+    "- ‏video_exists אינו חסימה אלא שאלה: יש כבר על הנכס סרטון שהסוכן/ת העלה בעצמו/ה. " +
+      "שאל/י אם להחליף, ורק אחרי \"כן\" קרא/י שוב עם replace_existing. סרטון שהמערכת " +
+      "הפיקה (רילס יומי או סרטון קודם שלנו) מוחלף בלי לשאול, ואז video_exists לא חוזר.",
     "- אחרי הפתיחה אמור/אמרי את note: ההפקה רצה ברקע, תישלח התראה כשתיגמר, ואפשר " +
       "לשאול בינתיים. **אל תבטיח/י שתכתוב/י בעצמך כשיהיה מוכן** - אין לבוט דרך ליזום הודעה.",
-    "- \"מה קורה עם הסרטון\" = property_video_info. ‏last_job נושא את ההתקדמות.",
+    "- \"מה קורה עם הסרטון\" = property_video_info. ‏last_job נושא את ההתקדמות; כשיש בו " +
+      "status_text - אמור/אמרי אותו כמו שהוא, בלי סטטוסים טכניים.",
     "",
     "לקוחות והתאמות:",
     "- למצוא לקוח/ה לפי שם: list_clients עם query. הדרישות והתקציב חוזרים בשדה needs.",

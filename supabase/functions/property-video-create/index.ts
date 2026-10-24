@@ -2,31 +2,22 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ensureTagged } from "../_shared/visualization.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import {
-  buildClipInput,
-  buildScenePrompt,
-  corsHeaders,
-  failVideoJob,
-  falSubmit,
-  FAL_VIDEO_MODEL,
-  type FailResult,
-  isTransientFailure,
-  json,
-  pickScenes,
-} from "../_shared/property-video.ts";
+import { corsHeaders, json, pickScenes } from "../_shared/property-video.ts";
+import { grokIsOnline, startFalLegacy, startSiteRender } from "../_shared/reel-fallback.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 
 // ============================================================================
 // הפקת סרטון שיווקי לנכס — הכניסה מה-CRM ומהעוזר בוואטסאפ.
 //
-// ‏POST { property_id, replace_existing?, aspect_ratio? }
-// מחזיר מיד ‎{ ok, job_id, clips }‎; הקליפים נוצרים אצל fal והתשובות חוזרות
-// ל-‎property-video-callback‎. ה-CRM עושה polling דרך
-// ‎rpc('property_video_job_status', { p_job_id })‎.
+// ‏POST { property_id, replace_existing? }
+// מחזיר מיד ‎{ ok, job_id, status, estimated_seconds }‎. ה-CRM עושה polling
+// דרך ‎rpc('property_video_job_status', { p_job_id })‎.
 //
-// למה הפונקציה לא מחכה לסרטון: יצירת ארבעה קליפים ב-fal לוקחת דקות, הרבה
-// מעבר לתקרת הזמן של Edge Function. הפונקציה שולחת את הבקשות ומסיימת —
-// המשך הטיפול הוא מכונת מצבים ב-DB.
+// ‏**מאז 24.10.2026 הסרטון הוא רילס בתבנית D**, ומי שמפיק אותו נקבע כאן:
+// ‏Grok Bot כשהוא חי (‏pending_reel, והוא לוקח דרך ‎reel-producer‎), אחרת
+// הגיבוי של האתר ב-GitHub Actions (‏rendering), ורק אם גם הוא לא זמין -
+// המסלול הישן של fal (‏_shared/reel-fallback.ts). הפונקציה לא מחכה לסרטון
+// באף אחד מהם: ההפקה לוקחת דקות, והמשך הטיפול הוא מכונת מצבים ב-DB.
 //
 // שלוש נקודות שכדאי להכיר:
 //
@@ -36,8 +27,8 @@ import { mfaGate } from "../_shared/mfa-gate.ts";
 //   2. **הסרטון הישן נמחק רק בסוף.** ‎previous_video_url‎ נשמר על הבקשה,
 //      וה-callback מוחק אותו אחרי שהחדש כבר על הנכס. הפקה שנכשלת באמצע
 //      משאירה את הסוכן/ת עם הסרטון שהיה לו/ה.
-//   3. **כישלון בשליחה מחזיר את הכסף מיד.** אם אף קליף לא נשלח ל-fal, אין
-//      מה לחכות לו — הבקשה נסגרת ככושלת וה-RPC מזכה את הארנק.
+//   3. **כישלון בשליחה מחזיר את הכסף מיד.** אם הבקשה הגיעה ל-fal ואף קליף
+//      לא נשלח, אין מה לחכות לו — הבקשה נסגרת ככושלת וה-RPC מזכה את הארנק.
 //
 // ## שני קוראים, נקודת כניסה אחת
 //
@@ -62,34 +53,18 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// כתובת ה-callback חייבת להיות ציבורית ומוחלטת — fal קורא/ת אליה מבחוץ.
-// ברירת המחדל נגזרת מ-SUPABASE_URL, ו-PROPERTY_VIDEO_CALLBACK_URL קיים כדי
-// לאפשר בדיקה מול מנהרה מקומית בלי לשנות קוד.
-function callbackBase(): string {
-  const explicit = Deno.env.get("PROPERTY_VIDEO_CALLBACK_URL");
-  if (explicit) return explicit.replace(/\/+$/, "");
-  return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/property-video-callback`;
-}
-
 async function pricing(supabase: any, key: string, fallback: number): Promise<number> {
   const { data } = await supabase.from("pricing_config").select("value").eq("key", key).maybeSingle();
   const n = Number(data?.value);
   return Number.isFinite(n) ? n : fallback;
 }
 
-// מה קרה לכסף, לבקשה שנכשלה אחרי החיוב. ה-CRM והבוט אומרים לסוכן/ת לפי
-// זה "₪25 הוחזרו לארנק", ולא "לא בוצע חיוב" - שהיה לא נכון: החיוב יורד
-// ב-start_property_video_job לפני השליחה ל-fal. ‏refund_pending: הזיכוי לא
-// אושר עכשיו, והבקשה נשארה פתוחה ל-reconcile.
-function refundFields(closed: FailResult) {
-  return { refunded: closed.refunded, refund_pending: !closed.ok };
-}
+// הרילס בתבנית D: חמש שקופיות של כ-3 שניות, וכרטיס סיום.
+const REEL_SECONDS = 18;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-
-  if (!Deno.env.get("FAL_KEY")) return json({ error: "fal_not_configured" }, 500);
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
@@ -104,7 +79,9 @@ Deno.serve(async (req: Request) => {
   const propertyId = body?.property_id;
   if (!propertyId) return json({ error: "missing_property_id" }, 400);
   const replaceExisting = body?.replace_existing === true;
-  const aspectRatio = body?.aspect_ratio === "9:16" ? "9:16" : "16:9";
+  // תבנית D היא 1080x1920, ולכן הבקשה אנכית תמיד - גם אם בסוף היא מגיעה
+  // למסלול fal. ‏aspect_ratio בגוף הבקשה נשאר מתקבל ואינו משנה דבר.
+  const aspectRatio = "9:16";
 
   // ---- מי הסוכן/ת --------------------------------------------------------
   const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -216,17 +193,35 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // ---- הזכאות, התקרה והחיוב ---------------------------------------------
+  // ---- הזכאות, התקרה והחיוב, והמפיק --------------------------------------
+  // תבנית D (24.10.2026): הבקשה נולדת אצל המפיק שיפיק אותה. ‏Grok חי
+  // (דופק בעשר הדקות האחרונות) - ממתינה לו ב-pending_reel. אחרת - ישר
+  // לגיבוי של האתר ב-rendering. השורה נוצרת בסטטוס הזה בתוך הטרנזקציה של
+  // החיוב, ולכן אין רגע שבו בקשה פתוחה אינה מוכרת לאינדקס הייחודי.
   const webhookToken = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+  const grokOnline = await grokIsOnline(supabase);
 
-  const { data: started, error: startErr } = await supabase.rpc("start_property_video_job", {
+  const base = {
     p_property_id: propertyId,
     p_agent_id: agentRow.id,
     p_webhook_token: webhookToken,
     p_clip_seconds: askSeconds,
     p_aspect_ratio: aspectRatio,
     p_replace_existing: replaceExisting,
+  };
+  let { data: started, error: startErr } = await supabase.rpc("start_property_video_job", {
+    ...base,
+    p_initial_status: grokOnline ? "pending_reel" : "rendering",
+    p_producer: grokOnline ? "grok_reel" : "site_reel",
+    p_fallback_reason: grokOnline ? null : "producer_offline",
   });
+  // ‏PGRST202: המיגרציה של תבנית D עוד לא הוחלה (הפונקציות והמיגרציות
+  // נפרסות במקביל אחרי מיזוג). בדקות האלה - המסלול הקודם כמו שהיה: fal.
+  let legacy = false;
+  if (startErr?.code === "PGRST202") {
+    legacy = true;
+    ({ data: started, error: startErr } = await supabase.rpc("start_property_video_job", base));
+  }
   if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
   if (started?.error) {
     const status = started.error === "insufficient_balance" ? 402
@@ -236,88 +231,40 @@ Deno.serve(async (req: Request) => {
   }
 
   const jobId = started.job_id as string;
-
-  // ---- שורות הקליפים -----------------------------------------------------
-  const clipRows = scenes.map((scene, idx) => ({
-    job_id: jobId,
-    idx,
-    target: scene.target,
-    source_image_url: scene.url,
-    prompt: buildScenePrompt(scene.target, property.property_type),
-  }));
-
-  const { data: insertedClips, error: clipErr } = await supabase
-    .from("property_video_clips")
-    .insert(clipRows)
-    .select("id, idx, source_image_url, prompt");
-  if (clipErr) {
-    const closed = await failVideoJob(supabase, jobId, `db_error: ${clipErr.message}`);
-    return json({ error: "db_error", detail: clipErr.message, ...refundFields(closed) }, 500);
-  }
-
-  // ---- שליחה ל-fal -------------------------------------------------------
-  // מזהה הקליף נכנס לכתובת ה-webhook ולא נשלף מגוף התשובה: כך ה-callback
-  // יודע/ת על איזו שורה מדובר בלי להסתמך על הצורה המדויקת של המעטפת ש-fal
-  // מחזיר/ה, שמשתנה בין מודלים.
-  const base = callbackBase();
-  let submitted = 0;
-  const failures: string[] = [];
-
-  for (const clip of insertedClips ?? []) {
-    const hook = `${base}?token=${encodeURIComponent(webhookToken)}&job=${jobId}&clip=${clip.id}`;
-    const input = buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio);
-
-    let result = await falSubmit(FAL_VIDEO_MODEL, input, hook);
-
-    // ניסיון שני לכשל שנראה חולף. בהרצה האחרונה קליף אחד קיבל ‎403‎ של יתרה
-    // בעוד שהקליף **שאחריו** נשלח בהצלחה — כלומר זה לא היה מצב חשבון אלא
-    // רעש רגעי, ותמונה אחת ירדה מהסרטון בלי סיבה אמיתית. ניסיון אחד נוסף
-    // הוא המחיר הזול ביותר לכך ש"לא יתפספסו תמונות".
-    //
-    // ‏422 אינו נכלל: הוא אומר שהקלט עצמו פסול, ושליחה חוזרת שלו רק תשלם שוב.
-    if (!result.ok && isTransientFailure(result.error)) {
-      result = await falSubmit(FAL_VIDEO_MODEL, input, hook);
-    }
-
-    if (result.ok) {
-      await supabase
-        .from("property_video_clips")
-        .update({ fal_request_id: result.requestId })
-        .eq("id", clip.id);
-      submitted++;
-    } else {
-      await supabase
-        .from("property_video_clips")
-        .update({ status: "failed", error_detail: result.error })
-        .eq("id", clip.id);
-      failures.push(result.error ?? "unknown");
-    }
-  }
-
-  // ‏trim_to_seconds נשאר ריק: אין חיתוך, ולכן אורך הסצנה הסופי הוא בדיוק
-  // מה שנשלח ל-fal.
-  await supabase
-    .from("property_video_jobs")
-    .update({ source_seconds: askSeconds })
-    .eq("id", jobId);
-
-  // אף קליף לא נשלח — אין למה לחכות, והארנק מזוכה עכשיו ולא בעוד שעה.
-  if (submitted === 0) {
-    const closed = await failVideoJob(supabase, jobId, `fal_submit_failed: ${failures.slice(0, 3).join(" | ")}`);
-    return json({ error: "fal_submit_failed", detail: failures[0] ?? null, ...refundFields(closed) }, 502);
-  }
-
-  // חלק מהקליפים נשלחו וחלק לא. הסרטון עדיין שווה משהו — 3 קליפים במקום 4
-  // הם 15 שניות במקום 20 — ולכן הבקשה ממשיכה, וה-callback ימזג את מה שיצא.
-  return json({
+  const accepted = {
     ok: true,
     job_id: jobId,
     tier: started.tier,
     amount_charged: started.amount_charged,
-    clips: submitted,
-    clips_failed: (insertedClips?.length ?? 0) - submitted,
-    // ‏askSeconds ולא clipSeconds: זה מה ש-fal באמת מייצר, ובלי חיתוך זה גם
-    // מה שהסוכן/ת יראה/תראה בפועל.
-    estimated_seconds: Math.round(submitted * askSeconds * 10) / 10,
-  });
+    estimated_seconds: REEL_SECONDS,
+  };
+
+  if (legacy) {
+    const r = await startFalLegacy(supabase, jobId);
+    if (!r.ok) return json({ error: r.error, detail: r.detail ?? null, refunded: r.refunded, refund_pending: r.refund_pending }, 502);
+    return json({ ...accepted, status: "generating_clips", estimated_seconds: r.seconds });
+  }
+
+  if (grokOnline) return json({ ...accepted, status: "pending_reel" });
+
+  // ---- הגיבוי של האתר, ואם גם הוא לא זמין - fal --------------------------
+  const route = await startSiteRender(supabase, jobId);
+  if (route === "dispatched") return json({ ...accepted, status: "rendering" });
+
+  // ‏startSiteRender כבר העבירה ל-fal והריצה את השליחה. נשארה רק התשובה:
+  // אם הבקשה נכשלה ונסגרה (וזוכתה), זה מה שהסוכן/ת צריך/ה לשמוע.
+  const { data: row } = await supabase
+    .from("property_video_jobs")
+    .select("status, refunded, amount_charged, error_detail")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (row?.status === "failed") {
+    return json({
+      error: "fal_submit_failed",
+      detail: row.error_detail ?? null,
+      refunded: row.refunded ? Number(row.amount_charged) || 0 : 0,
+      refund_pending: !row.refunded && Number(row.amount_charged) > 0,
+    }, 502);
+  }
+  return json({ ...accepted, status: row?.status ?? "generating_clips", estimated_seconds: Math.round(5 * askSeconds) });
 });
