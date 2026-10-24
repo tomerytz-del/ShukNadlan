@@ -8,7 +8,9 @@
 
    ‏**canonical מהכתובת, לא מהמסד:** היא נכנסת לפני הקריאה למסד, ולכן דקה של
    Supabase איטי אינה מאחדת שכונות. ‏noindex - רק כשהמסד ענה במפורש שאין
-   שכונה כזו, או כשהדף דל (בלי נכס פעיל ועם פחות מ-5 עסקאות).
+   שכונה כזו, כשהכתובת אינה תקינה, או כשהדף דל (בלי נכס פעיל ועם פחות מ-5
+   עסקאות). timeout, שגיאת HTTP או תשובה שאינה אובייקט הם 503 בלי noindex
+   ובלי מטמון: גוגל חוזרת, ודף ריק אינו נשמר כאילו הוא הדף.
 
    התיעוד: ‎docs/neighborhood-pages.md‎.
    ========================================================================== */
@@ -102,6 +104,16 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
+function failureHeaders(base: Headers, status: number): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  if (status === 503) headers.set("Retry-After", "60");
+  return headers;
+}
+
 export function inject(html: string, d: Hood): string {
   const H = hood();
   const box = /<div id="dealsBody"[^>]*>[\s\S]*?<!--\/deals-->/;
@@ -130,27 +142,38 @@ export default async function handler(request: Request, context: Context) {
   const html = await res.text();
   let out = html;
   let cache = false;
+  let status = res.status;
 
   try {
     if (!parts) {
       out = noindex(html);
+      status = 404;
     } else {
       out = withUrl(html, parts[0], parts[1]);
       const data = await rpc("neighborhood_page", { p_city: parts[0], p_slug: parts[1] });
       if (data === null) {
         out = noindex(out);
-      } else if (data && typeof data === "object") {
+        status = 404;
+      } else if (data && typeof data === "object" && !Array.isArray(data)) {
         const d = data as Hood;
         const filled = inject(out, d);
         cache = filled !== out;
         out = filled;
         // דף דל הוא תוכן דל בעיני גוגל: נשאר לגולש/ת, לא לאינדקס ולא ל-sitemap
         if (cache && !Number(d.props_active || 0) && Number(d.deals || 0) < THIN_DEALS) out = noindex(out);
+      } else {
+        /* ‏undefined, או תשובה שאינה אובייקט: כשל זמני. בלי noindex. */
+        status = 503;
       }
     }
   } catch {
     out = parts ? withUrl(html, parts[0], parts[1]) : html;
     cache = false;
+    status = 503;
+  }
+
+  if (status === 404 || status === 503) {
+    return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
   const headers = new Headers(res.headers);
