@@ -1109,6 +1109,36 @@ function logAreaMiss(phrase, resultCount, city){
   } catch(e){ /* מדידה לא שוברת אתר */ }
 }
 
+/* ---------- מילה שלא זוהתה ----------
+   ‏"דירה עם גינה": אין מאפיין כזה, והחיפוש ממשיך בלעדיו. נרשם ל-
+   search_word_misses (‏kind = 'feature'), ומשם מנהל/ת הפלטפורמה רואה מה מבקשים
+   ואין לו מילה ("מילים שלא זוהו" בדשבורד). אותן הגנות, עד 40 תווים. */
+const WORD_MISSES_URL = SUPABASE_URL + '/rest/v1/search_word_misses';
+function logWordMiss(kind, phrase, city){
+  try{
+    const t = String(phrase || '').trim().replace(/\s+/g, ' ');
+    if (t.length < 2 || t.length > 40 || t.indexOf('@') !== -1 || /[0-9]{9,}/.test(t)) return;
+    fetch(WORD_MISSES_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        // ‏insert בלבד ל-anon - בלי returning (ראו logSearchToDb)
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        kind: kind === 'type' ? 'type' : 'feature',
+        phrase: t,
+        city: String(city || '').slice(0, 60) || null,
+        source: 'site',
+        visitor: visitorSessionId()
+      }),
+      keepalive: true
+    })['catch'](function(){ /* מדידה, לא תקלה */ });
+  } catch(e){ /* מדידה לא שוברת אתר */ }
+}
+
 /* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
    כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
    שנכס לא יישאר עם סרט "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
@@ -6909,6 +6939,7 @@ let freeTextFeatures = new Set();
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
     onAreaMiss: logAreaMiss,
+    onWordMiss: logWordMiss,
     urlExtra: ()=> appliedAdvancedQs,
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),

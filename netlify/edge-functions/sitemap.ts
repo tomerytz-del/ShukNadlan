@@ -33,10 +33,19 @@
    ‎_public‎ שכבר מסננות בעצמן (כרטיס מקצוע שתוקפו פג, סוכן/ת לא פעיל/ה,
    כתבה שטרם פורסמה), ולכן אין כאן שום שיקול דעת שמוגדר פעמיים.
 
-   ‏**3. כישלון מחזיר את הקובץ הסטטי.** כל שאילתה עטופה ב-timeout
-   וב-try/catch ומחזירה רשימה ריקה בכשל, וכישלון כולל מחזיר את
-   ‎sitemap.xml‎ כמו שהוא. ‏sitemap חלקי אינו מוחק כלום מהאינדקס — גוגל
-   מתייחסת אליו כרמז ולא כרשימת מחיקה — ולכן חלקי עדיף על 500.
+   ‏**3. כישלון של מקור רגיל מחזיר רשימה ריקה, וכישלון של כולם מחזיר
+   את הקובץ הסטטי.** כל שאילתת GET עטופה ב-timeout וב-try/catch ומחזירה
+   רשימה ריקה בכשל. ‏sitemap חלקי אינו מוחק כלום מהאינדקס — גוגל
+   מתייחסת אליו כרמז ולא כרשימת מחיקה — ולכן חלקי עדיף על 500, וכישלון
+   של כל המקורות יחד מחזיר את ‎sitemap.xml‎ כמו שהוא.
+
+   ‏**היוצא מן הכלל הוא בלוק העסקאות לפי יישוב.** הוא נמשך ב-POST, כמו
+   ‏deals-page.ts, עם timeout של 8 שניות: ה-GET ב-2.5 שניות נכשל בשקט
+   והקובץ יוצא 200 בלי אף ‎/deals/‎. מערך ריק מהפונקציה הוא תשובה
+   לגיטימית (אין יישוב עם עסקאות) ונשאר 200. כשל — timeout, סטטוס שאינו
+   ‏200, או גוף שאינו מערך — כשיש כתובות ממקור אחר, הוא 503 עם
+   ‏Retry-After ו-no-store בשתי כותרות המטמון, בלי urlset חלקי. אין
+   כאן noindex: זה אינו דף HTML, וכשל זמני אינו סיבה למחוק כתובות.
 
    ‏**4. אין ‎changefreq‎ ואין ‎priority‎ בערכים הדינמיים.** גוגל מתעלמת
    משניהם מזה שנים. ‎lastmod‎ דווקא נקרא, ולכן הוא נכתב מהמסד בכל מקום
@@ -65,6 +74,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 
 const SITE = "https://shuknadlan.co.il";
 const FETCH_TIMEOUT_MS = 2500;
+/* ‏הצבירה ב-deal_settlements_public כבדה מה-GET של 2.5 שניות, והשמטה
+   שקטה של הבלוק מוציאה 200 בלי דפי העסקאות. 8 שניות עדיין מתחת ל-timeout
+   של כותרות ה-edge (‏40 שניות). מחכים לרשת, לא ל-CPU. */
+const DEALS_FETCH_TIMEOUT_MS = 8000;
 
 /* תקרה לכל סוג, כדי ששאילתה אחת לא תמשוך את כל הטבלה אם משהו משתבש.
    הן גבוהות בהרבה מהמצב היום (79 נכסים, 15 סוכנים, 10 משרדים). */
@@ -112,6 +125,36 @@ async function sbSelect(path: string): Promise<Record<string, unknown>[]> {
   }
 }
 
+/* ‏ok:false = כשל זמני. מערך ריק הוא תשובה לגיטימית, לא כשל.
+   גוף שאינו מערך אינו "אין יישובים" — הוא תשובה שלא הבנו. */
+type RpcRows = { ok: true; rows: Record<string, unknown>[] } | { ok: false };
+
+async function sbRpc(name: string): Promise<RpcRows> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), DEALS_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: false };
+    return { ok: true, rows: data.slice(0, LIMIT) };
+  } catch {
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ---------- הסוגים ---------- */
 
 /* ‏key הוא שם הפרמטר בכתובת, בדיוק כפי שדף הפירוט קורא אותו:
@@ -122,7 +165,10 @@ type Source = {
   key: "id" | "slug";
   field: string;
   lastmod?: string;
-  query: string;
+  query?: string;
+  /* ‏POST ל-rpc. כישלון של מקור כזה, כשיש כתובות ממקור אחר, הוא 503
+     ולא השמטה שקטה. מערך ריק אינו כישלון. */
+  rpc?: string;
   // ‏כתובת בצורת נתיב (‏/deals/afula) במקום ‎?slug=‎. הדף שמגיש אותה ממלא
   // את ה-canonical מהכתובת עצמה (‏deals-page.ts).
   path?: (value: string) => string;
@@ -195,7 +241,7 @@ const SOURCES: Source[] = [
     key: "slug",
     field: "slug",
     lastmod: "updated_at",
-    query: `rpc/deal_settlements_public?select=slug,updated_at&limit=${LIMIT}`,
+    rpc: "deal_settlements_public",
     path: (v) => `/deals/${encodeURIComponent(v)}`,
   },
   {
@@ -263,17 +309,44 @@ export default async function handler(_request: Request, context: Context) {
     const close = staticXml.lastIndexOf("</urlset>");
     if (close === -1) return fallback(); // לא הצורה שציפינו לה — לא נוגעים
 
-    const rows = await Promise.all(SOURCES.map((s) => sbSelect(s.query)));
+    const loaded = await Promise.all(SOURCES.map((s) =>
+      s.rpc
+        ? sbRpc(s.rpc)
+        : sbSelect(s.query || "").then((rows) => ({ ok: true as const, rows }))
+    ));
 
     const blocks: string[] = [];
     const counts: string[] = [];
+    let guardedFailed = false;
+    let otherUrls = 0;
     SOURCES.forEach((source, i) => {
-      const urls = entries(source, rows[i]);
+      const got = loaded[i];
+      /* ‏מקור שמסומן rpc: כשל אינו נבלע. מקור GET שנכשל כבר חזר כרשימה ריקה. */
+      if (!got.ok) {
+        guardedFailed = true;
+        return;
+      }
+      const urls = entries(source, got.rows);
       counts.push(`${source.name}: ${urls.length}`);
       blocks.push(...urls);
+      if (!source.rpc) otherUrls += urls.length;
     });
 
-    if (!blocks.length) return fallback(); // כל השאילתות נכשלו
+    /* ‏בלוק העסקאות נכשל ויש כתובות אחרות: לא מפרסמים 200 בלי /deals/.
+       הגוף הוא הקובץ הסטטי בלבד, והוא אינו נשמר. */
+    if (guardedFailed && otherUrls > 0) {
+      return new Response(staticXml, {
+        status: 503,
+        headers: {
+          "content-type": "application/xml; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Netlify-CDN-Cache-Control": "no-store",
+          "Retry-After": "60",
+        },
+      });
+    }
+
+    if (!blocks.length) return fallback(); // כל השאילתות נכשלו, או שאין מה להוסיף
 
     const body =
       staticXml.slice(0, close) + blocks.join("\n") + "\n" + staticXml.slice(close);

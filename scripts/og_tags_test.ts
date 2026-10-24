@@ -6,7 +6,8 @@
 
      ‏1. יש רשומה  → מזריקים canonical ותגיות שיתוף.
      ‏2. אין רשומה (המסד ענה 406/404) → ‎noindex,follow‎.
-     ‏3. לא הצלחנו לשאול (‏timeout, ‏5xx, ‏401) → הדף יוצא **כמו שהוא**.
+     ‏3. לא הצלחנו לשאול (‏timeout, ‏5xx, ‏401) → הגוף יוצא **כמו שהוא**,
+        בלי noindex. בדף נכס הסטטוס הוא 503; בשאר דפי הפירוט 200.
 
    ההפרדה בין 2 ל-3 היא כל העניין. מי שיאחד אותן — `if (!res.ok)` אחד
    במקום סיווג לפי סטטוס — יקבל ‎noindex‎ על **כל דפי הפירוט באתר** בכל
@@ -332,7 +333,92 @@ for (const [name, pass] of bodies) {
   console.log(`${pass ? "✓" : "✗"} ${name}`);
 }
 
-const total = CASES.length + checks.length + 3 + more.length + bodies.length;
+/* נכס: 404 כשאין רשומה, 503 בלי noindex כשהמסד נכשל, ושאר הדפים לא זזים. */
+async function responseOf(url: string, status: number, body: unknown): Promise<Response> {
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  return await handler(new Request(`https://shuknadlan.co.il${url}`), context());
+}
+const propDown = await responseOf("/property?id=9", 500, {});
+const propDownHtml = await propDown.text();
+const propMiss = await responseOf("/property?id=9", 406, { code: "PGRST116" });
+const propMissHtml = await propMiss.text();
+globalThis.fetch = (async () => {
+  throw new Error("לא הייתה צריכה לצאת קריאה");
+}) as typeof fetch;
+const propBare = await handler(new Request("https://shuknadlan.co.il/property"), context());
+const propBareHtml = await propBare.text();
+const agencyDown = await responseOf("/agency?slug=a", 403, {});
+const agencyDownHtml = await agencyDown.text();
+const propHttp: [string, boolean][] = [
+  ["נכס, מסד 500: 503, הגוף כמו שהוא, בלי noindex", propDown.status === 503 && propDownHtml === PAGE && !NOINDEX.test(propDownHtml)],
+  ["נכס, מסד 500: no-store ו-Retry-After", propDown.headers.get("Cache-Control") === "no-store"
+    && propDown.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+    && propDown.headers.get("Retry-After") === "60"],
+  ["נכס חסר: 404 ו-noindex, פסקה ולא H1", propMiss.status === 404 && NOINDEX.test(propMissHtml)
+    && propMissHtml.includes('class="prop-missing"') && !/<h1[^>]*>הנכס לא נמצא</.test(propMissHtml)],
+  ["נכס חסר: no-store בלי Retry-After", propMiss.headers.get("Cache-Control") === "no-store" && !propMiss.headers.get("Retry-After")],
+  ["‏/property בלי id: 404", propBare.status === 404 && NOINDEX.test(propBareHtml)],
+  ["משרד, 403: נשאר 200 בלי שינוי", agencyDown.status === 200 && agencyDownHtml === PAGE],
+];
+
+/* מחיר, מאפיינים, משרד וסוכן/ת ב-HTML הראשון. שאילתת הסוכן/ת נפרדת. */
+const VISIBLE =
+  `<!doctype html><html><head><title>x</title></head><body>` +
+  `<h1 id="propTitle">-</h1>` +
+  `<div class="hero-price" id="heroPrice" hidden><div class="num" id="heroPriceNum"></div><div class="sub" id="heroPriceSub"></div></div>` +
+  `<span id="agentPriceLabel">מחיר</span><span id="agentPriceValue">-</span>` +
+  `<div id="sbPriceLabel">מחיר</div><div id="sbPriceValue">-</div>` +
+  `<div id="agencyName">-</div><div id="agentCardName">צוות שוק נדל״ן</div>` +
+  `<div id="agentName" hidden></div>` +
+  `<div id="specPills"></div>` +
+  `<section id="highlightsSection" hidden><div id="highlightsList"></div></section>` +
+  `</body></html>`;
+const VISIBLE_ROW = {
+  ...PROPERTY,
+  price_per_sqm: "15000",
+  rooms: "4.0",
+  size_sqm: "100",
+  features: ["parking", "mamad"],
+  agent_id: "agent-1",
+  agent2_name: "שותף <ב>",
+  agencies: { name: "משרד הדר" },
+};
+async function visible(row: unknown, agent: unknown, agentStatus = 200): Promise<string> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    const isAgent = u.includes("agency_members_public");
+    return new Response(JSON.stringify(isAgent ? agent : row), {
+      status: isAgent ? agentStatus : 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=9"), {
+    next: async () => new Response(VISIBLE, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never);
+  return await res.text();
+}
+const seen = await visible(VISIBLE_ROW, { display_name: "דנה כהן" });
+const commercial = await visible({
+  ...VISIBLE_ROW, deal_type: "rent", category: "commercial", price_includes_vat: false, agent2_name: null,
+}, { display_name: "" }, 500);
+propHttp.push(
+  ["מחיר ומשרד ב-HTML, H1 אחד", seen.includes("1,500,000 ₪") && seen.includes("מחיר מבוקש")
+    && seen.includes(">משרד הדר<") && seen.includes(">דנה כהן<")
+    && seen.includes("בשיתוף: שותף &lt;ב&gt;") && seen.includes(">חניה<") && seen.includes(">ממ״ד<")
+    && seen.includes("100 מ״ר") && seen.includes("4 חדרים")
+    && /<div class="hero-price" id="heroPrice">/.test(seen)
+    && (seen.match(/<h1\b/g) || []).length === 1 && !seen.includes("הנכס לא נמצא")],
+  ["מסחרי להשכרה: מע״מ וחודש, וכשל סוכן/ת לא מפיל את הדף", commercial.includes("שכר דירה חודשי")
+    && commercial.includes("/ חודש") && commercial.includes("+ מע״מ") && commercial.includes(">משרד הדר<")],
+);
+for (const [name, pass] of propHttp) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length;
 if (failed) {
   console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);

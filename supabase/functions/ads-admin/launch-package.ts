@@ -5,9 +5,9 @@
 // (המתג היחיד הוא הקמפיין). כאן זה הפוך, ובכוונה בנפרד: כל קמפיין, כל סט
 // וכל מודעה נוצרים PAUSED, ותומר מדליק אותם בעצמו ב-Ads Manager.
 //
-// ‏buildLaunchPlan ו-collectWriteOps טהורות. dry-run מחזיר את התוכנית בלי
-// רשת. executeLaunch שולח רק את מה שהן בנו, ורק לנתיבי יצירה של חשבון
-// המודעות (לא לעדכון של קמפיין קיים).
+// ‏buildLaunchPlan ו-collectWriteOps טהורות. הבדיקה ב-index קוראת ל-Graph
+// רק לחיפוש טירגוט (GET). executeLaunch שולח רק את מה שהן בנו, ורק לנתיבי
+// יצירה של חשבון המודעות (לא לעדכון של קמפיין קיים).
 //
 // ‏HOUSING: קונים, שוכרים, משקיעים, ריטרגטינג והערכת שווי. גיוס מתווכים
 // ובעלי משרדים אינו מודעת דיור (חבילת ההשקה, ו-ads_rules סעיף ג). הצהרה
@@ -20,6 +20,11 @@ export const PIXEL_ID = "2269705306930561";
 export const PAGE_ID_EXPECTED = "1318798364655572";
 export const BROKER_FORM_ID = "4629964190604707";
 export const OFFICE_FORM_ID = "2999391313564730";
+// טופס הערכת השווי. יש גם טופס owner ישן יותר ("מוכרים נכס - עפולה") ואסור
+// ש-A5 ייפול עליו רק כי שניהם kind=owner.
+export const VALUATION_FORM_ID = "1644441057276438";
+export const VALUATION_FORM_NAME = "הערכת שווי חינם - עפולה";
+export const SELLERS_FORM_ID = "29809576818631130";
 export const DISCLOSURE_DEFAULT = 'שוק נדל"ן | תומר יצחק, רישיון תיווך 3134355';
 export const GOOGLE_BUYERS_DAILY_ILS = 30;
 export const GOOGLE_BUYERS_CAMPAIGN = "24350623422";
@@ -78,6 +83,7 @@ export type AdSetDef = {
   dailyBudgetIls: number;
   destination: "lead_form" | "website";
   leadFormId: string | null;
+  leadFormName?: string | null;
   optimization: "LEAD_GENERATION" | "LANDING_PAGE_VIEWS";
   ageMin: number;
   ageMax: number;
@@ -129,6 +135,7 @@ export type LaunchInput = {
   officeFormId?: string;
   includeA5?: boolean;
   ownerFormId?: string | null;
+  ownerFormName?: string | null;
   b2CustomerAudienceId?: string | null;
   externalDailyIls?: number;
 };
@@ -404,23 +411,74 @@ export function regionQueries(plan: LaunchPlan): string[] {
   return out;
 }
 
-export function pickTargetingMatch(query: string, rows: { id?: string; name?: string }[]): { id: string; name: string } | null {
-  const q = query.trim().toLowerCase();
-  const clean = rows.filter((r) => r.id && r.name) as { id: string; name: string }[];
-  const exact = clean.find((r) => r.name.trim().toLowerCase() === q);
-  if (exact) return exact;
-  const partial = clean.find((r) => r.name.toLowerCase().includes(q) || q.includes(r.name.toLowerCase()));
-  return partial ?? clean[0] ?? null;
+// מטא מחזירה שמות קרובים ("North District", "REMAX") ולפעמים בעברית כשאין
+// locale. התאמה רק כשהמחרוזת האנגלית מוכלת מילה-במילה דחתה את כולם, והיצירה
+// נעצרה לפני שנכתב משהו. כאן מתאימים בלי רגישות לרישיות ולפיסוק, ומחוז מקבל
+// גם וריאציה קרובה. שורה בלי חפיפה (Florist ל-Owner) לא נלקחת.
+export type TargetingRow = { id?: string | number; key?: string | number; name?: string; type?: string };
+
+export function compactTargetingName(s: string): string {
+  return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// כתיבה אמיתית לא מקבלת את השורה הראשונה סתם: רק התאמה מדויקת או חלקית.
-export function acceptedTargetingMatch(query: string, rows: { id?: string; name?: string }[]): { id: string; name: string } | null {
-  const m = pickTargetingMatch(query, rows);
-  if (!m) return null;
-  const q = query.trim().toLowerCase();
-  const n = m.name.trim().toLowerCase();
-  if (n === q || n.includes(q) || q.includes(n)) return m;
-  return null;
+// ציון גבוה יותר מנצח, ובשוויון נשארת השורה הראשונה שמטא החזירה.
+// השם שמוחזר חייב לחפוף לשאילתה: מוכל, מכיל, אותו טקסט בלי רווחים (RE/MAX
+// מול REMAX), או וריאציית מחוז (North מול Northern).
+export function targetingScore(query: string, name: string): number {
+  const q = compactTargetingName(query);
+  const n = compactTargetingName(name);
+  if (!q || !n) return 0;
+  if (q === n) return 1000;
+  if (n.includes(q)) return 800 + q.length;
+  if ((q === "northern district" || q === "north district") && (n === "north district" || n === "northern district" || (/\bnorth(ern)?\b/.test(n) && n.includes("district")))) return 700;
+  if (q === "haifa district" && (n === "haifa" || (n.includes("haifa") && n.includes("district")))) return 700;
+  const qs = q.replace(/ /g, "");
+  const ns = n.replace(/ /g, "");
+  if (qs.length >= 4 && ns.length >= 4 && (qs === ns || qs.startsWith(ns) || ns.startsWith(qs))) return 500 + Math.min(qs.length, ns.length);
+  if (q.includes(n) && n.length >= 4) return 400 + n.length;
+  return 0;
+}
+
+export function targetingNamesClose(query: string, name: string): boolean {
+  return targetingScore(query, name) > 0;
+}
+
+export function targetingRows(res: unknown): { id: string; name: string; type: string }[] {
+  const data = Array.isArray(res) ? res : (res && typeof res === "object" && Array.isArray((res as { data?: unknown }).data) ? (res as { data: TargetingRow[] }).data : []);
+  return data
+    .map((r) => ({
+      id: String(r?.id || r?.key || ""),
+      name: String(r?.name || ""),
+      type: String(r?.type || ""),
+    }))
+    .filter((r) => r.id && r.name);
+}
+
+function rowsOfType(rows: TargetingRow[] | unknown, wantType?: string): { id: string; name: string; type: string }[] {
+  const clean = targetingRows(rows);
+  if (!wantType) return clean;
+  const typed = clean.filter((r) => r.type);
+  if (!typed.length) return clean;
+  return clean.filter((r) => r.type.toLowerCase() === wantType.toLowerCase());
+}
+
+export function pickTargetingMatch(query: string, rows: TargetingRow[] | unknown, wantType?: string): { id: string; name: string } | null {
+  let best: { id: string; name: string } | null = null;
+  let bestScore = 0;
+  for (const row of rowsOfType(rows, wantType)) {
+    const score = targetingScore(query, row.name);
+    if (score > bestScore) {
+      bestScore = score;
+      best = { id: row.id, name: row.name };
+    }
+  }
+  return best;
+}
+
+export function acceptedTargetingMatch(query: string, rows: TargetingRow[] | unknown, wantType?: string): { id: string; name: string } | null {
+  const m = pickTargetingMatch(query, rows, wantType);
+  if (!m || !targetingNamesClose(query, m.name)) return null;
+  return m;
 }
 
 export const SEARCH_TYPE: Record<TermType, { type: string; class?: string }> = {
@@ -429,6 +487,208 @@ export const SEARCH_TYPE: Record<TermType, { type: string; class?: string }> = {
   work_employer: { type: "adworkemployer" },
   behavior: { type: "adTargetingCategory", class: "behaviors" },
 };
+
+// אותה גרסת Graph ואותו טוקן כמו שאר ads-admin. locale קובע את שם המחוז
+// ("Haifa District" ולא "מחוז חיפה"). בלי זה כל החיפושים נראים ככישלון.
+export const TARGETING_LOCALE = "en_US";
+export const REGION_FALLBACK_KM = 60;
+
+export function targetingSearchSpec(query: string, kind: TermType | "region"): Record<string, string> {
+  if (kind === "region") {
+    return {
+      type: "adgeolocation",
+      location_types: JSON.stringify(["region"]),
+      country_code: "IL",
+      q: query,
+      locale: TARGETING_LOCALE,
+      limit: "25",
+    };
+  }
+  const spec = SEARCH_TYPE[kind];
+  const params: Record<string, string> = {
+    type: spec.type,
+    q: query,
+    locale: TARGETING_LOCALE,
+    limit: "25",
+  };
+  if (spec.class) params.class = spec.class;
+  return params;
+}
+
+export type TargetingHitStatus = "found" | "dropped" | "fallback" | "missing" | "unchecked";
+
+export type TargetingHit = {
+  kind: "term" | "region";
+  query: string;
+  term_type: string;
+  required: boolean;
+  status: TargetingHitStatus;
+  id: string | null;
+  resolved_name: string | null;
+};
+
+export type TargetingResolution = {
+  plan: LaunchPlan;
+  hits: TargetingHit[];
+  termIds: Record<string, string>;
+  regionKeys: Record<string, string>;
+  warnings: string[];
+  blocksCreate: boolean;
+};
+
+export function planTargetingTerms(plan: LaunchPlan): Term[] {
+  const seen = new Set<string>();
+  const out: Term[] = [];
+  for (const c of plan.campaigns) {
+    for (const a of c.adSets) {
+      for (const group of a.flexible) {
+        for (const t of group) {
+          const k = termKey(t);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push(t);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function hitBlocksCreate(h: TargetingHit): boolean {
+  return h.required && (h.status === "missing" || h.status === "unchecked");
+}
+
+// מחוז חסר מחליף את הסט כולו ברדיוס. תפקיד, מעסיק או עניין בלי התאמה יורד
+// מהקבוצה. קבוצה שהתרוקנה יורדת, כדי שלא יישלח flexible_spec ריק.
+export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string, string>, regionKeys: Record<string, string>): LaunchPlan {
+  return {
+    ...plan,
+    campaigns: plan.campaigns.map((c) => ({
+      ...c,
+      adSets: c.adSets.map((a) => {
+        let geo = a.geo;
+        if (geo.mode === "regions" && geo.queries.some((q) => !regionKeys[q])) {
+          geo = { mode: "radius", radiusKm: REGION_FALLBACK_KM, points: [AFULA] };
+        }
+        const flexible = a.flexible
+          .map((group) => group.filter((t) => !!(t.id || termIds[termKey(t)])))
+          .filter((group) => group.length > 0);
+        return { ...a, geo, flexible };
+      }),
+    })),
+  };
+}
+
+function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed: boolean): TargetingResolution {
+  const termIds: Record<string, string> = {};
+  const regionKeys: Record<string, string> = {};
+  for (const h of hits) {
+    if (h.kind === "term" && h.status === "found" && h.id) termIds[`${h.term_type}:${h.query}`] = h.id;
+    if (h.kind === "region" && h.status === "found" && h.id) regionKeys[h.query] = h.id;
+  }
+  const dropped = hits.filter((h) => h.kind === "term" && h.status === "dropped");
+  const regionMisses = hits.filter((h) => h.kind === "region" && h.status !== "found");
+  const warnings: string[] = [];
+  if (dropped.length) warnings.push(`לא נמצא במטא וירד מהטירגוט: ${dropped.map((h) => h.query).join(", ")}.`);
+  if (regionMisses.length) {
+    warnings.push('מחוז חיפה או מחוז הצפון לא נמצאו. הסט עובר לרדיוס 60 ק"מ סביב עפולה, שמכסה את הצפון וחיפה.');
+  }
+  if (searchFailed) warnings.push("חיפוש הטירגוט במטא נכשל. מה שלא נמצא ירד, והמחוזות שלא נמצאו הוחלפו ברדיוס.");
+  return {
+    plan: regionMisses.some((h) => h.status === "unchecked" || h.status === "missing") ? plan : applyResolvedTargeting(plan, termIds, regionKeys),
+    hits,
+    termIds,
+    regionKeys,
+    warnings,
+    blocksCreate: hits.some(hitBlocksCreate),
+  };
+}
+
+async function mapPool<T, R>(items: T[], width: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      out[i] = await fn(items[i]);
+    }
+  }
+  const n = Math.min(width, items.length);
+  if (n) await Promise.all(Array.from({ length: n }, () => worker()));
+  return out;
+}
+
+// קריאה בלבד. כישלון של חיפוש אחד לא מפיל את השאר: תפקיד שלא נמצא יורד,
+// ומחוז שלא נמצא עובר לרדיוס. אין כאן כתיבה למטא.
+export async function resolveLaunchTargeting(
+  plan: LaunchPlan,
+  search: (params: Record<string, string>) => Promise<unknown>,
+): Promise<TargetingResolution> {
+  let searchFailed = false;
+  async function lookup(params: Record<string, string>) {
+    try {
+      return await search(params);
+    } catch {
+      searchFailed = true;
+      return { data: [] };
+    }
+  }
+  const termHits = await mapPool(planTargetingTerms(plan), 4, async (term): Promise<TargetingHit> => {
+    if (term.id) {
+      return { kind: "term", query: term.name, term_type: term.type, required: false, status: "found", id: term.id, resolved_name: term.name };
+    }
+    const match = acceptedTargetingMatch(term.name, await lookup(targetingSearchSpec(term.name, term.type)));
+    if (!match) {
+      return { kind: "term", query: term.name, term_type: term.type, required: false, status: "dropped", id: null, resolved_name: null };
+    }
+    return { kind: "term", query: term.name, term_type: term.type, required: false, status: "found", id: match.id, resolved_name: match.name };
+  });
+  const regionHits = await mapPool(regionQueries(plan), 4, async (query): Promise<TargetingHit> => {
+    const match = acceptedTargetingMatch(query, await lookup(targetingSearchSpec(query, "region")), "region");
+    if (!match) {
+      return { kind: "region", query, term_type: "region", required: true, status: "fallback", id: null, resolved_name: null };
+    }
+    return { kind: "region", query, term_type: "region", required: true, status: "found", id: match.id, resolved_name: match.name };
+  });
+  const foundRegions = regionHits.filter((h) => h.status === "found");
+  const missedRegions = regionHits.filter((h) => h.status !== "found");
+  // מחוז אחד בלי השני לא מכסה את הצפון. הסט עובר לרדיוס, והמחוז שנמצא
+  // נשאר מסומן כנמצא כדי שיהיה גלוי מה Graph החזיר.
+  const hits = missedRegions.length ? [...termHits, ...regionHits.map((h) => h.status === "found" ? h : { ...h, status: "fallback" as const })] : [...termHits, ...foundRegions];
+  return resolutionFromHits(plan, hits, searchFailed);
+}
+
+// בלי טוקן אין חיפוש ואין גיבוי שקט. המחוזות נשארים לא נבדקים, והכפתור סגור.
+export function uncheckedLaunchTargeting(plan: LaunchPlan): TargetingResolution {
+  const hits: TargetingHit[] = [
+    ...planTargetingTerms(plan).map((t): TargetingHit => ({
+      kind: "term",
+      query: t.name,
+      term_type: t.type,
+      required: false,
+      status: t.id ? "found" : "unchecked",
+      id: t.id ?? null,
+      resolved_name: t.id ? t.name : null,
+    })),
+    ...regionQueries(plan).map((query): TargetingHit => ({
+      kind: "region",
+      query,
+      term_type: "region",
+      required: true,
+      status: "unchecked",
+      id: null,
+      resolved_name: null,
+    })),
+  ];
+  return {
+    plan,
+    hits,
+    termIds: {},
+    regionKeys: {},
+    warnings: ["חשבון המודעות לא מחובר, אז הטירגוט לא נבדק. יצירה נשארת סגורה."],
+    blocksCreate: true,
+  };
+}
 
 function housingGeo() {
   return { mode: "radius" as const, radiusKm: HOUSING_MIN_RADIUS_KM, points: [AFULA] };
@@ -814,9 +1074,18 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
   ];
 
   const ownerForm = (input.ownerFormId ?? "").trim();
+  const ownerFormName = (input.ownerFormName ?? "").trim();
   if (input.includeA5) {
-    if (!ownerForm) {
-      errors.push({ code: "a5_form_missing", detail: "A5 מחכה לטופס מיידי מסוג owner ב-ads_lead_forms. הוא לא נוצר." });
+    if (ownerForm === SELLERS_FORM_ID) {
+      errors.push({
+        code: "a5_wrong_form",
+        detail: `A5 לא משתמש בטופס מוכרים נכס - עפולה (${SELLERS_FORM_ID}). רק ${VALUATION_FORM_NAME} (${VALUATION_FORM_ID}).`,
+      });
+    } else if (ownerForm !== VALUATION_FORM_ID) {
+      errors.push({
+        code: "a5_form_missing",
+        detail: `A5 נוצר רק עם טופס ${VALUATION_FORM_NAME} (${VALUATION_FORM_ID}).`,
+      });
     } else {
       campaigns.find((c) => c.key === "owners") ?? campaigns.push({
         key: "owners",
@@ -829,6 +1098,7 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
           dailyBudgetIls: 10,
           destination: "lead_form",
           leadFormId: ownerForm,
+          leadFormName: ownerFormName || VALUATION_FORM_NAME,
           optimization: "LEAD_GENERATION",
           ageMin: 18,
           ageMax: 65,
@@ -853,7 +1123,7 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
   } else {
     skipped.push({
       key: "A5",
-      reason: "ממתין לטופס מיידי חדש (kind=owner ב-ads_lead_forms) ול-include_a5. לא נוצר עכשיו.",
+      reason: `לא סומן. כשיסומן, A5 ישתמש רק בטופס ${VALUATION_FORM_NAME}, לא בטופס מוכרים נכס.`,
       headline: "כמה שווה הנכס שלכם?",
       message: "הנכס שלכם, כמו שקונים יראו אותו. עם הערכת השווי החינמית מקבלים גם הדמיית AI. ההסתייגות: אינה מהווה תחליף להערכת שמאי מקרקעין.",
     });
@@ -1357,6 +1627,7 @@ export function summarizeLaunch(plan: LaunchPlan) {
         daily_budget_ils: a.dailyBudgetIls,
         destination: a.destination,
         lead_form_id: a.leadFormId,
+        lead_form_name: a.leadFormName || "",
         optimization: a.optimization,
         age: [a.ageMin, a.ageMax],
         geo: a.geo,

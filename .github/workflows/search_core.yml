@@ -15,6 +15,8 @@ on:
       - "scripts/check_search_core.py"
       - "scripts/search_core_test.cjs"
       - "scripts/search_feature_cases.json"
+      # ‏FEATURE_CODES / PTYPE_NAMES מוצלבים מול רשימות טופס הנכס שם
+      - "supabase/functions/whatsapp-webhook/agent.ts"
       - ".github/workflows/search_core.yml"
   push:
     branches: [main]
@@ -24,6 +26,8 @@ on:
       - "scripts/check_search_core.py"
       - "scripts/search_core_test.cjs"
       - "scripts/search_feature_cases.json"
+      # ‏FEATURE_CODES / PTYPE_NAMES מוצלבים מול רשימות טופס הנכס שם
+      - "supabase/functions/whatsapp-webhook/agent.ts"
       - ".github/workflows/search_core.yml"
   workflow_dispatch:
 

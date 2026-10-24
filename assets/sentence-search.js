@@ -36,23 +36,25 @@
      הקנוני שנכתב ל-‎?ptype=‎ - אותו ערך שעמודי החיפוש הפופולרי כבר
      משתמשים בו (‏netlify/edge-functions/search-pages.ts), ולכן
      ‎?deal=sale&ptype=דירת גן‎ ממשיך לנחות על אותו חיפוש.
-     ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט. */
+     ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט.
+     ‏ptypes - מהליבה (‏SC.PROPERTY_TYPES), כדי שהבוטים יחפשו באותן קבוצות. */
+  var PT = SC.PROPERTY_TYPES;
   var TYPES = [
     { key: 'any', label: 'נכס' },
-    { key: 'apt', label: 'דירה', ptypes: ['דירה', 'דופלקס', 'טריפלקס', 'סטודיו/לופט', 'יחידת דיור', 'מרתף/פרטר'], residential: true },
-    { key: 'garden', label: 'דירת גן', ptypes: ['דירת גן'], url: 'דירת גן', residential: true },
-    { key: 'penthouse', label: 'פנטהאוז', ptypes: ['גג/פנטהאוז'], url: 'גג/פנטהאוז', residential: true },
-    { key: 'house', label: 'בית פרטי', ptypes: ["בית פרטי/קוטג'", 'דו משפחתי', 'משק חקלאי/נחלה', 'משק עזר'], url: "בית פרטי/קוטג'", residential: true },
-    { key: 'land', label: 'מגרש', ptypes: ['מגרש', 'מגרשים'], noRooms: true },
-    { key: 'shop', label: 'חנות', ptypes: ['חנויות/שטח מסחרי'], url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
-    { key: 'office', label: 'משרד', ptypes: ['משרדים'], url: 'משרדים', commercial: true, noRooms: true },
+    { key: 'apt', label: 'דירה', ptypes: PT.apt, residential: true },
+    { key: 'garden', label: 'דירת גן', ptypes: PT.garden, url: 'דירת גן', residential: true },
+    { key: 'penthouse', label: 'פנטהאוז', ptypes: PT.penthouse, url: 'גג/פנטהאוז', residential: true },
+    { key: 'house', label: 'בית פרטי', ptypes: PT.house, url: "בית פרטי/קוטג'", residential: true },
+    { key: 'land', label: 'מגרש', ptypes: PT.land, noRooms: true },
+    { key: 'shop', label: 'חנות', ptypes: PT.shop, url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
+    { key: 'office', label: 'משרד', ptypes: PT.office, url: 'משרדים', commercial: true, noRooms: true },
     /* שלושת הבאים נוספו אחרי שבמלאי היו מבני תעשייה ומגרשים מסחריים, ובחירת
        "מסחרי" בפאנל שמתחת לשורת החיפוש הציעה רק חנות ומשרד. ‏"מגרשים" (רבים)
        הוא הערך המסחרי במסד ו"מגרש" (יחיד) הוא המגורים - לכן comm_land לוקח
        רק את הראשון, ו-land שלמעלה נשאר לשניהם. */
-    { key: 'industry', label: 'מבנה תעשייה', ptypes: ['מבני תעשייה'], url: 'מבני תעשייה', commercial: true, noRooms: true },
-    { key: 'comm_land', label: 'מגרש מסחרי', ptypes: ['מגרשים'], url: 'מגרשים', commercial: true, noRooms: true },
-    { key: 'warehouse', label: 'מחסן', ptypes: ['מחסנים'], url: 'מחסנים', commercial: true, noRooms: true },
+    { key: 'industry', label: 'מבנה תעשייה', ptypes: PT.industry, url: 'מבני תעשייה', commercial: true, noRooms: true },
+    { key: 'comm_land', label: 'מגרש מסחרי', ptypes: PT.comm_land, url: 'מגרשים', commercial: true, noRooms: true },
+    { key: 'warehouse', label: 'מחסן', ptypes: PT.warehouse, url: 'מחסנים', commercial: true, noRooms: true },
     { key: 'commercial', label: 'נכס מסחרי', commercial: true, noRooms: true },
   ];
   var TYPE_BY_KEY = {};
@@ -64,7 +66,7 @@
     if (TYPE_BY_KEY[key]) return TYPE_BY_KEY[key];
     if (typeof key === 'string' && key.indexOf('raw:') === 0) {
       var v = key.slice(4);
-      return { key: key, label: v, ptypes: [v], url: v, raw: true };
+      return { key: key, label: v, ptypes: SC.typePtypes(key), url: v, raw: true };
     }
     return TYPE_BY_KEY.any;
   }
@@ -452,22 +454,9 @@
     if (/שכיר|לשכור|השכר|שכד/.test(t)) patch.deal = 'rent';
     else if (/לקנות|קני|מכיר|לרכוש|רכיש/.test(t)) patch.deal = 'sale';
 
-    if (/פנטהאוז|פנטהאוס|פנטהויז|דירת גג|(^| )גג( |$)/.test(t)) patch.type = 'penthouse';
-    else if (/דירות? גן|(^| )גן( |$)/.test(t)) patch.type = 'garden';
-    else if (/(^| )[ובלה]?בית( |$)|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) patch.type = 'house';
-    else if (/מגרש|(^| )קרקע/.test(t)) patch.type = /מסחר/.test(t) ? 'comm_land' : 'land';
-    else if (/חנות|חנויות|שטח מסחרי/.test(t)) patch.type = 'shop';
-    else if (/משרד/.test(t)) patch.type = 'office';
-    else if (/מבנה תעשי|מבני תעשי|מפעל/.test(t)) patch.type = 'industry';
-    else if (/מסחרי|(^| )עסק|(^| )[בלה]?חלל( |$)/.test(t)) patch.type = 'commercial';
-    /* ‏"דופלקס" ו"סטודיו" לא זוהו, והחיפוש החזיר את כל 202 הנכסים
-       (‏14.10.2026). הם סוגים גולמיים - בדיוק הערך שבמסד. */
-    else if (/דופלקס/.test(t)) patch.type = 'raw:דופלקס';
-    else if (/טריפלקס/.test(t)) patch.type = 'raw:טריפלקס';
-    else if (/סטודיו|לופט/.test(t)) patch.type = 'raw:סטודיו/לופט';
-    else if (/דיר/.test(t)) patch.type = 'apt';
-    // אחרי "דיר": "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
-    else if (/(^| )מחסן( |$)|מחסנים/.test(t)) patch.type = 'warehouse';
+    /* סוג הנכס - מהליבה (‏SC.typeIn), אותן מילים שגבריאלה מתרגמת בהן */
+    var tk = SC.typeIn(t);
+    if (tk) patch.type = tk;
 
     var rest = t;
     var rm = t.match(/(\d+(?:\.5)?)\s*(\+)?\s*(?:חד|ח( |$))/);
@@ -787,6 +776,7 @@
     var props = [];
     var aliasList = [];           // ‏neighborhood_aliases מהדף (‏setProperties)
     var lastMiss = '';            // שם שלא זוהה נרשם פעם אחת ברצף (‏onAreaMiss)
+    var lastWordMiss = '';        // וכך גם מילה של מאפיין (‏onWordMiss)
     var areas = [];
     var loaded = false;
     var ctx = {
@@ -1236,6 +1226,16 @@
         if (miss && miss !== lastMiss && typeof opts.onAreaMiss === 'function') {
           lastMiss = miss;
           opts.onAreaMiss(miss, filter(props, st, ctx).length, areas.mainCity || '');
+        }
+      }
+      /* מאפיין שלא זוהה ("דירה עם גינה") - אותה לולאה, לדוח "מילים שלא זוהו"
+         (‏SC.featureCandidate, ‏docs/search-core.md). גם הוא לא בשקט. */
+      var wordMiss = SC.featureCandidate(text);
+      if (wordMiss) {
+        if (noteEl && fields.length + feats.length) noteEl.textContent += ' · את "' + wordMiss + '" אין לי איך לסנן';
+        if (wordMiss !== lastWordMiss && typeof opts.onWordMiss === 'function') {
+          lastWordMiss = wordMiss;
+          opts.onWordMiss('feature', wordMiss, areas.mainCity || '');
         }
       }
       track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });

@@ -20,9 +20,11 @@ import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput, type VideoRef } from "./campaign.ts";
 import {
-  acceptedTargetingMatch,
   BROKER_FORM_ID,
   buildLaunchPlan,
+  SELLERS_FORM_ID,
+  VALUATION_FORM_ID,
+  VALUATION_FORM_NAME,
   CREATIVE_BUCKET,
   CREATIVE_BYTES,
   creativeSourceUrl,
@@ -36,16 +38,15 @@ import {
   PAUSED_STATUS,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
-  regionQueries,
-  SEARCH_TYPE,
+  resolveLaunchTargeting,
   sha256Hex,
   summarizeLaunch,
-  termKey,
-  termsNeedingIds,
+  uncheckedLaunchTargeting,
   type CreativeStorageReport,
   type ExistingRow,
   type ImageRef,
   type LaunchPlan,
+  type TargetingResolution,
 } from "./launch-package.ts";
 
 // ============================================================================
@@ -1619,14 +1620,7 @@ async function uploadMissingCreatives(sb: SupabaseClient, images: ImageRef[], re
   return { ...reportAfter, uploaded, skipped: images.length - pending.size, failed };
 }
 
-function searchRows(res: any): { id: string; name: string }[] {
-  const data = Array.isArray(res?.data) ? res.data : [];
-  return data
-    .map((r: any) => ({ id: String(r?.id || r?.key || ""), name: String(r?.name || "") }))
-    .filter((r: { id: string; name: string }) => r.id && r.name);
-}
-
-async function preparePausedLaunch(sb: SupabaseClient, body: any): Promise<Response | { plan: LaunchPlan; summary: ReturnType<typeof summarizeLaunch>; includeA5: boolean }> {
+async function preparePausedLaunch(sb: SupabaseClient, body: any): Promise<Response | { plan: LaunchPlan; includeA5: boolean }> {
   const includeA5 = body?.include_a5 === true;
   const bodyAudience = typeof body?.b2_customer_audience_id === "string" ? body.b2_customer_audience_id.trim() : "";
   const settingAudience = jsonText(await setting(sb, "b2_customer_audience_id")).trim();
@@ -1652,23 +1646,26 @@ async function preparePausedLaunch(sb: SupabaseClient, body: any): Promise<Respo
   }
 
   let ownerFormId = "";
+  let ownerFormName = "";
   if (includeA5) {
     const requested = typeof body?.owner_form_id === "string" ? body.owner_form_id.trim() : "";
-    if (requested) {
-      const row = await sb.from("ads_lead_forms").select("form_id, kind").eq("form_id", requested).maybeSingle();
-      if (row.error) return json({ error: "db_error", detail: "קריאת טופס הבעלים נכשלה." }, 500);
-      if (!row.data || row.data.kind !== "owner") {
-        return json({ error: "a5_form_missing", detail: "A5 צריך טופס משויך מסוג owner. הוא לא נוצר." }, 409);
-      }
-      ownerFormId = row.data.form_id;
-    } else {
-      const rows = await sb.from("ads_lead_forms").select("form_id, kind").eq("kind", "owner");
-      if (rows.error) return json({ error: "db_error", detail: "קריאת טפסי הבעלים נכשלה." }, 500);
-      if (!rows.data || rows.data.length !== 1) {
-        return json({ error: "a5_form_missing", detail: "A5 מחכה לטופס owner אחד ב-ads_lead_forms, או ל-owner_form_id. הוא לא נוצר." }, 409);
-      }
-      ownerFormId = rows.data[0].form_id;
+    if (requested && requested !== VALUATION_FORM_ID) {
+      const detail = requested === SELLERS_FORM_ID
+        ? `A5 לא משתמש בטופס מוכרים נכס - עפולה (${SELLERS_FORM_ID}). רק ${VALUATION_FORM_NAME} (${VALUATION_FORM_ID}).`
+        : `A5 נוצר רק עם טופס ${VALUATION_FORM_NAME} (${VALUATION_FORM_ID}).`;
+      return json({ error: "a5_wrong_form", detail }, 409);
     }
+    const row = await sb.from("ads_lead_forms").select("form_id, form_name, kind").eq("form_id", VALUATION_FORM_ID).maybeSingle();
+    if (row.error) return json({ error: "db_error", detail: "קריאת טופס הערכת השווי נכשלה." }, 500);
+    const formName = String(row.data?.form_name || "");
+    if (!row.data || row.data.kind !== "owner" || !formName.includes("הערכת שווי")) {
+      return json({
+        error: "a5_form_missing",
+        detail: `טופס ${VALUATION_FORM_NAME} (${VALUATION_FORM_ID}) אינו משויך כ-owner. A5 לא נוצר.`,
+      }, 409);
+    }
+    ownerFormId = row.data.form_id;
+    ownerFormName = formName;
   }
 
   const disclosure = jsonText(await setting(sb, "disclosure_line")).trim();
@@ -1684,16 +1681,11 @@ async function preparePausedLaunch(sb: SupabaseClient, body: any): Promise<Respo
     officeFormId: OFFICE_FORM_ID,
     includeA5,
     ownerFormId: ownerFormId || null,
+    ownerFormName: ownerFormName || null,
     b2CustomerAudienceId: b2Audience || null,
     externalDailyIls: GOOGLE_BUYERS_DAILY_ILS,
   });
-  const summary = summarizeLaunch(plan);
-  summary.warnings = [...summary.warnings];
-  if (PAGE_ID && PAGE_ID !== PAGE_ID_EXPECTED) {
-    summary.warnings.push(`מזהה הדף בסודות שונה מהדף הצפוי ${PAGE_ID_EXPECTED}.`);
-  }
-  summary.warnings.push("מזהי תפקידים, מעסיקים ומחוזות יישלפו מחיפוש Graph רק ביצירה. הבדיקה לא קוראת למטא.");
-  return { plan, summary, includeA5 };
+  return { plan, includeA5 };
 }
 
 function creativesPublic(report: CreativeStorageReport) {
@@ -1704,6 +1696,21 @@ function noteCreativeGap(summary: { warnings: string[] }, report: CreativeStorag
   if (report.ready < report.total) {
     summary.warnings.push(`בדלי ${report.ready} מתוך ${report.total} תמונות. כפתור "העלאת תמונות" ממלא את החסר, ואינו מפעיל מודעות.`);
   }
+}
+
+function presentPausedLaunch(plan: LaunchPlan, creatives: CreativeStorageReport, resolution?: TargetingResolution) {
+  const summary = summarizeLaunch(plan);
+  summary.warnings = [...summary.warnings];
+  if (PAGE_ID && PAGE_ID !== PAGE_ID_EXPECTED) {
+    summary.warnings.push(`מזהה הדף בסודות שונה מהדף הצפוי ${PAGE_ID_EXPECTED}.`);
+  }
+  if (resolution) summary.warnings.push(...resolution.warnings);
+  noteCreativeGap(summary, creatives);
+  return {
+    ...summary,
+    targeting: resolution?.hits ?? [],
+    targeting_blocks_create: resolution?.blocksCreate ?? true,
+  };
 }
 
 async function actionUploadLaunchCreatives(sb: SupabaseClient, caller: Caller, body: any) {
@@ -1756,28 +1763,42 @@ async function actionUploadLaunchCreatives(sb: SupabaseClient, caller: Caller, b
 async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body: any) {
   const prepared = await preparePausedLaunch(sb, body);
   if (prepared instanceof Response) return prepared;
-  const { plan, summary, includeA5 } = prepared;
+  let { plan, includeA5 } = prepared;
   const listed = await listLaunchCreatives(sb, plan.images);
   const creatives = creativesPublic(listed.report);
-  noteCreativeGap(summary, creatives);
-
-  if (!plan.ok) {
-    await log(sb, caller, {
-      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-      request: { dry_run: !launchWillWrite(body), include_a5: includeA5 },
-      response: { errors: plan.errors, budget: plan.budget, creatives: { total: creatives.total, ready: creatives.ready } }, ok: false,
-      error: plan.errors.map((e) => e.code).join(","),
-    });
-    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" "), plan: summary, creatives }, 409);
-  }
 
   if (!launchWillWrite(body)) {
+    const meta = ADS_TOKEN && AD_ACCOUNT ? new MetaClient(ADS_TOKEN, APP_SECRET) : null;
+    const resolution = meta
+      ? await resolveLaunchTargeting(plan, (params) => meta.get("search", params))
+      : uncheckedLaunchTargeting(plan);
+    const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
+    if (!resolution.plan.ok) {
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: true, include_a5: includeA5 },
+        response: { errors: resolution.plan.errors, budget: resolution.plan.budget, creatives: { total: creatives.total, ready: creatives.ready } },
+        ok: false, error: resolution.plan.errors.map((e) => e.code).join(","),
+      });
+      return json({ error: resolution.plan.errors[0].code, detail: resolution.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
       request: { dry_run: true, include_a5: includeA5 },
-      response: { ...summary, creatives: { total: creatives.total, ready: creatives.ready } }, ok: true,
+      response: { ...shown, creatives: { total: creatives.total, ready: creatives.ready } }, ok: true,
     });
-    return json({ ok: true, dry_run: true, will_write: false, plan: summary, creatives });
+    return json({ ok: true, dry_run: true, will_write: false, plan: shown, creatives });
+  }
+
+  if (!plan.ok) {
+    const shown = presentPausedLaunch(plan, creatives);
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, include_a5: includeA5 },
+      response: { errors: plan.errors, budget: plan.budget, creatives: { total: creatives.total, ready: creatives.ready } }, ok: false,
+      error: plan.errors.map((e) => e.code).join(","),
+    });
+    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
   }
 
   if (!ADS_TOKEN || !AD_ACCOUNT) return json({ error: "meta_not_configured" }, 503);
@@ -1797,43 +1818,18 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     }
   }
 
-  const termIds: Record<string, string> = {};
-  const regionKeys: Record<string, string> = {};
-  const unresolved: string[] = [];
-  try {
-    for (const term of termsNeedingIds(plan)) {
-      const spec = SEARCH_TYPE[term.type];
-      const params: Record<string, string> = { type: spec.type, q: term.name, limit: "25" };
-      if (spec.class) params.class = spec.class;
-      const match = acceptedTargetingMatch(term.name, searchRows(await meta.get("search", params)));
-      if (!match) unresolved.push(term.name);
-      else termIds[termKey(term)] = match.id;
-    }
-    for (const query of regionQueries(plan)) {
-      const match = acceptedTargetingMatch(query, searchRows(await meta.get("search", {
-        type: "adgeolocation",
-        location_types: JSON.stringify(["region"]),
-        q: query,
-        country_code: "IL",
-        limit: "25",
-      })));
-      if (!match) unresolved.push(query);
-      else regionKeys[query] = match.id;
-    }
-  } catch (e) {
+  const resolution = await resolveLaunchTargeting(plan, (params) => meta.get("search", params));
+  if (resolution.blocksCreate) {
+    const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-      request: { dry_run: false }, ok: false, error: metaErrorText(e),
+      request: { unresolved: resolution.hits.filter((h) => h.required && h.status !== "found").map((h) => h.query) },
+      ok: false, error: "targeting_unresolved",
     });
-    return json({ error: "targeting_unresolved", detail: "חיפוש הטירגוט במטא נכשל. לא נוצר כלום." }, 409);
+    return json({ error: "targeting_unresolved", detail: "טירגוט חובה לא נפתר. לא נוצר כלום.", plan: shown, creatives }, 409);
   }
-  if (unresolved.length) {
-    await log(sb, caller, {
-      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-      request: { unresolved }, ok: false, error: "targeting_unresolved",
-    });
-    return json({ error: "targeting_unresolved", detail: `לא נמצא טירגוט עבור: ${unresolved.join(", ")}. לא נוצר כלום.` }, 409);
-  }
+  plan = resolution.plan;
+  const { termIds, regionKeys } = resolution;
 
   let account: any;
   try {
@@ -1930,7 +1926,9 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     skipped: result.skipped,
     campaigns: plan.campaigns.map((c) => ({ key: c.key, name: c.name, status: PAUSED_STATUS })),
     budget: plan.budget,
-    note: "הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager.",
+    note: resolution.warnings.length
+      ? `הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager. ${resolution.warnings.join(" ")}`
+      : "הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager.",
   });
 }
 
@@ -1986,7 +1984,8 @@ Deno.serve(async (req: Request) => {
   if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);
   if (action === "google_set_status") return await actionGoogleSetStatus(sb, caller, body);
 
-  // לפני בדיקת הטוקן: הבדיקה והעלאת התמונות לדלי לא קוראות למטא.
+  // לפני בדיקת הטוקן: העלאת התמונות לא קוראת למטא. הבדיקה קוראת רק לחיפוש
+  // טירגוט (GET), ובלי טוקן היא מחזירה "לא נבדק" במקום 503.
   if (action === "create_paused_launch") return await actionCreatePausedLaunch(sb, caller, body);
   if (action === "upload_launch_creatives") return await actionUploadLaunchCreatives(sb, caller, body);
 

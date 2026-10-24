@@ -5,7 +5,8 @@
    מריצה את הפונקציה על `prices.html` עצמו, ומוודאת:
 
      ‏· המסד ענה  → הטבלאות בדף, ‏data-ssr, התקופה ו-Dataset ב-JSON-LD.
-     ‏· המסד נכשל או ריק → הדף יוצא כמו שהוא, וה-JS שבו ימלא אותו.
+     ‏· המסד נכשל → 503 עם אותו HTML (ה-JS ממלא), ‏no-store ו-Retry-After.
+     ‏· המסד ענה מערך ריק → 200 והדף כמו שהוא.
      ‏· שם עיר עם ‎</script>‎ אינו סוגר תגית ואינו נכנס לטבלה כ-HTML.
 
    הרצה:
@@ -32,12 +33,11 @@ const ROWS = [
   { market_slug: "afula-emek", city: "כפר</script>תבור", rooms: 6, deals: 8, median_price: 3815000, median_ppsqm: 20800, period_start: "2025-08-14", period_end: "2026-08-13" },
 ];
 
-async function run(status: number, body: unknown): Promise<string> {
+async function run(status: number, body: unknown): Promise<Response> {
   globalThis.fetch = (async () =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
   ) as typeof fetch;
-  const res = await handler(new Request("https://shuknadlan.co.il/prices"), context());
-  return await res.text();
+  return await handler(new Request("https://shuknadlan.co.il/prices"), context());
 }
 
 let failed = 0;
@@ -46,7 +46,9 @@ function check(name: string, ok: boolean) {
   console.log(`${ok ? "✓" : "✗"} ${name}`);
 }
 
-const html = await run(200, ROWS);
+const okRes = await run(200, ROWS);
+const html = await okRes.text();
+check("תשובה תקינה: 200", okRes.status === 200);
 const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
 let ld: Record<string, any> | null = null;
 try { ld = ldMatch ? JSON.parse(ldMatch[1]) : null; } catch { ld = null; }
@@ -62,11 +64,18 @@ check("שם עיר מוברח בטבלה", html.includes("כפר&lt;/script&gt;�
 check("‏</script> בשם עיר אינו סוגר את ה-JSON-LD", (html.match(/<\/script>/g) || []).length === (PAGE.match(/<\/script>/g) || []).length + 1);
 check("טקסט הטעינה הוחלף", !html.includes("טוען את הנתונים..."));
 
-check("מסד נכשל (‏500): הדף כמו שהוא", (await run(500, {})) === PAGE);
-check("מסד ענה ריק: הדף כמו שהוא", (await run(200, [])) === PAGE);
+const failRes = await run(500, {});
+check("מסד נכשל (‏500): 503 ואותו HTML", failRes.status === 503 && (await failRes.text()) === PAGE);
+check("מסד נכשל: no-store ו-Retry-After", failRes.headers.get("Cache-Control") === "no-store"
+  && failRes.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+  && failRes.headers.get("Retry-After") === "60");
+const oddRes = await run(200, { message: "not-an-array" });
+check("תשובה שאינה מערך: 503", oddRes.status === 503 && (await oddRes.text()) === PAGE);
+const emptyRes = await run(200, []);
+check("מסד ענה ריק: 200 והדף כמו שהוא", emptyRes.status === 200 && (await emptyRes.text()) === PAGE);
 
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
   process.exit(1);
 }
-console.log("\n✓ ‏/prices: הטבלאות בשרת, ובכל כשל הדף יוצא כמו שהוא.");
+console.log("\n✓ ‏/prices: הטבלאות בשרת, כשל הוא 503, ומערך ריק נשאר 200.");

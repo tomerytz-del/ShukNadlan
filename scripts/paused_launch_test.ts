@@ -34,9 +34,16 @@ import {
   pickTargetingMatch,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
+  REGION_FALLBACK_KM,
+  resolveLaunchTargeting,
+  SELLERS_FORM_ID,
   sha256Hex,
   summarizeLaunch,
+  targetingSearchSpec,
   termsNeedingIds,
+  uncheckedLaunchTargeting,
+  VALUATION_FORM_ID,
+  VALUATION_FORM_NAME,
   type ExistingRow,
   type LaunchInput,
   type LaunchPlan,
@@ -44,7 +51,6 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ACT = "act_1651428663039877";
-const OWNER_FORM = "1111222233334444";
 
 let fail = 0;
 const ok = (name: string, cond: boolean, got?: unknown) => {
@@ -131,11 +137,16 @@ ok("dry-run lists ads with hard-coded counts", !!liveWarn && liveWarn.includes("
 ok("A4 descriptions fit and are not warned", buyers[3].ads[1].description === "נתוני עסקאות רשמיים" && buyers[3].ads[2].description === "מחירי עסקאות לפי עיר" && !plan.warnings.some((w) => w.includes("תיאור של")));
 
 const noA5 = buildLaunchPlan(baseInput({ includeA5: true }));
-ok("A5 without a form is an error", !noA5.ok && noA5.errors.some((e) => e.code === "a5_form_missing") && !noA5.campaigns.some((c) => c.key === "owners"));
-const withA5 = buildLaunchPlan(baseInput({ includeA5: true, ownerFormId: OWNER_FORM }));
+ok("A5 without the valuation form is an error", !noA5.ok && noA5.errors.some((e) => e.code === "a5_form_missing") && !noA5.campaigns.some((c) => c.key === "owners"));
+const sellersA5 = buildLaunchPlan(baseInput({ includeA5: true, ownerFormId: SELLERS_FORM_ID }));
+ok("A5 refuses the sellers form", !sellersA5.ok && sellersA5.errors.some((e) => e.code === "a5_wrong_form") && !sellersA5.campaigns.some((c) => c.key === "owners") && sellersA5.errors.every((e) => !e.detail.includes("נוצר עכשיו")));
+const withA5 = buildLaunchPlan(baseInput({ includeA5: true, ownerFormId: VALUATION_FORM_ID, ownerFormName: VALUATION_FORM_NAME }));
+const a5Set = withA5.campaigns.find((c) => c.key === "owners")?.adSets[0];
+const a5Summary = summarizeLaunch(withA5).campaigns.find((c) => c.key === "owners")?.ad_sets[0];
 ok("A5 included at the cap", withA5.ok && withA5.budget.totalDailyIls === 150 && withA5.campaigns.some((c) => c.key === "owners" && c.housing && c.objective === "OUTCOME_LEADS"));
+ok("A5 uses the valuation form name and id", a5Set?.leadFormId === VALUATION_FORM_ID && a5Set?.leadFormName === VALUATION_FORM_NAME && a5Set?.ads[0].leadFormId === VALUATION_FORM_ID && a5Summary?.lead_form_id === VALUATION_FORM_ID && a5Summary?.lead_form_name === VALUATION_FORM_NAME && a5Set?.leadFormId !== SELLERS_FORM_ID);
 ok("A5 appraiser line", withA5.campaigns.find((c) => c.key === "owners")!.adSets[0].ads[0].message.includes("שמאי"));
-const overA5 = buildLaunchPlan(baseInput({ includeA5: true, ownerFormId: OWNER_FORM, maxDailyBudget: 149 }));
+const overA5 = buildLaunchPlan(baseInput({ includeA5: true, ownerFormId: VALUATION_FORM_ID, maxDailyBudget: 149 }));
 ok("A5 refused under 150", !overA5.ok && overA5.errors.some((e) => e.code === "budget_cap"));
 const tight = buildLaunchPlan(baseInput({ maxDailyBudget: 100 }));
 ok("110+30 refused at 100", !tight.ok && tight.errors.some((e) => e.code === "budget_cap") && opsOf(tight).ops.length === 0);
@@ -321,6 +332,65 @@ ok("rerun reuses image hashes and does not reupload", !resume.result.error && re
 ok("exact targeting match", pickTargetingMatch("Real Estate Agent", [{ id: "1", name: "Other" }, { id: "2", name: "Real Estate Agent" }])?.id === "2");
 ok("unrelated first row is not accepted", acceptedTargetingMatch("Owner", [{ id: "9", name: "Florist" }]) === null);
 ok("partial match is accepted", acceptedTargetingMatch("RE/MAX Israel", [{ id: "4", name: "RE/MAX Israel Ltd" }])?.id === "4");
+ok("punctuation-insensitive employer match", acceptedTargetingMatch("RE/MAX Israel", [{ id: "8", name: "REMAX" }])?.id === "8");
+ok("case-insensitive contains", acceptedTargetingMatch("anglo saxon", [{ id: "5", name: "Anglo Saxon Real Estate" }])?.id === "5");
+ok("north district matches northern, city does not", acceptedTargetingMatch("Northern District", [
+  { key: "city", name: "Haifa", type: "city" },
+  { key: "north", name: "North District", type: "region" },
+], "region")?.id === "north");
+ok("haifa city is not a district", acceptedTargetingMatch("Haifa District", [{ key: "1", name: "Haifa", type: "city" }], "region") === null);
+ok("haifa region beats a city of the same area", acceptedTargetingMatch("Haifa District", [
+  { key: "city", name: "Haifa", type: "city" },
+  { key: "region", name: "Haifa District", type: "region" },
+], "region")?.id === "region");
+const haifaSpec = targetingSearchSpec("Haifa District", "region");
+const employerSpec = targetingSearchSpec("RE/MAX Israel", "work_employer");
+const interestSpec = targetingSearchSpec("Madlan", "interest");
+const positionSpec = targetingSearchSpec("Broker Owner", "work_position");
+const behaviorSpec = targetingSearchSpec("Small business owners", "behavior");
+ok("search specs use locale and the documented types", haifaSpec.type === "adgeolocation" && haifaSpec.location_types === '["region"]' && haifaSpec.country_code === "IL" && haifaSpec.locale === "en_US" && employerSpec.type === "adworkemployer" && employerSpec.locale === "en_US" && interestSpec.type === "adinterest" && positionSpec.type === "adworkposition" && behaviorSpec.type === "adTargetingCategory" && behaviorSpec.class === "behaviors");
+
+const seenQueries: string[] = [];
+const resolved = await resolveLaunchTargeting(plan, async (params) => {
+  seenQueries.push(params.q);
+  if (params.locale !== "en_US") throw new Error("locale");
+  if (params.type === "adgeolocation") {
+    if (params.q === "Haifa District") return { data: [{ key: "city", name: "Haifa", type: "city" }] };
+    return { data: [{ key: "north", name: "North District", type: "region" }] };
+  }
+  if (params.q === "RE/MAX Israel" || params.q === "Madlan") return { data: [] };
+  if (params.q === "Small business owners") return { data: [{ id: "biz", name: "Small business owner" }] };
+  return { data: [{ id: "id-" + params.q.length, name: params.q }] };
+});
+const office = resolved.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
+const buyersAfter = resolved.plan.campaigns.find((c) => c.key === "buyers")!.adSets;
+const droppedNames = resolved.hits.filter((h) => h.status === "dropped").map((h) => h.query);
+ok("optional misses drop and do not block", !resolved.blocksCreate && droppedNames.includes("RE/MAX Israel") && droppedNames.includes("Madlan") && !office.flexible.some((g) => g.some((t) => t.name === "RE/MAX Israel")));
+ok("small business owners matches the singular name", resolved.hits.find((h) => h.query === "Small business owners")?.resolved_name === "Small business owner");
+ok("preset interest is not searched", !seenQueries.includes("Residential real estate") && resolved.hits.some((h) => h.query === "Residential real estate" && h.status === "found" && h.id === "6849417269780"));
+ok("one missing district falls back to Afula 60km", office.geo.mode === "radius" && office.geo.radiusKm === REGION_FALLBACK_KM && office.geo.radiusKm === 60 && office.geo.points.length === 1 && office.geo.points[0].label === "עפולה" && office.geo.points[0].lat === 32.6078 && resolved.hits.find((h) => h.query === "Haifa District")?.status === "fallback" && resolved.hits.find((h) => h.query === "Northern District")?.status === "found" && resolved.hits.find((h) => h.query === "Northern District")?.id === "north" && resolved.warnings.some((w) => w.includes("60")) && buyersAfter.every((a) => a.geo.mode === "radius" && a.geo.radiusKm === HOUSING_MIN_RADIUS_KM && a.flexible.length === 0));
+const fallbackOps = collectWriteOps(resolved.plan, { pageId: PAGE_ID_EXPECTED, pixelId: PIXEL_ID, regionKeys: resolved.regionKeys, termIds: resolved.termIds });
+const officeOp = fallbackOps.ops.find((op) => op.objectKey === "adset:b3");
+const officeTargeting = JSON.parse(officeOp?.body.targeting || "{}");
+ok("fallback ad set writes a radius and no region error", fallbackOps.errors.length === 0 && officeTargeting.geo_locations?.custom_locations?.[0]?.radius === 60 && !officeTargeting.geo_locations?.regions && buyersAfter.every((a) => a.flexible.length === 0));
+
+const both = await resolveLaunchTargeting(plan, async (params) => {
+  if (params.type === "adgeolocation") {
+    const key = params.q === "Haifa District" ? "haifa" : "north";
+    return { data: [{ key, name: params.q, type: "region" }] };
+  }
+  return { data: [{ id: "1", name: params.q }] };
+});
+const bothOffice = both.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
+ok("both districts stay regions", !both.blocksCreate && both.hits.every((h) => h.kind !== "region" || h.status === "found") && bothOffice.geo.mode === "regions" && both.regionKeys["Haifa District"] === "haifa" && both.regionKeys["Northern District"] === "north");
+
+const thrown = await resolveLaunchTargeting(plan, async () => {
+  throw new Error("graph down");
+});
+ok("a failed search drops optional terms and falls back", !thrown.blocksCreate && thrown.hits.some((h) => h.status === "dropped") && thrown.hits.filter((h) => h.kind === "region").every((h) => h.status === "fallback") && thrown.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0].geo.mode === "radius" && thrown.warnings.some((w) => w.includes("חיפוש הטירגוט במטא נכשל")));
+
+const unchecked = uncheckedLaunchTargeting(plan);
+ok("no token leaves regions unchecked and does not invent a radius", unchecked.blocksCreate && unchecked.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0].geo.mode === "regions" && unchecked.hits.some((h) => h.required && h.status === "unchecked") && unchecked.warnings.some((w) => w.includes("לא מחובר")));
 
 const indexSrc = readFileSync(path.join(root, "supabase/functions/ads-admin/index.ts"), "utf8");
 const cronIf = indexSrc.split("\n").find((l) => l.includes("!caller.full") && l.includes("sync_insights")) || "";
@@ -331,6 +401,9 @@ const crm = readFileSync(path.join(root, "assets/crm.js"), "utf8");
 const crmHtml = readFileSync(path.join(root, "crm.html"), "utf8");
 ok("crm sends dry-run and a confirmed write", crm.includes("adsLaunchDry") && crm.includes("dry_run: false") && crm.includes("confirm: true") && crm.includes("create_paused_launch"));
 ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunchUpload") && crm.includes("upload_launch_creatives") && crm.includes("תמונות בדלי:") && crmHtml.includes('id="adsLaunchUpload"') && !crmHtml.includes("upload_meta_creatives.mjs"));
+ok("crm shows each targeting hit and the A5 form", crm.includes("adsLaunchHitLine") && crm.includes("targeting_blocks_create") && crm.includes("טופס:") && crmHtml.includes("הערכת שווי חינם"));
+const prepareFn = indexSrc.slice(indexSrc.indexOf("async function preparePausedLaunch"), indexSrc.indexOf("function creativesPublic"));
+ok("create resolves targeting on the dry run and does not abort on a miss", indexSrc.includes("resolveLaunchTargeting") && indexSrc.includes("uncheckedLaunchTargeting") && !indexSrc.includes("לא נמצא טירגוט עבור") && prepareFn.includes("VALUATION_FORM_ID") && prepareFn.includes("SELLERS_FORM_ID") && prepareFn.includes("הערכת שווי") && !prepareFn.includes('eq("kind", "owner")'));
 
 const sampleUrl = creativeSourceUrl(plan.images[0].path);
 ok("creative bytes come from the pinned commit", sampleUrl === `https://raw.githubusercontent.com/tomerytz-del/ShukNadlan/${CREATIVE_GIT_COMMIT}/marketing/meta-creatives/${plan.images[0].path}` && !sampleUrl.includes("graph.facebook.com"));
