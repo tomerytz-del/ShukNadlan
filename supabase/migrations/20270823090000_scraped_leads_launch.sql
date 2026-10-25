@@ -273,7 +273,7 @@ begin
   end if;
 
   v_city_id := public.city_id_for_name(v_city);
-  -- 20270822090000: "ללא תיווך" - שם הקבוצה קודם (כלל של הקבוצה), ואז הסורק / הטקסט / הפרטים
+  -- 20270823090000: "ללא תיווך" - שם הקבוצה קודם (כלל של הקבוצה), ואז הסורק / הטקסט / הפרטים
   v_nobrk := case
     when public.scraped_lead_no_broker(p ->> 'source_detail') then 'group'
     when coalesce((p ->> 'no_broker')::boolean, false)
@@ -336,7 +336,7 @@ declare
   v_cands  int;
   v_free   boolean;
   v_by     text := 'rotation';
-  -- 20270822090000: בהשקה ליד בעלים פתוח גם ל-Pay&GO (free). הוא נולד
+  -- 20270823090000: בהשקה ליד בעלים פתוח גם ל-Pay&GO (free). הוא נולד
   -- unlocked ולא עובר ב-claim_lead, שחוסמת free על owner_inbound.
   v_launch boolean := public.scraped_leads_launch_active();
 begin
@@ -373,7 +373,7 @@ begin
      and public.agent_handles_type(m.id, s.property_type, s.deal_type)
      and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium') or v_launch);
 
-  -- 20270822090000: מי שלחץ/ה "אני פונה" על הביקוש כבר פנה/תה לאדם, ולכן
+  -- 20270823090000: מי שלחץ/ה "אני פונה" על הביקוש כבר פנה/תה לאדם, ולכן
   -- הליד אליו/ה - אם הוא/היא פעיל/ה ורשאי/ת לסוג הליד. אחרת - הסבב הרגיל.
   if s.claimed_by is not null then
     select m.id, m.agency_id into v_agent, v_agency
@@ -397,7 +397,7 @@ begin
      limit 1;
   end if;
 
-  -- 20270822090000: בהשקה הליד נפתח מיד לסוכן/ת ששויך/ה - בלי claim_lead,
+  -- 20270823090000: בהשקה הליד נפתח מיד לסוכן/ת ששויך/ה - בלי claim_lead,
   -- בלי חיוב ובלי מכסה. בלי סוכן/ת הוא נשאר masked כמו קודם.
   v_free := v_agent is not null and v_launch;
 
