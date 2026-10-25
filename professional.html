@@ -11,7 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>בעל מקצוע | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -74,7 +74,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ====== הכותרת ======
      בדסקטופ ניווט וכפתור ההצטרפות; בטלפון חזרה לרשימה והלוגו בלבד. */
-  header.site{padding:12px 0}
+  header.site{padding:calc(12px + env(safe-area-inset-top, 0px)) 0 12px}
   .header-inner{display:flex;align-items:center;gap:28px}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
   .logo-img{height:44px;width:auto;flex:0 0 auto;display:block}
