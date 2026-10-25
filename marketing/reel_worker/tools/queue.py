@@ -7,7 +7,7 @@ a separate browser step posts, then calls `record`.
 Commands
   sync         [--snapshot FILE]   rebuild queue from a Supabase snapshot (tools/sync_query.sql output)
   next         [--limit N] [--build] [--now ISO]   next posts honoring caps / dedupe / spreading
-  build-assets --property <uuid|listing_number> [--force]
+  build-assets --property <uuid|listing_number> [--force]   post.txt + ONE designed ad_image.jpg (tools/post_image.py) or text-only
   record       --property P --group G --status posted|pending_approval|skipped|failed [--url U] [--note T]
   status       summary of queue, waiting lists and today's usage
   build-stories --property P       9:16 story slides  (tools/reel.py)
@@ -306,14 +306,16 @@ def cmd_next(args):
         d = asset_dir(p)
         if args.build and not assets_ready(d):
             build_assets(p, st)
-        photos = sorted([os.path.join(d, f) for f in os.listdir(d) if re.match(r"photo_\d+_wm\.jpg$", f)],
-                        key=lambda x: int(re.findall(r"\d+", os.path.basename(x))[0])) if os.path.isdir(d) else []
+        image = ad_image_of(d)
         out.append({"property_id": pid, "listing_number": p["listing_number"], "city": p.get("city"),
                     "category": p.get("category"), "deal_type": p.get("deal_type"),
                     "group_id": gid, "group_name": gname.get(gid), "group_url": f"https://www.facebook.com/groups/{gid}",
                     "kind": kind, "last_posted_at": last[(pid, gid)].isoformat() if (pid, gid) in last else None,
                     "assets_ready": assets_ready(d),
-                    "ad_image": os.path.join(d, "ad_image.jpg"), "photos": photos,
+                    # single designed graphic; null = text-only post (no usable photo). Attach exactly `attach`.
+                    "image": image, "text_only": assets_ready(d) and image is None,
+                    "attach": [image] if image else [],
+                    "ad_image": image, "photos": [],
                     "post_text": os.path.join(d, "post.txt"), "property_url": SITE.format(pid)})
     print(json.dumps({"today_used": used, "daily_cap": DAILY_CAP, "returned": len(out), "posts": out},
                      ensure_ascii=False, indent=1))
@@ -399,8 +401,31 @@ def asset_dir(p):
     return os.path.join(ROOT, str(p["listing_number"]))
 
 
+BUILD_TAG = "single_image_v1"   # group-post assets: one designed graphic (tools/post_image.py) or text-only
+
+
+def build_info(d):
+    """Contents of <no>/.built when it was written by the single-image build, else None (old carousel build)."""
+    try:
+        info = json.load(open(os.path.join(d, ".built"), encoding="utf-8"))
+        return info if isinstance(info, dict) and info.get("build") == BUILD_TAG else None
+    except Exception:
+        return None
+
+
+def ad_image_of(d):
+    """Path of the group-post graphic, or None for a text-only post (no usable photo)."""
+    info = build_info(d)
+    if not info or not info.get("image"):
+        return None
+    p = os.path.join(d, "ad_image.jpg")
+    return p if os.path.exists(p) else None
+
+
 def assets_ready(d):
-    return os.path.exists(os.path.join(d, "ad_image.jpg")) and os.path.exists(os.path.join(d, "post.txt"))
+    info = build_info(d)
+    return bool(info) and os.path.exists(os.path.join(d, "post.txt")) and \
+        (not info.get("image") or os.path.exists(os.path.join(d, "ad_image.jpg")))
 
 
 def size_of(p):
@@ -707,49 +732,45 @@ def to_jpg(src, dst):
     im.save(dst, quality=92)
 
 
+_PI = None
+
+
+def _post_image():
+    global _PI
+    if _PI is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("fbpostimage", os.path.join(TOOLS, "post_image.py"))
+        _PI = importlib.util.module_from_spec(spec); spec.loader.exec_module(_PI)
+    return _PI
+
+
 def build_assets(p, st, force=False):
+    """Group-post assets (owner approval 2026-10-25): post.txt + ONE designed graphic ad_image.jpg
+    (tools/post_image.py, variant auto by category/deal, 1080x1350). No carousel photo_N_wm.jpg files any more.
+    No usable photo (none / all has_branding / download failed) -> no image: the post goes out text-only.
+    A previous ad_image.jpg (old template) is kept as src/ad_image_prev.jpg, never attached."""
     d = asset_dir(p)
     src = os.path.join(d, "src"); os.makedirs(src, exist_ok=True)
     disc = disclosure_for(p, st)
-    wm = os.path.join(TOOLS, "watermark.py")
-    # post.txt is always (re)generated from structured data
+    # post.txt is always (re)generated from structured data (unchanged copy rules)
     open(os.path.join(d, "post.txt"), "w", encoding="utf-8").write(post_text(p, disc))
-    approved = os.path.join(d, "ad_image_v2.jpg")
-    if str(p["listing_number"]) == "1171" and os.path.exists(approved):
-        # keep the approved ad (v2) as the live ad; v3 (broker card) is a sample pending approval
-        shutil.copyfile(approved, os.path.join(d, "ad_image.jpg"))
+    if not force and build_info(d) and assets_ready(d):
         return d
-    if not force and os.path.exists(os.path.join(d, "ad_image.jpg")) and os.path.exists(os.path.join(d, ".built")):
-        return d
-    imgs = [u for u in (p.get("images") or []) if u][:6]
-    local = []
-    for i, u in enumerate(imgs, 1):
-        raw = os.path.join(src, f"img_{i}" + os.path.splitext(u.split("?")[0])[1].lower())
-        if not os.path.exists(raw):
-            fetch(u, raw)
-        jp = os.path.join(src, f"img_{i}.jpg")
-        to_jpg(raw, jp); local.append(jp)
-    shutil.copyfile(local[0], os.path.join(src, "hero.jpg"))
-    # ad image: Tomer's licence line only on his own listings; other agents get no extra line there because
-    # the bottom-left lockup already reads "שוק הנדל״ן / shuknadlan.co.il" (= SITE_LINE)
-    open(os.path.join(src, "ad.html"), "w", encoding="utf-8").write(ad_html(p, disc if is_tomer(p) else ""))
-    cmd = [sys.executable, wm, "ad", "--logo", LOGO, "--html", os.path.join(src, "ad.html"), "--assets", src,
-           "--out", os.path.join(d, "ad_image.jpg"),
-           "--agent-name", nodash(p.get("agent_name") or ""), "--agency-name", nodash(p.get("agency_name") or "")]
-    if p.get("agency_logo"):
-        try:
-            lp = os.path.join(src, "agency_logo" + os.path.splitext(p["agency_logo"])[1].lower())
-            if not os.path.exists(lp): fetch(p["agency_logo"], lp)
-            cmd += ["--agency-logo", lp]
-        except Exception as ex:
-            print("agency logo download failed:", ex, file=sys.stderr)
-    subprocess.run(cmd, check=True)        # no ethics badge on the broker card (owner rule 2026-10-24)
-    for f in os.listdir(d):
-        if re.match(r"photo_\d+_wm\.jpg$", f): os.remove(os.path.join(d, f))
-    for i, jp in enumerate(local[1:], 2):
-        subprocess.run([sys.executable, wm, "photo", "--logo", LOGO, "--in", jp,
-                        "--out", os.path.join(d, f"photo_{i}_wm.jpg")], check=True, stdout=subprocess.DEVNULL)
-    open(os.path.join(d, ".built"), "w").write(datetime.now(TZ).isoformat())
+    ad = os.path.join(d, "ad_image.jpg")
+    if os.path.exists(ad) and not build_info(d):
+        shutil.move(ad, os.path.join(src, "ad_image_prev.jpg"))
+    try:
+        res = _post_image().build_post_image(p, ad)
+    except Exception as ex:
+        print(f"post_image failed for {p.get('listing_number')}: {ex}; posting text-only", file=sys.stderr)
+        res = {"image": None, "variant": None, "photos": 0, "error": str(ex)}
+    if not res.get("image") and os.path.exists(ad):
+        os.remove(ad)   # never leave a stale graphic behind a text-only post
+    json.dump({"build": BUILD_TAG, "at": datetime.now(TZ).isoformat(),
+               "image": "ad_image.jpg" if res.get("image") else None,
+               "variant": res.get("variant"), "photos": res.get("photos", 0),
+               **({"error": res["error"]} if res.get("error") else {})},
+              open(os.path.join(d, ".built"), "w", encoding="utf-8"), ensure_ascii=False)
     return d
 
 
@@ -759,9 +780,8 @@ def cmd_build(args):
     p = st["properties"].get(pid)
     if not p:
         sys.exit("property not in state (inactive or not synced)")
-    if not [u for u in (p.get("images") or []) if u]:
-        sys.exit("property has no images (waiting_images)")
-    print(build_assets(p, st, force=args.force))
+    d = build_assets(p, st, force=args.force)
+    print(json.dumps({"dir": d, "image": ad_image_of(d), "post_text": os.path.join(d, "post.txt")}, ensure_ascii=False))
 
 
 def cmd_captions(args):

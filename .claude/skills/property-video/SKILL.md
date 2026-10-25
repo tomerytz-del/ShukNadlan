@@ -39,7 +39,9 @@ description: הסרטון השיווקי לנכס בריפו של שוק נדל�
 ### עדכון התבנית (גרסה חדשה של reel.py מ-Grok)
 
 1. להעתיק **כלשונם** את `reel.py`, `queue.py`, `cutout.py` ו-`watermark.py` מ-
-   `reference_code` של הערכה ל-`marketing/reel_worker/tools/`. בלי עריכה - כל
+   `reference_code` של הערכה ל-`marketing/reel_worker/tools/` (וגם `post_image.py`
+   כשהוא בערכה: `queue.py` טוען אותו לפוסטים בקבוצות פייסבוק, והגיבוי אינו
+   מריץ אותו - לכן התלויות שלו, scipy ו-Heebo, אינן ב-`requirements.txt`). בלי עריכה - כל
    מה שהסביבה דורשת יושב ב-`run_job.py` (‏`snapshot_property`, ‏`azure_tts`,
    ‏`REMBG_PY`, ‏`R.LAYOUT = "D"`). אם הגרסה החדשה קוראת שדה חדש מה-snapshot
    (`p.get("…")`), הוא נכנס ל-`snapshot_property` **ול-`renderData`** ב-
