@@ -17,8 +17,9 @@
    ## מה הפונקציה עושה
 
    רצה על ה-edge לפני שהתשובה יוצאת, מושכת את הנכס/המשרד/הסוכן מ-Supabase,
-   ומזריקה ל-‎<head>‎ תגיות ‎og:‎, ‎twitter:‎ ו-‎canonical‎. ה-HTML עצמו לא
-   משתנה בשום דרך אחרת, וה-JS שבדף ממשיך לעבוד בדיוק כמו קודם.
+   ומזריקה ל-‎<head>‎ תגיות ‎og:‎, ‎twitter:‎ ו-‎canonical‎. בדף נכס היא גם
+   חושפת את גוף המודעה ומכניסה את תמונת השער, כדי שהפוטר לא יקפוץ
+   וה-LCP לא יחכה ל-JS. שאר הדפים לא משתנים מעבר לתגיות.
 
    ## שני סוגי דפים, ולמה ההזרקה שונה בהם
 
@@ -49,9 +50,11 @@
    ‏property.html. **בלעדיה הפונקציה הזו הייתה מדליפה את מספר הבית לכל
    שיתוף בוואטסאפ** — כלומר הופכת את כלל הפרטיות לאות מתה.
 
-   ‏**3. כישלון אינו שובר דף.** כל קריאת רשת עטופה ב-timeout קצר וב-
-   ‏try/catch, וכל מסלול כושל מחזיר את התשובה המקורית כמו שהיא. דף בלי
-   תגיות שיתוף הוא מה שיש היום; דף שנתקע בגלל Supabase איטי הוא הרעה.
+   ‏**3. כישלון אינו noindex, ובנכס הוא גם אינו 200.** כל קריאת רשת עטופה
+   ב-timeout קצר. כשל (‏5xx, ‏401, ‏timeout) **אינו** מקבל noindex: הסקה
+   ממנו הייתה מוחקת נכסים חיים בגלל שנייה של Supabase איטי. בדף נכס הכשל
+   יוצא 503 עם Retry-After ו-no-store, וה-HTML המקורי נשאר כדי שה-JS ימלא.
+   בשאר דפי הפירוט הכשל עדיין מחזיר את התשובה המקורית כמו שהיא.
 
    ## ‏canonical, וכתובת אחת לכל דף
 
@@ -85,11 +88,16 @@
    נכסים אמיתיים אל ‎/property‎ ברגע הראשון של Supabase איטי — הכשל שכל
    הסעיף שמעל נבנה כדי למנוע.
 
+   בדף נכס, "אין רשומה" הוא **404** עם no-store (לא 200 שנשמר לדקה),
+   והמשפט "הנכס לא נמצא" הוא פסקה ולא H1. H1 יחיד נשאר ‎#propTitle‎.
+   שאר דפי הפירוט נשארים 200 עם noindex.
+
    ## מטמון
 
-   התשובה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate לחמש), כדי
-   שלא תצא קריאה ל-Supabase על כל צפייה. הדפדפן עצמו מקבל
-   ‎must-revalidate‎, כך שאין סיכון להגשת דף ישן אחרי פרסום.
+   תשובה שהתמלאה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate
+   לחמש), כדי שלא תצא קריאה ל-Supabase על כל צפייה. הדפדפן עצמו מקבל
+   ‎must-revalidate‎. ‏404 ו-503 של דף נכס הם no-store: נכס שפורסם אחר כך,
+   או כשל של דקה, לא נתקעים במטמון.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
@@ -98,11 +106,18 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
    שה-JS כותב אחריו אינם יכולים להתפצל. */
 import "../../assets/article-body.js";
 import "../../assets/agency-about.js";
+/* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
+import "../../assets/markets.js";
+import "../../assets/agency-place.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
   ShukArticleBody: { parse: (text: string) => ArticleBlock[] };
   ShukAgencyAbout: { paragraphs: (a: Record<string, unknown>) => string[] };
+  ShukAgencyPlace?: {
+    officeCity: (a: Record<string, unknown>) => string;
+    title: (name: unknown, city: string) => string;
+  };
 };
 
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -218,6 +233,8 @@ type Meta = {
   /* ‏אלמנט ריק שמקבל מבנה ולא רק טקסט (‏גוף הכתבה, "על המשרד"). ה-HTML
      נבנה כאן בבריחה מלאה, וה-JS בונה אחריו את אותו מבנה ב-textContent. */
   inner?: { id: string; html: string }[];
+  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער. */
+  paint?: { count: number; html: string; lcp: string };
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -258,15 +275,82 @@ const num = (n: unknown): string => {
    בחירת התיאור היא העתק של ‎renderDescription‎: הנוסח השיווקי, חוץ מנוסח
    מתיישן כשיש תיאור מודעה (‏docs/marketing-description.md).
 
-   ‏**מה שאינו נכנס, בכוונה:** קואורדינטות ומספר בית. הכתובת כאן היא אותה
-   כתובת ממוסכת שבתגיות (‏docs/property-address-privacy.md) - נתונים
-   מובנים הם בדיוק המקום שבו כתובת מלאה הייתה נאספת ונשמרת אצל אחרים. */
+   כותרת ה-H1, שורת הכתובת ו-streetAddress כוללים רחוב ומספר בית, אותו
+   נוסח כמו publicHeadline ב-assets/property.js. גוש, חלקה וקואורדינטות
+   לא נכנסים. docs/property-address-privacy.md. */
 
 const APARTMENT_TYPES = new Set(["דירה", "דירת גן", "גג/פנטהאוז", "דופלקס", "טריפלקס"]);
 const HOUSE_TYPES = new Set(["בית פרטי/קוטג'", "דו משפחתי"]);
 
 /* ‏Accommodation (דירה/בית) נושא חדרים, שטח וקומה; נכס מסחרי או מגרש אינו
    "מקום לגור בו", ולכן הוא Place - בלי השדות שאינם שייכים לו. */
+/* העתק של publicHeadline / publicStreetLine ב-assets/property.js.
+   שינוי באחד מחייב את אותו שינוי בשני. */
+function streetNameOf(p: Record<string, unknown>): string {
+  const raw = String(p.street || p.address || "").trim();
+  return maskHouseNumber(raw, p.house_number).replace(/^רחוב\s+/, "").replace(/\s+/g, " ").trim();
+}
+
+function publicStreetLine(p: Record<string, unknown>): string {
+  const street = streetNameOf(p);
+  const hn = String(p.house_number ?? "").trim();
+  if (!street) return "";
+  return hn ? `${street} ${hn}` : street;
+}
+
+function publicHeadline(p: Record<string, unknown>): string {
+  const type = String(p.property_type || "").trim();
+  const street = streetNameOf(p);
+  const city = String(p.city || "").trim();
+  const hn = String(p.house_number ?? "").trim();
+  const rooms = num(p.rooms);
+  const fallback = maskHouseNumber(p.title, p.house_number) || String(p.title || "נכס");
+  if (!type || !street) return fallback;
+  let head = type;
+  if (rooms) head += ` ${rooms} חד׳`;
+  head += ` ב${street}`;
+  if (hn) head += ` ${hn}`;
+  if (city) head += `, ${city}`;
+  return head;
+}
+
+/* שכונות עפולה שה-slug שלהן ידוע (אותה רשימה כמו HOODS ב-silo-render.js).
+   בלי slug לא ממציאים כתובת /n/. */
+const AFULA_HOODS: Record<string, string> = {
+  "אזור התעשייה": "אזור-התעשייה",
+  "גבעת המורה": "גבעת-המורה",
+  "דרום העיר": "דרום-העיר",
+  "השכונה הצפון מערבית": "השכונה-הצפון-מערבית",
+  "לב העמק C1": "לב-העמק-c1",
+  "מזרח העיר": "מזרח-העיר",
+  "מערב העיר (שיכון גאולים)": "מערב-העיר-שיכון-גאולים",
+  "מרכז העיר": "מרכז-העיר",
+  "עפולה הירוקה": "עפולה-הירוקה",
+  "עפולה עלית": "עפולה-עלית",
+  "רובע יזרעאל": "רובע-יזרעאל",
+};
+
+function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
+  const city = String(p.city || "").trim();
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const items: Record<string, unknown>[] = [
+    { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE}/` },
+  ];
+  if (city) {
+    const cityItem: Record<string, unknown> = { "@type": "ListItem", position: items.length + 1, name: city };
+    if (city === "עפולה") cityItem.item = `${SITE}/`;
+    items.push(cityItem);
+  }
+  if (hood && hood !== city) {
+    const slug = city === "עפולה" ? AFULA_HOODS[hood] : "";
+    const hoodItem: Record<string, unknown> = { "@type": "ListItem", position: items.length + 1, name: hood };
+    if (slug) hoodItem.item = `${SITE}/n/afula/${encodeURIComponent(slug)}`;
+    items.push(hoodItem);
+  }
+  items.push({ "@type": "ListItem", position: items.length + 1, name: title, item: url });
+  return items;
+}
+
 function listingSubject(p: Record<string, unknown>, title: string, street: string) {
   const type = String(p.property_type || "");
   const kind = APARTMENT_TYPES.has(type) ? "Apartment" : HOUSE_TYPES.has(type) ? "SingleFamilyResidence" : "Place";
@@ -325,29 +409,250 @@ function listingJsonLd(
       listing,
       {
         "@type": "BreadcrumbList",
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE}/` },
-          { "@type": "ListItem", position: 2, name: title },
-        ],
+        itemListElement: listingCrumbs(p, title, url),
       },
     ],
   };
+}
+
+/* ‏התוויות הן עותק של assets/property.js (‏FEATURE_LABELS, CONDITION_LABELS,
+   PROJECT_STATUS_LABELS, CONDITION_HIGHLIGHTS). הקובץ אינו מודול, ולכן
+   אי אפשר לייבא אותו לכאן. שינוי שם בעברית חייב לקרות בשני המקומות. */
+const FEATURE_LABELS: Record<string, string> = {
+  moshav_kibbutz_only: "במושב/קיבוץ", price_dropped: "המחיר ירד לאחרונה",
+  parking: "חניה", elevator: "מעלית", balcony: "מרפסת", sun_balcony: "מרפסת שמש", ac: "מיזוג", bars: "סורגים",
+  accessible: "גישה לנכים", renovated_feature: "משופצת", furnished: "מרוהטת", mamad: "ממ״ד", exclusive: "בבלעדיות",
+  building_shelter: "מקלט בבניין", mamak: "ממ״ק", storage: "מחסן", high_ceiling: "תקרה גבוהה", cameras: "מצלמות",
+  kitchenette: "מטבחון", alarm: "אזעקה", meeting_room: "חדר ישיבות", loading_ramp: "רמפת העמסה",
+  comms: "תקשורת", cold_room: "חדר קירור", ev_charger: "עמדת טעינה לרכב חשמלי",
+};
+const CONDITION_LABELS: Record<string, string> = {
+  new_from_contractor: "חדש מקבלן", new: "חדש", renovated: "משופץ",
+  maintained: "שמור", needs_renovation: "דרוש שיפוץ",
+};
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  planning: "תכנון ראשוני", permit_requested: "הוגשה בקשה להיתר",
+  permit_issued: "ניתן היתר בנייה", construction_complete: "הבנייה הסתיימה",
+};
+const CONDITION_HIGHLIGHTS: Record<string, string> = {
+  new_from_contractor: "חדש מקבלן", new: "נכס חדש", renovated: "משופץ", maintained: "במצב שמור",
+};
+const PROTECTION_FEATURES = ["mamad", "mamak", "building_shelter"];
+const LOCATION_WORD: Record<string, string> = { unit: "בנכס", building: "בבניין" };
+
+function heNum(n: unknown): string {
+  if (n === null || n === undefined || String(n).trim() === "") return "";
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v.toLocaleString("he-IL") : "";
+}
+
+function agencyOf(p: Record<string, unknown>): string {
+  const a = p.agencies;
+  const row = Array.isArray(a) ? a[0] : a;
+  if (!row || typeof row !== "object") return "";
+  return String((row as { name?: string }).name || "");
+}
+
+/* ‏אותו פירוק של priceParts / priceFlat ב-property.js, בלי האייקון. */
+function priceBits(p: Record<string, unknown>): { num: string; flat: string; html: string } | null {
+  const n = heNum(p.price);
+  if (!n) return null;
+  const vat = p.category === "commercial" && p.price_includes_vat !== true ? " + מע״מ" : "";
+  const suffix = (p.deal_type === "rent" ? " / חודש" : "") + vat;
+  const num = `${n} ₪`;
+  const html = esc(num) + (suffix ? `<span class="suffix">${esc(suffix)}</span>` : "");
+  return { num, flat: num + suffix, html };
+}
+
+function floorLabel(p: Record<string, unknown>): string {
+  if (p.floor === null || p.floor === undefined || p.floor === "") return "";
+  const floor = Number(p.floor);
+  if (!Number.isFinite(floor)) return "";
+  const base = floor === 0 ? "קומת קרקע" : "קומה " + String(p.floor);
+  return p.total_floors ? base + " מ־" + p.total_floors : base;
+}
+
+function specPillsHtml(p: Record<string, unknown>): string {
+  const isRent = p.deal_type === "rent";
+  const moveIn = p.move_in_date
+    ? new Date(String(p.move_in_date)).toLocaleDateString("he-IL")
+    : (p.move_in_soon ? "כניסה מיידית" : "");
+  const pills: { v: string; k: string }[] = [];
+  const add = (v: string, k: string) => { if (v) pills.push({ v, k }); };
+  if (heNum(p.size_sqm)) add(heNum(p.size_sqm) + " מ״ר", "שטח הנכס");
+  if (heNum(p.rooms)) add(heNum(p.rooms) + " חדרים", "חדרים");
+  add(floorLabel(p), p.floor === 0 || p.floor === "0" ? "גישה ישירה" : "קומה");
+  if (heNum(p.price_per_sqm)) add(heNum(p.price_per_sqm) + " ₪", isRent ? "למ״ר לחודש" : "מחיר למ״ר");
+  if (heNum(p.built_size_sqm)) add(heNum(p.built_size_sqm) + " מ״ר", "שטח בנוי");
+  if (heNum(p.garden_sqm)) add(heNum(p.garden_sqm) + " מ״ר", "גינה");
+  add(CONDITION_LABELS[String(p.condition || "")] || "", "מצב הנכס");
+  add(moveIn, "תאריך כניסה");
+  add(PROJECT_STATUS_LABELS[String(p.project_status || "")] || "", "סטטוס הפרויקט");
+  if (p.furniture_details) add(String(p.furniture_details), "ריהוט");
+  if (heNum(p.maintenance_fee)) add(heNum(p.maintenance_fee) + " ₪ לחודש", "ועד בית / דמי ניהול");
+  if (heNum(p.arnona)) {
+    add(heNum(p.arnona) + (p.category === "commercial" ? " ₪ לחודש" : " ₪ לחודשיים"), "ארנונה");
+  }
+  return pills.map((c) =>
+    `<div class="spec-pill"><span class="txt"><span class="v">${esc(c.v)}</span><span class="k">${esc(c.k)}</span></span></div>`
+  ).join("");
+}
+
+function highlightsHtml(p: Record<string, unknown>): string {
+  const features = Array.isArray(p.features) ? p.features.map(String) : [];
+  const labels: string[] = [];
+  const loc = (code: unknown, noun: string) =>
+    LOCATION_WORD[String(code || "")] ? `${noun} ${LOCATION_WORD[String(code)]}` : "";
+  const mamadLoc = loc(p.mamad_location, "ממ״ד");
+  if (mamadLoc) labels.push(mamadLoc);
+  for (const code of PROTECTION_FEATURES) {
+    if (code === "mamad" && mamadLoc) continue;
+    if (features.includes(code) && FEATURE_LABELS[code]) labels.push(FEATURE_LABELS[code]);
+  }
+  const cond = CONDITION_HIGHLIGHTS[String(p.condition || "")];
+  if (cond) labels.push(cond);
+  if (p.move_in_soon) labels.push("כניסה מיידית");
+  const storageLoc = loc(p.storage_location, "מחסן");
+  if (storageLoc) labels.push(storageLoc);
+  const restLoc = loc(p.restrooms_location, "שירותים");
+  if (restLoc) labels.push(restLoc);
+  for (const code of features) {
+    if (PROTECTION_FEATURES.includes(code)) continue;
+    if (code === "storage" && storageLoc) continue;
+    if (FEATURE_LABELS[code]) labels.push(FEATURE_LABELS[code]);
+  }
+  return labels.map((label) => `<div class="highlight"><span>${esc(label)}</span></div>`).join("");
+}
+
+/* קובץ מדיה, לא יוטיוב. אותו סיומת ש-videoEmbed ב-assets/property.js מכיר.
+   בלי src על <video>: הניגון נשאר בלחיצה. */
+function isFileVideo(raw: unknown): boolean {
+  const s = String(raw || "").trim();
+  if (!/^https?:\/\//i.test(s)) return false;
+  try {
+    return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(new URL(s).pathname);
+  } catch {
+    return false;
+  }
+}
+
+/* תמונת שער מהאחסון שלנו יורדת בגודל התא, לא כ-JPEG המלא.
+   הנוסחה זהה ל-posterForHero ב-assets/property.js: src ו-preload הם
+   800, ו-srcset מוסיף 1200. כתובת אחרת ב-JS מוחקת את הצומת וההורדה
+   מתחילה מחדש. כתובת שאינה object/public נשארת כמו שהיא. */
+const HERO_OBJECT = "/storage/v1/object/public/";
+const HERO_SIZES = "(min-width:640px) 640px, 100vw";
+
+function heroRenderUrl(url: string, w: number, h: number): string {
+  const at = url.indexOf(HERO_OBJECT);
+  if (at < 0) return "";
+  const path = url.slice(at + HERO_OBJECT.length).split(/[?#]/)[0];
+  if (!path) return "";
+  return url.slice(0, at) + "/storage/v1/render/image/public/" + path
+    + `?width=${w}&height=${h}&resize=cover&quality=60`;
+}
+
+function heroImg(original: string, video: boolean): { tag: string; lcp: string } {
+  const src800 = heroRenderUrl(original, 800, 500);
+  const src1200 = heroRenderUrl(original, 1200, 800);
+  const transformed = !!(src800 && src1200);
+  const src = transformed ? src800 : original;
+  const bits = [
+    video ? 'class="bento-video-bg"' : "",
+    'data-lcp="1"',
+    `src="${esc(src)}"`,
+    transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
+    transformed ? `sizes="${HERO_SIZES}"` : "",
+    transformed ? `data-full="${esc(original)}"` : "",
+    'alt=""',
+    'fetchpriority="high"',
+    video ? 'style="filter:none;transform:none"' : "",
+    video ? 'aria-hidden="true"' : "",
+    transformed
+      ? 'onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"'
+      : "",
+  ].filter(Boolean);
+  return { tag: `<img ${bits.join(" ")}>`, lcp: src };
+}
+
+/* אותה ספירה ש-renderGallery כותב ל-data-count, כדי שהגובה לא יזוז
+   כשה-JS מחליף את התאים. תמונת השער היא data-lcp. */
+function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string } {
+  const images = (Array.isArray(p.images) ? p.images : []).map(absolute).filter(Boolean);
+  const video = isFileVideo(p.video_url);
+  const poster = (video && absolute(p.video_poster_url)) || images[0] || "";
+  if (!poster) return { count: 1, html: "", lcp: "" };
+  const thumb = (src: string, last: boolean) =>
+    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
+  if (video) {
+    const thumbEnd = Math.max(0, Math.min(images.length, 2));
+    const count = 1 + thumbEnd;
+    const shot = heroImg(poster, true);
+    const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
+    return { count, html: main + thumbs, lcp: shot.lcp };
+  }
+  const thumbEnd = Math.max(1, Math.min(images.length, 3));
+  const shot = heroImg(images[0], false);
+  const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
+  const extra = images.slice(1, thumbEnd);
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
+  return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
+}
+
+/* ‏המחיר, המאפיינים, המשרד והסוכן/ת - אותם id ש-renderProperty כותב.
+   בלי אייקונים: ה-JS דורס את ה-innerHTML, והסורק צריך את הטקסט. */
+function propertyVisible(p: Record<string, unknown>, agentDisplay: string): Pick<Meta, "fills" | "inner" | "reveal"> {
+  const fills: { id: string; text: string }[] = [];
+  const inner: { id: string; html: string }[] = [];
+  const reveal: string[] = [];
+  const price = priceBits(p);
+  if (price) {
+    inner.push({ id: "heroPriceNum", html: price.html });
+    fills.push(
+      { id: "heroPriceSub", text: heNum(p.price_per_sqm) ? heNum(p.price_per_sqm) + " ₪ למ״ר" : (p.deal_type === "rent" ? "להשכרה" : "למכירה") },
+      { id: "agentPriceLabel", text: p.deal_type === "rent" ? "שכר דירה חודשי" : "מחיר מבוקש" },
+      { id: "agentPriceValue", text: price.flat },
+      { id: "sbPriceLabel", text: p.deal_type === "rent" ? "לחודש" : "מחיר" },
+      { id: "sbPriceValue", text: price.flat },
+    );
+    reveal.push("heroPrice");
+  }
+  const office = agencyOf(p) || "משרד תיווך";
+  fills.push({ id: "agencyName", text: office });
+  fills.push({ id: "agentCardName", text: agentDisplay || agencyOf(p) || "צוות שוק נדל״ן" });
+  if (p.agent2_name) {
+    fills.push({ id: "agentName", text: "בשיתוף: " + String(p.agent2_name) });
+    reveal.push("agentName");
+  }
+  const pills = specPillsHtml(p);
+  if (pills) inner.push({ id: "specPills", html: pills });
+  const highlights = highlightsHtml(p);
+  if (highlights) {
+    inner.push({ id: "highlightsList", html: highlights });
+    reveal.push("highlightsSection");
+  }
+  return { fills, inner, reveal };
 }
 
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
     "rooms,size_sqm,status,neighborhoods(name)," +
-    "description,marketing_description,marketing_description_stale,property_type,floor,updated_at";
+    "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
+    "price_per_sqm,category,price_includes_vat,total_floors,built_size_sqm,garden_sqm,condition," +
+    "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
+    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)," +
+    "video_url,video_poster_url";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const p = got.row;
 
-  const title = maskHouseNumber(p.title, p.house_number) || String(p.title || "נכס");
+  const title = publicHeadline(p);
   const hood = (p.neighborhoods as { name?: string } | null)?.name || p.sales_area || "";
-  const street = maskHouseNumber(p.address || p.street || "", p.house_number);
+  const street = publicStreetLine(p);
   const where = [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
 
@@ -364,6 +669,17 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const marketing = p.marketing_description_stale && p.description ? "" : p.marketing_description;
   const body = String(marketing || p.description || "").trim();
 
+  /* ‏הסוכן/ת בשאילתה נפרדת, כמו ב-property.js: embed חוצה-שם אינו מובטח.
+     כשל כאן אינו מפיל את הדף - נשאר השם של המשרד או הפלייסהולדר. */
+  let agentDisplay = "";
+  if (p.agent_id) {
+    const agent = await sbFetch(
+      `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
+    );
+    if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
+  }
+  const visible = propertyVisible(p, agentDisplay);
+
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
     description: clamp(bits.join(" · "), 200),
@@ -375,14 +691,65 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     ),
     fills: [
       { id: "propTitle", text: title },
+      { id: "propAddress", text: where },
       { id: "propDescription", text: body },
+      ...(visible.fills || []),
     ],
-    reveal: body ? ["descSection"] : [],
+    reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
+    inner: visible.inner,
+    paint: heroPaint(p),
   };
 }
 
 /* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
 const MIN_REVIEWS_RATED = 2;
+
+/* ‏ספירת נכסים פעילים. כשל, timeout, או תשובה בלי Content-Range (הבדיקות
+   שמחזירות את שורת המשרד לכל קריאה) מחזירים null - והדף יוצא בלי מספר,
+   לא עם מספר מומצא. */
+async function activeListingCount(agencyId: string): Promise<number | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+          Prefer: "count=exact",
+          Range: "0-0",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    const range = res.headers.get("content-range") || "";
+    const m = /\/(\d+)\s*$/.exec(range);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function countPhrase(n: number): string {
+  if (n === 0) return "אין כרגע נכסים פעילים";
+  if (n === 1) return "נכס פעיל אחד";
+  return `${n} נכסים פעילים`;
+}
+
+/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText). */
+function agencyBlurb(name: unknown, city: string, count: number | null, aboutText: string): string {
+  if (!city && count == null) return aboutText;
+  const who = String(name || "").trim() || "משרד תיווך";
+  let lead = who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
+  if (count != null) lead += `, ${countPhrase(count)}`;
+  return clamp(`${lead}. ${aboutText}`, 200);
+}
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
@@ -393,7 +760,9 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   /* ‏"על המשרד": התיאור שהמשרד כתב, או משפט עובדתי מהשם, הכתובת והאזורים -
      אותן פסקאות שאגף ה-JS של agency.html כותב (‏assets/agency-about.js). */
   const about = shared.ShukAgencyAbout.paragraphs(a);
-  const description = clamp(
+  /* ‏הטקסט של "על המשרד" נשאר ה-description ב-JSON-LD, כמו קודם. תגית
+     ה-meta מקבלת לפניו את העיר ואת מספר הנכסים, כשהספירה הצליחה. */
+  const aboutText = clamp(
     about.join(" ") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
     200,
   );
@@ -407,7 +776,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     "@id": `${canonical}#agency`,
     name: String(a.name || ""),
     url: canonical,
-    description,
+    description: aboutText,
     image,
   };
   if (a.logo_url) agency.logo = absolute(a.logo_url);
@@ -418,10 +787,17 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
      ‏score) ואותו סף (‏MIN_REVIEWS_SHOWN = 2 ב-agency.html). דירוג בנתונים
      המובנים שאינו מופיע בדף הוא הפרה של הנחיות גוגל, ולכן מתחת לסף - כלום.
      כשל בשאילתה השנייה אינו מפיל את הדף: הוא יוצא בלי דירוג. */
+  /* ‏הספירה משנית: כישלון שלה אינו מפיל את הדף, והכותרת יוצאת בלי מספר.
+     ‏206/416 עם Content-Range עדיין מספר; בלי הכותרת הזו אין מספר אמיתי. */
+  let listingCount: number | null = null;
   if (a.id) {
-    const r = await sbFetch(
-      `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
-    );
+    const [r, counted] = await Promise.all([
+      sbFetch(
+        `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
+      ),
+      activeListingCount(String(a.id)),
+    ]);
+    listingCount = counted;
     const score = r.kind === "row" ? Number(r.row.score) : NaN;
     const count = r.kind === "row" ? Number(r.row.review_count) : 0;
     if (r.kind === "row" && r.row.score != null && Number.isFinite(score) && count >= MIN_REVIEWS_RATED) {
@@ -435,9 +811,14 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     }
   }
 
+  const city = shared.ShukAgencyPlace?.officeCity(a) || "";
+  const title = shared.ShukAgencyPlace
+    ? shared.ShukAgencyPlace.title(a.name, city)
+    : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
+
   return {
-    title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),
-    description,
+    title,
+    description: agencyBlurb(a.name, city, listingCount, aboutText),
     image,
     canonical,
     jsonLd: agency,
@@ -758,6 +1139,42 @@ function unhide(html: string, id: string): string {
   return html.replace(re, (tag) => tag.replace(/\s+hidden(?=[\s>])/i, ""));
 }
 
+function addBodyClass(html: string, cls: string): string {
+  return html.replace(/<body(\s[^>]*)?>/i, (tag) => {
+    if (/\bclass="/i.test(tag)) return tag.replace(/\bclass="/i, `class="${cls} `);
+    return tag.replace(/<body/i, `<body class="${cls}"`);
+  });
+}
+
+/* תמונת השער נכנסת לרשת הריקה. data-count זהה לזה שה-JS יכתוב. */
+function fillHero(html: string, count: number, inner: string): string {
+  if (!inner) return html;
+  const re = /<div\b[^>]*\bid="bentoGrid"[^>]*>\s*<\/div>/i;
+  return html.replace(re, (tag) => {
+    const open = tag.replace(/\s*<\/div>\s*$/i, "").replace(/>\s*$/, "");
+    const withCount = /\bdata-count=/.test(open)
+      ? open.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`)
+      : `${open} data-count="${count}"`;
+    return `${withCount}>${inner}</div>`;
+  });
+}
+
+function heroHead(lcp: string): string[] {
+  const tags = [
+    `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
+    `<link rel="preconnect" href="${SUPABASE_URL}">`,
+  ];
+  if (!lcp) return tags;
+  try {
+    const origin = new URL(lcp).origin;
+    if (origin && origin !== SUPABASE_URL && /^https?:$/i.test(new URL(lcp).protocol)) {
+      tags.push(`<link rel="preconnect" href="${esc(origin)}">`);
+    }
+  } catch { /* כתובת יחסית כבר על הדומיין של האתר */ }
+  tags.push(`<link rel="preload" as="image" href="${esc(lcp)}" fetchpriority="high">`);
+  return tags;
+}
+
 /* התגיות שממולאות לפי id כשהן כבר בדף, ונכתבות מחדש כשאינן. */
 const BY_ID: [string, (m: Meta) => string, string][] = [
   ["metaDescription", (m) => m.description, `<meta name="description" content="%s">`],
@@ -805,6 +1222,11 @@ function inject(html: string, m: Meta): string {
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
   for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
+  if (m.paint) {
+    out = addBodyClass(out, "property-ready has-sticky-bar");
+    if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
+    add.push(...heroHead(m.paint.lcp));
+  }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח
     const json = JSON.stringify(m.jsonLd).replace(/</g, "\\u003c");
@@ -835,7 +1257,48 @@ function noindex(html: string): string {
   return html.replace(/<\/head>/i, `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* ‏404 או 503 של דף נכס בלבד. דף שהתמלא, ודפי פירוט אחרים, אינם עוברים כאן. */
+function failureHeaders(base: Headers, status: number): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  if (status === 503) headers.set("Retry-After", "60");
+  return headers;
+}
+
+/* ‏פסקה, לא H1. ‏#propTitle נשאר ה-H1 היחיד גם כשהנכס חסר. */
+function missingProperty(html: string): string {
+  let out = noindex(html);
+  if (out.includes('id="notFoundState"')) return out;
+  const block =
+    `<div id="notFoundState" class="wrap" style="display:block">` +
+    `<p class="prop-missing" style="font-size:1.3rem;font-weight:700">הנכס לא נמצא</p>` +
+    `<p style="color:var(--ink-soft)">ייתכן שהמודעה הוסרה או שהקישור שגוי.</p>` +
+    `<a href="/" class="btn btn-gold" style="margin-top:16px">חזרה לדף הבית</a></div>\n`;
+  if (/<div id="loadingState"/.test(out)) return out.replace(/<div id="loadingState"/, block + `<div id="loadingState"`);
+  return out.replace(/<\/body>/i, block + `</body>`);
+}
+
 export default async function handler(request: Request, context: Context) {
+  /* ‏/agency.html ו-/agency?slug= מגישים אותו משרד. הפונקציה הזו רצה על
+     שניהם ומחזירה 200 אחרי context.next(), ולכן הפניה ב-_redirects לבדה
+     לא רצה. ה-301 כאן, לפני next, שומר את השאילתה. יעד יחסי כדי שתצוגת
+     פריוויו לא תשלח לפרודקשן. */
+  try {
+    const early = new URL(request.url);
+    if (early.pathname === "/agency.html" && (request.method === "GET" || request.method === "HEAD")) {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: "/agency" + early.search,
+          "Cache-Control": "public, max-age=3600",
+          "Netlify-CDN-Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+  } catch { /* כתובת פגומה - ממשיכים לדף */ }
+
   const res = await context.next();
 
   // רק HTML. תמונות, CSS ו-JS עוברים כמו שהם.
@@ -869,10 +1332,17 @@ export default async function handler(request: Request, context: Context) {
     } else if (page.endsWith("/article")) {
       meta = key ? await articleMeta(key) : "missing";
     }
-    // ‏null = לא ידענו (‏Supabase איטי, 5xx, הרשאה). הדף יוצא כמו שהוא.
-    if (!meta) return res;
+    const isProperty = page.endsWith("/property");
+    // ‏null = לא ידענו. בנכס זה 503 בלי noindex. בשאר הדפים התשובה המקורית.
+    if (!meta) {
+      if (!isProperty) return res;
+      return new Response(res.body, { status: 503, headers: failureHeaders(res.headers, 503) });
+    }
 
     const html = await res.text();
+    if (meta === "missing" && isProperty) {
+      return new Response(missingProperty(html), { status: 404, headers: failureHeaders(res.headers, 404) });
+    }
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
     const headers = new Headers(res.headers);

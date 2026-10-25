@@ -14,7 +14,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askHistory, cleanAnswer, cleanQuestion, type Row, splitGap } from "./payload.ts";
-import { CSM_SYSTEM, csmPortfolio, num } from "./csm-prompt.ts";
+import { CSM_SYSTEM, CSM_TIP_QUESTION, csmPortfolio, csmTipPayload, num } from "./csm-prompt.ts";
 import { anthropicRow, logAiUsage } from "../ai-usage.ts";
 
 const MODEL = Deno.env.get("COACH_ASK_MODEL") || "claude-sonnet-5-5";
@@ -103,4 +103,60 @@ export async function askCsmMentor(
   if (logErr) console.error("csm mentor log failed", logErr.message);
 
   return { answer, remaining: Math.max(0, CSM_DAILY - Number(used) - 1) };
+}
+
+/* ---------- העצה היומית ----------
+   ‏whatsapp-webhook?task=csm-mentor-tips, אחרי csm_mentor_tip_claim. לא נספרת
+   במכסת השאלות שלה (היא לא שאלה), אבל נרשמת בעלויות (csm_mentor). התוצאה -
+   התראה mentor_tip דרך _csm_notify, ומשם לפעמון ולוואטסאפ כמו שאר ההתראות. */
+export async function csmMentorTip(service: SupabaseClient, staffId: string): Promise<string | null> {
+  if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
+  // היום בשעון ישראל: מחצות UTC של התאריך המקומי פחות שלוש שעות, ל-27 שעות -
+  // מכסה את היום המקומי בקיץ ובחורף (פגישה אחת מאתמול בלילה אינה נזק)
+  const ilDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const startIso = new Date(Date.parse(ilDay + "T00:00:00Z") - 3 * 3600000).toISOString();
+  const [overview, fb, agenda] = await Promise.all([
+    service.rpc("csm_agents_overview"),
+    service.from("csm_feedback").select("title, category, severity, csm_feedback_votes(count)")
+      .in("status", ["open", "planned", "in_progress"]).limit(200),
+    service.from("csm_agenda").select("starts_at, title, agent_id").eq("staff_id", staffId).eq("status", "scheduled")
+      .gte("starts_at", startIso).lt("starts_at", new Date(Date.parse(startIso) + 27 * 3600000).toISOString())
+      .order("starts_at").limit(12),
+  ]);
+  if (overview.error) return null;
+  const rows = (overview.data as Row[]) ?? [];
+  const names = new Map(rows.map((r) => [r.agent_id, r.display_name as string]));
+  const feedback = ((fb.data as Row[] | null) ?? [])
+    .map((f) => ({ ...f, votes: num(((f.csm_feedback_votes as Row[] | undefined) ?? [])[0]?.count) }))
+    .sort((a, b) => b.votes - a.votes);
+  const meetings = ((agenda.data as Row[] | null) ?? []).map((g) => ({
+    time: new Date(String(g.starts_at)).toLocaleTimeString("he-IL", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit" }),
+    title: String(g.title || "פגישה"),
+    agent: g.agent_id ? names.get(g.agent_id) ?? null : null,
+  }));
+
+  let response: Anthropic.Beta.Messages.BetaMessage;
+  try {
+    response = await anthropic().beta.messages.create({
+      model: MODEL,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      max_tokens: 700,
+      system: [{ type: "text", text: CSM_SYSTEM, cache_control: { type: "ephemeral" } }],
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: JSON.stringify(csmTipPayload(csmPortfolio(rows, feedback), meetings)) },
+          { type: "text", text: "השאלה: " + CSM_TIP_QUESTION },
+        ],
+      }],
+    });
+  } catch (err) {
+    console.error("csm mentor tip failed", err instanceof Anthropic.APIError ? err.status : "network");
+    return null;
+  }
+  if (response.stop_reason === "refusal") return null;
+  logAiUsage(anthropicRow("csm_mentor", response.model || MODEL, response.usage));
+  const raw = splitGap(response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(""));
+  return cleanAnswer(raw.answer) || null;
 }

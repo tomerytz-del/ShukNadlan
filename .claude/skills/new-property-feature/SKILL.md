@@ -21,7 +21,7 @@ description: מאפיין נכס חדש או שינוי בו בריפו של ש�
 | --- | --- |
 | טופס הנכס וטופס הלקוח ב-CRM | `assets/crm.js` - `RESIDENTIAL_/COMMERCIAL_PROPERTY_FEATURES`, ואייקון ב-`FEATURE_ICONS` |
 | ייבוא מקובץ | `assets/property-import-core.js` - `IMP_FEATURE_SYNONYMS` (כתיבים נפוצים שאינם התווית); עורכים שם ומעתיקים ל-`_shared` ב-`python scripts/check_import_core.py --fix`. התוויות עצמן מגיעות מהטופס ב-CRM ומ-`FEATURE_LABELS` בשרת |
-| סינון מתקדם וחיפוש מוקלד בדף הבית | `assets/home.js` - **עותק** של אותן שתי רשימות (ממנו גם נקרא `?features=` שבכתובת - קוד שחסר שם נזרק מקישור); ו-`assets/search-core.js` - `FEATURE_WORDS` (המילים שגולש/ת מקליד/ה, גם לרשת הביטחון של גבריאלה) ו-`FEATURE_LABELS`, ‏`FEATURES` אם המאפיין מתקיים גם בדרך אחרת (כמו מרפסת שמש למרפסת - ואז מיגרציה לשתי פונקציות המסד), ודוגמה ב-`scripts/search_feature_cases.json`; ‏`python3 scripts/check_search_core.py --fix`. בלי זה "דירה עם <מאפיין>" מחזירה דירות בלעדיו (`docs/search-core.md`) |
+| סינון מתקדם וחיפוש מוקלד בדף הבית | `assets/home.js` - **עותק** של אותן שתי רשימות (ממנו גם נקרא `?features=` שבכתובת - קוד שחסר שם נזרק מקישור); ו-`assets/search-core.js` - `FEATURE_WORDS` (המילים שגולש/ת מקליד/ה, גם לרשת הביטחון של גבריאלה), `FEATURE_LABELS`, ‏`FEATURE_CODES` (קוד שחסר שם יורד מסינון הבוטים כ"לא מוכר"; `check_search_core.py` מצליב אותו מול `agent.ts`), ‏`FEATURES` אם המאפיין מתקיים גם בדרך אחרת (כמו מרפסת שמש למרפסת - ואז מיגרציה לשתי פונקציות המסד), ודוגמה ב-`scripts/search_feature_cases.json`; ‏`python3 scripts/check_search_core.py --fix`. בלי זה "דירה עם <מאפיין>" מחזירה דירות בלעדיו (`docs/search-core.md`) |
 | פאנל "מה אתם מחפשים" | `index.html` - `.hs-check` (רק למאפיין שמחפשים לפיו הרבה; ראו הסקיל `home-page`) |
 | דף הנכס | `assets/property.js` - `FEATURE_LABELS` ו-`FEATURE_ICONS` (שם אייקון מתוך `ICONS`; בלי - וי) |
 | המיניסייט ללקוח/ה | `assets/showcase.js` - `FEATURE_LABELS` |
@@ -47,7 +47,10 @@ grep -rln "<הקוד החדש>" assets supabase/functions index.html
    `docs/client-agreements.md` מתעדכן. הסכמים קיימים קפואים ואינם משתנים.
 3. **דוח ה-CMA** (‏`cma_price_features()`) - בכוונה **לא** אוטומטי. מאפיין
    נדיר מוריד את דמיון ה-Jaccard של כל נכס שיש לו, ומאפיין שלכולם יש
-   (‏`ac`) אינו מבדיל. נכנס רק במיגרציה, עם נימוק.
+   (‏`ac`) אינו מבדיל. נכנס רק במיגרציה, עם נימוק. **ומי שמוסיף אותו שם
+   מוסיף גם ל-`CMA_ADDR_FEATURES`** ב-`assets/crm.js` (הטופס "דוח CMA לכתובת")
+   ול-`enum` של `features` בכלי `cma_report_address` ב-`agent.ts` - שתי רשימות
+   סגורות שאינן נגזרות מהמסד, ומאפיין חסר בהן פשוט לא ניתן לסימון.
 
 ## מה *לא* צריך לגעת בו
 

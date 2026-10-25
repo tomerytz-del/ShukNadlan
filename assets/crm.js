@@ -357,6 +357,10 @@ function leadKind(lead){
   if (lead.lead_type === 'agent_direct_inquiry'){
     return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
   }
+  // פוסט בפייסבוק של מי שמחפש/ת, אחרי הסכמה (20270812090000, docs/scraped-leads.md)
+  if (lead.lead_type === 'seeker_inbound'){
+    return { cls:'kind-buyer', icon:'🔎', label:(rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות') + (lead.source_detail ? ' · ' + lead.source_detail : '') };
+  }
   /* בקשת הדמיה — אותו שם שבו קוראת לה תצוגת מנהל/ת הפלטפורמה
      (`ADM_LEAD_TYPES`), ולא שם רביעי לאותו דבר.
 
@@ -2034,7 +2038,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
      נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
      ב-await. התוצאה נלקחת רק אם המזהה זהה למה שחזר; אחרת שאילתה רגילה. */
-  const AGENCY_FIELDS = 'name, address, city_id';
+  const AGENCY_FIELDS = 'name, address, city_id, logo_url';
   const agencyCacheKey = 'crmAgencyId:' + user.id;
   let cachedAgencyId = null;
   try { cachedAgencyId = localStorage.getItem(agencyCacheKey); } catch {}
@@ -2369,12 +2373,13 @@ function handleGotoParam(){
   const reviewId = params.get('review');
   const filter = params.get('filter');
   const importJob = params.get('import');
+  const tab = params.get('tab');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
   const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2383,6 +2388,10 @@ function handleGotoParam(){
   }
 
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
+  /* פעולות שאינן קטגוריה (CRM_ACTIONS): ‏?goto=cma פותח את בחירת הנכס לדוח,
+     ‏?goto=cmaAddress את הטופס לכתובת. כך המנטור, גבריאלה והעזרה מקשרים
+     ישר לפעולה ולא רק למסך. */
+  if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); return; }
   if (raw === 'license'){ openLicenseCard(); return; }
   if (raw === 'adminHome'){ openAdminHome(); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
@@ -2411,6 +2420,8 @@ function handleGotoParam(){
   if (raw === 'accProperties' && focus === 'new')
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
+  // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -2592,6 +2603,8 @@ function openNotificationTarget(n){
     return go('accProperties', () => openPropertyFromParam(n.related_property_id));
   if (clientId && clientRows.some(c => c.id === clientId))
     return go('accClients', () => openClientFromParam(clientId));
+  if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
+    return go('accLeads', openLeadsDemand);
   if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
@@ -4305,7 +4318,8 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
-  loadAdminSearchReport().then(loadAdminAreaMisses).then(loadAdminGabrielaReport);
+  loadAdminSearchReport().then(loadAdminSearchLearning).then(loadAdminAreaMisses)
+    .then(loadAdminWordMisses).then(loadAdminGabrielaReport);
 }
 
 /* ---------- מה מחפשים באתר ----------
@@ -4573,6 +4587,157 @@ async function loadAdminAreaMisses(){
     ctl.appendChild(ok);
     ctl.appendChild(no);
     item.appendChild(ctl);
+    list.appendChild(item);
+  });
+  block.appendChild(list);
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- מה לומדים מהחיפושים ----------
+   ‏search_learning_report (‏20270814090000_search_learning.sql): ביקוש שאין לו
+   מלאי אצל גבריאלה, מה קרה אחרי התוצאות (דומים, שמירה, מתווך/ת, ניסיון
+   נוסף), ובאתר - חיפושים שהובילו לצפייה בנכס. ‏docs/search-core.md. */
+const LEARN_OUTCOMES = [
+  ['contact', 'ביקשו מתווך/ת'], ['saved', 'שמרו חיפוש'], ['similar', 'ביקשו דומים'],
+  ['refined', 'ניסו שוב במילים אחרות'], ['none', 'בלי פעולה'],
+];
+function learnDemandText(d){
+  const L = (window.SearchCore && window.SearchCore.FEATURE_LABELS) || {};
+  const types = (d.property_types || []);
+  const parts = [];
+  parts.push(types.length ? (types.length > 2 ? types[0] + ' ועוד' : types.join(' / ')) : 'נכס');
+  if (d.deal_type === 'sale') parts.push('למכירה');
+  else if (d.deal_type === 'rent') parts.push('להשכרה');
+  const where = [d.area, d.city].filter(Boolean).join(', ');
+  if (where) parts.push(where + (d.area_unrecognized ? ' (שם לא מוכר)' : ''));
+  // ‏"4 חדרים" נשמר כ-4 עד 4.5 (‏public-agent.ts), ולכן הטווח מוצג רק כשהוא באמת טווח
+  if (d.min_rooms) parts.push(d.min_rooms + (d.max_rooms && Math.floor(d.max_rooms) > d.min_rooms ? '-' + Math.floor(d.max_rooms) : '') + ' חדרים');
+  if (d.median_max_price) parts.push('עד ₪' + Math.round(d.median_max_price).toLocaleString('he-IL'));
+  if ((d.features || []).length) parts.push(d.features.map(f => L[f] || f).join(', '));
+  return parts.join(' · ');
+}
+
+async function loadAdminSearchLearning(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('search_learning_report', { p_days: adminReportMonths * 30 });
+  const block = admBlock('מה לומדים מהחיפושים',
+    'מה גבריאלה התבקשה למצוא ולא היה במלאי, ומה אנשים עשו אחרי שקיבלו תוצאות - אצלה ובאתר. "ביקוש בלי מלאי" הוא רשימת הנכסים שכדאי להשיג.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270814090000_search_learning.sql.'
+      : 'שגיאה בטעינת הדוח: ' + heErr(error);
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep = data || {};
+  const bot = rep.bot || {};
+  const site = rep.site || {};
+  const searches = Number(bot.searches) || 0;
+  const pct = (n, of) => of ? Math.round(100 * n / of) + '%' : '-';
+
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('חיפושים אצל גבריאלה', admInt(searches),
+    { note: plural(Number(bot.people) || 0, 'אדם אחד', 'אנשים', admInt(bot.people)) }));
+  tiles.appendChild(admTile('בלי אף נכס', admInt(bot.zero_results),
+    { wine: true, note: pct(Number(bot.zero_results) || 0, searches) + ' מהחיפושים' }));
+  tiles.appendChild(admTile('באתר: חיפוש שהוביל לצפייה', pct(Number(site.viewed_after) || 0, Number(site.searches) || 0),
+    { note: admInt(site.viewed_after) + ' מתוך ' + admInt(site.searches) + ' חיפושים באותו ביקור' }));
+  block.appendChild(tiles);
+
+  if (searches){
+    const out = bot.outcomes || {};
+    const facts = admEl('div', 'adm-facts');
+    LEARN_OUTCOMES.forEach(([k, label]) => {
+      const n = Number(out[k]) || 0;
+      const f = admEl('div', 'adm-fact');
+      f.appendChild(admEl('span', 'adm-fact-lbl', label));
+      f.appendChild(admEl('span', 'adm-fact-val', admInt(n) + ' · ' + pct(n, searches)));
+      facts.appendChild(f);
+    });
+    block.appendChild(admEl('p', 'adm-legend', 'מה קרה אחרי התוצאות אצל גבריאלה'));
+    block.appendChild(facts);
+  }
+
+  const demand = Array.isArray(rep.zero_demand) ? rep.zero_demand : [];
+  block.appendChild(admEl('p', 'adm-legend', 'ביקוש בלי מלאי'));
+  if (!demand.length){
+    block.appendChild(admEl('div', 'empty-state',
+      searches ? 'כל החיפושים אצל גבריאלה מצאו לפחות נכס אחד.' : 'עוד אין חיפושים אצל גבריאלה בתקופה הזו.'));
+  } else {
+    const list = admEl('div', 'adm-facts adm-facts-wide');
+    demand.forEach(d => {
+      const f = admEl('div', 'adm-fact');
+      // textContent ולא innerHTML: האזור הוא טקסט שגולש/ת כתב/ה
+      f.appendChild(admEl('span', 'adm-fact-lbl', learnDemandText(d)));
+      f.appendChild(admEl('span', 'adm-fact-val',
+        plural(Number(d.people) || 0, 'אדם אחד', 'אנשים', admInt(d.people)) +
+        (Number(d.with_close) ? ' · הוצעו קרובים ב-' + admInt(d.with_close) : '')));
+      list.appendChild(f);
+    });
+    block.appendChild(list);
+  }
+  host.appendChild(block);
+  dashPanelsMeasure();
+}
+
+/* ---------- מילים שלא זוהו ----------
+   ‏search_word_miss_report: מאפיין ("עם גינה") או סוג נכס ("יורט") שהאתר או
+   גבריאלה לא הכירו. **אין כאן "אישור"** כמו בשמות המקום: מילה חדשה היא כלל
+   בליבת החיפוש (‏assets/search-core.js) ונכנסת ב-PR. "הוסר" מוציא אותה מהרשימה
+   - כשנוספה, או כשאינה בקשה. ‏docs/search-core.md. */
+async function loadAdminWordMisses(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('search_word_miss_report', { p_days: adminReportMonths * 30 });
+  const block = admBlock('מילים שלא זוהו',
+    'מאפיינים וסוגי נכס שגולשים ביקשו באתר או מגבריאלה ואין לנו איך לסנן לפיהם - ולכן החיפוש נעשה בלעדיהם. מילה שחוזרת היא בקשה להוסיף אותה לחיפוש (שינוי קוד בליבת החיפוש).');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח טרם קיים במסד - הריצו את המיגרציה 20270814090000_search_learning.sql.'
+      : 'שגיאה בטעינת המילים שלא זוהו: ' + heErr(error);
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length){
+    block.appendChild(admEl('div', 'empty-state', 'אין כרגע מילים שלא זוהו.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const KIND = { feature: 'מאפיין', type: 'סוג נכס' };
+  const SOURCE = { site: 'באתר', whatsapp: 'אצל גבריאלה' };
+  const list = admEl('div', 'adm-facts adm-facts-wide');
+  rows.forEach(r => {
+    const item = admEl('div', 'adm-fact');
+    item.appendChild(admEl('span', 'adm-fact-lbl', (KIND[r.kind] || r.kind) + ': ' + r.phrase));
+    const srcs = (r.sources || []).map(x => SOURCE[x] || x).join(' ו');
+    const val = admEl('span', 'adm-fact-val',
+      plural(Number(r.people) || 0, 'אדם אחד', 'אנשים', admInt(r.people)) + (srcs ? ' · ' + srcs : '') + ' ');
+    const no = admEl('button', 'btn btn-ghost', 'הסרה');
+    no.type = 'button';
+    no.setAttribute('aria-label', 'הסרת "' + r.phrase + '" מהרשימה');
+    no.addEventListener('click', async () => {
+      no.disabled = true;
+      const { error: e } = await sb.rpc('search_word_miss_dismiss', { p_kind: r.kind, p_phrase_key: r.phrase_key });
+      if (e){ no.disabled = false; showToast('ההסרה נכשלה: ' + heErr(e)); return; }
+      val.textContent = 'הוסר - לא יופיע שוב';
+    });
+    val.appendChild(no);
+    item.appendChild(val);
     list.appendChild(item);
   });
   block.appendChild(list);
@@ -7381,6 +7546,38 @@ async function loadAgencyCover(agencyId){
   if (agencyCoverUrl) renderProfilePreview();
 }
 
+/* "הצג את התמונה שלי בפרסומים" (‏agency_members.show_photo_in_ads). נשמר מיד
+   בשינוי ולא בכפתור של הטופס, כי זו הסכמה ולא פרט פרופיל: מי שביטל/ה מצפה
+   שהרילס הבא כבר יצא בלי תמונה, גם אם לא שמר/ה את שאר הטופס.
+
+   ‏**נטען בשאילתה נפרדת ולא ב-AGENT_FIELDS:** האתר עולה דקות לפני המיגרציה,
+   ועמודה חסרה ב-select הראשי הייתה מפילה את כל טעינת ה-CRM. כאן כשל רק מסתיר
+   את הצ'קבוקס. ההרשאה היא של השורה (עצמי, או מנהל/ת המשרד) - ראו המיגרציה
+   20270810090000. */
+async function pfShowPhotoInAdsInit(agentId){
+  const box = document.getElementById('pfShowPhotoInAds');
+  if (!box || !agentId) return;
+  const wrap = box.closest('.pf-ads-photo');
+  const { data, error } = await sb.from('agency_members')
+    .select('show_photo_in_ads').eq('id', agentId).maybeSingle();
+  if (error || !data){ if (wrap) wrap.hidden = true; return; }
+  if (wrap) wrap.hidden = false;
+  box.checked = data.show_photo_in_ads !== false;
+  box.onchange = async ()=>{
+    const want = box.checked;
+    box.disabled = true;
+    const { error: saveErr } = await sb.from('agency_members')
+      .update({ show_photo_in_ads: want }).eq('id', agentId);
+    box.disabled = false;
+    if (saveErr){
+      box.checked = !want;
+      showToast(heErr(saveErr));
+      return;
+    }
+    showToast('נשמר');
+  };
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -7420,6 +7617,7 @@ function loadProfileSettings(agent){
   renderProfileImages();
   renderProfilePreview();
   loadAgencyCover(agent.agency_id);
+  pfShowPhotoInAdsInit(agent.id);
 }
 
 /* ---------- עיצוב דף הסוכן/ת ----------
@@ -12752,64 +12950,8 @@ async function runGovmapAutoComplete(key){
   }
 }
 
-/* אותו איחוד של planning_plans_merged במסד (מיגרציה 20270724090000), לדוח
-   ה-CMA ולכלי המידע התכנוני, שמקבלים את השורה הגולמית. מי שמשנה אחד משנה
-   את השני: המפורטות קודם, אחריהן ארציות וכוללניות, והודעות 77-78 בסוף. */
-function mergedPlanningPlans(info){
-  const key = n => String(n || '').replace(/\s+/g, '');
-  const extras = g => g ? {
-    kind: g.kind || null, stage: g.stage || null, notice: g.notice === true,
-    permits: typeof g.permits === 'boolean' ? g.permits : null,
-    url: g.url || null, designation: g.designation || null,
-  } : {};
-  const gov = (Array.isArray(info && info.govmap_plans) ? info.govmap_plans : []).filter(p => p && p.number);
-  const local = (Array.isArray(info && info.applicable_plans) ? info.applicable_plans : []).filter(p => p && p.number);
-  const byKey = new Map(gov.map(g => [key(g.number), g]));
-  const seen = new Set();
-  const out = local.map(p => {
-    const g = byKey.get(key(p.number));
-    seen.add(key(p.number));
-    return Object.assign(extras(g), { number: p.number,
-      description: p.description || (g && g.name) || null,
-      year: String(p.date || (g && g.date) || '').slice(0, 4) || null });
-  });
-  const rest = gov.filter(g => !seen.has(key(g.number)));
-  rest.filter(g => !g.notice).concat(rest.filter(g => g.notice)).forEach(g => {
-    out.push(Object.assign(extras(g), { number: g.number, description: g.name || null,
-      year: String(g.date || '').slice(0, 4) || null }));
-  });
-  return out;
-}
-
-const PLAN_STAGE_LABEL = { approved:'אושרה', deposited:'הופקדה' };
-
-function planRowHtml(p){
-  const url = /^https:\/\/mavat\.iplan\.gov\.il\//.test(p.url || '') ? p.url : null;
-  const num = url
-    ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.number)}</a>`
-    : esc(p.number);
-  const bits = [
-    p.description,
-    p.notice ? null : p.kind,
-    p.designation ? 'ייעוד: ' + p.designation : null,
-    PLAN_STAGE_LABEL[p.stage] ? PLAN_STAGE_LABEL[p.stage] + (p.year ? ' ' + p.year : '') : p.year,
-    p.permits === false && !p.notice ? 'לא ניתן להוציא מכוחה היתרים' : null,
-  ].filter(Boolean);
-  return `<div class="gm-plan${p.notice ? ' is-notice' : ''}">`
-    + (p.notice ? '<span class="gm-plan-flag">הודעה על הכנת תוכנית (סעיף 77-78) - ייתכנו מגבלות על היתרי בנייה</span>' : '')
-    + `<span class="gm-plan-n">${num}</span>`
-    + (bits.length ? `<span class="gm-plan-d">${esc(bits.join(' · '))}</span>` : '')
-    + '</div>';
-}
-
-function plansListHtml(plans, title){
-  if (!plans.length) return '';
-  const fromGovmap = plans.some(p => p.kind || p.url || p.notice);
-  return `<div class="gm-plans"><p class="gm-plans-h">${esc(title)} (${plans.length})</p>`
-    + plans.map(planRowHtml).join('')
-    + (fromGovmap ? '<p class="gm-plans-src">מקור התוכניות הארציות וההודעות: GovMap, המרכז למיפוי ישראל, ומבא"ת. הקישורים פותחים את התוכנית באתר מבא"ת.</p>' : '')
-    + '</div>';
-}
+/* mergedPlanningPlans ו-plansListHtml - ב-assets/cma-render.js (הדוח וכלי המידע
+   התכנוני משתמשים בהן, וגם דף /cma). */
 
 /* העיר שבה כלי המידע התכנוני עובר דרך afula-planning-lookup (שכבת
    העירייה). כל עיר אחרת שמוקלדת בכלי עוברת דרך GovMap - govmapPlanningLookup. */
@@ -15859,32 +16001,28 @@ async function promoteProperty(property, btn, agentId){
    התמונות של הנכס נשלחות ל-fal.ai, כל אחת הופכת לקליפ קצר בתנועת מצלמה,
    והרצף נשמר על הנכס ב-‎video_url‎ - אותו שקע שאליו מעלים סרטון מהמכשיר.
 
-   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, fal מחזיר/ה
-   תשובה ל-‎property-video-callback‎, והסרטון נשמר גם אם ה-CRM נסגר באמצע.
+   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, מפיק הרילס
+   (‏Grok, הגיבוי, או fal כמוצא אחרון) מחזיר קובץ, והסרטון נשמר גם אם ה-CRM
+   נסגר באמצע. ‏docs/property-marketing-video.md, "תבנית D".
    ה-polling כאן הוא רק כדי להראות התקדמות למי שנשאר/ת לחכות.               */
 const VIDEO_POLL_MS = 5000;
-const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
+// ‏30 דקות: רבע שעה שבה הבקשה עשויה להמתין ל-Grok, ועוד הפקה בגיבוי.
+const VIDEO_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
   const price = isMid ? priceOf('property_video_price_mid', 25) : 0;
-  const maxClips = priceOf('property_video_clip_count', 5);
-  const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
 
-  // התקרה היא תקרה, לא יעד: הסרטון לוקח סצנה לכל תמונה עד המקסימום, ולכן
-  // המספר שמוצג הוא מה שהנכס הזה באמת יקבל ולא הבטחה גנרית.
-  const nImages = Array.isArray(property.images) ? property.images.filter(Boolean).length : 0;
-  const scenes  = Math.max(1, Math.min(nImages, maxClips));
-  const total   = Math.round(scenes * secs * 10) / 10;
-
+  // תבנית D (24.10.2026): רילס אנכי של כ-18 שניות עם קריינות, מוזיקה, פס
+  // סוכן/ת וכרטיס סיום - אותו אורך לכל נכס, ולכן אין כאן חישוב סצנות.
   const lines = [
-    `🎬 סרטון שיווקי · ${property.title || 'הנכס שלך'}`,
-    `${scenes} סצנות של ${secs} שניות - סרטון של כ-${total} שניות, בתנועת מצלמה כמו מרחפן.`,
-    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון בינתיים.',
+    `🎬 רילס שיווקי · ${property.title || 'הנכס שלך'}`,
+    'רילס אנכי של כ-18 שניות עם קריינות, מהתמונות והנתונים של הנכס, עם הפרטים שלך בסוף.',
+    'ההפקה נמשכת כמה דקות ורצה בשרת - אפשר לסגור את החלון. תישלח התראה כשהרילס יהיה מוכן.',
   ];
   // ההחלפה נאמרת במפורש ובשורה נפרדת: זה החלק שאי אפשר לבטל.
-  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הסרטון החדש יחליף אותו, והישן יימחק.');
+  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הרילס החדש יחליף אותו בדף הנכס.');
 
   const approved = await confirmPurchase({
     title: hasVideo ? 'החלפת הסרטון בסרטון מופק' : 'אישור הפקת סרטון',
@@ -15894,7 +16032,7 @@ async function produceMarketingVideo(property, btn, agentId){
     ackText: isMid
       ? `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור סרטון אחד.`
       : (hasVideo
-          ? 'אני מבין/ה שהסרטון הקיים יימחק ויוחלף בסרטון המופק.'
+          ? 'אני מבין/ה שהסרטון הקיים יוחלף ברילס המופק.'
           : 'אני מאשר/ת הפקת סרטון שיווקי לנכס הזה.'),
     confirmLabel: isMid ? `אישור והפקה · חיוב ${shekel(price)}` : 'אישור והפקה',
   });
@@ -15939,7 +16077,7 @@ async function produceMarketingVideo(property, btn, agentId){
     jobId = data.job_id;
     // חיוב יצא - היתרה שעל המסך צריכה לדעת מיד, כמו בקידום
     if (data.amount_charged > 0) await refreshAgentBalance();
-    showToast(`ההפקה החלה · ${data.clips} קליפים · כ-${data.estimated_seconds} שניות. אפשר לסגור את החלון`);
+    showToast('הסרטון בהפקה, תישלח התראה כשיהיה מוכן. אפשר לסגור את החלון');
   } catch(err){
     console.error(err);
     showToast('שגיאת רשת - נסו שוב');
@@ -15974,9 +16112,12 @@ async function produceMarketingVideo(property, btn, agentId){
       return;
     }
 
+    // ‏pending_reel / rendering: הרילס אצל המפיק (Grok או הגיבוי). אין לו
+    // קליפים לספור, ולכן "בהפקה" בלבד. השאר - מסלול fal, שנשאר מוצא אחרון.
     const label = row.status === 'merging' ? 'מחבר…'
       : row.status === 'uploading' ? 'שומר…'
-      : `מפיק… ${row.clips_done}/${row.clips_total}`;
+      : (row.status === 'generating_clips' && row.clips_total) ? `מפיק… ${row.clips_done}/${row.clips_total}`
+      : 'בהפקה…';
     setActionLabel(btn, label);
     setTimeout(poll, VIDEO_POLL_MS);
   };
@@ -24251,717 +24392,8 @@ async function loadCmaBrand(){
   };
 }
 
-/* ---------- תצוגת הדוח ----------
-   כלל אחד שולט כאן: **הדוח מציג רק מה שהמסד הסכים להחזיר.** ‏agent_cma_report
-   מחזירה ממוצע, חציון וממוצע למ״ר אך ורק כש-`data_coverage.status = 'ok'`,
-   כלומר כשיש לפחות `cma_min_comparables` עסקאות ברדיוס. בכל מצב אחר השדות
-   האלה פשוט אינם ב-jsonb, ולכן אי אפשר להציג אותם גם בטעות.
-
-   זה בא במקום המצב הקודם, שבו "תמונת השוק" הוצגה תמיד: עסקה אחת הופיעה
-   כ"מחיר ממוצע", ולצידה המשפט "המחיר המבוקש גבוה ב-17% מממוצע העסקאות
-   בסביבה" - שנקרא כמו ממצא ונשען על נקודה אחת.
-
-   ‏basisLabel הוא הצד השני של אותה אמירה: שורה שמקורה במחיר מבוקש מסומנת
-   ככזו בכל מקום שבו היא מופיעה, ולא נספרת כמחיר עסקה. */
-const CMA_BASIS = {
-  asking:   { label:'מחיר מבוקש', cls:'is-asking', title:'המחיר שהיה בפרסום - לא מחיר הסגירה' },
-  reported: { label:'דווח',       cls:'',          title:'מחיר הסגירה כפי שדווח על ידי הסוכן/ת' },
-  official: { label:'רשמי',       cls:'',          title:'מתוך מאגר עסקאות רשמי' },
-};
-
-function cmaBasisHtml(basis){
-  const b = CMA_BASIS[basis] || CMA_BASIS.asking;
-  return `<span class="cma-basis ${b.cls}" title="${esc(b.title)}">${esc(b.label)}</span>`;
-}
-
-/* ההסבר שמחליף את הסטטיסטיקה. הוא אומר שלושה דברים במפורש — כמה נמצא,
-   כמה צריך, ומה נבדק — כדי שסוכן/ת שמדפיס/ה את הדוח ללקוח/ה תוכל/יוכל
-   להסביר למה אין כאן מספר, במקום להתנצל על דוח ריק. */
-function cmaCoverageBlock(cov){
-  if (!cov) return '';
-  const ageLine = cov.max_deal_age_months
-    ? `נבדקו עסקאות מ-${cov.max_deal_age_months} החודשים האחרונים בלבד.` : '';
-  const texts = {
-    no_location: {
-      t: 'לא ניתן להפיק תמונת שוק לנכס הזה',
-      d: 'לנכס אין קואורדינטות במערכת, ולכן אי אפשר לאתר עסקאות בסביבתו. '
-       + 'גיאוקוד נעשה על כתובת מלאה - עיר, רחוב ומספר בית.',
-    },
-    none: {
-      t: 'אין עסקאות להשוואה בסביבת הנכס',
-      d: 'לא נמצאה אף עסקה שנסגרה ברדיוס הנבדק. ' + ageLine,
-    },
-    insufficient: {
-      t: 'אין די עסקאות כדי לחשב תמונת שוק',
-      d: `${plural(cov.comparables_found, 'נמצאה עסקה אחת', 'עסקאות נמצאו')} בסביבת הנכס, והמינימום לחישוב ממוצע הוא `
-       + `${cov.min_required}. ממוצע ממדגם קטן מזה אינו אמין, ולכן הוא אינו מוצג. ` + ageLine,
-    },
-  };
-  const x = texts[cov.status];
-  if (!x) return '';
-  /* נכס מסחרי בלי בני השוואה הוא כמעט תמיד זה, ולא היעדר עסקאות: במאגר
-     הרשמי חנויות ומשרדים רשומים יחד עם דירות תחת "בנין", ולכן הם אינם
-     נספרים (20270226090000). בלי השורה הזו "אין עסקאות בסביבה" נשמע כמו
-     שקר לסוכן/ת שמכיר/ה עסקאות ברחוב. */
-  const commercial = cov.subject_class === 'commercial'
-    && (cov.status === 'none' || cov.status === 'insufficient')
-    ? `<div class="d">במאגר העסקאות הרשמי חנויות ומשרדים אינם מסווגים בנפרד - הם רשומים יחד עם דירות תחת "בנין". `
-      + `לכן הם אינם נספרים כבני השוואה לנכס מסחרי, ונספרות רק עסקאות שסוגן ידוע.</div>` : '';
-  /* בית פרטי מושווה לבתים בלבד (20270226090000), ובמאגר יש מעט מאוד
-     עסקאות בתים - בעפולה כמה עשרות מול אלפי דירות. בלי השורה הזו "אין
-     עסקאות בסביבה" נקרא כאילו האזור מת, כשבפועל נמכרו בו מאות דירות. */
-  const house = cov.subject_kind === 'house'
-    && (cov.status === 'none' || cov.status === 'insufficient')
-    ? `<div class="d">בית פרטי מושווה לבתים פרטיים בלבד, ולא לדירות - המחיר למ"ר של בית, עם הקרקע שלו, אינו דומה לזה של דירה. `
-      + `במאגר העסקאות יש מעט מאוד מכירות של בתים, ולכן גם ברדיוס של 4.5 ק"מ לא נמצאו די בתים להשוואה.</div>` : '';
-  return `<div class="cma-gap">
-      <div class="t">${esc(x.t)}</div>
-      <div class="d">${esc(x.d)}</div>${commercial}${house}
-      <ul>
-        <li>עסקאות שנמצאו בסביבה: ${esc(cov.comparables_found ?? 0)}</li>
-        <li>נדרש לחישוב ממוצע: ${esc(cov.min_required ?? '-')}</li>
-        ${cov.oldest_considered ? `<li>העסקה הישנה ביותר שנכללה: מ-${hebDate(cov.oldest_considered)} ואילך</li>` : ''}
-      </ul>
-    </div>`;
-}
-
-/* ---------- על מה הסטטיסטיקה נשענה ----------
-   ‏`agent_cma_report` מחשבת ממוצע על עסקאות מאותה **מחלקת נכס** ומאותו
-   **מספר חדרים**, לפי סולם שמרחיב קודם את הרדיוס (עד
-   `cma_similar_radius_meters`) ורק אחר כך מרפה מהתאמת החדרים. השורה
-   הזו אומרת איפה הסולם נעצר.
-
-   **למה זו לא הערת שוליים.** עד המיגרציה `20261228090000` הממוצע חושב
-   על כל מה שנפל ברדיוס, כלומר דירת 5 חדרים הושוותה גם לדירות 3 חדרים.
-   בעפולה מחיר המ"ר כמעט זהה בין קבוצות החדרים (13,043 מול 13,564) והמחיר
-   הכולל נבדל פי שניים, ולכן דווקא המספר שנשלח ללקוח/ה הוא זה שנשבר:
-   חמש מתוך 20 המודעות הפעילות החליפו סימן, ואחת עברה מ-‎+99%‎ ל-‎+2%‎.
-
-   שני המצבים שבהם אין סינון חדרים הם בדיוק אלה שבהם השתיקה הייתה
-   מחזירה את המספר הישן בלי שאיש יֵדע, ולכן הם נאמרים בקול - ובמקרה של
-   נכס בלי מספר חדרים רשום, עם הדבר היחיד שסוגר את הפער: להשלים אותו. */
-function cmaSampleNote(cov, radiusUsed){
-  if (!cov || !cov.has_statistics) return '';
-  const n     = Number(cov.comparables_found) || 0;
-  const band  = cov.rooms_band;
-  const rooms = Number(cov.subject_rooms);
-  const rad   = radiusUsed ? ` ברדיוס ${esc(radiusUsed)} מ׳ מהנכס` : '';
-  /* ‏4.0 מהמסד צריך להיקרא "4 חדרים" ולא "4.0 חדרים", ו-4.5 להישאר 4.5 */
-  const num   = v => String(Number(v));
-  const other = Number(cov.excluded_other_rooms) || 0;
-  const aside = other > 0
-    ? ` ‏${esc(other)} עסקאות נוספות בסביבה הן בגודל אחר, ואינן נספרות בממוצע.` : '';
-
-  /* נכס מגורים מיוחד (20270226090000): דירת גן, דירת גג/פנטהאוז. במאגר
-     הרשמי אין תת-סוג - GovMap רושם "דירה" לכולן - ולכן ההתאמה בקירוב:
-     דירת קרקע לדירת גן, והקומה העליונה בבניין לפנטהאוז. הדוח אומר שזה
-     קירוב, ואומר בקול כשלא נמצאו כאלה והממוצע חזר לדירות רגילות. */
-  const KIND_NAME = { garden:'דירות קרקע (קירוב לדירות גן)', roof:'דירות בקומה העליונה בבניין (קירוב לדירות גג)' };
-  const kindName = KIND_NAME[cov.subject_kind] || '';
-  if (cov.rooms_band_reason === 'kind_rooms' || cov.rooms_band_reason === 'kind_any_rooms'){
-    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} <strong>${esc(kindName)}</strong>`
-         + (cov.rooms_band_reason === 'kind_rooms' && !isNaN(rooms) && cov.subject_rooms != null
-             ? ` של ${esc(num(rooms - 1))} עד ${esc(num(rooms + 1))} חדרים` : ' בכל גודל')
-         + `${rad}. במאגר העסקאות הרשמי אין סימון של דירת גן או פנטהאוז, ולכן זה קירוב לפי הקומה.`
-         + (Number(cov.excluded_other_kind) > 0
-             ? ` ‏${esc(cov.excluded_other_kind)} דירות רגילות בסביבה אינן נספרות בממוצע.` : '')
-         + '</div>';
-  }
-  const kindFallback = (cov.subject_kind === 'garden' || cov.subject_kind === 'roof') && !cov.kind_matched
-    ? `<div class="cma-note">לא נמצאו די ${esc(kindName)} עד ${esc(cov.max_radius_meters || 2000)} מ׳, ולכן הממוצע נשען על <strong>דירות רגילות</strong>. `
-      + `${cov.subject_kind === 'roof' ? 'פנטהאוז' : 'דירת גן'} נמכרת בדרך כלל במחיר שונה מדירה רגילה, ויש לקרוא את הפער בזהירות.</div>` : '';
-  if (kindFallback){
-    const base = cmaSampleNote({ ...cov, subject_kind: null }, radiusUsed);
-    return kindFallback + base;
-  }
-
-  if (cov.rooms_band_reason === 'exact'){
-    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות של `
-         + `<strong>${esc(num(rooms))} חדרים</strong>${rad}.${aside}</div>`;
-  }
-  if (cov.rooms_band_reason === 'relaxed'){
-    return `<div class="cma-note">לא נמצאו די עסקאות של ${esc(num(rooms))} חדרים בדיוק, ולכן ההשוואה `
-         + `נערכה מול ${esc(n)} עסקאות של <strong>${esc(num(rooms - band))} עד ${esc(num(rooms + band))} חדרים</strong>`
-         + `${rad}.${aside}</div>`;
-  }
-  if (cov.rooms_band_reason === 'no_similar_rooms'){
-    return `<div class="cma-note">לא נמצאו די עסקאות במספר חדרים דומה לנכס, ולכן ההשוואה${rad} `
-         + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
-         + `המחיר למ״ר הוא ההשוואה המהימנה יותר במצב הזה.</div>`;
-  }
-  if (cov.rooms_band_reason === 'subject_rooms_missing'){
-    return `<div class="cma-note">לנכס לא רשום מספר חדרים, ולכן ההשוואה${rad} `
-         + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
-         + `השלימו את מספר החדרים בכרטיס הנכס והפיקו את הדוח שוב - זה המספר שמדייק אותו יותר מכל.</div>`;
-  }
-
-  /* נכס מסחרי (20270226090000): לחנות ולמשרד אין חדרים, והסולם מסנן לפי
-     קבוצת קומה. חנות בקומת קרקע ומשרד בקומה שלישית אינם אותו נכס - בעפולה
-     החציון למ"ר הוא כ-16,800 מול כ-12,000. ולכן גם כאן שני המצבים בלי
-     סינון נאמרים בקול, ובקשה להשלים מבקשת קומה ולא חדרים. */
-  const floorName = ({ ground:'בקומת קרקע', upper:'בקומות עליונות', below:'במרתף' })[cov.subject_floor_group] || '';
-  const otherFloor = Number(cov.excluded_other_floor) || 0;
-  const floorAside = otherFloor > 0
-    ? ` ‏${esc(otherFloor)} עסקאות מסחריות נוספות בסביבה הן בקומה אחרת, ואינן נספרות בממוצע.` : '';
-  if (cov.rooms_band_reason === 'floor_exact'){
-    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות מסחריות `
-         + `<strong>${esc(floorName)}</strong>${rad}.${floorAside}</div>`;
-  }
-  if (cov.rooms_band_reason === 'no_similar_floor'){
-    return `<div class="cma-note">לא נמצאו די עסקאות מסחריות ${esc(floorName)}, ולכן ההשוואה${rad} `
-         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
-         + `בחנות זה הפער הגדול ביותר במחיר, ולכן יש לקרוא את הממוצע בזהירות.</div>`;
-  }
-  if (cov.rooms_band_reason === 'subject_floor_missing'){
-    return `<div class="cma-note">לנכס לא רשומה קומה, ולכן ההשוואה${rad} `
-         + `<strong>אינה מסוננת לפי קומה</strong> ומערבבת קומת קרקע עם קומות עליונות. `
-         + `השלימו את הקומה בכרטיס הנכס והפיקו את הדוח שוב - בנכס מסחרי זה הנתון שמדייק אותו יותר מכל.</div>`;
-  }
-  return rad ? `<div class="cma-note">ההשוואה נערכה${rad}.</div>` : '';
-}
-
-/* ---------- שכבת השוק: מול מי הנכס מתחרה עכשיו ----------
-   ‏`market_comparables` הם נכסים **פעילים למכירה** בסביבה, כלומר
-   **מחירים מבוקשים ולא מחירי עסקה**. לכן הם חיים בבלוק משלהם ואינם
-   נוגעים ב-`stats`: האבחנה הזו היא מה שמיגרציה `20261130090000` נבנתה
-   כדי לשמור עליו, אחרי שפער המיקוח נכנס למאגר כאילו היה מחיר סגירה.
-
-   **וזו השכבה היחידה שיכולה לשקלל מאפיינים.** למאגר העסקאות אין ולו
-   מאפיין אחד - 1,512 העסקאות הרשמיות נושאות סוג, חדרים, קומה ומ"ר בלבד -
-   ואילו למודעות שלנו יש ממ"ד, מרפסת, מעלית וחניה. לכן דמיון המאפיינים
-   מדרג כאן, וב-`comparables` הוא לא קיים.
-
-   הסולם זהה באופיו לסולם החדרים: קודם התאמת מאפיינים, ואם אין די כאלה
-   נופלים לבנד החדרים לבדו - ואומרים את זה. */
-const CMA_FEATURE_LABELS = Object.fromEntries(
-  [...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES, ...LISTING_FEATURES]);
-
-function cmaMarketNote(cov){
-  if (!cov || !Number(cov.market_comparables_total)) return '';
-  const total = Number(cov.market_comparables_total);
-  const rad   = cov.market_radius_meters ? ` ברדיוס ${esc(cov.market_radius_meters)} מ׳` : '';
-  const head  = `<div class="cma-note">נמצאו ${esc(total)} נכסים פעילים למכירה בסביבה${rad}. `
-              + `<strong>אלה מחירים מבוקשים ולא מחירי עסקה</strong>, ולכן הם אינם נכנסים לממוצע שלמעלה.</div>`;
-
-  if (cov.market_band_reason === 'features'){
-    return head + `<div class="cma-note">החציון כאן נשען על ${esc(cov.market_feature_matched)} מהם שגם `
-      + `<strong>תואמים לנכס במאפיינים</strong> (ממ״ד, מעלית, מרפסת, חניה וכדומה).</div>`;
-  }
-  if (cov.market_band_reason === 'rooms_only'){
-    /* בנכס מסחרי הסולם הוא קומה ולא חדרים (20270226090000) */
-    const band = cov.band_dimension === 'floor' ? 'באותה קבוצת קומה' : 'באותו מספר חדרים';
-    return head + '<div class="cma-note">לא נמצאו די נכסים שתואמים גם במאפיינים, ולכן החציון כאן נשען על '
-      + `כל הנכסים ${band}. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>`;
-  }
-  if (cov.market_band_reason === 'subject_features_missing'){
-    return head + '<div class="cma-note">לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. '
-      + 'סימון ממ״ד, מעלית, מרפסת וחניה בכרטיס הנכס ידייק את ההשוואה הזו.</div>';
-  }
-  if (cov.market_band_reason === 'too_few'){
-    return head + `<div class="cma-note">זה פחות מ-${esc(cov.min_market_required)} נכסים, ולכן אין כאן חציון - `
-      + 'רק הנכסים עצמם, כל אחד עם המחיר שלו.</div>';
-  }
-  return head;
-}
-
-/* ---------- שעון (חצי עיגול) ----------
-   מדד אחד מול סקאלה, עם שלושה אזורים: זול (כחול), בטווח (אפור ניטרלי),
-   יקר (אדום). כחול ואדום הם שני הקטבים של סקאלה מתפצלת, והאמצע אפור -
-   "אין כאן כלום" - ולא צבע (dataviz: diverging pair, נבדק ב-validator:
-   ‏CVD ‎ΔE 21.6‎). הצבע לעולם אינו נושא לבדו: הערך כתוב במרכז, והמשמעות
-   בשורה מתחתיו. הכיוון כיוון הקריאה: זול מימין, יקר משמאל - כמו פס הטווח.
-   ‏2px רווח בין האזורים, כמו בין כל שני מילויים סמוכים. */
-function cmaGaugeSvg(t, cuts){
-  const R = 78, CX = 100, CY = 96, W = 12;
-  const pt = (u, r) => {
-    const a = Math.PI * Math.max(0, Math.min(1, u));
-    return [CX + r * Math.cos(a), CY - r * Math.sin(a)];
-  };
-  const arc = (u0, u1, cls) => {
-    const [x0, y0] = pt(u0, R), [x1, y1] = pt(u1, R);
-    return `<path class="${cls}" d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 0 0 ${x1.toFixed(1)} ${y1.toFixed(1)}" `
-      + `fill="none" stroke-width="${W}" stroke-linecap="butt"/>`;
-  };
-  const gap = 0.012;
-  const [a, b] = cuts;
-  const [nx, ny] = pt(t, R - W - 6);
-  return `<svg class="cma-gauge-svg" viewBox="0 0 200 104" aria-hidden="true">
-      ${arc(0, a - gap, 'z-low')}${arc(a + gap, b - gap, 'z-mid')}${arc(b + gap, 1, 'z-high')}
-      <line class="needle" x1="${CX}" y1="${CY}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke-width="3" stroke-linecap="round"/>
-      <circle class="hub" cx="${CX}" cy="${CY}" r="6"/>
-    </svg>`;
-}
-
-/* כרטיס שעון: כותרת, השעון, הערך והמשמעות. ‏`pct` הוא אחוז פער (‎-40‎ עד
-   ‏‎+40‎, מוגבל לקצוות) או אחוזון (0-100). */
-function cmaGaugeCard({ title, value, valueText, mode, caption }){
-  if (value == null || !Number.isFinite(Number(value))) return '';
-  const v = Number(value);
-  const t = mode === 'percentile' ? v / 100 : (Math.max(-40, Math.min(40, v)) + 40) / 80;
-  const cuts = mode === 'percentile' ? [0.25, 0.75] : [30 / 80, 50 / 80];
-  return `<figure class="cma-gauge">
-      <figcaption class="cma-gauge-t">${title}</figcaption>
-      ${cmaGaugeSvg(t, cuts)}
-      <div class="cma-gauge-v">${valueText}</div>
-      <div class="cma-gauge-ends"><span>זול</span><span>יקר</span></div>
-      <div class="cma-gauge-c">${caption}</div>
-    </figure>`;
-}
-
-function renderCmaReport(r, brand){
-  const s   = r.subject || {};
-  const st  = r.stats || {};
-  const cov = r.data_coverage || {};
-  const comps = r.comparables || [];
-  const cityComps = r.city_comparables || [];
-  const sources = r.sources || [];
-  const hasStats = !!cov.has_statistics;
-
-  /* סוג הבעלות בטאבו (20270115091000). ‏`r.ownership` הוא null כל עוד המאגר
-     לא נטען, ואז העמודה והשורות פשוט לא מופיעות - עמודה שכולה "-" נראית כמו
-     "אף עסקה אינה רשומה", וזה שקר. עסקה בלי `ownership` מוצגת "-": היעדר
-     אינו "פרטית". */
-  const own = r.ownership || null;
-  const LAND_OWN = { P:'פרטית', S:'מדינה', L:'רשות מקומית', M:'מעורבת', O:'אחר' };
-  const ownCell = c => own ? `<td>${c.ownership ? esc(LAND_OWN[c.ownership] || '') : '-'}</td>` : '';
-  const ownTh = own ? '<th>בעלות</th>' : '';
-  const ownSubj = own && own.subject && LAND_OWN[own.subject.ownership];
-  const ownCounts = (own && own.counts) || {};
-  const ownSplit = own && own.split;
-
-  /* הפער מול השוק מוצג רק כשיש שוק להשוות אליו. זה היה המשפט המטעה
-     ביותר בדוח: הוא נוסח כממצא גם כשה"ממוצע" היה עסקה אחת.
-
-     ומעכשיו הוא **שני מספרים ולא אחד**, וזו לא הרחבה קוסמטית. הפער
-     במחיר הכולל והפער למ״ר אינם אותו מספר, והם יכולים להצביע לכיוונים
-     שונים לגמרי. נכס אמיתי בעפולה: 1,320,000 ₪ על 80 מ״ר, מול ממוצע
-     של 1,282,937 ₪ על 113 מ״ר ב-222 עסקאות בסביבה.
-
-       במחיר הכולל   +3%   ← נשמע כמו "המחיר בשוק"
-       במחיר למ״ר   +43%   ← 16,500 מול 11,556
-
-     שני המספרים נכונים, והם מתארים את אותו נכס. ההבדל ביניהם הוא כולו
-     השטח: נכס קטן מהממוצע ייראה זול בהשוואה הכוללת גם כשהוא יקר מאוד
-     לכל מטר. מי שראה רק את ה-3% קרא שהמחיר סביר, והוא לא היה.
-
-     לכן שניהם ולא בחירה ביניהם: המחיר למ״ר הוא ההשוואה המדויקת כששטחים
-     שונים, והמחיר הכולל הוא מה שהקונה באמת משלם. וכששניהם רחוקים זה
-     מזה, הדוח אומר **למה** - אחרת זה נקרא כסתירה. */
-  /* ‏`ask == null` לפני `Number()`, וזו לא הגנה עודפת אלא באג שנתפס.
-     ‏**`Number(null)` הוא 0 ולא NaN**, ולכן נכס בלי שטח - `price_per_sqm`
-     חוזר `null` מ-`agent_cma_report` כש-`size_sqm` ריק - היה מקבל
-     "המחיר המבוקש למ״ר: נמוך ב-100% מהממוצע". מספר מומצא שנקרא כממצא,
-     על שתיים מ-31 המודעות הפעילות למכירה.
-
-     ‏`Number.isFinite` לבדו אינו תופס את זה כי 0 הוא סופי לגמרי, ו-
-     ‏`jsonb_build_object` מחזיר את המפתח **עם `null`** ולא משמיט אותו -
-     כלומר `undefined` (שהיה נותן NaN) אינו מגיע לכאן לעולם.
-
-     ‏`a > 0` מכסה גם מחיר 0, שאינו השוואה בעלת משמעות. */
-  const cmaGapPct = (ask, avg) => {
-    if (ask == null || avg == null) return null;
-    const a = Number(ask), v = Number(avg);
-    return (Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0)
-      ? Math.round(((a - v) / v) * 100) : null;
-  };
-  const priceGap = hasStats ? cmaGapPct(s.price, st.avg_price) : null;
-  const sqmGap   = hasStats ? cmaGapPct(s.price_per_sqm, st.avg_price_per_sqm) : null;
-
-  function cmaGapLine(pct, what, n){
-    if (pct === null) return '';
-    const count = Number(n) > 0 ? ` (${esc(n)} עסקאות)` : '';
-    return pct === 0
-      ? `<div class="cma-note">${what}: <strong>תואם את הממוצע</strong>${count}.</div>`
-      : `<div class="cma-note">${what}: <strong>${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}%</strong> `
-        + `מהממוצע${count}.</div>`;
-  }
-
-  /* סף ההסבר: 10 נקודות אחוז. מתחת לזה שני המספרים מספרים אותו סיפור
-     ומשפט נוסף הוא רעש; מעל לזה הם נראים כמו סתירה, ואז ההסבר הוא
-     החלק החשוב יותר של הדוח. */
-  const gapDiverges = priceGap !== null && sqmGap !== null
-                      && Math.abs(priceGap - sqmGap) >= 10;
-
-  const gapNote = (priceGap === null && sqmGap === null) ? '' :
-      cmaGapLine(priceGap, 'המחיר המבוקש הכולל', st.comparables_count)
-    + cmaGapLine(sqmGap,   'המחיר המבוקש למ״ר',  st.sqm_sample_size ?? st.comparables_count)
-    + (gapDiverges
-        ? '<div class="cma-note">שני המספרים רחוקים זה מזה מפני ששטח הנכס שונה מהשטח הממוצע '
-          + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
-        : '')
-    + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
-        ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
-        : '');
-
-  /* שתי סיבות שונות לכך שעסקה מופיעה בטבלה ואינה נספרת בממוצע, ולכל
-     אחת סימון משלה: מחלקת נכס אחרת, או מספר חדרים אחר. ‏`in_stats` מגיע
-     מה-RPC ואינו מחושב כאן - תצוגה שמחליטה בעצמה מי נספר היא תצוגה
-     שתיפרד מהחישוב ברגע שהסולם ישתנה. */
-  /* ---------- העסקאות הדומות ביותר ----------
-     ‏`comparables` מגיע מ-`agent_cma_report_full` כבר מצומצם ומדורג
-     (20270227090000): הדומות ביותר לנכס בשטח, במרחק ובתאריך, מתוך מה
-     שנספר בממוצע. הממוצע עצמו חושב על **כולן** - והכיתוב אומר זאת, כי
-     טבלה של 8 שורות מתחת לממוצע של 180 נקראת אחרת כצירוף מקרים. */
-  const compRows = comps.map(c => `<tr>
-      <td class="cma-c-rank">${esc(c.similarity_rank ?? '')}</td>
-      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.rooms != null ? ' · ' + esc(String(Number(c.rooms))) + ' חד׳' : ''}${c.same_building
-        ? ' <span class="cma-basis is-same" title="אותו גוש וחלקה כמו הנכס - אותו בניין, ולכן אותו גיל ורמת בנייה">באותו בניין</span>' : ''}</td>
-      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
-      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
-      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
-      <td>${esc(c.distance_meters)} מ׳</td>
-      <td>${hebDate(c.sold_at)}</td>
-      ${ownCell(c)}
-    </tr>`).join('');
-  const listedOf = Number(cov.comparables_listed_of) || comps.length;
-  const compsCaption = !comps.length ? '' : hasStats
-    ? `${plural(comps.length, 'העסקה הדומה ביותר', 'העסקאות הדומות ביותר')} לנכס, מתוך ${esc(st.comparables_count)} שהממוצע נשען עליהן`
-      + `${r.radius_meters_used ? ` ברדיוס ${esc(r.radius_meters_used)} מ׳` : ''}. הבחירה לפי קרבה בשטח, במרחק ובמועד העסקה.`
-    : `אין די עסקאות דומות לחישוב ממוצע, ולכן מוצגות ${plural(comps.length, 'העסקה הקרובה ביותר', 'העסקאות הקרובות ביותר')}`
-      + `${listedOf > comps.length ? ` מתוך ${esc(listedOf)} בסביבה` : ''}.`;
-
-  /* שכבת השוק. ‏`feature_match` הוא `null` כשלאחד הצדדים אין מאפיינים
-     רשומים, ו-`null` אינו 0: "לא נרשם" אינו "אין ממ״ד". ‏`in_market_stats`
-     מגיע מה-RPC. מוצגות עד 6 שורות - הן כבר מדורגות לפי התאמה. */
-  const CMA_ROWS = 6;
-  const marketComps = (r.market_comparables || []).slice(0, CMA_ROWS);
-  const mst = r.market_stats || {};
-  const featPct = v => v == null ? '<span class="cma-basis" title="למודעה אין מאפיינים רשומים">לא רשום</span>'
-                                 : Math.round(Number(v) * 100) + '%';
-  /* ‏`cma-c-title` על תא הכותרת: זו העמודה היחידה בטבלאות שנושאת טקסט
-     חופשי, ולכן היא זו שקובעת את הרוחב המינימלי של הטבלה. ראו ה-CSS. */
-  const marketRows = marketComps.map(c => `<tr>
-      <td class="cma-c-title">${esc(c.title)}${c.is_own ? ' <span class="cma-basis" title="מודעה שלך">שלי</span>' : ''}</td>
-      <td>${c.rooms ?? '-'}</td>
-      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
-      <td>${shekel(c.price)} <span class="cma-basis is-asking" title="מחיר מבוקש - הנכס עדיין לא נמכר">מבוקש</span></td>
-      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
-      <td>${featPct(c.feature_match)}${c.in_market_stats === false && c.feature_match != null
-        ? ' <span class="cma-basis" title="לא נספר בחציון - התאמת המאפיינים נמוכה מהסף">לא נספר</span>' : ''}</td>
-      <td>${esc(c.distance_meters)} מ׳</td>
-    </tr>`).join('');
-
-  const marketGap    = cmaGapPct(s.price, mst.median_price);
-  const marketSqmGap = cmaGapPct(s.price_per_sqm, mst.median_price_per_sqm);
-
-  /* שכבת השכונה: עסקאות רשמיות בלי פין, באותה שכונה כמו הנכס. החציון
-     שלהן נפרד מתמונת השוק ואינו נכנס לממוצע שלה. */
-  const hoodComps = (r.neighborhood_comparables || []).slice(0, CMA_ROWS);
-  const hst = r.neighborhood_stats || {};
-  const hoodGap    = cmaGapPct(s.price, hst.median_price);
-  const hoodSqmGap = cmaGapPct(s.price_per_sqm, hst.median_price_per_sqm);
-  const hoodRows = hoodComps.map(c => `<tr>
-      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.shared_neighborhood
-        ? ' <span class="cma-basis" title="במאגר העסקה רשומה בשם שמכסה כמה שכונות, ונספרת בכל אחת מהן">משותפת</span>' : ''}</td>
-      <td>${c.rooms ?? '-'}${c.same_type !== false && c.in_stats === false
-        ? ' <span class="cma-basis" title="מספר חדרים שונה מהנכס - אינה נספרת בחציון">לא נספר</span>' : ''}</td>
-      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
-      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
-      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
-      <td>${hebDate(c.sold_at)}</td>
-      ${ownCell(c)}
-    </tr>`).join('');
-
-  /* על מה הממוצע נשען, לפי בעלות. הפיצול מגיע מהמסד רק כששתי הקבוצות
-     מעל הסף, והוא **אינו** מתקן את הממוצע: זו החלטה של השמאי/ת. */
-  const ownNote = (!own || !hasStats || !Number(ownCounts.in_stats)) ? '' :
-      `<div class="cma-note">מתוך ${esc(ownCounts.in_stats)} העסקאות בממוצע: `
-    + `${esc(ownCounts.private || 0)} על קרקע פרטית, ${esc(ownCounts.state || 0)} על קרקע מדינה`
-    + (Number(ownCounts.local) ? `, ${esc(ownCounts.local)} על קרקע של רשות מקומית` : '')
-    + (Number(ownCounts.unknown) ? `, ${esc(ownCounts.unknown)} שסוג הבעלות שלהן לא ידוע` : '')
-    + '.</div>'
-    + (ownSplit
-        ? `<div class="cma-note">חציון למ״ר לפי סוג הבעלות: קרקע פרטית ${shekel(ownSplit.private_median_price_per_sqm)} `
-          + `(${esc(ownSplit.private_sample)}) · קרקע מדינה ${shekel(ownSplit.state_median_price_per_sqm)} (${esc(ownSplit.state_sample)}).</div>`
-        : '');
-
-  // התוכניות של העירייה / retzefMigrashim יחד עם 203/14 (ארציות, כוללניות, 77-78)
-  const plans = r.planning ? mergedPlanningPlans(r.planning) : [];
-
-  /* שורת המקורות נבנית ממה שבאמת נכנס לדוח (`sources` מה-RPC) ולא מטקסט
-     קבוע. כך מקור חדש שייכנס למאגר יופיע כאן מעצמו, ודוח בלי נתונים לא
-     יטען שהוא נשען על מאגר. */
-  const sourcesLine = sources.length
-    ? 'מקורות הנתונים בדוח זה: ' + sources.map(x => `${esc(x.label)} (${esc(x.deals)})`).join(' · ') + '.'
-    : 'לא נכללו בדוח זה עסקאות כלשהן.';
-
-  const askingNote = cov.asking_basis_count > 0
-    ? `<div class="cma-note">${esc(cov.asking_basis_count)} מהעסקאות בדוח רשומות לפי <strong>המחיר המבוקש</strong> `
-      + 'שהיה בפרסום ולא לפי מחיר הסגירה, ומסומנות ככאלה בטבלאות. פער המיקוח אינו משוקלל בהן.</div>'
-    : '';
-
-  /* ---------- הקרקע ----------
-     סוג הבעלות הוא שאלה שחוזרת אצל כל קונה ("זה טאבו או מינהל?"), ולכן
-     הוא כרטיס משלו ולא שורה בטבלה. ההסבר לכל סוג זהיר בכוונה - "עשויה",
-     "בדרך כלל" - כי המקור עצמו אומר שאינו קובע זכות משפטית, וכל כרטיס
-     מפנה לנסח. היעדר מידע אינו "פרטית": כשאין התאמה במאגר נאמר "לא נמצא". */
-  const LAND_OWN_MEANING = {
-    P: 'הקרקע רשומה בבעלות פרטית.',
-    S: 'הקרקע בבעלות המדינה ומנוהלת בידי רשות מקרקעי ישראל (רמ״י). זכויות הרוכשים הן בדרך כלל חכירה ולא בעלות, '
-     + 'והעברתן עשויה לדרוש אישור רמ״י ולפעמים גם תשלום - וזה יכול להשפיע על תהליך המשכנתא.',
-    L: 'הקרקע רשומה בבעלות רשות מקומית. את סוג הזכויות של היחידה יש לבדוק בנסח.',
-    M: 'בחלקה רשום יותר מסוג בעלות אחד. את הזכויות של היחידה עצמה יש לבדוק בנסח.',
-    O: 'סוג הבעלות הרשום אינו פרטי, מדינה או רשות מקומית. את הזכויות יש לבדוק בנסח.',
-  };
-  const ownCode = own && own.subject && own.subject.ownership;
-  const plan = r.planning || null;
-  const landFacts = [
-    plan && (plan.gush || plan.helka) ? ['גוש / חלקה', `${esc(plan.gush || '-')} / ${esc(plan.helka || '-')}`] : null,
-    plan && plan.parcel_area_sqm ? ['שטח החלקה', `${esc(plan.parcel_area_sqm)} מ״ר`] : null,
-    plan && plan.land_use_designation ? ['ייעוד קרקע', esc(plan.land_use_designation)] : null,
-  ].filter(Boolean);
-  const plansHtml = plansListHtml(plans, 'תוכניות החלות על הקרקע');
-  const landBlock = (!ownCode && !landFacts.length && !plans.length && !(own && plan)) ? '' : `
-    <section class="cma-sec cma-land">
-      <h3 class="cma-h">הקרקע</h3>
-      <div class="cma-land-grid">
-        <div class="cma-own ${ownCode ? 'is-' + esc(ownCode.toLowerCase()) : 'is-none'}">
-          <div class="cma-own-k">סוג הבעלות בטאבו</div>
-          <div class="cma-own-v">${ownCode ? esc(LAND_OWN[ownCode] || ownCode) : 'לא נמצא במאגר'}</div>
-          <div class="cma-own-d">${ownCode
-            ? esc(LAND_OWN_MEANING[ownCode] || '') + (own.subject.mixed_units ? ' בחלקה יש גם תת-חלקות בסוג בעלות אחר.' : '')
-            : own ? 'לחלקה של הנכס לא נמצא רישום במאגר הבעלות. זה אינו אומר שהקרקע פרטית - הדרך לדעת היא נסח טאבו.'
-                  : 'מאגר הבעלות עוד לא זמין בדוח הזה.'}</div>
-        </div>
-        ${landFacts.length ? `<dl class="cma-facts">${landFacts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : ''}
-      </div>
-      ${plansHtml}
-      ${ownNote}
-    </section>`;
-
-  /* ---------- איפה הנכס יושב בתוך השוק ----------
-     פס אחד במקום עוד מספר: הטווח שבין הרבעון התחתון לעליון של המחיר
-     למ״ר (מחצית העסקאות האמצעיות), החציון, והנכס. הרבעונים מגיעים מהמסד
-     רק מעל הסף (20270227090000), ולכן הפס מופיע רק כשיש לו על מה לעמוד.
-     הכיוון הוא כיוון הקריאה: זול מימין, יקר משמאל. */
-  const rangeOk = hasStats && st.p25_price_per_sqm != null && st.p75_price_per_sqm != null;
-  const subjPsm = s.price_per_sqm == null ? null : Number(s.price_per_sqm);
-  let rangeBlock = '';
-  if (rangeOk){
-    const vals = [st.min_price_per_sqm, st.max_price_per_sqm, subjPsm].filter(v => v != null).map(Number);
-    const lo = Math.min(...vals), hi = Math.max(...vals);
-    const span = hi - lo || 1;
-    const at = v => Math.max(0, Math.min(100, ((Number(v) - lo) / span) * 100));
-    const p25 = Number(st.p25_price_per_sqm), p75 = Number(st.p75_price_per_sqm);
-    const where = subjPsm == null ? '' : subjPsm < p25
-      ? 'המחיר המבוקש למ״ר <strong>נמוך מרוב העסקאות הדומות</strong>.'
-      : subjPsm > p75
-        ? 'המחיר המבוקש למ״ר <strong>גבוה מרוב העסקאות הדומות</strong>.'
-        : 'המחיר המבוקש למ״ר <strong>בתוך הטווח של מחצית העסקאות האמצעיות</strong>.';
-    rangeBlock = `
-      <div class="cma-range" role="img" aria-label="טווח המחיר למ״ר בעסקאות הדומות ומיקום הנכס בתוכו">
-        <div class="cma-range-track">
-          <div class="cma-range-band" style="inset-inline-start:${at(p25).toFixed(1)}%;width:${(at(p75) - at(p25)).toFixed(1)}%"></div>
-          <div class="cma-range-mid" style="inset-inline-start:${at(st.median_price_per_sqm).toFixed(1)}%"></div>
-          ${subjPsm != null ? `<div class="cma-range-pin${at(subjPsm) < 12 ? ' is-start' : at(subjPsm) > 88 ? ' is-end' : ''}" style="inset-inline-start:${at(subjPsm).toFixed(1)}%"><span>הנכס · ${shekel(Math.round(subjPsm))}</span></div>` : ''}
-        </div>
-        <div class="cma-range-ends"><span>${shekel(lo)}</span><span>${shekel(hi)}</span></div>
-        <div class="cma-range-legend">
-          <span><i class="k-band"></i>מחצית העסקאות האמצעיות: ${shekel(p25)} - ${shekel(p75)} למ״ר</span>
-          <span><i class="k-mid"></i>חציון: ${shekel(st.median_price_per_sqm)}</span>
-        </div>
-        ${where ? `<p class="cma-range-where">${where}</p>` : ''}
-      </div>`;
-  }
-
-  /* ---------- לוח המדדים ----------
-   מספר גיבור **אחד** (dataviz: hero figure, אחד לכל תצוגה) - הפער למ״ר,
-   שהוא ההשוואה ההוגנת כששטחים שונים; ואם אין שטח, הפער הכולל. מתחתיו עד
-   שלושה שעונים, כל אחד מספר אחר ולא חזרה על הגיבור במחסה אחר: איפה הנכס
-   בתוך העסקאות (אחוזון), מול הממוצע למ״ר, ומול מה שמבוקש היום. */
-  const heroPct = sqmGap ?? priceGap;
-  /* ‏gapNote נשאר מקור האמת לשורות הפער (וכך גם הבדיקה שלו), אבל בלוח
-     המדדים המספרים כבר בגיבור ובשעונים - ולכן כאן רק שתי שורות ההסבר. */
-  const gapExplain = (gapDiverges
-      ? '<div class="cma-note">שני הפערים רחוקים זה מזה מפני ששטח הנכס שונה מהשטח הממוצע '
-        + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
-      : '')
-    + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
-      ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
-      : '');
-  const heroBlock = heroPct === null ? '' : `
-      <div class="cma-hero-fig">
-        <div class="cma-hero-n">${heroPct > 0 ? '+' : ''}${esc(heroPct)}%</div>
-        <div class="cma-hero-l">${sqmGap !== null
-          ? `המחיר המבוקש למ״ר (${shekel(s.price_per_sqm)}) מול ממוצע ${shekel(st.avg_price_per_sqm)} ב-${esc(st.sqm_sample_size ?? st.comparables_count)} עסקאות דומות`
-          : `המחיר המבוקש (${shekel(s.price)}) מול ממוצע ${shekel(st.avg_price)} ב-${esc(st.comparables_count)} עסקאות דומות`}</div>
-      </div>`;
-  const pctile = st.subject_percentile;
-  const gauges = [
-    cmaGaugeCard({
-      title: 'המיקום בין העסקאות הדומות', mode: 'percentile', value: pctile,
-      valueText: pctile == null ? '' : `${esc(pctile)}%`,
-      caption: pctile == null ? '' : `יקר למ״ר מ-${esc(pctile)}% מהעסקאות`,
-    }),
-    sqmGap !== null && priceGap !== null ? cmaGaugeCard({
-      title: 'המחיר הכולל מול הממוצע', mode: 'gap', value: priceGap,
-      valueText: `${priceGap > 0 ? '+' : ''}${esc(priceGap)}%`,
-      caption: `מול ${shekel(st.avg_price)}`,
-    }) : '',
-    marketSqmGap !== null ? cmaGaugeCard({
-      title: 'מול המבוקש בשוק עכשיו', mode: 'gap', value: marketSqmGap,
-      valueText: `${marketSqmGap > 0 ? '+' : ''}${esc(marketSqmGap)}%`,
-      caption: `למ״ר, מול חציון ${shekel(mst.median_price_per_sqm)} ב-${esc(mst.sqm_sample_size ?? mst.count)} מודעות`,
-    }) : '',
-  ].filter(Boolean).join('');
-
-  /* ---------- המיתוג ----------
-     הדוח נשלח ללקוח/ה בשם המשרד, ולכן הוא נושא את הלוגו, את הצבעים ואת
-     פרטי הסוכן/ת - ולא את שלנו. הצבעים עוברים normalizeHex (רק hex תקין
-     נכנס ל-style), והתמונות רק ב-https. שוק נדל״ן נשאר בשורה אחת בתחתית,
-     כמקור המערכת. */
-  const b = brand || {};
-  const brandStyle = `--cma-brand:${b.primary || '#1c3a5e'};--cma-brand-dark:${b.primaryDark || '#122840'};`
-    + `--cma-on-brand:${b.onPrimary || '#ffffff'};--cma-accent:${b.accent || '#c0912f'}`;
-  const agentLine = [
-    b.license ? `רישיון תיווך ${esc(b.license)}` : '',
-    b.phone ? `<a href="tel:${esc(b.phone)}">${esc(b.phone)}</a>` : '',
-    b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : '',
-  ].filter(Boolean).join(' · ');
-
-  const facts = [
-    ['סוג', esc(s.property_type || '-')],
-    s.rooms ? ['חדרים', esc(String(Number(s.rooms)))] : null,
-    cov.band_dimension === 'floor' && cov.subject_floor_group
-      ? ['קומה', ({ ground:'קרקע', upper:'עליונה', below:'מרתף' })[cov.subject_floor_group] || '-'] : null,
-    s.size_sqm ? ['שטח', `${esc(s.size_sqm)} מ״ר`] : null,
-    ['מחיר מבוקש', shekel(s.price)],
-    s.price_per_sqm ? ['למ״ר', shekel(s.price_per_sqm)] : null,
-  ].filter(Boolean);
-
-  document.getElementById('cmaBody').innerHTML = `
-   <div class="cma-doc" style="${brandStyle}">
-    <header class="cma-brandbar">
-      <div class="cma-brand-id">
-        ${b.logo ? `<span class="cma-logo"><img src="${esc(b.logo)}" alt="${esc(b.agencyName || '')}"></span>` : ''}
-        <span class="cma-agency">${esc(b.agencyName || '')}</span>
-      </div>
-      <div class="cma-doc-title">
-        <span class="cma-kicker">דוח השוואת שוק</span>
-        <span class="cma-date">${new Date(r.generated_at).toLocaleDateString('he-IL')}</span>
-      </div>
-    </header>
-
-    ${b.agentName ? `
-    <div class="cma-agent">
-      ${b.agentPhoto ? `<img class="cma-agent-photo" src="${esc(b.agentPhoto)}" alt="">` : `<span class="cma-agent-photo is-initial">${esc((b.agentName || '').trim().charAt(0))}</span>`}
-      <div class="cma-agent-txt">
-        <div class="cma-agent-name">הוכן עבורך על ידי ${esc(b.agentName)}</div>
-        ${agentLine ? `<div class="cma-agent-meta">${agentLine}</div>` : ''}
-      </div>
-    </div>` : ''}
-
-    <section class="cma-hero">
-      <h2>${esc(s.title)}</h2>
-      <div class="cma-addr">${esc([s.address, s.city].filter(Boolean).join(', '))}</div>
-      <dl class="cma-chips">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
-    </section>
-
-    <section class="cma-sec">
-      <h3 class="cma-h">לוח המדדים</h3>
-      ${hasStats ? `
-        ${heroBlock}
-        ${gauges ? `<div class="cma-gauges">${gauges}</div>` : ''}
-        <div class="cma-stats">
-          <div class="cma-stat"><div class="l">מחיר ממוצע</div><div class="n">${shekel(st.avg_price)}</div></div>
-          <div class="cma-stat"><div class="l">מחיר חציוני</div><div class="n">${shekel(st.median_price)}</div></div>
-          <div class="cma-stat"><div class="l">ממוצע למ״ר</div><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '-'}</div></div>
-          <div class="cma-stat"><div class="l">שטח ממוצע</div><div class="n">${st.avg_size_sqm ? esc(st.avg_size_sqm) + ' מ״ר' : '-'}</div></div>
-        </div>
-        ${rangeBlock}
-        ${gapExplain}
-        ${cmaSampleNote(cov, r.radius_meters_used)}
-        ${!st.avg_price_per_sqm
-          ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
-      ` : cmaCoverageBlock(cov)}
-    </section>
-
-    ${landBlock}
-
-    ${comps.length ? `
-    <section class="cma-sec">
-      <h3 class="cma-h">${hasStats ? 'העסקאות הדומות ביותר' : 'עסקאות בסביבת הנכס'}</h3>
-      <p class="cma-cap">${compsCaption}</p>
-      <div class="cma-tablewrap"><table class="cma-table">
-        <thead><tr><th></th><th>נכס</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th>${ownTh}</tr></thead>
-        <tbody>${compRows}</tbody>
-      </table></div>
-    </section>` : ''}
-
-    ${marketComps.length ? `
-    <section class="cma-sec">
-      <h3 class="cma-h">מתחרים בשוק עכשיו</h3>
-      ${Array.isArray(s.features) && s.features.length
-        ? `<div class="cma-note">המאפיינים של הנכס: ${esc(s.features.map(f => CMA_FEATURE_LABELS[f] || f).join(' · '))}</div>`
-        : ''}
-      ${cmaMarketNote(cov)}
-      ${mst.median_price ? `
-        <div class="cma-stats">
-          <div class="cma-stat"><div class="n">${shekel(mst.median_price)}</div><div class="l">מבוקש חציוני</div></div>
-          <div class="cma-stat"><div class="n">${mst.median_price_per_sqm ? shekel(mst.median_price_per_sqm) : '-'}</div><div class="l">מבוקש חציוני למ״ר</div></div>
-          <div class="cma-stat"><div class="n">${esc(mst.count)}</div><div class="l">נכסים בהשוואה</div></div>
-          <div class="cma-stat"><div class="n">${esc(cov.market_comparables_total)}</div><div class="l">סה״כ בסביבה</div></div>
-        </div>
-        ${cmaGapLine(marketGap,    'המחיר המבוקש שלנו מול המבוקש בשוק',      mst.count)}
-        ${cmaGapLine(marketSqmGap, 'המחיר המבוקש שלנו למ״ר מול המבוקש בשוק', mst.sqm_sample_size ?? mst.count)}` : ''}
-      <div class="cma-tablewrap"><table class="cma-table">
-        <thead><tr><th>נכס</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>התאמת מאפיינים</th><th>מרחק</th></tr></thead>
-        <tbody>${marketRows}</tbody>
-      </table></div>
-      ${Number(cov.market_comparables_total) > marketComps.length
-        ? `<p class="cma-cap">מוצגים ${esc(marketComps.length)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</p>` : ''}
-    </section>` : ''}
-
-    ${hoodComps.length ? `
-    <section class="cma-sec">
-      <h3 class="cma-h">בשכונת ${esc(cov.neighborhood_name || '')}</h3>
-      <p class="cma-cap">עסקאות רשמיות באותה שכונה שאין להן כתובת מדויקת, ולכן הן השוואה נפרדת ואינן בחישוב שלמעלה.
-        ${Number(cov.neighborhood_shared_count) > 0
-          ? `${esc(cov.neighborhood_shared_count)} מהן רשומות בשם שמכסה כמה שכונות סמוכות ("משותפת").` : ''}</p>
-      ${hst.median_price ? `
-        <div class="cma-stats">
-          <div class="cma-stat"><div class="n">${shekel(hst.median_price)}</div><div class="l">מחיר חציוני</div></div>
-          <div class="cma-stat"><div class="n">${hst.median_price_per_sqm ? shekel(hst.median_price_per_sqm) : '-'}</div><div class="l">חציון למ״ר</div></div>
-          <div class="cma-stat"><div class="n">${esc(hst.count)}</div><div class="l">עסקאות בחציון</div></div>
-          <div class="cma-stat"><div class="n">${esc(cov.neighborhood_comparables_total)}</div><div class="l">סה״כ בשכונה</div></div>
-        </div>
-        ${cmaGapLine(hoodGap,    'המחיר המבוקש מול החציון בשכונה',      hst.count)}
-        ${cmaGapLine(hoodSqmGap, 'המחיר המבוקש למ״ר מול החציון בשכונה', hst.sqm_sample_size ?? hst.count)}`
-      : `<div class="cma-note">${esc(cov.neighborhood_comparables_counted)} מהן תואמות לנכס בסוג ובגודל - פחות מ-${esc(cov.min_required)}, ולכן אין כאן חציון.</div>`}
-      <div class="cma-tablewrap"><table class="cma-table">
-        <thead><tr><th>סוג</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>תאריך</th>${ownTh}</tr></thead>
-        <tbody>${hoodRows}</tbody>
-      </table></div>
-      ${Number(cov.neighborhood_comparables_total) > hoodComps.length
-        ? `<p class="cma-cap">מוצגות ${esc(hoodComps.length)} האחרונות מתוך ${esc(cov.neighborhood_comparables_total)}.</p>` : ''}
-    </section>` : ''}
-
-    ${(Number(cov.excluded_other_type) > 0 || askingNote || Number(cov.city_comparables_total) > 0) ? `
-    <section class="cma-sec cma-method">
-      <h3 class="cma-h">על מה הדוח נשען</h3>
-      ${Number(cov.excluded_other_type) > 0
-        ? `<div class="cma-note">${esc(cov.excluded_other_type)} עסקאות בסביבה הן בסוג נכס אחר, ואינן נספרות בממוצע.</div>` : ''}
-      ${askingNote}
-      ${Number(cov.city_comparables_total) > 0
-        ? `<div class="cma-note">עוד ${esc(cov.city_comparables_total)} עסקאות ב${esc(s.city)} אינן נכללות בחישוב, כי אין להן מיקום מדויק ואי אפשר למדוד את המרחק שלהן מהנכס.</div>` : ''}
-    </section>` : ''}
-
-    <footer class="cma-foot">
-      ${b.agentName ? `<div class="cma-foot-agent"><strong>${esc(b.agentName)}</strong>${b.agencyName ? ' · ' + esc(b.agencyName) : ''}${agentLine ? ' · ' + agentLine : ''}</div>` : ''}
-      <p>${sourcesLine}
-      המאגר אינו כולל עסקאות שלא נסגרו דרך הפלטפורמה, ולכן אינו תמונה מלאה של השוק באזור.
-      ${r.planning ? 'המידע התכנוני מבוסס על שכבות ה-GIS של עיריית עפולה. ' : ''}
-      ${own ? 'סוג הבעלות מפנקסי המקרקעין (משרד המשפטים)' + (own.as_of ? ', נכון ל-' + new Date(own.as_of).toLocaleDateString('he-IL') : '')
-        + ', ואינו קובע זכות משפטית - לבדיקת הזכויות יש להזמין נסח טאבו. ' : ''}
-      הנתונים נכונים למועד ההפקה, מוצגים לצורך התרשמות כללית בלבד, ואינם מהווים שומת
-      מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.</p>
-      <div class="cma-made"><img src="assets/logo-shuknadlan.svg" alt="" width="14" height="17"> הופק במערכת שוק נדל״ן</div>
-    </footer>
-   </div>`;
-
-  document.getElementById('cmaOverlay').style.display = 'block';
-}
-
+/* תצוגת הדוח (renderCmaReport והעוזרים שלה) - ב-assets/cma-render.js, שמשותף
+   לדף הדוח שגבריאלה שולחת (cma.html). docs/cma.md, בפרק על הקישור לדוח. */
 
 document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
   document.getElementById('cmaOverlay').style.display = 'none';
@@ -24971,21 +24403,24 @@ document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.pri
 /* ---------- Notifications bell (2.2) ----------
    ההתראות נוצרות בטריגרים במסד, כך שגם אירוע שנכנס דרך Edge Function
    (owner-lead-intake / submit-review) או דרך הבוט בוואטסאפ מייצר שורה כאן.
-   הגוף של התראת ליד לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked.
+   הגוף של התראת ליד לעולם לא מכיל שם/טלפון - הליד עשוי להיות עדיין masked.
 
    ‏NOTIF_TYPES הוא מקור האמת היחיד לסוגי ההתראות: ממנו נבנית רשימת תיבות
    הסימון ב"התראות והודעות", ממנו נגזר הפס הצדדי בפאנל, וממנו הניווט בלחיצה.
-   סוג חדש שנוסף במסד צריך שורה אחת כאן — ובלעדיה הוא עדיין יוצג, רק בלי
+   סוג חדש שנוסף במסד צריך שורה אחת כאן - ובלעדיה הוא עדיין יוצג, רק בלי
    צבע וניווט ייעודיים.
 
    ‏when() מסתיר סוג שאינו רלוונטי לתפקיד: אין טעם להציע למנהל/ת פלטפורמה
    לכבות התראה שסוכן/ת רגיל/ה לעולם לא מקבל/ת, ולהפך. ‏view:'admin' מוסיף
-   לזה את הצד השני — הקטגוריה שאליה ההתראה מובילה יושבת בתצוגת המנהל/ת,
+   לזה את הצד השני - הקטגוריה שאליה ההתראה מובילה יושבת בתצוגת המנהל/ת,
    ולכן הלחיצה מעבירה לשם קודם. */
 const NOTIF_TYPES = [
   { type:'new_lead',       tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ליד חדש',
     sub:'פנייה חדשה שהשתייכה אליך - בעל/ת נכס, מתעניין/ת בנכס או פנייה ישירה.' },
+  { type:'open_demand',    tone:'',       goto:'accLeads',    focus:'#leadsList',
+    title:'ביקוש פתוח',
+    sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. חינם, לכל הסוכנים באזור.' },
   { type:'review_new',     tone:'review', goto:'accReviews',  focus:'#reviewModerationList',
     title:'ביקורת חדשה',
     sub:'חוות דעת שהתקבלה עליך, ולמנהל/ת המשרד גם ביקורת של סוכן/ת בצוות שממתינה לאישור.' },
@@ -25105,7 +24540,7 @@ const NOTIF_TYPES = [
     sub:'פנייה שנקלטה מהאתר ואין קהל שיקבל אותה - למשל ליד משכנתא בלי יועצ/ת רשומ/ה.',
     when: ()=> currentAgent && currentAgent.is_platform_admin },
   /* ‏goto ל"מנויים ובקשות שדרוג" ולא ללוח הבקרה: ההתראה אומרת מי הצטרף/ה
-     ולאיזה מסלול, ושם — ב"יומן שינויי מסלול" — רואים את השורה עצמה. */
+     ולאיזה מסלול, ושם - ב"יומן שינויי מסלול" - רואים את השורה עצמה. */
   { type:'platform_signup', tone:'deal', goto:'accSubscriptions', focus:'#subsLog',
     view:'admin',
     title:'הצטרפות חדשה לפלטפורמה',
@@ -25262,7 +24697,7 @@ async function loadNotifications(agentId){
     const el = document.createElement('div');
     el.className = 'notif-item' + (n.read ? '' : ' unread') + (meta && meta.tone ? ' ' + meta.tone : '');
     // ‏esc(): הגוף של ההתראה מכיל היום גם טקסט שנכתב בידי לקוח/ה (ציטוט
-    // מביקורת) ושמות נכסים ממשרדים אחרים — תוכן שלא נוצר כאן ולכן לא נסמך
+    // מביקורת) ושמות נכסים ממשרדים אחרים - תוכן שלא נוצר כאן ולכן לא נסמך
     el.innerHTML = `<div class="t">${esc(n.title)}</div>
       ${n.body ? `<div class="b">${esc(n.body)}</div>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
@@ -26479,6 +25914,12 @@ function scrollToTopOf(el){
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function gotoSection(accId, focusId, opts){
+  const scrollSel = opts && opts.scrollTo;
+  if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
+      && typeof openLeadPrefsSheet === 'function'
+      && openLeadPrefsSheet(scrollSel === '#setOwnerSwitch' ? 'setOwnerSwitch' : 'setLeadPrefs')) {
+    return;
+  }
   accId = accResolve(accId);
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
@@ -26566,6 +26007,9 @@ const NAV_ADMIN_HOME = '__adminHome';
    עונים על אותה שאלה - מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
    בעמוד (ובאותו מקטע), רק הניווט אליהן אוחד. */
 const NAV_MINISITE = '__minisite';
+/* "דוח CMA" - פעולה ולא קטגוריה: פותח את הגיליון (openCmaPicker), כמו
+   הפעולה המהירה בדף הבית. PROFESSIONAL ו-Elite בלבד, כמו הגייט במסד. */
+const NAV_CMA = '__cma';
 
 const NAV_GROUPS = [
   { key:'daily', label:'עבודה יומית', icon:'briefcase', items:[
@@ -26590,8 +26034,10 @@ const NAV_GROUPS = [
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים',            icon:'sign',     tab:'docs', focus:'agrSearch' },
-    { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
-      also:['accDealsLookup'], sub:'מידע תכנוני · עסקאות באזור', tabs:true },
+    { acc:'accPlanning',         label:'עסקאות ומידע תכנוני', icon:'map',    tab:'more',
+      also:['accDealsLookup'], sub:'עסקאות שנסגרו באזור · מידע תכנוני', tabs:true },
+    { acc:NAV_CMA,               label:'דוח CMA',           icon:'chart',    tab:'more',
+      sub:'לנכס במערכת או לכל כתובת' },
   ]},
   { key:'grow', label:'צמיחה', icon:'chart', items:[
     /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
@@ -26785,6 +26231,8 @@ function navItemVisible(item){
   if (item.acc === NAV_HOME) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
   if (item.acc === NAV_MINISITE) return dashView === 'agent' && !!currentAgent;
+  if (item.acc === NAV_CMA) return dashView === 'agent' && !!currentAgent
+    && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium');
   // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
   return [item.acc, ...(item.also || [])].some(navAccVisible);
 }
@@ -27095,7 +26543,7 @@ function renderSideNav(){
 /* מתג "תצוגת סוכן/ת / ניהול פלטפורמה" בראש סרגל הצד, למנהל/ת הפלטפורמה
    בלבד. אותו setDashView של #viewSwitch שבראש התוכן - ובמחשב ההוא מוסתר
    (crm.html), כי מתג אחד בראש התפריט מספיק. בנייד אין סרגל צד, ו-#viewSwitch
-   נשאר. HANDOFF סעיף 2.2. */
+   נשאר בדף הבית ובתצוגת הניהול, לא במסך קטגוריה. HANDOFF סעיף 2.2. */
 function sideViewSwitch(){
   if (!(currentAgent && currentAgent.is_platform_admin)) return null;
   const wrap = document.createElement('div');
@@ -27190,6 +26638,7 @@ function openMiniSite(){
 function navGo(item){
   closeNavLayers();
   if (item.acc === NAV_MINISITE){ openMiniSite(); return; }
+  if (item.acc === NAV_CMA){ openCmaPicker(); return; }
   if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
     setNavTab('home');
     return;
@@ -27286,6 +26735,9 @@ function closeNavLayers(){
   closeProfilePanel();
   closeBellPanel();
   closeCoachLayer();
+  // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
+  // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
+  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
 }
 
 function setNavLayer(layer){
@@ -27355,6 +26807,8 @@ function renderScreenTabs(accs){
   el.hidden = !accs || (hit && hit.item.tabs === 'quiet');
   if (el.hidden) return;
   const cur = accs.includes(navActive) ? navActive : accs[0];
+  // המסך שהלשוניות שלו - לעיצוב של מסך מסוים (‏.screen-tabs[data-screen=...])
+  el.dataset.screen = accs[0];
   el.innerHTML = accs.map(acc => {
     const t = document.querySelector('#' + acc + ' > summary .acc-title');
     const label = t ? (t.firstChild && t.firstChild.textContent || t.textContent).trim() : acc;
@@ -27415,6 +26869,7 @@ function applyNavFilter(){
   if (head) head.hidden = true;
   renderScreenCrumb();
   renderScreenTabs(tabAccs);
+  renderViewSwitch();
 
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
@@ -27493,6 +26948,7 @@ const ADS_ERRORS = {
   meta_token_invalid: 'הטוקן של מטא פג או בוטל - צריך להפיק טוקן חדש',
   meta_rate_limited: 'מטא מגבילה כרגע את קצב הקריאות - נסו שוב בעוד כמה דקות',
   meta_error: 'מטא דחתה את הבקשה',
+  meta_validation: 'מטא דחתה את הבדיקה, ולא נוצר כלום',
   not_in_account: 'האובייקט אינו שייך לחשבון המודעות שלנו',
   budget_increase_too_large: 'העלאת תקציב של יותר מפי 2 בפעולה אחת נחסמת',
   lifetime_budget_not_supported: 'לאובייקט הזה תקציב לכל התקופה - משנים אותו ב-Ads Manager',
@@ -27510,7 +26966,23 @@ const ADS_ERRORS = {
   market_required: 'בוחרים שוק לפני השליפה',
   market_not_found: 'אין ערים משויכות לשוק הזה',
   invalid_plan: 'הקמפיין לא תקין',
+  budget_cap: 'סכום התקציבים גבוה מהתקרה',
+  disclosure_missing: 'שורת הגילוי חסרה, ולא נוצרת מודעה בלעדיה',
+  page_missing: 'חסר מזהה דף הפייסבוק',
+  a5_form_missing: 'A5 מחכה לטופס owner',
+  lead_form_not_mapped: 'טופס הלידים לא משויך',
+  lead_form_wrong_kind: 'טופס הלידים משויך לסוג הלא נכון',
+  creatives_not_in_storage: 'התמונות עדיין לא בדלי. לוחצים על העלאת תמונות',
+  creatives_source_failed: 'העלאת התמונות לדלי נכשלה',
+  creative_hash_mismatch: 'התמונות בדלי אינן הקבצים של החבילה',
+  bad_audience_id: 'מזהה הקהל אינו מספר של מטא',
+  targeting_unresolved: 'טירגוט לא נמצא במטא, ולא נוצר כלום',
+  account_not_ils: 'חשבון המודעות אינו בשקלים',
+  refusing_protected_campaign: 'קמפיין ה-Reach הקיים לא משתנה',
+  db_error: 'הטבלה של ההשקה עדיין לא מוכנה',
+  launch_in_progress: 'יצירה אחרת של אותה השקה עדיין רצה. מה שנוצר נשמר',
 };
+const ADS_LAUNCH_TIMEOUT = 'הבקשה נקטעה בגלל זמן; מה שנוצר נשמר, לחץ שוב להמשך';
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
               2: 'חם ומזמין - מה הנכס נותן ביום-יום, קריאה ברורה לפעולה' },
@@ -27538,21 +27010,43 @@ const adsPct = n => (Number(n || 0) * 100).toLocaleString('he-IL', { maximumFrac
 
 function adsErrText(d){
   const base = ADS_ERRORS[d && d.error] || ('שגיאה: ' + ((d && d.error) || 'לא ידועה'));
-  if (d && d.meta && (d.meta.user_msg || d.meta.message)) return base + ' - ' + (d.meta.user_msg || d.meta.message);
   if (d && d.detail) return base + ' - ' + d.detail;
+  const meta = d && d.meta;
+  if (meta) {
+    const title = meta.error_user_title || '';
+    const msg = meta.error_user_msg || meta.user_msg || '';
+    const bit = [title, msg].filter(Boolean).join(' - ');
+    if (bit) return base + ' - ' + bit;
+    if (meta.message) return base + ' - ' + meta.message;
+  }
   return base;
 }
 
 async function adsCall(action, payload){
   const { data: { session } } = await sb.auth.getSession();
   if (!session) throw new Error(ADS_ERRORS.unauthorized);
-  const res = await fetch(ADS_FUNCTION_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
-    body: JSON.stringify(Object.assign({ action }, payload || {})),
-  });
-  const data = await res.json().catch(()=> ({}));
+  const launching = action === 'create_paused_launch' && payload && payload.confirm === true;
+  let res;
+  try {
+    res = await fetch(ADS_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify(Object.assign({ action }, payload || {})),
+    });
+  } catch (net) {
+    if (launching) throw new Error(ADS_LAUNCH_TIMEOUT);
+    throw net;
+  }
+  const data = await res.json().catch(() => null);
+  if (data == null) {
+    if (launching) throw new Error(ADS_LAUNCH_TIMEOUT);
+    const e = new Error(adsErrText({}));
+    throw e;
+  }
   if (!res.ok || data.error){
+    if (launching && !data.error && (res.status === 408 || res.status === 504 || res.status >= 500)) {
+      throw new Error(ADS_LAUNCH_TIMEOUT);
+    }
     const e = new Error(adsErrText(data));
     e.code = data.error; e.data = data;
     throw e;
@@ -28348,10 +27842,178 @@ function gkwCampaignForm(pick){
   return box;
 }
 
+/* ---------- השקה מושהית ---------- */
+let adsLaunchState = { planOk: false, plan: null, creatives: null };
+function adsLaunchTargetingBlocks(){
+  const plan = adsLaunchState.plan;
+  if (!plan || plan.targeting_blocks_create) return true;
+  const hits = plan.targeting;
+  if (!Array.isArray(hits)) return true;
+  return hits.some(h => h && h.required && (h.status === 'missing' || h.status === 'unchecked'));
+}
+function adsLaunchCanCreate(){
+  const c = adsLaunchState.creatives;
+  const plan = adsLaunchState.plan;
+  if (plan && plan.validation && plan.validation.blocks_create) return false;
+  return !!(adsLaunchState.planOk && !adsLaunchTargetingBlocks() && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+}
+function adsLaunchFlexibleLine(a){
+  const groups = a && a.flexible || [];
+  const parts = groups.map(g => (g || []).map(t => t && t.name).filter(Boolean).join(' או ')).filter(Boolean);
+  if (!parts.length) return '';
+  const body = parts.length > 1 ? parts.map(p => '(' + p + ')').join(' וגם ') : parts[0];
+  const label = a.flexible_logic === 'and' ? 'צמצום AND' : 'טירגוט';
+  return '<br>' + esc(label + ': ' + body);
+}
+function adsLaunchHitLine(h){
+  const q = h && h.query ? h.query : '';
+  if (h && h.status === 'found') return q + ' - נמצא: ' + (h.resolved_name || q) + ' (' + (h.id || '') + ')';
+  if (h && h.status === 'dropped') return q + ' - ירד מהטירגוט';
+  if (h && h.status === 'deprecated') return q + ' - הוצא משימוש וירד, בלי החלופה של מטא (' + (h.id || '') + ')';
+  if (h && h.status === 'fallback') return q + ' - לא נמצא, גיבוי רדיוס 60 ק"מ סביב עפולה';
+  if (h && h.status === 'unchecked') return q + ' - לא נבדק';
+  return q + ' - לא נמצא';
+}
+function adsLaunchApplyGo(){
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = !adsLaunchCanCreate();
+}
+function adsLaunchRender(message){
+  const out = document.getElementById('adsLaunchOut');
+  if (!out) return;
+  out.hidden = false;
+  const head = message ? '<p>' + esc(message) + '</p>' : '';
+  out.innerHTML = head + adsLaunchHtml(adsLaunchState.plan, adsLaunchState.creatives);
+}
+function adsLaunchHtml(plan, creatives){
+  const parts = [];
+  if (creatives && typeof creatives.total === 'number'){
+    parts.push('<p><b>תמונות בדלי: ' + esc(String(creatives.ready || 0)) + ' מתוך ' + esc(String(creatives.total)) + '</b></p>');
+  }
+  if (!plan) return parts.join('');
+  const b = plan.budget || {};
+  parts.push('<p><b>תקציב יומי</b> מטא ' + esc(adsNis(b.metaDailyIls)) + ' + גוגל ' + esc(adsNis(b.googleDailyIls)) + ' = ' + esc(adsNis(b.totalDailyIls)) + ' מתוך תקרה ' + esc(adsNis(b.maxDailyIls)) + '</p>');
+  (plan.campaigns || []).forEach(c => {
+    parts.push('<p><b>' + esc(c.name) + '</b> · ' + esc(c.status) + (c.housing ? ' · HOUSING' : '') + '</p>');
+    (c.ad_sets || []).forEach(a => {
+      const ads = (a.ads || []).map(ad => esc(ad.name) + ' - ' + esc(ad.headline)).join('<br>');
+      const formLine = a.lead_form_name ? '<br>טופס: ' + esc(a.lead_form_name) + ' (' + esc(a.lead_form_id || '') + ')' : '';
+      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + formLine + adsLaunchFlexibleLine(a) + '<br>' + ads + '</p>');
+    });
+  });
+  if ((plan.skipped || []).length){
+    parts.push('<p><b>לא נוצר</b><br>' + plan.skipped.map(s => esc(s.key) + ' - ' + esc(s.reason)).join('<br>') + '</p>');
+  }
+  if ((plan.targeting || []).length){
+    parts.push('<p><b>טירגוט</b><br>' + plan.targeting.map(h => esc(adsLaunchHitLine(h))).join('<br>') + '</p>');
+  }
+  if (plan.validation && (plan.validation.failures || []).length){
+    parts.push('<p><b>מטא דחתה בבדיקה</b><br>' + plan.validation.failures.map(f => {
+      const meta = f.meta || {};
+      return esc([f.object_key, meta.error_user_title, meta.error_user_msg, f.message].filter(Boolean).join(' - '));
+    }).join('<br>') + '</p>');
+  }
+  if (plan.validation && plan.validation.unchecked_summary){
+    parts.push('<p><b>לא נבדק מול מטא</b><br>' + esc(plan.validation.unchecked_summary) + '</p>');
+  }
+  if ((plan.warnings || []).length){
+    parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
+  }
+  parts.push('<p>' + esc((plan.images_to_upload || []).length) + ' תמונות יועלו למטא ביצירה.</p>');
+  return parts.join('');
+}
+function adsLaunchPayload(){
+  const a5 = document.getElementById('adsLaunchA5');
+  const aud = document.getElementById('adsLaunchB2Audience');
+  const payload = { include_a5: !!(a5 && a5.checked) };
+  const id = aud && aud.value.trim();
+  if (id) payload.b2_customer_audience_id = id;
+  return payload;
+}
+function adsLaunchLock(){
+  adsLaunchState.planOk = false;
+  const go = document.getElementById('adsLaunchGo');
+  if (go) go.disabled = true;
+}
+document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock);
+document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
+document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: true }, adsLaunchPayload()));
+    adsLaunchState = { planOk: !!(r && r.plan && r.plan.ok), plan: r.plan || null, creatives: r.creatives || null };
+    adsLaunchRender();
+    adsLaunchApplyGo();
+    showToast('הבדיקה הושלמה. לא נוצר כלום במטא');
+  } catch (ex) {
+    const plan = ex && ex.data && ex.data.plan;
+    const creatives = ex && ex.data && ex.data.creatives;
+    adsLaunchState = { planOk: !!(plan && plan.ok), plan: plan || null, creatives: creatives || adsLaunchState.creatives };
+    adsLaunchRender(ex.message || 'הבדיקה נכשלה');
+    adsLaunchApplyGo();
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('adsLaunchUpload')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const go = document.getElementById('adsLaunchGo');
+  btn.disabled = true;
+  btn.textContent = 'מעלה תמונות...';
+  if (go) go.disabled = true;
+  try {
+    const r = await adsCall('upload_launch_creatives', adsLaunchPayload());
+    adsLaunchState.creatives = r.creatives || null;
+    adsLaunchRender();
+    adsLaunchApplyGo();
+    const uploaded = r.creatives && Array.isArray(r.creatives.uploaded) ? r.creatives.uploaded.length : 0;
+    showToast(uploaded ? 'התמונות הועלו לדלי' : 'התמונות כבר בדלי');
+  } catch (ex) {
+    const creatives = ex && ex.data && ex.data.creatives;
+    if (creatives) adsLaunchState.creatives = creatives;
+    adsLaunchRender(ex.message || 'ההעלאה נכשלה');
+    adsLaunchApplyGo();
+    showToast(heErr(ex), 5200);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'העלאת תמונות';
+  }
+});
+document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (!confirm('היצירה תישאר מושהית. כל קמפיין, סט ומודעה נוצרים במצב מושהה, וההפעלה נעשית אחר כך ב-Ads Manager. להמשיך?')) return;
+  const out = document.getElementById('adsLaunchOut');
+  btn.disabled = true;
+  try {
+    const r = await adsCall('create_paused_launch', Object.assign({ dry_run: false, confirm: true }, adsLaunchPayload()));
+    if (r && r.done === false) {
+      const line = 'נוצרו ' + String(r.created_n) + ' אובייקטים, לחץ שוב להמשך מ-' + String(r.next_key || '');
+      if (out) { out.hidden = false; out.textContent = line; }
+      showToast(line, 6400);
+      btn.disabled = false;
+      return;
+    }
+    if (out){
+      out.hidden = false;
+      const names = (r.campaigns || []).map(c => esc(c.name) + ' - ' + esc(c.status)).join('<br>');
+      out.innerHTML = '<p>נוצרו ' + esc(String((r.created || []).length)) + ' אובייקטים, כולם מושהים. דולגים על ' + esc(String((r.skipped || []).length)) + ' שכבר היו.</p><p>' + names + '</p><p>' + esc(r.note || '') + '</p>';
+    }
+    showToast('הקמפיינים נוצרו מושהים. ההפעלה ב-Ads Manager');
+  } catch (ex) {
+    if (out){ out.hidden = false; out.textContent = ex.message || 'היצירה נכשלה'; }
+    showToast(heErr(ex), 6400);
+    btn.disabled = false;
+  }
+});
+
 /* ---------- לשוניות ---------- */
 function adsSelectTab(id){
   [['adsTabPerf', 'adsPanePerf'], ['adsTabCopy', 'adsPaneCopy'], ['adsTabVideos', 'adsPaneVideos'], ['adsTabLeads', 'adsPaneLeads'], ['adsTabIntel', 'adsPaneIntel'],
-   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle']].forEach(([t, p]) => {
+   ['adsTabKw', 'adsPaneKw'], ['adsTabGoogle', 'adsPaneGoogle'], ['adsTabLaunch', 'adsPaneLaunch']].forEach(([t, p]) => {
     const on = t === id;
     document.getElementById(t).setAttribute('aria-selected', on ? 'true' : 'false');
     document.getElementById(p).hidden = !on;
@@ -28364,7 +28026,7 @@ function adsSelectTab(id){
   if (id === 'adsTabGoogle') loadGoogleAds();
   dashPanelsMeasure();
 }
-['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle'].forEach(id =>
+['adsTabPerf', 'adsTabCopy', 'adsTabVideos', 'adsTabLeads', 'adsTabIntel', 'adsTabKw', 'adsTabGoogle', 'adsTabLaunch'].forEach(id =>
   document.getElementById(id)?.addEventListener('click', ()=> adsSelectTab(id)));
 
 document.getElementById('adsRange')?.addEventListener('click', (e)=>{
@@ -29735,12 +29397,19 @@ document.getElementById('kwRange')?.addEventListener('click', (e)=>{
   loadKeywordReport();
 });
 
-/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
+/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ----------
+   המתג מחליף את כל המעטפת. בדף הבית ובתצוגת הניהול יש לו מה להחליף.
+   במסך של קטגוריה (מידע תכנוני, לידים, נכסים) הוא לא משנה את המסך,
+   רק יוצא ממנו, ולכן שם הוא מוסתר. בסרגל הצד במחשב יש מתג נפרד. */
+function viewSwitchMatters(){
+  if (dashView === 'admin') return true;
+  return navActive === NAV_HOME;
+}
 function renderViewSwitch(){
   const sw = document.getElementById('viewSwitch');
   if (!sw) return;
   const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
-  sw.hidden = !isAdmin;
+  sw.hidden = !(isAdmin && viewSwitchMatters());
   if (!isAdmin && dashView === 'admin') dashView = 'agent';
   sw.querySelectorAll('button').forEach(b =>
     b.setAttribute('aria-pressed', String(b.dataset.view === dashView)));
@@ -30150,6 +29819,118 @@ function openCmaPicker(){
   closeProfilePanel();
   renderCreateSheet('cma');
   navLayerShow('createSheet', 'create', '.cs-row');
+}
+
+/* ישר לטופס "דוח CMA לכתובת" (Elite). במסלול אחר - בחירת הנכס, ושם הכפתור
+   לכתובת אומר "זמין ב-Elite": קישור שנפתח על טופס שיסורב אינו מלמד דבר. */
+function openCmaAddress(){
+  if (!currentAgent || currentAgent.tier !== 'premium'){ openCmaPicker(); return; }
+  closeMenuPanel();
+  closeSearch();
+  closeProfilePanel();
+  renderCreateSheet('cma-address');
+  navLayerShow('createSheet', 'create', 'input[name=street]');
+}
+
+/* פעולות שקישור יכול לפתוח (‏?goto=<מפתח>, handleGotoParam): המנטור,
+   העזרה בחיפוש ו"דוח CMA" בסרגל קוראים לאותן פונקציות. מפתח חדש כאן נכנס
+   גם למפת המערכת של המנטור (SYSTEM_MAP ב-_shared/coach/prompts.ts). */
+const CRM_ACTIONS = {
+  cma:        () => openCmaPicker(),
+  cmaAddress: () => openCmaAddress(),
+  sign:       () => openAgreementWizard(),
+  promote:    () => openPromotePicker(),
+  waShare:    () => openWaShare(),
+  mentor:     () => openNavLayer('coach'),
+};
+
+/* "דוח CMA לכתובת שאינה במערכת" (Elite, 20270819090000). אותו דוח בדיוק
+   כמו מכרטיס הנכס - ‏agent_cma_report_address מריצה את אותה ליבה על נכס
+   שנבנה בזיכרון - ולכן אותה תצוגה (renderCmaReport). המיקום כמו בחיפוש
+   העסקאות (dealsLookupCoords: עפולה דרך העירייה, אחרת GovMap בדפדפן), ואם
+   לא נמצא - המסד ממקם בעצמו מהעסקאות ומהחלקות ואומר עד כמה בדיוק. */
+const CMA_ADDR_TYPES = ['דירה', 'דירת גן', 'פנטהאוז', 'בית פרטי', 'דו משפחתי', 'חנות', 'משרד', 'מגרש'];
+/* המאפיינים שהדוח סופר - cma_price_features() במסד, באותו סדר. מאפיין אחר
+   לא היה משנה דבר (המסד מסנן לפי הרשימה), ולכן אינו מוצע. בלי מאפיינים
+   שכבת השוק נשארת subject_features_missing ואינה מדרגת מתחרים. */
+const CMA_ADDR_FEATURES = ['mamad', 'mamak', 'building_shelter', 'elevator', 'parking',
+  'balcony', 'sun_balcony', 'storage', 'accessible', 'renovated_feature'];
+
+function renderCmaAddressForm(body, title){
+  title.textContent = 'דוח CMA לכתובת';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'cs-back';
+  back.innerHTML = dashIcon('chevRight') + '<span>חזרה</span>';
+  back.addEventListener('click', ()=> renderCreateSheet('cma'));
+  body.appendChild(back);
+
+  const city = ((typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])[0] || {}).city || 'עפולה';
+  const form = document.createElement('form');
+  form.className = 'cs-form';
+  form.noValidate = true;
+  form.innerHTML = `
+    <label class="cs-f-wide">רחוב<input name="street" required autocomplete="off" placeholder="למשל רוטשילד"></label>
+    <label>מספר בית<input name="house" inputmode="numeric" autocomplete="off"></label>
+    <label>עיר<input name="city" value="${esc(city)}" required></label>
+    <label>סוג<select name="type">${CMA_ADDR_TYPES.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+    <label>חדרים<input name="rooms" type="number" step="0.5" min="1" max="20" inputmode="decimal"></label>
+    <label>שטח (מ״ר)<input name="size" type="number" min="1" inputmode="numeric"></label>
+    <label>קומה<input name="floor" type="number" min="-3" max="80" inputmode="numeric"></label>
+    <label>מחיר מבוקש (₪)<input name="price" type="number" min="0" step="1000" inputmode="numeric"></label>
+    <fieldset class="cs-f-wide cs-feats"><legend>מאפיינים</legend>
+      ${CMA_ADDR_FEATURES.map(k => `<label><input type="checkbox" name="feat" value="${esc(k)}">${esc(featureLabel(k))}</label>`).join('')}
+    </fieldset>
+    <p class="cs-hint cs-f-wide" data-msg>חדרים, שטח ומאפיינים אינם חובה, אבל הם מה שמדייק את ההשוואה.</p>
+    <button type="submit" class="btn btn-gold btn-block cs-f-wide">הפקת הדוח</button>`;
+  body.appendChild(form);
+  form.elements.street.focus({ preventScroll:true });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = form.elements;
+    const msg = form.querySelector('[data-msg]');
+    const cityV = f.city.value.trim();
+    const street = canonicalStreet(f.street.value, cityV).name;
+    const house = f.house.value.trim();
+    const n = el => el.value === '' ? null : Number(el.value);
+    if (!cityV || !street){
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'נא למלא רחוב ועיר.';
+      return;
+    }
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'מפיק…';
+    try{
+      const coords = await dealsLookupCoords(cityV, street, house);
+      const [{ data, error }, brand] = await Promise.all([
+        sb.rpc('cma_report_address', {
+          p_city: cityV, p_street: street, p_house_number: house || null,
+          p_property_type: f.type.value,
+          p_rooms: n(f.rooms), p_size_sqm: n(f.size),
+          p_floor: f.floor.value === '' ? null : Math.round(Number(f.floor.value)),
+          p_price: n(f.price),
+          p_features: [...form.querySelectorAll('input[name=feat]:checked')].map(x => x.value),
+          p_lat: coords?.lat ?? null, p_lng: coords?.lng ?? null,
+        }),
+        loadCmaBrand().catch(() => null),
+      ]);
+      if (error) throw error;
+      if (data?.error){
+        msg.style.color = 'var(--red)';
+        msg.textContent = data.detail || 'שגיאה בהפקת הדוח';
+        return;
+      }
+      closeCreateSheet();
+      renderCmaReport(data, brand);
+    } catch(err){
+      console.error(err);
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'שגיאה בהפקת הדוח: ' + heErr(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'הפקת הדוח';
+    }
+  });
 }
 
 /* ==========================================================================
@@ -31384,8 +31165,28 @@ function renderCreateSheet(view){
     return;
   }
 
+  if (view === 'cma-address'){
+    renderCmaAddressForm(body, title);
+    return;
+  }
+
   if (view === 'cma'){
     title.textContent = 'דוח CMA לאיזה נכס?';
+    /* לכתובת שאינה במערכת (20270819090000) - Elite. במסלול אחר הכפתור
+       מוצג ואומר "זמין ב-Elite": כפתור חסר אינו מלמד דבר. הגייט עצמו
+       ב-agent_cma_report_address. */
+    const elite = !!currentAgent && currentAgent.tier === 'premium';
+    const addr = document.createElement('button');
+    addr.type = 'button';
+    addr.className = 'cs-row';
+    addr.innerHTML = dashIcon('map')
+      + '<span class="cs-row-t">לכתובת שאינה במערכת</span>'
+      + '<span class="cs-row-s">' + (elite ? 'כל כתובת, גם לפני לקיחת נכס' : 'זמין ב-Elite') + '</span>';
+    addr.addEventListener('click', ()=>{
+      if (!elite){ showToast('דוח CMA לכל כתובת זמין במסלול Elite.', 5000); return; }
+      renderCreateSheet('cma-address');
+    });
+    body.appendChild(addr);
     // ‏agent_cma_report מסרב לנכס להשכרה (rent_not_supported), ולכן מכירה בלבד
     const sale = (typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])
       .filter(p => p.status === 'active' && p.deal_type !== 'rent');
@@ -31393,6 +31194,7 @@ function renderCreateSheet(view){
       body.insertAdjacentHTML('beforeend', '<p class="cs-empty">אין כרגע נכס פעיל למכירה. הדוח מבוסס על עסקאות מכר.</p>');
       return;
     }
+    body.insertAdjacentHTML('beforeend', '<div class="cs-more-h" style="margin-top:12px">הנכסים שלי</div>');
     const list = document.createElement('div');
     list.className = 'cs-list';
     sale.forEach(p=>{
@@ -31726,7 +31528,15 @@ function searchHelpBlock(hits, q){
     const item = document.createElement('details');
     item.className = 'srch-faq';
     item.innerHTML = '<summary>' + srchMark(h.q, q) + '</summary><p>' + esc(h.a) + '</p>';
-    if (h.acc && navAccVisible(h.acc)){
+    /* ‏act: פעולה ולא מסך (CRM_ACTIONS) - "דוח CMA" פותח את הגיליון */
+    if (h.act && CRM_ACTIONS[h.act]){
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'srch-go';
+      go.textContent = (h.go || 'לפתיחה') + ' ←';
+      go.addEventListener('click', ()=>{ closeSearch(); CRM_ACTIONS[h.act](); });
+      item.appendChild(go);
+    } else if (h.acc && navAccVisible(h.acc)){
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'srch-go';
@@ -31979,13 +31789,13 @@ function renderAgreements(){
   /* בלי סינון מצב: "דורשים פעולה ממך" (טיוטות וממתינים) למעלה, ו"נחתמו" מתחת */
   if (!status){
     const groups = [
-      ['דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
-      ['נחתמו', rows.filter(a => a.status === 'signed')],
-      ['בוטלו', rows.filter(a => a.status === 'cancelled')],
+      ['action', 'דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
+      ['signed', 'נחתמו', rows.filter(a => a.status === 'signed')],
+      ['cancelled', 'בוטלו', rows.filter(a => a.status === 'cancelled')],
     ];
-    groups.forEach(([label, list]) => {
+    groups.forEach(([tone, label, list]) => {
       if (!list.length) return;
-      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h">${esc(label)} · ${list.length}</div>`);
+      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h agr-group-${tone}">${esc(label)} · ${list.length}</div>`);
       list.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
     });
   } else {
@@ -32007,6 +31817,7 @@ function renderAgreementTiles(status){
   ];
   box.innerHTML = tiles.map(([v, label, count, warn]) =>
     `<button type="button" class="agr-tile${warn && count ? ' is-warn' : ''}" data-agr-tile="${v}" aria-pressed="${(status || '') === v}">`
+    + `<i class="agr-tile-ico" aria-hidden="true"></i>`
     + `<b>${count}</b><span>${esc(label)}</span></button>`).join('');
 }
 document.getElementById('agrTiles')?.addEventListener('click', e => {
@@ -32051,7 +31862,7 @@ function buildAgreementTab(a){
     key: a.id, list:'agreement', expanded: expandedAgreementIds, cls:'agr-tab',
     title: agrPartyNames(a) || a.title,
     sub: agrTabSub(a),
-    pill: { text: st.label, cls: 'status-pill ' + st.cls },
+    pill: { text: st.label, cls: 'status-pill agr-status agr-status-' + (a.status || '') + ' ' + st.cls },
     price: prog.total ? prog.signed + '/' + prog.total : '',
     priceNote: prog.total ? 'חתמו' : '',
     buildCard: ()=> buildAgreementCard(a),
@@ -32076,7 +31887,7 @@ function buildAgreementCard(a){
             a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
           ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) - אפשר לשלוח שוב</div>` : ''}
         </div>
-        <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
+        <div class="pill-row"><span class="status-pill agr-status agr-status-${esc(a.status || '')} ${st.cls}">${esc(st.label)}</span></div>
       </div>
       <div class="lead-actions"></div>`;
 
@@ -32335,8 +32146,39 @@ async function openAgreementSigning(agreementId){
 
 const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
 
+function agrOfficeBrand(verifyCode){
+  const agency = window.currentAgency || {};
+  const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
+  return window.AgreementDoc.brandFrom({
+    name: agent.display_name || '',
+    agency: agency.name || '',
+    phone: agent.phone || '',
+    license: agent.license_number || '',
+    agency_logo: agency.logo_url || '',
+  }, verifyCode || '');
+}
+
+function agrPaintBrand(){
+  if (!window.AgreementDoc || !window.AgreementDoc.paintBrand) return;
+  window.AgreementDoc.paintBrand(document.getElementById('agrBrand'), agrOfficeBrand());
+}
+
+function agrKindIcon(kind){
+  const common = 'viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+  const paths = {
+    buy: '<circle cx="11" cy="11" r="6"></circle><path d="M20 20l-3.5-3.5"></path>',
+    sell: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path>',
+    tenant: '<circle cx="8" cy="15" r="3"></circle><path d="M10.2 13.2L20 4"></path><path d="M16 4h4v4"></path>',
+    landlord: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path><path d="M10 19v-5h4v5"></path>',
+    exclusive_sell: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+    exclusive_landlord: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+  };
+  return '<svg ' + common + ' aria-hidden="true">' + (paths[kind] || paths.sell) + '</svg>';
+}
+
 function agrRender(){
   if (!agrWizard) return;
+  agrPaintBrand();
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
 
@@ -32363,14 +32205,15 @@ function agrRenderStepKind(){
       const t = agrTpl(k);
       if (!t) return '';
       return `<button type="button" class="agr-kind${t.verified ? '' : ' is-draft'}" data-agr-kind="${esc(k)}">` +
-        esc(t.label) +
-        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></button>`;
+        `<span class="agr-kind-ico" aria-hidden="true">${agrKindIcon(k)}</span>` +
+        `<span class="agr-kind-copy"><span class="agr-kind-name">${esc(t.label)}</span>` +
+        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></span></button>`;
     }).join('');
     return `<div class="agr-kind-group">${esc(group.label)}</div>` + items;
   }).join('');
 
   agrEl('agrBody').innerHTML =
-    '<p style="margin:0 0 12px;color:var(--ink-soft)">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
+    '<p class="agr-lead">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
     '<div class="agr-kind-list">' + html + '</div>' +
     '<p class="imp-note" style="margin-top:14px">טופס המסומן ב"נוסח לאישור" נבנה במבנה של טופס המכירה וממתין לאישור משפטי - ' +
     'בדקו את הנוסח בתצוגה המקדימה לפני שאתם מחתימים עליו לקוח/ה.</p>';
@@ -33994,7 +33837,7 @@ function agrRenderStepSign(){
   }
 
   html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
-    '<div class="agr-preview">' +
+    '<div class="agr-preview sign-sheet">' +
       window.AgreementDoc.fillSignerSlots(rec.document_html, rec.signers) + '</div>';
 
   agrEl('agrBody').innerHTML = html;
@@ -34105,7 +33948,9 @@ async function agrDownloadPdf(btn){
   btn.disabled = true;
   btn.textContent = 'מכין את הקובץ…';
   try {
-    await window.AgreementDoc.downloadPdf(host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf');
+    await window.AgreementDoc.downloadPdf(
+      host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf',
+      agrOfficeBrand(rec.verify_code));
   } catch(err){
     console.error(err);
     showToast('לא הצלחנו להפיק PDF - נסו שוב');
@@ -35442,7 +35287,45 @@ function renderDealsLookup(res){
     + `<p class="acc-sub" style="margin-top:10px">מקור: ${esc(res.source || '')}</p>`;
 }
 
+/* בחירה בשבבים: כל select[data-seg] מקבל שורת כפתורים (radiogroup) אחריו.
+   ה-select נשאר מקור הערך - הקוד קורא ‏.value כמו קודם, וגם prOpenDeals
+   ממלא אותו מכרטיס נכס בלי אירוע, ולכן segSync רץ גם לפני כל חיפוש. */
+function segSync(sel){
+  const box = sel && sel.nextElementSibling;
+  if (!box || !box.classList.contains('seg')) return;
+  box.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-checked', String(b.dataset.value === sel.value)));
+}
+function initSegs(root){
+  (root || document).querySelectorAll('select[data-seg]').forEach(sel => {
+    if (sel.dataset.segReady) return;
+    sel.dataset.segReady = '1';
+    const box = document.createElement('div');
+    box.className = 'seg';
+    box.setAttribute('role', 'radiogroup');
+    const lbl = sel.getAttribute('aria-labelledby');
+    if (lbl) box.setAttribute('aria-labelledby', lbl);
+    [...sel.options].forEach(o => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.dataset.value = o.value;
+      b.textContent = o.textContent;
+      b.addEventListener('click', () => {
+        sel.value = o.value;
+        sel.dispatchEvent(new Event('change', { bubbles:true }));
+        segSync(sel);
+      });
+      box.appendChild(b);
+    });
+    sel.after(box);
+    segSync(sel);
+  });
+}
+initSegs(document.getElementById('accDealsLookup'));
+
 document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
+  document.querySelectorAll('#accDealsLookup select[data-seg]').forEach(segSync);
   const city = document.getElementById('mdCity').value.trim();
   /* אותו תיקון כתיב כמו במידע התכנוני, ובלי חסימה: זו בדיקה ולא שמירה. */
   const street = canonicalStreet(document.getElementById('mdStreet').value, city).name;

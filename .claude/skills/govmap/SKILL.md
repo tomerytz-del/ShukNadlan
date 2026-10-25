@@ -239,9 +239,15 @@ GovMap רושם לעיתים קרובות את שם המשפחה בלבד (`או
 
 **איפה זה בנוי (22.10.2026):** ‏`GovmapLookup.plansAt` ← `govmap_plans`
 (עמודה נפרדת, **גם בעפולה**) ← `planning_plans_merged` לדף הנכס ולגבריאלה,
-ו-`mergedPlanningPlans` ב-`crm.js` ל-CMA ולכלי התכנון. שני האיחודים חייבים
+ו-`mergedPlanningPlans` ב-`assets/cma-render.js` ל-CMA ולכלי התכנון. שני האיחודים חייבים
 אותו סדר. שדה חדש מ-203 עובר בשלושה מקומות: `cleanPlanLayers`,
 ‏`govmap_plans_write` (רשימה סגורה) ו-`planning_plans_merged`.
+
+**בדף הנכס הסקציה מקופלת (24.10.2026), בכל נכס וגם בקרקע:** מה שגלוי הוא
+הכותרת ושורת הסיכום (`#planningSummary` - מספר התוכניות והודעות 77-78).
+שדה חדש מ-203 נכנס לתוך `#planningBody` ולא לתצוגה הראשית; אם הוא מגבלה
+שהגולש/ת חייב/ת לראות בלי לפתוח, כמו הודעת 77-78, הוא נכנס **גם** לשורת
+הסיכום ב-`renderPlanningInfo` (‏`docs/land-planning.md`).
 
 ## ‏8. בשרת, בלי GovMap: מקורות פתוחים
 

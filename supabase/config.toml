@@ -205,6 +205,9 @@ verify_jwt = false          # דף הפגישה ללקוח/ה: טוקן מהקי
 [functions.planning-link]
 verify_jwt = false          # דף הבדיקה התכנונית (/plan?k=) לסוכן/ת: הקישור מגבריאלה הוא ההרשאה (32 תווים, 7 ימים, תוצאה אחת)
 
+[functions.cma-link]
+verify_jwt = false          # דף דוח ה-CMA (/cma?k=), גם ללקוח/ה: הקישור מגבריאלה הוא ההרשאה (32 תווים, 30 יום). קריאה בלבד, 401 על טוקן לא תקין
+
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
 # ---------------------------------------------------------------------------
@@ -284,6 +287,12 @@ verify_jwt = true
 # האימות הוא webhook_token ייחודי לכל בקשה, שנשלח בכתובת ומושווה מול השורה
 # ב-property_video_jobs; מסלול ה-reconcile מאומת דרך _shared/cron-auth.ts.
 [functions.property-video-callback]
+verify_jwt = false
+
+# ‏מפיקי הרילסים (‏Grok Bot והגיבוי ב-GitHub Actions) - לאף אחד מהם אין JWT
+# שלנו. האימות הוא ‎x-reel-producer-secret‎ מול REEL_PRODUCER_SECRET או
+# REEL_SITE_SECRET, והזהות (מי מחזיק בבקשה) נגזרת מהסוד שהתאים.
+[functions.reel-producer]
 verify_jwt = false
 
 # מורנינג קורא/ת לכאן מבחוץ בסיום תשלום, ואין לו/ה JWT שלנו.

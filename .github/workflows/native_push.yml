@@ -1,0 +1,34 @@
+name: שליחת התראות לאפליקציה
+
+# מושך את app_push_outbox ושולח ל-FCM ול-APNs.
+# בלי הסודות הסקריפט יוצא 0 ולא נוגע בתור.
+# אין כאן לוח זמנים: ריצה כל שעה בלי מפתחות שורפת דקות.
+# אחרי שהמפתחות קיימים אפשר להוסיף schedule (למשל */15 * * * *).
+# לא בדיקת חובה. docs/native-apps.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: שליחה
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+          FCM_PROJECT_ID: ${{ secrets.FCM_PROJECT_ID }}
+          APNS_KEY_P8: ${{ secrets.APNS_KEY_P8 }}
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_TEAM_ID: ${{ secrets.APNS_TEAM_ID }}
+          APNS_BUNDLE_ID: ${{ secrets.APNS_BUNDLE_ID }}
+          APNS_PRODUCTION: ${{ secrets.APNS_PRODUCTION }}
+        run: node mobile/scripts/send-push.mjs

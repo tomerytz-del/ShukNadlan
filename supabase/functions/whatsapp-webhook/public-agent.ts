@@ -11,8 +11,12 @@ import {
   DEAL_TYPES,
   filterByArea,
   likeSafe,
+  logBotSearch,
+  logWordMisses,
+  markSearchOutcome,
   text,
   SearchCore,
+  visitorHash,
 } from "./property-search.ts";
 import {
   LEAD_PURPOSES,
@@ -434,8 +438,11 @@ const TOOLS: Anthropic.Tool[] = [
           description:
             "מאפיינים שחייבים להימצא בנכס (רק מה שנאמר במפורש): parking, elevator, " +
             "balcony (כולל מרפסת שמש), sun_balcony, ac, " +
-            "mamad, renovated_feature, furnished, storage, accessible, bars, " +
-            "ev_charger (עמדת טעינה לרכב חשמלי).",
+            "mamad, mamak, building_shelter (מקלט בבניין), renovated_feature, furnished, " +
+            "storage, accessible, bars, ev_charger (עמדת טעינה לרכב חשמלי); ובנכס מסחרי " +
+            "גם high_ceiling, kitchenette, meeting_room, loading_ramp, alarm, cameras, " +
+            "cold_room. **אין קודים אחרים** - מאפיין שאינו כאן (גינה, נוף) לא להמציא לו " +
+            "קוד; אם בכל זאת נשלח, הוא יורד מהסינון וחוזר ב-features_not_recognized.",
         },
         limit: { type: "integer", description: `ברירת מחדל 5, מקסימום ${MAX_RESULTS}.` },
         send_cards: {
@@ -933,6 +940,7 @@ async function searchProperties(
   );
   const query = built.query;
   const { city, minPrice, maxPrice, minRooms, maxRooms, minSize } = built.parsed;
+  const unknownWords = built.unknown;
 
   // אותו סדר כמו באתר: מקודמים קודם, ואז מי שנדחף/עודכן לאחרונה.
   //
@@ -1048,6 +1056,33 @@ async function searchProperties(
     });
   }
 
+  // -------------------------------------------------------------------------
+  // הלמידה (24.10.2026, ‏docs/search-core.md): החיפוש נרשם עם מה שנמצא, ומילים
+  // שלא זוהו - לדוח. החיפוש החוזר של "דומים" (‏send_cards=false) אינו חיפוש
+  // חדש אלא תוצאה של הקודם, ולכן הוא רק מסמן אותו.
+  // -------------------------------------------------------------------------
+  if (!args._relaxed) {
+    const visitor = await visitorHash(ctx.waPhone);
+    if (args.send_cards === false) {
+      await markSearchOutcome(ctx.supabase, visitor, "similar");
+    } else {
+      const finalTypes = Array.isArray(args.property_types)
+        ? (SearchCore.botTypes(args.property_types.map((t) => String(t || ""))) as { types: string[] }).types
+        : [];
+      const finalFeats = Array.isArray(args.features)
+        ? args.features.map((f) => String(f || "")).filter((f) => SearchCore.knownFeature(f))
+        : [];
+      await Promise.all([
+        logBotSearch(ctx.supabase, {
+          visitor, args, parsed: built.parsed, types: finalTypes, features: finalFeats,
+          area, areaRecognized: area ? !areaHint.area_not_recognized : null,
+          results: rows.length, close: close.length,
+        }),
+        logWordMisses(ctx.supabase, unknownWords, city, visitor),
+      ]);
+    }
+  }
+
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
@@ -1068,6 +1103,12 @@ async function searchProperties(
       : undefined,
     all_listings_url: `${SITE_BASE}/`,
     features_from_message: addedFeatures.length ? addedFeatures : undefined,
+    features_not_recognized: unknownWords.features.length ? unknownWords.features : undefined,
+    features_note: unknownWords.features.length
+      ? "המאפיינים ב-features_not_recognized אינם נשמרים במאגר, ולכן החיפוש נעשה " +
+        "בלעדיהם. לומר זאת בקצרה (\"את X אין לי איך לסנן\"), ולא להציג את התוצאות " +
+        "כאילו יש בהן אותו."
+      : undefined,
     ...areaHint,
   };
 }
@@ -2182,13 +2223,13 @@ async function runTool(
       case "get_property":
         return await getProperty(ctx, args);
       case "contact_agent":
-        return await contactAgent(ctx, args);
+        return outcomeAfter(ctx, await contactAgent(ctx, args), "found", "contact");
       case "find_agencies":
         return await findAgencies(ctx, args);
       case "find_professionals":
         return await findProfessionals(ctx, args);
       case "save_search_alert":
-        return await saveSearchAlert(ctx, args);
+        return outcomeAfter(ctx, await saveSearchAlert(ctx, args), "saved", "saved");
       case "owner_lead":
         return await ownerLead(ctx, args);
       case "search_projects":
@@ -2208,7 +2249,7 @@ async function runTool(
       case "offer_agent_help":
         return await offerAgentHelp(ctx, args);
       case "request_agent_help":
-        return await requestAgentHelp(ctx);
+        return outcomeAfter(ctx, await requestAgentHelp(ctx), "done", "contact");
       default:
         return { error: "unknown_tool", name };
     }
@@ -2216,6 +2257,21 @@ async function runTool(
     console.error("public tool failed", name, err);
     return { error: "tool_failed", detail: String((err as Error)?.message || err) };
   }
+}
+
+/* מה קרה אחרי החיפוש: כלי שהצליח (‏ok - השדה שאומר הצלחה בתוצאה שלו) מסמן את
+   החיפוש האחרון של הפונה (‏bot_search_outcome, ‏docs/search-core.md). התוצאה
+   חוזרת כמו שהיא - הסימון אינו משנה דבר בשיחה. */
+async function outcomeAfter(
+  ctx: PublicContext,
+  result: unknown,
+  ok: string,
+  outcome: "saved" | "contact",
+): Promise<unknown> {
+  if (result && (result as Record<string, unknown>)[ok] === true) {
+    await markSearchOutcome(ctx.supabase, await visitorHash(ctx.waPhone), outcome);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -2547,6 +2603,7 @@ export async function runPublicTurn(opts: {
   const rolling = new RollingMarks();
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
       max_tokens: 2048,
@@ -2572,7 +2629,8 @@ export async function runPublicTurn(opts: {
     console.log(
       `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
-        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
+        `ms=${Date.now() - llmStart}`,
     );
     logAiUsage(anthropicRow("gabriela_public", response.model || MODEL, response.usage));
 
@@ -2597,11 +2655,13 @@ export async function runPublicTurn(opts: {
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      const toolStart = Date.now();
       const result = await runTool(
         ctx,
         use.name,
         (use.input || {}) as Record<string, unknown>,
       );
+      console.log(`public-tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
       results.push({
         type: "tool_result",
         tool_use_id: use.id,

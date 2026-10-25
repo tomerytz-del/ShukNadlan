@@ -36,27 +36,37 @@
      הקנוני שנכתב ל-‎?ptype=‎ - אותו ערך שעמודי החיפוש הפופולרי כבר
      משתמשים בו (‏netlify/edge-functions/search-pages.ts), ולכן
      ‎?deal=sale&ptype=דירת גן‎ ממשיך לנחות על אותו חיפוש.
-     ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט. */
+     ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט.
+     ‏ptypes - מהליבה (‏SC.PROPERTY_TYPES), כדי שהבוטים יחפשו באותן קבוצות. */
+  var PT = SC.PROPERTY_TYPES;
   var TYPES = [
     { key: 'any', label: 'נכס' },
-    { key: 'apt', label: 'דירה', ptypes: ['דירה', 'דופלקס', 'טריפלקס', 'סטודיו/לופט', 'יחידת דיור', 'מרתף/פרטר'], residential: true },
-    { key: 'garden', label: 'דירת גן', ptypes: ['דירת גן'], url: 'דירת גן', residential: true },
-    { key: 'penthouse', label: 'פנטהאוז', ptypes: ['גג/פנטהאוז'], url: 'גג/פנטהאוז', residential: true },
-    { key: 'house', label: 'בית פרטי', ptypes: ["בית פרטי/קוטג'", 'דו משפחתי', 'משק חקלאי/נחלה', 'משק עזר'], url: "בית פרטי/קוטג'", residential: true },
-    { key: 'land', label: 'מגרש', ptypes: ['מגרש', 'מגרשים'], noRooms: true },
-    { key: 'shop', label: 'חנות', ptypes: ['חנויות/שטח מסחרי'], url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
-    { key: 'office', label: 'משרד', ptypes: ['משרדים'], url: 'משרדים', commercial: true, noRooms: true },
+    { key: 'apt', label: 'דירה', ptypes: PT.apt, residential: true },
+    { key: 'garden', label: 'דירת גן', ptypes: PT.garden, url: 'דירת גן', residential: true },
+    { key: 'penthouse', label: 'פנטהאוז', ptypes: PT.penthouse, url: 'גג/פנטהאוז', residential: true },
+    { key: 'house', label: 'בית פרטי', ptypes: PT.house, url: "בית פרטי/קוטג'", residential: true },
+    { key: 'land', label: 'מגרש', ptypes: PT.land, noRooms: true },
+    { key: 'shop', label: 'חנות', ptypes: PT.shop, url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
+    { key: 'office', label: 'משרד', ptypes: PT.office, url: 'משרדים', commercial: true, noRooms: true },
     /* שלושת הבאים נוספו אחרי שבמלאי היו מבני תעשייה ומגרשים מסחריים, ובחירת
        "מסחרי" בפאנל שמתחת לשורת החיפוש הציעה רק חנות ומשרד. ‏"מגרשים" (רבים)
        הוא הערך המסחרי במסד ו"מגרש" (יחיד) הוא המגורים - לכן comm_land לוקח
        רק את הראשון, ו-land שלמעלה נשאר לשניהם. */
-    { key: 'industry', label: 'מבנה תעשייה', ptypes: ['מבני תעשייה'], url: 'מבני תעשייה', commercial: true, noRooms: true },
-    { key: 'comm_land', label: 'מגרש מסחרי', ptypes: ['מגרשים'], url: 'מגרשים', commercial: true, noRooms: true },
-    { key: 'warehouse', label: 'מחסן', ptypes: ['מחסנים'], url: 'מחסנים', commercial: true, noRooms: true },
+    { key: 'industry', label: 'מבנה תעשייה', ptypes: PT.industry, url: 'מבני תעשייה', commercial: true, noRooms: true },
+    { key: 'comm_land', label: 'מגרש מסחרי', ptypes: PT.comm_land, url: 'מגרשים', commercial: true, noRooms: true },
+    { key: 'warehouse', label: 'מחסן', ptypes: PT.warehouse, url: 'מחסנים', commercial: true, noRooms: true },
     { key: 'commercial', label: 'נכס מסחרי', commercial: true, noRooms: true },
   ];
   var TYPE_BY_KEY = {};
   TYPES.forEach(function (t) { TYPE_BY_KEY[t.key] = t; });
+  /* חדרים הם של מגורים. משרד עם "3" (המלאכה 21) אינו דירת 3 חדרים, וגם
+     חנות, מחסן ומגרש מסחרי אינם. הקטגוריה במסד היא המקור; סוג המסחרי
+     נשאר גם כשהקטגוריה חסרה. */
+  var COMMERCIAL_PTYPES = {};
+  TYPES.forEach(function (t) {
+    if (!t.commercial || !t.ptypes) return;
+    t.ptypes.forEach(function (name) { COMMERCIAL_PTYPES[name] = true; });
+  });
 
   /* ‏?ptype=‏ שאינו אחת הקבוצות (‏"דופלקס", "מחסנים") נשמר כסוג "גולמי": הוא
      מוצג במשפט כמו שהוא ומסנן בשוויון, כמו שעשה החיפוש הקודם. */
@@ -64,7 +74,7 @@
     if (TYPE_BY_KEY[key]) return TYPE_BY_KEY[key];
     if (typeof key === 'string' && key.indexOf('raw:') === 0) {
       var v = key.slice(4);
-      return { key: key, label: v, ptypes: [v], url: v, raw: true };
+      return { key: key, label: v, ptypes: SC.typePtypes(key), url: v, raw: true };
     }
     return TYPE_BY_KEY.any;
   }
@@ -107,7 +117,7 @@
     /* ‏deal: null - לפני שנבחר משהו, המשפט אינו מסנן כלום: המפה והכפתור
        מציגים את כל הנכסים, כמו לפני החיפוש במשפט. "לקנות" כברירת מחדל
        היה מציג "הצג 36 נכסים" לגולש/ת שעוד לא ביקש/ה דבר. */
-    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false };
+    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null };
   }
 
   /* ---------- נרמול עברית ----------
@@ -240,7 +250,15 @@
       }
     }
 
+    /* ‏city= בכתובת, לא דרך q: היישוב העיקרי ב-q הוא "כל השוק" (resolveArea),
+       ולכן "עפולה" לבדה החזירה גם את מגדל העמק ונוף הגליל. */
+    if (st.city && norm(p.city) !== norm(st.city)) return false;
+
     if (skip !== 'rooms' && st.rooms && !typeDef(st.type).noRooms) {
+      /* חדרים בלי סוג מסחרי מפורש הם מגורים: משרד, חנות ושאר המסחרי יוצאים,
+         ודירת גן, בית ופנטהאוז עם אותו מספר חדרים נשארים. */
+      var picked = typeDef(st.type);
+      if (!picked.commercial && (p.category === 'commercial' || COMMERCIAL_PTYPES[p.property_type])) return false;
       var r = Number(p.rooms);
       if (p.rooms === null || p.rooms === undefined || !isFinite(r)) return false;
       if (r < st.rooms[0] || r > st.rooms[1]) return false;
@@ -290,10 +308,17 @@
   function dealLabel(d) { return d === 'rent' ? 'לשכור' : d === 'sale' ? 'לקנות' : 'למצוא'; }
 
   function slotsFor(st, areas, ctx) {
+    var areaKey = st.area;
+    var areaValue = areaLabel(areaKey, areas, ctx);
+    /* עיר מהכתובת כשהאזור הוא "הכל": המשפט אומר "בעפולה" ולא "כל העמק". */
+    if (st.city && (!areaKey || areaKey === 'all')) {
+      areaKey = 'city:' + st.city;
+      areaValue = st.city;
+    }
     var out = [
       { slot: 'deal', pre: '', value: dealLabel(st.deal) },
       { slot: 'type', pre: '', value: typeDef(st.type).label },
-      { slot: 'area', pre: areaPrefix(st.area), value: areaLabel(st.area, areas, ctx) },
+      { slot: 'area', pre: areaPrefix(areaKey), value: areaValue },
     ];
     if (!typeDef(st.type).noRooms) out.push({ slot: 'rooms', pre: 'עם', value: roomsLabel(st.rooms) });
     out.push({ slot: 'price', pre: 'ב', value: priceLabel(st.priceMax, st.deal) });
@@ -452,22 +477,9 @@
     if (/שכיר|לשכור|השכר|שכד/.test(t)) patch.deal = 'rent';
     else if (/לקנות|קני|מכיר|לרכוש|רכיש/.test(t)) patch.deal = 'sale';
 
-    if (/פנטהאוז|פנטהאוס|פנטהויז|דירת גג|(^| )גג( |$)/.test(t)) patch.type = 'penthouse';
-    else if (/דירות? גן|(^| )גן( |$)/.test(t)) patch.type = 'garden';
-    else if (/(^| )[ובלה]?בית( |$)|בתים|וילה|וילות|קוטג|דו משפחתי|צמוד קרקע/.test(t)) patch.type = 'house';
-    else if (/מגרש|(^| )קרקע/.test(t)) patch.type = /מסחר/.test(t) ? 'comm_land' : 'land';
-    else if (/חנות|חנויות|שטח מסחרי/.test(t)) patch.type = 'shop';
-    else if (/משרד/.test(t)) patch.type = 'office';
-    else if (/מבנה תעשי|מבני תעשי|מפעל/.test(t)) patch.type = 'industry';
-    else if (/מסחרי|(^| )עסק|(^| )[בלה]?חלל( |$)/.test(t)) patch.type = 'commercial';
-    /* ‏"דופלקס" ו"סטודיו" לא זוהו, והחיפוש החזיר את כל 202 הנכסים
-       (‏14.10.2026). הם סוגים גולמיים - בדיוק הערך שבמסד. */
-    else if (/דופלקס/.test(t)) patch.type = 'raw:דופלקס';
-    else if (/טריפלקס/.test(t)) patch.type = 'raw:טריפלקס';
-    else if (/סטודיו|לופט/.test(t)) patch.type = 'raw:סטודיו/לופט';
-    else if (/דיר/.test(t)) patch.type = 'apt';
-    // אחרי "דיר": "דירה עם מחסן" היא דירה, ומחסן הוא שם רק מאפיין
-    else if (/(^| )מחסן( |$)|מחסנים/.test(t)) patch.type = 'warehouse';
+    /* סוג הנכס - מהליבה (‏SC.typeIn), אותן מילים שגבריאלה מתרגמת בהן */
+    var tk = SC.typeIn(t);
+    if (tk) patch.type = tk;
 
     var rest = t;
     var rm = t.match(/(\d+(?:\.5)?)\s*(\+)?\s*(?:חד|ח( |$))/);
@@ -601,8 +613,9 @@
 
   /* ---------- הכתובת ----------
      אותם שמות פרמטרים שהאתר כבר מדבר בהם (‏deal, ptype, rooms, minPrice,
-     maxPrice, q, ai) ובאותו סדר - כך ‎?deal=sale&rooms=4‎, הכתובת של עמוד
-     חיפוש פופולרי, נקראת כאן כמו שהיא ונכתבת בחזרה בדיוק כך. */
+     maxPrice, q, city, ai) ובאותו סדר - כך ‎?deal=sale&rooms=4‎, הכתובת של
+     עמוד חיפוש פופולרי, נקראת כאן כמו שהיא ונכתבת בחזרה בדיוק כך.
+     ‏city הוא סינון נוסף ולא תחליף ל-q: q של היישוב העיקרי הוא כל השוק. */
   function parseRooms(raw) {
     if (!raw) return null;
     var s = String(raw).trim();
@@ -620,7 +633,19 @@
     var hi = Math.max.apply(null, nums.map(function (x) { return x.n; }));
     if (nums.some(function (x) { return x.open; })) hi = ROOMS_OPEN;
     if (lo <= 0 || lo > 20) return null;
+    /* מספר שלם לבד הוא "N חדרים": 3 וגם 3.5, כמו roomsFromNumber. חצי
+       (‏3.5) נשאר מדויק, וטווח (‏3-4, ‏3,3.5,4) נשאר כמו שהיה. */
+    if (nums.length === 1 && !nums[0].open && nums[0].n % 1 === 0) return [lo, lo + 0.5];
     return [lo, hi];
+  }
+
+  /* עיר בכתובת: עברית, רווח, גרש ומקף. ערך אחר (תג, מספר, עיר ארוכה) נזרק
+     ולא מסנן - כדי שפרמטר שבור לא ירוקן את הדף. */
+  function parseCity(raw) {
+    var s = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!s || s.length > 40) return null;
+    if (!/^[\u0590-\u05FF][\u0590-\u05FF '"״׳-]{0,39}$/.test(s)) return null;
+    return s;
   }
 
   function fromParams(params) {
@@ -644,6 +669,7 @@
     st.priceMin = num('minPrice');
     var q = get('q').slice(0, 80);
     if (q) st.area = 'text:' + q;
+    st.city = parseCity(get('city'));
     st.ai = get('ai') === '1';
     if (typeDef(st.type).noRooms) st.rooms = null;
     return st;
@@ -658,13 +684,14 @@
     return hit && hit.key !== st.area ? assign(st, { area: hit.key }) : st;
   }
 
-  /* ‏"3-4" הוא [3, 4.5] - כמו התווית "3-4 חדרים" - ו-"4" לבד הוא בדיוק 4, כמו
-     בעמודי החיפוש הפופולרי. טווח שאינו מדרגה נכתב כרשימה ("3,4"). */
+  /* ‏"3-4" הוא [3, 4.5]. "4" לבד הוא 4 וגם 4.5 - כמו "4 חדרים" שהוקלד, וכמו
+     עמודי החיפוש הפופולרי שנכתבים rooms=4. טווח רחב יותר נשאר "3-4",
+     וזוג שאינו מדרגה נכתב כרשימה ("3,4"). */
   function roomsParam(r) {
     if (!r) return '';
     if (r[1] >= ROOMS_OPEN) return r[0] + '+';
     if (r[0] === r[1]) return String(r[0]);
-    // ‏[4, 4.5] ("4 חדרים" שהוקלד) הוא "4,4.5" ולא "4-4"
+    if (r[1] === r[0] + 0.5 && r[0] % 1 === 0) return String(r[0]);
     if (r[1] % 1 === 0.5 && Math.floor(r[1]) > r[0]) return r[0] + '-' + Math.floor(r[1]);
     return r[0] + ',' + r[1];
   }
@@ -682,6 +709,7 @@
     /* ‏"לידי" ו"האזור שסימנתי" אינם נכתבים: הם תלויים במיקום ובציור של מי
        שנמצא/ת כאן עכשיו, וקישור ששותף איתם היה נוחת על משהו אחר לגמרי. */
     if (st.area && st.area !== 'all' && st.area !== 'near' && st.area !== 'drawn') p.push(['q', areaLabel(st.area, areas, ctx)]);
+    if (st.city) p.push(['city', st.city]);
     if (st.ai) p.push(['ai', '1']);
     return p.map(function (kv) { return kv[0] + '=' + encodeURIComponent(kv[1]); }).join('&');
   }
@@ -787,6 +815,7 @@
     var props = [];
     var aliasList = [];           // ‏neighborhood_aliases מהדף (‏setProperties)
     var lastMiss = '';            // שם שלא זוהה נרשם פעם אחת ברצף (‏onAreaMiss)
+    var lastWordMiss = '';        // וכך גם מילה של מאפיין (‏onWordMiss)
     var areas = [];
     var loaded = false;
     var ctx = {
@@ -836,7 +865,7 @@
       var d = defaultState();
       if (st.deal !== d.deal) touched.deal = true;
       if (st.type !== d.type) touched.type = true;
-      if (st.area !== d.area) touched.area = true;
+      if (st.area !== d.area || st.city) touched.area = true;
       if (st.rooms) touched.rooms = true;
       if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
     }
@@ -1236,6 +1265,16 @@
         if (miss && miss !== lastMiss && typeof opts.onAreaMiss === 'function') {
           lastMiss = miss;
           opts.onAreaMiss(miss, filter(props, st, ctx).length, areas.mainCity || '');
+        }
+      }
+      /* מאפיין שלא זוהה ("דירה עם גינה") - אותה לולאה, לדוח "מילים שלא זוהו"
+         (‏SC.featureCandidate, ‏docs/search-core.md). גם הוא לא בשקט. */
+      var wordMiss = SC.featureCandidate(text);
+      if (wordMiss) {
+        if (noteEl && fields.length + feats.length) noteEl.textContent += ' · את "' + wordMiss + '" אין לי איך לסנן';
+        if (wordMiss !== lastWordMiss && typeof opts.onWordMiss === 'function') {
+          lastWordMiss = wordMiss;
+          opts.onWordMiss('feature', wordMiss, areas.mainCity || '');
         }
       }
       track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });

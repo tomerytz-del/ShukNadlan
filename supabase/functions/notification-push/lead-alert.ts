@@ -15,6 +15,7 @@
 export type LeadInfo = {
   masked: boolean;
   leadType: string;
+  fromPost?: boolean;
   name: string;      // "פונה חדש/ה" בליד נעול
   source: string;    // תווית בעברית, "" כשלא ידוע
   what: string;      // "דירה 4 חד׳ למכירה · רובע יזרעאל · 1,495,000 ₪", "" כשאין
@@ -37,7 +38,13 @@ export const SOURCE_LABEL: Record<string, string> = {
   meta_ads_property_form: "מודעה ממומנת בפייסבוק/אינסטגרם",
   meta_ads_owner_form: "מודעה ממומנת בפייסבוק/אינסטגרם",
   meta_ads_buyer_form: "מודעה ממומנת בפייסבוק/אינסטגרם",
+  // ‏פוסט שהסוכן הסורק מצא, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
+  facebook_group: "קבוצת פייסבוק",
+  facebook_marketplace: "מרקטפלייס של פייסבוק",
 };
+
+// הפונה לא פנה/תה אלינו: פרסם/ה פוסט, ואישר/ה שמתווך/ת יחזור/תחזור אליו/ה
+const POST_SOURCES = new Set(["facebook_group", "facebook_marketplace"]);
 
 export function sourceLabel(src: string | null | undefined): string {
   if (src == null || String(src).trim() === "") return "האתר";
@@ -94,6 +101,7 @@ export function buildLeadInfo(lead: Row, prop: Row | null, hood: string | null):
   return {
     masked,
     leadType: String(lead.lead_type || ""),
+    fromPost: POST_SOURCES.has(String(lead.source || "")),
     name,
     source: sourceLabel(lead.source),
     what: describeWhat(lead, prop, hood),
@@ -146,6 +154,10 @@ export async function loadLeadInfo(sb: any, batch: Row[]): Promise<Map<string, L
 
 function intro(li: LeadInfo): string {
   const via = li.source ? ` דרך ${li.source}` : "";
+  if (li.fromPost) {
+    const who = li.leadType === "owner_inbound" ? "בעל/ת נכס" : "מחפש/ת נכס";
+    return `${li.name} - ${who} - פרסם/ה פוסט ב${li.source} ואישר/ה שנחזור${li.what ? ":" : "!"}`;
+  }
   if (li.leadType === "owner_inbound") return `${li.name} פנה/תה עכשיו${via} - בעל/ת נכס${li.what ? ":" : "!"}`;
   return `${li.name} פנה/תה עכשיו${via}${li.what ? " ומתעניין/ת ב:" : "!"}`;
 }

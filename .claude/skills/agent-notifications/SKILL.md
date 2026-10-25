@@ -56,7 +56,13 @@ values (v_agent, 'marketing_copy', '...', '...', v_property_id);
 סגור בפניו/ה.
 
 התראה על **כמה** פריטים (שלוש התאמות, מסירה של עשרה נכסים) נשארת בלי
-מזהה - אין פריט אחד שהוא היעד. בקבוצה: `case when count(*) = 1 then
+מזהה - אין פריט אחד שהוא היעד.
+
+**וחריג מכוון: `open_demand`** (ביקוש פתוח מפוסט בפייסבוק, הסקיל
+`scraped-leads`) - פריט שאינו ליד ואין לו עמודה ב-`notifications`. כולן
+מובילות ל-`/crm?goto=accLeads&tab=demand` (‏`itemPath`, ‏`handleGotoParam`,
+‏`openNotificationTarget`), ולכן כמה ביקושים בהודעה אחת הם יעד אחד וכפתור.
+מזהה בנתיב היה מפרק את הכפתור לקישורים. בקבוצה: `case when count(*) = 1 then
 (array_agg(x.id))[1] end` (אין `min()` ל-`uuid` ב-Postgres).
 
 **ומחוץ לטבלה** (הודעה ישירה מפונקציית Edge, תוצאת כלי של גבריאלה): אותם

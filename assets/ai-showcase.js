@@ -140,32 +140,34 @@
   }
 
   /* ---- הלוגו של האתר, לרקע כהה ----
-     העתק של ‎assets/logo-shuknadlan-dark.svg‎ בתוך הקוד ולא ‎<img src>‎:
-     המסגרת הזאת מופיעה בדיוק ברגע שבו הרשת כבר עסוקה בבקשת ההדמיה, ותמונה
-     שנטענת אז מהבהבת ריקה בפריים הראשון — כלומר בדיוק בפריים היחיד שבשבילו
-     היא קיימת. ‏inline גם מאפשר לאנימציה לגעת בחלקי הלוגו.
+     הלוגו הוא רינדור (‎assets/logo-shuknadlan-dark.svg‎ עוטף רסטר), ולכן
+     אי אפשר עוד להעתיק את הגאומטריה שלו לתוך הקוד כמו בסמל השטוח. מה
+     שהעותק המוטבע הבטיח — שהלוגו לא יהבהב ריק בפריים הראשון של ההמתנה,
+     כשהרשת עסוקה בבקשת ההדמיה — מובטח עכשיו בטעינה מוקדמת: ‏injectCss()
+     טוען את הקובץ לזיכרון כשהמודול עולה, הרבה לפני שמישהו לוחץ "צור הדמיה".
+     הברק שעובר על הפין חתוך לפי אותו קובץ (‎mask-image‎), כך שהוא נשאר
+     בתוך הצללית.
 
-     הצבעים קבועים ולא יורשים מההקשר: הרצועה כהה תמיד, ולכן הפין לבן תמיד. */
-  var LOGO_DARK_SVG =
-    '<svg class="ai-loader-logo" viewBox="0 0 52 62" aria-hidden="true">' +
-      '<path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z" ' +
-        'fill="#ffffff"/>' +
-      '<path d="M13 26 L26 14 L39 26" fill="none" stroke="#0e2a6b" stroke-width="5" ' +
-        'stroke-linejoin="miter" stroke-linecap="butt"/>' +
-      '<text x="26" y="41" text-anchor="middle" fill="#c9a227" ' +
-        'font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>' +
-    '</svg>';
+     הקובץ הכהה ולא הבהיר: הרצועה כהה תמיד, וההילה הבהירה שבו היא מה
+     שמפריד את הפין הספירי מהרקע. */
+  var LOGO_DARK_URL = '/assets/logo-shuknadlan-dark.svg';
+  var LOGO_DARK_IMG =
+    '<span class="ai-loader-logo" aria-hidden="true">' +
+      '<img src="' + LOGO_DARK_URL + '" alt="" width="52" height="62">' +
+    '</span>';
 
-  /* מה שמופיע במסגרת הריקה בזמן שההדמיה נוצרת. שתי הטבעות הן פינג של מפה
-     שיוצא מהפין — אותה תנועה שהאתר כבר עושה בסמל שלו — ולא ספינר גנרי:
-     ההמתנה הזאת היא שלנו, ומי שמחכה לה מסתכל/ת על הלוגו ולא על גלגל. */
+  /* מה שמופיע במסגרת הריקה בזמן שההדמיה נוצרת: הפין קופץ ונוחת, צל
+     מתכווץ מתחתיו כשהוא באוויר, ובכל נחיתה יוצא ממנו פינג זהוב — סימון
+     מפה ש"נועץ" את המקום — ולא ספינר גנרי. ההמתנה הזאת היא שלנו, ומי
+     שמחכה לה מסתכל/ת על הלוגו ולא על גלגל. */
   function loaderHtml() {
     return '' +
       '<div class="ai-loader" role="status">' +
         '<div class="ai-loader-stage">' +
           '<span class="ai-loader-ping" aria-hidden="true"></span>' +
           '<span class="ai-loader-ping ai-loader-ping-2" aria-hidden="true"></span>' +
-          LOGO_DARK_SVG +
+          LOGO_DARK_IMG +
+          '<span class="ai-loader-shadow" aria-hidden="true"></span>' +
         '</div>' +
         '<p class="ai-loader-title">יוצרים לך את ההדמיה…</p>' +
         '<p class="ai-loader-sub">קצת סבלנות, זה לוקח כמה שניות</p>' +
@@ -387,24 +389,38 @@
     '.ai-empty[data-busy]{border-style:solid;border-color:rgba(201,162,39,.4);',
     '  background:rgba(201,162,39,.06)}',
     '.ai-loader{display:grid;justify-items:center}',
-    '.ai-loader-stage{position:relative;width:76px;height:76px;',
-    '  display:grid;place-items:center;margin-bottom:12px}',
-    '.ai-loader-logo{width:44px;height:auto;position:relative;z-index:2;',
-    '  animation:aiPinBob 1.6s ease-in-out infinite}',
-    /* שתי טבעות באותה אנימציה ובהיסט של חצי מחזור: אחת יוצאת בזמן
-       שהשנייה עדיה בדרך, וכך הפינג רציף ולא מהבהב. */
-    '.ai-loader-ping{position:absolute;inset:0;border-radius:50%;',
-    '  border:2px solid rgba(201,162,39,.75);opacity:0;',
-    '  animation:aiPing 2.2s ease-out infinite}',
-    '.ai-loader-ping-2{animation-delay:1.1s}',
+    '.ai-loader-stage{position:relative;width:96px;height:84px;margin-bottom:12px}',
+    /* מחזור אחד (‏1.6s) לשלושת החלקים: הפין עולה ויורד, הצל מתכווץ כשהוא
+       למעלה, והפינג יוצא ברגע הנחיתה (‏0%‎). מחזור משותף הוא מה שקורא כקפיצה
+       אחת ולא כשלוש אנימציות שרצות במקביל. */
+    '.ai-loader-logo{position:absolute;left:50%;top:6px;width:50px;margin-left:-25px;z-index:2;',
+    '  animation:aiPinBob 1.6s cubic-bezier(.45,0,.55,1) infinite}',
+    '.ai-loader-logo img{display:block;width:100%;height:auto}',
+    /* הברק: פס בהיר אלכסוני שעובר על הפין פעם במחזור כפול, חתוך לצללית. */
+    '.ai-loader-logo::after{content:"";position:absolute;inset:0;',
+    '  background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.6) 50%,transparent 62%) 0 0/300% 100% no-repeat;',
+    '  -webkit-mask:url(' + LOGO_DARK_URL + ') center/100% 100% no-repeat;',
+    '  mask:url(' + LOGO_DARK_URL + ') center/100% 100% no-repeat;',
+    '  animation:aiShine 3.2s ease-in-out infinite}',
+    '.ai-loader-shadow{position:absolute;left:50%;bottom:12px;width:34px;height:8px;margin-left:-17px;',
+    '  border-radius:50%;background:rgba(0,0,0,.5);filter:blur(2px);',
+    '  animation:aiShadow 1.6s cubic-bezier(.45,0,.55,1) infinite}',
+    /* שתי טבעות, אליפסה שטוחה על "הקרקע" מתחת לפין, בהיסט של חצי מחזור:
+       אחת יוצאת בזמן שהשנייה עוד בדרך, וכך הפינג רציף ולא מהבהב. */
+    '.ai-loader-ping{position:absolute;left:50%;bottom:5px;width:84px;height:22px;margin-left:-42px;',
+    '  border-radius:50%;border:2px solid rgba(201,162,39,.8);opacity:0;',
+    '  animation:aiPing 1.6s ease-out infinite}',
+    '.ai-loader-ping-2{animation-delay:.8s}',
     '.ai-loader-title{margin:0;font-size:14.5px;font-weight:800;color:#fff}',
     '.ai-loader-sub{margin:3px 0 0;font-size:12.5px;color:#aab6d6}',
-    '@keyframes aiPinBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}',
+    '@keyframes aiPinBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}',
+    '@keyframes aiShadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}',
+    '@keyframes aiShine{0%{background-position:100% 0}55%,100%{background-position:0 0}}',
     /* הטבעת נכנסת מהר ודוהה לאט: ‏0%‎ שקוף כדי שהיא לא "תיוולד" בקצה הפין
        כקו חד, ורוב המחזור הוא הדעיכה — זה מה שקורא כגל שיוצא החוצה ולא
        כמסגרת שמהבהבת. */
-    '@keyframes aiPing{0%{transform:scale(.4);opacity:0}',
-    '  18%{opacity:.9}100%{transform:scale(1);opacity:0}}',
+    '@keyframes aiPing{0%{transform:scale(.3);opacity:0}',
+    '  15%{opacity:.9}100%{transform:scale(1);opacity:0}}',
 
     /* ---- רצועת התמונונות ----
        מספר העמודות נגזר ממספר התמונות ולא קבוע על שלוש: סגנון שיש לו שני
@@ -615,8 +631,8 @@
     '  .ai-cta:hover,.ai-cta:active{transform:none}',
     /* הלוגו נשאר, הפינג יורד. הלוגו הוא *מה* מחכה והטקסט אומר *למה*;
        הטבעות היו רק התנועה, ובלעדיהן המסך עדיין אומר את כל מה שצריך. */
-    '  .ai-loader-logo{animation:none}',
-    '  .ai-loader-ping{display:none}}',
+    '  .ai-loader-logo,.ai-loader-shadow{animation:none}',
+    '  .ai-loader-logo::after,.ai-loader-ping{display:none}}',
   ].join('');
 
   function injectCss() {
@@ -625,6 +641,8 @@
     style.id = 'ai-showcase-css';
     style.textContent = CSS;
     document.head.appendChild(style);
+    // הלוגו של מסך ההמתנה — לזיכרון עכשיו, ולא ברגע שההדמיה מתחילה
+    new Image().src = LOGO_DARK_URL;
   }
 
   function wireCompare(root) {

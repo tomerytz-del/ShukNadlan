@@ -37,7 +37,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `search_slot_open` | נפתח בורר של מילה בחיפוש במשפט, ביוזמת הגולש/ת. המעבר האוטומטי בין שלבים אינו נספר, ולכן מאז הוויזארד (‏`docs/sentence-search.md`, סעיף 1ב) `search_slot_select` גדול ממנו - וזה תקין | `slot`: ‏`deal` \| `type` \| `area` \| `rooms` \| `price` |
 | `search_slot_select` | נבחרה אפשרות בבורר | `slot`, `option` - מפתח של אפשרות (‏`sale`, `apt`, `3,4.5`); שכונה נשלחת כ-`area` |
 | `search_freetext_submit` | פירוש של השדה החכם | `parsed_fields` (‏`deal,area` או `none`), `field_count` - **הטקסט עצמו לא נשלח** |
-| `search_submit` | "הצג N נכסים" בחיפוש במשפט | `result_count` |
+| `search_submit` | "הצג N נכסים" בחיפוש במשפט. בדפי הנחיתה של עפולה אותו אירוע נדחף גם בלחיצה על "לכל הנכסים" ועל "קבלו התראה", עם `landing_action` (`cta` או `alert`) ו-`result_count`. בלי תגית חדשה. וואטסאפ שם הוא `contact_bot` דרך `data-bot` | `result_count` |
 | `search_empty_widen` | ההרחבה המוצעת כשאין תוצאות | `slot` (כולל `extra` - הסינונים המתקדמים) |
 | `viz_jump_click` | לחיצה על כרטיס ההדמיה שעל התמונה הראשית בדף הנכס (‏`docs/property-visualizations.md`) | `preview`: ‏`thumbs` \| `text`; ‏`viz_mode`: ‏`renovation` \| `staging` \| `commercial` |
 | `oh_calc_used` | תזוזה ראשונה של מחשבון החיסכון "כמה זה שווה לכם?" בדף היריד - פעם אחת לטעינת דף (‏`docs/open-house-fair.md`). **המחיר שנבחר לא נשלח** | — |
@@ -47,6 +47,16 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `pwa_install_result` | תשובת המשתמש/ת לדיאלוג ההתקנה של המערכת | `outcome`: ‏`accepted` \| `dismissed` |
 | `pwa_help_open` | נפתח הסבר ההוספה הידנית (אייפון, מק) | `mode` |
 | `pwa_installed` | הדפדפן דיווח שההתקנה הושלמה | — |
+| `profile_nudge_shown` | גיליון השלמת פרטים עלה ב-CRM (מובייל או אפליקציה), פעם בביקור | `nudge_item`: מזהה הפריט מהמדריך (`photo`, `license`, `areas`, `phone`, `property`, `logo`, `bio`, `whatsapp`, `client`, `calendar`, `prefs`, `about`, `invite`) |
+| `profile_nudge_completed_click` | לחיצה על הכפתור הראשי בגיליון, שמעבירה לשדה | `nudge_item` |
+| `profile_nudge_later` | "אעדכן אחר כך" | `nudge_item` |
+| `profile_nudge_dismissed` | סגירה ב-X, ב-Esc או בלחיצה על הרקע | `nudge_item` |
+
+הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
+`profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
+שלו/ה אינה פנייה של גולש/ת), ולכן כש-`shukTrack` אינו קיים אותה דחיפה
+יוצאת ישר ל-`dataLayer`, עם `event`, `page_type` ו-`nudge_item`. אין
+באירוע שם, טלפון או מספר רישיון - רק מזהה הפריט החסר.
 
 לכל אירוע מצורפים אוטומטית `page_type` (שם הדף בלי הסיומת), `item_id`
 (פרמטר `id` שבכתובת, כשיש) ו-`src` — אין צורך להעביר אותם ידנית.

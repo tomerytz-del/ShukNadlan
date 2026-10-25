@@ -1,6 +1,6 @@
 ---
 name: csm-adoption
-description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff, csm_claim, current_is_csm, crm-csm.js, הקלטות שיחה (csm_calls), מנטור ההטמעה וגבריאלה מול הצוות (csm-chat.ts). Use when touching csm.html / csm-page.js / any csm_* table or function / csm-workspace / csm-tools.ts, when adding a tool for the adoption team, when the CSM sees "אין גישה", when a recording is stuck, or when Gabriela answers the CSM like an agent.
+description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff, csm_claim, current_is_csm, crm-csm.js, הקלטות שיחה (csm_calls), מנטור ההטמעה, היומן וההתראות שלה (csm_agenda, csm_notifications, csm-notify.ts), הגדרות הפרופיל (csm_profile_*) וגבריאלה מול הצוות (csm-chat.ts). Use when touching csm.html / csm-page.js / any csm_* table or function / csm-workspace / csm-tools.ts, when adding a tool for the adoption team, when the CSM sees "אין גישה", when a recording is stuck, when she got no reminder or notification (or got it twice), or when Gabriela answers the CSM like an agent.
 ---
 
 # אזור ההטמעה (CSM)
@@ -44,7 +44,11 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
   נמדד על העלייה; הסקיל `crm-startup`). ‏`.btn`, `.field`, `.pm-*` והטוקנים באים
   מהדף, ולכן `csm.html` מגדיר אותם בעצמו.
 - לשונית חדשה: כפתור ב-**שני** הדפים, ענף ב-`csmRender`, ואם היא של צוות בלבד -
-  בתנאי ההסתרה שבראש `csmRender`.
+  בתנאי ההסתרה שבראש `csmRender`. ב-`csm.html` הכפתור יושב בתפריט (`#csmNav`) עם
+  אייקון, `data-label` ו-`data-sub`, ובקבוצה הנכונה: ארבעת המסכים של יום העבודה
+  הם גם הסרגל התחתון בטלפון, וכל השאר ב"עוד" - לא להוסיף לשם חמישי.
+- **ה-`<link>` של `csm-workspace.css` ב-`csm.html` נושא `id="csmWorkspaceCss"`.**
+  בלעדיו `csmEnsureCss()` טוען עותק שני אחרי ה-`<style>`, והתפריט בצד נשבר בשקט.
 
 ## 4. ‏`csm_agents_overview()` - מה הצוות רואה
 
@@ -94,7 +98,44 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
 הסוכנים** - והם לא נכנסים אליו. יכולת חדשה של הצוות = שורה ב-`CSM_TOOLS` ב-
 `csm-prompt.ts`, אחרת המנטור לא ימליץ עליה (או ימליץ על מה שאין).
 
-## 8. עלות
+## 8. יומן, התראות והגדרות
+
+- **הגדרות** - עמודות על `csm_staff`, ונכתבות רק ב-`csm_profile_apply` (‏`csm_profile_save`
+  מהאזור, ‏`csm_settings` מגבריאלה). **הנייד - מהאזור בלבד** (‏`p_allow_phone`): הוא
+  הזיהוי בגבריאלה. המייל - לא כאן בכלל.
+- **התראה נכתבת רק ב-`_csm_notify`**, עם `dedupe_key`. מקור חדש = סוג ב-check של
+  `csm_notifications.kind`, ב-`v_kinds` של `csm_profile_apply`, ב-`CSM_NOTIF_KIND`
+  ב-`crm-csm.js` וב-`NOTIFY_KINDS` ב-`csm-tools.ts` - אחרת אי אפשר לכבות אותו.
+- **מקור שסורק אוכלוסייה מתריע על חצייה, לא על מצב** (`at_risk` רק ביום שבו עבר/ה
+  את 5 הימים) - אחרת ההרצה הראשונה מציפה את הפעמון ואת הוואטסאפ.
+- ב-pg_cron אין `current_is_csm()` ואין `auth.role()`, ולכן `csm_agents_overview`
+  נכשלת שם; `_csm_risk_agents` היא החישוב של המסד.
+- **וואטסאפ**: ‏`csm_notify_wa_claim` מחליטה (שעות שקט, 18 שעות, חלון 24 השעות לפי
+  `last_inbound_at` - לא `updated_at`). מחוץ לחלון - התבנית של `notification-push`.
+- **יומן Google** - אותו לקוח OAuth ואותו callback של הסוכנים, אבל טבלאות משלה
+  (`csm_calendar_*`) ו-state של `csm:<staff_id>`. שינוי ב-`google-calendar-callback`
+  חייב להשאיר את שני הענפים (‏`stateSubject`): סוכן/ת חוזר/ת ל-`/crm`, היא ל-`/csm`.
+  פגישה שנמחקת משאירה מצבה, כי אחרת האירוע נשאר ב-Google. ‏`csm-tools.ts` לא מייבא
+  את `google-calendar.ts` (‏`Deno.env` שובר את הבדיקה ב-node) - `busyCheck` מוזרק.
+
+- **מספר וירטואלי** (‏`csm_phone_lines`) - לא `agent_phone_lines`: אין לה מסלול, ארנק
+  או תקרה. ב-`twilio-voice` הענף שלה נבדק **לפני** הסוכנים, השיחה נכתבת ל-`csm_calls`
+  (`source = 'phone'`) ועוברת `processCsmCall`, ו-`csm-notify.ts` שולח לה את הסיכום
+  ואת ההקלטה. מקור חדש ב-`csm_calls.source` - גם ב-`csm_calls_notify` וב-`csmCallsHtml`.
+
+- **הודעה לסוכן/ת** (`csm_send_to_agent`): קישור רק מ-`CSM_LINKS` (‏`csm-links.ts`) -
+  קישור חדש נכנס לשם, והבדיקה מוודאת שהדף או ה-`acc…` קיימים. השליחה רק עם
+  `confirmed=true` אחרי תצוגה, עד 40 ביום, וההודעה נכנסת להיסטוריה של העוזרת של
+  הסוכן/ת. מסך שהשם שלו משתנה ב-`crm.html` - גם שם.
+
+- **סוג התראה חדש** נכנס בחמישה מקומות: האילוץ של `csm_notifications.kind`, ‏`v_kinds`
+  ב-`csm_profile_apply` (מיגרציה שמחליפה את כל הפונקציה), `CSM_NOTIF_KIND` ב-
+  `crm-csm.js`, ‏`NOTIFY_KINDS` ב-`csm-tools.ts`, ו-`docs/csm-adoption.md`. שורת
+  "המנטור:" שלו - ב-`CSM_KIND_TIPS` **וגם** ב-`CSM_NOTIF_TIP` (הבדיקה משווה).
+- **העצה היומית** (`csmMentorTip`) מסמנת `last_tip_on` לפני המודל: כשל = אין עצה
+  היום, לא לולאה כל 10 דקות. לא במכסת השאלות שלה.
+
+## 9. עלות
 
 שלוש יכולות ב-`AiFeature` (`csm_mentor`, `csm_call`, `gabriela_csm`), ולכל אחת שורה ב-
 `AI_FEATURES` ב-`crm.js` (`check_ai_usage.py` חוסם). התמלול נרשם כ-`transcribe`.
@@ -107,3 +148,12 @@ python3 scripts/check_edge_types.py csm-workspace whatsapp-webhook
 python3 scripts/check_function_grants.py
 python3 scripts/check_canonical.py && python3 scripts/check_pwa.py && python3 scripts/check_events.py   # csm.html פרטי
 ```
+
+## גבריאלה מול הצוות: חיפוש ופגישה
+
+- **`csm_find_agent` מחפש לפי מילים**, כל מילה בשם, במשרד או בחלק המקומי של המייל.
+  בלי התאמה מלאה הוא מחזיר `maybe` ולא אפס, כי שם בכרטיס הוא לפעמים שם החברה.
+- **פגישה עם מי שלא נמצא/ה במאגר נקבעת בכל זאת** (`with_name`, `with_phone`). אל
+  תחזירו את הכלל "לא נמצא - לעצור ולשאול" לפגישות: זו הייתה התלונה (25.10.2026).
+- מנהלי פלטפורמה אינם ב-`csm_agents_overview` בכוונה, ולכן "לא נמצא" עליהם אינו באג.
+

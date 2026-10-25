@@ -1109,6 +1109,36 @@ function logAreaMiss(phrase, resultCount, city){
   } catch(e){ /* מדידה לא שוברת אתר */ }
 }
 
+/* ---------- מילה שלא זוהתה ----------
+   ‏"דירה עם גינה": אין מאפיין כזה, והחיפוש ממשיך בלעדיו. נרשם ל-
+   search_word_misses (‏kind = 'feature'), ומשם מנהל/ת הפלטפורמה רואה מה מבקשים
+   ואין לו מילה ("מילים שלא זוהו" בדשבורד). אותן הגנות, עד 40 תווים. */
+const WORD_MISSES_URL = SUPABASE_URL + '/rest/v1/search_word_misses';
+function logWordMiss(kind, phrase, city){
+  try{
+    const t = String(phrase || '').trim().replace(/\s+/g, ' ');
+    if (t.length < 2 || t.length > 40 || t.indexOf('@') !== -1 || /[0-9]{9,}/.test(t)) return;
+    fetch(WORD_MISSES_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        // ‏insert בלבד ל-anon - בלי returning (ראו logSearchToDb)
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        kind: kind === 'type' ? 'type' : 'feature',
+        phrase: t,
+        city: String(city || '').slice(0, 60) || null,
+        source: 'site',
+        visitor: visitorSessionId()
+      }),
+      keepalive: true
+    })['catch'](function(){ /* מדידה, לא תקלה */ });
+  } catch(e){ /* מדידה לא שוברת אתר */ }
+}
+
 /* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
    כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
    שנכס לא יישאר עם סרט "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
@@ -2725,7 +2755,9 @@ try {
   // ההזזה אל השטח הפנוי נמדדת מה-DOM, ולכן היא באה אחרי שהמפה כבר קיימת
   // ויודעת את גודלה — לא כארגומנט ל-setView שלמעלה
   heroMap.setView(cityViewCenter(CITY_ZOOM), CITY_ZOOM, { animate:false });
-  MapTiles.addTo(heroMap);
+  /* MapLibre (כ-280KB) לא יורד כל עוד המפה display:none. הפתיחה וגם
+     התקרבות לחלון (אם המפה גלויה) מורידים אותו. Leaflet עצמו כבר חי. */
+  armMapTilesWhenNeeded();
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
   L.control.zoom({ position:'bottomright' }).addTo(heroMap);
@@ -3762,6 +3794,8 @@ else if (MAP_PEEK_MQ.addListener) MAP_PEEK_MQ.addListener(applyMapPeekMode);
    ‏Leaflet לא מצייר נכון ב-container מוסתר (גודל 0), ולכן הפתיחה קוראת
    ‏invalidateSize + fitMapToMarkers - אותו דפוס של setMapExpanded. ובזכות
    הגודל 0 המפה גם לא מורידה אריחים בטעינה, רק בפתיחה הראשונה.
+   ‏MapLibre עצמו (הקובץ, לא האריחים) יורד רק אז, או כשהמפה מתקרבת
+   לחלון אם היא גלויה: armMapTiles. Leaflet נשאר מאותחל בטעינה.
 
    סגירה: "חזרה לרשימה", ‏Escape, וכפתור "חזרה" של הדפדפן (‏pushState בפתיחה,
    ‏popstate סוגר). אחרי סגירה חוזרים לאותה נקודת גלילה, והפוקוס חוזר לכפתור
@@ -3780,9 +3814,27 @@ function mapOpenSummaryText(){
   return '';
 }
 
+let mapTilesArmed = false;
+function armMapTiles(){
+  if (mapTilesArmed || !heroMap || !window.MapTiles) return;
+  mapTilesArmed = true;
+  MapTiles.addTo(heroMap);
+}
+function armMapTilesWhenNeeded(){
+  const el = document.getElementById('hero-map');
+  if (!el || !('IntersectionObserver' in window)){ armMapTiles(); return; }
+  const io = new IntersectionObserver((entries)=>{
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    armMapTiles();
+    io.disconnect();
+  }, { rootMargin: '240px' });
+  io.observe(el);
+}
+
 function openMapView(source, opener){
   const hero = heroEl();
   if (!hero || mapViewIsOpen()) return;
+  armMapTiles();
   mapOpenReturn = { y: window.scrollY, focus: opener || document.activeElement };
   hero.classList.remove('map-closed');
   hero.classList.add('map-open');
@@ -4412,16 +4464,15 @@ const hoodState = {
 // הסימונים של השכונות הנבחרות: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShapes)
 let hoodShapes = [];
 
-/* ‏select('*') בכוונה: העמודות הגאוגרפיות (lat/lng/radius_m) נוספות
-   במיגרציה 20260830120000, ובחירה מפורשת בהן הייתה מפילה את הטעינה בכל
-   סביבה שהמיגרציה עוד לא רצה בה. הטבלה קטנה ואין בה שדות רגישים. */
+/* בלי boundary בטעינה: המצולע הוא רוב המשקל (מעל מגה של JSON).
+   הוא נטען רק לשכונה שנבחרה, ב-drawHoodShapes. */
 // ‏neighborhood_aliases של השוק - נטענים עם השכונות ועוברים לחיפוש במשפט
 let hoodAliases = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
     const [{ data, error }, spec, aliasRes] = await Promise.all([
-      sb.from('neighborhoods').select('*'),
+      sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned'),
       marketFilterSpec(),
       /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
          ששם שגולש/ת מקליד/ה יזוהה כאן ושם אותו דבר (‏docs/search-core.md).
@@ -4505,10 +4556,53 @@ const HOOD_SHAPE_STYLE = {
   fillColor:'#0e2a6b', fillOpacity:.06,
 };
 
+/* boundary לא מגיע עם שאר השכונות: הוא רוב המשקל. נטען רק לשכונה
+   שנבחרה, ואז paintHoodShapes מציירת. כשל (או עמודה שעוד אין) מסמן
+   null כדי לא לנסות שוב, והציור נופל לעיגול. */
+function drawHoodShapes(){
+  if (!heroMap) return;
+  const missing = [];
+  hoodState.selected.forEach(id => {
+    const h = hoodState.byId.get(id);
+    if (h && !Object.prototype.hasOwnProperty.call(h, 'boundary')) missing.push(id);
+  });
+  if (missing.length && sb){
+    sb.from('neighborhoods').select('id,boundary').in('id', missing).then(res => {
+      if (!res || res.error){
+        missing.forEach(id => {
+          const h = hoodState.byId.get(id);
+          if (h && !Object.prototype.hasOwnProperty.call(h, 'boundary')) h.boundary = null;
+        });
+        paintHoodShapes();
+        return;
+      }
+      const rows = res.data || [];
+      const got = new Set(rows.map(row => row.id));
+      rows.forEach(row => {
+        const h = hoodState.byId.get(row.id);
+        if (h) h.boundary = row.boundary;
+      });
+      missing.forEach(id => {
+        const h = hoodState.byId.get(id);
+        if (h && !got.has(id)) h.boundary = null;
+      });
+      paintHoodShapes();
+    }, () => {
+      missing.forEach(id => {
+        const h = hoodState.byId.get(id);
+        if (h && !Object.prototype.hasOwnProperty.call(h, 'boundary')) h.boundary = null;
+      });
+      paintHoodShapes();
+    });
+    return;
+  }
+  paintHoodShapes();
+}
+
 /* מצייר סימון לכל אחת מהשכונות הנבחרות. כשנבחרו כמה, כל אחת מקבלת מצולע
    משלה ולא מעטפת אחת סביב כולן: מעטפת משותפת הייתה בולעת את השטח שביניהן
    ומבטיחה נכסים שאינם שם. */
-function drawHoodShapes(){
+function paintHoodShapes(){
   if (!heroMap) return;
   hoodShapes.forEach(shape => heroMap.removeLayer(shape));
   hoodShapes = [];
@@ -6370,7 +6464,7 @@ function applyDeepLinkFilters(){
   if (isReload()){
     try {
       const url = new URL(location.href);
-      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה */ }
     return;
@@ -6909,6 +7003,7 @@ let freeTextFeatures = new Set();
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
     onAreaMiss: logAreaMiss,
+    onWordMiss: logWordMiss,
     urlExtra: ()=> appliedAdvancedQs,
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),
@@ -6932,7 +7027,8 @@ let freeTextFeatures = new Set();
 
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
-  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
+  // city= מסנן ליישוב (sentence-search) בלי להיות עמוד חדש ברשימה הסגורה
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
   /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
 
      הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה

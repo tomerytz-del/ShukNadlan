@@ -48,7 +48,10 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
-import { CSM_GREETING, CSM_TOOLS, csmCapabilities, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
+import { CSM_KIND_TIPS, callFollowupHint, kindTipLine } from "../supabase/functions/whatsapp-webhook/csm-tips.ts";
+import { CSM_TIP_QUESTION } from "../supabase/functions/_shared/coach/csm-prompt.ts";
+import { CSM_LINKS, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
+import { CSM_GREETING, CSM_TOOLS, csmCapabilities, gcalTemplateUrl, ilLocalToIso, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -587,6 +590,9 @@ for (const kind of ["agent", "team", "office"] as const) {
     csm_overview: /תמונת מצב/, csm_find_agent: /סוכן\/ת או משרד/, csm_office: /משרד/, csm_set_stage: /שלב ומועד קשר/,
     csm_log_session: /לרשום פגישה/, csm_add_feedback: /בקשת פיתוח/, csm_recent_calls: /הקלטת שיחה/,
     csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
+    csm_agenda_list: /היומן/, csm_agenda_add: /היומן/, csm_agenda_update: /היומן/,
+    csm_notifications: /התראות/, csm_settings: /הגדרות/,
+    csm_links: /קישורים לסוכנים/, csm_send_to_agent: /קישורים לסוכנים/, csm_draft_message: /הודעה לסוכן\/ת/,
   };
   check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
     CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
@@ -599,6 +605,56 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("גבריאלה לצוות ההטמעה: ההיכרות בהודעה הראשונה ובשאלה, ולפני התור",
     chatSrc.indexOf("csmCapabilities(staff.display_name, first)") > 0
       && chatSrc.indexOf("csmCapabilities(staff.display_name, first)") < chatSrc.indexOf("answer = await runCsmTurn"));
+  // היומן: שעון ישראל עם קיץ/חורף, וקישור Google בלי OAuth
+  check("יומן ההטמעה: שעה מקומית → UTC בקיץ ובחורף, ותאריך לא תקין נדחה",
+    ilLocalToIso("2026-07-01", "10:00") === "2026-07-01T07:00:00.000Z"
+      && ilLocalToIso("2026-12-01", "10:00") === "2026-12-01T08:00:00.000Z"
+      && ilLocalToIso("2026-13-01", "10:00") === null && ilLocalToIso("2026-12-01", "25:00") === null);
+  const gurl = new URL(gcalTemplateUrl({ title: "פגישה עם יוסי", starts_at: "2026-12-01T08:00:00.000Z", duration_minutes: 45, location: "עפולה" }));
+  check("יומן ההטמעה: קישור \"הוספה ליומן Google\" עם הכותרת והטווח",
+    gurl.host === "calendar.google.com" && gurl.searchParams.get("text") === "פגישה עם יוסי"
+      && gurl.searchParams.get("dates") === "20261201T080000Z/20261201T084500Z", gurl.toString());
+  const toolsSrc = src("whatsapp-webhook/csm-tools.ts");
+  check("יומן ההטמעה: גבריאלה כותבת ומעדכנת רק פגישות של אשת הצוות שמולה",
+    /\.eq\("staff_id", staff\.id\)\.maybeSingle\(\)/.test(toolsSrc) && /staff_id: staff\.id, agent_id/.test(toolsSrc)
+      && /p_allow_phone: false/.test(toolsSrc));
+  // קישורים לסוכנים: רשימה סגורה, וכל קישור הוא דף אמיתי או מסך שקיים ב-CRM
+  const root = (f: string) => readFileSync(new URL("../" + f, import.meta.url), "utf8");
+  const crmHtml = root("crm.html");
+  const deadLinks = CSM_LINKS.filter((l) => l.path).filter((l) => {
+    const [page, query] = l.path.split("?");
+    const goto = /goto=(acc[A-Za-z]+)/.exec(query || "")?.[1];
+    if (goto) return !crmHtml.includes(`id="${goto}"`);
+    const file = page === "/" ? "index.html" : page.slice(1) + ".html";
+    try { root(file); return false; } catch { return true; }
+  }).map((l) => l.key);
+  check("קישורים לסוכנים: כל קישור הוא דף באתר או מסך ב-CRM", deadLinks.length === 0, deadLinks);
+  check("קישורים לסוכנים: דף אישי רק עם slug, ומפתח לא מוכר נדחה",
+    csmLinkFor("agent_page", {}) === null && csmLinkFor("agent_page", { agent_slug: "יוסי-כהן" })?.url === "https://shuknadlan.co.il/agent?slug=" + encodeURIComponent("יוסי-כהן")
+      && csmLinkFor("https://evil.example") === null && csmLinkFor("crm_properties")?.path === "/crm?goto=accProperties");
+  const outreach = csmOutreachText("עופרי", "היי יוסי — הנה המסך", csmLinkFor("crm_properties"));
+  check("קישורים לסוכנים: ההודעה בשם אשת הצוות, עם הקישור ובלי מקף ארוך",
+    /עופרי, צוות ההטמעה/.test(outreach) && outreach.includes("https://shuknadlan.co.il/crm?goto=accProperties") && !/[\u2013\u2014]/.test(outreach), outreach);
+  check("קישורים: למי שעוד לא במערכת - רק דף ציבורי, נייד ישראלי, וקישור לשליחה מהטלפון שלה",
+    csmLinkIsPublic("pricing") && csmLinkIsPublic("signup") && !csmLinkIsPublic("crm_properties") && !csmLinkIsPublic("agent_page")
+      && ilMobileDigits("052-123-4567") === "972521234567" && ilMobileDigits("+972 52 1234567") === "972521234567"
+      && ilMobileDigits("04-6543210") === null
+      && waComposeUrl("972521234567", "היי").startsWith("https://wa.me/972521234567?text=%D7%94")
+      && !/הודעה מ/.test(csmOutreachText("עופרי", "היי", csmLinkFor("pricing"), true)));
+  // עצה מהמנטור: שורה קבועה לכל סוג, זהה בוואטסאפ ובפעמון; והעצה היומית
+  const csmJs = root("assets/crm-csm.js");
+  const jsTips = /const CSM_NOTIF_TIP = \{([\s\S]*?)\n\};/.exec(csmJs)?.[1] || "";
+  check("עצה מהמנטור: אותו נוסח בפעמון (crm-csm.js) ובוואטסאפ (csm-tips.ts), בלי מקף ארוך ובלי אחוזים",
+    Object.entries(CSM_KIND_TIPS).every(([k, t]) => jsTips.includes(`${k}: '${t.replace(/'/g, "\\'")}'`))
+      && (jsTips.match(/^\s+[a-z_]+:/gm) || []).length === Object.keys(CSM_KIND_TIPS).length
+      && Object.values(CSM_KIND_TIPS).every((t) => !/[\u2013\u2014]|\d+%/.test(t))
+      && kindTipLine("daily_digest") === "" && /^💡 המנטור:/.test(kindTipLine("at_risk")),
+    jsTips);
+  check("עצה מהמנטור: שאלת הבוקר קצרה, עם שמות מהנתונים ובלי מקף ארוך, ו\"שלחי לו\" אחרי סיכום",
+    /שלוש עצות/.test(CSM_TIP_QUESTION) && /שם מהנתונים/.test(CSM_TIP_QUESTION) && !/[\u2013\u2014]/.test(CSM_TIP_QUESTION)
+      && /שלחי לו/.test(callFollowupHint("יוסי")) && /input\.call_id/.test(toolsSrc));
+  check("קישורים לסוכנים: שליחה רק אחרי אישור - confirmed בכלי, ובפרומפט",
+    /input\.confirmed !== true/.test(toolsSrc) && /confirmed=true/.test(chatSrc));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
     /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
 }
@@ -674,6 +730,25 @@ for (const kind of ["agent", "team", "office"] as const) {
   const ui = readFileSync(new URL("../assets/crm-coach.js", import.meta.url), "utf8");
   check("מנהל/ת הפלטפורמה: כל כפתור קיים גם ב-COACH_CTA",
     ctaKindsFor("platform").every((k) => new RegExp("\\b" + k + ":\\s*\\{").test(ui)));
+}
+
+// ---------------------------------------------------------------------------
+// מפת המערכת (SYSTEM_MAP): רק בשאלה החופשית, וכל קישור פותח משהו שקיים
+// ---------------------------------------------------------------------------
+{
+  const ask = askSystemPrompt("agent");
+  check("מפת המערכת בשאלה החופשית, ועם דוח CMA לכתובת", ask.includes("crm?goto=cmaAddress") && ask.includes("crm?goto=accDealsLookup"));
+  check("מפת המערכת אינה בסיכומים היומיים והשבועיים (עלות בכל בוקר)",
+    (["agent", "team", "office"] as const).every((k) => !SYSTEM_PROMPTS[k].includes("crm?goto=")));
+  const html = readFileSync(new URL("../crm.html", import.meta.url), "utf8");
+  const crm = readFileSync(new URL("../assets/crm.js", import.meta.url), "utf8");
+  const actions = crm.slice(crm.indexOf("const CRM_ACTIONS = {"), crm.indexOf("};", crm.indexOf("const CRM_ACTIONS = {")));
+  const targets = [...ask.matchAll(/crm\?goto=([A-Za-z0-9]+)/g)].map((m) => m[1]);
+  const broken = targets.filter((g) => !html.includes(`id="${g}"`) && !new RegExp("\\b" + g + ":\\s*\\(").test(actions));
+  check("כל קישור במפת המערכת הוא קטגוריה ב-crm.html או פעולה ב-CRM_ACTIONS", targets.length > 10 && broken.length === 0, broken);
+  check("מפת המערכת בלי מקף ארוך", !/[\u2013\u2014]/.test(ask));
+  const ui = readFileSync(new URL("../assets/crm-coach.js", import.meta.url), "utf8");
+  check("קישור מהמנטור הופך לכפתור רק לכתובת שלנו (COACH_GO_RE)", ui.includes("https:\\/\\/shuknadlan\\.co\\.il\\/crm\\?goto="));
 }
 
 // ---------------------------------------------------------------------------

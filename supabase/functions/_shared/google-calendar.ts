@@ -126,6 +126,8 @@ export async function decryptToken(enc: string): Promise<string> {
 // ---------------------------------------------------------------------------
 const STATE_TTL_MS = 15 * 60 * 1000;
 
+// ‏agentId הוא ה-subject: מזהה סוכן/ת, או `csm:<staff_id>` לצוות ההטמעה
+// (‏stateSubject למטה). החתימה זהה לשניהם.
 export async function signState(agentId: string): Promise<string> {
   const { hmac } = await keys();
   const payload = b64url(new TextEncoder().encode(JSON.stringify({
@@ -415,5 +417,60 @@ export async function disconnectAgent(supabase: Db, agentId: string, reason: "re
     status: reason, calendar_id: null, updated_at: new Date().toISOString(),
   }).eq("agent_id", agentId);
   await supabase.rpc("agent_calendar_clear_items", { p_agent_id: agentId });
+  return { calendarDeleted };
+}
+
+// ---------------------------------------------------------------------------
+// צוות ההטמעה (docs/csm-adoption.md, "יומן Google"). אותו לקוח OAuth ואותה
+// כתובת חזרה; ה-state נושא `csm:<staff_id>` (‏CSM_STATE_PREFIX), וה-callback
+// מפצל לפיו. הטבלאות נפרדות - csm_calendar_* - כי היא אינה סוכנת.
+// ---------------------------------------------------------------------------
+export const CSM_STATE_PREFIX = "csm:";
+
+/** ה-subject מה-state: סוכן/ת (מזהה בלבד) או אשת צוות (`csm:<id>`). */
+export function stateSubject(subject: string): { kind: "agent" | "csm"; id: string } {
+  return subject.startsWith(CSM_STATE_PREFIX)
+    ? { kind: "csm", id: subject.slice(CSM_STATE_PREFIX.length) }
+    : { kind: "agent", id: subject };
+}
+
+export async function accessTokenForStaff(supabase: Db, staffId: string): Promise<string | null> {
+  const { data } = await supabase.from("csm_calendar_secrets")
+    .select("refresh_token_enc").eq("staff_id", staffId).maybeSingle();
+  if (!data?.refresh_token_enc) return null;
+  return await refreshAccessToken(await decryptToken(data.refresh_token_enc));
+}
+
+/** כמו disconnectAgent: מחיקת יומן המשנה, ביטול ההרשאה ומחיקת הטוקן. */
+export async function disconnectStaff(supabase: Db, staffId: string, reason: "revoked" | "error" = "revoked") {
+  const { data: conn } = await supabase.from("csm_calendar_connections")
+    .select("calendar_id").eq("staff_id", staffId).maybeSingle();
+  const { data: sec } = await supabase.from("csm_calendar_secrets")
+    .select("refresh_token_enc").eq("staff_id", staffId).maybeSingle();
+
+  let calendarDeleted = false;
+  if (sec?.refresh_token_enc && googleCalendarConfigured()) {
+    try {
+      const refresh = await decryptToken(sec.refresh_token_enc);
+      try {
+        const access = await refreshAccessToken(refresh);
+        if (conn?.calendar_id) {
+          await deleteCalendar(access, conn.calendar_id);
+          calendarDeleted = true;
+        }
+      } catch (err) {
+        console.warn("gcal csm disconnect: calendar cleanup skipped", String(err));
+      }
+      await revokeToken(refresh);
+    } catch (err) {
+      console.warn("gcal csm disconnect: token unreadable", String(err));
+    }
+  }
+
+  await supabase.from("csm_calendar_secrets").delete().eq("staff_id", staffId);
+  await supabase.from("csm_calendar_connections").update({
+    status: reason, calendar_id: null, updated_at: new Date().toISOString(),
+  }).eq("staff_id", staffId);
+  await supabase.rpc("csm_calendar_clear_items", { p_staff_id: staffId });
   return { calendarDeleted };
 }

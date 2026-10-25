@@ -144,6 +144,8 @@ async function loadOnboarding(){
     // פשוט לא מוצג - עדיף מכרטיס עם צעדים שאי אפשר לסגור.
     onboardState = row && row.license_done !== undefined ? row : null;
     renderOnboarding();
+    /* גיליון אחד במובייל על הפריט החסר הבא. אותו מצב, בלי חישוב שני. */
+    if (typeof profileNudgeSchedule === 'function') profileNudgeSchedule();
   } catch(err){
     console.warn('מדריך ההתחלה אינו זמין:', err);
     onboardState = null;

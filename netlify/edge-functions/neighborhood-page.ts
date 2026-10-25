@@ -7,14 +7,18 @@
    `deals-page.ts`, שממנו היא מועתקת.
 
    ‏**canonical מהכתובת, לא מהמסד:** היא נכנסת לפני הקריאה למסד, ולכן דקה של
-   Supabase איטי אינה מאחדת שכונות. ‏noindex - רק כשהמסד ענה במפורש שאין
-   שכונה כזו, או כשהדף דל (בלי נכס פעיל ועם פחות מ-5 עסקאות).
+   Supabase איטי אינה מאחדת שכונות. ‏noindex - כשהמסד ענה במפורש שאין
+   שכונה כזו, כשהכתובת אינה תקינה, או כשהדף אינו לאינדקס
+   (‏`neighborhoodIndexable`: אפס מודעות פעילות, או עיר מחוץ לשוק חי).
+   timeout, שגיאת HTTP או תשובה שאינה אובייקט הם 503 בלי noindex
+   ובלי מטמון: גוגל חוזרת, ודף ריק אינו נשמר כאילו הוא הדף.
 
    התיעוד: ‎docs/neighborhood-pages.md‎.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/neighborhood-render.js";
+import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -22,8 +26,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
 const CITY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const HOOD = /^[0-9a-z֐-׿]+(-[0-9a-z֐-׿]+)*$/;
-const THIN_DEALS = 5;
-
 export type Hood = {
   name: string;
   slug: string;
@@ -40,6 +42,7 @@ type Render = {
   description: (d: Hood) => string;
   jsonLd: (d: Hood, site: string) => string;
   path: (city: string, slug: string) => string;
+  lcpHref?: (d: Hood) => string;
 };
 
 function hood(): Render {
@@ -102,6 +105,16 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
+function failureHeaders(base: Headers, status: number): Headers {
+  const headers = new Headers(base);
+  headers.delete("content-length");
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  if (status === 503) headers.set("Retry-After", "60");
+  return headers;
+}
+
 export function inject(html: string, d: Hood): string {
   const H = hood();
   const box = /<div id="dealsBody"[^>]*>[\s\S]*?<!--\/deals-->/;
@@ -110,6 +123,8 @@ export function inject(html: string, d: Hood): string {
   const full = `${t} | שוק נדל״ן`;
   const desc = H.description(d);
   const h1 = `שכונת ${d.name}, ${d.city}`;
+  const lcp = H.lcpHref ? H.lcpHref(d) : "";
+  const preload = lcp ? `<link rel="preload" as="image" href="${attr(lcp)}" fetchpriority="high">\n` : "";
   return html
     .replace(box, () => `<div id="dealsBody" data-ssr="1">\n${H.render(d)}\n<!--/deals-->`)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
@@ -118,7 +133,7 @@ export function inject(html: string, d: Hood): string {
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
     .replace(/(<h1 id="dealsH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(h1)}${b}`)
     .replace(/(<p id="dealsLead">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(desc)}${b}`)
-    .replace(/<\/head>/i, () => `<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -130,27 +145,40 @@ export default async function handler(request: Request, context: Context) {
   const html = await res.text();
   let out = html;
   let cache = false;
+  let status = res.status;
 
   try {
     if (!parts) {
       out = noindex(html);
+      status = 404;
     } else {
       out = withUrl(html, parts[0], parts[1]);
       const data = await rpc("neighborhood_page", { p_city: parts[0], p_slug: parts[1] });
       if (data === null) {
         out = noindex(out);
-      } else if (data && typeof data === "object") {
+        status = 404;
+      } else if (data && typeof data === "object" && !Array.isArray(data)) {
         const d = data as Hood;
         const filled = inject(out, d);
         cache = filled !== out;
         out = filled;
-        // דף דל הוא תוכן דל בעיני גוגל: נשאר לגולש/ת, לא לאינדקס ולא ל-sitemap
-        if (cache && !Number(d.props_active || 0) && Number(d.deals || 0) < THIN_DEALS) out = noindex(out);
+        /* ‏אותו כלל כמו ה-sitemap (‏lib/indexability.ts). הדף נשאר 200. */
+        if (cache && !neighborhoodIndexable(Number(d.props_active || 0), String(d.market_slug || ""), liveMarketSlugs())) {
+          out = noindex(out);
+        }
+      } else {
+        /* ‏undefined, או תשובה שאינה אובייקט: כשל זמני. בלי noindex. */
+        status = 503;
       }
     }
   } catch {
     out = parts ? withUrl(html, parts[0], parts[1]) : html;
     cache = false;
+    status = 503;
+  }
+
+  if (status === 404 || status === 503) {
+    return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
   const headers = new Headers(res.headers);
@@ -159,6 +187,7 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
+  if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
   return new Response(out, { status: res.status, headers });
 }
 

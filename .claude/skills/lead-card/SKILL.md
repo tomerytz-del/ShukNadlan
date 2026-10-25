@@ -80,6 +80,16 @@ description: כרטיס הליד ב-CRM של שוק נדל״ן - buildLeadCard /
   ‏`leadsPriorityGroups`, משותפים עם דף הבית). מקור חדש נכנס בארבעה מקומות: `leadSrcKey`,
   ‏`LEAD_SRC` (תווית, גוון ו"למה עכשיו"), ‏`LEAD_PRIO`, ו-`LEAD_SRC_FILTERS` אם יש לו צ'יפ.
   מקור שחסר ב-`LEAD_PRIO` נותן `NaN` בהשוואה, והמיון נופל לתאריך בלבד - בשקט.
+- **ליד מפוסט בפייסבוק** (`source` = `facebook_group` / `facebook_marketplace`,
+  ‏`lead_type` = `owner_inbound` או `seeker_inbound`) נולד רק אחרי הסכמה, ונספר
+  תחת "רשתות חברתיות" (`LEAD_SOCIAL_SOURCES`). ליד בעלים ממנו נשאר "לידי בעלים".
+  ‏`seeker_inbound` מקבל ענף משלו ב-`leadKind`, ובלעדיו הוא נופל ל"ליד קונה".
+- **הלשונית "ביקוש פתוח" אינה לידים**: היא נטענת מ-`open_demand_list()` רק
+  כשנפתחת (`renderOpenDemand`), בלי שלב, ארכיון, חיוג או וואטסאפ - רק
+  "אני פונה - לפוסט" (`open_demand_claim`, שמוריד את הביקוש מהרשימה של
+  השאר) וההנחיה להגיב בפייסבוק. המונה בלשונית סופר רק את מה שלא נתפס. ‏`leadsTab = 'demand'` עוצר את
+  `renderLeadsUnified` לפני הצ'יפים. אל תכניסו אותה ל-`allLeads`. הסקיל
+  `scraped-leads`.
 - **מה שזוהה בשיחה נקרא מהשיחה, לא מהליד** (`leadCallById` ← `agent_calls.extracted`):
   התגיות (`leadCallFacts`), השם, ו"השיחה לא הסתיימה" (`callCutOff`). הסקיל `call-tracking`.
 - כפתורי "התקשרות" ו"וואטסאפ" בכרטיס העדיפות קוראים ל-`markLeadResponded` **ו**

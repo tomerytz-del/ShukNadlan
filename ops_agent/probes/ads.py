@@ -27,7 +27,8 @@ from ..models import Finding
 # הפעולות שנוגעות במטא. ‏generate_copy/save_copy ומודיעין השווקים אינם
 # כאן - הם לא יודעים דבר על הטוקן של מטא.
 META_ACTIONS = ("sync_insights", "sync_leads", "set_status", "set_budget",
-                "subscribe_page", "create_campaign", "discard_campaign")
+                "subscribe_page", "create_campaign", "discard_campaign",
+                "create_paused_launch")
 
 
 def run(ctx) -> Iterator[Finding]:

@@ -371,7 +371,12 @@
     // צריך לזכור לקרוא ל-hydrateVideos אחרי כל רינדור — וזה בדיוק הסוג של
     // "לזכור" ששוכחים בו את הרצועה הרביעית.
     scheduleHydrate();
-    return '<video class="pc-cover-video" muted loop playsinline preload="none" ' +
+    // רילס של המערכת (תבנית D, ‏‎marketing-reel-…‎) נכנס לאריח שלם: ‏cover היה
+    // גוזר ממנו את המחיר שלמעלה ואת פס הסוכן/ת שלמטה, כלומר בדיוק את מה
+    // שהרילס בנוי סביבו. סרטון אנכי שהסוכן/ת צילם/ה בטלפון נשאר ב-cover
+    // וממלא את האריח כמו קודם - אין בו טקסט שנחתך.
+    var portrait = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i.test(src) ? ' pc-portrait' : '';
+    return '<video class="pc-cover-video' + portrait + '" muted loop playsinline preload="none" ' +
       'aria-hidden="true" tabindex="-1" data-pc-video="' + escapeHtml(src) + '"></video>';
   }
 
@@ -649,6 +654,8 @@
     '.pc-cover-video{',
     '  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;',
     '  z-index:0;pointer-events:none}',
+    /* רילס (תבנית D): שלם, על רקע כהה של האריח במקום שהתמונה תבצבץ מהצדדים */
+    '.pc-cover-video.pc-portrait{object-fit:contain;background:#0b1420}',
     /* ‏scrim העליון של התגיות מיותר כאן — ה-scrim התחתון של הטקסט חזק
        הרבה יותר, ושניהם יחד הכהו את התמונה כולה. */
     '.prop-card.pc-cover .pc-scrim{',

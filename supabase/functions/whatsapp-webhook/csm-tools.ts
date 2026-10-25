@@ -11,6 +11,7 @@
 // ============================================================================
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { csmLinkCatalog, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "./csm-links.ts";
 
 type Row = Record<string, unknown>;
 
@@ -24,6 +25,30 @@ const STAGES: Record<string, string> = {
 };
 const STAGE_ORDER = Object.keys(STAGES);
 const WINS = ["connect", "property", "client", "match", "post", "mentor", "reminder"];
+const NOTIFY_KINDS = ["new_agent", "at_risk", "meeting_reminder", "call_ready", "daily_digest", "mentor_tip"];
+const AGENDA_KINDS: Record<string, string> = {
+  first_win: "פגישת הצלחה ראשונה",
+  followup: "פגישת מעקב",
+  call: "שיחה",
+  office_visit: "ביקור במשרד",
+  training: "הדרכה",
+  other: "פגישה",
+};
+const AGENDA_STATUS: Record<string, string> = {
+  scheduled: "מתוכננת", done: "התקיימה", cancelled: "בוטלה", no_show: "לא הגיע/ה",
+};
+const SETTINGS_KEYS = ["display_name", "notify_whatsapp", "notify_off", "digest_time", "work_days",
+  "quiet_from", "quiet_to", "meeting_minutes", "reminder_minutes", "meeting_link"];
+const SETTINGS_ERRORS: Record<string, string> = {
+  bad_name: "השם ריק או ארוך מדי.",
+  bad_time: "שעה צריכה להיות בפורמט HH:MM.",
+  bad_days: "ימי העבודה הם מספרים מ-0 (ראשון) עד 6 (שבת).",
+  bad_minutes: "מספר הדקות מחוץ לטווח.",
+  bad_link: "הקישור צריך להתחיל ב-https://.",
+  bad_notify_off: "רשימת הסוגים אינה תקינה.",
+  phone_web_only: "את הנייד משנים באזור ההטמעה, בלשונית \"הגדרות\".",
+  not_found: "לא מצאתי את הפרופיל שלך.",
+};
 
 
 export const CSM_TOOLS: Anthropic.Tool[] = [
@@ -148,7 +173,172 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
       required: ["call_id", "agent_id"],
     },
   },
+  {
+    name: "csm_agenda_list",
+    description:
+      "היומן שלה: הפגישות שקבעה (עם event_id), ומי שמועד הקשר שלו/ה בצנרת נופל בטווח ואין לו/ה פגישה. " +
+      "בלי תאריך - שבעה ימים מהיום. לשאלות כמו \"מה יש לי היום?\", \"מה השבוע?\", \"מתי הפגישה עם יוסי?\".",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "YYYY-MM-DD, היום הראשון בטווח (שעון ישראל). ריק = היום" },
+        days: { type: "integer", minimum: 1, maximum: 31, description: "כמה ימים. ברירת מחדל 1 כשיש תאריך, 7 בלעדיו" },
+      },
+    },
+  },
+  {
+    name: "csm_agenda_add",
+    description:
+      "קביעת פגישה ביומן שלה. kind: first_win (פגישת הצלחה ראשונה), followup (פגישת מעקב), call (שיחה), " +
+      "office_visit (ביקור במשרד), training (הדרכה קבוצתית), other. פגישה עם סוכן/ת \"נרשם/ה\" מעבירה ל\"נקבעה פגישה\" " +
+      "ומועד הקשר בצנרת הופך למועד הפגישה. קודם csm_find_agent למזהה; **לא נמצא/ה במאגר - קובעים בכל זאת**, בלי agent_id " +
+      "ועם with_name (ו-with_phone אם נאמר), בלי לעצור לשאול. התזכורת יוצאת לבד לפני הפגישה. " +
+      "מחזיר קישור \"הוספה ליומן Google\" - לצרף אותו לתשובה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "מ-csm_find_agent. לא חובה (הדרכה קבוצתית, משרד שעוד לא נרשם)" },
+        with_name: { type: "string", description: "עם מי, כשאין agent_id - מי שלא נמצא/ה במאגר או עוד לא נרשם/ה. נכנס לכותרת" },
+        with_phone: { type: "string", description: "הטלפון של מי שאינו/ה במאגר, אם נאמר. נכנס להערות" },
+        kind: { type: "string", enum: ["first_win", "followup", "call", "office_visit", "training", "other"] },
+        title: { type: "string", description: "ריק = לפי הסוג והשם" },
+        date: { type: "string", description: "YYYY-MM-DD, שעון ישראל" },
+        time: { type: "string", description: "HH:MM, שעון ישראל" },
+        duration_minutes: { type: "integer", minimum: 5, maximum: 600, description: "ריק = ברירת המחדל שלה" },
+        location: { type: "string", description: "כתובת, או \"טלפון\" / \"זום\"" },
+        meeting_url: { type: "string", description: "קישור לפגישה בווידאו" },
+        use_my_link: { type: "boolean", description: "true = הקישור הקבוע שלה מההגדרות" },
+        reminder_minutes: { type: "integer", minimum: 0, maximum: 1440, description: "ריק = ברירת המחדל שלה; 0 = בלי תזכורת" },
+        notes: { type: "string" },
+      },
+      required: ["date", "time"],
+    },
+  },
+  {
+    name: "csm_agenda_update",
+    description:
+      "שינוי פגישה ביומן לפי event_id (מ-csm_agenda_list): הזזה (date/time), אורך, מקום, קישור, הערה, או סטטוס - " +
+      "done (התקיימה), cancelled (בוטלה), no_show (לא הגיע/ה), scheduled (החזרה). אחרי done עם סוכן/ת - להציע לרשום " +
+      "אותה ב-csm_log_session.",
+    input_schema: {
+      type: "object",
+      properties: {
+        event_id: { type: "string" },
+        agent_id: { type: "string", description: "שיוך לסוכן/ת (מ-csm_find_agent) של פגישה שנקבעה בלי שיוך" },
+        date: { type: "string", description: "YYYY-MM-DD" },
+        time: { type: "string", description: "HH:MM" },
+        duration_minutes: { type: "integer", minimum: 5, maximum: 600 },
+        status: { type: "string", enum: ["scheduled", "done", "cancelled", "no_show"] },
+        title: { type: "string" },
+        location: { type: "string" },
+        meeting_url: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "csm_notifications",
+    description:
+      "ההתראות שלה (הפעמון באזור ההטמעה): סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה, תזכורות לפגישות, הקלטה " +
+      "שהסתיימה וסיכום הבוקר. מחזיר את שלא נקראו. mark_read=true מסמן הכול כנקרא.",
+    input_schema: {
+      type: "object",
+      properties: { mark_read: { type: "boolean" } },
+    },
+  },
+  {
+    name: "csm_settings",
+    description:
+      "ההגדרות שלה. בלי שדות - מה מוגדר עכשיו. עם שדות - עדכון: display_name, notify_whatsapp (התראות בוואטסאפ), " +
+      "notify_off (סוגים לכבות: new_agent, at_risk, meeting_reminder, call_ready, daily_digest, mentor_tip=העצה היומית מהמנטור - הרשימה המלאה של מה שכבוי), " +
+      "digest_time (שעת סיכום הבוקר HH:MM), work_days (0=ראשון עד 6=שבת), quiet_from / quiet_to (שעות בלי וואטסאפ, " +
+      "חוץ מתזכורת לפגישה), meeting_minutes (אורך פגישה), reminder_minutes (כמה דקות לפני), meeting_link (קישור קבוע " +
+      "לפגישות וידאו, https). הנייד והמייל - רק באזור ההטמעה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        display_name: { type: "string" },
+        notify_whatsapp: { type: "boolean" },
+        notify_off: { type: "array", items: { type: "string", enum: NOTIFY_KINDS } },
+        digest_time: { type: "string" },
+        work_days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 } },
+        quiet_from: { type: "string" },
+        quiet_to: { type: "string" },
+        meeting_minutes: { type: "integer", minimum: 10, maximum: 240 },
+        reminder_minutes: { type: "integer", minimum: 0, maximum: 1440 },
+        meeting_link: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "csm_links",
+    description:
+      "הקישורים לאתר ול-CRM שאפשר לתת לסוכן/ת: מסך ב-CRM (נכסים, לקוחות, לידים, יומן, הסכמים, פרופיל, הגדרות, " +
+      "ארנק, יומן Google, ולמנהלים - צוות, דאשבורד המשרד ודף המשרד), דפי האתר (מסלולים, רכישה, הרשמה, שאלות נפוצות, " +
+      "מחירים ועסקאות), הדף האישי של הסוכן/ת ושל המשרד, וצ'אט עם גבריאלה. עם agent_id - הכתובות המלאות לסוכן/ת הזה/ו. " +
+      "רשימה סגורה: קישור שאינו כאן לא נשלח.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "לכתובות האישיות (הדף שלו/ה, דף המשרד). לא חובה" },
+        key: { type: "string", description: "קישור אחד לפי המפתח מהרשימה. ריק = כל הרשימה" },
+      },
+    },
+  },
+  {
+    name: "csm_send_to_agent",
+    description:
+      "שליחת הודעה עם קישור אחד מ-csm_links (למשל המסלולים - pricing) - לסוכן/ת במערכת (agent_id), או למי שעוד " +
+      "לא במערכת, כמו משרד שמגייסים (phone + name). " +
+      "לסוכן/ת: מהמספר של גבריאלה בשמה, **בשני שלבים** - בלי confirmed מחזיר את הנוסח, להראות לה ולשאול; " +
+      "confirmed=true רק אחרי אישור מפורש לנוסח הזה. via=my_phone - במקום זה קישור שפותח את הוואטסאפ שלה עם ההודעה מוכנה. " +
+      "למי שלא במערכת: תמיד קישור לשליחה מהטלפון שלה (Meta אינה מתירה לעסק לפתוח שיחה עם מי שלא פנה אליו), " +
+      "ורק דפים ציבוריים - לא מסכי CRM.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "מ-csm_find_agent, לסוכן/ת במערכת" },
+        phone: { type: "string", description: "נייד של מי שלא במערכת" },
+        name: { type: "string", description: "השם של מי שלא במערכת, לפתיחת ההודעה" },
+        message: { type: "string", description: "גוף ההודעה, בגוף ראשון שלה, קצר ובשפה של וואטסאפ" },
+        link_key: { type: "string", description: "מפתח מ-csm_links. לא חובה" },
+        via: { type: "string", enum: ["gabriela", "my_phone"], description: "לסוכן/ת. ברירת מחדל gabriela" },
+        call_id: { type: "string", description: "אחרי סיכום שיחה: ההודעה המוצעת מהניתוח והסוכן/ת שהשיחה משויכת אליו/ה (message ו-agent_id לא חובה)" },
+        confirmed: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "csm_draft_message",
+    description:
+      "הנתונים לניסוח הודעה אישית לסוכן/ת: השלב, השימוש בגבריאלה, נכסים ולקוחות, היעד השבועי והפגישה האחרונה, " +
+      "סיכום השיחה האחרונה וההודעה שהוצעה בה, וההודעות שכבר נשלחו - ועם goal, ההנחיה מהשיטה למטרה הזו והקישור המתאים. " +
+      "את כותבת טיוטה אחת לפי זה, ואז csm_send_to_agent (תצוגה, אישור, שליחה). " +
+      "goal: re_engage (להחזיר מי שנעלם/ה), book_meeting (לתאם פגישת הצלחה ראשונה), after_meeting (תודה ויעד אחרי פגישה), " +
+      "weekly_goal (תזכורת ליעד), congrats (חיזוק על הישג), free (לפי notes).",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        goal: { type: "string", enum: ["re_engage", "book_meeting", "after_meeting", "weekly_goal", "congrats", "free"] },
+        notes: { type: "string", description: "מה היא רוצה שייאמר" },
+      },
+      required: ["agent_id"],
+    },
+  },
 ];
+
+/* ההנחיה לכל מטרה, מתוך CSM_PLAYBOOK, והקישור שמתאים לה. אותם כללים של המנטור:
+   כלל אצבע ולא מספר שלא נמדד, בלי הבטחת תוצאה. */
+const DRAFT_GOALS: Record<string, { guide: string; link: string | null }> = {
+  re_engage: { link: "gabriela", guide: "בלי אשמה ובלי \"למה לא\". משפט אחד שמכיר בזה שהיום שלו/ה עמוס, פעולה אחת קטנה עם הפקודה המדויקת לגבריאלה (לפי מה שחסר לו/ה בנתונים - נכס, לקוח/ה או פוסט), ושאלה שעונים עליה בכן או לא. עד 4 שורות." },
+  book_meeting: { link: null, guide: "הזמנה לפגישת הצלחה ראשונה של 30-45 דקות: מה יוצאים איתו (נכס ראשון בגבריאלה ופוסט שיווקי מוכן), ושתי הצעות מועד קונקרטיות. עד 4 שורות." },
+  after_meeting: { link: "crm_properties", guide: "תודה קצרה, היעד השבועי שסוכם (מהנתונים), הפקודה לפעולה הבאה, ומתי נדבר שוב. עד 5 שורות." },
+  weekly_goal: { link: null, guide: "תזכורת ליעד השבועי כמו שסוכם, מה כבר נעשה לפי הנתונים (בלי להמציא), והפקודה לצעד הבא. עד 4 שורות." },
+  congrats: { link: "agent_page", guide: "חיזוק על הישג אמיתי מהנתונים בלבד (נכס פעיל, פוסט, לקוחות), והצעד הבא שבונה עליו. עד 4 שורות." },
+  free: { link: null, guide: "לפי מה שהיא ביקשה ב-notes, קצר, בגוף ראשון שלה, עם פעולה אחת ברורה." },
+};
 
 
 /* ההיכרות ו"מה אפשר לעשות כאן": נוסח קבוע ולא מהמודל - כך הוא תמיד מדויק
@@ -165,9 +355,14 @@ export function csmCapabilities(name?: string | null, first = false): string {
     "- *סוכן/ת או משרד* - טלפון, מייל, כתובת ורמת השימוש: \"תני לי את הפרטים של יוסי\", \"מה המצב במשרד נדל\"ן הצפון?\"",
     "- *לעדכן שלב ומועד קשר* - \"תעבירי את יוסי לפיילוט פעיל ונדבר ביום חמישי\"",
     "- *לרשום פגישה* - \"יוסי העלה נכס ופוסט, דירוג 5, היעד: 3 נכסים עד חמישי\"",
-    "- *הקלטת שיחה* - שלחי לי קובץ הקלטה, ואחזיר תמלול, סיכום, המלצות והודעה מוכנה לסוכן/ת",
+    "- *הקלטת שיחה* - שלחי לי קובץ הקלטה, ואחזיר תמלול, סיכום, המלצות והודעה מוכנה לסוכן/ת. שיחות למספר הווירטואלי שלך (אם יש) מגיעות אלייך לבד, עם ההקלטה",
     "- *בקשת פיתוח* - \"יוסי ביקש שדה מחסן בטופס הנכס\"",
     "- *המנטור* - \"שאלה למנטור: עם איזה משרדים להתחיל השבוע?\"",
+    "- *היומן* - \"תקבעי לי פגישת הצלחה ראשונה עם יוסי ביום שלישי ב-10:00\", \"מה יש לי היום?\", \"תזיזי את הפגישה עם דנה לחמישי\"",
+    "- *התראות* - תזכורת לפני כל פגישה, סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה, סיכום בוקר ועצה מהמנטור כל בוקר: \"מה ההתראות שלי?\"",
+    "- *הגדרות* - \"תכבי לי את סיכום הבוקר\", \"תזכורת שעה לפני כל פגישה\", \"בלי וואטסאפ אחרי 20:00\"",
+    "- *הודעה לסוכן/ת* - \"תכתבי ליוסי הודעה שמחזירה אותו\", \"הודעת תודה לדנה אחרי הפגישה\"; ואחרי סיכום שיחה - \"שלחי לו\" (אראה לך לפני)",
+    "- *קישורים לסוכנים* - \"מה הקישור למסלולים?\", \"תשלחי ליוסי את הקישור להוספת נכס ב-CRM\" (אראה לך את הנוסח לפני שאשלח), \"תכיני לי הודעה עם המסלולים למשרד אלון 052-1234567\" (קישור שנשלח מהטלפון שלך)",
     "",
     "אפשר לכתוב או לשלוח הודעה קולית. הכול נשמר גם באזור ההטמעה: https://shuknadlan.co.il/csm",
     "בכל רגע אפשר לכתוב \"מה אפשר לעשות כאן\" ואזכיר.",
@@ -183,7 +378,8 @@ export const CSM_GREETING = /^(היי|הי|הַי|שלום|אהלן|בוקר ט�
 
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const days = (v: unknown) => (v ? Math.floor((Date.now() - new Date(String(v)).getTime()) / 86400000) : null);
-const norm = (s: unknown) => String(s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+// גרש וגרשיים בכל צורה (״ " ׳ ') יוצאים, כדי ש"נדל"ן" ו"נדל״ן" יהיו אותו דבר
+const norm = (s: unknown) => String(s ?? "").replace(/["'\u05F3\u05F4\u201C\u201D\u2019]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
 const digits = (s: unknown) => String(s ?? "").replace(/\D/g, "");
 
 function waDigits(phone: unknown): string {
@@ -197,6 +393,53 @@ function followupIso(date: unknown): string | null {
   if (!m) return null;
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T10:00:00+03:00`);
   return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/* "2026-10-04" + "10:00" בשעון ישראל → ISO ב-UTC, עם שעון קיץ/חורף. עותק של
+   ilLocalToIso ב-agent.ts: הקובץ הזה לא מייבא מהעוזרת של הסוכנים
+   (office_coach_test). */
+function ilOffsetMinutes(utcMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Math.round((Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")) - utcMs) / 60000);
+}
+export function ilLocalToIso(date: unknown, time: unknown): string | null {
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date ?? "").trim());
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(String(time ?? "").trim());
+  if (!dm || !tm) return null;
+  const [y, mo, d, h, mi] = [+dm[1], +dm[2], +dm[3], +tm[1], +tm[2]];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
+  const naive = Date.UTC(y, mo - 1, d, h, mi);
+  let utc = naive - ilOffsetMinutes(naive) * 60000;
+  utc = naive - ilOffsetMinutes(utc) * 60000;
+  return new Date(utc).toISOString();
+}
+const ilDate = (ms: number) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+const ilTime = (ms: number) =>
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
+const ilWhen = (iso: unknown) =>
+  new Date(String(iso)).toLocaleString("he-IL", {
+    timeZone: "Asia/Jerusalem", weekday: "long", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+/* "הוספה ליומן Google" - קישור תבנית, בלי OAuth ובלי גישה ליומן שלה. אותו
+   מבנה של csmGcalUrl ב-assets/crm-csm.js. */
+export function gcalTemplateUrl(e: { title: string; starts_at: string; duration_minutes: number; details?: string; location?: string }): string {
+  const fmt = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const start = new Date(e.starts_at).getTime();
+  const q = new URLSearchParams({
+    action: "TEMPLATE",
+    text: e.title,
+    dates: fmt(start) + "/" + fmt(start + e.duration_minutes * 60000),
+    ctz: "Asia/Jerusalem",
+  });
+  if (e.details) q.set("details", e.details.slice(0, 1200));
+  if (e.location) q.set("location", e.location);
+  return "https://calendar.google.com/calendar/render?" + q.toString();
 }
 
 function agentCard(r: Row) {
@@ -244,16 +487,380 @@ function atRisk(r: Row) {
   return r.stage !== "champion" && (days(r.joined_at) ?? 0) >= 5 && (days(r.last_gabriela_at) ?? 999) >= 5;
 }
 
-/* ‏staff: השורה ב-csm_staff שזוהתה לפי הטלפון (csm-chat.ts). ‏askMentor מוזרק
-   כדי שהקובץ לא ייבא את המנטור (וממנו npm:) בבדיקות. */
+/* ‏staff: השורה ב-csm_staff שזוהתה לפי הטלפון (csm-chat.ts). ‏askMentor ו-
+   ‏busyCheck מוזרקים כדי שהקובץ לא ייבא את המנטור (npm:) ואת יומן Google
+   (‏Deno.env) בבדיקות שרצות ב-node. ‏busyCheck מחזיר את הזמנים התפוסים ביומן
+   הראשי שלה ב-Google, או null כשאין חיבור עם הרשאת פנוי/תפוס. */
+export type BusyCheck = (fromIso: string, toIso: string) => Promise<Array<{ start: string; end: string }> | null>;
+
+/* ‏sendToAgent: השליחה עצמה (whatsapp.ts), מוזרקת מאותה סיבה. ‏inWindow קובע
+   טקסט מלא או תבנית; ‏path הוא סיומת הכפתור של התבנית. */
+export type SendToAgent = (a: {
+  agentId: string; phone: string; firstName: string; text: string; path: string | null; inWindow: boolean;
+}) => Promise<{ ok: boolean; waMessageId?: string | null; error?: string }>;
+
+// הגנה על דירוג האיכות של המספר אצל Meta: הרבה הודעות יזומות ביום מאותו
+// מספר הן מה שמוריד אותו. 40 ביום לאשת צוות הן הרבה מעבר לעבודה רגילה.
+const OUTREACH_DAILY_CAP = 40;
+
 export async function runCsmTool(
-  supabase: SupabaseClient, staff: { id: string }, name: string, input: Record<string, unknown>,
+  supabase: SupabaseClient, staff: { id: string; display_name?: string | null }, name: string, input: Record<string, unknown>,
   askMentor?: (q: unknown) => Promise<unknown>,
+  busyCheck?: BusyCheck,
+  sendToAgent?: SendToAgent,
 ): Promise<unknown> {
   if (!staff?.id) return { ok: false, error: "הכלי פתוח לצוות ההטמעה בלבד." };
 
   if (name === "csm_ask_mentor") {
     return askMentor ? await askMentor(input.question) : { ok: false, error: "המנטור לא זמין כרגע." };
+  }
+
+  if (name === "csm_draft_message") {
+    const rows = await overviewRows(supabase);
+    const target = rows.find((r) => r.agent_id === String(input.agent_id ?? ""));
+    if (!target) return { ok: false, error: "agent_id לא נמצא. קודם csm_find_agent." };
+    const goal = DRAFT_GOALS[String(input.goal || "")] ? String(input.goal) : "free";
+    const [{ data: calls }, { data: sent }, { data: ses }] = await Promise.all([
+      supabase.from("csm_calls").select("id, created_at, analysis").eq("agent_id", target.agent_id).eq("status", "done")
+        .order("created_at", { ascending: false }).limit(1),
+      supabase.from("csm_messages").select("body, created_at").eq("agent_id", target.agent_id)
+        .order("created_at", { ascending: false }).limit(3),
+      supabase.from("csm_sessions").select("held_at, notes, weekly_goal").eq("agent_id", target.agent_id)
+        .order("held_at", { ascending: false }).limit(1),
+    ]);
+    const lastCall = ((calls as Row[] | null) ?? [])[0];
+    const a = (lastCall?.analysis ?? null) as Row | null;
+    return {
+      ok: true,
+      agent: { ...agentCard(target), phone: undefined, email: undefined, whatsapp: undefined },
+      last_session: ((ses as Row[] | null) ?? [])[0] ?? null,
+      last_call: lastCall ? { call_id: lastCall.id, date: String(lastCall.created_at).slice(0, 10), summary: a?.summary ?? null,
+        commitments: a?.commitments ?? [], suggested_message: a?.message_draft ?? null } : null,
+      already_sent: ((sent as Row[] | null) ?? []).map((m) => ({ date: String(m.created_at).slice(0, 10), text: String(m.body).slice(0, 300) })),
+      goal, guide: DRAFT_GOALS[goal].guide, suggested_link_key: DRAFT_GOALS[goal].link,
+      notes: input.notes ? String(input.notes).slice(0, 500) : null,
+      note: "לכתוב טיוטה אחת לפי guide, בגוף ראשון שלה, בלי לחזור על already_sent ובלי מספר שאינו בנתונים. ואז csm_send_to_agent " +
+        "(עם suggested_link_key כשמתאים) כדי להראות לה את הנוסח לאישור.",
+    };
+  }
+
+  if (name === "csm_send_to_agent" && input.call_id) {
+    // ‏"שלחי לו" אחרי סיכום שיחה: ההודעה המוצעת והסוכן/ת מהשיחה, אלא אם נאמר אחרת
+    const { data: call } = await supabase.from("csm_calls").select("id, agent_id, analysis, status")
+      .eq("id", String(input.call_id)).maybeSingle();
+    if (!call) return { ok: false, error: "השיחה לא נמצאה." };
+    if (!input.agent_id && !call.agent_id) return { ok: false, error: "השיחה עוד לא משויכת לסוכן/ת. עם מי היא הייתה? (csm_link_call)" };
+    const draft = String((call.analysis as Row | null)?.message_draft ?? "").trim();
+    if (!input.message && !draft) return { ok: false, error: "אין בסיכום הזה הודעה מוצעת. מה לכתוב?" };
+    input = { ...input, agent_id: input.agent_id || call.agent_id, message: input.message || draft };
+  }
+
+  if (name === "csm_links" || name === "csm_send_to_agent") {
+    const agentId = input.agent_id ? String(input.agent_id) : null;
+    let ctx: { agent_slug?: string | null; agency_slug?: string | null; role?: string | null } = {};
+    let target: Row | null = null;
+    if (agentId) {
+      const rows = await overviewRows(supabase);
+      target = rows.find((r) => r.agent_id === agentId) ?? null;
+      if (!target) return { ok: false, error: "agent_id לא נמצא. קודם csm_find_agent." };
+      // שתי שאילתות ולא embed: ל-agency_members יש יותר ממפתח זר אחד ל-agencies,
+      // ו-embed נכשל ב-PGRST201 (scripts/check_agency_embed.py)
+      const { data: m } = await supabase.from("agency_members")
+        .select("slug, phone_e164, agency_id").eq("id", agentId).maybeSingle();
+      const { data: ag } = m?.agency_id
+        ? await supabase.from("agencies").select("slug").eq("id", m.agency_id).maybeSingle()
+        : { data: null };
+      ctx = { agent_slug: m?.slug ?? null, agency_slug: ag?.slug ?? null, role: String(target.role || "") };
+      target = { ...target, phone_e164: m?.phone_e164 ?? null };
+    }
+
+    if (name === "csm_links") {
+      if (input.key) {
+        const l = csmLinkFor(String(input.key), ctx);
+        if (!l) return { ok: false, error: agentId ? "אין קישור כזה לסוכן/ת הזה/ו (מפתח לא מוכר, או שאין לו/ה דף באתר עדיין)." : "מפתח לא מוכר, או קישור אישי שצריך agent_id." };
+        return { ok: true, link: l };
+      }
+      return {
+        ok: true,
+        links: csmLinkCatalog().map((l) => {
+          const full = csmLinkFor(l.key, ctx);
+          return { ...l, url: full?.url ?? null };
+        }),
+        note: "url ריק = קישור אישי שצריך agent_id, או שאין לסוכן/ת דף באתר. manager_only - מסך שרק מנהל/ת משרד רואה.",
+      };
+    }
+
+    // csm_send_to_agent
+    const message = String(input.message ?? "").trim();
+    if (message.length < 2 || message.length > 900) return { ok: false, error: "ההודעה צריכה להיות בין 2 ל-900 תווים." };
+
+    // מי שעוד לא במערכת (משרד שמגייסים): נייד שאינו של סוכן/ת. רק קישור לשליחה
+    // מהטלפון שלה - לעסק אסור לפתוח שיחה בוואטסאפ עם מי שלא פנה אליו, ופנייה
+    // קרה מהמספר של גבריאלה הייתה פוגעת בדירוג שלו אצל כל הסוכנים.
+    if (!target && input.phone) {
+      const digits = ilMobileDigits(input.phone);
+      if (!digits) return { ok: false, error: "זה לא נראה כמו נייד ישראלי. אפשר לבדוק את המספר?" };
+      const rows = await overviewRows(supabase);
+      const isAgent = rows.find((r) => String(r.phone ?? "").replace(/\D/g, "").replace(/^0/, "972") === digits);
+      if (isAgent) {
+        return { ok: false, error: `המספר הזה של ${isAgent.display_name} שכבר במערכת - לשלוח עם agent_id=${isAgent.agent_id}.` };
+      }
+      const link = input.link_key ? csmLinkFor(String(input.link_key)) : null;
+      if (input.link_key && !link) return { ok: false, error: "הקישור לא ברשימה (csm_links)." };
+      if (link && !csmLinkIsPublic(link.key)) {
+        return { ok: false, error: "זה מסך ב-CRM, ומי שעוד לא במערכת יראה רק מסך כניסה. לשלוח דף ציבורי - למשל pricing או signup." };
+      }
+      const name = String(input.name ?? "").trim().slice(0, 60);
+      const text = csmOutreachText(null, (name && !message.includes(name) ? `היי ${name}, ` : "") + message, link, true);
+      await supabase.from("csm_messages").insert({
+        staff_id: staff.id, agent_id: null, link_key: link?.key ?? null, url: link?.url ?? null,
+        body: text, channel: "compose", to_phone: digits, to_name: name || null,
+      });
+      return {
+        ok: true, compose_url: waComposeUrl(digits, text), text,
+        note: "לתת לה את compose_url כמו שהוא, עם משפט: לחיצה פותחת את הוואטסאפ שלך עם ההודעה מוכנה ל" + (name || "מספר הזה") +
+          ", ושולחים משם. לא נשלח כלום מהמספר של גבריאלה.",
+      };
+    }
+
+    if (!target) return { ok: false, error: "חסר agent_id (סוכן/ת במערכת) או phone (מי שעוד לא במערכת)." };
+    if (!target.phone_e164) return { ok: false, error: "אין לסוכן/ת נייד בכרטיס, ולכן אי אפשר לשלוח בוואטסאפ." };
+    const link = input.link_key ? csmLinkFor(String(input.link_key), ctx) : null;
+    if (input.link_key && !link) return { ok: false, error: "הקישור לא ברשימה (csm_links), או שאין לסוכן/ת דף כזה." };
+    if (link && csmLinkCatalog().find((l) => l.key === link.key)?.manager_only && target.role !== "manager") {
+      return { ok: false, error: "זה מסך של מנהל/ת משרד, והסוכן/ת הזה/ו אינו/ה מנהל/ת - לא יראה אותו." };
+    }
+    if (input.via === "my_phone") {
+      const own = csmOutreachText(null, message, link, true);
+      await supabase.from("csm_messages").insert({
+        staff_id: staff.id, agent_id: target.agent_id, link_key: link?.key ?? null, url: link?.url ?? null,
+        body: own, channel: "compose", to_phone: String(target.phone_e164),
+      });
+      return { ok: true, compose_url: waComposeUrl(String(target.phone_e164), own), text: own,
+        note: "לתת לה את compose_url: לחיצה פותחת את הוואטסאפ שלה עם ההודעה מוכנה, ושולחים משם." };
+    }
+    const text = csmOutreachText(staff.display_name ?? null, message, link);
+    const { data: conv } = await supabase.from("whatsapp_conversations")
+      .select("last_message_at").eq("agent_id", target.agent_id).maybeSingle();
+    const inWindow = !!conv?.last_message_at && Date.now() - new Date(String(conv.last_message_at)).getTime() < 23 * 3600000;
+
+    if (input.confirmed !== true) {
+      return {
+        ok: true, preview: text, to: target.display_name, will_send_as: inWindow ? "הודעה מלאה" : "הודעת תבנית קצרה עם כפתור לקישור (הסוכן/ת לא כתב/ה לגבריאלה ב-24 השעות האחרונות)",
+        note: "להציג לה את הנוסח כמו שהוא ולשאול אם לשלוח. לשלוח (confirmed=true) רק אחרי אישור מפורש שלה לנוסח הזה.",
+      };
+    }
+    if (!sendToAgent) return { ok: false, error: "השליחה לא זמינה כרגע." };
+    const since = new Date(Date.now() - 86400000).toISOString();
+    const { count } = await supabase.from("csm_messages").select("id", { count: "exact", head: true })
+      .eq("staff_id", staff.id).in("channel", ["text", "template"]).gte("created_at", since);
+    if ((count ?? 0) >= OUTREACH_DAILY_CAP) {
+      return { ok: false, error: `נשלחו כבר ${count} הודעות ב-24 השעות האחרונות - זו התקרה, כדי לשמור על המספר של גבריאלה. אפשר לשלוח מהנייד שלך.` };
+    }
+    const first = String(target.display_name || "").trim().split(/\s+/)[0] || "שלום";
+    const res = await sendToAgent({
+      agentId: String(target.agent_id), phone: String(target.phone_e164), firstName: first,
+      text, path: link?.path ?? null, inWindow,
+    });
+    await supabase.from("csm_messages").insert({
+      staff_id: staff.id, agent_id: target.agent_id, link_key: link?.key ?? null, url: link?.url ?? null,
+      body: text, channel: inWindow ? "text" : "template", wa_message_id: res.waMessageId ?? null,
+      error: res.ok ? null : (res.error || "send_failed").slice(0, 500),
+    });
+    if (!res.ok) return { ok: false, error: "השליחה נכשלה: " + (res.error || "שגיאה לא ידועה") };
+    return { ok: true, sent_to: target.display_name, channel: inWindow ? "הודעה מלאה" : "תבנית עם כפתור" };
+  }
+
+  if (name === "csm_settings") {
+    const patch: Row = {};
+    for (const k of SETTINGS_KEYS) if (input[k] !== undefined && input[k] !== null) patch[k] = input[k];
+    const { data, error } = await supabase.rpc("csm_profile_apply", { p_staff_id: staff.id, p: patch, p_allow_phone: false });
+    if (error) return { ok: false, error: error.message };
+    const res = (data ?? {}) as Row;
+    if (res.error) return { ok: false, error: SETTINGS_ERRORS[String(res.error)] || String(res.error) };
+    return { ok: true, updated: Object.keys(patch), settings: res.profile,
+      note: "work_days: 0=ראשון עד 6=שבת. notify_off = הסוגים הכבויים. לומר במשפט מה השתנה." };
+  }
+
+  if (name === "csm_notifications") {
+    const { data, error, count } = await supabase.from("csm_notifications")
+      .select("id, kind, title, body, created_at", { count: "exact" })
+      .eq("staff_id", staff.id).is("read_at", null)
+      .order("created_at", { ascending: false }).limit(10);
+    if (error) return { ok: false, error: error.message };
+    if (input.mark_read) {
+      const { error: e2 } = await supabase.from("csm_notifications")
+        .update({ read_at: new Date().toISOString() }).eq("staff_id", staff.id).is("read_at", null);
+      if (e2) return { ok: false, error: e2.message };
+    }
+    return {
+      ok: true, unread: count ?? 0, marked_read: !!input.mark_read,
+      notifications: ((data as Row[] | null) ?? []).map((n) => ({
+        kind: n.kind, title: n.title, body: n.body, when: ilWhen(n.created_at),
+      })),
+    };
+  }
+
+  if (name === "csm_agenda_list") {
+    const today = ilDate(Date.now());
+    const from = /^\d{4}-\d{2}-\d{2}$/.test(String(input.date ?? "")) ? String(input.date) : today;
+    const span = Math.min(31, Math.max(1, Number(input.days) || (input.date ? 1 : 7)));
+    const startIso = ilLocalToIso(from, "00:00");
+    if (!startIso) return { ok: false, error: "תאריך לא תקין." };
+    const endIso = new Date(new Date(startIso).getTime() + span * 86400000).toISOString();
+    const [{ data, error }, rows] = await Promise.all([
+      supabase.from("csm_agenda")
+        .select("id, agent_id, kind, title, starts_at, duration_minutes, location, meeting_url, notes, status")
+        .eq("staff_id", staff.id).gte("starts_at", startIso).lt("starts_at", endIso)
+        .order("starts_at").limit(60),
+      overviewRows(supabase),
+    ]);
+    if (error) return { ok: false, error: error.message };
+    const byId = new Map(rows.map((r) => [r.agent_id, r]));
+    const events = (data as Row[] | null) ?? [];
+    const withEvent = new Set(events.filter((e) => e.status === "scheduled").map((e) => e.agent_id));
+    return {
+      ok: true, from, days: span,
+      events: events.map((e) => {
+        const a = e.agent_id ? byId.get(e.agent_id) : null;
+        return {
+          event_id: e.id, when: ilWhen(e.starts_at), minutes: e.duration_minutes,
+          kind: AGENDA_KINDS[String(e.kind)] || e.kind, title: e.title || null,
+          status: AGENDA_STATUS[String(e.status)] || e.status,
+          agent: a ? { agent_id: a.agent_id, name: a.display_name, office: a.agency_name, phone: a.phone } : null,
+          location: e.location || null, meeting_url: e.meeting_url || null, notes: e.notes || null,
+        };
+      }),
+      followups_without_meeting: rows
+        .filter((r) => r.next_followup_at && !withEvent.has(r.agent_id) && r.stage !== "champion" &&
+          new Date(String(r.next_followup_at)).getTime() < new Date(endIso).getTime())
+        .slice(0, 15).map((r) => ({ ...short(r), followup: ilDate(new Date(String(r.next_followup_at)).getTime()) })),
+      note: "להציג לפי יום ושעה. מועד קשר בלי פגישה - להציע לקבוע (csm_agenda_add) או להתקשר.",
+    };
+  }
+
+  if (name === "csm_agenda_add" || name === "csm_agenda_update") {
+    const { data: me } = await supabase.from("csm_staff")
+      .select("meeting_minutes, reminder_minutes, meeting_link").eq("id", staff.id).maybeSingle();
+    const rows = await overviewRows(supabase);
+    const text = (v: unknown, max: number) => (v === undefined || v === null ? undefined : String(v).trim().slice(0, max) || null);
+    const url = (v: unknown) => {
+      const t = text(v, 500);
+      return t === undefined || t === null ? t : /^https?:\/\//i.test(t) ? t : "bad";
+    };
+    let existing: Row | null = null;
+    if (name === "csm_agenda_update") {
+      const { data: ev } = await supabase.from("csm_agenda").select("*")
+        .eq("id", String(input.event_id ?? "")).eq("staff_id", staff.id).maybeSingle();
+      if (!ev) return { ok: false, error: "הפגישה לא נמצאה ביומן שלך. קודם csm_agenda_list." };
+      existing = ev as Row;
+    }
+    const target = input.agent_id ? rows.find((r) => r.agent_id === String(input.agent_id)) : null;
+    if (input.agent_id && !target) return { ok: false, error: "agent_id לא נמצא. קודם csm_find_agent." };
+
+    const patch: Row = {};
+    if (input.date !== undefined || input.time !== undefined) {
+      const prev = existing ? new Date(String(existing.starts_at)).getTime() : null;
+      const date = input.date ?? (prev != null ? ilDate(prev) : undefined);
+      const time = input.time ?? (prev != null ? ilTime(prev) : undefined);
+      const iso = ilLocalToIso(date, time);
+      if (!iso) return { ok: false, error: "צריך תאריך YYYY-MM-DD ושעה HH:MM." };
+      if (new Date(iso).getTime() < Date.now() - 5 * 60000 && (!existing || input.status !== "done")) {
+        return { ok: false, error: "המועד כבר עבר. לאיזה יום ושעה לקבוע?" };
+      }
+      patch.starts_at = iso;
+    }
+    if (input.duration_minutes !== undefined) {
+      const m = Number(input.duration_minutes);
+      if (!Number.isInteger(m) || m < 5 || m > 600) return { ok: false, error: "אורך הפגישה בין 5 ל-600 דקות." };
+      patch.duration_minutes = m;
+    }
+    for (const [k, max] of [["title", 200], ["location", 300], ["notes", 4000]] as const) {
+      const t = text(input[k], max);
+      if (t !== undefined) patch[k] = t;
+    }
+    // מי שאינו/ה במאגר: השם לכותרת והטלפון להערות (אין לו/ה כרטיס לקשר אליו)
+    const withName = target ? null : text(input.with_name, 80) || null;
+    const withPhone = target ? null : text(input.with_phone, 30) || null;
+    if (withPhone) patch.notes = ["טלפון: " + withPhone, patch.notes ?? existing?.notes].filter(Boolean).join("\n");
+    // שיוך בדיעבד: פגישה שנקבעה בלי סוכן/ת, וכעת נמצא/ה
+    if (existing && target) patch.agent_id = target.agent_id;
+    const mu = input.use_my_link && me?.meeting_link ? me.meeting_link : url(input.meeting_url);
+    if (mu === "bad") return { ok: false, error: "הקישור לפגישה צריך להתחיל ב-https://." };
+    if (mu !== undefined) patch.meeting_url = mu;
+    if (input.status !== undefined) {
+      if (!AGENDA_STATUS[String(input.status)]) return { ok: false, error: "סטטוס לא מוכר." };
+      patch.status = String(input.status);
+    }
+
+    let saved: Row | null;
+    if (existing) {
+      if (!Object.keys(patch).length) return { ok: false, error: "לא נאמר מה לשנות." };
+      const { data, error } = await supabase.from("csm_agenda").update(patch)
+        .eq("id", existing.id).eq("staff_id", staff.id).select("*").single();
+      if (error) return { ok: false, error: error.message };
+      saved = data as Row;
+    } else {
+      if (!patch.starts_at) return { ok: false, error: "צריך תאריך ושעה." };
+      const kind = AGENDA_KINDS[String(input.kind)] ? String(input.kind) : (target ? "followup" : "other");
+      const rem = input.reminder_minutes === undefined || input.reminder_minutes === null ? null : Number(input.reminder_minutes);
+      if (rem !== null && (!Number.isInteger(rem) || rem < 0 || rem > 1440)) return { ok: false, error: "תזכורת בין 0 ל-1440 דקות." };
+      const row = {
+        staff_id: staff.id, agent_id: target?.agent_id ?? null, kind,
+        duration_minutes: num(me?.meeting_minutes) || 45, reminder_minutes: rem, ...patch,
+      } as Row;
+      const who = target?.display_name || withName;
+      if (!row.title) row.title = AGENDA_KINDS[kind] + (who ? " - " + who : "");
+      const { data, error } = await supabase.from("csm_agenda").insert(row).select("*").single();
+      if (error) return { ok: false, error: error.message };
+      saved = data as Row;
+    }
+    const a = saved!.agent_id ? rows.find((r) => r.agent_id === saved!.agent_id) : null;
+    // התנגשות: פגישה אחרת שלה שחופפת
+    const start = new Date(String(saved!.starts_at)).getTime();
+    const end = start + num(saved!.duration_minutes) * 60000;
+    const { data: around } = await supabase.from("csm_agenda").select("id, title, starts_at, duration_minutes")
+      .eq("staff_id", staff.id).eq("status", "scheduled").neq("id", String(saved!.id))
+      .gte("starts_at", new Date(start - 10 * 3600000).toISOString()).lt("starts_at", new Date(end).toISOString());
+    const clash = ((around as Row[] | null) ?? []).filter((o) =>
+      new Date(String(o.starts_at)).getTime() + num(o.duration_minutes) * 60000 > start);
+    // יומן Google: מחובר - הפגישה עוברת לבד (google-calendar-sync), ובודקים
+    // את היומן האישי שלה (פנוי/תפוס בלבד). לא מחובר - קישור תבנית.
+    const { data: gconn } = await supabase.from("csm_calendar_connections")
+      .select("status").eq("staff_id", staff.id).maybeSingle();
+    const gSynced = gconn?.status === "active";
+    // רק כן/לא יוצא למודל - לא טווחי הזמן עצמם (privacy.html#google-calendar)
+    let googleBusy: boolean | null = null;
+    if (gSynced && busyCheck && saved!.status === "scheduled") {
+      try {
+        const busy = await busyCheck(new Date(start).toISOString(), new Date(end).toISOString());
+        googleBusy = busy === null ? null : busy.length > 0;
+      } catch (err) {
+        console.warn("csm freebusy failed", String(err));
+      }
+    }
+    const details = [a ? `עם ${a.display_name}${a.agency_name ? " (" + a.agency_name + ")" : ""}` : "",
+      a?.phone ? "טלפון: " + a.phone : "", saved!.meeting_url ? String(saved!.meeting_url) : "",
+      saved!.notes ? String(saved!.notes) : ""].filter(Boolean).join("\n");
+    return {
+      ok: true, event_id: saved!.id, when: ilWhen(saved!.starts_at), minutes: saved!.duration_minutes,
+      title: saved!.title, status: AGENDA_STATUS[String(saved!.status)],
+      agent: a ? a.display_name : null,
+      ...(!a && withName ? { with_name: withName, unlinked: "לא משויכת לסוכן/ת במאגר - לומר בשורה. אפשר לשייך אחר כך (csm_agenda_update עם agent_id)." } : {}),
+      reminder_minutes: saved!.reminder_minutes ?? me?.reminder_minutes ?? null,
+      google_calendar: gSynced ? "נכנסת לבד ליומן Google שלה (יומן \"שוק נדל\"ן\")" : null,
+      google_calendar_url: saved!.status === "scheduled" && !gSynced
+        ? gcalTemplateUrl({ title: String(saved!.title || "פגישה"), starts_at: String(saved!.starts_at),
+          duration_minutes: num(saved!.duration_minutes) || 45, details,
+          location: String(saved!.location || saved!.meeting_url || "") || undefined })
+        : null,
+      clashes: clash.map((o) => ({ title: o.title, when: ilWhen(o.starts_at) })),
+      slot_busy_in_google: googleBusy,
+      note: saved!.status === "done" && a
+        ? "להציע לרשום מה בוצע בפגישה (csm_log_session)."
+        : "לומר מתי נקבע ואת התזכורת. יומן Google מחובר - לומר שהפגישה עוברת לשם לבד; לא מחובר - לצרף את google_calendar_url ולהזכיר שאפשר לחבר בהגדרות באזור. " +
+          "התנגשות ביומן ההטמעה או השעה תפוסה ביומן Google האישי שלה (slot_busy_in_google = true) - לציין ולשאול אם להזיז.",
+    };
   }
 
   if (name === "csm_recent_calls") {
@@ -304,10 +911,23 @@ export async function runCsmTool(
     const q = norm(input.query), qd = digits(input.query);
     if (!q) return { ok: false, error: "צריך שם, טלפון או משרד." };
     const rows = await overviewRows(supabase);
-    const hits = rows.filter((r) =>
-      norm(r.display_name).includes(q) || norm(r.agency_name).includes(q) ||
-      (qd.length >= 6 && (digits(r.phone).endsWith(qd.slice(-9)))));
-    if (!hits.length) return { ok: true, count: 0, note: "לא נמצא/ה סוכן/ת. אפשר לנסות חלק מהשם או את הטלפון." };
+    /* לפי מילים ולא כמחרוזת אחת: "יוסי כהן רימקס" מוצא את יוסי כהן ממשרד
+       רימקס, ו"כהן יוסי" מוצא אותו גם הוא. כל מילה צריכה להופיע בשם, במשרד או
+       במייל. בלי התאמה מלאה - מי שמתאים/ה לחלק מהמילים, כ"אולי". */
+    const words = q.split(" ").filter((w) => w.length >= 2 && !/^\d+$/.test(w));
+    const hay = (r: Row) => [norm(r.display_name), norm(r.agency_name), norm(String(r.email || "").split("@")[0])].join(" ");
+    const phoneHit = (r: Row) => qd.length >= 6 && digits(r.phone).endsWith(qd.slice(-9));
+    const hits = rows.filter((r) => phoneHit(r) || (words.length > 0 && words.every((w) => hay(r).includes(w))));
+    if (!hits.length) {
+      const maybe = words.length > 1 ? rows.filter((r) => words.some((w) => w.length >= 3 && hay(r).includes(w))) : [];
+      return {
+        ok: true, count: 0,
+        maybe: maybe.slice(0, 5).map(short),
+        note: maybe.length
+          ? "אין התאמה מלאה. אלה מתאימים לחלק מהשם - לשאול אם מישהו/י מהם, ולא לנחש. לפגישה - לקבוע מיד בלי agent_id (with_name), ובסוף לשאול אם לשייך לאחד/ת מהם."
+          : "לא נמצא/ה במאגר (מנהלי הפלטפורמה אינם במאגר ההטמעה). לפגישה - לקבוע בכל זאת בלי agent_id, עם with_name.",
+      };
+    }
     if (hits.length > 8) {
       return { ok: true, count: hits.length, agents: hits.slice(0, 15).map(short),
         note: "יותר מדי תוצאות - להציג את הרשימה הקצרה ולשאול למי הכוונה." };

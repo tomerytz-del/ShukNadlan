@@ -581,6 +581,8 @@
 | `supabase/functions/whatsapp-webhook/agent.ts` | ‏`list_agreements`, ‏`agreement_details`, ‏`agreement_sign_links` ו-`prepare_agreement`. |
 | `supabase/functions/_shared/agreement-build.ts` | הרכבת ההסכם בשרת — מה שמחליף את האשף בערוץ הוואטסאפ. |
 | `supabase/functions/_shared/agreement-templates.js` · `agreement-doc.js` | עותק זהה בייט-בייט של מודולי `assets/`, כי ה-CLI אינו מייבא מחוץ ל-`supabase/functions`. |
+| `assets/sign-chrome.css` | מעטפת התצוגה בלבד: כותרת המשרד, כרטיס החתימה, מצבי הדף, אריחי הרשימה ב-CRM. לא נכנסת ל-`document_html` ולא למייל. |
+| `scripts/check_agreement_texts.py` | מרכיב את ששת הטפסים ואת בלוק החתימות ומשווה את צמתי הטקסט לתמונת בסיס. שינוי עיצוב שזז בו נוסח נכשל כאן. |
 | `scripts/check_agreement_assets.py` | חוסם ב-CI פער בין המקור לעותק. נוסח שונה בין השניים אינו נראה בשום מקום. |
 | `supabase/migrations/20260926090000_client_agreements.sql` | `agreements`, `agreement_signers`, הטריגרים וה-RLS. |
 | `supabase/migrations/20260927090000_agreement_signing_verification.sql` | `require_otp`, `allow_passport`, ושדות הקוד החד-פעמי. |
@@ -590,6 +592,21 @@
 | `supabase/migrations/20270205090000_agreement_wa_verify.sql` | `wa_verify_nonce`, `wa_verify_requested_at`. |
 | `supabase/migrations/20260928090000_agreement_manager_notice.sql` | `manager_notified_at` — ההודעה למנהל/ת על בלעדיות היא חד-פעמית. |
 | `supabase/migrations/20260930090000_agreement_signed_notification.sql` | סוג ההתראה `agreement_signed` והטריגר שמצלצל בפעמון על חתימה מרחוק. |
+
+## מעטפת התצוגה, לא גוף המסמך
+
+הדפים (`sign.html`, `agreement.html`, אשף ההסכם ב-CRM) נראים כמו מסמך
+משרדי: פס כחול עם קו זהב, לוגו המשרד ושם המשרד, ולידם הלוגו ו"שוק נדל״ן".
+רישיון וטלפון מוצגים רק כשהם כבר קיימים בחשבון. אין שורת נעילה חדשה ואין
+ניסוח משפטי חדש.
+
+הכותרת יושבת **מחוץ** ל-HTML הקפוא. ב-PDF היא מצולמת יחד עם המסמך
+(`html2canvas`); מספר העמוד וקוד האימות (hex) נכתבים ב-jsPDF כי הם לטיניים.
+הזהב שמשמש כטקסט הוא `#8a6d10` על לבן, ו-`#6b5310` על קרם. `#c9a227` הוא קו
+בלבד.
+
+`scripts/check_agreement_texts.py` רץ באותו workflow של סנכרון המודולים.
+הוא נכשל אם טקסט שהחותם קורא זז, גם כשהדף נראה תקין.
 
 ## למה כל הסגנון במסמך הוא inline
 

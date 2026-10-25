@@ -138,16 +138,13 @@
        ו-netlify/edge-functions/search-pages.ts מזריקה לכל אחד כותרת, תיאור,
        H1 ו-canonical משלו. הרשימה כאן, הרשימה שם והקישורים בבלוק "חיפושים
        פופולריים" שבפוטר חייבות להסכים - scripts/check_canonical.py בודק.
+       צירוף שה-canonical שלו הוא דף נחיתה (/afula/…) אינו כאן: הכתובת
+       הקנונית היא השורה של הדף, לא כתובת הסינון.
 
        ואין כאן lastmod בכוונה: התוכן משתנה עם כל מודעה חדשה, ותאריך מומצא
        גרוע מתאריך חסר (ראו netlify/edge-functions/sitemap.ts). -->
   <url>
     <loc>https://shuknadlan.co.il/?deal=sale</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=3</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
@@ -167,17 +164,7 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://shuknadlan.co.il/?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
@@ -220,5 +207,28 @@
     <loc>https://shuknadlan.co.il/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/מתווכים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ‏דפי נחיתה עם המודעות עצמן (silo-page.ts). צירוף סינון שה-canonical
+       שלו מצביע לכאן אינו שורה נפרדת. lastmod נכתב ב-sitemap.ts מהמסד. -->
+  <url>
+    <loc>https://shuknadlan.co.il/afula/בתים-פרטיים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/דירות-גן</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/דירות-3-חדרים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>

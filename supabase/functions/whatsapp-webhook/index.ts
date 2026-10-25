@@ -13,6 +13,7 @@ import {
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
+import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import {
@@ -1042,15 +1043,31 @@ async function photoButtonReply(
     await saveConversation(agentId, from, conv);
     return true;
   }
+  // ‏**לחיצה מאוחרת** (24.10.2026): הסוכן/ת כבר כתב/ה את פרטי הנכס החדש,
+  // הנכס נפתח עם התמונות, ורק אז נלחץ "נכס חדש" - והתשובה "מה הנכס?" שאלה
+  // על נכס שכבר קיים (19.10). בלי תמונות ממתינות אין מה לשאול: לא נוגעים
+  // ב-last_property_id (הוא כבר הנכס החדש) ואומרים איפה התמונות.
+  if (!pending.length) {
+    const { data: recent } = await supabase.from("properties")
+      .select("title").eq("agent_id", agentId)
+      .gte("created_at", new Date(Date.now() - PHOTO_ASK_GAP_MS).toISOString())
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    await reply(
+      from,
+      recent
+        ? `הנכס החדש כבר נפתח עם התמונות: "${recent.title}" 🏠`
+        : "התמונות כבר שויכו. לנכס חדש - סוג, עסקה ומחיר (וכתובת אם יש).",
+      agentId,
+    );
+    return true;
+  }
   // נכס חדש: "הנכס האחרון" מתנקה, כדי שהתור הבא לא יצרף אליו, והתמונות
   // נשארות ממתינות - יצירת הנכס מצרפת אותן (agent.ts, create_property).
   conv.last_property_id = null;
   await saveConversation(agentId, from, conv);
   await reply(
     from,
-    pending.length
-      ? "מעולה, נכס חדש 🏠 התמונות שמורות בצד. מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש), ואפתח אותו עם התמונות."
-      : "מעולה, נכס חדש 🏠 מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש).",
+    "מעולה, נכס חדש 🏠 התמונות שמורות בצד. מה הנכס? סוג, עסקה ומחיר (וכתובת אם יש), ואפתח אותו עם התמונות.",
     agentId,
   );
   return true;
@@ -1702,6 +1719,48 @@ Deno.serve(async (req: Request) => {
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {
       status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // ‏התראות צוות ההטמעה (‏csm-notify.ts, ‏docs/csm-adoption.md) - pg_cron כל דקה,
+  // רק כש-csm_notify_wa_ready(). אותו אימות פנימי.
+  if (url.searchParams.get("task") === "csm-notify") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runCsmNotify(supabase)
+        .then((r) => console.log("csm notify", JSON.stringify(r)))
+        .catch((err) => console.error("csm notify failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // ‏העצה היומית מהמנטור לצוות ההטמעה (‏csm-notify.ts) - pg_cron כל 10 דקות, רק
+  // כש-csm_mentor_tip_ready(). אותו אימות פנימי.
+  if (url.searchParams.get("task") === "csm-mentor-tips") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runCsmMentorTips(supabase)
+        .then((r) => console.log("csm mentor tips", JSON.stringify(r)))
+        .catch((err) => console.error("csm mentor tips failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
       headers: { "Content-Type": "application/json" },
     });
   }

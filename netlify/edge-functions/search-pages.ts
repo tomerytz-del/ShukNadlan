@@ -70,10 +70,12 @@ const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
 
 export type SearchPage = {
-  /* הכתיב הקנוני של הפרמטרים. זו הכתובת שנכנסת ל-canonical ול-sitemap. */
+  /* הכתיב הקנוני של הפרמטרים. זו הכתובת שנכנסת ל-canonical ול-sitemap,
+     אלא אם יש landing: אז שתי צורות הקידוד של הסינון מצהירות על הדף ההוא. */
   query: string;
   title: string;
   description: string;
+  landing?: string;
 };
 
 /* ‏16 הצירופים שמקושרים מבלוק "חיפושים פופולריים" בפוטר. הוספה כאן מחייבת
@@ -90,6 +92,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=sale&rooms=3",
     title: "דירות 3 חדרים למכירה בעפולה והעמק",
     description: "כל דירות 3 החדרים שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
+    landing: "/afula/דירות-3-חדרים",
   },
   {
     query: "deal=sale&rooms=4",
@@ -110,6 +113,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=sale&ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F",
     title: "דירות גן למכירה בעפולה והעמק",
     description: "כל דירות הגן שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל, תמונות ופרטי קשר.",
+    landing: "/afula/דירות-גן",
   },
   {
     query: "deal=sale&ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96",
@@ -117,8 +121,9 @@ export const SEARCH_PAGES: SearchPage[] = [
     description: "כל הפנטהאוזים ודירות הגג שמוצעים היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר ותמונות.",
   },
   {
-    query: "deal=sale&ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'",
+    query: "deal=sale&ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92%27",
     title: "בתים פרטיים וקוטג׳ים למכירה בעפולה והעמק",
+    landing: "/afula/בתים-פרטיים",
     description: "כל הבתים הפרטיים והקוטג׳ים שמוצעים היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל ותמונות.",
   },
   {
@@ -180,20 +185,62 @@ function esc(s: unknown): string {
    קליק ממודה היה מאבד את הכותרת ואת ה-H1 ומתאחד לדף הבית. */
 const NOT_CONTENT = new Set([
   "src", "fbclid", "gclid", "gbraid", "wbraid", "gad_source", "gad_campaignid", "msclkid", "ref",
+  /* אזור מפורש בקישור קמפיין. decide() מטפל בו ומוריד אותו מהכתובת. */
+  "region",
 ]);
 
 /* ‏המפתח שמשווים לפיו: זוגות מפוענחים, ממוינים, בלי פרמטרי מעקב. כך
    ‎?rooms=4&deal=sale‎, ‎?deal=sale&rooms=4&src=pwa‎ וקידוד עברית גולמי
    נופלים כולם על אותה שורה ברשימה. */
-function matchKey(params: URLSearchParams): string {
+function contentKey(params: URLSearchParams, drop?: ReadonlySet<string>): string {
   const pairs: string[] = [];
   for (const [key, raw] of params) {
-    if (NOT_CONTENT.has(key) || key.startsWith("utm_")) continue;
-    const value = raw.trim();
+    if (NOT_CONTENT.has(key) || key.startsWith("utm_") || drop?.has(key)) continue;
+    /* גרש, גרשיים עבריים ו-%27 הם אותו סוג נכס. בלי זה
+       בית פרטי/קוטג' ו-קוטג%27 נופלים לשתי כתובות. */
+    const value = raw.trim().replace(/[\u2018\u2019\u05f3']/g, "'");
     if (!value) continue;
     pairs.push(`${key}=${value}`);
   }
   return pairs.sort().join("&");
+}
+
+/* מפתח התוכן, כולל city. הפניה לשוק המקומי רצה רק כשאין שום תוכן,
+   ו-?city=עפולה לבדה אינה דף הבית הריק. */
+function matchKey(params: URLSearchParams): string {
+  return contentKey(params);
+}
+
+/* city= מסנן את הרשימה (sentence-search) ואינו צירוף חדש ברשימה הסגורה.
+   בחיפוש העמוד הוא יורד, כדי ש-?deal=sale&rooms=3&city=עפולה יישאר העמוד
+   של 3 חדרים. ה-canonical נשאר בלי העיר ובלי utm. */
+const CITY_PARAM = new Set(["city"]);
+
+/* עיר לכותרת: עברית, רווח, גרש ומקף. ערך אחר אינו משנה את הכותרת. */
+function cityFromParams(params: URLSearchParams): string | null {
+  const raw = (params.get("city") || "").replace(/\s+/g, " ").trim();
+  if (!raw || raw.length > 40) return null;
+  if (!/^[\u0590-\u05FF][\u0590-\u05FF '"״׳-]{0,39}$/.test(raw)) return null;
+  return raw;
+}
+
+/* "בעפולה והעמק" הופך ל"בעפולה" (או "במגדל העמק"). "בעפולה עילית" נשארת:
+   זו שכונה, לא שם השוק. */
+function localizePlace(text: string, city: string): string {
+  const here = "ב" + city;
+  return text.replace(
+    /בעפולה והעמק|בעפולה ובעמק יזרעאל|בעפולה ובעמק|בעפולה(?! עילית)/g,
+    here,
+  );
+}
+
+function withCity(page: SearchPage, city: string): SearchPage {
+  return {
+    query: page.query,
+    title: localizePlace(page.title, city),
+    description: localizePlace(page.description, city),
+    landing: page.landing,
+  };
 }
 
 const BY_KEY = new Map(
@@ -215,7 +262,7 @@ function fillMeta(html: string, selector: string, value: string): string | null 
 }
 
 function inject(html: string, page: SearchPage): string {
-  const canonical = `${SITE}/?${page.query}`;
+  const canonical = page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
   const title = `${page.title} | ${SITE_NAME}`;
   let out = html;
   const add: string[] = [];
@@ -264,26 +311,49 @@ function injectH1(html: string, title: string): string {
 /* ---------- ההפניה לשוק המקומי (docs/regional-pages.md) ----------
 
    ‏‎/‎ בלי פרמטרי תוכן, ורק שם: מי ששוקו/ה אחר מברירת המחדל מופנה/ית
-   לכתובת שלו (‏‎/haifa‎). ההחלטה עצמה - בחירה, GPS, ‏IP, סורקים -
-   ב-‎decide()‎ שב-lib/markets.ts. היא יושבת כאן ולא בפונקציה משלה
-   (‏geo-city.ts, שנדחה ב-‎#346‎) כי זו כבר רצה על כל בקשה ל-‎/‎: הרחבה
-   שלה אינה מוסיפה אף הפעלה בחיוב.
+   לכתובת שלו (‏‎/haifa‎). ההחלטה עצמה - קישור `?region=`, בחירה, GPS,
+   סורקים - ב-‎decide()‎ שב-lib/markets.ts. זיהוי IP אינו בוחר שוק.
+   היא יושבת כאן ולא בפונקציה משלה (‏geo-city.ts, שנדחה ב-‎#346‎) כי זו
+   כבר רצה על כל בקשה ל-‎/‎: הרחבה שלה אינה מוסיפה אף הפעלה בחיוב.
 
-   ‏‎302‎ ולא ‎301‎, ו-‎no-store‎: הפניה לפי מיקום שנשמרה במטמון הייתה שולחת את
-   כל מי שבא אחריו לאותו שוק. */
+   ‏‎302‎ ולא ‎301‎, ו-‎no-store‎: הפניה לפי בחירה שנשמרה במטמון הייתה שולחת
+   את כל מי שבא אחריו לאותו שוק. `?region=` נשמר גם כשיש פרמטרי תוכן,
+   אבל לא מחליף את עמוד התוצאות בכתובת של שוק אחר. */
 function marketRouting(request: Request, context: Context, url: URL) {
-  if (request.method !== "GET" || matchKey(url.searchParams) !== "") return null;
+  if (request.method !== "GET") return null;
   const reg = registry();
   if (!reg) return null;
+  const hasContent = matchKey(url.searchParams) !== "";
+  /* בלי region ובלי תוכן אין מה להחליט כאן מעבר לעוגיות, וגם זה ב-decide. */
+  if (hasContent && !url.searchParams.has("region")) return null;
   return decide(reg, {
     cookie: request.headers.get("cookie") || "",
     userAgent: request.headers.get("user-agent") || "",
     geo: (context as unknown as { geo?: Parameters<typeof decide>[1]["geo"] }).geo || null,
     search: url.search,
+    region: url.searchParams.has("region") ? (url.searchParams.get("region") ?? "") : null,
+    hasContent,
   });
 }
 
 const GEO_COOKIE_TAIL = "; Max-Age=86400; Path=/; SameSite=Lax; Secure";
+const MARKET_COOKIE_TAIL = "; Max-Age=31536000; Path=/; SameSite=Lax; Secure";
+
+function decisionCookies(routing: NonNullable<ReturnType<typeof marketRouting>>): string[] {
+  const out: string[] = [];
+  if (routing.marketCookie) {
+    out.push(`shuk_market=${encodeURIComponent(routing.marketCookie)}${MARKET_COOKIE_TAIL}`);
+  }
+  if (routing.geoCookie) {
+    out.push(`shuk_geo=${encodeURIComponent(routing.geoCookie)}${GEO_COOKIE_TAIL}`);
+  }
+  if (routing.soon) {
+    out.push(`shuk_soon=${encodeURIComponent(routing.soon)}${GEO_COOKIE_TAIL}`);
+  } else if (routing.clearSoon) {
+    out.push("shuk_soon=; Max-Age=0; Path=/; SameSite=Lax; Secure");
+  }
+  return out;
+}
 
 export default async function handler(request: Request, context: Context) {
   let routing: ReturnType<typeof marketRouting> = null;
@@ -296,17 +366,23 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (routing?.location) {
-    const headers = new Headers({
-      "Location": routing.location,
-      "Cache-Control": "private, no-store",
-    });
-    if (routing.geoCookie) {
-      headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(routing.geoCookie)}${GEO_COOKIE_TAIL}`);
+    let here = "/";
+    try {
+      const url = new URL(request.url);
+      const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
+      here = (page === "/index" ? "/" : page) + url.search;
+    } catch { /* בלי כתובת אין לאן להשוות, וההפניה תצא */ }
+    if (routing.location !== here) {
+      const headers = new Headers({
+        "Location": routing.location,
+        "Cache-Control": "private, no-store",
+      });
+      for (const cookie of decisionCookies(routing)) headers.append("Set-Cookie", cookie);
+      return new Response(null, { status: 302, headers });
     }
-    return new Response(null, { status: 302, headers });
   }
 
-  const res = withGeoCookie(await context.next(), routing?.geoCookie || null, routing?.soon || null);
+  const res = withDecisionCookies(await context.next(), routing);
 
   // רק HTML
   const type = res.headers.get("content-type") || "";
@@ -317,32 +393,40 @@ export default async function handler(request: Request, context: Context) {
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
     if (page !== "/" && page !== "/index") return res;
 
-    // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף
-    const match = BY_KEY.get(matchKey(url.searchParams));
+    // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף.
+    // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
+    const params = url.searchParams;
+    const match = BY_KEY.get(contentKey(params, CITY_PARAM));
     if (!match) return res;
-
-    const out = inject(await res.text(), match);
+    const city = cityFromParams(params);
+    const out = inject(await res.text(), city ? withCity(match, city) : match);
 
     const headers = new Headers(res.headers);
-    headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    /* עוגייה אישית (אזור, או מחיקת פס ישן) לא נכנסת למטמון המשותף. */
+    if (!headers.has("set-cookie")) {
+      headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    }
     return new Response(out, { status: res.status, headers });
   } catch {
     return res; // הזרקה שנכשלה לא תשבור את דף הבית
   }
 }
 
-/* ‏עוגיית shuk_geo על התשובה הרגילה: הדפדפן קורא אותה בדפים שאינם שייכים
-   לשוק (‏‎/agencies‎). התשובה המקורית אינה ניתנת לשינוי, ולכן עותק - ורק
-   כשיש מה לכתוב, כך שרוב הבקשות יוצאות בדיוק כמו קודם.
+/* עוגיות האזור על התשובה הרגילה. התשובה המקורית אינה ניתנת לשינוי, ולכן
+   עותק - ורק כשיש מה לכתוב, כך שרוב הבקשות יוצאות בדיוק כמו קודם.
 
-   ‏shuk_soon: השוק שעוד לא נפתח שבו הגולש/ת נמצא/ת (lib/markets.ts,
-   ‏`soon`), לפס "נפתחים בקרוב" שב-assets/market-soon-strip.js. */
-function withGeoCookie(res: Response, value: string | null, soon: string | null): Response {
-  if (!value && !soon) return res;
+   ‏shuk_market: בחירה מקישור `?region=` (שנה). shuk_soon: פס "נפתחים
+   בקרוב" כשהבחירה השמורה היא שוק שעוד לא נפתח. clearSoon מוחק פס ישן
+   שנקבע מזיהוי IP. תשובה עם עוגייה היא פרטית, כדי שמטמון לא ידביק אותה
+   לגולש/ת הבא/ה. */
+function withDecisionCookies(res: Response, routing: ReturnType<typeof marketRouting>): Response {
+  const cookies = routing ? decisionCookies(routing) : [];
+  if (!cookies.length) return res;
   const copy = new Response(res.body, res);
-  if (value) copy.headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(value)}${GEO_COOKIE_TAIL}`);
-  if (soon) copy.headers.append("Set-Cookie", `shuk_soon=${encodeURIComponent(soon)}${GEO_COOKIE_TAIL}`);
+  for (const cookie of cookies) copy.headers.append("Set-Cookie", cookie);
+  copy.headers.set("Cache-Control", "private, no-store");
+  copy.headers.set("Netlify-CDN-Cache-Control", "private, no-store");
   return copy;
 }
 

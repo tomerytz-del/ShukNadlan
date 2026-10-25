@@ -1,0 +1,278 @@
+/* מעטפת החתימה: דף הלקוח (sign.html, agreement.html) ואשף ההסכמים ב-CRM.
+   הנוסח המשפטי נשאר במסמך. כאן רק הכותרת, הכרטיסים, לוח החתימה והמצבים.
+   --sign-gold-ink הוא זהב כטקסט על רקע בהיר (4.6:1), לא --brass עצמו. */
+
+:root{
+  --sign-navy:#0e2a6b;
+  --sign-navy-deep:#0d1b3d;
+  --sign-gold:#c9a227;
+  --sign-gold-ink:#8a6d10;
+  --sign-cream:#f6f3ec;
+  --sign-ink:#1b1f26;
+  --sign-muted:#4a5578;
+  --sign-line:#e6e1d6;
+}
+.sign-page{
+  background:var(--sign-cream);
+  color:var(--sign-ink);
+  font-family:'Heebo',sans-serif;
+  line-height:1.6;
+  padding:0 0 calc(28px + env(safe-area-inset-bottom));
+}
+.sign-page,.sign-page *,.sign-page *::before,.sign-page *::after{box-sizing:border-box}
+.sign-page .shell{max-width:880px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.sign-page h1,.sign-page h2{font-family:'Heebo',sans-serif;font-weight:800;letter-spacing:-.02em;color:var(--sign-navy-deep)}
+.sign-page button{font-family:inherit;cursor:pointer}
+.sign-page input{font-family:inherit;font-size:1rem}
+
+/* ---- כותרת משותפת: משרד + שוק נדל״ן ---- */
+.sign-brand{background:#fff;border:1px solid var(--sign-line);border-radius:16px;overflow:hidden;
+  box-shadow:0 10px 28px -22px rgba(14,42,107,.55);margin:14px 0}
+.sign-brand-rule{height:5px;background:var(--sign-navy);box-shadow:inset 0 -2px 0 var(--sign-gold)}
+.sign-brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:14px 16px 13px}
+.sign-brand-office{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 200px}
+.sign-brand-logo{width:72px;height:72px;object-fit:contain;background:#fff;border:1px solid var(--sign-line);
+  border-radius:12px;flex:none;padding:4px}
+.sign-brand-text{min-width:0}
+.sign-brand-name{font-weight:800;font-size:1.2rem;line-height:1.25;color:var(--sign-navy)}
+.sign-brand-meta{margin-top:3px;font-size:.84rem;line-height:1.45;color:var(--sign-muted)}
+.sign-brand-via{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;flex:none;
+  color:var(--sign-gold-ink);font-size:.72rem;font-weight:700;line-height:1.3;text-align:center;min-width:44px}
+.sign-brand-via img{width:40px;height:auto;display:block}
+.sign-page .sign-brand{border-radius:0;border-inline:none;margin:0 0 14px;box-shadow:none}
+.sign-page .shell .sign-brand{margin-inline:-16px}
+.sign-brand-meta{overflow-wrap:anywhere}
+
+.sign-page .card{background:#fff;border:1px solid var(--sign-line);border-radius:16px;
+  box-shadow:0 10px 28px -22px rgba(14,42,107,.45)}
+
+.sign-page .task{padding:22px 24px 18px;text-align:center;margin-bottom:14px}
+.sign-page .task h1{font-size:1.35rem;margin:0 0 8px;line-height:1.35}
+.sign-page .task p{margin:0;color:var(--sign-muted);font-size:1rem;line-height:1.6}
+.sign-page .task .who{font-weight:700;color:var(--sign-navy)}
+
+.sign-page .doc-wrap,.sign-sheet{background:#fff;overflow-x:auto;margin-bottom:14px;padding:6px 4px 12px}
+.sign-page .doc-wrap .agr-inner,.sign-sheet .agr-inner{min-width:min(760px,100%)}
+
+/* גוף המסמך: קריא, בלי לגעת בנוסח. ה-!important גובר על הסגנון המוטבע של המסמך הקפוא. */
+.sign-page .agr-doc,
+.sign-sheet .agr-doc,
+#agrModal .agr-doc{
+  background:#fff !important;
+  color:var(--sign-ink) !important;
+  line-height:1.65 !important;
+  padding:28px 26px !important;
+}
+.sign-page .agr-doc p,
+.sign-page .agr-doc li,
+.sign-page .agr-doc ol,
+.sign-sheet .agr-doc p,
+.sign-sheet .agr-doc li,
+.sign-sheet .agr-doc ol,
+#agrModal .agr-doc p,
+#agrModal .agr-doc li,
+#agrModal .agr-doc ol{
+  font-size:17px !important;
+  line-height:1.65 !important;
+  color:var(--sign-ink) !important;
+}
+.sign-page .agr-doc ol > li,
+.sign-sheet .agr-doc ol > li,
+#agrModal .agr-doc ol > li{margin-bottom:14px !important}
+.sign-page .agr-doc ol > li::marker,
+.sign-sheet .agr-doc ol > li::marker,
+#agrModal .agr-doc ol > li::marker{color:var(--sign-navy);font-weight:800}
+.sign-page .agr-doc div[style*="Frank Ruhl"],
+.sign-sheet .agr-doc div[style*="Frank Ruhl"],
+#agrModal .agr-doc div[style*="Frank Ruhl"]{color:var(--sign-navy) !important}
+.sign-page .agr-doc table,
+.sign-sheet .agr-doc table,
+#agrModal .agr-doc table{max-width:100%;border-collapse:collapse}
+.sign-page .agr-doc td,
+.sign-sheet .agr-doc td,
+#agrModal .agr-doc td{
+  font-size:15px !important;line-height:1.5 !important;
+  padding:7px 6px !important;border-bottom:1px solid #efe8da;vertical-align:baseline}
+.sign-page .agr-doc td.k,
+.sign-sheet .agr-doc td.k,
+#agrModal .agr-doc td.k{color:var(--sign-navy) !important}
+.sign-page .agr-doc span[style*="border-bottom"],
+.sign-sheet .agr-doc span[style*="border-bottom"],
+#agrModal .agr-doc span[style*="border-bottom"]{background:#fbf6ea}
+.sign-page .agr-doc div[style*="border:1px solid #c5c3bc"],
+.sign-sheet .agr-doc div[style*="border:1px solid #c5c3bc"],
+#agrModal .agr-doc div[style*="border:1px solid #c5c3bc"]{border-color:#e4dcc8 !important}
+.sign-page .agr-inner span[style*="min-width:90px"],
+.sign-sheet span[style*="min-width:90px"],
+#agrModal .agr-preview span[style*="min-width:90px"]{min-width:44px !important}
+
+.sign-page .sign-card{padding:22px 24px 18px}
+.sign-page .sign-card h2{font-size:1.15rem;margin:0 0 4px}
+.sign-page .sign-sub{font-size:.95rem;color:var(--sign-muted);margin:0 0 16px;line-height:1.6}
+.sign-page .field{margin-bottom:14px}
+.sign-page .field label{font-size:.8rem;font-weight:700;color:var(--sign-muted);display:block;margin-bottom:6px}
+.sign-page .field.is-req > label::after{content:" *";color:#6e1022}
+.sign-page .ack.is-req span::after{content:" *";color:#6e1022}
+.sign-page .field{min-width:0}
+.sign-page .field input{width:100%;max-width:100%;min-height:48px;border:1.5px solid var(--sign-line);border-radius:10px;
+  padding:10px 12px;background:#fff;color:inherit}
+.sign-page .field input:not([readonly]){background:#fbf6ea;border-color:#e4d7b0}
+.sign-page .field input:focus{border-color:var(--sign-navy);outline:none;box-shadow:0 0 0 3px rgba(14,42,107,.12)}
+.sign-page .field input[readonly]{background:#f7f6f3;color:var(--sign-muted)}
+
+.sign-page .pad-label{font-size:.8rem;font-weight:700;color:var(--sign-muted);margin-bottom:6px}
+.sign-page .fill-note{margin:0 0 14px;padding:12px 14px;border-radius:10px;background:#fbf6ea;
+  border:1px solid #e4d7b0;font-size:.95rem;line-height:1.6;color:var(--sign-ink)}
+.sign-page .pad-box{position:relative;border:1.5px solid var(--sign-gold);border-radius:12px;background:
+  linear-gradient(#e7e0d2,#e7e0d2) left 18% bottom 36px / 64% 1px no-repeat,#fff;
+  height:220px;overflow:hidden}
+.sign-page .pad-box canvas{width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+.sign-page .pad-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#9aa0a6;font-size:.95rem;pointer-events:none}
+.sign-page .pad-hint.is-off{display:none}
+.sign-page .pad-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;margin-top:8px}
+.sign-page .pad-foot .hint{flex:1 1 10rem;min-width:0;font-size:.78rem;color:var(--sign-muted);line-height:1.4}
+.sign-page .link-btn{flex:0 0 auto;width:auto;max-width:100%;background:transparent;border:none;box-shadow:none;
+  border-radius:0 !important;color:var(--sign-navy);font-size:.85rem;font-weight:700;line-height:1.2;
+  text-decoration:underline;white-space:nowrap;padding:10px 2px;min-height:44px}
+
+.sign-page .ack{display:flex;gap:10px;align-items:flex-start;margin:16px 0 8px;font-size:.95rem;line-height:1.55}
+.sign-page .ack input{margin-top:4px;width:22px;height:22px;flex:none}
+
+.sign-page .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;
+  padding:12px 22px;border-radius:12px;font-weight:800;font-size:1rem;width:100%;
+  background:var(--sign-navy);color:#fff;border:none;text-decoration:none}
+/* בלי opacity: הוא מבהיר גם את הטקסט הלבן עד שהוא נעלם על הרקע.
+   #4a5878 על לבן הוא כ-7:1, עדיין כהה מהכפתור הפעיל. */
+.sign-page .btn:disabled{opacity:1;background:#4a5878;color:#fff;cursor:not-allowed}
+.sign-page .btn-ghost{background:#fff;border:1.5px solid var(--sign-line);color:var(--sign-navy)}
+.sign-submit-bar{position:sticky;bottom:0;z-index:4;
+  margin:12px -24px -18px;padding:12px 24px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,#fff 62%,rgba(255,255,255,0))}
+@media (max-width:640px){
+  .sign-page .sign-submit-bar{position:fixed;inset-inline:0;bottom:0;margin:0;z-index:6;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    background:#fff;box-shadow:0 -10px 24px -18px rgba(14,42,107,.6)}
+  .sign-page #stateForm .sign-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+}
+.sign-page #feedback{font-size:.9rem;text-align:center;margin-top:12px;min-height:1.2em}
+
+.sign-page .state{display:none}
+.sign-page .state.is-on{display:block}
+.sign-page .msg-card{padding:36px 24px;text-align:center}
+.sign-page .msg-card h1{font-size:1.35rem;margin:0 0 8px}
+.sign-page .msg-card p{color:var(--sign-muted);font-size:1rem;line-height:1.6;margin:0 auto;max-width:460px}
+.sign-page .sign-mark{width:72px;height:72px;margin:0 auto 14px}
+.sign-page .sign-mark svg{width:100%;height:100%;display:block}
+.sign-page .code{display:inline-block;margin-top:14px;background:#f7f1e2;color:#6b5310;
+  border-radius:8px;padding:8px 14px;font-size:.85rem;letter-spacing:.06em;font-weight:800}
+.sign-page .done-actions{display:flex;flex-direction:column;align-items:stretch;gap:10px;
+  width:100%;max-width:340px;margin:20px auto 0}
+.sign-page .done-actions .btn{width:100%;max-width:100%;margin:0}
+
+.sign-page .otp-card{padding:32px 24px;text-align:center;max-width:480px;margin:0 auto}
+.sign-page .otp-card h1{font-size:1.3rem;margin:0 0 8px}
+.sign-page .otp-card p{color:var(--sign-muted);font-size:.95rem;line-height:1.6;margin:0 0 4px}
+.sign-page .otp-input{width:100%;max-width:260px;margin:18px auto 0;display:block;min-height:56px;
+  border:1.5px solid var(--sign-line);border-radius:12px;padding:12px;background:#fff;color:inherit;
+  font-size:1.6rem;font-weight:800;letter-spacing:.34em;text-align:center;direction:ltr}
+.sign-page .otp-input:focus{border-color:var(--sign-navy);outline:none}
+.sign-page .otp-actions{max-width:280px;margin:14px auto 0;display:flex;flex-direction:column;gap:10px}
+
+.sign-page .id-kind{display:flex;gap:8px;margin-bottom:8px}
+.sign-page .id-kind button{flex:1;min-height:44px;padding:8px 12px;border-radius:999px;border:1.5px solid var(--sign-line);
+  background:#fff;font-size:.85rem;font-weight:700;color:var(--sign-muted)}
+.sign-page .id-kind button.is-on{background:var(--sign-navy);border-color:var(--sign-navy);color:#fff}
+
+.sign-page .spin{width:32px;height:32px;margin:0 auto 14px;border-radius:50%;
+  border:3px solid var(--sign-line);border-top-color:var(--sign-navy);animation:signSp .9s linear infinite}
+@keyframes signSp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sign-page .spin{animation-duration:2.4s}}
+
+.sign-page .head{padding:20px 22px;text-align:center;margin-bottom:14px}
+.sign-page .head h1{font-size:1.3rem;margin:0 0 8px}
+.sign-page .badge{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:800;
+  min-height:32px;padding:4px 12px;border-radius:999px;background:#e5f5ed;color:#14663d}
+.sign-page .badge.pending{background:#eaf0fb;color:var(--sign-navy)}
+.sign-page .meta{font-size:.9rem;color:var(--sign-muted);margin:10px 0 0;line-height:1.5}
+.sign-page .actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.sign-page .actions .btn{width:auto;min-width:44px;padding-inline:22px}
+
+@media (max-width:520px){
+  .sign-brand-logo{width:56px;height:56px}
+  .sign-brand-name{font-size:1.05rem}
+  .sign-page .task,.sign-page .sign-card,.sign-page .head,.sign-page .msg-card{padding:16px}
+  .sign-page .agr-doc,.sign-sheet .agr-doc,#agrModal .agr-doc{padding:18px 12px !important}
+  .sign-page .pad-box{height:180px}
+  .sign-page .sign-submit-bar{padding-inline:14px}
+  .sign-page .agr-inner span[style*="min-width:90px"],
+  .sign-sheet span[style*="min-width:90px"]{min-width:24px !important}
+}
+@media print{
+  .sign-page{background:#fff;padding:0}
+  .sign-page .sign-submit-bar,.sign-page .actions,.sign-page .sign-card,.sign-page .task,
+  .sign-page .pad-box,.sign-page .done-actions{display:none !important}
+  .sign-page .card,.sign-page .sign-brand{border:none;box-shadow:none}
+  .sign-page .sign-brand{display:block}
+}
+
+/* ---- CRM: רשימת ההסכמים והאשף. לא נוגע בשאר המסכים ---- */
+#accAgreements .agr-tile{min-height:84px;position:relative;padding-top:28px}
+#accAgreements .agr-tile-ico{position:absolute;top:10px;inset-inline-start:12px;font-size:14px;line-height:1;color:var(--sign-navy,#0e2a6b)}
+#accAgreements .agr-tile[data-agr-tile=""]{border-top:3px solid #0e2a6b}
+#accAgreements .agr-tile[data-agr-tile="draft"]{border-top:3px solid #8b93a7}
+#accAgreements .agr-tile[data-agr-tile="awaiting"]{border-top:3px solid #8a6d10}
+#accAgreements .agr-tile[data-agr-tile="signed"]{border-top:3px solid #14663d}
+#accAgreements .agr-tile[data-agr-tile="draft"] .agr-tile-ico{color:#5c6478}
+#accAgreements .agr-tile[data-agr-tile="awaiting"] .agr-tile-ico{color:#8a6d10}
+#accAgreements .agr-tile[data-agr-tile="signed"] .agr-tile-ico{color:#14663d}
+#accAgreements .agr-tile .agr-tile-ico::before{content:"▣"}
+#accAgreements .agr-tile[data-agr-tile="draft"] .agr-tile-ico::before{content:"✎"}
+#accAgreements .agr-tile[data-agr-tile="awaiting"] .agr-tile-ico::before{content:"✉"}
+#accAgreements .agr-tile[data-agr-tile="signed"] .agr-tile-ico::before{content:"✓"}
+
+#accAgreements .agr-group-h{display:flex;align-items:center;gap:8px;color:#0e2a6b;font-weight:800}
+#accAgreements .agr-group-h::before{content:"";width:4px;height:1.05em;border-radius:2px;background:currentColor;flex:none}
+#accAgreements .agr-group-signed{color:#14663d}
+#accAgreements .agr-group-cancelled{color:#5c564c}
+#accAgreements .agr-status{display:inline-flex;align-items:center;gap:4px}
+#accAgreements .agr-status::before{font-weight:800}
+#accAgreements .agr-status-draft::before{content:"✎"}
+#accAgreements .agr-status-sent::before{content:"✉"}
+#accAgreements .agr-status-viewed::before{content:"◉"}
+#accAgreements .agr-status-signed::before{content:"✓"}
+#accAgreements .agr-status-cancelled::before{content:"✕"}
+#accAgreements .agr-status-draft{background:#eef1f6;color:#3d465c}
+#accAgreements .agr-status-sent{background:#eaf0fb;color:#0e2a6b}
+#accAgreements .agr-status-viewed{background:#f7f1e2;color:#6b5310}
+#accAgreements .agr-status-signed{background:#e5f5ed;color:#14663d}
+#accAgreements .agr-status-cancelled{background:#f3f1ea;color:#5c564c}
+#accAgreements .agr-row .lead-actions .btn{min-height:44px}
+#accAgreements .ui-btn{min-height:44px}
+
+#agrModal.imp-overlay{align-items:flex-start;overflow-y:auto}
+#agrModal .imp-card{margin-block:auto;max-height:none;
+  width:min(920px,100%)}
+#agrModal .sign-brand{flex:0 0 auto;margin:0;border:none;border-radius:0;box-shadow:none}
+#agrModal .imp-head,#agrModal .imp-steps,#agrModal .imp-foot{flex:0 0 auto}
+#agrModal .imp-body{min-height:0}
+#agrModal .imp-steps span{min-height:32px;display:inline-flex;align-items:center}
+#agrModal .imp-steps span.active{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+#agrModal .imp-steps span.done{background:#f7f1e2;border-color:#e6d5a8;color:#6b5310}
+#agrModal .imp-foot .btn,#agrModal .agr-signer-acts .btn,#agrModal .agr-kind,#agrModal .agr-choice,#agrModal .agr-chip-btn{min-height:44px}
+#agrModal .agr-kind{display:flex;align-items:center;gap:12px;text-align:right;border-radius:14px;padding:12px 14px}
+#agrModal .agr-kind-ico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:#eaf0fb;color:#0e2a6b}
+#agrModal .agr-kind-copy{min-width:0;display:block}
+#agrModal .agr-kind-name{display:block;font-weight:800}
+#agrModal .agr-kind .hint{display:block}
+#agrModal .agr-lead{margin:0 0 12px;color:#4a5578;line-height:1.6}
+#agrModal .agr-pad{height:200px;border:1.5px solid #c9a227;border-radius:12px;
+  background:linear-gradient(#e7e0d2,#e7e0d2) left 18% bottom 28px / 64% 1px no-repeat,#fff}
+#agrModal .btn-gold,
+#accAgreements .agr-row .lead-actions .btn-gold{background:#0e2a6b;color:#fff}
+#agrModal .btn-gold:not(:disabled):hover,
+#accAgreements .agr-row .lead-actions .btn-gold:not(:disabled):hover{background:#0d1b3d}
+#agrModal .agr-preview{background:#fff;border-color:#e6e1d6;border-radius:12px}
+#agrModal .imp-close{min-width:44px;min-height:44px}

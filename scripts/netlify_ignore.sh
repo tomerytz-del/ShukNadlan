@@ -54,6 +54,7 @@ NOT_SITE=(
   ':(exclude)deals_engine/**'
   ':(exclude)marketing/**'
   ':(exclude)gtm/**'
+  ':(exclude)mobile/**'
   ':(exclude,glob)*.py'
   ':(exclude,glob)*.md'
   ':(exclude)requirements.txt'

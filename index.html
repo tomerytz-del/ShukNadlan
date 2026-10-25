@@ -9,6 +9,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- תמונת ה-LCP היא רקע CSS. בלי preload הדפדפן מגלה אותה רק אחרי ה-style.
+     media תואם את כלל הרוחב: 800 בנייד, הקובץ המלא משם והלאה. -->
+<link rel="preload" as="image" href="/assets/hero-valley-800.webp" fetchpriority="high" media="(max-width: 759px)">
+<link rel="preload" as="image" href="/assets/hero-valley.webp" fetchpriority="high" media="(min-width: 760px)">
 <script src="assets/auth-return.js" data-catch></script>
 <script src="assets/esc.js"></script>
 <script src="assets/markets.js"></script>
@@ -19,7 +23,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/city-menu.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>דירות למכירה ולהשכרה בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -53,21 +57,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-gestures.js"></script>
-<script src="assets/map-draw.js"></script>
-<script src="assets/open-house.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/prop-shelf.js"></script>
-<script src="assets/project-card.js"></script>
-<script src="assets/exit-guard.js" data-auto></script>
 <style>
   /* ההסברים לעיצוב הזה: docs/home-page-notes.md. כל מה שנכתב כאן נשלח לכל גולש/ת. */
   :root{
@@ -236,7 +225,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--sky-tint);color:var(--teal-dark)}
   .menu-cta{
     position:sticky;bottom:0;z-index:1;margin-top:2px;
-    padding:8px 0 14px;background:var(--sky-tint);
+    padding:8px 0 calc(14px + env(safe-area-inset-bottom, 0px));background:var(--sky-tint);
   }
   .mobile-menu .btn-block{margin-top:0}
 
@@ -2224,6 +2213,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .soon-strip-link{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:.88rem;text-decoration:none}
   .soon-strip-close{flex:0 0 auto;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);font-size:1.3rem;line-height:1;cursor:pointer}
   .soon-strip-close:hover{background:rgba(14,42,107,.08)}
+  #soonStrip .soon-strip-switch{flex:0 0 auto;border:0;background:transparent;color:var(--ink-soft);font:inherit;font-size:.82rem;font-weight:700;text-decoration:underline;cursor:pointer;padding:8px 4px}
 
 
   .hdr-login{height:44px;padding:0 14px;border-radius:12px;background:var(--sapphire);border-color:var(--sapphire)}
@@ -3299,6 +3289,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://shuknadlan.co.il/#website",
   "name": "שוק נדל״ן",
   "alternateName": ["שוק נדלן", "Shuk Nadlan", "שוק הנדל״ן של עפולה והסביבה", "shuknadlan.co.il"],
   "url": "https://shuknadlan.co.il/",
@@ -3313,6 +3304,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="home"></script>
 <script defer src="assets/market-text.js"></script>
+<!-- מסך הפתיחה של האפליקציה המותקנת - רק בהתקנה, פעם בהפעלה. docs/pwa-install.md, "מסך הפתיחה" -->
+<style>
+  html.app-splash body::before,html.app-splash body::after{content:"";position:fixed;z-index:2147483646;pointer-events:none;transition:opacity .35s ease}
+  html.app-splash body::before{inset:0;background:
+    radial-gradient(900px 520px at 100% -8%,rgba(201,162,39,.26),transparent 62%),
+    linear-gradient(160deg,#17386a 0%,#0e2a52 48%,#09182e 100%)}
+  html.app-splash body::after{left:50%;top:42%;width:120px;height:152px;margin:-76px 0 0 -60px;
+    background:url(/assets/logo-shuknadlan-hd.webp) center/contain no-repeat;
+    filter:drop-shadow(0 18px 22px rgba(0,0,0,.45));animation:appSplashPin 1.6s cubic-bezier(.45,0,.55,1) infinite}
+  html.app-splash-out body::before,html.app-splash-out body::after{opacity:0}
+  @keyframes appSplashPin{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  @media (prefers-reduced-motion:reduce){html.app-splash body::after{animation:none}}
+</style>
+<script>
+(function(){
+  try{
+    var h=document.documentElement;
+    var app=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+    if(!app||sessionStorage.getItem('appSplash'))return;
+    sessionStorage.setItem('appSplash','1');
+    h.classList.add('app-splash');
+    var t0=Date.now(),done=false;
+    function end(){
+      if(done)return;done=true;
+      setTimeout(function(){
+        h.classList.add('app-splash-out');
+        setTimeout(function(){h.classList.remove('app-splash','app-splash-out');},400);
+      },Math.max(0,700-(Date.now()-t0)));
+    }
+    addEventListener('load',end);
+    setTimeout(end,2500);
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -3433,6 +3458,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="soon-strip-promo" data-soon-promo hidden></span>
     </p>
     <a class="soon-strip-link" href="/" data-soon-link>לפרטים והצטרפות</a>
+    <button type="button" class="soon-strip-switch" data-soon-switch>לא האזור שלי</button>
     <button type="button" class="soon-strip-close" data-soon-close aria-label="סגירה">&times;</button>
   </div>
 </div>
@@ -4972,10 +4998,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/projects">פרויקטים חדשים בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
+      <a href="/afula/מתווכים">מתווכים בעפולה</a>
       <a href="/agents">מתווכי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+
+  <nav class="footer-wrap footer-seo" id="areaLinks" aria-label="שכונות ומחירי דירות">
+    <h4>שכונות</h4>
+    <div class="footer-seo-links">
+<!--area-links-->
+      <a href="/n/afula/אזור-התעשייה">אזור התעשייה</a>
+      <a href="/n/afula/גבעת-המורה">גבעת המורה</a>
+      <a href="/n/afula/דרום-העיר">דרום העיר</a>
+      <a href="/n/afula/השכונה-הצפון-מערבית">השכונה הצפון מערבית</a>
+      <a href="/n/afula/לב-העמק-c1">לב העמק C1</a>
+      <a href="/n/afula/מזרח-העיר">מזרח העיר</a>
+      <a href="/n/afula/מערב-העיר-שיכון-גאולים">מערב העיר (שיכון גאולים)</a>
+      <a href="/n/afula/מרכז-העיר">מרכז העיר</a>
+      <a href="/n/afula/עפולה-הירוקה">עפולה הירוקה</a>
+      <a href="/n/afula/עפולה-עלית">עפולה עלית</a>
+      <a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>
+      <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
+<!--/area-links-->
+    </div>
+  </nav>
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
@@ -5010,6 +5057,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button type="button" class="reset" id="a11yReset">איפוס הגדרות</button>
 </div>
 
+<!-- הספריות האלה רצות רק אחרי שה-hero כבר נסרק. ב-head הן חסמו את הציור
+     הראשון (מפה, supabase, כרטיסים). Leaflet.css נשאר למעלה. -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-tiles.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-gestures.js"></script>
+<script src="assets/map-draw.js"></script>
+<script src="assets/open-house.js"></script>
+<script src="assets/approx-location.js"></script>
+<script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
+<script src="assets/project-card.js"></script>
+<script src="assets/exit-guard.js" data-auto></script>
 <script src="assets/search-core.js"></script>
 <script src="assets/sentence-search.js"></script>
 <script src="assets/home.js"></script>

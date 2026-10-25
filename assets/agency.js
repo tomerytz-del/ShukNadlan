@@ -790,6 +790,23 @@ function renderAbout(agency){
   document.getElementById('aboutSec').hidden = !paras.length;
 }
 
+/* ‏אותה כותרת ש-og-tags.ts כותב. markets.js הוא defer, ו-loadAgency נקרא
+   מסוף ה-body לפני שהוא רץ; ה-await של המשרד ממתין לרשת, והרשימה כבר
+   קיימת כשהכותרת נכתבת. אם לא - נכתוב שוב ב-DOMContentLoaded. */
+function applyAgencyTitle(agency){
+  const place = window.ShukAgencyPlace;
+  if (!place) {
+    document.title = (agency.name || 'משרד תיווך') + ' | שוק נדל״ן';
+    return;
+  }
+  document.title = place.title(agency.name, place.officeCity(agency));
+  if (!window.ShukMarkets && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      document.title = place.title(agency.name, place.officeCity(agency));
+    }, { once: true });
+  }
+}
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -803,7 +820,7 @@ async function loadAgency(){
     if (error || !agency) throw error || new Error('not found');
 
     currentAgency = agency;
-    document.title = agency.name + ' | שוק נדל״ן';
+    applyAgencyTitle(agency);
     document.getElementById('brandName').textContent = agency.name;
     const tagline = (agency.tagline || '').trim();
     const taglineEl = document.getElementById('brandTagline');

@@ -23,6 +23,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/paused_launch_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -35,6 +36,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/paused_launch_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -88,3 +90,8 @@ jobs:
       # לתבנית ההתראות, ודילוג על ליד ישן או על סוג שאינו ברשימה.
       - name: התראת ליד ממטא
         run: node --experimental-strip-types scripts/meta_lead_alert_test.ts
+
+      # חבילת ההשקה המושהית: אין סטטוס ACTIVE, HOUSING רק על דיור, תקרת
+      # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
+      - name: השקה מושהית במטא
+        run: node --experimental-strip-types scripts/paused_launch_test.ts

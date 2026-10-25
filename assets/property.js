@@ -177,11 +177,29 @@ function logPropertyView(propertyId){
 
 let currentProperty = null;
 
+/* ‏הבלוק אינו ב-HTML של הצלחה, כדי שלא יהיו שני H1. נוצר רק כשצריך,
+   ופסקה ולא כותרת: ה-H1 היחיד נשאר #propTitle. אם ה-edge כבר שתל אותו
+   (‏404), משתמשים בו. */
+function showNotFound(){
+  document.getElementById('loadingState').style.display = 'none';
+  let box = document.getElementById('notFoundState');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'notFoundState';
+    box.className = 'wrap';
+    box.innerHTML =
+      '<p class="prop-missing" style="font-size:1.3rem;font-weight:700">הנכס לא נמצא</p>' +
+      '<p style="color:var(--ink-soft)">ייתכן שהמודעה הוסרה או שהקישור שגוי.</p>' +
+      '<a href="/" class="btn btn-gold" style="margin-top:16px">חזרה לדף הבית</a>';
+    document.getElementById('loadingState').insertAdjacentElement('afterend', box);
+  }
+  box.style.display = 'block';
+}
+
 async function loadProperty(){
   const id = getPropertyIdFromUrl();
   if (!id){
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    showNotFound();
     return;
   }
   try{
@@ -234,8 +252,7 @@ async function loadProperty(){
     if (data.has_virtual_tour) loadVirtualTour(data);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    showNotFound();
   }
 }
 
@@ -262,7 +279,12 @@ let heroVideoEl = null;
      • חיבור 2G — שם הסרטון לא באמת יתחיל לנגן, הוא רק יחנוק את שאר העמוד.
 
    בכל שלושת המקרים לא נעלם כלום: התמונה הראשית חוזרת למקומה, והסרטון
-   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.                       */
+   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.
+
+   כשהסרטון כן תופס את השער, התמונה (הפוסטר) היא מה שנצבע ראשון. הכתובת
+   של הקובץ לא נכנסת ל-src לפני לחיצה או לפני שהדף סיים להיטען והדפדפן
+   פנוי, ו-preload=none כדי שהקובץ (עד 50MB) לא יתחרה בתמונה. ניגון רק
+   בלחיצה, לא בזמן הציור.                                                    */
 function heroVideoSource(p){
   const embed = videoEmbed(p.video_url);
   if (!embed || embed.type !== 'video') return null;
@@ -273,9 +295,106 @@ function heroVideoSource(p){
   return embed.src;
 }
 
+/* ילד לפי מחלקה. בלי querySelector של מחלקה, כי בדיקת הסרטון מחקה
+   DOM שמכיר רק img[data-lcp]. */
+function elWithClass(parent, cls){
+  const kids = parent && parent.children || [];
+  for (let i = 0; i < kids.length; i++){
+    if (kids[i].classList && kids[i].classList.contains(cls)) return kids[i];
+  }
+  return null;
+}
+
+/* אותה נוסחה כמו heroRenderUrl ב-og-tags.ts. src של השער ו-preload
+   הם 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד את הקובץ פעמיים. */
+function heroRenderUrl(url, w, h){
+  var marker = '/storage/v1/object/public/';
+  var s = String(url || '');
+  var at = s.indexOf(marker);
+  if (at < 0) return '';
+  var path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return '';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path
+    + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+}
+function posterForHero(url){
+  return heroRenderUrl(url, 800, 500) || url || '';
+}
+function heroSrcset(url){
+  var small = heroRenderUrl(url, 800, 500);
+  var big = heroRenderUrl(url, 1200, 800);
+  if (!small || !big) return '';
+  return small + ' 800w, ' + big + ' 1200w';
+}
+function heroImgExtra(original){
+  var set = heroSrcset(original);
+  if (!set) return '';
+  return ' srcset="' + escapeAttr(set) + '" sizes="(min-width:640px) 640px, 100vw"'
+    + ' data-full="' + escapeAttr(original) + '"'
+    + ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"';
+}
+function paintHeroImg(img, original){
+  img.src = posterForHero(original);
+  var set = heroSrcset(original);
+  if (!set) return;
+  img.setAttribute('srcset', set);
+  img.setAttribute('sizes', '(min-width:640px) 640px, 100vw');
+  img.setAttribute('data-full', original);
+  img.setAttribute('onerror', "this.onerror=null;this.removeAttribute('srcset');this.src=this.getAttribute('data-full')");
+}
+
+/* הווידאו בלי src. תמונת data-lcp שכבר ב-HTML נשארת אותו צומת, כדי
+   שה-LCP לא יתחיל מחדש אחרי שה-JS בונה את הגלריה. */
+function attachHeroVideo(main, videoSrc, poster){
+  main.classList.add('bento-video');
+  const v = document.createElement('video');
+  v.dataset.pendingSrc = videoSrc;
+  v.preload = 'none';
+  v.autoplay = false;
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.setAttribute('aria-label', 'סרטון הנכס');
+  v.style.visibility = 'hidden';
+  let img = main.querySelector && main.querySelector('img[data-lcp]');
+  if (!img){
+    const kids = main.children || [];
+    for (let i = 0; i < kids.length; i++){
+      if (kids[i].dataset && kids[i].dataset.lcp){ img = kids[i]; break; }
+    }
+  }
+  if (!img && poster){
+    img = document.createElement('img');
+    img.className = 'bento-video-bg';
+    img.dataset.lcp = '1';
+    paintHeroImg(img, poster);
+    img.alt = '';
+    img.style.filter = 'none';
+    img.style.transform = 'none';
+    img.setAttribute('fetchpriority', 'high');
+    img.setAttribute('aria-hidden', 'true');
+    main.appendChild(img);
+  }
+  main.appendChild(v);
+  const portrait = ()=>{
+    if (main.classList.contains('is-portrait')) return;
+    main.classList.add('is-portrait');
+  };
+  if (isReelVideo(videoSrc)) portrait();
+  v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
+  v.addEventListener('playing', ()=>{
+    v.style.visibility = '';
+    const shot = (main.querySelector && main.querySelector('img[data-lcp]')) || img;
+    if (shot && main.classList.contains('is-portrait')){
+      shot.style.filter = '';
+      shot.style.transform = '';
+    }
+  });
+  heroVideoEl = v;
+}
+
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
-  grid.innerHTML = '';
   heroVideoEl = null;
   galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
 
@@ -284,64 +403,105 @@ function renderGallery(p){
   const videoSrc = heroVideoSource(p);
   const thumbStart = videoSrc ? 0 : 1;
   const thumbEnd = Math.max(thumbStart, Math.min(galleryImages.length, thumbStart + 2));
-  // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
-  // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
-  grid.setAttribute('data-count', String(1 + thumbEnd - thumbStart));
+  const count = String(1 + thumbEnd - thumbStart);
+  const poster = videoSrc ? (p.video_poster_url || galleryImages[0] || '') : (galleryImages[0] || '');
+  const heroSrc = posterForHero(poster);
+  const kept = grid.querySelector && grid.querySelector('img[data-lcp]');
+  /* data-count של סרטון ושל גלריה בלי סרטון מתלכד כשיש לפחות שתי תמונות.
+     reduced-motion / Save-Data / 2G מכבים את הסרטון רק בדפדפן, והשרת
+     לא יודע את זה. בלי בדיקת המחלקה היינו משאירים את פריסת הסרטון.
+     ההשוואה היא לכתובת ה-render, אותה כתובת שה-edge שם ב-src. */
+  const mainNow = elWithClass(grid, 'bento-main');
+  const paintedVideo = !!(mainNow && mainNow.classList && mainNow.classList.contains('bento-video'));
+  const ssr = !!(kept && heroSrc && kept.getAttribute('src') === heroSrc
+    && grid.getAttribute('data-count') === count
+    && !!videoSrc === paintedVideo);
+  if (!ssr){
+    grid.innerHTML = '';
+    // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
+    // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
+    grid.setAttribute('data-count', count);
 
-  // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
-  // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
-  const makeCell = (cls, index, opensAt)=>{
-    const cell = document.createElement('div');
-    cell.className = 'bento-cell ' + cls;
-    const open = document.createElement('button');
-    open.type = 'button';
-    open.className = 'cell-open';
-    open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
-    open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
-    open.addEventListener('click', ()=> lbOpen(opensAt));
-    cell.appendChild(open);
-    return cell;
-  };
+    // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
+    // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
+    const makeCell = (cls, index, opensAt, hero)=>{
+      const cell = document.createElement('div');
+      cell.className = 'bento-cell ' + cls;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'cell-open';
+      open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
+      const raw = galleryImages[index];
+      open.innerHTML = hero
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="" fetchpriority="high"${heroImgExtra(raw)}>`
+        : `<img src="${escapeAttr(raw)}" alt="" ${index ? 'loading="lazy"' : ''}>`;
+      open.addEventListener('click', ()=> lbOpen(opensAt));
+      cell.appendChild(open);
+      return cell;
+    };
 
-  const main = document.createElement('div');
-  main.className = 'bento-cell bento-main';
-  if (videoSrc){
-    main.classList.add('bento-video');
-    const v = document.createElement('video');
-    v.src = videoSrc;
-    // ‏muted חייב להיות מוגדר לפני ‎play()‎ — ניגון אוטומטי עם קול חסום בכל
-    // דפדפן, וסרטון שמתחיל להשמיע קול מעצמו הוא ממילא לא מה שביקשו כאן.
-    v.muted = true;
-    v.loop = true;
-    v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
-    v.autoplay = true;
-    v.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
-    // התמונה הראשית היא ה-poster: כך התא נראה כמו קודם עד שהפריים הראשון
-    // מגיע, ובמקום שבו הניגון ייחסם נשארת התמונה במקום מלבן שחור.
-    if (galleryImages[0]) v.poster = galleryImages[0];
-    main.appendChild(v);
-    heroVideoEl = v;
-    grid.appendChild(main);
-    // ‏play() נדחית בשקט כשהדפדפן מסרב — מצב חיסכון בסוללה באייפון הוא
-    // המקרה הנפוץ. אז הפוסטר נשאר, ופס הפקדים נדלק כדי שיהיה אפשר לנגן ביד.
-    const played = v.play();
-    if (played && played.catch) played.catch(()=>{ v.controls = true; });
-  } else if (!galleryImages.length){
-    main.classList.add('bento-empty');
-    // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
-    // ריק שנקרא כמו תמונה שבורה
-    const name = agencyNameOf(p);
-    const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
-    main.innerHTML = `<div class="empty-inner">
-        ${logo
-          ? `<img class="empty-logo" src="${escapeAttr(logo)}" alt="${escapeAttr(name)}" onerror="this.remove()">`
-          : `<span class="empty-logo empty-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`}
-        ${name ? `<div class="empty-agency">${escapeHtml(name)}</div>` : ''}
-        <div class="empty-note">${NO_PHOTOS_NOTE}</div>
-      </div>`;
-    grid.appendChild(main);
+    const main = document.createElement('div');
+    main.className = 'bento-cell bento-main';
+    if (videoSrc){
+      // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
+      // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
+      attachHeroVideo(main, videoSrc, poster);
+      grid.appendChild(main);
+    } else if (!galleryImages.length){
+      main.classList.add('bento-empty');
+      // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
+      // ריק שנקרא כמו תמונה שבורה
+      const name = agencyNameOf(p);
+      const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
+      main.innerHTML = `<div class="empty-inner">
+          ${logo
+            ? `<img class="empty-logo" src="${escapeAttr(logo)}" alt="${escapeAttr(name)}" onerror="this.remove()">`
+            : `<span class="empty-logo empty-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`}
+          ${name ? `<div class="empty-agency">${escapeHtml(name)}</div>` : ''}
+          <div class="empty-note">${NO_PHOTOS_NOTE}</div>
+        </div>`;
+      grid.appendChild(main);
+    } else {
+      grid.appendChild(makeCell('bento-main', 0, 0, true));
+    }
+
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = thumbStart; i < thumbEnd; i++){
+      // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
+      // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
+      const isLast = i === thumbEnd - 1;
+      const cell = makeCell('bento-thumb', i, (isLast && restBuilt > 0) ? thumbEnd : i);
+      if (isLast) cell.classList.add('carries-count');
+      grid.appendChild(cell);
+    }
+  } else if (videoSrc){
+    const main = elWithClass(grid, 'bento-main');
+    if (main) attachHeroVideo(main, videoSrc, poster);
+    let n = 0;
+    const kids = grid.children || [];
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = 0; i < kids.length; i++){
+      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
+      const index = thumbStart + n;
+      const isLast = index === thumbEnd - 1;
+      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
+      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
+      n++;
+    }
   } else {
-    grid.appendChild(makeCell('bento-main', 0, 0));
+    const main = elWithClass(grid, 'bento-main');
+    if (main) main.addEventListener('click', ()=> lbOpen(0));
+    let n = 0;
+    const kids = grid.children || [];
+    const restBuilt = galleryImages.length - thumbEnd;
+    for (let i = 0; i < kids.length; i++){
+      if (!kids[i].classList || !kids[i].classList.contains('bento-thumb')) continue;
+      const index = thumbStart + n;
+      const isLast = index === thumbEnd - 1;
+      const opensAt = (isLast && restBuilt > 0) ? thumbEnd : index;
+      kids[i].addEventListener('click', ()=> lbOpen(opensAt));
+      n++;
+    }
   }
 
   // התגיות המרחפות עוברות לתוך התא הראשי — כך הן תמיד על התמונה הגדולה
@@ -352,15 +512,6 @@ function renderGallery(p){
   });
 
   const rest = galleryImages.length - thumbEnd;
-  for (let i = thumbStart; i < thumbEnd; i++){
-    // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
-    // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
-    const isLast = i === thumbEnd - 1;
-    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? thumbEnd : i);
-    if (isLast) cell.classList.add('carries-count');
-    grid.appendChild(cell);
-  }
-
   // מונה התמונות יורד אל התמונה המשנית האחרונה במקום לשבת על הראשית: שם הוא
   // מפנה מקום לתמונה עצמה, והוא ממילא מדבר על כל הגלריה ולא על תמונת השער.
   const countHost = grid.querySelector('.bento-thumb.carries-count');
@@ -378,45 +529,85 @@ function renderGallery(p){
 }
 
 /* ---------- מתג הקול של תמונת השער ----------
-   הסרטון רץ בלולאה ממילא, ולכן אין כאן כפתור ניגון אלא שאלה אחת: שומעים
-   אותו או לא. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם
-   השתקה שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.               */
+   הלחיצה הראשונה על התמונה מנגנת מושתק. אחר כך הלחיצה היא מתג הקול, כמו
+   קודם. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם השתקה
+   שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.
+
+   ה-src לא נקבע כאן בזמן הרינדור. אחרי שהחלון נטען: requestIdleCallback
+   (תקרה של 4 שניות), ובלי זה setTimeout של 2 שניות. זה רק מכניס את הכתובת.
+   preload=none נשאר, והקובץ יורד כשמנגנים.                              */
 function setupHeroSound(){
   const btn = document.getElementById('heroSoundBtn');
   if (!btn) return;
   if (!heroVideoEl){ btn.hidden = true; return; }
   const video = heroVideoEl;
+  const pending = video.dataset.pendingSrc || '';
+  let started = false;
 
+  const ensureSrc = ()=>{
+    if (pending && !video.getAttribute('src')) video.src = pending;
+  };
   const paint = ()=>{
+    if (!started){
+      btn.innerHTML = ICON.play;
+      btn.setAttribute('aria-label', 'ניגון הסרטון');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'ניגון';
+      return;
+    }
     btn.innerHTML = video.muted ? ICON.soundOff : ICON.soundOn;
     btn.setAttribute('aria-label', video.muted ? 'השמעת הקול של הסרטון' : 'השתקת הסרטון');
     btn.setAttribute('aria-pressed', String(!video.muted));
     btn.title = video.muted ? 'השמעת הקול' : 'השתקה';
   };
+  const begin = ()=>{
+    if (started) return;
+    ensureSrc();
+    started = true;
+    video.muted = true;
+    video.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
+    paint();
+    const played = video.play();
+    if (played && played.catch) played.catch(()=>{ video.controls = true; video.style.visibility = ''; });
+  };
 
   const toggle = ()=>{
+    ensureSrc();
+    started = true;
     video.muted = !video.muted;
     // ביטול השתקה על סרטון שנעצר הוא בקשה לנגן אותו, לא רק להוסיף לו קול
     if (!video.muted){
       if (panelVideoEl) panelVideoEl.pause();
       video.play().catch(()=>{});
     }
+    paint();
   };
-  btn.addEventListener('click', toggle);
-  // גם הסרטון עצמו — מי שרואה וידאו מנגן מושתק מקיש עליו, לא מחפש כפתור.
-  // הכפתור נשאר בכל זאת: הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
-  video.addEventListener('click', toggle);
+  // לחיצה ראשונה (כפתור, תמונה או סרטון): ניגון מושתק. אחר כך מתג הקול.
+  // הכפתור נשאר כי הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
+  const onSurface = ()=>{ if (!started) begin(); else toggle(); };
+  btn.addEventListener('click', onSurface);
+  video.addEventListener('click', onSurface);
+  const shot = video.parentElement && video.parentElement.querySelector('img[data-lcp]');
+  if (shot) shot.addEventListener('click', onSurface);
   video.addEventListener('volumechange', paint);
   paint();
   btn.hidden = false;
 
+  const arm = ()=> ensureSrc();
+  const schedule = ()=>{
+    if (window.requestIdleCallback) window.requestIdleCallback(arm, { timeout: 4000 });
+    else setTimeout(arm, 2000);
+  };
+  if (document.readyState === 'complete') schedule();
+  else window.addEventListener('load', schedule, { once: true });
+
   /* סרטון שממשיך לרוץ אחרי שגללו ממנו הוא סוללה וגלישה שנשרפות על משהו
-     שאיש לא רואה. מושתק = תמונת שער שזזה, ואפשר לעצור אותה בשקט; אחרי
-     שביקשו קול זו כבר האזנה מכוונת, ועצירה כאן הייתה קוטעת אותה. */
+     שאיש לא רואה. רק אחרי שהניגון התחיל, ורק כשהוא מושתק. בלי זה הגלריה
+     הייתה מנגנת מעצמה ברגע שהשער נראה. */
   if (!('IntersectionObserver' in window)) return;
   new IntersectionObserver((entries)=>{
     for (const entry of entries){
-      if (!video.muted) continue;
+      if (!started || !video.muted) continue;
       if (entry.isIntersecting) video.play().catch(()=>{});
       else video.pause();
     }
@@ -461,13 +652,23 @@ function videoEmbed(raw){
 // את אותו סיור פעמיים בהפרש של כמה שניות.
 let panelVideoEl = null;
 
-function renderVideoPanel(embed){
+// רילס בתבנית D (1080x1920) - הקבצים שהמערכת שומרת בשם ‎marketing-reel-…‎.
+function isReelVideo(src){
+  return /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i.test(String(src || ''));
+}
+
+function renderVideoPanel(embed, poster){
   const frame = document.getElementById('videoFrame');
   frame.innerHTML = embed.type === 'iframe'
     ? `<iframe src="${escapeAttr(embed.src)}" title="סרטון הנכס" loading="lazy" ` +
       `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
-    : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline></video>`;
+    : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline` +
+      `${poster ? ` poster="${escapeAttr(poster)}"` : ''}></video>`;
   panelVideoEl = frame.querySelector('video');
+  frame.classList.toggle('is-portrait', embed.type === 'video' && isReelVideo(embed.src));
+  if (panelVideoEl) panelVideoEl.addEventListener('loadedmetadata', ()=>{
+    if (panelVideoEl.videoHeight > panelVideoEl.videoWidth) frame.classList.add('is-portrait');
+  });
   // מי שלחץ/ה נגן כאן ביקש/ה לצפות כאן. תמונת השער חוזרת להיות מושתקת,
   // וה-‏IntersectionObserver שלה ממילא יעצור אותה ברגע שיגללו לכאן.
   if (panelVideoEl) panelVideoEl.addEventListener('play', ()=>{
@@ -489,9 +690,9 @@ function renderMediaButtons(p){
   const embed = videoEmbed(p.video_url);
   if (!embed){ link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס'); return; }
 
-  /* הסרטון כבר מנגן בתמונה הראשית — נגן שני של אותו קובץ בהמשך העמוד הוא
-     רק אותו סיור פעם שנייה, וכפתור שמוביל אליו הוא קיצור דרך למקום שהצופה
-     כבר נמצא בו. שניהם יורדים.
+  /* הסרטון יושב בתמונה הראשית (גם לפני שלחצו לנגן) — נגן שני של אותו קובץ
+     בהמשך העמוד היה מוריד אותו פעמיים, וכפתור שמוביל אליו הוא קיצור דרך
+     למקום שהצופה כבר נמצא בו. שניהם יורדים.
 
      הסקציה נשארת בקוד ולא נמחקה, כי היא עדיין המסלול היחיד בכל מקרה
      שבו השער ויתר על הסרטון: יוטיוב ווימאו (שלא נכנסים לשער כ-iframe),
@@ -499,7 +700,7 @@ function renderMediaButtons(p){
   if (heroVideoEl) return;
 
   // כשהסרטון מנוגן בעמוד, הכפתור בהירו הוא קיצור דרך אליו ולא יציאה מהעמוד
-  renderVideoPanel(embed);
+  renderVideoPanel(embed, p.video_poster_url || null);
   const btn = document.getElementById('videoBtn');
   btn.href = '#videoSection';
   btn.removeAttribute('target');
@@ -1101,6 +1302,32 @@ function renderPlanningInfo(row, isLandRow){
       (plans.some(pl => pl.kind || pl.url)
         ? '<p class="plan-src">מקור התוכניות הארציות וההודעות: GovMap, המרכז למיפוי ישראל, ומבא"ת.</p>' : '');
     plansEl.hidden = false;
+  }
+
+  // מקופל בכל נכס, גם בקרקע (ההערה ב-property.html). שורת הסיכום אומרת
+  // מה מחכה מאחורי הכפתור, והודעת 77-78 נקראת בשמה כי היא מגבלה ולא רקע.
+  const notices = plans.filter(pl => pl.notice).length;
+  // בלי תוכניות הסיכום הוא שמות הנתונים, כדי שהסקציה המקופלת לא תהיה כותרת ריקה
+  const where = isLandRow ? 'הקרקע' : 'המקום';
+  document.getElementById('planningSummary').textContent = [
+    plans.length === 1 ? `תוכנית אחת החלה על ${where}`
+      : plans.length ? `${plans.length} תוכניות החלות על ${where}`
+      : facts.map(f => f.k).slice(0, 3).join(', '),
+    notices ? (notices === 1 ? 'הודעה אחת על הכנת תוכנית (77-78)' : `${notices} הודעות על הכנת תוכנית (77-78)`) : null,
+  ].filter(Boolean).join(' · ');
+
+  const body = document.getElementById('planningBody');
+  const toggle = document.getElementById('planningToggle');
+  const setOpen = open => {
+    body.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'הסתרת המידע התכנוני' : 'הצגת המידע התכנוני');
+  };
+  setOpen(false);
+  if (!toggle.dataset.wired){
+    toggle.dataset.wired = '1';
+    // המאזין על כל הכותרת; לחיצה על הכפתור עצמו מבעבעת לכאן, ולכן אין לו מאזין משלו
+    document.getElementById('planningHead').addEventListener('click', ()=> setOpen(body.hidden));
   }
 
   document.getElementById('planningSection').hidden = false;
@@ -2187,14 +2414,14 @@ function renderAgencyAvatar(agency){
 /* מספר המודעה הוא מה שהסוכן/ת מחפש/ת כדי לזהות על איזה נכס מדובר. במקום שורה
    מוצנעת בתחתית העמוד, שאיש לא מעתיק ממנה, הוא נכנס מראש לתיבת ההודעה בטופס
    הפנייה — הודעה מוכנה לשליחה שכבר נושאת את המספר. */
-/* חלונית גבריאלה (‏assets/gabriela-widget.js): "פרטים על הנכס הזה" נושא את הנכס
-   ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. ‏publicTitle ולא
-   ‏p.title - אותו כלל של כתובת מוסתרת שחל על הדף. */
+/* חלונית גבריאלה (assets/gabriela-widget.js): "פרטים על הנכס הזה" נושא את הנכס
+   ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. הכותרת כאן ממוסכת:
+   הדף עצמו מציג מספר בית, וההודעה שנפתחת בוואטסאפ לא. */
 function setGabWidgetContext(p){
   const hood = p.neighborhoods?.name || p.sales_area || '';
   window.gabWidgetContext = { property: {
     id: p.id,
-    title: publicTitle(p),
+    title: maskedListingTitle(p),
     hood,
     rooms: p.rooms ? Number(p.rooms).toLocaleString('he-IL') : '',
     price: p.price ? priceLabel(p) : '',
@@ -2280,20 +2507,19 @@ function renderTags(p){
     `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
 }
 
-/* ---------- כתובת ציבורית: רחוב ושכונה, בלי מספר בית ----------
-   דף הנכס הוא הדף הפומבי היחיד שהציג כתובת מלאה. מספר בית הופך מודעה
-   לכתובת של דירה מסוימת — מי שרואה אותה יודע בדיוק על איזו דלת מדובר,
-   וזה מידע ששייך לסוכן/ת ולא לרחוב. אריחי הנכסים כבר מציגים רחוב ושכונה
-   בלבד (‏assets/property-card.js), והשורה כאן פשוט מיישרת אליהם.
+/* ---------- כותרת וכתובת ציבוריות ----------
+   הכותרת בדף הנכס היא "<סוג> <חדרים> חד׳ ב<רחוב> <מספר>, <עיר>" כשיש
+   סוג ורחוב. מספר הבית נכתב פעם אחת, אחרי שם הרחוב. חסר אחד מהשניים,
+   והכותרת חוזרת לכותרת שנשמרה במסד אחרי מיסוך המספר, כדי לא להמציא כתובת.
 
-   מספר הבית עצמו נשאר במסד ובטופס הנכס ב-CRM: הוא נחוץ לניווט, להסכמים
-   ולזיהוי כפילויות. הוא פשוט לא נכתב בעמוד הציבורי — לא בשורת הכתובת,
-   לא בכותרת H1 ולא בכותרת המפה. גוש וחלקה ממילא אינם מגיעים לצד הזה:
-   ‏property_planning_public מסנן אותם עוד ב-RPC.
+   שורת הכתובת ושורת המפה מציגות רחוב ומספר, שכונה ועיר. גוש, חלקה
+   וקואורדינטות לא נכתבים ל-HTML. אריחי הרשימה (property-card.js) נשארים
+   בלי מספר בית. גבריאלה בוואטסאפ עדיין ממסכת את המספר כשהיא עונה מהמסד
+   (public-agent.ts). חלון הוואטסאפ מהדף שולח את הכותרת הממוסכת, לא את
+   הכותרת עם המספר, כדי שהשיחה לא תיפתח עם מספר הדלת.
 
-   ‏maskHouseNumber עובד על טקסט חופשי (כותרת שנשמרה במסד) ולכן הוא מוחק
-   *מספר* ולא מילה: גבולות ספרה משני הצדדים, כדי ש-"52" לא ייחתך מתוך
-   "152" ולא מתוך "128 מ״ר".                                              */
+   maskHouseNumber מוחקת מספר ולא מילה: גבול ספרה משני הצדדים, כדי
+   ש-"52" לא ייחתך מתוך "152" ולא מתוך "128 מ״ר". העתק ב-og-tags.ts. */
 function maskHouseNumber(text, houseNumber){
   const t = String(text || '');
   const hn = String(houseNumber ?? '').trim();
@@ -2308,10 +2534,49 @@ function maskHouseNumber(text, houseNumber){
 
 /* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
    שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+function roomsShort(n){
+  if (n === null || n === undefined || String(n).trim() === '') return '';
+  const v = Number(n);
+  if (!isFinite(v) || v <= 0) return '';
+  return String(Number(v.toFixed(1)));
+}
+
+function streetNameOf(p){
+  const raw = String((p && (p.street || p.address)) || '').trim();
+  return maskHouseNumber(raw, p && p.house_number)
+    .replace(/^רחוב\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function publicStreetLine(p){
+  const street = streetNameOf(p);
+  const hn = String((p && p.house_number) ?? '').trim();
+  if (!street) return '';
+  return hn ? street + ' ' + hn : street;
+}
+
+/* כותרת הדף. בלי סוג או בלי רחוב אין דפוס, ונשארת הכותרת הממוסכת. */
+function publicHeadline(p){
+  const type = String((p && p.property_type) || '').trim();
+  const street = streetNameOf(p);
+  const city = String((p && p.city) || '').trim();
+  const hn = String((p && p.house_number) ?? '').trim();
+  const rooms = roomsShort(p && p.rooms);
+  const fallback = maskHouseNumber((p && p.title) || '', p && p.house_number) || String((p && p.title) || '');
+  if (!type || !street) return fallback;
+  let head = type;
+  if (rooms) head += ' ' + rooms + ' חד׳';
+  head += ' ב' + street;
+  if (hn) head += ' ' + hn;
+  if (city) head += ', ' + city;
+  return head;
+}
+
 function publicAddressText(p){
   const hood = p.neighborhoods?.name || p.sales_area || '';
-  const street = maskHouseNumber(p.address || p.street || '', p.house_number);
-  return [street, hood && hood !== p.city ? hood : '', p.city]
+  const line = publicStreetLine(p);
+  return [line, hood && hood !== p.city ? hood : '', p.city]
     .filter(Boolean).join(', ');
 }
 
@@ -2339,6 +2604,10 @@ function linkNeighborhoodPage(p, addressEl){
 }
 
 function publicTitle(p){
+  return publicHeadline(p) || maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
+}
+
+function maskedListingTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
 
