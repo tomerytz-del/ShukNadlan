@@ -26,6 +26,10 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 | `agent_cma_report_full` | `agent_cma_report` + הגוש/חלקה מהמידע התכנוני + הסיום | `cma_report` (הדשבורד) והבוט |
 | `agent_cma_report_address` | **Elite**: דוח לכל כתובת, נכס בזיכרון, מיקום מ-`cma_locate_address` כשאין | `cma_report_address` והבוט |
 
+**בגבריאלה הדוח לכתובת שואל קודם** (`needs_details` → שאלה אחת → `proceed: true`).
+פרט חדש שהדוח נשען עליו נכנס גם לרשימת `missing` ב-`toolCmaReportAddress`,
+אחרת גבריאלה לא תשאל עליו ותפיק בלעדיו.
+
 **הדוח לכתובת מקבל מאפיינים משתי רשימות סגורות** - `CMA_ADDR_FEATURES` בטופס
 ב-CRM וה-`enum` של הכלי בגבריאלה - שתיהן העתק של `cma_price_features()`.
 מאפיין שנוסף לפונקציה ולא אליהן אינו ניתן לסימון בדוח לכתובת.

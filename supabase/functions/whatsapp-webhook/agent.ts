@@ -596,8 +596,10 @@ const TOOLS: Anthropic.Tool[] = [
       "לקוח/ה, \"תכין דוח CMA לרוטשילד 1 בראשון לציון\"). אותו דוח בדיוק כמו cma_report: " +
       "עסקאות מכר ברדיוס, ממוצע וחציון מאותו סוג ומספר חדרים, טווח ואחוזון, שכונה ובעלות. " +
       "**זמין במסלול Elite בלבד**; במסלול אחר חוזר tier_required. " +
-      "מסרו כל מה שנאמר: חדרים, שטח, קומה ומחיר מבוקש משפרים את ההשוואה, אבל אינם חובה - " +
-      "**אל תעכב/י את הדוח כדי לשאול עליהם**; אם חזר details_guidance - בצע/י אותו. " +
+      "**קודם שואלים, פעם אחת:** בלי proceed הכלי בודק אילו פרטים חסרים (סוג, מספר בית, חדרים, " +
+      "שטח, קומה, מחיר מבוקש, מאפיינים) ומחזיר needs_details עם missing - אז שאל/י עליהם בהודעה אחת, " +
+      "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
+      "אם חזר details_guidance - בצע/י אותו. " +
       "אם חזר location_guidance - אמור/אמרי אותו.",
     input_schema: {
       type: "object",
@@ -624,6 +626,13 @@ const TOOLS: Anthropic.Tool[] = [
           description: "מאפיינים שנאמרו (ממ\"ד, מעלית, חניה, מרפסת...). משמשים להשוואה מול נכסים בשוק.",
         },
         limit: { type: "integer", description: "כמה עסקאות השוואה לפרט. ברירת מחדל 5, מקסימום 10." },
+        proceed: {
+          type: "boolean",
+          description:
+            "true אחרי שכבר שאלת את הסוכן/ת על הפרטים החסרים (או שביקש/ה להפיק בלי). " +
+            "בלעדיו הכלי רק מחזיר את רשימת החסרים.",
+        },
+        // ‏features: [] = "אין מאפיינים" (נשאל ונענה), להבדיל מהיעדר השדה
       },
       required: ["city", "street"],
     },
@@ -3148,6 +3157,47 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
   const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 
+  // ‏**קודם שואלים, אחר כך מפיקים.** דוח בלי חדרים משווה לכל הגדלים, בלי שטח
+  // אין מחיר למ"ר, ובלי מחיר מבוקש אין פער - והסוכן/ת בדרך כלל יודע/ת את כל
+  // אלה. לכן בלי `proceed` הכלי אינו מריץ את הדוח אלא מחזיר את רשימת החסרים
+  // ושאלה אחת לשאול. ‏`proceed: true` אחרי תשובה (גם "אין לי", "תפיק כבר").
+  //
+  // המסלול נבדק **לפני** השאלות: לשאול שבעה פרטים ואז לענות "זה ב-Elite"
+  // הוא בזבוז של זמן הסוכן/ת. זו בדיקת נוחות - הגייט עצמו במסד
+  // (‏agent_cma_report_address), ולכן כשל בבדיקה כאן פשוט ממשיך.
+  if (input.proceed !== true) {
+    const { data: member } = await ctx.supabase
+      .from("agency_members").select("tier, active, billing_status")
+      .eq("id", ctx.agent.id).maybeSingle();
+    const notElite = member && (!member.active || member.billing_status !== "active" || member.tier !== "premium");
+    if (!notElite) {
+      const type = String(input.property_type || "").trim();
+      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם/.test(type);
+      const land = /מגרש|קרקע|נחלה|משק/.test(type);
+      const missing = [
+        !type && "סוג הנכס (דירה, דירת גן, פנטהאוז, בית פרטי, חנות, משרד...)",
+        !houseNumber && "מספר בית",
+        !commercial && !land && num(input.rooms) === null && "מספר חדרים",
+        num(input.size_sqm) === null && "שטח במ\"ר",
+        !land && num(input.floor) === null && "קומה",
+        num(input.asking_price) === null && "מחיר מבוקש (אם יש)",
+        !land && !Array.isArray(input.features) && "מאפיינים: ממ\"ד, מעלית, חניה, מרפסת, מחסן, משופצת",
+      ].filter(Boolean) as string[];
+      if (missing.length) {
+        return {
+          ok: false,
+          needs_details: true,
+          missing,
+          guidance:
+            "לפני שמפיקים את הדוח: שאל/י את הסוכן/ת **בהודעה אחת קצרה** על כל מה שב-missing, כרשימה, " +
+            "ואמור/אמרי שאפשר לענות רק על חלק או לכתוב \"תפיק\". אל תמסור/תמסרי עדיין שום נתון. " +
+            "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם כל הפרטים שנמסרו (גם אלה מההודעה הקודמת) " +
+            "ועם proceed: true. אל תשאל/י פעם שנייה.",
+        };
+      }
+    }
+  }
+
   const coords = city && street && houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
 
   const { data, error } = await ctx.supabase.rpc("agent_cma_report_address", {
@@ -3211,7 +3261,8 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
       ? LOCATION_GUIDANCE[precision] || undefined
       : "לא הצלחנו למקם את הכתובת, ולכן אין השוואה לפי מרחק. אמור/אמרי זאת, וודא/י עם הסוכן/ת את שם הרחוב והעיר. אל תחליף/י ברשימת עסקאות לפי שם הרחוב.",
     // בדוח לכתובת אין כרטיס נכס להשלים בו פרטים - שואלים את הסוכן/ת
-    details_guidance: missing.length
+    // אחרי proceed הסוכן/ת כבר נשאל/ה ובחר/ה - לא מציעים שוב
+    details_guidance: missing.length && input.proceed !== true
       ? `לא נמסרו: ${missing.join(", ")}. מסור/מסרי את הדוח, ובסוף הצע/י להריץ שוב עם הפרטים האלה - ` +
         "הם מסננים את בני ההשוואה, ושטח נותן מחיר למ\"ר."
       : undefined,
@@ -6277,6 +6328,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **דוח CMA לכתובת** (\"תכין דוח CMA לרוטשילד 1 בראשון\", \"כמה שווה דירת 4 חדרים בהרצל 20\"): " +
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +
+      "בקריאה הראשונה הוא מחזיר needs_details - שאל/י על החסר בהודעה אחת, ואז proceed: true. " +
       "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות.",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
