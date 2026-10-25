@@ -205,6 +205,7 @@
     patchClicks(win);
     patchSavedSearch(win);
     schedulePurchaseShield(win);
+    scheduleLocationPrompt(win);
     whenCapacitor(win, function () { wireNative(win); });
   }
 
@@ -842,6 +843,266 @@
     } else boot();
   }
 
+  /* מסך מיקום לפני בקשת ההרשאה. רק באפליקציה (הגשר לא נטען בדפדפן).
+     פעם אחת, ואחרי תשובה או דילוג לא שוב. "אתרו את האזור שלי" פותח אותו
+     מחדש. ההרשאה נבקשת רק מ"הפעלה", ומיקום משוער בלבד. */
+  var LOC_STORAGE_KEY = 'shuk_loc_onboard';
+  var LOC_GEO = { enableHighAccuracy: false, timeout: 8000, maximumAge: 86400000 };
+  var LOC_COPY = {
+    title: 'באיזה אזור אתם מחפשים?',
+    body: 'נשתמש במיקום משוער רק כדי להציג את השוק המקומי, למשל עפולה והעמק, ונכסים קרובים. המיקום לא נשמר בשרתים שלנו, ואפשר לשנות את האזור בכל רגע.',
+    allow: 'הפעלה',
+    skip: 'אולי אחר כך',
+    more: 'איך אתם משתמשים במיקום שלי?',
+    moreBody: 'המיקום המשוער נשאר במכשיר ומשמש רק כדי לבחור את האזור שמוצג, למשל עפולה והעמק, ולהציג נכסים קרובים. הנקודה לא נשמרת בשרתים שלנו ולא נשלחת אלינו.',
+    privacy: 'מדיניות הפרטיות',
+    privacyHref: 'https://shuknadlan.co.il/privacy',
+    seeking: 'מאתרים את האזור...',
+    denied: 'לא התקבלה הרשאה למיקום. האזור נשאר כמו שהוא, ואפשר לנסות שוב מבורר האזור.',
+    failed: 'לא הצלחנו לאתר את המיקום. האזור נשאר כמו שהוא.',
+    outside: 'עוד לא הגענו לאזור שלך. בינתיים מוצג עפולה והעמק.',
+    cont: 'המשך',
+  };
+
+  function shouldAutoShowLocation(opts) {
+    opts = opts || {};
+    if (!opts.site) return false;
+    if (opts.seen) return false;
+    if (opts.path === '/privacy') return false;
+    return true;
+  }
+
+  /* אותה locate של האתר, רק שווקים חיים. מחוץ לשוק חי - null, והקורא
+     נשאר על עפולה והעמק בלי עוגיית "בקרוב". */
+  function pickLiveMarket(markets, lat, lng) {
+    if (!markets || typeof markets.locate !== 'function') return null;
+    var m;
+    try { m = markets.locate(lat, lng, true); } catch (e) { return null; }
+    if (!m || m.live !== true) return null;
+    return m;
+  }
+
+  /* ניווט רק כשהדף עצמו הוא דף שוק אחר. דף נכס נשאר, והעוגייה תפתח את
+     דף הבית על האזור בביקור הבא. */
+  function marketPathToOpen(markets, pathname, chosen) {
+    if (!chosen || chosen.live !== true || !chosen.path) return null;
+    if (!markets || typeof markets.byPath !== 'function') return null;
+    var here;
+    try { here = markets.byPath(pathname); } catch (e) { return null; }
+    if (!here || here.slug === chosen.slug) return null;
+    return chosen.path;
+  }
+
+  function isLocateControl(node) {
+    var el = node;
+    while (el) {
+      if (el.nodeType === 1 && el.classList && el.classList.contains('mkt-locate')) return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function siteHost(win) {
+    try {
+      var host = String(win.location.hostname || '').toLowerCase();
+      if (host.indexOf('www.') === 0) host = host.slice(4);
+      return host === 'shuknadlan.co.il' || endsWith(host, '.shuknadlan.co.il');
+    } catch (e) { return false; }
+  }
+
+  function docPath(win) {
+    try {
+      var path = String(win.location.pathname || '/').replace(/\.html$/i, '').replace(/\/+$/, '');
+      return path || '/';
+    } catch (e) { return '/'; }
+  }
+
+  function locationPromptSeen(win) {
+    try { return !!win.localStorage.getItem(LOC_STORAGE_KEY); }
+    catch (e) { return true; }
+  }
+
+  function markLocationPrompt(win) {
+    try { win.localStorage.setItem(LOC_STORAGE_KEY, '1'); } catch (e) {}
+  }
+
+  function whenBody(win, fn) {
+    var doc = win.document;
+    if (!doc) return;
+    if (doc.body) { fn(); return; }
+    if (doc.addEventListener) doc.addEventListener('DOMContentLoaded', fn);
+  }
+
+  function showLocationPrompt(win, reopen) {
+    var doc = win.document;
+    if (!doc || !doc.body || doc.getElementById('shukLocPrompt')) return;
+    if (!reopen && locationPromptSeen(win)) return;
+
+    var wrap = doc.createElement('div');
+    wrap.id = 'shukLocPrompt';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'shukLocTitle');
+    wrap.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:2147483001', 'background:#0e2a6b', 'color:#fff',
+      'display:flex', 'flex-direction:column', 'direction:rtl', 'text-align:center',
+      'padding:calc(28px + env(safe-area-inset-top)) 24px calc(18px + env(safe-area-inset-bottom))',
+      'font-family:Heebo,Arial,sans-serif', 'box-sizing:border-box',
+    ].join(';');
+
+    var title = doc.createElement('h1');
+    title.id = 'shukLocTitle';
+    title.textContent = LOC_COPY.title;
+    title.style.cssText = 'margin:8px 0 12px;font-size:1.65rem;font-weight:800;line-height:1.3';
+
+    var body = doc.createElement('p');
+    body.textContent = LOC_COPY.body;
+    body.style.cssText = 'margin:0 auto;max-width:26rem;font-size:1.02rem;line-height:1.55;color:#d5def5';
+
+    var pin = doc.createElement('div');
+    pin.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;min-height:140px';
+    var bubble = doc.createElement('div');
+    bubble.style.cssText = 'width:148px;height:148px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center';
+    var svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 64 64');
+    svg.setAttribute('width', '78');
+    svg.setAttribute('height', '78');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('fill', '#c9a227');
+    path.setAttribute('d', 'M32 6c-9.1 0-16.5 7.2-16.5 16.2 0 12.2 16.5 29.8 16.5 29.8s16.5-17.6 16.5-29.8C48.5 13.2 41.1 6 32 6zm0 22.2a6 6 0 1 1 0-12 6 6 0 0 1 0 12z');
+    svg.appendChild(path);
+    bubble.appendChild(svg);
+    pin.appendChild(bubble);
+
+    var actions = doc.createElement('div');
+    actions.style.cssText = 'width:100%;max-width:22rem;margin:0 auto';
+
+    var allow = doc.createElement('button');
+    allow.type = 'button';
+    allow.textContent = LOC_COPY.allow;
+    allow.style.cssText = 'display:block;width:100%;border:0;border-radius:999px;background:#c9a227;color:#0e2a6b;font:inherit;font-size:1.15rem;font-weight:800;padding:15px 18px;cursor:pointer';
+
+    var skip = doc.createElement('button');
+    skip.type = 'button';
+    skip.textContent = LOC_COPY.skip;
+    skip.style.cssText = 'display:block;width:100%;margin-top:12px;border:0;background:transparent;color:#fff;font:inherit;font-size:1.02rem;font-weight:700;padding:10px;cursor:pointer;text-decoration:underline';
+
+    var more = doc.createElement('button');
+    more.type = 'button';
+    more.textContent = LOC_COPY.more;
+    more.setAttribute('aria-expanded', 'false');
+    more.style.cssText = 'display:block;width:100%;margin-top:8px;border:0;background:transparent;color:#d5def5;font:inherit;font-size:.95rem;font-weight:700;padding:8px;cursor:pointer';
+
+    var panel = doc.createElement('div');
+    panel.hidden = true;
+    panel.style.cssText = 'margin-top:4px;font-size:.92rem;line-height:1.5;color:#d5def5';
+    var moreText = doc.createElement('p');
+    moreText.textContent = LOC_COPY.moreBody;
+    moreText.style.cssText = 'margin:0 0 8px';
+    var privacy = doc.createElement('a');
+    privacy.href = LOC_COPY.privacyHref;
+    privacy.textContent = LOC_COPY.privacy;
+    privacy.style.cssText = 'color:#c9a227;font-weight:700';
+    panel.appendChild(moreText);
+    panel.appendChild(privacy);
+
+    function closePrompt() {
+      if (wrap.remove) wrap.remove();
+      else if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    }
+
+    function finish(message) {
+      markLocationPrompt(win);
+      if (!message) { closePrompt(); return; }
+      body.textContent = message;
+      allow.disabled = false;
+      allow.textContent = LOC_COPY.cont;
+      allow.onclick = closePrompt;
+      skip.hidden = true;
+    }
+
+    skip.addEventListener('click', function () {
+      markLocationPrompt(win);
+      closePrompt();
+    });
+
+    more.addEventListener('click', function () {
+      var open = more.getAttribute('aria-expanded') === 'true';
+      more.setAttribute('aria-expanded', open ? 'false' : 'true');
+      panel.hidden = open;
+    });
+
+    allow.addEventListener('click', function () {
+      if (allow.textContent === LOC_COPY.cont) { closePrompt(); return; }
+      markLocationPrompt(win);
+      allow.disabled = true;
+      skip.disabled = true;
+      body.textContent = LOC_COPY.seeking;
+      var geo = win.navigator && win.navigator.geolocation;
+      if (!geo || !geo.getCurrentPosition) { finish(LOC_COPY.failed); return; }
+      try {
+        geo.getCurrentPosition(function (pos) {
+          var lat = pos && pos.coords ? pos.coords.latitude : NaN;
+          var lng = pos && pos.coords ? pos.coords.longitude : NaN;
+          function applyFix(left) {
+            var M = win.ShukMarkets;
+            var C = win.CityContext;
+            if ((!M || !C) && left > 0) {
+              win.setTimeout(function () { applyFix(left - 1); }, 100);
+              return;
+            }
+            if (!M || !C || typeof C.choose !== 'function') { finish(LOC_COPY.failed); return; }
+            var market = pickLiveMarket(M, lat, lng);
+            if (!market) { finish(LOC_COPY.outside); return; }
+            try { C.choose(market, 'gps'); } catch (e) { finish(LOC_COPY.failed); return; }
+            var strip = doc.getElementById('soonStrip');
+            if (strip) strip.hidden = true;
+            var next = marketPathToOpen(M, docPath(win), market);
+            if (next) {
+              try { win.location.href = next; } catch (e2) { closePrompt(); }
+              return;
+            }
+            closePrompt();
+          }
+          applyFix(20);
+        }, function (err) {
+          finish(err && err.code === 1 ? LOC_COPY.denied : LOC_COPY.failed);
+        }, LOC_GEO);
+      } catch (e) { finish(LOC_COPY.failed); }
+    });
+
+    actions.appendChild(allow);
+    actions.appendChild(skip);
+    actions.appendChild(more);
+    actions.appendChild(panel);
+    wrap.appendChild(title);
+    wrap.appendChild(body);
+    wrap.appendChild(pin);
+    wrap.appendChild(actions);
+    doc.body.appendChild(wrap);
+    try { allow.focus(); } catch (e) {}
+  }
+
+  function scheduleLocationPrompt(win) {
+    if (!siteHost(win) || !win.document) return;
+    var app = win.ShukNadlanApp || {};
+    app.openLocationPrompt = function () { showLocationPrompt(win, true); };
+    win.ShukNadlanApp = app;
+    if (!win.__shukLocHook && win.document.addEventListener) {
+      win.__shukLocHook = true;
+      win.document.addEventListener('click', function (event) {
+        if (!isLocateControl(event.target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        showLocationPrompt(win, true);
+      }, true);
+    }
+    if (!shouldAutoShowLocation({ site: true, seen: locationPromptSeen(win), path: docPath(win) })) return;
+    whenBody(win, function () { showLocationPrompt(win, false); });
+  }
+
   return {
     SITE_ORIGIN: SITE_ORIGIN,
     AUTH_CALLBACK: AUTH_CALLBACK,
@@ -855,6 +1116,13 @@
     isAuthCallback: isAuthCallback,
     isExternalUrl: isExternalUrl,
     isPurchaseUrl: isPurchaseUrl,
+    LOC_STORAGE_KEY: LOC_STORAGE_KEY,
+    LOC_GEO: LOC_GEO,
+    LOC_COPY: LOC_COPY,
+    shouldAutoShowLocation: shouldAutoShowLocation,
+    pickLiveMarket: pickLiveMarket,
+    marketPathToOpen: marketPathToOpen,
+    isLocateControl: isLocateControl,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     install: install,

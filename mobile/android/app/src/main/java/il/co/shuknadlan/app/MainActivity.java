@@ -75,7 +75,7 @@ public class MainActivity extends BridgeActivity {
         readTrackingOptOut();
     }
 
-    /** "קרוב אלי" מקבל מיקום משוער. לא מבקשים ACCESS_FINE_LOCATION. */
+    /** מסך האזור ו"קרוב אלי" מקבלים מיקום משוער. לא מבקשים ACCESS_FINE_LOCATION. */
     void allowCoarseLocation(String origin, GeolocationPermissions.Callback callback) {
         if (callback == null) return;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)

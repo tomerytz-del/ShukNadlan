@@ -22,7 +22,9 @@
 		<string>whatsapp</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>המיקום משמש רק כשמבקשים נכסים קרובים אליכם, ואינו נשמר בשרת.</string>
+	<string>המיקום המשוער משמש במכשיר רק כדי לבחור את האזור, למשל עפולה והעמק, או להציג נכסים קרובים. הוא אינו נשמר בשרת.</string>
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>המצלמה נפתחת רק כשבוחרים לצלם תמונה לנכס או לפרופיל.</string>
 	<key>NSMicrophoneUsageDescription</key>
