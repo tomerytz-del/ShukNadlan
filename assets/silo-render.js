@@ -477,7 +477,8 @@
       }
       strip += "</ul>";
     }
-    return '<section class="land-trust"><h2>בעפולה</h2>' + strip + '<p class="land-stat">' + stat + "</p></section>";
+    return '<section class="land-trust"><h2>בעפולה</h2>' + strip + '<p class="land-stat">' + stat + "</p>"
+      + '<p><a href="/afula/מתווכים">מתווכים בעפולה</a></p></section>';
   }
 
   function seo(page) {

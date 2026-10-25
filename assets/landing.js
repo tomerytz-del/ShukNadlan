@@ -43,8 +43,9 @@
     }
   }, true);
 
+  var LANDING_HELLO = 'שלום, הגעתי מהאתר מדף הנחיתה בעפולה ואשמח לעזרה';
   if (window.ShukBot && typeof window.ShukBot.link === "function") {
-    var href = window.ShukBot.link("שלום, הגעתי מדף הנחיתה בעפולה ואשמח לעזרה");
+    var href = window.ShukBot.link(LANDING_HELLO);
     var links = document.querySelectorAll("[data-land-wa]");
     for (var i = 0; i < links.length; i++) {
       if (!href) continue;
