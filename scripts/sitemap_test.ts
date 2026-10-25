@@ -153,8 +153,10 @@ const WITH_EXTRA =
     `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=3</loc></url>\n` +
     `  <url><loc>https://shuknadlan.co.il/afula/מתווכים</loc></url>\n` +
     `  <url><loc>https://shuknadlan.co.il/projects</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/haifa/מתווכים</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/haifa/בתים-פרטיים</loc></url>\n` +
     `</urlset>\n`);
-install(DEALS_ROW, PROP);
+const polishedCalls = install(DEALS_ROW, PROP);
 const polished = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
   next: async () => new Response(WITH_EXTRA, { headers: { "content-type": "application/xml" } }),
 } as never);
@@ -163,6 +165,9 @@ check("סינון שה-canonical שלו במקום אחר יורד", polished.st
 check("נתיב עברי מקודד", polishedHtml.includes("/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D"));
 check("lastmod למתווכים", /afula\/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D<\/loc>\s*<lastmod>2026-10-09<\/lastmod>/.test(polishedHtml));
 check("פרויקטים נשארים גם כשהרשימה ריקה", polishedHtml.includes("https://shuknadlan.co.il/projects"));
+check("דפי נחיתה של שוק לא חי יורדים", !polishedHtml.includes("/haifa/"));
+check("שאילתת המשרדים לפי העיר", polishedCalls.some((c) => c.url.includes("/agencies?")
+  && c.url.includes("city_id=eq.c2a8426f-7bac-4c48-bcb5-53a5ca06f001")));
 
 const src = readFileSync(new URL("../netlify/edge-functions/sitemap.ts", import.meta.url), "utf8");
 check("timeout העסקאות הוא 8 שניות", /const DEALS_FETCH_TIMEOUT_MS = 8000;/.test(src));
