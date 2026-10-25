@@ -170,7 +170,6 @@ const AFULA = NORTH_CITIES[0];
 const INTEREST_RESIDENTIAL: Term = { type: "interest", name: "Residential real estate", id: "6849417269780" };
 const INTEREST_COACHING: Term = { type: "interest", name: "Real estate marketing and coaching", id: "6849945059527" };
 const INTEREST_BROKER: Term = { type: "interest", name: "Real estate broker" };
-const INTEREST_YAD2: Term = { type: "interest", name: "Yad2" };
 const INTEREST_MADLAN: Term = { type: "interest", name: "Madlan" };
 
 const B1_POSITIONS: Term[] = [
@@ -496,6 +495,91 @@ export const SEARCH_TYPE: Record<TermType, { type: string; class?: string }> = {
 export const TARGETING_LOCALE = "en_US";
 export const REGION_FALLBACK_KM = 60;
 
+// אימות מזהי עניין שכבר נמצאו. interest_fbid_list ולא שם, כי שם משתנה.
+// valid:false יורד. שדה חלופה בתשובה לא נקרא ולא נשלח.
+export function interestValiditySpec(ids: string[]): Record<string, string> {
+  // מזהה מספרי, כמו בדוגמה של Marketing API. מחרוזת בתוך ה-JSON נדחית.
+  const list = ids.map((id) => /^\d{5,16}$/.test(id) ? Number(id) : id);
+  return {
+    type: "adinterestvalid",
+    interest_fbid_list: JSON.stringify(list),
+    locale: TARGETING_LOCALE,
+  };
+}
+
+export function invalidInterestIds(res: unknown, known: { id: string; name: string }[]): Set<string> {
+  const data = Array.isArray(res)
+    ? res
+    : (res && typeof res === "object" && Array.isArray((res as { data?: unknown }).data) ? (res as { data: unknown[] }).data : []);
+  const invalid = new Set<string>();
+  for (const row of data) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as { id?: unknown; name?: unknown; valid?: unknown };
+    if (r.valid !== false) continue;
+    const id = r.id != null && String(r.id) ? String(r.id) : "";
+    if (id) {
+      invalid.add(id);
+      continue;
+    }
+    const name = String(r.name || "").toLowerCase();
+    const hit = known.find((k) => k.name.toLowerCase() === name);
+    if (hit) invalid.add(hit.id);
+  }
+  return invalid;
+}
+
+const DEPRECATED_ID_KEYS = new Set(["deprecated_interest_id", "deprecated_interest_ids"]);
+
+function asJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const t = value.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return value;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return value;
+  }
+}
+
+// מזהים שמטא אומרת שהוצאו משימוש. מפתח של חלופה (alternative / suggestion)
+// לא נאסף, כדי שלא יוחלף עניין ב"Online advertising" וכדומה.
+export function deprecatedInterestIdsFromError(errorData: unknown): string[] {
+  const ids = new Set<string>();
+  const walk = (node: unknown, key: string | null): void => {
+    node = asJson(node);
+    if (typeof node === "string" || typeof node === "number") {
+      if (key && DEPRECATED_ID_KEYS.has(key)) {
+        const id = String(node);
+        if (/^\d{5,25}$/.test(id)) ids.add(id);
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      if (key === "deprecated_interests") {
+        for (const item of node) {
+          if (!item || typeof item !== "object") continue;
+          const id = String((item as { id?: unknown; deprecated_interest_id?: unknown }).deprecated_interest_id ?? (item as { id?: unknown }).id ?? "");
+          if (/^\d{5,25}$/.test(id)) ids.add(id);
+        }
+        return;
+      }
+      if (key && DEPRECATED_ID_KEYS.has(key)) {
+        for (const item of node) walk(item, key);
+        return;
+      }
+      for (const item of node) walk(item, key);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (/alternative|suggest|replacement/i.test(k)) continue;
+      walk(v, k);
+    }
+  };
+  walk(errorData, null);
+  return [...ids];
+}
+
 export function targetingSearchSpec(query: string, kind: TermType | "region"): Record<string, string> {
   if (kind === "region") {
     return {
@@ -518,7 +602,7 @@ export function targetingSearchSpec(query: string, kind: TermType | "region"): R
   return params;
 }
 
-export type TargetingHitStatus = "found" | "dropped" | "fallback" | "missing" | "unchecked";
+export type TargetingHitStatus = "found" | "dropped" | "deprecated" | "fallback" | "missing" | "unchecked";
 
 export type TargetingHit = {
   kind: "term" | "region";
@@ -563,7 +647,7 @@ function hitBlocksCreate(h: TargetingHit): boolean {
 
 // מחוז חסר מחליף את הסט כולו ברדיוס. תפקיד, מעסיק או עניין בלי התאמה יורד
 // מהקבוצה. קבוצה שהתרוקנה יורדת, כדי שלא יישלח flexible_spec ריק.
-export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string, string>, regionKeys: Record<string, string>): LaunchPlan {
+export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string, string>, regionKeys: Record<string, string>, excludeKeys: Set<string> = new Set()): LaunchPlan {
   let andLost = false;
   const campaigns = plan.campaigns.map((c) => ({
     ...c,
@@ -573,7 +657,7 @@ export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string,
         geo = { mode: "radius", radiusKm: REGION_FALLBACK_KM, points: [AFULA] };
       }
       const flexible = a.flexible
-        .map((group) => group.filter((t) => !!(t.id || termIds[termKey(t)])))
+        .map((group) => group.filter((t) => !excludeKeys.has(termKey(t)) && !!(t.id || termIds[termKey(t)])))
         .filter((group) => group.length > 0);
       // שתי קבוצות הן AND. קבוצה שנעלמת משאירה OR רחב (כל Owner, או כל
       // מי שמתעניין בנדל"ן). שומרים את המבנה המקורי וסוגרים את היצירה.
@@ -596,7 +680,7 @@ export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string,
   };
 }
 
-function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed: boolean): TargetingResolution {
+function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed: boolean, validityFailed = false): TargetingResolution {
   const termIds: Record<string, string> = {};
   const regionKeys: Record<string, string> = {};
   for (const h of hits) {
@@ -604,16 +688,20 @@ function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed
     if (h.kind === "region" && h.status === "found" && h.id) regionKeys[h.query] = h.id;
   }
   const dropped = hits.filter((h) => h.kind === "term" && h.status === "dropped");
+  const deprecated = hits.filter((h) => h.kind === "term" && h.status === "deprecated");
   const regionMisses = hits.filter((h) => h.kind === "region" && h.status !== "found");
   const warnings: string[] = [];
   if (dropped.length) warnings.push(`לא נמצא במטא וירד מהטירגוט: ${dropped.map((h) => h.query).join(", ")}.`);
+  if (deprecated.length) warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${deprecated.map((h) => `${h.query} (${h.id})`).join(", ")}. החלופה שמטא מציעה לא נלקחת.`);
+  const exclude = new Set([...dropped, ...deprecated].map((h) => `${h.term_type}:${h.query}`));
   if (regionMisses.length) {
     warnings.push('מחוז חיפה או מחוז הצפון לא נמצאו. הסט עובר לרדיוס 60 ק"מ סביב עפולה, שמכסה את הצפון וחיפה.');
   }
   if (searchFailed) warnings.push("חיפוש הטירגוט במטא נכשל. מה שלא נמצא ירד, והמחוזות שלא נמצאו הוחלפו ברדיוס.");
+  if (validityFailed) warnings.push("בדיקת העניינים מול מטא נכשלה. עניין שהוצא משימוש עלול לעצור את האימות.");
   const applied = regionMisses.some((h) => h.status === "unchecked" || h.status === "missing")
     ? plan
-    : applyResolvedTargeting(plan, termIds, regionKeys);
+    : applyResolvedTargeting(plan, termIds, regionKeys, exclude);
   return {
     plan: applied,
     hits,
@@ -621,6 +709,64 @@ function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed
     regionKeys,
     warnings,
     blocksCreate: hits.some(hitBlocksCreate) || applied.errors.some((e) => e.code === "flexible_and_lost"),
+  };
+}
+
+// אחרי validate_only שחזר 1870247. מוריד את המזהים מהתוכנית שכבר נפתרה,
+// בלי לגעת בגיאוגרפיה ובלי להכניס את החלופה.
+export function omitDeprecatedInterestIds(plan: LaunchPlan, termIds: Record<string, string>, ids: string[]): { plan: LaunchPlan; termIds: Record<string, string>; names: string[] } {
+  const drop = new Set(ids);
+  const names: string[] = [];
+  const exclude = new Set<string>();
+  const nextIds = { ...termIds };
+  for (const [k, id] of Object.entries(termIds)) {
+    if (!k.startsWith("interest:") || !drop.has(id)) continue;
+    delete nextIds[k];
+    exclude.add(k);
+    names.push(k.slice("interest:".length));
+  }
+  for (const c of plan.campaigns) {
+    for (const a of c.adSets) {
+      for (const group of a.flexible) {
+        for (const t of group) {
+          if (t.type === "interest" && t.id && drop.has(t.id)) {
+            exclude.add(termKey(t));
+            delete nextIds[termKey(t)];
+            if (!names.includes(t.name)) names.push(t.name);
+          }
+        }
+      }
+    }
+  }
+  if (!exclude.size) return { plan, termIds, names: [] };
+  let andLost = false;
+  const campaigns = plan.campaigns.map((c) => ({
+    ...c,
+    adSets: c.adSets.map((a) => {
+      const before = a.flexible.length;
+      const flexible = a.flexible
+        .map((group) => group.filter((t) => !exclude.has(termKey(t))))
+        .filter((group) => group.length > 0);
+      if (before >= 2 && flexible.length < 2) {
+        andLost = true;
+        return { ...a };
+      }
+      return { ...a, flexible };
+    }),
+  }));
+  if (!andLost) return { plan: { ...plan, campaigns }, termIds: nextIds, names };
+  return {
+    plan: {
+      ...plan,
+      ok: false,
+      campaigns,
+      errors: [...plan.errors, {
+        code: "flexible_and_lost",
+        detail: "צמצום ה-AND של בעלי המשרדים נשבר כי קבוצה שלמה לא נמצאה במטא. לא נוצר סט שמרחיב את הקהל.",
+      }],
+    },
+    termIds: nextIds,
+    names,
   };
 }
 
@@ -645,6 +791,7 @@ export async function resolveLaunchTargeting(
   search: (params: Record<string, string>) => Promise<unknown>,
 ): Promise<TargetingResolution> {
   let searchFailed = false;
+  let validityFailed = false;
   async function lookup(params: Record<string, string>) {
     try {
       return await search(params);
@@ -663,6 +810,18 @@ export async function resolveLaunchTargeting(
     }
     return { kind: "term", query: term.name, term_type: term.type, required: false, status: "found", id: match.id, resolved_name: match.name };
   });
+  const interestHits = termHits.filter((h) => h.term_type === "interest" && h.status === "found" && h.id);
+  if (interestHits.length) {
+    try {
+      const known = interestHits.map((h) => ({ id: h.id!, name: h.query }));
+      const invalid = invalidInterestIds(await search(interestValiditySpec(known.map((k) => k.id))), known);
+      for (const h of termHits) {
+        if (h.term_type === "interest" && h.id && invalid.has(h.id)) h.status = "deprecated";
+      }
+    } catch {
+      validityFailed = true;
+    }
+  }
   const regionHits = await mapPool(regionQueries(plan), 4, async (query): Promise<TargetingHit> => {
     const match = acceptedTargetingMatch(query, await lookup(targetingSearchSpec(query, "region")), "region");
     if (!match) {
@@ -675,7 +834,7 @@ export async function resolveLaunchTargeting(
   // מחוז אחד בלי השני לא מכסה את הצפון. הסט עובר לרדיוס, והמחוז שנמצא
   // נשאר מסומן כנמצא כדי שיהיה גלוי מה Graph החזיר.
   const hits = missedRegions.length ? [...termHits, ...regionHits.map((h) => h.status === "found" ? h : { ...h, status: "fallback" as const })] : [...termHits, ...foundRegions];
-  return resolutionFromHits(plan, hits, searchFailed);
+  return resolutionFromHits(plan, hits, searchFailed, validityFailed);
 }
 
 // בלי טוקן אין חיפוש ואין גיבוי שקט. המחוזות נשארים לא נבדקים, והכפתור סגור.
@@ -790,7 +949,7 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
         ageMin: 22,
         ageMax: 65,
         geo: brokerGeo(),
-        flexible: [[...B1_POSITIONS, ...EMPLOYERS, INTEREST_RESIDENTIAL, INTEREST_COACHING, INTEREST_BROKER, INTEREST_YAD2, INTEREST_MADLAN]],
+        flexible: [[...B1_POSITIONS, ...EMPLOYERS, INTEREST_RESIDENTIAL, INTEREST_COACHING, INTEREST_BROKER, INTEREST_MADLAN]],
         audienceKeys: [],
         extraAudienceIds: [],
         notes: ["Advantage+ Audience כבוי. לא מחריגים מתווכים רשומים. מיקומים Advantage+."],

@@ -28593,6 +28593,7 @@ function adsLaunchHitLine(h){
   const q = h && h.query ? h.query : '';
   if (h && h.status === 'found') return q + ' - נמצא: ' + (h.resolved_name || q) + ' (' + (h.id || '') + ')';
   if (h && h.status === 'dropped') return q + ' - ירד מהטירגוט';
+  if (h && h.status === 'deprecated') return q + ' - הוצא משימוש וירד, בלי החלופה של מטא (' + (h.id || '') + ')';
   if (h && h.status === 'fallback') return q + ' - לא נמצא, גיבוי רדיוס 60 ק"מ סביב עפולה';
   if (h && h.status === 'unchecked') return q + ' - לא נבדק';
   return q + ' - לא נמצא';
