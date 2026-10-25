@@ -252,6 +252,87 @@ try {
   for (let i = siloPages.length - 1; i >= 0; i--) if (drop.has(siloPages[i])) siloPages.splice(i, 1);
 }
 
+const EMEK = "/emek-yizrael/%D7%91%D7%AA%D7%99%D7%9D-%D7%95%D7%9E%D7%92%D7%A8%D7%A9%D7%99%D7%9D";
+const valleyRows = {
+  status: 200,
+  body: [
+    ...(PROP.body as Record<string, unknown>[]),
+    {
+      id: "p-oman",
+      updated_at: "2026-10-12T08:00:00Z",
+      city: "אומן",
+      deal_type: "sale",
+      category: "residential",
+      property_type: "מגרש",
+      rooms: null,
+    },
+    {
+      id: "p-sde",
+      updated_at: "2026-10-13T08:00:00Z",
+      city: "שדה נחום",
+      deal_type: "sale",
+      category: "residential",
+      property_type: "בית פרטי/קוטג'",
+      rooms: 5,
+    },
+    {
+      id: "p-nof",
+      updated_at: "2026-10-12T08:00:00Z",
+      city: "נוף הגליל",
+      deal_type: "sale",
+      category: "residential",
+      property_type: "דירה",
+      rooms: 4,
+    },
+  ],
+};
+install(DEALS_ROW, valleyRows);
+const valley = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), context());
+const valleyHtml = await valley.text();
+check("עמוד עמק נכנס פעם אחת ומקודד", valley.status === 200 && valleyHtml.split(EMEK).length - 1 === 1);
+check("lastmod של העמק מהמודעה התואמת", new RegExp(`${EMEK}</loc>\\s*<lastmod>2026-10-12</lastmod>`).test(valleyHtml));
+check("שורה חדשה של העמק בלי changefreq", !new RegExp(`${EMEK}[\\s\\S]{0,160}<changefreq>`).test(valleyHtml));
+check("נוף הגליל ומגדל העמק אינם ב-sitemap", !valleyHtml.includes("/nof-hagalil/") && !valleyHtml.includes("/migdal-haemek/"));
+
+const sdeOnly = {
+  status: 200,
+  body: [{
+    id: "p-sde",
+    updated_at: "2026-10-13T08:00:00Z",
+    city: "שדה נחום",
+    deal_type: "sale",
+    category: "residential",
+    property_type: "בית פרטי/קוטג'",
+    rooms: 5,
+  }],
+};
+install(DEALS_ROW, sdeOnly);
+const sde = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), context());
+check("שדה נחום לבד אינו מכניס את העמק", !(await sde.text()).includes("emek-yizrael"));
+
+const AFULA_HOUSE = "https://shuknadlan.co.il/afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D";
+const afulaBlock =
+  `  <url>\n    <loc>${AFULA_HOUSE}</loc>\n    <lastmod>2026-10-25</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+const withAfula = STATIC.replace("</urlset>", afulaBlock + "</urlset>\n");
+install(DEALS_ROW, {
+  status: 200,
+  body: [{
+    id: "p-house",
+    updated_at: "2026-10-20T08:00:00Z",
+    city: "עפולה",
+    deal_type: "sale",
+    category: "residential",
+    property_type: "בית פרטי/קוטג'",
+    rooms: 5,
+  }, valleyRows.body[1]],
+});
+const keptAfula = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+  next: async () => new Response(withAfula, { headers: { "content-type": "application/xml" } }),
+} as never);
+const keptAfulaHtml = await keptAfula.text();
+check("בלוק עפולה קיים נשאר בייט-בייט", keptAfulaHtml.includes(afulaBlock) && keptAfulaHtml.split(AFULA_HOUSE).length - 1 === 1);
+check("העמק נוסף בלי להזיז את עפולה", keptAfulaHtml.indexOf(AFULA_HOUSE) < keptAfulaHtml.indexOf(EMEK));
+
 const src = readFileSync(new URL("../netlify/edge-functions/sitemap.ts", import.meta.url), "utf8");
 check("timeout העסקאות הוא 8 שניות", /const DEALS_FETCH_TIMEOUT_MS = 8000;/.test(src));
 

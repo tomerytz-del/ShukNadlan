@@ -482,8 +482,10 @@ function upsertLastmod(body: string, loc: string, mod: string): string {
 type SiloPage = {
   path: string;
   property_type: string | null;
+  property_types?: string[] | null;
   rooms: number | null;
   cityName: string;
+  names?: string[] | null;
   market: string;
 };
 type BrokersPage = { path: string; cityId: string; market: string };
@@ -498,12 +500,20 @@ function brokersPages(): BrokersPage[] {
   return Array.isArray(pages) ? pages : [];
 }
 
-/* ‏אותו סינון כמו queryOf ב-silo-render.js: העיר היא המחרוזת properties.city. */
+/* ‏אותו סינון כמו queryOf ב-silo-render.js. בלי names העיר היא
+   properties.city האחת, כמו בעפולה. עם names הדף מכסה כמה יישובים. */
 function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
-  if (String(row.city || "") !== page.cityName) return false;
+  const city = String(row.city || "");
+  const names = Array.isArray(page.names) && page.names.length ? page.names : [page.cityName];
+  if (!names.includes(city)) return false;
   if (String(row.deal_type || "") !== "sale") return false;
   if (String(row.category || "") !== "residential") return false;
-  if (page.property_type && String(row.property_type || "") !== page.property_type) return false;
+  const types = Array.isArray(page.property_types) && page.property_types.length
+    ? page.property_types
+    : null;
+  if (types) {
+    if (!types.includes(String(row.property_type || ""))) return false;
+  } else if (page.property_type && String(row.property_type || "") !== page.property_type) return false;
   if (page.rooms != null && Number(row.rooms) !== Number(page.rooms)) return false;
   return true;
 }

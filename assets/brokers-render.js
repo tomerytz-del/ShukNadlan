@@ -33,6 +33,10 @@
       cityId: "4d70f4b0-91ea-444d-b2f9-373e52b0ef35", home: "/krayot", homeLabel: "הקריות והסביבה" },
     { slug: "kiryat-yam", name: "קריית ים", market: "krayot",
       cityId: "696b830c-a923-4e9a-a83e-e5447c4b3f04", home: "/krayot", homeLabel: "הקריות והסביבה" },
+    { slug: "nof-hagalil", name: "נוף הגליל", market: "nof-hagalil-migdal",
+      cityId: "5d1d3382-1094-423f-8e76-9d3e153675dc", home: "/nof-hagalil-migdal", homeLabel: "נוף הגליל ומגדל העמק" },
+    { slug: "migdal-haemek", name: "מגדל העמק", market: "nof-hagalil-migdal",
+      cityId: "fa3283cc-37bd-4042-9185-8a45059f133a", home: "/nof-hagalil-migdal", homeLabel: "נוף הגליל ומגדל העמק" },
   ];
   var BENEFIT = "משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.";
   var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
