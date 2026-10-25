@@ -30554,6 +30554,11 @@ function openCmaPicker(){
    העסקאות (dealsLookupCoords: עפולה דרך העירייה, אחרת GovMap בדפדפן), ואם
    לא נמצא - המסד ממקם בעצמו מהעסקאות ומהחלקות ואומר עד כמה בדיוק. */
 const CMA_ADDR_TYPES = ['דירה', 'דירת גן', 'פנטהאוז', 'בית פרטי', 'דו משפחתי', 'חנות', 'משרד', 'מגרש'];
+/* המאפיינים שהדוח סופר - cma_price_features() במסד, באותו סדר. מאפיין אחר
+   לא היה משנה דבר (המסד מסנן לפי הרשימה), ולכן אינו מוצע. בלי מאפיינים
+   שכבת השוק נשארת subject_features_missing ואינה מדרגת מתחרים. */
+const CMA_ADDR_FEATURES = ['mamad', 'mamak', 'building_shelter', 'elevator', 'parking',
+  'balcony', 'sun_balcony', 'storage', 'accessible', 'renovated_feature'];
 
 function renderCmaAddressForm(body, title){
   title.textContent = 'דוח CMA לכתובת';
@@ -30577,7 +30582,10 @@ function renderCmaAddressForm(body, title){
     <label>שטח (מ״ר)<input name="size" type="number" min="1" inputmode="numeric"></label>
     <label>קומה<input name="floor" type="number" min="-3" max="80" inputmode="numeric"></label>
     <label>מחיר מבוקש (₪)<input name="price" type="number" min="0" step="1000" inputmode="numeric"></label>
-    <p class="cs-hint cs-f-wide" data-msg>חדרים ושטח אינם חובה, אבל הם מה שמדייק את ההשוואה.</p>
+    <fieldset class="cs-f-wide cs-feats"><legend>מאפיינים</legend>
+      ${CMA_ADDR_FEATURES.map(k => `<label><input type="checkbox" name="feat" value="${esc(k)}">${esc(featureLabel(k))}</label>`).join('')}
+    </fieldset>
+    <p class="cs-hint cs-f-wide" data-msg>חדרים, שטח ומאפיינים אינם חובה, אבל הם מה שמדייק את ההשוואה.</p>
     <button type="submit" class="btn btn-gold btn-block cs-f-wide">הפקת הדוח</button>`;
   body.appendChild(form);
   form.elements.street.focus({ preventScroll:true });
@@ -30605,7 +30613,8 @@ function renderCmaAddressForm(body, title){
           p_property_type: f.type.value,
           p_rooms: n(f.rooms), p_size_sqm: n(f.size),
           p_floor: f.floor.value === '' ? null : Math.round(Number(f.floor.value)),
-          p_price: n(f.price), p_features: null,
+          p_price: n(f.price),
+          p_features: [...form.querySelectorAll('input[name=feat]:checked')].map(x => x.value),
           p_lat: coords?.lat ?? null, p_lng: coords?.lng ?? null,
         }),
         loadCmaBrand().catch(() => null),

@@ -5457,6 +5457,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cs-form input,.cs-form select{min-height:44px;font:inherit;font-size:1rem}
   .cs-form .cs-f-wide{grid-column:1 / -1}
   .cs-form .cs-hint{margin:0}
+  .cs-feats{border:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+  .cs-feats legend{font-size:.8rem;font-weight:700;color:var(--nv-muted);padding:0;margin-bottom:4px}
+  .cs-feats label{flex-direction:row;align-items:center;gap:6px;min-height:40px;padding:0 12px;
+                  border:1px solid var(--nv-line);border-radius:999px;font-size:.85rem;color:var(--nv-ink);cursor:pointer}
+  .cs-feats label:has(input:checked){border-color:var(--nv-accent);background:var(--nv-accent-soft)}
+  .cs-feats input{margin:0}
   @media(max-width:359px){.cs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
   /* ---------- החיפוש ----------
