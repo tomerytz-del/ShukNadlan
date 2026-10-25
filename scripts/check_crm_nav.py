@@ -35,8 +35,9 @@ NOT_IN_NAV = {
 
 # יעדי ניווט שאינם אקורדיון: ראש הדשבורד בכל אחת משתי התצוגות, "יומן
 # ומשימות" — בלוק "דורש טיפול מיידי" שבראש דף הבית (#todoSection), ו"המיני-סייט
-# שלי" — דף הסוכן/ת הציבורי, שנפתח בלשונית חדשה (docs/crm-navigation.md).
-SENTINELS = {'__home', '__adminHome', '__tasks', '__minisite'}
+# שלי" — דף הסוכן/ת הציבורי, שנפתח בלשונית חדשה, ו"דוח CMA" — הגיליון של
+# הדוח (openCmaPicker), פעולה ולא קטגוריה (docs/crm-navigation.md).
+SENTINELS = {'__home', '__adminHome', '__tasks', '__minisite', '__cma'}
 
 
 def main():

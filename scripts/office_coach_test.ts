@@ -706,6 +706,25 @@ for (const kind of ["agent", "team", "office"] as const) {
 }
 
 // ---------------------------------------------------------------------------
+// מפת המערכת (SYSTEM_MAP): רק בשאלה החופשית, וכל קישור פותח משהו שקיים
+// ---------------------------------------------------------------------------
+{
+  const ask = askSystemPrompt("agent");
+  check("מפת המערכת בשאלה החופשית, ועם דוח CMA לכתובת", ask.includes("crm?goto=cmaAddress") && ask.includes("crm?goto=accDealsLookup"));
+  check("מפת המערכת אינה בסיכומים היומיים והשבועיים (עלות בכל בוקר)",
+    (["agent", "team", "office"] as const).every((k) => !SYSTEM_PROMPTS[k].includes("crm?goto=")));
+  const html = readFileSync(new URL("../crm.html", import.meta.url), "utf8");
+  const crm = readFileSync(new URL("../assets/crm.js", import.meta.url), "utf8");
+  const actions = crm.slice(crm.indexOf("const CRM_ACTIONS = {"), crm.indexOf("};", crm.indexOf("const CRM_ACTIONS = {")));
+  const targets = [...ask.matchAll(/crm\?goto=([A-Za-z0-9]+)/g)].map((m) => m[1]);
+  const broken = targets.filter((g) => !html.includes(`id="${g}"`) && !new RegExp("\\b" + g + ":\\s*\\(").test(actions));
+  check("כל קישור במפת המערכת הוא קטגוריה ב-crm.html או פעולה ב-CRM_ACTIONS", targets.length > 10 && broken.length === 0, broken);
+  check("מפת המערכת בלי מקף ארוך", !/[\u2013\u2014]/.test(ask));
+  const ui = readFileSync(new URL("../assets/crm-coach.js", import.meta.url), "utf8");
+  check("קישור מהמנטור הופך לכפתור רק לכתובת שלנו (COACH_GO_RE)", ui.includes("https:\\/\\/shuknadlan\\.co\\.il\\/crm\\?goto="));
+}
+
+// ---------------------------------------------------------------------------
 // תאריכים
 // ---------------------------------------------------------------------------
 check("addDays חוצה חודש", addDays("2026-09-28", 7) === "2026-10-05");

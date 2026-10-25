@@ -2388,6 +2388,10 @@ function handleGotoParam(){
   }
 
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
+  /* פעולות שאינן קטגוריה (CRM_ACTIONS): ‏?goto=cma פותח את בחירת הנכס לדוח,
+     ‏?goto=cmaAddress את הטופס לכתובת. כך המנטור, גבריאלה והעזרה מקשרים
+     ישר לפעולה ולא רק למסך. */
+  if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); return; }
   if (raw === 'license'){ openLicenseCard(); return; }
   if (raw === 'adminHome'){ openAdminHome(); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
@@ -26780,6 +26784,9 @@ const NAV_ADMIN_HOME = '__adminHome';
    עונים על אותה שאלה - מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
    בעמוד (ובאותו מקטע), רק הניווט אליהן אוחד. */
 const NAV_MINISITE = '__minisite';
+/* "דוח CMA" - פעולה ולא קטגוריה: פותח את הגיליון (openCmaPicker), כמו
+   הפעולה המהירה בדף הבית. PROFESSIONAL ו-Elite בלבד, כמו הגייט במסד. */
+const NAV_CMA = '__cma';
 
 const NAV_GROUPS = [
   { key:'daily', label:'עבודה יומית', icon:'briefcase', items:[
@@ -26804,8 +26811,10 @@ const NAV_GROUPS = [
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו - לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים',            icon:'sign',     tab:'docs', focus:'agrSearch' },
-    { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
-      also:['accDealsLookup'], sub:'מידע תכנוני · עסקאות באזור', tabs:true },
+    { acc:'accPlanning',         label:'עסקאות ומידע תכנוני', icon:'map',    tab:'more',
+      also:['accDealsLookup'], sub:'עסקאות שנסגרו באזור · מידע תכנוני', tabs:true },
+    { acc:NAV_CMA,               label:'דוח CMA',           icon:'chart',    tab:'more',
+      sub:'לנכס במערכת או לכל כתובת' },
   ]},
   { key:'grow', label:'צמיחה', icon:'chart', items:[
     /* הגרף נשאר בפנים, ומעליו הדשבורד האישי (assets/crm-my-dashboard.js).
@@ -26999,6 +27008,8 @@ function navItemVisible(item){
   if (item.acc === NAV_HOME) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
   if (item.acc === NAV_MINISITE) return dashView === 'agent' && !!currentAgent;
+  if (item.acc === NAV_CMA) return dashView === 'agent' && !!currentAgent
+    && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium');
   // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
   return [item.acc, ...(item.also || [])].some(navAccVisible);
 }
@@ -27404,6 +27415,7 @@ function openMiniSite(){
 function navGo(item){
   closeNavLayers();
   if (item.acc === NAV_MINISITE){ openMiniSite(); return; }
+  if (item.acc === NAV_CMA){ openCmaPicker(); return; }
   if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
     setNavTab('home');
     return;
@@ -27569,6 +27581,8 @@ function renderScreenTabs(accs){
   el.hidden = !accs || (hit && hit.item.tabs === 'quiet');
   if (el.hidden) return;
   const cur = accs.includes(navActive) ? navActive : accs[0];
+  // המסך שהלשוניות שלו - לעיצוב של מסך מסוים (‏.screen-tabs[data-screen=...])
+  el.dataset.screen = accs[0];
   el.innerHTML = accs.map(acc => {
     const t = document.querySelector('#' + acc + ' > summary .acc-title');
     const label = t ? (t.firstChild && t.firstChild.textContent || t.textContent).trim() : acc;
@@ -30548,6 +30562,29 @@ function openCmaPicker(){
   navLayerShow('createSheet', 'create', '.cs-row');
 }
 
+/* ישר לטופס "דוח CMA לכתובת" (Elite). במסלול אחר - בחירת הנכס, ושם הכפתור
+   לכתובת אומר "זמין ב-Elite": קישור שנפתח על טופס שיסורב אינו מלמד דבר. */
+function openCmaAddress(){
+  if (!currentAgent || currentAgent.tier !== 'premium'){ openCmaPicker(); return; }
+  closeMenuPanel();
+  closeSearch();
+  closeProfilePanel();
+  renderCreateSheet('cma-address');
+  navLayerShow('createSheet', 'create', 'input[name=street]');
+}
+
+/* פעולות שקישור יכול לפתוח (‏?goto=<מפתח>, handleGotoParam): המנטור,
+   העזרה בחיפוש ו"דוח CMA" בסרגל קוראים לאותן פונקציות. מפתח חדש כאן נכנס
+   גם למפת המערכת של המנטור (SYSTEM_MAP ב-_shared/coach/prompts.ts). */
+const CRM_ACTIONS = {
+  cma:        () => openCmaPicker(),
+  cmaAddress: () => openCmaAddress(),
+  sign:       () => openAgreementWizard(),
+  promote:    () => openPromotePicker(),
+  waShare:    () => openWaShare(),
+  mentor:     () => openNavLayer('coach'),
+};
+
 /* "דוח CMA לכתובת שאינה במערכת" (Elite, 20270819090000). אותו דוח בדיוק
    כמו מכרטיס הנכס - ‏agent_cma_report_address מריצה את אותה ליבה על נכס
    שנבנה בזיכרון - ולכן אותה תצוגה (renderCmaReport). המיקום כמו בחיפוש
@@ -32232,7 +32269,15 @@ function searchHelpBlock(hits, q){
     const item = document.createElement('details');
     item.className = 'srch-faq';
     item.innerHTML = '<summary>' + srchMark(h.q, q) + '</summary><p>' + esc(h.a) + '</p>';
-    if (h.acc && navAccVisible(h.acc)){
+    /* ‏act: פעולה ולא מסך (CRM_ACTIONS) - "דוח CMA" פותח את הגיליון */
+    if (h.act && CRM_ACTIONS[h.act]){
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'srch-go';
+      go.textContent = (h.go || 'לפתיחה') + ' ←';
+      go.addEventListener('click', ()=>{ closeSearch(); CRM_ACTIONS[h.act](); });
+      item.appendChild(go);
+    } else if (h.acc && navAccVisible(h.acc)){
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'srch-go';
@@ -35948,7 +35993,45 @@ function renderDealsLookup(res){
     + `<p class="acc-sub" style="margin-top:10px">מקור: ${esc(res.source || '')}</p>`;
 }
 
+/* בחירה בשבבים: כל select[data-seg] מקבל שורת כפתורים (radiogroup) אחריו.
+   ה-select נשאר מקור הערך - הקוד קורא ‏.value כמו קודם, וגם prOpenDeals
+   ממלא אותו מכרטיס נכס בלי אירוע, ולכן segSync רץ גם לפני כל חיפוש. */
+function segSync(sel){
+  const box = sel && sel.nextElementSibling;
+  if (!box || !box.classList.contains('seg')) return;
+  box.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-checked', String(b.dataset.value === sel.value)));
+}
+function initSegs(root){
+  (root || document).querySelectorAll('select[data-seg]').forEach(sel => {
+    if (sel.dataset.segReady) return;
+    sel.dataset.segReady = '1';
+    const box = document.createElement('div');
+    box.className = 'seg';
+    box.setAttribute('role', 'radiogroup');
+    const lbl = sel.getAttribute('aria-labelledby');
+    if (lbl) box.setAttribute('aria-labelledby', lbl);
+    [...sel.options].forEach(o => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.dataset.value = o.value;
+      b.textContent = o.textContent;
+      b.addEventListener('click', () => {
+        sel.value = o.value;
+        sel.dispatchEvent(new Event('change', { bubbles:true }));
+        segSync(sel);
+      });
+      box.appendChild(b);
+    });
+    sel.after(box);
+    segSync(sel);
+  });
+}
+initSegs(document.getElementById('accDealsLookup'));
+
 document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
+  document.querySelectorAll('#accDealsLookup select[data-seg]').forEach(segSync);
   const city = document.getElementById('mdCity').value.trim();
   /* אותו תיקון כתיב כמו במידע התכנוני, ובלי חסימה: זו בדיקה ולא שמירה. */
   const street = canonicalStreet(document.getElementById('mdStreet').value, city).name;
