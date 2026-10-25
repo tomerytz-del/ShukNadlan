@@ -366,22 +366,90 @@ def check_page(path: Path, rules: list[str], locs: list[str]) -> list[str]:
     return problems
 
 
-def broker_urls() -> set[str]:
-    """‏/afula/מתווכים - brokers.html מגיש אותה, הנתיב ב-brokers-render.js."""
-    path = ROOT / "assets" / "brokers-render.js"
+# ‏ערי דפי הנחיתה: השורה הראשונה של כל עיר ב-CITIES של silo-render.js
+# ושל brokers-render.js (‏{ slug: "haifa", name: "חיפה", market: "haifa",).
+CITY_LINE = re.compile(r'\{ slug: "([a-z0-9-]+)", name: "[^"]+", market: "([a-z0-9-]+)",')
+
+
+def live_markets() -> set[str]:
+    """‏ה-slug של כל שוק live: true ב-assets/markets.js."""
+    path = ROOT / "assets" / "markets.js"
     if not path.exists():
         return set()
-    found = re.findall(r'var PATH = "(/afula/[^"]+)"', path.read_text(encoding="utf-8"))
-    return {SITE + p for p in found}
+    live = set()
+    current = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"\s*slug:\s*'([a-z0-9-]+)'", line)
+        if m:
+            current = m.group(1)
+        if current and re.match(r"\s*live:\s*true\b", line):
+            live.add(current)
+    return live
+
+
+def landing_cities(js: str) -> list[tuple[str, str]]:
+    path = ROOT / "assets" / js
+    if not path.exists():
+        return []
+    return CITY_LINE.findall(path.read_text(encoding="utf-8"))
+
+
+def silo_types() -> list[str]:
+    """‏ה-slug של כל סוג ב-TYPES של silo-render.js (‏בתים-פרטיים)."""
+    path = ROOT / "assets" / "silo-render.js"
+    if not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8")
+    at = text.find("var TYPES = [")
+    block = text[at:text.find("];", at)] if at >= 0 else ""
+    return re.findall(r'^\s*slug: "([^"]+)",', block, re.MULTILINE)
+
+
+def broker_pages() -> dict[str, str]:
+    """‏/{city}/מתווכים - כתובת ← השוק. brokers.html מגיש את כולן."""
+    return {"%s/%s/מתווכים" % (SITE, city): market for city, market in landing_cities("brokers-render.js")}
+
+
+def silo_pages() -> dict[str, str]:
+    """‏/{city}/{סוג} - כתובת ← השוק. אין להן קובץ משלהן: silo.html מגיש
+    אותן, והערים והסוגים כתובים ב-assets/silo-render.js."""
+    return {
+        "%s/%s/%s" % (SITE, city, kind): market
+        for city, market in landing_cities("silo-render.js")
+        for kind in silo_types()
+    }
+
+
+def broker_urls() -> set[str]:
+    return set(broker_pages())
 
 
 def silo_urls() -> set[str]:
-    """‏כתובות דפי הנחיתה (/afula/בתים-פרטיים). אין להן קובץ משלהן:
-    silo.html מגיש אותן, והנתיב כתוב ב-assets/silo-render.js."""
-    path = ROOT / "assets" / "silo-render.js"
-    if not path.exists():
-        return set()
-    return {SITE + p for p in re.findall(r'path: "(/afula/[^"]+)"', path.read_text(encoding="utf-8"))}
+    return set(silo_pages())
+
+
+def check_landing(locs: list[str]) -> list[str]:
+    """‏דף נחיתה של שוק חי חייב שורה ב-sitemap.xml, ושל שוק שאינו חי אסור
+    שתהיה לו: הדף יוצא עם noindex (‏landingIndexable), ובנפילה ל-sitemap
+    הסטטי (‏fallback ב-sitemap.ts) השורה הייתה יוצאת כמו שהיא. בהדלקה
+    (‏הסקיל market-go-live) השורות נכנסות יחד עם live: true."""
+    have = set(locs)
+    live = live_markets()
+    problems = []
+    pages = {**broker_pages(), **silo_pages()}
+    if not pages or not silo_types():
+        problems.append("לא נמצאו ערים ב-CITIES של silo-render.js או של brokers-render.js")
+    for url, market in sorted(pages.items()):
+        if market in live and url not in have:
+            problems.append("%s אינו ב-sitemap.xml" % url)
+        if market not in live and url in have:
+            problems.append("%s ב-sitemap.xml, והשוק %s אינו live" % (url, market))
+    silo_cities = set(landing_cities("silo-render.js"))
+    broker_cities = set(landing_cities("brokers-render.js"))
+    if silo_cities != broker_cities:
+        problems.append("הערים ב-silo-render.js וב-brokers-render.js אינן אותן ערים: %s מול %s"
+                        % (sorted(silo_cities), sorted(broker_cities)))
+    return problems
 
 
 def market_urls() -> set[str]:
@@ -392,16 +460,6 @@ def market_urls() -> set[str]:
     if not path.exists():
         return set()
     return {SITE + p for p in re.findall(r"path:\s*'(/[a-z0-9-]+)'", path.read_text(encoding="utf-8"))}
-
-
-def check_silo(locs: list[str]) -> list[str]:
-    """‏כל נתיב ב-silo-render.js חייב שורה ב-sitemap.xml."""
-    have = set(locs)
-    return [
-        "%s אינו ב-sitemap.xml" % url
-        for url in sorted(silo_urls())
-        if url not in have
-    ]
 
 
 def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
@@ -552,15 +610,9 @@ def main(argv: list[str]) -> int:
         for item in stale:
             print("      • %s" % item)
 
-    brokers = [url for url in sorted(broker_urls()) if url not in set(locs)]
-    if brokers:
-        print("✗ מתווכים בעפולה")
-        for item in brokers:
-            print("      • %s אינו ב-sitemap.xml" % item)
-
-    silos = check_silo(locs)
+    silos = check_landing(locs)
     if silos:
-        print("✗ דפי נחיתה")
+        print("✗ דפי נחיתה (‏/{עיר}/{סוג}, ‏/{עיר}/מתווכים)")
         for item in silos:
             print("      • %s" % item)
 
@@ -578,7 +630,7 @@ def main(argv: list[str]) -> int:
         if len(links) > 20:
             print("      • ... ועוד %d" % (len(links) - 20))
 
-    if failed or stale or links or searches or brokers or silos:
+    if failed or stale or links or searches or silos:
         print(
             "\nכל אחד מהממצאים האלה נראה בדפדפן כמו דף תקין לגמרי — הוא פשוט\n"
             "אינו מופיע בגוגל, ואת זה מגלים מהודעה של Search Console חודש\n"

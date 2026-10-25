@@ -24,62 +24,146 @@
 
   var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
   var SITE_NAME = "שוק נדל״ן";
-  var CITY_ID = "c2a8426f-7bac-4c48-bcb5-53a5ca06f001";
   var WEEK_MS = 7 * 24 * 3600 * 1000;
 
-  var HOODS = [
-    ["אזור התעשייה", "אזור-התעשייה"],
-    ["גבעת המורה", "גבעת-המורה"],
-    ["דרום העיר", "דרום-העיר"],
-    ["השכונה הצפון מערבית", "השכונה-הצפון-מערבית"],
-    ["לב העמק C1", "לב-העמק-c1"],
-    ["מזרח העיר", "מזרח-העיר"],
-    ["מערב העיר (שיכון גאולים)", "מערב-העיר-שיכון-גאולים"],
-    ["מרכז העיר", "מרכז-העיר"],
-    ["עפולה הירוקה", "עפולה-הירוקה"],
-    ["עפולה עלית", "עפולה-עלית"],
-    ["רובע יזרעאל", "רובע-יזרעאל"],
+  /* ‏עיר לכל קידומת (‏/afula, ‏/haifa). ‏slug הוא cities.slug ו-/deals/{slug};
+     ‏name הוא properties.city שהשאילתה מסננת עליו (מחרוזת, לא city_id);
+     ‏market הוא ה-slug ב-assets/markets.js - דף של שוק שאינו live נשאר
+     noindex ומחוץ ל-sitemap (‏lib/indexability.ts, ‏landingIndexable).
+     ‏hoods הם [שם להצגה, slug] של neighborhoods, בסדר הא"ב; ‏near הם
+     הצ'יפים שבמקום צ'יפ החדרים בדף 3 חדרים. השורה הראשונה של כל עיר
+     נקראת ב-scripts/check_canonical.py, ולכן היא נשארת בשורה אחת.
+     עיר חדשה: docs/search-landing-pages.md, "עיר נוספת". */
+  var CITIES = [
+    { slug: "afula", name: "עפולה", market: "afula-emek",
+      cityId: "c2a8426f-7bac-4c48-bcb5-53a5ca06f001",
+      home: "/",
+      homeLabel: "עפולה והעמק",
+      hoods: [
+        ["אזור התעשייה", "אזור-התעשייה"],
+        ["גבעת המורה", "גבעת-המורה"],
+        ["דרום העיר", "דרום-העיר"],
+        ["השכונה הצפון מערבית", "השכונה-הצפון-מערבית"],
+        ["לב העמק C1", "לב-העמק-c1"],
+        ["מזרח העיר", "מזרח-העיר"],
+        ["מערב העיר (שיכון גאולים)", "מערב-העיר-שיכון-גאולים"],
+        ["מרכז העיר", "מרכז-העיר"],
+        ["עפולה הירוקה", "עפולה-הירוקה"],
+        ["עפולה עלית", "עפולה-עלית"],
+        ["רובע יזרעאל", "רובע-יזרעאל"],
+      ],
+      near: [["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"], ["גבעת המורה", "גבעת-המורה"]],
+      focus: [["עפולה עילית", "עפולה-עלית"], ["גבעת המורה", "גבעת-המורה"], ["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"]],
+      /* ‏"כולל בעפולה עילית" - אזור בתוך העיר שהחיפוש מזכיר בנפרד. */
+      alsoIn: "עפולה עילית",
+      /* ‏נוסח של עפולה שנכתב לעפולה (‏#968), גובר על התבנית שב-TYPES. */
+      copy: {
+        "בתים-פרטיים": {
+          description: "בית פרטי למכירה בעפולה: בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, כולל עפולה עילית, עם מחיר, גודל ותמונות.",
+          intro: "בית פרטי למכירה בעפולה כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, כולל עפולה עילית וגבעת המורה, עם מחיר, גודל ותמונות.",
+        },
+      },
+    },
+    /* ‏12 השכונות עם הכי הרבה עסקאות ב-market_deals_official (‏25.10.2026). */
+    { slug: "haifa", name: "חיפה", market: "haifa",
+      cityId: "751fcf13-a02b-4370-97a5-fc4ec42ea4fe",
+      home: "/haifa",
+      homeLabel: "חיפה והסביבה",
+      hoods: [
+        ["אחוזה", "אחוזה"],
+        ["בת גלים", "בת-גלים"],
+        ["גבעת זמר", "גבעת-זמר"],
+        ["הדר מרכז", "הדר-מרכז"],
+        ["הדר עליון", "הדר-עליון"],
+        ["יזרעאליה", "יזרעאליה"],
+        ["כרמל מערבי", "כרמל-מערבי"],
+        ["מרכז הכרמל", "מרכז-הכרמל"],
+        ["נווה שאנן", "נווה-שאנן"],
+        ["קריית אליעזר", "קריית-אליעזר"],
+        ["קריית חיים מזרחית", "קריית-חיים-מזרחית"],
+        ["רמת הדר", "רמת-הדר"],
+      ],
+      near: [["נווה שאנן", "נווה-שאנן"], ["רמת הדר", "רמת-הדר"], ["הדר עליון", "הדר-עליון"]],
+      focus: [["נווה שאנן", "נווה-שאנן"], ["רמת הדר", "רמת-הדר"], ["אחוזה", "אחוזה"], ["כרמל מערבי", "כרמל-מערבי"]],
+    },
   ];
 
-  var PAGES = [
+  /* ‏סוגי הדפים. הטקסט נבנה מהעיר (‏at = "בעפולה"), ולכן עמוד חדש לעיר
+     הוא שורה ב-CITIES בלבד. ה-slug נקרא ב-scripts/check_canonical.py. */
+  var TYPES = [
     {
       slug: "בתים-פרטיים",
-      path: "/afula/בתים-פרטיים",
-      h1: "בית פרטי למכירה בעפולה",
+      what: "בתים פרטיים",
+      h1: function (c) { return "בית פרטי למכירה " + c.at; },
       benefit: "בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך בעיר.",
-      description: "בית פרטי למכירה בעפולה: בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, כולל עפולה עילית, עם מחיר, גודל ותמונות.",
-      intro: "בית פרטי למכירה בעפולה כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, כולל עפולה עילית וגבעת המורה, עם מחיר, גודל ותמונות.",
+      description: function (c) { return "בית פרטי למכירה " + c.at + ": בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, עם מחיר, גודל ותמונות."; },
+      intro: function (c) { return "בית פרטי למכירה " + c.at + " כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, עם מחיר, גודל ותמונות."; },
       property_type: "בית פרטי/קוטג'",
       rooms: null,
     },
     {
       slug: "דירות-גן",
-      path: "/afula/דירות-גן",
-      h1: "דירות גן למכירה בעפולה",
+      what: "דירות גן",
       benefit: "דירות עם גינה ממשרדי התיווך בעיר.",
-      description: "דירות גן למכירה בעפולה, מכל משרדי התיווך בעיר: דירה עם גינה פרטית, עם מחיר, גודל ותמונות לכל מודעה פעילה.",
-      intro: "דירות גן למכירה בעפולה הן דירות עם גינה, בדרך כלל בקומת קרקע, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
+      description: function (c) { return "דירות גן למכירה " + c.at + ", מכל משרדי התיווך בעיר: דירה עם גינה פרטית, עם מחיר, גודל ותמונות לכל מודעה פעילה."; },
+      intro: function (c) { return "דירות גן למכירה " + c.at + " הן דירות עם גינה, בדרך כלל בקומת קרקע, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."; },
       property_type: "דירת גן",
       rooms: null,
     },
     {
       slug: "דירות-3-חדרים",
-      path: "/afula/דירות-3-חדרים",
-      h1: "דירות 3 חדרים למכירה בעפולה",
+      what: "דירות 3 חדרים",
       benefit: "דירות 3 חדרים פעילות מכל משרדי התיווך בעיר.",
-      description: "דירות 3 חדרים למכירה בעפולה, מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה.",
-      intro: "דירות של 3 חדרים שמוצעות עכשיו למכירה בעפולה, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
+      description: function (c) { return "דירות 3 חדרים למכירה " + c.at + ", מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה."; },
+      intro: function (c) { return "דירות של 3 חדרים שמוצעות עכשיו למכירה " + c.at + ", מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."; },
       property_type: null,
       rooms: 3,
     },
   ];
 
-  var ALSO = [
-    ["/afula/בתים-פרטיים", "בתים פרטיים למכירה בעפולה"],
-    ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
-    ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
-    ["/afula/מתווכים", "מתווכים בעפולה"],
-  ];
+  for (var ci = 0; ci < CITIES.length; ci++) CITIES[ci].at = "ב" + CITIES[ci].name;
+
+  function brokersPath(c) { return "/" + c.slug + "/מתווכים"; }
+
+  var PAGES = [];
+  for (var cj = 0; cj < CITIES.length; cj++) {
+    for (var tj = 0; tj < TYPES.length; tj++) {
+      var c0 = CITIES[cj];
+      var t0 = TYPES[tj];
+      var own = (c0.copy && c0.copy[t0.slug]) || {};
+      PAGES.push({
+        slug: t0.slug,
+        path: "/" + c0.slug + "/" + t0.slug,
+        h1: own.h1 || (t0.h1 ? t0.h1(c0) : t0.what + " למכירה " + c0.at),
+        /* ‏בקישורים בין הדפים ("גם מעניין") - הרבים, גם כשה-H1 ביחיד. */
+        label: t0.what + " למכירה " + c0.at,
+        benefit: own.benefit || t0.benefit,
+        description: own.description || t0.description(c0),
+        intro: own.intro || t0.intro(c0),
+        property_type: t0.property_type,
+        rooms: t0.rooms,
+        city: c0.slug,
+        cityName: c0.name,
+        cityId: c0.cityId,
+        market: c0.market,
+      });
+    }
+  }
+
+  function cityOf(page) {
+    var slug = page && page.city ? page.city : "afula";
+    for (var i = 0; i < CITIES.length; i++) if (CITIES[i].slug === slug) return CITIES[i];
+    return CITIES[0];
+  }
+
+  function alsoOf(c) {
+    var out = [];
+    for (var i = 0; i < PAGES.length; i++) {
+      if (PAGES[i].city === c.slug) out.push([PAGES[i].path, PAGES[i].label]);
+    }
+    out.push([brokersPath(c), "מתווכים " + c.at]);
+    return out;
+  }
 
   function num(n) { return Math.round(Number(n) || 0).toLocaleString("en-US"); }
   function money(n) {
@@ -112,7 +196,7 @@
       "status=eq.active",
       "deal_type=eq.sale",
       "category=eq.residential",
-      "city=eq." + encodeURIComponent("עפולה"),
+      "city=eq." + encodeURIComponent(cityOf(page).name),
       "order=is_promoted.desc,created_at.desc",
       "limit=" + limit,
     ];
@@ -238,7 +322,8 @@
     return "";
   }
 
-  function qs(params) {
+  /* ‏החיפוש של העיר: "/?…" בעפולה (שוק ברירת המחדל), "/haifa?…" בחיפה. */
+  function qs(params, home) {
     var parts = [];
     var keys = ["deal", "ptype", "rooms", "maxPrice", "minPrice"];
     for (var i = 0; i < keys.length; i++) {
@@ -246,7 +331,7 @@
       if (v == null || v === "") continue;
       parts.push(encodeURIComponent(keys[i]) + "=" + encodeURIComponent(String(v)));
     }
-    return "/?" + parts.join("&");
+    return (home || "/") + "?" + parts.join("&");
   }
 
   function searchHref(page, over) {
@@ -256,7 +341,7 @@
     if (over) {
       for (var k in over) q[k] = over[k];
     }
-    return qs(q);
+    return qs(q, cityOf(page).home);
   }
 
   function allHref(page) { return searchHref(page, null); }
@@ -280,9 +365,10 @@
       html += chip(searchHref(page, { rooms: String(r) }), bdi(String(r)) + "<span>חדרים</span>", false);
     }
     if (page.rooms === 3) {
-      var near = [["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"], ["גבעת המורה", "גבעת-המורה"]];
+      var c = cityOf(page);
+      var near = c.near || [];
       for (var h = 0; h < near.length; h++) {
-        html += chip("/n/afula/" + encodeURIComponent(near[h][1]), "<span>" + escapeHtml(near[h][0]) + "</span>", false);
+        html += chip("/n/" + c.slug + "/" + encodeURIComponent(near[h][1]), "<span>" + escapeHtml(near[h][0]) + "</span>", false);
       }
     }
     return html + "</nav>";
@@ -460,59 +546,64 @@
     return out;
   }
 
-  function relatedHtml(rows, extras) {
+  function relatedHtml(page, rows, extras) {
     if (listOf(rows).length >= 3) return "";
     var rel = relatedRows(rows, extras);
     if (!rel.length) return "";
-    var html = '<section class="land-related"><h2>עוד נכסים בעפולה</h2><ul class="land-grid">';
+    var html = '<section class="land-related"><h2>עוד נכסים ' + escapeHtml(cityOf(page).at) + '</h2><ul class="land-grid">';
     for (var i = 0; i < rel.length; i++) html += propCard(rel[i]);
     return html + "</ul></section>";
   }
 
-  function hoodRowsFromListings(rows) {
+  function hoodRowsFromListings(rows, page) {
+    var c = cityOf(page);
+    var hoods = c.hoods;
     var counts = {};
-    for (var i = 0; i < HOODS.length; i++) counts[HOODS[i][1]] = 0;
+    for (var i = 0; i < hoods.length; i++) counts[hoods[i][1]] = 0;
     var list = listOf(rows);
     for (var j = 0; j < list.length; j++) {
       var name = hoodName(list[j]);
-      for (var h = 0; h < HOODS.length; h++) {
-        if (name === HOODS[h][0]) {
-          counts[HOODS[h][1]]++;
+      for (var h = 0; h < hoods.length; h++) {
+        if (name === hoods[h][0]) {
+          counts[hoods[h][1]]++;
           break;
         }
       }
     }
     var out = [];
-    for (var k = 0; k < HOODS.length; k++) {
-      out.push({ path_key: "afula/" + HOODS[k][1], props: counts[HOODS[k][1]] });
+    for (var k = 0; k < hoods.length; k++) {
+      out.push({ path_key: c.slug + "/" + hoods[k][1], props: counts[hoods[k][1]] });
     }
     return out;
   }
 
-  function hoodMap(extras) {
+  function hoodMap(extras, c) {
     var rows = extras && extras.hoods;
     if (!Array.isArray(rows) || !rows.length) return null;
     if (rows[0] == null || rows[0].path_key == null || rows[0].props == null) return null;
+    var prefix = c.slug + "/";
     var map = {};
     for (var i = 0; i < rows.length; i++) {
       var key = String(rows[i].path_key || "");
-      if (key.indexOf("afula/") !== 0) continue;
+      if (key.indexOf(prefix) !== 0) continue;
       var n = Number(rows[i].props);
       if (!isFinite(n)) continue;
-      map[key.slice("afula/".length)] = n;
+      map[key.slice(prefix.length)] = n;
     }
     return map;
   }
 
-  function neighborhoods(extras, requireMap) {
-    var map = hoodMap(extras);
+  function neighborhoods(page, extras, requireMap) {
+    var c = cityOf(page);
+    var hoods = c.hoods;
+    var map = hoodMap(extras, c);
     if (requireMap && !map) return "";
     var items = [];
-    for (var i = 0; i < HOODS.length; i++) {
-      var count = map ? map[HOODS[i][1]] : null;
+    for (var i = 0; i < hoods.length; i++) {
+      var count = map ? map[hoods[i][1]] : null;
       if (map && typeof count === "number" && count <= 0) continue;
       if (map && count == null) count = null;
-      items.push({ name: HOODS[i][0], slug: HOODS[i][1], count: count });
+      items.push({ name: hoods[i][0], slug: hoods[i][1], count: count });
     }
     if (map) {
       items.sort(function (a, b) {
@@ -523,9 +614,9 @@
       });
     }
     if (!items.length) return "";
-    var html = '<h2>שכונות בעפולה</h2><ul class="land-hoods">';
+    var html = "<h2>שכונות " + escapeHtml(c.at) + '</h2><ul class="land-hoods">';
     for (var h = 0; h < items.length; h++) {
-      html += '<li><a class="land-hood" href="/n/afula/' + encodeURIComponent(items[h].slug) + '"><span>'
+      html += '<li><a class="land-hood" href="/n/' + c.slug + "/" + encodeURIComponent(items[h].slug) + '"><span>'
         + escapeHtml(items[h].name) + "</span>";
       if (typeof items[h].count === "number" && items[h].count > 0) html += bdi(num(items[h].count));
       html += "</a></li>";
@@ -540,7 +631,8 @@
     return list;
   }
 
-  function trust(rows, extras) {
+  function trust(page, rows, extras) {
+    var c = cityOf(page);
     var offices = agencyList(extras);
     var logos = [];
     for (var i = 0; i < offices.length; i++) {
@@ -548,14 +640,15 @@
       if (typeof url === "string" && url.indexOf(IMG_HOST) === 0) logos.push(offices[i]);
     }
     var stat = "";
-    if (offices.length > 0) stat = countPhrase(offices.length, "משרד פעיל בעפולה", "משרדים פעילים בעפולה");
+    var at = escapeHtml(c.at);
+    if (offices.length > 0) stat = countPhrase(offices.length, "משרד פעיל " + at, "משרדים פעילים " + at);
     else {
       var active = activeCount(rows, extras);
-      if (active > 0) stat = countPhrase(active, "מודעה פעילה בעפולה", "מודעות פעילות בעפולה");
+      if (active > 0) stat = countPhrase(active, "מודעה פעילה " + at, "מודעות פעילות " + at);
     }
     if (!stat && !offices.length) return "";
     var head = offices.length
-      ? countPhrase(offices.length, "משרד תיווך פעיל בעפולה", "משרדי תיווך פעילים בעפולה")
+      ? countPhrase(offices.length, "משרד תיווך פעיל " + at, "משרדי תיווך פעילים " + at)
       : stat;
     if (!head) return "";
     var strip = "";
@@ -569,18 +662,19 @@
       strip += "</ul>";
     }
     return '<section class="land-trust"><h2>' + head + "</h2>" + strip
-      + '<p><a href="/afula/מתווכים">מתווכים בעפולה</a></p></section>';
+      + '<p><a href="' + escapeHtml(brokersPath(c)) + '">מתווכים ' + at + "</a></p></section>";
   }
 
   function kindPhrase(page, n) {
+    var at = escapeHtml(cityOf(page).at);
     if (page.slug === "בתים-פרטיים") {
-      return n === 1 ? "בית פרטי למכירה בעפולה" : "בתים פרטיים למכירה בעפולה";
+      return n === 1 ? "בית פרטי למכירה " + at : "בתים פרטיים למכירה " + at;
     }
     if (page.slug === "דירות-גן") {
-      return n === 1 ? "דירת גן למכירה בעפולה" : "דירות גן למכירה בעפולה";
+      return n === 1 ? "דירת גן למכירה " + at : "דירות גן למכירה " + at;
     }
     if (page.rooms === 3) {
-      return n === 1 ? "דירת 3 חדרים למכירה בעפולה" : "דירות 3 חדרים למכירה בעפולה";
+      return n === 1 ? "דירת 3 חדרים למכירה " + at : "דירות 3 חדרים למכירה " + at;
     }
     return n === 1 ? "מודעה פעילה" : "מודעות פעילות";
   }
@@ -607,45 +701,53 @@
 
   function focusHoods(page) {
     if (page.slug !== "בתים-פרטיים" && page.slug !== "דירות-גן") return "";
-    return "<p>שכונות בעפולה: "
-      + '<a href="/n/afula/עפולה-עלית">עפולה עילית</a>, '
-      + '<a href="/n/afula/גבעת-המורה">גבעת המורה</a>, '
-      + '<a href="/n/afula/מרכז-העיר">מרכז העיר</a>, '
-      + '<a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>. '
-      + 'משרדי התיווך: <a href="/afula/מתווכים">מתווכים בעפולה</a> '
+    var c = cityOf(page);
+    var focus = c.focus || [];
+    if (!focus.length) return "";
+    var links = [];
+    for (var i = 0; i < focus.length; i++) {
+      links.push('<a href="/n/' + c.slug + "/" + escapeHtml(focus[i][1]) + '">' + escapeHtml(focus[i][0]) + "</a>");
+    }
+    var at = escapeHtml(c.at);
+    return "<p>שכונות " + at + ": " + links.join(", ") + ". "
+      + 'משרדי התיווך: <a href="' + escapeHtml(brokersPath(c)) + '">מתווכים ' + at + "</a> "
       + 'ו<a href="/agencies">רשימת המשרדים</a>.</p>';
   }
 
   function seo(page, rows, extras) {
+    var c = cityOf(page);
+    var at = escapeHtml(c.at);
     var market = marketHtml(page, rows, extras);
     return '<section class="land-seo"><h2>על הרשימה</h2>'
       + "<p>" + escapeHtml(page.intro) + "</p>"
       + (market ? "<p>" + market + "</p>" : "")
       + focusHoods(page)
-      + "<p>המודעות הן נכסים למכירה בעפולה שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
-      + 'להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/afula">עסקאות בעפולה</a>, ולמחירי דירות לפי חדרים: '
+      + "<p>המודעות הן נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
+      + 'להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/' + c.slug + '">עסקאות ' + at + "</a>, ולמחירי דירות לפי חדרים: "
       + '<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
   function faqs(page) {
+    var c = cityOf(page);
+    var at = c.at;
     var extra = [];
     if (page && page.slug === "בתים-פרטיים") {
       extra = [
-        ["מה נכלל בבית פרטי למכירה בעפולה?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה בעפולה, כולל בעפולה עילית. המודעות מתפרסמות על ידי משרדי תיווך."],
+        ["מה נכלל בבית פרטי למכירה " + at + "?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה " + at + (c.alsoIn ? ", כולל ב" + c.alsoIn : "") + ". המודעות מתפרסמות על ידי משרדי תיווך."],
         ["יש הבדל בין בית פרטי, בית קרקע וקוטג'?", "בית קרקע הוא בית על מגרש. קוטג' הוא סוג של בית פרטי, ולעתים בית דו-משפחתי. בדף הנכס מופיע המפרט שפורסם במודעה."],
-        ["אפשר לקנות בית בעפולה בלי תיווך?", "המודעות בעמוד הזה מתפרסמות על ידי משרדי תיווך. מוכר פרטי לא מפרסם כאן בעצמו."],
+        ["אפשר לקנות בית " + at + " בלי תיווך?", "המודעות בעמוד הזה מתפרסמות על ידי משרדי תיווך. מוכר פרטי לא מפרסם כאן בעצמו."],
       ];
     } else if (page && page.slug === "דירות-גן") {
       extra = [
-        ["מהי דירת גן למכירה בעפולה?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה בעפולה, מכל משרדי התיווך."],
+        ["מהי דירת גן למכירה " + at + "?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה " + at + ", מכל משרדי התיווך."],
         ["במה דירת גן שונה מבית פרטי?", "דירת גן היא דירה בבניין, עם גינה. בית פרטי הוא בית על מגרש. שטח הגינה מופיע במודעה כשהוא מפורסם."],
         ["המחיר של דירת גן כולל את הגינה?", "המחיר והשטחים הם מה שפורסם במודעה. הפירוט המלא נמצא בדף הנכס."],
       ];
     }
     return extra.concat([
-      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה בעפולה שמשרדי התיווך מפרסמים באתר."],
+      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר."],
       ["האם המחיר שמופיע הוא המחיר הסופי?", "המחיר והמפרט המלא נמצאים בדף של כל נכס. אם אין מחיר במודעה, הוא לפי פנייה."],
-      ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות בעפולה, ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
+      ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות " + at + ", ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
       ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
     ]);
   }
@@ -660,12 +762,14 @@
   }
 
   function also(page) {
+    var c = cityOf(page);
+    var list = alsoOf(c);
     var html = '<section class="land-also"><h2>גם מעניין</h2><nav class="land-filters" aria-label="גם מעניין">';
-    for (var i = 0; i < ALSO.length; i++) {
-      if (ALSO[i][0] === page.path) continue;
-      html += '<a href="' + escapeHtml(ALSO[i][0]) + '">' + escapeHtml(ALSO[i][1]) + "</a>";
+    for (var i = 0; i < list.length; i++) {
+      if (list[i][0] === page.path) continue;
+      html += '<a href="' + escapeHtml(list[i][0]) + '">' + escapeHtml(list[i][1]) + "</a>";
     }
-    html += '<a href="/">עפולה והעמק</a>';
+    html += '<a href="' + escapeHtml(c.home) + '">' + escapeHtml(c.homeLabel) + "</a>";
     return html + "</nav></section>";
   }
 
@@ -684,10 +788,10 @@
     var list = listOf(rows);
     var html = filters(page);
     html += list.length ? cards(list) : emptyState();
-    html += relatedHtml(list, extras);
+    html += relatedHtml(page, list, extras);
     html += allButton(page, list, extras);
-    html += neighborhoods(extras);
-    html += trust(list, extras);
+    html += neighborhoods(page, extras);
+    html += trust(page, list, extras);
     html += seo(page, rows, extras);
     html += also(page);
     html += faqHtml(page);
@@ -716,7 +820,7 @@
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
-        { "@type": "ListItem", position: 2, name: "עפולה", item: site + "/" },
+        { "@type": "ListItem", position: 2, name: cityOf(page).name, item: site + cityOf(page).home },
         { "@type": "ListItem", position: 3, name: page.h1, item: url },
       ],
     };
@@ -757,9 +861,10 @@
 
   root.ShukSilo = {
     pages: PAGES,
-    hoods: HOODS,
-    countedNeighborhoods: function (rows) { return neighborhoods({ hoods: rows }, true); },
-    cityId: CITY_ID,
+    cities: CITIES,
+    cityOf: cityOf,
+    brokersPath: brokersPath,
+    countedNeighborhoods: function (rows, page) { return neighborhoods(page, { hoods: rows }, true); },
     pageOf: pageOf,
     queryOf: queryOf,
     hoodCountQuery: hoodCountQuery,

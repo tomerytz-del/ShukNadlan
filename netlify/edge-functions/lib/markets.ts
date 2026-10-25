@@ -39,6 +39,16 @@ export function registry(): Registry | null {
   return (globalThis as unknown as { ShukMarkets?: Registry }).ShukMarkets || null;
 }
 
+/* ‏דף נחיתה של עיר שאינה בשוק ברירת המחדל (‏silo-page.ts, ‏brokers-page.ts):
+   אותו רמז ש-market-pages.ts נותן, כדי ש-city-context.js ו-market-text.js
+   יחליפו את "עפולה והעמק" בכותרת ובפוטר ויסתירו את החיפושים הפופולריים של
+   עפולה. ‏markets.js שם defer, ולכן סקריפט בסוף ה-head רץ לפניו. */
+export function marketHint(home: string, market: string): string {
+  if (home === "/") return "";
+  const data = JSON.stringify({ slug: market }).replace(/</g, "\\u003c");
+  return `<script>window.SHUK_MARKET=${data};</script>\n`;
+}
+
 /* אותה בריחה כמו assets/esc.js. */
 export function esc(s: unknown): string {
   return String(s === null || s === undefined ? "" : s)

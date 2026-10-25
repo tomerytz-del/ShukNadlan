@@ -28655,6 +28655,9 @@ function adsLaunchHtml(plan, creatives){
       return esc([f.object_key, meta.error_user_title, meta.error_user_msg, f.message].filter(Boolean).join(' - '));
     }).join('<br>') + '</p>');
   }
+  if (plan.validation && plan.validation.unchecked_summary){
+    parts.push('<p><b>לא נבדק מול מטא</b><br>' + esc(plan.validation.unchecked_summary) + '</p>');
+  }
   if ((plan.warnings || []).length){
     parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
   }

@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/brokers-page.ts";
+import "../assets/silo-render.js";
 
 const PAGE = readFileSync(new URL("../brokers.html", import.meta.url), "utf8");
 const SITE = "https://shuknadlan.co.il";
@@ -146,8 +147,46 @@ function blocks(html: string): Record<string, unknown>[] {
   check("נתיב /afula אחר עובר הלאה", res.status === 200 && html === marker);
 }
 
+{
+  const seen: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    seen.push(String(input));
+    return route(String(input), 200);
+  }) as typeof fetch;
+  const res = await handler(new Request(SITE + "/haifa/" + encodeURIComponent("מתווכים")), context());
+  const html = await res.text();
+  const ld = blocks(html);
+  const list = ld.find((b) => b["@type"] === "ItemList") as { name: string; itemListElement: { item: { address: { addressLocality: string } } }[] } | undefined;
+  const crumbs = ld.find((b) => b["@type"] === "BreadcrumbList") as { itemListElement: { name: string; item: string }[] } | undefined;
+  check("חיפה: 200, H1 וכותרת", res.status === 200 && html.includes('<h1 id="brokersH1">מתווכים בחיפה</h1>')
+    && html.includes("<title>מתווכים בחיפה | שוק נדל״ן</title>"));
+  check("חיפה: canonical", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/haifa/מתווכים">'));
+  check("חיפה: משרדים לפי city_id", seen.some((u) => u.includes("/agencies?") && u.includes("city_id=eq.751fcf13-a02b-4370-97a5-fc4ec42ea4fe")));
+  check("חיפה: ItemList ו-addressLocality", list?.name === "מתווכים בחיפה" && list.itemListElement[0].item.address.addressLocality === "חיפה");
+  check("חיפה: פירורים", crumbs?.itemListElement[1]?.name === "חיפה" && crumbs?.itemListElement[1]?.item === SITE + "/haifa"
+    && html.includes('<a href="/haifa" id="landCityCrumb">חיפה</a>'));
+  const body = (html.split('id="brokersBody"')[1] || "").split("<!--/brokers-->")[0];
+  check("חיפה: קישורים לחיפה", body.includes('href="/deals/haifa"') && body.includes('href="/haifa/בתים-פרטיים"') && !body.includes("/afula") && !body.includes("בעפולה"));
+  check("חיפה: רמז השוק", html.includes('<script>window.SHUK_MARKET={"slug":"haifa"};</script>'));
+  check("חיפה: שוק לא חי - noindex", /<meta name="robots" content="noindex,follow">/.test(html)
+    && res.headers.get("X-Robots-Tag") === "noindex, follow");
+}
+
+{
+  const res = await run("/afula/" + encodeURIComponent("מתווכים"), 200);
+  check("עפולה: בלי noindex", !/noindex/.test(await res.text()) && res.headers.get("X-Robots-Tag") == null);
+}
+
+{
+  type City = { slug: string; name: string; cityId: string; market: string; home: string };
+  const g = globalThis as unknown as { ShukSilo: { cities: City[] }; ShukBrokers: { cities: City[] } };
+  const pick = (c: City) => [c.slug, c.name, c.cityId, c.market, c.home].join("|");
+  check("אותן ערים ב-silo-render וב-brokers-render",
+    JSON.stringify(g.ShukSilo.cities.map(pick)) === JSON.stringify(g.ShukBrokers.cities.map(pick)));
+}
+
 if (failed) {
   console.error(`\n✗ ${failed}`);
   process.exit(1);
 }
-console.log("\n✓ מתווכים בעפולה: רשימה, JSON-LD, ו-503 בלי noindex.");
+console.log("\n✓ מתווכים לפי עיר: רשימה, JSON-LD, ו-503 בלי noindex.");

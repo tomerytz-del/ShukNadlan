@@ -37,3 +37,11 @@ JSON-LD: `WebPage`, `BreadcrumbList`, ו-`ItemList` של `LocalBusiness`
 ```sh
 node --experimental-strip-types scripts/brokers_page_test.ts
 ```
+
+## עיר נוספת
+
+אותו דף לכל עיר ב-`CITIES` של `assets/brokers-render.js`: ‏`/haifa/מתווכים`
+מסנן משרדים לפי `city_id` של חיפה, והטקסט, הפירור ו-`addressLocality`
+נבנים מהעיר. שוק שאינו חי (חיפה היום) יוצא עם `noindex` ו-`X-Robots-Tag`
+ואינו ב-sitemap עד ההדלקה. ‏`sitemap.ts` בודק משרדים לכל עיר בנפרד
+(‏`ShukBrokers.pages`). הפירוט: `docs/search-landing-pages.md`, "עיר נוספת".

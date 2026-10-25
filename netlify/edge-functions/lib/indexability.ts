@@ -9,6 +9,8 @@
      · עיר שאינה בשוק חי (‏assets/markets.js, ‏live) - לא לאינדקס.
      · יישוב עם פחות מ-5 עסקאות בחלון שהדף עצמו מציג - לא לאינדקס.
        זה הסף שהיה, והוא נשאר.
+     · דף נחיתה (‏/haifa/בתים-פרטיים, ‏/haifa/מתווכים) של שוק שאינו חי -
+       לא לאינדקס, גם כשיש בו מודעות.
 
    כשל מסד אינו החלטה. הקורא לא קורא לכאן כשהמספר לא ידוע.
    ========================================================================== */
@@ -26,6 +28,17 @@ export function liveMarketSlugs(): Set<string> | null {
     if (market.live && market.slug) live.add(market.slug);
   }
   return live;
+}
+
+/* ‏דף נחיתה /{city}/{סוג} ו-/{city}/מתווכים: רק בשוק חי. המלאי נבדק בדף
+   עצמו (רשימה ריקה = noindex) וב-sitemap (‏landingMatches). */
+export function landingIndexable(
+  marketSlug: string | null | undefined,
+  live: Set<string> | null,
+): boolean {
+  if (!live) return true;
+  const slug = String(marketSlug || "").trim();
+  return slug.length > 0 && live.has(slug);
 }
 
 export function neighborhoodIndexable(

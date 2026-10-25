@@ -124,6 +124,14 @@
 /afula/בתים-פרטיים    /silo    200
 /afula/דירות-גן    /silo    200
 /afula/דירות-3-חדרים    /silo    200
+# ‏חיפה - אותה תבנית. השוק עוד לא חי, ולכן silo-page.ts מוסיף noindex
+# (‏landingIndexable) עד ההדלקה. אין /haifa/* כאן מאותה סיבה.
+/haifa/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/haifa/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/haifa/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/haifa/בתים-פרטיים    /silo    200
+/haifa/דירות-גן    /silo    200
+/haifa/דירות-3-חדרים    /silo    200
 
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
@@ -134,6 +142,8 @@
 # הכלל בעברית לא התאים לבקשה המקודדת. השורה המקודדת היא זו שנתפסת.
 /afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
 /afula/מתווכים    /brokers    200
+/haifa/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/haifa/מתווכים    /brokers    200
 
 /crm-share    /crm?share=error    303
 

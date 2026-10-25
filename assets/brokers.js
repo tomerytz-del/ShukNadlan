@@ -4,7 +4,9 @@
   var SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
   var box = document.getElementById("brokersBody");
   var B = window.ShukBrokers;
-  if (!box || box.getAttribute("data-ssr") === "1" || !B || !B.pageOf(location.pathname)) return;
+  if (!box || box.getAttribute("data-ssr") === "1" || !B) return;
+  var page = B.pageOf(location.pathname);
+  if (!page) return;
 
   function get(path, opts) {
     return fetch(SUPABASE_URL + "/rest/v1/" + path, {
@@ -22,7 +24,7 @@
     });
   }
 
-  get("agencies?" + B.agencyQuery()).then(function (agencies) {
+  get("agencies?" + B.agencyQuery(page)).then(function (agencies) {
     if (!Array.isArray(agencies)) throw new Error("shape");
     return Promise.all([
       Promise.resolve(agencies),
@@ -43,8 +45,21 @@
     var agents = (parts[1] || []).filter(function (m) { return m && m.slug && ids[m.agency_id]; })
       .map(function (m) { return { slug: m.slug, display_name: m.display_name, agency_name: ids[m.agency_id] }; });
     var packed = { agencies: agencies, agents: agents };
-    box.innerHTML = B.render(packed);
+    box.innerHTML = B.render(packed, page);
     box.setAttribute("data-ssr", "0");
+    /* ‏המעטפת כתובה לעפולה. בעיר אחרת השרת מחליף אותה, וכאן - כשלא הספיק. */
+    var h1 = document.getElementById("brokersH1");
+    var benefit = document.getElementById("brokersBenefit");
+    var crumb = document.getElementById("brokersCrumb");
+    var cityCrumb = document.getElementById("landCityCrumb");
+    if (h1) h1.textContent = page.h1;
+    if (benefit) benefit.textContent = page.benefit || page.description;
+    if (crumb) crumb.textContent = page.h1;
+    if (cityCrumb) {
+      cityCrumb.textContent = page.cityName;
+      cityCrumb.setAttribute("href", page.home);
+    }
+    document.title = B.fullTitle(page);
     var chips = document.getElementById("landChips");
     if (chips && B.chipsHtml) chips.innerHTML = B.chipsHtml(packed);
     var updated = document.getElementById("landUpdated");
