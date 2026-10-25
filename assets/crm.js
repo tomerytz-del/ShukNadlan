@@ -24356,6 +24356,7 @@ async function openCmaReport(propertyId, btn){
     showToast(messages[data.error] || data.detail || 'שגיאה בהפקת הדוח', 6000);
     return;
   }
+  cmaShareReset({ p_property_id: propertyId }, data);
   renderCmaReport(data, brand);
 }
 
@@ -24399,6 +24400,64 @@ document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
   document.getElementById('cmaOverlay').style.display = 'none';
 });
 document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.print());
+
+/* ---------- "שליחת קישור ללקוח/ה" ----------
+   אותו קישור שגבריאלה שולחת בכפתור "📊 דוח CMA" (‏/cma?k=, 30 יום). מה שנשלח
+   למסד הוא **הבקשה ולא הדוח**: ‏cma_link_share (20270824090000) מחשבת אותו
+   שוב ושומרת את מה שהמסד הפיק, כי הדף מציג אותו בשם המשרד. ולכן נשמרת כאן
+   הבקשה של הדוח הפתוח - נכס או כתובת - ומתאפסת בכל הפקה. docs/cma.md. */
+let cmaShareRequest = null, cmaShareReport = null;
+
+function cmaShareReset(request, report){
+  cmaShareRequest = request;
+  cmaShareReport = report;
+  const panel = document.getElementById('cmaSharePanel');
+  panel.hidden = true;
+  panel.innerHTML = '';
+  const btn = document.getElementById('cmaShareBtn');
+  btn.disabled = false;
+  btn.textContent = 'שליחת קישור ללקוח/ה';
+}
+
+function cmaShareShow(url, report){
+  const s = (report && report.subject) || {};
+  const what = [s.title, [s.address, s.city].filter(Boolean).join(', ')].filter(Boolean)[0] || 'הנכס';
+  const text = 'דוח השוואת שוק (CMA) ל' + what + ':\n' + url;
+  const panel = document.getElementById('cmaSharePanel');
+  // ‏data-share: שיתוף ולא פנייה למתווך/ת (CLAUDE.md, "מדידת אירועים")
+  panel.innerHTML = `
+    <p>הקישור לדוח, בתוקף 30 יום. הלקוח/ה רואה את אותו דוח ממותג, ויכול/ה להדפיס אותו.</p>
+    <input type="text" readonly value="${esc(url)}" aria-label="הקישור לדוח">
+    <div class="cma-share-btns">
+      <a class="btn btn-gold" data-share target="_blank" rel="noopener" href="${esc('https://wa.me/?text=' + encodeURIComponent(text))}">וואטסאפ</a>
+      ${navigator.share ? '<button type="button" class="btn btn-ghost" data-act="share">שיתוף</button>' : ''}
+      <button type="button" class="btn btn-ghost" data-act="copy">העתקה</button>
+      <a class="btn btn-ghost" target="_blank" rel="noopener" href="${esc(url)}">פתיחה</a>
+    </div>`;
+  panel.querySelector('input').addEventListener('focus', e => e.target.select());
+  panel.querySelector('[data-act=copy]').addEventListener('click', async e => {
+    try { await navigator.clipboard.writeText(url); e.currentTarget.textContent = 'הועתק ✓'; }
+    catch(_){ showToast('לא הצלחנו להעתיק - אפשר להעתיק מהשדה'); }
+  });
+  panel.querySelector('[data-act=share]')?.addEventListener('click', () => {
+    navigator.share({ title: 'דוח השוואת שוק', text: text.split('\n')[0], url }).catch(() => {});
+  });
+  panel.hidden = false;
+}
+
+document.getElementById('cmaShareBtn').addEventListener('click', async e => {
+  const btn = e.currentTarget;
+  if (!cmaShareRequest){ showToast('יש להפיק את הדוח מחדש ואז לשלוח'); return; }
+  btn.disabled = true; btn.textContent = 'יוצר קישור…';
+  const { data, error } = await sb.rpc('cma_link_share', { ...cmaShareRequest, p_feature_labels: FEATURE_LABELS });
+  btn.disabled = false; btn.textContent = 'שליחת קישור ללקוח/ה';
+  if (error){ showToast('שגיאה ביצירת הקישור: ' + heErr(error)); return; }
+  if (!data?.id){
+    showToast(data?.detail || 'שגיאה ביצירת הקישור', 6000);
+    return;
+  }
+  cmaShareShow(window.location.origin + '/cma?k=' + data.id, cmaShareReport);
+});
 
 /* ---------- Notifications bell (2.2) ----------
    ההתראות נוצרות בטריגרים במסד, כך שגם אירוע שנכנס דרך Edge Function
@@ -29922,6 +29981,14 @@ function renderCmaAddressForm(body, title){
         return;
       }
       closeCreateSheet();
+      cmaShareReset({ p_address: {
+        city: cityV, street, house_number: house || null, property_type: f.type.value,
+        rooms: n(f.rooms), size_sqm: n(f.size),
+        floor: f.floor.value === '' ? null : Math.round(Number(f.floor.value)),
+        price: n(f.price),
+        features: [...form.querySelectorAll('input[name=feat]:checked')].map(x => x.value),
+        lat: coords?.lat ?? null, lng: coords?.lng ?? null,
+      } }, data);
       renderCmaReport(data, brand);
     } catch(err){
       console.error(err);
