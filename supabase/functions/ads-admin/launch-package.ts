@@ -2056,6 +2056,24 @@ export function uncheckedSummary(skipped: { objectKey: string; reason: string }[
   return bits.join(". ");
 }
 
+// תקרת ה-worker בתוכנית בתשלום היא 400 שניות. בקשה שלא מתחילה תשובה
+// ב-150 שניות מקבלת 504 מה-gateway (request idle timeout), והדפדפן רואה
+// גוף שאינו JSON. עוצרים 100 שניות לפני תקרת ה-worker, וגם לפני ה-504,
+// כדי שהתשובה עם next_key תספיק לצאת. הריצה של 25.10 נקטעה אחרי ad:a4_2
+// (יומן 196) בלי שורת סיכום.
+export const LAUNCH_WALL_LIMIT_MS = 400_000;
+export const LAUNCH_IDLE_LIMIT_MS = 150_000;
+export const LAUNCH_BUDGET_MS = Math.min(LAUNCH_WALL_LIMIT_MS - 100_000, LAUNCH_IDLE_LIMIT_MS - 25_000);
+
+export function pendingLaunchKey(ops: WriteOp[], existing: Map<string, ExistingRow>): string | null {
+  for (const op of ops) {
+    const prev = existing.get(op.objectKey);
+    const done = op.kind === "image" ? !!prev?.imageHash : !!prev?.metaId;
+    if (!done) return op.objectKey;
+  }
+  return null;
+}
+
 export async function executeLaunch(args: {
   act: string;
   plan: LaunchPlan;
@@ -2068,9 +2086,13 @@ export async function executeLaunch(args: {
   images: Map<string, Uint8Array>;
   post: (path: string, body: Record<string, string>) => Promise<any>;
   record: (row: { objectKey: string; kind: string; name: string; metaId?: string; imageHash?: string }) => Promise<void>;
+  deadline?: number;
+  now?: () => number;
 }): Promise<{
   created: string[];
   skipped: string[];
+  done: boolean;
+  nextKey?: string;
   error?: string;
   failedObjectKey?: string;
   failedName?: string;
@@ -2081,7 +2103,7 @@ export async function executeLaunch(args: {
 }> {
   for (const row of args.existing.values()) {
     if (row.metaId && PROTECTED_CAMPAIGN_IDS.includes(row.metaId)) {
-      return { created: [], skipped: [], error: "refusing_protected_campaign" };
+      return { created: [], skipped: [], done: false, error: "refusing_protected_campaign" };
     }
   }
   const { ops, errors } = collectWriteOps(args.plan, {
@@ -2091,7 +2113,7 @@ export async function executeLaunch(args: {
     regionKeys: args.regionKeys,
     termIds: args.termIds,
   });
-  if (errors.length) return { created: [], skipped: [], error: errors.join(",") };
+  if (errors.length) return { created: [], skipped: [], done: false, error: errors.join(",") };
 
   const ids = new Map<string, string>();
   const hashes = new Map<string, string>();
@@ -2102,6 +2124,7 @@ export async function executeLaunch(args: {
 
   const created: string[] = [];
   const skipped: string[] = [];
+  const now = args.now ?? Date.now;
   let current: WriteOp | null = null;
   let currentBody: Record<string, string> | undefined;
   try {
@@ -2115,6 +2138,9 @@ export async function executeLaunch(args: {
       if (op.kind !== "image" && prev?.metaId) {
         skipped.push(op.objectKey);
         continue;
+      }
+      if (args.deadline != null && now() >= args.deadline) {
+        return { created, skipped, done: false, nextKey: op.objectKey };
       }
       let body = substitute(op.body, ids, hashes);
       if (op.kind === "image" && op.imageKey) {
@@ -2143,6 +2169,7 @@ export async function executeLaunch(args: {
     return {
       created,
       skipped,
+      done: false,
       error: formatMetaError(e),
       failedObjectKey: current?.objectKey,
       failedName: current?.name,
@@ -2152,7 +2179,7 @@ export async function executeLaunch(args: {
       request: sanitizeLaunchBody(currentBody),
     };
   }
-  return { created, skipped };
+  return { created, skipped, done: true };
 }
 
 // בדיקה מול מטא בלי יצירה. execution_options=validate_only על קמפיין, סט

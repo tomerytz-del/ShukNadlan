@@ -25,12 +25,14 @@ import {
   SELLERS_FORM_ID,
   VALUATION_FORM_ID,
   VALUATION_FORM_NAME,
+  collectWriteOps,
   CREATIVE_BUCKET,
   CREATIVE_BYTES,
   creativeSourceUrl,
   creativeStorageReport,
   deprecatedInterestIdsFromError,
   executeLaunch,
+  LAUNCH_BUDGET_MS,
   formatMetaError,
   GOOGLE_BUYERS_DAILY_ILS,
   knownCampaignsFromLaunch,
@@ -43,6 +45,7 @@ import {
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
   PAUSED_STATUS,
+  pendingLaunchKey,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
   resolveLaunchIdentity,
@@ -1755,6 +1758,42 @@ function presentPausedLaunch(
   };
 }
 
+const LAUNCH_LOCK_STALE_SECONDS = 420;
+
+async function tryLaunchLock(sb: SupabaseClient, holder: string): Promise<boolean | null> {
+  const res = await sb.rpc("ads_launch_try_lock", {
+    p_launch_key: LAUNCH_KEY,
+    p_holder: holder,
+    p_stale_seconds: LAUNCH_LOCK_STALE_SECONDS,
+  });
+  if (res.error) {
+    console.error("ads_launch_try_lock", res.error.message);
+    return null;
+  }
+  return res.data === true;
+}
+
+async function unlockLaunch(sb: SupabaseClient, holder: string): Promise<void> {
+  const res = await sb.rpc("ads_launch_unlock", {
+    p_launch_key: LAUNCH_KEY,
+    p_holder: holder,
+  });
+  if (res.error) console.error("ads_launch_unlock", res.error.message);
+}
+
+function partialLaunchResponse(created: string[], skipped: string[], nextKey: string) {
+  return json({
+    ok: true,
+    done: false,
+    created_n: created.length,
+    skipped_n: skipped.length,
+    next_key: nextKey,
+    created,
+    skipped,
+    note: `נוצרו ${created.length} אובייקטים, לחץ שוב להמשך מ-${nextKey}`,
+  });
+}
+
 async function loadPausedCampaigns(
   meta: MetaClient,
   act: string,
@@ -2051,6 +2090,20 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     return json({ error: "account_not_ils", detail: "חשבון המודעות אינו בשקלים. לא נוצר כלום." }, 409);
   }
 
+  // מנעול לשורת ההשקה: שתי לחיצות במקביל לא יוצרות אותו אובייקט פעמיים.
+  // אם המיגרציה עוד לא רצה, ממשיכים בלי המנעול (האידמפוטנטיות נשארת).
+  // תקציב הזמן נמדד מכאן, כולל האימות, כדי לחזור לפני 504 של ה-gateway.
+  const holder = crypto.randomUUID();
+  const locked = await tryLaunchLock(sb, holder);
+  if (locked === false) {
+    return json({
+      error: "launch_in_progress",
+      detail: "יצירה אחרת של אותה השקה עדיין רצה. מה שנוצר נשמר. לחץ שוב להמשך אחרי שהיא נגמרת.",
+    }, 409);
+  }
+  const deadline = Date.now() + LAUNCH_BUDGET_MS;
+  try {
+
   // אותה בדיקה כמו ב-dry run: validate_only על קמפיין ועל סט (גם כשהאב
   // עוד לא נוצר, מול קמפיין מושהה מאותו סוג), ו-generatepreviews על
   // קריאייטיב. כשל שאינו 1870247 עוצר לפני POST אמיתי. מזהה שחזר
@@ -2127,7 +2180,9 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   const images = new Map<string, Uint8Array>();
   const missing: string[] = [];
   const mismatched: string[] = [];
+  let imageScanCut = false;
   for (const image of plan.images) {
+    if (Date.now() >= deadline) { imageScanCut = true; break; }
     if (existing.get(`image:${image.key}`)?.imageHash) continue;
     const file = await sb.storage.from(CREATIVE_BUCKET).download(image.path);
     if (file.error || !file.data) {
@@ -2139,7 +2194,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     if (hash !== image.sha256) mismatched.push(image.path);
     else images.set(image.key, buf);
   }
-  if (missing.length || mismatched.length) {
+  if (!imageScanCut && (missing.length || mismatched.length)) {
     const code = mismatched.length ? "creative_hash_mismatch" : "creatives_not_in_storage";
     const detail = mismatched.length
       ? `התמונות בדלי אינן הקבצים של החבילה: ${mismatched.slice(0, 6).join(", ")}`
@@ -2158,6 +2213,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     termIds,
     existing,
     images,
+    deadline,
     post: (p, b) => meta.post(p, b),
     record: async (row) => {
       const up = await sb.from("ads_launch_objects").upsert({
@@ -2212,23 +2268,46 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     }, 502);
   }
 
+  if (!result.done) {
+    const nextKey = result.nextKey || pendingLaunchKey(collectWriteOps(plan, {
+      pageId: launchPageId,
+      instagramUserId: launchIg,
+      pixelId: PIXEL_ID,
+      regionKeys,
+      termIds,
+    }).ops, existing) || "";
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, include_a5: includeA5, done: false, next_key: nextKey },
+      response: { created_n: result.created.length, skipped_n: result.skipped.length, next_key: nextKey },
+      ok: true,
+    });
+    return partialLaunchResponse(result.created, result.skipped, nextKey);
+  }
+
   await log(sb, caller, {
     action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-    request: { dry_run: false, include_a5: includeA5 },
+    request: { dry_run: false, include_a5: includeA5, done: true },
     response: { created: result.created, skipped: result.skipped, campaigns: plan.campaigns.map((c) => c.name) },
     ok: true,
   });
   return json({
     ok: true,
+    done: true,
     dry_run: false,
     created: result.created,
     skipped: result.skipped,
+    created_n: result.created.length,
+    skipped_n: result.skipped.length,
     campaigns: plan.campaigns.map((c) => ({ key: c.key, name: c.name, status: PAUSED_STATUS })),
     budget: plan.budget,
     note: resolution.warnings.length
       ? `הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager. ${resolution.warnings.join(" ")}`
       : "הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager.",
   });
+  } finally {
+    if (locked === true) await unlockLaunch(sb, holder);
+  }
 }
 
 Deno.serve(async (req: Request) => {
