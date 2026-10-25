@@ -241,5 +241,7 @@ footer.site:has(.footer-lead){padding-top:0}
   מסגרת זהב שקופה) - ב-`index.html` וב-`assets/buyer-banner.css`, רק בתוך
   `.footer-lead` (בדף הנכס הוא נשאר בעמודת התוכן).
 - **הקישורים לא זזו** - ‏`search-pages.ts` ו-`check_canonical.py` תלויים בהם.
+- **שטח נגיעה 44px** לקישור ולכפתור בפוטר (`min-height`, בלי להגדיל את הגופן).
+  בדפדפן רגיל זה מוסיף גובה לשורות הקישורים. האייקונים החברתיים הם 44×44.
 
 הפרטים: [`home-page-sections.md`](home-page-sections.md).

@@ -16,6 +16,7 @@ header.site{
   background:var(--glass-strong);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;
+  padding-top:calc(env(safe-area-inset-top, 0px) + var(--site-header-pad, 0px));
 }
 .header-inner{display:flex;align-items:center;justify-content:space-between;gap:14px;
   min-height:66px;max-width:1180px;margin:0 auto;padding:0 18px}

@@ -314,6 +314,9 @@ header.site{
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);
   box-shadow:none;
+  /* viewport-fit=cover מפעיל את ה-inset. בדפדפן רגיל הוא 0.
+     --site-header-pad שומר ריפוד שדף הגדיר לפני הגיליון הזה. */
+  padding-top:calc(env(safe-area-inset-top, 0px) + var(--site-header-pad, 0px));
 }
 header.site .primary a{color:var(--ink-soft);font-weight:500}
 header.site .primary a:hover{color:var(--sapphire)}

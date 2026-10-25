@@ -11,7 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>כל בעלי המקצוע בשוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -138,7 +138,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){.wrap{padding:0 24px}}
 
   /* ====== הכותרת ====== */
-  header.site{position:sticky;top:0;z-index:100;padding:12px 0}
+  header.site{position:sticky;top:0;z-index:100;padding:calc(12px + env(safe-area-inset-top, 0px)) 0 12px}
   .header-inner{display:flex;align-items:center;gap:28px}
   .site-nav{display:none;gap:24px;flex:1 1 auto;font-size:15px;font-weight:500}
   .site-nav a,.site-nav a:hover{color:var(--ink-soft)}
