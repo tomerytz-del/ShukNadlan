@@ -241,7 +241,7 @@ node --experimental-strip-types scripts/search_pages_test.ts   # ההתנהגו�
 `live: false` יוצא מלא לגולש/ת, עם `noindex,follow` וגם `X-Robots-Tag`.
 ‏`sitemap.ts` מוריד אותו גם אם השורה קיימת, ו-`check_canonical.py` נכשל
 אם שורה כזו נמצאת ב-`sitemap.xml` (ולהפך: דף של שוק חי חייב שורה). כך
-חיפה כבר קיימת, בלי לעקוף את הסף של `market-go-live`. ברשימה ריקה נוסף
+חיפה והקריות כבר קיימות, בלי לעקוף את הסף של `market-go-live`. ברשימה ריקה נוסף
 עכשיו גם `X-Robots-Tag`, לא רק תגית ה-meta.
 
 **השוק בכותרת ובפוטר.** ‏`city-context.js` מזהה שוק לפי נתיב מדויק
@@ -249,6 +249,15 @@ node --experimental-strip-types scripts/search_pages_test.ts   # ההתנהגו�
 החיפושים הפופולריים של עפולה. ‏`marketHint` ב-`lib/markets.ts` מוסיף
 `window.SHUK_MARKET` (אותו רמז של `market-pages.ts`) לכל עיר שאינה
 ברירת המחדל.
+
+**שוק עם כמה ערים - דף לכל עיר.** הקריות (שוק `krayot`) הן ארבע ערים,
+ולכל אחת קידומת משלה ב-`cities.slug`: ‏`/kiryat-ata`, ‏`/kiryat-bialik`,
+‏`/kiryat-motzkin`, ‏`/kiryat-yam`, כל אחת עם שלושת הסוגים ו-`מתווכים`.
+"דירות למכירה בקריית ביאליק" הוא חיפוש משלו, ודף אחד לכל הקריות היה
+מסנן על ארבע מחרוזות ב-`properties.city` ומתחרה בדפי הערים. ארבען חולקות
+`home: "/krayot"` ואת `market: "krayot"`, ולכן ייכנסו לאינדקס יחד בהדלקת
+השוק. בביאליק רק לשלוש שכונות יש עסקאות משויכות, ולכן כל שכונות המגורים
+ברשימה (בלי אזור התעשייה).
 
 עיר נוספת:
 

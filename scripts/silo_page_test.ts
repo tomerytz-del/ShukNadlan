@@ -252,6 +252,22 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("נתיב /haifa אחר עובר הלאה", res.status === 200 && html.includes(marker) && !/noindex/.test(html) && calls === 0);
 }
 
+{
+  const URL_YAM = SITE + "/kiryat-yam/" + encodeURIComponent("דירות-3-חדרים");
+  const rows = ROWS.map((r) => ({ ...r, city: "קריית ים", rooms: 3, neighborhoods: { name: "קריית ים ב'" } }));
+  const res = await run(URL_YAM, 200, rows);
+  const html = await res.text();
+  const body = (html.split('id="siloBody"')[1] || "").split("<!--/silo-->")[0];
+  const filters = (html.split('aria-label="סינון מהיר"')[1] || "").split("</nav>")[0];
+  check("קריית ים: H1", html.includes('<h1 id="siloH1">דירות 3 חדרים למכירה בקריית ים</h1>'));
+  check("קריית ים: השאילתה לפי העיר", urls.some((u) => u.includes("/properties?") && u.includes("city=eq." + encodeURIComponent("קריית ים"))));
+  check("קריית ים: שכונה עם גרש בורחת", body.includes("קריית ים ב&#39;") && !body.includes("קריית ים ב'<"));
+  check("קריית ים: צ'יפים של שכונות", filters.includes("/n/kiryat-yam/" + encodeURIComponent("קריית-ים-ב")));
+  check("קריית ים: הקריות", html.includes('href="/krayot" id="landCityCrumb">קריית ים</a>') && html.includes('href="/deals/kiryat-yam"')
+    && html.includes('<script>window.SHUK_MARKET={"slug":"krayot"};</script>'));
+  check("קריית ים: noindex", /<meta name="robots" content="noindex,follow">/.test(html) && res.headers.get("X-Robots-Tag") === "noindex, follow");
+}
+
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
   process.exit(1);

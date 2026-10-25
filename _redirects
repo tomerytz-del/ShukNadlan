@@ -132,6 +132,31 @@
 /haifa/בתים-פרטיים    /silo    200
 /haifa/דירות-גן    /silo    200
 /haifa/דירות-3-חדרים    /silo    200
+# ‏הקריות (‏קריית אתא, ביאליק, מוצקין, ים) - אותה תבנית, שוק krayot שאינו חי.
+/kiryat-ata/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/kiryat-ata/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/kiryat-ata/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/kiryat-ata/בתים-פרטיים    /silo    200
+/kiryat-ata/דירות-גן    /silo    200
+/kiryat-ata/דירות-3-חדרים    /silo    200
+/kiryat-bialik/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/kiryat-bialik/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/kiryat-bialik/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/kiryat-bialik/בתים-פרטיים    /silo    200
+/kiryat-bialik/דירות-גן    /silo    200
+/kiryat-bialik/דירות-3-חדרים    /silo    200
+/kiryat-motzkin/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/kiryat-motzkin/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/kiryat-motzkin/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/kiryat-motzkin/בתים-פרטיים    /silo    200
+/kiryat-motzkin/דירות-גן    /silo    200
+/kiryat-motzkin/דירות-3-חדרים    /silo    200
+/kiryat-yam/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
+/kiryat-yam/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
+/kiryat-yam/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/kiryat-yam/בתים-פרטיים    /silo    200
+/kiryat-yam/דירות-גן    /silo    200
+/kiryat-yam/דירות-3-חדרים    /silo    200
 
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
@@ -144,6 +169,14 @@
 /afula/מתווכים    /brokers    200
 /haifa/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
 /haifa/מתווכים    /brokers    200
+/kiryat-ata/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/kiryat-ata/מתווכים    /brokers    200
+/kiryat-bialik/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/kiryat-bialik/מתווכים    /brokers    200
+/kiryat-motzkin/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/kiryat-motzkin/מתווכים    /brokers    200
+/kiryat-yam/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/kiryat-yam/מתווכים    /brokers    200
 
 /crm-share    /crm?share=error    303
 

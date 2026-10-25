@@ -25,6 +25,14 @@
       cityId: "c2a8426f-7bac-4c48-bcb5-53a5ca06f001", home: "/", homeLabel: "עפולה והעמק" },
     { slug: "haifa", name: "חיפה", market: "haifa",
       cityId: "751fcf13-a02b-4370-97a5-fc4ec42ea4fe", home: "/haifa", homeLabel: "חיפה והסביבה" },
+    { slug: "kiryat-ata", name: "קריית אתא", market: "krayot",
+      cityId: "223f550b-0314-4887-9bd7-d2fd89bce754", home: "/krayot", homeLabel: "הקריות והסביבה" },
+    { slug: "kiryat-bialik", name: "קריית ביאליק", market: "krayot",
+      cityId: "234dcb60-1ef3-4960-89e9-8974cc0ca00e", home: "/krayot", homeLabel: "הקריות והסביבה" },
+    { slug: "kiryat-motzkin", name: "קריית מוצקין", market: "krayot",
+      cityId: "4d70f4b0-91ea-444d-b2f9-373e52b0ef35", home: "/krayot", homeLabel: "הקריות והסביבה" },
+    { slug: "kiryat-yam", name: "קריית ים", market: "krayot",
+      cityId: "696b830c-a923-4e9a-a83e-e5447c4b3f04", home: "/krayot", homeLabel: "הקריות והסביבה" },
   ];
   var BENEFIT = "משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.";
   var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
