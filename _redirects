@@ -158,6 +158,14 @@
 /kiryat-yam/בתים-פרטיים    /silo    200
 /kiryat-yam/דירות-גן    /silo    200
 /kiryat-yam/דירות-3-חדרים    /silo    200
+# ‏נוף הגליל ומגדל העמק - השוק אינו חי, והדף יוצא noindex עד ההדלקה.
+/nof-hagalil/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94    /silo    200
+/nof-hagalil/דירות-למכירה    /silo    200
+/migdal-haemek/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94    /silo    200
+/migdal-haemek/דירות-למכירה    /silo    200
+# ‏יישובי עמק יזרעאל חוץ מעפולה. שוק afula-emek חי.
+/emek-yizrael/%D7%91%D7%AA%D7%99%D7%9D-%D7%95%D7%9E%D7%92%D7%A8%D7%A9%D7%99%D7%9D    /silo    200
+/emek-yizrael/בתים-ומגרשים    /silo    200
 
 # ‏שיתוף איש קשר אל אפליקציית ה-CRM המותקנת (‏share_target ב-app-crm.webmanifest).
 # את ה-POST מקבל ‏sw.js ולא השרת; השורה הזו היא רק רשת ביטחון לטלפון שבו
@@ -178,6 +186,10 @@
 /kiryat-motzkin/מתווכים    /brokers    200
 /kiryat-yam/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
 /kiryat-yam/מתווכים    /brokers    200
+/nof-hagalil/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/nof-hagalil/מתווכים    /brokers    200
+/migdal-haemek/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D    /brokers    200
+/migdal-haemek/מתווכים    /brokers    200
 
 /crm-share    /crm?share=error    303
 

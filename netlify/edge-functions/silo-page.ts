@@ -154,11 +154,15 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
       clearTimeout(timer);
     }
   })());
-  tasks.push(optionalJson(
-    `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${page.cityId}&order=name.asc&limit=48`,
-  ).then((data) => {
-    if (Array.isArray(data)) extras.agencies = data as Row[];
-  }));
+  /* ‏עמוד של כמה יישובים (עמק) אין לו city_id. שאילתה עם eq.null
+     אינה "אין משרדים" אלא מסנן שגוי, ולכן לא שולחים אותה. */
+  if (page.cityId) {
+    tasks.push(optionalJson(
+      `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${page.cityId}&order=name.asc&limit=48`,
+    ).then((data) => {
+      if (Array.isArray(data)) extras.agencies = data as Row[];
+    }));
+  }
   if (got.rows.length < 3) {
     const others = S.pages.filter((p) => p.city === page.city && p.path !== page.path);
     tasks.push(Promise.all(others.map((p) => listings(p))).then((lists) => {
@@ -185,9 +189,18 @@ export function pageOf(pathname: string): Page | null {
   return silo().pageOf(pathname);
 }
 
+/* ‏עפולה נשארת עם הנתיב הגלוי, כמו שהיה. עמוד collection (עמק, נוף
+   הגליל) משתמש בנתיב המקודד, כי זה ה-url שב-JSON-LD. */
+function pageUrl(page: Page): string {
+  const path = (page as Page & { collection?: boolean }).collection
+    ? page.path.split("/").map((seg, i) => (i === 0 ? seg : encodeURIComponent(seg))).join("/")
+    : page.path;
+  return SITE + path;
+}
+
 /* canonical ו-og:url מהכתובת - בלי מסד */
 export function withUrl(html: string, page: Page): string {
-  const url = SITE + page.path;
+  const url = pageUrl(page);
   return html
     .replace(/(<meta property="og:url" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(url)}${b}`)
     .replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "")
@@ -371,5 +384,14 @@ export const config: Config = {
     "/kiryat-yam/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D",
     "/kiryat-yam/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F",
     "/kiryat-yam/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
+    "/nof-hagalil/*",
+    "/nof-hagalil/דירות-למכירה",
+    "/nof-hagalil/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94",
+    "/migdal-haemek/*",
+    "/migdal-haemek/דירות-למכירה",
+    "/migdal-haemek/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94",
+    "/emek-yizrael/*",
+    "/emek-yizrael/בתים-ומגרשים",
+    "/emek-yizrael/%D7%91%D7%AA%D7%99%D7%9D-%D7%95%D7%9E%D7%92%D7%A8%D7%A9%D7%99%D7%9D",
   ],
 };

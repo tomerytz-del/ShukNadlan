@@ -178,11 +178,12 @@ function blocks(html: string): Record<string, unknown>[] {
 }
 
 {
-  type City = { slug: string; name: string; cityId: string; market: string; home: string };
+  type City = { slug: string; name: string; cityId: string; market: string; home: string; noBrokers?: boolean };
   const g = globalThis as unknown as { ShukSilo: { cities: City[] }; ShukBrokers: { cities: City[] } };
   const pick = (c: City) => [c.slug, c.name, c.cityId, c.market, c.home].join("|");
+  const siloCities = g.ShukSilo.cities.filter((c) => !c.noBrokers);
   check("אותן ערים ב-silo-render וב-brokers-render",
-    JSON.stringify(g.ShukSilo.cities.map(pick)) === JSON.stringify(g.ShukBrokers.cities.map(pick)));
+    JSON.stringify(siloCities.map(pick)) === JSON.stringify(g.ShukBrokers.cities.map(pick)));
 }
 
 if (failed) {
