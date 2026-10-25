@@ -102,6 +102,10 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const list = blocks.find((b) => b["@type"] === "ItemList") as { numberOfItems: number; itemListElement: { position: number; url: string }[] } | undefined;
   const web = blocks.find((b) => b["@type"] === "WebPage") as { url?: string; name?: string } | undefined;
   check("200", res.status === 200);
+  check("עפולה: city=eq ומסוג אחד", urls.some((u) => u.includes("/properties?")
+    && u.includes("city=eq." + encodeURIComponent("עפולה"))
+    && u.includes("property_type=eq." + encodeURIComponent("בית פרטי/קוטג'"))
+    && !u.includes("city=in.")));
   check("כותרת", html.includes("<title>בית פרטי למכירה בעפולה | שוק נדל״ן</title>"));
   check("H1", html.includes("<h1 id=\"siloH1\">בית פרטי למכירה בעפולה</h1>"));
   check("ממולא", html.includes('data-ssr="1"') && html.includes("מודעות פעילות"));
@@ -266,6 +270,127 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("קריית ים: הקריות", html.includes('href="/krayot" id="landCityCrumb">קריית ים</a>') && html.includes('href="/deals/kiryat-yam"')
     && html.includes('<script>window.SHUK_MARKET={"slug":"krayot"};</script>'));
   check("קריית ים: noindex", /<meta name="robots" content="noindex,follow">/.test(html) && res.headers.get("X-Robots-Tag") === "noindex, follow");
+}
+
+{
+  const EMEK = SITE + "/emek-yizrael/" + encodeURIComponent("בתים-ומגרשים");
+  const CANON_E = SITE + "/emek-yizrael/%D7%91%D7%AA%D7%99%D7%9D-%D7%95%D7%9E%D7%92%D7%A8%D7%A9%D7%99%D7%9D";
+  const H1 = "בתים ומגרשים למכירה ביישובי עמק יזרעאל";
+  const DESC = "בתים פרטיים ומגרשים למכירה במושבים וביישובים שסביב עפולה, מכל משרדי התיווך באתר, עם מחיר, גודל ותמונות לכל מודעה פעילה.";
+  const INTRO = "בעמוד הזה מרוכזים בתים פרטיים ומגרשים למכירה ביישובים שסביב עפולה, ביניהם היוגב, אומן וחבר. המודעות מתפרסמות על ידי משרדי תיווך שפועלים בעפולה ובעמק, ובכל אחת מופיעים המחיר, הגודל והתמונות כפי שפורסמו. דירות בעפולה עצמה מופיעות בדפים של העיר: בתים פרטיים, דירות גן ודירות 3 חדרים.";
+  const FAQ: [string, string][] = [
+    ["אילו יישובים כלולים בעמוד?", "היישובים שסביב עפולה שהאתר משייך לאזור עפולה והעמק, ביניהם היוגב, אומן, חבר, גן נר, כפר תבור, תל עדשים, בלפוריה, מרחביה, כפר גדעון, מגן שאול, נורית, גדיש, אביטל ואחוזת ברק. נכסים בעפולה עצמה מופיעים בדפים של העיר."],
+    ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
+    ["מה כדאי לבדוק לפני קניית מגרש או בית במושב?", "את ייעוד הקרקע וזכויות הבנייה, מול הוועדה המקומית לתכנון ובנייה, ואת תנאי הקבלה ליישוב, שבחלק מהיישובים כוללים הליך קבלה. הפרטים שפורסמו במודעה מופיעים בדף הנכס."],
+    ["איפה רואים מחירי עסקאות ביישובים?", "בעמוד עסקאות הנדל״ן לפי יישוב, מתוך דיווחי רשות המסים. ביישוב עם פחות מ-5 עסקאות בשנה האחרונה האתר אינו מציג מחיר חציוני."],
+    ["מה עושים אם אין כרגע נכס שמתאים לי?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס מתאים באחד מיישובי העמק."],
+  ];
+  const rows = [
+    {
+      id: "plot-1",
+      title: "מגרש <ב",
+      property_type: "מגרש",
+      deal_type: "sale",
+      price: 900000,
+      size_sqm: 500,
+      city: "אומן",
+      created_at: RECENT,
+      updated_at: RECENT,
+      images: ["https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/plot.jpg"],
+    },
+    {
+      id: "house-1",
+      title: "בית בהיוגב",
+      property_type: "בית פרטי/קוטג'",
+      deal_type: "sale",
+      price: 2100000,
+      rooms: 5,
+      size_sqm: 160,
+      city: "היוגב",
+      created_at: RECENT,
+      updated_at: RECENT,
+      images: [],
+    },
+  ];
+  const res = await run(EMEK, 200, rows);
+  const html = await res.text();
+  const blocks = ldBlocks(html);
+  const graph = blocks.find((b) => Array.isArray(b["@graph"])) as { "@graph": Record<string, unknown>[] } | undefined;
+  const gtypes = (graph?.["@graph"] || []).map((b) => b["@type"]);
+  const faq = (graph?.["@graph"] || []).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { name: string; acceptedAnswer: { text: string } }[] } | undefined;
+  const list = blocks.find((b) => b["@type"] === "ItemList") as { numberOfItems?: number } | undefined;
+  const props = urls.filter((u) => u.includes("/properties?"));
+  check("עמק: 200 ובלי noindex", res.status === 200 && !/noindex/.test(html) && res.headers.get("X-Robots-Tag") == null);
+  check("עמק: כותרת, תיאור ו-H1", html.includes(`<title>${H1} | שוק נדל״ן</title>`)
+    && html.includes(`content="${DESC}"`)
+    && html.includes(`<h1 id="siloH1">${H1}</h1>`));
+  check("עמק: פתיח וחמש שאלות", html.includes(INTRO) && FAQ.every(([q, a]) => html.includes(q) && html.includes(a))
+    && (html.match(/<details><summary>/g) || []).length === 5);
+  check("עמק: תמונת הבתים הקיימת", html.includes("hero-house-800.webp") && html.includes("hero-house-1600.webp") && !html.includes("hero-emek"));
+  check("עמק: canonical מקודד", html.includes(`<link rel="canonical" href="${CANON_E}">`));
+  check("עמק: שאילתה על כמה יישובים", props.some((u) => u.includes("city=in.(")
+    && u.includes(encodeURIComponent("אומן"))
+    && u.includes(encodeURIComponent("היוגב"))
+    && u.includes(encodeURIComponent("חבר"))
+    && u.includes(encodeURIComponent("מרחביה (מושב)"))
+    && u.includes("property_type=in.")
+    && u.includes(encodeURIComponent("מגרש"))
+    && u.includes(encodeURIComponent("בית פרטי/קוטג'").replace(/'/g, "%27"))));
+  check("עמק: בלי עפולה ובלי שדה נחום בשאילתה", !props.some((u) => u.includes("city=eq." + encodeURIComponent("עפולה")) || u.includes(encodeURIComponent("שדה נחום"))));
+  check("עמק: בלי שאילתת משרדים", !urls.some((u) => u.includes("/agencies?")));
+  check("עמק: JSON-LD", gtypes.includes("CollectionPage") && gtypes.includes("BreadcrumbList") && gtypes.includes("FAQPage")
+    && !gtypes.includes("ItemList") && list?.numberOfItems === 2 && blocks.filter((b) => b["@type"] === "WebPage").length === 0);
+  const pageLd = (graph?.["@graph"] || []).find((b) => b["@type"] === "CollectionPage") as { url?: string; name?: string; description?: string; isPartOf?: { "@id"?: string }; about?: { name?: string } } | undefined;
+  const crumbs = (graph?.["@graph"] || []).find((b) => b["@type"] === "BreadcrumbList") as { itemListElement?: { name: string; item: string }[] } | undefined;
+  check("עמק: כתובות ה-JSON-LD", pageLd?.url === CANON_E && pageLd?.name === H1 && pageLd?.description === DESC
+    && pageLd?.isPartOf?.["@id"] === SITE + "/#website" && pageLd?.about?.name === "עמק יזרעאל"
+    && crumbs?.itemListElement?.[1]?.name === "עפולה והעמק" && crumbs?.itemListElement?.[1]?.item === SITE + "/"
+    && crumbs?.itemListElement?.[2]?.name === H1 && crumbs?.itemListElement?.[2]?.item === CANON_E);
+  check("עמק: FAQ ב-JSON-LD", JSON.stringify(faq?.mainEntity?.map((q) => [q.name, q.acceptedAnswer.text])) === JSON.stringify(FAQ));
+  check("עמק: בלי HTML ב-JSON", html.includes("\\u003c") && !html.includes("מגרש <ב"));
+  check("עמק: קישורים לעפולה ולעסקאות", html.includes('href="/afula/בתים-פרטיים"') && html.includes('href="/afula/מתווכים"') && html.includes('href="/deals"')
+    && !html.includes("/emek-yizrael/מתווכים"));
+  check("עמק: בלי רמז שוק", !html.includes("SHUK_MARKET"));
+}
+
+{
+  const marker = "<!--other-page-->";
+  const res = await run(SITE + "/emek-yizrael/" + encodeURIComponent("מתווכים"), 200, ROWS, marker);
+  const html = await res.text();
+  check("עמק: אין דף מתווכים", res.status === 200 && html.includes(marker) && !/noindex/.test(html) && calls === 0);
+}
+
+{
+  const NOF = SITE + "/nof-hagalil/" + encodeURIComponent("דירות-למכירה");
+  const row = { ...ROWS[0], id: "nof-1", city: "נוף הגליל", property_type: "דירה", rooms: 4, neighborhoods: null };
+  const res = await run(NOF, 200, [row]);
+  const html = await res.text();
+  const blocks = ldBlocks(html);
+  const graph = blocks.find((b) => Array.isArray(b["@graph"])) as { "@graph": { "@type": string }[] } | undefined;
+  check("נוף הגליל: 200 ו-noindex", res.status === 200
+    && /<meta name="robots" content="noindex,follow">/.test(html)
+    && res.headers.get("X-Robots-Tag") === "noindex, follow");
+  check("נוף הגליל: כותרת", html.includes("<title>דירות למכירה בנוף הגליל | שוק נדל״ן</title>")
+    && html.includes("1,020 עסקאות") && html.includes("hero-apt-800.webp"));
+  check("נוף הגליל: שאילתה", urls.some((u) => u.includes("city=eq." + encodeURIComponent("נוף הגליל"))
+    && u.includes("property_type=in.")
+    && u.includes(encodeURIComponent("דירה"))
+    && u.includes(encodeURIComponent("דירת גן"))));
+  check("נוף הגליל: JSON-LD", (graph?.["@graph"] || []).map((b) => b["@type"]).join(",") === "CollectionPage,BreadcrumbList,FAQPage");
+  check("נוף הגליל: רמז השוק", html.includes('<script>window.SHUK_MARKET={"slug":"nof-hagalil-migdal"};</script>'));
+}
+
+{
+  const MIG = SITE + "/migdal-haemek/" + encodeURIComponent("דירות-למכירה");
+  const row = { ...ROWS[1], id: "mig-1", city: "מגדל העמק", property_type: "דירה", rooms: 3 };
+  const res = await run(MIG, 200, [row]);
+  const html = await res.text();
+  check("מגדל העמק: 200 ו-noindex", res.status === 200
+    && /<meta name="robots" content="noindex,follow">/.test(html)
+    && res.headers.get("X-Robots-Tag") === "noindex, follow"
+    && html.includes("<title>דירות למכירה במגדל העמק | שוק נדל״ן</title>")
+    && html.includes("562 עסקאות")
+    && urls.some((u) => u.includes("city=eq." + encodeURIComponent("מגדל העמק"))));
 }
 
 if (failed) {
