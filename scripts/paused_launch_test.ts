@@ -45,6 +45,7 @@ import {
   REGION_FALLBACK_KM,
   resolveLaunchIdentity,
   resolveLaunchTargeting,
+  sanitizeAdSetTargeting,
   sanitizeLaunchBody,
   SELLERS_FORM_ID,
   sha256Hex,
@@ -199,10 +200,32 @@ ok("no genders and no publisher platforms on ad sets", [tB1, tB3, tBuy, tRt, tB2
 ok("housing radius 25", tBuy.geo_locations.custom_locations[0].radius === 25 && tRt.geo_locations.custom_locations[0].radius === 25);
 ok("B1 radius 15 on nine cities", tB1.geo_locations.custom_locations.length === 9 && tB1.geo_locations.custom_locations.every((p: { radius: number }) => p.radius === 15));
 const b3Generic = ["Owner", "Founder", "Managing Director", "Branch Manager", "Franchise Owner"];
-ok("B3 generic titles are AND-narrowed with real-estate titles and interests", tB3.flexible_spec.length === 2 && tB3.flexible_spec[0].work_positions.map((p: { name: string }) => p.name).join("|") === b3Generic.join("|") && tB3.flexible_spec[0].behaviors.map((p: { name: string }) => p.name).join("|") === "Small business owners" && !tB3.flexible_spec[0].interests && !tB3.flexible_spec[0].work_employers && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Broker Owner") && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Real Estate Broker") && !tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Owner") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849417269780") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849945059527") && tB3.flexible_spec[1].work_employers.length === 5 && tB3.geo_locations.regions.length === 2);
+ok("B3 generic titles are AND-narrowed with real-estate titles and interests", tB3.flexible_spec.length === 2 && tB3.flexible_spec[0].work_positions.map((p: { name: string }) => p.name).join("|") === b3Generic.join("|") && tB3.flexible_spec[0].behaviors.map((p: { name: string }) => p.name).join("|") === "Small business owners" && !tB3.flexible_spec[0].interests && !tB3.flexible_spec[0].work_employers && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Broker Owner") && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Real Estate Broker") && !tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Owner") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849417269780") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849945059527") && tB3.flexible_spec[1].work_employers.length === 5 && tB3.geo_locations.regions.length === 2 && !tB3.geo_locations.countries && !tB3.publisher_platforms && !tB3.facebook_positions && !tB3.instagram_positions && !tB3.messenger_positions && !tB3.audience_network_positions && !tB1.geo_locations.countries && !tB1.publisher_platforms);
 const b3Summary = summary.campaigns.find((c) => c.key === "office_owners")!.ad_sets[0];
 ok("dry run shows the B3 AND groups", b3Summary.flexible_logic === "and" && b3Summary.flexible.length === 2 && b3Summary.flexible[0].map((t) => t.name).join("|") === `${b3Generic.join("|")}|Small business owners` && b3Summary.flexible[1].some((t) => t.name === "Real Estate Broker") && b3Summary.flexible[1].some((t) => t.name === "Residential real estate") && !b3Summary.flexible[0].some((t) => t.name === "Broker Owner" || t.type === "interest"));
 ok("B1 flexible is one OR group", tB1.flexible_spec.length === 1 && tB1.age_min === 22);
+const overlapped = sanitizeAdSetTargeting({
+  geo_locations: { regions: [{ key: "1720" }, { key: "1719" }], countries: ["IL"], country_groups: ["worldwide"] },
+  publisher_platforms: ["facebook", "instagram", "messenger", "audience_network"],
+  facebook_positions: ["story", "marketplace", "video_feeds"],
+  instagram_positions: ["story", "explore", "reels"],
+  messenger_positions: ["messenger_home"],
+  audience_network_positions: ["classic"],
+}, true);
+ok("overlapping country and orphan lead placements are dropped", !overlapped.geo_locations.countries && !overlapped.geo_locations.country_groups && overlapped.geo_locations.regions.length === 2 && !overlapped.publisher_platforms && !overlapped.facebook_positions && !overlapped.instagram_positions && !overlapped.messenger_positions && !overlapped.audience_network_positions);
+const kept = sanitizeAdSetTargeting({
+  geo_locations: { countries: ["IL"] },
+  publisher_platforms: ["facebook", "instagram"],
+  facebook_positions: ["feed", "story", "marketplace"],
+  instagram_positions: ["stream", "story", "reels"],
+}, false);
+ok("a placement set that includes its parent is kept, and a country alone stays", kept.geo_locations.countries[0] === "IL" && kept.publisher_platforms.join(",") === "facebook,instagram" && kept.facebook_positions.join(",") === "feed,story,marketplace" && kept.instagram_positions.join(",") === "stream,story,reels" && !kept.messenger_positions);
+const platformOnly = sanitizeAdSetTargeting({
+  publisher_platforms: ["instagram"],
+  instagram_positions: ["explore_home"],
+  device_platforms: ["mobile"],
+}, false);
+ok("a platform whose positions were all orphans is removed", !platformOnly.publisher_platforms && !platformOnly.instagram_positions && platformOnly.device_platforms[0] === "mobile");
 ok("buyers have no detailed targeting", !tBuy.flexible_spec);
 ok("audiences referenced by placeholder", tRt.custom_audiences[0].id === "{{id:audience:site_visitors_30d}}" && tB2.custom_audiences[0].id === "{{id:audience:brokers_site_180d}}");
 

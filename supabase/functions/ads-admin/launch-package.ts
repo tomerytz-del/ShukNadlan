@@ -1437,7 +1437,87 @@ function geoJson(geo: AdSetDef["geo"], regionKeys: Record<string, string>): { ge
     if (!key) return { geo: null, error: `region_unresolved:${q}` };
     regions.push({ key });
   }
-  return { geo: { regions, countries: [geo.country] } };
+  // בלי countries. מדינה ומחוז שבתוכה הם subcode 1487756
+  // (יומן 149, adset:b3): overlapping locations. B1 עבר עם
+  // custom_locations בלבד, בלי מדינה.
+  return { geo: { regions } };
+}
+
+// מיקום רחב שכולל מיקום צר בתוכו נדחה כ-1487756. מיקום ידני בלי ההורה
+// שלו (סטורי או marketplace בלי feed, explore או reels בלי stream),
+// פלטפורמה בלי רשימת מיקומים, ו-messenger או audience network על סט
+// לידים יורדים. בלי מיקומים שנשארו הסט נשאר Advantage+ placements,
+// כמו B1.
+const FB_POSITIONS_NEED_FEED = new Set(["marketplace", "video_feeds", "story", "right_hand_column", "instream_video", "facebook_reels", "search"]);
+const IG_POSITIONS_NEED_STREAM = new Set(["story", "explore", "explore_home", "reels", "profile_feed", "ig_search", "profile_reels"]);
+const NARROW_GEO_KEYS = ["regions", "cities", "zips", "places", "custom_locations", "geo_markets", "electoral_districts"];
+
+function positionList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((v): v is string => typeof v === "string");
+}
+
+function dropOrphanPositions(positions: string[] | undefined, parent: string, needsParent: Set<string>): string[] | undefined {
+  if (!positions) return undefined;
+  if (positions.includes(parent)) return positions;
+  return positions.filter((p) => !needsParent.has(p));
+}
+
+export function sanitizeAdSetTargeting(targeting: Record<string, unknown>, lead: boolean): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...targeting };
+  const geo = out.geo_locations;
+  if (geo && typeof geo === "object" && !Array.isArray(geo)) {
+    const g: Record<string, unknown> = { ...(geo as Record<string, unknown>) };
+    const narrower = NARROW_GEO_KEYS.some((k) => Array.isArray(g[k]) && (g[k] as unknown[]).length > 0);
+    if (narrower) {
+      delete g.countries;
+      delete g.country_groups;
+    }
+    out.geo_locations = g;
+  }
+
+  const placementKeys = ["publisher_platforms", "facebook_positions", "instagram_positions", "messenger_positions", "audience_network_positions"];
+  if (!placementKeys.some((k) => k in out)) return out;
+
+  let platforms = positionList(out.publisher_platforms) ?? [];
+  let facebook = dropOrphanPositions(positionList(out.facebook_positions), "feed", FB_POSITIONS_NEED_FEED);
+  let instagram = dropOrphanPositions(positionList(out.instagram_positions), "stream", IG_POSITIONS_NEED_STREAM);
+  let messenger = positionList(out.messenger_positions);
+  let audience = positionList(out.audience_network_positions);
+  if (lead) {
+    messenger = [];
+    audience = [];
+    platforms = platforms.filter((p) => p !== "messenger" && p !== "audience_network");
+  }
+
+  const keep = (key: string, positions: string[] | undefined, platform: string) => {
+    if (positions === undefined) return;
+    if (positions.length === 0) {
+      delete out[key];
+      platforms = platforms.filter((p) => p !== platform);
+      return;
+    }
+    out[key] = positions;
+    if (!platforms.includes(platform)) platforms.push(platform);
+  };
+  keep("facebook_positions", facebook, "facebook");
+  keep("instagram_positions", instagram, "instagram");
+  keep("messenger_positions", messenger, "messenger");
+  keep("audience_network_positions", audience, "audience_network");
+
+  const paired: Record<string, string> = {
+    facebook: "facebook_positions",
+    instagram: "instagram_positions",
+    messenger: "messenger_positions",
+    audience_network: "audience_network_positions",
+  };
+  platforms = platforms.filter((p) => {
+    const key = paired[p];
+    return !!key && Array.isArray(out[key]) && (out[key] as unknown[]).length > 0;
+  });
+  if (platforms.length === 0) delete out.publisher_platforms;
+  else out.publisher_platforms = platforms;
+  return out;
 }
 
 function flexibleJson(groups: Term[][], termIds: Record<string, string>): { spec: unknown[] | null; error?: string } {
@@ -1572,14 +1652,14 @@ export function collectWriteOps(plan: LaunchPlan, ctx: {
         ...a.audienceKeys.map((k) => ({ id: `{{id:audience:${k}}}` })),
         ...a.extraAudienceIds.map((id) => ({ id })),
       ];
-      const targeting: Record<string, unknown> = {
+      const targeting = sanitizeAdSetTargeting({
         geo_locations: g.geo,
         age_min: a.ageMin,
         age_max: a.ageMax,
         targeting_automation: { advantage_audience: 0 },
-      };
-      if (flex.spec && flex.spec.length) targeting.flexible_spec = flex.spec;
-      if (customAudiences.length) targeting.custom_audiences = customAudiences;
+        ...(flex.spec && flex.spec.length ? { flexible_spec: flex.spec } : {}),
+        ...(customAudiences.length ? { custom_audiences: customAudiences } : {}),
+      }, a.destination === "lead_form");
       const adsetBody: Record<string, string> = {
         name: a.name,
         campaign_id: `{{id:campaign:${c.key}}}`,
