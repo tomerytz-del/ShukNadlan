@@ -22,6 +22,7 @@ import {
   creativeSourceUrl,
   creativeStorageReport,
   DISCLOSURE_DEFAULT,
+  creativePreviewBody,
   executeLaunch,
   formatMetaError,
   GOOGLE_BUYERS_CAMPAIGN,
@@ -39,7 +40,9 @@ import {
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
   REGION_FALLBACK_KM,
+  resolveLaunchIdentity,
   resolveLaunchTargeting,
+  sanitizeLaunchBody,
   SELLERS_FORM_ID,
   sha256Hex,
   summarizeLaunch,
@@ -205,10 +208,65 @@ ok("housing flag only on housing campaigns", housingOps.map((o) => `${o.objectKe
   'campaign:brokers:[]: | campaign:brokers_registered:[]: | campaign:office_owners:[]: | campaign:buyers:["HOUSING"]:["IL"] | campaign:retargeting:["HOUSING"]:["IL"]');
 ok("ad set budgets in agorot", built.ops.filter((o) => o.kind === "adset").map((o) => o.body.daily_budget).join(",") === "4000,700,1300,1500,1000,800,700,1000");
 ok("lead ads point at the form and traffic at the pixel", built.ops.find((o) => o.objectKey === "adset:b1")!.body.destination_type === "ON_AD" && built.ops.find((o) => o.objectKey === "adset:b1")!.body.promoted_object.includes(PAGE_ID_EXPECTED) && built.ops.find((o) => o.objectKey === "adset:a1")!.body.promoted_object.includes(PIXEL_ID) && !built.ops.find((o) => o.objectKey === "adset:a1")!.body.frequency_control_specs);
-ok("placement swap lives on the creative", (() => {
-  const c = built.ops.find((o) => o.objectKey === "creative:b1_1")!;
-  const feed = JSON.parse(c.body.asset_feed_spec);
-  return feed.optimization_type === "PLACEMENT" && feed.images.length === 2 && feed.images[0].adlabels[0].name === "img_feed" && feed.images[1].adlabels[0].name === "img_story" && c.body.degrees_of_freedom_spec.includes("OPT_OUT");
+function storyOf(body: Record<string, string>) {
+  return JSON.parse(body.object_story_spec);
+}
+function feedOf(body: Record<string, string>) {
+  return JSON.parse(body.asset_feed_spec);
+}
+const badPositions = ["explore", "reels", "facebook_reels", "video_feeds"];
+function creativeShapeOk(body: Record<string, string>, lead: boolean) {
+  const story = storyOf(body);
+  const feed = feedOf(body);
+  const rules = JSON.stringify(feed.asset_customization_rules.map((r: { customization_spec: unknown }) => r.customization_spec));
+  const hashOk = feed.images.every((img: { hash: string }) => /^\{\{hash:[a-z0-9_]+\}\}$/.test(img.hash));
+  const textOk = !!feed.bodies?.[0]?.text && !!feed.titles?.[0]?.text;
+  const link = feed.link_urls?.[0]?.website_url || "";
+  const leadOk = !lead || (link === "https://fb.me/" && feed.call_to_actions?.[0]?.value?.lead_gen_form_id && !feed.call_to_action_types);
+  const trafficOk = lead || (link.startsWith("https://") && feed.call_to_action_types?.[0] === "LEARN_MORE" && !feed.call_to_actions && !JSON.stringify(feed).includes("lead_gen_form_id"));
+  return story.page_id === PAGE_ID_EXPECTED && !story.link_data && !story.image_hash && !story.instagram_actor_id
+    && !JSON.stringify(body).includes("instagram_actor_id") && !body.degrees_of_freedom_spec
+    && feed.optimization_type === "PLACEMENT" && feed.ad_formats?.[0] === "SINGLE_IMAGE" && feed.images.length === 2
+    && feed.images[0].adlabels[0].name === "img_feed" && feed.images[1].adlabels[0].name === "img_story"
+    && hashOk && textOk && leadOk && trafficOk && feed.asset_customization_rules.length === 2
+    && badPositions.every((p) => !rules.includes(p))
+    && rules.includes("feed") && rules.includes("story") && !rules.includes("instagram");
+}
+const creativeOps = built.ops.filter((o) => o.kind === "creative");
+ok("every two-image creative is placement feed without link_data", creativeOps.length === 29 && creativeOps.every((c) => {
+  const lead = c.objectKey.startsWith("creative:b1_") || c.objectKey.startsWith("creative:oo");
+  return creativeShapeOk(c.body, lead);
+}));
+ok("lead creative uses fb.me and the broker form", (() => {
+  const feed = feedOf(built.ops.find((o) => o.objectKey === "creative:b1_1")!.body);
+  return feed.link_urls[0].website_url === "https://fb.me/" && feed.call_to_actions[0].type === "SIGN_UP" && feed.call_to_actions[0].value.lead_gen_form_id === BROKER_FORM_ID && !feed.descriptions;
+})());
+ok("traffic creative uses the landing url", (() => {
+  const feed = feedOf(built.ops.find((o) => o.objectKey === "creative:b2_1")!.body);
+  return feed.call_to_action_types[0] === "LEARN_MORE" && feed.link_urls[0].website_url.startsWith("https://shuknadlan.co.il") && !feed.descriptions;
+})());
+ok("a description is labeled on both rules and an empty one is omitted", (() => {
+  const withDesc = feedOf(built.ops.find((o) => o.objectKey === "creative:b2_2")!.body);
+  const without = feedOf(built.ops.find((o) => o.objectKey === "creative:b1_1")!.body);
+  return withDesc.descriptions[0].text === "המנטור AI כלול בכל מסלול"
+    && withDesc.asset_customization_rules.every((r: { description_label?: { name: string } }) => r.description_label?.name === "desc")
+    && !without.descriptions && without.asset_customization_rules.every((r: { description_label?: unknown }) => !r.description_label);
+})());
+const a5Creative = opsOf(withA5).ops.find((o) => o.objectKey === "creative:a5_viz")!;
+ok("A5 lead creative uses the valuation form", (() => {
+  const feed = feedOf(a5Creative.body);
+  const story = storyOf(a5Creative.body);
+  return creativeShapeOk(a5Creative.body, true) && story.page_id === PAGE_ID_EXPECTED && feed.call_to_actions[0].type === "LEARN_MORE" && feed.call_to_actions[0].value.lead_gen_form_id === VALUATION_FORM_ID && feed.link_urls[0].website_url === "https://fb.me/";
+})());
+const igOps = collectWriteOps(plan, { pageId: PAGE_ID_EXPECTED, pixelId: PIXEL_ID, regionKeys: REGIONS, termIds: idsFor(plan), instagramUserId: "17841400000000000" });
+ok("a numeric instagram id is sent and a page id or junk is omitted", (() => {
+  const story = storyOf(igOps.ops.find((o) => o.objectKey === "creative:b1_1")!.body);
+  const rules = JSON.stringify(feedOf(igOps.ops.find((o) => o.objectKey === "creative:b1_1")!.body).asset_customization_rules);
+  const same = collectWriteOps(plan, { pageId: PAGE_ID_EXPECTED, instagramUserId: PAGE_ID_EXPECTED, regionKeys: REGIONS, termIds: idsFor(plan) });
+  const junk = collectWriteOps(plan, { pageId: PAGE_ID_EXPECTED, instagramUserId: "not-an-ig", regionKeys: REGIONS, termIds: idsFor(plan) });
+  return story.instagram_user_id === "17841400000000000" && rules.includes("instagram") && !rules.includes("explore")
+    && !storyOf(same.ops.find((o) => o.objectKey === "creative:b1_1")!.body).instagram_user_id
+    && !storyOf(junk.ops.find((o) => o.objectKey === "creative:b1_1")!.body).instagram_user_id;
 })());
 ok("sharing flag off and only create paths", built.ops.filter((o) => o.kind === "campaign").every((o) => o.body.is_adset_budget_sharing_enabled === "false") && built.ops.every((o) => ["adimages", "customaudiences", "campaigns", "adsets", "adcreatives", "ads"].includes(o.pathSuffix)));
 
@@ -361,7 +419,13 @@ for (const op of built.ops) {
   if (op.objectKey === "campaign:brokers") partialExisting.set(op.objectKey, { metaId: "120251671344150267" });
 }
 const resumedAtB1 = await runExecute(partialExisting, async () => { throw new GraphReject(); });
-ok("rerun resumes at B1 and stores the Meta user fields", resumedAtB1.posted.length === 1 && resumedAtB1.posted[0].path.endsWith("/adsets") && resumedAtB1.posted[0].body.name === "B1 Prospects" && resumedAtB1.posted[0].body.campaign_id === "120251671344150267" && resumedAtB1.posted[0].body.status === PAUSED_STATUS && !resumedAtB1.posted[0].body.execution_options && !JSON.stringify(resumedAtB1.posted[0].body).includes(PROTECTED_CAMPAIGN_IDS[0]) && resumedAtB1.result.failedObjectKey === "adset:b1" && resumedAtB1.result.created.length === 0 && resumedAtB1.result.meta?.error_user_title === "Terms of service not accepted" && resumedAtB1.result.meta?.subcode === 1815089 && JSON.stringify(resumedAtB1.result.meta?.error_data).includes("promoted_object") && formatMetaError(new GraphReject()).includes("Lead Generation Terms"), resumedAtB1.result);
+ok("rerun resumes at B1 and stores the Meta user fields", resumedAtB1.posted.length === 1 && resumedAtB1.posted[0].path.endsWith("/adsets") && resumedAtB1.posted[0].body.name === "B1 Prospects" && resumedAtB1.posted[0].body.campaign_id === "120251671344150267" && resumedAtB1.posted[0].body.status === PAUSED_STATUS && !resumedAtB1.posted[0].body.execution_options && !JSON.stringify(resumedAtB1.posted[0].body).includes(PROTECTED_CAMPAIGN_IDS[0]) && resumedAtB1.result.failedObjectKey === "adset:b1" && resumedAtB1.result.created.length === 0 && resumedAtB1.result.meta?.error_user_title === "Terms of service not accepted" && resumedAtB1.result.meta?.subcode === 1815089 && JSON.stringify(resumedAtB1.result.meta?.error_data).includes("promoted_object") && formatMetaError(new GraphReject()).includes("Lead Generation Terms") && resumedAtB1.result.request?.name === "B1 Prospects" && !JSON.stringify(resumedAtB1.result.request).includes("access_token") && !("bytes" in (resumedAtB1.result.request || {})), resumedAtB1.result);
+const creativeFailExisting = new Map(partialExisting);
+const creativeFail = await runExecute(creativeFailExisting, async (p) => {
+  if (p.endsWith("/adcreatives")) throw new GraphReject();
+  return { id: "700000000000001" };
+});
+ok("a creative failure logs the sanitized story spec", creativeFail.result.failedObjectKey === "creative:b1_1" && creativeFail.result.request?.object_story_spec && (creativeFail.result.request.object_story_spec as { page_id?: string; link_data?: unknown }).page_id === PAGE_ID_EXPECTED && !(creativeFail.result.request.object_story_spec as { link_data?: unknown }).link_data && (creativeFail.result.request.asset_feed_spec as { images?: { hash?: string }[] }).images?.[0]?.hash === "kept" && !JSON.stringify(creativeFail.result.request).includes("access_token") && !("bytes" in creativeFail.result.request) && creativeFail.posted.some((p) => p.path.endsWith("/adsets")) && creativeFail.posted.filter((p) => p.path.endsWith("/adcreatives")).length === 1, creativeFail.result);
 
 const validatePosts: { path: string; body: Record<string, string> }[] = [];
 const rejected = await validateLaunchWrites({
@@ -394,6 +458,89 @@ const accepted = await validateLaunchWrites({
   },
 });
 ok("validate_only passes B1 and skips ad sets without a campaign", accepted.failures.length === 0 && accepted.checked.join(",") === "adset:b1" && accepted.skipped.some((s) => s.objectKey === "adset:b3") && accepted.skipped.some((s) => s.objectKey === "ad:b1_1"));
+
+const hashed = new Map<string, ExistingRow>([["campaign:brokers", { metaId: "120251671344150267" }], ["adset:b1", { metaId: "120251671910210267" }]]);
+for (const op of built.ops) {
+  if (op.kind === "image" && op.imageKey) hashed.set(op.objectKey, { imageHash: "hash" + op.imageKey.length });
+}
+const previewGets: { path: string; params: Record<string, string> }[] = [];
+const previewPosts: string[] = [];
+const previewFail = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: hashed,
+  post: async (p, body) => {
+    previewPosts.push(p);
+    if (body.execution_options !== "[\"validate_only\"]") throw new Error("preview posted a real write");
+    return { success: true };
+  },
+  get: async (p, params) => {
+    previewGets.push({ path: p, params });
+    const spec = JSON.parse(params.creative);
+    if (spec.object_story_spec?.link_data || params.ad_format !== "DESKTOP_FEED_STANDARD" || !p.endsWith("/generatepreviews")) {
+      throw new Error("bad preview");
+    }
+    if (spec.object_story_spec.page_id !== PAGE_ID_EXPECTED) throw new Error("page");
+    throw Object.assign(new Error("Meta API 400 (code=100, subcode=1443048): Invalid parameter"), {
+      meta: { message: "Invalid parameter", code: 100, error_subcode: 1443048, error_user_title: "object_story_spec", error_user_msg: "bad spec", fbtrace_id: "t" },
+    });
+  },
+});
+ok("generatepreviews reports each creative and does not create one", previewFail.failures.filter((f) => f.kind === "creative").length === 29 && previewGets.length === 29 && previewGets.every((g) => g.path.endsWith("/generatepreviews") && g.params.ad_format === "DESKTOP_FEED_STANDARD") && previewFail.failures.every((f) => f.kind !== "creative" || (f.request?.object_story_spec as { page_id?: string; link_data?: unknown } | undefined)?.page_id === PAGE_ID_EXPECTED && !(f.request?.object_story_spec as { link_data?: unknown } | undefined)?.link_data) && !previewPosts.some((p) => p.endsWith("/adcreatives")) && previewFail.failures[0].meta?.subcode === 1443048, previewFail.failures.length);
+const previewOk = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: hashed,
+  post: async () => ({ success: true }),
+  get: async (_p, params) => {
+    const spec = creativePreviewBody({ object_story_spec: params.creative });
+    if (JSON.stringify(spec).includes("link_data")) throw new Error("link_data");
+    return { data: [{ body: "<iframe>" }] };
+  },
+});
+ok("a clean preview checks every creative", previewOk.failures.length === 0 && previewOk.checked.filter((k) => k.startsWith("creative:")).length === 29);
+const unresolvedPreviewGets: string[] = [];
+const unresolvedPreview = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map([["campaign:brokers", { metaId: "120251671344150267" }]]),
+  post: async () => ({ success: true }),
+  get: async (p) => {
+    unresolvedPreviewGets.push(p);
+    throw new Error("should not preview without a hash");
+  },
+});
+ok("a creative without a stored hash is skipped", unresolvedPreview.failures.length === 0 && unresolvedPreviewGets.length === 0 && unresolvedPreview.skipped.some((s) => s.objectKey === "creative:b1_1" && s.reason.includes("unresolved_hash")));
+const sanitized = sanitizeLaunchBody({ object_story_spec: JSON.stringify({ page_id: PAGE_ID_EXPECTED }), bytes: "abc", access_token: "secret", name: "B1-1 FOMO" });
+ok("sanitized failure body keeps the spec and drops the token", (sanitized?.object_story_spec as { page_id?: string })?.page_id === PAGE_ID_EXPECTED && sanitized?.name === "B1-1 FOMO" && !("bytes" in (sanitized || {})) && !("access_token" in (sanitized || {})));
+let identityGets = 0;
+const wrongPage = await resolveLaunchIdentity("999", "17841400000000000", async () => { identityGets++; return { id: "999" }; });
+ok("a page id that is not the Afula page is refused before Meta", !!wrongPage.error && wrongPage.error.includes(PAGE_ID_EXPECTED) && identityGets === 0);
+const otherPage = await resolveLaunchIdentity(PAGE_ID_EXPECTED, undefined, async () => ({ id: "1", name: "someone" }));
+ok("a token that returns another page is refused", !!otherPage.error && otherPage.error.includes("1"));
+const linked = await resolveLaunchIdentity(PAGE_ID_EXPECTED, "55555", async () => ({ id: PAGE_ID_EXPECTED, name: "שוק הנדל\"ן של עפולה והסביבה", instagram_business_account: { id: "77777" } }));
+ok("the page-linked instagram account replaces a different secret", linked.instagramUserId === "77777" && linked.pageName?.includes("עפולה") && linked.warnings.some((w) => w.includes("77777")) && !linked.warnings.some((w) => /token|secret/i.test(w)));
+let identityTries = 0;
+const igUnread = await resolveLaunchIdentity(PAGE_ID_EXPECTED, "55555", async (_p, params) => {
+  identityTries++;
+  if (String(params.fields).includes("instagram")) throw new Error("field");
+  return { id: PAGE_ID_EXPECTED, name: "page" };
+});
+ok("an unreadable instagram field omits the id", !igUnread.error && !igUnread.instagramUserId && igUnread.warnings.some((w) => w.includes("instagram_user_id")) && identityTries === 2);
+const noPage = await resolveLaunchIdentity(PAGE_ID_EXPECTED, undefined, async () => { throw new Error("perm"); });
+ok("no page access blocks the launch", !!noPage.error && noPage.error.includes("אין גישה") && noPage.error.includes("perm"));
 
 ok("exact targeting match", pickTargetingMatch("Real Estate Agent", [{ id: "1", name: "Other" }, { id: "2", name: "Real Estate Agent" }])?.id === "2");
 ok("unrelated first row is not accepted", acceptedTargetingMatch("Owner", [{ id: "9", name: "Florist" }]) === null);
@@ -517,11 +664,12 @@ ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFle
 ok("crm shows a dropped deprecated interest", crm.includes("הוצא משימוש וירד, בלי החלופה של מטא"));
 const dryFn = indexSrc.slice(indexSrc.indexOf("if (!launchWillWrite"), indexSrc.indexOf("if (!plan.ok)"));
 const writeFn = indexSrc.slice(indexSrc.indexOf("if (!plan.ok)"), indexSrc.indexOf("Deno.serve"));
-ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247"));
+ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247") && dryFn.includes("resolveLaunchIdentity") && dryFn.includes("body: first.request"));
 ok("the real create probes only to drop a deprecated interest", writeFn.includes("omitDeprecatedInterestIds") && writeFn.includes("deprecatedInterestIdsFromError") && writeFn.includes("validateLaunchWrites") && writeFn.includes("1870247") && writeFn.includes("validate_only_returned_id"));
+ok("the real create stops on a creative preview and logs the body", writeFn.includes("launchPageId") && writeFn.includes('f.kind === "creative"') && writeFn.includes("result.request") && writeFn.includes("body: first.request"));
 const validateSrc = src.slice(src.indexOf("export async function validateLaunchWrites"), src.indexOf("export function summarizeLaunch"));
 const executeSrc = src.slice(src.indexOf("export async function executeLaunch"), src.indexOf("export async function validateLaunchWrites"));
-ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && !executeSrc.includes("execution_options:"));
+ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && validateSrc.includes("generatepreviews") && !executeSrc.includes("execution_options:") && !executeSrc.includes("generatepreviews") && !src.includes("instagram_actor_id"));
 const prepareFn = indexSrc.slice(indexSrc.indexOf("async function preparePausedLaunch"), indexSrc.indexOf("function creativesPublic"));
 ok("create resolves targeting on the dry run and does not abort on a miss", indexSrc.includes("resolveLaunchTargeting") && indexSrc.includes("uncheckedLaunchTargeting") && !indexSrc.includes("לא נמצא טירגוט עבור") && prepareFn.includes("VALUATION_FORM_ID") && prepareFn.includes("SELLERS_FORM_ID") && prepareFn.includes("הערכת שווי") && !prepareFn.includes('eq("kind", "owner")'));
 

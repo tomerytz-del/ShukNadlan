@@ -83,6 +83,17 @@ description: קונסולת השיווק ב-CRM של שוק נדל״ן - הפא�
   ב-`GET /search?type=adinterestvalid`. `valid:false`, או מזהה מתוך
   `error_data` של subcode 1870247, יורד עם אזהרה. החלופה שמטא מציעה
   לא נכנסת לטירגוט. יד2 אינו ברשימת העניינים.
+- קריאייטיב עם שתי תמונות הוא `asset_feed_spec` (‏`optimization_type:
+  PLACEMENT`). `object_story_spec` הוא רק `page_id` ו-`instagram_user_id`
+  של `instagram_business_account` של הדף `1318798364655572`. אין
+  `link_data` ליד ה-feed, ואין `instagram_actor_id` (זה subcode 1443048).
+  ליד: `call_to_actions` עם `lead_gen_form_id` וקישור `https://fb.me/`.
+  תנועה: `call_to_action_types` וכתובת הנחיתה. ה-hash הוא מחרוזת מהשורה
+  השמורה, לא כתובת ולא שם קובץ. מיקומים: פיד מול סטורי, בלי explore,
+  reels או video_feeds. הבדיקה שולחת `GET generatepreviews` עם
+  `ad_format=DESKTOP_FEED_STANDARD` לכל קריאייטיב שכבר יש לו hash, ולא
+  יוצרת אותו. דחייה נרשמת עם גוף הבקשה (בלי טוקן ובלי בייטי תמונה)
+  וסוגרת את כפתור היצירה. גם POST שנכשל נרשם עם אותו גוף.
 - A5, אם מסומן, משתמש רק בטופס `1644441057276438` ("הערכת שווי חינם -
   עפולה"). לא בטופס מוכרים נכס `29809576818631130`, גם כששניהם
   `kind=owner`. הבדיקה מציגה את שם הטופס ואת המזהה.
