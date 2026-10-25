@@ -72,7 +72,17 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 `scraped_leads` וב-`leads`. **לא אינדקס ייחודי על טלפון**: אותו אדם יכול
 להיות מחפש/ת היום ובעלים בעוד חודש.
 
-## 6. החלונות: 72 שעות, 7 ימים, 30 יום
+## 6. תקופת ההשקה - בהגדרה, לא בקוד
+
+`pricing_config.scraped_leads_launch_until` (‏`yyyymmdd`, ‏`0` = כבוי) ו-
+`scraped_leads_launch_active()`. בהשקה: ביקוש פתוח מרגע הקליטה (גם
+`pending_consent`), וליד אחרי הסכמה נולד `unlocked` עם `quota_source =
+'launch_free'`. **אל תכתבו תאריך בפונקציה**, ואל תפתחו בהשקה ליד דרך
+`claim_lead` - היא מחייבת. ‏`no_broker` ("ללא תיווך", גם בשם הקבוצה) לעולם
+לא מוצג כביקוש פתוח. בביקוש הפתוח מוצג `demand_summary` ולא `property_details`
+(שמגיע עם כתובת). התראה אחת לפוסט (`demand_notified_at`).
+
+## 7. החלונות: 72 שעות, 7 ימים, 30 יום
 
 - `scraped_lead_add` דוחה פוסט מלפני יותר מ-72 שעות (`post_too_old`).
 - 7 ימים מ-`consent_requested_at` (או מהקליטה) - ביקוש פתוח.

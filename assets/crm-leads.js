@@ -373,11 +373,14 @@ function openLeadUnified(id){
 
 /* ---------- ביקוש פתוח ----------
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
-   docs/scraped-leads.md). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
+   docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
+   ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
    תשלום, וגלוי לכל הסוכנים בעיר. הדרך היחידה לפנות היא הפוסט עצמו - ולכן
    אין כאן חיוג, וואטסאפ או "הוספה כלקוח/ה". נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
 let openDemandLoading = false;
+// מופיע ליד כל ביקוש, וזהה לנוסח בהתראה (scraped_lead_notify_demand)
+const OPEN_DEMAND_RULE = 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ';
 
 async function loadOpenDemand(){
   if (openDemandLoading) return;
@@ -396,8 +399,8 @@ function openDemandWants(d){
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
-    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? 'עד ' + shekelCompact(d.budget) : '',
-    d.move_in ? 'כניסה: ' + d.move_in : '', d.property_details || ''].filter(Boolean).join(' · ');
+    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? (owner ? 'מחיר ' : 'עד ') + shekelCompact(d.budget) : '',
+    d.move_in ? 'כניסה: ' + d.move_in : '', d.summary || ''].filter(Boolean).join(' · ');
 }
 
 function renderOpenDemand(listEl){
@@ -409,8 +412,8 @@ function renderOpenDemand(listEl){
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים, ולא השאירו פרטים.</span>'
-    + '<span><strong>להגיב בתוך הפוסט או בהודעה בפייסבוק בלבד, לא לשלוח SMS או וואטסאפ.</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים או מציעים, ולא השאירו פרטים.</span>'
+    + '<span><strong>' + OPEN_DEMAND_RULE + '</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -425,6 +428,7 @@ function renderOpenDemand(listEl){
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
       + `<p class="lp-why"><strong>חינם:</strong> מוצג לכל הסוכנים באזור. מי שעונה ראשון ובנימוס בפוסט - מרוויח.</p>`
+      + `<p class="lp-why"><strong>${esc(OPEN_DEMAND_RULE)}</strong></p>`
       + `<div class="lp-acts">${url ? `<a class="ui-btn" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : ''}</div>`
       + `</article>`;
   }).join('');
