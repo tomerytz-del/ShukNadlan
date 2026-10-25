@@ -33,10 +33,13 @@ import {
   executeLaunch,
   formatMetaError,
   GOOGLE_BUYERS_DAILY_ILS,
+  knownCampaignsFromLaunch,
   LAUNCH_KEY,
   launchWillWrite,
+  mergeKnownCampaigns,
   metaFieldsOf,
   omitDeprecatedInterestIds,
+  pausedCampaignsFromGraph,
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
   PAUSED_STATUS,
@@ -47,10 +50,12 @@ import {
   sha256Hex,
   summarizeLaunch,
   uncheckedLaunchTargeting,
+  uncheckedSummary,
   validateLaunchWrites,
   type CreativeStorageReport,
   type ExistingRow,
   type ImageRef,
+  type KnownCampaign,
   type LaunchPlan,
   type TargetingResolution,
 } from "./launch-package.ts";
@@ -1744,9 +1749,31 @@ function presentPausedLaunch(
         ...(f.request ? { request: f.request } : {}),
       })),
       leadgen_tos_accepted: validation.leadgen_tos_accepted ?? null,
+      unchecked_summary: uncheckedSummary(validation.skipped),
       blocks_create: failures.length > 0,
     } : null,
   };
+}
+
+async function loadPausedCampaigns(
+  meta: MetaClient,
+  act: string,
+  plan: LaunchPlan,
+  existing: Map<string, ExistingRow>,
+): Promise<{ campaigns: KnownCampaign[]; warning?: string }> {
+  const stored = knownCampaignsFromLaunch(plan, existing);
+  try {
+    const rows = await meta.getAll(`${act}/campaigns`, {
+      fields: "id,objective,status,special_ad_categories",
+      limit: "100",
+    });
+    return { campaigns: mergeKnownCampaigns(stored, pausedCampaignsFromGraph(rows)) };
+  } catch (e) {
+    return {
+      campaigns: stored,
+      warning: `לא נקראה רשימת הקמפיינים המושהים, אז סט בלי קמפיין שכבר נוצר לא נבדק. ${formatMetaError(e)}`,
+    };
+  }
 }
 
 function validationDetail(failure: { objectKey: string; message: string; meta: { subcode?: number | null; error_user_title?: string | null; error_user_msg?: string | null } | null }): string {
@@ -1866,6 +1893,8 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
           launchPageId = identity.pageId;
           launchIg = identity.instagramUserId;
         }
+        const listed = await loadPausedCampaigns(meta, act, resolution.plan, existing);
+        if (listed.warning) resolution.warnings.push(listed.warning);
         const validateOnce = (nextPlan: LaunchPlan, nextTerms: Record<string, string>) => validateLaunchWrites({
           act,
           plan: nextPlan,
@@ -1875,6 +1904,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
           regionKeys: resolution.regionKeys,
           termIds: nextTerms,
           existing,
+          accountCampaigns: listed.campaigns,
           post: (p, b) => meta.post(p, b),
           get: identity.error ? undefined : (p, params) => meta.get(p, params),
         });
@@ -2021,10 +2051,12 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     return json({ error: "account_not_ils", detail: "חשבון המודעות אינו בשקלים. לא נוצר כלום." }, 409);
   }
 
-  // אותה בדיקה כמו ב-dry run: validate_only על סט ומודעה, ו-generatepreviews
-  // על כל קריאייטיב שכבר יש לו hash. כשל של סט שאינו 1870247 לא משנה את
-  // ההתנהגות. כשל תצוגה מקדימה של קריאייטיב עוצר לפני POST אמיתי.
-  // מזהה שחזר מ-validate_only עוצר, כדי לא ליצור פעמיים.
+  // אותה בדיקה כמו ב-dry run: validate_only על קמפיין ועל סט (גם כשהאב
+  // עוד לא נוצר, מול קמפיין מושהה מאותו סוג), ו-generatepreviews על
+  // קריאייטיב. כשל שאינו 1870247 עוצר לפני POST אמיתי. מזהה שחזר
+  // מ-validate_only עוצר, כדי לא ליצור פעמיים.
+  const pausedKnown = await loadPausedCampaigns(meta, act, plan, existing);
+  if (pausedKnown.warning) resolution.warnings.push(pausedKnown.warning);
   const probed = await validateLaunchWrites({
     act,
     plan,
@@ -2034,6 +2066,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     regionKeys,
     termIds,
     existing,
+    accountCampaigns: pausedKnown.campaigns,
     post: (p, b) => meta.post(p, b),
     get: (p, params) => meta.get(p, params),
   });
@@ -2070,15 +2103,15 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
       resolution.termIds = omitted.termIds;
     }
   }
-  const creativeFails = probed.failures.filter((f) => f.kind === "creative");
-  if (creativeFails.length) {
-    const first = creativeFails[0];
+  const blocking = probed.failures.filter((f) => f.meta?.subcode !== 1870247);
+  if (blocking.length) {
+    const first = blocking[0];
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
       request: { dry_run: false, failed_object_key: first.objectKey, failed_name: first.name, body: first.request ?? null },
       response: {
         meta: first.meta,
-        failures: creativeFails.map((f) => ({
+        failures: blocking.map((f) => ({
           object_key: f.objectKey,
           name: f.name,
           message: f.message,

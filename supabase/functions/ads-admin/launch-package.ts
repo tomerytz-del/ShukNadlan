@@ -1347,7 +1347,7 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
         }
         if (a.flexible.length) errors.push({ code: "housing_detailed", detail: `${a.name}: בלי תחומי עניין במודעת דיור.` });
         if (a.geo.mode === "radius" && a.geo.radiusKm < HOUSING_MIN_RADIUS_KM) {
-          errors.push({ code: "housing_radius", detail: `${a.name}: רדיוס דיור מינימלי ${HOUSING_MIN_RADIUS_KM} ק"מ.` });
+          errors.push({ code: "housing_radius", detail: `${a.name}: רדיוס דיור מינימלי ${HOUSING_MIN_RADIUS_KM} ק"מ (15 מייל אצל מטא).` });
         }
         if (a.geo.mode === "country") errors.push({ code: "housing_country", detail: a.name });
       }
@@ -1514,7 +1514,6 @@ export function collectWriteOps(plan: LaunchPlan, ctx: {
   termIds?: Record<string, string>;
 }): { ops: WriteOp[]; errors: string[] } {
   if (!plan.ok) return { ops: [], errors: plan.errors.map((e) => e.code) };
-  const pixelId = ctx.pixelId || PIXEL_ID;
   const regionKeys = ctx.regionKeys ?? {};
   const termIds = ctx.termIds ?? {};
   const errors: string[] = [];
@@ -1594,9 +1593,11 @@ export function collectWriteOps(plan: LaunchPlan, ctx: {
       if (a.destination === "lead_form") {
         adsetBody.destination_type = "ON_AD";
         adsetBody.promoted_object = JSON.stringify({ page_id: ctx.pageId });
-      } else {
-        adsetBody.promoted_object = JSON.stringify({ pixel_id: pixelId });
       }
+      // OUTCOME_TRAFFIC + LANDING_PAGE_VIEWS: בלי promoted_object.
+      // מסמך Ad Promoted Object: pixel_id בלי custom_event_type נדחה,
+      // וצפיות בדף נחיתה אינן אירוע המרה. pixel_id לבד הוא subcode
+      // 1885014 (יומן 143, adset:b2). campaign.ts משמיט את השדה ליעד אתר.
       ops.push({
         objectKey: `adset:${a.key}`,
         kind: "adset",
@@ -1885,6 +1886,96 @@ export async function resolveLaunchIdentity(
   return { pageId: id, pageName: name, instagramUserId: ig, warnings };
 }
 
+export type KnownCampaign = {
+  id: string;
+  objective: string;
+  housing: boolean;
+  status: string;
+};
+
+export function campaignIsHousing(special: unknown): boolean {
+  let list: unknown = special;
+  if (typeof special === "string") {
+    const text = special.trim();
+    if (text.startsWith("[")) {
+      try {
+        list = JSON.parse(text);
+      } catch {
+        return text.includes("HOUSING");
+      }
+    } else {
+      return text.includes("HOUSING");
+    }
+  }
+  return Array.isArray(list) && list.some((v) => v === "HOUSING");
+}
+
+// קמפיינים מושהים מהחשבון, בלי Reach. רק לידים ותנועה יכולים לשמש
+// כהורה זמני לאימות של סט שעדיין אין לו קמפיין.
+export function pausedCampaignsFromGraph(rows: unknown): KnownCampaign[] {
+  if (!Array.isArray(rows)) return [];
+  const out: KnownCampaign[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const id = String(r.id || "");
+    if (!/^\d{5,25}$/.test(id) || PROTECTED_CAMPAIGN_IDS.includes(id)) continue;
+    if (r.status !== PAUSED_STATUS) continue;
+    const objective = String(r.objective || "");
+    if (objective !== "OUTCOME_TRAFFIC" && objective !== "OUTCOME_LEADS") continue;
+    out.push({ id, objective, status: PAUSED_STATUS, housing: campaignIsHousing(r.special_ad_categories) });
+  }
+  return out;
+}
+
+export function knownCampaignsFromLaunch(plan: LaunchPlan, existing: Map<string, ExistingRow>): KnownCampaign[] {
+  const out: KnownCampaign[] = [];
+  for (const c of plan.campaigns) {
+    const id = existing.get(`campaign:${c.key}`)?.metaId || "";
+    if (!/^\d{5,25}$/.test(id) || PROTECTED_CAMPAIGN_IDS.includes(id)) continue;
+    out.push({ id, objective: c.objective, housing: c.housing, status: PAUSED_STATUS });
+  }
+  return out;
+}
+
+export function mergeKnownCampaigns(first: KnownCampaign[], extra: KnownCampaign[]): KnownCampaign[] {
+  const out = [...first];
+  for (const row of extra) {
+    if (PROTECTED_CAMPAIGN_IDS.includes(row.id) || out.some((o) => o.id === row.id)) continue;
+    out.push(row);
+  }
+  return out;
+}
+
+export function pickStandInCampaign(wanted: { objective: string; housing: boolean }, rows: KnownCampaign[]): string | null {
+  for (const row of rows) {
+    if (row.status !== PAUSED_STATUS) continue;
+    if (row.objective !== wanted.objective || row.housing !== wanted.housing) continue;
+    if (!/^\d{5,25}$/.test(row.id) || PROTECTED_CAMPAIGN_IDS.includes(row.id)) continue;
+    return row.id;
+  }
+  return null;
+}
+
+function placeholderKey(value: string | undefined): string | null {
+  if (!value) return null;
+  const m = value.match(/^\{\{id:([^}]+)\}\}$/);
+  return m ? m[1] : null;
+}
+
+export function uncheckedSummary(skipped: { objectKey: string; reason: string }[]): string | null {
+  const rows = skipped.filter((s) => s.reason.startsWith("unchecked:"));
+  if (!rows.length) return null;
+  const camps = rows.filter((s) => s.objectKey.startsWith("campaign:"));
+  const adsets = rows.filter((s) => s.objectKey.startsWith("adset:"));
+  const ads = rows.filter((s) => s.objectKey.startsWith("ad:"));
+  const bits: string[] = [];
+  if (camps.length) bits.push("קמפיינים: " + camps.map((s) => s.objectKey).join(", "));
+  if (adsets.length) bits.push("סטים: " + adsets.map((s) => s.objectKey).join(", "));
+  if (ads.length) bits.push(`${ads.length} מודעות לא נבדקו כי אין עדיין מזהה סט`);
+  return bits.join(". ");
+}
+
 export async function executeLaunch(args: {
   act: string;
   plan: LaunchPlan;
@@ -1984,10 +2075,11 @@ export async function executeLaunch(args: {
   return { created, skipped };
 }
 
-// בדיקה מול מטא בלי יצירה. execution_options=validate_only על סט ומודעה
-// בלבד (Ad Account Ad Sets / Ads). תמונה לא נשלחת. בלי מזהה אב הקריאה
-// נדלגת, כי מטא דורשת campaign_id אמיתי לסט ו-adset_id למודעה, ואין
-// מזהה מקריאת validate_only (התשובה היא {"success":true}).
+// בדיקה מול מטא בלי יצירה. execution_options=validate_only על קמפיין, סט
+// ומודעה. סט שהקמפיין שלו עוד לא נוצר נבדק מול קמפיין מושהה קיים מאותו
+// יעד ואותה קטגוריה (או מול הקמפיין האמיתי אם כבר נשמר). תמונה לא נשלחת.
+// מודעה בלי סט נשארת ברשימת unchecked. תשובת validate_only היא
+// {"success":true}; מזהה שחוזר הוא יצירה בטעות ועוצר.
 export async function validateLaunchWrites(args: {
   act: string;
   plan: LaunchPlan;
@@ -1997,6 +2089,7 @@ export async function validateLaunchWrites(args: {
   regionKeys: Record<string, string>;
   termIds: Record<string, string>;
   existing: Map<string, ExistingRow>;
+  accountCampaigns?: KnownCampaign[];
   post: (path: string, body: Record<string, string>) => Promise<unknown>;
   get?: (path: string, params: Record<string, string>) => Promise<unknown>;
 }): Promise<{ checked: string[]; skipped: { objectKey: string; reason: string }[]; failures: LaunchFailure[] }> {
@@ -2018,22 +2111,16 @@ export async function validateLaunchWrites(args: {
   const ids = new Map<string, string>();
   const hashes = new Map<string, string>();
   for (const [key, row] of args.existing) {
-    if (row.metaId) ids.set(key, row.metaId);
+    if (row.metaId && !PROTECTED_CAMPAIGN_IDS.includes(row.metaId)) ids.set(key, row.metaId);
     if (row.imageHash && key.startsWith("image:")) hashes.set(key.slice("image:".length), row.imageHash);
   }
-  for (const op of ops) {
-    if (op.kind !== "adset" && op.kind !== "ad") continue;
-    let body: Record<string, string>;
+  const known = mergeKnownCampaigns(knownCampaignsFromLaunch(args.plan, args.existing), args.accountCampaigns || []);
+  const postValidate = async (op: WriteOp, body: Record<string, string>): Promise<boolean> => {
+    const request = sanitizeLaunchBody(body);
+    const sent = { ...body, execution_options: "[\"validate_only\"]" };
     try {
-      body = substitute(op.body, ids, hashes);
-    } catch (e) {
-      skipped.push({ objectKey: op.objectKey, reason: (e as Error).message || "unresolved" });
-      continue;
-    }
-    body = { ...body, execution_options: "[\"validate_only\"]" };
-    try {
-      assertSafeWrite(args.act, op.pathSuffix, body);
-      const res = await args.post(`${args.act}/${op.pathSuffix}`, body) as { id?: string } | null;
+      assertSafeWrite(args.act, op.pathSuffix, sent);
+      const res = await args.post(`${args.act}/${op.pathSuffix}`, sent) as { id?: string } | null;
       if (res?.id) {
         failures.push({
           objectKey: op.objectKey,
@@ -2041,8 +2128,9 @@ export async function validateLaunchWrites(args: {
           name: op.name,
           message: `validate_only_returned_id:${res.id}`,
           meta: null,
+          request,
         });
-        break;
+        return true;
       }
       checked.push(op.objectKey);
     } catch (e) {
@@ -2052,7 +2140,52 @@ export async function validateLaunchWrites(args: {
         name: op.name,
         message: formatMetaError(e),
         meta: metaFieldsOf(e),
+        request,
       });
+    }
+    return false;
+  };
+  let stop = false;
+  for (const op of ops) {
+    if (op.kind !== "campaign") continue;
+    if (ids.has(op.objectKey)) {
+      skipped.push({ objectKey: op.objectKey, reason: "already_created" });
+      continue;
+    }
+    if (await postValidate(op, op.body)) {
+      stop = true;
+      break;
+    }
+  }
+  if (!stop) {
+    for (const op of ops) {
+      if (op.kind !== "adset" && op.kind !== "ad") continue;
+      if (ids.has(op.objectKey)) {
+        skipped.push({ objectKey: op.objectKey, reason: "already_created" });
+        continue;
+      }
+      let raw = op.body;
+      if (op.kind === "adset") {
+        const parentKey = placeholderKey(raw.campaign_id);
+        let campaignId = parentKey ? ids.get(parentKey) : undefined;
+        if (!campaignId && parentKey) {
+          const camp = args.plan.campaigns.find((c) => `campaign:${c.key}` === parentKey);
+          campaignId = camp ? pickStandInCampaign({ objective: camp.objective, housing: camp.housing }, known) || undefined : undefined;
+        }
+        if (!campaignId) {
+          skipped.push({ objectKey: op.objectKey, reason: "unchecked:no_matching_paused_campaign" });
+          continue;
+        }
+        raw = { ...raw, campaign_id: campaignId };
+      }
+      let body: Record<string, string>;
+      try {
+        body = substitute(raw, ids, hashes);
+      } catch (e) {
+        skipped.push({ objectKey: op.objectKey, reason: `unchecked:${(e as Error).message || "unresolved"}` });
+        continue;
+      }
+      if (await postValidate(op, body)) break;
     }
   }
   // POST /adcreatives אינו תומך ב-validate_only. התצוגה המקדימה היא GET
@@ -2069,7 +2202,7 @@ export async function validateLaunchWrites(args: {
       try {
         body = substitute(op.body, ids, hashes);
       } catch (e) {
-        skipped.push({ objectKey: op.objectKey, reason: (e as Error).message || "unresolved" });
+        skipped.push({ objectKey: op.objectKey, reason: `unchecked:${(e as Error).message || "unresolved"}` });
         continue;
       }
       const request = sanitizeLaunchBody(body);
