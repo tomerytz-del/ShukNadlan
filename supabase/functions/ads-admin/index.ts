@@ -29,17 +29,20 @@ import {
   CREATIVE_BYTES,
   creativeSourceUrl,
   creativeStorageReport,
+  deprecatedInterestIdsFromError,
   executeLaunch,
   formatMetaError,
   GOOGLE_BUYERS_DAILY_ILS,
   LAUNCH_KEY,
   launchWillWrite,
   metaFieldsOf,
+  omitDeprecatedInterestIds,
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
   PAUSED_STATUS,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
+  resolveLaunchIdentity,
   resolveLaunchTargeting,
   sha256Hex,
   summarizeLaunch,
@@ -1715,7 +1718,7 @@ function presentPausedLaunch(
   plan: LaunchPlan,
   creatives: CreativeStorageReport,
   resolution?: TargetingResolution,
-  validation?: { checked: string[]; skipped: { objectKey: string; reason: string }[]; failures: { objectKey: string; kind: string; name: string; message: string; meta: unknown }[]; leadgen_tos_accepted?: boolean | null },
+  validation?: { checked: string[]; skipped: { objectKey: string; reason: string }[]; failures: { objectKey: string; kind: string; name: string; message: string; meta: unknown; request?: Record<string, unknown> | null }[]; leadgen_tos_accepted?: boolean | null },
 ) {
   const summary = summarizeLaunch(plan);
   summary.warnings = [...summary.warnings];
@@ -1738,6 +1741,7 @@ function presentPausedLaunch(
         name: f.name,
         message: f.message,
         meta: f.meta,
+        ...(f.request ? { request: f.request } : {}),
       })),
       leadgen_tos_accepted: validation.leadgen_tos_accepted ?? null,
       blocks_create: failures.length > 0,
@@ -1828,7 +1832,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     const validation: {
       checked: string[];
       skipped: { objectKey: string; reason: string }[];
-      failures: { objectKey: string; kind: string; name: string; message: string; meta: ReturnType<typeof metaFieldsOf> }[];
+      failures: { objectKey: string; kind: string; name: string; message: string; meta: ReturnType<typeof metaFieldsOf>; request?: Record<string, unknown> | null }[];
       leadgen_tos_accepted: boolean | null;
     } = { checked: [], skipped: [], failures: [], leadgen_tos_accepted: null };
     if (meta) {
@@ -1845,17 +1849,53 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
           existing.set(row.object_key, { metaId: row.meta_id, imageHash: row.image_hash });
         }
         const leadKeys = new Set(resolution.plan.campaigns.flatMap((c) => c.adSets.filter((a) => a.destination === "lead_form").map((a) => `adset:${a.key}`)));
-        const validated = await validateLaunchWrites({
+        const identity = await resolveLaunchIdentity(PAGE_ID, IG_ACCOUNT_ID || undefined, (p, params) => meta.get(p, params));
+        resolution.warnings.push(...identity.warnings);
+        if (identity.pageName) resolution.warnings.push(`הדף שמפרסם: ${identity.pageName} (${identity.pageId}).`);
+        let launchPageId = PAGE_ID;
+        let launchIg: string | undefined = IG_ACCOUNT_ID || undefined;
+        if (identity.error) {
+          validation.failures.push({
+            objectKey: "page:identity",
+            kind: "page",
+            name: identity.pageName || "page",
+            message: identity.error,
+            meta: null,
+          });
+        } else {
+          launchPageId = identity.pageId;
+          launchIg = identity.instagramUserId;
+        }
+        const validateOnce = (nextPlan: LaunchPlan, nextTerms: Record<string, string>) => validateLaunchWrites({
           act,
-          plan: resolution.plan,
-          pageId: PAGE_ID,
-          instagramUserId: IG_ACCOUNT_ID || undefined,
+          plan: nextPlan,
+          pageId: launchPageId,
+          instagramUserId: launchIg,
           pixelId: PIXEL_ID,
           regionKeys: resolution.regionKeys,
-          termIds: resolution.termIds,
+          termIds: nextTerms,
           existing,
           post: (p, b) => meta.post(p, b),
+          get: identity.error ? undefined : (p, params) => meta.get(p, params),
         });
+        let validated = await validateOnce(resolution.plan, resolution.termIds);
+        const deprecatedIds = [...new Set(validated.failures.filter((f) => f.meta?.subcode === 1870247).flatMap((f) => deprecatedInterestIdsFromError(f.meta?.error_data)))];
+        if (deprecatedIds.length) {
+          const omitted = omitDeprecatedInterestIds(resolution.plan, resolution.termIds, deprecatedIds);
+          const label = omitted.names.length ? `${omitted.names.join(", ")} (${deprecatedIds.join(", ")})` : deprecatedIds.join(", ");
+          resolution.warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${label}. החלופה שמטא מציעה לא נלקחת.`);
+          const drop = new Set(deprecatedIds);
+          for (const h of resolution.hits) {
+            if (h.term_type === "interest" && h.id && drop.has(h.id)) h.status = "deprecated";
+          }
+          if (omitted.names.length || omitted.plan !== resolution.plan) {
+            resolution.plan = omitted.plan;
+            resolution.termIds = omitted.termIds;
+            validated = omitted.plan.ok
+              ? await validateOnce(omitted.plan, omitted.termIds)
+              : { checked: [], skipped: [], failures: [] };
+          }
+        }
         validation.checked = validated.checked;
         validation.skipped = validated.skipped;
         validation.failures = validated.failures;
@@ -1888,11 +1928,20 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
       }
     }
     const shown = presentPausedLaunch(resolution.plan, creatives, resolution, validation);
+    if (!resolution.plan.ok) {
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: true, include_a5: includeA5 },
+        response: { errors: resolution.plan.errors, warnings: resolution.warnings, creatives: { total: creatives.total, ready: creatives.ready } },
+        ok: false, error: resolution.plan.errors.map((e) => e.code).join(","),
+      });
+      return json({ error: resolution.plan.errors[0].code, detail: resolution.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
     if (validation.failures.length) {
       const first = validation.failures[0];
       await log(sb, caller, {
         action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-        request: { dry_run: true, include_a5: includeA5, failed_object_key: first.objectKey, failed_name: first.name },
+        request: { dry_run: true, include_a5: includeA5, failed_object_key: first.objectKey, failed_name: first.name, body: first.request ?? null },
         response: { meta: first.meta, validation: shown.validation, creatives: { total: creatives.total, ready: creatives.ready } },
         ok: false, error: first.message,
       });
@@ -1935,6 +1984,19 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   }
 
   const resolution = await resolveLaunchTargeting(plan, (params) => meta.get("search", params));
+  const identity = await resolveLaunchIdentity(PAGE_ID, IG_ACCOUNT_ID || undefined, (p, params) => meta.get(p, params));
+  resolution.warnings.push(...identity.warnings);
+  if (identity.pageName) resolution.warnings.push(`הדף שמפרסם: ${identity.pageName} (${identity.pageId}).`);
+  if (identity.error) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, include_a5: includeA5 },
+      ok: false, error: identity.error,
+    });
+    return json({ error: "page_identity", detail: identity.error }, 409);
+  }
+  const launchPageId = identity.pageId;
+  const launchIg = identity.instagramUserId;
   if (resolution.blocksCreate) {
     const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
     await log(sb, caller, {
@@ -1945,7 +2007,8 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     return json({ error: "targeting_unresolved", detail: "טירגוט חובה לא נפתר. לא נוצר כלום.", plan: shown, creatives }, 409);
   }
   plan = resolution.plan;
-  const { termIds, regionKeys } = resolution;
+  let termIds = resolution.termIds;
+  const regionKeys = resolution.regionKeys;
 
   let account: any;
   try {
@@ -1956,6 +2019,76 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   }
   if (String(account?.currency || "") !== "ILS") {
     return json({ error: "account_not_ils", detail: "חשבון המודעות אינו בשקלים. לא נוצר כלום." }, 409);
+  }
+
+  // אותה בדיקה כמו ב-dry run: validate_only על סט ומודעה, ו-generatepreviews
+  // על כל קריאייטיב שכבר יש לו hash. כשל של סט שאינו 1870247 לא משנה את
+  // ההתנהגות. כשל תצוגה מקדימה של קריאייטיב עוצר לפני POST אמיתי.
+  // מזהה שחזר מ-validate_only עוצר, כדי לא ליצור פעמיים.
+  const probed = await validateLaunchWrites({
+    act,
+    plan,
+    pageId: launchPageId,
+    instagramUserId: launchIg,
+    pixelId: PIXEL_ID,
+    regionKeys,
+    termIds,
+    existing,
+    post: (p, b) => meta.post(p, b),
+    get: (p, params) => meta.get(p, params),
+  });
+  const accidental = probed.failures.find((f) => f.message.startsWith("validate_only_returned_id"));
+  if (accidental) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, failed_object_key: accidental.objectKey },
+      response: { meta: accidental.meta },
+      ok: false, error: accidental.message,
+    });
+    return json({ error: "meta_validation", detail: "אימות בלי יצירה החזיר מזהה. לא ממשיכים, כדי לא ליצור את אותו אובייקט פעמיים.", meta: accidental.meta }, 409);
+  }
+  const deprecatedIds = [...new Set(probed.failures.filter((f) => f.meta?.subcode === 1870247).flatMap((f) => deprecatedInterestIdsFromError(f.meta?.error_data)))];
+  if (deprecatedIds.length) {
+    const omitted = omitDeprecatedInterestIds(plan, termIds, deprecatedIds);
+    const label = omitted.names.length ? `${omitted.names.join(", ")} (${deprecatedIds.join(", ")})` : deprecatedIds.join(", ");
+    resolution.warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${label}. החלופה שמטא מציעה לא נלקחת.`);
+    if (!omitted.plan.ok) {
+      resolution.plan = omitted.plan;
+      const shown = presentPausedLaunch(omitted.plan, creatives, resolution);
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: false, include_a5: includeA5 },
+        response: { errors: omitted.plan.errors, warnings: resolution.warnings },
+        ok: false, error: "flexible_and_lost",
+      });
+      return json({ error: "flexible_and_lost", detail: omitted.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
+    if (omitted.names.length || omitted.plan !== plan) {
+      plan = omitted.plan;
+      termIds = omitted.termIds;
+      resolution.plan = omitted.plan;
+      resolution.termIds = omitted.termIds;
+    }
+  }
+  const creativeFails = probed.failures.filter((f) => f.kind === "creative");
+  if (creativeFails.length) {
+    const first = creativeFails[0];
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, failed_object_key: first.objectKey, failed_name: first.name, body: first.request ?? null },
+      response: {
+        meta: first.meta,
+        failures: creativeFails.map((f) => ({
+          object_key: f.objectKey,
+          name: f.name,
+          message: f.message,
+          meta: f.meta,
+          body: f.request ?? null,
+        })),
+      },
+      ok: false, error: first.message,
+    });
+    return json({ error: "meta_validation", detail: validationDetail(first), meta: first.meta }, 409);
   }
 
   const images = new Map<string, Uint8Array>();
@@ -1985,8 +2118,8 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   const result = await executeLaunch({
     act,
     plan,
-    pageId: PAGE_ID,
-    instagramUserId: IG_ACCOUNT_ID || undefined,
+    pageId: launchPageId,
+    instagramUserId: launchIg,
     pixelId: PIXEL_ID,
     regionKeys,
     termIds,
@@ -2026,6 +2159,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
         failed_name: result.failedName ?? null,
         failed_kind: result.failedKind ?? null,
         path: result.failedPath ?? null,
+        body: result.request ?? null,
       },
       response: { created: result.created, skipped: result.skipped, meta: result.meta ?? null },
       ok: false, error: result.error,

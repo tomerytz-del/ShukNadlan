@@ -6,8 +6,9 @@
 // וכל מודעה נוצרים PAUSED, ותומר מדליק אותם בעצמו ב-Ads Manager.
 //
 // ‏buildLaunchPlan ו-collectWriteOps טהורות. הבדיקה ב-index קוראת ל-Graph
-// רק לחיפוש טירגוט (GET). executeLaunch שולח רק את מה שהן בנו, ורק לנתיבי
-// יצירה של חשבון המודעות (לא לעדכון של קמפיין קיים).
+// לחיפוש טירגוט, לזהות הדף, ול-generatepreviews על כל קריאייטיב (GET, בלי
+// ליצור). executeLaunch שולח רק את מה שהן בנו, ורק לנתיבי יצירה של חשבון
+// המודעות (לא לעדכון של קמפיין קיים).
 //
 // ‏HOUSING: קונים, שוכרים, משקיעים, ריטרגטינג והערכת שווי. גיוס מתווכים
 // ובעלי משרדים אינו מודעת דיור (חבילת ההשקה, ו-ads_rules סעיף ג). הצהרה
@@ -170,7 +171,6 @@ const AFULA = NORTH_CITIES[0];
 const INTEREST_RESIDENTIAL: Term = { type: "interest", name: "Residential real estate", id: "6849417269780" };
 const INTEREST_COACHING: Term = { type: "interest", name: "Real estate marketing and coaching", id: "6849945059527" };
 const INTEREST_BROKER: Term = { type: "interest", name: "Real estate broker" };
-const INTEREST_YAD2: Term = { type: "interest", name: "Yad2" };
 const INTEREST_MADLAN: Term = { type: "interest", name: "Madlan" };
 
 const B1_POSITIONS: Term[] = [
@@ -496,6 +496,91 @@ export const SEARCH_TYPE: Record<TermType, { type: string; class?: string }> = {
 export const TARGETING_LOCALE = "en_US";
 export const REGION_FALLBACK_KM = 60;
 
+// אימות מזהי עניין שכבר נמצאו. interest_fbid_list ולא שם, כי שם משתנה.
+// valid:false יורד. שדה חלופה בתשובה לא נקרא ולא נשלח.
+export function interestValiditySpec(ids: string[]): Record<string, string> {
+  // מזהה מספרי, כמו בדוגמה של Marketing API. מחרוזת בתוך ה-JSON נדחית.
+  const list = ids.map((id) => /^\d{5,16}$/.test(id) ? Number(id) : id);
+  return {
+    type: "adinterestvalid",
+    interest_fbid_list: JSON.stringify(list),
+    locale: TARGETING_LOCALE,
+  };
+}
+
+export function invalidInterestIds(res: unknown, known: { id: string; name: string }[]): Set<string> {
+  const data = Array.isArray(res)
+    ? res
+    : (res && typeof res === "object" && Array.isArray((res as { data?: unknown }).data) ? (res as { data: unknown[] }).data : []);
+  const invalid = new Set<string>();
+  for (const row of data) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as { id?: unknown; name?: unknown; valid?: unknown };
+    if (r.valid !== false) continue;
+    const id = r.id != null && String(r.id) ? String(r.id) : "";
+    if (id) {
+      invalid.add(id);
+      continue;
+    }
+    const name = String(r.name || "").toLowerCase();
+    const hit = known.find((k) => k.name.toLowerCase() === name);
+    if (hit) invalid.add(hit.id);
+  }
+  return invalid;
+}
+
+const DEPRECATED_ID_KEYS = new Set(["deprecated_interest_id", "deprecated_interest_ids"]);
+
+function asJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const t = value.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return value;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return value;
+  }
+}
+
+// מזהים שמטא אומרת שהוצאו משימוש. מפתח של חלופה (alternative / suggestion)
+// לא נאסף, כדי שלא יוחלף עניין ב"Online advertising" וכדומה.
+export function deprecatedInterestIdsFromError(errorData: unknown): string[] {
+  const ids = new Set<string>();
+  const walk = (node: unknown, key: string | null): void => {
+    node = asJson(node);
+    if (typeof node === "string" || typeof node === "number") {
+      if (key && DEPRECATED_ID_KEYS.has(key)) {
+        const id = String(node);
+        if (/^\d{5,25}$/.test(id)) ids.add(id);
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      if (key === "deprecated_interests") {
+        for (const item of node) {
+          if (!item || typeof item !== "object") continue;
+          const id = String((item as { id?: unknown; deprecated_interest_id?: unknown }).deprecated_interest_id ?? (item as { id?: unknown }).id ?? "");
+          if (/^\d{5,25}$/.test(id)) ids.add(id);
+        }
+        return;
+      }
+      if (key && DEPRECATED_ID_KEYS.has(key)) {
+        for (const item of node) walk(item, key);
+        return;
+      }
+      for (const item of node) walk(item, key);
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (/alternative|suggest|replacement/i.test(k)) continue;
+      walk(v, k);
+    }
+  };
+  walk(errorData, null);
+  return [...ids];
+}
+
 export function targetingSearchSpec(query: string, kind: TermType | "region"): Record<string, string> {
   if (kind === "region") {
     return {
@@ -518,7 +603,7 @@ export function targetingSearchSpec(query: string, kind: TermType | "region"): R
   return params;
 }
 
-export type TargetingHitStatus = "found" | "dropped" | "fallback" | "missing" | "unchecked";
+export type TargetingHitStatus = "found" | "dropped" | "deprecated" | "fallback" | "missing" | "unchecked";
 
 export type TargetingHit = {
   kind: "term" | "region";
@@ -563,7 +648,7 @@ function hitBlocksCreate(h: TargetingHit): boolean {
 
 // מחוז חסר מחליף את הסט כולו ברדיוס. תפקיד, מעסיק או עניין בלי התאמה יורד
 // מהקבוצה. קבוצה שהתרוקנה יורדת, כדי שלא יישלח flexible_spec ריק.
-export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string, string>, regionKeys: Record<string, string>): LaunchPlan {
+export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string, string>, regionKeys: Record<string, string>, excludeKeys: Set<string> = new Set()): LaunchPlan {
   let andLost = false;
   const campaigns = plan.campaigns.map((c) => ({
     ...c,
@@ -573,7 +658,7 @@ export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string,
         geo = { mode: "radius", radiusKm: REGION_FALLBACK_KM, points: [AFULA] };
       }
       const flexible = a.flexible
-        .map((group) => group.filter((t) => !!(t.id || termIds[termKey(t)])))
+        .map((group) => group.filter((t) => !excludeKeys.has(termKey(t)) && !!(t.id || termIds[termKey(t)])))
         .filter((group) => group.length > 0);
       // שתי קבוצות הן AND. קבוצה שנעלמת משאירה OR רחב (כל Owner, או כל
       // מי שמתעניין בנדל"ן). שומרים את המבנה המקורי וסוגרים את היצירה.
@@ -596,7 +681,7 @@ export function applyResolvedTargeting(plan: LaunchPlan, termIds: Record<string,
   };
 }
 
-function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed: boolean): TargetingResolution {
+function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed: boolean, validityFailed = false): TargetingResolution {
   const termIds: Record<string, string> = {};
   const regionKeys: Record<string, string> = {};
   for (const h of hits) {
@@ -604,16 +689,20 @@ function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed
     if (h.kind === "region" && h.status === "found" && h.id) regionKeys[h.query] = h.id;
   }
   const dropped = hits.filter((h) => h.kind === "term" && h.status === "dropped");
+  const deprecated = hits.filter((h) => h.kind === "term" && h.status === "deprecated");
   const regionMisses = hits.filter((h) => h.kind === "region" && h.status !== "found");
   const warnings: string[] = [];
   if (dropped.length) warnings.push(`לא נמצא במטא וירד מהטירגוט: ${dropped.map((h) => h.query).join(", ")}.`);
+  if (deprecated.length) warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${deprecated.map((h) => `${h.query} (${h.id})`).join(", ")}. החלופה שמטא מציעה לא נלקחת.`);
+  const exclude = new Set([...dropped, ...deprecated].map((h) => `${h.term_type}:${h.query}`));
   if (regionMisses.length) {
     warnings.push('מחוז חיפה או מחוז הצפון לא נמצאו. הסט עובר לרדיוס 60 ק"מ סביב עפולה, שמכסה את הצפון וחיפה.');
   }
   if (searchFailed) warnings.push("חיפוש הטירגוט במטא נכשל. מה שלא נמצא ירד, והמחוזות שלא נמצאו הוחלפו ברדיוס.");
+  if (validityFailed) warnings.push("בדיקת העניינים מול מטא נכשלה. עניין שהוצא משימוש עלול לעצור את האימות.");
   const applied = regionMisses.some((h) => h.status === "unchecked" || h.status === "missing")
     ? plan
-    : applyResolvedTargeting(plan, termIds, regionKeys);
+    : applyResolvedTargeting(plan, termIds, regionKeys, exclude);
   return {
     plan: applied,
     hits,
@@ -621,6 +710,64 @@ function resolutionFromHits(plan: LaunchPlan, hits: TargetingHit[], searchFailed
     regionKeys,
     warnings,
     blocksCreate: hits.some(hitBlocksCreate) || applied.errors.some((e) => e.code === "flexible_and_lost"),
+  };
+}
+
+// אחרי validate_only שחזר 1870247. מוריד את המזהים מהתוכנית שכבר נפתרה,
+// בלי לגעת בגיאוגרפיה ובלי להכניס את החלופה.
+export function omitDeprecatedInterestIds(plan: LaunchPlan, termIds: Record<string, string>, ids: string[]): { plan: LaunchPlan; termIds: Record<string, string>; names: string[] } {
+  const drop = new Set(ids);
+  const names: string[] = [];
+  const exclude = new Set<string>();
+  const nextIds = { ...termIds };
+  for (const [k, id] of Object.entries(termIds)) {
+    if (!k.startsWith("interest:") || !drop.has(id)) continue;
+    delete nextIds[k];
+    exclude.add(k);
+    names.push(k.slice("interest:".length));
+  }
+  for (const c of plan.campaigns) {
+    for (const a of c.adSets) {
+      for (const group of a.flexible) {
+        for (const t of group) {
+          if (t.type === "interest" && t.id && drop.has(t.id)) {
+            exclude.add(termKey(t));
+            delete nextIds[termKey(t)];
+            if (!names.includes(t.name)) names.push(t.name);
+          }
+        }
+      }
+    }
+  }
+  if (!exclude.size) return { plan, termIds, names: [] };
+  let andLost = false;
+  const campaigns = plan.campaigns.map((c) => ({
+    ...c,
+    adSets: c.adSets.map((a) => {
+      const before = a.flexible.length;
+      const flexible = a.flexible
+        .map((group) => group.filter((t) => !exclude.has(termKey(t))))
+        .filter((group) => group.length > 0);
+      if (before >= 2 && flexible.length < 2) {
+        andLost = true;
+        return { ...a };
+      }
+      return { ...a, flexible };
+    }),
+  }));
+  if (!andLost) return { plan: { ...plan, campaigns }, termIds: nextIds, names };
+  return {
+    plan: {
+      ...plan,
+      ok: false,
+      campaigns,
+      errors: [...plan.errors, {
+        code: "flexible_and_lost",
+        detail: "צמצום ה-AND של בעלי המשרדים נשבר כי קבוצה שלמה לא נמצאה במטא. לא נוצר סט שמרחיב את הקהל.",
+      }],
+    },
+    termIds: nextIds,
+    names,
   };
 }
 
@@ -645,6 +792,7 @@ export async function resolveLaunchTargeting(
   search: (params: Record<string, string>) => Promise<unknown>,
 ): Promise<TargetingResolution> {
   let searchFailed = false;
+  let validityFailed = false;
   async function lookup(params: Record<string, string>) {
     try {
       return await search(params);
@@ -663,6 +811,18 @@ export async function resolveLaunchTargeting(
     }
     return { kind: "term", query: term.name, term_type: term.type, required: false, status: "found", id: match.id, resolved_name: match.name };
   });
+  const interestHits = termHits.filter((h) => h.term_type === "interest" && h.status === "found" && h.id);
+  if (interestHits.length) {
+    try {
+      const known = interestHits.map((h) => ({ id: h.id!, name: h.query }));
+      const invalid = invalidInterestIds(await search(interestValiditySpec(known.map((k) => k.id))), known);
+      for (const h of termHits) {
+        if (h.term_type === "interest" && h.id && invalid.has(h.id)) h.status = "deprecated";
+      }
+    } catch {
+      validityFailed = true;
+    }
+  }
   const regionHits = await mapPool(regionQueries(plan), 4, async (query): Promise<TargetingHit> => {
     const match = acceptedTargetingMatch(query, await lookup(targetingSearchSpec(query, "region")), "region");
     if (!match) {
@@ -675,7 +835,7 @@ export async function resolveLaunchTargeting(
   // מחוז אחד בלי השני לא מכסה את הצפון. הסט עובר לרדיוס, והמחוז שנמצא
   // נשאר מסומן כנמצא כדי שיהיה גלוי מה Graph החזיר.
   const hits = missedRegions.length ? [...termHits, ...regionHits.map((h) => h.status === "found" ? h : { ...h, status: "fallback" as const })] : [...termHits, ...foundRegions];
-  return resolutionFromHits(plan, hits, searchFailed);
+  return resolutionFromHits(plan, hits, searchFailed, validityFailed);
 }
 
 // בלי טוקן אין חיפוש ואין גיבוי שקט. המחוזות נשארים לא נבדקים, והכפתור סגור.
@@ -790,7 +950,7 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
         ageMin: 22,
         ageMax: 65,
         geo: brokerGeo(),
-        flexible: [[...B1_POSITIONS, ...EMPLOYERS, INTEREST_RESIDENTIAL, INTEREST_COACHING, INTEREST_BROKER, INTEREST_YAD2, INTEREST_MADLAN]],
+        flexible: [[...B1_POSITIONS, ...EMPLOYERS, INTEREST_RESIDENTIAL, INTEREST_COACHING, INTEREST_BROKER, INTEREST_MADLAN]],
         audienceKeys: [],
         extraAudienceIds: [],
         notes: ["Advantage+ Audience כבוי. לא מחריגים מתווכים רשומים. מיקומים Advantage+."],
@@ -1301,25 +1461,49 @@ function flexibleJson(groups: Term[][], termIds: Record<string, string>): { spec
   return { spec };
 }
 
-function customization() {
+// v26: explore הוסר. facebook_reels, reels ו-video_feeds אינם ברשימת
+// Placement Asset Customization, וכלל עם מיקום לא מוכר מפיל את כל
+// ה-object_story_spec (1443048, יומן 129). שתי כללים, פיד מול סטורי.
+// בלי חשבון אינסטגרם של הדף לא שולחים מיקומי אינסטגרם: מזהה חסר שם
+// נחשב שדה לא תקין באותו subcode.
+function placementRules(withDescription: boolean, withInstagram: boolean) {
+  const shared: Record<string, unknown> = {
+    body_label: { name: "body" },
+    title_label: { name: "title" },
+    link_url_label: { name: "link" },
+  };
+  if (withDescription) shared.description_label = { name: "desc" };
+  const platforms = withInstagram ? ["facebook", "instagram"] : ["facebook"];
+  const feedPositions: Record<string, unknown> = {
+    publisher_platforms: platforms,
+    facebook_positions: ["feed", "marketplace", "search"],
+  };
+  const storyPositions: Record<string, unknown> = {
+    publisher_platforms: platforms,
+    facebook_positions: ["story"],
+  };
+  if (withInstagram) {
+    feedPositions.instagram_positions = ["stream", "profile_feed"];
+    storyPositions.instagram_positions = ["story"];
+  }
   return [
     {
-      customization_spec: {
-        publisher_platforms: ["facebook", "instagram"],
-        facebook_positions: ["feed", "marketplace", "video_feeds", "search"],
-        instagram_positions: ["stream", "explore", "profile_feed"],
-      },
+      customization_spec: feedPositions,
       image_label: { name: "img_feed" },
+      ...shared,
     },
     {
-      customization_spec: {
-        publisher_platforms: ["facebook", "instagram"],
-        facebook_positions: ["story", "facebook_reels"],
-        instagram_positions: ["story", "reels"],
-      },
+      customization_spec: storyPositions,
       image_label: { name: "img_story" },
+      ...shared,
     },
   ];
+}
+
+function usableInstagramId(pageId: string, instagramUserId?: string): string | undefined {
+  const id = (instagramUserId || "").trim();
+  if (!/^\d{5,25}$/.test(id) || id === pageId) return undefined;
+  return id;
 }
 
 export function collectWriteOps(plan: LaunchPlan, ctx: {
@@ -1424,35 +1608,57 @@ export function collectWriteOps(plan: LaunchPlan, ctx: {
       for (const one of a.ads) {
         const feed = one.images[0];
         const story = one.images[1];
-        const link = one.landingUrl || LEAD_LINK;
-        const ctaValue = one.leadFormId ? { lead_gen_form_id: one.leadFormId } : { link };
-        const linkData: Record<string, unknown> = {
-          link,
-          message: one.message,
-          name: one.headline,
-          image_hash: `{{hash:${feed.key}}}`,
-          call_to_action: { type: one.cta, value: ctaValue },
-        };
-        if (one.description) linkData.description = one.description;
-        const oss: Record<string, unknown> = { page_id: ctx.pageId, link_data: linkData };
-        if (ctx.instagramUserId) oss.instagram_user_id = ctx.instagramUserId;
-        const creativeBody: Record<string, string> = {
-          name: one.name,
-          object_story_spec: JSON.stringify(oss),
-          degrees_of_freedom_spec: JSON.stringify({
-            creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } },
-          }),
-        };
-        if (story) {
-          creativeBody.asset_feed_spec = JSON.stringify({
+        const message = one.message.trim();
+        const headline = one.headline.trim();
+        const description = (one.description || "").trim();
+        if (!message || !headline) errors.push(`creative_text:${one.key}`);
+        if (!feed) errors.push(`creative_image:${one.key}`);
+        const lead = !!one.leadFormId;
+        const link = lead ? LEAD_LINK : (one.landingUrl || "").trim();
+        if (!lead && !/^https:\/\/\S+$/.test(link)) errors.push(`creative_link:${one.key}`);
+        // שתי תמונות: asset_feed_spec בלבד, ו-object_story_spec הוא הדף
+        // (ואינסטגרם אם יש). link_data עם image_hash ליד asset_feed_spec
+        // הוא בדיוק subcode 1443048 (יומן 129, creative:b1_1). אין
+        // degrees_of_freedom_spec על ה-feed: השדה הזה שייך ל-link_data,
+        // ושדה לא מוכר באותו גוף נדחה כ-object_story_spec לא תקין.
+        // תמונה אחת: link_data בלי feed, כמו campaign.ts.
+        const ig = usableInstagramId(ctx.pageId, ctx.instagramUserId);
+        const oss: Record<string, unknown> = { page_id: ctx.pageId };
+        if (ig) oss.instagram_user_id = ig;
+        const creativeBody: Record<string, string> = { name: one.name };
+        if (feed && story) {
+          const feedSpec: Record<string, unknown> = {
             ad_formats: ["SINGLE_IMAGE"],
             optimization_type: "PLACEMENT",
             images: [
               { hash: `{{hash:${feed.key}}}`, adlabels: [{ name: "img_feed" }] },
               { hash: `{{hash:${story.key}}}`, adlabels: [{ name: "img_story" }] },
             ],
-            asset_customization_rules: customization(),
+            bodies: [{ text: message, adlabels: [{ name: "body" }] }],
+            titles: [{ text: headline, adlabels: [{ name: "title" }] }],
+            link_urls: [{ website_url: link, adlabels: [{ name: "link" }] }],
+            asset_customization_rules: placementRules(!!description, !!ig),
+          };
+          if (description) feedSpec.descriptions = [{ text: description, adlabels: [{ name: "desc" }] }];
+          if (lead) feedSpec.call_to_actions = [{ type: one.cta, value: { lead_gen_form_id: one.leadFormId } }];
+          else feedSpec.call_to_action_types = [one.cta];
+          creativeBody.object_story_spec = JSON.stringify(oss);
+          creativeBody.asset_feed_spec = JSON.stringify(feedSpec);
+        } else if (feed) {
+          creativeBody.degrees_of_freedom_spec = JSON.stringify({
+            creative_features_spec: { standard_enhancements: { enroll_status: "OPT_OUT" } },
           });
+          const linkData: Record<string, unknown> = {
+            link,
+            message,
+            name: headline,
+            image_hash: `{{hash:${feed.key}}}`,
+            call_to_action: lead
+              ? { type: one.cta, value: { lead_gen_form_id: one.leadFormId } }
+              : { type: one.cta, value: { link } },
+          };
+          if (description) linkData.description = description;
+          creativeBody.object_story_spec = JSON.stringify({ ...oss, link_data: linkData });
         }
         ops.push({
           objectKey: `creative:${one.key}`,
@@ -1587,7 +1793,97 @@ export type LaunchFailure = {
   name: string;
   message: string;
   meta: MetaErrorFields | null;
+  request?: Record<string, unknown> | null;
 };
+
+// גוף הבקשה ליומן. בלי בייטי תמונה ובלי שדות שנשמעים כמו טוקן.
+export function sanitizeLaunchBody(body: Record<string, string> | undefined): Record<string, unknown> | null {
+  if (!body) return null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (k === "bytes" || /token|secret|proof|authorization/i.test(k)) continue;
+    if (typeof v === "string" && (v.startsWith("{") || v.startsWith("["))) {
+      try {
+        out[k] = JSON.parse(v);
+        continue;
+      } catch {
+        /* נשאר מחרוזת */
+      }
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
+export function creativePreviewBody(body: Record<string, string>): Record<string, unknown> {
+  const spec: Record<string, unknown> = {};
+  for (const key of ["object_story_spec", "asset_feed_spec", "degrees_of_freedom_spec"] as const) {
+    if (!body[key]) continue;
+    try {
+      spec[key] = JSON.parse(body[key]);
+    } catch {
+      spec[key] = body[key];
+    }
+  }
+  return spec;
+}
+
+// הדף חייב להיות שוק הנדל"ן של עפולה והסביבה, והטוקן חייב לקרוא אותו.
+// אינסטגרם נלקח מהחשבון המחובר לדף. מזהה אחר, או מזהה משתמש, לא נשלח.
+export async function resolveLaunchIdentity(
+  pageId: string,
+  instagramUserId: string | undefined,
+  get: (path: string, params: Record<string, string>) => Promise<unknown>,
+): Promise<{ pageId: string; pageName: string | null; instagramUserId?: string; warnings: string[]; error?: string }> {
+  const warnings: string[] = [];
+  if (pageId !== PAGE_ID_EXPECTED) {
+    return {
+      pageId,
+      pageName: null,
+      warnings,
+      error: `מזהה הדף ${pageId || "(ריק)"} אינו הדף שוק הנדל"ן של עפולה והסביבה (${PAGE_ID_EXPECTED}). לא נוצר קריאייטיב.`,
+    };
+  }
+  type PageIdentity = { id?: unknown; name?: unknown; instagram_business_account?: { id?: unknown } };
+  let page: PageIdentity | null = null;
+  try {
+    page = await get(pageId, { fields: "id,name,instagram_business_account{id}" }) as PageIdentity;
+  } catch (e) {
+    try {
+      page = await get(pageId, { fields: "id,name" }) as PageIdentity;
+      warnings.push("לא נקרא חשבון האינסטגרם של הדף. הקריאייטיב נשלח בלי instagram_user_id.");
+    } catch (e2) {
+      return {
+        pageId,
+        pageName: null,
+        warnings,
+        error: `אין גישה לדף ${PAGE_ID_EXPECTED} עם הטוקן. ${formatMetaError(e2 || e)}`,
+      };
+    }
+  }
+  const id = String(page?.id || "");
+  const name = typeof page?.name === "string" ? page.name : null;
+  if (id !== PAGE_ID_EXPECTED) {
+    return {
+      pageId,
+      pageName: name,
+      warnings,
+      error: `הטוקן החזיר דף ${id || "בלי מזהה"} ולא את ${PAGE_ID_EXPECTED}.`,
+    };
+  }
+  const linked = String(page?.instagram_business_account?.id || "");
+  const given = (instagramUserId || "").trim();
+  let ig: string | undefined;
+  if (/^\d{5,25}$/.test(linked) && linked !== id) {
+    ig = linked;
+    if (given && given !== linked) {
+      warnings.push(`מזהה האינסטגרם בסודות אינו החשבון המחובר לדף. נשלח את החשבון המחובר לדף (${linked}).`);
+    }
+  } else if (given) {
+    warnings.push("לדף אין חשבון אינסטגרם מחובר. הקריאייטיב נשלח בלי instagram_user_id.");
+  }
+  return { pageId: id, pageName: name, instagramUserId: ig, warnings };
+}
 
 export async function executeLaunch(args: {
   act: string;
@@ -1610,6 +1906,7 @@ export async function executeLaunch(args: {
   failedKind?: string;
   failedPath?: string;
   meta?: MetaErrorFields | null;
+  request?: Record<string, unknown> | null;
 }> {
   for (const row of args.existing.values()) {
     if (row.metaId && PROTECTED_CAMPAIGN_IDS.includes(row.metaId)) {
@@ -1635,6 +1932,7 @@ export async function executeLaunch(args: {
   const created: string[] = [];
   const skipped: string[] = [];
   let current: WriteOp | null = null;
+  let currentBody: Record<string, string> | undefined;
   try {
     for (const op of ops) {
       current = op;
@@ -1653,6 +1951,7 @@ export async function executeLaunch(args: {
         if (!bytes) throw new Error(`creative_bytes_missing:${op.imageKey}`);
         body = { ...body, bytes: toBase64(bytes) };
       }
+      currentBody = body;
       assertSafeWrite(args.act, op.pathSuffix, body);
       const res = await args.post(`${args.act}/${op.pathSuffix}`, body);
       if (op.kind === "image") {
@@ -1679,6 +1978,7 @@ export async function executeLaunch(args: {
       failedKind: current?.kind,
       failedPath: current ? `${args.act}/${current.pathSuffix}` : undefined,
       meta: metaFieldsOf(e),
+      request: sanitizeLaunchBody(currentBody),
     };
   }
   return { created, skipped };
@@ -1698,6 +1998,7 @@ export async function validateLaunchWrites(args: {
   termIds: Record<string, string>;
   existing: Map<string, ExistingRow>;
   post: (path: string, body: Record<string, string>) => Promise<unknown>;
+  get?: (path: string, params: Record<string, string>) => Promise<unknown>;
 }): Promise<{ checked: string[]; skipped: { objectKey: string; reason: string }[]; failures: LaunchFailure[] }> {
   const checked: string[] = [];
   const skipped: { objectKey: string; reason: string }[] = [];
@@ -1752,6 +2053,43 @@ export async function validateLaunchWrites(args: {
         message: formatMetaError(e),
         meta: metaFieldsOf(e),
       });
+    }
+  }
+  // POST /adcreatives אינו תומך ב-validate_only. התצוגה המקדימה היא GET
+  // ולא יוצרת קריאייטיב. בלי hash שמור (התמונה עולה רק ביצירה) מדלגים.
+  const accidental = failures.some((f) => f.message.startsWith("validate_only_returned_id"));
+  if (args.get && !accidental) {
+    for (const op of ops) {
+      if (op.kind !== "creative") continue;
+      if (args.existing.get(op.objectKey)?.metaId) {
+        skipped.push({ objectKey: op.objectKey, reason: "already_created" });
+        continue;
+      }
+      let body: Record<string, string>;
+      try {
+        body = substitute(op.body, ids, hashes);
+      } catch (e) {
+        skipped.push({ objectKey: op.objectKey, reason: (e as Error).message || "unresolved" });
+        continue;
+      }
+      const request = sanitizeLaunchBody(body);
+      try {
+        assertSafeWrite(args.act, op.pathSuffix, body);
+        await args.get(`${args.act}/generatepreviews`, {
+          creative: JSON.stringify(creativePreviewBody(body)),
+          ad_format: "DESKTOP_FEED_STANDARD",
+        });
+        checked.push(op.objectKey);
+      } catch (e) {
+        failures.push({
+          objectKey: op.objectKey,
+          kind: op.kind,
+          name: op.name,
+          message: formatMetaError(e),
+          meta: metaFieldsOf(e),
+          request,
+        });
+      }
     }
   }
   return { checked, skipped, failures };
