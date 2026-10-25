@@ -120,8 +120,29 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("תג ירד מחיר", html.includes('class="land-badge">ירד מחיר'));
   check("תג חדש", html.includes('class="land-badge">חדש'));
   check("מחיר ב-bdi", html.includes("<bdi>₪2,500,000</bdi>") && html.includes("מחיר חציוני"));
+  check("רווח בחדרים", html.includes('<bdi>3</bdi><span class="land-sp"> </span>חדרים'));
+  check("גיבור מהמודעה עם תמונה", html.includes("property-images/a.jpg") && html.includes('fetchpriority="high"'));
   check("שכונה בכרטיס", html.includes("גבעת המורה"));
   check("H1 לא הוכפל", html.split("<h1").length === 2);
+}
+
+{
+  const newer = {
+    id: "p-new",
+    title: "בית חדש",
+    property_type: "בית פרטי/קוטג'",
+    deal_type: "sale",
+    price: 2100000,
+    rooms: 5,
+    size_sqm: 160,
+    city: "עפולה",
+    created_at: new Date().toISOString(),
+    images: ["https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/new-house.jpg"],
+  };
+  const res = await run(SITE + PATH, 200, [ROWS[0], newer]);
+  const html = await res.text();
+  const hero = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
+  check("גיבור מהמודעה החדשה", hero.includes("new-house.jpg") && !hero.includes("property-images/a.jpg"));
 }
 
 {

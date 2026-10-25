@@ -31,7 +31,8 @@
 
   function num(n) { return Math.round(Number(n) || 0).toLocaleString("en-US"); }
   function bdi(inner) { return "<bdi>" + inner + "</bdi>"; }
-  function countPhrase(n, one, many) { return bdi(num(n)) + " " + (n === 1 ? one : many); }
+  function sp() { return '<span class="land-sp"> </span>'; }
+  function countPhrase(n, one, many) { return bdi(num(n)) + sp() + (n === 1 ? one : many); }
 
   function pageOf(pathname) {
     var path = String(pathname || "").replace(/\/+$/, "") || "/";
@@ -68,7 +69,7 @@
     var bits = [];
     if (a.address) bits.push(escapeHtml(a.address));
     else bits.push("עפולה");
-    if (a.active_count) bits.push(bdi(num(a.active_count)) + " נכסים פעילים");
+    if (a.active_count) bits.push(bdi(num(a.active_count)) + sp() + "נכסים פעילים");
     if (a.tagline) bits.push(escapeHtml(a.tagline));
     return '<li><a class="land-card land-office" href="/agency?slug=' + encodeURIComponent(a.slug) + '">'
       + logo(a.logo_url, a.name || "")
@@ -85,12 +86,12 @@
     return '<nav class="land-filters" aria-label="סינון מהיר">'
       + chip("/?deal=sale", "לקנייה")
       + chip("/?deal=rent", "להשכרה")
-      + chip("/?deal=sale&maxPrice=1500000", "עד 1.5 מיליון")
-      + chip("/?deal=sale&maxPrice=2500000", "עד 2.5 מיליון")
-      + chip("/?deal=sale&minPrice=2500000", "מ-2.5 מיליון")
-      + chip("/?deal=sale&rooms=3", bdi("3") + " חדרים")
-      + chip("/?deal=sale&rooms=4", bdi("4") + " חדרים")
-      + chip("/?deal=sale&rooms=5", bdi("5") + " חדרים")
+      + chip("/?deal=sale&maxPrice=1500000", "עד" + sp() + bdi("1.5") + sp() + "מיליון")
+      + chip("/?deal=sale&maxPrice=2500000", "עד" + sp() + bdi("2.5") + sp() + "מיליון")
+      + chip("/?deal=sale&minPrice=2500000", "מ-" + bdi("2.5") + sp() + "מיליון")
+      + chip("/?deal=sale&rooms=3", bdi("3") + sp() + "חדרים")
+      + chip("/?deal=sale&rooms=4", bdi("4") + sp() + "חדרים")
+      + chip("/?deal=sale&rooms=5", bdi("5") + sp() + "חדרים")
       + "</nav>";
   }
 

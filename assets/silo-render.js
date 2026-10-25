@@ -88,8 +88,10 @@
     return "₪" + num(v);
   }
   function bdi(inner) { return "<bdi>" + inner + "</bdi>"; }
+  /* רווח שנשאר בין מספר למילה גם כש-bdi מבודד את הכיוון. */
+  function sp() { return '<span class="land-sp"> </span>'; }
   function countPhrase(n, one, many) {
-    return bdi(num(n)) + " " + (n === 1 ? one : many);
+    return bdi(num(n)) + sp() + (n === 1 ? one : many);
   }
 
   function decodePath(pathname) {
@@ -258,13 +260,13 @@
     var html = '<nav class="land-filters" aria-label="סינון מהיר">';
     html += chip(searchHref(page, { deal: "sale" }), "לקנייה", true);
     html += chip(searchHref(page, { deal: "rent" }), "להשכרה", false);
-    html += chip(searchHref(page, { maxPrice: "1500000" }), "עד 1.5 מיליון", false);
-    html += chip(searchHref(page, { maxPrice: "2500000" }), "עד 2.5 מיליון", false);
-    html += chip(searchHref(page, { minPrice: "2500000" }), "מ-2.5 מיליון", false);
+    html += chip(searchHref(page, { maxPrice: "1500000" }), "עד" + sp() + bdi("1.5") + sp() + "מיליון", false);
+    html += chip(searchHref(page, { maxPrice: "2500000" }), "עד" + sp() + bdi("2.5") + sp() + "מיליון", false);
+    html += chip(searchHref(page, { minPrice: "2500000" }), "מ-" + bdi("2.5") + sp() + "מיליון", false);
     var rooms = [3, 4, 5];
     for (var i = 0; i < rooms.length; i++) {
       var r = rooms[i];
-      html += chip(searchHref(page, { rooms: String(r), deal: "sale" }), bdi(String(r)) + " חדרים", page.rooms === r);
+      html += chip(searchHref(page, { rooms: String(r), deal: "sale" }), bdi(String(r)) + sp() + "חדרים", page.rooms === r);
     }
     return html + "</nav>";
   }
@@ -275,7 +277,7 @@
     if (active > 0) bits.push("<li>" + countPhrase(active, "מודעה פעילה", "מודעות פעילות") + "</li>");
     if (complete(rows, extras)) {
       var mid = median(rows);
-      if (mid > 0) bits.push("<li>מחיר חציוני " + bdi(escapeHtml(money(mid))) + "</li>");
+      if (mid > 0) bits.push("<li>מחיר חציוני" + sp() + bdi(escapeHtml(money(mid))) + "</li>");
       var fresh = newCount(rows);
       if (fresh > 0) bits.push("<li>" + countPhrase(fresh, "חדש השבוע", "חדשים השבוע") + "</li>");
     }
@@ -287,16 +289,24 @@
     var ms = latestMs(rows);
     var label = shortDate(ms);
     if (!label) return "";
-    return "עודכן לאחרונה " + bdi(label);
+    return "עודכן לאחרונה" + sp() + bdi(label);
+  }
+
+  /* תמונת השער: המודעה החדשה ביותר מאותו סוג (השאילתה כבר מסוננת)
+     שיש לה תמונה. תמונת השער של המודעה היא הראשונה ברשימה, זו שהמשרד
+     שם כמובילה. בלי תמונה - תמונת העמק. */
+  function heroPick(rows) {
+    var list = listOf(rows).filter(function (p) { return firstImage(p); });
+    list.sort(function (a, b) {
+      var dt = Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0);
+      if (dt) return dt;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+    return list.length ? firstImage(list[0]) : "";
   }
 
   function heroHtml(rows) {
-    var img = "";
-    var list = listOf(rows);
-    for (var i = 0; i < list.length; i++) {
-      img = firstImage(list[i]);
-      if (img) break;
-    }
+    var img = heroPick(rows);
     if (!img) {
       return '<picture>'
         + '<source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">'
@@ -304,14 +314,10 @@
         + '<img src="assets/hero-valley-800.webp" alt="" width="800" height="450" fetchpriority="high" decoding="async">'
         + "</picture>";
     }
-    var base = renderUrl(img, 1200, 675);
-    return '<picture>'
-      + '<source type="image/avif" srcset="' + escapeHtml(base + "&format=avif") + '">'
-      + '<source type="image/webp" srcset="' + escapeHtml(base + "&format=webp") + '">'
-      + '<img src="' + escapeHtml(base) + '" alt="" width="1200" height="675" fetchpriority="high" decoding="async"'
+    var src = renderUrl(img, 1200, 675);
+    return '<img src="' + escapeHtml(src) + '" alt="" width="1200" height="675" fetchpriority="high" decoding="async"'
       + ' data-full="' + escapeHtml(img) + '"'
-      + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">'
-      + "</picture>";
+      + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">';
   }
 
   function badge(p) {
@@ -322,8 +328,8 @@
 
   function metaLine(p) {
     var bits = [];
-    if (p.rooms) bits.push(bdi(escapeHtml(String(p.rooms))) + " חדרים");
-    if (p.size_sqm && Number(p.size_sqm) > 0) bits.push(bdi(num(p.size_sqm)) + " מ״ר");
+    if (p.rooms) bits.push(bdi(escapeHtml(String(p.rooms))) + sp() + "חדרים");
+    if (p.size_sqm && Number(p.size_sqm) > 0) bits.push(bdi(num(p.size_sqm)) + sp() + "מ״ר");
     var hood = hoodName(p);
     if (hood) bits.push(escapeHtml(hood));
     return bits.join(" · ");

@@ -4,23 +4,24 @@
 .land-page .doc > .wrap,
 .land-hero .wrap { max-width: 1120px; }
 
-/* התמונה ביחס קבוע. בטלפון הגובה שלה נעצר ב-34vh, והטקסט יושב מתחתיה
-   על אותו רקע כהה, כך שהגיבור כולו נשאר סביב 60vh והכרטיס הראשון מציץ. */
+/* גובה קבוע: בטלפון לכל היותר 60svh (לא זז עם סרגל הכתובת),
+   במסך רחב 460px. הטקסט יושב על התמונה, לא מתחתיה. */
 .land-hero-media {
   position: relative;
   width: 100%;
+  height: 420px;
+  height: min(60svh, 460px);
+  max-height: 60vh;
   background: #060c20;
-}
-.land-hero-bg {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 34vh;
   overflow: hidden;
-  background: #060c20;
 }
 @media (min-width: 760px) {
-  .land-hero-bg { aspect-ratio: 21 / 8; max-height: 420px; }
+  .land-hero-media { height: 460px; max-height: 460px; }
+}
+.land-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: #060c20;
 }
 .land-hero-bg picture,
 .land-hero-bg img {
@@ -34,19 +35,27 @@
 .land-hero-overlay {
   position: absolute;
   inset: 0;
-  /* #060c20 ב-94% בתחתית. לבן עליו הוא בערך 19:1, גם על תמונה בהירה. */
-  background: linear-gradient(180deg, rgba(6, 12, 32, .45) 0%, rgba(6, 12, 32, .88) 38%, rgba(6, 12, 32, .96) 100%);
+  /* #060c20 ב-70% ומעלה על לבן הוא מעל 7:1. הטקסט הלבן יושב על כל הגובה. */
+  background: linear-gradient(180deg, rgba(6, 12, 32, .70) 0%, rgba(6, 12, 32, .86) 40%, rgba(6, 12, 32, .94) 100%);
   pointer-events: none;
 }
 .land-hero-copy {
-  position: relative;
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  bottom: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 12px 0 18px;
+  width: min(1120px, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
+  padding: 12px 18px 16px;
   color: #fff;
 }
+/* הרווח בין מספר למילה בעברית. רווח רגיל נבלע בגבול ה-bidi של bdi. */
+.land-sp { display: inline-block; width: 0.35em; }
 .land-crumbs {
   display: flex;
   flex-wrap: wrap;
