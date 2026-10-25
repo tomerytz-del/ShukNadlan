@@ -153,9 +153,11 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 | מה | איפה |
 | --- | --- |
-| מקור האמת לדוח | `agent_cma_report(p_agent_id, p_property_id)` |
+| מקור האמת לדוח | `cma_report_core(p_agent_id, p_prop)` - הגוף; ‏`agent_cma_report(p_agent_id, p_property_id)` הגייט והשליפה |
+| הסיום (בעלות, טווח, 8 העסקאות) | `cma_report_finish(p_r, p_gush, p_helka)`; ‏`agent_cma_report_full` עטיפה |
+| דוח לכתובת (Elite) | `agent_cma_report_address` / ‏`cma_report_address`, ‏`cma_locate_address` - ראו "דוח לכתובת" למטה |
 | בריכת בני ההשוואה | `cma_deal_pool(...)` — נקראת פעמיים: לספירת שלבי הסולם ולשליפת הרדיוס שנבחר |
-| שורת "על מה זה נשען" | `cmaSampleNote` ב-`assets/crm.js` |
+| שורת "על מה זה נשען" | `cmaSampleNote` ב-`assets/cma-render.js` |
 | דמיון מאפיינים | `cma_price_features()` ו-`cma_feature_similarity()` |
 | שכבת השוק בתצוגה | `cmaMarketNote` ב-`assets/crm.js` |
 | מיגרציית סינון החדרים | `supabase/migrations/20261228090000_cma_rooms_band.sql` |
@@ -167,8 +169,8 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 | ייבוא המאגר הרשמי | `deals_scraper.py`, ‏`docs/market-deals-official.md` |
 | עטיפה לדפדפן | `cma_report(p_property_id)` — ‏`current_agent_id()` |
 | רישום עסקה | `handle_property_sold()`, ‏טריגר `trg_property_sold` |
-| תצוגה בדשבורד | `renderCmaReport` ב-`assets/crm.js` |
-| העוזר בוואטסאפ | `toolCmaReport` ב-`supabase/functions/whatsapp-webhook/agent.ts` |
+| תצוגה בדשבורד ובדף `/cma` | `renderCmaReport` ב-`assets/cma-render.js` (משותף, ראו "הקישור לדוח") |
+| העוזר בוואטסאפ | `toolCmaReport` / ‏`toolCmaReportAddress`, והתקציר המשותף `cmaSummary`, ב-`supabase/functions/whatsapp-webhook/agent.ts` |
 | מיגרציית הכנות | `supabase/migrations/20261130090000_cma_data_integrity.sql` |
 | מיגרציית המאגר הרשמי | `supabase/migrations/20261201090000_market_deals_official.sql` |
 
@@ -552,7 +554,7 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 ותוכניות. היעדר מידע נאמר "לא נמצא במאגר" - לא "פרטית".
 
 **התוכניות** מתחת לכרטיס הן איחוד של שכבת העירייה (או `retzefMigrashim`)
-עם שכבות 203/14 של GovMap (‏`mergedPlanningPlans` ב-`crm.js`, אותו סדר של
+עם שכבות 203/14 של GovMap (‏`mergedPlanningPlans` ב-`assets/cma-render.js`, אותו סדר של
 `planning_plans_merged` במסד): סוג, שלב, ייעוד וקישור למבא"ת, והודעה לפי
 סעיף 77-78 מודגשת - תוכנית בהכנה שמגבילה היתרים היא בדיוק מה שקונה/ת
 שואל/ת עליו. ‏`docs/govmap.md`.
@@ -711,7 +713,7 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 | שכבה | איפה |
 | --- | --- |
-| הדוח בדשבורד | `renderCmaReport` ב-`assets/crm.js` |
+| הדוח בדשבורד | `renderCmaReport` ב-`assets/cma-render.js` |
 | העוזר בוואטסאפ | `toolCmaReport` ב-`supabase/functions/whatsapp-webhook/agent.ts` |
 | ההנחיה למודל | `SYSTEM_PROMPT` באותו קובץ — "אמור/אמרי את שניהם, תמיד" |
 
@@ -787,3 +789,138 @@ python3 scripts/cma_gap_test.py
 "קרקע מדינה" בשורת הנכס, שורה בטבלת המידע התכנוני, הספירה והפיצול מתחת
 לתמונת השוק, ומקור ותאריך בתחתית. עסקה בלי סימון מוצגת "-" - היעדר אינו
 "פרטית".
+
+## דוח לכתובת - גם לנכס שאינו במערכת (Elite)
+
+מיגרציה `20270819090000_cma_any_address.sql`. עד אז הדוח קיבל מזהה נכס בלבד,
+ו"תכין דוח CMA לרוטשילד 1 בראשון לציון" ענה "אפשר רק על נכס שקיים אצלך" ונתן
+במקום רשימת עסקאות לפי שם הרחוב - בלי ממוצע, בלי סולם ובלי מרחק.
+
+**אותו דוח, לא דוח שני.** הגוף של `agent_cma_report` עבר כמו שהוא ל-
+`cma_report_core(p_agent_id, p_prop)`, שמקבלת את הנכס כשורת `properties`.
+‏`agent_cma_report_address` בונה את השורה בזיכרון (`jsonb_populate_record`,
+בלי `id` ובלי כתיבה), ומריצה את אותה ליבה ואת אותו `cma_report_finish` -
+כלומר אותו סולם, אותה השתקה מתחת לסף ואותם מספרים. שינוי בדוח נעשה פעם
+אחת ותקף לשניהם. ההעברה נבדקה על 16 דוחות (חמישה סוגי נכס, בלי מיקום,
+שכירות, שני מסלולים) - פלט זהה בייט-בייט לפני ואחרי.
+
+**`p.id <> p_property_id` הפך ל-`is distinct from`**, וזה לא קוסמטי: לנכס
+בלי מזהה `<> null` הוא `null`, ושכבת השוק כולה הייתה נעלמת בשקט.
+
+| | נכס במערכת | כתובת |
+| --- | --- | --- |
+| מסלול | PROFESSIONAL ו-Elite | **Elite** בלבד (`tier_required`), פעיל ומנוי בתוקף |
+| איזה נכס | של הסוכן/ת, או כל נכס פעיל באתר | כל כתובת |
+| גוש/חלקה (בעלות, "אותו בניין") | מהמידע התכנוני | `address_parcel_from_deals` - עסקאות שנרשמו בכתובת |
+| סוג נכס | מהנכס | חייב להיות מוכר ל-`property_type_class`, אחרת `unknown_property_type` - סוג לא מוכר היה נותן דוח ריק שנראה כמו "אין עסקאות" |
+
+**המיקום.** הדפדפן ממקם כמו חיפוש העסקאות (`dealsLookupCoords`: עפולה דרך
+העירייה, אחרת GovMap בדפדפן); גבריאלה דרך `geocodeInCity`. ובשרת אסור GovMap
+(הסקיל `govmap`), ולכן כשאין קואורדינטות המסד ממקם בעצמו - `cma_locate_address`,
+מהמדויק לפחות מדויק:
+
+| `location_precision` | מאיפה | נאמר בדוח |
+| --- | --- | --- |
+| `geocoded` | הגאוקוד של הקורא | - |
+| `address_deal` | עסקה רשמית בכתובת עצמה | - |
+| `parcel` | מרכז החלקה ב-`parcels_open` | - |
+| `street_nearest` | מספר הבית הקרוב באותו רחוב (עד 30) | כן - ברחוב ארוך זה מאות מטרים |
+| `street` | בלי מספר בית: מרכז העסקאות ברחוב | כן |
+| `null` | לא נמצא | `no_location`, בלי השוואה לפי מרחק |
+
+**בתצוגה:** "דוח CMA לבעלים" > "לכתובת שאינה במערכת" (`renderCmaAddressForm`
+ב-`assets/crm.js`), עם המאפיינים שהדוח סופר (`CMA_ADDR_FEATURES`, אותה רשימה
+כמו `cma_price_features()` - מאפיין אחר המסד היה מסנן ממילא). במסלול אחר הכפתור מוצג ואומר "זמין ב-Elite". הדוח עצמו
+הוא `renderCmaReport` כרגיל; ‏`subject.source = 'address'` מסתיר מחיר מבוקש
+ריק ומוסיף את שורת הדיוק.
+
+**בגבריאלה:** הכלי `cma_report_address`. הפרומפט אומר במפורש לא להחליף אותו
+ברשימת עסקאות לפי רחוב (`market_deals_lookup`).
+
+**קודם שואלים, פעם אחת.** בלי `proceed` הכלי אינו מריץ את הדוח: הוא מחזיר
+`needs_details` עם `missing` - סוג הנכס, מספר בית, חדרים (לא לחנות ולא
+למגרש), שטח, קומה, מחיר מבוקש ומאפיינים - וגבריאלה שואלת עליהם בהודעה אחת.
+התשובה (גם חלקית, גם "תפיק") חוזרת עם `proceed: true`, והדוח רץ עם מה
+שנמסר. בלי השלב הזה דוח בלי חדרים משווה לכל הגדלים ודוח בלי מחיר אינו
+אומר אם המחיר ריאלי - והסוכן/ת בדרך כלל יודע/ת את שניהם. `features: []`
+הוא "נשאל ואין", להבדיל מהיעדר השדה.
+
+**המסלול נבדק לפני השאלות** (בדיקת נוחות ב-`agent.ts`; הגייט עצמו במסד):
+לשאול שבעה פרטים ואז לענות "זה ב-Elite" הוא בזבוז של זמן הסוכן/ת. אחרי
+הדוח חוזרים `location_guidance`, ו-`details_guidance` רק כשהדוח רץ בלי
+`proceed` (מנוי שאינו Elite לא מגיע לשם, ולכן בפועל כמעט לעולם לא).
+
+### ‏"תקלה טכנית" על כל דוח בגבריאלה (25.10.2026)
+
+‏`cmaSummary` (אז `toolCmaReport`) השתמשה ב-`OWNERSHIP_LABEL` שלא הוגדר
+ב-`agent.ts`, וזרקה `ReferenceError` על כל דוח שהגיעה אליו שכבת הבעלות - כלומר
+כמעט על כל דוח. ‏`deno check` ראה את זה (TS2304), אבל השגיאה ישבה בתוך הרף של
+67 השגיאות של `whatsapp-webhook` ב-`edge_types_baseline.json`. מאז
+`check_edge_types.py` נכשל על שם שאינו מוגדר **גם מתחת לרף** (חוץ מגלובלים
+של סביבת הריצה, `RUNTIME_GLOBALS`).
+
+## הקישור לדוח - כפתור "📊 דוח CMA" ודף `/cma?k=`
+
+מיגרציה `20270820090000_cma_links.sql`. אחרי כל דוח (‏`cma_report` ו-
+`cma_report_address`) גבריאלה שולחת כפתור "📊 דוח CMA" - אותו מנגנון של
+"📄 מידע תכנוני" (‏`crmButton`, ‏`ctx.outbox`) - לדף שמציג **את אותו דוח ממותג
+שב-CRM**, עם הדפסה ל-PDF, שליחה בוואטסאפ, שיתוף של הטלפון והעתקת הקישור.
+התקציר בטקסט נשאר בתשובה; הכפתור מחליף את "הדוח המלא בדשבורד".
+
+| מה | איפה |
+| --- | --- |
+| הקישור | `cma_links` (‏service_role בלבד), `cma_link_create` / `cma_link_open` |
+| הכפתור | `cmaButton` ב-`whatsapp-webhook/agent.ts` - תווית "📊 דוח CMA" (10 יחידות UTF-16) |
+| הפונקציה | `cma-link` (‏`verify_jwt = false`): הדוח השמור והמיתוג של היום |
+| הדף | `cma.html` + `assets/cma-page.js`, ו-`assets/cma-render.js` המשותף |
+
+**הקישור הוא ההרשאה**: 32 תווים אקראיים, **30 יום** (את הדוח שולחים לבעלים,
+והם חוזרים אליו כשמחליטים על מחיר), עד 40 ביום לסוכן/ת ועד 400KB לדוח. דף
+פרטי: `noindex`, ‏`Disallow` ב-`robots.txt`, ובלי `events.js` - כמו המיניסייט
+ללקוח/ה (‏`PRIVATE` ב-`check_canonical.py`, ‏`PRIVATE_PAGES` ב-`check_events.py`).
+
+**הדוח נשמר כמו שהוא, המיתוג נקרא בפתיחה.** מה שגבריאלה אמרה הוא מה שבדף,
+ודוח לכתובת ממילא אינו נשען על שורה במסד. המיתוג (לוגו, צבעים, פרטי
+הסוכן/ת) - כמו `loadCmaBrand` ב-CRM: ‏`cma-link/brand.ts` מחזירה את אותו חוזה,
+עם אותו `normalizeHex` ו-`readableOn` (מי שמשנה את הכלל ב-crm.js משנה גם שם).
+
+**תצוגה אחת, שני דפים.** ‏`renderCmaReport` והעוזרים שלה (וגם `mergedPlanningPlans`
+ו-`plansListHtml`) עברו כמו שהם מ-`crm.js` ל-`assets/cma-render.js`, שנטען ב-
+`crm.html` לפני `crm.js` ובדף `/cma`. השינוי היחיד: שמות המאפיינים נקראים
+בעצלות (`cmaFeatureLabel`), כי הרשימות של טופס הנכס נמצאות ב-`crm.js`; בדף הם
+מגיעים עם הדוח (`subject.feature_labels`, ש-`cmaButton` שומרת מ-`FEATURE_LABELS`).
+הדף מספק לעצמו את ארבעת העוזרים (`esc`, `shekel`, `plural`, `hebDate`).
+
+**ה-CSS של הדוח מוטבע בשני הדפים** (CSS לא יוצא לקובץ - CLAUDE.md), בין
+הסמנים `CMA-CSS:BEGIN` / `CMA-CSS:END`, ו-`scripts/check_cma_css.py` (ב-workflow
+של `cma_gap`) חוסם כששני העותקים שונים. ‏`cma_gap_test.py` רץ עכשיו על
+`cma-render.js`.
+
+### מה נשאר (25.10.2026)
+
+- ~~**בדיקה בפרודקשן אחרי המיזוג**~~ - נעשתה ב-25.10.2026 אחרי #973: נכס
+  #1139 נותן אותם מספרים כמו לפני הפיצול (ממוצע 964,646 ₪, 48 עסקאות),
+  ורוטשילד 1 בראשון לציון נותן דוח מלא (145 עסקאות, `street_nearest` ממספר 4).
+  אחרי #980: ‏`cma_links`, ‏`cma_link_create` ו-`cma_link_open` קיימות, סגורות
+  ל-`anon` ול-`authenticated`, ו-`cma_link_open('bad')` מחזירה `null`;
+  ‏`cma-link` פרוסה עם `verify_jwt = false`.
+- **בדיקה מקצה לקצה בוואטסאפ** (ידנית, מטלפון של סוכן/ת Elite): דוח לנכס
+  #1139 → תקציר ואחריו כפתור "📊 דוח CMA" שפותח את `/cma?k=` עם המיתוג;
+  דוח לכתובת חסרה → גבריאלה שואלת על הפרטים החסרים, ו"תמשיכי" מפיק בלי
+  לשאול שוב; ושאלה למנטור "איפה מפיקים CMA" → כפתור לקישור `goto=cma`.
+- **הקריאה הראשונה איטית:** ‏`agent_cma_report_full` לוקחת כ-3.6 שניות
+  בחיבור חדש וכ-0.6 שנייה אחר כך (הידור ותכנון של ה-PL/pgSQL). לא גרמה
+  לתקלה - התקרה של PostgREST היא 8 שניות - אבל כדאי למדוד שוב אחרי הפיצול
+  לליבה ולסיום.
+- ~~**הדוח לכתובת אינו נשמר**~~ - נבנה: כפתור "📊 דוח CMA" עם קישור לדף
+  (‏"הקישור לדוח" למעלה), לכל דוח מגבריאלה. מה שעוד אין: כפתור "שליחת קישור"
+  לדוח מה-CRM עצמו.
+- ~~**מאפיינים בטופס ה-CRM**~~ - נוספו: עשרת המאפיינים של
+  `cma_price_features()` כשבבים בטופס (`CMA_ADDR_FEATURES`), ונשלחים כ-`p_features`.
+- **66 שגיאות הטיפוס הנותרות ב-`whatsapp-webhook`:** שם לא מוגדר כבר לא
+  יכול להסתתר ביניהן, אבל כל אחת מהן עדיין יכולה להיות `null` שלא נבדק.
+- **הלשוניות הגדולות רק במסך התכנוני:** ‏`.screen-tabs[data-screen=accPlanning]`.
+  אם העיצוב מתקבל, להרחיב לשאר המסכים עם `renderScreenTabs`.
+- **"עסקאות בעבודה היומית"** כרגע הוא שורה בתפריט הצד (קבוצת העבודה
+  היומית). לאשר עם תומר אם הכוונה הייתה גם לכפתור מהיר בדף הבית של ה-CRM.
+

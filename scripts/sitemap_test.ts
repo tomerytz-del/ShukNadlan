@@ -48,6 +48,18 @@ function install(deals: Deals, properties: { status: number; body: unknown }) {
         headers: { "content-type": "application/json" },
       });
     }
+    if (url.includes("market_cities_public")) {
+      return new Response(JSON.stringify([{ city_id: "c1", market_slug: "afula-emek" }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.includes("/agencies?") && url.includes("limit=1")) {
+      return new Response(JSON.stringify([{ slug: "adel", updated_at: "2026-10-09T08:00:00Z" }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (url.includes("/properties?")) {
       return new Response(JSON.stringify(properties.body), {
         status: properties.status,
@@ -59,8 +71,23 @@ function install(deals: Deals, properties: { status: number; body: unknown }) {
   return calls;
 }
 
-const PROP = { status: 200, body: [{ id: "p1", updated_at: "2026-10-09T08:00:00Z" }] };
-const DEALS_ROW = { status: 200, body: [{ slug: "afula", updated_at: "2026-10-09T08:00:00Z" }] };
+const PROP = {
+  status: 200,
+  body: [{
+    id: "p1",
+    updated_at: "2026-10-09T08:00:00Z",
+    city: "עפולה",
+    city_id: "c1",
+    deal_type: "sale",
+    category: "residential",
+    property_type: "דירה",
+    rooms: 4,
+  }],
+};
+const DEALS_ROW = {
+  status: 200,
+  body: [{ slug: "afula", name: "עפולה", deals: 10, updated_at: "2026-10-09T08:00:00Z" }],
+};
 const NONE = { status: 500, body: {} };
 
 async function run(deals: Deals, properties = PROP): Promise<{ res: Response; html: string; calls: ReturnType<typeof install> }> {
@@ -120,6 +147,110 @@ const missing = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"
   next: async () => new Response("nope", { status: 404 }),
 } as never);
 check("קובץ סטטי חסר יוצא כמו שהוא", missing.status === 404 && await missing.text() === "nope");
+
+const WITH_EXTRA =
+  STATIC.replace("</urlset>",
+    `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=3</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/afula/מתווכים</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/projects</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/haifa/מתווכים</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/haifa/בתים-פרטיים</loc></url>\n` +
+    `</urlset>\n`);
+const polishedCalls = install(DEALS_ROW, PROP);
+const polished = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+  next: async () => new Response(WITH_EXTRA, { headers: { "content-type": "application/xml" } }),
+} as never);
+const polishedHtml = await polished.text();
+check("סינון שה-canonical שלו במקום אחר יורד", polished.status === 200 && !polishedHtml.includes("rooms=3"));
+check("נתיב עברי מקודד", polishedHtml.includes("/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D"));
+check("lastmod למתווכים", /afula\/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D<\/loc>\s*<lastmod>2026-10-09<\/lastmod>/.test(polishedHtml));
+check("פרויקטים נשארים גם כשהרשימה ריקה", polishedHtml.includes("https://shuknadlan.co.il/projects"));
+check("דפי נחיתה של שוק לא חי יורדים", !polishedHtml.includes("/haifa/"));
+check("שאילתת המשרדים לפי העיר", polishedCalls.some((c) => c.url.includes("/agencies?")
+  && c.url.includes("city_id=eq.c2a8426f-7bac-4c48-bcb5-53a5ca06f001")));
+check("מתווכי עפולה אינם משוכפלים", polishedHtml.split("/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D").length - 1 === 1);
+
+/* ‏עיר מ-CITIES שאינה בקובץ: נכנסת רק כשהשוק חי ויש מלאי תואם.
+   שוק שאינו חי נשאר בחוץ גם כשיש מודעה. רשימה ריקה נשארת בחוץ. */
+type ExtraPage = {
+  path: string;
+  property_type: string | null;
+  rooms: number | null;
+  cityName: string;
+  market: string;
+};
+const siloPages = (globalThis as unknown as { ShukSilo: { pages: ExtraPage[] } }).ShukSilo.pages;
+const liveExtra: ExtraPage = {
+  path: "/afula/דירות-4-חדרים",
+  property_type: null,
+  rooms: 4,
+  cityName: "עפולה",
+  market: "afula-emek",
+};
+const emptyExtra: ExtraPage = {
+  path: "/afula/דירות-9-חדרים",
+  property_type: null,
+  rooms: 9,
+  cityName: "עפולה",
+  market: "afula-emek",
+};
+const hiddenExtra: ExtraPage = {
+  path: "/haifa/דירות-4-חדרים",
+  property_type: null,
+  rooms: 4,
+  cityName: "חיפה",
+  market: "haifa",
+};
+const FOUR = "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-4-%D7%97%D7%93%D7%A8%D7%99%D7%9D";
+const NINE = "%D7%93%D7%99%D7%A8%D7%95%D7%AA-9-%D7%97%D7%93%D7%A8%D7%99%D7%9D";
+const withHaifa = {
+  status: 200,
+  body: [
+    ...(PROP.body as Record<string, unknown>[]),
+    {
+      id: "p-haifa",
+      updated_at: "2026-10-11T08:00:00Z",
+      city: "חיפה",
+      city_id: "c-haifa",
+      deal_type: "sale",
+      category: "residential",
+      property_type: "דירה",
+      rooms: 4,
+    },
+  ],
+};
+siloPages.push(liveExtra, emptyExtra, hiddenExtra);
+try {
+  const addedCalls = install(DEALS_ROW, withHaifa);
+  const added = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), context());
+  const addedHtml = await added.text();
+  check("עיר חיה עם מודעות נכנסת פעם אחת ומקודדת", added.status === 200
+    && addedHtml.split(FOUR).length - 1 === 1);
+  check("lastmod של הנחיתה החדשה מהמודעה", new RegExp(`${FOUR}</loc>\\s*<lastmod>2026-10-09</lastmod>`).test(addedHtml));
+  check("שורה חדשה בלי changefreq", !new RegExp(`${FOUR}[\\s\\S]{0,120}<changefreq>`).test(addedHtml));
+  check("בלי מודעות תואמות לא נכנסת", !addedHtml.includes(NINE));
+  check("שוק לא חי לא נכנס גם עם מודעות", !addedHtml.includes("/haifa/"));
+  check("השאילתה עדיין רצה", addedCalls.some((c) => c.url.includes("/properties?")));
+
+  const already =
+    STATIC.replace("</urlset>",
+      `  <url>\n    <loc>https://shuknadlan.co.il/afula/דירות-4-חדרים</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n</urlset>\n`);
+  install(DEALS_ROW, withHaifa);
+  const kept = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+    next: async () => new Response(already, { headers: { "content-type": "application/xml" } }),
+  } as never);
+  const keptHtml = await kept.text();
+  check("כתובת קיימת אינה משוכפלת", keptHtml.split(FOUR).length - 1 === 1);
+  check("בקיימת lastmod נכנס לפני changefreq", new RegExp(
+    `${FOUR}</loc>\\s*<lastmod>2026-10-09</lastmod>\\s*<changefreq>daily</changefreq>\\s*<priority>0\\.7</priority>`,
+  ).test(keptHtml));
+
+  const unknown = await run(DEALS_ROW, NONE);
+  check("כשל מודעות אינו מוסיף נחיתה חדשה", !unknown.html.includes(FOUR) && !unknown.html.includes(NINE));
+} finally {
+  const drop = new Set([liveExtra, emptyExtra, hiddenExtra]);
+  for (let i = siloPages.length - 1; i >= 0; i--) if (drop.has(siloPages[i])) siloPages.splice(i, 1);
+}
 
 const src = readFileSync(new URL("../netlify/edge-functions/sitemap.ts", import.meta.url), "utf8");
 check("timeout העסקאות הוא 8 שניות", /const DEALS_FETCH_TIMEOUT_MS = 8000;/.test(src));

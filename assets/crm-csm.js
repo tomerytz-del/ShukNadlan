@@ -5,8 +5,11 @@
      צנרת      - קנבן בשישה שלבים, ציון בריאות, התרעה על 5+ ימים בלי גבריאלה,
                  ופרטי הקשר והשימוש של כל סוכן/ת
      משרדים    - כתובת, מנהלים וטלפונים, וכמה סוכנים בכל משרד משתמשים
+     יומן      - הפגישות שלה (csm_agenda), תזכורת לפני כל אחת, וסנכרון ליומן Google - צוות בלבד
+     התראות    - הפעמון שלה (csm_notifications) - צוות בלבד
      המנטור    - מנטור ההטמעה (csm-workspace, ‏_shared/coach/csm.ts) - צוות בלבד
      הקלטות    - הקלטת שיחה → תמלול, סיכום והמלצות (csm_calls) - צוות בלבד
+     הגדרות    - שם, נייד, ההתראות, שעות שקט וברירות המחדל של היומן - צוות בלבד
      משוב      - בקשות פיתוח, וכמה סוכנים ביקשו כל אחת (csm_feedback_votes)
      הצלחות    - ציטוט, מדד ולפני/אחרי, עם הסכמה לפרסום
      ספרייה    - שלושת מסלולי ההדרכה וקטלוג הפקודות לגבריאלה
@@ -192,29 +195,166 @@ async function loadCsm(force){
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
   csmRows = data || [];
   csmLoaded = true;
+  if (!csmUnreadTimer) csmRefreshUnread();
   const atRisk = csmRows.filter(r => csmRisk(r) && r.stage !== 'champion').length;
   if (typeof accSetCount === 'function') accSetCount('accCsm', atRisk || '');
   csmRender();
 }
 
+// רשומים על csm_staff.id (היא), ולכן לא בתצוגת הפיקוח ב-CRM
+const CSM_STAFF_TABS = ['today', 'mentor', 'calls', 'agenda', 'notifications', 'settings'];
+
 function csmRender(){
   const ctx = csmCtx();
-  document.querySelectorAll('[data-csm-tab="mentor"],[data-csm-tab="calls"]').forEach(b => { b.hidden = !ctx.isStaff; });
+  CSM_STAFF_TABS.forEach(t => document.querySelectorAll(`.csm-tabs [data-csm-tab="${t}"]`).forEach(b => { b.hidden = !ctx.isStaff; }));
   const staffTab = document.querySelector('[data-csm-tab="staff"]');
   if (staffTab) staffTab.hidden = !ctx.isAdmin;
-  if ((csmTab === 'mentor' || csmTab === 'calls') && !ctx.isStaff) csmTab = 'pipeline';
+  if (CSM_STAFF_TABS.includes(csmTab) && !ctx.isStaff) csmTab = 'pipeline';
   if (csmTab === 'staff' && !ctx.isAdmin) csmTab = 'pipeline';
   document.querySelectorAll('[data-csm-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.csmTab === csmTab)));
+  // כותרת המסך ב-csm.html (‏data-label / data-sub על כפתור הניווט). ב-CRM אין
+  csmPaintPageHead();
   const host = document.getElementById('csmBody');
   if (!host) return;
-  if (csmTab === 'pipeline') host.innerHTML = csmPipelineHtml();
+  if (csmTab === 'today') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadToday(); }
+  else if (csmTab === 'pipeline') host.innerHTML = csmPipelineHtml();
   else if (csmTab === 'offices') host.innerHTML = csmOfficesHtml();
   else if (csmTab === 'mentor') host.innerHTML = csmMentorHtml();
   else if (csmTab === 'staff') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadStaff(); }
   else if (csmTab === 'calls') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadCalls(); }
+  else if (csmTab === 'agenda') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadAgenda(); }
+  else if (csmTab === 'notifications') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadNotifs(); }
+  else if (csmTab === 'settings') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadSettings(); }
   else if (csmTab === 'feedback') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadFeedback(); }
   else if (csmTab === 'stories') { host.innerHTML = '<div class="empty-state">טוען…</div>'; csmLoadStories(); }
   else host.innerHTML = csmLibraryHtml();
+}
+
+function csmPaintPageHead(){
+  const title = document.getElementById('csmPageTitle');
+  if (!title) return;
+  // ב"היום" הברכה והתאריך הם הכותרת
+  title.closest('.csm-page-head').hidden = csmTab === 'today';
+  const cur = document.querySelector(`.csm-tabs [data-csm-tab="${csmTab}"]`);
+  title.textContent = cur ? cur.dataset.label || cur.textContent.trim() : '';
+  const sub = document.getElementById('csmPageSub');
+  if (sub){ sub.textContent = cur && cur.dataset.sub || ''; sub.hidden = !sub.textContent; }
+}
+
+/* ---------- היום ----------
+   מסך הפתיחה שלה (‏csm.html בלבד, צוות ההטמעה): העצה של המנטור מהבוקר, הפגישות
+   של היום, ולמי לפנות היום - מתוך אותן שורות של הצנרת (csmRisk, מועד הקשר,
+   ומי שנרשם/ה ועוד אין לו/ה פגישה), בלי חישוב חדש. */
+const CSM_WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1-1.7-.8c-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.2.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.3z"/></svg>';
+let csmToday = { events:[], tip:null };
+
+function csmInitials(name){
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return w.length ? (w[0][0] + (w[1] ? w[1][0] : '')) : '?';
+}
+
+async function csmLoadToday(){
+  const host = document.getElementById('csmBody');
+  const day = csmIlDate(Date.now());
+  const fromIso = csmIlToIso(day, '00:00');
+  const toIso = new Date(new Date(fromIso).getTime() + 86400000).toISOString();
+  const staffId = csmCtx().staffId;
+  const [ev, tip] = await Promise.all([
+    sb.from('csm_agenda').select('*').eq('staff_id', staffId)
+      .gte('starts_at', fromIso).lt('starts_at', toIso).order('starts_at').limit(50),
+    sb.from('csm_notifications').select('id,kind,title,body,read_at,created_at')
+      .eq('staff_id', staffId).eq('kind', 'mentor_tip').order('created_at', { ascending:false }).limit(1),
+    csmLoadProfile(),
+  ]);
+  if (csmTab !== 'today') return;
+  if (ev.error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(ev.error)) + '</div>'; return; }
+  const t = ((tip.data || []).find(n => n.kind === 'mentor_tip')) || null;
+  csmToday = {
+    events: (ev.data || []).filter(e => csmIlDate(new Date(e.starts_at).getTime()) === day),
+    tip: t && csmIlDate(new Date(t.created_at).getTime()) === day ? t : null,
+  };
+  host.innerHTML = csmTodayHtml();
+}
+
+// למי לפנות היום: בסיכון, מועד קשר שהגיע, ומי שנרשם/ה ועוד אין לו/ה פגישה
+function csmTodayContacts(bookedToday){
+  const endOfDay = new Date(csmIlToIso(csmIlDate(Date.now() + 86400000), '00:00')).getTime();
+  return csmRows.filter(r => r.stage !== 'champion' && !bookedToday.has(r.agent_id)).map(r => {
+    const risk = csmRisk(r);
+    const f = r.next_followup_at ? new Date(r.next_followup_at).getTime() : null;
+    let why = '', rank = 0;
+    if (risk){ why = risk; rank = 3; }
+    else if (f != null && f < endOfDay){ why = f < Date.now() - 86400000 ? 'מועד הקשר עבר' : 'מועד קשר היום'; rank = 2; }
+    else if (r.stage === 'registered' && !r.sessions){ const d = csmDaysSince(r.joined_at) || 0; why = 'נרשם/ה ' + (d ? 'לפני ' + d + ' ימים' : 'היום') + ', עוד אין פגישה'; rank = 1; }
+    return { r, why, rank };
+  }).filter(x => x.rank).sort((a, b) => b.rank - a.rank || csmHealth(a.r) - csmHealth(b.r));
+}
+
+function csmTodayHtml(){
+  const p = csmProfile || {};
+  const name = String(p.display_name || '').split(' ')[0];
+  const hour = Number(csmIlTime(Date.now()).slice(0, 2));
+  const hello = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
+  const byAgent = Object.fromEntries(csmRows.map(r => [r.agent_id, r]));
+  const live = csmToday.events.filter(e => e.status === 'scheduled');
+  const booked = new Set(live.map(e => e.agent_id).filter(Boolean));
+  const contacts = csmTodayContacts(booked);
+  const risk = csmRows.filter(r => csmRisk(r) && r.stage !== 'champion').length;
+  const tile = (n, label, tab, tone) => `<button type="button" class="csm-kpi${tone ? ' is-' + tone : ''}" data-csm-tab="${tab}">
+      <strong>${n}</strong><span>${escapeHtml(label)}</span></button>`;
+  const phoneBtns = r => r && r.phone ? `<a class="btn btn-icon btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞</a>
+      <a class="btn btn-icon btn-wa" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(r.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">${CSM_WA_SVG}</a>` : '';
+  const evRow = e => {
+    const a = e.agent_id ? byAgent[e.agent_id] : null;
+    return `<li class="csm-today-ev">
+      <span class="csm-today-time">${escapeHtml(csmIlTime(new Date(e.starts_at).getTime()))}</span>
+      <div class="csm-today-main"><strong>${escapeHtml(e.title || CSM_AG_KIND[e.kind] || 'פגישה')}</strong>
+        <div class="csm-card-meta">${escapeHtml(CSM_AG_KIND[e.kind] || '')}${a && a.agency_name ? ' · ' + escapeHtml(a.agency_name) : ''}${e.location ? ' · ' + escapeHtml(e.location) : ''}</div></div>
+      <div class="csm-today-btns">
+        ${e.meeting_url ? `<a class="btn btn-gold btn-sm" href="${escapeHtml(e.meeting_url)}" target="_blank" rel="noopener noreferrer" aria-label="כניסה לפגישה (נפתח בלשונית חדשה)">כניסה</a>` : ''}
+        ${phoneBtns(a)}
+      </div></li>`;
+  };
+  const cRow = ({ r, why, rank }) => `<li class="csm-today-row">
+      <span class="csm-av" aria-hidden="true">${escapeHtml(csmInitials(r.display_name))}</span>
+      <div class="csm-today-main"><button type="button" class="csm-link" data-csm-goto-agent="${escapeHtml(r.agent_id)}">${escapeHtml(r.display_name || 'ללא שם')}</button>
+        <div class="csm-card-meta">${escapeHtml(r.agency_name || '')}${r.agency_name ? ' · ' : ''}<span class="${rank === 3 ? 'csm-risk-txt' : ''}">${escapeHtml(why)}</span></div></div>
+      <div class="csm-today-btns">${phoneBtns(r)}
+        <button type="button" class="btn btn-icon btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}" aria-label="קביעת פגישה עם ${escapeHtml(r.display_name || 'סוכן/ת')}">📅</button></div></li>`;
+  return `<div class="csm-today">
+    <div class="csm-hello"><h3>${escapeHtml(hello)}${name ? ', ' + escapeHtml(name) : ''}</h3>
+      <p>${escapeHtml(csmIlDayLabel(csmIlDate(Date.now())))}</p></div>
+    <div class="csm-kpis">
+      ${tile(live.length, 'פגישות היום', 'agenda')}
+      ${tile(contacts.length, 'לפנות היום', 'pipeline', contacts.length ? 'warn' : '')}
+      ${tile(risk, 'בסיכון', 'pipeline', risk ? 'risk' : '')}
+      ${tile(csmRows.length, 'סוכנים בתיק', 'pipeline')}
+    </div>
+    <div class="csm-today-grid">
+      <section class="csm-box csm-tip-box" aria-label="העצה של המנטור">
+        <h4>💡 העצה של המנטור להיום</h4>
+        ${csmToday.tip ? `<p class="csm-tip-text">${escapeHtml(csmToday.tip.body || csmToday.tip.title)}</p>`
+          : `<p class="csm-hint">העצה של היום מגיעה ${p.digest_time ? 'ב-' + escapeHtml(String(p.digest_time).slice(0, 5)) : 'בשעת סיכום הבוקר'} בימי העבודה שלך, כאן ובוואטסאפ. בינתיים אפשר לשאול את המנטור.</p>`}
+        <button type="button" class="btn btn-ghost btn-sm" data-csm-tab="mentor">${csmToday.tip ? 'שאלת המשך למנטור' : 'שאלה למנטור'}</button>
+      </section>
+      <section class="csm-box" aria-label="הפגישות של היום">
+        <h4>📅 הפגישות של היום <span class="csm-count">${live.length}</span></h4>
+        ${live.length ? `<ul class="csm-today-list">${live.map(evRow).join('')}</ul>` : '<p class="csm-hint">אין פגישות היום.</p>'}
+        <button type="button" class="btn btn-ghost btn-sm" data-csm-ev-new="">+ פגישה חדשה</button>
+      </section>
+      <section class="csm-box csm-box-wide" aria-label="למי לפנות היום">
+        <h4>📞 למי לפנות היום <span class="csm-count">${contacts.length}</span></h4>
+        ${contacts.length ? `<ul class="csm-today-list">${contacts.slice(0, 8).map(cRow).join('')}</ul>
+          ${contacts.length > 8 ? `<button type="button" class="btn btn-ghost btn-sm" data-csm-tab="pipeline">עוד ${contacts.length - 8} בצנרת</button>` : ''}`
+          : '<p class="csm-hint">אין היום מי שמחכה לך. זה זמן טוב לתאם פגישה עם משרד חדש.</p>'}
+      </section>
+      <section class="csm-box csm-box-wide csm-quick" aria-label="פעולות מהירות">
+        <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(String(ASSISTANT_WA_NUMBER))}?text=${encodeURIComponent('היי גבריאלה')}" target="_blank" rel="noopener noreferrer" aria-label="שיחה עם גבריאלה בוואטסאפ (נפתח בלשונית חדשה)">${CSM_WA_SVG} גבריאלה</a>
+        <button type="button" class="btn btn-ghost" data-csm-tab="calls">🎙 העלאת הקלטה</button>
+        <button type="button" class="btn btn-ghost" data-csm-tab="library">📘 פקודות להדרכה</button>
+      </section>
+    </div>
+  </div>`;
 }
 
 /* ---------- הצנרת ---------- */
@@ -259,16 +399,21 @@ function csmCardHtml(r){
   const tone = h >= 60 ? 'good' : h >= 30 ? 'mid' : 'low';
   const risk = csmRisk(r);
   const follow = r.next_followup_at ? csmDaysSince(r.next_followup_at) : null;
-  const opts = CSM_STAGES.map(s => `<option value="${s.key}"${s.key === r.stage ? ' selected' : ''}>${escapeHtml(s.label)}</option>`).join('');
+  const who = escapeHtml(r.display_name || 'סוכן/ת');
   return `
-    <article class="csm-card">
+    <article class="csm-card is-${tone}" data-agent="${escapeHtml(r.agent_id)}">
       <div class="csm-card-head">
-        <strong>${escapeHtml(r.display_name || 'ללא שם')}</strong>
-        <span class="csm-health ${tone}" title="ציון בריאות">${h}</span>
+        <span class="csm-av" aria-hidden="true">${escapeHtml(csmInitials(r.display_name))}</span>
+        <div class="csm-card-id">
+          <strong>${escapeHtml(r.display_name || 'ללא שם')}</strong>
+          <div class="csm-card-meta">${escapeHtml(r.agency_name || '')}${r.tier ? ' · ' + escapeHtml(r.tier) : ''} · הצטרף/ה ${escapeHtml(csmFmtDate(r.joined_at))}</div>
+        </div>
+        <span class="csm-health ${tone}" title="ציון בריאות (0-100)">${h}</span>
       </div>
-      <div class="csm-card-meta">${escapeHtml(r.agency_name || '')}${r.tier ? ' · ' + escapeHtml(r.tier) : ''} · הצטרף/ה ${escapeHtml(csmFmtDate(r.joined_at))}</div>
-      ${risk ? `<div class="csm-badge risk">⚠ ${escapeHtml(risk)}</div>` : ''}
-      ${follow != null && follow >= 0 ? `<div class="csm-badge due">📅 קשר הבא ${follow === 0 ? 'היום' : 'עבר לפני ' + follow + ' ימים'}</div>` : ''}
+      ${risk || (follow != null && follow >= 0) ? `<div class="csm-badges">
+        ${risk ? `<span class="csm-badge risk">⚠ ${escapeHtml(risk)}</span>` : ''}
+        ${follow != null && follow >= 0 ? `<span class="csm-badge due">📅 קשר הבא ${follow === 0 ? 'היום' : 'עבר לפני ' + follow + ' ימים'}</span>` : ''}
+      </div>` : ''}
       <div class="csm-stats">
         <span title="הודעות לגבריאלה בשבוע האחרון">💬 ${r.gabriela_7d || 0}</span>
         <span title="נכסים פעילים">🏠 ${r.active_listings || 0}</span>
@@ -277,18 +422,13 @@ function csmCardHtml(r){
         ${r.last_clarity ? `<span title="דירוג בהדרכה">⭐ ${r.last_clarity}</span>` : ''}
       </div>
       ${r.last_weekly_goal ? `<div class="csm-card-goal">🎯 ${escapeHtml(r.last_weekly_goal)}</div>` : ''}
-      ${csmContactHtml(r)}
-      <label class="csm-stage-sel"><span class="sr-only">שלב</span>
-        <select data-csm-stage="${escapeHtml(r.agent_id)}">${opts}</select>
-      </label>
-      ${r.phone ? `<div class="csm-contact">
-        <a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞 התקשרות</a>
-        <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(r.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>
-        <span class="csm-phone" dir="ltr">${escapeHtml(r.phone)}</span>
-      </div>` : '<div class="csm-card-meta">אין טלפון בכרטיס</div>'}
       <div class="csm-card-actions">
-        <button type="button" class="btn btn-gold" data-csm-session="${escapeHtml(r.agent_id)}">${r.sessions ? 'פגישה נוספת' : 'פגישת הצלחה ראשונה'}</button>
+        <button type="button" class="btn btn-gold csm-card-main" data-csm-session="${escapeHtml(r.agent_id)}">${r.sessions ? 'פגישה נוספת' : 'פגישת הצלחה ראשונה'}</button>
+        ${r.phone ? `<a class="btn btn-icon btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${who}" title="התקשרות">📞</a>
+        <a class="btn btn-icon btn-wa" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${who} (נפתח בלשונית חדשה)" title="וואטסאפ">${CSM_WA_SVG}</a>` : ''}
+        ${csmCtx().isStaff ? `<button type="button" class="btn btn-icon btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}" aria-label="קביעת פגישה עם ${who}" title="קביעת פגישה">📅</button>` : ''}
       </div>
+      ${csmContactHtml(r)}
     </article>`;
 }
 
@@ -296,7 +436,12 @@ function csmCardHtml(r){
 function csmContactHtml(r){
   const days = v => { const d = csmDaysSince(v); return d == null ? 'אף פעם' : d === 0 ? 'היום' : 'לפני ' + d + ' ימים'; };
   const addr = [r.agency_address, r.agency_city].filter(Boolean).join(', ');
-  return `<details class="csm-more"><summary>פרטים ושימוש</summary>
+  const opts = CSM_STAGES.map(s => `<option value="${s.key}"${s.key === r.stage ? ' selected' : ''}>${escapeHtml(s.label)}</option>`).join('');
+  return `<details class="csm-more"><summary>פרטים, שלב ומסלולים</summary>
+    <label class="csm-stage-sel"><span>השלב בצנרת</span>
+      <select data-csm-stage="${escapeHtml(r.agent_id)}">${opts}</select>
+    </label>
+    ${r.phone ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(csmPricingWa(r))}" target="_blank" rel="noopener noreferrer" aria-label="שליחת דף המסלולים ל${escapeHtml(r.display_name || 'סוכן/ת')} בוואטסאפ (נפתח בלשונית חדשה)">💬 שליחת המסלולים</a>` : '<div class="csm-card-meta">אין טלפון בכרטיס</div>'}
     <dl>
       ${r.phone ? `<dt>טלפון</dt><dd><a href="tel:${escapeHtml(r.phone)}" dir="ltr">${escapeHtml(r.phone)}</a></dd>` : ''}
       ${r.email ? `<dt>מייל</dt><dd><a href="mailto:${escapeHtml(r.email)}" dir="ltr">${escapeHtml(r.email)}</a></dd>` : ''}
@@ -438,7 +583,7 @@ let csmCallPoll = null;
 
 async function csmLoadCalls(){
   const { data, error } = await sb.from('csm_calls')
-    .select('id,title,agent_id,source,status,error,analysis,transcript,audio_path,created_at')
+    .select('id,title,agent_id,source,status,error,analysis,transcript,audio_path,created_at,from_number,voicemail')
     .order('created_at', { ascending:false }).limit(100);
   if (csmTab !== 'calls') return;
   const host = document.getElementById('csmBody');
@@ -464,7 +609,7 @@ function csmCallsHtml(){
         <span class="csm-tag ${c.status === 'done' ? 'seen' : c.status === 'failed' ? 'rec' : ''}">${escapeHtml(CSM_CALL_STATUS[c.status] || c.status)}</span>
       </div>
       <div class="csm-card-meta">${escapeHtml(new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}
-        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
+        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : c.source === 'phone' ? (c.voicemail ? 'הודעה קולית למספר שלך' : 'שיחה למספר שלך') + (c.from_number ? ' מ-<span dir="ltr">' + escapeHtml(csmLocalPhone(c.from_number)) + '</span>' : '') : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
       ${c.status === 'failed' ? `<p class="csm-hint">${escapeHtml(c.error || '')} <button type="button" class="btn btn-ghost" data-csm-call-retry="${escapeHtml(c.id)}">לנסות שוב</button></p>` : ''}
       ${a.summary && !open ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
       ${open ? csmCallDetailHtml(c) : ''}
@@ -547,10 +692,15 @@ let csmStaffEditId = null;   // עריכה של הזמנה קיימת (csm_staff
 
 async function csmLoadStaff(){
   const host = document.getElementById('csmBody');
-  const { data, error } = await sb.rpc('csm_staff_list');
+  const [{ data, error }, { data: lines }, { data: cands }] = await Promise.all([
+    sb.rpc('csm_staff_list'),
+    sb.from('csm_phone_lines').select('id,staff_id,twilio_number,forward_to,twilio_sid,moved_from_line,active').eq('active', true),
+    sb.rpc('csm_phone_line_candidates'),
+  ]);
   if (csmTab !== 'staff') return;
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
   const rows = csmStaffRows = data || [];
+  const lineOf = Object.fromEntries((lines || []).map(l => [l.staff_id, l]));
   const ed = csmStaffEditId ? rows.find(r => r.id === csmStaffEditId) : null;
   if (!ed) csmStaffEditId = null;
   host.innerHTML = `
@@ -573,7 +723,64 @@ async function csmLoadStaff(){
         <button type="button" class="btn btn-ghost" data-csm-staff-edit="${escapeHtml(r.id)}">עריכה</button>
         <button type="button" class="btn ${r.active ? 'btn-ghost' : 'btn-gold'}" data-csm-staff="${escapeHtml(r.id)}" data-on="${r.active ? '0' : '1'}">${r.active ? 'השבתה' : 'הפעלה'}</button>
       </div>
+      ${r.active ? csmStaffLineHtml(r, lineOf[r.id], cands || []) : ''}
     </div>`).join('') || '<div class="empty-state">עוד אין צוות הטמעה.</div>'}`;
+}
+
+/* ---------- המספר הווירטואלי של אשת הצוות (csm_phone_lines) ----------
+   שיחה למספר מגיעה לנייד שלה, מוקלטת, ומנותחת כמו "הקלטות" - והסיכום וההקלטה
+   מגיעים אליה בוואטסאפ (twilio-voice, ‏csmIncoming). של הפלטפורמה: בלי מסלול,
+   ארנק או תקרת דקות. שתי דרכים: קנייה ב-Twilio (twilio-voice?task=csm-line-order),
+   או העברת מספר קיים של הפלטפורמה, כמו הפיילוט (csm_phone_line_assign). */
+function csmLocalPhone(e164){
+  const d = String(e164 || '').replace(/\D/g, '');
+  return d.startsWith('972') ? '0' + d.slice(3) : String(e164 || '');
+}
+
+function csmStaffLineHtml(r, line, cands){
+  if (line) return `<div class="csm-staff-line">📞 מספר וירטואלי: <strong dir="ltr">${escapeHtml(csmLocalPhone(line.twilio_number))}</strong>
+      → ${line.forward_to ? '<span dir="ltr">' + escapeHtml(csmLocalPhone(line.forward_to)) + '</span>' : 'הנייד שלה'}
+      <button type="button" class="btn btn-ghost btn-sm" data-csm-line-off="${escapeHtml(line.id)}" data-bought="${line.twilio_sid ? '1' : '0'}">${line.twilio_sid ? 'שחרור המספר' : line.moved_from_line ? 'החזרה לסוכנים' : 'ניתוק'}</button></div>`;
+  if (!r.phone) return '<div class="csm-staff-line csm-hint">כדי לחבר מספר וירטואלי צריך קודם נייד בהזמנה.</div>';
+  return `<div class="csm-staff-line">
+      <span class="csm-hint">מספר וירטואלי: שיחות אליו יגיעו לנייד שלה, יוקלטו, והסיכום וההקלטה יגיעו אליה בוואטסאפ.</span>
+      <select data-csm-line-area="${escapeHtml(r.id)}" aria-label="קידומת"><option value="4">04</option><option value="2">02</option><option value="3">03</option><option value="8">08</option><option value="9">09</option><option value="72">072</option><option value="77">077</option></select>
+      <button type="button" class="btn btn-gold btn-sm" data-csm-line-buy="${escapeHtml(r.id)}">קניית מספר</button>
+      ${cands.length ? `<select data-csm-line-move="${escapeHtml(r.id)}" aria-label="מספר קיים של הפלטפורמה"><option value="">או העברת מספר קיים…</option>${cands.map(c => `<option value="${escapeHtml(c.twilio_number)}">${escapeHtml(csmLocalPhone(c.twilio_number))}${c.label ? ' - ' + escapeHtml(c.label) : ''}${c.agent_name ? ' (אצל ' + escapeHtml(c.agent_name) + ')' : ''}</option>`).join('')}</select>` : ''}
+    </div>`;
+}
+
+const CSM_LINE_ERR = {
+  bad_number:'המספר אינו מספר ישראלי תקין.', number_in_use:'המספר הזה שייך לסוכן/ת שמשלם/ת עליו, ולא אפשר להעביר אותו.',
+  staff_not_found:'אשת הצוות לא נמצאה או מושבתת.', no_phone:'אין נייד בהזמנה - אין לאן לנתב.',
+  no_number_available:'אין כרגע מספר פנוי בקידומת הזו ב-Twilio. אפשר לנסות קידומת אחרת.',
+  purchase_failed:'הקנייה ב-Twilio נכשלה. לא חויב דבר.', not_configured:'Twilio עוד לא מוגדר במערכת.',
+  twilio_release_failed:'השחרור ב-Twilio נכשל. אפשר לנסות שוב.',
+};
+
+async function csmTwilio(task, body){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { error:'session_not_found' };
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + encodeURIComponent(task), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok && !data.error) data.error = String(res.status);
+    return data;
+  } catch (e){
+    return { error: (e && e.message) || 'network' };
+  }
+}
+
+/* "המסלולים" בכרטיס: הוואטסאפ שלה נפתח עם הודעה מוכנה וקישור לדף המסלולים.
+   נשלח מהטלפון שלה, כמו כפתור "וואטסאפ" שלידו. דרך גבריאלה - csm_send_to_agent. */
+function csmPricingWa(r){
+  const first = String(r.display_name || '').trim().split(/\s+/)[0];
+  const text = (first ? 'היי ' + first + ', ' : 'היי, ') + 'כאן המסלולים של שוק נדל״ן ומה כלול בכל אחד: https://shuknadlan.co.il/pricing';
+  return 'https://wa.me/' + csmWaDigits(r.phone) + '?text=' + encodeURIComponent(text);
 }
 
 function csmWaDigits(phone){
@@ -910,6 +1117,446 @@ function csmLibraryHtml(){
     <div id="csmCmdList">${cmds}</div>`;
 }
 
+/* ---------- שעון ישראל ----------
+   כל מועד ביומן נשמר ב-UTC ומוצג בשעון ישראל, גם כשהמחשב שלה בחו"ל. אותו חישוב
+   של ilLocalToIso ב-csm-tools.ts (שני סבבים, בגלל המעבר לשעון קיץ/חורף). */
+const CSM_TZ = 'Asia/Jerusalem';
+function csmIlDate(ms){
+  return new Intl.DateTimeFormat('en-CA', { timeZone:CSM_TZ, year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(ms));
+}
+function csmIlTime(ms){
+  return new Intl.DateTimeFormat('en-GB', { timeZone:CSM_TZ, hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).format(new Date(ms));
+}
+function csmIlOffset(ms){
+  const p = new Intl.DateTimeFormat('en-US', { timeZone:CSM_TZ, hourCycle:'h23', year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(new Date(ms));
+  const g = t => Number((p.find(x => x.type === t) || {}).value);
+  return Math.round((Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - ms) / 60000);
+}
+function csmIlToIso(date, time){
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(String(time || ''));
+  if (!dm || !tm) return null;
+  const naive = Date.UTC(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2]);
+  let utc = naive - csmIlOffset(naive) * 60000;
+  utc = naive - csmIlOffset(utc) * 60000;
+  return new Date(utc).toISOString();
+}
+function csmIlDayLabel(date){
+  const ms = Date.parse(date + 'T12:00:00Z');
+  const today = csmIlDate(Date.now()), tomorrow = csmIlDate(Date.now() + 86400000);
+  const name = new Date(ms).toLocaleDateString('he-IL', { timeZone:'UTC', weekday:'long', day:'numeric', month:'numeric' });
+  return date === today ? 'היום · ' + name : date === tomorrow ? 'מחר · ' + name : name;
+}
+
+/* ---------- הפרופיל ----------
+   נטען פעם אחת (csm_profile_get) - ברירות המחדל של היומן והלשונית "הגדרות". */
+let csmProfile = null;
+async function csmLoadProfile(force){
+  if (!csmCtx().isStaff) return null;
+  if (csmProfile && !force) return csmProfile;
+  const { data, error } = await sb.rpc('csm_profile_get');
+  if (!error) csmProfile = data;
+  return csmProfile;
+}
+
+/* ---------- יומן Google ----------
+   החיבור (csm_calendar_connections, שלה בלבד). מחובר - הפגישות עוברות לבד
+   (google-calendar-sync?scope=csm), ובמקום כפתור התבנית מוצג מצב הסנכרון.
+   החיבור והניתוק דרך csm-workspace (gcal_start / gcal_disconnect). */
+let csmGcal = null;
+async function csmLoadGcal(){
+  if (!csmCtx().isStaff) return null;
+  const { data } = await sb.from('csm_calendar_connections')
+    .select('status,google_email,scopes,last_error,last_sync_at').eq('staff_id', csmCtx().staffId).maybeSingle();
+  csmGcal = data || null;
+  return csmGcal;
+}
+function csmGcalOn(){ return !!(csmGcal && csmGcal.status === 'active'); }
+
+// התשובה מ-Google (google-calendar-callback → /csm?tab=settings&gcal=...)
+const CSM_GCAL_RESULT = {
+  connected:'יומן Google חובר. הפגישות שלך יופיעו שם ביומן "שוק נדל״ן".',
+  connected_no_freebusy:'יומן Google חובר, בלי הרשאת "פנוי/תפוס" - גבריאלה לא תדע מתי היומן האישי שלך תפוס.',
+  denied:'החיבור ליומן Google בוטל.', scope_missing:'בלי ההרשאה לנהל את יומן "שוק נדל״ן" אין מה לחבר. אפשר לנסות שוב ולסמן אותה.',
+  expired:'עבר יותר מדי זמן מהלחיצה. אפשר לנסות שוב.', not_configured:'החיבור ליומן Google עוד לא הוגדר במערכת.',
+  error:'החיבור ליומן Google נכשל. אפשר לנסות שוב.',
+};
+function csmGcalReturn(code){
+  if (code) showToast(CSM_GCAL_RESULT[code] || CSM_GCAL_RESULT.error, 7000);
+}
+
+async function csmGcalConnect(btn){
+  btn.disabled = true;
+  const r = await csmApi({ action:'gcal_start' });
+  if (r.error || !r.url){ btn.disabled = false; showToast(r.detail || ('לא הצלחנו לפתוח את החיבור: ' + heErr({ code:r.error, message:r.error }))); return; }
+  location.href = r.url;
+}
+async function csmGcalDisconnect(btn){
+  if (!confirm('לנתק את יומן Google? יומן "שוק נדל״ן" יימחק מהחשבון שלך ב-Google, והפגישות כאן יישארו.')) return;
+  btn.disabled = true;
+  const r = await csmApi({ action:'gcal_disconnect' });
+  if (r.error){ btn.disabled = false; showToast('הניתוק נכשל: ' + heErr({ code:r.error, message:r.error })); return; }
+  showToast('יומן Google נותק');
+  csmLoadSettings();
+}
+
+function csmGcalHtml(){
+  const g = csmGcal;
+  const on = csmGcalOn();
+  const fb = on && (g.scopes || []).some(s => /calendar\.freebusy/.test(s));
+  return `<h4 class="csm-sub">יומן Google</h4>
+    <div class="csm-gcal${on ? ' is-on' : ''}">
+      ${on ? `<p><strong>מחובר${g.google_email ? ': <span dir="ltr">' + escapeHtml(g.google_email) + '</span>' : ''}</strong></p>
+        <p class="csm-hint">כל פגישה שתקבעי כאן או דרך גבריאלה מופיעה ביומן "שוק נדל״ן" בחשבון שלך, וגם הזזה וביטול עוברים לשם.${fb ? ' גבריאלה רואה מתי היומן האישי שלך תפוס (פנוי/תפוס בלבד, בלי פרטים) ותגיד כשפגישה חדשה נופלת על זמן תפוס.' : ''}${g.last_sync_at ? ' סנכרון אחרון: ' + escapeHtml(new Date(g.last_sync_at).toLocaleString('he-IL', { timeZone:CSM_TZ, day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' })) + '.' : ''}</p>
+        <button type="button" class="btn btn-ghost" data-csm-gcal-off>ניתוק</button>`
+      : `${g && g.status === 'error' ? `<p class="csm-hint csm-risk-txt">${escapeHtml(g.last_error || 'החיבור נפל. צריך לחבר מחדש.')}</p>` : ''}
+        <p class="csm-hint">גבריאלה מסדרת לך את הפגישות ביומן: כל פגישה עוברת לבד ליומן Google, עם הזזה וביטול, ולפני כל פגישה חדשה היא בודקת שהשעה פנויה אצלך.</p>
+        <button type="button" class="btn btn-gold" data-csm-gcal-on>📅 חיבור מאובטח ל-Google Calendar</button>
+        <p class="csm-hint">הסנכרון מתבצע רק עבור הפגישות שנוצרות באזור ההטמעה. מהיומן האישי רואים רק פנוי/תפוס - בלי כותרות ובלי משתתפים.</p>`}
+    </div>`;
+}
+
+/* ---------- היומן ----------
+   הפגישות שלה (csm_agenda, ‏staff_id = היא), שבועיים מ-csmAgendaFrom, ולצדן מי
+   שמועד הקשר שלו/ה בצנרת נופל בטווח ואין לו/ה פגישה. פגישה עם מי שעוד "נרשם/ה"
+   מעבירה ל"נקבעה פגישה" (טריגר במסד). התזכורת יוצאת מ-csm_notify_run. */
+const CSM_AG_KIND = { first_win:'פגישת הצלחה ראשונה', followup:'פגישת מעקב', call:'שיחה',
+  office_visit:'ביקור במשרד', training:'הדרכה', other:'פגישה' };
+const CSM_AG_STATUS = { scheduled:'מתוכננת', done:'התקיימה', cancelled:'בוטלה', no_show:'לא הגיע/ה' };
+const CSM_AG_DAYS = 14;
+let csmAgenda = [];
+let csmAgendaFrom = null;      // YYYY-MM-DD בשעון ישראל
+let csmAgendaEdit = null;      // null | 'new' | id
+let csmAgendaPreset = null;    // agent_id לטופס חדש (מהכרטיס בצנרת)
+
+/* "הוספה ליומן Google": קישור תבנית - בלי OAuth ובלי גישה ליומן שלה. אותו
+   מבנה של gcalTemplateUrl ב-csm-tools.ts. */
+function csmGcalUrl(e, agent){
+  const fmt = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const start = new Date(e.starts_at).getTime();
+  const details = [agent ? 'עם ' + (agent.display_name || '') + (agent.agency_name ? ' (' + agent.agency_name + ')' : '') : '',
+    agent && agent.phone ? 'טלפון: ' + agent.phone : '', e.meeting_url || '', e.notes || ''].filter(Boolean).join('\n');
+  const q = new URLSearchParams({ action:'TEMPLATE', text: e.title || CSM_AG_KIND[e.kind] || 'פגישה',
+    dates: fmt(start) + '/' + fmt(start + (e.duration_minutes || 45) * 60000), ctz:CSM_TZ });
+  if (details) q.set('details', details.slice(0, 1200));
+  if (e.location || e.meeting_url) q.set('location', e.location || e.meeting_url);
+  return 'https://calendar.google.com/calendar/render?' + q.toString();
+}
+
+async function csmLoadAgenda(){
+  const host = document.getElementById('csmBody');
+  if (!csmAgendaFrom) csmAgendaFrom = csmIlDate(Date.now());
+  const fromIso = csmIlToIso(csmAgendaFrom, '00:00');
+  const toIso = new Date(new Date(fromIso).getTime() + CSM_AG_DAYS * 86400000).toISOString();
+  const staffId = csmCtx().staffId;
+  const [{ data, error }] = await Promise.all([
+    sb.from('csm_agenda').select('*').eq('staff_id', staffId)
+      .gte('starts_at', fromIso).lt('starts_at', toIso).order('starts_at').limit(300),
+    csmLoadProfile(),
+    csmLoadGcal(),
+  ]);
+  if (csmTab !== 'agenda') return;
+  if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
+  csmAgenda = data || [];
+  host.innerHTML = csmAgendaHtml(toIso);
+  if (csmAgendaEdit){ const f = document.getElementById('csmAgendaForm'); if (f) f.scrollIntoView({ block:'start' }); }
+}
+
+function csmAgendaHtml(toIso){
+  const byAgent = Object.fromEntries(csmRows.map(r => [r.agent_id, r]));
+  const days = new Map();
+  csmAgenda.forEach(e => {
+    const d = csmIlDate(new Date(e.starts_at).getTime());
+    if (!days.has(d)) days.set(d, []);
+    days.get(d).push(e);
+  });
+  const booked = new Set(csmAgenda.filter(e => e.status === 'scheduled' && e.agent_id).map(e => e.agent_id));
+  const due = csmRows.filter(r => r.next_followup_at && r.stage !== 'champion' && !booked.has(r.agent_id)
+    && new Date(r.next_followup_at).getTime() < new Date(toIso).getTime())
+    .sort((a, b) => new Date(a.next_followup_at) - new Date(b.next_followup_at)).slice(0, 30);
+  const today = csmIlDate(Date.now());
+  const ev = e => {
+    const a = e.agent_id ? byAgent[e.agent_id] : null;
+    const ms = new Date(e.starts_at).getTime();
+    const live = e.status === 'scheduled';
+    return `<article class="csm-ev${live ? '' : ' is-closed'}">
+      <div class="csm-ev-time">${escapeHtml(csmIlTime(ms))}<small>${e.duration_minutes || 45} דק'</small></div>
+      <div class="csm-ev-main">
+        <div class="csm-fb-head"><strong>${escapeHtml(e.title || CSM_AG_KIND[e.kind] || 'פגישה')}</strong>
+          <span class="csm-tag ${e.status === 'done' ? 'seen' : live ? '' : 'rec'}">${escapeHtml(CSM_AG_STATUS[e.status] || e.status)}</span></div>
+        <div class="csm-card-meta">${escapeHtml(CSM_AG_KIND[e.kind] || '')}${a ? ' · ' + escapeHtml(a.display_name || '') + (a.agency_name ? ' · ' + escapeHtml(a.agency_name) : '') : ''}${e.location ? ' · ' + escapeHtml(e.location) : ''}</div>
+        ${e.notes ? `<p class="csm-fb-desc">${escapeHtml(e.notes)}</p>` : ''}
+        <div class="csm-card-actions">
+          ${e.meeting_url && live ? `<a class="btn btn-gold" href="${escapeHtml(e.meeting_url)}" target="_blank" rel="noopener noreferrer" aria-label="כניסה לפגישה (נפתח בלשונית חדשה)">כניסה לפגישה</a>` : ''}
+          ${a && a.phone && live ? `<a class="btn btn-call" href="tel:${escapeHtml(a.phone)}" aria-label="התקשרות ל${escapeHtml(a.display_name || 'סוכן/ת')}">📞</a>
+            <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(a.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(a.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>` : ''}
+          ${live && !csmGcalOn() ? `<a class="btn btn-ghost" href="${escapeHtml(csmGcalUrl(e, a))}" target="_blank" rel="noopener noreferrer" aria-label="הוספה ליומן Google (נפתח בלשונית חדשה)">📅 ליומן Google</a>` : ''}
+          ${csmGcalOn() && e.google_sync_state === 'error' ? `<span class="csm-tag rec" title="${escapeHtml(e.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
+          ${csmGcalOn() && e.google_sync_state === 'synced' && live ? '<span class="csm-tag seen">ביומן Google</span>' : ''}
+          ${live ? `<button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="done">התקיימה</button>
+            <button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="no_show">לא הגיע/ה</button>
+            <button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="cancelled">ביטול</button>`
+            : `<button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="scheduled">החזרה ליומן</button>`}
+          ${e.status === 'done' && a ? `<button type="button" class="btn btn-gold" data-csm-session="${escapeHtml(a.agent_id)}">רישום הפגישה</button>` : ''}
+          <button type="button" class="btn btn-ghost" data-csm-ev-edit="${escapeHtml(e.id)}">עריכה</button>
+        </div>
+      </div>
+    </article>`;
+  };
+  const list = [...days.entries()].map(([d, evs]) => `<section class="csm-day${d === today ? ' is-today' : ''}">
+      <h4>${escapeHtml(csmIlDayLabel(d))} <span>${evs.filter(e => e.status === 'scheduled').length}</span></h4>${evs.map(ev).join('')}</section>`).join('');
+  return `<div class="csm-toolbar csm-ag-nav">
+      <button type="button" class="btn btn-ghost" data-csm-ag-move="-7" aria-label="שבוע קודם">→</button>
+      <button type="button" class="btn btn-ghost" data-csm-ag-move="0">היום</button>
+      <button type="button" class="btn btn-ghost" data-csm-ag-move="7" aria-label="שבוע הבא">←</button>
+      <span class="csm-hint">${escapeHtml(csmIlDayLabel(csmAgendaFrom))} ועד שבועיים</span>
+      <button type="button" class="btn btn-gold" data-csm-ev-new="">+ פגישה חדשה</button>
+    </div>
+    ${csmAgendaEdit ? csmAgendaFormHtml() : ''}
+    ${list || '<div class="empty-state">אין פגישות בטווח הזה.</div>'}
+    ${due.length ? `<h4 class="csm-sub">מועד קשר בלי פגישה (${due.length})</h4>
+      ${due.map(r => `<div class="csm-staff-row"><div><strong>${escapeHtml(r.display_name || 'ללא שם')}</strong>
+        <div class="csm-card-meta">${escapeHtml(r.agency_name || '')} · ${escapeHtml(csmIlDayLabel(csmIlDate(new Date(r.next_followup_at).getTime())))}${new Date(r.next_followup_at) < Date.now() ? ' · <strong class="csm-risk-txt">עבר</strong>' : ''}</div></div>
+        <div class="csm-staff-btns">${r.phone ? `<a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞</a>` : ''}
+          <button type="button" class="btn btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}">קביעת פגישה</button></div></div>`).join('')}` : ''}
+    <p class="csm-hint">התזכורת לפני כל פגישה יוצאת בפעמון ובוואטסאפ (כמה דקות לפני - בהגדרות). אפשר גם לבקש מגבריאלה: "תקבעי לי פגישה עם יוסי ביום שלישי ב-10:00".
+      ${csmGcalOn() ? 'הפגישות עוברות לבד ליומן Google שלך.' : '<button type="button" class="btn btn-ghost btn-sm" data-csm-tab="settings">חיבור ליומן Google</button>'}</p>`;
+}
+
+function csmAgendaFormHtml(){
+  const e = csmAgendaEdit === 'new' ? null : csmAgenda.find(x => x.id === csmAgendaEdit);
+  const p = csmProfile || {};
+  const ms = e ? new Date(e.starts_at).getTime() : null;
+  const agentId = e ? e.agent_id : csmAgendaPreset;
+  const kind = e ? e.kind : (agentId ? ((csmRows.find(r => r.agent_id === agentId) || {}).sessions ? 'followup' : 'first_win') : 'followup');
+  const rem = e && e.reminder_minutes != null ? String(e.reminder_minutes) : '';
+  const remOpts = [['', 'ברירת המחדל שלי (' + (p.reminder_minutes != null ? p.reminder_minutes + ' דק\')' : '30 דק\')')],
+    ['0', 'בלי תזכורת'], ['10', '10 דקות לפני'], ['30', '30 דקות לפני'], ['60', 'שעה לפני'], ['120', 'שעתיים לפני'], ['1440', 'יום לפני']];
+  return `<form class="csm-form" id="csmAgendaForm">
+    <h4 class="csm-sub" style="margin-top:0">${e ? 'עריכת פגישה' : 'פגישה חדשה'}</h4>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmAgAgent">עם מי</label><select id="csmAgAgent"><option value="">בלי סוכן/ת (הדרכה, משרד חדש)</option>${csmAgentOptions().replace(`value="${escapeHtml(agentId || '')}"`, `value="${escapeHtml(agentId || '')}" selected`)}</select></div>
+      <div class="field"><label for="csmAgKind">סוג</label><select id="csmAgKind">${Object.entries(CSM_AG_KIND).map(([k, l]) => `<option value="${k}"${k === kind ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></div>
+    </div>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmAgDate">תאריך</label><input type="date" id="csmAgDate" required value="${escapeHtml(ms ? csmIlDate(ms) : csmIlDate(Date.now() + 86400000))}"></div>
+      <div class="field"><label for="csmAgTime">שעה</label><input type="time" id="csmAgTime" required value="${escapeHtml(ms ? csmIlTime(ms) : '10:00')}"></div>
+      <div class="field"><label for="csmAgDur">אורך (דקות)</label><input type="number" id="csmAgDur" min="5" max="600" step="5" value="${escapeHtml(String(e ? e.duration_minutes : (p.meeting_minutes || 45)))}"></div>
+    </div>
+    <div class="field"><label for="csmAgTitle">כותרת (לא חובה)</label><input type="text" id="csmAgTitle" maxlength="200" value="${escapeHtml(e ? e.title || '' : '')}" placeholder="ריק = לפי הסוג והשם"></div>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmAgLoc">איפה</label><input type="text" id="csmAgLoc" maxlength="300" value="${escapeHtml(e ? e.location || '' : '')}" placeholder="כתובת המשרד, טלפון, זום"></div>
+      <div class="field"><label for="csmAgUrl">קישור לפגישה</label><input type="url" id="csmAgUrl" dir="ltr" maxlength="500" value="${escapeHtml(e ? e.meeting_url || '' : (p.meeting_link || ''))}" placeholder="https://"></div>
+    </div>
+    <div class="field"><label for="csmAgRem">תזכורת</label><select id="csmAgRem">${remOpts.map(([v, l]) => `<option value="${v}"${v === rem ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></div>
+    <div class="field"><label for="csmAgNotes">הערות</label><textarea id="csmAgNotes" rows="2" maxlength="4000">${escapeHtml(e ? e.notes || '' : '')}</textarea></div>
+    <div class="csm-card-actions">
+      <button type="submit" class="btn btn-gold">${e ? 'שמירת השינויים' : 'קביעת הפגישה'}</button>
+      <button type="button" class="btn btn-ghost" data-csm-ev-cancel>ביטול</button>
+      ${e ? `<button type="button" class="btn btn-ghost" data-csm-ev-del="${escapeHtml(e.id)}">מחיקה</button>` : ''}
+    </div>
+  </form>`;
+}
+
+async function csmSaveAgenda(){
+  const v = id => (document.getElementById(id).value || '').trim();
+  const iso = csmIlToIso(v('csmAgDate'), v('csmAgTime'));
+  if (!iso) throw { message:'צריך תאריך ושעה.' };
+  const editing = csmAgendaEdit !== 'new' ? csmAgenda.find(x => x.id === csmAgendaEdit) : null;
+  if (!editing && new Date(iso).getTime() < Date.now() - 5 * 60000) throw { message:'המועד כבר עבר. כדאי לבחור יום ושעה בעתיד.' };
+  const url = v('csmAgUrl');
+  if (url && !/^https?:\/\//i.test(url)) throw { message:'הקישור לפגישה צריך להתחיל ב-https://' };
+  const agentId = v('csmAgAgent') || null;
+  const kind = v('csmAgKind');
+  const agent = agentId ? csmRows.find(r => r.agent_id === agentId) : null;
+  const row = {
+    agent_id: agentId, kind,
+    title: v('csmAgTitle') || (CSM_AG_KIND[kind] + (agent && agent.display_name ? ' - ' + agent.display_name : '')),
+    starts_at: iso,
+    duration_minutes: Math.min(600, Math.max(5, Number(v('csmAgDur')) || 45)),
+    location: v('csmAgLoc') || null, meeting_url: url || null,
+    reminder_minutes: v('csmAgRem') === '' ? null : Number(v('csmAgRem')),
+    notes: v('csmAgNotes') || null,
+  };
+  const { error } = editing
+    ? await sb.from('csm_agenda').update(row).eq('id', editing.id)
+    : await sb.from('csm_agenda').insert(Object.assign({ staff_id: csmCtx().staffId }, row));
+  if (error) throw error;
+  csmAgendaEdit = null;
+  csmAgendaPreset = null;
+  // פגישה מחוץ לטווח המוצג - הטווח זז אליה, כדי שתראה מה נשמר
+  const day = csmIlDate(new Date(iso).getTime());
+  const end = csmIlDate(new Date(csmIlToIso(csmAgendaFrom, '00:00')).getTime() + CSM_AG_DAYS * 86400000);
+  if (day < csmAgendaFrom || day >= end) csmAgendaFrom = day;
+  showToast(editing ? 'הפגישה עודכנה' : 'הפגישה נקבעה. התזכורת תגיע לפניה.');
+}
+
+/* ---------- ההתראות ----------
+   הפעמון שלה (csm_notifications, נקראת רק שלה ב-RLS). נכתבות במסד בלבד -
+   csm_notify_run ו-csm_calls_notify - ונשלחות לוואטסאפ לפי ההגדרות. */
+const CSM_NOTIF_KIND = { new_agent:'סוכן/ת חדש/ה', at_risk:'5 ימים בלי גבריאלה', meeting_reminder:'תזכורת לפגישה',
+  call_ready:'שיחות והקלטות', daily_digest:'סיכום הבוקר', mentor_tip:'עצה מהמנטור' };
+/* שורת "המנטור:" על כל סוג - אותו נוסח של CSM_KIND_TIPS ב-whatsapp-webhook/csm-tips.ts,
+   שיוצא בוואטסאפ (office_coach_test מוודא ששתי הרשימות זהות). */
+const CSM_NOTIF_TIP = {
+  new_agent: 'הימים הראשונים אחרי ההרשמה הם החלון. שיחה קצרה היום וקביעת פגישת הצלחה ראשונה עדיפות על הודעה ארוכה.',
+  at_risk: 'בלי אשמה ובלי "למה לא". פעולה אחת קטנה עם פקודה מוכנה לגבריאלה, ושאלה שקל לענות עליה בכן או לא.',
+  meeting_reminder: 'לצאת מהפגישה עם פעולה אחת שבוצעה בגבריאלה בזמן הפגישה, יעד שבועי אחד ומועד קשר.',
+  call_ready: 'ההודעה המוצעת עובדת הכי טוב באותו יום, כשהשיחה עוד טרייה.',
+};
+const CSM_NOTIF_ICON = { new_agent:'🆕', at_risk:'⚠', meeting_reminder:'⏰', call_ready:'🎙', daily_digest:'☀', mentor_tip:'💡' };
+let csmNotifs = [];
+let csmUnread = 0;
+let csmUnreadTimer = null;
+
+function csmPaintUnread(){
+  const b = document.getElementById('csmBellCount');
+  if (b){ b.textContent = csmUnread > 99 ? '99+' : String(csmUnread); b.hidden = !csmUnread; }
+  // ב-csm.html המספר בתגית שבתוך כפתור הניווט; ב-CRM - בטקסט הכפתור
+  const t = document.querySelector('[data-csm-tab="notifications"]');
+  const c = t && t.querySelector('.csm-nav-count');
+  if (c){ c.textContent = csmUnread > 99 ? '99+' : String(csmUnread); c.hidden = !csmUnread; }
+  else if (t) t.textContent = 'התראות' + (csmUnread ? ' (' + csmUnread + ')' : '');
+}
+
+async function csmRefreshUnread(){
+  if (!csmCtx().isStaff) return;
+  const { count, error } = await sb.from('csm_notifications').select('id', { count:'exact', head:true })
+    .eq('staff_id', csmCtx().staffId).is('read_at', null);
+  if (!error){ csmUnread = count || 0; csmPaintUnread(); }
+  clearTimeout(csmUnreadTimer);
+  csmUnreadTimer = setTimeout(csmRefreshUnread, 60000);
+}
+
+async function csmLoadNotifs(){
+  const host = document.getElementById('csmBody');
+  const { data, error } = await sb.from('csm_notifications')
+    .select('id,kind,title,body,agent_id,call_id,event_id,read_at,wa_state,wa_error,created_at')
+    .eq('staff_id', csmCtx().staffId).order('created_at', { ascending:false }).limit(80);
+  if (csmTab !== 'notifications') return;
+  if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
+  csmNotifs = data || [];
+  csmUnread = csmNotifs.filter(n => !n.read_at).length;
+  csmPaintUnread();
+  const wa = n => n.wa_state === 'sent' ? 'נשלחה בוואטסאפ' : n.wa_state === 'failed' ? 'לא נשלחה בוואטסאפ' : n.wa_state === 'pending' ? 'ממתינה לוואטסאפ (שעות שקט)' : '';
+  host.innerHTML = `<div class="csm-toolbar">
+      <span class="csm-hint" style="flex:1">${csmUnread ? csmUnread + ' שלא נקראו' : 'הכול נקרא'}</span>
+      ${csmUnread ? '<button type="button" class="btn btn-ghost" data-csm-notif-all>סימון הכול כנקרא</button>' : ''}
+      <button type="button" class="btn btn-ghost" data-csm-tab="settings">מה מקבלים ואיך</button>
+    </div>
+    ${csmNotifs.map(n => `<article class="csm-notif${n.read_at ? '' : ' is-unread'}">
+      <div class="csm-fb-head"><strong>${CSM_NOTIF_ICON[n.kind] || '•'} ${escapeHtml(n.title)}</strong>
+        <span class="csm-card-meta">${escapeHtml(new Date(n.created_at).toLocaleString('he-IL', { timeZone:CSM_TZ, day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}</span></div>
+      ${n.body ? `<p class="csm-fb-desc">${escapeHtml(n.body)}</p>` : ''}
+      ${CSM_NOTIF_TIP[n.kind] ? `<p class="csm-hint csm-notif-tip">💡 המנטור: ${escapeHtml(CSM_NOTIF_TIP[n.kind])}</p>` : ''}
+      <div class="csm-card-actions">
+        ${n.kind === 'mentor_tip' ? '<button type="button" class="btn btn-ghost" data-csm-tab="mentor">שאלת המשך למנטור</button>' : ''}
+        ${n.event_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="agenda" data-id="${escapeHtml(n.id)}">ליומן</button>` : ''}
+        ${n.call_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="calls" data-call="${escapeHtml(n.call_id)}" data-id="${escapeHtml(n.id)}">להקלטה</button>` : ''}
+        ${n.agent_id && !n.event_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="pipeline" data-agent="${escapeHtml(n.agent_id)}" data-id="${escapeHtml(n.id)}">לכרטיס</button>
+          <button type="button" class="btn btn-ghost" data-csm-ev-new="${escapeHtml(n.agent_id)}" data-id="${escapeHtml(n.id)}">קביעת פגישה</button>` : ''}
+        ${!n.read_at ? `<button type="button" class="btn btn-ghost" data-csm-notif-read="${escapeHtml(n.id)}">נקרא</button>` : ''}
+        ${wa(n) ? `<span class="csm-card-meta">${escapeHtml(wa(n))}</span>` : ''}
+      </div>
+    </article>`).join('') || '<div class="empty-state">עוד אין התראות. כאן יופיעו תזכורות לפגישות, סוכנים חדשים, מי שעבר/ה 5 ימים בלי גבריאלה וסיכום הבוקר.</div>'}`;
+}
+
+async function csmMarkRead(ids){
+  const { error } = await sb.rpc('csm_notifications_read', { p_ids: ids || null });
+  if (error){ showToast('לא נשמר: ' + heErr(error)); return; }
+  csmNotifs.forEach(n => { if (!ids || ids.includes(n.id)) n.read_at = n.read_at || new Date().toISOString(); });
+  csmUnread = csmNotifs.filter(n => !n.read_at).length;
+  csmPaintUnread();
+}
+
+/* ---------- ההגדרות ----------
+   csm_profile_save: שם, נייד (לגבריאלה - נדחה אם הוא של סוכן/ת), ההתראות, סיכום
+   הבוקר, ימי עבודה, שעות שקט, ברירות המחדל של היומן וקישור קבוע לפגישות. המייל
+   נעול: הוא מפתח ההזמנה. */
+const CSM_PROFILE_ERR = {
+  bad_name:'צריך שם.', bad_phone:'הנייד אינו תקין.',
+  phone_is_agent:'הנייד הזה רשום לסוכן/ת במערכת. גבריאלה מזהה סוכנים קודם, ולכן צריך נייד אחר.',
+  phone_taken:'הנייד הזה כבר רשום לאשת צוות אחרת.', bad_time:'שעה צריכה להיות בפורמט 08:30.',
+  bad_minutes:'מספר הדקות מחוץ לטווח.', bad_link:'הקישור הקבוע צריך להתחיל ב-https://', bad_days:'ימי העבודה אינם תקינים.',
+};
+const CSM_DOW = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש\''];
+
+async function csmLoadSettings(){
+  const host = document.getElementById('csmBody');
+  const [p, , lineRes] = await Promise.all([csmLoadProfile(true), csmLoadGcal(),
+    sb.from('csm_phone_lines').select('twilio_number,forward_to').eq('staff_id', csmCtx().staffId).eq('active', true).maybeSingle()]);
+  if (csmTab !== 'settings') return;
+  const line = lineRes && lineRes.data;
+  if (!p){ host.innerHTML = '<div class="empty-state">לא הצלחנו לטעון את ההגדרות. כדאי לרענן.</div>'; return; }
+  const off = new Set(p.notify_off || []);
+  const days = new Set((p.work_days || []).map(Number));
+  host.innerHTML = `<form class="csm-form" id="csmSettingsForm">
+    <h4 class="csm-sub" style="margin-top:0">הפרופיל</h4>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmPfName">שם</label><input type="text" id="csmPfName" maxlength="120" required value="${escapeHtml(p.display_name || '')}"></div>
+      <div class="field"><label for="csmPfPhone">נייד (לגבריאלה)</label><input type="tel" id="csmPfPhone" dir="ltr" required value="${escapeHtml(p.phone || '')}"></div>
+      <div class="field"><label for="csmPfEmail">מייל (הכניסה עם Google)</label><input type="email" id="csmPfEmail" dir="ltr" readonly value="${escapeHtml(p.email || '')}" title="המייל הוא מפתח ההזמנה. לשינוי - לפנות לתומר"></div>
+    </div>
+    <p class="csm-hint">גבריאלה מזהה אותך לפי הנייד. אחרי שינוי - לכתוב לה מהנייד החדש.</p>
+    ${line ? `<p class="csm-staff-line">📞 המספר הווירטואלי שלך: <strong dir="ltr">${escapeHtml(csmLocalPhone(line.twilio_number))}</strong>.
+      שיחות אליו מגיעות ל${line.forward_to ? '<span dir="ltr">' + escapeHtml(csmLocalPhone(line.forward_to)) + '</span>' : 'נייד שלך'} ומוקלטות, והסיכום וההקלטה מגיעים אלייך בוואטסאפ ובלשונית "הקלטות". כדאי לתת אותו לסוכנים במקום הנייד.</p>`
+      : '<p class="csm-hint">אין לך עדיין מספר וירטואלי. עם מספר כזה כל שיחה מסוכן/ת מוקלטת, ואת מקבלת סיכום והקלטה בוואטסאפ - לבקש מתומר.</p>'}
+
+    <h4 class="csm-sub">התראות</h4>
+    <label class="csm-opt"><input type="checkbox" id="csmPfWa"${p.notify_whatsapp ? ' checked' : ''}> <span>לשלוח לי גם בוואטסאפ (מגבריאלה). בלי הסימון - בפעמון כאן בלבד</span></label>
+    <fieldset class="csm-q"><legend>מה לקבל</legend>
+      ${Object.entries(CSM_NOTIF_KIND).map(([k, l]) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-kind="${k}"${off.has(k) ? '' : ' checked'}> <span>${CSM_NOTIF_ICON[k]} ${escapeHtml(l)}${k === 'daily_digest' ? ' - פגישות היום, למי לחזור, כמה בסיכון ומי נרשם/ה' : k === 'at_risk' ? ' - ביום שבו הסוכן/ת עובר/ת את הסף' : k === 'call_ready' ? ' - סיכום והקלטה של כל שיחה למספר הווירטואלי, שיחה שלא נענתה, והקלטה שהעלית' : k === 'mentor_tip' ? ' - כל בוקר עבודה, בשעת סיכום הבוקר: שלוש עצות מהתיק - עם מי להתחיל ומה לומר' : ''}</span></label>`).join('')}
+    </fieldset>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmPfDigest">שעת סיכום הבוקר</label><input type="time" id="csmPfDigest" value="${escapeHtml(p.digest_time || '08:30')}"></div>
+      <div class="field"><label for="csmPfQf">בלי וואטסאפ מ-</label><input type="time" id="csmPfQf" value="${escapeHtml(p.quiet_from || '21:00')}"></div>
+      <div class="field"><label for="csmPfQt">עד</label><input type="time" id="csmPfQt" value="${escapeHtml(p.quiet_to || '08:00')}"></div>
+    </div>
+    <fieldset class="csm-q csm-rate"><legend>ימי עבודה (סיכום הבוקר יוצא רק בהם)</legend>
+      ${CSM_DOW.map((l, i) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-day="${i}"${days.has(i) ? ' checked' : ''}> <span>${l}</span></label>`).join('')}
+    </fieldset>
+    <p class="csm-hint">בשעות השקט ההתראות מחכות ויוצאות בבוקר. תזכורת לפגישה שלך יוצאת גם בהן.
+      ${p.whatsapp_window_open ? '' : ` גבריאלה יכולה לכתוב לך חופשי רק 24 שעות אחרי ההודעה האחרונה שלך, ואחר כך - בהודעת תבנית קצרה. <a href="https://wa.me/${escapeHtml(ASSISTANT_WA_NUMBER)}?text=${encodeURIComponent('שלום גבריאלה')}" target="_blank" rel="noopener noreferrer" data-bot>לכתוב לגבריאלה עכשיו</a>`}</p>
+
+    <h4 class="csm-sub">היומן</h4>
+    <div class="csm-fb-row">
+      <div class="field"><label for="csmPfDur">אורך פגישה (דקות)</label><input type="number" id="csmPfDur" min="10" max="240" step="5" value="${escapeHtml(String(p.meeting_minutes || 45))}"></div>
+      <div class="field"><label for="csmPfRem">תזכורת (דקות לפני, 0 = בלי)</label><input type="number" id="csmPfRem" min="0" max="1440" step="5" value="${escapeHtml(String(p.reminder_minutes != null ? p.reminder_minutes : 30))}"></div>
+    </div>
+    <div class="field"><label for="csmPfLink">קישור קבוע לפגישות וידאו (Zoom / Meet)</label><input type="url" id="csmPfLink" dir="ltr" maxlength="500" value="${escapeHtml(p.meeting_link || '')}" placeholder="https://"></div>
+    <button type="submit" class="btn btn-gold">שמירה</button>
+  </form>
+  <div class="csm-form">${csmGcalHtml()}</div>
+  <p class="csm-hint">הכול אפשר גם דרך גבריאלה: "תכבי לי את סיכום הבוקר", "תזכורת שעה לפני כל פגישה", "מה ההגדרות שלי?".</p>`;
+}
+
+async function csmSaveSettings(){
+  const v = id => (document.getElementById(id).value || '').trim();
+  const body = document.getElementById('csmBody');
+  const p = {
+    display_name: v('csmPfName'), phone: v('csmPfPhone'),
+    notify_whatsapp: document.getElementById('csmPfWa').checked,
+    notify_off: [...body.querySelectorAll('[data-csm-pf-kind]')].filter(i => !i.checked).map(i => i.dataset.csmPfKind),
+    digest_time: v('csmPfDigest'), quiet_from: v('csmPfQf'), quiet_to: v('csmPfQt'),
+    work_days: [...body.querySelectorAll('[data-csm-pf-day]')].filter(i => i.checked).map(i => Number(i.dataset.csmPfDay)),
+    meeting_minutes: Number(v('csmPfDur')), reminder_minutes: Number(v('csmPfRem')), meeting_link: v('csmPfLink'),
+  };
+  if (csmProfile && p.phone === (csmProfile.phone || '')) delete p.phone;
+  const { data, error } = await sb.rpc('csm_profile_save', { p });
+  if (error) throw error;
+  if (data && data.error){ showToast(CSM_PROFILE_ERR[data.error] || 'לא נשמר.'); return; }
+  csmProfile = data.profile;
+  const who = document.getElementById('csmWho');
+  if (who && csmProfile && csmProfile.display_name) who.textContent = csmProfile.display_name;
+  showToast('ההגדרות נשמרו');
+}
+
+// ?tab= מהקישור בהתראה בוואטסאפ (csm-page.js)
+function csmSetTab(tab){
+  if (['today','pipeline','offices','mentor','calls','agenda','notifications','settings','feedback','stories','library','staff'].includes(tab)) csmTab = tab;
+}
+
 /* ---------- חיבורים ---------- */
 (function wireCsm(){
   const acc = document.getElementById('accCsm');
@@ -942,6 +1589,106 @@ function csmLibraryHtml(){
       return;
     }
     if (e.target.closest('[data-csm-staff-cancel]')){ csmStaffEditId = null; csmLoadStaff(); return; }
+    const lineBuy = e.target.closest('[data-csm-line-buy]');
+    if (lineBuy){
+      const staffId = lineBuy.dataset.csmLineBuy;
+      const area = (document.querySelector(`[data-csm-line-area="${CSS.escape(staffId)}"]`) || {}).value || '4';
+      if (!confirm('לקנות מספר וירטואלי חדש ב-Twilio (קידומת 0' + area + ')? המספר הוא עלות של הפלטפורמה, כ-5.5$ לחודש ועוד הדקות.')) return;
+      lineBuy.disabled = true;
+      csmTwilio('csm-line-order', { staff_id: staffId, area }).then(r => {
+        if (r.error){ lineBuy.disabled = false; showToast(CSM_LINE_ERR[r.error] || 'לא נשמר: ' + heErr({ code:r.error, message:r.error })); return; }
+        showToast('נקנה ' + csmLocalPhone(r.number) + '. שיחות אליו מגיעות עכשיו לנייד שלה.');
+        csmLoadStaff();
+      });
+      return;
+    }
+    const lineOff = e.target.closest('[data-csm-line-off]');
+    if (lineOff){
+      const bought = lineOff.dataset.bought === '1';
+      if (!confirm(bought ? 'לשחרר את המספר ב-Twilio? הוא לא יחזור.' : 'לנתק את המספר ממנה? אם הוא הועבר מהסוכנים - הוא חוזר לשם.')) return;
+      lineOff.disabled = true;
+      csmTwilio('csm-line-release', { line_id: lineOff.dataset.csmLineOff }).then(r => {
+        if (r.error){ lineOff.disabled = false; showToast(CSM_LINE_ERR[r.error] || 'לא נשמר: ' + heErr({ code:r.error, message:r.error })); return; }
+        showToast(r.returned_to_agent_line ? 'המספר נותק ממנה וחזר לסוכנים.' : 'המספר שוחרר.');
+        csmLoadStaff();
+      });
+      return;
+    }
+    // היומן
+    const evNew = e.target.closest('[data-csm-ev-new]');
+    if (evNew){
+      if (evNew.dataset.id) csmMarkRead([evNew.dataset.id]);
+      csmAgendaEdit = 'new';
+      csmAgendaPreset = evNew.dataset.csmEvNew || null;
+      csmTab = 'agenda';
+      csmRender();
+      return;
+    }
+    const evEdit = e.target.closest('[data-csm-ev-edit]');
+    if (evEdit){ csmAgendaEdit = evEdit.dataset.csmEvEdit; csmLoadAgenda(); return; }
+    if (e.target.closest('[data-csm-ev-cancel]')){ csmAgendaEdit = null; csmAgendaPreset = null; csmLoadAgenda(); return; }
+    const mv = e.target.closest('[data-csm-ag-move]');
+    if (mv){
+      const n = Number(mv.dataset.csmAgMove);
+      csmAgendaFrom = n ? csmIlDate(new Date(csmIlToIso(csmAgendaFrom || csmIlDate(Date.now()), '12:00')).getTime() + n * 86400000) : csmIlDate(Date.now());
+      csmLoadAgenda();
+      return;
+    }
+    const evSt = e.target.closest('[data-csm-ev-status]');
+    if (evSt){
+      evSt.disabled = true;
+      const ev = csmAgenda.find(x => x.id === evSt.dataset.csmEvStatus);
+      sb.from('csm_agenda').update({ status: evSt.dataset.status }).eq('id', evSt.dataset.csmEvStatus).then(({ error }) => {
+        if (error){ evSt.disabled = false; showToast('לא נשמר: ' + heErr(error)); return; }
+        // פגישה שהתקיימה עם סוכן/ת - ישר לרישום מה בוצע, כמו בכרטיס בצנרת
+        if (evSt.dataset.status === 'done' && ev && ev.agent_id && (ev.kind === 'first_win' || ev.kind === 'followup')
+            && csmRows.some(r => r.agent_id === ev.agent_id)) csmOpenSession(ev.agent_id);
+        csmLoadAgenda();
+      });
+      return;
+    }
+    const evDel = e.target.closest('[data-csm-ev-del]');
+    if (evDel){
+      if (!confirm('למחוק את הפגישה מהיומן?')) return;
+      sb.from('csm_agenda').delete().eq('id', evDel.dataset.csmEvDel).then(({ error }) => {
+        if (error){ showToast('לא נמחק: ' + heErr(error)); return; }
+        csmAgendaEdit = null;
+        csmLoadAgenda();
+      });
+      return;
+    }
+    const gOn = e.target.closest('[data-csm-gcal-on]');
+    if (gOn){ csmGcalConnect(gOn); return; }
+    const gOff = e.target.closest('[data-csm-gcal-off]');
+    if (gOff){ csmGcalDisconnect(gOff); return; }
+    // ההתראות
+    if (e.target.closest('[data-csm-notif-all]')){ csmMarkRead(null).then(() => csmLoadNotifs()); return; }
+    const nr = e.target.closest('[data-csm-notif-read]');
+    if (nr){ csmMarkRead([nr.dataset.csmNotifRead]).then(() => csmLoadNotifs()); return; }
+    // מ"היום": לכרטיס של הסוכן/ת בצנרת
+    const ga = e.target.closest('[data-csm-goto-agent]');
+    if (ga){
+      const r = csmRows.find(x => x.agent_id === ga.dataset.csmGotoAgent);
+      csmFilter = r ? r.display_name || '' : '';
+      csmStage = '';
+      csmTab = 'pipeline';
+      csmRender();
+      return;
+    }
+    const ng = e.target.closest('[data-csm-notif-go]');
+    if (ng){
+      csmMarkRead([ng.dataset.id]);
+      const go = ng.dataset.csmNotifGo;
+      if (go === 'calls') csmCallOpen = ng.dataset.call || null;
+      if (go === 'pipeline'){
+        const r = csmRows.find(x => x.agent_id === ng.dataset.agent);
+        csmFilter = r ? r.display_name || '' : '';
+        csmStage = '';
+      }
+      csmTab = go;
+      csmRender();
+      return;
+    }
     const callBtn = e.target.closest('[data-csm-call]');
     if (callBtn){ csmCallOpen = csmCallOpen === callBtn.dataset.csmCall ? null : callBtn.dataset.csmCall; document.getElementById('csmBody').innerHTML = csmCallsHtml(); return; }
     const retry = e.target.closest('[data-csm-call-retry]');
@@ -992,6 +1739,15 @@ function csmLibraryHtml(){
   acc.addEventListener('change', async e => {
     const st = e.target.closest('[data-csm-stage]');
     if (st){ csmSetStage(st.dataset.csmStage, st.value); return; }
+    const mv = e.target.closest('[data-csm-line-move]');
+    if (mv && mv.value){
+      if (!confirm('להעביר את ' + csmLocalPhone(mv.value) + ' אליה? שיחות אליו יפסיקו להגיע לסוכנים ויגיעו לנייד שלה.')){ mv.value = ''; return; }
+      const { data, error } = await sb.rpc('csm_phone_line_assign', { p_staff_id: mv.dataset.csmLineMove, p_number: mv.value, p_forward_to: null });
+      if (error || (data && data.error)){ showToast(CSM_LINE_ERR[data && data.error] || 'לא נשמר: ' + heErr(error)); mv.value = ''; return; }
+      showToast('המספר הועבר. שיחות אליו מגיעות עכשיו לנייד שלה.');
+      csmLoadStaff();
+      return;
+    }
     const fs = e.target.closest('[data-csm-fb-status]');
     if (fs){
       const { error } = await sb.from('csm_feedback').update({ status: fs.value, updated_at: new Date().toISOString() }).eq('id', fs.dataset.csmFbStatus);
@@ -1032,6 +1788,16 @@ function csmLibraryHtml(){
     try {
       if (e.target.id === 'csmMentorForm'){
         csmAskMentor(document.getElementById('csmMentorQ').value);
+        return;
+      }
+      if (e.target.id === 'csmAgendaForm'){
+        await csmSaveAgenda();
+        // הטריגר עדכן את השלב ומועד הקשר בצנרת - הסקירה נקראת שוב, והיומן איתה
+        loadCsm(true);
+        return;
+      }
+      if (e.target.id === 'csmSettingsForm'){
+        await csmSaveSettings();
         return;
       }
       if (e.target.id === 'csmCallForm'){

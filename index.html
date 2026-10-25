@@ -23,7 +23,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/city-menu.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>דירות למכירה ולהשכרה בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -225,7 +225,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--sky-tint);color:var(--teal-dark)}
   .menu-cta{
     position:sticky;bottom:0;z-index:1;margin-top:2px;
-    padding:8px 0 14px;background:var(--sky-tint);
+    padding:8px 0 calc(14px + env(safe-area-inset-bottom, 0px));background:var(--sky-tint);
   }
   .mobile-menu .btn-block{margin-top:0}
 
@@ -2213,6 +2213,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .soon-strip-link{flex:0 0 auto;padding:8px 16px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:.88rem;text-decoration:none}
   .soon-strip-close{flex:0 0 auto;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--ink-soft);font-size:1.3rem;line-height:1;cursor:pointer}
   .soon-strip-close:hover{background:rgba(14,42,107,.08)}
+  #soonStrip .soon-strip-switch{flex:0 0 auto;border:0;background:transparent;color:var(--ink-soft);font:inherit;font-size:.82rem;font-weight:700;text-decoration:underline;cursor:pointer;padding:8px 4px}
 
 
   .hdr-login{height:44px;padding:0 14px;border-radius:12px;background:var(--sapphire);border-color:var(--sapphire)}
@@ -3288,6 +3289,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://shuknadlan.co.il/#website",
   "name": "שוק נדל״ן",
   "alternateName": ["שוק נדלן", "Shuk Nadlan", "שוק הנדל״ן של עפולה והסביבה", "shuknadlan.co.il"],
   "url": "https://shuknadlan.co.il/",
@@ -3456,6 +3458,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="soon-strip-promo" data-soon-promo hidden></span>
     </p>
     <a class="soon-strip-link" href="/" data-soon-link>לפרטים והצטרפות</a>
+    <button type="button" class="soon-strip-switch" data-soon-switch>לא האזור שלי</button>
     <button type="button" class="soon-strip-close" data-soon-close aria-label="סגירה">&times;</button>
   </div>
 </div>
@@ -5000,6 +5003,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+
+  <nav class="footer-wrap footer-seo" id="areaLinks" aria-label="שכונות ומחירי דירות">
+    <h4>שכונות</h4>
+    <div class="footer-seo-links">
+<!--area-links-->
+      <a href="/n/afula/אזור-התעשייה">אזור התעשייה</a>
+      <a href="/n/afula/גבעת-המורה">גבעת המורה</a>
+      <a href="/n/afula/דרום-העיר">דרום העיר</a>
+      <a href="/n/afula/השכונה-הצפון-מערבית">השכונה הצפון מערבית</a>
+      <a href="/n/afula/לב-העמק-c1">לב העמק C1</a>
+      <a href="/n/afula/מזרח-העיר">מזרח העיר</a>
+      <a href="/n/afula/מערב-העיר-שיכון-גאולים">מערב העיר (שיכון גאולים)</a>
+      <a href="/n/afula/מרכז-העיר">מרכז העיר</a>
+      <a href="/n/afula/עפולה-הירוקה">עפולה הירוקה</a>
+      <a href="/n/afula/עפולה-עלית">עפולה עלית</a>
+      <a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>
+      <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
+<!--/area-links-->
+    </div>
+  </nav>
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>

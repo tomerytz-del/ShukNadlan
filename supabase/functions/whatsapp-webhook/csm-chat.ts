@@ -15,7 +15,10 @@
 // ============================================================================
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
+import { type BusyCheck, type SendToAgent, CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
+import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
+import { flattenTemplateParam } from "../_shared/wa-send.ts";
+import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText } from "./whatsapp.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -37,11 +40,17 @@ export const CSM_BOT_SYSTEM = `את גבריאלה, העוזרת בוואטסא�
 - תמונת מצב: מי בסיכון (5 ימים ומעלה בלי הודעה לגבריאלה), למי לחזור היום, כמה בכל שלב - csm_overview.
 - כרטיס סוכן/ת עם טלפון, מייל, משרד וכתובתו ורמת השימוש - csm_find_agent. משרד עם המנהלים וכל הסוכנים - csm_office. פרטי הקשר של הסוכנים מותרים לה, ותני אותם כשהיא מבקשת.
 - העברת שלב בצנרת ומועד קשר - csm_set_stage. רישום פגישה או שיחת מעקב - csm_log_session. בקשת פיתוח שסוכן/ת העלה/תה - csm_add_feedback.
-- הקלטות שיחה: היא שולחת קובץ שמע, והמערכת מתמללת ומסכמת לבד. שיוך שיחה לסוכן/ת - csm_link_call; שיחות קודמות - csm_recent_calls.
+- הקלטות שיחה: היא שולחת קובץ שמע, והמערכת מתמללת ומסכמת לבד. ואם יש לה מספר וירטואלי - כל שיחה אליו מוקלטת, והסיכום וההקלטה נשלחים אליה מעצמם (התראה בסוגריים מרובעים עם call_id); סוכן/ת שהתקשר/ה מהנייד הרשום משויך/ת לבד, ומספר לא מוכר - לשאול עם מי ולשייך ב-csm_link_call. שיוך שיחה לסוכן/ת - csm_link_call; שיחות קודמות - csm_recent_calls.
+- היומן שלה: מה יש לה היום או השבוע - csm_agenda_list; קביעת פגישה עם סוכן/ת או משרד - csm_agenda_add (כשיומן Google שלה מחובר - הפגישה עוברת לשם לבד, ואם השעה תפוסה ביומן האישי שלה - לציין; כשלא - הקישור "הוספה ליומן Google" בתשובה, והחיבור עצמו נעשה בהגדרות באזור ההטמעה); הזזה, ביטול או "התקיימה" - csm_agenda_update. "מחר", "ביום שלישי" - לפי התאריך שבהקשר. פגישה שהתקיימה עם סוכן/ת - להציע לרשום אותה (csm_log_session).
+- ההתראות שלה (תזכורת לפני פגישה, סוכן/ת חדש/ה, 5 ימים בלי גבריאלה, הקלטה שהסתיימה, סיכום בוקר, ועצה מהמנטור כל בוקר) - csm_notifications. שאלת המשך על העצה של הבוקר - csm_ask_mentor. התראה שנשלחה אליה מופיעה בשיחה בסוגריים מרובעים.
+- ההגדרות שלה - csm_settings: השם, התראות בוואטסאפ ואילו סוגים, שעת סיכום הבוקר, ימי עבודה, שעות שקט, אורך פגישה, כמה זמן לפני התזכורת, וקישור קבוע לפגישות וידאו. הנייד והמייל - רק באזור ההטמעה.
+- ניסוח הודעה לסוכן/ת מהנתונים שלו/ה ("תכתבי ליוסי הודעה שמחזירה אותו", "הודעת תודה לדנה אחרי הפגישה") - csm_draft_message מחזיר את הנתונים וההנחיה למטרה; את כותבת טיוטה אחת קצרה לפי ההנחיה (בגוף ראשון שלה, עם פעולה אחת), ואז csm_send_to_agent לתצוגה ולאישור כרגיל.
+- אחרי סיכום שיחה ("שלחי לו", "תשלחי לו את מה שהצעת") - csm_send_to_agent עם call_id (מההיסטוריה): ההודעה המוצעת מהניתוח והסוכן/ת שהשיחה משויכת אליו/ה. שיחה לא משויכת - קודם csm_link_call. גם כאן: תצוגה, אישור, ורק אז שליחה; שינוי שהיא מבקשת - message חדש.
+- קישורים לסוכנים: מה הקישור למסך או לדף - csm_links (רשימה סגורה; קישור שאינו שם - אין). שליחה לסוכן/ת מהמספר שלך, בשמה - csm_send_to_agent: קודם בלי confirmed, להראות לה את הנוסח המדויק ולשאול "לשלוח?", ורק אחרי "כן" / "שלחי" מפורש על הנוסח הזה - שוב עם confirmed=true. שינוי בנוסח = תצוגה חדשה ואישור חדש. הודעה אחת לסוכן/ת אחד/ת; לא רצפים ולא תפוצה. למי שעוד לא במערכת (משרד שמגייסים, "תשלחי למשרד אלון את המסלולים, 052-...") - אותו כלי עם phone ו-name: הכלי מחזיר compose_url, קישור שפותח את הוואטסאפ שלה עם ההודעה מוכנה, ואת נותנת לה אותו כמו שהוא. זה לא נשלח מהמספר שלך, ולכן לא צריך את שלב האישור; רק דפים ציבוריים (המסלולים, הרשמת משרד, שאלות נפוצות) - לא מסכי CRM. המסלולים = link_key "pricing".
 - שאלה מקצועית (עם מי להתחיל, איך לגשת למשרד, מה לענות על התנגדות, איך להחזיר מי שנשר/ה) - csm_ask_mentor, ואת מעבירה את התשובה כמו שהיא ופותחת במילים "המנטור עונה:".
 
 כללים:
-- לפני כלי שכותב (csm_set_stage, csm_log_session, csm_link_call) על שם שמתאים ליותר מסוכן/ת אחד/ת - לשאול איזה/איזו. כשלא נמצא - לומר ולהציע חיפוש אחר, לא לנחש.
+- לפני כלי שכותב (csm_set_stage, csm_log_session, csm_link_call, csm_agenda_add, csm_send_to_agent) על שם שמתאים ליותר מסוכן/ת אחד/ת - לשאול איזה/איזו. כשלא נמצא - לומר ולהציע חיפוש אחר, לא לנחש. **פגישה עם מי שלא נמצא/ה במאגר - לקבוע מיד** (csm_agenda_add בלי agent_id, עם with_name ו-with_phone אם נאמר) ולומר בשורה שהיא לא משויכת לסוכן/ת; לא לעצור לשאול. חסרים תאריך או שעה - לשאול רק עליהם.
 - אחרי כתיבה - משפט אחד שאומר מה נשמר.
 - בקשה שאינה בתחום (נכסים, לקוחות, לידים, מסלולים, תשלומים, ניהול האתר) - להסביר בנימוס שזה מחוץ לכלים של אזור ההטמעה.
 - לא ממציאים נתונים. מספר שלא חזר מכלי - לא נאמר.
@@ -84,6 +93,49 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
       : { ok: true, answer: r.answer, remaining_24h: r.remaining };
   };
 
+  // פנוי/תפוס מהיומן הראשי שלה ב-Google - רק עם חיבור פעיל והרשאת freebusy
+  const busyCheck: BusyCheck = async (fromIso, toIso) => {
+    const { data: conn } = await supabase.from("csm_calendar_connections")
+      .select("status, scopes").eq("staff_id", staff.id).maybeSingle();
+    if (conn?.status !== "active" || !(conn.scopes || []).includes(GCAL_FREEBUSY_SCOPE)) return null;
+    const token = await accessTokenForStaff(supabase, staff.id);
+    return token ? await freeBusy(token, fromIso, toIso) : null;
+  };
+
+  // הודעה לסוכן/ת מהמספר של גבריאלה (csm_send_to_agent). נרשמת ביומן ההודעות
+  // ובהיסטוריה של העוזרת של הסוכן/ת - אחרת "תודה, איפה זה?" מגיע אליה בלי הקשר.
+  const sendToAgent: SendToAgent = async (a) => {
+    let waId: string | null = null;
+    let error: string | undefined;
+    try {
+      if (a.inWindow) {
+        waId = await sendText(a.phone, formatForWhatsapp(a.text));
+      } else if (notifyTemplateConfigured()) {
+        waId = await sendNotifyTemplate(a.phone, a.firstName, flattenTemplateParam(a.text, 900), a.path || "/crm");
+      } else {
+        throw new Error("הסוכן/ת לא כתב/ה לגבריאלה ב-24 השעות האחרונות, ותבנית ההתראות לא מוגדרת");
+      }
+    } catch (err) {
+      error = String((err as Error)?.message || err).slice(0, 300);
+    }
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waId, direction: "out", wa_phone: a.phone, agent_id: a.agentId,
+      msg_type: a.inWindow ? "text" : "template", body: formatForWhatsapp(a.text),
+      status: waId ? "sent" : null, error: error ?? null,
+    });
+    if (!error) {
+      const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
+      if (data) {
+        const history = Array.isArray(data.history) ? data.history : [];
+        const next = [...history,
+          { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: מנהלת ההטמעה שלחה לסוכן/ת הודעה דרך גבריאלה]" },
+          { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) }].slice(-12);
+        await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
+      }
+    }
+    return { ok: !error, waMessageId: waId, error };
+  };
+
   let finalText = "";
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await client.messages.create({
@@ -103,7 +155,7 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
     for (const use of uses) {
       let result: unknown;
       try {
-        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor);
+        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor, busyCheck, sendToAgent);
       } catch (err) {
         console.error(`csm tool ${use.name} threw`, err);
         result = { ok: false, error: String((err as Error)?.message || err) };
@@ -129,6 +181,10 @@ export async function handleCsmMessage(opts: {
 }): Promise<void> {
   const { supabase, msg, staff, reply } = opts;
   let userText = "";
+  // חלון 24 השעות של Meta: ההתראות (csm-notify.ts) נשלחות כטקסט רק בתוכו
+  const { error: winErr } = await supabase.from("csm_whatsapp_conversations")
+    .upsert({ staff_id: staff.id, last_inbound_at: new Date().toISOString() }, { onConflict: "staff_id" });
+  if (winErr) console.error("csm inbound mark failed", winErr.message);
 
   switch (msg.type) {
     case "text":
@@ -202,7 +258,7 @@ export async function handleCsmMessage(opts: {
         return;
       }
       const text = callAnalysisText(res.analysis) +
-        "\n\nעם מי הייתה השיחה? כתבי את השם, ואשייך אותה ואעדכן את מועד הקשר. הניתוח המלא גם באזור ההטמעה.";
+        "\n\nעם מי הייתה השיחה? כתבי את השם, ואשייך אותה ואעדכן את מועד הקשר. אחרי זה אפשר לכתוב \"שלחי לו\" ואשלח את ההודעה המוצעת (אחרי שתאשרי). הניתוח המלא גם באזור ההטמעה.";
       await reply(text);
       // התור הבא צריך לדעת על איזו שיחה מדובר
       const history = await loadHistory(supabase, staff.id);

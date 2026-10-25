@@ -50,8 +50,12 @@ def chrome(html_path, out_png, transparent=False):
     WM.chrome_shot(html_path, out_png, W, HGT, transparent=transparent)
 
 
-def run(cmd):
-    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def run(cmd, timeout=600):
+    """Run a helper (ffmpeg/ffprobe/...). A hung helper is killed after `timeout` s (render cap, 2026-10-25)."""
+    try:
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        sys.exit(f"command timed out after {timeout}s: " + " ".join(cmd[:6]))
     if r.returncode:
         sys.exit("command failed: " + " ".join(cmd[:6]) + "\n" + r.stderr[-2000:])
     return r.stdout
@@ -277,7 +281,7 @@ def slide_html(p, s, idx, mode, disc):
 # ------------------------------------------------------------------ layouts B / C (mockups, 2026-10-24; default stays "A")
 # Instagram Reels safe zone on 1080x1920: nothing important above y=154 (top 8%), below y=1536 (bottom 20%)
 # or right of x=918 (right 15%, IG action buttons). Brand: navy #0c2258 / royal #2f417c / gold #c1a371..#e6c27e.
-LAYOUT = "A"
+LAYOUT = "D"
 SAFE_TOP, SAFE_BOTTOM, SAFE_RIGHT = 154, 1536, 918
 CSS_V2 = """
 *{margin:0;padding:0;box-sizing:border-box}
@@ -521,7 +525,8 @@ def make_cutout(p, raw, work):
     if not os.path.exists(cache):
         if not os.path.exists(REMBG_PY):
             print("rembg venv missing; circle fallback", file=sys.stderr); return None
-        r = subprocess.run([REMBG_PY, os.path.join(TOOLS, "cutout.py"), raw, cache], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        r = subprocess.run([REMBG_PY, os.path.join(TOOLS, "cutout.py"), raw, cache], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                           timeout=240)
         try:
             info = json.loads(r.stdout.strip().splitlines()[-1])
         except Exception:
@@ -1141,13 +1146,28 @@ OUTRO_SFX = os.path.join(ROOT, "brand", "outro_sfx.wav")
 SR = 44100
 
 
-async def _tts(text, out, voice, rate, pitch):
+async def _tts(text, out, voice, rate, pitch, timeout=60):
     import edge_tts
-    await edge_tts.Communicate(text, voice, rate=rate, pitch=pitch).save(out)
+    await asyncio.wait_for(edge_tts.Communicate(text, voice, rate=rate, pitch=pitch).save(out), timeout)
 
 
-def tts(text, out, voice, rate="+20%", pitch="+8Hz"):
-    asyncio.run(_tts(text, out, voice, rate, pitch))
+def tts(text, out, voice, rate="+20%", pitch="+8Hz", tries=3):
+    """edge-tts -> mp3. Never accepts an empty line or an empty file (2026-10-25: an empty voice-over line gave a 0-byte
+    vo_04_raw.mp3 that ffmpeg could not read, failing CRM jobs 1268/1280). Network hiccups are retried; 60 s cap per try."""
+    if not (text or "").strip():
+        raise ValueError(f"empty voice-over line for {os.path.basename(out)}")
+    last = None
+    for k in range(tries):
+        try:
+            if os.path.exists(out): os.remove(out)
+            asyncio.run(_tts(text, out, voice, rate, pitch))
+            if os.path.exists(out) and os.path.getsize(out) > 0:
+                return out
+            last = "0-byte audio"
+        except Exception as ex:
+            last = f"{type(ex).__name__}: {ex}"
+        import time as _t; _t.sleep(2 * (k + 1))
+    raise RuntimeError(f"TTS failed for {os.path.basename(out)} after {tries} tries ({last}): {text!r}")
 
 
 def read_wav(path):
@@ -1249,12 +1269,46 @@ def v3_script(p, slides):
     first = (p.get("agent_name") or "").split()[0] if p.get("agent_name") else ""
     s5 = (price + " " + (f"דברו עכשיו עם {first}." if first else "דברו איתנו עכשיו.")).strip()
     lines = [s1, s2, s3, s4, s5]
-    # if a middle line is empty, merge neighbours so every slide still has a sentence
+    # drop empty middle lines, then refill from structured fallbacks so every slide has a sentence
+    # (2026-10-25: no size/floor or a commercial listing without feature flags used to leave an EMPTY line here,
+    #  which made edge-tts write a 0-byte mp3 and the render fail; CRM jobs 1268/1280 + daily reel 1034)
     lines = [l for l in lines[:-1] if l] + [lines[-1]]
-    while len(lines) < len(slides): lines.insert(-1, "")
+    if len(lines) < len(slides):
+        for fb in vo_fallbacks(p, " ".join(lines)):
+            if len(lines) >= len(slides): break
+            lines.insert(-1, fb)
+    while len(lines) < len(slides): lines.insert(-1, "פרטים נוספים במודעה.")
     if len(lines) > len(slides):
         lines = lines[:len(slides) - 1] + [" ".join(lines[len(slides) - 1:])]
     return [with_niqqud(Q.nodash(l)) for l in lines]
+
+
+def vo_fallbacks(p, used=""):
+    """Extra voice-over sentences from structured facts only (type, rooms, size, price per m², deal, city), in order of
+    preference, skipping facts already spoken in `used`. Never returns an empty string."""
+    city = p.get("city") or ""
+    pt = p.get("property_type") or ""
+    tp = Q.TYPE_LABEL.get(pt, pt)
+    lot = Q.is_lot(p)
+    rs = spoken_rooms(p) if p.get("category") == "residential" and not lot else None
+    sz = Q.size_of(p)
+    out = []
+    if rs and rs not in used:
+        out.append(f"{tp}, {rs}." if tp and pt != "דירה" else f"{rs}.")
+    if sz and num_words(sz) not in used:
+        out.append(f"{num_words(sz)} מטר.")
+    if p.get("price") and sz and (p.get("category") == "commercial" or lot):
+        ppm = int(round(float(p["price"]) / float(sz)))
+        if ppm > 0:
+            out.append(f"{num_words(ppm)} שקל למטר{' לחודש' if p.get('deal_type') == 'rent' else ''}.")
+    if p.get("total_floors") and not lot and "קומות" not in used:
+        out.append(f"בבניין של {num_words(p['total_floors'])} קומות." if int(p["total_floors"]) > 1 else "")
+    if tp and not (tp in used and Q.deal_word(p) in used):
+        out.append(f"{tp} {Q.deal_word(p)} ב{city}.".replace("  ", " "))
+    if city and city not in used:
+        out.append(f"ב{city}.")
+    out.append("פרטים נוספים במודעה.")
+    return [x for x in out if x and x.strip(" .")]
 
 
 def short_vo(p, slides):
@@ -1302,14 +1356,21 @@ def build_reel(n, gender="male", long=False, outro=True, synth_music=False, rate
         slides = photos + [story_slides[-1]]
         lines = v3_script(p, slides)
     idx = [story_slides.index(s) + 1 for s in slides]  # bg/bgbig file index
+    # never synthesize an empty voice-over line (0-byte mp3 -> ffmpeg "Invalid data found when processing input")
+    if any(not (l or "").strip() for l in lines):
+        fbs = iter(vo_fallbacks(p, " ".join(l for l in lines if l)) + ["פרטים נוספים במודעה."] * len(lines))
+        lines = [l if (l or "").strip() else with_niqqud(Q.nodash(next(fbs))) for l in lines]
+    assert len(lines) == len(slides) and all((l or "").strip() for l in lines), f"empty voice-over line: {lines}"
     # ---- voice segments
     vo_d = []
     for i, line in enumerate(lines, 1):
         raw = os.path.join(tmp, f"vo_{i:02d}_raw.mp3"); mp = os.path.join(tmp, f"vo_{i:02d}.wav")
         tts(line, raw, voice, rate, pitch)
+        assert os.path.getsize(raw) > 0, f"0-byte voice file {raw}"
         # trim TTS padding gently (keep word tails such as a final ק; 40 ms safety at both ends)
         run(["ffmpeg", "-y", "-v", "error", "-i", raw, "-af", "silenceremove=start_periods=1:start_threshold=-50dB,areverse,"
              "silenceremove=start_periods=1:start_threshold=-60dB,areverse,adelay=40:all=1,apad=pad_dur=0.04", "-ar", str(SR), "-ac", "2", mp])
+        assert os.path.getsize(mp) > 44, f"empty voice wav {mp}"
         vo_d.append(dur(mp))
     # ---- music + beat grid
     meta = json.load(open(os.path.join(MUSIC_DIR, "tracks.json")))
@@ -1470,10 +1531,10 @@ def build_reel(n, gender="male", long=False, outro=True, synth_music=False, rate
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["stories", "reel", "mockup"]); ap.add_argument("listing")
-    ap.add_argument("--layout", choices=["A", "B", "C", "D"], default="A",
-                    help="on-screen layout: A = current (default); B = logo top-left, deal+price top-right, agent card lower-third left; "
+    ap.add_argument("--layout", choices=["A", "B", "C", "D"], default="D",
+                    help="on-screen layout: D = default (approved Oct 24, 2026); A = previous; B = logo top-left, deal+price top-right, agent card lower-third left; "
                          "C = navy/gold glass top bar + lower-third agent bar; D = B top + navy agent bar with pop-out agent cutout, "
-                         "agent licence and 'צור קשר' (B/C/D are mockups pending approval)")
+                         "agent licence and 'צור קשר'")
     ap.add_argument("--female", action="store_true", help="he-IL-HilaNeural instead of the default male he-IL-AvriNeural")
     ap.add_argument("--long", action="store_true", help="~25s / 7-slide cut instead of the default 15s / 5-slide cut")
     ap.add_argument("--no-outro", action="store_true"); ap.add_argument("--synth-music", action="store_true")

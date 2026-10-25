@@ -55,7 +55,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 <!-- Google Tag Manager -->  ← מיד אחרי charset, מועתק מ-index.html כלשונו
 <script src="assets/esc.js"></script>        ← אם הדף מכניס ערכים ל-innerHTML
 <script src="assets/events.js"></script>     ← דף ציבורי בלבד
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>… | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">

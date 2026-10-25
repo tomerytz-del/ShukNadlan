@@ -184,6 +184,7 @@ return jsonb_build_object(
 | סיור 360° | `property_virtual_tour_eligible` |
 | תיאור שיווקי | `property_description_tier_ok` |
 | דוח CMA | `agent_cma_report` |
+| דוח CMA לכתובת (Elite) | `agent_cma_report_address` - אותה ליבה (`cma_report_core`), גייט אחר; שורה נפרדת ב-`COMPARE` |
 | שאילתת עסקאות | `agent_market_deals_lookup` |
 | העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` |
 | מספר וירטואלי | `phone_line_included_eligible` - נאכף ב-`order_phone_line`, והירידה בסבב `phone_line_tier_sweep` (הסקיל `call-tracking`) |

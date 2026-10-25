@@ -75,7 +75,7 @@ const AreaPicker = {
     host.innerHTML =
       `<p class="ui-hint"><span>${escapeHtml(subtitle)}</span></p>`
       + `<div class="set-field"><span class="set-field-label" id="${prefix}KindLabel">באילו נכסים</span>`
-      + `<div class="area-kinds" role="radiogroup" aria-labelledby="${prefix}KindLabel">`
+      + `<div class="area-kinds" id="${prefix}Kinds" role="radiogroup" aria-labelledby="${prefix}KindLabel">`
       + AREA_KINDS.map(k => `<button type="button" class="np2-preset" role="radio" aria-checked="false" data-area-kind="${k.id}">`
           + `<span class="np2-dot" aria-hidden="true"></span><span><span class="np2-preset-t">${escapeHtml(k.label)}</span>`
           + `<span class="np2-preset-h">${escapeHtml(k.hint)}</span></span></button>`).join('')

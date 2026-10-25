@@ -10,6 +10,11 @@
 //   analyze_call  { call_id }   → { ok: true } מיד, והעבודה ממשיכה ברקע
 //                                 (_shared/csm-call.ts). הדפדפן קורא את השורה
 //                                 ב-csm_calls עד done/failed.
+//   gcal_start                  → { url } - מסך ההסכמה של Google. ה-state נושא
+//                                 `csm:<staff_id>`, וה-callback המשותף לסוכנים
+//                                 (google-calendar-callback) מחזיר ל-/csm.
+//   gcal_disconnect             → מחיקת יומן המשנה ב-Google, ביטול ההרשאה
+//                                 ומחיקת הטוקן (_shared/google-calendar.ts).
 //
 // כל השאר (הצנרת, הפגישות, המשוב) נכתב מהדפדפן ישירות, תחת RLS של
 // current_is_csm(). docs/csm-adoption.md.
@@ -18,6 +23,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { processCsmCall } from "../_shared/csm-call.ts";
+import {
+  authUrl, CSM_STATE_PREFIX, disconnectStaff, GCAL_PUBLISHED, googleCalendarConfigured,
+} from "../_shared/google-calendar.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -55,7 +63,7 @@ Deno.serve(async (req: Request) => {
 
   const service = createClient(supabaseUrl, serviceRoleKey);
   const { data: staff, error: staffErr } = await service.from("csm_staff")
-    .select("id").eq("user_id", userData.user.id).eq("active", true).maybeSingle();
+    .select("id, email").eq("user_id", userData.user.id).eq("active", true).maybeSingle();
   if (staffErr) return json({ error: "db_error" }, 500);
   if (!staff) return json({ error: "forbidden" }, 403);
 
@@ -81,6 +89,20 @@ Deno.serve(async (req: Request) => {
     if (rt?.waitUntil) rt.waitUntil(work);
     else await work;
     return json({ ok: true });
+  }
+
+  if (body.action === "gcal_start") {
+    if (!googleCalendarConfigured()) {
+      return json({ error: "not_configured", detail: "החיבור ליומן Google עוד לא הוגדר במערכת. לפנות לתומר." }, 503);
+    }
+    if (!GCAL_PUBLISHED) {
+      return json({ error: "not_available_yet", detail: "החיבור ליומן Google ייפתח בקרוב." }, 403);
+    }
+    return json({ ok: true, url: await authUrl(CSM_STATE_PREFIX + staff.id, (staff.email as string) || userData.user.email) });
+  }
+
+  if (body.action === "gcal_disconnect") {
+    return json({ ok: true, ...(await disconnectStaff(service, staff.id as string, "revoked")) });
   }
 
   return json({ error: "unknown_action" }, 400);

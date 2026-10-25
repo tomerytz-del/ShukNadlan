@@ -140,6 +140,7 @@ for (const c of CASES) {
 const PROP_PAGE =
   `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>` +
   `<h1 class="prop-title" id="propTitle">-</h1>` +
+  `<div class="prop-address" id="propAddress"></div>` +
   `<div class="desc-block" id="descSection" hidden>` +
   `<p class="prop-desc" id="propDescription"></p></div></body></html>`;
 
@@ -178,10 +179,20 @@ checks.push(
   ["‏Apartment עם 4 חדרים, 100 מ״ר וקומה 3", () =>
     listing?.about?.["@type"] === "Apartment" && listing?.about?.numberOfRooms === 4 &&
     listing?.about?.floorSize?.value === 100 && listing?.about?.floorLevel === "3"],
-  ["‏BreadcrumbList", () => ld?.["@graph"]?.some((n: { "@type": string }) => n["@type"] === "BreadcrumbList")],
-  ["מספר הבית אינו בנתונים המובנים", () => !/הרצל 12/.test(JSON.stringify(ld))],
+  ["‏BreadcrumbList עיר, שכונה, מודעה", () => {
+    const crumbs = ld?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "BreadcrumbList");
+    const names = (crumbs?.itemListElement || []).map((x: { name: string }) => x.name);
+    const hood = (crumbs?.itemListElement || []).find((x: { name: string }) => x.name === "גבעת המורה");
+    return names.join("|") === "שוק נדל״ן|עפולה|גבעת המורה|דירה 4 חד׳ בהרצל 12, עפולה"
+      && decodeURIComponent(hood?.item || "").includes("/n/afula/גבעת-המורה");
+  }],
+  ["רחוב ומספר בכתובת המובנית, בלי גוש", () =>
+    listing?.about?.address?.streetAddress === "הרצל 12" &&
+    listing?.about?.address?.addressLocality === "עפולה" &&
+    !/גוש|חלקה|geo/.test(JSON.stringify(ld))],
   ["‏</script> מתיאור אינו סוגר את התגית", (h) => (h.match(/<script/g) || []).length === 1],
-  ["‏H1 מלא בכותרת ממוסכת", (h) => /<h1 class="prop-title" id="propTitle">דירת 4 חדרים ברחוב הרצל<\/h1>/.test(h)],
+  ["‏H1 עם רחוב ומספר", (h) => /<h1 class="prop-title" id="propTitle">דירה 4 חד׳ בהרצל 12, עפולה<\/h1>/.test(h)],
+  ["שורת כתובת ב-HTML", (h) => /id="propAddress">הרצל 12, גבעת המורה, עפולה</.test(h)],
   ["התיאור השיווקי בגוף הדף, מוברח", (h) => /id="propDescription">דירה מוארת &lt;\/script&gt;/.test(h)],
   ["‏descSection נחשף", (h) => /<div class="desc-block" id="descSection">/.test(h)],
 );
@@ -329,6 +340,86 @@ bodies.push(
     /id="profileSub">/.test(proPage) && /id="aboutBlock">/.test(proPage)],
 );
 for (const [name, pass] of bodies) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+/* כותרת המשרד, ספירת הנכסים, ו-301 מ-/agency.html. הספירה נקראת רק
+   כשיש Content-Range; מוק בלי הכותרת הזו משאיר את הדף בלי מספר. */
+const agTitle = (ag.match(/<title>([^<]*)<\/title>/) || [])[1];
+const agMeta = (ag.match(/<meta name="description" content="([^"]*)">/) || [])[1];
+const agLd = ldOf(ag);
+async function agencyCounted(row: Record<string, unknown>, range: string | null): Promise<string> {
+  const page = readFileSync(new URL("../agency.html", import.meta.url), "utf8");
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    if (u.includes("/properties?")) {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (range) headers["content-range"] = range;
+      return new Response("[]", { status: 200, headers });
+    }
+    return new Response(JSON.stringify(row), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const ctx = { next: async () => new Response(page, { headers: { "content-type": "text/html; charset=utf-8" } }) } as never;
+  return (await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), ctx)).text();
+}
+const ADEL = {
+  id: "adel",
+  name: "אדל נכסים - פתרונות נדל״ן",
+  description: "משרד מקומי.",
+  address: "הולנד 12 עפולה",
+};
+const SP = {
+  id: "sp",
+  name: "s.p שיווק ניהול ומכירת נכסים",
+  description: "משרד מקומי.",
+  address: "יצחק נבון 3 עפולה",
+};
+const adelHtml = await agencyCounted(ADEL, "0-0/2");
+const spHtml = await agencyCounted(SP, "0-0/2");
+const oneHtml = await agencyCounted({ ...ADEL, description: "משרד מקומי." }, "0-0/1");
+const noRange = await agencyCounted(ADEL, null);
+const areasFirst = await agencyCounted({
+  id: "avia",
+  name: "אביה גולדברג - תיווך",
+  description: null,
+  address: "עפולה",
+  specialty_areas: ["בית שאן", "גבעת המורה"],
+}, null);
+function metaOf(html: string): string {
+  return (html.match(/<meta name="description" content="([^"]*)">/) || [])[1] || "";
+}
+function titleOf(html: string): string {
+  return (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+}
+let redirected = false;
+globalThis.fetch = (async () => { throw new Error("הפניה אינה קוראת למסד"); }) as typeof fetch;
+const redir = await handler(new Request("https://shuknadlan.co.il/agency.html?slug=%D7%90%D7%93%D7%9C&utm=1"), {
+  next: async () => { redirected = true; return new Response(PAGE, { headers: { "content-type": "text/html" } }); },
+} as never);
+const headRedir = await handler(new Request("https://shuknadlan.co.il/agency.html?slug=a", { method: "HEAD" }), {
+  next: async () => new Response(PAGE, { headers: { "content-type": "text/html" } }),
+} as never);
+const agencyHead: [string, boolean][] = [
+  ["משרד הדר: כותרת עם העיר מהכתובת", agTitle === "משרד הדר - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["בלי Content-Range: התיאור בלי מספר מומצא", !!agMeta && !agMeta.includes("נכסים פעילים") && agMeta.includes("פסקה א")],
+  ["JSON-LD נשאר RealEstateAgent והתיאור שבו הוא על המשרד, לא שורת הספירה",
+    agLd?.["@type"] === "RealEstateAgent" && agLd?.description === "פסקה א פסקה <ב>" && agLd?.name === "משרד הדר"],
+  ["אדל נכסים: כותרת ו-2 נכסים פעילים",
+    titleOf(adelHtml) === "אדל נכסים - פתרונות נדל״ן - משרד תיווך בעפולה | שוק נדל״ן"
+    && metaOf(adelHtml).includes("2 נכסים פעילים")],
+  ["s.p: כותרת עם העיר",
+    titleOf(spHtml) === "s.p שיווק ניהול ומכירת נכסים - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["נכס אחד: נכס פעיל אחד", metaOf(oneHtml).includes("נכס פעיל אחד")],
+  ["בלי Content-Range גם כשיש id: בלי מספר", !metaOf(noRange).includes("נכסים פעילים")],
+  ["הכתובת גוברת על עיר ארוכה יותר באזורי הפעילות",
+    titleOf(areasFirst) === "אביה גולדברג - תיווך - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["/agency.html?slug= מופנה ל-/agency עם אותה שאילתה, בלי לקרוא למסד",
+    redir.status === 301 && redir.headers.get("Location") === "/agency?slug=%D7%90%D7%93%D7%9C&utm=1" && !redirected],
+  ["HEAD ל-/agency.html מופנה גם הוא",
+    headRedir.status === 301 && headRedir.headers.get("Location") === "/agency?slug=a"],
+];
+for (const [name, pass] of agencyHead) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);
 }

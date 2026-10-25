@@ -60,7 +60,7 @@ export function waOpenResponse(req: Request, to: string, text: string): Response
 
   const html = `<!doctype html>
 <html lang="he" dir="rtl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>פותח את WhatsApp</title>
 <style>

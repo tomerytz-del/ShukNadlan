@@ -10,8 +10,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/events.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>פרויקטים חדשים מקבלנים ויזמים בעפולה והעמק | שוק נדל״ן</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>פרויקטים חדשים בעפולה | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
@@ -36,19 +36,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (‏/about ו-/about.html), ופרמטרי סינון מייצרים עוד — והתגית הזו
      אומרת לגוגל איזו מהן לאנדקס. הפרטים: docs/security-headers.md -->
 <link rel="canonical" href="https://shuknadlan.co.il/projects">
+<link rel="preload" as="image" href="assets/hero-projects-800.webp" media="(max-width: 759px)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/hero-projects-1600.webp" media="(min-width: 760px)" fetchpriority="high">
 <!-- תגיות שיתוף (‏og / twitter). דף בלי og:image יוצא בוואטסאפ ובפייסבוק בלי תמונה;
      ‏assets/og-default.png בגודל 1200x630 הוא תמונת ברירת המחדל לדפים הסטטיים. -->
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:url" content="https://shuknadlan.co.il/projects">
-<meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image" content="https://shuknadlan.co.il/assets/hero-projects-1600.webp">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="1000">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="כל הפרויקטים החדשים מקבלנים ויזמים בעפולה, עפולה עילית והעמק - דירות מקבלן, מחירון, תמהיל דירות, סיורי 3D וחוברות מכר. חיפוש ייעודי לפרויקטים חדשים.">
+<meta name="description" content="פרויקטים חדשים בעפולה ובעמק יזרעאל: דירות מקבלן, מה לבדוק לפני שחותמים, והתראה כשיעלה פרויקט.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="פרויקטים חדשים מקבלנים ויזמים | שוק נדל״ן">
-<meta property="og:description" content="כל הפרויקטים החדשים בעפולה והעמק במקום אחד - דירות מקבלן, תמהיל, סיורי 3D וחומר שיווקי להורדה.">
+<meta property="og:title" content="פרויקטים חדשים בעפולה | שוק נדל״ן">
+<meta property="og:description" content="פרויקטים חדשים בעפולה ובעמק יזרעאל: דירות מקבלן, מה לבדוק לפני שחותמים, והתראה כשיעלה פרויקט.">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
@@ -88,7 +90,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .skip-link:focus{right:0}
 
   /* ====== Header ====== */
-  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:12px 0}
+  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:calc(12px + env(safe-area-inset-top, 0px)) 0 12px}
   .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
   .logo-img{height:44px;width:auto;flex:0 0 auto}
@@ -186,14 +188,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-banner h3{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0;color:var(--teal-dark)}
   .join-banner p{margin:6px 0 0;font-size:.84rem;color:var(--ink-soft);max-width:62ch}
   .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
+  .proj-tools{padding:16px 0 4px}
+  .proj-tools .search-card{margin-top:0}
+  .proj-tools .quick-chip{background:#eaf0fb;border-color:#d5def2;color:#0e2a6b}
+  .proj-tools .quick-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff;border-color:#0e2a6b}
+  .projects-guide a{color:#0e2a6b;text-decoration:underline;text-underline-offset:2px}
+  .projects-guide p,.projects-guide li{max-width:65ch}
+  .land-hero .eyebrow{color:#e5c76a}
+  .land-hero .eyebrow::before{background:#e5c76a}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/landing.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/project-card.js"></script>
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
+<script defer src="assets/bot-link.js"></script>
+<script defer src="assets/landing.js"></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
 <script defer src="assets/markets.js"></script>
@@ -224,12 +237,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <main id="main">
 
   <!-- ====== ראש העמוד וסרגל החיפוש הייעודי ====== -->
-  <section class="hero">
-    <div class="wrap">
-      <p class="eyebrow">פרויקטים חדשים</p>
-      <h1>דירות מקבלן בעפולה והעמק</h1>
-      <p class="lede">כל הפרויקטים החדשים של הקבלנים והיזמים באזור במקום אחד - תמהיל דירות, מחירים, סיורי 3D וחוברות מכר להורדה, בלי לרדוף אחרי משרדי מכירות.</p>
+  <section class="land-hero" id="landHero">
+    <div class="land-hero-media">
+      <div class="land-hero-bg">
+        <picture>
+          <source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-projects-800.webp">
+          <source type="image/webp" srcset="assets/hero-projects-800.webp 800w, assets/hero-projects-1600.webp 1600w" sizes="100vw">
+          <img src="assets/hero-projects-800.webp" alt="מגדלי מגורים חדשים" width="800" height="500" fetchpriority="high" decoding="async">
+        </picture>
+      </div>
+      <div class="land-hero-overlay" aria-hidden="true"></div>
+      <div class="wrap land-hero-copy">
+        <nav aria-label="נתיב ניווט">
+          <ol class="land-crumbs">
+            <li><a href="/">דף הבית</a></li>
+            <li aria-current="page"><span>פרויקטים חדשים</span></li>
+          </ol>
+        </nav>
+        <p class="eyebrow">פרויקטים חדשים</p>
+        <h1 id="projectsH1">פרויקטים חדשים בעפולה ובעמק יזרעאל</h1>
+        <p class="land-benefit">דירות חדשות מקבלן בעפולה ובעמק, ומדריך מעשי מה לבדוק לפני שחותמים.</p>
+      </div>
+    </div>
+  </section>
 
+  <div class="wrap proj-tools">
       <div class="search-card">
         <select id="dealTypeSelect" class="deal-select" data-mode="projects" aria-label="סוג עסקה">
           <option value="sale">מכירה</option>
@@ -242,8 +274,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
 
       <div class="quick-row" id="quickChips" role="group" aria-label="סינון מהיר לפי שלב הפרויקט"></div>
-    </div>
-  </section>
+  </div>
 
   <div class="wrap">
     <!-- ====== מסננים ייעודיים לפרויקטים ======
@@ -299,8 +330,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="state" id="loadingState">טוען פרויקטים…</div>
 
     <div class="state" id="emptyState" hidden>
-      <h2>עוד אין פרויקטים חדשים באוויר</h2>
-      <p>הקבלנים והיזמים הראשונים בונים עכשיו את הדפים שלהם. בינתיים אפשר לראות מה יש בשוק היד־שנייה.</p>
+      <h2>עוד אין כאן פרויקטים חדשים</h2>
+      <p>כשיעלה פרויקט חדש הוא יופיע כאן. בינתיים כדאי לקרוא מה בודקים לפני שחותמים, ואפשר להשאיר התראה.</p>
       <a href="/#allProps" class="btn btn-teal" style="margin-top:14px">לכל הנכסים</a>
     </div>
 
@@ -409,7 +440,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="grid" id="projectsGrid"></div>
       <div class="state" id="noResultsState" hidden>
         <h2>לא נמצאו פרויקטים</h2>
-        <p>אף פרויקט לא עונה על הסינון הזה. אפשר לנקות את הסינונים או להשאיר פרטים בתיבה שלמעלה - נחפש בשבילכם.</p>
+        <p>אף פרויקט לא עונה על הסינון הזה. אפשר לנקות את הסינונים או להשאיר פרטים, ונחפש בשבילכם.</p>
+      </div>
+    </section>
+
+    <section class="section projects-guide" id="projectsGuide">
+      <h2>לפני שקונים דירה מקבלן</h2>
+      <p>לפני שחותמים על דירה מקבלן בעפולה ובעמק יזרעאל, אלה הדברים שכדאי לבדוק מול מסמכי המכר ועורך דין.</p>
+      <ul>
+        <li>ערבות לפי חוק המכר (דירות): הבטוחה לכספים ששולמו, למשל ערבות בנקאית או פוליסת ביטוח, לפי המסלול שבחוק.</li>
+        <li>ליווי בנקאי: בנק שמלווה את הבנייה ומשחרר כספים לפי ההתקדמות. לא בכל פרויקט יש אותו מסלול.</li>
+        <li>מפרט טכני: רמת הגמר, החומרים והאבזור. זה מה שקובע, לא נוסח שיווקי.</li>
+        <li>לוחות זמנים: מתי צפוי האכלוס, כפי שכתוב במסמכים.</li>
+        <li>דירה בהנחה או מחיר מטרה: מסלול ממשלתי עם תנאי זכאות של משרד הבינוי והשיכון. לא כל פרויקט נכלל בו. כשיש פרויקט במסלול כזה, התנאים מופיעים בדף שלו.</li>
+      </ul>
+      <h2>שכונות ונכסים בעפולה</h2>
+      <p>שכונות בעפולה: <a href="/n/afula/עפולה-עלית">עפולה עלית</a> (עפולה עילית), <a href="/n/afula/גבעת-המורה">גבעת המורה</a>, <a href="/n/afula/מרכז-העיר">מרכז העיר</a>, <a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>.</p>
+      <p>נכסים למכירה עכשיו: <a href="/afula/בתים-פרטיים">בית פרטי למכירה בעפולה</a>, <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>, <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>.</p>
+      <p>משרדי תיווך: <a href="/afula/מתווכים">מתווכים בעפולה</a> ו<a href="/agencies">כל המשרדים</a>.</p>
+      <h2>שאלות נפוצות</h2>
+      <div class="land-faq">
+        <details><summary>מה בודקים לפני שקונים דירה מקבלן?</summary><p>לפני חתימה בודקים את הבטוחה לכספי הקונה לפי חוק המכר (דירות), אם יש ליווי בנקאי, את המפרט הטכני ואת לוח הזמנים לאכלוס. המסמכים של העסקה הם שקובעים.</p></details>
+        <details><summary>מהן ערבות לפי חוק המכר וליווי בנקאי?</summary><p>חוק המכר (דירות), התשל״ג-1973, מחייב את מוכר הדירה החדשה להבטיח את הכספים ששולמו, למשל בערבות בנקאית או בפוליסת ביטוח, לפי המסלול שבחוק. ליווי בנקאי הוא מסגרת שבה בנק מלווה את הבנייה ומשחרר כספים לפי התקדמות. לא בכל פרויקט אותו מסלול, ובכל עסקה בודקים את המסמכים מול עורך דין.</p></details>
+        <details><summary>מה כוללים מפרט טכני ולוח זמנים?</summary><p>המפרט הטכני מתאר את רמת הגמר, החומרים והאבזור. לוח הזמנים מציין מתי צפוי האכלוס. שניהם חלק ממסמכי המכר, והם הקובעים.</p></details>
+        <details><summary>מהי דירה בהנחה או מחיר מטרה?</summary><p>אלה מסלולים ממשלתיים לדיור במחיר מופחת, עם תנאי זכאות שמפרסם משרד הבינוי והשיכון. לא כל פרויקט נכלל בהם. כשיש פרויקט במסלול כזה, תנאי הזכאות מופיעים בדף שלו.</p></details>
+      </div>
+      <h2>כשיעלה פרויקט חדש</h2>
+      <p>השאירו התראה, או כתבו לגבריאלה בוואטסאפ, ונעדכן אתכם כשיעלה פרויקט חדש.</p>
+      <div class="land-ctas">
+        <button type="button" class="land-btn land-btn-primary" data-land-alert>עדכנו אותי על פרויקט חדש</button>
+        <a class="land-btn land-btn-ghost" data-land-wa data-bot data-hello="שלום, הגעתי מדף הפרויקטים החדשים בעפולה ואשמח לעדכון כשיעלה פרויקט" href="#" hidden>וואטסאפ לגבריאלה</a>
       </div>
     </section>
 
@@ -1085,15 +1145,6 @@ function applyDeepLink(){
     if (!all.length){
       el('emptyState').hidden = false;
       el('allSec').hidden = true;
-      // ‏דף שכולו "עוד אין פרויקטים" הוא מה שגוגל מסווגת כ-soft 404, והוא
-      // מוריד את האמון בכל האתר. ‏noindex רק כשהמסד ענה במפורש שאין אף
-      // פרויקט - בכשל (catch למטה) הדף נשאר כמו שהוא. ברגע שיעלה הפרויקט
-      // הראשון התגית פשוט לא נוספת, והדף חוזר לאינדקס בסריקה הבאה.
-      // ‏docs/sitemap.md.
-      const robots = document.createElement('meta');
-      robots.name = 'robots';
-      robots.content = 'noindex,follow';
-      document.head.appendChild(robots);
       return;
     }
 

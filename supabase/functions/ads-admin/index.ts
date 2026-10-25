@@ -25,26 +25,40 @@ import {
   SELLERS_FORM_ID,
   VALUATION_FORM_ID,
   VALUATION_FORM_NAME,
+  collectWriteOps,
   CREATIVE_BUCKET,
   CREATIVE_BYTES,
   creativeSourceUrl,
   creativeStorageReport,
+  deprecatedInterestIdsFromError,
   executeLaunch,
+  LAUNCH_BUDGET_MS,
+  formatMetaError,
   GOOGLE_BUYERS_DAILY_ILS,
+  knownCampaignsFromLaunch,
   LAUNCH_KEY,
   launchWillWrite,
+  mergeKnownCampaigns,
+  metaFieldsOf,
+  omitDeprecatedInterestIds,
+  pausedCampaignsFromGraph,
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
   PAUSED_STATUS,
+  pendingLaunchKey,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
+  resolveLaunchIdentity,
   resolveLaunchTargeting,
   sha256Hex,
   summarizeLaunch,
   uncheckedLaunchTargeting,
+  uncheckedSummary,
+  validateLaunchWrites,
   type CreativeStorageReport,
   type ExistingRow,
   type ImageRef,
+  type KnownCampaign,
   type LaunchPlan,
   type TargetingResolution,
 } from "./launch-package.ts";
@@ -196,9 +210,19 @@ async function log(sb: SupabaseClient, caller: Caller, e: LogEntry) {
 // בעוד כמה דקות", ‏502 על כל השאר — התקלה אצל מטא, לא אצל הקורא.
 function metaErrorResponse(e: unknown) {
   if (e instanceof MetaError) {
+    const fields = metaFieldsOf(e);
     return json({
       error: e.tokenInvalid ? "meta_token_invalid" : e.rateLimited ? "meta_rate_limited" : "meta_error",
-      meta: { code: e.meta.code, subcode: e.meta.error_subcode, message: e.meta.message, user_msg: e.meta.error_user_msg },
+      meta: {
+        code: e.meta.code,
+        subcode: e.meta.error_subcode,
+        message: e.meta.message,
+        user_msg: e.meta.error_user_msg,
+        error_user_title: fields?.error_user_title ?? null,
+        error_user_msg: fields?.error_user_msg ?? null,
+        error_data: fields?.error_data ?? null,
+        fbtrace_id: fields?.fbtrace_id ?? null,
+      },
     }, e.rateLimited ? 429 : 502);
   }
   console.error("ads-admin unexpected", e);
@@ -206,7 +230,7 @@ function metaErrorResponse(e: unknown) {
 }
 
 function metaErrorText(e: unknown): string {
-  return e instanceof MetaError ? e.message : (e as Error)?.message ?? String(e);
+  return formatMetaError(e);
 }
 
 const OBJECT_ID_RE = /^\d{5,25}$/;
@@ -1698,7 +1722,12 @@ function noteCreativeGap(summary: { warnings: string[] }, report: CreativeStorag
   }
 }
 
-function presentPausedLaunch(plan: LaunchPlan, creatives: CreativeStorageReport, resolution?: TargetingResolution) {
+function presentPausedLaunch(
+  plan: LaunchPlan,
+  creatives: CreativeStorageReport,
+  resolution?: TargetingResolution,
+  validation?: { checked: string[]; skipped: { objectKey: string; reason: string }[]; failures: { objectKey: string; kind: string; name: string; message: string; meta: unknown; request?: Record<string, unknown> | null }[]; leadgen_tos_accepted?: boolean | null },
+) {
   const summary = summarizeLaunch(plan);
   summary.warnings = [...summary.warnings];
   if (PAGE_ID && PAGE_ID !== PAGE_ID_EXPECTED) {
@@ -1706,11 +1735,95 @@ function presentPausedLaunch(plan: LaunchPlan, creatives: CreativeStorageReport,
   }
   if (resolution) summary.warnings.push(...resolution.warnings);
   noteCreativeGap(summary, creatives);
+  const failures = validation?.failures ?? [];
   return {
     ...summary,
     targeting: resolution?.hits ?? [],
     targeting_blocks_create: resolution?.blocksCreate ?? true,
+    validation: validation ? {
+      checked: validation.checked,
+      skipped: validation.skipped.map((s) => ({ object_key: s.objectKey, reason: s.reason })),
+      failures: failures.map((f) => ({
+        object_key: f.objectKey,
+        kind: f.kind,
+        name: f.name,
+        message: f.message,
+        meta: f.meta,
+        ...(f.request ? { request: f.request } : {}),
+      })),
+      leadgen_tos_accepted: validation.leadgen_tos_accepted ?? null,
+      unchecked_summary: uncheckedSummary(validation.skipped),
+      blocks_create: failures.length > 0,
+    } : null,
   };
+}
+
+const LAUNCH_LOCK_STALE_SECONDS = 420;
+
+async function tryLaunchLock(sb: SupabaseClient, holder: string): Promise<boolean | null> {
+  const res = await sb.rpc("ads_launch_try_lock", {
+    p_launch_key: LAUNCH_KEY,
+    p_holder: holder,
+    p_stale_seconds: LAUNCH_LOCK_STALE_SECONDS,
+  });
+  if (res.error) {
+    console.error("ads_launch_try_lock", res.error.message);
+    return null;
+  }
+  return res.data === true;
+}
+
+async function unlockLaunch(sb: SupabaseClient, holder: string): Promise<void> {
+  const res = await sb.rpc("ads_launch_unlock", {
+    p_launch_key: LAUNCH_KEY,
+    p_holder: holder,
+  });
+  if (res.error) console.error("ads_launch_unlock", res.error.message);
+}
+
+function partialLaunchResponse(created: string[], skipped: string[], nextKey: string) {
+  return json({
+    ok: true,
+    done: false,
+    created_n: created.length,
+    skipped_n: skipped.length,
+    next_key: nextKey,
+    created,
+    skipped,
+    note: `נוצרו ${created.length} אובייקטים, לחץ שוב להמשך מ-${nextKey}`,
+  });
+}
+
+async function loadPausedCampaigns(
+  meta: MetaClient,
+  act: string,
+  plan: LaunchPlan,
+  existing: Map<string, ExistingRow>,
+): Promise<{ campaigns: KnownCampaign[]; warning?: string }> {
+  const stored = knownCampaignsFromLaunch(plan, existing);
+  try {
+    const rows = await meta.getAll(`${act}/campaigns`, {
+      fields: "id,objective,status,special_ad_categories",
+      limit: "100",
+    });
+    return { campaigns: mergeKnownCampaigns(stored, pausedCampaignsFromGraph(rows)) };
+  } catch (e) {
+    return {
+      campaigns: stored,
+      warning: `לא נקראה רשימת הקמפיינים המושהים, אז סט בלי קמפיין שכבר נוצר לא נבדק. ${formatMetaError(e)}`,
+    };
+  }
+}
+
+function validationDetail(failure: { objectKey: string; message: string; meta: { subcode?: number | null; error_user_title?: string | null; error_user_msg?: string | null } | null }): string {
+  const meta = failure.meta;
+  const bits = [failure.objectKey, meta?.error_user_title, meta?.error_user_msg].filter((s): s is string => !!s);
+  let text = `מטא דחתה את הבדיקה של ${bits.join(" - ") || failure.message} בלי ליצור אובייקט.`;
+  if (!meta?.error_user_msg && failure.message) text += ` ${failure.message}`;
+  if (meta?.subcode === 1815089 || (meta?.error_user_title || "").includes("Terms of service")) {
+    text += " אישור תנאי טפסי הלידים נעשה ידנית בדף הפייסבוק: https://www.facebook.com/ads/leadgen/tos";
+  }
+  return text + " לא נוצר כלום, ומה שכבר קיים נשאר מושהה.";
 }
 
 async function actionUploadLaunchCreatives(sb: SupabaseClient, caller: Caller, body: any) {
@@ -1772,8 +1885,8 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     const resolution = meta
       ? await resolveLaunchTargeting(plan, (params) => meta.get("search", params))
       : uncheckedLaunchTargeting(plan);
-    const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
     if (!resolution.plan.ok) {
+      const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
       await log(sb, caller, {
         action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
         request: { dry_run: true, include_a5: includeA5 },
@@ -1781,6 +1894,127 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
         ok: false, error: resolution.plan.errors.map((e) => e.code).join(","),
       });
       return json({ error: resolution.plan.errors[0].code, detail: resolution.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
+    const validation: {
+      checked: string[];
+      skipped: { objectKey: string; reason: string }[];
+      failures: { objectKey: string; kind: string; name: string; message: string; meta: ReturnType<typeof metaFieldsOf>; request?: Record<string, unknown> | null }[];
+      leadgen_tos_accepted: boolean | null;
+    } = { checked: [], skipped: [], failures: [], leadgen_tos_accepted: null };
+    if (meta) {
+      const { act } = normalizeAccountId(AD_ACCOUNT);
+      const stored = await sb.from("ads_launch_objects").select("object_key, meta_id, image_hash").eq("launch_key", LAUNCH_KEY);
+      if (stored.error) {
+        resolution.warnings.push("לא נקראה רשימת האובייקטים שכבר נוצרו, אז אימות הסטים מול מטא דולג.");
+      } else {
+        const existing = new Map<string, ExistingRow>();
+        for (const row of stored.data || []) {
+          if (row.meta_id && PROTECTED_CAMPAIGN_IDS.includes(row.meta_id)) {
+            return json({ error: "refusing_protected_campaign", detail: "הרשימה השמורה מכילה את קמפיין ה-Reach הקיים. לא נוגעים בו." }, 409);
+          }
+          existing.set(row.object_key, { metaId: row.meta_id, imageHash: row.image_hash });
+        }
+        const leadKeys = new Set(resolution.plan.campaigns.flatMap((c) => c.adSets.filter((a) => a.destination === "lead_form").map((a) => `adset:${a.key}`)));
+        const identity = await resolveLaunchIdentity(PAGE_ID, IG_ACCOUNT_ID || undefined, (p, params) => meta.get(p, params));
+        resolution.warnings.push(...identity.warnings);
+        if (identity.pageName) resolution.warnings.push(`הדף שמפרסם: ${identity.pageName} (${identity.pageId}).`);
+        let launchPageId = PAGE_ID;
+        let launchIg: string | undefined = IG_ACCOUNT_ID || undefined;
+        if (identity.error) {
+          validation.failures.push({
+            objectKey: "page:identity",
+            kind: "page",
+            name: identity.pageName || "page",
+            message: identity.error,
+            meta: null,
+          });
+        } else {
+          launchPageId = identity.pageId;
+          launchIg = identity.instagramUserId;
+        }
+        const listed = await loadPausedCampaigns(meta, act, resolution.plan, existing);
+        if (listed.warning) resolution.warnings.push(listed.warning);
+        const validateOnce = (nextPlan: LaunchPlan, nextTerms: Record<string, string>) => validateLaunchWrites({
+          act,
+          plan: nextPlan,
+          pageId: launchPageId,
+          instagramUserId: launchIg,
+          pixelId: PIXEL_ID,
+          regionKeys: resolution.regionKeys,
+          termIds: nextTerms,
+          existing,
+          accountCampaigns: listed.campaigns,
+          post: (p, b) => meta.post(p, b),
+          get: identity.error ? undefined : (p, params) => meta.get(p, params),
+        });
+        let validated = await validateOnce(resolution.plan, resolution.termIds);
+        const deprecatedIds = [...new Set(validated.failures.filter((f) => f.meta?.subcode === 1870247).flatMap((f) => deprecatedInterestIdsFromError(f.meta?.error_data)))];
+        if (deprecatedIds.length) {
+          const omitted = omitDeprecatedInterestIds(resolution.plan, resolution.termIds, deprecatedIds);
+          const label = omitted.names.length ? `${omitted.names.join(", ")} (${deprecatedIds.join(", ")})` : deprecatedIds.join(", ");
+          resolution.warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${label}. החלופה שמטא מציעה לא נלקחת.`);
+          const drop = new Set(deprecatedIds);
+          for (const h of resolution.hits) {
+            if (h.term_type === "interest" && h.id && drop.has(h.id)) h.status = "deprecated";
+          }
+          if (omitted.names.length || omitted.plan !== resolution.plan) {
+            resolution.plan = omitted.plan;
+            resolution.termIds = omitted.termIds;
+            validated = omitted.plan.ok
+              ? await validateOnce(omitted.plan, omitted.termIds)
+              : { checked: [], skipped: [], failures: [] };
+          }
+        }
+        validation.checked = validated.checked;
+        validation.skipped = validated.skipped;
+        validation.failures = validated.failures;
+        if (PAGE_ID && leadKeys.size) {
+          try {
+            const page = await meta.get(PAGE_ID, { fields: "leadgen_tos_accepted" });
+            validation.leadgen_tos_accepted = typeof page?.leadgen_tos_accepted === "boolean" ? page.leadgen_tos_accepted : null;
+          } catch (e) {
+            resolution.warnings.push(`לא נקרא אם הדף אישר את תנאי טפסי הלידים. ${formatMetaError(e)}`);
+          }
+        }
+        const leadChecked = [...leadKeys].some((k) => validation.checked.includes(k) || validation.failures.some((f) => f.objectKey === k));
+        if (validation.leadgen_tos_accepted === false && !leadChecked) {
+          validation.failures.push({
+            objectKey: "page:leadgen_tos",
+            kind: "page",
+            name: "Lead Generation Terms",
+            message: "Terms of service not accepted | You can't run lead ads until your Facebook Page accepts Facebook's Lead Generation Terms of Service.",
+            meta: {
+              code: 100,
+              subcode: 1815089,
+              message: "Invalid parameter",
+              error_user_title: "Terms of service not accepted",
+              error_user_msg: "You can't run lead ads until your Facebook Page accepts Facebook's Lead Generation Terms of Service.",
+              error_data: null,
+              fbtrace_id: null,
+            },
+          });
+        }
+      }
+    }
+    const shown = presentPausedLaunch(resolution.plan, creatives, resolution, validation);
+    if (!resolution.plan.ok) {
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: true, include_a5: includeA5 },
+        response: { errors: resolution.plan.errors, warnings: resolution.warnings, creatives: { total: creatives.total, ready: creatives.ready } },
+        ok: false, error: resolution.plan.errors.map((e) => e.code).join(","),
+      });
+      return json({ error: resolution.plan.errors[0].code, detail: resolution.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
+    if (validation.failures.length) {
+      const first = validation.failures[0];
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: true, include_a5: includeA5, failed_object_key: first.objectKey, failed_name: first.name, body: first.request ?? null },
+        response: { meta: first.meta, validation: shown.validation, creatives: { total: creatives.total, ready: creatives.ready } },
+        ok: false, error: first.message,
+      });
+      return json({ error: "meta_validation", detail: validationDetail(first), meta: first.meta, plan: shown, creatives }, 409);
     }
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
@@ -1819,6 +2053,19 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   }
 
   const resolution = await resolveLaunchTargeting(plan, (params) => meta.get("search", params));
+  const identity = await resolveLaunchIdentity(PAGE_ID, IG_ACCOUNT_ID || undefined, (p, params) => meta.get(p, params));
+  resolution.warnings.push(...identity.warnings);
+  if (identity.pageName) resolution.warnings.push(`הדף שמפרסם: ${identity.pageName} (${identity.pageId}).`);
+  if (identity.error) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, include_a5: includeA5 },
+      ok: false, error: identity.error,
+    });
+    return json({ error: "page_identity", detail: identity.error }, 409);
+  }
+  const launchPageId = identity.pageId;
+  const launchIg = identity.instagramUserId;
   if (resolution.blocksCreate) {
     const shown = presentPausedLaunch(resolution.plan, creatives, resolution);
     await log(sb, caller, {
@@ -1829,7 +2076,8 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     return json({ error: "targeting_unresolved", detail: "טירגוט חובה לא נפתר. לא נוצר כלום.", plan: shown, creatives }, 409);
   }
   plan = resolution.plan;
-  const { termIds, regionKeys } = resolution;
+  let termIds = resolution.termIds;
+  const regionKeys = resolution.regionKeys;
 
   let account: any;
   try {
@@ -1842,10 +2090,99 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     return json({ error: "account_not_ils", detail: "חשבון המודעות אינו בשקלים. לא נוצר כלום." }, 409);
   }
 
+  // מנעול לשורת ההשקה: שתי לחיצות במקביל לא יוצרות אותו אובייקט פעמיים.
+  // אם המיגרציה עוד לא רצה, ממשיכים בלי המנעול (האידמפוטנטיות נשארת).
+  // תקציב הזמן נמדד מכאן, כולל האימות, כדי לחזור לפני 504 של ה-gateway.
+  const holder = crypto.randomUUID();
+  const locked = await tryLaunchLock(sb, holder);
+  if (locked === false) {
+    return json({
+      error: "launch_in_progress",
+      detail: "יצירה אחרת של אותה השקה עדיין רצה. מה שנוצר נשמר. לחץ שוב להמשך אחרי שהיא נגמרת.",
+    }, 409);
+  }
+  const deadline = Date.now() + LAUNCH_BUDGET_MS;
+  try {
+
+  // אותה בדיקה כמו ב-dry run: validate_only על קמפיין ועל סט (גם כשהאב
+  // עוד לא נוצר, מול קמפיין מושהה מאותו סוג), ו-generatepreviews על
+  // קריאייטיב. כשל שאינו 1870247 עוצר לפני POST אמיתי. מזהה שחזר
+  // מ-validate_only עוצר, כדי לא ליצור פעמיים.
+  const pausedKnown = await loadPausedCampaigns(meta, act, plan, existing);
+  if (pausedKnown.warning) resolution.warnings.push(pausedKnown.warning);
+  const probed = await validateLaunchWrites({
+    act,
+    plan,
+    pageId: launchPageId,
+    instagramUserId: launchIg,
+    pixelId: PIXEL_ID,
+    regionKeys,
+    termIds,
+    existing,
+    accountCampaigns: pausedKnown.campaigns,
+    post: (p, b) => meta.post(p, b),
+    get: (p, params) => meta.get(p, params),
+  });
+  const accidental = probed.failures.find((f) => f.message.startsWith("validate_only_returned_id"));
+  if (accidental) {
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, failed_object_key: accidental.objectKey },
+      response: { meta: accidental.meta },
+      ok: false, error: accidental.message,
+    });
+    return json({ error: "meta_validation", detail: "אימות בלי יצירה החזיר מזהה. לא ממשיכים, כדי לא ליצור את אותו אובייקט פעמיים.", meta: accidental.meta }, 409);
+  }
+  const deprecatedIds = [...new Set(probed.failures.filter((f) => f.meta?.subcode === 1870247).flatMap((f) => deprecatedInterestIdsFromError(f.meta?.error_data)))];
+  if (deprecatedIds.length) {
+    const omitted = omitDeprecatedInterestIds(plan, termIds, deprecatedIds);
+    const label = omitted.names.length ? `${omitted.names.join(", ")} (${deprecatedIds.join(", ")})` : deprecatedIds.join(", ");
+    resolution.warnings.push(`עניין שהוצא משימוש וירד מהטירגוט: ${label}. החלופה שמטא מציעה לא נלקחת.`);
+    if (!omitted.plan.ok) {
+      resolution.plan = omitted.plan;
+      const shown = presentPausedLaunch(omitted.plan, creatives, resolution);
+      await log(sb, caller, {
+        action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+        request: { dry_run: false, include_a5: includeA5 },
+        response: { errors: omitted.plan.errors, warnings: resolution.warnings },
+        ok: false, error: "flexible_and_lost",
+      });
+      return json({ error: "flexible_and_lost", detail: omitted.plan.errors.map((e) => e.detail).join(" "), plan: shown, creatives }, 409);
+    }
+    if (omitted.names.length || omitted.plan !== plan) {
+      plan = omitted.plan;
+      termIds = omitted.termIds;
+      resolution.plan = omitted.plan;
+      resolution.termIds = omitted.termIds;
+    }
+  }
+  const blocking = probed.failures.filter((f) => f.meta?.subcode !== 1870247);
+  if (blocking.length) {
+    const first = blocking[0];
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, failed_object_key: first.objectKey, failed_name: first.name, body: first.request ?? null },
+      response: {
+        meta: first.meta,
+        failures: blocking.map((f) => ({
+          object_key: f.objectKey,
+          name: f.name,
+          message: f.message,
+          meta: f.meta,
+          body: f.request ?? null,
+        })),
+      },
+      ok: false, error: first.message,
+    });
+    return json({ error: "meta_validation", detail: validationDetail(first), meta: first.meta }, 409);
+  }
+
   const images = new Map<string, Uint8Array>();
   const missing: string[] = [];
   const mismatched: string[] = [];
+  let imageScanCut = false;
   for (const image of plan.images) {
+    if (Date.now() >= deadline) { imageScanCut = true; break; }
     if (existing.get(`image:${image.key}`)?.imageHash) continue;
     const file = await sb.storage.from(CREATIVE_BUCKET).download(image.path);
     if (file.error || !file.data) {
@@ -1857,7 +2194,7 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
     if (hash !== image.sha256) mismatched.push(image.path);
     else images.set(image.key, buf);
   }
-  if (missing.length || mismatched.length) {
+  if (!imageScanCut && (missing.length || mismatched.length)) {
     const code = mismatched.length ? "creative_hash_mismatch" : "creatives_not_in_storage";
     const detail = mismatched.length
       ? `התמונות בדלי אינן הקבצים של החבילה: ${mismatched.slice(0, 6).join(", ")}`
@@ -1869,13 +2206,14 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   const result = await executeLaunch({
     act,
     plan,
-    pageId: PAGE_ID,
-    instagramUserId: IG_ACCOUNT_ID || undefined,
+    pageId: launchPageId,
+    instagramUserId: launchIg,
     pixelId: PIXEL_ID,
     regionKeys,
     termIds,
     existing,
     images,
+    deadline,
     post: (p, b) => meta.post(p, b),
     record: async (row) => {
       const up = await sb.from("ads_launch_objects").upsert({
@@ -1904,32 +2242,72 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   if (result.error) {
     await log(sb, caller, {
       action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-      request: { dry_run: false }, response: { created: result.created, skipped: result.skipped },
+      request: {
+        dry_run: false,
+        failed_object_key: result.failedObjectKey ?? null,
+        failed_name: result.failedName ?? null,
+        failed_kind: result.failedKind ?? null,
+        path: result.failedPath ?? null,
+        body: result.request ?? null,
+      },
+      response: { created: result.created, skipped: result.skipped, meta: result.meta ?? null },
       ok: false, error: result.error,
     });
     const hebrew = result.error.startsWith("db_error")
       ? "האובייקט נוצר במטא אבל השמירה שלו במסד נכשלה. לא ממשיכים, כדי לא לשכפל. מזהה השגיאה ביומן."
-      : `היצירה נעצרה אחרי ${result.created.length} אובייקטים. מה שנוצר נשאר מושהה, והרצה נוספת לא תשכפל אותו.`;
-    return json({ error: "meta_error", detail: hebrew, created: result.created, skipped: result.skipped }, 502);
+      : `היצירה נעצרה ב-${result.failedObjectKey || "שלב לא ידוע"} אחרי ${result.created.length} אובייקטים חדשים (${result.skipped.length} דולגו כי כבר נשמרו). מה שנוצר נשאר מושהה, והרצה נוספת לא תשכפל אותו.`;
+    const told = [result.meta?.error_user_title, result.meta?.error_user_msg].filter(Boolean).join(" - ");
+    const tos = result.meta?.subcode === 1815089 ? " אישור תנאי טפסי הלידים נעשה ידנית בדף הפייסבוק: https://www.facebook.com/ads/leadgen/tos" : "";
+    return json({
+      error: "meta_error",
+      detail: told ? `${hebrew} ${told}${tos}` : hebrew + tos,
+      meta: result.meta ?? null,
+      created: result.created,
+      skipped: result.skipped,
+      failed_object_key: result.failedObjectKey ?? null,
+    }, 502);
+  }
+
+  if (!result.done) {
+    const nextKey = result.nextKey || pendingLaunchKey(collectWriteOps(plan, {
+      pageId: launchPageId,
+      instagramUserId: launchIg,
+      pixelId: PIXEL_ID,
+      regionKeys,
+      termIds,
+    }).ops, existing) || "";
+    await log(sb, caller, {
+      action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, include_a5: includeA5, done: false, next_key: nextKey },
+      response: { created_n: result.created.length, skipped_n: result.skipped.length, next_key: nextKey },
+      ok: true,
+    });
+    return partialLaunchResponse(result.created, result.skipped, nextKey);
   }
 
   await log(sb, caller, {
     action: "create_paused_launch", object_type: "launch", object_id: LAUNCH_KEY,
-    request: { dry_run: false, include_a5: includeA5 },
+    request: { dry_run: false, include_a5: includeA5, done: true },
     response: { created: result.created, skipped: result.skipped, campaigns: plan.campaigns.map((c) => c.name) },
     ok: true,
   });
   return json({
     ok: true,
+    done: true,
     dry_run: false,
     created: result.created,
     skipped: result.skipped,
+    created_n: result.created.length,
+    skipped_n: result.skipped.length,
     campaigns: plan.campaigns.map((c) => ({ key: c.key, name: c.name, status: PAUSED_STATUS })),
     budget: plan.budget,
     note: resolution.warnings.length
       ? `הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager. ${resolution.warnings.join(" ")}`
       : "הכל נוצר מושהה. ההפעלה נעשית ב-Ads Manager.",
   });
+  } finally {
+    if (locked === true) await unlockLaunch(sb, holder);
+  }
 }
 
 Deno.serve(async (req: Request) => {

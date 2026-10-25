@@ -8,27 +8,48 @@
    שאילתת המתווכים והספירה הן משניות: כישלון שלהן משאיר את המשרדים.
    רשימת משרדים ריקה אחרי תשובה היא 200 עם noindex.
 
+   דף לכל עיר (‏/afula/מתווכים, ‏/haifa/מתווכים - CITIES ב-brokers-render.js).
+   שוק שאינו live ב-assets/markets.js: הדף מלא, עם noindex (‏landingIndexable).
+
    docs/afula-brokers.md.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import "../../assets/silo-render.js";
 import "../../assets/brokers-render.js";
+import { landingIndexable, liveMarketSlugs } from "./lib/indexability.ts";
+import { marketHint } from "./lib/markets.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
 
-type Page = { path: string; h1: string; description: string; intro: string };
+type Page = {
+  path: string;
+  h1: string;
+  benefit?: string;
+  description: string;
+  intro: string;
+  city: string;
+  cityName: string;
+  cityId: string;
+  market: string;
+  home: string;
+};
 type Row = Record<string, unknown>;
-type Data = { agencies: Row[]; agents: Row[] };
+type Data = { agencies: Row[]; agents: Row[]; related?: Row[]; hoods?: Row[] };
 
 type Api = {
+  pages: Page[];
+  cities: { slug: string }[];
   pageOf: (pathname: string) => Page | null;
-  agencyQuery: () => string;
-  render: (data: Data) => string;
-  scripts: (data: Data, site: string) => string;
-  fullTitle: () => string;
+  agencyQuery: (page: Page) => string;
+  render: (data: Data, page: Page) => string;
+  chipsHtml: (data: Data) => string;
+  updatedHtml: (data: Data) => string;
+  scripts: (data: Data, site: string, page: Page) => string;
+  fullTitle: (page: Page) => string;
 };
 
 function api(): Api {
@@ -60,8 +81,8 @@ async function getJson(path: string, init?: RequestInit): Promise<unknown | unde
 }
 
 /* undefined = המשרדים לא נענו. אובייקט = יש תשובה, גם אם המתווכים חסרים. */
-async function load(): Promise<Data | undefined> {
-  const agencies = await getJson("agencies?" + api().agencyQuery());
+async function load(page: Page): Promise<Data | undefined> {
+  const agencies = await getJson("agencies?" + api().agencyQuery(page));
   if (!Array.isArray(agencies)) return undefined;
   const [members, cards] = await Promise.all([
     getJson("agency_members_public?select=slug,display_name,agency_id&is_active_agent=eq.true&order=display_name.asc&limit=1000"),
@@ -86,7 +107,17 @@ async function load(): Promise<Data | undefined> {
       agency_name: names.get(String(m.agency_id)) || "",
     }))
     : [];
-  return { agencies: offices, agents };
+  let related: Row[] = [];
+  if (offices.length < 3) {
+    const props = await getJson(
+      "properties?select=id,title,price,deal_type,city&status=eq.active&deal_type=eq.sale&category=eq.residential&city=eq."
+        + encodeURIComponent(page.cityName) + "&order=created_at.desc&limit=9",
+    );
+    if (Array.isArray(props)) related = props as Row[];
+  }
+  /* ספירת שכונות היא תוספת. כישלון שלה לא הופך דף משרדים ל-503. */
+  const hoods = await getJson("rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=200");
+  return { agencies: offices, agents, related, hoods: Array.isArray(hoods) ? hoods as Row[] : undefined };
 }
 
 function attr(s: string): string {
@@ -122,11 +153,13 @@ export function inject(html: string, page: Page, data: Data): string {
   const A = api();
   const box = /<div id="brokersBody"[^>]*>[\s\S]*?<!--\/brokers-->/;
   if (!box.test(html)) return html;
-  const full = A.fullTitle();
-  const body = A.render(data);
-  const preloadMatch = body.match(/<img[^>]*fetchpriority="high"[^>]*>/);
-  const src = preloadMatch ? (preloadMatch[0].match(/\bsrc="([^"]+)"/) || [])[1] : "";
-  const preload = src ? `<link rel="preload" as="image" href="${src}" fetchpriority="high">\n` : "";
+  const full = A.fullTitle(page);
+  const body = A.render(data, page);
+  const heroImg = html.match(/id="landHeroBg"[\s\S]*?<img[^>]*fetchpriority="high"[^>]*>/);
+  const src = heroImg ? (heroImg[0].match(/\bsrc="([^"]+)"/) || [])[1] : "";
+  const already = /rel="preload"[^>]*as="image"/.test(html);
+  const preload = !already && src ? `<link rel="preload" as="image" href="${src}" fetchpriority="high">\n` : "";
+  const listings = (data.agencies || []).reduce((sum, a) => sum + (Number(a.active_count) || 0), 0);
   return html
     .replace(box, () => `<div id="brokersBody" data-ssr="1">\n${body}\n<!--/brokers-->`)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
@@ -134,8 +167,17 @@ export function inject(html: string, page: Page, data: Data): string {
     .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
     .replace(/(<h1 id="brokersH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
-    .replace(/(<p id="brokersLead">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(page.description)}${b}`)
-    .replace(/<\/head>/i, () => `${preload}${A.scripts(data, SITE)}\n</head>`);
+    .replace(/(<p class="land-benefit" id="brokersBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(page.benefit || page.description)}${b}`)
+    .replace(/(<a\b[^>]*\bid="landCityCrumb"[^>]*)(>)[\s\S]*?(<\/a>)/, (_m, open, gt, close) =>
+      `${String(open).replace(/\bhref="[^"]*"/, `href="${attr(page.home)}"`)}${gt}${text(page.cityName)}${close}`)
+    .replace(/(<span id="brokersCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
+    .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${A.chipsHtml(data)}</div>`)
+    .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${A.updatedHtml(data)}</p>`)
+    .replace(/(<a\b[^>]*\bid="landAll"[^>]*)(>)/, (_m, open, end) => {
+      let next = String(open).replace(/\bdata-count="[^"]*"/, `data-count="${listings}"`);
+      return next + end;
+    })
+    .replace(/<\/head>/i, () => `${preload}${marketHint(page.home, page.market)}${A.scripts(data, SITE, page)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -147,7 +189,7 @@ export default async function handler(request: Request, context: Context) {
   if (!page) {
     let path = pathname;
     try { path = decodeURIComponent(path); } catch { /* נשאר כמו שהוא */ }
-    if (path.startsWith("/afula/")) return res;
+    if (api().cities.some((c) => path.startsWith(`/${c.slug}/`))) return res;
   }
   const type = res.headers.get("content-type") || "";
   if (!res.ok || !type.includes("text/html")) return res;
@@ -156,6 +198,7 @@ export default async function handler(request: Request, context: Context) {
   let cache = false;
   let status = res.status;
   let empty = false;
+  let hidden = false;
 
   try {
     if (!page) {
@@ -163,7 +206,7 @@ export default async function handler(request: Request, context: Context) {
       status = 404;
     } else {
       out = withUrl(html, page);
-      const data = await load();
+      const data = await load(page);
       if (!data) {
         status = 503;
       } else if (!data.agencies.length) {
@@ -174,6 +217,10 @@ export default async function handler(request: Request, context: Context) {
         const filled = inject(out, page, data);
         cache = filled !== out;
         out = filled;
+        if (!landingIndexable(page.market, liveMarketSlugs())) {
+          out = noindex(out);
+          hidden = true;
+        }
       }
     }
   } catch {
@@ -184,11 +231,14 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (status === 404 || status === 503 || empty) {
-    return new Response(out, { status, headers: failureHeaders(res.headers, status) });
+    const failed = failureHeaders(res.headers, status);
+    if (empty) failed.set("X-Robots-Tag", "noindex, follow");
+    return new Response(out, { status, headers: failed });
   }
 
   const headers = new Headers(res.headers);
   headers.delete("content-length");
+  if (hidden) headers.set("X-Robots-Tag", "noindex, follow");
   if (cache) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
@@ -203,5 +253,20 @@ export const config: Config = {
     "/brokers.html",
     "/afula/מתווכים",
     "/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/haifa/*",
+    "/haifa/מתווכים",
+    "/haifa/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/kiryat-ata/*",
+    "/kiryat-ata/מתווכים",
+    "/kiryat-ata/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/kiryat-bialik/*",
+    "/kiryat-bialik/מתווכים",
+    "/kiryat-bialik/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/kiryat-motzkin/*",
+    "/kiryat-motzkin/מתווכים",
+    "/kiryat-motzkin/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/kiryat-yam/*",
+    "/kiryat-yam/מתווכים",
+    "/kiryat-yam/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
   ],
 };

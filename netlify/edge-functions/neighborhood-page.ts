@@ -7,9 +7,10 @@
    `deals-page.ts`, שממנו היא מועתקת.
 
    ‏**canonical מהכתובת, לא מהמסד:** היא נכנסת לפני הקריאה למסד, ולכן דקה של
-   Supabase איטי אינה מאחדת שכונות. ‏noindex - רק כשהמסד ענה במפורש שאין
-   שכונה כזו, כשהכתובת אינה תקינה, או כשהדף דל (בלי נכס פעיל ועם פחות מ-5
-   עסקאות). timeout, שגיאת HTTP או תשובה שאינה אובייקט הם 503 בלי noindex
+   Supabase איטי אינה מאחדת שכונות. ‏noindex - כשהמסד ענה במפורש שאין
+   שכונה כזו, כשהכתובת אינה תקינה, או כשהדף אינו לאינדקס
+   (‏`neighborhoodIndexable`: אפס מודעות פעילות, או עיר מחוץ לשוק חי).
+   timeout, שגיאת HTTP או תשובה שאינה אובייקט הם 503 בלי noindex
    ובלי מטמון: גוגל חוזרת, ודף ריק אינו נשמר כאילו הוא הדף.
 
    התיעוד: ‎docs/neighborhood-pages.md‎.
@@ -17,6 +18,7 @@
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/neighborhood-render.js";
+import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -24,8 +26,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
 const CITY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const HOOD = /^[0-9a-z֐-׿]+(-[0-9a-z֐-׿]+)*$/;
-const THIN_DEALS = 5;
-
 export type Hood = {
   name: string;
   slug: string;
@@ -162,8 +162,10 @@ export default async function handler(request: Request, context: Context) {
         const filled = inject(out, d);
         cache = filled !== out;
         out = filled;
-        // דף דל הוא תוכן דל בעיני גוגל: נשאר לגולש/ת, לא לאינדקס ולא ל-sitemap
-        if (cache && !Number(d.props_active || 0) && Number(d.deals || 0) < THIN_DEALS) out = noindex(out);
+        /* ‏אותו כלל כמו ה-sitemap (‏lib/indexability.ts). הדף נשאר 200. */
+        if (cache && !neighborhoodIndexable(Number(d.props_active || 0), String(d.market_slug || ""), liveMarketSlugs())) {
+          out = noindex(out);
+        }
       } else {
         /* ‏undefined, או תשובה שאינה אובייקט: כשל זמני. בלי noindex. */
         status = 503;
@@ -185,6 +187,7 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
+  if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
   return new Response(out, { status: res.status, headers });
 }
 

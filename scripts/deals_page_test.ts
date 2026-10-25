@@ -103,7 +103,43 @@ html = await res.text();
 check("דל: 200 והדף מולא", res.status === 200 && /<div id="dealsBody" data-ssr="1">/.test(html));
 check("דל: noindex", html.includes('<meta name="robots" content="noindex,follow">'));
 html = await (await run("https://shuknadlan.co.il/deals/afula", 200, AFULA)).text();
-check("812 עסקאות: בלי noindex", !html.includes("noindex"));
+check("812 עסקאות, בלי תשובת מודעות: בלי noindex", !html.includes("noindex"));
+
+async function runRouted(url: string, route: (target: string) => { status: number; body: unknown }): Promise<Response> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const target = String(input instanceof Request ? input.url : input);
+    const got = route(target);
+    return new Response(JSON.stringify(got.body), {
+      status: got.status,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  return await handler(new Request(url), context());
+}
+
+res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
+  if (target.includes("/properties?")) return { status: 200, body: [{ city_id: "c1" }] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [{ market_slug: "afula-emek" }] };
+  return { status: 200, body: AFULA };
+});
+html = await res.text();
+check("עפולה עם מודעות: בלי noindex", res.status === 200 && !html.includes("noindex"));
+
+res = await runRouted("https://shuknadlan.co.il/deals/haifa", (target) => {
+  if (target.includes("/properties?")) return { status: 200, body: [] };
+  return { status: 200, body: { ...AFULA, name: "חיפה", slug: "haifa", deals: 100 } };
+});
+html = await res.text();
+check("בלי מודעות: 200 ו-noindex", res.status === 200 && html.includes("noindex")
+  && res.headers.get("X-Robots-Tag") === "noindex, follow");
+
+res = await runRouted("https://shuknadlan.co.il/deals/haifa", (target) => {
+  if (target.includes("/properties?")) return { status: 200, body: [{ city_id: "h1" }] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [{ market_slug: "haifa-krayot" }] };
+  return { status: 200, body: { ...AFULA, name: "חיפה", slug: "haifa", deals: 100 } };
+});
+html = await res.text();
+check("מחוץ לשוק חי: 200 ו-noindex", res.status === 200 && html.includes("noindex"));
 
 /* יישוב שאינו קיים */
 res = await run("https://shuknadlan.co.il/deals/nowhere", 200, null);

@@ -228,14 +228,61 @@ test('?deal=sale&q=גבעת המורה נפתר לשכונה, ו-?rooms=3,3.5,4 
   assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=%2B6')).rooms, [6, 99]);
 });
 
-test('rooms=3-4 הוא המדרגה "3-4 חדרים", ו-rooms=4 בדיוק 4', () => {
+test('rooms=3-4 הוא המדרגה "3-4 חדרים", ו-rooms=4 כולל 4.5', () => {
   assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=3-4')).rooms, [3, 4.5]);
-  assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=4')).rooms, [4, 4]);
+  assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=4')).rooms, [4, 4.5]);
+  assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=3.5')).rooms, [3.5, 3.5]);
   assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=5%2B')).rooms, [5, 99]);
+  // הצורה הישנה של "4 חדרים" שהוקלד עדיין נקראת, ונכתבת בחזרה כ-rooms=4
+  assert.deepStrictEqual(C.fromParams(new URLSearchParams('rooms=4,4.5')).rooms, [4, 4.5]);
+  assert.strictEqual(C.toParams(C.fromParams(new URLSearchParams('rooms=4,4.5')), AREAS, CTX), 'rooms=4');
   C.ROOM_BUCKETS.forEach(b => {
     const st = C.applyPatch(C.defaultState(), { rooms: b });
     assert.deepStrictEqual(C.fromParams(new URLSearchParams(C.toParams(st, AREAS, CTX))).rooms, b);
   });
+});
+
+test('דף נחיתה: city מסנן, חדרים כוללים חצי, ומסחרי יוצא', () => {
+  const extra = [
+    P({ id: 'off', deal_type: 'sale', category: 'commercial', property_type: 'משרדים', rooms: 3, city: 'עפולה', street: 'המלאכה' }),
+    P({ id: 'off2', deal_type: 'sale', category: 'residential', property_type: 'משרדים', rooms: 3, city: 'עפולה' }),
+    P({ id: 'shop', deal_type: 'sale', category: 'commercial', property_type: 'חנויות/שטח מסחרי', rooms: 3, city: 'עפולה' }),
+    P({ id: 'g3', deal_type: 'sale', property_type: 'דירת גן', rooms: 3, city: 'עפולה' }),
+    P({ id: 'a3', deal_type: 'sale', property_type: 'דירה', rooms: 3, city: 'עפולה' }),
+    P({ id: 'a35', deal_type: 'sale', property_type: 'דירה', rooms: 3.5, city: 'עפולה' }),
+    P({ id: 'a4', deal_type: 'sale', property_type: 'דירה', rooms: 4, city: 'עפולה' }),
+    P({ id: 'mig', deal_type: 'sale', property_type: 'דירה', rooms: 3, city: 'מגדל העמק' }),
+    P({ id: 'nof', deal_type: 'sale', property_type: 'דירה', rooms: 3.5, city: 'נוף הגליל' }),
+    P({ id: 'house', deal_type: 'sale', property_type: "בית פרטי/קוטג'", rooms: 3, city: 'עפולה' }),
+    P({ id: 'ph', deal_type: 'sale', property_type: 'גג/פנטהאוז', rooms: 3.5, city: 'עפולה' }),
+  ];
+  const qs = 'deal=sale&rooms=3&city=' + encodeURIComponent('עפולה') + '&utm_source=google&utm_medium=cpc&utm_campaign=3rooms&gclid=abc';
+  const st = C.fromParams(new URLSearchParams(qs));
+  const plain = C.fromParams(new URLSearchParams('deal=sale&rooms=3&city=' + encodeURIComponent('עפולה')));
+  assert.strictEqual(st.city, 'עפולה');
+  assert.deepStrictEqual(st.rooms, [3, 3.5]);
+  assert.strictEqual(st.deal, 'sale');
+  assert.strictEqual(st.type, 'any');
+  ['deal', 'type', 'area', 'rooms', 'city', 'priceMax', 'priceMin', 'ai'].forEach(k => {
+    assert.deepStrictEqual(st[k], plain[k], k);
+  });
+  // b במלאי הבסיסי: דירה למכירה, 3.5, עפולה
+  const ids = C.filter(PROPS.concat(extra), st, CTX).map(p => p.id).sort();
+  assert.deepStrictEqual(ids, ['a3', 'a35', 'b', 'g3', 'house', 'ph']);
+  const back = C.toParams(st, AREAS, CTX);
+  assert.strictEqual(back, 'deal=sale&rooms=3&city=' + encodeURIComponent('עפולה'));
+  const again = C.fromParams(new URLSearchParams(back));
+  assert.strictEqual(again.city, 'עפולה');
+  assert.deepStrictEqual(again.rooms, [3, 3.5]);
+  const slots = C.slotsFor(st, AREAS, CTX).map(s => s.value);
+  assert.ok(slots.includes('עפולה'), slots.join(' | '));
+  assert.ok(slots.includes('3 חדרים'), slots.join(' | '));
+  // q= של היישוב העיקרי נשאר "כל השוק", ולא מסנן לעיר
+  const qst = C.resolveArea(C.fromParams(new URLSearchParams('q=' + encodeURIComponent('עפולה'))), AREAS);
+  assert.strictEqual(qst.area, 'all');
+  assert.strictEqual(qst.city, null);
+  assert.strictEqual(C.fromParams(new URLSearchParams('city=<script>')).city, null);
+  assert.strictEqual(C.fromParams(new URLSearchParams('city=' + encodeURIComponent('עפולה1'))).city, null);
 });
 
 test('מצב → כתובת → מצב שומר על החיפוש', () => {

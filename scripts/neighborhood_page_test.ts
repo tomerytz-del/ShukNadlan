@@ -125,6 +125,19 @@ function check(name: string, ok: boolean) {
   check("דף דל: נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 }
 {
+  const empty = { ...HOOD, props_active: 0, props: [], deals: 20 };
+  const res = await run(URL_HOOD, 200, empty);
+  const html = await res.text();
+  check("בלי מודעות: 200 ו-noindex גם עם עסקאות", res.status === 200 && html.includes("noindex")
+    && res.headers.get("X-Robots-Tag") === "noindex, follow");
+}
+{
+  const away = { ...HOOD, market_slug: "haifa-krayot", city: "חיפה", city_slug: "haifa" };
+  const res = await run(URL_HOOD, 200, away);
+  const html = await res.text();
+  check("מחוץ לשוק חי: 200 ו-noindex", res.status === 200 && html.includes('data-ssr="1"') && html.includes("noindex"));
+}
+{
   const res = await run("https://shuknadlan.co.il/n/afula/<x>", 200, HOOD);
   const html = await res.text();
   check("כתובת לא תקינה: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex") && calls === 0);
