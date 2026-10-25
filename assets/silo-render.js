@@ -509,7 +509,7 @@
     }
     if (!stat && !offices.length) return "";
     var head = offices.length
-      ? countPhrase(offices.length, "משרד פעיל", "משרדים פעילים") + " - משרדי התיווך שמפרסמים בעפולה"
+      ? countPhrase(offices.length, "משרד תיווך פעיל בעפולה", "משרדי תיווך פעילים בעפולה")
       : stat;
     if (!head) return "";
     var strip = "";

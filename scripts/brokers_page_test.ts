@@ -81,7 +81,10 @@ function blocks(html: string): Record<string, unknown>[] {
   const faq = ld.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
   check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 4);
   check("התראה", html.includes("קבלו התראה") && !html.includes("זו ההתראה שכבר קיימת באתר"));
-  check("כותרת משרדים", html.includes("משרדי התיווך שמפרסמים בעפולה"));
+  check("כותרת משרדים", html.includes("משרדי תיווך פעילים בעפולה")
+    && !html.includes("משרדי התיווך שמפרסמים בעפולה"));
+  const heroCta = html.slice(html.indexOf('id="landAll"'), html.indexOf('id="landAll"') + 180);
+  check("כפתור משרדים", heroCta.includes('href="/agencies"') && heroCta.includes(">לכל המשרדים<"));
   const body = (html.split('id="brokersBody"')[1] || "").split("<!--/brokers-->")[0];
   check("בלי סינון נכסים", !body.includes("rooms=3") && !body.includes('aria-label="סינון מהיר"'));
   check("עודכן", html.includes("עודכן לאחרונה") && html.includes("<bdi>01.10.2026</bdi>"));

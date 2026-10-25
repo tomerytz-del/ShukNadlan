@@ -198,8 +198,8 @@
       html += relatedCards(data);
     } else {
       if (agencies.length) {
-        html += "<h2>" + countPhrase(agencies.length, "משרד פעיל", "משרדים פעילים")
-          + " - משרדי התיווך שמפרסמים בעפולה</h2><ul class=\"land-grid\">";
+        html += "<h2>" + countPhrase(agencies.length, "משרד תיווך פעיל בעפולה", "משרדי תיווך פעילים בעפולה")
+          + "</h2><ul class=\"land-grid\">";
         for (var i = 0; i < agencies.length; i++) html += officeCard(agencies[i]);
         html += "</ul>";
         html += '<p class="land-more"><a class="land-btn land-btn-primary" data-land-cta data-count="' + agencies.length

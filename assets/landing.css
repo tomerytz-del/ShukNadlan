@@ -4,8 +4,9 @@
 .land-page .doc > .wrap,
 .land-hero .wrap { max-width: 1120px; }
 
-/* גובה נעול: בטלפון min(56svh, 460px), במסך רחב 460px (בין 420 ל-480).
-   svh לא זז עם סרגל הכתובת, ולכן אין קפיצת CLS. הטקסט בתוך התיבה, על התמונה. */
+/* גובה: בטלפון צר min(56svh, 460px). מ-760px min(460px, 100svh - 67px):
+   שולחן בגובה רגיל נשאר 460px, וטלפון לרוחב מתכווץ כדי שהכפתורים יישארו
+   בקיפול. 67px הוא גובה הכותרת הדביקה. svh לא זז עם סרגל הכתובת. */
 .land-hero-media {
   position: relative;
   display: flex;
@@ -22,8 +23,9 @@
 @media (min-width: 760px) {
   .land-hero-media {
     height: 460px;
-    min-height: 420px;
-    max-height: 480px;
+    height: min(460px, calc(100svh - 67px));
+    min-height: 0;
+    max-height: none;
   }
 }
 .land-hero-bg {
@@ -318,9 +320,11 @@
 .land-faq summary {
   min-height: 44px;
   display: flex;
+  width: fit-content;
+  max-width: 100%;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
   cursor: pointer;
   font-weight: 750;
   color: #102044;
@@ -332,7 +336,7 @@
   width: 8px;
   height: 8px;
   flex: 0 0 auto;
-  border-inline-end: 2px solid currentColor;
+  border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg);
   margin-top: -4px;
