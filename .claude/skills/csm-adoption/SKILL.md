@@ -114,6 +114,11 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
   פגישה שנמחקת משאירה מצבה, כי אחרת האירוע נשאר ב-Google. ‏`csm-tools.ts` לא מייבא
   את `google-calendar.ts` (‏`Deno.env` שובר את הבדיקה ב-node) - `busyCheck` מוזרק.
 
+- **מספר וירטואלי** (‏`csm_phone_lines`) - לא `agent_phone_lines`: אין לה מסלול, ארנק
+  או תקרה. ב-`twilio-voice` הענף שלה נבדק **לפני** הסוכנים, השיחה נכתבת ל-`csm_calls`
+  (`source = 'phone'`) ועוברת `processCsmCall`, ו-`csm-notify.ts` שולח לה את הסיכום
+  ואת ההקלטה. מקור חדש ב-`csm_calls.source` - גם ב-`csm_calls_notify` וב-`csmCallsHtml`.
+
 ## 9. עלות
 
 שלוש יכולות ב-`AiFeature` (`csm_mentor`, `csm_call`, `gabriela_csm`), ולכל אחת שורה ב-

@@ -19,6 +19,7 @@
 | `supabase/functions/whatsapp-webhook/csm-chat.ts`, `csm-tools.ts` | גבריאלה מול הצוות: התור, הכלים, וקובץ שמע → ניתוח |
 | `supabase/migrations/20270816090000_csm_profile_agenda_notifications.sql` | ההגדרות על `csm_staff`, ‏`csm_agenda`, ‏`csm_notifications`, ‏`csm_notify_run()` וה-cron `csm-notify` |
 | `supabase/functions/whatsapp-webhook/csm-notify.ts` | שליחת ההתראות לוואטסאפ (‏`?task=csm-notify`) |
+| `supabase/migrations/20270817100000_csm_phone_line.sql`, `twilio-voice` (‏`csmIncoming` ואילך) | המספר הווירטואלי שלה: ניתוב, הקלטה וניתוח |
 | `supabase/migrations/20270817090000_csm_google_calendar.sql` | הסנכרון ליומן Google: `csm_calendar_*`, עמודות `google_*` על `csm_agenda`, מצבות, התפיסה וה-cron `csm-gcal-sync` |
 
 ## התפקיד: זהות נפרדת (`csm_staff`)
@@ -174,6 +175,32 @@ Claude עם `tool_choice` מאולץ (`save_call_analysis`) - סיכום, טון
   החיבור עצמו הוא OAuth, ולכן גבריאלה מפנה להגדרות ולא מחברת.
 - ביומן, ליד פגישה: "ביומן Google" כשעברה, ו"לא עבר ל-Google" (עם השגיאה) כשנכשלה.
 
+## מספר וירטואלי
+
+מספר Twilio שמנותב לנייד שלה. סוכן/ת שמתקשר/ת אליו שומע/ת שהשיחה מוקלטת, מגיע/ה
+לנייד שלה, ובסוף השיחה היא מקבלת בוואטסאפ את **הסיכום** (`callAnalysisText` - אותו
+ניתוח של "הקלטות": כאב, התנגדויות, התחייבויות, המלצות, שלב ומועד קשר מוצעים
+והודעה לסוכן/ת) ואחריו **את ההקלטה עצמה**. השיחה נכנסת ללשונית "הקלטות" כ"שיחה
+למספר שלך".
+
+| | |
+| --- | --- |
+| השיוך | מנהל/ת הפלטפורמה, "צוות ההטמעה": **קניית מספר** (‏`twilio-voice?task=csm-line-order`) או **העברת מספר קיים של הפלטפורמה** (‏`csm_phone_line_assign`, למשל הפיילוט). מספר שסוכן/ת משלם/ת עליו - `number_in_use` |
+| ההחזרה | מספר שנקנה - שחרור ב-Twilio; מספר שהועבר - חוזר לשורה של הסוכנים (`moved_from_line`), שנכבתה בהעברה |
+| הניתוב | `csmLineFor` נבדק **ראשון** ב-`onIncoming`, ואז `csmIncoming`: ‏`<Dial>` לנייד שלה (או `forward_to`) עם הקלטה, ואותו כלל caller ID של הסוכנים |
+| מי התקשר/ה | הסוכן/ת לפי `phone_e164` של המתקשר/ת - אותו מפתח של גבריאלה. מספר לא מוכר - "לא משויכת", וגבריאלה שואלת עם מי |
+| לא נענתה | התראה מיד (`call_ready`, "שיחה שלא נענתה"), ותא קולי שעובר את אותו ניתוח |
+| ההקלטה | `?event=csm-recording` → דלי `csm-calls` (‏`phone/<staff>/<sid>.mp3`), מחיקה מ-Twilio, שורה ב-`csm_calls` (`source = 'phone'`, ‏unique על `twilio_call_sid`), ו-`processCsmCall` |
+| ההודעה | `csm_calls_notify` (גם `phone`) → `csm-notify.ts`: בתוך חלון 24 השעות - הסיכום המלא וקובץ השמע (כתובת חתומה, עד 16MB); מחוץ לו - התבנית עם כפתור ל-`/csm?tab=calls` |
+
+**למה לא `agent_phone_lines`:** שם המפתח `agency_members`, ועליו נשענים המסלול,
+הארנק, 150 הדקות, החידוש וסבב הירידה. המספר שלה של הפלטפורמה - אף אחד מאלה
+אינו חל - וגם `agent_calls` אינה נכתבת: שיחה איתה אינה ליד של אף סוכן/ת.
+**`line` ו-`from` עוברים בכתובות ה-callback**, ו-Twilio חותמת את הכתובת המלאה -
+לכן הם מאומתים כמו שאר הבקשה.
+
+**שמירה:** אין מחיקה אוטומטית, כמו בשאר ההקלטות של האזור (`privacy.html#calls`).
+
 ## התראות
 
 ‏`csm_notifications` - הפעמון שלה. **נכתבות רק במסד**, ב-`_csm_notify`: סוג
@@ -184,7 +211,7 @@ Claude עם `tool_choice` מאולץ (`save_call_analysis`) - סיכום, טון
 | `meeting_reminder` | X דקות לפני פגישה ביומן שלה | `csm_notify_run`, כל דקה |
 | `new_agent` | סוכן/ת נרשם/ה ב-24 השעות האחרונות - לכל הצוות | `csm_notify_run`, כל 5 דקות |
 | `at_risk` | ביום שבו סוכן/ת **עובר/ת** את 5 הימים בלי גבריאלה (‏`_csm_risk_agents`, אותה הגדרה של `csmRisk`) | `csm_notify_run`, כל 5 דקות |
-| `call_ready` | הקלטה **שהועלתה מהאזור** הסתיימה או נכשלה. מגבריאלה - לא: שם התשובה חוזרת בשיחה | טריגר `csm_calls_notify` |
+| `call_ready` | הקלטה **שהועלתה מהאזור** או **שיחה למספר הווירטואלי** הסתיימה או נכשלה, ושיחה שלא נענתה. מגבריאלה - לא: שם התשובה חוזרת בשיחה | טריגר `csm_calls_notify`, ו-`csmDial` ב-`twilio-voice` |
 | `daily_digest` | בשעה שבחרה, בימי העבודה, פעם ביום ועד שלוש שעות אחרי: פגישות היום, למי לחזור, כמה בסיכון, מי נרשם/ה. יום ריק - בלי סיכום | `csm_notify_run` |
 
 **למה "עובר/ת" ולא "נמצא/ת" בסיכון:** בהרצה הראשונה הייתה כל הרשימה הקיימת

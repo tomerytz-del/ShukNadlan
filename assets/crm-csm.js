@@ -449,7 +449,7 @@ let csmCallPoll = null;
 
 async function csmLoadCalls(){
   const { data, error } = await sb.from('csm_calls')
-    .select('id,title,agent_id,source,status,error,analysis,transcript,audio_path,created_at')
+    .select('id,title,agent_id,source,status,error,analysis,transcript,audio_path,created_at,from_number,voicemail')
     .order('created_at', { ascending:false }).limit(100);
   if (csmTab !== 'calls') return;
   const host = document.getElementById('csmBody');
@@ -475,7 +475,7 @@ function csmCallsHtml(){
         <span class="csm-tag ${c.status === 'done' ? 'seen' : c.status === 'failed' ? 'rec' : ''}">${escapeHtml(CSM_CALL_STATUS[c.status] || c.status)}</span>
       </div>
       <div class="csm-card-meta">${escapeHtml(new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}
-        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
+        · ${c.source === 'whatsapp' ? 'מוואטסאפ' : c.source === 'phone' ? (c.voicemail ? 'הודעה קולית למספר שלך' : 'שיחה למספר שלך') + (c.from_number ? ' מ-<span dir="ltr">' + escapeHtml(csmLocalPhone(c.from_number)) + '</span>' : '') : 'הועלתה כאן'} · ${c.agent_id ? escapeHtml(names[c.agent_id] || 'סוכן/ת') : 'לא משויכת'}</div>
       ${c.status === 'failed' ? `<p class="csm-hint">${escapeHtml(c.error || '')} <button type="button" class="btn btn-ghost" data-csm-call-retry="${escapeHtml(c.id)}">לנסות שוב</button></p>` : ''}
       ${a.summary && !open ? `<p class="csm-fb-desc">${escapeHtml(a.summary)}</p>` : ''}
       ${open ? csmCallDetailHtml(c) : ''}
@@ -558,10 +558,15 @@ let csmStaffEditId = null;   // עריכה של הזמנה קיימת (csm_staff
 
 async function csmLoadStaff(){
   const host = document.getElementById('csmBody');
-  const { data, error } = await sb.rpc('csm_staff_list');
+  const [{ data, error }, { data: lines }, { data: cands }] = await Promise.all([
+    sb.rpc('csm_staff_list'),
+    sb.from('csm_phone_lines').select('id,staff_id,twilio_number,forward_to,twilio_sid,moved_from_line,active').eq('active', true),
+    sb.rpc('csm_phone_line_candidates'),
+  ]);
   if (csmTab !== 'staff') return;
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
   const rows = csmStaffRows = data || [];
+  const lineOf = Object.fromEntries((lines || []).map(l => [l.staff_id, l]));
   const ed = csmStaffEditId ? rows.find(r => r.id === csmStaffEditId) : null;
   if (!ed) csmStaffEditId = null;
   host.innerHTML = `
@@ -584,7 +589,56 @@ async function csmLoadStaff(){
         <button type="button" class="btn btn-ghost" data-csm-staff-edit="${escapeHtml(r.id)}">עריכה</button>
         <button type="button" class="btn ${r.active ? 'btn-ghost' : 'btn-gold'}" data-csm-staff="${escapeHtml(r.id)}" data-on="${r.active ? '0' : '1'}">${r.active ? 'השבתה' : 'הפעלה'}</button>
       </div>
+      ${r.active ? csmStaffLineHtml(r, lineOf[r.id], cands || []) : ''}
     </div>`).join('') || '<div class="empty-state">עוד אין צוות הטמעה.</div>'}`;
+}
+
+/* ---------- המספר הווירטואלי של אשת הצוות (csm_phone_lines) ----------
+   שיחה למספר מגיעה לנייד שלה, מוקלטת, ומנותחת כמו "הקלטות" - והסיכום וההקלטה
+   מגיעים אליה בוואטסאפ (twilio-voice, ‏csmIncoming). של הפלטפורמה: בלי מסלול,
+   ארנק או תקרת דקות. שתי דרכים: קנייה ב-Twilio (twilio-voice?task=csm-line-order),
+   או העברת מספר קיים של הפלטפורמה, כמו הפיילוט (csm_phone_line_assign). */
+function csmLocalPhone(e164){
+  const d = String(e164 || '').replace(/\D/g, '');
+  return d.startsWith('972') ? '0' + d.slice(3) : String(e164 || '');
+}
+
+function csmStaffLineHtml(r, line, cands){
+  if (line) return `<div class="csm-staff-line">📞 מספר וירטואלי: <strong dir="ltr">${escapeHtml(csmLocalPhone(line.twilio_number))}</strong>
+      → ${line.forward_to ? '<span dir="ltr">' + escapeHtml(csmLocalPhone(line.forward_to)) + '</span>' : 'הנייד שלה'}
+      <button type="button" class="btn btn-ghost btn-sm" data-csm-line-off="${escapeHtml(line.id)}" data-bought="${line.twilio_sid ? '1' : '0'}">${line.twilio_sid ? 'שחרור המספר' : line.moved_from_line ? 'החזרה לסוכנים' : 'ניתוק'}</button></div>`;
+  if (!r.phone) return '<div class="csm-staff-line csm-hint">כדי לחבר מספר וירטואלי צריך קודם נייד בהזמנה.</div>';
+  return `<div class="csm-staff-line">
+      <span class="csm-hint">מספר וירטואלי: שיחות אליו יגיעו לנייד שלה, יוקלטו, והסיכום וההקלטה יגיעו אליה בוואטסאפ.</span>
+      <select data-csm-line-area="${escapeHtml(r.id)}" aria-label="קידומת"><option value="4">04</option><option value="2">02</option><option value="3">03</option><option value="8">08</option><option value="9">09</option><option value="72">072</option><option value="77">077</option></select>
+      <button type="button" class="btn btn-gold btn-sm" data-csm-line-buy="${escapeHtml(r.id)}">קניית מספר</button>
+      ${cands.length ? `<select data-csm-line-move="${escapeHtml(r.id)}" aria-label="מספר קיים של הפלטפורמה"><option value="">או העברת מספר קיים…</option>${cands.map(c => `<option value="${escapeHtml(c.twilio_number)}">${escapeHtml(csmLocalPhone(c.twilio_number))}${c.label ? ' - ' + escapeHtml(c.label) : ''}${c.agent_name ? ' (אצל ' + escapeHtml(c.agent_name) + ')' : ''}</option>`).join('')}</select>` : ''}
+    </div>`;
+}
+
+const CSM_LINE_ERR = {
+  bad_number:'המספר אינו מספר ישראלי תקין.', number_in_use:'המספר הזה שייך לסוכן/ת שמשלם/ת עליו, ולא אפשר להעביר אותו.',
+  staff_not_found:'אשת הצוות לא נמצאה או מושבתת.', no_phone:'אין נייד בהזמנה - אין לאן לנתב.',
+  no_number_available:'אין כרגע מספר פנוי בקידומת הזו ב-Twilio. אפשר לנסות קידומת אחרת.',
+  purchase_failed:'הקנייה ב-Twilio נכשלה. לא חויב דבר.', not_configured:'Twilio עוד לא מוגדר במערכת.',
+  twilio_release_failed:'השחרור ב-Twilio נכשל. אפשר לנסות שוב.',
+};
+
+async function csmTwilio(task, body){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { error:'session_not_found' };
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/twilio-voice?task=' + encodeURIComponent(task), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok && !data.error) data.error = String(res.status);
+    return data;
+  } catch (e){
+    return { error: (e && e.message) || 'network' };
+  }
 }
 
 function csmWaDigits(phone){
@@ -1200,7 +1254,7 @@ async function csmSaveAgenda(){
    הפעמון שלה (csm_notifications, נקראת רק שלה ב-RLS). נכתבות במסד בלבד -
    csm_notify_run ו-csm_calls_notify - ונשלחות לוואטסאפ לפי ההגדרות. */
 const CSM_NOTIF_KIND = { new_agent:'סוכן/ת חדש/ה', at_risk:'5 ימים בלי גבריאלה', meeting_reminder:'תזכורת לפגישה',
-  call_ready:'הקלטה שהסתיימה', daily_digest:'סיכום הבוקר' };
+  call_ready:'שיחות והקלטות', daily_digest:'סיכום הבוקר' };
 const CSM_NOTIF_ICON = { new_agent:'🆕', at_risk:'⚠', meeting_reminder:'⏰', call_ready:'🎙', daily_digest:'☀' };
 let csmNotifs = [];
 let csmUnread = 0;
@@ -1275,8 +1329,10 @@ const CSM_DOW = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש\''];
 
 async function csmLoadSettings(){
   const host = document.getElementById('csmBody');
-  const [p] = await Promise.all([csmLoadProfile(true), csmLoadGcal()]);
+  const [p, , lineRes] = await Promise.all([csmLoadProfile(true), csmLoadGcal(),
+    sb.from('csm_phone_lines').select('twilio_number,forward_to').eq('staff_id', csmCtx().staffId).eq('active', true).maybeSingle()]);
   if (csmTab !== 'settings') return;
+  const line = lineRes && lineRes.data;
   if (!p){ host.innerHTML = '<div class="empty-state">לא הצלחנו לטעון את ההגדרות. כדאי לרענן.</div>'; return; }
   const off = new Set(p.notify_off || []);
   const days = new Set((p.work_days || []).map(Number));
@@ -1288,11 +1344,14 @@ async function csmLoadSettings(){
       <div class="field"><label for="csmPfEmail">מייל (הכניסה עם Google)</label><input type="email" id="csmPfEmail" dir="ltr" readonly value="${escapeHtml(p.email || '')}" title="המייל הוא מפתח ההזמנה. לשינוי - לפנות לתומר"></div>
     </div>
     <p class="csm-hint">גבריאלה מזהה אותך לפי הנייד. אחרי שינוי - לכתוב לה מהנייד החדש.</p>
+    ${line ? `<p class="csm-staff-line">📞 המספר הווירטואלי שלך: <strong dir="ltr">${escapeHtml(csmLocalPhone(line.twilio_number))}</strong>.
+      שיחות אליו מגיעות ל${line.forward_to ? '<span dir="ltr">' + escapeHtml(csmLocalPhone(line.forward_to)) + '</span>' : 'נייד שלך'} ומוקלטות, והסיכום וההקלטה מגיעים אלייך בוואטסאפ ובלשונית "הקלטות". כדאי לתת אותו לסוכנים במקום הנייד.</p>`
+      : '<p class="csm-hint">אין לך עדיין מספר וירטואלי. עם מספר כזה כל שיחה מסוכן/ת מוקלטת, ואת מקבלת סיכום והקלטה בוואטסאפ - לבקש מתומר.</p>'}
 
     <h4 class="csm-sub">התראות</h4>
     <label class="csm-opt"><input type="checkbox" id="csmPfWa"${p.notify_whatsapp ? ' checked' : ''}> <span>לשלוח לי גם בוואטסאפ (מגבריאלה). בלי הסימון - בפעמון כאן בלבד</span></label>
     <fieldset class="csm-q"><legend>מה לקבל</legend>
-      ${Object.entries(CSM_NOTIF_KIND).map(([k, l]) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-kind="${k}"${off.has(k) ? '' : ' checked'}> <span>${CSM_NOTIF_ICON[k]} ${escapeHtml(l)}${k === 'daily_digest' ? ' - פגישות היום, למי לחזור, כמה בסיכון ומי נרשם/ה' : k === 'at_risk' ? ' - ביום שבו הסוכן/ת עובר/ת את הסף' : ''}</span></label>`).join('')}
+      ${Object.entries(CSM_NOTIF_KIND).map(([k, l]) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-kind="${k}"${off.has(k) ? '' : ' checked'}> <span>${CSM_NOTIF_ICON[k]} ${escapeHtml(l)}${k === 'daily_digest' ? ' - פגישות היום, למי לחזור, כמה בסיכון ומי נרשם/ה' : k === 'at_risk' ? ' - ביום שבו הסוכן/ת עובר/ת את הסף' : k === 'call_ready' ? ' - סיכום והקלטה של כל שיחה למספר הווירטואלי, שיחה שלא נענתה, והקלטה שהעלית' : ''}</span></label>`).join('')}
     </fieldset>
     <div class="csm-fb-row">
       <div class="field"><label for="csmPfDigest">שעת סיכום הבוקר</label><input type="time" id="csmPfDigest" value="${escapeHtml(p.digest_time || '08:30')}"></div>
@@ -1375,6 +1434,31 @@ function csmSetTab(tab){
       return;
     }
     if (e.target.closest('[data-csm-staff-cancel]')){ csmStaffEditId = null; csmLoadStaff(); return; }
+    const lineBuy = e.target.closest('[data-csm-line-buy]');
+    if (lineBuy){
+      const staffId = lineBuy.dataset.csmLineBuy;
+      const area = (document.querySelector(`[data-csm-line-area="${CSS.escape(staffId)}"]`) || {}).value || '4';
+      if (!confirm('לקנות מספר וירטואלי חדש ב-Twilio (קידומת 0' + area + ')? המספר הוא עלות של הפלטפורמה, כ-5.5$ לחודש ועוד הדקות.')) return;
+      lineBuy.disabled = true;
+      csmTwilio('csm-line-order', { staff_id: staffId, area }).then(r => {
+        if (r.error){ lineBuy.disabled = false; showToast(CSM_LINE_ERR[r.error] || 'לא נשמר: ' + heErr({ code:r.error, message:r.error })); return; }
+        showToast('נקנה ' + csmLocalPhone(r.number) + '. שיחות אליו מגיעות עכשיו לנייד שלה.');
+        csmLoadStaff();
+      });
+      return;
+    }
+    const lineOff = e.target.closest('[data-csm-line-off]');
+    if (lineOff){
+      const bought = lineOff.dataset.bought === '1';
+      if (!confirm(bought ? 'לשחרר את המספר ב-Twilio? הוא לא יחזור.' : 'לנתק את המספר ממנה? אם הוא הועבר מהסוכנים - הוא חוזר לשם.')) return;
+      lineOff.disabled = true;
+      csmTwilio('csm-line-release', { line_id: lineOff.dataset.csmLineOff }).then(r => {
+        if (r.error){ lineOff.disabled = false; showToast(CSM_LINE_ERR[r.error] || 'לא נשמר: ' + heErr({ code:r.error, message:r.error })); return; }
+        showToast(r.returned_to_agent_line ? 'המספר נותק ממנה וחזר לסוכנים.' : 'המספר שוחרר.');
+        csmLoadStaff();
+      });
+      return;
+    }
     // היומן
     const evNew = e.target.closest('[data-csm-ev-new]');
     if (evNew){
@@ -1490,6 +1574,15 @@ function csmSetTab(tab){
   acc.addEventListener('change', async e => {
     const st = e.target.closest('[data-csm-stage]');
     if (st){ csmSetStage(st.dataset.csmStage, st.value); return; }
+    const mv = e.target.closest('[data-csm-line-move]');
+    if (mv && mv.value){
+      if (!confirm('להעביר את ' + csmLocalPhone(mv.value) + ' אליה? שיחות אליו יפסיקו להגיע לסוכנים ויגיעו לנייד שלה.')){ mv.value = ''; return; }
+      const { data, error } = await sb.rpc('csm_phone_line_assign', { p_staff_id: mv.dataset.csmLineMove, p_number: mv.value, p_forward_to: null });
+      if (error || (data && data.error)){ showToast(CSM_LINE_ERR[data && data.error] || 'לא נשמר: ' + heErr(error)); mv.value = ''; return; }
+      showToast('המספר הועבר. שיחות אליו מגיעות עכשיו לנייד שלה.');
+      csmLoadStaff();
+      return;
+    }
     const fs = e.target.closest('[data-csm-fb-status]');
     if (fs){
       const { error } = await sb.from('csm_feedback').update({ status: fs.value, updated_at: new Date().toISOString() }).eq('id', fs.dataset.csmFbStatus);
