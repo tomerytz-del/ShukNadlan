@@ -29,6 +29,7 @@ const context = () =>
     next: async () => new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
   }) as never;
 
+const RECENT = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 const ROWS = [
   {
     id: "p1",
@@ -39,6 +40,10 @@ const ROWS = [
     rooms: 5,
     size_sqm: 180,
     city: "עפולה",
+    features: ["price_dropped"],
+    neighborhoods: { name: "גבעת המורה" },
+    created_at: "2020-01-01T00:00:00.000Z",
+    updated_at: RECENT,
     images: ["https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg"],
   },
   {
@@ -50,6 +55,8 @@ const ROWS = [
     rooms: 4,
     size_sqm: 140,
     city: "עפולה",
+    created_at: RECENT,
+    updated_at: RECENT,
     images: ["https://evil.example/x.jpg"],
   },
 ];
@@ -106,6 +113,15 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("ItemList", !!list && list.numberOfItems === 2 && list.itemListElement[0].position === 1
     && list.itemListElement[0].url === SITE + "/property?id=p1");
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
+  check("FAQ", types.includes("FAQPage") && (html.match(/<details>/g) || []).length >= 4);
+  check("פירור גלוי", html.includes('aria-label="מיקום בדף"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>"));
+  check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
+  check("בלי שמירה", !html.includes("land-save") && !html.includes("שמור נכס"));
+  check("תג ירד מחיר", html.includes('class="land-badge">ירד מחיר'));
+  check("תג חדש", html.includes('class="land-badge">חדש'));
+  check("מחיר ב-bdi", html.includes("<bdi>₪2,500,000</bdi>") && html.includes("מחיר חציוני"));
+  check("שכונה בכרטיס", html.includes("גבעת המורה"));
+  check("H1 לא הוכפל", html.split("<h1").length === 2);
 }
 
 {
@@ -126,6 +142,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("noindex רק כשריק", /noindex/.test(html));
   check("ריק בלי Retry-After", res.headers.get("Retry-After") == null);
   check("ריק אינו נשמר", res.headers.get("Cache-Control") === "no-store");
+  check("ריק עם התראה במקום גריד", html.includes("אין כרגע מודעות פעילות") && html.includes("data-land-alert") && !html.includes('class="land-grid"'));
 }
 
 {

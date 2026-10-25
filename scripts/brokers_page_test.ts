@@ -70,7 +70,10 @@ function blocks(html: string): Record<string, unknown>[] {
   check("H1", html.includes("מתווכים בעפולה</h1>"));
   check("canonical", html.includes(`href="${CANON}"`));
   check("משרד ומתווך", html.includes("/agency?slug=adel") && html.includes("/agent?slug=dana"));
-  check("ספירה", html.includes("4 נכסים פעילים"));
+  check("ספירה", html.includes("<bdi>4</bdi> נכסים פעילים"));
+  check("FAQ", types.includes("FAQPage") && html.includes("<details>"));
+  check("התראה", html.includes("קבלו התראה"));
+  check("משרדים פעילים", html.includes("משרד פעיל בעפולה"));
   check("script לא נשבר", !html.includes("אדל </script>"));
   check("סוגים", types.includes("WebPage") && types.includes("BreadcrumbList") && types.includes("ItemList"));
   check("פירורים", !!crumbs && crumbs.itemListElement.length === 2);

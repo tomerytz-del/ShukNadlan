@@ -20,11 +20,13 @@ const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
+const EXTRA_TIMEOUT_MS = 1500;
 
 type Page = {
   slug: string;
   path: string;
   h1: string;
+  benefit?: string;
   description: string;
   intro: string;
   property_type: string | null;
@@ -33,10 +35,26 @@ type Page = {
 
 type Row = Record<string, unknown>;
 
+type Extras = {
+  total?: number;
+  counted?: boolean;
+  hoods?: Row[] | null;
+  related?: Row[];
+  agencies?: Row[];
+};
+
+type ListingResult = { rows: Row[]; total: number; counted: boolean };
+
 type Silo = {
+  pages: Page[];
+  cityId: string;
   pageOf: (pathname: string) => Page | null;
   queryOf: (page: Page) => string;
-  render: (page: Page, rows: Row[]) => string;
+  render: (page: Page, rows: Row[], extras?: Extras) => string;
+  heroHtml: (rows: Row[]) => string;
+  chipsHtml: (page: Page, rows: Row[], extras?: Extras) => string;
+  updatedHtml: (rows: Row[]) => string;
+  allHref: (page: Page) => string;
   scripts: (page: Page, rows: Row[], site: string) => string;
   fullTitle: (page: Page) => string;
 };
@@ -45,27 +63,83 @@ function silo(): Silo {
   return (globalThis as unknown as { ShukSilo: Silo }).ShukSilo;
 }
 
-/* undefined = המסד לא ענה. מערך (גם ריק) = ענה. */
-async function listings(page: Page): Promise<Row[] | undefined> {
+function authHeaders(): HeadersInit {
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    Accept: "application/json",
+  };
+}
+
+/* undefined = המסד לא ענה. אובייקט (גם עם מערך ריק) = ענה. */
+async function listings(page: Page): Promise<ListingResult | undefined> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?${silo().queryOf(page)}`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        Accept: "application/json",
-      },
+      headers: { ...authHeaders(), Prefer: "count=exact" },
       signal: ctrl.signal,
     });
     if (!res.ok) return undefined;
     const data = await res.json();
-    return Array.isArray(data) ? data as Row[] : undefined;
+    if (!Array.isArray(data)) return undefined;
+    const rows = data as Row[];
+    const range = res.headers.get("content-range") || "";
+    const match = range.match(/\/(\d+)\s*$/);
+    return {
+      rows,
+      total: match ? Number(match[1]) : rows.length,
+      counted: !!match,
+    };
   } catch {
     return undefined;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function optionalJson(url: string): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), EXTRA_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { headers: authHeaders(), signal: ctrl.signal });
+    if (!res.ok) return undefined;
+    return await res.json();
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* משני לרשימה: כישלון כאן לא הופך את הדף ל-503. */
+async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
+  const extras: Extras = { total: got.total, counted: got.counted, hoods: null, related: [], agencies: [] };
+  const S = silo();
+  const tasks: Promise<void>[] = [];
+  tasks.push(optionalJson(
+    `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=200`,
+  ).then((data) => {
+    if (Array.isArray(data)) extras.hoods = data as Row[];
+  }));
+  tasks.push(optionalJson(
+    `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${S.cityId}&order=name.asc&limit=48`,
+  ).then((data) => {
+    if (Array.isArray(data)) extras.agencies = data as Row[];
+  }));
+  if (got.rows.length < 3) {
+    const others = S.pages.filter((p) => p.path !== page.path);
+    tasks.push(Promise.all(others.map((p) => listings(p))).then((lists) => {
+      const rel: Row[] = [];
+      for (const list of lists) {
+        if (!list) continue;
+        for (const row of list.rows) rel.push(row);
+      }
+      extras.related = rel;
+    }));
+  }
+  await Promise.all(tasks);
+  return extras;
 }
 
 function attr(s: string): string {
@@ -102,23 +176,37 @@ function failureHeaders(base: Headers, status: number): Headers {
   return headers;
 }
 
-export function inject(html: string, page: Page, rows: Row[]): string {
+export function inject(html: string, page: Page, rows: Row[], extras: Extras = {}): string {
   const S = silo();
   const box = /<div id="siloBody"[^>]*>[\s\S]*?<!--\/silo-->/;
   if (!box.test(html)) return html;
   const full = S.fullTitle(page);
-  const body = S.render(page, rows);
-  const preloadMatch = body.match(/<img[^>]*fetchpriority="high"[^>]*>/);
+  const body = S.render(page, rows, extras);
+  const hero = S.heroHtml(rows);
+  const preloadMatch = hero.match(/<img[^>]*fetchpriority="high"[^>]*>/);
   const src = preloadMatch ? (preloadMatch[0].match(/\bsrc="([^"]+)"/) || [])[1] : "";
   const preload = src ? `<link rel="preload" as="image" href="${src}" fetchpriority="high">\n` : "";
+  const benefit = page.benefit || page.description;
+  const count = extras.counted && Number(extras.total) > 0
+    ? String(extras.total)
+    : (rows.length > 0 && rows.length < 24 ? String(rows.length) : "0");
   return html
     .replace(box, () => `<div id="siloBody" data-ssr="1">\n${body}\n<!--/silo-->`)
+    .replace("<!--/hero-->", () => hero)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
     .replace(/(<meta property="og:title" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(full)}${b}`)
     .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
     .replace(/(<h1 id="siloH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
-    .replace(/(<p id="siloLead">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(page.description)}${b}`)
+    .replace(/(<p class="land-benefit" id="siloBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(benefit)}${b}`)
+    .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
+    .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${S.chipsHtml(page, rows, extras)}</div>`)
+    .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${S.updatedHtml(rows)}</p>`)
+    .replace(/(<a\b[^>]*\bid="landAll"[^>]*)(>)/, (_m, open, end) => {
+      let next = String(open).replace(/\bhref="[^"]*"/, `href="${attr(S.allHref(page))}"`);
+      next = next.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`);
+      return next + end;
+    })
     .replace(/<\/head>/i, () => `${preload}${S.scripts(page, rows, SITE)}\n</head>`);
 }
 
@@ -149,18 +237,21 @@ export default async function handler(request: Request, context: Context) {
       status = 404;
     } else {
       out = withUrl(html, page);
-      const rows = await listings(page);
-      if (!rows) {
+      const got = await listings(page);
+      if (!got) {
         status = 503;
-      } else if (rows.length === 0) {
-        /* מערך ריק הוא תשובה: אין מודעות. noindex, לא 503. */
-        out = noindex(inject(out, page, rows));
-        empty = true;
-        status = 200;
       } else {
-        const filled = inject(out, page, rows);
-        cache = filled !== out;
-        out = filled;
+        const extras = await extrasFor(page, got);
+        if (got.rows.length === 0) {
+          /* מערך ריק הוא תשובה: אין מודעות. noindex, לא 503. */
+          out = noindex(inject(out, page, got.rows, extras));
+          empty = true;
+          status = 200;
+        } else {
+          const filled = inject(out, page, got.rows, extras);
+          cache = filled !== out;
+          out = filled;
+        }
       }
     }
   } catch {
