@@ -447,13 +447,30 @@ def query_key(query: str) -> str:
 
 def search_pages() -> list[str]:
     """‏מפתחות הצירופים שברשימה שבפונקציה, לפי סדר הופעתם."""
+    return [key for key, _landing in search_entries()]
+
+
+def search_entries() -> list[tuple[str, str | None]]:
+    """‏(מפתח, נתיב נחיתה או None). נחיתה = ה-canonical אינו כתובת הסינון."""
     if not SEARCH_TS.exists():
         return []
-    return [query_key(q) for q in SEARCH_QUERY.findall(SEARCH_TS.read_text(encoding="utf-8"))]
+    text = SEARCH_TS.read_text(encoding="utf-8")
+    start = text.find("export const SEARCH_PAGES")
+    end = text.find("];", start)
+    body = text[start:end] if start >= 0 and end > start else ""
+    entries: list[tuple[str, str | None]] = []
+    for block in re.findall(r"\{[^{}]*\}", body):
+        query = re.search(r'query:\s*"([^"]+)"', block)
+        if not query:
+            continue
+        landing = re.search(r'landing:\s*"([^"]+)"', block)
+        entries.append((query_key(query.group(1)), landing.group(1) if landing else None))
+    return entries
 
 
 def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
-    listed = search_pages()
+    entries = search_entries()
+    listed = [key for key, _landing in entries]
     problems: list[str] = []
     if not listed:
         return ["‏search-pages.ts לא נמצא או שאין בו SEARCH_PAGES — עמודי התוצאות אינם מוזרקים."]
@@ -462,9 +479,13 @@ def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
     if len(known) != len(listed):
         problems.append("‏אותו צירוף מופיע פעמיים ב-SEARCH_PAGES.")
 
+    # ‏צירוף עם landing מצהיר על דף הנחיתה. הכתובת עם הפרמטרים אינה נכנסת.
+    delegated = {key for key, landing in entries if landing}
     in_sitemap = {query_key(loc.split("?", 1)[1]) for loc in locs if "?" in loc}
-    for key in sorted(known - in_sitemap):
+    for key in sorted((known - delegated) - in_sitemap):
         problems.append("‏/?%s ברשימה שבפונקציה ואינו ב-sitemap.xml — גוגל לא תדע שהוא קיים." % key)
+    for key in sorted(delegated & in_sitemap):
+        problems.append("‏/?%s ה-canonical שלו הוא דף נחיתה, והוא לא נכנס ל-sitemap." % key)
     for key in sorted(in_sitemap - known):
         problems.append("‏/?%s ב-sitemap.xml ואינו ברשימה שבפונקציה — הוא יצהיר על / ולא יתאנדקס." % key)
 
