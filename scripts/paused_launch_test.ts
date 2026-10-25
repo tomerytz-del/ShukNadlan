@@ -28,11 +28,14 @@ import {
   GOOGLE_BUYERS_CAMPAIGN,
   GOOGLE_BUYERS_DAILY_ILS,
   HOUSING_MIN_RADIUS_KM,
+  knownCampaignsFromLaunch,
   LAUNCH_KEY,
   launchWillWrite,
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
+  pausedCampaignsFromGraph,
   PAUSED_STATUS,
+  pickStandInCampaign,
   deprecatedInterestIdsFromError,
   interestValiditySpec,
   omitDeprecatedInterestIds,
@@ -207,7 +210,30 @@ const housingOps = built.ops.filter((o) => o.kind === "campaign");
 ok("housing flag only on housing campaigns", housingOps.map((o) => `${o.objectKey}:${o.body.special_ad_categories}:${o.body.special_ad_category_country || ""}`).join(" | ") ===
   'campaign:brokers:[]: | campaign:brokers_registered:[]: | campaign:office_owners:[]: | campaign:buyers:["HOUSING"]:["IL"] | campaign:retargeting:["HOUSING"]:["IL"]');
 ok("ad set budgets in agorot", built.ops.filter((o) => o.kind === "adset").map((o) => o.body.daily_budget).join(",") === "4000,700,1300,1500,1000,800,700,1000");
-ok("lead ads point at the form and traffic at the pixel", built.ops.find((o) => o.objectKey === "adset:b1")!.body.destination_type === "ON_AD" && built.ops.find((o) => o.objectKey === "adset:b1")!.body.promoted_object.includes(PAGE_ID_EXPECTED) && built.ops.find((o) => o.objectKey === "adset:a1")!.body.promoted_object.includes(PIXEL_ID) && !built.ops.find((o) => o.objectKey === "adset:a1")!.body.frequency_control_specs);
+ok("lead ad sets keep the page and traffic ad sets omit promoted_object", (() => {
+  const sets = built.ops.filter((o) => o.kind === "adset");
+  const lead = sets.filter((o) => o.body.destination_type === "ON_AD");
+  const traffic = sets.filter((o) => o.body.optimization_goal === "LANDING_PAGE_VIEWS");
+  return lead.length === 2 && traffic.length === 6
+    && lead.every((o) => o.body.promoted_object === JSON.stringify({ page_id: PAGE_ID_EXPECTED }) && !o.body.promoted_object.includes("pixel"))
+    && traffic.every((o) => !o.body.promoted_object && !JSON.stringify(o.body).includes(PIXEL_ID) && !o.body.frequency_control_specs);
+})());
+ok("housing ad sets stay inside the category limits", ["adset:a1", "adset:a2", "adset:a3", "adset:a4", "adset:rt"].every((key) => {
+  const op = built.ops.find((o) => o.objectKey === key)!;
+  const t = JSON.parse(op.body.targeting);
+  const loc = t.geo_locations.custom_locations[0];
+  return t.age_min === 18 && t.age_max === 65 && !t.genders && !t.flexible_spec && !t.exclusions && !t.excluded_custom_audiences
+    && t.targeting_automation.advantage_audience === 0
+    && loc.radius === HOUSING_MIN_RADIUS_KM && loc.distance_unit === "kilometer"
+    && !op.body.promoted_object;
+}) && built.ops.filter((o) => o.objectKey === "campaign:buyers" || o.objectKey === "campaign:retargeting").every((o) => o.body.special_ad_categories === "[\"HOUSING\"]" && o.body.special_ad_category_country === "[\"IL\"]"));
+const a5SetOp = opsOf(withA5).ops.find((o) => o.objectKey === "adset:a5")!;
+ok("A5 keeps the page promoted object and the housing limits", (() => {
+  const t = JSON.parse(a5SetOp.body.targeting);
+  return a5SetOp.body.destination_type === "ON_AD" && a5SetOp.body.promoted_object === JSON.stringify({ page_id: PAGE_ID_EXPECTED })
+    && t.age_min === 18 && t.age_max === 65 && !t.flexible_spec && !t.exclusions
+    && t.geo_locations.custom_locations[0].radius === 25 && t.geo_locations.custom_locations[0].distance_unit === "kilometer";
+})());
 function storyOf(body: Record<string, string>) {
   return JSON.parse(body.object_story_spec);
 }
@@ -337,6 +363,7 @@ const first = await runExecute(new Map(), async (p, body) => {
 });
 ok("first execute creates every object", first.result.error === undefined && first.result.created.length === 105 && first.posted.length === 105, first.result);
 ok("posts stay on create paths and paused", first.posted.every((p) => /^act_\d+\/(adimages|customaudiences|campaigns|adsets|adcreatives|ads)$/.test(p.path)) && first.posted.every((p) => !p.body.status || p.body.status === PAUSED_STATUS) && first.posted.every((p) => !JSON.stringify(p.body).includes("{{")) && first.posted.every((p) => !p.body.execution_options));
+ok("a real create still omits the pixel on traffic ad sets", first.posted.filter((p) => p.path.endsWith("/adsets") && p.body.optimization_goal === "LANDING_PAGE_VIEWS").every((p) => !p.body.promoted_object) && first.posted.filter((p) => p.path.endsWith("/adsets") && p.body.destination_type === "ON_AD").every((p) => p.body.promoted_object.includes(PAGE_ID_EXPECTED)));
 
 const filled = new Map<string, ExistingRow>();
 for (const op of built.ops) {
@@ -442,7 +469,8 @@ const rejected = await validateLaunchWrites({
     return { success: true };
   },
 });
-ok("validate_only checks B1 and does not create", rejected.failures.length === 1 && rejected.failures[0].objectKey === "adset:b1" && rejected.failures[0].meta?.error_user_msg?.includes("Lead Generation Terms") && rejected.checked.length === 0 && validatePosts.length === 1 && validatePosts[0].body.execution_options === "[\"validate_only\"]" && validatePosts[0].body.status === PAUSED_STATUS && validatePosts[0].body.campaign_id === "120251671344150267" && validatePosts[0].path.endsWith("/adsets") && !validatePosts.some((p) => p.path.endsWith("/adimages") || p.path.endsWith("/campaigns") || p.path.endsWith("/ads")));
+const b1Probe = validatePosts.find((p) => p.body.name === "B1 Prospects");
+ok("validate_only checks B1 and does not create", rejected.failures.length === 1 && rejected.failures[0].objectKey === "adset:b1" && rejected.failures[0].meta?.error_user_msg?.includes("Lead Generation Terms") && !!b1Probe && b1Probe.body.execution_options === "[\"validate_only\"]" && b1Probe.body.status === PAUSED_STATUS && b1Probe.body.campaign_id === "120251671344150267" && b1Probe.path.endsWith("/adsets") && validatePosts.every((p) => p.body.execution_options === "[\"validate_only\"]") && validatePosts.some((p) => p.path.endsWith("/campaigns")) && !validatePosts.some((p) => p.path.endsWith("/adimages") || p.path.endsWith("/ads")) && !JSON.stringify(validatePosts).includes(PROTECTED_CAMPAIGN_IDS[0]));
 const accepted = await validateLaunchWrites({
   act: ACT,
   plan,
@@ -457,7 +485,49 @@ const accepted = await validateLaunchWrites({
     return { success: true };
   },
 });
-ok("validate_only passes B1 and skips ad sets without a campaign", accepted.failures.length === 0 && accepted.checked.join(",") === "adset:b1" && accepted.skipped.some((s) => s.objectKey === "adset:b3") && accepted.skipped.some((s) => s.objectKey === "ad:b1_1"));
+ok("validate_only checks a leads stand-in and reports a traffic ad set with no parent", accepted.failures.length === 0 && accepted.checked.includes("adset:b1") && accepted.checked.includes("adset:b3") && accepted.checked.includes("campaign:brokers_registered") && accepted.skipped.some((s) => s.objectKey === "campaign:brokers" && s.reason === "already_created") && accepted.skipped.some((s) => s.objectKey === "adset:b2" && s.reason === "unchecked:no_matching_paused_campaign") && accepted.skipped.some((s) => s.objectKey === "ad:b1_1" && s.reason.startsWith("unchecked:")));
+const standPosts: { path: string; body: Record<string, string> }[] = [];
+const stood = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map([
+    ["campaign:brokers", { metaId: "120251671344150267" }],
+    ["audience:brokers_site_180d", { metaId: "120251671343450267" }],
+    ["audience:site_visitors_30d", { metaId: "120251671342660267" }],
+  ]),
+  accountCampaigns: [
+    { id: "120251672204060267", objective: "OUTCOME_TRAFFIC", housing: false, status: PAUSED_STATUS },
+    { id: PROTECTED_CAMPAIGN_IDS[0], objective: "OUTCOME_TRAFFIC", housing: true, status: PAUSED_STATUS },
+    { id: "120251672300000267", objective: "OUTCOME_TRAFFIC", housing: true, status: PAUSED_STATUS },
+  ],
+  post: async (p, body) => {
+    standPosts.push({ path: p, body });
+    if (JSON.stringify(body).includes(PROTECTED_CAMPAIGN_IDS[0])) throw new Error("reach");
+    if (body.execution_options !== "[\"validate_only\"]" || body.status !== PAUSED_STATUS) throw new Error("bad validate body");
+    return { success: true };
+  },
+});
+const b2Probe = standPosts.find((p) => p.body.name === "B2 Registered");
+const a1Probe = standPosts.find((p) => p.body.name === "A1 First apartment");
+const a1Target = a1Probe ? JSON.parse(a1Probe.body.targeting) : null;
+ok("B2 is validated against a paused traffic campaign and sends no pixel", stood.failures.length === 0 && stood.checked.includes("adset:b2") && !!b2Probe && b2Probe.body.campaign_id === "120251672204060267" && b2Probe.body.optimization_goal === "LANDING_PAGE_VIEWS" && !b2Probe.body.promoted_object && !JSON.stringify(b2Probe.body).includes(PIXEL_ID) && !JSON.stringify(standPosts).includes(PROTECTED_CAMPAIGN_IDS[0]), stood.failures);
+ok("a housing ad set is validated only against a housing campaign", stood.checked.includes("adset:a1") && !!a1Probe && a1Probe.body.campaign_id === "120251672300000267" && !a1Probe.body.promoted_object && a1Target.age_min === 18 && a1Target.age_max === 65 && !a1Target.flexible_spec && !a1Target.genders && !a1Target.exclusions && a1Target.geo_locations.custom_locations[0].radius === 25 && a1Target.geo_locations.custom_locations[0].distance_unit === "kilometer");
+ok("stand-in ignores Reach, an active campaign, and the wrong category", pickStandInCampaign({ objective: "OUTCOME_TRAFFIC", housing: false }, [
+  { id: PROTECTED_CAMPAIGN_IDS[0], objective: "OUTCOME_TRAFFIC", housing: false, status: PAUSED_STATUS },
+  { id: "120251671344150267", objective: "OUTCOME_LEADS", housing: false, status: PAUSED_STATUS },
+  { id: "120251672204060267", objective: "OUTCOME_TRAFFIC", housing: false, status: PAUSED_STATUS },
+]) === "120251672204060267" && pickStandInCampaign({ objective: "OUTCOME_TRAFFIC", housing: true }, [
+  { id: "120251672204060267", objective: "OUTCOME_TRAFFIC", housing: false, status: PAUSED_STATUS },
+  { id: "120251672300000267", objective: "OUTCOME_TRAFFIC", housing: true, status: "ACTIVE" },
+]) === null && pausedCampaignsFromGraph([
+  { id: PROTECTED_CAMPAIGN_IDS[0], status: PAUSED_STATUS, objective: "OUTCOME_AWARENESS", special_ad_categories: [] },
+  { id: "120251672300000267", status: PAUSED_STATUS, objective: "OUTCOME_TRAFFIC", special_ad_categories: ["HOUSING"] },
+  { id: "120251672204060267", status: "ACTIVE", objective: "OUTCOME_TRAFFIC", special_ad_categories: [] },
+]).map((c) => c.id).join(",") === "120251672300000267" && knownCampaignsFromLaunch(plan, new Map([["campaign:brokers", { metaId: PROTECTED_CAMPAIGN_IDS[0] }]])).length === 0);
 
 const hashed = new Map<string, ExistingRow>([["campaign:brokers", { metaId: "120251671344150267" }], ["adset:b1", { metaId: "120251671910210267" }]]);
 for (const op of built.ops) {
@@ -660,16 +730,16 @@ const crmHtml = readFileSync(path.join(root, "crm.html"), "utf8");
 ok("crm sends dry-run and a confirmed write", crm.includes("adsLaunchDry") && crm.includes("dry_run: false") && crm.includes("confirm: true") && crm.includes("create_paused_launch"));
 ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunchUpload") && crm.includes("upload_launch_creatives") && crm.includes("תמונות בדלי:") && crmHtml.includes('id="adsLaunchUpload"') && !crmHtml.includes("upload_meta_creatives.mjs"));
 ok("crm shows each targeting hit and the A5 form", crm.includes("adsLaunchHitLine") && crm.includes("targeting_blocks_create") && crm.includes("טופס:") && crmHtml.includes("הערכת שווי חינם"));
-ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFlexibleLine") && crm.includes("צמצום AND") && crm.includes("blocks_create") && crm.includes("error_user_title") && crm.includes("meta_validation"));
+ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFlexibleLine") && crm.includes("צמצום AND") && crm.includes("blocks_create") && crm.includes("error_user_title") && crm.includes("meta_validation") && crm.includes("לא נבדק מול מטא"));
 ok("crm shows a dropped deprecated interest", crm.includes("הוצא משימוש וירד, בלי החלופה של מטא"));
 const dryFn = indexSrc.slice(indexSrc.indexOf("if (!launchWillWrite"), indexSrc.indexOf("if (!plan.ok)"));
 const writeFn = indexSrc.slice(indexSrc.indexOf("if (!plan.ok)"), indexSrc.indexOf("Deno.serve"));
-ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247") && dryFn.includes("resolveLaunchIdentity") && dryFn.includes("body: first.request"));
+ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247") && dryFn.includes("resolveLaunchIdentity") && dryFn.includes("loadPausedCampaigns") && dryFn.includes("body: first.request"));
 ok("the real create probes only to drop a deprecated interest", writeFn.includes("omitDeprecatedInterestIds") && writeFn.includes("deprecatedInterestIdsFromError") && writeFn.includes("validateLaunchWrites") && writeFn.includes("1870247") && writeFn.includes("validate_only_returned_id"));
-ok("the real create stops on a creative preview and logs the body", writeFn.includes("launchPageId") && writeFn.includes('f.kind === "creative"') && writeFn.includes("result.request") && writeFn.includes("body: first.request"));
+ok("the real create stops on a failed preview or ad set and logs the body", writeFn.includes("launchPageId") && writeFn.includes("subcode !== 1870247") && writeFn.includes("loadPausedCampaigns") && writeFn.includes("result.request") && writeFn.includes("body: first.request"));
 const validateSrc = src.slice(src.indexOf("export async function validateLaunchWrites"), src.indexOf("export function summarizeLaunch"));
 const executeSrc = src.slice(src.indexOf("export async function executeLaunch"), src.indexOf("export async function validateLaunchWrites"));
-ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && validateSrc.includes("generatepreviews") && !executeSrc.includes("execution_options:") && !executeSrc.includes("generatepreviews") && !src.includes("instagram_actor_id"));
+ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && validateSrc.includes("generatepreviews") && validateSrc.includes("pickStandInCampaign") && validateSrc.includes("unchecked:no_matching_paused_campaign") && !executeSrc.includes("execution_options:") && !executeSrc.includes("generatepreviews") && !executeSrc.includes("pickStandInCampaign") && !src.includes("instagram_actor_id"));
 const prepareFn = indexSrc.slice(indexSrc.indexOf("async function preparePausedLaunch"), indexSrc.indexOf("function creativesPublic"));
 ok("create resolves targeting on the dry run and does not abort on a miss", indexSrc.includes("resolveLaunchTargeting") && indexSrc.includes("uncheckedLaunchTargeting") && !indexSrc.includes("לא נמצא טירגוט עבור") && prepareFn.includes("VALUATION_FORM_ID") && prepareFn.includes("SELLERS_FORM_ID") && prepareFn.includes("הערכת שווי") && !prepareFn.includes('eq("kind", "owner")'));
 

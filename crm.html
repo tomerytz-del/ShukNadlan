@@ -5451,6 +5451,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
            color:var(--nv-accent);font-weight:700;font-size:.85rem;padding:4px 0 10px}
   .cs-back svg{width:16px;height:16px}
   .cs-empty,.cs-hint{font-size:.85rem;color:var(--nv-muted);margin:10px 4px 0}
+  /* טופס בתוך הגיליון ("דוח CMA לכתובת") */
+  .cs-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .cs-form label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:700;color:var(--nv-muted)}
+  .cs-form input,.cs-form select{min-height:44px;font:inherit;font-size:1rem}
+  .cs-form .cs-f-wide{grid-column:1 / -1}
+  .cs-form .cs-hint{margin:0}
   @media(max-width:359px){.cs-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
   /* ---------- החיפוש ----------

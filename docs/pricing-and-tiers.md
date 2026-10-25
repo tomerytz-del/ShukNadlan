@@ -47,6 +47,7 @@
 | תיאור שיווקי ב-AI | ✗ | ✓ | ✓ |
 | פרסום אוטומטי ברשתות החברתיות | ✓ | ✓ | ✓ |
 | דוח CMA, מידע תכנוני, מפת מיקום | ✗ | ✓ | ✓ |
+| דוח CMA לכל כתובת (גם נכס שאינו במערכת), באתר ובגבריאלה | ✗ | ✗ | ✓ |
 | סרטון שיווקי | ✗ | ₪25 להפקה | 8 בחודש ללא חיוב |
 | הדמיות AI (פרטי — 4 סגנונות, ומסחרי) | ✗ | ✗ | ✓ |
 | הפקת סיור וירטואלי 360° בדף הנכס | ✗ | ✗ | ✓ |
@@ -72,6 +73,7 @@
 | לידי בעל-נכס, מכסת הפניות החינמית, מחיר הפנייה הנוספת | `claim_lead` במסד — ומי שמכניס את הליד קובע אם הוא נולד `masked` (‏`owner-lead-intake`, `property-inquiry-intake`, `agent-direct-inquiry-intake`, `property-visualize`) |
 | ניתוב אוטומטי של לידי בעל-נכס | `lead_audience_size` / `lead_routing` — `mid`/`premium` |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
+| דוח CMA לכתובת | `agent_cma_report_address` - `premium` בלבד, פעיל ובמנוי בתוקף (כמו שאילתת העסקאות); ‏`cma_report_address` העטיפה לדפדפן, וגבריאלה קוראת לה מ-`cma_report_address` ב-`agent.ts` |
 | שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן. לפי גוש/חלקה: `agent_market_deals_by_parcel` בודקת את אותו גייט בעצמה |
 | מפת מיקום ומידע תכנוני | `property_map_enabled` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול. בערים שאינן עפולה המידע נשלף מ-GovMap בדפדפן, ולכן הגייט הוא **בשמירה**: ‏`govmap_save_planning` בודקת בעלות, מסלול ו-`billing_status` (`docs/govmap.md`). בוואטסאפ, על כתובת או גוש/חלקה בלי נכס: ‏`toolPlanningLookup` ב-`whatsapp-webhook/agent.ts` בודקת `tier` ו-`billing_status` |
 | סרטון שיווקי | `property_video_tier` במסד |
