@@ -1263,8 +1263,16 @@ async function csmSaveAgenda(){
    הפעמון שלה (csm_notifications, נקראת רק שלה ב-RLS). נכתבות במסד בלבד -
    csm_notify_run ו-csm_calls_notify - ונשלחות לוואטסאפ לפי ההגדרות. */
 const CSM_NOTIF_KIND = { new_agent:'סוכן/ת חדש/ה', at_risk:'5 ימים בלי גבריאלה', meeting_reminder:'תזכורת לפגישה',
-  call_ready:'שיחות והקלטות', daily_digest:'סיכום הבוקר' };
-const CSM_NOTIF_ICON = { new_agent:'🆕', at_risk:'⚠', meeting_reminder:'⏰', call_ready:'🎙', daily_digest:'☀' };
+  call_ready:'שיחות והקלטות', daily_digest:'סיכום הבוקר', mentor_tip:'עצה מהמנטור' };
+/* שורת "המנטור:" על כל סוג - אותו נוסח של CSM_KIND_TIPS ב-whatsapp-webhook/csm-tips.ts,
+   שיוצא בוואטסאפ (office_coach_test מוודא ששתי הרשימות זהות). */
+const CSM_NOTIF_TIP = {
+  new_agent: 'הימים הראשונים אחרי ההרשמה הם החלון. שיחה קצרה היום וקביעת פגישת הצלחה ראשונה עדיפות על הודעה ארוכה.',
+  at_risk: 'בלי אשמה ובלי "למה לא". פעולה אחת קטנה עם פקודה מוכנה לגבריאלה, ושאלה שקל לענות עליה בכן או לא.',
+  meeting_reminder: 'לצאת מהפגישה עם פעולה אחת שבוצעה בגבריאלה בזמן הפגישה, יעד שבועי אחד ומועד קשר.',
+  call_ready: 'ההודעה המוצעת עובדת הכי טוב באותו יום, כשהשיחה עוד טרייה.',
+};
+const CSM_NOTIF_ICON = { new_agent:'🆕', at_risk:'⚠', meeting_reminder:'⏰', call_ready:'🎙', daily_digest:'☀', mentor_tip:'💡' };
 let csmNotifs = [];
 let csmUnread = 0;
 let csmUnreadTimer = null;
@@ -1305,7 +1313,9 @@ async function csmLoadNotifs(){
       <div class="csm-fb-head"><strong>${CSM_NOTIF_ICON[n.kind] || '•'} ${escapeHtml(n.title)}</strong>
         <span class="csm-card-meta">${escapeHtml(new Date(n.created_at).toLocaleString('he-IL', { timeZone:CSM_TZ, day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }))}</span></div>
       ${n.body ? `<p class="csm-fb-desc">${escapeHtml(n.body)}</p>` : ''}
+      ${CSM_NOTIF_TIP[n.kind] ? `<p class="csm-hint csm-notif-tip">💡 המנטור: ${escapeHtml(CSM_NOTIF_TIP[n.kind])}</p>` : ''}
       <div class="csm-card-actions">
+        ${n.kind === 'mentor_tip' ? '<button type="button" class="btn btn-ghost" data-csm-tab="mentor">שאלת המשך למנטור</button>' : ''}
         ${n.event_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="agenda" data-id="${escapeHtml(n.id)}">ליומן</button>` : ''}
         ${n.call_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="calls" data-call="${escapeHtml(n.call_id)}" data-id="${escapeHtml(n.id)}">להקלטה</button>` : ''}
         ${n.agent_id && !n.event_id ? `<button type="button" class="btn btn-ghost" data-csm-notif-go="pipeline" data-agent="${escapeHtml(n.agent_id)}" data-id="${escapeHtml(n.id)}">לכרטיס</button>
@@ -1360,7 +1370,7 @@ async function csmLoadSettings(){
     <h4 class="csm-sub">התראות</h4>
     <label class="csm-opt"><input type="checkbox" id="csmPfWa"${p.notify_whatsapp ? ' checked' : ''}> <span>לשלוח לי גם בוואטסאפ (מגבריאלה). בלי הסימון - בפעמון כאן בלבד</span></label>
     <fieldset class="csm-q"><legend>מה לקבל</legend>
-      ${Object.entries(CSM_NOTIF_KIND).map(([k, l]) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-kind="${k}"${off.has(k) ? '' : ' checked'}> <span>${CSM_NOTIF_ICON[k]} ${escapeHtml(l)}${k === 'daily_digest' ? ' - פגישות היום, למי לחזור, כמה בסיכון ומי נרשם/ה' : k === 'at_risk' ? ' - ביום שבו הסוכן/ת עובר/ת את הסף' : k === 'call_ready' ? ' - סיכום והקלטה של כל שיחה למספר הווירטואלי, שיחה שלא נענתה, והקלטה שהעלית' : ''}</span></label>`).join('')}
+      ${Object.entries(CSM_NOTIF_KIND).map(([k, l]) => `<label class="csm-opt"><input type="checkbox" data-csm-pf-kind="${k}"${off.has(k) ? '' : ' checked'}> <span>${CSM_NOTIF_ICON[k]} ${escapeHtml(l)}${k === 'daily_digest' ? ' - פגישות היום, למי לחזור, כמה בסיכון ומי נרשם/ה' : k === 'at_risk' ? ' - ביום שבו הסוכן/ת עובר/ת את הסף' : k === 'call_ready' ? ' - סיכום והקלטה של כל שיחה למספר הווירטואלי, שיחה שלא נענתה, והקלטה שהעלית' : k === 'mentor_tip' ? ' - כל בוקר עבודה, בשעת סיכום הבוקר: שלוש עצות מהתיק - עם מי להתחיל ומה לומר' : ''}</span></label>`).join('')}
     </fieldset>
     <div class="csm-fb-row">
       <div class="field"><label for="csmPfDigest">שעת סיכום הבוקר</label><input type="time" id="csmPfDigest" value="${escapeHtml(p.digest_time || '08:30')}"></div>

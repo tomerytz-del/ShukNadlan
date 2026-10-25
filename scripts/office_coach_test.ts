@@ -48,6 +48,8 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
+import { CSM_KIND_TIPS, callFollowupHint, kindTipLine } from "../supabase/functions/whatsapp-webhook/csm-tips.ts";
+import { CSM_TIP_QUESTION } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { CSM_LINKS, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
 import { CSM_GREETING, CSM_TOOLS, csmCapabilities, gcalTemplateUrl, ilLocalToIso, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
@@ -563,7 +565,7 @@ for (const kind of ["agent", "team", "office"] as const) {
     csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
     csm_agenda_list: /היומן/, csm_agenda_add: /היומן/, csm_agenda_update: /היומן/,
     csm_notifications: /התראות/, csm_settings: /הגדרות/,
-    csm_links: /קישורים לסוכנים/, csm_send_to_agent: /קישורים לסוכנים/,
+    csm_links: /קישורים לסוכנים/, csm_send_to_agent: /קישורים לסוכנים/, csm_draft_message: /הודעה לסוכן\/ת/,
   };
   check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
     CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
@@ -612,6 +614,18 @@ for (const kind of ["agent", "team", "office"] as const) {
       && ilMobileDigits("04-6543210") === null
       && waComposeUrl("972521234567", "היי").startsWith("https://wa.me/972521234567?text=%D7%94")
       && !/הודעה מ/.test(csmOutreachText("עופרי", "היי", csmLinkFor("pricing"), true)));
+  // עצה מהמנטור: שורה קבועה לכל סוג, זהה בוואטסאפ ובפעמון; והעצה היומית
+  const csmJs = root("assets/crm-csm.js");
+  const jsTips = /const CSM_NOTIF_TIP = \{([\s\S]*?)\n\};/.exec(csmJs)?.[1] || "";
+  check("עצה מהמנטור: אותו נוסח בפעמון (crm-csm.js) ובוואטסאפ (csm-tips.ts), בלי מקף ארוך ובלי אחוזים",
+    Object.entries(CSM_KIND_TIPS).every(([k, t]) => jsTips.includes(`${k}: '${t.replace(/'/g, "\\'")}'`))
+      && (jsTips.match(/^\s+[a-z_]+:/gm) || []).length === Object.keys(CSM_KIND_TIPS).length
+      && Object.values(CSM_KIND_TIPS).every((t) => !/[\u2013\u2014]|\d+%/.test(t))
+      && kindTipLine("daily_digest") === "" && /^💡 המנטור:/.test(kindTipLine("at_risk")),
+    jsTips);
+  check("עצה מהמנטור: שאלת הבוקר קצרה, עם שמות מהנתונים ובלי מקף ארוך, ו\"שלחי לו\" אחרי סיכום",
+    /שלוש עצות/.test(CSM_TIP_QUESTION) && /שם מהנתונים/.test(CSM_TIP_QUESTION) && !/[\u2013\u2014]/.test(CSM_TIP_QUESTION)
+      && /שלחי לו/.test(callFollowupHint("יוסי")) && /input\.call_id/.test(toolsSrc));
   check("קישורים לסוכנים: שליחה רק אחרי אישור - confirmed בכלי, ובפרומפט",
     /input\.confirmed !== true/.test(toolsSrc) && /confirmed=true/.test(chatSrc));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",

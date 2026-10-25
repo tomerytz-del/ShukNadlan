@@ -124,6 +124,13 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
   `confirmed=true` אחרי תצוגה, עד 40 ביום, וההודעה נכנסת להיסטוריה של העוזרת של
   הסוכן/ת. מסך שהשם שלו משתנה ב-`crm.html` - גם שם.
 
+- **סוג התראה חדש** נכנס בחמישה מקומות: האילוץ של `csm_notifications.kind`, ‏`v_kinds`
+  ב-`csm_profile_apply` (מיגרציה שמחליפה את כל הפונקציה), `CSM_NOTIF_KIND` ב-
+  `crm-csm.js`, ‏`NOTIFY_KINDS` ב-`csm-tools.ts`, ו-`docs/csm-adoption.md`. שורת
+  "המנטור:" שלו - ב-`CSM_KIND_TIPS` **וגם** ב-`CSM_NOTIF_TIP` (הבדיקה משווה).
+- **העצה היומית** (`csmMentorTip`) מסמנת `last_tip_on` לפני המודל: כשל = אין עצה
+  היום, לא לולאה כל 10 דקות. לא במכסת השאלות שלה.
+
 ## 9. עלות
 
 שלוש יכולות ב-`AiFeature` (`csm_mentor`, `csm_call`, `gabriela_csm`), ולכל אחת שורה ב-

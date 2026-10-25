@@ -187,5 +187,7 @@ python3 scripts/check_edge_types.py
 ב-`CSM_PLAYBOOK`, היומן והמכסה ב-`csm_mentor_questions`. אינו `CoachKind` ואינו עובר דרך
 `askCoach`. **‏`CSM_PLAYBOOK` לא נכנס ל-`askSystemPrompt`** (הבדיקה חוסמת), וחומר
 שתומר שולח "למנטור של מנהלת ההטמעה" נכנס לשם, תחת כללי העריכה של סעיף 2. הסקיל
-`csm-adoption`.
+`csm-adoption`. ולצוות ההטמעה יש גם **עצה יומית** (`csmMentorTip`, `CSM_TIP_QUESTION`) - אותו
+`CSM_SYSTEM` עם שאלה קבועה - ושורות "המנטור:" קבועות על ההתראות (`csm-tips.ts`), שעוברות
+את אותם כללי עריכה (כלל אצבע, בלי הבטחה).
 
