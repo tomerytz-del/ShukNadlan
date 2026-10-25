@@ -11,10 +11,16 @@
 
    כתובות הסינון הישנות (?deal=sale&rooms=3 וסוג הנכס) מצביעות לכאן
    מ-search-pages.ts. docs/search-landing-pages.md.
+
+   כמה ערים, קידומת לכל אחת (‏/afula, ‏/haifa - CITIES ב-silo-render.js).
+   דף של שוק שאינו live ב-assets/markets.js יוצא מלא, עם noindex
+   (‏landingIndexable), עד שהשוק נדלק.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/silo-render.js";
+import { landingIndexable, liveMarketSlugs } from "./lib/indexability.ts";
+import { marketHint } from "./lib/markets.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -31,7 +37,13 @@ type Page = {
   intro: string;
   property_type: string | null;
   rooms: number | null;
+  city: string;
+  cityName: string;
+  cityId: string;
+  market: string;
 };
+
+type City = { slug: string; name: string; home: string };
 
 type Row = Record<string, unknown>;
 
@@ -47,11 +59,12 @@ type ListingResult = { rows: Row[]; total: number; counted: boolean };
 
 type Silo = {
   pages: Page[];
-  cityId: string;
+  cities: City[];
+  cityOf: (page: Page) => City;
   pageOf: (pathname: string) => Page | null;
   queryOf: (page: Page) => string;
   hoodCountQuery: (page: Page) => string;
-  hoodRowsFromListings: (rows: Row[]) => Row[];
+  hoodRowsFromListings: (rows: Row[], page: Page) => Row[];
   render: (page: Page, rows: Row[], extras?: Extras) => string;
   heroHtml: (page: Page) => string;
   heroPreload: (page: Page) => string;
@@ -134,7 +147,7 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
       if (!Array.isArray(data)) return;
       const match = (res.headers.get("content-range") || "").match(/\/(\d+)\s*$/);
       if (match && data.length !== Number(match[1])) return;
-      extras.hoods = S.hoodRowsFromListings(data as Row[]);
+      extras.hoods = S.hoodRowsFromListings(data as Row[], page);
     } catch {
       /* הספירה משנית */
     } finally {
@@ -142,12 +155,12 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
     }
   })());
   tasks.push(optionalJson(
-    `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${S.cityId}&order=name.asc&limit=48`,
+    `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${page.cityId}&order=name.asc&limit=48`,
   ).then((data) => {
     if (Array.isArray(data)) extras.agencies = data as Row[];
   }));
   if (got.rows.length < 3) {
-    const others = S.pages.filter((p) => p.path !== page.path);
+    const others = S.pages.filter((p) => p.city === page.city && p.path !== page.path);
     tasks.push(Promise.all(others.map((p) => listings(p))).then((lists) => {
       const rel: Row[] = [];
       for (const list of lists) {
@@ -181,6 +194,13 @@ export function withUrl(html: string, page: Page): string {
     .replace(/<\/head>/i, () => `<link rel="canonical" href="${attr(url)}">\n</head>`);
 }
 
+/* ‏הקידומות של כל הערים (‏/afula/, ‏/haifa/), מ-CITIES. */
+export function underCity(pathname: string): boolean {
+  let path = pathname;
+  try { path = decodeURIComponent(path); } catch { /* נשאר כמו שהוא */ }
+  return silo().cities.some((c) => path.startsWith(`/${c.slug}/`));
+}
+
 export function noindex(html: string): string {
   if (/<meta\b[^>]*\bname="robots"[^>]*noindex/i.test(html)) return html;
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
@@ -200,6 +220,7 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   const box = /<div id="siloBody"[^>]*>[\s\S]*?<!--\/silo-->/;
   if (!box.test(html)) return html;
   const full = S.fullTitle(page);
+  const city = S.cityOf(page);
   const body = S.render(page, rows, extras);
   const hero = S.heroHtml(page);
   const og = S.heroOg(page);
@@ -218,6 +239,8 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
     .replace(/(<h1 id="siloH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
     .replace(/(<p class="land-benefit" id="siloBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(benefit)}${b}`)
+    .replace(/(<a\b[^>]*\bid="landCityCrumb"[^>]*)(>)[\s\S]*?(<\/a>)/, (_m, open, gt, close) =>
+      `${String(open).replace(/\bhref="[^"]*"/, `href="${attr(city.home)}"`)}${gt}${text(city.name)}${close}`)
     .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
     .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${S.chipsHtml(page, rows, extras)}</div>`)
     .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${S.updatedHtml(rows)}</p>`)
@@ -230,7 +253,7 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(SITE + "/" + og.src)}${b}`)
     .replace(/(<meta property="og:image:width" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.width}${b}`)
     .replace(/(<meta property="og:image:height" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.height}${b}`)
-    .replace(/<\/head>/i, () => `${preload}\n${S.scripts(page, rows, SITE)}\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}\n${marketHint(city.home, page.market)}${S.scripts(page, rows, SITE)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -241,11 +264,7 @@ export default async function handler(request: Request, context: Context) {
      המקודדת חזרה 404 של הפלטפורמה, בלי שהפונקציה רצה. ‏`/afula/*` כן
      נתפס, כמו `/n/*`. נתיב שאינו אחד משלנו חוזר כמו שהוא, כדי שדף אחר
      תחת אותה קידומת (מתווכים) לא ייעצר כאן ב-404. */
-  if (!page) {
-    let path = pathname;
-    try { path = decodeURIComponent(path); } catch { /* נשאר כמו שהוא */ }
-    if (path.startsWith("/afula/")) return res;
-  }
+  if (!page && underCity(pathname)) return res;
   const type = res.headers.get("content-type") || "";
   if (!res.ok || !type.includes("text/html")) return res;
   const html = await res.text();
@@ -253,6 +272,7 @@ export default async function handler(request: Request, context: Context) {
   let cache = false;
   let status = res.status;
   let empty = false;
+  let hidden = false;
 
   try {
     if (!page) {
@@ -274,6 +294,11 @@ export default async function handler(request: Request, context: Context) {
           const filled = inject(out, page, got.rows, extras);
           cache = filled !== out;
           out = filled;
+          /* ‏שוק שעוד לא נדלק: הדף מלא לגולש/ת, ומחוץ לאינדקס. */
+          if (!landingIndexable(page.market, liveMarketSlugs())) {
+            out = noindex(out);
+            hidden = true;
+          }
         }
       }
     }
@@ -285,11 +310,14 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (status === 404 || status === 503 || empty) {
-    return new Response(out, { status, headers: failureHeaders(res.headers, status) });
+    const failed = failureHeaders(res.headers, status);
+    if (empty) failed.set("X-Robots-Tag", "noindex, follow");
+    return new Response(out, { status, headers: failed });
   }
 
   const headers = new Headers(res.headers);
   headers.delete("content-length");
+  if (hidden) headers.set("X-Robots-Tag", "noindex, follow");
   if (cache) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
@@ -308,5 +336,12 @@ export const config: Config = {
     "/afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
+    "/haifa/*",
+    "/haifa/בתים-פרטיים",
+    "/haifa/דירות-גן",
+    "/haifa/דירות-3-חדרים",
+    "/haifa/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D",
+    "/haifa/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F",
+    "/haifa/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
   ],
 };

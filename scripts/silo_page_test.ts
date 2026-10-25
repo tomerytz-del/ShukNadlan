@@ -10,6 +10,8 @@
      · כתובת שאינה אחד משלושת הדפים → 404 ו-noindex, בלי קריאה למסד.
      · כותרת עם </script> אינה סוגרת תגית; תמונה מכתובת זרה אינה נכנסת.
      · WebPage, BreadcrumbList ו-ItemList נפרסים.
+     · חיפה: אותה תבנית, שאילתה לפי העיר, וקישורים לחיפה. השוק אינו
+       live, ולכן הדף מלא ועם noindex ו-X-Robots-Tag.
 
    הרצה:
 
@@ -62,10 +64,13 @@ const ROWS = [
 ];
 
 let calls = 0;
+let urls: string[] = [];
 async function run(url: string, status: number, body: unknown, page = PAGE): Promise<Response> {
   calls = 0;
-  globalThis.fetch = (async () => {
+  urls = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
     calls++;
+    urls.push(String(input));
     return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
   const ctx = {
@@ -205,6 +210,46 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("בלי צ'יפ 3 חדרים", !filters.includes("<bdi>3</bdi>"));
   check("גיבור דירות", html.includes("hero-apt-800.webp"));
   check("שכונה במקום הצ'יפ", filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
+}
+
+{
+  const HAIFA = SITE + "/haifa/" + encodeURIComponent("בתים-פרטיים");
+  const rows = ROWS.map((r) => ({ ...r, city: "חיפה", neighborhoods: { name: "נווה שאנן" } }));
+  const res = await run(HAIFA, 200, rows);
+  const html = await res.text();
+  const blocks = ldBlocks(html);
+  const crumbs = blocks.find((b) => b["@type"] === "BreadcrumbList") as { itemListElement: { name: string; item: string }[] } | undefined;
+  check("חיפה: 200 וממולא", res.status === 200 && html.includes('data-ssr="1"') && html.includes("מודעות פעילות"));
+  check("חיפה: כותרת ו-H1", html.includes("<title>בית פרטי למכירה בחיפה | שוק נדל״ן</title>")
+    && html.includes('<h1 id="siloH1">בית פרטי למכירה בחיפה</h1>'));
+  check("חיפה: canonical", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/haifa/בתים-פרטיים">'));
+  check("חיפה: השאילתה לפי העיר", urls.some((u) => u.includes("/properties?") && u.includes("city=eq." + encodeURIComponent("חיפה")))
+    && !urls.some((u) => u.includes(encodeURIComponent("עפולה"))));
+  check("חיפה: משרדים לפי city_id", urls.some((u) => u.includes("/agencies?") && u.includes("city_id=eq.751fcf13-a02b-4370-97a5-fc4ec42ea4fe")));
+  check("חיפה: קישורים", html.includes('href="/deals/haifa"') && html.includes("/n/haifa/" + encodeURIComponent("נווה-שאנן"))
+    && html.includes('href="/haifa/מתווכים"') && html.includes('href="/haifa/דירות-גן"') && html.includes('href="/haifa">חיפה והסביבה</a>'));
+  check("חיפה: החיפוש של חיפה", html.includes('id="landAll"') && /id="landAll"[^>]*href="\/haifa\?deal=sale/.test(html)
+    && !((html.split('id="siloBody"')[1] || "").split("<!--/silo-->")[0]).includes('href="/?'));
+  check("חיפה: בלי עפולה בגוף", !(html.split('id="siloBody"')[1] || "").split("<!--/silo-->")[0].includes("עפולה"));
+  check("חיפה: פירור גלוי", html.includes('<a href="/haifa" id="landCityCrumb">חיפה</a>'));
+  check("חיפה: פירור ב-JSON-LD", crumbs?.itemListElement[1]?.name === "חיפה" && crumbs?.itemListElement[1]?.item === SITE + "/haifa");
+  check("חיפה: רמז השוק", html.includes('<script>window.SHUK_MARKET={"slug":"haifa"};</script>'));
+  check("חיפה: שוק לא חי - noindex", /<meta name="robots" content="noindex,follow">/.test(html)
+    && res.headers.get("X-Robots-Tag") === "noindex, follow");
+}
+
+{
+  const res = await run(SITE + PATH, 200, ROWS);
+  const html = await res.text();
+  check("עפולה: שוק חי - בלי noindex", !/noindex/.test(html) && res.headers.get("X-Robots-Tag") == null);
+  check("עפולה: בלי רמז שוק", !html.includes("SHUK_MARKET"));
+}
+
+{
+  const marker = "<!--other-page-->";
+  const res = await run(SITE + "/haifa/" + encodeURIComponent("מתווכים"), 200, ROWS, marker);
+  const html = await res.text();
+  check("נתיב /haifa אחר עובר הלאה", res.status === 200 && html.includes(marker) && !/noindex/.test(html) && calls === 0);
 }
 
 if (failed) {

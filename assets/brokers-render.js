@@ -1,5 +1,5 @@
 /* ============================================================================
-   מתווכים בעפולה - /afula/מתווכים
+   מתווכים לפי עיר - /afula/מתווכים, /haifa/מתווכים
    ----------------------------------------------------------------------------
    מקור אחד לשרת ולדפדפן, כמו assets/neighborhood-render.js. הקובץ נטען
    כ-<script src> ומיובא ב-brokers-page.ts (globalThis.ShukBrokers).
@@ -16,18 +16,52 @@
       .replace(/'/g, "&#39;");
   }
 
-  var PATH = "/afula/מתווכים";
-  var H1 = "מתווכים בעפולה";
-  var BENEFIT = "משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.";
-  var DESCRIPTION = "משרדי תיווך ומתווכים בעפולה, עם המלאי הפעיל של כל משרד וקישור לדף שלו.";
-  var INTRO = "משרדי התיווך בעפולה והמתווכים שפועלים בהם. לכל משרד דף עם המלאי, ולכל מתווך/ת דף עם הרישיון והנכסים.";
-  var CITY_ID = "c2a8426f-7bac-4c48-bcb5-53a5ca06f001";
-  var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
-  var ALSO = [
-    ["/afula/בתים-פרטיים", "בתים פרטיים למכירה בעפולה"],
-    ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
-    ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
+  /* ‏דף לכל עיר: /{slug}/מתווכים. אותן ערים, אותם cityId ואותו market
+     כמו CITIES ב-assets/silo-render.js (‏scripts/brokers_page_test.ts
+     מצליב). הקובץ אינו קורא מ-silo-render.js כי brokers.html אינו טוען
+     אותו. השורה הראשונה של כל עיר נקראת ב-scripts/check_canonical.py. */
+  var CITIES = [
+    { slug: "afula", name: "עפולה", market: "afula-emek",
+      cityId: "c2a8426f-7bac-4c48-bcb5-53a5ca06f001", home: "/", homeLabel: "עפולה והעמק" },
+    { slug: "haifa", name: "חיפה", market: "haifa",
+      cityId: "751fcf13-a02b-4370-97a5-fc4ec42ea4fe", home: "/haifa", homeLabel: "חיפה והסביבה" },
   ];
+  var BENEFIT = "משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.";
+  var IMG_HOST = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/";
+  var TYPES = [
+    ["בתים-פרטיים", "בתים פרטיים"],
+    ["דירות-גן", "דירות גן"],
+    ["דירות-3-חדרים", "דירות 3 חדרים"],
+  ];
+
+  function pageFor(c) {
+    var at = "ב" + c.name;
+    var also = [];
+    for (var i = 0; i < TYPES.length; i++) {
+      also.push(["/" + c.slug + "/" + TYPES[i][0], TYPES[i][1] + " למכירה " + at]);
+    }
+    return {
+      path: "/" + c.slug + "/מתווכים",
+      h1: "מתווכים " + at,
+      benefit: BENEFIT,
+      description: "משרדי תיווך ומתווכים " + at + ", עם המלאי הפעיל של כל משרד וקישור לדף שלו.",
+      intro: "משרדי התיווך " + at + " והמתווכים שפועלים בהם. לכל משרד דף עם המלאי, ולכל מתווך/ת דף עם הרישיון והנכסים.",
+      city: c.slug,
+      cityName: c.name,
+      at: at,
+      cityId: c.cityId,
+      market: c.market,
+      home: c.home,
+      homeLabel: c.homeLabel,
+      also: also,
+    };
+  }
+
+  var PAGES = [];
+  for (var ci = 0; ci < CITIES.length; ci++) PAGES.push(pageFor(CITIES[ci]));
+
+  /* ‏בלי page - עפולה, כמו שהיה לפני שהיו כמה ערים. */
+  function pg(page) { return page && page.path ? page : PAGES[0]; }
 
   function num(n) { return Math.round(Number(n) || 0).toLocaleString("en-US"); }
   function bdi(inner) { return "<bdi>" + inner + "</bdi>"; }
@@ -37,11 +71,12 @@
   function pageOf(pathname) {
     var path = String(pathname || "").replace(/\/+$/, "") || "/";
     try { path = decodeURIComponent(path); } catch (e) { return null; }
-    return path === PATH ? { path: PATH, h1: H1, benefit: BENEFIT, description: DESCRIPTION, intro: INTRO } : null;
+    for (var i = 0; i < PAGES.length; i++) if (PAGES[i].path === path) return PAGES[i];
+    return null;
   }
 
-  function agencyQuery() {
-    return "select=id,slug,name,address,tagline,logo_url,updated_at&city_id=eq." + CITY_ID
+  function agencyQuery(page) {
+    return "select=id,slug,name,address,tagline,logo_url,updated_at&city_id=eq." + pg(page).cityId
       + "&order=name.asc&limit=200";
   }
 
@@ -88,10 +123,10 @@
       + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">';
   }
 
-  function officeCard(a) {
+  function officeCard(a, page) {
     var bits = [];
     if (a.address) bits.push(escapeHtml(a.address));
-    else bits.push("עפולה");
+    else bits.push(escapeHtml(pg(page).cityName));
     if (a.active_count) bits.push(bdi(num(a.active_count)) + sp() + "נכסים פעילים");
     if (a.tagline) bits.push(escapeHtml(a.tagline));
     return '<li><a class="land-card land-office" href="/agency?slug=' + encodeURIComponent(a.slug) + '">'
@@ -128,7 +163,7 @@
     return '<ul class="land-chips">' + bits.join("") + "</ul>";
   }
 
-  function relatedCards(data) {
+  function relatedCards(data, page) {
     var rows = (data && data.related) || [];
     var html = "";
     var n = 0;
@@ -145,20 +180,21 @@
         + "<strong>" + escapeHtml(p.title || "נכס") + "</strong></span></a></li>";
     }
     if (!n) return "";
-    return '<section class="land-related"><h2>עוד נכסים בעפולה</h2><ul class="land-grid">' + html + "</ul></section>";
+    return '<section class="land-related"><h2>עוד נכסים ' + escapeHtml(pg(page).at) + '</h2><ul class="land-grid">' + html + "</ul></section>";
   }
 
-  function faqs() {
+  function faqs(page) {
+    var p = pg(page);
     return [
-      ["מי מופיע ברשימה?", "משרדים שמשרתים את עפולה, ומתווך או מתווכת עם רישיון בתוקף."],
+      ["מי מופיע ברשימה?", "משרדים שמשרתים את " + p.cityName + ", ומתווך או מתווכת עם רישיון בתוקף."],
       ["איך מגיעים לנכסים של משרד?", "לכל משרד יש דף עם המלאי הפעיל, ולכל מתווך או מתווכת דף עם הרישיון."],
-      ["האם אלה כל המשרדים בעיר?", "אלה המשרדים בעפולה שמפרסמים באתר. לכל המשרדים ולכל המתווכים באתר יש עמודים נפרדים."],
+      ["האם אלה כל המשרדים בעיר?", "אלה המשרדים " + p.at + " שמפרסמים באתר. לכל המשרדים ולכל המתווכים באתר יש עמודים נפרדים."],
       ["איך מקבלים התראה על נכס חדש?", "כפתור קבלו התראה פותח את החיפוש השמור שכבר באתר."],
     ];
   }
 
-  function faqHtml() {
-    var rows = faqs();
+  function faqHtml(page) {
+    var rows = faqs(page);
     var html = '<section class="land-faq"><h2>שאלות נפוצות</h2>';
     for (var i = 0; i < rows.length; i++) {
       html += "<details><summary>" + escapeHtml(rows[i][0]) + "</summary><p>" + escapeHtml(rows[i][1]) + "</p></details>";
@@ -166,19 +202,21 @@
     return html + "</section>";
   }
 
-  function seo() {
-    return '<section class="land-seo"><h2>על הרשימה</h2><p>' + escapeHtml(INTRO) + "</p>"
-      + "<p>הרשימה היא משרדים שמשרתים את עפולה ושמתווך/ת בהם עם רישיון בתוקף. לכל משרד ולכל מתווך/ת יש דף משלו, עם המלאי והדירוג. "
+  function seo(page) {
+    var p = pg(page);
+    return '<section class="land-seo"><h2>על הרשימה</h2><p>' + escapeHtml(p.intro) + "</p>"
+      + "<p>הרשימה היא משרדים שמשרתים את " + escapeHtml(p.cityName) + " ושמתווך/ת בהם עם רישיון בתוקף. לכל משרד ולכל מתווך/ת יש דף משלו, עם המלאי והדירוג. "
       + '<a href="/agencies">כל משרדי התיווך</a> ו-<a href="/agents">כל המתווכים</a> באתר. '
-      + '<a href="/deals/afula">עסקאות בעפולה</a> ו-<a href="/prices">מחירי דירות</a>.</p></section>';
+      + '<a href="/deals/' + p.city + '">עסקאות ' + escapeHtml(p.at) + '</a> ו-<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
-  function also() {
+  function also(page) {
+    var p = pg(page);
     var html = '<section class="land-also"><h2>גם מעניין</h2><nav class="land-filters" aria-label="גם מעניין">';
-    for (var i = 0; i < ALSO.length; i++) {
-      html += '<a href="' + escapeHtml(ALSO[i][0]) + '">' + escapeHtml(ALSO[i][1]) + "</a>";
+    for (var i = 0; i < p.also.length; i++) {
+      html += '<a href="' + escapeHtml(p.also[i][0]) + '">' + escapeHtml(p.also[i][1]) + "</a>";
     }
-    html += '<a href="/">עפולה והעמק</a></nav></section>';
+    html += '<a href="' + escapeHtml(p.home) + '">' + escapeHtml(p.homeLabel) + "</a></nav></section>";
     return html;
   }
 
@@ -188,24 +226,25 @@
       + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></section>';
   }
 
-  function render(data) {
+  function render(data, page) {
+    var p = pg(page);
     var agencies = (data && data.agencies) || [];
     var agents = (data && data.agents) || [];
     var html = "";
     if (!agencies.length && !agents.length) {
       html += '<div class="land-empty"><p>אין כרגע משרדים להצגה.</p>'
         + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></div>';
-      html += relatedCards(data);
+      html += relatedCards(data, p);
     } else {
       if (agencies.length) {
-        html += "<h2>" + countPhrase(agencies.length, "משרד תיווך פעיל בעפולה", "משרדי תיווך פעילים בעפולה")
+        html += "<h2>" + countPhrase(agencies.length, "משרד תיווך פעיל " + escapeHtml(p.at), "משרדי תיווך פעילים " + escapeHtml(p.at))
           + "</h2><ul class=\"land-grid\">";
-        for (var i = 0; i < agencies.length; i++) html += officeCard(agencies[i]);
+        for (var i = 0; i < agencies.length; i++) html += officeCard(agencies[i], p);
         html += "</ul>";
         html += '<p class="land-more"><a class="land-btn land-btn-primary" data-land-cta data-count="' + agencies.length
           + '" href="/agencies"><span>לכל</span>' + bdi(num(agencies.length)) + "<span>המשרדים</span></a></p>";
       }
-      if (agencies.length < 3) html += relatedCards(data);
+      if (agencies.length < 3) html += relatedCards(data, p);
       if (agents.length) {
         var shownAgents = agents.slice(0, 12);
         html += '<h2>מתווכים</h2><ul class="land-grid">';
@@ -224,24 +263,25 @@
         }
       }
     }
-    html += seo();
-    html += also();
-    html += faqHtml();
+    html += seo(p);
+    html += also(p);
+    html += faqHtml(p);
     html += finalCta();
     return html;
   }
 
-  function entry(name, url) {
+  function entry(name, url, locality) {
     return {
       "@type": ["LocalBusiness", "RealEstateAgent"],
       name: name,
       url: url,
-      address: { "@type": "PostalAddress", addressLocality: "עפולה", addressCountry: "IL" },
+      address: { "@type": "PostalAddress", addressLocality: locality, addressCountry: "IL" },
     };
   }
 
-  function jsonLd(data, site) {
-    var url = site + PATH;
+  function jsonLd(data, site, page) {
+    var p = pg(page);
+    var url = site + p.path;
     var agencies = (data && data.agencies) || [];
     var agents = (data && data.agents) || [];
     var items = [];
@@ -249,7 +289,7 @@
     for (var i = 0; i < agencies.length; i++) {
       if (!agencies[i].slug) continue;
       n += 1;
-      var office = entry(String(agencies[i].name || "משרד תיווך"), site + "/agency?slug=" + encodeURIComponent(agencies[i].slug));
+      var office = entry(String(agencies[i].name || "משרד תיווך"), site + "/agency?slug=" + encodeURIComponent(agencies[i].slug), p.cityName);
       if (agencies[i].address) office.address.streetAddress = String(agencies[i].address);
       items.push({ "@type": "ListItem", position: n, item: office });
     }
@@ -259,10 +299,10 @@
       items.push({
         "@type": "ListItem",
         position: n,
-        item: entry(String(agents[j].display_name || "מתווך/ת"), site + "/agent?slug=" + encodeURIComponent(agents[j].slug)),
+        item: entry(String(agents[j].display_name || "מתווך/ת"), site + "/agent?slug=" + encodeURIComponent(agents[j].slug), p.cityName),
       });
     }
-    var qa = faqs();
+    var qa = faqs(p);
     var main = [];
     for (var q = 0; q < qa.length; q++) {
       main.push({ "@type": "Question", name: qa[q][0], acceptedAnswer: { "@type": "Answer", text: qa[q][1] } });
@@ -271,9 +311,9 @@
       {
         "@context": "https://schema.org",
         "@type": "WebPage",
-        name: H1,
+        name: p.h1,
         url: url,
-        description: DESCRIPTION,
+        description: p.description,
         inLanguage: "he",
       },
       {
@@ -281,14 +321,14 @@
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
-          { "@type": "ListItem", position: 2, name: "עפולה", item: site + "/" },
-          { "@type": "ListItem", position: 3, name: H1, item: url },
+          { "@type": "ListItem", position: 2, name: p.cityName, item: site + p.home },
+          { "@type": "ListItem", position: 3, name: p.h1, item: url },
         ],
       },
       {
         "@context": "https://schema.org",
         "@type": "ItemList",
-        name: H1,
+        name: p.h1,
         numberOfItems: items.length,
         itemListElement: items,
       },
@@ -296,18 +336,15 @@
     ];
   }
 
-  function scripts(data, site) {
-    return jsonLd(data, site).map(function (obj) {
+  function scripts(data, site, page) {
+    return jsonLd(data, site, page).map(function (obj) {
       return '<script type="application/ld+json">' + JSON.stringify(obj).replace(/</g, "\\u003c") + "</script>";
     }).join("\n");
   }
 
   root.ShukBrokers = {
-    path: PATH,
-    h1: H1,
-    benefit: BENEFIT,
-    description: DESCRIPTION,
-    cityId: CITY_ID,
+    pages: PAGES,
+    cities: CITIES,
     pageOf: pageOf,
     agencyQuery: agencyQuery,
     render: render,
@@ -315,6 +352,6 @@
     updatedHtml: updatedHtml,
     jsonLd: jsonLd,
     scripts: scripts,
-    fullTitle: function () { return H1 + " | שוק נדל״ן"; },
+    fullTitle: function (page) { return pg(page).h1 + " | שוק נדל״ן"; },
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

@@ -57,13 +57,18 @@ description: הדלקת שוק מקומי לגולשים באתר שוק נדל�
   החסר: עיר שנכתבה אחרת ("ק. ביאליק"). כינוי ב-`city_aliases`, לא שכתוב
   של `properties.city`.
 
-## 2. השינויים - שלושה, באותו PR
+## 2. השינויים - באותו PR
 
 | המקום | לפני | אחרי |
 | --- | --- | --- |
 | `assets/markets.js` | `live: false` | `live: true` |
 | `_redirects` | `/haifa    /market-soon    200` | `/haifa    /index    200` |
 | `sitemap.xml` | - | `<url><loc>https://shuknadlan.co.il/haifa</loc></url>` |
+| `sitemap.xml`, אם לעיר יש דפי נחיתה (‏`CITIES` ב-`assets/silo-render.js`) | - | `/haifa/בתים-פרטיים`, `/haifa/דירות-גן`, `/haifa/דירות-3-חדרים`, `/haifa/מתווכים` |
+| `agents.html`, `agencies.html` (פסקת הפתיחה, `p.lede`) | - | קישור אל `/haifa/מתווכים` («המתווכים בחיפה») |
+דפי הנחיתה של העיר כבר קיימים ויוצאים עם `noindex` עד ההדלקה
+(‏`landingIndexable`); ‏`check_canonical.py` נכשל אם השורות שלהם חסרות
+אחרי `live: true`, או קיימות לפניו. ‏`docs/search-landing-pages.md`.
 `check_markets.py` מצליב את שלושתם, ו-`check_canonical.py` מכיר את כתובות
 השווקים (הוא קורא את `assets/markets.js`), כך שהשורה ב-sitemap אינה נחשבת
 "דף שאינו קיים". ‏`market-pages.ts` אינו משתנה:
