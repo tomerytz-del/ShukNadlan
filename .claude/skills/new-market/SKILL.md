@@ -279,6 +279,17 @@ check("קריית מוצקין → krayot", reg.locate(32.8378, 35.0795)?.slug =
   והנכון לא משתנה, ומודדים שאף נכס **שכבר משויך** אינו יוצא מהמצולע שלו.
   כשהעסקאות סביב מצביעות לשני הכיוונים - ההכרעה של מנהל/ת הפלטפורמה.
 
+## דפי נחיתה לעיר המרכזית (`/haifa/בתים-פרטיים`, `/haifa/מתווכים`)
+
+לא חובה כדי לפתוח שוק, ואפשר לבנות אותם לפני ההדלקה: שורה ב-`CITIES` ב-
+`assets/silo-render.js` **וגם** ב-`assets/brokers-render.js` (אותם `slug`,
+`name`, `cityId`, `market`, `home`), שורות מקודדות וגלויות ב-`_redirects`,
+ו-`/{slug}/*` ועוד הנתיבים ב-`config.path` של `silo-page.ts` ו-`brokers-page.ts`.
+עד `live: true` הדפים יוצאים עם `noindex` (‏`landingIndexable`), ו-**אין להוסיף
+אותם ל-`sitemap.xml`** - ‏`check_canonical.py` נכשל. השורות נכנסות ב-PR של
+ההדלקה (הסקיל `market-go-live`). אין דף פרויקטים לפי עיר: הוא מתחרה
+ב-`/projects`. הפירוט: `docs/search-landing-pages.md`, "עיר נוספת".
+
 ## משרד שלא מופיע בשוק
 
 משרד משויך לעיר (`agencies.city_id`), והעיר קובעת את השוק. מאז
