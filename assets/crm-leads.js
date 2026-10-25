@@ -64,12 +64,45 @@ function leadExclusiveEnd(l){
   return end > Date.now() ? end : null;
 }
 
+/* זמן יחסי לליד. "אתמול" הוא יום לוח, לא 24 שעות. התאריך המלא יושב
+   ב-title וב-aria (leadWhen), כי "לפני 12 דק׳" בלי התאריך נעלם אחרי רענון. */
 function leadAgo(iso){
-  const ms = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(ms / 3600e3);
-  if (h < 1) return 'לפני ' + Math.max(1, Math.round(ms / 60e3)) + ' דק׳';
-  if (h < 24) return 'לפני ' + plural(h, 'שעה', 'שעות');
-  return new Date(iso).toLocaleDateString('he-IL', { day:'numeric', month:'numeric' });
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  if (!Number.isFinite(ms)) return '';
+  const min = Math.round(ms / 60e3);
+  if (min < 1) return 'עכשיו';
+  if (min < 60) return 'לפני ' + min + ' דק׳';
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  if (d >= startToday) return 'לפני ' + plural(Math.floor(ms / 3600e3), 'שעה', 'שעות');
+  const startYest = new Date(startToday);
+  startYest.setDate(startYest.getDate() - 1);
+  if (d >= startYest) return 'אתמול';
+  const days = Math.round((startToday - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (days > 0 && days < 7) return 'לפני ' + plural(days, 'יום', 'ימים');
+  return d.toLocaleDateString('he-IL', { day:'numeric', month:'numeric' });
+}
+
+function leadWhen(iso){
+  const d = new Date(iso);
+  const title = Number.isFinite(d.getTime())
+    ? d.toLocaleString('he-IL', { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : '';
+  return { text: leadAgo(iso), title };
+}
+
+/* שלב מהרשימה הקיימת של lead_work בלבד. ערך לא מוכר נופל ל"חדש",
+   כמו בורר הכרטיס, ולא ממציא תווית. */
+function leadStageClass(stage){
+  return ({ new:1, contacted:1, meeting:1, not_relevant:1, won:1 })[stage] ? stage : 'new';
+}
+
+function leadStageTagHtml(lead){
+  const stage = leadStageClass(leadStageOf(lead));
+  const label = (typeof LEAD_STAGE_LABEL !== 'undefined' && LEAD_STAGE_LABEL[stage])
+    || ({ new:'חדש', contacted:'נוצר קשר ראשוני', meeting:'בתיאום פגישה / סיור', not_relevant:'לא רלוונטי / לא ענה', won:'נסגר בהצלחה' })[stage];
+  return `<span class="lp-st lp-st-${stage}">${esc(label)}</span>`;
 }
 
 /* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
@@ -203,12 +236,11 @@ function renderLeadsUnified(agentId){
     : '';
 
   if (!groups.length){
-    listEl.innerHTML = '<div class="empty-state">' + (
-      leadsTab === 'archive' ? 'אין לידים בארכיון.'
-      : leadsTab === 'work' ? 'אין לידים בטיפול. ליד שיצרת איתו קשר עובר לכאן.'
-      : allLeads.length === 0
-        ? 'אין עדיין לידים.<br>פנייה מהאתר, שיחה למספר וירטואלי או ליד שנרכש יופיעו כאן.'
-        : 'אין לידים חדשים. כל הכבוד!') + '</div>';
+    listEl.innerHTML = leadsEmptyHtml();
+    const add = listEl.querySelector('[data-leads-empty]');
+    if (add) add.addEventListener('click', () => {
+      if (typeof openInlineForm === 'function') openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+    });
     document.getElementById('leadsMore').innerHTML = '';
     return;
   }
@@ -220,6 +252,22 @@ function renderLeadsUnified(agentId){
   document.getElementById('leadsMore').innerHTML =
     (left > 0 ? `<button type="button" class="ui-more" data-leads-more>עוד ${Math.min(LEADS_STEP, left)} לידים (נשארו ${left})</button>` : '')
     + (shown > LEADS_STEP && left === 0 ? `<button type="button" class="ui-link" data-leads-less>הצגת ${LEADS_STEP} בלבד</button>` : '');
+}
+
+function leadsEmptyHtml(){
+  if (leadsTab === 'archive') return '<div class="empty-state"><p>אין לידים בארכיון.</p></div>';
+  if (leadsTab === 'work') return '<div class="empty-state"><p>אין לידים בטיפול.</p><p>ליד שסימנת טופל עובר לכאן.</p></div>';
+  if (allLeads.length === 0){
+    return '<div class="empty-state"><p>אין לידים עדיין.</p>'
+      + '<p>פנייה מהאתר, שיחה למספר וירטואלי או ליד שנרכש יופיעו כאן.</p>'
+      + '<button type="button" class="ui-btn" data-leads-empty="property">נכס חדש</button></div>';
+  }
+  return '<div class="empty-state"><p>אין לידים חדשים. כל הכבוד.</p></div>';
+}
+
+function leadsSkeletonHtml(){
+  const bar = '<div class="lp-skel" aria-hidden="true"><span></span><span><i></i><i></i></span></div>';
+  return '<div class="lp-skel-wrap" role="status"><span class="sr-only">טוען לידים</span>' + bar + bar + bar + '</div>';
 }
 
 function buildLeadPriorityCard(group, rank, agentId){
@@ -244,16 +292,21 @@ function buildLeadPriorityCard(group, rank, agentId){
   const facts = src === 'call' ? leadCallFacts(call) : [];
   const wants = leadWants(lead, call);
 
+  const when = leadWhen(lead.created_at);
+  const unread = stage === 'new' && !archived;
+  const phone = lead.display_phone || '';
   const el = document.createElement('article');
-  el.className = 'ui-scope lp-card' + (urgent ? ' is-urgent' : '');
+  el.className = 'ui-scope lp-card' + (urgent ? ' is-urgent' : '') + (unread ? ' is-unread' : '');
   el.dataset.leadId = lead.id;
   el.innerHTML =
     `<div class="lp-head">`
     + `<span class="lp-rank" aria-label="עדיפות ${rank}">${rank}</span>`
     + `<span class="lp-avatar" aria-hidden="true">${esc(String(name).trim().charAt(0) || '?')}</span>`
-    + `<div class="lp-who"><div class="lp-name">${esc(name)}</div>`
+    + `<div class="lp-who"><div class="lp-name">${unread ? '<span class="lp-dot" aria-hidden="true"></span>' : ''}<bdi dir="auto">${esc(name)}</bdi></div>`
+    + (phone ? `<div class="lp-phone"><bdi dir="auto">${esc(phone)}</bdi></div>` : '')
     + `<div class="lp-meta"><span class="ui-tag ui-tag--${meta.tone}">${esc(meta.label)}${detail ? ' · ' + esc(detail) : ''}</span>`
-    + `<span class="ui-muted">${esc(leadAgo(lead.created_at))}</span></div></div>`
+    + leadStageTagHtml(lead)
+    + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
     + `<p class="lp-why"><strong>למה עכשיו:</strong> ${esc(why)}</p>`
@@ -263,13 +316,16 @@ function buildLeadPriorityCard(group, rank, agentId){
         return `<li><button type="button" class="lp-step${i <= at ? ' is-on' : ''}${k === stage ? ' is-current' : ''}" data-lp-stage="${k}"`
           + `${k === stage ? ' aria-current="step"' : ''}${leadWorkReady ? '' : ' disabled'}>${esc(label)}</button></li>`;
       }).join('') + `</ol>`)
+    + `<div class="lp-quick"></div>`
     + `<div class="lp-acts"></div>`
     + `<div class="lp-details" hidden></div>`;
 
+  const quick = el.querySelector('.lp-quick');
   const acts = el.querySelector('.lp-acts');
   const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
+  const telOk = tel.replace(/\D/g, '').length >= 9;
   const wa = !locked ? waLink(lead.display_phone) : null;
-  const addBtn = (label, cls, attrs, fn) => {
+  const addBtn = (parent, label, cls, attrs, fn) => {
     const isLink = attrs && attrs.href;
     const b = document.createElement(isLink ? 'a' : 'button');
     if (!isLink) b.type = 'button';
@@ -277,29 +333,40 @@ function buildLeadPriorityCard(group, rank, agentId){
     b.innerHTML = label;
     Object.entries(attrs || {}).forEach(([k, v]) => b.setAttribute(k, v));
     if (fn) b.addEventListener('click', fn);
-    acts.appendChild(b);
+    parent.appendChild(b);
     return b;
   };
-  // פנייה: מתעדת מענה (markLeadResponded) ומקדמת ל"יצרתי קשר"
-  const contacted = () => {
+  // חיוג ווואטסאפ: מתעדים מענה (markLeadResponded) ומקדמים ל"יצרתי קשר".
+  // "טופל" הוא רק השלב, בלי first_response_at (הסקיל lead-card, כלל 2).
+  const contacted = (kind) => {
+    crmTrackLead(kind);
     markLeadResponded(lead);
     if (leadWorkReady && leadStageOf(lead) === 'new') saveLeadWork(lead, { stage:'contacted' }).then(ok => { if (ok) renderLeads(agentId); });
   };
   if (locked){
-    addBtn('פתיחת הליד', 'ui-btn', null, () => {
+    addBtn(quick, 'פתיחת הליד', 'ui-btn lp-q', null, () => {
       leadsOpenDetails.add(lead.id);
       toggleLeadDetails(el, group, agentId, true);
     });
-  } else if (!archived){
-    if (tel.replace(/\D/g, '').length >= 9) addBtn('📞 התקשרות', 'ui-btn', { href:'tel:' + tel }, contacted);
-    if (wa) addBtn('💬 וואטסאפ', 'ui-btn ui-btn--secondary', { href: wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, leadPropertyContext(lead))), target:'_blank', rel:'noopener' }, contacted);
-    if (call && call.recording_path) addBtn('▶ האזנה', 'ui-btn ui-btn--secondary', null, e => playLeadCall(e.currentTarget, call));
-    addBtn('הוספה כלקוח/ה', 'ui-link', null, () => leadToClient(lead, call));
+  } else {
+    if (telOk) addBtn(quick, 'חיוג', 'ui-btn lp-q lp-q-call', { href:'tel:' + tel, 'aria-label':'חיוג אל ' + name }, () => contacted('call'));
+    if (wa) addBtn(quick, 'וואטסאפ', 'ui-btn ui-btn--secondary lp-q lp-q-wa', {
+      href: wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, leadPropertyContext(lead))),
+      target:'_blank', rel:'noopener', 'aria-label':'וואטסאפ אל ' + name,
+    }, () => contacted('whatsapp'));
+    if (!archived && leadWorkReady && stage === 'new'){
+      addBtn(quick, 'טופל', 'ui-btn ui-btn--secondary lp-q lp-q-done', { 'aria-label':'סימון הליד כטופל' }, () => leadMarkHandled(lead, agentId));
+    }
   }
-  const det = addBtn('פרטים', 'ui-link', { 'aria-expanded':'false' }, () => toggleLeadDetails(el, group, agentId));
+  if (!quick.childElementCount) quick.hidden = true;
+  if (!locked && !archived){
+    if (call && call.recording_path) addBtn(acts, 'האזנה', 'ui-btn ui-btn--secondary', null, e => playLeadCall(e.currentTarget, call));
+    addBtn(acts, 'הוספה כלקוח/ה', 'ui-link', null, () => leadToClient(lead, call));
+  }
+  const det = addBtn(acts, 'פרטים', 'ui-link', { 'aria-expanded':'false' }, () => toggleLeadDetails(el, group, agentId));
   det.classList.add('lp-details-btn');
   if (!locked && !archived){
-    addBtn('לארכיון', 'ui-link lp-archive', null, e => archiveLead(lead, e.currentTarget, agentId));
+    addBtn(acts, 'לארכיון', 'ui-link lp-archive', null, e => archiveLead(lead, e.currentTarget, agentId));
   }
 
   el.querySelector('.lp-steps')?.addEventListener('click', e => {
@@ -310,6 +377,51 @@ function buildLeadPriorityCard(group, rank, agentId){
 
   if (leadsOpenDetails.has(lead.id)) toggleLeadDetails(el, group, agentId, true);
   return el;
+}
+
+/* מדידה של הפעולות בלי לפתוח את הכרטיס. ב-CRM אין events.js, אז בלי
+   shukTrack אותה דחיפה יוצאת ל-dataLayer. בלי שם, טלפון או מזהה ליד. */
+function crmTrackLead(kind){
+  try {
+    if (typeof window.shukTrack === 'function'){
+      if (kind === 'call') window.shukTrack('crm_lead_call', {});
+      else if (kind === 'whatsapp') window.shukTrack('crm_lead_whatsapp', {});
+      else if (kind === 'handled') window.shukTrack('crm_lead_handled', {});
+      else if (kind === 'undo') window.shukTrack('crm_lead_handled_undo', {});
+      return;
+    }
+    const name = kind === 'call' ? 'crm_lead_call'
+      : kind === 'whatsapp' ? 'crm_lead_whatsapp'
+      : kind === 'handled' ? 'crm_lead_handled'
+      : kind === 'undo' ? 'crm_lead_handled_undo' : '';
+    if (!name) return;
+    window.dataLayer = window.dataLayer || [];
+    const path = ((location.pathname || '').split('/').pop() || 'crm').replace(/\.html$/, '') || 'crm';
+    window.dataLayer.push({ event: name, page_type: path });
+  } catch (e) { /* מדידה לא חוסמת חיוג */ }
+}
+
+/* "טופל" מהרשימה: השלב עובר מ"חדש" ל"נוצר קשר ראשוני" (saveLeadWork),
+   בלי mark_lead_responded. ביטול בטוסט מחזיר את השלב הקודם כחמש שניות. */
+function leadMarkHandled(lead, agentId){
+  if (!lead || !leadWorkReady || lead.status !== 'unlocked') return;
+  if (archivedLeadIds.has(lead.id) || leadStageOf(lead) !== 'new') return;
+  const who = agentId || (currentAgent && currentAgent.id);
+  saveLeadWork(lead, { stage:'contacted' }).then(ok => {
+    if (!ok) return;
+    renderLeads(who);
+    crmTrackLead('handled');
+    const undo = () => {
+      saveLeadWork(lead, { stage:'new' }).then(back => {
+        if (!back) return;
+        crmTrackLead('undo');
+        renderLeads(who);
+        showToast('הסימון בוטל');
+      });
+    };
+    if (typeof showUndoToast === 'function') showUndoToast('הליד סומן כטופל', undo, 5000);
+    else showToast('הליד סומן כטופל');
+  });
 }
 
 /* "פרטים": הכרטיס המלא הקיים - פתיחת ליד נעול, הערה, ההודעה המלאה ולידים

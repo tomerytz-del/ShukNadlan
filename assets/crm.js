@@ -24,6 +24,7 @@ function heErr(e){
 const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
 function showToast(msg, ms=3200){
   const failure = TOAST_FAILURE.test(String(msg || ''));
+  toastEl.classList.remove('is-undo');
   if (failure && window.FriendlyError){
     toastEl.textContent = msg;
     const help = document.createElement('div');
@@ -36,9 +37,38 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
-  toastEl.style.display = 'block';
+  toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+}
+
+/* טוסט עם "ביטול" לכמה שניות. לחיצה מריצה את onUndo וסוגרת. טוסט חדש
+   מחליף את זה, והפעולה נשארת. */
+function showUndoToast(msg, onUndo, ms=5000){
+  toastEl.classList.add('is-undo');
+  toastEl.textContent = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'toast-undo';
+  btn.textContent = 'ביטול';
+  let done = false;
+  btn.addEventListener('click', () => {
+    if (done) return;
+    done = true;
+    clearTimeout(showToast._t);
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+    onUndo();
+  });
+  toastEl.append(span, btn);
+  toastEl.style.display = 'flex';
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+  }, ms);
 }
 
 /* ================= ערעור על חסימת רישיון תיווך =================
@@ -14054,10 +14084,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     category: currentCategory,
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
-    price: salePriceFromMillions(parseFloat(document.getElementById('npPrice').value), document.getElementById('npDeal').value),
+    price: salePriceFromMillions(parseFloat(crmMoneyRaw(document.getElementById('npPrice').value)), document.getElementById('npDeal').value),
     price_includes_vat: currentCategory === 'commercial' ? vatSelectValue() : null,
-    maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
-    arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
+    maintenance_fee: crmMoneyNum(document.getElementById('npMaintenanceFee').value),
+    arnona: crmMoneyNum(document.getElementById('npArnona').value),
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
     city: propertyCity(),
     street: street || null,
@@ -14691,8 +14721,13 @@ function propertyFilterState(){
 // טווח מ-/עד משני שדות. שדה ריק הוא "אין גבול", ולא 0 - ‏Number('') הוא 0,
 // ו"עד 0" היה מסתיר הכול. null כששני השדות ריקים.
 function propRange(minRaw, maxRaw){
-  const min = minRaw === '' ? null : Number(minRaw);
-  const max = maxRaw === '' ? null : Number(maxRaw);
+  const num = raw => {
+    if (raw === '' || raw == null) return null;
+    const n = Number(crmMoneyRaw(raw));
+    return Number.isFinite(n) ? n : null;
+  };
+  const min = num(minRaw);
+  const max = num(maxRaw);
   return (min === null && max === null) ? null : { min, max };
 }
 
@@ -14782,7 +14817,11 @@ function renderProperties(){
   if (countLine) countLine.textContent = '';
 
   if (myPropertyRows.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
+    listEl.innerHTML = '<div class="empty-state"><p>עדיין לא פרסמת נכסים.</p>'
+      + '<button type="button" class="ui-btn" data-prop-empty>נכס חדש</button></div>';
+    listEl.querySelector('[data-prop-empty]')?.addEventListener('click', () => {
+      openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+    });
     updateFilterFoot('propFilterCount', 'propClearFilters', 0, 0, false);
     return;
   }
@@ -17914,9 +17953,9 @@ function openEditProperty(p){
   document.getElementById('npLandMaxFloors').value = p.land_max_floors ?? '';
   document.getElementById('npLandPlanningNotes').value = p.land_planning_notes || '';
   document.getElementById('npDeal').value = p.deal_type;
-  document.getElementById('npPrice').value = p.price;
-  document.getElementById('npMaintenanceFee').value = p.maintenance_fee ?? '';
-  document.getElementById('npArnona').value = p.arnona ?? '';
+  document.getElementById('npPrice').value = crmMoneyText(p.price);
+  document.getElementById('npMaintenanceFee').value = p.maintenance_fee == null || p.maintenance_fee === '' ? '' : crmMoneyText(p.maintenance_fee);
+  document.getElementById('npArnona').value = p.arnona == null || p.arnona === '' ? '' : crmMoneyText(p.arnona);
   document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
   document.getElementById('npRooms').value = p.rooms || '';
   setPropertyCity(p.city || defaultPropertyCity());
@@ -19359,7 +19398,9 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
-  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+    ? leadsSkeletonHtml()
+    : '<div class="empty-state">טוען…</div>';
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
@@ -19592,8 +19633,8 @@ function buildLeadCard(lead, agentId, isArchived){
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
         </div>
-        <div class="lead-name">${unlocked ? '' : '🔒 '}${esc(lead.display_name || '-')}</div>
-        <div class="lead-phone">${esc(lead.display_phone || '-')}</div>
+        <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
+        <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>
         <div class="lc-when${fresh ? ' is-fresh' : ''}">🕒 ${esc(when)}</div>
         ${unlocked ? '' : '<div class="lc-lock-note">השם והטלפון ייחשפו בפתיחת הליד</div>'}
       </section>
@@ -22577,8 +22618,8 @@ function openEditClient(c){
   document.getElementById('clFinancing').value  = c.financing_status || '';
   document.getElementById('clShareLevel').value = shareLevelOf(c);
   document.getElementById('clLeadSource').value = c.lead_source || '';
-  document.getElementById('clMinPrice').value = c.min_price ?? '';
-  document.getElementById('clMaxPrice').value = c.max_price ?? '';
+  document.getElementById('clMinPrice').value = c.min_price == null ? '' : crmMoneyText(c.min_price);
+  document.getElementById('clMaxPrice').value = c.max_price == null ? '' : crmMoneyText(c.max_price);
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
   document.getElementById('clMaxSize').value  = c.max_size_sqm ?? '';
@@ -22613,11 +22654,43 @@ async function deleteClient(c){
   if (typeof loadAgenda === 'function') loadAgenda();
 }
 
+/* מחיר עם פסיקי אלפים. type=number דוחה את הפסיק, ו"1,850,000" בלי
+   הניקוי נקרא כ-1 ואז כמיליון (salePriceFromMillions). בפוקוס חוזרים
+   לספרות, ביציאה מציגים שוב עם פסיקים. */
+function crmMoneyRaw(s){
+  return String(s == null ? '' : s).trim().replace(/[^\d.]/g, '');
+}
+function crmMoneyNum(s){
+  const raw = crmMoneyRaw(s);
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+function crmMoneyText(n){
+  const raw = crmMoneyRaw(n);
+  if (raw === '') return '';
+  const v = Number(raw);
+  if (!Number.isFinite(v)) return '';
+  return v.toLocaleString('he-IL', { maximumFractionDigits: 2 });
+}
+const CRM_MONEY_IDS = ['npPrice','npMaintenanceFee','npArnona','clMinPrice','clMaxPrice','propPriceMin','propPriceMax','propPsmMin','propPsmMax'];
+function crmBindMoneyInputs(){
+  CRM_MONEY_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.money) return;
+    el.dataset.money = '1';
+    el.addEventListener('focus', () => { el.value = crmMoneyRaw(el.value); });
+    el.addEventListener('blur', () => {
+      const raw = crmMoneyRaw(el.value);
+      el.value = raw === '' ? '' : crmMoneyText(raw);
+    });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', crmBindMoneyInputs);
+else crmBindMoneyInputs();
+
 // שדה מספרי ריק הוא null ולא 0 - 0 היה נקרא כ"תקציב אפס" ומסנן הכול
-const numOrNull = id => {
-  const raw = document.getElementById(id).value.trim();
-  return raw === '' ? null : Number(raw);
-};
+const numOrNull = id => crmMoneyNum(document.getElementById(id).value);
 
 /* "הצלב נכסים": אחרי השמירה הכרטיס של הלקוח/ה נפתח ברשימה ופאנל ההתאמות
    נטען בו - אותה קריאה ל-match_properties_for_client שהכפתור בכרטיס עושה.
@@ -24038,8 +24111,8 @@ function fillClientFormNeeds(n){
   if (n.deal_type) setClientFormDeal(n.deal_type);
   if (Array.isArray(n.cities) && n.cities.length) addClientCities(n.cities.join(','));
   if (n.min_rooms != null) document.getElementById('clMinRooms').value = n.min_rooms;
-  if (n.min_price != null) document.getElementById('clMinPrice').value = n.min_price;
-  if (n.max_price != null) document.getElementById('clMaxPrice').value = n.max_price;
+  if (n.min_price != null) document.getElementById('clMinPrice').value = crmMoneyText(n.min_price);
+  if (n.max_price != null) document.getElementById('clMaxPrice').value = crmMoneyText(n.max_price);
 }
 
 /* עדכון כרטיס קיים מהשיחה. ערים - בתוספת למה שכבר בכרטיס ולא במקומו: לקוח/ה

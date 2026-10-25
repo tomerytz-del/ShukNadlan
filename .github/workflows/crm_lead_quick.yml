@@ -1,0 +1,37 @@
+name: כרטיס ליד בלחיצה
+
+# הזמן היחסי, תגית השלב ושורות תמונת המצב נראים תקינים גם כשהמספר
+# שגוי: "לפני 12 דק׳" בלי "אתמול", או שורת "0 פגישות" שנשארת על המסך.
+# הקבצים בלבד, בלי לטעון את crm.js ובלי רשת.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm-leads.js"
+      - "assets/crm-home.js"
+      - "assets/crm.js"
+      - "scripts/crm_lead_quick_test.js"
+      - ".github/workflows/crm_lead_quick.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm-leads.js"
+      - "assets/crm-home.js"
+      - "assets/crm.js"
+      - "scripts/crm_lead_quick_test.js"
+      - ".github/workflows/crm_lead_quick.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: בדיקת כרטיס הליד ותמונת המצב
+        run: node scripts/crm_lead_quick_test.js

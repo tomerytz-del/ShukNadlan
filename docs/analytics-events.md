@@ -51,12 +51,24 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `profile_nudge_completed_click` | לחיצה על הכפתור הראשי בגיליון, שמעבירה לשדה | `nudge_item` |
 | `profile_nudge_later` | "אעדכן אחר כך" | `nudge_item` |
 | `profile_nudge_dismissed` | סגירה ב-X, ב-Esc או בלחיצה על הרקע | `nudge_item` |
+| `crm_lead_call` | חיוג לליד מכפתור "חיוג" בכרטיס הרשימה או ב"לחזור אליהם קודם", בלי לפתוח את הכרטיס | — |
+| `crm_lead_whatsapp` | וואטסאפ לליד מאותם כפתורים | — |
+| `crm_lead_handled` | "טופל" על ליד חדש (השלב עובר ל"נוצר קשר ראשוני") | — |
+| `crm_lead_handled_undo` | ביטול הסימון מטוסט "ביטול", בתוך כחמש שניות | — |
+| `crm_home_summary` | לחיצה על שורה ב"הנה תמונת המצב שלך להיום" | `summary_item`: `leads` \| `meetings` \| `late` \| `expiring` \| `exclusive` |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
 שלו/ה אינה פנייה של גולש/ת), ולכן כש-`shukTrack` אינו קיים אותה דחיפה
 יוצאת ישר ל-`dataLayer`, עם `event`, `page_type` ו-`nudge_item`. אין
 באירוע שם, טלפון או מספר רישיון - רק מזהה הפריט החסר.
+
+חמשת אירועי `crm_lead_*` ו-`crm_home_summary` נדחפים מ-`assets/crm-leads.js`
+ומ-`assets/crm-home.js` באותה צורה: `shukTrack` כשהוא קיים, ואחרת
+`dataLayer` עם `event` ו-`page_type`. אין בהם שם, טלפון או מזהה ליד.
+`summary_item` הוא רק סוג השורה שנלחצה. אחרי מיזוג צריך לייבא מחדש את
+`gtm/container.json` למכולה `GTM-NZHD7ZHT`, כי הבדיקה קוראת את הייצוא
+ולא את המכולה החיה.
 
 לכל אירוע מצורפים אוטומטית `page_type` (שם הדף בלי הסיומת), `item_id`
 (פרמטר `id` שבכתובת, כשיש) ו-`src` — אין צורך להעביר אותם ידנית.
