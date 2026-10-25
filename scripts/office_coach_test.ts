@@ -48,7 +48,7 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
-import { CSM_GREETING, CSM_TOOLS, csmCapabilities, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
+import { CSM_GREETING, CSM_TOOLS, csmCapabilities, gcalTemplateUrl, ilLocalToIso, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
 let failed = 0;
@@ -560,6 +560,8 @@ for (const kind of ["agent", "team", "office"] as const) {
     csm_overview: /תמונת מצב/, csm_find_agent: /סוכן\/ת או משרד/, csm_office: /משרד/, csm_set_stage: /שלב ומועד קשר/,
     csm_log_session: /לרשום פגישה/, csm_add_feedback: /בקשת פיתוח/, csm_recent_calls: /הקלטת שיחה/,
     csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
+    csm_agenda_list: /היומן/, csm_agenda_add: /היומן/, csm_agenda_update: /היומן/,
+    csm_notifications: /התראות/, csm_settings: /הגדרות/,
   };
   check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
     CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
@@ -572,6 +574,19 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("גבריאלה לצוות ההטמעה: ההיכרות בהודעה הראשונה ובשאלה, ולפני התור",
     chatSrc.indexOf("csmCapabilities(staff.display_name, first)") > 0
       && chatSrc.indexOf("csmCapabilities(staff.display_name, first)") < chatSrc.indexOf("answer = await runCsmTurn"));
+  // היומן: שעון ישראל עם קיץ/חורף, וקישור Google בלי OAuth
+  check("יומן ההטמעה: שעה מקומית → UTC בקיץ ובחורף, ותאריך לא תקין נדחה",
+    ilLocalToIso("2026-07-01", "10:00") === "2026-07-01T07:00:00.000Z"
+      && ilLocalToIso("2026-12-01", "10:00") === "2026-12-01T08:00:00.000Z"
+      && ilLocalToIso("2026-13-01", "10:00") === null && ilLocalToIso("2026-12-01", "25:00") === null);
+  const gurl = new URL(gcalTemplateUrl({ title: "פגישה עם יוסי", starts_at: "2026-12-01T08:00:00.000Z", duration_minutes: 45, location: "עפולה" }));
+  check("יומן ההטמעה: קישור \"הוספה ליומן Google\" עם הכותרת והטווח",
+    gurl.host === "calendar.google.com" && gurl.searchParams.get("text") === "פגישה עם יוסי"
+      && gurl.searchParams.get("dates") === "20261201T080000Z/20261201T084500Z", gurl.toString());
+  const toolsSrc = src("whatsapp-webhook/csm-tools.ts");
+  check("יומן ההטמעה: גבריאלה כותבת ומעדכנת רק פגישות של אשת הצוות שמולה",
+    /\.eq\("staff_id", staff\.id\)\.maybeSingle\(\)/.test(toolsSrc) && /staff_id: staff\.id, agent_id/.test(toolsSrc)
+      && /p_allow_phone: false/.test(toolsSrc));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
     /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
 }

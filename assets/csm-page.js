@@ -35,6 +35,7 @@ function showToast(msg, ms = 3600){
 function show(screen){
   ['csmBoot', 'csmLogin', 'csmNoAccess', 'csmApp'].forEach(id => { $(id).hidden = id !== screen; });
   $('csmLogout').hidden = screen !== 'csmApp' && screen !== 'csmNoAccess';
+  $('csmBell').hidden = $('csmSettings').hidden = screen !== 'csmApp';
 }
 
 /* ---------- תשובת OAuth בכתובת ---------- */
@@ -83,9 +84,23 @@ async function route(session){
     return;
   }
   window.CSM_CTX = { isStaff:true, isAdmin:false, staffId:data.id };
+  // ‏crm-csm.js נטען אחרי הקובץ הזה, ותשובה מהירה של supabase עלולה להקדים אותו
+  if (typeof loadCsm !== 'function') await new Promise(r => window.addEventListener('DOMContentLoaded', r, { once:true }));
   show('csmApp');
+  // ‏?tab=notifications - הכפתור בהתראה בוואטסאפ (csm-notify.ts)
+  const tab = new URLSearchParams(location.search).get('tab');
+  if (tab) csmSetTab(tab);
   loadCsm();
 }
+
+// הפעמון וההגדרות בכותרת - קיצור ללשוניות שלהן
+function openCsmTab(tab){
+  csmSetTab(tab);
+  csmRender();
+  $('accCsm').scrollIntoView({ block:'start' });
+}
+$('csmBell').addEventListener('click', () => openCsmTab('notifications'));
+$('csmSettings').addEventListener('click', () => openCsmTab('settings'));
 
 $('csmGoogle').addEventListener('click', async () => {
   const btn = $('csmGoogle');
