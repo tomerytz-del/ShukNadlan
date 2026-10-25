@@ -38,7 +38,8 @@ main.doc{padding:30px 0 46px}
 .doc h3{font-size:17px;margin:22px 0 6px;color:var(--ink)}
 .doc ul{padding-inline-start:20px;margin:10px 0}
 .doc li{margin-bottom:7px}
-.doc a{color:var(--sapphire);text-decoration:underline;text-underline-offset:3px}
+/* קישור בלי מחלקה הוא טקסט. כפתור, כרטיס וצ'יפ נושאים מחלקה ואת הצבע שלהם. */
+.doc a:not([class]){color:var(--sapphire);text-decoration:underline;text-underline-offset:3px}
 .doc strong{color:var(--ink);font-weight:700}
 
 /* תוכן העניינים: קופסה אחת בראש הדף, ולא סרגל צף — בעמוד טקסט אחד

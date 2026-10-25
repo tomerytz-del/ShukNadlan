@@ -42,8 +42,19 @@
     });
     var agents = (parts[1] || []).filter(function (m) { return m && m.slug && ids[m.agency_id]; })
       .map(function (m) { return { slug: m.slug, display_name: m.display_name, agency_name: ids[m.agency_id] }; });
-    box.innerHTML = B.render({ agencies: agencies, agents: agents });
+    var packed = { agencies: agencies, agents: agents };
+    box.innerHTML = B.render(packed);
     box.setAttribute("data-ssr", "0");
+    var chips = document.getElementById("landChips");
+    if (chips && B.chipsHtml) chips.innerHTML = B.chipsHtml(packed);
+    var updated = document.getElementById("landUpdated");
+    if (updated && B.updatedHtml) updated.innerHTML = B.updatedHtml(packed);
+    var all = document.getElementById("landAll");
+    if (all) {
+      var n = 0;
+      agencies.forEach(function (a) { n += Number(a.active_count) || 0; });
+      all.setAttribute("data-count", String(n));
+    }
   }).catch(function () {
     box.innerHTML = '<p class="deals-note">לא הצלחנו לטעון את המשרדים. נסו לרענן את הדף.</p>';
   });

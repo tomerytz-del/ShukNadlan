@@ -57,33 +57,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/content-page.css">
+<link rel="stylesheet" href="assets/landing.css">
+<link rel="preload" as="image" href="assets/hero-valley-800.webp" media="(max-width: 759px)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/hero-valley.webp" media="(min-width: 760px)" fetchpriority="high">
 <script src="assets/page-bg.js" data-auto></script>
 <script defer src="assets/site-footer.js"></script>
 <script defer src="assets/buyer-banner.js"></script>
+<script defer src="assets/bot-link.js"></script>
+<script defer src="assets/landing.js"></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
-<style>
-/* ‏/afula/מתווכים. כרטיס כמו hood-prop, עם לוגו קטן במקום תמונת נכס. */
-#brokersBody h2{margin-top:28px}
-#brokersBody .silo-intro{margin:0 0 8px;line-height:1.7}
-#brokersBody .hood-props{list-style:none;padding:0;margin:14px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-#brokersBody .hood-prop{display:flex;flex-direction:column;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);overflow:hidden;background:#fff;text-decoration:none;color:var(--ink,#0d1b3d);height:100%}
-#brokersBody .hood-prop:hover{border-color:var(--brand,#0e2a6b)}
-#brokersBody .hood-prop img,#brokersBody .hood-noimg{width:72px;height:72px;aspect-ratio:1;object-fit:contain;background:var(--paper,#f4f7fe);display:block;margin:12px auto 0}
-#brokersBody .hood-prop-body{display:flex;flex-direction:column;gap:3px;padding:10px 12px}
-#brokersBody .hood-prop-body span{font-size:13px;color:var(--ink-muted,#6b7796)}
-#brokersBody .deals-note{font-size:14px;color:var(--ink-muted,#5b6475);margin-top:8px}
-#brokersBody .silo-links{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
-#brokersBody .silo-links a{display:inline-block;padding:8px 12px;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);background:#fff;text-decoration:none;color:var(--ink,#0d1b3d)}
-#brokersBody .silo-links a:hover{border-color:var(--brand,#0e2a6b)}
-</style>
 <script defer src="assets/brokers-render.js"></script>
 <script defer src="assets/brokers.js"></script>
 </head>
-<body>
+<body class="land-page">
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -95,15 +85,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
-    <a href="/" class="back-link">← דף הבית</a>
+    <a href="/" class="back-link">→ דף הבית</a>
   </div>
 </header>
 
-<section class="page-head">
-  <div class="wrap">
-    <span class="kicker">עפולה</span>
-    <h1 id="brokersH1">מתווכים בעפולה</h1>
-    <p id="brokersLead">משרדי תיווך ומתווכים בעפולה.</p>
+<section class="land-hero" id="landHero">
+  <div class="land-hero-media">
+    <div class="land-hero-bg" id="landHeroBg">
+      <picture>
+        <source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">
+        <source type="image/webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw">
+        <img src="assets/hero-valley-800.webp" alt="" width="640" height="768" fetchpriority="high" decoding="async">
+      </picture>
+    </div>
+    <div class="land-hero-overlay" aria-hidden="true"></div>
+    <div class="wrap land-hero-copy">
+      <nav aria-label="נתיב ניווט">
+        <ol class="land-crumbs">
+          <li><a href="/">דף הבית</a></li>
+          <li><a href="/">עפולה</a></li>
+          <li aria-current="page"><span id="brokersCrumb">מתווכים בעפולה</span></li>
+        </ol>
+      </nav>
+      <h1 id="brokersH1">מתווכים בעפולה</h1>
+      <p class="land-benefit" id="brokersBenefit">משרדים ומתווכים עם רישיון בתוקף, והמלאי הפעיל של כל משרד.</p>
+      <div id="landChips"></div>
+      <p class="land-updated" id="landUpdated"></p>
+      <div class="land-ctas">
+        <a class="land-btn land-btn-primary" id="landAll" data-land-cta data-count="0" href="/agencies">לכל המשרדים</a>
+        <button type="button" class="land-btn land-btn-ghost" data-land-alert>קבלו התראה</button>
+      </div>
+    </div>
   </div>
 </section>
 <main class="doc">
@@ -112,7 +124,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="deals-note">טוען את המשרדים...</p>
     <!--/brokers-->
     </div>
-    <p>הרשימה היא משרדים שמשרתים את עפולה ושמתווך/ת בהם עם רישיון בתוקף. לכל משרד ולכל מתווך/ת יש דף משלו, עם המלאי והדירוג. <a href="/agencies">כל משרדי התיווך</a> ו-<a href="/agents">כל המתווכים</a> באתר.</p>
   </div>
 </main>
 
@@ -442,6 +453,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </footer>
 
+<div class="land-bar" id="landBar">
+  <a class="land-bar-wa" data-land-wa data-bot="1" data-bot-entry="landing_bar" target="_blank" rel="noopener" hidden aria-label="וואטסאפ עם גבריאלה, נפתח בחלון חדש">וואטסאפ</a>
+  <button type="button" class="land-bar-alert" data-land-alert>קבלו התראה</button>
+</div>
 
 </body>
 </html>

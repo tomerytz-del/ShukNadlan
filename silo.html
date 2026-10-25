@@ -57,35 +57,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/content-page.css">
+<link rel="preload" as="image" href="assets/hero-valley-800.webp" media="(max-width: 759px)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/hero-valley.webp" media="(min-width: 760px)" fetchpriority="high">
+<link rel="stylesheet" href="assets/landing.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script defer src="assets/site-footer.js"></script>
 <script defer src="assets/buyer-banner.js"></script>
+<script defer src="assets/bot-link.js"></script>
+<script defer src="assets/landing.js"></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
-<style>
-/* ‏/afula/{סוג}. ‏assets/silo-render.js בונה את הרשימה, באותן מחלקות של כרטיס
-   השכונה (‏hood-prop) כדי לא להמציא מראה חדש. */
-#siloBody h2{margin-top:28px}
-#siloBody .silo-intro{margin:0 0 8px;line-height:1.7}
-#siloBody .hood-props{list-style:none;padding:0;margin:14px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-#siloBody .hood-prop{display:flex;flex-direction:column;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);overflow:hidden;background:#fff;text-decoration:none;color:var(--ink,#0d1b3d);height:100%}
-#siloBody .hood-prop:hover{border-color:var(--brand,#0e2a6b)}
-#siloBody .hood-prop img,#siloBody .hood-noimg{width:100%;aspect-ratio:16/10;object-fit:cover;background:var(--paper,#f4f7fe);display:block}
-#siloBody .hood-prop-body{display:flex;flex-direction:column;gap:3px;padding:10px 12px}
-#siloBody .hood-prop-body span{font-size:13px;color:var(--ink-muted,#6b7796)}
-#siloBody .hood-prop-body b{color:var(--brand,#0e2a6b)}
-#siloBody .deals-note{font-size:14px;color:var(--ink-muted,#5b6475);margin-top:8px}
-#siloBody .silo-links{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
-#siloBody .silo-links a{display:inline-block;padding:8px 12px;border:1px solid var(--line,#e3e7ef);border-radius:var(--radius-md,12px);background:#fff;text-decoration:none;color:var(--ink,#0d1b3d)}
-#siloBody .silo-links a:hover{border-color:var(--brand,#0e2a6b)}
-</style>
 <script defer src="assets/silo-render.js"></script>
 <script defer src="assets/silo.js"></script>
 </head>
-<body>
+<body class="land-page">
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -97,15 +85,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
-    <a href="/" class="back-link">← דף הבית</a>
+    <a href="/" class="back-link">→ דף הבית</a>
   </div>
 </header>
 
-<section class="page-head">
-  <div class="wrap">
-    <span class="kicker">עפולה</span>
-    <h1 id="siloH1">נכסים למכירה בעפולה</h1>
-    <p id="siloLead">מודעות פעילות מכל משרדי התיווך בעיר.</p>
+<section class="land-hero" id="landHero">
+  <div class="land-hero-media">
+    <div class="land-hero-bg" id="landHeroBg"><!--/hero--></div>
+    <div class="land-hero-overlay" aria-hidden="true"></div>
+    <div class="wrap land-hero-copy">
+      <nav aria-label="נתיב ניווט">
+        <ol class="land-crumbs">
+          <li><a href="/">דף הבית</a></li>
+          <li><a href="/">עפולה</a></li>
+          <li aria-current="page"><span id="siloCrumb">נכסים למכירה בעפולה</span></li>
+        </ol>
+      </nav>
+      <h1 id="siloH1">נכסים למכירה בעפולה</h1>
+      <p class="land-benefit" id="siloBenefit">מודעות פעילות מכל משרדי התיווך בעיר.</p>
+      <div id="landChips"></div>
+      <p class="land-updated" id="landUpdated"></p>
+      <div class="land-ctas">
+        <a class="land-btn land-btn-primary" id="landAll" data-land-cta data-count="0" href="/?deal=sale">לכל הנכסים</a>
+        <button type="button" class="land-btn land-btn-ghost" data-land-alert>קבלו התראה</button>
+      </div>
+    </div>
   </div>
 </section>
 <main class="doc">
@@ -114,8 +118,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="deals-note">טוען את הנכסים...</p>
     <!--/silo-->
     </div>
-    <h2>על הרשימה</h2>
-    <p>המודעות הן נכסים פעילים בעפולה שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/afula">עסקאות בעפולה</a>, ולמחירי דירות לפי חדרים: <a href="/prices">מחירי דירות</a>.</p>
   </div>
 </main>
 
@@ -444,6 +446,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </footer>
 
+<div class="land-bar" id="landBar">
+  <a class="land-bar-wa" data-land-wa data-bot="1" data-bot-entry="landing_bar" target="_blank" rel="noopener" hidden aria-label="וואטסאפ עם גבריאלה, נפתח בחלון חדש">וואטסאפ</a>
+  <button type="button" class="land-bar-alert" data-land-alert>קבלו התראה</button>
+</div>
 
 </body>
 </html>

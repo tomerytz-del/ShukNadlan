@@ -753,7 +753,7 @@ WHATSAPP_PUBLIC_BOT = on
 | --- | --- | --- |
 | "מדף הבית" | `homepage` | `GAB_HELLO` - ארבע נקודות הכניסה של כרטיס גבריאלה |
 | "חיפשתי באתר" | `search_empty` | `renderEmptyBotLink` - מסך אפס התוצאות |
-| "הגעתי מהאתר" | `site` | `FALLBACK_HELLO` ב-`bot-link.js` |
+| "הגעתי מהאתר" | `site` | `FALLBACK_HELLO` ב-`bot-link.js`, ו-`LANDING_HELLO` בפס של דפי הנחיתה בעפולה |
 | (אחר) | `direct` | מספר שמור, כרטיס איש הקשר, הקלטה, או הודעה שנכתבה מחדש |
 
 **ותג המקור של החלונית הצפה גובר על הביטויים** (‏`SITE_TAGS`, אוקטובר 2026):

@@ -29,6 +29,7 @@ const context = () =>
     next: async () => new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
   }) as never;
 
+const RECENT = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 const ROWS = [
   {
     id: "p1",
@@ -39,6 +40,10 @@ const ROWS = [
     rooms: 5,
     size_sqm: 180,
     city: "עפולה",
+    features: ["price_dropped"],
+    neighborhoods: { name: "גבעת המורה" },
+    created_at: "2020-01-01T00:00:00.000Z",
+    updated_at: RECENT,
     images: ["https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg"],
   },
   {
@@ -50,6 +55,8 @@ const ROWS = [
     rooms: 4,
     size_sqm: 140,
     city: "עפולה",
+    created_at: RECENT,
+    updated_at: RECENT,
     images: ["https://evil.example/x.jpg"],
   },
 ];
@@ -106,6 +113,38 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("ItemList", !!list && list.numberOfItems === 2 && list.itemListElement[0].position === 1
     && list.itemListElement[0].url === SITE + "/property?id=p1");
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
+  const faq = blocks.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
+  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 4 && (html.match(/<details><summary>/g) || []).length === 4);
+  check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>") && html.includes('aria-current="page"'));
+  check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
+  check("בלי שמירה", !html.includes("land-save") && !html.includes("שמור נכס"));
+  check("תג ירד מחיר", html.includes('class="land-badge">ירד מחיר'));
+  check("תג חדש", html.includes('class="land-badge">חדש'));
+  check("מחיר ב-bdi", html.includes("<bdi>₪2,500,000</bdi>") && html.includes("מחיר חציוני"));
+  check("רווח בחדרים", html.includes("<bdi>3</bdi><span>חדרים</span>"));
+  const hero0 = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
+  check("גיבור הוא תמונת העמק", hero0.includes("hero-valley-800.webp") && hero0.includes('sizes="100vw"') && hero0.includes('fetchpriority="high"') && !hero0.includes("property-images/"));
+  check("שכונה בכרטיס", html.includes("גבעת המורה"));
+  check("H1 לא הוכפל", html.split("<h1").length === 2);
+}
+
+{
+  const newer = {
+    id: "p-new",
+    title: "בית חדש",
+    property_type: "בית פרטי/קוטג'",
+    deal_type: "sale",
+    price: 2100000,
+    rooms: 5,
+    size_sqm: 160,
+    city: "עפולה",
+    created_at: new Date().toISOString(),
+    images: ["https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/new-house.jpg"],
+  };
+  const res = await run(SITE + PATH, 200, [ROWS[0], newer]);
+  const html = await res.text();
+  const hero = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
+  check("גיבור לא לוקח תמונת מודעה", hero.includes("hero-valley") && !hero.includes("new-house.jpg") && !hero.includes("property-images/a.jpg"));
 }
 
 {
@@ -126,6 +165,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("noindex רק כשריק", /noindex/.test(html));
   check("ריק בלי Retry-After", res.headers.get("Retry-After") == null);
   check("ריק אינו נשמר", res.headers.get("Cache-Control") === "no-store");
+  check("ריק עם התראה במקום גריד", html.includes("אין כרגע מודעות פעילות") && html.includes("data-land-alert") && !html.includes('class="land-grid"'));
 }
 
 {
@@ -148,6 +188,14 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const html = await res.text();
   check("דירות גן", res.status === 200 && html.includes("דירות גן למכירה בעפולה")
     && html.includes('href="https://shuknadlan.co.il/afula/דירות-גן"'));
+}
+
+{
+  const res = await run(SITE + "/afula/" + encodeURIComponent("דירות-3-חדרים"), 200, ROWS);
+  const html = await res.text();
+  const filters = (html.split('aria-label="סינון מהיר"')[1] || "").split("</nav>")[0];
+  check("בלי צ'יפ 3 חדרים", !filters.includes("<bdi>3</bdi>"));
+  check("שכונה במקום הצ'יפ", filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
 }
 
 if (failed) {
