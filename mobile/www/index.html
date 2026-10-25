@@ -90,6 +90,7 @@
       var native = window.ShukNative;
       var pending = native && native.launchDestination ? native.launchDestination() : Promise.resolve(null);
       Promise.resolve(pending).then(function (dest) {
+        if (dest === 'wait') return;
         if (!navigator.onLine) { showOffline(); return; }
         go(dest || SITE);
       }).catch(function () { go(SITE); });

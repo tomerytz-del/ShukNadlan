@@ -12,6 +12,8 @@
   var AUTH_CALLBACK = 'il.co.shuknadlan.app://auth-callback';
   var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+  var OAUTH_CANCELLED = 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.';
+  var OAUTH_FAILED = 'ההתחברות עם Google נכשלה: אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.';
 
   function rewriteAuthorizeUrl(raw) {
     var url;
@@ -45,6 +47,60 @@
     return false;
   }
 
+  function isAuthCallback(raw) {
+    return String(raw || '').indexOf(AUTH_CALLBACK) === 0;
+  }
+
+  function failOAuth(win, message) {
+    if (!win || !win.document) return;
+    var text = message || OAUTH_FAILED;
+    var signup = String((win.location && win.location.pathname) || '').indexOf('developer-signup') !== -1;
+    var label = signup ? 'הרשמה עם Google' : 'התחברות עם Google';
+    var buttons = win.document.querySelectorAll('#googleLoginBtn, #googleBtn, #csmGoogle, .auth-google');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].disabled = false;
+      var gl = buttons[i].querySelector('.gl-label');
+      if (gl && String(gl.textContent || '').indexOf('מעבירים ל-Google') === 0) gl.textContent = label;
+    }
+    var ids = ['loginError', 'lgMsg', 'csmLoginMsg', 'feedback'];
+    for (var j = 0; j < ids.length; j++) {
+      var el = win.document.getElementById(ids[j]);
+      if (!el) continue;
+      el.textContent = text;
+      if (ids[j] === 'feedback') el.style.color = 'var(--red)';
+      if (ids[j] === 'loginError' && win.FriendlyError && win.FriendlyError.attachHelp) {
+        win.FriendlyError.attachHelp(el, text);
+      }
+    }
+  }
+
+  function stripOauthBuster(win) {
+    try {
+      var u = new URL(win.location.href);
+      if (!u.searchParams.has('shuk_oauth')) return;
+      u.searchParams.delete('shuk_oauth');
+      var next = u.pathname + u.search + u.hash;
+      if (win.history && win.history.replaceState) win.history.replaceState(win.history.state, '', next);
+    } catch (e) {}
+  }
+
+  function paintOauthError(win) {
+    function run() {
+      var q;
+      try { q = new URL(win.location.href).searchParams; } catch (e) { return; }
+      var code = q.get('error') || q.get('error_code') || '';
+      var desc = q.get('error_description') || '';
+      if (!code && !desc) return;
+      var msg = /access_denied|cancel/i.test(code) ? OAUTH_CANCELLED
+        : 'ההתחברות עם Google נכשלה: ' + (desc || 'אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.');
+      failOAuth(win, msg);
+    }
+    if (!win.document) return;
+    if (win.document.readyState === 'loading' && win.document.addEventListener) {
+      win.document.addEventListener('DOMContentLoaded', run);
+    } else run();
+  }
+
   function authReturnUrl(callbackUrl, returnTo) {
     var cb;
     try { cb = new URL(String(callbackUrl)); } catch (e) { return null; }
@@ -75,9 +131,13 @@
       rewriteAuthorizeUrl: rewriteAuthorizeUrl,
       isExternalUrl: isExternalUrl,
       authReturnUrl: authReturnUrl,
+      isAuthCallback: isAuthCallback,
+      failOAuth: function (message) { failOAuth(win, message); },
       launchDestination: function () { return launchDestination(win); },
     };
     win.ShukNative = native;
+    stripOauthBuster(win);
+    paintOauthError(win);
 
     patchNavigation(win);
     patchShare(win);
@@ -94,7 +154,9 @@
       var rewritten = rewriteAuthorizeUrl(url);
       if (!rewritten) return orig(url);
       rememberReturn(win);
-      openOAuth(win, rewritten);
+      // הניווט עצמו נתפס בצד הנייטיב: שם נוסף PKCE ונשמר המאמת.
+      // פתיחה מכאן הייתה מדלגת על המאמת, והחזרה לא הייתה יכולה להחליף code.
+      return orig(rewritten);
     }
     try {
       var assign = loc.assign && loc.assign.bind(loc);
@@ -179,7 +241,7 @@
       var rewritten = rewriteAuthorizeUrl(url);
       if (rewritten) {
         rememberReturn(win);
-        openOAuth(win, rewritten);
+        try { win.location.assign(rewritten); } catch (e) { openOAuth(win, rewritten); }
         return null;
       }
       if (isExternalUrl(url)) {
@@ -267,6 +329,9 @@
     if (!url) return;
     var browser = pluginsOf(win).Browser;
     if (browser && browser.close) Promise.resolve(browser.close()).catch(function () {});
+    // החזרת Google מטופלת בצד הנייטיב, אחרי החלפת ה-code. ניווט כאן היה
+    // טוען את דף הכניסה בלי session ומשאיר את הכפתור באמצע.
+    if (isAuthCallback(url)) return;
     var stored = '';
     try { stored = win.sessionStorage.getItem('shuk_oauth_return') || win.localStorage.getItem('shuk_oauth_return') || ''; } catch (e) {}
     var shell = pluginsOf(win).ShukShell;
@@ -289,6 +354,7 @@
     if (!app || !app.getLaunchUrl) return Promise.resolve(null);
     return Promise.resolve(app.getLaunchUrl()).then(function (launch) {
       if (!launch || !launch.url) return null;
+      if (isAuthCallback(launch.url)) return 'wait';
       return authReturnUrl(launch.url, SITE_ORIGIN + '/crm');
     }).catch(function () { return null; });
   }
@@ -397,8 +463,11 @@
   return {
     SITE_ORIGIN: SITE_ORIGIN,
     AUTH_CALLBACK: AUTH_CALLBACK,
+    OAUTH_CANCELLED: OAUTH_CANCELLED,
+    OAUTH_FAILED: OAUTH_FAILED,
     rewriteAuthorizeUrl: rewriteAuthorizeUrl,
     isOAuthNavigation: isOAuthNavigation,
+    isAuthCallback: isAuthCallback,
     isExternalUrl: isExternalUrl,
     authReturnUrl: authReturnUrl,
     install: install,

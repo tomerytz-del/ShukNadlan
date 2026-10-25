@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.WebBackForwardList;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
@@ -17,9 +18,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.Locale;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
+    private static final String TAG = "ShukAuth";
+    private static final int OAUTH_IDLE = 0;
+    private static final int OAUTH_PENDING = 1;
+    private static final int OAUTH_EXCHANGING = 2;
+
     private boolean bridgeInjected;
+    private volatile int oauthState = OAUTH_IDLE;
+    private String oauthHandledCode = "";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -36,16 +46,110 @@ public class MainActivity extends BridgeActivity {
                 handleBack();
             }
         });
+        handleOauthIntent(getIntent(), true);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (oauthState != OAUTH_PENDING || bridge == null || bridge.getWebView() == null) return;
+        bridge.getWebView().postDelayed(() -> {
+            if (oauthState == OAUTH_PENDING) {
+                Log.i(TAG, "oauth closed without a callback");
+                deliverOauthError(readOauthReturn(), true, false);
+            }
+        }, 700);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
+        handleOauthIntent(intent, false);
+    }
+
+    private void handleOauthIntent(Intent intent, boolean coldStart) {
         if (intent == null || bridge == null || bridge.getWebView() == null) return;
         Uri data = intent.getData();
         if (data == null) return;
+        String scheme = data.getScheme() == null ? "" : data.getScheme().toLowerCase(Locale.US);
+        if ("il.co.shuknadlan.app".equals(scheme) && "auth-callback".equals(data.getHost())) {
+            completeOauth(data);
+            return;
+        }
+        if (coldStart) return;
         String dest = ShellUrls.authReturn(data.toString(), readOauthReturn());
         if (dest != null) bridge.getWebView().loadUrl(dest);
+    }
+
+    private void completeOauth(Uri data) {
+        String error = data.getQueryParameter("error");
+        String code = data.getQueryParameter("code");
+        if (code != null && code.equals(oauthHandledCode)) return;
+        oauthState = OAUTH_EXCHANGING;
+        String back = readOauthReturn();
+        Log.i(TAG, "oauth callback hasCode=" + (code != null && !code.isEmpty())
+            + " hasError=" + (error != null && !error.isEmpty()));
+        if (error != null && !error.isEmpty()) {
+            deliverOauthError(back, isCancel(error), true);
+            return;
+        }
+        if (code == null || code.isEmpty()) {
+            deliverOauthError(back, false, true);
+            return;
+        }
+        oauthHandledCode = code;
+        String verifier = prefs().getString(ShukShellPlugin.OAUTH_VERIFIER, "");
+        prefs().edit().remove(ShukShellPlugin.OAUTH_VERIFIER).apply();
+        if (verifier == null || verifier.isEmpty()) {
+            Log.i(TAG, "oauth callback without a stored verifier");
+            deliverOauthError(back, false, false);
+            return;
+        }
+        final String codeFinal = code;
+        final String verifierFinal = verifier;
+        new Thread(() -> {
+            try {
+                JSONObject session = OauthFlow.exchange(codeFinal, verifierFinal);
+                String dest = OauthFlow.implicitReturn(back, session);
+                runOnUiThread(() -> {
+                    oauthState = OAUTH_IDLE;
+                    loadOauthDest(dest);
+                });
+            } catch (Exception e) {
+                Log.w(TAG, "oauth token exchange failed: " + e.getMessage());
+                runOnUiThread(() -> deliverOauthError(back, false, false));
+            }
+        }, "shuk-oauth").start();
+    }
+
+    private static boolean isCancel(String error) {
+        String value = error.toLowerCase(Locale.US);
+        return value.contains("access_denied") || value.contains("cancel");
+    }
+
+    private void deliverOauthError(String back, boolean cancel, boolean clearVerifier) {
+        oauthState = OAUTH_IDLE;
+        if (clearVerifier) prefs().edit().remove(ShukShellPlugin.OAUTH_VERIFIER).apply();
+        resetGoogleButtonNow(cancel ? OauthFlow.CANCELLED : OauthFlow.FAILED);
+        loadOauthDest(OauthFlow.errorReturn(back, cancel));
+    }
+
+    /** מאפס את כפתור Google גם אם טעינת הדף עם השגיאה לא מספיקה להחליף את המסמך. */
+    private void resetGoogleButtonNow(String message) {
+        WebView view = bridge == null ? null : bridge.getWebView();
+        if (view == null) return;
+        String quoted = JSONObject.quote(message);
+        view.evaluateJavascript(
+            "try{if(window.ShukNative&&window.ShukNative.failOAuth)window.ShukNative.failOAuth("
+                + quoted + ");}catch(e){}",
+            null);
+    }
+
+    private void loadOauthDest(String dest) {
+        WebView view = bridge == null ? null : bridge.getWebView();
+        if (view == null || dest == null || dest.isEmpty()) return;
+        view.loadUrl(dest);
     }
 
     void rememberOauthReturn(String current) {
@@ -56,12 +160,29 @@ public class MainActivity extends BridgeActivity {
     }
 
     void openAuth(String url) {
+        String launch = url;
+        try {
+            if (url.contains("/auth/v1/authorize") && !OauthFlow.hasChallenge(url)) {
+                String verifier = OauthFlow.verifier();
+                launch = OauthFlow.attach(url, verifier);
+                prefs().edit().putString(ShukShellPlugin.OAUTH_VERIFIER, verifier).apply();
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "oauth pkce failed");
+            deliverOauthError(readOauthReturn(), false, true);
+            return;
+        }
+        oauthState = OAUTH_PENDING;
+        oauthHandledCode = "";
         try {
             CustomTabsIntent tabs = new CustomTabsIntent.Builder().setShowTitle(true).build();
-            tabs.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
-            tabs.launchUrl(this, Uri.parse(url));
+            tabs.launchUrl(this, Uri.parse(launch));
         } catch (ActivityNotFoundException e) {
-            openExternal(Uri.parse(url));
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(launch)));
+            } catch (ActivityNotFoundException again) {
+                deliverOauthError(readOauthReturn(), false, true);
+            }
         }
     }
 

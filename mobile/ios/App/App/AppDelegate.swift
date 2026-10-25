@@ -2,6 +2,8 @@ import UIKit
 import Capacitor
 import WebKit
 import AuthenticationServices
+import CryptoKit
+import Security
 
 // כל מחלקות ה-Swift של השלד יושבות בקובץ הזה, כדי לא להוסיף קובץ מקור
 // ל-pbxproj. החוזה זהה ל-ShellUrls.java ול-www/native-bridge.js.
@@ -56,6 +58,123 @@ enum ShellUrls {
         dest.queryItems = items.isEmpty ? nil : items
         if let frag = cb.fragment, !frag.isEmpty { dest.fragment = frag }
         return dest.string
+    }
+}
+
+// אותו חוזה כמו OauthFlow.java: PKCE, ואז hash שהלקוח ה-implicit באתר קורא.
+enum OauthFlow {
+    static let cancelled = "ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה."
+    static let failed = "ההתחברות עם Google נכשלה: אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה."
+    static let failDetail = "אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה."
+    static let tokenURL = "https://obookujgolazrwycsiyn.supabase.co/auth/v1/token?grant_type=pkce"
+    static let anon = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx"
+    static let verifierKey = "shuk_oauth_verifier"
+
+    static func hasChallenge(_ raw: String) -> Bool {
+        guard let q = raw.firstIndex(of: "?") else { return false }
+        let query = raw[raw.index(after: q)...].split(separator: "#", maxSplits: 1).first ?? ""
+        return query.split(separator: "&").contains { $0.hasPrefix("code_challenge=") }
+    }
+
+    static func verifier() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if status != errSecSuccess {
+            for i in bytes.indices { bytes[i] = UInt8.random(in: 0...255) }
+        }
+        return base64Url(Data(bytes))
+    }
+
+    static func challenge(_ verifier: String) -> String {
+        let digest = SHA256.hash(data: Data(verifier.utf8))
+        return base64Url(Data(digest))
+    }
+
+    static func attach(_ raw: String, verifier: String) -> String {
+        let extra = "code_challenge=" + challenge(verifier) + "&code_challenge_method=s256"
+        guard let hash = raw.firstIndex(of: "#") else {
+            return raw + (raw.contains("?") ? "&" : "?") + extra
+        }
+        let base = String(raw[..<hash])
+        return base + (base.contains("?") ? "&" : "?") + extra + String(raw[hash...])
+    }
+
+    static func safeReturn(_ returnTo: String?) -> String {
+        var base = returnTo ?? ""
+        if let hash = base.firstIndex(of: "#") { base = String(base[..<hash]) }
+        if base.hasPrefix(ShellUrls.site + "/") || base == ShellUrls.site { return base }
+        return ShellUrls.site + "/crm"
+    }
+
+    static func implicitReturn(returnTo: String?, access: String, refresh: String, expires: String, type: String) -> String {
+        let frag = "access_token=" + urlEncode(access)
+            + "&refresh_token=" + urlEncode(refresh)
+            + "&expires_in=" + urlEncode(expires.isEmpty ? "3600" : expires)
+            + "&token_type=" + urlEncode(type.isEmpty ? "bearer" : type)
+        let base = safeReturn(returnTo)
+        let sep = base.contains("?") ? "&" : "?"
+        let stamp = String(Int(Date().timeIntervalSince1970 * 1000))
+        return base + sep + "shuk_oauth=" + stamp + "#" + frag
+    }
+
+    static func errorReturn(returnTo: String?, cancel: Bool) -> String {
+        let base = safeReturn(returnTo)
+        let sep = base.contains("?") ? "&" : "?"
+        if cancel { return base + sep + "error=access_denied" }
+        return base + sep + "error=server_error&error_description=" + urlEncode(failDetail)
+    }
+
+    static func exchange(code: String, verifier: String, done: @escaping (Result<[String: Any], Error>) -> Void) {
+        guard let url = URL(string: tokenURL) else {
+            done(.failure(NSError(domain: "ShukAuth", code: 0)))
+            return
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 15
+        req.setValue(anon, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer " + anon, forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "auth_code": code,
+            "code_verifier": verifier,
+        ])
+        URLSession.shared.dataTask(with: req) { data, response, error in
+            if let error = error {
+                done(.failure(error))
+                return
+            }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(status),
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let access = json["access_token"] as? String, !access.isEmpty,
+                  let refresh = json["refresh_token"] as? String, !refresh.isEmpty else {
+                done(.failure(NSError(domain: "ShukAuth", code: status)))
+                return
+            }
+            done(.success(json))
+        }.resume()
+    }
+
+    static func stringValue(_ value: Any?) -> String {
+        if let number = value as? NSNumber { return number.stringValue }
+        if let text = value as? String, !text.isEmpty { return text }
+        return "3600"
+    }
+
+    private static func base64Url(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    private static func urlEncode(_ raw: String) -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&+=?")
+        return raw.addingPercentEncoding(withAllowedCharacters: allowed) ?? raw
     }
 }
 
@@ -176,19 +295,94 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
             let trimmed = current.split(separator: "#", maxSplits: 1).first.map(String.init) ?? current
             UserDefaults.standard.set(trimmed, forKey: "shuk_oauth_return")
         }
-        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "il.co.shuknadlan.app") { [weak webView] callback, _ in
-            guard let callback = callback, let webView = webView else { return }
-            let back = UserDefaults.standard.string(forKey: "shuk_oauth_return")
-            guard let dest = ShellUrls.authReturn(callback.absoluteString, returnTo: back),
-                  let destURL = URL(string: dest) else { return }
+        var launch = url
+        if url.absoluteString.contains("/auth/v1/authorize") && !OauthFlow.hasChallenge(url.absoluteString) {
+            let verifier = OauthFlow.verifier()
+            if let next = URL(string: OauthFlow.attach(url.absoluteString, verifier: verifier)) {
+                UserDefaults.standard.set(verifier, forKey: OauthFlow.verifierKey)
+                launch = next
+            }
+        }
+        let session = ASWebAuthenticationSession(url: launch, callbackURLScheme: "il.co.shuknadlan.app") { [weak self, weak webView] callback, error in
             DispatchQueue.main.async {
-                webView.load(URLRequest(url: destURL))
+                self?.finishOAuth(callback: callback, error: error, webView: webView)
             }
         }
         session.presentationContextProvider = self
         session.prefersEphemeralWebBrowserSession = false
         authSession = session
-        session.start()
+        if !session.start() {
+            deliverOauthError(cancel: false, webView: webView, clearVerifier: true)
+        }
+    }
+
+    private func finishOAuth(callback: URL?, error: Error?, webView: WKWebView?) {
+        guard let webView = webView else { return }
+        let back = UserDefaults.standard.string(forKey: "shuk_oauth_return")
+        guard let callback = callback else {
+            let ns = error as NSError?
+            let cancelled = ns == nil
+                || (ns?.domain == ASWebAuthenticationSessionError.errorDomain
+                    && ns?.code == ASWebAuthenticationSessionError.canceledLogin.rawValue)
+            NSLog("ShukAuth oauth closed without a callback cancel=%d", cancelled ? 1 : 0)
+            deliverOauthError(cancel: cancelled, webView: webView, clearVerifier: false)
+            return
+        }
+        let parts = URLComponents(url: callback, resolvingAgainstBaseURL: false)
+        let errorCode = parts?.queryItems?.first { $0.name == "error" }?.value ?? ""
+        let code = parts?.queryItems?.first { $0.name == "code" }?.value ?? ""
+        NSLog("ShukAuth oauth callback hasCode=%d hasError=%d", code.isEmpty ? 0 : 1, errorCode.isEmpty ? 0 : 1)
+        if !errorCode.isEmpty {
+            let cancel = errorCode.range(of: "access_denied", options: .caseInsensitive) != nil
+                || errorCode.range(of: "cancel", options: .caseInsensitive) != nil
+            deliverOauthError(cancel: cancel, webView: webView, clearVerifier: true)
+            return
+        }
+        if code.isEmpty {
+            deliverOauthError(cancel: false, webView: webView, clearVerifier: true)
+            return
+        }
+        let verifier = UserDefaults.standard.string(forKey: OauthFlow.verifierKey) ?? ""
+        UserDefaults.standard.removeObject(forKey: OauthFlow.verifierKey)
+        if verifier.isEmpty {
+            NSLog("ShukAuth oauth callback without a stored verifier")
+            deliverOauthError(cancel: false, webView: webView, clearVerifier: false)
+            return
+        }
+        OauthFlow.exchange(code: code, verifier: verifier) { [weak webView] result in
+            DispatchQueue.main.async {
+                guard let webView = webView else { return }
+                switch result {
+                case .success(let json):
+                    let access = json["access_token"] as? String ?? ""
+                    let refresh = json["refresh_token"] as? String ?? ""
+                    let expires = OauthFlow.stringValue(json["expires_in"])
+                    let type = json["token_type"] as? String ?? "bearer"
+                    let dest = OauthFlow.implicitReturn(returnTo: back, access: access, refresh: refresh, expires: expires, type: type)
+                    if let destURL = URL(string: dest) {
+                        webView.load(URLRequest(url: destURL))
+                    }
+                case .failure:
+                    NSLog("ShukAuth oauth token exchange failed")
+                    self.deliverOauthError(cancel: false, webView: webView, clearVerifier: false)
+                }
+            }
+        }
+    }
+
+    private func deliverOauthError(cancel: Bool, webView: WKWebView, clearVerifier: Bool) {
+        if clearVerifier { UserDefaults.standard.removeObject(forKey: OauthFlow.verifierKey) }
+        let message = cancel ? OauthFlow.cancelled : OauthFlow.failed
+        let quoted = message
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        webView.evaluateJavaScript(
+            "try{if(window.ShukNative&&window.ShukNative.failOAuth)window.ShukNative.failOAuth('\(quoted)');}catch(e){}",
+            completionHandler: nil)
+        let back = UserDefaults.standard.string(forKey: "shuk_oauth_return")
+        if let destURL = URL(string: OauthFlow.errorReturn(returnTo: back, cancel: cancel)) {
+            webView.load(URLRequest(url: destURL))
+        }
     }
 
     private func injectBridge() {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bridge from '../www/native-bridge.js';
 
-const { AUTH_CALLBACK, SITE_ORIGIN, authReturnUrl, isExternalUrl, rewriteAuthorizeUrl } = bridge;
+const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, SITE_ORIGIN, authReturnUrl, isAuthCallback, isExternalUrl, rewriteAuthorizeUrl } = bridge;
 
 test('oauth authorize url is rewritten to the app callback', () => {
   const raw = 'https://obookujgolazrwycsiyn.supabase.co/auth/v1/authorize?provider=google&redirect_to='
@@ -48,6 +48,15 @@ test('implicit hash and https deep links are preserved', () => {
     authReturnUrl('https://shuknadlan.co.il/property?id=15', null),
     'https://shuknadlan.co.il/property?id=15',
   );
+});
+
+test('google callback is recognized and the button copy has no long dash', () => {
+  assert.equal(isAuthCallback('il.co.shuknadlan.app://auth-callback?code=abc'), true);
+  assert.equal(isAuthCallback('https://shuknadlan.co.il/crm?code=abc'), false);
+  assert.equal(OAUTH_CANCELLED.includes('\u2014'), false);
+  assert.equal(OAUTH_FAILED.includes('\u2014'), false);
+  assert.match(OAUTH_CANCELLED, /בוטלה/);
+  assert.match(OAUTH_FAILED, /נכשלה/);
 });
 
 test('callback cannot send the webview to another origin', () => {

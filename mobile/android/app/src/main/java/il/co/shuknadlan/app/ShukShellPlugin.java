@@ -17,6 +17,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class ShukShellPlugin extends Plugin {
     static final String PREFS = "shuk_shell";
     static final String OAUTH_RETURN = "oauth_return";
+    static final String OAUTH_VERIFIER = "oauth_verifier";
 
     @PluginMethod
     public void openExternal(PluginCall call) {

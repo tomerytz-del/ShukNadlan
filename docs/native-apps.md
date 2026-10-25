@@ -35,9 +35,12 @@ https://shuknadlan.co.il. השם: שוק נדל״ן. כיוון: RTL.
 - וואטסאפ, טלפון, מייל ומפות נפתחים באפליקציה שלהם, לא בתוך ה-WebView.
 - כניסה במייל וסיסמה נשארת בתוך האפליקציה. כניסת Google נפתחת ב-Chrome
   Custom Tabs / `ASWebAuthenticationSession`, כי גוגל חוסמת WebView
-  (`disallowed_useragent`). אחרי האישור הקוד חוזר לכתובת
-  `il.co.shuknadlan.app://auth-callback` ונטען מחדש באתר, איפה שמאמת ה-PKCE
-  כבר שמור.
+  (`disallowed_useragent`). האתר עצמו משתמש ב-flow מסוג implicit (בלי
+  `code_challenge`), והאסימונים חוזרים ב-fragment. Android מוריד fragment
+  מ-Intent, והדף שממנו יצאו לא נטען מחדש - לכן הכפתור נשאר על
+  "מעבירים ל-Google…". השלד מוסיף PKCE בעצמו, מחליף את ה-`code` באסימונים,
+  וטוען את הדף עם `#access_token` שהלקוח הקיים באתר כבר קורא. ביטול או כשל
+  טוענים את אותו דף עם `error`, ומאפסים את הכפתור עם הסבר בעברית.
 - קישורי עומק מוכנים לנתיבים `/property`, `/p/`, `/crm`, `/agent`,
   `/agency`, `/project`, `/n/`, `/deals`, `/articles`, `/prices`, `/brokers`.
 - צינור התראות: רישום מכשיר, תור, ושליחה ל-FCM (Android) ול-APNs (iOS).
@@ -58,13 +61,14 @@ https://shuknadlan.co.il. השם: שוק נדל״ן. כיוון: RTL.
 | ‏APNs | מפתח `.p8` בפורטל של אפל. ‏iOS כאן שולח ישירות ל-APNs, לא דרך FCM. |
 | צוות אפל | ‏`TEAMID` במקום המילה `TEAMID` ב-`.well-known/apple-app-site-association`, ויכולת Associated Domains. |
 | התראות בפרודקשן | אחרי המיגרציה על `main`, להריץ את workflow `שליחת התראות לאפליקציה`. בלי לוח זמנים התור מחכה. |
-| כניסת Google מהאפליקציה | ב-Supabase Auth, ב-Redirect URLs, להוסיף בדיוק `il.co.shuknadlan.app://auth-callback`. |
+| כניסת Google מהאפליקציה | ב-Supabase Auth, ב-Redirect URLs, להוסיף בדיוק `il.co.shuknadlan.app://auth-callback`. בלי השורה הזו GoTrue מחזיר ל-Site URL וה-`code` נשאר בדפדפן, לא ב-WebView. |
 | חנות | Google Play Console ו-Apple Developer Program. |
 
 קישור מייל עם `#access_token` בסוף הכתובת לא ישרוד כניסה דרך App Link
 ב-Android: מערכת ההפעלה מורידה את ה-fragment. כניסה במייל וסיסמה בתוך
-האפליקציה, וכניסת Google דרך הסכמה, לא תלויות בזה. קישור אימות שנפתח
-בדפדפן ממשיך לעבוד כרגיל.
+האפליקציה לא תלויה בזה. כניסת Google כן הייתה תלויה ב-fragment, ולכן
+השלד מחליף אותה ב-PKCE לפני שה-Intent נוצר. קישור אימות שנפתח בדפדפן
+ממשיך לעבוד כרגיל.
 
 בעלי חשבון שאינם מתווכים (יזם/ית, בעל/ת מקצוע) מבקשים מחיקה במייל
 `shuknadlan@gmail.com`, ככתוב במדיניות. אין להם את אותה סגירה עצמית
