@@ -53,6 +53,16 @@
         ["רובע יזרעאל", "רובע-יזרעאל"],
       ],
       near: [["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"], ["גבעת המורה", "גבעת-המורה"]],
+      focus: [["עפולה עילית", "עפולה-עלית"], ["גבעת המורה", "גבעת-המורה"], ["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"]],
+      /* ‏"כולל בעפולה עילית" - אזור בתוך העיר שהחיפוש מזכיר בנפרד. */
+      alsoIn: "עפולה עילית",
+      /* ‏נוסח של עפולה שנכתב לעפולה (‏#968), גובר על התבנית שב-TYPES. */
+      copy: {
+        "בתים-פרטיים": {
+          description: "בית פרטי למכירה בעפולה: בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, כולל עפולה עילית, עם מחיר, גודל ותמונות.",
+          intro: "בית פרטי למכירה בעפולה כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, כולל עפולה עילית וגבעת המורה, עם מחיר, גודל ותמונות.",
+        },
+      },
     },
     /* ‏12 השכונות עם הכי הרבה עסקאות ב-market_deals_official (‏25.10.2026). */
     { slug: "haifa", name: "חיפה", market: "haifa",
@@ -74,6 +84,7 @@
         ["רמת הדר", "רמת-הדר"],
       ],
       near: [["נווה שאנן", "נווה-שאנן"], ["רמת הדר", "רמת-הדר"], ["הדר עליון", "הדר-עליון"]],
+      focus: [["נווה שאנן", "נווה-שאנן"], ["רמת הדר", "רמת-הדר"], ["אחוזה", "אחוזה"], ["כרמל מערבי", "כרמל-מערבי"]],
     },
   ];
 
@@ -83,18 +94,19 @@
     {
       slug: "בתים-פרטיים",
       what: "בתים פרטיים",
-      benefit: "בתים וקוטג'ים פעילים מכל משרדי התיווך בעיר.",
-      description: function (c) { return "בתים פרטיים וקוטג'ים למכירה " + c.at + ", מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה."; },
-      intro: function (c) { return "בתים פרטיים וקוטג'ים שמוצעים עכשיו למכירה " + c.at + ", מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס."; },
+      h1: function (c) { return "בית פרטי למכירה " + c.at; },
+      benefit: "בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך בעיר.",
+      description: function (c) { return "בית פרטי למכירה " + c.at + ": בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, עם מחיר, גודל ותמונות."; },
+      intro: function (c) { return "בית פרטי למכירה " + c.at + " כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, עם מחיר, גודל ותמונות."; },
       property_type: "בית פרטי/קוטג'",
       rooms: null,
     },
     {
       slug: "דירות-גן",
       what: "דירות גן",
-      benefit: "דירות גן פעילות מכל משרדי התיווך בעיר.",
-      description: function (c) { return "דירות גן למכירה " + c.at + ", מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה."; },
-      intro: function (c) { return "דירות גן שמוצעות עכשיו למכירה " + c.at + ", מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס."; },
+      benefit: "דירות עם גינה ממשרדי התיווך בעיר.",
+      description: function (c) { return "דירות גן למכירה " + c.at + ", מכל משרדי התיווך בעיר: דירה עם גינה פרטית, עם מחיר, גודל ותמונות לכל מודעה פעילה."; },
+      intro: function (c) { return "דירות גן למכירה " + c.at + " הן דירות עם גינה, בדרך כלל בקומת קרקע, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."; },
       property_type: "דירת גן",
       rooms: null,
     },
@@ -103,7 +115,7 @@
       what: "דירות 3 חדרים",
       benefit: "דירות 3 חדרים פעילות מכל משרדי התיווך בעיר.",
       description: function (c) { return "דירות 3 חדרים למכירה " + c.at + ", מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה."; },
-      intro: function (c) { return "דירות של 3 חדרים שמוצעות עכשיו למכירה " + c.at + ", מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס."; },
+      intro: function (c) { return "דירות של 3 חדרים שמוצעות עכשיו למכירה " + c.at + ", מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."; },
       property_type: null,
       rooms: 3,
     },
@@ -118,13 +130,16 @@
     for (var tj = 0; tj < TYPES.length; tj++) {
       var c0 = CITIES[cj];
       var t0 = TYPES[tj];
+      var own = (c0.copy && c0.copy[t0.slug]) || {};
       PAGES.push({
         slug: t0.slug,
         path: "/" + c0.slug + "/" + t0.slug,
-        h1: t0.what + " למכירה " + c0.at,
-        benefit: t0.benefit,
-        description: t0.description(c0),
-        intro: t0.intro(c0),
+        h1: own.h1 || (t0.h1 ? t0.h1(c0) : t0.what + " למכירה " + c0.at),
+        /* ‏בקישורים בין הדפים ("גם מעניין") - הרבים, גם כשה-H1 ביחיד. */
+        label: t0.what + " למכירה " + c0.at,
+        benefit: own.benefit || t0.benefit,
+        description: own.description || t0.description(c0),
+        intro: own.intro || t0.intro(c0),
         property_type: t0.property_type,
         rooms: t0.rooms,
         city: c0.slug,
@@ -144,7 +159,7 @@
   function alsoOf(c) {
     var out = [];
     for (var i = 0; i < PAGES.length; i++) {
-      if (PAGES[i].city === c.slug) out.push([PAGES[i].path, PAGES[i].h1]);
+      if (PAGES[i].city === c.slug) out.push([PAGES[i].path, PAGES[i].label]);
     }
     out.push([brokersPath(c), "מתווכים " + c.at]);
     return out;
@@ -389,19 +404,65 @@
     return "עודכן לאחרונה" + sp() + bdi(label);
   }
 
-  /* תמונת השער היא תמונת העמק, לא תמונת המודעה החדשה.
-     קולאז' ומסדרון חשוך לא ניתנים לזיהוי זול: הקבצים הם JPEG פרוגרסיבי,
-     ובהירות ממוצעת של התמונות הבעייתיות היא רגילה (לא כהה). בלי זיהוי
-     כזה לא שמים תמונת מודעה בשער. הרוחב ב-srcset הוא הרוחב האמיתי של
-     הקבצים שכבר בריפו (640 ו-1920), בלי קובץ חדש. */
-  function heroHtml() {
-    /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את קובץ ה-1920 (כ-260KB)
-       וה-LCP נפגע. ממסך רחב srcset עם הרוחב האמיתי ו-sizes=100vw. */
+  /* תמונת שער לפי סוג הנכס. המפה אחת, כדי שעיר או סוג חדשים ישתמשו בה.
+     סוג לא מוכר נופל לתמונת העמק. לא שמים תמונת מודעה בשער: קולאז' ומסדרון
+     חשוך לא ניתנים לזיהוי זול. הרוחב ב-srcset הוא הרוחב האמיתי של הקובץ
+     (אצל העמק 640 ו-1920, אצל השאר 800 ו-1600). מקור ורישיון: assets/hero-images.md. */
+  var VALLEY_HERO = {
+    mobile: "assets/hero-valley-800.webp",
+    desktop: "assets/hero-valley.webp",
+    mobileW: 640,
+    desktopW: 1920,
+    width: 640,
+    height: 768,
+    ogW: 1920,
+    ogH: 1072,
+  };
+  var HEROES = {
+    "בתים-פרטיים": {
+      mobile: "assets/hero-house-800.webp",
+      desktop: "assets/hero-house-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "בית פרטי מודרני בסגנון ישראלי",
+    },
+    "דירות-גן": {
+      mobile: "assets/hero-garden-800.webp",
+      desktop: "assets/hero-garden-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "דירת גן מודרנית בסגנון ישראלי",
+    },
+    "דירות-3-חדרים": {
+      mobile: "assets/hero-apt-800.webp",
+      desktop: "assets/hero-apt-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "בניין מגורים מודרני עם מרפסות",
+    },
+  };
+
+  function heroOf(page) {
+    if (page && HEROES[page.slug]) return HEROES[page.slug];
+    return VALLEY_HERO;
+  }
+
+  function heroHtml(page) {
+    var h = heroOf(page);
+    /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את הקובץ הרחב. */
     return "<picture>"
-      + '<source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">'
-      + '<source type="image/webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw">'
-      + '<img src="assets/hero-valley-800.webp" alt="" width="640" height="768" fetchpriority="high" decoding="async">'
+      + '<source type="image/webp" media="(max-width: 759px)" srcset="' + h.mobile + '">'
+      + '<source type="image/webp" srcset="' + h.mobile + " " + h.mobileW + "w, " + h.desktop + " " + h.desktopW + 'w" sizes="100vw">'
+      + '<img src="' + h.mobile + '" alt="' + (h.alt || "") + '" width="' + h.width + '" height="' + h.height + '" fetchpriority="high" decoding="async">'
       + "</picture>";
+  }
+
+  function heroPreload(page) {
+    var h = heroOf(page);
+    return '<link rel="preload" as="image" href="' + h.mobile + '" media="(max-width: 759px)" fetchpriority="high">\n'
+      + '<link rel="preload" as="image" href="' + h.desktop + '" media="(min-width: 760px)" fetchpriority="high">';
+  }
+
+  function heroOg(page) {
+    var h = heroOf(page);
+    return { src: h.desktop, width: h.ogW, height: h.ogH };
   }
 
   function badge(p) {
@@ -604,24 +665,91 @@
       + '<p><a href="' + escapeHtml(brokersPath(c)) + '">מתווכים ' + at + "</a></p></section>";
   }
 
-  function seo(page) {
+  function kindPhrase(page, n) {
+    var at = escapeHtml(cityOf(page).at);
+    if (page.slug === "בתים-פרטיים") {
+      return n === 1 ? "בית פרטי למכירה " + at : "בתים פרטיים למכירה " + at;
+    }
+    if (page.slug === "דירות-גן") {
+      return n === 1 ? "דירת גן למכירה " + at : "דירות גן למכירה " + at;
+    }
+    if (page.rooms === 3) {
+      return n === 1 ? "דירת 3 חדרים למכירה " + at : "דירות 3 חדרים למכירה " + at;
+    }
+    return n === 1 ? "מודעה פעילה" : "מודעות פעילות";
+  }
+
+  /* ספירה רק כשיש מספר אמיתי. טווח מחיר של הרשימה המלאה, או של מה שנטען
+     בעמוד כשהשאילתה נחתכה. בלי טווח מומצא כשאין מחירים. */
+  function marketHtml(page, rows, extras) {
+    var n = activeCount(rows, extras);
+    var prices = pricesOf(rows);
+    if (!(n > 0) && !prices.length) return "";
+    var bits = [];
+    if (n > 0) bits.push("כרגע יש " + countPhrase(n, kindPhrase(page, 1), kindPhrase(page, n)));
+    if (prices.length) {
+      var lo = money(prices[0]);
+      var hi = money(prices[prices.length - 1]);
+      var scope = complete(rows, extras) ? "במודעות הפעילות" : "במודעות שמוצגות כאן";
+      var range = lo === hi
+        ? bdi(escapeHtml(lo))
+        : "מ-" + bdi(escapeHtml(lo)) + " עד " + bdi(escapeHtml(hi));
+      bits.push(scope + " המחיר " + (lo === hi ? "הוא " : "נע ") + range);
+    }
+    return bits.join(". ");
+  }
+
+  function focusHoods(page) {
+    if (page.slug !== "בתים-פרטיים" && page.slug !== "דירות-גן") return "";
+    var c = cityOf(page);
+    var focus = c.focus || [];
+    if (!focus.length) return "";
+    var links = [];
+    for (var i = 0; i < focus.length; i++) {
+      links.push('<a href="/n/' + c.slug + "/" + escapeHtml(focus[i][1]) + '">' + escapeHtml(focus[i][0]) + "</a>");
+    }
+    var at = escapeHtml(c.at);
+    return "<p>שכונות " + at + ": " + links.join(", ") + ". "
+      + 'משרדי התיווך: <a href="' + escapeHtml(brokersPath(c)) + '">מתווכים ' + at + "</a> "
+      + 'ו<a href="/agencies">רשימת המשרדים</a>.</p>';
+  }
+
+  function seo(page, rows, extras) {
     var c = cityOf(page);
     var at = escapeHtml(c.at);
+    var market = marketHtml(page, rows, extras);
     return '<section class="land-seo"><h2>על הרשימה</h2>'
       + "<p>" + escapeHtml(page.intro) + "</p>"
-      + "<p>המודעות הן נכסים פעילים " + at + " שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
+      + (market ? "<p>" + market + "</p>" : "")
+      + focusHoods(page)
+      + "<p>המודעות הן נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
       + 'להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/' + c.slug + '">עסקאות ' + at + "</a>, ולמחירי דירות לפי חדרים: "
       + '<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
   function faqs(page) {
-    var at = cityOf(page).at;
-    return [
-      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים פעילים " + at + " שמשרדי התיווך מפרסמים באתר. הרשימה כוללת את המשרדים בעיר."],
+    var c = cityOf(page);
+    var at = c.at;
+    var extra = [];
+    if (page && page.slug === "בתים-פרטיים") {
+      extra = [
+        ["מה נכלל בבית פרטי למכירה " + at + "?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה " + at + (c.alsoIn ? ", כולל ב" + c.alsoIn : "") + ". המודעות מתפרסמות על ידי משרדי תיווך."],
+        ["יש הבדל בין בית פרטי, בית קרקע וקוטג'?", "בית קרקע הוא בית על מגרש. קוטג' הוא סוג של בית פרטי, ולעתים בית דו-משפחתי. בדף הנכס מופיע המפרט שפורסם במודעה."],
+        ["אפשר לקנות בית " + at + " בלי תיווך?", "המודעות בעמוד הזה מתפרסמות על ידי משרדי תיווך. מוכר פרטי לא מפרסם כאן בעצמו."],
+      ];
+    } else if (page && page.slug === "דירות-גן") {
+      extra = [
+        ["מהי דירת גן למכירה " + at + "?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה " + at + ", מכל משרדי התיווך."],
+        ["במה דירת גן שונה מבית פרטי?", "דירת גן היא דירה בבניין, עם גינה. בית פרטי הוא בית על מגרש. שטח הגינה מופיע במודעה כשהוא מפורסם."],
+        ["המחיר של דירת גן כולל את הגינה?", "המחיר והשטחים הם מה שפורסם במודעה. הפירוט המלא נמצא בדף הנכס."],
+      ];
+    }
+    return extra.concat([
+      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר."],
       ["האם המחיר שמופיע הוא המחיר הסופי?", "המחיר והמפרט המלא נמצאים בדף של כל נכס. אם אין מחיר במודעה, הוא לפי פנייה."],
       ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות " + at + ", ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
-      ["מה עושים כשאין מודעות בקטגוריה?", "אפשר להשאיר התראה דרך החיפוש השמור שכבר באתר, ולקבל עדכון כשעולה נכס שמתאים."],
-    ];
+      ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
+    ]);
   }
 
   function faqHtml(page) {
@@ -652,7 +780,7 @@
   }
 
   function emptyState() {
-    return '<div class="land-empty"><p>אין כרגע מודעות פעילות בקטגוריה הזו.</p>'
+    return '<div class="land-empty"><p>אין כרגע מודעות פעילות.</p>'
       + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></div>';
   }
 
@@ -664,7 +792,7 @@
     html += allButton(page, list, extras);
     html += neighborhoods(page, extras);
     html += trust(page, list, extras);
-    html += seo(page);
+    html += seo(page, rows, extras);
     html += also(page);
     html += faqHtml(page);
     html += finalCta();
@@ -743,6 +871,8 @@
     hoodRowsFromListings: hoodRowsFromListings,
     render: render,
     heroHtml: heroHtml,
+    heroPreload: heroPreload,
+    heroOg: heroOg,
     chipsHtml: chipsHtml,
     updatedHtml: updatedHtml,
     allHref: allHref,

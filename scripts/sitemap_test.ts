@@ -164,7 +164,7 @@ const polishedHtml = await polished.text();
 check("סינון שה-canonical שלו במקום אחר יורד", polished.status === 200 && !polishedHtml.includes("rooms=3"));
 check("נתיב עברי מקודד", polishedHtml.includes("/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D"));
 check("lastmod למתווכים", /afula\/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D<\/loc>\s*<lastmod>2026-10-09<\/lastmod>/.test(polishedHtml));
-check("פרויקטים ריקים יורדים", !polishedHtml.includes("/projects"));
+check("פרויקטים נשארים גם כשהרשימה ריקה", polishedHtml.includes("https://shuknadlan.co.il/projects"));
 check("דפי נחיתה של שוק לא חי יורדים", !polishedHtml.includes("/haifa/"));
 check("שאילתת המשרדים לפי העיר", polishedCalls.some((c) => c.url.includes("/agencies?")
   && c.url.includes("city_id=eq.c2a8426f-7bac-4c48-bcb5-53a5ca06f001")));

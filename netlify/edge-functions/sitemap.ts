@@ -518,10 +518,8 @@ async function polish(body: string, cities: CityMap, live: Set<string> | null): 
     if (locPointsElsewhere(loc)) out = removeLoc(out, loc);
   }
 
-  const projects = await sbGet("projects_public?select=slug&limit=1");
-  if (projects.ok && projects.rows.length === 0) {
-    out = removeLoc(out, `${SITE}/projects`);
-  }
+  /* /projects נשאר גם כשאין פרויקט: יש בו מדריך קנייה, והוא ניתן לאינדוקס.
+     docs/sitemap.md. דפי /project?slug= עדיין מגיעים מ-projects_public. */
 
   for (const page of brokersPages()) {
     const loc = `${SITE}${page.path}`;
