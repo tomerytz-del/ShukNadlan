@@ -25,6 +25,9 @@ import {
   creativePreviewBody,
   executeLaunch,
   formatMetaError,
+  LAUNCH_BUDGET_MS,
+  LAUNCH_IDLE_LIMIT_MS,
+  LAUNCH_WALL_LIMIT_MS,
   GOOGLE_BUYERS_CAMPAIGN,
   GOOGLE_BUYERS_DAILY_ILS,
   HOUSING_MIN_RADIUS_KM,
@@ -416,6 +419,39 @@ const partial = await executeLaunch({
   record: async () => {},
 });
 ok("failure stops further creates", partial.error === "meta_down" && partial.created.length === 2 && posts === 3, partial);
+ok("the budget keeps 100s under the wall and still answers before the idle timeout", LAUNCH_BUDGET_MS === Math.min(LAUNCH_WALL_LIMIT_MS - 100_000, LAUNCH_IDLE_LIMIT_MS - 25_000) && LAUNCH_WALL_LIMIT_MS - LAUNCH_BUDGET_MS >= 100_000 && LAUNCH_BUDGET_MS < LAUNCH_IDLE_LIMIT_MS);
+let budgetTicks = 0;
+const budgeted = await executeLaunch({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map(),
+  images: imageBytes,
+  deadline: 2,
+  now: () => ++budgetTicks,
+  post: async (p) => {
+    if (p.endsWith("/adimages")) return { images: { bytes: { hash: "hb" + budgetTicks } } };
+    return { id: "910000000000000" + budgetTicks };
+  },
+  record: async () => {},
+});
+ok("a deadline stops before the next post and names the next key", budgeted.done === false && budgeted.error === undefined && budgeted.created.length === 1 && budgeted.nextKey === built.ops[1].objectKey && budgetTicks === 2 && budgeted.created[0] === built.ops[0].objectKey);
+const expired = await executeLaunch({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map(),
+  images: imageBytes,
+  deadline: 0,
+  now: () => 0,
+  post: async () => { throw new Error("should not post"); },
+  record: async () => {},
+});
+ok("an expired budget posts nothing and stays paused", expired.done === false && expired.created.length === 0 && expired.nextKey === built.ops[0].objectKey && !JSON.stringify(expired).includes("ACTIVE") && !JSON.stringify(expired).includes(PROTECTED_CAMPAIGN_IDS[0]));
 
 const missingRegion = await executeLaunch({
   act: ACT,
@@ -751,6 +787,7 @@ ok("upload action is wired and cron cannot call it", indexSrc.includes('action =
 const crm = readFileSync(path.join(root, "assets/crm.js"), "utf8");
 const crmHtml = readFileSync(path.join(root, "crm.html"), "utf8");
 ok("crm sends dry-run and a confirmed write", crm.includes("adsLaunchDry") && crm.includes("dry_run: false") && crm.includes("confirm: true") && crm.includes("create_paused_launch"));
+ok("crm shows a partial create and a timeout as a resume", crm.includes("done === false") && crm.includes("אובייקטים, לחץ שוב להמשך מ-") && crm.includes("הבקשה נקטעה בגלל זמן; מה שנוצר נשמר, לחץ שוב להמשך") && crm.includes("launch_in_progress"));
 ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunchUpload") && crm.includes("upload_launch_creatives") && crm.includes("תמונות בדלי:") && crmHtml.includes('id="adsLaunchUpload"') && !crmHtml.includes("upload_meta_creatives.mjs"));
 ok("crm shows each targeting hit and the A5 form", crm.includes("adsLaunchHitLine") && crm.includes("targeting_blocks_create") && crm.includes("טופס:") && crmHtml.includes("הערכת שווי חינם"));
 ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFlexibleLine") && crm.includes("צמצום AND") && crm.includes("blocks_create") && crm.includes("error_user_title") && crm.includes("meta_validation") && crm.includes("לא נבדק מול מטא"));
@@ -760,6 +797,7 @@ const writeFn = indexSrc.slice(indexSrc.indexOf("if (!plan.ok)"), indexSrc.index
 ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247") && dryFn.includes("resolveLaunchIdentity") && dryFn.includes("loadPausedCampaigns") && dryFn.includes("body: first.request"));
 ok("the real create probes only to drop a deprecated interest", writeFn.includes("omitDeprecatedInterestIds") && writeFn.includes("deprecatedInterestIdsFromError") && writeFn.includes("validateLaunchWrites") && writeFn.includes("1870247") && writeFn.includes("validate_only_returned_id"));
 ok("the real create stops on a failed preview or ad set and logs the body", writeFn.includes("launchPageId") && writeFn.includes("subcode !== 1870247") && writeFn.includes("loadPausedCampaigns") && writeFn.includes("result.request") && writeFn.includes("body: first.request"));
+ok("the real create stops inside a time budget and takes one launch lock", writeFn.includes("tryLaunchLock") && writeFn.includes("unlockLaunch") && writeFn.includes("LAUNCH_BUDGET_MS") && writeFn.includes("deadline") && writeFn.includes("done: false") && writeFn.includes("next_key") && writeFn.includes("launch_in_progress") && indexSrc.includes("ads_launch_try_lock") && indexSrc.includes("ads_launch_unlock"));
 const validateSrc = src.slice(src.indexOf("export async function validateLaunchWrites"), src.indexOf("export function summarizeLaunch"));
 const executeSrc = src.slice(src.indexOf("export async function executeLaunch"), src.indexOf("export async function validateLaunchWrites"));
 ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && validateSrc.includes("generatepreviews") && validateSrc.includes("pickStandInCampaign") && validateSrc.includes("unchecked:no_matching_paused_campaign") && !executeSrc.includes("execution_options:") && !executeSrc.includes("generatepreviews") && !executeSrc.includes("pickStandInCampaign") && !src.includes("instagram_actor_id"));
