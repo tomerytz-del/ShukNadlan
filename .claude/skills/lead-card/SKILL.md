@@ -86,7 +86,8 @@ description: כרטיס הליד ב-CRM של שוק נדל״ן - buildLeadCard /
   ‏`seeker_inbound` מקבל ענף משלו ב-`leadKind`, ובלעדיו הוא נופל ל"ליד קונה".
 - **הלשונית "ביקוש פתוח" אינה לידים**: היא נטענת מ-`open_demand_list()` רק
   כשנפתחת (`renderOpenDemand`), בלי שלב, ארכיון, חיוג או וואטסאפ - רק
-  "לפוסט המקורי" וההנחיה להגיב בפייסבוק. ‏`leadsTab = 'demand'` עוצר את
+  "אני פונה - לפוסט" (`open_demand_claim`, שמוריד את הביקוש מהרשימה של
+  השאר) וההנחיה להגיב בפייסבוק. המונה בלשונית סופר רק את מה שלא נתפס. ‏`leadsTab = 'demand'` עוצר את
   `renderLeadsUnified` לפני הצ'יפים. אל תכניסו אותה ל-`allLeads`. הסקיל
   `scraped-leads`.
 - **מה שזוהה בשיחה נקרא מהשיחה, לא מהליד** (`leadCallById` ← `agent_calls.extracted`):

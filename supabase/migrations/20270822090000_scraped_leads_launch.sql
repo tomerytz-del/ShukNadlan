@@ -15,6 +15,8 @@
 --     אותו מהרשימה של כל השאר ואינה משתחררת. תקרה יומית לסוכן/ת
 --     ('open_demand_claims_daily', ברירת מחדל 2), כדי שהזריז/ה לא י/תיקח הכול.
 --   * מי שתפס/ה ביקוש מקבל/ת את הליד אם האדם מסכים/ה, אם הוא/היא זכאי/ת לו.
+--     בהשקה ליד בעלים פתוח גם ל-free, ולכן כל מי שתפס/ה זכאי/ת.
+--   * scraped_lead_enrich - הסורק משלים שדות אנונימיים בפוסט שכבר נקלט.
 --   * "ללא תיווך" (no_broker): 'post' - כתוב בפוסט, 'group' - בשם הקבוצה.
 --     בעלים מוצגים עם סימון והנחיה; מחפש/ת שכתב/ה "ללא תיווך" אינו/ה מוצג/ת
 --     (אצלו/ה זה "לא אשלם עמלה").
@@ -334,6 +336,9 @@ declare
   v_cands  int;
   v_free   boolean;
   v_by     text := 'rotation';
+  -- 20270822090000: בהשקה ליד בעלים פתוח גם ל-Pay&GO (free). הוא נולד
+  -- unlocked ולא עובר ב-claim_lead, שחוסמת free על owner_inbound.
+  v_launch boolean := public.scraped_leads_launch_active();
 begin
   select * into s from public.scraped_leads where id = p_id for update;
   if not found then
@@ -361,12 +366,12 @@ begin
   end if;
 
   -- סוכן/ת אחד/ת: עובד/ת בעיר, מתעסק/ת בסוג, ולליד בעלים - מסלול שרשאי
-  -- לפתוח אותו (claim_lead: free אינו). מי שקיבל/ה ליד כזה הכי מזמן קודם.
+  -- לפתוח אותו (claim_lead: free אינו; בהשקה כן). מי שקיבל/ה ליד כזה הכי מזמן קודם.
   select count(*) into v_cands
     from public.agency_members m
    where m.active and public.agent_works_city(m.id, s.city_id)
      and public.agent_handles_type(m.id, s.property_type, s.deal_type)
-     and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'));
+     and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium') or v_launch);
 
   -- 20270822090000: מי שלחץ/ה "אני פונה" על הביקוש כבר פנה/תה לאדם, ולכן
   -- הליד אליו/ה - אם הוא/היא פעיל/ה ורשאי/ת לסוג הליד. אחרת - הסבב הרגיל.
@@ -374,7 +379,7 @@ begin
     select m.id, m.agency_id into v_agent, v_agency
       from public.agency_members m
      where m.id = s.claimed_by and m.active
-       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'));
+       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium') or v_launch);
     if v_agent is not null then
       v_by := 'claim';
     end if;
@@ -385,7 +390,7 @@ begin
       from public.agency_members m
      where m.active and public.agent_works_city(m.id, s.city_id)
        and public.agent_handles_type(m.id, s.property_type, s.deal_type)
-       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'))
+       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium') or v_launch)
      order by (select max(l.created_at) from public.leads l
                 where l.agent_id = m.id and l.source in ('facebook_group', 'facebook_marketplace')) asc nulls first,
               m.id
@@ -394,7 +399,7 @@ begin
 
   -- 20270822090000: בהשקה הליד נפתח מיד לסוכן/ת ששויך/ה - בלי claim_lead,
   -- בלי חיוב ובלי מכסה. בלי סוכן/ת הוא נשאר masked כמו קודם.
-  v_free := v_agent is not null and public.scraped_leads_launch_active();
+  v_free := v_agent is not null and v_launch;
 
   v_label := case s.source when 'facebook_marketplace' then 'מרקטפלייס' else 'קבוצת פייסבוק' end
              || coalesce(' · ' || s.source_detail, '');
@@ -610,3 +615,58 @@ comment on function public.open_demand_claim(uuid) is
   '"אני פונה": הביקוש לסוכן/ת אחד/ת (לא משתחרר), עד open_demand_claims_daily ביום. docs/scraped-leads.md';
 revoke all on function public.open_demand_claim(uuid) from public, anon, authenticated;
 grant execute on function public.open_demand_claim(uuid) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 12. השלמת שדות בפוסט שכבר נקלט (הסורק). רק שדות שאינם מזהים, ורק כל עוד
+--     הפוסט ממתין או ביקוש פתוח. שם הקבוצה שהשתנה מעדכן את no_broker.
+-- ---------------------------------------------------------------------------
+create or replace function public.scraped_lead_enrich(p_id uuid, p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  s public.scraped_leads%rowtype;
+begin
+  select * into s from public.scraped_leads where id = p_id for update;
+  if not found then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+  if s.status not in ('pending_consent', 'open_demand') then
+    return jsonb_build_object('error', 'already_' || s.status);
+  end if;
+  if p ? 'deal_type' and nullif(btrim(p ->> 'deal_type'), '') not in ('sale', 'rent') then
+    return jsonb_build_object('error', 'invalid_deal_type');
+  end if;
+
+  update public.scraped_leads
+     set demand_summary = coalesce(left(nullif(btrim(p ->> 'summary'), ''), 160), demand_summary),
+         budget         = coalesce(nullif(p ->> 'budget', '')::numeric, budget),
+         rooms          = coalesce(nullif(p ->> 'rooms', '')::numeric, rooms),
+         move_in        = coalesce(left(nullif(btrim(p ->> 'move_in'), ''), 60), move_in),
+         property_type  = coalesce(nullif(btrim(p ->> 'property_type'), ''), property_type),
+         deal_type      = coalesce(nullif(btrim(p ->> 'deal_type'), ''), deal_type),
+         source_detail  = coalesce(left(nullif(btrim(p ->> 'source_detail'), ''), 120), source_detail),
+         neighborhood_id = coalesce((select n.id from public.neighborhoods n
+                                      where n.city_id = s.city_id and n.name = nullif(btrim(p ->> 'neighborhood'), '')
+                                      limit 1), neighborhood_id)
+   where id = p_id
+  returning * into s;
+
+  -- "ללא תיווך" רק מתחזק: שם קבוצה חדש יכול להפוך post ל-group, לא למחוק סימון
+  if public.scraped_lead_no_broker(s.source_detail) then
+    update public.scraped_leads set no_broker = 'group' where id = p_id;
+  elsif s.no_broker is null and coalesce((p ->> 'no_broker')::boolean, false) then
+    update public.scraped_leads set no_broker = 'post' where id = p_id;
+  end if;
+
+  select * into s from public.scraped_leads where id = p_id;
+  return jsonb_build_object('success', true, 'id', p_id, 'no_broker', s.no_broker,
+                            'open_demand', public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker,
+                                                                         s.posted_at, s.city_id));
+end $$;
+comment on function public.scraped_lead_enrich(uuid, jsonb) is
+  'הסורק משלים בפוסט קיים: summary, budget, rooms, move_in, property_type, deal_type, source_detail, neighborhood. בלי שדות מזהים. docs/scraped-leads.md';
+revoke all on function public.scraped_lead_enrich(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.scraped_lead_enrich(uuid, jsonb) to service_role;

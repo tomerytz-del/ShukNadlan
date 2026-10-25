@@ -5,7 +5,10 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 
 # לידים מפוסטים בפייסבוק
 
-המסמך המלא: `docs/scraped-leads.md`. המיגרציה: `20270812090000_scraped_leads.sql`.
+המסמך המלא: `docs/scraped-leads.md`. המיגרציות: `20270812090000_scraped_leads.sql`, ותקופת
+ההשקה, "אני פונה" ו"ללא תיווך" ב-`20270822090000_scraped_leads_launch.sql`. ההוראות
+לסוכן הסורק (גרוק): `docs/agent-skills/facebook-leads-scanner.md` - **שינוי בקריאות
+או בשדות מעדכן גם אותו**, כי הסורק קורא אותו מ-`main` בתחילת כל סריקה.
 כאן מה שנשבר בשקט.
 
 ## 1. פוסט אינו ליד, ולכן לא נכנס ל-`leads` ישירות
@@ -19,7 +22,8 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
   ואינה מסננת לפי עיר כשאין `neighborhood_id`.
 - כל דוח, מכסה וספירה סופרים את `leads`. פוסט בלי הסכמה היה נספר כליד.
 
-לכן הסורק קורא רק ל-`scraped_lead_add`, ול-`leads` נכנס רק מה ש-
+לכן הסורק קורא רק ל-`scraped_lead_add` (ול-`scraped_lead_enrich` כדי להשלים
+שדות אנונימיים בפוסט קיים - לא `update` ישיר), ול-`leads` נכנס רק מה ש-
 `scraped_lead_set_consent(id, 'consented')` כותבת. מקור חדש (אתר אחר,
 אינסטגרם) עובר באותו מסלול: ערך ב-`v_source not in (...)` של `scraped_lead_add`,
 ב-`LEAD_SOCIAL_SOURCES` (`assets/crm-leads.js`), ב-`SOURCE_LABEL` וב-`POST_SOURCES`
@@ -28,6 +32,10 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 אם הוא לא מתחיל ב-`facebook_` - אחרת הוא נספר `other` בבקרת הלידים.
 
 ## 2. ביקוש פתוח: בלי פרטים מזהים, וזה נאכף במסד
+
+בביקוש הפתוח מוצג `demand_summary` (‏`summary` מהסורק), **לא `property_details`**,
+שמגיע בפועל עם כתובת. עמודה חדשה ב-`open_demand_list` או בהתראה - רק מה שאינו
+מזהה.
 
 `scraped_leads_anon` (check) מסרב לשם, טלפון או טקסט בכל מצב חוץ מ-
 `pending_consent`. **אל תוסיפו עמודה מזהה** (מייל, שם פרופיל, תמונה) בלי
@@ -44,7 +52,9 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 הסכמה, את מי שמקבל/ת התראת `open_demand`, ואת מי שרואה את הלשונית. שינוי
 בהגדרה משנה את שלושתם, וזו הכוונה - אל תכתבו תנאי עיר מקומי באחד מהם.
 סוכן/ת **בלי** העדפות פעילות מתעסק/ת בכל סוג. ליד בעלים נשלח רק ל-`mid`/
-`premium`, כי `claim_lead` חוסמת `free` על `owner_inbound`.
+`premium`, כי `claim_lead` חוסמת `free` על `owner_inbound` - **חוץ מתקופת
+ההשקה**, שבה הליד נולד `unlocked` בלי `claim_lead`, ולכן גם `free` מקבל/ת
+אותו (‏`v_launch` בשלושת התנאים ב-`scraped_lead_set_consent`).
 
 עיר שאינה ב-`cities` (`city_id_for_name` מחזירה `null`) נשמרת, ואינה מנותבת
 ואינה מוצגת. `scraped_lead_add` מחזירה `city_known: false` - הסורק צריך
