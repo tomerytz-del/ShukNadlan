@@ -509,8 +509,37 @@ function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
 }
 
 /* ‏אחרי שהבלוקים מהמסד נכנסו: מורידים כתובת שהדף שלה היה noindex או
-   שה-canonical שלה במקום אחר, ומוסיפים lastmod אמיתי לדפי הנחיתה
-   (‏/afula/…, ‏/haifa/…). דף נחיתה של שוק שאינו חי יוצא תמיד. */
+   שה-canonical שלה במקום אחר, ומוסיפים lastmod אמיתי לדפי הנחיתה.
+   עיר שכבר בקובץ הסטטי (עפולה) נשארת במקומה, עם אותו lastmod.
+   עיר מ-ShukSilo.pages / ShukBrokers.pages שנעדרת מהקובץ נכנסת רק אם
+   הדף עצמו היה index,follow: שוק חי, ויש מודעות או משרד. בלי זה אין
+   שורה — גם לא לעיר עם מלאי שאין לה דף, וגם לא לשוק שאינו חי. */
+function bodyHasLoc(body: string, loc: string): boolean {
+  const raw = `<loc>${xml(loc)}</loc>`;
+  if (body.includes(raw)) return true;
+  const encoded = `<loc>${encodeLoc(loc)}</loc>`;
+  return encoded !== raw && body.includes(encoded);
+}
+
+/* ‏שורה חדשה, בלי changefreq ובלי priority (החלטה 4). נכתבת לפני
+   ‎</urlset>‎ כדי לא להזיז כתובת שכבר בקובץ. */
+function appendUrl(body: string, loc: string, mod: string): string {
+  if (bodyHasLoc(body, loc)) return body;
+  const block =
+    "  <url>\n" +
+    `    <loc>${xml(loc)}</loc>\n` +
+    (mod ? `    <lastmod>${mod}</lastmod>\n` : "") +
+    "  </url>\n";
+  const close = body.lastIndexOf("</urlset>");
+  if (close < 0) return body;
+  return body.slice(0, close) + block + body.slice(close);
+}
+
+function keepLanding(body: string, loc: string, mod: string): string {
+  if (bodyHasLoc(body, loc)) return upsertLastmod(body, loc, mod);
+  return appendUrl(body, loc, mod);
+}
+
 async function polish(body: string, cities: CityMap, live: Set<string> | null): Promise<string> {
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
@@ -533,7 +562,7 @@ async function polish(body: string, cities: CityMap, live: Set<string> | null): 
     if (agencies.ok && agencies.rows.length === 0) {
       out = removeLoc(out, loc);
     } else if (agencies.ok && agencies.rows.length) {
-      out = upsertLastmod(out, loc, day(agencies.rows[0].updated_at));
+      out = keepLanding(out, loc, day(agencies.rows[0].updated_at));
     }
   }
 
@@ -541,6 +570,8 @@ async function polish(body: string, cities: CityMap, live: Set<string> | null): 
     if (!landingIndexable(page.market, live)) out = removeLoc(out, `${SITE}${page.path}`);
   }
 
+  /* ‏כשל בשאילתת המודעות אינו "אפס מודעות": לא מוסיפים עיר חדשה ולא
+     מורידים עיר שכבר בקובץ. */
   if (cities.ok) {
     for (const page of landingPages()) {
       if (!landingIndexable(page.market, live)) continue;
@@ -553,7 +584,7 @@ async function polish(body: string, cities: CityMap, live: Set<string> | null): 
         const stamp = day(row.updated_at);
         return stamp > best ? stamp : best;
       }, "");
-      out = upsertLastmod(out, `${SITE}${page.path}`, newest);
+      out = keepLanding(out, `${SITE}${page.path}`, newest);
     }
   }
 

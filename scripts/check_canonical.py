@@ -268,8 +268,8 @@ def edge_registered(page: str) -> list[str]:
     missing: list[str] = []
 
     sitemap_ts = (ROOT / "netlify/edge-functions/sitemap.ts").read_text(encoding="utf-8")
-    # ‏brokers ו-silo: כתובות קבועות ב-sitemap.xml. אין להן שורות במסד,
-    # ומקור ב-sitemap.ts היה משכפל את דפי הנחיתה בכל בניית sitemap.
+    # ‏brokers ו-silo: אין להם שורה ב-SOURCES. כתובת שכבר ב-sitemap.xml
+    # נשארת שם, ו-polish מוסיף עיר חסרה מ-CITIES רק כשהדף ניתן לאינדוקס.
     if page not in ("brokers", "silo") and not re.search(r'page:\s*"%s"' % re.escape(page), sitemap_ts):
         missing.append(
             "אינו ב-SOURCES של netlify/edge-functions/sitemap.ts — הרשומות\n"
