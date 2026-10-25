@@ -5,6 +5,7 @@ import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
+import { processCsmCall } from "../_shared/csm-call.ts";
 
 // ============================================================================
 // ‏twilio-voice — יומן שיחות: ניתוב, הקלטה, תמלול, סיכום (פיילוט)
@@ -23,6 +24,10 @@ import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
 //                       של ההקלטה, בכותרת "הודעה קולית".
 //   ?event=voicemail-done — ה-action של <Record>: תודה וניתוק.
 //   ?task=cleanup     — cron יומי: מחיקת הקלטות בנות 90 יום.
+//   ?event=csm-*      — מספר של אשת צוות ההטמעה (csm_phone_lines): ניתוב לנייד
+//                       שלה, הקלטה, ו-processCsmCall במקום הסיכום של הסוכנים.
+//                       ‏?task=csm-line-order / csm-line-release - מנהל/ת הפלטפורמה.
+//                       הסעיף "צוות ההטמעה" למטה, ו-docs/csm-adoption.md.
 //
 // ‏verify_jwt = false: את הפונקציה קוראת Twilio, בלי JWT. האימות הוא חתימת
 // ‏X-Twilio-Signature מול TWILIO_AUTH_TOKEN, ובלעדיה כל מי שיודע את הכתובת
@@ -342,6 +347,11 @@ async function onIncoming(p: URLSearchParams): Promise<Response> {
   const callSid = p.get("CallSid") || "";
   const from = p.get("From") || "";
   const to = p.get("To") || "";
+
+  // מספר של צוות ההטמעה קודם: מספר של הפלטפורמה שהועבר אליה נשאר גם שורה
+  // (כבויה) אצל הסוכנים
+  const csmLine = await csmLineFor(to);
+  if (csmLine) return await csmIncoming(p, csmLine);
 
   const { data: line } = await supabase
     .from("agent_phone_lines")
@@ -1499,6 +1509,219 @@ async function simulate(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// צוות ההטמעה: מספר וירטואלי של אשת צוות (csm_phone_lines)
+//
+// סוכן/ת מתקשר/ת → הנייד שלה (מוקלט) → ההקלטה עוברת לדלי csm-calls, נמחקת
+// מ-Twilio, ו-processCsmCall מתמללת ומנתחת לפי CSM_PLAYBOOK - אותו ניתוח של
+// "הקלטות" באזור. ההתראה (csm_calls_notify → csm-notify.ts) מביאה לה בוואטסאפ
+// את הסיכום ואת ההקלטה.
+//
+// **מה לא חל כאן מהסוכנים:** מסלול, ארנק, 150 הדקות והחידוש - המספר של
+// הפלטפורמה. ו-agent_calls לא נכתבת: שיחה עם אשת צוות אינה ליד של אף סוכן/ת.
+// ‏line ו-from עוברים בכתובות ה-callback: Twilio חותמת את הכתובת המלאה, ולכן
+// הם מאומתים יחד עם השאר.
+// ---------------------------------------------------------------------------
+type CsmLine = { id: string; staff_id: string; forward_to: string | null };
+
+async function csmLineFor(to: string): Promise<CsmLine | null> {
+  if (!to) return null;
+  const { data } = await supabase.from("csm_phone_lines")
+    .select("id, staff_id, forward_to").eq("twilio_number", to).eq("active", true).maybeSingle();
+  return (data as CsmLine | null) ?? null;
+}
+
+/** הסוכן/ת לפי הטלפון של המתקשר/ת - אותו מפתח של גבריאלה (phone_e164) */
+async function csmAgentByPhone(from: string): Promise<{ id: string; display_name: string | null } | null> {
+  const digits = from.replace(/\D/g, "");
+  if (!digits.startsWith("972")) return null;
+  const { data } = await supabase.from("agency_members")
+    .select("id, display_name").eq("phone_e164", digits).eq("active", true).maybeSingle();
+  return data ?? null;
+}
+
+function csmCb(event: string, line: string, from: string, extra = ""): string {
+  return `${PUBLIC_BASE}?event=${event}&line=${encodeURIComponent(line)}&from=${encodeURIComponent(from)}${extra}`;
+}
+
+async function csmIncoming(p: URLSearchParams, line: CsmLine): Promise<Response> {
+  const from = p.get("From") || "";
+  const to = p.get("To") || "";
+  const { data: staff } = await supabase.from("csm_staff")
+    .select("phone, active").eq("id", line.staff_id).maybeSingle();
+  const target = e164(line.forward_to || (staff?.active ? staff.phone : "") || "");
+  if (!target) {
+    console.error("csm line without target", line.id);
+    return xml(`<Say ${VOICE}>${escXml(MSG_MISSED)}</Say><Hangup/>`);
+  }
+  // אותו כלל caller ID של הסוכנים (dialXml): מתקשר/ת מחו"ל או חסוי/ה - המספר שלנו
+  const callerId = from.startsWith("+972") ? from : to;
+  const action = escXml(csmCb("csm-dial", line.id, from));
+  const recCb = escXml(csmCb("csm-recording", line.id, from));
+  return xml(
+    `<Say ${VOICE}>${escXml(MSG_RECORDED)}</Say>` +
+      `<Dial callerId="${escXml(callerId)}" timeout="${DIAL_TIMEOUT_SEC}" answerOnBridge="true" ` +
+      `record="record-from-answer-dual" recordingStatusCallback="${recCb}" recordingStatusCallbackEvent="completed" ` +
+      `action="${action}" method="POST"><Number>${escXml(target)}</Number></Dial>`,
+  );
+}
+
+async function csmDial(p: URLSearchParams, q: URLSearchParams): Promise<Response> {
+  const dialStatus = p.get("DialCallStatus") || "";
+  if (dialStatus === "completed" || dialStatus === "answered") return xml("<Hangup/>");
+  const lineId = q.get("line") || "";
+  const from = q.get("from") || p.get("From") || "";
+  // שיחה שלא נענתה: התראה מיד, ותא קולי - ההודעה עוברת את אותו ניתוח
+  EdgeRuntime.waitUntil((async () => {
+    const { data: line } = await supabase.from("csm_phone_lines").select("staff_id").eq("id", lineId).maybeSingle();
+    if (!line) return;
+    const agent = await csmAgentByPhone(from);
+    const { error } = await supabase.rpc("_csm_notify", {
+      p_staff: line.staff_id, p_kind: "call_ready",
+      p_title: `שיחה שלא נענתה מ${agent?.display_name ? "-" + agent.display_name : "-" + localPhone(from)}`,
+      p_body: `טלפון: ${localPhone(from)}. אם יושאר תא קולי - הסיכום שלו יגיע בנפרד.`,
+      p_agent: agent?.id ?? null, p_call: null, p_event: null, p_dedupe: "missed:" + (p.get("CallSid") || from),
+    });
+    if (error) console.error("csm missed notify failed", error.message);
+  })());
+  const cb = escXml(csmCb("csm-recording", lineId, from, "&vm=1"));
+  const done = escXml(`${PUBLIC_BASE}?event=csm-voicemail-done`);
+  return xml(
+    `<Say ${VOICE}>${escXml(MSG_VOICEMAIL)}</Say>` +
+      `<Record maxLength="${VOICEMAIL_MAX_SEC}" timeout="5" playBeep="true" trim="trim-silence" ` +
+      `action="${done}" method="POST" recordingStatusCallback="${cb}" recordingStatusCallbackEvent="completed"/>` +
+      `<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`,
+  );
+}
+
+function csmRecording(p: URLSearchParams, q: URLSearchParams): Response {
+  if ((p.get("RecordingStatus") || "completed") !== "completed") return json({ ok: true, skipped: true });
+  EdgeRuntime.waitUntil(csmProcessRecording({
+    lineId: q.get("line") || "",
+    from: q.get("from") || "",
+    voicemail: q.get("vm") === "1",
+    callSid: p.get("CallSid") || "",
+    recordingSid: p.get("RecordingSid") || "",
+    recordingUrl: p.get("RecordingUrl") || "",
+    duration: Number(p.get("RecordingDuration") || 0) || null,
+  }).catch((err) => console.error("csm recording failed", err)));
+  return json({ ok: true });
+}
+
+async function csmProcessRecording(r: {
+  lineId: string; from: string; voicemail: boolean; callSid: string;
+  recordingSid: string; recordingUrl: string; duration: number | null;
+}) {
+  if (r.voicemail && (r.duration ?? 0) < VOICEMAIL_MIN_SEC) {
+    deleteTwilioRecording(r.recordingSid);
+    return;
+  }
+  const { data: line } = await supabase.from("csm_phone_lines").select("id, staff_id").eq("id", r.lineId).maybeSingle();
+  if (!line) {
+    console.error("csm recording for unknown line", r.lineId);
+    return;
+  }
+  // משלוח חוזר של Twilio - אותו SID כבר נקלט
+  const { data: seen } = await supabase.from("csm_calls").select("id").eq("twilio_call_sid", r.callSid).maybeSingle();
+  if (seen) return;
+
+  const audioRes = await fetch(`${r.recordingUrl}.mp3`, { headers: { Authorization: twilioAuth() } });
+  if (!audioRes.ok) throw new Error(`csm recording download ${audioRes.status}`);
+  const bytes = new Uint8Array(await audioRes.arrayBuffer());
+  const path = `phone/${line.staff_id}/${r.callSid}.mp3`;
+  const { error: upErr } = await supabase.storage.from("csm-calls")
+    .upload(path, bytes, { contentType: "audio/mpeg", upsert: true });
+  if (upErr) throw new Error(`csm recording upload: ${upErr.message}`);
+
+  const agent = await csmAgentByPhone(r.from);
+  const who = agent?.display_name || localPhone(r.from) || "מספר חסוי";
+  const { data: call, error } = await supabase.from("csm_calls").insert({
+    staff_id: line.staff_id, agent_id: agent?.id ?? null, source: "phone", audio_path: path,
+    title: (r.voicemail ? "הודעה קולית מ-" : agent ? "שיחה עם " : "שיחה מ-") + who,
+    twilio_call_sid: r.callSid, from_number: r.from || null, duration_sec: r.duration,
+    voicemail: r.voicemail, line_id: line.id,
+  }).select("id").single();
+  if (error || !call) {
+    // ‏unique על twilio_call_sid: שני משלוחים במקביל - השני נעצר כאן
+    console.warn("csm call insert skipped", error?.message);
+    return;
+  }
+  // העותק היחיד נשאר אצלנו
+  deleteTwilioRecording(r.recordingSid);
+  // התמלול והניתוח; בסופם csm_calls_notify כותבת את ההתראה עם הסיכום
+  await processCsmCall(supabase, call.id as string);
+}
+
+/** קנייה ושחרור של מספר לאשת צוות - מנהל/ת הפלטפורמה בלבד (JWT). */
+async function csmLineTask(req: Request, task: string): Promise<Response> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const { data: userData } = token ? await supabase.auth.getUser(token) : { data: null };
+  const uid = userData?.user?.id;
+  if (!uid) return corsJson({ error: "unauthorized" }, 401);
+  const mfa = await mfaGate(token);
+  if (mfa) return corsJson({ error: mfa.error }, mfa.status);
+  const { data: admin } = await supabase.from("agency_members")
+    .select("id").eq("user_id", uid).eq("active", true).eq("is_platform_admin", true).maybeSingle();
+  if (!admin) return corsJson({ error: "not_allowed" }, 403);
+  if (!TWILIO_SID || !TWILIO_TOKEN) return corsJson({ error: "not_configured" }, 503);
+  const body = await req.json().catch(() => ({}));
+
+  if (task === "csm-line-release") {
+    const { data: line } = await supabase.from("csm_phone_lines")
+      .select("id, twilio_sid, moved_from_line").eq("id", String(body?.line_id || "")).maybeSingle();
+    if (!line) return corsJson({ error: "not_found" }, 404);
+    if (line.twilio_sid) {
+      const del = await fetch(`${TW_API()}/IncomingPhoneNumbers/${line.twilio_sid}.json`, {
+        method: "DELETE", headers: { Authorization: twilioAuth() },
+      });
+      if (!del.ok && del.status !== 404) return corsJson({ error: "twilio_release_failed", status: del.status }, 502);
+      await supabase.from("csm_phone_lines").delete().eq("id", line.id);
+      return corsJson({ released: true });
+    }
+    // מספר שהועבר מהפלטפורמה: לא נמכר חזרה ל-Twilio - חוזר לשורה של הסוכנים
+    await supabase.from("csm_phone_lines").update({ active: false }).eq("id", line.id);
+    if (line.moved_from_line) await supabase.from("agent_phone_lines").update({ active: true }).eq("id", line.moved_from_line);
+    return corsJson({ released: true, returned_to_agent_line: !!line.moved_from_line });
+  }
+
+  // csm-line-order: קודם בודקים שאפשר לשייך (אשת צוות פעילה עם נייד), אחר כך קונים
+  const staffId = String(body?.staff_id || "");
+  const area = String(body?.area || "4");
+  if (!LINE_AREAS.has(area)) return corsJson({ error: "bad_area" }, 400);
+  const { data: staff } = await supabase.from("csm_staff")
+    .select("id, display_name, phone_e164, active").eq("id", staffId).maybeSingle();
+  if (!staff?.active) return corsJson({ error: "staff_not_found" }, 404);
+  if (!staff.phone_e164) return corsJson({ error: "no_phone" }, 400);
+  const number = await findAvailableNumber(area);
+  if (!number) return corsJson({ error: "no_number_available" }, 409);
+  const buy = await fetch(`${TW_API()}/IncomingPhoneNumbers.json`, {
+    method: "POST",
+    headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      PhoneNumber: number,
+      FriendlyName: `הטמעה - ${staff.display_name || staffId.slice(0, 8)}`.slice(0, 64),
+      VoiceUrl: `${PUBLIC_BASE}?event=incoming`,
+      VoiceMethod: "POST",
+    }),
+  });
+  if (!buy.ok) {
+    const detail = (await buy.text()).slice(0, 300);
+    console.error("twilio csm buy failed", buy.status, detail);
+    return corsJson({ error: "purchase_failed", detail }, 502);
+  }
+  const bought = await buy.json();
+  const { data: res, error } = await supabase.rpc("_csm_phone_line_assign", {
+    p_staff_id: staffId, p_number: number, p_forward_to: null, p_twilio_sid: bought?.sid ?? null,
+  });
+  if (error || res?.error) {
+    // נקנה ולא נרשם: משחררים, אחרת הוא נשאר בתשלום בלי שאיש יודע עליו
+    await fetch(`${TW_API()}/IncomingPhoneNumbers/${bought?.sid}.json`, { method: "DELETE", headers: { Authorization: twilioAuth() } })
+      .catch(() => {});
+    return corsJson({ error: res?.error || "assign_failed" }, 500);
+  }
+  return corsJson({ success: true, number, line_id: res.id });
+}
+
+// ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
 
@@ -1524,6 +1747,12 @@ Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
     return await deleteCalls(req);
+  }
+
+  if (linesTask === "csm-line-order" || linesTask === "csm-line-release") {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST") return corsJson({ error: "method_not_allowed" }, 405);
+    return await csmLineTask(req, linesTask);
   }
 
   if (url.searchParams.get("task") === "cleanup") {
@@ -1567,7 +1796,12 @@ Deno.serve(async (req: Request) => {
     case "voicemail":
       return await onRecording(params, true);
     case "voicemail-done":
+    case "csm-voicemail-done":
       return xml(`<Say ${VOICE}>${escXml(MSG_VOICEMAIL_DONE)}</Say><Hangup/>`);
+    case "csm-dial":
+      return await csmDial(params, url.searchParams);
+    case "csm-recording":
+      return csmRecording(params, url.searchParams);
     default:
       return new Response("unknown event", { status: 400 });
   }

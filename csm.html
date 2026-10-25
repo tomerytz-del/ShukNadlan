@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/csm-workspace.css">
+<link rel="stylesheet" href="assets/csm-workspace.css" id="csmWorkspaceCss">
 <!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תחזור לכאן ולא
      ל-crm. ראו assets/auth-return.js -->
 <script src="assets/auth-return.js"></script>
@@ -51,45 +51,121 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   window.CSM_CTX ומספק את מה שהמודול מצפה לו מהדף (sb, showToast, heErr).
 -->
 <style>
+  /* האזור האישי שלה: כותרת, ניווט בצד (במחשב) או בתחתית (בטלפון), ומסך
+     התוכן. הסגנון של הכלים עצמם (כרטיסים, יומן, התראות) ב-csm-workspace.css,
+     המשותף ל-CRM. CSS מוטבע ולא קובץ - ראו CLAUDE.md, "ה-CSS נשאר מוטבע". */
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
-    --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
+    --ink:#1B1F26; --ink-soft:#5B616A; --paper:#EEECE7; --paper-raised:#F6F5F2;
+    --line:#D6D3CC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E4EAF1;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F5E4E6;
+    --green:#1E6B3D; --green-tint:#E1F1E6;
+    --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
+    --shadow-sm:0 1px 2px rgba(18,40,64,.06),0 1px 3px rgba(18,40,64,.08);
+    --shadow-md:0 4px 14px rgba(18,40,64,.08),0 1px 3px rgba(18,40,64,.06);
+    --top-h:60px; --nav-w:236px;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
   button{font-family:inherit;cursor:pointer;border:none}
   input,select,textarea{font-family:inherit}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   [hidden]{display:none !important}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap;text-decoration:none;color:inherit}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:999px;font-weight:700;font-size:.88rem;white-space:nowrap;text-decoration:none;color:inherit;transition:background .15s,border-color .15s,filter .15s}
   .btn-gold{background:var(--gold);color:#fff}
+  .btn-gold:hover{background:var(--gold-dark)}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
-  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:.95rem;background:#fff;color:inherit}
-  .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
-  .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
-  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;overflow-y:auto}
-  .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28);margin:auto}
-  .pm-title{font-weight:800;font-size:1.05rem;margin-bottom:10px}
+  .acc-sub{font-size:.84rem;color:var(--ink-soft);margin:0 0 12px}
+  .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.9rem}
+  .pm-overlay{position:fixed;inset:0;background:rgba(18,40,64,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;overflow-y:auto}
+  .pm-card{background:#fff;border-radius:var(--radius-lg);max-width:420px;width:100%;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.25);margin:auto}
+  .pm-title{font-weight:800;font-size:1.1rem;margin-bottom:10px}
   .pm-actions{display:flex;gap:8px;margin-top:16px}
   .pm-actions .btn{flex:1}
-  .toast{position:fixed;bottom:20px;right:16px;left:16px;max-width:420px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:500}
+  .toast{position:fixed;bottom:20px;right:16px;left:16px;max-width:420px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-md);font-size:.86rem;box-shadow:0 10px 30px rgba(0,0,0,.25);display:none;z-index:500}
 
-  .csm-top{position:sticky;top:0;z-index:50;background:var(--teal-dark);color:#fff;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top, 0px)) 16px 10px}
-  .csm-top img{width:30px;height:30px}
-  .csm-top h1{font-size:1rem;margin:0;flex:1}
-  .csm-top .who{font-size:.78rem;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
-  .csm-top button{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:6px 12px;font-size:.78rem}
-  main.csm-main{max-width:1400px;margin:0 auto;padding:16px}
-  .csm-panel{background:var(--paper-raised);border-radius:var(--radius-md);padding:16px;box-shadow:0 2px 8px rgba(15,52,53,.08)}
-  .auth-card{max-width:420px;width:calc(100% - 32px);margin:48px auto;background:#fff;border-radius:var(--radius-lg);padding:28px 22px;text-align:center;box-shadow:0 2px 8px rgba(15,52,53,.08)}
-  .auth-card h2{margin:0 0 8px;font-size:1.2rem}
-  .auth-card p{color:var(--ink-soft);font-size:.88rem;margin:0 0 18px}
+  /* ---------- הכותרת ----------
+     גובה הכותרת גדל ב-safe-area כדי ש-viewport-fit=cover לא יכסה אותה
+     במגרעת (אותו תיקון כמו בשאר הדפים). */
+  .csm-top{position:sticky;top:0;z-index:60;height:calc(var(--top-h) + env(safe-area-inset-top, 0px));background:var(--teal-dark);color:#fff;display:flex;align-items:center;gap:10px;padding:env(safe-area-inset-top, 0px) 16px 0;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  .csm-brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;flex:1;min-width:0}
+  .csm-brand img{width:32px;height:32px;flex-shrink:0}
+  .csm-brand h1{font-size:1.02rem;margin:0;line-height:1.15;white-space:nowrap}
+  .csm-brand small{display:block;font-size:.7rem;font-weight:500;opacity:.7}
+  .csm-top-btn{display:inline-flex;align-items:center;gap:6px;height:38px;min-width:38px;justify-content:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:0 12px;font-size:.8rem;font-weight:600;text-decoration:none;position:relative}
+  .csm-top-btn:hover{background:rgba(255,255,255,.18)}
+  .csm-top-btn svg{width:18px;height:18px}
+  .csm-top-btn.is-icon{padding:0;width:38px}
+  .csm-bell-count{position:absolute;top:-5px;inset-inline-end:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--gold);color:#fff;font-size:.66rem;font-weight:800;line-height:19px;text-align:center;box-shadow:0 0 0 2px var(--teal-dark)}
+  .csm-me{display:flex;align-items:center;gap:8px;padding-inline-start:6px;border-inline-start:1px solid rgba(255,255,255,.18);margin-inline-start:2px}
+  .csm-me-av{width:34px;height:34px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-weight:800;font-size:.86rem}
+  .who{font-size:.8rem;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+  #csmLogout{background:none;color:#fff;opacity:.75;font-size:.76rem;padding:4px}
+  #csmLogout:hover{opacity:1;text-decoration:underline}
+
+  /* ---------- המעטפת ---------- */
+  main.csm-main{max-width:1440px;margin:0 auto;padding:0}
+  .csm-shell{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:calc(100vh - var(--top-h) - env(safe-area-inset-top, 0px))}
+  .csm-content{padding:22px 26px 40px;min-width:0}
+  .csm-page-head{margin:0 0 16px}
+  .csm-page-head h2{font-size:1.45rem;font-weight:800;margin:0;letter-spacing:-.01em}
+  .csm-page-head p{margin:2px 0 0}
+
+  /* ---------- הניווט: בצד במחשב ---------- */
+  .csm-nav{display:block;margin:0;position:sticky;top:calc(var(--top-h) + env(safe-area-inset-top, 0px));align-self:start;height:calc(100vh - var(--top-h) - env(safe-area-inset-top, 0px));overflow-y:auto;background:#fff;border-inline-end:1px solid var(--line);padding:16px 12px}
+  .csm-nav [role=tablist]{display:flex;flex-direction:column;gap:2px}
+  .csm-nav-h{font-size:.68rem;font-weight:800;color:var(--ink-soft);letter-spacing:.04em;margin:16px 12px 6px}
+  .csm-nav-h:first-child{margin-top:4px}
+  .csm-nav button[data-csm-tab]{display:flex;align-items:center;gap:11px;width:100%;background:none;border:0;border-radius:10px;padding:9px 12px;font-size:.9rem;font-weight:600;color:var(--ink);text-align:start;position:relative}
+  .csm-nav button[data-csm-tab] svg{width:19px;height:19px;flex-shrink:0;color:var(--ink-soft)}
+  .csm-nav button[data-csm-tab]:hover{background:var(--paper-raised)}
+  .csm-nav button[data-csm-tab][aria-selected="true"]{background:var(--teal-tint);color:var(--teal);font-weight:800}
+  .csm-nav button[data-csm-tab][aria-selected="true"] svg{color:var(--teal)}
+  .csm-nav button[data-csm-tab][aria-selected="true"]::before{content:"";position:absolute;inset-inline-start:-12px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--teal)}
+  .csm-nav-count{margin-inline-start:auto;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--gold);color:#fff;font-size:.7rem;font-weight:800;line-height:20px;text-align:center}
+  .csm-nav-more,.csm-nav-scrim{display:none}
+  .csm-nav-lbl{flex:1}
+
+  /* ---------- בטלפון: סרגל תחתון ו"עוד" ---------- */
+  @media (max-width:899px){
+    :root{--top-h:56px}
+    .csm-top{padding:env(safe-area-inset-top, 0px) 12px 0;gap:8px}
+    .csm-brand small,.who,.csm-top-btn .lbl{display:none}
+    .csm-top-btn{padding:0;width:38px}
+    .csm-shell{display:block}
+    .csm-content{padding:16px 16px calc(90px + env(safe-area-inset-bottom))}
+    .csm-page-head h2{font-size:1.25rem}
+    .csm-nav{display:flex;position:fixed;top:auto;bottom:0;inset-inline:0;height:auto;overflow:visible;z-index:70;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(18,40,64,.08);display:flex}
+    .csm-nav-pri{flex-direction:row !important;flex:4;gap:0 !important}
+    .csm-nav-pri .csm-nav-h{display:none}
+    .csm-nav-pri button[data-csm-tab],.csm-nav-more{flex:1;flex-direction:column;gap:2px;padding:6px 2px;font-size:.68rem;font-weight:700;color:var(--ink-soft);border-radius:10px;text-align:center;justify-content:center}
+    .csm-nav-pri button[data-csm-tab] svg,.csm-nav-more svg{width:22px;height:22px}
+    .csm-nav-pri button[data-csm-tab][aria-selected="true"]{background:none}
+    .csm-nav-pri button[data-csm-tab][aria-selected="true"]::before{inset-inline:28%;top:-6px;bottom:auto;width:auto;height:3px}
+    .csm-nav-pri .csm-nav-count{position:absolute;top:0;inset-inline-start:calc(50% + 4px);margin:0;min-width:18px;height:18px;line-height:18px;font-size:.64rem}
+    .csm-nav .csm-nav-more{display:flex;align-items:center;background:none;border:0}
+    .csm-nav-more[aria-expanded="true"],.csm-nav:has(.csm-nav-sec [aria-selected="true"]) .csm-nav-more{color:var(--teal)}
+    .csm-nav-sec{display:none;position:fixed;inset-inline:10px;bottom:calc(74px + env(safe-area-inset-bottom));background:#fff;border-radius:var(--radius-lg);box-shadow:0 18px 50px rgba(0,0,0,.25);padding:8px 10px 12px;max-height:70vh;overflow-y:auto;z-index:72}
+    .csm-nav.is-open .csm-nav-sec{display:block}
+    .csm-nav.is-open .csm-nav-scrim{display:block;position:fixed;inset:0;bottom:calc(64px + env(safe-area-inset-bottom));background:rgba(18,40,64,.35);z-index:71}
+    .csm-nav-sec [role=tablist]{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    .csm-nav-sec button[data-csm-tab]{flex-direction:column;gap:6px;padding:12px 4px;font-size:.76rem;text-align:center;background:var(--paper-raised)}
+    .csm-nav-sec button[data-csm-tab] svg{width:22px;height:22px}
+    .csm-nav-sec button[data-csm-tab][aria-selected="true"]::before{display:none}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+  }
+
+  /* ---------- מסכי הכניסה ---------- */
+  .auth-card{max-width:420px;width:calc(100% - 32px);margin:56px auto;background:#fff;border-radius:var(--radius-lg);padding:32px 24px;text-align:center;box-shadow:var(--shadow-md)}
+  .auth-card h2{margin:0 0 8px;font-size:1.25rem}
+  .auth-card p{color:var(--ink-soft);font-size:.9rem;margin:0 0 20px}
   .auth-card .btn{width:100%}
+  .auth-logo{width:56px;height:56px;margin:0 auto 14px;display:block}
   .auth-msg{margin-top:12px;font-size:.84rem;color:var(--gold-dark)}
   .g-btn{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
   .g-btn svg{width:18px;height:18px}
@@ -102,10 +178,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
 <header class="csm-top">
-  <a href="/" target="_blank" rel="noopener" aria-label="האתר של שוק נדל״ן (נפתח בלשונית חדשה)"><img src="assets/favicon.svg" alt=""></a>
-  <h1>אזור ההטמעה</h1>
-  <span class="who" id="csmWho"></span>
-  <button type="button" id="csmLogout" hidden>יציאה</button>
+  <a class="csm-brand" href="/" target="_blank" rel="noopener" aria-label="האתר של שוק נדל״ן (נפתח בלשונית חדשה)"><img src="assets/favicon.svg" alt=""><h1>אזור ההטמעה<small>שוק נדל״ן</small></h1></a>
+  <a class="csm-top-btn" id="csmGabriela" hidden data-bot href="https://wa.me/972532494740?text=%D7%94%D7%99%D7%99%20%D7%92%D7%91%D7%A8%D7%99%D7%90%D7%9C%D7%94" target="_blank" rel="noopener noreferrer" aria-label="גבריאלה בוואטסאפ (נפתח בלשונית חדשה)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1-1.7-.8c-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.2.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.3z"/></svg><span class="lbl">גבריאלה</span></a>
+  <button type="button" class="csm-top-btn is-icon csm-bell" id="csmBell" hidden aria-label="התראות"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="csm-bell-count" id="csmBellCount" hidden></span></button>
+  <button type="button" class="csm-top-btn is-icon" id="csmSettings" hidden aria-label="הגדרות"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <div class="csm-me"><span class="csm-me-av" id="csmMeAv" aria-hidden="true"></span><span class="who" id="csmWho"></span>
+    <button type="button" id="csmLogout" hidden>יציאה</button></div>
 </header>
 
 <!-- מסך ראשון: בדיקת ההתחברות. טופס הכניסה מוצג רק כשידוע שאין חיבור,
@@ -113,6 +191,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="auth-card" id="csmBoot"><p>בודקת התחברות…</p></div>
 
 <div class="auth-card" id="csmLogin" hidden>
+  <img class="auth-logo" src="assets/favicon.svg" alt="">
   <h2>אזור ההדרכות וההטמעה</h2>
   <p>לצוות ההטמעה של שוק נדל״ן. הכניסה עם חשבון ה-Google שאליו נשלחה ההזמנה.</p>
   <button type="button" class="btn g-btn" id="csmGoogle">
@@ -129,19 +208,41 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <main class="csm-main" id="csmApp" hidden>
-  <section class="csm-panel" id="accCsm" aria-label="הטמעת סוכנים">
-    <p class="acc-sub">כל סוכן/ת ומשרד בפיילוט, מההרשמה ועד שימוש עצמאי - עם פרטי הקשר ורמת השימוש.</p>
-    <div class="csm-tabs" role="tablist" aria-label="אזור ההטמעה">
-      <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
-      <button type="button" role="tab" data-csm-tab="offices" aria-selected="false">משרדים</button>
-      <button type="button" role="tab" data-csm-tab="mentor" aria-selected="false">המנטור</button>
-      <button type="button" role="tab" data-csm-tab="calls" aria-selected="false">הקלטות</button>
-      <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
-      <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
-      <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
-      <button type="button" role="tab" data-csm-tab="staff" aria-selected="false" hidden>צוות ההטמעה</button>
+  <section class="csm-shell" id="accCsm" aria-label="הטמעת סוכנים">
+    <nav class="csm-nav csm-tabs" id="csmNav" aria-label="ניווט באזור ההטמעה">
+      <div class="csm-nav-pri" role="tablist" aria-label="יום העבודה">
+        <div class="csm-nav-h" aria-hidden="true">יום העבודה</div>
+        <button type="button" role="tab" data-csm-tab="today" data-label="היום" data-sub="מה מחכה לך היום: העצה של המנטור, הפגישות ולמי לפנות." aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-6h4v6"/></svg><span class="csm-nav-lbl">היום</span></button>
+        <button type="button" role="tab" data-csm-tab="pipeline" data-label="הצנרת" data-sub="כל סוכן/ת ומשרד בפיילוט, מההרשמה ועד שימוש עצמאי - עם פרטי הקשר ורמת השימוש." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span class="csm-nav-lbl">צנרת</span></button>
+        <button type="button" role="tab" data-csm-tab="agenda" data-label="היומן" data-sub="הפגישות שלך לשבועיים, ומי שמועד הקשר שלו/ה הגיע ואין לו/ה פגישה." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="csm-nav-lbl">יומן</span></button>
+        <button type="button" role="tab" data-csm-tab="notifications" data-label="התראות" data-sub="תזכורות לפגישות, סוכנים חדשים, מי שבסיכון, סיכומי שיחה והעצה היומית." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="csm-nav-lbl">התראות</span><span class="csm-nav-count" hidden></span></button>
+      </div>
+      <button type="button" class="csm-nav-more" id="csmNavMore" aria-expanded="false" aria-controls="csmNavSec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg><span>עוד</span></button>
+      <div class="csm-nav-scrim" id="csmNavScrim"></div>
+      <div class="csm-nav-sec" id="csmNavSec">
+        <div class="csm-nav-h" aria-hidden="true">כלים</div>
+        <div role="tablist" aria-label="כלים">
+          <button type="button" role="tab" data-csm-tab="calls" data-label="הקלטות" data-sub="הקלטות של שיחות ופגישות: תמלול, סיכום והודעה מוצעת לסוכן/ת." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="csm-nav-lbl">הקלטות</span></button>
+          <button type="button" role="tab" data-csm-tab="mentor" data-label="המנטור" data-sub="מנטור ההטמעה רואה את כל התיק ועונה מתוך השיטה של שוק נדל״ן." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z"/><path d="M9.5 20.5h5"/></svg><span class="csm-nav-lbl">המנטור</span></button>
+          <button type="button" role="tab" data-csm-tab="offices" data-label="משרדים" data-sub="המשרדים בתיק, המנהלים והסוכנים בכל אחד." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/></svg><span class="csm-nav-lbl">משרדים</span></button>
+        </div>
+        <div class="csm-nav-h" aria-hidden="true">ידע ושיפור</div>
+        <div role="tablist" aria-label="ידע ושיפור">
+          <button type="button" role="tab" data-csm-tab="library" data-label="הדרכה ופקודות" data-sub="חומרי ההדרכה והפקודות המוכנות לגבריאלה." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 0 2 1h13v-3"/></svg><span class="csm-nav-lbl">הדרכה</span></button>
+          <button type="button" role="tab" data-csm-tab="feedback" data-label="משוב ותעדוף" data-sub="מה הסוכנים מבקשים, ומה הכי חוסם." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span class="csm-nav-lbl">משוב</span></button>
+          <button type="button" role="tab" data-csm-tab="stories" data-label="סיפורי הצלחה" data-sub="לפני ואחרי, במילים של הסוכנים." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span class="csm-nav-lbl">סיפורים</span></button>
+        </div>
+        <div class="csm-nav-h" aria-hidden="true">חשבון</div>
+        <div role="tablist" aria-label="חשבון">
+          <button type="button" role="tab" data-csm-tab="settings" data-label="הגדרות" data-sub="הפרופיל, ההתראות, שעות השקט והחיבור ליומן Google." aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="csm-nav-lbl">הגדרות</span></button>
+          <button type="button" role="tab" data-csm-tab="staff" data-label="צוות ההטמעה" data-sub="מי בצוות, ההזמנות והמספר הווירטואלי." aria-selected="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></svg><span class="csm-nav-lbl">צוות</span></button>
+        </div>
+      </div>
+    </nav>
+    <div class="csm-content">
+      <div class="csm-page-head"><h2 id="csmPageTitle">היום</h2><p class="acc-sub" id="csmPageSub"></p></div>
+      <div id="csmBody"><div class="empty-state">טוען…</div></div>
     </div>
-    <div id="csmBody"><div class="empty-state">טוען…</div></div>
   </section>
 </main>
 
