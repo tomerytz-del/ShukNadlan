@@ -16,6 +16,8 @@ Commands
   reel-next     [--count N]         next daily-reel candidate (JSON): category pattern R,R,C; no-video listings first;
                                    action render | reuse_site_video (agent / CRM reel / daily video already on the site)
   fetch-site-video --property P    download the site's video_url + poster -> <no>/reel/site_video.mp4 + site_cover.jpg
+  price-flags                      write per_sqm_flag notes into queue/state.json (sync does it too) and print them
+                                   (price per m² per month only when the agent's description says so: price_unit())
 
 Rules
   * eligible property: status=active, >=1 image, created >= 1 hour ago
@@ -224,6 +226,7 @@ def cmd_sync(args):
     order = [pid for pid in order if pid in eligible]
     new = [pid for pid in eligible if pid not in order]          # already listing_number-sorted
     order += new
+    apply_per_sqm_flags(props.values())      # per_sqm_flag notes (owner rule 2026-10-25)
     st = {
         "synced_at": now.isoformat(), "snapshot_generated_at": snap.get("generated_at"),
         "disclosure": snap.get("disclosure") or DEFAULT_DISCLOSURE,
@@ -379,6 +382,7 @@ def cmd_status(args):
     pairs = [(pid, g) for pid in st["order"] for g in st["properties"][pid]["_groups"]]
     never = sum(1 for k in pairs if k not in last)
     elig = sum(1 for k in pairs if k in last and now - last[k] >= timedelta(days=REPOST_DAYS))
+    allp = sorted(st["properties"].values(), key=lambda x: x["listing_number"] or 0)
     cats = {}
     for pid in st["order"]:
         c = st["properties"][pid]["category"]; cats[c] = cats.get(c, 0) + 1
@@ -387,7 +391,27 @@ def cmd_status(args):
                       "waiting_images": [st["properties"][x]["listing_number"] for x in st["waiting_images"]],
                       "waiting_age": [st["properties"][x]["listing_number"] for x in st["waiting_age"]],
                       "no_matching_groups": [st["properties"][x]["listing_number"] for x in st["no_matching_groups"]],
+                      "price_per_sqm_from_description": [p["listing_number"] for p in allp if per_sqm(p)],
+                      "suspect_price_no_explicit_unit": [p["listing_number"] for p in allp if suspect_price(p)],
+                      "price_unit_notes": {str(p["listing_number"]): "description states another per-m² number: "
+                                           + "; ".join(price_unit_info(p)["conflicts"])
+                                           for p in allp if suspect_price(p) and price_unit_info(p)["conflicts"]},
                       "today_used": used, "today_per_group": per_g}, ensure_ascii=False, indent=1))
+
+
+def cmd_price_flags(args):
+    """Write per_sqm_flag notes into queue/state.json (sync does this too) and print them."""
+    st = load_json(STATE)
+    apply_per_sqm_flags(st["properties"].values())
+    save_json(STATE, st)
+    out = []
+    for p in sorted(st["properties"].values(), key=lambda x: x["listing_number"] or 0):
+        f = p.get("per_sqm_flag")
+        if f:
+            num, suf = price_parts(p)
+            out.append({"listing_number": p["listing_number"], "price": p.get("price"), "size": size_of(p),
+                        "display": f"{num} ₪ {suf}".strip(), **f})
+    print(json.dumps(out, ensure_ascii=False, indent=1))
 
 
 # ---------------------------------------------------------------- assets
@@ -486,11 +510,99 @@ def floor_text(p):
     return s
 
 
+# ---------------------------------------------------------------- price unit (owner decision, Tomer 2026-10-25)
+# Some agents type the per-m² rent into the price field (1305: price 20, 3,000 m²). The price is shown as per m² per
+# month ('X ₪ למ"ר לחודש') ONLY when the agent's own text (description / marketing_description) says so explicitly:
+# the price number with ש"ח/₪/שקל and למ"ר / למטר / לממ"ר / per sqm, or wording like 'מחיר למ"ר: X'. Never inferred
+# from the price/size ratio. Per-m² listings never show a computed total or a computed price per m².
+_PU_NUM = r'(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)'
+_PU_CUR = r'(?:ש"ח|ש״ח|ש\'\'ח|ש”ח|₪|שקלים|שקל|nis|ils)'
+_PU_SQM = r'(?:ל\s*-?\s*מ"ר|ל\s*-?\s*מ״ר|ל\s*-?\s*מ”ר|ל\s*-?\s*מטר(?:\s*רבוע)?|לממ"ר|לממ״ר|לכל\s+מ"ר|לכל\s+מ״ר|לכל\s+מטר|/\s*מ"ר|/\s*מ״ר|/\s*מטר|per\s*sq\.?\s*m|per\s*sqm|per\s*m2|per\s*m²|/\s*sqm|/\s*m2)'
+_PU_MID = r'(?:\s*לחודש)?(?:\s*\+?\s*מע"מ)?\s*'
+_PU_PATTERNS = [
+    re.compile(_PU_NUM + r'\s*' + _PU_CUR + _PU_MID + _PU_SQM, re.I),                          # 20 ש"ח למ"ר
+    re.compile(_PU_CUR + r'\s*' + _PU_NUM + _PU_MID + _PU_SQM, re.I),                          # ₪20 למ"ר
+    re.compile(r'(?:מחיר|שכירות|שכ"ד|דמי\s+שכירות)\s*(?:מבוקש\s*)?(?:לחודש\s*)?' + _PU_SQM
+               + r'\s*(?:לחודש)?\s*[:\-]?\s*' + _PU_CUR + r'?\s*' + _PU_NUM, re.I),             # מחיר למ"ר: 20
+    re.compile(r'price\s*per\s*(?:sq\.?\s*m|sqm|m2|m²)\s*[:\-]?\s*' + _PU_CUR + r'?\s*' + _PU_NUM, re.I),
+]
+
+
+def _pu_num(s):
+    try:
+        return float(s.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def price_unit_info(p):
+    """{'unit': 'per_sqm_month'|'month'|'total', 'field', 'phrase', 'conflicts': [phrases with ANOTHER number]}.
+    'field'/'phrase' = where the description states the listed price per m² (exact quote)."""
+    price = p.get("price")
+    unit = "month" if p.get("deal_type") == "rent" else "total"
+    info = {"unit": unit, "field": None, "phrase": None, "conflicts": []}
+    if not price or p.get("deal_type") != "rent":
+        return info
+    for field in ("description", "marketing_description"):
+        txt = p.get(field) or ""
+        for rx in _PU_PATTERNS:
+            for m in rx.finditer(txt):
+                v = _pu_num(m.group(1))
+                phrase = " ".join(m.group(0).split())
+                if v is not None and abs(v - float(price)) < 1e-6:
+                    if not info["phrase"]:
+                        info.update(unit="per_sqm_month", field=field, phrase=phrase)
+                elif phrase not in info["conflicts"]:
+                    info["conflicts"].append(phrase)
+    return info
+
+
+def price_unit(p):
+    """'per_sqm_month' (price is per m² per month, stated in the agent's description) | 'month' (rent) | 'total' (sale)."""
+    return price_unit_info(p)["unit"]
+
+
+def per_sqm(p):
+    return price_unit(p) == "per_sqm_month"
+
+
+def suspect_price(p):
+    """Commercial rent with price < 500 whose description does NOT state per m² (posted as-is, listed for Tomer)."""
+    pr = p.get("price")
+    return (p.get("category") == "commercial" and p.get("deal_type") == "rent" and pr and float(pr) < 500
+            and not per_sqm(p))
+
+
+def per_sqm_flag(p):
+    """Note stored on the property in state.json (sync / price-flags); None for unaffected listings."""
+    i = price_unit_info(p)
+    if i["unit"] == "per_sqm_month":
+        return {"unit": "per_sqm_month", "field": i["field"], "phrase": i["phrase"],
+                "note": 'price shown as ₪ למ"ר לחודש: the agent\'s description states it per m² (owner rule 2026-10-25); no total computed'}
+    if suspect_price(p):
+        f = {"unit": "month", "suspect": True,
+             "note": "commercial rent price < 500 and the description does not state per m²; posted as-is per Tomer"}
+        if i["conflicts"]:
+            f["description_per_sqm_other_number"] = i["conflicts"]
+        return f
+    return None
+
+
+def apply_per_sqm_flags(props):
+    for p in props:
+        f = per_sqm_flag(p)
+        if f: p["per_sqm_flag"] = f
+        else: p.pop("per_sqm_flag", None)
+
+
 def price_parts(p):
     if not p.get("price"):
         return None, ""
     suf = []
-    if p.get("deal_type") == "rent":
+    u = price_unit(p)
+    if u == "per_sqm_month":
+        suf.append('למ"ר לחודש')
+    elif u == "month":
         suf.append("לחודש")
     if p.get("category") == "commercial" and p.get("price_includes_vat") is False:
         suf.append('+ מע"מ')
@@ -522,7 +634,7 @@ def ad_html(p, disc):
     else:
         if sz: chips.append(chip("sqm", f'{fmt_num(sz)} מ"ר'))
         if floor_text(p): chips.append(chip("floor", floor_text(p)))
-        if p.get("price_per_sqm"):
+        if p.get("price_per_sqm") and not per_sqm(p):
             chips.append(chip("price", f'₪{fmt_num(p["price_per_sqm"])} למ"ר' + (" לחודש" if p["deal_type"] == "rent" else "")))
         if is_lot(p) and p.get("land_zoning"): chips.append(chip("zoning", f"ייעוד: {p['land_zoning']}"))
         if is_lot(p) and p.get("sales_area"): chips.append(chip("check", p["sales_area"]))
@@ -642,7 +754,7 @@ def post_text(p, disc):
         if any(bits): L.append("🏠 " + " | ".join(b for b in bits if b))
     else:
         bits = [f'{fmt_num(sz)} מ"ר' if sz else None,
-                (f'₪{fmt_num(p["price_per_sqm"])} למ"ר' + (" לחודש" if p["deal_type"] == "rent" else "")) if p.get("price_per_sqm") else None]
+                (f'₪{fmt_num(p["price_per_sqm"])} למ"ר' + (" לחודש" if p["deal_type"] == "rent" else "")) if p.get("price_per_sqm") and not per_sqm(p) else None]
         if any(bits): L.append("📐 " + " | ".join(b for b in bits if b))
     if floor_text(p): L.append(f"🏢 {floor_text(p)}")
     if p.get("garden_sqm"): L.append(f'🌳 גינה {fmt_num(p["garden_sqm"])} מ"ר')
@@ -997,10 +1109,12 @@ def main():
     a.add_argument("--rate", help="TTS rate, e.g. +8%%"); a.add_argument("--tag", help="output suffix (default v3)"); a.add_argument("--track", help="tracks.json key")
     a = sp.add_parser("reel-next"); a.add_argument("--count", type=int, default=1, help="simulate the next N picks (list)")
     a = sp.add_parser("fetch-site-video"); a.add_argument("--property", required=True)
+    a = sp.add_parser("price-flags")
     args = ap.parse_args()
     {"reel-next": cmd_reel_next, "fetch-site-video": cmd_fetch_site_video,
      "sync": cmd_sync, "next": cmd_next, "build-assets": cmd_build, "record": cmd_record, "status": cmd_status,
-     "build-stories": cmd_reel, "build-reel": cmd_reel, "build-captions": cmd_captions}[args.cmd](args)
+     "build-stories": cmd_reel, "build-reel": cmd_reel, "build-captions": cmd_captions,
+     "price-flags": cmd_price_flags}[args.cmd](args)
 
 
 if __name__ == "__main__":

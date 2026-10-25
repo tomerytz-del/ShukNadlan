@@ -540,6 +540,8 @@ def facts(p):
         pps = round(float(p["price"]) / float(sz))
     if p.get("deal_type") == "rent" and p.get("category") != "commercial":
         pps = None
+    if Q.per_sqm(p):          # the price itself is per m² per month (agent's description, owner rule 2026-10-25)
+        pps = None
     f["ppsqm"] = f'₪{Q.fmt_num(round(float(pps)))} למ"ר' if pps else None
     f["ppsqm_num"] = f"₪{Q.fmt_num(round(float(pps)))}" if pps else None
     feats = p.get("features") or []

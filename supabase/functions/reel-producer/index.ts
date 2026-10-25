@@ -96,7 +96,9 @@ const PROPERTY_COLS =
   "id, listing_number, title, status, images, category, property_type, deal_type, price, price_includes_vat, " +
   "rooms, size_sqm, built_size_sqm, area_sqm, floor, total_floors, features, city, street, sales_area, " +
   "neighborhood_id, garden_sqm, price_per_sqm, move_in_date, land_zoning, maintenance_fee, arnona, " +
-  "created_at, agent_id, agency_id, video_url";
+  "created_at, agent_id, agency_id, video_url, " +
+  // ‏price_unit() ב-queue.py: "X ₪ למ"ר לחודש" רק כשהתיאור של הסוכן/ת אומר זאת במפורש
+  "description, marketing_description";
 
 async function renderData(supabase: Sb, propertyId: string) {
   const { data: property } = await supabase.from("properties").select(PROPERTY_COLS).eq("id", propertyId).maybeSingle();

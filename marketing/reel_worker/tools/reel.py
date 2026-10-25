@@ -1265,7 +1265,8 @@ def v3_script(p, slides):
     fs = [FEAT_SPOKEN[f] for f in Q.features(p, 4) if f in FEAT_SPOKEN]
     s4 = ("עם " + join_and(fs) + ".") if fs else ""
     num, suf = Q.price_parts(p)
-    price = f"{num_words(p['price'])} שקל" + (" לחודש" if p.get("deal_type") == "rent" else "") + (' פלוס מע"מ' if 'מע"מ' in suf else "") + "." if num else ""
+    unit = {"per_sqm_month": " למטר לחודש", "month": " לחודש"}.get(Q.price_unit(p), "")   # shared helper (2026-10-25)
+    price = f"{num_words(p['price'])} שקל" + unit + (' פלוס מע"מ' if 'מע"מ' in suf else "") + "." if num else ""
     first = (p.get("agent_name") or "").split()[0] if p.get("agent_name") else ""
     s5 = (price + " " + (f"דברו עכשיו עם {first}." if first else "דברו איתנו עכשיו.")).strip()
     lines = [s1, s2, s3, s4, s5]
@@ -1297,7 +1298,7 @@ def vo_fallbacks(p, used=""):
         out.append(f"{tp}, {rs}." if tp and pt != "דירה" else f"{rs}.")
     if sz and num_words(sz) not in used:
         out.append(f"{num_words(sz)} מטר.")
-    if p.get("price") and sz and (p.get("category") == "commercial" or lot):
+    if p.get("price") and sz and (p.get("category") == "commercial" or lot) and not Q.per_sqm(p):
         ppm = int(round(float(p["price"]) / float(sz)))
         if ppm > 0:
             out.append(f"{num_words(ppm)} שקל למטר{' לחודש' if p.get('deal_type') == 'rent' else ''}.")
