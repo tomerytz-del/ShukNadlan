@@ -563,7 +563,7 @@
   }
 
   /* ---------- מיתוג התצוגה, לא גוף המסמך ----------
-     הכותרת (לוגו המשרד, שם, רישיון, טלפון, ו"באמצעות שוק נדל״ן") יושבת
+     הכותרת (לוגו המשרד, שם, רישיון, טלפון, ו"שוק נדל״ן") יושבת
      מחוץ ל-document_html הקפוא. paintBrand ממלאת כותרת קיימת בדף.
      brandChromeHtml נבנית רק לרגע ה-PDF ונזרקת. */
   function httpsLogo(url) {
@@ -653,7 +653,7 @@
           '</div>' +
           '<div style="text-align:center;color:#8a6d10;font-size:11px;font-weight:700">' +
             '<img src="assets/logo-shuknadlan.png" alt="שוק נדל״ן" width="36" height="43" style="display:block;margin:0 auto 3px">' +
-            '<span>באמצעות שוק נדל״ן</span>' +
+            '<span>שוק נדל״ן</span>' +
           '</div>' +
         '</div>' +
       '</div>';
