@@ -106,19 +106,28 @@
     return null;
   }
 
-  function queryOf(page) {
+  function queryParts(page, select, limit) {
     var parts = [
-      "select=id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)",
+      "select=" + select,
       "status=eq.active",
       "deal_type=eq.sale",
       "category=eq.residential",
       "city=eq." + encodeURIComponent("עפולה"),
       "order=is_promoted.desc,created_at.desc",
-      "limit=24",
+      "limit=" + limit,
     ];
     if (page.property_type) parts.push("property_type=eq." + encodeURIComponent(page.property_type));
     if (page.rooms != null) parts.push("rooms=eq." + encodeURIComponent(String(page.rooms)));
     return parts.join("&");
+  }
+
+  function queryOf(page) {
+    return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)", 24);
+  }
+
+  /* ספירת שכונות לאותו סוג בדיוק, לא לכל העיר. */
+  function hoodCountQuery(page) {
+    return queryParts(page, "sales_area,neighborhoods(name)", 1000);
   }
 
   function renderUrl(url, w, h, resize) {
@@ -258,15 +267,23 @@
 
   function filters(page) {
     var html = '<nav class="land-filters" aria-label="סינון מהיר">';
-    html += chip(searchHref(page, { deal: "sale" }), "לקנייה", true);
-    html += chip(searchHref(page, { deal: "rent" }), "להשכרה", false);
-    html += chip(searchHref(page, { maxPrice: "1500000" }), "עד" + sp() + bdi("1.5") + sp() + "מיליון", false);
-    html += chip(searchHref(page, { maxPrice: "2500000" }), "עד" + sp() + bdi("2.5") + sp() + "מיליון", false);
-    html += chip(searchHref(page, { minPrice: "2500000" }), "מ-" + bdi("2.5") + sp() + "מיליון", false);
-    var rooms = [3, 4, 5];
+    html += chip(searchHref(page, { deal: "sale" }), "<span>לקנייה</span>", true);
+    html += chip(searchHref(page, { deal: "rent" }), "<span>להשכרה</span>", false);
+    html += chip(searchHref(page, { maxPrice: "1000000" }), "<span>עד</span>" + bdi("1") + "<span>מיליון</span>", false);
+    html += chip(searchHref(page, { maxPrice: "1500000" }), "<span>עד</span>" + bdi("1.5") + "<span>מיליון</span>", false);
+    html += chip(searchHref(page, { maxPrice: "2500000" }), "<span>עד</span>" + bdi("2.5") + "<span>מיליון</span>", false);
+    html += chip(searchHref(page, { minPrice: "2500000" }), "<span>מ-</span>" + bdi("2.5") + "<span>מיליון</span>", false);
+    /* בדף 3 חדרים אין צ'יפ שמסמן את העמוד עצמו. במקומו שכונות. */
+    var rooms = page.rooms === 3 ? [4, 5] : [3, 4, 5];
     for (var i = 0; i < rooms.length; i++) {
       var r = rooms[i];
-      html += chip(searchHref(page, { rooms: String(r), deal: "sale" }), bdi(String(r)) + sp() + "חדרים", page.rooms === r);
+      html += chip(searchHref(page, { rooms: String(r) }), bdi(String(r)) + "<span>חדרים</span>", false);
+    }
+    if (page.rooms === 3) {
+      var near = [["מרכז העיר", "מרכז-העיר"], ["רובע יזרעאל", "רובע-יזרעאל"], ["גבעת המורה", "גבעת-המורה"]];
+      for (var h = 0; h < near.length; h++) {
+        html += chip("/n/afula/" + encodeURIComponent(near[h][1]), "<span>" + escapeHtml(near[h][0]) + "</span>", false);
+      }
     }
     return html + "</nav>";
   }
@@ -280,6 +297,15 @@
       if (mid > 0) bits.push("<li>מחיר חציוני" + sp() + bdi(escapeHtml(money(mid))) + "</li>");
       var fresh = newCount(rows);
       if (fresh > 0) bits.push("<li>" + countPhrase(fresh, "חדש השבוע", "חדשים השבוע") + "</li>");
+      else {
+        var prices = pricesOf(rows);
+        if (prices.length) {
+          var lo = money(prices[0]);
+          var hi = money(prices[prices.length - 1]);
+          var range = lo === hi ? bdi(escapeHtml(lo)) : bdi(escapeHtml(lo)) + sp() + "-" + sp() + bdi(escapeHtml(hi));
+          bits.push("<li>" + range + "</li>");
+        }
+      }
     }
     if (!bits.length) return "";
     return '<ul class="land-chips">' + bits.join("") + "</ul>";
@@ -292,32 +318,16 @@
     return "עודכן לאחרונה" + sp() + bdi(label);
   }
 
-  /* תמונת השער: המודעה החדשה ביותר מאותו סוג (השאילתה כבר מסוננת)
-     שיש לה תמונה. תמונת השער של המודעה היא הראשונה ברשימה, זו שהמשרד
-     שם כמובילה. בלי תמונה - תמונת העמק. */
-  function heroPick(rows) {
-    var list = listOf(rows).filter(function (p) { return firstImage(p); });
-    list.sort(function (a, b) {
-      var dt = Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0);
-      if (dt) return dt;
-      return String(a.id || "").localeCompare(String(b.id || ""));
-    });
-    return list.length ? firstImage(list[0]) : "";
-  }
-
-  function heroHtml(rows) {
-    var img = heroPick(rows);
-    if (!img) {
-      return '<picture>'
-        + '<source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">'
-        + '<source type="image/webp" srcset="assets/hero-valley.webp">'
-        + '<img src="assets/hero-valley-800.webp" alt="" width="800" height="450" fetchpriority="high" decoding="async">'
-        + "</picture>";
-    }
-    var src = renderUrl(img, 1200, 675);
-    return '<img src="' + escapeHtml(src) + '" alt="" width="1200" height="675" fetchpriority="high" decoding="async"'
-      + ' data-full="' + escapeHtml(img) + '"'
-      + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">';
+  /* תמונת השער היא תמונת העמק, לא תמונת המודעה החדשה.
+     קולאז' ומסדרון חשוך לא ניתנים לזיהוי זול: הקבצים הם JPEG פרוגרסיבי,
+     ובהירות ממוצעת של התמונות הבעייתיות היא רגילה (לא כהה). בלי זיהוי
+     כזה לא שמים תמונת מודעה בשער. הרוחב ב-srcset הוא הרוחב האמיתי של
+     הקבצים שכבר בריפו (640 ו-1920), בלי קובץ חדש. */
+  function heroHtml() {
+    return '<img src="assets/hero-valley-800.webp"'
+      + ' srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w"'
+      + ' sizes="100vw" alt="" width="640" height="768"'
+      + ' fetchpriority="high" decoding="async">';
   }
 
   function badge(p) {
@@ -335,16 +345,18 @@
     return bits.join(" · ");
   }
 
+  var HOUSE_ICON = '<span class="land-ph" aria-hidden="true"><svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M6 22 24 8l18 14"/><path d="M12 20v18h24V20"/><path d="M20 38V28h8v10"/></svg></span>';
+
   function propCard(p) {
     var img = firstImage(p);
-    var pic = '<span class="land-skel" aria-hidden="true"></span>';
+    var pic = HOUSE_ICON;
     if (img) {
       var small = renderUrl(img, 400, 250);
       var large = renderUrl(img, 800, 500);
       var alt = escapeHtml(p.title || "");
       if (small && large) {
         pic = '<img src="' + escapeHtml(large) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(large) + ' 800w"'
-          + ' sizes="(min-width:900px) 320px, 50vw" alt="' + alt + '"'
+          + ' sizes="(min-width:900px) 360px, (min-width:520px) 50vw, 100vw" alt="' + alt + '"'
           + ' width="320" height="200" loading="lazy" decoding="async"'
           + ' data-full="' + escapeHtml(img) + '"'
           + ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')">';
@@ -378,7 +390,7 @@
   function allButton(page, rows, extras) {
     var n = activeCount(rows, extras);
     if (!(n > 0)) return "";
-    var label = n === 1 ? "לנכס אחד" : "לכל " + bdi(num(n)) + " הנכסים";
+    var label = n === 1 ? "<span>לנכס אחד</span>" : "<span>לכל</span>" + bdi(num(n)) + "<span>הנכסים</span>";
     return '<p class="land-more"><a class="land-btn land-btn-primary" data-land-cta data-count="' + n + '" href="'
       + escapeHtml(allHref(page)) + '">' + label + "</a></p>";
   }
@@ -406,6 +418,26 @@
     var html = '<section class="land-related"><h2>עוד נכסים בעפולה</h2><ul class="land-grid">';
     for (var i = 0; i < rel.length; i++) html += propCard(rel[i]);
     return html + "</ul></section>";
+  }
+
+  function hoodRowsFromListings(rows) {
+    var counts = {};
+    for (var i = 0; i < HOODS.length; i++) counts[HOODS[i][1]] = 0;
+    var list = listOf(rows);
+    for (var j = 0; j < list.length; j++) {
+      var name = hoodName(list[j]);
+      for (var h = 0; h < HOODS.length; h++) {
+        if (name === HOODS[h][0]) {
+          counts[HOODS[h][1]]++;
+          break;
+        }
+      }
+    }
+    var out = [];
+    for (var k = 0; k < HOODS.length; k++) {
+      out.push({ path_key: "afula/" + HOODS[k][1], props: counts[HOODS[k][1]] });
+    }
+    return out;
   }
 
   function hoodMap(extras) {
@@ -472,7 +504,11 @@
       var active = activeCount(rows, extras);
       if (active > 0) stat = countPhrase(active, "מודעה פעילה בעפולה", "מודעות פעילות בעפולה");
     }
-    if (!stat) return "";
+    if (!stat && !offices.length) return "";
+    var head = offices.length
+      ? countPhrase(offices.length, "משרד פעיל", "משרדים פעילים") + " - משרדי התיווך שמפרסמים בעפולה"
+      : stat;
+    if (!head) return "";
     var strip = "";
     if (logos.length >= 4) {
       strip = '<ul class="land-logos">';
@@ -483,7 +519,7 @@
       }
       strip += "</ul>";
     }
-    return '<section class="land-trust"><h2>בעפולה</h2>' + strip + '<p class="land-stat">' + stat + "</p>"
+    return '<section class="land-trust"><h2>' + head + "</h2>" + strip
       + '<p><a href="/afula/מתווכים">מתווכים בעפולה</a></p></section>';
   }
 
@@ -501,8 +537,6 @@
       ["האם המחיר שמופיע הוא המחיר הסופי?", "המחיר והמפרט המלא נמצאים בדף של כל נכס. אם אין מחיר במודעה, הוא לפי פנייה."],
       ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות בעפולה, ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
       ["מה עושים כשאין מודעות בקטגוריה?", "אפשר להשאיר התראה דרך החיפוש השמור שכבר באתר, ולקבל עדכון כשעולה נכס שמתאים."],
-      ["איך מסננים לפי מחיר או חדרים?", "שורת הסינון מובילה לחיפוש הקיים באתר, עם סוג העסקה, טווח המחיר ומספר החדרים."],
-      ["כמה מודעות מוצגות כאן?", "בעמוד מוצגות עד 9 מודעות פעילות מתוך " + page.h1 + ". כפתור לכל הנכסים פותח את שאר הרשימה בחיפוש."],
     ];
   }
 
@@ -527,7 +561,7 @@
 
   function finalCta() {
     return '<section class="land-final"><h2>רוצים לשמוע כשעולה נכס מתאים?</h2>'
-      + "<p>נעדכן אתכם ברגע שיעלה נכס שמתאים. זו ההתראה שכבר קיימת באתר.</p>"
+      + "<p>נעדכן אתכם ברגע שיעלה נכס שמתאים.</p>"
       + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></section>';
   }
 
@@ -618,6 +652,8 @@
     cityId: CITY_ID,
     pageOf: pageOf,
     queryOf: queryOf,
+    hoodCountQuery: hoodCountQuery,
+    hoodRowsFromListings: hoodRowsFromListings,
     render: render,
     heroHtml: heroHtml,
     chipsHtml: chipsHtml,

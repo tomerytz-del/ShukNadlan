@@ -126,7 +126,7 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 - **הרשימה ב-HTML הראשון**, מאותו קובץ render שהדפדפן מריץ כשאין `data-ssr`. כרטיס ראשון עם מידות ו-`render/image`, כמו דף שכונה.
 - **רשימה ריקה אינה כשל.** מערך ריק הוא 200 עם `noindex` ו-`no-store`, בלי `Retry-After`. זה שונה במכוון משורת `prices` בטבלה למעלה: שם דף ריק הוא הדף. כאן אין מה לאנדקס. `undefined` נשאר 503 בלי `noindex`, עם ה-canonical של הכתובת כבר כתוב.
 - **שלושה בלוקי JSON-LD**, לא אחד במקום השני: `WebPage`, `BreadcrumbList`, `ItemList`. `<` בתוך JSON הוא `\u003c`. הבדיקה מפרסרת את שלושתם. `FAQPage` הוא בלוק רביעי, והשאלות זהות ל-`<details>` שבעמוד. הוא אינו מחליף אף אחד מהשלושה.
-- **תמונת הגיבור** היא `fetchpriority="high"` וה-`preload` מצביע עליה. לכרטיסים יש `width` ו-`height`, והם `loading="lazy"`.
+- **תמונת הגיבור** היא תמונת העמק, `fetchpriority="high"`, עם `srcset` ו-`preload` שמצביע עליה. הגובה של התיבה נעול. לכרטיסים יש `width` ו-`height`, והם `loading="lazy"`.
 - **השורה ב-sitemap סטטית** (`sitemap.xml`), בלי `lastmod`. לא מוסיפים את אותו URL גם כמקור ב-`sitemap.ts`: הוא היה מופיע פעמיים. `check_canonical.py` דורש את הכתובת ב-sitemap ואת הפונקציה ב-`OWN_EDGE`, ולא רושם את המעטפת כמקור דינמי.
 
 מדור מתווכים (`/afula/מתווכים`) יושב על אותו חוזה סטטוס. ה-`ItemList` שלו הוא `LocalBusiness` + `RealEstateAgent`, ועוד `BreadcrumbList`. הוא אינו מחליף את `/about`.

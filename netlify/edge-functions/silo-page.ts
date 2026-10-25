@@ -50,6 +50,8 @@ type Silo = {
   cityId: string;
   pageOf: (pathname: string) => Page | null;
   queryOf: (page: Page) => string;
+  hoodCountQuery: (page: Page) => string;
+  hoodRowsFromListings: (rows: Row[]) => Row[];
   render: (page: Page, rows: Row[], extras?: Extras) => string;
   heroHtml: (rows: Row[]) => string;
   chipsHtml: (page: Page, rows: Row[], extras?: Extras) => string;
@@ -117,11 +119,26 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
   const extras: Extras = { total: got.total, counted: got.counted, hoods: null, related: [], agencies: [] };
   const S = silo();
   const tasks: Promise<void>[] = [];
-  tasks.push(optionalJson(
-    `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=200`,
-  ).then((data) => {
-    if (Array.isArray(data)) extras.hoods = data as Row[];
-  }));
+  tasks.push((async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), EXTRA_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?${S.hoodCountQuery(page)}`, {
+        headers: { ...authHeaders(), Prefer: "count=exact" },
+        signal: ctrl.signal,
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      const match = (res.headers.get("content-range") || "").match(/\/(\d+)\s*$/);
+      if (match && data.length !== Number(match[1])) return;
+      extras.hoods = S.hoodRowsFromListings(data as Row[]);
+    } catch {
+      /* הספירה משנית */
+    } finally {
+      clearTimeout(timer);
+    }
+  })());
   tasks.push(optionalJson(
     `${SUPABASE_URL}/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq.${S.cityId}&order=name.asc&limit=48`,
   ).then((data) => {
@@ -185,7 +202,10 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   const hero = S.heroHtml(rows);
   const preloadMatch = hero.match(/<img[^>]*fetchpriority="high"[^>]*>/);
   const src = preloadMatch ? (preloadMatch[0].match(/\bsrc="([^"]+)"/) || [])[1] : "";
-  const preload = src ? `<link rel="preload" as="image" href="${src}" fetchpriority="high">\n` : "";
+  const srcset = preloadMatch ? (preloadMatch[0].match(/\bsrcset="([^"]+)"/) || [])[1] : "";
+  const preload = src
+    ? `<link rel="preload" as="image" href="${src}"${srcset ? ` imagesrcset="${srcset}" imagesizes="100vw"` : ""} fetchpriority="high">\n`
+    : "";
   const benefit = page.benefit || page.description;
   const count = extras.counted && Number(extras.total) > 0
     ? String(extras.total)

@@ -47,6 +47,8 @@
     box.setAttribute("data-ssr", "0");
     var chips = document.getElementById("landChips");
     if (chips && B.chipsHtml) chips.innerHTML = B.chipsHtml(packed);
+    var updated = document.getElementById("landUpdated");
+    if (updated && B.updatedHtml) updated.innerHTML = B.updatedHtml(packed);
     var all = document.getElementById("landAll");
     if (all) {
       var n = 0;

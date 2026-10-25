@@ -29,6 +29,7 @@ type Api = {
   agencyQuery: () => string;
   render: (data: Data) => string;
   chipsHtml: (data: Data) => string;
+  updatedHtml: (data: Data) => string;
   scripts: (data: Data, site: string) => string;
   fullTitle: () => string;
 };
@@ -151,6 +152,7 @@ export function inject(html: string, page: Page, data: Data): string {
     .replace(/(<p class="land-benefit" id="brokersBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(page.benefit || page.description)}${b}`)
     .replace(/(<span id="brokersCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
     .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${A.chipsHtml(data)}</div>`)
+    .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${A.updatedHtml(data)}</p>`)
     .replace(/(<a\b[^>]*\bid="landAll"[^>]*)(>)/, (_m, open, end) => {
       let next = String(open).replace(/\bdata-count="[^"]*"/, `data-count="${listings}"`);
       return next + end;

@@ -29,8 +29,12 @@
     var match = /\/(\d+)\s*$/.exec(range);
     var extras = { total: match ? Number(match[1]) : rows.length, counted: !!match, hoods: null, related: [], agencies: [] };
     var tasks = [
-      get(SUPABASE_URL + "/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=200").then(function (x) {
-        if (Array.isArray(x.data)) extras.hoods = x.data;
+      get(SUPABASE_URL + "/rest/v1/properties?" + S.hoodCountQuery(page), "count=exact").then(function (x) {
+        if (!Array.isArray(x.data)) return;
+        var range = x.res.headers.get("content-range") || "";
+        var m = /\/(\d+)\s*$/.exec(range);
+        if (m && x.data.length !== Number(m[1])) return;
+        extras.hoods = S.hoodRowsFromListings(x.data);
       }).catch(function () {}),
       get(SUPABASE_URL + "/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq." + S.cityId + "&order=name.asc&limit=48").then(function (x) {
         if (Array.isArray(x.data)) extras.agencies = x.data;

@@ -23,7 +23,14 @@ const AGENCY = {
   address: "הולנד 12 עפולה",
   tagline: "מגורים",
   logo_url: "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/logos/a.png",
+  updated_at: "2026-10-01T00:00:00.000Z",
 };
+const MORE = [
+  { id: "a2", slug: "by", name: "BY", logo_url: null },
+  { id: "a3", slug: "mc", name: 'Mc נדל"ן', logo_url: "" },
+  { id: "a4", slug: "ab", name: "א.ב יזמות", logo_url: "" },
+  { id: "a5", slug: "aviv", name: "אביב נכסים", logo_url: "" },
+];
 const AGENT = { slug: "dana", display_name: "דנה", agency_id: "a1" };
 const CARD = { agency_id: "a1", active_count: 4 };
 
@@ -34,7 +41,7 @@ function route(url: string, agenciesStatus: number): Response {
   if (url.includes("agency_members_public")) {
     return new Response(JSON.stringify([AGENT]), { status: agenciesStatus === 200 ? 200 : 500 });
   }
-  return new Response(JSON.stringify(agenciesStatus === 200 ? [AGENCY] : { message: "no" }), { status: agenciesStatus });
+  return new Response(JSON.stringify(agenciesStatus === 200 ? [AGENCY, ...MORE] : { message: "no" }), { status: agenciesStatus });
 }
 
 async function run(pathname: string, agenciesStatus: number, membersOk = true): Promise<Response> {
@@ -71,16 +78,26 @@ function blocks(html: string): Record<string, unknown>[] {
   check("canonical", html.includes(`href="${CANON}"`));
   check("משרד ומתווך", html.includes("/agency?slug=adel") && html.includes("/agent?slug=dana"));
   check("ספירה", html.includes('<bdi>4</bdi><span class="land-sp"> </span>נכסים פעילים'));
-  check("רווח בחדרים", html.includes('<bdi>3</bdi><span class="land-sp"> </span>חדרים'));
-  check("FAQ", types.includes("FAQPage") && html.includes("<details>"));
-  check("התראה", html.includes("קבלו התראה"));
-  check("משרדים פעילים", html.includes("משרד פעיל בעפולה"));
+  const faq = ld.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
+  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 4);
+  check("התראה", html.includes("קבלו התראה") && !html.includes("זו ההתראה שכבר קיימת באתר"));
+  check("כותרת משרדים", html.includes("משרדי התיווך שמפרסמים בעפולה"));
+  const body = (html.split('id="brokersBody"')[1] || "").split("<!--/brokers-->")[0];
+  check("בלי סינון נכסים", !body.includes("rooms=3") && !body.includes('aria-label="סינון מהיר"'));
+  check("עודכן", html.includes("עודכן לאחרונה") && html.includes("<bdi>01.10.2026</bdi>"));
+  check("ראשי תיבות", html.includes('class="land-avatar" aria-hidden="true">BY<')
+    && html.includes('class="land-avatar" aria-hidden="true">Mc<')
+    && html.includes('class="land-avatar" aria-hidden="true">א.ב<')
+    && html.includes('class="land-avatar" aria-hidden="true">אנ<'));
   check("script לא נשבר", !html.includes("אדל </script>"));
   check("סוגים", types.includes("WebPage") && types.includes("BreadcrumbList") && types.includes("ItemList"));
-  check("פירורים", !!crumbs && crumbs.itemListElement.length === 2);
+  check("פירורים", !!crumbs && crumbs.itemListElement.length === 3
+    && (crumbs.itemListElement[1] as { name: string; item: string }).name === "עפולה"
+    && (crumbs.itemListElement[1] as { item: string }).item === SITE + "/");
   check("LocalBusiness", !!list && list.itemListElement[0].item["@type"].includes("LocalBusiness")
     && list.itemListElement[0].item["@type"].includes("RealEstateAgent"));
-  check("מקום ללוגו", html.includes('width="72"') && html.includes('height="72"'));
+  check("מקום ללוגו", html.includes('width="48"') && html.includes('height="48"'));
+  check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">עפולה</a>"));
 }
 
 {

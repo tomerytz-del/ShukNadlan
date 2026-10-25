@@ -41,8 +41,31 @@
   }
 
   function agencyQuery() {
-    return "select=id,slug,name,address,tagline,logo_url&city_id=eq." + CITY_ID
+    return "select=id,slug,name,address,tagline,logo_url,updated_at&city_id=eq." + CITY_ID
       + "&order=name.asc&limit=200";
+  }
+
+  function shortDate(ms) {
+    if (!ms) return "";
+    var d = new Date(ms);
+    var dd = String(d.getUTCDate()).padStart(2, "0");
+    var mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    return dd + "." + mm + "." + d.getUTCFullYear();
+  }
+
+  function initials(name) {
+    var s = String(name || "").replace(/["״״']/g, "").trim();
+    if (!s) return "מ";
+    var dotted = s.match(/^([A-Za-zא-ת])\s*\.\s*([A-Za-zא-ת])/);
+    if (dotted) return dotted[1] + "." + dotted[2];
+    var words = s.split(/\s+/).filter(Boolean);
+    var first = words[0] || s;
+    if (/^[A-Za-z0-9&.]{1,4}$/.test(first)) return first;
+    var letters = [];
+    for (var i = 0; i < words.length && letters.length < 2; i++) {
+      if (words[i].charAt(0)) letters.push(words[i].charAt(0));
+    }
+    return letters.join("") || first.slice(0, 2);
   }
 
   function renderUrl(url, resize) {
@@ -57,10 +80,10 @@
 
   function logo(url, alt) {
     if (typeof url !== "string" || url.indexOf(IMG_HOST) !== 0) {
-      return '<span class="land-logo-ph" aria-hidden="true"></span>';
+      return '<span class="land-avatar" aria-hidden="true">' + escapeHtml(initials(alt)) + "</span>";
     }
     var src = renderUrl(url) || url;
-    return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" width="72" height="72" loading="lazy" decoding="async"'
+    return '<img src="' + escapeHtml(src) + '" alt="" width="48" height="48" loading="lazy" decoding="async"'
       + ' data-full="' + escapeHtml(url) + '"'
       + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">';
   }
@@ -78,21 +101,15 @@
       + "</span></a></li>";
   }
 
-  function chip(href, label) {
-    return '<a href="' + escapeHtml(href) + '">' + label + "</a>";
-  }
-
-  function filters() {
-    return '<nav class="land-filters" aria-label="סינון מהיר">'
-      + chip("/?deal=sale", "לקנייה")
-      + chip("/?deal=rent", "להשכרה")
-      + chip("/?deal=sale&maxPrice=1500000", "עד" + sp() + bdi("1.5") + sp() + "מיליון")
-      + chip("/?deal=sale&maxPrice=2500000", "עד" + sp() + bdi("2.5") + sp() + "מיליון")
-      + chip("/?deal=sale&minPrice=2500000", "מ-" + bdi("2.5") + sp() + "מיליון")
-      + chip("/?deal=sale&rooms=3", bdi("3") + sp() + "חדרים")
-      + chip("/?deal=sale&rooms=4", bdi("4") + sp() + "חדרים")
-      + chip("/?deal=sale&rooms=5", bdi("5") + sp() + "חדרים")
-      + "</nav>";
+  function updatedHtml(data) {
+    var best = 0;
+    var agencies = (data && data.agencies) || [];
+    for (var i = 0; i < agencies.length; i++) {
+      var t = Date.parse(agencies[i].updated_at || "");
+      if (isFinite(t) && t > best) best = t;
+    }
+    if (!best) return "";
+    return "עודכן לאחרונה" + sp() + bdi(shortDate(best));
   }
 
   function listingSum(agencies) {
@@ -109,29 +126,6 @@
     if (agencies.length > 0) bits.push("<li>" + countPhrase(agencies.length, "משרד פעיל", "משרדים פעילים") + "</li>");
     if (!bits.length) return "";
     return '<ul class="land-chips">' + bits.join("") + "</ul>";
-  }
-
-  function neighborhoods(data) {
-    var S = root.ShukSilo;
-    if (!S || typeof S.countedNeighborhoods !== "function") return "";
-    return S.countedNeighborhoods((data && data.hoods) || null);
-  }
-
-  function trust(agencies) {
-    if (!agencies.length) return "";
-    var logos = [];
-    for (var i = 0; i < agencies.length; i++) {
-      if (typeof agencies[i].logo_url === "string" && agencies[i].logo_url.indexOf(IMG_HOST) === 0) logos.push(agencies[i]);
-    }
-    var stat = '<p class="land-stat">' + countPhrase(agencies.length, "משרד פעיל בעפולה", "משרדים פעילים בעפולה") + "</p>";
-    if (logos.length < 4) return '<section class="land-trust"><h2>בעפולה</h2>' + stat + "</section>";
-    var strip = '<ul class="land-logos">';
-    for (var j = 0; j < logos.length && j < 12; j++) {
-      var src = renderUrl(logos[j].logo_url) || logos[j].logo_url;
-      strip += '<li><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(logos[j].name || "משרד תיווך")
-        + '" width="72" height="72" loading="lazy" decoding="async"></li>';
-    }
-    return '<section class="land-trust"><h2>בעפולה</h2>' + strip + stat + "</section>";
   }
 
   function relatedCards(data) {
@@ -160,7 +154,6 @@
       ["איך מגיעים לנכסים של משרד?", "לכל משרד יש דף עם המלאי הפעיל, ולכל מתווך או מתווכת דף עם הרישיון."],
       ["האם אלה כל המשרדים בעיר?", "אלה המשרדים בעפולה שמפרסמים באתר. לכל המשרדים ולכל המתווכים באתר יש עמודים נפרדים."],
       ["איך מקבלים התראה על נכס חדש?", "כפתור קבלו התראה פותח את החיפוש השמור שכבר באתר."],
-      ["איפה רואים עסקאות ומחירים?", "עסקאות בעפולה ומחירי דירות לפי חדרים נמצאים בעמודים שלהם, עם קישור בגוף העמוד."],
     ];
   }
 
@@ -191,47 +184,46 @@
 
   function finalCta() {
     return '<section class="land-final"><h2>רוצים לשמוע כשעולה נכס מתאים?</h2>'
-      + "<p>נעדכן אתכם ברגע שיעלה נכס שמתאים. זו ההתראה שכבר קיימת באתר.</p>"
+      + "<p>נעדכן אתכם ברגע שיעלה נכס שמתאים.</p>"
       + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></section>';
   }
 
   function render(data) {
     var agencies = (data && data.agencies) || [];
     var agents = (data && data.agents) || [];
-    var html = filters();
+    var html = "";
     if (!agencies.length && !agents.length) {
       html += '<div class="land-empty"><p>אין כרגע משרדים להצגה.</p>'
         + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></div>';
       html += relatedCards(data);
     } else {
       if (agencies.length) {
-        var shown = agencies.slice(0, 9);
-        html += "<h2>משרדי תיווך</h2><ul class=\"land-grid\">";
-        for (var i = 0; i < shown.length; i++) html += officeCard(shown[i]);
+        html += "<h2>" + countPhrase(agencies.length, "משרד פעיל", "משרדים פעילים")
+          + " - משרדי התיווך שמפרסמים בעפולה</h2><ul class=\"land-grid\">";
+        for (var i = 0; i < agencies.length; i++) html += officeCard(agencies[i]);
         html += "</ul>";
-        if (agencies.length > shown.length) {
-          html += '<nav class="land-filters" aria-label="עוד משרדים">';
-          for (var r = shown.length; r < agencies.length; r++) {
-            html += '<a href="/agency?slug=' + encodeURIComponent(agencies[r].slug) + '">'
-              + escapeHtml(agencies[r].name || "משרד") + "</a>";
-          }
-          html += "</nav>";
-        }
         html += '<p class="land-more"><a class="land-btn land-btn-primary" data-land-cta data-count="' + agencies.length
-          + '" href="/agencies">לכל ' + bdi(num(agencies.length)) + " המשרדים</a></p>";
+          + '" href="/agencies"><span>לכל</span>' + bdi(num(agencies.length)) + "<span>המשרדים</span></a></p>";
       }
       if (agencies.length < 3) html += relatedCards(data);
       if (agents.length) {
-        html += '<h2>מתווכים</h2><nav class="land-filters" aria-label="מתווכים">';
-        for (var j = 0; j < agents.length; j++) {
-          html += '<a href="/agent?slug=' + encodeURIComponent(agents[j].slug) + '">'
-            + escapeHtml(agents[j].display_name || "מתווך/ת") + "</a>";
+        var shownAgents = agents.slice(0, 12);
+        html += '<h2>מתווכים</h2><ul class="land-grid">';
+        for (var j = 0; j < shownAgents.length; j++) {
+          var person = shownAgents[j];
+          html += '<li><a class="land-card land-office" href="/agent?slug=' + encodeURIComponent(person.slug) + '">'
+            + '<span class="land-avatar" aria-hidden="true">' + escapeHtml(initials(person.display_name || "")) + "</span>"
+            + '<span class="land-card-body"><strong>' + escapeHtml(person.display_name || "מתווך/ת") + "</strong>"
+            + (person.agency_name ? "<span>" + escapeHtml(person.agency_name) + "</span>" : "")
+            + "</span></a></li>";
         }
-        html += "</nav>";
+        html += "</ul>";
+        if (agents.length > shownAgents.length) {
+          html += '<p class="land-more"><a class="land-btn land-btn-primary" href="/agents"><span>לכל</span>'
+            + bdi(num(agents.length)) + "<span>המתווכים</span></a></p>";
+        }
       }
     }
-    html += neighborhoods(data);
-    html += trust(agencies);
     html += seo();
     html += also();
     html += faqHtml();
@@ -289,7 +281,8 @@
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
-          { "@type": "ListItem", position: 2, name: H1, item: url },
+          { "@type": "ListItem", position: 2, name: "עפולה", item: site + "/" },
+          { "@type": "ListItem", position: 3, name: H1, item: url },
         ],
       },
       {
@@ -319,6 +312,7 @@
     agencyQuery: agencyQuery,
     render: render,
     chipsHtml: chipsHtml,
+    updatedHtml: updatedHtml,
     jsonLd: jsonLd,
     scripts: scripts,
     fullTitle: function () { return H1 + " | שוק נדל״ן"; },
