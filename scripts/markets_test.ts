@@ -448,35 +448,50 @@ check("שוק שאינו חי: IP מהקריות אינו מפנה", d.location 
 d = decide(reg, { cookie: "shuk_market=krayot%7Cgps", userAgent: UA, geo: null, search: "" });
 check("שוק שאינו חי: GPS שמור אינו מפנה", d.location === null);
 
-/* ‏soon - פס "נפתחים בקרוב" בדף הבית, בלי הפניה (assets/market-soon-strip.js) */
-const KFAR_SABA = [32.178, 34.907]; // 16 ק"מ ממרכז נתניה, מחוץ לתיבה שלה
+/* ‏soon - פס "נפתחים בקרוב" בדף הבית, בלי הפניה (assets/market-soon-strip.js).
+   זיהוי IP אינו מקור: שתי כתובות של הוט מעפולה (37.142.156.162, 5.29.22.243)
+   ממוקמות אצל MaxMind למרכז תל אביב, בתוך תיבת tel-aviv. */
+const TEL_AVIV_CENTROID = [32.0804, 34.7807];
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(NETANYA), search: "" });
-check("IP מנתניה: אין הפניה, soon=netanya", d.location === null && d.soon === "netanya" && d.geoCookie === null, JSON.stringify(d));
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(HADERA), search: "" });
-check("IP מחדרה: soon=hadera", d.location === null && d.soon === "hadera");
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KFAR_SABA), search: "" });
-check("IP מכפר סבא: soon=kfar-saba-raanana (לא נתניה, 16 ק\"מ משם)", d.soon === "kfar-saba-raanana", JSON.stringify(d));
+check("IP מנתניה: אין הפניה ואין soon", d.location === null && d.soon === null && d.geoCookie === null, JSON.stringify(d));
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV), search: "" });
-check("IP מתל אביב: soon=tel-aviv", d.location === null && d.soon === "tel-aviv", JSON.stringify(d));
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(HAR_HARIF), search: "" });
-check("IP מהר חריף: אין soon", d.soon === null);
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
-check("IP מעפולה (שוק חי): אין soon", d.soon === null);
+check("IP מתל אביב: אין soon", d.location === null && d.soon === null, JSON.stringify(d));
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV_CENTROID), search: "" });
+check("מרכז תל אביב של MaxMind (ה-IP-ים מעפולה): אין soon", d.soon === null && d.location === null);
+d = decide(reg, { cookie: "shuk_soon=tel-aviv", userAgent: UA, geo: IL(TEL_AVIV_CENTROID), search: "" });
+check("פס ישן מתל אביב נמחק כשה-IP כבר לא נסמך", d.soon === null && d.clearSoon === true);
 d = decide(reg, { cookie: "shuk_market=netanya%7Cgps", userAgent: UA, geo: null, search: "" });
 check("GPS שמור בנתניה: soon=netanya, בלי הפניה", d.location === null && d.soon === "netanya");
+d = decide(reg, { cookie: "shuk_market=tel-aviv%7Clink", userAgent: UA, geo: IL(AFULA), search: "" });
+check("קישור שמור לתל אביב: soon=tel-aviv, בלי הפניה", d.location === null && d.soon === "tel-aviv");
 d = decide(reg, { cookie: "shuk_market=afula-emek%7Cchoice", userAgent: UA, geo: IL(NETANYA), search: "" });
-check("בחירה מפורשת בעפולה גוברת על IP מנתניה: אין soon", d.soon === null);
+check("בחירה מפורשת בעפולה: אין soon", d.soon === null && d.location === null);
+d = decide(reg, { cookie: "shuk_market=afula-emek%7Cchoice; shuk_soon=tel-aviv", userAgent: UA, geo: null, search: "" });
+check("בחירה בעפולה מוחקת פס ישן", d.soon === null && d.clearSoon === true);
 d = decide(reg, { cookie: "", userAgent: "Googlebot/2.1", geo: IL(NETANYA), search: "" });
-check("סורק: אין soon", d.soon === null);
+check("סורק: אין soon", d.soon === null && d.location === null);
+
+d = decide(reg, { cookie: "shuk_market=afula-emek%7Cchoice", userAgent: UA, geo: IL(TEL_AVIV), search: "?region=tel-aviv&utm_source=facebook&utm_medium=paid&utm_campaign=tlv", region: "tel-aviv" });
+check("?region=tel-aviv גובר על בחירה בעפולה ועל IP", d.location === "/tel-aviv?utm_source=facebook&utm_medium=paid&utm_campaign=tlv" && d.marketCookie === "tel-aviv|link", JSON.stringify(d));
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(TEL_AVIV_CENTROID), search: "?region=afula-emek&utm_source=facebook", region: "afula-emek" });
+check("?region=afula-emek נשאר בדף הבית וזוכר", d.location === "/?utm_source=facebook" && d.marketCookie === "afula-emek|link" && d.soon === null);
+d = decide(reg, { cookie: "", userAgent: "facebookexternalhit/1.1", geo: null, search: "?region=tel-aviv", region: "tel-aviv" });
+check("סורק עם ?region= מופנה לאזור שבקישור", d.location === "/tel-aviv");
+d = decide(reg, { cookie: "", userAgent: UA, geo: null, search: "?region=no-such", region: "no-such" });
+check("region לא מוכר יורד מהכתובת בלי עוגייה", d.location === "/" && d.marketCookie === null && d.soon === null);
+d = decide(reg, { cookie: "", userAgent: UA, geo: null, search: "?deal=sale&rooms=4&region=tel-aviv", region: "tel-aviv", hasContent: true });
+check("עמוד תוצאות עם region נשאר עמוד תוצאות וזוכר", d.location === "/?deal=sale&rooms=4" && d.marketCookie === "tel-aviv|link" && d.soon === "tel-aviv");
 
 krayot.live = true;
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KIRYAT_BIALIK), search: "" });
-check("IP מהקריות → ‎/krayot‎", d.location === "/krayot", JSON.stringify(d));
-check("וגם עוגיית shuk_geo של השוק", (d.geoCookie || "").startsWith("krayot|"));
+check("IP מהקריות אינו מפנה", d.location === null && d.geoCookie === null, JSON.stringify(d));
 
-d = decide(reg, { cookie: "", userAgent: UA, geo: IL(KIRYAT_BIALIK), search: "?utm_source=fb" });
+d = decide(reg, { cookie: "shuk_market=krayot%7Cgps", userAgent: UA, geo: IL(AFULA), search: "?utm_source=fb" });
 check("פרמטרי מעקב נוסעים עם ההפניה", d.location === "/krayot?utm_source=fb");
+
+d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "?region=krayot&utm_source=fb", region: "krayot" });
+check("?region= לשוק חי מפנה לכתובת שלו", d.location === "/krayot?utm_source=fb" && d.marketCookie === "krayot|link");
 
 d = decide(reg, { cookie: "shuk_market=afula-emek%7Cchoice", userAgent: UA, geo: IL(KIRYAT_BIALIK), search: "" });
 check("בחירה מפורשת בעפולה גוברת על IP מהקריות", d.location === null);
@@ -485,7 +500,7 @@ d = decide(reg, { cookie: "shuk_market=krayot%7Cgps", userAgent: UA, geo: IL(AFU
 check("GPS שמור בקריות גובר על IP מעפולה", d.location === "/krayot");
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(AFULA), search: "" });
-check("IP מעפולה → אין הפניה (ברירת המחדל), עם עוגייה", d.location === null && !!d.geoCookie);
+check("IP מעפולה → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
 
 d = decide(reg, { cookie: "", userAgent: UA, geo: IL(HAR_HARIF), search: "" });
 check("IP מהר חריף → אין הפניה ואין עוגייה", d.location === null && d.geoCookie === null);
@@ -556,16 +571,34 @@ r = await searchPages(req("/?deal=sale&rooms=4", "shuk_market=krayot%7Cchoice"),
 check("עמוד תוצאות אינו מופנה (הפרמטרים הם תוכן)", r.status === 200);
 
 r = await searchPages(req("/", ""), ctx(IL(AFULA)));
-check("‎/‎ מעפולה: 200, עם עוגיית shuk_geo", r.status === 200 && (r.headers.get("set-cookie") || "").startsWith("shuk_geo=afula-emek"));
+check("‎/‎ מעפולה: 200, בלי עוגיית מיקום", r.status === 200 && !r.headers.get("set-cookie"));
 krayot.live = false;
 
 r = await searchPages(req("/", "shuk_market=krayot%7Cchoice"), ctx());
 check("‎/‎ עם בחירה בשוק שאינו חי: 200, הדף כמו שהוא", r.status === 200 && (await r.text()) === HOME);
 
 r = await searchPages(req("/", ""), ctx(IL(NETANYA)));
-check("‎/‎ מנתניה: 200, עם עוגיית shuk_soon ובלי shuk_geo",
-  r.status === 200 && (r.headers.get("set-cookie") || "").includes("shuk_soon=netanya") &&
+check("‎/‎ מנתניה: 200, בלי פס ובלי shuk_geo",
+  r.status === 200 && !(r.headers.get("set-cookie") || "").includes("shuk_soon=") &&
   !(r.headers.get("set-cookie") || "").includes("shuk_geo="));
+
+r = await searchPages(req("/", "shuk_soon=tel-aviv"), ctx(IL(TEL_AVIV_CENTROID)));
+check("‎/‎ עם פס ישן מתל אביב: מוחק את העוגייה",
+  r.status === 200 && (r.headers.get("set-cookie") || "").includes("shuk_soon=; Max-Age=0"));
+
+r = await searchPages(req("/?region=tel-aviv&utm_source=facebook&utm_medium=paid&utm_campaign=tlv", ""), ctx(IL(AFULA)));
+check("קמפיין תל אביב: 302 ל-/tel-aviv עם המעקב ועם זיכרון",
+  r.status === 302 &&
+  r.headers.get("location") === "/tel-aviv?utm_source=facebook&utm_medium=paid&utm_campaign=tlv" &&
+  (r.headers.get("set-cookie") || "").includes("shuk_market=tel-aviv%7Clink") &&
+  (r.headers.get("cache-control") || "").includes("no-store"));
+
+r = await searchPages(req("/?region=afula-emek&utm_source=facebook", "shuk_soon=tel-aviv"), ctx(IL(TEL_AVIV_CENTROID)));
+check("קמפיין עפולה: 302 ל-/?utm, זוכר, ומוחק פס",
+  r.status === 302 &&
+  r.headers.get("location") === "/?utm_source=facebook" &&
+  (r.headers.get("set-cookie") || "").includes("shuk_market=afula-emek%7Clink") &&
+  (r.headers.get("set-cookie") || "").includes("shuk_soon=; Max-Age=0"));
 
 r = await searchPages(req("/", ""), ctx(IL(HAR_HARIF)));
 check("‎/‎ מהר חריף: בלי עוגיות", r.status === 200 && !r.headers.get("set-cookie"));
