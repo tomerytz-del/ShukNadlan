@@ -663,13 +663,99 @@
     var out = [];
     var list = features || [];
     for (var i = 0; i < list.length; i++) {
-      var feature = list[i] || {};
-      if (feature.on === false) continue;
-      var text = String((feature.bold || '') + (feature.text || '')).replace(/\s+/g, ' ').trim();
-      if (!text || text.indexOf('₪') !== -1) continue;
-      out.push(text);
+      var item = cleanPlanFeature(list[i]);
+      if (item) out.push(item.all);
     }
     return out;
+  }
+
+  function cleanPlanFeature(feature) {
+    feature = feature || {};
+    if (feature.on === false) return null;
+    var all = String((feature.bold || '') + (feature.text || '')).replace(/\s+/g, ' ').trim();
+    if (!all || all.indexOf('₪') !== -1) return null;
+    var bold = String(feature.bold || '').replace(/\s+/g, ' ').trim();
+    if (bold && all.indexOf(bold) !== 0) bold = '';
+    return { bold: bold, text: all.slice(bold.length), all: all };
+  }
+
+  function offerPlain(raw) {
+    var text = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!text || text.indexOf('₪') !== -1 || text.indexOf('@') !== -1) return '';
+    return text;
+  }
+
+  function isCarryoverLine(text) {
+    return /^כל מה שכלול|^כל הבסיס|^כל מה שב-/.test(text);
+  }
+
+  function samePlanLines(a, b) {
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].all !== b[i].all) return false;
+    }
+    return true;
+  }
+
+  /* כרטיסי הגיליון מאותו קטלוג של דף המסלולים. בלי מחיר, בלי מכסה ובלי
+     כפתור בחירה. במסלול שאחרי הראשון השורות הקצרות הן מה שנוסף. */
+  function planSheetCards(list, opts) {
+    opts = opts || {};
+    var promo = opts.promo || {};
+    var headline = offerPlain(opts.headline != null ? opts.headline : promo.headline);
+    var sub = offerPlain(opts.sub != null ? opts.sub : promo.sub);
+    var recommended = promo.active === true && promo.tier ? promo.tier : '';
+    var cards = [];
+    var rows = list || [];
+    for (var i = 0; i < rows.length; i++) {
+      var tier = rows[i] || {};
+      var full = [];
+      var features = tier.features || [];
+      for (var f = 0; f < features.length; f++) {
+        var fullItem = cleanPlanFeature(features[f]);
+        if (fullItem) full.push(fullItem);
+      }
+      var shortSource = tier.cardFeatures && tier.cardFeatures.length ? tier.cardFeatures : tier.features;
+      var shortAll = [];
+      var source = shortSource || [];
+      for (var s = 0; s < source.length; s++) {
+        var shortItem = cleanPlanFeature(source[s]);
+        if (shortItem) shortAll.push(shortItem);
+      }
+      var heading = 'מה כלול';
+      var preview = shortAll.slice(0, 6);
+      if (i > 0) {
+        var prevName = rows[i - 1] && rows[i - 1].name ? rows[i - 1].name : 'המסלול הקודם';
+        heading = 'מה נוסף לעומת ' + prevName;
+        preview = [];
+        for (var p = 0; p < shortAll.length && preview.length < 6; p++) {
+          if (isCarryoverLine(shortAll[p].all)) continue;
+          preview.push(shortAll[p]);
+        }
+        if (!preview.length) {
+          for (var k = 0; k < full.length && preview.length < 6; k++) {
+            if (isCarryoverLine(full[k].all)) continue;
+            preview.push(full[k]);
+          }
+        }
+      }
+      cards.push({
+        id: tier.id || '',
+        name: tier.name || '',
+        tagline: tier.tagline || '',
+        color: tier.color || '',
+        current: tier.id === opts.current,
+        recommended: tier.id === recommended,
+        heading: heading,
+        preview: preview,
+        full: full,
+        expandable: full.length > 0 && !samePlanLines(preview, full),
+      });
+    }
+    return {
+      offer: headline ? { headline: headline, sub: sub } : null,
+      cards: cards,
+    };
   }
 
   function safeSiteRetry(raw) {
@@ -844,6 +930,42 @@
     return '';
   }
 
+  function planSheetStyle() {
+    return [
+      '#shukPlanSheet{color-scheme:only light;forced-color-adjust:none}',
+      '#shukPlanSheet .panel{background:#f4f7fe;color:#12224f;width:100%;max-height:min(92dvh,760px);display:flex;flex-direction:column;border-radius:18px 18px 0 0;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom);font-family:Heebo,Arial,sans-serif}',
+      '#shukPlanSheet .head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 0}',
+      '#shukPlanSheet h2{margin:0;font-size:1.25rem;font-weight:800;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important}',
+      '#shukPlanSheet .close{min-width:44px;min-height:44px;padding:0 14px;border:0;background:transparent;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important;font:inherit;font-weight:800;font-size:1rem}',
+      '#shukPlanSheet .offer{margin:8px 16px 0;background:#0e2a6b;border:2px solid #e2c35a;border-radius:14px;padding:12px 14px}',
+      '#shukPlanSheet .offer strong{display:block;color:#f1d98a !important;-webkit-text-fill-color:#f1d98a !important;font-size:1.05rem;line-height:1.35}',
+      '#shukPlanSheet .offer span{display:block;margin-top:4px;color:#d5def5 !important;-webkit-text-fill-color:#d5def5 !important;font-size:.9rem;line-height:1.45}',
+      '#shukPlanSheet .track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:16px 8% 8px;scroll-padding-inline:8%;scrollbar-width:none}',
+      '#shukPlanSheet .track::-webkit-scrollbar{display:none}',
+      '#shukPlanSheet .card{flex:0 0 82%;scroll-snap-align:center;box-sizing:border-box;position:relative;background:#fff;color:#12224f;border:1px solid #e3e8f4;border-radius:22px;padding:46px 16px 12px;min-width:0;box-shadow:0 18px 40px -28px rgba(13,27,61,.45)}',
+      '#shukPlanSheet .card.pro{border:1.5px solid #0e2a6b}',
+      '#shukPlanSheet .card.is-rec{box-shadow:0 0 0 2px #d4af37,0 18px 40px -28px rgba(13,27,61,.45)}',
+      '#shukPlanSheet .card.elite{background:linear-gradient(170deg,#1b3a85 0%,#0d1b3d 55%);border:0;box-shadow:0 0 0 2px #d4af37}',
+      '#shukPlanSheet .flag{position:absolute;top:12px;inset-inline-start:12px;background:#e2c35a;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important;font-weight:900;font-size:.82rem;line-height:1;padding:7px 12px;border-radius:999px}',
+      '#shukPlanSheet .ribbon{position:absolute;top:12px;inset-inline-end:12px;background:#0e2a6b;color:#fff !important;-webkit-text-fill-color:#fff !important;font-weight:800;font-size:.75rem;line-height:1;padding:7px 10px;border-radius:6px}',
+      '#shukPlanSheet .card.elite .ribbon{background:#f1d98a;color:#0d1b3d !important;-webkit-text-fill-color:#0d1b3d !important}',
+      '#shukPlanSheet .name{margin:0;font-size:1.45rem;font-weight:800;line-height:1.15;color:#0d1b3d !important;-webkit-text-fill-color:#0d1b3d !important}',
+      '#shukPlanSheet .card.elite .name{color:#f1d98a !important;-webkit-text-fill-color:#f1d98a !important;font-size:1.7rem}',
+      '#shukPlanSheet .tagline{margin:6px 0 0;font-size:.92rem;line-height:1.45;color:#4a5578 !important;-webkit-text-fill-color:#4a5578 !important}',
+      '#shukPlanSheet .card.elite .tagline,#shukPlanSheet .card.elite .list li{color:#e3e9f7 !important;-webkit-text-fill-color:#e3e9f7 !important}',
+      '#shukPlanSheet .inc{margin:12px 0 0;font-size:.82rem;font-weight:800;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important}',
+      '#shukPlanSheet .card.elite .inc,#shukPlanSheet .card.elite .mk,#shukPlanSheet .card.elite .more{color:#f1d98a !important;-webkit-text-fill-color:#f1d98a !important}',
+      '#shukPlanSheet .list{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}',
+      '#shukPlanSheet .list li{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;line-height:1.45;color:#12224f !important;-webkit-text-fill-color:#12224f !important}',
+      '#shukPlanSheet .mk{flex:none;font-weight:900;color:#1c8546 !important;-webkit-text-fill-color:#1c8546 !important}',
+      '#shukPlanSheet .more{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:8px;border:0;background:transparent;font:inherit;font-weight:800;font-size:.95rem;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important}',
+      '#shukPlanSheet .dots{display:flex;justify-content:center;gap:2px;padding:2px 12px 10px}',
+      '#shukPlanSheet .dots button{min-width:44px;min-height:44px;border:0;background:transparent;padding:0}',
+      '#shukPlanSheet .dot{display:block;width:8px;height:8px;border-radius:50%;background:#c9d3ea;margin:0 auto}',
+      '#shukPlanSheet .dots button[aria-current="true"] .dot{background:#0e2a6b;width:18px;border-radius:99px}',
+    ].join('\n');
+  }
+
   function showPlanSheet(win) {
     var doc = win && win.document;
     if (!doc || !doc.body) return;
@@ -851,70 +973,190 @@
     if (existing && existing.remove) existing.remove();
     var Tiers = win.Tiers;
     var list = Tiers && typeof Tiers.list === 'function' ? Tiers.list() : [];
-    var current = currentPlanId(doc);
+    var promo = Tiers && Tiers.PROMO ? Tiers.PROMO : {};
     var promoTitle = doc.getElementById('promoPopTitle');
     var promoSub = doc.getElementById('promoPopSub');
-    var headline = promoTitle && promoTitle.textContent ? promoTitle.textContent.trim() : '';
-    var sub = promoSub && promoSub.textContent ? promoSub.textContent.trim() : '';
-    if (!headline && Tiers && Tiers.PROMO && Tiers.PROMO.active) {
-      headline = Tiers.PROMO.headline || '';
-      sub = Tiers.PROMO.sub || '';
+    var liveHead = promoTitle && promoTitle.textContent ? promoTitle.textContent.trim() : '';
+    var liveSub = promoSub && promoSub.textContent ? promoSub.textContent.trim() : '';
+    var sheetOpts = { current: currentPlanId(doc), promo: promo };
+    if (liveHead) {
+      sheetOpts.headline = liveHead;
+      sheetOpts.sub = liveSub;
     }
+    var model = planSheetCards(list, sheetOpts);
 
     var wrap = doc.createElement('div');
     wrap.id = 'shukPlanSheet';
     wrap.setAttribute('role', 'dialog');
     wrap.setAttribute('aria-modal', 'true');
     wrap.setAttribute('aria-labelledby', 'shukPlanTitle');
-    wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483002;background:rgba(14,26,51,.55);display:flex;align-items:flex-end;justify-content:center;direction:rtl;font-family:Heebo,Arial,sans-serif;color-scheme:only light';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483002;background:rgba(14,26,51,.55);display:flex;align-items:flex-end;justify-content:center;direction:rtl;font-family:Heebo,Arial,sans-serif';
+    var style = doc.createElement('style');
+    style.textContent = planSheetStyle();
+    wrap.appendChild(style);
     var panel = doc.createElement('div');
-    panel.style.cssText = 'background:#fff;color:#12224f;width:min(560px,100%);max-height:min(86dvh,720px);overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box';
+    panel.className = 'panel';
+    var head = doc.createElement('div');
+    head.className = 'head';
     var title = doc.createElement('h2');
     title.id = 'shukPlanTitle';
     title.textContent = 'המסלולים';
-    title.style.cssText = 'margin:0 0 8px;font-size:1.25rem;color:#0e2a6b';
-    panel.appendChild(title);
-    if (headline) {
-      var promo = doc.createElement('p');
-      promo.textContent = sub ? headline + ' - ' + sub : headline;
-      promo.style.cssText = 'margin:0 0 12px;font-size:.92rem;line-height:1.5;color:#3a4458';
-      panel.appendChild(promo);
-    }
-    for (var i = 0; i < list.length; i++) {
-      var tier = list[i];
-      var card = doc.createElement('section');
-      card.style.cssText = 'border:1px solid #e3e8f0;border-radius:14px;padding:12px 12px 8px;margin:0 0 10px';
-      var head = doc.createElement('h3');
-      head.style.cssText = 'margin:0 0 6px;font-size:1rem;color:#0e2a6b';
-      head.textContent = tier.name || '';
-      if (tier.id === current) {
-        var mark = doc.createElement('span');
-        mark.textContent = ' · המסלול שלך';
-        mark.style.cssText = 'font-weight:700;color:#8a6a12';
-        head.appendChild(mark);
-      }
-      card.appendChild(head);
-      var lines = planFeatureLines(tier.cardFeatures && tier.cardFeatures.length ? tier.cardFeatures : tier.features);
-      var ul = doc.createElement('ul');
-      ul.style.cssText = 'margin:0;padding:0 1.1em 0 0;font-size:.9rem;line-height:1.45';
-      for (var j = 0; j < lines.length; j++) {
-        var li = doc.createElement('li');
-        li.textContent = lines[j];
-        ul.appendChild(li);
-      }
-      card.appendChild(ul);
-      panel.appendChild(card);
-    }
     var close = doc.createElement('button');
     close.type = 'button';
+    close.className = 'close';
     close.textContent = 'סגירה';
-    close.style.cssText = 'display:block;width:100%;border:0;border-radius:12px;background:#0e2a6b;color:#fff;font:inherit;font-weight:800;padding:12px 16px;margin-top:4px';
-    close.addEventListener('click', function () { if (wrap.remove) wrap.remove(); });
-    panel.appendChild(close);
-    wrap.addEventListener('click', function (event) { if (event.target === wrap && wrap.remove) wrap.remove(); });
+    function dismiss() { if (wrap.remove) wrap.remove(); }
+    close.addEventListener('click', dismiss);
+    head.appendChild(title);
+    head.appendChild(close);
+    panel.appendChild(head);
+    if (model.offer) {
+      var offer = doc.createElement('div');
+      offer.className = 'offer';
+      var strong = doc.createElement('strong');
+      strong.textContent = model.offer.headline;
+      offer.appendChild(strong);
+      if (model.offer.sub) {
+        var note = doc.createElement('span');
+        note.textContent = model.offer.sub;
+        offer.appendChild(note);
+      }
+      panel.appendChild(offer);
+    }
+    var track = doc.createElement('div');
+    track.className = 'track';
+    var cards = [];
+    var start = 0;
+    function fillLines(ul, items) {
+      while (ul.firstChild) ul.removeChild(ul.firstChild);
+      for (var n = 0; n < items.length; n++) {
+        var item = items[n];
+        var li = doc.createElement('li');
+        var mark = doc.createElement('span');
+        mark.className = 'mk';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.textContent = '✓';
+        var span = doc.createElement('span');
+        if (item.bold) {
+          var bold = doc.createElement('b');
+          bold.textContent = item.bold;
+          span.appendChild(bold);
+        }
+        if (item.text) span.appendChild(doc.createTextNode(item.text));
+        li.appendChild(mark);
+        li.appendChild(span);
+        ul.appendChild(li);
+      }
+    }
+    for (var i = 0; i < model.cards.length; i++) {
+      var spec = model.cards[i];
+      if (spec.recommended) start = i;
+      else if (spec.current && start === 0 && !model.cards[0].recommended) start = i;
+      var card = doc.createElement('article');
+      card.className = 'card' + (spec.color ? ' ' + spec.color : '') + (spec.recommended ? ' is-rec' : '');
+      if (spec.recommended) {
+        var flag = doc.createElement('span');
+        flag.className = 'flag';
+        flag.textContent = 'מומלץ';
+        card.appendChild(flag);
+      }
+      if (spec.current) {
+        var ribbon = doc.createElement('span');
+        ribbon.className = 'ribbon';
+        ribbon.textContent = 'המסלול שלך';
+        card.appendChild(ribbon);
+      }
+      var name = doc.createElement('h3');
+      name.className = 'name';
+      name.textContent = spec.name;
+      var tagline = doc.createElement('p');
+      tagline.className = 'tagline';
+      tagline.textContent = spec.tagline;
+      var inc = doc.createElement('h4');
+      inc.className = 'inc';
+      inc.textContent = spec.heading;
+      var ul = doc.createElement('ul');
+      ul.className = 'list';
+      fillLines(ul, spec.preview);
+      card.appendChild(name);
+      card.appendChild(tagline);
+      card.appendChild(inc);
+      card.appendChild(ul);
+      if (spec.expandable) {
+        var more = doc.createElement('button');
+        more.type = 'button';
+        more.className = 'more';
+        more.textContent = 'הצג הכול';
+        (function (button, listEl, cardSpec) {
+          button.addEventListener('click', function () {
+            var open = button.getAttribute('aria-expanded') === 'true';
+            button.setAttribute('aria-expanded', open ? 'false' : 'true');
+            button.textContent = open ? 'הצג הכול' : 'הצג פחות';
+            fillLines(listEl, open ? cardSpec.preview : cardSpec.full);
+          });
+        })(more, ul, spec);
+        card.appendChild(more);
+      }
+      track.appendChild(card);
+      cards.push(card);
+    }
+    panel.appendChild(track);
+    var dots = doc.createElement('div');
+    dots.className = 'dots';
+    var dotBtns = [];
+    function paintDots(index) {
+      for (var d = 0; d < dotBtns.length; d++) {
+        dotBtns[d].setAttribute('aria-current', d === index ? 'true' : 'false');
+      }
+    }
+    function cardIndex() {
+      if (!track.getBoundingClientRect) return 0;
+      var box = track.getBoundingClientRect();
+      var mid = box.left + box.width / 2;
+      var best = 0;
+      var bestDist = Infinity;
+      for (var c = 0; c < cards.length; c++) {
+        if (!cards[c].getBoundingClientRect) continue;
+        var rect = cards[c].getBoundingClientRect();
+        var center = rect.left + rect.width / 2;
+        var dist = Math.abs(center - mid);
+        if (dist < bestDist) { bestDist = dist; best = c; }
+      }
+      return best;
+    }
+    for (var b = 0; b < cards.length; b++) {
+      var dot = doc.createElement('button');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', model.cards[b].name || 'מסלול');
+      var pip = doc.createElement('span');
+      pip.className = 'dot';
+      dot.appendChild(pip);
+      (function (index) {
+        dot.addEventListener('click', function () {
+          var target = cards[index];
+          if (target && target.scrollIntoView) {
+            try { target.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+            catch (e) { target.scrollIntoView(); }
+          }
+          paintDots(index);
+        });
+      })(b);
+      dots.appendChild(dot);
+      dotBtns.push(dot);
+    }
+    if (dotBtns.length) panel.appendChild(dots);
+    wrap.addEventListener('click', function (event) { if (event.target === wrap) dismiss(); });
     wrap.appendChild(panel);
     doc.body.appendChild(wrap);
-    try { close.focus(); } catch (e) {}
+    paintDots(start);
+    if (cards[start] && cards[start].scrollIntoView) {
+      try { cards[start].scrollIntoView({ inline: 'center', block: 'nearest' }); }
+      catch (e2) {}
+    }
+    if (track.addEventListener) {
+      track.addEventListener('scroll', function () { paintDots(cardIndex()); });
+    }
+    try { close.focus(); } catch (e3) {}
   }
 
   function showPayOverlay(win) {
@@ -1022,11 +1264,11 @@
   var LOC_GEO = { enableHighAccuracy: false, timeout: 8000, maximumAge: 86400000 };
   var LOC_COPY = {
     title: 'באיזה אזור אתם מחפשים?',
-    body: 'נשתמש במיקום משוער רק כדי להציג את השוק המקומי, למשל עפולה והעמק, ונכסים קרובים. המיקום לא נשמר בשרתים שלנו, ואפשר לשנות את האזור בכל רגע.',
+    body: 'נשתמש במיקום משוער רק כדי להציג את השוק המקומי ונכסים קרובים. המיקום לא נשמר בשרתים שלנו, ואפשר לשנות את האזור בכל רגע.',
     allow: 'הפעלה',
     skip: 'אולי אחר כך',
     more: 'איך אתם משתמשים במיקום שלי?',
-    moreBody: 'המיקום המשוער נשאר במכשיר ומשמש רק כדי לבחור את האזור שמוצג, למשל עפולה והעמק, ולהציג נכסים קרובים. הנקודה לא נשמרת בשרתים שלנו ולא נשלחת אלינו.',
+    moreBody: 'המיקום המשוער נשאר במכשיר ומשמש רק כדי לבחור את האזור שמוצג ולהציג נכסים קרובים. הנקודה לא נשמרת בשרתים שלנו ולא נשלחת אלינו.',
     privacy: 'מדיניות הפרטיות',
     privacyHref: 'https://shuknadlan.co.il/privacy',
     seeking: 'מאתרים את האזור...',
@@ -1312,6 +1554,7 @@
     marketPathToOpen: marketPathToOpen,
     isLocateControl: isLocateControl,
     planFeatureLines: planFeatureLines,
+    planSheetCards: planSheetCards,
     safeSiteRetry: safeSiteRetry,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,

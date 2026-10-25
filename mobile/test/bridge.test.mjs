@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 import bridge from '../www/native-bridge.js';
 
 const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, PAY_NOTE, SITE_ORIGIN, authReturnUrl, clickedHref, isAuthCallback, isExternalUrl, isPurchaseUrl, rewriteAuthorizeUrl } = bridge;
@@ -106,6 +108,38 @@ test('plan sheet lines keep features and drop prices', () => {
     { text: '' },
   ]);
   assert.deepEqual(lines, ['דוח CMA', 'לידים בלי תקרה']);
+});
+
+test('plan cards follow the live catalog and leave out prices', () => {
+  const src = fs.readFileSync(new URL('../../assets/tiers.js', import.meta.url), 'utf8');
+  const box = {};
+  box.window = box;
+  vm.createContext(box);
+  vm.runInContext(src, box);
+  const model = bridge.planSheetCards(box.Tiers.list(), {
+    current: 'mid',
+    promo: box.Tiers.PROMO,
+  });
+  const blob = JSON.stringify(model);
+  assert.equal(blob.includes('₪'), false);
+  assert.equal(blob.includes('@'), false);
+  assert.equal(blob.includes('הצטרפות'), false);
+  assert.equal(model.offer.headline, '6 חודשים Elite במתנה');
+  assert.match(model.offer.sub, /בלי תשלום ובלי כרטיס אשראי/);
+  assert.equal(model.cards.length, 3);
+  assert.equal(model.cards[0].heading, 'מה כלול');
+  assert.equal(model.cards[0].name, 'Pay&GO');
+  assert.match(model.cards[1].heading, /מה נוסף לעומת Pay&GO/);
+  assert.match(model.cards[2].heading, /מה נוסף לעומת PROFESSIONAL/);
+  assert.equal(model.cards[1].preview.some((row) => row.all.startsWith('כל הבסיס')), false);
+  assert.equal(model.cards[2].recommended, true);
+  assert.equal(model.cards[1].current, true);
+  assert.equal(model.cards[0].tagline.length > 0, true);
+  for (const card of model.cards) {
+    assert.ok(card.preview.length <= 6);
+    assert.equal(card.preview.some((row) => row.all.includes('₪')), false);
+    assert.equal(card.full.some((row) => row.all.includes('₪')), false);
+  }
 });
 
 test('retry url stays on the site and skips the shell pages', () => {

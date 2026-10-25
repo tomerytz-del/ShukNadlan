@@ -51,6 +51,12 @@ test('the system prompt is approximate and only after the button', () => {
   assert.equal(bridge.LOC_COPY.skip, 'אולי אחר כך');
   assert.match(bridge.LOC_COPY.more, /איך אתם משתמשים במיקום שלי/);
   assert.equal(bridge.LOC_COPY.privacyHref, 'https://shuknadlan.co.il/privacy');
+  assert.equal(
+    bridge.LOC_COPY.body,
+    'נשתמש במיקום משוער רק כדי להציג את השוק המקומי ונכסים קרובים. המיקום לא נשמר בשרתים שלנו, ואפשר לשנות את האזור בכל רגע.',
+  );
+  assert.equal(bridge.LOC_COPY.body.includes('למשל'), false);
+  assert.equal(bridge.LOC_COPY.moreBody.includes('למשל'), false);
   const text = JSON.stringify(bridge.LOC_COPY);
   assert.equal(text.includes('\u2014'), false);
   assert.equal(text.includes('\u2013'), false);
@@ -191,6 +197,9 @@ test('the location title is forced white and http failures have their own senten
   assert.match(bridgeSrc, /shuk-loc-allow/);
   assert.match(offline, /האתר לא נטען כרגע/);
   assert.match(offline, /slice\(-17\)/);
+  assert.match(offline, /פנייה לתמיכה/);
+  assert.match(offline, /https:\/\/wa\.me\/972546929991/);
+  assert.doesNotMatch(offline, /מדיניות הפרטיות/);
   assert.match(android, /onReceivedHttpError/);
   assert.equal(offline.includes('\u2014'), false);
 });

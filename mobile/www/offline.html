@@ -17,7 +17,7 @@
       color: #fff;
       font-family: sans-serif;
       text-align: center;
-      padding: 24px;
+      padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
     }
     img { width: 96px; height: 96px; border-radius: 22px; }
     h1 { font-size: 28px; margin: 16px 0 0; }
@@ -30,19 +30,30 @@
       max-width: 320px;
     }
     .card p { margin: 0; line-height: 1.45; }
-    button {
-      display: block;
+    button, a.support {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
+      min-height: 44px;
       margin-top: 14px;
-      border: 0;
       border-radius: 12px;
-      background: #0e2a6b;
-      color: #fff;
       font: inherit;
       font-size: 17px;
-      padding: 12px 16px;
+      font-weight: 700;
+      text-decoration: none;
+      box-sizing: border-box;
     }
-    a { display: inline-block; margin-top: 12px; color: #0e2a6b; font-size: 14px; }
+    button {
+      border: 0;
+      background: #0e2a6b;
+      color: #fff;
+    }
+    a.support {
+      border: 1.5px solid #0e2a6b;
+      background: #fff;
+      color: #0e2a6b;
+    }
   </style>
 </head>
 <body>
@@ -52,7 +63,7 @@
     <div class="card">
       <p id="msg">אין חיבור לאינטרנט כרגע. כשהרשת חוזרת, לחצו על נסו שוב.</p>
       <button type="button" id="retry">נסו שוב</button>
-      <a href="https://shuknadlan.co.il/privacy">מדיניות הפרטיות</a>
+      <a class="support" href="https://wa.me/972546929991">פנייה לתמיכה</a>
     </div>
   </main>
   <script>
