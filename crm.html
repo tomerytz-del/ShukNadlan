@@ -2930,6 +2930,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* CMA-CSS:END */
 
+  /* "שליחת קישור ללקוח/ה" - רק ב-CRM, ולכן מחוץ לבלוק המשותף (cmaShare ב-crm.js) */
+  .cma-share{border:1px solid var(--line);border-radius:var(--radius-md);background:var(--teal-tint);padding:12px 14px;margin-bottom:16px}
+  .cma-share p{margin:0 0 8px;font-size:.85rem;color:var(--ink)}
+  .cma-share input{width:100%;box-sizing:border-box;direction:ltr;font-size:.8rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-bottom:8px}
+  .cma-share-btns{display:flex;flex-wrap:wrap;gap:8px}
+  .cma-share-btns .btn{flex:1 1 auto;text-align:center}
+
   /* ---------- מדבקת QR לשלט ---------- */
   /* השכבה עצמה היא הגוללת, ולא הכרטיס: בטלפון גובה הכרטיס עלה על מה
      שנראה בפועל על המסך (‏100vh בנייד כולל את שורת הכתובת), וכפתורי
@@ -2983,7 +2990,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     body > *{display:none !important}
     body > #cmaOverlay{display:block !important;position:static;background:#fff;padding:0;overflow:visible}
     .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
-    .cma-actions{display:none !important}
+    .cma-actions, .cma-share{display:none !important}
     .cma-table{font-size:.72rem}
     /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
        נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
@@ -8580,7 +8587,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ads-pane" id="adsPaneLaunch" role="tabpanel" aria-labelledby="adsTabLaunch" hidden>
               <!-- חבילת ההשקה 24.10.2026. dry-run כברירת מחדל, ויצירה רק
                    מושהית (create_paused_launch). docs/marketing-console.md -->
-              <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב).</p>
+              <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב). רענון הנוסח מחליף רק טקסט של מודעות השקה שעדיין נושאות רישיון אישי. הסטטוס, התקציב והטירגוט לא משתנים.</p>
               <div class="adm-toolbar">
                 <label class="adm-note"><input type="checkbox" id="adsLaunchA5"> כלול את A5 - טופס הערכת שווי חינם</label>
                 <label class="adm-note">קהל 55 המתווכים (מזהה מטא, אופציונלי)
@@ -8591,6 +8598,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <button type="button" class="adm-refresh" id="adsLaunchDry">בדיקה (בלי יצירה)</button>
                 <button type="button" class="adm-refresh" id="adsLaunchUpload">העלאת תמונות</button>
                 <button type="button" class="adm-refresh" id="adsLaunchGo" disabled>יצירה מושהית במטא</button>
+                <button type="button" class="adm-refresh" id="adsLaunchRefreshDry">בדיקת נוסח הגילוי</button>
+                <button type="button" class="adm-refresh" id="adsLaunchRefresh">רענון נוסח הגילוי</button>
               </div>
               <div class="ads-state" id="adsLaunchOut" hidden></div>
             </div>
@@ -11809,9 +11818,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="cmaOverlay">
   <div class="cma-sheet">
     <div class="cma-actions">
-      <button type="button" class="btn btn-gold" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
+      <button type="button" class="btn btn-gold" id="cmaShareBtn">שליחת קישור ללקוח/ה</button>
+      <button type="button" class="btn btn-ghost" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
       <button type="button" class="btn btn-ghost" id="cmaCloseBtn">סגירה</button>
     </div>
+    <div class="cma-share" id="cmaSharePanel" hidden></div>
     <div id="cmaBody"></div>
   </div>
 </div>

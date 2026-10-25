@@ -396,6 +396,40 @@ def landing_cities(js: str) -> list[tuple[str, str]]:
     return CITY_LINE.findall(path.read_text(encoding="utf-8"))
 
 
+def city_blocks(js: str) -> list[str]:
+    path = ROOT / "assets" / js
+    if not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8")
+    starts = [m.start() for m in CITY_LINE.finditer(text)]
+    blocks = []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(text)
+        blocks.append(text[start:end])
+    return blocks
+
+
+def city_specs(js: str) -> list[dict]:
+    """‏עיר עם types משלה בונה רק את הסוגים האלה. noBrokers מוציא אותה
+    מההשוואה ל-brokers-render.js."""
+    specs = []
+    for block in city_blocks(js):
+        m = CITY_LINE.search(block)
+        if not m:
+            continue
+        # ‏לא חמדן: הבלוק של העיר האחרונה נמשך עד סוף הקובץ, ו-TYPES
+        # שאחריו היה נתפס כסוגים שלה.
+        types_m = re.search(r"types:\s*\[(.*?)\]\s*,\s*\n\s*\},", block, re.S)
+        type_slugs = re.findall(r'slug: "([^"]+)"', types_m.group(1)) if types_m else None
+        specs.append({
+            "slug": m.group(1),
+            "market": m.group(2),
+            "types": type_slugs,
+            "no_brokers": "noBrokers: true" in block,
+        })
+    return specs
+
+
 def silo_types() -> list[str]:
     """‏ה-slug של כל סוג ב-TYPES של silo-render.js (‏בתים-פרטיים)."""
     path = ROOT / "assets" / "silo-render.js"
@@ -414,12 +448,14 @@ def broker_pages() -> dict[str, str]:
 
 def silo_pages() -> dict[str, str]:
     """‏/{city}/{סוג} - כתובת ← השוק. אין להן קובץ משלהן: silo.html מגיש
-    אותן, והערים והסוגים כתובים ב-assets/silo-render.js."""
-    return {
-        "%s/%s/%s" % (SITE, city, kind): market
-        for city, market in landing_cities("silo-render.js")
-        for kind in silo_types()
-    }
+    אותן, והערים והסוגים כתובים ב-assets/silo-render.js. עיר עם types
+    משלה אינה מקבלת את שלושת הסוגים הגלובליים."""
+    kinds = silo_types()
+    out = {}
+    for spec in city_specs("silo-render.js"):
+        for kind in (spec["types"] or kinds):
+            out["%s/%s/%s" % (SITE, spec["slug"], kind)] = spec["market"]
+    return out
 
 
 def broker_urls() -> set[str]:
@@ -446,7 +482,7 @@ def check_landing(locs: list[str]) -> list[str]:
             problems.append("%s אינו ב-sitemap.xml" % url)
         if market not in live and url in have:
             problems.append("%s ב-sitemap.xml, והשוק %s אינו live" % (url, market))
-    silo_cities = set(landing_cities("silo-render.js"))
+    silo_cities = {(s["slug"], s["market"]) for s in city_specs("silo-render.js") if not s["no_brokers"]}
     broker_cities = set(landing_cities("brokers-render.js"))
     if silo_cities != broker_cities:
         problems.append("הערים ב-silo-render.js וב-brokers-render.js אינן אותן ערים: %s מול %s"

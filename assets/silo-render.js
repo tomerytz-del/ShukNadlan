@@ -159,6 +159,101 @@
       near: [["קריית ים ב'", "קריית-ים-ב"], ["קריית ים ד'", "קריית-ים-ד"], ["קריית ים ג'", "קריית-ים-ג"]],
       focus: [["קריית ים ב'", "קריית-ים-ב"], ["קריית ים ד'", "קריית-ים-ד"], ["קריית ים ג'", "קריית-ים-ג"], ["קריית ים א'", "קריית-ים-א"]],
     },
+    /* ‏נוף הגליל ומגדל העמק: שוק nof-hagalil-migdal אינו חי. הדף מלא
+       לגולש/ת, עם noindex, ובלי שורה ב-sitemap עד ההדלקה. סוג אחד,
+       דירות, לפי המלאי (דירה ודירת גן), לא שלושת הסוגים של עפולה. */
+    { slug: "nof-hagalil", name: "נוף הגליל", market: "nof-hagalil-migdal",
+      cityId: "5d1d3382-1094-423f-8e76-9d3e153675dc",
+      home: "/nof-hagalil-migdal",
+      homeLabel: "נוף הגליל ומגדל העמק",
+      hoods: [], near: [], focus: [],
+      ld: "collection",
+      types: [{
+        slug: "דירות-למכירה",
+        what: "דירות",
+        hero: "דירות-3-חדרים",
+        h1: "דירות למכירה בנוף הגליל",
+        benefit: "דירות ודירות גן למכירה בנוף הגליל, ממשרדי התיווך שמפרסמים באתר.",
+        description: "דירות ודירות גן למכירה בנוף הגליל, מכל משרדי התיווך באתר, עם מחיר, גודל ותמונות לכל מודעה פעילה. ב-12 החודשים האחרונים דווחו 1,020 עסקאות בעיר.",
+        intro: "בעמוד הזה מרוכזות דירות למכירה בנוף הגליל, כולל דירות גן, מכל משרדי התיווך שמפרסמים באתר. בכל מודעה מופיעים המחיר, הגודל והתמונות כפי שפורסמו. ב-12 החודשים האחרונים דווחו 1,020 עסקאות בעיר.",
+        property_type: null,
+        property_types: ["דירה", "דירת גן"],
+        rooms: null,
+        faqs: [
+          ["אילו נכסים כלולים בעמוד?", "דירות ודירות גן למכירה בנוף הגליל. בתים פרטיים ומגרשים אינם בעמוד הזה."],
+          ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
+          ["כמה עסקאות דווחו בעיר?", "ב-12 החודשים האחרונים דווחו 1,020 עסקאות בנוף הגליל, מתוך דיווחי רשות המסים."],
+          ["איפה רואים מחירי עסקאות?", "בעמוד העסקאות של נוף הגליל, מתוך דיווחי רשות המסים. ביישוב עם פחות מ-5 עסקאות בשנה האחרונה האתר אינו מציג מחיר חציוני."],
+          ["מה עושים אם אין כרגע דירה שמתאימה?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס מתאים בנוף הגליל."],
+        ],
+      }],
+    },
+    { slug: "migdal-haemek", name: "מגדל העמק", market: "nof-hagalil-migdal",
+      cityId: "fa3283cc-37bd-4042-9185-8a45059f133a",
+      home: "/nof-hagalil-migdal",
+      homeLabel: "נוף הגליל ומגדל העמק",
+      hoods: [], near: [], focus: [],
+      ld: "collection",
+      types: [{
+        slug: "דירות-למכירה",
+        what: "דירות",
+        hero: "דירות-3-חדרים",
+        h1: "דירות למכירה במגדל העמק",
+        benefit: "דירות למכירה במגדל העמק, ממשרדי התיווך שמפרסמים באתר.",
+        description: "דירות למכירה במגדל העמק, מכל משרדי התיווך באתר, עם מחיר, גודל ותמונות לכל מודעה פעילה. ב-12 החודשים האחרונים דווחו 562 עסקאות בעיר.",
+        intro: "בעמוד הזה מרוכזות דירות למכירה במגדל העמק, מכל משרדי התיווך שמפרסמים באתר. בכל מודעה מופיעים המחיר, הגודל והתמונות כפי שפורסמו. ב-12 החודשים האחרונים דווחו 562 עסקאות בעיר.",
+        property_type: null,
+        property_types: ["דירה", "דירת גן"],
+        rooms: null,
+        faqs: [
+          ["אילו נכסים כלולים בעמוד?", "דירות ודירות גן למכירה במגדל העמק. בתים פרטיים ומגרשים אינם בעמוד הזה."],
+          ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
+          ["כמה עסקאות דווחו בעיר?", "ב-12 החודשים האחרונים דווחו 562 עסקאות במגדל העמק, מתוך דיווחי רשות המסים."],
+          ["איפה רואים מחירי עסקאות?", "בעמוד העסקאות של מגדל העמק, מתוך דיווחי רשות המסים. ביישוב עם פחות מ-5 עסקאות בשנה האחרונה האתר אינו מציג מחיר חציוני."],
+          ["מה עושים אם אין כרגע דירה שמתאימה?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס מתאים במגדל העמק."],
+        ],
+      }],
+    },
+    /* ‏עמוד עמק: כל יישובי afula-emek חוץ מעפולה. שדה נחום ב-beit-shean
+       ואינו כאן. names מחליף את name בשאילתה. אין דף מתווכים. */
+    { slug: "emek-yizrael", name: "עמק יזרעאל", market: "afula-emek",
+      names: ["אביטל", "אדירים", "אומן", "אחוזת ברק", "בית השיטה", "בלפוריה", "ברק", "גבע", "גבת", "גדיש", "גדעונה", "גזית", "גיניגר", "גן נר", "דבורה", "דברת", "היוגב", "חבר", "יזרעאל", "יעל", "יפעת", "כפר ברוך", "כפר גדעון", "כפר יחזקאל", "כפר תבור", "מבואות הגלבוע", "מגן שאול", "מולדת", "מזרע", "מיטב", "מיטל", "מלאה", "מרחביה (מושב)", "מרחביה (קיבוץ)", "נהלל", "נורית", "ניר יפה", "עין דור", "עין חרוד (איחוד)", "עין חרוד (מאוחד)", "פרזון", "רם-און", "רמת דוד", "רמת צבי", "שריד", "תל יוסף", "תל עדשים"],
+      cityId: null,
+      home: "/",
+      homeLabel: "עפולה והעמק",
+      noBrokers: true,
+      dealsPath: "/deals",
+      dealsLabel: "עסקאות לפי יישוב",
+      trustTitle: "משרדי תיווך מעפולה והעמק",
+      trustNote: "המודעות מתפרסמות על ידי משרדי תיווך שפועלים בעפולה ובעמק.",
+      hoods: [], near: [], focus: [],
+      ld: "collection",
+      also: [
+        ["/afula/בתים-פרטיים", "בתים פרטיים למכירה בעפולה"],
+        ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
+        ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
+        ["/afula/מתווכים", "מתווכים בעפולה"],
+      ],
+      types: [{
+        slug: "בתים-ומגרשים",
+        what: "בתים ומגרשים",
+        hero: "בתים-פרטיים",
+        h1: "בתים ומגרשים למכירה ביישובי עמק יזרעאל",
+        benefit: "בתים ומגרשים במושבים וביישובים שסביב עפולה, ממשרדי התיווך באזור.",
+        description: "בתים פרטיים ומגרשים למכירה במושבים וביישובים שסביב עפולה, מכל משרדי התיווך באתר, עם מחיר, גודל ותמונות לכל מודעה פעילה.",
+        intro: "בעמוד הזה מרוכזים בתים פרטיים ומגרשים למכירה ביישובים שסביב עפולה, ביניהם היוגב, אומן וחבר. המודעות מתפרסמות על ידי משרדי תיווך שפועלים בעפולה ובעמק, ובכל אחת מופיעים המחיר, הגודל והתמונות כפי שפורסמו. דירות בעפולה עצמה מופיעות בדפים של העיר: בתים פרטיים, דירות גן ודירות 3 חדרים.",
+        property_type: null,
+        property_types: ["בית פרטי/קוטג'", "מגרש"],
+        rooms: null,
+        faqs: [
+          ["אילו יישובים כלולים בעמוד?", "היישובים שסביב עפולה שהאתר משייך לאזור עפולה והעמק, ביניהם היוגב, אומן, חבר, גן נר, כפר תבור, תל עדשים, בלפוריה, מרחביה, כפר גדעון, מגן שאול, נורית, גדיש, אביטל ואחוזת ברק. נכסים בעפולה עצמה מופיעים בדפים של העיר."],
+          ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
+          ["מה כדאי לבדוק לפני קניית מגרש או בית במושב?", "את ייעוד הקרקע וזכויות הבנייה, מול הוועדה המקומית לתכנון ובנייה, ואת תנאי הקבלה ליישוב, שבחלק מהיישובים כוללים הליך קבלה. הפרטים שפורסמו במודעה מופיעים בדף הנכס."],
+          ["איפה רואים מחירי עסקאות ביישובים?", "בעמוד עסקאות הנדל״ן לפי יישוב, מתוך דיווחי רשות המסים. ביישוב עם פחות מ-5 עסקאות בשנה האחרונה האתר אינו מציג מחיר חציוני."],
+          ["מה עושים אם אין כרגע נכס שמתאים לי?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס מתאים באחד מיישובי העמק."],
+        ],
+      }],
+    },
   ];
 
   /* ‏סוגי הדפים. הטקסט נבנה מהעיר (‏at = "בעפולה"), ולכן עמוד חדש לעיר
@@ -198,8 +293,37 @@
 
   function brokersPath(c) { return "/" + c.slug + "/מתווכים"; }
 
+  function customPage(c, t) {
+    return {
+      slug: t.slug,
+      path: "/" + c.slug + "/" + t.slug,
+      h1: t.h1,
+      label: t.label || (t.what + " למכירה " + c.at),
+      benefit: t.benefit,
+      description: t.description,
+      intro: t.intro,
+      property_type: t.property_type || null,
+      property_types: t.property_types || null,
+      rooms: t.rooms == null ? null : t.rooms,
+      city: c.slug,
+      cityName: c.name,
+      names: c.names || null,
+      cityId: c.cityId,
+      market: c.market,
+      faqs: t.faqs || null,
+      collection: c.ld === "collection",
+      hero: t.hero || null,
+      placeName: c.name,
+    };
+  }
+
   var PAGES = [];
   for (var cj = 0; cj < CITIES.length; cj++) {
+    var cCity = CITIES[cj];
+    if (cCity.types && cCity.types.length) {
+      for (var tk = 0; tk < cCity.types.length; tk++) PAGES.push(customPage(cCity, cCity.types[tk]));
+      continue;
+    }
     for (var tj = 0; tj < TYPES.length; tj++) {
       var c0 = CITIES[cj];
       var t0 = TYPES[tj];
@@ -230,11 +354,12 @@
   }
 
   function alsoOf(c) {
+    if (c.also) return c.also;
     var out = [];
     for (var i = 0; i < PAGES.length; i++) {
       if (PAGES[i].city === c.slug) out.push([PAGES[i].path, PAGES[i].label]);
     }
-    out.push([brokersPath(c), "מתווכים " + c.at]);
+    if (!c.noBrokers) out.push([brokersPath(c), "מתווכים " + c.at]);
     return out;
   }
 
@@ -263,17 +388,32 @@
     return null;
   }
 
+  /* ‏ערך בתוך in.(...) עם גרשיים, כדי שסוגריים בשם יישוב לא ישברו את המסנן. */
+  function pgIn(values) {
+    var parts = [];
+    for (var i = 0; i < values.length; i++) {
+      parts.push('"' + encodeURIComponent(values[i]).replace(/'/g, "%27") + '"');
+    }
+    return "(" + parts.join(",") + ")";
+  }
+
   function queryParts(page, select, limit) {
+    var names = page.names;
+    var cityFilter = names && names.length
+      ? "city=in." + pgIn(names)
+      : "city=eq." + encodeURIComponent(cityOf(page).name);
     var parts = [
       "select=" + select,
       "status=eq.active",
       "deal_type=eq.sale",
       "category=eq.residential",
-      "city=eq." + encodeURIComponent(cityOf(page).name),
+      cityFilter,
       "order=is_promoted.desc,created_at.desc",
       "limit=" + limit,
     ];
-    if (page.property_type) parts.push("property_type=eq." + encodeURIComponent(page.property_type));
+    if (page.property_types && page.property_types.length) {
+      parts.push("property_type=in." + pgIn(page.property_types));
+    } else if (page.property_type) parts.push("property_type=eq." + encodeURIComponent(page.property_type));
     if (page.rooms != null) parts.push("rooms=eq." + encodeURIComponent(String(page.rooms)));
     return parts.join("&");
   }
@@ -513,6 +653,7 @@
   };
 
   function heroOf(page) {
+    if (page && page.hero && HEROES[page.hero]) return HEROES[page.hero];
     if (page && HEROES[page.slug]) return HEROES[page.slug];
     return VALLEY_HERO;
   }
@@ -706,6 +847,10 @@
 
   function trust(page, rows, extras) {
     var c = cityOf(page);
+    if (c.trustNote) {
+      return '<section class="land-trust"><h2>' + escapeHtml(c.trustTitle || c.trustNote) + "</h2>"
+        + "<p>" + escapeHtml(c.trustNote) + "</p></section>";
+    }
     var offices = agencyList(extras);
     var logos = [];
     for (var i = 0; i < offices.length; i++) {
@@ -796,11 +941,19 @@
       + (market ? "<p>" + market + "</p>" : "")
       + focusHoods(page)
       + "<p>המודעות הן נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
-      + 'להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/' + c.slug + '">עסקאות ' + at + "</a>, ולמחירי דירות לפי חדרים: "
+      + "להשוואת עסקאות שדווחו לרשות המסים: " + dealsLink(c, at) + ", ולמחירי דירות לפי חדרים: "
       + '<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
+  function dealsLink(c, at) {
+    if (c.dealsPath) {
+      return '<a href="' + escapeHtml(c.dealsPath) + '">' + escapeHtml(c.dealsLabel || "עסקאות לפי יישוב") + "</a>";
+    }
+    return '<a href="/deals/' + c.slug + '">עסקאות ' + at + "</a>";
+  }
+
   function faqs(page) {
+    if (page && page.faqs) return page.faqs;
     var c = cityOf(page);
     var at = c.at;
     var extra = [];
@@ -876,7 +1029,72 @@
     return JSON.stringify(obj).replace(/</g, "\\u003c");
   }
 
+  function publicUrl(site, path) {
+    return site + String(path || "").split("/").map(function (seg, i) {
+      return i === 0 ? seg : encodeURIComponent(seg);
+    }).join("/");
+  }
+
+  function collectionJson(page, rows, site) {
+    var c = cityOf(page);
+    var url = publicUrl(site, page.path);
+    var list = listOf(rows);
+    var qa = faqs(page);
+    var main = [];
+    for (var q = 0; q < qa.length; q++) {
+      main.push({
+        "@type": "Question",
+        name: qa[q][0],
+        acceptedAnswer: { "@type": "Answer", text: qa[q][1] },
+      });
+    }
+    var graph = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          "@id": url + "#page",
+          url: url,
+          name: page.h1,
+          description: page.description,
+          inLanguage: "he",
+          isPartOf: { "@id": site + "/#website" },
+          about: { "@type": "Place", name: page.placeName || c.name },
+          breadcrumb: { "@id": url + "#breadcrumb" },
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": url + "#breadcrumb",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
+            { "@type": "ListItem", position: 2, name: c.homeLabel || c.name, item: site + c.home },
+            { "@type": "ListItem", position: 3, name: page.h1, item: url },
+          ],
+        },
+        { "@type": "FAQPage", mainEntity: main },
+      ],
+    };
+    var items = [];
+    for (var i = 0; i < list.length; i++) {
+      items.push({
+        "@type": "ListItem",
+        position: i + 1,
+        name: String(list[i].title || "נכס"),
+        url: site + "/property?id=" + encodeURIComponent(list[i].id),
+      });
+    }
+    var itemList = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: page.h1,
+      numberOfItems: items.length,
+      itemListElement: items,
+    };
+    return [graph, itemList];
+  }
+
   function jsonLd(page, rows, site) {
+    if (page && page.collection) return collectionJson(page, rows, site);
     var url = site + page.path;
     var list = listOf(rows);
     var web = {
