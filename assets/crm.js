@@ -24757,6 +24757,13 @@ function renderCmaReport(r, brand){
     return (Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0)
       ? Math.round(((a - v) / v) * 100) : null;
   };
+  /* למה אין השוואה למ״ר. בדוח לכתובת המחיר המבוקש אינו חובה, ושם החסר הוא
+     בדרך כלל המחיר ולא השטח - "אין שטח רשום" היה שקר על נכס עם 80 מ״ר. */
+  function cmaNoSqmNote(s){
+    if (!s.size_sqm) return 'אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.';
+    if (!s.price) return 'לא הוזן מחיר מבוקש, ולכן הדוח מציג את השוק בלי פער מול הנכס.';
+    return 'אי אפשר להשוות את המחיר למ״ר.';
+  }
   const priceGap = hasStats ? cmaGapPct(s.price, st.avg_price) : null;
   const sqmGap   = hasStats ? cmaGapPct(s.price_per_sqm, st.avg_price_per_sqm) : null;
 
@@ -24783,7 +24790,7 @@ function renderCmaReport(r, brand){
           + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
         : '')
     + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
-        ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
+        ? '<div class="cma-note">' + cmaNoSqmNote(s) + '</div>'
         : '');
 
   /* שתי סיבות שונות לכך שעסקה מופיעה בטבלה ואינה נספרת בממוצע, ולכל
@@ -24970,7 +24977,7 @@ function renderCmaReport(r, brand){
         + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
       : '')
     + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
-      ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
+      ? '<div class="cma-note">' + cmaNoSqmNote(s) + '</div>'
       : '');
   const heroBlock = heroPct === null ? '' : `
       <div class="cma-hero-fig">
@@ -25018,9 +25025,19 @@ function renderCmaReport(r, brand){
     cov.band_dimension === 'floor' && cov.subject_floor_group
       ? ['קומה', ({ ground:'קרקע', upper:'עליונה', below:'מרתף' })[cov.subject_floor_group] || '-'] : null,
     s.size_sqm ? ['שטח', `${esc(s.size_sqm)} מ״ר`] : null,
-    ['מחיר מבוקש', shekel(s.price)],
+    /* בדוח לכתובת (cma_report_address) המחיר המבוקש אינו חובה */
+    s.price || s.source !== 'address' ? ['מחיר מבוקש', shekel(s.price)] : null,
     s.price_per_sqm ? ['למ״ר', shekel(s.price_per_sqm)] : null,
   ].filter(Boolean);
+
+  /* דוח לכתובת: הרדיוס נמדד מהמיקום, והמיקום לא תמיד מהבניין עצמו
+     (cma_locate_address, 20270819090000). ברחוב ארוך מספר בית אחר הוא
+     מאות מטרים - הדוח אומר את זה ולא מציג אותו כמדויק. */
+  const LOC_NOTE = {
+    street_nearest: `המרחקים נמדדו ממספר ${esc(s.nearest_house_number || '')} באותו רחוב, הכתובת עצמה לא מוקמה בדיוק.`,
+    street: 'לא צוין מספר בית, ולכן המרחקים נמדדו ממרכז הרחוב.',
+  };
+  const locNote = s.source === 'address' ? (LOC_NOTE[s.location_precision] || '') : '';
 
   document.getElementById('cmaBody').innerHTML = `
    <div class="cma-doc" style="${brandStyle}">
@@ -25047,6 +25064,7 @@ function renderCmaReport(r, brand){
     <section class="cma-hero">
       <h2>${esc(s.title)}</h2>
       <div class="cma-addr">${esc([s.address, s.city].filter(Boolean).join(', '))}</div>
+      ${locNote ? `<div class="cma-note" style="margin-bottom:10px">${locNote}</div>` : ''}
       <dl class="cma-chips">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
     </section>
 
@@ -30527,6 +30545,86 @@ function openCmaPicker(){
   navLayerShow('createSheet', 'create', '.cs-row');
 }
 
+/* "דוח CMA לכתובת שאינה במערכת" (Elite, 20270819090000). אותו דוח בדיוק
+   כמו מכרטיס הנכס - ‏agent_cma_report_address מריצה את אותה ליבה על נכס
+   שנבנה בזיכרון - ולכן אותה תצוגה (renderCmaReport). המיקום כמו בחיפוש
+   העסקאות (dealsLookupCoords: עפולה דרך העירייה, אחרת GovMap בדפדפן), ואם
+   לא נמצא - המסד ממקם בעצמו מהעסקאות ומהחלקות ואומר עד כמה בדיוק. */
+const CMA_ADDR_TYPES = ['דירה', 'דירת גן', 'פנטהאוז', 'בית פרטי', 'דו משפחתי', 'חנות', 'משרד', 'מגרש'];
+
+function renderCmaAddressForm(body, title){
+  title.textContent = 'דוח CMA לכתובת';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'cs-back';
+  back.innerHTML = dashIcon('chevRight') + '<span>חזרה</span>';
+  back.addEventListener('click', ()=> renderCreateSheet('cma'));
+  body.appendChild(back);
+
+  const city = ((typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])[0] || {}).city || 'עפולה';
+  const form = document.createElement('form');
+  form.className = 'cs-form';
+  form.noValidate = true;
+  form.innerHTML = `
+    <label class="cs-f-wide">רחוב<input name="street" required autocomplete="off" placeholder="למשל רוטשילד"></label>
+    <label>מספר בית<input name="house" inputmode="numeric" autocomplete="off"></label>
+    <label>עיר<input name="city" value="${esc(city)}" required></label>
+    <label>סוג<select name="type">${CMA_ADDR_TYPES.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+    <label>חדרים<input name="rooms" type="number" step="0.5" min="1" max="20" inputmode="decimal"></label>
+    <label>שטח (מ״ר)<input name="size" type="number" min="1" inputmode="numeric"></label>
+    <label>קומה<input name="floor" type="number" min="-3" max="80" inputmode="numeric"></label>
+    <label>מחיר מבוקש (₪)<input name="price" type="number" min="0" step="1000" inputmode="numeric"></label>
+    <p class="cs-hint cs-f-wide" data-msg>חדרים ושטח אינם חובה, אבל הם מה שמדייק את ההשוואה.</p>
+    <button type="submit" class="btn btn-gold btn-block cs-f-wide">הפקת הדוח</button>`;
+  body.appendChild(form);
+  form.elements.street.focus({ preventScroll:true });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = form.elements;
+    const msg = form.querySelector('[data-msg]');
+    const cityV = f.city.value.trim();
+    const street = canonicalStreet(f.street.value, cityV).name;
+    const house = f.house.value.trim();
+    const n = el => el.value === '' ? null : Number(el.value);
+    if (!cityV || !street){
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'נא למלא רחוב ועיר.';
+      return;
+    }
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true; btn.textContent = 'מפיק…';
+    try{
+      const coords = await dealsLookupCoords(cityV, street, house);
+      const [{ data, error }, brand] = await Promise.all([
+        sb.rpc('cma_report_address', {
+          p_city: cityV, p_street: street, p_house_number: house || null,
+          p_property_type: f.type.value,
+          p_rooms: n(f.rooms), p_size_sqm: n(f.size),
+          p_floor: f.floor.value === '' ? null : Math.round(Number(f.floor.value)),
+          p_price: n(f.price), p_features: null,
+          p_lat: coords?.lat ?? null, p_lng: coords?.lng ?? null,
+        }),
+        loadCmaBrand().catch(() => null),
+      ]);
+      if (error) throw error;
+      if (data?.error){
+        msg.style.color = 'var(--red)';
+        msg.textContent = data.detail || 'שגיאה בהפקת הדוח';
+        return;
+      }
+      closeCreateSheet();
+      renderCmaReport(data, brand);
+    } catch(err){
+      console.error(err);
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'שגיאה בהפקת הדוח: ' + heErr(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'הפקת הדוח';
+    }
+  });
+}
+
 /* ==========================================================================
    אנימציות הגלילה
    --------------------------------------------------------------------------
@@ -31759,8 +31857,28 @@ function renderCreateSheet(view){
     return;
   }
 
+  if (view === 'cma-address'){
+    renderCmaAddressForm(body, title);
+    return;
+  }
+
   if (view === 'cma'){
     title.textContent = 'דוח CMA לאיזה נכס?';
+    /* לכתובת שאינה במערכת (20270819090000) - Elite. במסלול אחר הכפתור
+       מוצג ואומר "זמין ב-Elite": כפתור חסר אינו מלמד דבר. הגייט עצמו
+       ב-agent_cma_report_address. */
+    const elite = !!currentAgent && currentAgent.tier === 'premium';
+    const addr = document.createElement('button');
+    addr.type = 'button';
+    addr.className = 'cs-row';
+    addr.innerHTML = dashIcon('map')
+      + '<span class="cs-row-t">לכתובת שאינה במערכת</span>'
+      + '<span class="cs-row-s">' + (elite ? 'כל כתובת, גם לפני לקיחת נכס' : 'זמין ב-Elite') + '</span>';
+    addr.addEventListener('click', ()=>{
+      if (!elite){ showToast('דוח CMA לכל כתובת זמין במסלול Elite.', 5000); return; }
+      renderCreateSheet('cma-address');
+    });
+    body.appendChild(addr);
     // ‏agent_cma_report מסרב לנכס להשכרה (rent_not_supported), ולכן מכירה בלבד
     const sale = (typeof myPropertyRows !== 'undefined' ? myPropertyRows : [])
       .filter(p => p.status === 'active' && p.deal_type !== 'rent');
@@ -31768,6 +31886,7 @@ function renderCreateSheet(view){
       body.insertAdjacentHTML('beforeend', '<p class="cs-empty">אין כרגע נכס פעיל למכירה. הדוח מבוסס על עסקאות מכר.</p>');
       return;
     }
+    body.insertAdjacentHTML('beforeend', '<div class="cs-more-h" style="margin-top:12px">הנכסים שלי</div>');
     const list = document.createElement('div');
     list.className = 'cs-list';
     sale.forEach(p=>{
