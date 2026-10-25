@@ -2038,7 +2038,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
      נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
      ב-await. התוצאה נלקחת רק אם המזהה זהה למה שחזר; אחרת שאילתה רגילה. */
-  const AGENCY_FIELDS = 'name, address, city_id';
+  const AGENCY_FIELDS = 'name, address, city_id, logo_url';
   const agencyCacheKey = 'crmAgencyId:' + user.id;
   let cachedAgencyId = null;
   try { cachedAgencyId = localStorage.getItem(agencyCacheKey); } catch {}
@@ -31789,13 +31789,13 @@ function renderAgreements(){
   /* בלי סינון מצב: "דורשים פעולה ממך" (טיוטות וממתינים) למעלה, ו"נחתמו" מתחת */
   if (!status){
     const groups = [
-      ['דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
-      ['נחתמו', rows.filter(a => a.status === 'signed')],
-      ['בוטלו', rows.filter(a => a.status === 'cancelled')],
+      ['action', 'דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
+      ['signed', 'נחתמו', rows.filter(a => a.status === 'signed')],
+      ['cancelled', 'בוטלו', rows.filter(a => a.status === 'cancelled')],
     ];
-    groups.forEach(([label, list]) => {
+    groups.forEach(([tone, label, list]) => {
       if (!list.length) return;
-      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h">${esc(label)} · ${list.length}</div>`);
+      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h agr-group-${tone}">${esc(label)} · ${list.length}</div>`);
       list.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
     });
   } else {
@@ -31817,6 +31817,7 @@ function renderAgreementTiles(status){
   ];
   box.innerHTML = tiles.map(([v, label, count, warn]) =>
     `<button type="button" class="agr-tile${warn && count ? ' is-warn' : ''}" data-agr-tile="${v}" aria-pressed="${(status || '') === v}">`
+    + `<i class="agr-tile-ico" aria-hidden="true"></i>`
     + `<b>${count}</b><span>${esc(label)}</span></button>`).join('');
 }
 document.getElementById('agrTiles')?.addEventListener('click', e => {
@@ -31861,7 +31862,7 @@ function buildAgreementTab(a){
     key: a.id, list:'agreement', expanded: expandedAgreementIds, cls:'agr-tab',
     title: agrPartyNames(a) || a.title,
     sub: agrTabSub(a),
-    pill: { text: st.label, cls: 'status-pill ' + st.cls },
+    pill: { text: st.label, cls: 'status-pill agr-status agr-status-' + (a.status || '') + ' ' + st.cls },
     price: prog.total ? prog.signed + '/' + prog.total : '',
     priceNote: prog.total ? 'חתמו' : '',
     buildCard: ()=> buildAgreementCard(a),
@@ -31886,7 +31887,7 @@ function buildAgreementCard(a){
             a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
           ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) - אפשר לשלוח שוב</div>` : ''}
         </div>
-        <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
+        <div class="pill-row"><span class="status-pill agr-status agr-status-${esc(a.status || '')} ${st.cls}">${esc(st.label)}</span></div>
       </div>
       <div class="lead-actions"></div>`;
 
@@ -32145,8 +32146,39 @@ async function openAgreementSigning(agreementId){
 
 const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
 
+function agrOfficeBrand(verifyCode){
+  const agency = window.currentAgency || {};
+  const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
+  return window.AgreementDoc.brandFrom({
+    name: agent.display_name || '',
+    agency: agency.name || '',
+    phone: agent.phone || '',
+    license: agent.license_number || '',
+    agency_logo: agency.logo_url || '',
+  }, verifyCode || '');
+}
+
+function agrPaintBrand(){
+  if (!window.AgreementDoc || !window.AgreementDoc.paintBrand) return;
+  window.AgreementDoc.paintBrand(document.getElementById('agrBrand'), agrOfficeBrand());
+}
+
+function agrKindIcon(kind){
+  const common = 'viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+  const paths = {
+    buy: '<circle cx="11" cy="11" r="6"></circle><path d="M20 20l-3.5-3.5"></path>',
+    sell: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path>',
+    tenant: '<circle cx="8" cy="15" r="3"></circle><path d="M10.2 13.2L20 4"></path><path d="M16 4h4v4"></path>',
+    landlord: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path><path d="M10 19v-5h4v5"></path>',
+    exclusive_sell: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+    exclusive_landlord: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+  };
+  return '<svg ' + common + ' aria-hidden="true">' + (paths[kind] || paths.sell) + '</svg>';
+}
+
 function agrRender(){
   if (!agrWizard) return;
+  agrPaintBrand();
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
 
@@ -32173,14 +32205,15 @@ function agrRenderStepKind(){
       const t = agrTpl(k);
       if (!t) return '';
       return `<button type="button" class="agr-kind${t.verified ? '' : ' is-draft'}" data-agr-kind="${esc(k)}">` +
-        esc(t.label) +
-        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></button>`;
+        `<span class="agr-kind-ico" aria-hidden="true">${agrKindIcon(k)}</span>` +
+        `<span class="agr-kind-copy"><span class="agr-kind-name">${esc(t.label)}</span>` +
+        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></span></button>`;
     }).join('');
     return `<div class="agr-kind-group">${esc(group.label)}</div>` + items;
   }).join('');
 
   agrEl('agrBody').innerHTML =
-    '<p style="margin:0 0 12px;color:var(--ink-soft)">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
+    '<p class="agr-lead">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
     '<div class="agr-kind-list">' + html + '</div>' +
     '<p class="imp-note" style="margin-top:14px">טופס המסומן ב"נוסח לאישור" נבנה במבנה של טופס המכירה וממתין לאישור משפטי - ' +
     'בדקו את הנוסח בתצוגה המקדימה לפני שאתם מחתימים עליו לקוח/ה.</p>';
@@ -33804,7 +33837,7 @@ function agrRenderStepSign(){
   }
 
   html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
-    '<div class="agr-preview">' +
+    '<div class="agr-preview sign-sheet">' +
       window.AgreementDoc.fillSignerSlots(rec.document_html, rec.signers) + '</div>';
 
   agrEl('agrBody').innerHTML = html;
@@ -33915,7 +33948,9 @@ async function agrDownloadPdf(btn){
   btn.disabled = true;
   btn.textContent = 'מכין את הקובץ…';
   try {
-    await window.AgreementDoc.downloadPdf(host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf');
+    await window.AgreementDoc.downloadPdf(
+      host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf',
+      agrOfficeBrand(rec.verify_code));
   } catch(err){
     console.error(err);
     showToast('לא הצלחנו להפיק PDF - נסו שוב');
