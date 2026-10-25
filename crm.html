@@ -6865,8 +6865,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 
   /* ---------- דף הבית (שלב 6, סעיף 3.0; assets/crm-home.js, docs/crm-home.md) ---------- */
-  .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:4px 20px;margin:0 0 16px}
-  .hm-head-text{min-width:0;flex:1 1 280px;display:flex;flex-direction:column;gap:4px}
+  .hm-head{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:0 0 16px}
+  .hm-head-text{min-width:0;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:8px}
   .hm-head .dash-greet{font-family:'Frank Ruhl Libre',serif;font-size:34px;font-weight:700;line-height:1.15;margin:0;color:var(--nv-ink)}
   .hm-head .dash-brief{margin:0;display:flex;flex-direction:column;gap:6px;width:100%;font-size:16px;font-weight:500;color:#3A4458}
   .hm-head .dash-brief[hidden]{display:none}
@@ -6876,7 +6876,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hm-sum{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:8px 12px;box-sizing:border-box;border-radius:12px;border:1px solid var(--nv-line);background:#fff;font:inherit;font-size:15px;font-weight:700;color:var(--nv-ink);text-align:start;cursor:pointer}
   .hm-sum:hover{border-color:#B8C2D9;background:#F8F9FC}
   .hm-sum-go{color:var(--nv-accent);font-weight:800;flex:none}
-  .hm-date{font-size:14px;color:var(--nv-muted)}
+  .hm-date{font-size:14px;color:var(--nv-muted);align-self:flex-start}
   #dashboard.is-compact .hm-date{display:none}
   .hm-sec-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 8px;margin:0 0 10px}
   .hm-sec-head h2{margin:0;font-size:19px;font-weight:800;color:var(--nv-ink)}
@@ -6942,7 +6942,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hb-pr-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .hb-pr-top strong{font-size:15px}
   .hb-pr-top .ui-tag{font-size:11px;padding:1px 8px}
-  .hb-pr-what{font-size:13px;color:#3A4458;line-height:1.4;overflow-wrap:anywhere}
+  .hb-pr-what{font-size:13px;color:#3A4458;line-height:1.4;overflow-wrap:break-word}
+  .hb-pr-acts{display:flex;align-items:center;gap:8px;flex:none}
   .hb-pr-why{font-size:12px;font-weight:700;color:var(--nv-muted)}
   .hb-pr-why.is-hot{color:var(--nv-urgent-ink)}
   .hb-call{min-width:44px;height:44px;padding:0 12px;box-sizing:border-box;border-radius:12px;background:var(--nv-accent);color:#fff;border:0;
@@ -6991,6 +6992,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hm-wait{display:flex;overflow-x:auto;scrollbar-width:none;margin-inline:-12px;padding-inline:12px}
     .hm-wait::-webkit-scrollbar{display:none}
     .hm-wait>.hm-tile{flex:0 0 150px}
+  }
+  /* "לחזור אליהם" ברוחב העמודה, כדי שהשורה לא נמחצת לצד הכפתורים */
+  @media (min-width:900px){
+    #hbLeads{grid-column:1 / -1}
+  }
+  /* בטלפון הכפתורים בשורה משלהם, ברוחב הכרטיס, כמו בכרטיס הליד */
+  @media (max-width:899px){
+    .hb-pr{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:8px;align-items:center}
+    .hb-pr-text{min-width:0}
+    .hb-pr-acts{grid-column:1 / -1;width:100%}
+    .hb-pr-acts>.hb-call,.hb-pr-acts>.hb-wa-btn,.hb-pr-acts>.hb-done{
+      flex:1 1 0;width:auto;min-width:0;height:auto;min-height:44px;padding:0 12px;box-sizing:border-box}
+    .hb-pr-acts .hb-btxt{display:inline}
   }
   @media (max-width:640px){
     .hm-head .dash-greet{font-size:26px}
@@ -7829,11 +7843,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <header class="hm-head">
           <div class="hm-head-text">
             <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
+            <span class="hm-date" id="hmDate"></span>
             <!-- שורות לחיצות מתחת לברכה (homeBrief ב-assets/crm-home.js).
                  אפס לא מוצג. הברכה ומשפטי המוטיבציה לא משתנים. -->
             <div class="dash-brief" id="dashBrief" hidden></div>
           </div>
-          <span class="hm-date" id="hmDate"></span>
         </header>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור

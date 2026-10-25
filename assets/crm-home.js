@@ -124,6 +124,8 @@ function homePriorityRow(group, rank){
     markLeadResponded(lead);
     if (leadWorkReady && leadStageOf(lead) === 'new') saveLeadWork(lead, { stage:'contacted' });
   };
+  const acts = document.createElement('div');
+  acts.className = 'hb-pr-acts';
   if (unlocked && tel.replace(/\D/g, '').length >= 9){
     const a = document.createElement('a');
     a.className = 'hb-call';
@@ -131,7 +133,7 @@ function homePriorityRow(group, rank){
     a.setAttribute('aria-label', 'חיוג אל ' + name);
     a.innerHTML = dashIcon('phone') + '<span class="hb-btxt">התקשרות</span>';
     a.addEventListener('click', () => contacted('call'));
-    row.appendChild(a);
+    acts.appendChild(a);
   }
   if (wa){
     const a = document.createElement('a');
@@ -142,7 +144,7 @@ function homePriorityRow(group, rank){
     a.setAttribute('aria-label', 'וואטסאפ אל ' + name);
     a.innerHTML = waGlyph();
     a.addEventListener('click', () => contacted('whatsapp'));
-    row.appendChild(a);
+    acts.appendChild(a);
   }
   if (unlocked && leadWorkReady && leadStageOf(lead) === 'new' && typeof leadMarkHandled === 'function'){
     const done = document.createElement('button');
@@ -151,7 +153,7 @@ function homePriorityRow(group, rank){
     done.textContent = 'טופל';
     done.setAttribute('aria-label', 'סימון הליד כטופל');
     done.addEventListener('click', () => leadMarkHandled(lead, currentAgent && currentAgent.id));
-    row.appendChild(done);
+    acts.appendChild(done);
   }
   if (!unlocked || (!wa && tel.replace(/\D/g, '').length < 9)){
     const b = document.createElement('button');
@@ -160,8 +162,9 @@ function homePriorityRow(group, rank){
     b.innerHTML = dashIcon('inbox') + '<span class="hb-btxt">' + (unlocked ? 'לליד' : 'לפתיחה') + '</span>';
     b.setAttribute('aria-label', (unlocked ? 'לכרטיס הליד של ' : 'פתיחת הליד של ') + name);
     b.addEventListener('click', ()=>{ gotoSection('accLeads'); openLeadFromParam(lead.id); });
-    row.appendChild(b);
+    acts.appendChild(b);
   }
+  if (acts.childElementCount) row.appendChild(acts);
   return row;
 }
 
