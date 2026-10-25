@@ -128,7 +128,7 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 - **שלושה בלוקי JSON-LD**, לא אחד במקום השני: `WebPage`, `BreadcrumbList`, `ItemList`. `<` בתוך JSON הוא `\u003c`. הבדיקה מפרסרת את שלושתם. `FAQPage` הוא בלוק רביעי, והשאלות זהות ל-`<details>` שבעמוד. הוא אינו מחליף אף אחד מהשלושה.
 - **תמונת הגיבור** לפי סוג (`HEROES` ב-`silo-render.js`), `fetchpriority="high"`, עם `srcset` ו-`preload` שמצביע עליה. בטלפון בלי מתאר `w`. סוג לא מוכר ודף המתווכים נשארים על תמונת העמק. הגובה בטלפון צר הוא `min(56svh, 460px)`, ומ-760px `min(460px, 100svh - 67px)` (שולחן נשאר 460px, טלפון לרוחב מתכווץ). לכרטיסים יש `width` ו-`height`, והם `loading="lazy"`.
 - **`/projects` הוא חריג לרשימה ריקה.** אין עליו `noindex`, והוא נשאר ב-sitemap גם בלי פרויקט. `ItemList` רק כשיש פרויקט. המדריך ב-HTML. `projects-page.ts`, לא `index-jsonld.ts`.
-- **השורה ב-sitemap סטטית** (`sitemap.xml`), בלי `lastmod`. לא מוסיפים את אותו URL גם כמקור ב-`sitemap.ts`: הוא היה מופיע פעמיים. `check_canonical.py` דורש את הכתובת ב-sitemap ואת הפונקציה ב-`OWN_EDGE`, ולא רושם את המעטפת כמקור דינמי.
+- **עפולה נשארת שורה סטטית** ב-`sitemap.xml` (`changefreq`, `priority`). ‏`sitemap.ts` אינו מוסיף אותה שוב: `polish` מזהה `loc` קיים, שם או מקודד, ומכניס רק `lastmod`. עיר אחרת מ-`CITIES` נכנסת ל-sitemap החי רק אם `landingIndexable` והדף אינו רשימה ריקה, בלי `changefreq` ובלי `priority`. אין לה שורה ב-`SOURCES`. ‏`check_canonical.py` עדיין דורש את שורת השוק החי בקובץ הסטטי (נפילה לקובץ) ואוסר שורה של שוק שאינו חי.
 
 מדור מתווכים (`/afula/מתווכים`) יושב על אותו חוזה סטטוס. ה-`ItemList` שלו הוא `LocalBusiness` + `RealEstateAgent`, ועוד `BreadcrumbList`. הוא אינו מחליף את `/about`.
 
