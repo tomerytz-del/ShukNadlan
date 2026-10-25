@@ -34,9 +34,9 @@
         var range = x.res.headers.get("content-range") || "";
         var m = /\/(\d+)\s*$/.exec(range);
         if (m && x.data.length !== Number(m[1])) return;
-        extras.hoods = S.hoodRowsFromListings(x.data);
+        extras.hoods = S.hoodRowsFromListings(x.data, page);
       }).catch(function () {}),
-      get(SUPABASE_URL + "/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq." + S.cityId + "&order=name.asc&limit=48").then(function (x) {
+      get(SUPABASE_URL + "/rest/v1/agencies?select=id,slug,name,logo_url&city_id=eq." + page.cityId + "&order=name.asc&limit=48").then(function (x) {
         if (Array.isArray(x.data)) extras.agencies = x.data;
       }).catch(function () {}),
     ];
@@ -51,6 +51,12 @@
     var updated = document.getElementById("landUpdated");
     var hero = document.getElementById("landHeroBg");
     var all = document.getElementById("landAll");
+    var cityCrumb = document.getElementById("landCityCrumb");
+    if (cityCrumb) {
+      var city = S.cityOf(page);
+      cityCrumb.textContent = city.name;
+      cityCrumb.setAttribute("href", city.home);
+    }
     if (h1) h1.textContent = page.h1;
     if (benefit) benefit.textContent = page.benefit || page.description;
     if (crumb) crumb.textContent = page.h1;

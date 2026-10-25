@@ -72,6 +72,7 @@ import "../../assets/silo-render.js";
 import "../../assets/brokers-render.js";
 import { SEARCH_PAGES } from "./search-pages.ts";
 import {
+  landingIndexable,
   liveMarketSlugs,
   neighborhoodIndexable,
   settlementIndexable,
@@ -478,15 +479,28 @@ function upsertLastmod(body: string, loc: string, mod: string): string {
   return body.slice(0, insertAt) + `\n    <lastmod>${mod}</lastmod>` + body.slice(insertAt);
 }
 
-type SiloPage = { path: string; property_type: string | null; rooms: number | null };
+type SiloPage = {
+  path: string;
+  property_type: string | null;
+  rooms: number | null;
+  cityName: string;
+  market: string;
+};
+type BrokersPage = { path: string; cityId: string; market: string };
 
 function landingPages(): SiloPage[] {
   const pages = (globalThis as unknown as { ShukSilo?: { pages?: SiloPage[] } }).ShukSilo?.pages;
   return Array.isArray(pages) ? pages : [];
 }
 
+function brokersPages(): BrokersPage[] {
+  const pages = (globalThis as unknown as { ShukBrokers?: { pages?: BrokersPage[] } }).ShukBrokers?.pages;
+  return Array.isArray(pages) ? pages : [];
+}
+
+/* ‏אותו סינון כמו queryOf ב-silo-render.js: העיר היא המחרוזת properties.city. */
 function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
-  if (String(row.city || "") !== "עפולה") return false;
+  if (String(row.city || "") !== page.cityName) return false;
   if (String(row.deal_type || "") !== "sale") return false;
   if (String(row.category || "") !== "residential") return false;
   if (page.property_type && String(row.property_type || "") !== page.property_type) return false;
@@ -495,8 +509,9 @@ function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
 }
 
 /* ‏אחרי שהבלוקים מהמסד נכנסו: מורידים כתובת שהדף שלה היה noindex או
-   שה-canonical שלה במקום אחר, ומוסיפים lastmod אמיתי לדפי /afula. */
-async function polish(body: string, cities: CityMap): Promise<string> {
+   שה-canonical שלה במקום אחר, ומוסיפים lastmod אמיתי לדפי הנחיתה
+   (‏/afula/…, ‏/haifa/…). דף נחיתה של שוק שאינו חי יוצא תמיד. */
+async function polish(body: string, cities: CityMap, live: Set<string> | null): Promise<string> {
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
   for (const loc of locs) {
@@ -508,16 +523,29 @@ async function polish(body: string, cities: CityMap): Promise<string> {
     out = removeLoc(out, `${SITE}/projects`);
   }
 
-  const brokersPath = (globalThis as unknown as { ShukBrokers?: { path?: string } }).ShukBrokers?.path || "/afula/מתווכים";
-  const agencies = await sbGet("agencies?slug=not.is.null&select=updated_at&order=updated_at.desc&limit=1");
-  if (agencies.ok && agencies.rows.length === 0) {
-    out = removeLoc(out, `${SITE}${brokersPath}`);
-  } else if (agencies.ok && agencies.rows.length) {
-    out = upsertLastmod(out, `${SITE}${brokersPath}`, day(agencies.rows[0].updated_at));
+  for (const page of brokersPages()) {
+    const loc = `${SITE}${page.path}`;
+    if (!landingIndexable(page.market, live)) {
+      out = removeLoc(out, loc);
+      continue;
+    }
+    const agencies = await sbGet(
+      `agencies?slug=not.is.null&city_id=eq.${page.cityId}&select=updated_at&order=updated_at.desc&limit=1`,
+    );
+    if (agencies.ok && agencies.rows.length === 0) {
+      out = removeLoc(out, loc);
+    } else if (agencies.ok && agencies.rows.length) {
+      out = upsertLastmod(out, loc, day(agencies.rows[0].updated_at));
+    }
+  }
+
+  for (const page of landingPages()) {
+    if (!landingIndexable(page.market, live)) out = removeLoc(out, `${SITE}${page.path}`);
   }
 
   if (cities.ok) {
     for (const page of landingPages()) {
+      if (!landingIndexable(page.market, live)) continue;
       const matched = cities.rows.filter((row) => landingMatches(page, row));
       if (!matched.length) {
         out = removeLoc(out, `${SITE}${page.path}`);
@@ -618,7 +646,7 @@ export default async function handler(_request: Request, context: Context) {
       decl === -1 ? note + "\n" + body
                   : body.slice(0, decl + 2) + "\n" + note + body.slice(decl + 2);
 
-    const out = await polish(noted, cities);
+    const out = await polish(noted, cities, live);
     return new Response(out, { status: 200, headers: XML_HEADERS });
   } catch {
     return fallback(); // ‏sitemap ישן עדיף על 500
