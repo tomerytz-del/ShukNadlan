@@ -277,7 +277,7 @@ def slide_html(p, s, idx, mode, disc):
 # ------------------------------------------------------------------ layouts B / C (mockups, 2026-10-24; default stays "A")
 # Instagram Reels safe zone on 1080x1920: nothing important above y=154 (top 8%), below y=1536 (bottom 20%)
 # or right of x=918 (right 15%, IG action buttons). Brand: navy #0c2258 / royal #2f417c / gold #c1a371..#e6c27e.
-LAYOUT = "A"
+LAYOUT = "D"
 SAFE_TOP, SAFE_BOTTOM, SAFE_RIGHT = 154, 1536, 918
 CSS_V2 = """
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1470,10 +1470,10 @@ def build_reel(n, gender="male", long=False, outro=True, synth_music=False, rate
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["stories", "reel", "mockup"]); ap.add_argument("listing")
-    ap.add_argument("--layout", choices=["A", "B", "C", "D"], default="A",
-                    help="on-screen layout: A = current (default); B = logo top-left, deal+price top-right, agent card lower-third left; "
+    ap.add_argument("--layout", choices=["A", "B", "C", "D"], default="D",
+                    help="on-screen layout: D = default (approved Oct 24, 2026); A = previous; B = logo top-left, deal+price top-right, agent card lower-third left; "
                          "C = navy/gold glass top bar + lower-third agent bar; D = B top + navy agent bar with pop-out agent cutout, "
-                         "agent licence and 'צור קשר' (B/C/D are mockups pending approval)")
+                         "agent licence and 'צור קשר'")
     ap.add_argument("--female", action="store_true", help="he-IL-HilaNeural instead of the default male he-IL-AvriNeural")
     ap.add_argument("--long", action="store_true", help="~25s / 7-slide cut instead of the default 15s / 5-slide cut")
     ap.add_argument("--no-outro", action="store_true"); ap.add_argument("--synth-music", action="store_true")

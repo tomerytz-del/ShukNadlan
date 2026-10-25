@@ -30,7 +30,9 @@
 `cutout.py`, `watermark.py`), ו-`run_job.py` רק מתאים אותו לסביבה: הנתונים
 מ-`reel-producer` במקום snapshot, הקול מ-Azure Speech (אותו he-IL-AvriNeural)
 ו-rembg באותו python. **גרסה חדשה של התבנית נכנסת בהעתקת ארבעת הקבצים**, בלי
-עריכה. בדיקה מקומית בלי רשת: `marketing/reel_worker/smoke_test.py --kit <ערכה>`
+עריכה. ‏`post_image.py` (מ-25.10.2026) מגיע באותה העתקה כי `queue.py` טוען אותו,
+אבל הוא מחולל התמונה לפוסטים בקבוצות פייסבוק ואינו חלק מהרילס - הגיבוי אינו
+מריץ אותו, ולכן scipy והגופן Heebo שהוא צריך אינם ב-`requirements.txt`. בדיקה מקומית בלי רשת: `marketing/reel_worker/smoke_test.py --kit <ערכה>`
 (‏תמונות `file://` וקול מדומה) - כך נבדק הרילס של 1171 מול `samples/1171`,
 וטקסט הקריינות יצא זהה מילה במילה. הנוהל המלא בסקיל `property-video`.
 
