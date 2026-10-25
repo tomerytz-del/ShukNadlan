@@ -1,6 +1,6 @@
 # מנוע הלידים מפידי RSS (scraper.py)
-anthropic>=1.14.0,<2
-supabase>=2.32.0,<3
+anthropic>=2.1.0,<3
+supabase>=2.33.0,<3
 feedparser>=6.0.14,<7
 requests>=2.34.2,<3
 pydantic>=2.14.1,<3
