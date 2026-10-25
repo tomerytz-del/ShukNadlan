@@ -147,7 +147,9 @@
    * (כדי ש"3 מתוך 7" ייספר מאותה רשימה). ריק כשאין מדריך.
    */
   function items(state, agent) {
-    if (!state || state.just_finished) return [];
+    /* שורה חיה של המדריך תמיד נושאת license_done. אובייקט ריק (onbState
+       כשאין מדריך) אינו "הכל חסר" - אחרת הגיליון היה עולה גם אצל ותיקים. */
+    if (!state || state.just_finished || state.license_done === undefined) return [];
     if (typeof onbModel !== 'function') return [];
     var model = onbModel(state);
     var a = agent || {};

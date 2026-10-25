@@ -169,6 +169,7 @@ const logoDone = N.items(state({
 assert.equal(N.nextItem(logoDone).id, 'about');
 
 assert.deepStrictEqual(N.items(null, agent()), []);
+assert.deepStrictEqual(N.items({}, agent()), [], 'בלי שורת מדריך (ותיק/ה) אין גיליון');
 assert.deepStrictEqual(N.items(state({ just_finished: true }), agent()), []);
 
 const unknownMarkets = N.items(state(), agent({ service_markets: undefined }));
