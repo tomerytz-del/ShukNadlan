@@ -15,8 +15,10 @@
 // ============================================================================
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { type BusyCheck, CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
+import { type BusyCheck, type SendToAgent, CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
 import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
+import { flattenTemplateParam } from "../_shared/wa-send.ts";
+import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText } from "./whatsapp.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -42,10 +44,11 @@ export const CSM_BOT_SYSTEM = `את גבריאלה, העוזרת בוואטסא�
 - היומן שלה: מה יש לה היום או השבוע - csm_agenda_list; קביעת פגישה עם סוכן/ת או משרד - csm_agenda_add (כשיומן Google שלה מחובר - הפגישה עוברת לשם לבד, ואם השעה תפוסה ביומן האישי שלה - לציין; כשלא - הקישור "הוספה ליומן Google" בתשובה, והחיבור עצמו נעשה בהגדרות באזור ההטמעה); הזזה, ביטול או "התקיימה" - csm_agenda_update. "מחר", "ביום שלישי" - לפי התאריך שבהקשר. פגישה שהתקיימה עם סוכן/ת - להציע לרשום אותה (csm_log_session).
 - ההתראות שלה (תזכורת לפני פגישה, סוכן/ת חדש/ה, 5 ימים בלי גבריאלה, הקלטה שהסתיימה, סיכום בוקר) - csm_notifications. התראה שנשלחה אליה מופיעה בשיחה בסוגריים מרובעים.
 - ההגדרות שלה - csm_settings: השם, התראות בוואטסאפ ואילו סוגים, שעת סיכום הבוקר, ימי עבודה, שעות שקט, אורך פגישה, כמה זמן לפני התזכורת, וקישור קבוע לפגישות וידאו. הנייד והמייל - רק באזור ההטמעה.
+- קישורים לסוכנים: מה הקישור למסך או לדף - csm_links (רשימה סגורה; קישור שאינו שם - אין). שליחה לסוכן/ת מהמספר שלך, בשמה - csm_send_to_agent: קודם בלי confirmed, להראות לה את הנוסח המדויק ולשאול "לשלוח?", ורק אחרי "כן" / "שלחי" מפורש על הנוסח הזה - שוב עם confirmed=true. שינוי בנוסח = תצוגה חדשה ואישור חדש. הודעה אחת לסוכן/ת אחד/ת; לא רצפים ולא תפוצה.
 - שאלה מקצועית (עם מי להתחיל, איך לגשת למשרד, מה לענות על התנגדות, איך להחזיר מי שנשר/ה) - csm_ask_mentor, ואת מעבירה את התשובה כמו שהיא ופותחת במילים "המנטור עונה:".
 
 כללים:
-- לפני כלי שכותב (csm_set_stage, csm_log_session, csm_link_call, csm_agenda_add) על שם שמתאים ליותר מסוכן/ת אחד/ת - לשאול איזה/איזו. כשלא נמצא - לומר ולהציע חיפוש אחר, לא לנחש.
+- לפני כלי שכותב (csm_set_stage, csm_log_session, csm_link_call, csm_agenda_add, csm_send_to_agent) על שם שמתאים ליותר מסוכן/ת אחד/ת - לשאול איזה/איזו. כשלא נמצא - לומר ולהציע חיפוש אחר, לא לנחש.
 - אחרי כתיבה - משפט אחד שאומר מה נשמר.
 - בקשה שאינה בתחום (נכסים, לקוחות, לידים, מסלולים, תשלומים, ניהול האתר) - להסביר בנימוס שזה מחוץ לכלים של אזור ההטמעה.
 - לא ממציאים נתונים. מספר שלא חזר מכלי - לא נאמר.
@@ -97,6 +100,40 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
     return token ? await freeBusy(token, fromIso, toIso) : null;
   };
 
+  // הודעה לסוכן/ת מהמספר של גבריאלה (csm_send_to_agent). נרשמת ביומן ההודעות
+  // ובהיסטוריה של העוזרת של הסוכן/ת - אחרת "תודה, איפה זה?" מגיע אליה בלי הקשר.
+  const sendToAgent: SendToAgent = async (a) => {
+    let waId: string | null = null;
+    let error: string | undefined;
+    try {
+      if (a.inWindow) {
+        waId = await sendText(a.phone, formatForWhatsapp(a.text));
+      } else if (notifyTemplateConfigured()) {
+        waId = await sendNotifyTemplate(a.phone, a.firstName, flattenTemplateParam(a.text, 900), a.path || "/crm");
+      } else {
+        throw new Error("הסוכן/ת לא כתב/ה לגבריאלה ב-24 השעות האחרונות, ותבנית ההתראות לא מוגדרת");
+      }
+    } catch (err) {
+      error = String((err as Error)?.message || err).slice(0, 300);
+    }
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waId, direction: "out", wa_phone: a.phone, agent_id: a.agentId,
+      msg_type: a.inWindow ? "text" : "template", body: formatForWhatsapp(a.text),
+      status: waId ? "sent" : null, error: error ?? null,
+    });
+    if (!error) {
+      const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
+      if (data) {
+        const history = Array.isArray(data.history) ? data.history : [];
+        const next = [...history,
+          { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: מנהלת ההטמעה שלחה לסוכן/ת הודעה דרך גבריאלה]" },
+          { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) }].slice(-12);
+        await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
+      }
+    }
+    return { ok: !error, waMessageId: waId, error };
+  };
+
   let finalText = "";
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await client.messages.create({
@@ -116,7 +153,7 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
     for (const use of uses) {
       let result: unknown;
       try {
-        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor, busyCheck);
+        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor, busyCheck, sendToAgent);
       } catch (err) {
         console.error(`csm tool ${use.name} threw`, err);
         result = { ok: false, error: String((err as Error)?.message || err) };

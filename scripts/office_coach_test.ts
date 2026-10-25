@@ -48,6 +48,7 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
+import { CSM_LINKS, csmLinkFor, csmOutreachText } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
 import { CSM_GREETING, CSM_TOOLS, csmCapabilities, gcalTemplateUrl, ilLocalToIso, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
@@ -562,6 +563,7 @@ for (const kind of ["agent", "team", "office"] as const) {
     csm_link_call: /הקלטת שיחה/, csm_ask_mentor: /המנטור/,
     csm_agenda_list: /היומן/, csm_agenda_add: /היומן/, csm_agenda_update: /היומן/,
     csm_notifications: /התראות/, csm_settings: /הגדרות/,
+    csm_links: /קישורים לסוכנים/, csm_send_to_agent: /קישורים לסוכנים/,
   };
   check("גבריאלה לצוות ההטמעה: ההיכרות מפרטת כל כלי, בשם, בלי מקף ארוך",
     CSM_TOOLS.every((t) => capAreas[t.name] && capAreas[t.name].test(caps)) && /^היי רותם, אני גבריאלה/.test(caps)
@@ -587,6 +589,25 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("יומן ההטמעה: גבריאלה כותבת ומעדכנת רק פגישות של אשת הצוות שמולה",
     /\.eq\("staff_id", staff\.id\)\.maybeSingle\(\)/.test(toolsSrc) && /staff_id: staff\.id, agent_id/.test(toolsSrc)
       && /p_allow_phone: false/.test(toolsSrc));
+  // קישורים לסוכנים: רשימה סגורה, וכל קישור הוא דף אמיתי או מסך שקיים ב-CRM
+  const root = (f: string) => readFileSync(new URL("../" + f, import.meta.url), "utf8");
+  const crmHtml = root("crm.html");
+  const deadLinks = CSM_LINKS.filter((l) => l.path).filter((l) => {
+    const [page, query] = l.path.split("?");
+    const goto = /goto=(acc[A-Za-z]+)/.exec(query || "")?.[1];
+    if (goto) return !crmHtml.includes(`id="${goto}"`);
+    const file = page === "/" ? "index.html" : page.slice(1) + ".html";
+    try { root(file); return false; } catch { return true; }
+  }).map((l) => l.key);
+  check("קישורים לסוכנים: כל קישור הוא דף באתר או מסך ב-CRM", deadLinks.length === 0, deadLinks);
+  check("קישורים לסוכנים: דף אישי רק עם slug, ומפתח לא מוכר נדחה",
+    csmLinkFor("agent_page", {}) === null && csmLinkFor("agent_page", { agent_slug: "יוסי-כהן" })?.url === "https://shuknadlan.co.il/agent?slug=" + encodeURIComponent("יוסי-כהן")
+      && csmLinkFor("https://evil.example") === null && csmLinkFor("crm_properties")?.path === "/crm?goto=accProperties");
+  const outreach = csmOutreachText("עופרי", "היי יוסי — הנה המסך", csmLinkFor("crm_properties"));
+  check("קישורים לסוכנים: ההודעה בשם אשת הצוות, עם הקישור ובלי מקף ארוך",
+    /עופרי, צוות ההטמעה/.test(outreach) && outreach.includes("https://shuknadlan.co.il/crm?goto=accProperties") && !/[\u2013\u2014]/.test(outreach), outreach);
+  check("קישורים לסוכנים: שליחה רק אחרי אישור - confirmed בכלי, ובפרומפט",
+    /input\.confirmed !== true/.test(toolsSrc) && /confirmed=true/.test(chatSrc));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",
     /\.eq\("user_id", userData\.user\.id\)/.test(wsSrc) && !/body\.staff_id/.test(wsSrc));
 }

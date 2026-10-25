@@ -119,6 +119,11 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
   (`source = 'phone'`) ועוברת `processCsmCall`, ו-`csm-notify.ts` שולח לה את הסיכום
   ואת ההקלטה. מקור חדש ב-`csm_calls.source` - גם ב-`csm_calls_notify` וב-`csmCallsHtml`.
 
+- **הודעה לסוכן/ת** (`csm_send_to_agent`): קישור רק מ-`CSM_LINKS` (‏`csm-links.ts`) -
+  קישור חדש נכנס לשם, והבדיקה מוודאת שהדף או ה-`acc…` קיימים. השליחה רק עם
+  `confirmed=true` אחרי תצוגה, עד 40 ביום, וההודעה נכנסת להיסטוריה של העוזרת של
+  הסוכן/ת. מסך שהשם שלו משתנה ב-`crm.html` - גם שם.
+
 ## 9. עלות
 
 שלוש יכולות ב-`AiFeature` (`csm_mentor`, `csm_call`, `gabriela_csm`), ולכל אחת שורה ב-

@@ -11,6 +11,7 @@
 // ============================================================================
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { csmLinkCatalog, csmLinkFor, csmOutreachText } from "./csm-links.ts";
 
 type Row = Record<string, unknown>;
 
@@ -266,6 +267,38 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
       },
     },
   },
+  {
+    name: "csm_links",
+    description:
+      "הקישורים לאתר ול-CRM שאפשר לתת לסוכן/ת: מסך ב-CRM (נכסים, לקוחות, לידים, יומן, הסכמים, פרופיל, הגדרות, " +
+      "ארנק, יומן Google, ולמנהלים - צוות, דאשבורד המשרד ודף המשרד), דפי האתר (מסלולים, רכישה, הרשמה, שאלות נפוצות, " +
+      "מחירים ועסקאות), הדף האישי של הסוכן/ת ושל המשרד, וצ'אט עם גבריאלה. עם agent_id - הכתובות המלאות לסוכן/ת הזה/ו. " +
+      "רשימה סגורה: קישור שאינו כאן לא נשלח.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string", description: "לכתובות האישיות (הדף שלו/ה, דף המשרד). לא חובה" },
+        key: { type: "string", description: "קישור אחד לפי המפתח מהרשימה. ריק = כל הרשימה" },
+      },
+    },
+  },
+  {
+    name: "csm_send_to_agent",
+    description:
+      "שליחת הודעה לסוכן/ת בוואטסאפ, מהמספר של גבריאלה ובשם אשת הצוות, עם קישור אחד מ-csm_links. " +
+      "**שני שלבים:** בלי confirmed - מחזיר את הנוסח המדויק ואיך הוא ייצא, וצריך להראות לה אותו ולשאול אם לשלוח. " +
+      "confirmed=true רק אחרי שאמרה במפורש לשלוח את הנוסח הזה. קודם csm_find_agent למזהה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        message: { type: "string", description: "גוף ההודעה, בגוף ראשון שלה, קצר ובשפה של וואטסאפ" },
+        link_key: { type: "string", description: "מפתח מ-csm_links. לא חובה" },
+        confirmed: { type: "boolean" },
+      },
+      required: ["agent_id", "message"],
+    },
+  },
 ];
 
 
@@ -289,6 +322,7 @@ export function csmCapabilities(name?: string | null, first = false): string {
     "- *היומן* - \"תקבעי לי פגישת הצלחה ראשונה עם יוסי ביום שלישי ב-10:00\", \"מה יש לי היום?\", \"תזיזי את הפגישה עם דנה לחמישי\"",
     "- *התראות* - תזכורת לפני כל פגישה, סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה וסיכום בוקר: \"מה ההתראות שלי?\"",
     "- *הגדרות* - \"תכבי לי את סיכום הבוקר\", \"תזכורת שעה לפני כל פגישה\", \"בלי וואטסאפ אחרי 20:00\"",
+    "- *קישורים לסוכנים* - \"מה הקישור למסלולים?\", \"תשלחי ליוסי את הקישור להוספת נכס ב-CRM\" (אראה לך את הנוסח לפני שאשלח)",
     "",
     "אפשר לכתוב או לשלוח הודעה קולית. הכול נשמר גם באזור ההטמעה: https://shuknadlan.co.il/csm",
     "בכל רגע אפשר לכתוב \"מה אפשר לעשות כאן\" ואזכיר.",
@@ -418,15 +452,103 @@ function atRisk(r: Row) {
    הראשי שלה ב-Google, או null כשאין חיבור עם הרשאת פנוי/תפוס. */
 export type BusyCheck = (fromIso: string, toIso: string) => Promise<Array<{ start: string; end: string }> | null>;
 
+/* ‏sendToAgent: השליחה עצמה (whatsapp.ts), מוזרקת מאותה סיבה. ‏inWindow קובע
+   טקסט מלא או תבנית; ‏path הוא סיומת הכפתור של התבנית. */
+export type SendToAgent = (a: {
+  agentId: string; phone: string; firstName: string; text: string; path: string | null; inWindow: boolean;
+}) => Promise<{ ok: boolean; waMessageId?: string | null; error?: string }>;
+
+// הגנה על דירוג האיכות של המספר אצל Meta: הרבה הודעות יזומות ביום מאותו
+// מספר הן מה שמוריד אותו. 40 ביום לאשת צוות הן הרבה מעבר לעבודה רגילה.
+const OUTREACH_DAILY_CAP = 40;
+
 export async function runCsmTool(
-  supabase: SupabaseClient, staff: { id: string }, name: string, input: Record<string, unknown>,
+  supabase: SupabaseClient, staff: { id: string; display_name?: string | null }, name: string, input: Record<string, unknown>,
   askMentor?: (q: unknown) => Promise<unknown>,
   busyCheck?: BusyCheck,
+  sendToAgent?: SendToAgent,
 ): Promise<unknown> {
   if (!staff?.id) return { ok: false, error: "הכלי פתוח לצוות ההטמעה בלבד." };
 
   if (name === "csm_ask_mentor") {
     return askMentor ? await askMentor(input.question) : { ok: false, error: "המנטור לא זמין כרגע." };
+  }
+
+  if (name === "csm_links" || name === "csm_send_to_agent") {
+    const agentId = input.agent_id ? String(input.agent_id) : null;
+    let ctx: { agent_slug?: string | null; agency_slug?: string | null; role?: string | null } = {};
+    let target: Row | null = null;
+    if (agentId) {
+      const rows = await overviewRows(supabase);
+      target = rows.find((r) => r.agent_id === agentId) ?? null;
+      if (!target) return { ok: false, error: "agent_id לא נמצא. קודם csm_find_agent." };
+      // שתי שאילתות ולא embed: ל-agency_members יש יותר ממפתח זר אחד ל-agencies,
+      // ו-embed נכשל ב-PGRST201 (scripts/check_agency_embed.py)
+      const { data: m } = await supabase.from("agency_members")
+        .select("slug, phone_e164, agency_id").eq("id", agentId).maybeSingle();
+      const { data: ag } = m?.agency_id
+        ? await supabase.from("agencies").select("slug").eq("id", m.agency_id).maybeSingle()
+        : { data: null };
+      ctx = { agent_slug: m?.slug ?? null, agency_slug: ag?.slug ?? null, role: String(target.role || "") };
+      target = { ...target, phone_e164: m?.phone_e164 ?? null };
+    }
+
+    if (name === "csm_links") {
+      if (input.key) {
+        const l = csmLinkFor(String(input.key), ctx);
+        if (!l) return { ok: false, error: agentId ? "אין קישור כזה לסוכן/ת הזה/ו (מפתח לא מוכר, או שאין לו/ה דף באתר עדיין)." : "מפתח לא מוכר, או קישור אישי שצריך agent_id." };
+        return { ok: true, link: l };
+      }
+      return {
+        ok: true,
+        links: csmLinkCatalog().map((l) => {
+          const full = csmLinkFor(l.key, ctx);
+          return { ...l, url: full?.url ?? null };
+        }),
+        note: "url ריק = קישור אישי שצריך agent_id, או שאין לסוכן/ת דף באתר. manager_only - מסך שרק מנהל/ת משרד רואה.",
+      };
+    }
+
+    // csm_send_to_agent
+    if (!target) return { ok: false, error: "חסר agent_id. קודם csm_find_agent." };
+    if (!target.phone_e164) return { ok: false, error: "אין לסוכן/ת נייד בכרטיס, ולכן אי אפשר לשלוח בוואטסאפ." };
+    const message = String(input.message ?? "").trim();
+    if (message.length < 2 || message.length > 900) return { ok: false, error: "ההודעה צריכה להיות בין 2 ל-900 תווים." };
+    const link = input.link_key ? csmLinkFor(String(input.link_key), ctx) : null;
+    if (input.link_key && !link) return { ok: false, error: "הקישור לא ברשימה (csm_links), או שאין לסוכן/ת דף כזה." };
+    if (link && csmLinkCatalog().find((l) => l.key === link.key)?.manager_only && target.role !== "manager") {
+      return { ok: false, error: "זה מסך של מנהל/ת משרד, והסוכן/ת הזה/ו אינו/ה מנהל/ת - לא יראה אותו." };
+    }
+    const text = csmOutreachText(staff.display_name ?? null, message, link);
+    const { data: conv } = await supabase.from("whatsapp_conversations")
+      .select("last_message_at").eq("agent_id", target.agent_id).maybeSingle();
+    const inWindow = !!conv?.last_message_at && Date.now() - new Date(String(conv.last_message_at)).getTime() < 23 * 3600000;
+
+    if (input.confirmed !== true) {
+      return {
+        ok: true, preview: text, to: target.display_name, will_send_as: inWindow ? "הודעה מלאה" : "הודעת תבנית קצרה עם כפתור לקישור (הסוכן/ת לא כתב/ה לגבריאלה ב-24 השעות האחרונות)",
+        note: "להציג לה את הנוסח כמו שהוא ולשאול אם לשלוח. לשלוח (confirmed=true) רק אחרי אישור מפורש שלה לנוסח הזה.",
+      };
+    }
+    if (!sendToAgent) return { ok: false, error: "השליחה לא זמינה כרגע." };
+    const since = new Date(Date.now() - 86400000).toISOString();
+    const { count } = await supabase.from("csm_messages").select("id", { count: "exact", head: true })
+      .eq("staff_id", staff.id).gte("created_at", since);
+    if ((count ?? 0) >= OUTREACH_DAILY_CAP) {
+      return { ok: false, error: `נשלחו כבר ${count} הודעות ב-24 השעות האחרונות - זו התקרה, כדי לשמור על המספר של גבריאלה. אפשר לשלוח מהנייד שלך.` };
+    }
+    const first = String(target.display_name || "").trim().split(/\s+/)[0] || "שלום";
+    const res = await sendToAgent({
+      agentId: String(target.agent_id), phone: String(target.phone_e164), firstName: first,
+      text, path: link?.path ?? null, inWindow,
+    });
+    await supabase.from("csm_messages").insert({
+      staff_id: staff.id, agent_id: target.agent_id, link_key: link?.key ?? null, url: link?.url ?? null,
+      body: text, channel: inWindow ? "text" : "template", wa_message_id: res.waMessageId ?? null,
+      error: res.ok ? null : (res.error || "send_failed").slice(0, 500),
+    });
+    if (!res.ok) return { ok: false, error: "השליחה נכשלה: " + (res.error || "שגיאה לא ידועה") };
+    return { ok: true, sent_to: target.display_name, channel: inWindow ? "הודעה מלאה" : "תבנית עם כפתור" };
   }
 
   if (name === "csm_settings") {
