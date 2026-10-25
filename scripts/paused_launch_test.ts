@@ -23,6 +23,7 @@ import {
   creativeStorageReport,
   DISCLOSURE_DEFAULT,
   executeLaunch,
+  formatMetaError,
   GOOGLE_BUYERS_CAMPAIGN,
   GOOGLE_BUYERS_DAILY_ILS,
   HOUSING_MIN_RADIUS_KM,
@@ -31,6 +32,9 @@ import {
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
   PAUSED_STATUS,
+  deprecatedInterestIdsFromError,
+  interestValiditySpec,
+  omitDeprecatedInterestIds,
   pickTargetingMatch,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
@@ -42,6 +46,7 @@ import {
   targetingSearchSpec,
   termsNeedingIds,
   uncheckedLaunchTargeting,
+  validateLaunchWrites,
   VALUATION_FORM_ID,
   VALUATION_FORM_NAME,
   type ExistingRow,
@@ -109,6 +114,7 @@ const b2 = byKey.brokers_registered.adSets[0];
 const b3 = byKey.office_owners.adSets[0];
 ok("B1 five ads age 22 radius 15", b1.ads.length === 5 && b1.ageMin === 22 && b1.ageMax === 65 && b1.dailyBudgetIls === 40 && b1.geo.mode === "radius" && b1.geo.radiusKm === 15 && b1.geo.points.length === 9);
 ok("B1 one OR group and no audience exclusion", b1.flexible.length === 1 && b1.audienceKeys.length === 0);
+ok("Yad2 is not an interest on B1 or B3", !b1.flexible.some((g) => g.some((t) => /yad2|יד2/i.test(t.name))) && !b3.flexible.some((g) => g.some((t) => /yad2|יד2/i.test(t.name))));
 ok("B1 lead form", b1.leadFormId === BROKER_FORM_ID && b1.ads.every((a) => a.leadFormId === BROKER_FORM_ID && a.cta === "SIGN_UP"));
 ok("B1-1 is 1x1+9x16 and the legacy ads are 1x1+4x5", b1.ads[0].images.map((i) => i.ratio).join(",") === "1x1,9x16" && b1.ads.slice(1).every((a) => a.images.map((i) => i.ratio).join(",") === "1x1,4x5") && b1.ads.every((a) => a.images.length === 2));
 ok("B2 three ads, gabriela on G1 and the new copy on the mentor image", b2.dailyBudgetIls === 7 && b2.ageMin === 22 && b2.destination === "website" && b2.geo.mode === "country" && b2.ads.length === 3 && b2.ads[0].landingUrl === "https://shuknadlan.co.il/pricing?utm_source=meta&utm_medium=paid_social&utm_campaign=brokers_leads_q4&utm_content=b2_registered" && b2.ads[0].images.map((i) => i.key).join(",") === "concept_g1_1x1,concept_g1_4x5" && b2.ads[1].images.map((i) => i.key).join(",") === "concept_g2_1x1,concept_g2_4x5" && b2.ads[2].images[0].key === "concept_g2_1x1" && b2.ads[1].headline === "כל בוקר: מה לעשות היום כדי לסגור עסקה." && b2.ads[2].headline === "יש לך חשבון? קבל Elite חינם לחצי שנה." && (b2.ads[1].landingUrl || "").includes("utm_content=b2_2_mentor") && (b2.ads[2].landingUrl || "").includes("utm_content=b2_3_elite") && b2.ads.every((a) => a.images.map((i) => i.ratio).join(",") === "1x1,4x5"));
@@ -186,7 +192,10 @@ const tB2 = targetingOf("adset:b2");
 ok("no genders and no publisher platforms on ad sets", [tB1, tB3, tBuy, tRt, tB2].every((t) => !t.genders && !t.publisher_platforms && t.targeting_automation.advantage_audience === 0));
 ok("housing radius 25", tBuy.geo_locations.custom_locations[0].radius === 25 && tRt.geo_locations.custom_locations[0].radius === 25);
 ok("B1 radius 15 on nine cities", tB1.geo_locations.custom_locations.length === 9 && tB1.geo_locations.custom_locations.every((p: { radius: number }) => p.radius === 15));
-ok("B3 flexible AND and known interest ids", tB3.flexible_spec.length === 2 && JSON.stringify(tB3).includes("6849417269780") && JSON.stringify(tB3).includes("6849945059527") && tB3.geo_locations.regions.length === 2);
+const b3Generic = ["Owner", "Founder", "Managing Director", "Branch Manager", "Franchise Owner"];
+ok("B3 generic titles are AND-narrowed with real-estate titles and interests", tB3.flexible_spec.length === 2 && tB3.flexible_spec[0].work_positions.map((p: { name: string }) => p.name).join("|") === b3Generic.join("|") && tB3.flexible_spec[0].behaviors.map((p: { name: string }) => p.name).join("|") === "Small business owners" && !tB3.flexible_spec[0].interests && !tB3.flexible_spec[0].work_employers && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Broker Owner") && tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Real Estate Broker") && !tB3.flexible_spec[1].work_positions.some((p: { name: string }) => p.name === "Owner") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849417269780") && tB3.flexible_spec[1].interests.some((p: { id: string }) => p.id === "6849945059527") && tB3.flexible_spec[1].work_employers.length === 5 && tB3.geo_locations.regions.length === 2);
+const b3Summary = summary.campaigns.find((c) => c.key === "office_owners")!.ad_sets[0];
+ok("dry run shows the B3 AND groups", b3Summary.flexible_logic === "and" && b3Summary.flexible.length === 2 && b3Summary.flexible[0].map((t) => t.name).join("|") === `${b3Generic.join("|")}|Small business owners` && b3Summary.flexible[1].some((t) => t.name === "Real Estate Broker") && b3Summary.flexible[1].some((t) => t.name === "Residential real estate") && !b3Summary.flexible[0].some((t) => t.name === "Broker Owner" || t.type === "interest"));
 ok("B1 flexible is one OR group", tB1.flexible_spec.length === 1 && tB1.age_min === 22);
 ok("buyers have no detailed targeting", !tBuy.flexible_spec);
 ok("audiences referenced by placeholder", tRt.custom_audiences[0].id === "{{id:audience:site_visitors_30d}}" && tB2.custom_audiences[0].id === "{{id:audience:brokers_site_180d}}");
@@ -269,7 +278,7 @@ const first = await runExecute(new Map(), async (p, body) => {
   return { id: "9000000000000" + String(n).padStart(3, "0") };
 });
 ok("first execute creates every object", first.result.error === undefined && first.result.created.length === 105 && first.posted.length === 105, first.result);
-ok("posts stay on create paths and paused", first.posted.every((p) => /^act_\d+\/(adimages|customaudiences|campaigns|adsets|adcreatives|ads)$/.test(p.path)) && first.posted.every((p) => !p.body.status || p.body.status === PAUSED_STATUS) && first.posted.every((p) => !JSON.stringify(p.body).includes("{{")));
+ok("posts stay on create paths and paused", first.posted.every((p) => /^act_\d+\/(adimages|customaudiences|campaigns|adsets|adcreatives|ads)$/.test(p.path)) && first.posted.every((p) => !p.body.status || p.body.status === PAUSED_STATUS) && first.posted.every((p) => !JSON.stringify(p.body).includes("{{")) && first.posted.every((p) => !p.body.execution_options));
 
 const filled = new Map<string, ExistingRow>();
 for (const op of built.ops) {
@@ -329,6 +338,63 @@ const resume = await runExecute(resumed, async (p, body) => {
 });
 ok("rerun reuses image hashes and does not reupload", !resume.result.error && resume.posted.length === 73 && resume.result.skipped.length === 32 && resume.posted.every((p) => !p.path.endsWith("/adimages")), resume.result);
 
+class GraphReject extends Error {
+  meta: Record<string, unknown>;
+  constructor() {
+    super("Meta API 400 (code=100, subcode=1815089): Invalid parameter");
+    this.meta = {
+      message: "Invalid parameter",
+      code: 100,
+      error_subcode: 1815089,
+      error_user_title: "Terms of service not accepted",
+      error_user_msg: "You can't run lead ads until your Facebook Page accepts Facebook's Lead Generation Terms of Service.",
+      error_data: { blame_field_specs: [["promoted_object"]] },
+      fbtrace_id: "trace",
+    };
+  }
+}
+const partialExisting = new Map<string, ExistingRow>();
+for (const op of built.ops) {
+  if (op.kind === "image") partialExisting.set(op.objectKey, { imageHash: "kept" });
+  if (op.objectKey === "audience:site_visitors_30d") partialExisting.set(op.objectKey, { metaId: "120251671342660267" });
+  if (op.objectKey === "audience:brokers_site_180d") partialExisting.set(op.objectKey, { metaId: "120251671343450267" });
+  if (op.objectKey === "campaign:brokers") partialExisting.set(op.objectKey, { metaId: "120251671344150267" });
+}
+const resumedAtB1 = await runExecute(partialExisting, async () => { throw new GraphReject(); });
+ok("rerun resumes at B1 and stores the Meta user fields", resumedAtB1.posted.length === 1 && resumedAtB1.posted[0].path.endsWith("/adsets") && resumedAtB1.posted[0].body.name === "B1 Prospects" && resumedAtB1.posted[0].body.campaign_id === "120251671344150267" && resumedAtB1.posted[0].body.status === PAUSED_STATUS && !resumedAtB1.posted[0].body.execution_options && !JSON.stringify(resumedAtB1.posted[0].body).includes(PROTECTED_CAMPAIGN_IDS[0]) && resumedAtB1.result.failedObjectKey === "adset:b1" && resumedAtB1.result.created.length === 0 && resumedAtB1.result.meta?.error_user_title === "Terms of service not accepted" && resumedAtB1.result.meta?.subcode === 1815089 && JSON.stringify(resumedAtB1.result.meta?.error_data).includes("promoted_object") && formatMetaError(new GraphReject()).includes("Lead Generation Terms"), resumedAtB1.result);
+
+const validatePosts: { path: string; body: Record<string, string> }[] = [];
+const rejected = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map([["campaign:brokers", { metaId: "120251671344150267" }]]),
+  post: async (p, body) => {
+    validatePosts.push({ path: p, body });
+    if (body.name === "B1 Prospects") throw new GraphReject();
+    return { success: true };
+  },
+});
+ok("validate_only checks B1 and does not create", rejected.failures.length === 1 && rejected.failures[0].objectKey === "adset:b1" && rejected.failures[0].meta?.error_user_msg?.includes("Lead Generation Terms") && rejected.checked.length === 0 && validatePosts.length === 1 && validatePosts[0].body.execution_options === "[\"validate_only\"]" && validatePosts[0].body.status === PAUSED_STATUS && validatePosts[0].body.campaign_id === "120251671344150267" && validatePosts[0].path.endsWith("/adsets") && !validatePosts.some((p) => p.path.endsWith("/adimages") || p.path.endsWith("/campaigns") || p.path.endsWith("/ads")));
+const accepted = await validateLaunchWrites({
+  act: ACT,
+  plan,
+  pageId: PAGE_ID_EXPECTED,
+  pixelId: PIXEL_ID,
+  regionKeys: REGIONS,
+  termIds: idsFor(plan),
+  existing: new Map([["campaign:brokers", { metaId: "120251671344150267" }]]),
+  post: async (_p, body) => {
+    if (body.execution_options !== "[\"validate_only\"]" || body.status !== PAUSED_STATUS) throw new Error("bad validate body");
+    if (JSON.stringify(body).includes(PROTECTED_CAMPAIGN_IDS[0])) throw new Error("reach");
+    return { success: true };
+  },
+});
+ok("validate_only passes B1 and skips ad sets without a campaign", accepted.failures.length === 0 && accepted.checked.join(",") === "adset:b1" && accepted.skipped.some((s) => s.objectKey === "adset:b3") && accepted.skipped.some((s) => s.objectKey === "ad:b1_1"));
+
 ok("exact targeting match", pickTargetingMatch("Real Estate Agent", [{ id: "1", name: "Other" }, { id: "2", name: "Real Estate Agent" }])?.id === "2");
 ok("unrelated first row is not accepted", acceptedTargetingMatch("Owner", [{ id: "9", name: "Florist" }]) === null);
 ok("partial match is accepted", acceptedTargetingMatch("RE/MAX Israel", [{ id: "4", name: "RE/MAX Israel Ltd" }])?.id === "4");
@@ -352,8 +418,9 @@ ok("search specs use locale and the documented types", haifaSpec.type === "adgeo
 
 const seenQueries: string[] = [];
 const resolved = await resolveLaunchTargeting(plan, async (params) => {
-  seenQueries.push(params.q);
   if (params.locale !== "en_US") throw new Error("locale");
+  if (params.type === "adinterestvalid") return { data: JSON.parse(params.interest_fbid_list).map((id: number) => ({ id: String(id), valid: true })) };
+  seenQueries.push(params.q);
   if (params.type === "adgeolocation") {
     if (params.q === "Haifa District") return { data: [{ key: "city", name: "Haifa", type: "city" }] };
     return { data: [{ key: "north", name: "North District", type: "region" }] };
@@ -365,7 +432,7 @@ const resolved = await resolveLaunchTargeting(plan, async (params) => {
 const office = resolved.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
 const buyersAfter = resolved.plan.campaigns.find((c) => c.key === "buyers")!.adSets;
 const droppedNames = resolved.hits.filter((h) => h.status === "dropped").map((h) => h.query);
-ok("optional misses drop and do not block", !resolved.blocksCreate && droppedNames.includes("RE/MAX Israel") && droppedNames.includes("Madlan") && !office.flexible.some((g) => g.some((t) => t.name === "RE/MAX Israel")));
+ok("optional misses drop and do not block", !resolved.blocksCreate && droppedNames.includes("RE/MAX Israel") && droppedNames.includes("Madlan") && !office.flexible.some((g) => g.some((t) => t.name === "RE/MAX Israel")) && office.flexible.length === 2 && office.flexible[0].every((t) => ["Owner", "Founder", "Managing Director", "Branch Manager", "Franchise Owner", "Small business owners"].includes(t.name)) && office.flexible[1].some((t) => t.name === "Broker Owner") && office.flexible[1].some((t) => t.name === "Residential real estate") && !office.flexible[1].some((t) => t.name === "Owner"));
 ok("small business owners matches the singular name", resolved.hits.find((h) => h.query === "Small business owners")?.resolved_name === "Small business owner");
 ok("preset interest is not searched", !seenQueries.includes("Residential real estate") && resolved.hits.some((h) => h.query === "Residential real estate" && h.status === "found" && h.id === "6849417269780"));
 ok("one missing district falls back to Afula 60km", office.geo.mode === "radius" && office.geo.radiusKm === REGION_FALLBACK_KM && office.geo.radiusKm === 60 && office.geo.points.length === 1 && office.geo.points[0].label === "עפולה" && office.geo.points[0].lat === 32.6078 && resolved.hits.find((h) => h.query === "Haifa District")?.status === "fallback" && resolved.hits.find((h) => h.query === "Northern District")?.status === "found" && resolved.hits.find((h) => h.query === "Northern District")?.id === "north" && resolved.warnings.some((w) => w.includes("60")) && buyersAfter.every((a) => a.geo.mode === "radius" && a.geo.radiusKm === HOUSING_MIN_RADIUS_KM && a.flexible.length === 0));
@@ -387,7 +454,51 @@ ok("both districts stay regions", !both.blocksCreate && both.hits.every((h) => h
 const thrown = await resolveLaunchTargeting(plan, async () => {
   throw new Error("graph down");
 });
-ok("a failed search drops optional terms and falls back", !thrown.blocksCreate && thrown.hits.some((h) => h.status === "dropped") && thrown.hits.filter((h) => h.kind === "region").every((h) => h.status === "fallback") && thrown.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0].geo.mode === "radius" && thrown.warnings.some((w) => w.includes("חיפוש הטירגוט במטא נכשל")));
+const thrownOffice = thrown.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
+ok("a failed search keeps the AND groups and blocks a widened OR", thrown.blocksCreate && thrown.plan.errors.some((e) => e.code === "flexible_and_lost") && thrown.hits.some((h) => h.status === "dropped") && thrown.hits.filter((h) => h.kind === "region").every((h) => h.status === "fallback") && thrownOffice.geo.mode === "radius" && thrownOffice.flexible.length === 2 && thrown.warnings.some((w) => w.includes("חיפוש הטירגוט במטא נכשל")) && thrown.warnings.some((w) => w.includes("בדיקת העניינים")));
+
+const gone = "6003403478883";
+const alt = "6003526234370";
+const validSpec = interestValiditySpec([gone, "named"]);
+ok("interest validity asks by numeric id", validSpec.type === "adinterestvalid" && validSpec.locale === "en_US" && validSpec.interest_fbid_list === `[${Number(gone)},"named"]`);
+ok("deprecated parser ignores the suggested alternative", deprecatedInterestIdsFromError({ deprecated_interest_id: gone, alternative_interest_id: alt, suggested_interest: { id: alt } }).join(",") === gone);
+ok("nested deprecated interests ignore the alternative object", deprecatedInterestIdsFromError({ deprecated_interests: [{ id: gone, name: "Yad2", alternative: { id: alt, name: "Online advertising" } }] }).join(",") === gone);
+ok("string error_data parses only deprecated ids", deprecatedInterestIdsFromError(JSON.stringify({ deprecated_interest_ids: [gone], replacement_id: alt })).join(",") === gone);
+
+const retired = await resolveLaunchTargeting(plan, async (params) => {
+  if (params.locale !== "en_US") throw new Error("locale");
+  if (params.type === "adinterestvalid") {
+    return {
+      data: JSON.parse(params.interest_fbid_list).map((id: number) => ({
+        id: String(id),
+        valid: String(id) !== "6849417269780",
+        alternative_id: alt,
+        name: "Online advertising",
+      })),
+    };
+  }
+  if (params.type === "adgeolocation") {
+    const key = params.q === "Haifa District" ? "haifa" : "north";
+    return { data: [{ key, name: params.q, type: "region" }] };
+  }
+  return { data: [{ id: "id-" + (params.q || "").length, name: params.q }] };
+});
+const retiredB1 = retired.plan.campaigns.find((c) => c.key === "brokers")!.adSets[0];
+const retiredB3 = retired.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
+const retiredBlob = JSON.stringify(retired.termIds) + JSON.stringify(retiredB1.flexible) + JSON.stringify(retiredB3.flexible);
+ok("a deprecated preset interest is dropped and Meta's alternative is not used", !retired.blocksCreate && retired.hits.some((h) => h.query === "Residential real estate" && h.status === "deprecated" && h.id === "6849417269780") && !retiredB1.flexible.some((g) => g.some((t) => t.name === "Residential real estate")) && retiredB3.flexible.length === 2 && retiredB3.geo.mode === "regions" && !retiredB3.flexible[1].some((t) => t.name === "Residential real estate") && retiredB3.flexible[1].some((t) => t.name === "Broker Owner") && retired.warnings.some((w) => w.includes("Residential real estate") && w.includes("6849417269780") && w.includes("החלופה") && !w.includes(alt)) && !retiredBlob.includes(alt) && !retiredBlob.includes("6849417269780"));
+
+const emptied = structuredClone(retired.plan);
+emptied.ok = true;
+emptied.errors = [];
+emptied.campaigns.find((c) => c.key === "office_owners")!.adSets[0].flexible = [
+  emptied.campaigns.find((c) => c.key === "office_owners")!.adSets[0].flexible[0],
+  [{ type: "interest", name: "Residential real estate", id: "6849417269780" }],
+];
+const lostGroup = omitDeprecatedInterestIds(emptied, { "interest:Residential real estate": "6849417269780" }, ["6849417269780"]);
+const lostOffice = lostGroup.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0];
+ok("dropping the last interest of an AND group stops and does not widen", !lostGroup.plan.ok && lostGroup.plan.errors.some((e) => e.code === "flexible_and_lost") && lostOffice.flexible.length === 2 && lostOffice.geo.mode === "regions" && lostGroup.names.includes("Residential real estate") && !JSON.stringify(lostGroup.termIds).includes("6849417269780") && !JSON.stringify(lostGroup.termIds).includes(alt));
+ok("Yad2 is gone from the package source", !src.includes("Yad2") && !src.includes(gone));
 
 const unchecked = uncheckedLaunchTargeting(plan);
 ok("no token leaves regions unchecked and does not invent a radius", unchecked.blocksCreate && unchecked.plan.campaigns.find((c) => c.key === "office_owners")!.adSets[0].geo.mode === "regions" && unchecked.hits.some((h) => h.required && h.status === "unchecked") && unchecked.warnings.some((w) => w.includes("לא מחובר")));
@@ -402,6 +513,15 @@ const crmHtml = readFileSync(path.join(root, "crm.html"), "utf8");
 ok("crm sends dry-run and a confirmed write", crm.includes("adsLaunchDry") && crm.includes("dry_run: false") && crm.includes("confirm: true") && crm.includes("create_paused_launch"));
 ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunchUpload") && crm.includes("upload_launch_creatives") && crm.includes("תמונות בדלי:") && crmHtml.includes('id="adsLaunchUpload"') && !crmHtml.includes("upload_meta_creatives.mjs"));
 ok("crm shows each targeting hit and the A5 form", crm.includes("adsLaunchHitLine") && crm.includes("targeting_blocks_create") && crm.includes("טופס:") && crmHtml.includes("הערכת שווי חינם"));
+ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFlexibleLine") && crm.includes("צמצום AND") && crm.includes("blocks_create") && crm.includes("error_user_title") && crm.includes("meta_validation"));
+ok("crm shows a dropped deprecated interest", crm.includes("הוצא משימוש וירד, בלי החלופה של מטא"));
+const dryFn = indexSrc.slice(indexSrc.indexOf("if (!launchWillWrite"), indexSrc.indexOf("if (!plan.ok)"));
+const writeFn = indexSrc.slice(indexSrc.indexOf("if (!plan.ok)"), indexSrc.indexOf("Deno.serve"));
+ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247"));
+ok("the real create probes only to drop a deprecated interest", writeFn.includes("omitDeprecatedInterestIds") && writeFn.includes("deprecatedInterestIdsFromError") && writeFn.includes("validateLaunchWrites") && writeFn.includes("1870247") && writeFn.includes("validate_only_returned_id"));
+const validateSrc = src.slice(src.indexOf("export async function validateLaunchWrites"), src.indexOf("export function summarizeLaunch"));
+const executeSrc = src.slice(src.indexOf("export async function executeLaunch"), src.indexOf("export async function validateLaunchWrites"));
+ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && !executeSrc.includes("execution_options:"));
 const prepareFn = indexSrc.slice(indexSrc.indexOf("async function preparePausedLaunch"), indexSrc.indexOf("function creativesPublic"));
 ok("create resolves targeting on the dry run and does not abort on a miss", indexSrc.includes("resolveLaunchTargeting") && indexSrc.includes("uncheckedLaunchTargeting") && !indexSrc.includes("לא נמצא טירגוט עבור") && prepareFn.includes("VALUATION_FORM_ID") && prepareFn.includes("SELLERS_FORM_ID") && prepareFn.includes("הערכת שווי") && !prepareFn.includes('eq("kind", "owner")'));
 
