@@ -25,7 +25,7 @@ const STAGES: Record<string, string> = {
 };
 const STAGE_ORDER = Object.keys(STAGES);
 const WINS = ["connect", "property", "client", "match", "post", "mentor", "reminder"];
-const NOTIFY_KINDS = ["new_agent", "at_risk", "meeting_reminder", "call_ready", "daily_digest"];
+const NOTIFY_KINDS = ["new_agent", "at_risk", "meeting_reminder", "call_ready", "daily_digest", "mentor_tip"];
 const AGENDA_KINDS: Record<string, string> = {
   first_win: "פגישת הצלחה ראשונה",
   followup: "פגישת מעקב",
@@ -247,7 +247,7 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
     name: "csm_settings",
     description:
       "ההגדרות שלה. בלי שדות - מה מוגדר עכשיו. עם שדות - עדכון: display_name, notify_whatsapp (התראות בוואטסאפ), " +
-      "notify_off (סוגים לכבות: new_agent, at_risk, meeting_reminder, call_ready, daily_digest - הרשימה המלאה של מה שכבוי), " +
+      "notify_off (סוגים לכבות: new_agent, at_risk, meeting_reminder, call_ready, daily_digest, mentor_tip=העצה היומית מהמנטור - הרשימה המלאה של מה שכבוי), " +
       "digest_time (שעת סיכום הבוקר HH:MM), work_days (0=ראשון עד 6=שבת), quiet_from / quiet_to (שעות בלי וואטסאפ, " +
       "חוץ מתזכורת לפגישה), meeting_minutes (אורך פגישה), reminder_minutes (כמה דקות לפני), meeting_link (קישור קבוע " +
       "לפגישות וידאו, https). הנייד והמייל - רק באזור ההטמעה.",
@@ -300,12 +300,41 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
         message: { type: "string", description: "גוף ההודעה, בגוף ראשון שלה, קצר ובשפה של וואטסאפ" },
         link_key: { type: "string", description: "מפתח מ-csm_links. לא חובה" },
         via: { type: "string", enum: ["gabriela", "my_phone"], description: "לסוכן/ת. ברירת מחדל gabriela" },
+        call_id: { type: "string", description: "אחרי סיכום שיחה: ההודעה המוצעת מהניתוח והסוכן/ת שהשיחה משויכת אליו/ה (message ו-agent_id לא חובה)" },
         confirmed: { type: "boolean" },
       },
-      required: ["message"],
+    },
+  },
+  {
+    name: "csm_draft_message",
+    description:
+      "הנתונים לניסוח הודעה אישית לסוכן/ת: השלב, השימוש בגבריאלה, נכסים ולקוחות, היעד השבועי והפגישה האחרונה, " +
+      "סיכום השיחה האחרונה וההודעה שהוצעה בה, וההודעות שכבר נשלחו - ועם goal, ההנחיה מהשיטה למטרה הזו והקישור המתאים. " +
+      "את כותבת טיוטה אחת לפי זה, ואז csm_send_to_agent (תצוגה, אישור, שליחה). " +
+      "goal: re_engage (להחזיר מי שנעלם/ה), book_meeting (לתאם פגישת הצלחה ראשונה), after_meeting (תודה ויעד אחרי פגישה), " +
+      "weekly_goal (תזכורת ליעד), congrats (חיזוק על הישג), free (לפי notes).",
+    input_schema: {
+      type: "object",
+      properties: {
+        agent_id: { type: "string" },
+        goal: { type: "string", enum: ["re_engage", "book_meeting", "after_meeting", "weekly_goal", "congrats", "free"] },
+        notes: { type: "string", description: "מה היא רוצה שייאמר" },
+      },
+      required: ["agent_id"],
     },
   },
 ];
+
+/* ההנחיה לכל מטרה, מתוך CSM_PLAYBOOK, והקישור שמתאים לה. אותם כללים של המנטור:
+   כלל אצבע ולא מספר שלא נמדד, בלי הבטחת תוצאה. */
+const DRAFT_GOALS: Record<string, { guide: string; link: string | null }> = {
+  re_engage: { link: "gabriela", guide: "בלי אשמה ובלי \"למה לא\". משפט אחד שמכיר בזה שהיום שלו/ה עמוס, פעולה אחת קטנה עם הפקודה המדויקת לגבריאלה (לפי מה שחסר לו/ה בנתונים - נכס, לקוח/ה או פוסט), ושאלה שעונים עליה בכן או לא. עד 4 שורות." },
+  book_meeting: { link: null, guide: "הזמנה לפגישת הצלחה ראשונה של 30-45 דקות: מה יוצאים איתו (נכס ראשון בגבריאלה ופוסט שיווקי מוכן), ושתי הצעות מועד קונקרטיות. עד 4 שורות." },
+  after_meeting: { link: "crm_properties", guide: "תודה קצרה, היעד השבועי שסוכם (מהנתונים), הפקודה לפעולה הבאה, ומתי נדבר שוב. עד 5 שורות." },
+  weekly_goal: { link: null, guide: "תזכורת ליעד השבועי כמו שסוכם, מה כבר נעשה לפי הנתונים (בלי להמציא), והפקודה לצעד הבא. עד 4 שורות." },
+  congrats: { link: "agent_page", guide: "חיזוק על הישג אמיתי מהנתונים בלבד (נכס פעיל, פוסט, לקוחות), והצעד הבא שבונה עליו. עד 4 שורות." },
+  free: { link: null, guide: "לפי מה שהיא ביקשה ב-notes, קצר, בגוף ראשון שלה, עם פעולה אחת ברורה." },
+};
 
 
 /* ההיכרות ו"מה אפשר לעשות כאן": נוסח קבוע ולא מהמודל - כך הוא תמיד מדויק
@@ -326,8 +355,9 @@ export function csmCapabilities(name?: string | null, first = false): string {
     "- *בקשת פיתוח* - \"יוסי ביקש שדה מחסן בטופס הנכס\"",
     "- *המנטור* - \"שאלה למנטור: עם איזה משרדים להתחיל השבוע?\"",
     "- *היומן* - \"תקבעי לי פגישת הצלחה ראשונה עם יוסי ביום שלישי ב-10:00\", \"מה יש לי היום?\", \"תזיזי את הפגישה עם דנה לחמישי\"",
-    "- *התראות* - תזכורת לפני כל פגישה, סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה וסיכום בוקר: \"מה ההתראות שלי?\"",
+    "- *התראות* - תזכורת לפני כל פגישה, סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה, סיכום בוקר ועצה מהמנטור כל בוקר: \"מה ההתראות שלי?\"",
     "- *הגדרות* - \"תכבי לי את סיכום הבוקר\", \"תזכורת שעה לפני כל פגישה\", \"בלי וואטסאפ אחרי 20:00\"",
+    "- *הודעה לסוכן/ת* - \"תכתבי ליוסי הודעה שמחזירה אותו\", \"הודעת תודה לדנה אחרי הפגישה\"; ואחרי סיכום שיחה - \"שלחי לו\" (אראה לך לפני)",
     "- *קישורים לסוכנים* - \"מה הקישור למסלולים?\", \"תשלחי ליוסי את הקישור להוספת נכס ב-CRM\" (אראה לך את הנוסח לפני שאשלח), \"תכיני לי הודעה עם המסלולים למשרד אלון 052-1234567\" (קישור שנשלח מהטלפון שלך)",
     "",
     "אפשר לכתוב או לשלוח הודעה קולית. הכול נשמר גם באזור ההטמעה: https://shuknadlan.co.il/csm",
@@ -478,6 +508,46 @@ export async function runCsmTool(
 
   if (name === "csm_ask_mentor") {
     return askMentor ? await askMentor(input.question) : { ok: false, error: "המנטור לא זמין כרגע." };
+  }
+
+  if (name === "csm_draft_message") {
+    const rows = await overviewRows(supabase);
+    const target = rows.find((r) => r.agent_id === String(input.agent_id ?? ""));
+    if (!target) return { ok: false, error: "agent_id לא נמצא. קודם csm_find_agent." };
+    const goal = DRAFT_GOALS[String(input.goal || "")] ? String(input.goal) : "free";
+    const [{ data: calls }, { data: sent }, { data: ses }] = await Promise.all([
+      supabase.from("csm_calls").select("id, created_at, analysis").eq("agent_id", target.agent_id).eq("status", "done")
+        .order("created_at", { ascending: false }).limit(1),
+      supabase.from("csm_messages").select("body, created_at").eq("agent_id", target.agent_id)
+        .order("created_at", { ascending: false }).limit(3),
+      supabase.from("csm_sessions").select("held_at, notes, weekly_goal").eq("agent_id", target.agent_id)
+        .order("held_at", { ascending: false }).limit(1),
+    ]);
+    const lastCall = ((calls as Row[] | null) ?? [])[0];
+    const a = (lastCall?.analysis ?? null) as Row | null;
+    return {
+      ok: true,
+      agent: { ...agentCard(target), phone: undefined, email: undefined, whatsapp: undefined },
+      last_session: ((ses as Row[] | null) ?? [])[0] ?? null,
+      last_call: lastCall ? { call_id: lastCall.id, date: String(lastCall.created_at).slice(0, 10), summary: a?.summary ?? null,
+        commitments: a?.commitments ?? [], suggested_message: a?.message_draft ?? null } : null,
+      already_sent: ((sent as Row[] | null) ?? []).map((m) => ({ date: String(m.created_at).slice(0, 10), text: String(m.body).slice(0, 300) })),
+      goal, guide: DRAFT_GOALS[goal].guide, suggested_link_key: DRAFT_GOALS[goal].link,
+      notes: input.notes ? String(input.notes).slice(0, 500) : null,
+      note: "לכתוב טיוטה אחת לפי guide, בגוף ראשון שלה, בלי לחזור על already_sent ובלי מספר שאינו בנתונים. ואז csm_send_to_agent " +
+        "(עם suggested_link_key כשמתאים) כדי להראות לה את הנוסח לאישור.",
+    };
+  }
+
+  if (name === "csm_send_to_agent" && input.call_id) {
+    // ‏"שלחי לו" אחרי סיכום שיחה: ההודעה המוצעת והסוכן/ת מהשיחה, אלא אם נאמר אחרת
+    const { data: call } = await supabase.from("csm_calls").select("id, agent_id, analysis, status")
+      .eq("id", String(input.call_id)).maybeSingle();
+    if (!call) return { ok: false, error: "השיחה לא נמצאה." };
+    if (!input.agent_id && !call.agent_id) return { ok: false, error: "השיחה עוד לא משויכת לסוכן/ת. עם מי היא הייתה? (csm_link_call)" };
+    const draft = String((call.analysis as Row | null)?.message_draft ?? "").trim();
+    if (!input.message && !draft) return { ok: false, error: "אין בסיכום הזה הודעה מוצעת. מה לכתוב?" };
+    input = { ...input, agent_id: input.agent_id || call.agent_id, message: input.message || draft };
   }
 
   if (name === "csm_links" || name === "csm_send_to_agent") {

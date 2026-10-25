@@ -144,3 +144,4 @@
 .csm-staff-row{flex-wrap:wrap}
 .csm-staff-line{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.78rem;margin:4px 0 0}
 .csm-staff-line select{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:4px 6px;font:inherit;font-size:.76rem;background:#fff;max-width:100%}
+.csm-notif-tip{background:var(--teal-tint);border-radius:var(--radius-sm);padding:6px 8px;color:var(--ink)}
