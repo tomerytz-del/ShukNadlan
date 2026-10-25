@@ -200,12 +200,8 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   const full = S.fullTitle(page);
   const body = S.render(page, rows, extras);
   const hero = S.heroHtml(rows);
-  const preloadMatch = hero.match(/<img[^>]*fetchpriority="high"[^>]*>/);
-  const src = preloadMatch ? (preloadMatch[0].match(/\bsrc="([^"]+)"/) || [])[1] : "";
-  const srcset = preloadMatch ? (preloadMatch[0].match(/\bsrcset="([^"]+)"/) || [])[1] : "";
-  const preload = src
-    ? `<link rel="preload" as="image" href="${src}"${srcset ? ` imagesrcset="${srcset}" imagesizes="100vw"` : ""} fetchpriority="high">\n`
-    : "";
+  /* ה-preload יושב במעטפת, עם media, כדי שלא יימשך הקובץ הרחב בטלפון. */
+  const preload = "";
   const benefit = page.benefit || page.description;
   const count = extras.counted && Number(extras.total) > 0
     ? String(extras.total)

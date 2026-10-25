@@ -324,10 +324,13 @@
      כזה לא שמים תמונת מודעה בשער. הרוחב ב-srcset הוא הרוחב האמיתי של
      הקבצים שכבר בריפו (640 ו-1920), בלי קובץ חדש. */
   function heroHtml() {
-    return '<img src="assets/hero-valley-800.webp"'
-      + ' srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w"'
-      + ' sizes="100vw" alt="" width="640" height="768"'
-      + ' fetchpriority="high" decoding="async">';
+    /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את קובץ ה-1920 (כ-260KB)
+       וה-LCP נפגע. ממסך רחב srcset עם הרוחב האמיתי ו-sizes=100vw. */
+    return "<picture>"
+      + '<source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">'
+      + '<source type="image/webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw">'
+      + '<img src="assets/hero-valley-800.webp" alt="" width="640" height="768" fetchpriority="high" decoding="async">'
+      + "</picture>";
   }
 
   function badge(p) {

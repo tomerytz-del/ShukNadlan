@@ -123,7 +123,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("מחיר ב-bdi", html.includes("<bdi>₪2,500,000</bdi>") && html.includes("מחיר חציוני"));
   check("רווח בחדרים", html.includes("<bdi>3</bdi><span>חדרים</span>"));
   const hero0 = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
-  check("גיבור הוא תמונת העמק", hero0.includes("hero-valley-800.webp") && hero0.includes("srcset=") && hero0.includes('fetchpriority="high"') && !hero0.includes("property-images/"));
+  check("גיבור הוא תמונת העמק", hero0.includes("hero-valley-800.webp") && hero0.includes('sizes="100vw"') && hero0.includes('fetchpriority="high"') && !hero0.includes("property-images/"));
   check("שכונה בכרטיס", html.includes("גבעת המורה"));
   check("H1 לא הוכפל", html.split("<h1").length === 2);
 }

@@ -58,7 +58,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/content-page.css">
 <link rel="stylesheet" href="assets/landing.css">
-<link rel="preload" as="image" href="assets/hero-valley-800.webp" imagesrcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" imagesizes="100vw" fetchpriority="high">
+<link rel="preload" as="image" href="assets/hero-valley-800.webp" media="(max-width: 759px)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/hero-valley.webp" media="(min-width: 760px)" fetchpriority="high">
 <script src="assets/page-bg.js" data-auto></script>
 <script defer src="assets/site-footer.js"></script>
 <script defer src="assets/buyer-banner.js"></script>
@@ -91,7 +92,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <section class="land-hero" id="landHero">
   <div class="land-hero-media">
     <div class="land-hero-bg" id="landHeroBg">
-      <img src="assets/hero-valley-800.webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw" alt="" width="640" height="768" fetchpriority="high" decoding="async">
+      <picture>
+        <source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">
+        <source type="image/webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw">
+        <img src="assets/hero-valley-800.webp" alt="" width="640" height="768" fetchpriority="high" decoding="async">
+      </picture>
     </div>
     <div class="land-hero-overlay" aria-hidden="true"></div>
     <div class="wrap land-hero-copy">
