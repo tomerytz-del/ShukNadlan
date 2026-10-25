@@ -26970,7 +26970,9 @@ const ADS_ERRORS = {
   account_not_ils: 'חשבון המודעות אינו בשקלים',
   refusing_protected_campaign: 'קמפיין ה-Reach הקיים לא משתנה',
   db_error: 'הטבלה של ההשקה עדיין לא מוכנה',
+  launch_in_progress: 'יצירה אחרת של אותה השקה עדיין רצה. מה שנוצר נשמר',
 };
+const ADS_LAUNCH_TIMEOUT = 'הבקשה נקטעה בגלל זמן; מה שנוצר נשמר, לחץ שוב להמשך';
 const ADS_LADDER = {
   property: { 1: 'מידעי ושקט - עובדות הנכס, בלי לחץ',
               2: 'חם ומזמין - מה הנכס נותן ביום-יום, קריאה ברורה לפעולה' },
@@ -27013,13 +27015,28 @@ function adsErrText(d){
 async function adsCall(action, payload){
   const { data: { session } } = await sb.auth.getSession();
   if (!session) throw new Error(ADS_ERRORS.unauthorized);
-  const res = await fetch(ADS_FUNCTION_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
-    body: JSON.stringify(Object.assign({ action }, payload || {})),
-  });
-  const data = await res.json().catch(()=> ({}));
+  const launching = action === 'create_paused_launch' && payload && payload.confirm === true;
+  let res;
+  try {
+    res = await fetch(ADS_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify(Object.assign({ action }, payload || {})),
+    });
+  } catch (net) {
+    if (launching) throw new Error(ADS_LAUNCH_TIMEOUT);
+    throw net;
+  }
+  const data = await res.json().catch(() => null);
+  if (data == null) {
+    if (launching) throw new Error(ADS_LAUNCH_TIMEOUT);
+    const e = new Error(adsErrText({}));
+    throw e;
+  }
   if (!res.ok || data.error){
+    if (launching && !data.error && (res.status === 408 || res.status === 504 || res.status >= 500)) {
+      throw new Error(ADS_LAUNCH_TIMEOUT);
+    }
     const e = new Error(adsErrText(data));
     e.code = data.error; e.data = data;
     throw e;
@@ -27963,6 +27980,13 @@ document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     const r = await adsCall('create_paused_launch', Object.assign({ dry_run: false, confirm: true }, adsLaunchPayload()));
+    if (r && r.done === false) {
+      const line = 'נוצרו ' + String(r.created_n) + ' אובייקטים, לחץ שוב להמשך מ-' + String(r.next_key || '');
+      if (out) { out.hidden = false; out.textContent = line; }
+      showToast(line, 6400);
+      btn.disabled = false;
+      return;
+    }
     if (out){
       out.hidden = false;
       const names = (r.campaigns || []).map(c => esc(c.name) + ' - ' + esc(c.status)).join('<br>');
@@ -27972,6 +27996,7 @@ document.getElementById('adsLaunchGo')?.addEventListener('click', async (e) => {
   } catch (ex) {
     if (out){ out.hidden = false; out.textContent = ex.message || 'היצירה נכשלה'; }
     showToast(heErr(ex), 6400);
+    btn.disabled = false;
   }
 });
 
