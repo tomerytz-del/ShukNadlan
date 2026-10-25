@@ -7126,6 +7126,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ui-switch::before,.ui-icon-btn svg{transition:none}
   }
 </style>
+<link rel="stylesheet" href="assets/sign-chrome.css">
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -12081,6 +12082,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      נבנים ב-JS לפי השלב, כמו באשף הייבוא — כל שלב הוא מסך אחר. -->
 <div class="imp-overlay" id="agrModal" role="dialog" aria-modal="true" aria-labelledby="agrTitle" style="display:none">
   <div class="imp-card">
+    <header class="sign-brand" id="agrBrand">
+      <div class="sign-brand-rule" aria-hidden="true"></div>
+      <div class="sign-brand-row">
+        <div class="sign-brand-office">
+          <img data-brand="logo" class="sign-brand-logo" alt="" hidden>
+          <div class="sign-brand-text">
+            <div class="sign-brand-name" data-brand="agency" hidden></div>
+            <div class="sign-brand-meta" data-brand="meta" hidden></div>
+          </div>
+        </div>
+        <a class="sign-brand-via" href="/" target="_blank" rel="noopener" aria-label="שוק הנדל״ן - לדף הבית">
+          <img src="assets/logo-shuknadlan.png" alt="שוק נדל״ן" width="36" height="43">
+          <span>באמצעות שוק נדל״ן</span>
+        </a>
+      </div>
+    </header>
     <div class="imp-head">
       <div class="imp-title" id="agrTitle">הסכם חדש</div>
       <button type="button" class="imp-close" id="agrClose" aria-label="סגירת החלון">✕</button>

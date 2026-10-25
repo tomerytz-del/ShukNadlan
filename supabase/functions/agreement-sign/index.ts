@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
-import { agencyName } from "../_shared/agency-lookup.ts";
+import { loadAgency } from "../_shared/agency-lookup.ts";
 import { maskPhone, sendWhatsappOtp, toWhatsappMsisdn } from "../_shared/whatsapp-otp.ts";
 import { WA_VERIFY_TTL_MINUTES, waVerifyUrl } from "../_shared/agreement-wa-verify.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
@@ -436,18 +436,39 @@ async function signersOf(agreementId: string): Promise<SignerRow[]> {
   return (data || []) as SignerRow[];
 }
 
+/** לוגו רק ב-https. שדה במסד לא הופך לכתובת שרירותית בכותרת. */
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  return /^https:\/\//i.test(v) ? v : null;
+}
+
 async function agentCard(agentId: string) {
   const { data } = await db
     .from("agency_members")
-    .select("display_name, email, phone, agency_id")
+    .select("display_name, email, phone, agency_id, license_number")
     .eq("id", agentId)
     .maybeSingle();
   // שם המשרד בשאילתה נפרדת ולא ב-embed — ראו `_shared/agency-lookup.ts`.
+  const agency = await loadAgency(db, data?.agency_id, "name, logo_url");
   return {
     name: data?.display_name || "הסוכן/ת",
     email: data?.email || null,
     phone: data?.phone || null,
-    agency: await agencyName(db, data?.agency_id),
+    license: (data?.license_number as string | null) || null,
+    agency: (agency?.name as string | undefined) || null,
+    agency_logo: httpsUrl(agency?.logo_url),
+  };
+}
+
+/** מה שדף החתימה מציג בכותרת. בלי מייל, בלי גוף המסמך. */
+function agentPublic(agent: Awaited<ReturnType<typeof agentCard>>) {
+  return {
+    name: agent.name,
+    agency: agent.agency,
+    phone: agent.phone,
+    license: agent.license,
+    agency_logo: agent.agency_logo,
   };
 }
 
@@ -794,7 +815,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         locked: true,
         agreement: { title: agreement.title, kind: agreement.kind, status: agreement.status },
-        agent: { name: (await agentCard(agreement.agent_id)).name },
+        agent: agentPublic(await agentCard(agreement.agent_id)),
         me: {
           full_name: signer.full_name,
           otp_channel: channel,
@@ -822,7 +843,7 @@ Deno.serve(async (req: Request) => {
         view_url: agreement.status === "signed"
           ? `${SITE_BASE_URL}/agreement?t=${encodeURIComponent(agreement.view_token)}` : null,
       },
-      agent: { name: agent.name, agency: agent.agency, phone: agent.phone },
+      agent: agentPublic(agent),
       in_person: inPerson,
       me: {
         id: signer.id, full_name: signer.full_name, id_number: signer.id_number,
@@ -1010,7 +1031,7 @@ Deno.serve(async (req: Request) => {
         document_html: filledDoc(agreement.document_html, all), verify_code: agreement.verify_code,
         signed_at: agreement.signed_at, created_at: agreement.created_at,
       },
-      agent: { name: agent.name, agency: agent.agency, phone: agent.phone },
+      agent: agentPublic(agent),
       signers: all.map((s) => ({
         full_name: s.full_name, id_number: s.id_number, id_kind: s.id_kind, party: s.party,
         signature: s.signature, signed_at: s.signed_at, method: s.method,

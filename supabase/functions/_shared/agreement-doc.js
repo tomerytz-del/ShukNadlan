@@ -562,13 +562,98 @@
     };
   }
 
+  /* ---------- מיתוג התצוגה, לא גוף המסמך ----------
+     הכותרת (לוגו המשרד, שם, רישיון, טלפון, ו"באמצעות שוק נדל״ן") יושבת
+     מחוץ ל-document_html הקפוא. paintBrand ממלאת כותרת קיימת בדף.
+     brandChromeHtml נבנית רק לרגע ה-PDF ונזרקת. */
+  function httpsLogo(url) {
+    if (typeof url !== 'string') return '';
+    var v = url.trim();
+    return /^https:\/\//i.test(v) ? v : '';
+  }
+
+  function brandFrom(agent, verifyCode) {
+    agent = agent || {};
+    return {
+      name: agent.name || '',
+      agency: agent.agency || '',
+      phone: agent.phone || '',
+      license: agent.license || '',
+      agency_logo: httpsLogo(agent.agency_logo),
+      verifyCode: verifyCode || ''
+    };
+  }
+
+  function paintBrand(rootEl, agent) {
+    if (!rootEl) return;
+    var brand = brandFrom(agent);
+    var agencyEl = rootEl.querySelector('[data-brand="agency"]');
+    var metaEl = rootEl.querySelector('[data-brand="meta"]');
+    var logo = rootEl.querySelector('[data-brand="logo"]');
+    var office = String(brand.agency || '').trim();
+    var name = String(brand.name || '').trim();
+    if (agencyEl) {
+      agencyEl.textContent = office || name;
+      agencyEl.hidden = !agencyEl.textContent;
+    }
+    var bits = [];
+    if (office && name && name !== office) bits.push(name);
+    if (brand.license) bits.push("רישיון מס' " + brand.license);
+    if (brand.phone) bits.push(String(brand.phone));
+    if (metaEl) {
+      metaEl.textContent = bits.join(' · ');
+      metaEl.hidden = !bits.length;
+    }
+    if (logo) {
+      if (brand.agency_logo) {
+        logo.hidden = false;
+        logo.src = brand.agency_logo;
+        logo.alt = office || name || '';
+      } else {
+        logo.hidden = true;
+        logo.removeAttribute('src');
+      }
+    }
+  }
+
+  function brandChromeHtml(brand) {
+    brand = brandFrom(brand, brand && brand.verifyCode);
+    var office = esc(brand.agency || brand.name || '');
+    var bits = [];
+    if (brand.agency && brand.name && brand.name !== brand.agency) bits.push(esc(brand.name));
+    if (brand.license) bits.push("רישיון מס' " + esc(brand.license));
+    if (brand.phone) bits.push(esc(brand.phone));
+    var logo = brand.agency_logo
+      ? '<img alt="" src="' + esc(brand.agency_logo) + '" crossorigin="anonymous" ' +
+        'style="width:64px;height:64px;object-fit:contain;border:1px solid #e6e1d6;border-radius:12px;background:#fff;padding:4px">'
+      : '';
+    return '' +
+      '<div dir="rtl" style="direction:rtl;background:#fff;font-family:Heebo,Arial,sans-serif;color:#1b1f26">' +
+        '<div style="height:5px;background:#0e2a6b;box-shadow:inset 0 -2px 0 #c9a227"></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px">' +
+          '<div style="display:flex;align-items:center;gap:12px;min-width:0">' + logo +
+            '<div>' +
+              (office ? '<div style="font-weight:800;font-size:20px;color:#0e2a6b;line-height:1.25">' + office + '</div>' : '') +
+              (bits.length ? '<div style="margin-top:3px;font-size:13px;color:#4a5578">' + bits.join(' · ') + '</div>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:center;color:#8a6d10;font-size:11px;font-weight:700">' +
+            '<img src="assets/logo-shuknadlan.png" alt="שוק נדל״ן" width="36" height="43" style="display:block;margin:0 auto 3px">' +
+            '<span>באמצעות שוק נדל״ן</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
   /* ---------- הורדה כ-PDF ----------
      ‏html2canvas + jsPDF ולא יצירת PDF מטקסט: עברית ב-PDF דורשת הטמעת גופן
      ובנייה ידנית של RTL, ושתיהן נשברות בדיוק על מה שחשוב כאן — שם, ת.ז.
      וסכום. רסטר של מה שכבר מוצג נכון על המסך אינו יכול להישבר.
 
      שתי הספריות נטענות בעצלתיים ורק בלחיצה: הן כבדות, והרוב המכריע של
-     המבקרים בעמוד לא ילחצו על "הורדה".                                     */
+     המבקרים בעמוד לא ילחצו על "הורדה".
+
+     כותרת המיתוג ומספרי העמוד נדבקים כאן בלבד. גוף המסמך מועתק כמו שהוא. */
   var PDF_LIBS = [
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
@@ -585,40 +670,69 @@
     });
   }
 
-  async function downloadPdf(node, filename) {
+  async function downloadPdf(node, filename, brand) {
     for (var i = 0; i < PDF_LIBS.length; i++) await loadScript(PDF_LIBS[i]);
     var jsPDFCtor = (root.jspdf && root.jspdf.jsPDF) || root.jsPDF;
     if (!root.html2canvas || !jsPDFCtor) throw new Error('pdf_libs_missing');
 
-    var canvas = await root.html2canvas(node, {
-      scale: Math.min(2, Math.max(1.5, root.devicePixelRatio || 1)),
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false
-    });
-
-    var pdf = new jsPDFCtor({ orientation: 'p', unit: 'mm', format: 'a4' });
-    var pageW = pdf.internal.pageSize.getWidth();
-    var pageH = pdf.internal.pageSize.getHeight();
-    var margin = 8;
-    var imgW = pageW - margin * 2;
-    var pxPerMm = canvas.width / imgW;
-    var sliceH = Math.floor((pageH - margin * 2) * pxPerMm);
-
-    var y = 0, page = 0;
-    while (y < canvas.height) {
-      var h = Math.min(sliceH, canvas.height - y);
-      var slice = document.createElement('canvas');
-      slice.width = canvas.width;
-      slice.height = h;
-      slice.getContext('2d').drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
-      if (page > 0) pdf.addPage();
-      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, h / pxPerMm);
-      y += h;
-      page++;
+    var target = node;
+    var sheet = null;
+    if (brand) {
+      sheet = document.createElement('div');
+      sheet.setAttribute('dir', 'rtl');
+      sheet.style.cssText = 'position:fixed;left:-12000px;top:0;width:820px;background:#fff';
+      sheet.innerHTML = brandChromeHtml(brand);
+      var slot = document.createElement('div');
+      slot.appendChild(node.cloneNode(true));
+      sheet.appendChild(slot);
+      document.body.appendChild(sheet);
+      target = sheet;
     }
 
-    pdf.save(filename || 'agreement.pdf');
+    try {
+      var canvas = await root.html2canvas(target, {
+        scale: Math.min(2, Math.max(1.5, root.devicePixelRatio || 1)),
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      var pdf = new jsPDFCtor({ orientation: 'p', unit: 'mm', format: 'a4' });
+      var pageW = pdf.internal.pageSize.getWidth();
+      var pageH = pdf.internal.pageSize.getHeight();
+      var marginX = 8;
+      var marginTop = 8;
+      var marginBottom = 12;
+      var imgW = pageW - marginX * 2;
+      var pxPerMm = canvas.width / imgW;
+      var sliceH = Math.floor((pageH - marginTop - marginBottom) * pxPerMm);
+      var code = String((brand && brand.verifyCode) || '').replace(/[^\x20-\x7E]/g, '');
+
+      var slices = [];
+      var y = 0;
+      while (y < canvas.height) {
+        var h = Math.min(sliceH, canvas.height - y);
+        var slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = h;
+        slice.getContext('2d').drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+        slices.push({ slice: slice, h: h });
+        y += h;
+      }
+
+      slices.forEach(function (item, page) {
+        if (page > 0) pdf.addPage();
+        pdf.addImage(item.slice.toDataURL('image/jpeg', 0.92), 'JPEG', marginX, marginTop, imgW, item.h / pxPerMm);
+        pdf.setFontSize(9);
+        pdf.setTextColor(14, 42, 107);
+        var footer = (code ? code + '    ' : '') + (page + 1) + ' / ' + slices.length;
+        pdf.text(footer, pageW / 2, pageH - 5, { align: 'center' });
+      });
+
+      pdf.save(filename || 'agreement.pdf');
+    } finally {
+      if (sheet) sheet.remove();
+    }
   }
 
   root.AgreementDoc = {
@@ -633,6 +747,8 @@
     signatureBlockHtml: signatureBlockHtml,
     safeSignatureSrc: safeSignatureSrc,
     signaturePad: signaturePad,
-    downloadPdf: downloadPdf
+    downloadPdf: downloadPdf,
+    paintBrand: paintBrand,
+    brandFrom: brandFrom
   };
 })(typeof window !== 'undefined' ? window : globalThis);
