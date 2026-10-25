@@ -19,7 +19,8 @@
   line-height:1.6;
   padding:0 0 calc(28px + env(safe-area-inset-bottom));
 }
-.sign-page .shell{max-width:880px;margin:0 auto;padding:0 12px calc(24px + env(safe-area-inset-bottom))}
+.sign-page,.sign-page *,.sign-page *::before,.sign-page *::after{box-sizing:border-box}
+.sign-page .shell{max-width:880px;margin:0 auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
 .sign-page h1,.sign-page h2{font-family:'Heebo',sans-serif;font-weight:800;letter-spacing:-.02em;color:var(--sign-navy-deep)}
 .sign-page button{font-family:inherit;cursor:pointer}
 .sign-page input{font-family:inherit;font-size:1rem}
@@ -40,7 +41,8 @@
   color:var(--sign-gold-ink);font-size:.72rem;font-weight:700;line-height:1.3;text-align:center;min-width:44px}
 .sign-brand-via img{width:40px;height:auto;display:block}
 .sign-page .sign-brand{border-radius:0;border-inline:none;margin:0 0 14px;box-shadow:none}
-.sign-page .shell .sign-brand{margin-inline:-12px}
+.sign-page .shell .sign-brand{margin-inline:-16px}
+.sign-brand-meta{overflow-wrap:anywhere}
 
 .sign-page .card{background:#fff;border:1px solid var(--sign-line);border-radius:16px;
   box-shadow:0 10px 28px -22px rgba(14,42,107,.45)}
@@ -112,7 +114,8 @@
 .sign-page .field label{font-size:.8rem;font-weight:700;color:var(--sign-muted);display:block;margin-bottom:6px}
 .sign-page .field.is-req > label::after{content:" *";color:#6e1022}
 .sign-page .ack.is-req span::after{content:" *";color:#6e1022}
-.sign-page .field input{width:100%;min-height:48px;border:1.5px solid var(--sign-line);border-radius:10px;
+.sign-page .field{min-width:0}
+.sign-page .field input{width:100%;max-width:100%;min-height:48px;border:1.5px solid var(--sign-line);border-radius:10px;
   padding:10px 12px;background:#fff;color:inherit}
 .sign-page .field input:not([readonly]){background:#fbf6ea;border-color:#e4d7b0}
 .sign-page .field input:focus{border-color:var(--sign-navy);outline:none;box-shadow:0 0 0 3px rgba(14,42,107,.12)}
@@ -128,10 +131,11 @@
 .sign-page .pad-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#9aa0a6;font-size:.95rem;pointer-events:none}
 .sign-page .pad-hint.is-off{display:none}
-.sign-page .pad-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
-.sign-page .pad-foot .hint{font-size:.78rem;color:var(--sign-muted);line-height:1.4}
-.sign-page .link-btn{background:none;color:var(--sign-navy);font-size:.85rem;text-decoration:underline;
-  padding:8px 4px;font-weight:700;min-height:44px}
+.sign-page .pad-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;margin-top:8px}
+.sign-page .pad-foot .hint{flex:1 1 10rem;min-width:0;font-size:.78rem;color:var(--sign-muted);line-height:1.4}
+.sign-page .link-btn{flex:0 0 auto;width:auto;max-width:100%;background:transparent;border:none;box-shadow:none;
+  border-radius:0 !important;color:var(--sign-navy);font-size:.85rem;font-weight:700;line-height:1.2;
+  text-decoration:underline;white-space:nowrap;padding:10px 2px;min-height:44px}
 
 .sign-page .ack{display:flex;gap:10px;align-items:flex-start;margin:16px 0 8px;font-size:.95rem;line-height:1.55}
 .sign-page .ack input{margin-top:4px;width:22px;height:22px;flex:none}
@@ -139,7 +143,9 @@
 .sign-page .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;
   padding:12px 22px;border-radius:12px;font-weight:800;font-size:1rem;width:100%;
   background:var(--sign-navy);color:#fff;border:none;text-decoration:none}
-.sign-page .btn:disabled{opacity:.45;cursor:not-allowed}
+/* בלי opacity: הוא מבהיר גם את הטקסט הלבן עד שהוא נעלם על הרקע.
+   #4a5878 על לבן הוא כ-7:1, עדיין כהה מהכפתור הפעיל. */
+.sign-page .btn:disabled{opacity:1;background:#4a5878;color:#fff;cursor:not-allowed}
 .sign-page .btn-ghost{background:#fff;border:1.5px solid var(--sign-line);color:var(--sign-navy)}
 .sign-submit-bar{position:sticky;bottom:0;z-index:4;
   margin:12px -24px -18px;padding:12px 24px calc(12px + env(safe-area-inset-bottom));
@@ -161,7 +167,9 @@
 .sign-page .sign-mark svg{width:100%;height:100%;display:block}
 .sign-page .code{display:inline-block;margin-top:14px;background:#f7f1e2;color:#6b5310;
   border-radius:8px;padding:8px 14px;font-size:.85rem;letter-spacing:.06em;font-weight:800}
-.sign-page .done-actions{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:20px auto 0}
+.sign-page .done-actions{display:flex;flex-direction:column;align-items:stretch;gap:10px;
+  width:100%;max-width:340px;margin:20px auto 0}
+.sign-page .done-actions .btn{width:100%;max-width:100%;margin:0}
 
 .sign-page .otp-card{padding:32px 24px;text-align:center;max-width:480px;margin:0 auto}
 .sign-page .otp-card h1{font-size:1.3rem;margin:0 0 8px}
@@ -194,7 +202,7 @@
 @media (max-width:520px){
   .sign-brand-logo{width:56px;height:56px}
   .sign-brand-name{font-size:1.05rem}
-  .sign-page .task,.sign-page .sign-card,.sign-page .head{padding:16px 14px}
+  .sign-page .task,.sign-page .sign-card,.sign-page .head,.sign-page .msg-card{padding:16px}
   .sign-page .agr-doc,.sign-sheet .agr-doc,#agrModal .agr-doc{padding:18px 12px !important}
   .sign-page .pad-box{height:180px}
   .sign-page .sign-submit-bar{padding-inline:14px}
@@ -243,7 +251,12 @@
 #accAgreements .agr-row .lead-actions .btn{min-height:44px}
 #accAgreements .ui-btn{min-height:44px}
 
-#agrModal .sign-brand{margin:0;border:none;border-radius:0;box-shadow:none}
+#agrModal.imp-overlay{align-items:flex-start;overflow-y:auto}
+#agrModal .imp-card{margin-block:auto;max-height:none;
+  width:min(920px,100%)}
+#agrModal .sign-brand{flex:0 0 auto;margin:0;border:none;border-radius:0;box-shadow:none}
+#agrModal .imp-head,#agrModal .imp-steps,#agrModal .imp-foot{flex:0 0 auto}
+#agrModal .imp-body{min-height:0}
 #agrModal .imp-steps span{min-height:32px;display:inline-flex;align-items:center}
 #agrModal .imp-steps span.active{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
 #agrModal .imp-steps span.done{background:#f7f1e2;border-color:#e6d5a8;color:#6b5310}

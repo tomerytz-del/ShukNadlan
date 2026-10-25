@@ -584,22 +584,28 @@
     };
   }
 
+  function brandBit(value) {
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+
   function paintBrand(rootEl, agent) {
     if (!rootEl) return;
     var brand = brandFrom(agent);
     var agencyEl = rootEl.querySelector('[data-brand="agency"]');
     var metaEl = rootEl.querySelector('[data-brand="meta"]');
     var logo = rootEl.querySelector('[data-brand="logo"]');
-    var office = String(brand.agency || '').trim();
-    var name = String(brand.name || '').trim();
+    var office = brandBit(brand.agency);
+    var name = brandBit(brand.name);
+    var license = brandBit(brand.license);
+    var phone = brandBit(brand.phone);
     if (agencyEl) {
       agencyEl.textContent = office || name;
       agencyEl.hidden = !agencyEl.textContent;
     }
     var bits = [];
     if (office && name && name !== office) bits.push(name);
-    if (brand.license) bits.push("רישיון מס' " + brand.license);
-    if (brand.phone) bits.push(String(brand.phone));
+    if (license) bits.push("רישיון מס' " + license);
+    if (phone) bits.push(phone);
     if (metaEl) {
       metaEl.textContent = bits.join(' · ');
       metaEl.hidden = !bits.length;
@@ -622,11 +628,15 @@
 
   function brandChromeHtml(brand) {
     brand = brandFrom(brand, brand && brand.verifyCode);
-    var office = esc(brand.agency || brand.name || '');
+    var officeName = brandBit(brand.agency);
+    var person = brandBit(brand.name);
+    var license = brandBit(brand.license);
+    var phone = brandBit(brand.phone);
+    var office = esc(officeName || person);
     var bits = [];
-    if (brand.agency && brand.name && brand.name !== brand.agency) bits.push(esc(brand.name));
-    if (brand.license) bits.push("רישיון מס' " + esc(brand.license));
-    if (brand.phone) bits.push(esc(brand.phone));
+    if (officeName && person && person !== officeName) bits.push(esc(person));
+    if (license) bits.push("רישיון מס' " + esc(license));
+    if (phone) bits.push(esc(phone));
     var logo = brand.agency_logo
       ? '<img alt="" src="' + esc(brand.agency_logo) + '" crossorigin="anonymous" ' +
         'style="width:64px;height:64px;object-fit:contain;border:1px solid #e6e1d6;border-radius:12px;background:#fff;padding:4px">'
