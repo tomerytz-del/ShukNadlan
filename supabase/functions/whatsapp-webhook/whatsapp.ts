@@ -122,6 +122,18 @@ export async function sendImage(
   return await messageIdFrom(res);
 }
 
+/** קובץ שמע לפי קישור (עד 16MB). הקישור חייב להיות נגיש ל-Meta - כתובת חתומה
+ *  של Storage עובדת. משמש את ההקלטות של צוות ההטמעה (csm-notify.ts). */
+export async function sendAudio(to: string, audioUrl: string): Promise<string | null> {
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } }),
+  });
+  if (!res.ok) throw new Error(`whatsapp audio send failed ${res.status}: ${await res.text()}`);
+  return await messageIdFrom(res);
+}
+
 // מגבלות של הודעת כפתורים ב-Cloud API: עד שלושה כפתורים, כותרת של עד 20
 // תווים לכל אחד, וגוף של עד 1024. חריגה באחת מהן דוחה את ההודעה כולה.
 const MAX_BUTTONS = 3;

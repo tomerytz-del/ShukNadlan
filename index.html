@@ -23,7 +23,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/city-menu.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>דירות למכירה ולהשכרה בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -225,7 +225,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--sky-tint);color:var(--teal-dark)}
   .menu-cta{
     position:sticky;bottom:0;z-index:1;margin-top:2px;
-    padding:8px 0 14px;background:var(--sky-tint);
+    padding:8px 0 calc(14px + env(safe-area-inset-bottom, 0px));background:var(--sky-tint);
   }
   .mobile-menu .btn-block{margin-top:0}
 

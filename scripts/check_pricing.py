@@ -65,7 +65,13 @@ DISPLAY = [
     ('supabase/functions/_shared/launch-promo.ts', r'mid: ' + N,       'tier_mid_monthly_price'),
     ('supabase/functions/_shared/launch-promo.ts', r'premium: ' + N,   'tier_premium_monthly_price'),
     ('pricing.html', r'PROFESSIONAL ב-₪' + N,                          'tier_mid_monthly_price'),
-    ('pricing.html', r'Elite ב-₪' + N,                                 'tier_premium_monthly_price'),
+    # "Elite ב-₪0" הוא נוסח ההטבה (כפתורים ותגית), לא מחיר המסלול
+    ('pricing.html', r'Elite ב-₪(?!0(?!\d))' + N,                  'tier_premium_monthly_price'),
+    # בוחר המסלול ושורת הערך של Elite (PICK_PRICES)
+    ('pricing.html', r'PICK_PRICES = \{ video: ' + N,                 'property_video_price_mid'),
+    ('pricing.html', r'PICK_PRICES = \{[^}]*ownerLead: ' + N,         'ppl_price_owner_mid'),
+    ('pricing.html', r'PICK_PRICES = \{[^}]*line: ' + N,              'phone_line_monthly_price'),
+    ('pricing.html', r'PICK_PRICES = \{[^}]*videoCap: ' + N,          'property_video_premium_monthly_cap'),
     ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
     ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
     # עמוד התשלום של המנוי (20270307090000)
