@@ -337,16 +337,19 @@
       mobile: "assets/hero-house-800.webp",
       desktop: "assets/hero-house-1600.webp",
       mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "בית פרטי מודרני בסגנון ישראלי",
     },
     "דירות-גן": {
       mobile: "assets/hero-garden-800.webp",
       desktop: "assets/hero-garden-1600.webp",
       mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "דירת גן מודרנית בסגנון ישראלי",
     },
     "דירות-3-חדרים": {
       mobile: "assets/hero-apt-800.webp",
       desktop: "assets/hero-apt-1600.webp",
       mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+      alt: "בניין מגורים מודרני עם מרפסות",
     },
   };
 
@@ -361,7 +364,7 @@
     return "<picture>"
       + '<source type="image/webp" media="(max-width: 759px)" srcset="' + h.mobile + '">'
       + '<source type="image/webp" srcset="' + h.mobile + " " + h.mobileW + "w, " + h.desktop + " " + h.desktopW + 'w" sizes="100vw">'
-      + '<img src="' + h.mobile + '" alt="" width="' + h.width + '" height="' + h.height + '" fetchpriority="high" decoding="async">'
+      + '<img src="' + h.mobile + '" alt="' + (h.alt || "") + '" width="' + h.width + '" height="' + h.height + '" fetchpriority="high" decoding="async">'
       + "</picture>";
   }
 
