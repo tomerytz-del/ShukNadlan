@@ -84,6 +84,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .csm-top h1{font-size:1rem;margin:0;flex:1}
   .csm-top .who{font-size:.78rem;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
   .csm-top button{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:6px 12px;font-size:.78rem}
+  .csm-top .csm-bell{position:relative;padding:5px 10px;font-size:.9rem;line-height:1}
+  .csm-bell-count{position:absolute;top:-6px;inset-inline-end:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--gold);color:#fff;font-size:.66rem;font-weight:800;line-height:18px;text-align:center}
   main.csm-main{max-width:1400px;margin:0 auto;padding:16px}
   .csm-panel{background:var(--paper-raised);border-radius:var(--radius-md);padding:16px;box-shadow:0 2px 8px rgba(15,52,53,.08)}
   .auth-card{max-width:420px;width:calc(100% - 32px);margin:48px auto;background:#fff;border-radius:var(--radius-lg);padding:28px 22px;text-align:center;box-shadow:0 2px 8px rgba(15,52,53,.08)}
@@ -105,6 +107,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a href="/" target="_blank" rel="noopener" aria-label="האתר של שוק נדל״ן (נפתח בלשונית חדשה)"><img src="assets/favicon.svg" alt=""></a>
   <h1>אזור ההטמעה</h1>
   <span class="who" id="csmWho"></span>
+  <button type="button" class="csm-bell" id="csmBell" hidden aria-label="התראות">🔔<span class="csm-bell-count" id="csmBellCount" hidden></span></button>
+  <button type="button" id="csmSettings" hidden>הגדרות</button>
   <button type="button" id="csmLogout" hidden>יציאה</button>
 </header>
 
@@ -133,12 +137,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="acc-sub">כל סוכן/ת ומשרד בפיילוט, מההרשמה ועד שימוש עצמאי - עם פרטי הקשר ורמת השימוש.</p>
     <div class="csm-tabs" role="tablist" aria-label="אזור ההטמעה">
       <button type="button" role="tab" data-csm-tab="pipeline" aria-selected="true">צנרת</button>
+      <button type="button" role="tab" data-csm-tab="agenda" aria-selected="false">יומן</button>
       <button type="button" role="tab" data-csm-tab="offices" aria-selected="false">משרדים</button>
+      <button type="button" role="tab" data-csm-tab="notifications" aria-selected="false">התראות</button>
       <button type="button" role="tab" data-csm-tab="mentor" aria-selected="false">המנטור</button>
       <button type="button" role="tab" data-csm-tab="calls" aria-selected="false">הקלטות</button>
       <button type="button" role="tab" data-csm-tab="feedback" aria-selected="false">משוב ותעדוף</button>
       <button type="button" role="tab" data-csm-tab="stories" aria-selected="false">סיפורי הצלחה</button>
       <button type="button" role="tab" data-csm-tab="library" aria-selected="false">הדרכה ופקודות</button>
+      <button type="button" role="tab" data-csm-tab="settings" aria-selected="false">הגדרות</button>
       <button type="button" role="tab" data-csm-tab="staff" aria-selected="false" hidden>צוות ההטמעה</button>
     </div>
     <div id="csmBody"><div class="empty-state">טוען…</div></div>

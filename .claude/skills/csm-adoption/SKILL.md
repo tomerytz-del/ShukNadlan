@@ -1,6 +1,6 @@
 ---
 name: csm-adoption
-description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff, csm_claim, current_is_csm, crm-csm.js, הקלטות שיחה (csm_calls), מנטור ההטמעה וגבריאלה מול הצוות (csm-chat.ts). Use when touching csm.html / csm-page.js / any csm_* table or function / csm-workspace / csm-tools.ts, when adding a tool for the adoption team, when the CSM sees "אין גישה", when a recording is stuck, or when Gabriela answers the CSM like an agent.
+description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ההדרכות וההטמעה, שאינה סוכנת ואינה מנהלת פלטפורמה. csm_staff, csm_claim, current_is_csm, crm-csm.js, הקלטות שיחה (csm_calls), מנטור ההטמעה, היומן וההתראות שלה (csm_agenda, csm_notifications, csm-notify.ts), הגדרות הפרופיל (csm_profile_*) וגבריאלה מול הצוות (csm-chat.ts). Use when touching csm.html / csm-page.js / any csm_* table or function / csm-workspace / csm-tools.ts, when adding a tool for the adoption team, when the CSM sees "אין גישה", when a recording is stuck, when she got no reminder or notification (or got it twice), or when Gabriela answers the CSM like an agent.
 ---
 
 # אזור ההטמעה (CSM)
@@ -94,7 +94,24 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
 הסוכנים** - והם לא נכנסים אליו. יכולת חדשה של הצוות = שורה ב-`CSM_TOOLS` ב-
 `csm-prompt.ts`, אחרת המנטור לא ימליץ עליה (או ימליץ על מה שאין).
 
-## 8. עלות
+## 8. יומן, התראות והגדרות
+
+- **הגדרות** - עמודות על `csm_staff`, ונכתבות רק ב-`csm_profile_apply` (‏`csm_profile_save`
+  מהאזור, ‏`csm_settings` מגבריאלה). **הנייד - מהאזור בלבד** (‏`p_allow_phone`): הוא
+  הזיהוי בגבריאלה. המייל - לא כאן בכלל.
+- **התראה נכתבת רק ב-`_csm_notify`**, עם `dedupe_key`. מקור חדש = סוג ב-check של
+  `csm_notifications.kind`, ב-`v_kinds` של `csm_profile_apply`, ב-`CSM_NOTIF_KIND`
+  ב-`crm-csm.js` וב-`NOTIFY_KINDS` ב-`csm-tools.ts` - אחרת אי אפשר לכבות אותו.
+- **מקור שסורק אוכלוסייה מתריע על חצייה, לא על מצב** (`at_risk` רק ביום שבו עבר/ה
+  את 5 הימים) - אחרת ההרצה הראשונה מציפה את הפעמון ואת הוואטסאפ.
+- ב-pg_cron אין `current_is_csm()` ואין `auth.role()`, ולכן `csm_agents_overview`
+  נכשלת שם; `_csm_risk_agents` היא החישוב של המסד.
+- **וואטסאפ**: ‏`csm_notify_wa_claim` מחליטה (שעות שקט, 18 שעות, חלון 24 השעות לפי
+  `last_inbound_at` - לא `updated_at`). מחוץ לחלון - התבנית של `notification-push`.
+- **יומן Google** - קישור תבנית בלבד. הסנכרון של הסוכנים רשום על `agency_members`
+  ואינו חל כאן; שכפול שלו לצוות הוא החלטה על OAuth, לא שורה בקוד.
+
+## 9. עלות
 
 שלוש יכולות ב-`AiFeature` (`csm_mentor`, `csm_call`, `gabriela_csm`), ולכל אחת שורה ב-
 `AI_FEATURES` ב-`crm.js` (`check_ai_usage.py` חוסם). התמלול נרשם כ-`transcribe`.

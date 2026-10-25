@@ -120,3 +120,22 @@
 .csm-call-actions .btn{white-space:normal;text-align:center;max-width:100%}
 .csm-call-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 .csm-transcript{white-space:pre-wrap;max-height:320px;overflow:auto;background:var(--paper-raised);border-radius:var(--radius-sm);padding:10px;margin-top:6px;line-height:1.6}
+/* היומן, ההתראות וההגדרות (צוות ההטמעה בלבד) */
+.csm-ag-nav{flex-wrap:wrap;align-items:center}
+.csm-ag-nav .csm-hint{flex:1;margin:0}
+.csm-day{margin-bottom:12px}
+.csm-day h4{font-size:.85rem;margin:0 0 6px;display:flex;gap:6px;align-items:center}
+.csm-day h4 span{background:var(--paper-raised);border-radius:999px;padding:0 8px;font-size:.72rem}
+.csm-day.is-today h4{color:var(--teal)}
+.csm-ev{display:flex;gap:10px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:.8rem}
+.csm-ev.is-closed{opacity:.6}
+.csm-ev-time{flex:0 0 52px;font-weight:800;font-size:.9rem;color:var(--teal);text-align:center}
+.csm-ev-time small{display:block;font-weight:600;font-size:.66rem;color:var(--ink-soft)}
+.csm-ev-main{flex:1;min-width:0}
+.csm-ev-main .csm-card-actions{margin-top:6px}
+.csm-notif{background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px;font-size:.8rem}
+.csm-notif.is-unread{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset}
+.csm-notif .csm-fb-desc{white-space:pre-line}
+.csm-notif .csm-card-actions{align-items:center}
+.csm-form input[type=date],.csm-form input[type=time],.csm-form input[type=number],.csm-form input[type=url]{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font:inherit;font-size:.85rem;background:#fff}
+#csmSettingsForm input[readonly]{background:var(--paper-raised);color:var(--ink-soft)}

@@ -13,6 +13,7 @@ import {
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
+import { runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import {
@@ -1718,6 +1719,27 @@ Deno.serve(async (req: Request) => {
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {
       status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // ‏התראות צוות ההטמעה (‏csm-notify.ts, ‏docs/csm-adoption.md) - pg_cron כל דקה,
+  // רק כש-csm_notify_wa_ready(). אותו אימות פנימי.
+  if (url.searchParams.get("task") === "csm-notify") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runCsmNotify(supabase)
+        .then((r) => console.log("csm notify", JSON.stringify(r)))
+        .catch((err) => console.error("csm notify failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
       headers: { "Content-Type": "application/json" },
     });
   }
