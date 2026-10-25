@@ -148,3 +148,12 @@ python3 scripts/check_edge_types.py csm-workspace whatsapp-webhook
 python3 scripts/check_function_grants.py
 python3 scripts/check_canonical.py && python3 scripts/check_pwa.py && python3 scripts/check_events.py   # csm.html פרטי
 ```
+
+## גבריאלה מול הצוות: חיפוש ופגישה
+
+- **`csm_find_agent` מחפש לפי מילים**, כל מילה בשם, במשרד או בחלק המקומי של המייל.
+  בלי התאמה מלאה הוא מחזיר `maybe` ולא אפס, כי שם בכרטיס הוא לפעמים שם החברה.
+- **פגישה עם מי שלא נמצא/ה במאגר נקבעת בכל זאת** (`with_name`, `with_phone`). אל
+  תחזירו את הכלל "לא נמצא - לעצור ולשאול" לפגישות: זו הייתה התלונה (25.10.2026).
+- מנהלי פלטפורמה אינם ב-`csm_agents_overview` בכוונה, ולכן "לא נמצא" עליהם אינו באג.
+
