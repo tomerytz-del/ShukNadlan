@@ -4,7 +4,8 @@ name: שני מספרי הפער בדוח ה-CMA
 # כי אחד מהם לבדו מטעה בדיוק כשהשטחים שונים. נכס של 80 מ"ר יצא +6%
 # בהשוואה הכוללת ו-+45% למ"ר, ומי שראה רק את הראשון קרא שהמחיר בשוק.
 #
-# הבדיקה רצה על הקוד ב-assets/crm.js עצמו - היא חולצת את הבלוק ומריצה
+# הבדיקה רצה על הקוד ב-assets/cma-render.js עצמו (התצוגה המשותפת ל-CRM
+# ולדף /cma?k=) - היא חולצת את הבלוק ומריצה
 # אותו ב-node על פלט אמיתי של agent_cma_report - ולא על עותק שמתיישן
 # בשקט.
 #
@@ -16,15 +17,23 @@ on:
   pull_request:
     paths:
       - "assets/crm.js"
+      - "assets/cma-render.js"
+      - "crm.html"
+      - "cma.html"
       - "supabase/functions/whatsapp-webhook/agent.ts"
       - "scripts/cma_gap_test.py"
+      - "scripts/check_cma_css.py"
       - ".github/workflows/cma_gap.yml"
   push:
     branches: [main]
     paths:
       - "assets/crm.js"
+      - "assets/cma-render.js"
+      - "crm.html"
+      - "cma.html"
       - "supabase/functions/whatsapp-webhook/agent.ts"
       - "scripts/cma_gap_test.py"
+      - "scripts/check_cma_css.py"
       - ".github/workflows/cma_gap.yml"
   workflow_dispatch:
 
@@ -45,3 +54,9 @@ jobs:
       # הוא חסר - היא קיימת בדיוק כדי להריץ את הקוד האמיתי.
       - name: הדוח מציג את שני המספרים, וכל אחד נשען על נתון שקיים
         run: python3 scripts/cma_gap_test.py
+
+      # ‏ה-CSS של הדוח מוטבע גם ב-crm.html וגם ב-cma.html (CSS נשאר מוטבע -
+      # CLAUDE.md), ושני העותקים חייבים להיות זהים, אחרת הדוח שהלקוח/ה רואה
+      # בקישור נראה אחרת מזה שהסוכן/ת הדפיס/ה.
+      - name: ה-CSS של הדוח זהה ב-CRM ובדף /cma
+        run: python3 scripts/check_cma_css.py

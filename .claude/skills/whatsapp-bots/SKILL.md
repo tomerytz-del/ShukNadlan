@@ -654,6 +654,7 @@ node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב
 
 ## מידע תכנוני - כפתור, לא טקסט
 
-‏`planning_lookup` ו-`planning_info` שולחות כפתור "📄 מידע תכנוני" לדף הבדיקה
+‏`cma_report` ו-`cma_report_address` שולחות אחרי התקציר כפתור "📊 דוח CMA" לדף הדוח
+(‏`cmaButton`, ‏`/cma?k=`, הסקיל `cma-report`). ‏`planning_lookup` ו-`planning_info` שולחות כפתור "📄 מידע תכנוני" לדף הבדיקה
 (‏`planningButton`), וגבריאלה כותבת שורה אחת בלבד. **לא** מידע תכנוני בטקסט ולא
 הודעה עם התוצאה - החלטה של תומר (22.10.2026). הסקיל `planning-page`.
