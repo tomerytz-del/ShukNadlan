@@ -23,6 +23,13 @@
   • ‏**ירידה אינה נכשלת**, אבל מודפסת עם הפקודה לעדכון - כדי שהרף יירד
     באותו PR שתיקן, ולא יחזיר את השגיאות בשקט בפעם הבאה.
 
+## ושם שאינו מוגדר אינו נכנס לרף לעולם
+
+‏TS2304 / TS2552 ("Cannot find name") אינן "שגיאת טיפוס ותיקה" אלא
+‏ReferenceError בפרודקשן בכל פעם שהשורה רצה. כך ‏`OWNERSHIP_LABEL` חסר ב-
+‏`whatsapp-webhook/agent.ts` ישב בתוך הרף של 67 השגיאות, וכל דוח CMA דרך
+גבריאלה נפל ב"תקלה טכנית" (25.10.2026). לכן הן נכשלות תמיד, גם מתחת לרף.
+
 ## מה היא לא יודעת
 
 המספרים תלויים בגרסת Deno ובגרסאות התלויות (`jsr:@supabase/supabase-js@2`
@@ -47,6 +54,10 @@ DENO = os.environ.get("DENO", "deno")
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 TS_ERROR = re.compile(r"^TS\d+ \[ERROR\]")
+# שם שאינו מוגדר - ReferenceError בזמן ריצה, ולכן לא נסבל בשום רף
+UNDEFINED_NAME = re.compile(r"^TS(?:2304|2552) \[ERROR\]: Cannot find name '([^']+)'")
+# גלובלים שסביבת הריצה של Supabase מספקת ו-deno check אינו מכיר
+RUNTIME_GLOBALS = {"EdgeRuntime"}
 
 
 def functions():
@@ -96,6 +107,18 @@ def main(argv):
         return 1
 
     counts = {n: c for n, c, _ in results}
+
+    undefined = []
+    for n, _, text in results:
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            m = UNDEFINED_NAME.match(line)
+            if m and m.group(1) not in RUNTIME_GLOBALS:
+                undefined.append((n, "\n".join(lines[i:i + 3])))
+    if undefined and not update:
+        for n, snippet in undefined:
+            print(f"✗ {n}: שם שאינו מוגדר - ReferenceError בזמן ריצה, לא נסבל ברף\n{snippet}\n")
+        return 1
 
     if update:
         merged = dict(baseline) if only else {}

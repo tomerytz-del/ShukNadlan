@@ -1,6 +1,6 @@
 ---
 name: cma-report
-description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״ן - agent_cma_report / agent_cma_report_full, הסולם (חדרים, קומה למסחרי, תת-סוג, רדיוס עד 2,000 מ'), ההשתקה מתחת לסף, property_type_class / property_kind, ו-renderCmaReport. Use when touching cma_deal_pool / cma_report / toolCmaReport, when a CMA number looks wrong (a shop at +186%, a penthouse priced like a flat), when adding a property type to the site or deals_engine, or when the report "has no average".
+description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״ן - cma_report_core / agent_cma_report / agent_cma_report_full / agent_cma_report_address (דוח לכתובת, Elite), הסולם (חדרים, קומה למסחרי, תת-סוג, רדיוס עד 2,000 מ'), ההשתקה מתחת לסף, property_type_class / property_kind, ו-renderCmaReport. Use when touching cma_deal_pool / cma_report / cma_report_address / toolCmaReport / cmaSummary, when Gabriela says a CMA "had a technical fault" or cannot report on an address that is not in the system, when a CMA number looks wrong (a shop at +186%, a penthouse priced like a flat), when adding a property type to the site or deals_engine, or when the report "has no average".
 ---
 
 # דוח ה-CMA
@@ -16,12 +16,19 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 ‏`subject_percentile`) - כולם מושתקים במסד. **אל תוסיפו מספר שהתצוגה
 "מחליטה אם להציג"**: תצוגה שמקבלת מספר תציג אותו בסוף.
 
-## ‏2. שתי פונקציות, ומי קורא למה
+## ‏2. הפונקציות, ומי קורא למה
 
 | פונקציה | מה | מי קורא |
 | --- | --- | --- |
-| `agent_cma_report` | הסטטיסטיקה, הסולם, השכבות. 600 שורות, כל גרסה העתק מלא | העטיפה בלבד |
-| `agent_cma_report_full` | בעלות (טאבו), רבעונים ואחוזון, **וחיתוך** ל-8 העסקאות להצגה | `cma_report` (הדשבורד) והבוט |
+| `cma_report_core(p_agent_id, p_prop)` | הסטטיסטיקה, הסולם, השכבות. 600 שורות, כל גרסה העתק מלא. **הנכס נכנס כשורת `properties`** ויכול להיות בלי `id` | שתי העטיפות |
+| `agent_cma_report` | גייט (PROFESSIONAL ומעלה), שליפת הנכס, שכירות - ואז הליבה | `_full` |
+| `cma_report_finish(p_r, p_gush, p_helka)` | בעלות (טאבו), רבעונים ואחוזון, **וחיתוך** ל-8 העסקאות להצגה | `_full` ו-`_address` |
+| `agent_cma_report_full` | `agent_cma_report` + הגוש/חלקה מהמידע התכנוני + הסיום | `cma_report` (הדשבורד) והבוט |
+| `agent_cma_report_address` | **Elite**: דוח לכל כתובת, נכס בזיכרון, מיקום מ-`cma_locate_address` כשאין | `cma_report_address` והבוט |
+
+**שינוי בדוח נעשה בליבה או בסיום, ואז תקף לנכס ולכתובת יחד.** בליבה כל
+השוואה ל-`v_prop.id` היא `is distinct from` ולא `<>`: בדוח לכתובת ה-`id`
+הוא `null`, ו-`<> null` מוחק שכבה שלמה בשקט (`docs/cma.md`, "דוח לכתובת").
 
 **כל מה שנספר - נספר לפני החיתוך.** ספירת הבעלות, הרבעונים והאחוזון רצים
 על כל ה-`comparables` ורק אחר כך הרשימה נחתכת ל-`cma_comparables_listed`.
@@ -106,6 +113,7 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 ## ‏7. לפני מיזוג
 
 ```sh
+python3 scripts/check_edge_types.py   # כולל שם לא מוגדר ב-agent.ts - זה מה שהפיל את הבוט
 python3 scripts/cma_gap_test.py
 python3 scripts/check_deals_normalize.py
 python3 scripts/check_migration_versions.py --base-ref origin/main

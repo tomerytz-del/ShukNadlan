@@ -575,7 +575,8 @@ const TOOLS: Anthropic.Tool[] = [
       "**כשאין די עסקאות להשוואה הכלי אינו מחזיר ממוצע כלל** - במקרה כזה יש " +
       "לומר לסוכן/ת שאין נתונים ולא לאמוד מספר לבד. מחזיר תקציר ואת " +
       "העסקאות הקרובות ביותר; הדוח המלא להדפסה או לשליחה ללקוח/ה נמצא " +
-      "בדשבורד.",
+      "בדשבורד. **נכס במערכת** = נכס של הסוכן/ת או כל נכס פעיל באתר (גם של משרד " +
+      "אחר). כתובת שאין בה נכס כזה = cma_report_address.",
     input_schema: {
       type: "object",
       properties: {
@@ -586,6 +587,45 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["property_id"],
+    },
+  },
+  {
+    name: "cma_report_address",
+    description:
+      "דוח השוואת שוק (CMA) **לכתובת**, גם כשהנכס אינו במערכת (לפני לקיחת נכס, נכס של " +
+      "לקוח/ה, \"תכין דוח CMA לרוטשילד 1 בראשון לציון\"). אותו דוח בדיוק כמו cma_report: " +
+      "עסקאות מכר ברדיוס, ממוצע וחציון מאותו סוג ומספר חדרים, טווח ואחוזון, שכונה ובעלות. " +
+      "**זמין במסלול Elite בלבד**; במסלול אחר חוזר tier_required. " +
+      "מסרו כל מה שנאמר: חדרים, שטח, קומה ומחיר מבוקש משפרים את ההשוואה, אבל אינם חובה - " +
+      "**אל תעכב/י את הדוח כדי לשאול עליהם**; אם חזר details_guidance - בצע/י אותו. " +
+      "אם חזר location_guidance - אמור/אמרי אותו.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "העיר. ברירת מחדל: העיר של הסוכן/ת." },
+        street: { type: "string", description: "שם הרחוב, בלי מספר בית." },
+        house_number: { type: "string", description: "מספר בית. בלעדיו הדוח נמדד ממרכז הרחוב." },
+        property_type: {
+          type: "string",
+          description:
+            "סוג הנכס: דירה (ברירת מחדל), דירת גן, פנטהאוז, בית פרטי, דו משפחתי, חנות, משרד, מגרש.",
+        },
+        rooms: { type: "number" },
+        size_sqm: { type: "number", description: "שטח בנוי במ\"ר." },
+        floor: { type: "integer", description: "קומה (0 = קרקע). חשוב לנכס מסחרי." },
+        asking_price: { type: "number", description: "המחיר המבוקש, אם נאמר. בלעדיו אין פער מול השוק." },
+        features: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["mamad", "mamak", "building_shelter", "elevator", "parking", "balcony",
+              "sun_balcony", "storage", "accessible", "renovated_feature"],
+          },
+          description: "מאפיינים שנאמרו (ממ\"ד, מעלית, חניה, מרפסת...). משמשים להשוואה מול נכסים בשוק.",
+        },
+        limit: { type: "integer", description: "כמה עסקאות השוואה לפרט. ברירת מחדל 5, מקסימום 10." },
+      },
+      required: ["city", "street"],
     },
   },
   {
@@ -3075,12 +3115,118 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 
   const report = (data || {}) as Record<string, unknown>;
   if (report.error === "property_not_found") {
-    return { ok: false, error: "לא נמצא נכס כזה." };
+    return {
+      ok: false,
+      error: "לא נמצא נכס כזה.",
+      guidance: "אם זו כתובת של נכס שאינו אצל הסוכן/ת במערכת - cma_report_address, לא market_deals_lookup.",
+    };
   }
   if (report.error) {
     return { ok: false, error: String(report.detail || report.error) };
   }
 
+  ctx.conv.last_property_id = propertyId;
+  return { ...cmaSummary(report, limit), property_id: propertyId };
+}
+
+/**
+ * דוח CMA לכתובת (מיגרציה 20270819090000) - גם לנכס שאינו במערכת. Elite.
+ *
+ * ‏`agent_cma_report_address` מריצה **אותה ליבה ואותו סיום** כמו הדוח על
+ * נכס, על נכס שנבנה בזיכרון. כאן רק המיקום: הגאוקוד בשרת (‏geocodeInCity)
+ * כשיש ספק לעיר, ואם אין - המסד ממקם בעצמו מהעסקאות ומהחלקות
+ * (‏`cma_locate_address`), ומחזיר עד כמה המיקום מדויק. GovMap אסור כאן
+ * (הסקיל `govmap`).
+ *
+ * החלופה הישנה, "עסקאות לפי שם הרחוב", היא בדיוק מה שהכלי הזה מחליף: רחוב
+ * ארוך מערבב עסקאות במרחק קילומטרים, בלי ממוצע ובלי סולם חדרים.
+ */
+async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unknown>) {
+  const city = String(input.city || "").trim();
+  const street = String(input.street || "").trim();
+  const houseNumber = String(input.house_number || "").trim();
+  const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
+  const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+
+  const coords = city && street && houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
+
+  const { data, error } = await ctx.supabase.rpc("agent_cma_report_address", {
+    p_agent_id:      ctx.agent.id,
+    p_city:          city,
+    p_street:        street,
+    p_house_number:  houseNumber || null,
+    p_property_type: String(input.property_type || "דירה"),
+    p_rooms:         num(input.rooms),
+    p_size_sqm:      num(input.size_sqm),
+    p_floor:         num(input.floor) === null ? null : Math.round(Number(input.floor)),
+    p_price:         num(input.asking_price),
+    // רק המאפיינים שהדוח סופר (cma_price_features); השאר נזרקים במסד ממילא
+    p_features:      Array.isArray(input.features) ? input.features.map(String) : null,
+    p_lat:           coords?.lat ?? null,
+    p_lng:           coords?.lng ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "tier_required") {
+    return {
+      ok: false,
+      error: String(report.detail || "דוח CMA לכתובת זמין במסלול Elite."),
+      upgrade_to: "Elite",
+      guidance: "אמור/אמרי שדוח לכתובת שאינה נכס במערכת שייך ל-Elite, ושעל נכס שלו/ה במערכת אפשר להפיק דוח כבר עכשיו. אל תמציא/י נתונים ואל תחליף/י ברשימת עסקאות.",
+    };
+  }
+  if (report.error) return { ok: false, error: String(report.detail || report.error) };
+
+  const summary = cmaSummary(report, limit, true);
+  const subject = (report.subject || {}) as Record<string, unknown>;
+  const precision = String(subject.location_precision || "");
+  // עד כמה המיקום מדויק - הרדיוס של הדוח נמדד ממנו. מיקום לפי מספר בית
+  // אחר ברחוב ארוך יכול להיות מאות מטרים מהכתובת, ומי שלא יאמר זאת מציג
+  // דוח של שכונה אחרת כדוח של הבניין.
+  const LOCATION_GUIDANCE: Record<string, string> = {
+    geocoded: "",
+    address_deal: "",
+    parcel: "",
+    street_nearest:
+      `הכתובת לא מוקמה בדיוק, ולכן הדוח נמדד ממספר ${String(subject.nearest_house_number || "")} באותו רחוב. ` +
+      "אמור/אמרי זאת בקצרה.",
+    street:
+      "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
+  };
+  // מה שמסנן את בני ההשוואה: חדרים לנכס מגורים, קומה לנכס מסחרי (לחנות
+  // אין חדרים - הסקיל cma-report), ושטח לכולם - בלעדיו אין מחיר למ"ר.
+  const commercial = (report.data_coverage as Record<string, unknown> | undefined)?.subject_class === "commercial";
+  const missing = [
+    !commercial && num(input.rooms) === null && "מספר חדרים",
+    commercial && num(input.floor) === null && "קומה",
+    num(input.size_sqm) === null && "שטח",
+  ].filter(Boolean);
+
+  return {
+    ...summary,
+    report_kind: "address",
+    location_precision: precision || undefined,
+    location_guidance: precision
+      ? LOCATION_GUIDANCE[precision] || undefined
+      : "לא הצלחנו למקם את הכתובת, ולכן אין השוואה לפי מרחק. אמור/אמרי זאת, וודא/י עם הסוכן/ת את שם הרחוב והעיר. אל תחליף/י ברשימת עסקאות לפי שם הרחוב.",
+    // בדוח לכתובת אין כרטיס נכס להשלים בו פרטים - שואלים את הסוכן/ת
+    details_guidance: missing.length
+      ? `לא נמסרו: ${missing.join(", ")}. מסור/מסרי את הדוח, ובסוף הצע/י להריץ שוב עם הפרטים האלה - ` +
+        "הם מסננים את בני ההשוואה, ושטח נותן מחיר למ\"ר."
+      : undefined,
+    full_report_where:
+      "הדוח המלא להדפסה או לשליחה ללקוח/ה: בדשבורד, \"דוח CMA לבעלים\" > \"לכתובת שאינה במערכת\".",
+  };
+}
+
+/**
+ * התקציר שגבריאלה מקבלת מדוח CMA - משותף לדוח על נכס ולדוח לכתובת, כי
+ * המסד מחזיר את אותו מבנה בשניהם.
+ */
+function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = false) {
+  // בדוח לכתובת אין כרטיס נכס להשלים בו פרטים: מריצים שוב עם הפרט
+  const fillIn = byAddress ? "ולהריץ שוב את הדוח איתו" : "בכרטיס הנכס";
   const subject = (report.subject || {}) as Record<string, unknown>;
   const stats = (report.stats || {}) as Record<string, unknown>;
   const coverage = (report.data_coverage || {}) as Record<string, unknown>;
@@ -3162,7 +3308,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "שההשוואה אינה מסוננת לפי חדרים, ושהמחיר למ\"ר הוא ההשוואה המהימנה כאן.",
     subject_rooms_missing:
       "לנכס עצמו לא רשום מספר חדרים, ולכן ההשוואה אינה מסוננת לפי חדרים והממוצע מערבב " +
-      "גדלים שונים. אמור/אמרי זאת, ובקש/י להשלים את מספר החדרים בכרטיס הנכס - זה מה " +
+      `גדלים שונים. אמור/אמרי זאת, ובקש/י להשלים את מספר החדרים ${fillIn} - זה מה ` +
       "שמדייק את הדוח יותר מכל דבר אחר.",
     // נכס מסחרי (20270226090000): הסולם מסנן לפי קבוצת קומה ולא לפי חדרים.
     // לחנות אין חדרים, ובקשה להשלים מספר חדרים לחנות היא עצה שגויה.
@@ -3180,7 +3326,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "כשאת/ה מוסר/ת את הפער.",
     subject_floor_missing:
       "זה נכס מסחרי ולא רשומה לו קומה, ולכן ההשוואה אינה מסוננת לפי קומה ומערבבת קומת קרקע " +
-      "עם קומות עליונות. אמור/אמרי זאת, ובקש/י להשלים את הקומה בכרטיס הנכס. אל תבקש/י מספר חדרים.",
+      `עם קומות עליונות. אמור/אמרי זאת, ובקש/י להשלים את הקומה ${fillIn}. אל תבקש/י מספר חדרים.`,
   };
 
   // שכבת השוק. **הסכנה כאן היא ערבוב**: מודל שמקבל "חציון" ו"ממוצע"
@@ -3195,7 +3341,9 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "אלה **מחירים מבוקשים** ולא מחירי עסקה, ויש לומר את שניהם.",
     subject_features_missing:
       "לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. אלה **מחירים מבוקשים**. " +
-      "אפשר להציע לסמן ממ\"ד, מעלית, מרפסת וחניה בכרטיס הנכס כדי לדייק את ההשוואה.",
+      (byAddress
+        ? "אפשר להציע להריץ שוב עם המאפיינים (ממ\"ד, מעלית, מרפסת, חניה) כדי לדייק את ההשוואה."
+        : "אפשר להציע לסמן ממ\"ד, מעלית, מרפסת וחניה בכרטיס הנכס כדי לדייק את ההשוואה."),
     too_few:
       "יש פחות נכסים דומים בשוק מהמינימום, ולכן **אין חציון שוק**. אפשר למנות את הנכסים עצמם " +
       "כמתחרים, ואסור לגזור מהם מחיר.",
@@ -3232,8 +3380,6 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית.",
   };
 
-  ctx.conv.last_property_id = propertyId;
-
   // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
   const own = (report.ownership || null) as Record<string, unknown> | null;
   const ownSubject = (own?.subject || null) as { ownership?: string; mixed_units?: boolean } | null;
@@ -3254,7 +3400,6 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 
   return {
     ok: true,
-    property_id: propertyId,
     subject: {
       title: subject.title,
       address: [subject.address, subject.city].filter(Boolean).join(", "),
@@ -3341,6 +3486,13 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 // נשמע נכון ואינו בהכרח נכון: בבדיקה על שני נכסים ברובע יזרעאל (26.9.2026)
 // החציון למ"ר היה 12,522 בפרטית מול 12,621 במדינה - כמעט זהה. מודל שלא נאמר
 // לו ימציא הנחה על מחיר. לכן: לדווח מה יש, ולא לתקן שווי.
+// סוג הבעלות בטאבו (‏land_ownership.ownership). אותה מפה כמו ב-
+// ‏planning-link/index.ts; היא חסרה כאן, ו-`cmaSummary` זרקה ReferenceError
+// על **כל** דוח שהגיעה אליו שכבת הבעלות - והסוכן/ת שמע/ה "תקלה טכנית".
+const OWNERSHIP_LABEL: Record<string, string> = {
+  P: "פרטית", S: "מדינה", L: "רשות מקומית", M: "מעורבת", O: "אחר",
+};
+
 const CMA_OWNERSHIP_GUIDANCE =
   "ownership מתאר את סוג הבעלות בטאבו. subject - הנכס עצמו; אם הוא \"מדינה\", ציין/י שבדרך כלל " +
   "זו חכירה מרמ\"י ושכדאי לבדוק בנסח טאבו - כנקודה לבדיקה, לא כגורם מחיר. " +
@@ -5963,6 +6115,7 @@ async function runTool(
       case "property_link": return await toolPropertyLink(ctx, input);
       case "property_performance": return await toolPropertyPerformance(ctx, input);
       case "cma_report": return await toolCmaReport(ctx, input);
+      case "cma_report_address": return await toolCmaReportAddress(ctx, input);
       case "market_deals_lookup": return await toolMarketDealsLookup(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
       case "planning_lookup": return await toolPlanningLookup(ctx, input);
@@ -6121,6 +6274,10 @@ const SYSTEM_STATIC: string = (() => {
       "**ו-market_* הם שכבה אחרת לגמרי: נכסים שמוצעים בשוק עכשיו, כלומר מחירים " +
       "מבוקשים ולא מחירי עסקה.** הם עונים על \"מול מי אנחנו מתחרים\" ולא על \"כמה שווה\", " +
       "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו.",
+    "- **דוח CMA לכתובת** (\"תכין דוח CMA לרוטשילד 1 בראשון\", \"כמה שווה דירת 4 חדרים בהרצל 20\"): " +
+      "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
+      "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +
+      "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות.",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +

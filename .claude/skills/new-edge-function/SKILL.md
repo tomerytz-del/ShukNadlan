@@ -147,6 +147,12 @@ python scripts/check_edge_types.py my-function
 על אפס שגיאות** - היא אינה ב-`scripts/edge_types_baseline.json`, ולא
 מוסיפים אותה לשם. רץ גם ב-CI.
 
+**שם שאינו מוגדר (TS2304/TS2552) נכשל תמיד, גם מתחת לרף.** זו אינה "שגיאת
+טיפוס ותיקה" אלא `ReferenceError` בכל פעם שהשורה רצה: ‏`OWNERSHIP_LABEL` חסר
+ב-`whatsapp-webhook/agent.ts` ישב בתוך הרף של 67 השגיאות, וכל דוח CMA דרך
+גבריאלה נפל ב"תקלה טכנית" (25.10.2026). גלובל של סביבת הריצה שהבדיקה אינה
+מכירה (‏`EdgeRuntime`) נכנס ל-`RUNTIME_GLOBALS` בסקריפט - לא לרף.
+
 ## הפריסה
 
 `.github/workflows/supabase_functions.yml` פורס במיזוג ל-`main` — רק את

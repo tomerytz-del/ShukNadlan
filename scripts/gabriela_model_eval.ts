@@ -50,6 +50,8 @@ const CASES: Array<{ text: string; expect: string[] }> = [
   { text: "תכין הסכם בלעדיות למכירה לנכס בהנרקיס 7", expect: ["search_properties", "list_properties", "prepare_agreement"] },
   { text: "שאלה למנטור: איך עונים ללקוח שאומר שהעמלה גבוהה מדי?", expect: ["ask_mentor"] },
   { text: "כמה עולה מטר בממוצע ברחוב הנרקיס בעפולה?", expect: ["market_deals_lookup", "cma_report"] },
+  // נכס שאינו במערכת: דוח לכתובת, ולא רשימת עסקאות לפי שם הרחוב (25.10.2026)
+  { text: "תכין לי דוח cma לכתובת רוטשילד 1 בראשון לציון", expect: ["search_properties", "list_properties", "cma_report_address"] },
   { text: "מה המייל שלך?", expect: [] },
 ];
 

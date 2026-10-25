@@ -153,7 +153,9 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 | מה | איפה |
 | --- | --- |
-| מקור האמת לדוח | `agent_cma_report(p_agent_id, p_property_id)` |
+| מקור האמת לדוח | `cma_report_core(p_agent_id, p_prop)` - הגוף; ‏`agent_cma_report(p_agent_id, p_property_id)` הגייט והשליפה |
+| הסיום (בעלות, טווח, 8 העסקאות) | `cma_report_finish(p_r, p_gush, p_helka)`; ‏`agent_cma_report_full` עטיפה |
+| דוח לכתובת (Elite) | `agent_cma_report_address` / ‏`cma_report_address`, ‏`cma_locate_address` - ראו "דוח לכתובת" למטה |
 | בריכת בני ההשוואה | `cma_deal_pool(...)` — נקראת פעמיים: לספירת שלבי הסולם ולשליפת הרדיוס שנבחר |
 | שורת "על מה זה נשען" | `cmaSampleNote` ב-`assets/crm.js` |
 | דמיון מאפיינים | `cma_price_features()` ו-`cma_feature_similarity()` |
@@ -168,7 +170,7 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 | עטיפה לדפדפן | `cma_report(p_property_id)` — ‏`current_agent_id()` |
 | רישום עסקה | `handle_property_sold()`, ‏טריגר `trg_property_sold` |
 | תצוגה בדשבורד | `renderCmaReport` ב-`assets/crm.js` |
-| העוזר בוואטסאפ | `toolCmaReport` ב-`supabase/functions/whatsapp-webhook/agent.ts` |
+| העוזר בוואטסאפ | `toolCmaReport` / ‏`toolCmaReportAddress`, והתקציר המשותף `cmaSummary`, ב-`supabase/functions/whatsapp-webhook/agent.ts` |
 | מיגרציית הכנות | `supabase/migrations/20261130090000_cma_data_integrity.sql` |
 | מיגרציית המאגר הרשמי | `supabase/migrations/20261201090000_market_deals_official.sql` |
 
@@ -787,3 +789,80 @@ python3 scripts/cma_gap_test.py
 "קרקע מדינה" בשורת הנכס, שורה בטבלת המידע התכנוני, הספירה והפיצול מתחת
 לתמונת השוק, ומקור ותאריך בתחתית. עסקה בלי סימון מוצגת "-" - היעדר אינו
 "פרטית".
+
+## דוח לכתובת - גם לנכס שאינו במערכת (Elite)
+
+מיגרציה `20270819090000_cma_any_address.sql`. עד אז הדוח קיבל מזהה נכס בלבד,
+ו"תכין דוח CMA לרוטשילד 1 בראשון לציון" ענה "אפשר רק על נכס שקיים אצלך" ונתן
+במקום רשימת עסקאות לפי שם הרחוב - בלי ממוצע, בלי סולם ובלי מרחק.
+
+**אותו דוח, לא דוח שני.** הגוף של `agent_cma_report` עבר כמו שהוא ל-
+`cma_report_core(p_agent_id, p_prop)`, שמקבלת את הנכס כשורת `properties`.
+‏`agent_cma_report_address` בונה את השורה בזיכרון (`jsonb_populate_record`,
+בלי `id` ובלי כתיבה), ומריצה את אותה ליבה ואת אותו `cma_report_finish` -
+כלומר אותו סולם, אותה השתקה מתחת לסף ואותם מספרים. שינוי בדוח נעשה פעם
+אחת ותקף לשניהם. ההעברה נבדקה על 16 דוחות (חמישה סוגי נכס, בלי מיקום,
+שכירות, שני מסלולים) - פלט זהה בייט-בייט לפני ואחרי.
+
+**`p.id <> p_property_id` הפך ל-`is distinct from`**, וזה לא קוסמטי: לנכס
+בלי מזהה `<> null` הוא `null`, ושכבת השוק כולה הייתה נעלמת בשקט.
+
+| | נכס במערכת | כתובת |
+| --- | --- | --- |
+| מסלול | PROFESSIONAL ו-Elite | **Elite** בלבד (`tier_required`), פעיל ומנוי בתוקף |
+| איזה נכס | של הסוכן/ת, או כל נכס פעיל באתר | כל כתובת |
+| גוש/חלקה (בעלות, "אותו בניין") | מהמידע התכנוני | `address_parcel_from_deals` - עסקאות שנרשמו בכתובת |
+| סוג נכס | מהנכס | חייב להיות מוכר ל-`property_type_class`, אחרת `unknown_property_type` - סוג לא מוכר היה נותן דוח ריק שנראה כמו "אין עסקאות" |
+
+**המיקום.** הדפדפן ממקם כמו חיפוש העסקאות (`dealsLookupCoords`: עפולה דרך
+העירייה, אחרת GovMap בדפדפן); גבריאלה דרך `geocodeInCity`. ובשרת אסור GovMap
+(הסקיל `govmap`), ולכן כשאין קואורדינטות המסד ממקם בעצמו - `cma_locate_address`,
+מהמדויק לפחות מדויק:
+
+| `location_precision` | מאיפה | נאמר בדוח |
+| --- | --- | --- |
+| `geocoded` | הגאוקוד של הקורא | - |
+| `address_deal` | עסקה רשמית בכתובת עצמה | - |
+| `parcel` | מרכז החלקה ב-`parcels_open` | - |
+| `street_nearest` | מספר הבית הקרוב באותו רחוב (עד 30) | כן - ברחוב ארוך זה מאות מטרים |
+| `street` | בלי מספר בית: מרכז העסקאות ברחוב | כן |
+| `null` | לא נמצא | `no_location`, בלי השוואה לפי מרחק |
+
+**בתצוגה:** "דוח CMA לבעלים" > "לכתובת שאינה במערכת" (`renderCmaAddressForm`
+ב-`assets/crm.js`). במסלול אחר הכפתור מוצג ואומר "זמין ב-Elite". הדוח עצמו
+הוא `renderCmaReport` כרגיל; ‏`subject.source = 'address'` מסתיר מחיר מבוקש
+ריק ומוסיף את שורת הדיוק.
+
+**בגבריאלה:** הכלי `cma_report_address`. הפרומפט אומר במפורש לא להחליף אותו
+ברשימת עסקאות לפי רחוב (`market_deals_lookup`), ובתוצאה חוזרים
+`location_guidance` ו-`details_guidance` (חדרים, שטח, או קומה לנכס מסחרי -
+להציע הרצה חוזרת ולא "להשלים בכרטיס", כי אין כרטיס).
+
+### ‏"תקלה טכנית" על כל דוח בגבריאלה (25.10.2026)
+
+‏`cmaSummary` (אז `toolCmaReport`) השתמשה ב-`OWNERSHIP_LABEL` שלא הוגדר
+ב-`agent.ts`, וזרקה `ReferenceError` על כל דוח שהגיעה אליו שכבת הבעלות - כלומר
+כמעט על כל דוח. ‏`deno check` ראה את זה (TS2304), אבל השגיאה ישבה בתוך הרף של
+67 השגיאות של `whatsapp-webhook` ב-`edge_types_baseline.json`. מאז
+`check_edge_types.py` נכשל על שם שאינו מוגדר **גם מתחת לרף** (חוץ מגלובלים
+של סביבת הריצה, `RUNTIME_GLOBALS`).
+
+### מה נשאר (25.10.2026)
+
+- **בדיקה בפרודקשן אחרי המיזוג:** המיגרציה נבדקה רק על Postgres מקומי עם
+  נתונים סינתטיים (16 דוחות זהים לפני ואחרי). אחרי שה-workflow ירוק - דוח
+  לכתובת שאינה במערכת (רוטשילד 1, ראשון לציון) מגבריאלה ומה-CRM, ודוח על
+  נכס קיים (#1139) מגבריאלה, ש"תקלה טכנית" נעלמה.
+- **הקריאה הראשונה איטית:** ‏`agent_cma_report_full` לוקחת כ-3.6 שניות
+  בחיבור חדש וכ-0.6 שנייה אחר כך (הידור ותכנון של ה-PL/pgSQL). לא גרמה
+  לתקלה - התקרה של PostgREST היא 8 שניות - אבל כדאי למדוד שוב אחרי הפיצול
+  לליבה ולסיום.
+- **הדוח לכתובת אינו נשמר:** אין לו כרטיס, ולכן אי אפשר לפתוח אותו שוב או
+  לשלוח ממנו קישור. גבריאלה מוסרת תקציר ומפנה ל-CRM להדפסה. אם יתברר שזה
+  חסר - קישור לדוח בסגנון `planning_links`.
+- **מאפיינים בטופס ה-CRM:** גבריאלה מעבירה ממ"ד, מעלית וחניה
+  (`features`), והטופס לא - ולכן שכבת השוק בדוח מה-CRM תמיד
+  `subject_features_missing`.
+- **66 שגיאות הטיפוס הנותרות ב-`whatsapp-webhook`:** שם לא מוגדר כבר לא
+  יכול להסתתר ביניהן, אבל כל אחת מהן עדיין יכולה להיות `null` שלא נבדק.
+
