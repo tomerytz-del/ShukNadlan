@@ -13,16 +13,19 @@ Commands
   build-stories --property P       9:16 story slides  (tools/reel.py)
   build-captions --property P [--force]  reel captions <no>/reel/fb_caption.txt + ig_caption.txt
   build-reel    --property P       15s reel: reel_voice_male_v3.mp4 / reel_music_15s_v3.mp4 (+ --long/--female/--rate/--tag/--track)
+  reel-next     [--count N]         next daily-reel candidate (JSON): category pattern R,R,C; no-video listings first;
+                                   action render | reuse_site_video (agent / CRM reel / daily video already on the site)
+  fetch-site-video --property P    download the site's video_url + poster -> <no>/reel/site_video.mp4 + site_cover.jpg
 
 Rules
   * eligible property: status=active, >=1 image, created >= 1 hour ago
   * geography/category/deal-type matching against tools/groups.json, best 3 groups per property
   * a (property, group) pair can be posted again only 14+ days after its last posted/pending_approval
-  * daily cap 15 posts (posted+pending_approval, Asia/Jerusalem date), max 3 per group per day
+  * daily cap 18 posts (posted+pending_approval, Asia/Jerusalem date), max 3 per group per day
   * copy/images: Tomer's name + license only on Tomer's own properties (is_tomer); others get SITE_LINE;
     no ethics-code line or ethics badge for anyone (owner rules 2026-10-24)
 """
-import argparse, json, os, re, shutil, subprocess, sys, urllib.request, html as htmllib
+import argparse, json, os, re, shutil, subprocess, sys, urllib.request, urllib.error, html as htmllib
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -35,7 +38,7 @@ STATE = os.path.join(QDIR, "state.json")
 LEDGER = os.path.join(QDIR, "ledger.jsonl")
 LOGO = os.path.join(ROOT, "brand", "logo_transparent.png")
 TZ = ZoneInfo("Asia/Jerusalem")
-DAILY_CAP, GROUP_DAILY_CAP, MAX_GROUPS, REPOST_DAYS, MIN_AGE_H = 15, 3, 3, 14, 1
+DAILY_CAP, GROUP_DAILY_CAP, MAX_GROUPS, REPOST_DAYS, MIN_AGE_H = 18, 3, 3, 14, 1  # daily cap 18 per Tomer 2026-10-25 (was 15)
 SITE = "https://shuknadlan.co.il/property?id={}"
 # Owner rules (Tomer Itzhak, 2026-10-24):
 #  * Tomer's name + license (the ads_settings disclosure line) appear ONLY on Tomer's own properties.
@@ -201,6 +204,10 @@ def cmd_sync(args):
     order = st.get("order", [])          # property ids, in the order they entered the queue
     now = now_utc(args)
     props = {p["id"]: p for p in snap["properties"] if p.get("status") == "active"}
+    for p in props.values():      # site video fields (sync_query.sql 2026-10-25); older snapshots lack them
+        p.setdefault("video_url", None); p.setdefault("video_poster_url", None)
+        p.setdefault("site_video_type", "none" if not p.get("video_url") else None)
+        p.setdefault("open_job", False)
     eligible, waiting_images, waiting_age, no_groups = [], [], [], []
     for p in sorted(props.values(), key=lambda x: x["listing_number"] or 0):
         imgs = [u for u in (p.get("images") or []) if u]
@@ -228,7 +235,11 @@ def cmd_sync(args):
     pairs = sum(len(st["properties"][pid]["_groups"]) for pid in order)
     print(json.dumps({"queue_properties": len(order), "pairs": pairs, "new": len(new), "dropped": len(dropped),
                       "waiting_images": len(waiting_images), "waiting_age": len(waiting_age),
-                      "no_matching_groups": len(no_groups)}, ensure_ascii=False))
+                      "no_matching_groups": len(no_groups),
+                      "site_video": {t: sum(1 for p in props.values() if p.get("site_video_type") == t)
+                                     for t in ("none", "kling", "agent", "crm_reel", "daily", None)
+                                     if any(p.get("site_video_type") == t for p in props.values())},
+                      "open_jobs": sum(1 for p in props.values() if p.get("open_job"))}, ensure_ascii=False))
 
 
 # ---------------------------------------------------------------- next
@@ -283,12 +294,21 @@ def cmd_next(args):
     fresh.sort(); repost.sort()
     cands = [(pid, gid, "new") for _, _, pid, gid in fresh] + [(pid, gid, "repost") for _, _, pid, gid in repost]
     picked, prev = [], last_posted_property(led, now)
+    cat_of = lambda pid: st["properties"][pid].get("category")
+    round_cats = {"residential": 0, "commercial": 0}
     while len(picked) < room and cands:
+        # Tomer 2026-10-25: every round mixes commercial AND residential listings
+        # (private browsers never see commercial-only posts). Aim for the category
+        # with fewer picks in this round (tie -> residential); fall back if none fits.
+        want = min(round_cats, key=lambda c: (round_cats[c], c != "residential"))
         choice = None
         for i, (pid, gid, kind) in enumerate(cands):
             if per_g.get(gid, 0) >= GROUP_DAILY_CAP:
                 continue
             if pid == prev:
+                continue
+            if cat_of(pid) != want and any(cat_of(c[0]) == want and per_g.get(c[1], 0) < GROUP_DAILY_CAP
+                                           for c in cands):
                 continue
             # don't let reposts jump ahead of fresh pairs that are only blocked by spreading
             choice = i; break
@@ -297,6 +317,8 @@ def cmd_next(args):
         if choice is None:
             break
         pid, gid, kind = cands.pop(choice)
+        if cat_of(pid) in round_cats:
+            round_cats[cat_of(pid)] += 1
         per_g[gid] = per_g.get(gid, 0) + 1
         prev = pid
         picked.append((pid, gid, kind))
@@ -802,6 +824,162 @@ def cmd_reel(args):
     subprocess.run(cmd, check=True)
 
 
+# ---------------------------------------------------------------- daily reel selection (owner approval 2026-10-25)
+REELS = os.path.join(QDIR, "reels.jsonl")
+REUSE_TYPES = {"agent", "crm_reel", "daily"}        # site already has a video we must not replace: reuse it
+VIDEO_TIER = {"none": 0, "kling": 1, "agent": 2, "crm_reel": 2, "daily": 2}
+REEL_PATTERN = ["residential", "residential", "commercial"]
+
+
+def reels_log():
+    if not os.path.exists(REELS):
+        return []
+    out = []
+    for l in open(REELS, encoding="utf-8"):
+        if l.strip():
+            try: out.append(json.loads(l))
+            except Exception: pass
+    return out
+
+
+def _reel_cat(e, st):
+    if e.get("category"):
+        return e["category"]
+    for p in st["properties"].values():
+        if (e.get("property_id") and p["id"] == e["property_id"]) or str(p.get("listing_number")) == str(e.get("listing_number")):
+            return p.get("category")
+    return None
+
+
+def next_reel_category(cats):
+    """R, R, C pattern; never two commercial in a row. cats = categories of past reels, oldest first."""
+    cats = [c for c in cats if c]
+    if not cats or cats[-1] == "commercial":
+        return "residential"
+    run = 0
+    for c in reversed(cats):
+        if c == "commercial": break
+        run += 1
+    return "commercial" if run >= 2 else "residential"
+
+
+def reel_candidates(st, done_ids, done_nos):
+    out = []
+    for p in st["properties"].values():
+        if p.get("status") != "active" or p["id"] in done_ids or str(p.get("listing_number")) in done_nos:
+            continue
+        if p.get("open_job"):
+            continue                       # a CRM reel is being produced right now
+        vt = p.get("site_video_type") or ("none" if not p.get("video_url") else "agent")
+        has_photos = any(u for u in (p.get("images") or []))
+        reuse = vt in REUSE_TYPES and bool(p.get("video_url"))
+        if not (has_photos or reuse):
+            continue
+        if vt in REUSE_TYPES and not reuse:
+            vt = "none"
+        out.append(p | {"_vt": vt, "_reuse": reuse})
+    out.sort(key=lambda p: (VIDEO_TIER.get(p["_vt"], 1), p.get("listing_number") or 0))
+    return out
+
+
+def reel_item(p, fallback):
+    return {"listing_number": p["listing_number"], "property_id": p["id"], "category": p.get("category"),
+            "deal_type": p.get("deal_type"), "city": p.get("city"), "site_video_type": p["_vt"],
+            "action": "reuse_site_video" if p["_reuse"] else "render",
+            "video_url": p.get("video_url"), "video_poster_url": p.get("video_poster_url"),
+            **({"category_fallback": True} if fallback else {})}
+
+
+def cmd_reel_next(args):
+    """Next daily-reel candidate(s). Does not change any state; record the reel in queue/reels.jsonl after publishing."""
+    st = load_json(STATE)
+    log = reels_log()
+    cats = [_reel_cat(e, st) for e in log]
+    done_ids = {e.get("property_id") for e in log if e.get("property_id")}
+    done_nos = {str(e.get("listing_number")) for e in log if e.get("listing_number")}
+    cands = reel_candidates(st, done_ids, done_nos)
+    picks = []
+    for _ in range(max(1, args.count)):
+        want = next_reel_category(cats)
+        pool = [p for p in cands if p.get("category") == want]
+        fb = False
+        if not pool:
+            pool = [p for p in cands if p.get("category") != want]; fb = True
+        if not pool:
+            break
+        p = pool[0]
+        picks.append(reel_item(p, fb)); cands.remove(p); cats.append(p.get("category"))
+    if args.count <= 1:
+        print(json.dumps(picks[0] if picks else None, ensure_ascii=False, indent=1))
+    else:
+        print(json.dumps(picks, ensure_ascii=False, indent=1))
+
+
+def _download(url, dst):
+    """-> (ok, http_status or error). Atomic: writes dst.part then renames."""
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r, open(dst + ".part", "wb") as f:
+            shutil.copyfileobj(r, f)
+            status = r.status
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code}"
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    if os.path.getsize(dst + ".part") == 0:
+        os.remove(dst + ".part"); return False, "empty file"
+    os.replace(dst + ".part", dst)
+    return True, status
+
+
+def cmd_fetch_site_video(args):
+    """Download the property's site video (properties.video_url) and poster for reuse in the daily reel posts."""
+    st = load_json(STATE)
+    pid = resolve_pid(args.property, st)
+    p = st["properties"].get(pid)
+    if not p:
+        sys.exit("property not in state (inactive or not synced)")
+    url = p.get("video_url")
+    res = {"listing_number": p["listing_number"], "site_video_type": p.get("site_video_type"), "video_url": url}
+    if not url:
+        res["error"] = "no video_url on the site"; print(json.dumps(res, ensure_ascii=False)); sys.exit(1)
+    rd = os.path.join(asset_dir(p), "reel"); os.makedirs(rd, exist_ok=True)
+    vid, cov = os.path.join(rd, "site_video.mp4"), os.path.join(rd, "site_cover.jpg")
+    ok, info = _download(url, vid)
+    if not ok:
+        res["error"] = f"video download failed ({info})" + ("; storage URL is not public" if "/object/public/" not in url or str(info).startswith("HTTP 4") else "")
+        print(json.dumps(res, ensure_ascii=False)); sys.exit(1)
+    res["video"] = vid
+    try:
+        pr = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height:format=duration",
+                             "-of", "json", vid], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+        js = json.loads(pr.stdout or "{}")
+        v = [x for x in js.get("streams", []) if x.get("codec_type") == "video"]
+        res["probe"] = {"duration": round(float(js.get("format", {}).get("duration") or 0), 2),
+                        "width": v[0].get("width") if v else None, "height": v[0].get("height") if v else None,
+                        "vcodec": v[0].get("codec_name") if v else None,
+                        "audio": any(x.get("codec_type") == "audio" for x in js.get("streams", []))}
+    except Exception as ex:
+        res["probe_error"] = str(ex)
+    poster = p.get("video_poster_url")
+    if poster:
+        ok, info = _download(poster, cov + ".src")
+        if ok:
+            try: to_jpg(cov + ".src", cov); res["cover"], res["cover_source"] = cov, "video_poster_url"
+            except Exception as ex: res["cover_error"] = str(ex)
+            os.remove(cov + ".src")
+        else:
+            res["cover_error"] = f"poster download failed ({info})"
+    if "cover" not in res:     # no poster on the site: first frame (+0.5s) of the video
+        r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", "0.5", "-i", vid, "-frames:v", "1", "-q:v", "2", cov],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120)
+        if r.returncode == 0 and os.path.exists(cov):
+            res["cover"], res["cover_source"] = cov, "frame_0.5s"
+        else:
+            res["cover_error"] = (res.get("cover_error", "") + " frame grab failed").strip()
+    print(json.dumps(res, ensure_ascii=False, indent=1))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -817,8 +995,11 @@ def main():
     a = sp.add_parser("build-reel"); a.add_argument("--property", required=True); a.add_argument("--female", action="store_true")
     a.add_argument("--long", action="store_true"); a.add_argument("--no-outro", action="store_true")
     a.add_argument("--rate", help="TTS rate, e.g. +8%%"); a.add_argument("--tag", help="output suffix (default v3)"); a.add_argument("--track", help="tracks.json key")
+    a = sp.add_parser("reel-next"); a.add_argument("--count", type=int, default=1, help="simulate the next N picks (list)")
+    a = sp.add_parser("fetch-site-video"); a.add_argument("--property", required=True)
     args = ap.parse_args()
-    {"sync": cmd_sync, "next": cmd_next, "build-assets": cmd_build, "record": cmd_record, "status": cmd_status,
+    {"reel-next": cmd_reel_next, "fetch-site-video": cmd_fetch_site_video,
+     "sync": cmd_sync, "next": cmd_next, "build-assets": cmd_build, "record": cmd_record, "status": cmd_status,
      "build-stories": cmd_reel, "build-reel": cmd_reel, "build-captions": cmd_captions}[args.cmd](args)
 
 
