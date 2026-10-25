@@ -1,30 +1,37 @@
 -- ---------------------------------------------------------------------------
--- לידים מפוסטים בפייסבוק: תקופת ההשקה (docs/scraped-leads.md, "תקופת ההשקה")
+-- לידים מפוסטים בפייסבוק: תקופת ההשקה, "אני פונה" ו"ללא תיווך"
+-- (docs/scraped-leads.md, "תקופת ההשקה", "אני פונה", "ללא תיווך")
 --
 -- עד התאריך שב-pricing_config ('scraped_leads_launch_until', ברירת מחדל
 -- 25.1.2027 כולל, שעון ישראל):
---
 --   1. ביקוש פתוח מיידי - פוסט ב-pending_consent מוצג מיד ב-open_demand_list()
---      לסוכנים בעיר ובשוק שלו, במקביל לבקשת ההסכמה, ולא רק אחרי 7 ימים. רק
---      עמודות אנונימיות: הסיכום הוא demand_summary החדש, ולא property_details
---      (שבפועל מגיע עם כתובת, למשל "מאיר שפירא 7").
---   2. ההסכמה - הליד נולד פתוח (status = 'unlocked') לסוכן/ת ששויך/ה, עם
+--      לסוכנים בעיר ובשוק שלו, במקביל לבקשת ההסכמה. רק עמודות אנונימיות: הסיכום
+--      הוא demand_summary, ולא property_details (שבפועל מגיע עם כתובת).
+--   2. ההסכמה - הליד נולד פתוח (status = 'unlocked') עם
 --      quota_source = 'launch_free': בלי חיוב, בלי מכסה ובלי claim_lead.
 --
 -- ובכל תקופה:
---   * "ללא תיווך" (no_broker) - פוסט, או קבוצה, שכתוב בהם שלא רוצים מתווכים
---     אינו מוצג כביקוש פתוח ואינו מופץ. מסלול ההסכמה לא משתנה.
---   * ההתראה open_demand יוצאת פעם אחת לפוסט (demand_notified_at): בהשקה מיד
---     בקליטה, ואחריה - כמו קודם - כשהוא הופך לביקוש פתוח אחרי 7 ימים.
+--   * "אני פונה" (open_demand_claim) - סוכן/ת אחד/ת לכל ביקוש. התפיסה מורידה
+--     אותו מהרשימה של כל השאר ואינה משתחררת. תקרה יומית לסוכן/ת
+--     ('open_demand_claims_daily', ברירת מחדל 2), כדי שהזריז/ה לא י/תיקח הכול.
+--   * מי שתפס/ה ביקוש מקבל/ת את הליד אם האדם מסכים/ה, אם הוא/היא זכאי/ת לו.
+--   * "ללא תיווך" (no_broker): 'post' - כתוב בפוסט, 'group' - בשם הקבוצה.
+--     בעלים מוצגים עם סימון והנחיה; מחפש/ת שכתב/ה "ללא תיווך" אינו/ה מוצג/ת
+--     (אצלו/ה זה "לא אשלם עמלה").
+--   * התראת open_demand פעם אחת לפוסט (demand_notified_at).
 --
--- הערך 0 (או כל תאריך שעבר) מחזיר את המודל הקודם בלי מיגרציה.
+-- הערך 0 (או תאריך שעבר) ב-scraped_leads_launch_until מחזיר את המודל הקודם.
 -- אידמפוטנטית.
 -- ---------------------------------------------------------------------------
 
--- 1. ההגדרה: yyyymmdd כמספר, כי pricing_config.value הוא numeric. היום עצמו כלול.
+-- 1. ההגדרות. pricing_config.value הוא numeric, ולכן התאריך הוא yyyymmdd.
 insert into public.pricing_config (key, value, description)
 values ('scraped_leads_launch_until', 20270125,
         'סיום תקופת ההשקה של לידים מפייסבוק (yyyymmdd, כולל, שעון ישראל): ביקוש פתוח מיידי וליד בחינם אחרי הסכמה. 0 מחזיר את המודל הרגיל. docs/scraped-leads.md')
+on conflict (key) do nothing;
+insert into public.pricing_config (key, value, description)
+values ('open_demand_claims_daily', 2,
+        'כמה ביקושים פתוחים סוכן/ת יכול/ה לתפוס ("אני פונה") ביום, לפי שעון ישראל. docs/scraped-leads.md')
 on conflict (key) do nothing;
 
 create or replace function public.scraped_leads_launch_active()
@@ -63,9 +70,12 @@ revoke all on function public.scraped_lead_no_broker(text) from public, anon, au
 grant execute on function public.scraped_lead_no_broker(text) to service_role;
 
 -- 3. העמודות
-alter table public.scraped_leads add column if not exists no_broker boolean not null default false;
+alter table public.scraped_leads add column if not exists no_broker text;
 alter table public.scraped_leads add column if not exists demand_summary text;
 alter table public.scraped_leads add column if not exists demand_notified_at timestamptz;
+alter table public.scraped_leads add column if not exists claimed_by uuid
+  references public.agency_members(id) on delete set null;
+alter table public.scraped_leads add column if not exists claimed_at timestamptz;
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'scraped_leads_demand_summary_len'
@@ -73,16 +83,25 @@ begin
     alter table public.scraped_leads add constraint scraped_leads_demand_summary_len
       check (demand_summary is null or char_length(demand_summary) <= 160);
   end if;
+  if not exists (select 1 from pg_constraint where conname = 'scraped_leads_no_broker_check'
+                   and conrelid = 'public.scraped_leads'::regclass) then
+    alter table public.scraped_leads add constraint scraped_leads_no_broker_check
+      check (no_broker is null or no_broker in ('post', 'group'));
+  end if;
 end $$;
+create index if not exists scraped_leads_claimed_idx on public.scraped_leads (claimed_by, claimed_at)
+  where claimed_by is not null;
 comment on column public.scraped_leads.demand_summary is
   'סיכום קצר לביקוש הפתוח, גלוי לכל הסוכנים בעיר: בלי שם, טלפון, כתובת או מספר בית. מגיע מהסורק (summary).';
 comment on column public.scraped_leads.no_broker is
-  'בפוסט או בקבוצה כתוב שלא רוצים מתווכים: לא מוצג ולא מופץ כביקוש פתוח.';
+  '"ללא תיווך": post - בפוסט, group - בשם הקבוצה. בעלים מוצגים עם הנחיה, מחפשים לא מוצגים.';
+comment on column public.scraped_leads.claimed_by is
+  'הסוכן/ת שלחץ/ה "אני פונה". הביקוש יורד מהרשימה של כל השאר, ואם האדם מסכים/ה - הליד אליו/ה.';
 
 -- הרשומות הקיימות: הטקסט עוד שמור רק ב-pending_consent
 update public.scraped_leads
-   set no_broker = true
- where not no_broker
+   set no_broker = case when public.scraped_lead_no_broker(source_detail) then 'group' else 'post' end
+ where no_broker is null
    and (public.scraped_lead_no_broker(raw_message) or public.scraped_lead_no_broker(source_detail)
         or public.scraped_lead_no_broker(property_details));
 
@@ -103,7 +122,29 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 5. ההתראה על ביקוש פתוח - פעם אחת לפוסט, אנונימית
+-- 5. מה נחשב ביקוש פתוח - הגדרה אחת לרשימה, לתפיסה ולהתראה
+-- ---------------------------------------------------------------------------
+create or replace function public.scraped_lead_is_demand(p_status text, p_lead_type text, p_no_broker text,
+                                                         p_posted_at timestamptz, p_city_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_city_id is not null
+     and p_posted_at > now() - interval '30 days'
+     and not (p_lead_type = 'seeker_inbound' and p_no_broker is not null)
+     and (p_status = 'open_demand'
+          or (p_status = 'pending_consent' and public.scraped_leads_launch_active()));
+$$;
+comment on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) is
+  'פוסט מוצג כביקוש פתוח: open_demand, או pending_consent בהשקה; בלי מחפש/ת "ללא תיווך"; עד 30 יום. docs/scraped-leads.md';
+revoke all on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) from public, anon, authenticated;
+grant execute on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 6. ההתראה על ביקוש פתוח - פעם אחת לפוסט, אנונימית
 -- ---------------------------------------------------------------------------
 create or replace function public.scraped_lead_notify_demand(p_id uuid)
 returns int
@@ -118,8 +159,8 @@ declare
   v_n     int;
 begin
   select * into r from public.scraped_leads where id = p_id for update;
-  if not found or r.demand_notified_at is not null or r.no_broker or r.city_id is null
-     or r.status not in ('pending_consent', 'open_demand') then
+  if not found or r.demand_notified_at is not null or r.claimed_by is not null
+     or not public.scraped_lead_is_demand(r.status, r.lead_type, r.no_broker, r.posted_at, r.city_id) then
     return 0;
   end if;
 
@@ -134,8 +175,9 @@ begin
                       case when r.budget is not null
                            then case when r.lead_type = 'owner_inbound' then '₪' else 'עד ₪' end
                                 || to_char(r.budget, 'FM999,999,999') end,
-                      case when r.move_in is not null then 'כניסה: ' || r.move_in end)
-    || '. חינם, לכל הסוכנים באזור. אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.';
+                      case when r.move_in is not null then 'כניסה: ' || r.move_in end,
+                      case when r.no_broker is not null then 'כתבו ללא תיווך' end)
+    || '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.';
 
   insert into public.notifications (agent_id, type, title, body)
   select m.id, 'open_demand', v_title, left(v_body, 500)
@@ -148,12 +190,12 @@ begin
   return v_n;
 end $$;
 comment on function public.scraped_lead_notify_demand(uuid) is
-  'התראת open_demand לכל סוכן/ת בעיר ובסוג, פעם אחת לפוסט (demand_notified_at), ולא ל"ללא תיווך". docs/scraped-leads.md';
+  'התראת open_demand לכל סוכן/ת בעיר ובסוג, פעם אחת לפוסט (demand_notified_at), רק לביקוש שמוצג ולא נתפס. docs/scraped-leads.md';
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 6. הקליטה: no_broker ו-summary, וההתראה המיידית בהשקה
+-- 7. הקליטה: no_broker ו-summary, וההתראה המיידית בהשקה
 -- ---------------------------------------------------------------------------
 create or replace function public.scraped_lead_add(p jsonb)
 returns jsonb
@@ -172,8 +214,7 @@ declare
   v_city    text := nullif(btrim(p ->> 'city'), '');
   v_city_id uuid;
   v_deal    text := nullif(btrim(p ->> 'deal_type'), '');
-  v_nobrk   boolean;
-  v_launch  boolean;
+  v_nobrk   text;
   v_id      uuid;
 begin
   if v_type not in ('owner_inbound', 'seeker_inbound') then
@@ -230,11 +271,13 @@ begin
   end if;
 
   v_city_id := public.city_id_for_name(v_city);
-  -- 20270822090000: "ללא תיווך" - מהסורק, או מהטקסט / שם הקבוצה / הפרטים
-  v_nobrk := coalesce((p ->> 'no_broker')::boolean, false)
-             or public.scraped_lead_no_broker(p ->> 'raw_message')
-             or public.scraped_lead_no_broker(p ->> 'source_detail')
-             or public.scraped_lead_no_broker(p ->> 'property_details');
+  -- 20270822090000: "ללא תיווך" - שם הקבוצה קודם (כלל של הקבוצה), ואז הסורק / הטקסט / הפרטים
+  v_nobrk := case
+    when public.scraped_lead_no_broker(p ->> 'source_detail') then 'group'
+    when coalesce((p ->> 'no_broker')::boolean, false)
+         or public.scraped_lead_no_broker(p ->> 'raw_message')
+         or public.scraped_lead_no_broker(p ->> 'property_details') then 'post'
+  end;
 
   insert into public.scraped_leads (lead_type, source, source_detail, post_url, external_ref, posted_at,
                                     raw_name, raw_phone, raw_message, city, city_id, neighborhood_id,
@@ -259,14 +302,12 @@ begin
     return jsonb_build_object('duplicate', 'post');
   end if;
 
-  v_launch := public.scraped_leads_launch_active();
-  if v_launch then
-    perform public.scraped_lead_notify_demand(v_id);
-  end if;
+  -- מחוץ להשקה מחזירה 0: הפוסט עוד אינו ביקוש פתוח
+  perform public.scraped_lead_notify_demand(v_id);
 
   return jsonb_build_object('success', true, 'id', v_id, 'status', 'pending_consent',
                             'city_known', v_city_id is not null, 'no_broker', v_nobrk,
-                            'open_demand', v_launch and not v_nobrk and v_city_id is not null);
+                            'open_demand', public.scraped_lead_is_demand('pending_consent', v_type, v_nobrk, v_posted, v_city_id));
 end $$;
 
 comment on function public.scraped_lead_add(jsonb) is
@@ -275,7 +316,7 @@ revoke all on function public.scraped_lead_add(jsonb) from public, anon, authent
 grant execute on function public.scraped_lead_add(jsonb) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 7. ההסכמה: בהשקה הליד נולד פתוח ובחינם
+-- 8. ההסכמה: הליד למי שתפס/ה את הביקוש, ובהשקה פתוח ובחינם
 -- ---------------------------------------------------------------------------
 create or replace function public.scraped_lead_set_consent(p_id uuid, p_state text)
 returns jsonb
@@ -292,6 +333,7 @@ declare
   v_label  text;
   v_cands  int;
   v_free   boolean;
+  v_by     text := 'rotation';
 begin
   select * into s from public.scraped_leads where id = p_id for update;
   if not found then
@@ -326,15 +368,29 @@ begin
      and public.agent_handles_type(m.id, s.property_type, s.deal_type)
      and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'));
 
-  select m.id, m.agency_id into v_agent, v_agency
-    from public.agency_members m
-   where m.active and public.agent_works_city(m.id, s.city_id)
-     and public.agent_handles_type(m.id, s.property_type, s.deal_type)
-     and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'))
-   order by (select max(l.created_at) from public.leads l
-              where l.agent_id = m.id and l.source in ('facebook_group', 'facebook_marketplace')) asc nulls first,
-            m.id
-   limit 1;
+  -- 20270822090000: מי שלחץ/ה "אני פונה" על הביקוש כבר פנה/תה לאדם, ולכן
+  -- הליד אליו/ה - אם הוא/היא פעיל/ה ורשאי/ת לסוג הליד. אחרת - הסבב הרגיל.
+  if s.claimed_by is not null then
+    select m.id, m.agency_id into v_agent, v_agency
+      from public.agency_members m
+     where m.id = s.claimed_by and m.active
+       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'));
+    if v_agent is not null then
+      v_by := 'claim';
+    end if;
+  end if;
+
+  if v_agent is null then
+    select m.id, m.agency_id into v_agent, v_agency
+      from public.agency_members m
+     where m.active and public.agent_works_city(m.id, s.city_id)
+       and public.agent_handles_type(m.id, s.property_type, s.deal_type)
+       and (s.lead_type = 'seeker_inbound' or m.tier in ('mid', 'premium'))
+     order by (select max(l.created_at) from public.leads l
+                where l.agent_id = m.id and l.source in ('facebook_group', 'facebook_marketplace')) asc nulls first,
+              m.id
+     limit 1;
+  end if;
 
   -- 20270822090000: בהשקה הליד נפתח מיד לסוכן/ת ששויך/ה - בלי claim_lead,
   -- בלי חיוב ובלי מכסה. בלי סוכן/ת הוא נשאר masked כמו קודם.
@@ -387,6 +443,7 @@ begin
     'summary', concat_ws(' · ', case s.lead_type when 'owner_inbound' then 'בעלים' else 'מחפש/ת' end,
                          case s.deal_type when 'rent' then 'השכרה' when 'sale' then 'מכירה' end,
                          s.property_type, s.city, v_label,
+                         case when v_by = 'claim' then 'למי שפנה/תה מהביקוש הפתוח' end,
                          case when v_free then 'השקה: בחינם' end),
     'city', s.city,
     'neighborhood_id', s.neighborhood_id,
@@ -395,16 +452,17 @@ begin
     'assigned_agent_id', v_agent));
 
   return jsonb_build_object('success', true, 'status', 'consented', 'lead_id', v_lead,
-                            'agent_id', v_agent, 'candidates', v_cands, 'launch_free', v_free);
+                            'agent_id', v_agent, 'candidates', v_cands, 'launch_free', v_free,
+                            'assigned_by', v_by);
 end $$;
 
 comment on function public.scraped_lead_set_consent(uuid, text) is
-  'requested / consented (ליד ב-leads לסוכן/ת אחד/ת בעיר; בהשקה פתוח ובחינם) / declined (מחיקה מלאה). docs/scraped-leads.md';
+  'requested / consented (ליד ב-leads: למי שתפס/ה את הביקוש, או לסוכן/ת אחד/ת בעיר; בהשקה פתוח ובחינם) / declined (מחיקה מלאה). docs/scraped-leads.md';
 revoke all on function public.scraped_lead_set_consent(uuid, text) from public, anon, authenticated;
 grant execute on function public.scraped_lead_set_consent(uuid, text) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 8. מחזור החיים: 7 ימים -> open_demand (אנונימי), התראה פעם אחת, מחיקה ב-30
+-- 9. מחזור החיים: 7 ימים -> open_demand (אנונימי), התראה פעם אחת, מחיקה ב-30
 -- ---------------------------------------------------------------------------
 create or replace function public.scraped_leads_lifecycle()
 returns jsonb
@@ -417,7 +475,6 @@ declare
   v_opened  int;
   v_sent    int := 0;
   v_deleted int;
-  v_launch  boolean := public.scraped_leads_launch_active();
 begin
   update public.scraped_leads
      set status = 'open_demand', open_demand_at = now(),
@@ -428,12 +485,11 @@ begin
   get diagnostics v_opened = row_count;
 
   -- התראה פעם אחת לפוסט: מה שנפתח עכשיו, ובהשקה גם מה שממתין להסכמה ועוד
-  -- לא הופץ (הרשומות שנקלטו לפני ההשקה, או קליטה שההתראה בה נכשלה)
+  -- לא הופץ (הרשומות שנקלטו לפני ההשקה). התנאי המלא - ב-scraped_lead_notify_demand.
   for r in
     select id from public.scraped_leads
-     where demand_notified_at is null and not no_broker and city_id is not null
-       and posted_at > now() - interval '30 days'
-       and (status = 'open_demand' or (v_launch and status = 'pending_consent'))
+     where demand_notified_at is null and claimed_by is null
+       and status in ('pending_consent', 'open_demand')
   loop
     v_sent := v_sent + public.scraped_lead_notify_demand(r.id);
   end loop;
@@ -442,7 +498,8 @@ begin
   get diagnostics v_deleted = row_count;
   delete from public.scraped_lead_blocks where expires_at < now();
 
-  return jsonb_build_object('opened', v_opened, 'notified', v_sent, 'deleted', v_deleted, 'launch', v_launch);
+  return jsonb_build_object('opened', v_opened, 'notified', v_sent, 'deleted', v_deleted,
+                            'launch', public.scraped_leads_launch_active());
 end $$;
 
 comment on function public.scraped_leads_lifecycle() is
@@ -451,32 +508,105 @@ revoke all on function public.scraped_leads_lifecycle() from public, anon, authe
 grant execute on function public.scraped_leads_lifecycle() to service_role;
 
 -- ---------------------------------------------------------------------------
--- 9. "ביקוש פתוח" ב-CRM: בהשקה גם pending_consent; summary במקום property_details
---    (שם עמודה שמשתנה - ולכן drop ולא create or replace)
+-- 10. "ביקוש פתוח" ב-CRM: summary במקום property_details, no_broker, ומה שלי
+--     (עמודות שמשתנות - ולכן drop ולא create or replace)
 -- ---------------------------------------------------------------------------
 drop function if exists public.open_demand_list();
 create function public.open_demand_list()
 returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
                city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
-               budget numeric, move_in text, summary text, open_demand_at timestamptz)
+               budget numeric, move_in text, summary text, open_demand_at timestamptz,
+               no_broker text, mine boolean)
 language sql
 stable
 security definer
 set search_path = ''
 as $$
+  -- ביקוש שנתפס מוצג רק למי שתפס/ה אותו
   select s.id, s.lead_type, s.source, s.source_detail, s.post_url, s.posted_at, s.city, s.neighborhood_id,
          s.deal_type, s.property_type, s.rooms, s.budget, s.move_in, s.demand_summary,
-         coalesce(s.open_demand_at, s.created_at)
+         coalesce(s.open_demand_at, s.created_at), s.no_broker,
+         s.claimed_by is not null
     from public.scraped_leads s
-   where (s.status = 'open_demand'
-          or (s.status = 'pending_consent' and public.scraped_leads_launch_active()))
-     and not s.no_broker
-     and s.posted_at > now() - interval '30 days'
+   where public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
+     and (s.claimed_by is null or s.claimed_by = public.current_agent_id())
      and public.agent_works_city(public.current_agent_id(), s.city_id)
-   order by s.posted_at desc
+   order by s.claimed_by is not null, s.posted_at desc
    limit 200;
 $$;
 comment on function public.open_demand_list() is
-  'ביקוש פתוח (אנונימי) בערים שהסוכן/ת המחובר/ת עובד/ת בהן; בהשקה גם פוסטים שממתינים להסכמה, בלי "ללא תיווך". docs/scraped-leads.md';
+  'ביקוש פתוח (אנונימי) בערים שהסוכן/ת המחובר/ת עובד/ת בהן: מה שלא נתפס, ומה שהוא/היא תפס/ה. docs/scraped-leads.md';
 revoke all on function public.open_demand_list() from public, anon, authenticated;
 grant execute on function public.open_demand_list() to authenticated, service_role;
+
+-- הספירות שבראש הלשונית: כמה נתפסו היום באזור, וכמה נשארו לי
+create or replace function public.open_demand_stats()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with me as (select public.current_agent_id() as id,
+                     (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem') as day0),
+       cap as (select coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int as n)
+  select jsonb_build_object(
+    'claimed_today', (select count(*) from public.scraped_leads s, me
+                       where s.claimed_at >= me.day0 and public.agent_works_city(me.id, s.city_id)),
+    'my_today', (select count(*) from public.scraped_leads s, me where s.claimed_by = me.id and s.claimed_at >= me.day0),
+    'daily_cap', (select n from cap));
+$$;
+comment on function public.open_demand_stats() is
+  'ביקוש פתוח: כמה נתפסו היום בערים של הסוכן/ת, כמה תפס/ה, והתקרה היומית. docs/scraped-leads.md';
+revoke all on function public.open_demand_stats() from public, anon, authenticated;
+grant execute on function public.open_demand_stats() to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 11. "אני פונה" - תפיסה אטומית, עם תקרה יומית
+-- ---------------------------------------------------------------------------
+create or replace function public.open_demand_claim(p_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_agent uuid := public.current_agent_id();
+  s       public.scraped_leads%rowtype;
+  v_cap   int;
+  v_used  int;
+  v_day0  timestamptz := date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem';
+begin
+  if v_agent is null then
+    return jsonb_build_object('error', 'not_agent');
+  end if;
+  -- שתי לחיצות במקביל של אותו/ה סוכן/ת לא יעברו יחד את התקרה
+  perform pg_advisory_xact_lock(hashtext('open_demand_claim:' || v_agent::text));
+
+  select * into s from public.scraped_leads where id = p_id for update;
+  if not found
+     or not public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
+     or not public.agent_works_city(v_agent, s.city_id) then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+  if s.claimed_by = v_agent then
+    return jsonb_build_object('success', true, 'post_url', s.post_url, 'already_mine', true);
+  end if;
+  if s.claimed_by is not null then
+    return jsonb_build_object('error', 'claimed');
+  end if;
+
+  v_cap := coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int;
+  select count(*) into v_used from public.scraped_leads where claimed_by = v_agent and claimed_at >= v_day0;
+  if v_used >= v_cap then
+    return jsonb_build_object('error', 'daily_cap', 'daily_cap', v_cap);
+  end if;
+
+  update public.scraped_leads set claimed_by = v_agent, claimed_at = now() where id = p_id;
+  return jsonb_build_object('success', true, 'post_url', s.post_url,
+                            'my_today', v_used + 1, 'daily_cap', v_cap);
+end $$;
+comment on function public.open_demand_claim(uuid) is
+  '"אני פונה": הביקוש לסוכן/ת אחד/ת (לא משתחרר), עד open_demand_claims_daily ביום. docs/scraped-leads.md';
+revoke all on function public.open_demand_claim(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_claim(uuid) to authenticated, service_role;

@@ -78,9 +78,14 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 `scraped_leads_launch_active()`. בהשקה: ביקוש פתוח מרגע הקליטה (גם
 `pending_consent`), וליד אחרי הסכמה נולד `unlocked` עם `quota_source =
 'launch_free'`. **אל תכתבו תאריך בפונקציה**, ואל תפתחו בהשקה ליד דרך
-`claim_lead` - היא מחייבת. ‏`no_broker` ("ללא תיווך", גם בשם הקבוצה) לעולם
-לא מוצג כביקוש פתוח. בביקוש הפתוח מוצג `demand_summary` ולא `property_details`
-(שמגיע עם כתובת). התראה אחת לפוסט (`demand_notified_at`).
+`claim_lead` - היא מחייבת. בביקוש הפתוח מוצג `demand_summary` ולא
+`property_details` (שמגיע עם כתובת). התראה אחת לפוסט (`demand_notified_at`).
+
+**מה נחשב ביקוש פתוח - `scraped_lead_is_demand`, הגדרה אחת** לרשימה, לתפיסה
+ולהתראה. ‏`no_broker` (`post`/`group`): בעלים מוצגים עם הנחיה, מחפשים לא.
+"אני פונה" (`open_demand_claim`) - סוכן/ת אחד/ת לביקוש, לא משתחרר, עד
+`open_demand_claims_daily` ביום; ואם האדם מסכים/ה הליד הולך למי שתפס/ה, אם
+הוא/היא רשאי/ת לסוג.
 
 ## 7. החלונות: 72 שעות, 7 ימים, 30 יום
 
