@@ -48,7 +48,7 @@ import { agentSystemPrompt, askSystemPrompt, cleanTone, PLATFORM_SYSTEM_PROMPT, 
 import { CSM_PLAYBOOK, MANAGER_PLAYBOOK, OFFICE_PLAYBOOK, PLAYBOOK, playbookFor, TOPICS } from "../supabase/functions/_shared/coach/playbook.ts";
 import { CSM_SYSTEM, csmPortfolio } from "../supabase/functions/_shared/coach/csm-prompt.ts";
 import { callAnalysisText, cleanCallAnalysis, csmCallSystem } from "../supabase/functions/_shared/csm-call-format.ts";
-import { CSM_LINKS, csmLinkFor, csmOutreachText } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
+import { CSM_LINKS, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "../supabase/functions/whatsapp-webhook/csm-links.ts";
 import { CSM_GREETING, CSM_TOOLS, csmCapabilities, gcalTemplateUrl, ilLocalToIso, isCapabilitiesQuestion } from "../supabase/functions/whatsapp-webhook/csm-tools.ts";
 import { readFileSync } from "node:fs";
 
@@ -606,6 +606,12 @@ for (const kind of ["agent", "team", "office"] as const) {
   const outreach = csmOutreachText("עופרי", "היי יוסי — הנה המסך", csmLinkFor("crm_properties"));
   check("קישורים לסוכנים: ההודעה בשם אשת הצוות, עם הקישור ובלי מקף ארוך",
     /עופרי, צוות ההטמעה/.test(outreach) && outreach.includes("https://shuknadlan.co.il/crm?goto=accProperties") && !/[\u2013\u2014]/.test(outreach), outreach);
+  check("קישורים: למי שעוד לא במערכת - רק דף ציבורי, נייד ישראלי, וקישור לשליחה מהטלפון שלה",
+    csmLinkIsPublic("pricing") && csmLinkIsPublic("signup") && !csmLinkIsPublic("crm_properties") && !csmLinkIsPublic("agent_page")
+      && ilMobileDigits("052-123-4567") === "972521234567" && ilMobileDigits("+972 52 1234567") === "972521234567"
+      && ilMobileDigits("04-6543210") === null
+      && waComposeUrl("972521234567", "היי").startsWith("https://wa.me/972521234567?text=%D7%94")
+      && !/הודעה מ/.test(csmOutreachText("עופרי", "היי", csmLinkFor("pricing"), true)));
   check("קישורים לסוכנים: שליחה רק אחרי אישור - confirmed בכלי, ובפרומפט",
     /input\.confirmed !== true/.test(toolsSrc) && /confirmed=true/.test(chatSrc));
   check("אזור ההטמעה: אשת הצוות נגזרת מה-JWT, לא מה-body",

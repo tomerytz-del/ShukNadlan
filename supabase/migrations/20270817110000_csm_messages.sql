@@ -9,6 +9,10 @@
 -- תבנית מחוצה להן). שלושה שימושים: "מה שלחתי ליוסי?", התקרה היומית שמגינה על
 -- דירוג האיכות של המספר אצל Meta, ובדיקה בדיעבד.
 --
+-- ולמי שעוד לא במערכת (משרד שמגייסים) - רק קישור wa.me שפותח את הוואטסאפ שלה
+-- עם ההודעה מוכנה (channel = 'compose'): Meta אינה מתירה לעסק לפתוח שיחה עם מי
+-- שלא פנה אליו.
+--
 -- המיגרציה אידמפוטנטית.
 -- ===========================================================================
 
@@ -19,7 +23,11 @@ create table if not exists public.csm_messages (
   link_key       text,
   url            text,
   body           text not null check (char_length(body) <= 4000),
-  channel        text not null check (channel in ('text', 'template')),
+  -- ‏compose = קישור wa.me שהוכן לה לשליחה מהטלפון שלה - לא נשלח מכאן, ולא נספר בתקרה
+  channel        text not null check (channel in ('text', 'template', 'compose')),
+  -- למי שעוד לא במערכת (משרד שמגייסים): הנייד והשם
+  to_phone       text,
+  to_name        text check (to_name is null or char_length(to_name) <= 60),
   wa_message_id  text,
   error          text,
   created_at     timestamptz not null default now()

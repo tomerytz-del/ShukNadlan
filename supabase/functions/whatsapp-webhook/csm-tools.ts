@@ -11,7 +11,7 @@
 // ============================================================================
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { csmLinkCatalog, csmLinkFor, csmOutreachText } from "./csm-links.ts";
+import { csmLinkCatalog, csmLinkFor, csmLinkIsPublic, csmOutreachText, ilMobileDigits, waComposeUrl } from "./csm-links.ts";
 
 type Row = Record<string, unknown>;
 
@@ -285,18 +285,24 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
   {
     name: "csm_send_to_agent",
     description:
-      "שליחת הודעה לסוכן/ת בוואטסאפ, מהמספר של גבריאלה ובשם אשת הצוות, עם קישור אחד מ-csm_links. " +
-      "**שני שלבים:** בלי confirmed - מחזיר את הנוסח המדויק ואיך הוא ייצא, וצריך להראות לה אותו ולשאול אם לשלוח. " +
-      "confirmed=true רק אחרי שאמרה במפורש לשלוח את הנוסח הזה. קודם csm_find_agent למזהה.",
+      "שליחת הודעה עם קישור אחד מ-csm_links (למשל המסלולים - pricing) - לסוכן/ת במערכת (agent_id), או למי שעוד " +
+      "לא במערכת, כמו משרד שמגייסים (phone + name). " +
+      "לסוכן/ת: מהמספר של גבריאלה בשמה, **בשני שלבים** - בלי confirmed מחזיר את הנוסח, להראות לה ולשאול; " +
+      "confirmed=true רק אחרי אישור מפורש לנוסח הזה. via=my_phone - במקום זה קישור שפותח את הוואטסאפ שלה עם ההודעה מוכנה. " +
+      "למי שלא במערכת: תמיד קישור לשליחה מהטלפון שלה (Meta אינה מתירה לעסק לפתוח שיחה עם מי שלא פנה אליו), " +
+      "ורק דפים ציבוריים - לא מסכי CRM.",
     input_schema: {
       type: "object",
       properties: {
-        agent_id: { type: "string" },
+        agent_id: { type: "string", description: "מ-csm_find_agent, לסוכן/ת במערכת" },
+        phone: { type: "string", description: "נייד של מי שלא במערכת" },
+        name: { type: "string", description: "השם של מי שלא במערכת, לפתיחת ההודעה" },
         message: { type: "string", description: "גוף ההודעה, בגוף ראשון שלה, קצר ובשפה של וואטסאפ" },
         link_key: { type: "string", description: "מפתח מ-csm_links. לא חובה" },
+        via: { type: "string", enum: ["gabriela", "my_phone"], description: "לסוכן/ת. ברירת מחדל gabriela" },
         confirmed: { type: "boolean" },
       },
-      required: ["agent_id", "message"],
+      required: ["message"],
     },
   },
 ];
@@ -322,7 +328,7 @@ export function csmCapabilities(name?: string | null, first = false): string {
     "- *היומן* - \"תקבעי לי פגישת הצלחה ראשונה עם יוסי ביום שלישי ב-10:00\", \"מה יש לי היום?\", \"תזיזי את הפגישה עם דנה לחמישי\"",
     "- *התראות* - תזכורת לפני כל פגישה, סוכן/ת חדש/ה, מי שעבר/ה 5 ימים בלי גבריאלה וסיכום בוקר: \"מה ההתראות שלי?\"",
     "- *הגדרות* - \"תכבי לי את סיכום הבוקר\", \"תזכורת שעה לפני כל פגישה\", \"בלי וואטסאפ אחרי 20:00\"",
-    "- *קישורים לסוכנים* - \"מה הקישור למסלולים?\", \"תשלחי ליוסי את הקישור להוספת נכס ב-CRM\" (אראה לך את הנוסח לפני שאשלח)",
+    "- *קישורים לסוכנים* - \"מה הקישור למסלולים?\", \"תשלחי ליוסי את הקישור להוספת נכס ב-CRM\" (אראה לך את הנוסח לפני שאשלח), \"תכיני לי הודעה עם המסלולים למשרד אלון 052-1234567\" (קישור שנשלח מהטלפון שלך)",
     "",
     "אפשר לכתוב או לשלוח הודעה קולית. הכול נשמר גם באזור ההטמעה: https://shuknadlan.co.il/csm",
     "בכל רגע אפשר לכתוב \"מה אפשר לעשות כאן\" ואזכיר.",
@@ -510,14 +516,53 @@ export async function runCsmTool(
     }
 
     // csm_send_to_agent
-    if (!target) return { ok: false, error: "חסר agent_id. קודם csm_find_agent." };
-    if (!target.phone_e164) return { ok: false, error: "אין לסוכן/ת נייד בכרטיס, ולכן אי אפשר לשלוח בוואטסאפ." };
     const message = String(input.message ?? "").trim();
     if (message.length < 2 || message.length > 900) return { ok: false, error: "ההודעה צריכה להיות בין 2 ל-900 תווים." };
+
+    // מי שעוד לא במערכת (משרד שמגייסים): נייד שאינו של סוכן/ת. רק קישור לשליחה
+    // מהטלפון שלה - לעסק אסור לפתוח שיחה בוואטסאפ עם מי שלא פנה אליו, ופנייה
+    // קרה מהמספר של גבריאלה הייתה פוגעת בדירוג שלו אצל כל הסוכנים.
+    if (!target && input.phone) {
+      const digits = ilMobileDigits(input.phone);
+      if (!digits) return { ok: false, error: "זה לא נראה כמו נייד ישראלי. אפשר לבדוק את המספר?" };
+      const rows = await overviewRows(supabase);
+      const isAgent = rows.find((r) => String(r.phone ?? "").replace(/\D/g, "").replace(/^0/, "972") === digits);
+      if (isAgent) {
+        return { ok: false, error: `המספר הזה של ${isAgent.display_name} שכבר במערכת - לשלוח עם agent_id=${isAgent.agent_id}.` };
+      }
+      const link = input.link_key ? csmLinkFor(String(input.link_key)) : null;
+      if (input.link_key && !link) return { ok: false, error: "הקישור לא ברשימה (csm_links)." };
+      if (link && !csmLinkIsPublic(link.key)) {
+        return { ok: false, error: "זה מסך ב-CRM, ומי שעוד לא במערכת יראה רק מסך כניסה. לשלוח דף ציבורי - למשל pricing או signup." };
+      }
+      const name = String(input.name ?? "").trim().slice(0, 60);
+      const text = csmOutreachText(null, (name && !message.includes(name) ? `היי ${name}, ` : "") + message, link, true);
+      await supabase.from("csm_messages").insert({
+        staff_id: staff.id, agent_id: null, link_key: link?.key ?? null, url: link?.url ?? null,
+        body: text, channel: "compose", to_phone: digits, to_name: name || null,
+      });
+      return {
+        ok: true, compose_url: waComposeUrl(digits, text), text,
+        note: "לתת לה את compose_url כמו שהוא, עם משפט: לחיצה פותחת את הוואטסאפ שלך עם ההודעה מוכנה ל" + (name || "מספר הזה") +
+          ", ושולחים משם. לא נשלח כלום מהמספר של גבריאלה.",
+      };
+    }
+
+    if (!target) return { ok: false, error: "חסר agent_id (סוכן/ת במערכת) או phone (מי שעוד לא במערכת)." };
+    if (!target.phone_e164) return { ok: false, error: "אין לסוכן/ת נייד בכרטיס, ולכן אי אפשר לשלוח בוואטסאפ." };
     const link = input.link_key ? csmLinkFor(String(input.link_key), ctx) : null;
     if (input.link_key && !link) return { ok: false, error: "הקישור לא ברשימה (csm_links), או שאין לסוכן/ת דף כזה." };
     if (link && csmLinkCatalog().find((l) => l.key === link.key)?.manager_only && target.role !== "manager") {
       return { ok: false, error: "זה מסך של מנהל/ת משרד, והסוכן/ת הזה/ו אינו/ה מנהל/ת - לא יראה אותו." };
+    }
+    if (input.via === "my_phone") {
+      const own = csmOutreachText(null, message, link, true);
+      await supabase.from("csm_messages").insert({
+        staff_id: staff.id, agent_id: target.agent_id, link_key: link?.key ?? null, url: link?.url ?? null,
+        body: own, channel: "compose", to_phone: String(target.phone_e164),
+      });
+      return { ok: true, compose_url: waComposeUrl(String(target.phone_e164), own), text: own,
+        note: "לתת לה את compose_url: לחיצה פותחת את הוואטסאפ שלה עם ההודעה מוכנה, ושולחים משם." };
     }
     const text = csmOutreachText(staff.display_name ?? null, message, link);
     const { data: conv } = await supabase.from("whatsapp_conversations")
@@ -533,7 +578,7 @@ export async function runCsmTool(
     if (!sendToAgent) return { ok: false, error: "השליחה לא זמינה כרגע." };
     const since = new Date(Date.now() - 86400000).toISOString();
     const { count } = await supabase.from("csm_messages").select("id", { count: "exact", head: true })
-      .eq("staff_id", staff.id).gte("created_at", since);
+      .eq("staff_id", staff.id).in("channel", ["text", "template"]).gte("created_at", since);
     if ((count ?? 0) >= OUTREACH_DAILY_CAP) {
       return { ok: false, error: `נשלחו כבר ${count} הודעות ב-24 השעות האחרונות - זו התקרה, כדי לשמור על המספר של גבריאלה. אפשר לשלוח מהנייד שלך.` };
     }

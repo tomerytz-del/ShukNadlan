@@ -294,6 +294,7 @@ function csmCardHtml(r){
       ${r.phone ? `<div class="csm-contact">
         <a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞 התקשרות</a>
         <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(r.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(r.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>
+        <a class="btn btn-ghost" href="${escapeHtml(csmPricingWa(r))}" target="_blank" rel="noopener noreferrer" aria-label="שליחת דף המסלולים ל${escapeHtml(r.display_name || 'סוכן/ת')} בוואטסאפ (נפתח בלשונית חדשה)">💬 המסלולים</a>
         <span class="csm-phone" dir="ltr">${escapeHtml(r.phone)}</span>
       </div>` : '<div class="csm-card-meta">אין טלפון בכרטיס</div>'}
       <div class="csm-card-actions">
@@ -639,6 +640,14 @@ async function csmTwilio(task, body){
   } catch (e){
     return { error: (e && e.message) || 'network' };
   }
+}
+
+/* "המסלולים" בכרטיס: הוואטסאפ שלה נפתח עם הודעה מוכנה וקישור לדף המסלולים.
+   נשלח מהטלפון שלה, כמו כפתור "וואטסאפ" שלידו. דרך גבריאלה - csm_send_to_agent. */
+function csmPricingWa(r){
+  const first = String(r.display_name || '').trim().split(/\s+/)[0];
+  const text = (first ? 'היי ' + first + ', ' : 'היי, ') + 'כאן המסלולים של שוק נדל״ן ומה כלול בכל אחד: https://shuknadlan.co.il/pricing';
+  return 'https://wa.me/' + csmWaDigits(r.phone) + '?text=' + encodeURIComponent(text);
 }
 
 function csmWaDigits(phone){

@@ -56,6 +56,28 @@ export const CSM_LINKS: CsmLink[] = [
 
 const BY_KEY = new Map(CSM_LINKS.map((l) => [l.key, l]));
 
+/** דף שאפשר לשלוח גם למי שאינו/ה במערכת (משרד שמגייסים): לא מסך ב-CRM, לא דף
+ *  אישי של סוכן/ת. מסכי ה-CRM דורשים חשבון, ולמי שאין - הם מסך כניסה. */
+export function csmLinkIsPublic(key: string): boolean {
+  const l = BY_KEY.get(String(key || ""));
+  return !!l && !l.path.startsWith("/crm") && !l.path.includes("{");
+}
+
+/** קישור שפותח את הוואטסאפ **שלה** עם ההודעה מוכנה למספר הזה - היא לוחצת, רואה
+ *  ושולחת מהטלפון שלה. ‏digits: ‏972… בלי פלוס. */
+export function waComposeUrl(digits: string, text: string): string {
+  return `https://wa.me/${String(digits).replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
+}
+
+/** נייד ישראלי → ‏972… בלי פלוס; לא נייד/לא ישראלי → null. אותו מפתח של phone_e164. */
+export function ilMobileDigits(raw: unknown): string | null {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("0")) d = "972" + d.slice(1);
+  if (d.startsWith("9720")) d = "972" + d.slice(4);
+  return /^9725\d{8}$/.test(d) ? d : null;
+}
+
 export type LinkCtx = { agent_slug?: string | null; agency_slug?: string | null; role?: string | null };
 
 /** הקישור לסוכן/ת. ‏null = מפתח לא מוכר, או דף אישי בלי slug. */
@@ -83,9 +105,12 @@ export function csmLinkCatalog(): Array<{ key: string; label: string; use: strin
   return CSM_LINKS.map((l) => ({ key: l.key, label: l.label, use: l.use, ...(l.manager ? { manager_only: true } : {}) }));
 }
 
-/** ההודעה לסוכן/ת: ממי, הטקסט שלה, והקישור. בלי מקף ארוך (הכלל ב-CLAUDE.md). */
-export function csmOutreachText(staffName: string | null, message: string, link: { label: string; url: string } | null): string {
-  const from = staffName ? `*הודעה מ${staffName}, צוות ההטמעה של שוק נדל"ן*` : `*הודעה מצוות ההטמעה של שוק נדל"ן*`;
+/** ההודעה: ממי, הטקסט שלה, והקישור. בלי מקף ארוך (הכלל ב-CLAUDE.md).
+ *  ‏fromOwnPhone - נשלחת מהטלפון שלה, ולכן בלי שורת "הודעה מ..." (הנמען/ת רואה ממי). */
+export function csmOutreachText(
+  staffName: string | null, message: string, link: { label: string; url: string } | null, fromOwnPhone = false,
+): string {
+  const from = fromOwnPhone ? "" : staffName ? `*הודעה מ${staffName}, צוות ההטמעה של שוק נדל"ן*` : `*הודעה מצוות ההטמעה של שוק נדל"ן*`;
   const body = String(message || "").trim().replace(/[–—]/g, "-");
   return [from, body, link ? `\n${link.label}: ${link.url}` : ""].filter(Boolean).join("\n").trim();
 }
