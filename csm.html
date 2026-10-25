@@ -12,7 +12,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- בריחת HTML (escapeHtml) ושגיאות בעברית - docs/friendly-errors.md -->
 <script src="assets/esc.js"></script>
 <script src="assets/friendly-error.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>אזור ההטמעה | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -89,8 +89,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pm-actions .btn{flex:1}
   .toast{position:fixed;bottom:20px;right:16px;left:16px;max-width:420px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-md);font-size:.86rem;box-shadow:0 10px 30px rgba(0,0,0,.25);display:none;z-index:500}
 
-  /* ---------- הכותרת ---------- */
-  .csm-top{position:sticky;top:0;z-index:60;height:var(--top-h);background:var(--teal-dark);color:#fff;display:flex;align-items:center;gap:10px;padding:0 16px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  /* ---------- הכותרת ----------
+     גובה הכותרת גדל ב-safe-area כדי ש-viewport-fit=cover לא יכסה אותה
+     במגרעת (אותו תיקון כמו בשאר הדפים). */
+  .csm-top{position:sticky;top:0;z-index:60;height:calc(var(--top-h) + env(safe-area-inset-top, 0px));background:var(--teal-dark);color:#fff;display:flex;align-items:center;gap:10px;padding:env(safe-area-inset-top, 0px) 16px 0;box-shadow:0 2px 10px rgba(0,0,0,.12)}
   .csm-brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;flex:1;min-width:0}
   .csm-brand img{width:32px;height:32px;flex-shrink:0}
   .csm-brand h1{font-size:1.02rem;margin:0;line-height:1.15;white-space:nowrap}
@@ -108,14 +110,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ---------- המעטפת ---------- */
   main.csm-main{max-width:1440px;margin:0 auto;padding:0}
-  .csm-shell{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:calc(100vh - var(--top-h))}
+  .csm-shell{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:calc(100vh - var(--top-h) - env(safe-area-inset-top, 0px))}
   .csm-content{padding:22px 26px 40px;min-width:0}
   .csm-page-head{margin:0 0 16px}
   .csm-page-head h2{font-size:1.45rem;font-weight:800;margin:0;letter-spacing:-.01em}
   .csm-page-head p{margin:2px 0 0}
 
   /* ---------- הניווט: בצד במחשב ---------- */
-  .csm-nav{display:block;margin:0;position:sticky;top:var(--top-h);align-self:start;height:calc(100vh - var(--top-h));overflow-y:auto;background:#fff;border-inline-end:1px solid var(--line);padding:16px 12px}
+  .csm-nav{display:block;margin:0;position:sticky;top:calc(var(--top-h) + env(safe-area-inset-top, 0px));align-self:start;height:calc(100vh - var(--top-h) - env(safe-area-inset-top, 0px));overflow-y:auto;background:#fff;border-inline-end:1px solid var(--line);padding:16px 12px}
   .csm-nav [role=tablist]{display:flex;flex-direction:column;gap:2px}
   .csm-nav-h{font-size:.68rem;font-weight:800;color:var(--ink-soft);letter-spacing:.04em;margin:16px 12px 6px}
   .csm-nav-h:first-child{margin-top:4px}
@@ -132,7 +134,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- בטלפון: סרגל תחתון ו"עוד" ---------- */
   @media (max-width:899px){
     :root{--top-h:56px}
-    .csm-top{padding:0 12px;gap:8px}
+    .csm-top{padding:env(safe-area-inset-top, 0px) 12px 0;gap:8px}
     .csm-brand small,.who,.csm-top-btn .lbl{display:none}
     .csm-top-btn{padding:0;width:38px}
     .csm-shell{display:block}

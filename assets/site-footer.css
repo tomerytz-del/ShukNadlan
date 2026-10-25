@@ -67,7 +67,7 @@ footer.site *{box-sizing:border-box}
 .footer-cta{display:flex;flex-wrap:wrap;gap:7px}
 .footer-cta a{
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:.76rem;font-weight:700;padding:8px 14px;border-radius:0;text-decoration:none;
+  min-height:44px;font-size:.76rem;font-weight:700;padding:8px 14px;border-radius:0;text-decoration:none;
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
 .footer-cta .footer-btn-primary{background:#c9a227;color:#0d1b3d;border:1px solid #c9a227}
@@ -84,12 +84,12 @@ footer.site *{box-sizing:border-box}
 
    למה ‎open‎ ב-HTML ולא ‎closed‎: בלי JS (וגם לסורקים) הכול פרוש, והקישורים
    נשארים ב-DOM בכל מצב — גם כשהקיפול פעיל — ולכן מנוע החיפוש והחיפוש
-   בדפדפן מוצאים אותם תמיד. ‏3px ולא 5px בין הקישורים: שטח הנגיעה נשמר
-   (‏13px בגובה שורה 1.6 הם 21px, ועם הריפוד 27px מלאי רוחב העמודה). */
+   בדפדפן מוצאים אותם תמיד. גובה הנגיעה של קישור וכפתור הוא 44px
+   (‏min-height), בלי להגדיל את הגופן. */
 .footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 16px;align-content:start}
 .footer-col > summary{
   list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
-  padding:4px 0;margin-bottom:2px;
+  min-height:44px;padding:4px 0;margin-bottom:2px;
 }
 .footer-col > summary::-webkit-details-marker{display:none}
 /* גבולות פיזיים ולא לוגיים, מאותה סיבה שמתועדת אצל ‎.footer-seo‎ מתחת:
@@ -103,7 +103,8 @@ footer.site *{box-sizing:border-box}
 .footer-col > summary:focus-visible{outline:2px solid #c9a227;outline-offset:3px}
 .footer-col h4{color:#fff;font-size:.82rem;margin:0;letter-spacing:.02em;font-weight:700}
 .footer-col a{
-  display:block;font-size:.8rem;color:#94a3c6;padding:3px 0;text-decoration:none;
+  display:flex;align-items:center;width:100%;box-sizing:border-box;
+  min-height:44px;font-size:.8rem;color:#94a3c6;padding:0;text-decoration:none;
   transition:color .15s ease;
 }
 .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
@@ -114,7 +115,7 @@ footer.site *{box-sizing:border-box}
   align-items:center;justify-content:space-between;
 }
 .footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.footer-legal a{color:#aab6d6;text-decoration:none;padding:2px 0}
+.footer-legal a{color:#aab6d6;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;padding:0 2px}
 .footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
 .footer-legal .sep{opacity:.45}
 
@@ -141,11 +142,11 @@ footer.site *{box-sizing:border-box}
    כזוג. */
 .footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0;color:#94a3c6}
 .footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#aab6d6;stroke-width:1.8;display:block}
-.footer-contact-row a{color:#94a3c6;text-decoration:none}
+.footer-contact-row a{color:#94a3c6;text-decoration:none;display:inline-flex;align-items:center;min-height:44px}
 .footer-contact-row a:hover,.footer-contact-row a:focus-visible{color:#fff;text-decoration:underline}
 .footer-social{display:flex;gap:8px}
 .footer-social a{
-  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  width:44px;height:44px;min-height:44px;border-radius:50%;display:grid;place-items:center;
   border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);
   transition:background .15s ease,border-color .15s ease;
 }
@@ -179,7 +180,8 @@ footer.site *{box-sizing:border-box}
 .footer-news-form input:focus{outline:2px solid #c9a227;outline-offset:1px;border-color:transparent}
 .footer-news-form button{
   /* זהב עם טקסט כהה: הרצועה עצמה ספיר, וכפתור ספיר עליה לא נראה בכלל. */
-  flex:0 0 auto;font-size:.82rem;font-weight:800;padding:11px 20px;
+  flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;
+  font-size:.82rem;font-weight:800;padding:11px 20px;
   border:1px solid #c9a227;background:#c9a227;color:#0d1b3d;cursor:pointer;font-family:inherit;
 }
 .footer-news-form button:hover:not(:disabled){background:#dcb63c;border-color:#dcb63c}
@@ -199,7 +201,8 @@ footer.site *{box-sizing:border-box}
    והחיפוש בדפדפן מוצאים אותם בכל מצב. */
 .footer-seo{border-top:1px solid rgba(255,255,255,.12);margin-top:var(--fs-gap);padding-top:12px}
 .footer-seo > summary{
-  list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 0;
+  list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  min-height:44px;padding:4px 0;
 }
 .footer-seo > summary::-webkit-details-marker{display:none}
 /* גבולות פיזיים ולא לוגיים: החץ הוא צורה גיאומטרית, ו-border-inline-end
@@ -273,7 +276,10 @@ footer.site:has(.footer-lead){padding-top:0}
    הזה, ולכן הבוררים כאן נושאים ‎footer.site‎ - ספציפיות גבוהה יותר ולא
    סדר טעינה. הקישורים עצמם לא זזו (‏search-pages.ts ו-check_canonical תלויים
    בהם). */
-footer.site .footer-seo-links a{border-radius:999px !important;padding:6px 14px;background:transparent}
+footer.site .footer-seo-links a{
+  display:inline-flex;align-items:center;min-height:44px;
+  border-radius:999px !important;padding:6px 14px;background:transparent;
+}
 footer.site .footer-seo-links a:hover,
 footer.site .footer-seo-links a:focus-visible{border-color:rgba(229,199,106,.6);color:#fff}
 footer.site .footer-cta a{border-radius:8px !important}

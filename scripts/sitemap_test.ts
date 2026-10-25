@@ -48,6 +48,18 @@ function install(deals: Deals, properties: { status: number; body: unknown }) {
         headers: { "content-type": "application/json" },
       });
     }
+    if (url.includes("market_cities_public")) {
+      return new Response(JSON.stringify([{ city_id: "c1", market_slug: "afula-emek" }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.includes("/agencies?") && url.includes("limit=1")) {
+      return new Response(JSON.stringify([{ slug: "adel", updated_at: "2026-10-09T08:00:00Z" }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (url.includes("/properties?")) {
       return new Response(JSON.stringify(properties.body), {
         status: properties.status,
@@ -59,8 +71,23 @@ function install(deals: Deals, properties: { status: number; body: unknown }) {
   return calls;
 }
 
-const PROP = { status: 200, body: [{ id: "p1", updated_at: "2026-10-09T08:00:00Z" }] };
-const DEALS_ROW = { status: 200, body: [{ slug: "afula", updated_at: "2026-10-09T08:00:00Z" }] };
+const PROP = {
+  status: 200,
+  body: [{
+    id: "p1",
+    updated_at: "2026-10-09T08:00:00Z",
+    city: "עפולה",
+    city_id: "c1",
+    deal_type: "sale",
+    category: "residential",
+    property_type: "דירה",
+    rooms: 4,
+  }],
+};
+const DEALS_ROW = {
+  status: 200,
+  body: [{ slug: "afula", name: "עפולה", deals: 10, updated_at: "2026-10-09T08:00:00Z" }],
+};
 const NONE = { status: 500, body: {} };
 
 async function run(deals: Deals, properties = PROP): Promise<{ res: Response; html: string; calls: ReturnType<typeof install> }> {
@@ -120,6 +147,22 @@ const missing = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"
   next: async () => new Response("nope", { status: 404 }),
 } as never);
 check("קובץ סטטי חסר יוצא כמו שהוא", missing.status === 404 && await missing.text() === "nope");
+
+const WITH_EXTRA =
+  STATIC.replace("</urlset>",
+    `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=3</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/afula/מתווכים</loc></url>\n` +
+    `  <url><loc>https://shuknadlan.co.il/projects</loc></url>\n` +
+    `</urlset>\n`);
+install(DEALS_ROW, PROP);
+const polished = await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+  next: async () => new Response(WITH_EXTRA, { headers: { "content-type": "application/xml" } }),
+} as never);
+const polishedHtml = await polished.text();
+check("סינון שה-canonical שלו במקום אחר יורד", polished.status === 200 && !polishedHtml.includes("rooms=3"));
+check("נתיב עברי מקודד", polishedHtml.includes("/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D"));
+check("lastmod למתווכים", /afula\/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D<\/loc>\s*<lastmod>2026-10-09<\/lastmod>/.test(polishedHtml));
+check("פרויקטים ריקים יורדים", !polishedHtml.includes("/projects"));
 
 const src = readFileSync(new URL("../netlify/edge-functions/sitemap.ts", import.meta.url), "utf8");
 check("timeout העסקאות הוא 8 שניות", /const DEALS_FETCH_TIMEOUT_MS = 8000;/.test(src));
