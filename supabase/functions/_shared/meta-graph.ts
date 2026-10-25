@@ -28,8 +28,11 @@ export type MetaErrorBody = {
   type?: string;
   code?: number;
   error_subcode?: number;
+  error_user_title?: string;
   error_user_msg?: string;
+  error_data?: unknown;
   fbtrace_id?: string;
+  is_transient?: boolean;
 };
 
 export class MetaError extends Error {
