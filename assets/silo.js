@@ -56,7 +56,12 @@
     if (crumb) crumb.textContent = page.h1;
     if (chips) chips.innerHTML = S.chipsHtml(page, packed.rows, packed.extras);
     if (updated) updated.innerHTML = S.updatedHtml(packed.rows);
-    if (hero) hero.innerHTML = S.heroHtml(packed.rows);
+    if (hero) hero.innerHTML = S.heroHtml(page);
+    if (S.heroPreload) {
+      var old = document.querySelectorAll('link[rel="preload"][as="image"]');
+      for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+      document.head.insertAdjacentHTML("beforeend", S.heroPreload(page));
+    }
     if (all) {
       all.setAttribute("href", S.allHref(page));
       var n = packed.extras.counted ? packed.extras.total : (packed.rows.length < 24 ? packed.rows.length : 0);

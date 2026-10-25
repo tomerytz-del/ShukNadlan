@@ -151,7 +151,7 @@ curl -s https://shuknadlan.co.il/sitemap.xml | grep 'property?id='  | head -3
 `netlify/edge-functions/lib/indexability.ts` - אותו קובץ שהדף קורא.
 צירוף סינון שה-`canonical` שלו הוא `/afula/…` אינו שורה; דף הנחיתה כן,
 עם `lastmod` מתאריך העדכון של המודעות (או של המשרד, ב-`/afula/מתווכים`).
-הנתיב העברי יוצא מקודד. `/projects` יורד כשהמסד ענה שאין אף פרויקט.
+הנתיב העברי יוצא מקודד. `/projects` נשאר גם כשאין אף פרויקט.
 
 ## מה עוד יש מסביב
 
@@ -164,9 +164,9 @@ curl -s https://shuknadlan.co.il/sitemap.xml | grep 'property?id='  | head -3
 לקרוא את הדף ולכן גם לראות את ה-`canonical` שבו. שלוש השורות ירדו.
 הפרטים: `docs/security-headers.md`.
 
-## ‏`/projects` כשאין אף פרויקט
+## ‏`/projects` גם כשאין אף פרויקט
 
-הדף ב-`sitemap.xml` (הוא דף ציבורי סטטי), אבל כל עוד אין במסד אף פרויקט
-הוא כולו "עוד אין פרויקטים חדשים באוויר" - מה שגוגל מסווגת כ-soft 404.
-לכן `projects.html` מוסיף `noindex,follow` **רק כשהמסד ענה ברשימה ריקה**;
-בכשל טעינה הדף נשאר כמו שהוא. הפרויקט הראשון מבטל את זה מעצמו.
+הדף ב-`sitemap.xml` תמיד. רשימה ריקה אינה `noindex`: יש בו מדריך קנייה
+שנכון בלי שם של פרויקט, קישורי שכונות ונכסים, והתראה. `projects-page.ts`
+מוסיף `CollectionPage`, `BreadcrumbList` ו-`FAQPage`, ו-`ItemList` רק
+כשיש לפחות פרויקט אחד. דפי `/project?slug=` עדיין מגיעים מ-`projects_public`.

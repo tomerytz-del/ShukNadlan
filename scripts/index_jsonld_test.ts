@@ -65,6 +65,9 @@ const again = await handler(new Request("https://shuknadlan.co.il/agents"), {
 const againHtml = await again.text();
 check("לא מכפילים CollectionPage", againHtml.split("CollectionPage").length === 2);
 
+const projectsHtml = await (await handler(new Request("https://shuknadlan.co.il/projects"), context())).text();
+check("projects לא בפונקציה הזו", projectsHtml === HTML);
+
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);
   process.exit(1);

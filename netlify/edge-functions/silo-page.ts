@@ -53,7 +53,9 @@ type Silo = {
   hoodCountQuery: (page: Page) => string;
   hoodRowsFromListings: (rows: Row[]) => Row[];
   render: (page: Page, rows: Row[], extras?: Extras) => string;
-  heroHtml: (rows: Row[]) => string;
+  heroHtml: (page: Page) => string;
+  heroPreload: (page: Page) => string;
+  heroOg: (page: Page) => { src: string; width: number; height: number };
   chipsHtml: (page: Page, rows: Row[], extras?: Extras) => string;
   updatedHtml: (rows: Row[]) => string;
   allHref: (page: Page) => string;
@@ -199,9 +201,10 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
   if (!box.test(html)) return html;
   const full = S.fullTitle(page);
   const body = S.render(page, rows, extras);
-  const hero = S.heroHtml(rows);
-  /* ה-preload יושב במעטפת, עם media, כדי שלא יימשך הקובץ הרחב בטלפון. */
-  const preload = "";
+  const hero = S.heroHtml(page);
+  const og = S.heroOg(page);
+  /* מחליפים את ה-preload של העמק שבמעטפת, כדי שהדפדפן לא ימשוך גם אותו. */
+  const preload = S.heroPreload(page);
   const benefit = page.benefit || page.description;
   const count = extras.counted && Number(extras.total) > 0
     ? String(extras.total)
@@ -223,7 +226,11 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
       next = next.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`);
       return next + end;
     })
-    .replace(/<\/head>/i, () => `${preload}${S.scripts(page, rows, SITE)}\n</head>`);
+    .replace(/<link rel="preload" as="image" href="assets\/hero-[^"]+"[^>]*>\s*/g, "")
+    .replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(SITE + "/" + og.src)}${b}`)
+    .replace(/(<meta property="og:image:width" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.width}${b}`)
+    .replace(/(<meta property="og:image:height" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.height}${b}`)
+    .replace(/<\/head>/i, () => `${preload}\n${S.scripts(page, rows, SITE)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {

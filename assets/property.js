@@ -2414,14 +2414,14 @@ function renderAgencyAvatar(agency){
 /* מספר המודעה הוא מה שהסוכן/ת מחפש/ת כדי לזהות על איזה נכס מדובר. במקום שורה
    מוצנעת בתחתית העמוד, שאיש לא מעתיק ממנה, הוא נכנס מראש לתיבת ההודעה בטופס
    הפנייה — הודעה מוכנה לשליחה שכבר נושאת את המספר. */
-/* חלונית גבריאלה (‏assets/gabriela-widget.js): "פרטים על הנכס הזה" נושא את הנכס
-   ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. ‏publicTitle ולא
-   ‏p.title - אותו כלל של כתובת מוסתרת שחל על הדף. */
+/* חלונית גבריאלה (assets/gabriela-widget.js): "פרטים על הנכס הזה" נושא את הנכס
+   ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. הכותרת כאן ממוסכת:
+   הדף עצמו מציג מספר בית, וההודעה שנפתחת בוואטסאפ לא. */
 function setGabWidgetContext(p){
   const hood = p.neighborhoods?.name || p.sales_area || '';
   window.gabWidgetContext = { property: {
     id: p.id,
-    title: publicTitle(p),
+    title: maskedListingTitle(p),
     hood,
     rooms: p.rooms ? Number(p.rooms).toLocaleString('he-IL') : '',
     price: p.price ? priceLabel(p) : '',
@@ -2507,20 +2507,19 @@ function renderTags(p){
     `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
 }
 
-/* ---------- כתובת ציבורית: רחוב ושכונה, בלי מספר בית ----------
-   דף הנכס הוא הדף הפומבי היחיד שהציג כתובת מלאה. מספר בית הופך מודעה
-   לכתובת של דירה מסוימת — מי שרואה אותה יודע בדיוק על איזו דלת מדובר,
-   וזה מידע ששייך לסוכן/ת ולא לרחוב. אריחי הנכסים כבר מציגים רחוב ושכונה
-   בלבד (‏assets/property-card.js), והשורה כאן פשוט מיישרת אליהם.
+/* ---------- כותרת וכתובת ציבוריות ----------
+   הכותרת בדף הנכס היא "<סוג> <חדרים> חד׳ ב<רחוב> <מספר>, <עיר>" כשיש
+   סוג ורחוב. מספר הבית נכתב פעם אחת, אחרי שם הרחוב. חסר אחד מהשניים,
+   והכותרת חוזרת לכותרת שנשמרה במסד אחרי מיסוך המספר, כדי לא להמציא כתובת.
 
-   מספר הבית עצמו נשאר במסד ובטופס הנכס ב-CRM: הוא נחוץ לניווט, להסכמים
-   ולזיהוי כפילויות. הוא פשוט לא נכתב בעמוד הציבורי — לא בשורת הכתובת,
-   לא בכותרת H1 ולא בכותרת המפה. גוש וחלקה ממילא אינם מגיעים לצד הזה:
-   ‏property_planning_public מסנן אותם עוד ב-RPC.
+   שורת הכתובת ושורת המפה מציגות רחוב ומספר, שכונה ועיר. גוש, חלקה
+   וקואורדינטות לא נכתבים ל-HTML. אריחי הרשימה (property-card.js) נשארים
+   בלי מספר בית. גבריאלה בוואטסאפ עדיין ממסכת את המספר כשהיא עונה מהמסד
+   (public-agent.ts). חלון הוואטסאפ מהדף שולח את הכותרת הממוסכת, לא את
+   הכותרת עם המספר, כדי שהשיחה לא תיפתח עם מספר הדלת.
 
-   ‏maskHouseNumber עובד על טקסט חופשי (כותרת שנשמרה במסד) ולכן הוא מוחק
-   *מספר* ולא מילה: גבולות ספרה משני הצדדים, כדי ש-"52" לא ייחתך מתוך
-   "152" ולא מתוך "128 מ״ר".                                              */
+   maskHouseNumber מוחקת מספר ולא מילה: גבול ספרה משני הצדדים, כדי
+   ש-"52" לא ייחתך מתוך "152" ולא מתוך "128 מ״ר". העתק ב-og-tags.ts. */
 function maskHouseNumber(text, houseNumber){
   const t = String(text || '');
   const hn = String(houseNumber ?? '').trim();
@@ -2535,10 +2534,49 @@ function maskHouseNumber(text, houseNumber){
 
 /* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
    שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+function roomsShort(n){
+  if (n === null || n === undefined || String(n).trim() === '') return '';
+  const v = Number(n);
+  if (!isFinite(v) || v <= 0) return '';
+  return String(Number(v.toFixed(1)));
+}
+
+function streetNameOf(p){
+  const raw = String((p && (p.street || p.address)) || '').trim();
+  return maskHouseNumber(raw, p && p.house_number)
+    .replace(/^רחוב\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function publicStreetLine(p){
+  const street = streetNameOf(p);
+  const hn = String((p && p.house_number) ?? '').trim();
+  if (!street) return '';
+  return hn ? street + ' ' + hn : street;
+}
+
+/* כותרת הדף. בלי סוג או בלי רחוב אין דפוס, ונשארת הכותרת הממוסכת. */
+function publicHeadline(p){
+  const type = String((p && p.property_type) || '').trim();
+  const street = streetNameOf(p);
+  const city = String((p && p.city) || '').trim();
+  const hn = String((p && p.house_number) ?? '').trim();
+  const rooms = roomsShort(p && p.rooms);
+  const fallback = maskHouseNumber((p && p.title) || '', p && p.house_number) || String((p && p.title) || '');
+  if (!type || !street) return fallback;
+  let head = type;
+  if (rooms) head += ' ' + rooms + ' חד׳';
+  head += ' ב' + street;
+  if (hn) head += ' ' + hn;
+  if (city) head += ', ' + city;
+  return head;
+}
+
 function publicAddressText(p){
   const hood = p.neighborhoods?.name || p.sales_area || '';
-  const street = maskHouseNumber(p.address || p.street || '', p.house_number);
-  return [street, hood && hood !== p.city ? hood : '', p.city]
+  const line = publicStreetLine(p);
+  return [line, hood && hood !== p.city ? hood : '', p.city]
     .filter(Boolean).join(', ');
 }
 
@@ -2566,6 +2604,10 @@ function linkNeighborhoodPage(p, addressEl){
 }
 
 function publicTitle(p){
+  return publicHeadline(p) || maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
+}
+
+function maskedListingTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
 

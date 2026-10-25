@@ -45,10 +45,10 @@
     {
       slug: "בתים-פרטיים",
       path: "/afula/בתים-פרטיים",
-      h1: "בתים פרטיים למכירה בעפולה",
-      benefit: "בתים וקוטג'ים פעילים מכל משרדי התיווך בעיר.",
-      description: "בתים פרטיים וקוטג'ים למכירה בעפולה, מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה.",
-      intro: "בתים פרטיים וקוטג'ים שמוצעים עכשיו למכירה בעפולה, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס.",
+      h1: "בית פרטי למכירה בעפולה",
+      benefit: "בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך בעיר.",
+      description: "בית פרטי למכירה בעפולה: בתים פרטיים, בתי קרקע וקוטג'ים מכל משרדי התיווך, כולל עפולה עילית, עם מחיר, גודל ותמונות.",
+      intro: "בית פרטי למכירה בעפולה מופיע כאן גם כבית קרקע וגם כקוטג', לפי הסימון במודעה. אלה בתים פעילים למכירה מכל משרדי התיווך בעיר, כולל עפולה עילית וגבעת המורה. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס.",
       property_type: "בית פרטי/קוטג'",
       rooms: null,
     },
@@ -56,9 +56,9 @@
       slug: "דירות-גן",
       path: "/afula/דירות-גן",
       h1: "דירות גן למכירה בעפולה",
-      benefit: "דירות גן פעילות מכל משרדי התיווך בעיר.",
-      description: "דירות גן למכירה בעפולה, מכל משרדי התיווך בעיר, עם מחיר, גודל, תמונות ופרטי קשר ישירים לכל מודעה פעילה.",
-      intro: "דירות גן שמוצעות עכשיו למכירה בעפולה, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס.",
+      benefit: "דירות עם גינה, פעילות מכל משרדי התיווך בעיר.",
+      description: "דירות גן למכירה בעפולה, מכל משרדי התיווך בעיר: דירה עם גינה פרטית, עם מחיר, גודל ותמונות לכל מודעה פעילה.",
+      intro: "דירות גן למכירה בעפולה הן דירות עם גינה, בדרך כלל בקומת קרקע, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות, עם קישור לדף הנכס.",
       property_type: "דירת גן",
       rooms: null,
     },
@@ -318,19 +318,62 @@
     return "עודכן לאחרונה" + sp() + bdi(label);
   }
 
-  /* תמונת השער היא תמונת העמק, לא תמונת המודעה החדשה.
-     קולאז' ומסדרון חשוך לא ניתנים לזיהוי זול: הקבצים הם JPEG פרוגרסיבי,
-     ובהירות ממוצעת של התמונות הבעייתיות היא רגילה (לא כהה). בלי זיהוי
-     כזה לא שמים תמונת מודעה בשער. הרוחב ב-srcset הוא הרוחב האמיתי של
-     הקבצים שכבר בריפו (640 ו-1920), בלי קובץ חדש. */
-  function heroHtml() {
-    /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את קובץ ה-1920 (כ-260KB)
-       וה-LCP נפגע. ממסך רחב srcset עם הרוחב האמיתי ו-sizes=100vw. */
+  /* תמונת שער לפי סוג הנכס. המפה אחת, כדי שעיר או סוג חדשים ישתמשו בה.
+     סוג לא מוכר נופל לתמונת העמק. לא שמים תמונת מודעה בשער: קולאז' ומסדרון
+     חשוך לא ניתנים לזיהוי זול. הרוחב ב-srcset הוא הרוחב האמיתי של הקובץ
+     (אצל העמק 640 ו-1920, אצל השאר 800 ו-1600). מקור ורישיון: assets/hero-images.md. */
+  var VALLEY_HERO = {
+    mobile: "assets/hero-valley-800.webp",
+    desktop: "assets/hero-valley.webp",
+    mobileW: 640,
+    desktopW: 1920,
+    width: 640,
+    height: 768,
+    ogW: 1920,
+    ogH: 1072,
+  };
+  var HEROES = {
+    "בתים-פרטיים": {
+      mobile: "assets/hero-house-800.webp",
+      desktop: "assets/hero-house-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+    },
+    "דירות-גן": {
+      mobile: "assets/hero-garden-800.webp",
+      desktop: "assets/hero-garden-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+    },
+    "דירות-3-חדרים": {
+      mobile: "assets/hero-apt-800.webp",
+      desktop: "assets/hero-apt-1600.webp",
+      mobileW: 800, desktopW: 1600, width: 800, height: 500, ogW: 1600, ogH: 1000,
+    },
+  };
+
+  function heroOf(page) {
+    if (page && HEROES[page.slug]) return HEROES[page.slug];
+    return VALLEY_HERO;
+  }
+
+  function heroHtml(page) {
+    var h = heroOf(page);
+    /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את הקובץ הרחב. */
     return "<picture>"
-      + '<source type="image/webp" media="(max-width: 759px)" srcset="assets/hero-valley-800.webp">'
-      + '<source type="image/webp" srcset="assets/hero-valley-800.webp 640w, assets/hero-valley.webp 1920w" sizes="100vw">'
-      + '<img src="assets/hero-valley-800.webp" alt="" width="640" height="768" fetchpriority="high" decoding="async">'
+      + '<source type="image/webp" media="(max-width: 759px)" srcset="' + h.mobile + '">'
+      + '<source type="image/webp" srcset="' + h.mobile + " " + h.mobileW + "w, " + h.desktop + " " + h.desktopW + 'w" sizes="100vw">'
+      + '<img src="' + h.mobile + '" alt="" width="' + h.width + '" height="' + h.height + '" fetchpriority="high" decoding="async">'
       + "</picture>";
+  }
+
+  function heroPreload(page) {
+    var h = heroOf(page);
+    return '<link rel="preload" as="image" href="' + h.mobile + '" media="(max-width: 759px)" fetchpriority="high">\n'
+      + '<link rel="preload" as="image" href="' + h.desktop + '" media="(min-width: 760px)" fetchpriority="high">';
+  }
+
+  function heroOg(page) {
+    var h = heroOf(page);
+    return { src: h.desktop, width: h.ogW, height: h.ogH };
   }
 
   function badge(p) {
@@ -526,21 +569,82 @@
       + '<p><a href="/afula/מתווכים">מתווכים בעפולה</a></p></section>';
   }
 
-  function seo(page) {
+  function kindPhrase(page, n) {
+    if (page.slug === "בתים-פרטיים") {
+      return n === 1 ? "בית פרטי למכירה בעפולה" : "בתים פרטיים למכירה בעפולה";
+    }
+    if (page.slug === "דירות-גן") {
+      return n === 1 ? "דירת גן למכירה בעפולה" : "דירות גן למכירה בעפולה";
+    }
+    if (page.rooms === 3) {
+      return n === 1 ? "דירת 3 חדרים למכירה בעפולה" : "דירות 3 חדרים למכירה בעפולה";
+    }
+    return n === 1 ? "מודעה פעילה" : "מודעות פעילות";
+  }
+
+  /* ספירה רק כשיש מספר אמיתי. טווח מחיר של הרשימה המלאה, או של מה שנטען
+     בעמוד כשהשאילתה נחתכה. בלי טווח מומצא כשאין מחירים. */
+  function marketHtml(page, rows, extras) {
+    var n = activeCount(rows, extras);
+    var prices = pricesOf(rows);
+    if (!(n > 0) && !prices.length) return "";
+    var bits = [];
+    if (n > 0) bits.push("כרגע יש " + countPhrase(n, kindPhrase(page, 1), kindPhrase(page, n)));
+    if (prices.length) {
+      var lo = money(prices[0]);
+      var hi = money(prices[prices.length - 1]);
+      var scope = complete(rows, extras) ? "במודעות הפעילות" : "במודעות שמופיעות בעמוד";
+      var range = lo === hi
+        ? bdi(escapeHtml(lo))
+        : "מ-" + bdi(escapeHtml(lo)) + " עד " + bdi(escapeHtml(hi));
+      bits.push(scope + " המחיר " + (lo === hi ? "הוא " : "נע ") + range);
+    }
+    return bits.join(". ");
+  }
+
+  function focusHoods(page) {
+    if (page.slug !== "בתים-פרטיים" && page.slug !== "דירות-גן") return "";
+    return "<p>שכונות בעפולה: "
+      + '<a href="/n/afula/עפולה-עלית">עפולה עילית</a>, '
+      + '<a href="/n/afula/גבעת-המורה">גבעת המורה</a>, '
+      + '<a href="/n/afula/מרכז-העיר">מרכז העיר</a>, '
+      + '<a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>. '
+      + 'משרדי התיווך: <a href="/afula/מתווכים">מתווכים בעפולה</a> '
+      + 'ו<a href="/agencies">רשימת המשרדים</a>.</p>';
+  }
+
+  function seo(page, rows, extras) {
+    var market = marketHtml(page, rows, extras);
     return '<section class="land-seo"><h2>על הרשימה</h2>'
       + "<p>" + escapeHtml(page.intro) + "</p>"
+      + (market ? "<p>" + market + "</p>" : "")
+      + focusHoods(page)
       + "<p>המודעות הן נכסים פעילים בעפולה שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
       + 'להשוואת עסקאות שדווחו לרשות המסים: <a href="/deals/afula">עסקאות בעפולה</a>, ולמחירי דירות לפי חדרים: '
       + '<a href="/prices">מחירי דירות</a>.</p></section>';
   }
 
   function faqs(page) {
-    return [
+    var extra = [];
+    if (page && page.slug === "בתים-פרטיים") {
+      extra = [
+        ["מה נכלל בבית פרטי למכירה בעפולה?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה בעפולה, כולל בעפולה עילית, לפי הסימון במודעה. הרשימה היא של משרדי תיווך."],
+        ["יש הבדל בין בית פרטי, בית קרקע וקוטג'?", "בית קרקע הוא בית על מגרש. קוטג' הוא סוג של בית פרטי, ולעתים בית דו-משפחתי. בדף הנכס מופיע המפרט שפורסם במודעה."],
+        ["אפשר לקנות בית בעפולה בלי תיווך?", "המודעות בעמוד הזה מגיעות ממשרדי תיווך. אין כאן רשימה נפרדת של מוכרים פרטיים."],
+      ];
+    } else if (page && page.slug === "דירות-גן") {
+      extra = [
+        ["מהי דירת גן למכירה בעפולה?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה בעפולה, מכל משרדי התיווך."],
+        ["במה דירת גן שונה מבית פרטי?", "דירת גן היא דירה בבניין, עם גינה. בית פרטי הוא בית על מגרש. שטח הגינה מופיע במודעה כשיש נתון."],
+        ["המחיר של דירת גן כולל את הגינה?", "המחיר והשטחים הם מה שפורסם במודעה. הפירוט המלא נמצא בדף הנכס."],
+      ];
+    }
+    return extra.concat([
       ["מאיפה המודעות בעמוד הזה?", "אלה נכסים פעילים בעפולה שמשרדי התיווך מפרסמים באתר. הרשימה כוללת את המשרדים בעיר."],
       ["האם המחיר שמופיע הוא המחיר הסופי?", "המחיר והמפרט המלא נמצאים בדף של כל נכס. אם אין מחיר במודעה, הוא לפי פנייה."],
       ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות בעפולה, ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
       ["מה עושים כשאין מודעות בקטגוריה?", "אפשר להשאיר התראה דרך החיפוש השמור שכבר באתר, ולקבל עדכון כשעולה נכס שמתאים."],
-    ];
+    ]);
   }
 
   function faqHtml(page) {
@@ -581,7 +685,7 @@
     html += allButton(page, list, extras);
     html += neighborhoods(extras);
     html += trust(list, extras);
-    html += seo(page);
+    html += seo(page, rows, extras);
     html += also(page);
     html += faqHtml(page);
     html += finalCta();
@@ -659,6 +763,8 @@
     hoodRowsFromListings: hoodRowsFromListings,
     render: render,
     heroHtml: heroHtml,
+    heroPreload: heroPreload,
+    heroOg: heroOg,
     chipsHtml: chipsHtml,
     updatedHtml: updatedHtml,
     allHref: allHref,

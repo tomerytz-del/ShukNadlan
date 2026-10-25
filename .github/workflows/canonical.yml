@@ -35,6 +35,8 @@ on:
       - "assets/brokers-render.js"
       - "scripts/silo_page_test.ts"
       - "assets/silo-render.js"
+      - "scripts/projects_page_test.ts"
+      - "projects.html"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -58,6 +60,8 @@ on:
       - "assets/brokers-render.js"
       - "scripts/silo_page_test.ts"
       - "assets/silo-render.js"
+      - "scripts/projects_page_test.ts"
+      - "projects.html"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -114,3 +118,6 @@ jobs:
       # ו-noindex רק כשהמסד ענה שהרשימה ריקה (docs/search-landing-pages.md).
       - name: התנהגות דפי הנחיתה
         run: node --experimental-strip-types scripts/silo_page_test.ts
+
+      - name: התנהגות דף הפרויקטים
+        run: node --experimental-strip-types scripts/projects_page_test.ts
