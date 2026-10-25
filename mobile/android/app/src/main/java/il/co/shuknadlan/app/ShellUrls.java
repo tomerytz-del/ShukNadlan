@@ -14,6 +14,7 @@ public final class ShellUrls {
     public static final String SITE_HOST = "shuknadlan.co.il";
     public static final String AUTH_CALLBACK = "il.co.shuknadlan.app://auth-callback";
     public static final String OFFLINE = "https://localhost/offline.html";
+    public static final String PURCHASE_NOTE = "https://localhost/purchase-note.html";
 
     private ShellUrls() {}
 
@@ -71,6 +72,30 @@ public final class ShellUrls {
         String host = host(uri);
         if (host.equals(SITE_HOST) || host.endsWith("." + SITE_HOST)) return true;
         return "localhost".equals(host);
+    }
+
+    /** מסלולים, קופה, או עמוד הסליקה. לא נפתח בדפדפן ולא בתוך ה-WebView. */
+    public static boolean isPurchase(String raw) {
+        Uri uri = parse(raw);
+        if (uri == null) return false;
+        String scheme = scheme(uri);
+        if (!scheme.equals("http") && !scheme.equals("https")) return false;
+        String host = stripWww(host(uri));
+        if (isPaymentHost(host)) return true;
+        if (!host.equals(SITE_HOST) && !host.endsWith("." + SITE_HOST) && !"localhost".equals(host)) {
+            return false;
+        }
+        String path = path(uri);
+        if (path.endsWith(".html")) path = path.substring(0, path.length() - 5);
+        if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
+        if (path.isEmpty()) path = "/";
+        return "/pricing".equals(path) || "/checkout".equals(path);
+    }
+
+    private static boolean isPaymentHost(String host) {
+        return host.equals("greeninvoice.co.il") || host.endsWith(".greeninvoice.co.il")
+            || host.equals("morning.co") || host.endsWith(".morning.co")
+            || host.equals("morning.dev") || host.endsWith(".morning.dev");
     }
 
     /**

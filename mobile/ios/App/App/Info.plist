@@ -23,6 +23,16 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>המיקום משמש רק כשמבקשים נכסים קרובים אליכם, ואינו נשמר בשרת.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>המצלמה נפתחת רק כשבוחרים לצלם תמונה לנכס או לפרופיל.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>החיפוש הקולי משתמש במיקרופון רק בזמן הדיבור, וההקלטה לא נשמרת.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>בחירת תמונות מהגלריה להעלאה לנכס או לפרופיל.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>החיפוש הקולי ממיר את הדיבור לטקסט כדי לחפש נכסים. ההקלטה לא נשמרת.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>האישור מאפשר למדוד את הפרסום שמביא אנשים לאפליקציה, כמו בדפדפן. בלי האישור האפליקציה ממשיכה לעבוד כרגיל.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIBackgroundModes</key>

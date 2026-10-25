@@ -60,9 +60,11 @@
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- "קרוב אלי" מבקש מיקום משוער בלבד. אין צורך במיקום מדויק. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- קוראים רק את דגל ה-opt-out של מזהה הפרסום, לא את המזהה עצמו. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <queries>
         <intent>

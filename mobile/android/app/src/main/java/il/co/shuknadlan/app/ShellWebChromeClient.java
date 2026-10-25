@@ -2,6 +2,7 @@ package il.co.shuknadlan.app;
 
 import android.net.Uri;
 import android.os.Message;
+import android.webkit.GeolocationPermissions;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -64,5 +65,10 @@ public class ShellWebChromeClient extends BridgeWebChromeClient {
         transport.setWebView(popup);
         resultMsg.sendToTarget();
         return true;
+    }
+
+    @Override
+    public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+        activity.allowCoarseLocation(origin, callback);
     }
 }

@@ -179,12 +179,129 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 | שם, טלפון, אימייל | טפסים וחשבון | כן, כמתואר במדיניות |
 | אסימון התראה ומזהה מכשיר | אחרי אישור להתראות | כן, ב-`app_push_devices`, עד סגירת החשבון או כיבוי |
 | מיקום | רק בלחיצה על "קרוב אלי" | לא בשרת |
-| מזהי פרסום / אנליטיקה | ‏GA4 ופיקסל של Meta דרך GTM, כמו באתר | אצל גוגל ומטא, לא כרשומת לקוח אצלנו |
+| מזהי פרסום / אנליטיקה | ‏GA4 ופיקסל של Meta דרך GTM, כמו באתר. ב-iOS רק אחרי אישור מעקב, ב-Android רק אם המשתמש לא ביטל | אצל גוגל ומטא, לא כרשומת לקוח אצלנו. האפליקציה לא שולחת את מזהה הפרסום עצמו, רק `true`/`false` |
 | כרטיס אשראי | תשלום באתר | לא. הפרטים לא עוברים דרך האפליקציה |
 | תמונות וקבצים | העלאה ב-CRM, אם המשתמש בוחר | כמו באתר |
 
 לא מסומן מעקב בין אפליקציות מעבר למה שהאתר כבר עושה עם GTM. אין מכירת
 מידע. ההתראות אינן חובה כדי לדפדף.
+
+## תשלומים בתוך האפליקציה
+
+בחנות אסור למכור מנוי, ליד או קידום דרך אתר חיצוני (Apple 3.1.1, ומדיניות
+התשלומים של Play). לכן **רק בתוך האפליקציה** (סוכן המשתמש `ShukNadlanApp`,
+או הגשר שמוזרק ל-WebView) מוסתרים:
+
+- `/pricing` ו-`/checkout`, כולל הסיומת `.html`
+- קישורים לעמודי הסליקה של מורנינג (`greeninvoice.co.il`, `morning.co`, `morning.dev`)
+- טעינת ארנק, שדרוג מסלול, רכישת ליד וקידום בתשלום
+
+במקומם מופיע המשפט **ניהול המנוי מתבצע באתר**, בלי קישור ובלי כפתור קנייה.
+הקפצה חינמית, פתיחת ליד בלי חיוב, ומסלול שכבר פעיל נשארים. בדפדפן אין את
+הגשר, ודפי התשלום נשארים כמו שהיו.
+
+ניווט לכתובת רכישה נעצר גם בשכבה הנייטיב, כדי שחלון תשלום לא ייפתח בכרום
+אם האתר ינווט אליו ישירות.
+
+## התחברות עם Apple
+
+הכפתור "התחברות עם Apple" יושב ב-`assets/apple-signin.js` ונטען בדפי
+הכניסה (`crm`, `developer-crm`, `developer-signup`, `csm`). הוא **כבוי**:
+
+```js
+window.SHUK_APPLE_SIGNIN = false;
+```
+
+כל עוד השורה הזו false, הסקריפט לא מוסיף כפתור ולא נוגע בטופס. אחרי
+שהחשבון של אפל והספק ב-Supabase עובדים, משנים ל-`true`. באפליקציה אותו
+כפתור עובר במסלול PKCE שכבר קיים ל-Google: `ASWebAuthenticationSession`
+ב-iOS ו-Chrome Custom Tabs ב-Android, והחזרה ל-`il.co.shuknadlan.app://auth-callback`.
+
+המפתחות `APPLE_API_KEY_*` בטבלה למעלה הם מפתח API של App Store Connect
+לבניית החנות. **הם לא** מפתח Sign in with Apple. צריך מפתח נפרד.
+
+### מה בעל החשבון מגדיר, אחרי שיש Apple Developer Program
+
+1. **App ID** `il.co.shuknadlan.app` עם היכולת Sign in with Apple.
+2. **Services ID** (מזהה נפרד, למשל `il.co.shuknadlan.signin`). בתוכו:
+   - Primary App ID: `il.co.shuknadlan.app`
+   - Domain: `obookujgolazrwycsiyn.supabase.co`
+   - Return URL, במדויק: `https://obookujgolazrwycsiyn.supabase.co/auth/v1/callback`
+3. **Key** מסוג Sign in with Apple. מורידים את קובץ ה-`.p8` פעם אחת (אפל
+   לא נותנת להוריד שוב), ורושמים את **Key ID**.
+4. **Team ID** ממסך Membership.
+5. ב-Supabase: Authentication, Providers, Apple. מפעילים וממלאים:
+   - Client IDs: ה-Services ID מהסעיף 2 (אם מוסיפים אחר כך כניסה נייטיב
+     ישירה, גם את `il.co.shuknadlan.app`)
+   - Secret Key: ה-JWT ש-Supabase בונה מ-Team ID, Key ID, Services ID
+     וקובץ ה-`.p8`. תוקף הסוד הזה הוא שישה חודשים, ואז מפיקים חדש.
+6. ב-Supabase, Redirect URLs, לוודא שקיימות:
+   - `il.co.shuknadlan.app://auth-callback` (כבר נדרש ל-Google)
+   - `https://shuknadlan.co.il/crm`
+   - `https://shuknadlan.co.il/developer-crm`
+   - `https://shuknadlan.co.il/csm`
+7. רק אחרי כניסה מוצלחת בדפדפן: `window.SHUK_APPLE_SIGNIN = true`
+   ב-`assets/apple-signin.js`.
+
+## מעקב ומדידה (הפיקסל נשאר)
+
+הפיקסל של Meta ו-GTM **לא** משתנים כאן. מי שסוגר את הפיקסל לפי האישור
+עושה את זה ב-GTM, על האות שהאפליקציה דוחפת.
+
+ב-iOS מוצגת בקשת App Tracking Transparency
+(`NSUserTrackingUsageDescription` בעברית). ב-Android הקריאה היא רק לדגל
+ה-opt-out של מזהה הפרסום (`isLimitAdTrackingEnabled`), לא למזהה עצמו.
+אם הקריאה נכשלת, ב-Android מניחים שהמעקב מותר.
+
+### החוזה כלפי הדף
+
+האובייקט קיים רק בתוך האפליקציה, מרגע שהגשר רץ (תחילת המסמך):
+
+```js
+window.ShukNadlanApp.trackingAllowed
+```
+
+| ערך | מתי |
+| --- | --- |
+| `undefined` | עוד אין תשובה (לפני שהמשתמש ענה ב-iOS, או לפני שהבדיקה ב-Android חזרה) |
+| `true` | iOS: Authorized. Android: המשתמש לא ביטל מעקב פרסומי |
+| `false` | iOS: Denied או Restricted. Android: המשתמש ביטל מעקב פרסומי |
+
+כשהערך הופך ל-`true` או ל-`false` (לא כשהוא עדיין `undefined`) קורים שני
+דברים, פעם אחת לכל טעינת מסמך:
+
+```js
+window.dispatchEvent(new CustomEvent('shuknadlan:tracking', {
+  detail: { trackingAllowed: true } // או false
+}));
+
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: 'app_tracking_status',
+  tracking_allowed: true // או false, בוליאני
+});
+```
+
+`dataLayer` נשמר גם אם GTM עוד לא נטען. האירוע יכול להגיע **אחרי**
+ש-GTM כבר רץ, ולכן הטריגר ב-GTM צריך להאזין ל-`app_tracking_status` ולא
+להניח שהערך קיים ב-`gtm.js`. בדפדפן אין `window.ShukNadlanApp`, ואין
+דחיפה של האירוע.
+
+אפשר גם לקרוא ידנית, אחרי שהגשר עלה:
+
+```js
+window.ShukNadlanApp.setTrackingAllowed(true);
+```
+
+השכבה הנייטיב קוראת לזה בעצמה. אין לקרוא לזה מדף כדי לזייף אישור.
+
+## תיקוני חנות נוספים
+
+- רצועת "הוספה למסך הבית" לא עולה בתוך האפליקציה (`assets/pwa-install.js`).
+- ב-iOS יש הסברי שימוש בעברית למיקרופון ולזיהוי דיבור (חיפוש קולי),
+  למצלמה ולבחירת תמונות (העלאה), ולבקשת המעקב.
+- ב-Android מבוקש רק מיקום משוער (`ACCESS_COARSE_LOCATION`) לכפתור
+  "קרוב אלי". מיקום מדויק הוסר.
 
 ## האתר לא נשבר
 

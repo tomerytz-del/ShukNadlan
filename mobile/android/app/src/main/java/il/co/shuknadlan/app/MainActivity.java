@@ -1,18 +1,25 @@
 package il.co.shuknadlan.app;
 
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.GeolocationPermissions;
 import android.webkit.WebBackForwardList;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.core.content.ContextCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import com.getcapacitor.BridgeActivity;
+import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,9 +39,22 @@ public class MainActivity extends BridgeActivity {
     private String oauthHandledCode = "";
     private String lastExternalUrl = "";
     private long lastExternalAt;
+    private Boolean trackingAllowed;
+    private ActivityResultLauncher<String> coarseLocationLauncher;
+    private GeolocationPermissions.Callback pendingGeo;
+    private String pendingGeoOrigin;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        coarseLocationLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            granted -> {
+                GeolocationPermissions.Callback callback = pendingGeo;
+                String origin = pendingGeoOrigin;
+                pendingGeo = null;
+                pendingGeoOrigin = null;
+                if (callback != null) callback.invoke(origin, Boolean.TRUE.equals(granted), false);
+            });
         registerPlugin(ShukShellPlugin.class);
         super.onCreate(savedInstanceState);
         if (bridge == null || bridge.getWebView() == null) return;
@@ -52,6 +72,52 @@ public class MainActivity extends BridgeActivity {
             }
         });
         handleOauthIntent(getIntent(), true);
+        readTrackingOptOut();
+    }
+
+    /** "קרוב אלי" מקבל מיקום משוער. לא מבקשים ACCESS_FINE_LOCATION. */
+    void allowCoarseLocation(String origin, GeolocationPermissions.Callback callback) {
+        if (callback == null) return;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+            callback.invoke(origin, true, false);
+            return;
+        }
+        pendingGeo = callback;
+        pendingGeoOrigin = origin;
+        coarseLocationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
+    }
+
+    void showPurchaseNote(WebView view) {
+        if (view == null) return;
+        String current = view.getUrl() == null ? "" : view.getUrl();
+        if (current.startsWith(ShellUrls.PURCHASE_NOTE)) return;
+        view.loadUrl(ShellUrls.PURCHASE_NOTE);
+    }
+
+    void pushTracking(WebView view) {
+        if (trackingAllowed == null || view == null) return;
+        view.evaluateJavascript(
+            "try{if(window.ShukNadlanApp&&window.ShukNadlanApp.setTrackingAllowed)"
+                + "window.ShukNadlanApp.setTrackingAllowed(" + trackingAllowed + ");}catch(e){}",
+            null);
+    }
+
+    private void readTrackingOptOut() {
+        new Thread(() -> {
+            boolean allowed = true;
+            try {
+                AdvertisingIdClient.Info info = AdvertisingIdClient.getAdvertisingIdInfo(getApplicationContext());
+                if (info != null && info.isLimitAdTrackingEnabled()) allowed = false;
+            } catch (Throwable ignored) {
+                allowed = true;
+            }
+            final boolean value = allowed;
+            runOnUiThread(() -> {
+                trackingAllowed = value;
+                if (bridge != null) pushTracking(bridge.getWebView());
+            });
+        }, "shuk-tracking").start();
     }
 
     @Override
@@ -222,6 +288,10 @@ public class MainActivity extends BridgeActivity {
         if (rewritten != null) {
             rememberOauthReturn(main == null ? null : main.getUrl());
             openAuth(rewritten);
+            return;
+        }
+        if (ShellUrls.isPurchase(raw)) {
+            showPurchaseNote(main);
             return;
         }
         if (ShellUrls.isExternal(raw) || !ShellUrls.staysInApp(raw)) {

@@ -57,6 +57,7 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     implementation "androidx.webkit:webkit:$androidxWebkitVersion"
     implementation "androidx.browser:browser:1.8.0"
+    implementation "com.google.android.gms:play-services-ads-identifier:18.1.0"
 }
 
 apply from: 'capacitor.build.gradle'

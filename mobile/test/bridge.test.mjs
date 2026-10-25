@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import bridge from '../www/native-bridge.js';
 
-const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, SITE_ORIGIN, authReturnUrl, clickedHref, isAuthCallback, isExternalUrl, rewriteAuthorizeUrl } = bridge;
+const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, PAY_NOTE, SITE_ORIGIN, authReturnUrl, clickedHref, isAuthCallback, isExternalUrl, isPurchaseUrl, rewriteAuthorizeUrl } = bridge;
 
 test('oauth authorize url is rewritten to the app callback', () => {
   const raw = 'https://obookujgolazrwycsiyn.supabase.co/auth/v1/authorize?provider=google&redirect_to='
@@ -70,6 +70,31 @@ test('google callback is recognized and the button copy has no long dash', () =>
   assert.equal(OAUTH_FAILED.includes('\u2014'), false);
   assert.match(OAUTH_CANCELLED, /בוטלה/);
   assert.match(OAUTH_FAILED, /נכשלה/);
+});
+
+test('pricing, checkout and morning are purchases, the catalog is not', () => {
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/pricing'), true);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/pricing.html?tier=mid'), true);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/checkout?product=wallet&amount=100'), true);
+  assert.equal(isPurchaseUrl('/checkout'), true);
+  assert.equal(isPurchaseUrl('https://app.greeninvoice.co.il/pay/abc'), true);
+  assert.equal(isPurchaseUrl('https://api.morning.co/v1'), true);
+  assert.equal(isPurchaseUrl('https://api.sandbox.morning.dev/x'), true);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/prices'), false);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/property?id=9'), false);
+  assert.equal(isPurchaseUrl('https://wa.me/972532494740'), false);
+  assert.equal(isPurchaseUrl('https://localhost/purchase-note.html'), false);
+  assert.equal(PAY_NOTE, 'ניהול המנוי מתבצע באתר');
+  assert.equal(PAY_NOTE.includes('http'), false);
+  assert.equal(PAY_NOTE.includes('\u2014'), false);
+});
+
+test('apple authorize still uses the app callback', () => {
+  const raw = 'https://obookujgolazrwycsiyn.supabase.co/auth/v1/authorize?provider=apple&redirect_to='
+    + encodeURIComponent('https://shuknadlan.co.il/crm');
+  const out = new URL(rewriteAuthorizeUrl(raw));
+  assert.equal(out.searchParams.get('provider'), 'apple');
+  assert.equal(out.searchParams.get('redirect_to'), AUTH_CALLBACK);
 });
 
 test('callback cannot send the webview to another origin', () => {

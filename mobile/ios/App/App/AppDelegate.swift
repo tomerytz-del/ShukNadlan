@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import WebKit
 import AuthenticationServices
+import AppTrackingTransparency
 import CryptoKit
 import Security
 
@@ -12,6 +13,7 @@ enum ShellUrls {
     static let site = "https://shuknadlan.co.il"
     static let siteHost = "shuknadlan.co.il"
     static let offline = "https://localhost/offline.html"
+    static let purchaseNote = "https://localhost/purchase-note.html"
 
     static func rewriteAuthorize(_ raw: String) -> String? {
         guard let parts = URLComponents(string: raw), let host = parts.host?.lowercased() else { return nil }
@@ -40,6 +42,28 @@ enum ShellUrls {
         if host == "google.com" && url.path.hasPrefix("/maps") { return true }
         if host == "goo.gl" && url.path.hasPrefix("/maps") { return true }
         return false
+    }
+
+    static func isPurchase(_ raw: String) -> Bool {
+        guard let url = URL(string: raw) else { return false }
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme != "http" && scheme != "https" { return false }
+        var host = (url.host ?? "").lowercased()
+        if host.hasPrefix("www.") { host = String(host.dropFirst(4)) }
+        if isPaymentHost(host) { return true }
+        let site = host == siteHost || host.hasSuffix("." + siteHost) || host == "localhost"
+        if !site { return false }
+        var path = url.path
+        if path.hasSuffix(".html") { path = String(path.dropLast(5)) }
+        if path.hasSuffix("/") { path = String(path.dropLast()) }
+        if path.isEmpty { path = "/" }
+        return path == "/pricing" || path == "/checkout"
+    }
+
+    private static func isPaymentHost(_ host: String) -> Bool {
+        return host == "greeninvoice.co.il" || host.hasSuffix(".greeninvoice.co.il")
+            || host == "morning.co" || host.hasSuffix(".morning.co")
+            || host == "morning.dev" || host.hasSuffix(".morning.dev")
     }
 
     static func authReturn(_ callback: String, returnTo: String?) -> String? {
@@ -328,6 +352,11 @@ class ShukNavigationProxy: NSObject, WKNavigationDelegate {
         }
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        owner?.pushTracking(webView)
+        forward?.webView?(webView, didFinish: navigation)
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         owner?.showOfflineIfNeeded(webView, error: error)
         forward?.webView?(webView, didFail: navigation, withError: error)
@@ -364,11 +393,37 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
             beginOAuth(next, webView: webView)
             return true
         }
+        if ShellUrls.isPurchase(raw) {
+            showPurchaseNote(webView)
+            return true
+        }
         if ShellUrls.isExternal(raw) {
             ExternalLinks.open(raw)
             return true
         }
         return false
+    }
+
+    func showPurchaseNote(_ webView: WKWebView) {
+        let current = webView.url?.absoluteString ?? ""
+        if current.hasPrefix(ShellUrls.purchaseNote) { return }
+        if let note = URL(string: ShellUrls.purchaseNote) {
+            webView.load(URLRequest(url: note))
+        }
+    }
+
+    func pushTracking(_ webView: WKWebView) {
+        guard let allowed = TrackingStatus.latest else { return }
+        let js = "try{if(window.ShukNadlanApp&&window.ShukNadlanApp.setTrackingAllowed)window.ShukNadlanApp.setTrackingAllowed(\(allowed));}catch(e){}"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        TrackingStatus.ask { [weak self] in
+            guard let self = self, let webView = self.webView else { return }
+            self.pushTracking(webView)
+        }
     }
 
     func showOfflineIfNeeded(_ webView: WKWebView, error: Error) {
@@ -483,6 +538,42 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
         guard let bundled = bundled, let source = try? String(contentsOf: bundled, encoding: .utf8) else { return }
         let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         webView.configuration.userContentController.addUserScript(script)
+    }
+}
+
+enum TrackingStatus {
+    static var latest: Bool?
+    private static var asked = false
+
+    static func ask(_ done: @escaping () -> Void) {
+        if asked {
+            done()
+            return
+        }
+        asked = true
+        if #available(iOS 14, *) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                let allowed: Bool?
+                switch status {
+                case .authorized:
+                    allowed = true
+                case .denied, .restricted:
+                    allowed = false
+                case .notDetermined:
+                    asked = false
+                    allowed = nil
+                @unknown default:
+                    allowed = false
+                }
+                DispatchQueue.main.async {
+                    if let allowed = allowed { latest = allowed }
+                    done()
+                }
+            }
+        } else {
+            latest = true
+            done()
+        }
     }
 }
 

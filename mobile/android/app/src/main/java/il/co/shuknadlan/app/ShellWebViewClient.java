@@ -50,11 +50,21 @@ public class ShellWebViewClient extends BridgeWebViewClient {
         super.onPageStarted(view, url, favicon);
     }
 
+    @Override
+    public void onPageFinished(WebView view, String url) {
+        super.onPageFinished(view, url);
+        activity.pushTracking(view);
+    }
+
     private boolean consume(WebView view, String raw) {
         String rewritten = ShellUrls.rewriteAuthorize(raw);
         if (rewritten != null) {
             activity.rememberOauthReturn(view.getUrl());
             activity.openAuth(rewritten);
+            return true;
+        }
+        if (ShellUrls.isPurchase(raw)) {
+            activity.showPurchaseNote(view);
             return true;
         }
         if (ShellUrls.isExternal(raw)) {
