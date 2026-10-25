@@ -3883,6 +3883,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .coach-ask-a{margin:0;font-size:.9rem;line-height:1.6;white-space:pre-line}
   .coach-ask-a.is-busy{color:var(--nv-muted)}
   .coach-ask-a.is-err{color:#9A3412}
+  /* קישור למסך מתוך תשובת המנטור (coachAnswerHtml) */
+  .coach-go{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;margin:4px 0;border-radius:999px;
+    background:var(--nv-accent-soft,#E8EFFD);color:var(--nv-accent,#1F5BD9);font-weight:700;text-decoration:none;white-space:nowrap}
+  .coach-go:hover{background:var(--nv-accent,#1F5BD9);color:#fff}
   .coach-ask-left{margin:0;font-size:.74rem;color:var(--nv-muted)}
   /* סגנון המנטור (coach_preferences): שתי גלולות, הנבחרת זהובה */
   .coach-gap{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px}
@@ -6948,6 +6952,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media (max-width:640px){.agr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
   .screen-tabs{margin:0 0 12px}
+  /* ‏עסקאות ומידע תכנוני: שדות בגובה מגע, ובחירה בשבבים במקום select צפוף
+     (initSegs). ‏:is() ולא סלקטור לכל שדה - שני הכלים נראים אותו דבר. */
+  :is(#accPlanning,#accDealsLookup) input[type=text]{min-height:46px;padding:0 14px;border:1px solid var(--nv-line,#D9DEE8);
+    border-radius:12px;font:inherit;font-size:1rem;background:#fff;box-sizing:border-box;width:100%}
+  :is(#accPlanning,#accDealsLookup) input[type=text]:focus{outline:2px solid var(--nv-accent,#1F5BD9);outline-offset:1px;border-color:transparent}
+  .seg-fields{display:grid;gap:12px;margin:4px 0 16px}
+  .seg-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .seg-label{font-size:.8rem;font-weight:700;color:var(--nv-muted,#5B6478)}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{min-height:40px;padding:0 16px;border:1.5px solid var(--nv-line,#D9DEE8);border-radius:999px;background:#fff;
+    color:var(--nv-ink,#1B2333);font:inherit;font-size:.9rem;font-weight:600;cursor:pointer;
+    transition:background .14s ease,border-color .14s ease,color .14s ease}
+  .seg button:hover{border-color:var(--nv-accent,#1F5BD9)}
+  .seg button[aria-checked=true]{background:var(--nv-accent,#1F5BD9);border-color:var(--nv-accent,#1F5BD9);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--nv-accent,#1F5BD9);outline-offset:2px}
+  select[data-seg]{display:none}
+  /* הלשוניות של המסך הזה (renderScreenTabs, ‏data-screen) - שתי לשוניות
+     ברוחב מלא, גבוהות, והפעילה מלאה בצבע: "עסקאות" ו"מידע תכנוני" הם שני
+     כלים שונים, ולא סינון של אותה רשימה. */
+  .screen-tabs[data-screen=accPlanning]{display:flex;width:100%;padding:5px;border-radius:14px}
+  .screen-tabs[data-screen=accPlanning] .ui-tab{flex:1;min-height:46px;font-size:.95rem;font-weight:700;border-radius:10px}
+  .screen-tabs[data-screen=accPlanning] .ui-tab[aria-selected=true]{background:var(--nv-accent,#1F5BD9);color:#fff;box-shadow:0 2px 8px rgba(31,91,217,.25)}
+  @media(min-width:720px){.seg-fields{grid-template-columns:1fr 1fr}}
   .screen-tab-n{font-size:12px;font-weight:700;color:var(--nv-muted);background:#F1F3F8;border-radius:999px;padding:1px 7px}
   .screen-tab-n.is-hot{color:#fff;background:var(--nv-urgent)}
 
@@ -9748,34 +9775,41 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <datalist id="mdStreetOptions"></datalist>
         <input type="text" id="mdHouseNum" placeholder="מספר בית">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="margin-bottom:8px">
         <input type="text" id="mdCity" value="עפולה" placeholder="עיר">
-        <select id="mdType">
-          <option value="">כל סוגי הנכס</option>
-          <option value="דירה">דירה</option>
-          <option value="בנין">בנין</option>
-          <option value="קרקע">קרקע</option>
-        </select>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-        <select id="mdRadius">
-          <option value="150">150 מטר</option>
-          <option value="300" selected>300 מטר</option>
-          <option value="500">500 מטר</option>
-          <option value="1000">1 ק"מ</option>
-        </select>
-        <select id="mdMonths">
-          <option value="6">6 חודשים</option>
-          <option value="12">12 חודשים</option>
-          <option value="24" selected>24 חודשים</option>
-          <option value="60">5 שנים</option>
-        </select>
-        <select id="mdLimit">
-          <option value="5" selected>5 עסקאות</option>
-          <option value="10">10 עסקאות</option>
-          <option value="25">25 עסקאות</option>
-          <option value="50">50 עסקאות</option>
-        </select>
+      <!-- ‏בחירה בשבבים (initSegs ב-assets/crm.js): ה-select נשאר מקור הערך
+           (‏.value, וגם prOpenDeals שממלא אותו מכרטיס נכס), והשבבים רק
+           מציגים ומשנים אותו. -->
+      <div class="seg-fields">
+        <div class="seg-field"><span class="seg-label" id="mdTypeL">סוג נכס</span>
+          <select id="mdType" data-seg aria-labelledby="mdTypeL">
+            <option value="">הכל</option>
+            <option value="דירה">דירה</option>
+            <option value="בנין">בנין</option>
+            <option value="קרקע">קרקע</option>
+          </select></div>
+        <div class="seg-field"><span class="seg-label" id="mdRadiusL">רדיוס מהכתובת</span>
+          <select id="mdRadius" data-seg aria-labelledby="mdRadiusL">
+            <option value="150">150 מ'</option>
+            <option value="300" selected>300 מ'</option>
+            <option value="500">500 מ'</option>
+            <option value="1000">1 ק"מ</option>
+          </select></div>
+        <div class="seg-field"><span class="seg-label" id="mdMonthsL">תקופה</span>
+          <select id="mdMonths" data-seg aria-labelledby="mdMonthsL">
+            <option value="6">חצי שנה</option>
+            <option value="12">שנה</option>
+            <option value="24" selected>שנתיים</option>
+            <option value="60">5 שנים</option>
+          </select></div>
+        <div class="seg-field"><span class="seg-label" id="mdLimitL">כמה עסקאות להציג</span>
+          <select id="mdLimit" data-seg aria-labelledby="mdLimitL">
+            <option value="5" selected>5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select></div>
       </div>
       <button type="button" class="btn btn-gold btn-block" id="mdLookupBtn">חיפוש עסקאות</button>
       <div id="mdFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>

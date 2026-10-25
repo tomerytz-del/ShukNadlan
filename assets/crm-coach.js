@@ -381,7 +381,7 @@ function coachAskHtml(kind, questions){
       <div class="coach-ask-head"><p class="coach-ask-q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>
       ${st.folded ? '' : st.busy ? '<p class="coach-ask-a is-busy">המנטור חושב…</p>'
         : st.err ? `<p class="coach-ask-a is-err">${escapeHtml(st.err)}</p>`
-        : `<p class="coach-ask-a">${escapeHtml(st.a || '')}</p>`}
+        : `<p class="coach-ask-a">${coachAnswerHtml(st.a)}</p>`}
       ${st.remaining != null && !st.busy && !st.folded ? `<p class="coach-ask-left">${st.remaining
         ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : ''}
     </div>` : ''}
@@ -648,7 +648,7 @@ function homeCoachSync(){
       out.innerHTML = `<div class="head"><p class="q">${escapeHtml(st.q)}</p>${coachFoldBtn(kind, st)}</div>`
         + (st.folded ? '' : st.busy ? '<p class="a is-busy">המנטור חושב…</p>'
           : st.err ? `<p class="a is-err">${escapeHtml(st.err)}</p>`
-          : `<p class="a">${escapeHtml(st.a || '')}</p>`)
+          : `<p class="a">${coachAnswerHtml(st.a)}</p>`)
         + (st.remaining != null && !st.busy && !st.folded ? `<p class="left">${st.remaining
             ? 'נשארו ' + escapeHtml(String(st.remaining)) + ' שאלות להיום' : 'זו הייתה השאלה האחרונה להיום'}</p>` : '');
     }
@@ -867,3 +867,40 @@ function coachAskAboutLead(lead){
     input.scrollIntoView({ block:'nearest' });
   }, 60);
 }
+
+/* ---------- קישורים בתשובת המנטור ----------
+   המנטור מקבל מפת מערכת עם קישורים (‏SYSTEM_MAP ב-_shared/coach/prompts.ts),
+   כמו https://shuknadlan.co.il/crm?goto=accDealsLookup. בוואטסאפ הם נשארים
+   קישור; כאן כתובת ארוכה באמצע תשובה נקראת כרעש, ולכן קישור **שלנו** ל-CRM
+   הופך לכפתור עם שם המסך, ולחיצה עליו מנווטת בלי לטעון את ה-CRM מחדש -
+   אותו handleGotoParam של כל קישור עמוק. כל כתובת אחרת נשארת טקסט: המודל
+   אינו מקור לקישור החוצה. הבריחה קודמת, והחיפוש רץ על הטקסט הבורח. */
+const COACH_GO_LABEL = {
+  cma: 'להפקת דוח CMA', cmaAddress: 'לדוח CMA לכתובת', sign: 'להחתמת לקוח/ה',
+  promote: 'לקידום נכס', waShare: 'לשליחת נכס בוואטסאפ', mentor: 'למנטור',
+};
+const COACH_GO_RE = /https:\/\/shuknadlan\.co\.il\/crm\?goto=([A-Za-z0-9]{2,40})((?:&amp;[a-z_]{1,20}=[A-Za-z0-9_-]{1,60}){0,4})/g;
+
+function coachGoLabel(goto){
+  if (COACH_GO_LABEL[goto]) return COACH_GO_LABEL[goto];
+  const item = (typeof NAV_GROUPS !== 'undefined' ? NAV_GROUPS : [])
+    .flatMap(g => g.items).find(i => i.acc === goto);
+  return item ? 'ל' + item.label : 'לפתיחה במערכת';
+}
+
+function coachAnswerHtml(text){
+  return escapeHtml(text || '').replace(COACH_GO_RE, (m, goto, rest) => {
+    const qs = 'goto=' + goto + rest.replace(/&amp;/g, '&');
+    return '<a class="coach-go" href="/crm?' + escapeHtml(qs) + '" data-crm-go="' + escapeHtml(qs) + '">'
+      + escapeHtml(coachGoLabel(goto)) + ' ←</a>';
+  });
+}
+
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-crm-go]');
+  if (!a || typeof handleGotoParam !== 'function') return;
+  e.preventDefault();
+  if (typeof closeNavLayers === 'function') closeNavLayers();
+  history.replaceState(history.state, '', location.pathname + '?' + a.dataset.crmGo + location.hash);
+  handleGotoParam();
+});
