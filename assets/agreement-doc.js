@@ -605,6 +605,10 @@
       metaEl.hidden = !bits.length;
     }
     if (logo) {
+      logo.onerror = function () {
+        logo.hidden = true;
+        logo.removeAttribute('src');
+      };
       if (brand.agency_logo) {
         logo.hidden = false;
         logo.src = brand.agency_logo;
