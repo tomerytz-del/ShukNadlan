@@ -191,12 +191,15 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
     description:
       "קביעת פגישה ביומן שלה. kind: first_win (פגישת הצלחה ראשונה), followup (פגישת מעקב), call (שיחה), " +
       "office_visit (ביקור במשרד), training (הדרכה קבוצתית), other. פגישה עם סוכן/ת \"נרשם/ה\" מעבירה ל\"נקבעה פגישה\" " +
-      "ומועד הקשר בצנרת הופך למועד הפגישה. קודם csm_find_agent למזהה. התזכורת יוצאת לבד לפני הפגישה. " +
+      "ומועד הקשר בצנרת הופך למועד הפגישה. קודם csm_find_agent למזהה; **לא נמצא/ה במאגר - קובעים בכל זאת**, בלי agent_id " +
+      "ועם with_name (ו-with_phone אם נאמר), בלי לעצור לשאול. התזכורת יוצאת לבד לפני הפגישה. " +
       "מחזיר קישור \"הוספה ליומן Google\" - לצרף אותו לתשובה.",
     input_schema: {
       type: "object",
       properties: {
         agent_id: { type: "string", description: "מ-csm_find_agent. לא חובה (הדרכה קבוצתית, משרד שעוד לא נרשם)" },
+        with_name: { type: "string", description: "עם מי, כשאין agent_id - מי שלא נמצא/ה במאגר או עוד לא נרשם/ה. נכנס לכותרת" },
+        with_phone: { type: "string", description: "הטלפון של מי שאינו/ה במאגר, אם נאמר. נכנס להערות" },
         kind: { type: "string", enum: ["first_win", "followup", "call", "office_visit", "training", "other"] },
         title: { type: "string", description: "ריק = לפי הסוג והשם" },
         date: { type: "string", description: "YYYY-MM-DD, שעון ישראל" },
@@ -221,6 +224,7 @@ export const CSM_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         event_id: { type: "string" },
+        agent_id: { type: "string", description: "שיוך לסוכן/ת (מ-csm_find_agent) של פגישה שנקבעה בלי שיוך" },
         date: { type: "string", description: "YYYY-MM-DD" },
         time: { type: "string", description: "HH:MM" },
         duration_minutes: { type: "integer", minimum: 5, maximum: 600 },
@@ -374,7 +378,8 @@ export const CSM_GREETING = /^(היי|הי|הַי|שלום|אהלן|בוקר ט�
 
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
 const days = (v: unknown) => (v ? Math.floor((Date.now() - new Date(String(v)).getTime()) / 86400000) : null);
-const norm = (s: unknown) => String(s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+// גרש וגרשיים בכל צורה (״ " ׳ ') יוצאים, כדי ש"נדל"ן" ו"נדל״ן" יהיו אותו דבר
+const norm = (s: unknown) => String(s ?? "").replace(/["'\u05F3\u05F4\u201C\u201D\u2019]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
 const digits = (s: unknown) => String(s ?? "").replace(/\D/g, "");
 
 function waDigits(phone: unknown): string {
@@ -774,6 +779,12 @@ export async function runCsmTool(
       const t = text(input[k], max);
       if (t !== undefined) patch[k] = t;
     }
+    // מי שאינו/ה במאגר: השם לכותרת והטלפון להערות (אין לו/ה כרטיס לקשר אליו)
+    const withName = target ? null : text(input.with_name, 80) || null;
+    const withPhone = target ? null : text(input.with_phone, 30) || null;
+    if (withPhone) patch.notes = ["טלפון: " + withPhone, patch.notes ?? existing?.notes].filter(Boolean).join("\n");
+    // שיוך בדיעבד: פגישה שנקבעה בלי סוכן/ת, וכעת נמצא/ה
+    if (existing && target) patch.agent_id = target.agent_id;
     const mu = input.use_my_link && me?.meeting_link ? me.meeting_link : url(input.meeting_url);
     if (mu === "bad") return { ok: false, error: "הקישור לפגישה צריך להתחיל ב-https://." };
     if (mu !== undefined) patch.meeting_url = mu;
@@ -798,7 +809,8 @@ export async function runCsmTool(
         staff_id: staff.id, agent_id: target?.agent_id ?? null, kind,
         duration_minutes: num(me?.meeting_minutes) || 45, reminder_minutes: rem, ...patch,
       } as Row;
-      if (!row.title) row.title = AGENDA_KINDS[kind] + (target?.display_name ? " - " + target.display_name : "");
+      const who = target?.display_name || withName;
+      if (!row.title) row.title = AGENDA_KINDS[kind] + (who ? " - " + who : "");
       const { data, error } = await supabase.from("csm_agenda").insert(row).select("*").single();
       if (error) return { ok: false, error: error.message };
       saved = data as Row;
@@ -834,6 +846,7 @@ export async function runCsmTool(
       ok: true, event_id: saved!.id, when: ilWhen(saved!.starts_at), minutes: saved!.duration_minutes,
       title: saved!.title, status: AGENDA_STATUS[String(saved!.status)],
       agent: a ? a.display_name : null,
+      ...(!a && withName ? { with_name: withName, unlinked: "לא משויכת לסוכן/ת במאגר - לומר בשורה. אפשר לשייך אחר כך (csm_agenda_update עם agent_id)." } : {}),
       reminder_minutes: saved!.reminder_minutes ?? me?.reminder_minutes ?? null,
       google_calendar: gSynced ? "נכנסת לבד ליומן Google שלה (יומן \"שוק נדל\"ן\")" : null,
       google_calendar_url: saved!.status === "scheduled" && !gSynced
@@ -898,10 +911,23 @@ export async function runCsmTool(
     const q = norm(input.query), qd = digits(input.query);
     if (!q) return { ok: false, error: "צריך שם, טלפון או משרד." };
     const rows = await overviewRows(supabase);
-    const hits = rows.filter((r) =>
-      norm(r.display_name).includes(q) || norm(r.agency_name).includes(q) ||
-      (qd.length >= 6 && (digits(r.phone).endsWith(qd.slice(-9)))));
-    if (!hits.length) return { ok: true, count: 0, note: "לא נמצא/ה סוכן/ת. אפשר לנסות חלק מהשם או את הטלפון." };
+    /* לפי מילים ולא כמחרוזת אחת: "יוסי כהן רימקס" מוצא את יוסי כהן ממשרד
+       רימקס, ו"כהן יוסי" מוצא אותו גם הוא. כל מילה צריכה להופיע בשם, במשרד או
+       במייל. בלי התאמה מלאה - מי שמתאים/ה לחלק מהמילים, כ"אולי". */
+    const words = q.split(" ").filter((w) => w.length >= 2 && !/^\d+$/.test(w));
+    const hay = (r: Row) => [norm(r.display_name), norm(r.agency_name), norm(String(r.email || "").split("@")[0])].join(" ");
+    const phoneHit = (r: Row) => qd.length >= 6 && digits(r.phone).endsWith(qd.slice(-9));
+    const hits = rows.filter((r) => phoneHit(r) || (words.length > 0 && words.every((w) => hay(r).includes(w))));
+    if (!hits.length) {
+      const maybe = words.length > 1 ? rows.filter((r) => words.some((w) => w.length >= 3 && hay(r).includes(w))) : [];
+      return {
+        ok: true, count: 0,
+        maybe: maybe.slice(0, 5).map(short),
+        note: maybe.length
+          ? "אין התאמה מלאה. אלה מתאימים לחלק מהשם - לשאול אם מישהו/י מהם, ולא לנחש. לפגישה - לקבוע מיד בלי agent_id (with_name), ובסוף לשאול אם לשייך לאחד/ת מהם."
+          : "לא נמצא/ה במאגר (מנהלי הפלטפורמה אינם במאגר ההטמעה). לפגישה - לקבוע בכל זאת בלי agent_id, עם with_name.",
+      };
+    }
     if (hits.length > 8) {
       return { ok: true, count: hits.length, agents: hits.slice(0, 15).map(short),
         note: "יותר מדי תוצאות - להציג את הרשימה הקצרה ולשאול למי הכוונה." };

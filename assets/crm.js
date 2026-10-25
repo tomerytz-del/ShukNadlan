@@ -27689,6 +27689,7 @@ const ADS_ERRORS = {
   meta_token_invalid: 'הטוקן של מטא פג או בוטל - צריך להפיק טוקן חדש',
   meta_rate_limited: 'מטא מגבילה כרגע את קצב הקריאות - נסו שוב בעוד כמה דקות',
   meta_error: 'מטא דחתה את הבקשה',
+  meta_validation: 'מטא דחתה את הבדיקה, ולא נוצר כלום',
   not_in_account: 'האובייקט אינו שייך לחשבון המודעות שלנו',
   budget_increase_too_large: 'העלאת תקציב של יותר מפי 2 בפעולה אחת נחסמת',
   lifetime_budget_not_supported: 'לאובייקט הזה תקציב לכל התקופה - משנים אותו ב-Ads Manager',
@@ -27748,8 +27749,15 @@ const adsPct = n => (Number(n || 0) * 100).toLocaleString('he-IL', { maximumFrac
 
 function adsErrText(d){
   const base = ADS_ERRORS[d && d.error] || ('שגיאה: ' + ((d && d.error) || 'לא ידועה'));
-  if (d && d.meta && (d.meta.user_msg || d.meta.message)) return base + ' - ' + (d.meta.user_msg || d.meta.message);
   if (d && d.detail) return base + ' - ' + d.detail;
+  const meta = d && d.meta;
+  if (meta) {
+    const title = meta.error_user_title || '';
+    const msg = meta.error_user_msg || meta.user_msg || '';
+    const bit = [title, msg].filter(Boolean).join(' - ');
+    if (bit) return base + ' - ' + bit;
+    if (meta.message) return base + ' - ' + meta.message;
+  }
   return base;
 }
 
@@ -28569,12 +28577,23 @@ function adsLaunchTargetingBlocks(){
 }
 function adsLaunchCanCreate(){
   const c = adsLaunchState.creatives;
+  const plan = adsLaunchState.plan;
+  if (plan && plan.validation && plan.validation.blocks_create) return false;
   return !!(adsLaunchState.planOk && !adsLaunchTargetingBlocks() && c && c.total > 0 && c.ready === c.total && !(c.mismatched && c.mismatched.length));
+}
+function adsLaunchFlexibleLine(a){
+  const groups = a && a.flexible || [];
+  const parts = groups.map(g => (g || []).map(t => t && t.name).filter(Boolean).join(' או ')).filter(Boolean);
+  if (!parts.length) return '';
+  const body = parts.length > 1 ? parts.map(p => '(' + p + ')').join(' וגם ') : parts[0];
+  const label = a.flexible_logic === 'and' ? 'צמצום AND' : 'טירגוט';
+  return '<br>' + esc(label + ': ' + body);
 }
 function adsLaunchHitLine(h){
   const q = h && h.query ? h.query : '';
   if (h && h.status === 'found') return q + ' - נמצא: ' + (h.resolved_name || q) + ' (' + (h.id || '') + ')';
   if (h && h.status === 'dropped') return q + ' - ירד מהטירגוט';
+  if (h && h.status === 'deprecated') return q + ' - הוצא משימוש וירד, בלי החלופה של מטא (' + (h.id || '') + ')';
   if (h && h.status === 'fallback') return q + ' - לא נמצא, גיבוי רדיוס 60 ק"מ סביב עפולה';
   if (h && h.status === 'unchecked') return q + ' - לא נבדק';
   return q + ' - לא נמצא';
@@ -28603,7 +28622,7 @@ function adsLaunchHtml(plan, creatives){
     (c.ad_sets || []).forEach(a => {
       const ads = (a.ads || []).map(ad => esc(ad.name) + ' - ' + esc(ad.headline)).join('<br>');
       const formLine = a.lead_form_name ? '<br>טופס: ' + esc(a.lead_form_name) + ' (' + esc(a.lead_form_id || '') + ')' : '';
-      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + formLine + '<br>' + ads + '</p>');
+      parts.push('<p>' + esc(a.name) + ' · ' + esc(adsNis(a.daily_budget_ils)) + ' · גיל ' + esc((a.age || []).join('-')) + formLine + adsLaunchFlexibleLine(a) + '<br>' + ads + '</p>');
     });
   });
   if ((plan.skipped || []).length){
@@ -28611,6 +28630,12 @@ function adsLaunchHtml(plan, creatives){
   }
   if ((plan.targeting || []).length){
     parts.push('<p><b>טירגוט</b><br>' + plan.targeting.map(h => esc(adsLaunchHitLine(h))).join('<br>') + '</p>');
+  }
+  if (plan.validation && (plan.validation.failures || []).length){
+    parts.push('<p><b>מטא דחתה בבדיקה</b><br>' + plan.validation.failures.map(f => {
+      const meta = f.meta || {};
+      return esc([f.object_key, meta.error_user_title, meta.error_user_msg, f.message].filter(Boolean).join(' - '));
+    }).join('<br>') + '</p>');
   }
   if ((plan.warnings || []).length){
     parts.push('<p><b>לתשומת לב</b><br>' + plan.warnings.map(w => esc(w)).join('<br>') + '</p>');
