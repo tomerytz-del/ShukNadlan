@@ -190,18 +190,25 @@
     try { win.open(url, '_blank'); } catch (e) {}
   }
 
+  function clickedHref(attribute, resolved) {
+    var raw = String(attribute || '');
+    if (/^(https?:|tel:|mailto:|sms:|geo:|whatsapp:|intent:)/i.test(raw)) return raw;
+    return resolved || raw;
+  }
+
   function openExternal(win, url) {
+    function handOff() {
+      // ניווט רגיל נתפס ב-shouldOverrideUrlLoading. window.open של _blank לא.
+      try {
+        if (win.location && win.location.assign) win.location.assign(url);
+      } catch (e) {}
+    }
     var shell = pluginsOf(win).ShukShell;
     if (shell && shell.openExternal) {
-      Promise.resolve(shell.openExternal({ url: url })).catch(function () {});
+      Promise.resolve(shell.openExternal({ url: url })).catch(handOff);
       return;
     }
-    var browser = pluginsOf(win).Browser;
-    if (browser && browser.open) {
-      Promise.resolve(browser.open({ url: url })).catch(function () {});
-      return;
-    }
-    try { win.open(url, '_blank'); } catch (e) {}
+    handOff();
   }
 
   function patchShare(win) {
@@ -258,10 +265,9 @@
       var node = event.target;
       var anchor = node && node.closest ? node.closest('a[href]') : null;
       if (!anchor) return;
-      var href = anchor.href;
+      var href = clickedHref(anchor.getAttribute('href'), anchor.href);
       if (!isExternalUrl(href)) return;
       event.preventDefault();
-      if (event.stopPropagation) event.stopPropagation();
       openExternal(win, href);
     }, true);
   }
@@ -469,6 +475,7 @@
     isOAuthNavigation: isOAuthNavigation,
     isAuthCallback: isAuthCallback,
     isExternalUrl: isExternalUrl,
+    clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     install: install,
   };

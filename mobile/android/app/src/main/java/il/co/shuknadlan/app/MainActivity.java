@@ -30,6 +30,8 @@ public class MainActivity extends BridgeActivity {
     private boolean bridgeInjected;
     private volatile int oauthState = OAUTH_IDLE;
     private String oauthHandledCode = "";
+    private String lastExternalUrl = "";
+    private long lastExternalAt;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -39,6 +41,9 @@ public class MainActivity extends BridgeActivity {
         WebView webView = bridge.getWebView();
         injectDocumentStart(webView);
         bridge.setWebViewClient(new ShellWebViewClient(bridge, this));
+        // בלי זה target=_blank ו-window.open נזרקים, והלחיצה לא עושה כלום.
+        webView.getSettings().setSupportMultipleWindows(true);
+        webView.setWebChromeClient(new ShellWebChromeClient(bridge, this));
         // נרשם אחרי ה-callback של Capacitor, ולכן רץ ראשון ולא חוזר למסך האתחול.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -186,11 +191,68 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    void openExternal(Uri uri) {
+    /**
+     * קישור החוצה. ה-WebView נשאר על הדף הנוכחי, כדי שאחרי וואטסאפ אפשר
+     * לחזור ולאמת את הכניסה. מחזיר false רק אם אין לאן לפתוח.
+     */
+    boolean openExternal(Uri uri) {
+        if (uri == null) return false;
+        String raw = uri.toString();
+        long now = android.os.SystemClock.uptimeMillis();
+        if (raw.equals(lastExternalUrl) && now - lastExternalAt < 800) return true;
+        boolean opened = false;
+        for (WhatsappLinks.Step step : WhatsappLinks.plan(raw)) {
+            if (launch(step)) {
+                opened = true;
+                lastExternalUrl = raw;
+                lastExternalAt = now;
+                break;
+            }
+        }
+        if (!opened) {
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.US);
+            Log.i("ShukShell", "open failed scheme=" + scheme);
+        }
+        return opened;
+    }
+
+    /** חלון שנפתח מ-target=_blank או מ-window.open. לא מחליף את הדף אם הקישור חיצוני. */
+    void dispatchPopup(WebView main, String raw) {
+        String rewritten = ShellUrls.rewriteAuthorize(raw);
+        if (rewritten != null) {
+            rememberOauthReturn(main == null ? null : main.getUrl());
+            openAuth(rewritten);
+            return;
+        }
+        if (ShellUrls.isExternal(raw) || !ShellUrls.staysInApp(raw)) {
+            openExternal(Uri.parse(raw));
+            return;
+        }
+        if (main != null) main.loadUrl(raw);
+    }
+
+    private boolean launch(WhatsappLinks.Step step) {
+        Uri uri = Uri.parse(step.url);
+        if (step.kind == WhatsappLinks.Kind.WHATSAPP) {
+            return startView(uri, step.pkg);
+        }
+        return startView(uri, null);
+    }
+
+    private boolean startView(Uri uri, String pkg) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        if (pkg != null) {
+            if (!WhatsappLinks.allowedPackage(pkg)) return false;
+            intent.setPackage(pkg);
+        }
+        // DEFAULT בלי BROWSABLE: חייגן ווואטסאפ מצהירים על DEFAULT, ו-BROWSABLE
+        // נוסף היה מפיל חייגן שלא מצהיר עליו.
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, uri));
-        } catch (ActivityNotFoundException ignored) {
-            // אין אפליקציה לסוג הקישור. נשארים במסך הנוכחי.
+            startActivity(intent);
+            return true;
+        } catch (ActivityNotFoundException e) {
+            return false;
         }
     }
 

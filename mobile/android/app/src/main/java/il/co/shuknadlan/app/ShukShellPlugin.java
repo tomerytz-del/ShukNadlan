@@ -32,6 +32,10 @@ public class ShukShellPlugin extends Plugin {
             call.reject("no_activity");
             return;
         }
+        if (activity instanceof MainActivity && ((MainActivity) activity).openExternal(uri)) {
+            call.resolve();
+            return;
+        }
         try {
             activity.startActivity(new Intent(Intent.ACTION_VIEW, uri));
             call.resolve();

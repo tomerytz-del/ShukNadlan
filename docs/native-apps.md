@@ -33,6 +33,13 @@ https://shuknadlan.co.il. השם: שוק נדל״ן. כיוון: RTL.
 - מסך אין-רשת בעברית, וחזרה אחורה ב-Android שלא נופלת ללולאה על מסך האתחול.
 - שיתוף מודעה דרך גיליון השיתוף של מערכת ההפעלה (האתר כבר קורא ל-`navigator.share`).
 - וואטסאפ, טלפון, מייל ומפות נפתחים באפליקציה שלהם, לא בתוך ה-WebView.
+  כפתור "אימות בוואטסאפ" הוא `https://wa.me` עם `target="_blank"`, וגם
+  `window.open` אחרי קריאה אסינכרונית. ב-WebView של Android ניווט כזה לא
+  מגיע ל-`shouldOverrideUrlLoading` ונזרק, והדף נשאר במקום בלי לפתוח כלום.
+  השלד תופס את החלון, פותח `whatsapp://send` (ביזנס אם הקישור ביקש
+  `com.whatsapp.w4b`, אחרת הרגיל), ואם אין וואטסאפ - את הדפדפן או את החנות.
+  ה-WebView לא מוחלף, והמסך ממשיך לבדוק שההודעה הגיעה. אותו מסלול ל-`tel:`.
+  ב-iOS הסכמה `whatsapp` רשומה ב-`LSApplicationQueriesSchemes`.
 - כניסה במייל וסיסמה נשארת בתוך האפליקציה. כניסת Google נפתחת ב-Chrome
   Custom Tabs / `ASWebAuthenticationSession`, כי גוגל חוסמת WebView
   (`disallowed_useragent`). האתר עצמו משתמש ב-flow מסוג implicit (בלי

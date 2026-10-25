@@ -178,6 +178,98 @@ enum OauthFlow {
     }
 }
 
+// אותו סדר כמו WhatsappLinks.java: וואטסאפ, אחר כך הדפדפן, ואז החנות.
+enum ExternalLinks {
+    static func open(_ raw: String) {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.lowercased().hasPrefix("intent:") {
+            if let fallback = intentFallback(trimmed), !fallback.isEmpty, fallback != trimmed {
+                open(fallback)
+                return
+            }
+        }
+        if let send = whatsappSend(trimmed),
+           let sendURL = URL(string: send),
+           let probe = URL(string: "whatsapp://send"),
+           UIApplication.shared.canOpenURL(probe) {
+            UIApplication.shared.open(sendURL, options: [:], completionHandler: nil)
+            return
+        }
+        guard let url = URL(string: trimmed) else { return }
+        UIApplication.shared.open(url, options: [:]) { ok in
+            if ok || !isWhatsappWeb(url) { return }
+            if let store = URL(string: "https://apps.apple.com/app/whatsapp-messenger/id310633997") {
+                UIApplication.shared.open(store, options: [:], completionHandler: nil)
+            }
+        }
+    }
+
+    private static func isWhatsappWeb(_ url: URL) -> Bool {
+        if (url.scheme ?? "").lowercased() == "whatsapp" { return true }
+        var host = (url.host ?? "").lowercased()
+        if host.hasPrefix("www.") { host = String(host.dropFirst(4)) }
+        return ["wa.me", "api.whatsapp.com", "web.whatsapp.com", "chat.whatsapp.com"].contains(host)
+    }
+
+    private static func whatsappSend(_ raw: String) -> String? {
+        guard let parts = URLComponents(string: raw) else { return nil }
+        let scheme = (parts.scheme ?? "").lowercased()
+        if scheme == "whatsapp" { return raw }
+        if scheme != "https" && scheme != "http" { return nil }
+        var host = (parts.host ?? "").lowercased()
+        if host.hasPrefix("www.") { host = String(host.dropFirst(4)) }
+        let query = parts.queryItems ?? []
+        func value(_ name: String) -> String? {
+            query.first { $0.name == name }?.value
+        }
+        if host == "wa.me" {
+            var seg = parts.path
+            if seg.hasPrefix("/") { seg.removeFirst() }
+            if seg.hasSuffix("/") { seg.removeLast() }
+            if seg.contains("/") { return nil }
+            let phone = seg == "send" ? digits(value("phone")) : (digits(seg).isEmpty ? digits(value("phone")) : digits(seg))
+            return buildSend(phone: phone, text: value("text"))
+        }
+        if host == "api.whatsapp.com" || host == "web.whatsapp.com" {
+            if parts.path != "/send" && !parts.path.hasPrefix("/send/") { return nil }
+            return buildSend(phone: digits(value("phone")), text: value("text"))
+        }
+        return nil
+    }
+
+    private static func intentFallback(_ raw: String) -> String? {
+        guard let marker = raw.range(of: "#Intent;") else { return nil }
+        var tail = String(raw[marker.upperBound...])
+        if tail.hasSuffix(";end") { tail.removeLast(4) }
+        else if tail.hasSuffix("end") { tail.removeLast(3) }
+        for part in tail.split(separator: ";") {
+            let row = String(part)
+            let prefix = "S.browser_fallback_url="
+            if row.hasPrefix(prefix) {
+                return row.dropFirst(prefix.count).removingPercentEncoding
+            }
+        }
+        return nil
+    }
+
+    private static func buildSend(phone: String, text: String?) -> String {
+        var url = "whatsapp://send"
+        var parts: [String] = []
+        if !phone.isEmpty, let encoded = phone.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            parts.append("phone=" + encoded)
+        }
+        if let text = text, let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            parts.append("text=" + encoded)
+        }
+        if !parts.isEmpty { url += "?" + parts.joined(separator: "&") }
+        return url
+    }
+
+    private static func digits(_ raw: String?) -> String {
+        raw?.filter { $0.isNumber } ?? ""
+    }
+}
+
 @objc(ShukShellPlugin)
 public class ShukShellPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "ShukShellPlugin"
@@ -188,14 +280,13 @@ public class ShukShellPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func openExternal(_ call: CAPPluginCall) {
-        guard let raw = call.getString("url"), let url = URL(string: raw) else {
+        guard let raw = call.getString("url"), !raw.isEmpty else {
             call.reject("bad_url")
             return
         }
         DispatchQueue.main.async {
-            UIApplication.shared.open(url, options: [:]) { ok in
-                if ok { call.resolve() } else { call.reject("open_failed") }
-            }
+            ExternalLinks.open(raw)
+            call.resolve()
         }
     }
 
@@ -274,7 +365,7 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
             return true
         }
         if ShellUrls.isExternal(raw) {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            ExternalLinks.open(raw)
             return true
         }
         return false

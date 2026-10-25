@@ -62,6 +62,17 @@ public final class ShellUrls {
         return false;
     }
 
+    /** דף של האתר או של השלד המקומי. נשאר ב-WebView, כולל window.open. */
+    public static boolean staysInApp(String raw) {
+        Uri uri = parse(raw);
+        if (uri == null) return false;
+        String scheme = scheme(uri);
+        if (!scheme.equals("https") && !scheme.equals("http")) return false;
+        String host = host(uri);
+        if (host.equals(SITE_HOST) || host.endsWith("." + SITE_HOST)) return true;
+        return "localhost".equals(host);
+    }
+
     /**
      * מחזיר כתובת https באתר. קישור עומק נשאר כמו שהוא.
      * סכמת האפליקציה (חזרה מ-OAuth) מודבקת על הדף שממנו יצאו, או על /crm.
