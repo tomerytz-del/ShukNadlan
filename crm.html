@@ -4025,6 +4025,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .pn-backdrop,.pn-sheet{transition:none}
     .pn-sheet{transform:none}
   }
+  .pn-flash{outline:3px solid #c9a227;outline-offset:3px;border-radius:12px;animation:pn-flash 1.6s ease}
+  @keyframes pn-flash{
+    0%{box-shadow:0 0 0 6px rgba(201,162,39,.45)}
+    100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .pn-flash{animation:none}
+  }
 
   /* ==========================================================================
      מדריך ההתחלה (#onbGuide, assets/crm-onboarding.js, docs/agent-onboarding.md)
@@ -11102,7 +11110,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ih-body">
               <div class="ih-title">תמונת פרופיל <span class="ih-tag">חשוב</span></div>
               <div class="hint">פורטרט ברור, פנים מול המצלמה. מוצגת בדף הסוכן/ת שלך ובכל נכס שתפרסם/י.</div>
-              <label class="pick" for="pfPhotoInput" id="pfPhotoPick"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת פרופיל</span></label>
+              <label class="pick" for="pfPhotoInput" id="pfPhotoPick" tabindex="-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת תמונת פרופיל</span></label>
               <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
             </div>
           </div>
@@ -11247,7 +11255,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="ih-body">
                 <div class="ih-title">לוגו המשרד <span class="ih-tag">חשוב</span></div>
                 <div class="hint">מרובע · בראש דף המשרד ובכל נכס של הצוות</div>
-                <label class="pick" for="brLogoInput"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת לוגו</span></label>
+                <label class="pick" for="brLogoInput" id="brLogoPick" tabindex="-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>העלאת לוגו</span></label>
                 <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
               </div>
             </div>

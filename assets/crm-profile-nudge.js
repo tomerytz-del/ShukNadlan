@@ -7,9 +7,10 @@
    כמו שהכרטיס קורא אותם.
 
    צעד "תמונה, משפט ואזורים" הוא שלושה שדות באותו תנאי (תמונה, 20 תווים,
-   אזורי שירות). הגיליון מראה אחד מהם בכל פעם, לפי סדר ההשפעה, ומעביר
-   ישר לשדה. צעד נעול במסלול (גבריאלה, יומן) לא מוצג - ואין בו כפתור
-   למסלולים או לתשלום.
+   אזורי שירות). הגיליון מראה אחד מהם בכל פעם. קודם חיבור גבריאלה,
+   אחר כך יומן Google, ואז שאר השדות. הכפתור פותח את הפקד עצמו
+   (כפתור החיבור, או השדה) ומסמן אותו לרגע. צעד נעול במסלול
+   (גבריאלה, יומן) לא מוצג - ואין בו כפתור למסלולים או לתשלום.
 
    מתי: רוחב מובייל (מתחת ל-1024, כמו הסרגל התחתון) או אפליקציה
    (user agent מכיל ShukNadlanApp). פעם אחת בביקור, ולא ב-24 השעות
@@ -32,7 +33,7 @@
   var MOBILE_MQ = '(max-width: 1023px)';
 
   /* סדר ההשפעה. הפריטים עצמם באים מהצעדים; מי שאינו חל על הסוכן/ת פשוט לא נכנס. */
-  var ORDER = ['photo', 'license', 'areas', 'phone', 'property', 'logo', 'bio', 'whatsapp', 'client', 'calendar', 'prefs', 'about', 'invite'];
+  var ORDER = ['whatsapp', 'calendar', 'photo', 'license', 'areas', 'phone', 'property', 'logo', 'bio', 'client', 'prefs', 'about', 'invite'];
 
   var COPY = {
     photo: {
@@ -76,9 +77,9 @@
       cta: 'לכתיבת המשפט',
     },
     whatsapp: {
-      title: 'חברו את גבריאלה',
+      title: 'חברו את גבריאלה לוואטסאפ',
       line: 'הודעה אחת פותחת נכס, לקוח או פגישה ישר מהוואטסאפ.',
-      cta: 'חיבור בלחיצה',
+      cta: 'לחיבור גבריאלה',
     },
     client: {
       title: 'הוסיפו את הלקוח הראשון',
@@ -86,9 +87,9 @@
       cta: 'הוספת לקוח',
     },
     calendar: {
-      title: 'חברו את יומן Google',
+      title: 'חברו את יומן Google שלכם',
       line: 'פגישות וסיורים מהמערכת נכנסים ליומן בטלפון.',
-      cta: 'חיבור היומן',
+      cta: 'לחיבור היומן',
     },
     prefs: {
       title: 'הגדירו העדפות לידים',
@@ -167,8 +168,8 @@
         if (photoDone && textDone) areasDone = false;
         else areasKnown = false;
       }
-      pushItem(bag, 'photo', photoDone, { kind: 'field', acc: 'accProfile', focus: 'pfPhotoInput' });
-      if (areasKnown) pushItem(bag, 'areas', areasDone, { kind: 'field', acc: 'accProfile', focus: 'pfAreas' });
+      pushItem(bag, 'photo', photoDone, { kind: 'field', acc: 'accProfile', focus: 'pfPhotoPick' });
+      if (areasKnown) pushItem(bag, 'areas', areasDone, { kind: 'field', acc: 'accProfile', focus: 'pfAKinds' });
       pushItem(bag, 'bio', textDone, { kind: 'field', acc: 'accProfile', focus: 'pfBio' });
     }
 
@@ -184,7 +185,7 @@
         cta: spec.cta,
         kind: hasNumber ? 'appeal' : 'field',
         acc: hasNumber ? '' : 'accProfile',
-        focus: hasNumber ? '' : 'pfLicense',
+        focus: hasNumber ? 'laFile' : 'pfLicense',
       };
     }
 
@@ -192,31 +193,31 @@
     if (usable(wa)) {
       var phoneDone = !!wa.isDone || !!textOf(a, 'phone');
       pushItem(bag, 'phone', phoneDone, { kind: 'field', acc: 'accWhatsapp', focus: 'waPhone' });
-      pushItem(bag, 'whatsapp', !!wa.isDone, { kind: 'gabriela', acc: '', focus: '' });
+      pushItem(bag, 'whatsapp', !!wa.isDone, { kind: 'gabriela', acc: 'accWhatsapp', focus: 'waStartBtn' });
     }
 
     var property = stepOf(model, 'property');
-    if (usable(property)) pushItem(bag, 'property', !!property.isDone, { kind: 'property' });
+    if (usable(property)) pushItem(bag, 'property', !!property.isDone, { kind: 'property', acc: 'accProperties', focus: 'npTitle' });
 
     var office = stepOf(model, 'office');
     if (usable(office)) {
-      pushItem(bag, 'logo', state.agency_done === true, { kind: 'field', acc: 'accBranding', focus: 'brLogoInput' });
+      pushItem(bag, 'logo', state.agency_done === true, { kind: 'field', acc: 'accBranding', focus: 'brLogoPick' });
       pushItem(bag, 'about', state.about_done === true, { kind: 'field', acc: 'accBranding', focus: 'brDescription' });
     }
 
     var client = stepOf(model, 'client');
-    if (usable(client)) pushItem(bag, 'client', !!client.isDone, { kind: 'client' });
+    if (usable(client)) pushItem(bag, 'client', !!client.isDone, { kind: 'client', acc: 'accClients', focus: 'clName' });
 
     var calendar = stepOf(model, 'calendar');
-    if (usable(calendar)) pushItem(bag, 'calendar', !!calendar.isDone, { kind: 'calendar' });
+    if (usable(calendar)) pushItem(bag, 'calendar', !!calendar.isDone, { kind: 'calendar', acc: 'accGcal', focus: 'agGcalConnect' });
 
     var prefs = stepOf(model, 'prefs');
-    if (usable(prefs)) pushItem(bag, 'prefs', !!prefs.isDone, { kind: 'field', acc: 'accPrefs', focus: '' });
+    if (usable(prefs)) pushItem(bag, 'prefs', !!prefs.isDone, { kind: 'prefs', acc: 'accPrefs', focus: 'setOwnerSwitch' });
 
     /* הזמנת סוכנים היא חובה רק למנהל/ת שאינו/ה סוכן/ת פעיל/ה. אצל השאר היא רשות. */
     var invite = stepOf(model, 'invite');
     if (state.agent_steps === false && usable(invite)) {
-      pushItem(bag, 'invite', !!invite.isDone, { kind: 'field', acc: 'accTeam', focus: '' });
+      pushItem(bag, 'invite', !!invite.isDone, { kind: 'invite', acc: 'accTeam', focus: 'nmEmail' });
     }
 
     var out = [];
@@ -455,46 +456,106 @@
     restoreEl = null;
   }
 
-  function go(item, btn) {
-    if (item.kind === 'calendar' && typeof startGcalConnect === 'function') {
-      startGcalConnect(btn);
-      return;
+  function motionReduce() {
+    return !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  /* סימון קצר על הפקד שנפתח, כדי שהעין תמצא אותו בתוך מסך ארוך. */
+  function highlight(el) {
+    if (!el || !el.classList) return;
+    var prev = document.querySelectorAll('.pn-flash');
+    for (var i = 0; i < prev.length; i++) prev[i].classList.remove('pn-flash');
+    void el.offsetWidth;
+    el.classList.add('pn-flash');
+    root.setTimeout(function () { el.classList.remove('pn-flash'); }, motionReduce() ? 1400 : 1800);
+  }
+
+  function focusControl(el) {
+    if (!el) return null;
+    if (!el.matches('a, button, input, select, textarea') && el.tabIndex < 0) {
+      el.setAttribute('tabindex', '-1');
     }
+    try {
+      el.scrollIntoView({ block: 'center', behavior: motionReduce() ? 'auto' : 'smooth' });
+      el.focus({ preventScroll: true });
+    } catch (e) { /* פקד שעוד לא ב-DOM */ }
+    highlight(el);
+    return el;
+  }
+
+  function afterNav(fn) {
+    root.setTimeout(fn, motionReduce() ? 30 : 480);
+  }
+
+  function go(item) {
     closeSheet();
     if (item.kind === 'appeal' && typeof onbLicenseAppeal === 'function') {
       onbLicenseAppeal();
+      afterNav(function () { focusControl(document.getElementById('laFile')); });
       return;
     }
     if (item.kind === 'property' && typeof openInlineForm === 'function') {
       openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+      afterNav(function () { focusControl(document.getElementById('npTitle')); });
       return;
     }
     if (item.kind === 'client' && typeof openInlineForm === 'function') {
       openInlineForm('accClients', 'addClientForm', 'toggleAddClient');
+      afterNav(function () { focusControl(document.getElementById('clName')); });
       return;
     }
-    if (item.kind === 'gabriela' && typeof onbOpenGabriela === 'function') {
-      var hello = typeof ASSISTANT_WA_HELLO === 'string' ? ASSISTANT_WA_HELLO : '';
-      onbOpenGabriela(hello);
+    if (item.kind === 'invite') {
+      if (typeof gotoSection === 'function') gotoSection('accTeam', undefined, { scrollTo: '#addMemberForm' });
+      afterNav(function () {
+        var form = document.getElementById('addMemberForm');
+        var btn = document.getElementById('toggleAddMember');
+        if (form && btn && (form.style.display === 'none' || root.getComputedStyle(form).display === 'none')) btn.click();
+        focusControl(document.getElementById('nmEmail'));
+      });
+      return;
+    }
+    if (item.kind === 'prefs') {
+      if (typeof gotoSection === 'function') gotoSection('accPrefs', undefined, { scrollTo: '#setLeadPrefs' });
+      afterNav(function () {
+        if (typeof uiFoldOpen === 'function') uiFoldOpen('setLeadPrefs', true);
+        var chip = document.querySelector('#setLeadPrefsBody [data-ui-chip], #setHoodGroups button, #setTypes [data-ui-chip], #setTypes button');
+        focusControl(chip || document.getElementById('setOwnerSwitch'));
+      });
+      return;
+    }
+    if (item.kind === 'gabriela') {
+      if (typeof gotoSection === 'function') gotoSection('accWhatsapp', undefined, { scrollTo: '#waStartBtn' });
+      afterNav(function () {
+        var card = document.getElementById('waStartCard');
+        if (card && card.hidden && typeof renderWaStartCard === 'function') {
+          var phone = (typeof currentAgent !== 'undefined' && currentAgent && currentAgent.phone) || '';
+          renderWaStartCard(phone);
+        }
+        if (card) card.hidden = false;
+        focusControl(document.getElementById('waStartBtn'));
+      });
+      return;
+    }
+    if (item.kind === 'calendar') {
+      if (typeof gotoSection === 'function') gotoSection('accGcal', undefined, { scrollTo: '#agGcalConnect' });
+      afterNav(function () { focusControl(document.getElementById('agGcalConnect')); });
       return;
     }
     if (item.acc && typeof gotoSection === 'function') {
-      gotoSection(item.acc, item.focus || undefined);
-      var reduce = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      root.setTimeout(function () {
-        var el = item.focus && document.getElementById(item.focus);
-        if (!el) return;
-        var target = el;
-        if (el.id === 'pfAreas') {
-          var inner = el.querySelector('button, input, [tabindex]');
-          if (inner) target = inner;
-        }
-        try {
-          target.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
-          target.focus({ preventScroll: true });
-        } catch (e) { /* שדה שעוד לא ב-DOM */ }
-      }, reduce ? 0 : 480);
+      var scroll = item.focus === 'pfAKinds' ? '#pfAreas' : (item.focus === 'pfPhotoPick' ? '#pfPhotoHero' : (item.focus === 'brLogoPick' ? '#brLogoHero' : (item.focus ? '#' + item.focus : '')));
+      gotoSection(item.acc, undefined, scroll ? { scrollTo: scroll } : undefined);
     }
+    afterNav(function () {
+      var el = item.focus && document.getElementById(item.focus);
+      if (item.id === 'areas') {
+        var fold = document.querySelector('#pfAreas [data-area-fold][aria-expanded="false"]');
+        if (fold) fold.click();
+        var chip = document.querySelector('#pfAreas [data-area-region] [data-ui-chip]');
+        var kind = document.querySelector('#pfAKinds [data-area-kind], #pfAreas [data-area-kind]');
+        el = chip || kind || document.getElementById('pfCardAreas') || el;
+      }
+      focusControl(el);
+    });
   }
 
   function open(item, prog) {

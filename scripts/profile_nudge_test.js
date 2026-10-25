@@ -76,22 +76,32 @@ function assertCopy(list) {
 
 const fresh = N.items(state({ is_manager: true }), agent());
 assert.deepStrictEqual(fresh.map(i => i.id), [
-  'photo', 'license', 'areas', 'phone', 'property', 'logo', 'bio',
-  'whatsapp', 'client', 'calendar', 'prefs', 'about',
+  'whatsapp', 'calendar', 'photo', 'license', 'areas', 'phone', 'property', 'logo', 'bio',
+  'client', 'prefs', 'about',
 ]);
-assert.equal(N.nextItem(fresh).id, 'photo');
-assert.equal(N.progress(fresh).text, '0 מתוך 12 הושלמו');
+assert.equal(N.nextItem(fresh).id, 'whatsapp');
+assert.equal(fresh.find(i => i.id === 'whatsapp').title, 'חברו את גבריאלה לוואטסאפ');
+assert.equal(fresh.find(i => i.id === 'calendar').title, 'חברו את יומן Google שלכם');
+assert.equal(N.progress(fresh).text, '0 מתוך ' + fresh.length + ' הושלמו');
+assert.equal(N.progress(fresh).total, fresh.length);
 assertCopy(fresh);
-assert.equal(fresh.find(i => i.id === 'license').focus, 'pfLicense');
+assert.deepStrictEqual(fresh.map(i => i.focus), [
+  'waStartBtn', 'agGcalConnect', 'pfPhotoPick', 'pfLicense', 'pfAKinds', 'waPhone', 'npTitle',
+  'brLogoPick', 'pfBio', 'clName', 'setOwnerSwitch', 'brDescription',
+]);
 assert.equal(fresh.find(i => i.id === 'license').kind, 'field');
 
 const withNumber = N.items(state({ is_manager: true }), agent({ license_number: '12345' }));
 const lic = withNumber.find(i => i.id === 'license');
 assert.equal(lic.kind, 'appeal');
-assert.equal(lic.focus, '');
+assert.equal(lic.focus, 'laFile');
 assert.ok(lic.cta.indexOf('אישור') !== -1);
 
-const afterPhoto = N.items(state({ profile_done: true }), agent({
+const afterPhoto = N.items(state({
+  profile_done: true,
+  whatsapp_done: true,
+  calendar_done: true,
+}), agent({
   photo_url: 'https://example.test/a.jpg',
   service_markets: [],
 }));
@@ -101,6 +111,8 @@ assert.equal(N.nextItem(afterPhoto).id, 'license');
 const areasNext = N.items(state({
   profile_done: true,
   license_done: true,
+  whatsapp_done: true,
+  calendar_done: true,
 }), agent({
   photo_url: 'https://example.test/a.jpg',
   license_number: '99',
@@ -108,11 +120,13 @@ const areasNext = N.items(state({
   service_markets: [],
 }));
 assert.equal(N.nextItem(areasNext).id, 'areas');
-assert.equal(areasNext.find(i => i.id === 'areas').focus, 'pfAreas');
+assert.equal(areasNext.find(i => i.id === 'areas').focus, 'pfAKinds');
 
 const bioNext = N.items(state({
   profile_done: true,
   license_done: true,
+  whatsapp_done: true,
+  calendar_done: true,
 }), agent({
   photo_url: 'https://example.test/a.jpg',
   license_number: '99',
@@ -157,7 +171,8 @@ const officeOnly = N.items(state({
 }), agent());
 assert.deepStrictEqual(officeOnly.map(i => i.id), ['logo', 'about', 'invite']);
 assert.equal(N.nextItem(officeOnly).id, 'logo');
-assert.equal(officeOnly.find(i => i.id === 'logo').focus, 'brLogoInput');
+assert.equal(officeOnly.find(i => i.id === 'logo').focus, 'brLogoPick');
+assert.equal(officeOnly.find(i => i.id === 'invite').focus, 'nmEmail');
 
 const logoDone = N.items(state({
   agent_steps: false,
