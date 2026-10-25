@@ -139,3 +139,8 @@
 .csm-notif .csm-card-actions{align-items:center}
 .csm-form input[type=date],.csm-form input[type=time],.csm-form input[type=number],.csm-form input[type=url]{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font:inherit;font-size:.85rem;background:#fff}
 #csmSettingsForm input[readonly]{background:var(--paper-raised);color:var(--ink-soft)}
+.csm-gcal p{margin:0 0 8px}
+.csm-gcal.is-on strong{color:#1E5B33}
+.csm-staff-row{flex-wrap:wrap}
+.csm-staff-line{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.78rem;margin:4px 0 0}
+.csm-staff-line select{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:4px 6px;font:inherit;font-size:.76rem;background:#fff;max-width:100%}

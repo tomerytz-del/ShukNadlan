@@ -100,6 +100,14 @@ true` בשני המקומות:
 - **בלי `calendar.freebusy`** החיבור עובד, רק בלי הזמינות. הכרטיס ב-CRM
   וה-`google_note` בבוט אומרים זאת.
 
+## צוות ההטמעה
+
+מנהלת ההטמעה (`/csm`) מחברת יומן באותו לקוח OAuth ובאותה כתובת חזרה: ה-state
+נושא `csm:<staff_id>`, ו-`google-calendar-callback` מפצל לפיו (`stateSubject`) אל
+`csm_calendar_*` ומחזיר ל-`/csm`. הסנכרון ב-`google-calendar-sync?scope=csm`, מ-cron
+משלו. **שינוי בקובצי היומן כאן חייב לשמור על הענף שלה** - הפירוט ב-
+`docs/csm-adoption.md`, "יומן Google".
+
 ## הקבצים
 
 | קובץ | תפקיד |

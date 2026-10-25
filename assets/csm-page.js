@@ -88,8 +88,14 @@ async function route(session){
   if (typeof loadCsm !== 'function') await new Promise(r => window.addEventListener('DOMContentLoaded', r, { once:true }));
   show('csmApp');
   // ‏?tab=notifications - הכפתור בהתראה בוואטסאפ (csm-notify.ts)
-  const tab = new URLSearchParams(location.search).get('tab');
-  if (tab) csmSetTab(tab);
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('tab')) csmSetTab(qs.get('tab'));
+  // החזרה מ-Google אחרי "חיבור ליומן" (google-calendar-callback)
+  if (qs.get('gcal')){
+    csmGcalReturn(qs.get('gcal'));
+    qs.delete('gcal');
+    history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : ''));
+  }
   loadCsm();
 }
 
