@@ -15,6 +15,24 @@ enum ShellUrls {
     static let offline = "https://localhost/offline.html"
     static let purchaseNote = "https://localhost/purchase-note.html"
 
+    static func offlineFor(why: String, failed: URL?) -> URL? {
+        var parts = URLComponents(string: offline)
+        var items = [URLQueryItem(name: "why", value: why == "http" ? "http" : "net")]
+        if let retry = siteRetry(failed) {
+            items.append(URLQueryItem(name: "retry", value: retry))
+        }
+        parts?.queryItems = items
+        return parts?.url
+    }
+
+    static func siteRetry(_ url: URL?) -> String? {
+        guard let url = url, url.scheme?.lowercased() == "https", let hostRaw = url.host?.lowercased() else { return nil }
+        let host = hostRaw.hasPrefix("www.") ? String(hostRaw.dropFirst(4)) : hostRaw
+        if host != siteHost && !host.hasSuffix("." + siteHost) { return nil }
+        if url.path.contains("offline.html") || url.path.contains("purchase-note") { return nil }
+        return url.absoluteString
+    }
+
     static func rewriteAuthorize(_ raw: String) -> String? {
         guard let parts = URLComponents(string: raw), let host = parts.host?.lowercased() else { return nil }
         let authorize = host.hasSuffix(".supabase.co") && (parts.path).contains("/auth/v1/authorize")
@@ -357,6 +375,17 @@ class ShukNavigationProxy: NSObject, WKNavigationDelegate {
         forward?.webView?(webView, didFinish: navigation)
     }
 
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if navigationResponse.isForMainFrame,
+           let http = navigationResponse.response as? HTTPURLResponse,
+           http.statusCode >= 400 {
+            owner?.showHttpFailure(webView, url: http.url)
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         owner?.showOfflineIfNeeded(webView, error: error)
         forward?.webView?(webView, didFail: navigation, withError: error)
@@ -428,10 +457,19 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
 
     func showOfflineIfNeeded(_ webView: WKWebView, error: Error) {
         let code = (error as NSError).code
-        if ![-1009, -1001, -1003, -1005, -1004].contains(code) { return }
+        // ביטול ניווט, וגם WebKitErrorFrameLoadInterrupted אחרי שביטלנו תשובת HTTP.
+        if code == NSURLErrorCancelled || code == 102 { return }
+        loadOffline(webView, why: "net", failed: webView.url)
+    }
+
+    func showHttpFailure(_ webView: WKWebView, url: URL?) {
+        loadOffline(webView, why: "http", failed: url)
+    }
+
+    private func loadOffline(_ webView: WKWebView, why: String, failed: URL?) {
         let current = webView.url?.absoluteString ?? ""
-        if current.contains("offline.html") { return }
-        if let offline = URL(string: ShellUrls.offline) {
+        if current.contains("offline.html") || current.contains("purchase-note") { return }
+        if let offline = ShellUrls.offlineFor(why: why, failed: failed) {
             webView.load(URLRequest(url: offline))
         }
     }

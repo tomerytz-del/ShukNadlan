@@ -183,6 +183,18 @@ test('a browser without the bridge is unchanged', () => {
   assert.equal(bridge.shouldAutoShowLocation({ site: false, seen: false, path: '/' }), false);
 });
 
+test('the location title is forced white and http failures have their own sentence', () => {
+  const bridgeSrc = fs.readFileSync(new URL('../www/native-bridge.js', import.meta.url), 'utf8');
+  const offline = fs.readFileSync(new URL('../www/offline.html', import.meta.url), 'utf8');
+  const android = fs.readFileSync(new URL('../android/app/src/main/java/il/co/shuknadlan/app/ShellWebViewClient.java', import.meta.url), 'utf8');
+  assert.match(bridgeSrc, /#shukLocPrompt h1\{color:#fff !important;-webkit-text-fill-color:#fff !important\}/);
+  assert.match(bridgeSrc, /shuk-loc-allow/);
+  assert.match(offline, /האתר לא נטען כרגע/);
+  assert.match(offline, /slice\(-17\)/);
+  assert.match(android, /onReceivedHttpError/);
+  assert.equal(offline.includes('\u2014'), false);
+});
+
 test('the privacy page says the point is used on the device and not stored', () => {
   assert.match(privacy, /מיקום משוער נשאל באפליקציה רק אחרי לחיצה על "הפעלה"/);
   assert.match(privacy, /אינו נשלח לשרת ואינו/);

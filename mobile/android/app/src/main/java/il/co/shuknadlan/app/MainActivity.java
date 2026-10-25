@@ -6,10 +6,12 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.GeolocationPermissions;
 import android.webkit.WebBackForwardList;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -59,6 +61,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         if (bridge == null || bridge.getWebView() == null) return;
         WebView webView = bridge.getWebView();
+        disableForceDark(webView.getSettings());
         injectDocumentStart(webView);
         bridge.setWebViewClient(new ShellWebViewClient(bridge, this));
         // בלי זה target=_blank ו-window.open נזרקים, והלחיצה לא עושה כלום.
@@ -342,6 +345,16 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         moveTaskToBack(true);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void disableForceDark(WebSettings settings) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            settings.setForceDark(WebSettings.FORCE_DARK_OFF);
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            settings.setAlgorithmicDarkeningAllowed(false);
+        }
     }
 
     private void injectDocumentStart(WebView webView) {

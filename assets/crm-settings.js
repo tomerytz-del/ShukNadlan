@@ -350,6 +350,7 @@ async function setOwnerLeadsActive(sw){
 /* קיצור דרך מ"הלידים שלי" (החלטה של תומר, 20.10.2026): ההגדרות עצמן נשארות
    ב"ההגדרות שלי", והקיצור פותח אותן שם */
 function openLeadPrefs(){
+  if (typeof openLeadPrefsSheet === 'function' && openLeadPrefsSheet('setLeadPrefs')) return;
   uiFoldOpen('setLeadPrefs');
   gotoSection('accPrefs', null, { scrollTo:'#setLeadPrefs' });
 }

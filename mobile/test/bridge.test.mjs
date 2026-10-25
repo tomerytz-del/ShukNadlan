@@ -97,6 +97,27 @@ test('apple authorize still uses the app callback', () => {
   assert.equal(out.searchParams.get('redirect_to'), AUTH_CALLBACK);
 });
 
+test('plan sheet lines keep features and drop prices', () => {
+  const lines = bridge.planFeatureLines([
+    { text: 'דוח CMA' },
+    { bold: 'לידים', text: ' בלי תקרה' },
+    { text: 'עמלה ₪500' },
+    { text: 'מוסתר', on: false },
+    { text: '' },
+  ]);
+  assert.deepEqual(lines, ['דוח CMA', 'לידים בלי תקרה']);
+});
+
+test('retry url stays on the site and skips the shell pages', () => {
+  assert.equal(bridge.safeSiteRetry('https://shuknadlan.co.il/crm?x=1'), 'https://shuknadlan.co.il/crm?x=1');
+  assert.equal(bridge.safeSiteRetry('https://www.shuknadlan.co.il/crm'), 'https://www.shuknadlan.co.il/crm');
+  assert.equal(bridge.safeSiteRetry('https://a.shuknadlan.co.il/property?id=1'), 'https://a.shuknadlan.co.il/property?id=1');
+  assert.equal(bridge.safeSiteRetry('https://evil.example/crm'), '');
+  assert.equal(bridge.safeSiteRetry('http://shuknadlan.co.il/crm'), '');
+  assert.equal(bridge.safeSiteRetry('https://shuknadlan.co.il/offline.html'), '');
+  assert.equal(bridge.safeSiteRetry('https://notshuknadlan.co.il/crm'), '');
+});
+
 test('callback cannot send the webview to another origin', () => {
   const dest = authReturnUrl(
     'il.co.shuknadlan.app://auth-callback?code=abc',

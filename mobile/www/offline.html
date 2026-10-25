@@ -50,18 +50,41 @@
     <img src="icon.png" alt="">
     <h1>שוק נדל״ן</h1>
     <div class="card">
-      <p>אין חיבור לאינטרנט כרגע. כשהרשת חוזרת, לחצו על נסו שוב.</p>
+      <p id="msg">אין חיבור לאינטרנט כרגע. כשהרשת חוזרת, לחצו על נסו שוב.</p>
       <button type="button" id="retry">נסו שוב</button>
       <a href="https://shuknadlan.co.il/privacy">מדיניות הפרטיות</a>
     </div>
   </main>
   <script>
     var SITE = 'https://shuknadlan.co.il/';
-    document.getElementById('retry').addEventListener('click', function () {
-      if (navigator.onLine) location.replace(SITE);
-    });
+    var q = new URLSearchParams(location.search);
+    var why = q.get('why') === 'http' ? 'http' : 'net';
+    function safeRetry(raw) {
+      try {
+        var url = new URL(raw);
+        if (url.protocol !== 'https:') return '';
+        var host = url.hostname.toLowerCase();
+        if (host.indexOf('www.') === 0) host = host.slice(4);
+        if (host !== 'shuknadlan.co.il' && host.slice(-17) !== '.shuknadlan.co.il') return '';
+        if (url.pathname.indexOf('offline.html') !== -1) return '';
+        return url.toString();
+      } catch (e) { return ''; }
+    }
+    var dest = safeRetry(q.get('retry') || '') || SITE;
+    if (why === 'http') {
+      document.getElementById('msg').textContent = 'האתר לא נטען כרגע. אפשר לנסות שוב.';
+    }
+    var retrying = false;
+    function go() {
+      if (retrying) return;
+      if (why === 'net' && !navigator.onLine) return;
+      retrying = true;
+      location.replace(dest);
+    }
+    document.getElementById('retry').addEventListener('click', go);
     window.addEventListener('online', function () {
-      document.getElementById('retry').textContent = 'החיבור חזר - נסו שוב';
+      if (why === 'net') go();
+      else document.getElementById('retry').textContent = 'נסו שוב';
     });
   </script>
 </body>

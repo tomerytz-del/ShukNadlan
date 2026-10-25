@@ -192,6 +192,8 @@
       isAuthCallback: isAuthCallback,
       failOAuth: function (message) { failOAuth(win, message); },
       launchDestination: function () { return launchDestination(win); },
+      showPlanSheet: function () { showPlanSheet(win); },
+      showLocationPrompt: function () { showLocationPrompt(win, true); },
     };
     win.ShukNative = native;
     installTracking(win);
@@ -389,6 +391,12 @@
     win.document.addEventListener('click', function (event) {
       var node = event.target;
       if (!node || !node.closest) return;
+      if (isPlanControl(node)) {
+        event.preventDefault();
+        event.stopPropagation();
+        showPlanSheet(win);
+        return;
+      }
       var control = node.closest('a[href], button');
       if (control && (anchorIsPurchase(control) || isPurchaseButton(control))) {
         event.preventDefault();
@@ -603,7 +611,7 @@
     var p = doc.createElement('p');
     p.setAttribute('data-shuk-pay-note', '1');
     p.textContent = PAY_NOTE;
-    p.style.cssText = 'margin:8px 0;font-size:.9rem;line-height:1.55';
+    p.style.cssText = 'margin:8px 0;font-size:.9rem;line-height:1.55;color:#5c6b86';
     return p;
   }
 
@@ -645,18 +653,54 @@
     return false;
   }
 
+  function isPlanControl(node) {
+    if (!node || !node.closest) return false;
+    if (node.closest('#shukPlanSheet')) return false;
+    return !!node.closest('#tierBadge, #promoStrip, #promoPopLink, #tgCompare, .tier-badge, .promo-gift, [data-shuk-plan="1"]');
+  }
+
+  function planFeatureLines(features) {
+    var out = [];
+    var list = features || [];
+    for (var i = 0; i < list.length; i++) {
+      var feature = list[i] || {};
+      if (feature.on === false) continue;
+      var text = String((feature.bold || '') + (feature.text || '')).replace(/\s+/g, ' ').trim();
+      if (!text || text.indexOf('₪') !== -1) continue;
+      out.push(text);
+    }
+    return out;
+  }
+
+  function safeSiteRetry(raw) {
+    try {
+      var url = new URL(String(raw));
+      if (url.protocol !== 'https:') return '';
+      var host = url.hostname.toLowerCase();
+      if (host.indexOf('www.') === 0) host = host.slice(4);
+      if (host !== 'shuknadlan.co.il' && !endsWith(host, '.shuknadlan.co.il')) return '';
+      if (url.pathname.indexOf('offline.html') !== -1 || url.pathname.indexOf('purchase-note') !== -1) return '';
+      return url.toString();
+    } catch (e) { return ''; }
+  }
+
+  function disarmPlanAnchor(anchor) {
+    if (!anchor || anchor.getAttribute('data-shuk-plan') === '1') return;
+    var id = anchor.id || '';
+    var plan = id === 'tierBadge' || id === 'promoStrip' || id === 'promoPopLink' || id === 'tgCompare'
+      || (anchor.classList && (anchor.classList.contains('tier-badge') || anchor.classList.contains('promo-gift')));
+    if (!plan) return;
+    anchor.setAttribute('data-shuk-plan', '1');
+    anchor.setAttribute('data-shuk-pay-done', '1');
+    anchor.removeAttribute('href');
+    anchor.removeAttribute('target');
+    anchor.setAttribute('role', 'button');
+  }
+
   function neutralizeAnchor(anchor) {
+    disarmPlanAnchor(anchor);
     if (!anchorIsPurchase(anchor) || anchor.getAttribute('data-shuk-pay-done') === '1') return;
     var doc = anchor.ownerDocument;
-    if (anchor.id === 'tierBadge' || (anchor.classList && anchor.classList.contains('tier-badge'))) {
-      var span = doc.createElement('span');
-      span.className = anchor.className;
-      span.id = anchor.id;
-      span.textContent = anchor.textContent;
-      span.setAttribute('data-shuk-pay-done', '1');
-      if (anchor.replaceWith) anchor.replaceWith(span);
-      return;
-    }
     var parent = anchor.parentNode;
     if (parent && parent.querySelector && parent.querySelector('[data-shuk-pay-note]')) {
       if (anchor.remove) anchor.remove();
@@ -743,6 +787,134 @@
     var gate = doc.getElementById('tierGateScreen');
     if (gate && gate.querySelector('[data-shuk-pay-hidden]')) ensurePayNote(gate);
     shieldPurchaseModal(doc);
+    hidePlanSteering(doc);
+    ensureAppStyles(doc);
+    placeWalletNote(doc);
+  }
+
+  function hidePlanSteering(doc) {
+    var link = doc.getElementById('promoPopLink');
+    if (link) {
+      link.hidden = true;
+      link.textContent = '';
+      disarmPlanAnchor(link);
+    }
+    var compare = doc.getElementById('tgCompare');
+    if (compare) hidePurchaseEl(compare);
+  }
+
+  function ensureAppStyles(doc) {
+    if (!doc || doc.getElementById('shukAppStyles')) return;
+    var style = doc.createElement('style');
+    style.id = 'shukAppStyles';
+    style.textContent = [
+      '#dashboard .tier-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}',
+      '#dashboard .tier-badge,#dashboard #tierBadge{flex:0 0 auto !important;max-width:none !important;overflow:visible !important;text-overflow:clip !important}',
+      'header.crm [data-shuk-pay-note]{display:none !important}',
+      '#accWallet .acc-body>[data-shuk-pay-note]{color:#5c6b86;font-size:.82rem;margin:0 0 10px}',
+    ].join('\n');
+    (doc.head || doc.documentElement).appendChild(style);
+  }
+
+  function placeWalletNote(doc) {
+    var headerNotes = doc.querySelectorAll('header.crm [data-shuk-pay-note]');
+    for (var i = 0; i < headerNotes.length; i++) {
+      if (headerNotes[i].remove) headerNotes[i].remove();
+    }
+    var wallet = doc.getElementById('accWallet');
+    if (!wallet) return;
+    var body = wallet.querySelector('.acc-body') || wallet;
+    var notes = wallet.querySelectorAll('[data-shuk-pay-note]');
+    var note = null;
+    for (var n = 0; n < notes.length; n++) {
+      if (!note) note = notes[n];
+      else if (notes[n].remove) notes[n].remove();
+    }
+    if (!note) note = payNoteEl(doc);
+    note.style.color = '#5c6b86';
+    if (note.parentNode !== body || body.firstChild !== note) body.insertBefore(note, body.firstChild);
+  }
+
+  function currentPlanId(doc) {
+    var badge = doc.getElementById('tierBadge') || doc.querySelector('.tier-badge');
+    if (!badge || !badge.classList) return '';
+    if (badge.classList.contains('tier-premium')) return 'premium';
+    if (badge.classList.contains('tier-mid')) return 'mid';
+    if (badge.classList.contains('tier-free')) return 'free';
+    return '';
+  }
+
+  function showPlanSheet(win) {
+    var doc = win && win.document;
+    if (!doc || !doc.body) return;
+    var existing = doc.getElementById('shukPlanSheet');
+    if (existing && existing.remove) existing.remove();
+    var Tiers = win.Tiers;
+    var list = Tiers && typeof Tiers.list === 'function' ? Tiers.list() : [];
+    var current = currentPlanId(doc);
+    var promoTitle = doc.getElementById('promoPopTitle');
+    var promoSub = doc.getElementById('promoPopSub');
+    var headline = promoTitle && promoTitle.textContent ? promoTitle.textContent.trim() : '';
+    var sub = promoSub && promoSub.textContent ? promoSub.textContent.trim() : '';
+    if (!headline && Tiers && Tiers.PROMO && Tiers.PROMO.active) {
+      headline = Tiers.PROMO.headline || '';
+      sub = Tiers.PROMO.sub || '';
+    }
+
+    var wrap = doc.createElement('div');
+    wrap.id = 'shukPlanSheet';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'shukPlanTitle');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483002;background:rgba(14,26,51,.55);display:flex;align-items:flex-end;justify-content:center;direction:rtl;font-family:Heebo,Arial,sans-serif;color-scheme:only light';
+    var panel = doc.createElement('div');
+    panel.style.cssText = 'background:#fff;color:#12224f;width:min(560px,100%);max-height:min(86dvh,720px);overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box';
+    var title = doc.createElement('h2');
+    title.id = 'shukPlanTitle';
+    title.textContent = 'המסלולים';
+    title.style.cssText = 'margin:0 0 8px;font-size:1.25rem;color:#0e2a6b';
+    panel.appendChild(title);
+    if (headline) {
+      var promo = doc.createElement('p');
+      promo.textContent = sub ? headline + ' - ' + sub : headline;
+      promo.style.cssText = 'margin:0 0 12px;font-size:.92rem;line-height:1.5;color:#3a4458';
+      panel.appendChild(promo);
+    }
+    for (var i = 0; i < list.length; i++) {
+      var tier = list[i];
+      var card = doc.createElement('section');
+      card.style.cssText = 'border:1px solid #e3e8f0;border-radius:14px;padding:12px 12px 8px;margin:0 0 10px';
+      var head = doc.createElement('h3');
+      head.style.cssText = 'margin:0 0 6px;font-size:1rem;color:#0e2a6b';
+      head.textContent = tier.name || '';
+      if (tier.id === current) {
+        var mark = doc.createElement('span');
+        mark.textContent = ' · המסלול שלך';
+        mark.style.cssText = 'font-weight:700;color:#8a6a12';
+        head.appendChild(mark);
+      }
+      card.appendChild(head);
+      var lines = planFeatureLines(tier.cardFeatures && tier.cardFeatures.length ? tier.cardFeatures : tier.features);
+      var ul = doc.createElement('ul');
+      ul.style.cssText = 'margin:0;padding:0 1.1em 0 0;font-size:.9rem;line-height:1.45';
+      for (var j = 0; j < lines.length; j++) {
+        var li = doc.createElement('li');
+        li.textContent = lines[j];
+        ul.appendChild(li);
+      }
+      card.appendChild(ul);
+      panel.appendChild(card);
+    }
+    var close = doc.createElement('button');
+    close.type = 'button';
+    close.textContent = 'סגירה';
+    close.style.cssText = 'display:block;width:100%;border:0;border-radius:12px;background:#0e2a6b;color:#fff;font:inherit;font-weight:800;padding:12px 16px;margin-top:4px';
+    close.addEventListener('click', function () { if (wrap.remove) wrap.remove(); });
+    panel.appendChild(close);
+    wrap.addEventListener('click', function (event) { if (event.target === wrap && wrap.remove) wrap.remove(); });
+    wrap.appendChild(panel);
+    doc.body.appendChild(wrap);
+    try { close.focus(); } catch (e) {}
   }
 
   function showPayOverlay(win) {
@@ -933,6 +1105,20 @@
     if (doc.addEventListener) doc.addEventListener('DOMContentLoaded', fn);
   }
 
+  function ensureLocStyles(doc) {
+    if (!doc || doc.getElementById('shukLocStyles')) return;
+    var style = doc.createElement('style');
+    style.id = 'shukLocStyles';
+    style.textContent = [
+      '#shukLocPrompt{color-scheme:only light;forced-color-adjust:none}',
+      '#shukLocPrompt h1{color:#fff !important;-webkit-text-fill-color:#fff !important}',
+      '#shukLocPrompt p,#shukLocPrompt button{color:#d5def5 !important;-webkit-text-fill-color:#d5def5 !important}',
+      '#shukLocPrompt .shuk-loc-allow{background:#c9a227 !important;color:#0e2a6b !important;-webkit-text-fill-color:#0e2a6b !important}',
+      '#shukLocPrompt a{color:#c9a227 !important;-webkit-text-fill-color:#c9a227 !important}',
+    ].join('\n');
+    (doc.head || doc.documentElement).appendChild(style);
+  }
+
   function showLocationPrompt(win, reopen) {
     var doc = win.document;
     if (!doc || !doc.body || doc.getElementById('shukLocPrompt')) return;
@@ -952,8 +1138,9 @@
 
     var title = doc.createElement('h1');
     title.id = 'shukLocTitle';
+    ensureLocStyles(doc);
     title.textContent = LOC_COPY.title;
-    title.style.cssText = 'margin:8px 0 12px;font-size:1.65rem;font-weight:800;line-height:1.3';
+    title.style.cssText = 'margin:8px 0 12px;font-size:1.65rem;font-weight:800;line-height:1.3;color:#fff;-webkit-text-fill-color:#fff';
 
     var body = doc.createElement('p');
     body.textContent = LOC_COPY.body;
@@ -980,6 +1167,7 @@
 
     var allow = doc.createElement('button');
     allow.type = 'button';
+    allow.className = 'shuk-loc-allow';
     allow.textContent = LOC_COPY.allow;
     allow.style.cssText = 'display:block;width:100%;border:0;border-radius:999px;background:#c9a227;color:#0e2a6b;font:inherit;font-size:1.15rem;font-weight:800;padding:15px 18px;cursor:pointer';
 
@@ -1123,6 +1311,8 @@
     pickLiveMarket: pickLiveMarket,
     marketPathToOpen: marketPathToOpen,
     isLocateControl: isLocateControl,
+    planFeatureLines: planFeatureLines,
+    safeSiteRetry: safeSiteRetry,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     install: install,

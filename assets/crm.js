@@ -26675,6 +26675,12 @@ function scrollToTopOf(el){
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function gotoSection(accId, focusId, opts){
+  const scrollSel = opts && opts.scrollTo;
+  if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
+      && typeof openLeadPrefsSheet === 'function'
+      && openLeadPrefsSheet(scrollSel === '#setOwnerSwitch' ? 'setOwnerSwitch' : 'setLeadPrefs')) {
+    return;
+  }
   accId = accResolve(accId);
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
@@ -27482,6 +27488,9 @@ function closeNavLayers(){
   closeProfilePanel();
   closeBellPanel();
   closeCoachLayer();
+  // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
+  // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
+  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
 }
 
 function setNavLayer(layer){

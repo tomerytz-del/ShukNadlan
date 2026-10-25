@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
@@ -32,17 +33,22 @@ public class ShellWebViewClient extends BridgeWebViewClient {
     public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
         super.onReceivedError(view, request, error);
         if (request == null || !request.isForMainFrame() || error == null) return;
-        int code = error.getErrorCode();
-        if (code != WebViewClientCompat.ERROR_HOST_LOOKUP
-            && code != WebViewClientCompat.ERROR_CONNECT
-            && code != WebViewClientCompat.ERROR_IO
-            && code != WebViewClientCompat.ERROR_TIMEOUT
-            && code != WebViewClientCompat.ERROR_FAILED_SSL_HANDSHAKE) {
-            return;
-        }
-        String failing = request.getUrl() == null ? "" : request.getUrl().toString();
-        if (failing.contains("offline.html")) return;
-        view.loadUrl(ShellUrls.OFFLINE);
+        showFailure(view, request.getUrl() == null ? "" : request.getUrl().toString(), "net");
+    }
+
+    @Override
+    public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+        super.onReceivedHttpError(view, request, errorResponse);
+        if (request == null || !request.isForMainFrame() || errorResponse == null) return;
+        if (errorResponse.getStatusCode() < 400) return;
+        showFailure(view, request.getUrl() == null ? "" : request.getUrl().toString(), "http");
+    }
+
+    private void showFailure(WebView view, String failing, String why) {
+        if (failing.contains("offline.html") || failing.contains("purchase-note")) return;
+        String current = view.getUrl() == null ? "" : view.getUrl();
+        if (current.contains("offline.html")) return;
+        view.loadUrl(ShellUrls.offlineFor(why, failing));
     }
 
     @Override
@@ -72,14 +78,5 @@ public class ShellWebViewClient extends BridgeWebViewClient {
             return true;
         }
         return false;
-    }
-
-    /** הקבועים של WebViewClient, בלי לרשת פעמיים. */
-    private static final class WebViewClientCompat {
-        static final int ERROR_HOST_LOOKUP = -2;
-        static final int ERROR_CONNECT = -6;
-        static final int ERROR_IO = -7;
-        static final int ERROR_TIMEOUT = -8;
-        static final int ERROR_FAILED_SSL_HANDSHAKE = -11;
     }
 }

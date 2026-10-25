@@ -123,6 +123,26 @@ public final class ShellUrls {
         return b.build().toString();
     }
 
+    /** מסך השגיאה של השלד, עם סיבה וכתובת חזרה רק אם היא באתר. */
+    public static String offlineFor(String why, String failed) {
+        StringBuilder b = new StringBuilder(OFFLINE);
+        b.append("?why=").append("http".equals(why) ? "http" : "net");
+        String retry = siteRetry(failed);
+        if (!retry.isEmpty()) b.append("&retry=").append(Uri.encode(retry));
+        return b.toString();
+    }
+
+    /** https באתר בלבד. לא מסך השלד, כדי שלא נחזור אליו בלולאה. */
+    public static String siteRetry(String raw) {
+        Uri uri = parse(raw);
+        if (uri == null || !"https".equals(scheme(uri))) return "";
+        String host = stripWww(host(uri));
+        if (!host.equals(SITE_HOST) && !host.endsWith("." + SITE_HOST)) return "";
+        String path = path(uri);
+        if (path.contains("offline.html") || path.contains("purchase-note")) return "";
+        return uri.toString();
+    }
+
     public static boolean isLocalShell(String raw) {
         Uri uri = parse(raw);
         if (uri == null) return false;
