@@ -66,6 +66,19 @@
 (function () {
   'use strict';
 
+  /* האפליקציה מהחנות כבר מותקנת. רצועת "הוספה למסך הבית" לא שייכת שם,
+     וגם אין לספור את הביקור כמו ביקור בדפדפן. סוכן המשתמש הזה קיים רק
+     ב-WebView (capacitor.config.js), לא בכרום. */
+  if (/ShukNadlanApp/i.test(navigator.userAgent || '')) {
+    function hideInstallEntries() {
+      var nodes = document.querySelectorAll('[data-pwa-install]');
+      for (var i = 0; i < nodes.length; i++) nodes[i].hidden = true;
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideInstallEntries);
+    else hideInstallEntries();
+    return;
+  }
+
   var SW_URL = '/sw.js';
   var ICON_URL = '/assets/icon-192.png';
 

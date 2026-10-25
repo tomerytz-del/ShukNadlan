@@ -25914,6 +25914,12 @@ function scrollToTopOf(el){
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function gotoSection(accId, focusId, opts){
+  const scrollSel = opts && opts.scrollTo;
+  if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
+      && typeof openLeadPrefsSheet === 'function'
+      && openLeadPrefsSheet(scrollSel === '#setOwnerSwitch' ? 'setOwnerSwitch' : 'setLeadPrefs')) {
+    return;
+  }
   accId = accResolve(accId);
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
@@ -26537,7 +26543,7 @@ function renderSideNav(){
 /* מתג "תצוגת סוכן/ת / ניהול פלטפורמה" בראש סרגל הצד, למנהל/ת הפלטפורמה
    בלבד. אותו setDashView של #viewSwitch שבראש התוכן - ובמחשב ההוא מוסתר
    (crm.html), כי מתג אחד בראש התפריט מספיק. בנייד אין סרגל צד, ו-#viewSwitch
-   נשאר. HANDOFF סעיף 2.2. */
+   נשאר בדף הבית ובתצוגת הניהול, לא במסך קטגוריה. HANDOFF סעיף 2.2. */
 function sideViewSwitch(){
   if (!(currentAgent && currentAgent.is_platform_admin)) return null;
   const wrap = document.createElement('div');
@@ -26729,6 +26735,9 @@ function closeNavLayers(){
   closeProfilePanel();
   closeBellPanel();
   closeCoachLayer();
+  // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
+  // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
+  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
 }
 
 function setNavLayer(layer){
@@ -26860,6 +26869,7 @@ function applyNavFilter(){
   if (head) head.hidden = true;
   renderScreenCrumb();
   renderScreenTabs(tabAccs);
+  renderViewSwitch();
 
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
@@ -29387,12 +29397,19 @@ document.getElementById('kwRange')?.addEventListener('click', (e)=>{
   loadKeywordReport();
 });
 
-/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
+/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ----------
+   המתג מחליף את כל המעטפת. בדף הבית ובתצוגת הניהול יש לו מה להחליף.
+   במסך של קטגוריה (מידע תכנוני, לידים, נכסים) הוא לא משנה את המסך,
+   רק יוצא ממנו, ולכן שם הוא מוסתר. בסרגל הצד במחשב יש מתג נפרד. */
+function viewSwitchMatters(){
+  if (dashView === 'admin') return true;
+  return navActive === NAV_HOME;
+}
 function renderViewSwitch(){
   const sw = document.getElementById('viewSwitch');
   if (!sw) return;
   const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
-  sw.hidden = !isAdmin;
+  sw.hidden = !(isAdmin && viewSwitchMatters());
   if (!isAdmin && dashView === 'admin') dashView = 'agent';
   sw.querySelectorAll('button').forEach(b =>
     b.setAttribute('aria-pressed', String(b.dataset.view === dashView)));

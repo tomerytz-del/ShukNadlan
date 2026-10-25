@@ -56,6 +56,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/auth-return.js"></script>
 <script src="/vendor/supabase-js@2.116.0/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
+<!-- התחברות עם Apple. לא מצייר כפתור כל עוד SHUK_APPLE_SIGNIN הוא false. -->
+<script src="assets/apple-signin.js"></script>
 <script src="/vendor/leaflet@1.9.4/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
@@ -5628,7 +5630,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      היא בדיוק השטח שהמדדים צריכים. */
   .view-switch{
     display:inline-flex;background:var(--surface-2);
-    border-radius:999px;padding:3px;gap:2px;align-self:flex-start;max-width:100%;
+    border-radius:999px;padding:3px;gap:2px;align-self:center;margin-inline:auto;max-width:100%;
+    flex-wrap:wrap;justify-content:center;
   }
   .view-switch[hidden]{display:none}
   .view-switch button{
@@ -6619,6 +6622,56 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* "הלידים שלי" (assets/crm-leads.js, docs/leads-unified.md) */
   .leads-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  /* רצועת הגדרות: רק מתחת ל-1024, מעל לשוניות הסינון. בדסקטופ נשאר הכרטיס
+     שבתחתית המסך. הלשוניות עצמן גוללות לצדדים עם פס גלילה גלוי, כדי שהראשונה
+     לא תיחתך ב-RTL. */
+  .leads-pref-strip{display:none}
+  @media (max-width:1023px){
+    .leads-pref-strip{
+      display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 8px 6px 10px;
+      border:1px solid var(--nv-line);border-radius:14px;background:#fff;
+    }
+    .leads-pref-strip.is-unset{
+      border-color:var(--nv-gold);background:#fffaf0;border-inline-start:3px solid var(--nv-gold);
+    }
+    .leads-pref-gear{flex:none;display:flex;color:var(--nv-navy)}
+    .leads-pref-strip.is-unset .leads-pref-gear{color:var(--nv-gold-dark)}
+    .leads-pref-sum{
+      flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--nv-ink);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .leads-pref-edit{
+      flex:none;min-height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--nv-line);
+      background:#fff;font:inherit;font-size:14px;font-weight:800;color:var(--nv-navy);cursor:pointer;
+    }
+    .leads-pref-edit:focus-visible{outline:2px solid var(--nv-accent);outline-offset:2px}
+    #leadsSettings{display:none}
+    .leads-top,.clients-top{min-width:0;max-width:100%}
+    #leadsTabs.ui-tabs,#clientsKindTabs.ui-tabs{
+      display:flex;width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+      overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;
+      scrollbar-width:thin;scrollbar-color:#6d7b92 transparent;-webkit-overflow-scrolling:touch;
+      scroll-padding-inline:8px;padding-bottom:7px;
+    }
+    #leadsTabs.ui-tabs::-webkit-scrollbar,#clientsKindTabs.ui-tabs::-webkit-scrollbar{display:block;height:5px}
+    #leadsTabs.ui-tabs::-webkit-scrollbar-thumb,#clientsKindTabs.ui-tabs::-webkit-scrollbar-thumb{
+      background:#6d7b92;border-radius:99px;
+    }
+    #leadsTabs .ui-tab,#clientsKindTabs .ui-tab{flex:0 0 auto;padding:0 12px;font-size:14px}
+    #leadsTabs.is-more-left,#clientsKindTabs.is-more-left{
+      box-shadow:inset 14px 0 12px -8px rgba(14,26,51,.35);
+    }
+    #leadsTabs.is-more-right,#clientsKindTabs.is-more-right{
+      box-shadow:inset -14px 0 12px -8px rgba(14,26,51,.35);
+    }
+    #leadsTabs.is-more-left.is-more-right,#clientsKindTabs.is-more-left.is-more-right{
+      box-shadow:inset 14px 0 12px -8px rgba(14,26,51,.35), inset -14px 0 12px -8px rgba(14,26,51,.35);
+    }
+  }
+  #leadPrefsSheet .ui-fold{border:0;box-shadow:none}
+  #leadPrefsSheet .leads-set-row{margin-top:14px}
+  @media (min-width:1024px){#leadPrefsSheet{display:none !important}}
+  body.lp-sheet-open{overflow:hidden}
   .lp-list{display:flex;flex-direction:column;gap:12px}
   .lp-card{background:#fff;border:1px solid var(--nv-line);border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
   .lp-card.is-urgent{border:1.5px solid #E8A07A;box-shadow:inset -4px 0 0 var(--nv-urgent)}
@@ -7001,9 +7054,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .agr-group-h:first-child{margin-top:0}
   @media (max-width:640px){.agr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-  .screen-tabs{margin:0 0 12px}
-  /* ‏עסקאות ומידע תכנוני: שדות בגובה מגע, ובחירה בשבבים במקום select צפוף
-     (initSegs). ‏:is() ולא סלקטור לכל שדה - שני הכלים נראים אותו דבר. */
+  /* שתי לשוניות ארוכות נחתכו בקצה במסך צר כי .ui-tabs הוא שורה שלא
+     נשברת. כאן הן חולקות את הרוחב וגולשות לשתי שורות. מסך המידע התכנוני
+     מקבל למטה עיצוב משלו (data-screen), והשבבים של העסקאות יושבים אחריו. */
+  .screen-tabs{display:flex;width:100%;max-width:100%;margin:0 0 12px;overflow:visible;box-sizing:border-box}
+  .screen-tabs .ui-tab{
+    flex:1 1 0;min-width:0;height:auto;min-height:44px;white-space:normal;text-align:center;
+    justify-content:center;line-height:1.3;padding:8px 10px;
+  }
+  /* עסקאות ומידע תכנוני: שדות בגובה מגע, ובחירה בשבבים במקום select צפוף
+     (initSegs). :is() ולא סלקטור לכל שדה - שני הכלים נראים אותו דבר. */
   :is(#accPlanning,#accDealsLookup) input[type=text]{min-height:46px;padding:0 14px;border:1px solid var(--nv-line,#D9DEE8);
     border-radius:12px;font:inherit;font-size:1rem;background:#fff;box-sizing:border-box;width:100%}
   :is(#accPlanning,#accDealsLookup) input[type=text]:focus{outline:2px solid var(--nv-accent,#1F5BD9);outline-offset:1px;border-color:transparent}
@@ -7018,7 +7078,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .seg button[aria-checked=true]{background:var(--nv-accent,#1F5BD9);border-color:var(--nv-accent,#1F5BD9);color:#fff}
   .seg button:focus-visible{outline:2px solid var(--nv-accent,#1F5BD9);outline-offset:2px}
   select[data-seg]{display:none}
-  /* הלשוניות של המסך הזה (renderScreenTabs, ‏data-screen) - שתי לשוניות
+  /* הלשוניות של המסך הזה (renderScreenTabs, data-screen) - שתי לשוניות
      ברוחב מלא, גבוהות, והפעילה מלאה בצבע: "עסקאות" ו"מידע תכנוני" הם שני
      כלים שונים, ולא סינון של אותה רשימה. */
   .screen-tabs[data-screen=accPlanning]{display:flex;width:100%;padding:5px;border-radius:14px}
@@ -7026,6 +7086,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .screen-tabs[data-screen=accPlanning] .ui-tab[aria-selected=true]{background:var(--nv-accent,#1F5BD9);color:#fff;box-shadow:0 2px 8px rgba(31,91,217,.25)}
   @media(min-width:720px){.seg-fields{grid-template-columns:1fr 1fr}}
   .screen-tab-n{font-size:12px;font-weight:700;color:var(--nv-muted);background:#F1F3F8;border-radius:999px;padding:1px 7px}
+  .plan-fields{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .plan-fields input,.plan-fields select{
+    width:100%;min-width:0;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    padding:11px 12px;font:inherit;background:#fff;color:inherit;
+  }
+  .plan-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .plan-trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+  .plan-hint{margin:0;font-size:.75rem;color:var(--ink-soft);line-height:1.45}
   .screen-tab-n.is-hot{color:#fff;background:var(--nv-urgent)}
 
   /* מחיקת שיחה - טקסט אדום, ואישור בתוך הכרטיס (4.x) */
@@ -8630,7 +8698,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  ארוכה. כאן מקלידים שתי אותיות ורואים את מה שמתאים, וגם המקלדת
                  בנייד נשארת הדרך הטבעית. הרשימה הסגורה נאכפת בשמירה (‏canonicalStreet)
                  ולא ברכיב — ‏datalist לבדו אינו חוסם הקלדה חופשית. -->
-            <input type="text" id="npStreet" list="streetOptions" autocomplete="off" placeholder="הקלידו ובחרו מהרשימה">
+            <input type="text" id="npStreet" list="streetOptions" autocomplete="off" placeholder="הקלידו ובחרו">
             <datalist id="streetOptions"></datalist>
             <p id="npStreetHint" style="font-size:.72rem;margin:5px 0 0;line-height:1.5"></p>
           </div>
@@ -9097,6 +9165,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="ui-scope leads-top">
           <p class="ui-hint"><span>כל הלידים במקום אחד: פניות מהאתר, לידי בעלים, שיחות ולידים שנרכשו.</span><span>מסודרים לפי מי שכדאי לחזור אליו קודם.</span></p>
           <div class="ui-banner ui-banner--urgent" id="leadsUrgent" hidden><span class="ui-banner-text" id="leadsUrgentText"></span><button type="button" class="ui-link" id="leadsUrgentGo">לליד</button></div>
+          <div class="leads-pref-strip is-unset" id="leadsPrefStrip">
+            <span class="leads-pref-gear" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1.3H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+            <span class="leads-pref-sum" id="leadsPrefSummary">הגדירו אילו לידים לקבל</span>
+            <button type="button" class="leads-pref-edit" id="leadsPrefEdit">עריכה</button>
+          </div>
           <div class="ui-tabs" role="tablist" id="leadsTabs" aria-label="שלב הטיפול">
             <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
@@ -9123,11 +9196,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="ui-switch" data-ui-switch id="leadsOwnerSwitch" aria-pressed="false" aria-labelledby="leadsOwnerLabel"></button>
             </div>
             <button type="button" class="ui-link" id="leadsEditPrefs">עריכת שכונות וסוגי נכס ←</button>
-            <div class="leads-set-row">
+            <div class="leads-set-row" id="leadsFollowRow">
               <div><div class="ui-row-title" id="leadsFollowLabel">לחזור לליד חדש תוך שעה</div><div class="ui-row-sub">משימה אוטומטית ביומן לכל ליד חדש, בשעות העבודה.</div></div>
               <button type="button" class="ui-switch" data-ui-switch id="leadsFollowupSwitch" aria-pressed="true" aria-labelledby="leadsFollowLabel"></button>
             </div>
-            <div class="leads-set-links">
+            <div class="leads-set-links" id="leadsSetLinks">
               <button type="button" class="ui-link" data-goto="accNotifPrefs">איך מודיעים לך על ליד</button>
               <button type="button" class="ui-link" data-goto="accProfile" data-focus="pfAreas">תחום ואזורי פעילות</button>
               <button type="button" class="ui-link" data-goto="accLines">מספרים וירטואליים</button>
@@ -9607,7 +9680,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <div class="list-toolbar">
           <input type="search" id="agrSearch" class="filter-input"
-                 placeholder="חיפוש הסכם - שם החותם/ת, טלפון, כתובת הנכס או סוג ההסכם">
+                 placeholder="חיפוש הסכם" aria-label="חיפוש לפי שם, טלפון, כתובת או סוג">
           <div class="toolbar-row">
             <select id="agrStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
               <option value="">כל הסטטוסים</option>
@@ -9773,19 +9846,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
       <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה - הזינו כתובת או גוש/חלקה, בכל עיר.
         בעפולה מהשכבה של העירייה, ובשאר הארץ מ-GovMap.</p>
-      <input type="text" id="planCity" value="עפולה" placeholder="עיר" style="margin-bottom:8px;width:100%">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב (למשל: דפנה)">
-        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הרשימה כאן עוקבת
-             אחרי שדה העיר **של הכלי** (planCity), והרשימה בטופס אחרי שדה
-             העיר של הטופס. ‏datalist משותף היה מציג כאן את רחובות העיר
-             שהוקלדה בטופס — רשימה שגויה, בלי שום סימן לכך. -->
-        <datalist id="planStreetOptions"></datalist>
-        <input type="text" id="planHouseNum" placeholder="מספר בית">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <input type="text" id="planGush" placeholder="גוש (אופציונלי, במקום כתובת)">
+      <div class="plan-fields">
+      <input type="text" id="planCity" value="עפולה" placeholder="עיר">
+      <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב">
+      <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הרשימה כאן עוקבת
+           אחרי שדה העיר של הכלי (planCity), והרשימה בטופס אחרי שדה
+           העיר של הטופס. ‏datalist משותף היה מציג כאן את רחובות העיר
+           שהוקלדה בטופס. -->
+      <datalist id="planStreetOptions"></datalist>
+      <p class="plan-hint">למשל: דפנה 12. אפשר גם גוש וחלקה בלי כתובת.</p>
+      <input type="text" id="planHouseNum" placeholder="מספר בית">
+      <div class="plan-pair">
+        <input type="text" id="planGush" placeholder="גוש (אופציונלי)">
         <input type="text" id="planHelka" placeholder="חלקה">
+      </div>
       </div>
       <button type="button" class="btn btn-gold btn-block" id="planLookupBtn">בדיקת מידע תכנוני</button>
       <div id="planFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
@@ -9818,19 +9892,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </summary>
       <div class="acc-body">
       <p class="acc-sub">מה נמכר בפועל ליד כתובת, ממאגר עסקאות המקרקעין של רשות המיסים. החיפוש הוא לפי מרחק מהכתובת ולא לפי שם הרחוב.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input type="text" id="mdStreet" list="mdStreetOptions" autocomplete="off" placeholder="רחוב (אפשר להשאיר ריק לכל העיר)">
-        <!-- ‏datalist נפרד, מאותה סיבה שיש אחד נפרד למידע התכנוני: הרשימה
-             של טופס הנכס עוקבת אחרי שדה העיר שבטופס, וכאן העיר היא שדה
-             אחר. רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. -->
-        <datalist id="mdStreetOptions"></datalist>
+      <div class="plan-fields">
+      <input type="text" id="mdStreet" list="mdStreetOptions" autocomplete="off" placeholder="רחוב">
+      <!-- ‏datalist נפרד, מאותה סיבה שיש אחד נפרד למידע התכנוני: הרשימה
+           של טופס הנכס עוקבת אחרי שדה העיר שבטופס, וכאן העיר היא שדה
+           אחר. רשימה משותפת הייתה מציגה רחובות של עיר אחרת. -->
+      <datalist id="mdStreetOptions"></datalist>
+      <p class="plan-hint">אפשר להשאיר ריק כדי לחפש בכל העיר.</p>
+      <div class="plan-pair">
         <input type="text" id="mdHouseNum" placeholder="מספר בית">
-      </div>
-      <div style="margin-bottom:8px">
         <input type="text" id="mdCity" value="עפולה" placeholder="עיר">
       </div>
-      <!-- ‏בחירה בשבבים (initSegs ב-assets/crm.js): ה-select נשאר מקור הערך
-           (‏.value, וגם prOpenDeals שממלא אותו מכרטיס נכס), והשבבים רק
+      <!-- בחירה בשבבים (initSegs ב-assets/crm.js): ה-select נשאר מקור הערך
+           (.value, וגם prOpenDeals שממלא אותו מכרטיס נכס), והשבבים רק
            מציגים ומשנים אותו. -->
       <div class="seg-fields">
         <div class="seg-field"><span class="seg-label" id="mdTypeL">סוג נכס</span>
@@ -9861,6 +9935,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <option value="25">25</option>
             <option value="50">50</option>
           </select></div>
+      </div>
       </div>
       <button type="button" class="btn btn-gold btn-block" id="mdLookupBtn">חיפוש עסקאות</button>
       <div id="mdFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
@@ -10014,7 +10089,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="checkbox" id="officeCallsMissed" hidden>
           </div>
           <div class="call-actions calls-filter">
-            <input type="search" id="officeCallsSearch" class="calls-search" placeholder="חיפוש לפי שם המתקשר/ת, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות המשרד">
+            <input type="search" id="officeCallsSearch" class="calls-search" placeholder="שם, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות המשרד">
             <label class="call-meta">מ-<input type="date" id="officeCallsFrom" aria-label="מתאריך"></label>
             <label class="call-meta">עד<input type="date" id="officeCallsTo" aria-label="עד תאריך"></label>
             <select id="officeCallsSort" aria-label="מיון">
@@ -11028,7 +11103,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- חיפוש ומיון: שם לקוח/ה, טלפון, מילה מהסיכום, וטווח תאריכים - בשרת,
                כי הרשימה שנטענת היא רק 60 האחרונות (refreshCallList) -->
           <div class="call-actions calls-filter" id="callsFilter">
-            <input type="search" id="callsSearch" class="calls-search" placeholder="חיפוש לפי שם לקוח/ה, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות">
+            <input type="search" id="callsSearch" class="calls-search" placeholder="שם, טלפון או מילה מהסיכום" aria-label="חיפוש שיחות">
             <label class="call-meta">מ-<input type="date" id="callsFrom" aria-label="מתאריך"></label>
             <label class="call-meta">עד<input type="date" id="callsTo" aria-label="עד תאריך"></label>
             <select id="callsSort" aria-label="מיון">
@@ -11588,6 +11663,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <aside class="dash-side" id="sideNav" aria-label="ניווט הדשבורד"></aside>
   </div>
 
+</div>
+
+<!-- גיליון העדפות הלידים במובייל. הטופס עצמו הוא #setLeadPrefs, שעובר לכאן
+     בפתיחה וחוזר ל"ההגדרות שלי" בסגירה. אין עותק שני של השדות. -->
+<div class="nav-layer" id="leadPrefsSheet" hidden>
+  <div class="nl-backdrop" id="leadPrefsSheetBackdrop"></div>
+  <section class="nl-panel" role="dialog" aria-modal="true" aria-labelledby="leadPrefsSheetTitle">
+    <div class="nl-grip" aria-hidden="true"></div>
+    <div class="nl-head">
+      <h2 id="leadPrefsSheetTitle">הגדרות לידים</h2>
+      <button type="button" class="nl-close" id="leadPrefsSheetClose" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></button>
+    </div>
+    <div id="leadPrefsSheetSlot"></div>
+  </section>
 </div>
 
 <!-- ---------- סרגל הניווט התחתון (מובייל) ----------

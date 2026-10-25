@@ -157,11 +157,12 @@ function renderLeadsUnified(agentId){
 
   // הלשוניות
   const counts = { new: fresh.length, work: work.length, archive: archived.length,
-                   demand: openDemandRows ? openDemandRows.length : '·' };
+                   demand: openDemandRows ? openDemandRows.filter(d => !d.mine).length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  alignScrollTabs(document.getElementById('leadsTabs'));
   document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
   if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
 
@@ -373,19 +374,32 @@ function openLeadUnified(id){
 
 /* ---------- ביקוש פתוח ----------
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
-   docs/scraped-leads.md). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
-   תשלום, וגלוי לכל הסוכנים בעיר. הדרך היחידה לפנות היא הפוסט עצמו - ולכן
-   אין כאן חיוג, וואטסאפ או "הוספה כלקוח/ה". נטען רק כשהלשונית נפתחת. */
+   docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
+   ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
+   תשלום. הדרך היחידה לפנות היא הפוסט עצמו - ולכן אין כאן חיוג, וואטסאפ או
+   "הוספה כלקוח/ה". "אני פונה" (open_demand_claim) תופס את הביקוש לסוכן/ת
+   אחד/ת ופותח את הפוסט, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
+let openDemandStats = null;
 let openDemandLoading = false;
+// מופיע ליד כל ביקוש, וזהה לנוסח בהתראה (scraped_lead_notify_demand)
+const OPEN_DEMAND_RULE = 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ';
+// "ללא תיווך": בפוסט - הצעה לשיווק; בשם הקבוצה - כלל של הקבוצה, ולכן רק בפרטי
+const OPEN_DEMAND_NO_BROKER = {
+  post:  { tag: 'כתב/ה ללא תיווך',
+           rule: 'הצעה אחת ומנומסת לשיווק מקצועי, עדיף בהודעה פרטית בפייסבוק. לא להציע קונים.' },
+  group: { tag: 'קבוצה ללא תיווך',
+           rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
+};
 
 async function loadOpenDemand(){
   if (openDemandLoading) return;
   openDemandLoading = true;
-  const { data, error } = await sb.rpc('open_demand_list');
+  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
   openDemandLoading = false;
-  if (error){ showToast(heErr(error)); openDemandRows = []; }
-  else openDemandRows = data || [];
+  if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
+  else openDemandRows = list.data || [];
+  openDemandStats = stats.error ? null : stats.data;
   if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
 }
 
@@ -396,21 +410,32 @@ function openDemandWants(d){
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
-    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? 'עד ' + shekelCompact(d.budget) : '',
-    d.move_in ? 'כניסה: ' + d.move_in : '', d.property_details || ''].filter(Boolean).join(' · ');
+    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? (owner ? 'מחיר ' : 'עד ') + shekelCompact(d.budget) : '',
+    d.move_in ? 'כניסה: ' + d.move_in : '', d.summary || ''].filter(Boolean).join(' · ');
+}
+
+function openDemandCapLeft(){
+  const st = openDemandStats;
+  return st ? Math.max(0, (st.daily_cap || 0) - (st.my_today || 0)) : null;
 }
 
 function renderOpenDemand(listEl){
   document.getElementById('leadsMore').innerHTML = '';
-  document.getElementById('leadsCountLine').textContent = openDemandRows && openDemandRows.length
-    ? plural(openDemandRows.length, 'ביקוש פתוח אחד', 'ביקושים פתוחים') + ' בעיר שלך' : '';
+  const st = openDemandStats, left = openDemandCapLeft();
+  const open = (openDemandRows || []).filter(d => !d.mine).length;
+  document.getElementById('leadsCountLine').textContent = openDemandRows === null ? '' : [
+    open ? plural(open, 'ביקוש פתוח אחד', 'ביקושים פתוחים') + ' בעיר שלך' : '',
+    st && st.claimed_today ? 'נתפסו היום: ' + st.claimed_today : '',
+    left !== null ? 'נשארו לך היום: ' + left + ' מתוך ' + st.daily_cap : '',
+  ].filter(Boolean).join(' · ');
   if (openDemandRows === null){
     listEl.innerHTML = '<div class="empty-state">טוען...</div>';
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים, ולא השאירו פרטים.</span>'
-    + '<span><strong>להגיב בתוך הפוסט או בהודעה בפייסבוק בלבד, לא לשלוח SMS או וואטסאפ.</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים או מציעים, ולא השאירו פרטים.'
+    + ' "אני פונה" שומר את הביקוש לך בלבד ופותח את הפוסט.</span>'
+    + '<span><strong>' + OPEN_DEMAND_RULE + '</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -418,16 +443,47 @@ function renderOpenDemand(listEl){
   listEl.innerHTML = hint + openDemandRows.map(d => {
     const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
+    const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const act = d.mine
+      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      : (left === 0
+          ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
       + `<div class="lp-meta"><span class="ui-tag ui-tag--accent">${esc(src)}${d.source_detail ? ' · ' + esc(d.source_detail) : ''}</span>`
+      + (d.mine ? '<span class="ui-tag ui-tag--ok">פנית</span>' : '')
+      + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + `<p class="lp-why"><strong>חינם:</strong> מוצג לכל הסוכנים באזור. מי שעונה ראשון ובנימוס בפוסט - מרוויח.</p>`
-      + `<div class="lp-acts">${url ? `<a class="ui-btn" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : ''}</div>`
+      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + `<p class="lp-why"><strong>${esc(nb ? nb.rule : OPEN_DEMAND_RULE)}</strong></p>`
+      + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
+}
+
+const OPEN_DEMAND_CLAIM_ERR = {
+  claimed: 'סוכן/ת אחר/ת כבר פנה/תה לביקוש הזה.',
+  daily_cap: 'הגעת לתקרה היומית של ביקושים. מחר אפשר שוב.',
+  not_found: 'הביקוש כבר לא פתוח.',
+};
+
+async function claimOpenDemand(id, btn){
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
+  const win = window.open('', '_blank');
+  if (btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
+  const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');
+  const url = !err && data && /^https:\/\//.test(data.post_url || '') ? data.post_url : '';
+  if (win){
+    if (url){ win.opener = null; win.location.href = url; }
+    else win.close();
+  }
+  if (err) showToast(err);
+  openDemandRows = null;
+  renderLeads(currentAgent && currentAgent.id);
 }
 
 function openLeadsDemand(){
@@ -450,6 +506,10 @@ function openLeadsDemand(){
   });
   document.getElementById('leadsSrc').addEventListener('input', () => {
     leadsSrc = uiChipValues(document.getElementById('leadsSrc'))[0] || 'all'; leadsShown = LEADS_STEP; rerender();
+  });
+  document.getElementById('leadsList').addEventListener('click', e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (b && !b.disabled) claimOpenDemand(b.dataset.demandClaim, b);
   });
   document.getElementById('leadsMore').addEventListener('click', e => {
     if (e.target.closest('[data-leads-more]')){ leadsShown += LEADS_STEP; rerender(); }
@@ -486,24 +546,153 @@ function openLeadsDemand(){
     setOwnerLeadsActive(main);
   });
   document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const prefEdit = document.getElementById('leadsPrefEdit');
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  const sheetClose = document.getElementById('leadPrefsSheetClose');
+  const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
+  if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
+  if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeLeadPrefsSheet);
+  watchScrollTabs(document.getElementById('leadsTabs'));
+  watchScrollTabs(document.getElementById('clientsKindTabs'));
+  document.addEventListener('keydown', e => {
+    const sheet = document.getElementById('leadPrefsSheet');
+    if (e.key === 'Escape' && sheet && !sheet.hidden) closeLeadPrefsSheet();
+  });
 })();
+
+/* לשוניות ארוכות במובייל: הגלילה ב-RTL נפתחת על הקצה השמאלי וחותכת את
+   הלשונית הראשונה. מחזירים את הנבחרת (או הראשונה) אל תוך המסך, ומשאירים
+   סימן שהשורה גוללת. */
+function markScrollEdges(tabs){
+  const items = tabs.querySelectorAll('[role="tab"]');
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) return;
+  const box = tabs.getBoundingClientRect();
+  const fr = first.getBoundingClientRect();
+  const lr = last.getBoundingClientRect();
+  tabs.classList.toggle('is-more-right', fr.right > box.right + 2);
+  tabs.classList.toggle('is-more-left', lr.left < box.left - 2);
+}
+
+function alignScrollTabs(tabs){
+  if (!tabs || !tabs.clientWidth) return;
+  const overflow = tabs.scrollWidth > tabs.clientWidth + 2;
+  if (!overflow){
+    tabs.classList.remove('is-more-left', 'is-more-right');
+    return;
+  }
+  const target = tabs.querySelector('[aria-selected="true"]') || tabs.querySelector('[role="tab"]');
+  if (target){
+    const box = tabs.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    // scrollBy לפי ציר המסך, לא לפי scrollLeft: בכרום RTL הערך 0 הוא הקצה
+    // השמאלי, ושם נחתכת הלשונית הראשונה.
+    let dx = 0;
+    if (rect.width > box.width + 1) dx = rect.right - box.right;
+    else {
+      if (rect.right > box.right + 1) dx += rect.right - box.right;
+      if (rect.left < box.left - 1) dx -= box.left - rect.left;
+    }
+    if (Math.abs(dx) > 1) tabs.scrollBy({ left: dx });
+  }
+  markScrollEdges(tabs);
+}
+
+function watchScrollTabs(tabs){
+  if (!tabs || tabs.dataset.scrollWatch || typeof ResizeObserver === 'undefined') return;
+  tabs.dataset.scrollWatch = '1';
+  new ResizeObserver(() => alignScrollTabs(tabs)).observe(tabs);
+  tabs.addEventListener('scroll', () => markScrollEdges(tabs), { passive:true });
+}
+
+const LEAD_PREFS_MQ = window.matchMedia('(max-width:1023px)');
+function leadPrefsMobile(){ return !!(LEAD_PREFS_MQ && LEAD_PREFS_MQ.matches); }
+
+let leadPrefsHome = null;
+function openLeadPrefsSheet(focusId){
+  if (!leadPrefsMobile()) return false;
+  const section = document.getElementById('setLeadPrefs');
+  const sheet = document.getElementById('leadPrefsSheet');
+  const slot = document.getElementById('leadPrefsSheetSlot');
+  if (!section || !sheet || !slot) return false;
+  const already = !sheet.hidden && section.parentNode === slot;
+  if (!already && typeof closeNavLayers === 'function') closeNavLayers();
+  if (!leadPrefsHome) leadPrefsHome = { parent: section.parentNode, next: section.nextSibling };
+  if (section.parentNode !== slot) slot.appendChild(section);
+  const follow = document.getElementById('leadsFollowRow');
+  const links = document.getElementById('leadsSetLinks');
+  if (follow && follow.parentNode !== slot) slot.appendChild(follow);
+  if (links && links.parentNode !== slot) slot.appendChild(links);
+  if (typeof uiFoldOpen === 'function') uiFoldOpen('setLeadPrefs', true);
+  sheet.hidden = false;
+  document.body.classList.add('lp-sheet-open');
+  const focus = focusId && document.getElementById(focusId);
+  if (focus) setTimeout(() => { try { focus.focus({ preventScroll:true }); } catch (e) { /* */ } }, 60);
+  return true;
+}
+
+function closeLeadPrefsSheet(){
+  const sheet = document.getElementById('leadPrefsSheet');
+  const section = document.getElementById('setLeadPrefs');
+  if (leadPrefsHome && section && leadPrefsHome.parent){
+    leadPrefsHome.parent.insertBefore(section, leadPrefsHome.next);
+  }
+  const body = document.getElementById('leadsSetBody');
+  const follow = document.getElementById('leadsFollowRow');
+  const links = document.getElementById('leadsSetLinks');
+  const edit = document.getElementById('leadsEditPrefs');
+  if (body && follow && follow.parentNode !== body){
+    if (edit && edit.parentNode === body) edit.insertAdjacentElement('afterend', follow);
+    else body.appendChild(follow);
+  }
+  if (body && links && links.parentNode !== body) body.appendChild(links);
+  if (sheet) sheet.hidden = true;
+  document.body.classList.remove('lp-sheet-open');
+}
+
+function leadPrefsFromHash(){
+  const id = (location.hash || '').replace(/^#/, '');
+  if (id !== 'setLeadPrefs' && id !== 'setOwnerSwitch') return;
+  if (openLeadPrefsSheet(id)) return;
+  if (id === 'setLeadPrefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
+  else if (typeof gotoSection === 'function') gotoSection('accPrefs', id, { scrollTo:'#' + id });
+}
+
+window.addEventListener('resize', () => {
+  alignScrollTabs(document.getElementById('leadsTabs'));
+  alignScrollTabs(document.getElementById('clientsKindTabs'));
+  const sheet = document.getElementById('leadPrefsSheet');
+  if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
+});
+document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){
   const sum = document.getElementById('leadsSetSummary');
-  if (!sum) return;
+  const stripSum = document.getElementById('leadsPrefSummary');
+  const strip = document.getElementById('leadsPrefStrip');
+  if (!sum && !stripSum) return;
   const row = typeof leadPrefsRow !== 'undefined' ? leadPrefsRow : null;
   const ownerOn = !!(row && row.active);
   const followOn = assistantTierOk() && !(typeof agendaAutoOff !== 'undefined' && agendaAutoOff.includes('lead_followup'));
-  document.getElementById('leadsOwnerSwitch').setAttribute('aria-pressed', String(ownerOn));
-  document.getElementById('leadsOwnerSwitch').disabled = !row;
+  const ownerSwitch = document.getElementById('leadsOwnerSwitch');
+  if (ownerSwitch){
+    ownerSwitch.setAttribute('aria-pressed', String(ownerOn));
+    ownerSwitch.disabled = !row;
+  }
   const fs = document.getElementById('leadsFollowupSwitch');
-  fs.setAttribute('aria-pressed', String(followOn));
-  fs.disabled = !assistantTierOk();
-  sum.textContent = [
+  if (fs){
+    fs.setAttribute('aria-pressed', String(followOn));
+    fs.disabled = !assistantTierOk();
+  }
+  const text = [
     !row ? 'לידי בעלים לא הוגדרו' : ownerOn ? 'לידי בעלים פעילים · ' + plural((row.preferred_neighborhoods || []).length, 'שכונה אחת', 'שכונות') : 'לידי בעלים מושהים',
     followOn ? 'משימה לחזור תוך שעה' : '',
   ].filter(Boolean).join(' · ');
+  if (sum) sum.textContent = text;
+  if (strip) strip.classList.toggle('is-unset', !row);
+  if (stripSum) stripSum.textContent = !row ? 'הגדירו אילו לידים לקבל' : text;
 }
 
 /* ==========================================================================
@@ -523,6 +712,7 @@ function renderClientsTop(){
     b.setAttribute('aria-selected', String(b.dataset.clientsKind === clientsKind));
     b.querySelector('[data-n]').textContent = counts[b.dataset.clientsKind];
   });
+  alignScrollTabs(document.getElementById('clientsKindTabs'));
 
   const leads = typeof allLeads !== 'undefined' ? allLeads : [];
   const freshLeads = leads.filter(l => !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new');
