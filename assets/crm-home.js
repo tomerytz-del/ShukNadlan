@@ -105,19 +105,22 @@ function homePriorityRow(group, rank){
     || (src === 'call' ? callLocalPhone(lead.display_phone) : 'ללא שם');
   const what = leadWants(lead, call) || [lead.property_type, lead.city].filter(Boolean).join(' · ');
   const hot = !!excl || (Date.now() - new Date(lead.created_at)) > 3 * 3600e3;
+  const when = typeof leadWhen === 'function' ? leadWhen(lead.created_at) : { text: leadAgo(lead.created_at), title:'' };
   const why = (excl ? 'בלעדיות עוד ' + plural(Math.max(1, Math.ceil((excl - Date.now()) / 3600e3)), 'שעה', 'שעות')
-    : leadAgo(lead.created_at)) + (leadStageOf(lead) === 'new' ? ' · עוד לא חזרת' : '');
+    : when.text) + (leadStageOf(lead) === 'new' ? ' · עוד לא חזרת' : '');
   const row = document.createElement('div');
-  row.className = 'hb-pr';
+  row.className = 'hb-pr' + (leadStageOf(lead) === 'new' ? ' is-unread' : '');
   row.innerHTML =
       '<span class="hb-rank is-' + rank + '" aria-label="עדיפות ' + rank + '">' + rank + '</span>'
-    + '<span class="hb-pr-text"><span class="hb-pr-top"><strong>' + (unlocked ? '' : '🔒 ') + esc(name) + '</strong>'
-    +   '<span class="ui-tag ui-tag--' + esc(meta.tone) + '">' + esc(meta.label) + '</span></span>'
+    + '<span class="hb-pr-text"><span class="hb-pr-top"><strong>' + (unlocked ? '' : '🔒 ') + '<bdi dir="auto">' + esc(name) + '</bdi></strong>'
+    +   '<span class="ui-tag ui-tag--' + esc(meta.tone) + '">' + esc(meta.label) + '</span>'
+    +   (typeof leadStageTagHtml === 'function' ? leadStageTagHtml(lead) : '') + '</span>'
     +   (what ? '<span class="hb-pr-what">' + esc(what) + '</span>' : '')
-    +   '<span class="hb-pr-why' + (hot ? ' is-hot' : '') + '">' + esc(why) + '</span></span>';
+    +   '<span class="hb-pr-why' + (hot ? ' is-hot' : '') + '"' + (when.title ? ' title="' + esc(when.title) + '"' : '') + '>' + esc(why) + '</span></span>';
   const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
   const wa = unlocked ? waLink(lead.display_phone) : null;
-  const contacted = ()=>{
+  const contacted = (kind)=>{
+    if (typeof crmTrackLead === 'function') crmTrackLead(kind);
     markLeadResponded(lead);
     if (leadWorkReady && leadStageOf(lead) === 'new') saveLeadWork(lead, { stage:'contacted' });
   };
@@ -127,7 +130,7 @@ function homePriorityRow(group, rank){
     a.href = 'tel:' + tel;
     a.setAttribute('aria-label', 'חיוג אל ' + name);
     a.innerHTML = dashIcon('phone') + '<span class="hb-btxt">התקשרות</span>';
-    a.addEventListener('click', contacted);
+    a.addEventListener('click', () => contacted('call'));
     row.appendChild(a);
   }
   if (wa){
@@ -138,8 +141,17 @@ function homePriorityRow(group, rank){
     a.rel = 'noopener';
     a.setAttribute('aria-label', 'וואטסאפ אל ' + name);
     a.innerHTML = waGlyph();
-    a.addEventListener('click', contacted);
+    a.addEventListener('click', () => contacted('whatsapp'));
     row.appendChild(a);
+  }
+  if (unlocked && leadWorkReady && leadStageOf(lead) === 'new' && typeof leadMarkHandled === 'function'){
+    const done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'hb-done';
+    done.textContent = 'טופל';
+    done.setAttribute('aria-label', 'סימון הליד כטופל');
+    done.addEventListener('click', () => leadMarkHandled(lead, currentAgent && currentAgent.id));
+    row.appendChild(done);
   }
   if (!unlocked || (!wa && tel.replace(/\D/g, '').length < 9)){
     const b = document.createElement('button');
@@ -371,10 +383,106 @@ function homeWaitData(){
   ].filter(t => navAccVisible(t.acc));
 }
 
+/* פגישות של היום (יומן), נכס שתוקף המודעה שלו נגמר בקרוב, ובלעדיות
+   שמסתיימת בשבועיים. הכל מנתונים שכבר בזיכרון. שורה עם אפס לא נכנסת. */
+function homeMeetingsToday(){
+  if (typeof agendaItems === 'undefined' || typeof agendaDayStart !== 'function' || typeof agendaDue !== 'function') return [];
+  const start = agendaDayStart(0), end = agendaDayStart(1);
+  return agendaItems.filter(it => {
+    if (it.status !== 'open' || (it.kind !== 'meeting' && it.kind !== 'showing')) return false;
+    const d = agendaDue(it);
+    return d && d >= start && d < end;
+  });
+}
+
+function homeExpiringProps(){
+  if (typeof myPropertyRows === 'undefined' || typeof propertyIsExpiring !== 'function') return [];
+  return myPropertyRows.filter(p => p.status === 'active' && homeMine(p) && propertyIsExpiring(p));
+}
+
+function homeExclusivitySoon(){
+  if (typeof myPropertyRows === 'undefined' || typeof exclusivityDaysLeft !== 'function') return [];
+  return myPropertyRows.filter(p => {
+    if (p.status !== 'active' || !homeMine(p)) return false;
+    const d = exclusivityDaysLeft(p);
+    return d !== null && d >= 0 && d <= 14;
+  });
+}
+
+function homeNavOk(acc){
+  return typeof navAccVisible !== 'function' || navAccVisible(acc);
+}
+
+/* שורות תמונת המצב מתחת לברכה. רק מה שיש לו מספר וגם מסך שאליו ללכת. */
+function homeSummaryItems(){
+  const rows = [];
+  if (homeNavOk('accLeads') && typeof accCountOf === 'function'){
+    const n = accCountOf('accLeads') || 0;
+    if (n > 0) rows.push({ key:'leads', label: plural(n, 'ליד אחד חדש', 'לידים חדשים') });
+  }
+  if (homeNavOk('accAgenda')){
+    const meetings = homeMeetingsToday().length;
+    if (meetings > 0) rows.push({ key:'meetings', label: plural(meetings, 'פגישה אחת היום', 'פגישות היום') });
+    const late = typeof agendaBuckets === 'function' ? agendaBuckets().today.filter(agendaIsLate).length : 0;
+    if (late > 0) rows.push({ key:'late', label: plural(late, 'משימה אחת באיחור', 'משימות באיחור') });
+  }
+  if (homeNavOk('accProperties')){
+    const expiring = homeExpiringProps().length;
+    if (expiring > 0) rows.push({ key:'expiring', label: plural(expiring, 'נכס אחד עומד לפוג', 'נכסים עומדים לפוג') });
+    const excl = homeExclusivitySoon().length;
+    if (excl > 0) rows.push({ key:'exclusive', label: plural(excl, 'בלעדיות אחת מסתיימת', 'בלעדיות מסתיימות') });
+  }
+  return rows;
+}
+
+function crmTrackHome(item){
+  const params = { summary_item: item };
+  try {
+    if (typeof window.shukTrack === 'function'){
+      window.shukTrack('crm_home_summary', params);
+      return;
+    }
+    window.dataLayer = window.dataLayer || [];
+    const path = ((location.pathname || '').split('/').pop() || 'crm').replace(/\.html$/, '') || 'crm';
+    window.dataLayer.push({ event: 'crm_home_summary', page_type: path, summary_item: item });
+  } catch (e) { /* מדידה לא חוסמת ניווט */ }
+}
+
+function homeSummaryGo(key){
+  crmTrackHome(key);
+  if (key === 'leads'){
+    if (typeof leadsTab !== 'undefined'){ leadsTab = 'new'; leadsSrc = 'all'; leadsShown = typeof LEADS_STEP === 'number' ? LEADS_STEP : 3; }
+    gotoSection('accLeads');
+    if (typeof renderLeads === 'function' && currentAgent) renderLeads(currentAgent.id);
+    return;
+  }
+  if (key === 'meetings' || key === 'late'){
+    if (typeof agendaTab !== 'undefined') agendaTab = 'today';
+    gotoSection('accAgenda');
+    if (typeof renderAgenda === 'function') renderAgenda();
+    return;
+  }
+  if (key === 'expiring' && typeof openPropertyFilterFromParam === 'function'){
+    gotoSection('accProperties');
+    openPropertyFilterFromParam('expiring');
+    return;
+  }
+  if (key === 'exclusive' && typeof PROP_FILTER_IDS !== 'undefined'){
+    PROP_FILTER_IDS.forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+    if (typeof propOwnerTab === 'function') propOwnerTab('mine');
+    const status = document.getElementById('propStatusFilter');
+    const smart = document.getElementById('propSmartFilter');
+    if (status) status.value = 'active';
+    if (smart) smart.value = 'excl';
+    gotoSection('accProperties');
+    if (typeof renderPropertiesFromTop === 'function') renderPropertiesFromTop();
+  }
+}
+
 function homeWaitTiles(){
   const host = document.getElementById('homeWait');
   if (!host) return;
-  const tiles = homeWaitData();
+  const tiles = homeWaitData().filter(t => t.n > 0);
   host.hidden = !tiles.length;
   host.querySelector('.hm-wait').innerHTML = tiles.map(t => {
     const on = t.n > 0;
@@ -385,21 +493,24 @@ function homeWaitTiles(){
   }).join('');
 }
 
-/* השורה שמתחת לברכה: אותם מספרים של "מחכה לך" (לידים ומשימות באיחור), במשפט
-   אחד. הברכה עצמה ומשפטי המוטיבציה (GREETINGS) לא משתנים - החלטה של תומר. */
+/* מתחת ל"הנה תמונת המצב שלך להיום": שורות לחיצות, רק כשיש מה לספור.
+   הברכה עצמה ומשפטי המוטיבציה (GREETINGS) לא משתנים. */
 function homeBrief(){
   const el = document.getElementById('dashBrief');
   if (!el) return;
-  const data = homeWaitData();
-  const leads = (data.find(t => t.acc === 'accLeads') || {}).n || 0;
-  const late = (data.find(t => t.acc === 'accAgenda') || {}).n || 0;
-  const parts = [];
-  if (leads) parts.push(plural(leads, 'ליד אחד', 'לידים'));
-  if (late) parts.push(plural(late, 'משימה אחת באיחור', 'משימות באיחור'));
-  el.textContent = parts.length
-    ? parts.join(' ו-') + ((leads + late) === 1 ? ' מחכה לך.' : ' מחכים לך.')
-    : 'אין משהו שמחכה לך עכשיו. זה זמן טוב לפעולות מהירות.';
-  el.hidden = false;
+  if (!el.dataset.bound){
+    el.dataset.bound = '1';
+    el.addEventListener('click', e => {
+      const b = e.target.closest('[data-home-sum]');
+      if (!b) return;
+      homeSummaryGo(b.dataset.homeSum);
+    });
+  }
+  const rows = homeSummaryItems();
+  el.hidden = !rows.length;
+  el.innerHTML = rows.map(r =>
+    `<button type="button" class="hm-sum" data-home-sum="${esc(r.key)}">`
+    + `<span>${esc(r.label)}</span><span class="hm-sum-go" aria-hidden="true">←</span></button>`).join('');
   const date = document.getElementById('hmDate');
   if (date) date.textContent = new Date().toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'numeric' });
 }
