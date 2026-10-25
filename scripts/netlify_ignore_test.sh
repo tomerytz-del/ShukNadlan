@@ -57,6 +57,7 @@ check sw.js 1
 check manifest.webmanifest 1
 check netlify.toml 1
 check newdir/page.html 1         # תיקייה שאיש לא הכיר - בונים
+check .well-known/apple-app-site-association 1
 
 # לא אתר - מדלגים
 check docs/x.md 0
@@ -72,6 +73,7 @@ check news_engine/x.py 0
 check lead_engine/x.py 0
 check marketing/videos/x.json 0
 check gtm/container.json 0
+check mobile/www/index.html 0
 check scraper.py 0
 check requirements.txt 0
 
