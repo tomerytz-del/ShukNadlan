@@ -15,8 +15,9 @@
    כשהמסד ענה, דקה של Supabase איטי הייתה מאחדת את כל היישובים לאינדקס
    (‏הנימוק של דפי הפירוט, ‏scripts/check_canonical.py). לכן ה-canonical
    וה-og:url מוחלפים **לפני** הקריאה למסד, מה-slug שבכתובת. ‏noindex נכנס
-   רק כשהמסד ענה במפורש שאין יישוב כזה, או כשה-slug פסול. timeout אינו
-   noindex.
+   כשהמסד ענה במפורש שאין יישוב כזה, כשה-slug פסול, או כשהדף אינו לאינדקס
+   (פחות מ-5 עסקאות בחלון של הדף, אפס מודעות פעילות בעיר, או עיר מחוץ
+   לשוק חי - ‏`settlementIndexable`). timeout אינו noindex.
 
    ## כישלון אינו מוחק את הדף, ואינו נשמר
 
@@ -30,13 +31,13 @@
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/deals-render.js";
+import { liveMarketSlugs, settlementIndexable, THIN_DEALS } from "./lib/indexability.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const THIN_DEALS = 5;
 
 export type Settlement = {
   name: string;
@@ -84,6 +85,54 @@ async function rpc(name: string, body: unknown): Promise<unknown | undefined> {
     return await res.json();
   } catch {
     return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ‏ok:false = לא ידענו כמה מודעות יש או לאיזה שוק העיר שייכת.
+   מערך ריק הוא אפס מודעות, לא כשל. */
+async function listingContext(cityName: string): Promise<
+  { ok: true; listings: number; marketSlug: string | null } | { ok: false }
+> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/properties?status=eq.active&city=eq.${encodeURIComponent(cityName)}&select=city_id&limit=1000`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: false };
+    const ids = [...new Set(data.map((row) => String((row as { city_id?: unknown }).city_id || "").trim()).filter(Boolean))];
+    if (!data.length) return { ok: true, listings: 0, marketSlug: null };
+    if (!ids.length) return { ok: true, listings: data.length, marketSlug: null };
+    const marketRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/market_cities_public?select=market_slug&city_id=in.(${ids.join(",")})&limit=20`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!marketRes.ok) return { ok: false };
+    const markets = await marketRes.json();
+    if (!Array.isArray(markets)) return { ok: false };
+    const marketSlug = String((markets[0] as { market_slug?: unknown } | undefined)?.market_slug || "").trim() || null;
+    return { ok: true, listings: data.length, marketSlug };
+  } catch {
+    return { ok: false };
   } finally {
     clearTimeout(timer);
   }
@@ -197,10 +246,21 @@ export default async function handler(request: Request, context: Context) {
         const filled = injectSettlement(out, data as Settlement);
         cache = filled !== out;
         out = filled;
-        /* ‏כל עיר בשוק ברשימה (‏20270330090000), ורובן כפרים קטנים. דף עם
-           פחות מ-THIN_DEALS עסקאות הוא תוכן דל בעיני גוגל - הוא נשאר
-           לגולש/ת, אבל לא לאינדקס, וגם אינו ב-sitemap ובאינדקס /deals. */
-        if (cache && Number((data as Settlement).deals || 0) < THIN_DEALS) out = noindex(out);
+        /* ‏פחות מ-5 עסקאות בחלון של הדף - ידוע בלי שאילתה נוספת.
+           מודעות ושוק: רק כשהשאילתה ענתה. כשל שלה אינו noindex. */
+        if (cache && Number((data as Settlement).deals || 0) < THIN_DEALS) {
+          out = noindex(out);
+        } else if (cache) {
+          const listed = await listingContext(String((data as Settlement).name || ""));
+          if (listed.ok && !settlementIndexable(
+            Number((data as Settlement).deals || 0),
+            listed.listings,
+            listed.marketSlug,
+            liveMarketSlugs(),
+          )) {
+            out = noindex(out);
+          }
+        }
       } else {
         /* ‏undefined, או תשובה שאינה אובייקט: כשל זמני. בלי noindex. */
         status = 503;
@@ -225,6 +285,7 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
+  if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
   return new Response(out, { status: res.status, headers });
 }
 
