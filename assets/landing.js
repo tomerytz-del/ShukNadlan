@@ -45,9 +45,10 @@
 
   var LANDING_HELLO = 'שלום, הגעתי מהאתר מדף הנחיתה בעפולה ואשמח לעזרה';
   if (window.ShukBot && typeof window.ShukBot.link === "function") {
-    var href = window.ShukBot.link(LANDING_HELLO);
     var links = document.querySelectorAll("[data-land-wa]");
     for (var i = 0; i < links.length; i++) {
+      var hello = links[i].getAttribute("data-hello") || LANDING_HELLO;
+      var href = window.ShukBot.link(hello);
       if (!href) continue;
       links[i].setAttribute("href", href);
       links[i].hidden = false;

@@ -503,10 +503,8 @@ async function polish(body: string, cities: CityMap): Promise<string> {
     if (locPointsElsewhere(loc)) out = removeLoc(out, loc);
   }
 
-  const projects = await sbGet("projects_public?select=slug&limit=1");
-  if (projects.ok && projects.rows.length === 0) {
-    out = removeLoc(out, `${SITE}/projects`);
-  }
+  /* /projects נשאר גם כשאין פרויקט: יש בו מדריך קנייה, והוא ניתן לאינדוקס.
+     docs/sitemap.md. דפי /project?slug= עדיין מגיעים מ-projects_public. */
 
   const brokersPath = (globalThis as unknown as { ShukBrokers?: { path?: string } }).ShukBrokers?.path || "/afula/מתווכים";
   const agencies = await sbGet("agencies?slug=not.is.null&select=updated_at&order=updated_at.desc&limit=1");

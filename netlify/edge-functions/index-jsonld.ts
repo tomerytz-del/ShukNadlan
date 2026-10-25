@@ -1,5 +1,6 @@
 /* ============================================================================
-   JSON-LD לרשימות /agents /agencies /professionals /projects /articles
+   JSON-LD לרשימות /agents /agencies /professionals /articles
+   /projects נשאר ב-projects-page.ts: בלי ItemList כשהרשימה ריקה, ועם FAQ.
    ----------------------------------------------------------------------------
    אותו דפוס של מילוי בשרת כמו brokers-page: הסורק רואה @graph בלי להריץ JS.
    הכתובות והשמות באים מהתצוגות הציבוריות, ואותו מפתח anon. כשל מסד משאיר
@@ -52,14 +53,6 @@ const PAGES: Page[] = [
     query: "professional_cards_public?select=slug,business_name,advertiser_name&slug=not.is.null&limit=1000",
     href: (row) => `/professional?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.business_name || row.advertiser_name || "").trim(),
-  },
-  {
-    path: "/projects",
-    name: "פרויקטים חדשים",
-    aboutCity: true,
-    query: "projects_public?select=slug,name&slug=not.is.null&limit=1000",
-    href: (row) => `/project?slug=${encodeURIComponent(String(row.slug))}`,
-    label: (row) => String(row.name || "").trim(),
   },
   {
     path: "/articles",
@@ -182,7 +175,6 @@ export const config: Config = {
     "/agents", "/agents.html",
     "/agencies", "/agencies.html",
     "/professionals", "/professionals.html",
-    "/projects", "/projects.html",
     "/articles", "/articles.html",
   ],
 };

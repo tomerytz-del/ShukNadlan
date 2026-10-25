@@ -140,6 +140,7 @@ for (const c of CASES) {
 const PROP_PAGE =
   `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>` +
   `<h1 class="prop-title" id="propTitle">-</h1>` +
+  `<div class="prop-address" id="propAddress"></div>` +
   `<div class="desc-block" id="descSection" hidden>` +
   `<p class="prop-desc" id="propDescription"></p></div></body></html>`;
 
@@ -178,10 +179,20 @@ checks.push(
   ["‏Apartment עם 4 חדרים, 100 מ״ר וקומה 3", () =>
     listing?.about?.["@type"] === "Apartment" && listing?.about?.numberOfRooms === 4 &&
     listing?.about?.floorSize?.value === 100 && listing?.about?.floorLevel === "3"],
-  ["‏BreadcrumbList", () => ld?.["@graph"]?.some((n: { "@type": string }) => n["@type"] === "BreadcrumbList")],
-  ["מספר הבית אינו בנתונים המובנים", () => !/הרצל 12/.test(JSON.stringify(ld))],
+  ["‏BreadcrumbList עיר, שכונה, מודעה", () => {
+    const crumbs = ld?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "BreadcrumbList");
+    const names = (crumbs?.itemListElement || []).map((x: { name: string }) => x.name);
+    const hood = (crumbs?.itemListElement || []).find((x: { name: string }) => x.name === "גבעת המורה");
+    return names.join("|") === "שוק נדל״ן|עפולה|גבעת המורה|דירה 4 חד׳ בהרצל 12, עפולה"
+      && decodeURIComponent(hood?.item || "").includes("/n/afula/גבעת-המורה");
+  }],
+  ["רחוב ומספר בכתובת המובנית, בלי גוש", () =>
+    listing?.about?.address?.streetAddress === "הרצל 12" &&
+    listing?.about?.address?.addressLocality === "עפולה" &&
+    !/גוש|חלקה|geo/.test(JSON.stringify(ld))],
   ["‏</script> מתיאור אינו סוגר את התגית", (h) => (h.match(/<script/g) || []).length === 1],
-  ["‏H1 מלא בכותרת ממוסכת", (h) => /<h1 class="prop-title" id="propTitle">דירת 4 חדרים ברחוב הרצל<\/h1>/.test(h)],
+  ["‏H1 עם רחוב ומספר", (h) => /<h1 class="prop-title" id="propTitle">דירה 4 חד׳ בהרצל 12, עפולה<\/h1>/.test(h)],
+  ["שורת כתובת ב-HTML", (h) => /id="propAddress">הרצל 12, גבעת המורה, עפולה</.test(h)],
   ["התיאור השיווקי בגוף הדף, מוברח", (h) => /id="propDescription">דירה מוארת &lt;\/script&gt;/.test(h)],
   ["‏descSection נחשף", (h) => /<div class="desc-block" id="descSection">/.test(h)],
 );

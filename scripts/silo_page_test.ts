@@ -97,8 +97,8 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const list = blocks.find((b) => b["@type"] === "ItemList") as { numberOfItems: number; itemListElement: { position: number; url: string }[] } | undefined;
   const web = blocks.find((b) => b["@type"] === "WebPage") as { url?: string; name?: string } | undefined;
   check("200", res.status === 200);
-  check("כותרת", html.includes("<title>בתים פרטיים למכירה בעפולה | שוק נדל״ן</title>"));
-  check("H1", html.includes("<h1 id=\"siloH1\">בתים פרטיים למכירה בעפולה</h1>"));
+  check("כותרת", html.includes("<title>בית פרטי למכירה בעפולה | שוק נדל״ן</title>"));
+  check("H1", html.includes("<h1 id=\"siloH1\">בית פרטי למכירה בעפולה</h1>"));
   check("ממולא", html.includes('data-ssr="1"') && html.includes("מודעות פעילות"));
   check("canonical מהכתובת", html.includes(`<link rel="canonical" href="${CANON}">`));
   check("קישורי אזור", html.includes('href="/deals/afula"') && html.includes('href="/prices"') && html.includes('href="/"'));
@@ -107,14 +107,14 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("script לא נשבר", !html.includes("</script><b>"));
   check("מקום לתמונה", html.includes('width="320"') && html.includes('height="200"'));
   check("שלושה סוגים", types.includes("WebPage") && types.includes("BreadcrumbList") && types.includes("ItemList"), types.join(","));
-  check("WebPage.url", web?.url === CANON && web?.name === "בתים פרטיים למכירה בעפולה");
+  check("WebPage.url", web?.url === CANON && web?.name === "בית פרטי למכירה בעפולה");
   check("פירורי לחם", !!crumbs && crumbs.itemListElement.length === 3
     && crumbs.itemListElement.every((x, i) => x.position === i + 1 && !!x.item && !!x.name));
   check("ItemList", !!list && list.numberOfItems === 2 && list.itemListElement[0].position === 1
     && list.itemListElement[0].url === SITE + "/property?id=p1");
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
   const faq = blocks.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
-  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 4 && (html.match(/<details><summary>/g) || []).length === 4);
+  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 7 && (html.match(/<details><summary>/g) || []).length === 7);
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>") && html.includes('aria-current="page"'));
   check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
   check("בלי שמירה", !html.includes("land-save") && !html.includes("שמור נכס"));
@@ -123,8 +123,14 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("מחיר ב-bdi", html.includes("<bdi>₪2,500,000</bdi>") && html.includes("מחיר חציוני"));
   check("רווח בחדרים", html.includes("<bdi>3</bdi><span>חדרים</span>"));
   const hero0 = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
-  check("גיבור הוא תמונת העמק", hero0.includes("hero-valley-800.webp") && hero0.includes('sizes="100vw"') && hero0.includes('fetchpriority="high"') && !hero0.includes("property-images/"));
+  check("גיבור הוא תמונת הבית", hero0.includes("hero-house-800.webp") && hero0.includes("hero-house-1600.webp 1600w") && hero0.includes('sizes="100vw"') && hero0.includes('fetchpriority="high"') && !hero0.includes("property-images/") && !hero0.includes("hero-valley"));
   check("שכונה בכרטיס", html.includes("גבעת המורה"));
+  check("עפולה עילית", html.includes("עפולה עילית") && html.includes('href="/n/afula/עפולה-עלית"'));
+  check("preload לפי הסוג", html.includes('href="assets/hero-house-800.webp" media="(max-width: 759px)"')
+    && html.includes('href="assets/hero-house-1600.webp" media="(min-width: 760px)"')
+    && !html.includes("hero-valley"));
+  check("og לפי הסוג", html.includes('property="og:image" content="https://shuknadlan.co.il/assets/hero-house-1600.webp"')
+    && html.includes('property="og:image:width" content="1600"'));
   check("H1 לא הוכפל", html.split("<h1").length === 2);
 }
 
@@ -144,7 +150,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const res = await run(SITE + PATH, 200, [ROWS[0], newer]);
   const html = await res.text();
   const hero = (html.split('id="landHeroBg"')[1] || "").split("land-hero-overlay")[0];
-  check("גיבור לא לוקח תמונת מודעה", hero.includes("hero-valley") && !hero.includes("new-house.jpg") && !hero.includes("property-images/a.jpg"));
+  check("גיבור לא לוקח תמונת מודעה", hero.includes("hero-house-800.webp") && !hero.includes("new-house.jpg") && !hero.includes("property-images/a.jpg"));
 }
 
 {
@@ -187,6 +193,8 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const res = await run(SITE + "/afula/" + encodeURIComponent("דירות-גן"), 200, ROWS);
   const html = await res.text();
   check("דירות גן", res.status === 200 && html.includes("דירות גן למכירה בעפולה")
+    && html.includes("<title>דירות גן למכירה בעפולה | שוק נדל״ן</title>")
+    && html.includes("hero-garden-800.webp")
     && html.includes('href="https://shuknadlan.co.il/afula/דירות-גן"'));
 }
 
@@ -195,6 +203,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   const html = await res.text();
   const filters = (html.split('aria-label="סינון מהיר"')[1] || "").split("</nav>")[0];
   check("בלי צ'יפ 3 חדרים", !filters.includes("<bdi>3</bdi>"));
+  check("גיבור דירות", html.includes("hero-apt-800.webp"));
   check("שכונה במקום הצ'יפ", filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
 }
 
