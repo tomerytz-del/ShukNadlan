@@ -47,6 +47,16 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `pwa_install_result` | תשובת המשתמש/ת לדיאלוג ההתקנה של המערכת | `outcome`: ‏`accepted` \| `dismissed` |
 | `pwa_help_open` | נפתח הסבר ההוספה הידנית (אייפון, מק) | `mode` |
 | `pwa_installed` | הדפדפן דיווח שההתקנה הושלמה | — |
+| `profile_nudge_shown` | גיליון השלמת פרטים עלה ב-CRM (מובייל או אפליקציה), פעם בביקור | `nudge_item`: מזהה הפריט מהמדריך (`photo`, `license`, `areas`, `phone`, `property`, `logo`, `bio`, `whatsapp`, `client`, `calendar`, `prefs`, `about`, `invite`) |
+| `profile_nudge_completed_click` | לחיצה על הכפתור הראשי בגיליון, שמעבירה לשדה | `nudge_item` |
+| `profile_nudge_later` | "אעדכן אחר כך" | `nudge_item` |
+| `profile_nudge_dismissed` | סגירה ב-X, ב-Esc או בלחיצה על הרקע | `nudge_item` |
+
+הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
+`profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
+שלו/ה אינה פנייה של גולש/ת), ולכן כש-`shukTrack` אינו קיים אותה דחיפה
+יוצאת ישר ל-`dataLayer`, עם `event`, `page_type` ו-`nudge_item`. אין
+באירוע שם, טלפון או מספר רישיון - רק מזהה הפריט החסר.
 
 לכל אירוע מצורפים אוטומטית `page_type` (שם הדף בלי הסיומת), `item_id`
 (פרמטר `id` שבכתובת, כשיש) ו-`src` — אין צורך להעביר אותם ידנית.
