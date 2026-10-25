@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<!-- ‏בלי assets/events.js, בכוונה - כמו המיניסייט ללקוח/ה: דף עם טוקן
+     שסוכן/ת מעביר/ה ללקוח/ה שלו/ה, והחיוג מתוכו לסוכן/ת הוא שיחה עם לקוח/ה
+     קיים/ת ולא פנייה של גולש/ת. ‏cma ב-PRIVATE_PAGES של check_events.py.
+     docs/cma.md, "הקישור לדוח" -->
+<script src="assets/esc.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>דוח השוואת שוק | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js" data-no-auto></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* המשתנים שה-CSS של הדוח נשען עליהם - אותם ערכים כמו ב-:root של crm.html */
+  :root{
+    --brick:#6B1A26; --gold:#8B2332; --gold-tint:#F1DFE1; --ink:#1B1F26; --ink-soft:#565C63;
+    --line:#C5C3BC; --radius-md:12px; --radius-sm:6px; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --sa-top:env(safe-area-inset-top,0px); --sa-end:env(safe-area-inset-left,0px);
+    --sa-bottom:env(safe-area-inset-bottom,0px); --sa-start:env(safe-area-inset-right,0px);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef0f4;color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0 0 6px;font-size:1.25rem}
+  .sub{color:var(--ink-soft);font-size:.92rem;margin:0}
+
+  /* CMA-CSS:BEGIN - ה-CSS של דוח ה-CMA. העתק זהה ב-cma.html (הדף שגבריאלה
+     שולחת), ו-scripts/check_cma_css.py בודק ששני העותקים זהים. */
+  /* ---------- CMA report (2.3) ---------- */
+  #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;
+    padding:calc(20px + var(--sa-top)) calc(12px + var(--sa-end)) calc(20px + var(--sa-bottom)) calc(12px + var(--sa-start))}
+  .cma-sheet{max-width:760px;margin:0 auto;background:#fff;border-radius:var(--radius-md);padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  /* flex-wrap כדי שבטלפון "הדפסה / שמירה כ-PDF" ו"סגירה" ירדו לשורה נפרדת
+     במקום להתכווץ זה לצד זה ולגלוש מחוץ למסך — מה שהשאיר את כפתור הסגירה
+     בלתי-נגיש. במסך צר (≤480px) הם מוצגים במלוא הרוחב, אחד מתחת לשני. */
+  .cma-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-bottom:16px}
+  @media(max-width:480px){
+    .cma-sheet{padding:20px 16px}
+    .cma-actions{flex-direction:column}
+    .cma-actions .btn{width:100%}
+  }
+  /* ---------- הדוח עצמו: מסמך ממותג ----------
+     ‏`.cma-doc` נושא את צבעי המשרד כמשתנים (‏--cma-brand ו-‏--cma-accent מ-
+     ‏`agencies.colors`, דרך normalizeHex), ולכן כל מה שמתחתיו ממותג בלי
+     שהקוד יידע מה הצבע. המותג צובע כותרות ומסגרת - **לא נתונים**: השעונים
+     והפס נושאים צבעים משלהם (סקאלה מתפצלת כחול-אפור-אדום), כי צבע של
+     משרד אינו אומר "זול" או "יקר".
+     הספרות בגופן הרגיל (Heebo) ולא בסריף: מספר גיבור בסריף נקרא כקישוט. */
+  .cma-doc{--cma-ink:#1b1f26;--cma-ink-2:#4a5260;--cma-ink-3:#6b7280;--cma-line:#e4e2dc;--cma-soft:#f6f5f2;
+    --cma-low:#2a78d6;--cma-mid:#d6d3cc;--cma-high:#e34948;
+    color:var(--cma-ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cma-brandbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:var(--cma-brand);color:var(--cma-on-brand);border-radius:14px;padding:14px 18px;margin-bottom:14px}
+  .cma-brand-id{display:flex;align-items:center;gap:12px;min-width:0}
+  .cma-logo{background:#fff;border-radius:10px;padding:6px 8px;display:flex;align-items:center;flex:none}
+  .cma-logo img{height:34px;width:auto;max-width:120px;object-fit:contain;display:block}
+  .cma-agency{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;line-height:1.2}
+  .cma-doc-title{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:left}
+  .cma-kicker{font-size:.8rem;font-weight:800;letter-spacing:.04em}
+  .cma-date{font-size:.72rem;opacity:.85}
+  .cma-agent{display:flex;align-items:center;gap:12px;padding:4px 2px 14px;border-bottom:1px solid var(--cma-line);margin-bottom:16px}
+  .cma-agent-photo{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--cma-accent)}
+  .cma-agent-photo.is-initial{display:flex;align-items:center;justify-content:center;background:var(--cma-brand);color:var(--cma-on-brand);font-weight:800;font-size:1.2rem}
+  .cma-agent-name{font-weight:700;font-size:.92rem}
+  .cma-agent-meta{font-size:.76rem;color:var(--cma-ink-2);margin-top:2px}
+  .cma-agent-meta a,.cma-foot-agent a{color:inherit;text-decoration:none}
+  .cma-hero h2{font-size:1.35rem;margin:0 0 2px;color:var(--cma-brand-dark)}
+  .cma-addr{font-size:.86rem;color:var(--cma-ink-2);margin-bottom:12px}
+  .cma-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+  .cma-chips>div{background:var(--cma-soft);border:1px solid var(--cma-line);border-radius:10px;padding:7px 12px;min-width:84px}
+  .cma-chips dt{font-size:.66rem;color:var(--cma-ink-3);font-weight:700}
+  .cma-chips dd{margin:1px 0 0;font-weight:700;font-size:.92rem}
+  .cma-sec{margin-top:22px;break-inside:avoid-page}
+  .cma-h{font-size:.82rem;font-weight:800;color:var(--cma-brand);letter-spacing:.03em;margin:0 0 10px;
+    padding-bottom:6px;border-bottom:2px solid var(--cma-accent);display:inline-block}
+  .cma-cap{font-size:.75rem;color:var(--cma-ink-3);margin:0 0 8px;line-height:1.5}
+  /* מספר הגיבור: אחד בדוח, Heebo ולא סריף, ספרות פרופורציונליות */
+  .cma-hero-fig{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--cma-soft);
+    border:1px solid var(--cma-line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .cma-hero-n{font-family:'Heebo',sans-serif;font-size:3rem;font-weight:800;line-height:1;color:var(--cma-ink);direction:ltr}
+  .cma-hero-l{font-size:.84rem;color:var(--cma-ink-2);max-width:420px;line-height:1.5}
+  /* השעונים */
+  .cma-gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:12px}
+  .cma-gauge{margin:0;border:1px solid var(--cma-line);border-radius:14px;padding:12px 12px 10px;text-align:center;background:#fff}
+  .cma-gauge-t{font-size:.74rem;font-weight:700;color:var(--cma-ink-2);margin-bottom:4px}
+  .cma-gauge-svg{width:100%;max-width:190px;height:auto;display:block;margin:0 auto}
+  .cma-gauge-svg .z-low{stroke:var(--cma-low)}
+  .cma-gauge-svg .z-mid{stroke:var(--cma-mid)}
+  .cma-gauge-svg .z-high{stroke:var(--cma-high)}
+  .cma-gauge-svg .needle{stroke:var(--cma-ink)}
+  .cma-gauge-svg .hub{fill:var(--cma-ink);stroke:#fff;stroke-width:2}
+  .cma-gauge-v{font-family:'Heebo',sans-serif;font-size:1.45rem;font-weight:800;margin-top:-4px;direction:ltr}
+  .cma-gauge-ends{display:flex;justify-content:space-between;font-size:.64rem;color:var(--cma-ink-3);max-width:190px;margin:-2px auto 0;padding:0 6px}
+  .cma-gauge-c{font-size:.7rem;color:var(--cma-ink-3);margin-top:4px;line-height:1.4}
+  /* אריחי המדדים: תווית מעל ערך, ערך ב-Heebo */
+  .cma-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:560px){.cma-stats{grid-template-columns:repeat(4,1fr)}}
+  .cma-stat{border:1px solid var(--cma-line,var(--line));border-radius:12px;padding:10px 12px;text-align:right;background:#fff}
+  .cma-stat .l{font-size:.68rem;color:var(--cma-ink-3,var(--ink-soft));font-weight:700}
+  .cma-stat .n{font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--cma-ink,var(--teal-dark));margin-top:2px}
+  /* פס הטווח: מחצית העסקאות האמצעיות, החציון, והנכס */
+  .cma-range{margin:14px 0 4px;padding:14px 16px 10px;border:1px solid var(--cma-line);border-radius:14px}
+  .cma-range-track{position:relative;height:10px;border-radius:999px;background:var(--cma-soft);margin:30px 6px 6px;border:1px solid var(--cma-line)}
+  .cma-range-band{position:absolute;top:-1px;bottom:-1px;background:var(--cma-mid);border-radius:999px}
+  .cma-range-mid{position:absolute;top:-5px;width:2px;height:20px;background:var(--cma-ink-2);transform:translateX(50%)}
+  .cma-range-pin{position:absolute;top:-6px;width:22px;height:22px;border-radius:50%;background:var(--cma-accent);
+    border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transform:translateX(50%)}
+  .cma-range-pin span{position:absolute;bottom:26px;right:50%;transform:translateX(50%);white-space:nowrap;
+    font-size:.7rem;font-weight:800;color:var(--cma-ink);background:#fff;border:1px solid var(--cma-line);border-radius:6px;padding:1px 6px}
+  /* נכס בקצה הטווח: התווית נצמדת לקצה במקום לגלוש מהגיליון */
+  .cma-range-pin.is-start span{right:-4px;transform:none}
+  .cma-range-pin.is-end span{right:auto;left:-4px;transform:none}
+  .cma-range-ends{display:flex;justify-content:space-between;font-size:.66rem;color:var(--cma-ink-3)}
+  .cma-range-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.72rem;color:var(--cma-ink-2);margin-top:8px}
+  .cma-range-legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-inline-end:5px;vertical-align:middle}
+  .cma-range-legend .k-band{background:var(--cma-mid)}
+  .cma-range-legend .k-mid{width:2px;height:12px;background:var(--cma-ink-2)}
+  .cma-range-where{font-size:.8rem;margin:8px 0 0}
+  /* הקרקע */
+  .cma-land-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:620px){.cma-land-grid{grid-template-columns:1.1fr 1fr}}
+  .cma-own{border-radius:14px;padding:14px 16px;border:1px solid var(--cma-line);background:var(--cma-soft)}
+  .cma-own.is-s{border-color:#e9b949;background:#fdf6e3}
+  .cma-own-k{font-size:.7rem;font-weight:700;color:var(--cma-ink-3)}
+  .cma-own-v{font-size:1.2rem;font-weight:800;margin:2px 0 6px}
+  .cma-own-d{font-size:.78rem;color:var(--cma-ink-2);line-height:1.55}
+  .cma-facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cma-facts>div{border:1px solid var(--cma-line);border-radius:10px;padding:8px 10px}
+  .cma-facts dt{font-size:.66rem;color:var(--cma-ink-3);font-weight:700}
+  .cma-facts dd{margin:2px 0 0;font-size:.84rem;font-weight:600}
+  /* רשימת התוכניות (planRowHtml ב-crm.js) - בדוח ה-CMA ובכלי המידע התכנוני */
+  .gm-plans{margin-top:12px}
+  .gm-plans-h{font-size:.7rem;font-weight:700;color:var(--cma-ink-3,var(--ink-soft));margin:0 0 6px}
+  .gm-plan{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:7px 0;
+    border-bottom:1px solid var(--cma-line,var(--line));font-size:.8rem}
+  .gm-plan:last-child{border-bottom:0}
+  .gm-plan-n{font-weight:800}
+  .gm-plan-d{color:var(--cma-ink-2,var(--ink-soft));min-width:0}
+  .gm-plan a{color:inherit;text-decoration:underline}
+  .gm-plan.is-notice{background:#fdf6e3;border:1px solid #e9b949;border-radius:8px;padding:7px 9px;margin:4px 0}
+  .gm-plan-flag{flex-basis:100%;font-size:.72rem;font-weight:700;color:#8a5a00}
+  .gm-plans-src{font-size:.66rem;color:var(--cma-ink-3,var(--ink-soft));margin-top:6px}
+  .cma-table td.cma-c-rank{color:var(--cma-ink-3,var(--ink-soft));font-weight:700;width:1%}
+  .cma-basis.is-same{border-color:var(--cma-accent,var(--gold));color:var(--cma-ink,var(--ink));font-weight:700}
+  .cma-method .cma-note{background:var(--cma-soft)}
+  .cma-foot-agent{font-size:.8rem;color:var(--cma-ink);margin-bottom:8px}
+  .cma-foot p{margin:0}
+  .cma-made{display:flex;align-items:center;gap:5px;margin-top:10px;font-size:.66rem;color:var(--cma-ink-3)}
+  /* ---------- טבלאות הדוח, ולמה הן נגללות ולא נדחסות ----------
+     ‏`width:100%` בלי `table-layout:fixed` אומר שהרוחב **המינימלי** של
+     הטבלה הוא סכום ה-min-content של העמודות, ואת זה אין לה דרך לוותר
+     עליו. טבלת "נכסים דומים שמוצעים בשוק" נושאת שבע עמודות, והראשונה
+     בהן היא כותרת מודעה מלאה - כלומר ברוחב טלפון היא גולשת מהגיליון
+     ומוציאה איתה את כל הדוח, בדיוק כמו שהערת ההקשר הוציאה את כרטיס
+     הנכס. לדחוס שבע עמודות ל-348px אינה אפשרות: "התאמת מאפיינים" לבדה
+     צריכה כ-90px.
+
+     לכן מעטפת שנגללת, כמו ב-`.adm-table-wrap`, ב-`.tbl-wrap` של
+     ‏developer-crm ובטבלת בדיקת העסקאות. הטבלה עצמה נשארת `width:100%`,
+     ולכן כשהיא **כן** נכנסת (טבלאות ארבע העמודות, וכל רוחב דסקטופ) אין
+     גלילה בכלל ושום דבר לא משתנה.
+
+     ‏`@media print` מחזיר `overflow:visible`: מעטפת שנגללת נחתכת בהדפסה
+     בדיוק בקו שבו המסך נגמר, והדוח הזה נשלח ללקוחות כ-PDF. */
+  .cma-tablewrap{overflow-x:auto;overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch}
+  .cma-table{width:100%;border-collapse:collapse;font-size:.8rem}
+  .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
+  .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+  /* עמודת הכותרת היא הטקסט החופשי היחיד בטבלאות, ולכן היא זו שנשברת -
+     בלי זה הרוחב המינימלי של הטבלה הוא אורך הכותרת על שורה אחת. */
+  .cma-table td.cma-c-title{min-width:132px;white-space:normal}
+  .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
+  /* ההודעה שמחליפה את "תמונת השוק" כשאין די עסקאות. היא לא הערת שוליים
+     אלא התוכן עצמו באותו מקום, ולכן בולטת ולא רכה כמו .cma-note — סוכן/ת
+     שמדפיס/ה את הדוח ללקוח/ה צריך/ה לראות אותה לפני שהוא/היא שולח/ת. */
+  .cma-gap{border:1.5px solid var(--gold);background:var(--gold-tint);border-radius:var(--radius-sm);padding:13px 14px;line-height:1.55}
+  .cma-gap .t{font-weight:800;color:var(--brick);font-size:.86rem;margin-bottom:4px}
+  .cma-gap .d{font-size:.78rem;color:var(--ink-soft)}
+  .cma-gap ul{margin:7px 0 0;padding-inline-start:18px;font-size:.75rem;color:var(--ink-soft)}
+  /* בסיס המחיר של כל שורה בטבלה: "מחיר מבוקש" אינו מחיר עסקה, והתווית
+     הזו היא ההבדל בין דוח נכון לדוח שנראה נכון. */
+  .cma-basis{display:inline-block;font-size:.66rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
+  .cma-basis.is-asking{border-color:var(--gold);background:var(--gold-tint);color:var(--brick)}
+  .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
+
+  /* CMA-CSS:END */
+
+  /* ---------- הדף עצמו ----------
+     ב-CRM הדוח הוא שכבה מעל הדשבורד (#cmaOverlay קבוע, עם רקע כהה); כאן הוא
+     הדף, ולכן השכבה זורמת. ‏renderCmaReport ממשיכה להציג אותה ב-display:block. */
+  #cmaOverlay{position:static;background:none;overflow:visible;
+    padding:calc(12px + var(--sa-top)) 12px calc(28px + var(--sa-bottom))}
+  .cp-state{max-width:760px;margin:16px auto;background:#fff;border-radius:16px;padding:22px 20px;text-align:center;box-shadow:0 2px 10px rgba(18,40,64,.09)}
+  .spin{width:28px;height:28px;border:3px solid var(--teal-tint);border-top-color:var(--teal-dark);border-radius:50%;margin:6px auto 10px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .cp-actions{max-width:760px;margin:0 auto 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cp-btn{display:flex;align-items:center;justify-content:center;min-height:46px;padding:0 14px;border-radius:12px;border:0;
+    font:inherit;font-weight:700;font-size:.92rem;cursor:pointer;background:#fff;color:var(--teal-dark);text-decoration:none;
+    box-shadow:0 1px 4px rgba(18,40,64,.12)}
+  .cp-btn.is-wa{background:#1f8f4e;color:#fff}
+  .cp-btn.is-print{background:var(--teal-dark);color:#fff}
+  .cp-btn[hidden]{display:none}
+  .cp-msg{grid-column:1 / -1;margin:0;min-height:1em;font-size:.85rem;color:#1e7a4c;text-align:center}
+  @media(min-width:640px){.cp-actions{grid-template-columns:repeat(4,1fr)}}
+  /* ‏"שמירה כ-PDF" היא חלון ההדפסה: הדוח בלבד, בלי הכפתורים */
+  @media print{
+    body{background:#fff}
+    .cp-actions,.cp-state{display:none !important}
+    #cmaOverlay{padding:0}
+    .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
+    .cma-tablewrap{overflow:visible !important}
+    .cma-gauge,.cma-hero-fig,.cma-range,.cma-own,.cma-stat{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<div class="cp-state" id="cmaState"><div class="spin"></div><p>טוענת את הדוח…</p></div>
+<div id="cmaOverlay">
+  <div class="cp-actions" id="cpActions" hidden>
+    <button type="button" class="cp-btn is-print" id="cpPrint">הדפסה / שמירה כ-PDF</button>
+    <a class="cp-btn is-wa" id="cpWa" href="https://wa.me/" target="_blank" rel="noopener" data-share>שליחה בוואטסאפ</a>
+    <button type="button" class="cp-btn" id="cpShare" hidden>שיתוף</button>
+    <button type="button" class="cp-btn" id="cpCopy">העתקת הקישור</button>
+    <p class="cp-msg" id="cpMsg" aria-live="polite"></p>
+  </div>
+  <div class="cma-sheet"><div id="cmaBody"></div></div>
+</div>
+
+<script src="assets/cma-render.js"></script>
+<script src="assets/cma-page.js"></script>
+</body>
+</html>

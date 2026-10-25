@@ -40,6 +40,10 @@ Disallow: /meeting.html
 Disallow: /plan
 Disallow: /plan.html
 
+# דוח CMA מגבריאלה - קישור עם טוקן, גם ללקוח/ה (docs/cma.md)
+Disallow: /cma
+Disallow: /cma.html
+
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary
 Disallow: /neighborhood-boundary.html

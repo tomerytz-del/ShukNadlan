@@ -123,6 +123,8 @@ PRIVATE = {
     "meeting",
     # ‏דף הבדיקה התכנונית לסוכן/ת - קישור עם טוקן מגבריאלה (docs/govmap.md)
     "plan",
+    # ‏דוח ה-CMA מגבריאלה - קישור עם טוקן (docs/cma.md, "הקישור לדוח")
+    "cma",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,

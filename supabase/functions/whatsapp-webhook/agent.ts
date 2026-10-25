@@ -17,7 +17,7 @@ import {
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
-import { featureNames, noLongDash } from "../_shared/marketing-copy.ts";
+import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -574,8 +574,8 @@ const TOOLS: Anthropic.Tool[] = [
       "נמצאו די כאלה חוזר comparability_guidance שאומר מה לומר. " +
       "**כשאין די עסקאות להשוואה הכלי אינו מחזיר ממוצע כלל** - במקרה כזה יש " +
       "לומר לסוכן/ת שאין נתונים ולא לאמוד מספר לבד. מחזיר תקציר ואת " +
-      "העסקאות הקרובות ביותר; הדוח המלא להדפסה או לשליחה ללקוח/ה נמצא " +
-      "בדשבורד. **נכס במערכת** = נכס של הסוכן/ת או כל נכס פעיל באתר (גם של משרד " +
+      "העסקאות הקרובות ביותר; הדוח המלא יוצא אחרי התשובה ככפתור \"📊 דוח CMA\" עם קישור " +
+      "לדף ממותג, שאפשר להדפיס ולהעביר ללקוח/ה (cma_link_guidance). **נכס במערכת** = נכס של הסוכן/ת או כל נכס פעיל באתר (גם של משרד " +
       "אחר). כתובת שאין בה נכס כזה = cma_report_address.",
     input_schema: {
       type: "object",
@@ -3135,7 +3135,11 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   }
 
   ctx.conv.last_property_id = propertyId;
-  return { ...cmaSummary(report, limit), property_id: propertyId };
+  const button = await cmaButton(ctx, report, propertyId);
+  const summary: Record<string, unknown> = { ...cmaSummary(report, limit), ...button, property_id: propertyId };
+  // עם כפתור - הדוח המלא בקישור, ולא "בדשבורד"
+  if (button.cma_link_guidance) delete summary.full_report_where;
+  return summary;
 }
 
 /**
@@ -3253,8 +3257,10 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     num(input.size_sqm) === null && "שטח",
   ].filter(Boolean);
 
+  const button = await cmaButton(ctx, report, null);
   return {
     ...summary,
+    ...button,
     report_kind: "address",
     location_precision: precision || undefined,
     location_guidance: precision
@@ -3266,8 +3272,48 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
       ? `לא נמסרו: ${missing.join(", ")}. מסור/מסרי את הדוח, ובסוף הצע/י להריץ שוב עם הפרטים האלה - ` +
         "הם מסננים את בני ההשוואה, ושטח נותן מחיר למ\"ר."
       : undefined,
-    full_report_where:
-      "הדוח המלא להדפסה או לשליחה ללקוח/ה: בדשבורד, \"דוח CMA לבעלים\" > \"לכתובת שאינה במערכת\".",
+    ...(button.cma_link_guidance ? {} : {
+      full_report_where:
+        "הדוח המלא להדפסה או לשליחה ללקוח/ה: בדשבורד, \"דוח CMA לבעלים\" > \"לכתובת שאינה במערכת\".",
+    }),
+  };
+}
+
+/**
+ * כפתור "📊 דוח CMA" - הקישור לדף הדוח (‏/cma?k=, מיגרציה 20270820090000),
+ * באותו מנגנון כמו "📄 מידע תכנוני" (‏planningButton, ‏crmButton): הכפתור
+ * יוצא מעצמו אחרי התשובה. הדף מציג את אותו דוח ממותג שב-CRM, ואפשר להעביר
+ * אותו ללקוח/ה. הדוח נשמר כמו שהוא, ולכן מה שגבריאלה אמרה הוא מה שבדף.
+ *
+ * שמות המאפיינים נשמרים עם הדוח (‏subject.feature_labels): בדף אין את
+ * הרשימות של ה-CRM. כשל ביצירה (תקרה יומית, תקלה) - אין כפתור, והתשובה
+ * מפנה ל-CRM כמו קודם.
+ */
+const CMA_BUTTON_LABEL = "📊 דוח CMA";
+const CMA_BUTTON_BODY = "הדוח המלא - להצגה, להדפסה ולשליחה ללקוח/ה:";
+
+async function cmaButton(
+  ctx: ToolContext,
+  report: Record<string, unknown>,
+  propertyId: string | null,
+): Promise<Record<string, unknown>> {
+  if (!SITE_BASE_URL) return {};
+  const subject = { ...((report.subject || {}) as Record<string, unknown>) };
+  const codes = Array.isArray(subject.features) ? subject.features.map(String) : [];
+  subject.feature_labels = Object.fromEntries(
+    codes.filter((c) => FEATURE_LABELS[c]).map((c) => [c, FEATURE_LABELS[c]]),
+  );
+  const { data, error } = await ctx.supabase.rpc("cma_link_create", {
+    p_agent: ctx.agent.id, p_report: { ...report, subject }, p_property: propertyId,
+  });
+  if (error) console.warn("cma link:", error.message);
+  if (!data) return {};
+  return {
+    ...crmButton(ctx, `${SITE_BASE_URL}/cma?k=${data}`, CMA_BUTTON_LABEL, CMA_BUTTON_BODY, "cma_report_url"),
+    cma_link_guidance: ctx.outbox
+      ? "כפתור \"📊 דוח CMA\" עם הדוח המלא יוצא אוטומטית מיד אחרי התשובה שלך - אל תכתוב/תכתבי קישור. " +
+        "אפשר לסיים במשפט אחד שהדוח המלא בכפתור, ושאפשר להעביר אותו ללקוח/ה."
+      : "הוסף/הוסיפי בסוף את cma_report_url, עם המשפט: \"" + CMA_BUTTON_BODY + "\"",
   };
 }
 

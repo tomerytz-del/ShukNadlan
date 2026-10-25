@@ -2762,6 +2762,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ag-acts button{font-size:.76rem;font-weight:700;color:var(--teal);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
   .ag-acts button.is-danger{color:#dc2626}
 
+  /* CMA-CSS:BEGIN - ה-CSS של דוח ה-CMA. העתק זהה ב-cma.html (הדף שגבריאלה
+     שולחת), ו-scripts/check_cma_css.py בודק ששני העותקים זהים. */
   /* ---------- CMA report (2.3) ---------- */
   #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;
     padding:calc(20px + var(--sa-top)) calc(12px + var(--sa-end)) calc(20px + var(--sa-bottom)) calc(12px + var(--sa-start))}
@@ -2919,6 +2921,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cma-basis{display:inline-block;font-size:.66rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
   .cma-basis.is-asking{border-color:var(--gold);background:var(--gold-tint);color:var(--brick)}
   .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
+
+  /* CMA-CSS:END */
 
   /* ---------- מדבקת QR לשלט ---------- */
   /* השכבה עצמה היא הגוללת, ולא הכרטיס: בטלפון גובה הכרטיס עלה על מה
@@ -12318,6 +12322,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
 <script src="assets/property-import-core.js"></script>
+<!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
+     crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
+<script src="assets/cma-render.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>
