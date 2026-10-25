@@ -412,11 +412,16 @@ function atRisk(r: Row) {
   return r.stage !== "champion" && (days(r.joined_at) ?? 0) >= 5 && (days(r.last_gabriela_at) ?? 999) >= 5;
 }
 
-/* ‏staff: השורה ב-csm_staff שזוהתה לפי הטלפון (csm-chat.ts). ‏askMentor מוזרק
-   כדי שהקובץ לא ייבא את המנטור (וממנו npm:) בבדיקות. */
+/* ‏staff: השורה ב-csm_staff שזוהתה לפי הטלפון (csm-chat.ts). ‏askMentor ו-
+   ‏busyCheck מוזרקים כדי שהקובץ לא ייבא את המנטור (npm:) ואת יומן Google
+   (‏Deno.env) בבדיקות שרצות ב-node. ‏busyCheck מחזיר את הזמנים התפוסים ביומן
+   הראשי שלה ב-Google, או null כשאין חיבור עם הרשאת פנוי/תפוס. */
+export type BusyCheck = (fromIso: string, toIso: string) => Promise<Array<{ start: string; end: string }> | null>;
+
 export async function runCsmTool(
   supabase: SupabaseClient, staff: { id: string }, name: string, input: Record<string, unknown>,
   askMentor?: (q: unknown) => Promise<unknown>,
+  busyCheck?: BusyCheck,
 ): Promise<unknown> {
   if (!staff?.id) return { ok: false, error: "הכלי פתוח לצוות ההטמעה בלבד." };
 
@@ -570,6 +575,21 @@ export async function runCsmTool(
       .gte("starts_at", new Date(start - 10 * 3600000).toISOString()).lt("starts_at", new Date(end).toISOString());
     const clash = ((around as Row[] | null) ?? []).filter((o) =>
       new Date(String(o.starts_at)).getTime() + num(o.duration_minutes) * 60000 > start);
+    // יומן Google: מחובר - הפגישה עוברת לבד (google-calendar-sync), ובודקים
+    // את היומן האישי שלה (פנוי/תפוס בלבד). לא מחובר - קישור תבנית.
+    const { data: gconn } = await supabase.from("csm_calendar_connections")
+      .select("status").eq("staff_id", staff.id).maybeSingle();
+    const gSynced = gconn?.status === "active";
+    // רק כן/לא יוצא למודל - לא טווחי הזמן עצמם (privacy.html#google-calendar)
+    let googleBusy: boolean | null = null;
+    if (gSynced && busyCheck && saved!.status === "scheduled") {
+      try {
+        const busy = await busyCheck(new Date(start).toISOString(), new Date(end).toISOString());
+        googleBusy = busy === null ? null : busy.length > 0;
+      } catch (err) {
+        console.warn("csm freebusy failed", String(err));
+      }
+    }
     const details = [a ? `עם ${a.display_name}${a.agency_name ? " (" + a.agency_name + ")" : ""}` : "",
       a?.phone ? "טלפון: " + a.phone : "", saved!.meeting_url ? String(saved!.meeting_url) : "",
       saved!.notes ? String(saved!.notes) : ""].filter(Boolean).join("\n");
@@ -578,15 +598,18 @@ export async function runCsmTool(
       title: saved!.title, status: AGENDA_STATUS[String(saved!.status)],
       agent: a ? a.display_name : null,
       reminder_minutes: saved!.reminder_minutes ?? me?.reminder_minutes ?? null,
-      google_calendar_url: saved!.status === "scheduled"
+      google_calendar: gSynced ? "נכנסת לבד ליומן Google שלה (יומן \"שוק נדל\"ן\")" : null,
+      google_calendar_url: saved!.status === "scheduled" && !gSynced
         ? gcalTemplateUrl({ title: String(saved!.title || "פגישה"), starts_at: String(saved!.starts_at),
           duration_minutes: num(saved!.duration_minutes) || 45, details,
           location: String(saved!.location || saved!.meeting_url || "") || undefined })
         : null,
       clashes: clash.map((o) => ({ title: o.title, when: ilWhen(o.starts_at) })),
+      slot_busy_in_google: googleBusy,
       note: saved!.status === "done" && a
         ? "להציע לרשום מה בוצע בפגישה (csm_log_session)."
-        : "לומר מתי נקבע, את התזכורת, ולצרף את קישור Google Calendar. התנגשות - לציין.",
+        : "לומר מתי נקבע ואת התזכורת. יומן Google מחובר - לומר שהפגישה עוברת לשם לבד; לא מחובר - לצרף את google_calendar_url ולהזכיר שאפשר לחבר בהגדרות באזור. " +
+          "התנגשות ביומן ההטמעה או השעה תפוסה ביומן Google האישי שלה (slot_busy_in_google = true) - לציין ולשאול אם להזיז.",
     };
   }
 

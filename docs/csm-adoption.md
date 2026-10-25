@@ -19,6 +19,7 @@
 | `supabase/functions/whatsapp-webhook/csm-chat.ts`, `csm-tools.ts` | גבריאלה מול הצוות: התור, הכלים, וקובץ שמע → ניתוח |
 | `supabase/migrations/20270816090000_csm_profile_agenda_notifications.sql` | ההגדרות על `csm_staff`, ‏`csm_agenda`, ‏`csm_notifications`, ‏`csm_notify_run()` וה-cron `csm-notify` |
 | `supabase/functions/whatsapp-webhook/csm-notify.ts` | שליחת ההתראות לוואטסאפ (‏`?task=csm-notify`) |
+| `supabase/migrations/20270817090000_csm_google_calendar.sql` | הסנכרון ליומן Google: `csm_calendar_*`, עמודות `google_*` על `csm_agenda`, מצבות, התפיסה וה-cron `csm-gcal-sync` |
 
 ## התפקיד: זהות נפרדת (`csm_staff`)
 
@@ -136,14 +137,42 @@ Claude עם `tool_choice` מאולץ (`save_call_analysis`) - סיכום, טון
 - **מועד שזז** מחזיר את התזכורת לתור (`reminded_at` מתאפס).
 - **"התקיימה"** על פגישת הצלחה ראשונה או מעקב פותח את חלון הפגישה - הרישום של
   מה בוצע נשאר `csm_sessions`, והיומן אינו מחליף אותו.
-- **יומן Google**: כפתור "📅 ליומן Google" לכל פגישה - קישור תבנית
-  (‏`calendar.google.com/calendar/render?action=TEMPLATE`), בלי OAuth ובלי גישה
-  ליומן שלה. גבריאלה מצרפת את אותו קישור אחרי `csm_agenda_add`. **לא** הסנכרון
-  של הסוכנים (`docs/google-calendar.md`): שם הטוקן, ה-state וה-claim רשומים על
-  `agency_members`, ושכפולם לצוות הוא החלטה נפרדת - כאן אין שום טוקן.
+- **יומן Google** - סנכרון מלא כשהיא מחוברת, וקישור תבנית כשלא (למטה).
 - כל המועדים נשמרים ב-UTC ומוצגים בשעון ישראל (`csmIlToIso` בדפדפן, ‏`ilLocalToIso`
   ב-`csm-tools.ts` - עותק של זה שב-`agent.ts`, כי הקובץ לא מייבא מהעוזרת של
   הסוכנים).
+
+## יומן Google
+
+בהגדרות, "📅 חיבור מאובטח ל-Google Calendar". מאז החיבור כל פגישה ביומן ההטמעה
+נכתבת ליומן משנה בשם "שוק נדל״ן" בחשבון שלה, וגם הזזה, ביטול ומחיקה עוברים.
+לפני החיבור (או אחרי ניתוק) - הכפתור "📅 ליומן Google" לכל פגישה, קישור תבנית
+(‏`calendar.google.com/calendar/render?action=TEMPLATE`) בלי שום טוקן.
+
+**אותו מנגנון של הסוכנים** (`docs/google-calendar.md`): אותו לקוח OAuth, אותן
+הרשאות צרות (`calendar.app.created` + `calendar.freebusy`), אותה הצפנה ואותה
+כתובת חזרה (`/auth/google-calendar`). מה שונה:
+
+| | סוכנים | צוות ההטמעה |
+| --- | --- | --- |
+| החיבור והניתוק | `google-calendar-connect` | `csm-workspace` (‏`gcal_start`, `gcal_disconnect`), אשת הצוות מה-JWT |
+| ה-state החתום | מזהה הסוכן/ת | `csm:<staff_id>` (‏`CSM_STATE_PREFIX`); ה-callback מפצל ב-`stateSubject` וחוזר ל-`/csm?tab=settings&gcal=…` |
+| הטבלאות | `agent_calendar_connections` / `_secrets` | `csm_calendar_connections` / `_secrets` - היא אינה סוכנת |
+| הגייט | `agent_agenda_enabled` (מסלול) | `csm_staff` פעיל/ה |
+| הסנכרון | cron `google-calendar-sync` | cron `csm-gcal-sync` → `google-calendar-sync?scope=csm` (‏`syncCsm`) |
+| מה עובר | פגישה, סיור וחתימה | כל פגישה מתוכננת או שהתקיימה; בוטלה / לא הגיע/ה - נמחקת |
+
+- **פגישה שנמחקה מהיומן** משאירה מצבה (`csm_calendar_tombstones`, טריגר `after
+  delete`), והסבב הבא מוחק את האירוע ב-Google. לסוכנים אין מחיקה, ולכן אין להם.
+- **אשת צוות שהושבתה** (`csm_staff_set_active`): הסבב הבא מוחק את היומן ב-Google
+  ומבטל את ההרשאה (`csm_calendar_inactive_staff`).
+- **ההרשאה בוטלה ב-Google** (`invalid_grant`): החיבור `error`, הטוקן נמחק, והשגיאה
+  מוצגת בהגדרות; הפגישות חוזרות ל-`pending` ונכתבות אחרי חיבור מחדש.
+- **גבריאלה**: אחרי `csm_agenda_add` עם חיבור פעיל היא אומרת שהפגישה עוברת לבד, ו-
+  `busyCheck` (מוזרק מ-`csm-chat.ts`, כדי ש-`csm-tools.ts` יישאר בלי `Deno.env`
+  בבדיקות) בודק פנוי/תפוס ביומן הראשי, ולמודל יוצא רק `slot_busy_in_google` (כן/לא) - לא טווחי הזמן, כמו שמבטיח `privacy.html#google-calendar`.
+  החיבור עצמו הוא OAuth, ולכן גבריאלה מפנה להגדרות ולא מחברת.
+- ביומן, ליד פגישה: "ביומן Google" כשעברה, ו"לא עבר ל-Google" (עם השגיאה) כשנכשלה.
 
 ## התראות
 
@@ -256,7 +285,7 @@ Claude עם `tool_choice` מאולץ (`save_call_analysis`) - סיכום, טון
 | `csm_add_feedback` | בקשת פיתוח, עם הסוכן/ת כקול |
 | `csm_recent_calls`, `csm_link_call` | הקלטות אחרונות, וניתוח מלא; שיוך לסוכן/ת ועדכון השלב והמועד מהניתוח |
 | `csm_ask_mentor` | מנטור ההטמעה |
-| `csm_agenda_list`, `csm_agenda_add`, `csm_agenda_update` | היומן שלה: מה יש היום או השבוע, קביעה (עם קישור ליומן Google והתנגשויות), הזזה, ביטול ו"התקיימה". כותבת ומעדכנת רק פגישות של אשת הצוות שמולה |
+| `csm_agenda_list`, `csm_agenda_add`, `csm_agenda_update` | היומן שלה: מה יש היום או השבוע, קביעה (מחוברת - עוברת לבד ליומן Google עם בדיקת פנוי/תפוס; לא - קישור תבנית; והתנגשויות), הזזה, ביטול ו"התקיימה". כותבת ומעדכנת רק פגישות של אשת הצוות שמולה |
 | `csm_notifications` | מה לא נקרא, וסימון הכול כנקרא |
 | `csm_settings` | ההגדרות שלה - הכול חוץ מהנייד והמייל |
 

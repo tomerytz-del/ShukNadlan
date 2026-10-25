@@ -108,8 +108,11 @@ description: אזור ההטמעה של שוק נדל״ן (/csm) - מנהלת ה
   נכשלת שם; `_csm_risk_agents` היא החישוב של המסד.
 - **וואטסאפ**: ‏`csm_notify_wa_claim` מחליטה (שעות שקט, 18 שעות, חלון 24 השעות לפי
   `last_inbound_at` - לא `updated_at`). מחוץ לחלון - התבנית של `notification-push`.
-- **יומן Google** - קישור תבנית בלבד. הסנכרון של הסוכנים רשום על `agency_members`
-  ואינו חל כאן; שכפול שלו לצוות הוא החלטה על OAuth, לא שורה בקוד.
+- **יומן Google** - אותו לקוח OAuth ואותו callback של הסוכנים, אבל טבלאות משלה
+  (`csm_calendar_*`) ו-state של `csm:<staff_id>`. שינוי ב-`google-calendar-callback`
+  חייב להשאיר את שני הענפים (‏`stateSubject`): סוכן/ת חוזר/ת ל-`/crm`, היא ל-`/csm`.
+  פגישה שנמחקת משאירה מצבה, כי אחרת האירוע נשאר ב-Google. ‏`csm-tools.ts` לא מייבא
+  את `google-calendar.ts` (‏`Deno.env` שובר את הבדיקה ב-node) - `busyCheck` מוזרק.
 
 ## 9. עלות
 

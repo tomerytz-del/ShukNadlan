@@ -139,3 +139,5 @@
 .csm-notif .csm-card-actions{align-items:center}
 .csm-form input[type=date],.csm-form input[type=time],.csm-form input[type=number],.csm-form input[type=url]{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;font:inherit;font-size:.85rem;background:#fff}
 #csmSettingsForm input[readonly]{background:var(--paper-raised);color:var(--ink-soft)}
+.csm-gcal p{margin:0 0 8px}
+.csm-gcal.is-on strong{color:#1E5B33}

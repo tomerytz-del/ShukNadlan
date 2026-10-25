@@ -15,7 +15,8 @@
 // ============================================================================
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
+import { type BusyCheck, CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
+import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -38,7 +39,7 @@ export const CSM_BOT_SYSTEM = `את גבריאלה, העוזרת בוואטסא�
 - כרטיס סוכן/ת עם טלפון, מייל, משרד וכתובתו ורמת השימוש - csm_find_agent. משרד עם המנהלים וכל הסוכנים - csm_office. פרטי הקשר של הסוכנים מותרים לה, ותני אותם כשהיא מבקשת.
 - העברת שלב בצנרת ומועד קשר - csm_set_stage. רישום פגישה או שיחת מעקב - csm_log_session. בקשת פיתוח שסוכן/ת העלה/תה - csm_add_feedback.
 - הקלטות שיחה: היא שולחת קובץ שמע, והמערכת מתמללת ומסכמת לבד. שיוך שיחה לסוכן/ת - csm_link_call; שיחות קודמות - csm_recent_calls.
-- היומן שלה: מה יש לה היום או השבוע - csm_agenda_list; קביעת פגישה עם סוכן/ת או משרד - csm_agenda_add (ואז הקישור "הוספה ליומן Google" בתשובה); הזזה, ביטול או "התקיימה" - csm_agenda_update. "מחר", "ביום שלישי" - לפי התאריך שבהקשר. פגישה שהתקיימה עם סוכן/ת - להציע לרשום אותה (csm_log_session).
+- היומן שלה: מה יש לה היום או השבוע - csm_agenda_list; קביעת פגישה עם סוכן/ת או משרד - csm_agenda_add (כשיומן Google שלה מחובר - הפגישה עוברת לשם לבד, ואם השעה תפוסה ביומן האישי שלה - לציין; כשלא - הקישור "הוספה ליומן Google" בתשובה, והחיבור עצמו נעשה בהגדרות באזור ההטמעה); הזזה, ביטול או "התקיימה" - csm_agenda_update. "מחר", "ביום שלישי" - לפי התאריך שבהקשר. פגישה שהתקיימה עם סוכן/ת - להציע לרשום אותה (csm_log_session).
 - ההתראות שלה (תזכורת לפני פגישה, סוכן/ת חדש/ה, 5 ימים בלי גבריאלה, הקלטה שהסתיימה, סיכום בוקר) - csm_notifications. התראה שנשלחה אליה מופיעה בשיחה בסוגריים מרובעים.
 - ההגדרות שלה - csm_settings: השם, התראות בוואטסאפ ואילו סוגים, שעת סיכום הבוקר, ימי עבודה, שעות שקט, אורך פגישה, כמה זמן לפני התזכורת, וקישור קבוע לפגישות וידאו. הנייד והמייל - רק באזור ההטמעה.
 - שאלה מקצועית (עם מי להתחיל, איך לגשת למשרד, מה לענות על התנגדות, איך להחזיר מי שנשר/ה) - csm_ask_mentor, ואת מעבירה את התשובה כמו שהיא ופותחת במילים "המנטור עונה:".
@@ -87,6 +88,15 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
       : { ok: true, answer: r.answer, remaining_24h: r.remaining };
   };
 
+  // פנוי/תפוס מהיומן הראשי שלה ב-Google - רק עם חיבור פעיל והרשאת freebusy
+  const busyCheck: BusyCheck = async (fromIso, toIso) => {
+    const { data: conn } = await supabase.from("csm_calendar_connections")
+      .select("status, scopes").eq("staff_id", staff.id).maybeSingle();
+    if (conn?.status !== "active" || !(conn.scopes || []).includes(GCAL_FREEBUSY_SCOPE)) return null;
+    const token = await accessTokenForStaff(supabase, staff.id);
+    return token ? await freeBusy(token, fromIso, toIso) : null;
+  };
+
   let finalText = "";
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await client.messages.create({
@@ -106,7 +116,7 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
     for (const use of uses) {
       let result: unknown;
       try {
-        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor);
+        result = await runCsmTool(supabase, staff, use.name, (use.input ?? {}) as Record<string, unknown>, askMentor, busyCheck);
       } catch (err) {
         console.error(`csm tool ${use.name} threw`, err);
         result = { ok: false, error: String((err as Error)?.message || err) };

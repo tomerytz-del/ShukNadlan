@@ -5,7 +5,7 @@
      צנרת      - קנבן בשישה שלבים, ציון בריאות, התרעה על 5+ ימים בלי גבריאלה,
                  ופרטי הקשר והשימוש של כל סוכן/ת
      משרדים    - כתובת, מנהלים וטלפונים, וכמה סוכנים בכל משרד משתמשים
-     יומן      - הפגישות שלה (csm_agenda), תזכורת לפני כל אחת, וקישור ליומן Google - צוות בלבד
+     יומן      - הפגישות שלה (csm_agenda), תזכורת לפני כל אחת, וסנכרון ליומן Google - צוות בלבד
      התראות    - הפעמון שלה (csm_notifications) - צוות בלבד
      המנטור    - מנטור ההטמעה (csm-workspace, ‏_shared/coach/csm.ts) - צוות בלבד
      הקלטות    - הקלטת שיחה → תמלול, סיכום והמלצות (csm_calls) - צוות בלבד
@@ -964,6 +964,63 @@ async function csmLoadProfile(force){
   return csmProfile;
 }
 
+/* ---------- יומן Google ----------
+   החיבור (csm_calendar_connections, שלה בלבד). מחובר - הפגישות עוברות לבד
+   (google-calendar-sync?scope=csm), ובמקום כפתור התבנית מוצג מצב הסנכרון.
+   החיבור והניתוק דרך csm-workspace (gcal_start / gcal_disconnect). */
+let csmGcal = null;
+async function csmLoadGcal(){
+  if (!csmCtx().isStaff) return null;
+  const { data } = await sb.from('csm_calendar_connections')
+    .select('status,google_email,scopes,last_error,last_sync_at').eq('staff_id', csmCtx().staffId).maybeSingle();
+  csmGcal = data || null;
+  return csmGcal;
+}
+function csmGcalOn(){ return !!(csmGcal && csmGcal.status === 'active'); }
+
+// התשובה מ-Google (google-calendar-callback → /csm?tab=settings&gcal=...)
+const CSM_GCAL_RESULT = {
+  connected:'יומן Google חובר. הפגישות שלך יופיעו שם ביומן "שוק נדל״ן".',
+  connected_no_freebusy:'יומן Google חובר, בלי הרשאת "פנוי/תפוס" - גבריאלה לא תדע מתי היומן האישי שלך תפוס.',
+  denied:'החיבור ליומן Google בוטל.', scope_missing:'בלי ההרשאה לנהל את יומן "שוק נדל״ן" אין מה לחבר. אפשר לנסות שוב ולסמן אותה.',
+  expired:'עבר יותר מדי זמן מהלחיצה. אפשר לנסות שוב.', not_configured:'החיבור ליומן Google עוד לא הוגדר במערכת.',
+  error:'החיבור ליומן Google נכשל. אפשר לנסות שוב.',
+};
+function csmGcalReturn(code){
+  if (code) showToast(CSM_GCAL_RESULT[code] || CSM_GCAL_RESULT.error, 7000);
+}
+
+async function csmGcalConnect(btn){
+  btn.disabled = true;
+  const r = await csmApi({ action:'gcal_start' });
+  if (r.error || !r.url){ btn.disabled = false; showToast(r.detail || ('לא הצלחנו לפתוח את החיבור: ' + heErr({ code:r.error, message:r.error }))); return; }
+  location.href = r.url;
+}
+async function csmGcalDisconnect(btn){
+  if (!confirm('לנתק את יומן Google? יומן "שוק נדל״ן" יימחק מהחשבון שלך ב-Google, והפגישות כאן יישארו.')) return;
+  btn.disabled = true;
+  const r = await csmApi({ action:'gcal_disconnect' });
+  if (r.error){ btn.disabled = false; showToast('הניתוק נכשל: ' + heErr({ code:r.error, message:r.error })); return; }
+  showToast('יומן Google נותק');
+  csmLoadSettings();
+}
+
+function csmGcalHtml(){
+  const g = csmGcal;
+  const on = csmGcalOn();
+  const fb = on && (g.scopes || []).some(s => /calendar\.freebusy/.test(s));
+  return `<h4 class="csm-sub">יומן Google</h4>
+    <div class="csm-gcal${on ? ' is-on' : ''}">
+      ${on ? `<p><strong>מחובר${g.google_email ? ': <span dir="ltr">' + escapeHtml(g.google_email) + '</span>' : ''}</strong></p>
+        <p class="csm-hint">כל פגישה שתקבעי כאן או דרך גבריאלה מופיעה ביומן "שוק נדל״ן" בחשבון שלך, וגם הזזה וביטול עוברים לשם.${fb ? ' גבריאלה רואה מתי היומן האישי שלך תפוס (פנוי/תפוס בלבד, בלי פרטים) ותגיד כשפגישה חדשה נופלת על זמן תפוס.' : ''}${g.last_sync_at ? ' סנכרון אחרון: ' + escapeHtml(new Date(g.last_sync_at).toLocaleString('he-IL', { timeZone:CSM_TZ, day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' })) + '.' : ''}</p>
+        <button type="button" class="btn btn-ghost" data-csm-gcal-off>ניתוק</button>`
+      : `${g && g.status === 'error' ? `<p class="csm-hint csm-risk-txt">${escapeHtml(g.last_error || 'החיבור נפל. צריך לחבר מחדש.')}</p>` : ''}
+        <p class="csm-hint">גבריאלה מסדרת לך את הפגישות ביומן: כל פגישה עוברת לבד ליומן Google, עם הזזה וביטול, ולפני כל פגישה חדשה היא בודקת שהשעה פנויה אצלך.</p>
+        <button type="button" class="btn btn-gold" data-csm-gcal-on>📅 חיבור מאובטח ל-Google Calendar</button>
+        <p class="csm-hint">הסנכרון מתבצע רק עבור הפגישות שנוצרות באזור ההטמעה. מהיומן האישי רואים רק פנוי/תפוס - בלי כותרות ובלי משתתפים.</p>`}
+    </div>`;
+}
+
 /* ---------- היומן ----------
    הפגישות שלה (csm_agenda, ‏staff_id = היא), שבועיים מ-csmAgendaFrom, ולצדן מי
    שמועד הקשר שלו/ה בצנרת נופל בטווח ואין לו/ה פגישה. פגישה עם מי שעוד "נרשם/ה"
@@ -1001,6 +1058,7 @@ async function csmLoadAgenda(){
     sb.from('csm_agenda').select('*').eq('staff_id', staffId)
       .gte('starts_at', fromIso).lt('starts_at', toIso).order('starts_at').limit(300),
     csmLoadProfile(),
+    csmLoadGcal(),
   ]);
   if (csmTab !== 'agenda') return;
   if (error){ host.innerHTML = '<div class="empty-state">' + escapeHtml(heErr(error)) + '</div>'; return; }
@@ -1037,7 +1095,9 @@ function csmAgendaHtml(toIso){
           ${e.meeting_url && live ? `<a class="btn btn-gold" href="${escapeHtml(e.meeting_url)}" target="_blank" rel="noopener noreferrer" aria-label="כניסה לפגישה (נפתח בלשונית חדשה)">כניסה לפגישה</a>` : ''}
           ${a && a.phone && live ? `<a class="btn btn-call" href="tel:${escapeHtml(a.phone)}" aria-label="התקשרות ל${escapeHtml(a.display_name || 'סוכן/ת')}">📞</a>
             <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(csmWaDigits(a.phone))}" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ ל${escapeHtml(a.display_name || 'סוכן/ת')} (נפתח בלשונית חדשה)">וואטסאפ</a>` : ''}
-          ${live ? `<a class="btn btn-ghost" href="${escapeHtml(csmGcalUrl(e, a))}" target="_blank" rel="noopener noreferrer" aria-label="הוספה ליומן Google (נפתח בלשונית חדשה)">📅 ליומן Google</a>` : ''}
+          ${live && !csmGcalOn() ? `<a class="btn btn-ghost" href="${escapeHtml(csmGcalUrl(e, a))}" target="_blank" rel="noopener noreferrer" aria-label="הוספה ליומן Google (נפתח בלשונית חדשה)">📅 ליומן Google</a>` : ''}
+          ${csmGcalOn() && e.google_sync_state === 'error' ? `<span class="csm-tag rec" title="${escapeHtml(e.google_sync_error || '')}">לא עבר ל-Google</span>` : ''}
+          ${csmGcalOn() && e.google_sync_state === 'synced' && live ? '<span class="csm-tag seen">ביומן Google</span>' : ''}
           ${live ? `<button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="done">התקיימה</button>
             <button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="no_show">לא הגיע/ה</button>
             <button type="button" class="btn btn-ghost" data-csm-ev-status="${escapeHtml(e.id)}" data-status="cancelled">ביטול</button>`
@@ -1064,7 +1124,8 @@ function csmAgendaHtml(toIso){
         <div class="csm-card-meta">${escapeHtml(r.agency_name || '')} · ${escapeHtml(csmIlDayLabel(csmIlDate(new Date(r.next_followup_at).getTime())))}${new Date(r.next_followup_at) < Date.now() ? ' · <strong class="csm-risk-txt">עבר</strong>' : ''}</div></div>
         <div class="csm-staff-btns">${r.phone ? `<a class="btn btn-call" href="tel:${escapeHtml(r.phone)}" aria-label="התקשרות ל${escapeHtml(r.display_name || 'סוכן/ת')}">📞</a>` : ''}
           <button type="button" class="btn btn-ghost" data-csm-ev-new="${escapeHtml(r.agent_id)}">קביעת פגישה</button></div></div>`).join('')}` : ''}
-    <p class="csm-hint">התזכורת לפני כל פגישה יוצאת בפעמון ובוואטסאפ (כמה דקות לפני - בהגדרות). אפשר גם לבקש מגבריאלה: "תקבעי לי פגישה עם יוסי ביום שלישי ב-10:00".</p>`;
+    <p class="csm-hint">התזכורת לפני כל פגישה יוצאת בפעמון ובוואטסאפ (כמה דקות לפני - בהגדרות). אפשר גם לבקש מגבריאלה: "תקבעי לי פגישה עם יוסי ביום שלישי ב-10:00".
+      ${csmGcalOn() ? 'הפגישות עוברות לבד ליומן Google שלך.' : '<button type="button" class="btn btn-ghost btn-sm" data-csm-tab="settings">חיבור ליומן Google</button>'}</p>`;
 }
 
 function csmAgendaFormHtml(){
@@ -1214,7 +1275,7 @@ const CSM_DOW = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש\''];
 
 async function csmLoadSettings(){
   const host = document.getElementById('csmBody');
-  const p = await csmLoadProfile(true);
+  const [p] = await Promise.all([csmLoadProfile(true), csmLoadGcal()]);
   if (csmTab !== 'settings') return;
   if (!p){ host.innerHTML = '<div class="empty-state">לא הצלחנו לטעון את ההגדרות. כדאי לרענן.</div>'; return; }
   const off = new Set(p.notify_off || []);
@@ -1252,6 +1313,7 @@ async function csmLoadSettings(){
     <div class="field"><label for="csmPfLink">קישור קבוע לפגישות וידאו (Zoom / Meet)</label><input type="url" id="csmPfLink" dir="ltr" maxlength="500" value="${escapeHtml(p.meeting_link || '')}" placeholder="https://"></div>
     <button type="submit" class="btn btn-gold">שמירה</button>
   </form>
+  <div class="csm-form">${csmGcalHtml()}</div>
   <p class="csm-hint">הכול אפשר גם דרך גבריאלה: "תכבי לי את סיכום הבוקר", "תזכורת שעה לפני כל פגישה", "מה ההגדרות שלי?".</p>`;
 }
 
@@ -1356,6 +1418,10 @@ function csmSetTab(tab){
       });
       return;
     }
+    const gOn = e.target.closest('[data-csm-gcal-on]');
+    if (gOn){ csmGcalConnect(gOn); return; }
+    const gOff = e.target.closest('[data-csm-gcal-off]');
+    if (gOff){ csmGcalDisconnect(gOff); return; }
     // ההתראות
     if (e.target.closest('[data-csm-notif-all]')){ csmMarkRead(null).then(() => csmLoadNotifs()); return; }
     const nr = e.target.closest('[data-csm-notif-read]');
