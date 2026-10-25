@@ -2926,6 +2926,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* CMA-CSS:END */
 
+  /* "שליחת קישור ללקוח/ה" - רק ב-CRM, ולכן מחוץ לבלוק המשותף (cmaShare ב-crm.js) */
+  .cma-share{border:1px solid var(--line);border-radius:var(--radius-md);background:var(--teal-tint);padding:12px 14px;margin-bottom:16px}
+  .cma-share p{margin:0 0 8px;font-size:.85rem;color:var(--ink)}
+  .cma-share input{width:100%;box-sizing:border-box;direction:ltr;font-size:.8rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-bottom:8px}
+  .cma-share-btns{display:flex;flex-wrap:wrap;gap:8px}
+  .cma-share-btns .btn{flex:1 1 auto;text-align:center}
+
   /* ---------- מדבקת QR לשלט ---------- */
   /* השכבה עצמה היא הגוללת, ולא הכרטיס: בטלפון גובה הכרטיס עלה על מה
      שנראה בפועל על המסך (‏100vh בנייד כולל את שורת הכתובת), וכפתורי
@@ -2979,7 +2986,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     body > *{display:none !important}
     body > #cmaOverlay{display:block !important;position:static;background:#fff;padding:0;overflow:visible}
     .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
-    .cma-actions{display:none !important}
+    .cma-actions, .cma-share{display:none !important}
     .cma-table{font-size:.72rem}
     /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
        נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
@@ -11755,9 +11762,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="cmaOverlay">
   <div class="cma-sheet">
     <div class="cma-actions">
-      <button type="button" class="btn btn-gold" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
+      <button type="button" class="btn btn-gold" id="cmaShareBtn">שליחת קישור ללקוח/ה</button>
+      <button type="button" class="btn btn-ghost" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
       <button type="button" class="btn btn-ghost" id="cmaCloseBtn">סגירה</button>
     </div>
+    <div class="cma-share" id="cmaSharePanel" hidden></div>
     <div id="cmaBody"></div>
   </div>
 </div>
