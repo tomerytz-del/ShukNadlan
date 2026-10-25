@@ -264,6 +264,26 @@ notifications    17:15:34.595  /  17:15:34.910
   שנוספו ידנית כ-Test users יצליחו להיכנס; השאר יקבלו `access_denied` —
   שנראה בדיוק כמו "ההתחברות בוטלה".
 
+## באפליקציה (Android ו-iOS)
+
+האתר נשאר implicit: `createClient` לא מעביר `flowType`, ו-`supabase-js`
+2.116 שולח `/authorize` בלי `code_challenge`. בדפדפן זה עובד, כי ה-hash
+`#access_token` נשאר באותו טאב. באפליקציה Google נפתח מחוץ ל-WebView
+(גוגל חוסמת WebView), והחזרה היא Intent. Android מוריד את ה-fragment, אין
+אחריה `POST /token` ואין `GET /user`, והדף שממנו יצאו לא נטען מחדש. הכפתור
+נשאר על "מעבירים ל-Google…" כי `signInWithOAuth` מחזיר בלי שגיאה ברגע
+הניווט, והאיפוס שלו רץ רק כשההבטחה נכשלת או שהדף נטען מחדש.
+
+השלד ב-`mobile/` לא משנה את ארבעת הכפתורים. הוא מוסיף PKCE לכתובת
+ה-authorize, שומר את ה-`code_verifier` אצלו, ומחליף את ה-`code` שחוזר ל-
+`il.co.shuknadlan.app://auth-callback` ב-`POST /token?grant_type=pkce`.
+אחר כך הוא טוען את דף הכניסה עם `#access_token` - אותו פורמט שהלקוח
+ה-implicit כבר קורא. ביטול (סגירת הדפדפן בלי callback) או כשל מחזירים
+`?error=access_denied` או `?error=server_error`, והמסך הקיים מציג את
+ההסבר ומאפס את הכפתור. הכתובת `il.co.shuknadlan.app://auth-callback` חייבת
+להישאר ב-Redirect URLs, אחרת GoTrue מפנה ל-Site URL וה-`code` לא מגיע
+לאפליקציה. הפרטים: `docs/native-apps.md`.
+
 ## חשבון Google שנכנס בפעם הראשונה
 
 התחברות עם Google יוצרת משתמש ב-`auth.users`, אבל **לא** שורה ב-

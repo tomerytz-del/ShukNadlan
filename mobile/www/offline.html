@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e2a6b">
+  <title>שוק נדל״ן</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0e2a6b;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+    }
+    img { width: 96px; height: 96px; border-radius: 22px; }
+    h1 { font-size: 28px; margin: 16px 0 0; }
+    .card {
+      margin-top: 28px;
+      background: #fff;
+      color: #12224f;
+      border-radius: 18px;
+      padding: 20px 18px;
+      max-width: 320px;
+    }
+    .card p { margin: 0; line-height: 1.45; }
+    button, a.support {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 14px;
+      border-radius: 12px;
+      font: inherit;
+      font-size: 17px;
+      font-weight: 700;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+    button {
+      border: 0;
+      background: #0e2a6b;
+      color: #fff;
+    }
+    a.support {
+      border: 1.5px solid #0e2a6b;
+      background: #fff;
+      color: #0e2a6b;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="icon.png" alt="">
+    <h1>שוק נדל״ן</h1>
+    <div class="card">
+      <p id="msg">אין חיבור לאינטרנט כרגע. כשהרשת חוזרת, לחצו על נסו שוב.</p>
+      <button type="button" id="retry">נסו שוב</button>
+      <a class="support" href="https://wa.me/972546929991">פנייה לתמיכה</a>
+    </div>
+  </main>
+  <script>
+    var SITE = 'https://shuknadlan.co.il/';
+    var q = new URLSearchParams(location.search);
+    var why = q.get('why') === 'http' ? 'http' : 'net';
+    function safeRetry(raw) {
+      try {
+        var url = new URL(raw);
+        if (url.protocol !== 'https:') return '';
+        var host = url.hostname.toLowerCase();
+        if (host.indexOf('www.') === 0) host = host.slice(4);
+        if (host !== 'shuknadlan.co.il' && host.slice(-17) !== '.shuknadlan.co.il') return '';
+        if (url.pathname.indexOf('offline.html') !== -1) return '';
+        return url.toString();
+      } catch (e) { return ''; }
+    }
+    var dest = safeRetry(q.get('retry') || '') || SITE;
+    if (why === 'http') {
+      document.getElementById('msg').textContent = 'האתר לא נטען כרגע. אפשר לנסות שוב.';
+    }
+    var retrying = false;
+    function go() {
+      if (retrying) return;
+      if (why === 'net' && !navigator.onLine) return;
+      retrying = true;
+      location.replace(dest);
+    }
+    document.getElementById('retry').addEventListener('click', go);
+    window.addEventListener('online', function () {
+      if (why === 'net') go();
+      else document.getElementById('retry').textContent = 'נסו שוב';
+    });
+  </script>
+</body>
+</html>

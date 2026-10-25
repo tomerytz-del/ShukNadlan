@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>שוק נדל״ן</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#0e2a6b;color:#fff;font-family:Heebo,Arial,sans-serif;text-align:center;padding:24px}
+  p{font-size:1.15rem;line-height:1.6;margin:0 0 16px}
+  button{background:#fff;color:#0e2a6b;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:700}
+</style>
+</head>
+<body>
+  <div>
+    <p>ניהול המנוי מתבצע באתר</p>
+    <button type="button" id="back">חזרה</button>
+  </div>
+  <script>
+    document.getElementById('back').addEventListener('click', function () {
+      if (history.length > 1) history.back();
+      else location.replace('https://shuknadlan.co.il/');
+    });
+  </script>
+</body>
+</html>
