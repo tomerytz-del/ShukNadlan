@@ -27084,7 +27084,7 @@ function adsErrText(d){
 async function adsCall(action, payload){
   const { data: { session } } = await sb.auth.getSession();
   if (!session) throw new Error(ADS_ERRORS.unauthorized);
-  const launching = action === 'create_paused_launch' && payload && payload.confirm === true;
+  const launching = (action === 'create_paused_launch' || action === 'refresh_creatives') && payload && payload.confirm === true;
   let res;
   try {
     res = await fetch(ADS_FUNCTION_URL, {
@@ -27994,8 +27994,80 @@ function adsLaunchLock(){
   const go = document.getElementById('adsLaunchGo');
   if (go) go.disabled = true;
 }
-document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock);
-document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
+let adsRefreshCursor = '';
+let adsRefreshMode = '';
+let adsRefreshRows = [];
+function adsRefreshReset(){
+  adsRefreshCursor = '';
+  adsRefreshMode = '';
+  adsRefreshRows = [];
+}
+function adsRefreshHtml(rows, skipped){
+  const dirty = rows || [];
+  const rest = (skipped || []).filter(s => s && s.reason && s.reason !== 'clean');
+  const clean = (skipped || []).filter(s => s && s.reason === 'clean').length;
+  const reason = { no_package: 'אין נוסח בחבילה', not_paused: 'אינה מושהית, ולא נגענו בה', protected: 'קמפיין ה-Reach, לא נגענו' };
+  const parts = ['<p><b>מודעות עם הרישיון הישן: ' + esc(String(dirty.length)) + '</b>. נקיות: ' + esc(String(clean)) + '</p>'];
+  dirty.forEach(p => {
+    parts.push('<p><b>' + esc(p.object_key || '') + '</b><br>' + esc(p.message || '').replaceAll('\n', '<br>') + '</p>');
+  });
+  if (rest.length){
+    parts.push('<p><b>לא שונו</b><br>' + rest.map(s => esc((s.object_key || '') + ' - ' + (reason[s.reason] || s.reason))).join('<br>') + '</p>');
+  }
+  return parts.join('');
+}
+async function adsRefreshRun(write, btn){
+  const out = document.getElementById('adsLaunchOut');
+  const prev = btn.textContent;
+  const mode = write ? 'write' : 'dry';
+  btn.disabled = true;
+  if (adsRefreshMode !== mode){
+    adsRefreshCursor = '';
+    adsRefreshRows = [];
+    adsRefreshMode = mode;
+  }
+  if (!adsRefreshCursor) adsRefreshRows = [];
+  try {
+    const payload = Object.assign({ dry_run: !write }, adsLaunchPayload());
+    if (write) payload.confirm = true;
+    if (adsRefreshCursor) payload.next_key = adsRefreshCursor;
+    const r = await adsCall('refresh_creatives', payload);
+    adsRefreshRows = adsRefreshRows.concat(r.previews || []);
+    const shown = adsRefreshRows.slice();
+    if (r && r.done === false){
+      adsRefreshCursor = r.next_key || '';
+      const line = r.note || ('לחץ שוב להמשך מ-' + adsRefreshCursor);
+      if (out){
+        out.hidden = false;
+        out.innerHTML = '<p>' + esc(line) + '</p>' + (write ? '' : adsRefreshHtml(shown, r.skipped));
+      }
+      showToast(line, 6400);
+      return;
+    }
+    adsRefreshReset();
+    if (out){
+      out.hidden = false;
+      const head = write
+        ? 'עודכנו ' + String(r.updated_n || (r.updated || []).length) + ' מודעות. כולן נשארו מושהות.'
+        : (r.note || '');
+      out.innerHTML = '<p>' + esc(head) + '</p>' + (write ? '' : adsRefreshHtml(shown, r.skipped));
+    }
+    showToast(write ? 'הנוסח עודכן. המודעות נשארו מושהות' : 'בדיקת הנוסח הושלמה. לא שונה כלום');
+  } catch (ex) {
+    if (out){ out.hidden = false; out.textContent = ex.message || 'הרענון נכשל'; }
+    showToast(heErr(ex), 6400);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+}
+document.getElementById('adsLaunchA5')?.addEventListener('change', () => { adsLaunchLock(); adsRefreshReset(); });
+document.getElementById('adsLaunchB2Audience')?.addEventListener('input', () => { adsLaunchLock(); adsRefreshReset(); });
+document.getElementById('adsLaunchRefreshDry')?.addEventListener('click', (e) => adsRefreshRun(false, e.currentTarget));
+document.getElementById('adsLaunchRefresh')?.addEventListener('click', (e) => {
+  if (!confirm('הרענון מחליף רק את הטקסט. המודעות נשארות מושהות, והתקציב והטירגוט לא משתנים. להמשיך?')) return;
+  adsRefreshRun(true, e.currentTarget);
+});
 document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   const go = document.getElementById('adsLaunchGo');

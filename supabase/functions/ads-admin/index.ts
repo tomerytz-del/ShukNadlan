@@ -48,6 +48,8 @@ import {
   pendingLaunchKey,
   PIXEL_ID,
   PROTECTED_CAMPAIGN_IDS,
+  refreshLaunchCreatives,
+  sliceFromKey,
   resolveLaunchIdentity,
   resolveLaunchTargeting,
   sha256Hex,
@@ -94,6 +96,9 @@ import {
 //                    קמפיין, סט ומודעה נוצרים PAUSED. ה-cron אינו מורשה.
 //   upload_launch_creatives  מעלה את תמונות החבילה לדלי הפרטי. בלי מטא.
 //                    קובץ שכבר בדלי באותו גודל לא מועלה שוב.
+//   refresh_creatives  מחליף טקסט של מודעות השקה שכבר כוללות רישיון אישי.
+//                    קריאייטיב חדש ואותו asset, בלי סטטוס, תקציב או טירגוט.
+//                    ה-cron אינו מורשה.
 //   discard_campaign ‏{id} - מחיקת קמפיין שנוצר מכאן ולא הופעל, או עץ חלקי
 //   save_video     ‏{id?, title, purpose, audience, aspect, storage_path, poster_path, ...}
 //                  - שורה בספריית הסרטונים (‏marketing_videos). הקובץ כבר בדלי
@@ -2310,6 +2315,181 @@ async function actionCreatePausedLaunch(sb: SupabaseClient, caller: Caller, body
   }
 }
 
+function partialRefreshResponse(updated: string[], skipped: { object_key: string; reason: string }[], nextKey: string, previews: { object_key: string; ad_id: string; message: string }[]) {
+  return json({
+    ok: true,
+    done: false,
+    updated_n: updated.length,
+    skipped_n: skipped.length,
+    next_key: nextKey,
+    updated,
+    skipped,
+    previews,
+    note: `עודכנו ${updated.length} מודעות, לחץ שוב להמשך מ-${nextKey}`,
+  });
+}
+
+async function actionRefreshCreatives(sb: SupabaseClient, caller: Caller, body: any) {
+  if (!ADS_TOKEN || !AD_ACCOUNT) return json({ error: "meta_not_configured" }, 503);
+  const prepared = await preparePausedLaunch(sb, body);
+  if (prepared instanceof Response) return prepared;
+  const { plan } = prepared;
+  if (!plan.ok) {
+    return json({ error: plan.errors[0].code, detail: plan.errors.map((e) => e.detail).join(" ") }, 409);
+  }
+  const stored = await sb.from("ads_launch_objects").select("object_key, meta_id, kind, name").eq("launch_key", LAUNCH_KEY);
+  if (stored.error) {
+    console.error("ads_launch_objects", stored.error.message);
+    return json({ error: "db_error", detail: "הטבלה ads_launch_objects עדיין לא קיימת. המיגרציה צריכה לרוץ לפני הרענון." }, 500);
+  }
+  const creativeIds = new Map<string, string>();
+  const ads: { objectKey: string; metaId: string; creativeMetaId: string | null }[] = [];
+  for (const row of stored.data || []) {
+    if (row.meta_id && PROTECTED_CAMPAIGN_IDS.includes(row.meta_id)) {
+      return json({ error: "refusing_protected_campaign", detail: "הרשימה השמורה מכילה את קמפיין ה-Reach הקיים. לא נוגעים בו." }, 409);
+    }
+    if (row.kind === "creative" && row.meta_id) creativeIds.set(String(row.object_key), String(row.meta_id));
+  }
+  for (const row of stored.data || []) {
+    if (row.kind !== "ad" || !row.meta_id || !String(row.object_key).startsWith("ad:")) continue;
+    const adKey = String(row.object_key).slice(3);
+    ads.push({
+      objectKey: String(row.object_key),
+      metaId: String(row.meta_id),
+      creativeMetaId: creativeIds.get(`creative:${adKey}`) || null,
+    });
+  }
+  ads.sort((a, b) => a.objectKey.localeCompare(b.objectKey));
+  const batch = sliceFromKey(ads, String(body?.next_key || ""));
+  const willWrite = launchWillWrite(body);
+  const meta = new MetaClient(ADS_TOKEN, APP_SECRET);
+  const { act } = normalizeAccountId(AD_ACCOUNT);
+  const run = (deadline: number) => refreshLaunchCreatives({
+    act,
+    plan,
+    ads: batch,
+    dryRun: !willWrite,
+    deadline,
+    get: (path, params) => meta.get(path, params),
+    post: (path, data) => meta.post(path, data),
+    record: async (row) => {
+      const up = await sb.from("ads_launch_objects").upsert({
+        launch_key: LAUNCH_KEY,
+        object_key: row.objectKey,
+        kind: "creative",
+        meta_id: row.creativeId,
+        name: row.name,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "launch_key,object_key" });
+      if (up.error) {
+        console.error("ads_launch_objects upsert", up.error.message);
+        throw new Error(`db_error:${row.objectKey}`);
+      }
+    },
+    note: async (entry) => {
+      await log(sb, caller, {
+        action: "refresh_creatives",
+        object_type: entry.objectType,
+        object_id: entry.objectId,
+        request: entry.request ?? {},
+        response: entry.response ?? null,
+        ok: entry.ok,
+        error: entry.error ?? null,
+      });
+    },
+  });
+
+  if (!willWrite) {
+    const result = await run(Date.now() + LAUNCH_BUDGET_MS);
+    if (result.error) {
+      return json({
+        error: "meta_error",
+        detail: `קריאת המודעה נעצרה ב-${result.failedObjectKey || "שלב לא ידוע"}. לא נכתב כלום.`,
+        meta: result.meta ?? null,
+        previews: result.previews,
+        skipped: result.skipped,
+      }, 502);
+    }
+    await log(sb, caller, {
+      action: "refresh_creatives", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: true, done: result.done, next_key: result.nextKey },
+      response: { affected: result.previews.length, skipped: result.skipped.length },
+      ok: true,
+    });
+    if (!result.done) {
+      return json({
+        ok: true,
+        dry_run: true,
+        will_write: false,
+        done: false,
+        next_key: result.nextKey,
+        previews: result.previews,
+        skipped: result.skipped,
+        updated: result.updated,
+        updated_n: 0,
+        skipped_n: result.skipped.length,
+        note: `נבדקו חלק מהמודעות, לחץ שוב להמשך מ-${result.nextKey}`,
+      });
+    }
+    return json({
+      ok: true,
+      dry_run: true,
+      will_write: false,
+      done: true,
+      previews: result.previews,
+      skipped: result.skipped,
+      updated: [],
+      note: result.previews.length
+        ? `נמצאו ${result.previews.length} מודעות עם הרישיון הישן. לא שונה כלום.`
+        : "אין מודעות עם הרישיון הישן. לא שונה כלום.",
+    });
+  }
+
+  const holder = crypto.randomUUID();
+  const locked = await tryLaunchLock(sb, holder);
+  if (locked === false) {
+    return json({
+      error: "launch_in_progress",
+      detail: "פעולה אחרת של אותה השקה עדיין רצה. מה שכבר עודכן נשמר. לחץ שוב אחרי שהיא נגמרת.",
+    }, 409);
+  }
+  try {
+    const result = await run(Date.now() + LAUNCH_BUDGET_MS);
+    if (result.error) {
+      const hebrew = result.error.startsWith("db_error")
+        ? "המודעה עודכנה במטא אבל שמירת הקריאייטיב נכשלה. הרצה נוספת משלימה את השמירה, בלי לשנות מודעה שכבר נקייה."
+        : `הרענון נעצר ב-${result.failedObjectKey || "שלב לא ידוע"} אחרי ${result.updated.length} מודעות. מה שכבר הוחלף נשאר מושהה, והרצה נוספת מדלגת על מודעה נקייה.`;
+      return json({
+        error: result.error.startsWith("db_error") ? "db_error" : "meta_error",
+        detail: hebrew,
+        meta: result.meta ?? null,
+        updated: result.updated,
+        skipped: result.skipped,
+        failed_object_key: result.failedObjectKey ?? null,
+      }, result.error.startsWith("db_error") ? 500 : 502);
+    }
+    await log(sb, caller, {
+      action: "refresh_creatives", object_type: "launch", object_id: LAUNCH_KEY,
+      request: { dry_run: false, done: result.done, next_key: result.nextKey },
+      response: { updated_n: result.updated.length, skipped_n: result.skipped.length },
+      ok: true,
+    });
+    if (!result.done) return partialRefreshResponse(result.updated, result.skipped, result.nextKey || "", result.previews);
+    return json({
+      ok: true,
+      dry_run: false,
+      done: true,
+      updated: result.updated,
+      skipped: result.skipped,
+      updated_n: result.updated.length,
+      skipped_n: result.skipped.length,
+      note: "הנוסח הוחלף במודעות שהיה בהן הרישיון הישן. כולן נשארו מושהות.",
+    });
+  } finally {
+    if (locked === true) await unlockLaunch(sb, holder);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -2366,6 +2546,7 @@ Deno.serve(async (req: Request) => {
   // טירגוט (GET), ובלי טוקן היא מחזירה "לא נבדק" במקום 503.
   if (action === "create_paused_launch") return await actionCreatePausedLaunch(sb, caller, body);
   if (action === "upload_launch_creatives") return await actionUploadLaunchCreatives(sb, caller, body);
+  if (action === "refresh_creatives") return await actionRefreshCreatives(sb, caller, body);
 
   if (!ADS_TOKEN || !AD_ACCOUNT) {
     // ‏status עונה 200 כדי שהפאנל יציג "ממתין לחיבור" ולא שגיאה.

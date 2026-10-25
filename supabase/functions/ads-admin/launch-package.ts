@@ -26,7 +26,11 @@ export const OFFICE_FORM_ID = "2999391313564730";
 export const VALUATION_FORM_ID = "1644441057276438";
 export const VALUATION_FORM_NAME = "הערכת שווי חינם - עפולה";
 export const SELLERS_FORM_ID = "29809576818631130";
-export const DISCLOSURE_DEFAULT = 'שוק נדל"ן | תומר יצחק, רישיון תיווך 3134355';
+// שורת הגילוי של מודעות הפלטפורמה. שם ומספר רישיון של מתווך/ת שייכים
+// רק למודעת נכס שהוא/היא משווק/ת (create_campaign, audience=property).
+export const DISCLOSURE_DEFAULT = 'שוק נדל"ן';
+// חיפוש בקריאייטיב שכבר עלה. לא נוסח, ולא נשלח במודעה חדשה.
+export const LICENSE_MARKER = "3134355";
 export const GOOGLE_BUYERS_DAILY_ILS = 30;
 export const GOOGLE_BUYERS_CAMPAIGN = "24350623422";
 export const PROTECTED_CAMPAIGN_IDS = ["120251311382930267"];
@@ -890,9 +894,6 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
 
   if (!disclosure) errors.push({ code: "disclosure_missing", detail: "שורת הגילוי ריקה ב-ads_settings. לא נוצרת מודעה בלעדיה." });
   if (!input.pageId) errors.push({ code: "page_missing", detail: "חסר מזהה דף הפייסבוק (FACEBOOK_PAGE_ID)." });
-  if (disclosure && disclosure !== DISCLOSURE_DEFAULT) {
-    warnings.push("שורת הגילוי בהגדרות שונה מהשורה שבנוסחים. היא נוספת בסוף כל מודעה, והשורה המקורית נשארת.");
-  }
 
   const D = disclosure || DISCLOSURE_DEFAULT;
 
@@ -2385,4 +2386,354 @@ export function summarizeLaunch(plan: LaunchPlan) {
       })),
     })),
   };
+}
+
+export type RefreshAdRef = {
+  objectKey: string;
+  metaId: string;
+  creativeMetaId?: string | null;
+};
+
+export type RefreshPreview = {
+  object_key: string;
+  ad_id: string;
+  message: string;
+};
+
+export type RefreshSkip = {
+  object_key: string;
+  reason: string;
+};
+
+export type RefreshCreativeResult = {
+  done: boolean;
+  nextKey: string | null;
+  updated: string[];
+  skipped: RefreshSkip[];
+  previews: RefreshPreview[];
+  error?: string;
+  failedObjectKey?: string;
+  meta?: MetaErrorFields | null;
+  request?: Record<string, unknown> | null;
+};
+
+export function sliceFromKey<T extends { objectKey: string }>(rows: T[], startKey: string | null | undefined): T[] {
+  const key = (startKey || "").trim();
+  if (!key) return rows;
+  const at = rows.findIndex((row) => row.objectKey === key);
+  return at < 0 ? rows : rows.slice(at);
+}
+
+export function packageAdByKey(plan: LaunchPlan, adKey: string): AdDef | null {
+  for (const campaign of plan.campaigns) {
+    for (const set of campaign.adSets) {
+      const ad = set.ads.find((one) => one.key === adKey);
+      if (ad) return ad;
+    }
+  }
+  return null;
+}
+
+function asRecord(value: unknown): Record<string, any> | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, any>;
+  return null;
+}
+
+export function creativeBodyTexts(creative: unknown): string[] {
+  const row = asRecord(creative);
+  if (!row) return [];
+  const out: string[] = [];
+  const feed = asRecord(row.asset_feed_spec);
+  if (Array.isArray(feed?.bodies)) {
+    for (const body of feed.bodies) {
+      if (body && typeof body.text === "string") out.push(body.text);
+    }
+  }
+  const story = asRecord(row.object_story_spec);
+  const message = story?.link_data?.message;
+  if (typeof message === "string") out.push(message);
+  return out;
+}
+
+export function creativeHasLicense(creative: unknown): boolean {
+  return creativeBodyTexts(creative).some((text) => text.includes(LICENSE_MARKER));
+}
+
+function cleanSpec(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cleanSpec);
+  if (!value || typeof value !== "object") return value;
+  const src = value as Record<string, unknown>;
+  const label = typeof src.name === "string" && "id" in src;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(src)) {
+    if (label && key === "id") continue;
+    if (key === "url" || key === "image_url" || key === "picture") continue;
+    out[key] = cleanSpec(child);
+  }
+  return out;
+}
+
+const FEED_KEYS = [
+  "ad_formats",
+  "optimization_type",
+  "images",
+  "bodies",
+  "titles",
+  "descriptions",
+  "link_urls",
+  "call_to_actions",
+  "call_to_action_types",
+  "asset_customization_rules",
+];
+
+export function rebuildCreativeForRefresh(live: unknown, message: string): Record<string, string> {
+  const row = asRecord(live);
+  const storyIn = asRecord(row?.object_story_spec);
+  const pageId = String(storyIn?.page_id || "");
+  if (!/^\d{5,25}$/.test(pageId)) throw new Error("creative_shape");
+  const story: Record<string, unknown> = { page_id: pageId };
+  const instagram = String(storyIn?.instagram_user_id || "");
+  if (/^\d{5,25}$/.test(instagram) && instagram !== pageId) story.instagram_user_id = instagram;
+  const text = message.trim();
+  if (!text || text.includes(LICENSE_MARKER)) throw new Error("creative_shape");
+  const body: Record<string, string> = {};
+  const name = String(row?.name || "").trim();
+  if (name) body.name = name;
+  const feedIn = asRecord(row?.asset_feed_spec);
+  if (feedIn) {
+    const feed = cleanSpec(feedIn) as Record<string, any>;
+    if (!Array.isArray(feed.images) || !feed.images.length) throw new Error("creative_shape");
+    feed.images = feed.images.map((image: any) => {
+      const hash = String(image?.hash || "");
+      if (!hash) throw new Error("creative_shape");
+      const next: Record<string, unknown> = { hash };
+      if (Array.isArray(image?.adlabels) && image.adlabels.length) next.adlabels = image.adlabels;
+      return next;
+    });
+    let labels: unknown;
+    if (Array.isArray(feed.bodies)) {
+      for (const one of feed.bodies) {
+        if (Array.isArray(one?.adlabels) && one.adlabels.length) {
+          labels = one.adlabels;
+          break;
+        }
+      }
+    }
+    feed.bodies = [labels ? { text, adlabels: labels } : { text }];
+    const clean: Record<string, unknown> = {};
+    for (const key of FEED_KEYS) {
+      if (feed[key] !== undefined) clean[key] = feed[key];
+    }
+    body.object_story_spec = JSON.stringify(story);
+    body.asset_feed_spec = JSON.stringify(clean);
+    return body;
+  }
+  const link = storyIn?.link_data;
+  if (!link || typeof link !== "object") throw new Error("creative_shape");
+  const nextLink = cleanSpec(link) as Record<string, unknown>;
+  if (!String(nextLink.image_hash || "")) throw new Error("creative_shape");
+  nextLink.message = text;
+  story.link_data = nextLink;
+  body.object_story_spec = JSON.stringify(story);
+  return body;
+}
+
+export function refreshAdUpdateBody(creativeId: string): Record<string, string> {
+  if (!/^\d{5,25}$/.test(creativeId)) throw new Error("bad_creative_id");
+  return { creative: JSON.stringify({ creative_id: creativeId }) };
+}
+
+export function assertRefreshAdUpdate(adId: string, body: Record<string, string>): void {
+  if (!/^\d{5,25}$/.test(adId)) throw new Error("refusing_bad_ad");
+  if ((PROTECTED_CAMPAIGN_IDS as readonly string[]).includes(adId)) throw new Error("refusing_protected_campaign");
+  const keys = Object.keys(body);
+  if (keys.length !== 1 || keys[0] !== "creative") throw new Error("refusing_ad_update_fields");
+  let creative: any;
+  try {
+    creative = JSON.parse(body.creative);
+  } catch {
+    throw new Error("refusing_ad_update_fields");
+  }
+  if (!creative || typeof creative !== "object" || Array.isArray(creative)) throw new Error("refusing_ad_update_fields");
+  if (Object.keys(creative).join(",") !== "creative_id") throw new Error("refusing_ad_update_fields");
+  if (!/^\d{5,25}$/.test(String(creative.creative_id))) throw new Error("bad_creative_id");
+  const blob = `${adId}\n${JSON.stringify(body)}`;
+  for (const id of PROTECTED_CAMPAIGN_IDS) {
+    if (blob.includes(id)) throw new Error("refusing_protected_campaign");
+  }
+}
+
+const AD_FIELDS = "id,name,status,campaign_id,creative{id,name,object_story_spec,asset_feed_spec}";
+
+function creativeKeyForAd(objectKey: string): string {
+  return `creative:${objectKey.slice(3)}`;
+}
+
+export async function refreshLaunchCreatives(args: {
+  act: string;
+  plan: LaunchPlan;
+  ads: RefreshAdRef[];
+  dryRun: boolean;
+  deadline?: number;
+  now?: () => number;
+  get: (path: string, params: Record<string, string>) => Promise<any>;
+  post: (path: string, body: Record<string, string>) => Promise<any>;
+  record: (row: { objectKey: string; creativeId: string; name: string }) => Promise<void>;
+  note?: (entry: {
+    objectKey: string;
+    objectType: string;
+    objectId: string | null;
+    ok: boolean;
+    error?: string | null;
+    request?: Record<string, unknown> | null;
+    response?: Record<string, unknown> | null;
+  }) => Promise<void>;
+}): Promise<RefreshCreativeResult> {
+  const updated: string[] = [];
+  const skipped: RefreshSkip[] = [];
+  const previews: RefreshPreview[] = [];
+  const clock = args.now ?? Date.now;
+  const note = args.note ?? (async () => {});
+
+  const fail = async (
+    objectKey: string,
+    objectType: string,
+    objectId: string | null,
+    error: string,
+    meta: MetaErrorFields | null,
+    request: Record<string, unknown> | null,
+  ): Promise<RefreshCreativeResult> => {
+    await note({ objectKey, objectType, objectId, ok: false, error, request, response: meta ? { meta } : null });
+    return { done: false, nextKey: objectKey, updated, skipped, previews, error, failedObjectKey: objectKey, meta, request };
+  };
+
+  for (const ad of args.ads) {
+    if (args.deadline !== undefined && clock() >= args.deadline) {
+      return { done: false, nextKey: ad.objectKey, updated, skipped, previews };
+    }
+    const adKey = ad.objectKey.startsWith("ad:") ? ad.objectKey.slice(3) : "";
+    const packaged = adKey ? packageAdByKey(args.plan, adKey) : null;
+    let loaded: any;
+    try {
+      loaded = await args.get(ad.metaId, { fields: AD_FIELDS });
+    } catch (e) {
+      return await fail(ad.objectKey, "ad", ad.metaId, formatMetaError(e), metaFieldsOf(e), { object_key: ad.objectKey, op: "read" });
+    }
+    const campaignId = String(loaded?.campaign_id || "");
+    if (campaignId && (PROTECTED_CAMPAIGN_IDS as readonly string[]).includes(campaignId)) {
+      skipped.push({ object_key: ad.objectKey, reason: "protected" });
+      await note({
+        objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+        request: { object_key: ad.objectKey, skipped: "protected" },
+      });
+      continue;
+    }
+    if (String(loaded?.status || "") !== PAUSED_STATUS) {
+      skipped.push({ object_key: ad.objectKey, reason: "not_paused" });
+      await note({
+        objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+        request: { object_key: ad.objectKey, skipped: "not_paused", status: String(loaded?.status || "") },
+      });
+      continue;
+    }
+    let creative = loaded?.creative;
+    if (creative && typeof creative === "object" && creative.id && !creative.asset_feed_spec && !creative.object_story_spec) {
+      try {
+        creative = await args.get(String(creative.id), { fields: "id,name,object_story_spec,asset_feed_spec" });
+      } catch (e) {
+        return await fail(ad.objectKey, "creative", String(creative.id), formatMetaError(e), metaFieldsOf(e), { object_key: ad.objectKey, op: "read_creative" });
+      }
+    }
+    const liveId = String(creative?.id || "");
+    if (!creativeHasLicense(creative)) {
+      skipped.push({ object_key: ad.objectKey, reason: "clean" });
+      if (!args.dryRun && liveId && liveId !== (ad.creativeMetaId || "")) {
+        try {
+          await args.record({ objectKey: creativeKeyForAd(ad.objectKey), creativeId: liveId, name: String(creative?.name || packaged?.name || ad.objectKey) });
+        } catch (e) {
+          return await fail(ad.objectKey, "creative", liveId, e instanceof Error ? e.message : String(e), null, { object_key: ad.objectKey, op: "save" });
+        }
+      }
+      await note({
+        objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+        request: { object_key: ad.objectKey, skipped: "clean" },
+      });
+      continue;
+    }
+    if (!packaged) {
+      skipped.push({ object_key: ad.objectKey, reason: "no_package" });
+      await note({
+        objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+        request: { object_key: ad.objectKey, skipped: "no_package" },
+      });
+      continue;
+    }
+    let creativeBody: Record<string, string>;
+    try {
+      creativeBody = rebuildCreativeForRefresh(creative, packaged.message);
+      if (!creativeBody.name && packaged.name) creativeBody.name = packaged.name;
+    } catch (e) {
+      return await fail(ad.objectKey, "creative", liveId || null, e instanceof Error ? e.message : "creative_shape", null, { object_key: ad.objectKey });
+    }
+    if (args.dryRun) {
+      previews.push({ object_key: ad.objectKey, ad_id: ad.metaId, message: packaged.message });
+      await note({
+        objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+        request: { object_key: ad.objectKey, dry_run: true },
+        response: { message: packaged.message },
+      });
+      continue;
+    }
+    if (args.deadline !== undefined && clock() >= args.deadline) {
+      return { done: false, nextKey: ad.objectKey, updated, skipped, previews };
+    }
+    try {
+      assertSafeWrite(args.act, "adcreatives", creativeBody);
+    } catch (e) {
+      return await fail(ad.objectKey, "creative", null, e instanceof Error ? e.message : String(e), null, sanitizeLaunchBody(creativeBody));
+    }
+    let createdId = "";
+    try {
+      const created = await args.post(`${args.act}/adcreatives`, creativeBody);
+      createdId = String(created?.id || "");
+      if (!/^\d{5,25}$/.test(createdId)) throw new Error("creative_id_missing");
+    } catch (e) {
+      return await fail(ad.objectKey, "creative", null, formatMetaError(e), metaFieldsOf(e), sanitizeLaunchBody(creativeBody));
+    }
+    await note({
+      objectKey: creativeKeyForAd(ad.objectKey), objectType: "creative", objectId: createdId, ok: true,
+      request: { object_key: ad.objectKey, ...(sanitizeLaunchBody(creativeBody) || {}) },
+    });
+    const update = refreshAdUpdateBody(createdId);
+    try {
+      assertRefreshAdUpdate(ad.metaId, update);
+      await args.post(ad.metaId, update);
+    } catch (e) {
+      return await fail(ad.objectKey, "ad", ad.metaId, formatMetaError(e), metaFieldsOf(e), sanitizeLaunchBody(update));
+    }
+    await note({
+      objectKey: ad.objectKey, objectType: "ad", objectId: ad.metaId, ok: true,
+      request: { object_key: ad.objectKey, creative_id: createdId },
+    });
+    try {
+      await args.record({
+        objectKey: creativeKeyForAd(ad.objectKey),
+        creativeId: createdId,
+        name: creativeBody.name || packaged.name,
+      });
+    } catch (e) {
+      return await fail(ad.objectKey, "creative", createdId, e instanceof Error ? e.message : String(e), null, { object_key: creativeKeyForAd(ad.objectKey), op: "save" });
+    }
+    updated.push(ad.objectKey);
+  }
+  return { done: true, nextKey: null, updated, skipped, previews };
 }
