@@ -35,7 +35,7 @@ function showToast(msg, ms = 3600){
 function show(screen){
   ['csmBoot', 'csmLogin', 'csmNoAccess', 'csmApp'].forEach(id => { $(id).hidden = id !== screen; });
   $('csmLogout').hidden = screen !== 'csmApp' && screen !== 'csmNoAccess';
-  $('csmBell').hidden = $('csmSettings').hidden = screen !== 'csmApp';
+  $('csmBell').hidden = $('csmSettings').hidden = $('csmGabriela').hidden = screen !== 'csmApp';
 }
 
 /* ---------- תשובת OAuth בכתובת ---------- */
@@ -76,6 +76,7 @@ async function route(session){
     return;
   }
   $('csmWho').textContent = (data && data.display_name) || session.user.email || '';
+  $('csmMeAv').textContent = ($('csmWho').textContent.trim()[0] || '').toUpperCase();
   if (!data || data.inactive){
     $('csmNoAccessText').textContent = data && data.inactive
       ? 'הגישה שלך לאזור ההטמעה הושבתה. לפרטים - לפנות לתומר.'
@@ -89,7 +90,8 @@ async function route(session){
   show('csmApp');
   // ‏?tab=notifications - הכפתור בהתראה בוואטסאפ (csm-notify.ts)
   const qs = new URLSearchParams(location.search);
-  if (qs.get('tab')) csmSetTab(qs.get('tab'));
+  // בלי ?tab= - מסך "היום", שמרכז את מה שמחכה לה
+  csmSetTab(qs.get('tab') || 'today');
   // החזרה מ-Google אחרי "חיבור ליומן" (google-calendar-callback)
   if (qs.get('gcal')){
     csmGcalReturn(qs.get('gcal'));
@@ -103,8 +105,24 @@ async function route(session){
 function openCsmTab(tab){
   csmSetTab(tab);
   csmRender();
-  $('accCsm').scrollIntoView({ block:'start' });
+  window.scrollTo({ top:0 });
 }
+
+/* ---------- הניווט בטלפון ----------
+   הסרגל התחתון נושא את ארבעת המסכים של יום העבודה, ו"עוד" פותח את השאר.
+   בחירת מסך (גם מכפתור בתוך התוכן) סוגרת את "עוד" ומחזירה לראש הדף. */
+function setNavOpen(open){
+  $('csmNav').classList.toggle('is-open', open);
+  $('csmNavMore').setAttribute('aria-expanded', String(open));
+}
+$('csmNavMore').addEventListener('click', () => setNavOpen(!$('csmNav').classList.contains('is-open')));
+$('csmNavScrim').addEventListener('click', () => setNavOpen(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setNavOpen(false); });
+$('accCsm').addEventListener('click', e => {
+  if (!e.target.closest('[data-csm-tab]')) return;
+  setNavOpen(false);
+  window.scrollTo({ top:0 });
+});
 $('csmBell').addEventListener('click', () => openCsmTab('notifications'));
 $('csmSettings').addEventListener('click', () => openCsmTab('settings'));
 
