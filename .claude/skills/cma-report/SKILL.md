@@ -79,6 +79,16 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 כמו דוח שבור. ‏`scripts/cma_gap_test.py` מריץ את
 `cmaSampleNote` האמיתית על כל הערכים - מוסיפים לו מקרה.
 
+## ‏5א. הקישור לדוח (`/cma?k=`) ו-`assets/cma-render.js`
+
+גבריאלה שולחת אחרי כל דוח כפתור "📊 דוח CMA" (‏`cmaButton`, ‏`cma_links`, הפונקציה
+`cma-link`). **התצוגה אחת:** ‏`renderCmaReport` ועוזריה ב-`assets/cma-render.js`,
+שנטען ב-CRM לפני `crm.js` ובדף `cma.html`. שינוי בתצוגה - שם, לא ב-`crm.js`.
+‏**ה-CSS בשני עותקים** (`CMA-CSS:BEGIN/END` ב-`crm.html` וב-`cma.html`), ו-
+`check_cma_css.py` חוסם הבדל - שינוי CSS בדוח נעשה בשניהם. ובדף אין את רשימות
+המאפיינים של ה-CRM: שם חדש מגיע עם הדוח (`subject.feature_labels`). הדוח
+בקישור נשמר כמו שהוא; המיתוג נקרא בפתיחה (`cma-link/brand.ts`).
+
 ## ‏5. התצוגה: ממותגת, ונתונים בצבעים של נתונים
 
 - **המיתוג** (`loadCmaBrand`): לוגו, צבעים ופרטי הסוכן/ת שמפיק/ה. צבע רק
@@ -122,7 +132,8 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 
 ```sh
 python3 scripts/check_edge_types.py   # כולל שם לא מוגדר ב-agent.ts - זה מה שהפיל את הבוט
-python3 scripts/cma_gap_test.py
+python3 scripts/cma_gap_test.py   # רץ על assets/cma-render.js
+python3 scripts/check_cma_css.py  # ה-CSS של הדוח זהה ב-crm.html וב-cma.html
 python3 scripts/check_deals_normalize.py
 python3 scripts/check_migration_versions.py --base-ref origin/main
 ```

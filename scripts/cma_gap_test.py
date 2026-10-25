@@ -14,7 +14,7 @@
 זה בדיוק סוג המספר שסעיף *מדידה* ב-CLAUDE.md מתאר: הדוח נטען, נראה
 תקין, אין שגיאה בקונסול, והמספר פשוט שגוי.
 
-**הבדיקה רצה על הקוד ב-`assets/crm.js` עצמו**, לא על עותק: היא חולצת
+**הבדיקה רצה על הקוד ב-`assets/cma-render.js` עצמו** (התצוגה המשותפת ל-CRM ולדף /cma), לא על עותק: היא חולצת
 את הבלוק מהקובץ ומריצה אותו ב-node עם מטען שהוא **הפלט האמיתי** של
 `agent_cma_report` על מודעה #1139. עותק היה מתיישן בשקט.
 
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CRM = ROOT / "assets" / "crm.js"
+CRM = ROOT / "assets" / "cma-render.js"
 
 START = "  const cmaGapPct = (ask, avg) => {"
 END = "  const compRows = comps.map("
@@ -226,7 +226,7 @@ def main() -> int:
 
     def block(start, end, what):
         if start not in src or end not in src:
-            print("✗ לא נמצא %s ב-assets/crm.js." % what)
+            print("✗ לא נמצא %s ב-assets/cma-render.js." % what)
             print("  אם הקוד עבר רפקטור, יש לעדכן את סימני החילוץ כאן —")
             print("  בדיקה שאינה מוצאת את הקוד אינה בדיקה שעוברת.")
             return None
