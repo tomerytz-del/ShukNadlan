@@ -41,6 +41,10 @@ _office_lead_rows / _office_deal_rows / _office_exclusive_rows
   invoker` ופתוחה ל-`service_role` בלבד (המאמן); העטיפות `security definer`
   עם בדיקת תפקיד, כי RLS חוסם את המנהל/ת מהשורות של סוכן/ת אחר/ת. ‏`from public, anon,
   authenticated` - כל השלושה (`check_function_grants.py`).
+- **הסכם = לא כולל טופס ההסכמה לשיווק.** מאז `20270829090000` כל בלעדיות היא
+  שתי שורות ב-`agreements` (‏`marketing_*` ואחריה `exclusive_*`). כל ספירה של
+  הסכמים בליבה נושאת `not public.agreement_is_consent(g.kind)` (‏`20270830090000`).
+  ספירה חדשה בלעדיו מונה כל בלעדיות פעמיים, וזה נראה כמו סוכן/ת פרודוקטיבי/ת.
 - **בדיקה אחרי שינוי:** אותו/ה סוכן/ת, אותה תקופה, ב-`office_dashboard` וב-
   `my_dashboard` - אותה עמלה ואותו מספר לידים.
 

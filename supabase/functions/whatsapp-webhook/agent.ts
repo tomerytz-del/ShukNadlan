@@ -14,6 +14,8 @@ import {
   templateFor,
   type AgreementProperty,
   type AgreementSigner,
+  consentInputFor,
+  requiresOtp,
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
@@ -1119,7 +1121,9 @@ const TOOLS: Anthropic.Tool[] = [
       "הסוכן/ת לחתימה פנים מול פנים. " +
       "‏kind: ‏sell = בעל/ת נכס שמוכר/ת · landlord = בעל/ת נכס שמשכיר/ה · " +
       "buy = קונה · tenant = שוכר/ת · exclusive_sell / exclusive_landlord = " +
-      "בלעדיות. " +
+      "בלעדיות. בבלעדיות נוצרים **שני** מסמכים, כנדרש בחוק המתווכים: טופס " +
+      "הסכמה לפעולות שיווק, ואחריו טופס הבלעדיות. הקישור אחד לכל חותם/ת: " +
+      "הוא חותם/ת קודם על ההסכמה ומיד אחריה על הבלעדיות, באימות אחד. " +
       "אם חסר משהו שנדרש כדי שההזמנה תהיה בכתב כדין - הכלי **אינו יוצר** " +
       "אלא מחזיר missing עם רשימת החסרים, ואז יש לבקש אותם מהסוכן/ת ולקרוא " +
       "שוב. גוף המסמך ננעל ברגע היצירה ואי אפשר לתקן אותו - לתיקון מבטלים " +
@@ -4878,6 +4882,9 @@ const AGREEMENT_KINDS: Record<string, string> = {
   landlord: "הזמנת שירותי תיווך - משכיר",
   exclusive_sell: "בלעדיות - מכירה",
   exclusive_landlord: "בלעדיות - משכיר",
+  // הטופס הראשון בבלעדיות - נוצר אוטומטית עם exclusive_*, ולא נבחר לבד
+  marketing_sell: "הסכמה לפעולות שיווק - מכירה בבלעדיות",
+  marketing_landlord: "הסכמה לפעולות שיווק - השכרה בבלעדיות",
 };
 
 const EXCLUSIVE_KINDS = ["exclusive_sell", "exclusive_landlord"];
@@ -4904,6 +4911,9 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
     .from("agreements")
     .select("id, kind, status, title, created_at, sent_at, signed_at, exclusive_from, exclusive_until")
     .eq("agent_id", ctx.agent.id)
+    // טופס ההסכמה לשיווק נחתם יחד עם הבלעדיות שלו, והיא מייצגת את שניהם -
+    // אחרת כל בלעדיות נמנית כאן פעמיים
+    .not("kind", "in", "(marketing_sell,marketing_landlord)")
     .limit(limit);
 
   if (expiringSoon) {
@@ -5006,6 +5016,51 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
 // פנים" זה לפתוח אותו על המכשיר של הסוכן/ת ולהושיט. אין כאן שני מנגנונים,
 // ולכן אין מה לבחור מראש.
 // ---------------------------------------------------------------------------
+
+/**
+ * הסכם אחד במלואו - השורה, גוף המסמך (אחרי ה-insert, בגלל verify_code)
+ * והחותמים. בכל כשל אחרי ה-insert השורה נמחקת, כדי שלא יישאר הסכם בלי
+ * גוף או בלי חותמים. משמש את ההסכם עצמו ואת טופס ההסכמה לשיווק שלפני בלעדיות.
+ */
+async function createAgreementRows(
+  ctx: ToolContext,
+  build: Parameters<typeof insertPayload>[0],
+  signers: AgreementSigner[],
+  extra: Record<string, unknown>,
+): Promise<
+  { ok: true; id: string; title: string; verify_code: string; require_otp: boolean } |
+  { ok: false; error: string }
+> {
+  const { data: created, error } = await ctx.supabase
+    .from("agreements")
+    .insert({ ...insertPayload(build), ...extra })
+    .select("id, verify_code, created_at, title, require_otp")
+    .single();
+  if (error || !created) return { ok: false, error: error?.message || "insert_failed" };
+  const id = String(created.id);
+  const fail = async (message: string) => {
+    await ctx.supabase.from("agreements").delete().eq("id", id).eq("agent_id", ctx.agent.id);
+    return { ok: false as const, error: message };
+  };
+
+  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
+  const { error: htmlError } = await ctx.supabase
+    .from("agreements").update({ document_html: html }).eq("id", id).eq("agent_id", ctx.agent.id);
+  if (htmlError) return await fail(htmlError.message);
+
+  const rows = signerRows(id, signers);
+  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(rows);
+  if (signersError && /client_id/.test(signersError.message || "")) {
+    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
+      .insert(rows.map(({ client_id: _c, ...row }) => row)));
+  }
+  if (signersError) return await fail(signersError.message);
+  return {
+    ok: true, id, title: String(created.title),
+    verify_code: String(created.verify_code || ""), require_otp: !!created.require_otp,
+  };
+}
+
 async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unknown>) {
   const kind = String(input.kind || "");
   const tpl = templateFor(kind);
@@ -5175,7 +5230,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
      בוואטסאפ, ומייל מקבל קוד. בלי אף אחד מהשניים הקישור נפתח ונתקע — וזה
      בדיוק מה שקרה ב-1.10.2026. לכן מבקשים מייל **לפני** שההסכם נוצר ונועל
      את גוף המסמך, ולא אחרי. */
-  if (tpl.side === "client" && !input.in_person_only) {
+  if (requiresOtp(tpl) && !input.in_person_only) {
     signers.forEach((sg, i) => {
       if (otpReachable(sg)) return;
       const who = sg.full_name || `חותם/ת ${i + 1}`;
@@ -5195,32 +5250,29 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     };
   }
 
-  // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
-  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף.
-  const { data: created, error: insertError } = await ctx.supabase
-    .from("agreements")
-    .insert(insertPayload(build))
-    .select("id, verify_code, created_at, title, require_otp")
-    .single();
-  if (insertError) return { ok: false, error: insertError.message };
-
-  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
-  const { error: htmlError } = await ctx.supabase
-    .from("agreements")
-    .update({ document_html: html })
-    .eq("id", created.id)
-    .eq("agent_id", ctx.agent.id);
-  if (htmlError) return { ok: false, error: htmlError.message };
-
-  const signerInsert = signerRows(String(created.id), signers);
-  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(signerInsert);
-  // הפונקציות והמיגרציות נפרסות בלי סדר מובטח: בדקה שבה client_id עוד לא
-  // קיים (20270228090000) נכתבים החותמים בלעדיו, וההסכם לא נופל.
-  if (signersError && /client_id/.test(signersError.message || "")) {
-    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
-      .insert(signerInsert.map(({ client_id: _c, ...row }) => row)));
+  // ---- בלעדיות: קודם טופס ההסכמה לפעולות שיווק - מסמך נפרד כנדרש בחוק,
+  // עם אותם חותמים. הבלעדיות נוצרת אחריו ומצביעה עליו (marketing_consent_id),
+  // ודף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד.
+  const consentBuild = consentInputFor(build);
+  let consentId: string | null = null;
+  let consentTitle: string | null = null;
+  if (consentBuild) {
+    const made = await createAgreementRows(ctx, consentBuild, signers, {});
+    if (!made.ok) return { ok: false, error: made.error };
+    consentId = made.id;
+    consentTitle = made.title;
   }
-  if (signersError) return { ok: false, error: signersError.message };
+
+  // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
+  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
+  const made = await createAgreementRows(ctx, build, signers,
+    consentId ? { marketing_consent_id: consentId } : {});
+  if (!made.ok) {
+    // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
+    if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
+    return { ok: false, error: made.error };
+  }
+  const created = made;
 
   const { data: saved } = await ctx.supabase
     .from("agreement_signers")
@@ -5257,6 +5309,12 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // אחרי שהלקוח/ה חתם/ה.
     dropped_properties: dropped.length ? dropped : undefined,
     signers: links,
+    // בלעדיות: שני מסמכים, קישור אחד לכל חותם/ת
+    marketing_consent: consentId
+      ? { agreement_id: consentId, title: consentTitle,
+          note: "נוצרו שני מסמכים: טופס הסכמה לפעולות שיווק ואחריו טופס הבלעדיות. " +
+            "הקישור אחד: החותם/ת חותם/ת קודם על ההסכמה, ומיד אחריה - בלי אימות נוסף - על הבלעדיות." }
+      : undefined,
     buttons_sent: ctx.outbox ? true : undefined,
     // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",

@@ -119,6 +119,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ההסכם + החתימה -->
   <div class="state" id="stateForm">
     <div class="card task">
+      <!-- בלעדיות: שני מסמכים נפרדים, באותו קישור ובאימות אחד -->
+      <p id="bundleStep" class="fill-note" hidden></p>
       <h1 id="docTitle"></h1>
       <p><span class="who" id="agentName"></span> מבקש/ת את חתימתך על ההסכם שלהלן.</p>
       <p style="margin-top:6px">נא לקרוא אותו במלואו לפני החתימה.</p>
@@ -203,7 +205,9 @@ const FN_URL = SUPABASE_URL + '/functions/v1/agreement-sign';
    לסימן שאחריו (נקודה, סוגר, רווח), ושולחים לשרת רק את האסימון עצמו. */
 const rawToken = (new URLSearchParams(location.search).get('t') || '').trim();
 const tokenMatch = rawToken.match(/[0-9a-f]{48}/i);
-const token = tokenMatch ? tokenMatch[0].toLowerCase() : rawToken;
+/* ‏let ולא const: בבלעדיות הדף עובר באותו ביקור מהטופס הראשון (הסכמה
+   לפעולות שיווק) לשני (ההזמנה בבלעדיות), וכל אחד נחתם באסימון שלו. */
+let token = tokenMatch ? tokenMatch[0].toLowerCase() : rawToken;
 let agentJwt = null;
 let pad = null;
 let loaded = null;
@@ -264,6 +268,7 @@ const ERROR_MESSAGES = {
   db_error:  ['תקלה זמנית',     'לא הצלחנו לטעון את ההסכם. נסו שוב בעוד רגע.'],
   network:   ['אין חיבור',      'לא הצלחנו להתחבר. בדקו את החיבור לאינטרנט ונסו שוב.'],
   otp_required: ['נדרש אימות',   'יש לאמת את הזהות בקוד לפני החתימה. רעננו את העמוד.'],
+  consent_first: ['קודם טופס ההסכמה', 'יש לחתום קודם על טופס ההסכמה לפעולות שיווק. רעננו את העמוד.'],
   details_name: ['חסר שם מלא', 'נא להזין שם פרטי ושם משפחה.'],
   details_id:   ['חסרה ת.ז.',  'נא להזין את מספר תעודת הזהות.'],
   details_id_invalid: ['ת.ז. אינה תקינה', 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.'],
@@ -467,14 +472,35 @@ async function init(){
     return fail(m[0], m[1]);
   }
 
+  /* בלעדיות שטופס ההסכמה שלה עוד לא נחתם: השרת מחזיר את האסימון של
+     ההסכמה, והחתימה מתחילה ממנה. */
+  if (data.redirect_token && data.redirect_token !== token){
+    token = data.redirect_token;
+    return init();
+  }
+
   loaded = data;
   if (window.AgreementDoc.paintBrand) window.AgreementDoc.paintBrand(document.getElementById('signBrand'), data.agent);
 
   // ההסכם דורש אימות והוא טרם בוצע — גוף המסמך בכלל לא הגיע לכאן
   if (data.locked) return renderOtpGate(data);
 
+  // ההסכמה כבר נחתמה והבלעדיות עוד לא - ישר אליה, בלי אימות נוסף
+  if (data.me.signed_at && data.bundle && data.bundle.next_token){
+    token = data.bundle.next_token;
+    return init();
+  }
+
   // כבר חתם/ה — אין טעם להציג לוח חתימה ריק
   if (data.me.signed_at) return renderDone(data, false);
+
+  const step = document.getElementById('bundleStep');
+  step.hidden = !data.bundle;
+  if (data.bundle){
+    step.textContent = data.bundle.step === 1
+      ? 'טופס 1 מתוך 2 · אחרי החתימה עליו ייפתח מיד הטופס השני: ' + data.bundle.pair_title + '.'
+      : 'טופס 2 מתוך 2 · טופס ההסכמה לפעולות שיווק נחתם. נשאר לחתום על הטופס הזה.';
+  }
 
   document.getElementById('docTitle').textContent = data.agreement.title;
   document.getElementById('inPersonNote').hidden = !data.in_person;
@@ -509,12 +535,24 @@ async function init(){
   paintDoc(document.getElementById('docBody'), data.agreement.document_html,
            others.length ? others : null);
 
-  pad = window.AgreementDoc.signaturePad(document.getElementById('padCanvas'), {
-    onChange: drawn => {
-      document.getElementById('padHint').classList.toggle('is-off', drawn);
-      refreshSubmit();
-    },
-  });
+  // הטופס השני בבלעדיות נפתח באותו דף: הלוח מתנקה ולא נבנה שוב (לוח שני
+  // על אותו קנבס היה מוסיף מאזינים כפולים), והאישור נדרש מחדש לכל מסמך
+  if (pad){
+    pad.clear();
+    document.getElementById('padHint').classList.remove('is-off');
+  } else {
+    pad = window.AgreementDoc.signaturePad(document.getElementById('padCanvas'), {
+      onChange: drawn => {
+        document.getElementById('padHint').classList.toggle('is-off', drawn);
+        refreshSubmit();
+      },
+    });
+  }
+  document.getElementById('ackRead').checked = false;
+  document.getElementById('feedback').textContent = '';
+  const submit = document.getElementById('submitBtn');
+  submit.textContent = data.bundle && data.bundle.step === 1
+    ? 'חתימה והמשך לטופס הבלעדיות' : 'חתימה ואישור ההסכם';
 
   showState('stateForm');
   refreshDetails();
@@ -640,7 +678,16 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       ? ERROR_MESSAGES[data.error][1]
       : 'החתימה לא נשמרה. נסו שוב בעוד רגע.';
     btn.disabled = false;
-    btn.textContent = 'חתימה ואישור ההסכם';
+    btn.textContent = loaded && loaded.bundle && loaded.bundle.step === 1
+      ? 'חתימה והמשך לטופס הבלעדיות' : 'חתימה ואישור ההסכם';
+    return;
+  }
+
+  // טופס ההסכמה נחתם - מיד לטופס הבלעדיות, באותו אימות
+  if (data.next_token){
+    token = data.next_token;
+    btn.textContent = 'פותח את טופס הבלעדיות…';
+    await init();
     return;
   }
 
@@ -651,9 +698,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
 
 function renderDone(data, justCompleted){
   const allSigned = data.agreement.status === 'signed' || justCompleted;
-  document.getElementById('doneDetail').textContent = allSigned
-    ? 'העותק החתום נשלח במייל לכל הצדדים. אפשר להוריד אותו גם מכאן.'
-    : 'חתימתך נקלטה. ההסכם ממתין לחתימת יתר הצדדים, ובסיומה יישלח לכולם העותק החתום במייל.';
+  document.getElementById('doneDetail').textContent = (data.bundle && data.bundle.step === 2
+      ? 'חתמת על שני הטפסים: ההסכמה לפעולות שיווק וההזמנה בבלעדיות. ' : '') +
+    (allSigned
+      ? 'העותק החתום נשלח במייל לכל הצדדים. אפשר להוריד אותו גם מכאן.'
+      : 'חתימתך נקלטה. ההסכם ממתין לחתימת יתר הצדדים, ובסיומה יישלח לכולם העותק החתום במייל.');
 
   document.getElementById('doneCode').textContent =
     'קוד אימות המסמך: ' + (data.agreement.verify_code || '');
