@@ -5416,8 +5416,19 @@ var LANDING_SEARCH = location.search;
 /* ‏הכותרת של עמוד התוצאות, כפי ש-netlify/edge-functions/search-pages.ts
    הזריקה אותה. **הדף אינו מחזיק עותק של הרשימה** — הוא קורא את מה שנכתב
    לו. שתי רשימות שצריכות להסכים הן רשימה אחת שמתיישנת. */
+/* ‏סוג הנכס שעמוד התוצאות נפתח עליו (‏shuk-search-type מ-search-pages.ts):
+   "דירות למכירה" נפתח על "דירות" ולא על כל המלאי. ריק = אין. */
+function landingSearchType(){
+  const el = document.querySelector('meta[name="shuk-search-type"]');
+  const v = el ? (el.content || '').trim() : '';
+  return v === 'flats' ? v : '';
+}
+
 function searchLandingHeading(){
   if (location.search !== LANDING_SEARCH) return '';
+  // ‏"הכול" בשורת סוג הנכס מחזיר את אותה כתובת, אבל כבר לא "דירות"
+  const lt = landingSearchType();
+  if (lt && sentence && sentence.state().type !== lt) return '';
   const el = document.querySelector('meta[name="shuk-search-heading"]');
   return el ? (el.content || '').trim().slice(0, 80) : '';
 }
@@ -7184,6 +7195,10 @@ let freeTextFeatures = new Set();
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה - הדף עדיין נפתח נקי */ }
   } else if (hasSearch){
+    /* עמוד "דירות…" (‏landingSearchType) נפתח על "דירות", אלא אם הכתובת
+       כבר בוחרת סוג. ‏params הוא עותק - הכתובת עצמה לא משתנה. */
+    const lt = landing ? landingSearchType() : '';
+    if (lt && !params.has('ptype') && !params.has('type')) params.set('type', lt);
     sentence.setFromParams(params);
     deepLinkParams = params;
     /* הרשימה המסוננת מגיעה כשהנכסים נטענים (‏setProperties → onChange עם
