@@ -34,33 +34,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
-<!-- ‏Leaflet עצמו, ולא רק ה-CSS שלו: בלעדיו סקציית "מיקום וסביבה" נשארת
-     מוסתרת, כי אין מפה להציג. -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/quality-badge.js"></script>
-<script src="assets/map-gestures.js"></script>
-<!-- יריד הבתים הפתוחים: הרצועה שמעל פרטי הנכס והתגית שעל התמונה.
-     נטען לפני property-card.js — הוא זה שמוסיף את התגית לאריחי
-     "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
-<script src="assets/property-card.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
      רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
-     שקורא ל-AiShowcase.mountProperty() עם ההדמיות שכבר נשלפו. -->
+     שקורא ל-AiShowcase.mountProperty() עם ההדמיות שכבר נשלפו.
+     defer: property.js מחכה לה אם היא עדיין לא על window. -->
 <script defer src="assets/ai-showcase.js"></script>
-<!-- הרקע הזורם של האתר — אותו רקע של דף הבית ושל ה-CRM. דף הנכס אינו
-     נצבע בערכת המשרד, ולכן הוא מקבל את הרקע מיד עם הטעינה. -->
-<script src="assets/page-bg.js" data-auto></script>
 <style>
   :root{
     --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
@@ -517,6 +495,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      המוטמעת (‎z-index:800‎ אצל Leaflet) מטפסים מעל שכבת המסך המלא (400)
      ושורת הקרדיטים שלה נדבקת מעל כפתורי הניווט */
   .map-frame{position:relative;z-index:0;border-radius:0;overflow:hidden;border:1px solid var(--hair)}
+  /* סימון לטעינת המפה. גובה 1px ולא 0: צופה חיתוך לא מדווח על אלמנט בלי שטח.
+     #mapSection עצמו hidden, וצופה לא רואה אותו. */
+  #mapArm{height:1px;margin:0;padding:0;border:0;overflow:hidden}
   #propMap{height:230px}
   @media(min-width:760px){#propMap{height:290px}}
   /* פינת ההגדלה יושבת בקצה העליון־חיצוני, כי התחתית שמורה לקרדיטים של
@@ -1503,6 +1484,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
            כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
            והמפה עלתה בפועל. -->
+      <div id="mapArm" aria-hidden="true"></div>
       <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
@@ -1973,6 +1955,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="toast" id="toast"></div>
 
+<!-- הספריות האלה רצות אחרי שתמונת השער כבר נסרקה. ב-head הן חסמו את
+     גילוי ה-LCP ואת הציור הראשון. בלי defer: property.js הוא סקריפט
+     רגיל, ו-defer היה מריץ אותו לפניהן. Leaflet לא כאן - הוא נטען
+     מ-property.js כשסקציית המיקום מתקרבת למסך (docs/property-map.md). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/quality-badge.js"></script>
+<!-- יריד הבתים הפתוחים: הרצועה שמעל פרטי הנכס והתגית שעל התמונה.
+     נטען לפני property-card.js - הוא זה שמוסיף את התגית לאריחי
+     "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
+<script src="assets/open-house.js"></script>
+<script src="assets/property-card.js"></script>
+<!-- הרקע הזורם של האתר - אותו רקע של דף הבית ושל ה-CRM. דף הנכס אינו
+     נצבע בערכת המשרד. -->
+<script src="assets/page-bg.js" data-auto></script>
 <script src="assets/property.js"></script>
 
 <footer class="site">

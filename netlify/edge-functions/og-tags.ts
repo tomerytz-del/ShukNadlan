@@ -1172,7 +1172,13 @@ function heroHead(lcp: string): string[] {
     `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
     `<link rel="preconnect" href="${SUPABASE_URL}">`,
   ];
-  if (!lcp) return tags;
+  /* בלי תמונת שער ה-LCP הוא רקע ‎.bento-empty‎ (‏property-placeholder.jpg),
+     והוא נוסף רק אחרי שה-JS מצייר. preload מגלה אותו עם ה-HTML.
+     נכס שיש לו תמונה נשאר על כתובת ה-render, לא על הפלייסהולדר. */
+  if (!lcp) {
+    tags.push(`<link rel="preload" as="image" href="/assets/property-placeholder.jpg" fetchpriority="high">`);
+    return tags;
+  }
   try {
     const origin = new URL(lcp).origin;
     if (origin && origin !== SUPABASE_URL && /^https?:$/i.test(new URL(lcp).protocol)) {

@@ -109,7 +109,7 @@
 | רכיב | איפה |
 |---|---|
 | בדיקת זכאות | `public.property_map_enabled(uuid)`, מיגרציה `20260828160000_property_map_view.sql` |
-| טעינת המפה | `initPropertyMap()` ב-`property.html` |
+| טעינת המפה | `armPropertyMap()` ואז `initPropertyMap()` ב-`assets/property.js` |
 | מסך מלא | `mapFullOpen()` / `mapFullClose()`, שכבת `#mapFull` |
 | מחוות מגע | `assets/map-gestures.js` |
 | אריחים | CARTO Voyager, אותם אריחים כמו מפת החיפוש ב-`index.html` |
@@ -117,6 +117,15 @@
 שני מופעי Leaflet נפרדים — אחד מוטמע ואחד למסך מלא, שנוצר בפתיחה הראשונה
 בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM בלי לאתחל אותה
 מחדש, ושכפול פשוט יותר מלנהל העברה.
+
+Leaflet, ‏`leaflet.css`, ‏`map-tiles.js`, ‏`approx-location.js` ו-
+`map-gestures.js` **אינם** ב-`<head>`. `armPropertyMap` צופה ב-`#mapArm`
+(אלמנט של 1px מעל הסקציה; הסקציה עצמה `hidden`, וצופה חיתוך לא רואה
+אותה) עם מרווח 480px. רק כשהסימון מתקרב למסך רצה בדיקת הזכאות, ורק אם
+היא חיובית יורדים הסקריפטים ונבנית המפה. בלי זה `MapTiles.addTo` מוריד
+את MapLibre (כ-280KB) בטעינת הדף, גם כשהמפה מתחת לקפל. דפדפן בלי
+‏`IntersectionObserver` טוען את המפה מיד, כמו קודם. כישלון של ה-CDN
+משאיר את הסקציה מוסתרת.
 
 ## הערות
 

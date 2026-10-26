@@ -1127,9 +1127,11 @@ document.addEventListener('keydown', (e)=>{
    שלילית (או שהמפה לא עלתה) הסקציה פשוט לא מוצגת: אין תווית "שדרגו כדי
    לראות", כי חסם כזה מוצג לגולש/ת שלא אשמ/ה בו.
 
-   שני מופעי Leaflet נפרדים: המוטמע נוצר עם טעינת הנכס, ומופע המסך המלא נוצר
-   בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
-   בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
+   שני מופעי Leaflet נפרדים: המוטמע נוצר כשסקציית המיקום מתקרבת למסך
+   (armPropertyMap), ומופע המסך המלא נוצר בפתיחה הראשונה בלבד. אי אפשר
+   להזיז קונטיינר של מפה בין שני מקומות ב-DOM בלי לאתחל אותה מחדש,
+   ושכפול פשוט יותר מלנהל העברה. Leaflet ו-MapLibre לא נטענים עם הדף:
+   MapTiles.addTo מוריד כ-280KB, והמפה מתחת לקפל.                     */
 
 /* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
 const PROP_MAP_ZOOM = 16;
@@ -1163,6 +1165,81 @@ function propMapTiles(map){
   MapTiles.addTo(map);
 }
 
+/* Leaflet, ה-CSS שלו, האריחים, המיקום המשוער והמחוות. נטענים פעם אחת,
+   ורק אחרי שהזכאות אושרה. ב-head הם חסמו את תמונת השער. */
+const LEAFLET_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_CSS_SRI = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
+const LEAFLET_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_JS_SRI = 'sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH';
+
+function loadMapScript(src, integrity){
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    if (integrity){
+      s.integrity = integrity;
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+    }
+    s.onload = ()=> resolve();
+    s.onerror = ()=> reject(new Error('map script'));
+    document.head.appendChild(s);
+  });
+}
+function loadMapCss(){
+  if (document.querySelector('link[data-map-css]')) return Promise.resolve();
+  return new Promise((resolve)=>{
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = LEAFLET_CSS;
+    link.integrity = LEAFLET_CSS_SRI;
+    link.crossOrigin = 'anonymous';
+    link.referrerPolicy = 'no-referrer';
+    link.setAttribute('data-map-css', '');
+    link.onload = ()=> resolve();
+    link.onerror = ()=> resolve();
+    document.head.appendChild(link);
+  });
+}
+let mapStackPromise = null;
+function ensureMapStack(){
+  if (window.L && window.MapTiles && window.ApproxLocation && window.MapGestures) return Promise.resolve();
+  if (!mapStackPromise){
+    mapStackPromise = Promise.all([
+      loadMapCss(),
+      (async ()=>{
+        if (!window.L) await loadMapScript(LEAFLET_JS, LEAFLET_JS_SRI);
+        if (!window.MapTiles) await loadMapScript('assets/map-tiles.js');
+        if (!window.ApproxLocation) await loadMapScript('assets/approx-location.js');
+        if (!window.MapGestures) await loadMapScript('assets/map-gestures.js');
+      })(),
+    ]).catch(err=>{ mapStackPromise = null; throw err; });
+  }
+  return mapStackPromise;
+}
+
+/* #mapSection מוסתר, וצופה חיתוך לא רואה אותו. #mapArm הוא 1px גלוי
+   מעליו. מרווח 480px מתחיל את ההורדה לפני שהסקציה נכנסת למסך.
+   בלי IntersectionObserver המפה נטענת מיד, כמו קודם. */
+function armPropertyMap(p, addressText){
+  if (!p || p.lat == null || p.lng == null || !window.supabase) return;
+  const start = ()=> initPropertyMap(p, addressText);
+  const arm = document.getElementById('mapArm');
+  if (!arm || !window.IntersectionObserver){
+    start();
+    return;
+  }
+  let started = false;
+  const io = new IntersectionObserver((entries)=>{
+    if (started || !entries.some(e => e.isIntersecting)) return;
+    started = true;
+    io.disconnect();
+    start();
+  }, { rootMargin: '480px 0px' });
+  io.observe(arm);
+}
+
 async function propertyMapEnabled(id){
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1178,9 +1255,16 @@ async function propertyMapEnabled(id){
 
 async function initPropertyMap(p, addressText){
   const section = document.getElementById('mapSection');
-  // ‏Leaflet חסום/נכשל, או שאין קואורדינטות — אין מה להציג
-  if (!window.L || !window.supabase || !p.lat || !p.lng) return;
+  // אין קואורדינטות, או ש-Leaflet לא עלה אחרי הטעינה — אין מה להציג
+  if (!section || !window.supabase || p.lat == null || p.lng == null) return;
   if (!await propertyMapEnabled(p.id)) return;
+  try{
+    await ensureMapStack();
+  } catch(e){
+    console.warn('מפת הנכס לא נטענה:', e);
+    return;
+  }
+  if (!window.L) return;
 
   // חשיפת הסקציה לפני יצירת המפה: Leaflet מודד את גודל הקונטיינר ברגע
   // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
@@ -2721,9 +2805,9 @@ function renderProperty(p){
     if (p.agencies?.slug) window.location.href = '/agency?slug=' + p.agencies.slug;
   });
 
-  // המפה נטענת ברקע: היא דורשת בדיקת זכאות נוספת מול ה-DB, ואין סיבה שהיא
-  // תעכב את רינדור הנכס עצמו.
-  initPropertyMap(p, addressText);
+  // המפה נטענת כשהסקציה מתקרבת למסך: בדיקת הזכאות ו-MapLibre לא רצים
+  // עם הציור הראשון, ואין סיבה שהם יעכבו את רינדור הנכס עצמו.
+  armPropertyMap(p, addressText);
 
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('propertyContent').style.display = 'block';

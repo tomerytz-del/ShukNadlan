@@ -110,6 +110,10 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
+בלי תמונת שער ה-LCP הוא הרקע של `.bento-empty` (`/assets/property-placeholder.jpg`), שנוסף רק אחרי שה-JS מצייר. אז ה-preload הוא הקובץ הזה, לא כתובת render. נכס עם תמונה נשאר על כתובת ה-800.
+
+בלי תמונת שער ה-LCP הוא הרקע של `.bento-empty` (`/assets/property-placeholder.jpg`), שנוסף רק אחרי שה-JS מצייר. אז ה-preload הוא הקובץ הזה, לא כתובת render. נכס עם תמונה נשאר על כתובת ה-800.
+
 תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה. הטרנספורם הראשון של כתובת חדשה איטי (נמדד כ-679ms מול 38ms אחרי שהתוצאה נשמרה). אגודל עצל של אותה תמונה עדיין יכול להוריד את הקובץ המלא.
 
 ### כרטיס ראשון בדף שכונה
@@ -123,6 +127,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 `neighborhoods` בטעינה בלי `boundary` (המצולע הוא רוב המשקל). העמודות שנשארות: `id,name,city,city_id,lat,lng,radius_m,is_planned`. בלי `is_planned` אזור בתכנון בלי נכסים חוזר לרשימה. `boundary` נטען ב-`drawHoodShapes` רק לשכונות שנבחרו; כשל מסמן `null` ומצייר עיגול.
 
 סקריפטים שחסמו את הציור (Leaflet, supabase, כרטיסים) יושבים בסוף ה-`body`, עדיין בלי `defer`, מיד לפני `home.js`. `defer` היה מריץ את `home.js` לפניהם, או את גבריאלה לפני `home.js`.
+
+דף הנכס אותו דבר, מיד לפני `property.js` ובלי `defer`: supabase, תג האיכות, יריד הבתים, כרטיסי הנכסים הדומים, והרקע. Leaflet, ‏`leaflet.css`, ‏`map-tiles`, ‏`approx-location` ו-`map-gestures` לא נטענים שם. `armPropertyMap` מדליק אותם מ-`IntersectionObserver` (מרווח 480px) על `#mapArm`, ורק אחרי `property_map_enabled` קורא ל-`initPropertyMap`. בלי זה `MapTiles.addTo` מוריד את MapLibre (כ-280KB) בטעינה גם כשהמפה מתחת לקפל. `#mapSection` הוא `hidden`, וצופה לא רואה אותו — הסימון הוא אלמנט בגובה 1px. `defer` על `property.js` היה מריץ אותו לפני supabase, או אחרי גבריאלה. הגלריה נפתחת בלחיצה (`lbOpen`) ולא מורידה את התמונות המלאות בטעינה.
 
 תמונת ה-LCP של דף הבית היא רקע CSS על `#heroSection`: `hero-valley-800.webp` עד 759px, ו-`hero-valley.webp` משם. `preload` בלי `fetchpriority="high"` לא הקדים את ההורדה. מדידה ישנה: כ-420ms פחות ב-LCP וכ-320ms יותר ב-FCP. `media` על התג לא מספיק: ב-Lighthouse לנייד ירד גם `hero-valley.webp` (כ-260KB).
 

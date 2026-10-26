@@ -559,7 +559,21 @@ propHttp.push(
     && storedReel.includes(`src="${amp(R800)}"`)
     && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
     && storedReel.includes(`data-full="${amp(ORIG)}"`)
-    && !storedReel.includes("<video")],
+    && !storedReel.includes("<video>")
+    && !storedReel.includes("property-placeholder.jpg")],
+);
+const bare = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: null,
+  video_poster_url: null,
+}, { display_name: "דנה כהן" });
+propHttp.push(
+  ["בלי תמונת שער: preload לפלייסהולדר, בלי לגעת ב-JSON-LD", bare.includes('rel="preload" as="image" href="/assets/property-placeholder.jpg" fetchpriority="high"')
+    && bare.includes('id="bentoGrid"')
+    && !bare.includes("data-lcp")
+    && bare.includes("application/ld+json")
+    && bare.includes('rel="canonical"')],
 );
 resetLastGood();
 const propGood = await responseOf("/property?id=9", 200, PROPERTY);
