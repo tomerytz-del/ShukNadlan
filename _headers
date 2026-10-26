@@ -52,16 +52,16 @@
   # **אכיפה** הייתה חוסמת אותן בשקט — כלומר בדיוק את המדידה שהאתר הזה
   # בנוי סביבה — ואת זה מגלים חודש אחרי, כשהנתונים אבודים.
   #
-  # ‏Report-Only אינו חוסם כלום: הוא רק כותב לקונסול של הדפדפן כל דבר
-  # שהיה נחסם. איך לעבור לאכיפה:
+  # ‏**באכיפה מ-26.10.2026**, אחרי שבועיים של Report-Only (‏csp_violations,
+  # ‏12-26.10.2026). מה שנוסף מהנתונים: הדומיינים של GA4 ב-connect-src
+  # (‏analytics.google.com, ‏*.analytics.google.com, ‏stats.g.doubleclick.net,
+  # ‏www.google.com, ‏www.google.co.il - Google signals ומדידת המרות). מה
+  # שנשאר חסום בכוונה: ‏netfree.link (מסנן התוכן שמזריק לדף), ‏wasm-eval
+  # ותוספי דפדפן, ו-app.netlify.com (המגירה של Netlify בתצוגות מקדימות בלבד).
   #
-  #   1. לסיים את חיבור התגיות ב-GTM.
-  #   2. לאסוף מה היה נחסם. מ-10.2026 זה אוטומטי: ‏report-uri בסוף הכותרת
-  #      שולח כל הפרה ל-‏csp-report, שסופר/ת אותן ליום ב-csp_violations
-  #      (‏origin ונתיב בלבד). שבועיים של נתונים מכל הדפים ומכל הדפדפנים -
-  #      במקום מעבר ידני עם הקונסול, שרואה רק את מה שנפתח באותו רגע.
-  #   3. להוסיף את הדומיינים שעלו לרשימה המתאימה כאן.
-  #   4. לשנות את שם הכותרת ל-‎Content-Security-Policy‎ (בלי הסיומת).
+  # ‏**דומיין חדש (תגית ב-GTM, הטמעה, CDN) נחסם עכשיו בשקט.** מי שמוסיף/ה
+  # כזה מוסיף/ה אותו כאן באותו PR, ובודק/ת אחרי הפריסה ב-csp_violations
+  # (‏report-uri נשאר, ומדווח על מה שנחסם בפועל). ‏docs/security-headers.md
   #
   # ‏'unsafe-inline' ב-script-src אינו בחירה אלא מצב נתון: כל דף באתר הוא
   # קובץ עצמאי שכל הקוד שלו יושב ב-‎<script>‎ בתוכו (ראו CLAUDE.md). ניקוי
@@ -69,7 +69,7 @@
   # עדיין יש ערך: ‎object-src 'none'‎, ‎base-uri 'self'‎ ו-‎frame-ancestors‎
   # חוסמים וקטורים אמיתיים גם עם unsafe-inline.
   # ---------------------------------------------------------------------
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.govmap.gov.il https://accounts.google.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://obookujgolazrwycsiyn.supabase.co wss://obookujgolazrwycsiyn.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://tiles.openfreemap.org https://tile.openstreetmap.org https://cdn.jsdelivr.net https://*.govmap.gov.il https://accounts.google.com https://people.googleapis.com https://www.facebook.com https://connect.facebook.net; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.googletagmanager.com https://*.govmap.gov.il https://accounts.google.com https://www.facebook.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://www.facebook.com; frame-ancestors 'none'; report-uri https://obookujgolazrwycsiyn.supabase.co/functions/v1/csp-report
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.govmap.gov.il https://accounts.google.com https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://obookujgolazrwycsiyn.supabase.co wss://obookujgolazrwycsiyn.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.analytics.google.com https://stats.g.doubleclick.net https://www.google.com https://www.google.co.il https://tiles.openfreemap.org https://tile.openstreetmap.org https://cdn.jsdelivr.net https://*.govmap.gov.il https://accounts.google.com https://people.googleapis.com https://www.facebook.com https://connect.facebook.net; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.googletagmanager.com https://*.govmap.gov.il https://accounts.google.com https://www.facebook.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://www.facebook.com; frame-ancestors 'none'; report-uri https://obookujgolazrwycsiyn.supabase.co/functions/v1/csp-report
 
 # ---------------------------------------------------------------------------
 # מטמון
