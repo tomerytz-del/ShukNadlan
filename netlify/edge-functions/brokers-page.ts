@@ -268,5 +268,11 @@ export const config: Config = {
     "/kiryat-yam/*",
     "/kiryat-yam/מתווכים",
     "/kiryat-yam/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/nof-hagalil/*",
+    "/nof-hagalil/מתווכים",
+    "/nof-hagalil/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
+    "/migdal-haemek/*",
+    "/migdal-haemek/מתווכים",
+    "/migdal-haemek/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D",
   ],
 };

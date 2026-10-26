@@ -24,6 +24,7 @@ function heErr(e){
 const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
 function showToast(msg, ms=3200){
   const failure = TOAST_FAILURE.test(String(msg || ''));
+  toastEl.classList.remove('is-undo');
   if (failure && window.FriendlyError){
     toastEl.textContent = msg;
     const help = document.createElement('div');
@@ -36,9 +37,38 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
-  toastEl.style.display = 'block';
+  toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+}
+
+/* טוסט עם "ביטול" לכמה שניות. לחיצה מריצה את onUndo וסוגרת. טוסט חדש
+   מחליף את זה, והפעולה נשארת. */
+function showUndoToast(msg, onUndo, ms=5000){
+  toastEl.classList.add('is-undo');
+  toastEl.textContent = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'toast-undo';
+  btn.textContent = 'ביטול';
+  let done = false;
+  btn.addEventListener('click', () => {
+    if (done) return;
+    done = true;
+    clearTimeout(showToast._t);
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+    onUndo();
+  });
+  toastEl.append(span, btn);
+  toastEl.style.display = 'flex';
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+  }, ms);
 }
 
 /* ================= ערעור על חסימת רישיון תיווך =================
@@ -2038,7 +2068,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
      נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
      ב-await. התוצאה נלקחת רק אם המזהה זהה למה שחזר; אחרת שאילתה רגילה. */
-  const AGENCY_FIELDS = 'name, address, city_id';
+  const AGENCY_FIELDS = 'name, address, city_id, logo_url';
   const agencyCacheKey = 'crmAgencyId:' + user.id;
   let cachedAgencyId = null;
   try { cachedAgencyId = localStorage.getItem(agencyCacheKey); } catch {}
@@ -14054,10 +14084,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     category: currentCategory,
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
-    price: salePriceFromMillions(parseFloat(document.getElementById('npPrice').value), document.getElementById('npDeal').value),
+    price: salePriceFromMillions(parseFloat(crmMoneyRaw(document.getElementById('npPrice').value)), document.getElementById('npDeal').value),
     price_includes_vat: currentCategory === 'commercial' ? vatSelectValue() : null,
-    maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
-    arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
+    maintenance_fee: crmMoneyNum(document.getElementById('npMaintenanceFee').value),
+    arnona: crmMoneyNum(document.getElementById('npArnona').value),
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
     city: propertyCity(),
     street: street || null,
@@ -14691,8 +14721,13 @@ function propertyFilterState(){
 // טווח מ-/עד משני שדות. שדה ריק הוא "אין גבול", ולא 0 - ‏Number('') הוא 0,
 // ו"עד 0" היה מסתיר הכול. null כששני השדות ריקים.
 function propRange(minRaw, maxRaw){
-  const min = minRaw === '' ? null : Number(minRaw);
-  const max = maxRaw === '' ? null : Number(maxRaw);
+  const num = raw => {
+    if (raw === '' || raw == null) return null;
+    const n = Number(crmMoneyRaw(raw));
+    return Number.isFinite(n) ? n : null;
+  };
+  const min = num(minRaw);
+  const max = num(maxRaw);
   return (min === null && max === null) ? null : { min, max };
 }
 
@@ -14782,7 +14817,11 @@ function renderProperties(){
   if (countLine) countLine.textContent = '';
 
   if (myPropertyRows.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
+    listEl.innerHTML = '<div class="empty-state"><p>עדיין לא פרסמת נכסים.</p>'
+      + '<button type="button" class="ui-btn" data-prop-empty>נכס חדש</button></div>';
+    listEl.querySelector('[data-prop-empty]')?.addEventListener('click', () => {
+      openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+    });
     updateFilterFoot('propFilterCount', 'propClearFilters', 0, 0, false);
     return;
   }
@@ -17914,9 +17953,9 @@ function openEditProperty(p){
   document.getElementById('npLandMaxFloors').value = p.land_max_floors ?? '';
   document.getElementById('npLandPlanningNotes').value = p.land_planning_notes || '';
   document.getElementById('npDeal').value = p.deal_type;
-  document.getElementById('npPrice').value = p.price;
-  document.getElementById('npMaintenanceFee').value = p.maintenance_fee ?? '';
-  document.getElementById('npArnona').value = p.arnona ?? '';
+  document.getElementById('npPrice').value = crmMoneyText(p.price);
+  document.getElementById('npMaintenanceFee').value = p.maintenance_fee == null || p.maintenance_fee === '' ? '' : crmMoneyText(p.maintenance_fee);
+  document.getElementById('npArnona').value = p.arnona == null || p.arnona === '' ? '' : crmMoneyText(p.arnona);
   document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
   document.getElementById('npRooms').value = p.rooms || '';
   setPropertyCity(p.city || defaultPropertyCity());
@@ -19359,7 +19398,9 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
-  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+    ? leadsSkeletonHtml()
+    : '<div class="empty-state">טוען…</div>';
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
@@ -19592,8 +19633,8 @@ function buildLeadCard(lead, agentId, isArchived){
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
         </div>
-        <div class="lead-name">${unlocked ? '' : '🔒 '}${esc(lead.display_name || '-')}</div>
-        <div class="lead-phone">${esc(lead.display_phone || '-')}</div>
+        <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
+        <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>
         <div class="lc-when${fresh ? ' is-fresh' : ''}">🕒 ${esc(when)}</div>
         ${unlocked ? '' : '<div class="lc-lock-note">השם והטלפון ייחשפו בפתיחת הליד</div>'}
       </section>
@@ -22577,8 +22618,8 @@ function openEditClient(c){
   document.getElementById('clFinancing').value  = c.financing_status || '';
   document.getElementById('clShareLevel').value = shareLevelOf(c);
   document.getElementById('clLeadSource').value = c.lead_source || '';
-  document.getElementById('clMinPrice').value = c.min_price ?? '';
-  document.getElementById('clMaxPrice').value = c.max_price ?? '';
+  document.getElementById('clMinPrice').value = c.min_price == null ? '' : crmMoneyText(c.min_price);
+  document.getElementById('clMaxPrice').value = c.max_price == null ? '' : crmMoneyText(c.max_price);
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
   document.getElementById('clMaxSize').value  = c.max_size_sqm ?? '';
@@ -22613,11 +22654,43 @@ async function deleteClient(c){
   if (typeof loadAgenda === 'function') loadAgenda();
 }
 
+/* מחיר עם פסיקי אלפים. type=number דוחה את הפסיק, ו"1,850,000" בלי
+   הניקוי נקרא כ-1 ואז כמיליון (salePriceFromMillions). בפוקוס חוזרים
+   לספרות, ביציאה מציגים שוב עם פסיקים. */
+function crmMoneyRaw(s){
+  return String(s == null ? '' : s).trim().replace(/[^\d.]/g, '');
+}
+function crmMoneyNum(s){
+  const raw = crmMoneyRaw(s);
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+function crmMoneyText(n){
+  const raw = crmMoneyRaw(n);
+  if (raw === '') return '';
+  const v = Number(raw);
+  if (!Number.isFinite(v)) return '';
+  return v.toLocaleString('he-IL', { maximumFractionDigits: 2 });
+}
+const CRM_MONEY_IDS = ['npPrice','npMaintenanceFee','npArnona','clMinPrice','clMaxPrice','propPriceMin','propPriceMax','propPsmMin','propPsmMax'];
+function crmBindMoneyInputs(){
+  CRM_MONEY_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.money) return;
+    el.dataset.money = '1';
+    el.addEventListener('focus', () => { el.value = crmMoneyRaw(el.value); });
+    el.addEventListener('blur', () => {
+      const raw = crmMoneyRaw(el.value);
+      el.value = raw === '' ? '' : crmMoneyText(raw);
+    });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', crmBindMoneyInputs);
+else crmBindMoneyInputs();
+
 // שדה מספרי ריק הוא null ולא 0 - 0 היה נקרא כ"תקציב אפס" ומסנן הכול
-const numOrNull = id => {
-  const raw = document.getElementById(id).value.trim();
-  return raw === '' ? null : Number(raw);
-};
+const numOrNull = id => crmMoneyNum(document.getElementById(id).value);
 
 /* "הצלב נכסים": אחרי השמירה הכרטיס של הלקוח/ה נפתח ברשימה ופאנל ההתאמות
    נטען בו - אותה קריאה ל-match_properties_for_client שהכפתור בכרטיס עושה.
@@ -24038,8 +24111,8 @@ function fillClientFormNeeds(n){
   if (n.deal_type) setClientFormDeal(n.deal_type);
   if (Array.isArray(n.cities) && n.cities.length) addClientCities(n.cities.join(','));
   if (n.min_rooms != null) document.getElementById('clMinRooms').value = n.min_rooms;
-  if (n.min_price != null) document.getElementById('clMinPrice').value = n.min_price;
-  if (n.max_price != null) document.getElementById('clMaxPrice').value = n.max_price;
+  if (n.min_price != null) document.getElementById('clMinPrice').value = crmMoneyText(n.min_price);
+  if (n.max_price != null) document.getElementById('clMaxPrice').value = crmMoneyText(n.max_price);
 }
 
 /* עדכון כרטיס קיים מהשיחה. ערים - בתוספת למה שכבר בכרטיס ולא במקומו: לקוח/ה
@@ -24356,6 +24429,7 @@ async function openCmaReport(propertyId, btn){
     showToast(messages[data.error] || data.detail || 'שגיאה בהפקת הדוח', 6000);
     return;
   }
+  cmaShareReset({ p_property_id: propertyId }, data);
   renderCmaReport(data, brand);
 }
 
@@ -24399,6 +24473,64 @@ document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
   document.getElementById('cmaOverlay').style.display = 'none';
 });
 document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.print());
+
+/* ---------- "שליחת קישור ללקוח/ה" ----------
+   אותו קישור שגבריאלה שולחת בכפתור "📊 דוח CMA" (‏/cma?k=, 30 יום). מה שנשלח
+   למסד הוא **הבקשה ולא הדוח**: ‏cma_link_share (20270824090000) מחשבת אותו
+   שוב ושומרת את מה שהמסד הפיק, כי הדף מציג אותו בשם המשרד. ולכן נשמרת כאן
+   הבקשה של הדוח הפתוח - נכס או כתובת - ומתאפסת בכל הפקה. docs/cma.md. */
+let cmaShareRequest = null, cmaShareReport = null;
+
+function cmaShareReset(request, report){
+  cmaShareRequest = request;
+  cmaShareReport = report;
+  const panel = document.getElementById('cmaSharePanel');
+  panel.hidden = true;
+  panel.innerHTML = '';
+  const btn = document.getElementById('cmaShareBtn');
+  btn.disabled = false;
+  btn.textContent = 'שליחת קישור ללקוח/ה';
+}
+
+function cmaShareShow(url, report){
+  const s = (report && report.subject) || {};
+  const what = [s.title, [s.address, s.city].filter(Boolean).join(', ')].filter(Boolean)[0] || 'הנכס';
+  const text = 'דוח השוואת שוק (CMA) ל' + what + ':\n' + url;
+  const panel = document.getElementById('cmaSharePanel');
+  // ‏data-share: שיתוף ולא פנייה למתווך/ת (CLAUDE.md, "מדידת אירועים")
+  panel.innerHTML = `
+    <p>הקישור לדוח, בתוקף 30 יום. הלקוח/ה רואה את אותו דוח ממותג, ויכול/ה להדפיס אותו.</p>
+    <input type="text" readonly value="${esc(url)}" aria-label="הקישור לדוח">
+    <div class="cma-share-btns">
+      <a class="btn btn-gold" data-share target="_blank" rel="noopener" href="${esc('https://wa.me/?text=' + encodeURIComponent(text))}">וואטסאפ</a>
+      ${navigator.share ? '<button type="button" class="btn btn-ghost" data-act="share">שיתוף</button>' : ''}
+      <button type="button" class="btn btn-ghost" data-act="copy">העתקה</button>
+      <a class="btn btn-ghost" target="_blank" rel="noopener" href="${esc(url)}">פתיחה</a>
+    </div>`;
+  panel.querySelector('input').addEventListener('focus', e => e.target.select());
+  panel.querySelector('[data-act=copy]').addEventListener('click', async e => {
+    try { await navigator.clipboard.writeText(url); e.currentTarget.textContent = 'הועתק ✓'; }
+    catch(_){ showToast('לא הצלחנו להעתיק - אפשר להעתיק מהשדה'); }
+  });
+  panel.querySelector('[data-act=share]')?.addEventListener('click', () => {
+    navigator.share({ title: 'דוח השוואת שוק', text: text.split('\n')[0], url }).catch(() => {});
+  });
+  panel.hidden = false;
+}
+
+document.getElementById('cmaShareBtn').addEventListener('click', async e => {
+  const btn = e.currentTarget;
+  if (!cmaShareRequest){ showToast('יש להפיק את הדוח מחדש ואז לשלוח'); return; }
+  btn.disabled = true; btn.textContent = 'יוצר קישור…';
+  const { data, error } = await sb.rpc('cma_link_share', { ...cmaShareRequest, p_feature_labels: FEATURE_LABELS });
+  btn.disabled = false; btn.textContent = 'שליחת קישור ללקוח/ה';
+  if (error){ showToast('שגיאה ביצירת הקישור: ' + heErr(error)); return; }
+  if (!data?.id){
+    showToast(data?.detail || 'שגיאה ביצירת הקישור', 6000);
+    return;
+  }
+  cmaShareShow(window.location.origin + '/cma?k=' + data.id, cmaShareReport);
+});
 
 /* ---------- Notifications bell (2.2) ----------
    ההתראות נוצרות בטריגרים במסד, כך שגם אירוע שנכנס דרך Edge Function
@@ -25914,6 +26046,12 @@ function scrollToTopOf(el){
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function gotoSection(accId, focusId, opts){
+  const scrollSel = opts && opts.scrollTo;
+  if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
+      && typeof openLeadPrefsSheet === 'function'
+      && openLeadPrefsSheet(scrollSel === '#setOwnerSwitch' ? 'setOwnerSwitch' : 'setLeadPrefs')) {
+    return;
+  }
   accId = accResolve(accId);
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
@@ -26537,7 +26675,7 @@ function renderSideNav(){
 /* מתג "תצוגת סוכן/ת / ניהול פלטפורמה" בראש סרגל הצד, למנהל/ת הפלטפורמה
    בלבד. אותו setDashView של #viewSwitch שבראש התוכן - ובמחשב ההוא מוסתר
    (crm.html), כי מתג אחד בראש התפריט מספיק. בנייד אין סרגל צד, ו-#viewSwitch
-   נשאר. HANDOFF סעיף 2.2. */
+   נשאר בדף הבית ובתצוגת הניהול, לא במסך קטגוריה. HANDOFF סעיף 2.2. */
 function sideViewSwitch(){
   if (!(currentAgent && currentAgent.is_platform_admin)) return null;
   const wrap = document.createElement('div');
@@ -26729,6 +26867,9 @@ function closeNavLayers(){
   closeProfilePanel();
   closeBellPanel();
   closeCoachLayer();
+  // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
+  // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
+  if (typeof closeLeadPrefsSheet === 'function') closeLeadPrefsSheet();
 }
 
 function setNavLayer(layer){
@@ -26860,6 +27001,7 @@ function applyNavFilter(){
   if (head) head.hidden = true;
   renderScreenCrumb();
   renderScreenTabs(tabAccs);
+  renderViewSwitch();
 
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר מקטע הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
@@ -27015,7 +27157,7 @@ function adsErrText(d){
 async function adsCall(action, payload){
   const { data: { session } } = await sb.auth.getSession();
   if (!session) throw new Error(ADS_ERRORS.unauthorized);
-  const launching = action === 'create_paused_launch' && payload && payload.confirm === true;
+  const launching = (action === 'create_paused_launch' || action === 'refresh_creatives') && payload && payload.confirm === true;
   let res;
   try {
     res = await fetch(ADS_FUNCTION_URL, {
@@ -27925,8 +28067,80 @@ function adsLaunchLock(){
   const go = document.getElementById('adsLaunchGo');
   if (go) go.disabled = true;
 }
-document.getElementById('adsLaunchA5')?.addEventListener('change', adsLaunchLock);
-document.getElementById('adsLaunchB2Audience')?.addEventListener('input', adsLaunchLock);
+let adsRefreshCursor = '';
+let adsRefreshMode = '';
+let adsRefreshRows = [];
+function adsRefreshReset(){
+  adsRefreshCursor = '';
+  adsRefreshMode = '';
+  adsRefreshRows = [];
+}
+function adsRefreshHtml(rows, skipped){
+  const dirty = rows || [];
+  const rest = (skipped || []).filter(s => s && s.reason && s.reason !== 'clean');
+  const clean = (skipped || []).filter(s => s && s.reason === 'clean').length;
+  const reason = { no_package: 'אין נוסח בחבילה', not_paused: 'אינה מושהית, ולא נגענו בה', protected: 'קמפיין ה-Reach, לא נגענו' };
+  const parts = ['<p><b>מודעות עם הרישיון הישן: ' + esc(String(dirty.length)) + '</b>. נקיות: ' + esc(String(clean)) + '</p>'];
+  dirty.forEach(p => {
+    parts.push('<p><b>' + esc(p.object_key || '') + '</b><br>' + esc(p.message || '').replaceAll('\n', '<br>') + '</p>');
+  });
+  if (rest.length){
+    parts.push('<p><b>לא שונו</b><br>' + rest.map(s => esc((s.object_key || '') + ' - ' + (reason[s.reason] || s.reason))).join('<br>') + '</p>');
+  }
+  return parts.join('');
+}
+async function adsRefreshRun(write, btn){
+  const out = document.getElementById('adsLaunchOut');
+  const prev = btn.textContent;
+  const mode = write ? 'write' : 'dry';
+  btn.disabled = true;
+  if (adsRefreshMode !== mode){
+    adsRefreshCursor = '';
+    adsRefreshRows = [];
+    adsRefreshMode = mode;
+  }
+  if (!adsRefreshCursor) adsRefreshRows = [];
+  try {
+    const payload = Object.assign({ dry_run: !write }, adsLaunchPayload());
+    if (write) payload.confirm = true;
+    if (adsRefreshCursor) payload.next_key = adsRefreshCursor;
+    const r = await adsCall('refresh_creatives', payload);
+    adsRefreshRows = adsRefreshRows.concat(r.previews || []);
+    const shown = adsRefreshRows.slice();
+    if (r && r.done === false){
+      adsRefreshCursor = r.next_key || '';
+      const line = r.note || ('לחץ שוב להמשך מ-' + adsRefreshCursor);
+      if (out){
+        out.hidden = false;
+        out.innerHTML = '<p>' + esc(line) + '</p>' + (write ? '' : adsRefreshHtml(shown, r.skipped));
+      }
+      showToast(line, 6400);
+      return;
+    }
+    adsRefreshReset();
+    if (out){
+      out.hidden = false;
+      const head = write
+        ? 'עודכנו ' + String(r.updated_n || (r.updated || []).length) + ' מודעות. כולן נשארו מושהות.'
+        : (r.note || '');
+      out.innerHTML = '<p>' + esc(head) + '</p>' + (write ? '' : adsRefreshHtml(shown, r.skipped));
+    }
+    showToast(write ? 'הנוסח עודכן. המודעות נשארו מושהות' : 'בדיקת הנוסח הושלמה. לא שונה כלום');
+  } catch (ex) {
+    if (out){ out.hidden = false; out.textContent = ex.message || 'הרענון נכשל'; }
+    showToast(heErr(ex), 6400);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+}
+document.getElementById('adsLaunchA5')?.addEventListener('change', () => { adsLaunchLock(); adsRefreshReset(); });
+document.getElementById('adsLaunchB2Audience')?.addEventListener('input', () => { adsLaunchLock(); adsRefreshReset(); });
+document.getElementById('adsLaunchRefreshDry')?.addEventListener('click', (e) => adsRefreshRun(false, e.currentTarget));
+document.getElementById('adsLaunchRefresh')?.addEventListener('click', (e) => {
+  if (!confirm('הרענון מחליף רק את הטקסט. המודעות נשארות מושהות, והתקציב והטירגוט לא משתנים. להמשיך?')) return;
+  adsRefreshRun(true, e.currentTarget);
+});
 document.getElementById('adsLaunchDry')?.addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   const go = document.getElementById('adsLaunchGo');
@@ -29387,12 +29601,19 @@ document.getElementById('kwRange')?.addEventListener('click', (e)=>{
   loadKeywordReport();
 });
 
-/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
+/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ----------
+   המתג מחליף את כל המעטפת. בדף הבית ובתצוגת הניהול יש לו מה להחליף.
+   במסך של קטגוריה (מידע תכנוני, לידים, נכסים) הוא לא משנה את המסך,
+   רק יוצא ממנו, ולכן שם הוא מוסתר. בסרגל הצד במחשב יש מתג נפרד. */
+function viewSwitchMatters(){
+  if (dashView === 'admin') return true;
+  return navActive === NAV_HOME;
+}
 function renderViewSwitch(){
   const sw = document.getElementById('viewSwitch');
   if (!sw) return;
   const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
-  sw.hidden = !isAdmin;
+  sw.hidden = !(isAdmin && viewSwitchMatters());
   if (!isAdmin && dashView === 'admin') dashView = 'agent';
   sw.querySelectorAll('button').forEach(b =>
     b.setAttribute('aria-pressed', String(b.dataset.view === dashView)));
@@ -29905,6 +30126,14 @@ function renderCmaAddressForm(body, title){
         return;
       }
       closeCreateSheet();
+      cmaShareReset({ p_address: {
+        city: cityV, street, house_number: house || null, property_type: f.type.value,
+        rooms: n(f.rooms), size_sqm: n(f.size),
+        floor: f.floor.value === '' ? null : Math.round(Number(f.floor.value)),
+        price: n(f.price),
+        features: [...form.querySelectorAll('input[name=feat]:checked')].map(x => x.value),
+        lat: coords?.lat ?? null, lng: coords?.lng ?? null,
+      } }, data);
       renderCmaReport(data, brand);
     } catch(err){
       console.error(err);
@@ -31772,13 +32001,13 @@ function renderAgreements(){
   /* בלי סינון מצב: "דורשים פעולה ממך" (טיוטות וממתינים) למעלה, ו"נחתמו" מתחת */
   if (!status){
     const groups = [
-      ['דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
-      ['נחתמו', rows.filter(a => a.status === 'signed')],
-      ['בוטלו', rows.filter(a => a.status === 'cancelled')],
+      ['action', 'דורשים פעולה ממך', rows.filter(a => a.status === 'draft' || AGR_AWAITING.includes(a.status))],
+      ['signed', 'נחתמו', rows.filter(a => a.status === 'signed')],
+      ['cancelled', 'בוטלו', rows.filter(a => a.status === 'cancelled')],
     ];
-    groups.forEach(([label, list]) => {
+    groups.forEach(([tone, label, list]) => {
       if (!list.length) return;
-      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h">${esc(label)} · ${list.length}</div>`);
+      tabsWrap.insertAdjacentHTML('beforeend', `<div class="agr-group-h agr-group-${tone}">${esc(label)} · ${list.length}</div>`);
       list.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
     });
   } else {
@@ -31800,6 +32029,7 @@ function renderAgreementTiles(status){
   ];
   box.innerHTML = tiles.map(([v, label, count, warn]) =>
     `<button type="button" class="agr-tile${warn && count ? ' is-warn' : ''}" data-agr-tile="${v}" aria-pressed="${(status || '') === v}">`
+    + `<i class="agr-tile-ico" aria-hidden="true"></i>`
     + `<b>${count}</b><span>${esc(label)}</span></button>`).join('');
 }
 document.getElementById('agrTiles')?.addEventListener('click', e => {
@@ -31844,7 +32074,7 @@ function buildAgreementTab(a){
     key: a.id, list:'agreement', expanded: expandedAgreementIds, cls:'agr-tab',
     title: agrPartyNames(a) || a.title,
     sub: agrTabSub(a),
-    pill: { text: st.label, cls: 'status-pill ' + st.cls },
+    pill: { text: st.label, cls: 'status-pill agr-status agr-status-' + (a.status || '') + ' ' + st.cls },
     price: prog.total ? prog.signed + '/' + prog.total : '',
     priceNote: prog.total ? 'חתמו' : '',
     buildCard: ()=> buildAgreementCard(a),
@@ -31869,7 +32099,7 @@ function buildAgreementCard(a){
             a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
           ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) - אפשר לשלוח שוב</div>` : ''}
         </div>
-        <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
+        <div class="pill-row"><span class="status-pill agr-status agr-status-${esc(a.status || '')} ${st.cls}">${esc(st.label)}</span></div>
       </div>
       <div class="lead-actions"></div>`;
 
@@ -32128,8 +32358,39 @@ async function openAgreementSigning(agreementId){
 
 const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
 
+function agrOfficeBrand(verifyCode){
+  const agency = window.currentAgency || {};
+  const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
+  return window.AgreementDoc.brandFrom({
+    name: agent.display_name || '',
+    agency: agency.name || '',
+    phone: agent.phone || '',
+    license: agent.license_number || '',
+    agency_logo: agency.logo_url || '',
+  }, verifyCode || '');
+}
+
+function agrPaintBrand(){
+  if (!window.AgreementDoc || !window.AgreementDoc.paintBrand) return;
+  window.AgreementDoc.paintBrand(document.getElementById('agrBrand'), agrOfficeBrand());
+}
+
+function agrKindIcon(kind){
+  const common = 'viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"';
+  const paths = {
+    buy: '<circle cx="11" cy="11" r="6"></circle><path d="M20 20l-3.5-3.5"></path>',
+    sell: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path>',
+    tenant: '<circle cx="8" cy="15" r="3"></circle><path d="M10.2 13.2L20 4"></path><path d="M16 4h4v4"></path>',
+    landlord: '<path d="M4 11l8-7 8 7"></path><path d="M6 10v9h12v-9"></path><path d="M10 19v-5h4v5"></path>',
+    exclusive_sell: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+    exclusive_landlord: '<path d="M12 3l2.2 6.6H21l-5.4 4 2.1 6.4L12 16.8 6.3 20l2.1-6.4L3 9.6h6.8z"></path>',
+  };
+  return '<svg ' + common + ' aria-hidden="true">' + (paths[kind] || paths.sell) + '</svg>';
+}
+
 function agrRender(){
   if (!agrWizard) return;
+  agrPaintBrand();
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
 
@@ -32156,14 +32417,15 @@ function agrRenderStepKind(){
       const t = agrTpl(k);
       if (!t) return '';
       return `<button type="button" class="agr-kind${t.verified ? '' : ' is-draft'}" data-agr-kind="${esc(k)}">` +
-        esc(t.label) +
-        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></button>`;
+        `<span class="agr-kind-ico" aria-hidden="true">${agrKindIcon(k)}</span>` +
+        `<span class="agr-kind-copy"><span class="agr-kind-name">${esc(t.label)}</span>` +
+        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></span></button>`;
     }).join('');
     return `<div class="agr-kind-group">${esc(group.label)}</div>` + items;
   }).join('');
 
   agrEl('agrBody').innerHTML =
-    '<p style="margin:0 0 12px;color:var(--ink-soft)">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
+    '<p class="agr-lead">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
     '<div class="agr-kind-list">' + html + '</div>' +
     '<p class="imp-note" style="margin-top:14px">טופס המסומן ב"נוסח לאישור" נבנה במבנה של טופס המכירה וממתין לאישור משפטי - ' +
     'בדקו את הנוסח בתצוגה המקדימה לפני שאתם מחתימים עליו לקוח/ה.</p>';
@@ -33787,7 +34049,7 @@ function agrRenderStepSign(){
   }
 
   html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
-    '<div class="agr-preview">' +
+    '<div class="agr-preview sign-sheet">' +
       window.AgreementDoc.fillSignerSlots(rec.document_html, rec.signers) + '</div>';
 
   agrEl('agrBody').innerHTML = html;
@@ -33898,7 +34160,9 @@ async function agrDownloadPdf(btn){
   btn.disabled = true;
   btn.textContent = 'מכין את הקובץ…';
   try {
-    await window.AgreementDoc.downloadPdf(host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf');
+    await window.AgreementDoc.downloadPdf(
+      host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf',
+      agrOfficeBrand(rec.verify_code));
   } catch(err){
     console.error(err);
     showToast('לא הצלחנו להפיק PDF - נסו שוב');

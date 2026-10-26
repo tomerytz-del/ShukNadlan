@@ -64,12 +64,45 @@ function leadExclusiveEnd(l){
   return end > Date.now() ? end : null;
 }
 
+/* זמן יחסי לליד. "אתמול" הוא יום לוח, לא 24 שעות. התאריך המלא יושב
+   ב-title וב-aria (leadWhen), כי "לפני 12 דק׳" בלי התאריך נעלם אחרי רענון. */
 function leadAgo(iso){
-  const ms = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(ms / 3600e3);
-  if (h < 1) return 'לפני ' + Math.max(1, Math.round(ms / 60e3)) + ' דק׳';
-  if (h < 24) return 'לפני ' + plural(h, 'שעה', 'שעות');
-  return new Date(iso).toLocaleDateString('he-IL', { day:'numeric', month:'numeric' });
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  if (!Number.isFinite(ms)) return '';
+  const min = Math.round(ms / 60e3);
+  if (min < 1) return 'עכשיו';
+  if (min < 60) return 'לפני ' + min + ' דק׳';
+  const startToday = new Date();
+  startToday.setHours(0, 0, 0, 0);
+  if (d >= startToday) return 'לפני ' + plural(Math.floor(ms / 3600e3), 'שעה', 'שעות');
+  const startYest = new Date(startToday);
+  startYest.setDate(startYest.getDate() - 1);
+  if (d >= startYest) return 'אתמול';
+  const days = Math.round((startToday - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (days > 0 && days < 7) return 'לפני ' + plural(days, 'יום', 'ימים');
+  return d.toLocaleDateString('he-IL', { day:'numeric', month:'numeric' });
+}
+
+function leadWhen(iso){
+  const d = new Date(iso);
+  const title = Number.isFinite(d.getTime())
+    ? d.toLocaleString('he-IL', { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : '';
+  return { text: leadAgo(iso), title };
+}
+
+/* שלב מהרשימה הקיימת של lead_work בלבד. ערך לא מוכר נופל ל"חדש",
+   כמו בורר הכרטיס, ולא ממציא תווית. */
+function leadStageClass(stage){
+  return ({ new:1, contacted:1, meeting:1, not_relevant:1, won:1 })[stage] ? stage : 'new';
+}
+
+function leadStageTagHtml(lead){
+  const stage = leadStageClass(leadStageOf(lead));
+  const label = (typeof LEAD_STAGE_LABEL !== 'undefined' && LEAD_STAGE_LABEL[stage])
+    || ({ new:'חדש', contacted:'נוצר קשר ראשוני', meeting:'בתיאום פגישה / סיור', not_relevant:'לא רלוונטי / לא ענה', won:'נסגר בהצלחה' })[stage];
+  return `<span class="lp-st lp-st-${stage}">${esc(label)}</span>`;
 }
 
 /* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
@@ -157,11 +190,12 @@ function renderLeadsUnified(agentId){
 
   // הלשוניות
   const counts = { new: fresh.length, work: work.length, archive: archived.length,
-                   demand: openDemandRows ? openDemandRows.length : '·' };
+                   demand: openDemandRows ? openDemandRows.filter(d => !d.mine).length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  alignScrollTabs(document.getElementById('leadsTabs'));
   document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
   if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
 
@@ -202,12 +236,11 @@ function renderLeadsUnified(agentId){
     : '';
 
   if (!groups.length){
-    listEl.innerHTML = '<div class="empty-state">' + (
-      leadsTab === 'archive' ? 'אין לידים בארכיון.'
-      : leadsTab === 'work' ? 'אין לידים בטיפול. ליד שיצרת איתו קשר עובר לכאן.'
-      : allLeads.length === 0
-        ? 'אין עדיין לידים.<br>פנייה מהאתר, שיחה למספר וירטואלי או ליד שנרכש יופיעו כאן.'
-        : 'אין לידים חדשים. כל הכבוד!') + '</div>';
+    listEl.innerHTML = leadsEmptyHtml();
+    const add = listEl.querySelector('[data-leads-empty]');
+    if (add) add.addEventListener('click', () => {
+      if (typeof openInlineForm === 'function') openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
+    });
     document.getElementById('leadsMore').innerHTML = '';
     return;
   }
@@ -219,6 +252,22 @@ function renderLeadsUnified(agentId){
   document.getElementById('leadsMore').innerHTML =
     (left > 0 ? `<button type="button" class="ui-more" data-leads-more>עוד ${Math.min(LEADS_STEP, left)} לידים (נשארו ${left})</button>` : '')
     + (shown > LEADS_STEP && left === 0 ? `<button type="button" class="ui-link" data-leads-less>הצגת ${LEADS_STEP} בלבד</button>` : '');
+}
+
+function leadsEmptyHtml(){
+  if (leadsTab === 'archive') return '<div class="empty-state"><p>אין לידים בארכיון.</p></div>';
+  if (leadsTab === 'work') return '<div class="empty-state"><p>אין לידים בטיפול.</p><p>ליד שסימנת טופל עובר לכאן.</p></div>';
+  if (allLeads.length === 0){
+    return '<div class="empty-state"><p>אין לידים עדיין.</p>'
+      + '<p>פנייה מהאתר, שיחה למספר וירטואלי או ליד שנרכש יופיעו כאן.</p>'
+      + '<button type="button" class="ui-btn" data-leads-empty="property">נכס חדש</button></div>';
+  }
+  return '<div class="empty-state"><p>אין לידים חדשים. כל הכבוד.</p></div>';
+}
+
+function leadsSkeletonHtml(){
+  const bar = '<div class="lp-skel" aria-hidden="true"><span></span><span><i></i><i></i></span></div>';
+  return '<div class="lp-skel-wrap" role="status"><span class="sr-only">טוען לידים</span>' + bar + bar + bar + '</div>';
 }
 
 function buildLeadPriorityCard(group, rank, agentId){
@@ -243,16 +292,21 @@ function buildLeadPriorityCard(group, rank, agentId){
   const facts = src === 'call' ? leadCallFacts(call) : [];
   const wants = leadWants(lead, call);
 
+  const when = leadWhen(lead.created_at);
+  const unread = stage === 'new' && !archived;
+  const phone = lead.display_phone || '';
   const el = document.createElement('article');
-  el.className = 'ui-scope lp-card' + (urgent ? ' is-urgent' : '');
+  el.className = 'ui-scope lp-card' + (urgent ? ' is-urgent' : '') + (unread ? ' is-unread' : '');
   el.dataset.leadId = lead.id;
   el.innerHTML =
     `<div class="lp-head">`
     + `<span class="lp-rank" aria-label="עדיפות ${rank}">${rank}</span>`
     + `<span class="lp-avatar" aria-hidden="true">${esc(String(name).trim().charAt(0) || '?')}</span>`
-    + `<div class="lp-who"><div class="lp-name">${esc(name)}</div>`
+    + `<div class="lp-who"><div class="lp-name">${unread ? '<span class="lp-dot" aria-hidden="true"></span>' : ''}<bdi dir="auto">${esc(name)}</bdi></div>`
+    + (phone ? `<div class="lp-phone"><bdi dir="auto">${esc(phone)}</bdi></div>` : '')
     + `<div class="lp-meta"><span class="ui-tag ui-tag--${meta.tone}">${esc(meta.label)}${detail ? ' · ' + esc(detail) : ''}</span>`
-    + `<span class="ui-muted">${esc(leadAgo(lead.created_at))}</span></div></div>`
+    + leadStageTagHtml(lead)
+    + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
     + `<p class="lp-why"><strong>למה עכשיו:</strong> ${esc(why)}</p>`
@@ -262,13 +316,16 @@ function buildLeadPriorityCard(group, rank, agentId){
         return `<li><button type="button" class="lp-step${i <= at ? ' is-on' : ''}${k === stage ? ' is-current' : ''}" data-lp-stage="${k}"`
           + `${k === stage ? ' aria-current="step"' : ''}${leadWorkReady ? '' : ' disabled'}>${esc(label)}</button></li>`;
       }).join('') + `</ol>`)
+    + `<div class="lp-quick"></div>`
     + `<div class="lp-acts"></div>`
     + `<div class="lp-details" hidden></div>`;
 
+  const quick = el.querySelector('.lp-quick');
   const acts = el.querySelector('.lp-acts');
   const tel = String(lead.display_phone || '').replace(/[^\d+]/g, '');
+  const telOk = tel.replace(/\D/g, '').length >= 9;
   const wa = !locked ? waLink(lead.display_phone) : null;
-  const addBtn = (label, cls, attrs, fn) => {
+  const addBtn = (parent, label, cls, attrs, fn) => {
     const isLink = attrs && attrs.href;
     const b = document.createElement(isLink ? 'a' : 'button');
     if (!isLink) b.type = 'button';
@@ -276,29 +333,40 @@ function buildLeadPriorityCard(group, rank, agentId){
     b.innerHTML = label;
     Object.entries(attrs || {}).forEach(([k, v]) => b.setAttribute(k, v));
     if (fn) b.addEventListener('click', fn);
-    acts.appendChild(b);
+    parent.appendChild(b);
     return b;
   };
-  // פנייה: מתעדת מענה (markLeadResponded) ומקדמת ל"יצרתי קשר"
-  const contacted = () => {
+  // חיוג ווואטסאפ: מתעדים מענה (markLeadResponded) ומקדמים ל"יצרתי קשר".
+  // "טופל" הוא רק השלב, בלי first_response_at (הסקיל lead-card, כלל 2).
+  const contacted = (kind) => {
+    crmTrackLead(kind);
     markLeadResponded(lead);
     if (leadWorkReady && leadStageOf(lead) === 'new') saveLeadWork(lead, { stage:'contacted' }).then(ok => { if (ok) renderLeads(agentId); });
   };
   if (locked){
-    addBtn('פתיחת הליד', 'ui-btn', null, () => {
+    addBtn(quick, 'פתיחת הליד', 'ui-btn lp-q', null, () => {
       leadsOpenDetails.add(lead.id);
       toggleLeadDetails(el, group, agentId, true);
     });
-  } else if (!archived){
-    if (tel.replace(/\D/g, '').length >= 9) addBtn('📞 התקשרות', 'ui-btn', { href:'tel:' + tel }, contacted);
-    if (wa) addBtn('💬 וואטסאפ', 'ui-btn ui-btn--secondary', { href: wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, leadPropertyContext(lead))), target:'_blank', rel:'noopener' }, contacted);
-    if (call && call.recording_path) addBtn('▶ האזנה', 'ui-btn ui-btn--secondary', null, e => playLeadCall(e.currentTarget, call));
-    addBtn('הוספה כלקוח/ה', 'ui-link', null, () => leadToClient(lead, call));
+  } else {
+    if (telOk) addBtn(quick, 'חיוג', 'ui-btn lp-q lp-q-call', { href:'tel:' + tel, 'aria-label':'חיוג אל ' + name }, () => contacted('call'));
+    if (wa) addBtn(quick, 'וואטסאפ', 'ui-btn ui-btn--secondary lp-q lp-q-wa', {
+      href: wa + '?text=' + encodeURIComponent(leadWhatsAppText(lead, leadPropertyContext(lead))),
+      target:'_blank', rel:'noopener', 'aria-label':'וואטסאפ אל ' + name,
+    }, () => contacted('whatsapp'));
+    if (!archived && leadWorkReady && stage === 'new'){
+      addBtn(quick, 'טופל', 'ui-btn ui-btn--secondary lp-q lp-q-done', { 'aria-label':'סימון הליד כטופל' }, () => leadMarkHandled(lead, agentId));
+    }
   }
-  const det = addBtn('פרטים', 'ui-link', { 'aria-expanded':'false' }, () => toggleLeadDetails(el, group, agentId));
+  if (!quick.childElementCount) quick.hidden = true;
+  if (!locked && !archived){
+    if (call && call.recording_path) addBtn(acts, 'האזנה', 'ui-btn ui-btn--secondary', null, e => playLeadCall(e.currentTarget, call));
+    addBtn(acts, 'הוספה כלקוח/ה', 'ui-link', null, () => leadToClient(lead, call));
+  }
+  const det = addBtn(acts, 'פרטים', 'ui-link', { 'aria-expanded':'false' }, () => toggleLeadDetails(el, group, agentId));
   det.classList.add('lp-details-btn');
   if (!locked && !archived){
-    addBtn('לארכיון', 'ui-link lp-archive', null, e => archiveLead(lead, e.currentTarget, agentId));
+    addBtn(acts, 'לארכיון', 'ui-link lp-archive', null, e => archiveLead(lead, e.currentTarget, agentId));
   }
 
   el.querySelector('.lp-steps')?.addEventListener('click', e => {
@@ -309,6 +377,51 @@ function buildLeadPriorityCard(group, rank, agentId){
 
   if (leadsOpenDetails.has(lead.id)) toggleLeadDetails(el, group, agentId, true);
   return el;
+}
+
+/* מדידה של הפעולות בלי לפתוח את הכרטיס. ב-CRM אין events.js, אז בלי
+   shukTrack אותה דחיפה יוצאת ל-dataLayer. בלי שם, טלפון או מזהה ליד. */
+function crmTrackLead(kind){
+  try {
+    if (typeof window.shukTrack === 'function'){
+      if (kind === 'call') window.shukTrack('crm_lead_call', {});
+      else if (kind === 'whatsapp') window.shukTrack('crm_lead_whatsapp', {});
+      else if (kind === 'handled') window.shukTrack('crm_lead_handled', {});
+      else if (kind === 'undo') window.shukTrack('crm_lead_handled_undo', {});
+      return;
+    }
+    const name = kind === 'call' ? 'crm_lead_call'
+      : kind === 'whatsapp' ? 'crm_lead_whatsapp'
+      : kind === 'handled' ? 'crm_lead_handled'
+      : kind === 'undo' ? 'crm_lead_handled_undo' : '';
+    if (!name) return;
+    window.dataLayer = window.dataLayer || [];
+    const path = ((location.pathname || '').split('/').pop() || 'crm').replace(/\.html$/, '') || 'crm';
+    window.dataLayer.push({ event: name, page_type: path });
+  } catch (e) { /* מדידה לא חוסמת חיוג */ }
+}
+
+/* "טופל" מהרשימה: השלב עובר מ"חדש" ל"נוצר קשר ראשוני" (saveLeadWork),
+   בלי mark_lead_responded. ביטול בטוסט מחזיר את השלב הקודם כחמש שניות. */
+function leadMarkHandled(lead, agentId){
+  if (!lead || !leadWorkReady || lead.status !== 'unlocked') return;
+  if (archivedLeadIds.has(lead.id) || leadStageOf(lead) !== 'new') return;
+  const who = agentId || (currentAgent && currentAgent.id);
+  saveLeadWork(lead, { stage:'contacted' }).then(ok => {
+    if (!ok) return;
+    renderLeads(who);
+    crmTrackLead('handled');
+    const undo = () => {
+      saveLeadWork(lead, { stage:'new' }).then(back => {
+        if (!back) return;
+        crmTrackLead('undo');
+        renderLeads(who);
+        showToast('הסימון בוטל');
+      });
+    };
+    if (typeof showUndoToast === 'function') showUndoToast('הליד סומן כטופל', undo, 5000);
+    else showToast('הליד סומן כטופל');
+  });
 }
 
 /* "פרטים": הכרטיס המלא הקיים - פתיחת ליד נעול, הערה, ההודעה המלאה ולידים
@@ -373,19 +486,32 @@ function openLeadUnified(id){
 
 /* ---------- ביקוש פתוח ----------
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
-   docs/scraped-leads.md). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
-   תשלום, וגלוי לכל הסוכנים בעיר. הדרך היחידה לפנות היא הפוסט עצמו - ולכן
-   אין כאן חיוג, וואטסאפ או "הוספה כלקוח/ה". נטען רק כשהלשונית נפתחת. */
+   docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
+   ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
+   תשלום. הדרך היחידה לפנות היא הפוסט עצמו - ולכן אין כאן חיוג, וואטסאפ או
+   "הוספה כלקוח/ה". "אני פונה" (open_demand_claim) תופס את הביקוש לסוכן/ת
+   אחד/ת ופותח את הפוסט, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
+let openDemandStats = null;
 let openDemandLoading = false;
+// מופיע ליד כל ביקוש, וזהה לנוסח בהתראה (scraped_lead_notify_demand)
+const OPEN_DEMAND_RULE = 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ';
+// "ללא תיווך": בפוסט - הצעה לשיווק; בשם הקבוצה - כלל של הקבוצה, ולכן רק בפרטי
+const OPEN_DEMAND_NO_BROKER = {
+  post:  { tag: 'כתב/ה ללא תיווך',
+           rule: 'הצעה אחת ומנומסת לשיווק מקצועי, עדיף בהודעה פרטית בפייסבוק. לא להציע קונים.' },
+  group: { tag: 'קבוצה ללא תיווך',
+           rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
+};
 
 async function loadOpenDemand(){
   if (openDemandLoading) return;
   openDemandLoading = true;
-  const { data, error } = await sb.rpc('open_demand_list');
+  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
   openDemandLoading = false;
-  if (error){ showToast(heErr(error)); openDemandRows = []; }
-  else openDemandRows = data || [];
+  if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
+  else openDemandRows = list.data || [];
+  openDemandStats = stats.error ? null : stats.data;
   if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
 }
 
@@ -396,21 +522,32 @@ function openDemandWants(d){
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
-    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? 'עד ' + shekelCompact(d.budget) : '',
-    d.move_in ? 'כניסה: ' + d.move_in : '', d.property_details || ''].filter(Boolean).join(' · ');
+    d.rooms ? d.rooms + ' חדרים' : '', d.budget ? (owner ? 'מחיר ' : 'עד ') + shekelCompact(d.budget) : '',
+    d.move_in ? 'כניסה: ' + d.move_in : '', d.summary || ''].filter(Boolean).join(' · ');
+}
+
+function openDemandCapLeft(){
+  const st = openDemandStats;
+  return st ? Math.max(0, (st.daily_cap || 0) - (st.my_today || 0)) : null;
 }
 
 function renderOpenDemand(listEl){
   document.getElementById('leadsMore').innerHTML = '';
-  document.getElementById('leadsCountLine').textContent = openDemandRows && openDemandRows.length
-    ? plural(openDemandRows.length, 'ביקוש פתוח אחד', 'ביקושים פתוחים') + ' בעיר שלך' : '';
+  const st = openDemandStats, left = openDemandCapLeft();
+  const open = (openDemandRows || []).filter(d => !d.mine).length;
+  document.getElementById('leadsCountLine').textContent = openDemandRows === null ? '' : [
+    open ? plural(open, 'ביקוש פתוח אחד', 'ביקושים פתוחים') + ' בעיר שלך' : '',
+    st && st.claimed_today ? 'נתפסו היום: ' + st.claimed_today : '',
+    left !== null ? 'נשארו לך היום: ' + left + ' מתוך ' + st.daily_cap : '',
+  ].filter(Boolean).join(' · ');
   if (openDemandRows === null){
     listEl.innerHTML = '<div class="empty-state">טוען...</div>';
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים, ולא השאירו פרטים.</span>'
-    + '<span><strong>להגיב בתוך הפוסט או בהודעה בפייסבוק בלבד, לא לשלוח SMS או וואטסאפ.</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים או מציעים, ולא השאירו פרטים.'
+    + ' "אני פונה" שומר את הביקוש לך בלבד ופותח את הפוסט.</span>'
+    + '<span><strong>' + OPEN_DEMAND_RULE + '</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -418,16 +555,47 @@ function renderOpenDemand(listEl){
   listEl.innerHTML = hint + openDemandRows.map(d => {
     const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
+    const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const act = d.mine
+      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      : (left === 0
+          ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
       + `<div class="lp-meta"><span class="ui-tag ui-tag--accent">${esc(src)}${d.source_detail ? ' · ' + esc(d.source_detail) : ''}</span>`
+      + (d.mine ? '<span class="ui-tag ui-tag--ok">פנית</span>' : '')
+      + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + `<p class="lp-why"><strong>חינם:</strong> מוצג לכל הסוכנים באזור. מי שעונה ראשון ובנימוס בפוסט - מרוויח.</p>`
-      + `<div class="lp-acts">${url ? `<a class="ui-btn" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : ''}</div>`
+      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + `<p class="lp-why"><strong>${esc(nb ? nb.rule : OPEN_DEMAND_RULE)}</strong></p>`
+      + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
+}
+
+const OPEN_DEMAND_CLAIM_ERR = {
+  claimed: 'סוכן/ת אחר/ת כבר פנה/תה לביקוש הזה.',
+  daily_cap: 'הגעת לתקרה היומית של ביקושים. מחר אפשר שוב.',
+  not_found: 'הביקוש כבר לא פתוח.',
+};
+
+async function claimOpenDemand(id, btn){
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
+  const win = window.open('', '_blank');
+  if (btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
+  const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');
+  const url = !err && data && /^https:\/\//.test(data.post_url || '') ? data.post_url : '';
+  if (win){
+    if (url){ win.opener = null; win.location.href = url; }
+    else win.close();
+  }
+  if (err) showToast(err);
+  openDemandRows = null;
+  renderLeads(currentAgent && currentAgent.id);
 }
 
 function openLeadsDemand(){
@@ -450,6 +618,10 @@ function openLeadsDemand(){
   });
   document.getElementById('leadsSrc').addEventListener('input', () => {
     leadsSrc = uiChipValues(document.getElementById('leadsSrc'))[0] || 'all'; leadsShown = LEADS_STEP; rerender();
+  });
+  document.getElementById('leadsList').addEventListener('click', e => {
+    const b = e.target.closest('[data-demand-claim]');
+    if (b && !b.disabled) claimOpenDemand(b.dataset.demandClaim, b);
   });
   document.getElementById('leadsMore').addEventListener('click', e => {
     if (e.target.closest('[data-leads-more]')){ leadsShown += LEADS_STEP; rerender(); }
@@ -486,24 +658,153 @@ function openLeadsDemand(){
     setOwnerLeadsActive(main);
   });
   document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const prefEdit = document.getElementById('leadsPrefEdit');
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  const sheetClose = document.getElementById('leadPrefsSheetClose');
+  const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
+  if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
+  if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeLeadPrefsSheet);
+  watchScrollTabs(document.getElementById('leadsTabs'));
+  watchScrollTabs(document.getElementById('clientsKindTabs'));
+  document.addEventListener('keydown', e => {
+    const sheet = document.getElementById('leadPrefsSheet');
+    if (e.key === 'Escape' && sheet && !sheet.hidden) closeLeadPrefsSheet();
+  });
 })();
+
+/* לשוניות ארוכות במובייל: הגלילה ב-RTL נפתחת על הקצה השמאלי וחותכת את
+   הלשונית הראשונה. מחזירים את הנבחרת (או הראשונה) אל תוך המסך, ומשאירים
+   סימן שהשורה גוללת. */
+function markScrollEdges(tabs){
+  const items = tabs.querySelectorAll('[role="tab"]');
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) return;
+  const box = tabs.getBoundingClientRect();
+  const fr = first.getBoundingClientRect();
+  const lr = last.getBoundingClientRect();
+  tabs.classList.toggle('is-more-right', fr.right > box.right + 2);
+  tabs.classList.toggle('is-more-left', lr.left < box.left - 2);
+}
+
+function alignScrollTabs(tabs){
+  if (!tabs || !tabs.clientWidth) return;
+  const overflow = tabs.scrollWidth > tabs.clientWidth + 2;
+  if (!overflow){
+    tabs.classList.remove('is-more-left', 'is-more-right');
+    return;
+  }
+  const target = tabs.querySelector('[aria-selected="true"]') || tabs.querySelector('[role="tab"]');
+  if (target){
+    const box = tabs.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    // scrollBy לפי ציר המסך, לא לפי scrollLeft: בכרום RTL הערך 0 הוא הקצה
+    // השמאלי, ושם נחתכת הלשונית הראשונה.
+    let dx = 0;
+    if (rect.width > box.width + 1) dx = rect.right - box.right;
+    else {
+      if (rect.right > box.right + 1) dx += rect.right - box.right;
+      if (rect.left < box.left - 1) dx -= box.left - rect.left;
+    }
+    if (Math.abs(dx) > 1) tabs.scrollBy({ left: dx });
+  }
+  markScrollEdges(tabs);
+}
+
+function watchScrollTabs(tabs){
+  if (!tabs || tabs.dataset.scrollWatch || typeof ResizeObserver === 'undefined') return;
+  tabs.dataset.scrollWatch = '1';
+  new ResizeObserver(() => alignScrollTabs(tabs)).observe(tabs);
+  tabs.addEventListener('scroll', () => markScrollEdges(tabs), { passive:true });
+}
+
+const LEAD_PREFS_MQ = window.matchMedia('(max-width:1023px)');
+function leadPrefsMobile(){ return !!(LEAD_PREFS_MQ && LEAD_PREFS_MQ.matches); }
+
+let leadPrefsHome = null;
+function openLeadPrefsSheet(focusId){
+  if (!leadPrefsMobile()) return false;
+  const section = document.getElementById('setLeadPrefs');
+  const sheet = document.getElementById('leadPrefsSheet');
+  const slot = document.getElementById('leadPrefsSheetSlot');
+  if (!section || !sheet || !slot) return false;
+  const already = !sheet.hidden && section.parentNode === slot;
+  if (!already && typeof closeNavLayers === 'function') closeNavLayers();
+  if (!leadPrefsHome) leadPrefsHome = { parent: section.parentNode, next: section.nextSibling };
+  if (section.parentNode !== slot) slot.appendChild(section);
+  const follow = document.getElementById('leadsFollowRow');
+  const links = document.getElementById('leadsSetLinks');
+  if (follow && follow.parentNode !== slot) slot.appendChild(follow);
+  if (links && links.parentNode !== slot) slot.appendChild(links);
+  if (typeof uiFoldOpen === 'function') uiFoldOpen('setLeadPrefs', true);
+  sheet.hidden = false;
+  document.body.classList.add('lp-sheet-open');
+  const focus = focusId && document.getElementById(focusId);
+  if (focus) setTimeout(() => { try { focus.focus({ preventScroll:true }); } catch (e) { /* */ } }, 60);
+  return true;
+}
+
+function closeLeadPrefsSheet(){
+  const sheet = document.getElementById('leadPrefsSheet');
+  const section = document.getElementById('setLeadPrefs');
+  if (leadPrefsHome && section && leadPrefsHome.parent){
+    leadPrefsHome.parent.insertBefore(section, leadPrefsHome.next);
+  }
+  const body = document.getElementById('leadsSetBody');
+  const follow = document.getElementById('leadsFollowRow');
+  const links = document.getElementById('leadsSetLinks');
+  const edit = document.getElementById('leadsEditPrefs');
+  if (body && follow && follow.parentNode !== body){
+    if (edit && edit.parentNode === body) edit.insertAdjacentElement('afterend', follow);
+    else body.appendChild(follow);
+  }
+  if (body && links && links.parentNode !== body) body.appendChild(links);
+  if (sheet) sheet.hidden = true;
+  document.body.classList.remove('lp-sheet-open');
+}
+
+function leadPrefsFromHash(){
+  const id = (location.hash || '').replace(/^#/, '');
+  if (id !== 'setLeadPrefs' && id !== 'setOwnerSwitch') return;
+  if (openLeadPrefsSheet(id)) return;
+  if (id === 'setLeadPrefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
+  else if (typeof gotoSection === 'function') gotoSection('accPrefs', id, { scrollTo:'#' + id });
+}
+
+window.addEventListener('resize', () => {
+  alignScrollTabs(document.getElementById('leadsTabs'));
+  alignScrollTabs(document.getElementById('clientsKindTabs'));
+  const sheet = document.getElementById('leadPrefsSheet');
+  if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
+});
+document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){
   const sum = document.getElementById('leadsSetSummary');
-  if (!sum) return;
+  const stripSum = document.getElementById('leadsPrefSummary');
+  const strip = document.getElementById('leadsPrefStrip');
+  if (!sum && !stripSum) return;
   const row = typeof leadPrefsRow !== 'undefined' ? leadPrefsRow : null;
   const ownerOn = !!(row && row.active);
   const followOn = assistantTierOk() && !(typeof agendaAutoOff !== 'undefined' && agendaAutoOff.includes('lead_followup'));
-  document.getElementById('leadsOwnerSwitch').setAttribute('aria-pressed', String(ownerOn));
-  document.getElementById('leadsOwnerSwitch').disabled = !row;
+  const ownerSwitch = document.getElementById('leadsOwnerSwitch');
+  if (ownerSwitch){
+    ownerSwitch.setAttribute('aria-pressed', String(ownerOn));
+    ownerSwitch.disabled = !row;
+  }
   const fs = document.getElementById('leadsFollowupSwitch');
-  fs.setAttribute('aria-pressed', String(followOn));
-  fs.disabled = !assistantTierOk();
-  sum.textContent = [
+  if (fs){
+    fs.setAttribute('aria-pressed', String(followOn));
+    fs.disabled = !assistantTierOk();
+  }
+  const text = [
     !row ? 'לידי בעלים לא הוגדרו' : ownerOn ? 'לידי בעלים פעילים · ' + plural((row.preferred_neighborhoods || []).length, 'שכונה אחת', 'שכונות') : 'לידי בעלים מושהים',
     followOn ? 'משימה לחזור תוך שעה' : '',
   ].filter(Boolean).join(' · ');
+  if (sum) sum.textContent = text;
+  if (strip) strip.classList.toggle('is-unset', !row);
+  if (stripSum) stripSum.textContent = !row ? 'הגדירו אילו לידים לקבל' : text;
 }
 
 /* ==========================================================================
@@ -523,6 +824,7 @@ function renderClientsTop(){
     b.setAttribute('aria-selected', String(b.dataset.clientsKind === clientsKind));
     b.querySelector('[data-n]').textContent = counts[b.dataset.clientsKind];
   });
+  alignScrollTabs(document.getElementById('clientsKindTabs'));
 
   const leads = typeof allLeads !== 'undefined' ? allLeads : [];
   const freshLeads = leads.filter(l => !archivedLeadIds.has(l.id) && leadStageOf(l) === 'new');

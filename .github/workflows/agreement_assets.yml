@@ -18,6 +18,9 @@ on:
       - "assets/agreement-*.js"
       - "supabase/functions/_shared/agreement-*.js"
       - "scripts/check_agreement_assets.py"
+      - "scripts/check_agreement_texts.py"
+      - "scripts/check_agreement_texts.mjs"
+      - "scripts/fixtures/agreement-doc-texts.json"
       - ".github/workflows/agreement_assets.yml"
   push:
     branches: [main]
@@ -25,6 +28,9 @@ on:
       - "assets/agreement-*.js"
       - "supabase/functions/_shared/agreement-*.js"
       - "scripts/check_agreement_assets.py"
+      - "scripts/check_agreement_texts.py"
+      - "scripts/check_agreement_texts.mjs"
+      - "scripts/fixtures/agreement-doc-texts.json"
       - ".github/workflows/agreement_assets.yml"
   workflow_dispatch:
 
@@ -40,3 +46,6 @@ jobs:
       # הפלט של הבדיקה הוא גם הוראת התיקון — פקודת cp אחת.
       - name: בדיקת זהות בין המקור לעותק
         run: python3 scripts/check_agreement_assets.py
+
+      - name: בדיקה שטקסט המסמכים לא זז
+        run: python3 scripts/check_agreement_texts.py
