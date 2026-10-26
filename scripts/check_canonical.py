@@ -130,6 +130,12 @@ PRIVATE = {
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
     # ונושא noindex כי דף עם אפס נכסים מזיק לאתר (docs/regional-pages.md).
     "market-soon",
+    # דפי הרשמה ותשלום. noindex,follow בלי Disallow (סורק הסליקה מגיע
+    # מקישור), ומחוץ ל-sitemap. /pricing הוא טבלת מסלולים ונשאר ציבורי.
+    "checkout",
+    "agency-signup",
+    "developer-signup",
+    "professional-signup",
 }
 
 TAG = '<link rel="canonical" href="%s">'

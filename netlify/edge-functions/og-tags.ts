@@ -97,7 +97,9 @@
    תשובה שהתמלאה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate
    לחמש), כדי שלא תצא קריאה ל-Supabase על כל צפייה. הדפדפן עצמו מקבל
    ‎must-revalidate‎. ‏404 ו-503 של דף נכס הם no-store: נכס שפורסם אחר כך,
-   או כשל של דקה, לא נתקעים במטמון.
+   או כשל של דקה, לא נתקעים במטמון. כשל מסד בדף נכס מגיש קודם את העותק
+   המלא האחרון ב-200 (‏lib/last-good.ts); 503 רק כשאין עותק. שאר דפי
+   הפירוט אינם עוברים ל-503 בכשל.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
@@ -109,6 +111,7 @@ import "../../assets/agency-about.js";
 /* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
 import "../../assets/markets.js";
 import "../../assets/agency-place.js";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
@@ -1333,9 +1336,12 @@ export default async function handler(request: Request, context: Context) {
       meta = key ? await articleMeta(key) : "missing";
     }
     const isProperty = page.endsWith("/property");
-    // ‏null = לא ידענו. בנכס זה 503 בלי noindex. בשאר הדפים התשובה המקורית.
+    // ‏null = לא ידענו. בנכס: עותק קודם ב-200, ואחרת 503 בלי noindex.
+    // בשאר הדפים התשובה המקורית.
     if (!meta) {
       if (!isProperty) return res;
+      const prev = await recall(lastGoodKey(request.url));
+      if (prev) return prev;
       return new Response(res.body, { status: 503, headers: failureHeaders(res.headers, 503) });
     }
 
@@ -1348,7 +1354,11 @@ export default async function handler(request: Request, context: Context) {
     const headers = new Headers(res.headers);
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
-    return new Response(out, { status: res.status, headers });
+    const response = new Response(out, { status: res.status, headers });
+    if (isProperty && meta !== "missing") {
+      await remember(lastGoodKey(request.url), response, waitUntilOf(context));
+    }
+    return response;
   } catch {
     return res; // הזרקה שנכשלה לא תשבור דף
   }

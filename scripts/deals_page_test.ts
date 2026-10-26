@@ -20,6 +20,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/deals-page.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../deals.html", import.meta.url), "utf8");
 
@@ -87,7 +88,8 @@ check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x")
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 
-/* יישוב, המסד נכשל */
+/* יישוב, המסד נכשל, ואין עותק קודם */
+resetLastGood();
 res = await run("https://shuknadlan.co.il/deals/afula", 503, { message: "down" });
 html = await res.text();
 check("כשל: canonical של היישוב בכל זאת", html.includes('href="https://shuknadlan.co.il/deals/afula"'));
@@ -161,7 +163,8 @@ check("אינדקס: קישורים", html.includes('href="/deals/afula"') && ht
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
 
-/* אינדקס, המסד נכשל - לא מפרסמים 200 בלי הרשימה */
+/* אינדקס, המסד נכשל - לא מפרסמים 200 בלי הרשימה, כשאין עותק */
+resetLastGood();
 res = await run("https://shuknadlan.co.il/deals", 500, { message: "down" });
 html = await res.text();
 check("אינדקס בכשל: 503 בלי noindex", res.status === 503 && !html.includes("noindex"));
@@ -172,6 +175,14 @@ check("אינדקס בכשל: no-store", res.headers.get("Cache-Control") === "n
 res = await run("https://shuknadlan.co.il/deals", 200, []);
 html = await res.text();
 check("אינדקס ריק: 200 בלי מילוי", res.status === 200 && !html.includes("data-ssr"));
+
+resetLastGood();
+const goodDeal = await run("https://shuknadlan.co.il/deals/afula", 200, AFULA);
+const goodDealHtml = await goodDeal.text();
+const staleDeal = await run("https://shuknadlan.co.il/deals/afula", 500, { message: "down" });
+const staleDealHtml = await staleDeal.text();
+check("אחרי הצלחה, כשל מגיש את אותו דף", staleDeal.status === 200 && staleDealHtml === goodDealHtml && staleDealHtml.includes("data-ssr"));
+check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && !staleDealHtml.includes("noindex"));
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;

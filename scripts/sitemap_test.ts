@@ -6,9 +6,10 @@
 
      · RPC ענה בשורות → 200, ויש /deals/ לצד שאר הכתובות.
      · RPC ענה [] → 200. מערך ריק אינו כשל, גם כשיש כתובות אחרות.
-     · RPC נכשל (500, זריקה, גוף שאינו מערך) ויש כתובות ממקור אחר →
-       503, no-store, Retry-After. אסור 200 שבו שאר הבלוקים מלאים
-       ובלוק העסקאות ריק.
+     · RPC נכשל (500, זריקה, גוף שאינו מערך) ויש כתובות ממקור אחר,
+       ואין עותק קודם → 503, no-store, Retry-After. אסור 200 חדש
+       שבו שאר הבלוקים מלאים ובלוק העסקאות ריק.
+     · אותה נפילה אחרי sitemap מלא שהצליח → 200 עם אותו גוף.
      · כל המקורות נכשלו → הקובץ הסטטי, 200.
      · מקור GET שנכשל עדיין מושמט בשקט, כל עוד העסקאות הגיעו.
      · הקריאה לעסקאות היא POST, וה-timeout שלה הוא 8 שניות.
@@ -20,6 +21,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/sitemap.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const STATIC =
   `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -120,6 +122,7 @@ check("מערך ריק נשאר 200 עם שאר הכתובות", empty.res.statu
   && empty.html.includes("property?id=p1") && !empty.html.includes("/deals/")
   && empty.html.includes("עסקאות לפי יישוב: 0"));
 
+resetLastGood();
 for (const [name, deals] of [
   ["RPC 500", { status: 500, body: {} }],
   ["RPC זורק", "throw"],
@@ -132,6 +135,15 @@ for (const [name, deals] of [
     && got.res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
     && got.res.headers.get("Retry-After") === "60");
 }
+
+resetLastGood();
+const kept = await run(DEALS_ROW);
+const keptHtml = kept.html;
+const replay = await run({ status: 500, body: {} });
+check("אחרי הצלחה, כשל העסקאות מגיש את אותו קובץ", replay.res.status === 200
+  && replay.html === keptHtml && replay.html.includes("/deals/afula") && replay.html.includes("property?id=p1"));
+check("העותק בלי Retry-After", !replay.res.headers.get("Retry-After")
+  && replay.res.headers.get("Cache-Control") === "public, max-age=0, must-revalidate");
 
 const allDown = await run({ status: 500, body: {} }, NONE);
 check("כל המקורות נכשלו: הקובץ הסטטי", allDown.res.status === 200 && allDown.html === STATIC);

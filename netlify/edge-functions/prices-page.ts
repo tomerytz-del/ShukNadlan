@@ -8,10 +8,11 @@
 
    ## כישלון אינו שובר דף
 
-   ‏timeout, שגיאת HTTP או תשובה שאינה מערך - 503 עם אותו HTML, כדי
-   שה-JS (‏`assets/prices-render.js`, אותו קובץ שמיובא כאן) ימלא מהדפדפן
-   וגוגל תחזור. בלי מטמון. מערך ריק הוא תשובה מהמסד: 200 בלי מילוי, וה-JS
-   ממלא. הדף אחד, לא "רשומה חסרה", ולכן ריק אינו 404.
+   ‏timeout, שגיאת HTTP או תשובה שאינה מערך: אם יש עותק של דף שמולא,
+   הוא מוגש שוב ב-200 (‏lib/last-good.ts). בלי עותק - 503 עם אותו HTML,
+   כדי שה-JS (‏`assets/prices-render.js`, אותו קובץ שמיובא כאן) ימלא
+   מהדפדפן וגוגל תחזור. בלי מטמון על ה-503. מערך ריק הוא תשובה מהמסד:
+   200 בלי מילוי, וה-JS ממלא. הדף אחד, לא "רשומה חסרה", ולכן ריק אינו 404.
 
    התיעוד: ‎docs/city-prices.md‎.
    ========================================================================== */
@@ -19,6 +20,7 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/prices-render.js";
 import { registry } from "./lib/markets.ts";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -120,6 +122,8 @@ export default async function handler(_request: Request, context: Context) {
 
   const got = await fetchRows();
   if (!got.ok) {
+    const prev = await recall(lastGoodKey(_request.url));
+    if (prev) return prev;
     return new Response(res.body, { status: 503, headers: failureHeaders(res.headers) });
   }
   /* ‏המסד ענה ואין שורות: הדף נשאר 200, וה-JS ממלא. */
@@ -140,7 +144,9 @@ export default async function handler(_request: Request, context: Context) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
-  return new Response(out, { status: res.status, headers });
+  const response = new Response(out, { status: res.status, headers });
+  if (out !== html) await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
+  return response;
 }
 
 export const config: Config = {

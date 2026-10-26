@@ -7,7 +7,8 @@
      ‏1. יש רשומה  → מזריקים canonical ותגיות שיתוף.
      ‏2. אין רשומה (המסד ענה 406/404) → ‎noindex,follow‎.
      ‏3. לא הצלחנו לשאול (‏timeout, ‏5xx, ‏401) → הגוף יוצא **כמו שהוא**,
-        בלי noindex. בדף נכס הסטטוס הוא 503; בשאר דפי הפירוט 200.
+        בלי noindex. בדף נכס, בלי עותק קודם, הסטטוס הוא 503; אם נשמר
+        דף מלא הוא מוגש 200. בשאר דפי הפירוט 200.
 
    ההפרדה בין 2 ל-3 היא כל העניין. מי שיאחד אותן — `if (!res.ok)` אחד
    במקום סיווג לפי סטטוס — יקבל ‎noindex‎ על **כל דפי הפירוט באתר** בכל
@@ -26,6 +27,7 @@
    ========================================================================== */
 
 import handler from "../netlify/edge-functions/og-tags.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE =
   `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>x</body></html>`;
@@ -431,6 +433,7 @@ async function responseOf(url: string, status: number, body: unknown): Promise<R
   ) as typeof fetch;
   return await handler(new Request(`https://shuknadlan.co.il${url}`), context());
 }
+resetLastGood();
 const propDown = await responseOf("/property?id=9", 500, {});
 const propDownHtml = await propDown.text();
 const propMiss = await responseOf("/property?id=9", 406, { code: "PGRST116" });
@@ -557,6 +560,17 @@ propHttp.push(
     && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
     && storedReel.includes(`data-full="${amp(ORIG)}"`)
     && !storedReel.includes("<video")],
+);
+resetLastGood();
+const propGood = await responseOf("/property?id=9", 200, PROPERTY);
+const propGoodHtml = await propGood.text();
+const propStale = await responseOf("/property?id=9", 500, {});
+const propStaleHtml = await propStale.text();
+const agencyStale = await responseOf("/agency?slug=a", 500, {});
+const agencyStaleHtml = await agencyStale.text();
+propHttp.push(
+  ["נכס, כשל אחרי הצלחה: 200 ואותו HTML", propStale.status === 200 && propStaleHtml === propGoodHtml && propGoodHtml !== PAGE && !propStale.headers.get("Retry-After")],
+  ["משרד, כשל נשאר התשובה המקורית", agencyStale.status === 200 && agencyStaleHtml === PAGE],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
