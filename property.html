@@ -11,6 +11,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<!-- ההורדה מתחילה כאן, ההרצה נשארת בסוף ה-body. בלי זה supabase
+     ו-property.js מתגלים רק אחרי כל ה-CSS, והשער מחכה להם. -->
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+      integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+      crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="preload" as="script" href="assets/property.js">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>נכס | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">

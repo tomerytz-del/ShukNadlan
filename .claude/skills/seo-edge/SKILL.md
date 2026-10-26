@@ -110,9 +110,7 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
-בלי תמונת שער ה-LCP הוא הרקע של `.bento-empty` (`/assets/property-placeholder.jpg`), שנוסף רק אחרי שה-JS מצייר. אז ה-preload הוא הקובץ הזה, לא כתובת render. נכס עם תמונה נשאר על כתובת ה-800.
-
-בלי תמונת שער ה-LCP הוא הרקע של `.bento-empty` (`/assets/property-placeholder.jpg`), שנוסף רק אחרי שה-JS מצייר. אז ה-preload הוא הקובץ הזה, לא כתובת render. נכס עם תמונה נשאר על כתובת ה-800.
+ה-preload של תמונת השער נכנס מיד אחרי `charset`, לא לפני `</head>`: בסוף ה-head הוא מתגלה רק אחרי ה-CSS. בלי תמונה ה-LCP הוא הרקע של `.bento-empty` (`/assets/property-placeholder.jpg`), וה-preload הוא הקובץ הזה. נכס עם תמונה נשאר על כתובת ה-800. supabase ו-`property.js` מקבלים `preload` כסקריפט ב-head ורצים רק בסוף ה-body.
 
 תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה. הטרנספורם הראשון של כתובת חדשה איטי (נמדד כ-679ms מול 38ms אחרי שהתוצאה נשמרה). אגודל עצל של אותה תמונה עדיין יכול להוריד את הקובץ המלא.
 

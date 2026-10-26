@@ -1167,6 +1167,13 @@ function fillHero(html: string, count: number, inner: string): string {
   });
 }
 
+function insertAfterCharset(html: string, tags: string): string {
+  if (!tags) return html;
+  const re = /<meta\s+charset=(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>/i;
+  if (re.test(html)) return html.replace(re, (m) => `${m}\n${tags}`);
+  return html.replace(/<head[^>]*>/i, (m) => `${m}\n${tags}`);
+}
+
 function heroHead(lcp: string): string[] {
   const tags = [
     `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
@@ -1239,7 +1246,9 @@ function inject(html: string, m: Meta): string {
   if (m.paint) {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
-    add.push(...heroHead(m.paint.lcp));
+    /* ה-preload יושב מיד אחרי charset, לא לפני </head>. בסוף ה-head
+       הוא מתגלה רק אחרי ~100KB של CSS, והסקריפטים כבר תפסו את הרשת. */
+    out = insertAfterCharset(out, heroHead(m.paint.lcp).join("\n"));
   }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח
