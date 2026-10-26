@@ -404,6 +404,11 @@ PUBLIC_RPC = {
                             "מספר בית, גוש וחלקה; docs/settlement-deals.md",
     "deal_settlements_public": "האינדקס /deals וה-sitemap - יישובים פעילים ומספר "
                                "עסקאות; docs/settlement-deals.md",
+    "neighborhood_page": "הדף /n/{city}/{slug} (neighborhood-page.ts, neighborhood.js) - "
+                         "נכסים פעילים ועסקאות בצבירה בלבד, בלי רחוב, מספר בית, גוש "
+                         "וחלקה; docs/neighborhood-pages.md",
+    "neighborhood_pages_public": "ה-sitemap, דפי השווקים והמתווכים ודף הנכס - שם, עיר, "
+                                 "נתיב ומספר נכסים לכל שכונה; docs/neighborhood-pages.md",
     "agency_is_live": "ה-policy \"public read agencies\" - דף המשרד לגולש/ת אנונימי/ת; "
                       "true/false בלבד (20270216090000_license_hold.sql)",
     "instagram_feed": "הדף /instagram - נכסים פעילים שעלו לאינסטגרם, אותם פרטים "

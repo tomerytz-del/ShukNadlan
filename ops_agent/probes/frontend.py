@@ -215,6 +215,35 @@ def _cache_rules(ctx) -> Iterator[Finding]:
 
 # ---------------------------------------------------------------- חי
 
+def _live_pages(ctx) -> list[tuple[str, str]]:
+    """‏LIVE_PAGES, כשדף הנכס מקבל מזהה של נכס פעיל.
+
+    ‏‎/property‎ בלי ‎?id=‎ מחזיר 404 בכוונה מאז #933 (‏og-tags.ts: דף פירוט בלי
+    המפתח שלו הוא "missing" ודאי). המדידה שלו הייתה "חמור" בכל סריקה על דף
+    שעובד - והחמיצה את מה שכן חשוב: דף נכס אמיתי, שעובר במסד וב-edge.
+    בלי חיבור למסד, או בלי נכס פעיל, הדף לא נמדד - עדיף מממצא שקרי.
+    """
+    db = getattr(ctx, "db", None)
+    prop_id = None
+    if db is not None:
+        try:
+            row = db.one(
+                "select id from public.properties where status = 'active' "
+                "order by updated_at desc nulls last limit 1"
+            )
+            prop_id = row and row.get("id")
+        except Exception:  # noqa: BLE001
+            prop_id = None
+    out = []
+    for path, label in LIVE_PAGES:
+        if path == "/property":
+            if not prop_id:
+                continue
+            path = "/property?id=%s" % prop_id
+        out.append((path, label))
+    return out
+
+
 def _live(ctx) -> Iterator[Finding]:
     """מדידת זמן אמת מול האתר.
 
@@ -243,7 +272,7 @@ def _live(ctx) -> Iterator[Finding]:
     except Exception:  # noqa: BLE001
         pass  # ‏כשל כאן יתגלה בבקשה הראשונה, שם הוא נספר כראוי
 
-    for path, label in LIVE_PAGES:
+    for path, label in _live_pages(ctx):
         url = base + path
         ctx.count()
 
@@ -270,7 +299,7 @@ def _live(ctx) -> Iterator[Finding]:
         if resp is None:
             yield Finding(
                 area="health", code="page_unreachable", severity="critical",
-                subject=path,
+                subject=path.split("?", 1)[0],
                 title="הדף אינו נטען: %s" % label,
                 detail="שתי בקשות ל-%s נכשלו: %s" % (url, last_err),
                 suggestion="שני ניסיונות שנכשלו אינם תקלת רשת חולפת. לבדוק את "
@@ -281,7 +310,7 @@ def _live(ctx) -> Iterator[Finding]:
         if resp.status_code >= 400:
             yield Finding(
                 area="health", code="page_error", severity="critical",
-                subject=path,
+                subject=path.split("?", 1)[0],
                 title="הדף מחזיר %d: %s" % (resp.status_code, label),
                 detail="‏%s החזיר %d." % (url, resp.status_code),
                 suggestion="דף שבור בפרודקשן. לבדוק את הפריסה האחרונה ב-Netlify.",
@@ -296,7 +325,7 @@ def _live(ctx) -> Iterator[Finding]:
             yield Finding(
                 area="frontend", code="slow_ttfb",
                 severity="high" if ttfb_ms >= t.ttfb_high_ms else "medium",
-                subject=path,
+                subject=path.split("?", 1)[0],
                 title="תגובה איטית: %s — %.0fms" % (label, ttfb_ms),
                 detail="זמן עד הבייט הראשון %.0fms, הורדה מלאה %.0fms, %.0f KB "
                        "בקובץ (לפני דחיסה)." % (ttfb_ms, total_ms, kb),
@@ -310,7 +339,7 @@ def _live(ctx) -> Iterator[Finding]:
             yield Finding(
                 area="frontend", code="slow_page",
                 severity="high" if total_ms >= t.page_ms_high else "medium",
-                subject=path,
+                subject=path.split("?", 1)[0],
                 title="טעינה איטית: %s — %.1f שניות" % (label, total_ms / 1000),
                 detail="‏%.0f KB ברשת, זמן עד הבייט הראשון %.0fms." % (kb, ttfb_ms),
                 suggestion="הזמן הולך להורדה ולא להמתנה — כלומר לגודל הדף.",
@@ -321,7 +350,7 @@ def _live(ctx) -> Iterator[Finding]:
         if encoding not in ("br", "gzip", "deflate", "zstd") and kb > 30:
             yield Finding(
                 area="frontend", code="no_compression", severity="medium",
-                subject=path,
+                subject=path.split("?", 1)[0],
                 title="תשובה לא דחוסה: %s" % label,
                 detail="‏Content-Encoding ריק, %.0f KB עוברים ברשת." % kb,
                 suggestion="דחיסה חוסכת 70–85% על HTML. אם Netlify אמור לדחוס "
