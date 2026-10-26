@@ -1,6 +1,6 @@
 ---
 name: agreement-signing
-description: החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - sign.html, agreement-sign, האימות לפני הצגת ההסכם (וואטסאפ נכנסת, קוד במייל), חתימה פנים מול פנים, prepare_agreement, ות.ז. Use when a signer is stuck on verification or sees "הקישור אינו תקין", when touching sign.html / agreement-sign / agreement-wa-verify.ts / prepare_agreement, when adding a verification channel, or when anything reads or writes an ID number (id_number_enc, assets/il-id.js, agreement_open).
+description: החתמת לקוחות על הסכמי תיווך בריפו של שוק נדל״ן - בלעדיות כשני מסמכים (marketing_consent_id), sign.html, agreement-sign, האימות לפני הצגת ההסכם (וואטסאפ נכנסת, קוד במייל), חתימה פנים מול פנים, prepare_agreement, ות.ז. Use when a signer is stuck on verification or sees "הקישור אינו תקין", when touching sign.html / agreement-sign / agreement-wa-verify.ts / prepare_agreement, when adding a verification channel, or when anything reads or writes an ID number (id_number_enc, assets/il-id.js, agreement_open).
 ---
 
 # החתמת לקוחות על הסכם
@@ -83,6 +83,28 @@ description: החתמת לקוחות על הסכמי תיווך בריפו של 
 אין שורה → `not_found` (‏404) **ונרשם ביומן** עם אורך האסימון. עד
 1.10.2026 כל תקלה הוצגה כ"הועתק חלקית" על קישור שנפתח דקה קודם. מי
 שמוסיף שאילתה שם — בודק `error` לפני `data`.
+
+## בלעדיות = שני מסמכים, קישור אחד, אימות אחד
+
+חוק המתווכים מחייב את פעולות השיווק **במסמך נפרד**. לכן כל `exclusive_*`
+נוצרת יחד עם `marketing_sell`/`marketing_landlord` (‏`marketingConsent`
+בתבנית), והבלעדיות נושאת `marketing_consent_id` (מיגרציה `20270828090000`).
+הפרטים: `docs/client-agreements.md`, "בלעדיות = שני מסמכים". מה ששובר בשקט:
+
+- **פתח חדש שיוצר בלעדיות חייב ליצור גם את ההסכמה** - קודם אותה, ואז את
+  הבלעדיות עם `marketing_consent_id`, עם אותם חותמים באותו `ord`. בלעדיות
+  בלי הסכמה נראית תקינה ונחתמת, ואין לה את המסמך שהחוק דורש.
+- **הקישור ללקוח/ה הוא של הבלעדיות**, ו-`open` מפנה להסכמה (`redirect_token`)
+  כל עוד היא לא נחתמה. מי שמשנה את `open` משאיר את ההפניה **לפני** השער ולפני
+  `viewed_at`.
+- **האימות של ההסכמה חל על הבלעדיות** (`verifiedByConsent` ב-`open` וב-`sign`).
+  מי שמוסיף/ה תנאי לשער מוסיף/ה גם את הפטור הזה, אחרת הלקוח/ה מאמת/ת פעמיים.
+- **הסדר נאכף גם במסד** (`agreement_signers_consent_first`), לפי `ord`. סדר
+  חותמים שונה בין שני ההסכמים = חותם/ת שנחסם/ת על ההסכמה של מישהו/י אחר/ת.
+- `marketing_consent_id` נקרא **בשאילתה נפרדת** שכישלונה = "אין זוג" - select
+  אחד שכולל אותו היה מפיל כל קישור בדקה שלפני המיגרציה.
+- הטופס החדש אינו בתפריט (`MENU`), ו-`AgreementTemplates.keys()` כן כולל אותו:
+  רשימה שנבנית מ-`keys()` ומציעה "סוג הסכם ליצירה" צריכה לסנן `isConsent`.
 
 ## ת.ז.: של לקוחות לא נשמרת, של מתווכים מוצפנת
 

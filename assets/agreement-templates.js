@@ -376,19 +376,24 @@
 
     /* ===== בלעדיות — מכירה · הנוסח הועתק אחד לאחד מהטופס שבשימוש =====
 
+       ‏**נחתם תמיד יחד עם טופס ההסכמה לפעולות שיווק (`marketingConsent`),
+       ואחריו.** חוק המתווכים מחייב את פעולות השיווק במסמך נפרד, ולכן הן כבר
+       אינן נספח בתוך הטופס הזה: האשף והבוט יוצרים שני הסכמים מקושרים, ודף
+       החתימה מעביר את החותם/ת מהראשון לשני בלי אימות נוסף.
+
        שלושה דברים שמבדילים אותו מטופס ההזמנה הרגיל, וכולם מהטופס עצמו:
          • **בלוק הצדדים בסגנון "הלקוח"** — כמו בטופס הקונה, גם כאן החותמים
            הם ישות חוזית אחת. זה מפתיע בטופס של בעל/ת נכס, וכך הוא בטופס.
          • **הנכס מתואר בשנים-עשר שדות בלבד.** ההתחייבות כאן היא לתקופה
            ולפעולות שיווק; הנכס נדרש רק לזיהוי.
-         • **נספח פעולות השיווק** מודפס במלואו אחרי הסעיפים, ואין בטופס
-           משאלון, אין סעיף ריבית פיגורים ואין סעיף הצהרה מסכם. */
+         • אין בטופס משאלון, אין סעיף ריבית פיגורים ואין סעיף הצהרה מסכם.
+           פעולות השיווק - בטופס ההסכמה הנפרד. */
     exclusive_sell: {
       key: 'exclusive_sell',
       group: 'exclusive',
       groupLabel: 'החתמת בלעדיות',
       label: 'החתם טופס מכירה',
-      menuHint: 'בלעדיות למכירת נכס - תקופה ונספח פעולות שיווק',
+      menuHint: 'בלעדיות למכירת נכס - שני טפסים: הסכמה לפעולות שיווק, ואחריו הבלעדיות',
       docTitle: 'הזמנת שירותי תיווך בבלעדיות - מכירה',
       lawNote: '(בהתאם לחוק המתווכים במקרקעין התשנ"ו 1996)',
       side: 'owner',
@@ -400,7 +405,8 @@
       propertyHeading: 'תאור הנכס:',
       intro: 'מבקשים מכם כי תפעלו למעננו למציאת קונים לנכס שלהלן:',
       clausesHeading: 'תנאים',
-      marketingSection: MARKETING_SECTION,
+      /* פעולות השיווק במסמך נפרד, שנחתם לפני הבלעדיות - ראו CONSENT למטה */
+      marketingConsent: 'marketing_sell',
       commissionSubject: 'רכישת הנכס או זכויות בו',
       questionnaire: null,
       exclusive: true,
@@ -440,15 +446,15 @@
 
     /* ===== בלעדיות — משכיר (בעל הנכס) =====
 
-       נגזר מטופס הבלעדיות למכירה — אותו מבנה, אותו נספח שיווק, אותם
-       ארבעה-עשר סעיפים — עם החלפת מינוח בלבד (שוכרים במקום קונים, השכרת
+       נגזר מטופס הבלעדיות למכירה — אותו מבנה, אותו טופס הסכמה לשיווק לפניו,
+       אותם ארבעה-עשר סעיפים — עם החלפת מינוח בלבד (שוכרים במקום קונים, השכרת
        במקום מכירת, ותעריף שכירות בסעיף 7ב). הנוסח אושר. */
     exclusive_landlord: {
       key: 'exclusive_landlord',
       group: 'exclusive',
       groupLabel: 'החתמת בלעדיות',
       label: 'החתם טופס משכיר (בעל הנכס)',
-      menuHint: 'בלעדיות להשכרת נכס - תקופה ונספח פעולות שיווק',
+      menuHint: 'בלעדיות להשכרת נכס - שני טפסים: הסכמה לפעולות שיווק, ואחריו הבלעדיות',
       docTitle: 'הזמנת שירותי תיווך בבלעדיות - משכיר (בעל הנכס)',
       lawNote: '(בהתאם לחוק המתווכים במקרקעין התשנ"ו 1996)',
       side: 'owner',
@@ -461,7 +467,7 @@
       propertyLabelOverrides: { price: 'דמי שכירות מבוקשים' },
       intro: 'מבקשים מכם כי תפעלו למעננו למציאת שוכרים לנכס שלהלן:',
       clausesHeading: 'תנאים',
-      marketingSection: MARKETING_SECTION,
+      marketingConsent: 'marketing_landlord',
       commissionSubject: 'רכישת הנכס או זכויות בו',
       questionnaire: null,
       exclusive: true,
@@ -498,6 +504,71 @@
           'שהנכס הוצג בפניו בזמן תקופת הבלעדיות, יחוייב הלקוח לשלם למתווך את מלא עמלת ' +
           'התיווך המוצגת בסעיף 7.',
         CLAUSE_NOTES
+      ]
+    },
+
+    /* ===== הסכמה לביצוע פעולות שיווק — הטופס הראשון בבלעדיות =====
+
+       ‏**לא נבחר מהתפריט.** הוא נוצר אוטומטית עם כל הזמנה בבלעדיות
+       (`marketingConsent` בטופס הבלעדיות), ונחתם **לפניה**: חוק המתווכים
+       דורש שפעולות השיווק יפורטו במסמך נפרד, ושני המסמכים יחד הם הראיה
+       לבלעדיות. גוף ההסכמה הוא נוסח הנספח שאושר (MARKETING_SECTION), כמו
+       שהוא; מה שנוסף סביבו הוא הכותרת, הצדדים, זיהוי הנכס ושורה שקושרת
+       אותו לתקופת הבלעדיות. */
+    marketing_sell: {
+      key: 'marketing_sell',
+      group: 'exclusive',
+      groupLabel: 'החתמת בלעדיות',
+      label: 'הסכמה לפעולות שיווק - מכירה',
+      menuHint: 'נחתם לפני טופס הבלעדיות למכירה',
+      docTitle: 'הסכמה לביצוע פעולות שיווק - מכירה בבלעדיות',
+      lawNote: MARKETING_SECTION.lawNote,
+      side: 'owner',
+      dealType: 'sale',
+      partiesStyle: 'client',
+      propertyMode: 'single',
+      propertyFields: PROPERTY_FIELDS_EXCLUSIVE,
+      propertyBoxStyle: 'framed',
+      propertyHeading: 'תאור הנכס:',
+      intro: null,
+      consentFor: 'exclusive_sell',
+      marketingSection: MARKETING_SECTION,
+      commissionSubject: 'רכישת הנכס או זכויות בו',
+      questionnaire: null,
+      exclusive: false,
+      verified: true,
+      clauses: [
+        'מסמך זה נחתם בנפרד מהזמנת שירותי התיווך בבלעדיות למכירת הנכס שלעיל, ' +
+          'לתקופת הבלעדיות מתאריך {{from}} עד תאריך {{until}}, ומהווה חלק בלתי נפרד ממנה.'
+      ]
+    },
+
+    marketing_landlord: {
+      key: 'marketing_landlord',
+      group: 'exclusive',
+      groupLabel: 'החתמת בלעדיות',
+      label: 'הסכמה לפעולות שיווק - משכיר',
+      menuHint: 'נחתם לפני טופס הבלעדיות למשכיר',
+      docTitle: 'הסכמה לביצוע פעולות שיווק - השכרה בבלעדיות',
+      lawNote: MARKETING_SECTION.lawNote,
+      side: 'owner',
+      dealType: 'sale',
+      partiesStyle: 'client',
+      propertyMode: 'single',
+      propertyFields: PROPERTY_FIELDS_EXCLUSIVE,
+      propertyBoxStyle: 'framed',
+      propertyHeading: 'תאור הנכס:',
+      propertyLabelOverrides: { price: 'דמי שכירות מבוקשים' },
+      intro: null,
+      consentFor: 'exclusive_landlord',
+      marketingSection: MARKETING_SECTION,
+      commissionSubject: 'רכישת הנכס או זכויות בו',
+      questionnaire: null,
+      exclusive: false,
+      verified: true,
+      clauses: [
+        'מסמך זה נחתם בנפרד מהזמנת שירותי התיווך בבלעדיות להשכרת הנכס שלעיל, ' +
+          'לתקופת הבלעדיות מתאריך {{from}} עד תאריך {{until}}, ומהווה חלק בלתי נפרד ממנה.'
       ]
     }
   };
@@ -536,6 +607,9 @@
     all: TEMPLATES,
     menu: MENU,
     get: function (key) { return TEMPLATES[key] || null; },
+    /** הטופס שנחתם לפני `key` (ההסכמה לשיווק לפני בלעדיות), או null. */
+    consentKind: function (key) { return (TEMPLATES[key] && TEMPLATES[key].marketingConsent) || null; },
+    isConsent: function (key) { return !!(TEMPLATES[key] && TEMPLATES[key].consentFor); },
     keys: function () { return Object.keys(TEMPLATES); },
     marketingSection: MARKETING_SECTION,
     commissionBases: COMMISSION_BASES,

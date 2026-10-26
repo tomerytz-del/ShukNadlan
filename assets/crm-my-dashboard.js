@@ -70,6 +70,7 @@ const MD_LEAD_TYPES = {
 const MD_AGR_KINDS = {
   buy:'קנייה', sell:'מכירה', tenant:'שכירות', landlord:'השכרה',
   exclusive_sell:'בלעדיות מכירה', exclusive_landlord:'בלעדיות השכרה',
+  marketing_sell:'הסכמה לשיווק - מכירה', marketing_landlord:'הסכמה לשיווק - השכרה',
 };
 
 const mdState = { period: 'q_cur', data: null, busy: false, loadedFor: null };

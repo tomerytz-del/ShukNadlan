@@ -101,6 +101,33 @@ export function templateKeys(): string[] {
 }
 
 /**
+ * ‏טופס ההסכמה לפעולות שיווק שנחתם **לפני** הזמנה בבלעדיות, או null.
+ * חוק המתווכים מחייב את פעולות השיווק במסמך נפרד, ולכן כל בלעדיות נוצרת
+ * כשני הסכמים: ההסכמה, ואחריה הבלעדיות עם `marketing_consent_id` שמצביע
+ * עליה (מיגרציה 20270828090000). אותם חותמים, אותו נכס, אותה תקופה.
+ */
+export function consentInputFor(input: BuildInput): BuildInput | null {
+  const kind = Templates.consentKind(input.kind);
+  return kind ? { ...input, kind } : null;
+}
+
+/** בלעדיות, או ההסכמה שלפניה - שניהם נושאים את תקופת הבלעדיות במסמך. */
+// deno-lint-ignore no-explicit-any
+function carriesExclusivePeriod(tpl: any): boolean {
+  return !!(tpl.exclusive || tpl.consentFor);
+}
+
+/**
+ * ‏אימות לפני הצגת ההסכם. בטופסי קונה/שוכר - רשימת הנכסים שבמסמך היא עצמה
+ * המידע שמוגן. בבלעדיות - שני המסמכים הם הראיה להתחייבות של בעל/ת הנכס,
+ * והאימות (פעם אחת, בטופס הראשון) מוכיח שמי שחתם/ה הוא/היא מי שבכרטיס.
+ */
+// deno-lint-ignore no-explicit-any
+export function requiresOtp(tpl: any): boolean {
+  return tpl.side === "client" || carriesExclusivePeriod(tpl);
+}
+
+/**
  * שדה במסמך מתוך שורת הנכס. מקביל אחד לאחד ל-`agrFieldFromProperty`
  * ב-`crm.html`: אותם מקורות מיוחדים (‏feature:*, ‏gush/helka מהמידע התכנוני,
  * ‏neighborhood מ-sales_area, ‏condition מהתוויות) ואותה החזרת מחרוזת ריקה
@@ -233,7 +260,7 @@ function docInput(input: BuildInput, verifyCode: string, createdAt: Date | strin
       amount: input.commission.amount ?? "",
       basisSuffix: basis ? basis.suffix : "",
     },
-    exclusive: tpl.exclusive ? (input.exclusive || null) : null,
+    exclusive: carriesExclusivePeriod(tpl) ? (input.exclusive || null) : null,
     // המשאלון נענה בדפדפן מול הלקוח/ה ואינו נשאל בצ'אט — במסמך הוא מודפס
     // עם קווים למילוי ידני, בדיוק כמו טופס שממלאים בפגישה.
     questionnaire: {},
@@ -270,9 +297,8 @@ export function insertPayload(input: BuildInput) {
     exclusive_until: tpl.exclusive ? (input.exclusive?.until || null) : null,
     language: input.language || "he",
     notes: input.notes || null,
-    // אותו כלל כמו באשף: אימות בקוד חד-פעמי בטופסי קונה/שוכר, שבהם רשימת
-    // הנכסים שבמסמך היא עצמה המידע שמוגן.
-    require_otp: tpl.side === "client",
+    // אותו כלל כמו באשף - ראו requiresOtp
+    require_otp: requiresOtp(tpl),
     property_ids: input.properties.map((p) => p.property_id).filter(Boolean),
     client_ids: input.signers.map((s) => s.client_id).filter(Boolean),
     snapshot: {

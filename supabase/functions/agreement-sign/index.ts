@@ -427,6 +427,79 @@ function lookupError(e?: string) {
   return e === "db_error" ? json({ error: "db_error" }, 503) : json({ error: "not_found" }, 404);
 }
 
+/* ---------------------------------------------------------------------------
+ * בלעדיות = שני מסמכים (מיגרציה 20270828090000)
+ *
+ * ‏חוק המתווכים מחייב את פעולות השיווק במסמך נפרד, ולכן הזמנה בבלעדיות
+ * נוצרת יחד עם "הסכמה לביצוע פעולות שיווק" (‏marketing_consent_id). החותם/ת
+ * חותם/ת קודם על ההסכמה ומיד אחריה על הבלעדיות, **באימות אחד**: מי שחתם/ה על
+ * ההסכמה כבר עבר/ה את השער שלה (או חתם/ה במעמד הסוכן/ת), והבלעדיות שאחריה
+ * נפתחת בלי קוד נוסף. השורה המקבילה היא זו עם אותו ord.
+ *
+ * ‏הקישור שנשלח ללקוח/ה יכול להיות של כל אחד מהשניים: קישור לבלעדיות
+ * מפנה להסכמה כל עוד היא לא נחתמה, וההסכמה מפנה לבלעדיות אחרי החתימה.
+ *
+ * ‏marketing_consent_id נשאל בשאילתה נפרדת שכישלונה פירושו "אין זוג": הפונקציה
+ * והמיגרציה נפרסות בשני jobs, ובדקה שבה העמודה עוד לא קיימת select שכולל
+ * אותה היה מפיל כל פתיחה של כל קישור.
+ * ------------------------------------------------------------------------- */
+interface BundleInfo {
+  role: "consent" | "exclusive";
+  step: 1 | 2;
+  pair: PairRow;
+  pairSigner: { id: string; sign_token: string; signed_at: string | null; self_fill: boolean | null;
+    details_filled_at: string | null } | null;
+}
+
+type PairRow = { id: string; title: string; status: string };
+
+async function bundleOf(agreement: { id: string; kind: string }, ord: number): Promise<BundleInfo | null> {
+  let pair: PairRow | null = null;
+  let role: "consent" | "exclusive";
+  if (isExclusive(agreement.kind)) {
+    const { data, error } = await db.from("agreements")
+      .select("marketing_consent_id").eq("id", agreement.id).maybeSingle();
+    const consentId = !error && data ? (data as { marketing_consent_id: string | null }).marketing_consent_id : null;
+    if (!consentId) return null;
+    const { data: c } = await db.from("agreements").select("id, title, status").eq("id", consentId).maybeSingle();
+    pair = (c as PairRow | null) ?? null;
+    role = "exclusive";
+  } else if (isConsentKind(agreement.kind)) {
+    const { data, error } = await db.from("agreements")
+      .select("id, title, status").eq("marketing_consent_id", agreement.id).maybeSingle();
+    if (error) return null;
+    pair = (data as PairRow | null) ?? null;
+    role = "consent";
+  } else {
+    return null;
+  }
+  if (!pair) return null;
+
+  const { data: ps } = await db.from("agreement_signers")
+    .select("id, sign_token, signed_at, self_fill, details_filled_at")
+    .eq("agreement_id", pair.id).eq("ord", ord).maybeSingle();
+  return {
+    role,
+    step: role === "consent" ? 1 : 2,
+    pair,
+    pairSigner: (ps as BundleInfo["pairSigner"]) ?? null,
+  };
+}
+
+/** מה שדף החתימה צריך כדי להציג "טופס 1 מתוך 2" ולעבור לטופס הבא. */
+function bundlePublic(b: BundleInfo | null, mySigned: boolean) {
+  if (!b) return null;
+  return {
+    step: b.step,
+    total: 2,
+    pair_title: b.pair.title,
+    // ‏רק אחרי שההסכמה נחתמה: לפני כן אין "הבא", יש רק את מה שמולך
+    next_token: b.role === "consent" && mySigned && b.pairSigner && !b.pairSigner.signed_at &&
+        b.pair.status !== "cancelled"
+      ? b.pairSigner.sign_token : null,
+  };
+}
+
 async function signersOf(agreementId: string): Promise<SignerRow[]> {
   const { data } = await db
     .from("agreement_signers")
@@ -487,6 +560,10 @@ function agentPublic(agent: Awaited<ReturnType<typeof agentCard>>) {
  * ------------------------------------------------------------------------- */
 function isExclusive(kind: string): boolean {
   return kind === "exclusive_sell" || kind === "exclusive_landlord";
+}
+
+function isConsentKind(kind: string): boolean {
+  return kind === "marketing_sell" || kind === "marketing_landlord";
 }
 
 /** ‏dd/mm/yyyy — אותו פורמט שבו תקופת הבלעדיות מודפסת במסמך עצמו. */
@@ -765,6 +842,16 @@ Deno.serve(async (req: Request) => {
     if (agreement.status === "cancelled") return json({ error: "cancelled" }, 410);
     if (new Date(signer.token_expires_at).getTime() < Date.now()) return json({ error: "expired" }, 410);
 
+    /* ‏בלעדיות שההסכמה שלה עוד לא נחתמה: קודם ההסכמה. הדף עובר לאסימון
+       שלה ופותח אותה - הלקוח/ה קיבל/ה קישור אחד, ושני המסמכים נחתמים בו. */
+    const bundle = await bundleOf(agreement, signer.ord);
+    if (bundle?.role === "exclusive" && bundle.pairSigner && !bundle.pairSigner.signed_at &&
+        !signer.signed_at && bundle.pair.status !== "cancelled") {
+      return json({ ok: true, redirect_token: bundle.pairSigner.sign_token });
+    }
+    // האימות של ההסכמה חל גם על הבלעדיות שאחריה - אימות אחד לשני המסמכים
+    const verifiedByConsent = bundle?.role === "exclusive" && !!bundle.pairSigner?.signed_at;
+
     const inPerson = await isOwningAgentSession(req, agreement.agent_id);
 
     if (!signer.viewed_at) {
@@ -777,7 +864,7 @@ Deno.serve(async (req: Request) => {
 
     /* שער האימות. ‏document_html אינו יוצא מכאן לפני שהקוד הוזן — וזה כל
        העניין: פרטי הנכס בטופס הקונה הם המידע שמוגן, ולא רק החתימה. */
-    if (agreement.require_otp && !signer.otp_verified_at && !signer.signed_at && !inPerson) {
+    if (agreement.require_otp && !signer.otp_verified_at && !signer.signed_at && !inPerson && !verifiedByConsent) {
       const fresh = signer.otp_sent_at && signer.otp_hash &&
         (Date.now() - new Date(signer.otp_sent_at).getTime()) < OTP_TTL_MINUTES * 60_000;
       const channels = otpChannels(signer);
@@ -816,6 +903,7 @@ Deno.serve(async (req: Request) => {
         locked: true,
         agreement: { title: agreement.title, kind: agreement.kind, status: agreement.status },
         agent: agentPublic(await agentCard(agreement.agent_id)),
+        bundle: bundlePublic(bundle, false),
         me: {
           full_name: signer.full_name,
           otp_channel: channel,
@@ -845,6 +933,7 @@ Deno.serve(async (req: Request) => {
       },
       agent: agentPublic(agent),
       in_person: inPerson,
+      bundle: bundlePublic(bundle, !!signer.signed_at),
       me: {
         id: signer.id, full_name: signer.full_name, id_number: signer.id_number,
         party: signer.party, signed_at: signer.signed_at,
@@ -946,8 +1035,16 @@ Deno.serve(async (req: Request) => {
 
     /* אותו שער כמו ב-open, ושוב בשרת: לקוח שדילג על מסך האימות וקרא ישר
        ל-sign היה חותם בלי שאומת מעולם. */
+    // הבלעדיות נחתמת רק אחרי ההסכמה לפעולות שיווק. הטריגר במסד אוכף את
+    // אותו כלל (agreement_signers_consent_first); כאן - תשובה שהדף מבין.
+    const bundle = await bundleOf(agreement, signer.ord);
+    if (bundle?.role === "exclusive" && bundle.pairSigner && !bundle.pairSigner.signed_at) {
+      return json({ error: "consent_first", consent_token: bundle.pairSigner.sign_token }, 409);
+    }
+    const verifiedByConsent = bundle?.role === "exclusive" && !!bundle.pairSigner?.signed_at;
+
     const inPerson = await isOwningAgentSession(req, agreement.agent_id);
-    if (agreement.require_otp && !signer.otp_verified_at && !inPerson) {
+    if (agreement.require_otp && !signer.otp_verified_at && !inPerson && !verifiedByConsent) {
       return json({ error: "otp_required" }, 403);
     }
 
@@ -990,7 +1087,29 @@ Deno.serve(async (req: Request) => {
       ...selfFill,
     }).eq("id", signer.id).is("signed_at", null);
 
-    if (updErr) return json({ error: "db_error", detail: updErr.message }, 500);
+    if (updErr) {
+      if (/marketing_consent_first/.test(updErr.message || "")) return json({ error: "consent_first" }, 409);
+      return json({ error: "db_error", detail: updErr.message }, 500);
+    }
+
+    /* ‏ההסכמה נחתמה: מה שהחותם/ת השלים/ה בה (שם מלא, ת.ז.) עובר לשורה שלו/ה
+       בבלעדיות, כדי שהטופס השני ייפתח מוכן לחתימה ולא יבקש את אותם פרטים
+       שוב. הת.ז. נשארת בהסכמים בלבד - לא בכרטיס הלקוח/ה. */
+    let nextToken: string | null = null;
+    if (bundle?.role === "consent" && bundle.pairSigner && !bundle.pairSigner.signed_at &&
+        bundle.pair.status !== "cancelled") {
+      nextToken = bundle.pairSigner.sign_token;
+      if (signer.self_fill === true && bundle.pairSigner.self_fill && !bundle.pairSigner.details_filled_at) {
+        const { error: copyErr } = await db.from("agreement_signers").update({
+          full_name: selfFill.full_name,
+          id_number: idNumber || null,
+          id_kind: idNumber ? idKind : null,
+          details_filled_at: selfFill.details_filled_at,
+          id_confirmed: selfFill.id_confirmed,
+        }).eq("id", bundle.pairSigner.id).is("signed_at", null);
+        if (copyErr) console.error("agreement-sign consent details copy failed", copyErr.message);
+      }
+    }
 
     await saveToClientCard(signer, agreement, {
       id_number: idNumber || null,
@@ -1005,7 +1124,11 @@ Deno.serve(async (req: Request) => {
     let mail: { sent: number; error?: string | null } = { sent: 0 };
     if (after?.status === "signed") mail = await sendSignedCopies(agreement.id);
 
-    return json({ ok: true, agreement_status: after?.status || "sent", copies_sent: mail.sent });
+    return json({
+      ok: true, agreement_status: after?.status || "sent", copies_sent: mail.sent,
+      // הטופס הבא באותו קישור - הבלעדיות אחרי ההסכמה לשיווק
+      next_token: nextToken,
+    });
   }
 
   // ------------------------------------------------------------------ view --

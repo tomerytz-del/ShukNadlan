@@ -32242,7 +32242,12 @@ async function agrCancel(a){
 
 async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
-  const { error } = await sb.from('agreements').delete().eq('id', a.id);
+  /* בלעדיות: מוחקים את טופס ההסכמה שלה, והבלעדיות נמחקת איתו (on delete
+     cascade). מחיקת הבלעדיות לבדה הייתה משאירה הסכמה יתומה. השאילתה נפרדת
+     ונסבלת לכישלון - העמודה נוספה ב-20270828090000. */
+  const { data: link } = await sb.from('agreements').select('marketing_consent_id').eq('id', a.id).maybeSingle();
+  const target = (link && link.marketing_consent_id) || a.id;
+  const { error } = await sb.from('agreements').delete().eq('id', target);
   if (error) return showToast('המחיקה נכשלה: ' + heErr(error));
   expandedAgreementIds.delete(a.id);
   showToast('הטיוטה נמחקה');
@@ -32266,7 +32271,7 @@ function agrNewWizard(){
     exclusive:{ from:'', until:'', months:'' },
     questionnaire:[],
     notes:'', language:'he',
-    agreementId:null, record:null,
+    agreementId:null, record:null, consentId:null,
     pads:{},
   };
 }
@@ -32377,6 +32382,7 @@ async function openAgreementSigning(agreementId){
   agrWizard.kind = row.kind;
   agrWizard.agreementId = row.id;
   agrWizard.record = full;
+  agrWizard.consentId = full.marketing_consent_id || null;
   agrWizard.step = 4;
   agrEl('agrModal').style.display = 'flex';
   agrRender();
@@ -33674,9 +33680,11 @@ function agrValidate(){
   return items;
 }
 
-function agrBuildDoc(){
+/* ‏kind - טופס אחר מזה שנבחר, עם אותם נתונים: טופס ההסכמה לפעולות שיווק
+   שנחתם לפני בלעדיות (marketingConsent בתבנית). */
+function agrBuildDoc(kind){
   const w = agrWizard;
-  const tpl = agrTpl(w.kind);
+  const tpl = agrTpl(kind || w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
   const basis = bases.find(b => b.key === w.commission.basis);
 
@@ -33698,7 +33706,8 @@ function agrBuildDoc(){
     })),
     properties: w.properties.map(p => ({ fields:p.fields, notes:p.notes })),
     commission: { pct:w.commission.pct, amount:w.commission.amount, basisSuffix: basis ? basis.suffix : '' },
-    exclusive: tpl.exclusive ? w.exclusive : null,
+    // גם ההסכמה לשיווק מדפיסה את תקופת הבלעדיות שאליה היא שייכת
+    exclusive: (tpl.exclusive || tpl.consentFor) ? w.exclusive : null,
     questionnaire: w.questionnaire,
     notes: w.notes,
     createdAt: new Date(),
@@ -33836,9 +33845,22 @@ function agrRenderStepPreview(){
   const html = window.AgreementDoc.buildHtml(agrBuildDoc());
   agrWizard.previewHtml = html;
 
+  /* בלעדיות = שני מסמכים נפרדים, כנדרש בחוק המתווכים: ההסכמה לפעולות
+     שיווק ואחריה ההזמנה בבלעדיות. התצוגה מראה את שניהם, בסדר החתימה. */
+  const consentKind = window.AgreementTemplates.consentKind(agrWizard.kind);
+  const consentHtml = consentKind ? window.AgreementDoc.buildHtml(agrBuildDoc(consentKind)) : '';
+
   body.innerHTML =
     '<p class="imp-note" style="margin:0 0 10px">זה בדיוק מה שהלקוח/ה יראה/תראה. אחרי המעבר לשלב החתימה ' +
     'גוף המסמך ננעל לעריכה - לשינוי טקסט חוזרים לשלב הקודם.</p>' +
+    (consentKind
+      ? '<div class="agr-warn" style="margin:0 0 10px">בלעדיות נחתמת על <b>שני טפסים נפרדים</b>, כנדרש בחוק המתווכים: ' +
+          'קודם טופס ההסכמה לפעולות שיווק, ומיד אחריו טופס הבלעדיות. הלקוח/ה מקבל/ת קישור אחד, ' +
+          'מאמת/ת פעם אחת וחותם/ת על שניהם ברצף.</div>' +
+        '<div class="form-subheading">טופס 1 מתוך 2</div>' +
+        '<div class="agr-preview">' + consentHtml + '</div>' +
+        '<div class="form-subheading" style="margin-top:14px">טופס 2 מתוך 2</div>'
+      : '') +
     '<div class="agr-preview">' + html + '</div>';
 
   agrEl('agrFoot').innerHTML =
@@ -33848,91 +33870,113 @@ function agrRenderStepPreview(){
 
 /* ---------- שמירה ---------- */
 
+/* הסכם אחד במסד: השורה, גוף המסמך (אחרי ה-insert, כי verify_code נוצר
+   במסד ומודפס בתחתיתו) והחותמים. ‏existingId - טיוטה שנשמרת מחדש. */
+async function agrPersistAgreement(kind, existingId, extra){
+  const w = agrWizard;
+  const tpl = agrTpl(kind);
+  const doc = agrBuildDoc(kind);
+  const propertyLine = w.properties.map(p => p.label).join(' · ');
+
+  const payload = {
+    agent_id: currentAgent.id,
+    agency_id: currentAgent.agency_id || null,
+    kind,
+    title: tpl.docTitle,
+    commission_pct: w.commission.pct === '' ? null : Number(w.commission.pct),
+    commission_amount: w.commission.amount === '' ? null : Number(w.commission.amount),
+    commission_note: w.commission.basis || null,
+    exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
+    exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
+    language: w.language,
+    notes: w.notes || null,
+    /* אימות לפני הצגת ההסכם, כברירת מחדל: בטופסי קונה ושוכר - רשימת
+       הנכסים שבמסמך היא עצמה המידע שמוגן, וקישור שהועבר הלאה חושף אותה.
+       בבלעדיות - שני הטפסים הם הראיה להתחייבות של בעל/ת הנכס, והאימות
+       (פעם אחת, בטופס הראשון) מוכיח שחתם/ה מי שבכרטיס. בטופס בעל/ת נכס
+       רגיל אין מה להגן עליו. */
+    require_otp: tpl.side === 'client' || !!tpl.exclusive || !!tpl.consentFor,
+    property_ids: w.properties.map(p => p.property_id).filter(Boolean),
+    client_ids: w.signers.map(s => s.client_id).filter(Boolean),
+    snapshot: {
+      property_line: propertyLine,
+      properties: w.properties.map(p => ({ property_id:p.property_id, fields:p.fields, notes:p.notes })),
+      signers: doc.signers,
+      commission: doc.commission,
+      exclusive: doc.exclusive,
+      questionnaire: w.questionnaire,
+      agent: doc.agent,
+    },
+    ...(extra || {}),
+  };
+
+  let record;
+  if (!existingId){
+    const { data, error } = await sb.from('agreements').insert(payload).select().single();
+    if (error) throw error;
+    record = data;
+  } else {
+    const { data, error } = await sb.from('agreements').update(payload).eq('id', existingId).select().single();
+    if (error) throw error;
+    record = data;
+    await sb.from('agreement_signers').delete().eq('agreement_id', existingId);
+  }
+  const agreementId = record.id;
+
+  const finalHtml = window.AgreementDoc.buildHtml(
+    Object.assign(agrBuildDoc(kind), { verifyCode: record.verify_code, createdAt: record.created_at }));
+
+  const { error: htmlErr } = await sb.from('agreements')
+    .update({ document_html: finalHtml }).eq('id', agreementId);
+  if (htmlErr) throw htmlErr;
+
+  const signerRows = w.signers.map((s, i) => ({
+    agreement_id: agreementId, ord: i, party: s.party,
+    full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
+    phone: s.phone.trim() || null, email: s.email.trim() || null,
+    address: s.address.trim() || null,
+    // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
+    // על עמודה שעוד לא קיימת (20270223090000)
+    self_fill: true,
+    // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
+    // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
+    ...(s.client_id ? { client_id: s.client_id } : {}),
+  }));
+  let { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
+  // ‏הדפדפן מתעדכן לפני שהמיגרציה רצה: בדקה הזו client_id עוד לא קיים, וזו
+  // לא סיבה להפיל הסכם. בלי הקישור הכתיבה לכרטיס נופלת להתאמה לפי נייד/מייל.
+  if (signersErr && /client_id/.test(signersErr.message || '')){
+    ({ error: signersErr } = await sb.from('agreement_signers')
+      .insert(signerRows.map(({ client_id, ...row }) => row)));
+  }
+  if (signersErr) throw signersErr;
+
+  return record;
+}
+
 async function agrSaveAndGoSign(btn){
   const w = agrWizard;
-  const tpl = agrTpl(w.kind);
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שומר…';
 
+  /* בלעדיות: קודם טופס ההסכמה לפעולות שיווק - מסמך נפרד, כנדרש בחוק
+     המתווכים - ואחריו הבלעדיות, שמצביעה עליו (marketing_consent_id,
+     20270828090000). דף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד. */
+  const consentKind = window.AgreementTemplates.consentKind(w.kind);
+  let newConsentId = null;
   try {
-    const doc = agrBuildDoc();
-    const propertyLine = w.properties.map(p => p.label).join(' · ');
-
-    const payload = {
-      agent_id: currentAgent.id,
-      agency_id: currentAgent.agency_id || null,
-      kind: w.kind,
-      title: tpl.docTitle,
-      commission_pct: w.commission.pct === '' ? null : Number(w.commission.pct),
-      commission_amount: w.commission.amount === '' ? null : Number(w.commission.amount),
-      commission_note: w.commission.basis || null,
-      exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
-      exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
-      language: w.language,
-      notes: w.notes || null,
-      /* אימות בקוד דלוק כברירת מחדל בטופסי קונה ושוכר בלבד: שם רשימת
-         הנכסים שבמסמך היא עצמה המידע שמוגן, וקישור שהועבר הלאה חושף אותה.
-         בטופס של בעל/ת הנכס אין מה להגן עליו — הוא כבר יודע מה יש לו. */
-      require_otp: tpl.side === 'client',
-      property_ids: w.properties.map(p => p.property_id).filter(Boolean),
-      client_ids: w.signers.map(s => s.client_id).filter(Boolean),
-      snapshot: {
-        property_line: propertyLine,
-        properties: w.properties.map(p => ({ property_id:p.property_id, fields:p.fields, notes:p.notes })),
-        signers: doc.signers,
-        commission: doc.commission,
-        exclusive: doc.exclusive,
-        questionnaire: w.questionnaire,
-        agent: doc.agent,
-      },
-    };
-
-    let agreementId = w.agreementId;
-
-    if (!agreementId){
-      const { data, error } = await sb.from('agreements').insert(payload).select().single();
-      if (error) throw error;
-      agreementId = data.id;
-      // ‏verify_code נוצר במסד, והוא מודפס בתחתית המסמך — ולכן ה-HTML
-      // נבנה מחדש אחרי ההוספה ורק אז נשמר
-      w.record = data;
-    } else {
-      const { data, error } = await sb.from('agreements').update(payload).eq('id', agreementId).select().single();
-      if (error) throw error;
-      w.record = data;
-      await sb.from('agreement_signers').delete().eq('agreement_id', agreementId);
+    if (consentKind){
+      const consent = await agrPersistAgreement(consentKind, w.consentId || null, null);
+      if (!w.consentId) newConsentId = consent.id;
+      w.consentId = consent.id;
     }
 
-    const finalHtml = window.AgreementDoc.buildHtml(
-      Object.assign(agrBuildDoc(), { verifyCode: w.record.verify_code, createdAt: w.record.created_at }));
+    w.record = await agrPersistAgreement(w.kind, w.agreementId,
+      w.consentId ? { marketing_consent_id: w.consentId } : null);
+    w.agreementId = w.record.id;
+    newConsentId = null;
 
-    const { error: htmlErr } = await sb.from('agreements')
-      .update({ document_html: finalHtml }).eq('id', agreementId);
-    if (htmlErr) throw htmlErr;
-
-    const signerRows = w.signers.map((s, i) => ({
-      agreement_id: agreementId, ord: i, party: s.party,
-      full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
-      phone: s.phone.trim() || null, email: s.email.trim() || null,
-      address: s.address.trim() || null,
-      // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
-      // על עמודה שעוד לא קיימת (20270223090000)
-      self_fill: true,
-      // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
-      // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
-      ...(s.client_id ? { client_id: s.client_id } : {}),
-    }));
-    let { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
-    // ‏הדפדפן מתעדכן לפני שהמיגרציה רצה: בדקה הזו client_id עוד לא קיים, וזו
-    // לא סיבה להפיל הסכם. בלי הקישור הכתיבה לכרטיס נופלת להתאמה לפי נייד/מייל.
-    if (signersErr && /client_id/.test(signersErr.message || '')){
-      ({ error: signersErr } = await sb.from('agreement_signers')
-        .insert(signerRows.map(({ client_id, ...row }) => row)));
-    }
-    if (signersErr) throw signersErr;
-
-    w.agreementId = agreementId;
     await loadAgreements();
     await agrRefreshWizardRecord();
     // ההסכם הראשון סוגר צעד במדריך ההתחלה, והטריגר במסד פתח באותו רגע את
@@ -33942,7 +33986,14 @@ async function agrSaveAndGoSign(btn){
     agrRender();
   } catch(err){
     console.error(err);
-    showToast('שמירת ההסכם נכשלה: ' + (heErr(err) || 'שגיאה'));
+    // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
+    if (newConsentId){
+      await sb.from('agreements').delete().eq('id', newConsentId);
+      w.consentId = null;
+    }
+    showToast(/marketing_consent_id|agreements_kind_check/.test((err && err.message) || '')
+      ? 'המערכת מתעדכנת לטופס הבלעדיות החדש - נסו שוב בעוד דקה'
+      : 'שמירת ההסכם נכשלה: ' + (heErr(err) || 'שגיאה'));
     btn.disabled = false;
     btn.textContent = original;
   }
@@ -33982,6 +34033,14 @@ function agrRenderStepSign(){
   const done = prog.signed === prog.total && prog.total > 0;
 
   let html = '<p style="margin:0 0 12px;font-weight:600">בחתימתי, אני מאשר בזאת כי קראתי את ההסכם.</p>';
+
+  /* בלעדיות: הקישורים כאן הם של טופס הבלעדיות, ודף החתימה פותח קודם את
+     טופס ההסכמה לפעולות שיווק ועובר ממנו לבלעדיות באותו אימות */
+  if (rec.marketing_consent_id && !done){
+    html = '<div class="agr-warn">שני טפסים, קישור אחד: החותם/ת חותם/ת קודם על <b>ההסכמה לפעולות שיווק</b> ' +
+      'ומיד אחריה, בלי אימות נוסף, על <b>טופס הבלעדיות</b>. שני הטפסים יחד הם הראיה לבלעדיות, ' +
+      'וכל אחד מהם נשמר בהסכמים עם העותק החתום שלו.</div>' + html;
+  }
 
   if (done){
     html = '<div class="agr-warn" style="background:#F4F9F5;border-color:#C9E0D0;color:#2A5B36">' +
@@ -34296,7 +34355,10 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
   if (t.dataset.agrFlag){
     const patch = {};
     patch[t.dataset.agrFlag] = t.checked;
-    const { error } = await sb.from('agreements').update(patch).eq('id', agrWizard.agreementId);
+    // בבלעדיות - גם בטופס ההסכמה שלפניה: שם האימות קורה, והבלעדיות יורשת אותו
+    const consentId = agrWizard.consentId || (agrWizard.record && agrWizard.record.marketing_consent_id);
+    const { error } = await sb.from('agreements').update(patch)
+      .in('id', consentId ? [agrWizard.agreementId, consentId] : [agrWizard.agreementId]);
     if (error){
       showToast('העדכון נכשל: ' + heErr(error));
       t.checked = !t.checked;
