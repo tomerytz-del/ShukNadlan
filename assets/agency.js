@@ -526,9 +526,10 @@ function renderManagerContact(members){
 let galleryItems = [];
 let storyItems = [];
 
-/* ‏deal_type אינו קיים בכל הסביבות (הוא נוסף ל-market_deals אחרי שהטבלה
-   נוצרה), ולכן הוא נקרא בזהירות: בלעדיו העסקה נחשבת מכירה, וזה הרוב
-   המוחלט של השורות. */
+/* ‏market_deals מחזיקה מכירות בלבד: handle_property_sold כותב אליה רק נכס
+   שנמכר ו-deal_type שלו 'sale' (‏דוח ה-CMA סומך על זה), ואין בה עמודת
+   deal_type. לכן כל כרטיס כאן הוא "נמכר" - נבדק 26.10.2026. הענף "הושכר"
+   נשאר למקרה שעסקאות השכרה ייכנסו אליה יום אחד, עם עמודה משלהן. */
 function dealStamp(deal){
   return deal && deal.deal_type === 'rent' ? 'הושכר' : 'נמכר';
 }
