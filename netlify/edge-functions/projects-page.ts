@@ -163,6 +163,12 @@ export default async function handler(request: Request, context: Context) {
   headers.delete("content-length");
   const got = await projects();
   const out = got.ok ? inject(html, got.rows, got.total) : inject(html, null, 0);
+  /* בלי מטמון כל בקשה חיכתה ל-Supabase (‏slow_ttfb ‏863ms, 25.10.2026). רק תשובה
+     שמולאה מהמסד נשמרת - כשל לא נתקע במטמון לשעה (כמו ב-brokers-page). */
+  if (got.ok) {
+    headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+  }
   return new Response(out, { status: res.status, headers });
 }
 

@@ -238,7 +238,7 @@ async function visibleItems(supabase: SupabaseClient, showcase: Row, agencyId: s
       .select(
         "id, agency_id, agent_id, status, category, property_type, deal_type, price, rooms, size_sqm, " +
           "built_size_sqm, garden_sqm, floor, total_floors, city, street, house_number, sales_area, " +
-          "features, condition, move_in_date, move_in_soon, maintenance_fee, arnona, price_includes_vat, " +
+          "features, condition, move_in_date, move_in_soon, maintenance_fee, arnona, price_includes_vat, price_unit, " +
           "description, marketing_description, marketing_description_stale, images, " +
           "agent2_name, neighborhoods(name), agencies!properties_agency_id_fkey(name), " +
           "agency_members!properties_agent_id_fkey(display_name)",
@@ -309,6 +309,7 @@ function publicItem(item: Row, p: Row, clean: Set<string>) {
     deal_type: p.deal_type,
     price: p.price,
     price_includes_vat: p.price_includes_vat,
+    price_unit: p.price_unit ?? null,
     rooms: p.rooms,
     size_sqm: p.size_sqm,
     built_size_sqm: p.built_size_sqm,

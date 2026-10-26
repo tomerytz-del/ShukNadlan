@@ -39,6 +39,10 @@
       for (var i = 0; i < nodes.length; i++) nodes[i].open = wide.matches;
     };
     sync();
+    /* ‏data-fold: מכאן ה-open הוא שקובע. עד הרגע הזה site-footer.css מסתיר
+       בטלפון את מה שבתוך הבלוק, כדי שהפוטר לא ייפתח ב-HTML ויתקפל אחרי
+       ה-defer - קפיצה שנמדדה כ-CLS גבוה בדפי המשרדים והכתבות. */
+    for (var k = 0; k < nodes.length; k++) nodes[k].setAttribute('data-fold', '');
     if (wide.addEventListener) wide.addEventListener('change', sync);
     else if (wide.addListener) wide.addListener(sync);
 

@@ -642,11 +642,13 @@ async function handle(
   // ‏"+ מע״מ" ליד מחיר של נכס מסחרי (‏priceLine) דורש את price_includes_vat,
   // ו-pending_property_publications אינה מחזירה אותו. קריאה אחת לנכס
   // זולה בהרבה משינוי סוג ההחזרה של הפונקציה במסד.
-  // ‏באותה קריאה: הסוכן/ת, לשורת הקריאה לפעולה (‏ctaTier).
-  if (!("price_includes_vat" in row) || !("cta_tier" in row)) {
-    const { data: prop } = await sb.from("properties").select("price_includes_vat, agent_id")
+  // ‏באותה קריאה: הסוכן/ת, לשורת הקריאה לפעולה (‏ctaTier), ויחידת המחיר
+  // (‏price_unit - "למ״ר" במקום "לחודש", docs/price-unit.md).
+  if (!("price_includes_vat" in row) || !("price_unit" in row) || !("cta_tier" in row)) {
+    const { data: prop } = await sb.from("properties").select("price_includes_vat, price_unit, agent_id")
       .eq("id", row.property_id).maybeSingle();
     if (!("price_includes_vat" in row)) row.price_includes_vat = prop?.price_includes_vat ?? null;
+    if (!("price_unit" in row)) row.price_unit = prop?.price_unit ?? null;
     row.cta_tier = await ctaTier(sb, prop?.agent_id);
   }
 

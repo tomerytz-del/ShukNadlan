@@ -290,3 +290,16 @@ footer.site .footer-col a:hover,footer.site .footer-col a:focus-visible{color:#e
   footer.site .footer-col h4{font-size:.95rem}
   footer.site .footer-col a{font-size:.88rem}
 }
+
+/* ---------- בלי קפיצה בטעינה ----------
+   הבלוקים המקופלים נפתחים ב-HTML (‏open - לסורקים ולמי שאין לו JS) ונסגרים
+   ב-site-footer.js, שנטען ב-defer. בטלפון זה היה פוטר שנפתח ואז מתקפל -
+   קפיצה שנמדדה כ-CLS גבוה בדפי המשרדים והכתבות. עד שהסקריפט מסמן data-fold
+   התוכן מוסתר כבר בציור הראשון, באותו סף שבו הוא מתקפל. ‏scripting: enabled -
+   בלי JS הכלל אינו חל והכול נשאר פרוש. */
+@media (scripting: enabled) and (max-width:559px){
+  details.footer-col:not([data-fold]) > :not(summary){display:none}
+}
+@media (scripting: enabled) and (max-width:759px){
+  #footerSeo:not([data-fold]) > :not(summary){display:none}
+}

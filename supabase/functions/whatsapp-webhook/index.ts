@@ -1608,6 +1608,9 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
   }
 }
 
+// ‏waitUntil של ה-Edge Runtime - גלובלי של Supabase ש-deno check אינו מכיר
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
+
 /** עבודה שממשיכה אחרי שהתשובה חזרה לקורא (Meta, או pg_cron). */
 function inBackground(work: Promise<unknown>): void {
   EdgeRuntime.waitUntil(work);

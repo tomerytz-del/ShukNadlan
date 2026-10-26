@@ -105,14 +105,25 @@ function showToast(msg){
 function vatSuffix(p){
   return p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '';
 }
+/* יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' הוא מחיר למ״ר - בהשכרה
+   למ״ר לחודש. ריק = לפי סוג העסקה, כמו שהיה: השכרה לחודש, מכירה סה״כ.
+   אותו כלל ב-property-card.js, property.js, home.js, crm.js, open-house.html,
+   instagram.html, showcase.js, og-tags.ts ו-marketing-copy.ts. */
+function priceUnitOf(p){
+  return p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+}
 function priceLabel(p){
-  return (p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'))) + vatSuffix(p);
+  const unit = priceUnitOf(p);
+  const per = unit === 'sqm' ? (p.deal_type === 'rent' ? ' למ״ר לחודש' : ' למ״ר') : unit === 'month' ? '/חוד׳' : '';
+  return '₪' + Number(p.price).toLocaleString('he-IL') + per + vatSuffix(p);
 }
 /* המחיר בתצוגה הגדולה: מספר גדול + סיומת קטנה, כדי שהעין תתפוס קודם את
    הסכום ורק אחריו את "לחודש". */
 function priceParts(p){
   const num = Number(p.price).toLocaleString('he-IL') + ' ₪';
-  return { num, suffix: (p.deal_type === 'rent' ? ' / חודש' : '') + vatSuffix(p) };
+  const unit = priceUnitOf(p);
+  const per = unit === 'sqm' ? (p.deal_type === 'rent' ? ' למ״ר / חודש' : ' למ״ר') : unit === 'month' ? ' / חודש' : '';
+  return { num, suffix: per + vatSuffix(p) };
 }
 function priceFlat(p){
   const parts = priceParts(p);
@@ -128,10 +139,23 @@ function cssUrl(u){
 
 /* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות מקבל ממלא מקום עם לוגו
    המשרד שהנכס שייך אליו והבטחה שהתמונות בדרך — בדיוק כמו ב-index.html. */
+/* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
+   כמה MB), ובטלפון דף התוצאות הוריד כ-25MB. ‏render/image של Supabase מקטין
+   לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
+   הנכס כבר עוברת בה (‏heroRenderUrl, למטה). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
+function cardImgUrl(url, w){
+  const s = String(url || '');
+  const marker = '/storage/v1/object/public/';
+  const at = s.indexOf(marker);
+  if (at < 0) return s;
+  const path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+}
 function thumbStyle(p, i){
   const img = p.images && p.images[0];
   return img
-    ? `background-image:url('${cssUrl(img)}');background-size:cover;background-position:center`
+    ? `background-image:url('${cssUrl(cardImgUrl(img))}');background-size:cover;background-position:center`
     : '';
 }
 
@@ -434,7 +458,8 @@ function renderGallery(p){
       const raw = galleryImages[index];
       open.innerHTML = hero
         ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="" fetchpriority="high"${heroImgExtra(raw)}>`
-        : `<img src="${escapeAttr(raw)}" alt="" ${index ? 'loading="lazy"' : ''}>`;
+        // התאים הקטנים בגלריה - מוקטנים; הגלריה המלאה (‏lbOpen) נשארת בגודל מלא
+        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -2666,10 +2691,12 @@ function renderProperty(p){
   renderDescription(p);
 
   // המחיר חוזר בכרטיס ההמרה ובסרגל התחתון — שם הוא צמוד לכפתור הפעולה
-  const priceLabelText = p.deal_type === 'rent' ? 'שכר דירה חודשי' : 'מחיר מבוקש';
+  const perSqm = priceUnitOf(p) === 'sqm';
+  const priceLabelText = perSqm ? (p.deal_type === 'rent' ? 'שכירות למ״ר לחודש' : 'מחיר למ״ר')
+    : p.deal_type === 'rent' ? 'שכר דירה חודשי' : 'מחיר מבוקש';
   document.getElementById('agentPriceLabel').textContent = priceLabelText;
   document.getElementById('agentPriceValue').textContent = priceFlat(p);
-  document.getElementById('sbPriceLabel').textContent = p.deal_type === 'rent' ? 'לחודש' : 'מחיר';
+  document.getElementById('sbPriceLabel').textContent = perSqm ? 'למ״ר' : p.deal_type === 'rent' ? 'לחודש' : 'מחיר';
   document.getElementById('sbPriceValue').textContent = priceFlat(p);
 
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';

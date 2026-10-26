@@ -76,6 +76,11 @@ export type SearchPage = {
   title: string;
   description: string;
   landing?: string;
+  /* סוג הנכס שהעמוד נפתח עליו, כשהכותרת מבטיחה אותו ("דירות למכירה"):
+     ‏flats = דירה, דירת גן וגג/פנטהאוז (‏chipOnly ב-sentence-search.js).
+     בלעדיו ‎?deal=sale‎ הציג גם מגרשים ומשרדים מתחת לכותרת "דירות".
+     נכתב ל-‎<meta name="shuk-search-type">‎ ואינו משנה את הכתובת. */
+  type?: "flats";
 };
 
 /* ‏16 הצירופים שמקושרים מבלוק "חיפושים פופולריים" בפוטר. הוספה כאן מחייבת
@@ -85,22 +90,26 @@ export type SearchPage = {
 export const SEARCH_PAGES: SearchPage[] = [
   {
     query: "deal=sale",
+    type: "flats",
     title: "דירות למכירה בעפולה והעמק",
     description: "כל הדירות שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
   },
   {
     query: "deal=sale&rooms=3",
+    type: "flats",
     title: "דירות 3 חדרים למכירה בעפולה והעמק",
     description: "כל דירות 3 החדרים שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
     landing: "/afula/דירות-3-חדרים",
   },
   {
     query: "deal=sale&rooms=4",
+    type: "flats",
     title: "דירות 4 חדרים למכירה בעפולה והעמק",
     description: "כל דירות 4 החדרים שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
   },
   {
     query: "deal=sale&rooms=5",
+    type: "flats",
     title: "דירות 5 חדרים למכירה בעפולה והעמק",
     description: "כל דירות 5 החדרים שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
   },
@@ -138,16 +147,19 @@ export const SEARCH_PAGES: SearchPage[] = [
   },
   {
     query: "deal=rent&rooms=3",
+    type: "flats",
     title: "דירות 3 חדרים להשכרה בעפולה והעמק",
     description: "כל דירות 3 החדרים שמוצעות היום להשכרה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם שכר דירה, תמונות ופרטי קשר.",
   },
   {
     query: "deal=rent&rooms=4",
+    type: "flats",
     title: "דירות 4 חדרים להשכרה בעפולה והעמק",
     description: "כל דירות 4 החדרים שמוצעות היום להשכרה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם שכר דירה, תמונות ופרטי קשר.",
   },
   {
     query: "deal=rent&maxPrice=4000",
+    type: "flats",
     title: "דירות להשכרה בעפולה עד 4,000 ₪ לחודש",
     description: "כל הדירות שמוצעות היום להשכרה בעפולה ובעמק בשכר דירה של עד 4,000 ₪ לחודש, מכל משרדי התיווך באזור, עם תמונות ופרטי קשר.",
   },
@@ -290,6 +302,7 @@ function inject(html: string, page: SearchPage): string {
     /* הכותרת שמעל התוצאות (‏h2). הדף קורא אותה מכאן ולא מרשימה משלו. */
     `<meta name="shuk-search-heading" content="${esc(page.title)}">`,
   );
+  if (page.type) add.push(`<meta name="shuk-search-type" content="${esc(page.type)}">`);
 
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(title)}</title>`);
   out = out.replace(/<\/head>/i, `${add.join("\n")}\n</head>`);

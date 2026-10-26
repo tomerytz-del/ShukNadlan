@@ -1543,9 +1543,20 @@ function safeImageUrl(url){
 }
 
 /* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
+/* תמונת כרטיס מוקטנת - אותה נוסחה כמו cardImgUrl ב-assets/home.js
+   (‏docs/image-sizes.md). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
+function cardImgUrl(url, w){
+  const s = String(url || '');
+  const marker = '/storage/v1/object/public/';
+  const at = s.indexOf(marker);
+  if (at < 0) return s;
+  const path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+}
 function thumbStyle(p){
   const img = safeImageUrl(p.images && p.images[0]);
-  return img ? ` style="background-image:url('${encodeURI(img)}')"` : '';
+  return img ? ` style="background-image:url('${encodeURI(cardImgUrl(img))}')"` : '';
 }
 
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
@@ -1952,7 +1963,7 @@ async function loadAgentProperties(sb, agent){
   const { data: props } = await sb.from('properties')
     // ‏created_at, is_promoted ו-promoted_until נוספו בשביל המדף: הוא ממיין
     // לפי סדר ההעלאה ומצמיד עד שני נכסים מקודמים לראש, כמו בדף הבית.
-    .select('id, title, price, deal_type, category, price_includes_vat, mamad_location, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
+    .select('id, title, price, price_unit, price_total, deal_type, category, price_includes_vat, mamad_location, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
     .eq('agent_id', agent.id).eq('status', 'active').order('created_at', { ascending:false });
 
   if (!props || props.length === 0){

@@ -160,6 +160,18 @@ for (const [name, url, query] of SAME) {
   );
 }
 
+/* עמוד "דירות…" נפתח על "דירות" (‏shuk-search-type), ועמוד מסחרי - לא */
+{
+  const sale = await serve("/?deal=sale");
+  const comm = await serve("/?deal=commercial");
+  const typeOf = async (u: string) => {
+    const res = await handler(new Request(SITE + u), contextFor(PAGE));
+    return ((await res.text()).match(/name="shuk-search-type" content="([^"]*)"/) || [])[1] || null;
+  };
+  check("דירות למכירה נפתח על flats", sale.heading !== null && (await typeOf("/?deal=sale")) === "flats");
+  check("נכסים מסחריים - בלי סוג", comm.heading !== null && (await typeOf("/?deal=commercial")) === null);
+}
+
 /* ‏עברית גולמית בכתובת (מה שדפדפן שולח כשמדביקים קישור מווטסאפ) */
 {
   const hebrew = SEARCH_PAGES.find((p) => p.query.includes("%D7%93"))!;

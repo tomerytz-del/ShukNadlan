@@ -162,6 +162,21 @@
     return (list || []).map(function (f) { return FEATURE_LABELS[f] || f; }).join(', ');
   }
 
+  /* ---------- המחיר שמשווים לתקציב ----------
+     ‏price_unit = 'sqm' (‏docs/price-unit.md): חנות ב-140 ₪ למ״ר עברה כל
+     "עד 5,000 ₪". המחיר להשוואה הוא המחיר כפול השטח - בדיוק העמודה
+     המחושבת price_total במסד, שהשאילתות בשרת ובבוטים משוות מולה. נכס שלא
+     נטענה לו price_total מחושב כאן באותה נוסחה. */
+  function comparablePrice(p) {
+    if (!p) return null;
+    if (p.price_total !== undefined && p.price_total !== null) return Number(p.price_total);
+    if (p.price === null || p.price === undefined) return null;
+    var price = Number(p.price);
+    if (p.price_unit !== 'sqm') return price;
+    var area = Number(p.built_size_sqm) || Number(p.size_sqm) || 0;
+    return area > 0 ? Math.round(price * area) : price;
+  }
+
   /* ---------- עסקה מתוך תקציב ----------
      ‏"דירה עד 4,000" בלי "להשכרה" היא שכירות, ו"עד 1.5 מיליון" קנייה. באמצע -
      אין הכרעה. */
@@ -522,7 +537,7 @@
     findAreas: findAreas, propertyAreas: propertyAreas, inAreas: inAreas, hasWord: hasWord,
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,
     FEATURE_WORDS: FEATURE_WORDS, FEATURE_LABELS: FEATURE_LABELS, featuresIn: featuresIn, featuresNote: featuresNote,
-    RENT_MAX: RENT_MAX, SALE_MIN: SALE_MIN, dealFromPrice: dealFromPrice,
+    RENT_MAX: RENT_MAX, SALE_MIN: SALE_MIN, dealFromPrice: dealFromPrice, comparablePrice: comparablePrice,
     FEATURE_CODES: FEATURE_CODES, knownFeature: knownFeature, featureCandidate: featureCandidate,
     PROPERTY_TYPES: PROPERTY_TYPES, PTYPE_NAMES: PTYPE_NAMES, typeIn: typeIn, typePtypes: typePtypes, botTypes: botTypes,
   };

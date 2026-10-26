@@ -116,4 +116,16 @@ test('מאפיין שלא זוהה: מה שאחרי "עם", בלי מה שכבר
   assert.strictEqual(SC.featureCandidate('בית עם מחסן וגינה'), null);
 });
 
+test('מחיר להשוואה: מחיר למ״ר כפול השטח (docs/price-unit.md)', () => {
+  // ‏price_total מהמסד גובר - זו אותה עמודה שהשאילתות בשרת משוות מולה
+  assert.strictEqual(SC.comparablePrice({ price: 140, price_unit: 'sqm', size_sqm: 170, price_total: 23800 }), 23800);
+  // בלי price_total - אותה נוסחה: בנוי קודם, ובמגרש שטח המגרש
+  assert.strictEqual(SC.comparablePrice({ price: 140, price_unit: 'sqm', built_size_sqm: 170, size_sqm: 200 }), 23800);
+  assert.strictEqual(SC.comparablePrice({ price: 20, price_unit: 'sqm', size_sqm: 2250 }), 45000);
+  // למ״ר בלי שטח - המחיר כמו שהוא; ובלי יחידה - המחיר
+  assert.strictEqual(SC.comparablePrice({ price: 140, price_unit: 'sqm' }), 140);
+  assert.strictEqual(SC.comparablePrice({ price: 4800, size_sqm: 90 }), 4800);
+  assert.strictEqual(SC.comparablePrice({ price: null }), null);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

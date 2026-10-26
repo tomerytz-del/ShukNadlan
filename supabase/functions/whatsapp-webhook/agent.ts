@@ -152,7 +152,7 @@ const WRITABLE_FIELDS = [
   "rooms", "city", "street", "house_number", "floor", "size_sqm",
   "built_size_sqm", "condition", "project_status", "move_in_date",
   "move_in_soon", "features", "restrooms_location", "storage_location",
-  "mamad_location",
+  "mamad_location", "price_unit",
 ] as const;
 
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
@@ -207,6 +207,13 @@ const propertyFields = {
     description: "sale = למכירה, rent = להשכרה.",
   },
   price: { type: "number", description: "מחיר בשקלים. 1.8 מליון = 1800000." },
+  price_unit: {
+    type: "string",
+    enum: ["sqm", "month", "total"],
+    description:
+      "רק כשהמחיר נאמר למ״ר (נפוץ בנכס מסחרי ובמגרש: '140 למטר', '65 ש\"ח למ\"ר') - sqm, " +
+      "והמחיר הוא הסכום למ״ר. אחרת אל תשלח/י: השכרה נקראת לחודש ומכירה סה״כ.",
+  },
   title: {
     type: "string",
     description:
@@ -1612,12 +1619,22 @@ function agreementLink(viewToken: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement?t=${viewToken}` : undefined;
 }
 
-/** מחיר כפי שהוא נקרא בהודעה: שכירות היא תמיד לחודש. */
-function priceText(price: unknown, dealType: unknown): string {
+/** יחידת המחיר במילים (‏price_unit, docs/price-unit.md). ריק = לפי סוג העסקה:
+ *  השכרה לחודש, מכירה סה״כ. אותו כלל ב-public-agent.ts ובאתר. */
+function priceUnitLabel(dealType: unknown, unit: unknown): string {
+  if (unit === "sqm") return dealType === "rent" ? "למ״ר לחודש" : "למ״ר";
+  if (unit === "total") return "סה״כ";
+  return dealType === "rent" ? "לחודש" : "סה״כ";
+}
+
+/** מחיר כפי שהוא נקרא בהודעה: שכירות לחודש, ומחיר למ״ר - למ״ר. בלי היחידה
+ *  נכתב "140 ₪ לחודש" על חנות שמושכרת ב-140 ₪ למ״ר. */
+function priceText(price: unknown, dealType: unknown, unit?: unknown): string {
   const n = Number(price);
   if (!Number.isFinite(n) || n <= 0) return "";
   const formatted = n.toLocaleString("he-IL");
-  return dealType === "rent" ? `${formatted} ₪ לחודש` : `${formatted} ₪`;
+  const per = priceUnitLabel(dealType, unit);
+  return per === "סה״כ" ? `${formatted} ₪` : `${formatted} ₪ ${per}`;
 }
 
 /**
@@ -2195,7 +2212,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 // הסינון עצמו משותף עם הבוט הציבורי (‏property-search.ts).
 // ---------------------------------------------------------------------------
 const AGENT_SEARCH_FIELDS =
-  "id, listing_number, title, property_type, deal_type, category, price, rooms, " +
+  "id, listing_number, title, property_type, deal_type, category, price, price_unit, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
   "agent_id, agency_id, is_promoted, created_at, neighborhood_id, neighborhoods(name), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
@@ -2303,6 +2320,8 @@ async function agentPropertySearch(
       neighborhood: hood,
       city: p.city,
       price: p.price,
+      // בלי היחידה המודל אמר "140 ₪ לחודש" על מחיר למ״ר (docs/price-unit.md)
+      price_unit: priceUnitLabel(p.deal_type, p.price_unit),
       rooms: p.rooms,
       size_sqm: p.size_sqm,
       floor: p.floor,
@@ -2924,7 +2943,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const p = await visibleProperty(
     ctx,
     propertyId,
-    "id, agent_id, title, address, city, street, house_number, price, rooms, " +
+    "id, agent_id, title, address, city, street, house_number, price, price_unit, rooms, " +
       "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
   );
   if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
@@ -2946,7 +2965,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
-    priceText(p.price, p.deal_type),
+    priceText(p.price, p.deal_type, p.price_unit),
   ].filter(Boolean).join(" · ");
 
   const greeting = client
@@ -3030,9 +3049,7 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
   const propertyId = String(input.property_id || "");
   const { data: p } = await ctx.supabase
     .from("properties")
-    .select("id, title, address, city, status, price, deal_type, images, " +
-            "is_promoted, promoted_until, bumped_at, shared_with_partners, " +
-            "created_at, listing_number")
+    .select("id, title, address, city, status, price, deal_type, images, is_promoted, promoted_until, bumped_at, shared_with_partners, created_at, listing_number")
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -3919,11 +3936,7 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
 
   let query = ctx.supabase
     .from("agent_clients")
-    .select(
-      "id, full_name, phone, email, notes, status, client_kind, deal_type, category, " +
-      "property_types, cities, min_price, max_price, min_rooms, max_rooms, " +
-      "min_size_sqm, max_size_sqm, max_floor, required_features, created_at",
-    )
+    .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false });
 
@@ -4149,9 +4162,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
-    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, " +
-            "cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, " +
-            "max_size_sqm, max_floor, required_features")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 
@@ -4178,9 +4189,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
-    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, " +
-            "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, " +
-            "max_floor, required_features")
+    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 
@@ -5061,10 +5070,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     .from("properties")
     // כל ה-src שמופיעים ב-PROPERTY_FIELDS_* — שדה שלא נשלף פשוט יוצא במסמך
     // כקו למילוי ידני, וזה לא מה שרוצים כשהערך קיים במודעה.
-    .select("id, agent_id, status, title, property_type, street, house_number, city, " +
-            "sales_area, rooms, floor, total_floors, price, built_size_sqm, " +
-            "garden_sqm, move_in_date, condition, features, deal_type, " +
-            "mamad_location, maintenance_fee, arnona")
+    .select("id, agent_id, status, title, property_type, street, house_number, city, sales_area, rooms, floor, total_floors, price, built_size_sqm, garden_sqm, move_in_date, condition, features, deal_type, mamad_location, maintenance_fee, arnona")
     .in("id", requested);
 
   const visible = ((rows || []) as unknown as Record<string, unknown>[])
@@ -5279,10 +5285,7 @@ async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unkn
 
   const { data: a, error } = await ctx.supabase
     .from("agreements")
-    .select("id, kind, status, title, commission_pct, commission_amount, " +
-            "commission_note, exclusive_from, exclusive_until, marketing_actions, " +
-            "notes, property_ids, client_ids, view_token, verify_code, " +
-            "require_otp, created_at, sent_at, viewed_at, signed_at, cancelled_at")
+    .select("id, kind, status, title, commission_pct, commission_amount, commission_note, exclusive_from, exclusive_until, marketing_actions, notes, property_ids, client_ids, view_token, verify_code, require_otp, created_at, sent_at, viewed_at, signed_at, cancelled_at")
     .eq("id", agreementId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -5465,8 +5468,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   // הדרך היחידה כאן שבה ליד סגור לא מדליף פרטים לצ'אט.
   let query = ctx.supabase
     .from("leads_masked")
-    .select("id, lead_type, deal_type, status, display_name, display_phone, " +
-            "display_message, city, property_type, property_id, created_at")
+    .select("id, lead_type, deal_type, status, display_name, display_phone, display_message, city, property_type, property_id, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
     .limit(limit);

@@ -56,6 +56,10 @@
     { key: 'comm_land', label: 'מגרש מסחרי', ptypes: PT.comm_land, url: 'מגרשים', commercial: true, noRooms: true },
     { key: 'warehouse', label: 'מחסן', ptypes: PT.warehouse, url: 'מחסנים', commercial: true, noRooms: true },
     { key: 'commercial', label: 'נכס מסחרי', commercial: true, noRooms: true },
+    /* ‏"דירות" בשורת סוג הנכס מעל התוצאות (‏KIND_CHIPS ב-home.js): כל דירה -
+       רגילה, גן וגג. ‏chipOnly: לא מוצע בבורר של המשפט, שם "דירה", "דירת גן"
+       ו"פנטהאוז" כבר עומדים בנפרד. בלי ‏url, ולכן נכתב ‎?type=flats‎. */
+    { key: 'flats', label: 'דירה', optionLabel: 'כל סוגי הדירות', ptypes: PT.apt.concat(PT.garden, PT.penthouse), residential: true, chipOnly: true },
   ];
   var TYPE_BY_KEY = {};
   TYPES.forEach(function (t) { TYPE_BY_KEY[t.key] = t; });
@@ -265,8 +269,9 @@
     }
 
     if (skip !== 'price') {
-      var price = Number(p.price);
-      var priced = p.price !== null && p.price !== undefined && isFinite(price);
+      // מחיר למ״ר - כפול השטח (‏SC.comparablePrice, docs/price-unit.md)
+      var price = SC.comparablePrice(p);
+      var priced = price !== null && isFinite(price);
       if (st.priceMax !== null && st.priceMax !== undefined && (!priced || price > st.priceMax)) return false;
       if (st.priceMin && (!priced || price < st.priceMin)) return false;
     }
@@ -335,10 +340,11 @@
         return { value: d, label: d ? dealLabel(d) : 'לקנות או לשכור', count: count({ deal: d }), selected: st.deal === d };
       });
     } else if (slot === 'type') {
-      var keys = TYPES.map(function (t) { return t.key; });
+      var keys = TYPES.filter(function (t) { return !t.chipOnly; }).map(function (t) { return t.key; });
       if (keys.indexOf(st.type) < 0) keys.push(st.type);
       list = keys.map(function (k) {
-        return { value: k, label: typeDef(k).label, count: count({ type: k }), selected: st.type === k };
+        var t = typeDef(k);
+        return { value: k, label: t.optionLabel || t.label, count: count({ type: k }), selected: st.type === k };
       });
     } else if (slot === 'area') {
       list.push({ value: 'all', label: areaLabel('all', areas, ctx), count: count({ area: 'all' }), selected: st.area === 'all' });

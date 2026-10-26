@@ -26,9 +26,20 @@ const WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10
 /* ‏escapeHtml מגיעה מ-assets/esc.js — הגדרה אחת לכל האתר. */
 
 /* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
+/* תמונת כרטיס מוקטנת - אותה נוסחה כמו cardImgUrl ב-assets/home.js
+   (‏docs/image-sizes.md). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
+function cardImgUrl(url, w){
+  const s = String(url || '');
+  const marker = '/storage/v1/object/public/';
+  const at = s.indexOf(marker);
+  if (at < 0) return s;
+  const path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+}
 function thumbStyle(p){
   const img = safeImageUrl(p.images && p.images[0]);
-  return img ? ` style="background-image:url('${encodeURI(img)}')"` : '';
+  return img ? ` style="background-image:url('${encodeURI(cardImgUrl(img))}')"` : '';
 }
 
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
@@ -515,9 +526,10 @@ function renderManagerContact(members){
 let galleryItems = [];
 let storyItems = [];
 
-/* ‏deal_type אינו קיים בכל הסביבות (הוא נוסף ל-market_deals אחרי שהטבלה
-   נוצרה), ולכן הוא נקרא בזהירות: בלעדיו העסקה נחשבת מכירה, וזה הרוב
-   המוחלט של השורות. */
+/* ‏market_deals מחזיקה מכירות בלבד: handle_property_sold כותב אליה רק נכס
+   שנמכר ו-deal_type שלו 'sale' (‏דוח ה-CMA סומך על זה), ואין בה עמודת
+   deal_type. לכן כל כרטיס כאן הוא "נמכר" - נבדק 26.10.2026. הענף "הושכר"
+   נשאר למקרה שעסקאות השכרה ייכנסו אליה יום אחד, עם עמודה משלהן. */
 function dealStamp(deal){
   return deal && deal.deal_type === 'rent' ? 'הושכר' : 'נמכר';
 }
@@ -630,7 +642,12 @@ function renderStories(){
    מפיל את השאילתה כולה על עמודה חסרה, ולכן היא נורית קודם בגרסה המלאה
    וחוזרת לגרסה המינימלית אם נכשלה — עדיף כרטיס עסקה בלי תמונה וקישור
    מאשר מקטע שלא נטען. */
-const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, deal_type, property_id, price_basis';
+/* ‏**העמודות של הפרודקשן, לא של התוכנית.** עד אוקטובר 2026 הגרסה המלאה
+   ביקשה deal_type ו-property_id - שתי עמודות שלא קיימות ב-market_deals
+   (הקישור לנכס הוא related_property_id) - ולכן כל טעינה של דף משרד נכשלה
+   ב-400 לפני שהגרסה המינימלית רצה, והכרטיסים יצאו בלי תמונה וקישור.
+   ‏deal_type עדיין אינו בטבלה, ו-dealStamp קורא אותו בזהירות. */
+const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, related_property_id, price_basis';
 const DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city';
 const STORY_DEALS_MAX = 12;
 
@@ -641,7 +658,8 @@ async function fetchAgencyDeals(sb, agencyId){
   if (error){
     ({ data } = await query(DEAL_COLUMNS_MIN));
   }
-  return data || [];
+  // ‏property_id הוא השם שהרצועה (‏attachDealPhotos, הקישור בכרטיס) קוראת
+  return (data || []).map(d => Object.assign({ property_id: d.related_property_id || null }, d));
 }
 
 /* התמונה של הנכס שנסגר. הנכס עצמו כבר לא פעיל, ולכן הוא נשלף בנפרד ולא
@@ -876,7 +894,7 @@ async function loadActiveProperties(sb, agencyId){
     // ‏created_at, floor, features, is_promoted ו-promoted_until נוספו בשביל
     // המדף: הוא ממיין לפי סדר ההעלאה, מציג קומה וחניה בשורת המאפיינים,
     // ומצמיד עד שני נכסים מקודמים לראש — בדיוק כמו בדף הבית.
-    .select('id, title, price, deal_type, category, price_includes_vat, mamad_location, rooms, property_type, size_sqm, floor, features, city, street, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
+    .select('id, title, price, price_unit, price_total, deal_type, category, price_includes_vat, mamad_location, rooms, property_type, size_sqm, floor, features, city, street, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   // משרד בלי נכסים פעילים לא מקבל מקטע עם הכיתוב "אין כרגע נכסים" — מקטע
   // כזה אומר לגולש/ת רק שאין כאן מה לחפש. המקטע פשוט לא נפתח. הווידג'טים

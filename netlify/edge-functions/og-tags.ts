@@ -461,7 +461,10 @@ function priceBits(p: Record<string, unknown>): { num: string; flat: string; htm
   const n = heNum(p.price);
   if (!n) return null;
   const vat = p.category === "commercial" && p.price_includes_vat !== true ? " + מע״מ" : "";
-  const suffix = (p.deal_type === "rent" ? " / חודש" : "") + vat;
+  // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+  const unit = p.price_unit || (p.deal_type === "rent" ? "month" : "total");
+  const per = unit === "sqm" ? (p.deal_type === "rent" ? " למ״ר / חודש" : " למ״ר") : unit === "month" ? " / חודש" : "";
+  const suffix = per + vat;
   const num = `${n} ₪`;
   const html = esc(num) + (suffix ? `<span class="suffix">${esc(suffix)}</span>` : "");
   return { num, flat: num + suffix, html };
@@ -643,7 +646,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
     "rooms,size_sqm,status,neighborhoods(name)," +
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
-    "price_per_sqm,category,price_includes_vat,total_floors,built_size_sqm,garden_sqm,condition," +
+    "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
     "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)," +
     "video_url,video_poster_url";
@@ -659,8 +662,10 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const where = [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
 
+  // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+  const unit = p.price_unit || (p.deal_type === "rent" ? "month" : "total");
   const bits = [
-    p.deal_type === "rent" ? nis(p.price) + "/חוד׳" : nis(p.price),
+    nis(p.price) + (unit === "sqm" ? (p.deal_type === "rent" ? " למ״ר לחודש" : " למ״ר") : unit === "month" ? "/חוד׳" : ""),
     num(p.rooms) ? `${num(p.rooms)} חד׳` : "",
     num(p.size_sqm) ? `${num(p.size_sqm)} מ״ר` : "",
     where,
