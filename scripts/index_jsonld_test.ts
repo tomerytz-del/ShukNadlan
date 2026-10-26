@@ -30,6 +30,7 @@ function check(name: string, ok: boolean) {
 
 const res = await handler(new Request("https://shuknadlan.co.il/agents"), context());
 const html = await res.text();
+check("תשובה שמולאה נשמרת ב-CDN", /max-age=3600/.test(res.headers.get("Netlify-CDN-Cache-Control") || ""));
 const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
 check("בלוק אחד", blocks.length === 1);
 let graph: { "@graph"?: Record<string, unknown>[] } = {};
@@ -67,6 +68,10 @@ check("לא מכפילים CollectionPage", againHtml.split("CollectionPage").le
 
 const projectsHtml = await (await handler(new Request("https://shuknadlan.co.il/projects"), context())).text();
 check("projects לא בפונקציה הזו", projectsHtml === HTML);
+
+globalThis.fetch = (async () => new Response("no", { status: 500 })) as typeof fetch;
+const downRes = await handler(new Request("https://shuknadlan.co.il/agencies"), context());
+check("כשל מסד לא נשמר במטמון", !downRes.headers.get("Netlify-CDN-Cache-Control") && (await downRes.text()) === HTML);
 
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);

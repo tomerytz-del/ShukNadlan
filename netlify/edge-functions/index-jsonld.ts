@@ -167,6 +167,12 @@ export default async function handler(request: Request, context: Context) {
 
   const json = JSON.stringify(graph(page, got.rows, got.total)).replace(/</g, "\\u003c");
   const out = html.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
+  /* בלי מטמון כל בקשה חיכתה לשאילתה ל-Supabase (‏count=exact, עד 1,000 שורות):
+     ‏/agencies הגיע ל-1.1-1.5 שניות עד הבייט הראשון (‏slow_ttfb, 25.10.2026).
+     הרשימה שהגולש/ת רואה נבנית בדפדפן, והבלוק הזה הוא לסורק בלבד - שעה של
+     בלוק ישן אינה מסתירה משרד מאיש. רק תשובה שמולאה נשמרת, כמו ב-brokers-page. */
+  headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   return new Response(out, { status: res.status, headers });
 }
 
