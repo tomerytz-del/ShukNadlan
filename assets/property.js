@@ -1219,8 +1219,10 @@ function ensureMapStack(){
   return mapStackPromise;
 }
 
-/* #mapSection מוסתר, וצופה חיתוך לא רואה אותו. #mapArm הוא 1px גלוי
-   מעליו. מרווח 480px מתחיל את ההורדה לפני שהסקציה נכנסת למסך.
+/* #mapSection מוסתר ולכן אינו תופס גובה, והסימון שמעליו יושב במסך
+   הראשון גם כשהמפה הפתוחה כבר מתחת לקפל. צופה רגיל היה מוריד את
+   MapLibre בטעינה ודוחף את באנר המחפשים. אם הסימון כבר במסך, מחכים
+   לגלילה הראשונה. אם הוא מתחת למסך, הצופה מתחיל מיד ובלי מרווח.
    בלי IntersectionObserver המפה נטענת מיד, כמו קודם. */
 function armPropertyMap(p, addressText){
   if (!p || p.lat == null || p.lng == null || !window.supabase) return;
@@ -1236,8 +1238,29 @@ function armPropertyMap(p, addressText){
     started = true;
     io.disconnect();
     start();
-  }, { rootMargin: '480px 0px' });
-  io.observe(arm);
+  });
+  // עמודה שעדיין לא נפרסה מחזירה top=0 וגובה 0. מידה כזו אינה
+  // "מתחת למסך", והצופה היה נדלק מיד. ממתינים לפריסה, ואם היא לא
+  // מגיעה — רק לגלילה.
+  const decide = (tries)=>{
+    const rect = arm.getBoundingClientRect();
+    const h = rect.height || arm.offsetHeight;
+    if (h === 0 && tries < 8){
+      requestAnimationFrame(()=> decide(tries + 1));
+      return;
+    }
+    const inView = h > 0 && rect.top < window.innerHeight && rect.top + h > 0;
+    if (!inView && h > 0){
+      io.observe(arm);
+      return;
+    }
+    const onScroll = ()=>{
+      window.removeEventListener('scroll', onScroll);
+      io.observe(arm);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+  };
+  decide(0);
 }
 
 async function propertyMapEnabled(id){
@@ -2805,12 +2828,14 @@ function renderProperty(p){
     if (p.agencies?.slug) window.location.href = '/agency?slug=' + p.agencies.slug;
   });
 
-  // המפה נטענת כשהסקציה מתקרבת למסך: בדיקת הזכאות ו-MapLibre לא רצים
-  // עם הציור הראשון, ואין סיבה שהם יעכבו את רינדור הנכס עצמו.
-  armPropertyMap(p, addressText);
-
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('propertyContent').style.display = 'block';
+
+  // המפה נטענת כשהסקציה מתקרבת למסך: בדיקת הזכאות ו-MapLibre לא רצים
+  // עם הציור הראשון. הקריאה אחרי שהעמודה מוצגת — לפני כן היא
+  // display:none, ו-getBoundingClientRect של #mapArm הוא 0. צופה
+  // שנדלק על המידה הזו מוריד את המפה בטעינה.
+  armPropertyMap(p, addressText);
 
   // מחשבון משכנתא על מודעת השכרה הוא שטות: אין מחיר רכישה ואין מימון.
   // הכרטיס כולו יורד, ואיתו כפתור הליד — אין טעם לייצר ליד משכנתא משוכר/ת.
