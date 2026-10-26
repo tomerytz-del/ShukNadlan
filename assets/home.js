@@ -1180,7 +1180,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, price_unit, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
+  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
@@ -5235,8 +5235,9 @@ async function runSearchInner(){
     // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן הוא לא סוחף איתו
     // נכסים שהמילים האלה מופיעות בכותרת שלהם. כמה שכונות = ‏in ולא eq.
     if (hoodState.selected.size) query = query.in('neighborhood_id', [...hoodState.selected]);
-    if (s.priceMin) query = query.gte('price', s.priceMin);
-    if (s.priceMax) query = query.lte('price', s.priceMax);
+    // ‏price_total: מחיר למ״ר כפול השטח, כדי שחנות ב-140 ₪ למ״ר לא תעבור "עד 5,000" (docs/price-unit.md)
+    if (s.priceMin) query = query.gte('price_total', s.priceMin);
+    if (s.priceMax) query = query.lte('price_total', s.priceMax);
     if (s.rooms.size) query = query.in('rooms', Array.from(s.rooms).map(r=>r === '+6' ? 6 : parseFloat(r)));
     if (s.ptypes.size) query = query.in('property_type', Array.from(s.ptypes));
     if (s.floorMin) query = query.gte('floor', s.floorMin);

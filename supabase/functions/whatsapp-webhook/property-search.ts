@@ -147,8 +147,9 @@ export function applyPropertyFilters(
     minSize: num(args.min_size_sqm),
     maxFloor: num(args.max_floor),
   };
-  if (parsed.minPrice !== null) query = query.gte("price", parsed.minPrice);
-  if (parsed.maxPrice !== null) query = query.lte("price", parsed.maxPrice);
+  // ‏price_total: מחיר למ״ר כפול השטח - אחרת חנות ב-140 ₪ למ״ר עונה על "עד 5,000" (docs/price-unit.md)
+  if (parsed.minPrice !== null) query = query.gte("price_total", parsed.minPrice);
+  if (parsed.maxPrice !== null) query = query.lte("price_total", parsed.maxPrice);
   if (parsed.minRooms !== null) query = query.gte("rooms", parsed.minRooms);
   if (parsed.maxRooms !== null) query = query.lte("rooms", parsed.maxRooms);
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);

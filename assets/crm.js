@@ -14736,9 +14736,10 @@ function filterProperties(rows, f){
     if (f.type && p.property_type !== f.type) return false;
     if (f.city && p.city !== f.city) return false;
     if (f.rooms && !(Number(p.rooms) >= f.rooms)) return false;
-    if (!inPropRange(p.price, f.price)) return false;
+    // מחיר למ״ר - כפול השטח (‏price_total, docs/price-unit.md)
+    if (!inPropRange(p.price_total ?? p.price, f.price)) return false;
     if (!inPropRange(p.size_sqm, f.size)) return false;
-    if (!inPropRange(p.price_per_sqm, f.psm)) return false;
+    if (!inPropRange(p.price_unit === 'sqm' ? p.price : p.price_per_sqm, f.psm)) return false;
     if (f.extra === 'promoted'   && !propertyIsPromoted(p)) return false;
     if (f.extra === 'exclusive'     && !propertyIsExclusive(p)) return false;
     if (f.extra === 'not_exclusive' && propertyIsExclusive(p)) return false;
@@ -14866,7 +14867,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -15286,7 +15287,10 @@ function buildPropertyCard(p, agentId){
       cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר`, title:'מחיר למטר רבוע' },
+    // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
+    p.price_unit === 'sqm'
+      ? (p.price_total && p.price_total !== p.price && { text:`≈ ${shekel(p.price_total)} לכל הנכס`, title:'המחיר למ״ר כפול השטח' })
+      : (p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר`, title:'מחיר למטר רבוע' }),
     // ‏"גו״ח" הוא הקיצור שמתווכים משתמשים בו ממילא, והוא חוסך כאן כמחצית
     // מרוחב התגית הארוכה ביותר בשורה. הנוסח המלא ב-title.
     planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info',

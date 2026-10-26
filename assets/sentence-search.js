@@ -269,8 +269,9 @@
     }
 
     if (skip !== 'price') {
-      var price = Number(p.price);
-      var priced = p.price !== null && p.price !== undefined && isFinite(price);
+      // מחיר למ״ר - כפול השטח (‏SC.comparablePrice, docs/price-unit.md)
+      var price = SC.comparablePrice(p);
+      var priced = price !== null && isFinite(price);
       if (st.priceMax !== null && st.priceMax !== undefined && (!priced || price > st.priceMax)) return false;
       if (st.priceMin && (!priced || price < st.priceMin)) return false;
     }
