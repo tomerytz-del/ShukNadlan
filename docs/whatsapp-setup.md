@@ -1054,7 +1054,7 @@ WHATSAPP_BOT_MODEL = claude-sonnet-5
    הודעות ה-14:10 נדחו (27 מ-29 הכשלים של השבוע היו 131049).
    ‏`notif_push_template_gap_minutes` (‏240) מאז התבנית הקודמת, ובתוכו - רק
    הסוגים שבעדיפות (סעיף 5). השאר מחכה ומצטרף לתבנית הבאה. בתוך החלון
-   (טקסט חופשי) אין שינוי. ‏`20270822090000_notification_push_template_gap.sql`.
+   (טקסט חופשי) אין שינוי. ‏`20270825090000_notification_push_template_gap.sql`.
 
 וסוג שכובה בפעמון לא ייווצר במסד מלכתחילה (הטריגר
 `notifications_apply_preferences` מחזיר `null`), ולכן גם לא יישלח. הדשבורד

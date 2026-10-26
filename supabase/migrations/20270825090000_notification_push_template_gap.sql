@@ -48,7 +48,7 @@ as $$
                       where key = 'notif_push_max_per_day'), 12)      as cap,
            coalesce((select value::int from public.pricing_config
                       where key = 'notif_push_max_failures_24h'), 3)  as max_fail,
-           -- מרווח בין תבניות - נגד 131049. ראו 20270822090000.
+           -- מרווח בין תבניות - נגד 131049. ראו 20270825090000.
            coalesce((select value::int from public.pricing_config
                       where key = 'notif_push_template_gap_minutes'), 240) as tpl_gap,
            -- עוקפים שקט. ראו סעיף 9 ב-20270125090000.
@@ -126,7 +126,7 @@ as $$
 $$;
 
 comment on function public.notification_push_due_agents() is
-  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. שקט - רק agenda_reminder; מרווח, תקרה יומית, או תבנית קודמת לפני פחות מ-notif_push_template_gap_minutes מחוץ לחלון - רק notification_push_priority_types() (20270420090000, 20270822090000).';
+  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. שקט - רק agenda_reminder; מרווח, תקרה יומית, או תבנית קודמת לפני פחות מ-notif_push_template_gap_minutes מחוץ לחלון - רק notification_push_priority_types() (20270420090000, 20270825090000).';
 
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;
