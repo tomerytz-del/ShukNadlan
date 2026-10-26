@@ -57,10 +57,14 @@ globalThis.fetch = (async () =>
 ) as typeof fetch;
 const listed = await handler(new Request("https://shuknadlan.co.il/projects"), context());
 const listedHtml = await listed.text();
+check("תשובה שמולאה נשמרת ב-CDN", /max-age=3600/.test(listed.headers.get("Netlify-CDN-Cache-Control") || ""));
 const list = ld(listedHtml)["@graph"]?.find((n) => n["@type"] === "ItemList") as { numberOfItems?: number; itemListElement?: { url: string }[] } | undefined;
 check("ItemList כשיש פרויקט", list?.numberOfItems === 1 && list.itemListElement?.[0].url === "https://shuknadlan.co.il/project?slug=park");
 check("הרשימה מעל המדריך", listedHtml.indexOf('id="projectsGrid"') < listedHtml.indexOf('id="projectsGuide"'));
 
+globalThis.fetch = (async () => new Response("no", { status: 500 })) as typeof fetch;
+const downRes = await handler(new Request("https://shuknadlan.co.il/projects"), context());
+check("כשל מסד לא נשמר במטמון", !downRes.headers.get("Netlify-CDN-Cache-Control"));
 const down = await run({ message: "no" }, 500);
 check("כשל בלי noindex ובלי ItemList", !/noindex/.test(down) && !ld(down)["@graph"]?.some((n) => n["@type"] === "ItemList"));
 

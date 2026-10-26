@@ -3049,9 +3049,7 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
   const propertyId = String(input.property_id || "");
   const { data: p } = await ctx.supabase
     .from("properties")
-    .select("id, title, address, city, status, price, deal_type, images, " +
-            "is_promoted, promoted_until, bumped_at, shared_with_partners, " +
-            "created_at, listing_number")
+    .select("id, title, address, city, status, price, deal_type, images, is_promoted, promoted_until, bumped_at, shared_with_partners, created_at, listing_number")
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -3938,11 +3936,7 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
 
   let query = ctx.supabase
     .from("agent_clients")
-    .select(
-      "id, full_name, phone, email, notes, status, client_kind, deal_type, category, " +
-      "property_types, cities, min_price, max_price, min_rooms, max_rooms, " +
-      "min_size_sqm, max_size_sqm, max_floor, required_features, created_at",
-    )
+    .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false });
 
@@ -4168,9 +4162,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
-    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, " +
-            "cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, " +
-            "max_size_sqm, max_floor, required_features")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 
@@ -4197,9 +4189,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
-    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, " +
-            "min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, " +
-            "max_floor, required_features")
+    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
   if (error) return { ok: false, error: error.message };
 
@@ -5080,10 +5070,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     .from("properties")
     // כל ה-src שמופיעים ב-PROPERTY_FIELDS_* — שדה שלא נשלף פשוט יוצא במסמך
     // כקו למילוי ידני, וזה לא מה שרוצים כשהערך קיים במודעה.
-    .select("id, agent_id, status, title, property_type, street, house_number, city, " +
-            "sales_area, rooms, floor, total_floors, price, built_size_sqm, " +
-            "garden_sqm, move_in_date, condition, features, deal_type, " +
-            "mamad_location, maintenance_fee, arnona")
+    .select("id, agent_id, status, title, property_type, street, house_number, city, sales_area, rooms, floor, total_floors, price, built_size_sqm, garden_sqm, move_in_date, condition, features, deal_type, mamad_location, maintenance_fee, arnona")
     .in("id", requested);
 
   const visible = ((rows || []) as unknown as Record<string, unknown>[])
@@ -5298,10 +5285,7 @@ async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unkn
 
   const { data: a, error } = await ctx.supabase
     .from("agreements")
-    .select("id, kind, status, title, commission_pct, commission_amount, " +
-            "commission_note, exclusive_from, exclusive_until, marketing_actions, " +
-            "notes, property_ids, client_ids, view_token, verify_code, " +
-            "require_otp, created_at, sent_at, viewed_at, signed_at, cancelled_at")
+    .select("id, kind, status, title, commission_pct, commission_amount, commission_note, exclusive_from, exclusive_until, marketing_actions, notes, property_ids, client_ids, view_token, verify_code, require_otp, created_at, sent_at, viewed_at, signed_at, cancelled_at")
     .eq("id", agreementId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -5484,8 +5468,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   // הדרך היחידה כאן שבה ליד סגור לא מדליף פרטים לצ'אט.
   let query = ctx.supabase
     .from("leads_masked")
-    .select("id, lead_type, deal_type, status, display_name, display_phone, " +
-            "display_message, city, property_type, property_id, created_at")
+    .select("id, lead_type, deal_type, status, display_name, display_phone, display_message, city, property_type, property_id, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
     .limit(limit);

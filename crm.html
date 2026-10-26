@@ -1164,11 +1164,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* הצעה שהושלמה מהכותרת: ענבר — לא שגיאה ולא ערך מאושר. ערכים קבועים ולא
      ‏var(--gold), שהוא אדום בפלטה הנוכחית ולא היה נבדל מסימון השגיאה. */
   .imp-fix .fix-field.guess select,.imp-fix .fix-field.guess input{border-color:#C0952B}
-  .imp-fix .fix-field.guess .fix-label{color:#8A6A18}
+  .imp-fix .fix-field.guess .fix-label{color:#8a6d10}
   .imp-fixall{font-size:.68rem;font-weight:700;color:var(--teal);background:var(--teal-tint);border:1.5px solid var(--teal-tint);border-radius:var(--radius-sm);padding:6px 9px;white-space:nowrap;cursor:pointer}
   .imp-fixall:disabled{opacity:.45;cursor:not-allowed}
   .imp-chip.fix{background:var(--teal);color:#fff;border-color:var(--teal)}
-  .imp-chip.guess{background:#FAF2DF;color:#8A6A18;border-color:#E3CE94}
+  .imp-chip.guess{background:#FAF2DF;color:#8a6d10;border-color:#E3CE94}
   .imp-sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
   .imp-chip{padding:7px 12px;border-radius:999px;font-weight:700;font-size:.78rem;background:var(--paper-raised);border:1.5px solid var(--line)}
   .imp-chip.ok{background:var(--teal-tint);color:var(--teal);border-color:var(--teal-tint)}
@@ -1177,7 +1177,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   /* ההודעה יושבת מעל סרגל הניווט של המערכת ולא מאחוריו */
-  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:260}
+  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:260;align-items:center;justify-content:space-between;gap:12px}
+  .toast-undo{min-height:44px;min-width:64px;padding:0 14px;border:0;border-radius:10px;background:#fff;color:var(--nv-ink,#0E1A33);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  @media (max-width:1023px){
+    .toast{bottom:calc(76px + var(--sa-bottom))}
+  }
 
   /* ---------- Property images (2.1) ---------- */
   .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
@@ -2926,6 +2930,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* CMA-CSS:END */
 
+  /* "שליחת קישור ללקוח/ה" - רק ב-CRM, ולכן מחוץ לבלוק המשותף (cmaShare ב-crm.js) */
+  .cma-share{border:1px solid var(--line);border-radius:var(--radius-md);background:var(--teal-tint);padding:12px 14px;margin-bottom:16px}
+  .cma-share p{margin:0 0 8px;font-size:.85rem;color:var(--ink)}
+  .cma-share input{width:100%;box-sizing:border-box;direction:ltr;font-size:.8rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-bottom:8px}
+  .cma-share-btns{display:flex;flex-wrap:wrap;gap:8px}
+  .cma-share-btns .btn{flex:1 1 auto;text-align:center}
+
   /* ---------- מדבקת QR לשלט ---------- */
   /* השכבה עצמה היא הגוללת, ולא הכרטיס: בטלפון גובה הכרטיס עלה על מה
      שנראה בפועל על המסך (‏100vh בנייד כולל את שורת הכתובת), וכפתורי
@@ -2979,7 +2990,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     body > *{display:none !important}
     body > #cmaOverlay{display:block !important;position:static;background:#fff;padding:0;overflow:visible}
     .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
-    .cma-actions{display:none !important}
+    .cma-actions, .cma-share{display:none !important}
     .cma-table{font-size:.72rem}
     /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
        נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
@@ -3496,7 +3507,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     --nv-line-soft:#EEF1F6; --nv-chip-line:#D5DBE6; --nv-chip-ink:#3A4458; --nv-off:#E3E7EF;
     --nv-navy:#1C3A5E; --nv-urgent-ink:#9A3412; --nv-urgent-soft:#FDE7D9;
     --nv-warn:#7A5300; --nv-warn-soft:#FFF1C7; --nv-ok:#166534; --nv-ok-soft:#E6F4EC;
-    --nv-gold:#E0B84A; --nv-gold-dark:#B8862B;
+    --nv-gold:#E0B84A; --nv-gold-dark:#B8862B; --nv-gold-ink:#8a6d10;
   }
   /* הכפתור הראשי של המערכת כחול. הבורדו הוא צבע המיתוג של המשרד ולא של
      ה-CRM (סעיף 1.2 במסמך ההעברה). מסך הכניסה שומר על הגרדיאנט שלו
@@ -5841,7 +5852,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        line, muted ו-ground. הפליז נשאר: הוא האקסנט של המאמן ושל העמלות. חל
        על דאשבורד המשרד, דאשבורד הצוות והדשבורד האישי - שלושתם .od. */
     --od-sap:#1F3F99; --od-sap-deep:#0E1A33; --od-sap-soft:#B9CCFA; --od-sap-tint:#EAF0FF;
-    --od-brass:#c9a227; --od-brass-l:#e5c76a; --od-gold-ink:#8a6b12; --od-gold-tint:#faf3dc;
+    --od-brass:#c9a227; --od-brass-l:#e5c76a; --od-gold-ink:#8a6d10; --od-gold-tint:#faf3dc;
     --od-mint:#166534; --od-sand:#7A5300;
     --od-ok:#166534; --od-warn:#7A5300; --od-bad:#C2410C;
     --od-line:#E3E7EF; --od-muted:#5A6478; --od-ink:#0E1A33; --od-panel:#fff; --od-bg:#F4F6FA;
@@ -6635,7 +6646,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       border-color:var(--nv-gold);background:#fffaf0;border-inline-start:3px solid var(--nv-gold);
     }
     .leads-pref-gear{flex:none;display:flex;color:var(--nv-navy)}
-    .leads-pref-strip.is-unset .leads-pref-gear{color:var(--nv-gold-dark)}
+    .leads-pref-strip.is-unset .leads-pref-gear{color:var(--nv-gold-ink)}
     .leads-pref-sum{
       flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--nv-ink);
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -6697,6 +6708,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lp-step:disabled{cursor:default}
   .lp-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
   .lp-acts .lp-archive{color:var(--nv-urgent-ink);margin-inline-start:auto}
+  .lp-card.is-unread{box-shadow:inset -4px 0 0 var(--nv-accent)}
+  .lp-card.is-urgent.is-unread{box-shadow:inset -4px 0 0 var(--nv-urgent)}
+  .lp-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--nv-accent);margin-inline-end:6px;vertical-align:middle}
+  .lp-phone{font-size:14px;color:#3A4458;direction:ltr;text-align:right}
+  .lp-time{color:var(--nv-muted);font-weight:700}
+  .lp-st{font-size:12px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .lp-st-new{background:var(--nv-accent-soft);color:var(--nv-accent-ink)}
+  .lp-st-contacted{background:#EEF2F8;color:var(--nv-navy)}
+  .lp-st-meeting{background:var(--nv-warn-soft);color:var(--nv-warn)}
+  .lp-st-not_relevant{background:#F1F3F8;color:var(--nv-muted)}
+  .lp-st-won{background:var(--nv-ok-soft);color:var(--nv-ok)}
+  .lp-quick{display:flex;flex-wrap:wrap;gap:8px}
+  .lp-quick[hidden]{display:none}
+  .lp-quick .lp-q{flex:1 1 96px;min-height:44px;min-width:96px;justify-content:center;box-sizing:border-box}
+  .lp-quick .lp-q-call{background:var(--nv-navy);color:#fff;border-color:var(--nv-navy)}
+  .lp-quick .lp-q-wa{background:var(--nv-ok);color:#fff;border-color:var(--nv-ok)}
+  .lp-quick .lp-q-done{background:#fff;color:var(--nv-ink)}
+  .lp-skel-wrap{display:flex;flex-direction:column;gap:12px}
+  .lp-skel{display:flex;gap:12px;padding:16px 18px;border:1px solid var(--nv-line);border-radius:18px;background:#fff}
+  .lp-skel>span:first-child{width:44px;height:44px;border-radius:50%;background:#EEF2F8;flex:none}
+  .lp-skel>span:last-child{flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center}
+  .lp-skel i{display:block;height:12px;border-radius:8px;background:linear-gradient(90deg,#EEF2F8 25%,#F8F9FC 50%,#EEF2F8 75%);background-size:200% 100%;animation:lpShimmer 1.2s infinite}
+  .lp-skel i:first-child{width:55%}
+  .lp-skel i:last-child{width:80%}
+  @keyframes lpShimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+  #dashboard .empty-state p{margin:0 0 8px}
+  #dashboard .empty-state .ui-btn{margin-top:8px;min-height:44px}
   .lp-audio{max-width:100%;height:44px}
   .lp-details{border-top:1px solid var(--nv-line-soft);padding-top:10px}
   .clients-top{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
@@ -6834,11 +6872,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 
   /* ---------- דף הבית (שלב 6, סעיף 3.0; assets/crm-home.js, docs/crm-home.md) ---------- */
-  .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:4px 20px;margin:0 0 16px}
-  .hm-head-text{min-width:0;flex:1 1 280px;display:flex;flex-direction:column;gap:4px}
+  .hm-head{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:0 0 16px}
+  .hm-head-text{min-width:0;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:8px}
   .hm-head .dash-greet{font-family:'Frank Ruhl Libre',serif;font-size:34px;font-weight:700;line-height:1.15;margin:0;color:var(--nv-ink)}
-  .hm-head .dash-brief{margin:0;font-size:16px;font-weight:500;color:#3A4458}
-  .hm-date{font-size:14px;color:var(--nv-muted)}
+  .hm-head .dash-brief{margin:0;display:flex;flex-direction:column;gap:6px;width:100%;font-size:16px;font-weight:500;color:#3A4458}
+  .hm-head .dash-brief[hidden]{display:none}
+  /* בכיווץ הגלילה הברכה יורדת (היא הקשר). השורות נשארות: הן הפעולה. */
+  #dashboard.is-compact .hm-head .dash-brief{display:flex}
+  #dashboard.is-compact .hm-head .dash-brief[hidden]{display:none}
+  .hm-sum{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:8px 12px;box-sizing:border-box;border-radius:12px;border:1px solid var(--nv-line);background:#fff;font:inherit;font-size:15px;font-weight:700;color:var(--nv-ink);text-align:start;cursor:pointer}
+  .hm-sum:hover{border-color:#B8C2D9;background:#F8F9FC}
+  .hm-sum-go{color:var(--nv-accent);font-weight:800;flex:none}
+  .hm-date{font-size:14px;color:var(--nv-muted);align-self:flex-start}
   #dashboard.is-compact .hm-date{display:none}
   .hm-sec-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 8px;margin:0 0 10px}
   .hm-sec-head h2{margin:0;font-size:19px;font-weight:800;color:var(--nv-ink)}
@@ -6893,17 +6938,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hb-head h3{font-size:19px;flex:1}
   .hb-head-sub{font-size:13px;color:var(--nv-muted)}
   .hb-link{font-size:14px}
-  .hb-pr{display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:14px;border-top:1px solid #F1F3F8}
+  .hb-pr{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 8px;border-radius:14px;border-top:1px solid #F1F3F8}
+  .hb-pr.is-unread{box-shadow:inset -3px 0 0 var(--nv-accent)}
   .hb-pr:hover{background:#F8F9FC}
   .hb-rank{width:28px;height:28px;border-radius:50%;background:var(--nv-navy);color:#fff;display:flex;align-items:center;justify-content:center;
     font-size:13px;font-weight:800;flex:none}
   .hb-rank.is-1{background:var(--nv-urgent)}
-  .hb-rank.is-2{background:#B8862B}
+  .hb-rank.is-2{background:#8a6d10}
   .hb-pr-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
   .hb-pr-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .hb-pr-top strong{font-size:15px}
   .hb-pr-top .ui-tag{font-size:11px;padding:1px 8px}
-  .hb-pr-what{font-size:13px;color:#3A4458;line-height:1.4;overflow-wrap:anywhere}
+  .hb-pr-what{font-size:13px;color:#3A4458;line-height:1.4;overflow-wrap:break-word}
+  .hb-pr-acts{display:flex;align-items:center;gap:8px;flex:none}
   .hb-pr-why{font-size:12px;font-weight:700;color:var(--nv-muted)}
   .hb-pr-why.is-hot{color:var(--nv-urgent-ink)}
   .hb-call{min-width:44px;height:44px;padding:0 12px;box-sizing:border-box;border-radius:12px;background:var(--nv-accent);color:#fff;border:0;
@@ -6912,6 +6959,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hb-call svg{width:18px;height:18px}
   .hb-wa-btn{width:44px;height:44px;border-radius:12px;background:var(--nv-ok-soft);color:var(--nv-ok);display:flex;align-items:center;justify-content:center;flex:none}
   .hb-wa-btn svg{width:18px;height:18px}
+  .hb-done{min-height:44px;min-width:64px;padding:0 12px;border-radius:12px;border:1px solid var(--nv-line);background:#fff;color:var(--nv-ink);font:inherit;font-size:14px;font-weight:800;cursor:pointer;flex:none}
   .hb-ag{padding:10px 4px;border-top:1px solid #F1F3F8;border-radius:0;align-items:flex-start}
   .hb-ag:hover{background:transparent}
   .hb-ag-time{width:48px;padding-top:2px;font-size:14px;color:var(--nv-muted)}
@@ -6951,6 +6999,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hm-wait{display:flex;overflow-x:auto;scrollbar-width:none;margin-inline:-12px;padding-inline:12px}
     .hm-wait::-webkit-scrollbar{display:none}
     .hm-wait>.hm-tile{flex:0 0 150px}
+  }
+  /* "לחזור אליהם" ברוחב העמודה, כדי שהשורה לא נמחצת לצד הכפתורים */
+  @media (min-width:900px){
+    #hbLeads{grid-column:1 / -1}
+  }
+  /* בטלפון הכפתורים בשורה משלהם, ברוחב הכרטיס, כמו בכרטיס הליד */
+  @media (max-width:899px){
+    .hb-pr{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:8px;align-items:center}
+    .hb-pr-text{min-width:0}
+    .hb-pr-acts{grid-column:1 / -1;width:100%}
+    .hb-pr-acts>.hb-call,.hb-pr-acts>.hb-wa-btn,.hb-pr-acts>.hb-done{
+      flex:1 1 0;width:auto;min-width:0;height:auto;min-height:44px;padding:0 12px;box-sizing:border-box}
+    .hb-pr-acts .hb-btxt{display:inline}
   }
   @media (max-width:640px){
     .hm-head .dash-greet{font-size:26px}
@@ -7789,11 +7850,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <header class="hm-head">
           <div class="hm-head-text">
             <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
-            <!-- אותם מספרים של "מחכה לך" במשפט אחד (homeBrief ב-assets/crm-home.js).
-                 הברכה שמעליו ומשפטי המוטיבציה לא משתנים. -->
-            <p class="dash-brief" id="dashBrief" hidden></p>
+            <span class="hm-date" id="hmDate"></span>
+            <!-- שורות לחיצות מתחת לברכה (homeBrief ב-assets/crm-home.js).
+                 אפס לא מוצג. הברכה ומשפטי המוטיבציה לא משתנים. -->
+            <div class="dash-brief" id="dashBrief" hidden></div>
           </div>
-          <span class="hm-date" id="hmDate"></span>
         </header>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
@@ -8526,7 +8587,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="ads-pane" id="adsPaneLaunch" role="tabpanel" aria-labelledby="adsTabLaunch" hidden>
               <!-- חבילת ההשקה 24.10.2026. dry-run כברירת מחדל, ויצירה רק
                    מושהית (create_paused_launch). docs/marketing-console.md -->
-              <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב).</p>
+              <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב). רענון הנוסח מחליף רק טקסט של מודעות השקה שעדיין נושאות רישיון אישי. הסטטוס, התקציב והטירגוט לא משתנים.</p>
               <div class="adm-toolbar">
                 <label class="adm-note"><input type="checkbox" id="adsLaunchA5"> כלול את A5 - טופס הערכת שווי חינם</label>
                 <label class="adm-note">קהל 55 המתווכים (מזהה מטא, אופציונלי)
@@ -8537,6 +8598,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <button type="button" class="adm-refresh" id="adsLaunchDry">בדיקה (בלי יצירה)</button>
                 <button type="button" class="adm-refresh" id="adsLaunchUpload">העלאת תמונות</button>
                 <button type="button" class="adm-refresh" id="adsLaunchGo" disabled>יצירה מושהית במטא</button>
+                <button type="button" class="adm-refresh" id="adsLaunchRefreshDry">בדיקת נוסח הגילוי</button>
+                <button type="button" class="adm-refresh" id="adsLaunchRefresh">רענון נוסח הגילוי</button>
               </div>
               <div class="ads-state" id="adsLaunchOut" hidden></div>
             </div>
@@ -8663,7 +8726,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field"><label for="npType">סוג נכס</label>
             <select id="npType" required></select>
           </div>
-          <div class="field"><label for="npPrice">מחיר (₪)</label><input type="number" id="npPrice" required min="0" inputmode="numeric" placeholder="לדוגמה: 1850000"></div>
+          <div class="field"><label for="npPrice">מחיר (₪)</label><input type="text" id="npPrice" required inputmode="decimal" autocomplete="off" placeholder="לדוגמה: 1850000"></div>
         </div>
         <!-- מסחרי בלבד. "לא צוין" מוצג באתר כ-"+ מע״מ" ליד המחיר, כי כך
              נמסר מחיר מסחרי כמעט תמיד. properties.price_includes_vat. -->
@@ -8771,14 +8834,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <section class="pf-section" data-pf-step="3" hidden>
         <h3 class="pf-title">מפרט טכני ועלויות שוטפות</h3>
         <div class="pf-grid pf-grid-4">
-          <div class="field"><label for="npBuiltSizeSqm">שטח בנוי (מ״ר)</label><input type="number" id="npBuiltSizeSqm" step="any" min="0" placeholder="לדוגמה: 95"></div>
-          <div class="field"><label for="npSizeSqm">גודל הנכס (מ״ר)</label><input type="number" id="npSizeSqm" step="any" min="0" placeholder="לדוגמה: 110"></div>
-          <div class="field"><label for="npGardenSqm">גינה / מרפסת (מ״ר)</label><input type="number" id="npGardenSqm" step="any" min="0" placeholder="לדוגמה: 12"></div>
-          <div class="field"><label for="npRooms">חדרים</label><input type="number" id="npRooms" step="0.1" min="0" placeholder="לדוגמה: 4.5"></div>
+          <div class="field"><label for="npBuiltSizeSqm">שטח בנוי (מ״ר)</label><input type="number" id="npBuiltSizeSqm" step="any" min="0" inputmode="decimal" placeholder="לדוגמה: 95"></div>
+          <div class="field"><label for="npSizeSqm">גודל הנכס (מ״ר)</label><input type="number" id="npSizeSqm" step="any" min="0" inputmode="decimal" placeholder="לדוגמה: 110"></div>
+          <div class="field"><label for="npGardenSqm">גינה / מרפסת (מ״ר)</label><input type="number" id="npGardenSqm" step="any" min="0" inputmode="decimal" placeholder="לדוגמה: 12"></div>
+          <div class="field"><label for="npRooms">חדרים</label><input type="number" id="npRooms" step="0.1" min="0" inputmode="decimal" placeholder="לדוגמה: 4.5"></div>
         </div>
         <div class="pf-grid">
-          <div class="field"><label for="npFloor">קומה</label><input type="number" id="npFloor" placeholder="לדוגמה: 3"></div>
-          <div class="field"><label for="npTotalFloors">מתוך קומות בבניין</label><input type="number" id="npTotalFloors" min="1" placeholder="לדוגמה: 8"></div>
+          <div class="field"><label for="npFloor">קומה</label><input type="number" id="npFloor" inputmode="numeric" placeholder="לדוגמה: 3"></div>
+          <div class="field"><label for="npTotalFloors">מתוך קומות בבניין</label><input type="number" id="npTotalFloors" min="1" inputmode="numeric" placeholder="לדוגמה: 8"></div>
         </div>
 
         <!-- עלויות שוטפות: ביחידות שבהן הן נגבות בפועל - ועד בית לחודש,
@@ -8788,8 +8851,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="pf-box">
           <div class="pf-box-title">עלויות שוטפות</div>
           <div class="pf-grid">
-            <div class="field"><label for="npMaintenanceFee">ועד בית / דמי ניהול (₪ לחודש)</label><input type="number" id="npMaintenanceFee" min="0" step="any" inputmode="numeric" placeholder="לדוגמה: 250"></div>
-            <div class="field"><label for="npArnona" id="npArnonaLabel">ארנונה (₪ לחודשיים)</label><input type="number" id="npArnona" min="0" step="any" inputmode="numeric" placeholder="לדוגמה: 780"></div>
+            <div class="field"><label for="npMaintenanceFee">ועד בית / דמי ניהול (₪ לחודש)</label><input type="text" id="npMaintenanceFee" inputmode="decimal" autocomplete="off" placeholder="לדוגמה: 250"></div>
+            <div class="field"><label for="npArnona" id="npArnonaLabel">ארנונה (₪ לחודשיים)</label><input type="text" id="npArnona" inputmode="decimal" autocomplete="off" placeholder="לדוגמה: 780"></div>
           </div>
         </div>
 
@@ -8964,7 +9027,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="field-row" id="npAgent2Manual" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field"><label for="npAgent2Name">שם סוכן/ת 2</label><input type="text" id="npAgent2Name"></div>
-          <div class="field"><label for="npAgent2Phone">טלפון 2</label><input type="tel" id="npAgent2Phone"></div>
+          <div class="field"><label for="npAgent2Phone">טלפון 2</label><input type="tel" id="npAgent2Phone" dir="ltr" autocomplete="tel"></div>
         </div>
       </section>
       </div>
@@ -9065,9 +9128,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="expired">פג תוקף</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
-          <input type="number" id="propPriceMin" inputmode="numeric" min="0" step="any" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
+          <input type="text" id="propPriceMin" inputmode="decimal" autocomplete="off" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
           <span class="filter-range-sep" aria-hidden="true">-</span>
-          <input type="number" id="propPriceMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי">
+          <input type="text" id="propPriceMax" inputmode="decimal" autocomplete="off" placeholder="עד" aria-label="מחיר מקסימלי">
         </div>
         <div class="filter-input filter-range" role="group" aria-label="טווח שטח במ״ר">
           <input type="number" id="propSizeMin" inputmode="numeric" min="0" step="any" placeholder="מ״ר מ-" aria-label="שטח מינימלי במ״ר">
@@ -9075,9 +9138,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <input type="number" id="propSizeMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="שטח מקסימלי במ״ר">
         </div>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר למ״ר בשקלים">
-          <input type="number" id="propPsmMin" inputmode="numeric" min="0" step="any" placeholder="₪/מ״ר" aria-label="מחיר מינימלי למ״ר">
+          <input type="text" id="propPsmMin" inputmode="decimal" autocomplete="off" placeholder="₪/מ״ר" aria-label="מחיר מינימלי למ״ר">
           <span class="filter-range-sep" aria-hidden="true">-</span>
-          <input type="number" id="propPsmMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="מחיר מקסימלי למ״ר">
+          <input type="text" id="propPsmMax" inputmode="decimal" autocomplete="off" placeholder="עד" aria-label="מחיר מקסימלי למ״ר">
         </div>
       </div>
       <div class="toolbar-foot">
@@ -9374,9 +9437,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cf-seeker-only">
             <div class="cf-grid cf-grid-2">
               <div class="field"><label for="clMinPrice" id="clMinPriceLabel">תקציב מינימלי (₪)</label>
-                <input type="number" id="clMinPrice" min="0" inputmode="numeric" placeholder="ללא מינימום"></div>
+                <input type="text" id="clMinPrice" inputmode="decimal" autocomplete="off" placeholder="ללא מינימום"></div>
               <div class="field"><label for="clMaxPrice" id="clMaxPriceLabel">תקציב מקסימלי (₪)</label>
-                <input type="number" id="clMaxPrice" min="0" inputmode="numeric" placeholder="ללא תקרה"></div>
+                <input type="text" id="clMaxPrice" inputmode="decimal" autocomplete="off" placeholder="ללא תקרה"></div>
             </div>
 
             <div class="cf-block-title"><label for="clCityInput">ערים ואזורים מבוקשים</label></div>
@@ -10825,7 +10888,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </summary>
       <div class="acc-body">
         <div class="ethics-state is-pending" id="ethicsState">
-          <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384">
+          <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" loading="lazy" decoding="async">
           <div>
             <div class="es-title" id="ethicsStateTitle">תו האיכות טרם הופעל</div>
             <div class="es-note" id="ethicsStateNote">אישור עשרת הסעיפים מדליק את התו בדף שלך ובכל מודעות הנכסים.</div>
@@ -11765,9 +11828,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="cmaOverlay">
   <div class="cma-sheet">
     <div class="cma-actions">
-      <button type="button" class="btn btn-gold" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
+      <button type="button" class="btn btn-gold" id="cmaShareBtn">שליחת קישור ללקוח/ה</button>
+      <button type="button" class="btn btn-ghost" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
       <button type="button" class="btn btn-ghost" id="cmaCloseBtn">סגירה</button>
     </div>
+    <div class="cma-share" id="cmaSharePanel" hidden></div>
     <div id="cmaBody"></div>
   </div>
 </div>
@@ -12192,7 +12257,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
         <a class="sign-brand-via" href="/" target="_blank" rel="noopener" aria-label="שוק הנדל״ן - לדף הבית">
-          <img src="assets/logo-shuknadlan.png" alt="שוק נדל״ן" width="36" height="43">
+          <img src="assets/logo-shuknadlan.png" alt="שוק נדל״ן" width="36" height="43" loading="lazy" decoding="async">
           <span>שוק נדל״ן</span>
         </a>
       </div>

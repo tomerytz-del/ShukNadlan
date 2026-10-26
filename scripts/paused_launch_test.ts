@@ -27,12 +27,19 @@ import {
   formatMetaError,
   LAUNCH_BUDGET_MS,
   LAUNCH_IDLE_LIMIT_MS,
+  LAUNCH_KEY,
   LAUNCH_WALL_LIMIT_MS,
+  LICENSE_MARKER,
+  assertRefreshAdUpdate,
+  creativeHasLicense,
+  rebuildCreativeForRefresh,
+  refreshAdUpdateBody,
+  refreshLaunchCreatives,
+  sliceFromKey,
   GOOGLE_BUYERS_CAMPAIGN,
   GOOGLE_BUYERS_DAILY_ILS,
   HOUSING_MIN_RADIUS_KM,
   knownCampaignsFromLaunch,
-  LAUNCH_KEY,
   launchWillWrite,
   OFFICE_FORM_ID,
   PAGE_ID_EXPECTED,
@@ -144,6 +151,10 @@ ok("rt utm kept", (rt.ads[0].landingUrl || "").includes("utm_content=rt1") && (r
 ok("A5 skipped by default", plan.skipped.some((s) => s.key === "A5") && !plan.campaigns.some((c) => c.key === "owners"));
 ok("OO5 skipped with TODO", plan.skipped.some((s) => s.key === "OO5" && s.reason.includes("TODO")));
 ok("disclosure once on every ad", plan.campaigns.every((c) => c.adSets.every((a) => a.ads.every((ad) => ad.message.split(DISCLOSURE_DEFAULT).length === 2))));
+ok("disclosure default is the platform name", DISCLOSURE_DEFAULT === 'שוק נדל"ן');
+ok("platform ads do not name a broker or a license", plan.campaigns.every((c) => c.adSets.every((a) => a.ads.every((ad) => !ad.message.includes(LICENSE_MARKER) && !ad.message.includes("תומר יצחק")))));
+const customDisclosure = buildLaunchPlan(baseInput({ disclosure: 'שוק נדל"ן - הפלטפורמה' }));
+ok("settings disclosure is used without the old mismatch warning", customDisclosure.ok && customDisclosure.campaigns[0].adSets[0].ads[0].message.endsWith('שוק נדל"ן - הפלטפורמה') && !customDisclosure.warnings.some((w) => w.includes("השורה שבנוסחים")));
 ok("contact sheet is not an ad image", plan.images.every((i) => !i.path.includes("contact_sheet")) && summary.images_to_upload.every((i) => !i.path.includes("contact_sheet")));
 ok("buyer and retargeting variant counts", buyers.map((a) => a.ads.length).join(",") === "4,3,3,3");
 const a3contact = buyers[2].ads[2];
@@ -792,6 +803,7 @@ ok("crm uploads from the tab and shows the bucket count", crm.includes("adsLaunc
 ok("crm shows each targeting hit and the A5 form", crm.includes("adsLaunchHitLine") && crm.includes("targeting_blocks_create") && crm.includes("טופס:") && crmHtml.includes("הערכת שווי חינם"));
 ok("crm shows the AND groups and a validation block", crm.includes("adsLaunchFlexibleLine") && crm.includes("צמצום AND") && crm.includes("blocks_create") && crm.includes("error_user_title") && crm.includes("meta_validation") && crm.includes("לא נבדק מול מטא"));
 ok("crm shows a dropped deprecated interest", crm.includes("הוצא משימוש וירד, בלי החלופה של מטא"));
+ok("crm can preview and refresh disclosure copy", crm.includes("adsLaunchRefreshDry") && crm.includes("adsLaunchRefresh") && crm.includes("refresh_creatives") && crm.includes("dry_run: !write") && crm.includes("confirm = true") && crm.includes("עודכנו ") && crm.includes("לחץ שוב להמשך מ-") && crmHtml.includes('id="adsLaunchRefreshDry"') && crmHtml.includes('id="adsLaunchRefresh"'));
 const dryFn = indexSrc.slice(indexSrc.indexOf("if (!launchWillWrite"), indexSrc.indexOf("if (!plan.ok)"));
 const writeFn = indexSrc.slice(indexSrc.indexOf("if (!plan.ok)"), indexSrc.indexOf("Deno.serve"));
 ok("dry run drops a deprecated interest before a second validation", dryFn.includes("validateLaunchWrites") && dryFn.includes("omitDeprecatedInterestIds") && dryFn.includes("deprecatedInterestIdsFromError") && dryFn.includes("leadgen_tos_accepted") && !dryFn.includes("execution_options") && dryFn.includes("1870247") && dryFn.includes("resolveLaunchIdentity") && dryFn.includes("loadPausedCampaigns") && dryFn.includes("body: first.request"));
@@ -803,6 +815,125 @@ const executeSrc = src.slice(src.indexOf("export async function executeLaunch"),
 ok("validate_only stays out of the real create", validateSrc.includes("validate_only") && validateSrc.includes("execution_options:") && validateSrc.includes("generatepreviews") && validateSrc.includes("pickStandInCampaign") && validateSrc.includes("unchecked:no_matching_paused_campaign") && !executeSrc.includes("execution_options:") && !executeSrc.includes("generatepreviews") && !executeSrc.includes("pickStandInCampaign") && !src.includes("instagram_actor_id"));
 const prepareFn = indexSrc.slice(indexSrc.indexOf("async function preparePausedLaunch"), indexSrc.indexOf("function creativesPublic"));
 ok("create resolves targeting on the dry run and does not abort on a miss", indexSrc.includes("resolveLaunchTargeting") && indexSrc.includes("uncheckedLaunchTargeting") && !indexSrc.includes("לא נמצא טירגוט עבור") && prepareFn.includes("VALUATION_FORM_ID") && prepareFn.includes("SELLERS_FORM_ID") && prepareFn.includes("הערכת שווי") && !prepareFn.includes('eq("kind", "owner")'));
+ok("the license marker is only the refresh search token", (src.match(new RegExp(LICENSE_MARKER, "g")) || []).length === 1 && !src.includes("השורה שבנוסחים") && !src.includes("תומר יצחק"));
+ok("property ads still compose the listing agent line", indexSrc.includes('draft.audience === "property"') && indexSrc.includes("agent.display_name") && indexSrc.includes("agent.license_number") && !indexSrc.includes(LICENSE_MARKER) && !indexSrc.includes("תומר יצחק"));
+for (const rel of ["campaign.ts", "google-campaign.ts", "google-directions.ts"]) {
+  const text = readFileSync(path.join(root, "supabase/functions/ads-admin", rel), "utf8");
+  ok(rel + " does not hardcode a personal license", !text.includes(LICENSE_MARKER) && !text.includes("תומר יצחק"));
+}
+const refreshFn = indexSrc.slice(indexSrc.indexOf("async function actionRefreshCreatives"), indexSrc.indexOf("Deno.serve"));
+ok("refresh is wired, locked, budgeted, and cron cannot call it", indexSrc.includes('action === "refresh_creatives"') && !cronIf.includes("refresh_creatives") && refreshFn.includes("tryLaunchLock") && refreshFn.includes("unlockLaunch") && refreshFn.includes("LAUNCH_BUDGET_MS") && refreshFn.includes("launchWillWrite") && refreshFn.includes("refreshLaunchCreatives") && refreshFn.includes("PROTECTED_CAMPAIGN_IDS"));
+const refreshSrc = src.slice(src.indexOf("export async function refreshLaunchCreatives"));
+ok("refresh writes a creative and an ad creative pointer only", refreshSrc.includes("assertRefreshAdUpdate") && refreshSrc.includes("assertSafeWrite") && refreshSrc.includes("adcreatives") && !refreshSrc.includes("daily_budget") && !refreshSrc.includes("special_ad_categories") && !/status:\s*["']ACTIVE["']/.test(refreshSrc) && !refreshSrc.includes("execution_options:"));
+
+const oldLine = 'שוק נדל"ן | תומר יצחק, רישיון תיווך ' + LICENSE_MARKER;
+const sampleAd = plan.campaigns[0].adSets[0].ads[0];
+function dirtyCreative(id: string) {
+  return {
+    id,
+    name: sampleAd.name,
+    object_story_spec: { page_id: PAGE_ID_EXPECTED, instagram_user_id: "17841400000000001", instagram_actor_id: "17841400000000001" },
+    asset_feed_spec: {
+      ad_formats: ["SINGLE_IMAGE"],
+      optimization_type: "PLACEMENT",
+      images: [
+        { hash: "feedhash", url: "https://example.invalid/a.jpg", adlabels: [{ name: "img_feed", id: "11" }] },
+        { hash: "storyhash", adlabels: [{ name: "img_story", id: "12" }] },
+      ],
+      bodies: [{ text: "טקסט ישן\n\n" + oldLine, adlabels: [{ name: "body", id: "13" }] }],
+      titles: [{ text: sampleAd.headline, adlabels: [{ name: "title", id: "14" }] }],
+      link_urls: [{ website_url: "https://fb.me/", adlabels: [{ name: "link", id: "15" }] }],
+      call_to_actions: [{ type: "SIGN_UP", value: { lead_gen_form_id: BROKER_FORM_ID } }],
+      asset_customization_rules: [{
+        customization_spec: { publisher_platforms: ["facebook", "instagram"], facebook_positions: ["story"], instagram_positions: ["story"] },
+        image_label: { name: "img_story", id: "12" },
+        body_label: { name: "body", id: "13" },
+      }],
+    },
+  };
+}
+function pausedAd(id: string, creative: unknown, campaignId = "120251671344150267") {
+  return { id, name: sampleAd.name, status: "PAUSED", campaign_id: campaignId, creative };
+}
+const rebuilt = rebuildCreativeForRefresh(dirtyCreative("900"), sampleAd.message);
+const rebuiltFeed = JSON.parse(rebuilt.asset_feed_spec);
+const rebuiltStory = JSON.parse(rebuilt.object_story_spec);
+assertSafeWrite(ACT, "adcreatives", rebuilt);
+const pointer = refreshAdUpdateBody("900000000000900");
+assertRefreshAdUpdate("1001000000001001", pointer);
+let pointerThrew = false;
+try { assertRefreshAdUpdate("1001000000001001", { ...pointer, status: PAUSED_STATUS }); } catch { pointerThrew = true; }
+ok("refresh keeps the live asset and drops the personal license", creativeHasLicense(dirtyCreative("900")) && rebuiltFeed.images.map((i: { hash: string }) => i.hash).join(",") === "feedhash,storyhash" && !rebuiltFeed.images[0].url && rebuiltFeed.titles[0].text === sampleAd.headline && rebuiltFeed.link_urls[0].website_url === "https://fb.me/" && rebuiltFeed.call_to_actions[0].value.lead_gen_form_id === BROKER_FORM_ID && rebuiltFeed.bodies[0].text === sampleAd.message && !rebuiltFeed.bodies[0].text.includes(LICENSE_MARKER) && rebuiltFeed.bodies[0].adlabels[0].name === "body" && !rebuiltFeed.bodies[0].adlabels[0].id && rebuiltFeed.asset_customization_rules[0].customization_spec.facebook_positions[0] === "story" && rebuiltStory.page_id === PAGE_ID_EXPECTED && rebuiltStory.instagram_user_id === "17841400000000001" && !rebuiltStory.instagram_actor_id && !("status" in rebuilt) && pointer.creative === JSON.stringify({ creative_id: "900000000000900" }) && !("status" in pointer) && pointerThrew && !JSON.stringify(rebuilt).includes(PROTECTED_CAMPAIGN_IDS[0]));
+ok("resume starts at the saved key", sliceFromKey([{ objectKey: "ad:b1_1" }, { objectKey: "ad:b1_2" }], "ad:b1_2").map((r) => r.objectKey).join(",") === "ad:b1_2" && sliceFromKey([{ objectKey: "ad:b1_1" }], "missing").length === 1);
+
+const refreshPosts: { path: string; body: Record<string, string> }[] = [];
+const saved: { objectKey: string; creativeId: string }[] = [];
+const notes: string[] = [];
+const graph: Record<string, any> = {
+  "1001000000001001": pausedAd("1001000000001001", dirtyCreative("801")),
+  "1002": pausedAd("1002", { ...dirtyCreative("802"), asset_feed_spec: { ...dirtyCreative("802").asset_feed_spec, bodies: [{ text: sampleAd.message, adlabels: [{ name: "body" }] }] } }),
+  "1003": pausedAd("1003", dirtyCreative("803"), PROTECTED_CAMPAIGN_IDS[0]),
+};
+const refreshed = await refreshLaunchCreatives({
+  act: ACT,
+  plan,
+  ads: [
+    { objectKey: "ad:" + sampleAd.key, metaId: "1001000000001001", creativeMetaId: "801" },
+    { objectKey: "ad:b1_2", metaId: "1002", creativeMetaId: "802" },
+    { objectKey: "ad:nope", metaId: "1004" },
+    { objectKey: "ad:b1_3", metaId: "1003" },
+  ],
+  dryRun: true,
+  get: async (path) => {
+    if (path === "1004") return pausedAd("1004", { id: "804" });
+    if (path === "804") return dirtyCreative("804");
+    return graph[path];
+  },
+  post: async () => { throw new Error("dry run posted"); },
+  record: async () => { throw new Error("dry run saved"); },
+  note: async (entry) => { notes.push(entry.objectKey + ":" + String(entry.ok)); },
+});
+ok("dry run lists the dirty ad and does not post", refreshed.done && refreshed.previews.length === 1 && refreshed.previews[0].object_key === "ad:" + sampleAd.key && refreshed.previews[0].message === sampleAd.message && !refreshed.previews[0].message.includes(LICENSE_MARKER) && refreshed.skipped.map((s) => s.reason).join(",") === "clean,no_package,protected" && notes.length === 4);
+
+let clock = 0;
+const stopped = await refreshLaunchCreatives({
+  act: ACT,
+  plan,
+  ads: [{ objectKey: "ad:" + sampleAd.key, metaId: "1001000000001001" }, { objectKey: "ad:b1_2", metaId: "1002" }],
+  dryRun: false,
+  deadline: 50,
+  now: () => clock,
+  get: async () => { clock = 50; return graph["1001000000001001"]; },
+  post: async () => { throw new Error("posted after the budget"); },
+  record: async () => { throw new Error("saved after the budget"); },
+});
+ok("refresh stops before writing when the time budget is gone", !stopped.done && stopped.nextKey === "ad:" + sampleAd.key && stopped.updated.length === 0);
+
+const written = await refreshLaunchCreatives({
+  act: ACT,
+  plan,
+  ads: [{ objectKey: "ad:" + sampleAd.key, metaId: "1001000000001001", creativeMetaId: "801" }],
+  dryRun: false,
+  get: async (path) => graph[path],
+  post: async (path, body) => {
+    refreshPosts.push({ path, body });
+    if (path.endsWith("/adcreatives")) return { id: "555000000000555" };
+    graph["1001000000001001"] = pausedAd("1001000000001001", { ...dirtyCreative("555000000000555"), asset_feed_spec: { ...dirtyCreative("555000000000555").asset_feed_spec, bodies: [{ text: sampleAd.message }] } });
+    return { success: true };
+  },
+  record: async (row) => { saved.push({ objectKey: row.objectKey, creativeId: row.creativeId }); },
+});
+const again = await refreshLaunchCreatives({
+  act: ACT,
+  plan,
+  ads: [{ objectKey: "ad:" + sampleAd.key, metaId: "1001000000001001", creativeMetaId: "555000000000555" }],
+  dryRun: false,
+  get: async (path) => graph[path],
+  post: async () => { throw new Error("second run posted"); },
+  record: async () => { throw new Error("second run saved"); },
+});
+const postBlob = JSON.stringify(refreshPosts);
+ok("refresh swaps the creative and then skips a clean ad", written.done && written.updated.join(",") === "ad:" + sampleAd.key && refreshPosts.length === 2 && refreshPosts[0].path === ACT + "/adcreatives" && refreshPosts[1].path === "1001000000001001" && refreshPosts[1].body.creative === JSON.stringify({ creative_id: "555000000000555" }) && !("status" in refreshPosts[0].body) && !("status" in refreshPosts[1].body) && !postBlob.includes(PROTECTED_CAMPAIGN_IDS[0]) && !postBlob.includes(LICENSE_MARKER) && saved.length === 1 && saved[0].objectKey === "creative:" + sampleAd.key && saved[0].creativeId === "555000000000555" && again.done && again.updated.length === 0 && again.skipped[0].reason === "clean");
 
 const sampleUrl = creativeSourceUrl(plan.images[0].path);
 ok("creative bytes come from the pinned commit", sampleUrl === `https://raw.githubusercontent.com/tomerytz-del/ShukNadlan/${CREATIVE_GIT_COMMIT}/marketing/meta-creatives/${plan.images[0].path}` && !sampleUrl.includes("graph.facebook.com"));

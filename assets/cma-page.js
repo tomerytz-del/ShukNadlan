@@ -67,7 +67,7 @@ function plural(n, one, many, countText){
 
   async function run(){
     if (!/^[0-9a-f]{32}$/.test(K)){
-      showError('הקישור אינו תקין', 'אפשר לבקש מגבריאלה דוח חדש.', false);
+      showError('הקישור אינו תקין', 'אפשר לבקש מהמתווך/ת קישור חדש.', false);
       return;
     }
     state.hidden = false;
@@ -83,7 +83,7 @@ function plural(n, one, many, countText){
       if (!res.ok || data.error){
         const gone = res.status === 404;
         showError(gone ? 'הקישור לדוח פג תוקף' : 'לא הצלחנו לטעון את הדוח',
-          data.message || (gone ? 'אפשר לבקש מגבריאלה דוח חדש.' : 'נסו שוב בעוד רגע.'), !gone);
+          data.message || (gone ? 'אפשר לבקש מהמתווך/ת קישור חדש.' : 'נסו שוב בעוד רגע.'), !gone);
         return;
       }
     } catch(_){

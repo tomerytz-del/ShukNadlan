@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
   const { data, error } = await supabase.rpc("cma_link_open", { p_id: k });
   if (error) return json({ error: "server", message: "תקלה זמנית. נסה/י שוב בעוד רגע." }, 500);
   if (!data) {
-    return json({ error: "not_found", message: "הקישור לדוח פג תוקף או שאינו תקין. אפשר לבקש מגבריאלה דוח חדש." }, 404);
+    return json({ error: "not_found", message: "הקישור לדוח פג תוקף או שאינו תקין. אפשר לבקש מהמתווך/ת קישור חדש." }, 404);
   }
   const link = data as { agent_id: string; report: Record<string, unknown>; created_at: string; expires_at: string };
 
