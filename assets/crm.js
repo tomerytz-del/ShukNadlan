@@ -11987,6 +11987,7 @@ function updateFormForCategory(category, preselectedFeatures){
   // שבשובר, והיחידה נגזרת מ-category. ‏מע"מ רלוונטי רק למסחרי.
   document.getElementById('npArnonaLabel').textContent = isCommercial ? 'ארנונה (₪ לחודש)' : 'ארנונה (₪ לחודשיים)';
   document.getElementById('npVatField').style.display = isCommercial ? 'block' : 'none';
+  document.getElementById('npPriceUnitField').style.display = isCommercial ? 'block' : 'none';
   renderFeatureCheckboxes('npListingFeatures', LISTING_FEATURES, preselectedFeatures);
   renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
   // החלפת קטגוריה מאתחלת את רשימת סוגי הנכס, ולכן גם את השאלה אם זו קרקע
@@ -13625,6 +13626,13 @@ pfShowStep(1);
 /* מע"מ על מחיר מסחרי: שלושה מצבים ולא סימון אחד. במסחר המחיר נמסר בדרך
    כלל לפני מע"מ, ולכן "לא צוין" מוצג באתר כ-"+ מע״מ" - אבל הסוכן/ת יכול/ה
    לקבוע אחרת. null = לא צוין, true = כולל, false = לא כולל. */
+/* יחידת המחיר (‏price_unit, docs/price-unit.md) - מסחרי בלבד. null = לפי
+   סוג העסקה (מכירה סה״כ, השכרה לחודש). */
+function priceUnitSelectValue(){
+  if (currentCategory !== 'commercial') return null;
+  return document.getElementById('npPriceUnit').value || null;
+}
+
 function vatSelectValue(){
   const v = document.getElementById('npPriceVat').value;
   return v === 'incl' ? true : v === 'plus' ? false : null;
@@ -14054,8 +14062,12 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     category: currentCategory,
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
-    price: salePriceFromMillions(parseFloat(document.getElementById('npPrice').value), document.getElementById('npDeal').value),
+    // מחיר למ״ר אינו "1.5 מיליון" - ההמרה ממיליונים רק למחיר כולל
+    price: priceUnitSelectValue() === 'sqm'
+      ? parseFloat(document.getElementById('npPrice').value)
+      : salePriceFromMillions(parseFloat(document.getElementById('npPrice').value), document.getElementById('npDeal').value),
     price_includes_vat: currentCategory === 'commercial' ? vatSelectValue() : null,
+    price_unit: priceUnitSelectValue(),
     maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
     arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
@@ -14854,7 +14866,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -15092,6 +15104,14 @@ function tabShortDate(ts){
     ? short : short + '.' + String(d.getFullYear()).slice(-2);
 }
 
+/* יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר (בהשכרה למ״ר
+   לחודש), ריק = לפי סוג העסקה. אותו כלל באתר (‏property-card.js). */
+function propPriceUnitNote(p){
+  const unit = p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+  if (unit === 'sqm') return p.deal_type === 'rent' ? 'למ״ר לחודש' : 'למ״ר';
+  return unit === 'month' ? 'לחודש' : '';
+}
+
 function buildPropertyTab(p, agentId){
   const isOpen = expandedPropertyIds.has(p.id);
   const el = document.createElement('div');
@@ -15100,7 +15120,7 @@ function buildPropertyTab(p, agentId){
     + (p.status === 'archived' ? ' is-archived' : '');
   const panelId = 'propTabPanel-' + esc(String(p.id));
   // המחיר בגדול, ומתחתיו "לחודש + מע״מ" (3.13)
-  const priceNote = [p.deal_type === 'rent' ? 'לחודש' : '',
+  const priceNote = [propPriceUnitNote(p),
     p.category === 'commercial' && p.price_includes_vat !== true ? '+ מע״מ' : ''].filter(Boolean).join(' ');
   const priceHtml = `<span>${shekel(p.price)}</span>` + (priceNote ? `<span class="per">${priceNote}</span>` : '');
   // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
@@ -15164,7 +15184,8 @@ function buildPropertyCard(p, agentId){
   const viewCounts = propertyViewCounts;
   const planningByProperty = propertyPlanningInfo;
 
-  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '')
+  const unitNote = propPriceUnitNote(p);
+  const priceHtml = shekel(p.price) + (unitNote ? ` <span class="per">${unitNote}</span>` : '')
     + (p.category === 'commercial' && p.price_includes_vat !== true ? ' <span class="per">+ מע״מ</span>' : '');
   // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
   const isCurrentlyPromoted = propertyIsPromoted(p);
@@ -17918,6 +17939,7 @@ function openEditProperty(p){
   document.getElementById('npMaintenanceFee').value = p.maintenance_fee ?? '';
   document.getElementById('npArnona').value = p.arnona ?? '';
   document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
+  document.getElementById('npPriceUnit').value = p.price_unit || '';
   document.getElementById('npRooms').value = p.rooms || '';
   setPropertyCity(p.city || defaultPropertyCity());
   document.getElementById('npStreet').value = p.street || '';

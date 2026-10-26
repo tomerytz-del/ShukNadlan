@@ -109,7 +109,11 @@
       return '<div class="pc-price pc-price-none">לפי בקשה</div>';
     }
     var amount = '₪' + price.toLocaleString('he-IL');
-    var suffix = (p.deal_type === 'rent') ? '<span class="pc-per">לחודש</span>' : '';
+    /* יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר (בהשכרה למ״ר
+       לחודש), ריק = לפי סוג העסקה. אותו כלל ב-property.js ו-home.js. */
+    var unit = p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+    var suffix = unit === 'sqm' ? '<span class="pc-per">' + (p.deal_type === 'rent' ? 'למ״ר לחודש' : 'למ״ר') + '</span>'
+      : unit === 'month' ? '<span class="pc-per">לחודש</span>' : '';
     /* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ: "+ מע״מ" אלא אם סומן שהוא כולל.
        אותו כלל ב-property.js, home.js ו-open-house.html. */
     if (p.category === 'commercial' && p.price_includes_vat !== true) suffix += '<span class="pc-per">+ מע״מ</span>';

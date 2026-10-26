@@ -157,6 +157,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none}
+  /* המקום של התוכן שמור בזמן הטעינה: בלעדיו הפוטר עמד מתחת לשורת "טוען" ונדחף
+     למטה כשהמשרד נטען - תזוזה גבוהה (CLS). docs/site-footer.md */
+  #loadingState{min-height:calc(100vh - 80px)}
   #agencyContent{display:none}
 
   /* ---------- הבאנר של המשרד ----------

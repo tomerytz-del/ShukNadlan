@@ -130,6 +130,9 @@ PRIVATE = {
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
     # ונושא noindex כי דף עם אפס נכסים מזיק לאתר (docs/regional-pages.md).
     "market-soon",
+    # ‏דף 404 - Netlify מגיש אותו בכל כתובת שאינה קיימת, ונושא noindex
+    # (docs/not-found-page.md).
+    "404",
 }
 
 TAG = '<link rel="canonical" href="%s">'

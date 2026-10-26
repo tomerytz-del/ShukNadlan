@@ -17,6 +17,11 @@
      ‏data-bot-entry = ‏widget_<בחירה> — כך contact_bot אומר איזה כפתור נלחץ.
    * **בדף נכס ההודעה נושאת "(מזהה: <uuid>)"**, ו-public-agent.ts טוען את הנכס
      לפי המזהה לפני שהמודל עונה (‏askedPropertyOf).
+   * **החלונית נפתחת רק בלחיצה.** בעבר היא נפתחה לבד, והסתירה בדפי נכס
+     ותוצאות את מה שהגולש/ת קרא/ה. במקומה עולה בועית קטנה ליד הכפתור ל-4
+     שניות (‏showTip), פעם אחת בביקור. **ולעולם לא מעל כרטיס הקשר**
+     (‏CONTACT): חלונית פתוחה שכרטיס הקשר נכנס מתחתיה נסגרת, ובועית שהייתה
+     נוחתת עליו לא עולה.
    * **הבועה זזה מפני מה שכבר יושב בפינה** — כפתור הנגישות בדף הבית, בועת
      הסוכן/ת והסרגל התחתון בדפי נכס/סוכן/משרד — **ונעלמת מעל טופס** בתחתית
      המסך (‏AVOID) ובזמן הקלדה בשדה בדף, כדי לא להסתיר את מה שהגולש/ת ממלא/ת.
@@ -29,12 +34,16 @@
 
   var script = document.currentScript;
   var PAGE = (script && script.getAttribute('data-page')) || 'page';
-  var AUTO_KEY = 'gabWidgetAuto';   // הודעת הפתיחה כבר נפתחה בביקור הזה
+  var AUTO_KEY = 'gabWidgetAuto';   // הבועית כבר הוצגה (או החלונית נפתחה) בביקור הזה
   var AUTO_DELAY = 8000;
   var AUTO_SCROLL = 0.4;
+  var TIP_MS = 4000;
+  var TIP_TEXT = 'היי, אני גבריאלה 👋 צריכים עזרה?';
   var AVATAR = '/assets/gabriela-avatar.webp';
   /* טפסים שהבועה לא יושבת עליהם כשהם בתחתית המסך */
   var AVOID = '#ownerWizardForm, #buyerWizardForm, #inquiryForm, #ownerLeadForm, #mleadForm, #ssaForm, #vizCta';
+  /* כרטיסי הקשר עם הסוכן/ת או המשרד - החלונית והבועית לא יושבות עליהם */
+  var CONTACT = '.agent-card, #contactCard, #stickyBar, #waBubble';
 
   /* כפתורי הבחירה המהירה. ההודעה היא מה שגבריאלה מקבלת - כל אחת מהן היא
      דבר שהבוט עושה (search_properties, owner_lead, open_house_signup). */
@@ -93,6 +102,14 @@
     '#gabW.is-away .gw-bubble,#gabW.is-hidden .gw-bubble{opacity:0;visibility:hidden;transform:translateY(12px)}',
     '#gabW.is-open .gw-bubble{opacity:1;visibility:visible;transform:none}',
 
+    '#gabW .gw-tip{position:fixed;left:calc(var(--gw-left) + 70px);bottom:calc(var(--gw-bottom) + 10px);z-index:205;',
+    '  max-width:calc(100vw - var(--gw-left) - 90px);padding:9px 14px;border:0;border-radius:14px 14px 14px 4px;background:#fff;',
+    '  color:var(--gw-ink);font:inherit;font-size:14.5px;font-weight:700;line-height:1.35;text-align:right;cursor:pointer;',
+    '  box-shadow:0 8px 22px rgba(14,42,107,.25);opacity:0;visibility:hidden;transform:translateX(-8px);',
+    '  transition:opacity .25s ease,transform .25s ease,visibility .25s}',
+    '#gabW.is-tip .gw-tip{opacity:1;visibility:visible;transform:none}',
+    '#gabW.is-open .gw-tip,#gabW.is-away .gw-tip,#gabW.is-hidden .gw-tip{opacity:0;visibility:hidden}',
+
     '#gabW .gw-panel{position:fixed;left:var(--gw-left);bottom:calc(var(--gw-bottom) + 72px);z-index:206;width:340px;',
     '  max-width:calc(100vw - 24px);max-height:calc(100vh - var(--gw-bottom) - 96px);overflow:auto;background:#fff;color:var(--gw-ink);',
     '  border-radius:18px;border:1px solid var(--gw-line);box-shadow:0 24px 50px -16px rgba(14,42,107,.5),0 4px 14px rgba(14,42,107,.12);',
@@ -122,7 +139,7 @@
     '#gabW a.gw-go:hover{background:var(--gw-wa-h);color:#fff}',
     '#gabW a.gw-go svg{width:20px;height:20px;flex:none}',
     '#gabW .gw-note{margin:10px 0 0;font-size:12.5px;color:var(--gw-muted);text-align:center}',
-    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel{transition:none}}'
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel,#gabW .gw-tip{transition:none}}'
   ].join('\n');
 
   var WA_ICON = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.3-.5v-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1.9.4 1.8 1 2.6 1.1 1.6 2.5 2.9 4.2 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.4-1 .2-.3.2-.7.1-1-.1-.1-.3-.2-.5-.3z"/></svg>';
@@ -182,7 +199,10 @@
     bubble.appendChild(el('img', { src: AVATAR, width: '60', height: '60', alt: '' }));
     bubble.appendChild(el('span', { 'class': 'gw-dot', 'aria-hidden': 'true' }));
 
+    var tip = el('button', { type: 'button', 'class': 'gw-tip', tabindex: '-1', 'aria-hidden': 'true' }, TIP_TEXT);
+
     root.appendChild(panel);
+    root.appendChild(tip);
     root.appendChild(bubble);
     document.body.appendChild(root);
 
@@ -220,6 +240,7 @@
     function setOpen(on, why) {
       if (on === open) return;
       open = on;
+      if (on) hideTip();
       root.classList.toggle('is-open', on);
       bubble.setAttribute('aria-expanded', on ? 'true' : 'false');
       bubble.setAttribute('aria-label', on ? 'סגירת החלונית של גבריאלה' : 'שיחה עם גבריאלה, העוזרת בוואטסאפ');
@@ -232,6 +253,7 @@
       sync();
     }
     bubble.addEventListener('click', function () { setOpen(!open, 'click'); });
+    tip.addEventListener('click', function () { setOpen(true, 'tip'); });
     x.addEventListener('click', function () { setOpen(false); bubble.focus(); });
     document.addEventListener('keydown', function (e) {
       if (open && e.key === 'Escape') { setOpen(false); bubble.focus(); }
@@ -272,13 +294,55 @@
     });
     document.addEventListener('focusout', function () { typing = false; setTimeout(sync, 0); });
 
-    /* ---------- הודעת הפתיחה: פעם אחת בביקור ----------
+    /* ---------- כרטיס הקשר ----------
+       ‏overlapsContact: האם המלבן נוגע בכרטיס קשר שעל המסך. חלונית פתוחה
+       שכרטיס כזה נכנס מתחתיה (גלילה, סרגל תחתון שעלה) נסגרת. */
+    function overlapsContact(node) {
+      var r = node.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      var cards = document.querySelectorAll(CONTACT);
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        if (c.hidden || root.contains(c)) continue;
+        var q = c.getBoundingClientRect();
+        if (!q.width || !q.height) continue;
+        if (q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) return true;
+      }
+      return false;
+    }
+    var guardQueued = false;
+    function guardContact() {
+      if (guardQueued) return;
+      guardQueued = true;
+      requestAnimationFrame(function () {
+        guardQueued = false;
+        if (open && overlapsContact(panel)) setOpen(false);
+        if (tipOn && overlapsContact(tip)) hideTip();
+      });
+    }
+    window.addEventListener('scroll', guardContact, { passive: true });
+    window.addEventListener('resize', guardContact);
+
+    /* ---------- הבועית: פעם אחת בביקור, ל-4 שניות ----------
        אחרי 8 שניות או 40% גלילה, מה שקודם. בדף הבית - רק כשכרטיס גבריאלה
-       שב-hero כבר לא על המסך, אחרת זה אותו דבר פעמיים. */
-    var due = false;
+       שב-hero כבר לא על המסך, אחרת זה אותו דבר פעמיים. החלונית עצמה לא
+       נפתחת לבד - רק לחיצה על הבועה או על הבועית. */
+    var due = false, tipOn = false, tipTimer = 0;
+    function hideTip() {
+      tipOn = false;
+      clearTimeout(tipTimer);
+      root.classList.remove('is-tip');
+    }
+    function showTip() {
+      storageSet(AUTO_KEY, '1');
+      root.classList.add('is-tip');
+      tipOn = true;
+      if (overlapsContact(tip)) { hideTip(); return; }
+      tipTimer = setTimeout(hideTip, TIP_MS);
+    }
     function maybeAuto() {
-      if (!due || open || storageGet(AUTO_KEY) || heroOn || avoidOn || typing) return;
-      setOpen(true, 'auto');
+      if (!due || open || tipOn || storageGet(AUTO_KEY) || heroOn || avoidOn || typing) return;
+      showTip();
     }
     setTimeout(function () { due = true; maybeAuto(); }, AUTO_DELAY);
     window.addEventListener('scroll', function () {

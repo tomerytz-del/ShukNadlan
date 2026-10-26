@@ -26,9 +26,20 @@ const WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10
 /* ‏escapeHtml מגיעה מ-assets/esc.js — הגדרה אחת לכל האתר. */
 
 /* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
+/* תמונת כרטיס מוקטנת - אותה נוסחה כמו cardImgUrl ב-assets/home.js
+   (‏docs/image-sizes.md). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
+function cardImgUrl(url, w){
+  const s = String(url || '');
+  const marker = '/storage/v1/object/public/';
+  const at = s.indexOf(marker);
+  if (at < 0) return s;
+  const path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+}
 function thumbStyle(p){
   const img = safeImageUrl(p.images && p.images[0]);
-  return img ? ` style="background-image:url('${encodeURI(img)}')"` : '';
+  return img ? ` style="background-image:url('${encodeURI(cardImgUrl(img))}')"` : '';
 }
 
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
@@ -630,7 +641,12 @@ function renderStories(){
    מפיל את השאילתה כולה על עמודה חסרה, ולכן היא נורית קודם בגרסה המלאה
    וחוזרת לגרסה המינימלית אם נכשלה — עדיף כרטיס עסקה בלי תמונה וקישור
    מאשר מקטע שלא נטען. */
-const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, deal_type, property_id, price_basis';
+/* ‏**העמודות של הפרודקשן, לא של התוכנית.** עד אוקטובר 2026 הגרסה המלאה
+   ביקשה deal_type ו-property_id - שתי עמודות שלא קיימות ב-market_deals
+   (הקישור לנכס הוא related_property_id) - ולכן כל טעינה של דף משרד נכשלה
+   ב-400 לפני שהגרסה המינימלית רצה, והכרטיסים יצאו בלי תמונה וקישור.
+   ‏deal_type עדיין אינו בטבלה, ו-dealStamp קורא אותו בזהירות. */
+const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, related_property_id, price_basis';
 const DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city';
 const STORY_DEALS_MAX = 12;
 
@@ -641,7 +657,8 @@ async function fetchAgencyDeals(sb, agencyId){
   if (error){
     ({ data } = await query(DEAL_COLUMNS_MIN));
   }
-  return data || [];
+  // ‏property_id הוא השם שהרצועה (‏attachDealPhotos, הקישור בכרטיס) קוראת
+  return (data || []).map(d => Object.assign({ property_id: d.related_property_id || null }, d));
 }
 
 /* התמונה של הנכס שנסגר. הנכס עצמו כבר לא פעיל, ולכן הוא נשלף בנפרד ולא

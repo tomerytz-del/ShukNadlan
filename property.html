@@ -119,6 +119,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .logo-word{font-size:.95rem;white-space:nowrap}
   }
   .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
+  /* הניווט שבכותרת. ‏header.site בכל בורר: design-system.css נטען אחרי ה-style */
+  header.site .header-inner{gap:14px;position:relative}
+  header.site .pn-links{display:none;gap:4px;align-items:center;margin-inline-start:auto}
+  header.site .pn-links a{padding:8px 10px;font-size:.92rem;font-weight:600;color:var(--ink);border-radius:var(--radius-sm,8px)}
+  header.site .pn-links a:hover{background:var(--teal-tint,#eef3fb);color:var(--teal)}
+  header.site .pn-actions{display:flex;align-items:center;gap:8px;flex:none}
+  header.site .pn-join{display:inline-flex;padding:9px 16px;border-radius:999px;border:1.5px solid var(--teal);color:var(--teal);font-size:.88rem;font-weight:700;white-space:nowrap}
+  header.site .pn-join:hover{background:var(--teal);color:#fff}
+  header.site .pn-menu{position:static}
+  header.site .pn-menu summary{list-style:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;
+    border:1px solid var(--line);border-radius:999px;font-size:.9rem;font-weight:700;color:var(--ink);background:var(--paper-raised)}
+  header.site .pn-menu summary::-webkit-details-marker{display:none}
+  header.site .pn-burger,header.site .pn-burger::before,header.site .pn-burger::after{display:block;width:18px;height:2px;background:currentColor;border-radius:2px;position:relative}
+  header.site .pn-burger::before,header.site .pn-burger::after{content:'';position:absolute;inset-inline-start:0}
+  header.site .pn-burger::before{top:-6px}
+  header.site .pn-burger::after{top:6px}
+  header.site .pn-panel{position:absolute;inset-inline-end:18px;top:calc(100% + 10px);z-index:60;width:260px;max-width:calc(100vw - 36px);
+    display:flex;flex-direction:column;padding:8px;background:var(--paper-raised);border:1px solid var(--line);
+    border-radius:var(--radius-lg,14px);box-shadow:0 18px 40px -12px rgba(14,42,107,.35)}
+  header.site .pn-panel a{padding:11px 12px;font-size:.98rem;font-weight:600;color:var(--ink);border-radius:var(--radius-sm,8px)}
+  header.site .pn-panel a:hover{background:var(--teal-tint,#eef3fb)}
+  header.site .pn-panel hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+  header.site .pn-panel .pn-panel-cta{color:var(--teal);font-weight:800}
+  @media(max-width:640px){header.site .pn-menu-word{display:none}
+    header.site .pn-join{padding:8px 12px;font-size:.8rem}
+    header.site .pn-menu summary{padding:0 11px}}
+  @media(max-width:340px){header.site .pn-join{display:none}}
+  @media(min-width:1100px){header.site .pn-links{display:flex}}
 
   #loadingState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none;padding:60px 18px;text-align:center}
@@ -1201,7 +1229,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
-    <a href="/" class="back-link">← כל הנכסים</a>
+    <!-- הניווט. עד אוקטובר 2026 היו כאן רק הלוגו ו"כל הנכסים" - בדף הנצפה ביותר
+         באתר, שאליו מגיעים מקישור ששותף, וגם מתווך/ת לא מצא/ה איך מצטרפים.
+         בטלפון - ‏<details> בלי JS. docs/property-page-nav.md -->
+    <nav class="pn-links" aria-label="ניווט ראשי">
+      <a href="/?deal=sale">למכירה</a>
+      <a href="/?deal=rent&amp;maxPrice=4000">להשכרה</a>
+      <a href="/?deal=commercial">מסחרי</a>
+      <a href="/projects">פרויקטים</a>
+      <a href="/agencies">משרדי תיווך</a>
+      <a href="/prices">מחירי דירות</a>
+    </nav>
+    <div class="pn-actions">
+      <a href="/agency-signup" class="pn-join">הצטרפות למתווכים</a>
+      <details class="pn-menu" id="pnMenu">
+        <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>
+        <div class="pn-panel">
+          <a href="/">כל הנכסים</a>
+          <a href="/?deal=sale">נכסים למכירה</a>
+          <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה</a>
+          <a href="/?deal=commercial">נדל״ן מסחרי</a>
+          <a href="/projects">פרויקטים חדשים</a>
+          <a href="/open-house">יריד הבתים הפתוחים</a>
+          <a href="/agencies">משרדי תיווך</a>
+          <a href="/prices">מחירי דירות</a>
+          <a href="/articles">כתבות ומבזקים</a>
+          <hr>
+          <a href="/agency-signup" class="pn-panel-cta">הצטרפות כמשרד תיווך</a>
+          <a href="/crm">כניסת מתווכים</a>
+        </div>
+      </details>
+    </div>
   </div>
 </header>
 
@@ -2073,5 +2131,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </footer>
 
+<script>
+/* תפריט הכותרת (‏<details>): נסגר בלחיצה מחוץ לו וב-Escape */
+(function(){
+  var m = document.getElementById('pnMenu');
+  if (!m) return;
+  document.addEventListener('click', function(e){ if (m.open && !m.contains(e.target)) m.open = false; });
+  document.addEventListener('keydown', function(e){
+    if (m.open && e.key === 'Escape'){ m.open = false; m.querySelector('summary').focus(); }
+  });
+})();
+</script>
 </body>
 </html>

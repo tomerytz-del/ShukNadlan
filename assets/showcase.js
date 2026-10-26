@@ -61,7 +61,10 @@
   const shekel = n => n == null || n === '' ? '' : '₪' + Number(n).toLocaleString('he-IL');
   function priceText(it){
     if (it.price == null) return 'מחיר לפי פנייה';
-    return shekel(it.price) + (it.deal_type === 'rent' ? ' לחודש' : '') + (it.price_includes_vat ? ' כולל מע״מ' : '');
+    // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+    const unit = it.price_unit || (it.deal_type === 'rent' ? 'month' : 'total');
+    const per = unit === 'sqm' ? (it.deal_type === 'rent' ? ' למ״ר לחודש' : ' למ״ר') : unit === 'month' ? ' לחודש' : '';
+    return shekel(it.price) + per + (it.price_includes_vat ? ' כולל מע״מ' : '');
   }
   function whatText(it){
     const parts = [it.property_type || 'נכס'];
