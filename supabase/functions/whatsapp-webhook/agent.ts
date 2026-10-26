@@ -152,7 +152,7 @@ const WRITABLE_FIELDS = [
   "rooms", "city", "street", "house_number", "floor", "size_sqm",
   "built_size_sqm", "condition", "project_status", "move_in_date",
   "move_in_soon", "features", "restrooms_location", "storage_location",
-  "mamad_location",
+  "mamad_location", "price_unit",
 ] as const;
 
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
@@ -207,6 +207,13 @@ const propertyFields = {
     description: "sale = למכירה, rent = להשכרה.",
   },
   price: { type: "number", description: "מחיר בשקלים. 1.8 מליון = 1800000." },
+  price_unit: {
+    type: "string",
+    enum: ["sqm", "month", "total"],
+    description:
+      "רק כשהמחיר נאמר למ״ר (נפוץ בנכס מסחרי ובמגרש: '140 למטר', '65 ש\"ח למ\"ר') - sqm, " +
+      "והמחיר הוא הסכום למ״ר. אחרת אל תשלח/י: השכרה נקראת לחודש ומכירה סה״כ.",
+  },
   title: {
     type: "string",
     description:
@@ -1612,12 +1619,22 @@ function agreementLink(viewToken: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement?t=${viewToken}` : undefined;
 }
 
-/** מחיר כפי שהוא נקרא בהודעה: שכירות היא תמיד לחודש. */
-function priceText(price: unknown, dealType: unknown): string {
+/** יחידת המחיר במילים (‏price_unit, docs/price-unit.md). ריק = לפי סוג העסקה:
+ *  השכרה לחודש, מכירה סה״כ. אותו כלל ב-public-agent.ts ובאתר. */
+function priceUnitLabel(dealType: unknown, unit: unknown): string {
+  if (unit === "sqm") return dealType === "rent" ? "למ״ר לחודש" : "למ״ר";
+  if (unit === "total") return "סה״כ";
+  return dealType === "rent" ? "לחודש" : "סה״כ";
+}
+
+/** מחיר כפי שהוא נקרא בהודעה: שכירות לחודש, ומחיר למ״ר - למ״ר. בלי היחידה
+ *  נכתב "140 ₪ לחודש" על חנות שמושכרת ב-140 ₪ למ״ר. */
+function priceText(price: unknown, dealType: unknown, unit?: unknown): string {
   const n = Number(price);
   if (!Number.isFinite(n) || n <= 0) return "";
   const formatted = n.toLocaleString("he-IL");
-  return dealType === "rent" ? `${formatted} ₪ לחודש` : `${formatted} ₪`;
+  const per = priceUnitLabel(dealType, unit);
+  return per === "סה״כ" ? `${formatted} ₪` : `${formatted} ₪ ${per}`;
 }
 
 /**
@@ -2195,7 +2212,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 // הסינון עצמו משותף עם הבוט הציבורי (‏property-search.ts).
 // ---------------------------------------------------------------------------
 const AGENT_SEARCH_FIELDS =
-  "id, listing_number, title, property_type, deal_type, category, price, rooms, " +
+  "id, listing_number, title, property_type, deal_type, category, price, price_unit, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
   "agent_id, agency_id, is_promoted, created_at, neighborhood_id, neighborhoods(name), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
@@ -2303,6 +2320,8 @@ async function agentPropertySearch(
       neighborhood: hood,
       city: p.city,
       price: p.price,
+      // בלי היחידה המודל אמר "140 ₪ לחודש" על מחיר למ״ר (docs/price-unit.md)
+      price_unit: priceUnitLabel(p.deal_type, p.price_unit),
       rooms: p.rooms,
       size_sqm: p.size_sqm,
       floor: p.floor,
@@ -2924,7 +2943,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const p = await visibleProperty(
     ctx,
     propertyId,
-    "id, agent_id, title, address, city, street, house_number, price, rooms, " +
+    "id, agent_id, title, address, city, street, house_number, price, price_unit, rooms, " +
       "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
   );
   if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
@@ -2946,7 +2965,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
-    priceText(p.price, p.deal_type),
+    priceText(p.price, p.deal_type, p.price_unit),
   ].filter(Boolean).join(" · ");
 
   const greeting = client

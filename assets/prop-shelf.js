@@ -514,12 +514,24 @@
        במיון לפי מחיר אין אף אחת משתי השכבות האחרונות: רשימה שמתחילה במחיר
        הגבוה ביותר כשביקשו "מהנמוך לגבוה" היא רשימה שבורה, וגם נכס בתשלום
        לא שווה את זה. */
+    /* מחיר למ״ר (‏price_unit = 'sqm') - כפול השטח, אחרת חנות ב-140 ₪ למ״ר היא
+       "הזולה ביותר". ‏price_total מהמסד, ובלעדיה אותה נוסחה - כמו
+       SearchCore.comparablePrice, שאינו נטען בכל דף שמצייר מדף. docs/price-unit.md */
+    function comparablePrice(p) {
+      if (p.price_total !== undefined && p.price_total !== null) return Number(p.price_total);
+      if (p.price === null || p.price === undefined) return null;
+      var price = Number(p.price);
+      if (p.price_unit !== 'sqm') return price;
+      var area = Number(p.built_size_sqm) || Number(p.size_sqm) || 0;
+      return area > 0 ? Math.round(price * area) : price;
+    }
+
     function ordered() {
       var list = state.all.filter(matches);
 
       if (state.sort === 'price-asc' || state.sort === 'price-desc') {
         var dir = state.sort === 'price-asc' ? 1 : -1;
-        var value = function (p) { var n = Number(p.price); return (isFinite(n) && n > 0) ? n : null; };
+        var value = function (p) { var n = comparablePrice(p); return (n !== null && isFinite(n) && n > 0) ? n : null; };
         // "לפי בקשה" יורד לסוף בשני הכיוונים: הוא לא המחיר הנמוך ביותר, הוא
         // היעדר מחיר.
         return list.slice().sort(function (a, b) {

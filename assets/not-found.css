@@ -1,0 +1,22 @@
+/* דף 404 (‏404.html, docs/not-found-page.md). מעל content-page.css. */
+.nf-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.nf-search{display:flex;gap:8px;margin-top:20px;max-width:560px}
+.nf-search input{flex:1;min-width:0;min-height:48px;padding:10px 14px;font:inherit;font-size:16px;
+  border:1.5px solid var(--hair-strong);border-radius:var(--radius-md,12px);background:var(--surface);color:var(--ink)}
+.nf-search .btn{min-height:48px;padding:0 22px}
+.nf-main h2{margin-top:6px}
+.nf-links{list-style:none;padding:0!important;margin:14px 0 0!important;display:grid;gap:10px;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.nf-links li{margin:0;max-width:none}
+.doc a.nf-link{display:flex;flex-direction:column;gap:3px;height:100%;padding:14px 16px;text-decoration:none;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-md,12px);color:var(--ink)}
+.doc a.nf-link:hover{border-color:var(--sapphire)}
+.nf-link b{font-size:16px;color:var(--sapphire)}
+.nf-link span{font-size:14px;color:var(--ink-muted)}
+.nf-gab{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px;padding:16px 18px;
+  background:var(--brass-tint);border-radius:var(--radius-lg,16px)}
+.nf-gab[hidden]{display:none}
+.nf-gab img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none;background:#fff1c9}
+.nf-gab div{flex:1;min-width:180px}
+.nf-gab b{font-size:17px;color:var(--ink)}
+.nf-gab p{margin:4px 0 0!important;font-size:15px!important}

@@ -93,7 +93,7 @@ async function removeSystemPoster(supabase: Sb, url: string | null) {
 // הנתונים לרינדור. בלי property_owners ובלי שום פרט של הבעלים.
 // ---------------------------------------------------------------------------
 const PROPERTY_COLS =
-  "id, listing_number, title, status, images, category, property_type, deal_type, price, price_includes_vat, " +
+  "id, listing_number, title, status, images, category, property_type, deal_type, price, price_includes_vat, price_unit, " +
   "rooms, size_sqm, built_size_sqm, area_sqm, floor, total_floors, features, city, street, sales_area, " +
   "neighborhood_id, garden_sqm, price_per_sqm, move_in_date, land_zoning, maintenance_fee, arnona, " +
   "created_at, agent_id, agency_id, video_url";

@@ -339,7 +339,7 @@ function publicWhere(p: any): string {
 // לוואטסאפ של אדם זר. ‏`house_number` ברשימה כדי להימחק (ראו הכותרת).
 // ---------------------------------------------------------------------------
 const PROPERTY_FIELDS = [
-  "id", "title", "property_type", "deal_type", "category", "price", "rooms",
+  "id", "title", "property_type", "deal_type", "category", "price", "price_unit", "rooms",
   "size_sqm", "built_size_sqm", "garden_sqm", "floor", "total_floors", "city",
   "street", "address", "house_number", "sales_area", "features", "condition",
   "project_status", "images", "listing_number", "is_promoted", "bumped_at",
@@ -363,6 +363,11 @@ function publicProperty(p: any): Record<string, unknown> {
     deal: p.deal_type === "rent" ? "השכרה" : "מכירה",
     property_type: p.property_type,
     price: p.price === null ? null : Number(p.price),
+    // ‏price_unit (docs/price-unit.md): בלי היחידה גבריאלה אמרה "140 ₪ לחודש"
+    // על חנות שמושכרת ב-140 ₪ למ״ר.
+    price_unit: p.price_unit === "sqm"
+      ? (p.deal_type === "rent" ? "למ״ר לחודש" : "למ״ר")
+      : p.price_unit === "total" ? "סה״כ" : p.deal_type === "rent" ? "לחודש" : "סה״כ",
     rooms: p.rooms === null ? null : Number(p.rooms),
     size_sqm: p.size_sqm === null ? null : Number(p.size_sqm),
     floor: p.floor,

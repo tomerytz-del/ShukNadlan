@@ -142,7 +142,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function nis(n) { return '\u20aa' + Number(n).toLocaleString('he-IL'); }
   function price(p) {
     if (p.price === null || p.price === undefined) return 'מחיר לפי פנייה';
-    var s = p.deal_type === 'rent' ? nis(p.price) + ' לחודש' : nis(p.price);
+    // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+    var unit = p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+    var s = nis(p.price) + (unit === 'sqm' ? (p.deal_type === 'rent' ? ' למ״ר לחודש' : ' למ״ר') : unit === 'month' ? ' לחודש' : '');
     if (p.category === 'commercial' && p.price_includes_vat !== true) s += ' + מע״מ';
     return s;
   }

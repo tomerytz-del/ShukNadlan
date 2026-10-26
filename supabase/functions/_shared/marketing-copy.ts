@@ -40,7 +40,10 @@ export const nis = (n: number | null | undefined) =>
  *  קורא שלא טען אותו לא יודע אם המחיר כולל - ולכן לא ממציא סיומת. */
 export function priceLine(row: PropertyFacts): string {
   if (row.price === null || row.price === undefined) return "";
-  const base = row.deal_type === "rent" ? `${nis(row.price)} לחודש` : nis(row.price);
+  // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+  const unit = row.price_unit || (row.deal_type === "rent" ? "month" : "total");
+  const per = unit === "sqm" ? (row.deal_type === "rent" ? " למ״ר לחודש" : " למ״ר") : unit === "month" ? " לחודש" : "";
+  const base = `${nis(row.price)}${per}`;
   const vat = "price_includes_vat" in row && row.category === "commercial" &&
     row.price_includes_vat !== true;
   return vat ? `${base} + מע״מ` : base;

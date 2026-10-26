@@ -8730,6 +8730,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <!-- מסחרי בלבד. "לא צוין" מוצג באתר כ-"+ מע״מ" ליד המחיר, כי כך
              נמסר מחיר מסחרי כמעט תמיד. properties.price_includes_vat. -->
+        <!-- מסחרי בלבד. נכס מסחרי מושכר נמסר הרבה פעמים במחיר למ״ר, והאתר הציג
+             "₪140/חוד׳" על חנות של 170 מ״ר. properties.price_unit, docs/price-unit.md -->
+        <div class="field" id="npPriceUnitField" style="display:none"><label for="npPriceUnit">המחיר הוא</label>
+          <select id="npPriceUnit">
+            <option value="">לפי סוג העסקה (מכירה: סה״כ, השכרה: לחודש)</option>
+            <option value="sqm">למ״ר (בהשכרה: למ״ר לחודש)</option>
+            <option value="month">לחודש, לכל הנכס</option>
+            <option value="total">סה״כ, לכל הנכס</option>
+          </select>
+        </div>
         <div class="field" id="npVatField" style="display:none"><label for="npPriceVat">מע״מ</label>
           <select id="npPriceVat">
             <option value="">לא צוין (יוצג: + מע״מ)</option>

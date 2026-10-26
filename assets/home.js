@@ -92,12 +92,26 @@ function cssUrl(u){
   return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
 }
 
+/* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
+   כמה MB), ובטלפון דף התוצאות הוריד כ-25MB. ‏render/image של Supabase מקטין
+   לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
+   הנכס כבר עוברת בה (‏heroRenderUrl). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
+function cardImgUrl(url, w){
+  const s = String(url || '');
+  const marker = '/storage/v1/object/public/';
+  const at = s.indexOf(marker);
+  if (at < 0) return s;
+  const path = s.slice(at + marker.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+}
+
 /* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
 function thumbStyle(p, i){
   return hasPhoto(p)
-    ? `background-image:url('${cssUrl(p.images[0])}');background-size:cover;background-position:center`
+    ? `background-image:url('${cssUrl(cardImgUrl(p.images[0]))}');background-size:cover;background-position:center`
     : '';
 }
 
@@ -117,9 +131,18 @@ function thumbFallback(p){
 /* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ, ולכן "+ מע״מ" מוצג ליד המחיר
    אלא אם הסוכן/ת סימן/ה במפורש שהמחיר כולל (‏price_includes_vat = true).
    אותו כלל ב-property-card.js, property.js, home.js ו-open-house.html. */
+/* יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' הוא מחיר למ״ר - בהשכרה
+   למ״ר לחודש. ריק = לפי סוג העסקה, כמו שהיה: השכרה לחודש, מכירה סה״כ.
+   אותו כלל ב-property-card.js, property.js, home.js, crm.js, open-house.html,
+   instagram.html, showcase.js, og-tags.ts ו-marketing-copy.ts. */
+function priceUnitOf(p){
+  return p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+}
 function priceLabel(p){
   const vat = p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '';
-  return (p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'))) + vat;
+  const unit = priceUnitOf(p);
+  const per = unit === 'sqm' ? (p.deal_type === 'rent' ? ' למ״ר לחודש' : ' למ״ר') : unit === 'month' ? '/חוד׳' : '';
+  return '₪' + Number(p.price).toLocaleString('he-IL') + per + vat;
 }
 
 /* ============================================================
@@ -1157,7 +1180,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
+  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
@@ -3058,7 +3081,7 @@ function mapPopupHtml(p, kind){
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
-    (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     `<span class="map-pop-body">` +
       `<span class="map-pop-title">${escAttr(p.title)}</span>` +
@@ -5212,8 +5235,9 @@ async function runSearchInner(){
     // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן הוא לא סוחף איתו
     // נכסים שהמילים האלה מופיעות בכותרת שלהם. כמה שכונות = ‏in ולא eq.
     if (hoodState.selected.size) query = query.in('neighborhood_id', [...hoodState.selected]);
-    if (s.priceMin) query = query.gte('price', s.priceMin);
-    if (s.priceMax) query = query.lte('price', s.priceMax);
+    // ‏price_total: מחיר למ״ר כפול השטח, כדי שחנות ב-140 ₪ למ״ר לא תעבור "עד 5,000" (docs/price-unit.md)
+    if (s.priceMin) query = query.gte('price_total', s.priceMin);
+    if (s.priceMax) query = query.lte('price_total', s.priceMax);
     if (s.rooms.size) query = query.in('rooms', Array.from(s.rooms).map(r=>r === '+6' ? 6 : parseFloat(r)));
     if (s.ptypes.size) query = query.in('property_type', Array.from(s.ptypes));
     if (s.floorMin) query = query.gte('floor', s.floorMin);
@@ -5398,6 +5422,47 @@ function searchLandingHeading(){
   return el ? (el.content || '').trim().slice(0, 80) : '';
 }
 
+// השורות נטענות במנות (‏renderSearchRows, docs/image-sizes.md)
+const SR_PAGE_SIZE = 20;
+
+/* ---------- מיון השורות ----------
+   ‏"מומלצים" הוא הסדר שהרשימה הגיעה בו (מקודמים ומדיה קודם). המחיר הוא
+   SearchCore.comparablePrice - מחיר למ״ר כפול השטח, כמו בסינון התקציב -
+   ונכס בלי מחיר יורד לסוף בשני הכיוונים. הבחירה נשמרת לביקור (‏sessionStorage),
+   כדי שחזרה מדף נכס לא תאפס אותה. */
+const SR_SORTS = ['default', 'new', 'price-asc', 'price-desc'];
+const SR_SORT_KEY = 'srSort';
+let srSort = 'default';
+try { const v = sessionStorage.getItem(SR_SORT_KEY); if (SR_SORTS.includes(v)) srSort = v; } catch(e){ /* בלי אחסון - ברירת המחדל */ }
+let srLastRender = null;
+
+function sortSearchRows(list){
+  if (srSort === 'new'){
+    const t = p => Date.parse(p.created_at) || 0;
+    return list.slice().sort((a, b) => t(b) - t(a));
+  }
+  if (srSort === 'price-asc' || srSort === 'price-desc'){
+    const dir = srSort === 'price-asc' ? 1 : -1;
+    const val = p => { const n = SearchCore.comparablePrice(p); return n !== null && isFinite(n) && n > 0 ? n : null; };
+    return list.slice().sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (x === null || y === null) return (x === null) - (y === null);
+      return (x - y) * dir;
+    });
+  }
+  return list;
+}
+
+(function wireSearchSort(){
+  const el = document.getElementById('srSort');
+  if (!el) return;
+  el.value = srSort;
+  el.addEventListener('change', ()=>{
+    srSort = SR_SORTS.includes(el.value) ? el.value : 'default';
+    try { sessionStorage.setItem(SR_SORT_KEY, srSort); } catch(e){ /* רק לביקור הזה */ }
+    if (srLastRender) renderSearchRows(...srLastRender);
+  });
+})();
 function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
@@ -5419,9 +5484,11 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
                                              : (searchLandingHeading() || 'תוצאות החיפוש');
   section.hidden = false;
 
+  srLastRender = [properties, isSearchResult, { mapView }];
   // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
   // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
-  const shown = mapView ? properties.slice(0, MAP_VIEW_MAX_ROWS) : properties;
+  const sorted = sortSearchRows(properties);
+  const shown = mapView ? sorted.slice(0, MAP_VIEW_MAX_ROWS) : sorted;
 
   if (countEl){
     if (mapView){
@@ -5463,16 +5530,40 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     return;
   }
 
-  shown.forEach((p, i)=>{
-    rows.appendChild(buildSearchRow(p, i));
-    // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
-    if (i === 1 && shown.length > 2){
-      const ad = document.createElement('div');
-      ad.className = 'infeed-ad';
-      ad.textContent = 'פרסומת - באנר רוחבי בין תוצאות החיפוש';
-      rows.appendChild(ad);
+  /* ‏20 בכל פעם (‏docs/image-sizes.md): כל שורה מורידה תמונה, ו"דירות למכירה"
+     הציג את כולן בבת אחת - בטלפון כ-25MB לפני שהגולש/ת גלל/ה. המפה
+     והמונה עדיין מציגים את כל ההתאמות; רק השורות נטענות במנות. */
+  let next = 0;
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'sr-more';
+  const page = ()=>{
+    const end = Math.min(shown.length, next + SR_PAGE_SIZE);
+    for (let i = next; i < end; i++){
+      rows.insertBefore(buildSearchRow(shown[i], i), more.parentNode ? more : null);
+      // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
+      if (i === 1 && shown.length > 2){
+        const ad = document.createElement('div');
+        ad.className = 'infeed-ad';
+        ad.textContent = 'פרסומת - באנר רוחבי בין תוצאות החיפוש';
+        rows.insertBefore(ad, more.parentNode ? more : null);
+      }
     }
+    next = end;
+    const left = shown.length - next;
+    if (left > 0){
+      more.textContent = `הצגת עוד ${Math.min(left, SR_PAGE_SIZE)} נכסים (נשארו ${left})`;
+      if (!more.parentNode) rows.appendChild(more);
+    } else if (more.parentNode) more.remove();
+  };
+  more.addEventListener('click', ()=>{
+    const first = next;
+    page();
+    // הפוקוס עובר לשורה הראשונה שנוספה, ולא נשאר על כפתור שנעלם
+    const row = rows.querySelectorAll('.sr-row')[first];
+    if (row) row.focus({ preventScroll: true });
   });
+  page();
 }
 
 /* ============================================================================
@@ -6782,9 +6873,38 @@ document.getElementById('ssClearBtn')?.addEventListener('click', ()=>{
 });
 document.getElementById('ssQuery')?.addEventListener('input', renderClearButton);
 
+/* ---------- סוג הנכס מעל התוצאות ----------
+   ‏"דירות למכירה" (‏?deal=sale) הציג גם מגרשים ומשרדים, כי הסוג במשפט הוא
+   "נכס". כל כפתור כאן הוא סוג במשפט (‏sentence.patch), ולכן המונה, המפה,
+   הכתובת והשורות זזים יחד. ‏flats - כל הדירות (רגילה, גן, גג), ‏chipOnly
+   ב-sentence-search.js. סוג אחר שנבחר במשפט (‏"דירת גן", "משרד") - אף כפתור
+   אינו מסומן. */
+const KIND_CHIPS = ['any', 'flats', 'house', 'land', 'commercial'];
+let kindChipsWired = false;
+function renderKindChips(st){
+  const box = document.getElementById('srKinds');
+  if (!box) return;
+  if (!kindChipsWired){
+    kindChipsWired = true;
+    box.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-kind]');
+      if (!btn || !sentence || !sentence.loaded()) return;
+      const kind = btn.dataset.kind;
+      if (!KIND_CHIPS.includes(kind)) return;
+      sentence.patch({ type: kind });
+      // shukTrack ישירות: check_gtm_container מוצא אירועים לפי השם הזה
+      if (window.shukTrack) shukTrack('search_slot_select', { slot: 'type', option: kind });
+    });
+  }
+  const type = (st && st.type) || 'any';
+  box.querySelectorAll('button[data-kind]').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.kind === type ? 'true' : 'false'));
+}
+
 function onSentenceChange(results, st, reason){
   renderAdvancedBadge();
   renderClearButton();
+  renderKindChips(st);
   if (sentenceQuiet) return;
   if (reason === 'load' && sentenceDeepLink){
     sentenceDeepLink = false;
@@ -7117,7 +7237,7 @@ let freeTextFeatures = new Set();
   function fillTypes(st, commercial){
     const types = commercial
       ? sentence.Core.TYPES.filter(t => t.commercial).sort((x, y) => (y.key === 'commercial') - (x.key === 'commercial'))
-      : sentence.Core.TYPES.filter(t => t.key === 'any' || !t.commercial);
+      : sentence.Core.TYPES.filter(t => t.key === 'any' || (!t.commercial && !t.chipOnly));
     const opts = types.map(t => [t.key, t.key === 'any' ? 'כל הנכסים' : t.key === 'commercial' ? 'כל הסוגים' : t.label]);
     fillSelect($('hsType'), opts, types.some(t => t.key === st.type) ? st.type : opts[0][0]);
   }

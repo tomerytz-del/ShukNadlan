@@ -1083,7 +1083,7 @@ el('fairSignupDoneMark').innerHTML= OpenHouse.icon({ size:30 });
    אותן עמודות שדף הבית שולף לאריח: בלעדיהן האריח מציג נכס בלי שורת
    מאפיינים, בלי תגיות מדיה ובלי לוגו המשרד שמחליף תמונה חסרה. */
 const FAIR_SELECT =
-  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
+  'id, price, price_unit, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, ' +
   'open_house, open_house_start, open_house_end, ' +
   'agencies(name, logo_url), neighborhoods(name)';
@@ -1233,7 +1233,10 @@ function priceLabel(p){
   const n = Number(p.price);
   if (!n) return 'לפי בקשה';
   // מסחרי: "+ מע״מ" אלא אם סומן שהמחיר כולל - אותו כלל של assets/property-card.js
-  return n.toLocaleString('he-IL') + ' ₪' + (p.deal_type === 'rent' ? ' לחודש' : '')
+  // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
+  const unit = p.price_unit || (p.deal_type === 'rent' ? 'month' : 'total');
+  return n.toLocaleString('he-IL') + ' ₪'
+    + (unit === 'sqm' ? (p.deal_type === 'rent' ? ' למ״ר לחודש' : ' למ״ר') : unit === 'month' ? ' לחודש' : '')
     + (p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '');
 }
 
