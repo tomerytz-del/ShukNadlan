@@ -26,7 +26,7 @@ description: הסרטון השיווקי לנכס בריפו של שוק נדל�
 
 מאז 24.10.2026 הסרטון הוא רילס בתבנית D: ‏Grok (‏`pending_reel` → ‏`rendering`)
 → הגיבוי ב-GitHub Actions (‏`site_reel`) → fal כמוצא אחרון. הפירוט ב-
-`docs/property-marketing-video.md`, "תבנית D". שלושה כללים:
+`docs/property-marketing-video.md`, "תבנית D". ארבעה כללים:
 
 - **סטטוס פתוח חדש נכנס לכל המקומות** - האינדקסים, `start`/`quote`/`status`,
   ה-reconcile, התנאי של ה-cron ו-`ops_agent/config.py`.
@@ -35,6 +35,12 @@ description: הסרטון השיווקי לנכס בריפו של שוק נדל�
   בלי התנאי מאפשר לשני מפיקים להשלים את אותה בקשה.
 - **`tools/` אינו נערך.** גרסה חדשה של התבנית היא העתקה של ארבעת הקבצים; כל
   התאמה לסביבה ב-`run_job.py`. ‏`grok_daily` אינו בקשה: לא נספר במכסה ולא פתוח.
+- **כל insert ל-`property_video_jobs` ממלא את כל עמודות ה-not null**, גם שורת
+  תיעוד בלי callback - ‏`webhook_token` אקראי (‏`encode(extensions.gen_random_bytes(32), 'hex')`),
+  לא קבוע. ‏`attach_daily_reel` השמיטה אותו: הפונקציה נגללה אחורה כולה ו-
+  ‏`daily_attach` החזירה 500, והרילס עלה לרשתות ולא נשמר בדף הנכס
+  (‏`20270828090000`). עמודה not null חדשה נכנסת לכל ה-insert-ים (‏`grep -rn
+  "insert into public.property_video_jobs" supabase/migrations`, הגרסה האחרונה של כל פונקציה).
 
 ### עדכון התבנית (גרסה חדשה של reel.py מ-Grok)
 
