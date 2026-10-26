@@ -31926,6 +31926,16 @@ const AGR_CONDITION_LABELS = {
 };
 
 let agreementRows = [];   // ההסכמים של הסוכן/ת, כולל החותמים
+
+/* ‏טופס ההסכמה לפעולות שיווק שנחתם לפני בלעדיות (20270829090000). הוא
+   שורה משלו, אבל הבלעדיות מייצגת את שני הטפסים: הוא אינו נספר כהסכם נוסף
+   ואינו "דורש פעולה" בנפרד, ומוצג רק בין החתומים (לעותק שלו) או בסינון לפי סוג. */
+function agrIsConsent(a){
+  return !!(window.AgreementTemplates && window.AgreementTemplates.isConsent(a.kind));
+}
+function agrCountable(){
+  return agreementRows.filter(a => !agrIsConsent(a));
+}
 let agrWizard = null;     // מצב האשף הפתוח, או null
 
 const agrTpl = kind => (window.AgreementTemplates && window.AgreementTemplates.get(kind)) || null;
@@ -31965,10 +31975,11 @@ async function loadAgreements(){
     signers: (a.signers || []).slice().sort((x, y) => (x.ord || 0) - (y.ord || 0)),
   }));
 
-  const pending = agreementRows.filter(a => a.status === 'sent' || a.status === 'viewed').length;
+  const countable = agrCountable();
+  const pending = countable.filter(a => a.status === 'sent' || a.status === 'viewed').length;
   accSetCount('accAgreements',
     pending ? plural(pending, 'הסכם אחד ממתין לחתימה', 'ממתינים לחתימה')
-            : (agreementRows.length ? plural(agreementRows.length, 'הסכם אחד', 'הסכמים') : ''));
+            : (countable.length ? plural(countable.length, 'הסכם אחד', 'הסכמים') : ''));
 
   agrFillKindFilter();
   renderAgreements();
@@ -32009,10 +32020,14 @@ function renderAgreements(){
     if (status === 'awaiting'){ if (!AGR_AWAITING.includes(a.status)) return false; }
     else if (status && a.status !== status) return false;
     if (kind && a.kind !== kind) return false;
+    // הסכמה לשיווק - רק כשנחתמה, או כשמסננים לפי הסוג שלה
+    if (!kind && agrIsConsent(a) && a.status !== 'signed') return false;
     return !q || agrSearchBlob(a).includes(q);
   });
 
-  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length, agreementRows.length, active);
+  // הסך הוא מה שהרשימה יכולה להציג בלי סינון - כולל הסכמות שנחתמו
+  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length,
+    agreementRows.filter(a => !agrIsConsent(a) || a.status === 'signed').length, active);
 
   if (!rows.length){
     listEl.innerHTML = '<div class="empty-state">' + (agreementRows.length === 0
@@ -32046,9 +32061,10 @@ const AGR_AWAITING = ['sent', 'viewed'];
 function renderAgreementTiles(status){
   const box = document.getElementById('agrTiles');
   if (!box) return;
-  const n = f => agreementRows.filter(f).length;
+  const countable = agrCountable();
+  const n = f => countable.filter(f).length;
   const tiles = [
-    ['', 'כל ההסכמים', agreementRows.length, false],
+    ['', 'כל ההסכמים', countable.length, false],
     ['draft', 'טיוטות', n(a => a.status === 'draft'), true],
     ['awaiting', 'ממתינים לחתימה', n(a => AGR_AWAITING.includes(a.status)), true],
     ['signed', 'נחתמו', n(a => a.status === 'signed'), false],
@@ -32244,7 +32260,7 @@ async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
   /* בלעדיות: מוחקים את טופס ההסכמה שלה, והבלעדיות נמחקת איתו (on delete
      cascade). מחיקת הבלעדיות לבדה הייתה משאירה הסכמה יתומה. השאילתה נפרדת
-     ונסבלת לכישלון - העמודה נוספה ב-20270828090000. */
+     ונסבלת לכישלון - העמודה נוספה ב-20270829090000. */
   const { data: link } = await sb.from('agreements').select('marketing_consent_id').eq('id', a.id).maybeSingle();
   const target = (link && link.marketing_consent_id) || a.id;
   const { error } = await sb.from('agreements').delete().eq('id', target);
@@ -33962,7 +33978,7 @@ async function agrSaveAndGoSign(btn){
 
   /* בלעדיות: קודם טופס ההסכמה לפעולות שיווק - מסמך נפרד, כנדרש בחוק
      המתווכים - ואחריו הבלעדיות, שמצביעה עליו (marketing_consent_id,
-     20270828090000). דף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד. */
+     20270829090000). דף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד. */
   const consentKind = window.AgreementTemplates.consentKind(w.kind);
   let newConsentId = null;
   try {

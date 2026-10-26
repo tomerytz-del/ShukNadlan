@@ -4911,6 +4911,9 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
     .from("agreements")
     .select("id, kind, status, title, created_at, sent_at, signed_at, exclusive_from, exclusive_until")
     .eq("agent_id", ctx.agent.id)
+    // טופס ההסכמה לשיווק נחתם יחד עם הבלעדיות שלו, והיא מייצגת את שניהם -
+    // אחרת כל בלעדיות נמנית כאן פעמיים
+    .not("kind", "in", "(marketing_sell,marketing_landlord)")
     .limit(limit);
 
   if (expiringSoon) {

@@ -104,7 +104,7 @@ export function templateKeys(): string[] {
  * ‏טופס ההסכמה לפעולות שיווק שנחתם **לפני** הזמנה בבלעדיות, או null.
  * חוק המתווכים מחייב את פעולות השיווק במסמך נפרד, ולכן כל בלעדיות נוצרת
  * כשני הסכמים: ההסכמה, ואחריה הבלעדיות עם `marketing_consent_id` שמצביע
- * עליה (מיגרציה 20270828090000). אותם חותמים, אותו נכס, אותה תקופה.
+ * עליה (מיגרציה 20270829090000). אותם חותמים, אותו נכס, אותה תקופה.
  */
 export function consentInputFor(input: BuildInput): BuildInput | null {
   const kind = Templates.consentKind(input.kind);

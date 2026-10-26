@@ -372,7 +372,8 @@ function homeWaitData(){
     ? agendaBuckets().today.length - late.length : 0;
   const fresh = typeof leadsPriorityGroups === 'function' ? leadsPriorityGroups() : [];
   const oldest = fresh.map(g => g[0]).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
-  const drafts = typeof agreementRows !== 'undefined' ? agreementRows.filter(a => a.status === 'draft').length : 0;
+  // ‏agrCountable: בלי טופס ההסכמה לשיווק, שהבלעדיות שלו כבר נספרת
+  const drafts = typeof agrCountable === 'function' ? agrCountable().filter(a => a.status === 'draft').length : 0;
   const matches = accCountOf('accAlerts');
   const shelf = accCountOf('accLeadShelf');
   return [
