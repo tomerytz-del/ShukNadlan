@@ -5424,6 +5424,45 @@ function searchLandingHeading(){
 
 // השורות נטענות במנות (‏renderSearchRows, docs/image-sizes.md)
 const SR_PAGE_SIZE = 20;
+
+/* ---------- מיון השורות ----------
+   ‏"מומלצים" הוא הסדר שהרשימה הגיעה בו (מקודמים ומדיה קודם). המחיר הוא
+   SearchCore.comparablePrice - מחיר למ״ר כפול השטח, כמו בסינון התקציב -
+   ונכס בלי מחיר יורד לסוף בשני הכיוונים. הבחירה נשמרת לביקור (‏sessionStorage),
+   כדי שחזרה מדף נכס לא תאפס אותה. */
+const SR_SORTS = ['default', 'new', 'price-asc', 'price-desc'];
+const SR_SORT_KEY = 'srSort';
+let srSort = 'default';
+try { const v = sessionStorage.getItem(SR_SORT_KEY); if (SR_SORTS.includes(v)) srSort = v; } catch(e){ /* בלי אחסון - ברירת המחדל */ }
+let srLastRender = null;
+
+function sortSearchRows(list){
+  if (srSort === 'new'){
+    const t = p => Date.parse(p.created_at) || 0;
+    return list.slice().sort((a, b) => t(b) - t(a));
+  }
+  if (srSort === 'price-asc' || srSort === 'price-desc'){
+    const dir = srSort === 'price-asc' ? 1 : -1;
+    const val = p => { const n = SearchCore.comparablePrice(p); return n !== null && isFinite(n) && n > 0 ? n : null; };
+    return list.slice().sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (x === null || y === null) return (x === null) - (y === null);
+      return (x - y) * dir;
+    });
+  }
+  return list;
+}
+
+(function wireSearchSort(){
+  const el = document.getElementById('srSort');
+  if (!el) return;
+  el.value = srSort;
+  el.addEventListener('change', ()=>{
+    srSort = SR_SORTS.includes(el.value) ? el.value : 'default';
+    try { sessionStorage.setItem(SR_SORT_KEY, srSort); } catch(e){ /* רק לביקור הזה */ }
+    if (srLastRender) renderSearchRows(...srLastRender);
+  });
+})();
 function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
@@ -5445,9 +5484,11 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
                                              : (searchLandingHeading() || 'תוצאות החיפוש');
   section.hidden = false;
 
+  srLastRender = [properties, isSearchResult, { mapView }];
   // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
   // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
-  const shown = mapView ? properties.slice(0, MAP_VIEW_MAX_ROWS) : properties;
+  const sorted = sortSearchRows(properties);
+  const shown = mapView ? sorted.slice(0, MAP_VIEW_MAX_ROWS) : sorted;
 
   if (countEl){
     if (mapView){

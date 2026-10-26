@@ -51,6 +51,8 @@
 | החיפוש בשרת (‏`runSearchInner`) ו-`property-search.ts` (שני הבוטים) | `gte`/`lte` על `price_total` |
 | `client_property_match`, `saved_search_matches` | `coalesce(price_total, price)` |
 | סינון המחיר ב-CRM | `price_total ?? price`; וסינון "מחיר למ״ר" - המחיר עצמו בנכס `sqm` |
+| מיון לפי מחיר - שורות התוצאות (‏`sortSearchRows`) ומדפי הנכסים בדף הבית, המשרד והסוכן/ת (‏`prop-shelf.js`) | אותה נוסחה |
+| `instagram_feed` (דף `/instagram`) | מחזירה גם `price_unit` |
 
 נכס למ״ר בלי שטח: `price_total` ריק. ההתאמות במסד נופלות ל-`price`; החיפוש
 בשרת לא מוצא אותו כשיש תקציב - נכס כזה ממילא לא ניתן להשוות.

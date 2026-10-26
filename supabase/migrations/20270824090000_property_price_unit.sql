@@ -202,3 +202,56 @@ as $function$
 $function$;
 
 revoke all on function public.saved_search_matches(public.saved_searches, public.properties) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- instagram_feed: גם יחידת המחיר, לדף /instagram ("₪140 למ״ר לחודש").
+-- סוג ההחזרה משתנה, ולכן drop ולא create or replace; ההרשאות חוזרות כמו שהיו.
+-- עמודה חדשה בסוף - הדף הישן מתעלם ממנה.
+-- ---------------------------------------------------------------------------
+drop function if exists public.instagram_feed(int);
+
+create or replace function public.instagram_feed(p_limit int default 30)
+returns table (
+  property_id        uuid,
+  listing_number     bigint,
+  title              text,
+  deal_type          text,
+  category           text,
+  property_type      text,
+  price              numeric,
+  price_includes_vat boolean,
+  rooms              numeric,
+  size_sqm           numeric,
+  city               text,
+  neighborhood       text,
+  image              text,
+  posted_at          timestamptz,
+  price_unit         text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, p.listing_number, p.title, p.deal_type, p.category, p.property_type,
+         p.price, p.price_includes_vat, p.rooms::numeric,
+         coalesce(p.size_sqm, p.area_sqm)::numeric,
+         p.city, n.name,
+         coalesce(p.images[1], p.marketing_image),
+         pub.posted_at,
+         p.price_unit
+    from public.property_publications pub
+    join public.properties p on p.id = pub.property_id
+    left join public.neighborhoods n on n.id = p.neighborhood_id
+   where pub.channel = 'instagram'
+     and pub.status = 'posted'
+     and p.status = 'active'
+   order by pub.posted_at desc
+   limit least(greatest(coalesce(p_limit, 30), 1), 60);
+$$;
+
+comment on function public.instagram_feed(int) is
+  'הנכסים הפעילים שעלו לחשבון האינסטגרם, מהחדש לישן - לדף /instagram שאליו מוביל הקישור בפרופיל. עיר ושכונה בלבד, בלי רחוב.';
+
+revoke all on function public.instagram_feed(int) from public, anon, authenticated;
+grant execute on function public.instagram_feed(int) to anon, authenticated, service_role;
