@@ -208,10 +208,10 @@ create policy "buyer reads purchased rss lead"
 -- ---------------------------------------------------------------------------
 -- 4. מדף הלידים הפומבי
 --
--- ‏View ללא security_invoker (כלומר רץ בהרשאות הבעלים ועוקף את ה-RLS של
--- הטבלה) — בדיוק כמו leads_masked, agency_members_public ו-planning_lookups_public
--- בפרויקט. זו הדרך לחשוף את התקציר השיווקי לכל מבקר/ת באתר בלי לחשוף את
--- ‏source_url, את הטקסט הגולמי או את הניתוח.
+-- ‏View ללא security_invoker (רץ כבעלים ועוקף את ה-RLS) — כמו
+-- agency_members_public. ‏leads_masked הוא ההפך וחייב security_invoker.
+-- כאן הוויתור מכוון: כך נחשף התקציר השיווקי לכל מבקר/ת בלי source_url,
+-- בלי הטקסט הגולמי ובלי הניתוח.
 --
 -- ה-linter של Supabase מסמן את התבנית הזו כ-"Security Definer View" ברמת
 -- ‏ERROR. כאן זה מכוון: זו בדיוק המטרה. אם נעביר את ה-view ל-security_invoker,
@@ -241,4 +241,6 @@ where is_lead = true
 comment on view public.rss_leads_public is
   'מדף הלידים באתר — תקציר שיווקי בלבד. ללא source_url, ללא raw_content, ללא פרטי קשר.';
 
+-- revoke קודם: view חדש נולד עם ALL ל-anon, ו-grant select לבדו משאיר כתיבה.
+revoke all on public.rss_leads_public from public, anon, authenticated;
 grant select on public.rss_leads_public to anon, authenticated;
