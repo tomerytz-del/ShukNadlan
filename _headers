@@ -156,3 +156,36 @@
 
 /.well-known/apple-app-site-association
   Content-Type: application/json
+
+# ---------------------------------------------------------------------------
+# דפי הרשמה ותשלום - לא בגוגל
+#
+# meta name=robots בדף, ואותה הכרזה בכותרת (noindex, follow - הרווח כמו
+# ב-X-Robots-Tag של פונקציות ה-edge). אין Disallow ב-robots.txt: סורק
+# שמגיע מקישור, כולל סורק חברת הסליקה, עדיין קורא את הדף.
+# /pricing נשאר באינדקס: זו טבלת המסלולים, לא טופס התשלום.
+# ---------------------------------------------------------------------------
+
+/checkout
+  X-Robots-Tag: noindex, follow
+
+/checkout.html
+  X-Robots-Tag: noindex, follow
+
+/agency-signup
+  X-Robots-Tag: noindex, follow
+
+/agency-signup.html
+  X-Robots-Tag: noindex, follow
+
+/developer-signup
+  X-Robots-Tag: noindex, follow
+
+/developer-signup.html
+  X-Robots-Tag: noindex, follow
+
+/professional-signup
+  X-Robots-Tag: noindex, follow
+
+/professional-signup.html
+  X-Robots-Tag: noindex, follow

@@ -133,6 +133,12 @@ PRIVATE = {
     # ‏דף 404 - Netlify מגיש אותו בכל כתובת שאינה קיימת, ונושא noindex
     # (docs/not-found-page.md).
     "404",
+    # דפי הרשמה ותשלום. noindex,follow בלי Disallow (סורק הסליקה מגיע
+    # מקישור), ומחוץ ל-sitemap. /pricing הוא טבלת מסלולים ונשאר ציבורי.
+    "checkout",
+    "agency-signup",
+    "developer-signup",
+    "professional-signup",
 }
 
 TAG = '<link rel="canonical" href="%s">'

@@ -34,9 +34,10 @@
 
 `prices-page.ts` מחליפה את מה שבין `<div id="pricesTables">` לבין
 `<!--/prices-->`, מסמנת `data-ssr="1"`, ממלאת את `#pricesPeriod` ומוסיפה
-`Dataset` ב-JSON-LD. timeout, שגיאת HTTP או תשובה שאינה מערך יוצאים **503**
-עם אותו HTML (`Retry-After: 60`, ‏`Cache-Control` ו-`Netlify-CDN-Cache-Control`
-שניהם `no-store`), ו-`assets/prices.js` קורא לאותה פונקציה מהדפדפן. מערך ריק
+`Dataset` ב-JSON-LD. timeout, שגיאת HTTP או תשובה שאינה מערך: אם יש עותק
+של דף שמולא, הוא מוגש שוב ב-200. בלי עותק יוצא **503** עם אותו HTML
+(`Retry-After: 60`, ‏`Cache-Control` ו-`Netlify-CDN-Cache-Control` שניהם
+`no-store`), ו-`assets/prices.js` קורא לאותה פונקציה מהדפדפן. מערך ריק
 הוא תשובה מהמסד: **200** בלי מילוי, וה-JS ממלא. הדף אחד, לא רשומה חסרה, ולכן
 ריק אינו 404. דף שמולא נשמר במטמון של Netlify לשעה.
 

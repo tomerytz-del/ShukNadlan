@@ -20,6 +20,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/neighborhood-page.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../neighborhood.html", import.meta.url), "utf8");
 
@@ -95,6 +96,7 @@ function check(name: string, ok: boolean) {
   check("FAQPage ב-JSON-LD", html.includes('"@type":"FAQPage"'));
   check("קישור לשכונה סמוכה", html.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
 }
+resetLastGood();
 {
   const res = await run(URL_HOOD, 500, {});
   const html = await res.text();
@@ -142,6 +144,16 @@ function check(name: string, ok: boolean) {
   const html = await res.text();
   check("כתובת לא תקינה: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex") && calls === 0);
   check("כתובת לא תקינה: no-store", res.headers.get("Cache-Control") === "no-store");
+}
+
+resetLastGood();
+{
+  const good = await run(URL_HOOD, 200, HOOD);
+  const goodHtml = await good.text();
+  const bad = await run(URL_HOOD, 500, {});
+  const badHtml = await bad.text();
+  check("אחרי הצלחה, כשל מגיש את אותו דף", bad.status === 200 && badHtml === goodHtml && goodHtml.includes("data-ssr"));
+  check("העותק בלי Retry-After", !bad.headers.get("Retry-After"));
 }
 
 if (failed) {

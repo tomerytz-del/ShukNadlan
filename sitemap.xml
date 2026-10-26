@@ -52,15 +52,6 @@
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
-  <!-- עמוד התשלום. אינו עמוד שיווקי ואין לו ערך בחיפוש, אבל הוא מופיע כאן
-       כדי שסורק חיצוני — ובראשו זה של חברת הסליקה — ימצא אותו בלי לתלות את
-       המציאה בקישור שנבנה ב-JavaScript. ראו docs/wallet-payments.md. -->
-  <url>
-    <loc>https://shuknadlan.co.il/checkout</loc>
-    <lastmod>2026-09-17</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
   <url>
     <loc>https://shuknadlan.co.il/instagram</loc>
     <lastmod>2026-09-30</lastmod>
@@ -96,24 +87,6 @@
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/agency-signup</loc>
-    <lastmod>2026-09-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/developer-signup</loc>
-    <lastmod>2026-09-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/professional-signup</loc>
-    <lastmod>2026-09-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://shuknadlan.co.il/terms</loc>

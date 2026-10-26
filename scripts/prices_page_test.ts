@@ -5,7 +5,8 @@
    מריצה את הפונקציה על `prices.html` עצמו, ומוודאת:
 
      ‏· המסד ענה  → הטבלאות בדף, ‏data-ssr, התקופה ו-Dataset ב-JSON-LD.
-     ‏· המסד נכשל → 503 עם אותו HTML (ה-JS ממלא), ‏no-store ו-Retry-After.
+     ‏· המסד נכשל בלי עותק קודם → 503 עם אותו HTML (ה-JS ממלא), ‏no-store ו-Retry-After.
+     ‏· המסד נכשל אחרי דף שמולא → 200 עם אותו HTML.
      ‏· המסד ענה מערך ריק → 200 והדף כמו שהוא.
      ‏· שם עיר עם ‎</script>‎ אינו סוגר תגית ואינו נכנס לטבלה כ-HTML.
 
@@ -18,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/prices-page.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../prices.html", import.meta.url), "utf8");
 
@@ -64,6 +66,7 @@ check("שם עיר מוברח בטבלה", html.includes("כפר&lt;/script&gt;�
 check("‏</script> בשם עיר אינו סוגר את ה-JSON-LD", (html.match(/<\/script>/g) || []).length === (PAGE.match(/<\/script>/g) || []).length + 1);
 check("טקסט הטעינה הוחלף", !html.includes("טוען את הנתונים..."));
 
+resetLastGood();
 const failRes = await run(500, {});
 check("מסד נכשל (‏500): 503 ואותו HTML", failRes.status === 503 && (await failRes.text()) === PAGE);
 check("מסד נכשל: no-store ו-Retry-After", failRes.headers.get("Cache-Control") === "no-store"
@@ -73,6 +76,14 @@ const oddRes = await run(200, { message: "not-an-array" });
 check("תשובה שאינה מערך: 503", oddRes.status === 503 && (await oddRes.text()) === PAGE);
 const emptyRes = await run(200, []);
 check("מסד ענה ריק: 200 והדף כמו שהוא", emptyRes.status === 200 && (await emptyRes.text()) === PAGE);
+
+resetLastGood();
+const again = await run(200, ROWS);
+const againHtml = await again.text();
+const stale = await run(500, {});
+check("אחרי הצלחה, כשל מגיש את אותו דף", stale.status === 200 && (await stale.text()) === againHtml && againHtml === html);
+check("העותק בלי Retry-After", !stale.headers.get("Retry-After")
+  && (stale.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
