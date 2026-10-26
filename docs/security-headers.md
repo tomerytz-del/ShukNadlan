@@ -195,7 +195,8 @@ python scripts/check_canonical.py --fix  # שתילה בדף סטטי שחסר
 כמעט בכל יום. הם מתווספים בשרת ב-`netlify/edge-functions/sitemap.ts`,
 שמושכת אותם מ-Supabase ומשרשרת אותם לקובץ הזה בכל בקשה ל-`/sitemap.xml`,
 ונופלת חזרה לקובץ הסטטי אם כל המקורות נכשלו. כשל של בלוק העסקאות בלבד,
-כשיש כתובות ממקור אחר, הוא 503 בלי מטמון. הפרטים: `docs/sitemap.md`.
+כשיש כתובות ממקור אחר, הוא 503 בלי מטמון אם אין עותק של sitemap מלא.
+הפרטים: `docs/sitemap.md`.
 
 `canonical` ותגיות `og:` לכל שבעת דפי הפירוט מוזרקות באותה דרך ב-
 `netlify/edge-functions/og-tags.ts` (ראו `docs/social-preview.md`).

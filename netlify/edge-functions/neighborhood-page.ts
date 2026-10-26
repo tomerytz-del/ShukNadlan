@@ -10,8 +10,9 @@
    Supabase איטי אינה מאחדת שכונות. ‏noindex - כשהמסד ענה במפורש שאין
    שכונה כזו, כשהכתובת אינה תקינה, או כשהדף אינו לאינדקס
    (‏`neighborhoodIndexable`: אפס מודעות פעילות, או עיר מחוץ לשוק חי).
-   timeout, שגיאת HTTP או תשובה שאינה אובייקט הם 503 בלי noindex
-   ובלי מטמון: גוגל חוזרת, ודף ריק אינו נשמר כאילו הוא הדף.
+   timeout, שגיאת HTTP או תשובה שאינה אובייקט: עותק של דף שמולא יוצא
+   200 (‏lib/last-good.ts). בלי עותק הם 503 בלי noindex ובלי מטמון:
+   גוגל חוזרת, ודף ריק אינו נשמר כאילו הוא הדף.
 
    התיעוד: ‎docs/neighborhood-pages.md‎.
    ========================================================================== */
@@ -19,6 +20,7 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/neighborhood-render.js";
 import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -178,6 +180,10 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (status === 404 || status === 503) {
+    if (status === 503) {
+      const prev = await recall(lastGoodKey(request.url));
+      if (prev) return prev;
+    }
     return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
@@ -188,7 +194,9 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
   if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
-  return new Response(out, { status: res.status, headers });
+  const response = new Response(out, { status: res.status, headers });
+  if (cache) await remember(lastGoodKey(request.url), response, waitUntilOf(context));
+  return response;
 }
 
 export const config: Config = {

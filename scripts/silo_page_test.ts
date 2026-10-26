@@ -20,6 +20,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/silo-page.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../silo.html", import.meta.url), "utf8");
 const SITE = "https://shuknadlan.co.il";
@@ -162,6 +163,7 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("גיבור לא לוקח תמונת מודעה", hero.includes("hero-house-800.webp") && !hero.includes("new-house.jpg") && !hero.includes("property-images/a.jpg"));
 }
 
+resetLastGood();
 {
   const res = await run(SITE + PATH, 500, { message: "no" });
   const html = await res.text();
@@ -171,6 +173,15 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("no-store", res.headers.get("Cache-Control") === "no-store"
     && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
   check("Retry-After", res.headers.get("Retry-After") === "60");
+}
+{
+  resetLastGood();
+  const good = await run(SITE + PATH, 200, ROWS);
+  const goodHtml = await good.text();
+  const bad = await run(SITE + PATH, 500, { message: "no" });
+  const badHtml = await bad.text();
+  check("אחרי הצלחה, כשל מגיש את אותו דף", bad.status === 200 && badHtml === goodHtml && goodHtml.includes("data-ssr"));
+  check("העותק בלי Retry-After", !bad.headers.get("Retry-After") && !/noindex/.test(badHtml));
 }
 
 {

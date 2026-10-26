@@ -17,14 +17,16 @@
    וה-og:url מוחלפים **לפני** הקריאה למסד, מה-slug שבכתובת. ‏noindex נכנס
    כשהמסד ענה במפורש שאין יישוב כזה, כשה-slug פסול, או כשהדף אינו לאינדקס
    (פחות מ-5 עסקאות בחלון של הדף, אפס מודעות פעילות בעיר, או עיר מחוץ
-   לשוק חי - ‏`settlementIndexable`). timeout אינו noindex.
+   לשוק חי - ‏`settlementIndexable`). timeout אינו noindex. כשל מסד מגיש
+   את הדף המלא האחרון ב-200 אם נשמר (‏lib/last-good.ts); 503 רק בלי עותק.
 
-   ## כישלון אינו מוחק את הדף, ואינו נשמר
+   ## כישלון אינו מוחק את הדף
 
-   ‏timeout או מסד שלא ענה - 503 עם Retry-After, בלי noindex ובלי מטמון.
-   ה-HTML יוצא עם ה-canonical הנכון ובלי נתונים, ו-`assets/deals.js`
-   (‏אותו `deals-render.js`) ממלא אותו מהדפדפן. יישוב שהמסד אמר שאין,
-   או slug פסול - 404 עם noindex, גם הוא בלי מטמון.
+   ‏timeout או מסד שלא ענה: עותק של דף שמולא יוצא 200. בלי עותק - 503 עם
+   ‏Retry-After, בלי noindex ובלי מטמון. ה-HTML של ה-503 יוצא עם ה-canonical
+   הנכון ובלי נתונים, ו-`assets/deals.js` (‏אותו `deals-render.js`) ממלא
+   אותו מהדפדפן. יישוב שהמסד אמר שאין, או slug פסול - 404 עם noindex,
+   גם הוא בלי מטמון, ואינו נשמר כעותק.
 
    התיעוד: ‎docs/settlement-deals.md‎.
    ========================================================================== */
@@ -32,6 +34,7 @@
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/deals-render.js";
 import { liveMarketSlugs, settlementIndexable, THIN_DEALS } from "./lib/indexability.ts";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -273,6 +276,10 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (status === 404 || status === 503) {
+    if (status === 503) {
+      const prev = await recall(lastGoodKey(request.url));
+      if (prev) return prev;
+    }
     return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
@@ -286,7 +293,9 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
   if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
-  return new Response(out, { status: res.status, headers });
+  const response = new Response(out, { status: res.status, headers });
+  if (cache) await remember(lastGoodKey(request.url), response, waitUntilOf(context));
+  return response;
 }
 
 export const config: Config = {

@@ -169,7 +169,8 @@ node --experimental-strip-types scripts/search_pages_test.ts   # ההתנהגו�
 ב-`SEARCH_PAGES` אומר לכתובת הסינון להצהיר על הדף, כולל כשהגרש בסוג
 הנכס מגיע כ-`'` או כ-`%27` או כגרש עברי.
 
-כשל מסד הוא 503 עם `Retry-After` ושתי כותרות `no-store`, בלי `noindex`.
+כשל מסד מגיש את הדף המלא האחרון ב-200 אם נשמר. בלי עותק הוא 503 עם
+`Retry-After` ושתי כותרות `no-store`, בלי `noindex`.
 `noindex` רק כשהמסד ענה והרשימה ריקה. הכתובות נכנסות ל-`sitemap.xml`
 ידנית, כי אין להן שורות במסד. `scripts/silo_page_test.ts`.
 

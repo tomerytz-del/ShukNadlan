@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import handler from "../netlify/edge-functions/brokers-page.ts";
+import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 import "../assets/silo-render.js";
 
 const PAGE = readFileSync(new URL("../brokers.html", import.meta.url), "utf8");
@@ -104,6 +105,7 @@ function blocks(html: string): Record<string, unknown>[] {
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">עפולה</a>"));
 }
 
+resetLastGood();
 {
   const res = await run("/afula/מתווכים", 500);
   const html = await res.text();
@@ -113,6 +115,15 @@ function blocks(html: string): Record<string, unknown>[] {
   check("Retry-After", res.headers.get("Retry-After") === "60");
   check("no-store", res.headers.get("Cache-Control") === "no-store"
     && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+}
+{
+  resetLastGood();
+  const good = await run("/afula/" + encodeURIComponent("מתווכים"), 200);
+  const goodHtml = await good.text();
+  const bad = await run("/afula/מתווכים", 500);
+  const badHtml = await bad.text();
+  check("אחרי הצלחה, כשל מגיש את אותו דף", bad.status === 200 && badHtml === goodHtml && goodHtml.includes("data-ssr"));
+  check("העותק בלי Retry-After", !bad.headers.get("Retry-After") && !/noindex/.test(badHtml));
 }
 
 {

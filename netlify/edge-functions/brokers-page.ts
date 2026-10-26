@@ -4,7 +4,8 @@
    brokers.html מוגש תחת הכתובת (200 ב-_redirects). הפונקציה ממלאת משרדים
    חיים בעפולה (RLS של agencies כבר מסנן משרד בלי רישיון) ואת המתווכים שלהם.
 
-   canonical מהכתובת, לפני המסד. כשל בשאילתת המשרדים הוא 503 בלי noindex.
+   canonical מהכתובת, לפני המסד. כשל בשאילתת המשרדים מגיש את הדף המלא
+   האחרון ב-200 אם נשמר (lib/last-good.ts); 503 בלי noindex רק בלי עותק.
    שאילתת המתווכים והספירה הן משניות: כישלון שלהן משאיר את המשרדים.
    רשימת משרדים ריקה אחרי תשובה היא 200 עם noindex.
 
@@ -18,6 +19,7 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import "../../assets/silo-render.js";
 import "../../assets/brokers-render.js";
 import { landingIndexable, liveMarketSlugs } from "./lib/indexability.ts";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 import { marketHint } from "./lib/markets.ts";
 
 const SITE = "https://shuknadlan.co.il";
@@ -231,6 +233,10 @@ export default async function handler(request: Request, context: Context) {
   }
 
   if (status === 404 || status === 503 || empty) {
+    if (status === 503) {
+      const prev = await recall(lastGoodKey(request.url));
+      if (prev) return prev;
+    }
     const failed = failureHeaders(res.headers, status);
     if (empty) failed.set("X-Robots-Tag", "noindex, follow");
     return new Response(out, { status, headers: failed });
@@ -243,7 +249,9 @@ export default async function handler(request: Request, context: Context) {
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
   }
-  return new Response(out, { status: res.status, headers });
+  const response = new Response(out, { status: res.status, headers });
+  if (cache) await remember(lastGoodKey(request.url), response, waitUntilOf(context));
+  return response;
 }
 
 export const config: Config = {

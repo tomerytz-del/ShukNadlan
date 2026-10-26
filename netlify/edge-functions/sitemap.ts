@@ -43,9 +43,11 @@
    ‏deals-page.ts, עם timeout של 8 שניות: ה-GET ב-2.5 שניות נכשל בשקט
    והקובץ יוצא 200 בלי אף ‎/deals/‎. מערך ריק מהפונקציה הוא תשובה
    לגיטימית (אין יישוב עם עסקאות) ונשאר 200. כשל — timeout, סטטוס שאינו
-   ‏200, או גוף שאינו מערך — כשיש כתובות ממקור אחר, הוא 503 עם
-   ‏Retry-After ו-no-store בשתי כותרות המטמון, בלי urlset חלקי. אין
+   ‏200, או גוף שאינו מערך — כשיש כתובות ממקור אחר: אם נשמר sitemap מלא
+   שהצליח, הוא מוגש שוב ב-200 (‏lib/last-good.ts). בלי עותק כזה הוא 503
+   עם Retry-After ו-no-store בשתי כותרות המטמון, בלי urlset חלקי. אין
    כאן noindex: זה אינו דף HTML, וכשל זמני אינו סיבה למחוק כתובות.
+   נפילת כל המקורות עדיין מחזירה את הקובץ הסטטי, ואינה דורסת את העותק.
 
    ‏**4. אין ‎changefreq‎ ואין ‎priority‎ בערכים הדינמיים.** גוגל מתעלמת
    משניהם מזה שנים. ‎lastmod‎ דווקא נקרא, ולכן הוא נכתב מהמסד בכל מקום
@@ -78,6 +80,7 @@ import {
   settlementIndexable,
   THIN_DEALS,
 } from "./lib/indexability.ts";
+import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
@@ -658,9 +661,12 @@ export default async function handler(_request: Request, context: Context) {
       if (!source.rpc) otherUrls += urls.length;
     }
 
-    /* ‏בלוק העסקאות נכשל ויש כתובות אחרות: לא מפרסמים 200 בלי /deals/.
-       הגוף הוא הקובץ הסטטי בלבד, והוא אינו נשמר. */
+    /* ‏בלוק העסקאות נכשל ויש כתובות אחרות: לא מפרסמים 200 חדש בלי /deals/.
+       עותק של sitemap מלא שהצליח קודם יוצא 200. בלי עותק — הקובץ הסטטי
+       ב-503, והוא אינו נשמר. */
     if (guardedFailed && otherUrls > 0) {
+      const prev = await recall(lastGoodKey(_request.url));
+      if (prev) return prev;
       return new Response(staticXml, {
         status: 503,
         headers: {
@@ -686,7 +692,9 @@ export default async function handler(_request: Request, context: Context) {
                   : body.slice(0, decl + 2) + "\n" + note + body.slice(decl + 2);
 
     const out = await polish(noted, cities, live);
-    return new Response(out, { status: 200, headers: XML_HEADERS });
+    const response = new Response(out, { status: 200, headers: XML_HEADERS });
+    await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
+    return response;
   } catch {
     return fallback(); // ‏sitemap ישן עדיף על 500
   }
