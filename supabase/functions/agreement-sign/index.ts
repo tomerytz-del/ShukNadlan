@@ -562,8 +562,10 @@ function isExclusive(kind: string): boolean {
   return kind === "exclusive_sell" || kind === "exclusive_landlord";
 }
 
+/** טופס הסכמה לפעולות שיווק - הכלל אחד, בתבניות המשותפות לדפדפן ולשרת. */
 function isConsentKind(kind: string): boolean {
-  return kind === "marketing_sell" || kind === "marketing_landlord";
+  // deno-lint-ignore no-explicit-any
+  return !!(globalThis as any).AgreementTemplates?.isConsent(kind);
 }
 
 /** ‏dd/mm/yyyy — אותו פורמט שבו תקופת הבלעדיות מודפסת במסמך עצמו. */

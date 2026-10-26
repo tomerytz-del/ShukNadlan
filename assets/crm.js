@@ -30706,7 +30706,7 @@ function renderKpiInsights(){
   const openProp = p => ()=>{ gotoSection('accProperties'); openPropertyFromParam(p.id); };
 
   // עמלות: הכי קרוב לכסף - הסכם שנשלח ולא נחתם; בלעדיו, הנכס עם העמלה הגבוהה
-  const pending = (typeof agreementRows !== 'undefined' ? agreementRows : [])
+  const pending = (typeof agrCountable === 'function' ? agrCountable() : [])
     .filter(a => a.status === 'sent' || a.status === 'viewed').length;
   let money = null;
   if (pending && navAccVisible('accAgreements')){
@@ -31928,8 +31928,8 @@ const AGR_CONDITION_LABELS = {
 let agreementRows = [];   // ההסכמים של הסוכן/ת, כולל החותמים
 
 /* ‏טופס ההסכמה לפעולות שיווק שנחתם לפני בלעדיות (20270829090000). הוא
-   שורה משלו, אבל הבלעדיות מייצגת את שני הטפסים: הוא אינו נספר כהסכם נוסף
-   ואינו "דורש פעולה" בנפרד, ומוצג רק בין החתומים (לעותק שלו) או בסינון לפי סוג. */
+   שורה משלו, אבל הבלעדיות מייצגת את שני הטפסים: הוא אינו נספר כהסכם נוסף,
+   ואינו מוצג ברשימה אלא בסינון לפי הסוג שלו (שם גם העותק החתום שלו). */
 function agrIsConsent(a){
   return !!(window.AgreementTemplates && window.AgreementTemplates.isConsent(a.kind));
 }
@@ -32020,14 +32020,12 @@ function renderAgreements(){
     if (status === 'awaiting'){ if (!AGR_AWAITING.includes(a.status)) return false; }
     else if (status && a.status !== status) return false;
     if (kind && a.kind !== kind) return false;
-    // הסכמה לשיווק - רק כשנחתמה, או כשמסננים לפי הסוג שלה
-    if (!kind && agrIsConsent(a) && a.status !== 'signed') return false;
+    // הסכמה לשיווק - רק כשמסננים לפי הסוג שלה; בלי סינון הבלעדיות מייצגת אותה
+    if (!kind && agrIsConsent(a)) return false;
     return !q || agrSearchBlob(a).includes(q);
   });
 
-  // הסך הוא מה שהרשימה יכולה להציג בלי סינון - כולל הסכמות שנחתמו
-  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length,
-    agreementRows.filter(a => !agrIsConsent(a) || a.status === 'signed').length, active);
+  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length, agrCountable().length, active);
 
   if (!rows.length){
     listEl.innerHTML = '<div class="empty-state">' + (agreementRows.length === 0
@@ -33911,7 +33909,7 @@ async function agrPersistAgreement(kind, existingId, extra){
        בבלעדיות - שני הטפסים הם הראיה להתחייבות של בעל/ת הנכס, והאימות
        (פעם אחת, בטופס הראשון) מוכיח שחתם/ה מי שבכרטיס. בטופס בעל/ת נכס
        רגיל אין מה להגן עליו. */
-    require_otp: tpl.side === 'client' || !!tpl.exclusive || !!tpl.consentFor,
+    require_otp: window.AgreementTemplates.requiresOtp(kind),
     property_ids: w.properties.map(p => p.property_id).filter(Boolean),
     client_ids: w.signers.map(s => s.client_id).filter(Boolean),
     snapshot: {

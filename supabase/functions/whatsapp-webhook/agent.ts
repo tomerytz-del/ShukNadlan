@@ -5019,19 +5019,22 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
 
 /**
  * הסכם אחד במלואו - השורה, גוף המסמך (אחרי ה-insert, בגלל verify_code)
- * והחותמים. משמש את טופס ההסכמה לפעולות שיווק שנוצר לפני בלעדיות; הבלעדיות
- * עצמה נוצרת בגוף prepare_agreement כמו כל הסכם.
+ * והחותמים. בכל כשל אחרי ה-insert השורה נמחקת, כדי שלא יישאר הסכם בלי
+ * גוף או בלי חותמים. משמש את ההסכם עצמו ואת טופס ההסכמה לשיווק שלפני בלעדיות.
  */
 async function createAgreementRows(
   ctx: ToolContext,
   build: Parameters<typeof insertPayload>[0],
   signers: AgreementSigner[],
   extra: Record<string, unknown>,
-): Promise<{ ok: true; id: string; title: string } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; id: string; title: string; verify_code: string; require_otp: boolean } |
+  { ok: false; error: string }
+> {
   const { data: created, error } = await ctx.supabase
     .from("agreements")
     .insert({ ...insertPayload(build), ...extra })
-    .select("id, verify_code, created_at, title")
+    .select("id, verify_code, created_at, title, require_otp")
     .single();
   if (error || !created) return { ok: false, error: error?.message || "insert_failed" };
   const id = String(created.id);
@@ -5052,7 +5055,10 @@ async function createAgreementRows(
       .insert(rows.map(({ client_id: _c, ...row }) => row)));
   }
   if (signersError) return await fail(signersError.message);
-  return { ok: true, id, title: String(created.title) };
+  return {
+    ok: true, id, title: String(created.title),
+    verify_code: String(created.verify_code || ""), require_otp: !!created.require_otp,
+  };
 }
 
 async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unknown>) {
@@ -5258,35 +5264,15 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   }
 
   // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
-  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף.
-  const { data: created, error: insertError } = await ctx.supabase
-    .from("agreements")
-    .insert({ ...insertPayload(build), ...(consentId ? { marketing_consent_id: consentId } : {}) })
-    .select("id, verify_code, created_at, title, require_otp")
-    .single();
-  if (insertError) {
+  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
+  const made = await createAgreementRows(ctx, build, signers,
+    consentId ? { marketing_consent_id: consentId } : {});
+  if (!made.ok) {
     // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
     if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
-    return { ok: false, error: insertError.message };
+    return { ok: false, error: made.error };
   }
-
-  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
-  const { error: htmlError } = await ctx.supabase
-    .from("agreements")
-    .update({ document_html: html })
-    .eq("id", created.id)
-    .eq("agent_id", ctx.agent.id);
-  if (htmlError) return { ok: false, error: htmlError.message };
-
-  const signerInsert = signerRows(String(created.id), signers);
-  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(signerInsert);
-  // הפונקציות והמיגרציות נפרסות בלי סדר מובטח: בדקה שבה client_id עוד לא
-  // קיים (20270228090000) נכתבים החותמים בלעדיו, וההסכם לא נופל.
-  if (signersError && /client_id/.test(signersError.message || "")) {
-    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
-      .insert(signerInsert.map(({ client_id: _c, ...row }) => row)));
-  }
-  if (signersError) return { ok: false, error: signersError.message };
+  const created = made;
 
   const { data: saved } = await ctx.supabase
     .from("agreement_signers")

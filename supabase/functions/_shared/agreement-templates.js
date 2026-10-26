@@ -610,6 +610,13 @@
     /** הטופס שנחתם לפני `key` (ההסכמה לשיווק לפני בלעדיות), או null. */
     consentKind: function (key) { return (TEMPLATES[key] && TEMPLATES[key].marketingConsent) || null; },
     isConsent: function (key) { return !!(TEMPLATES[key] && TEMPLATES[key].consentFor); },
+    /** אימות לפני הצגת ההסכם, כברירת מחדל - כלל אחד לאשף ולבוט. קונה/שוכר:
+        רשימת הנכסים שבמסמך היא המידע שמוגן. בלעדיות וההסכמה שלפניה: שני
+        הטפסים הם הראיה להתחייבות, והאימות (פעם אחת, בראשון) מוכיח מי חתם/ה. */
+    requiresOtp: function (key) {
+      var t = TEMPLATES[key];
+      return !!t && (t.side === 'client' || !!t.exclusive || !!t.consentFor);
+    },
     keys: function () { return Object.keys(TEMPLATES); },
     marketingSection: MARKETING_SECTION,
     commissionBases: COMMISSION_BASES,

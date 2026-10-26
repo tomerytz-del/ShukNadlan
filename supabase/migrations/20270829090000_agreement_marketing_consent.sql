@@ -16,7 +16,10 @@
 -- מה שכאן מבטיח את הסדר גם מחוץ לדף החתימה (לוח החתימה ב-CRM, קריאה ישירה):
 --   • חתימה על הבלעדיות נדחית כל עוד אותו/ה חותם/ת (אותו ord) לא חתם/ה על
 --     ההסכמה שלה - agreement_signers_consent_first.
---   • שליחה וביטול עוברים מאחד לשני - agreements_bundle_status. הסכמה
+--   • הקישור תקף רק מבלעדיות להסכמה של אותו/ה סוכן/ת -
+--     agreements_consent_link_check.
+--   • שליחה וביטול עוברים מאחד לשני, והסכמה שנפתחה או נחתמה מוציאה את
+--     הבלעדיות מ-draft - agreements_bundle_status. הסכמה
 --     שנשארה draft אינה נעולה (agreements_freeze_body), ולכן היא יוצאת לחתימה
 --     יחד עם הבלעדיות; וביטול של אחד בלי השני משאיר מסמך יתום שנראה תקף.
 --
@@ -43,6 +46,64 @@ create unique index if not exists agreements_marketing_consent_key
 
 comment on column public.agreements.marketing_consent_id is
   'בהזמנה בבלעדיות: טופס ההסכמה לפעולות שיווק שנחתם לפניה, במסמך נפרד כנדרש בחוק המתווכים. אותם חותמים, אותו ord.';
+
+-- 2א. "האם זה טופס הסכמה" - כלל אחד לכל ספירה במסד (דאשבורדים, יומן,
+--     התראות). ההסכמה היא חלק מהבלעדיות שלה ולא הסכם נוסף. immutable ו-sql,
+--     כדי שתוטמע בשאילתה ולא תיקרא לכל שורה.
+create or replace function public.agreement_is_consent(p_kind text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select coalesce(p_kind in ('marketing_sell', 'marketing_landlord'), false);
+$$;
+
+revoke all on function public.agreement_is_consent(text) from public, anon;
+grant execute on function public.agreement_is_consent(text) to authenticated, service_role;
+
+-- 2ב. הקישור תקף רק מבלעדיות להסכמה **של אותו/ה סוכן/ת**. ה-RLS מאפשרת
+--     לסוכן/ת לכתוב כל ערך לשורה שלו/ה, והקישור נקרא ב-service_role
+--     (agreement-sign) ובטריגרים security definer: בלי הבדיקה, מזהה של הסכם
+--     של סוכן/ת אחר/ת היה מחזיר את אסימון החתימה של הלקוח/ה שלו/ה ומאפשר
+--     לבטל את ההסכם שלו/ה.
+create or replace function public.agreements_consent_link_check()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_kind  text;
+  v_agent uuid;
+begin
+  if new.marketing_consent_id is null then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' and new.marketing_consent_id is not distinct from old.marketing_consent_id
+     and new.agent_id is not distinct from old.agent_id and new.kind is not distinct from old.kind then
+    return new;
+  end if;
+  if new.kind not in ('exclusive_sell', 'exclusive_landlord') then
+    raise exception 'marketing_consent_link_invalid'
+      using hint = 'רק הזמנה בבלעדיות מקושרת לטופס הסכמה לפעולות שיווק.';
+  end if;
+  select a.kind, a.agent_id into v_kind, v_agent
+    from public.agreements a where a.id = new.marketing_consent_id;
+  if v_kind is null or not public.agreement_is_consent(v_kind) or v_agent is distinct from new.agent_id then
+    raise exception 'marketing_consent_link_invalid'
+      using hint = 'טופס ההסכמה חייב להיות הסכם הסכמה לשיווק של אותו/ה סוכן/ת.';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.agreements_consent_link_check() from public, anon, authenticated;
+
+drop trigger if exists agreements_consent_link_check on public.agreements;
+create trigger agreements_consent_link_check
+  before insert or update on public.agreements
+  for each row execute function public.agreements_consent_link_check();
 
 -- 3. הסדר: הבלעדיות נחתמת רק אחרי ההסכמה, לכל חותם/ת בנפרד
 create or replace function public.agreement_signers_consent_first()
@@ -105,6 +166,16 @@ begin
     update public.agreements e
        set status = 'sent', sent_at = coalesce(e.sent_at, new.sent_at, now())
      where e.marketing_consent_id = new.id and e.status = 'draft';
+  elsif new.status in ('viewed', 'signed') and public.agreement_is_consent(new.kind) then
+    -- ההסכמה נפתחה או נחתמה: הבלעדיות שאחריה יוצאת מ-draft ננעלת (ואינה
+    -- נמחקת עוד כטיוטה - מחיקתה הייתה מוחקת איתה הסכמה חתומה), ו"נצפה"
+    -- עובר אליה, כי הלקוח/ה קורא/ת את שני הטפסים באותו קישור
+    update public.agreements e
+       set status = 'sent', sent_at = coalesce(e.sent_at, now())
+     where e.marketing_consent_id = new.id and e.status = 'draft';
+    update public.agreements e
+       set status = 'viewed', viewed_at = coalesce(e.viewed_at, now())
+     where e.marketing_consent_id = new.id and e.status = 'sent';
   elsif new.status = 'cancelled' then
     update public.agreements c
        set status = 'cancelled', cancelled_at = coalesce(c.cancelled_at, now())

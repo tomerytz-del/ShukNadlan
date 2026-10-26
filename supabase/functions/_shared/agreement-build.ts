@@ -117,14 +117,10 @@ function carriesExclusivePeriod(tpl: any): boolean {
   return !!(tpl.exclusive || tpl.consentFor);
 }
 
-/**
- * ‏אימות לפני הצגת ההסכם. בטופסי קונה/שוכר - רשימת הנכסים שבמסמך היא עצמה
- * המידע שמוגן. בבלעדיות - שני המסמכים הם הראיה להתחייבות של בעל/ת הנכס,
- * והאימות (פעם אחת, בטופס הראשון) מוכיח שמי שחתם/ה הוא/היא מי שבכרטיס.
- */
+/** אימות לפני הצגת ההסכם - הכלל ב-`AgreementTemplates.requiresOtp`, אחד לאשף ולבוט. */
 // deno-lint-ignore no-explicit-any
 export function requiresOtp(tpl: any): boolean {
-  return tpl.side === "client" || carriesExclusivePeriod(tpl);
+  return Templates.requiresOtp(tpl.key);
 }
 
 /**

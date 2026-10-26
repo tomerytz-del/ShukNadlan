@@ -6,15 +6,16 @@
 -- שנחתמו" ספרה בלעדיות פעמיים - בדאשבורד המשרד, בצוות, בדשבורד האישי
 -- ובמאמני ה-AI (שקוראים את אותה ליבה). כאן שלוש הפונקציות שסופרות, כל אחת
 -- העתק מלא מהמיגרציה האחרונה שהגדירה אותה, עם שורה אחת:
---   kind not in ('marketing_sell', 'marketing_landlord')
+--   not public.agreement_is_consent(g.kind)    (20270829090000)
 --
 --   • _agent_period_stats      - מ-20270404090000 (המדד לכל סוכן/ת)
 --   • _my_dashboard_core       - מ-20270601160000 (הגרף החודשי ו"ממתין לחתימה")
 --   • _office_dashboard_core   - מ-20270601150000 (הגרף החודשי; העטיפה בת 3
 --                                 הפרמטרים קוראת לגרסה הזו)
 --
--- ומשימת "המשך טיפול אחרי חתימה" ביומן נוצרת על הבלעדיות בלבד - אחרת שתי
--- משימות לאותה בלעדיות.
+-- ומשימת "המשך טיפול אחרי חתימה" ביומן, וההתראה "ההסכם נחתם" לסוכן/ת, נוצרות
+-- על הבלעדיות בלבד. התראה על ההסכמה הייתה אומרת "כל הצדדים חתמו" כשהבלעדיות
+-- עוד לא נחתמה, ומשימה עליה - שתי משימות לאותה בלעדיות.
 -- ===========================================================================
 
 create or replace function public._agent_period_stats(p_agency uuid, p_from date, p_to date)
@@ -60,7 +61,7 @@ as $$
      where g.agency_id = p_agency
        and g.status = 'signed'
        -- ההסכמה לפעולות שיווק היא חלק מהבלעדיות, לא הסכם נוסף
-       and g.kind not in ('marketing_sell', 'marketing_landlord')
+       and not public.agreement_is_consent(g.kind)
        and g.signed_at >= p_from and g.signed_at < p_to + 1
      group by 1
   ),
@@ -233,7 +234,7 @@ begin
                               and p.created_at >= mo.m_from and p.created_at < mo.m_to),
              'exclusives', (select count(distinct x.property_id) from mx x where x.starts_on >= mo.m_from and x.starts_on < mo.m_to),
              'agreements', (select count(*) from public.agreements g where g.agent_id = v_me and g.status = 'signed'
-                              and g.kind not in ('marketing_sell', 'marketing_landlord')
+                              and not public.agreement_is_consent(g.kind)
                               and g.signed_at >= mo.m_from and g.signed_at < mo.m_to),
              'deals',      (select count(*) from md where md.closed_ts >= mo.m_from and md.closed_ts < mo.m_to),
              'commission', (select coalesce(round(sum(md.commission)), 0) from md where md.closed_ts >= mo.m_from and md.closed_ts < mo.m_to)
@@ -295,7 +296,7 @@ begin
              where g.agent_id = v_me
                and g.status not in ('signed', 'cancelled', 'draft')
                -- הבלעדיות מייצגת את שני הטפסים; ההסכמה שלפניה אינה משימה נוספת
-               and g.kind not in ('marketing_sell', 'marketing_landlord')
+               and not public.agreement_is_consent(g.kind)
                and g.sent_at is not null
              order by g.sent_at limit 5) g
       left join public.properties p on p.id = g.property_ids[1]
@@ -500,7 +501,7 @@ begin
         select g.agent_id, date_trunc('month', g.signed_at)::date, 0, 0, 0, 1, 0, 0
           from public.agreements g
          where g.agency_id = v_agency and g.status = 'signed'
-           and g.kind not in ('marketing_sell', 'marketing_landlord')
+           and not public.agreement_is_consent(g.kind)
            and g.signed_at >= v_m0 and g.signed_at < p_to + 1
         union all
         select dr.agent_id, date_trunc('month', dr.closed_ts)::date, 0, 0, 0, 0, 1, dr.commission
@@ -631,5 +632,78 @@ drop trigger if exists agreements_agenda_signed on public.agreements;
 create trigger agreements_agenda_signed
   after update of status on public.agreements
   for each row when (new.status = 'signed' and old.status is distinct from 'signed'
-                     and new.kind not in ('marketing_sell', 'marketing_landlord'))
+                     and not public.agreement_is_consent(new.kind))
   execute function public.agent_agenda_on_agreement_signed();
+
+create or replace function public.notify_agent_on_remote_signature()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_agreement  record;
+  v_total      int;
+  v_signed     int;
+  v_property   text;
+  v_title      text;
+  v_body       text;
+begin
+  -- רק המעבר מ"לא חתום" ל"חתום", ורק חתימה מרחוק
+  if new.signed_at is null or old.signed_at is not null then
+    return null;
+  end if;
+  if new.method is distinct from 'remote' then
+    return null;
+  end if;
+
+  select id, agent_id, title, status, snapshot, kind
+    into v_agreement
+    from agreements
+   where id = new.agreement_id;
+
+  if v_agreement.id is null or v_agreement.agent_id is null then
+    return null;
+  end if;
+  -- טופס ההסכמה לשיווק: ההתראה תצא על הבלעדיות שנחתמת מיד אחריו
+  if public.agreement_is_consent(v_agreement.kind) then
+    return null;
+  end if;
+  -- הסכם שבוטל אחרי שהקישור יצא: החתימה כבר לא רלוונטית
+  if v_agreement.status = 'cancelled' then
+    return null;
+  end if;
+
+  select count(*), count(*) filter (where signed_at is not null)
+    into v_total, v_signed
+    from agreement_signers
+   where agreement_id = new.agreement_id;
+
+  v_property := nullif(btrim(coalesce(v_agreement.snapshot->>'property_line', '')), '');
+
+  if v_total > 0 and v_signed = v_total then
+    v_title := '✅ ההסכם נחתם - כל הצדדים חתמו';
+  else
+    v_title := '✍️ חתימה מרחוק התקבלה';
+  end if;
+
+  -- מי חתם/ה, על מה, ומה נשאר. בלי השלושה האלה ההתראה אינה אומרת דבר
+  -- למי שיש לו/ה חמישה הסכמים פתוחים באותו שבוע.
+  v_body := coalesce(nullif(btrim(new.full_name), ''), 'החותם/ת')
+    || ' · ' || coalesce(v_agreement.title, 'הסכם')
+    || coalesce(' · ' || v_property, '')
+    || ' · ' || v_signed || '/' || v_total || ' חתמו'
+    || case when v_total > 0 and v_signed = v_total
+            then ' · העותק החתום נשלח לכל הצדדים'
+            else '' end;
+
+  insert into notifications (agent_id, type, title, body, related_agreement_id)
+  values (v_agreement.agent_id, 'agreement_signed', v_title, v_body, v_agreement.id);
+
+  return null;
+end;
+$$;
+
+
+
+revoke execute on function public.notify_agent_on_remote_signature() from public, anon, authenticated;
