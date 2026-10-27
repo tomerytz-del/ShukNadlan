@@ -608,7 +608,7 @@
     if (dir === 'like') shukTrack('swipe_like', { slot: c.slot, position: c.pos });
     else shukTrack('swipe_skip', { slot: c.slot, position: c.pos });
     history_.push({ i: idx, liked: dir === 'like' && c.p ? c.p.id : null });
-    var go = function () { idx = Math.min(idx + 1, deck.length - 1); renderDeck(); };
+    var go = function () { idx = Math.min(idx + 1, deck.length - 1); renderDeck(); tourAdvance(); };
     if (top && !reduceMotion) {
       top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip');
       setTimeout(go, 220);
@@ -775,6 +775,7 @@
   }
   function openSheetFor(c) {
     if (!c || (c.slot !== 'property' && !(c.sponsor && (c.slot === 'spon_agency' || c.sponsor.mortgage)))) return;
+    if (!$('swTour').hidden) endTour(false);
     sheetCard = c; sheetOpener = document.activeElement; formOpen = false; sent = false; answers = {};
     var adv = c.p ? advertiser(c.p) : { type: 'agency', name: c.sponsor.name, sub: c.sponsor.kind === 'pro' ? c.sponsor.field : 'משרד תיווך',
       img: c.sponsor.logo || '', slug: c.sponsor.slug || '', href: c.sponsor.slug ? (c.sponsor.kind === 'pro' ? '/professional?slug=' : '/agency?slug=') + encodeURIComponent(c.sponsor.slug) : '' };
@@ -1031,26 +1032,88 @@
     L.marker([+p.lat, +p.lng], { icon: L.divIcon({ className: '', iconSize: [27, 32], iconAnchor: [13, 32], html: PIN_SVG }), keyboard: false }).addTo(miniMapObj);
   }
 
-  /* ההדרכה: בשני הביקורים הראשונים בכל סוג מכשיר. ‏localStorage בלבד */
-  var TIPS = ['החליקו ימינה אם אהבתם, ושמאלה כדי לדלג', 'החליקו למעלה לפרטים מלאים וליצירת קשר', 'הקישו על צידי התמונה כדי לעבור בין התמונות'];
-  var tourStep = 0, tourVisit = 0;
+  /* ההדרכה: בשני הביקורים הראשונים בכל סוג מכשיר (‏localStorage בלבד).
+     שכבה על הכרטיס העליון ולא חלון: שלושה טיפים כמו באבטיפוס (‏Coach) -
+     החלקה לצדדים (יד שזזה, "אהבתי" / "לא מעניין"), הקשה על צדי התמונה (קו
+     מקווקו ושתי ידיים מקישות, רק כשיש לכרטיס יותר מתמונה אחת), והחלקה למעלה
+     (יד עולה ופאנל "פרטי הנכס" שמציץ). ‏prefers-reduced-motion - בלי תנועה. */
+  var HAND = '<svg class="sw-hand" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>';
+  var UP = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>';
+  function tourSteps() {
+    var d = isDesktop(), c = cur(), multi = !!(c && c.p && photos(c.p).length > 1);
+    var steps = [{
+      kind: 'swipe',
+      text: 'החליקו ימינה אם אהבתם, שמאלה כדי לדלג',
+      sub: d ? 'או במקלדת: → אהבתי · ← לא מעניין · וגם בכפתורים שלמטה' : 'אפשר גם בכפתורים ♥ ו-✕ שבתחתית המסך',
+      art: '<span class="sw-co-pill is-like">♥ אהבתי</span><span class="sw-co-pill is-skip">✕ לא מעניין</span>' +
+        '<span class="sw-co-hline"></span><span class="sw-co-arrows"><span>‹</span><span>›</span></span>' +
+        '<span class="sw-co-hand-x">' + HAND + '</span>'
+    }];
+    if (multi) steps.push({
+      kind: 'tap',
+      text: d ? 'לחצו שמאלה לתמונה הבאה, ימינה לקודמת' : 'הקישו שמאלה לתמונה הבאה, ימינה לקודמת',
+      sub: d ? 'או מקש רווח לתמונה הבאה. הפסים למעלה מראים באיזו תמונה אתם' : 'הפסים בראש הכרטיס מראים באיזו תמונה אתם',
+      art: '<span class="sw-co-vline"></span>' +
+        '<span class="sw-co-zone is-left"><span class="sw-co-tapwrap"><span class="sw-co-rip"></span><span class="sw-co-tap">' + HAND + '</span></span><b>התמונה<br>הבאה</b></span>' +
+        '<span class="sw-co-zone is-right"><span class="sw-co-tapwrap"><span class="sw-co-rip is-late"></span><span class="sw-co-tap is-late">' + HAND + '</span></span><b>התמונה<br>הקודמת</b></span>'
+    });
+    steps.push({
+      kind: 'up',
+      text: (d ? 'גררו למעלה או הקישו ↑ לפרטי הנכס,' : 'החליקו למעלה לפרטי הנכס,') + ' ✦ הדמיה ויצירת קשר',
+      sub: d ? 'הפרטים, ההדמיה ויצירת הקשר נפתחים בגיליון על הכרטיס' : 'בגיליון הפרטים: תמונות, מפה, תיאור ויצירת קשר',
+      art: '<span class="sw-co-ups">' + UP + UP + '</span><span class="sw-co-hand-y">' + HAND + '</span>' +
+        '<span class="sw-co-peek"><i></i><b>פרטי הנכס</b><span><em>✦ הדמיה</em><em>מפה ותיאור</em><em>יצירת קשר</em></span></span>'
+    });
+    return steps;
+  }
+  var tourList = [], tourStep = 0, tourVisit = 0;
   function tourKey() { return 'sk_swipe_tour_seen_' + (isDesktop() ? 'desktop' : 'mobile'); }
   function maybeTour(force) {
     var seen = Number(store(tourKey())) || 0;
     if (!force && seen >= 2) return;
+    if (!$('swTopCard')) return;
     if (!force) { tourVisit = seen + 1; store(tourKey(), String(tourVisit)); }
+    var t = $('swTour');
+    tourList = tourSteps();
+    placeTour();
     tourStep = 0; showTip();
-    openDialog($('swTour'));
+    openDialog(t);
   }
+  /* השכבה יושבת מחוץ ל-#swDeck (שנבנה מחדש בכל החלקה) ומונחת בדיוק מעל הכרטיס */
+  function placeTour() {
+    var r = $('swDeck').getBoundingClientRect(), t = $('swTour');
+    t.style.top = r.top + 'px'; t.style.left = r.left + 'px';
+    t.style.width = r.width + 'px'; t.style.height = r.height + 'px';
+  }
+  window.addEventListener('resize', function () { if (!$('swTour').hidden) placeTour(); });
   function showTip() {
-    $('swTourStep').textContent = 'טיפ ' + (tourStep + 1) + ' מתוך ' + TIPS.length;
-    $('swTourText').textContent = TIPS[tourStep];
+    var s = tourList[tourStep], t = $('swTour');
+    t.className = 'sw-tour is-' + s.kind;
+    $('swTourStep').textContent = 'טיפ ' + (tourStep + 1) + ' מתוך ' + tourList.length;
+    $('swTourText').textContent = s.text;
+    $('swTourSub').textContent = s.sub;
+    $('swTourArt').innerHTML = s.art;
+    var card = $('swTopCard') && $('swTopCard').querySelector('.sw-card');
+    if (card) {
+      card.classList.remove('sw-co-wig', 'sw-co-upc');
+      card.classList.add('sw-touring');
+      void card.offsetWidth;   // מתחילים את התנועה מחדש בכל טיפ
+      if (s.kind === 'swipe') card.classList.add('sw-co-wig');
+      if (s.kind === 'up') card.classList.add('sw-co-upc');
+    }
+  }
+  // החלקה בזמן ההדרכה (כמו באבטיפוס): הטיפ הבא, או סיום אחרי האחרון
+  function tourAdvance() {
+    if ($('swTour').hidden) return;
+    if (tourStep < tourList.length - 1) { tourStep++; showTip(); placeTour(); } else endTour(false);
   }
   function endTour(skipped) {
     if (skipped) { store(tourKey(), '2'); shukTrack('swipe_tour_skip', { visit: tourVisit || 1 }); }
-    closeDialog($('swTour'), $('swTopCard') && $('swTopCard').querySelector('.sw-card'));
+    var card = $('swTopCard') && $('swTopCard').querySelector('.sw-card');
+    if (card) card.classList.remove('sw-co-wig', 'sw-co-upc', 'sw-touring');
+    closeDialog($('swTour'), card);
   }
-  $('swTourOk').addEventListener('click', function () { if (tourStep < TIPS.length - 1) { tourStep++; showTip(); } else endTour(false); });
+  $('swTourOk').addEventListener('click', function () { if (tourStep < tourList.length - 1) { tourStep++; showTip(); } else endTour(false); });
   $('swTourSkip').addEventListener('click', function () { endTour(true); });
   $('swHelp').addEventListener('click', function () { maybeTour(true); });
 

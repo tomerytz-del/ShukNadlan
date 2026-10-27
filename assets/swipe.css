@@ -233,11 +233,76 @@ html body .sw-map .leaflet-control-zoom .sw-map-x{font-size:15px}
 .sw-cta-bar .sw-gold{width:100%}
 
 /* ההדרכה */
-.sw-tour{position:fixed;inset:0;z-index:650;display:flex;align-items:center;justify-content:center;background:rgba(13,27,61,.55);padding:16px}
-.sw-tour-box{max-width:420px;width:100%;padding:22px 20px;border-radius:20px;background:linear-gradient(160deg,#0e2a6b,#0d1b3d);border:1px solid rgba(201,162,39,.35);color:#fff;text-align:center}
-.sw-tour-step{display:inline-block;margin:0 0 10px;padding:3px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.4);font-size:13px;font-weight:700}
-.sw-tour-text{margin:0 0 16px;font-size:20px;font-weight:800;line-height:1.35;text-wrap:balance}
-.sw-tour-btns{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:nowrap}
+.sw-tour{position:fixed;z-index:650;overflow:hidden;border-radius:20px;pointer-events:none;color:#fff;
+  background:linear-gradient(to bottom,rgba(13,27,61,.32) 0%,rgba(13,27,61,.32) 45%,rgba(13,27,61,.86) 100%);animation:swFade .25s ease-out both}
+.sw-tour.is-up{background:linear-gradient(to bottom,rgba(13,27,61,.8) 0%,rgba(13,27,61,.32) 45%,rgba(13,27,61,.32) 100%)}
+/* בזמן ההדרכה פרטי הכרטיס מוסתרים, כדי שהכיתוב של הטיפ ייקרא (כמו בדוגמה של תומר) */
+.sw-card.sw-touring .sw-cbody,.sw-card.sw-touring .sw-ctop{visibility:hidden}
+@keyframes swFade{from{opacity:0}to{opacity:1}}
+.sw-tour-art{position:absolute;inset:0}
+.sw-tour .sw-tour-step,.sw-tour .sw-tour-text,.sw-tour .sw-tour-sub{color:#fff}
+.sw-tour-ctl{position:absolute;left:14px;right:14px;bottom:16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.sw-tour.is-up .sw-tour-ctl{bottom:auto;top:8%}
+.sw-tour-step{margin:0;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(13,27,61,.45);font-size:11.5px;font-weight:800}
+.sw-tour-text{margin:0;font-size:22px;font-weight:900;line-height:1.2;letter-spacing:.02em;text-shadow:0 2px 10px rgba(13,27,61,.7);text-wrap:balance}
+.sw-tour-sub{margin:0;font-size:12.5px;font-weight:500;line-height:1.45;opacity:.92;text-shadow:0 1px 6px rgba(13,27,61,.7)}
+.sw-tour-btns{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:nowrap;margin-top:4px;pointer-events:auto}
+.sw-hand{display:block;width:54px;height:54px;filter:drop-shadow(0 3px 8px rgba(13,27,61,.55))}
+/* טיפ 1: החלקה לצדדים */
+.sw-co-pill{position:absolute;top:24%;padding:6px 14px;border-radius:999px;border:2px solid #fff;font-size:18px;font-weight:900;box-shadow:0 8px 24px rgba(13,27,61,.35);opacity:0}
+.sw-co-pill.is-like{right:12px;background:#1a8a4a;animation:swCoL 4s ease-in-out 2}
+.sw-co-pill.is-skip{left:12px;background:#b3261e;animation:swCoS 4s ease-in-out 2}
+.sw-co-hline{position:absolute;left:50%;top:40%;width:210px;margin-left:-105px;border-top:2px dashed rgba(255,255,255,.6)}
+.sw-co-arrows{position:absolute;left:50%;top:40%;width:250px;transform:translate(-50%,-50%);display:flex;justify-content:space-between;direction:ltr;font-size:22px;font-weight:900;text-shadow:0 1px 6px rgba(13,27,61,.6)}
+.sw-co-hand-x{position:absolute;left:50%;top:40%;margin-left:-21px;margin-top:-6px;--hx:90px;animation:swCoHand 4s ease-in-out 2}
+/* טיפ 2: הקשה על צדי התמונה */
+.sw-co-vline{position:absolute;top:16%;bottom:36%;left:50%;border-left:2.5px dashed rgba(255,255,255,.9)}
+.sw-co-zone{position:absolute;top:20%;bottom:38%;width:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.sw-co-zone.is-left{left:0}.sw-co-zone.is-right{right:0}
+.sw-co-zone b{font-size:21px;font-weight:900;line-height:1.2;letter-spacing:.06em;text-align:center;text-shadow:0 2px 10px rgba(13,27,61,.7)}
+.sw-co-tapwrap{position:relative}
+.sw-co-tap{display:block;animation:swCoTap 1.8s ease-in-out 3}
+.sw-co-tap.is-late,.sw-co-rip.is-late{animation-delay:.9s}
+.sw-co-rip{position:absolute;left:5px;top:-6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;opacity:0;animation:swCoRip 1.8s ease-out 3}
+/* טיפ 3: החלקה למעלה */
+.sw-co-hand-y{position:absolute;left:50%;bottom:120px;margin-left:-21px;--hy:-105px;animation:swCoUpH 3.2s ease-in-out 2}
+.sw-co-ups{position:absolute;left:50%;bottom:160px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;opacity:.9}
+.sw-co-ups svg{width:30px;height:30px}.sw-co-ups svg+svg{margin-top:-16px}
+.sw-co-peek{position:absolute;left:10px;right:10px;bottom:0;height:104px;padding:8px 14px;border-radius:20px 20px 0 0;background:#fff;color:#1b1f2a;
+  box-shadow:0 -10px 30px rgba(13,27,61,.35);text-align:start;animation:swCoPeek 3.2s ease-in-out 2}
+.sw-co-peek i{display:block;width:40px;height:5px;margin:0 auto 8px;border-radius:3px;background:#c6ccd9}
+.sw-co-peek b{display:block;font-size:14px;font-weight:800}
+.sw-co-peek span{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sw-co-peek em{font-style:normal;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(14,42,107,.08);color:#0e2a6b}
+/* הכרטיס עצמו זז עם ההדרכה */
+.sw-card.sw-co-wig{animation:swCoWig 4s ease-in-out 2}
+.sw-card.sw-co-upc{animation:swCoUpC 3.2s ease-in-out 2}
+@keyframes swCoWig{0%,8%{transform:none}22%,30%{transform:translateX(12%) rotate(5deg)}42%,52%{transform:none}66%,74%{transform:translateX(-12%) rotate(-5deg)}86%,100%{transform:none}}
+@keyframes swCoHand{0%,8%{transform:translate(0,0)}22%,30%{transform:translate(var(--hx),-6px) rotate(14deg)}42%,52%{transform:translate(0,0)}66%,74%{transform:translate(calc(var(--hx) * -1),-6px) rotate(-14deg)}86%,100%{transform:translate(0,0)}}
+@keyframes swCoL{0%,14%{opacity:0;transform:scale(.7)}22%,34%{opacity:1;transform:scale(1)}44%,100%{opacity:0;transform:scale(.9)}}
+@keyframes swCoS{0%,58%{opacity:0;transform:scale(.7)}66%,78%{opacity:1;transform:scale(1)}88%,100%{opacity:0;transform:scale(.9)}}
+@keyframes swCoTap{0%,30%,100%{transform:scale(1)}15%{transform:scale(.84)}}
+@keyframes swCoRip{0%{transform:scale(.3);opacity:0}10%{opacity:.9}60%,100%{transform:scale(2);opacity:0}}
+@keyframes swCoUpH{0%{transform:translateY(0);opacity:0}10%{transform:translateY(0);opacity:1}45%{transform:translateY(var(--hy));opacity:1}60%,100%{transform:translateY(var(--hy));opacity:0}}
+@keyframes swCoUpC{0%,10%{transform:none}45%,70%{transform:translateY(-6%)}100%{transform:none}}
+@keyframes swCoPeek{0%,10%{transform:translateY(100%)}45%,100%{transform:translateY(0)}}
+@media (min-width:1024px){
+  .sw-hand{width:64px;height:64px}
+  .sw-tour{border-radius:22px}
+  .sw-tour-text{font-size:26px}
+  .sw-tour-sub{font-size:14px}
+  .sw-co-pill{font-size:22px;padding:8px 18px}.sw-co-pill.is-like{right:22px}.sw-co-pill.is-skip{left:22px}
+  .sw-co-hline{width:300px;margin-left:-150px}.sw-co-arrows{width:340px}
+  .sw-co-hand-x{--hx:120px;margin-left:-25px}
+  .sw-co-zone b{font-size:24px}
+  .sw-co-hand-y{bottom:150px;--hy:-120px}.sw-co-ups{bottom:190px}.sw-co-peek{height:120px}
+  .sw-tour-ctl{bottom:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  .sw-tour,.sw-co-hand-x,.sw-co-tap,.sw-co-hand-y,.sw-co-peek,.sw-card.sw-co-wig,.sw-card.sw-co-upc{animation:none !important}
+  .sw-co-pill{animation:none !important;opacity:1}
+  .sw-co-rip{display:none}
+}
 .sw-toast{position:fixed;bottom:calc(90px + var(--sw-safe-b));left:50%;transform:translateX(-50%);z-index:700;padding:10px 16px;border-radius:12px;background:var(--sw-navy);color:#fff}
 
 /* בטלפון, בתצוגת ההחלקה, הגיליון נעצר מעל שורת הפעולות (חיוג, דילוג, ביטול, שמירה, וואטסאפ) ולא מכסה אותה */

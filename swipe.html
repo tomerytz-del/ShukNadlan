@@ -177,10 +177,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <!-- ההדרכה, פעמיים לכל מכשיר -->
+<!-- ההדרכה: שכבה על הכרטיס עצמו (‏assets/swipe.js, ‏tourArt) - יד מונפשת, קו מקווקו וכיתוב, כמו באבטיפוס -->
 <div class="sw-tour" id="swTour" role="dialog" aria-modal="true" aria-labelledby="swTourText" hidden>
-  <div class="sw-tour-box">
+  <div class="sw-tour-art" id="swTourArt" aria-hidden="true"></div>
+  <div class="sw-tour-ctl">
     <p class="sw-tour-step" id="swTourStep"></p>
     <p class="sw-tour-text" id="swTourText"></p>
+    <p class="sw-tour-sub" id="swTourSub"></p>
     <div class="sw-tour-btns">
       <button type="button" class="sw-white" id="swTourOk">הבנתי</button>
       <button type="button" class="sw-link sw-link-light" id="swTourSkip">דלג על ההדרכה</button>
