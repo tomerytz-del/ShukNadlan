@@ -70,6 +70,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="sw-top-end">
       <button type="button" class="sw-ic" id="swFilterBtn" aria-label="סינון" aria-haspopup="dialog" aria-controls="swFilter">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+        <b class="sw-fbadge" id="swFBadge" aria-hidden="true" hidden></b>
       </button>
       <button type="button" class="sw-ic sw-help" id="swHelp" aria-label="עזרה בגלישה" title="עזרה בגלישה" aria-haspopup="dialog">?</button>
       <button type="button" class="sw-ic sw-likes" id="swLikes" aria-label="נכסים שאהבתי">
@@ -84,6 +85,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button type="button" role="tab" aria-selected="false" aria-controls="swListView" data-view="list">רשימה</button>
     <button type="button" role="tab" aria-selected="false" aria-controls="swMapView" data-view="map">מפה</button>
   </nav>
+  <!-- מיון אחד להחלקה, לרשימה ולמפה (‏P0-3) -->
+  <div class="sw-sortbar">
+    <span class="sw-sortn" id="swSortN" aria-live="polite"></span>
+    <button type="button" class="sw-sortchip" id="swSortBtn" aria-haspopup="dialog">מיון: מומלצים ▾</button>
+  </div>
 
   <section class="sw-deck-view" id="swDeckView" role="tabpanel" aria-label="גלישה בהחלקה">
     <div class="sw-keys" aria-hidden="true">
@@ -151,7 +157,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <span class="sw-grip" aria-hidden="true"></span>
     <div class="sw-fhead">
       <h2 id="swFilterTitle">סינון</h2>
-      <button type="button" class="sw-link" id="swFReset">איפוס</button>
+      <button type="button" class="sw-link" id="swFReset">ניקוי הכול</button>
     </div>
     <div class="sw-fbody">
       <div class="sw-tabs" role="tablist" aria-label="סוג עסקה" id="swFDeal">
@@ -175,10 +181,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="sw-chips" id="swFBudget"></div>
       <h3 class="sw-flabel" id="swFRoomsL">חדרים</h3>
       <div class="sw-chips" id="swFRooms"></div>
+      <h3 class="sw-flabel">סוג נכס</h3>
+      <div class="sw-chips" id="swFType"></div>
       <h3 class="sw-flabel" id="swFVizL" hidden>הדמיית AI</h3>
       <div class="sw-chips" id="swFViz" hidden></div>
       <h3 class="sw-flabel">תמונות</h3>
       <div class="sw-chips" id="swFPhotos"></div>
+      <h3 class="sw-flabel">ללא עמלה</h3>
+      <div class="sw-chips" id="swFFair"></div>
     </div>
     <div class="sw-ffoot">
       <p class="sw-fcount" id="swFCount" aria-live="polite"></p>

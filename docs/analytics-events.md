@@ -424,3 +424,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_nophoto_bridge` | **v10**: הוחלק כרטיס הגשר "המשיכו לראות נכסים מתאימים בלי תמונות" ב-`/swipe` (לא אהבתי ולא דילוג) | `count` (כמה נכסים בלי תמונות אחריו) |
 | `swipe_nophoto_list` | **v10**: "הצגה ברשימה" בכרטיס הגשר - הרשימה רק עם הנכסים בלי תמונות | `count` |
 | `swipe_card_view` (‏`slot`) | **ערך חדש, רק עם דגל v10**: כרטיס הגשר | `slot`: ‏`np_bridge` |
+| `swipe_open_property` | **v10**: "לפרטי הנכס ←" בכרטיס ב-`/swipe` (קישור לדף הנכס, לא נבלע בגרירה) | `property_id`, `slide`: ‏`photo` \| `ba` \| `invite` \| `no_photo` |
+| `swipe_sort` | **v10**: נבחר מיון ב-`/swipe` (משותף להחלקה, לרשימה ולמפה) | `sort`: ‏`rec` \| `new` \| `price_asc` \| `price_desc` \| `ppsqm` \| `size`, `view`: ‏`deck` \| `list` \| `map` |
+| `swipe_filter_clear` | **v10**: "ניקוי הכול" בסינון של `/swipe` | `view` |
+| `swipe_nudge_view` (‏`kind`) | **ערכים חדשים, רק עם דגל v10**: גיליון המיון וגיליון האישור להסרה מהרשימה | `kind`: ‏`sort` \| `unlike` |

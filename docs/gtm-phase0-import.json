@@ -2921,6 +2921,252 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "127",
+                "name": "GA4 — swipe_open_property",
+                "type": "gaawe",
+                "notes": "v10 מאחורי הדגל (html.beta-hero) - docs/analytics-events.md",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "property_id"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - property_id}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "slide"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - slide}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "swipe_open_property"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "firingTriggerId": [
+                    "123"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "128",
+                "name": "GA4 — swipe_sort",
+                "type": "gaawe",
+                "notes": "v10 מאחורי הדגל (html.beta-hero) - docs/analytics-events.md",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "sort"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - sort}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "view"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - view}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "swipe_sort"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "firingTriggerId": [
+                    "124"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "129",
+                "name": "GA4 — swipe_filter_clear",
+                "type": "gaawe",
+                "notes": "v10 מאחורי הדגל (html.beta-hero) - docs/analytics-events.md",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "view"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - view}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "swipe_filter_clear"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "firingTriggerId": [
+                    "125"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -3748,6 +3994,81 @@
                     }
                 ],
                 "fingerprint": "1793000000001"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "123",
+                "name": "CE — swipe_open_property",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "swipe_open_property"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793000000001"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "124",
+                "name": "CE — swipe_sort",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "swipe_sort"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793000000001"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "125",
+                "name": "CE — swipe_filter_clear",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "swipe_filter_clear"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793000000001"
             }
         ],
         "variable": [
@@ -4448,6 +4769,84 @@
                         "type": "TEMPLATE",
                         "key": "name",
                         "value": "surface"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "109",
+                "name": "DLV - slide",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "slide"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "110",
+                "name": "DLV - sort",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "sort"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "111",
+                "name": "DLV - view",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "view"
                     }
                 ],
                 "fingerprint": "1793000000001",

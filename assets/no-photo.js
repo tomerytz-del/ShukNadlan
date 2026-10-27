@@ -52,7 +52,8 @@
     var s = String(u || ''), marker = '/storage/v1/object/public/', at = s.indexOf(marker);
     if (at < 0) return s;
     var path = s.slice(at + marker.length).split(/[?#]/)[0];
-    return path ? s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&quality=65' : s;
+    // תמיד resize=contain: ‏width לבדו חותך רצועה מהמרכז (חלק 6 §0)
+    return path ? s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&resize=contain&quality=70' : s;
   }
 
   var agentCache = {};   // agent_id → שורה מ-agency_members_public (או null אם לא נמצא)
