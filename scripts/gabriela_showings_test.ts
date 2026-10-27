@@ -7,6 +7,7 @@ import {
   clientNameMatches,
   extractClock,
   ilClock,
+  notifiedRequestIds,
   pickShowings,
 } from "../supabase/functions/whatsapp-webhook/showing-match.ts";
 import {
@@ -63,8 +64,16 @@ assert(CANCEL_NOTIFY_BUTTON_TITLE.length > 0 && CANCEL_NOTIFY_BUTTON_TITLE.lengt
   `button title length ${CANCEL_NOTIFY_BUTTON_TITLE.length}`);
 assert(!CANCEL_NOTIFY_BUTTON_TITLE.includes("\u2014"), "button dash");
 
+const cleared = notifiedRequestIds([
+  { id: "sent-1", sent: true },
+  { id: "no-phone", sent: false },
+  { id: "no-window", sent: false },
+  { id: "", sent: true },
+]);
+assert(cleared.length === 1 && cleared[0] === "sent-1", `clear only sent, got ${cleared.join(",")}`);
+
 const sql = readFileSync(
-  new URL("../supabase/migrations/20271027145000_gabriela_showings.sql", import.meta.url),
+  new URL("../supabase/migrations/20271027150050_gabriela_showings.sql", import.meta.url),
   "utf8",
 );
 assert(

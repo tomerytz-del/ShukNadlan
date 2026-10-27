@@ -76,5 +76,10 @@ export const NON_FINAL_COORD = ["pending", "sending", "sent", "postpone", "confi
 /** מי שכבר קיבל הודעה, ולכן ביטול בלי עדכון משאיר אותו/ה בדרך. */
 export const NOTIFY_COORD = ["sent", "postpone", "confirmed"] as const;
 
+/** רק בקשה שההודעה אליה יצאה בפועל. השאר נשארות cancel_unnotified. */
+export function notifiedRequestIds(results: { id: string; sent: boolean }[]): string[] {
+  return results.filter((r) => r.sent && r.id).map((r) => r.id);
+}
+
 /** כפתור אחרי ביטול. הכותרת עד 20 יחידות UTF-16 (Meta). */
 export const CANCEL_NOTIFY_BUTTON_TITLE = "להודיע על הביטול";
