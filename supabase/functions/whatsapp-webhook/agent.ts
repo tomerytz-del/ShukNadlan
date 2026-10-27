@@ -26,7 +26,15 @@ import {
   serviceMarketLabels,
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
-import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
+import {
+  applyPropertyFilters,
+  AREA_SCAN_LIMIT,
+  canonicalCityName,
+  filterByArea,
+  searchMissRow,
+  searchMissStoreMissing,
+} from "./property-search.ts";
+import { clientColumnMissing, requirementsFromNotes } from "./client-requirements.ts";
 import {
   cachedListingCityName,
   CRM_EDIT_LABEL,
@@ -348,7 +356,11 @@ const clientFields = {
   cities: {
     type: "array",
     items: { type: "string" },
-    description: "ערים. מערך ריק = כל עיר.",
+    description: "ערים. מערך ריק = כל עיר. שם או כינוי, הקוד שומר את השם הקנוני.",
+  },
+  neighborhood: {
+    type: "string",
+    description: "שכונה בעיר של הלקוח/ה. לא נשמרת כטקסט: הופכת ל-neighborhood_id. בלי עיר אי אפשר.",
   },
   min_price: { type: "number", description: "תחתית התקציב בשקלים." },
   max_price: { type: "number", description: "תקרת התקציב בשקלים. שכירות = מחיר חודשי." },
@@ -2567,6 +2579,9 @@ async function agentPropertySearch(
   if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {} };
 
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
+  if (typeof args.city === "string" && args.city.trim()) {
+    args = { ...args, city: await canonicalCityName(ctx.supabase, args.city) };
+  }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
     args,
@@ -2638,6 +2653,7 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
   const res = await agentPropertySearch(ctx, input, limit);
   if (!res.ok) return res;
+  if (!res.total) await logAgentSearchMiss(ctx, input);
 
   // המאפיינים שנדרשו הם סינון קשיח (‏contains). כשאין אף נכס עם כולם - סופרים
   // כמה יש בלי הדרישה הזו, ולפי איזה מאפיין חסר, כדי לשאול ולא להציע מעצמנו.
@@ -2682,6 +2698,11 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
       "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו." +
       (res.total > res.results.length ? ` מוצגים ${res.results.length} מתוך ${res.total}.` : ""),
   };
+}
+
+async function logAgentSearchMiss(ctx: ToolContext, input: Record<string, unknown>): Promise<void> {
+  const { error } = await ctx.supabase.from("agent_search_misses").insert(searchMissRow(ctx.agent.id, input));
+  if (error && !searchMissStoreMissing(error)) console.error("search miss log failed", error.code);
 }
 
 async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>) {
@@ -4210,7 +4231,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features, cities, notes, min_price, max_price")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -4572,6 +4593,20 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
+  await canonicalizeClientCities(ctx, payload);
+  const asked = requirementsFromNotes(String(input.notes || ""), {
+    deal_type: payload.deal_type as string | undefined,
+    category: payload.category as string | undefined,
+    cities: payload.cities as string[] | undefined,
+    min_price: payload.min_price as number | undefined,
+    max_price: payload.max_price as number | undefined,
+    required_features: payload.required_features as string[] | undefined,
+  });
+  if (asked.features.length && payload.required_features === undefined) {
+    payload.required_features = asked.features;
+  }
+  const hoodErr = await attachClientNeighborhood(ctx, input, payload);
+  if (hoodErr) return { ok: false, error: hoodErr };
   // ‏agency_id נשמר כדי שהרשומה תדע מאיזה משרד היא נוצרה, בדיוק כמו בטופס
   // בדשבורד. הוא אינו מרחיב את הראייה — ה-RLS היא לפי agent_id בלבד.
   payload.agency_id = ctx.agent.agency_id;
@@ -4623,12 +4658,22 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     };
   }
 
-  const { data, error } = await ctx.supabase
+  let neighborhoodDeferred = false;
+  let { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
     .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error) return { ok: false, error: error.message };
+  if (error && clientColumnMissing(error) && payload.neighborhood_id) {
+    neighborhoodDeferred = true;
+    delete payload.neighborhood_id;
+    ({ data, error } = await ctx.supabase
+      .from("agent_clients")
+      .insert(payload)
+      .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .single());
+  }
+  if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = data.id;
   return {
@@ -4636,6 +4681,14 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     client_id: data.id,
     full_name: data.full_name,
     needs: clientNeeds(data),
+    ask: asked.ask.length ? asked.ask : undefined,
+    neighborhood_deferred: neighborhoodDeferred || undefined,
+    neighborhood_note: neighborhoodDeferred
+      ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
+      : undefined,
+    guidance: asked.ask.length
+      ? "שאלי בשאלה אחת את מה שב-ask. אל תמציאי עיר, תקציב או סוג עסקה."
+      : undefined,
   };
 }
 
@@ -4645,17 +4698,46 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  await canonicalizeClientCities(ctx, payload);
+  const notes = String(input.notes ?? (existing as { notes?: string }).notes ?? "");
+  const asked = requirementsFromNotes(notes, {
+    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
+    category: (payload.category as string | undefined) ?? (existing as { category?: string }).category,
+    cities: (payload.cities as string[] | undefined) ?? (existing as { cities?: string[] }).cities,
+    min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
+    max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
+    required_features: (payload.required_features as string[] | undefined) ??
+      (existing as { required_features?: string[] }).required_features,
+  });
+  const hadFeatures = ((existing as { required_features?: string[] }).required_features || []).length > 0;
+  if (asked.features.length && payload.required_features === undefined && !hadFeatures) {
+    payload.required_features = asked.features;
+  }
+  const hoodErr = await attachClientNeighborhood(ctx, input, payload, existing as { cities?: string[] });
+  if (hoodErr) return { ok: false, error: hoodErr };
   if (!Object.keys(payload).length) return { ok: false, error: "לא נשלח אף שדה לעדכון." };
   payload.updated_at = new Date().toISOString();
 
-  const { data, error } = await ctx.supabase
+  let neighborhoodDeferred = false;
+  let { data, error } = await ctx.supabase
     .from("agent_clients")
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error) return { ok: false, error: error.message };
+  if (error && clientColumnMissing(error) && payload.neighborhood_id) {
+    neighborhoodDeferred = true;
+    delete payload.neighborhood_id;
+    ({ data, error } = await ctx.supabase
+      .from("agent_clients")
+      .update(payload)
+      .eq("id", clientId)
+      .eq("agent_id", ctx.agent.id)
+      .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .single());
+  }
+  if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = clientId;
   return {
@@ -4664,7 +4746,39 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     full_name: data.full_name,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     needs: clientNeeds(data),
+    ask: asked.ask.length ? asked.ask : undefined,
+    neighborhood_deferred: neighborhoodDeferred || undefined,
+    neighborhood_note: neighborhoodDeferred
+      ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
+      : undefined,
   };
+}
+
+async function canonicalizeClientCities(ctx: ToolContext, payload: Record<string, unknown>): Promise<void> {
+  if (!Array.isArray(payload.cities)) return;
+  const names: string[] = [];
+  for (const raw of payload.cities.slice(0, 8)) {
+    const name = await canonicalCityName(ctx.supabase, String(raw || ""));
+    if (name && !names.includes(name)) names.push(name);
+  }
+  payload.cities = names;
+}
+
+async function attachClientNeighborhood(
+  ctx: ToolContext,
+  input: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  existing?: { cities?: string[] | null },
+): Promise<string | null> {
+  const asked = String(input.neighborhood || "").trim();
+  if (!asked) return null;
+  const fromPayload = Array.isArray(payload.cities) ? payload.cities.map(String).filter(Boolean) : [];
+  const city = fromPayload[0] || (existing?.cities || []).map(String).find(Boolean) || "";
+  if (!city) return "כדי לשמור שכונה צריך גם עיר.";
+  const hood = await resolvePropertyHood(ctx, city, asked);
+  if ("error" in hood) return hood.error;
+  payload.neighborhood_id = hood.id;
+  return null;
 }
 
 async function toolSetClientStatus(ctx: ToolContext, input: Record<string, unknown>) {

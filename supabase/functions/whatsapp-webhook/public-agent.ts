@@ -7,6 +7,7 @@ import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
+  canonicalCityName,
   CATEGORIES,
   DEAL_TYPES,
   filterByArea,
@@ -938,6 +939,7 @@ async function searchProperties(
     if (addedFeatures.length) args = { ...args, features: [...have, ...addedFeatures] };
   }
 
+  if (text(args.city)) args = { ...args, city: await canonicalCityName(ctx.supabase, text(args.city)) };
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
     args,
