@@ -88,6 +88,11 @@ import {
   publishErrorText,
   publishStoreBlocked,
   publishWritesNow,
+  destinationReply,
+  destinationStatusPatch,
+  parsePublishDestination,
+  publishDestinationList,
+  socialEnqueuePlan,
   unpublishedAfterUnconfirmedPublish,
   REISSUE_BUTTON_TTL_MS,
   reissueOldAgreementPlan,
@@ -455,7 +460,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "create_property",
     description:
       "יוצר נכס חדש בשם הסוכן/ת ולא מפרסם אותו. הנכס נשמר unpublished, " +
-      "ובוואטסאפ יוצאים כפתורי פרסום. הוא לא באתר עד לאישור. " +
+      "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
       "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished. " +
       "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
@@ -522,8 +527,9 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "משנה את סטטוס הנכס. archived = הסרה מהאתר (זו הדרך למחוק נכס - אין מחיקה " +
       "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר. active = פרסום לאוויר. " +
-      "בוואטסאפ יוצאים כפתורי אישור והנכס לא עולה לפניהם, גם אם נשלח confirm. " +
-      "confirm=true מתפרסם רק בנתיב בלי כפתורים (מייל), אחרי אישור מפורש.",
+      "בוואטסאפ יוצאת רשימת יעד והנכס לא עולה לפני הבחירה, גם אם נשלח confirm. " +
+      "confirm=true מפרסם לאתר רק בנתיב בלי רשימה (מייל), אחרי אישור מפורש. " +
+      "לשינוי יעד של נכס קיים בלי לשנות סטטוס: choose_publish_destination.",
     input_schema: {
       type: "object",
       properties: {
@@ -532,10 +538,24 @@ const TOOLS: Anthropic.Tool[] = [
         confirm: {
           type: "boolean",
           description:
-            "מתעלמים ממנו כשיש כפתורים. true רק בנתיב בלי כפתורים (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם.",
+            "מתעלמים ממנו כשיש רשימה. true רק בנתיב בלי רשימה (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם באתר.",
         },
       },
       required: ["property_id", "status"],
+    },
+  },
+  {
+    name: "choose_publish_destination",
+    description:
+      "שולח רשימת יעד לנכס שכבר נשמר: אתר, רשתות, מתווכים, או רק מאגר. " +
+      "לא מפרסם ולא משנה סטטוס בעצמו. בוואטסאפ הרשימה יוצאת והלחיצה היא האישור. " +
+      "בלי רשימה (מייל) אין בחירה מכאן.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "מזהה הנכס (UUID)." },
+      },
+      required: ["property_id"],
     },
   },
   {
@@ -2521,7 +2541,7 @@ async function askPublishConfirm(
       ok: false,
       needs_confirmation: true,
       error: "פרסום לאוויר דורש אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
-      guidance: "הנכס לא פורסם. אין כפתורים במסלול הזה. אחרי אישור מפורש קראי ל-set_property_status עם active ו-confirm=true.",
+      guidance: "הנכס לא פורסם. אין רשימה במסלול הזה. אחרי אישור מפורש לפרסם באתר קראי ל-set_property_status עם active ו-confirm=true. בחירת יעד (רשתות, מתווכים, מאגר) היא בוואטסאפ.",
     };
   }
   const live = await ctx.supabase.from("properties")
@@ -2529,10 +2549,13 @@ async function askPublishConfirm(
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
-  if (live.data?.status === "active") {
-    return { ok: true, already_active: true, note: PUBLISH_ALREADY, title };
-  }
+  const onSite = live.data?.status === "active";
   const id = newPendingActionId();
+  const nowIso = new Date().toISOString();
+  await ctx.supabase.from("whatsapp_pending_actions").update({
+    executed_at: nowIso,
+    result: "הוחלפה בבקשה חדשה.",
+  }).eq("agent_id", ctx.agent.id).eq("action", "publish").eq("subject_id", propertyId).is("executed_at", null);
   let error: { code?: string; message?: string } | null = null;
   try {
     const saved = await ctx.supabase.from("whatsapp_pending_actions").insert({
@@ -2540,7 +2563,7 @@ async function askPublishConfirm(
       agent_id: ctx.agent.id,
       action: "publish",
       subject_id: propertyId,
-      payload: { status: "active" },
+      payload: { destination: true },
       expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
     });
     error = saved.error;
@@ -2563,21 +2586,35 @@ async function askPublishConfirm(
     }
     return { ok: false, error: PUBLISH_FAILED };
   }
-  const buttons = publishConfirmButtons(id, propertyId);
-  if (!buttons) return { ok: false, error: PUBLISH_FAILED };
+  const list = publishDestinationList(id, propertyId);
+  if (!list) return { ok: false, error: PUBLISH_FAILED };
   const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
   ctx.outbox.push({
-    kind: "buttons",
-    body: `${label} נשמר ולא עלה לאתר. לפרסם, לערוך, או להשאיר כך?`,
-    buttons,
+    kind: "list",
+    body: onSite
+      ? `${label} באתר. לאן להשאיר אותו?`
+      : `${label} נשמר ולא עלה לאתר. לאן להוציא אותו? בלי בחירה הוא נשאר במאגר.`,
+    button: list.button,
+    section: list.section,
+    rows: list.rows,
   });
   return {
     ok: true,
     needs_confirmation: true,
-    guidance:
-      "יצאו כפתורי אישור. אל תאמרי שהנכס פורסם. " +
-      "בלי לחיצה בתוך שש שעות, או בבחירה לא עכשיו, הנכס נשאר unpublished ולא נמחק.",
+    guidance: onSite
+      ? "יצאה רשימת יעד לנכס שכבר באתר. אל תשני את הסטטוס בעצמך. בלי לחיצה הוא נשאר באתר כמו שהוא."
+      : "יצאה רשימת יעד לנכס הזה. אל תאמרי שהוא פורסם. " +
+        "הבחירה היא אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+        "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished ולא נמחק.",
   };
+}
+
+async function toolChooseDestination(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const existing = await ownedProperty(ctx, propertyId);
+  if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+  const gate = await askPublishConfirm(ctx, propertyId, String(existing.title || ""));
+  return { property_id: propertyId, ...gate };
 }
 
 /**
@@ -5511,7 +5548,14 @@ export type OutboxItem =
     batch?: "property_created";
     listLine?: string;
   }
-  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] };
+  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] }
+  | {
+    kind: "list";
+    body: string;
+    button: string;
+    section: string;
+    rows: { id: string; title: string; description?: string }[];
+  };
 
 // כותרות עד 20 תווים (Meta דוחה את ההודעה כולה). נמדד: 15 ו-14.
 const SC_PREVIEW_TITLE = "👁 תצוגה מקדימה";
@@ -6873,6 +6917,17 @@ export async function listingActionReply(
     return runPendingReissue(supabase, agent, agreement.agreementId);
   }
 
+  const destination = parsePublishDestination(buttonId);
+  if (destination) {
+    if (destination.edit) {
+      return publishEditReply(supabase, agent, {
+        requestId: destination.requestId,
+        propertyId: destination.propertyId,
+      });
+    }
+    return runPendingDestination(supabase, agent, destination);
+  }
+
   const publish = parsePublishButton(buttonId);
   if (!publish) return null;
   if (publish.action === "no") {
@@ -6881,6 +6936,140 @@ export async function listingActionReply(
   }
   if (publish.action === "edit") return publishEditReply(supabase, agent, publish);
   return runPendingPublish(supabase, agent, publish.requestId, publish.propertyId);
+}
+
+function destinationStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  const code = String(error?.code || "");
+  if (code === "42703" || code === "PGRST204") return true;
+  return /publish_channels|share_with_brokers/.test(String(error?.message || ""));
+}
+
+function collabRpcMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  if (code === "42883" || code === "PGRST202" || code === "42P01" || code === "PGRST205") return true;
+  return /does not exist|schema cache/i.test(String(error.message || ""));
+}
+
+async function gabrielaSocialFlagOn(supabase: SupabaseClient): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from("pricing_config")
+      .select("value").eq("key", "gabriela_social_publish_enabled").maybeSingle();
+    if (error || data == null) return false;
+    return Number(data.value) === 1;
+  } catch (err) {
+    console.error("social publish flag failed", err);
+    return false;
+  }
+}
+
+/**
+ * לחיצה על שורת היעד. אותה בקשה לא רצה פעמיים. הערוצים באים מהמזהה,
+ * לא מהמודל. רשתות נכנסות לתור רק כשהדגל דלוק. שת״פ נרשם, וההפצה
+ * היא הפונקציה של התזכורת כשהיא כבר קיימת.
+ */
+async function runPendingDestination(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  choice: { requestId: string; propertyId: string; channels: string[] },
+): Promise<{ text: string }> {
+  const loaded = await loadPendingAction(supabase, agent.id, choice.requestId);
+  if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = publishClickDecision(loaded.row, Date.now());
+  if (first.kind !== "run") {
+    if (first.kind === "expired") void unpublishedAfterUnconfirmedPublish("expired");
+    return { text: publishDecisionText(first) || PUBLISH_BUSY };
+  }
+  if (first.propertyId.toLowerCase() !== choice.propertyId.toLowerCase()) {
+    return { text: "הבחירה שייכת לנכס אחר. אפשר לבקש שוב." };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", choice.requestId)
+    .eq("agent_id", agent.id)
+    .eq("action", "publish")
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .gt("expires_at", nowIso)
+    .select("id, subject_id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending destination claim failed", claimErr.code);
+    return { text: publishStoreBlocked(claimErr) ? PUBLISH_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, choice.requestId);
+    if ("missing" in again) return { text: PUBLISH_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = publishClickDecision(again.row, Date.now());
+    return { text: publishDecisionText(decision) || PUBLISH_BUSY };
+  }
+
+  const propertyId = String(claimed.subject_id || "");
+  if (propertyId.toLowerCase() !== choice.propertyId.toLowerCase()) {
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    return { text: "הבחירה שייכת לנכס אחר. אפשר לבקש שוב." };
+  }
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id")
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr || !prop || !ownsRow(agent, prop)) {
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
+  }
+
+  const nextStatus = destinationStatusPatch(choice.channels, String(prop.status || ""));
+  const patch: Record<string, unknown> = {
+    publish_channels: choice.channels,
+    share_with_brokers: choice.channels.includes("brokers"),
+    updated_at: nowIso,
+  };
+  if (nextStatus) patch.status = nextStatus;
+  const { data: updated, error } = await supabase.from("properties")
+    .update(patch)
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .select("status, license_hold_at, title")
+    .maybeSingle();
+  if (error || !updated) {
+    console.error("destination save failed", error?.code, error?.message);
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    if (destinationStoreMissing(error)) {
+      return { text: "אפשר לבחור יעד מאזור האישי אחרי עדכון המערכת." };
+    }
+    return { text: error ? publishErrorText(error.message) : "לא הצלחתי לשמור את היעד. אפשר לנסות שוב." };
+  }
+
+  const status = String(updated.status || "");
+  const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
+  const social = socialEnqueuePlan(choice.channels, await gabrielaSocialFlagOn(supabase), status === "active");
+  let brokersSent = false;
+  if (choice.channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
+    const { data, error: collabErr } = await supabase.rpc("unpublished_collab_request", {
+      p_property_id: propertyId,
+      p_agent_id: agent.id,
+    });
+    if (collabErr) {
+      if (!collabRpcMissing(collabErr)) console.error("destination collab failed", collabErr.code, collabErr.message);
+    } else {
+      const row = data as { shared?: boolean; reason?: string } | null;
+      brokersSent = row?.shared === true || row?.reason === "already_sent";
+    }
+  }
+  const text = destinationReply({
+    channels: choice.channels,
+    status,
+    licenseHeld,
+    social,
+    brokersSent,
+  });
+  await markPublishDone(supabase, agent.id, choice.requestId, text);
+  return { text };
 }
 
 /** לערוך פותח את הכרטיס ב-CRM. לא מפרסם, ולא סוגר את בקשת הפרסום. */
@@ -8012,6 +8201,7 @@ async function runTool(
       case "import_properties_file": return await toolImportPropertiesFile(ctx, input);
       case "update_property": return await toolUpdateProperty(ctx, input);
       case "set_property_status": return await toolSetStatus(ctx, input);
+      case "choose_publish_destination": return await toolChooseDestination(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);
       case "search_properties": return await toolSearchProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
@@ -8163,14 +8353,16 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
-    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאים שלושה כפתורים: לפרסם, לא עכשיו, לערוך. " +
+    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאת רשימת יעד אחת לנכס: " +
+      "אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
       "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +
       "אם חזר elsewhere_warning - אמרי אותו כמו שהוא, בלי להוסיף שם. " +
-      "בלי לחיצה בתוך שש שעות, או בבחירה לא עכשיו, הנכס נשאר unpublished ולא נמחק.",
-    "- פרסום (set_property_status עם active) שולח כפתורי אישור והנכס לא עולה לפניהם, " +
-      "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הכפתור. sold, rented ו-archived לא מחכים לכפתור. " +
-      "confirm=true מתפרסם רק כשאין כפתורים (מייל) ואחרי אישור מפורש.",
+      "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished ולא נמחק.",
+    "- שינוי יעד של נכס קיים = choose_publish_destination. לא לכתוב את הערוצים בעצמך.",
+    "- פרסום (set_property_status עם active) שולח את רשימת היעד והנכס לא עולה לפניה, " +
+      "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הבחירה. sold, rented ו-archived לא מחכים לרשימה. " +
+      "confirm=true מפרסם לאתר רק כשאין רשימה (מייל) ואחרי אישור מפורש.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
       "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +
