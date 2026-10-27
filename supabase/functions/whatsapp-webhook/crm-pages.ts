@@ -91,6 +91,14 @@ export function pageLink(siteBase: string, input: PageLinkInput): PageLink | nul
   return { topic, path, say: `${say} ${site}${path}` };
 }
 
+/** הכתובת מתוך המשפט. http ו-https, לא רק https. */
+export function urlInSay(say: string): string {
+  const https = say.lastIndexOf("https://");
+  const http = say.lastIndexOf("http://");
+  const i = Math.max(https, http);
+  return i >= 0 ? say.slice(i) : say;
+}
+
 export function pageLinkTopics(): readonly string[] {
   return TOPICS;
 }

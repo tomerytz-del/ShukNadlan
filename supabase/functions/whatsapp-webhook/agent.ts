@@ -30,8 +30,8 @@ import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-
 import { fuzzyMatches } from "./fuzzy-text.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
-import { clientMatchesQuery, namesLikelySame, phonesMatch } from "./hebrew-name.ts";
-import { pageLink, pageLinkTopics } from "./crm-pages.ts";
+import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
 import { llmFailureKind } from "./llm-fallback.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
@@ -4315,6 +4315,26 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
         "הסוכן/ת אם לעדכן את הקיימת (update_client) או שזה/זו אדם אחר/ת.",
     };
   }
+  // שם משפחה זהה ושם פרטי אחר ("דני כהן" / "רון כהן") אינו כפילות.
+  // לא יוצרים בשקט ולא חוסמים: שואלים, ו-force_new רק אחרי אישור.
+  const maybe = !input.force_new
+    ? (existing || []).find((c) => namesNeedConfirm(c.full_name, fullName))
+    : undefined;
+  if (maybe) {
+    return {
+      ok: false,
+      needs_confirm: true,
+      duplicate: false,
+      client_id: maybe.id,
+      full_name: maybe.full_name,
+      phone: maybe.phone,
+      status: maybe.status,
+      error:
+        "יש בקובץ לקוח/ה עם אותו שם משפחה ושם פרטי אחר. לא נוצר כרטיס. " +
+        "שאלי את הסוכן/ת: אם זה אותו אדם - update_client; אם זה אדם אחר - " +
+        "create_client עם force_new אחרי אישור.",
+    };
+  }
 
   const { data, error } = await ctx.supabase
     .from("agent_clients")
@@ -5277,7 +5297,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   // טיוטה פתוחה לאותו לקוח/ה, אותו טופס ואותו נכס - לא עוד אחת.
   // "קלפון"/"כלפון" יצר בעבר כרטיס כפול ושמונה טיוטות.
   if (!input.force_new) {
-    const { data: open } = await ctx.supabase
+    const { data: open, error: openErr } = await ctx.supabase
       .from("agreements")
       .select("id, title, status, kind, property_ids, created_at")
       .eq("agent_id", ctx.agent.id)
@@ -5286,6 +5306,13 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       .contains("client_ids", [client.id])
       .order("created_at", { ascending: false })
       .limit(10);
+    if (openErr) {
+      console.error("open agreements lookup failed", openErr);
+      return {
+        ok: false,
+        error: "לא הצלחתי לבדוק אם כבר יש הסכם פתוח. לא נוצרה טיוטה. אפשר לנסות שוב.",
+      };
+    }
     const want = new Set(requested.map(String));
     const same = (open || []).find((row) => {
       const ids = ((row.property_ids as string[] | null) || []).map(String);
@@ -6550,7 +6577,7 @@ function toolPageLink(input: Record<string, unknown>) {
   }
   return {
     ok: true,
-    url: link.say.slice(link.say.lastIndexOf("https://")),
+    url: urlInSay(link.say),
     say: link.say,
     guidance: "כתוב/י לסוכן/ת את say כמו שהוא. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
   };
