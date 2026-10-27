@@ -1,16 +1,143 @@
--- תזכורת שבועית על נכסים שירדו מפרסום ונשארו כך.
+-- תזכורת שבועית על נכסים שלא באוויר.
 --
--- unpublished, בלי license_hold_at, ו-created_at ישן מהסף
--- (agent_reminder_unpublished_days, ברירת מחדל 7). המתנה לרישיון אינה
--- מודעה שהסוכן/ת יכול/ה להחזיר לאוויר.
+-- הגיל הוא unpublished_at, לא created_at: נכס ישן שירד אתמול לא נספר
+-- מיד. מילוי השורות הקיימות הוא now(), כדי שסבב ראשון לא ישלח כלום.
+-- unpublished_origin מבדיל טיוטה שלא פורסמה מירידה מהמדף. שורות ישנות
+-- נשארות בלי מקור, והנוסח לא טוען שהן ירדו.
 --
--- create or replace שומר על ההרשאות הקיימות. אין כאן grant חדש.
+-- שני דגלים נולדים 0. digest מוסיף את הממצא לתזכורת הישנה.
+-- nudge כותב התראה אחת לסוכן/ת לפעמון, והדחיפה היא notification-push.
+-- שת״פ נרשם תמיד, וההפצה רק כשהדגל דלוק.
+--
+-- create or replace של findings שומר על ההרשאות הקיימות.
 -- אידמפוטנטית.
 
 insert into public.pricing_config (key, value, description) values
   ('agent_reminder_unpublished_days', 7,
-   'כמה ימים נכס unpublished בלי המתנה לרישיון נחשב לתזכורת שבועית')
+   'כמה ימים נכס unpublished בלי המתנה לרישיון נחשב לתזכורת שבועית'),
+  ('gabriela_unpublished_nudge_enabled', 0,
+   '1 שולח תזכורת שבועית אחת לסוכן/ת דרך הפעמון. 0 סופר ולא כותב.'),
+  ('gabriela_unpublished_digest_enabled', 0,
+   '1 מוסיף unpublished_listings לתזכורת המייל והוואטסאפ. 0 לא, כדי לא לשלוח פעמיים.'),
+  ('gabriela_collab_share_enabled', 0,
+   '1 מפיץ שת״פ אחרי שהסוכן/ת ביקש/ה. 0 רק רושם את הבקשה.'),
+  ('gabriela_collab_fanout_cap', 5,
+   'כמה משרדים לכל היותר מקבלים נכס אחד שנפתח לשת״פ.'),
+  ('gabriela_unpublished_nudge_run_cap', 25,
+   'כמה סוכנים לכל היותר בסבב אחד של תזכורת הנכסים שלא באוויר.'),
+  ('gabriela_unpublished_snooze_days', 30,
+   'כמה ימים לא עכשיו שותק על נכס אחד.')
 on conflict (key) do nothing;
+
+alter table public.properties
+  add column if not exists unpublished_at timestamptz,
+  add column if not exists unpublished_origin text;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'properties_unpublished_origin_chk'
+  ) then
+    alter table public.properties
+      add constraint properties_unpublished_origin_chk
+      check (unpublished_origin is null or unpublished_origin in ('draft', 'taken_down'));
+  end if;
+end $$;
+
+comment on column public.properties.unpublished_at is
+  'מתי הנכס יצא מפרסום, או מתי נוצרה טיוטה. מילוי ראשון הוא now(), לא created_at.';
+comment on column public.properties.unpublished_origin is
+  'draft = נוצר unpublished. taken_down = היה active וירד. null = שורה ישנה בלי היסטוריה.';
+
+create or replace function public.properties_stamp_unpublished_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.status = 'active' then
+      new.unpublished_at := null;
+      new.unpublished_origin := null;
+    elsif new.status = 'unpublished' then
+      new.unpublished_at := coalesce(new.unpublished_at, now());
+      if new.unpublished_origin is null then
+        new.unpublished_origin := 'draft';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  if new.status is not distinct from old.status then
+    return new;
+  end if;
+
+  if old.status = 'active' and new.status is distinct from 'active' then
+    new.unpublished_at := now();
+    if new.status = 'unpublished' then
+      new.unpublished_origin := 'taken_down';
+    end if;
+  elsif new.status = 'active' then
+    new.unpublished_at := null;
+    new.unpublished_origin := null;
+  elsif new.status = 'unpublished' and new.unpublished_at is null then
+    new.unpublished_at := now();
+    if new.unpublished_origin is null then
+      new.unpublished_origin := 'draft';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists properties_stamp_unpublished_at on public.properties;
+create trigger properties_stamp_unpublished_at
+  before insert or update of status on public.properties
+  for each row execute function public.properties_stamp_unpublished_at();
+
+-- שורות שכבר unpublished: הגיל מתחיל עכשיו. בלי זה נכס בן שנה שירד
+-- אתמול היה נספר מיד. המקור נשאר ריק כי אין היסטוריית סטטוס.
+update public.properties
+   set unpublished_at = now()
+ where status = 'unpublished'
+   and unpublished_at is null;
+
+create index if not exists properties_unpublished_waiting_idx
+  on public.properties (agent_id, unpublished_at)
+  where status = 'unpublished';
+
+create table if not exists public.unpublished_reminder_snooze (
+  agent_id uuid not null references public.agency_members(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade,
+  snooze_until timestamptz,
+  muted boolean not null default false,
+  updated_at timestamptz not null default now(),
+  primary key (agent_id, property_id)
+);
+revoke all on table public.unpublished_reminder_snooze from public, anon, authenticated;
+grant select, insert, update, delete on table public.unpublished_reminder_snooze to service_role;
+
+create table if not exists public.unpublished_nudge_log (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references public.agency_members(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  property_ids uuid[] not null,
+  dry_run boolean not null default false
+);
+create index if not exists unpublished_nudge_log_agent_idx
+  on public.unpublished_nudge_log (agent_id, created_at desc);
+revoke all on table public.unpublished_nudge_log from public, anon, authenticated;
+grant select, insert, update, delete on table public.unpublished_nudge_log to service_role;
+
+create table if not exists public.unpublished_collab_opt_in (
+  property_id uuid primary key references public.properties(id) on delete cascade,
+  agent_id uuid not null references public.agency_members(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  fanout_at timestamptz,
+  fanout_count int not null default 0
+);
+revoke all on table public.unpublished_collab_opt_in from public, anon, authenticated;
+grant select, insert, update, delete on table public.unpublished_collab_opt_in to service_role;
+
+select public.notification_types_add(array['unpublished_nudge', 'collab_offer']);
 
 create or replace function public.agent_reminder_findings(p_agent_id uuid)
 returns table (
@@ -27,12 +154,17 @@ security invoker
 set search_path = ''
 as $$
   with target as (
-    -- סוכן/ת מחובר/ת מקבל/ת את עצמו/ה בלבד; ‏service_role (שאין לו/ה
-    -- ‏current_agent_id) מקבל/ת את מי שביקש/ה. מזהה שנחסם הופך ל-null,
-    -- וכל הממצאים למטה יוצאים ריקים.
+    -- סוכן/ת מחובר/ת רואה רק את עצמו/ה. current_agent_id ריק אצל
+    -- משתמש/ת מחובר/ת שאינו/ה סוכן/ת מחזיר כלום: אחרת כל מזהה היה
+    -- פותח את הספירות של כל הסוכנים. service_role הוא סבב התזכורות.
+    -- מנהל/ת פלטפורמה בלי כרטיס סוכן/ת רשאי/ת לבקש מזהה. שאר המקרים
+    -- יוצאים ריקים.
     select case
-             when public.current_agent_id() is null then p_agent_id
              when public.current_agent_id() = p_agent_id then p_agent_id
+             when public.current_agent_id() is null
+                  and coalesce(auth.role(), '') = 'service_role' then p_agent_id
+             when public.current_agent_id() is null
+                  and public.current_is_platform_admin() then p_agent_id
            end as id
   ),
   cfg as (
@@ -74,15 +206,25 @@ as $$
      where p.agent_id = (select id from target)
        and p.status = 'active'
   ),
-  -- נכסים שירדו מפרסום ונשארו כך. לא בתוך agg: שם נספרים רק פעילים.
-  -- license_hold_at הוא המתנה לרישיון, לא מודעה שהסוכן/ת הוריד/ה.
+  -- לא בתוך agg: שם נספרים רק פעילים. הגיל הוא unpublished_at.
+  -- license_hold_at הוא המתנה לרישיון. snooze ו-muted מוציאים נכס
+  -- שהסוכן/ת ביקש/ה לא להזכיר עכשיו, או בכלל.
   waiting as (
-    select count(*)::int as n
+    select count(*)::int as n,
+           count(*) filter (where p.unpublished_origin = 'draft')::int as n_draft,
+           count(*) filter (where p.unpublished_origin = 'taken_down')::int as n_down
       from public.properties p
      where p.agent_id = (select id from target)
        and p.status = 'unpublished'
        and p.license_hold_at is null
-       and p.created_at < now() - make_interval(days => (select unpublished_days from cfg))
+       and p.unpublished_at is not null
+       and p.unpublished_at < now() - make_interval(days => (select unpublished_days from cfg))
+       and not exists (
+             select 1 from public.unpublished_reminder_snooze s
+              where s.agent_id = p.agent_id
+                and s.property_id = p.id
+                and (s.muted or s.snooze_until > now())
+           )
   ),
   -- מתי נכנס נכס בפעם האחרונה — בכל סטטוס, כי גם נכס שנכנס ונמכר מיד הוא
   -- עבודה שנעשתה, ולא היה נכון להזכיר "שבוע לא הכנסת נכסים" למי שהכניס/ה
@@ -194,24 +336,37 @@ as $$
 
   union all
 
-  -- 5ו. ירדו מפרסום לפני הסף ועדיין לא חזרו. משימה, ולכן שבוע.
+  -- 5ו. לא באוויר מעבר לסף. כבוי עד gabriela_unpublished_digest_enabled,
+  -- כדי שמיזוג לא יוסיף את זה לתזכורת הוואטסאפ הישנה. הפעמון הוא המסלול.
   select 'unpublished_listings'::text,
-         'נכסים שירדו מפרסום'::text,
-         case when w.n = 1
-              then 'נכס אחד שלך ירד מפרסום לפני יותר מ-' || c.unpublished_days || ' ימים ועדיין לא חזר לאוויר.'
-              else w.n || ' נכסים שלך ירדו מפרסום לפני יותר מ-' || c.unpublished_days || ' ימים ועדיין לא חזרו לאוויר.'
+         'נכסים שלא באוויר'::text,
+         case
+           when w.n_draft = w.n and w.n = 1
+             then 'טיוטה אחת שלך לא פורסמה כבר יותר מ-' || c.unpublished_days || ' ימים.'
+           when w.n_draft = w.n
+             then w.n || ' טיוטות שלך לא פורסמו כבר יותר מ-' || c.unpublished_days || ' ימים.'
+           when w.n_down = w.n and w.n = 1
+             then 'נכס אחד שלך ירד מפרסום לפני יותר מ-' || c.unpublished_days || ' ימים ועדיין לא חזר לאוויר.'
+           when w.n_down = w.n
+             then w.n || ' נכסים שלך ירדו מפרסום לפני יותר מ-' || c.unpublished_days || ' ימים ועדיין לא חזרו לאוויר.'
+           when w.n_draft = 0 and w.n_down = 0
+             then w.n || ' נכסים שלך לא באוויר כבר יותר מ-' || c.unpublished_days || ' ימים.'
+           else w.n || ' נכסים שלך לא באוויר כבר יותר מ-' || c.unpublished_days
+                || ' ימים. חלקם טיוטות שלא פורסמו, וחלקם ירדו מהמדף.'
          end
          || ' פרסום מחזיר אותם למדף ולחיפוש.',
          'accProperties'::text,
          w.n,
          6
     from waiting w cross join cfg c
-   where w.n > 0;
+   where w.n > 0
+     and coalesce((select value::int from public.pricing_config
+                    where key = 'gabriela_unpublished_digest_enabled'), 0) = 1;
 $$;
 
 
 comment on function public.agent_reminder_findings(uuid) is
-  'כל מה שיש להזכיר לסוכן/ת כרגע, מחושב מהמצב ולא מתור. כולל unpublished_listings: ירדו מפרסום מעבר לסף, בלי המתנה לרישיון.';
+  'כל מה שיש להזכיר לסוכן/ת כרגע. unpublished_listings לפי unpublished_at, בלי רישיון ובלי snooze, ורק כש-gabriela_unpublished_digest_enabled=1.';
 
 
 create or replace function public.agent_reminder_kind_interval(p_kind text)
@@ -236,3 +391,408 @@ $$;
 
 comment on function public.agent_reminder_kind_interval(text) is
   'המרווח המינימלי בין שתי הופעות של אותו סוג תזכורת אצל אותו/ה סוכן/ת. משימה - שבוע; תובנה - חודש. unpublished_listings - שבוע.';
+
+-- ---------------------------------------------------------------------------
+-- לא עכשיו (30 יום) ובלי תזכורת. רק בעל/ת הנכס.
+-- service_role מעביר את הסוכן/ת (וואטסאפ). דפדפן משתמש ב-current_agent_id.
+-- ---------------------------------------------------------------------------
+create or replace function public.unpublished_reminder_snooze(
+  p_property_id uuid,
+  p_mode text,
+  p_agent_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_agent uuid;
+  v_days int;
+begin
+  v_agent := case
+               when coalesce(auth.role(), '') = 'service_role' then p_agent_id
+               else public.current_agent_id()
+             end;
+  if v_agent is null then
+    return jsonb_build_object('ok', false, 'error', 'not_agent');
+  end if;
+  if not exists (
+    select 1 from public.properties p
+     where p.id = p_property_id and p.agent_id = v_agent
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'not_your_property');
+  end if;
+
+  if p_mode = 'clear' then
+    delete from public.unpublished_reminder_snooze
+     where agent_id = v_agent and property_id = p_property_id;
+    return jsonb_build_object('ok', true, 'mode', 'clear');
+  end if;
+
+  if p_mode = 'mute' then
+    insert into public.unpublished_reminder_snooze (agent_id, property_id, muted, snooze_until, updated_at)
+    values (v_agent, p_property_id, true, null, now())
+    on conflict (agent_id, property_id) do update
+      set muted = true, snooze_until = null, updated_at = now();
+    return jsonb_build_object('ok', true, 'mode', 'mute');
+  end if;
+
+  if p_mode is distinct from 'snooze' then
+    return jsonb_build_object('ok', false, 'error', 'bad_mode');
+  end if;
+
+  select coalesce(value::int, 30) into v_days
+    from public.pricing_config where key = 'gabriela_unpublished_snooze_days';
+  v_days := greatest(coalesce(v_days, 30), 1);
+
+  insert into public.unpublished_reminder_snooze (agent_id, property_id, muted, snooze_until, updated_at)
+  values (v_agent, p_property_id, false, now() + make_interval(days => v_days), now())
+  on conflict (agent_id, property_id) do update
+    set muted = false,
+        snooze_until = excluded.snooze_until,
+        updated_at = now();
+  return jsonb_build_object('ok', true, 'mode', 'snooze', 'days', v_days);
+end $$;
+
+revoke all on function public.unpublished_reminder_snooze(uuid, text, uuid) from public, anon, authenticated;
+grant execute on function public.unpublished_reminder_snooze(uuid, text, uuid) to authenticated, service_role;
+
+create or replace function public.unpublished_reminder_hidden_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.property_id
+    from public.unpublished_reminder_snooze s
+   where s.agent_id = public.current_agent_id()
+     and public.current_agent_id() is not null
+     and (s.muted or s.snooze_until > now());
+$$;
+
+revoke all on function public.unpublished_reminder_hidden_ids() from public, anon, authenticated;
+grant execute on function public.unpublished_reminder_hidden_ids() to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- שת״פ: נרשם רק אחרי בקשה. ההפצה מוגבלת, בלי טלפון, ורק כשהדגל דלוק
+-- והנכס כבר active (השיתוף באתר ממילא מציג רק מודעה באוויר).
+-- ---------------------------------------------------------------------------
+create or replace function public.unpublished_collab_fanout(p_property_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_prop public.properties%rowtype;
+  v_agent public.agency_members%rowtype;
+  v_on int;
+  v_cap int;
+  v_agency_name text;
+  v_n int := 0;
+begin
+  select coalesce(value::int, 0) into v_on
+    from public.pricing_config where key = 'gabriela_collab_share_enabled';
+  if coalesce(v_on, 0) <> 1 then
+    return jsonb_build_object('ok', true, 'shared', false, 'reason', 'flag_off');
+  end if;
+
+  select * into v_prop from public.properties where id = p_property_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'property_not_found');
+  end if;
+  if v_prop.status is distinct from 'active' then
+    return jsonb_build_object('ok', true, 'shared', false, 'reason', 'waiting_for_publish');
+  end if;
+  if not exists (
+    select 1 from public.unpublished_collab_opt_in o
+     where o.property_id = p_property_id and o.agent_id = v_prop.agent_id
+  ) then
+    return jsonb_build_object('ok', true, 'shared', false, 'reason', 'no_opt_in');
+  end if;
+  if exists (
+    select 1 from public.unpublished_collab_opt_in o
+     where o.property_id = p_property_id and o.fanout_at is not null
+  ) then
+    return jsonb_build_object('ok', true, 'shared', false, 'reason', 'already_sent');
+  end if;
+
+  select * into v_agent from public.agency_members where id = v_prop.agent_id and active;
+  if not found or v_agent.agency_id is null then
+    return jsonb_build_object('ok', false, 'error', 'agent_not_found');
+  end if;
+
+  select coalesce(value::int, 5) into v_cap
+    from public.pricing_config where key = 'gabriela_collab_fanout_cap';
+  v_cap := least(greatest(coalesce(v_cap, 5), 1), 20);
+  select name into v_agency_name from public.agencies where id = v_agent.agency_id;
+
+  with picked as (
+    select distinct on (m.agency_id) m.id as agent_id, m.agency_id
+      from public.agency_members m
+     where m.agency_id is distinct from v_agent.agency_id
+       and m.active
+       and m.license_status in ('verified', 'manual')
+       and public.agent_share_fit(m.id, v_prop.category, v_prop.city_id)
+       and not exists (
+             select 1 from public.agent_share_exclusions ex
+              where ex.agent_id = v_agent.id and ex.agency_id = m.agency_id
+           )
+     order by m.agency_id, m.created_at
+     limit v_cap
+  ),
+  ins as (
+    insert into public.property_shares
+      (property_id, owner_agent_id, owner_agency_id, shared_with_agency_id)
+    select p_property_id, v_agent.id, v_agent.agency_id, p.agency_id from picked p
+    on conflict (property_id, shared_with_agency_id) do nothing
+    returning shared_with_agency_id
+  ),
+  noted as (
+    -- ההתראה רק למשרד שהשורה שלו נכתבה עכשיו. בלי ה-join ה-insert
+    -- של השיתוף אינו חלק מהשאילתה, ושיתוף קיים לא מקבל הודעה שנייה.
+    insert into public.notifications (agent_id, type, title, body, related_property_id, suppress_push)
+    select p.agent_id,
+           'collab_offer',
+           'נכס נפתח לשת״פ',
+           left(coalesce(v_agency_name, 'משרד')
+             || ' פתח/ה נכס לשת״פ: '
+             || coalesce(nullif(btrim(v_prop.title), ''), 'נכס')
+             || case when nullif(btrim(v_prop.city), '') is not null
+                     then ' ב' || btrim(v_prop.city) else '' end
+             || '. הפרטים בכרטיס המשותף, בלי מספר טלפון בהודעה.', 500),
+           p_property_id,
+           false
+      from picked p
+      join ins i on i.shared_with_agency_id = p.agency_id
+    returning 1
+  )
+  select count(*) into v_n from noted;
+
+  update public.properties
+     set shared_with_partners = true,
+         shared_at = coalesce(shared_at, now()),
+         updated_at = now()
+   where id = p_property_id
+     and v_n > 0;
+
+  update public.unpublished_collab_opt_in
+     set fanout_at = case when v_n > 0 then now() else fanout_at end,
+         fanout_count = v_n
+   where property_id = p_property_id;
+
+  return jsonb_build_object('ok', true, 'shared', v_n > 0, 'notified', v_n);
+end $$;
+
+revoke all on function public.unpublished_collab_fanout(uuid) from public, anon, authenticated;
+grant execute on function public.unpublished_collab_fanout(uuid) to service_role;
+
+create or replace function public.unpublished_collab_request(
+  p_property_id uuid,
+  p_agent_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_agent uuid;
+  v_status text;
+  v_fan jsonb;
+begin
+  v_agent := case
+               when coalesce(auth.role(), '') = 'service_role' then p_agent_id
+               else public.current_agent_id()
+             end;
+  if v_agent is null then
+    return jsonb_build_object('ok', false, 'error', 'not_agent');
+  end if;
+  select status into v_status from public.properties
+   where id = p_property_id and agent_id = v_agent;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'not_your_property');
+  end if;
+
+  insert into public.unpublished_collab_opt_in (property_id, agent_id)
+  values (p_property_id, v_agent)
+  on conflict (property_id) do update
+    set agent_id = excluded.agent_id
+  where public.unpublished_collab_opt_in.fanout_at is null;
+
+  v_fan := public.unpublished_collab_fanout(p_property_id);
+  return v_fan || jsonb_build_object('recorded', true, 'status', v_status);
+end $$;
+
+revoke all on function public.unpublished_collab_request(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.unpublished_collab_request(uuid, uuid) to authenticated, service_role;
+
+create or replace function public.properties_unpublished_collab_after()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE'
+     and new.status = 'active'
+     and old.status is distinct from 'active' then
+    perform public.unpublished_collab_fanout(new.id);
+  end if;
+  return new;
+end $$;
+
+revoke all on function public.properties_unpublished_collab_after() from public, anon, authenticated;
+grant execute on function public.properties_unpublished_collab_after() to service_role;
+
+drop trigger if exists properties_unpublished_collab_after on public.properties;
+create trigger properties_unpublished_collab_after
+  after update of status on public.properties
+  for each row execute function public.properties_unpublished_collab_after();
+
+-- ---------------------------------------------------------------------------
+-- תזכורת אחת לסוכן/ת לשבוע, דרך הפעמון. הדגל 0 מחזיר ספירה ולא כותב.
+-- מילוי unpublished_at=now() אומר שסבב ראשון אחרי המיגרציה יוצא 0.
+-- ---------------------------------------------------------------------------
+create or replace function public.unpublished_nudge_enqueue(p_limit int default 25)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_on int;
+  v_days int;
+  v_cap int;
+  v_agents int := 0;
+  v_props int := 0;
+  v_sent int := 0;
+  r record;
+  v_lines text;
+  v_body text;
+  v_title text;
+  v_one uuid;
+begin
+  if coalesce(auth.role(), '') is distinct from 'service_role'
+     and not public.current_is_platform_admin() then
+    return jsonb_build_object('ok', false, 'error', 'forbidden');
+  end if;
+
+  select coalesce(value::int, 0) into v_on
+    from public.pricing_config where key = 'gabriela_unpublished_nudge_enabled';
+  select coalesce(value::int, 7) into v_days
+    from public.pricing_config where key = 'agent_reminder_unpublished_days';
+  select coalesce(value::int, 25) into v_cap
+    from public.pricing_config where key = 'gabriela_unpublished_nudge_run_cap';
+  v_days := greatest(coalesce(v_days, 7), 1);
+  v_cap := least(greatest(coalesce(v_cap, 25), 1), 200);
+  v_cap := least(v_cap, least(greatest(coalesce(p_limit, 25), 1), 200));
+
+  with cand as (
+    select p.id, p.agent_id
+      from public.properties p
+      join public.agency_members m on m.id = p.agent_id
+     where p.status = 'unpublished'
+       and p.license_hold_at is null
+       and p.unpublished_at is not null
+       and p.unpublished_at < now() - make_interval(days => v_days)
+       and m.active
+       and m.license_status in ('verified', 'manual')
+       and not exists (
+             select 1 from public.unpublished_reminder_snooze s
+              where s.agent_id = p.agent_id and s.property_id = p.id
+                and (s.muted or s.snooze_until > now())
+           )
+       and not exists (
+             select 1 from public.unpublished_nudge_log l
+              where l.agent_id = p.agent_id
+                and not l.dry_run
+                and l.created_at > now() - interval '7 days'
+           )
+  )
+  select count(distinct agent_id), count(*) into v_agents, v_props from cand;
+
+  if coalesce(v_on, 0) <> 1 then
+    return jsonb_build_object(
+      'ok', true, 'dry_run', true, 'enabled', false,
+      'agents', v_agents, 'properties', v_props, 'sent', 0);
+  end if;
+
+  for r in
+    select m.id as agent_id,
+           (array_agg(p.id order by p.unpublished_at))[1:8] as ids,
+           count(*)::int as n,
+           count(*) filter (where p.unpublished_origin = 'draft')::int as n_draft,
+           count(*) filter (where p.unpublished_origin = 'taken_down')::int as n_down
+      from public.properties p
+      join public.agency_members m on m.id = p.agent_id
+     where p.status = 'unpublished'
+       and p.license_hold_at is null
+       and p.unpublished_at is not null
+       and p.unpublished_at < now() - make_interval(days => v_days)
+       and m.active
+       and m.license_status in ('verified', 'manual')
+       and not exists (
+             select 1 from public.unpublished_reminder_snooze s
+              where s.agent_id = p.agent_id and s.property_id = p.id
+                and (s.muted or s.snooze_until > now())
+           )
+       and not exists (
+             select 1 from public.unpublished_nudge_log l
+              where l.agent_id = p.agent_id
+                and not l.dry_run
+                and l.created_at > now() - interval '7 days'
+           )
+     group by m.id
+     order by min(p.unpublished_at)
+     limit v_cap
+  loop
+    select string_agg(
+             left(coalesce(nullif(btrim(p.title), ''), 'נכס'), 50)
+             || case when nullif(btrim(p.city), '') is not null then ' · ' || btrim(p.city) else '' end
+             || case p.unpublished_origin
+                  when 'draft' then ' - טיוטה'
+                  when 'taken_down' then ' - ירד מפרסום'
+                  else ''
+                end,
+             E'\n' order by p.unpublished_at)
+      into v_lines
+      from public.properties p
+     where p.id = any(r.ids);
+
+    v_title := 'נכסים שלא באוויר';
+    v_body := case
+      when r.n_draft = r.n and r.n = 1
+        then 'טיוטה אחת לא פורסמה כבר יותר מ-' || v_days || ' ימים.'
+      when r.n_draft = r.n
+        then r.n || ' טיוטות לא פורסמו כבר יותר מ-' || v_days || ' ימים.'
+      when r.n_down = r.n and r.n = 1
+        then 'נכס אחד ירד מפרסום לפני יותר מ-' || v_days || ' ימים.'
+      when r.n_down = r.n
+        then r.n || ' נכסים ירדו מפרסום לפני יותר מ-' || v_days || ' ימים.'
+      when r.n_draft = 0 and r.n_down = 0
+        then r.n || ' נכסים לא באוויר כבר יותר מ-' || v_days || ' ימים.'
+      else r.n || ' נכסים לא באוויר כבר יותר מ-' || v_days
+           || ' ימים. חלקם טיוטות, וחלקם ירדו מהמדף.'
+    end
+    || E'\n' || coalesce(v_lines, '')
+    || case when r.n > 8 then E'\nועוד.' else '' end
+    || E'\nבכל נכס באזור האישי: לפרסם, שת״פ, או לא עכשיו.';
+
+    v_one := case when r.n = 1 then r.ids[1] else null end;
+    insert into public.notifications (agent_id, type, title, body, related_property_id, suppress_push)
+    values (r.agent_id, 'unpublished_nudge', v_title, left(v_body, 900), v_one, false);
+    insert into public.unpublished_nudge_log (agent_id, property_ids, dry_run)
+    values (r.agent_id, r.ids, false);
+    v_sent := v_sent + 1;
+  end loop;
+
+  return jsonb_build_object(
+    'ok', true, 'dry_run', false, 'enabled', true,
+    'agents', v_agents, 'properties', v_props, 'sent', v_sent);
+end $$;
+
+revoke all on function public.unpublished_nudge_enqueue(int) from public, anon, authenticated;
+grant execute on function public.unpublished_nudge_enqueue(int) to service_role;

@@ -6,6 +6,7 @@ import {
   LEAD_CTA, type LeadInfo, leadListTitle, leadTemplateLine, leadText, loadLeadInfo,
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
+import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE } from "./burst-guard.ts";
@@ -150,6 +151,11 @@ const ACC_BY_TYPE: Record<string, string> = {
   // ‏ביקוש פתוח מפוסט בפייסבוק (20270812090000) - ללשונית "ביקוש פתוח" ב"הלידים
   // שלי"; ‏itemPath מוסיף tab=demand, ולכן גם כמה ביקושים בהודעה אחת הם כפתור
   open_demand: "accLeads",
+  // תזכורת שבועית על נכסים שלא באוויר (20271028190000). נכס אחד נפתח
+  // בכרטיס; כמה נכסים נפתחים לרשימה המסוננת.
+  unpublished_nudge: "accProperties",
+  // שת״פ שנפתח אחרי בקשת הבעלים. הנכס של משרד אחר נפתח ב"שותפו איתי".
+  collab_offer: "accProperties",
 };
 
 function json(obj: unknown, status = 200) {
@@ -250,6 +256,11 @@ function itemPath(it: Item): string | null {
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
   // ביקוש פתוח אינו ליד ואין לו מזהה בהתראה; כולם באותה לשונית
   if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
+  // כמה נכסים בהודעה אחת: אין מזהה, והרשימה המסוננת היא היעד.
+  // נכס אחד נופל לכרטיס, כמו כל התראה עם related_property_id.
+  if (it.type === "unpublished_nudge" && !property) {
+    return "/crm?goto=accProperties&filter=unpublished";
+  }
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
@@ -377,9 +388,18 @@ function singleTarget(items: Item[]): string | null {
   return only === gotoUrl(MANAGE_ACC) ? null : only;
 }
 
-/** כותרת הכפתור לפי היעד. עד 20 יחידות UTF-16 (נמדד: הארוכה 16). */
+/** כפתורי לפרסם / שת״פ / לא עכשיו רק על תזכורת של נכס אחד, בתוך החלון. */
+function nudgeReplyButtons(items: Item[]): { id: string; title: string }[] | null {
+  if (items.length !== 1 || items[0].type !== "unpublished_nudge") return null;
+  const property = uuidOr(items[0].property_id);
+  if (!property) return null;
+  return unpublishedNudgeButtons(property);
+}
+
+/** כותרת הכפתור לפי היעד. עד 20 יחידות UTF-16 (נמדד: הארוכה 19). */
 function ctaLabel(url: string): string {
   if (url.includes("accAgenda")) return "📅 פתיחה ביומן";
+  if (url.includes("filter=unpublished")) return "🏠 נכסים שלא באוויר";
   if (url.includes("tab=demand")) return "📣 לביקוש הפתוח";
   if (url.includes("accLeads")) return "👈 פתיחת הליד";
   if (url.includes("accClients")) return "👤 כרטיס הלקוח";
@@ -469,6 +489,7 @@ async function sendWhatsapp(
   };
 
   let payload: Record<string, unknown>;
+  const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
   if (mode === "template" && WA_TEMPLATE) {
     // שני פרמטרים בגוף התבנית: ‏{{1}} השם הפרטי · {{2}} רשימת ההתראות.
@@ -496,6 +517,25 @@ async function sendWhatsapp(
             parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
           },
         ],
+      },
+    };
+  } else if (nudgeBtns) {
+    // שלושה כפתורי תשובה על נכס אחד. אי אפשר לערבב אותם עם cta_url.
+    // "בלי תזכורת" נשאר בכרטיס ב-CRM: ל-Meta יש שלושה כפתורים.
+    const body = clipWhatsappBody(textBody(name, items, true, topics), 1024);
+    const buttons = nudgeBtns.map((b) => ({
+      type: "reply",
+      reply: { id: b.id, title: b.title },
+    }));
+    payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: body },
+        action: { buttons },
       },
     };
   } else if (mode !== "template" && (showingCloseNotifyButton(items) || lessType)) {
