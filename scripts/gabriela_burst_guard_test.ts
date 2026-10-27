@@ -4,16 +4,14 @@
 import { readFileSync } from "node:fs";
 import {
   BURST_DEFAULTS,
-  burstAction,
   burstBucket,
   burstCaps,
   burstDigestItem,
   burstText,
-  breakerShouldPause,
   collapseForSend,
+  isBurstExempt,
   overBurstCap,
   photoRequestKeep,
-  shouldMarkSiteOnly,
 } from "../supabase/functions/notification-push/burst-guard.ts";
 
 let failed = 0;
@@ -35,6 +33,13 @@ const doc = readFileSync(new URL("../docs/notifications-center.md", import.meta.
 const claimStart = sql.indexOf("function public.notification_push_claim");
 const claimEnd = sql.indexOf("comment on function public.notification_push_claim");
 const claim = sql.slice(claimStart, claimEnd);
+const prepStart = sql.indexOf("function public.notification_push_burst_prepare");
+const prepEnd = sql.indexOf("comment on function public.notification_push_burst_prepare");
+const prep = sql.slice(prepStart, prepEnd);
+const guardSrc = readFileSync(
+  new URL("../supabase/functions/notification-push/burst-guard.ts", import.meta.url),
+  "utf8",
+);
 
 check("תקרה כללית מעל 7 בשעה ו-18 ביום", BURST_DEFAULTS.hourCap > 7 && BURST_DEFAULTS.dayCap > 18);
 check("יום של 18 ושעה של 7 לא עוברים את התקרה", !overBurstCap(7, 18, burstCaps("general")));
@@ -45,67 +50,50 @@ check("בקשת תמונות היא תקרה כללית", burstBucket([{ type: "
 check("ליד בלי מקור הוא תקרת לידים", burstBucket([{ type: "new_lead" }]) === "lead");
 check("ערבוב ליד וסיור הוא כללי", burstBucket([{ type: "new_lead" }, { type: "showcase_meeting" }]) === "general");
 
-check("דגל כבוי, quiet hold, לא נסגר", !shouldMarkSiteOnly({
-  ageHours: 30, digestOn: false, priority: false, kept: false, quietHold: true, suppress: false,
-}));
-check("דגל כבוי, 13 שעות בלי quiet, נסגר", shouldMarkSiteOnly({
-  ageHours: 13, digestOn: false, priority: false, kept: true, quietHold: false, suppress: false,
-}));
-check("דגל כבוי, שעתיים, נשלח", !shouldMarkSiteOnly({
-  ageHours: 2, digestOn: false, priority: false, kept: false, quietHold: false, suppress: false,
-}));
-check("עדיפות בתוך 72 נשלחת", !shouldMarkSiteOnly({
-  ageHours: 20, digestOn: false, priority: true, kept: true, quietHold: false, suppress: false,
-}));
-check("עדיפות אחרי 72 נסגרת", shouldMarkSiteOnly({
-  ageHours: 80, digestOn: false, priority: true, kept: true, quietHold: false, suppress: false,
-}));
-check("תקציר דלוק, סוג רגיל אחרי 12 נשאר באתר", shouldMarkSiteOnly({
-  ageHours: 13, digestOn: true, priority: false, kept: false, quietHold: true, suppress: false,
-}));
-check("תקציר דלוק, מוגן בתוך 72 נשלח", !shouldMarkSiteOnly({
-  ageHours: 20, digestOn: true, priority: false, kept: true, quietHold: false, suppress: false,
-}));
-check("suppress תמיד באתר", shouldMarkSiteOnly({
-  ageHours: 1, digestOn: false, priority: true, kept: true, quietHold: true, suppress: true,
-}));
+check("ישן: quiet hold לא נסגר כשהתקציר כבוי", prep.includes(
+  "not (v_digest_on = 0 and public.notification_push_quiet_hold",
+));
+check("ישן עדיין skipped", prep.includes("'stale; site only'"));
+check("הספירה רק ממתינים לדחיפה, בלי נקרא ובלי שורה שכבר נרשמה", [
+  "not n.read",
+  "not n.suppress_push",
+  "not public.notification_push_burst_exempt(n.type, ld.source)",
+  "notification_push_log_holds",
+].every((part) => prep.includes(part)));
+const breaker = prep.slice(prep.indexOf("if v_guard = 0 then"));
+check("המפסק הגלובלי לא כותב skipped", breaker.length > 0 && !breaker.includes("'skipped'") && !breaker.includes("burst breaker; site only"));
+check("מפסק סוכן לא כותב skipped", !sql.includes("burst agent pending"));
+check("301 בחלון מדליק את הדגל, 72 שליחות לא", prep.includes("v_created > v_created_max") && prep.includes("v_sends > v_global_max"));
+check("השהיה ידנית מדליקה את אותו דגל", prep.includes("v_manual = 1 or v_created > v_created_max"));
+check("מתג כבוי יוצא לפני המפסק ומכבה אותו", prep.includes("if v_guard = 0 then") && prep.includes("notification_burst_guard_enabled"));
+check("מתג הכיבוי נולד דלוק", sql.includes("('notification_burst_guard_enabled', 1,"));
 
-check("31 ממתינות לסוכן/ת מדליקות מפסק מקומי", breakerShouldPause({
-  manual: false, pending: 31, created: 20, globalSends: 10,
-}).agent);
-check("30 ממתינות עדיין לא", !breakerShouldPause({
-  manual: false, pending: 30, created: 20, globalSends: 10,
-}).agent && !breakerShouldPause({
-  manual: false, pending: 30, created: 20, globalSends: 10,
-}).global);
-check("301 ב-15 דקות הוא מפסק גלובלי", breakerShouldPause({
-  manual: false, pending: 1, created: 301, globalSends: 10,
-}).global);
-check("72 שליחות בשעה, המקסימום שנמדד, לא מפסק", !breakerShouldPause({
-  manual: false, pending: 1, created: 20, globalSends: 72,
-}).global);
-check("131 שליחות בשעה הוא מפסק", breakerShouldPause({
-  manual: false, pending: 1, created: 20, globalSends: 131,
-}).global);
-check("השהיה ידנית היא מפסק גם ביום שקט", breakerShouldPause({
-  manual: true, pending: 0, created: 0, globalSends: 0,
-}).global);
+check("ליד אמיתי מוגן, בקשת תמונות לא", isBurstExempt({ type: "new_lead" })
+  && isBurstExempt({ type: "new_lead", source: "swipe" })
+  && !isBurstExempt({ type: "new_lead", source: "photo_request" }));
+check("תזכורת, סיור, ליד לא משויך ואבטחה מוגנים", [
+  "agenda_reminder", "showcase_meeting", "lead_unrouted", "security_alert", "budget_alert", "ops_alert",
+].every((type) => isBurstExempt({ type })));
+check("system ו-open_demand אינם מוגנים", !isBurstExempt({ type: "system" }) && !isBurstExempt({ type: "open_demand" }));
 
-check("מעל תקרה בלי תקציר השעה: תקציר אחד", burstAction({
-  paused: false, overCap: true, digestAlreadyThisHour: false, itemCount: 3,
-}) === "digest");
-check("מעל תקרה אחרי תקציר: רק באתר", burstAction({
-  paused: false, overCap: true, digestAlreadyThisHour: true, itemCount: 3,
-}) === "site_only");
-check("18 פריטים עדיין הודעה רגילה", burstAction({
-  paused: false, overCap: false, digestAlreadyThisHour: false, itemCount: 18,
-}) === "send");
-check("25 פריטים נהיים תקציר", burstAction({
-  paused: false, overCap: false, digestAlreadyThisHour: false, itemCount: 25,
-}) === "digest");
-check("מפסק לא שולח", burstAction({
-  paused: true, overCap: false, digestAlreadyThisHour: false, itemCount: 1,
-}) === "site_only");
+check("מפסק: מוגן יוצא בפרטים, ובלי מוגן אין שליחה", claim.includes("if v_pause then")
+  && claim.includes("v_items := v_ex_items")
+  && claim.includes("if coalesce(array_length(v_ex_ids, 1), 0) = 0 then"));
+check("ה-claim לא רושם skipped", !claim.includes("'skipped'") && !claim.includes("burst cap; site only"));
+check("גלישה נדחית לתקציר הבא", claim.includes("overflow_defer") && claim.includes("v_hold_general and v_digest_sent"));
+check("תקציר נרשם רק על הלא-מוגן", claim.includes("v_ids := v_gen_ids"));
+check("תור סוכן מעל 30 דוחה לא-מוגן ולא מוחק אותו", claim.includes("v_gen_n, 0) > v_pending_max"));
+check("תקרה לפחות 1", claim.includes(
+  "greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12))",
+) && claim.includes(
+  "greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_lead_hour_cap'), 20))",
+));
+check("התראת המפסק יוצאת למנהלים", /insert into public\.notifications \(agent_id, type, title, body, suppress_push\)[\s\S]{0,700}\bfalse\b/.test(prep));
+check("סיכום בלי last_sent_at עדיין אתר בלבד", sql.includes("v_from is null or a.created_at > v_from")
+  && !sql.includes("if v_from is not null"));
+check("השליחה קוראת לקיפול ששומר על מוגן", guardSrc.includes("isBurstExempt")
+  && push.includes("collapseForSend")
+  && push.includes("digest.guardOn"));
 
 const folded = collapseForSend([
   { type: "open_demand", title: "א" },
@@ -113,6 +101,19 @@ const folded = collapseForSend([
   ...Array.from({ length: 23 }, (_, i) => ({ type: "system", title: String(i) })),
 ]);
 check("קריסה מעל 24", folded.length === 1 && folded[0].type === "burst_digest" && folded[0].count === 25);
+check("ליד אמיתי לא נבלע בקריסה", collapseForSend([
+  { type: "new_lead", source: "buyer" },
+  ...Array.from({ length: 30 }, (_, i) => ({ type: "system", title: String(i) })),
+]).some((it) => it.type === "new_lead"));
+check("בקשת תמונות כן נבלעת מעל 24", collapseForSend([
+  { type: "new_lead", source: "photo_request" },
+  ...Array.from({ length: 30 }, () => ({ type: "system" })),
+]).length === 1);
+check("מתג כבוי לא מקפל", collapseForSend(
+  Array.from({ length: 30 }, () => ({ type: "system" })),
+  24,
+  false,
+).length === 30);
 check("תקציר מהמסד לא נפרש", collapseForSend([burstDigestItem(9), { type: "system" }]).length === 1);
 check("מתחת לסף נשאר", collapseForSend([{ type: "new_lead" }, { type: "system" }]).length === 2);
 

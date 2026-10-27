@@ -2,15 +2,19 @@
 --
 -- התקרות הקיימות (12 ביום, מרווח 10 דקות, פער תבנית 240, מבט 12/72
 -- ו-quiet_hold) לא זזות. notification_push_due_agents לא מוחלפת.
--- מה שנוסף כאן דולק תמיד, והמספרים מעל המקסימום שנמדד ב-30 הימים
+-- המספרים מעל המקסימום שנמדד ב-30 הימים
 -- שלפני 27.10.2026 (notification_push_log, whatsapp_status = sent):
 --   הודעות: ממוצע 3.09 לסוכן ביום, מקסימום יום 18, שעה 7.
 --   new_lead: יום 3, שעה 2. showcase_meeting: יום 2, שעה 2.
 --   agenda_reminder: יום 12, שעה 4. system: יום 9, שעה 4.
 --   שעה גלובלית: מקסימום 72, p95 כ-43.
 --   התראות שנוצרו ב-15 דקות: p99 156, מקסימום 1855 (system).
--- יום רגיל לא מגיע לתקרות. מה שמעבר נשאר באתר (לא נקרא) ויוצא
--- כוואטסאפ אחד ("יש לך N התראות חדשות באתר") או בכלל לא.
+-- יום רגיל לא מגיע לתקרות. מה שמעבר, אם אינו מוגן, נדחה לתקציר
+-- הבא ("יש לך N התראות חדשות באתר") או מחכה בלי רישום skipped.
+-- skipped נשמר לישן מ-12 שעות, למילוי, ולבקשת תמונות כפולה.
+-- ליד אמיתי, סיור וסוג מוגן יוצאים בפרטים גם כשהמפסק דלוק.
+-- notification_burst_guard_enabled = 0 מכבה מפסקים ותקרות בלי דיפלוי.
+-- ישן, מילוי ובקשת תמונות נשארים גם כשהמתג כבוי.
 --
 -- דגל התקציר כבוי: quiet_hold נשאר. דגל דלוק: סוג שאינו דחוף מעל
 -- 12 שעות לא יוצא לוואטסאפ, גם אם ההחזקה של 7 הימים שמרה אותו לפעמון.
@@ -26,14 +30,15 @@ insert into public.pricing_config (key, value, description) values
   ('notif_burst_showing_day_cap', 40, 'תקרה יומית נפרדת ל-showcase_meeting. מעל המקסימום שנמדד (2).'),
   ('notif_burst_stale_hours', 12, 'לא דוחפים לוואטסאפ התראה ישנה מזה, אלא אם היא דחופה ועדיין בחלון הדחוף.'),
   ('notif_burst_urgent_hours', 72, 'חלון לסוג דחוף (עדיפות, ומוגן כשהתקציר דלוק). מעבר לזה רק באתר.'),
-  ('notif_burst_agent_pending', 30, 'מעל זה לסוכן אחד: ההתראות שאינן ליד אמיתי או סיור נשארות באתר.'),
-  ('notif_burst_created_minutes', 15, 'חלון הספירה של התראות שנוצרו עכשיו, בלי שורות שמסומנות suppress_push.'),
-  ('notif_burst_created_max', 300, 'מעל זה בחלון created_minutes: מפסק לכל הסוכנים. מעל p99 (156) ומתחת לשיטפון 1855.'),
+  ('notif_burst_agent_pending', 30, 'מעל זה פריטים לא-מוגנים בהודעה: תקציר, ואחר כך דחייה. מוגן לא נספר ולא נבלע.'),
+  ('notif_burst_created_minutes', 15, 'חלון הספירה. נספר רק מה שעדיין ממתין לדחיפה, בלי נקרא, בלי מילוי, בלי מוגן, ובלי שורה שכבר נרשמה.'),
+  ('notif_burst_created_max', 300, 'מעל זה בחלון: מפסק גלובלי. לא מסמן skipped. מעל p99 (156) ומתחת לשיטפון 1855.'),
   ('notif_burst_global_hour', 130, 'מעל זה הודעות sent בשעה האחרונה, לכל הסוכנים: מפסק. בערך פי שלושה מ-p95, מעל המקסימום 72.'),
   ('notif_burst_max_items', 24, 'מעל זה פריטים בהודעה אחת: גוף קצר עם קישור לאתר, לא רשימה. מעל מקסימום יום שנמדד (18).'),
   ('notif_burst_scraped_stale_days', 14, 'ביקוש פתוח שפורסם לפני זה יוצא רק לאתר. יום 7 של מחזור החיים עדיין נדחף.'),
-  ('notif_burst_breaker', 0, '1: מפסק אוטומטי דלוק. יורד לבד כשהתור חזר מתחת לסף, אלא אם notif_burst_manual_pause דלוק.'),
-  ('notif_burst_manual_pause', 0, '1: בלי וואטסאפ עד שמנהל/ת מאפס/ת. ההתראות נשארות באתר.')
+  ('notif_burst_breaker', 0, '1: מפסק גלובלי דלוק. יורד לבד כשהחלון חזר מתחת לסף, אלא אם notif_burst_manual_pause דלוק. לא מסמן skipped.'),
+  ('notif_burst_manual_pause', 0, '1: מפסק גלובלי עד שמנהל/ת מאפס/ת. ליד אמיתי, סיור ומוגן עדיין יוצאים. השאר נדחה.'),
+  ('notification_burst_guard_enabled', 1, '1: מפסקי ההתפרצות והתקרות פעילים. 0: הם כבויים בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים.')
 on conflict (key) do nothing;
 
 alter table public.notifications
@@ -113,16 +118,17 @@ begin
     select d.last_sent_at into v_from
       from public.agent_match_digest d
      where d.agent_id = new.agent_id;
-    if v_from is not null
-       and exists (
+    -- בלי שורת סיכום, או last_sent_at ריק: כל ההתאמות הן החלון.
+    -- אחרת מילוי לסוכן/ת שמעולם לא קיבל/ה סיכום יוצא לוואטסאפ.
+    if exists (
          select 1 from public.client_match_alerts a
           where a.agent_id = new.agent_id
-            and a.created_at > v_from
+            and (v_from is null or a.created_at > v_from)
             and a.status <> 'dismissed')
        and not exists (
          select 1 from public.client_match_alerts a
           where a.agent_id = new.agent_id
-            and a.created_at > v_from
+            and (v_from is null or a.created_at > v_from)
             and a.status <> 'dismissed'
             and not a.push_site_only)
     then
@@ -261,8 +267,27 @@ comment on function public.scraped_leads_mark_remap() is
 revoke all on function public.scraped_leads_mark_remap() from public, anon, authenticated;
 grant execute on function public.scraped_leads_mark_remap() to service_role;
 
+-- ליד אמיתי, סיור, ותזכורת/אבטחה/תקציב/ops. בקשת תמונות אינה מוגנת:
+-- new_lead עם source = photo_request נשאר בתקרה הכללית.
+create or replace function public.notification_push_burst_exempt(p_type text, p_source text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select public.notification_push_less_kept(p_type)
+     and not (p_type = 'new_lead' and p_source is not distinct from 'photo_request');
+$$;
+
+comment on function public.notification_push_burst_exempt(text, text) is
+  'יוצא בפרטים מלאים גם במפסק וגם מעל התקרה הכללית. לא נבלע בתקציר "יש לך N". בקשת תמונות לא כלולה.';
+
+revoke all on function public.notification_push_burst_exempt(text, text) from public, anon, authenticated;
+grant execute on function public.notification_push_burst_exempt(text, text) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- הכנה לפני claim: ישן, מילוי, בקשת תמונות, ומפסק.
+-- skipped רק לישן, למילוי, ולבקשת תמונות כפולה. מפסק דוחה, לא מוחק.
 -- לא מסמנת read. skipped נכתב 25 שעות אחורה.
 -- ---------------------------------------------------------------------------
 create or replace function public.notification_push_burst_prepare()
@@ -274,17 +299,16 @@ as $$
 declare
   v_stale     int := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_stale_hours'), 12));
   v_urgent    int := greatest(v_stale, coalesce((select value::int from public.pricing_config where key = 'notif_burst_urgent_hours'), 72));
-  v_pending_max int := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_agent_pending'), 30));
   v_created_min int := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_created_minutes'), 15));
   v_created_max int := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_created_max'), 300));
   v_global_max  int := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_global_hour'), 130));
   v_digest_on int := coalesce((select value::int from public.pricing_config where key = 'notif_digest_enabled'), 0);
   v_manual    int := coalesce((select value::int from public.pricing_config where key = 'notif_burst_manual_pause'), 0);
+  v_guard     int := coalesce((select value::int from public.pricing_config where key = 'notification_burst_guard_enabled'), 1);
   v_prio      text[] := public.notification_push_priority_types();
   v_created   int;
   v_sends     int;
   v_global    boolean;
-  v_hot       uuid[];
   v_reason    text;
 begin
   perform pg_advisory_xact_lock(hashtext('notification_push_claim'));
@@ -373,10 +397,28 @@ begin
      )
    group by n.agent_id;
 
+  -- המתג מכבה רק את המפסק. ישן, מילוי ובקשת תמונות כבר נרשמו למעלה.
+  if v_guard = 0 then
+    update public.pricing_config set value = 0
+     where key = 'notif_burst_breaker' and value is distinct from 0;
+    return;
+  end if;
+
+  -- רק מה שעדיין ממתין לדחיפה. נקרא, מילוי, שורה שכבר נרשמה, ומוגן
+  -- (ליד אמיתי, סיור, תזכורת, אבטחה) לא נספרים. שיטפון system שכבר
+  -- סומן לא ממשיך להחזיק את המפסק.
   select count(*) into v_created
     from public.notifications n
+    left join public.leads ld on ld.id = n.related_lead_id
    where n.created_at > now() - make_interval(mins => v_created_min)
-     and not n.suppress_push;
+     and not n.read
+     and not n.suppress_push
+     and not public.notification_push_burst_exempt(n.type, ld.source)
+     and not exists (
+       select 1 from public.notification_push_log l
+        where l.agent_id = n.agent_id
+          and n.id = any(l.notification_ids)
+          and public.notification_push_log_holds(l.whatsapp_status, l.created_at));
 
   select count(*) into v_sends
     from public.notification_push_log l
@@ -385,94 +427,21 @@ begin
 
   v_global := v_manual = 1 or v_created > v_created_max or v_sends > v_global_max;
 
+  -- אין כאן skipped. claim דוחה את הלא-מוגן כל עוד המפסק דלוק,
+  -- ומשחרר אותו לתקציר כשהחלון יורד. מוגן יוצא גם באמצע.
   if v_global then
-    insert into public.notification_push_log
-      (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
-    select n.agent_id, array_agg(n.id), array_agg(distinct n.type), 'text', 'skipped',
-           'burst breaker; site only', now() - interval '25 hours'
-      from public.notifications n
-     where not n.read
-       and not n.suppress_push
-       and not exists (
-         select 1 from public.notification_push_log l
-          where l.agent_id = n.agent_id
-            and n.id = any(l.notification_ids)
-            and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
-       and (
-         n.created_at > now() - make_interval(hours =>
-           case
-             when n.type = any(v_prio) then v_urgent
-             when v_digest_on = 1 and public.notification_push_less_kept(n.type) then v_urgent
-             else v_stale
-           end)
-         or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
-       )
-     group by n.agent_id;
+    update public.pricing_config set value = 1 where key = 'notif_burst_breaker' and value is distinct from 1;
     v_reason := case
       when v_manual = 1 then 'השהיה ידנית'
       when v_created > v_created_max then 'נוצרו ' || v_created || ' התראות ב-' || v_created_min || ' הדקות האחרונות'
       else 'נשלחו ' || v_sends || ' הודעות בשעה האחרונה'
     end;
-  else
-    select coalesce(array_agg(s.agent_id), '{}') into v_hot
-      from (
-        select n.agent_id
-          from public.notifications n
-         where not n.read
-           and not n.suppress_push
-           and not (n.type = 'showcase_meeting')
-           and not (n.type = 'new_lead' and not exists (
-                 select 1 from public.leads l
-                  where l.id = n.related_lead_id and l.source = 'photo_request'))
-           and not exists (
-             select 1 from public.notification_push_log l
-              where l.agent_id = n.agent_id
-                and n.id = any(l.notification_ids)
-                and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
-           and (
-             n.created_at > now() - make_interval(hours =>
-               case
-                 when n.type = any(v_prio) then v_urgent
-                 when v_digest_on = 1 and public.notification_push_less_kept(n.type) then v_urgent
-                 else v_stale
-               end)
-             or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
-           )
-         group by n.agent_id
-        having count(*) > v_pending_max
-      ) s;
-
-    if coalesce(array_length(v_hot, 1), 0) > 0 then
-      insert into public.notification_push_log
-        (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
-      select n.agent_id, array_agg(n.id), array_agg(distinct n.type), 'text', 'skipped',
-             'burst agent pending; site only', now() - interval '25 hours'
-        from public.notifications n
-       where n.agent_id = any(v_hot)
-         and not n.read
-         and not n.suppress_push
-         and not (n.type = 'showcase_meeting')
-         and not (n.type = 'new_lead' and not exists (
-               select 1 from public.leads l
-                where l.id = n.related_lead_id and l.source = 'photo_request'))
-         and not exists (
-           select 1 from public.notification_push_log l
-            where l.agent_id = n.agent_id
-              and n.id = any(l.notification_ids)
-              and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
-       group by n.agent_id;
-      v_reason := 'לסוכן/ת יש מעל ' || v_pending_max || ' התראות ממתינות';
-    end if;
-  end if;
-
-  if v_global or coalesce(array_length(v_hot, 1), 0) > 0 then
-    update public.pricing_config set value = 1 where key = 'notif_burst_breaker' and value is distinct from 1;
     insert into public.notifications (agent_id, type, title, body, suppress_push)
     select m.id,
            'ops_alert',
            'וואטסאפ לסוכנים הושהה',
-           left(coalesce(v_reason, 'עומס חריג') || '. ההתראות נשארות באתר ולא נשלחות בוואטסאפ עד שהתור יורד. השהיה ידנית: notif_burst_manual_pause.', 400),
-           true
+           left(coalesce(v_reason, 'עומס חריג') || '. לידים, סיורים והתראות דחופות עדיין יוצאים. השאר נשאר באתר עד שהתור יורד, ואז יוצא תקציר. השהיה ידנית: notif_burst_manual_pause.', 400),
+           false
       from public.agency_members m
      where m.is_platform_admin = true
        and m.active = true
@@ -489,7 +458,7 @@ end;
 $$;
 
 comment on function public.notification_push_burst_prepare() is
-  'לפני שליחה: ישן ומילוי ובקשת תמונות כפולה נרשמים skipped. מפסק גלובלי או תור של סוכן/ת משאירים את ההתראות באתר וכותבים ops_alert. לא מסמן read.';
+  'לפני שליחה: ישן ומילוי ובקשת תמונות כפולה נרשמים skipped. מפסק גלובלי לא רושם skipped: הלא-מוגן נדחה, ומוגן יוצא. ops_alert יוצא למנהלים בוואטסאפ. לא מסמן read.';
 
 revoke all on function public.notification_push_burst_prepare() from public, anon, authenticated;
 grant execute on function public.notification_push_burst_prepare() to service_role;
@@ -529,116 +498,167 @@ declare
   v_day_cap int;
   v_sent_hour int;
   v_sent_day int;
-  v_photo boolean;
   v_all_lead boolean;
   v_all_showing boolean;
   v_over boolean;
   v_digest_sent boolean;
-  v_nitems int;
+  v_guard int;
+  v_manual int;
+  v_breaker int;
+  v_pending_max int;
+  v_pause boolean;
+  v_ex_items jsonb;
+  v_ex_ids uuid[];
+  v_ex_types text[];
+  v_gen_ids uuid[];
+  v_gen_types text[];
+  v_gen_n int;
+  v_agent_hot boolean;
+  v_too_many boolean;
+  v_hold_general boolean;
+  v_lane_over boolean;
 begin
   perform public.notification_push_burst_prepare();
+
+  select coalesce((select value::int from public.pricing_config where key = 'notification_burst_guard_enabled'), 1),
+         coalesce((select value::int from public.pricing_config where key = 'notif_burst_manual_pause'), 0),
+         coalesce((select value::int from public.pricing_config where key = 'notif_burst_breaker'), 0),
+         greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_agent_pending'), 30))
+    into v_guard, v_manual, v_breaker, v_pending_max;
+  v_pause := v_guard = 1 and (v_manual = 1 or v_breaker = 1);
 
   for a in select * from public.notification_push_due_agents() loop
     exit when v_taken >= v_cap;
 
-    select jsonb_agg(jsonb_build_object(
-             'type',        n.type,
-             'title',       n.title,
-             'body',        n.body,
-             'property_id', n.related_property_id,
-             'client_id',   coalesce(n.related_client_id,
-                                     (select s.client_id from public.client_showcases s
-                                       where s.id = n.related_showcase_id)),
-             'lead_id',     n.related_lead_id,
-             'property_mine', (select p.agent_id = n.agent_id or p.referred_by is not distinct from n.agent_id
-                                 from public.properties p where p.id = n.related_property_id),
-             'agenda_item_id', n.related_agenda_item_id,
-             'agreement_id',  n.related_agreement_id,
-             'meeting_id',    n.related_meeting_id,
-             'review_id', (select rv.id from public.reviews rv
-                            where rv.id = n.related_review_id and rv.status = 'pending'
-                              and rv.agent_id is distinct from n.agent_id),
-             'review_agent_slug', (select m.slug from public.reviews rv
-                                     join public.agency_members m on m.id = rv.agent_id
-                                    where rv.id = n.related_review_id and rv.status = 'published')
-           ) order by n.created_at desc),
-           array_agg(n.id order by n.created_at desc),
-           array_agg(distinct n.type),
-           bool_or(not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
-                   or n.created_at <= now() - make_interval(mins => v_digest))
-      into v_items, v_ids, v_types, v_wake
-      from public.notifications n
-     where n.agent_id = a.agent_id
-       and not n.read
-       and not n.suppress_push
-       and n.type = any(a.whatsapp_types)
-       and (n.created_at > now() - make_interval(hours =>
-              case
-                when n.type = any(v_prio) then least(v_look_p, v_urgent)
-                when v_digest_on = 1 and public.notification_push_less_kept(n.type) then least(v_look_p, v_urgent)
-                else least(v_look, v_stale)
-              end)
-            or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)))
-       and not exists (
-         select 1 from public.notification_push_log l
-          where l.agent_id = n.agent_id
-            and n.id = any(l.notification_ids)
-            and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
-       and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at);
+    select jsonb_agg(s.item order by s.created_at desc),
+           array_agg(s.id order by s.created_at desc),
+           array_agg(distinct s.type),
+           bool_or(s.wake_part),
+           jsonb_agg(s.item order by s.created_at desc) filter (where s.exempt),
+           array_agg(s.id order by s.created_at desc) filter (where s.exempt),
+           array_agg(distinct s.type) filter (where s.exempt),
+           array_agg(s.id order by s.created_at desc) filter (where not s.exempt),
+           array_agg(distinct s.type) filter (where not s.exempt),
+           (count(*) filter (where not s.exempt))::int
+      into v_items, v_ids, v_types, v_wake,
+           v_ex_items, v_ex_ids, v_ex_types,
+           v_gen_ids, v_gen_types, v_gen_n
+      from (
+        select n.id, n.type, n.created_at,
+               public.notification_push_burst_exempt(n.type, ld.source) as exempt,
+               (not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
+                 or n.created_at <= now() - make_interval(mins => v_digest)) as wake_part,
+               jsonb_build_object(
+                 'type',        n.type,
+                 'title',       n.title,
+                 'body',        n.body,
+                 'source',      ld.source,
+                 'property_id', n.related_property_id,
+                 'client_id',   coalesce(n.related_client_id,
+                                         (select sc.client_id from public.client_showcases sc
+                                           where sc.id = n.related_showcase_id)),
+                 'lead_id',     n.related_lead_id,
+                 'property_mine', (select p.agent_id = n.agent_id or p.referred_by is not distinct from n.agent_id
+                                     from public.properties p where p.id = n.related_property_id),
+                 'agenda_item_id', n.related_agenda_item_id,
+                 'agreement_id',  n.related_agreement_id,
+                 'meeting_id',    n.related_meeting_id,
+                 'review_id', (select rv.id from public.reviews rv
+                                where rv.id = n.related_review_id and rv.status = 'pending'
+                                  and rv.agent_id is distinct from n.agent_id),
+                 'review_agent_slug', (select m.slug from public.reviews rv
+                                         join public.agency_members m on m.id = rv.agent_id
+                                        where rv.id = n.related_review_id and rv.status = 'published')
+               ) as item
+          from public.notifications n
+          left join public.leads ld on ld.id = n.related_lead_id
+         where n.agent_id = a.agent_id
+           and not n.read
+           and not n.suppress_push
+           and n.type = any(a.whatsapp_types)
+           and (n.created_at > now() - make_interval(hours =>
+                  case
+                    when n.type = any(v_prio) then least(v_look_p, v_urgent)
+                    when v_digest_on = 1 and public.notification_push_less_kept(n.type) then least(v_look_p, v_urgent)
+                    else least(v_look, v_stale)
+                  end)
+                or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)))
+           and not exists (
+             select 1 from public.notification_push_log l
+              where l.agent_id = n.agent_id
+                and n.id = any(l.notification_ids)
+                and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
+           and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at)
+      ) s;
 
     continue when v_items is null or not v_wake;
 
-    v_nitems := jsonb_array_length(v_items);
-    v_photo := exists (
-      select 1
-        from public.notifications n
-        join public.leads l on l.id = n.related_lead_id
-       where n.id = any(v_ids)
-         and l.source = 'photo_request');
-    v_all_lead := not exists (select 1 from unnest(v_types) t where t is distinct from 'new_lead');
-    v_all_showing := not exists (select 1 from unnest(v_types) t where t is distinct from 'showcase_meeting');
+    -- מתג כבוי: אותה הודעה כמו בלי תקרת ההתפרצות. ישן ומילוי כבר סוננו בהכנה.
+    if v_guard = 1 then
+      v_hour_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12));
+      v_day_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_day_cap'), 30));
 
-    if v_all_lead and not v_photo then
-      v_hour_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_lead_hour_cap'), 20);
-      v_day_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_lead_day_cap'), 40);
-    elsif v_all_showing then
-      v_hour_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_showing_hour_cap'), 20);
-      v_day_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_showing_day_cap'), 40);
-    else
-      v_hour_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12);
-      v_day_cap := coalesce((select value::int from public.pricing_config where key = 'notif_burst_day_cap'), 30);
-    end if;
-
-    select count(*) filter (where l.created_at > now() - interval '1 hour'),
-           count(*) filter (where l.created_at > now() - interval '1 day')
-      into v_sent_hour, v_sent_day
-      from public.notification_push_log l
-     where l.agent_id = a.agent_id
-       and l.whatsapp_status = 'sent';
-
-    v_over := v_sent_hour >= v_hour_cap or v_sent_day >= v_day_cap;
-    v_digest_sent := exists (
-      select 1 from public.notification_push_log l
+      select count(*) filter (where l.created_at > now() - interval '1 hour'),
+             count(*) filter (where l.created_at > now() - interval '1 day')
+        into v_sent_hour, v_sent_day
+        from public.notification_push_log l
        where l.agent_id = a.agent_id
-         and l.created_at > now() - interval '1 hour'
-         and l.whatsapp_status in ('sent', 'pending')
-         and 'burst_digest' = any(l.types));
+         and l.whatsapp_status = 'sent';
 
-    if v_over and v_digest_sent then
-      insert into public.notification_push_log
-        (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
-      values (a.agent_id, v_ids, v_types, 'text', 'skipped',
-              'burst cap; site only', now() - interval '25 hours');
-      continue;
-    end if;
+      v_over := v_sent_hour >= v_hour_cap or v_sent_day >= v_day_cap;
+      v_digest_sent := exists (
+        select 1 from public.notification_push_log l
+         where l.agent_id = a.agent_id
+           and l.created_at > now() - interval '1 hour'
+           and l.whatsapp_status in ('sent', 'pending')
+           and 'burst_digest' = any(l.types));
+      v_agent_hot := coalesce(v_gen_n, 0) > v_pending_max;
+      v_too_many := coalesce(v_gen_n, 0) > v_max_items;
+      v_hold_general := v_agent_hot or v_over or v_too_many;
 
-    if v_over or v_nitems > v_max_items then
-      v_items := jsonb_build_array(jsonb_build_object(
-        'type', 'burst_digest',
-        'title', 'יש לך ' || v_nitems || ' התראות חדשות באתר',
-        'body', null,
-        'count', v_nitems));
-      v_types := v_types || array['burst_digest'];
+      v_all_lead := coalesce(array_length(v_ex_ids, 1), 0) > 0
+        and coalesce(v_gen_n, 0) = 0
+        and not exists (select 1 from unnest(v_ex_types) t where t is distinct from 'new_lead');
+      v_all_showing := coalesce(array_length(v_ex_ids, 1), 0) > 0
+        and coalesce(v_gen_n, 0) = 0
+        and not exists (select 1 from unnest(v_ex_types) t where t is distinct from 'showcase_meeting');
+      v_lane_over := false;
+      if v_all_lead then
+        v_lane_over := v_sent_hour >= greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_lead_hour_cap'), 20))
+          or v_sent_day >= greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_lead_day_cap'), 40));
+      elsif v_all_showing then
+        v_lane_over := v_sent_hour >= greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_showing_hour_cap'), 20))
+          or v_sent_day >= greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_showing_day_cap'), 40));
+      end if;
+
+      -- מפסק: ליד אמיתי ומוגן יוצאים בפרטים. בלי מוגן אין שליחה, ואין skipped.
+      if v_pause then
+        if coalesce(array_length(v_ex_ids, 1), 0) = 0 then
+          continue;
+        end if;
+        v_items := v_ex_items;
+        v_ids := v_ex_ids;
+        v_types := v_ex_types;
+      elsif v_lane_over then
+        -- תקרת המסלול של ליד או סיור: נדחה, לא תקציר ולא skipped.
+        continue;
+      elsif v_hold_general and coalesce(array_length(v_ex_ids, 1), 0) > 0 then
+        -- ערבוב: המוגן יוצא עכשיו בפרטים. השאר מחכה לתקציר, בלי להירשם.
+        v_items := v_ex_items;
+        v_ids := v_ex_ids;
+        v_types := v_ex_types;
+      elsif v_hold_general and v_digest_sent then
+        -- overflow_defer: מחכה לתקציר הבא. לא skipped.
+        continue;
+      elsif v_hold_general then
+        v_items := jsonb_build_array(jsonb_build_object(
+          'type', 'burst_digest',
+          'title', 'יש לך ' || coalesce(v_gen_n, 0) || ' התראות חדשות באתר',
+          'body', null,
+          'count', coalesce(v_gen_n, 0)));
+        v_ids := v_gen_ids;
+        v_types := coalesce(v_gen_types, '{}') || array['burst_digest'];
+      end if;
     end if;
 
     v_mode := case when a.in_service_window then 'text' else 'template' end;
@@ -657,7 +677,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'אחרי notification_push_burst_prepare. דגל תקציר כבוי: אותו מבט כמו 20271028120000, כולל quiet_hold. דגל דלוק: סוג שאינו דחוף נשאר ב-12 שעות לוואטסאפ. מעל תקרת ההתפרצות יוצא תקציר אחד או כלום, בלי לסמן read.';
+  'אחרי notification_push_burst_prepare. מתג כבוי: בלי מפסק ובלי תקרת התפרצות. מתג דלוק: מוגן יוצא בפרטים גם במפסק. גלישה של לא-מוגן נדחית לתקציר הבא, בלי skipped. skipped נשאר לישן.';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
@@ -704,4 +724,4 @@ grant select on table public.notification_push_burst_status to service_role;
 -- notify_agent_on_new_lead: לא הוחלפה. photo_request מטופל ב-prepare.
 -- property_offers_claim: תקרה קיימת (4 ביממה), לא עובר ב-notifications.
 -- רילס יומי: עד 3 ביום ושעות שקט, בלי שינוי כאן.
--- security_alert / budget_alert / ops_alert: לא מכיסוי. נכנסים לתקרה הכללית ולמפסק.
+-- security_alert / budget_alert / ops_alert: מוגנים. יוצאים בפרטים, לא נבלעים בתקציר ולא נספרים במפסק.

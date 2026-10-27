@@ -46,6 +46,31 @@ CASES = [
             'select public.notification_push_suppress(true);\n'
             'insert into public.notifications (agent_id) values (1);',
     }),
+    ('suppress_push רק ב-WHERE נחסם', 1, {
+        f'{NEW}_where.sql':
+            'insert into public.notifications (agent_id, type)\n'
+            'select agent_id, type from public.notifications where not suppress_push;',
+    }),
+    ('הקריאה אחרי ה-insert לא מכסה אותו', 1, {
+        f'{NEW}_after.sql':
+            'insert into public.notifications (agent_id) values (1);\n'
+            'select public.notification_push_suppress(true);',
+    }),
+    ('מחולל בלי דגל נחסם', 1, {
+        f'{NEW}_call.sql':
+            "select public.notify_agent_on_new_lead('00000000-0000-0000-0000-000000000001');",
+    }),
+    ('מחולל אחרי הדגל עובר', 0, {
+        f'{NEW}_call_ok.sql':
+            'select public.notification_push_suppress(true);\n'
+            'perform public.generate_client_match_alerts();',
+    }),
+    ('set_config בתוך פונקציה לא מכסה insert בחוץ', 1, {
+        f'{NEW}_body.sql':
+            "create function public.notification_push_suppress(p_on boolean) returns void language plpgsql as $$\n"
+            "begin perform set_config('app.suppress_push', 'on', true); end $$;\n"
+            'insert into public.notifications (agent_id, type) values (1, \'x\');',
+    }),
 ]
 
 failed = 0

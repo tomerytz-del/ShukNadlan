@@ -542,7 +542,8 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 ## שמירה מפני התפרצות
 
-מיגרציה `20271028140000_gabriela_burst_guard.sql`. דולקת תמיד, מעל התקרה
+מיגרציה `20271028140000_gabriela_burst_guard.sql`. דולקת כברירת מחדל
+(`notification_burst_guard_enabled = 1`), מעל התקרה
 של 12, המרווח של 10 דקות, פער התבנית ו-`quiet_hold`. `notification_push_due_agents`
 לא מוחלפת. יום רגיל לא מגיע לסף: ב-30 הימים שלפני 27.10.2026 נמדדו
 2,200 הודעות `sent`, ממוצע 3.09 לסוכן ביום, מקסימום יום 18 ושעה 7.
@@ -551,20 +552,22 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 | מפתח | ברירת מחדל | מה קורה מעליו |
 | --- | --- | --- |
-| `notif_burst_hour_cap` / `notif_burst_day_cap` | 12 / 30 | כל סוג שאינו ליד אמיתי או סיור. הודעה אחת "יש לך N התראות חדשות באתר" עם קישור ל-`/crm`, ואחר כך באותה שעה רק באתר |
-| `notif_burst_lead_hour_cap` / `notif_burst_lead_day_cap` | 20 / 40 | רק `new_lead` שאינו `photo_request` |
-| `notif_burst_showing_hour_cap` / `notif_burst_showing_day_cap` | 20 / 40 | רק `showcase_meeting` |
-| `notif_burst_max_items` | 24 | גוף ההודעה נהיה תקציר. מעל מקסימום היום שנמדד (18), מתחת לשיטפון של עשרות פריטים |
-| `notif_burst_stale_hours` / `notif_burst_urgent_hours` | 12 / 72 | ישן מזה נרשם `skipped` (25 שעות אחורה, לא מזיז מרווח). דחוף נשאר עד 72. דגל תקציר כבוי: `quiet_hold` נשאר. דגל דלוק: סוג שאינו דחוף מעל 12 שעות נשאר בפעמון ולא יוצא לוואטסאפ |
-| `notif_burst_agent_pending` | 30 | לסוכן/ת אחת: מה שאינו ליד אמיתי או סיור נשאר באתר |
-| `notif_burst_created_max` | 300 ב-15 דקות | מפסק לכולם. לא סופר שורות `suppress_push` |
-| `notif_burst_global_hour` | 130 | מפסק לכולם. בערך פי שלושה מ-p95, מעל 72 |
-| `notif_burst_manual_pause` | 0 | 1: בלי וואטסאפ עד שמנהל/ת מאפס/ת |
-| `notif_burst_breaker` | 0 | 1 כל עוד מפסק אוטומטי דלוק. יורד לבד אחרי שהתור סומן לאתר, אלא אם ההשהיה הידנית דלוקה |
+| `notification_burst_guard_enabled` | 1 | 0 מכבה את המפסקים ואת התקרות בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים |
+| `notif_burst_hour_cap` / `notif_burst_day_cap` | 12 / 30 | רק סוג שאינו מוגן. הודעה אחת "יש לך N התראות חדשות באתר", ואחר כך באותה שעה הגלישה **נדחית** לתקציר הבא. לא `skipped`. `greatest(1, ...)` כדי ש-0 לא יחסום הכל |
+| `notif_burst_lead_hour_cap` / `notif_burst_lead_day_cap` | 20 / 40 | מסלול של `new_lead` שאינו `photo_request`. מעל זה נדחה, בפרטים, לא נבלע בתקציר |
+| `notif_burst_showing_hour_cap` / `notif_burst_showing_day_cap` | 20 / 40 | מסלול של `showcase_meeting`. אותו כלל |
+| `notif_burst_max_items` | 24 | גוף של לא-מוגן נהיה תקציר. מוגן לא נכנס לתוכו |
+| `notif_burst_stale_hours` / `notif_burst_urgent_hours` | 12 / 72 | **רק** ישן מזה נרשם `skipped` (25 שעות אחורה). דחוף נשאר עד 72. דגל תקציר כבוי: `quiet_hold` נשאר |
+| `notif_burst_agent_pending` | 30 | מעל זה פריטים לא-מוגנים: תקציר, ואחר כך דחייה. `agenda_reminder`, `lead_unrouted`, `security_alert` ושאר המוגנים יוצאים בפרטים |
+| `notif_burst_created_max` | 300 ב-15 דקות | נספר רק מה שעדיין ממתין לדחיפה: לא נקרא, לא `suppress_push`, לא מוגן, ולא שורה שכבר ביומן. המפסק **דוחה**, לא רושם `skipped` |
+| `notif_burst_global_hour` | 130 | מפסק גלובלי. ליד אמיתי, סיור ומוגן עדיין יוצאים |
+| `notif_burst_manual_pause` | 0 | 1: אותו מפסק גלובלי, עד שמנהל/ת מאפס/ת |
+| `notif_burst_breaker` | 0 | 1 כל עוד המפסק הגלובלי דלוק. יורד כשהחלון חוזר מתחת לסף, בלי לסמן את התור |
 
-אף מסלול לא מסמן `read`. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב למנהלי
-הפלטפורמה, פעם ב-6 שעות כל עוד לא נקרא, והוא עצמו `suppress_push` כדי
-שלא יוסיף וואטסאפ בזמן העומס. תמונת המצב: `notification_push_burst_status`
+אף מסלול לא מסמן `read`. `skipped` נשמר לישן, למילוי, ולבקשת תמונות
+כפולה. מפסק ותקרה דוחים. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב למנהלי
+הפלטפורמה **בלי** `suppress_push`, פעם ב-6 שעות כל עוד לא נקרא, ויוצא
+אליהם בוואטסאפ כי `ops_alert` מוגן. תמונת המצב: `notification_push_burst_status`
 (ל-`service_role`).
 
 בקשת תמונות (`leads.source = photo_request`) אינה עוברת בתקרת הלידים:
@@ -578,11 +581,11 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 | --- | --- |
 | `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
 | `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה |
-| `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ. התאמה חיה כן |
+| `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ, גם כשאין עדיין `last_sent_at`. התאמה חיה כן |
 | `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |
 | `property_offers_claim` | לא כותב ל-`notifications`. תקרה קיימת: עד 4 ביממה. בלי שינוי |
 | רילס יומי | עד 3 ביום, ושעות שקט. בלי שינוי (`docs/property-marketing-video.md`) |
-| `security_alert` / `budget_alert` / `ops_alert` | לא מגיעים משינוי כיסוי. נכנסים לתקרה הכללית ולמפסק הגלובלי |
+| `security_alert` / `budget_alert` / `ops_alert` | מוגנים. יוצאים בפרטים גם במפסק, ולא נספרים בסף ה-300 |
 
 לפני `insert` ל-`notifications` או ל-`client_match_alerts` במיגרציה:
 
@@ -592,7 +595,12 @@ select public.notification_push_suppress(true);
 
 הדגל לא שורד ל-cron. מחולל שרץ אחר כך חייב עמודה (`suppress_push` או
 `push_site_only`). `scripts/check_notification_backfill.py` חוסם מיגרציה
-מ-`20271028140000` ואילך שכותבת לאחת הטבלאות בלי אחד הסמנים.
+מ-`20271028140000` ואילך. `suppress_push` שמופיע רק ב-`WHERE` אינו נחשב.
+גם קריאה ל-`notify_agent_on_new_lead`, `scraped_lead_notify_demand`,
+`share_property_for_agent`, `generate_client_match_alerts` או
+`client_match_digest_run` בלי `notification_push_suppress(true)` לפניה
+באותו גוף נחסמת. `set_config` בתוך הגדרת הפונקציה אינו מכסה `insert`
+שמחוץ לה.
 
 ## בדיקה
 
