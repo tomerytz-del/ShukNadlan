@@ -696,9 +696,21 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- גם מעבר ל-active, וגם בחירת יעד שמוסיפה מתווכים על נכס שכבר באוויר.
+  -- רושמים לפני ההפצה: כשהדגל כבוי fanout חוזר מיד, והשורה נשארת לסבב.
   if tg_op = 'UPDATE'
      and new.status = 'active'
-     and old.status is distinct from 'active' then
+     and new.agent_id is not null
+     and coalesce(new.share_with_brokers, false)
+     and (
+       old.status is distinct from 'active'
+       or not coalesce(old.share_with_brokers, false)
+     ) then
+    insert into public.unpublished_collab_opt_in (property_id, agent_id)
+    values (new.id, new.agent_id)
+    on conflict (property_id) do update
+      set agent_id = excluded.agent_id
+    where public.unpublished_collab_opt_in.fanout_at is null;
     perform public.unpublished_collab_fanout(new.id);
   end if;
   return new;
@@ -709,7 +721,7 @@ grant execute on function public.properties_unpublished_collab_after() to servic
 
 drop trigger if exists properties_unpublished_collab_after on public.properties;
 create trigger properties_unpublished_collab_after
-  after update of status on public.properties
+  after update of status, publish_channels, share_with_brokers on public.properties
   for each row execute function public.properties_unpublished_collab_after();
 
 -- בקשות שנרשמו כשהדגל כבוי נשארות בלי fanout_at. כשהדגל נדלק הסבב
@@ -733,10 +745,29 @@ begin
   end if;
   select coalesce(value::int, 0) into v_on
     from public.pricing_config where key = 'gabriela_collab_share_enabled';
+  v_cap := least(greatest(coalesce(p_limit, 20), 1), 50);
+  -- נכס באוויר עם share_with_brokers ובלי שורת בקשה (הכרטיס כתב את
+  -- העמודה). הרישום קודם, גם כשהדגל כבוי. ההפצה עצמה נשארת מאחורי הדגל,
+  -- ועד v_cap נכסים בסבב. לכל נכס התקרה היא בתוך fanout.
+  insert into public.unpublished_collab_opt_in (property_id, agent_id)
+  select p.id, p.agent_id
+    from public.properties p
+   where p.status = 'active'
+     and p.share_with_brokers
+     and p.agent_id is not null
+     and not exists (
+       select 1 from public.unpublished_collab_opt_in o where o.property_id = p.id
+     )
+     and exists (
+       select 1 from public.cities c
+        where c.id = p.city_id and c.market_slug is not null
+     )
+   order by p.created_at
+   limit v_cap
+  on conflict (property_id) do nothing;
   if coalesce(v_on, 0) <> 1 then
     return 0;
   end if;
-  v_cap := least(greatest(coalesce(p_limit, 20), 1), 50);
   for r in
     select o.property_id
       from public.unpublished_collab_opt_in o
