@@ -2543,6 +2543,7 @@ async function openReviewFromParam(id){
 const REMINDER_FILTERS = {
   missing_images: 'no_images', expiring_listings: 'expiring',
   stale_listings: 'stale', video_opportunity: 'no_video', idle_listings: 'new',
+  unpublished_listings: 'unpublished',
 };
 
 /* כל פקדי הסינון של "הנכסים שלי" (בלי המיון). רשימה אחת, כי שלושה מקומות
@@ -2563,7 +2564,9 @@ function openPropertyFilterFromParam(filter){
   if (!extra || ![...extra.options].some(o => o.value === filter && o.value)) return;
   PROP_FILTER_IDS.forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
   propOwnerTab('mine');
-  document.getElementById('propStatusFilter').value = 'active';
+  // שאר הממצאים סופרים מפורסמים. "ירדו מפרסום" סופר unpublished, וסטטוס
+  // active היה מסתיר את כולם.
+  document.getElementById('propStatusFilter').value = filter === 'unpublished' ? 'unpublished' : 'active';
   extra.value = filter;
   renderPropertiesFromTop();
   const rows = filterProperties(myPropertyRows, propertyFilterState());
@@ -14819,6 +14822,15 @@ function propertyIsStale(p){
                            new Date(p.updated_at || p.created_at).getTime());
   return touched < Date.now() - priceOf('agent_reminder_stale_days', 60) * 86400000;
 }
+/* כמו unpublished_listings ב-agent_reminder_findings: ירד מפרסום, לא ממתין
+   לרישיון, והגיל עבר את agent_reminder_unpublished_days. */
+function propertyIsUnpublishedWaiting(p){
+  if (!p || p.status !== 'unpublished' || p.license_hold_at) return false;
+  const created = new Date(p.created_at).getTime();
+  if (!Number.isFinite(created)) return false;
+  const days = priceOf('agent_reminder_unpublished_days', 7);
+  return created < Date.now() - days * 86400000;
+}
 
 // מיון עולה/יורד על שדה מספרי: ערך חסר תמיד יורד לסוף, בשני הכיוונים —
 // נכס בלי מ״ר לא אמור לקפוץ לראש הרשימה רק כי מיינו מהנמוך לגבוה
@@ -14936,6 +14948,7 @@ function filterProperties(rows, f){
     if (f.extra === 'expiring'   && !propertyIsExpiring(p)) return false;
     if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
+    if (f.extra === 'unpublished' && !propertyIsUnpublishedWaiting(p)) return false;
     if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
     return query ? query.rows.has(p) : propertySearchBlob(p).includes(f.q);
@@ -26159,6 +26172,8 @@ const REMINDER_KINDS = [
     sub:'לא נכנסה מודעה חדשה מזה זמן. זו התזכורת היחידה שאינה על נכס מסוים אלא על הקצב.' },
   { kind:'video_opportunity', title:'נכסים בלי סרטון או סיור',
     sub:'טיפ ולא משימה, ולכן הוא חוזר לכל היותר פעם בחודש גם כשהתדירות יומית.' },
+  { kind:'unpublished_listings', title:'נכסים שירדו מפרסום',
+    sub:'מודעה שירדה מהאתר ונשארה כך. המתנה לאישור רישיון לא נספרת כאן.' },
 ];
 
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));

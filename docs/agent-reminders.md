@@ -91,7 +91,7 @@
 
 ### 3. הודעה אחת מקבצת את כל התזכורות
 
-חמישה ממצאים = הודעה אחת עם חמש שורות, לא חמש הודעות. חמש הודעות וואטסאפ
+כל הממצאים = הודעה אחת עם שורה לכל ממצא, לא הודעה לכל סוג. חמש הודעות וואטסאפ
 ברצף הן הדרך המהירה ביותר לגרום לסוכן/ת לחסום את המספר — וחסימה אחת עולה
 לנו בכל הנמענים העתידיים דרך דירוג האיכות של Meta.
 
@@ -101,7 +101,7 @@
 
 ## מה מזכירים
 
-חמישה סוגים, וכולם מחושבים מעמודות אמיתיות. הסדר הוא סדר הדחיפות, והוא נקבע
+שישה סוגים, וכולם מחושבים מעמודות אמיתיות. הסדר הוא סדר הדחיפות, והוא נקבע
 ב-`sort_order` במסד כדי שהמייל, הוואטסאפ והדשבורד יציגו את אותו סדר.
 
 | `kind` | מתי | מרווח מינימלי | הקטגוריה שאליה מוביל הקישור |
@@ -111,6 +111,7 @@
 | `stale_listings` | נכס פעיל שלא עודכן ולא הוקפץ 60 יום | 14 יום | "הנכסים שלי" |
 | `idle_listings` | לא נכנס נכס חדש 7 יום | 7 יום | "הנכסים שלי" |
 | `video_opportunity` | נכס פעיל בלי `video_url`, בלי `tour_3d_url` ובלי `has_virtual_tour` | 30 יום | "הנכסים שלי" |
+| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`created_at` ישן מ-`agent_reminder_unpublished_days` (7) | 7 יום | "הנכסים שלי", מסונן לירדו מפרסום |
 
 **המרווח המינימלי הוא פר סוג, ולא פר הודעה** (`agent_reminder_kind_interval`).
 זו אותה הפרדה שחוזרת בכל המבנה: הממצא נכון כל הזמן, אבל ההזכרה עליו חוזרת
@@ -347,11 +348,12 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `stale_listings` | `/crm?goto=accProperties&filter=stale` |
 | `video_opportunity` | `/crm?goto=accProperties&filter=no_video` |
 | `idle_listings` | `/crm?goto=accProperties&focus=new` - טופס נכס חדש |
+| `unpublished_listings` | `/crm?goto=accProperties&filter=unpublished` - סטטוס "ירד מפרסום", לא "מפורסם" |
 
 שלושה מקומות חייבים להסכים: `FINDING_PARAMS` ב-`agent-reminders`,
 ‏`REMINDER_FILTERS` ב-`crm.js` (הכפתור בדשבורד), והגדרת כל סינון
 (‏`propertyHasImage`, ‏`propertyIsExpiring`, ‏`propertyIsStale`,
-‏`propertyHasVideo`) מול התנאי שלו ב-`agent_reminder_findings`. סינון
+‏`propertyHasVideo`, ‏`propertyIsUnpublishedWaiting`) מול התנאי שלו ב-`agent_reminder_findings`. סינון
 שמוגדר אחרת מהממצא פותח "3 נכסים" לרשימה של ארבעה. לכן גם "ללא תמונות"
 מאז מתעלם מנכס שיש לו `marketing_image`, כמו הספירה במסד.
 
@@ -388,6 +390,7 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `agent_reminder_idle_days` | 7 | כמה ימים בלי נכס חדש נחשבים לשתיקה |
 | `agent_reminder_stale_days` | 60 | מתי מודעה נחשבת "לא נגעו בה" |
 | `agent_reminder_expiry_days` | 14 | כמה ימים לפני פקיעת תוקף מזכירים |
+| `agent_reminder_unpublished_days` | 7 | כמה ימים נכס unpublished בלי המתנה לרישיון נחשב לתזכורת |
 | `agent_reminder_default_cap` | 6 | התקרה של מי שלא שינה/תה |
 | `agent_reminder_video_min_props` | 15 | מינימום נכסים בכל קבוצה ליחס הצפיות |
 | `agent_reminder_video_min_views` | 100 | מינימום צפיות בכל קבוצה ליחס הצפיות |
@@ -405,10 +408,11 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
    נבנה במסד (ההודעה יוצאת גם למי שאינו פותח/ת את הדשבורד).
 2. **שורה ב-`agent_reminder_kind_interval`** — משימה או תובנה. סוג שנשכח שם
    מקבל את ברירת המחדל השמרנית של 14 יום, ולא "בכל סבב".
-3. **שורה ב-`REMINDER_KINDS` ב-crm.html** — הכותרת וההסבר בתיבת הסימון.
+3. **שורה ב-`REMINDER_KINDS` ב-`assets/crm.js`** — הכותרת וההסבר בתיבת הסימון.
 4. **סוג על נכסים: שורה ב-`FINDING_PARAMS` וב-`REMINDER_FILTERS`**, וסינון
    מהיר ב-`#propExtraFilter` שמוגדר בדיוק כמו הממצא - אחרת הקישור פותח
-   את כל הרשימה.
+   את כל הרשימה. `unpublished` גם מחליף את סטטוס הרשימה מ-`active`, אחרת
+   הנכסים שירדו מוסתרים.
 
 סוכן/ת קיים/ת יקבל/תקבל אותו אוטומטית, כי `muted_kinds` היא רשימת מושתקים.
 סוג שנכנס למסד וטרם נרשם ב-crm.html עדיין יופיע ברשימה ועדיין יישלח — הוא רק
