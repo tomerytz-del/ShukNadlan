@@ -6,6 +6,7 @@ import {
   LEAD_CTA, type LeadInfo, leadListTitle, leadTemplateLine, leadText, loadLeadInfo,
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
+import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -491,6 +492,7 @@ async function sendWhatsapp(
       };
   }
 
+  return paceRecipient(to, async () => {
   let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
   // כפתור שנדחה (לא ביטול של הנמען/ת) - אותה הודעה כטקסט עם הקישור, כדי
   // שההתראה לא תיפול בגלל הצורה שלה.
@@ -526,6 +528,7 @@ async function sendWhatsapp(
   } catch {
     return null;
   }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -534,6 +537,14 @@ Deno.serve(async (req: Request) => {
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
+  setPairReserve(async (phone, gapMs) => {
+    const { data, error: slotErr } = await sb.rpc("whatsapp_pair_reserve", {
+      p_phone: phone, p_gap_ms: gapMs,
+    });
+    if (slotErr) return 0;
+    const n = Number(data);
+    return Number.isFinite(n) ? n : 0;
+  });
 
   // ‏claim רושמת את שורות היומן **לפני** השליחה. נפילה מכאן והלאה משאירה
   // שורה עם status='pending' — "יצא, לא ידוע אם הגיע" — ולא אותן התראות
