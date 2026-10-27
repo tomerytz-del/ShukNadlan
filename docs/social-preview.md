@@ -35,6 +35,12 @@
 | `/professional` | `?slug=` או `?id=` | `professional_cards_public` |
 | `/article` | `?slug=` או `?id=` | `articles_public` |
 
+‏`?id=` של נכס נקרא לפי ה-UUID הראשון בערך (`propertyIdFrom`). קישור שנדבק
+אליו טקסט (`<uuid>שוק`, כשירידת שורה נעלמה בפוסט) מופנה 301 לכתובת הנקייה,
+עם שאר השאילתה (`utm`, `fbclid`). ערך בלי UUID בכלל הוא 404, בלי קריאה
+למסד ובלי 503. אותו חילוץ בדפדפן (`getPropertyIdFromUrl` ב-`assets/property.js`)
+מנקה את הכתובת עם `history.replaceState`.
+
 ## שני סוגי דפים, ולמה ההזרקה שונה בהם
 
 נכס, משרד וסוכן/ת אינם נושאים תגיות `og:` כלל, ולכן הן נכתבות מאפס.
