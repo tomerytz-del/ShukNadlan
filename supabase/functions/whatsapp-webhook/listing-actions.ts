@@ -247,12 +247,30 @@ export function reissueDecisionText(decision: ReissueDecision): string | null {
   }
 }
 
-/** הטבלה עוד לא עלתה: הפונקציה נפרסת לפני המיגרציה. */
+/**
+ * הטבלה עוד לא עלתה: הפונקציה נפרסת לפני המיגרציה.
+ * רק "היחס לא קיים" (42P01) ו"הטבלה לא בסכמה" (PGRST205).
+ * PGRST204 הוא עמודה חסרה, והודעה חופשית אינה הוכחה.
+ */
 export function pendingStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const code = String(error.code || "");
-  if (code === "42P01" || code === "PGRST204" || code === "PGRST205") return true;
-  return /whatsapp_pending_actions|schema cache/i.test(String(error.message || ""));
+  return code === "42P01" || code === "PGRST205";
+}
+
+/**
+ * עם תור וואטסאפ אין כתיבה מהמודל, גם אם confirm=true.
+ * confirm כותב רק בלי outbox (מייל), אחרי אישור מפורש.
+ */
+export function confirmWritesNow(hasOutbox: boolean, confirm: unknown): boolean {
+  return !hasOutbox && confirm === true;
+}
+
+/** טיוטה שטרם נחתמה מבוטלת מיד. בלעדיות חתומה ממתינה לחתימה על החדש. */
+export function reissueOldAgreementPlan(status: string, kind: string): "cancel" | "supersede" | "keep" {
+  if (status === "draft" || status === "sent" || status === "viewed") return "cancel";
+  if (status === "signed" && String(kind || "").startsWith("exclusive_")) return "supersede";
+  return "keep";
 }
 
 export function reissueBlockedKind(kind: string): string | null {
@@ -313,6 +331,11 @@ export function reissuePrepareInput(
         ...(linked ? { client_id: linked } : {}),
       };
     });
+  const used = new Set<string>([clientId]);
+  for (const extra of extras) {
+    if (extra.client_id) used.add(extra.client_id);
+  }
+  const also = clientIds.filter((id) => !used.has(id));
   const basis = BASES.has(String(row.commission_note || "")) ? String(row.commission_note) : undefined;
   return {
     kind: row.kind,
@@ -327,6 +350,7 @@ export function reissuePrepareInput(
     client_email: overrides.client_email || undefined,
     in_person_only: overrides.in_person_only === true ? true : undefined,
     extra_signers: extras.length ? extras : undefined,
+    also_client_ids: also.length ? also : undefined,
     force_new: true,
   };
 }

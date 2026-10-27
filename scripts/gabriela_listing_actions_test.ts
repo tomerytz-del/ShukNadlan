@@ -14,8 +14,10 @@ import {
   ownsRow,
   parseAgreementButton,
   parseImageDeleteButton,
+  confirmWritesNow,
   pendingStoreMissing,
   REISSUE_EXPIRED,
+  reissueOldAgreementPlan,
   REISSUE_OLD_CANCELLED,
   reissueBlockedKind,
   reissueClickDecision,
@@ -114,7 +116,23 @@ check("בקשה באמצע טיפול לא רצה שוב", busy.kind === "busy")
 check("בלי שורה אין הנפקה", reissueClickDecision(null, Date.now()).kind === "missing");
 const freshId = newPendingActionId();
 check("מזהה בקשה קצר והקסי", /^[0-9a-f]{12}$/.test(freshId));
-check("טבלה חסרה מזוהה בלי ליפול", pendingStoreMissing({ code: "PGRST205" }) && pendingStoreMissing({ code: "42P01" }) && pendingStoreMissing({ code: "23505" }) === false);
+check(
+  "טבלה חסרה מזוהה רק ב-42P01 וב-PGRST205",
+  pendingStoreMissing({ code: "PGRST205" }) &&
+    pendingStoreMissing({ code: "42P01" }) &&
+    pendingStoreMissing({ code: "PGRST204" }) === false &&
+    pendingStoreMissing({ code: "23505" }) === false &&
+    pendingStoreMissing({ message: "whatsapp_pending_actions schema cache" }) === false,
+);
+check("עם תור אין כתיבה גם אם confirm", confirmWritesNow(true, true) === false && confirmWritesNow(false, true) === true && confirmWritesNow(false, "true") === false);
+check(
+  "טיוטה מבוטלת ובלעדיות חתומה ממתינה לחתימה",
+  reissueOldAgreementPlan("draft", "sell") === "cancel" &&
+    reissueOldAgreementPlan("sent", "exclusive_sell") === "cancel" &&
+    reissueOldAgreementPlan("signed", "exclusive_sell") === "supersede" &&
+    reissueOldAgreementPlan("signed", "exclusive_landlord") === "supersede" &&
+    reissueOldAgreementPlan("signed", "sell") === "keep",
+);
 
 check("הסכמה לשיווק לא מונפקת לבד", !!reissueBlockedKind("marketing_sell"));
 check("בלעדיות כן", reissueBlockedKind("exclusive_sell") === null);
@@ -144,6 +162,33 @@ const fromList = reissuePrepareInput(
 );
 const listExtras = !("error" in fromList) && Array.isArray(fromList.extra_signers) ? fromList.extra_signers as { client_id?: string }[] : [];
 check("client_ids אחרי הראשון עוברים לחותם בלי כרטיס", listExtras.length === 1 && listExtras[0].client_id === "c9");
+const leftover = reissuePrepareInput(
+  { kind: "exclusive_sell", client_ids: ["c1", "c9", "c8"], property_ids: ["p1"] },
+  [{ full_name: "ראשי", ord: 0, client_id: "c1" }],
+  {},
+);
+const kept = !("error" in leftover) && Array.isArray(leftover.also_client_ids)
+  ? leftover.also_client_ids as string[]
+  : [];
+check(
+  "לקוח בלי שורת חותם נשאר כלקוח",
+  kept.join(",") === "c9,c8" && !("error" in leftover) && leftover.extra_signers === undefined,
+);
+const mixed = reissuePrepareInput(
+  { kind: "sell", client_ids: ["c1", "c9", "c8"], property_ids: ["p1"] },
+  [{ full_name: "ראשי", ord: 0, client_id: "c1" }, { full_name: "שותף", ord: 1 }],
+  {},
+);
+const mixedKept = !("error" in mixed) && Array.isArray(mixed.also_client_ids)
+  ? mixed.also_client_ids as string[]
+  : [];
+const mixedExtras = !("error" in mixed) && Array.isArray(mixed.extra_signers)
+  ? mixed.extra_signers as { client_id?: string }[]
+  : [];
+check(
+  "חותם בלי כרטיס לוקח את הראשון שנשאר, והשאר נשארים כלקוחות",
+  mixedExtras.length === 1 && mixedExtras[0].client_id === "c9" && mixedKept.join(",") === "c8",
+);
 check("בלי לקוח אין הנפקה", "error" in reissuePrepareInput({ kind: "sell", property_ids: ["p1"] }, [], {}));
 
 if (failed) {
