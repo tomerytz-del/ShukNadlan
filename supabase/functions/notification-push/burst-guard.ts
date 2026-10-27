@@ -106,7 +106,7 @@ export function burstText(
   const line = `יש לך ${count} התראות חדשות באתר.`;
   return [
     first ? `${first}, ${line}` : line,
-    `${siteBase}/crm`,
+    `${siteBase}/crm?goto=bell`,
     `להפסקת ההתראות בוואטסאפ: ${manageUrl}`,
   ].join("\n");
 }

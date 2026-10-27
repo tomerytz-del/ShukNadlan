@@ -2425,6 +2425,8 @@ function handleGotoParam(){
   if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); return; }
   if (raw === 'license'){ openLicenseCard(); return; }
   if (raw === 'adminHome'){ openAdminHome(); return; }
+  // תקציר "יש לך N התראות" בוואטסאפ. הפעמון הוא המסך, לא /crm בלי יעד.
+  if (raw === 'bell'){ openNavLayer('bell'); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
   /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
      dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
@@ -2538,7 +2540,7 @@ async function openReviewFromParam(id){
 }
 
 /* ממצא תזכורת ← הסינון המהיר שמראה בדיוק את הנכסים שהוא סופר. אותה טבלה
-   כמו FINDING_PARAMS ב-supabase/functions/agent-reminders - שינוי באחת מחייב
+   כמו REMINDER_FILTER_QUERY ב-_shared/agent-deep-link.ts - שינוי באחת מחייב
    את השנייה. */
 const REMINDER_FILTERS = {
   missing_images: 'no_images', expiring_listings: 'expiring',

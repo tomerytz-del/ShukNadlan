@@ -34,7 +34,7 @@ import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } fr
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { collapseCreatedPropertyEdits } from "./listing-defaults.ts";
 import { setPairReserve } from "../_shared/wa-pair-pace.ts";
-import { alertPlatformAdmins, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
+import { alertPlatformAdmins, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
 import {
   isLessKeptType,
   LESS_HOLD_DAYS,
@@ -45,6 +45,7 @@ import {
   topicLabel,
 } from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { absoluteUrl, ctaLabel, parseNavId } from "../_shared/agent-deep-link.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -186,7 +187,17 @@ async function replyAfterLlmFailure(
   console.error("llm turn failed", audience, kind, isModelCallError(err), detail);
   // תשובה שכבר יצאה בתור הזה לא מקבלת הודעת כשל שנייה.
   if (inboundWaId && await outboundAfterInbound(to, inboundWaId)) return;
-  await reply(to, fallbackReply(kind, audience, SITE_BASE), agentId);
+  const failText = fallbackReply(kind, audience, SITE_BASE);
+  if (audience === "agent") {
+    await sendOutbox(to, [{
+      kind: "cta",
+      body: failText,
+      label: "לאזור האישי",
+      url: absoluteUrl(SITE_BASE, FALLBACK_AGENT_PATH),
+    }], agentId);
+  } else {
+    await reply(to, failText, agentId);
+  }
   if (!isModelCallError(err)) return;
   await alertPlatformAdmins({
     recentCount: async (type, title, since) => {
@@ -1609,6 +1620,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
     case "interactive": {
       const buttonId = String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "");
+      const navPath = parseNavId(buttonId);
+      if (navPath) {
+        await sendOutbox(from, [{
+          kind: "cta",
+          body: "נפתח כאן:",
+          label: ctaLabel(navPath),
+          url: absoluteUrl(SITE_BASE, navPath),
+        }], agent.id);
+        return;
+      }
       const moreType = parseMoreButton(buttonId);
       if (moreType) {
         await restoreLessNotifs(from, agent.id, moreType);

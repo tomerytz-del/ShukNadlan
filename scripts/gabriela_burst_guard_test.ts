@@ -125,7 +125,7 @@ check("נשארת בקשת התמונות החדשה", keep?.id === "b");
 check("אחרי שכבר נשלחה לא נשלחת עוד", photoRequestKeep([{ id: "a", createdAt: 1 }], true) === null);
 
 const text = burstText("דנה לוי", 12, "https://shuknadlan.co.il", "https://shuknadlan.co.il/crm?goto=accNotifPrefs");
-check("נוסח התקציר", text.includes("דנה, יש לך 12 התראות חדשות באתר.") && text.includes("https://shuknadlan.co.il/crm"));
+check("נוסח התקציר", text.includes("דנה, יש לך 12 התראות חדשות באתר.") && text.includes("https://shuknadlan.co.il/crm?goto=bell"));
 check("בלי מקף ארוך בנוסח", !text.includes("—") && !text.includes("–"));
 
 check("ה-claim לא מחזיר חלון של שבעה ימים", !claim.includes("24 * 7"));
