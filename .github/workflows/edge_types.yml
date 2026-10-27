@@ -23,6 +23,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/lead_dedupe_test.ts"
@@ -39,6 +40,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/lead_dedupe_test.ts"
@@ -94,6 +96,9 @@ jobs:
       # כתיב סלחני, קישור CRM, כשל מודל, ומרווח שליחה (בלי קריאה ל-Meta).
       - name: ניצחונות מהירים של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
+
+      - name: תקציר התראות של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
 
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
