@@ -389,8 +389,8 @@ function waLink(phone, opener){
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
 }
 
-const ROLE_LABELS = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };
-const roleLabel = a => ROLE_LABELS[a && a.role] || (a && a.role) || 'סוכן/ת';
+const ROLE_LABELS = { manager:'ניהול משרד', agent:'יועץ נדל״ן' };
+const roleLabel = a => ROLE_LABELS[a && a.role] || (a && a.role) || 'יועץ נדל״ן';
 
 /* תמונת הסוכן/ת, ובהיעדרה האות הראשונה של השם. ‏--photo-pos = נקודת המיקוד
    שסומנה ב-CRM; בלעדיה חיתוך למרכז היה קוטע פנים בתמונות פורטרט. */
@@ -1076,7 +1076,7 @@ function teamContactHtml(member, officeContact){
   // אין במשרד ולו מספר אחד אמיתי — אין למי לנתב, ולכן אין כפתורים
   if (!target) return '';
 
-  const name = member.display_name || 'הסוכן/ת';
+  const name = member.display_name || 'יועץ הנדל״ן';
   const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
   const href = waLink(target.phone_e164,
     `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
@@ -1135,7 +1135,7 @@ async function loadTeam(sb, agencyId){
 
   agencyStats.teamSize = team.length;
   renderTrustBar();
-  setSectionNote('teamCount', team.length === 1 ? 'סוכן/ת אחד/ת במשרד' : team.length + ' סוכנים במשרד');
+  setSectionNote('teamCount', team.length === 1 ? 'יועץ נדל״ן אחד במשרד' : team.length + ' יועצי נדל״ן במשרד');
 
   rail.textContent = '';
   team.forEach(a=>{
@@ -1147,7 +1147,7 @@ async function loadTeam(sb, agencyId){
     card.tabIndex = 0;
     card.setAttribute('aria-label', name + ' - ' + roleLabel(a));
     card.innerHTML = `
-      ${isManager ? `<span class="team-flag">${ICON.star}מנהל/ת המשרד</span>` : ''}
+      ${isManager ? `<span class="team-flag">${ICON.star}ניהול המשרד</span>` : ''}
       ${agentAvatarHtml(a, 'team-avatar')}
       <div class="team-name">${escapeHtml(name)}</div>
       <div class="team-role">${escapeHtml(roleLabel(a))}</div>

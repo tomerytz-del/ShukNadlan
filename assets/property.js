@@ -2100,7 +2100,7 @@ async function requestVisualization(){
 
     showToast(vizState.isPrivate
       ? 'ההדמיה מוכנה'
-      : 'ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
+      : 'ההדמיה מוכנה. יועץ הנדל״ן יחזור אליכם בקרוב');
   } catch(e){
     // המצב בלבד — ‎finally‎ שמתחת מרנדר, ושם הפסקה נשתלת מעל הכפתור ונכתבת.
     vizState.error = e.message || 'שגיאה ביצירת ההדמיה';
