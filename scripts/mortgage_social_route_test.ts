@@ -30,6 +30,7 @@ check("יועץ לפי דגל", sql.includes("m.is_mortgage_advisor is true"));
 check("חשבון פעיל ולא סגור", sql.includes("m.active is true") && sql.includes("m.closed_at is null"));
 check("בלי טלפון קשיח", !/\+972|05\d{7,8}|phone_e164\s*=/.test(sql));
 check("ההתראה בלי פרטי הפונה", !/new\.phone|new\.full_name|new\.email/.test(sql));
+check("free בלי וואטסאפ", sql.includes("suppress_push") && sql.includes("m.tier is distinct from 'mid' and m.tier is distinct from 'premium'"));
 check("חינם", /0,\s*'success',\s*'social_route'/.test(sql));
 check("סכום אפס", /select new\.id, m\.id, m\.agency_id, 0, 'success', 'social_route'/.test(sql));
 check("ערוץ מפורש", sql.includes("channel in ('facebook', 'instagram')") && sql.includes("mortgage_lead_set_channel"));

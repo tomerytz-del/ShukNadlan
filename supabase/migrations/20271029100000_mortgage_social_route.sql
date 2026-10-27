@@ -221,14 +221,19 @@ begin
   values (new.id, v_advisor);
 
   insert into public.notifications (
-    agent_id, type, title, body, related_mortgage_lead_id
+    agent_id, type, title, body, related_mortgage_lead_id, suppress_push
   )
   values (
     v_advisor,
     'mortgage_social',
     'ליד משכנתא מהרשתות',
     'ליד ייעוץ משכנתאות הגיע אליך בלי חיוב. הפרטים בכרטיס הליד, במגירת המשכנתאות.',
-    new.id
+    new.id,
+    coalesce((
+      select m.tier is distinct from 'mid' and m.tier is distinct from 'premium'
+        from public.agency_members m
+       where m.id = v_advisor
+    ), true)
   );
 
   return new;

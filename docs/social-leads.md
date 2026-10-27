@@ -81,7 +81,8 @@ Content-Type: application/json
 מוצג במגירת המשכנתאות ב-CRM. ההתראה `mortgage_social` נכתבת
 ל-`notifications` עם `related_mortgage_lead_id`, והקישור פותח את כרטיס
 הליד: `?goto=accLeadShelf&tab=mortgage&mortgage=<id>`. אין בה שם או
-טלפון של הפונה.
+טלפון של הפונה. `suppress_push` דלוק כשהיועץ/ת אינם ב-Professional או
+ב-Elite, כי מסלול free אינו מחובר לגבריאלה.
 
 `lead_routing_log` עדיין רושם `shelf` מתוך `mortgage-lead-intake`.
 השיוך החינמי נספר רק ב-`mortgage_social_routes`.
