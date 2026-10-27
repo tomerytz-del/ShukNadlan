@@ -32,7 +32,15 @@ import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } fr
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { alertPlatformAdmins, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
-import { parseLessButton, topicLabel } from "../notification-push/notif-digest.ts";
+import {
+  isLessKeptType,
+  LESS_HOLD_DAYS,
+  parseLessButton,
+  parseMoreButton,
+  RESTORE_COMMAND,
+  RESTORE_TITLE,
+  topicLabel,
+} from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
@@ -224,6 +232,47 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
   }
   await rememberReplyTo(supabase, String(msg.id || ""), msg);
   return true;
+}
+
+async function replyButtons(
+  to: string,
+  raw: string,
+  buttons: { id: string; title: string }[],
+  agentId: string,
+): Promise<void> {
+  const body = formatForWhatsapp(raw);
+  let waMessageId: string | null = null;
+  let sendError: string | null = null;
+  try {
+    waMessageId = await sendButtons(to, body, buttons);
+  } catch (err) {
+    sendError = String((err as Error)?.message || err);
+    console.error("reply buttons failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: to,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: `${body}\n[${buttons.map((b) => b.title).join(" | ")}]`,
+    status: waMessageId ? "sent" : null,
+    error: sendError,
+  });
+  if (sendError) await reply(to, body, agentId);
+}
+
+async function restoreLessNotifs(to: string, agentId: string, type: string | null): Promise<void> {
+  let q = supabase.from("agent_notif_less").delete().eq("agent_id", agentId);
+  if (type) q = q.eq("notif_type", type);
+  const { error } = await q;
+  if (error) {
+    console.error("notif less restore failed", error.message);
+    await reply(to, "לא הצלחתי להחזיר את ההתראות. אפשר לנסות שוב, או מהמסך התראות והודעות.", agentId);
+    return;
+  }
+  const what = type ? `בנושא ${topicLabel(type)} ` : "";
+  await reply(to, `החזרתי את ההתראות ${what}לקצב הרגיל.`, agentId);
 }
 
 async function reply(
@@ -1410,10 +1459,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   let newImageUrl: string | null = null;
 
   switch (msg.type) {
-    case "text":
+    case "text": {
+      const typed = String(msg.text?.body || "").trim();
+      if (typed === RESTORE_COMMAND && !forwardedPrefix(msg)) {
+        await restoreLessNotifs(from, agent.id, null);
+        return;
+      }
       userText = forwardedPrefix(msg) + (msg.text?.body || "") +
         (await catalogLinksToText(String(msg.text?.body || ""), agent.id, from));
       break;
+    }
 
     case "contacts":
       userText = await contactsToText(msg.contacts, agent.id);
@@ -1521,22 +1576,38 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
-      const lessType = parseLessButton(String(msg.interactive?.button_reply?.id || ""));
+      const buttonId = String(msg.interactive?.button_reply?.id || "");
+      const moreType = parseMoreButton(buttonId);
+      if (moreType) {
+        await restoreLessNotifs(from, agent.id, moreType);
+        return;
+      }
+      const lessType = parseLessButton(buttonId);
       if (lessType) {
+        if (isLessKeptType(lessType)) {
+          await reply(
+            from,
+            `${topicLabel(lessType)} נשארות כרגיל. ליד, סיור ותזכורת מהיומן לא מופחתים.`,
+            agent.id,
+          );
+          return;
+        }
+        const until = new Date(Date.now() + LESS_HOLD_DAYS * 86400000).toISOString();
         const { error: lessErr } = await supabase.from("agent_notif_less").upsert(
-          { agent_id: agent.id, notif_type: lessType },
+          { agent_id: agent.id, notif_type: lessType, expires_at: until },
           { onConflict: "agent_id,notif_type" },
         );
         if (lessErr) {
           console.error("notif less save failed", lessErr.message);
           await reply(from, "לא הצלחתי לשמור את זה. אפשר לנסות שוב אחרי עדכון המערכת.", agent.id);
-        } else {
-          await reply(
-            from,
-            `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. אפשר להחזיר את זה בהגדרות ההתראות.`,
-            agent.id,
-          );
+          return;
         }
+        const lessBody =
+          `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. ` +
+          `הן יוצאות רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, ל-${LESS_HOLD_DAYS} יום. ` +
+          `ליד, סיור ותזכורת מהיומן ממשיכים כרגיל. ` +
+          `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
+        await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
         return;
       }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)

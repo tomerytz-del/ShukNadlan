@@ -7,7 +7,7 @@ import {
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
-import { LESS_TITLE, parseLessButton, withTopicHeaders } from "./notif-digest.ts";
+import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -309,7 +309,7 @@ function arrange(items: Item[]): Item[] {
  * התראות בלי יעד כזה חולקות קישור אחד לכל **קטגוריה**: שלוש התאמות שמובילות
  * לאותו מסך לא צריכות שלושה קישורים זהים ברצף.
  */
-function textBody(name: string | null, items: Item[], noLinks = false): string {
+function textBody(name: string | null, items: Item[], noLinks = false, topics = false): string {
   const first = firstName(name);
   const li = richLead(items);
   if (li) {
@@ -324,14 +324,24 @@ function textBody(name: string | null, items: Item[], noLinks = false): string {
   // בהודעה - הכותרת אומרת את זה.
   const onlyAgenda = items.every((it) => it.type === "agenda_reminder");
   const head = onlyAgenda ? "תזכורת מהיומן:" : "מה שחדש אצלך:";
+  let prevType: string | null = null;
+  const itemLines: string[] = [];
+  for (const it of items) {
+    if (topics) {
+      const section = topicBreak(prevType, it.type);
+      if (section) itemLines.push(section);
+    }
+    prevType = it.type;
+    const path = itemPath(it);
+    itemLines.push(
+      `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
+        (path && !noLinks ? `\n   👈 ${SITE_BASE}${path}` : ""),
+    );
+  }
   const lines = [
     first ? `${first}, ${head}` : head,
     "",
-    ...items.map((it) => {
-      const path = itemPath(it);
-      return `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
-        (path && !noLinks ? `\n   👈 ${SITE_BASE}${path}` : "");
-    }),
+    ...itemLines,
     "",
     ...accs.map((acc) => gotoUrl(acc)),
     ...(accs.length ? [""] : []),
@@ -405,14 +415,17 @@ function templateSummary(items: Item[]): string {
     .slice(0, 900);
 }
 
-async function loadDigestFlags(sb: ReturnType<typeof createClient>): Promise<{ less: boolean; topics: boolean }> {
+async function loadDigestFlags(
+  sb: { from: (table: string) => any },
+): Promise<{ less: boolean; topics: boolean }> {
   const off = { less: false, topics: false };
   try {
     const { data, error } = await sb.from("pricing_config")
       .select("key, value")
       .in("key", ["notif_digest_enabled", "notif_topic_group"]);
-    if (error || !data) return off;
-    const on = (key: string) => data.some((row) => row.key === key && Number(row.value) === 1);
+    if (error || !Array.isArray(data)) return off;
+    const on = (key: string) => data.some((row: { key?: string; value?: unknown }) =>
+      row.key === key && Number(row.value) === 1);
     const digest = on("notif_digest_enabled");
     return { less: digest, topics: digest && on("notif_topic_group") };
   } catch {
@@ -426,6 +439,7 @@ async function sendWhatsapp(
   items: Item[],
   mode: string,
   lessType: string | null,
+  topics = false,
 ): Promise<string | null> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
 
@@ -470,7 +484,8 @@ async function sendWhatsapp(
     // כפתור תשובה אחד. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
     // ביטול סיור קודם ל"פחות כאלה": שם הסוכן/ת צריך/ה להחליט אם לעדכן
     // את מי שכבר קיבל בקשה, ולא נשלח דבר ללקוח/ה עד הלחיצה.
-    const body = clipWhatsappBody(textBody(name, items, false), 1024);
+    // החיתוך נעצר לפני כתובת שנקטעת, לא באמצע הקישור.
+    const body = clipWhatsappBody(textBody(name, items, false, topics), 1024);
     const button = scn
       ? { type: "reply", reply: { id: scn.id, title: scn.title } }
       : { type: "reply", reply: { id: `nless:${lessType}`, title: LESS_TITLE } };
@@ -487,7 +502,7 @@ async function sendWhatsapp(
     };
   } else {
     const target = singleTarget(items);
-    const ctaBody = target ? textBody(name, items, true) : "";
+    const ctaBody = target ? textBody(name, items, true, topics) : "";
     payload = target && ctaBody.length <= 1024
       ? {
         messaging_product: "whatsapp",
@@ -507,7 +522,7 @@ async function sendWhatsapp(
         type: "text",
         // ‏preview_url false: ההודעה נושאת קישור לדשבורד, ותצוגה מקדימה שלו
         // תופסת חצי מסך בשביל כלום.
-        text: { preview_url: false, body: textBody(name, items) },
+        text: { preview_url: false, body: textBody(name, items, false, topics) },
       };
   }
 
@@ -524,7 +539,7 @@ async function sendWhatsapp(
         headers,
         body: JSON.stringify({
           messaging_product: "whatsapp", recipient_type: "individual", to, type: "text",
-          text: { preview_url: false, body: textBody(name, items) },
+          text: { preview_url: false, body: textBody(name, items, false, topics) },
         }),
       });
     } else {
@@ -584,16 +599,20 @@ Deno.serve(async (req: Request) => {
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
     )));
-    if (digest.topics) items = withTopicHeaders(items);
-    const lessType = digest.less && items.length > 0 && new Set(items.map((it) => it.type)).size === 1
-      ? parseLessButton(`nless:${items[0].type}`)
+    const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
+      ? items[0].type
+      : null;
+    const lessType = digest.less && onlyType && !isLessKeptType(onlyType)
+      ? parseLessButton(`nless:${onlyType}`)
       : null;
     let status = "failed";
     let lastError: string | null = null;
     let waId: string | null = null;
 
     try {
-      waId = await sendWhatsapp(row.phone_e164, row.display_name, items, row.channel_mode, lessType);
+      waId = await sendWhatsapp(
+        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics,
+      );
       status = "sent";
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);

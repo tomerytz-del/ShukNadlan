@@ -585,6 +585,34 @@ function reminderRowHtml(){
     + `</div>`;
 }
 
+const NOTIF_LESS_KEPT = new Set(['agenda_reminder', 'showcase_meeting', 'new_lead']);
+
+function notifTypeTitle(type){
+  const t = (typeof NOTIF_TYPES !== 'undefined' ? NOTIF_TYPES : []).find(x => x.type === type);
+  return t ? t.title : 'עדכון';
+}
+
+function renderNotifLess(){
+  const box = document.getElementById('npLessBox');
+  const list = document.getElementById('npLessList');
+  if (!box || !list) return;
+  const now = Date.now();
+  const rows = (notifLessRows || []).filter(r => !r.expires_at || Date.parse(r.expires_at) > now);
+  box.hidden = rows.length === 0;
+  list.innerHTML = rows.map(r => {
+    const until = r.expires_at ? new Date(r.expires_at).toLocaleDateString('he-IL') : '';
+    const kept = NOTIF_LESS_KEPT.has(r.notif_type);
+    const sub = kept
+      ? 'הסוג הזה דחוף והוא ממשיך לצאת כרגיל. אפשר למחוק את הבקשה.'
+      : (until ? `יוצא רק בחלון, עד ${until}.` : 'יוצא רק בחלון.');
+    return `<div class="np2-row">`
+      + `<div class="np2-text"><div class="np2-title">${escapeHtml(notifTypeTitle(r.notif_type))}</div>`
+      + `<div class="np2-sub">${escapeHtml(sub)}</div></div>`
+      + `<button type="button" class="ui-btn ui-btn--secondary" data-np-less-restore="${escapeHtml(r.notif_type)}">החזר</button>`
+      + `</div>`;
+  }).join('');
+}
+
 function renderNotifScreen(){
   ensureSettingsMounted();
   const groupsEl = document.getElementById('npGroups');
@@ -624,6 +652,7 @@ function renderNotifScreen(){
   syncNotifScreen();
   const ls = document.getElementById('rmLastSent');
   if (ls) ls.textContent = lastSentText;
+  renderNotifLess();
 }
 
 /* המצב של כל המסך, כאובייקט אחד - לפס השמירה ולשמירה עצמה */
@@ -804,6 +833,23 @@ function wireNotifScreen(){
   });
 
   screen.addEventListener('click', e => {
+    const restore = e.target.closest('[data-np-less-restore]');
+    if (restore){
+      const type = restore.getAttribute('data-np-less-restore');
+      restore.disabled = true;
+      sb.from('agent_notif_less').delete().eq('agent_id', currentAgent.id).eq('notif_type', type)
+        .then(({ error }) => {
+          if (error){
+            showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
+            restore.disabled = false;
+            return;
+          }
+          notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
+          renderNotifLess();
+          showToast('ההתראות האלה חזרו לקצב הרגיל.');
+        });
+      return;
+    }
     // פעמון: כיבוי מכבה גם את הוואטסאפ, והדלקה מחזירה אותו לברירת המחדל - דלוק
     const bell = e.target.closest('[data-np-bell]');
     if (bell){
