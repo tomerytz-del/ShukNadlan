@@ -19,4 +19,3 @@ alter table public.property_visualizations
   add column if not exists aligned_url   text,
   add column if not exists aligned_at    timestamptz;
 -- property_visualizations_public: add align_* + aligned_url to the view (create or replace, same security_invoker as today)
-```

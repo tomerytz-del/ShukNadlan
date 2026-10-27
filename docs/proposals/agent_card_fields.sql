@@ -37,4 +37,3 @@ group by agency_id;
 
 -- the lead source for /sell
 -- lead_source_channel(): when source like 'sell_page%' then 'sell_page'
-```
