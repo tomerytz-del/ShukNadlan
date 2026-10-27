@@ -54,7 +54,7 @@
 | `deal_sync_run_finish()` | מנהל/ת או service_role | סוגרת את ההרצה, מחזירה את הסיכום ושולחת אותו |
 | `deal_sync_runs` | מנהל/ת (קריאה) | הרצה לכל "עדכן עסקאות", עם הפירוט לפי יישוב |
 | `deal_settlement_page(slug)` | anon | הנתונים של `/deals/{slug}` |
-| `deal_settlements_public()` | anon | האינדקס וה-sitemap - רק יישובים עם עסקאות |
+| `deal_settlements_public()` | anon | האינדקס וה-sitemap - רק יישובים עם עסקאות, מ-`private.deal_city_stats` |
 | `deal_slugify(name)` | service_role | התעתיק. עותק זהה: `dealSlugify` ב-`assets/crm.js` |
 
 ### ההרשאות: למה authenticated ולא service_role בלבד

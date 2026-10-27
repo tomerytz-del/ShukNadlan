@@ -950,6 +950,39 @@ async function freshPendingImages(agentId: string): Promise<string[]> {
   return (data?.pending_images as string[]) || [];
 }
 
+/** מתי נכנסה הממתינה הוותיקה ביותר (מיגרציה 20270906090000), או null. */
+async function pendingImagesSince(agentId: string): Promise<number | null> {
+  const { data } = await supabase.from("whatsapp_conversations")
+    .select("pending_images_since").eq("agent_id", agentId).maybeSingle();
+  const at = Date.parse(String(data?.pending_images_since || ""));
+  return Number.isFinite(at) ? at : null;
+}
+
+/** "מ-24.10 בשעה 23:11" - מתי נשלחה תמונה ממתינה, בשעון ישראל. */
+function sentAtLabel(at: number): string {
+  const d = new Date(at);
+  const tz = { timeZone: "Asia/Jerusalem" } as const;
+  const day = d.toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
+  const today = new Date().toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
+  const time = d.toLocaleTimeString("he-IL", { ...tz, hour: "2-digit", minute: "2-digit", hour12: false });
+  return day === today ? `מהשעה ${time}` : `מ-${day} בשעה ${time}`;
+}
+
+/**
+ * ‏**מה שהוובהוק עשה בלי המודל נכנס להיסטוריה** (27.10.2026). הצירוף, השאלה
+ * וההסרה יוצאים מכאן ולא מגבריאלה, ולכן היא לא ראתה אותם: צילום מסך צורף
+ * ל"משרד בגולד סנטר" ב-12:23, ושלוש פעמים אחר כך היא אמרה לסוכן "הצילום לא
+ * צורף לאף נכס" - בביטחון, בזמן שהוא היה באתר. זוג user/assistant כמו
+ * ‏`rememberForBot` ב-`twilio-voice`, כדי שהסדר יישאר תקין. הקורא שומר.
+ */
+function rememberPhotoAction(conv: ConversationState, text: string): void {
+  conv.history = [
+    ...conv.history,
+    { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: טיפול בתמונות שהסוכן/ת שלח/ה]" },
+    { role: "assistant", content: text },
+  ];
+}
+
 /**
  * התמונה האחרונה באלבום: צירוף לנכס הפעיל בשיחה, או שאלה לאיזה נכס.
  *
@@ -960,6 +993,7 @@ async function attachPendingImages(
   agentId: string,
   from: string,
   property: { id: string; title: string },
+  conv: ConversationState,
 ): Promise<boolean> {
   const { data: taken } = await supabase.rpc("whatsapp_pending_images_take", { p_agent_id: agentId });
   const urls = (taken as string[]) || [];
@@ -977,7 +1011,14 @@ async function attachPendingImages(
     return true;
   }
   const added = urls.length === 1 ? "נוספה תמונה אחת" : `נוספו ${urls.length} תמונות`;
-  await reply(from, `📸 ${added} ל"${property.title}" (${total} בסך הכול).`, agentId);
+  const text = `📸 ${added} ל"${property.title}" (${total} בסך הכול).`;
+  await reply(from, text, agentId);
+  // המיקום ברשימה, כדי ש"תמחקי את מה שנוסף" יגיע ל-manage_images בלי ניחוש
+  const from1 = Number(total) - urls.length + 1;
+  rememberPhotoAction(conv,
+    `${text} (נכס ${property.id}, תמונות ${from1}-${total}. ` +
+      "צורפו אוטומטית, בלי שהסוכן/ת אישר/ה. להסרה: manage_images עם remove ומספרים אלה.)");
+  conv.last_property_id = property.id;
   return true;
 }
 
@@ -989,7 +1030,7 @@ const PHOTO_ASK_GAP_MS = 20 * 60 * 1000;
 // הודעות נכנסות שהפער ביניהן עד דקה הן אותו רצף (האלבום, וה-unsupported שלפניו)
 const PHOTO_RUN_LINK_MS = 60 * 1000;
 const PHOTO_ASK_MARK = "או שזה נכס חדש?";
-const PHOTO_BTN_RE = /^pimg:(p|n)(?::([0-9a-f-]{36}))?$/;
+const PHOTO_BTN_RE = /^pimg:(p|n|d)(?::([0-9a-f-]{36}))?$/;
 
 /**
  * האם האלבום הזה פותח את השיחה מחדש: לפני הרצף הנכנס הנוכחי היה שקט של
@@ -1035,12 +1076,26 @@ async function photoButtonReply(
       await reply(from, "לא מצאתי את הנכס הזה אצלך. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה.", agentId);
       return true;
     }
-    if (!(await attachPendingImages(agentId, from, property))) {
+    if (!(await attachPendingImages(agentId, from, property, conv))) {
       await reply(from, `התמונות כבר שויכו. אם חסרות ב"${property.title}" - אפשר לשלוח אותן שוב.`, agentId);
       return true;
     }
-    conv.last_property_id = property.id;
     await saveConversation(agentId, from, conv);
+    return true;
+  }
+  // ‏"🗑 לא לשום נכס": צילום מסך, מסמך, תמונה שנשלחה בטעות. הן יורדות
+  // מהרשימה ולא יצורפו לשום נכס - לא לקודם, וגם לא לחדש הבא (27.10.2026).
+  if (m[1] === "d") {
+    const { data: taken } = await supabase.rpc("whatsapp_pending_images_take", { p_agent_id: agentId });
+    const n = ((taken as string[]) || []).length;
+    const text = n
+      ? `👍 ${n === 1 ? "התמונה לא תצורף" : `${n} התמונות לא יצורפו`} לשום נכס.`
+      : "אין תמונות שממתינות לשיוך.";
+    await reply(from, text, agentId);
+    if (n) {
+      rememberPhotoAction(conv, `${text} (הוסרו מהרשימה הממתינה לבקשת הסוכן/ת.)`);
+      await saveConversation(agentId, from, conv);
+    }
     return true;
   }
   // ‏**לחיצה מאוחרת** (24.10.2026): הסוכן/ת כבר כתב/ה את פרטי הנכס החדש,
@@ -1063,7 +1118,14 @@ async function photoButtonReply(
   }
   // נכס חדש: "הנכס האחרון" מתנקה, כדי שהתור הבא לא יצרף אליו, והתמונות
   // נשארות ממתינות - יצירת הנכס מצרפת אותן (agent.ts, create_property).
+  // הסוכן/ת אישר/ה אותן עכשיו, ולכן הן נלקחות ומוחזרות: ‏`pending_images_since`
+  // מתחיל מחדש, ו-create_property לא יעצור עליהן כ"ותיקות" ויישאל שוב.
+  const { data: confirmed } = await supabase.rpc("whatsapp_pending_images_take", { p_agent_id: agentId });
+  for (const u of (confirmed as string[]) || []) {
+    await supabase.rpc("whatsapp_pending_image_add", { p_agent_id: agentId, p_phone: from, p_url: u });
+  }
   conv.last_property_id = null;
+  rememberPhotoAction(conv, "הסוכן/ת לחץ/ה \"🏠 נכס חדש\": התמונות הממתינות שייכות לנכס החדש שייפתח.");
   await saveConversation(agentId, from, conv);
   await reply(
     from,
@@ -1081,17 +1143,28 @@ async function flushImageBatch(
 ): Promise<void> {
   const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
 
+  // תמונות שממתינות מלפני הרצף הזה (שאלה שלא נענתה, צילום מסך מהבוקר)
+  const since = await pendingImagesSince(agentId);
+  const olderWaiting = since != null && Date.now() - since > PHOTO_ASK_GAP_MS;
+
   if (conv.last_property_id) {
     const { data: property } = await supabase.from("properties")
-      .select("id, title").eq("id", conv.last_property_id).eq("agent_id", agentId).maybeSingle();
+      .select("id, title, updated_at").eq("id", conv.last_property_id).eq("agent_id", agentId).maybeSingle();
 
     if (property) {
-      if (await photoBurstNeedsAsk(from)) {
+      // ‏**השקט נמדד גם מהנכס, לא רק מהשיחה** (27.10.2026). צילום מסך של
+      // דיון בבית משפט נשלח 33 שניות אחרי הודעה על היומן - "בלי שקט" - וצורף
+      // למשרד בגולד סנטר, שאיש לא נגע בו מאז 25.10. כל צירוף ועדכון מרעננים
+      // את updated_at, ולכן אלבום שני של אותו נכס עדיין מצטרף בלי שאלה.
+      const propertyIdle = Date.now() - Date.parse(String(property.updated_at || "")) > PHOTO_ASK_GAP_MS;
+      if (olderWaiting || propertyIdle || await photoBurstNeedsAsk(from)) {
+        const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
         const body = formatForWhatsapp(
-          `📸 קיבלתי ${what}. לצרף ל"${property.title}" שעבדנו עליו קודם, ${PHOTO_ASK_MARK}`);
+          `📸 יש ${what} שממתינות לשיוך${older}. לצרף ל"${property.title}" שעבדנו עליו קודם, ${PHOTO_ASK_MARK}`);
         const buttons = [
           { id: `pimg:p:${property.id}`, title: "📎 לנכס הקודם" },
           { id: "pimg:n", title: "🏠 נכס חדש" },
+          { id: "pimg:d", title: "🗑 לא לשום נכס" },
         ];
         let waMessageId: string | null = null;
         let sendError: string | null = null;
@@ -1108,22 +1181,28 @@ async function flushImageBatch(
         });
         // הכפתורים לא יצאו - אותה שאלה בטקסט, כדי שהתמונות לא יישארו בלי מילה
         if (sendError) {
-          await reply(from, `${body} אפשר לכתוב "לקודם" או את פרטי הנכס החדש.`, agentId);
+          await reply(from, `${body} אפשר לכתוב "לקודם", "לא שייכות", או את פרטי הנכס החדש.`, agentId);
         }
+        rememberPhotoAction(conv,
+          `${body} (נשאל בכפתורים; התמונות לא צורפו לשום נכס עד תשובה. "לא שייכות" = ` +
+            "discard_pending_images.)");
+        await saveConversation(agentId, from, conv);
         return;
       }
-      await attachPendingImages(agentId, from, property);
+      if (await attachPendingImages(agentId, from, property, conv)) {
+        await saveConversation(agentId, from, conv);
+      }
       return;
     }
   }
 
-  await reply(
-    from,
-    `📸 קיבלתי ${what}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
-      "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
-      "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\".",
-    agentId,
-  );
+  const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
+  const text = `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+    "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
+    "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\". לא לשום נכס? כתוב/כתבי \"לא שייכות\".";
+  await reply(from, text, agentId);
+  rememberPhotoAction(conv, `${text} (התמונות לא צורפו לשום נכס עד תשובה.)`);
+  await saveConversation(agentId, from, conv);
 }
 
 async function handleMessage(msg: Record<string, any>): Promise<void> {

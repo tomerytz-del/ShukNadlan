@@ -203,7 +203,15 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
 
 
 def _search_path(ctx) -> Iterator[Finding]:
-    """‏SECURITY DEFINER בלי search_path נעול — הסלמת הרשאות קלאסית."""
+    """‏SECURITY DEFINER בלי search_path נעול — הסלמת הרשאות קלאסית.
+
+    חריג מתועד, ולא מרחיבים את הבדיקה אליו: שתי העומסים של
+    ‏`client_property_match` בלי `search_path` בכוונה מ-20271027140000.
+    הן LANGUAGE sql IMMUTABLE ולא SECURITY DEFINER, הגוף בסכימה מלאה,
+    והקוראים נועלים `search_path`. ‏SET על גוף SQL מונע הטמעה, וזה מה
+    שהפיל את client_match_top ב-statement_timeout. יועץ Supabase יציג
+    אותן תחת function_search_path_mutable - זה מקובל.
+    """
     ctx.count()
     rows = ctx.db.rows(
         """

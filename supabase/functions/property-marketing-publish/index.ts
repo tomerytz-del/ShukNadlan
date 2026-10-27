@@ -294,6 +294,26 @@ function postCta(row: any, channel: "facebook" | "instagram"): string | null {
     : `👇 לצפייה ${what} כנסו לקישור`;
 }
 
+// ‏רישיון התיווך בשורת "לפרטים" (27.10.2026): כל פוסט נושא את השם ואת מספר
+// הרישיון של הסוכן/ת של הנכס עצמו/ה - של תומר בנכסים שלו, של טל בנכסים שלה.
+// רק רישיון שאומת ברשם או אושר ידנית (‏verified / manual), כמו שורת הסוכן/ת
+// במודעות של ads-admin: מספר שלא נמצא ברשם לא יוצא בפרסום, והשורה יוצאת בלעדיו.
+// deno-lint-ignore no-explicit-any
+async function agentLicense(sb: any, agentId: string | null | undefined): Promise<string | null> {
+  if (!agentId) return null;
+  const { data: m } = await sb.from("agency_members").select("license_number, license_status")
+    .eq("id", agentId).maybeSingle();
+  if (!m?.license_number || !["verified", "manual"].includes(m.license_status)) return null;
+  return String(m.license_number).trim() || null;
+}
+
+// deno-lint-ignore no-explicit-any
+function contactLine(row: any): string | null {
+  if (!row.agent_name) return null;
+  const agent = row.agent_license ? `${row.agent_name}, רישיון תיווך ${row.agent_license}` : row.agent_name;
+  return `לפרטים: ${[agent, row.agency_name].filter(Boolean).join(" · ")}`;
+}
+
 function buildMessage(row: any, marketing: { description: string; post: string }): string {
   const link = propertyUrl(row.property_id);
   const lead = (row.post_text?.trim() || marketing.post || marketing.description).trim();
@@ -308,9 +328,8 @@ function buildMessage(row: any, marketing: { description: string; post: string }
   if (price) lines.push(`💰 ${price}`);
   if (row.listing_number) lines.push(`🔖 מודעה מס׳ ${row.listing_number}`);
   lines.push("");
-  if (row.agent_name) {
-    lines.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
-  }
+  const contact = contactLine(row);
+  if (contact) lines.push(contact);
   // ‏קריאה לפעולה מעל הקישור: הפוסט מציג שתיים-שלוש תמונות, ובדף הנכס יש
   // את כולן. בלי המשפט הקישור נראה כמו חתימה ולא כמו הזמנה.
   const cta = postCta(row, "facebook");
@@ -356,9 +375,8 @@ function buildInstagramCaption(row: any, marketing: { description: string; post:
   if (price) facts.push(`💰 ${price}`);
   if (row.listing_number) facts.push(`🔖 מודעה מס׳ ${row.listing_number}`);
   facts.push("");
-  if (row.agent_name) {
-    facts.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
-  }
+  const contact = contactLine(row);
+  if (contact) facts.push(contact);
   // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ — גם לא את הקצר (‏/p/1162) —
   // ולכן אין כאן כתובת בכלל. הדרך היחידה ללחוץ היא הקישור בביו, שמוביל
   // ל-/instagram: כל הנכסים מהפוסטים, עם חיפוש לפי מספר המודעה.
@@ -643,13 +661,15 @@ async function handle(
   // ו-pending_property_publications אינה מחזירה אותו. קריאה אחת לנכס
   // זולה בהרבה משינוי סוג ההחזרה של הפונקציה במסד.
   // ‏באותה קריאה: הסוכן/ת, לשורת הקריאה לפעולה (‏ctaTier), ויחידת המחיר
-  // (‏price_unit - "למ״ר" במקום "לחודש", docs/price-unit.md).
-  if (!("price_includes_vat" in row) || !("price_unit" in row) || !("cta_tier" in row)) {
+  // (‏price_unit - "למ״ר" במקום "לחודש", docs/price-unit.md), ורישיון התיווך
+  // של הסוכן/ת (‏agentLicense).
+  if (!("price_includes_vat" in row) || !("price_unit" in row) || !("cta_tier" in row) || !("agent_license" in row)) {
     const { data: prop } = await sb.from("properties").select("price_includes_vat, price_unit, agent_id")
       .eq("id", row.property_id).maybeSingle();
     if (!("price_includes_vat" in row)) row.price_includes_vat = prop?.price_includes_vat ?? null;
     if (!("price_unit" in row)) row.price_unit = prop?.price_unit ?? null;
     row.cta_tier = await ctaTier(sb, prop?.agent_id);
+    row.agent_license = await agentLicense(sb, prop?.agent_id);
   }
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש

@@ -21917,6 +21917,7 @@ const MATCH_SOURCE_LABELS = { own:'הנכס שלי', agency:'נכס של המש�
 let clientRows = [];
 let clientMatchCounts = {};   // client_id → מספר התאמות
 let clientMatchTop = {};      // client_id → שורת ההתאמה החזקה ביותר (לתצוגה המקדימה)
+let clientMatchesUnavailable = false;   // timeout של client_match_top: לא מציגים 0
 let editingClientId = null;
 let clientFormCategory = 'residential';
 
@@ -21953,19 +21954,32 @@ async function loadClients(){
 
   // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
   // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
-  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts היא
-  // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
+  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts רק
+  // כשהפונקציה עצמה חסרה (מסד שהמיגרציה עדיין לא רצה בו).
   clientMatchCounts = {};
   clientMatchTop = {};
+  clientMatchesUnavailable = false;
   const { data: tops, error: topError } = await topsP;
   if (!topError){
     (tops || []).forEach(r =>{
       clientMatchCounts[r.client_id] = r.match_count;
       if (r.top_score) clientMatchTop[r.client_id] = r;
     });
+  } else if (topError.code === 'PGRST202' || topError.code === '42883') {
+    // ‏רק כשהפונקציה עצמה חסרה (מסד ישן). ‏timeout (‏57014) או 5xx - לא:
+    // ‏client_match_counts עושה בדיוק את אותה עבודה ונופלת 8 שניות אחריה.
+    const { data: counts, error: countsError } = await sb.rpc('client_match_counts');
+    if (countsError){
+      clientMatchesUnavailable = true;
+      console.warn('client_match_counts failed:', countsError);
+    } else {
+      (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+    }
   } else {
-    const { data: counts } = await sb.rpc('client_match_counts');
-    (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+    // ‏timeout ושאר הכשלים: אוסף ריק הוא "אפס התאמות", וזה שקר. הדגל
+    // מחליף את המונה ואת הסיכום במצב "לא נטען" עם כפתור נסו שוב.
+    clientMatchesUnavailable = true;
+    console.warn('client_match_top failed:', topError);
   }
 
   // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
@@ -21976,7 +21990,9 @@ async function loadClients(){
   renderShareLevelNotice('client', clientRows.filter(c => c.agent_id === currentAgent.id));
   // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
   accSetSummary('accClients', clientRows.length
-    ? (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות')
+    ? (clientMatchesUnavailable
+        ? 'לא הצלחנו לטעון את ההתאמות. נסו שוב.'
+        : (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות'))
     : '');
   syncClientFilterOptions();
   renderClients();
@@ -22067,18 +22083,25 @@ function renderClients(){
   const badge = document.getElementById('clientFilterBadge');
   if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
+  listEl.innerHTML = '';
+  const retry = clientMatchesRetryNode();
+  if (retry) listEl.appendChild(retry);
+
   if (filtered.length === 0){
-    listEl.innerHTML = '<div class="empty-state">' +
-      (clientRows.length === 0
-        ? 'עדיין לא הוספת לקוחות. הוסיפו לקוח/ה כדי שהמערכת תתחיל לחפש עבורם התאמות.'
-        : 'אין לקוח/ה שמתאים/ה לסינון הנוכחי.') + '</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = clientRows.length === 0
+      ? 'עדיין לא הוספת לקוחות. הוסיפו לקוח/ה כדי שהמערכת תתחיל לחפש עבורם התאמות.'
+      : 'אין לקוח/ה שמתאים/ה לסינון הנוכחי.';
+    listEl.appendChild(empty);
     return;
   }
 
   // הרשימה היא טאבים, באותה שפה של "הנכסים שלי": שורה אחת לכל לקוח/ה,
   // והכרטיס המלא נפתח מתחתיה בלחיצה. ראו ההערה מעל buildClientTab().
-  listEl.innerHTML = '<div class="prop-tabs client-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
+  const tabsWrap = document.createElement('div');
+  tabsWrap.className = 'prop-tabs client-tabs';
+  listEl.appendChild(tabsWrap);
   filtered.forEach(c => tabsWrap.appendChild(buildClientTab(c)));
 }
 
@@ -22126,6 +22149,24 @@ function clientBudgetLabel(c){
   return '';
 }
 
+/* timeout של client_match_top משאיר את clientMatchCounts ריק, וריק נראה
+   כמו אפס התאמות. הבלוק הזה יושב מעל הרשימה, והגלולה בשורה אומרת "לא נטענו". */
+function clientMatchesRetryNode(){
+  if (!clientMatchesUnavailable) return null;
+  const box = document.createElement('div');
+  box.className = 'empty-state';
+  const p = document.createElement('p');
+  p.textContent = 'לא הצלחנו לטעון את ההתאמות. נסו שוב.';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ui-btn';
+  btn.textContent = 'נסו שוב';
+  btn.addEventListener('click', () => loadClients());
+  box.appendChild(p);
+  box.appendChild(btn);
+  return box;
+}
+
 function buildClientTab(c){
   const matches = clientMatchCounts[c.id];
   return buildTabRow({
@@ -22134,7 +22175,9 @@ function buildClientTab(c){
     icon: c.referred_by ? '🤝' : '',
     title: c.full_name,
     sub: clientTabSub(c),
-    pill: matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null,
+    pill: clientMatchesUnavailable
+      ? { text: 'לא נטענו', cls:'tab-flag' }
+      : (matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null),
     price: isOwnerClient(c) ? '' : clientBudgetLabel(c),
     priceNote: !isOwnerClient(c) && c.deal_type === 'rent' ? 'לחודש' : '',
     // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
@@ -22206,7 +22249,9 @@ function buildClientCard(c){
           ${c.agent_id === currentAgent.id
             ? `<button type="button" class="status-pill share-level-pill" title="רמת שיתוף - לחיצה לשינוי">${
                 SHARE_LEVEL_TEXT[shareLevelOf(c)].icon} ${esc(SHARE_LEVEL_TEXT[shareLevelOf(c)].short)}</button>` : ''}
-          ${matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
+          ${clientMatchesUnavailable
+            ? '<span class="status-pill cc-count">לא נטענו</span>'
+            : (matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : '')}
           <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
         </div>
       </div>
@@ -30810,9 +30855,15 @@ function renderClientsCard(){
   if (!valueEl) return;
   const { searching, matched } = kpiClientStats();
   countUp(valueEl, searching.length, v => String(Math.round(v)));
-  hkSplit('kpiClientsSplit', matched, searching.length - matched,
-    'עם נכס מתאים ' + matched, 'בלי התאמה ' + (searching.length - matched),
-    matched + ' עם נכס מתאים');
+  if (clientMatchesUnavailable){
+    hkSplit('kpiClientsSplit', 0, 0,
+      'ההתאמות לא נטענו', 'נסו שוב',
+      'ההתאמות לא נטענו');
+  } else {
+    hkSplit('kpiClientsSplit', matched, searching.length - matched,
+      'עם נכס מתאים ' + matched, 'בלי התאמה ' + (searching.length - matched),
+      matched + ' עם נכס מתאים');
+  }
   const added = hkThisMonth(clientRows);
   hkDelta('kpiClientsDelta', added ? String(added) : '', added ? plural(added, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש' : '');
   syncStickyKpis();
@@ -30899,6 +30950,9 @@ function renderKpiInsights(){
   if (!searching.length){
     people = { tone:'info', title:'הוסיפו לקוח ונתחיל להתאים', cta:'לקוח חדש',
       run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') };
+  } else if (clientMatchesUnavailable){
+    people = { tone:'warn', title:'לא הצלחנו לטעון את ההתאמות', sub:'נסו שוב מקובץ הלקוחות',
+      cta:'נסו שוב', run:()=> { gotoSection('accClients'); loadClients(); } };
   } else if (matched){
     people = { tone:'ok', title: plural(matched, 'לקוח אחד מחכה להצעה', 'לקוחות מחכים להצעה'),
       sub:'יש להם נכס מתאים במאגר', cta: navAccVisible('accAlerts') ? 'שליחת התאמות' : '', run:()=> gotoSection('accAlerts') };
