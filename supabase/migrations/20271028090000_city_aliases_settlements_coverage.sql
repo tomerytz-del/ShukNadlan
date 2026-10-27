@@ -19,7 +19,8 @@
 --   A. grants on city_aliases (revoke = no-op the second time)
 --   B. aliases: insert ... on conflict (alias_key) do nothing
 --   C/D. create or replace function + explicit grants
---   E. update ... where market_slug = 'tiberias' (0 rows the second time) + assert
+--   E. update ... where market_slug = 'tiberias' (0 rows the second time) + assert.
+--      Empty cities, or none of the 17 muni_codes loaded: move and assert skipped.
 --   F. scraped_leads backfill: only rows with city_id is null
 -- ============================================================================
 
@@ -214,33 +215,50 @@ grant execute on function public.agent_works_city(uuid, uuid) to service_role;
 --    No slug, URL, area or neighborhood changes. Both markets are not live.
 --    The statement trigger cities_deal_settlements runs
 --    deal_settlements_sync_cities() - a no-op (all 17 already have a settlement).
+--    A fresh branch or dev database has no city rows (or none of these
+--    muni_codes). There the move is a no-op and the count assert is skipped.
+--    When any of the 17 codes is loaded, the move runs and the assert stays
+--    strict: exactly 17 in beit-shean, and טבריה stays in tiberias.
 -- ---------------------------------------------------------------------------
-update public.cities c
-   set market_slug = 'beit-shean'
-  from (values ('48',  'מנחמיה'),
-               ('57',  'כנרת (קבוצה)'),
-               ('62',  'דגניה א'''),
-               ('63',  'כנרת (מושבה)'),
-               ('79',  'דגניה ב'''),
-               ('143', 'בית זרע'),
-               ('176', 'אפיקים'),
-               ('188', 'אשדות יעקב (מאוחד)'),
-               ('199', 'אשדות יעקב (איחוד)'),
-               ('263', 'מסדה'),
-               ('264', 'שער הגולן'),
-               ('273', 'עין גב'),
-               ('305', 'גשר'),
-               ('330', 'אלומות'),
-               ('678', 'מעגן'),
-               ('702', 'האון'),
-               ('719', 'תל קציר')) as v(muni_code, name)
- where c.muni_code = v.muni_code
-   and c.name_key = public.city_name_key(v.name)
-   and c.market_slug = 'tiberias';
-
 do $$
-declare v_n int;
+declare
+  v_cities int;
+  v_codes int;
+  v_n int;
 begin
+  select count(*) into v_cities from public.cities;
+  select count(*) into v_codes
+    from public.cities
+   where muni_code in ('48','57','62','63','79','143','176','188','199','263','264','273','305','330','678','702','719');
+
+  -- no catalog, or this batch is not in it: nothing to move and nothing to prove
+  if v_cities = 0 or v_codes = 0 then
+    return;
+  end if;
+
+  update public.cities c
+     set market_slug = 'beit-shean'
+    from (values ('48',  'מנחמיה'),
+                 ('57',  'כנרת (קבוצה)'),
+                 ('62',  'דגניה א'''),
+                 ('63',  'כנרת (מושבה)'),
+                 ('79',  'דגניה ב'''),
+                 ('143', 'בית זרע'),
+                 ('176', 'אפיקים'),
+                 ('188', 'אשדות יעקב (מאוחד)'),
+                 ('199', 'אשדות יעקב (איחוד)'),
+                 ('263', 'מסדה'),
+                 ('264', 'שער הגולן'),
+                 ('273', 'עין גב'),
+                 ('305', 'גשר'),
+                 ('330', 'אלומות'),
+                 ('678', 'מעגן'),
+                 ('702', 'האון'),
+                 ('719', 'תל קציר')) as v(muni_code, name)
+   where c.muni_code = v.muni_code
+     and c.name_key = public.city_name_key(v.name)
+     and c.market_slug = 'tiberias';
+
   select count(*) into v_n
     from public.cities
    where market_slug = 'beit-shean'
