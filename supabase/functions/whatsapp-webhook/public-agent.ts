@@ -7,7 +7,7 @@ import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
-  canonicalCityName,
+  canonicalCity,
   CATEGORIES,
   DEAL_TYPES,
   filterByArea,
@@ -939,7 +939,13 @@ async function searchProperties(
     if (addedFeatures.length) args = { ...args, features: [...have, ...addedFeatures] };
   }
 
-  if (text(args.city)) args = { ...args, city: await canonicalCityName(ctx.supabase, text(args.city)) };
+  let cityId: string | null = null;
+  const cityRaw = text(args.city);
+  if (cityRaw) {
+    const canon = await canonicalCity(ctx.supabase, cityRaw);
+    cityId = canon?.id || null;
+    args = { ...args, city: canon?.name || cityRaw, city_raw: cityRaw, city_id: cityId };
+  }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
     args,
@@ -963,7 +969,7 @@ async function searchProperties(
   let rows: Array<Record<string, unknown>> = data || [];
   let areaHint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed });
+    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed, cityId });
     rows = res.rows.slice(0, limit);
     areaHint = res.hint;
   }
