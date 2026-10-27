@@ -1,9 +1,13 @@
 -- FINAL (tested on a Supabase branch 2026-10-27). Shuk Nadlan, project obookujgolazrwycsiyn.
--- Changes vs mfa_fix_draft.sql: break-glass is a function switch (the GUC switch can't be set on Supabase),
--- explicit begin/commit removed (migration runner wraps it), mfa_status() hardened so the
--- verification screen / Edge gate still get `pending` when a lookup table is broken.
--- Make public.mfa_pre_request fail CLOSED, scoped to the users who are (or may be) in MFA scope,
--- so a broken check does NOT turn every CRM user into a guest (the original reason for fail-open).
+-- Break-glass is a function switch (a GUC switch can't be set on Supabase),
+-- explicit begin/commit is omitted (the migration runner wraps the file), and mfa_status()
+-- is hardened so the verification screen / Edge gate still get `pending` when a lookup table
+-- is broken.
+-- Make public.mfa_pre_request fail CLOSED, scoped to the users who are (or may be) in MFA scope.
+-- "A broken check does not turn every CRM user into a guest" is true only when
+-- wa_login_verifications fails: scope checks that succeed and say "not in scope" still pass.
+-- If a scope check errors (agency_members, agent_wa_2fa, or auth.mfa_factors), every non-aal2
+-- user without a verified session is demoted until break-glass.
 --
 -- Behaviour after this change:
 --   * Scope = WA-2FA enrolled, verified TOTP factor, or _mfa_role_required (active platform admin,
@@ -129,12 +133,8 @@ begin
 end;
 $$;
 
--- These take a uuid parameter. To avoid letting any user probe other users' MFA status via /rpc,
--- they must be callable ONLY from the pre-request. Option A (preferred): keep them out of the exposed
--- schema - move all three helpers to a private schema (e.g. create schema if not exists private;
--- not in PostgREST db_schemas) and grant usage/execute to authenticated there. Option B: guard with
--- `where p_uid = auth.uid()` (pre-request runs before claims are reset, so auth.uid() = v_uid).
--- Option B shown, minimal change:
+-- These take a uuid. Each is true only when p_uid = auth.uid() (the pre-request runs
+-- before claims are reset, so auth.uid() = v_uid), so /rpc cannot probe another user's MFA status.
 create or replace function public._mfa_enrolled(p_uid uuid)
 returns boolean language sql stable security definer set search_path = public set lock_timeout = '2s' as $$
   select p_uid = auth.uid() and (
