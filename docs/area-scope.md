@@ -13,10 +13,10 @@
 | `assets/crm-areas.js` | `AreaPicker` - רכיב אחד לפרופיל (`#pfAreas`) ולדף המשרד (`#brAreas`) |
 | `agency_members.service_markets`, `property_scope` | של הסוכן/ת. ‏`property_scope` null = כמו המשרד |
 | `agencies.service_markets`, `property_scope` | ברירת המחדל של המשרד |
-| `agent_share_fit(agent, category, city_id)` | האם נכס מתאים לסוכן/ת |
+| `agent_share_fit(agent, category, city_id)` | האם נכס מתאים לסוכן/ת. ‏`EXECUTE` ל-`authenticated` (לא ל-`anon`) — בלי זה "שותפו איתי" חוזר 403 |
 | `shared_properties_for_me.fits_me` | אותה שאלה, לכל נכס ב"שותפו איתי" |
 | `share_property_for_agent` | ההתראה על נכס ששותף - רק למי שמתאים |
-| מיגרציה `20270711090000_area_scope.sql` | כל השינויים במסד |
+| מיגרציה `20270711090000_area_scope.sql` | כל השינויים במסד. ‏`20270903090000` מחזירה `EXECUTE` ל-`authenticated` |
 
 ## משרד וסוכן/ת
 
