@@ -223,6 +223,14 @@ export function encodeNavId(path: string): string | null {
   return id.length <= LIST_ID_MAX ? id : null;
 }
 
+/** מזהה שורה לרשימה. wc נכנס רק אם הוא נשאר בתוך 200 התווים, אחרת הנתיב בלי המדידה. */
+export function navIdOrBare(path: string, msgType: string): { id: string | null; path: string } {
+  const stamped = withClick(path, msgType);
+  const stampedId = encodeNavId(stamped);
+  if (stampedId) return { id: stampedId, path: stamped };
+  return { id: encodeNavId(path), path };
+}
+
 export function parseNavId(id: string): string | null {
   if (!id.startsWith(NAV_PREFIX)) return null;
   const path = id.slice(NAV_PREFIX.length);
@@ -355,17 +363,20 @@ export function screenBundle(
     return { kind: "single", path, label: ctaLabel(path) };
   }
   const shared = new Set(unique.map((it) => it.type)).size === 1 ? unique[0].type : "all";
-  const allPath = withClick(allScreensPath(unique, categoryPathForType), shared);
+  const allBare = allScreensPath(unique, categoryPathForType);
+  const allChosen = navIdOrBare(allBare, shared);
+  const allPath = allChosen.path;
   const rows: NavRow[] = [];
   for (const it of unique.slice(0, LIST_ROW_MAX)) {
-    const path = withClick(it.path, it.type);
-    const id = encodeNavId(path);
-    if (!id) continue;
+    // wc ו-wt מוסיפים כ-30 תווים. שורה שקרובה ל-200 נזרקת בשקט אם אין
+    // נפילה לנתיב בלי המדידה.
+    const chosen = navIdOrBare(it.path, it.type);
+    if (!chosen.id) continue;
     const title = clipUtf16(String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path), LIST_TITLE_MAX);
     const description = clipUtf16(String(it.body || "").replace(/\s+/g, " ").trim(), LIST_DESC_MAX);
-    rows.push(description ? { id, title, description } : { id, title });
+    rows.push(description ? { id: chosen.id, title, description } : { id: chosen.id, title });
   }
-  const allId = encodeNavId(allPath);
+  const allId = allChosen.id;
   // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת.
   if (allId && !rows.some((row) => row.id === allId)) {
     rows.push({ id: allId, title: ALL_LABEL, description: allListDescription(allPath) });

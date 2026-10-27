@@ -49,7 +49,9 @@ check("אין policy של select לאנונימי", !/create policy[\s\S]{0,200}
 check("ה-RPC קובע agent_id בעצמו", fn.includes("public.current_agent_id()") && !fn.includes("p_agent"));
 check("הרשאת כתיבה לאנונימי ולמחובר, בלי public", sql.includes("revoke all on function public.dl_add(jsonb) from public, anon, authenticated")
   && sql.includes("grant execute on function public.dl_add(jsonb) to anon, authenticated"));
-check("תקרת קצב", fn.includes("v_n >= 60") && fn.includes("v_n >= 120"));
+check("תקרת קצב", fn.includes("v_n >= 60") && fn.includes("v_n >= 120") && fn.includes("deeplink_timing_calls"));
+check("אנונימי רק עם wc שנשלח ולא פג", fn.includes("click_tokens") && fn.includes("interval '30 days'") && fn.includes("whatsapp_status = 'sent'"));
+check("התקרה אינה רק על שורה חדשה", !fn.includes("if not exists (select 1 from public.deeplink_timings"));
 check("שורה אחת ל-wc, ושדרוג עד reached", fn.includes("on conflict (wc) do update") && fn.includes("outcome = 'reached'"));
 check("ארבע תוצאות", ["reached", "login_wall", "error", "abandoned"].every((o) => sql.includes(`'${o}'`)));
 check("הדגל דולק כברירת מחדל", sql.includes("('deeplink_timing_enabled', 1,"));

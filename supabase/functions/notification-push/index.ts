@@ -21,10 +21,12 @@ import {
   NOTIFY_UTILITY_LANG_ENV,
   notificationPath,
   OPT_OUT_BARE,
+  parseNavId,
   screenBundle,
   stripHttpUrls,
   type ClickRecord,
   type NotifTarget,
+  type ScreenPlan,
   utilityTemplateMessage,
   withClick,
 } from "../_shared/agent-deep-link.ts";
@@ -313,6 +315,7 @@ function textBody(
   noLinks = false,
   topics = false,
   withOptOutUrl = true,
+  stamp?: (path: string) => string,
 ): string {
   const opt = withOptOutUrl
     ? `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`
@@ -349,7 +352,8 @@ function textBody(
       if (section) itemLines.push(section);
     }
     prevType = it.type;
-    const path = itemPath(it);
+    const raw = itemPath(it);
+    const path = raw && stamp ? stamp(raw) : raw;
     itemLines.push(
       `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
         (path && !noLinks ? `\n   👈 ${SITE_BASE}${path}` : ""),
@@ -374,6 +378,21 @@ function nudgeReplyButtons(items: Item[]): { id: string; title: string }[] | nul
   const property = uuidOr(items[0].property_id);
   if (!property) return null;
   return unpublishedNudgeButtons(property);
+}
+
+/** הנתיב החתום מתוך התוכנית, אם wc נכנס. אחרת הנתיב המקורי. */
+function stampPaths(plan: ScreenPlan | null): ((path: string) => string) | undefined {
+  if (!plan || plan.kind === "none") return undefined;
+  const paths: string[] = [];
+  if (plan.kind === "single") paths.push(plan.path);
+  else {
+    for (const row of plan.rows) {
+      const parsed = parseNavId(row.id);
+      if (parsed) paths.push(parsed);
+    }
+    paths.push(plan.allPath);
+  }
+  return (raw) => paths.find((p) => p === raw || p.startsWith(`${raw}&`)) || raw;
 }
 
 function screensOf(items: Item[]) {
@@ -463,6 +482,7 @@ async function sendWhatsapp(
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
+  let stampedPlan: ScreenPlan | null = null;
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
   const headers = {
@@ -485,6 +505,7 @@ async function sendWhatsapp(
   // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט עם הקישור.
   const inWindow = (): Record<string, unknown> | null => {
     const plan = screenBundle(screensOf(items), categoryFor);
+    stampedPlan = plan;
     const body = bare();
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
@@ -601,13 +622,16 @@ async function sendWhatsapp(
     const raw = await res.text();
     if (!raw.includes(String(WA_OPTED_OUT))) {
       console.error("cta_url rejected, sending as text", raw.slice(0, 300));
-      tokens = [];
+      // הטקסט נושא את אותם wc. מוחקים טוקן שלא נכנס לגוף (חיתוך אורך),
+      // כדי שלחיצה לא תיספר בלי שליחה תואמת, ושליחה לא תיספר בלי הקישור.
+      const body = textBody(name, items, false, topics, true, stampPaths(stampedPlan));
+      tokens = tokens.filter((t) => body.includes(`wc=${t.wc}`));
       res = await fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify({
           messaging_product: "whatsapp", recipient_type: "individual", to, type: "text",
-          text: { preview_url: false, body: textBody(name, items, false, topics) },
+          text: { preview_url: false, body },
         }),
       });
     } else {

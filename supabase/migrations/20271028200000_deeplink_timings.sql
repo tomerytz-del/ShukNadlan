@@ -37,6 +37,27 @@ create index if not exists deeplink_timings_agent_created_idx
 create index if not exists deeplink_timings_anon_created_idx
   on public.deeplink_timings (created_at desc) where agent_id is null;
 
+-- קריאות ל-dl_add, לא שורות. ספירת השורות אינה רואה עדכון של wc קיים,
+-- ולכן תקרת 120 הדקה נעקפת בלולאה על אותו מזהה. נמחקת מתוך הפונקציה
+-- אחרי שעה, והשמירה של 90 יום מוחקת את מה שנשאר.
+create table if not exists public.deeplink_timing_calls (
+  id         bigint generated always as identity primary key,
+  called_at  timestamptz not null default now(),
+  agent_id   uuid
+);
+
+comment on table public.deeplink_timing_calls is
+  'קריאה ל-dl_add בשעה האחרונה. סופרת גם עדכון, כדי שהתקרה לא תיעקף.';
+
+create index if not exists deeplink_timing_calls_agent_idx
+  on public.deeplink_timing_calls (agent_id, called_at desc);
+create index if not exists deeplink_timing_calls_anon_idx
+  on public.deeplink_timing_calls (called_at desc) where agent_id is null;
+
+alter table public.deeplink_timing_calls enable row level security;
+revoke all on table public.deeplink_timing_calls from public, anon, authenticated;
+grant select, insert, update, delete on table public.deeplink_timing_calls to service_role;
+
 alter table public.deeplink_timings enable row level security;
 revoke all on table public.deeplink_timings from public, anon, authenticated;
 grant select, insert, update, delete on table public.deeplink_timings to service_role;
@@ -115,21 +136,39 @@ begin
 
   v_agent := public.current_agent_id();
 
-  if not exists (select 1 from public.deeplink_timings d where d.wc = v_wc) then
-    if v_agent is not null then
-      select count(*) into v_n from public.deeplink_timings d
-       where d.agent_id = v_agent and d.created_at > now() - interval '1 hour';
-      if v_n >= 60 then
-        return;
-      end if;
-    else
-      select count(*) into v_n from public.deeplink_timings d
-       where d.agent_id is null and d.created_at > now() - interval '1 minute';
-      if v_n >= 120 then
-        return;
-      end if;
+  -- בלי סוכן/ת: רק wc שנשלח (יומן הדחיפה), שלא פג. אחרת אנונימי ממלא
+  -- את תקרת 120 הדקה בשורות מזויפות, כ-170 אלף ביום, וחוסם מדידה אמיתית.
+  -- שורה אחת ל-wc: המפתח הראשי. עדכון של אותו wc עדיין נספר בתקרה.
+  if v_agent is null then
+    if not exists (
+      select 1 from public.notification_push_log l
+       where l.whatsapp_status = 'sent'
+         and l.sent_at is not null
+         and l.sent_at > now() - interval '30 days'
+         and l.click_tokens @> jsonb_build_array(jsonb_build_object('wc', v_wc))
+    ) then
+      return;
     end if;
   end if;
+
+  delete from public.deeplink_timing_calls c
+   where c.called_at < now() - interval '1 hour';
+
+  if v_agent is not null then
+    select count(*) into v_n from public.deeplink_timing_calls c
+     where c.agent_id = v_agent and c.called_at > now() - interval '1 hour';
+    if v_n >= 60 then
+      return;
+    end if;
+  else
+    select count(*) into v_n from public.deeplink_timing_calls c
+     where c.agent_id is null and c.called_at > now() - interval '1 minute';
+    if v_n >= 120 then
+      return;
+    end if;
+  end if;
+
+  insert into public.deeplink_timing_calls (agent_id) values (v_agent);
 
   insert into public.deeplink_timings (
     wc, msg_type, target, agent_id,
@@ -162,7 +201,7 @@ begin
 end $$;
 
 comment on function public.dl_add(jsonb) is
-  'שורת מדידה אחת ל-wc. agent_id רק מ-current_agent_id(), לא מהלקוח. עד 60 בשעה לסוכן/ת, 120 בדקה בלי סוכן/ת. דגל deeplink_timing_enabled.';
+  'שורה אחת ל-wc. אנונימי רק אם wc נשלח ב-30 הימים האחרונים. agent_id רק מ-current_agent_id(). עד 60 בשעה לסוכן/ת, 120 בדקה בלי סוכן/ת, גם על עדכון. שמירה 90 יום. דגל deeplink_timing_enabled.';
 
 revoke all on function public.dl_add(jsonb) from public, anon, authenticated;
 grant execute on function public.dl_add(jsonb) to anon, authenticated;
@@ -457,6 +496,8 @@ begin
       if s.enabled then
         delete from public.deeplink_timings
          where created_at < v_cut;
+        delete from public.deeplink_timing_calls
+         where called_at < v_cut;
       end if;
     end if;
 

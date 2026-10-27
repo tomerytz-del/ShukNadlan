@@ -211,6 +211,19 @@ const stampedWc = (stamped.match(/[?&]wc=([a-f0-9]+)/) || [])[1] || "";
 check("wc אטום על כפתור", /^[a-f][a-f0-9]{11}$/.test(stampedWc) && stamped.includes("wt=new_lead") && stamped.includes(`lead=${ID}`));
 check("wc אינו הטלפון ואינו ה-uuid", stampedWc !== ID.replace(/-/g, "").slice(0, 12) && !stampedWc.startsWith("972") && /[a-f]/.test(stampedWc));
 check("נתיב עם wc עדיין בטוח", isSafeCrmPath(stamped) && (encodeNavId(stamped) || "").length <= 200);
+{
+  const head = `/crm?goto=accProperties&property=${ID}&filter=${"a".repeat(80)}&focus=`;
+  const longPath = head + "b".repeat(180 - head.length);
+  check("נתיב על תקרת 180 לא מקבל wc", longPath.length === 180 && isSafeCrmPath(longPath) && withClick(longPath, "new_lead") === longPath);
+  const bundled = screenBundle([
+    { type: "new_lead", path: longPath, title: "ארוך" },
+    { type: "agenda_reminder", path: `/crm?goto=accAgenda&agenda=${ID}`, title: "יומן" },
+  ], () => "/crm?goto=accLeads");
+  const longRow = bundled.kind === "list"
+    ? bundled.rows.find((r) => r.id.includes("filter="))
+    : null;
+  check("שורה ארוכה נופלת לנתיב בלי wc", !!longRow && !longRow.id.includes("wc=") && longRow.id.includes(`property=${ID}`));
+}
 check("wc קיים לא מוכפל", withClick(stamped, "other") === stamped);
 check("כתובת מלאה מקבלת wc", /wc=[a-f][a-f0-9]{11}/.test(withClickUrl("https://shuknadlan.co.il/crm?goto=bell", "fallback")));
 check("קישור ציבורי בלי wc", withClickUrl("https://shuknadlan.co.il/property?id=" + ID, "page") === "https://shuknadlan.co.il/property?id=" + ID);
@@ -223,6 +236,7 @@ check("בסיס התבנית קבוע בקוד", readFileSync(new URL("../supaba
 
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
 check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage"));
+check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
 
