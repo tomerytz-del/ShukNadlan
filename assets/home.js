@@ -4063,6 +4063,7 @@ function gabrielaBotOn(){ return !!(window.ShukBot && ShukBot.enabled && ShukBot
 
 function openGabrielaAgent(){
   buyState.source = 'homepage_gabriela';
+  buyState.keepCity = false;
   openBuyerPanel(true);
   document.getElementById('buyerBanner')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -5964,6 +5965,7 @@ const buyState = {
   deal:'sale',            // 'sale' | 'rent'  — מה שנשמר ב-deal_type
   category:'residential', // 'residential' | 'commercial'
   city:'',                // העיר שהשכונות שלה מוצגות - ראו renderBuyerHoods
+  keepCity:false,         // סבב 5 §5: יישוב מהמילוי המוקדם נשמר גם בלי שכונות (‏v10BuyPrefill)
   hoods:new Set(),
   rooms:new Set(),
   ptypes:new Set(),
@@ -5985,6 +5987,7 @@ const openBuyerPanel = bindLeadBanner({
    לא נראה קורה בלחיצה. */
 function openBuyerSearch(){
   buyState.source = 'homepage_yield_calc';
+  buyState.keepCity = false;
   openBuyerPanel(true);
   document.getElementById('buyerBanner').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -6065,12 +6068,22 @@ function renderBuyerHoods(){
   if (fallback) fallback.hidden = true;
   if (sel){ sel.hidden = false; document.getElementById('buyCityLabel').hidden = false; }
 
-  if (!cities.includes(buyState.city)){
+  // ‏סבב 5 §5: מילוי מראש מהחיפוש (‏v10BuyPrefill) שומר את היישוב שחיפשו גם כשאין לו
+  // שכונות, ו"כל השוק" / "יישובי הסביבה" משאירים את הבחירה ריקה - לעולם לא עיר מומצאת
+  const keep = buyState.keepCity;
+  if (!cities.includes(buyState.city) && !keep){
     const want = window.CityContext?.active()?.market?.city || '';
     buyState.city = cities.includes(want) ? want : cities[0];
   }
   if (sel){
     sel.textContent = '';
+    const extra = keep && !cities.includes(buyState.city) ? [buyState.city] : [];
+    extra.forEach(c=>{
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c || 'בחרו יישוב';
+      sel.appendChild(o);
+    });
     cities.forEach(c=>{
       const o = document.createElement('option');
       o.value = c;
@@ -6395,6 +6408,7 @@ document.getElementById('buyRestart').addEventListener('click', ()=>{
   buyState.rooms.clear();
   buyState.ptypes.clear();
   buyState.city = '';
+  buyState.keepCity = false;
   renderBuyerHoods();
   buyerForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-pressed','false'));
   buyerForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
@@ -7980,13 +7994,17 @@ function v10BuyPrefill(st){
   // אזור: שכונה (‏hood:<id>) - העיר שלה והשכונה מסומנת; יישוב (‏city:<שם>) - היישוב
   buyState.hoods.clear();
   const area = String(st.area || '');
+  buyState.keepCity = true;
   if (area.indexOf('hood:') === 0){
     const h = hoodState.byId?.get(area.slice(5)) || hoodState.rows.find(r => String(r.id) === area.slice(5));
-    if (h){ buyState.city = h.city; buyState.hoods.add(h.id); }
+    if (h){ buyState.city = h.city; buyState.hoods.add(h.id); } else buyState.city = '';
   } else if (area.indexOf('city:') === 0){
     buyState.city = area.slice(5);
-  } else if (st.city){
-    buyState.city = st.city;
+  } else if (area === 'main'){
+    buyState.city = window.CityContext?.active()?.market?.city || '';
+  } else {
+    // ‏all (כל השוק) או around (יישובי הסביבה): האשף בוחר יישוב אחד, ולכן הבחירה נשארת לגולש/ת
+    buyState.city = '';
   }
   renderBuyerHoods();
   // חדרים: הטווח של המשפט (‏[מינימום, מקסימום]) על הצ'יפים של האשף
