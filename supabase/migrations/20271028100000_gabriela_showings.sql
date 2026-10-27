@@ -464,7 +464,7 @@ $$;
 
 
 comment on function public.notification_push_claim(int) is
-  'כמו 20270902090000, ובנוסף meeting_id מ-related_meeting_id כדי שסגירת מיניסייט תוכל לשלוח כפתור scn: בלי הודעה ללקוח/ה (20271027150050).';
+  'כמו 20270902090000, ובנוסף meeting_id מ-related_meeting_id כדי שסגירת מיניסייט תוכל לשלוח כפתור scn: בלי הודעה ללקוח/ה (20271028100000).';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
