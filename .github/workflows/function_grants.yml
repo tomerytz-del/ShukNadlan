@@ -47,6 +47,8 @@ on:
       - "scripts/check_leads_masked_invoker_test.py"
       - "scripts/check_baseline_view_grants.py"
       - "scripts/check_baseline_view_grants_test.py"
+      - "scripts/check_data_retention_generated.py"
+      - "scripts/check_data_retention_generated_test.py"
       - "schema.sql"
       - ".github/workflows/function_grants.yml"
   workflow_dispatch:
@@ -98,3 +100,13 @@ jobs:
 
       - name: סגירת baseline_urgent_fixes נשארת
         run: python3 scripts/check_baseline_view_grants.py
+
+      # ‏mortgage_leads.phone_e164 היא generated. השמה אליה בתוך
+      # data_retention_run מפילה את כל ה-cron data-retention-run, והכשל
+      # שקט כל עוד המדיניות כבויה. נבדקת ההגדרה האחרונה של הפונקציה.
+      # הבדיקה העצמית קודם, מאותה סיבה כמו leads_masked.
+      - name: בדיקה עצמית - phone_e164 מחושב בשמירה
+        run: python3 scripts/check_data_retention_generated_test.py
+
+      - name: data_retention_run בלי השמה לעמודה מחושבת
+        run: python3 scripts/check_data_retention_generated.py
