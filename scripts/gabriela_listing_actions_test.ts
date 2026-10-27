@@ -29,8 +29,11 @@ import {
   publishClickDecision,
   publishConfirmButtons,
   publishDecisionText,
+  draftElsewhereMissing,
+  elsewhereDraftWarning,
   publishErrorText,
   publishStoreBlocked,
+  unpublishedAfterUnconfirmedPublish,
   publishWritesNow,
   REISSUE_EXPIRED,
   reissueOldAgreementPlan,
@@ -276,6 +279,13 @@ check("עברית לא מוכרת לא עוברת", publishErrorText("שלום �
 check("שגיאה באנגלית לא עוברת", publishErrorText("duplicate key value violates unique constraint") === PUBLISH_FAILED);
 const longDash = String.fromCharCode(0x2014);
 check("מקף ארוך בשגיאה מוחלף", !publishErrorText(`הנכס ${longDash} באוויר`).includes(longDash));
+const elsewhere = elsewhereDraftWarning("duplicate_elsewhere");
+check("טיוטה מול משרד אחר בלי שם", !!elsewhere && elsewhere.includes("הטיוטה נשמרה") && !elsewhere.includes("דנה"));
+check("בלעדיות בטיוטה בלי שם", (elsewhereDraftWarning("exclusive_elsewhere") || "").includes("בלעדיות") && !(elsewhereDraftWarning("exclusive_elsewhere") || "").includes("יוסי"));
+check("אותו משרד בטיוטה בלי שם עמית/ה", (elsewhereDraftWarning("duplicate_same_agency") || "").includes("הטיוטה נשמרה"));
+check("clear אינו אזהרה", elsewhereDraftWarning("clear") === null && elsewhereDraftWarning("unknown") === null && elsewhereDraftWarning(null) === null);
+check("פונקציית אזהרה חסרה אינה כשל יצירה", draftElsewhereMissing({ code: "42883" }) && draftElsewhereMissing({ code: "PGRST202" }) && draftElsewhereMissing({ code: "42P01" }) === false);
+check("כפתור שפג משאיר unpublished", unpublishedAfterUnconfirmedPublish("expired") === "unpublished" && unpublishedAfterUnconfirmedPublish("no") === "unpublished" && unpublishedAfterUnconfirmedPublish("edit") === "unpublished");
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
