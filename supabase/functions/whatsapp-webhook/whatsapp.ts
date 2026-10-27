@@ -1,6 +1,7 @@
 // עטיפה דקה מעל Meta WhatsApp Cloud API (Graph API).
 // כל הקריאות היוצאות לוואטסאפ עוברות דרך כאן.
 
+import { encodeNavId, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import { paceRecipient } from "../_shared/wa-pair-pace.ts";
 
@@ -208,8 +209,10 @@ export async function sendList(
     const description = row.description
       ? Array.from(formatForWhatsapp(row.description)).slice(0, MAX_LIST_DESC).join("")
       : "";
+    const path = parseNavId(row.id);
+    const id = path ? (encodeNavId(withClick(path, "list")) || row.id) : row.id;
     return {
-      id: row.id.slice(0, 200),
+      id: id.slice(0, 200),
       title: Array.from(formatForWhatsapp(row.title)).slice(0, MAX_LIST_TITLE).join(""),
       ...(description ? { description } : {}),
     };
@@ -247,6 +250,7 @@ export async function sendCtaUrl(
 ): Promise<string | null> {
   const clean = formatForWhatsapp(body);
   const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const stamped = withClickUrl(url, "cta");
   return postMessage(to, {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -259,7 +263,7 @@ export async function sendCtaUrl(
         name: "cta_url",
         parameters: {
           display_text: Array.from(formatForWhatsapp(label)).slice(0, MAX_BUTTON_TITLE).join(""),
-          url,
+          url: stamped,
         },
       },
     },

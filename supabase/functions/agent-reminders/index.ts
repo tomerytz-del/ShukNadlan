@@ -15,6 +15,7 @@ import {
   screenBundle,
   stripHttpUrls,
   utilityTemplateMessage,
+  withClick,
 } from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
@@ -298,7 +299,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
+            parameters: [{ type: "text", text: withClick(`/crm?goto=${MANAGE_ACC}`, "notif_prefs") }],
           },
         ],
       },

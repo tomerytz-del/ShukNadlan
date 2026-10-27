@@ -13,6 +13,7 @@ import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./b
 import {
   absoluteUrl,
   categoryPath,
+  clickRecords,
   containsHttpUrl,
   ctaMessage,
   listMessage,
@@ -22,8 +23,10 @@ import {
   OPT_OUT_BARE,
   screenBundle,
   stripHttpUrls,
+  type ClickRecord,
   type NotifTarget,
   utilityTemplateMessage,
+  withClick,
 } from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
@@ -457,8 +460,9 @@ async function sendWhatsapp(
   mode: string,
   lessType: string | null,
   topics = false,
-): Promise<string | null> {
+): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
+  let tokens: ClickRecord[] = [];
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
   const headers = {
@@ -484,6 +488,7 @@ async function sendWhatsapp(
     const body = bare();
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
+      tokens = clickRecords(plan);
       return ctaMessage(
         to,
         body,
@@ -491,7 +496,10 @@ async function sendWhatsapp(
         absoluteUrl(SITE_BASE, plan.path),
       );
     }
-    if (plan.kind === "list") return listMessage(to, body, plan.button, plan.section, plan.rows);
+    if (plan.kind === "list") {
+      tokens = clickRecords(plan);
+      return listMessage(to, body, plan.button, plan.section, plan.rows);
+    }
     return null;
   };
 
@@ -499,7 +507,8 @@ async function sendWhatsapp(
     const plan = screenBundle(screensOf(items), categoryFor);
     const path = plan.kind === "single" ? plan.path
       : plan.kind === "list" ? plan.allPath
-      : "/crm?goto=bell";
+      : withClick("/crm?goto=bell", "bell");
+    tokens = clickRecords({ kind: "single", path, label: "" });
     payload = utilityTemplateMessage({
       to,
       templateName: WA_UTILITY,
@@ -509,10 +518,13 @@ async function sendWhatsapp(
       path,
     });
   } else if (mode === "template" && WA_TEMPLATE) {
+    const prefsPath = withClick(`/crm?goto=${MANAGE_ACC}`, "notif_prefs");
+    tokens = clickRecords({ kind: "single", path: prefsPath, label: "" });
     // שני פרמטרים בגוף התבנית: ‏{{1}} השם הפרטי · {{2}} רשימת ההתראות.
     // וכפתור URL דינמי אחד שמוביל לניהול ההתראות; הפרמטר הוא **סיומת
     // הכתובת בלבד**, כך Meta מגדירה כפתור דינמי, ולכן הקידומת נקבעת בתבנית.
-    // בלי WHATSAPP_NOTIFY_UTILITY_TEMPLATE זה נשאר בדיוק כך.
+    // בלי WHATSAPP_NOTIFY_UTILITY_TEMPLATE הגוף והיעד נשארים.
+    // על הכפתור מתווסף רק wc, בלי לשנות את התבנית המאושרת.
     payload = {
       messaging_product: "whatsapp",
       to,
@@ -532,7 +544,7 @@ async function sendWhatsapp(
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
+            parameters: [{ type: "text", text: prefsPath }],
           },
         ],
       },
@@ -589,6 +601,7 @@ async function sendWhatsapp(
     const raw = await res.text();
     if (!raw.includes(String(WA_OPTED_OUT))) {
       console.error("cta_url rejected, sending as text", raw.slice(0, 300));
+      tokens = [];
       res = await fetch(url, {
         method: "POST",
         headers,
@@ -612,11 +625,11 @@ async function sendWhatsapp(
   // ‏wamid: דרכו record_whatsapp_status (ה-webhook) מוצאת את השורה כש-Meta
   // מדווחת delivered / read / failed. בלעדיו "sent" הוא כל מה שנדע - וחסימה
   // של הודעות שיווק (131050) מגיעה רק שם, לא בתשובה הזו.
+  let id: string | null = null;
   try {
-    return (await res.json())?.messages?.[0]?.id ?? null;
-  } catch {
-    return null;
-  }
+    id = (await res.json())?.messages?.[0]?.id ?? null;
+  } catch { /* בלי wamid השורה נשארת sent */ }
+  return { id, tokens };
   });
 }
 
@@ -663,11 +676,14 @@ Deno.serve(async (req: Request) => {
     let status = "failed";
     let lastError: string | null = null;
     let waId: string | null = null;
+    let tokens: ClickRecord[] = [];
 
     try {
-      waId = await sendWhatsapp(
+      const sent = await sendWhatsapp(
         row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics,
       );
+      waId = sent.id;
+      tokens = sent.tokens;
       status = "sent";
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
@@ -691,11 +707,22 @@ Deno.serve(async (req: Request) => {
       p_error: lastError ? lastError.slice(0, 500) : null,
     });
     if (markErr) console.error("mark failed", row.log_id, markErr.message);
-    if (waId) {
-      // לא קריטי: בלי המזהה ההודעה כבר יצאה, רק המסירה שלה לא תירשם
+    if (waId || (status === "sent" && tokens.length)) {
+      // לא קריטי: בלי המזהה ההודעה כבר יצאה, רק המסירה שלה לא תירשם.
+      // click_tokens חסר עד שהמיגרציה עלתה: שומרים את wa_message_id לבד.
+      const patch: Record<string, unknown> = {};
+      if (waId) patch.wa_message_id = waId;
+      if (status === "sent" && tokens.length) patch.click_tokens = tokens;
       const { error: idErr } = await sb.from("notification_push_log")
-        .update({ wa_message_id: waId }).eq("id", row.log_id);
-      if (idErr) console.error("wa_message_id not saved", row.log_id, idErr.message);
+        .update(patch).eq("id", row.log_id);
+      const missingCol = !!idErr && (
+        idErr.code === "PGRST204" || idErr.code === "42703" || /click_tokens/.test(idErr.message || "")
+      );
+      if (missingCol && waId) {
+        const { error: again } = await sb.from("notification_push_log")
+          .update({ wa_message_id: waId }).eq("id", row.log_id);
+        if (again) console.error("wa_message_id not saved", row.log_id, again.message);
+      } else if (idErr) console.error("wa_message_id not saved", row.log_id, idErr.message);
     }
 
     if (status === "sent") sent++;
