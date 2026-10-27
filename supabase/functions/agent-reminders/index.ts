@@ -253,6 +253,9 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
   const bareBody = () => stripHttpUrls(textBody(name, items, false)).slice(0, 1024);
 
   if (WA_UTILITY) {
+    // כפתור ה-URL הוא היעד. ההפסקה היא תשובה מהירה "הפסקה" בהגדרת התבנית
+    // (בלי פרמטר בשליחה) וגם המילה הפסק או הפסקה בוובהוק.
+    // docs/whatsapp-deep-links.md
     const plan = screenBundle(reminderScreens(), () => null);
     const path = plan.kind === "single" ? plan.path
       : plan.kind === "list" ? plan.allPath

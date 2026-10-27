@@ -24,7 +24,7 @@ const GOTO_RE = /^(acc|dashPanel)[A-Za-z0-9]{1,40}$/;
 const SPECIAL_GOTO = new Set(["adminOps", "license", "adminHome", "bell", "cma", "cmaAddress"]);
 const PARAMS = new Set([
   "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
-  "filter", "import", "tab", "plan_city", "plan_street", "plan_num", "plan_gush", "plan_helka",
+  "filter", "status", "import", "tab", "plan_city", "plan_street", "plan_num", "plan_gush", "plan_helka",
 ]);
 const PRIORITY = ["agenda_reminder", "showcase_meeting", "new_lead"];
 
@@ -253,9 +253,24 @@ function allScreensPath(
   return best || "/crm?goto=bell";
 }
 
+/** "הכול" מסונן רק כשהנתיב נושא סינון. בלי סינון זו כל הרשימה. */
+function allListDescription(path: string): string {
+  const q = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
+  let extra = false;
+  try {
+    for (const key of new URLSearchParams(q).keys()) {
+      if (key !== "goto") extra = true;
+    }
+  } catch {
+    extra = false;
+  }
+  return extra ? "הרשימה המסוננת" : "כל הרשימה";
+}
+
 /**
- * יעד אחד = כפתור קישור. כמה יעדים = רשימה (עד 9) ועוד "הכול" לרשימה
- * המסוננת. לא ל-/crm בלי יעד.
+ * יעד אחד = כפתור קישור. כמה יעדים = רשימה (עד 9) ועוד "הכול",
+ * אלא אם היעד של "הכול" כבר שורה ברשימה (מטא דוחה מזהה כפול).
+ * לא ל-/crm בלי יעד.
  */
 export function screenBundle(
   items: ScreenRef[],
@@ -290,12 +305,31 @@ export function screenBundle(
     rows.push(description ? { id, title, description } : { id, title });
   }
   const allId = encodeNavId(allPath);
-  if (allId) rows.push({ id: allId, title: ALL_LABEL, description: "הרשימה המסוננת" });
+  // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת.
+  if (allId && !rows.some((row) => row.id === allId)) {
+    rows.push({ id: allId, title: ALL_LABEL, description: allListDescription(allPath) });
+  }
   if (rows.length < 2) {
     const path = unique[0].path;
     return { kind: "single", path, label: ctaLabel(path) };
   }
   return { kind: "list", button: OPEN_LIST_BUTTON, section: OPEN_LIST_BUTTON, rows, allPath };
+}
+
+/**
+ * רשימה שנדחתה יוצאת כטקסט. שורה עם `nav:` נושאת את הקישור; שורה אחרת
+ * (בחירת יעד) נשארת כותרת, בלי כתובת מומצאת.
+ */
+export function listTextFallback(siteBase: string, body: string, rows: NavRow[]): string {
+  const lines: string[] = [];
+  const head = body.trim();
+  if (head) lines.push(head);
+  for (const row of rows) {
+    const title = String(row.title || "").replace(/\s+/g, " ").trim() || "פתיחה";
+    const path = parseNavId(row.id);
+    lines.push(path ? `${title}: ${absoluteUrl(siteBase, path)}` : title);
+  }
+  return lines.join("\n");
 }
 
 export function ctaMessage(to: string, body: string, label: string, url: string): Record<string, unknown> {
@@ -348,6 +382,7 @@ export function listMessage(
 /**
  * תבנית UTILITY שעוד לא הוגשה למטא. כפתור URL דינמי אחד:
  * הבסיס https://shuknadlan.co.il/ והפרמטר הוא הסיומת בלי לוכסן מוביל.
+ * תשובה מהירה "הפסקה" מוגדרת בתבנית עצמה, בלי פרמטר כאן.
  * כשהסוד אינו מוגדר הקורא נשאר על התבנית המאושרת.
  */
 export function utilityTemplateMessage(opts: {

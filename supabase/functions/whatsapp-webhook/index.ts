@@ -45,7 +45,7 @@ import {
   topicLabel,
 } from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { absoluteUrl, ctaLabel, parseNavId } from "../_shared/agent-deep-link.ts";
+import { absoluteUrl, ctaLabel, listTextFallback, parseNavId } from "../_shared/agent-deep-link.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -373,8 +373,13 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
         direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
         body: logBody, error: String((err as Error)?.message || err),
       });
-      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח
+      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח.
+      // רשימה: כל שורת nav עם הכתובת שלה. בלי זה נכס או ליד שלא חזרו
+      // ב-crm_link נשארים בלי דרך פתיחה.
       if (item.kind === "cta") await reply(to, `${item.label}: ${item.url}`, agentId);
+      else if (item.kind === "list") {
+        await reply(to, listTextFallback(SITE_BASE, item.body, item.rows), agentId);
+      }
     }
   }
 }
@@ -1370,6 +1375,37 @@ async function flushImageBatch(
   await saveConversation(agentId, from, conv);
 }
 
+const WA_STOP_WORDS = new Set(["הפסק", "הפסקה", "wa_stop"]);
+
+/** הודעה שהיא רק מילת ההפסקה, או לחיצה על כפתור ההפסקה בתבנית. */
+function isWhatsappStop(msg: Record<string, any>): boolean {
+  const raw = msg.type === "button"
+    ? String(msg.button?.payload || msg.button?.text || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.button_reply?.title || "")
+    : msg.type === "text" && !forwardedPrefix(msg)
+    ? String(msg.text?.body || "")
+    : "";
+  const token = raw.replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
+  return WA_STOP_WORDS.has(token);
+}
+
+/** אותו כיבוי ערוץ כמו 131050. אחריו כפתור למסך שמפעיל מחדש. */
+async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
+  const { error } = await supabase.rpc("notification_push_opt_out", { p_agent_id: agentId });
+  if (error) {
+    console.error("whatsapp stop failed", error.message);
+    await reply(from, "לא הצלחתי להפסיק את ההתראות כרגע. אפשר לכבות אותן במסך התראות והודעות.", agentId);
+    return;
+  }
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "ההתראות בוואטסאפ הופסקו. להפעלה מחדש:",
+    label: ctaLabel("/crm?goto=accNotifPrefs"),
+    url: absoluteUrl(SITE_BASE, "/crm?goto=accNotifPrefs"),
+  }], agentId);
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
@@ -1466,6 +1502,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (!agent.active) {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני
+  // גייט המסלול: תבנית UTILITY אינה נושאת כפתור כיבוי, והמילה היא הכיבוי.
+  if (isWhatsappStop(msg)) {
+    await applyWhatsappStop(agent.id, from);
     return;
   }
   // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום

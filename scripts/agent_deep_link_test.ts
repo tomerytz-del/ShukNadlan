@@ -10,6 +10,7 @@ import {
   encodeNavId,
   isSafeCrmPath,
   listMessage,
+  listTextFallback,
   notificationPath,
   OPEN_LIST_BUTTON,
   parseNavId,
@@ -65,6 +66,7 @@ for (const [kind, query] of Object.entries(REMINDER_FILTER_QUERY)) {
   check(`סינון ${kind} ב-CRM`, filters.includes(`${kind}: '${value}'`) || filters.includes(`${kind}: "${value}"`));
 }
 check("הפעמון נפתח מ-goto=bell", crm.includes("raw === 'bell'") && crm.includes("openNavLayer('bell')"));
+check("סטטוס נכס נפתח מהכתובת", crm.includes("openPropertyStatusFromParam") && crm.includes("params.get('status')"));
 
 const labels = [
   "/crm?goto=accAgenda&agenda=" + ID,
@@ -106,6 +108,8 @@ const many = screenBundle([
 check("כמה יעדים הם רשימה", many.kind === "list");
 if (many.kind === "list") {
   check("הכול אחרון", many.rows.at(-1)?.title === "הכול" && many.rows.at(-1)?.id === encodeNavId("/crm?goto=accLeads"));
+  check("הכול בלי סינון הוא כל הרשימה", many.rows.at(-1)?.description === "כל הרשימה");
+  check("אין מזהה כפול", new Set(many.rows.map((row) => row.id)).size === many.rows.length);
   check("עד עשר שורות", many.rows.length <= 10 && many.rows.length === 4);
   check("מזהי nav", many.rows.every((row) => parseNavId(row.id)));
   const msg = listMessage("972500000000", "מה שחדש אצלך:\nדנה\nיוסי", many.button, many.section, many.rows);
@@ -119,6 +123,50 @@ const props = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "הרצל 2" },
 ], () => "/crm?goto=accProperties");
 check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.kind === "list" && props.allPath === "/crm?goto=accProperties");
+if (props.kind === "list") {
+  check("נכסים בלי סטטוס אינם הרשימה המסוננת", props.rows.at(-1)?.description === "כל הרשימה");
+}
+
+const byStatus = screenBundle([
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "א" },
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "ב" },
+], () => "/crm?goto=accProperties&status=sold");
+check("הכול נושא את הסטטוס", byStatus.kind === "list" && byStatus.allPath === "/crm?goto=accProperties&status=sold");
+if (byStatus.kind === "list") {
+  check("סטטוס הוא הרשימה המסוננת", byStatus.rows.at(-1)?.description === "הרשימה המסוננת");
+  check("סטטוס הוא נתיב בטוח", isSafeCrmPath(byStatus.allPath));
+}
+
+const dupAll = screenBundle([
+  { type: "listing", path: "/crm?goto=accProperties", title: "הרשימה" },
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "כרטיס" },
+], () => "/crm?goto=accProperties");
+check("הכול לא משכפל מזהה", dupAll.kind === "list" && dupAll.rows.filter((row) => row.title === "הכול").length === 0);
+if (dupAll.kind === "list") {
+  check("מזהים יחידים גם בלי הכול", new Set(dupAll.rows.map((row) => row.id)).size === dupAll.rows.length);
+}
+
+const dozen = screenBundle(
+  Array.from({ length: 12 }, (_, i) => ({
+    type: "listing",
+    path: `/crm?goto=accProperties&property=${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`,
+    title: `נכס ${i}`,
+  })),
+  () => "/crm?goto=accProperties",
+);
+check("מעל תשע נשארות תשע ועוד הכול", dozen.kind === "list" && dozen.rows.length === 10 && dozen.rows.at(-1)?.title === "הכול");
+if (dozen.kind === "list") {
+  const ids = dozen.rows.map((row) => row.id);
+  check("גם בעשר אין כפילות", new Set(ids).size === ids.length);
+  check("העשירי לא ברשימה", !ids.includes(encodeNavId("/crm?goto=accProperties&property=00000009-1111-4111-8111-111111111111") || ""));
+}
+
+const fallback = listTextFallback("https://shuknadlan.co.il", "איזה נכס לפתוח?", [
+  { id: encodeNavId(`/crm?goto=accProperties&property=${ID}`) || "", title: "הרצל" },
+  { id: "dest:site", title: "רק אתר" },
+]);
+check("נפילת רשימה כוללת את הקישור", fallback.includes(`הרצל: https://shuknadlan.co.il/crm?goto=accProperties&property=${ID}`));
+check("שורה בלי nav נשארת כותרת", fallback.includes("רק אתר") && !fallback.includes("dest:site"));
 
 const demands = screenBundle([
   { type: "open_demand", path: "/crm?goto=accLeads&tab=demand", title: "א" },
@@ -161,8 +209,15 @@ check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATS
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
 
 const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
-check("רשימת נכסים לא מדביקה crm_link כשיש כפתור", agent.includes("screenSent.crm_button_sent"));
+check("רשימת נכסים לא מדביקה crm_link למי שנכנס לכפתור", agent.includes("listed.has(path)"));
+check("סטטוס עובר ל-הכול", agent.includes("/crm?goto=accProperties&status="));
+check("המודל לא מתבקש לצרף unlock_where", !agent.includes("צרף/י את unlock_where"));
+check("המודל לא מרכיב כתובת", agent.includes("אסור להרכיב לבד"));
 check("page_link שולח כפתור", agent.includes("crm_button_sent: true") && agent.includes("ctaLabel(link.path)"));
+
+const hook = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
+check("נפילת רשימה חוזרת עם הקישורים", hook.includes("listTextFallback"));
+check("הפסק מכבה את הערוץ", hook.includes("notification_push_opt_out") && hook.includes("הפסקה"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
