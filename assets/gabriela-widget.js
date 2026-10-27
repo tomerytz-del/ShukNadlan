@@ -48,9 +48,10 @@
   /* כפתורי הבחירה המהירה. ההודעה היא מה שגבריאלה מקבלת - כל אחת מהן היא
      דבר שהבוט עושה (search_properties, owner_lead, open_house_signup). */
   var CHOICES = [
-    { key: 'buy',   label: 'מחפש/ת לקנות',          text: 'היי גבריאלה, אני מחפש/ת דירה לקנייה' },
-    { key: 'rent',  label: 'מחפש/ת להשכיר',          text: 'היי גבריאלה, אני מחפש/ת דירה להשכרה' },
-    { key: 'owner', label: 'רוצה למכור',            text: 'היי גבריאלה, אני רוצה למכור או להשכיר נכס' },
+    // התוויות ניטרליות (משימה 1 בבריף); ה-text שנשלח לבוט וה-entry לא השתנו
+    { key: 'buy',   label: 'לקנות נכס',             text: 'היי גבריאלה, אני מחפש/ת דירה לקנייה' },
+    { key: 'rent',  label: 'לשכור נכס',             text: 'היי גבריאלה, אני מחפש/ת דירה להשכרה' },
+    { key: 'owner', label: 'למכור נכס',             text: 'היי גבריאלה, אני רוצה למכור או להשכיר נכס' },
     { key: 'fair',  label: 'יריד הבתים הפתוחים',     text: 'היי גבריאלה, אשמח לשמוע על יריד הבתים הפתוחים ללא עמלת תיווך' }
   ];
   var FREE_DEFAULT = 'היי גבריאלה, אשמח לעזרה';
@@ -139,7 +140,32 @@
     '#gabW a.gw-go:hover{background:var(--gw-wa-h);color:#fff}',
     '#gabW a.gw-go svg{width:20px;height:20px;flex:none}',
     '#gabW .gw-note{margin:10px 0 0;font-size:12.5px;color:var(--gw-muted);text-align:center}',
-    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel,#gabW .gw-tip{transition:none}}'
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel,#gabW .gw-tip{transition:none}}',
+    /* v10 (html.beta-hero בלבד) */
+    'html.beta-hero body:has(.a11y-fab) #gabW{--gw-bottom:calc(16px + env(safe-area-inset-bottom,0px));--gw-left:16px}',
+    '@media(max-width:600px){html.beta-hero body:has(.a11y-fab) #gabW{--gw-bottom:calc(12px + env(safe-area-inset-bottom,0px));--gw-left:12px}}',
+    'html.beta-hero body.sticky-on #gabW{--gw-bottom:calc(90px + env(safe-area-inset-bottom,0px))}',
+    '#gabW .gw-pill,#gabW .gw-min{display:none}',
+    '@media(min-width:1024px){',
+    '  #gabW.is-v10:not(.is-min) .gw-bubble{width:auto;height:64px;padding:0 18px 0 6px;border-radius:999px;border:2.5px solid #1a8a4a;',
+    '    background:#fff;display:flex;align-items:center;gap:10px;flex-direction:row-reverse}',
+    '  #gabW.is-v10:not(.is-min) .gw-bubble img{width:52px;height:52px;flex:none;background:#fff1c9}',
+    '  #gabW.is-v10:not(.is-min) .gw-dot{right:auto;left:42px;bottom:6px}',
+    '  #gabW.is-v10:not(.is-min) .gw-pill{display:flex;flex-direction:column;align-items:flex-start;text-align:right;line-height:1.25}',
+    '  #gabW.is-v10 .gw-pill b{font-size:16px;color:#0d1b3d}',
+    '  #gabW.is-v10 .gw-pill small{font-size:12.5px;color:#4a5060}',
+    '  #gabW.is-v10:not(.is-min):not(.is-hidden):not(.is-away):not(.is-open) .gw-min{display:flex;position:fixed;z-index:207;',
+    '    left:calc(var(--gw-left) - 6px);bottom:calc(var(--gw-bottom) + 46px);width:22px;height:22px;padding:0;border:1px solid #e3e8f2;',
+    '    border-radius:50%;background:#fff;color:#0e2a6b;font-size:15px;line-height:1;align-items:center;justify-content:center;cursor:pointer;',
+    '    box-shadow:0 2px 6px rgba(13,27,61,.2)}',
+    '  #gabW.is-v10 .gw-min::before{content:"";position:absolute;inset:-11px}',
+    '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '  #gabW.is-v10 .gw-tip{left:calc(var(--gw-left) + 230px)}',
+    '}',
+    '#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
+    '#gabW.is-v10.is-min .gw-dot{width:11px;height:11px}',
+    '#gabW.is-v10.is-min .gw-panel{bottom:calc(var(--gw-bottom) + 56px)}',
+    '#gabW.is-v10.is-min .gw-tip{opacity:0;visibility:hidden}'
   ].join('\n');
 
   var WA_ICON = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.3-.5v-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1.9.4 1.8 1 2.6 1.1 1.6 2.5 2.9 4.2 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.4-1 .2-.3.2-.7.1-1-.1-.1-.3-.2-.5-.3z"/></svg>';
@@ -205,6 +231,44 @@
     root.appendChild(tip);
     root.appendChild(bubble);
     document.body.appendChild(root);
+
+    /* ---------- v10 (רק עם html.beta-hero): גלולה במחשב, מזעור, והתקפלות ליד הפוטר ----------
+       ‏✕ מקפל לאווטאר של 44px באותה פינה (לחיצה עליו פותחת כרגיל), נשמר
+       לסשן (‏sk_gabi_min). כשהפוטר על המסך - אווטאר, בלי בועית, כדי שהשורה
+       המשפטית תישאר קריאה. לעולם לא נעלמת לגמרי. */
+    var v10 = document.documentElement.classList.contains('beta-hero');
+    var manualMin = false, footerMin = false;
+    function syncMin() { root.classList.toggle('is-min', manualMin || footerMin); if (manualMin || footerMin) hideTip(); }
+    if (v10) {
+      root.classList.add('is-v10');
+      var pill = el('span', { 'class': 'gw-pill', 'aria-hidden': 'true' });
+      pill.appendChild(el('b', null, 'גבריאלה'));
+      pill.appendChild(el('small', null, 'עוזרת הנדל״ן החכמה'));
+      bubble.appendChild(pill);
+      var minBtn = el('button', { type: 'button', 'class': 'gw-min', 'aria-label': 'מזעור גבריאלה' }, '×');
+      root.appendChild(minBtn);
+      minBtn.addEventListener('click', function () {
+        manualMin = true;
+        storageSet('sk_gabi_min', '1');
+        syncMin();
+        bubble.focus();
+      });
+      manualMin = storageGet('sk_gabi_min') === '1';
+      var feet = document.querySelectorAll('footer');
+      var foot = document.querySelector('footer.site') || feet[feet.length - 1];
+      if (foot && 'IntersectionObserver' in window) {
+        new IntersectionObserver(function (en) { footerMin = en[0].isIntersecting; syncMin(); }, { threshold: 0 }).observe(foot);
+      }
+      // תמונה שנכשלה: הגזירה על רקע קרם, אף פעם לא תמונה שבורה
+      Array.prototype.forEach.call(root.querySelectorAll('img'), function (im) {
+        im.addEventListener('error', function once() {
+          im.removeEventListener('error', once);
+          im.src = '/assets/gabriela-cutout-400.webp';
+          im.style.background = '#f6f1e7';
+        });
+      });
+      syncMin();
+    }
 
     function fillChoices() {
       list.innerHTML = '';

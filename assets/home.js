@@ -1706,6 +1706,7 @@ function renderOpenHouseBanner(count){
     const m = window.CityContext && CityContext.market && CityContext.market();
     if (m && m.label) label = m.label;
   } catch(e){ /* נשאר שוק ברירת המחדל */ }
+  if (v10On()){ v10Fair.count = count; v10Fair.label = label; renderV10Fair(); return; }
   host.innerHTML =
     `<a class="oh-feature" href="/open-house">` +
       `<span class="oh-feature-copy">` +
@@ -3081,8 +3082,9 @@ function mapPopupHtml(p, kind){
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
-    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="this.remove()">` : '') +
-    (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (!img && !logo && v10On() ? v10ImgFb('map-pop-thumb is-inline') : '') +
     `<span class="map-pop-body">` +
       `<span class="map-pop-title">${escAttr(p.title)}</span>` +
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
@@ -4363,6 +4365,7 @@ function renderHeroStats(){
   setNum('heroStatProps', heroStatsState.props);
   setNum('heroStatAgencies', heroStatsState.agencies);
   if (box && (heroStatsState.props || heroStatsState.agencies)) box.hidden = false;
+  renderDmStats();
 
   const aiBadge = document.getElementById('heroAiBadge');
   const aiCount = document.getElementById('heroAiCount');
@@ -4426,6 +4429,9 @@ function showAiPromo(count){
       go.appendChild(span);
     });
   box.hidden = false;
+  // v10: שורת ההעתק המדויקת (המספר מהנתונים)
+  const line = document.getElementById('aiV10Line');
+  if (line && v10On()) line.textContent = `${n} מהנכסים כבר כוללים הדמיית AI, ולכל נכס אחר אפשר ליצור הדמיה בלחיצה.`;
 }
 
 async function initAiPromoThumb(){
@@ -4453,6 +4459,7 @@ async function initAiPromoThumb(){
     `<div class="ai-promo-after"><img src="${escAttr(row.result_url)}" alt="" loading="lazy" decoding="async"></div>` +
     `<div class="ai-promo-handle"></div>`;
   thumb.hidden = false;
+  if (v10On()) v10AiSlider(thumb, row);
 }
 
 document.getElementById('aiPromoGo')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
@@ -4813,6 +4820,8 @@ try {
     renderHeroStats();
     computeHoodGeometry(properties);
     initHoodMapSec(properties);
+    v10Fair.props = properties;
+    renderV10Fair();
     renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
@@ -4825,6 +4834,7 @@ try {
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
     if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
     else if (!searchHasRun) renderPropertyGrid(properties);
+    renderQuickSearch(properties);
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
@@ -5549,6 +5559,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
       '<div class="bot-alt" id="botEmptyWrap"></div></div></div>';
     document.getElementById('ssaEmptyBtn').addEventListener('click', ssaOpen);
     renderEmptyBotLink();
+    v10GabAlert(rows, 0);
     return;
   }
 
@@ -5576,7 +5587,10 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     if (left > 0){
       more.textContent = `הצגת עוד ${Math.min(left, SR_PAGE_SIZE)} נכסים (נשארו ${left})`;
       if (!more.parentNode) rows.appendChild(more);
-    } else if (more.parentNode) more.remove();
+    } else {
+      if (more.parentNode) more.remove();
+      if (!mapView) v10GabAlert(rows, shown.length);
+    }
   };
   more.addEventListener('click', ()=>{
     const first = next;
@@ -7552,3 +7566,351 @@ function v10NoAreaChosen(){
   const st = sentence && sentence.state ? sentence.state() : null;
   return (!st || !st.area || st.area === 'all') && !hoodState.selected.size;
 }
+
+/* ---------- המונים (‏#dmStats, ‏7b) ----------
+   עד שהטבלאות site_stats / site_stats_platform קיימות (‏docs/proposals/site_stats.sql,
+   TODO-ASK 11) - נפילה לצד הלקוח: נכסים ומשרדים ממה שהדף כבר טען, ואריחי
+   העסקאות ויועצי הנדל״ן מוסתרים. בלי שאילתה חדשה ובלי שגיאה בקונסול: הדגל
+   הזה נדלק רק אחרי שהמיגרציה רצה. אף אריח אינו מציג 0 או מספר קבוע. */
+const SITE_STATS_READY = false;
+const dmStatsState = { source: 'client', cache: null, viewed: false, asked: false };
+function dmStatsMarket(){
+  const m = CityCtx.market ? CityCtx.market() : null;
+  return (m && m.slug) || 'afula-emek';
+}
+function loadDmStatsCache(){
+  if (!SITE_STATS_READY || !sb || dmStatsState.asked) return;
+  dmStatsState.asked = true;
+  Promise.all([
+    sb.from('site_stats').select('props_active, agencies_active, deals_12m').eq('market_slug', dmStatsMarket()).maybeSingle(),
+    sb.from('site_stats_platform').select('agents_active').maybeSingle(),
+  ]).then(([a, b]) => {
+    if (a.error || b.error || !a.data) return;
+    dmStatsState.cache = { props: a.data.props_active, agencies: a.data.agencies_active, deals: a.data.deals_12m, agents: b.data && b.data.agents_active };
+    dmStatsState.source = 'cache';
+    renderDmStats();
+  }, () => { /* נשארים בנפילה */ });
+}
+function renderDmStats(){
+  const wrap = document.getElementById('dmStatsWrap');
+  if (!v10On() || !wrap) return;
+  loadDmStatsCache();
+  const c = dmStatsState.cache || {};
+  const vals = {
+    deals: c.deals || null,
+    agencies: c.agencies || heroStatsState.agencies || null,
+    agents: c.agents || null,
+    props: c.props || heroStatsState.props || null,
+  };
+  let any = false;
+  wrap.querySelectorAll('.dm-stat').forEach(tile => {
+    const v = vals[tile.dataset.stat];
+    tile.hidden = !v;
+    if (v){ tile.querySelector('.dm-stat-n').textContent = Number(v).toLocaleString('he-IL'); any = true; }
+  });
+  wrap.hidden = !any;
+  if (any && !dmStatsState.io && 'IntersectionObserver' in window){
+    dmStatsState.io = new IntersectionObserver(en => {
+      if (!en.some(x => x.isIntersecting) || dmStatsState.viewed) return;
+      dmStatsState.viewed = true;
+      dmStatsState.io.disconnect();
+      if (window.shukTrack) window.shukTrack('site_stats_view', { source: dmStatsState.source, deals_shown: vals.deals && !document.querySelector('#dmStats [data-stat="deals"]').hidden ? 1 : 0 });
+    });
+    dmStatsState.io.observe(wrap);
+  }
+}
+
+/* ---------- באנר ההדמיות: ידית לפני/אחרי שגוררים, והכיתוב <חלל> · <סגנון> ---------- */
+const V10_VIZ_TARGETS = { living_room:'סלון', kitchen:'מטבח', bedroom:'חדר שינה', exterior:'חזית', interior_main:'חלל העסק' };
+const V10_VIZ_STYLES = { modern_clean:'מודרני נקי', mediterranean_white:'ים-תיכוני לבן', warm_scandi:'סקנדינבי חמים', modern_luxury:'יוקרה מודרנית' };
+function v10AiSlider(thumb, row){
+  thumb.insertAdjacentHTML('afterbegin',
+    '<span class="ai-v10-tag is-before">לפני</span><span class="ai-v10-tag is-after">אחרי · ✦ הדמיה</span>');
+  const cap = document.getElementById('aiV10Cap');
+  const parts = [V10_VIZ_TARGETS[row.target], V10_VIZ_STYLES[row.kind]].filter(Boolean);
+  if (cap) cap.textContent = parts.concat('גררו את הידית').join(' · ');
+  const setPos = x => {
+    const r = thumb.getBoundingClientRect();
+    if (!r.width) return;
+    const pct = Math.max(4, Math.min(96, (x - r.left) / r.width * 100));
+    thumb.style.setProperty('--ai-pos', pct.toFixed(1) + '%');
+  };
+  let drag = false;
+  thumb.addEventListener('pointerdown', e => { drag = true; thumb.setPointerCapture(e.pointerId); setPos(e.clientX); });
+  thumb.addEventListener('pointermove', e => { if (drag) setPos(e.clientX); });
+  ['pointerup', 'pointercancel'].forEach(t => thumb.addEventListener(t, () => { drag = false; }));
+}
+
+/* ---------- חיפוש מהיר (‏#quickSearchSec) ----------
+   כל צ'יפ הוא קישור אמיתי לעמוד התוצאות (גוגל רואה אותו), והמונה מאותו
+   מסנן של המשפט (‏sentence.count) על הנכסים שכבר נטענו - בלי שאילתה. */
+const V10_ICO = {
+  sale: '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.6 9.8V20h12.8V9.8"/>',
+  rent: '<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3"/>',
+  comm: '<path d="M3 9.5 4.8 4h14.4L21 9.5"/><path d="M5 12.2V20h14v-7.8"/>',
+  rooms: '<path d="M3 18V6M3 13h18v5M21 13a3 3 0 0 0-3-3h-7v3"/>',
+  office: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M11 21v-4h2v4"/>',
+  house: '<path d="M3 11 12 4l9 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+};
+function v10Chip(href, label, n, group, tag, ico, labelDesktop){
+  const icon = ico ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${V10_ICO[ico]}</svg>` : '';
+  const l = labelDesktop
+    ? `<span class="v10-chip-l"><span class="v10-m-l">${escapeHtml(label)}</span><span class="v10-d-l">${escapeHtml(labelDesktop)}</span></span>`
+    : `<span class="v10-chip-l">${escapeHtml(label)}</span>`;
+  return `<a class="v10-chip" href="${escapeHtml(href)}" data-q-group="${group}" data-q-tag="${escapeHtml(tag)}">${icon}${l}<span class="v10-chip-n">${n}</span></a>`;
+}
+function renderQuickSearch(properties){
+  const sec = document.getElementById('quickSearchSec');
+  if (!v10On() || !sec || !sentence || !sentence.loaded()) return;
+  const base = { area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null };
+  const cnt = patch => sentence.count(Object.assign({}, base, patch));
+  const enc = encodeURIComponent;
+  const sub = document.getElementById('quickSearchSub');
+  if (sub) sub.textContent = `${properties.length.toLocaleString('he-IL')} נכסים פעילים ב${CityCtx.label()}`;
+
+  const hoods = hoodMapData(properties).hoods.sort((a, b) => b.n - a.n);
+  const hoodBox = document.getElementById('quickHoods');
+  hoodBox.innerHTML = hoods.map(h => v10Chip(`/?q=${enc(h.name)}`, h.name, h.n, 'hood', h.name, 'pin')).join('');
+  hoodBox.closest('.quick-group').hidden = !hoods.length;
+  const more = document.getElementById('quickHoodsMore');
+  if (hoods.length > 10){
+    hoodBox.classList.add('is-collapsed');
+    more.hidden = false;
+    more.textContent = `כל ${hoods.length} השכונות ▾`;
+    more.onclick = () => {
+      const open = hoodBox.classList.toggle('is-collapsed') === false;
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? 'פחות שכונות ▴' : `כל ${hoods.length} השכונות ▾`;
+    };
+  }
+
+  const r = n => [n, n + 0.5];
+  const types = [
+    ['/?deal=sale', 'למכירה', null, cnt({ deal: 'sale', type: 'any' }), 'sale', 'sale'],
+    ['/?deal=rent', 'להשכרה', null, cnt({ deal: 'rent', type: 'any' }), 'rent', 'rent'],
+    ['/?deal=commercial', 'מסחרי', null, cnt({ deal: null, type: 'commercial' }), 'commercial', 'comm'],
+    ['/?deal=sale&rooms=3', '3 חד׳', 'דירות 3 חד׳', cnt({ deal: 'sale', type: 'any', rooms: r(3) }), 'rooms3', 'rooms'],
+    ['/?deal=sale&rooms=4', '4 חד׳', 'דירות 4 חד׳', cnt({ deal: 'sale', type: 'any', rooms: r(4) }), 'rooms4', 'rooms'],
+    ['/?deal=sale&rooms=5', '5 חד׳', 'דירות 5 חד׳', cnt({ deal: 'sale', type: 'any', rooms: [5, 99] }), 'rooms5', 'rooms'],
+  ];
+  const types2 = [
+    [`/?deal=commercial&ptype=${enc('משרדים')}`, 'משרדים', null, cnt({ deal: null, type: 'office' }), 'office', 'office'],
+    [`/?deal=sale&ptype=${enc("בית פרטי/קוטג'")}`, 'בתים פרטיים', null, cnt({ deal: 'sale', type: 'house' }), 'house', 'house'],
+  ];
+  const typeHtml = list => list.filter(t => t[3] > 0).map(t => v10Chip(t[0], t[1], t[3], 'type', t[4], t[5], t[2])).join('');
+  document.getElementById('quickTypes').innerHTML = typeHtml(types);
+  document.getElementById('quickTypes2').innerHTML = typeHtml(types2);
+
+  // לפי אזור: היישוב הראשי ואז שאר היישובים, לפי מספר הנכסים. רק יישובים שיש בהם נכסים
+  const byCity = new Map();
+  properties.forEach(p => { if (p.city) byCity.set(p.city, (byCity.get(p.city) || 0) + 1); });
+  const main = (sentence.areas() || {}).mainCity || CityCtx.name();
+  const areas = [...byCity.entries()].sort((a, b) => (b[0] === main) - (a[0] === main) || b[1] - a[1]).slice(0, 8);
+  document.getElementById('quickAreas').innerHTML = areas
+    .map(([name, n]) => v10Chip(name === main ? `/?city=${enc(name)}` : `/?q=${enc(name)}`, name, n, 'area', name, 'pin')).join('');
+  document.getElementById('quickAreas').closest('.quick-group').hidden = !areas.length;
+  sec.hidden = false;
+}
+document.getElementById('quickSearchSec')?.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[data-q-group]');
+  if (a && v10On() && window.shukTrack) window.shukTrack('quick_search_tag_click', { group: a.dataset.qGroup, tag: a.dataset.qTag });
+});
+document.getElementById('quickNearBtn')?.addEventListener('click', () => {
+  // אותו מנגנון של "הצג נכסים לידי" (‏near-me.js): המיקום נשאל רק עכשיו, בלחיצה
+  document.getElementById('heroNearBtn')?.click();
+});
+
+/* ---------- באנר היריד (v10) ----------
+   כחול עם מסגרת זהב, לוח שנה עם תאריך הסיום **מהנתונים** (החלון הפעיל
+   המאוחר ביותר), חותמת, שני תמונונים מנכסי היריד, וכפתור זהב אחד. כל
+   הכרטיס הוא קישור אחד לדף היריד. נצבע כשגם הספירה וגם הנכסים כבר כאן. */
+const v10Fair = { count: null, label: '', props: null };
+function v10FairNow(p, now){
+  const s = p.open_house_start ? Date.parse(p.open_house_start) : NaN;
+  const e = p.open_house_end ? Date.parse(p.open_house_end) : NaN;
+  return p.open_house && s <= now && e > now;
+}
+function v10ImgFb(extra){
+  return `<span class="img-fb${extra ? ' ' + extra : ''}" role="img" aria-label=""><img src="/assets/logo-shuknadlan.svg" alt=""></span>`;
+}
+function renderV10Fair(){
+  const host = document.getElementById('openHouseBanner');
+  if (!v10On() || !host || !v10Fair.count || !v10Fair.props) return;
+  const now = Date.now();
+  const live = v10Fair.props.filter(p => v10FairNow(p, now));
+  const end = live.reduce((m, p) => Math.max(m, Date.parse(p.open_house_end)), 0);
+  if (!end){ host.hidden = true; return; }
+  const d = new Date(end - 1000);   // חלון שנגמר בחצות נקרא כיום שלפניו
+  const day = d.toLocaleDateString('he-IL', { day: 'numeric' });
+  const month = d.toLocaleDateString('he-IL', { month: 'long' });
+  const fairId = 'open_house_' + d.toISOString().slice(0, 10);
+  const thumbs = live.filter(p => p.images && p.images[0]).slice(0, 2);
+  const thumbHtml = (thumbs.length ? thumbs : [{}, {}]).slice(0, 2).map(p => p.images
+    ? `<span class="v10-fair-th"><img src="${escapeHtml(p.images[0])}" alt="" loading="lazy" decoding="async" onerror="v10ImgFail(this)"></span>`
+    : `<span class="v10-fair-th">${v10ImgFb()}</span>`).join('');
+  host.innerHTML =
+    `<a class="v10-fair" href="/open-house" data-fair-id="${escapeHtml(fairId)}">` +
+      `<span class="v10-fair-top">` +
+        `<span class="v10-cal"><span class="v10-cal-k">פתוח עד</span><b>${escapeHtml(day)}</b><span>ב${escapeHtml(month)}</span></span>` +
+        `<span class="v10-fair-k"><b>יריד הבתים הפתוחים</b><span>פתוח עכשיו, לזמן מוגבל</span></span>` +
+      `</span>` +
+      `<h2 class="v10-fair-title">דירות ב${escapeHtml(v10Fair.label)} ${OpenHouse.NO_FEE}</h2>` +
+      `<span class="v10-fair-row"><span class="v10-fair-thumbs">${thumbHtml}</span>` +
+        `<span class="v10-fair-cta">לדירות היריד <span aria-hidden="true">←</span></span></span>` +
+      `<span class="v10-fair-seal" aria-hidden="true"><img src="/assets/logo-shuknadlan.svg" alt=""><span>יריד דירות</span></span>` +
+    `</a>`;
+  host.hidden = false;
+}
+document.getElementById('openHouseBanner')?.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a.v10-fair');
+  if (a && v10On() && window.shukTrack) window.shukTrack('fair_banner_click', { fair_id: a.dataset.fairId });
+});
+// תמונה שנכשלה (רק עם הדגל): הרקע הכחול עם סיכת הלוגו, אף פעם לא מסגרת ריקה
+function v10ImgFail(img, cls){
+  if (!v10On() || !img || !img.parentNode) return false;
+  img.insertAdjacentHTML('afterend', v10ImgFb(cls ? cls + ' is-inline' : ''));
+  img.remove();
+  return true;
+}
+
+/* ---------- שורת ההתראה בתוצאות (‏#gabAlert, v10) ----------
+   פעם אחת לכל מצב תוצאות, ברשימה בלבד (לא במפה ולא ב-hero): עד 5 תוצאות -
+   מיד אחרי הרשימה הקצרה (או ההודעה הריקה), יותר מ-5 - בסוף הרשימה, אחרי
+   שכל המנות נטענו. הכפתור פותח את אשף החיפוש השמור הקיים. */
+function v10GabAlert(rows, n){
+  if (!v10On() || !rows) return;
+  document.getElementById('gabAlert')?.remove();
+  const box = document.createElement('div');
+  box.className = 'gab-alert';
+  box.id = 'gabAlert';
+  box.setAttribute('role', 'note');
+  box.innerHTML =
+    '<img class="gab-alert-img" src="/assets/gabriela-cutout-400.webp" alt="" width="48" height="48" loading="lazy" decoding="async">' +
+    '<div class="gab-alert-copy">' +
+      `<p class="gab-alert-title">${n <= 5 ? 'לא מצאתם? גבריאלה תעדכן כשייכנס נכס מתאים' : 'עברתם על הכול? גבריאלה תעדכן כשייכנס נכס מתאים'}</p>` +
+      '<p class="gab-alert-sub">נשמור את החיפוש הזה ונשלח הודעה כשיעלה נכס חדש שמתאים לו.</p>' +
+    '</div>' +
+    '<button type="button" class="gab-alert-go">עדכנו אותי</button>';
+  rows.appendChild(box);
+  box.querySelector('.gab-alert-go').addEventListener('click', () => {
+    buyState.source = 'homepage_buyer_wizard';
+    openBuyerPanel(true);
+    document.getElementById('buyerBanner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+/* ---------- כפתור הנגישות (v10) ----------
+   חובה בכל דף (תקנות הנגישות) - לעולם לא נמחק. עם הדגל: בצד ימין (מול
+   גבריאלה), אייקון SVG, וחץ קטן/פריט בתפריט שמקפלים אותו ללשונית צרה בקצה
+   המסך (נשמר לסשן, ‏sk_a11y_min). ליד הפוטר הוא מתקפל מעצמו, ואז לחיצה על
+   הלשונית פותחת את התפריט; בקיפול ידני - לחיצה מחזירה את הכפתור. */
+(function initV10A11y(){
+  if (!v10On() || !a11yFab || !a11yPanel) return;
+  const h = document.documentElement;
+  a11yFab.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="4.2" r="2.2"/><path d="M10.2 7.6h3.4l-.4 4.6h4.3l2.6 5.6-1.9.9-2-4.4h-5.1a1.6 1.6 0 0 1-1.6-1.8z"/><path d="M8.1 10.3l.3 2.1a4.6 4.6 0 1 0 6.1 5.3l1.8.9a6.6 6.6 0 1 1-8.2-8.3z"/></svg>';
+  a11yFab.setAttribute('aria-label', 'תפריט נגישות');
+  const hide = document.createElement('button');
+  hide.type = 'button';
+  hide.className = 'a11y-hide';
+  hide.setAttribute('aria-label', 'הסתרת כפתור הנגישות');
+  hide.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+  a11yFab.after(hide);
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'a11y-hide-opt';
+  item.textContent = 'הסתרת הכפתור';
+  a11yPanel.appendChild(item);
+
+  let manual = false, nearFooter = false;
+  try { manual = sessionStorage.getItem('sk_a11y_min') === '1'; } catch(e){}
+  const sync = () => h.classList.toggle('a11y-min', manual || nearFooter);
+  const minimize = () => {
+    manual = true;
+    try { sessionStorage.setItem('sk_a11y_min', '1'); } catch(e){}
+    setA11yPanel(false);
+    sync();
+    a11yFab.focus();
+  };
+  hide.addEventListener('click', e => { e.stopPropagation(); minimize(); });
+  item.addEventListener('click', e => { e.stopPropagation(); minimize(); });
+  // בקיפול ידני הלחיצה על הלשונית מחזירה את הכפתור (לפני המאזין שפותח את התפריט)
+  a11yFab.addEventListener('click', e => {
+    if (!manual) return;
+    e.stopImmediatePropagation();
+    manual = false;
+    try { sessionStorage.removeItem('sk_a11y_min'); } catch(err){}
+    sync();
+  }, true);
+  const foot = document.querySelector('footer.site') || [...document.querySelectorAll('footer')].pop();
+  if (foot && 'IntersectionObserver' in window){
+    new IntersectionObserver(en => { nearFooter = en[0].isIntersecting; sync(); }, { threshold: 0 }).observe(foot);
+  }
+  sync();
+})();
+
+/* ---------- פוטר ה-SEO (v10): 8 ראשונים בכל רשימה, והשאר נשארים <a href> אמיתיים ב-DOM ---------- */
+(function initV10FooterSeo(){
+  if (!v10On()) return;
+  document.querySelectorAll('.footer-seo-links').forEach(list => {
+    const n = list.querySelectorAll(':scope > a').length - 8;
+    if (n <= 0) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'footer-seo-more';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = `הצג עוד (${n}) ▾`;
+    btn.addEventListener('click', () => {
+      const open = list.classList.toggle('is-all');
+      btn.setAttribute('aria-expanded', String(open));
+      btn.textContent = open ? 'הצג פחות ▴' : `הצג עוד (${n}) ▾`;
+    });
+    list.after(btn);
+  });
+})();
+
+/* תמונת רקע (‏style="background-image") אינה יורה onerror, ולכן עם הדגל
+   בודקים כל כתובת פעם אחת: כשהיא נכשלת האריח מקבל ‎.img-fb-bg‎ - הכחול עם
+   סיכת הלוגו במקום מסגרת ריקה. רק בתיבת הנכסים ובשורות התוצאות. */
+(function initV10BgFallback(){
+  if (!v10On() || !('MutationObserver' in window)) return;
+  const seen = new Map();   // כתובת → true (נטענה) / false (נכשלה) / [אלמנטים ממתינים]
+  const URL_RE = /background-image:\s*url\(['"]?([^'")]+)/;
+  function check(el){
+    const m = URL_RE.exec(el.getAttribute('style') || '');
+    if (!m) return;
+    const url = m[1], st = seen.get(url);
+    if (st === false){ el.classList.add('img-fb-bg'); return; }
+    if (st === true) return;
+    if (Array.isArray(st)){ st.push(el); return; }
+    seen.set(url, [el]);
+    const im = new Image();
+    im.onload = () => seen.set(url, true);
+    im.onerror = () => { const list = seen.get(url); seen.set(url, false); (list || []).forEach(x => x.classList.add('img-fb-bg')); };
+    im.src = url;
+  }
+  const scan = root => root.querySelectorAll && root.querySelectorAll('.thumb[style], .pr-thumb[style], .sr-thumb[style]').forEach(check);
+  ['allProps', 'searchResultsRows'].forEach(id => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    scan(host);
+    new MutationObserver(() => scan(host)).observe(host, { childList: true, subtree: true });
+  });
+})();
+
+/* בורר האזור (v10, ‏assets/city-menu.js): כמה נכסים פעילים בכל יישוב, בכל
+   השווקים - עמודת העיר בלבד, פעם אחת, רק כשהתפריט נפתח. */
+let v10CityCountsP = null;
+window.v10MarketCityCounts = function(){
+  if (!v10On() || !sb) return Promise.reject(new Error('off'));
+  if (!v10CityCountsP){
+    v10CityCountsP = sb.from('properties').select('city').eq('status', 'active').limit(5000).then(({ data, error }) => {
+      if (error) throw error;
+      const m = new Map();
+      (data || []).forEach(r => { if (r.city) m.set(r.city, (m.get(r.city) || 0) + 1); });
+      return m;
+    });
+    v10CityCountsP.catch(() => { v10CityCountsP = null; });
+  }
+  return v10CityCountsP;
+};

@@ -59,9 +59,90 @@
     return n;
   }
 
+  var V10 = document.documentElement.classList.contains('beta-hero');
   var current = C.market();
   var live = M.list.filter(function (m) { return m.live; });
   var soon = M.list.filter(function (m) { return !m.live; });
+
+  /* ---------- v10 (רק עם html.beta-hero) ----------
+     "לפי המיקום שלי", אחריו השווקים החיים באזור הנוכחי עם מספר הנכסים, ושורה
+     מתקפלת "אזור אחר" עם צפון / מרכז / דרום - רק שווקים חיים שיש בהם נכסים
+     פעילים, בלי "בקרוב" ובלי אזורים ריקים (כמו מסנן האזור ב-/swipe). המונים נספרים פעם אחת, בפתיחה הראשונה
+     (‏window.v10MarketCityCounts ב-home.js: עמודת העיר בלבד). הקיבוץ לפי קו
+     הרוחב של מרכז השוק - markets.js אינו נוגע. */
+  function v10Group(m) {
+    var lat = m.center ? m.center[0] : 32;
+    return lat >= 32.4 ? 'north' : lat >= 31.6 ? 'center' : 'south';
+  }
+  var V10_GROUPS = [['north', 'צפון'], ['center', 'מרכז'], ['south', 'דרום']];
+  function v10Track(m, group, via) {
+    if (window.shukTrack) window.shukTrack('region_select', { region: m.slug, group: group, via: via });
+  }
+  function v10Row(m, n, group) {
+    var a = el('a', null, m.label);
+    a.href = m.path;
+    a.setAttribute('role', 'menuitem');
+    if (current && current.slug === m.slug) a.setAttribute('aria-current', 'true');
+    if (n) { var b = el('span', 'mkt-n', String(n)); a.appendChild(b); }
+    a.addEventListener('click', function () { v10Track(m, group, 'header'); C.choose(m, 'choice'); });
+    return a;
+  }
+  function v10Fill(list) {
+    list.textContent = '';
+    var get = window.v10MarketCityCounts;
+    var draw = function (byCity) {
+      list.textContent = '';
+      var count = function (m) {
+        if (!byCity) return 0;
+        return (m.places || [m.city]).reduce(function (s, c) { return s + (byCity.get(c) || 0); }, 0);
+      };
+      /* רק שווקים חיים (שוק שאינו חי הוא דף "נפתחים בקרוב", והמפרט אוסר עליו):
+         למעלה - אלה שבאזור של השוק הנוכחי; "אזור אחר" - שאר החיים שיש בהם נכסים */
+      var home = current ? v10Group(current) : 'north';
+      live.filter(function (m) { return v10Group(m) === home; })
+        .forEach(function (m) { list.appendChild(v10Row(m, count(m), 'live')); });
+      var others = byCity ? live.filter(function (m) { return v10Group(m) !== home && count(m) > 0; }) : [];
+      if (!others.length) return;
+      var more = el('button', 'mkt-other');
+      more.type = 'button';
+      more.setAttribute('aria-expanded', 'false');
+      more.appendChild(el('span', null, 'אזור אחר'));
+      more.appendChild(el('span', null, '▾'));
+      var box = el('div');
+      box.hidden = true;
+      var tabs = el('div', 'mkt-tabs');
+      tabs.setAttribute('role', 'tablist');
+      var rows = el('div');
+      var groups = V10_GROUPS.filter(function (g) { return others.some(function (m) { return v10Group(m) === g[0]; }); });
+      var show = function (key) {
+        Array.prototype.forEach.call(tabs.children, function (t) { t.setAttribute('aria-selected', String(t.dataset.g === key)); });
+        rows.textContent = '';
+        others.filter(function (m) { return v10Group(m) === key; })
+          .forEach(function (m) { rows.appendChild(v10Row(m, count(m), key)); });
+      };
+      groups.forEach(function (g) {
+        var t = el('button', null, g[1]);
+        t.type = 'button';
+        t.dataset.g = g[0];
+        t.setAttribute('role', 'tab');
+        t.addEventListener('click', function (e) { e.stopPropagation(); show(g[0]); });
+        tabs.appendChild(t);
+      });
+      box.appendChild(tabs);
+      box.appendChild(rows);
+      more.addEventListener('click', function (e) {
+        e.stopPropagation();
+        box.hidden = !box.hidden;
+        more.setAttribute('aria-expanded', String(!box.hidden));
+        more.lastChild.textContent = box.hidden ? '▾' : '▴';
+        if (!box.hidden && groups.length) show(groups[0][0]);
+      });
+      list.appendChild(more);
+      list.appendChild(box);
+    };
+    draw(null);
+    if (typeof get === 'function') get().then(draw, function () { /* בלי מונים */ });
+  }
 
   function buildMenu(id) {
     var menu = el('div', 'mkt-menu');
@@ -73,7 +154,7 @@
 
     /* מיקום רק אחרי לחיצה. בלי Geolocation אין כפתור, והרשימה נשארת. */
     if (window.navigator && 'geolocation' in window.navigator) {
-      var loc = el('button', 'mkt-locate', 'אתרו את האזור שלי');
+      var loc = el('button', 'mkt-locate', V10 ? 'לפי המיקום שלי' : 'אתרו את האזור שלי');
       loc.type = 'button';
       loc.setAttribute('role', 'menuitem');
       var locMsg = el('p', 'mkt-locate-msg', '');
@@ -93,6 +174,7 @@
               loc.disabled = false;
               return;
             }
+            if (V10) v10Track(m, m.live ? 'live' : v10Group(m), 'my_location');
             C.choose(m, 'gps');
             /* פס "נפתחים בקרוב" נקרא בטעינה. אם ה-GPS מצא את האזור
                שכבר על המסך, אין ניווט והפס הישן נשאר עד שמסתירים אותו. */
@@ -123,6 +205,11 @@
     }
 
     var list = el('div', 'mkt-menu-list');
+    if (V10) {
+      menu.appendChild(list);
+      menu._v10Fill = function () { v10Fill(list); };
+      return menu;
+    }
     live.forEach(function (m) {
       var a = el('a', null, m.label);
       a.href = m.path;
@@ -180,6 +267,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (!menu.hidden) { close(false); return; }
+      if (menu._v10Fill && !menu._v10Filled) { menu._v10Filled = true; menu._v10Fill(); }
       place(menu, btn);
       btn.setAttribute('aria-expanded', 'true');
       var first = menu.querySelector('a');
@@ -195,7 +283,10 @@
   }
 
   function init() {
-    var buttons = document.querySelectorAll('[data-market-menu]');
+    /* ‏.v10-only (הכפתור בהדר) קיים רק עם הדגל - בלעדיו הוא אינו חלק מהבורר */
+    var buttons = Array.prototype.filter.call(document.querySelectorAll('[data-market-menu]'), function (b) {
+      return V10 || !b.classList.contains('v10-only');
+    });
     if (!buttons.length) return;
     if (M.list.length < 2) {
       for (var h = 0; h < buttons.length; h++) buttons[h].hidden = true;

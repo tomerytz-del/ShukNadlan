@@ -3477,6 +3477,256 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hm-cluster.is-wide{width:46px;height:46px}
   html.beta-hero .hm-cluster:focus-visible{outline:2px solid var(--v10-gold);outline-offset:3px}
   @media(min-width:760px){html.beta-hero .hood-map{height:360px} html.beta-hero .hood-map-sub{font-size:15px}}
+
+  /* ---------- באנר ההדמיות (‏#aiPromo) ---------- */
+  html.beta-hero .ai-promo-sec{padding-block:24px 0}
+  html.beta-hero body .ai-promo-sec .ai-promo{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:0;padding:18px 16px 16px;
+    border-radius:16px;border:1px solid rgba(201,162,39,.35);background:linear-gradient(135deg,#0e2a6b,#0d1b3d);color:#fff;overflow:hidden}
+  html.beta-hero body .ai-promo-sec .ai-promo[hidden]{display:none}
+  html.beta-hero #aiPromo .ai-promo-copy{display:contents}
+  html.beta-hero #aiPromo .ai-promo-title,html.beta-hero #aiPromo .ai-promo-sub,
+  html.beta-hero #aiPromo .ai-promo-cta > b,html.beta-hero #aiPromo .ai-promo-cta > span:not(.ai-v10-owner){display:none}
+  html.beta-hero .ai-v10-title{display:block;order:1;margin:0;color:#fff;font-size:var(--sec-h);font-weight:800;line-height:1.2;text-wrap:balance}
+  html.beta-hero .ai-v10-star{color:var(--v10-gold-l)}
+  html.beta-hero .ai-v10-line{display:block;order:2;margin:0;color:#dbe3f5;font-size:14.5px;line-height:1.5;text-wrap:pretty}
+  html.beta-hero .ai-v10-line:empty{display:none}
+  html.beta-hero body #aiPromo .ai-promo-thumb{order:3;display:block;aspect-ratio:4/3;min-height:240px;border-radius:14px;touch-action:pan-y;cursor:ew-resize}
+  html.beta-hero body #aiPromo .ai-promo-thumb[hidden]{display:none}
+  html.beta-hero #aiPromo .ai-promo-after{animation:none;clip-path:inset(0 calc(100% - var(--ai-pos,50%)) 0 0)}
+  html.beta-hero #aiPromo .ai-promo-handle{animation:none;inset-inline:auto;left:var(--ai-pos,50%);width:3px;margin-left:-1px;background:#fff}
+  html.beta-hero #aiPromo .ai-promo-handle::after{content:"‹ ›";inset-inline-start:auto;left:-19px;width:40px;height:40px;margin-top:-20px;
+    border:0;box-shadow:0 2px 8px rgba(0,0,0,.25);font-size:15px;font-weight:800;color:#0d1b3d;direction:ltr}
+  html.beta-hero #aiPromo .ai-v10-tag{position:absolute;top:10px;z-index:2;padding:3px 10px;border-radius:999px;background:rgba(13,27,61,.72);
+    color:#fff;font-size:12.5px;font-weight:700}
+  html.beta-hero #aiPromo .ai-v10-tag.is-before{right:10px}
+  html.beta-hero #aiPromo .ai-v10-tag.is-after{left:10px}
+  html.beta-hero .ai-v10-cap{display:block;order:4;margin:-4px 0 0;color:rgba(255,255,255,.72);font-size:12.5px}
+  html.beta-hero .ai-v10-cap:empty{display:none}
+  html.beta-hero body #aiPromo .ai-promo-go{order:5;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:0;
+    border-radius:12px;background:var(--v10-gold);color:var(--v10-deep);font-size:15.5px;font-weight:800;box-shadow:0 6px 16px rgba(201,162,39,.3)}
+  html.beta-hero body #aiPromo .ai-promo-go-long{display:inline}
+  html.beta-hero body #aiPromo .ai-promo-go-short{display:none}
+  html.beta-hero body #aiPromo .ai-promo-cta{order:6;display:block;width:100%;margin:2px 0 0;padding:12px 2px 0;border:0;
+    border-top:1px solid rgba(255,255,255,.16);border-radius:0;background:none;box-shadow:none;text-align:center}
+  html.beta-hero .ai-v10-owner{display:inline;color:#e6ebf7;font-size:14px;line-height:1.5;white-space:normal;text-wrap:balance}
+  html.beta-hero .ai-v10-owner b{color:var(--v10-gold-l);font-weight:800}
+  @media(min-width:760px){
+    html.beta-hero body .ai-promo-sec .ai-promo{grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      grid-template-areas:". thumb" "title thumb" "line thumb" "go thumb" ". thumb" ". cap" "cta cta";
+      grid-template-rows:1fr auto auto auto 1fr auto auto;gap:10px 28px;padding:24px 28px}
+    html.beta-hero .ai-v10-title{grid-area:title;align-self:end}
+    html.beta-hero .ai-v10-line{grid-area:line;font-size:16px}
+    html.beta-hero body #aiPromo .ai-promo-thumb{grid-area:thumb;aspect-ratio:auto;min-height:320px}
+    html.beta-hero .ai-v10-cap{grid-area:cap;margin:0}
+    html.beta-hero body #aiPromo .ai-promo-go{grid-area:go;width:auto;justify-self:start;align-self:start;padding:0 26px}
+    html.beta-hero body #aiPromo .ai-promo-cta{grid-area:cta;text-align:center;padding-top:14px}
+    html.beta-hero body #aiPromo .ai-promo-go{margin-top:6px}
+  }
+
+  /* ---------- חיפוש מהיר (‏#quickSearchSec) - אותו סגנון צ'יפ בכל הדף ---------- */
+  html.beta-hero .quick-sec{display:block}
+  html.beta-hero .quick-sec[hidden]{display:none}
+  html.beta-hero .quick-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  html.beta-hero .quick-sec h2{margin:0;font-size:var(--sec-h);font-weight:800;line-height:1.2;color:#0d1b3d}
+  html.beta-hero .quick-sub{margin:4px 0 0;color:var(--v10-body);font-size:14px}
+  html.beta-hero .quick-near{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1.5px solid var(--v10-navy);
+    border-radius:12px;background:#fff;color:var(--v10-navy);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+  html.beta-hero .quick-near svg{width:17px;height:17px}
+  html.beta-hero .quick-group{margin-top:14px}
+  html.beta-hero .quick-g-title{margin:0 0 8px;font-size:var(--sub-h);font-weight:800;line-height:1.3;color:#0d1b3d}
+  html.beta-hero .v10-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;min-width:0;
+    padding:4px 12px;border:1.5px solid #d5dae6;border-radius:999px;background:#fff;color:#1b1f2a;font-size:12.5px;font-weight:600;
+    line-height:1.2;text-decoration:none;white-space:nowrap}
+  html.beta-hero .v10-chip::before{content:"";position:absolute;inset:-6px 0}
+  html.beta-hero .v10-chip:hover{border-color:var(--v10-navy)}
+  html.beta-hero .v10-chip:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
+  html.beta-hero .v10-chip[aria-pressed="true"]{border-color:var(--v10-navy);background:rgba(14,42,107,.08);color:var(--v10-navy);font-weight:800}
+  html.beta-hero .v10-chip svg{width:12px;height:12px;flex:none;color:var(--v10-navy)}
+  html.beta-hero .v10-chip .v10-chip-l{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  html.beta-hero .v10-chip .v10-chip-n{flex:none;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(14,42,107,.08);
+    color:var(--v10-navy);font-size:11px;font-weight:800;line-height:17px;direction:ltr}
+  html.beta-hero .quick-hoods-wrap{position:relative}
+  html.beta-hero .quick-hoods{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 0;scrollbar-width:none}
+  html.beta-hero .quick-hoods::-webkit-scrollbar{display:none}
+  html.beta-hero .quick-hoods .v10-chip{scroll-snap-align:start;flex:none}
+  html.beta-hero .quick-hoods-wrap::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40px;pointer-events:none;
+    background:linear-gradient(to right,var(--bg-subtle,#f6f7fb),rgba(246,247,251,0))}
+  html.beta-hero .quick-more{margin-top:4px;min-height:36px;padding:0;border:0;background:none;color:var(--v10-navy);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:underline}
+  html.beta-hero .quick-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  html.beta-hero .quick-types2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}
+  html.beta-hero .quick-types .v10-chip,html.beta-hero .quick-types2 .v10-chip{min-height:38px;padding:0 3px;font-size:clamp(11px,3.2vw,12px)}
+  html.beta-hero .quick-areas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  html.beta-hero .quick-areas .v10-chip{min-height:38px}
+  html.beta-hero .v10-d-l{display:none}
+  @media(min-width:760px){
+    html.beta-hero .quick-hoods{flex-wrap:wrap;overflow:visible}
+    html.beta-hero .quick-hoods.is-collapsed .v10-chip:nth-child(n+11){display:none}
+    html.beta-hero .quick-hoods-wrap::after{display:none}
+    html.beta-hero .quick-types,html.beta-hero .quick-types2,html.beta-hero .quick-areas{display:flex;flex-wrap:wrap;gap:8px}
+    html.beta-hero .quick-types2{margin-top:8px}
+    html.beta-hero .quick-types .v10-chip,html.beta-hero .quick-types2 .v10-chip,html.beta-hero .quick-areas .v10-chip{min-height:36px;padding:4px 12px;font-size:13px}
+    html.beta-hero .v10-d-l{display:inline} html.beta-hero .v10-m-l{display:none}
+  }
+  @media(max-width:759px){html.beta-hero .quick-more{display:none}}
+
+  /* ---------- תמונה חלופית: כחול עם סיכת הלוגו, בלי טקסט (6.16) ---------- */
+  html.beta-hero .img-fb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 100% 0%,rgba(201,162,39,.16),transparent 55%),linear-gradient(160deg,#1d3a7e,#0d1b3d)}
+  html.beta-hero .img-fb img{width:18%;min-width:22px;max-width:64px;height:auto;opacity:.9;filter:drop-shadow(0 4px 10px rgba(0,0,0,.3))}
+
+  html.beta-hero .img-fb.is-inline{position:relative;inset:auto}
+  /* אריח נכס בלי תמונה: הכחול עם הסיכה במקום הלוגו והכיתוב, ותמונה שלא נטענה נשארת על כחול ולא על ריק */
+  html.beta-hero body .prop-card .thumb,html.beta-hero body .sr-thumb,html.beta-hero body .pr-thumb{background-color:#13275e}
+  html.beta-hero body .prop-card .thumb.no-photo,html.beta-hero body .sr-thumb:has(> .thumb-fallback),html.beta-hero body .pr-thumb:has(> .thumb-fallback),
+  html.beta-hero body .img-fb-bg[style]{
+    background:url("/assets/logo-shuknadlan.svg") center/clamp(22px,18%,64px) auto no-repeat,
+      radial-gradient(120% 90% at 100% 0%,rgba(201,162,39,.16),transparent 55%),linear-gradient(160deg,#1d3a7e,#0d1b3d) !important}
+  html.beta-hero body .thumb-fallback{display:none !important}
+  /* כפתורי הפרופיל בכרטיסי המשרדים היו #0d1b3d (‏--ink) - אין כפתור מלא כהה כזה */
+  html.beta-hero body #dealmakers .dm-go{background:var(--v10-navy);border-color:var(--v10-navy)}
+  /* משרד בלי לוגו (או שהלוגו נכשל): ראשי תיבות לבנים בעיגול כחול עם טבעת זהב */
+  html.beta-hero body .dm-face:not(:has(img)){border-radius:50%;border:2.5px solid var(--v10-gold);background:linear-gradient(160deg,#1d3a7e,#0d1b3d)}
+  html.beta-hero body .dm-face:not(:has(img)) .dm-initial{color:#fff}
+  html.beta-hero body .tf-logo.tf-initial{border-radius:50%;background:linear-gradient(160deg,#1d3a7e,#0d1b3d);color:#fff;box-shadow:0 0 0 1.5px var(--v10-gold)}
+
+  /* ---------- באנר היריד (‏#openHouseBanner) ---------- */
+  html.beta-hero .v10-fair{position:relative;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;
+    border:1px solid rgba(201,162,39,.35);background:linear-gradient(135deg,#0e2a6b,#0d1b3d);color:#fff;text-decoration:none;
+    box-shadow:0 10px 26px rgba(13,27,61,.18)}
+  html.beta-hero .v10-fair:focus-visible{outline:3px solid var(--v10-gold);outline-offset:3px}
+  html.beta-hero .v10-fair-top{display:flex;align-items:center;gap:12px;padding-left:92px}
+  html.beta-hero .v10-cal{flex:none;display:flex;flex-direction:column;align-items:center;width:66px;overflow:hidden;border-radius:12px;background:#fff;color:#0d1b3d;line-height:1.1}
+  html.beta-hero .v10-cal-k{align-self:stretch;padding:3px 0;background:var(--v10-gold);color:#0d1b3d;font-size:11.5px;font-weight:800;text-align:center}
+  html.beta-hero .v10-cal b{font-size:26px;font-weight:900;padding-top:2px}
+  html.beta-hero .v10-cal span:last-child{font-size:11.5px;font-weight:700;padding-bottom:5px}
+  html.beta-hero .v10-fair-k{display:flex;flex-direction:column;gap:3px;font-size:13px;color:#dbe3f5}
+  html.beta-hero .v10-fair-k b{color:var(--v10-gold-l);font-size:14px}
+  html.beta-hero .v10-fair-title{margin:0;color:#fff;font-size:var(--sec-h);font-weight:800;line-height:1.2;text-wrap:balance}
+  html.beta-hero .v10-fair-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  html.beta-hero .v10-fair-thumbs{display:flex;flex:none}
+  html.beta-hero .v10-fair-th{position:relative;display:block;width:62px;height:56px;margin-inline-start:-12px;overflow:hidden;
+    border-radius:10px;border:2px solid var(--v10-gold-l);background:#1d3a7e;transform:rotate(-4deg)}
+  html.beta-hero .v10-fair-th:first-child{margin-inline-start:0;transform:rotate(3deg)}
+  html.beta-hero .v10-fair-th > img{width:100%;height:100%;object-fit:cover;display:block}
+  html.beta-hero .v10-fair-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:0 18px;border-radius:12px;
+    background:var(--v10-gold);color:#0d1b3d;font-size:15px;font-weight:800;white-space:nowrap;box-shadow:0 6px 16px rgba(201,162,39,.3)}
+  html.beta-hero .v10-fair-seal{position:absolute;top:10px;left:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    width:78px;height:78px;border-radius:50%;background:#fff;border:3px dashed var(--v10-gold);color:#0d1b3d;font-size:11px;font-weight:800;gap:1px;
+    box-shadow:0 0 0 3px #fff}
+  html.beta-hero .v10-fair-seal img{width:24px;height:auto}
+  @media(min-width:760px){
+    html.beta-hero .v10-fair{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"top top top" "title title title" "row row row";
+      padding:22px 26px;padding-left:150px;border-radius:22px}
+    html.beta-hero .v10-fair-top{grid-area:top;padding-left:0}
+    html.beta-hero .v10-fair-title{grid-area:title}
+    html.beta-hero .v10-fair-row{grid-area:row;justify-content:flex-start;gap:24px}
+    html.beta-hero .v10-fair-th{width:96px;height:80px}
+    html.beta-hero .v10-fair-seal{top:50%;left:26px;width:96px;height:96px;margin-top:-48px;font-size:12.5px}
+    html.beta-hero .v10-fair-seal img{width:30px}
+  }
+
+  /* ---------- שורת ההתראה בתוצאות (‏#gabAlert) ---------- */
+  html.beta-hero #searchResults .ssa-empty,html.beta-hero #ssaOpenBtn{display:none !important}
+  html.beta-hero .gab-alert{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:14px;border-radius:16px;
+    border:1px solid rgba(14,42,107,.14);background:#f6f1e7 url("/assets/chat-doodle-120.svg") 0 0/120px 120px}
+  html.beta-hero .gab-alert-img{flex:none;width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:top;
+    background:#f6f1e7;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--v10-gold)}
+  html.beta-hero .gab-alert-copy{flex:1;min-width:0}
+  html.beta-hero .gab-alert-title{margin:0;color:var(--v10-navy);font-size:var(--sub-h);font-weight:800;line-height:1.3;text-wrap:balance}
+  html.beta-hero .gab-alert-sub{margin:3px 0 0;color:var(--v10-body);font-size:13px;line-height:1.45}
+  html.beta-hero .gab-alert-go{flex:none;min-height:40px;padding:0 16px;border:1.5px solid var(--v10-navy);border-radius:12px;background:#fff;
+    color:var(--v10-navy);font:inherit;font-size:14px;font-weight:700;cursor:pointer;position:relative}
+  html.beta-hero .gab-alert-go::before{content:"";position:absolute;inset:-3px 0}
+  @media(max-width:479px){html.beta-hero .gab-alert{flex-wrap:wrap} html.beta-hero .gab-alert-go{width:100%}}
+
+  /* ---------- כפתור הנגישות (v10): ימין, SVG, הסתרה ללשונית ---------- */
+  html.beta-hero{--a11y-fab-size:40px}
+  @media(max-width:1023px){html.beta-hero{--a11y-fab-size:44px}}
+  html.beta-hero body .a11y-fab{left:auto;right:var(--a11y-fab-gap);background:var(--v10-navy);color:#fff;padding:0;border:0;cursor:pointer}
+  html.beta-hero body .a11y-fab svg{width:22px;height:22px}
+  html.beta-hero body .a11y-fab:focus-visible{outline:3px solid var(--v10-gold);outline-offset:3px}
+  html.beta-hero body .a11y-panel{left:auto;right:var(--a11y-fab-gap)}
+  html.beta-hero .a11y-hide{position:fixed;z-index:151;right:calc(var(--a11y-fab-gap) + var(--a11y-fab-size) - 12px);
+    bottom:calc(var(--a11y-fab-gap) + var(--a11y-fab-size) - 10px + env(safe-area-inset-bottom,0px));
+    display:flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:1px solid #e3e8f2;border-radius:50%;
+    background:#fff;color:var(--v10-navy);box-shadow:0 2px 6px rgba(13,27,61,.2);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s}
+  html.beta-hero .a11y-hide svg{width:11px;height:11px}
+  html.beta-hero .a11y-hide::before{content:"";position:absolute;inset:-8px}
+  html.beta-hero .a11y-fab:hover + .a11y-hide,html.beta-hero .a11y-fab:focus-visible + .a11y-hide,
+  html.beta-hero .a11y-hide:hover,html.beta-hero .a11y-hide:focus-visible{opacity:1;pointer-events:auto}
+  html.beta-hero .a11y-hide:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
+  html.beta-hero body.ss-dock-on .a11y-hide{bottom:calc(var(--ss-dock-h,100px) + var(--a11y-fab-size) - 2px)}
+  html.beta-hero .a11y-hide-opt{width:100%;margin-top:6px;min-height:40px;border:1px solid var(--line);border-radius:10px;background:#fff;
+    color:var(--v10-navy);font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+  html.beta-hero.a11y-min body .a11y-fab{right:0;width:18px;height:44px;border-radius:10px 0 0 10px;box-shadow:-2px 2px 8px rgba(13,27,61,.25)}
+  html.beta-hero.a11y-min body .a11y-fab svg{width:14px;height:14px}
+  html.beta-hero.a11y-min .a11y-hide{display:none}
+  html.beta-hero .footer-legal{padding-left:60px}
+  @media(prefers-reduced-motion:reduce){html.beta-hero .a11y-hide{transition:none}}
+
+  /* ---------- פוטר ה-SEO: רשימות קישורים במקום גלולות (‏6.15; site-footer.css משותף ולא נוגעים בו) ---------- */
+  html.beta-hero .footer-seo-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;row-gap:0}
+  @media (min-width:760px){html.beta-hero .footer-seo-links{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  html.beta-hero body .footer-seo-links a{padding:5px 0;border:0;border-radius:0;background:none;color:rgba(255,255,255,.86);
+    font-size:13.5px;line-height:1.45;text-decoration:none;overflow-wrap:anywhere}
+  html.beta-hero body .footer-seo-links a:hover,html.beta-hero body .footer-seo-links a:focus-visible{background:none;color:#fff;text-decoration:underline}
+  html.beta-hero .footer-seo-links:not(.is-all) > a:nth-of-type(n+9){display:none}
+  html.beta-hero .footer-seo-more{margin-top:4px;min-height:36px;padding:0;border:0;background:none;color:var(--v10-gold-l);
+    font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
+  html.beta-hero .footer-seo-more:focus-visible{outline:2px solid var(--v10-gold);outline-offset:3px}
+
+  /* ---------- כותרות (‏6.17): כל h2 של סקשן בטוקן --sec-h ---------- */
+  html.beta-hero body main h2:not(.visually-hidden):not(.sr-only){font-size:var(--sec-h) !important;font-weight:800;line-height:1.2 !important;text-wrap:balance}
+  /* לשוניות משרדים / מתווכים: סגנון הצ'יפ האחיד - בלי מילוי כהה */
+  html.beta-hero body #dealmakers .dm-tabs [role="tab"]{border:1.5px solid #d5dae6;background:#fff;color:#1b1f2a;font-weight:600}
+  html.beta-hero body #dealmakers .dm-tabs [role="tab"][aria-selected="true"]{border-color:var(--v10-navy);background:rgba(14,42,107,.08);color:var(--v10-navy);font-weight:800}
+
+  /* ---------- בורר האזור בהדר (‏6.4) ---------- */
+  html.beta-hero body .hdr-mkt{display:inline-flex;align-items:center;gap:5px;flex:0 1 auto;min-width:0;max-width:200px;min-height:38px;
+    margin-inline-start:8px;padding:0 12px;border:1.5px solid var(--v10-navy);border-radius:999px;background:#fff;color:var(--v10-navy);
+    font:inherit;font-size:14px;font-weight:700;cursor:pointer;position:relative}
+  html.beta-hero body .hdr-mkt[hidden]{display:none}
+  html.beta-hero body .hdr-mkt::before{content:"";position:absolute;inset:-4px 0}
+  html.beta-hero .hdr-mkt svg{width:15px;height:15px;flex:none}
+  html.beta-hero .hdr-mkt-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  html.beta-hero .hdr-mkt-c{flex:none;font-size:11px}
+  html.beta-hero body .logo-word [data-market-label]{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:759px){html.beta-hero body .hdr-mkt{max-width:118px;padding:0 9px;font-size:13px;min-height:36px}}
+  @media(max-width:380px){html.beta-hero body .hdr-mkt{max-width:96px;margin-inline-start:4px}}
+  html.beta-hero .gabv8-band .mkt-menu-btn{display:none}
+  /* התפריט עם הדגל: שווקים עם מספר נכסים, "אזור אחר" עם צפון / מרכז / דרום */
+  html.beta-hero .mkt-menu .mkt-n{min-width:34px;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid rgba(14,42,107,.18);
+    color:var(--v10-navy);font-size:13px;font-weight:800;text-align:center;direction:ltr}
+  html.beta-hero .mkt-other{display:flex;width:100%;align-items:center;justify-content:space-between;margin-top:4px;padding:10px 12px;
+    border:1.5px dashed #d5dae6;border-radius:10px;background:none;color:#0d1b3d;font:inherit;font-weight:700;cursor:pointer}
+  html.beta-hero .mkt-tabs{display:flex;gap:6px;margin:8px 4px 4px}
+  html.beta-hero .mkt-tabs button{flex:1;min-height:36px;border:1.5px solid #d5dae6;border-radius:999px;background:#fff;color:#1b1f2a;
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  html.beta-hero .mkt-tabs button[aria-selected="true"]{border-color:var(--v10-navy);background:rgba(14,42,107,.08);color:var(--v10-navy);font-weight:800}
+  html.beta-hero .mkt-empty{margin:6px 10px;color:var(--v10-body);font-size:13px}
+
+  /* ---------- המונים (‏#dmStats) ---------- */
+  html.beta-hero .v10-d{display:none}
+  @media(min-width:760px){html.beta-hero .v10-m{display:none} html.beta-hero .v10-d{display:inline}}
+  html.beta-hero .dm-stats-wrap{display:block;margin:14px 0 4px}
+  html.beta-hero .dm-stats-wrap[hidden]{display:none}
+  html.beta-hero .dm-stats{display:flex;justify-content:center;gap:6px}
+  html.beta-hero .dm-stat{flex:1 1 0;min-width:0;max-width:25%;display:flex;flex-direction:column;align-items:center;text-align:center;
+    padding:9px 4px 8px;border-radius:12px;border-top:3px solid var(--v10-gold);
+    background:linear-gradient(160deg,#0e2a6b,#0d1b3d);color:#fff;box-shadow:0 4px 12px rgba(13,27,61,.07)}
+  html.beta-hero .dm-stat[hidden]{display:none}
+  html.beta-hero .dm-stat-n{color:var(--v10-gold-l);font-size:19px;font-weight:900;line-height:1.15;direction:ltr}
+  html.beta-hero .dm-stat-l{margin-top:2px;font-size:11.5px;font-weight:700;line-height:1.25}
+  html.beta-hero .dm-stat-c{font-size:10.5px;line-height:1.25;color:rgba(255,255,255,.78)}
+  html.beta-hero .dm-stats-note{margin:8px 0 0;text-align:center;color:var(--v10-body);font-size:12.5px}
+  @media(min-width:760px){
+    html.beta-hero .dm-stats{gap:12px}
+    html.beta-hero .dm-stat{padding:16px 10px 14px;border-radius:16px}
+    html.beta-hero .dm-stat-n{font-size:30px}
+    html.beta-hero .dm-stat-l{font-size:15px}
+    html.beta-hero .dm-stat-c{font-size:13px}
+    html.beta-hero .dm-stats-note{font-size:13.5px}
+  }
   @media(prefers-reduced-motion:reduce){html.beta-hero .hm-pin-name{transition:none}}
 </style>
 <script src="assets/page-bg.js" data-auto></script>
@@ -3532,6 +3782,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
+    <button type="button" class="hdr-mkt v10-only" data-market-menu aria-label="בחירת אזור"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="hdr-mkt-l" data-market-label>עפולה והעמק</span><span class="hdr-mkt-c" aria-hidden="true">▾</span></button>
     <nav class="primary" aria-label="ניווט ראשי">
       <div class="nav-drop" id="navDropProps">
         <button type="button" class="nav-drop-btn" aria-expanded="false" aria-controls="navDropPropsMenu">
@@ -4359,12 +4610,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap ai-promo-sec" aria-label="הדמיות AI">
   <div class="ai-promo" id="aiPromo" hidden>
     <div class="ai-promo-copy">
+      <h2 class="ai-v10-title v10-only"><span class="ai-v10-star" aria-hidden="true">✦</span> הדמיה לכל נכס</h2>
+      <p class="ai-v10-line v10-only" id="aiV10Line"></p>
       <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים כאן כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
       <p class="ai-promo-sub">ראו איך כל נכס ייראה אחרי שיפוץ - בלחיצה אחת.</p>
       <button type="button" class="ai-promo-go" id="aiPromoGo"></button>
     </div>
     <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
+    <p class="ai-v10-cap v10-only" id="aiV10Cap"></p>
     <button type="button" class="ai-promo-cta" id="aiPromoCta">
+      <span class="ai-v10-owner v10-only"><b>חושבים למכור או להשכיר?</b> השאירו פרטים, וגם הנכס שלכם יכול להתפרסם באתר עם הדמיות AI <span aria-hidden="true">←</span></span>
       <b>חושבים למכור או להשכיר?</b>
       <span class="ai-promo-cta-long">השאירו פרטים לפגישה - כולל הדמיית AI לנכס שלכם</span>
       <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
@@ -4373,6 +4628,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </section>
 
   <section class="section wrap" id="allProps" hidden></section>
+
+  <!-- v10: חיפוש מהיר - רק עם הדגל. הצ'יפים הם קישורים אמיתיים לעמודי התוצאות, והמונים מהנכסים שכבר נטענו -->
+  <section class="section wrap quick-sec v10-only" id="quickSearchSec" aria-labelledby="quickSearchTitle" hidden>
+    <div class="quick-head">
+      <div>
+        <h2 id="quickSearchTitle">חיפוש מהיר</h2>
+        <p class="quick-sub" id="quickSearchSub"></p>
+      </div>
+      <button type="button" class="quick-near" id="quickNearBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7.5"/></svg>נכסים קרובים אליי</button>
+    </div>
+    <div class="quick-group">
+      <h3 class="quick-g-title">שכונות ב<span data-gab-city>עפולה</span></h3>
+      <div class="quick-hoods-wrap"><div class="quick-hoods" id="quickHoods"></div></div>
+      <button type="button" class="quick-more" id="quickHoodsMore" aria-expanded="false" hidden></button>
+    </div>
+    <div class="quick-group">
+      <h3 class="quick-g-title">לפי סוג נכס</h3>
+      <div class="quick-types" id="quickTypes"></div>
+      <div class="quick-types2" id="quickTypes2"></div>
+    </div>
+    <div class="quick-group">
+      <h3 class="quick-g-title">לפי אזור</h3>
+      <div class="quick-areas" id="quickAreas"></div>
+    </div>
+  </section>
 
   <!-- v10: מפת השכונות - רק עם html.beta-hero. ‏home.js בונה את המפה כשהסקשן נכנס למסך -->
   <section class="section wrap hood-map-sec v10-only" id="hoodMapSec" aria-labelledby="hoodMapTitle">
@@ -4483,6 +4763,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן ב<span data-market-label>עפולה והעמק</span>, במקום אחד</p>
         </div>
       </div>
+      <!-- v10 (רק עם הדגל): המונים. אריח בלי נתון אמיתי נשאר מוסתר - אף פעם לא 0 ולא מספר קבוע -->
+      <div class="dm-stats-wrap v10-only" id="dmStatsWrap" hidden>
+        <div class="dm-stats" id="dmStats">
+          <div class="dm-stat" data-stat="deals" hidden><b class="dm-stat-n"></b><span class="dm-stat-l"><span class="v10-m">עסקאות בשנה</span><span class="v10-d">עסקאות נדל״ן באזור</span></span><span class="dm-stat-c"><span class="v10-m">באזור</span><span class="v10-d">ב-12 החודשים האחרונים</span></span></div>
+          <div class="dm-stat" data-stat="agencies" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">משרדי תיווך</span><span class="dm-stat-c">פעילים באזור</span></div>
+          <div class="dm-stat" data-stat="agents" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">יועצי נדל״ן</span><span class="dm-stat-c">פעילים באתר</span></div>
+          <div class="dm-stat" data-stat="props" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">נכסים פעילים</span><span class="dm-stat-c">באתר עכשיו</span></div>
+        </div>
+        <p class="dm-stats-note">מעודכן ממאגר רשות המיסים</p>
+      </div>
 
       <div class="dm-bar">
         <label class="dm-field" for="dmSearch">
@@ -4527,7 +4817,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     (function(){
       if (!document.documentElement.classList.contains('beta-hero')) return;
       var $ = function(s){ return document.querySelector(s); };
-      var order = ['#allProps', '#hoodMapSec', 'main > .ticker', '#dealmakers', 'section.ai-promo-sec', '#openHouseBanner'];
+      var order = ['#allProps', '#hoodMapSec', 'main > .ticker', '#dealmakers', 'section.ai-promo-sec', '#quickSearchSec', '#openHouseBanner'];
       var nodes = order.map($);
       if (nodes.some(function(n){ return !n; })) return;
       for (var i = 1; i < nodes.length; i++) nodes[i - 1].after(nodes[i]);
