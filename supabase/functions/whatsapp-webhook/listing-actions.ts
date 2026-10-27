@@ -237,9 +237,15 @@ export const PUBLISH_EXPIRED = "הבקשה לפרסם פגה. אפשר לבקש 
 export const PUBLISH_MISSING = "הבקשה לפרסם לא נמצאה. אפשר לבקש שוב.";
 export const PUBLISH_BUSY = "הפרסום כבר בטיפול. אם הנכס לא עלה, אפשר לבקש שוב.";
 export const PUBLISH_STORE_MISSING =
-  "אי אפשר לאשר פרסום כרגע. אפשר לנסות שוב אחרי עדכון המערכת.";
+  "אי אפשר לאשר את הפרסום מכאן כרגע. אפשר לפרסם את הנכס מאזור האישי באתר.";
 export const PUBLISH_FAILED = "לא הצלחתי לפרסם את הנכס. אפשר לנסות שוב.";
 export const PUBLISH_ALREADY = "הנכס כבר באוויר.";
+export const PUBLISH_EXCLUSIVE_ELSEWHERE =
+  "הנכס נמצא בבלעדיות של משרד אחר, ולכן אי אפשר לפרסם אותו.";
+export const PUBLISH_DUPLICATE_ELSEWHERE =
+  "הנכס כבר מפורסם במערכת. אפשר לפרסם אותו רק עם הסכם בלעדיות חתום.";
+export const PUBLISH_DUPLICATE_SAME =
+  "הנכס כבר מפורסם במשרד שלכם. אין צורך במודעה שנייה.";
 
 const PUBLISH_RE = /^pubx:(y|n):([0-9a-f]{12})$/i;
 
@@ -266,6 +272,28 @@ export type PublishDecision =
   | { kind: "busy" }
   | { kind: "done"; text: string }
   | { kind: "run"; propertyId: string };
+
+/**
+ * בוואטסאפ יש outbox, ולכן confirm לא מפרסם. בלי כפתורים (מייל) confirm=true
+ * הוא האישור, כי אין לאן לשלוח pubx:.
+ */
+export function publishWritesNow(hasOutbox: boolean, confirm: unknown): boolean {
+  return !hasOutbox && confirm === true;
+}
+
+/** 1 ושורה חסרה: שואלים קודם. 0 הוא החזרה לפרסום מיידי. קריאה שנכשלה שואלת. */
+export function publishAskFirst(value: unknown, readFailed = false): boolean {
+  if (readFailed) return true;
+  if (value == null || value === "") return true;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return true;
+  return n !== 0;
+}
+
+/** טיוטה עד לכפתור. unpublished הוא מה שהאתר, החיפוש וההתראות לא מציגים. */
+export function listingStatusForCreate(askFirst: boolean): "unpublished" | "active" {
+  return askFirst ? "unpublished" : "active";
+}
 
 /** לחיצה שנייה על כפתור שכבר פורסם לא מפרסמת שוב. */
 export function publishClickDecision(
@@ -304,11 +332,27 @@ export function publishStoreBlocked(error: { code?: string; message?: string } |
   return pendingStoreMissing(error);
 }
 
-/** הודעת בלעדיות בעברית עוברת. אנגלית גולמית לא. */
-export function publishErrorText(message: string | null | undefined): string {
+/**
+ * הודעת המסד לא יוצאת לסוכן/ת. בלעדיות ומודעה כפולה של משרד אחר מגיעות עם
+ * שם אדם ושם משרד, וזה לא של הסוכן/ת. כאן נשאר משפט בלי פרטים. null = לא
+ * הודעה מוכרת. את הטקסט הגולמי רושמים בשרת לפני הקריאה.
+ */
+export function redactPublishError(message: string | null | undefined): string | null {
   const msg = String(message || "").replace(/[—–]/g, "-").trim();
-  if (/[א-ת]/.test(msg)) return msg;
-  return PUBLISH_FAILED;
+  if (msg.includes("הנכס נמצא בבלעדיות של")) return PUBLISH_EXCLUSIVE_ELSEWHERE;
+  if (msg.includes("הנכס כבר מפורסם במערכת")) return PUBLISH_DUPLICATE_ELSEWHERE;
+  if (msg.includes("הנכס כבר מפורסם במשרד שלכם")) {
+    const num = msg.match(/#(\d+)/);
+    return num
+      ? `הנכס כבר מפורסם במשרד שלכם (מודעה #${num[1]}). אין צורך במודעה שנייה.`
+      : PUBLISH_DUPLICATE_SAME;
+  }
+  return null;
+}
+
+/** הודעה מוכרת בלי שמות, וכל השאר משפט כללי. */
+export function publishErrorText(message: string | null | undefined): string {
+  return redactPublishError(message) ?? PUBLISH_FAILED;
 }
 
 export function reissueDecisionText(decision: ReissueDecision): string | null {
