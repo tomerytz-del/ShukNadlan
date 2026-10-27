@@ -285,6 +285,33 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
   }
 }
 
+// תזכורת אחת לסוכן/ת לשבוע, דרך הפעמון. הדגל כבוי סופר ולא כותב.
+// הפונקציה עולה לפני המיגרציה: חוסר ה-RPC אינו מפיל את שאר התזכורות.
+async function enqueueUnpublishedNudges(sb: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: any; error: any }> }) {
+  try {
+    const { data, error } = await sb.rpc("unpublished_nudge_enqueue", { p_limit: 25 });
+    if (error) {
+      const code = String(error.code || "");
+      const msg = String(error.message || "");
+      if (code === "42883" || code === "PGRST202" || code === "42P01" || code === "PGRST205"
+        || /unpublished_nudge_enqueue|does not exist|schema cache/i.test(msg)) {
+        console.log("unpublished nudge not installed yet", code);
+        return;
+      }
+      console.error("unpublished nudge enqueue failed", code, msg.slice(0, 300));
+      return;
+    }
+    const row = data as { dry_run?: boolean; agents?: number; properties?: number; sent?: number } | null;
+    if (row && ((row.agents || 0) > 0 || (row.sent || 0) > 0)) {
+      console.log("unpublished nudge", JSON.stringify({
+        dry_run: row.dry_run, agents: row.agents, properties: row.properties, sent: row.sent,
+      }));
+    }
+  } catch (err) {
+    console.error("unpublished nudge enqueue threw", err instanceof Error ? err.message : String(err));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // הלולאה
 // ---------------------------------------------------------------------------
@@ -293,6 +320,7 @@ Deno.serve(async (req: Request) => {
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
+  await enqueueUnpublishedNudges(sb);
 
   // ‏claim רושם/ת את שורות היומן **לפני** שאנחנו שולחים. נפילה מכאן והלאה
   // משאירה שורה עם status='pending' — כלומר "יצא, לא ידוע אם הגיע" — ולא

@@ -111,7 +111,7 @@
 | `stale_listings` | נכס פעיל שלא עודכן ולא הוקפץ 60 יום | 14 יום | "הנכסים שלי" |
 | `idle_listings` | לא נכנס נכס חדש 7 יום | 7 יום | "הנכסים שלי" |
 | `video_opportunity` | נכס פעיל בלי `video_url`, בלי `tour_3d_url` ובלי `has_virtual_tour` | 30 יום | "הנכסים שלי" |
-| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`created_at` ישן מ-`agent_reminder_unpublished_days` (7) | 7 יום | "הנכסים שלי", מסונן לירדו מפרסום |
+| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`unpublished_at` ישן מ-`agent_reminder_unpublished_days` (7). לא `created_at`. שורה שמסומנת "לא עכשיו" או "בלי תזכורת" לא נספרת. השורה הזו בתזכורת הישנה יוצאת רק כש-`gabriela_unpublished_digest_enabled=1` | 7 יום | "הנכסים שלי", מסונן לנכסים שלא באוויר |
 
 **המרווח המינימלי הוא פר סוג, ולא פר הודעה** (`agent_reminder_kind_interval`).
 זו אותה הפרדה שחוזרת בכל המבנה: הממצא נכון כל הזמן, אבל ההזכרה עליו חוזרת
@@ -128,6 +128,35 @@
 ושני תנאים ולא אחד — גם הנכס האחרון וגם מועד ההצטרפות חייבים להיות מעבר
 לסף. בלי השני, חשבון שנפתח היום וקיבל נכסים בייבוא עם תאריך היסטורי היה מקבל
 תזכורת על שתיקה ביום הראשון שלו.
+
+### נכסים שלא באוויר
+
+הגיל הוא `properties.unpublished_at`, לא `created_at`. טריגר
+`properties_stamp_unpublished_at` חותם `now()` כשסטטוס יוצא מ-`active`,
+ועל טיוטה חדשה (`unpublished` ביצירה) עם `unpublished_origin = 'draft'`.
+ירידה מ-`active` ל-`unpublished` נחתמת `taken_down`. חזרה ל-`active` מאפסת
+את שניהם. שורות שכבר היו `unpublished` במיגרציה קיבלו `unpublished_at = now()`
+ובלי מקור, כדי שסבב ראשון לא ישלח, והנוסח לא טוען שהן ירדו מהמדף.
+
+"לא עכשיו" (`unpublished_reminder_snooze`, 30 יום) ו"בלי תזכורת" (`muted`)
+מוציאים את הנכס מהספירה. הקצב לסוכן/ת הוא שבוע (`unpublished_nudge_log`),
+ותקרה גלובלית לסבב.
+
+השליחה היא `unpublished_nudge_enqueue`, שנקראת מ-`agent-reminders` לפני
+ה-claim וסובלת פונקציה שעוד לא עלתה. הדגל `gabriela_unpublished_nudge_enabled`
+נולד 0: כבוי מחזיר ספירה ולא כותב. דלוק כותב התראה אחת מסוג
+`unpublished_nudge` עם `suppress_push = false`, כדי ש-`notification-push`
+והשמירה מפני התפרצות ישלחו אותה. נכס אחד נושא `related_property_id` ושלושה
+כפתורים בחלון 24 השעות (`unpub:p|s|n:<uuid>`: לפרסם, שת״פ, לא עכשיו).
+כמה נכסים נשארים בלי מזהה והכפתור הוא הקישור המסונן. "בלי תזכורת" הוא
+בכרטיס ב-CRM.
+
+שת״פ (`unpublished_collab_request`) נרשם תמיד. ההפצה
+(`unpublished_collab_fanout`) רצה רק כש-`gabriela_collab_share_enabled = 1`,
+הנכס `active`, יש בקשה, ועוד לא הופץ. התקרה היא משרדים (`gabriela_collab_fanout_cap`,
+5), בלי המשרד של הבעלים, בלי מספר טלפון בגוף. ההתראה היא `collab_offer`
+עם `related_property_id`. טריגר אחרי מעבר ל-`active` מפיץ בקשה שנרשמה
+כשהנכס עוד לא היה באוויר.
 
 ---
 
@@ -348,7 +377,7 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `stale_listings` | `/crm?goto=accProperties&filter=stale` |
 | `video_opportunity` | `/crm?goto=accProperties&filter=no_video` |
 | `idle_listings` | `/crm?goto=accProperties&focus=new` - טופס נכס חדש |
-| `unpublished_listings` | `/crm?goto=accProperties&filter=unpublished` - סטטוס "ירד מפרסום", לא "מפורסם" |
+| `unpublished_listings` | `/crm?goto=accProperties&filter=unpublished` - נכסים שלא באוויר, לא "מפורסם" |
 
 שלושה מקומות חייבים להסכים: `FINDING_PARAMS` ב-`agent-reminders`,
 ‏`REMINDER_FILTERS` ב-`crm.js` (הכפתור בדשבורד), והגדרת כל סינון
@@ -374,10 +403,11 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 
 **`agent_reminder_findings` היא `security invoker` ולא `definer`**, וזו שכבת
 הגנה ולא קפריזה: כשסוכן/ת קורא/ת לה, ה-RLS של `properties` חל עליו/ה. בנוסף
-יש בה שער מפורש (‏CTE בשם `target`) שמחזיר `null` כשה-`current_agent_id()`
-אינו תואם את המזהה שהתבקש — ואז כל הממצאים יוצאים ריקים. בקריאה פנימית
-`current_agent_id()` הוא `null`, ולכן השרת עובר. `agent_reminders_claim` היא
-`definer`, ולכן כשהיא קוראת מכאן ה-RLS ממילא אינו חל והיא רואה את כולם.
+יש בה שער מפורש (‏CTE בשם `target`). המזהה שהתבקש חוזר רק כש-`current_agent_id()`
+תואם, או כש-`current_agent_id()` ריק **וגם** `auth.role()` הוא `service_role`
+(סבב התזכורות), או כש-`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת
+מחובר/ת שאינו/ה סוכן/ת מקבל/ת רשימה ריקה. `agent_reminders_claim` היא
+`definer` ורצה כ-`service_role`, ולכן הסבב עדיין רואה את הסוכן/ת של השורה.
 
 ---
 
@@ -390,7 +420,13 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `agent_reminder_idle_days` | 7 | כמה ימים בלי נכס חדש נחשבים לשתיקה |
 | `agent_reminder_stale_days` | 60 | מתי מודעה נחשבת "לא נגעו בה" |
 | `agent_reminder_expiry_days` | 14 | כמה ימים לפני פקיעת תוקף מזכירים |
-| `agent_reminder_unpublished_days` | 7 | כמה ימים נכס unpublished בלי המתנה לרישיון נחשב לתזכורת |
+| `agent_reminder_unpublished_days` | 7 | כמה ימים אחרי `unpublished_at` נכס unpublished בלי המתנה לרישיון נחשב לתזכורת. מילוי ראשון של העמודה הוא `now()`, ולכן הסבב הראשון אחרי המיגרציה לא שולח |
+| `gabriela_unpublished_nudge_enabled` | 0 | 1 כותב התראה אחת לסוכן/ת לשבוע (`unpublished_nudge`) דרך הפעמון. 0 רק סופר |
+| `gabriela_unpublished_digest_enabled` | 0 | 1 מוסיף את `unpublished_listings` לתזכורת המייל והוואטסאפ הישנה. נשאר 0 כל עוד הדחיפה היא דרך הפעמון, כדי לא לשלוח פעמיים |
+| `gabriela_unpublished_nudge_run_cap` | 25 | כמה סוכנים לכל היותר בסבב אחד |
+| `gabriela_unpublished_snooze_days` | 30 | "לא עכשיו" על נכס אחד |
+| `gabriela_collab_share_enabled` | 0 | 1 מפיץ שת״פ אחרי בקשה, ורק כשהנכס `active`. 0 רק רושם את הבקשה |
+| `gabriela_collab_fanout_cap` | 5 | כמה משרדים לכל היותר מקבלים נכס אחד שנפתח לשת״פ |
 | `agent_reminder_default_cap` | 6 | התקרה של מי שלא שינה/תה |
 | `agent_reminder_video_min_props` | 15 | מינימום נכסים בכל קבוצה ליחס הצפיות |
 | `agent_reminder_video_min_views` | 100 | מינימום צפיות בכל קבוצה ליחס הצפיות |
