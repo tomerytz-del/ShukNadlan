@@ -204,7 +204,18 @@ async function sendOne(supabase: SupabaseClient, r: ClaimRow, nudge = false): Pr
 
   const text = coordText(r, nudge);
   const open = await inWindow(supabase, to);
-  if (!open && !COORD_TEMPLATE) return await done("no_channel");
+  if (!open && !COORD_TEMPLATE) {
+    // תזכורת שלא יצאה נרשמת ביומן עם הסיבה, כמו כל הודעה יוצאת. עד 27.10.2026
+    // היא חזרה כאן בלי שורה, ו-nudged_at (שנכתב ב-claim) נראה כמו "נשלחה".
+    if (nudge) {
+      await supabase.from("whatsapp_messages").insert({
+        direction: "out", wa_phone: to, msg_type: "template",
+        body: formatForWhatsapp(text).slice(0, 2000),
+        error: "no_channel: חלון 24 השעות נסגר ואין תבנית מאושרת (WHATSAPP_SHOWING_COORD_TEMPLATE)",
+      });
+    }
+    return await done("no_channel");
+  }
 
   try {
     const wamid = open
@@ -312,11 +323,56 @@ async function sendNudges(supabase: SupabaseClient) {
   const { data, error } = await supabase.rpc("showing_coord_nudge_claim", { p_limit: 30 });
   if (error) return { nudge_error: error.message };
   const counts: Record<string, number> = {};
+  let alerted = 0;
   for (const r of (data || []) as ClaimRow[]) {
     const st = await sendOne(supabase, r, true);
     counts[st] = (counts[st] || 0) + 1;
+    if (st !== "sent" && await alertNudgeFailed(supabase, r, st)) alerted++;
   }
-  return { nudged: counts };
+  if (alerted) await kickNotificationPush();
+  return { nudged: counts, nudge_alerts: alerted };
+}
+
+const NUDGE_FAIL_REASON: Record<string, string> = {
+  no_phone: "אין לו/ה טלפון",
+  no_channel: "עברו יותר מ-24 שעות מאז שכתב/ה לנו, ואין לנו תבנית מאושרת לשלוח מחוץ לחלון",
+  failed: "השליחה נכשלה",
+  opted_out: "חסם/ה הודעות מהעסק",
+};
+
+/**
+ * ‏**תזכורת שלא יצאה - הסוכן/ת יודע/ת** (27.10.2026). ‏nudged_at נכתב ב-claim
+ * לפני השליחה, ולכן תזכורת שלא יצאה נראתה בדיוק כמו תזכורת שיצאה: ב-24.10
+ * שתי תזכורות לסיור של 27.10 "נשלחו" בלי הודעה אחת, ואיש לא ידע שהבעלים
+ * ומתווך השת"פ לא שמעו שוב. התראה לסוכן/ת עם הטלפון, כדי להתקשר.
+ */
+async function alertNudgeFailed(supabase: SupabaseClient, r: ClaimRow, status: string): Promise<boolean> {
+  // שאילתות נפרדות ולא embed: אין מפתח זר בין הטבלאות, ו-embed היה נופל
+  const { data: q } = await supabase.from("showing_coord_requests")
+    .select("meeting_id").eq("id", r.request_id).maybeSingle();
+  const { data: meeting } = q?.meeting_id
+    ? await supabase.from("client_showcase_meetings")
+      .select("agenda_item_id, showcase_id").eq("id", q.meeting_id).maybeSingle()
+    : { data: null };
+  const { data: showcase } = meeting?.showcase_id
+    ? await supabase.from("client_showcases").select("client_id").eq("id", meeting.showcase_id).maybeSingle()
+    : { data: null };
+  const who = (r.target_name || "").trim() || (r.target === "agent" ? "המתווך/ת" : "הבעלים");
+  const where = r.property_line ? ` (${r.property_line})` : "";
+  const title = `⚠️ לא הצלחתי להזכיר ל${who}${where} על הסיור ${dayText(r.window_start)} ב-${ilTime(new Date(r.window_start))}`;
+  const phone = (r.target_phone || "").trim();
+  const body = `${NUDGE_FAIL_REASON[status] || "התזכורת לא יצאה"}. הבקשה המקורית עוד לא נענתה` +
+    (phone ? ` - כדאי להתקשר: ${phone}` : " - כדאי ליצור קשר ישירות") + ".";
+  const { error } = await supabase.from("notifications").insert({
+    agent_id: r.agent_id,
+    type: "agenda_reminder",
+    title: title.slice(0, 200),
+    body: body.slice(0, 400),
+    related_client_id: showcase?.client_id ?? null,
+    related_agenda_item_id: meeting?.agenda_item_id ?? null,
+  });
+  if (error) console.error("nudge failed alert insert failed", error);
+  return !error;
 }
 
 /** סבב ה-cron: הצעות לסוכנים, הבקשות שממתינות, והתזכורות. */
