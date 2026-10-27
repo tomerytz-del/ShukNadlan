@@ -49,9 +49,20 @@
     if (promise) return promise;
     var market = activeMarket();
     if (!market || !sb) { promise = Promise.resolve(null); return promise; }
-    promise = sb.from('market_cities_public').select('city_id, market_slug')
+    /* ‏PostgREST חותך ב-1,000 שורות בשקט, וב-view יש 1,163 - רשימת ה-exclude הייתה חסרה
+       כ-115 ערים של שווקים אחרים (סבב 5 §1). קוראים בעמודים עד עמוד חלקי */
+    var PAGE = 1000;
+    function page(from, acc) {
+      return sb.from('market_cities_public').select('city_id, market_slug').range(from, from + PAGE - 1)
+        .then(function (res) {
+          if (res.error || !Array.isArray(res.data)) throw res.error || new Error('no data');
+          acc = acc.concat(res.data);
+          // תקרה של 20 עמודים: שרת שמתעלם מהטווח לא יוביל ללולאה אינסופית
+          return res.data.length < PAGE || from >= PAGE * 19 ? { data: acc } : page(from + PAGE, acc);
+        });
+    }
+    promise = page(0, [])
       .then(function (res) {
-        if (res.error || !Array.isArray(res.data)) throw res.error || new Error('no data');
         if (market.isDefault) {
           var others = res.data.filter(function (r) { return r.market_slug !== market.slug; })
             .map(function (r) { return r.city_id; });
@@ -122,5 +133,15 @@
     return query.or(orFilter(s));
   }
 
-  global.MarketScope = { spec: spec, inMarket: inMarket, memberMarkets: memberMarkets, orFilter: orFilter, apply: apply, NO_CITY: NO_CITY };
+  /** שורות properties שכבר נטענו - בלי אלה שבעיר של שוק אחר (‏exclude). שורה בלי
+   *  city_id, או בעיר שאין לה שוק, נשארת בשוק ברירת המחדל - כמו הכלל של המודול.
+   *  ‏market_slug(properties) במסד מחזירה null לגולש/ת אנונימי/ת (RLS על cities), ולכן
+   *  ה-or של apply() מעביר הכול; זו רשת הביטחון בצד הלקוח, גם אחרי שהמיגרציה תוחל. */
+  function keepRows(rows, s) {
+    if (!s || s.mode !== 'exclude' || !Array.isArray(rows)) return rows;
+    var bad = new Set(s.ids);
+    return rows.filter(function (r) { return !r || !r.city_id || !bad.has(r.city_id); });
+  }
+
+  global.MarketScope = { spec: spec, inMarket: inMarket, memberMarkets: memberMarkets, orFilter: orFilter, apply: apply, keepRows: keepRows, NO_CITY: NO_CITY };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

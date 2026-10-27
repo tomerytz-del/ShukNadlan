@@ -1184,7 +1184,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
+  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, city_id, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
@@ -1244,6 +1244,9 @@ function inMarket(spec, cityId, slugs){ return MS ? MS.inMarket(spec, cityId, sl
 /* אזורי הפעילות של הסוכנים (agency_members.service_markets) - ריק בכשל */
 function marketMembers(){ return MS && MS.memberMarkets ? MS.memberMarkets(sb) : Promise.resolve({ byAgent:new Map(), byAgency:new Map() }); }
 function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
+/* סבב 5 §1: ‏market_slug במסד מחזיר null לגולש/ת אנונימי/ת, ולכן הסינון בשרת מעביר הכול -
+   כולל נכסים משדה נחום ומנוף הגליל. כל שליפה עם סינון שוק עוברת גם כאן, באתר החי */
+function keepMarketRows(rows, spec){ return MS && MS.keepRows ? MS.keepRows(rows, spec) : rows; }
 
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
@@ -1265,7 +1268,7 @@ async function loadProperties(){
        ה-fallback הם נכסי דמו של עפולה, ודף חיפה שמציג אותם משקר. */
     if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(shapeProperty);
+    return keepMarketRows(data, spec).map(shapeProperty);
   } catch(e){
     if (marketText(false, () => true)) return [];
     console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
@@ -1628,7 +1631,7 @@ async function loadCommercialProperties(){
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
-    return data.map(shapeProperty);
+    return keepMarketRows(data, spec).map(shapeProperty);
   } catch(e){
     if (marketText(false, () => true)) return [];
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
@@ -1671,15 +1674,16 @@ async function loadOpenHouseCount(){
   try{
     const nowIso = new Date().toISOString();
     const spec = await marketFilterSpec();
-    const { count, error } = await applyMarketFilter(sb
+    // שורות ולא head:true - עד שהמיגרציה של market_slug תוחל אי אפשר לסנן ספירה בשרת (סבב 5 §1)
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
-      .select('id', { count:'exact', head:true })
+      .select('id, city_id')
       .eq('status', 'active'), spec)
       .eq('open_house', true)
       .lte('open_house_start', nowIso)
       .gt('open_house_end', nowIso);
     if (error) throw error;
-    return count || 0;
+    return keepMarketRows(data || [], spec).length;
   } catch(e){
     console.warn('ספירת נכסי יריד הבתים הפתוחים נכשלה:', e);
     return 0;
@@ -5333,7 +5337,7 @@ async function runSearchInner(){
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
     if (error) throw error;
-    const results = (data || []).map(shapeProperty);
+    const results = keepMarketRows(data || [], marketSpec).map(shapeProperty);
     renderPropertyGrid(results, true);
     /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
        המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
@@ -7851,7 +7855,8 @@ function renderQuickSearch(properties){
 
   // לפי אזור: היישוב הראשי ואז שאר היישובים, לפי מספר הנכסים. רק יישובים שיש בהם נכסים
   const byCity = new Map();
-  properties.forEach(p => { if (p.city) byCity.set(p.city, (byCity.get(p.city) || 0) + 1); });
+  // רק שורות שכבר סוננו לשוק (keepMarketRows), ובלי שורות בלי city_id - אין שבב ליישוב שלא שויך (סבב 5 §1)
+  properties.forEach(p => { if (p.city && p.city_id) byCity.set(p.city, (byCity.get(p.city) || 0) + 1); });
   const main = (sentence.areas() || {}).mainCity || CityCtx.name();
   const areas = [...byCity.entries()].sort((a, b) => (b[0] === main) - (a[0] === main) || b[1] - a[1]).slice(0, 8);
   document.getElementById('quickAreas').innerHTML = areas

@@ -17,7 +17,7 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
   var INQUIRY_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
-  var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, street, address, house_number, ' +
+  var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, city_id, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, ' +
     'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
@@ -339,13 +339,16 @@
   function load() {
     if (!window.supabase) return Promise.resolve([]);
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    var specP = window.MarketScope ? MarketScope.spec(sb) : Promise.resolve(null);
+    var specP = window.MarketScope ? MarketScope.spec(sb) : Promise.resolve(null), mspec = null;
     return specP.then(function (spec) {
+      mspec = spec;
       var q = sb.from('properties').select(COLS).eq('status', 'active');
       if (window.MarketScope) q = MarketScope.apply(q, spec);
       return q.order('is_promoted', { ascending: false }).order('created_at', { ascending: false }).limit(300);
     }).then(function (res) {
       var rows = (res && !res.error && res.data) || [];
+      // סבב 5 §1: בלי נכסים מעיר של שוק אחר (שדה נחום, נוף הגליל...) - הסינון בשרת עוד לא חל על אנונימיים
+      if (window.MarketScope && MarketScope.keepRows) rows = MarketScope.keepRows(rows, mspec);
       var ids = rows.map(function (p) { return p.agent_id; }).filter(Boolean)
         .filter(function (v, i, a) { return a.indexOf(v) === i; });
       var agentsP = ids.length
