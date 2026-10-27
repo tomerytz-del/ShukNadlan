@@ -79,14 +79,26 @@ export function socialSourceLabel(source: string | null | undefined): string | n
   return source && SOCIAL_SOURCES.has(source) ? SOCIAL_SOURCE_LABELS[source as SocialSource] : null;
 }
 
-/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
-export function isInternalCaller(req: Request): boolean {
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+/**
+ * ה-Bearer הוא מפתח ה-service role. השוואה באורך קבוע.
+ * כותרת apikey אינה נבדקת: מפתח anon שם אינו קורא פנימי.
+ */
+export function authorizationMatchesServiceRole(
+  authorization: string | null | undefined,
+  serviceRoleKey: string | null | undefined,
+): boolean {
+  const key = serviceRoleKey || "";
+  const got = (authorization || "").replace(/^Bearer\s+/i, "");
   if (!key || got.length !== key.length) return false;
   let diff = 0;
   for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ got.charCodeAt(i);
   return diff === 0;
+}
+
+/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
+export function isInternalCaller(req: Request, serviceRoleKey?: string | null): boolean {
+  const key = serviceRoleKey ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return authorizationMatchesServiceRole(req.headers.get("authorization"), key);
 }
 
 /** מזהה אצל הספק (Zernio) - אותו אוצר תווים כמו leads_external_ref_format. */

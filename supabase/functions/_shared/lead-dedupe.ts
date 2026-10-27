@@ -14,8 +14,8 @@
 // ליד שני. ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
 //
 // שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
-// פלטפורמה (בלי שניהם) מצמידה רק לליד שלא הגיע מדף: source של agency_page
-// או agent_page אינו יעד, גם כשהוא פתוח אצל משרד. בעל/ת נכס מצמיד/ה רק
+// פלטפורמה (בלי שניהם) מצמידה רק ליעד שגם לו אין משרד ואין סוכן/ת, וש-
+// source שלו אינו דף. source ריק עם משרד או סוכן/ת אינו יעד. בעל/ת נכס מצמיד/ה רק
 // לאותה עיר ואותו רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת
 // באחד הצדדים אין הצמדה. פנייה על נכס בלי property_id (מחשבון תשואה)
 // אינה מצמידה.
@@ -80,12 +80,27 @@ export function leadIsVisible(row: OpenLeadRow): boolean {
 
 /**
  * ליד שנולד מכלי בדף (הערכת שווי, מחשבון) ולא מרוטציה של הפלטפורמה.
- * source הוא הסימון. agency_id לבדו אינו: ליד פלטפורמה שכבר שובץ גם נושא אותו.
+ * source הוא הסימון כשהוא נשמר. ניסיון insert שנסוג בלי source משאיר null.
  */
 export function isPageRoutedSource(source: string | null | undefined): boolean {
   if (!source) return false;
   if (PAGE_SOURCES.has(source)) return true;
   return source.startsWith("agency_page_") || source.startsWith("agent_page_");
+}
+
+/**
+ * יעד של פניית פלטפורמה (אין משרד ואין סוכן/ת בבקשה):
+ * בלי agency_id, בלי agent_id, ו-source שאינו דף.
+ * source ריק עם משרד או עם סוכן/ת אינו יעד. לא ממלאים לאחור שורות ישנות.
+ */
+export function isPlatformTarget(row: {
+  agency_id?: string | null;
+  agent_id?: string | null;
+  source?: string | null;
+}): boolean {
+  if (row.agency_id || row.agent_id) return false;
+  if (isPageRoutedSource(row.source)) return false;
+  return true;
 }
 
 /** שני לידים פתוחים ממשרדים או מסוכנים שונים - לא בוחרים מנצח. */
@@ -338,10 +353,11 @@ export async function attachToOpenLead(
   }
   if (rows.length === 0) return null;
 
-  // פניית פלטפורמה (מטא, רשתות, אשף הבית) אינה נבלעת בליד שנולד בדף של משרד.
-  // הסינון כאן ולא ב-SQL: not in היה מוריד גם source שהוא null.
+  // פניית פלטפורמה מצמידה רק ליעד בלי משרד ובלי סוכן/ת, ושאינו מדף.
+  // source ריק עם משרד או סוכן/ת (ליד דף שניסיון ישן איבד את העמודה, או
+  // שורה ישנה) אינו יעד. הסינון ב-JS: not in ב-SQL היה מוריד גם null.
   const platformIncoming = !input.agencyId && !input.agentId;
-  if (platformIncoming) rows = rows.filter((r) => !isPageRoutedSource(r.source));
+  if (platformIncoming) rows = rows.filter(isPlatformTarget);
   if (wantAddress) rows = rows.filter((r) => sameOwnerAddress(wantAddress, addressFromStoredLead(r)));
   if (rows.length === 0) return null;
 

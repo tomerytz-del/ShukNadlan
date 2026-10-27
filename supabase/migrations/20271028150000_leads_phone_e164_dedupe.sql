@@ -28,8 +28,9 @@
 -- והשלב של הסוכן/ת המשויך/ת אינו not_relevant (לא רלוונטי) או won (נסגר).
 -- מיזוג בפועל רק כשהליד unlocked ויש לו/לה סוכן/ת, ורק מקורא פנימי.
 -- דף משרד או סוכן/ת מצמיד רק לאותו agency_id ולאותו agent_id.
--- ליד פלטפורמה (בלי משרד ובלי סוכן/ת בבקשה) מצמיד רק לליד ש-source שלו
--- אינו agency_page / agent_page. הסינון בקליטה, לא באינדקס.
+-- ליד פלטפורמה (בלי משרד ובלי סוכן/ת בבקשה) מצמיד רק ליעד שגם לו
+-- agency_id ו-agent_id ריקים, ו-source אינו agency_page / agent_page.
+-- source ריק עם משרד או סוכן/ת אינו יעד. אין מילוי לאחור. הסינון בקליטה.
 -- ‏lead_phone_touch מוסיף את ההודעה ואת המקור ב-update אחד, בלי לגעת
 -- ב-phone_e164. ההתראה נכתבת רק אחרי שהוא מצליח.
 -- ‏docs/social-leads.md, docs/marketing-console.md, docs/data-retention.md.
@@ -43,7 +44,10 @@
 -- כותב את השורה בשלמותה ואינו עושה insert ... select *. כולם מונים עמודות:
 --   data_retention_run, claim_lead, mark_lead_responded, refer_to_agent,
 --   agenda_first_response, agent_calls_first_response, agent_call_to_lead,
---   store_purchase_to_lead, scraped_lead_set_consent.
+--   store_purchase_to_lead, scraped_lead_set_consent,
+--   adopt_released_member_into_agency.
+-- ‏adopt_released_member_into_agency מעדכנת leads רק ב-agency_id
+-- (where agent_id = p_member_id). היא אינה כותבת phone_e164.
 -- ‏claim_lead עושה select * into leads%rowtype לקריאה, וה-update שאחריו
 -- מונה עמודות. ארכיון אינו משחזר שורה: מחיקה מ-lead_archives בלבד.
 -- ‏source_touches אינה generated, וכתיבה אליה מותרת.

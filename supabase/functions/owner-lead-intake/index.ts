@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
-import { duplicateLeadBody, ownerPhoneAttach } from "../_shared/lead-attach-plan.ts";
+import { duplicateLeadBody, ownerPhoneAttach, pageLeadInsertAttempts } from "../_shared/lead-attach-plan.ts";
 import {
   audienceSize,
   logLeadRouting,
@@ -344,23 +344,13 @@ Deno.serve(async (req: Request) => {
       property_type,
     };
 
-    /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר בדיוק כפי שהיה — שורה אחת,
-       בלי source ובלי הפתעות. ליד מדף משרד מנסה קודם את הצורה המלאה, ואם
-       המסד עדיין לא מכיר אותה הוא נסוג בשני צעדים:
-
-         1. ‏source נוספה במיגרציה נפרדת; בסביבה שטרם הריצה אותה ההוספה
-            נופלת על עמודה לא מוכרת.
-         2. ‏property_inquiry אמור להיות ערך חוקי ב-leads_lead_type_check,
-            אבל אם סביבה כלשהי מגבילה אותו — עדיף ליד שנרשם עם התווית
-            הפחות מדויקת מאשר בעל/ת נכס שקיבל/ה שגיאה.
-
-       בכל שלושת המקרים השיוך והפתיחה זהים, וזה מה שבאמת חשוב למשרד. */
+    /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר שורה אחת, בלי source.
+       ליד מדף נושא source בכל ניסיון. ניסיון בלי source שמר ליד של דף
+       עם עמודה ריקה, והצמדה של פלטפורמה ראתה אותו כליד בלי מקור.
+       הניסיון האחרון מוריד רק את סוג הליד ל-owner_inbound, אם
+       property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים. */
     const attempts: Record<string, unknown>[] = agencyRouting
-      ? [
-        { ...baseRow, lead_type: preferredType, source: pageSource },
-        { ...baseRow, lead_type: preferredType },
-        { ...baseRow, lead_type: "owner_inbound" },
-      ]
+      ? pageLeadInsertAttempts(baseRow, preferredType, pageSource)
       : trackedLabel
       ? [
         { ...baseRow, lead_type: "owner_inbound", source: inboundSource, source_detail: trackedLabel, external_ref: externalRef },
