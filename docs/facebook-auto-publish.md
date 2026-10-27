@@ -14,7 +14,7 @@
 >
 > | איפה | מה |
 > | --- | --- |
-> | ‏`pricing_config` | ‏`facebook_autopost_enabled` ו-`instagram_autopost_enabled` = ‏**0** (מיגרציה `20270907090000_social_publish_handed_off.sql`). ה-cron עדיין רץ כל 5 דקות ופשוט לא מוצא שורות |
+> | ‏`pricing_config` | ‏`facebook_autopost_enabled` ו-`instagram_autopost_enabled` = ‏**0** (מיגרציה `20271027160000_social_publish_handed_off.sql`). ה-cron עדיין רץ כל 5 דקות ופשוט לא מוצא שורות |
 > | ‏`property_publications` | ‏65 שורות `pending` נסגרו כ-`skipped` עם `[social-manager]` |
 > | ‏Make | ‏7218015 ‏"shuknadlan → facebook" ו-6942126 (דרייב → "נדל"ן עפולה" ב-12:00) **כובו**. ‏7641885 (אינסטגרם) כבוי מקודם. ‏6979289 (תמלול שיחות) אינו מפרסם ונשאר |
 >
