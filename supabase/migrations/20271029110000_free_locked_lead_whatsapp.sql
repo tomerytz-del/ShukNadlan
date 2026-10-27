@@ -8,12 +8,18 @@
 --
 -- free_locked_lead_claim הוא נתיב מקביל. notification-push קורא לו
 -- אחרי notification_push_claim. רק tier = free, רק new_lead שהליד
--- שלו אינו unlocked. הכפתור בפריט הוא כרטיס הליד
--- /crm?goto=accLeads&lead=<id>, ועליו "פתיחת פרטי הליד".
+-- שלו אינו unlocked.
 --
--- מחוץ לחלון 24 השעות: תבנית אחת ביממה. אם כבר יצאה תבנית, הליד
--- נשאר בפעמון. במעבר הדגל מ-0 ל-1 נרשמת enabled_at, וליד שנוצר
--- לפניה לא יוצא - כדי לא לשלוח את כל העבר בבת אחת.
+-- הנוסח הוא "פנייה מפייסבוק/אינסטגרם על נכס X" (הערוץ לפי המקור,
+-- ו-X הוא סוג הנכס והעיר). בלי שם ובלי טלפון, וגם בלי גוף ההתראה
+-- מהפעמון. הכפתור הוא כרטיס הליד, /crm?goto=accLeads&lead=<id>,
+-- וזה מסך הפתיחה.
+--
+-- ההודעה נרשמת ב-notification_push_log ולכן נספרת במפסק ההתפרצות.
+-- כשהמפסק דלוק היא לא יוצאת מעל תקרת השעה או תקרת היממה (הכללית
+-- ושל מסלול הליד, המחמירה מביניהן). מחוץ לחלון 24 השעות: תבנית אחת
+-- ביממה. אם כבר יצאה תבנית, כולל באותו סבב, הליד נשאר בפעמון.
+-- במעבר הדגל מ-0 ל-1 נרשמת enabled_at, וליד שנוצר לפניה לא יוצא.
 
 insert into public.pricing_config (key, value, description)
 values (
@@ -96,6 +102,11 @@ declare
   v_types text[];
   v_log   uuid;
   v_fails int;
+  v_guard int;
+  v_sent_hour int;
+  v_sent_day int;
+  v_hour_cap int;
+  v_day_cap int;
   ag      record;
 begin
   if coalesce((select value from public.pricing_config
@@ -180,6 +191,33 @@ begin
       continue;
     end if;
 
+    -- אותן תקרות של מפסק ההתפרצות: שעה ויממה, והמסלול של ליד.
+    -- השורה נספרת כי היא notification_push_log רגילה (גם pending).
+    -- תבנית שכבר יצאה היום, כולל כזו שה-claim הרגיל תפס באותו סבב, חוסמת
+    -- למעלה. כאן אין תבנית שנייה.
+    v_guard := coalesce((select value from public.pricing_config
+                          where key = 'notification_burst_guard_enabled'), 1);
+    if v_guard = 1 then
+      v_hour_cap := least(
+        greatest(1, coalesce((select value from public.pricing_config where key = 'notif_burst_hour_cap'), 12)),
+        greatest(1, coalesce((select value from public.pricing_config where key = 'notif_burst_lead_hour_cap'), 20))
+      );
+      v_day_cap := least(
+        greatest(1, coalesce((select value from public.pricing_config where key = 'notif_burst_day_cap'), 30)),
+        greatest(1, coalesce((select value from public.pricing_config where key = 'notif_burst_lead_day_cap'), 40))
+      );
+      select count(*) filter (where l.created_at > pg_catalog.now() - interval '1 hour'),
+             count(*) filter (where l.created_at > pg_catalog.now() - interval '1 day')
+        into v_sent_hour, v_sent_day
+        from public.notification_push_log l
+       where l.agent_id = ag.id
+         and public.notification_push_log_holds(l.whatsapp_status, l.created_at);
+      if coalesce(v_sent_hour, 0) >= v_hour_cap
+         or coalesce(v_sent_day, 0) >= v_day_cap then
+        continue;
+      end if;
+    end if;
+
     v_lim := case when ag.in_window then 9 else 1 end;
 
     select pg_catalog.jsonb_agg(s.item order by s.created_at desc),
@@ -190,14 +228,28 @@ begin
         select n.id, n.type, n.created_at,
                pg_catalog.jsonb_build_object(
                  'type', n.type,
-                 'title', n.title,
-                 'body', n.body,
-                 'lead_id', ld.id,
+                 'locked', true,
                  'source', ld.source,
+                 'property_label', s_prop.prop_label,
+                 'title', 'פנייה מ' || s_prop.via || ' על נכס ' || s_prop.prop_label,
+                 'body', null,
                  'action_path', '/crm?goto=accLeads&lead=' || ld.id::text
                ) as item
           from public.notifications n
           join public.leads ld on ld.id = n.related_lead_id
+          left join lateral (
+            select left(coalesce(nullif(btrim(pg_catalog.concat_ws(' ',
+                     nullif(btrim(coalesce(pr.property_type, ld.property_type)), ''),
+                     nullif(btrim(coalesce(pr.city, ld.city)), '')
+                   )), ''), 'הנכס'), 80) as prop_label,
+                   case
+                     when coalesce(ld.source, '') like 'instagram%' then 'אינסטגרם'
+                     when coalesce(ld.source, '') like 'facebook%' then 'פייסבוק'
+                     else 'פייסבוק/אינסטגרם'
+                   end as via
+              from (select 1) one
+              left join public.properties pr on pr.id = ld.property_id
+          ) s_prop on true
          where n.agent_id = ag.id
            and n.type = 'new_lead'
            and not n.read
@@ -235,7 +287,7 @@ end;
 $$;
 
 comment on function public.free_locked_lead_claim(int) is
-  'וואטסאפ על ליד נעול ל-tier free, רק כש-free_locked_lead_whatsapp = 1. לא מחליף את notification_push_due_agents. תבנית אחת ב-24 שעות מחוץ לחלון.';
+  'וואטסאפ על ליד נעול ל-tier free: פנייה מפייסבוק/אינסטגרם על נכס, בלי שם ובלי טלפון. נספר בתקרת ההתפרצות. תבנית אחת ב-24 שעות.';
 
 revoke all on function public.free_locked_lead_claim(int) from public, anon, authenticated;
 grant execute on function public.free_locked_lead_claim(int) to service_role;

@@ -221,20 +221,28 @@ type Item = {
   source?: string | null;
   // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
   action_path?: string | null;
+  // ליד נעול במסלול free. הנוסח הוא המשפט שב-title, בלי שם ובלי טלפון.
+  locked?: boolean | null;
+  property_label?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
 function richLead(items: Item[]): LeadInfo | null {
   if (items.length !== 1) return null;
   const it = items[0];
+  if (it.locked) return null;
   return it.type === "new_lead" && it.lead && itemPath(it) ? it.lead : null;
+}
+
+function lockedLeadBatch(items: Item[]): boolean {
+  return items.length > 0 && items.every((it) => it.locked === true);
 }
 
 /** בהודעה מרוכזת: שם הפונה והערוץ במקום "ליד חדש: התעניינות בנכס". */
 function withLeadLines(items: Item[]): Item[] {
   if (items.length < 2) return items;
   return items.map((it) =>
-    it.type === "new_lead" && it.lead
+    it.type === "new_lead" && it.lead && !it.locked
       ? { ...it, title: leadListTitle(it.lead), body: it.lead.what || it.body }
       : it
   );
@@ -340,6 +348,12 @@ function textBody(
     return burstText(name, burst.count ?? items.length, SITE_BASE, gotoUrl(MANAGE_ACC)).slice(0, 4000);
   }
   const first = firstName(name);
+  if (lockedLeadBatch(items)) {
+    const lines = items
+      .map((it) => String(it.title || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    return [...lines, "", opt].join("\n").slice(0, 4000);
+  }
   const li = richLead(items);
   if (li) {
     const link = noLinks ? null : `${SITE_BASE}${itemPath(items[0])}`;
@@ -420,6 +434,19 @@ function categoryFor(type: string): string | null {
  * והכפתור הוא הנתיב של היעד.
  */
 function templateSummary(items: Item[], withUrls = true): string {
+  if (lockedLeadBatch(items)) {
+    return items
+      .map((it) => {
+        const path = itemPath(it);
+        const url = withUrls && path ? ` ${SITE_BASE}${path}` : "";
+        const title = String(it.title || "").replace(/\s+/g, " ").trim();
+        return `• ${title}${url}`;
+      })
+      .join(" ")
+      .replace(/\s*[\r\n\t]+\s*/g, " ")
+      .replace(/ {4,}/g, "   ")
+      .slice(0, 900);
+  }
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (burst) {
     const count = burst.count ?? items.length;
@@ -707,7 +734,7 @@ Deno.serve(async (req: Request) => {
 
   await mapPool(rows as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
     let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
-      it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
+      it.type === "new_lead" && !it.locked && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
     ))), undefined, digest.guardOn);
