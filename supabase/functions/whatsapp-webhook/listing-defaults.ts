@@ -42,11 +42,39 @@ export function propertyCityWhenOmitted(
   return office || "עפולה";
 }
 
-/** קישור לרשימת הנכסים של הסוכן/ת, מאותו אתר שממנו נבנה קישור הנכס. */
-export function propertiesListUrl(sample: string): string {
+/**
+ * קישור לרשימת הנכסים, מאותו אתר. בלי כתובת מלאה (http/https) אין מאיפה
+ * לגזור את האתר - null, ולא קישור הנכס הראשון.
+ */
+export function propertiesListUrl(sample: string): string | null {
   const m = /^(https?:\/\/[^/?#]+)/.exec(sample);
-  if (!m) return sample;
+  if (!m) return null;
   return `${m[1]}/crm?goto=accProperties`;
+}
+
+/** עמודה שעוד לא קיימת. רק 42703 של Postgres. שם העמודה בטקסט השגיאה אינו זה. */
+export function listingCityColumnMissing(
+  error: { code?: string; message?: string } | null | undefined,
+): boolean {
+  return error?.code === "42703";
+}
+
+/** העיר השמורה של התור. הקריאה למסד רצה פעם אחת; שמירה באמצע התור מעדכנת בלי שאילתה. */
+export type ListingCitySlot = { loaded: boolean; name: string | null };
+
+export async function loadListingCityOnce(
+  slot: ListingCitySlot,
+  read: () => Promise<string | null>,
+): Promise<string | null> {
+  if (slot.loaded) return slot.name;
+  slot.name = await read();
+  slot.loaded = true;
+  return slot.name;
+}
+
+export function storeListingCity(slot: ListingCitySlot, name: string | null): void {
+  slot.loaded = true;
+  slot.name = name && name.trim() ? name.trim() : null;
 }
 
 function oneLine(value: string | undefined): string {
@@ -65,6 +93,10 @@ export function collapseCreatedPropertyEdits<T extends BatchableOutbox>(items: T
   );
   if (created.length < 2) return items;
 
+  const listUrl = propertiesListUrl(created[0].url);
+  // בלי אתר מלא כל נכס נשאר עם כפתור העריכה שלו, ולא עם קישור הנכס הראשון.
+  if (!listUrl) return items;
+
   const shown = created.slice(0, LIST_ROWS_MAX);
   const lines = shown.map((item, i) => `${i + 1}. ${oneLine(item.listLine)}`);
   const extra = created.length - shown.length;
@@ -76,7 +108,7 @@ export function collapseCreatedPropertyEdits<T extends BatchableOutbox>(items: T
     kind: "cta",
     body,
     label: CRM_EDIT_LABEL,
-    url: propertiesListUrl(created[0].url),
+    url: listUrl,
   };
   let placed = false;
   const out: T[] = [];

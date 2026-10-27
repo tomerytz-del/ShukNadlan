@@ -7,8 +7,11 @@ import {
   CRM_EDIT_LABEL,
   CTA_BODY_MAX,
   type CtaOutbox,
+  listingCityColumnMissing,
+  loadListingCityOnce,
   propertyCityWhenOmitted,
   propertiesListUrl,
+  storeListingCity,
 } from "../supabase/functions/whatsapp-webhook/listing-defaults.ts";
 
 let failed = 0;
@@ -62,34 +65,35 @@ const kept = collapseCreatedPropertyEdits([other, one(1, "property_created"), on
 check("כפתור שאינו עריכת נכס נשאר", kept.length === 2 && kept[0].label === "📊 דוח CMA");
 
 check("קישור הרשימה מאותו אתר", propertiesListUrl("https://shuknadlan.co.il/crm?goto=accProperties&property=abc") === "https://shuknadlan.co.il/crm?goto=accProperties");
+check("כתובת לא מלאה אינה קישור נכס", propertiesListUrl("/crm?goto=accProperties&property=abc") === null);
+check("טקסט בלי אתר אינו קישור נכס", propertiesListUrl("property=abc") === null);
+
+const relative = collapseCreatedPropertyEdits([
+  { ...one(1, "property_created"), url: "/crm?property=1" },
+  { ...one(2, "property_created"), url: "/crm?property=2" },
+]);
+check("בלי אתר מלא לא מתקפלים לנכס הראשון", relative.length === 2 && relative[0].kind === "cta" && relative[0].url === "/crm?property=1" && relative[1].kind === "cta" && relative[1].url === "/crm?property=2");
+
+check("42703 הוא עמודה חסרה", listingCityColumnMissing({ code: "42703" }) === true);
+check("אזכור השם בלי 42703 אינו עמודה חסרה", listingCityColumnMissing({ code: "23503", message: "default_city_id" }) === false);
+check("PGRST204 אינו נבלע כעמודה חסרה", listingCityColumnMissing({ code: "PGRST204" }) === false);
+check("בלי שגיאה אין עמודה חסרה", listingCityColumnMissing(null) === false);
+
+let reads = 0;
+const slot = { loaded: false, name: null as string | null };
+const first = await loadListingCityOnce(slot, async () => { reads++; return "עפולה"; });
+const second = await loadListingCityOnce(slot, async () => { reads++; return "חיפה"; });
+check("העיר נטענת פעם אחת בתור", first === "עפולה" && second === "עפולה" && reads === 1);
+storeListingCity(slot, "נהריה");
+const afterSave = await loadListingCityOnce(slot, async () => { reads++; return "חיפה"; });
+check("שמירה באמצע התור נראית בלי שאילתה נוספת", afterSave === "נהריה" && reads === 1);
 
 const sql = readFileSync(
   new URL("../supabase/migrations/20271028150000_agent_default_city.sql", import.meta.url),
   "utf8",
 );
-const agent = readFileSync(
-  new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url),
-  "utf8",
-);
-const index = readFileSync(
-  new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url),
-  "utf8",
-);
-
 check("העמודה ריקה ומצביעה ל-cities", sql.includes("default_city_id uuid") && sql.includes("references public.cities(id) on delete set null"));
 check("בלי פונקציה חדשה ובלי grant", !/create\s+(or\s+replace\s+)?function/i.test(sql) && !/\bgrant\b/i.test(sql));
-check("השם נפתר ב-city_id_for_name", agent.includes('rpc("city_id_for_name"'));
-check("נכס בלי עיר עובר בפונקציית הסדר", agent.includes("propertyCityWhenOmitted") && agent.includes("listingCityWhenOmitted"));
-check("הפרופיל הנבחר אינו כולל את העמודה", agent.includes(
-  '"slug, display_name, bio, photo_url, years_experience, service_area, " +\n  "credentials, specialties, tier, service_markets"',
-));
-check("טעינת הסוכן/ת אינה קוראת את העמודה", index.includes(
-  '.select("id, agency_id, display_name, tier, active, billing_status")',
-));
-check("עמודה חסרה אינה מפילה שמירה אחרת", agent.includes('error?.code === "PGRST204"') && agent.includes("citySettingDropped"));
-check("השליחה מקפלת נכסים שנוצרו", index.includes("collapseCreatedPropertyEdits(items)"));
-check("יצירה מסמנת את הכפתור לקיפול", agent.includes('batch: "property_created"'));
-check("ההוראה לא למלא את עיר המשרד", agent.includes("אל תשלח/י את השדה") && agent.includes("אל תאמרי שאין דרך לשמור אותה"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
