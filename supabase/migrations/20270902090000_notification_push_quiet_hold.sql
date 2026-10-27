@@ -48,7 +48,7 @@ as $$
 $$;
 
 comment on function public.agent_reminder_quiet_at(timestamptz, int, int, smallint[]) is
-  'האם הרגע p_at בתוך שעות השקט או ביום שקט (שעון ישראל). אותה הגדרה כמו agent_reminder_quiet_now בת שלושת הפרמטרים (20270831090000).';
+  'האם הרגע p_at בתוך שעות השקט או ביום שקט (שעון ישראל). אותה הגדרה כמו agent_reminder_quiet_now בת שלושת הפרמטרים (20270902090000).';
 
 revoke all on function public.agent_reminder_quiet_at(timestamptz, int, int, smallint[]) from public, anon, authenticated;
 grant execute on function public.agent_reminder_quiet_at(timestamptz, int, int, smallint[]) to service_role;
@@ -66,7 +66,7 @@ as $$
 $$;
 
 comment on function public.notification_push_quiet_wait_types() is
-  'סוגי התראה שהחלון שלהם בוואטסאפ נספר רק בזמן שאינו שקט (20270831090000).';
+  'סוגי התראה שהחלון שלהם בוואטסאפ נספר רק בזמן שאינו שקט (20270902090000).';
 
 revoke all on function public.notification_push_quiet_wait_types() from public, anon, authenticated;
 grant execute on function public.notification_push_quiet_wait_types() to service_role;
@@ -121,7 +121,7 @@ end;
 $$;
 
 comment on function public.notification_push_quiet_hold(text, uuid, timestamptz) is
-  'התראה מסוג שב-notification_push_quiet_wait_types שעדיין בחלון notif_push_lookback_hours כשזמן השקט של הסוכן/ת אינו נספר. עד 7 ימים (20270831090000).';
+  'התראה מסוג שב-notification_push_quiet_wait_types שעדיין בחלון notif_push_lookback_hours כשזמן השקט של הסוכן/ת אינו נספר. עד 7 ימים (20270902090000).';
 
 revoke all on function public.notification_push_quiet_hold(text, uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_push_quiet_hold(text, uuid, timestamptz) to service_role;
@@ -203,7 +203,7 @@ begin
        and n.type = any(a.whatsapp_types)
        and (n.created_at > now() - make_interval(hours =>
               case when n.type = any(v_prio) then v_look_p else v_look end)
-            -- רילס ותוכן שיווקי שנוצרו בשקט מחכים לסוף השקט (20270831090000)
+            -- רילס ותוכן שיווקי שנוצרו בשקט מחכים לסוף השקט (20270902090000)
             or public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
        and not exists (
          select 1 from public.notification_push_log l
@@ -233,7 +233,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'תופסת לכל סוכן/ת שמותר לשלוח לו/ה את כל ההתראות הפתוחות, ורושמת שורה ב-notification_push_log. חלון המבט לאחור ארוך יותר לסוגים שבעדיפות, התראות רקע לבד יוצאות רק כתקציר (20270420090000), ותזכורת ישנה מחכה לסוף שעות השקט (20270422090000). קריאה אחת בכל רגע, בנעילה (20270425090000). ‏marketing_copy שנוצרה בשקט אינה פגה בו: החלון נספר רק בזמן שאינו שקט (20270831090000).';
+  'תופסת לכל סוכן/ת שמותר לשלוח לו/ה את כל ההתראות הפתוחות, ורושמת שורה ב-notification_push_log. חלון המבט לאחור ארוך יותר לסוגים שבעדיפות, התראות רקע לבד יוצאות רק כתקציר (20270420090000), ותזכורת ישנה מחכה לסוף שעות השקט (20270422090000). קריאה אחת בכל רגע, בנעילה (20270425090000). ‏marketing_copy שנוצרה בשקט אינה פגה בו: החלון נספר רק בזמן שאינו שקט (20270902090000).';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
