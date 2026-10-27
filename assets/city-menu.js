@@ -274,7 +274,9 @@
       if (first) first.focus();
     });
     document.addEventListener('click', function (e) {
-      if (!menu.contains(e.target) && e.target !== btn) close(false);
+      if (menu.contains(e.target) || e.target === btn) return;
+      // ‏v10: קליק בחוץ סוגר ומחזיר את הפוקוס לכפתור - כשהפוקוס היה בתפריט (לא גונבים פוקוס משדה)
+      close(V10 && menu.contains(document.activeElement));
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') close(true);

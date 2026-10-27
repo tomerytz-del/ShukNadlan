@@ -162,8 +162,8 @@
     '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
     '  #gabW.is-v10 .gw-tip{left:calc(var(--gw-left) + 230px)}',
     '}',
-    '#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
-    '#gabW.is-v10.is-min .gw-dot{width:11px;height:11px}',
+    '@media(min-width:1024px){#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
+    '#gabW.is-v10.is-min .gw-dot{width:11px;height:11px}}',
     '#gabW.is-v10.is-min .gw-panel{bottom:calc(var(--gw-bottom) + 56px)}',
     '#gabW.is-v10.is-min .gw-tip{opacity:0;visibility:hidden}'
   ].join('\n');
@@ -238,7 +238,13 @@
        המשפטית תישאר קריאה. לעולם לא נעלמת לגמרי. */
     var v10 = document.documentElement.classList.contains('beta-hero');
     var manualMin = false, footerMin = false;
-    function syncMin() { root.classList.toggle('is-min', manualMin || footerMin); if (manualMin || footerMin) hideTip(); }
+    // מזעור ליד הפוטר - במחשב בלבד; בטלפון גבריאלה בלי שינוי (‏6.13)
+    var desk = window.matchMedia('(min-width:1024px)');
+    function syncMin() {
+      var min = manualMin || (footerMin && desk.matches);
+      root.classList.toggle('is-min', min);
+      if (min) hideTip();
+    }
     if (v10) {
       root.classList.add('is-v10');
       var pill = el('span', { 'class': 'gw-pill', 'aria-hidden': 'true' });

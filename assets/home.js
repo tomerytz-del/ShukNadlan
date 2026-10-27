@@ -4835,6 +4835,7 @@ try {
     if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
+    v10DefaultSale();
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
@@ -7660,6 +7661,17 @@ function v10Chip(href, label, n, group, tag, ico, labelDesktop){
     : `<span class="v10-chip-l">${escapeHtml(label)}</span>`;
   return `<a class="v10-chip" href="${escapeHtml(href)}" data-q-group="${group}" data-q-tag="${escapeHtml(tag)}">${icon}${l}<span class="v10-chip-n">${n}</span></a>`;
 }
+/* v10: "למכירה" מסומנת בטעינה, כמו באבטיפוס - רק בדף הבית הנקי (בלי פרמטרים
+   בכתובת), ובשקט: בלי חיפוש שנרשם, בלי לגעת במדף או במפה. */
+function v10DefaultSale(){
+  if (!v10On() || !sentence || !sentence.loaded() || location.search.replace(/[?&]beta=[01]/, '')) return;
+  const st = sentence.state();
+  if (st.deal || st.type !== 'any') return;
+  sentenceQuiet = true;
+  try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
+  syncSearchStateFromSentence(sentence.state());
+  syncV10Tabs();
+}
 function renderQuickSearch(properties){
   const sec = document.getElementById('quickSearchSec');
   if (!v10On() || !sec || !sentence || !sentence.loaded()) return;
@@ -7731,8 +7743,8 @@ function v10FairNow(p, now){
   const e = p.open_house_end ? Date.parse(p.open_house_end) : NaN;
   return p.open_house && s <= now && e > now;
 }
-function v10ImgFb(extra){
-  return `<span class="img-fb${extra ? ' ' + extra : ''}" role="img" aria-label=""><img src="/assets/logo-shuknadlan.svg" alt=""></span>`;
+function v10ImgFb(extra, alt){
+  return `<span class="img-fb${extra ? ' ' + extra : ''}" role="img" aria-label="${escapeHtml(alt || '')}"><img src="/assets/logo-shuknadlan.svg" alt=""></span>`;
 }
 function renderV10Fair(){
   const host = document.getElementById('openHouseBanner');
@@ -7769,7 +7781,7 @@ document.getElementById('openHouseBanner')?.addEventListener('click', e => {
 // תמונה שנכשלה (רק עם הדגל): הרקע הכחול עם סיכת הלוגו, אף פעם לא מסגרת ריקה
 function v10ImgFail(img, cls){
   if (!v10On() || !img || !img.parentNode) return false;
-  img.insertAdjacentHTML('afterend', v10ImgFb(cls ? cls + ' is-inline' : ''));
+  img.insertAdjacentHTML('afterend', v10ImgFb(cls ? cls + ' is-inline' : '', img.alt));
   img.remove();
   return true;
 }

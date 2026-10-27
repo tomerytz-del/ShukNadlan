@@ -252,7 +252,9 @@
       chip(esc(mainCity) + ' · ' + countFor({ area: 'main', near: null }), 'data-area="main"', !filter.near && filter.area === 'main');
     if (aroundN) html += chip(esc(aroundLabel) + ' · ' + aroundN, 'data-area="around"', !filter.near && filter.area === 'around');
     if (Object.keys(towns).length) html += chip('לפי יישוב ' + (townsOpen ? '▴' : '▾'), 'data-toggle="towns" aria-expanded="' + townsOpen + '"', townsOpen || filter.area.indexOf('city:') === 0, 'sw-chip-tg');
-    html += chip('אזור אחר ' + (otherOpen ? '▴' : '▾'), 'data-toggle="other" aria-expanded="' + otherOpen + '"', otherOpen, 'sw-chip-tg');
+    // "אזור אחר" רק כשיש שוק חי נוסף עם נכסים - אף פעם לא אזור ריק
+    if (!otherCounts) loadOtherCounts();
+    else if (otherGroups().length) html += chip('אזור אחר ' + (otherOpen ? '▴' : '▾'), 'data-toggle="other" aria-expanded="' + otherOpen + '"', otherOpen, 'sw-chip-tg');
     $('swFArea').innerHTML = html;
 
     var tw = $('swFTowns');
@@ -285,8 +287,19 @@
     for (var i = 0; i < list.length; i++) if ((list[i].places || []).indexOf(city) >= 0) return list[i];
     return null;
   }
+  function otherIn(group) {
+    return ((window.ShukMarkets && ShukMarkets.list) || []).filter(function (m) {
+      return m.live && REGION_GROUPS[group].indexOf(m.slug) >= 0 && (!market || m.slug !== market.slug) && otherCounts && otherCounts[m.slug];
+    });
+  }
+  function otherGroups() { return Object.keys(REGION_GROUPS).filter(function (g) { return otherIn(g).length; }); }
   function renderOther() {
-    document.querySelectorAll('#swFOtherTabs [data-group]').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.group === otherGroup)); });
+    var groups = otherGroups();
+    if (groups.length && groups.indexOf(otherGroup) < 0) otherGroup = groups[0];
+    document.querySelectorAll('#swFOtherTabs [data-group]').forEach(function (b) {
+      b.hidden = groups.indexOf(b.dataset.group) < 0;   // לשונית בלי שווקים עם נכסים - מוסתרת
+      b.setAttribute('aria-selected', String(b.dataset.group === otherGroup));
+    });
     var box = $('swFOtherList');
     if (!otherCounts) { box.innerHTML = '<p class="sw-fnote">טוען…</p>'; loadOtherCounts(); return; }
     var list = ((window.ShukMarkets && ShukMarkets.list) || []).filter(function (m) {
@@ -298,16 +311,20 @@
     }).join('') : '';
     box.hidden = !list.length;
   }
+  var otherLoading = false;
   function loadOtherCounts() {
-    if (!sb) { otherCounts = {}; renderOther(); return; }
+    if (otherLoading || otherCounts) return;
+    if (!sb) { otherCounts = {}; return; }
+    otherLoading = true;
+    var done = function () { otherLoading = false; renderFilter(); };
     sb.from('properties').select('city').eq('status', 'active').limit(1000).then(function (r) {
       otherCounts = {};
       ((r && r.data) || []).forEach(function (row) {
         var m = marketOfCity(row.city);
         if (m) otherCounts[m.slug] = (otherCounts[m.slug] || 0) + 1;
       });
-      renderOther();
-    }, function () { otherCounts = {}; renderOther(); });
+      done();
+    }, function () { otherCounts = {}; done(); });
   }
 
   var filterOpener = null;
@@ -457,7 +474,7 @@
   }
   function buildDeck() {
     var props = filtered();
-    counts = { sponsored: 0, articles: 0 };
+    // ‏counts לא מתאפס כאן: "3 ממומנים ו-1 כתבה" הם לסשן, לא לחפיסה
     /* ‏minGap חל בין שני כרטיסים ממומנים (6/8 ← 16 ← 26). בין 13 ל-16 יש רק שני
        נכסים, והמפרט (קריטריון 25) דורש את שניהם - ולכן שאלה וכתבה אינן נספרות */
     var out = [], used = {}, pi = 0, pos = 1, sinceSpon = Infinity;
@@ -871,7 +888,11 @@
       req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg + (line ? '\n' + line : '')) || null, source: 'swipe_up' })
         .then(function () { shukTrack('generate_lead', { form_id: 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
     } else if (c.sponsor.kind === 'pro') {
-      req = Promise.reject(new Error('no_pipeline'));
+      // משכנתאות - לצינור הקיים (‏mortgage-lead-intake), כמו הטופס בדף הבית
+      req = c.sponsor.mortgage
+        ? post(SUPABASE_URL + '/functions/v1/mortgage-lead-intake', { full_name: name, phone: phone, owns_property: false })
+            .then(function () { shukTrack('generate_lead', { form_id: 'mortgage' }); })
+        : Promise.reject(new Error('no_pipeline'));
     } else {
       var interest = answers.interest || '';
       var body = { full_name: name, phone: phone, agency_slug: c.sponsor.slug, consent_agent_contact: true, lead_only: true,
@@ -1069,9 +1090,11 @@
   }
   var tourList = [], tourStep = 0, tourVisit = 0;
   function tourKey() { return 'sk_swipe_tour_seen_' + (isDesktop() ? 'desktop' : 'mobile'); }
+  var tourThisVisit = false;   // ביקור = טעינת דף; "התחילו להחליק" שוב באותו ביקור אינו ביקור חדש
   function maybeTour(force) {
     var seen = Number(store(tourKey())) || 0;
-    if (!force && seen >= 2) return;
+    if (!force && (seen >= 2 || tourThisVisit)) return;
+    if (!force) tourThisVisit = true;
     if (!$('swTopCard')) return;
     if (!force) { tourVisit = seen + 1; store(tourKey(), String(tourVisit)); }
     var t = $('swTour');

@@ -13,9 +13,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
 if(q==='1')localStorage.setItem('sk_beta_hero','1');
 if(q==='0')localStorage.removeItem('sk_beta_hero');
-if(localStorage.getItem('sk_beta_hero')==='1'){document.documentElement.classList.add('beta-hero');
-[['/assets/hero-valley-m.webp','(max-width:767px)'],['/assets/hero-valley-d.webp','(min-width:768px)']].forEach(function(a){
-var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.media=a[1];l.setAttribute('fetchpriority','high');document.head.appendChild(l);});}}catch(e){}})();</script>
+if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
 <!-- תמונת ה-LCP היא רקע CSS. בלי preload הדפדפן מגלה אותה רק אחרי ה-style.
      media תואם את כלל הרוחב: 800 בנייד, הקובץ המלא משם והלאה. -->
 <link rel="preload" as="image" href="/assets/hero-valley-800.webp" fetchpriority="high" media="(max-width: 759px)">
@@ -31,6 +29,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- v10: טעינה מוקדמת של תמונת העמק - אחרי ה-viewport, כדי שה-media ימדד ברוחב האמיתי (בטלפון לא יורד קובץ המחשב) -->
+<script>(function(){if(!document.documentElement.classList.contains('beta-hero'))return;
+[['/assets/hero-valley-m.webp','(max-width:767px)'],['/assets/hero-valley-d.webp','(min-width:768px)']].forEach(function(a){
+var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.media=a[1];l.setAttribute('fetchpriority','high');document.head.appendChild(l);});})();</script>
 <title>דירות למכירה ולהשכרה בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
@@ -3711,7 +3713,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   @media(max-width:759px){
     html.beta-hero body .hdr-mkt{flex:none;margin-inline-start:6px;padding:0 10px;font-size:13px;min-height:36px}
     html.beta-hero body .hdr-mkt .hdr-mkt-l{display:none}
-    html.beta-hero body header.site .logo-word [data-market-label]{display:none}
+    html.beta-hero body header.site .logo-word [data-market-label]{display:block;font-size:10.5px;max-width:110px}
     /* לוגו ושם קטנים יותר בטלפון (בקשת תומר, 27.10.2026) */
     html.beta-hero body header.site .logo{gap:7px}
     html.beta-hero body header.site .logo-img{height:36px}
@@ -3729,6 +3731,24 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
   html.beta-hero .mkt-tabs button[aria-selected="true"]{border-color:var(--v10-navy);background:rgba(14,42,107,.08);color:var(--v10-navy);font-weight:800}
   html.beta-hero .mkt-empty{margin:6px 10px;color:var(--v10-body);font-size:13px}
+
+  /* ---------- השלמות (סבב בדיקה מול החבילה) ---------- */
+  html.beta-hero .v10-hide{display:none !important}
+  html.beta-hero p.v10-only{display:block}
+  html.beta-hero span.v10-only{display:inline}
+  /* באנר הבעלים: טוקן הבאנר הכחול עם מסגרת זהב (‏6.9) במקום התמונה */
+  html.beta-hero body #ownerBannerWrap #ownerBanner{background:linear-gradient(135deg,#0e2a6b,#0d1b3d);border:1px solid rgba(201,162,39,.35)}
+  html.beta-hero body #ownerBannerWrap #ownerBanner::before{display:none}
+  /* גבריאלה מופיעה פעמיים בלבד (‏6.12): לא בבאנר מחפשי הנכס */
+  html.beta-hero #buyerGab{display:none !important}
+  /* "משרדים מובילים" אחרי שורת המקור (‏6.6) */
+  html.beta-hero .dm-top-title{display:block;margin:16px 0 0;font-size:var(--sub-h);font-weight:800;line-height:1.3;color:#0d1b3d}
+  html.beta-hero .dm-stats-wrap[hidden] + .dm-top-title,html.beta-hero #dmStatsWrap[hidden] .dm-top-title{display:none}
+  /* כותרות משנה בטוקן --sub-h (‏6.17) */
+  html.beta-hero body #dealmakers .dm-name,html.beta-hero body #articles .article-card h3{font-size:var(--sub-h) !important;font-weight:800 !important;line-height:1.3 !important}
+  /* שם המפה בפוקוס מקלדת: Leaflet שם את ה-tabindex על העטיפה ולא על .hm-pin (‏6.5) */
+  html.beta-hero .leaflet-marker-icon:focus-visible .hm-pin-name{opacity:1}
+  html.beta-hero .leaflet-marker-icon:focus-visible{outline:2px solid var(--v10-gold);outline-offset:2px;border-radius:6px}
 
   /* ---------- המונים (‏#dmStats) ---------- */
   html.beta-hero .v10-d{display:none}
@@ -3983,7 +4003,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <button type="button" class="gabv8-go" id="gabV8Go" aria-haspopup="dialog">בואו נתחיל <span aria-hidden="true">←</span></button>
               </div>
             </div>
-            <button type="button" class="gabv8-fig" id="gabV8Fig" aria-label="פתיחת שיחה עם גבריאלה" tabindex="-1"></button>
+            <button type="button" class="gabv8-fig" id="gabV8Fig" aria-label="פתיחת שיחה עם גבריאלה"></button>
           </div>
           <div class="gabv8-band" id="gabV8Band"></div>
         </div>
@@ -4799,6 +4819,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="dm-stat" data-stat="props" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">נכסים פעילים</span><span class="dm-stat-c">באתר עכשיו</span></div>
         </div>
         <p class="dm-stats-note">מעודכן ממאגר רשות המיסים</p>
+        <h3 class="dm-top-title">משרדים מובילים</h3>
       </div>
 
       <div class="dm-bar">
@@ -4859,10 +4880,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="lead-banner owner-banner is-open" id="ownerBanner">
       <div class="owner-hero">
         <h2 id="ownerTitle">כמה שווה הנכס שלכם?<br><span>הערכת שווי חינם</span></h2>
-        <p>מתווך/ת מקומי/ת יחזור/תחזור אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
+        <p class="v10-hide">מתווך/ת מקומי/ת יחזור/תחזור אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
+        <p class="v10-only">יועצי נדל״ן מקומיים יחזרו אליכם עם הערכת מחיר לנכס, על בסיס עסקאות דומות באזור - כולל הדמיית AI שתראה לקונים את הפוטנציאל שלו.</p>
         <ol class="owner-steps">
           <li><span class="n" aria-hidden="true">1</span><span><b>ממלאים כתובת ופרטי נכס</b> <span class="nw">- פחות מדקה</span></span></li>
-          <li><span class="n" aria-hidden="true">2</span><span><b>מתווך/ת מומלץ/ת מהאזור</b> <span class="nw">בודק/ת את הנכס</span></span></li>
+          <li><span class="n" aria-hidden="true">2</span><span class="v10-hide"><b>מתווך/ת מומלץ/ת מהאזור</b> <span class="nw">בודק/ת את הנכס</span></span><span class="v10-only"><b>יועצי נדל״ן מהאזור</b> <span class="nw">בודקים את הנכס</span></span></li>
           <li><span class="n" aria-hidden="true">3</span><span><b>מקבלים הערכת שווי חינם</b><span class="nw">, בלי התחייבות</span></span></li>
         </ol>
       </div>
