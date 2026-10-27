@@ -3,6 +3,16 @@
 // כדי שהבדיקה ב-node תריץ אותו.
 
 export const LESS_TITLE = "פחות כאלה";
+export const RESTORE_TITLE = "החזר כרגיל";
+export const RESTORE_COMMAND = "החזר התראות";
+export const LESS_HOLD_DAYS = 30;
+
+/** סוגים שכפתור "פחות כאלה" אינו מפחית: ליד, סיור, תזכורת מהיומן. */
+export const LESS_KEPT_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"] as const;
+
+export function isLessKeptType(type: string): boolean {
+  return (LESS_KEPT_TYPES as readonly string[]).includes(type);
+}
 
 const TOPIC_LABELS: Record<string, string> = {
   client_match: "התאמות",
@@ -24,6 +34,12 @@ export function topicLabel(type: string): string {
 /** "nless:client_match" או null. הסוג נשמר רק אם הוא מזהה קצר. */
 export function parseLessButton(id: string): string | null {
   const m = /^nless:([a-z][a-z0-9_]{0,39})$/.exec(String(id || ""));
+  return m ? m[1] : null;
+}
+
+/** "nmore:client_match" או null. מוחק את שורת ההפחתה של הסוג. */
+export function parseMoreButton(id: string): string | null {
+  const m = /^nmore:([a-z][a-z0-9_]{0,39})$/.exec(String(id || ""));
   return m ? m[1] : null;
 }
 
@@ -53,17 +69,29 @@ export function digestWindowOpen(
   return windows.some((w) => Number.isFinite(w) && Math.abs(minute - w) <= radius);
 }
 
-/** אותו סדר פנימי בכל נושא, והנושאים זה אחרי זה. הכותרת של הראשון בכל נושא מקבלת תווית. */
-export function withTopicHeaders<T extends { type: string; title: string }>(
-  items: T[],
-  label: (type: string) => string = topicLabel,
-): T[] {
-  const sorted = [...items].sort((a, b) => a.type < b.type ? -1 : a.type > b.type ? 1 : 0);
-  let prev = "";
-  return sorted.map((it) => {
-    if (it.type === prev) return it;
-    prev = it.type;
-    const name = label(it.type);
-    return { ...it, title: `${name}: ${it.title}` };
-  });
+/**
+ * תווית לשורת גוף כשהסוג מתחלף. לא משנה את סדר arrange() ולא את הכותרת
+ * או את הקישור: התבנית נשארת עם הכותרת המקורית, והקישור לא נדחק מהחיתוך.
+ */
+export function topicBreak(previous: string | null, type: string): string | null {
+  if (!type || type === previous) return null;
+  return topicLabel(type);
+}
+
+/**
+ * אחרי שה-CASE בחר אילו סוגים מותרים עכשיו. סוג מופחת שאינו דחוף יורד
+ * מהרשימה מחוץ לחלון, ובתוך החלון רק אם לא יצאה הודעה בחלון הזה
+ * (פעמיים רדיוס הדקות). דחוף נשאר תמיד.
+ */
+export function applyLessGate(
+  types: string[],
+  lessTypes: string[],
+  opts: { digestOpen: boolean; lastSentAgoMin: number | null; windowRadiusMin: number },
+): string[] {
+  const reduced = new Set(lessTypes.filter((t) => !isLessKeptType(t)));
+  const span = Math.max(opts.windowRadiusMin, 1) * 2;
+  const includeReduced = opts.digestOpen
+    && (opts.lastSentAgoMin == null || opts.lastSentAgoMin > span);
+  if (includeReduced) return types.slice();
+  return types.filter((t) => !reduced.has(t));
 }

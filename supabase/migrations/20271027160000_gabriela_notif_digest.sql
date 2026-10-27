@@ -6,8 +6,9 @@
 -- notif_stop_131049 = 0: לא נוגעים. כשהוא 1, מי שקיבל 131049 בחלון
 -- ההמתנה לא מקבל תבנית שיווקית מחוץ לחלון 24 השעות. בתוך החלון הטקסט
 -- יוצא כרגיל.
--- "פחות כאלה" נשמר ב-agent_notif_less ומוציא את הסוג מהרשימה תמיד,
--- גם כשהדגל כבוי: בלי שורות בטבלה אין שינוי.
+-- "פחות כאלה" נשמר ב-agent_notif_less ומפחית סוג שאינו דחוף:
+-- הוא יוצא רק בחלון תקציר, ופעם אחת בחלון, ל-30 יום. ליד, סיור
+-- ותזכורת מהיומן לא יורדים מהרשימה. בלי שורות בטבלה אין שינוי.
 
 insert into public.pricing_config (key, value, description) values
   ('notif_digest_enabled', 0, '1: התראות שאינן בעדיפות יוצאות רק בחלונות התקציר, עם תקרה יומית נמוכה יותר.'),
@@ -25,17 +26,41 @@ create table if not exists public.agent_notif_less (
   agent_id    uuid not null references public.agency_members(id) on delete cascade,
   notif_type  text not null,
   created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null default (now() + interval '30 days'),
   primary key (agent_id, notif_type),
   constraint agent_notif_less_type_chk check (notif_type ~ '^[a-z][a-z0-9_]{0,39}$')
 );
 
+alter table public.agent_notif_less
+  add column if not exists expires_at timestamptz;
+update public.agent_notif_less
+   set expires_at = created_at + interval '30 days'
+ where expires_at is null;
+alter table public.agent_notif_less
+  alter column expires_at set default (now() + interval '30 days');
+alter table public.agent_notif_less
+  alter column expires_at set not null;
+
 comment on table public.agent_notif_less is
-  'סוגי התראה שהסוכן/ת ביקש/ה פחות מהם בכפתור פחות כאלה. השורה מוציאה את הסוג מהדחיפה לוואטסאפ.';
+  'סוג שהסוכן/ת ביקש/ה פחות ממנו. לא משתיק: סוג שאינו דחוף יוצא רק בחלון תקציר, פעם בחלון, עד expires_at. מחיקת השורה מחזירה את הקצב.';
+comment on column public.agent_notif_less.expires_at is
+  'אחרי המועד הזה השורה לא מפחיתה. ברירת המחדל 30 יום מהשמירה.';
 
 alter table public.agent_notif_less enable row level security;
 
-revoke all on table public.agent_notif_less from public, anon, authenticated;
+revoke all on table public.agent_notif_less from public, anon;
+grant select, delete on table public.agent_notif_less to authenticated;
 grant select, insert, update, delete on table public.agent_notif_less to service_role;
+
+drop policy if exists "agent reads own less notifications" on public.agent_notif_less;
+create policy "agent reads own less notifications"
+  on public.agent_notif_less for select
+  using (agent_id = public.current_agent_id());
+
+drop policy if exists "agent deletes own less notifications" on public.agent_notif_less;
+create policy "agent deletes own less notifications"
+  on public.agent_notif_less for delete
+  using (agent_id = public.current_agent_id());
 
 create or replace function public.notif_il_digest_open(p_window_minutes integer)
 returns boolean
@@ -79,7 +104,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  with cfg as (
+  with cfg0 as (
     select coalesce((select value::int from public.pricing_config
                       where key = 'notif_push_gap_minutes'), 10)      as gap_min,
            coalesce((select value::int from public.pricing_config
@@ -96,11 +121,18 @@ as $$
                       where key = 'notif_digest_window_minutes'), 15) as digest_win,
            coalesce((select value::int from public.pricing_config
                       where key = 'notif_stop_131049'), 0)            as stop_131049,
-           coalesce((select value::int from public.pricing_config
-                      where key = 'notif_131049_hold_hours'), 72)     as hold_hours,
+           greatest(1, least(
+             coalesce((select value::int from public.pricing_config
+                        where key = 'notif_131049_hold_hours'), 72),
+             24 * 30))                                                as hold_hours,
            array['agenda_reminder']::text[]                            as urgent,
            public.notification_push_priority_types()                  as priority,
            public.notification_known_types()                          as known
+  ),
+  cfg as (
+    select cfg0.*,
+           public.notif_il_digest_open(cfg0.digest_win) as digest_open
+      from cfg0
   ),
   agents as (
     select m.id, m.display_name,
@@ -108,11 +140,16 @@ as $$
            array(
              select t from unnest((select known from cfg)) t
               where t <> all (coalesce(np.whatsapp_off_types, '{}'::text[]))
-                and not exists (
-                  select 1 from public.agent_notif_less less
-                   where less.agent_id = m.id and less.notif_type = t
-                )
            )                                             as whatsapp_types,
+           array(
+             select less.notif_type
+               from public.agent_notif_less less
+              where less.agent_id = m.id
+                and less.expires_at > now()
+                and less.notif_type <> all (
+                  (select priority from cfg) || (select urgent from cfg)
+                )
+           )                                             as less_types,
            coalesce(rp.quiet_from_hour, 21)              as quiet_from,
            coalesce(rp.quiet_to_hour,   8)               as quiet_to,
            coalesce(rp.quiet_days, '{5,6}'::smallint[])     as quiet_days,
@@ -147,9 +184,7 @@ as $$
            ) as fails24,
            bool_or(
              position('131049' in coalesce(l.last_error, '')) > 0
-             and l.created_at > now() - make_interval(hours => greatest(1, least(
-               coalesce((select value::int from public.pricing_config where key = 'notif_131049_hold_hours'), 72),
-               24 * 30)))
+             and l.created_at > now() - make_interval(hours => (select hold_hours from cfg))
            ) as hit_131049
       from public.notification_push_log l
      group by l.agent_id
@@ -164,7 +199,7 @@ as $$
               and coalesce(r.hit_131049, false)
              then '{}'::text[]
              when cfg.digest_on = 1
-              and not public.notif_il_digest_open(cfg.digest_win)
+              and not cfg.digest_open
              then array(select t from unnest(a.whatsapp_types) t where t = any(cfg.priority))
              when (r.last_at is not null
                    and r.last_at >= now() - make_interval(mins => cfg.gap_min))
@@ -177,21 +212,39 @@ as $$
                    and r.last_tpl_at >= now() - make_interval(mins => cfg.tpl_gap))
              then array(select t from unnest(a.whatsapp_types) t where t = any(cfg.priority))
              else a.whatsapp_types
-           end as types,
+           end as raw_types,
+           a.less_types,
+           cfg.digest_open,
+           cfg.digest_win,
+           r.last_at,
            r.fails24, cfg.max_fail
       from agents a
       cross join cfg
       left join recent r on r.agent_id = a.id
+  ),
+  gated as (
+    select s.id, s.display_name, s.phone_e164, s.in_window, s.fails24, s.max_fail,
+           case
+             when s.digest_open
+              and (s.last_at is null
+                   or s.last_at < now() - make_interval(mins => greatest(s.digest_win, 1) * 2))
+             then s.raw_types
+             else array(
+               select t from unnest(s.raw_types) t
+                where t <> all (coalesce(s.less_types, '{}'::text[]))
+             )
+           end as types
+      from shaped s
   )
-  select s.id, s.display_name, s.phone_e164, s.types, s.in_window
-    from shaped s
-   where coalesce(array_length(s.types, 1), 0) > 0
-     and s.phone_e164 is not null
-     and coalesce(s.fails24, 0) < s.max_fail;
+  select g.id, g.display_name, g.phone_e164, g.types, g.in_window
+    from gated g
+   where coalesce(array_length(g.types, 1), 0) > 0
+     and g.phone_e164 is not null
+     and coalesce(g.fails24, 0) < g.max_fail;
 $$;
 
 comment on function public.notification_push_due_agents() is
-  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. דגלי התקציר ו-131049 כבויים בברירת המחדל ומשאירים את 20270825090000. agent_notif_less מוציא סוג שהסוכן/ת ביקש/ה פחות ממנו.';
+  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. דגלי התקציר ו-131049 כבויים בברירת המחדל ומשאירים את 20270825090000. agent_notif_less מפחית סוג שאינו דחוף לחלון אחד, עד שפג תוקף השורה.';
 
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;

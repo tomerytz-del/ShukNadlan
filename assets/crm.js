@@ -25194,6 +25194,7 @@ let notifMutedTypes = [];
    סוג התראה חדש יגיע לכולם גם לפעמון וגם לוואטסאפ. ‏whatsapp_types, רשימת
    המאושרים של פעם, נשארה בטבלה בלי קורא. */
 let notifWhatsappOffTypes = [];
+let notifLessRows = [];
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
    ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
@@ -25213,16 +25214,17 @@ function notifVisibleTypes(){
 
 async function loadNotifPrefs(agentId){
   // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
-  const { data, error } = await sb
-    .from('agent_notification_preferences')
-    .select('*')
-    .eq('agent_id', agentId)
-    .maybeSingle();
+  // שורת "פחות כאלה" נטענת בנפרד: לפני המיגרציה הטבלה חסרה, והמסך נשאר בלי הרשימה.
+  const [prefs, less] = await Promise.all([
+    sb.from('agent_notification_preferences').select('*').eq('agent_id', agentId).maybeSingle(),
+    sb.from('agent_notif_less').select('notif_type, expires_at').eq('agent_id', agentId),
+  ]);
 
   // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
-  notifMutedTypes = (!error && data && Array.isArray(data.muted_types)) ? data.muted_types : [];
-  notifWhatsappOffTypes = (!error && data && Array.isArray(data.whatsapp_off_types)) ? data.whatsapp_off_types : [];
+  notifMutedTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.muted_types)) ? prefs.data.muted_types : [];
+  notifWhatsappOffTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.whatsapp_off_types)) ? prefs.data.whatsapp_off_types : [];
+  notifLessRows = (!less.error && Array.isArray(less.data)) ? less.data : [];
   renderNotifPrefs();
 }
 
