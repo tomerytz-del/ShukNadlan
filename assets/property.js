@@ -1,5 +1,9 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+/* לקוח אחד לכל הדף: כל createClient יוצר GoTrueClient משלו, ושמונה כאלה על אותו
+   אחסון הפיקו בקונסול "Multiple GoTrueClient instances" (P2) */
+let sbShared = null;
+function sbClient(){ return sbShared || (sbShared = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)); }
 const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
@@ -206,7 +210,7 @@ function logPropertyView(propertyId){
       sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       sessionStorage.setItem('shuknadlan_session_id', sessionId);
     }
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     sb.from('property_views').insert({ property_id: propertyId, visitor_session_id: sessionId })
       .then(({ error }) => { if (error) console.warn('view logging failed:', error); });
   } catch(e){ console.warn('view logging failed:', e); }
@@ -241,7 +245,7 @@ async function loadProperty(){
   }
   try{
     if (!window.supabase) throw new Error('supabase-js לא נטען');
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb
       .from('properties')
       .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name)')
@@ -879,7 +883,7 @@ function sanitizeTourScenes(raw){
 async function loadVirtualTour(p){
   if (!window.supabase) return;
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb
       .from('property_virtual_tours')
       .select('initial_scene, scenes')
@@ -1194,7 +1198,7 @@ function propMapTiles(map){
 
 async function propertyMapEnabled(id){
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb.rpc('property_map_enabled', { p_property_id: id });
     if (error) throw error;
     return data === true;
@@ -1299,7 +1303,7 @@ function isLandProperty(p){
 async function loadPlanningInfo(p){
   if (!window.supabase) return;
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb.rpc('property_planning_public', { p_property_id: p.id });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
@@ -1497,7 +1501,7 @@ async function loadVisualizations(p){
   if (!(Array.isArray(p.images) && p.images.some(Boolean))) return;
   const section = document.getElementById('vizSection');
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
 
     // הזכאות נשאלת מה-DB ולא נגזרת בצד הלקוח, כדי שתהיה הגדרה אחת בלבד
     // ל"מי זכאי" — אותה פונקציה שה-Edge Function נשען עליה.
@@ -2163,7 +2167,7 @@ function mergeVizResults(rows){
 /* ההדמיה רצה ברקע ב-Edge Function ולכן המעקב הוא polling על ה-RPC.
    ה-job_id הוא כרטיס הכניסה לתוצאה — הוא נמסר רק למי שביקש/ה. */
 async function pollVisualizationJob(jobId, pendingTargets){
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sb = sbClient();
   const DEADLINE = Date.now() + 180000;
   let remaining = pendingTargets.slice();
 
@@ -2242,7 +2246,7 @@ function similarityScore(p, c){
 async function loadSimilarProperties(p){
   if (!window.supabase) return [];
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     // הלוגו של המשרד נטען יחד עם הנכס כדי שאריח בלי תמונות יציג את מיתוגו
     const base = () => {
       let q = sb.from('properties').select('*, agencies(name, logo_url)').eq('status', 'active').neq('id', p.id);

@@ -692,3 +692,6 @@ html body .sw-art-stitle{margin:14px 0 4px;font-family:Heebo,system-ui,sans-seri
 .sw-sdone p{margin:8px 0 0;font-size:16px;font-weight:700}
 .sw-sdone[hidden]{display:none}
 .sw-sform .sw-ferr:empty{display:none}
+
+/* ‏P2: במחשב גלולת הסיכום לא נמתחת לכל הרוחב */
+@media (min-width:1024px){.sw-sum{max-width:560px}}
