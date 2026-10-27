@@ -181,7 +181,18 @@ function thumbFallback(p){
 const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
 
 function getPropertyIdFromUrl(){
-  return new URLSearchParams(window.location.search).get('id');
+  // ‏ה-UUID הראשון בערך: קישור שנדבק אליו טקסט (‏‎<uuid>שוק‎) עדיין נפתח.
+  // ה-edge (‏og-tags.ts) כבר מפנה 301 לכתובת הנקייה; זה הגיבוי בדפדפן.
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('id') || '';
+  const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (!m) return null;
+  const id = m[0].toLowerCase();
+  if (id !== raw && window.history && history.replaceState){
+    params.set('id', id);
+    history.replaceState(history.state, '', location.pathname + '?' + params.toString() + location.hash);
+  }
+  return id;
 }
 
 /* ---------- Lightweight view logging (module 4 §2.5) — fire and forget, never blocks rendering ---------- */
