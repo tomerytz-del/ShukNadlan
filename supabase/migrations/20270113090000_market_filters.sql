@@ -31,4 +31,7 @@ select c.id as city_id, c.market_slug
 comment on view public.market_cities_public is
   'מזהה עיר ← slug של שוק, לסינון לפי שוק בדפדפן. בלי שמות ערים, בכוונה: הוא אינו חושף אילו ערים עומדות להיפתח. docs/regional-pages.md';
 
+-- revoke קודם: view חדש נולד עם ALL ל-anon (ברירת מחדל של public), ו-grant
+-- select לבדו משאיר עדכון ומחיקה. הקריאה הציבורית נשארת; הכתיבה לא.
+revoke all on public.market_cities_public from public, anon, authenticated;
 grant select on public.market_cities_public to anon, authenticated;

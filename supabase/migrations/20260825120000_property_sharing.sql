@@ -265,7 +265,7 @@ grant execute on function public.unshare_property(uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 -- 6. הרשימה "נכסים ששותפו איתי"
 --
--- ‏View בלי security_invoker — אותה תבנית כמו leads_masked ו-rss_leads_public
+-- ‏View בלי security_invoker — אותה תבנית כמו rss_leads_public
 -- בפרויקט. הסינון על current_agency_id() הוא מה שמגדיר את ההרשאה: מי שאינו
 -- מחובר מקבל null ולכן אפס שורות, ומשרד רואה רק את מה ששותף איתו.
 --
