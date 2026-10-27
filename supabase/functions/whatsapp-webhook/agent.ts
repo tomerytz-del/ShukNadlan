@@ -6816,6 +6816,11 @@ function sessionContext(
  * מיוצאת כי `public-agent.ts` צריכה בדיוק את אותה התנהגות. זה הדבר היחיד
  * שהבוט הציבורי לוקח מכאן — הכלים, ההוראות ורשימת ההרשאות שלו נפרדים לגמרי.
  */
+/** המאמץ מהקריאה השנייה בתור (‏runAgentTurn). ‏medium = כמו הראשונה, בלי הודעת מאמץ. */
+const LOOP_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_AGENT_LOOP_EFFORT") || "")
+  ? Deno.env.get("WHATSAPP_AGENT_LOOP_EFFORT")
+  : "low") as "low" | "medium" | "high";
+
 export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
@@ -6823,12 +6828,17 @@ export async function callClaude(
     // deno-lint-ignore no-explicit-any
     return await (anthropic.beta.messages.create as any)({
       ...params,
-      betas: ["server-side-fallback-2026-07-01"],
+      betas: ["server-side-fallback-2026-07-01", "mid-conversation-output-config-2026-07-01"],
       fallbacks: "default",
     });
   } catch (err) {
     console.warn("beta fallbacks unavailable, retrying without", err);
-    return await anthropic.messages.create(params);
+    // בלי הבטא גם הודעת המאמץ (‏LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
+    // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
+    return await anthropic.messages.create({
+      ...params,
+      messages: params.messages.filter((m) => (m.role as string) !== "system"),
+    });
   }
 }
 
@@ -6964,6 +6974,19 @@ export async function runAgentTurn(opts: {
     if (!toolUses.length) break;
 
     messages.push({ role: "assistant", content: response.content });
+    // ‏**low מהקריאה השנייה** (27.10.2026). הזמן של קריאה למודל הוא כמעט כולו
+    // הפלט (מתאם 0.97 בין out ל-ms), ואחרי הקריאה הראשונה ההחלטה כבר נעשתה
+    // והכלי רץ - מה שנשאר הוא בעיקר ניסוח. הקריאה הראשונה נשארת medium
+    // (ההערה למעלה). **הודעת מאמץ ולא שינוי של output_config בבקשה:** שינוי
+    // של המאמץ בבקשה מבטל את המטמון של ההודעות, וכל קריאה שנייה הייתה קוראת
+    // שוב ~45K טוקנים. ההודעה נוספת פעם אחת ונשארת (רק הוספה, אף פעם לא
+    // עריכה), וחלה מהודעת ה-user הבאה - תוצאות הכלים. חזרה בלי פריסה:
+    // ‏WHATSAPP_AGENT_LOOP_EFFORT=medium.
+    if (i === 0 && LOOP_EFFORT !== "medium") {
+      messages.push(
+        { role: "system", content: [], output_config: { effort: LOOP_EFFORT } } as unknown as Anthropic.MessageParam,
+      );
+    }
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
