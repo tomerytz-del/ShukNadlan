@@ -72,7 +72,17 @@ import {
   parseAgreementButton,
   parseImageDeleteButton,
   confirmWritesNow,
+  parsePublishButton,
   pendingStoreMissing,
+  PUBLISH_ALREADY,
+  PUBLISH_BUSY,
+  PUBLISH_FAILED,
+  PUBLISH_STORE_MISSING,
+  publishClickDecision,
+  publishConfirmButtons,
+  publishDecisionText,
+  publishErrorText,
+  publishStoreBlocked,
   REISSUE_BUTTON_TTL_MS,
   reissueOldAgreementPlan,
   REISSUE_BUSY,
@@ -500,12 +510,19 @@ const TOOLS: Anthropic.Tool[] = [
     name: "set_property_status",
     description:
       "משנה את סטטוס הנכס. archived = הסרה מהאתר (זו הדרך למחוק נכס - אין מחיקה " +
-      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר.",
+      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר. active = פרסום לאוויר, " +
+      "ובוואטסאפ יוצאים כפתורי אישור והנכס לא עולה לפניהם. confirm=true רק בנתיב " +
+      "בלי כפתורים (מייל), אחרי אישור מפורש.",
     input_schema: {
       type: "object",
       properties: {
         property_id: { type: "string" },
         status: { type: "string", enum: STATUSES },
+        confirm: {
+          type: "boolean",
+          description:
+            "true רק כשאין כפתורים (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם. בוואטסאפ האישור הוא הכפתור.",
+        },
       },
       required: ["property_id", "status"],
     },
@@ -2388,6 +2405,9 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
 
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+  if (status === "active" && input.confirm !== true) {
+    return askPublishConfirm(ctx, propertyId, String(existing.title || ""));
+  }
 
   const { error } = await ctx.supabase
     .from("properties")
@@ -2395,10 +2415,64 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: publishErrorText(error.message) };
 
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, title: existing.title, status };
+}
+
+async function askPublishConfirm(
+  ctx: ToolContext,
+  propertyId: string,
+  title: string,
+): Promise<Record<string, unknown>> {
+  if (!propertyId) return { ok: false, error: "חסר מזהה נכס." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "פרסום לאוויר דורש אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+    };
+  }
+  const live = await ctx.supabase.from("properties")
+    .select("status")
+    .eq("id", propertyId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (live.data?.status === "active") {
+    return { ok: true, already_active: true, note: PUBLISH_ALREADY, title };
+  }
+  const id = newPendingActionId();
+  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
+    id,
+    agent_id: ctx.agent.id,
+    action: "publish",
+    subject_id: propertyId,
+    payload: { status: "active" },
+    expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
+  });
+  if (error) {
+    console.error("pending publish save failed", error.code);
+    return {
+      ok: false,
+      error: publishStoreBlocked(error)
+        ? PUBLISH_STORE_MISSING
+        : PUBLISH_FAILED,
+    };
+  }
+  const buttons = publishConfirmButtons(id);
+  if (!buttons) return { ok: false, error: PUBLISH_FAILED };
+  const label = title.trim() ? `"${title.trim()}"` : "הנכס";
+  ctx.outbox.push({
+    kind: "buttons",
+    body: `לפרסם את ${label} באתר?`,
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהנכס פורסם.",
+  };
 }
 
 /**
@@ -6545,9 +6619,98 @@ async function runPendingReissue(
   return { text: done.text, outbox: outbox.length ? outbox : undefined };
 }
 
+async function releasePublishClaim(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+): Promise<void> {
+  const { error } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: null })
+    .eq("id", requestId)
+    .eq("agent_id", agentId)
+    .is("executed_at", null);
+  if (error) console.error("pending publish release failed", error.code);
+}
+
+async function markPublishDone(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+  text: string,
+): Promise<void> {
+  const { error } = await supabase.from("whatsapp_pending_actions").update({
+    executed_at: new Date().toISOString(),
+    result: text,
+  }).eq("id", requestId).eq("agent_id", agentId);
+  if (error) console.error("pending publish finish failed", error.code);
+}
+
+async function runPendingPublish(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  requestId: string,
+): Promise<{ text: string }> {
+  const loaded = await loadPendingAction(supabase, agent.id, requestId);
+  if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = publishClickDecision(loaded.row, Date.now());
+  if (first.kind !== "run") return { text: publishDecisionText(first) || PUBLISH_BUSY };
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", requestId)
+    .eq("agent_id", agent.id)
+    .eq("action", "publish")
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .gt("expires_at", nowIso)
+    .select("id, subject_id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending publish claim failed", claimErr.code);
+    return { text: publishStoreBlocked(claimErr) ? PUBLISH_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, requestId);
+    if ("missing" in again) return { text: PUBLISH_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = publishClickDecision(again.row, Date.now());
+    return { text: publishDecisionText(decision) || PUBLISH_BUSY };
+  }
+
+  const propertyId = String(claimed.subject_id || first.propertyId);
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id")
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr || !prop || !ownsRow(agent, prop)) {
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
+  }
+  if (prop.status === "active") {
+    await markPublishDone(supabase, agent.id, requestId, PUBLISH_ALREADY);
+    return { text: PUBLISH_ALREADY };
+  }
+  const { error } = await supabase.from("properties")
+    .update({ status: "active", updated_at: nowIso })
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id);
+  if (error) {
+    console.error("pending publish failed", error.code);
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: publishErrorText(error.message) };
+  }
+  const title = String(prop.title || "").trim();
+  const text = title ? `הנכס "${title}" פורסם.` : "הנכס פורסם.";
+  await markPublishDone(supabase, agent.id, requestId, text);
+  return { text };
+}
+
 /**
- * לחיצה על כפתור מחיקת תמונה או ביטול/הנפקה של הסכם. null - זה לא כפתור כזה.
- * המזהה נושא את הנכס, ההסכם, או בקשת ההנפקה. בלי מודל.
+ * לחיצה על כפתור מחיקת תמונה, ביטול/הנפקה של הסכם, או פרסום. null - זה לא כפתור כזה.
+ * המזהה נושא את הנכס, ההסכם, או הבקשה. בלי מודל.
  */
 export async function listingActionReply(
   supabase: SupabaseClient,
@@ -6586,14 +6749,20 @@ export async function listingActionReply(
   }
 
   const agreement = parseAgreementButton(buttonId);
-  if (!agreement) return null;
-  if (!agreement.yes) {
-    return { text: agreement.action === "cancel" ? "ההסכם נשאר." : "לא הוצא הסכם חדש." };
+  if (agreement) {
+    if (!agreement.yes) {
+      return { text: agreement.action === "cancel" ? "ההסכם נשאר." : "לא הוצא הסכם חדש." };
+    }
+    if (agreement.action === "cancel") {
+      return { text: await cancelOwnedAgreement(supabase, agent, agreement.agreementId) };
+    }
+    return runPendingReissue(supabase, agent, agreement.agreementId);
   }
-  if (agreement.action === "cancel") {
-    return { text: await cancelOwnedAgreement(supabase, agent, agreement.agreementId) };
-  }
-  return runPendingReissue(supabase, agent, agreement.agreementId);
+
+  const publish = parsePublishButton(buttonId);
+  if (!publish) return null;
+  if (!publish.yes) return { text: "הנכס לא פורסם." };
+  return runPendingPublish(supabase, agent, publish.requestId);
 }
 
 async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unknown>) {
@@ -7848,6 +8017,9 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
+    "- פרסום (set_property_status עם active) בלי confirm שולח כפתורי אישור והנכס לא עולה לפניהם. " +
+      "אל תאמרי שפורסם עד אחרי הכפתור. sold, rented ו-archived לא מחכים לכפתור. " +
+      "confirm=true רק כשאין כפתורים (מייל) ואחרי אישור מפורש.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
       "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +

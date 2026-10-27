@@ -15,7 +15,16 @@ import {
   parseAgreementButton,
   parseImageDeleteButton,
   confirmWritesNow,
+  parsePublishButton,
   pendingStoreMissing,
+  PUBLISH_FAILED,
+  PUBLISH_YES,
+  PUBLISH_NO,
+  publishClickDecision,
+  publishConfirmButtons,
+  publishDecisionText,
+  publishErrorText,
+  publishStoreBlocked,
   REISSUE_EXPIRED,
   reissueOldAgreementPlan,
   REISSUE_OLD_CANCELLED,
@@ -190,6 +199,48 @@ check(
   mixedExtras.length === 1 && mixedExtras[0].client_id === "c9" && mixedKept.join(",") === "c8",
 );
 check("בלי לקוח אין הנפקה", "error" in reissuePrepareInput({ kind: "sell", property_ids: ["p1"] }, [], {}));
+
+const pubId = "abc123def456";
+const pubButtons = publishConfirmButtons(pubId);
+check("כפתורי פרסום", !!pubButtons && pubButtons[0].id === `pubx:y:${pubId}` && pubButtons[1].title === PUBLISH_NO);
+check("כותרת הפרסום בתוך 20", [...PUBLISH_YES].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0) <= 20);
+check("פרסור פרסום", parsePublishButton(`pubx:y:${pubId}`)?.yes === true && parsePublishButton(`pubx:n:${pubId}`)?.yes === false);
+check("הנפקה אינה פרסום", parsePublishButton("agrx:y:abc123def456") === null);
+const propertyId = "11111111-1111-1111-1111-111111111111";
+const pubRow = {
+  id: pubId,
+  action: "publish",
+  subject_id: propertyId,
+  expires_at: new Date(Date.now() + 60_000).toISOString(),
+  claimed_at: null,
+  executed_at: null,
+  result: null,
+};
+check("לחיצה ראשונה מפרסמת", publishClickDecision(pubRow, Date.now()).kind === "run");
+check("לחיצה שנייה לא מפרסמת שוב", publishClickDecision(
+  { ...pubRow, executed_at: new Date().toISOString(), result: "הנכס פורסם." },
+  Date.now(),
+).kind === "done");
+check("בקשה שפגה לא מפרסמת", publishClickDecision(
+  { ...pubRow, expires_at: new Date(Date.now() - 1000).toISOString() },
+  Date.now(),
+).kind === "expired");
+check("תפיסה בלי סיום היא עסוק", publishClickDecision(
+  { ...pubRow, claimed_at: new Date().toISOString() },
+  Date.now(),
+).kind === "busy");
+check("הנפקה אינה בקשת פרסום", publishClickDecision({ ...pubRow, action: "reissue" }, Date.now()).kind === "missing");
+check("טקסט של לחיצה שנייה הוא מה שנשמר", publishDecisionText(publishClickDecision(
+  { ...pubRow, executed_at: new Date().toISOString(), result: "הנכס פורסם." },
+  Date.now(),
+)) === "הנכס פורסם.");
+check("23514 חוסם פרסום", publishStoreBlocked({ code: "23514" }) && publishStoreBlocked({ code: "42P01" }));
+check("מפתח כפול אינו מחסור בטבלה", publishStoreBlocked({ code: "23505" }) === false);
+const exclusive = "הנכס נמצא בבלעדיות של דנה ממשרד אחר, ולכן אי אפשר לפרסם אותו.";
+check("שגיאת בלעדיות בעברית עוברת", publishErrorText(exclusive) === exclusive);
+check("שגיאה באנגלית לא עוברת", publishErrorText("duplicate key value violates unique constraint") === PUBLISH_FAILED);
+const longDash = String.fromCharCode(0x2014);
+check("מקף ארוך בשגיאה מוחלף", !publishErrorText(`הנכס ${longDash} באוויר`).includes(longDash));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
