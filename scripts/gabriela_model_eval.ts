@@ -34,7 +34,9 @@ const MAX_ITER = 3;
 const PRICES: Record<string, { in: number; out: number; read: number; w5: number; w1: number }> = {
   "claude-opus-5": { in: 5, out: 25, read: 0.5, w5: 6.25, w1: 10 },
   "claude-opus-5-5": { in: 4, out: 20, read: 0.2, w5: 5, w1: 8 },
-  "claude-sonnet-5-5": { in: 2, out: 10, read: 0.2, w5: 2.5, w1: 4 },
+  // קריאה ממטמון: $0.10 (0.05 ממחיר הקלט $2), מחירון Anthropic מ-7.10.2026.
+  // הכתיבה נשארת $2.50 / $4. אותו מספר במיגרציה 20271027150100.
+  "claude-sonnet-5-5": { in: 2, out: 10, read: 0.1, w5: 2.5, w1: 4 },
 };
 
 // בקשה, והכלים שתשובה ראשונה סבירה בוחרת (ריק = תשובה בלי כלי)

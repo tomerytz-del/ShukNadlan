@@ -30,6 +30,8 @@ import {
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { setPairReserve } from "../_shared/wa-pair-pace.ts";
+import { alertPlatformAdmins, fallbackReply, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
@@ -130,6 +132,46 @@ const TIER_REQUIRED_MSG =
   "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
+const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/$/, "");
+
+// מרווח בין הודעות לאותו מספר, גם מול התראות שרצות בפונקציה אחרת.
+// בלי המיגרציה ה-RPC נכשל והמרווח המקומי ב-wa-pair-pace נשאר.
+setPairReserve(async (phone, gapMs) => {
+  const { data, error } = await supabase.rpc("whatsapp_pair_reserve", {
+    p_phone: phone,
+    p_gap_ms: gapMs,
+  });
+  if (error) return 0;
+  const n = Number(data);
+  return Number.isFinite(n) ? n : 0;
+});
+
+async function replyAfterLlmFailure(to: string, agentId: string | null, err: unknown): Promise<void> {
+  const kind = llmFailureKind(err);
+  const text = fallbackReply(kind, SITE_BASE);
+  console.error("llm turn failed", kind, llmErrorText(err).slice(0, 300));
+  await reply(to, text, agentId);
+  await alertPlatformAdmins({
+    recentCount: async (type, since) => {
+      const { count } = await supabase.from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("type", type)
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    adminIds: async () => {
+      const { data } = await supabase.from("agency_members")
+        .select("id")
+        .eq("is_platform_admin", true)
+        .eq("active", true);
+      return (data || []).map((r) => String(r.id));
+    },
+    insert: async (rows) => {
+      const { error } = await supabase.from("notifications").insert(rows);
+      return error?.message ?? null;
+    },
+  }, kind, llmErrorText(err));
+}
 
 // ---------------------------------------------------------------------------
 // יומן הודעות
@@ -748,7 +790,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
       const media = msg.audio || msg.voice;
       const transcript = await transcribeAudio(media.id);
       if (!transcript) {
-        await reply(from, "לא הצלחתי לשמוע את ההקלטה. אפשר לכתוב לי מה מחפשים?", null);
+        await reply(from, "לא הצלחתי לשמוע את ההקלטה, גם אחרי ניסיון נוסף. אפשר לכתוב לי מה מחפשים?", null);
         return;
       }
       userText = transcript;
@@ -823,7 +865,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     // נשמר גם בכשל: אם הכלי הספיק לפתוח ליד לפני שהתור נפל, המונה שלו כבר
     // עלה — ותקרה שנשכחת בכל שגיאה אינה תקרה.
     await savePublicConversation(from, conv);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", null);
+    await replyAfterLlmFailure(from, null, err);
     return;
   }
 
@@ -1606,7 +1648,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await supabase.from("whatsapp_messages")
       .update({ error: String((err as Error)?.message || err) })
       .eq("wa_message_id", msg.id);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agent.id);
+    await replyAfterLlmFailure(from, agent.id, err);
     return;
   }
 
@@ -1689,6 +1731,9 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
           await handleMessage(msg);
         } catch (err) {
           console.error("message handling failed", err);
+          // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
+          const from = String(msg?.from || "");
+          if (from) await replyAfterLlmFailure(from, null, err);
         }
       }
       // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל
