@@ -116,7 +116,9 @@ EOF
 חל עליה. הטריגר `agent_clients_close_showcase` סוגר את המיניסייט הפעיל בכל
 מעבר ל-`closed`. דלת חדשה שמשנה סטטוס לקוח/ה מקבלת את הסגירה מעצמה; מה
 שעליה להוסיף הוא **האזהרה לפני** - ‏`showcaseCloseWarning(clientId)` ב-CRM,
-או `showcase_closed` בתשובת כלי בבוט.
+או `showcase_closed` בתשובת כלי בבוט. סגירת המיניסייט מבטלת גם סיורים
+עתידיים ואת בקשות התיאום שאינן סופיות (`client_showcases_cancel_future_meetings`
+ואז `client_showcase_meetings_cancel_coord`).
 
 ### 9. תיאום ביקור עם הבעלים והמתווכים - שלוש נקודות שבירה
 

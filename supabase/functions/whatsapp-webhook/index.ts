@@ -16,6 +16,8 @@ import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
+import { showingCancelNotifyReply } from "./showing-actions.ts";
+import { loadRecentPushesNote, loadReplyPrefix, rememberReplyTo } from "./reply-context.ts";
 import {
   type AgentRow,
   type ConversationState,
@@ -149,7 +151,9 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
   if (error) {
     if (error.code === "23505") return false; // כבר טופלה
     console.error("inbound log failed", error);
+    return true;
   }
+  await rememberReplyTo(supabase, String(msg.id || ""), msg);
   return true;
 }
 
@@ -1469,6 +1473,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await reply(from, coordReply, agent.id);
         return;
       }
+      // "להודיע על הביטול" אחרי cancel_showing (showing-actions.ts).
+      const cancelNote = await showingCancelNotifyReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (cancelNote) {
+        await reply(from, cancelNote, agent.id);
+        return;
+      }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
       // והכותרת לבדה ("כן, לפתוח לשת״פ") אינה אומרת על איזה נכס עונים.
       const offer = await offerButtonReply(
@@ -1514,6 +1525,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // תור אחד על כל מה שנאסף. בלי זה כל טקסט הריץ תור משלו, והתשובות סתרו זו
   // את זו (22.9: "רק חסר מחיר" ו"חסר לי סוג הנכס" באותה שנייה).
   // ‏docs/whatsapp-setup.md, מיגרציות 20270115095000 ו-20270115099000.
+  const replyLead = await loadReplyPrefix(supabase, agent.id, msg);
+  if (replyLead) userText = replyLead + userText;
+
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
   });
@@ -1559,6 +1573,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await saveConversation(agent.id, from, conv);
     return;
   }
+
+  // אחרי טעינת השיחה מחדש: אחרת Object.assign מוחק את ההערה.
+  conv.recent_note = await loadRecentPushesNote(supabase, agent.id);
 
   // התמונה של התור הנוכחי נשלחת למודל כדי שיוכל לשפר את התיאור
   // ("דירה משופצת עם מרפסת") מתוך מה שרואים בפועל

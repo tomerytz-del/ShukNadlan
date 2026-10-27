@@ -21,6 +21,7 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/lead_dedupe_test.ts"
@@ -35,6 +36,7 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/lead_dedupe_test.ts"
@@ -81,6 +83,11 @@ jobs:
       # זהה בין תורים, וגזימה במדרגות (‏docs/platform-costs.md, "המטמון של גבריאלה")
       - name: המטמון של גבריאלה
         run: node --experimental-strip-types scripts/prompt_cache_test.ts
+
+      # סיורי מיניסייט: התאמת שם מתמלול, הקשר תשובה, והמיגרציה שסוגרת
+      # כל בקשת תיאום שאינה סופית (בלי עדכון שורות).
+      - name: סיורי מיניסייט של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_showings_test.ts
 
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
