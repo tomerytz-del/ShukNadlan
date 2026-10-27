@@ -6430,6 +6430,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-banner--warn{background:var(--nv-warn-soft);color:var(--nv-warn);font-weight:600}
   .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
   .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
+  .social-prompt{margin:0 0 16px}
+  .social-prompt-acts{display:flex;flex-wrap:wrap;gap:8px}
   .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
   .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
     box-shadow:0 0 0 4px rgba(194,65,12,.3)}
@@ -7835,6 +7837,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            docs/agent-onboarding.md). כל התוכן נבנה ב-renderOnboarding. -->
       <section class="onb2" id="onbGuide" hidden aria-labelledby="onbTitle"></section>
 
+
       <!-- ==========================================================
            "ראשי" — תמונת המצב
            ----------------------------------------------------------
@@ -7856,6 +7859,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="dash-brief" id="dashBrief" hidden></div>
           </div>
         </header>
+
+        <!-- ---------- "נתייג אותך בפרסומים" ----------
+             לכל סוכן/ת, חדש/ה וותיק/ה, שעוד לא אישר/ה תיוג - ולמנהל/ת גם כשהמשרד
+             לא אישר. לא צעד במדריך ההתחלה, כי המדריך אינו מגיע לוותיקים
+             (agent_onboarding_state מחזירה להם אפס שורות). נבנה ב-loadSocialPrompt,
+             ונעלם אחרי אישור או "לא עכשיו" (docs/social-tagging.md). -->
+        <div class="ui-banner ui-banner--info social-prompt" id="socialPrompt" hidden role="region" aria-label="תיוג בפרסומים">
+          <span class="ui-banner-text"><b>📣 רוצה שנתייג אותך בפרסומים?</b><br>
+            <span id="socialPromptText">כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.</span></span>
+          <span class="social-prompt-acts">
+            <button type="button" class="ui-btn" id="socialPromptGo">להוספת הרשתות</button>
+            <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptOffice" hidden>גם למשרד</button>
+            <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptLater">לא עכשיו</button>
+          </span>
+        </div>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
              (homeCoachSync ב-assets/crm-coach.js), ונבנית פעם אחת - כך שציור
@@ -11320,6 +11338,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
 
           </section>
+          <!-- ‏תיוג בפרסומי הנכסים (‏agency_members.instagram_handle, facebook_url,
+               social_tag_consent; docs/social-tagging.md). נטען בשאילתה נפרדת -
+               ראו pfSocialInit - ונשמר עם כפתור השמירה של הטופס. הכרטיס מוסתר
+               כשהעמודות עוד לא קיימות. השדות אינם מוצגים באתר. -->
+          <section class="ui-card pg-card pf-social" aria-labelledby="pfCardSocial" hidden>
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardSocial">רשתות חברתיות</h3><p class="ui-hint"><span>הוסיפו את האינסטגרם שלכם כדי שנתייג אתכם בפרסומי הנכסים שלכם.</span></p></div>
+          <div class="field">
+            <label for="pfInstagram">שם משתמש באינסטגרם</label>
+            <input type="text" id="pfInstagram" maxlength="80" placeholder="למשל tomer.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+            <p class="pg-field-hint">אפשר להדביק גם קישור לפרופיל או לכתוב עם @.</p>
+          </div>
+          <div class="field">
+            <label for="pfFacebook">קישור לפרופיל או לדף בפייסבוק</label>
+            <input type="url" id="pfFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="checkbox-item"><input type="checkbox" id="pfSocialConsent"> אני מאשר/ת לשוק הנדל״ן לתייג אותי בפרסומי הנכסים שלי ברשתות החברתיות</label>
+            <p class="pg-field-hint">אפשר לבטל בכל רגע. בלי האישור לא נתייג אותך, גם אם מילאת את השדות. הפרטים האלה אינם מוצגים באתר.</p>
+          </div>
+          </section>
           <section class="ui-card pg-card" aria-labelledby="pfCardAreas">
             <div class="pg-card-head"><h3 class="ui-h3" id="pfCardAreas">תחום ואזורי פעילות</h3></div>
           <!-- ‏תחום ואזורי הפעילות (assets/crm-areas.js, docs/area-scope.md): באילו
@@ -11458,6 +11496,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field">
           <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
           <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
+        </div>
+
+        <!-- ---------- רשתות חברתיות ----------
+             לתיוג המשרד בפרסומי הנכסים (‏agency_social; docs/social-tagging.md).
+             טבלה נפרדת מ-agencies, שהיא ציבורית - השדות לא מוצגים באתר. נטען
+             ב-brSocialInit ונשמר עם "שמירת דף המשרד"; מוסתר כשהטבלה חסרה. -->
+        <div class="br-social" hidden>
+          <div class="form-subheading">רשתות חברתיות</div>
+          <div class="field">
+            <label for="brInstagram">שם המשתמש של המשרד באינסטגרם</label>
+            <input type="text" id="brInstagram" maxlength="80" placeholder="למשל alpha.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="brFacebook">קישור לדף העסקי בפייסבוק</label>
+            <input type="url" id="brFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="checkbox-item"><input type="checkbox" id="brSocialConsent"> אני מאשר/ת לשוק הנדל״ן לתייג את המשרד בפרסומי הנכסים שלו ברשתות החברתיות</label>
+            <div class="hint">אפשר לבטל בכל רגע. כל סוכן/ת מאשר/ת את התיוג האישי בפרופיל שלו/ה. הפרטים האלה אינם מוצגים באתר.</div>
+          </div>
         </div>
 
         <!-- ---------- תחומי התמחות ----------
