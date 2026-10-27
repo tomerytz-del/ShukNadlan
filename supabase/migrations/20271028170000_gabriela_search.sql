@@ -55,7 +55,7 @@ create or replace function public.client_property_match(
 )
 returns table (score int, reasons text[], missing_features text[])
 language sql
-immutable
+stable
 as $$
   with feats as (
     -- מה שיש בנכס. ממ״ד מסחרי יושב ב-mamad_location ולא במערך
@@ -73,6 +73,19 @@ as $$
                  select unnest(feats.have)) as feats
       from feats
   ),
+  -- city_id_for_name פעם אחת לנכס ופעם אחת לכל עיר של הלקוח/ה, לא בכל תנאי.
+  prop_city as materialized (
+    select public.city_id_for_name(p_property.city) as id
+  ),
+  client_cities as materialized (
+    select c.name, public.city_id_for_name(c.name) as id
+      from unnest(coalesce(p_client.cities, '{}'::text[])) c(name)
+  ),
+  hood as materialized (
+    select hn.city, hn.city_id, public.city_id_for_name(hn.city) as city_name_id
+      from public.neighborhoods hn
+     where hn.id = p_client.neighborhood_id
+  ),
   gate as (
     select (p_client.client_kind = 'seeker'
         and p_property.status    = 'active'
@@ -83,48 +96,40 @@ as $$
         and p_property.category  = p_client.category
         and (cardinality(p_client.cities) = 0
              or exists (
-               select 1 from unnest(p_client.cities) c(name)
+               select 1 from client_cities c
                 where c.name = p_property.city
-                   or (p_property.city_id is not null
-                       and p_property.city_id = public.city_id_for_name(c.name))
-                   or (public.city_id_for_name(c.name) is not null
-                       and public.city_id_for_name(p_property.city) is not null
-                       and public.city_id_for_name(c.name) = public.city_id_for_name(p_property.city))
+                   or (p_property.city_id is not null and p_property.city_id = c.id)
+                   or (c.id is not null and (select id from prop_city) is not null
+                       and c.id = (select id from prop_city))
              ))
         and (cardinality(p_client.property_types) = 0 or p_property.property_type = any(p_client.property_types))
         -- שכונה: ריקה, חסרה, או שלא שייכת לאף עיר - לא מסתירה. שייכת - רק בעיר שלה.
+        -- שכונה ריקה במודעה היא "לא ידוע" ועוברת, עם הורדת ציון למטה.
         and (
           p_client.neighborhood_id is null
-          or not exists (
-            select 1 from public.neighborhoods hn
-             where hn.id = p_client.neighborhood_id
+          or not exists (select 1 from hood)
+          or (
+            cardinality(p_client.cities) > 0
+            and not exists (
+              select 1 from hood hn, client_cities c
+               where c.name = hn.city
+                  or (hn.city_id is not null and hn.city_id = c.id)
+                  or (c.id is not null and hn.city_name_id is not null and c.id = hn.city_name_id)
+            )
           )
           or exists (
-            select 1 from public.neighborhoods hn
-             where hn.id = p_client.neighborhood_id
-               and cardinality(p_client.cities) > 0
-               and not exists (
-                 select 1 from unnest(p_client.cities) c(name)
-                  where c.name = hn.city
-                     or (hn.city_id is not null and hn.city_id = public.city_id_for_name(c.name))
-                     or (public.city_id_for_name(c.name) is not null
-                         and public.city_id_for_name(hn.city) is not null
-                         and public.city_id_for_name(c.name) = public.city_id_for_name(hn.city))
-               )
-          )
-          or exists (
-            select 1 from public.neighborhoods hn
-             where hn.id = p_client.neighborhood_id
-               and not (
-                 (p_property.city_id is not null and hn.city_id is not null
-                  and p_property.city_id = hn.city_id)
-                 or p_property.city = hn.city
-                 or (public.city_id_for_name(p_property.city) is not null
-                     and public.city_id_for_name(hn.city) is not null
-                     and public.city_id_for_name(p_property.city) = public.city_id_for_name(hn.city))
-               )
+            select 1 from hood hn
+             where not (
+               (p_property.city_id is not null and hn.city_id is not null
+                and p_property.city_id = hn.city_id)
+               or p_property.city = hn.city
+               or ((select id from prop_city) is not null
+                   and hn.city_name_id is not null
+                   and (select id from prop_city) = hn.city_name_id)
+             )
           )
           or p_property.neighborhood_id = p_client.neighborhood_id
+          or p_property.neighborhood_id is null
         )
         and (p_client.max_price is null or coalesce(p_property.price_total, p_property.price) <= p_client.max_price * 1.10)
         and (p_client.min_price is null or coalesce(p_property.price_total, p_property.price) >= p_client.min_price * 0.85)
@@ -148,6 +153,18 @@ as $$
               and p_property.floor is not null and p_property.floor > p_client.max_floor then 10 else 0 end
       - case when p_property.rooms is null and (p_client.min_rooms is not null or p_client.max_rooms is not null)
              then 5 else 0 end
+      - case when p_client.neighborhood_id is not null
+              and p_property.neighborhood_id is null
+              and exists (
+                select 1 from hood hn
+                 where (p_property.city_id is not null and hn.city_id is not null
+                        and p_property.city_id = hn.city_id)
+                    or p_property.city = hn.city
+                    or ((select id from prop_city) is not null
+                        and hn.city_name_id is not null
+                        and (select id from prop_city) = hn.city_name_id)
+              )
+             then 8 else 0 end
       - least(24, 8 * cardinality(miss.feats))
       + least(12, 4 * (
           select count(*)::int
@@ -170,7 +187,19 @@ as $$
             and p_property.floor > p_client.max_floor
            then 'קומה ' || p_property.floor || ' - גבוה מהמבוקש' end,
       case when p_property.rooms is null and (p_client.min_rooms is not null or p_client.max_rooms is not null)
-           then 'מספר החדרים לא מולא במודעה' end
+           then 'מספר החדרים לא מולא במודעה' end,
+      case when p_client.neighborhood_id is not null
+            and p_property.neighborhood_id is null
+            and exists (
+              select 1 from hood hn
+               where (p_property.city_id is not null and hn.city_id is not null
+                      and p_property.city_id = hn.city_id)
+                  or p_property.city = hn.city
+                  or ((select id from prop_city) is not null
+                      and hn.city_name_id is not null
+                      and (select id from prop_city) = hn.city_name_id)
+            )
+           then 'שכונה לא מולאה במודעה' end
     ], null),
     miss.feats
   from gate, miss, feats
@@ -185,7 +214,7 @@ revoke all on function public.client_property_match(public.agent_clients, public
   from public, anon, authenticated;
 
 comment on function public.client_property_match(public.agent_clients, public.properties, text[]) is
-  'ציון ההתאמה בין לקוח/ה לנכס יחיד, עם הסיבות לכל פער. אפס שורות = נפילה בסינון קשיח. שכונה ריקה מתאימה לכל נכס, ושכונה מעיר אחרת לא חוסמת. preferred_features הוא דירוג, לא שער. עיר גם לפי city_id. בלי search_path בכוונה, כמו 20271027140000.';
+  'ציון ההתאמה בין לקוח/ה לנכס יחיד, עם הסיבות לכל פער. אפס שורות = נפילה בסינון קשיח. שכונה ריקה אצל הלקוח/ה מתאימה לכל נכס. שכונה ריקה במודעה באותה עיר עדיין מתאימה, עם הורדת ציון. שכונה מעיר אחרת לא חוסמת. preferred_features הוא דירוג, לא שער. עיר גם לפי city_id. stable כי הגוף קורא טבלאות. בלי search_path בכוונה, כמו 20271027140000.';
 
 
 -- שכונה ומאפייני דירוג מריצים מחדש התאמות, בשתי הרשימות (הוספה וניקוי).
@@ -236,6 +265,9 @@ create trigger agent_clients_prune_stale_alerts
   execute function public.agent_clients_prune_stale_alerts();
 
 -- שכונת הנכס נכנסת עכשיו לשער. שתי הרשימות של צד הנכס נשארות זהות.
+-- מילוי neighborhood_id על נכסים פעילים מפעיל את שני הטריגרים לכל שורה
+-- ויוצר גל התאמות. עדכון כזה חייב select public.notification_push_suppress(true)
+-- לפניו, או לרוץ במנות. check_notification_backfill.py חוסם בלי הסימון.
 drop trigger if exists properties_client_match_alerts_upd on public.properties;
 create trigger properties_client_match_alerts_upd
   after update on public.properties
@@ -277,7 +309,7 @@ insert into public.data_retention_settings (policy, keep_for, description)
 values ('search_misses', interval '90 days', 'חיפושי סוכן/ת בלי תוצאות. נשאר כבוי עד אישור.')
 on conflict (policy) do nothing;
 
--- אותו גוף כמו 20270905090000, וענף search_misses.
+-- אותו גוף כמו 20271028165000: ענף whatsapp_pending_actions נשמר, וענף search_misses נוסף.
 create or replace function public.data_retention_run()
 returns jsonb
 language plpgsql
@@ -433,6 +465,18 @@ begin
         on conflict (client_id) do update set warned_at = excluded.warned_at;
       end if;
       drop table if exists _ret_clients;
+
+    elsif s.policy = 'whatsapp_pending_actions' then
+      -- נשמר מ-20271028165000. בלי הענף הזה ההחלפה של הפונקציה מוחקת את הניקוי.
+      select count(*) into v_n from public.whatsapp_pending_actions a
+       where (a.executed_at is not null and a.executed_at < v_cut)
+          or (a.executed_at is null and a.expires_at < v_cut);
+      v_parts := v_parts || jsonb_build_object('whatsapp_pending_actions', v_n);
+      if s.enabled then
+        delete from public.whatsapp_pending_actions a
+         where (a.executed_at is not null and a.executed_at < v_cut)
+            or (a.executed_at is null and a.expires_at < v_cut);
+      end if;
 
     elsif s.policy = 'search_misses' then
       select count(*) into v_n from public.agent_search_misses m

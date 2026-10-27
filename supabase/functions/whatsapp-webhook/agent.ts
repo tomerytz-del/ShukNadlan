@@ -40,6 +40,7 @@ import {
   CLIENT_CITY_CAP,
   clientColumnMissing,
   featureWritePlan,
+  mergePreferredFeatures,
   hoodBelongsToCities,
   shouldClearNeighborhood,
   type NamedCity,
@@ -4269,6 +4270,22 @@ async function ownedClient(ctx: ToolContext, clientId: string) {
   return data;
 }
 
+/** הדירוג השמור. עמודה חסרה (לפני המיגרציה) נקראת כרשימה ריקה. */
+async function currentPreferredFeatures(ctx: ToolContext, clientId: string): Promise<string[]> {
+  const { data, error } = await ctx.supabase
+    .from("agent_clients")
+    .select("preferred_features")
+    .eq("id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (error) {
+    if (!clientColumnMissing(error)) console.error("preferred features read failed", error.code);
+    return [];
+  }
+  const rows = (data as { preferred_features?: string[] | null } | null)?.preferred_features;
+  return Array.isArray(rows) ? rows.map(String).filter(Boolean) : [];
+}
+
 /** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
 function clientNeeds(c: Record<string, unknown>): string {
   const parts: string[] = [];
@@ -4638,7 +4655,8 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     min_price: payload.min_price as number | undefined,
     max_price: payload.max_price as number | undefined,
   });
-  if (planned.preferred) payload.preferred_features = planned.preferred;
+  const createdPreferred = mergePreferredFeatures([], planned.preferred);
+  if (createdPreferred) payload.preferred_features = createdPreferred;
   const hoodErr = await attachClientNeighborhood(ctx, input, payload);
   if (hoodErr) return { ok: false, error: hoodErr };
   // ‏agency_id נשמר כדי שהרשומה תדע מאיזה משרד היא נוצרה, בדיוק כמו בטופס
@@ -4748,7 +4766,13 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
     max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
   });
-  if (planned.preferred) payload.preferred_features = planned.preferred;
+  if (planned.preferred) {
+    const mergedPreferred = mergePreferredFeatures(
+      await currentPreferredFeatures(ctx, clientId),
+      planned.preferred,
+    );
+    if (mergedPreferred) payload.preferred_features = mergedPreferred;
+  }
   const hoodErr = await attachClientNeighborhood(ctx, input, payload, existing as { cities?: string[] }, clientId);
   if (hoodErr) return { ok: false, error: hoodErr };
   if (!Object.keys(payload).length) return { ok: false, error: "לא נשלח אף שדה לעדכון." };

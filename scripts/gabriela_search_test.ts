@@ -11,6 +11,7 @@ import {
   capCities,
   featureWritePlan,
   hoodBelongsToCities,
+  mergePreferredFeatures,
   neighborhoodAllows,
   requirementsFromNotes,
   shouldClearNeighborhood,
@@ -105,6 +106,12 @@ check("אותה עיר ושכונה אחרת נחסמת", neighborhoodAllows({
 check("אותה שכונה עוברת", neighborhoodAllows({
   clientHoodId: "h1", hoodBelongs: true, propertyInHoodCity: true, propertyHoodId: "h1",
 }));
+check("שכונה לא מולאה במודעה עדיין מתאימה", neighborhoodAllows({
+  clientHoodId: "h1", hoodBelongs: true, propertyInHoodCity: true, propertyHoodId: null,
+}));
+check("דירוג זהה לא נכתב שוב", mergePreferredFeatures(["mamad", "parking"], ["parking", "mamad"]) === undefined);
+check("דירוג חדש מתווסף בלי למחוק", (mergePreferredFeatures(["mamad"], ["parking"]) || []).join() === "mamad,parking");
+check("הערות בלי מאפיין לא מוחקות דירוג", mergePreferredFeatures(["mamad"], []) === undefined);
 
 check("שינוי עיר מוחק שכונה שלא שייכת", shouldClearNeighborhood({
   citiesChanged: true, neighborhoodSent: false, hasHood: true, belongs: false, resolved: true,
