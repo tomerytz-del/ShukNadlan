@@ -93,7 +93,9 @@ begin
     returning id, starts_at, agenda_item_id
   loop
     -- הטריגר על הסיור כבר סימן cancel_unnotified למי שקיבל בקשה.
-    -- ההודעה אליהם לא יוצאת מכאן. הסוכן/ת מקבל/ת התראה עם כפתור scn:.
+    -- ההודעה אליהם לא יוצאת מכאן. בתוך חלון 24 השעות notification-push
+    -- מוסיף כפתור scn: על התראה אחת. מחוץ לחלון יוצאת תבנית בלי הכפתור,
+    -- ולכן גוף ההתראה לא מבטיח כפתור: הוא מפנה לכרטיס הלקוח.
     select string_agg(coalesce(nullif(btrim(q.target_name), ''), 'ללא שם'), ', ' order by q.created_at)
       into v_names
       from public.showing_coord_requests q
@@ -114,7 +116,7 @@ begin
       left(
         'הביקור ב-' || to_char(r.starts_at at time zone 'Asia/Jerusalem', 'DD.MM HH24:MI')
         || ' בוטל כי המיניסייט נסגר. בקשת תיאום כבר יצאה אל: ' || v_names
-        || '. ההודעה אליהם לא נשלחה. הכפתור שולח רק למי שכבר קיבל בקשה.',
+        || '. ההודעה אליהם לא נשלחה. עדכון למי שכבר קיבל בקשה נעשה רק אחרי אישור, מכרטיס הלקוח.',
         400),
       v_client,
       new.id,

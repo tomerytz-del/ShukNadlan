@@ -92,6 +92,11 @@ assert(sql.includes("cancel_unnotified"), "flag column");
 assert(sql.includes("client_showcases_cancel_future_meetings"), "future meetings trigger");
 assert(sql.includes("related_meeting_id"), "meeting on the notification");
 assert(sql.includes("'סיור בוטל'"), "agent title, not a client message");
+assert(
+  sql.includes("עדכון למי שכבר קיבל בקשה נעשה רק אחרי אישור, מכרטיס הלקוח")
+    && !sql.includes("הכפתור שולח"),
+  "template copy does not mention a missing button",
+);
 assert(sql.includes("insert into public.notifications"), "agent is notified");
 assert(!sql.includes("net.http_post"), "trigger does not call out");
 assert(sql.includes("'meeting_id',    n.related_meeting_id"), "claim carries the meeting");
