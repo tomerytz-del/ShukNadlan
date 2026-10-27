@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
+import { duplicateLeadBody, ownerPhoneAttach } from "../_shared/lead-attach-plan.ts";
 import {
   audienceSize,
   logLeadRouting,
@@ -262,25 +263,28 @@ Deno.serve(async (req: Request) => {
     const pageSource = agentRouting ? "agent_page" : "agency_page";
     const insertedType = agencyRouting ? preferredType : "owner_inbound";
 
-    /* owner_inbound בלבד. מחשבון תשואה הוא property_inquiry בלי נכס, ושם
-       אין למי להצמיד. דף משרד או סוכן/ת מצמיד רק לאותו שולחן. מהדפדפן
-       (לא trusted) ממשיך ל-insert, בלי duplicate ובלי lead_id של ליד אחר.
-       ליד שכבר פתוח אצל הסוכן/ת מקבל התראת "פנייה נוספת", בלי רוטציה. */
-    const merged = trusted && insertedType === "owner_inbound"
-      ? await attachToOpenLead(supabase, {
-        phone,
-        leadType: "owner_inbound",
-        matchProperty: false,
-        agencyId: agencyRouting?.agencyId ?? null,
-        agentId: agencyRouting?.agentId ?? null,
-        source: inboundSource || null,
-        externalRef,
-        message: rawMessage,
-        sourceLabel: trackedLabel,
-        internal: true,
-      })
-      : null;
-    if (merged) return json({ success: true, duplicate: true, lead_id: merged.lead_id });
+    /* owner_inbound בלבד, ורק מקורא פנימי (isInternalCaller). מחשבון תשואה
+       הוא property_inquiry בלי נכס. בלי אותה כתובת (עיר + רחוב, ומספר בית
+       אם נכתב) אין הצמדה: נכס שני היה נבלע בראשון. דף משרד או סוכן/ת מצמיד
+       רק לאותו שולחן. פניית פלטפורמה בלי slug אינה נצמדת לליד של דף.
+       מהדפדפן התוכנית היא null: insert רגיל, בלי duplicate ובלי lead_id
+       של ליד אחר. ליד שכבר פתוח מקבל התראת "פנייה נוספת" רק אחרי שהעדכון
+       הצליח, בלי רוטציה. */
+    const plan = ownerPhoneAttach({
+      trusted,
+      insertedType,
+      phone,
+      agencyId: agencyRouting?.agencyId ?? null,
+      agentId: agencyRouting?.agentId ?? null,
+      city: typeof city === "string" ? city : null,
+      address: cleanAddress,
+      source: inboundSource || null,
+      externalRef,
+      message: rawMessage,
+      sourceLabel: trackedLabel,
+    });
+    const merged = plan ? await attachToOpenLead(supabase, plan) : null;
+    if (merged) return json(duplicateLeadBody(merged.lead_id));
 
     // שלב 1: התאמה שכונתית מדויקת (מודול 2 §5, שלב 3a)
     if (!agencyRouting && neighborhood_id) {

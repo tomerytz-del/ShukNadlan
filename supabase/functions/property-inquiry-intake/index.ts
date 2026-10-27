@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
+import { duplicateLeadBody, propertyPhoneAttach } from "../_shared/lead-attach-plan.ts";
 import {
   cleanExternalRef,
   isInternalCaller,
@@ -86,24 +87,23 @@ Deno.serve(async (req: Request) => {
     if (property.status !== "active") return json({ error: "property_not_active" }, 400);
 
     /* אותו טלפון, אותו נכס, אותו משרד ואותו/ה סוכן/ת, ליד שכבר פתוח אצלם
-       מ-30 הימים. רק מקורא פנימי. מהדפדפן ממשיכים ל-insert הרגיל, בלי
-       לגלות lead_id של ליד אחר. בלי סוכן/ת על הנכס אין למי להצמיד. */
-    const merged = trusted && property.agent_id && property.agency_id
-      ? await attachToOpenLead(supabase, {
-        phone,
-        leadType: "property_inquiry",
-        matchProperty: true,
-        propertyId: property.id,
-        agencyId: property.agency_id,
-        agentId: property.agent_id,
-        source: source || null,
-        externalRef,
-        message: typeof message === "string" ? message : null,
-        sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
-        internal: true,
-      })
-      : null;
-    if (merged) return json({ success: true, duplicate: true, lead_id: merged.lead_id });
+       מ-30 הימים. propertyPhoneAttach הוא null לדפדפן (isInternalCaller
+       נכשל) וגם כשאין סוכן/ת או משרד על הנכס: אז אין קריאה להצמדה, והתשובה
+       היא ה-insert הרגיל (success, lead_id, auto_unlocked, note) בלי
+       duplicate ובלי lead_id של ליד אחר. */
+    const plan = propertyPhoneAttach({
+      trusted,
+      phone,
+      propertyId: property.id,
+      agencyId: property.agency_id,
+      agentId: property.agent_id,
+      source: source || null,
+      externalRef,
+      message: typeof message === "string" ? message : null,
+      sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
+    });
+    const merged = plan ? await attachToOpenLead(supabase, plan) : null;
+    if (merged) return json(duplicateLeadBody(merged.lead_id));
 
     const tier = (property as any).agency_members?.tier ?? "free";
     const autoUnlock = tier === "mid" || tier === "premium";

@@ -8,16 +8,26 @@
 
        node --experimental-strip-types scripts/lead_dedupe_test.ts
    ========================================================================== */
+import { readFileSync } from "node:fs";
 import {
+  addressFromStoredLead,
   appendLeadNote,
   attachToOpenLead,
+  isPageRoutedSource,
   metaAdsSourceLabel,
+  parseAddressIdentity,
   pickOpenLead,
   pushTouch,
+  sameOwnerAddress,
   touchSeen,
   type AttachInput,
   type OpenLeadRow,
 } from "../supabase/functions/_shared/lead-dedupe.ts";
+import {
+  duplicateLeadBody,
+  ownerPhoneAttach,
+  propertyPhoneAttach,
+} from "../supabase/functions/_shared/lead-attach-plan.ts";
 
 let fail = 0;
 const ok = (name: string, cond: boolean, got?: unknown) => {
@@ -93,6 +103,8 @@ function fakeSb(opts: {
   work?: { lead_id: string; agent_id: string; stage: string }[];
   openError?: boolean;
   notifyError?: boolean;
+  touchError?: string;
+  touchMissing?: boolean;
 }) {
   const calls: Call[] = [];
   const updates: { id: string; payload: Record<string, unknown> }[] = [];
@@ -121,8 +133,21 @@ function fakeSb(opts: {
     calls,
     updates,
     notes,
-    rpc: async (fn: string) => {
-      calls.push({ table: fn, op: "rpc", filters: {} });
+    rpc: async (fn: string, args?: Record<string, unknown>) => {
+      calls.push({ table: fn, op: "rpc", filters: { ...(args ?? {}) }, payload: args });
+      if (fn === "lead_phone_touch") {
+        if (opts.touchMissing) return { data: null, error: { code: "42883" } };
+        if (opts.touchError) return { data: null, error: { code: opts.touchError } };
+        const id = String(args?.p_lead_id ?? "");
+        updates.push({
+          id,
+          payload: {
+            raw_message: args?.p_note,
+            source_touches: args?.p_touch ? [args.p_touch] : [],
+          },
+        });
+        return { data: id, error: null };
+      }
       if (opts.normError) return { data: null, error: { code: "42883" } };
       return { data: opts.phone ?? null, error: null };
     },
@@ -204,6 +229,9 @@ const base: AttachInput = {
     sb.notes.length === 1 && sb.notes[0].type === "new_lead" && sb.notes[0].agent_id === "agt" &&
     sb.notes[0].related_lead_id === "lead-1" && sb.notes[0].title === "פנייה נוספת על ליד קיים");
   ok("גוף ההתראה בלי הטלפון", !JSON.stringify(sb.notes[0]).includes("972") && !JSON.stringify(sb.notes[0]).includes("050"));
+  const touchAt = sb.calls.findIndex((c) => c.table === "lead_phone_touch");
+  const noteAt = sb.calls.findIndex((c) => c.table === "notifications");
+  ok("העדכון במסד לפני ההתראה", touchAt >= 0 && noteAt > touchAt);
 }
 
 {
@@ -301,7 +329,175 @@ const base: AttachInput = {
     notifyError: true,
     leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן" }],
   });
-  ok("התראה שנכשלה אינה ממזגת", await attachToOpenLead(sb, base) === null && sb.updates.length === 0);
+  const hit = await attachToOpenLead(sb, base);
+  ok("עדכון שהצליח נשאר גם כשההתראה נכשלת", hit?.lead_id === "lead-1" && sb.updates.length === 1 && sb.notes.length === 0);
+}
+
+{
+  const sb = fakeSb({
+    phone: "972501234567",
+    touchError: "42501",
+    leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן" }],
+  });
+  ok("עדכון שנכשל אינו מצמיד ואינו מודיע", await attachToOpenLead(sb, base) === null && sb.updates.length === 0 && sb.notes.length === 0);
+  const missing = fakeSb({
+    phone: "972501234567",
+    touchMissing: true,
+    leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן" }],
+  });
+  ok("פונקציית המגע שטרם עלתה ממשיכה ל-insert", await attachToOpenLead(missing, base) === null && missing.notes.length === 0);
+}
+
+// ---------------------------------------------------------------------------
+// א. פניית פלטפורמה אינה נבלעת בליד של דף, מכל משרד.
+// ---------------------------------------------------------------------------
+{
+  const page = (id: string, source: string): OpenLeadRow => ({
+    id, agent_id: "agt-page", agency_id: "ag-page", status: "unlocked", source, created_at: recent,
+    raw_message: "כתבתי בדף",
+  });
+  const onlyPage = fakeSb({ phone: "972501234567", leads: [page("p", "agency_page")] });
+  ok("ליד מדף משרד אינו בולע פניית פלטפורמה", await attachToOpenLead(onlyPage, base) === null && onlyPage.updates.length === 0 && onlyPage.notes.length === 0);
+  const agentPage = fakeSb({ phone: "972501234567", leads: [page("p", "agent_page")] });
+  ok("ליד מדף סוכן/ת אינו בולע פניית פלטפורמה", await attachToOpenLead(agentPage, base) === null);
+  const prefixed = fakeSb({ phone: "972501234567", leads: [page("p", "agency_page_owner_wizard")] });
+  ok("קידומת של דף נחשבת ניתוב דף", isPageRoutedSource("agency_page_owner_wizard") && await attachToOpenLead(prefixed, base) === null);
+  ok("מקור פלטפורמה ו-null אינם דף", !isPageRoutedSource(null) && !isPageRoutedSource("meta_ads_owner_form") && !isPageRoutedSource("homepage_owner_wizard"));
+
+  const mixed = fakeSb({
+    phone: "972501234567",
+    leads: [
+      page("page", "agency_page"),
+      {
+        id: "plat", agent_id: "agt-plat", agency_id: "ag-plat", status: "unlocked",
+        source: "facebook_dm", created_at: older, raw_message: "כתבתי בפייסבוק",
+      },
+    ],
+  });
+  const hit = await attachToOpenLead(mixed, base);
+  ok("ליד דף אינו חוסם הצמדה לליד פלטפורמה", hit?.lead_id === "plat" && mixed.updates[0]?.id === "plat");
+
+  const sameDeskPage = fakeSb({
+    phone: "972501234567",
+    leads: [{
+      id: "desk", agent_id: "agt", agency_id: "ag1", status: "unlocked", source: "agency_page",
+      created_at: recent, raw_message: "מהדף",
+    }],
+  });
+  const deskHit = await attachToOpenLead(sameDeskPage, { ...base, agencyId: "ag1", agentId: "agt" });
+  ok("פנייה עם משרד וסוכן/ת עדיין מצמידה לאותו שולחן, גם אם הליד מדף", deskHit?.lead_id === "desk");
+  const q = sameDeskPage.calls.find((c) => c.table === "leads" && c.op === "leads");
+  ok("השולחן הידוע מסונן במסד", q?.filters.agency_id === "ag1" && q?.filters.agent_id === "agt");
+}
+
+// ---------------------------------------------------------------------------
+// ה. בעל/ת נכס: אותה עיר, אותו רחוב, ומספר בית אם נכתב.
+// ---------------------------------------------------------------------------
+{
+  const herzl = parseAddressIdentity("עפולה", "רחוב הרצל 12");
+  ok("רחוב הרצל 12 הוא הרצל 12", herzl?.street === "הרצל" && herzl?.house === "12" && herzl?.city === "עפולה");
+  ok("שדרות וקידומת רח מתקפלות לאותו רחוב",
+    sameOwnerAddress(herzl!, parseAddressIdentity("עפולה", "שדרות הרצל 12")) &&
+    sameOwnerAddress(herzl!, parseAddressIdentity("עפולה", "רח' הרצל 12")));
+  ok("מספר בית אחר אינו אותו נכס", !sameOwnerAddress(herzl!, parseAddressIdentity("עפולה", "הרצל 14")));
+  ok("רחוב בלי מספר אינו נבלע ברחוב עם מספר", !sameOwnerAddress(herzl!, parseAddressIdentity("עפולה", "הרצל")));
+  ok("שני צדדים בלי מספר בית כן מתאימים",
+    sameOwnerAddress(parseAddressIdentity("עפולה", "הרצל")!, parseAddressIdentity("עפולה", "רחוב הרצל")));
+  ok("עיר אחרת אינה אותו נכס", !sameOwnerAddress(herzl!, parseAddressIdentity("חיפה", "הרצל 12")));
+  ok("4 חדרים אינו כתובת", parseAddressIdentity("עפולה", "4 חדרים") === null);
+  ok("בלי רחוב אין זהות", parseAddressIdentity("עפולה", "") === null && parseAddressIdentity("", "הרצל 12") === null);
+  ok("הכתובת השמורה היא הקטע הראשון, לא ההערה",
+    addressFromStoredLead({ city: "עפולה", raw_message: "הרצל 12 · 4 חדרים\nפנייה נוספת: שוב" })?.house === "12");
+  ok("מפרט שמור אינו כתובת", addressFromStoredLead({ city: "עפולה", raw_message: "4 חדרים" }) === null);
+
+  const stored = (raw: string, city = "עפולה"): OpenLeadRow => ({
+    id: "own", agent_id: "agt", agency_id: null, status: "unlocked", source: null,
+    created_at: recent, raw_message: raw, city,
+  });
+  const ownerBase: AttachInput = { ...base, matchAddress: true, city: "עפולה", address: "רחוב הרצל 12" };
+  const same = fakeSb({ phone: "972501234567", leads: [stored("שדרות הרצל 12 · 3 חדרים")] });
+  ok("אותה כתובת מצמידה", (await attachToOpenLead(same, ownerBase))?.lead_id === "own");
+  const otherHouse = fakeSb({ phone: "972501234567", leads: [stored("הרצל 14")] });
+  ok("בית אחר אינו מצמיד", await attachToOpenLead(otherHouse, ownerBase) === null && otherHouse.notes.length === 0);
+  const noHouse = fakeSb({ phone: "972501234567", leads: [stored("הרצל")] });
+  ok("חסר מספר בית בצד אחד אינו מצמיד", await attachToOpenLead(noHouse, ownerBase) === null);
+  const details = fakeSb({ phone: "972501234567", leads: [stored("4 חדרים")] });
+  ok("ליד בלי רחוב אינו בולע פנייה עם רחוב", await attachToOpenLead(details, ownerBase) === null);
+  const otherCity = fakeSb({ phone: "972501234567", leads: [stored("הרצל 12", "חיפה")] });
+  ok("עיר אחרת אינה מצמידה", await attachToOpenLead(otherCity, ownerBase) === null);
+  const bare = fakeSb({ phone: "972501234567", leads: [stored("הרצל 12")] });
+  ok("בלי כתובת בפנייה אין קריאה למסד", await attachToOpenLead(bare, { ...ownerBase, address: null }) === null && bare.calls.length === 0);
+  const pageAddr = fakeSb({
+    phone: "972501234567",
+    leads: [{ ...stored("הרצל 12"), source: "agency_page", agency_id: "ag-page", id: "page-own" }],
+  });
+  ok("גם עם אותה כתובת, ליד דף אינו בולע פניית פלטפורמה", await attachToOpenLead(pageAddr, ownerBase) === null && pageAddr.updates.length === 0);
+}
+
+// ---------------------------------------------------------------------------
+// מי רשאי/ת להצמיד: הדפדפן מקבל null והקליטה נשארת על צורת ה-insert.
+// קורא service role מקבל תוכנית. הקבצים עצמם קוראים לזה רק אחרי isInternalCaller.
+// ---------------------------------------------------------------------------
+{
+  const ownerCtx = {
+    trusted: true,
+    insertedType: "owner_inbound",
+    phone: "050-123-4567",
+    agencyId: null as string | null,
+    agentId: null as string | null,
+    city: "עפולה",
+    address: "הרצל 12" as string | null,
+    source: "meta_ads_owner_form",
+    externalRef: "998877",
+    message: "מהדירה",
+    sourceLabel: "טופס לידים במטא · מוכר/ת",
+  };
+  ok("דפדפן בבעלים אינו מצמיד", ownerPhoneAttach({ ...ownerCtx, trusted: false }) === null);
+  const ownerPlan = ownerPhoneAttach(ownerCtx);
+  ok("service role בבעלים מצמיד עם כתובת",
+    !!ownerPlan && ownerPlan.internal === true && ownerPlan.matchAddress === true && ownerPlan.matchProperty === false);
+  ok("בעלים בלי רחוב אינו מצמיד", ownerPhoneAttach({ ...ownerCtx, address: null }) === null);
+  ok("מחשבון תשואה אינו מצמיד", ownerPhoneAttach({ ...ownerCtx, insertedType: "property_inquiry" }) === null);
+  ok("משרד בלי סוכן/ת אינו תוכנית", ownerPhoneAttach({ ...ownerCtx, agencyId: "ag1", agentId: null }) === null);
+
+  const propCtx = {
+    trusted: true,
+    phone: "050-123-4567",
+    propertyId: "prop-9" as string | null,
+    agencyId: "ag1" as string | null,
+    agentId: "agt" as string | null,
+    source: "meta_ads_property_form",
+    externalRef: "998877",
+    message: "מעוניין",
+    sourceLabel: "טופס לידים במטא · פנייה על נכס",
+  };
+  ok("דפדפן בפנייה על נכס אינו מצמיד", propertyPhoneAttach({ ...propCtx, trusted: false }) === null);
+  const propPlan = propertyPhoneAttach(propCtx);
+  ok("service role בפנייה על נכס מצמיד לאותו שולחן",
+    !!propPlan && propPlan.internal === true && propPlan.matchProperty === true &&
+    propPlan.propertyId === "prop-9" && propPlan.agencyId === "ag1" && propPlan.agentId === "agt");
+  ok("בלי נכס אין תוכנית", propertyPhoneAttach({ ...propCtx, propertyId: null }) === null);
+  ok("בלי סוכן/ת על הנכס אין תוכנית", propertyPhoneAttach({ ...propCtx, agentId: null }) === null);
+  ok("צורת duplicate רק למיזוג", duplicateLeadBody("lead-1").duplicate === true && duplicateLeadBody("lead-1").lead_id === "lead-1");
+
+  const ownerIdx = readFileSync(new URL("../supabase/functions/owner-lead-intake/index.ts", import.meta.url), "utf8");
+  const propIdx = readFileSync(new URL("../supabase/functions/property-inquiry-intake/index.ts", import.meta.url), "utf8");
+  ok("קליטת בעלים מחליטה לפי isInternalCaller",
+    ownerIdx.includes("const trusted = isInternalCaller(req)") && ownerIdx.includes("ownerPhoneAttach("));
+  ok("קליטת בעלים קוראת להצמדה רק כשיש תוכנית",
+    /const merged = plan \? await attachToOpenLead\(supabase, plan\) : null/.test(ownerIdx) &&
+    ownerIdx.includes("if (merged) return json(duplicateLeadBody(merged.lead_id))"));
+  ok("בלי מיזוג תשובת הבעלים היא צורת ה-insert",
+    ownerIdx.includes("lead_id: lead.id") && ownerIdx.includes("match_type: matchType") &&
+    !ownerIdx.includes("duplicate: true, lead_id: lead.id"));
+  ok("קליטת פנייה על נכס מחליטה לפי isInternalCaller",
+    propIdx.includes("const trusted = isInternalCaller(req)") && propIdx.includes("propertyPhoneAttach("));
+  ok("קליטת פנייה קוראת להצמדה רק כשיש תוכנית",
+    /const merged = plan \? await attachToOpenLead\(supabase, plan\) : null/.test(propIdx) &&
+    propIdx.includes("if (merged) return json(duplicateLeadBody(merged.lead_id))"));
+  ok("בלי מיזוג תשובת הפנייה היא צורת ה-insert",
+    propIdx.includes("auto_unlocked: autoUnlock") && propIdx.includes("lead_id: lead.id") &&
+    !propIdx.includes("duplicate: true, lead_id: lead.id"));
 }
 
 // ---------------------------------------------------------------------------

@@ -7,16 +7,23 @@
 // אותו lead_type, ובפנייה על נכס גם אותו נכס, מ-30 הימים האחרונים.
 //
 // נמצא, ורק לקורא פנימי (service role): לא מכניסים שורה ולא מריצים רוטציה.
-// ההודעה מצטרפת ל-raw_message, המקור הנוסף נרשם ב-source_touches, והסוכן/ת
-// שכבר רואה/ה את הליד מקבל/ת התראת new_lead עם כותרת "פנייה נוספת" (בלי
-// רוטציה). ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים, והקורא
-// מכניס שורה חדשה. דף משרד או סוכן/ת מצמיד רק לאותו משרד ולאותו/ה סוכן/ת.
-// פנייה על נכס בלי property_id (מחשבון תשואה) אינה מצמידה.
+// lead_phone_touch מוסיף את ההודעה ל-raw_message ואת המקור ל-source_touches
+// ב-update אחד. רק אם העדכון הצליח, הסוכן/ת שכבר רואה/ה את הליד מקבל/ת
+// התראת new_lead עם כותרת "פנייה נוספת" (בלי רוטציה). כישלון העדכון מחזיר
+// null והקורא מכניס שורה חדשה. כישלון ההתראה אחרי עדכון שהצליח אינו פותח
+// ליד שני. ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
+//
+// שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
+// פלטפורמה (בלי שניהם) מצמידה רק לליד שלא הגיע מדף: source של agency_page
+// או agent_page אינו יעד, גם כשהוא פתוח אצל משרד. בעל/ת נכס מצמיד/ה רק
+// לאותה עיר ואותו רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת
+// באחד הצדדים אין הצמדה. פנייה על נכס בלי property_id (מחשבון תשואה)
+// אינה מצמידה.
 //
 // מהדפדפן אין מיזוג בכלל: לא דגל duplicate, לא lead_id של ליד אחר, ולא
 // כתיבה ל-raw_message של מישהו/י אחר/ת. התשובה היא insert רגיל.
 //
-// עמודה שטרם עלתה (הפונקציה לפני המיגרציה) - מדלגים ומכניסים כרגיל.
+// עמודה או פונקציה שטרם עלתה (הקליטה לפני המיגרציה) - מדלגים ומכניסים כרגיל.
 // אין כאן PII בלוג: לא הטלפון ולא גוף ההודעה.
 // ============================================================================
 
@@ -49,10 +56,14 @@ const OPEN_STATUSES = new Set(["masked", "unlocked", "pending_charge"]);
 /** lead_work: not_relevant = לא רלוונטי / לא ענה, won = נסגר בהצלחה. */
 const CLOSED_STAGES = new Set(["not_relevant", "won"]);
 
+/** leads.source של כלי בדף משרד או בדף סוכן/ת. null ומקור פלטפורמה אינם כאלה. */
+const PAGE_SOURCES = new Set(["agency_page", "agent_page"]);
+
 export type OpenLeadRow = {
   id: string;
   agent_id: string | null;
   agency_id?: string | null;
+  source?: string | null;
   created_at: string;
   status?: string | null;
   raw_message?: string | null;
@@ -65,6 +76,16 @@ export type OpenLeadRow = {
 /** הסוכן/ת כבר רואה/ה את הליד: משויך/ת, ו-status פתוח. מוסתר וממתין לחיוב אינם. */
 export function leadIsVisible(row: OpenLeadRow): boolean {
   return row.status === "unlocked" && !!row.agent_id;
+}
+
+/**
+ * ליד שנולד מכלי בדף (הערכת שווי, מחשבון) ולא מרוטציה של הפלטפורמה.
+ * source הוא הסימון. agency_id לבדו אינו: ליד פלטפורמה שכבר שובץ גם נושא אותו.
+ */
+export function isPageRoutedSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  if (PAGE_SOURCES.has(source)) return true;
+  return source.startsWith("agency_page_") || source.startsWith("agent_page_");
 }
 
 /** שני לידים פתוחים ממשרדים או מסוכנים שונים - לא בוחרים מנצח. */
@@ -143,19 +164,113 @@ export function pushTouch(
   return [...prev, touch];
 }
 
+export type AddressIdentity = { city: string; street: string; house: string | null };
+
+/** מילים של מפרט, לא של רחוב. "4 חדרים" אינו כתובת. */
+const ADDRESS_STOP = new Set([
+  "חדרים", "חדר", "מצב", "חדש", "ישן", "משופץ", "שיפוץ", "גג", "דירה", "בית",
+  "פנטהאוז", "קומה", "מרפסת", "מעלית", "מחסן", "חניה", "ממד", "מר", "מסחרי",
+  "משרד", "חנות", "וילה", "דופלקס", "גן", "קרקע", "נכס", "מכירה", "השכרה",
+  "למכירה", "להשכרה", "מרוהט", "מרוהטת",
+]);
+
+const STREET_PREFIX = /^(?:רחוב|רח|שדרות|שד|דרך|סמטת|סמטה|שכונת|שכונה)\s+/;
+const HOUSE_END = /^(.*?)(?:\s+)(\d+[a-zא-ת]?(?:\/\d+)?)$/;
+const HOUSE_START = /^(\d+[a-zא-ת]?(?:\/\d+)?)(?:\s+)(.+)$/;
+
+function foldPlace(s: string): string {
+  return s
+    .replace(/["'״׳]/g, "")
+    .replace(/[-.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function streetOk(street: string): boolean {
+  const words = street.split(" ").filter(Boolean);
+  if (words.length === 0) return false;
+  const letters = street.replace(/[^א-תa-z]/g, "");
+  if (letters.length < 2) return false;
+  return words.some((w) => !ADDRESS_STOP.has(w) && /[א-תa-z]/.test(w));
+}
+
+/**
+ * עיר + רחוב, ומספר בית אם נכתב. null כשאין כתובת שאפשר להשוות:
+ * שדה ריק, או טקסט שהוא מפרט ("4 חדרים") ולא רחוב.
+ */
+export function parseAddressIdentity(
+  city: string | null | undefined,
+  address: string | null | undefined,
+): AddressIdentity | null {
+  const cityNorm = foldPlace(String(city || ""));
+  if (!/[א-תa-z]{2,}/.test(cityNorm)) return null;
+  let addr = foldPlace(String(address || ""));
+  if (!addr) return null;
+  if (addr.endsWith(" " + cityNorm)) addr = addr.slice(0, -(cityNorm.length + 1)).trim();
+  let guard = 0;
+  while (STREET_PREFIX.test(addr) && guard < 3) {
+    addr = addr.replace(STREET_PREFIX, "").trim();
+    guard++;
+  }
+  let street = addr;
+  let house: string | null = null;
+  const end = addr.match(HOUSE_END);
+  const start = addr.match(HOUSE_START);
+  if (end && streetOk(end[1].trim())) {
+    street = end[1].trim();
+    house = end[2];
+  } else if (start && streetOk(start[2].trim())) {
+    house = start[1];
+    street = start[2].trim();
+  }
+  let guard2 = 0;
+  while (STREET_PREFIX.test(street) && guard2 < 3) {
+    street = street.replace(STREET_PREFIX, "").trim();
+    guard2++;
+  }
+  if (!streetOk(street)) return null;
+  return { city: cityNorm, street, house };
+}
+
+/** אותה עיר ואותו רחוב. מספר בית באחד הצדדים מחייב אותו מספר בשני. */
+export function sameOwnerAddress(a: AddressIdentity, b: AddressIdentity | null): boolean {
+  if (!b) return false;
+  if (a.city !== b.city || a.street !== b.street) return false;
+  if (a.house || b.house) return a.house === b.house;
+  return true;
+}
+
+/**
+ * הכתובת שנשמרה בתחילת raw_message: "רחוב · מפרט", והערות מצטרפות בשורה חדשה.
+ * ההערה אינה הכתובת. מפרט בלי רחוב ("4 חדרים") אינו זהות.
+ */
+export function addressFromStoredLead(row: {
+  raw_message?: string | null;
+  city?: string | null;
+}): AddressIdentity | null {
+  const firstLine = (row.raw_message || "").split("\n")[0] ?? "";
+  const segment = firstLine.split(" · ")[0] ?? "";
+  return parseAddressIdentity(row.city, segment);
+}
+
 export type AttachInput = {
   phone: string;
   leadType: string;
-  /** true בפנייה על נכס: רק אותו property_id, ו-null רק מול לידים בלי נכס. */
+  /** true בפנייה על נכס: רק אותו property_id. null אינו מצמיד. */
   matchProperty: boolean;
   propertyId?: string | null;
+  /** true בבעל/ת נכס: אותה עיר ואותו רחוב. בלי כתובת אין הצמדה. */
+  matchAddress?: boolean;
+  city?: string | null;
+  address?: string | null;
   source: string | null;
   externalRef: string | null;
   message: string | null;
   sourceLabel: string | null;
   /** false לדפדפן. בלי זה הפונקציה מחזירה null והקורא מכניס ליד חדש. */
   internal: boolean;
-  /** דף משרד, דף סוכן/ת, או הנכס עצמו. בלי ערך אין סינון - ואז sameDesk שומר. */
+  /** דף משרד, דף סוכן/ת, או הנכס עצמו. בלי שניהם זו פניית פלטפורמה. */
   agencyId?: string | null;
   agentId?: string | null;
 };
@@ -178,6 +293,9 @@ export async function attachToOpenLead(
   if (input.matchProperty && !input.propertyId) return null;
   // דף עם משרד ובלי סוכן/ת: אין שולחן להצמיד אליו, ולא בוחרים סוכן/ת אחר/ת.
   if (input.agencyId && !input.agentId) return null;
+  // בעל/ת נכס בלי כתובת שאפשר להשוות אינו נבלע בליד של נכס אחר.
+  const wantAddress = input.matchAddress ? parseAddressIdentity(input.city, input.address) : null;
+  if (input.matchAddress && !wantAddress) return null;
 
   const digits = String(input.phone || "").replace(/\D/g, "");
   if (digits.length < 9) return null;
@@ -195,7 +313,7 @@ export async function attachToOpenLead(
 
   const since = new Date(Date.now() - OPEN_LEAD_WINDOW_MS).toISOString();
   let query = sb.from("leads")
-    .select("id, agent_id, agency_id, status, created_at, raw_message, source_touches, city, property_type, deal_type")
+    .select("id, agent_id, agency_id, status, source, created_at, raw_message, source_touches, city, property_type, deal_type")
     .eq("phone_e164", e164)
     .eq("lead_type", input.leadType)
     .gte("created_at", since)
@@ -218,6 +336,13 @@ export async function attachToOpenLead(
     console.warn("lead phone dedupe skipped", "query");
     return null;
   }
+  if (rows.length === 0) return null;
+
+  // פניית פלטפורמה (מטא, רשתות, אשף הבית) אינה נבלעת בליד שנולד בדף של משרד.
+  // הסינון כאן ולא ב-SQL: not in היה מוריד גם source שהוא null.
+  const platformIncoming = !input.agencyId && !input.agentId;
+  if (platformIncoming) rows = rows.filter((r) => !isPageRoutedSource(r.source));
+  if (wantAddress) rows = rows.filter((r) => sameOwnerAddress(wantAddress, addressFromStoredLead(r)));
   if (rows.length === 0) return null;
 
   const ids = rows.map((r) => r.id).filter(Boolean);
@@ -247,8 +372,32 @@ export async function attachToOpenLead(
     return { lead_id: chosen.id };
   }
 
-  // קודם התראה. כישלון - הקורא מכניס ליד חדש, והטריגר על insert מודיע.
-  // אין רוטציה: לא נגענו ב-lead_distribution_rotation.
+  // קודם העדכון, בשאילתה אחת. כישלון - אין התראה, והקורא מכניס ליד חדש.
+  const noteLine = appendLeadNote(null, input.sourceLabel, input.message);
+  let touchedId: string | null = null;
+  try {
+    const upd = await sb.rpc("lead_phone_touch", {
+      p_lead_id: chosen.id,
+      p_note: noteLine,
+      p_touch: {
+        source: input.source,
+        external_ref: input.externalRef,
+        at: new Date().toISOString(),
+      },
+    });
+    if (upd.error || typeof upd.data !== "string" || !upd.data) {
+      console.warn("lead phone dedupe note skipped", upd.error?.code || "update");
+      return null;
+    }
+    touchedId = upd.data;
+  } catch {
+    console.warn("lead phone dedupe note skipped", "update");
+    return null;
+  }
+
+  // ההתראה אחרי עדכון שהצליח. כישלון שלה אינו פותח ליד שני: ההודעה כבר על הליד.
+  // אין רוטציה: לא נגענו ב-lead_distribution_rotation. משימת היומן אינה נכפלת
+  // כי source_key שלה הוא lead:<id> (on conflict do nothing).
   const notice = repeatNotice(chosen);
   try {
     const note = await sb.from("notifications").insert({
@@ -258,26 +407,9 @@ export async function attachToOpenLead(
       body: notice.body,
       related_lead_id: chosen.id,
     });
-    if (note.error) {
-      console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
-      return null;
-    }
+    if (note.error) console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
   } catch {
     console.warn("lead phone dedupe notify skipped", "notify");
-    return null;
   }
-
-  const raw_message = appendLeadNote(chosen.raw_message, input.sourceLabel, input.message);
-  const source_touches = pushTouch(chosen.source_touches, {
-    source: input.source,
-    external_ref: input.externalRef,
-    at: new Date().toISOString(),
-  });
-  try {
-    const upd = await sb.from("leads").update({ raw_message, source_touches }).eq("id", chosen.id);
-    if (upd.error) console.warn("lead phone dedupe note skipped", upd.error.code || "update");
-  } catch {
-    console.warn("lead phone dedupe note skipped", "update");
-  }
-  return { lead_id: chosen.id };
+  return { lead_id: touchedId };
 }
