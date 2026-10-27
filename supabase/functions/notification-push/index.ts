@@ -180,6 +180,8 @@ type Item = {
   meeting_id?: string | null;
   // ‏תקציר התפרצות (20271028140000). חסר בהודעה רגילה.
   count?: number | null;
+  // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
+  source?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -429,17 +431,22 @@ function templateSummary(items: Item[]): string {
 
 async function loadDigestFlags(
   sb: { from: (table: string) => any },
-): Promise<{ less: boolean; topics: boolean }> {
-  const off = { less: false, topics: false };
+): Promise<{ less: boolean; topics: boolean; guardOn: boolean }> {
+  const off = { less: false, topics: false, guardOn: true };
   try {
     const { data, error } = await sb.from("pricing_config")
       .select("key, value")
-      .in("key", ["notif_digest_enabled", "notif_topic_group"]);
+      .in("key", ["notif_digest_enabled", "notif_topic_group", "notification_burst_guard_enabled"]);
     if (error || !Array.isArray(data)) return off;
     const on = (key: string) => data.some((row: { key?: string; value?: unknown }) =>
       row.key === key && Number(row.value) === 1);
     const digest = on("notif_digest_enabled");
-    return { less: digest, topics: digest && on("notif_topic_group") };
+    const seenGuard = data.some((row: { key?: string }) => row.key === "notification_burst_guard_enabled");
+    return {
+      less: digest,
+      topics: digest && on("notif_topic_group"),
+      guardOn: seenGuard ? on("notification_burst_guard_enabled") : true,
+    };
   } catch {
     return off;
   }
@@ -610,7 +617,7 @@ Deno.serve(async (req: Request) => {
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
-    ))));
+    ))), undefined, digest.guardOn);
     const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
       ? items[0].type
       : null;

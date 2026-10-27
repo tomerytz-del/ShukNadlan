@@ -1,6 +1,9 @@
-// שמירה מפני התפרצות וואטסאפ. התקרות חיות ב-pricing_config
-// (מיגרציה 20271028140000). כאן ההחלטה בלי מסד, כדי שהבדיקה ב-node
-// תריץ אותה, והשליחה תקרוס גוף ענק גם אם ה-claim הישן עוד באוויר.
+// שמירה מפני התפרצות וואטסאפ. התקרות והמפסק חיים ב-SQL
+// (מיגרציה 20271028140000). כאן רק מה שהשליחה עצמה צריכה:
+// לא לקפל ליד אמיתי או סוג מוגן לתוך "יש לך N", וגוף התקציר.
+// המתג notification_burst_guard_enabled כבוי: אין קיפול.
+
+import { isLessKeptType } from "./notif-digest.ts";
 
 export const BURST_DEFAULTS = {
   hourCap: 12,
@@ -56,60 +59,10 @@ export function overBurstCap(
   return sentHour >= caps.hour || sentDay >= caps.day;
 }
 
-/**
- * שורה שלא יוצאת לוואטסאפ. נשארת לא-נקראת בפעמון.
- * דגל התקציר כבוי: quiet_hold נשאר, כמו היום. דגל דלוק: סוג שאינו דחוף
- * מעל 12 שעות לא יוצא, גם אם ההחזקה של 7 הימים שמרה אותו לפעמון.
- */
-export function shouldMarkSiteOnly(opts: {
-  ageHours: number;
-  digestOn: boolean;
-  priority: boolean;
-  kept: boolean;
-  quietHold: boolean;
-  suppress: boolean;
-  staleHours?: number;
-  urgentHours?: number;
-}): boolean {
-  if (opts.suppress) return true;
-  const stale = opts.staleHours ?? BURST_DEFAULTS.staleHours;
-  const urgent = opts.urgentHours ?? BURST_DEFAULTS.urgentHours;
-  if (opts.priority || (opts.digestOn && opts.kept)) return opts.ageHours > urgent;
-  if (!opts.digestOn && opts.quietHold) return false;
-  return opts.ageHours > stale;
-}
-
-export function breakerShouldPause(opts: {
-  manual: boolean;
-  pending: number;
-  created: number;
-  globalSends: number;
-  pendingMax?: number;
-  createdMax?: number;
-  globalMax?: number;
-}): { global: boolean; agent: boolean } {
-  const pendingMax = opts.pendingMax ?? BURST_DEFAULTS.agentPending;
-  const createdMax = opts.createdMax ?? BURST_DEFAULTS.createdMax;
-  const globalMax = opts.globalMax ?? BURST_DEFAULTS.globalHour;
-  const global = opts.manual || opts.created > createdMax || opts.globalSends > globalMax;
-  return { global, agent: !global && opts.pending > pendingMax };
-}
-
-export type BurstAction = "send" | "digest" | "site_only";
-
-/** מעל התקרה: תקציר אחד בשעה, ואחר כך רק באתר. מעל מקסימום פריטים: תקציר. */
-export function burstAction(opts: {
-  paused: boolean;
-  overCap: boolean;
-  digestAlreadyThisHour: boolean;
-  itemCount: number;
-  maxItems?: number;
-}): BurstAction {
-  if (opts.paused) return "site_only";
-  const maxItems = opts.maxItems ?? BURST_DEFAULTS.maxItems;
-  if (opts.overCap) return opts.digestAlreadyThisHour ? "site_only" : "digest";
-  if (opts.itemCount > maxItems) return "digest";
-  return "send";
+/** ליד אמיתי, סיור, תזכורת, אבטחה, תקציב, ops. בקשת תמונות לא. */
+export function isBurstExempt(item: { type: string; source?: string | null }): boolean {
+  if (item.type === "new_lead" && item.source === "photo_request") return false;
+  return isLessKeptType(item.type);
 }
 
 /** בקשת תמונות: לכל היותר הודעה אחת לנכס. החדשה נשארת, השאר באתר. */
@@ -133,7 +86,10 @@ export function burstDigestItem(count: number): BurstItem {
 export function collapseForSend<T extends BurstItem>(
   items: T[],
   maxItems = BURST_DEFAULTS.maxItems,
+  guardOn = true,
 ): T[] {
+  if (!guardOn) return items;
+  if (items.some((it) => isBurstExempt(it))) return items;
   const digest = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (digest) return [digest];
   if (items.length > maxItems) return [burstDigestItem(items.length) as T];
