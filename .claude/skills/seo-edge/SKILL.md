@@ -110,6 +110,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
+בלי תמונה ובלי פוסטר, כולל סרטון בלי פוסטר, השער הוא `<img class="hero-placeholder" data-lcp fetchpriority="high">` של `/assets/property-placeholder.jpg`, עם `width="1600"` ו-`height="1000"` (16/10, כמו `.bento[data-count="1"] .bento-main`). ה-`preload` שלו נכנס מיד אחרי `charset`, ורק אז. נכס עם תמונה או עם פוסטר לא מקבל את הקובץ הזה. `renderGallery` לא מוחק את הצומת. בסרטון בלי פוסטר ה-`<video>` נשאר `visibility:hidden` עד אירוע `playing`, וה-`img` נשאר ב-DOM גם אחריו, כדי שה-LCP לא יעבור אל `#planningSummary`.
+
 תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה. הטרנספורם הראשון של כתובת חדשה איטי (נמדד כ-679ms מול 38ms אחרי שהתוצאה נשמרה). אגודל עצל של אותה תמונה עדיין יכול להוריד את הקובץ המלא.
 
 ### כרטיס ראשון בדף שכונה

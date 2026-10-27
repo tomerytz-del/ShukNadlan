@@ -3,6 +3,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
+/* אותה כתובת ש-og-tags שם ב-src וב-preload כשאין תמונה ואין פוסטר.
+   מחיקת הצומת מחזירה את ה-LCP לטקסט שנכתב אחרי השאילתה. */
+const HERO_PLACEHOLDER = '/assets/property-placeholder.jpg';
 const LTV_THRESHOLDS = { single:0.75 }; // מודול 2 §5.5
 
 /* ---------- ספריית אייקונים ----------
@@ -355,6 +358,20 @@ function heroRenderUrl(url, w, h){
 function posterForHero(url){
   return heroRenderUrl(url, 800, 500) || url || '';
 }
+function isPlaceholderHero(img){
+  if (!img || !img.getAttribute) return false;
+  const src = img.getAttribute('src') || '';
+  return src === HERO_PLACEHOLDER;
+}
+function hasChildTag(parent, tag){
+  const kids = parent && parent.children || [];
+  const want = String(tag || '').toUpperCase();
+  for (let i = 0; i < kids.length; i++){
+    const name = kids[i].tagName || kids[i].tag || '';
+    if (String(name).toUpperCase() === want) return true;
+  }
+  return false;
+}
 function heroSrcset(url){
   var small = heroRenderUrl(url, 800, 500);
   var big = heroRenderUrl(url, 1200, 800);
@@ -418,6 +435,9 @@ function attachHeroVideo(main, videoSrc, poster){
   if (isReelVideo(videoSrc)) portrait();
   v.addEventListener('loadedmetadata', ()=>{ if (v.videoHeight > v.videoWidth) portrait(); });
   v.addEventListener('playing', ()=>{
+    /* פריים אמיתי: הווידאו מכסה את הפלייסהולדר. ה-img נשאר ב-DOM.
+       הסרה שלו לפני הפריים מוסרת את מועמד ה-LCP, והפסקה
+       #planningSummary (שנכתבת אחר כך) תופסת את מקומו. */
     v.style.visibility = '';
     const shot = (main.querySelector && main.querySelector('img[data-lcp]')) || img;
     if (shot && main.classList.contains('is-portrait')){
@@ -451,7 +471,15 @@ function renderGallery(p){
   const ssr = !!(kept && heroSrc && kept.getAttribute('src') === heroSrc
     && grid.getAttribute('data-count') === count
     && !!videoSrc === paintedVideo);
-  if (!ssr){
+  /* בלי תמונה ובלי פוסטר ה-edge כבר שם img של הפלייסהולדר. מחיקת
+     הרשת הייתה מבקשת את הקובץ רק אחרי שאילתת הנכס. סרטון בלי פוסטר
+     מקבל את הווידאו ליד אותו img, וה-img נשאר עד שיש פריים. */
+  const keepPlaceholder = !!(kept && isPlaceholderHero(kept) && !heroSrc && !galleryImages.length);
+  if (keepPlaceholder){
+    grid.setAttribute('data-count', count);
+    const main = elWithClass(grid, 'bento-main');
+    if (videoSrc && main && !hasChildTag(main, 'video')) attachHeroVideo(main, videoSrc, '');
+  } else if (!ssr){
     grid.innerHTML = '';
     // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
     // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה

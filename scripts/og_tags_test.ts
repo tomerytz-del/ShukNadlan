@@ -459,7 +459,7 @@ const propHttp: [string, boolean][] = [
 
 /* מחיר, מאפיינים, משרד וסוכן/ת ב-HTML הראשון. שאילתת הסוכן/ת נפרדת. */
 const VISIBLE =
-  `<!doctype html><html><head><title>x</title></head><body>` +
+  `<!doctype html><html><head><meta charset="UTF-8"><title>x</title></head><body>` +
   `<div id="loadingState">טוען</div><div id="propertyContent">` +
   `<div class="bento" id="bentoGrid"></div>` +
   `<h1 id="propTitle">-</h1>` +
@@ -559,7 +559,71 @@ propHttp.push(
     && storedReel.includes(`src="${amp(R800)}"`)
     && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
     && storedReel.includes(`data-full="${amp(ORIG)}"`)
-    && !storedReel.includes("<video")],
+    && !storedReel.includes("<video")
+    && !storedReel.includes("property-placeholder")],
+);
+const PLACEHOLDER = "/assets/property-placeholder.jpg";
+const noPhoto = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  agencies: { name: "משרד הדר", logo_url: "https://cdn.example/logo.png" },
+}, { display_name: "דנה כהן" });
+const videoBare = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: "https://cdn.example/property-videos/reel.mp4",
+  video_poster_url: null,
+  agencies: { name: "משרד הדר" },
+}, { display_name: "דנה כהן" });
+const videoPoster = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: "https://cdn.example/property-videos/reel.mp4",
+  video_poster_url: "https://cdn.example/poster.jpg",
+}, { display_name: "דנה כהן" });
+const h1 = (html: string) => (html.match(/<h1\b[^>]*>([^<]*)<\/h1>/) || [])[1] || "";
+const canon = (html: string) => (html.match(/rel="canonical" href="([^"]+)"/) || [])[1] || "";
+const ogImage = (html: string) => (html.match(/property="og:image" content="([^"]+)"/) || [])[1] || "";
+const jsonLd = (html: string) => (html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1] || "";
+const preloadCount = (html: string, href: string) => html.split(`rel="preload" as="image" href="${href}"`).length - 1;
+propHttp.push(
+  ["בלי תמונה: img של הפלייסהולדר ו-preload מיד אחרי charset",
+    noPhoto.includes(`class="hero-placeholder" data-lcp="1" src="${PLACEHOLDER}"`)
+    && noPhoto.includes('width="1600" height="1000"')
+    && noPhoto.includes('fetchpriority="high"')
+    && noPhoto.includes('class="bento-cell bento-main bento-empty"')
+    && noPhoto.includes('id="bentoGrid" data-count="1"')
+    && noPhoto.includes('class="empty-logo" src="https://cdn.example/logo.png"')
+    && noPhoto.includes("תמונות של הנכס יעלו בקרוב")
+    && /<meta charset="UTF-8">\s*<link rel="preload" as="image" href="\/assets\/property-placeholder\.jpg" fetchpriority="high">/.test(noPhoto)
+    && preloadCount(noPhoto, PLACEHOLDER) === 1
+    && !noPhoto.includes("<video")],
+  ["עם תמונה: אין preload של הפלייסהולדר",
+    !seen.includes("property-placeholder")
+    && seen.includes('rel="preload" as="image" href="https://shuknadlan.co.il/a.jpg"')
+    && preloadCount(seen, PLACEHOLDER) === 0],
+  ["סרטון בלי פוסטר: הפלייסהולדר נשאר, בלי תגית video",
+    videoBare.includes('class="bento-cell bento-main bento-video"')
+    && videoBare.includes(`src="${PLACEHOLDER}"`)
+    && videoBare.includes('data-lcp="1"')
+    && preloadCount(videoBare, PLACEHOLDER) === 1
+    && !videoBare.includes("bento-empty")
+    && !videoBare.includes("<video")],
+  ["סרטון עם פוסטר: הפוסטר כמו שהיה, בלי פלייסהולדר",
+    videoPoster.includes('class="bento-video-bg"')
+    && videoPoster.includes('src="https://cdn.example/poster.jpg"')
+    && videoPoster.includes('rel="preload" as="image" href="https://cdn.example/poster.jpg"')
+    && !videoPoster.includes("property-placeholder")
+    && !videoPoster.includes("<video")],
+  ["הפלייסהולדר לא נוגע ב-title, ב-h1, ב-canonical, ב-og:image וב-JSON-LD",
+    titleOf(noPhoto) === titleOf(seen)
+    && h1(noPhoto) === h1(seen)
+    && canon(noPhoto) === canon(seen)
+    && ogImage(noPhoto) === "https://shuknadlan.co.il/assets/logo-shuknadlan.png"
+    && !ogImage(noPhoto).includes("placeholder")
+    && !jsonLd(noPhoto).includes("placeholder")
+    && !jsonLd(noPhoto).includes("property-placeholder")
+    && jsonLd(seen).includes("https://shuknadlan.co.il/a.jpg")],
 );
 resetLastGood();
 const propGood = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 200, PROPERTY);

@@ -307,6 +307,54 @@ const RENDER_BIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/i
   check("SSR עם כתובת ה-render שומר את אותו צומת", grid.querySelector("img[data-lcp]") === img);
 }
 
+const PLACEHOLDER = "/assets/property-placeholder.jpg";
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-empty");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  img.className = "hero-placeholder";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "1");
+  g.renderGallery({ images: [] });
+  check("בלי תמונה: צומת הפלייסהולדר נשמר", grid.querySelector("img[data-lcp]") === img);
+  check("בלי תמונה: הרשת לא נבנית מחדש", grid.getAttribute("data-count") === "1"
+    && !grid.children.some((c: any) => c !== main));
+}
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  img.className = "hero-placeholder";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "1");
+  g.renderGallery({ video_url: SRC, images: [] });
+  const video = main.children.find((c: any) => c.tag === "video");
+  check("סרטון בלי פוסטר: אותו img נשאר", grid.querySelector("img[data-lcp]") === img);
+  check("סרטון בלי פוסטר: הווידאו מוסתר עד פריים", video
+    && video.style.visibility === "hidden"
+    && !video.getAttribute("src")
+    && video._plays === 0);
+  video.dispatch("playing");
+  check("אחרי פריים הפלייסהולדר עדיין ב-DOM", grid.querySelector("img[data-lcp]") === img
+    && video.style.visibility === "");
+}
+
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);
   process.exit(1);
