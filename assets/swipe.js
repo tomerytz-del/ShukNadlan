@@ -19,7 +19,7 @@
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, ' +
-    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, agencies(name, slug, logo_url), neighborhoods(name)';
+    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
 
   /* ‏מתג כיבוי לכרטיסים הממומנים (החלטת A2): כבוי - כל משבצת ממומנת הופכת לנכס,
@@ -89,8 +89,24 @@
   var mainCity = (market && market.places && market.places[0]) || 'עפולה';
 
   function photos(p) {
-    return (Array.isArray(p.images) ? p.images : []).filter(function (u) {
-      return typeof u === 'string' && (/^https?:\/\//i.test(u.trim()) || /^(\/(?!\/)|assets\/)/i.test(u.trim()));
+    var ok = function (u) { return typeof u === 'string' && (/^https?:\/\//i.test(u.trim()) || /^(\/(?!\/)|assets\/)/i.test(u.trim())); };
+    var list = (Array.isArray(p.images) ? p.images : []).filter(ok);
+    // נכס בלי תמונות שיש לו סרטון: הפוסטר הוא התמונה (חלק 3 §1)
+    return list.length || !ok(p.video_poster_url) ? list : [p.video_poster_url];
+  }
+  /* ---------- נכס בלי תמונות (סבב 4, חלק 3, ‏assets/no-photo.js) ---------- */
+  function hasPhoto(p) { return photos(p).length > 0; }
+  function npCtx(p) {
+    var a = p.agent_id ? agents.get(p.agent_id) : null;
+    return { agent: a || null, agency: p.agencies || null, private: advertiser(p).type === 'private' };
+  }
+  function npHtml(p, surface) { return window.NoPhoto ? NoPhoto.html(p, npCtx(p), surface) : ''; }
+  function npMsg(p) { return window.NoPhoto ? NoPhoto.STR.msg(title(p)) : 'היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לקבל תמונות של הנכס'; }
+  /* "רק נכסים עם תמונות": דלוק כברירת מחדל, '0' = כבוי */
+  function photosOnlyPref() { return store('sk_swipe_photos_only') !== '0'; }
+  function npOrder(list) {
+    return list.slice().sort(function (a, b) {
+      return (!!b.is_promoted - !!a.is_promoted) || ((Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
     });
   }
   /* תמונה מוקטנת מהאחסון (‏render/image, כמו cardImgUrl ב-home.js): התמונות
@@ -298,7 +314,7 @@
       var ids = rows.map(function (p) { return p.agent_id; }).filter(Boolean)
         .filter(function (v, i, a) { return a.indexOf(v) === i; });
       var agentsP = ids.length
-        ? sb.from('agency_members_public').select('id, display_name, slug, phone_e164, photo_url').in('id', ids)
+        ? sb.from('agency_members_public').select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url').in('id', ids)
           .then(function (r) { ((r && r.data) || []).forEach(function (a) { agents.set(a.id, a); }); }, function () {})
         : Promise.resolve();
       var artP = sb.from('articles_public').select('id, slug, title, subtitle, category, cover_url, published_at')
@@ -309,7 +325,7 @@
   }
 
   /* ---------- 2. הסינון ---------- */
-  var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null };
+  var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null, photos: photosOnlyPref() };
   var BUDGETS = {
     sale: [0, 1500000, 2500000, 3500000],
     rent: [0, 4000, 6000, 8000],
@@ -345,6 +361,7 @@
     if (!dealOk(p, f.deal)) return false;
     if (f.fair && !fairLive(p)) return false;
     if (f.viz && !vizMap.has(p.id)) return false;
+    if (f.photos && !hasPhoto(p)) return false;
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
     if (f.budget && Number(p.price) > f.budget) return false;
@@ -406,6 +423,7 @@
     var vizN = vizReady ? countFor({ viz: true }) : 0;
     $('swFViz').hidden = $('swFVizL').hidden = !vizReady || (!vizN && !filter.viz);
     $('swFViz').innerHTML = chip('✨ רק נכסים עם הדמיה ' + n(vizN), 'data-viz="1"', !!filter.viz);
+    $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = filtered().length;
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
     $('swFGo').disabled = false;
@@ -495,6 +513,7 @@
     if (b.dataset.budget) { filter.budget = Number(b.dataset.budget); renderFilter(); return; }
     if (b.dataset.rooms) { filter.rooms = Number(b.dataset.rooms); renderFilter(); return; }
     if (b.dataset.viz) { filter.viz = !filter.viz; renderFilter(); return; }
+    if (b.dataset.photos) { filter.photos = !filter.photos; store('sk_swipe_photos_only', filter.photos ? null : '0'); renderFilter(); return; }
   });
   function askLocation() {
     var note = $('swFLocNote');
@@ -511,7 +530,8 @@
     }, { timeout: 10000, maximumAge: 300000 });
   }
   $('swFReset').addEventListener('click', function () {
-    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null };
+    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, photos: true };
+    store('sk_swipe_photos_only', null);
     townsOpen = otherOpen = false; renderFilter();
   });
   $('swFGo').addEventListener('click', function () {
@@ -634,8 +654,24 @@
     if (kind === 'engage') return { slot: 'engage' };
     return null;
   }
-  function buildDeck() {
+  /* סדר הנכסים בלי תמונות (חלק 3 §7). "רק עם תמונות" דלוק: כל הנכסים עם תמונה, ואחריהם כרטיס
+     גשר אחד ואז אלה שבלי (מקודמים, ואז החדשים). כבוי: אלה שבלי נשזרים רק בזנב - 7 עם ואחד בלי,
+     לעולם לא שניים ברצף ולא יותר מאחד בכל 8 כרטיסים; מה שלא נכנס בזנב מופיע ברשימה ובמפה */
+  var npRest = [];
+  function deckProps() {
     var props = filtered();
+    npRest = [];
+    if (filter.photos) {
+      npRest = npOrder(filtered(Object.assign({}, filter, { photos: false })).filter(function (p) { return !hasPhoto(p); }));
+      return props;
+    }
+    var W = props.filter(hasPhoto), N = npOrder(props.filter(function (p) { return !hasPhoto(p); }));
+    var k = Math.min(N.length, Math.floor(W.length / 7)), head = W.length - 7 * k, out = W.slice(0, head);
+    for (var i = 0; i < k; i++) out = out.concat(W.slice(head + 7 * i, head + 7 * i + 7), [N[i]]);
+    return out;
+  }
+  function buildDeck() {
+    var props = deckProps();
     // "3 ממומנים ו-1 כתבה" הם לביקור: החפיסה מקבלת רק את מה שעוד לא הוצג
     counts = { sponsored: shown.sponsored, articles: shown.articles };
     /* ‏minGap חל בין שני כרטיסים ממומנים (6/8 ← 16 ← 26). בין 13 ל-16 יש רק שני
@@ -650,13 +686,26 @@
       card.pos = pos++;
       out.push(card);
     }
+    // הגשר: פעם אחת בחפיסה, רק כשנשארו נכסים מתאימים בלי תמונות
+    if (npRest.length) {
+      out.push({ slot: 'np_bridge', count: npRest.length, pos: pos++ });
+      npRest.forEach(function (p) { out.push({ slot: 'property', p: p, pos: pos++ }); });
+    }
     out.push({ slot: 'end', pos: pos });
+    if (DEBUG) npAssert(out);
     deck = out; idx = 0; history_ = [];
     renderDeck();
     renderList();
     if (mapReady) drawMapMarkers();
   }
 
+  function npAssert(out) {
+    if (filter.photos) return;
+    out.forEach(function (c, i) {
+      var win = out.slice(i, i + 8).filter(function (x) { return x.slot === 'property' && !hasPhoto(x.p); }).length;
+      if (win > 1) console.error('swipe: יותר מנכס אחד בלי תמונות ב-8 כרטיסים, מקום ' + c.pos);
+    });
+  }
   var cur = function () { return deck[idx]; };
   function cardHtml(c, top) {
     var dbg = DEBUG ? '<span class="sw-dbg">' + esc(c.slot) + ' · ' + c.pos + '</span>' : '';
@@ -664,11 +713,12 @@
       var p = c.p, ph = slides(p), adv = advertiser(p), at = (top && c.photo) || 0;
       if (at >= ph.length) at = c.photo = 0;
       var sp = top ? slideKind(ph[at]) : '';
+      var np = !ph.length && window.NoPhoto ? npHtml(p, 'swipe') : '';
       var img = ph.length ? '<img class="sw-cimg" draggable="false" data-fb="sw-cimg" ' + imgSrc(slideBase(p, ph[at]), 800) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
-        : imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
+        : np || imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
       var bars = '<div class="sw-bars" aria-hidden="true">' + barsHtml(ph, at) + '</div>';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
-      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + '" data-slot="property" aria-label="' + esc(title(p) + ', ' + fmtPrice(p)) + '">' + img +
+      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property" aria-label="' + esc(title(p) + ', ' + fmtPrice(p)) + '">' + img +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
         (p.property_type ? '<span class="sw-tag is-type">' + esc(p.property_type) + '</span>' : '') +
@@ -707,6 +757,16 @@
         '<div class="sw-cbody"><p class="sw-facts">' + esc(a.category || 'מגזין שוק נדל״ן') + ' · ' + esc(readTime(a)) + '</p>' +
         '<h2 class="sw-ctitle">' + esc(a.title) + '</h2>' + (a.subtitle ? '<p class="sw-where">' + esc(a.subtitle) + '</p>' : '') +
         '<a class="sw-white" data-article href="' + esc(url) + '">לקריאה ←</a></div></article>';
+    }
+    if (c.slot === 'np_bridge') {
+      var bs = window.NoPhoto ? NoPhoto.STR : null;
+      return '<article class="sw-card sw-np-bridge" data-slot="np_bridge" aria-label="' + esc(bs ? bs.bridge : '') + '">' + dbg +
+        '<span class="sw-npb-brand"><img src="/assets/logo-shuknadlan-dark.svg" alt="" width="20" height="24">שוק הנדל״ן</span>' +
+        '<div class="sw-end-in"><span class="sw-end-av"><img src="/assets/gabriela-cutout-400.webp" alt="" width="84" height="84" ' +
+        'onerror="this.onerror=null;this.src=\'/assets/logo-shuknadlan.svg\'"></span>' +
+        '<h2 class="sw-end-title">' + esc(bs ? bs.bridge : '') + '</h2>' +
+        '<p class="sw-npb-sub">' + esc(bs ? bs.bridgeSub(c.count) : '') + '</p></div>' +
+        '<button type="button" class="sw-npb-list" data-np-list>' + esc(bs ? bs.bridgeList : '') + '</button></article>';
     }
     if (c.slot === 'engage') {
       return '<article class="sw-card sw-engage" data-slot="engage" aria-label="שמירת החיפוש">' + dbg +
@@ -891,6 +951,15 @@
     if (deciding || !c || c.slot === 'end') return;
     var top = $('swTopCard');
     var added = false;
+    // הגשר אינו "אהבתי" ואינו "דילוג": כל כיוון פשוט ממשיך לנכסים שבלי תמונות
+    if (c.slot === 'np_bridge') {
+      shukTrack('swipe_nophoto_bridge', { count: c.count });
+      history_.push({ i: idx, liked: null });
+      deciding = true;
+      var go_ = function () { deciding = false; idx = Math.min(idx + 1, deck.length - 1); renderDeck(); };
+      if (top && !reduceMotion) { top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip'); setTimeout(go_, 220); } else go_();
+      return;
+    }
     if (dir === 'like' && c.p && likes.indexOf(c.p.id) < 0) { likes.push(c.p.id); saveLikes(); added = true; sessionLikes++; lastLiked = c; }
     // שני שמות מפורשים ולא ביטוי: כך check_gtm_container.py מוצא את שניהם
     if (dir === 'like') shukTrack('swipe_like', { slot: c.slot, position: c.pos });
@@ -1000,6 +1069,13 @@
     card.addEventListener('click', function (e) {
       var c = cur();
       if (e.target.closest('[data-up]')) { openSheetFor(c); return; }
+      var npc = e.target.closest('[data-np-cta]');
+      if (npc) { e.stopPropagation(); npRequest(c, npc.dataset.level, 'swipe'); return; }
+      if (e.target.closest('[data-np-list]')) {
+        e.stopPropagation();
+        shukTrack('swipe_nophoto_list', { count: c.count });
+        setView('list', false, true); return;
+      }
       // ‏✨ איך זה יכול להיראות? - ישר לשקופית לפני/אחרי (האחרונה)
       if (e.target.closest('[data-vpill]')) {
         shukTrack('viz_pill_click', { property_id: c.p.id });
@@ -1083,7 +1159,7 @@
     return '<h3 class="sw-sub-h">פרטי הנכס</h3>' +
       (shown.length ? '<div class="sw-gal">' + shown.map(function (u, i) { return '<img ' + imgSrc(u, 480) + ' alt="' + esc(title(p) + ' - תמונה ' + (i + 1)) + '" loading="lazy" width="220" height="150" data-fb="sw-gimg">'; }).join('') + '</div>' +
         '<p class="sw-gal-n">' + ph.length + ' תמונות בנכס · מוצגות ' + shown.length + '</p>'
-        : '<div class="sw-gal">' + imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-gimg') + '</div>') +
+        : '<div class="sw-gal">' + (window.NoPhoto ? '<div class="sw-gal-np">' + npHtml(p, 'card') + '</div>' : imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-gimg')) + '</div>') +
       '<p class="sw-dprice">' + esc(fmtPrice(p)) + '</p><p class="sw-dtitle">' + esc(title(p)) + '</p>' +
       '<p class="sw-daddr"><span aria-hidden="true">📍</span> ' + esc(where(p)) + '</p>' +
       '<div class="sw-tiles">' + tiles.map(function (t) { return '<div><span>' + esc(t[0]) + '</span><b>' + esc(t[1]) + '</b></div>'; }).join('') + '</div>' +
@@ -1093,9 +1169,9 @@
         '<p class="sw-gm"><a href="' + esc(gm) + '" target="_blank" rel="noopener">פתיחה ב-Google Maps ←</a></p>' : '') +
       '<p class="sw-full"><a href="/property?id=' + encodeURIComponent(p.id) + '">לדף הנכס המלא ←</a></p>';
   }
-  function formHtml(c, preset) {
+  function formHtml(c, preset, fullMsg) {
     var p = c.p;
-    var msg = p ? (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים') : '';
+    var msg = p ? (fullMsg || (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים')) : '';
     return '<form class="sw-lead" id="leadForm" hidden novalidate>' +
       '<label class="sw-field"><span>שם</span><input id="swLName" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון</span><input id="swLPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
@@ -1105,12 +1181,19 @@
       '<p class="sw-ferr" id="swLErr" role="alert"></p></form>' +
       '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. יחזרו אליכם בקרוב.</p>';
   }
+  /* "בקשו תמונות מהמפרסם": הגיליון נפתח עם הטופס וההודעה המלאה. שום דבר לא נשלח בלחיצה */
+  function npRequest(c, level, surface) {
+    if (!c || !c.p) return;
+    shukTrack('photo_request', { property_id: c.p.id, level: level || (window.NoPhoto ? NoPhoto.level(c.p, npCtx(c.p)) : 'c'), surface: surface });
+    openSheetFor(c, { form: true, fullMsg: npMsg(c.p), source: 'photo_request' });
+  }
   /* ‏opts.msg - הודעה מוכנה ("אשמח לתאם ביקור בנכס"), ‏opts.form - הטופס פתוח. אף פעם לא שליחה */
   function openSheetFor(c, opts) {
     opts = opts || {};
     if (!c || (c.slot !== 'property' && !(c.sponsor && (c.slot === 'spon_agency' || c.sponsor.mortgage)))) return;
     if (!$('swTour').hidden) endTour(false);
     sheetCard = c; sheetOpener = document.activeElement; formOpen = false; sent = false; answers = {};
+    c.source = opts.source || '';   // ‏photo_request - בקשת תמונות (חלק 3 §5)
     var adv = c.p ? advertiser(c.p) : { type: 'agency', name: c.sponsor.name, sub: c.sponsor.kind === 'pro' ? c.sponsor.field : 'משרד תיווך',
       img: c.sponsor.logo || '', slug: c.sponsor.slug || '', href: c.sponsor.slug ? (c.sponsor.kind === 'pro' ? '/professional?slug=' : '/agency?slug=') + encodeURIComponent(c.sponsor.slug) : '' };
     var label = c.p ? ctaLabel(adv) : (c.sponsor.kind === 'agency' ? 'יצירת קשר עם המשרד' : 'יצירת קשר עם המפרסם');
@@ -1120,7 +1203,7 @@
     $('swSheetBody').innerHTML = (studio ? '<div class="sw-tabs" role="tablist" aria-label="פרטי הנכס והדמיה">' +
         '<button type="button" role="tab" id="swTabBtnInfo" data-tab="info" aria-controls="swTabInfo" aria-selected="true">פרטים</button>' +
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
-      '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg) + (c.p ? propInfoHtml(c.p) : '') + '</div>' +
+      '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) + (c.p ? propInfoHtml(c.p) : '') + '</div>' +
       (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
     st = null;
@@ -1500,8 +1583,9 @@
       var line = answerLine();
       var msg = (($('swLMsg') || {}).value || '').trim();
       // מקור הליד ב-CRM: ‏swipe (‏KNOWN_SOURCES ב-lead-routing.ts). השורה האחרונה בהודעה אומרת לסוכן/ת מאיפה הגיע
-      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE, source: 'swipe' })
-        .then(function () { shukTrack('generate_lead', { form_id: 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
+      var src = c.source === 'photo_request' ? 'photo_request' : 'swipe';
+      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE, source: src })
+        .then(function () { shukTrack('generate_lead', { form_id: src === 'photo_request' ? 'photo_request' : 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
     } else if (c.sponsor.kind === 'pro') {
       // משכנתאות - לצינור הקיים (‏mortgage-lead-intake), כמו הטופס בדף הבית
       req = c.sponsor.mortgage
@@ -1763,7 +1847,7 @@
     $('swLvList').innerHTML = list.map(function (p) {
       var ph = photos(p);
       return '<div class="sw-li sw-lv-row"><button type="button" class="sw-lv-open" data-like-open="' + esc(p.id) + '">' +
-        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
         '<button type="button" class="sw-lv-heart" data-like-remove="' + esc(p.id) + '" aria-pressed="true" aria-label="' + esc('הסרה מהרשימה: ' + title(p)) + '">♥</button></div>';
     }).join('');
@@ -1882,27 +1966,42 @@
     var props = deck.filter(function (c) { return c.slot === 'property'; });
     $('swListCount').textContent = props.length === 1 ? 'נכס אחד' : props.length + ' נכסים';
     var likedFirst = view === 'list' && listLikedOnly ? props.filter(function (c) { return likes.indexOf(c.p.id) >= 0; }) : props;
+    // מכרטיס הגשר: רק הנכסים בלי תמונות
+    if (view === 'list' && listNpOnly) likedFirst = likedFirst.filter(function (c) { return !hasPhoto(c.p); });
+    $('swListCount').textContent = view === 'list' && listNpOnly ? (likedFirst.length === 1 ? 'נכס אחד' : likedFirst.length + ' נכסים') : $('swListCount').textContent;
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
+      if (!ph.length && window.NoPhoto) {
+        return '<div class="sw-li sw-lv-row sw-li-np"><button type="button" class="sw-lv-open" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
+          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
+          '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
+      }
       return '<button type="button" class="sw-li" data-pos="' + c.pos + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
-  var listLikedOnly = false;
+  var listLikedOnly = false, listNpOnly = false;
   $('swList').addEventListener('click', function (e) {
+    var rq = e.target.closest('[data-np-req]');
+    if (rq) {
+      var rc = deck.filter(function (x) { return String(x.pos) === rq.dataset.npReq; })[0];
+      if (rc) npRequest(rc, window.NoPhoto ? NoPhoto.level(rc.p, npCtx(rc.p)) : 'c', 'row');
+      return;
+    }
     var b = e.target.closest('[data-pos]');
     if (!b) return;
     var c = deck.filter(function (x) { return String(x.pos) === b.dataset.pos; })[0];
     openSheetFor(c);
   });
-  function setView(v, likedOnly) {
+  function setView(v, likedOnly, npOnly) {
     if (v !== 'map') lastView = v;
     else if (view !== 'map') lastView = view;
     view = v;
     document.body.dataset.view = v;
     listLikedOnly = !!likedOnly && v === 'list';
+    listNpOnly = !!npOnly && v === 'list';
     document.querySelectorAll('.sw-views [data-view]').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.view === v)); });
     $('swDeckView').hidden = v !== 'deck';
     $('swListView').hidden = v !== 'list';

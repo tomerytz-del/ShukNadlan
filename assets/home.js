@@ -117,6 +117,8 @@ function thumbStyle(p, i){
 
 function thumbFallback(p){
   if (hasPhoto(p)) return '';
+  // v10 (סבב 4 חלק 3): שורת תוצאה בלי תמונות - אווטאר ותג "אין תמונות" (assets/no-photo.js)
+  if (window.NoPhoto && NoPhoto.on()) return NoPhoto.html(p, {}, 'row');
   const name = (p && p.agency_name) || '';
   const logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
   const mark = logo
@@ -1019,6 +1021,8 @@ let sentence = null;
 try {
   if (window.supabase) {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // v10: נכס בלי תמונות משלים את תמונת הסוכן/ת מ-agency_members_public (assets/no-photo.js)
+    if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
   } else {
     console.warn('supabase-js לא נטען (CDN חסום/נכשל) - עובד במצב fallback בלבד.');
   }
@@ -1195,13 +1199,15 @@ const PROPERTY_SELECT =
   /* מיקום משוער (אזור תעשייה, חלקה גדולה): הפין מסומן ככזה במפה, עם הבועית
      של assets/approx-location.js. docs/property-map.md */
   'location_precision, location_radius_m, ' +
-  'agencies(name, logo_url), neighborhoods(name)';
+  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
   ...p,
   agency_name: p.agencies?.name || '',
   // הלוגו נטען כדי שנכס בלי תמונות יציג את מיתוג המשרד שלו במקום אריח ריק
   agency_logo: p.agencies?.logo_url || '',
+  // v10: תמונת השער של המשרד - רמה A של נכס בלי תמונות (assets/no-photo.js)
+  agency_cover: p.agencies?.cover_url || '',
   neighborhood_name: p.neighborhoods?.name || '',
 });
 
@@ -5485,19 +5491,23 @@ try { const v = sessionStorage.getItem(SR_SORT_KEY); if (SR_SORTS.includes(v)) s
 let srLastRender = null;
 
 function sortSearchRows(list){
+  /* v10 (סבב 4 חלק 3 §8): נכס עם תמונה לפני נכס בלי - רק כשובר שוויון. במיון ברירת
+     המחדל מיד אחרי המקודמים; במיון מפורש (מחיר, חדש) רק כשהמפתח שווה */
+  const ph = v10On() ? (p => hasPhoto(p) || !!p.video_poster_url ? 1 : 0) : (() => 0);
   if (srSort === 'new'){
     const t = p => Date.parse(p.created_at) || 0;
-    return list.slice().sort((a, b) => t(b) - t(a));
+    return list.slice().sort((a, b) => (t(b) - t(a)) || (ph(b) - ph(a)));
   }
   if (srSort === 'price-asc' || srSort === 'price-desc'){
     const dir = srSort === 'price-asc' ? 1 : -1;
     const val = p => { const n = SearchCore.comparablePrice(p); return n !== null && isFinite(n) && n > 0 ? n : null; };
     return list.slice().sort((a, b) => {
       const x = val(a), y = val(b);
-      if (x === null || y === null) return (x === null) - (y === null);
-      return (x - y) * dir;
+      if (x === null || y === null) return ((x === null) - (y === null)) || (ph(b) - ph(a));
+      return ((x - y) * dir) || (ph(b) - ph(a));
     });
   }
+  if (v10On()) return list.slice().sort((a, b) => (!!isPromoted(b) - !!isPromoted(a)) || (ph(b) - ph(a)));
   return list;
 }
 

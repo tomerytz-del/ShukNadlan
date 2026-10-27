@@ -1,0 +1,95 @@
+/* נכס בלי תמונות (v10, סבב 4 חלק 3) - נטען מ-assets/no-photo.js רק עם הדגל. docs/no-photo.md */
+.np{position:absolute;inset:0;overflow:hidden;color:#fff;font-family:Heebo,system-ui,sans-serif;text-align:start;line-height:1.4;
+  background:radial-gradient(90% 70% at 100% 0%,rgba(201,162,39,.18),transparent 60%),linear-gradient(165deg,#1a3a80 0%,#0d2350 55%,#0a1838 100%)}
+.np-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.np-bg{position:absolute;inset:0;pointer-events:none}
+.np-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(7px) saturate(.9);transform:scale(1.08)}
+.np-a .np-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,24,56,.38),rgba(13,35,80,.62) 40%,rgba(10,24,56,.93))}
+.np-b .np-cover,.np-c .np-cover{display:none}
+.np-brand{position:absolute;top:22px;left:14px;z-index:2;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:#fff;opacity:.92}
+.np-brand img{width:20px;height:24px;flex:none}
+/* האווטאר: תמונת הסוכן/ת עגולה בזהב, והלוגו בריבוע לבן על הפינה; בלי תמונה - הלוגו במקומה */
+.np-av{position:relative;flex:none;width:var(--np-av);height:var(--np-av)}
+.np-photo{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;border:3px solid #e5c76a;object-fit:cover;background:#0d2350;box-sizing:border-box}
+.np-logo{position:absolute;left:-6px;bottom:-6px;width:40px;height:40px;border-radius:12px;background:#fff;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,.28)}
+.np-logo-solo .np-logo{inset:0;width:100%;height:100%;border-radius:22%;box-shadow:0 0 0 3px #e5c76a}
+.np-svg{display:none}
+.np-c .np-av{width:calc(var(--np-av) * 1.5)}
+.np-c .np-svg{display:block;width:100%;height:100%}
+.np-t{margin:0;font-weight:800;line-height:1.25;color:#fff;text-wrap:balance}
+.np-s{margin:4px 0 0;line-height:1.45;color:rgba(255,255,255,.9)}
+html body .np .np-t{color:#fff}
+html body .np .np-s{color:rgba(255,255,255,.9)}
+.np-gold{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:0;border-radius:14px;
+  background:linear-gradient(180deg,#e0bb3c,#c9a227);color:#0d2350;font:inherit;font-size:16px;font-weight:800;cursor:pointer;text-decoration:none}
+.np-wide{width:100%}
+.np-gold:focus-visible,.np-link:focus-visible,.np-under:focus-visible{outline:3px solid #fff;outline-offset:2px}
+/* כרטיס ההחלקה */
+.np-swipe-in{position:absolute;top:58px;left:16px;right:16px;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.np-who{margin:0;font-size:14px;font-weight:700;color:#fff}
+.np-glass{width:100%;margin-top:4px;padding:14px 14px 16px;border:1px solid rgba(255,255,255,.18);border-radius:18px;
+  background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.np-swipe .np-t{font-size:20px}
+.np-swipe .np-s{font-size:14.5px}
+.np-swipe .np-gold{margin-top:12px}
+/* אריח */
+.np-card .np-brand{top:10px;left:10px;font-size:11px}
+.np-card .np-brand img{width:15px;height:18px}
+.np-card-in{position:absolute;top:36px;left:12px;right:12px;display:flex;align-items:flex-start;gap:10px}
+.np-card .np-t{font-size:15px}
+.np-card .np-s{font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.np-link{display:inline-block;margin-top:6px;padding:4px 0;color:#e5c76a;font-size:13px;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+/* שורה דחוסה */
+.np-row{display:flex;align-items:center;justify-content:center}
+.np-row .np-brand{display:none}
+.np-badge{position:absolute;right:4px;bottom:4px;padding:1px 6px;border-radius:999px;background:rgba(10,24,56,.82);color:#fff;font-size:10.5px;font-weight:700;white-space:nowrap}
+/* התא הראשי בדף הנכס */
+.np-hero{display:flex;flex-direction:column;justify-content:center;padding:56px 28px 64px}
+.np-hero-in{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.np-msg{max-width:560px}
+.np-hero .np-t{font-size:36px}
+.np-hero .np-s{margin-top:8px;font-size:18px}
+.np-btns{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+.np-under{min-height:44px;padding:0 4px;border:0;background:none;color:#fff;font:inherit;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.np-agent{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:200px;padding:18px 20px;border:1px solid rgba(255,255,255,.18);border-radius:20px;
+  background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center}
+.np-agent .np-av{margin-bottom:6px}
+.np-name{margin:0;font-size:17px;font-weight:800;color:#fff}
+.np-ag{margin:0;font-size:14px;color:rgba(255,255,255,.88)}
+.np-by{margin:2px 0 0;font-size:12.5px;color:#e5c76a;font-weight:700}
+html body .np .np-name{color:#fff}html body .np .np-ag{color:rgba(255,255,255,.88)}html body .np .np-by{color:#e5c76a}
+.np-facts{position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;flex-wrap:wrap;gap:6px 18px;padding:12px 28px;background:rgba(10,24,56,.55);font-size:14px;font-weight:600}
+@media (max-width:759px){
+  .np-hero{padding:52px 16px 56px}
+  .np-hero-in{flex-direction:column;align-items:stretch;gap:14px}
+  .np-hero .np-t{font-size:24px}
+  .np-hero .np-s{font-size:15px}
+  .np-agent{flex-direction:row;min-width:0;padding:10px 12px;text-align:start;gap:10px}
+  .np-agent .np-av{--np-av:56px !important;margin:0}
+  .np-facts{padding:10px 16px;font-size:13px}
+}
+/* התא הראשי בדף הנכס: יחס 16:9 של הדף נשמר במחשב; בטלפון הגובה לפי התוכן (min-height עם aspect-ratio היה מרחיב את הרוחב) */
+.np-host{position:relative;overflow:hidden}
+@media (max-width:759px){.bento-empty.np-host{aspect-ratio:auto !important;min-height:540px}}
+/* הדף מגדיר תמונה בתוך תא (‏.bento-cell img: 100%, ‏cover, הגדלה במעבר עכבר) - כאן כל תמונה בגודל שלה */
+.np img.np-photo,.np img.np-logo,.np .np-brand img{transition:none;transform:none}
+.np img.np-photo{position:absolute;inset:0;width:100%;height:100%}
+.np img.np-logo{position:absolute;inset:auto auto -6px -6px;width:40px;height:40px}
+.np.np-logo-solo img.np-logo{inset:0;width:100%;height:100%}
+.np .np-brand img{width:20px;height:24px;object-fit:contain}
+.np-card .np-brand img{width:15px;height:18px}
+.bento-cell:hover .np img.np-cover,.np img.np-cover{transition:none;transform:scale(1.08)}
+/* בדף הנכס: כפתור השיתוף יושב בפינה השמאלית העליונה, ותגית המחיר בימין התחתון */
+.np-host .np-hero .np-brand{left:64px;top:30px}
+.np-host .np-facts{padding-inline-start:240px}
+@media (max-width:759px){
+  .np-host .np-hero .np-brand{left:62px;top:24px}
+  .np-host .np-facts{padding-inline-start:16px;padding-bottom:64px;background:linear-gradient(180deg,transparent,rgba(10,24,56,.6))}
+  .np-host .np-hero{padding-top:72px;padding-bottom:110px;justify-content:flex-start}
+  .np-agent{display:grid;grid-template-columns:56px 1fr;column-gap:12px;row-gap:0;align-items:center;justify-items:start}
+  .np-agent .np-av{grid-row:1/4}
+  .np-agent .np-name,.np-agent .np-ag,.np-agent .np-by{margin:0}
+}
+.np-row:not(.np-logo-solo) img.np-logo{inset:auto auto -3px -3px;width:20px;height:20px;border-radius:6px}
+/* לוגו המשרד כתג קטן מחוץ לפינה - לא על הפנים של הסוכן/ת (בלי תמונה הוא תופס את מקום האווטאר) */
+.np:not(.np-logo-solo) img.np-logo{inset:auto auto -2px -8px;width:max(20px,calc(var(--np-av) * .32));height:max(20px,calc(var(--np-av) * .32));border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.3)}

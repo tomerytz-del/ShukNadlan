@@ -419,3 +419,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `viz_save` | **v10**: "♡ שמירה לרשימה שלי" בסטודיו | `property_id`, `style` (מפתח סגנון, או `biz:<עסק>` עד 40 תווים) |
 | `viz_generate` | **v10, כבוי עד `VIZ_SWIPE_GENERATE`**: סוף בקשת הדמיה מהסטודיו, פעם אחת לבקשה. בלי שם ובלי טלפון | `property_id`, `space` (המטרה), `style`, `result`: ‏`done` \| `cached` \| `error` \| `timeout` \| `rate_limited` \| `visitor_rate_limited` \| `busy` \| `not_available` \| `land`, `source`: ‏`swipe` |
 | `viz_ba_fallback` | **v10**: אף זוג לפני/אחרי של הנכס לא נטען, ובמקומו שקופית הזמנה | `property_id`, `reason`: ‏`load_error` \| `timeout` \| `no_pair` |
+| `photo_request` | **v10**: "בקשו תמונות מהמפרסם" בנכס בלי תמונות - פותח את טופס הפנייה עם ההודעה מוכנה, **לא שולח** (‏`assets/no-photo.js`, ‏`docs/no-photo.md`) | `property_id`, `level`: ‏`a` \| `b` \| `c`, `surface`: ‏`swipe` \| `card` \| `row` \| `hero` |
+| `generate_lead` (‏`form_id`) | **ערך חדש, רק עם דגל v10**: פנייה שנשלחה מבקשת תמונות (מקור הליד `photo_request`) | `form_id`: ‏`photo_request` |
+| `swipe_nophoto_bridge` | **v10**: הוחלק כרטיס הגשר "המשיכו לראות נכסים מתאימים בלי תמונות" ב-`/swipe` (לא אהבתי ולא דילוג) | `count` (כמה נכסים בלי תמונות אחריו) |
+| `swipe_nophoto_list` | **v10**: "הצגה ברשימה" בכרטיס הגשר - הרשימה רק עם הנכסים בלי תמונות | `count` |
+| `swipe_card_view` (‏`slot`) | **ערך חדש, רק עם דגל v10**: כרטיס הגשר | `slot`: ‏`np_bridge` |

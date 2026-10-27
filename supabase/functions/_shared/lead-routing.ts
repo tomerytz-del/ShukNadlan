@@ -144,6 +144,10 @@ const KNOWN_SOURCES = new Set([
   // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
   // של saved-search-intake ונרשם כסוכן החכם של דף הבית
   "swipe_end",
+  // "בקשו תמונות מהמפרסם" בנכס בלי תמונות (‏assets/no-photo.js, ‏docs/no-photo.md):
+  // פנייה על נכס לכל דבר, מגיליון ההחלקה או מטופס דף הנכס. התווית ב-CRM
+  // "בקשת תמונות" (‏lead_source_label במסד, ‏LX_SOURCES ב-crm.js)
+  "photo_request",
   // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
   // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
   ...SOCIAL_SOURCES_LIST,

@@ -165,6 +165,8 @@ function agencyNameOf(p){ return (p && (p.agency_name || (p.agencies && p.agenci
 
 function thumbFallback(p){
   if (p && p.images && p.images[0]) return '';
+  // v10 (סבב 4 חלק 3): אווטאר, הסבר וקישור "בקשו תמונות מהמפרסם" - assets/no-photo.js
+  if (window.NoPhoto && NoPhoto.on()) return NoPhoto.html(p, {}, 'card');
   const name = agencyNameOf(p);
   const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
   const mark = logo
@@ -242,7 +244,7 @@ async function loadProperty(){
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors), neighborhoods(name)')
+      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -254,12 +256,15 @@ async function loadProperty(){
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
       const { data: agentRow } = await sb.from('agency_members_public')
-        .select('display_name, slug, phone_e164, photo_url, photo_position, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
+        .select('display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
     currentProperty = data;
+    if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
     renderProperty(data);
+    // ‏#contact&ask=photos - "בקשו תמונות" מאריח של נכס בלי תמונות (v10): הטופס, עם ההודעה המלאה
+    if (window.NoPhoto && NoPhoto.on() && /ask=photos/.test(location.hash)) openInquiry(true);
     logPropertyView(id);
     /* ‏property_views במסד סופר צפיות לצורך הדוחות של המשרד; זה אותו רגע,
        ל-GA4, עם הפילוח שהמסד לא נותן — מאיזה קמפיין או חיפוש הגיעה הצפייה. */
@@ -482,6 +487,19 @@ function renderGallery(p){
       // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
       // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
       attachHeroVideo(main, videoSrc, poster);
+      grid.appendChild(main);
+    } else if (!galleryImages.length && window.NoPhoto && NoPhoto.on()){
+      // v10 (סבב 4 חלק 3): התא הראשי מסביר שאין תמונות ומציע לבקש אותן מהמפרסם
+      main.classList.add('bento-empty', 'np-host');
+      const facts = [p.rooms ? p.rooms + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
+      const where = [p.neighborhoods?.name || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
+      main.innerHTML = NoPhoto.html(p, { agent: p.agency_members || null, agency: p.agencies || null, private: !p.agent_id && !agencyNameOf(p) }, 'hero', { facts, where, title: p.title || '' });
+      main.addEventListener('click', (e)=>{
+        const ask = e.target.closest('[data-np-cta]'), talk = e.target.closest('[data-np-contact]');
+        if (!ask && !talk) return;
+        if (ask && window.shukTrack) shukTrack('photo_request', { property_id: p.id, level: ask.dataset.level || 'c', surface: 'hero' });
+        openInquiry(!!ask);
+      });
       grid.appendChild(main);
     } else if (!galleryImages.length){
       main.classList.add('bento-empty');
@@ -2467,6 +2485,19 @@ function setGabWidgetContext(p){
   window.dispatchEvent(new Event('gabwidget:context'));
 }
 
+/* "בקשו תמונות מהמפרסם" (v10, סבב 4 חלק 3): הטופס הקיים, עם ההודעה המלאה והמקור
+   photo_request. שום דבר לא נשלח בלחיצה - שם, טלפון ושליחה נשארים לגולש/ת */
+let inquirySource = '';
+function openInquiry(askPhotos){
+  const form = document.getElementById('inquiryForm');
+  if (!form) return;
+  if (askPhotos && window.NoPhoto && currentProperty){
+    document.getElementById('inqMessage').value = NoPhoto.STR.msg(currentProperty.title || 'הנכס');
+    inquirySource = 'photo_request';
+  }
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(()=>document.getElementById('inqName').focus({ preventScroll: true }), 350);
+}
 function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
@@ -3098,6 +3129,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
         name: document.getElementById('inqName').value,
         phone: document.getElementById('inqPhone').value,
         message: document.getElementById('inqMessage').value || null,
+        ...(inquirySource ? { source: inquirySource } : {}),
       }),
     });
     const data = await res.json();
@@ -3106,7 +3138,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
     /* רק אחרי שהשרת אישר. ליד שנכשל בשליחה אינו ליד. */
     if (window.shukTrack) shukTrack('generate_lead', {
-      form_id: 'property_inquiry',
+      form_id: inquirySource === 'photo_request' ? 'photo_request' : 'property_inquiry',
       item_name: currentProperty.title || '',
       value: Number(currentProperty.price) || 0,
       currency: 'ILS',
@@ -3118,6 +3150,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
       currentProperty.id
     );
     document.getElementById('inquiryForm').reset();
+    inquirySource = '';
     // reset מחזיר את השדות לערך שב-HTML (ריק) — ההודעה המוכנה והפרטים
     // השמורים נכתבים שוב
     prefillInquiryMessage(currentProperty);

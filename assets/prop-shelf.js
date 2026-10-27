@@ -98,6 +98,8 @@
      שבכותרת הדף — ולכן הוא נמסר כ-‎cfg.fallback‎ ולא נגזר כאן. */
   function defaultFallback(p) {
     if (hasPhoto(p)) return '';
+    // v10 (סבב 4 חלק 3): אווטאר, הסבר וקישור "בקשו תמונות מהמפרסם" - assets/no-photo.js
+    if (global.NoPhoto && global.NoPhoto.on()) return global.NoPhoto.html(p, {}, 'card');
     var name = (p && p.agency_name) || '';
     var logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
     var mark = logo
@@ -337,8 +339,8 @@
         global.location.href = '/property?id=' + encodeURIComponent(p.id);
       };
       el.addEventListener('click', function (e) {
-        // כפתור שיושב על האריח (מועדפים) אינו ניווט לדף הנכס
-        if (e.target.closest('button')) return;
+        // כפתור או קישור שיושבים על האריח (מועדפים, "בקשו תמונות") אינם ניווט לדף הנכס
+        if (e.target.closest('button, a')) return;
         open();
       });
       el.addEventListener('keydown', function (e) {
@@ -549,8 +551,10 @@
         // היעדר מחיר.
         return list.slice().sort(function (a, b) {
           var x = value(a), y = value(b);
-          if (x === null || y === null) return (x === null) - (y === null);
-          return (x - y) * dir;
+          // v10 (סבב 4 חלק 3 §8): בשוויון - נכס עם תמונה קודם
+          var ph = global.NoPhoto && global.NoPhoto.on() ? (hasPhoto(b) - hasPhoto(a)) : 0;
+          if (x === null || y === null) return ((x === null) - (y === null)) || ph;
+          return ((x - y) * dir) || ph;
         });
       }
 

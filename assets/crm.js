@@ -5216,6 +5216,7 @@ const LX_SOURCES = {
   swipe:                       'גלישה בהחלקה · פנייה על נכס',
   swipe_sponsored:             'גלישה בהחלקה · כרטיס ממומן',
   swipe_end:                   'החלקה · כרטיס סיום',
+  photo_request:               'בקשת תמונות',
   project_page:                'דף נחיתה של פרויקט',
   open_house_page:             'יריד הבתים הפתוחים',
   rss_engine:                  'מנוע ה-RSS (סריקת פידים)',

@@ -24,6 +24,7 @@ on:
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/lead_source_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -37,6 +38,7 @@ on:
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/lead_source_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -95,3 +97,8 @@ jobs:
       # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
       - name: השקה מושהית במטא
         run: node --experimental-strip-types scripts/paused_launch_test.ts
+
+      # מקורות הליד שהאתר שולח (‏swipe, ‏photo_request...) מוכרים ב-KNOWN_SOURCES,
+      # ומה שאינו מוכר נופל לברירת המחדל של הקורא.
+      - name: מקורות ליד
+        run: node --experimental-strip-types scripts/lead_source_test.ts
