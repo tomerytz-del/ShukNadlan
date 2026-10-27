@@ -1762,6 +1762,8 @@ const propsShelf = PropShelf.create({
   roomsType:'דירה', roomsLabel:'דירות',
   // v10: תגית "✨ עם הדמיה" בשורת התגיות, והתגית "הדמיית AI" גם בשורה הדחוסה בטלפון (‏F/V2-V3)
   vizTag: v10On(), rowViz: v10On(),
+  // v10 (חלק 4 §3): כרטיס ההזמנה להחלקה כפריט הראשון - לא נכס, לא נספר ולא נכנס לחישובי "עוד"
+  invite: v10On() ? () => v10InviteCard() : null,
   // שני המלאים חולקים היום שורת תגיות אחת, ובתקרה של שמונה סוגי הנכס
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
   kindTagsMax:14,
@@ -6965,6 +6967,7 @@ function renderKindChips(st){
 
 function onSentenceChange(results, st, reason){
   syncV10Tabs(st);
+  v10SyncSwipe(results);
   renderAdvancedBadge();
   renderClearButton();
   renderKindChips(st);
@@ -7428,6 +7431,107 @@ document.querySelectorAll('.v10-tab').forEach(b => b.addEventListener('click', (
   else sentence.setDeal(deal);
   syncV10Tabs();
 }));
+// חיצים בין הלשוניות (‏role="tablist")
+document.querySelector('.v10-tabs')?.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const tabs = [...document.querySelectorAll('.v10-tab')], i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  // RTL: שמאלה = הלשונית הבאה
+  const next = tabs[(i + (e.key === 'ArrowLeft' ? 1 : -1) + tabs.length) % tabs.length];
+  next.focus(); next.click();
+});
+
+/* ---------- v10 (חלק 4 §2-§3): כפתורי התצוגה וכרטיס ההזמנה להחלקה ----------
+   כתובת אחת ל-/swipe מהמשפט: עסקה, יישוב, חדרים ותקציב (אינדקס ב-BUDGETS של swipe.js),
+   בלי ערכי ברירת מחדל. ‏swipe.js קורא אותם (‏readUrl). */
+const V10_BUDGETS = { sale: [0, 1500000, 2500000, 3500000], rent: [0, 4000, 6000, 8000], commercial: [0, 5000, 15000, 2000000] };
+function v10Deal(st){
+  if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
+  return st.deal || 'sale';
+}
+function v10SwipeHref(src){
+  const st = sentence ? sentence.state() : {};
+  const deal = v10Deal(st), q = new URLSearchParams();
+  if (deal !== 'sale') q.set('deal', deal);
+  if (st.area && st.area.indexOf('city:') === 0) q.set('area', st.area);
+  const lo = st.rooms && st.rooms[0];
+  if ([3, 4, 5].includes(lo) && deal !== 'commercial') q.set('rooms', String(lo));
+  if (st.priceMax){
+    const b = V10_BUDGETS[deal], i = b.findIndex(v => v && v >= st.priceMax);
+    if (i > 0) q.set('budget', String(i));
+  }
+  if (src) q.set('src', src);
+  const qs = q.toString();
+  return '/swipe' + (qs ? '?' + qs : '');
+}
+let v10InviteSeen = false;
+function v10SyncSwipe(results){
+  if (!v10On()) return;
+  document.querySelectorAll('[data-swipe-via="hero_views"]').forEach(a => { a.href = v10SwipeHref('home_views'); });
+  const inv = document.querySelector('#allProps .pc-swipe-invite');
+  if (inv) v10FillInvite(inv, results);
+}
+/* הנכסים שאפשר להחליק עליהם במשפט הנוכחי: עם תמונה, כמו ברירת המחדל של /swipe */
+function v10Swipeable(results){
+  const list = results || (sentence && sentence.loaded() ? sentence.results() : []);
+  return list.filter(p => hasPhoto(p));
+}
+function v10FillInvite(el, results){
+  const list = v10Swipeable(results), n = list.length;
+  el.hidden = n < 3;
+  const title = `החליקו על ${n.toLocaleString('he-IL')} נכסים ב${CityCtx.label()}`;
+  el.setAttribute('aria-label', title);
+  el.href = v10SwipeHref('home_invite');
+  el.dataset.count = String(n);
+  el.querySelector('.psi-title').textContent = title;
+  const pics = list.slice(0, 3).map(p => cardImgUrl(p.images[0]));
+  el.querySelectorAll('.psi-stack img').forEach((img, i) => {
+    if (pics[i]) { if (img.getAttribute('src') !== pics[i]) img.src = pics[i]; img.hidden = false; } else img.hidden = true;
+  });
+}
+function v10InviteCard(){
+  if (!v10On() || !sentence || !sentence.loaded()) return null;
+  const a = document.createElement('a');
+  a.className = 'pc-swipe-invite';
+  a.dataset.swipeVia = 'home_invite_card';
+  a.innerHTML = '<span class="psi-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="11" height="15" rx="2" transform="rotate(8 13.5 10.5)"/><path d="M5 7.5 4.2 17a2 2 0 0 0 1.8 2.2l7 .6"/></svg>חדש</span>' +
+    '<span class="psi-stack" aria-hidden="true"><img alt="" loading="lazy"><img alt="" loading="lazy"><img class="sk-tilt-s" alt="" loading="lazy"></span>' +
+    '<span class="psi-title"></span><span class="psi-sub">ימינה שומרים, שמאלה מדלגים</span>' +
+    '<span class="psi-btn">התחילו להחליק ←</span>';
+  v10FillInvite(a);
+  // האנימציה רק כשהכרטיס על המסך; ‏swipe_invite_view פעם אחת לצפייה בדף, כשחציו גלוי
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(es => es.forEach(en => {
+      a.classList.toggle('is-off', !en.isIntersecting);
+      if (en.intersectionRatio >= 0.5 && !v10InviteSeen && !a.hidden){
+        v10InviteSeen = true;
+        if (window.shukTrack) shukTrack('swipe_invite_view', { count: Number(a.dataset.count) || 0 });
+      }
+    }), { threshold: [0, 0.5] }).observe(a);
+  }
+  return a;
+}
+// "תצוגת רשימה": התוצאות כמו בכפתור הזהב, וגלילה אליהן (בלי חיפוש פעיל - לתיבת הנכסים)
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-view-mode]');
+  if (!b || !v10On()) return;
+  const mode = b.dataset.viewMode, st = sentence ? sentence.state() : {};
+  if (window.shukTrack) shukTrack('home_view_mode', { mode, deal: v10Deal(st), region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek' });
+  if (mode !== 'list') return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (sentence && !sentence.isClean()){
+    showSentenceResults({ track:false });
+    (document.getElementById('searchResults') || document.getElementById('allProps'))?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  } else document.getElementById('allProps')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+});
+// נצנוץ אחד על "גלישה בהחלקה", פעם במכשיר
+(function(){
+  const b = document.querySelector('.v10-view.is-swipe');
+  if (!b || !v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  try { if (localStorage.getItem('sk_swipe_btn_shimmer')) return; localStorage.setItem('sk_swipe_btn_shimmer', '1'); } catch(e){ return; }
+  setTimeout(() => b.classList.add('is-shimmer'), 1200);
+})();
 
 /* כרטיס גבריאלה וה-hero: החלונית הצפה (‏GabWidget), ואם העוזרת כבויה - אותו
    כפתור שהכרטיס הישן מפעיל (‏renderGabrielaCta: הסוכן החכם). לעולם לא לבד. */
@@ -7694,6 +7798,12 @@ function v10Chip(href, label, n, group, tag, ico, labelDesktop){
    הלשונית (או כל שינוי אחר) היא שמסננת (‏syncV10Tabs). */
 function v10DefaultSale(){
   if (!v10On() || !sentence || !sentence.loaded()) return;
+  /* חלק 4 §1: לשונית מסומנת תמיד מסננת - "למכירה" חלה באמת על משפט נקי, אחרת הכפתור
+     הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
+  if (sentence.isClean() && !sentence.state().deal){
+    sentenceQuiet = true;
+    try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
+  }
   syncV10Tabs();
 }
 function renderQuickSearch(properties){
@@ -8000,8 +8110,10 @@ document.addEventListener('click', e => {
   const a = e.target.closest && e.target.closest('a[data-swipe-via]');
   if (!a || !v10On() || !window.shukTrack || !sentence) return;
   const st = sentence.state();
-  window.shukTrack('swipe_start', { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
-    region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia });
+  const sp = { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
+    region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia };
+  if (a.dataset.count) sp.count = Number(a.dataset.count);
+  window.shukTrack('swipe_start', sp);
 });
 
 /* ---------- v10 (‏F/V2): לחיצה על "הדמיית AI" באריח או בשורה - דף הנכס, ישר להדמיה ----------

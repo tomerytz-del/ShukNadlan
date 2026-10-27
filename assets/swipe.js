@@ -403,7 +403,9 @@
       if (filter.deal !== 'sale') q.set('deal', filter.deal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
-      if (filter.budget) q.set('budget', String(filter.budget));
+      // תקציב כאינדקס ב-BUDGETS של העסקה - אותה כתובת שדף הבית בונה (חלק 4 §3.4)
+      var bi = (BUDGETS[filter.deal] || []).indexOf(filter.budget);
+      if (filter.budget && bi > 0) q.set('budget', String(bi));
       if (filter.type) q.set('type', filter.type);
       if (!filter.photos) q.set('photos', '0');
       if (filter.fair) q.set('fair', '1');
@@ -418,7 +420,8 @@
     var a = params.get('area');
     if (a && (a === 'main' || a === 'around' || a.indexOf('city:') === 0)) filter.area = a;
     var r = Number(params.get('rooms')); if ([3, 4, 5].indexOf(r) >= 0) filter.rooms = r;
-    var b = Number(params.get('budget')); if (b > 0 && isFinite(b)) filter.budget = b;
+    var b = Number(params.get('budget')), bl = BUDGETS[filter.deal] || [];
+    if (b > 0 && b < bl.length) filter.budget = bl[b];
     var t = params.get('type'); if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
     if (params.get('photos') === '0') filter.photos = false;
     if (params.get('fair') === '1') filter.fair = true;

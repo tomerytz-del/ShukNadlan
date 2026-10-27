@@ -428,3 +428,6 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_sort` | **v10**: נבחר מיון ב-`/swipe` (משותף להחלקה, לרשימה ולמפה) | `sort`: ‏`rec` \| `new` \| `price_asc` \| `price_desc` \| `ppsqm` \| `size`, `view`: ‏`deck` \| `list` \| `map` |
 | `swipe_filter_clear` | **v10**: "ניקוי הכול" בסינון של `/swipe` | `view` |
 | `swipe_nudge_view` (‏`kind`) | **ערכים חדשים, רק עם דגל v10**: גיליון המיון וגיליון האישור להסרה מהרשימה | `kind`: ‏`sort` \| `unlike` |
+| `home_view_mode` | **v10**: אחד משלושת כפתורי התצוגה בדף הבית (‏`.v10-views`) | `mode`: ‏`swipe` \| `map` \| `list`, `deal`, `region` |
+| `swipe_invite_view` | **v10**: כרטיס ההזמנה להחלקה (התא הראשון בתיבת הנכסים) חצי גלוי, פעם אחת בצפייה בדף | `count` |
+| `swipe_start` (‏`via`, ‏`count`) | **ערכים חדשים, רק עם דגל v10**: מכפתור "גלישה בהחלקה" (‏`hero_views`) ומכרטיס ההזמנה (‏`home_invite_card`, עם `count` - כמה נכסים להחלקה) | `via`: ‏`hero_views` \| `home_invite_card`, `count` |

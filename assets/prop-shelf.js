@@ -606,9 +606,14 @@
       if (!state.all.length) return;
 
       var items = ordered();
-      var shown = items.slice(0, limit());
+      /* ‏cfg.invite (דף הבית עם דגל v10): כרטיס הזמנה להחלקה כתא הראשון. הוא אינו נכס - לא
+         נספר, ובמחשב תופס תא אחד מהשורה הראשונה במקום הנכס האחרון בה, כדי שלא תיווצר שורה יתומה */
+      var invite = cfg.invite && items.length ? cfg.invite() : null;
+      var compactNow = ppNarrow.matches;
+      var shown = items.slice(0, Math.max(1, limit() - (invite && !compactNow && state.shown === 0 ? 1 : 0)));
 
       grid.innerHTML = '';
+      if (invite) grid.appendChild(invite);
       if (!items.length) {
         var empty = document.createElement('p');
         empty.className = 'pp-empty';
