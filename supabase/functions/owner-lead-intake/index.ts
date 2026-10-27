@@ -342,10 +342,10 @@ Deno.serve(async (req: Request) => {
     // מקור שנכתב ל-leads.source גם במסלול הפלטפורמה (ולא רק ליומן): בלעדיו
     // ליד מההחלקה נעלם בדוח הערוצים
     const platformSource = normalizeSource(body.source, "", trusted);
-    const ownSource = platformSource === "swipe_seller" ? platformSource : "";
+    const ownSource = ["swipe_seller", "sell_page", "sell_page_agent"].includes(platformSource) ? platformSource : "";
     const attempts: Record<string, unknown>[] = agencyRouting
       ? [
-        ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: pageSource, ...consent }] : []),
+        ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: ownSource || pageSource, ...consent }] : []),
         { ...baseRow, lead_type: preferredType, source: pageSource },
         { ...baseRow, lead_type: preferredType },
         { ...baseRow, lead_type: "owner_inbound" },

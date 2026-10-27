@@ -12,8 +12,8 @@
 --      כשהשדות שמריצים את ההתאמה הרגילה לא השתנו (‏open_house_fair_alerts
 --      ב-cron, באותו קצב של expire-open-house).
 --   4. ‏lead_source_channel(): ‏nocommission_fair / swipe_fair → open_house,
---      ‏swipe* → ערוץ חדש swipe. הגוף הועתק מהפרודקשן ב-27.10.2026 והשינוי
---      הוא שתי שורות בלבד.
+--      ‏swipe* → ערוץ חדש swipe, ‏sell_page* → ערוץ חדש sell_page. הגוף הועתק
+--      מהפרודקשן ב-27.10.2026 והשינוי הוא שלוש שורות בלבד.
 --
 -- הטופס בדפדפן נשאר כבוי (‏FAIR_SIGNUP_V2 = false ב-open-house.html
 -- וב-assets/fair-signup.js) עד שהמיגרציה והפונקציות באוויר.
@@ -151,6 +151,8 @@ as $function$
     when p_source in ('open_house_page', 'nocommission_fair', 'swipe_fair') then 'open_house'
     -- 20271029090000: גלישה בהחלקה (פנייה, כרטיס סיום, ממומן, חושבים למכור)
     when p_source like 'swipe%'                 then 'swipe'
+    -- 20271029090000: דף "חושבים למכור?" (‏/sell)
+    when p_source like 'sell\_page%'            then 'sell_page'
     when p_source like 'meta\_ads%'             then 'meta_ads'
     -- 20270806090000: גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake)
     when p_source like 'facebook\_%'

@@ -18,7 +18,7 @@ function eq(name: string, got: unknown, want: unknown) {
 }
 
 // גלישה בהחלקה ובקשת תמונות (‏docs/swipe-mode.md, ‏docs/no-photo.md)
-for (const s of ["swipe", "swipe_sponsored", "swipe_end", "photo_request"]) {
+for (const s of ["swipe", "swipe_sponsored", "swipe_end", "photo_request", "swipe_seller", "swipe_fair", "nocommission_fair", "sell_page", "sell_page_agent"]) {
   eq(s, normalizeSource(s, ""), s);
 }
 // ערך לא מוכר - ברירת המחדל של הקורא

@@ -5001,120 +5001,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, מיועץ נדל״ן מומלץ באזורכם.</p>
       </div>
 
-      <div class="owner-wizard" id="ownerWizard">
-        <ol class="wiz-steps" id="wizSteps" aria-label="שלבי ההערכה">
-          <li class="active" data-step="1"><span class="dot">1</span>עסקה וכתובת</li>
-          <li data-step="2"><span class="dot">2</span>על הנכס</li>
-          <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
-        </ol>
-
-        <form id="ownerWizardForm" novalidate>
-          <section class="wiz-panel active" data-panel="1">
-            <p class="wiz-q">מה תרצו לעשות עם הנכס?</p>
-            <div class="owner-toggle">
-              <button type="button" class="active" data-owner="sale">רוצה למכור</button>
-              <button type="button" data-owner="rent">רוצה להשכיר</button>
-            </div>
-            <div class="owner-toggle owner-kind" role="group" aria-label="סוג הנכס">
-              <button type="button" class="active" data-owner-kind="residential">מגורים</button>
-              <button type="button" data-owner-kind="commercial">מסחרי</button>
-            </div>
-            <label class="wiz-label" for="wizAddress">כתובת מדויקת</label>
-            <input type="text" id="wizAddress" class="wiz-input" placeholder="לדוגמה: הרצל 24, עפולה" data-market-placeholder autocomplete="street-address">
-            <p class="wiz-err" id="wizErr1"></p>
-            <div class="wiz-nav">
-              <button type="button" class="btn btn-gold" data-next="2">להמשך ←</button>
-            </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי יועץ נדל״ן, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
-          </section>
-
-          <section class="wiz-panel" data-panel="2">
-            <p class="wiz-q">ספרו לנו על הנכס</p>
-
-            <div class="wiz-pair">
-              <div>
-                <label class="wiz-label" for="wizCondition">מצב הנכס</label>
-                <select id="wizCondition" class="wiz-input wiz-select" data-pick="condition">
-                  <option value="" selected disabled>בחרו</option>
-                  <option value="renovated">משופץ</option>
-                  <option value="partly_renovated">משופץ חלקית</option>
-                  <option value="needs_renovation">דרוש שיפוץ</option>
-                </select>
-              </div>
-              <div id="wizRoomsBox">
-                <label class="wiz-label" for="wizRooms">מספר חדרים</label>
-                <select id="wizRooms" class="wiz-input wiz-select" data-pick="rooms">
-                  <option value="" selected disabled>בחרו</option>
-                  <option value="2">2</option>
-                  <option value="2.5">2.5</option>
-                  <option value="3">3</option>
-                  <option value="3.5">3.5</option>
-                  <option value="4">4</option>
-                  <option value="4.5">4.5</option>
-                  <option value="5">5</option>
-                  <option value="6">6+</option>
-                </select>
-              </div>
-              <div id="wizSubtypeBox" hidden>
-                <label class="wiz-label" for="wizSubtype">סוג הנכס</label>
-                <select id="wizSubtype" class="wiz-input wiz-select" data-pick="subtype">
-                  <option value="" selected disabled>בחרו</option>
-                  <option value="משרד">משרד</option>
-                  <option value="חנות / שטח מסחרי">חנות / שטח מסחרי</option>
-                  <option value="קליניקה">קליניקה</option>
-                  <option value="מבנה תעשייה">מבנה תעשייה</option>
-                  <option value="מחסן">מחסן</option>
-                  <option value="אולם">אולם</option>
-                  <option value="אחר">אחר</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="wizSizeBox" hidden>
-              <label class="wiz-label" for="wizSize">שטח במ״ר (לא חובה)</label>
-              <input type="number" id="wizSize" class="wiz-input" inputmode="numeric" min="1" placeholder="לדוגמה: 120">
-            </div>
-            <span class="wiz-label">מה יש בנכס?</span>
-            <div class="wiz-checks">
-              <label data-kind="residential"><input type="checkbox" value="ממ״ד"> ממ״ד</label>
-              <label data-kind="residential"><input type="checkbox" value="מרפסת"> מרפסת</label>
-              <label><input type="checkbox" value="מעלית"> מעלית</label>
-              <label><input type="checkbox" value="עמדת טעינה לרכב חשמלי"> עמדת טעינה לרכב חשמלי</label>
-              <label data-kind="commercial" hidden><input type="checkbox" value="חניה"> חניה</label>
-              <label data-kind="commercial" hidden><input type="checkbox" value="חזית לרחוב"> חזית לרחוב</label>
-            </div>
-
-            <p class="wiz-err" id="wizErr2"></p>
-            <div class="wiz-nav">
-              <button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button>
-              <button type="button" class="btn btn-gold" data-next="3">להמשך ←</button>
-            </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי יועץ נדל״ן, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
-          </section>
-
-          <section class="wiz-panel" data-panel="3">
-            <p class="wiz-q">לאן נחזור אליכם?</p>
-            <label class="wiz-label" for="wizName">שם מלא</label>
-            <input type="text" id="wizName" class="wiz-input" autocomplete="name">
-            <label class="wiz-label" for="wizPhone">טלפון</label>
-            <input type="tel" id="wizPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel">
-            <p class="wiz-err" id="wizErr3"></p>
-            <div class="wiz-nav">
-              <button type="button" class="btn btn-ghost-light" data-back="2">→ חזרה</button>
-              <button type="submit" class="btn btn-gold" id="wizSubmitBtn">קבלת הערכת שווי חינם</button>
-            </div>
-            <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי יועץ נדל״ן, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
-          </section>
-        </form>
-
-        <div class="wiz-done" id="wizDone" hidden>
-          <div class="wiz-done-mark" aria-hidden="true">✓</div>
-          <h3>הפרטים נשלחו לבדיקה</h3>
-          <p>סוכן מקומי יצור איתכם קשר תוך זמן קצר עם הערכת המחיר המדויקת לנכס.</p>
-          <button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>
-          <p class="wiz-disclaimer">* הערכת השווי ניתנת על ידי יועץ נדל״ן, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p>
-        </div>
-      </div>
+      <!-- האשף עצמו (שלושה שלבים) נבנה ב-assets/owner-wizard.js - אותו רכיב של דף /sell -->
+      <div class="owner-wizard" id="ownerWizard"></div>
       </div>
     </div>
   </section>
@@ -5641,6 +5529,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="#calc">מחשבון משכנתא</a>
           <a href="#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -5771,6 +5660,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/exit-guard.js" data-auto></script>
 <script src="assets/search-core.js"></script>
 <script src="assets/sentence-search.js"></script>
+<script src="assets/owner-wizard.js"></script>
 <script src="assets/home.js"></script>
 </body>
 </html>
