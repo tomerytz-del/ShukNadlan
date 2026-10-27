@@ -17,6 +17,7 @@ const sql = readFileSync(
 );
 const js = readFileSync(new URL("../assets/deeplink-timing.js", import.meta.url), "utf8");
 const crm = readFileSync(new URL("../assets/crm.js", import.meta.url), "utf8");
+const html = readFileSync(new URL("../crm.html", import.meta.url), "utf8");
 const push = readFileSync(
   new URL("../supabase/functions/notification-push/index.ts", import.meta.url),
   "utf8",
@@ -32,6 +33,13 @@ check("שליחה עם keepalive על ה-fetch של supabase, וחזרה מיד"
 check("נטישה ב-pagehide וב-visibilitychange", js.includes('addEventListener("pagehide"') && js.includes('addEventListener("visibilitychange"'));
 check("בלי user agent גולמי", !js.includes("p_ua:u") && js.includes('"w"') && js.includes('"i"') && js.includes('"c"'));
 check("ה-CRM מסמן כניסה, ניתוב ויעד", ["dlMark('login')", "dlMark('auth')", "dlMark('route')", "dlMark('visible')", "dlMark('error')"].every((s) => crm.includes(s)));
+const timingSrc = html.indexOf('src="assets/deeplink-timing.js"');
+const crmSrc = html.indexOf('src="assets/crm.js"');
+check("המדידה לפני crm.js", timingSrc > 0 && timingSrc < crmSrc);
+const seenAt = crm.indexOf("var dlSeen = function");
+const seen = crm.slice(seenAt, seenAt + 700);
+check("יעד שאינו קטגוריה נמדד לפי האלמנט שנפתח", seenAt > 0 && ["createSheet", "coachSheet", "agrModal", "waShareModal", "licenseHoldCard", "bellPanel", "dashPanelOps"].every((id) => seen.includes(id)));
+check("הדוח מקובץ לפי יעד", sql.includes("t.target") && sql.includes("group by 1, 2, 3"));
 check("wc יורד מהכתובת אחרי הקריאה", crm.includes("'wc', 'wt'") || crm.includes("'wc', 'wt'".replace("'", "'")));
 
 check("טבלה בלי קריאה ל-anon ול-authenticated", sql.includes("enable row level security")

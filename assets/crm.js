@@ -2471,10 +2471,24 @@ function handleGotoParam(){
   } finally {
     if (window.dlMark) {
       window.dlMark('route');
-      var dlId = raw === 'bell' ? 'bellPanel' : raw;
+      /* היעד הנמדד הוא האלמנט שנפתח, לא תמיד מזהה הקטגוריה. CMA, מנטור,
+         הסכם ושיווק אינם acc, ובלי המיפוי הזה הסקר פג אחרי 10 שניות
+         והשורה נספרת כנטישה למרות שהמסך עלה. */
       var dlSeen = function(){
-        var dlEl = document.getElementById(dlId);
-        return !!(dlEl && dlEl.getClientRects().length);
+        var ids = raw === 'bell' ? ['bellPanel']
+          : raw === 'adminOps' ? ['dashPanelOps']
+          : raw === 'adminHome' ? ['ccCoach', 'adminCommand']
+          : raw === 'license' ? ['licenseHoldCard']
+          : (raw === 'cma' || raw === 'cmaAddress' || raw === 'promote') ? ['createSheet']
+          : raw === 'sign' ? ['agrModal']
+          : raw === 'waShare' ? ['waShareModal']
+          : raw === 'mentor' ? ['coachSheet']
+          : [raw];
+        for (var i = 0; i < ids.length; i++){
+          var dlEl = document.getElementById(ids[i]);
+          if (dlEl && dlEl.getClientRects().length) return true;
+        }
+        return false;
       };
       if (dlSeen()) window.dlMark('visible');
       else {

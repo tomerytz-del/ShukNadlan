@@ -12584,7 +12584,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
      crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
 <script src="assets/cma-render.js"></script>
-<script src="assets/crm.js"></script>
+<!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
+     רץ לפני הסקריפט הבא. אם המדידה נטענת אחרי crm.js, סימון הכניסה
+     והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר ירד מהכתובת. -->
 <script src="assets/deeplink-timing.js"></script>
+<script src="assets/crm.js"></script>
 </body>
 </html>
