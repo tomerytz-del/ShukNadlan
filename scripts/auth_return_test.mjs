@@ -69,7 +69,7 @@ const LEAD = '11111111-1111-4111-8111-111111111111';
 test('remember שומר את יעד הקישור, לא את תשובת Google', () => {
   const page = boot(
     'https://shuknadlan.co.il/crm?goto=accLeads&tab=demand&lead=' + LEAD
-    + '&code=secret&evil=1&access_token=nope',
+    + '&wc=a1b2c3d4e5f6&wt=new_lead&code=secret&evil=1&access_token=nope',
   );
   page.auth.remember();
   const saved = page.store.get('shuknadlan.auth_return_query');
@@ -77,6 +77,8 @@ test('remember שומר את יעד הקישור, לא את תשובת Google', 
   assert.match(saved, /goto=accLeads/);
   assert.match(saved, /tab=demand/);
   assert.match(saved, new RegExp('lead=' + LEAD));
+  assert.match(saved, /wc=a1b2c3d4e5f6/);
+  assert.match(saved, /wt=new_lead/);
   assert.doesNotMatch(saved, /code=/);
   assert.doesNotMatch(saved, /evil=/);
   assert.doesNotMatch(saved, /access_token/);

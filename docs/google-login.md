@@ -250,7 +250,8 @@ notifications    17:15:34.595  /  17:15:34.910
 הדף וה-query נשאר. בכניסת Google, `AuthReturn.remember()` (נקרא מהכפתור
 ב-`crm.js` לפני `signInWithOAuth`) שומר ב-`sessionStorage` רק את מפתחות
 היעד ש-`handleGotoParam` קורא — `goto`, `tab`, `lead`, `property` וחבריהם —
-לא את `code` ולא את שאר הכתובת. בחזרה, `restoreQuery` מחזיר אותם לכתובת
+ואת `wc` ו-`wt` של מדידת הלחיצה, כדי שחזרה מ-Google תשדרג שורת מסך כניסה
+להגעה. לא את `code` ולא את שאר הכתובת. בחזרה, `restoreQuery` מחזיר אותם לכתובת
 של `/crm` לפני ש-`supabase-js` נטען, וגם נחיתה בדף הבית מעבירה אותם הלאה
 יחד עם תשובת Google. נתיב מהאחסון שעדיין לא מתחיל בלוכסן יחיד נפסל, כמו
 קודם. הבדיקה: `node scripts/auth_return_test.mjs`.

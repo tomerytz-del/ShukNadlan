@@ -79,7 +79,10 @@
   var GOTO_KEYS = [
     'goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement',
     'review', 'filter', 'status', 'import', 'tab',
-    'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka'
+    'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka',
+    // מדידת הלחיצה (deeplink-timing): בלי wc ו-wt חזרה מ-Google נשארת
+    // login_wall גם כשהיעד נפתח, כי הסקריפט רץ רק כשהם בכתובת
+    'wc', 'wt'
   ];
 
   /* מפתח נפרד מהנתיב: הנתיב נכנס ל-location.replace כמות שהוא, ו-query
