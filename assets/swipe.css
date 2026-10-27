@@ -360,10 +360,14 @@ html body .sw-spon .sw-ctitle{font-size:22px}
 @media (max-width:1023px){
   body[data-view="deck"]{--a11y-bottom:calc(var(--sw-act-h,82px) + 6px)}
   html.beta-hero body.sw-body[data-view="deck"]:has(.a11y-fab) #gabW{--gw-bottom:calc(var(--sw-act-h,82px) + 6px);--gw-left:12px}
-  html.beta-hero body.sw-body #gabW .gw-bubble{width:44px;height:44px;border-width:2px}
+  html.beta-hero body.sw-body #gabW:not(.is-min) .gw-bubble{width:44px;height:44px;border-width:2px}
+  /* סבב 5 §3: בטלפון גבריאלה וכפתור הנגישות מתחילים כלשוניות בקצוות, בגובה התמונה - לא על
+     בלוק הטקסט של הכרטיס ולא על שורת הכפתורים */
+  html.beta-hero body.sw-body #gabW.is-min .gw-bubble{top:28dvh;bottom:auto}
+  html.a11y-min body.sw-body .a11y-fab{top:28dvh;bottom:auto}
   html.beta-hero body.sw-body #gabW .gw-dot{width:12px;height:12px;bottom:0;right:0}
   /* פרטי הכרטיס לא נכנסים מתחת לשני הכפתורים שבפינות */
-  body.sw-body:has(#gabW) .sw-top-card .sw-cbody{padding-bottom:56px}
+  body.sw-body:has(#gabW:not(.is-min)) .sw-top-card .sw-cbody{padding-bottom:56px}
 }
 html.beta-hero body.sw-body:has(.a11y-fab) #gabW{--gw-left:12px}
 @media (min-width:1024px){html.beta-hero body.sw-body:has(.a11y-fab) #gabW{--gw-bottom:calc(16px + var(--sw-safe-b));--gw-left:16px}}

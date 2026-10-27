@@ -193,6 +193,19 @@
     '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
     '  #gabW.is-v10 .gw-tip{left:calc(var(--gw-left) + 230px)}',
     '}',
+    /* סבב 5 §3: בטלפון ✕ בפינה העליונה של הבועה (רחוק מקצה המסך), ומזעור ללשונית צרה בקצה */
+    '@media(max-width:1023px){',
+    '  #gabW.is-v10:not(.is-min):not(.is-hidden):not(.is-away):not(.is-open) .gw-min{display:flex;position:fixed;z-index:207;',
+    '    left:calc(var(--gw-left) + 44px);bottom:calc(var(--gw-bottom) + 42px);width:22px;height:22px;padding:0;border:1px solid #e3e8f2;',
+    '    border-radius:50%;background:#fff;color:#0e2a6b;font-size:15px;line-height:1;align-items:center;justify-content:center;cursor:pointer;',
+    '    box-shadow:0 2px 6px rgba(13,27,61,.2)}',
+    '  #gabW.is-v10 .gw-min::before{content:"";position:absolute;inset:-11px}',
+    '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '  #gabW.is-v10.is-min .gw-bubble{left:0;width:18px;height:44px;border:0;border-radius:0 10px 10px 0;overflow:hidden;',
+    '    box-shadow:inset 0 0 0 2px #c9a227,2px 2px 8px rgba(13,27,61,.25)}',
+    '  #gabW.is-v10.is-min .gw-bubble img{width:44px;height:44px;max-width:none;object-fit:cover;object-position:30% 10%;margin-left:-13px}',
+    '  #gabW.is-v10.is-min .gw-dot{display:none}',
+    '}',
     '@media(min-width:1024px){#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
     '#gabW.is-v10.is-min .gw-dot{width:11px;height:11px}}',
     '#gabW.is-v10.is-min .gw-panel{bottom:calc(var(--gw-bottom) + 56px)}',
@@ -333,12 +346,16 @@
        ‏✕ מקפל לאווטאר של 44px באותה פינה (לחיצה עליו פותחת כרגיל), נשמר
        לסשן (‏sk_gabi_min). כשהפוטר על המסך - אווטאר, בלי בועית, כדי שהשורה
        המשפטית תישאר קריאה. לעולם לא נעלמת לגמרי. */
-    var manualMin = false, footerMin = false;
-    // מזעור ליד הפוטר - במחשב בלבד; בטלפון גבריאלה בלי שינוי (‏6.13)
+    var manualMin = false, footerMin = false, restored = false;
     var desk = window.matchMedia('(min-width:1024px)');
+    /* ‏/swipe בטלפון (סבב 5 §3): מתחילה כלשונית בקצה, כדי לא לשבת על הכרטיס */
+    var swipePage = !!document.querySelector('body.sw-body');
+    var MIN_KEY = swipePage ? 'sk_gabi_min_sw' : 'sk_gabi_min';   // ב-/swipe ההתחלה אחרת, ולכן מפתח משלו
     function syncMin() {
-      var min = manualMin || (footerMin && desk.matches);
+      // ליד הפוטר: מזעור גם בטלפון (השורה המשפטית נשארת גלויה), אלא אם הוחזרה בביקור הזה
+      var min = manualMin || (footerMin && (desk.matches || !restored));
       root.classList.toggle('is-min', min);
+      bubble.setAttribute('aria-label', min && !desk.matches ? 'פתיחת גבריאלה' : BUBBLE_LABEL);
       if (min) hideTip();
     }
     if (v10) {
@@ -351,11 +368,21 @@
       root.appendChild(minBtn);
       minBtn.addEventListener('click', function () {
         manualMin = true;
-        storageSet('sk_gabi_min', '1');
+        storageSet(MIN_KEY, '1');
         syncMin();
         bubble.focus();
       });
-      manualMin = storageGet('sk_gabi_min') === '1';
+      var st0 = storageGet(MIN_KEY);
+      manualMin = st0 === '1' || (swipePage && !desk.matches && st0 !== '0');
+      restored = st0 === '0';
+      /* בטלפון לחיצה על הלשונית מחזירה את הבועה (ב-/swipe היא פותחת את השיחה, כמו הבועה) */
+      bubble.addEventListener('click', function (e) {
+        if (desk.matches || swipePage || !root.classList.contains('is-min')) return;
+        e.stopImmediatePropagation();
+        manualMin = false; restored = true;
+        storageSet(MIN_KEY, '0');
+        syncMin();
+      }, true);
       var feet = document.querySelectorAll('footer');
       var foot = document.querySelector('footer.site') || feet[feet.length - 1];
       if (foot && 'IntersectionObserver' in window) {

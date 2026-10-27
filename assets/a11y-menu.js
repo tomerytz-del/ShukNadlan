@@ -138,8 +138,10 @@
       fab.setAttribute('aria-expanded', String(open));
       if (open) panel.querySelector('button').focus();
     }
+    /* ‏/swipe בטלפון (סבב 5 §3): מתחיל כלשונית, כדי לא לשבת על הכרטיס. ‏'0' = הוחזר בביקור */
+    var swipeMobile = !!document.querySelector('body.sw-body') && !window.matchMedia('(min-width:1024px)').matches;
     var manual = false;
-    try { manual = sessionStorage.getItem('sk_a11y_min') === '1'; } catch (e) {}
+    try { var st0 = sessionStorage.getItem('sk_a11y_min'); manual = st0 === '1' || (swipeMobile && st0 !== '0'); } catch (e) { manual = swipeMobile; }
     function sync() { h.classList.toggle('a11y-min', manual); }
     function minimize() {
       manual = true;
@@ -153,7 +155,7 @@
       // בקיפול הלחיצה על הלשונית מחזירה את הכפתור
       if (manual) {
         manual = false;
-        try { sessionStorage.removeItem('sk_a11y_min'); } catch (err) {}
+        try { sessionStorage.setItem('sk_a11y_min', '0'); } catch (err) {}
         sync();
         return;
       }
