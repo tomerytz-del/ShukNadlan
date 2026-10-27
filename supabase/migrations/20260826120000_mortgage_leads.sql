@@ -169,7 +169,9 @@ where status in ('new','sold');
 comment on view public.mortgage_leads_public is
   'מדף לידי המשכנתאות — נתוני המחשבון בלבד. ללא שם, ללא טלפון, ללא אימייל.';
 
-revoke select on public.mortgage_leads_public from anon;
+-- revoke all ולא רק select: ברירת המחדל מעניקה גם כתיבה, ו-grant select
+-- אינו מוריד אותה. המדף הוא לקריאה של סוכן/ת מחובר/ת בלבד.
+revoke all on public.mortgage_leads_public from public, anon, authenticated;
 grant select on public.mortgage_leads_public to authenticated;
 
 -- ---------------------------------------------------------------------------
