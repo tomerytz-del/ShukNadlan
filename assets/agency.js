@@ -1175,7 +1175,7 @@ async function loadTeam(sb, agencyId){
 }
 
 /* ---------- קרוסלה ----------
-   חיצים, נקודות וגלילה בקפיצות של כרטיס - לרצועת המתווכים ולשלוש רצועות
+   חיצים, נקודות וגלילה בקפיצות של כרטיס - לרצועת יועצי הנדל״ן ולשלוש רצועות
    הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך - ‏scrollLeft יורד לשלילי ככל
    שמתקדמים - ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
 window.addEventListener('resize', ()=>{
@@ -1259,7 +1259,7 @@ function ratingBreakdown(stats, reviewsCount){
   const parts = [];
   const agents = Number(stats?.rated_agent_count) || 0;
   if (agents > 0){
-    parts.push(agents === 1 ? 'מתווך/ת אחד/ת מדורג/ת' : `${agents} מתווכים מדורגים`);
+    parts.push(agents === 1 ? 'יועץ נדל״ן אחד מדורג' : `${agents} יועצי נדל״ן מדורגים`);
   }
   const direct = Number(stats?.direct_review_count) || 0;
   if (direct > 0){
@@ -1274,7 +1274,7 @@ function ratingBreakdown(stats, reviewsCount){
 async function loadReviews(sb, agencyId){
   const el = document.getElementById('reviewsList');
   // הציון מגיע מ-agency_ratings_public ולא מחושב כאן: הוא מערבב דירוג צוות
-  // (ממוצע של ממוצעי המתווכים, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
+  // (ממוצע של ממוצעי יועצי הנדל״ן, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
   // של המשרד, ואת הנוסחה הזו אין טעם לשכפל בדפדפן. הביקורות עצמן עדיין
   // נטענות בנפרד - ה-view לא מחזיר טקסטים.
   const [{ data: reviews }, { data: stats }] = await Promise.all([
@@ -1489,11 +1489,11 @@ function initOwnerWizard(agency){
   // הבאנר מדבר בשם המשרד ולא בשם הפלטפורמה — זו הסיבה שהגולש/ת ישאיר/תשאיר
   // כאן פרטים ולא בדף הבית
   document.getElementById('ownerTeaserSub').textContent =
-    `הערכת שווי חינם ממתווכי ${agency.name}`;
+    `הערכת שווי חינם מיועצי הנדל״ן של ${agency.name}`;
   document.getElementById('ownerLead').textContent =
-    `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווכי ${agency.name}.`;
+    `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, מיועצי הנדל״ן של ${agency.name}.`;
   document.getElementById('wizDoneNote').textContent =
-    `מתווך/ת מ${agency.name} יחזור/תחזור אליכם בזמן קצר עם הערכת המחיר לנכס.`;
+    `יועצי הנדל״ן של ${agency.name} יחזרו אליכם בזמן קצר עם הערכת המחיר לנכס.`;
 
   // כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
   [['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
@@ -1975,7 +1975,7 @@ async function submitBuyerWizard(e){
     document.getElementById('buyDoneText').textContent = data.duplicate
       ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : data.assigned_to_agency
-        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ומתווך/ת מ${office} יחזור/תחזור אליכם עם נכסים מתאימים.`
+        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ויועצי הנדל״ן של ${office} יחזרו אליכם עם נכסים מתאימים.`
         : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;
@@ -2006,7 +2006,7 @@ function initBuyerWizard(agency, sb){
   // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
   // למשרד שבדף, ולא לרוטציה של הפלטפורמה
   document.getElementById('buyConsentText').textContent =
-    `אשמח שמתווך/ת מ${agency.name} ייצור איתי קשר עם נכסים מתאימים`;
+    `אשמח שיועצי הנדל״ן של ${agency.name} יפנו אליי עם נכסים מתאימים`;
   // תיבת האזור נפתחת עם העיר שבה המשרד פועל — זה האזור שהמחפש/ת בא/ה בשבילו
   document.getElementById('buyArea').value = leadContext.city || '';
 
