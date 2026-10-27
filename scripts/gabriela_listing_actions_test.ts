@@ -22,6 +22,7 @@ import {
   PUBLISH_EXCLUSIVE_ELSEWHERE,
   PUBLISH_FAILED,
   PUBLISH_STORE_MISSING,
+  PUBLISH_EDIT,
   PUBLISH_YES,
   PUBLISH_NO,
   publishAskFirst,
@@ -207,10 +208,22 @@ check(
 check("בלי לקוח אין הנפקה", "error" in reissuePrepareInput({ kind: "sell", property_ids: ["p1"] }, [], {}));
 
 const pubId = "abc123def456";
-const pubButtons = publishConfirmButtons(pubId);
-check("כפתורי פרסום", !!pubButtons && pubButtons[0].id === `pubx:y:${pubId}` && pubButtons[1].title === PUBLISH_NO);
-check("כותרת הפרסום בתוך 20", [...PUBLISH_YES].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0) <= 20);
-check("פרסור פרסום", parsePublishButton(`pubx:y:${pubId}`)?.yes === true && parsePublishButton(`pubx:n:${pubId}`)?.yes === false);
+const propertyUuid = "11111111-1111-4111-8111-111111111111";
+const pubButtons = publishConfirmButtons(pubId, propertyUuid);
+check("כפתורי פרסום", !!pubButtons
+  && pubButtons.length === 3
+  && pubButtons[0].id === `pubx:y:${pubId}:${propertyUuid}`
+  && pubButtons[0].title === PUBLISH_YES
+  && pubButtons[1].title === PUBLISH_NO
+  && pubButtons[2].title === PUBLISH_EDIT
+  && pubButtons[2].id === `pubx:e:${pubId}:${propertyUuid}`);
+check("כותרת הפרסום בתוך 20", [PUBLISH_YES, PUBLISH_NO, PUBLISH_EDIT].every((t) =>
+  [...t].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0) <= 20));
+check("פרסור פרסום", parsePublishButton(`pubx:y:${pubId}:${propertyUuid}`)?.action === "yes"
+  && parsePublishButton(`pubx:n:${pubId}`)?.action === "no"
+  && parsePublishButton(`pubx:e:${pubId}:${propertyUuid}`)?.propertyId === propertyUuid);
+check("כפתור ישן בלי מזהה נכס", parsePublishButton(`pubx:y:${pubId}`)?.action === "yes"
+  && parsePublishButton(`pubx:y:${pubId}`)?.propertyId === null);
 check("הנפקה אינה פרסום", parsePublishButton("agrx:y:abc123def456") === null);
 const propertyId = "11111111-1111-1111-1111-111111111111";
 const pubRow = {

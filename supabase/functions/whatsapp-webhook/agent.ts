@@ -2520,12 +2520,12 @@ async function askPublishConfirm(
     }
     return { ok: false, error: PUBLISH_FAILED };
   }
-  const buttons = publishConfirmButtons(id);
+  const buttons = publishConfirmButtons(id, propertyId);
   if (!buttons) return { ok: false, error: PUBLISH_FAILED };
-  const label = title.trim() ? `"${title.trim()}"` : "הנכס";
+  const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
   ctx.outbox.push({
     kind: "buttons",
-    body: `לפרסם את ${label} באתר?`,
+    body: `${label} נשמר ולא עלה לאתר. לפרסם, לערוך, או להשאיר כך?`,
     buttons,
   });
   return {
@@ -6709,6 +6709,7 @@ async function runPendingPublish(
   supabase: SupabaseClient,
   agent: AgentRow,
   requestId: string,
+  propertyIdFromButton?: string | null,
 ): Promise<{ text: string }> {
   const loaded = await loadPendingAction(supabase, agent.id, requestId);
   if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
@@ -6740,6 +6741,10 @@ async function runPendingPublish(
   }
 
   const propertyId = String(claimed.subject_id || first.propertyId);
+  if (propertyIdFromButton && propertyId.toLowerCase() !== propertyIdFromButton.toLowerCase()) {
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: "הכפתור שייך לנכס אחר. אפשר לבקש פרסום מחדש." };
+  }
   const { data: prop, error: propErr } = await supabase.from("properties")
     .select("id, title, status, agent_id, agency_id")
     .eq("id", propertyId)
@@ -6821,8 +6826,36 @@ export async function listingActionReply(
 
   const publish = parsePublishButton(buttonId);
   if (!publish) return null;
-  if (!publish.yes) return { text: "הנכס לא פורסם." };
-  return runPendingPublish(supabase, agent, publish.requestId);
+  if (publish.action === "no") return { text: "הנכס לא פורסם." };
+  if (publish.action === "edit") return publishEditReply(supabase, agent, publish);
+  return runPendingPublish(supabase, agent, publish.requestId, publish.propertyId);
+}
+
+/** לערוך פותח את הכרטיס ב-CRM. לא מפרסם, ולא סוגר את בקשת הפרסום. */
+async function publishEditReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  publish: { requestId: string; propertyId: string | null },
+): Promise<{ text: string; outbox?: OutboxItem[] }> {
+  let propertyId = publish.propertyId;
+  if (!propertyId) {
+    const loaded = await loadPendingAction(supabase, agent.id, publish.requestId);
+    if (!("row" in loaded) || !loaded.row || !loaded.row.subject_id) {
+      return { text: "אפשר לערוך את הנכס מאזור האישי." };
+    }
+    propertyId = String(loaded.row.subject_id);
+  }
+  const url = crmPropertyLink(propertyId);
+  if (!url) return { text: "אפשר לערוך את הנכס מאזור האישי." };
+  return {
+    text: "הנכס לא פורסם. אפשר לערוך אותו באזור האישי.",
+    outbox: [{
+      kind: "cta",
+      body: "לעריכה, לתמונות ולשאר הפרטים:",
+      label: "לעריכה",
+      url,
+    }],
+  };
 }
 
 async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unknown>) {
@@ -8077,7 +8110,7 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
-    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאים כפתורי פרסום. " +
+    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאים שלושה כפתורים: לפרסם, לא עכשיו, לערוך. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
       "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר.",
     "- פרסום (set_property_status עם active) שולח כפתורי אישור והנכס לא עולה לפניהם, " +

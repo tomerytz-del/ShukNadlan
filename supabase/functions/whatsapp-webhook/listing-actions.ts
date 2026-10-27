@@ -230,8 +230,9 @@ export function reissueClickDecision(
   return { kind: "run", agreementId: row.subject_id, overrides: payload };
 }
 
-export const PUBLISH_YES = "כן, לפרסם";
+export const PUBLISH_YES = "לפרסם";
 export const PUBLISH_NO = "לא עכשיו";
+export const PUBLISH_EDIT = "לערוך";
 export const PUBLISH_DONE = "הנכס כבר פורסם, ולא מפרסמים שוב.";
 export const PUBLISH_EXPIRED = "הבקשה לפרסם פגה. אפשר לבקש שוב.";
 export const PUBLISH_MISSING = "הבקשה לפרסם לא נמצאה. אפשר לבקש שוב.";
@@ -247,23 +248,38 @@ export const PUBLISH_DUPLICATE_ELSEWHERE =
 export const PUBLISH_DUPLICATE_SAME =
   "הנכס כבר מפורסם במשרד שלכם. אין צורך במודעה שנייה.";
 
-const PUBLISH_RE = /^pubx:(y|n):([0-9a-f]{12})$/i;
+const PUBLISH_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// uuid אופציונלי: כפתור ישן בלי מזהה נכס עדיין נפתר מהשורה השמורה.
+const PUBLISH_RE = /^pubx:(y|n|e):([0-9a-f]{12})(?::([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i;
 
-export function publishConfirmButtons(requestId: string): { id: string; title: string }[] | null {
+export function publishConfirmButtons(
+  requestId: string,
+  propertyId?: string | null,
+): { id: string; title: string }[] | null {
   if (!/^[0-9a-f]{12}$/i.test(requestId)) return null;
-  if (utf16len(PUBLISH_YES) > 20 || utf16len(PUBLISH_NO) > 20) return null;
-  const yes = `pubx:y:${requestId.toLowerCase()}`;
+  if (utf16len(PUBLISH_YES) > 20 || utf16len(PUBLISH_NO) > 20 || utf16len(PUBLISH_EDIT) > 20) return null;
+  const prop = propertyId && PUBLISH_UUID_RE.test(propertyId) ? `:${propertyId.toLowerCase()}` : "";
+  const yes = `pubx:y:${requestId.toLowerCase()}${prop}`;
   if (yes.length > 200) return null;
+  const id = requestId.toLowerCase();
   return [
     { id: yes, title: PUBLISH_YES },
-    { id: `pubx:n:${requestId.toLowerCase()}`, title: PUBLISH_NO },
+    { id: `pubx:n:${id}${prop}`, title: PUBLISH_NO },
+    { id: `pubx:e:${id}${prop}`, title: PUBLISH_EDIT },
   ];
 }
 
-export function parsePublishButton(buttonId: string): { yes: boolean; requestId: string } | null {
+export function parsePublishButton(
+  buttonId: string,
+): { action: "yes" | "no" | "edit"; requestId: string; propertyId: string | null } | null {
   const m = PUBLISH_RE.exec(String(buttonId || "").trim());
   if (!m) return null;
-  return { yes: m[1].toLowerCase() === "y", requestId: m[2].toLowerCase() };
+  const letter = m[1].toLowerCase();
+  return {
+    action: letter === "y" ? "yes" : letter === "e" ? "edit" : "no",
+    requestId: m[2].toLowerCase(),
+    propertyId: m[3] ? m[3].toLowerCase() : null,
+  };
 }
 
 export type PublishDecision =
