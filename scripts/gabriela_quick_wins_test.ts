@@ -34,6 +34,8 @@ check("ישי לוי אינו לוי כהן", !namesLikelySame("ישי לוי", 
 check("רוני כהן אינו רון כהן", !namesLikelySame("רוני כהן", "רון כהן") && namesNeedConfirm("רוני כהן", "רון כהן"));
 check("י מובילה נשמרת", nameSkeleton("ישי") === "ישי" && nameSkeleton("ישי לוי").startsWith("ישי"));
 check("י סופית אינה נמחקת", nameSkeleton("רוני") === "רוני" && nameSkeleton("רוני") !== nameSkeleton("רון") && nameSkeleton("לוי") === "לוי");
+check("טאב ושורה הם רווח", nameSkeleton("יוסי\tלוי") === nameSkeleton("יוסי לוי") && nameSkeleton("יוסי\nלוי") === nameSkeleton("יוסי לוי"));
+check("NFKC לפני הפיצול", nameSkeleton("יוסי\u00a0לוי") === nameSkeleton("יוסי לוי") && nameSkeleton("Ａ") === "a");
 
 const billing = llmFailureKind({ message: "Your credit balance is too low to access the Anthropic API." });
 const transient = llmFailureKind({ status: 529, message: "overloaded" });
@@ -65,6 +67,15 @@ const sql = readFileSync(new URL("../supabase/migrations/20271027150100_gabriela
 check("מרווח ברירת מחדל 1500", sql.includes("default 1500") && sql.includes("coalesce(p_gap_ms, 1500)") && !sql.includes("default 2000"));
 check("ניקוי חריצי שליחה ישנים", sql.includes("interval '7 days'"));
 check("כפילות לקוח ב-SQL על כל הקובץ", sql.includes("function public.agent_client_duplicate") && sql.includes("client_name_skeleton") && sql.includes("from public.agent_clients"));
+const skeletonFn = sql.slice(sql.indexOf("function public.client_name_skeleton"), sql.indexOf("function public.client_name_tokens"));
+check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, ''), 'NFKC')")
+  && skeletonFn.indexOf("[[:space:]]") < skeletonFn.indexOf("regexp_split_to_array")
+  && skeletonFn.includes("return lower(array_to_string(words, ' '))"));
+const dupFn = sql.slice(sql.indexOf("function public.agent_client_duplicate"), sql.indexOf("comment on function public.agent_client_duplicate"));
+check("duplicate לא ל-authenticated", !/security\s+definer/i.test(dupFn)
+  && sql.includes("revoke all on function public.agent_client_duplicate(uuid, text, text) from public, anon, authenticated")
+  && sql.includes("אין grant ל-authenticated")
+  && !/grant execute on function public\.agent_client_duplicate\(uuid, text, text\)\s+to\s+authenticated/i.test(sql));
 const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
 const createClient = agentSrc.slice(agentSrc.indexOf("async function findClientDuplicates"), agentSrc.indexOf("async function toolUpdateClient"));
 check("יצירת לקוח לא נעצרת ב-500", createClient.includes('rpc("agent_client_duplicate"') && createClient.includes(".range(") && !createClient.includes(".limit(500)"));

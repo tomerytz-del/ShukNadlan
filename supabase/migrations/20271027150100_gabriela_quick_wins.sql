@@ -130,14 +130,17 @@ declare
   tail text;
   mid text;
 begin
-  s := lower(coalesce(p_raw, ''));
+  -- אותו סדר כמו nameSkeleton: NFKC קודם, רווח מכל סוג (טאב, שורה)
+  -- מתקפל לפני פיצול המילים, ו-lower בסוף.
+  s := normalize(coalesce(p_raw, ''), 'NFKC');
   s := regexp_replace(s, '[֑-ׇ]', '', 'g');
   s := regexp_replace(s, '["''״׳`]', '', 'g');
   s := translate(s, 'םןץףך', 'מנצפכ');
-  s := regexp_replace(s, '[^א-תA-Za-z0-9[:space:]]', ' ', 'g');
+  s := regexp_replace(s, '[[:space:]]', ' ', 'g');
+  s := regexp_replace(s, '[^א-תA-Za-z0-9 ]', ' ', 'g');
   s := regexp_replace(s, 'ו{2,}', 'ו', 'g');
   s := translate(s, 'כקטת', 'קקתת');
-  s := btrim(regexp_replace(s, '[[:space:]]+', ' ', 'g'));
+  s := btrim(regexp_replace(s, ' +', ' ', 'g'));
   if s = '' then
     return '';
   end if;
@@ -152,7 +155,7 @@ begin
       words := words || (lead || mid || tail);
     end if;
   end loop;
-  return array_to_string(words, ' ');
+  return lower(array_to_string(words, ' '));
 end;
 $$;
 
@@ -279,7 +282,7 @@ as $$
 $$;
 
 comment on function public.agent_client_duplicate(uuid, text, text) is
-  'כפילות לקוח/ה אצל סוכן/ת: אותו שם או אותו טלפון על כל הקובץ. kind=duplicate חוסם, kind=confirm שואל.';
+  'כפילות לקוח/ה אצל סוכן/ת: אותו שם או אותו טלפון על כל הקובץ. kind=duplicate חוסם, kind=confirm שואל. SECURITY INVOKER ו-p_agent_id מגיע מהקורא, ולכן execute רק ל-service_role. אין grant ל-authenticated.';
 
 revoke all on function public.client_phone_key(text) from public, anon, authenticated;
 revoke all on function public.client_phones_match(text, text) from public, anon, authenticated;
