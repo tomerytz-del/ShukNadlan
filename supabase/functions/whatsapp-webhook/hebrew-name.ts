@@ -23,7 +23,7 @@ export function phonesMatch(a: unknown, b: unknown): boolean {
 /**
  * י' באמצע המילה יורדת ("דויד"/"דוד"). י' בראש המילה ו-י' בסופה נשארות:
  * מחיקה של כולן הפכה את "ישי לוי" ל"לו" ואת "רוני" ל"רון".
- * אותו כלל ב-client_name_skeleton במיגרציה 20271028110000.
+ * אותו כלל ב-client_name_skeleton במיגרציה 20271028122000.
  */
 function stripMedialYod(word: string): string {
   if (word.length <= 2) return word;
