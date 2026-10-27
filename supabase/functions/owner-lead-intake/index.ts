@@ -327,8 +327,25 @@ Deno.serve(async (req: Request) => {
             הפחות מדויקת מאשר בעל/ת נכס שקיבל/ה שגיאה.
 
        בכל שלושת המקרים השיוך והפתיחה זהים, וזה מה שבאמת חשוב למשרד. */
+    /* הסכמה עם חותמת זמן (‏20271029090000): כרטיס "חושבים למכור?" בהחלקה שולח
+       את הנוסח שאושר; הזמן נכתב כאן ולעולם לא מהדפדפן. רק בניסיון הראשון של
+       כל מסלול - מסד שטרם הריץ את המיגרציה נסוג לשורה בלעדיה ולא מפיל ליד. */
+    const consent: Record<string, unknown> = body.consent_contact === true
+      ? {
+        consent_contact_at: new Date().toISOString(),
+        consent_text: typeof body.consent_text === "string" ? body.consent_text.slice(0, 400) : null,
+        consent_version: typeof body.consent_version === "string" && /^[a-z0-9-]{1,20}$/.test(body.consent_version)
+          ? body.consent_version : null,
+      }
+      : {};
+    const hasConsent = Object.keys(consent).length > 0;
+    // מקור שנכתב ל-leads.source גם במסלול הפלטפורמה (ולא רק ליומן): בלעדיו
+    // ליד מההחלקה נעלם בדוח הערוצים
+    const platformSource = normalizeSource(body.source, "", trusted);
+    const ownSource = platformSource === "swipe_seller" ? platformSource : "";
     const attempts: Record<string, unknown>[] = agencyRouting
       ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: pageSource, ...consent }] : []),
         { ...baseRow, lead_type: preferredType, source: pageSource },
         { ...baseRow, lead_type: preferredType },
         { ...baseRow, lead_type: "owner_inbound" },
@@ -336,6 +353,12 @@ Deno.serve(async (req: Request) => {
       : socialLabel
       ? [
         { ...baseRow, lead_type: "owner_inbound", source: socialSource, source_detail: socialLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
+      : ownSource || hasConsent
+      ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: "owner_inbound", ...(ownSource ? { source: ownSource } : {}), ...consent }] : []),
+        ...(ownSource ? [{ ...baseRow, lead_type: "owner_inbound", source: ownSource }] : []),
         { ...baseRow, lead_type: "owner_inbound" },
       ]
       : [{ ...baseRow, lead_type: "owner_inbound" }];

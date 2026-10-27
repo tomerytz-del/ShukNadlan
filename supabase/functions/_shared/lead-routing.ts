@@ -138,7 +138,7 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_property_form",
   // גלישה בהחלקה (‏/swipe, ‏docs/swipe-mode.md): פנייה על נכס מגיליון הפרטים,
   // ופנייה למפרסם מכרטיס ממומן (כבוי כרגע - SPONSORED_ENABLED ב-assets/swipe.js).
-  // ‏lead_source_channel() ממפה אותם ל-other עד שיהיה להם ערוץ משלו.
+  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏20271029090000).
   "swipe",
   "swipe_sponsored",
   // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
@@ -148,6 +148,14 @@ const KNOWN_SOURCES = new Set([
   // פנייה על נכס לכל דבר, מגיליון ההחלקה או מטופס דף הנכס. התווית ב-CRM
   // "בקשת תמונות" (‏lead_source_label במסד, ‏LX_SOURCES ב-crm.js)
   "photo_request",
+  // יריד הבתים הפתוחים: ההרשמה בדף היריד (‏/open-house) ובגיליון שבהחלקה
+  // (‏assets/fair-signup.js → saved-search-intake עם open_house_only).
+  // ‏lead_source_channel() ממפה את שניהם לערוץ open_house
+  "nocommission_fair",
+  "swipe_fair",
+  // כרטיס "חושבים למכור?" בהחלקה → owner-lead-intake. נכתב גם ל-leads.source
+  // במסלול הפלטפורמה (ולא רק ליומן), כדי שהערוץ swipe ייראה בדוחות
+  "swipe_seller",
   // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
   // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
   ...SOCIAL_SOURCES_LIST,

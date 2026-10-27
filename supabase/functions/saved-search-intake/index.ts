@@ -214,6 +214,16 @@ Deno.serve(async (req: Request) => {
     features.length > 0;
   if (!hasCriteria) return json({ error: "no_criteria" }, 400);
 
+  /* ---- ההרשמה ליריד הבתים הפתוחים (‏open_house_only, ‏20271029090000) ------
+     התראות רק על נכסים שביריד, ולכן ההסכמה השיווקית חובה (הנוסח והגרסה נשמרים;
+     הזמן נכתב כאן ולא מהדפדפן), וגם יישוב אחד לפחות - "כל הארץ" אינה בקשה. */
+  const openHouseOnly = body.open_house_only === true;
+  if (openHouseOnly && body.marketing_consent !== true) return json({ error: "consent_required" }, 400);
+  if (openHouseOnly && cities.length === 0) return json({ error: "no_criteria" }, 400);
+  const consentVersion = typeof body.consent_version === "string" && /^[a-z0-9-]{1,20}$/.test(body.consent_version)
+    ? body.consent_version : null;
+  const consentText = typeof body.consent_text === "string" ? body.consent_text.slice(0, 400) : null;
+
   /* ---- הליד של דף המשרד ושל דף הסוכן/ת --------------------------------------
      ‏agency_slug נשלח מווידג'ט "מחפשים נכס" שבדף המשרד, ו-agent_slug מאותו
      ווידג'ט בדף הסוכן/ת. כשאחד מהם מגיע, החיפוש נשמר בדיוק כרגיל — ההתראות
@@ -305,6 +315,23 @@ Deno.serve(async (req: Request) => {
 
   if (error) return json({ error: "db_error", detail: error.message }, 500);
 
+  /* ‏create_saved_search אינה מכירה את עמודות היריד, ולכן הן נכתבות אחריה.
+     אם הכתיבה נכשלת (מסד שטרם הריץ את המיגרציה) החיפוש מושהה - חיפוש רגיל
+     פעיל היה שולח נכסים שאינם ביריד למי שאישר/ה רק את היריד. */
+  if (openHouseOnly && result?.search_id && !result?.duplicate) {
+    const { error: ohErr } = await serviceClient.from("saved_searches").update({
+      open_house_only: true,
+      marketing_consent_at: new Date().toISOString(),
+      consent_text: consentText,
+      consent_version: consentVersion,
+    }).eq("id", result.search_id);
+    if (ohErr) {
+      console.warn("open_house_only update failed, pausing search:", ohErr.message);
+      await serviceClient.from("saved_searches").update({ status: "paused" }).eq("id", result.search_id);
+      return json({ error: "not_ready" }, 503);
+    }
+  }
+
   // מה שהמסד באמת עשה, ולא מה שביקשנו ממנו: פונקציה ישנה מחזירה בלי השדות
   // האלה, וגם הסכמה חסרה מאפסת שם את השיוך.
   const assignedAgencyId: string | null = result?.agency_id ?? null;
@@ -354,6 +381,7 @@ Deno.serve(async (req: Request) => {
               : "no_active_agents",
       summary: [row.label, dealType === "rent" ? "להשכרה" : "למכירה",
                 category === "commercial" ? "מסחרי" : null,
+                openHouseOnly ? "רק יריד הבתים הפתוחים" : null,
                 leadOnly ? "בלי התראות" : null].filter(Boolean).join(" · "),
       deal_type: dealType,
       city: cities[0] ?? null,

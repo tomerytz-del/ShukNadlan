@@ -31,27 +31,40 @@
      והסטודיו עובדים גם כך - במקום הכפתור יש קישור לדף הנכס. */
   var VIZ_SWIPE_GENERATE = false;
 
-  /* ---------- סדר הכרטיסים (‏seq-v1). ‏sponsors ריק = אין כרטיסים ממומנים ---------- */
+  /* ---------- סדר הכרטיסים (‏seq-v2, חלק 5 §7 - מקור האמת היחיד) ----------
+     המקומות סופרים כל כרטיס בחפיסה (1-based). כרטיס שאינו נכס שהגיע זמנו
+     ונחסם בכלל הרווח (R1) נדחה עד 6 מקומות ואז נשמט - לעולם לא שניים ברצף.
+     ‏sponsors ריק או SPONSORED_ENABLED כבוי = אין כרטיסים ממומנים */
   var SEQ_CONFIG = {
-    version: 'seq-v1',
+    version: 'seq-v2',
     slots: [
       { at: 6, kind: 'spon_agency', firstSessionAt: 8 },
+      { at: 9, kind: 'nc_promo' },
+      { at: 12, kind: 'article', longAt: 20 },   // ‏longAt: חפיסה עם 30 נכסים עם תמונה ומעלה
       { at: 16, kind: 'spon_pro' },
-      { at: 22, kind: 'article' },
+      { at: 18, kind: 'seller' },
       { at: 26, kind: 'spon_agency' }
     ],
     cycleEvery: 12,
-    cyclePattern: ['spon_agency'],
-    minGap: 4,
+    cyclePattern: ['spon_any'],
+    gap: 3,          // R1: לפחות 3 נכסים בין שני כרטיסים שאינם נכס
+    sponGap: 4,      // ולפחות 4 בין שני ממומנים
+    deferMax: 6,
     maxSponsored: 3,
-    maxArticles: 1,
+    fairBoost: { first: 2, every: 5, max: 6 },   // R3
     /* ממלאים כאן (תומר). משרד/סוכן/ת עצמאי/ת:
-         { id, kind:'agency', name, slug, logo, desc }
+         { id, kind:'agency', name, slug, logo, desc, aud:'afula-emek|sale,rent' }
        בעל/ת מקצוע עם סרטון:
-         { id, kind:'pro', field:'ייעוץ משכנתאות'|'שמאות'|'עריכת דין', name, slug, video, poster, mortgage:true|false }
+         { id, kind:'pro', field:'ייעוץ משכנתאות'|'שמאות'|'עריכת דין'|'הובלות', name, slug, video, poster, mortgage:true|false, aud }
        לעולם לא שם או רישיון של בעל האתר. */
     sponsors: []
   };
+  /* R2: כששניים בשלים יחד */
+  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article'];
+  /* R8: התוויות של ‎?seqdebug=1‎ */
+  var SLOT_LABEL = { property: 'נכס', property_fair: 'נכס · יריד', spon_agency: 'ממומן · משרד', spon_pro: 'ממומן · בעלי מקצוע',
+    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
+  var PROMO = { nc_promo: 1, seller: 1, article: 1 };
 
   var REGION_GROUPS = {
     north: ['afula-emek', 'haifa', 'krayot', 'akko-nahariya', 'karmiel-misgav', 'nof-hagalil-migdal', 'kiryat-shmona', 'safed', 'golan', 'tiberias', 'beit-shean', 'yokneam'],
@@ -321,6 +334,7 @@
   /* תמונה שנכשלה בטעינה מתחלפת בגרדיאנט עם הסיכה - אף פעם לא מסגרת ריקה */
   document.addEventListener('error', function (e) {
     var t = e.target;
+    if (t && t.tagName === 'IMG' && t.hasAttribute('data-fb-art')) { t.outerHTML = artBrand(t.getAttribute('data-fb-art')); return; }
     if (!t || t.tagName !== 'IMG' || !t.hasAttribute('data-fb')) return;
     // קודם המקור בגודל מלא (פעם אחת), ורק אם גם הוא נכשל - הגרדיאנט
     var orig = t.getAttribute('data-orig');
@@ -344,6 +358,11 @@
     if (!window.supabase) return Promise.resolve([]);
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     var specP = window.MarketScope ? MarketScope.spec(sb) : Promise.resolve(null), mspec = null;
+    /* כתבות לכרטיס הכתבה (§6.1): 12 האחרונות עם הגוף (זמן קריאה ותקציר). יוצאות במקביל
+       לנכסים ולא מעכבות את הכרטיס הראשון - מה שלא הגיע תוך שנייה וחצי פשוט לא בחפיסה הזו */
+    var artP = sb.from('articles_public').select('id, slug, title, subtitle, category, cover_url, body, published_at')
+      .order('published_at', { ascending: false }).limit(12)
+      .then(function (r) { articles = (r && r.data) || []; }, function () {});
     return specP.then(function (spec) {
       mspec = spec;
       var q = sb.from('properties').select(COLS).eq('status', 'active');
@@ -359,10 +378,8 @@
         ? sb.from('agency_members_public').select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url').in('id', ids)
           .then(function (r) { ((r && r.data) || []).forEach(function (a) { agents.set(a.id, a); }); }, function () {})
         : Promise.resolve();
-      var artP = sb.from('articles_public').select('id, slug, title, subtitle, category, cover_url, published_at')
-        .order('published_at', { ascending: false }).limit(4)
-        .then(function (r) { articles = (r && r.data) || []; }, function () {});
-      return Promise.all([agentsP, artP]).then(function () { return rows; });
+      var artWait = Promise.race([artP, new Promise(function (ok) { setTimeout(ok, 1500); })]);
+      return Promise.all([agentsP, artWait]).then(function () { return rows; });
     }).catch(function (e) { console.warn('swipe: טעינת הנכסים נכשלה', e); return []; });
   }
 
@@ -462,6 +479,7 @@
   }
   /* ‏?fair=1 (מגבריאלה): רק נכסים שביריד הבתים הפתוחים עכשיו - אותו תנאי של הבאנר בדף הבית */
   function fairLive(p) {
+    if (window.OpenHouse) return OpenHouse.live(p);
     var now = Date.now(), s = Date.parse(p.open_house_start), e = Date.parse(p.open_house_end);
     return !!p.open_house && s <= now && e > now;
   }
@@ -541,7 +559,10 @@
     var reelN = countFor({ reel: true });
     $('swFReel').hidden = $('swFReelL').hidden = !reelN && !filter.reel;
     $('swFReel').innerHTML = chip('▶ רק נכסים עם סרטון ' + n(reelN), 'data-reelchip="1"', !!filter.reel);
-    $('swFFair').innerHTML = chip('ללא עמלת תיווך (יריד הבתים הפתוחים) ' + n(countFor({ fair: true })), 'data-fairchip="1"', !!filter.fair);
+    // §2: רק כשבשוק ובעסקה הזו יש לפחות דירה אחת ביריד עכשיו - אחרת לא מוצג בכלל (לא מתג כבוי ולא "0")
+    var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, rooms: 0, type: '', viz: false, reel: false });
+    $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
+    $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = filtered().length;
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
@@ -638,7 +659,7 @@
     if (b.dataset.rooms) { filter.rooms = Number(b.dataset.rooms); renderFilter(); return; }
     if (b.dataset.viz) { filter.viz = !filter.viz; renderFilter(); return; }
     if (b.dataset.type !== undefined) { filter.type = b.dataset.type; renderFilter(); return; }
-    if (b.dataset.fairchip) { filter.fair = !filter.fair; renderFilter(); return; }
+    if (b.dataset.fairchip) { filter.fair = !filter.fair; shukTrack('swipe_filter_nofee', { on: filter.fair ? 1 : 0 }); renderFilter(); return; }
     if (b.dataset.reelchip) { filter.reel = !filter.reel; renderFilter(); return; }
     if (b.dataset.photos) { filter.photos = !filter.photos; store('sk_swipe_photos_only', filter.photos ? null : '0'); renderFilter(); return; }
   });
@@ -667,6 +688,7 @@
   $('swFGo').addEventListener('click', function () {
     var sp = { deal: filter.deal, region: market ? market.slug : '', via: 'swipe_filter' };
     if (filter.viz) sp.viz = 1;
+    if (filter.fair) sp.fair = 1;
     shukTrack('swipe_start', sp);
     closeFilter();
     buildDeck();
@@ -755,36 +777,102 @@
     if (view === 'likes') renderLikesView();
   }
 
-  function slotAt(pos) {
-    for (var i = 0; i < SEQ_CONFIG.slots.length; i++) {
-      var s = SEQ_CONFIG.slots[i];
-      var at = firstSession && s.firstSessionAt ? s.firstSessionAt : s.at;
-      if (at === pos) return s.kind;
-    }
+  /* הכרטיסים שבשלים במקום הזה (לפני הדחייה של R1) */
+  function slotsAt(pos, longDeck) {
+    var out = [];
+    SEQ_CONFIG.slots.forEach(function (s) {
+      var at = firstSession && s.firstSessionAt ? s.firstSessionAt : longDeck && s.longAt ? s.longAt : s.at;
+      if (at === pos) out.push(s.kind);
+    });
     var last = SEQ_CONFIG.slots[SEQ_CONFIG.slots.length - 1].at;
     if (pos > last && (pos - last) % SEQ_CONFIG.cycleEvery === 0) {
       var k = (pos - last) / SEQ_CONFIG.cycleEvery - 1;
-      return SEQ_CONFIG.cyclePattern[k % SEQ_CONFIG.cyclePattern.length];
+      out.push(SEQ_CONFIG.cyclePattern[k % SEQ_CONFIG.cyclePattern.length]);
     }
-    return null;
+    return out;
   }
+  /* ‏aud של מפרסם: 'שוק|עסקאות' (‏'afula-emek|sale,rent'); ריק - כולם */
+  function sponAud(s) {
+    if (!s.aud) return true;
+    var parts = String(s.aud).split('|'), m = parts[0], deals = (parts[1] || '').split(',').filter(Boolean);
+    var dk = filter.deal === 'commercial' ? 'com' : filter.deal;
+    return (!m || !market || m === market.slug) && (!deals.length || deals.indexOf(dk) >= 0);
+  }
+  var sponAlt = 0, fastSkips = 0;
   function fillSlot(kind, used) {
+    if (kind === 'spon_any') kind = sponAlt++ % 2 ? 'spon_pro' : 'spon_agency';
     if (kind === 'spon_agency' || kind === 'spon_pro') {
-      if (!SPONSORED_ENABLED) return null;
+      if (!SPONSORED_ENABLED || fastSkips >= 2) return null;   // R6: שני ממומנים שדולגו מהר - הבא נשמט
       if (counts.sponsored >= SEQ_CONFIG.maxSponsored) return null;
       var want = kind === 'spon_agency' ? 'agency' : 'pro';
-      var s = SEQ_CONFIG.sponsors.filter(function (x) { return x.kind === want && !used[x.id]; })[0];
+      var s = SEQ_CONFIG.sponsors.filter(function (x) { return x.kind === want && !used[x.id] && sponAud(x); })[0];
       if (!s) return null;
       used[s.id] = 1; counts.sponsored++;
       return { slot: kind, sponsor: s };
     }
+    if (kind === 'nc_promo') return ncPromoOk() ? { slot: 'nc_promo', variant: all.some(fairLive) ? 'live' : 'wait' } : null;
+    if (kind === 'seller') return sellerOk() ? { slot: 'seller' } : null;
     if (kind === 'article') {
-      if (counts.articles >= SEQ_CONFIG.maxArticles || !articles.length) return null;
-      counts.articles++;
-      return { slot: 'article', article: articles[0] };
+      if (shownGet('article')) return null;
+      var a = pickArticle();
+      return a ? { slot: 'article', article: a } : null;
     }
-    if (kind === 'engage') return { slot: 'engage' };
     return null;
+  }
+  /* ---------- כרטיסי הזמנה: יריד, חושבים למכור, כתבה (חלק 5 §3, §5, §6) ----------
+     פעם בביקור כל אחד (‏sessionStorage, נספר כשהכרטיס נצפה), ודחייה נשמרת במכשיר */
+  var DAY = 864e5;
+  function shownGet(k) { return sessGet('sk_swipe_shown_' + k); }
+  function ago(k) { var t = Number(store(k)) || 0; return t ? Date.now() - t : Infinity; }
+  function ncPromoOk() {
+    if (filter.fair || shownGet('nc_promo') || store('sk_fair_signed') === '1') return false;
+    if (ago('sk_nc_promo_dismiss') < 14 * DAY) return false;
+    if (!all.some(fairLive) && ago('sk_nc_promo_wait_seen') < 7 * DAY) return false;   // גרסת ההמתנה: פעם בשבוע
+    return true;
+  }
+  function sellerOk() {
+    if (filter.fair || shownGet('seller')) return false;
+    return ago('sk_seller_dismiss') >= 30 * DAY && ago('sk_seller_sent') >= 180 * DAY;
+  }
+  /* "דחייה" = המשך בלי פעולה. שתיים (גם בין ביקורים) - הכרטיס יורד ל-14 / 30 יום */
+  function promoDismiss(c, how) {
+    if (c.slot === 'nc_promo') {
+      shukTrack('nc_promo_dismiss', { how: how });
+      var n = (Number(store('sk_nc_promo_dn')) || 0) + 1;
+      if (n >= 2) { store('sk_nc_promo_dismiss', String(Date.now())); n = 0; }
+      store('sk_nc_promo_dn', String(n));
+    } else if (c.slot === 'seller') {
+      if (how === 'later') { store('sk_seller_dismiss', String(Date.now())); return; }
+      var m = (Number(store('sk_seller_dn')) || 0) + 1;
+      if (m >= 2) { store('sk_seller_dismiss', String(Date.now())); m = 0; }
+      store('sk_seller_dn', String(m));
+    }
+  }
+  /* §6.1: אין במסד עמודת קהל לכתבה, ולכן היא נגזרת מהכותרת - במקום אחד */
+  function articleDeal(a) {
+    var t = [a.title, a.subtitle, a.slug].join(' ');
+    if (a.category === 'בלוג המתווכים' || /שכונות/.test(t)) return '*';
+    if (/שכר[\s-]?(ה)?דירה|שכירות|להשכרה|שוכר/.test(t)) return 'rent';
+    if (/מסחרי|משרד(ים)?(\s|$)|השקעה|תשואה/.test(t)) return 'com';
+    if (/למוכרים|למכירת|בלעדיות|הערכת שווי/.test(t)) return 'seller';
+    return 'sale';
+  }
+  function artSeen() {
+    var m = {};
+    try { m = JSON.parse(store('sk_swipe_art_seen') || '{}') || {}; } catch (e) { m = {}; }
+    Object.keys(m).forEach(function (k) { if (Date.now() - m[k] > 7 * DAY) delete m[k]; });
+    return m;
+  }
+  function pickArticle() {
+    var seen = artSeen(), fresh = articles.filter(function (a) { return !seen[a.id]; });
+    var want = filter.deal === 'commercial' ? 'com' : filter.deal;
+    var sellerDone = ago('sk_seller_dismiss') < 30 * DAY || ago('sk_seller_sent') < 180 * DAY;
+    var ok = function (a) {
+      var d = articleDeal(a);
+      if (d === 'seller') d = want === 'sale' && sellerDone ? 'sale' : 'x';
+      return d === want || (d === '*' && want !== 'com') || (want === 'sale' && d === '*');
+    };
+    return fresh.filter(ok)[0] || fresh.filter(function (a) { return articleDeal(a) !== 'seller' || sellerDone; })[0] || null;
   }
   /* סדר הנכסים בלי תמונות (חלק 3 §7). "רק עם תמונות" דלוק: כל הנכסים עם תמונה, ואחריהם כרטיס
      גשר אחד ואז אלה שבלי (מקודמים, ואז החדשים). כבוי: אלה שבלי נשזרים רק בזנב - 7 עם ואחד בלי,
@@ -823,33 +911,67 @@
   function buildDeck() {
     var props = deckProps();
     writeUrl();
-    // "3 ממומנים ו-1 כתבה" הם לביקור: החפיסה מקבלת רק את מה שעוד לא הוצג
-    counts = { sponsored: shown.sponsored, articles: shown.articles };
-    /* ‏minGap חל בין שני כרטיסים ממומנים (6/8 ← 16 ← 26). בין 13 ל-16 יש רק שני
-       נכסים, והמפרט (קריטריון 25) דורש את שניהם - ולכן שאלה וכתבה אינן נספרות */
-    var out = [], used = {}, pi = 0, pos = 1, sinceSpon = Infinity;
-    while (pi < props.length) {
-      var kind = slotAt(pos);
-      var spon = kind === 'spon_agency' || kind === 'spon_pro';
-      var card = kind && (!spon || sinceSpon >= SEQ_CONFIG.minGap) ? fillSlot(kind, used) : null;
-      if (card && spon) sinceSpon = 0;
-      if (!card) { card = { slot: 'property', p: props[pi++] }; sinceSpon++; }
+    counts = { sponsored: shown.sponsored };
+    var photoN = props.filter(hasPhoto).length, longDeck = photoN >= 30;
+    /* R3: נכסי היריד (עם תמונה) - הראשון במקום 2 ואחריו כל 5, עד 6; השאר בסדר הרגיל */
+    var fb = SEQ_CONFIG.fairBoost, fairQ = filter.fair ? [] : props.filter(function (p) { return fairLive(p) && hasPhoto(p); }).slice(0, fb.max);
+    var rest = props.filter(function (p) { return fairQ.indexOf(p) < 0; });
+    var out = [], used = {}, pos = 1, sinceNon = Infinity, sinceSpon = Infinity, due = [], boostDue = false, lastBoost = false, propN = 0;
+    var placed = {};
+    while (rest.length || fairQ.length) {
+      slotsAt(pos, longDeck).forEach(function (k) { due.push({ kind: k, until: pos + SEQ_CONFIG.deferMax }); });
+      due = due.filter(function (d) { return d.until >= pos; });
+      if (pos === fb.first || (pos > fb.first && (pos - fb.first) % fb.every === 0)) boostDue = true;
+      var card = null;
+      if (due.length && sinceNon >= SEQ_CONFIG.gap) {
+        due.sort(function (a, b) { return SEQ_PRIO.indexOf(a.kind) - SEQ_PRIO.indexOf(b.kind); });
+        for (var i = 0; i < due.length && !card; i++) {
+          var spon = /^spon/.test(due[i].kind);
+          if (spon && sinceSpon < SEQ_CONFIG.sponGap) continue;
+          card = fillSlot(due[i].kind, used);
+          if (card) { placed[card.slot] = 1; if (spon) sinceSpon = 0; }
+          due.splice(i, 1); i--;   // נשמט אם לא מולא (אין מפרסם, נצפה כבר, נדחה)
+        }
+      }
+      if (card) sinceNon = 0;
+      else {
+        var p;
+        if (boostDue && fairQ.length && !lastBoost) { p = fairQ.shift(); boostDue = false; lastBoost = true; }
+        else { p = rest.length ? rest.shift() : fairQ.shift(); lastBoost = false; }
+        card = { slot: 'property', p: p };
+        sinceNon++; sinceSpon++; propN++;
+      }
       card.pos = pos++;
       out.push(card);
     }
-    // הגשר: פעם אחת בחפיסה, רק כשנשארו נכסים מתאימים בלי תמונות
+    /* R4: "חושבים למכור" שלא הגיע למקומו בחפיסה קצרה, אחרי 10 נכסים לפחות - פעם אחת לפני הגשר/הסיום,
+       ורק כשכלל הרווח (R1) מתקיים; אחרת הוא פשוט לא בחפיסה הזו */
+    if (!placed.seller && propN >= 10 && sinceNon >= SEQ_CONFIG.gap) {
+      var sc = fillSlot('seller', used);
+      if (sc) { sc.pos = pos++; out.push(sc); }
+    }
+    // הגשר: פעם אחת בחפיסה, רק כשנשארו נכסים מתאימים בלי תמונות. אחריו אין כרטיסי הזמנה
     if (npRest.length) {
       out.push({ slot: 'np_bridge', count: npRest.length, pos: pos++ });
       npRest.forEach(function (p) { out.push({ slot: 'property', p: p, pos: pos++ }); });
     }
     out.push({ slot: 'end', pos: pos });
-    if (DEBUG) npAssert(out);
+    if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
     var np_ = out.filter(function (c) { return c.slot === 'property'; }).length;
     $('swSortN').textContent = np_ === 1 ? 'נכס אחד' : np_ + ' נכסים';
     renderDeck();
     renderList();
     if (mapReady) drawMapMarkers();
+  }
+  /* R1 ב-DEBUG: לפחות 3 נכסים בין שני כרטיסים שאינם נכס (חוץ מהגשר והסיום) */
+  function seqAssert(out) {
+    var last = -Infinity;
+    out.forEach(function (c, i) {
+      if (c.slot === 'property' || c.slot === 'np_bridge' || c.slot === 'end') return;
+      console.assert(i - last > SEQ_CONFIG.gap, 'swipe seq-v2 R1: ' + c.slot + ' במקום ' + c.pos + ' קרוב מדי לכרטיס הקודם');
+      last = i;
+    });
   }
 
   function syncSortBtn() {
@@ -866,7 +988,7 @@
   }
   var cur = function () { return deck[idx]; };
   function cardHtml(c, top) {
-    var dbg = DEBUG ? '<span class="sw-dbg">' + esc(c.slot) + ' · ' + c.pos + '</span>' : '';
+    var dbg = DEBUG ? '<span class="sw-dbg">' + esc(SLOT_LABEL[c.slot === 'property' && fairLive(c.p) ? 'property_fair' : c.slot] || c.slot) + ' · ' + c.pos + '</span>' : '';
     if (c.slot === 'property') {
       var p = c.p, ph = slides(p), adv = advertiser(p), at = (top && c.photo) || 0;
       if (at >= ph.length) at = c.photo = 0;
@@ -878,14 +1000,19 @@
         : np || imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
       var bars = '<div class="sw-bars" aria-hidden="true">' + barsHtml(ph, at) + '</div>';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
-      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property" aria-label="' + esc(title(p) + ', ' + fmtPrice(p)) + '">' + img +
+      // ‏OpenHouse.live נבדק בכל ציור: חלון שנסגר בזמן שהדף פתוח מוריד את התג בכרטיס הבא
+      var nofee = fairLive(p);
+      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
+        ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
+        (nofee ? nofeeTag() : '') +
         (p.property_type ? '<span class="sw-tag is-type">' + esc(p.property_type) + '</span>' : '') +
         (hasReel(p) ? '<span class="sw-tag sw-reel-tag"><i aria-hidden="true">▶</i> רילס<b></b></span>' : '') +
         '<span class="sw-count" aria-hidden="true"' + (ph.length > 1 ? '' : ' hidden') + '>' + (at + 1) + '/' + ph.length + '</span></div>' +
         '<button type="button" class="sw-vpill" data-vpill aria-label="איך זה יכול להיראות? מעבר להשוואת לפני ואחרי"' + (top && vizPair.get(p.id) && !sp ? '' : ' hidden') + '>✨ איך זה יכול להיראות?</button>' +
         '<div class="sw-cbody"><p class="sw-price">' + esc(fmtPrice(p)) + '</p>' +
+        (nofee ? '<p class="sw-nofee-end">' + esc(FAIR_NAME + ' · ' + OpenHouse.endLabel(p)) + '</p>' : '') +
         '<h2 class="sw-ctitle">' + esc(title(p)) + '</h2>' +
         (facts ? '<p class="sw-facts">' + esc(facts) + '</p>' : '') +
         '<p class="sw-where"><span aria-hidden="true">📍</span> ' + esc(where(p)) + '</p>' +
@@ -914,12 +1041,35 @@
     }
     if (c.slot === 'article') {
       var a = c.article;
-      var url = '/article?slug=' + encodeURIComponent(a.slug || a.id);
       return '<article class="sw-card sw-art" data-slot="article" aria-label="' + esc('כתבה: ' + a.title) + '">' + dbg +
-        (a.cover_url ? '<img class="sw-cimg" draggable="false" data-fb="sw-cimg" src="' + esc(a.cover_url) + '" alt="" loading="lazy">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-cimg')) +
-        '<div class="sw-cbody"><p class="sw-facts">' + esc(a.category || 'מגזין שוק נדל״ן') + ' · ' + esc(readTime(a)) + '</p>' +
-        '<h2 class="sw-ctitle">' + esc(a.title) + '</h2>' + (a.subtitle ? '<p class="sw-where">' + esc(a.subtitle) + '</p>' : '') +
-        '<a class="sw-white" data-article href="' + esc(url) + '">לקריאה ←</a></div></article>';
+        artCover(a, 'sw-cimg') + '<span class="sw-art-shade" aria-hidden="true"></span>' +
+        '<div class="sw-art-in"><p class="sw-art-pills"><span class="sw-art-mag">מגזין שוק נדל״ן</span><span class="sw-art-cat">' + esc(catLabel(a.category) + ' · ' + readTime(a)) + '</span></p>' +
+        '<h2 class="sw-art-title">' + esc(a.title) + '</h2>' + (a.subtitle ? '<p class="sw-art-sub">' + esc(a.subtitle) + '</p>' : '') +
+        '<button type="button" class="sw-outline" data-promo-go>לקריאה ←</button>' +
+        '<p class="sw-art-hint">החליקו למעלה לקריאה · הצידה כדי להמשיך</p></div></article>';
+    }
+    if (c.slot === 'nc_promo') {
+      var live = c.variant === 'live';
+      return '<article class="sw-card sw-promo sw-nc" data-slot="nc_promo" aria-label="יריד הבתים הפתוחים: דירות ללא עמלת תיווך">' + dbg +
+        '<div class="sw-promo-in"><span class="sw-promo-gab"><img src="/assets/gabriela-avatar.webp" alt="" width="40" height="40" onerror="this.parentNode.hidden=true"></span>' +
+        (window.OpenHouse ? OpenHouse.zeroArt('sw-nc-art') : '') +
+        '<p class="sw-promo-kick">' + esc(FAIR_NAME) + '</p>' +
+        '<h2 class="sw-promo-title">דירות ללא עמלת תיווך, לזמן מוגבל</h2>' +
+        '<p class="sw-promo-sub">' + (live ? 'יועצי נדל״ן מהאזור מכניסים דירות ליריד, ואתם קונים בלי לשלם עמלת תיווך.' : 'דירות נכנסות ליריד לזמן מוגבל. השאירו פרטים ונעדכן אתכם ראשונים.') + '</p>' +
+        '<button type="button" class="sw-gold sw-wide" data-promo-go>' + (live ? 'לדירות ביריד' : 'עדכנו אותי') + '</button>' +
+        (live ? '<button type="button" class="sw-promo-link" data-nc-signup>עדכנו אותי כשנכנסת דירה</button>'
+          : '<a class="sw-promo-link" href="/open-house" data-nc-page>מה זה היריד? ←</a>') + '</div></article>';
+    }
+    if (c.slot === 'seller') {
+      var rent = filter.deal === 'rent';
+      return '<article class="sw-card sw-promo sw-seller" data-slot="seller" aria-label="' + esc('לבעלי נכסים: ' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + ' השאירו פרטים') + '">' + dbg +
+        '<div class="sw-promo-in">' + SELLER_ART +
+        '<p class="sw-promo-kick">לבעלי נכסים</p>' +
+        '<h2 class="sw-promo-title">' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + '</h2>' +
+        '<p class="sw-promo-sub">השאירו פרטים, ויועץ נדל״ן מהאזור יחזור אליכם.</p>' +
+        '<p class="sw-promo-gold">הערכת שווי ללא עלות · הנכס יכול להתפרסם כאן עם הדמיות AI</p>' +
+        '<button type="button" class="sw-gold sw-wide" data-promo-go>השאירו פרטים</button>' +
+        '<button type="button" class="sw-promo-link" data-seller-later>לא עכשיו</button></div></article>';
     }
     if (c.slot === 'np_bridge') {
       var bs = window.NoPhoto ? NoPhoto.STR : null;
@@ -930,11 +1080,6 @@
         '<h2 class="sw-end-title">' + esc(bs ? bs.bridge : '') + '</h2>' +
         '<p class="sw-npb-sub">' + esc(bs ? bs.bridgeSub(c.count) : '') + '</p></div>' +
         '<button type="button" class="sw-npb-list" data-np-list>' + esc(bs ? bs.bridgeList : '') + '</button></article>';
-    }
-    if (c.slot === 'engage') {
-      return '<article class="sw-card sw-engage" data-slot="engage" aria-label="שמירת החיפוש">' + dbg +
-        '<div class="sw-end-in"><p class="sw-end-title">רוצים שנעדכן כשנכס כזה ייכנס?</p>' +
-        '<p class="sw-end-line">נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.</p>' + alertBlock('engage') + '</div></article>';
     }
     return endCardHtml(dbg);
   }
@@ -1111,7 +1256,21 @@
       bsOpen('viz', { onStudio: function () { openSheetFor(c, { tab: 'viz', from: 'nudge' }); } });
     } else baIntro();
   }
-  function readTime(a) { var w = String((a.subtitle || '') + ' ' + (a.title || '')).split(/\s+/).length; return Math.max(2, Math.round(w / 6)) + ' דק׳ קריאה'; }
+  /* §6.2: לפי גוף הכתבה, 200 מילים לדקה */
+  function readTime(a) { var w = String(a.body || '').split(/\s+/).filter(Boolean).length; return Math.max(2, Math.round(w / 200)) + ' דק׳ קריאה'; }
+  /* קטגוריה במסד מול התצוגה (סבב 5 §6) */
+  function catLabel(c) { return c === 'בלוג המתווכים' ? 'הבלוג של יועצי הנדל״ן' : (c || 'מגזין'); }
+  /* תמונת שער, ובלי שער (או כשהיא נכשלת) - כרטיס מותג כחול, לעולם לא תמונה שבורה */
+  function artCover(a, cls) {
+    return a.cover_url ? '<img class="' + cls + ' sw-art-img" draggable="false" src="' + esc(a.cover_url) + '" alt="" loading="lazy" data-fb-art="' + cls + '">' : artBrand(cls);
+  }
+  function artBrand(cls) { return '<span class="sw-art-brand ' + cls + '" aria-hidden="true"><img src="/assets/logo-shuknadlan.svg" alt="" width="40" height="47"></span>'; }
+  var NO_FEE = 'ללא עמלת תיווך', FAIR_NAME = 'יריד הבתים הפתוחים';
+  /* בית עם דלת פתוחה (לא ✦/✨ - אלה ההדמיה באותו כרטיס) */
+  var NOFEE_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6l4-1v7"/></svg>';
+  function nofeeTag() { return '<span class="sw-tag is-nofee">' + NOFEE_SVG + esc(window.OpenHouse ? OpenHouse.NO_FEE : NO_FEE) + '</span>'; }
+  var SELLER_ART = '<span class="sw-seller-art" aria-hidden="true"><svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="#c9a227" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M14 31 32 17l18 14"/><path d="M18 28v19h14"/><path d="M46 28v6"/><circle cx="44" cy="43" r="5"/><path d="M40 47l-6 6M37 50l2 2M35 52l2 2"/></svg></span>';
 
   function endCardHtml(dbg) {
     /* יריד בלי דירות (כפתור היריד של גבריאלה, וכרגע אין יריד חי): לא חפיסה ריקה אלא הסבר ושתי דרכים */
@@ -1120,7 +1279,7 @@
         '<div class="sw-end-in"><h2 class="sw-end-title">כרגע אין יריד פעיל</h2>' +
         '<p class="sw-end-line">כשיועצי הנדל״ן באזור יכניסו דירות ליריד הבתים הפתוחים, הן יופיעו כאן.</p>' +
         '<button type="button" class="sw-navy sw-wide" data-fair-off>לכל הנכסים למכירה</button>' +
-        alertBlock('fair').replace('class="sw-white sw-wide" data-alert-open', 'class="sw-gold sw-wide" data-alert-open').replace(/<\/svg>עדכנו אותי על נכס חדש/, '</svg>עדכנו אותי') +
+        '<button type="button" class="sw-gold sw-wide" data-fair-signup>עדכנו אותי</button>' +
         '</div></article>';
     }
     var share = likes.length ? '<button type="button" class="sw-link sw-link-light" id="swShare">שיתוף הרשימה (' + likes.length + ')</button>' : '';
@@ -1174,9 +1333,14 @@
     // כרטיס שמאחורי חלון הסינון עוד לא נצפה - ‏swipe_start בונה את החפיסה מחדש
     if (!$('swFilter').hidden) return;
     if (c.slot === 'end') { shukTrack('swipe_end_view', { likes: likes.length }); return; }
-    shukTrack('swipe_card_view', { slot: c.slot, position: c.pos });
+    var nofee = c.slot === 'property' && fairLive(c.p);
+    shukTrack('swipe_card_view', nofee ? { slot: c.slot, position: c.pos, nofee: 1 } : { slot: c.slot, position: c.pos });
+    c.viewAt = Date.now();
+    if (nofee && !sessGet('sk_nofee_seen_' + c.p.id)) { sessSet('sk_nofee_seen_' + c.p.id); shukTrack('nofee_badge_view', { property_id: c.p.id, position: c.pos }); }
     if (c.slot === 'property') maybeAlertSheet();
-    if (!c.counted && (c.sponsor || c.slot === 'article')) { c.counted = true; shown[c.sponsor ? 'sponsored' : 'articles']++; }
+    if (!c.counted && c.sponsor) { c.counted = true; shown.sponsored++; }
+    // R7: כרטיס הזמנה נספר (פעם בביקור) כשהוא פעיל שנייה
+    if (PROMO[c.slot]) impTimer = setTimeout(function () { if (cur() === c) promoSeen(c); }, 1000);
     if (c.sponsor) {
       impTimer = setTimeout(function () { if (cur() === c) shukTrack('sponsored_impression', { slot: c.slot, sponsor_id: c.sponsor.id, position: c.pos }); }, 1000);
       var v = document.querySelector('#swTopCard video');
@@ -1199,11 +1363,18 @@
   }
 
   var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
-  function decide(dir) {
+  function decide(dir, via) {
     var c = cur();
     if (deciding || !c || c.slot === 'end') return;
     var top = $('swTopCard');
     var added = false;
+    /* כרטיסי הזמנה אינם "אהבתי" ואינם "דילוג": ♥ = הפעולה הראשית, וכל השאר ממשיך הלאה */
+    if (PROMO[c.slot]) {
+      if (dir === 'like' && via === 'btn') { promoGo(c, 'like'); return; }
+      promoNext(c, via === 'btn' ? 'x' : via === 'key' ? 'key' : 'swipe', dir);
+      return;
+    }
+    if (c.sponsor && dir === 'skip' && c.viewAt && Date.now() - c.viewAt < 1000) fastSkips++;   // R6
     // הגשר אינו "אהבתי" ואינו "דילוג": כל כיוון פשוט ממשיך לנכסים שבלי תמונות
     if (c.slot === 'np_bridge') {
       shukTrack('swipe_nophoto_bridge', { count: c.count });
@@ -1214,6 +1385,11 @@
       return;
     }
     if (dir === 'like' && c.p && likes.indexOf(c.p.id) < 0) { likes.push(c.p.id); saveLikes(); added = true; sessionLikes++; lastLiked = c; }
+    // R5: לא מפריעים מיד אחרי לייק - כרטיס הזמנה שבא אחריו מתחלף עם הנכס שאחריו
+    var n1 = deck[idx + 1], n2 = deck[idx + 2];
+    if (dir === 'like' && n1 && n2 && (PROMO[n1.slot] || n1.sponsor) && n2.slot === 'property') {
+      deck[idx + 1] = n2; deck[idx + 2] = n1; var tp = n1.pos; n1.pos = n2.pos; n2.pos = tp;
+    }
     // שני שמות מפורשים ולא ביטוי: כך check_gtm_container.py מוצא את שניהם
     if (dir === 'like') shukTrack('swipe_like', { slot: c.slot, position: c.pos });
     else shukTrack('swipe_skip', { slot: c.slot, position: c.pos });
@@ -1233,8 +1409,39 @@
     idx = h.i;
     renderDeck();
   }
-  $('swSkip').addEventListener('click', function () { decide('skip'); });
-  $('swLike').addEventListener('click', function () { decide('like'); });
+  $('swSkip').addEventListener('click', function () { decide('skip', 'btn'); });
+  $('swLike').addEventListener('click', function () { decide('like', 'btn'); });
+  /* ---------- כרטיסי ההזמנה: המשך, פעולה ראשית, צפייה ---------- */
+  function promoNext(c, how, dir) {
+    if (!c.acted) promoDismiss(c, how);
+    history_.push({ i: idx, liked: null });
+    deciding = true;
+    var top = $('swTopCard');
+    var go_ = function () { deciding = false; idx = Math.min(idx + 1, deck.length - 1); renderDeck(); };
+    if (top && !reduceMotion) { top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip'); setTimeout(go_, 220); } else go_();
+  }
+  function promoGo(c, via) {
+    c.acted = true;
+    if (c.slot === 'nc_promo') {
+      if (c.variant === 'live') {
+        shukTrack('nc_promo_click', { cta: 'deck' });
+        // בתוך הדף: החפיסה נבנית מחדש עם דירות היריד בלבד, הלייקים נשארים
+        filter.fair = true; buildDeck(); renderSummary(); renderFilter();
+      } else { shukTrack('nc_promo_click', { cta: 'signup' }); openFairSignup('swipe_promo'); }
+    } else if (c.slot === 'seller') { shukTrack('seller_card_click', { cta: 'open' }); openSeller(); }
+    else if (c.slot === 'article') openArticle(c, via);
+  }
+  function promoSeen(c) {
+    sessSet('sk_swipe_shown_' + c.slot);
+    if (c.slot === 'nc_promo') {
+      if (c.variant === 'wait') store('sk_nc_promo_wait_seen', String(Date.now()));
+      shukTrack('nc_promo_view', { variant: c.variant, position: c.pos });
+    } else if (c.slot === 'seller') shukTrack('seller_card_view', { position: c.pos, deal: filter.deal });
+    else if (c.slot === 'article') {
+      var m = artSeen(); m[c.article.id] = Date.now(); store('sk_swipe_art_seen', JSON.stringify(m));
+      shukTrack('article_card_view', { article_id: String(c.article.id), position: c.pos, deal: articleDeal(c.article) });
+    }
+  }
   $('swUndo').addEventListener('click', undo);
 
   function nextPhoto(top, step) {
@@ -1288,7 +1495,7 @@
     if (!card) return;
     // במחשב: בלי גרירה מקורית של תמונה (אחרת הכרטיס לא זז והחותמת נשארת ב-0)
     top.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false;
+    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false, tapPromo = false;
     var stampLike = card.querySelector('.sw-stamp.is-like'), stampSkip = card.querySelector('.sw-stamp.is-skip');
     // החותמת מתמלאת עם הגרירה (‏dx/100), ובמאה פיקסלים ההחלטה נופלת
     function stamps(v) {
@@ -1318,7 +1525,8 @@
       if (c && c.slot !== 'end' && dx > 100) { decide('like'); return; }
       if (c && c.slot !== 'end' && dx < -100) { decide('skip'); return; }
       card.style.transform = '';
-      if (dy < -90 && Math.abs(dx) < 80) { openSheetFor(c); return; }
+      if (dy < -90 && Math.abs(dx) < 80) { if (c && PROMO[c.slot]) promoGo(c, 'up'); else openSheetFor(c); return; }
+      if (!moved && c && PROMO[c.slot]) { tapPromo = true; return; }
       if (!moved && c && c.slot === 'property') {
         var r = card.getBoundingClientRect();
         // RTL: הקשה בצד ימין = התמונה הקודמת, בצד שמאל = הבאה
@@ -1330,6 +1538,15 @@
     card.addEventListener('click', function (e) {
       var c = cur();
       if (e.target.closest('[data-up]')) { openSheetFor(c); return; }
+      if (c && PROMO[c.slot]) {
+        var wasTap = tapPromo; tapPromo = false;
+        if (e.target.closest('[data-promo-go]')) { promoGo(c, 'button'); return; }
+        if (e.target.closest('[data-nc-signup]')) { c.acted = true; shukTrack('nc_promo_click', { cta: 'signup' }); openFairSignup('swipe_promo'); return; }
+        if (e.target.closest('[data-nc-page]')) { c.acted = true; shukTrack('nc_promo_click', { cta: 'page' }); return; }
+        if (e.target.closest('[data-seller-later]')) { shukTrack('seller_card_click', { cta: 'later' }); promoDismiss(c, 'later'); c.acted = true; promoNext(c, 'later', 'skip'); return; }
+        if (wasTap && !e.target.closest('a,button')) promoGo(c, 'tap');
+        return;
+      }
       // רילס: קול, השתקה, והפעלה ידנית ב-reduced motion
       var rv = top.querySelector('video.sw-reel');
       if (e.target.closest('[data-reel-snd]') && rv) {
@@ -1365,8 +1582,8 @@
       if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio }); return; }
       if (e.target.closest('[data-spon-cta]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); openSheetFor(c); return; }
       if (e.target.closest('[data-spon-link]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); return; }
-      if (e.target.closest('[data-article]')) { shukTrack('article_card_open', { article_id: String(c.article.id) }); return; }
       if (e.target.closest('#swWiden')) { openFilter(e.target); return; }
+      if (e.target.closest('[data-fair-signup]')) { openFairSignup('empty_fair'); return; }
       if (e.target.closest('[data-fair-off]')) { filter.fair = false; deck = []; buildDeck(); renderSummary(); return; }
       if (e.target.closest('#swShare')) { shareLikes(); return; }
       var ao = e.target.closest('[data-alert-open]');
@@ -1390,9 +1607,9 @@
     // חיצים ורווח בתוך גבריאלה או תפריט הנגישות שייכים להם, לא לחפיסה
     if (e.target.closest && e.target.closest('#gabW,.a11y-panel')) return;
     var c = cur();
-    if (e.key === 'ArrowRight') { e.preventDefault(); decide('like'); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); decide('skip'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); if (c && c.slot !== 'end' && c.slot !== 'engage') openSheetFor(c); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); decide('like', 'key'); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); decide('skip', 'key'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (c && PROMO[c.slot]) promoGo(c, 'up'); else if (c && c.slot !== 'end') openSheetFor(c); }
     else if (e.key === 'z' || e.key === 'Z' || e.key === 'ז') { undo(); }
     else if (e.key === ' ' && c && c.slot === 'property' && !(e.target.closest && e.target.closest('button,a,[role=button],[role=tab]'))) { e.preventDefault(); nextPhoto($('swTopCard'), 1); }
   });
@@ -1483,7 +1700,9 @@
     $('swSheetBody').innerHTML = (studio ? '<div class="sw-tabs" role="tablist" aria-label="פרטי הנכס והדמיה">' +
         '<button type="button" role="tab" id="swTabBtnInfo" data-tab="info" aria-controls="swTabInfo" aria-selected="true">פרטים</button>' +
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
-      '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) + (c.p ? propInfoHtml(c.p) : '') + '</div>' +
+      '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
+        (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p><a href="/open-house">מה זה היריד? ←</a></div>' : '') +
+        (c.p ? propInfoHtml(c.p) : '') + '</div>' +
       (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
     st = null;
@@ -1870,7 +2089,7 @@
       var msg = (($('swLMsg') || {}).value || '').trim();
       // מקור הליד ב-CRM: ‏swipe (‏KNOWN_SOURCES ב-lead-routing.ts). השורה האחרונה בהודעה אומרת לסוכן/ת מאיפה הגיע
       var src = c.source === 'photo_request' ? 'photo_request' : 'swipe';
-      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE, source: src })
+      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE + (fairLive(c.p) ? ' · ביריד הבתים הפתוחים' : ''), source: src })
         .then(function () { shukTrack('generate_lead', { form_id: src === 'photo_request' ? 'photo_request' : 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
     } else if (c.sponsor.kind === 'pro') {
       // משכנתאות - לצינור הקיים (‏mortgage-lead-intake), כמו הטופס בדף הבית
@@ -1973,6 +2192,125 @@
       if (likes.indexOf(id) < 0) { likes.splice(Math.min(at, likes.length), 0, id); saveLikes(); syncActions(); }
     });
   }
+  /* ---------- ההרשמה ליריד (§4.3) ו"חושבים למכור?" (§5) - שתיהן בגיליון התחתון ---------- */
+  function openFairSignup(via) {
+    if (!window.FairSignup) { location.href = '/open-house#fairSignup'; return; }
+    shukTrack('fair_signup_open', { via: via });
+    bsOpen('fair_signup');
+  }
+  var SELLER_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
+  var SELLER_CONSENT = 'מאשרים שיועץ נדל״ן מטעם שוק הנדל״ן יחזור אליי בטלפון, בוואטסאפ או ב-SMS בעניין הנכס.';
+  var SELLER_TYPES = ['דירה', 'בית פרטי / קוטג׳', 'דירת גן', 'פנטהאוז', 'מגרש', 'מסחרי'];
+  var SELLER_WHEN = ['מיידי', 'בחצי שנה הקרובה', 'רק בודקים'];
+  var sellerSent = false;
+  function openSeller() { sellerSent = false; bsOpen('seller'); }
+  function sellerHtml() {
+    var places = (market && market.places) || [mainCity];
+    var city = filter.area.indexOf('city:') === 0 ? filter.area.slice(5) : mainCity;
+    var ch = function (q, v, on) { return '<button type="button" class="sw-chip" data-sq="' + q + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(v) + '</button>'; };
+    var rent = filter.deal === 'rent';
+    return '<div class="sw-seller-sheet"><p class="sw-seller-gab"><img src="/assets/gabriela-avatar.webp" alt="" width="48" height="48" onerror="this.style.visibility=\'hidden\'">' +
+      '<span>גבריאלה: כמה פרטים קצרים, ואעביר אותם ליועץ נדל״ן אחד מהאזור.</span></p>' +
+      '<form class="sw-sform" id="swSellerForm" novalidate>' +
+      '<fieldset><legend>מה תרצו לעשות?</legend><div class="sw-chips">' + ch('deal', 'למכור', !rent) + ch('deal', 'להשכיר', rent) + '</div></fieldset>' +
+      '<fieldset><legend>סוג הנכס</legend><div class="sw-chips">' + SELLER_TYPES.map(function (t, i) { return ch('type', t, i === 0); }).join('') + '</div></fieldset>' +
+      '<fieldset><legend>איפה הנכס?</legend><div class="sw-sel2"><label class="sw-field"><span>יישוב</span><select id="swSCity">' +
+        places.map(function (c) { return '<option' + (c === city ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="sw-field"><span>שכונה (לא חובה)</span><select id="swSHood"><option value="">בלי שכונה</option></select></label></div><p class="sw-ferr" data-serr="city" role="alert"></p></fieldset>' +
+      '<fieldset id="swSRooms"><legend>חדרים</legend><div class="sw-chips">' + ['2', '3', '4', '5', '6+'].map(function (r) { return ch('rooms', r, false); }).join('') + '</div></fieldset>' +
+      '<fieldset><legend>מתי?</legend><div class="sw-chips">' + SELLER_WHEN.map(function (w) { return ch('timing', w, false); }).join('') + '</div></fieldset>' +
+      '<label class="sw-field"><span>שם מלא</span><input id="swSName" autocomplete="name" required></label><p class="sw-ferr" data-serr="name" role="alert"></p>' +
+      '<label class="sw-field"><span>טלפון</span><input id="swSPhone" type="tel" inputmode="tel" autocomplete="tel" required></label><p class="sw-ferr" data-serr="phone" role="alert"></p>' +
+      '<p class="sw-consent"><input type="checkbox" id="swSConsent"><label for="swSConsent">' + esc(SELLER_CONSENT) + '</label></p><p class="sw-ferr" data-serr="consent" role="alert"></p>' +
+      '<p class="sw-snote">הפרטים עוברים ליועץ נדל״ן אחד מהאזור, ולא מתפרסמים באתר.</p>' +
+      '<p class="sw-ferr" data-serr="send" role="alert"></p>' +
+      '<div class="sw-sbar"><button type="submit" class="sw-gold sw-wide" id="swSGo">שליחה ליועץ נדל״ן</button></div></form>' +
+      '<div class="sw-sdone" hidden role="status"><p>תודה! יועץ נדל״ן מהאזור יחזור אליכם בהקדם.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
+  }
+  function bindSeller() {
+    var box = $('swBsBody'), form = $('swSellerForm'), stepped = {};
+    $('swBs').classList.add('is-tall', 'is-form');
+    var hoods = function () {
+      var sel = $('swSHood'), city = $('swSCity').value;
+      sel.innerHTML = '<option value="">בלי שכונה</option>';
+      if (!sb) return;
+      sb.from('neighborhoods').select('id, name').eq('city', city).order('name').limit(200).then(function (r) {
+        if ($('swSCity').value !== city) return;
+        sel.innerHTML = '<option value="">בלי שכונה</option>' + ((r && r.data) || []).map(function (n_) { return '<option value="' + esc(n_.id) + '">' + esc(n_.name) + '</option>'; }).join('');
+      }, function () {});
+    };
+    var syncRooms = function () {
+      var t = box.querySelector('[data-sq="type"][aria-pressed="true"]');
+      $('swSRooms').hidden = !!(t && (t.dataset.v === 'מגרש' || t.dataset.v === 'מסחרי'));
+    };
+    var step = function (q) { if (!stepped[q]) { stepped[q] = 1; shukTrack('seller_sheet_step', { q: q }); } };
+    hoods();
+    $('swSCity').addEventListener('change', function () { step('area'); hoods(); });
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sq]');
+      if (b) {
+        step(b.dataset.sq);
+        b.parentNode.querySelectorAll('[data-sq]').forEach(function (x) { if (x !== b) x.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', b.dataset.sq === 'deal' || b.dataset.sq === 'type' ? 'true' : String(b.getAttribute('aria-pressed') !== 'true'));
+        if (b.dataset.sq === 'type') syncRooms();
+        return;
+      }
+      if (e.target.closest('[data-sback]')) bsClose();
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var err = function (k, m) { box.querySelector('[data-serr="' + k + '"]').textContent = m || ''; };
+      ['city', 'name', 'phone', 'consent', 'send'].forEach(function (k) { err(k, ''); });
+      var city = $('swSCity').value, name = $('swSName').value.trim(), phone = $('swSPhone').value.replace(/\D/g, '');
+      if (phone.indexOf('972') === 0) phone = '0' + phone.slice(3);
+      var first = null;
+      if (!city) { err('city', 'נא לבחור יישוב'); first = first || $('swSCity'); }
+      if (name.length < 2) { err('name', 'נא להזין שם מלא'); first = first || $('swSName'); }
+      if (!/^0?5\d{8}$/.test(phone)) { err('phone', 'נא להזין מספר טלפון תקין'); first = first || $('swSPhone'); }
+      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיחזרו אליכם'); first = first || $('swSConsent'); }
+      if (first) { first.focus(); return; }
+      var pick = function (q) { var x = box.querySelector('[data-sq="' + q + '"][aria-pressed="true"]'); return x ? x.dataset.v : ''; };
+      var type = pick('type') || 'דירה', when = pick('timing'), rooms = $('swSRooms').hidden ? '' : pick('rooms');
+      var body = { city: city, neighborhood_id: $('swSHood').value || null, property_type: type === 'מסחרי' ? 'מסחרי' : 'דירה', property_subtype: type,
+        deal_type: pick('deal') === 'להשכיר' ? 'rent' : 'sale', rooms: rooms || null, name: name, phone: phone,
+        note: (when ? 'תזמון: ' + when + ' · ' : '') + 'מקור: גלישה בהחלקה (חושבים למכור)',
+        consent_contact: true, consent_text: SELLER_CONSENT, consent_version: 'seller-v1', source: 'swipe_seller' };
+      var btn = $('swSGo'); btn.disabled = true;
+      post(SELLER_URL, body).then(function () {
+        sellerSent = true;
+        store('sk_seller_sent', String(Date.now()));
+        shukTrack('generate_lead', { form_id: 'swipe_seller' });
+        form.hidden = true; box.querySelector('.sw-sdone').hidden = false;
+        box.querySelector('[data-sback]').focus();
+      }, function () { err('send', 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב'); }).then(function () { btn.disabled = false; });
+    });
+  }
+  /* ---------- גיליון הכתבה (§6.3) - באותה מעטפת של גיליון הנכס ---------- */
+  function openArticle(c, via) {
+    var a = c.article;
+    shukTrack('article_card_open', { article_id: String(a.id), via: via });
+    if (!$('swTour').hidden) endTour(false);
+    sheetCard = c; sheetOpener = document.activeElement; st = null;
+    var out = [], n_ = 0;
+    String(a.body || '').split('\n').map(function (t) { return t.trim(); }).filter(Boolean).some(function (t) {
+      if (/:$/.test(t)) { out.push('<h3 class="sw-art-h">' + esc(t) + '</h3>'); return false; }
+      out.push('<p>' + esc(t) + '</p>');
+      return ++n_ >= 5;
+    });
+    $('swSheetBody').innerHTML = '<div class="sw-artsheet"><p class="sw-art-head" id="swSheetTitle">' + esc('מגזין שוק נדל״ן · ' + catLabel(a.category)) + '</p>' +
+      '<div class="sw-art-cover">' + artCover(a, 'sw-art-cimg') + '</div>' +
+      '<h2 class="sw-art-stitle">' + esc(a.title) + '</h2>' + (a.subtitle ? '<p class="sw-art-ssub">' + esc(a.subtitle) + '</p>' : '') +
+      '<p class="sw-art-meta">' + esc(readTime(a)) + '</p><div class="sw-art-body">' + out.join('') + '</div>' +
+      '<p class="sw-art-more"><a href="/article?slug=' + encodeURIComponent(a.slug || a.id) + '" data-art-full>להמשך הכתבה ←</a></p>' +
+      '<button type="button" class="sw-navy sw-wide" data-art-back>חזרה להחלקה</button></div>';
+    $('swCtaBar').hidden = true;
+    openDialog($('swSheet'));
+    try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
+  }
+  $('swSheetBody').addEventListener('click', function (e) {
+    if (e.target.closest('[data-art-back]')) { closeSheet(); return; }
+    if (e.target.closest('[data-art-full]') && sheetCard && sheetCard.article) shukTrack('article_sheet_full_click', { article_id: String(sheetCard.article.id) });
+  });
   var BS = {
     sort: { art: '', title: 'מיון', sub: '', body: function () {
       return '<div class="sw-chips sw-sort-chips" role="radiogroup" aria-label="מיון">' + SORTS.map(function (x) {
@@ -1992,6 +2330,14 @@
       btns: [['start', 'sw-navy', 'התחלת החלקה'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
     help: { art: '', title: 'איך מחליקים', sub: '', body: helpBody,
       btns: [['tour', 'sw-navy', 'הצגת ההדרכה מחדש'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
+    fair_signup: { art: '', title: 'דירה חדשה נכנסה ליריד? תדעו ראשונים.', sub: '', btns: [],
+      body: function () {
+        return window.FairSignup ? FairSignup.html({ where: 'swipe', places: (market && market.places) || [mainCity], deal: filter.deal === 'rent' ? 'rent' : 'sale',
+          city: filter.area.indexOf('city:') === 0 ? filter.area.slice(5) : mainCity, noTitle: true }) : '';
+      },
+      onOpen: function () { $('swBs').classList.add('is-tall', 'is-form'); FairSignup.bind($('swBsBody'), { where: 'swipe', onBack: function () { bsClose(); } }); } },
+    seller: { art: '', title: 'ספרו לנו על הנכס', sub: '', btns: [], body: sellerHtml, onOpen: bindSeller,
+      onClose: function () { shukTrack('seller_sheet_close', { sent: sellerSent ? 1 : 0 }); } },
     viz: { art: VIZ_ART, title: 'ככה זה יכול להיראות', sub: 'גררו את הידית שבאמצע כדי להשוות בין הצילום האמיתי להדמיית AI של הנכס.',
       btns: [['viz_ok', 'sw-navy', 'הבנתי, בואו נשווה'], ['studio', 'sw-white', '✨ צרו הדמיה בסגנון אחר']] }
   };
@@ -2011,13 +2357,14 @@
     var sub_ = (ctx && ctx.sub) || d.sub || '';
     $('swBsSub').textContent = sub_;
     $('swBsSub').hidden = !sub_;
-    $('swBsBody').innerHTML = d.body ? d.body() : '';
+    $('swBsBody').innerHTML = d.body ? d.body(ctx) : '';
     $('swBsBtns').innerHTML = d.btns.map(function (b) {
       return '<button type="button" class="' + b[1] + ' sw-bs-btn" data-bs-cta="' + b[0] + '">' + esc(b[2]) + '</button>';
     }).join('');
     wrap.hidden = false;
     document.body.classList.add('sw-locked');
     openStack.push(wrap);
+    if (d.onOpen) d.onOpen(ctx);
     $('swBs').style.transform = '';
     var first = $('swBsBtns').querySelector('button');
     setTimeout(function () { if (first) first.focus({ preventScroll: true }); }, 40);
@@ -2036,6 +2383,7 @@
     openStack = openStack.filter(function (x) { return x !== wrap; });
     if (!openStack.length) document.body.classList.remove('sw-locked');
     if (how) shukTrack('swipe_nudge_dismiss', { kind: kind, how: how });
+    if (BS[kind] && BS[kind].onClose) BS[kind].onClose(how);
     setTimeout(reelSync, 0);
     if (kind === 'viz') setTimeout(baIntro, 0);   // "הבנתי, בואו נשווה" (או סגירה) - ואז הידית זזה
     var back = bsOpener && document.contains(bsOpener) && bsOpener.offsetParent !== null ? bsOpener : (document.querySelector('#swTopCard .sw-card'));
@@ -2255,9 +2603,9 @@
     var props = deck.filter(function (c) { return c.slot === 'property' && c.p.lat && c.p.lng; });
     props.forEach(function (c) {
       var m = L.marker([+c.p.lat, +c.p.lng], { icon: L.divIcon({ className: '', iconSize: null,
-        html: '<span class="sw-pin">' + esc(shortPrice(c.p)) + '</span>' }), keyboard: true }).addTo(markers);
+        html: '<span class="sw-pin' + (fairLive(c.p) ? ' is-nofee' : '') + '">' + esc(shortPrice(c.p)) + '</span>' }), keyboard: true }).addTo(markers);
       var el = m.getElement();
-      if (el) el.setAttribute('aria-label', title(c.p) + ', ' + fmtPrice(c.p));
+      if (el) el.setAttribute('aria-label', (fairLive(c.p) ? NO_FEE + ', ' : '') + title(c.p) + ', ' + fmtPrice(c.p));
       m.on('click', function () { openSheetFor(c); });
     });
     /* ‏C10: המפה מתמקדת בתוצאות המסוננות. נקודה מחוץ לישראל, או רחוקה יותר
@@ -2291,7 +2639,7 @@
       }
       return '<button type="button" class="sw-li" data-pos="' + c.pos + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
+        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
