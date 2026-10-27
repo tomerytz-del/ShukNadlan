@@ -16,15 +16,21 @@ import {
   parseImageDeleteButton,
   confirmWritesNow,
   parsePublishButton,
+  listingStatusForCreate,
   pendingStoreMissing,
+  PUBLISH_DUPLICATE_ELSEWHERE,
+  PUBLISH_EXCLUSIVE_ELSEWHERE,
   PUBLISH_FAILED,
+  PUBLISH_STORE_MISSING,
   PUBLISH_YES,
   PUBLISH_NO,
+  publishAskFirst,
   publishClickDecision,
   publishConfirmButtons,
   publishDecisionText,
   publishErrorText,
   publishStoreBlocked,
+  publishWritesNow,
   REISSUE_EXPIRED,
   reissueOldAgreementPlan,
   REISSUE_OLD_CANCELLED,
@@ -236,8 +242,24 @@ check("טקסט של לחיצה שנייה הוא מה שנשמר", publishDecis
 )) === "הנכס פורסם.");
 check("23514 חוסם פרסום", publishStoreBlocked({ code: "23514" }) && publishStoreBlocked({ code: "42P01" }));
 check("מפתח כפול אינו מחסור בטבלה", publishStoreBlocked({ code: "23505" }) === false);
-const exclusive = "הנכס נמצא בבלעדיות של דנה ממשרד אחר, ולכן אי אפשר לפרסם אותו.";
-check("שגיאת בלעדיות בעברית עוברת", publishErrorText(exclusive) === exclusive);
+check("טבלה חסרה אומרת לפרסם באתר", PUBLISH_STORE_MISSING.includes("אזור האישי") && pendingStoreMissing({ code: "42P01" }));
+check("confirm עם כפתורים לא מפרסם", publishWritesNow(true, true) === false);
+check("בלי כפתורים confirm מפרסם", publishWritesNow(false, true) === true);
+check("בלי כפתורים ובלי confirm לא מפרסם", publishWritesNow(false, false) === false);
+check("ברירת מחדל שואלת לפני פרסום", publishAskFirst(undefined) && publishAskFirst(1) && publishAskFirst(null, true));
+check("0 מחזיר פרסום מיידי", publishAskFirst(0) === false && publishAskFirst("0") === false);
+check("יצירה שואלת נשמרת unpublished", listingStatusForCreate(true) === "unpublished");
+check("יצירה בלי שאלה נשמרת active", listingStatusForCreate(false) === "active");
+const exclusive = "הנכס נמצא בבלעדיות של יוסי לוי ממשרד רימקס עפולה, ולכן אי אפשר לפרסם אותו.";
+const exclusiveSafe = publishErrorText(exclusive);
+check("בלעדיות בלי שם של משרד אחר", exclusiveSafe === PUBLISH_EXCLUSIVE_ELSEWHERE && !exclusiveSafe.includes("יוסי") && !exclusiveSafe.includes("רימקס"));
+const otherOffice = "הנכס כבר מפורסם במערכת על ידי דנה כהן ממשרד אחר. אפשר לפרסם אותו רק על סמך הסכם בלעדיות חתום.";
+const otherSafe = publishErrorText(otherOffice);
+check("מודעה של משרד אחר בלי שם", otherSafe === PUBLISH_DUPLICATE_ELSEWHERE && !otherSafe.includes("דנה"));
+const sameOffice = "הנכס כבר מפורסם במשרד שלכם על ידי רונית (מודעה #12). אין צורך במודעה שנייה.";
+const sameSafe = publishErrorText(sameOffice);
+check("אותו משרד בלי שם עמית/ה", sameSafe.includes("מודעה #12") && !sameSafe.includes("רונית"));
+check("עברית לא מוכרת לא עוברת", publishErrorText("שלום דנה מהמשרד השני") === PUBLISH_FAILED);
 check("שגיאה באנגלית לא עוברת", publishErrorText("duplicate key value violates unique constraint") === PUBLISH_FAILED);
 const longDash = String.fromCharCode(0x2014);
 check("מקף ארוך בשגיאה מוחלף", !publishErrorText(`הנכס ${longDash} באוויר`).includes(longDash));

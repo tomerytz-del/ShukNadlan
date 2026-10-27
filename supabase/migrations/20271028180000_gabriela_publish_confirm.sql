@@ -1,6 +1,13 @@
 -- פרסום לאוויר מוואטסאפ נשמר כבקשה, כמו הנפקה. ה-check של
 -- 20271028160000 מתיר רק reissue. בלי ההרחבה הזו insert של publish
 -- נכשל ב-23514, והקוד מסרב לפרסם במקום לעלות לאוויר בלי אישור.
+--
+-- סדר פריסה: 20271028160000 ואז הקובץ הזה, ורק אחריהם הפונקציה.
+-- אם whatsapp-webhook עולה קודם, הטבלה או ה-check חסרים. הקוד לא
+-- מפרסם ולא נופל: הוא אומר לפרסם מאזור האישי.
+--
+-- gabriela_ask_before_publish = 1 שומר נכס חדש כ-unpublished ושואל.
+-- 0 מחזיר את הפרסום המיידי. חסר נשאר "לשאול".
 
 alter table public.whatsapp_pending_actions
   drop constraint if exists whatsapp_pending_actions_action_chk;
@@ -11,3 +18,8 @@ alter table public.whatsapp_pending_actions
 
 comment on table public.whatsapp_pending_actions is
   'בקשת אישור מוואטסאפ שטרם בוצעה. reissue או publish. רק service_role. הכפתור נושא את id.';
+
+insert into public.pricing_config (key, value, description) values
+  ('gabriela_ask_before_publish', 1,
+   '1: גבריאלה שומרת נכס חדש כ-unpublished ושואלת לפני פרסום. 0: מפרסמת מיד, כמו קודם.')
+on conflict (key) do nothing;

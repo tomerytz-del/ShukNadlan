@@ -73,16 +73,20 @@ import {
   parseImageDeleteButton,
   confirmWritesNow,
   parsePublishButton,
+  listingStatusForCreate,
   pendingStoreMissing,
   PUBLISH_ALREADY,
   PUBLISH_BUSY,
   PUBLISH_FAILED,
   PUBLISH_STORE_MISSING,
+  publishAskFirst,
   publishClickDecision,
   publishConfirmButtons,
   publishDecisionText,
   publishErrorText,
   publishStoreBlocked,
+  publishWritesNow,
+  redactPublishError,
   REISSUE_BUTTON_TTL_MS,
   reissueOldAgreementPlan,
   REISSUE_BUSY,
@@ -448,8 +452,9 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_property",
     description:
-      "יוצר נכס חדש בשם הסוכן/ת ומפרסם אותו במצב active. תמונות שהגיעו בשיחה " +
-      "וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
+      "יוצר נכס חדש בשם הסוכן/ת ולא מפרסם אותו. הנכס נשמר unpublished, " +
+      "ובוואטסאפ יוצאים כפתורי פרסום. הוא לא באתר עד לאישור. " +
+      "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
       "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
@@ -510,9 +515,9 @@ const TOOLS: Anthropic.Tool[] = [
     name: "set_property_status",
     description:
       "משנה את סטטוס הנכס. archived = הסרה מהאתר (זו הדרך למחוק נכס - אין מחיקה " +
-      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר. active = פרסום לאוויר, " +
-      "ובוואטסאפ יוצאים כפתורי אישור והנכס לא עולה לפניהם. confirm=true רק בנתיב " +
-      "בלי כפתורים (מייל), אחרי אישור מפורש.",
+      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר. active = פרסום לאוויר. " +
+      "בוואטסאפ יוצאים כפתורי אישור והנכס לא עולה לפניהם, גם אם נשלח confirm. " +
+      "confirm=true מתפרסם רק בנתיב בלי כפתורים (מייל), אחרי אישור מפורש.",
     input_schema: {
       type: "object",
       properties: {
@@ -521,7 +526,7 @@ const TOOLS: Anthropic.Tool[] = [
         confirm: {
           type: "boolean",
           description:
-            "true רק כשאין כפתורים (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם. בוואטסאפ האישור הוא הכפתור.",
+            "מתעלמים ממנו כשיש כפתורים. true רק בנתיב בלי כפתורים (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם.",
         },
       },
       required: ["property_id", "status"],
@@ -2171,7 +2176,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   payload.city = statedCity || await listingCityWhenOmitted(ctx);
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
-  payload.status = "active";
+  // ברירת המחדל: טיוטה. האתר, החיפוש, ה-sitemap, השיתוף והתראות ההתאמה
+  // רצים רק על status=active, ולכן unpublished לא נראה ולא מצלצל.
+  const askFirst = await gabrielaAsksBeforePublish(ctx);
+  payload.status = listingStatusForCreate(askFirst);
   if (!payload.title) payload.title = autoTitle(payload);
   // address נגזר משני השדות בדיוק כמו בטופס בדשבורד
   const street = payload.street as string | undefined;
@@ -2249,16 +2257,20 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   if (error) {
     await returnPendingImages(ctx, images);
-    return { ok: false, error: error.message };
+    const safe = redactPublishError(error.message);
+    if (safe) console.error("create property blocked", error.code, error.message);
+    return { ok: false, error: safe || error.message };
   }
 
   ctx.conv.last_property_id = data.id;
   if (!holdImages) ctx.conv.pending_images = [];
 
-  return {
+  const created = {
     ok: true,
     property_id: data.id,
     title: data.title,
+    status: payload.status,
+    published: payload.status === "active",
     images_attached: images.length,
     ...(heldCount
       ? {
@@ -2275,9 +2287,39 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
       : {}),
     ...(hoodWarning || {}),
-    link: propertyLink(data.id),
+    ...(payload.status === "active" ? { link: propertyLink(data.id) } : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
+  if (!askFirst) return created;
+  const gate = await askPublishConfirm(ctx, data.id, String(data.title || ""));
+  return {
+    ...created,
+    published: false,
+    on_public_site: false,
+    matching_alerts: false,
+    needs_confirmation: true,
+    ...(gate.publish_from_site
+      ? { publish_from_site: true, error: gate.error, guidance: gate.guidance }
+      : gate.ok
+        ? { guidance: gate.guidance }
+        : { error: gate.error, guidance: gate.guidance || gate.error }),
+  };
+}
+
+/** 0 ב-gabriela_ask_before_publish מחזיר פרסום מיידי. חסר או כשל: שואלים. */
+async function gabrielaAsksBeforePublish(ctx: ToolContext): Promise<boolean> {
+  try {
+    const { data, error } = await ctx.supabase.from("pricing_config")
+      .select("value").eq("key", "gabriela_ask_before_publish").maybeSingle();
+    if (error) {
+      console.error("publish confirm flag failed", error.code);
+      return publishAskFirst(null, true);
+    }
+    return publishAskFirst(data?.value);
+  } catch (err) {
+    console.error("publish confirm flag failed", err);
+    return publishAskFirst(null, true);
+  }
 }
 
 /**
@@ -2405,7 +2447,8 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
 
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
-  if (status === "active" && input.confirm !== true) {
+  // confirm לא עוקף כפתור. רק מסלול בלי outbox (מייל) כותב ישר אחרי confirm.
+  if (status === "active" && !publishWritesNow(!!ctx.outbox, input.confirm)) {
     return askPublishConfirm(ctx, propertyId, String(existing.title || ""));
   }
 
@@ -2415,7 +2458,10 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id);
 
-  if (error) return { ok: false, error: publishErrorText(error.message) };
+  if (error) {
+    console.error("set status failed", error.code, error.message);
+    return { ok: false, error: publishErrorText(error.message) };
+  }
 
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, title: existing.title, status };
@@ -2432,6 +2478,7 @@ async function askPublishConfirm(
       ok: false,
       needs_confirmation: true,
       error: "פרסום לאוויר דורש אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+      guidance: "הנכס לא פורסם. אין כפתורים במסלול הזה. אחרי אישור מפורש קראי ל-set_property_status עם active ו-confirm=true.",
     };
   }
   const live = await ctx.supabase.from("properties")
@@ -2443,22 +2490,35 @@ async function askPublishConfirm(
     return { ok: true, already_active: true, note: PUBLISH_ALREADY, title };
   }
   const id = newPendingActionId();
-  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
-    id,
-    agent_id: ctx.agent.id,
-    action: "publish",
-    subject_id: propertyId,
-    payload: { status: "active" },
-    expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
-  });
+  let error: { code?: string; message?: string } | null = null;
+  try {
+    const saved = await ctx.supabase.from("whatsapp_pending_actions").insert({
+      id,
+      agent_id: ctx.agent.id,
+      action: "publish",
+      subject_id: propertyId,
+      payload: { status: "active" },
+      expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
+    });
+    error = saved.error;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("pending publish save threw", message);
+    error = { message };
+  }
   if (error) {
-    console.error("pending publish save failed", error.code);
-    return {
-      ok: false,
-      error: publishStoreBlocked(error)
-        ? PUBLISH_STORE_MISSING
-        : PUBLISH_FAILED,
-    };
+    console.error("pending publish save failed", error.code, error.message);
+    if (publishStoreBlocked(error) || pendingStoreMissing(error)) {
+      return {
+        ok: false,
+        publish_from_site: true,
+        error: PUBLISH_STORE_MISSING,
+        guidance: "הנכס לא פורסם. אמרי שאפשר לפרסם אותו מאזור האישי. אל תאמרי שהוא באוויר.",
+        ...crmButton(ctx, crmPropertyLink(propertyId), "🏠 לפרסום באתר",
+          "אפשר לפרסם את הנכס מאזור האישי:", "publish_link"),
+      };
+    }
+    return { ok: false, error: PUBLISH_FAILED };
   }
   const buttons = publishConfirmButtons(id);
   if (!buttons) return { ok: false, error: PUBLISH_FAILED };
@@ -6698,7 +6758,7 @@ async function runPendingPublish(
     .eq("id", propertyId)
     .eq("agent_id", agent.id);
   if (error) {
-    console.error("pending publish failed", error.code);
+    console.error("pending publish failed", error.code, error.message);
     await releasePublishClaim(supabase, agent.id, requestId);
     return { text: publishErrorText(error.message) };
   }
@@ -8017,15 +8077,17 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
-    "- פרסום (set_property_status עם active) בלי confirm שולח כפתורי אישור והנכס לא עולה לפניהם. " +
-      "אל תאמרי שפורסם עד אחרי הכפתור. sold, rented ו-archived לא מחכים לכפתור. " +
-      "confirm=true רק כשאין כפתורים (מייל) ואחרי אישור מפורש.",
+    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאים כפתורי פרסום. " +
+      "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
+      "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר.",
+    "- פרסום (set_property_status עם active) שולח כפתורי אישור והנכס לא עולה לפניהם, " +
+      "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הכפתור. sold, rented ו-archived לא מחכים לכפתור. " +
+      "confirm=true מתפרסם רק כשאין כפתורים (מייל) ואחרי אישור מפורש.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
       "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +
-      "ואז set_property_status עם active. למודעה נוספת: create_property שוב עם force_new.",
-    "- אחרי שנוצר נכס חדש - קרא/י ל-property_matches עליו. אם יש לקוח/ה מתאים/ה בקובץ, " +
-      "זו השורה החשובה בתשובה: \"מתאים ל<שם> (92%), 052-…\".",
+      "ואז set_property_status עם active (הכפתור יוצא מעצמו). למודעה נוספת: create_property שוב עם force_new.",
+    "- property_matches רק אחרי שהנכס פורסם. לפני כן אין התראות התאמה, ואין לומר שנשלחו.",
     "",
     "קישור לנכס ושליחה:",
     "- \"תשלח לי את הקישור לנכס\" / \"תכין הודעה על הדירה\" = property_link. אם חזר " +
