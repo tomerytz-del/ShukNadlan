@@ -21,7 +21,7 @@
 אחד. ‏`agency_members` כבר פרטית (השורה עצמה ומנהל/ת המשרד), ודפי הסוכנים
 קוראים מ-views עם רשימת עמודות סגורה. השדות אינם מוצגים באתר.
 
-המיגרציה: `supabase/migrations/20270831090000_social_tagging.sql`.
+המיגרציה: `supabase/migrations/20270904090000_social_tagging.sql`.
 
 ## כללים שהמסד אוכף
 
