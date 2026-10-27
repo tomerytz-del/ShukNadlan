@@ -62,7 +62,7 @@
 ההשמה. `phone = ''` מחשב את העמודה מחדש ל-null. ב-`project_leads`
 העמודה רגילה, וההשמה ל-`null` נשארת.
 
-`leads.phone_e164` (מיגרציה `20271028150000`) היא מאותו סוג: נגזרת מ-
+`leads.phone_e164` (מיגרציה `20271028240000`) היא מאותו סוג: נגזרת מ-
 `raw_phone`. מדיניות `leads_pii` כבר כותבת רק `raw_name`, `raw_phone`,
 `raw_message` ו-`property_details`. איפוס `raw_phone` מחשב את
 `phone_e164` מחדש ל-null, ואין להוסיף אותה ל-`SET`. שאר הכותבים ל-
