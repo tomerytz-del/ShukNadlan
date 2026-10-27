@@ -53,6 +53,10 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-under .sw-card{box-shadow:none}
 .sw-card{position:absolute;inset:0;overflow:hidden;border-radius:20px;background:linear-gradient(160deg,#1d3a7e,#0d1b3d);color:#fff;
   box-shadow:0 10px 26px rgba(13,27,61,.22);touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:transform .22s ease,opacity .22s ease;outline-offset:3px}
+/* הכרטיס העליון לוקח את כל המחוות בעצמו: עם pan-y הדפדפן בטלפון תפס גרירה למעלה כגלילה
+   וביטל אותה (pointercancel), ולכן "החלקה למעלה לפרטים" לא עבדה במגע. כרטיס הסוף והשאלה
+   נשארים עם גלילה, כי יש בהם טופס */
+.sw-top-card .sw-card:not(.sw-end):not(.sw-engage){touch-action:none}
 .sw-top-card .fly-like .sw-card,.sw-top-card.fly-like .sw-card{transform:translateX(130%) rotate(16deg);opacity:0}
 .sw-top-card.fly-skip .sw-card{transform:translateX(-130%) rotate(-16deg);opacity:0}
 .sw-cimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
