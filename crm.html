@@ -12572,6 +12572,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
      crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
 <script defer src="assets/cma-render.js"></script>
+<!-- crmNeed: טוען Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap
+     רק כשצריך. defer ולפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
+<script defer src="assets/crm-lazy.js"></script>
 <script defer src="assets/crm.js"></script>
 </body>
 </html>

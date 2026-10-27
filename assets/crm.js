@@ -856,6 +856,28 @@ function armTrackers(delay){
   setTimeout(run, delay);
 }
 
+/* מסך הכניסה נמדד בלי לחסום את הציור: כשהדפדפן פנוי, או במגע הראשון,
+   ולא יאוחר משלוש שניות. gtm.js עצמו נכנס רק אחרי שני פריימים
+   (shukArmTrackers), אז ההזרקה לא מתחרה בציור הראשון. */
+let loginTrackersArmed = false;
+function armLoginTrackers(){
+  if (loginTrackersArmed) return;
+  loginTrackersArmed = true;
+  let fired = false;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    window.removeEventListener('pointerdown', fire);
+    window.removeEventListener('keydown', fire);
+    armTrackers();
+  };
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1));
+  idle(fire, { timeout: 3000 });
+  window.addEventListener('pointerdown', fire, { passive: true });
+  window.addEventListener('keydown', fire);
+  setTimeout(fire, 3000);
+}
+
 function showLoginCard(message){
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
@@ -887,7 +909,7 @@ function showLoginCard(message){
   resetGoogleButton();
   showScreen('login');
   // ביקור שנשאר על מסך הכניסה עדיין נמדד, אחרי שהטופס כבר על המסך
-  armTrackers(12000);
+  armLoginTrackers();
 }
 
 function showBootCard(message){
@@ -8111,6 +8133,14 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שם מלא ומספר רישיון הם שדות חובה.';
     return;
   }
+  if (window.crmNeed && !window.IlId){
+    try { await crmNeed('ilid'); } catch (e) {}
+  }
+  if (!window.IlId){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף.';
+    return;
+  }
   if (!IlId.check(document.getElementById('pfIdNumber'))){
     feedback.style.color = 'var(--wine)';
     feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
@@ -11053,7 +11083,11 @@ async function loadBranding(agencyId){
    ובדף הציבורי. */
 function renderSpecialtyPicker(){
   const grid = document.getElementById('brSpecGrid');
-  if (!grid || !window.Specialties || !brandingState) return;
+  if (!grid || !brandingState) return;
+  if (!window.Specialties){
+    if (window.crmNeed) crmNeed('specialties').then(() => renderSpecialtyPicker());
+    return;
+  }
   const chosen = brandingState.specialties;
   const full = chosen.length >= Specialties.MAX_SELECTED;
 
@@ -11078,6 +11112,7 @@ function renderSpecialtyPicker(){
 }
 
 function toggleSpecialty(id){
+  if (!window.Specialties || !brandingState) return;
   const chosen = brandingState.specialties;
   const at = chosen.indexOf(id);
   if (at >= 0) chosen.splice(at, 1);
@@ -11092,7 +11127,11 @@ function toggleSpecialty(id){
    ההזדמנות להחליף אותה בבחירה מודעת. */
 async function loadSpecialtySuggestion(agencyId){
   const box = document.getElementById('brSpecSuggest');
-  if (!box || !window.Specialties) return;
+  if (!box) return;
+  if (window.crmNeed && !window.Specialties){
+    try { await crmNeed('specialties'); } catch (e) {}
+  }
+  if (!window.Specialties || !brandingState) return;
   const { data: props } = await sb.from('properties')
     .select('property_type, deal_type, category')
     .eq('agency_id', agencyId).eq('status', 'active').limit(200);
@@ -11109,7 +11148,9 @@ async function loadSpecialtySuggestion(agencyId){
   add.type = 'button';
   add.textContent = 'להוסיף לתחומים שלי';
   add.addEventListener('click', ()=>{
+    if (!window.Specialties || !brandingState) return;
     suggested.forEach(id=>{
+      if (!window.Specialties || !brandingState) return;
       if (!brandingState.specialties.includes(id) && brandingState.specialties.length < Specialties.MAX_SELECTED){
         brandingState.specialties.push(id);
       }
@@ -11482,6 +11523,14 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
   if (social && social.error){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = social.error;
+    return;
+  }
+  if (window.crmNeed && !window.Specialties){
+    try { await crmNeed('specialties'); } catch (e) {}
+  }
+  if (!window.Specialties){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'לא הצלחנו לטעון את תחומי ההתמחות - נסו לרענן את הדף.';
     return;
   }
   btn.disabled = true; btn.textContent = 'שומר…';
@@ -12329,12 +12378,23 @@ function openHouseModalSync(){
   note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
   document.getElementById('ohModalEnd').min = start || openHouseToday();
   if (err){ note.textContent = err; return false; }
+  if (!window.OpenHouse){
+    if (window.crmNeed) crmNeed('property').then(() => openHouseModalSync());
+    return false;
+  }
   const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
   note.textContent = `${plural(openHouseDays(start, end), 'יום אחד', 'ימים')} ביריד - ללא עמלת תיווך לקונה מ-${fmt(start)} ועד ${fmt(end)} (כולל).`;
   return true;
 }
 
-function openOpenHouseModal(p, agentId){
+async function openOpenHouseModal(p, agentId){
+  if (!window.OpenHouse && window.crmNeed){
+    try { await crmNeed('property'); } catch (e) {}
+  }
+  if (!window.OpenHouse){
+    showToast('לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
+    return;
+  }
   const overlay  = document.getElementById('ohModal');
   const startEl  = document.getElementById('ohModalStart');
   const endEl    = document.getElementById('ohModalEnd');
@@ -13052,7 +13112,11 @@ function cleanupReplacedVideo(finalUrl){
    כאן רק חוסכת קריאות GovMap למי שהשמירה שלו/ה ממילא תידחה.
    ========================================================================== */
 async function fetchGovmapPlanning(propertyId, q, statusEl){
-  if (!window.GovmapLookup || !propertyId) return;
+  if (!propertyId) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   if (!currentAgent || (currentAgent.tier !== 'mid' && currentAgent.tier !== 'premium')){
     statusEl.textContent = 'מידע תכנוני לא נקלט - זמין ב-PROFESSIONAL וב-Elite';
     return;
@@ -13122,7 +13186,7 @@ const GOVMAP_AUTO_EVERY_MS = 12 * 3600 * 1000;
 let govmapAutoRunning = false;
 
 function scheduleGovmapAutoComplete(agent){
-  if (!agent || (agent.tier !== 'mid' && agent.tier !== 'premium') || !window.GovmapLookup) return;
+  if (!agent || (agent.tier !== 'mid' && agent.tier !== 'premium')) return;
   const key = 'govmapAutoAt:' + agent.id;
   try{ if (Date.now() - Number(localStorage.getItem(key) || 0) < GOVMAP_AUTO_EVERY_MS) return; } catch(e){}
   setTimeout(() => runGovmapAutoComplete(key), 20000);
@@ -13130,6 +13194,10 @@ function scheduleGovmapAutoComplete(agent){
 
 async function runGovmapAutoComplete(key){
   if (govmapAutoRunning) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   govmapAutoRunning = true;
   try{
     const { data: rows, error } = await sb.rpc('govmap_my_candidates', { p_limit: GOVMAP_AUTO_LIMIT });
@@ -14194,7 +14262,13 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     } catch(err){
       console.warn('גיאוקוד אוטומטי נכשל, הנכס יישמר בלי מיקום על המפה:', err);
     }
-  } else if (!resolvedLat && !resolvedLng && street && houseNumber && city && window.GovmapLookup){
+  }
+  if (!resolvedLat && !resolvedLng && window.crmNeed && !window.GovmapLookup
+      && ((street && houseNumber && city && city !== 'עפולה') || (gush && helka))){
+    try { await crmNeed('govmap'); }
+    catch (err) { console.warn('GovMap לא נטען, הנכס יישמר בלי מיקום על המפה:', err); }
+  }
+  if (!resolvedLat && !resolvedLng && street && houseNumber && city && city !== 'עפולה' && window.GovmapLookup){
     /* כל עיר שאינה עפולה: GovMap, מהדפדפן (הטוקן נעול לדומיין). ‏
        addressLatLng מאמתת רחוב, מספר ויישוב בעצמה - בלי זה "חורש 8" קיבל
        פין ברחוב כורש (docs/govmap.md). ‏null = לא נמצא, ואז בלי פין, כמו
@@ -14548,6 +14622,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       Object.assign({}, propertyPlanningInfo[newPropertyId] || {}, { gush, helka });
   }
 
+  if (shouldFetchPlanning && window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); }
+    catch (err) { console.warn('GovMap לא נטען, המידע התכנוני יישמר בסבב ההשלמה:', err); }
+  }
   if (shouldFetchPlanning && city !== STREET_PLANNING_CITY){
     await fetchGovmapPlanning(newPropertyId, { street, houseNumber, city, gush, helka }, planningStatus);
   } else if (shouldFetchPlanning){
@@ -15005,7 +15083,18 @@ function updateFilterFoot(countId, clearId, shown, total, active){
   if (clearEl) clearEl.hidden = !active;
 }
 
+let propertyLibsRedrawArmed = false;
+function armPropertyLibsRedraw(){
+  if (window.OpenHouse || propertyLibsRedrawArmed || !window.crmNeed) return;
+  propertyLibsRedrawArmed = true;
+  crmNeed('property').then(() => {
+    propertyLibsRedrawArmed = false;
+    if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
+  });
+}
+
 function renderProperties(){
+  armPropertyLibsRedraw();
   const listEl = document.getElementById('propertiesList');
   const toolbar = document.getElementById('propToolbar');
   if (!listEl) return;
@@ -15362,7 +15451,7 @@ function buildPropertyTab(p, agentId){
     `<span>#${esc(String(p.listing_number ?? '-'))}</span>`,
     prStatusPill(p),
     propertyIsPromoted(p) ? '<span>🌟 מקודם</span>' : '',
-    OpenHouse.live(p) ? '<span>🏷 ביריד</span>' : '',
+    (window.OpenHouse && OpenHouse.live(p)) ? '<span>🏷 ביריד</span>' : '',
     p.referred_by ? '<span>🤝 הפנייה</span>' : '',
   ].filter(Boolean).join('');
 
@@ -15700,8 +15789,8 @@ function buildPropertyCard(p, agentId){
        התווית אומרת שלושה דברים שונים לפי מצב הנכס - מחוץ ליריד, בתוכו,
        או מחכה לתאריך - כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין
        כאן מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
-    const ohLive = OpenHouse.live(p);
-    const ohSoon = OpenHouse.upcoming(p);
+    const ohLive = window.OpenHouse && OpenHouse.live(p);
+    const ohSoon = window.OpenHouse && OpenHouse.upcoming(p);
     addQuickAction(actions, {
       label: ohLive ? `ביריד · ${OpenHouse.endLabel(p)}`
            : ohSoon ? `ביריד מ-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
@@ -26310,6 +26399,7 @@ function prefetchSectionLibs(accId){
   if (accId === 'accProperties' || accId === 'accPlanning') crmNeed('property');
   if (accId === 'accPlanning'){ crmNeed('map'); crmNeed('govmap'); }
   if (accId === 'accAgreements') crmNeed('agreements');
+  if (accId === 'accProfile') crmNeed('ilid');
   if (accId === 'accProfile' || accId === 'accBranding') crmNeed('specialties');
 }
 
@@ -32242,6 +32332,10 @@ async function loadAgreements(){
 function agrFillKindFilter(){
   const sel = document.getElementById('agrKindFilter');
   if (!sel || sel.dataset.filled) return;
+  if (!window.AgreementTemplates){
+    if (window.crmNeed) crmNeed('agreements').then(() => agrFillKindFilter());
+    return;
+  }
   sel.innerHTML = '<option value="">כל סוגי ההסכם</option>' +
     window.AgreementTemplates.keys()
       .map(k => `<option value="${esc(k)}">${esc(agrTpl(k).docTitle)}</option>`).join('');
@@ -32581,7 +32675,11 @@ function askAgentIdNumber(){
       const v = input.value.trim();
       const fb = wrap.querySelector('#idAskFb');
       if (!v){ fb.textContent = 'יש להזין מספר זהות או ח.פ.'; input.focus(); return; }
-      if (window.IlId && !IlId.check(input)) return;   // חיווי + "המספר נכון - לאשר בכל זאת"
+      if (window.crmNeed && !window.IlId){
+        try { await crmNeed('ilid'); } catch (e) {}
+      }
+      if (!window.IlId){ fb.textContent = 'לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף.'; return; }
+      if (!IlId.check(input)) return;   // חיווי + "המספר נכון - לאשר בכל זאת"
       const btn = e.currentTarget;
       btn.disabled = true;
       // ‏currentAgent מתעדכן גם כשהשמירה נכשלת: ההסכם נבנה ממנו, וכשל בפרופיל
@@ -32659,6 +32757,7 @@ async function openAgreementSigning(agreementId){
 const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
 
 function agrOfficeBrand(verifyCode){
+  if (!window.AgreementDoc) return {};
   const agency = window.currentAgency || {};
   const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
   return window.AgreementDoc.brandFrom({
@@ -32690,6 +32789,10 @@ function agrKindIcon(kind){
 
 function agrRender(){
   if (!agrWizard) return;
+  if (!window.AgreementTemplates || !window.AgreementDoc || !window.IlId){
+    if (window.crmNeed) crmNeed('agreements').then(() => { if (agrWizard) agrRender(); });
+    return;
+  }
   agrPaintBrand();
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
@@ -32712,6 +32815,7 @@ function agrRender(){
 /* ---------- שלב 1: סוג ההסכם ---------- */
 
 function agrRenderStepKind(){
+  if (!window.AgreementTemplates) return;
   const html = window.AgreementTemplates.menu.map(group => {
     const items = group.keys.map(k => {
       const t = agrTpl(k);
@@ -32734,6 +32838,7 @@ function agrRenderStepKind(){
 }
 
 function agrSetKind(kind, opts){
+  if (!window.AgreementTemplates) return;
   const tpl = agrTpl(kind);
   if (!tpl) return;
   agrWizard.kind = kind;
@@ -32758,6 +32863,7 @@ function agrSetKind(kind, opts){
 /* ---------- שלב 2: פרטי ההסכם ---------- */
 
 function agrRenderStepDetails(){
+  if (!window.AgreementTemplates) return;
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
@@ -33127,6 +33233,10 @@ function agrRenderPropChips(){
    לסוכן/ת שהנכס שלו/ה. זה לא כשל — הסוכן/ת ימלא/תמלא את מה שחסר, וזה
    ממילא מידע שהוא/היא צריך/ה לאמת מול הבעלים לפני שהוא נכנס להסכם. */
 async function agrAddProperty(propertyId, opts){
+  if (window.crmNeed && !window.AgreementTemplates){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates) return;
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
   const cand = agrCandidateById(propertyId);
@@ -33951,6 +34061,7 @@ function agrValidate(){
 /* ‏kind - טופס אחר מזה שנבחר, עם אותם נתונים: טופס ההסכמה לפעולות שיווק
    שנחתם לפני בלעדיות (marketingConsent בתבנית). */
 function agrBuildDoc(kind){
+  if (!window.AgreementTemplates) return null;
   const w = agrWizard;
   const tpl = agrTpl(kind || w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
@@ -34010,6 +34121,13 @@ function agrQuickFillField(f){
 /* ‏מילוי מהיר: כותב את מה שהוזן חזרה לאשף, מנציח את מה ששייך למסד,
    ומצייר את השלב מחדש. מה שנשאר חסר יוצג שוב — עם מה שכבר הוקלד. */
 async function agrQuickFill(btn){
+  if (window.crmNeed && !window.IlId){
+    try { await crmNeed('ilid'); } catch (e) {}
+  }
+  if (!window.IlId){
+    showToast('לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף');
+    return;
+  }
   const w = agrWizard;
   let agentIdNumber = null;
 
@@ -34066,6 +34184,10 @@ async function agrQuickFill(btn){
 }
 
 function agrRenderStepPreview(){
+  if (!window.IlId || !window.AgreementDoc || !window.AgreementTemplates){
+    if (window.crmNeed) crmNeed('agreements').then(() => { if (agrWizard && agrWizard.step === 3) agrRender(); });
+    return;
+  }
   const missing = agrValidate();
   const body = agrEl('agrBody');
 
@@ -34141,6 +34263,12 @@ function agrRenderStepPreview(){
 /* הסכם אחד במסד: השורה, גוף המסמך (אחרי ה-insert, כי verify_code נוצר
    במסד ומודפס בתחתיתו) והחותמים. ‏existingId - טיוטה שנשמרת מחדש. */
 async function agrPersistAgreement(kind, existingId, extra){
+  if (window.crmNeed && (!window.AgreementTemplates || !window.AgreementDoc)){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates || !window.AgreementDoc){
+    throw new Error('לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+  }
   const w = agrWizard;
   const tpl = agrTpl(kind);
   const doc = agrBuildDoc(kind);
@@ -34223,6 +34351,13 @@ async function agrPersistAgreement(kind, existingId, extra){
 }
 
 async function agrSaveAndGoSign(btn){
+  if (window.crmNeed && !window.AgreementTemplates){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates){
+    showToast('לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+    return;
+  }
   const w = agrWizard;
   const original = btn.textContent;
   btn.disabled = true;
@@ -34289,6 +34424,7 @@ async function agrRefreshWizardRecord(){
 /* ---------- שלב 4: חתימה ---------- */
 
 function agrRenderStepSign(){
+  if (!window.AgreementDoc) return;
   const w = agrWizard;
   const rec = w.record;
   if (!rec){
@@ -34415,7 +34551,7 @@ function agrRenderStepSign(){
   w.pads = {};
   rec.signers.filter(s => !s.signed_at).forEach(s => {
     const canvas = agrEl('agrBody').querySelector(`[data-agr-canvas="${s.id}"]`);
-    if (!canvas) return;
+    if (!canvas || !window.AgreementDoc) return;
     w.pads[s.id] = window.AgreementDoc.signaturePad(canvas, {
       onChange: drawn => {
         const hint = agrEl('agrBody').querySelector(`[data-agr-hint="${s.id}"]`);
@@ -34500,6 +34636,13 @@ function agrWhatsappSign(signerId){
 }
 
 async function agrDownloadPdf(btn){
+  if (window.crmNeed && !window.AgreementDoc){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementDoc){
+    showToast('לא הצלחנו לטעון את ההסכם - נסו לרענן את הדף');
+    return;
+  }
   const rec = agrWizard.record;
   const host = document.createElement('div');
   // ‏left ולא inset-inline-start: בדף RTL הלוגי מתמפה ל-right, וההסתרה
@@ -35049,7 +35192,11 @@ function govmapSetBusy(on){
 }
 
 async function runGovmapBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35117,7 +35264,11 @@ async function runGovmapBackfill(){
 }
 
 async function runGovmapParity(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35190,7 +35341,11 @@ async function runGovmapParity(){
    והשמירה מעדכנת את כולן. כתובת קודם; אחריה מרכז החלקה, רק לחלקה של עד
    250 מ' - חלקת פרויקט או משק היא שכונה שלמה, ופין אחד לכולה אינו מיקום. */
 async function runGovmapDeals(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35262,7 +35417,11 @@ async function runGovmapDeals(){
    תכונות של כל לולאת השלמה (SKILL.md סעיף 7): כל תשובה, גם [], נרשמת
    ומוציאה את הנכס מהתור; סבב שכולו כשלים עוצר. */
 async function runGovmapPlansBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35322,11 +35481,19 @@ const GOVMAP_ADDR_ROUNDS = 8;
 
 async function govmapAddressRecord(r){
   // משותפת לדף הבדיקה (‏/plan, ‏assets/plan.js) - ב-assets/govmap.js
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) throw new Error('GovMap לא נטען');
   return GovmapLookup.addressRecord(r);
 }
 
 async function runGovmapAddressBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35775,7 +35942,11 @@ async function dealsLookupCoords(city, street, houseNumber){
   if (!street || !houseNumber) return null;
   if (city !== DEALS_GEOCODE_CITY){
     // כל עיר אחרת: GovMap מהדפדפן, עם אימות רחוב, מספר ויישוב (docs/govmap.md)
-    if (!window.GovmapLookup || !city) return null;
+    if (!city) return null;
+    if (window.crmNeed && !window.GovmapLookup){
+      try { await crmNeed('govmap'); } catch (e) {}
+    }
+    if (!window.GovmapLookup) return null;
     try{
       const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
       return hit ? { lat: hit.lat, lng: hit.lng } : null;

@@ -19,6 +19,11 @@
       ['assets/agreement-doc.js', ''],
       ['assets/il-id.js', ''],
     ],
+    /* ת.ז. לבד: שמירת פרופיל לא צריכה את תבניות ההסכם. loadOne מזהה
+       את אותו src אם קבוצת ההסכמים כבר טענה אותו. */
+    ilid: [
+      ['assets/il-id.js', ''],
+    ],
     specialties: [
       ['assets/specialties.js', ''],
     ],

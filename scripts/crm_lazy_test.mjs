@@ -12,9 +12,10 @@ import test from 'node:test';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'crm.html'), 'utf8');
 const lazy = readFileSync(join(root, 'assets', 'crm-lazy.js'), 'utf8');
+const crm = readFileSync(join(root, 'assets', 'crm.js'), 'utf8');
 
 test('אין סקריפט src שחוסם את הציור', () => {
-  const tags = html.match(/<script\b[^>]*>/g) || [];
+  const tags = htmlWithoutComments(html).match(/<script\b[^>]*>/g) || [];
   const src = tags.filter(t => /\ssrc=/.test(t));
   const blocking = src.filter(t => !/\sdefer\b/.test(t) && !/\sasync\b/.test(t));
   assert.equal(blocking.length, 0, blocking.join('\n'));
@@ -30,13 +31,34 @@ test('המכולה נדחית אבל נשארת, וה-noscript במקום', () =
   assert.match(body, /^[\s\n]*<!-- Google Tag Manager \(noscript\) -->/);
 });
 
+function htmlWithoutComments(s){
+  return s.replace(/<!--[\s\S]*?-->/g, '');
+}
+
+function scriptTags(s){
+  return s.match(/<script\b[^>]*>/g) || [];
+}
+
 test('סקריפטי מסך לא יושבים ב-head', () => {
   for (const src of ['leaflet.js', 'map-tiles.js', 'govmap.js', 'agreement-doc.js', 'open-house.js']) {
     assert.equal(html.includes(src), false, src);
     assert.match(lazy, new RegExp(src.replace('.', '\\.')));
   }
   assert.match(html, /auth-return\.js/);
-  assert.match(html, /crm-lazy\.js/);
+});
+
+test('crm-lazy.js הוא תגית script אמיתית, לא הערה', () => {
+  const commented = '<!-- <script defer src="assets/crm-lazy.js"></script> -->';
+  assert.equal(scriptTags(htmlWithoutComments(commented)).some(t => /crm-lazy\.js/.test(t)), false);
+  const live = htmlWithoutComments(html);
+  const tags = scriptTags(live);
+  const tag = tags.find(t => /src=["']assets\/crm-lazy\.js["']/.test(t));
+  assert.ok(tag, 'אין <script src="assets/crm-lazy.js">');
+  assert.match(tag, /\sdefer\b/);
+  const lazyAt = live.indexOf(tag);
+  const crmAt = live.indexOf('src="assets/crm.js"');
+  assert.ok(lazyAt > 0 && crmAt > lazyAt, 'crm-lazy.js חייב לבוא לפני crm.js');
+  assert.match(lazy, /ilid:\s*\[/);
 });
 
 test('auth-return נשאר לפני supabase, שניהם defer', () => {
@@ -45,4 +67,138 @@ test('auth-return נשאר לפני supabase, שניהם defer', () => {
   assert.ok(a > 0 && s > a);
   const slice = html.slice(a - 40, s + 20);
   assert.match(slice, /defer/);
+});
+
+test('מסך הכניסה נמדד תוך 3 שניות, בלי לחסום ציור', () => {
+  assert.equal(/armTrackers\(\s*12000\s*\)/.test(crm), false);
+  const start = crm.indexOf('function armLoginTrackers');
+  assert.ok(start > 0);
+  const body = crm.slice(start, start + 900);
+  assert.match(body, /requestIdleCallback/);
+  assert.match(body, /timeout:\s*3000/);
+  assert.match(body, /setTimeout\(fire,\s*3000\)/);
+  assert.match(body, /pointerdown/);
+  assert.match(body, /keydown/);
+  assert.match(body, /armTrackers\(\)/);
+  assert.match(crm, /armLoginTrackers\(\)/);
+});
+
+/* גלובל עצלן: Name.method (כולל window.Name.method) חייב, באותה פונקציה
+   ולפני השימוש, שמירה (window.Name בלי נקודה אחריה) או crmNeed(. */
+const LAZY_GLOBALS = ['OpenHouse', 'ApproxLocation', 'IlId', 'Specialties', 'GovmapLookup',
+  'AgreementTemplates', 'AgreementDoc', 'MapTiles', 'MapGestures', 'L'];
+
+function maskCode(src){
+  const out = src.split('');
+  const blank = (a, b) => { for (let k = a; k < b; k++) if (out[k] !== '\n') out[k] = ' '; };
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    const c2 = src[i + 1];
+    if (c === '/' && c2 === '/') {
+      const s = i; i += 2;
+      while (i < n && src[i] !== '\n') i++;
+      blank(s, i); continue;
+    }
+    if (c === '/' && c2 === '*') {
+      const s = i; i += 2;
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i = Math.min(n, i + 2); blank(s, i); continue;
+    }
+    if (c === '"' || c === "'") {
+      const q = c, s = i; i++;
+      while (i < n) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === '\n' || src[i] === q) { i++; break; }
+        i++;
+      }
+      blank(s, i); continue;
+    }
+    if (c === '`') {
+      const s = i; i++;
+      while (i < n) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === '`') { i++; break; }
+        if (src[i] === '$' && src[i + 1] === '{') {
+          blank(s, i);
+          i += 2;
+          let depth = 1;
+          while (i < n && depth) {
+            if (src[i] === '{') depth++;
+            else if (src[i] === '}') depth--;
+            if (depth) i++;
+          }
+          if (src[i] === '}') i++;
+          continue;
+        }
+        i++;
+      }
+      blank(s, i); continue;
+    }
+    i++;
+  }
+  return out.join('');
+}
+
+function functionRanges(code){
+  const ranges = [];
+  const stack = [];
+  let i = 0;
+  const isId = ch => /[A-Za-z0-9_$]/.test(ch || '');
+  while (i < code.length) {
+    if (code.startsWith('function', i) && !isId(code[i - 1]) && !isId(code[i + 8])) {
+      let j = i + 8, par = 0, seen = false;
+      while (j < code.length) {
+        if (code[j] === '(') { par++; seen = true; }
+        else if (code[j] === ')') par--;
+        else if (code[j] === '{' && par === 0 && seen) break;
+        else if (code[j] === ';' && par === 0) break;
+        j++;
+      }
+      if (code[j] === '{') { stack.push({ kind: 'func', start: i, body: j }); i = j + 1; continue; }
+    }
+    if (code[i] === '=' && code[i + 1] === '>') {
+      let j = i + 2;
+      while (code[j] === ' ' || code[j] === '\n') j++;
+      if (code[j] === '{') { stack.push({ kind: 'func', start: i, body: j }); i = j + 1; continue; }
+    }
+    if (code[i] === '{') { stack.push({ kind: 'block', start: i, body: i }); i++; continue; }
+    if (code[i] === '}') {
+      const top = stack.pop();
+      if (top && top.kind === 'func') ranges.push({ start: top.start, body: top.body, end: i });
+      i++; continue;
+    }
+    i++;
+  }
+  return ranges;
+}
+
+function unguardedLazyUses(src){
+  const code = maskCode(src);
+  const ranges = functionRanges(code);
+  const lineOf = idx => src.slice(0, idx).split('\n').length;
+  const fails = [];
+  for (const name of LAZY_GLOBALS) {
+    const re = new RegExp('\\b' + name + '\\.', 'g');
+    let m;
+    while ((m = re.exec(code))) {
+      const at = m.index;
+      let best = null;
+      for (const r of ranges) {
+        if (at >= r.body && at <= r.end && (!best || (r.end - r.start) < (best.end - best.start))) best = r;
+      }
+      const before = code.slice(best ? best.body : 0, at);
+      const guard = new RegExp('window\\.' + name + '(?![.\\w])');
+      if (!guard.test(before) && !/crmNeed\s*\(/.test(before)) {
+        fails.push(lineOf(at) + ' ' + name + ' ' + src.slice(at, at + 48).replace(/\s+/g, ' '));
+      }
+    }
+  }
+  return fails;
+}
+
+test('כל שימוש בגלובל עצלן שמור או אחרי crmNeed באותה פונקציה', () => {
+  const fails = unguardedLazyUses(crm);
+  assert.deepEqual(fails, []);
 });
