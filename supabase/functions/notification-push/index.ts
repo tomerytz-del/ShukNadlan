@@ -7,6 +7,7 @@ import {
 } from "./lead-alert.ts";
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
+import { LESS_TITLE, parseLessButton, withTopicHeaders } from "./notif-digest.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -404,11 +405,27 @@ function templateSummary(items: Item[]): string {
     .slice(0, 900);
 }
 
+async function loadDigestFlags(sb: ReturnType<typeof createClient>): Promise<{ less: boolean; topics: boolean }> {
+  const off = { less: false, topics: false };
+  try {
+    const { data, error } = await sb.from("pricing_config")
+      .select("key, value")
+      .in("key", ["notif_digest_enabled", "notif_topic_group"]);
+    if (error || !data) return off;
+    const on = (key: string) => data.some((row) => row.key === key && Number(row.value) === 1);
+    const digest = on("notif_digest_enabled");
+    return { less: digest, topics: digest && on("notif_topic_group") };
+  } catch {
+    return off;
+  }
+}
+
 async function sendWhatsapp(
   to: string,
   name: string | null,
   items: Item[],
   mode: string,
+  lessType: string | null,
 ): Promise<string | null> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
 
@@ -448,11 +465,15 @@ async function sendWhatsapp(
         ],
       },
     };
-  } else if (mode !== "template" && showingCloseNotifyButton(items)) {
-    const scn = showingCloseNotifyButton(items)!;
-    // כפתור תשובה. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
-    // לא נשלחת הודעה למי שקיבל את בקשת התיאום עד שהסוכן/ת לוחץ/ת.
+  } else if (mode !== "template" && (showingCloseNotifyButton(items) || lessType)) {
+    const scn = showingCloseNotifyButton(items);
+    // כפתור תשובה אחד. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
+    // ביטול סיור קודם ל"פחות כאלה": שם הסוכן/ת צריך/ה להחליט אם לעדכן
+    // את מי שכבר קיבל בקשה, ולא נשלח דבר ללקוח/ה עד הלחיצה.
     const body = clipWhatsappBody(textBody(name, items, false), 1024);
+    const button = scn
+      ? { type: "reply", reply: { id: scn.id, title: scn.title } }
+      : { type: "reply", reply: { id: `nless:${lessType}`, title: LESS_TITLE } };
     payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -461,9 +482,7 @@ async function sendWhatsapp(
       interactive: {
         type: "button",
         body: { text: body },
-        action: {
-          buttons: [{ type: "reply", reply: { id: scn.id, title: scn.title } }],
-        },
+        action: { buttons: [button] },
       },
     };
   } else {
@@ -557,19 +576,24 @@ Deno.serve(async (req: Request) => {
 
   // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
   const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
+  const digest = await loadDigestFlags(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
-    const items = withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
+    let items = withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
     )));
+    if (digest.topics) items = withTopicHeaders(items);
+    const lessType = digest.less && items.length > 0 && new Set(items.map((it) => it.type)).size === 1
+      ? parseLessButton(`nless:${items[0].type}`)
+      : null;
     let status = "failed";
     let lastError: string | null = null;
     let waId: string | null = null;
 
     try {
-      waId = await sendWhatsapp(row.phone_e164, row.display_name, items, row.channel_mode);
+      waId = await sendWhatsapp(row.phone_e164, row.display_name, items, row.channel_mode, lessType);
       status = "sent";
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);

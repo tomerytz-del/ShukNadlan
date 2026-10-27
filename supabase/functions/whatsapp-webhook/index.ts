@@ -32,6 +32,7 @@ import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } fr
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { alertPlatformAdmins, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
+import { parseLessButton, topicLabel } from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
@@ -1520,6 +1521,24 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
+      const lessType = parseLessButton(String(msg.interactive?.button_reply?.id || ""));
+      if (lessType) {
+        const { error: lessErr } = await supabase.from("agent_notif_less").upsert(
+          { agent_id: agent.id, notif_type: lessType },
+          { onConflict: "agent_id,notif_type" },
+        );
+        if (lessErr) {
+          console.error("notif less save failed", lessErr.message);
+          await reply(from, "לא הצלחתי לשמור את זה. אפשר לנסות שוב אחרי עדכון המערכת.", agent.id);
+        } else {
+          await reply(
+            from,
+            `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. אפשר להחזיר את זה בהגדרות ההתראות.`,
+            agent.id,
+          );
+        }
+        return;
+      }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)
       if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || ""))) {
         return;
