@@ -616,16 +616,20 @@
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
   }
 
+  var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
   function decide(dir) {
     var c = cur();
-    if (!c || c.slot === 'end') return;
+    if (deciding || !c || c.slot === 'end') return;
     var top = $('swTopCard');
-    if (dir === 'like' && c.p && likes.indexOf(c.p.id) < 0) { likes.push(c.p.id); saveLikes(); }
+    var added = false;
+    if (dir === 'like' && c.p && likes.indexOf(c.p.id) < 0) { likes.push(c.p.id); saveLikes(); added = true; }
     // שני שמות מפורשים ולא ביטוי: כך check_gtm_container.py מוצא את שניהם
     if (dir === 'like') shukTrack('swipe_like', { slot: c.slot, position: c.pos });
     else shukTrack('swipe_skip', { slot: c.slot, position: c.pos });
-    history_.push({ i: idx, liked: dir === 'like' && c.p ? c.p.id : null });
-    var go = function () { idx = Math.min(idx + 1, deck.length - 1); renderDeck(); tourAdvance(); };
+    // ‏liked רק כשהלייק נוסף עכשיו - ביטול לא מוחק לייק ותיק
+    history_.push({ i: idx, liked: added ? c.p.id : null });
+    deciding = true;
+    var go = function () { deciding = false; idx = Math.min(idx + 1, deck.length - 1); renderDeck(); tourAdvance(); };
     if (top && !reduceMotion) {
       top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip');
       setTimeout(go, 220);
@@ -723,7 +727,7 @@
     else if (e.key === 'ArrowLeft') { e.preventDefault(); decide('skip'); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); if (c && c.slot !== 'end' && c.slot !== 'engage') openSheetFor(c); }
     else if (e.key === 'z' || e.key === 'Z' || e.key === 'ז') { undo(); }
-    else if (e.key === ' ' && c && c.slot === 'property') { e.preventDefault(); nextPhoto($('swTopCard'), 1); }
+    else if (e.key === ' ' && c && c.slot === 'property' && !(e.target.closest && e.target.closest('button,a,[role=button],[role=tab]'))) { e.preventDefault(); nextPhoto($('swTopCard'), 1); }
   });
 
   /* ---------- 4. גיליון הפרטים ---------- */
@@ -808,13 +812,17 @@
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
     if (c.p && c.p.lat && c.p.lng) setTimeout(function () { miniMap(c.p); }, 60);
   }
+  var ownBack = false;   // ‏history.back() שלנו - ה-popstate שלו לא סוגר גיליון שנפתח בינתיים
   function closeSheet(fromPop) {
     if ($('swSheet').hidden) return;
     closeDialog($('swSheet'), sheetOpener);
-    if (sheetPushed && !fromPop) { sheetPushed = false; history.back(); }
+    if (sheetPushed && !fromPop) { sheetPushed = false; ownBack = true; history.back(); }
     sheetPushed = false;
   }
-  window.addEventListener('popstate', function () { if (!$('swSheet').hidden) { sheetPushed = false; closeSheet(true); } });
+  window.addEventListener('popstate', function () {
+    if (ownBack) { ownBack = false; return; }
+    if (!$('swSheet').hidden) { sheetPushed = false; closeSheet(true); }
+  });
 
   function toggleForm(open) {
     formOpen = open === undefined ? !formOpen : open;
@@ -875,7 +883,22 @@
   }
   function post(url, body) {
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || d.error) throw new Error(d.error || 'error'); return d; }); });
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok || d.error) { var er = new Error(d.error || 'error'); er.code = d.error; er.limit = d.limit; throw er; }
+        return d;
+      }); });
+  }
+  /* קוד שגיאה מהשרת → הודעה בעברית (אותן הודעות של home.js). בלי קוד - בעיית חיבור */
+  function errText(e, fallback) {
+    var code = e && e.code;
+    var m = {
+      too_many_searches: 'הגעתם למקסימום החיפושים השמורים (' + ((e && e.limit) || 5) + '). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.',
+      no_criteria: 'הוסיפו לפחות תנאי אחד - אזור, סוג נכס, חדרים או תקציב',
+      invalid_phone: 'נא להזין מספר טלפון תקין',
+      invalid_email: 'נא להזין כתובת אימייל תקינה',
+      invalid_name: 'נא להזין שם מלא'
+    };
+    return (code && m[code]) || fallback;
   }
   function submitLead() {
     var c = sheetCard, btn = $('swCta');
@@ -907,8 +930,8 @@
       sent = true;
       $('leadForm').hidden = true; $('swLDone').hidden = false;
       $('swCtaBar').hidden = true;
-    }, function () {
-      $('swLErr').textContent = 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.';
+    }, function (e) {
+      $('swLErr').textContent = errText(e, 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.');
       btn.disabled = false; syncCta();
     }).then(function () { btn.disabled = false; });
   }
@@ -934,7 +957,7 @@
       shukTrack('generate_lead', { form_id: 'swipe_end_alert' });
       form.hidden = true;
       form.parentNode.querySelector('.sw-done').hidden = false;
-    }, function () { err.textContent = 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.'; btn.disabled = false; });
+    }, function (e) { err.textContent = errText(e, 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.'); btn.disabled = false; });
   }
   function shareLikes() {
     var urls = likes.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); });
