@@ -74,8 +74,14 @@ CREATE_RE = re.compile(
 # ‏grant/revoke על טבלה אחת או רשימה. ‏`on function`, ‏`on sequence`, ‏`on all
 # tables in schema` ו-`on schema` אינם נתפסים, כי אחרי `on [table]` חייב לבוא
 # שם מלא ב-public.
+# מגרסה זו ואילך, revoke מ-public אינו מספיק: pg_default_acl ב-public
+# נותן ל-authenticated את arwdDxtm ישירות. grant חלקי אחרי זה משאיר
+# INSERT, UPDATE, TRUNCATE, REFERENCES ו-TRIGGER. חובה revoke all
+# שמונה את authenticated בשם.
+ACL_REVOKE_FROM = '20271027160000'
+
 STMT_RE = re.compile(
-    r'\b(?:grant|revoke)\s[^;]*?\bon\s+(?:table\s+)?'
+    r'\b(grant|revoke)\s+(all\b|[^;]*?)\s+on\s+(?:table\s+)?'
     r'(' + NAME + r'(?:\s*,\s*' + NAME + r')*)\s+(?:to|from)\s+([^;]+);',
     re.I | re.S)
 
@@ -106,6 +112,8 @@ def main(root: str = '.') -> int:
     created = {}
     # אובייקט → קבוצת התפקידים שיש עליהם החלטה.
     decided = {}
+    # אובייקט שיש עליו revoke all שמונה את authenticated.
+    revoked_all_authenticated = set()
 
     for path in files:
         version = os.path.basename(path).split('_', 1)[0]
@@ -120,9 +128,14 @@ def main(root: str = '.') -> int:
                 created[name] = (version, path, line_of(sql, m.start()))
 
         for m in STMT_RE.finditer(sql):
-            rs = roles_of(m.group(2))
-            for name in re.split(r'\s*,\s*', m.group(1).strip().lower()):
+            verb = m.group(1).lower()
+            privilege = m.group(2).lower()
+            rs = roles_of(m.group(4))
+            for name in re.split(r'\s*,\s*', m.group(3).strip().lower()):
                 decided.setdefault(name, set()).update(rs & set(ROLES))
+                if (verb == 'revoke' and privilege.startswith('all')
+                        and 'authenticated' in rs):
+                    revoked_all_authenticated.add(name)
 
         for blk in DO_BLOCK_RE.finditer(sql):
             body = blk.group(2)
@@ -137,22 +150,29 @@ def main(root: str = '.') -> int:
     fresh = {n: v for n, v in created.items() if v[0] > CUTOFF}
 
     bad = 0
-    for name, (_, path, ln) in sorted(fresh.items(), key=lambda kv: kv[1]):
+    for name, (version, path, ln) in sorted(fresh.items(), key=lambda kv: kv[1]):
+        rel = os.path.relpath(path, root)
         missing = [r for r in ROLES
                    if r not in decided.get(name, set()) and (name, r) not in ALLOW]
-        if not missing:
-            continue
-        bad += 1
-        rel = os.path.relpath(path, root)
-        print(f'✗ {rel}:{ln} - {name}  [{", ".join(missing)}]')
-        print(f'    אין grant או revoke שמונים את {" ו-".join(missing)}.')
-        print('    מ-30.10.2026 Supabase אינה מעניקה הרשאות לטבלה חדשה ב-public,')
-        print('    ובלי grant מפורש ה-Data API מחזיר עליה permission denied -')
-        print('    גם ל-CRM וגם לפונקציות ה-Edge (‏service_role עוקף RLS, לא grant).')
-        print('    התיקון, באותה מיגרציה, לפי מי שבאמת ניגש:')
-        print(f'        grant select, insert, update, delete on table {name} to authenticated, service_role;')
-        print(f'        revoke all on table {name} from anon;')
-        print('    ‏`revoke` הוא החלטה תקפה: "לתפקיד הזה אין גישה".')
+        if missing:
+            bad += 1
+            print(f'✗ {rel}:{ln} - {name}  [{", ".join(missing)}]')
+            print(f'    אין grant או revoke שמונים את {" ו-".join(missing)}.')
+            print('    מ-30.10.2026 Supabase אינה מעניקה הרשאות לטבלה חדשה ב-public,')
+            print('    ובלי grant מפורש ה-Data API מחזיר עליה permission denied -')
+            print('    גם ל-CRM וגם לפונקציות ה-Edge (‏service_role עוקף RLS, לא grant).')
+            print('    התיקון, באותה מיגרציה, לפי מי שבאמת ניגש:')
+            print(f'        grant select, insert, update, delete on table {name} to authenticated, service_role;')
+            print(f'        revoke all on table {name} from anon;')
+            print('    ‏`revoke` הוא החלטה תקפה: "לתפקיד הזה אין גישה".')
+        if version >= ACL_REVOKE_FROM and name not in revoked_all_authenticated:
+            bad += 1
+            print(f'✗ {rel}:{ln} - {name}')
+            print('    אין revoke all שמונה את authenticated.')
+            print('    pg_default_acl ב-public נותן ל-authenticated את arwdDxtm,')
+            print('    ו-revoke מ-public אינו מוריד הרשאה ישירה. grant חלקי משאיר')
+            print('    INSERT, UPDATE, TRUNCATE, REFERENCES ו-TRIGGER.')
+            print(f'        revoke all on table {name} from public, anon, authenticated;')
 
     stale = sorted(k for k in ALLOW if k[0] not in fresh)
     for name, role in stale:
