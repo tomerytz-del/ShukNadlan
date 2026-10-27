@@ -449,6 +449,12 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 שתיים ביומן בהפרש 43ms). מי שמגדיר/ה את claim מחדש - מעתיק/ה את הנעילה, ו-cron
 חדש שקורא ל-`notification-push` אינו צריך תיאום משלו.
 
+`notifications.action_path` הוא נתיב יחסי (`/...`) שגובר על המיפוי לפי סוג,
+גם בפעמון וגם בוואטסאפ. `leads_digest` נפתח לרשימת הלידים. מחוץ לחלון 24
+השעות, `WHATSAPP_NOTIFY_ACTION_TEMPLATE` (כשמוגדר) שם את הנתיב על כפתור
+`לפתיחה` ומוריד כתובות מהגוף. בלי הסוד נשארת התבנית המאושרת.
+`docs/whatsapp-deep-links.md`.
+
 לחיצה על כפתור היעד נמדדת ב-`deeplink_timings` (`docs/whatsapp-deep-links.md`).
 `notification_push_log.click_tokens` שומר את `wc` כשההודעה יצאה, כדי לחבר את
 `sent_at` ללחיצה.

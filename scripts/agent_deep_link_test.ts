@@ -21,6 +21,8 @@ import {
   screenBundle,
   stripHttpUrls,
   containsHttpUrl,
+  actionTemplateMessage,
+  replyButtonsMessage,
   utilitySuffix,
   utilityTemplateMessage,
   utf16Length,
@@ -39,6 +41,12 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 
 check("ליד נפתח על הליד", notificationPath({ type: "new_lead", lead_id: ID }) === `/crm?goto=accLeads&lead=${ID}`);
+check("ליד בלי מזהה הוא הרשימה", notificationPath({ type: "new_lead" }) === "/crm?goto=accLeads");
+check("סיכום לידים הוא הרשימה", notificationPath({ type: "leads_digest" }) === "/crm?goto=accLeads" && notificationPath({ type: "digest" }) === "/crm?goto=accLeads");
+check("ביקוש נשאר בלשונית", notificationPath({ type: "open_demand" }) === "/crm?goto=accLeads&tab=demand");
+check("action_path גובר", notificationPath({ type: "new_lead", lead_id: ID, action_path: "/crm?goto=accLeads" }) === "/crm?goto=accLeads");
+check("action_path זר נזרק", notificationPath({ type: "new_lead", lead_id: ID, action_path: "https://evil.example/x" }) === `/crm?goto=accLeads&lead=${ID}`);
+check("לוכסן כפול נזרק", notificationPath({ type: "new_lead", lead_id: ID, action_path: "//evil" }) === `/crm?goto=accLeads&lead=${ID}`);
 check("תזכורת על ליד פותחת את הליד", notificationPath({
   type: "agenda_reminder", lead_id: ID, agenda_item_id: ID2,
 }) === `/crm?goto=accLeads&lead=${ID}`);
@@ -57,7 +65,8 @@ check("עריכת נכס", notificationPath({ type: "marketing_copy", property_i
 check("עסקה שנסגרה אינה כרטיס הנכס", notificationPath({ type: "deal_closed", property_id: ID }) === null);
 check("ביקורת מפורסמת", notificationPath({ type: "review_new", review_agent_slug: "dana" }) === "/agent?slug=dana#reviewsSec");
 check("תקציר התראות הוא הפעמון", notificationPath({ type: "burst_digest" }) === "/crm?goto=bell");
-check("מזהה שאינו uuid נזרק", notificationPath({ type: "new_lead", lead_id: "לא" }) === null);
+check("מזהה שאינו uuid נזרק", notificationPath({ type: "new_lead", lead_id: "לא" }) === "/crm?goto=accLeads");
+check("סוג בלי יעד נשאר בלי נתיב", notificationPath({ type: "system", lead_id: "לא" }) === null);
 
 check("תמונות חסרות", reminderFindingPath("missing_images", "accProperties") === "/crm?goto=accProperties&filter=no_images");
 check("נכס חדש", reminderFindingPath("idle_listings", "accProperties") === "/crm?goto=accProperties&focus=new");
@@ -127,27 +136,31 @@ const props = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "הרצל 1" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "הרצל 2" },
 ], () => "/crm?goto=accProperties");
-check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.allPath.startsWith("/crm?goto=accProperties"));
-if (props.kind === "list") {
-  check("נכסים בלי סטטוס אינם הרשימה המסוננת", props.rows.at(-1)?.description === "כל הרשימה");
+check("שני יעדים הם כפתורים והכול הוא הרשימה", props.kind === "buttons" && props.rows.length === 3 && props.rows[2].title === "הכול" && props.allPath.startsWith("/crm?goto=accProperties"));
+if (props.kind === "buttons") {
+  const buttons = (replyButtonsMessage("972500000000", "מה שחדש", props.rows).interactive as {
+    action: { buttons: { reply: { id: string; title: string } }[] };
+  }).action.buttons;
+  check("עד שלושה כפתורים", buttons.length === 3 && buttons.every((b) => utf16Length(b.reply.title) <= 20 && !!parseNavId(b.reply.id)));
 }
 
 const byStatus = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "א" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "ב" },
 ], () => "/crm?goto=accProperties&status=sold");
-check("הכול נושא את הסטטוס", byStatus.kind === "list" && byStatus.allPath.startsWith("/crm?goto=accProperties&status=sold"));
-if (byStatus.kind === "list") {
-  check("סטטוס הוא הרשימה המסוננת", byStatus.rows.at(-1)?.description === "הרשימה המסוננת");
-  check("סטטוס הוא נתיב בטוח", isSafeCrmPath(byStatus.allPath));
+check("הכול נושא את הסטטוס", byStatus.kind === "buttons" && byStatus.rows.length === 3 && byStatus.allPath.startsWith("/crm?goto=accProperties&status=sold"));
+if (byStatus.kind === "buttons") {
+  const all = parseNavId(byStatus.rows.at(-1)?.id || "") || "";
+  check("סטטוס הוא הרשימה המסוננת", byStatus.rows.at(-1)?.title === "הכול" && all.includes("status=sold"));
+  check("סטטוס הוא נתיב בטוח", isSafeCrmPath(byStatus.allPath) && isSafeCrmPath(all));
 }
 
 const dupAll = screenBundle([
   { type: "listing", path: "/crm?goto=accProperties", title: "הרשימה" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "כרטיס" },
 ], () => "/crm?goto=accProperties");
-check("הכול לא משכפל מזהה", dupAll.kind === "list" && dupAll.rows.filter((row) => row.title === "הכול").length === 0);
-if (dupAll.kind === "list") {
+check("הכול לא משכפל מזהה", dupAll.kind === "buttons" && dupAll.rows.filter((row) => row.title === "הכול").length === 0);
+if (dupAll.kind === "buttons") {
   check("מזהים יחידים גם בלי הכול", new Set(dupAll.rows.map((row) => row.id)).size === dupAll.rows.length);
 }
 
@@ -219,7 +232,7 @@ check("נתיב עם wc עדיין בטוח", isSafeCrmPath(stamped) && (encodeN
     { type: "new_lead", path: longPath, title: "ארוך" },
     { type: "agenda_reminder", path: `/crm?goto=accAgenda&agenda=${ID}`, title: "יומן" },
   ], () => "/crm?goto=accLeads");
-  const longRow = bundled.kind === "list"
+  const longRow = bundled.kind === "list" || bundled.kind === "buttons"
     ? bundled.rows.find((r) => r.id.includes("filter="))
     : null;
   check("שורה ארוכה נופלת לנתיב בלי wc", !!longRow && !longRow.id.includes("wc=") && longRow.id.includes(`property=${ID}`));
@@ -233,12 +246,28 @@ if (one.kind === "single") {
 }
 check("טוקן מתחיל באות", /^[a-f][a-f0-9]{11}$/.test(clickToken()));
 check("בסיס התבנית קבוע בקוד", readFileSync(new URL("../supabase/functions/_shared/agent-deep-link.ts", import.meta.url), "utf8").includes("https://shuknadlan.co.il/"));
+const action = actionTemplateMessage({
+  to: "972500000000",
+  templateName: "agent_alert_action",
+  lang: "he",
+  name: "דנה",
+  summary: `ליד https://shuknadlan.co.il/crm?goto=accLeads&lead=${ID}`,
+  path: "/crm?goto=accLeads",
+});
+const actionParts = (action.template as { components: { type: string; parameters?: { text: string }[] }[] }).components;
+const actionBody = actionParts.find((c) => c.type === "body")!.parameters![1].text;
+const actionBtn = actionParts.find((c) => c.type === "button")!.parameters![0].text;
+check("תבנית פעולה בלי כתובת ובלוכסן", !containsHttpUrl(actionBody) && actionBtn === "/crm?goto=accLeads");
 
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
-check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage"));
+check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage") && push.includes("replyButtonsMessage"));
 check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
+check("סוד הפעולה מוריד כתובות מהגוף", push.includes("WHATSAPP_NOTIFY_ACTION_TEMPLATE") && push.includes("templateSummary(items, false)") && push.includes("actionTemplateMessage"));
+check("הפעמון מעדיף action_path", crm.includes("openStoredActionPath(n.action_path)"));
+const mig = readFileSync(new URL("../supabase/migrations/20271028210000_notification_action_path.sql", import.meta.url), "utf8");
+check("העמודה וה-claim", mig.includes("add column if not exists action_path") && mig.includes("'action_path', n.action_path") && mig.includes("notification_types_add(array['leads_digest'])"));
 
 const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
 check("רשימת נכסים לא מדביקה crm_link למי שנכנס לכפתור", agent.includes("listed.has(path)"));
