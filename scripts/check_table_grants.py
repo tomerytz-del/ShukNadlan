@@ -78,7 +78,7 @@ CREATE_RE = re.compile(
 # נותן ל-authenticated את arwdDxtm ישירות. grant חלקי אחרי זה משאיר
 # INSERT, UPDATE, TRUNCATE, REFERENCES ו-TRIGGER. חובה revoke all
 # שמונה את authenticated בשם.
-ACL_REVOKE_FROM = '20271027160000'
+ACL_REVOKE_FROM = '20271028120000'
 
 STMT_RE = re.compile(
     r'\b(grant|revoke)\s+(all\b|[^;]*?)\s+on\s+(?:table\s+)?'
