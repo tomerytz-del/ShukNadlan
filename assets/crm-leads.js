@@ -504,15 +504,21 @@ const OPEN_DEMAND_NO_BROKER = {
            rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
 };
 
-async function loadOpenDemand(){
-  if (openDemandLoading) return;
+let openDemandP = null;
+function loadOpenDemand(){
+  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב)
+  if (openDemandP) return openDemandP;
   openDemandLoading = true;
-  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
-  openDemandLoading = false;
-  if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
-  else openDemandRows = list.data || [];
-  openDemandStats = stats.error ? null : stats.data;
-  if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+  openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
+    if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
+    else openDemandRows = list.data || [];
+    openDemandStats = stats.error ? null : stats.data;
+    if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+  }).finally(() => {
+    openDemandLoading = false;
+    openDemandP = null;
+  });
+  return openDemandP;
 }
 
 function openDemandWants(d){
@@ -600,7 +606,7 @@ async function claimOpenDemand(id, btn){
 
 function openLeadsDemand(){
   leadsTab = 'demand';
-  openDemandRows = null;
+  // לא מאפסים שורות שכבר נטענו לקישור הזה. לחיצה על הלשונית כן מרעננת.
   renderLeads(currentAgent && currentAgent.id);
 }
 

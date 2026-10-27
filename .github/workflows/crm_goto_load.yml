@@ -1,0 +1,30 @@
+name: קישור עמוק נטען לפני שאר הדשבורד
+
+# ‏?goto= פותח את המסך שלו לפני שאר הטעינות של loadDashboard.
+# המפה ב-gotoLoadKeys היא מה שקובע ש-client_match_top לא חוסם ליד או
+# ביקוש פתוח. הבדיקה קוראת את הפונקציה מ-crm.js — בלי דפדפן ובלי רשת.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_goto_load_test.mjs"
+      - ".github/workflows/crm_goto_load.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_goto_load_test.mjs"
+      - ".github/workflows/crm_goto_load.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת מפת הטעינה
+        run: node scripts/crm_goto_load_test.mjs
