@@ -133,10 +133,16 @@ p_property_id)`, שהיא המנוע. ראו "שת״פ מהעוזר בוואטס
 
 ## `shared_properties_for_me` — הרשימה הנכנסת
 
-View בלי `security_invoker` — אותה תבנית כמו `leads_masked` ו-`rss_leads_public`
+View בלי `security_invoker` — אותה תבנית כמו `rss_leads_public`
 בפרויקט. הסינון `ps.shared_with_agency_id = current_agency_id()` הוא מה שמגדיר
 את ההרשאה: מבקר לא מחובר מקבל `null` ולכן אפס שורות, ומשרד רואה רק את מה
 ששותף איתו.
+
+העמודה `fits_me` קוראת ל-`agent_share_fit`. PostgreSQL בודק `EXECUTE` על
+פונקציה מול המשתמש/ת שקורא/ת את ה-view, לא מול הבעלים. ‏`20270711090000`
+שללה את `authenticated`, ומסך "נכסים ששותפו איתי" חזר 403.
+‏`20270903090000_baseline_urgent_fixes_20261027` מחזירה `EXECUTE`
+ל-`authenticated` בלבד. ‏`anon` נשאר סגור.
 
 ה-view חושף `display_name` ו-`phone` של מי ששיתף — זו כל תכלית השת״פ (צריך למי
 להתקשר) — ולכן הם נלקחים מ-`agency_members` ולא מ-`agency_members_public`,

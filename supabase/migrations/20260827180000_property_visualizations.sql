@@ -273,7 +273,7 @@ create policy "agent reads own property visualizations"
 -- ---------------------------------------------------------------------------
 -- 6. סט הבסיס הפומבי
 --
--- ‏View ללא security_invoker — אותה תבנית של leads_masked ו-rss_leads_public
+-- ‏View ללא security_invoker — אותה תבנית של rss_leads_public
 -- בפרויקט. זו הדרך להראות לכל מבקר/ת את הדמיות הבסיס בלי לתת ל-anon הרשאת
 -- ‏SELECT על property_visualizations עצמה (שם יושבות גם הדמיות של גולשים
 -- אחרים, שאינן פומביות).

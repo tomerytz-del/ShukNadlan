@@ -901,6 +901,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/* ‏מזהה נכס מתוך ‎?id=‎ גם כשנדבק אליו טקסט: פוסט שבו שורת הקישור איבדה את
+   ירידת השורה מגיע כ-‎<uuid>שוק‎ (27.10.2026). ה-UUID הראשון בערך הוא המזהה;
+   ערך בלי UUID בכלל הוא "אין נכס" ודאי, בלי קריאה למסד. */
+const UUID_IN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+function propertyIdFrom(raw: string): string {
+  const m = UUID_IN.exec(raw || "");
+  return m ? m[0].toLowerCase() : "";
+}
 
 /* ‏‎?slug=‎ היא הכתובת הקנונית גם כשנכנסו דרך ‎?id=‎. ברירת המחדל היא
    המפתח שהגיע, כדי שרשומה בלי slug עדיין תצהיר על כתובת שקיימת. */
@@ -1310,6 +1318,24 @@ export default async function handler(request: Request, context: Context) {
      פריוויו לא תשלח לפרודקשן. */
   try {
     const early = new URL(request.url);
+    /* ‏‎/property?id=<uuid><זנב>‎ - 301 לכתובת הקנונית, עם שאר השאילתה
+       (‏utm, ‏fbclid). רק כשיש UUID תקין והערך אינו בדיוק הוא. */
+    if ((early.pathname === "/property" || early.pathname === "/property.html") &&
+        (request.method === "GET" || request.method === "HEAD")) {
+      const raw = early.searchParams.get("id") || "";
+      const clean = propertyIdFrom(raw);
+      if (clean && raw !== clean) {
+        early.searchParams.set("id", clean);
+        return new Response(null, {
+          status: 301,
+          headers: {
+            Location: "/property?" + early.searchParams.toString(),
+            "Cache-Control": "public, max-age=3600",
+            "Netlify-CDN-Cache-Control": "public, max-age=3600",
+          },
+        });
+      }
+    }
     if (early.pathname === "/agency.html" && (request.method === "GET" || request.method === "HEAD")) {
       return new Response(null, {
         status: 301,
@@ -1341,7 +1367,9 @@ export default async function handler(request: Request, context: Context) {
        קריאה למסד כדי שנדע שאין מאחוריו רשומה: זה "missing" ודאי. */
     let meta: MetaResult = null;
     if (page.endsWith("/property")) {
-      meta = id ? await propertyMeta(id, `${SITE}/property?id=${encodeURIComponent(id)}`) : "missing";
+      // ערך שאין בו UUID - 404 ודאי, בלי 400 מ-PostgREST שהופך ל-503
+      const pid = propertyIdFrom(id);
+      meta = pid ? await propertyMeta(pid, `${SITE}/property?id=${pid}`) : "missing";
     } else if (page.endsWith("/agency")) {
       meta = slug ? await agencyMeta(slug, `${SITE}/agency?slug=${encodeURIComponent(slug)}`) : "missing";
     } else if (page.endsWith("/agent")) {

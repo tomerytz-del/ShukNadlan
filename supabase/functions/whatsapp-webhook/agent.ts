@@ -14,6 +14,8 @@ import {
   templateFor,
   type AgreementProperty,
   type AgreementSigner,
+  consentInputFor,
+  requiresOtp,
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
@@ -497,6 +499,14 @@ const TOOLS: Anthropic.Tool[] = [
       properties: { property_id: { type: "string" } },
       required: ["property_id"],
     },
+  },
+  {
+    name: "discard_pending_images",
+    description:
+      "מוריד את כל התמונות שממתינות לשיוך בשיחה, כך שלא יצורפו לשום נכס - לא לקיים " +
+      "ולא לחדש הבא. להשתמש כשהסוכן/ת אומר/ת שהתמונות לא שייכות לנכס (צילום מסך, " +
+      "מסמך, תמונה בטעות), או עונה \"לא שייכות\".",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "manage_images",
@@ -1119,7 +1129,9 @@ const TOOLS: Anthropic.Tool[] = [
       "הסוכן/ת לחתימה פנים מול פנים. " +
       "‏kind: ‏sell = בעל/ת נכס שמוכר/ת · landlord = בעל/ת נכס שמשכיר/ה · " +
       "buy = קונה · tenant = שוכר/ת · exclusive_sell / exclusive_landlord = " +
-      "בלעדיות. " +
+      "בלעדיות. בבלעדיות נוצרים **שני** מסמכים, כנדרש בחוק המתווכים: טופס " +
+      "הסכמה לפעולות שיווק, ואחריו טופס הבלעדיות. הקישור אחד לכל חותם/ת: " +
+      "הוא חותם/ת קודם על ההסכמה ומיד אחריה על הבלעדיות, באימות אחד. " +
       "אם חסר משהו שנדרש כדי שההזמנה תהיה בכתב כדין - הכלי **אינו יוצר** " +
       "אלא מחזיר missing עם רשימת החסרים, ואז יש לבקש אותם מהסוכן/ת ולקרוא " +
       "שוב. גוף המסמך ננעל ברגע היצירה ואי אפשר לתקן אותו - לתיקון מבטלים " +
@@ -1917,8 +1929,17 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט". ‏**לקיחה אטומית** ולא
   // ‏`ctx.conv.pending_images`: ברשימה שבזיכרון חסרות תמונות מאותו אלבום
   // שהגיעו בבקשות מקבילות (מיגרציה 20270115095000).
-  const images = await takePendingImages(ctx);
+  //
+  // ‏**אבל לא תמונות ותיקות** (27.10.2026): רשימה שהוותיקה בה מלפני יותר
+  // מ-20 דקות - שאלה שלא נענתה, צילום מסך מהבוקר - נשארת בצד, והנכס נוצר
+  // בלעדיה. גבריאלה שואלת, ו-attach_images מצרף אחרי "כן".
+  const since = await pendingImagesSince(ctx);
+  const holdImages = since != null && Date.now() - since > PENDING_IMAGES_STALE_MS;
+  const images = holdImages ? [] : await takePendingImages(ctx);
   if (images.length) payload.images = images;
+  const heldCount = holdImages
+    ? (await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id })).data ?? 0
+    : 0;
 
   const { data, error } = await ctx.supabase
     .from("properties")
@@ -1932,13 +1953,22 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   ctx.conv.last_property_id = data.id;
-  ctx.conv.pending_images = [];
+  if (!holdImages) ctx.conv.pending_images = [];
 
   return {
     ok: true,
     property_id: data.id,
     title: data.title,
     images_attached: images.length,
+    ...(heldCount
+      ? {
+        images_held: heldCount,
+        images_held_note:
+          `${heldCount} תמונות שממתינות בשיחה מ-${new Date(since!).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })} ` +
+          "**לא** צורפו לנכס, כי הן ותיקות. שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = " +
+          "attach_images עם property_id, לא = discard_pending_images. אל תאמרי שצורפו.",
+      }
+      : {}),
     // ‏lat מהשורה שנשמרה ולא מה-payload: פין משוער באזור תעשייה נקבע בטריגר
     on_map: data.lat != null,
     ...(data.location_precision === "zone"
@@ -2408,6 +2438,26 @@ async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, images_added: urls.length, total_images: total };
 }
+
+/** "לא שייכות": הממתינות יורדות מהרשימה, ולא יצורפו לשום נכס (27.10.2026). */
+async function toolDiscardPendingImages(ctx: ToolContext) {
+  const urls = await takePendingImages(ctx);
+  ctx.conv.pending_images = [];
+  return urls.length
+    ? { ok: true, discarded: urls.length, note: "הן לא צורפו לשום נכס ולא יצורפו." }
+    : { ok: true, discarded: 0, note: "לא היו תמונות שממתינות לשיוך." };
+}
+
+/** מתי נכנסה הממתינה הוותיקה ביותר (מיגרציה 20270906090000), או null. */
+async function pendingImagesSince(ctx: ToolContext): Promise<number | null> {
+  const { data } = await ctx.supabase.from("whatsapp_conversations")
+    .select("pending_images_since").eq("agent_id", ctx.agent.id).maybeSingle();
+  const at = Date.parse(String(data?.pending_images_since || ""));
+  return Number.isFinite(at) ? at : null;
+}
+
+// אותו סף של השאלה בוובהוק (‏`PHOTO_ASK_GAP_MS` ב-index.ts)
+const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
 
 /**
  * סדר ומחיקה של תמונות בנכס.
@@ -4878,6 +4928,9 @@ const AGREEMENT_KINDS: Record<string, string> = {
   landlord: "הזמנת שירותי תיווך - משכיר",
   exclusive_sell: "בלעדיות - מכירה",
   exclusive_landlord: "בלעדיות - משכיר",
+  // הטופס הראשון בבלעדיות - נוצר אוטומטית עם exclusive_*, ולא נבחר לבד
+  marketing_sell: "הסכמה לפעולות שיווק - מכירה בבלעדיות",
+  marketing_landlord: "הסכמה לפעולות שיווק - השכרה בבלעדיות",
 };
 
 const EXCLUSIVE_KINDS = ["exclusive_sell", "exclusive_landlord"];
@@ -4904,6 +4957,9 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
     .from("agreements")
     .select("id, kind, status, title, created_at, sent_at, signed_at, exclusive_from, exclusive_until")
     .eq("agent_id", ctx.agent.id)
+    // טופס ההסכמה לשיווק נחתם יחד עם הבלעדיות שלו, והיא מייצגת את שניהם -
+    // אחרת כל בלעדיות נמנית כאן פעמיים
+    .not("kind", "in", "(marketing_sell,marketing_landlord)")
     .limit(limit);
 
   if (expiringSoon) {
@@ -5006,6 +5062,51 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
 // פנים" זה לפתוח אותו על המכשיר של הסוכן/ת ולהושיט. אין כאן שני מנגנונים,
 // ולכן אין מה לבחור מראש.
 // ---------------------------------------------------------------------------
+
+/**
+ * הסכם אחד במלואו - השורה, גוף המסמך (אחרי ה-insert, בגלל verify_code)
+ * והחותמים. בכל כשל אחרי ה-insert השורה נמחקת, כדי שלא יישאר הסכם בלי
+ * גוף או בלי חותמים. משמש את ההסכם עצמו ואת טופס ההסכמה לשיווק שלפני בלעדיות.
+ */
+async function createAgreementRows(
+  ctx: ToolContext,
+  build: Parameters<typeof insertPayload>[0],
+  signers: AgreementSigner[],
+  extra: Record<string, unknown>,
+): Promise<
+  { ok: true; id: string; title: string; verify_code: string; require_otp: boolean } |
+  { ok: false; error: string }
+> {
+  const { data: created, error } = await ctx.supabase
+    .from("agreements")
+    .insert({ ...insertPayload(build), ...extra })
+    .select("id, verify_code, created_at, title, require_otp")
+    .single();
+  if (error || !created) return { ok: false, error: error?.message || "insert_failed" };
+  const id = String(created.id);
+  const fail = async (message: string) => {
+    await ctx.supabase.from("agreements").delete().eq("id", id).eq("agent_id", ctx.agent.id);
+    return { ok: false as const, error: message };
+  };
+
+  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
+  const { error: htmlError } = await ctx.supabase
+    .from("agreements").update({ document_html: html }).eq("id", id).eq("agent_id", ctx.agent.id);
+  if (htmlError) return await fail(htmlError.message);
+
+  const rows = signerRows(id, signers);
+  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(rows);
+  if (signersError && /client_id/.test(signersError.message || "")) {
+    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
+      .insert(rows.map(({ client_id: _c, ...row }) => row)));
+  }
+  if (signersError) return await fail(signersError.message);
+  return {
+    ok: true, id, title: String(created.title),
+    verify_code: String(created.verify_code || ""), require_otp: !!created.require_otp,
+  };
+}
+
 async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unknown>) {
   const kind = String(input.kind || "");
   const tpl = templateFor(kind);
@@ -5175,7 +5276,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
      בוואטסאפ, ומייל מקבל קוד. בלי אף אחד מהשניים הקישור נפתח ונתקע — וזה
      בדיוק מה שקרה ב-1.10.2026. לכן מבקשים מייל **לפני** שההסכם נוצר ונועל
      את גוף המסמך, ולא אחרי. */
-  if (tpl.side === "client" && !input.in_person_only) {
+  if (requiresOtp(tpl) && !input.in_person_only) {
     signers.forEach((sg, i) => {
       if (otpReachable(sg)) return;
       const who = sg.full_name || `חותם/ת ${i + 1}`;
@@ -5195,32 +5296,29 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     };
   }
 
-  // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
-  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף.
-  const { data: created, error: insertError } = await ctx.supabase
-    .from("agreements")
-    .insert(insertPayload(build))
-    .select("id, verify_code, created_at, title, require_otp")
-    .single();
-  if (insertError) return { ok: false, error: insertError.message };
-
-  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
-  const { error: htmlError } = await ctx.supabase
-    .from("agreements")
-    .update({ document_html: html })
-    .eq("id", created.id)
-    .eq("agent_id", ctx.agent.id);
-  if (htmlError) return { ok: false, error: htmlError.message };
-
-  const signerInsert = signerRows(String(created.id), signers);
-  let { error: signersError } = await ctx.supabase.from("agreement_signers").insert(signerInsert);
-  // הפונקציות והמיגרציות נפרסות בלי סדר מובטח: בדקה שבה client_id עוד לא
-  // קיים (20270228090000) נכתבים החותמים בלעדיו, וההסכם לא נופל.
-  if (signersError && /client_id/.test(signersError.message || "")) {
-    ({ error: signersError } = await ctx.supabase.from("agreement_signers")
-      .insert(signerInsert.map(({ client_id: _c, ...row }) => row)));
+  // ---- בלעדיות: קודם טופס ההסכמה לפעולות שיווק - מסמך נפרד כנדרש בחוק,
+  // עם אותם חותמים. הבלעדיות נוצרת אחריו ומצביעה עליו (marketing_consent_id),
+  // ודף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד.
+  const consentBuild = consentInputFor(build);
+  let consentId: string | null = null;
+  let consentTitle: string | null = null;
+  if (consentBuild) {
+    const made = await createAgreementRows(ctx, consentBuild, signers, {});
+    if (!made.ok) return { ok: false, error: made.error };
+    consentId = made.id;
+    consentTitle = made.title;
   }
-  if (signersError) return { ok: false, error: signersError.message };
+
+  // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
+  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
+  const made = await createAgreementRows(ctx, build, signers,
+    consentId ? { marketing_consent_id: consentId } : {});
+  if (!made.ok) {
+    // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
+    if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
+    return { ok: false, error: made.error };
+  }
+  const created = made;
 
   const { data: saved } = await ctx.supabase
     .from("agreement_signers")
@@ -5257,6 +5355,12 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // אחרי שהלקוח/ה חתם/ה.
     dropped_properties: dropped.length ? dropped : undefined,
     signers: links,
+    // בלעדיות: שני מסמכים, קישור אחד לכל חותם/ת
+    marketing_consent: consentId
+      ? { agreement_id: consentId, title: consentTitle,
+          note: "נוצרו שני מסמכים: טופס הסכמה לפעולות שיווק ואחריו טופס הבלעדיות. " +
+            "הקישור אחד: החותם/ת חותם/ת קודם על ההסכמה, ומיד אחריה - בלי אימות נוסף - על הבלעדיות." }
+      : undefined,
     buttons_sent: ctx.outbox ? true : undefined,
     // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
     how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק - להעביר אותו לחותם/ת; פנים מול פנים - לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
@@ -6209,6 +6313,7 @@ async function runTool(
       case "list_properties": return await toolListProperties(ctx, input);
       case "search_properties": return await toolSearchProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
+      case "discard_pending_images": return await toolDiscardPendingImages(ctx);
       case "manage_images": return await toolManageImages(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
       case "property_link": return await toolPropertyLink(ctx, input);
@@ -6568,6 +6673,13 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
       "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
+    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
+      "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
+      "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
+      "בתמונות]\" עם הנכס ומספרי התמונות. **לעולם אל תאמרי שתמונה \"לא צורפה\" בלי לבדוק**: " +
+      "קראי את ההיסטוריה, ואם יש ספק - manage_images עם list. מספר התמונות בנכס אינו אומר מה הן. " +
+      "כשהסוכן/ת מבקש/ת להוריד תמונה שצורפה בטעות - manage_images עם remove, מיד אחרי שזיהית " +
+      "איזו (זו שצורפה אחרונה = המספר הגבוה). אחר כך אמרי מה ירד.",
     "",
     "הפרופיל האישי (דף הסוכן/ת באתר):",
     "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. **אין תמונת נושא אישית**: " +
@@ -6628,7 +6740,12 @@ const SYSTEM_STATIC: string = (() => {
  * הסיבה שהחלוקה עובדת: ההוראות (‏~29KB) נקראות מהמטמון, ורק מאות התווים
  * האלה נשלחים במלואם.
  */
-function sessionContext(agent: AgentRow, conv: ConversationState, gaps: string[] = []): string {
+function sessionContext(
+  agent: AgentRow,
+  conv: ConversationState,
+  gaps: string[] = [],
+  pendingSince: number | null = null,
+): string {
   const now = Date.now();
   const today = ilDateOf(now);
   // שעון ישראל ולא UTC: אחרי 21:00 בקיץ ‏toISOString כבר מחזיר את מחר, ו"מחר
@@ -6650,10 +6767,20 @@ function sessionContext(agent: AgentRow, conv: ConversationState, gaps: string[]
     );
   }
   if (conv.pending_images.length) {
+    // הכלל כפי שהקוד עושה אותו, ולא "יצירת נכס תצרף אותן" - זה מה שגבריאלה
+    // תיארה לסוכן (27.10.2026), והוא כבר לא נכון לתמונות ותיקות.
+    const stale = pendingSince != null && Date.now() - pendingSince > PENDING_IMAGES_STALE_MS;
+    const when = pendingSince != null
+      ? ` (הוותיקה מ-${new Date(pendingSince).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })})`
+      : "";
     lines.push(
       "",
-      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
-        "יצירת נכס חדש תצרף אותן אוטומטית; לצירוף לנכס קיים יש להשתמש ב-attach_images.",
+      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס${when}. ` +
+        (stale
+          ? "הן מלפני יותר מ-20 דקות: create_property **לא** יצרף אותן, ואין לצרף אותן לשום נכס " +
+            "בלי שהסוכן/ת אמר/ה לאיזה. "
+          : "create_property יצרף אותן לנכס החדש. ") +
+        "לנכס קיים - attach_images. לא שייכות לשום נכס - discard_pending_images.",
     );
   }
   if (gaps.length) {
@@ -6765,12 +6892,13 @@ export async function runAgentTurn(opts: {
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
+  const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
 
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince), userContent) },
   ];
 
   let finalText = "";

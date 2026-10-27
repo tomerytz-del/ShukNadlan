@@ -2206,6 +2206,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  loadSocialPrompt().catch(err => console.warn('כרטיס התיוג אינו זמין:', err));
   licenseHoldP = refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
 
@@ -7608,6 +7609,111 @@ async function pfShowPhotoInAdsInit(agentId){
   };
 }
 
+/* ---------- תיוג בפרסומים (docs/social-tagging.md) ----------
+   שם משתמש באינסטגרם, קישור לפייסבוק ואישור תיוג - לסוכן/ת ב-agency_members,
+   ולמשרד ב-agency_social. אותו נרמול כמו social_instagram_norm /
+   social_facebook_norm במסד, כדי שהשגיאה תוצג כאן ולא תיפול באילוץ.
+   ‏**נטען בשאילתה נפרדת ולא ב-AGENT_FIELDS**, מאותה סיבה של show_photo_in_ads:
+   לפני שהמיגרציה רצה הכרטיס פשוט מוסתר, והשמירה מדלגת עליו. */
+function socialNormInstagram(v){
+  return String(v || '').trim().toLowerCase()
+    .replace(/^(https?:\/\/)?(www\.)?(instagram\.com|instagr\.am)\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/^@+/, '');
+}
+function socialNormFacebook(v){
+  return String(v || '').trim()
+    .replace(/^(https?:\/\/)?(www\.|m\.)?facebook\.com\//i, 'https://www.facebook.com/')
+    .replace(/\/+$/, '');
+}
+/* מחזיר { instagram, facebook } מנורמלים, או { error } בעברית */
+function socialReadFields(igId, fbId){
+  const instagram = socialNormInstagram(document.getElementById(igId).value);
+  const facebook = socialNormFacebook(document.getElementById(fbId).value);
+  if (instagram && !/^[a-z0-9._]{1,30}$/.test(instagram)){
+    return { error: 'שם המשתמש באינסטגרם אינו תקין - רק אותיות באנגלית, ספרות, נקודה וקו תחתון, עד 30 תווים.' };
+  }
+  if (facebook && (!/^https:\/\/(www\.)?facebook\.com\/\S+$/.test(facebook) || facebook.length > 300)){
+    return { error: 'הקישור לפייסבוק צריך להתחיל ב-https://www.facebook.com/' };
+  }
+  return { instagram: instagram || null, facebook: facebook || null };
+}
+
+let pfSocialReady = false;
+async function pfSocialInit(agentId){
+  const card = document.querySelector('.pf-social');
+  pfSocialReady = false;
+  if (!card || !agentId) return;
+  const { data, error } = await sb.from('agency_members')
+    .select('instagram_handle, facebook_url, social_tag_consent').eq('id', agentId).maybeSingle();
+  if (error || !data){ card.hidden = true; return; }
+  card.hidden = false;
+  document.getElementById('pfInstagram').value = data.instagram_handle || '';
+  document.getElementById('pfFacebook').value = data.facebook_url || '';
+  document.getElementById('pfSocialConsent').checked = !!data.social_tag_consent;
+  pfSocialReady = true;
+}
+
+/* "רוצה שנתייג אותך בפרסומים?" בדף הבית (#socialPrompt). מוצג כל עוד
+   הסוכן/ת לא אישר/ה תיוג, או - למנהל/ת - המשרד לא אישר. "לא עכשיו" מסתיר
+   ל-30 יום בדפדפן הזה בלבד: זו תזכורת, לא הסכמה, ולכן אינה נשמרת במסד.
+   שגיאה (העמודות עוד לא קיימות) = הכרטיס פשוט לא מוצג. */
+const SOCIAL_PROMPT_KEY = 'shuknadlan.social_prompt_later';
+const SOCIAL_PROMPT_SNOOZE_MS = 30 * 24 * 3600 * 1000;
+async function loadSocialPrompt(){
+  const box = document.getElementById('socialPrompt');
+  if (!box || !currentAgent) return;
+  box.hidden = true;
+  let laterAt = 0;
+  try { laterAt = Number(localStorage.getItem(SOCIAL_PROMPT_KEY)) || 0; } catch(_){ }
+  if (Date.now() - laterAt < SOCIAL_PROMPT_SNOOZE_MS) return;
+
+  const isManager = currentAgent.role === 'manager' && !!currentAgent.agency_id;
+  const [mine, office] = await Promise.all([
+    sb.from('agency_members').select('social_tag_consent').eq('id', currentAgent.id).maybeSingle(),
+    isManager
+      ? sb.from('agency_social').select('social_tag_consent').eq('agency_id', currentAgent.agency_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (mine.error || !mine.data) return;
+  const agentNeeds = !mine.data.social_tag_consent;
+  const officeNeeds = isManager && !office.error && !(office.data && office.data.social_tag_consent);
+  if (!agentNeeds && !officeNeeds) return;
+
+  document.getElementById('socialPromptText').textContent = agentNeeds
+    ? 'כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.'
+    : 'את/ה כבר מתויג/ת. הוסיפו גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
+  const go = document.getElementById('socialPromptGo');
+  const officeBtn = document.getElementById('socialPromptOffice');
+  go.hidden = !agentNeeds;
+  officeBtn.hidden = !officeNeeds;
+  officeBtn.textContent = agentNeeds ? 'גם למשרד' : 'לפרטי המשרד';
+  officeBtn.classList.toggle('ui-btn--secondary', agentNeeds);
+  go.onclick = () => gotoSection('accProfile', 'pfInstagram', { scrollTo:'.pf-social' });
+  officeBtn.onclick = () => gotoSection('accBranding', 'brInstagram', { scrollTo:'.br-social' });
+  document.getElementById('socialPromptLater').onclick = () => {
+    try { localStorage.setItem(SOCIAL_PROMPT_KEY, String(Date.now())); } catch(_){ }
+    box.hidden = true;
+  };
+  box.hidden = false;
+}
+
+let brSocialReady = false;
+async function brSocialInit(agencyId){
+  const box = document.querySelector('.br-social');
+  brSocialReady = false;
+  if (!box || !agencyId) return;
+  const { data, error } = await sb.from('agency_social')
+    .select('instagram_handle, facebook_page_url, social_tag_consent').eq('agency_id', agencyId).maybeSingle();
+  // ‏maybeSingle בלי שורה = משרד שעוד לא מילא; שגיאה = הטבלה עוד לא קיימת
+  if (error){ box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('brInstagram').value = (data && data.instagram_handle) || '';
+  document.getElementById('brFacebook').value = (data && data.facebook_page_url) || '';
+  document.getElementById('brSocialConsent').checked = !!(data && data.social_tag_consent);
+  brSocialReady = true;
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -7648,6 +7754,7 @@ function loadProfileSettings(agent){
   renderProfilePreview();
   loadAgencyCover(agent.agency_id);
   pfShowPhotoInAdsInit(agent.id);
+  pfSocialInit(agent.id);
 }
 
 /* ---------- עיצוב דף הסוכן/ת ----------
@@ -7985,6 +8092,12 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
     return;
   }
+  const social = pfSocialReady ? socialReadFields('pfInstagram', 'pfFacebook') : null;
+  if (social && social.error){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = social.error;
+    return;
+  }
 
   const uploading = (profileState.photo && !profileState.photo.url)
     || profileState.gallery.some(g => !g.url);
@@ -8067,6 +8180,20 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       }
       if (mErr) console.warn('אזורי הפעילות לא נשמרו:', mErr);
       else { saved.service_markets = serviceMarkets; pfPropertyScope = scope; }
+    }
+
+    // רשתות ותיוג - עדכון נפרד (ראו pfSocialInit). החותמת של האישור נקבעת במסד
+    if (social){
+      const { data: soc, error: sErr } = await sb.from('agency_members').update({
+        instagram_handle: social.instagram,
+        facebook_url: social.facebook,
+        social_tag_consent: document.getElementById('pfSocialConsent').checked,
+      }).eq('id', currentAgent.id).select('instagram_handle, facebook_url, social_tag_consent').single();
+      if (sErr) throw sErr;
+      document.getElementById('pfInstagram').value = soc.instagram_handle || '';
+      document.getElementById('pfFacebook').value = soc.facebook_url || '';
+      document.getElementById('pfSocialConsent').checked = !!soc.social_tag_consent;
+      loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -10877,6 +11004,7 @@ async function loadBranding(agencyId){
   renderDescriptionCount();
   document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = '/agency?slug=' + encodeURIComponent(agency.slug);
+  brSocialInit(agencyId);
   renderPaletteGrid();
   renderBgChoice();
   renderBrandImages();
@@ -11317,6 +11445,12 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
   if (!brandingState || !currentAgent) return;
   const btn = document.getElementById('brSaveBtn');
   const feedback = document.getElementById('brFeedback');
+  const social = brSocialReady ? socialReadFields('brInstagram', 'brFacebook') : null;
+  if (social && social.error){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = social.error;
+    return;
+  }
   btn.disabled = true; btn.textContent = 'שומר…';
   feedback.style.color = 'var(--ink-soft)';
   feedback.textContent = 'מעלה תמונות…';
@@ -11360,6 +11494,22 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
         .update({ service_markets: a.markets, property_scope: a.kind || 'all' }).eq('id', currentAgent.agency_id);
       if (aErr) console.warn('תחום ואזורי הפעילות של המשרד לא נשמרו:', aErr);
       else agencyAreaDefaults = { kind: a.kind || 'all', markets: a.markets };
+    }
+
+    // רשתות ותיוג המשרד - ב-agency_social ולא ב-agencies, שהיא ציבורית
+    // (ראו brSocialInit). החותמת של האישור נקבעת במסד
+    if (social){
+      const { data: soc, error: sErr } = await sb.from('agency_social').upsert({
+        agency_id: currentAgent.agency_id,
+        instagram_handle: social.instagram,
+        facebook_page_url: social.facebook,
+        social_tag_consent: document.getElementById('brSocialConsent').checked,
+      }, { onConflict: 'agency_id' }).select('instagram_handle, facebook_page_url, social_tag_consent').single();
+      if (sErr) throw sErr;
+      document.getElementById('brInstagram').value = soc.instagram_handle || '';
+      document.getElementById('brFacebook').value = soc.facebook_page_url || '';
+      document.getElementById('brSocialConsent').checked = !!soc.social_tag_consent;
+      loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -21764,6 +21914,7 @@ const MATCH_SOURCE_LABELS = { own:'הנכס שלי', agency:'נכס של המש�
 let clientRows = [];
 let clientMatchCounts = {};   // client_id → מספר התאמות
 let clientMatchTop = {};      // client_id → שורת ההתאמה החזקה ביותר (לתצוגה המקדימה)
+let clientMatchesUnavailable = false;   // timeout של client_match_top: לא מציגים 0
 let editingClientId = null;
 let clientFormCategory = 'residential';
 
@@ -21800,19 +21951,32 @@ async function loadClients(){
 
   // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
   // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
-  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts היא
-  // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
+  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts רק
+  // כשהפונקציה עצמה חסרה (מסד שהמיגרציה עדיין לא רצה בו).
   clientMatchCounts = {};
   clientMatchTop = {};
+  clientMatchesUnavailable = false;
   const { data: tops, error: topError } = await topsP;
   if (!topError){
     (tops || []).forEach(r =>{
       clientMatchCounts[r.client_id] = r.match_count;
       if (r.top_score) clientMatchTop[r.client_id] = r;
     });
+  } else if (topError.code === 'PGRST202' || topError.code === '42883') {
+    // ‏רק כשהפונקציה עצמה חסרה (מסד ישן). ‏timeout (‏57014) או 5xx - לא:
+    // ‏client_match_counts עושה בדיוק את אותה עבודה ונופלת 8 שניות אחריה.
+    const { data: counts, error: countsError } = await sb.rpc('client_match_counts');
+    if (countsError){
+      clientMatchesUnavailable = true;
+      console.warn('client_match_counts failed:', countsError);
+    } else {
+      (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+    }
   } else {
-    const { data: counts } = await sb.rpc('client_match_counts');
-    (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+    // ‏timeout ושאר הכשלים: אוסף ריק הוא "אפס התאמות", וזה שקר. הדגל
+    // מחליף את המונה ואת הסיכום במצב "לא נטען" עם כפתור נסו שוב.
+    clientMatchesUnavailable = true;
+    console.warn('client_match_top failed:', topError);
   }
 
   // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
@@ -21823,7 +21987,9 @@ async function loadClients(){
   renderShareLevelNotice('client', clientRows.filter(c => c.agent_id === currentAgent.id));
   // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
   accSetSummary('accClients', clientRows.length
-    ? (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות')
+    ? (clientMatchesUnavailable
+        ? 'לא הצלחנו לטעון את ההתאמות. נסו שוב.'
+        : (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות'))
     : '');
   syncClientFilterOptions();
   renderClients();
@@ -21914,18 +22080,25 @@ function renderClients(){
   const badge = document.getElementById('clientFilterBadge');
   if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
+  listEl.innerHTML = '';
+  const retry = clientMatchesRetryNode();
+  if (retry) listEl.appendChild(retry);
+
   if (filtered.length === 0){
-    listEl.innerHTML = '<div class="empty-state">' +
-      (clientRows.length === 0
-        ? 'עדיין לא הוספת לקוחות. הוסיפו לקוח/ה כדי שהמערכת תתחיל לחפש עבורם התאמות.'
-        : 'אין לקוח/ה שמתאים/ה לסינון הנוכחי.') + '</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = clientRows.length === 0
+      ? 'עדיין לא הוספת לקוחות. הוסיפו לקוח/ה כדי שהמערכת תתחיל לחפש עבורם התאמות.'
+      : 'אין לקוח/ה שמתאים/ה לסינון הנוכחי.';
+    listEl.appendChild(empty);
     return;
   }
 
   // הרשימה היא טאבים, באותה שפה של "הנכסים שלי": שורה אחת לכל לקוח/ה,
   // והכרטיס המלא נפתח מתחתיה בלחיצה. ראו ההערה מעל buildClientTab().
-  listEl.innerHTML = '<div class="prop-tabs client-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
+  const tabsWrap = document.createElement('div');
+  tabsWrap.className = 'prop-tabs client-tabs';
+  listEl.appendChild(tabsWrap);
   filtered.forEach(c => tabsWrap.appendChild(buildClientTab(c)));
 }
 
@@ -21973,6 +22146,24 @@ function clientBudgetLabel(c){
   return '';
 }
 
+/* timeout של client_match_top משאיר את clientMatchCounts ריק, וריק נראה
+   כמו אפס התאמות. הבלוק הזה יושב מעל הרשימה, והגלולה בשורה אומרת "לא נטענו". */
+function clientMatchesRetryNode(){
+  if (!clientMatchesUnavailable) return null;
+  const box = document.createElement('div');
+  box.className = 'empty-state';
+  const p = document.createElement('p');
+  p.textContent = 'לא הצלחנו לטעון את ההתאמות. נסו שוב.';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ui-btn';
+  btn.textContent = 'נסו שוב';
+  btn.addEventListener('click', () => loadClients());
+  box.appendChild(p);
+  box.appendChild(btn);
+  return box;
+}
+
 function buildClientTab(c){
   const matches = clientMatchCounts[c.id];
   return buildTabRow({
@@ -21981,7 +22172,9 @@ function buildClientTab(c){
     icon: c.referred_by ? '🤝' : '',
     title: c.full_name,
     sub: clientTabSub(c),
-    pill: matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null,
+    pill: clientMatchesUnavailable
+      ? { text: 'לא נטענו', cls:'tab-flag' }
+      : (matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null),
     price: isOwnerClient(c) ? '' : clientBudgetLabel(c),
     priceNote: !isOwnerClient(c) && c.deal_type === 'rent' ? 'לחודש' : '',
     // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
@@ -22053,7 +22246,9 @@ function buildClientCard(c){
           ${c.agent_id === currentAgent.id
             ? `<button type="button" class="status-pill share-level-pill" title="רמת שיתוף - לחיצה לשינוי">${
                 SHARE_LEVEL_TEXT[shareLevelOf(c)].icon} ${esc(SHARE_LEVEL_TEXT[shareLevelOf(c)].short)}</button>` : ''}
-          ${matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
+          ${clientMatchesUnavailable
+            ? '<span class="status-pill cc-count">לא נטענו</span>'
+            : (matches ? `<span class="status-pill cc-count">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : '')}
           <span class="sc-pill-slot">${typeof showcasePillHtml === 'function' ? showcasePillHtml(c.id) : ''}</span>
         </div>
       </div>
@@ -30657,9 +30852,15 @@ function renderClientsCard(){
   if (!valueEl) return;
   const { searching, matched } = kpiClientStats();
   countUp(valueEl, searching.length, v => String(Math.round(v)));
-  hkSplit('kpiClientsSplit', matched, searching.length - matched,
-    'עם נכס מתאים ' + matched, 'בלי התאמה ' + (searching.length - matched),
-    matched + ' עם נכס מתאים');
+  if (clientMatchesUnavailable){
+    hkSplit('kpiClientsSplit', 0, 0,
+      'ההתאמות לא נטענו', 'נסו שוב',
+      'ההתאמות לא נטענו');
+  } else {
+    hkSplit('kpiClientsSplit', matched, searching.length - matched,
+      'עם נכס מתאים ' + matched, 'בלי התאמה ' + (searching.length - matched),
+      matched + ' עם נכס מתאים');
+  }
   const added = hkThisMonth(clientRows);
   hkDelta('kpiClientsDelta', added ? String(added) : '', added ? plural(added, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש' : '');
   syncStickyKpis();
@@ -30706,7 +30907,7 @@ function renderKpiInsights(){
   const openProp = p => ()=>{ gotoSection('accProperties'); openPropertyFromParam(p.id); };
 
   // עמלות: הכי קרוב לכסף - הסכם שנשלח ולא נחתם; בלעדיו, הנכס עם העמלה הגבוהה
-  const pending = (typeof agreementRows !== 'undefined' ? agreementRows : [])
+  const pending = (typeof agrCountable === 'function' ? agrCountable() : [])
     .filter(a => a.status === 'sent' || a.status === 'viewed').length;
   let money = null;
   if (pending && navAccVisible('accAgreements')){
@@ -30746,6 +30947,9 @@ function renderKpiInsights(){
   if (!searching.length){
     people = { tone:'info', title:'הוסיפו לקוח ונתחיל להתאים', cta:'לקוח חדש',
       run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') };
+  } else if (clientMatchesUnavailable){
+    people = { tone:'warn', title:'לא הצלחנו לטעון את ההתאמות', sub:'נסו שוב מקובץ הלקוחות',
+      cta:'נסו שוב', run:()=> { gotoSection('accClients'); loadClients(); } };
   } else if (matched){
     people = { tone:'ok', title: plural(matched, 'לקוח אחד מחכה להצעה', 'לקוחות מחכים להצעה'),
       sub:'יש להם נכס מתאים במאגר', cta: navAccVisible('accAlerts') ? 'שליחת התאמות' : '', run:()=> gotoSection('accAlerts') };
@@ -31926,6 +32130,16 @@ const AGR_CONDITION_LABELS = {
 };
 
 let agreementRows = [];   // ההסכמים של הסוכן/ת, כולל החותמים
+
+/* ‏טופס ההסכמה לפעולות שיווק שנחתם לפני בלעדיות (20270829090000). הוא
+   שורה משלו, אבל הבלעדיות מייצגת את שני הטפסים: הוא אינו נספר כהסכם נוסף,
+   ואינו מוצג ברשימה אלא בסינון לפי הסוג שלו (שם גם העותק החתום שלו). */
+function agrIsConsent(a){
+  return !!(window.AgreementTemplates && window.AgreementTemplates.isConsent(a.kind));
+}
+function agrCountable(){
+  return agreementRows.filter(a => !agrIsConsent(a));
+}
 let agrWizard = null;     // מצב האשף הפתוח, או null
 
 const agrTpl = kind => (window.AgreementTemplates && window.AgreementTemplates.get(kind)) || null;
@@ -31965,10 +32179,11 @@ async function loadAgreements(){
     signers: (a.signers || []).slice().sort((x, y) => (x.ord || 0) - (y.ord || 0)),
   }));
 
-  const pending = agreementRows.filter(a => a.status === 'sent' || a.status === 'viewed').length;
+  const countable = agrCountable();
+  const pending = countable.filter(a => a.status === 'sent' || a.status === 'viewed').length;
   accSetCount('accAgreements',
     pending ? plural(pending, 'הסכם אחד ממתין לחתימה', 'ממתינים לחתימה')
-            : (agreementRows.length ? plural(agreementRows.length, 'הסכם אחד', 'הסכמים') : ''));
+            : (countable.length ? plural(countable.length, 'הסכם אחד', 'הסכמים') : ''));
 
   agrFillKindFilter();
   renderAgreements();
@@ -32009,10 +32224,12 @@ function renderAgreements(){
     if (status === 'awaiting'){ if (!AGR_AWAITING.includes(a.status)) return false; }
     else if (status && a.status !== status) return false;
     if (kind && a.kind !== kind) return false;
+    // הסכמה לשיווק - רק כשמסננים לפי הסוג שלה; בלי סינון הבלעדיות מייצגת אותה
+    if (!kind && agrIsConsent(a)) return false;
     return !q || agrSearchBlob(a).includes(q);
   });
 
-  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length, agreementRows.length, active);
+  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length, agrCountable().length, active);
 
   if (!rows.length){
     listEl.innerHTML = '<div class="empty-state">' + (agreementRows.length === 0
@@ -32046,9 +32263,10 @@ const AGR_AWAITING = ['sent', 'viewed'];
 function renderAgreementTiles(status){
   const box = document.getElementById('agrTiles');
   if (!box) return;
-  const n = f => agreementRows.filter(f).length;
+  const countable = agrCountable();
+  const n = f => countable.filter(f).length;
   const tiles = [
-    ['', 'כל ההסכמים', agreementRows.length, false],
+    ['', 'כל ההסכמים', countable.length, false],
     ['draft', 'טיוטות', n(a => a.status === 'draft'), true],
     ['awaiting', 'ממתינים לחתימה', n(a => AGR_AWAITING.includes(a.status)), true],
     ['signed', 'נחתמו', n(a => a.status === 'signed'), false],
@@ -32242,7 +32460,12 @@ async function agrCancel(a){
 
 async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
-  const { error } = await sb.from('agreements').delete().eq('id', a.id);
+  /* בלעדיות: מוחקים את טופס ההסכמה שלה, והבלעדיות נמחקת איתו (on delete
+     cascade). מחיקת הבלעדיות לבדה הייתה משאירה הסכמה יתומה. השאילתה נפרדת
+     ונסבלת לכישלון - העמודה נוספה ב-20270829090000. */
+  const { data: link } = await sb.from('agreements').select('marketing_consent_id').eq('id', a.id).maybeSingle();
+  const target = (link && link.marketing_consent_id) || a.id;
+  const { error } = await sb.from('agreements').delete().eq('id', target);
   if (error) return showToast('המחיקה נכשלה: ' + heErr(error));
   expandedAgreementIds.delete(a.id);
   showToast('הטיוטה נמחקה');
@@ -32266,7 +32489,7 @@ function agrNewWizard(){
     exclusive:{ from:'', until:'', months:'' },
     questionnaire:[],
     notes:'', language:'he',
-    agreementId:null, record:null,
+    agreementId:null, record:null, consentId:null,
     pads:{},
   };
 }
@@ -32377,6 +32600,7 @@ async function openAgreementSigning(agreementId){
   agrWizard.kind = row.kind;
   agrWizard.agreementId = row.id;
   agrWizard.record = full;
+  agrWizard.consentId = full.marketing_consent_id || null;
   agrWizard.step = 4;
   agrEl('agrModal').style.display = 'flex';
   agrRender();
@@ -33674,9 +33898,11 @@ function agrValidate(){
   return items;
 }
 
-function agrBuildDoc(){
+/* ‏kind - טופס אחר מזה שנבחר, עם אותם נתונים: טופס ההסכמה לפעולות שיווק
+   שנחתם לפני בלעדיות (marketingConsent בתבנית). */
+function agrBuildDoc(kind){
   const w = agrWizard;
-  const tpl = agrTpl(w.kind);
+  const tpl = agrTpl(kind || w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
   const basis = bases.find(b => b.key === w.commission.basis);
 
@@ -33698,7 +33924,8 @@ function agrBuildDoc(){
     })),
     properties: w.properties.map(p => ({ fields:p.fields, notes:p.notes })),
     commission: { pct:w.commission.pct, amount:w.commission.amount, basisSuffix: basis ? basis.suffix : '' },
-    exclusive: tpl.exclusive ? w.exclusive : null,
+    // גם ההסכמה לשיווק מדפיסה את תקופת הבלעדיות שאליה היא שייכת
+    exclusive: (tpl.exclusive || tpl.consentFor) ? w.exclusive : null,
     questionnaire: w.questionnaire,
     notes: w.notes,
     createdAt: new Date(),
@@ -33836,9 +34063,22 @@ function agrRenderStepPreview(){
   const html = window.AgreementDoc.buildHtml(agrBuildDoc());
   agrWizard.previewHtml = html;
 
+  /* בלעדיות = שני מסמכים נפרדים, כנדרש בחוק המתווכים: ההסכמה לפעולות
+     שיווק ואחריה ההזמנה בבלעדיות. התצוגה מראה את שניהם, בסדר החתימה. */
+  const consentKind = window.AgreementTemplates.consentKind(agrWizard.kind);
+  const consentHtml = consentKind ? window.AgreementDoc.buildHtml(agrBuildDoc(consentKind)) : '';
+
   body.innerHTML =
     '<p class="imp-note" style="margin:0 0 10px">זה בדיוק מה שהלקוח/ה יראה/תראה. אחרי המעבר לשלב החתימה ' +
     'גוף המסמך ננעל לעריכה - לשינוי טקסט חוזרים לשלב הקודם.</p>' +
+    (consentKind
+      ? '<div class="agr-warn" style="margin:0 0 10px">בלעדיות נחתמת על <b>שני טפסים נפרדים</b>, כנדרש בחוק המתווכים: ' +
+          'קודם טופס ההסכמה לפעולות שיווק, ומיד אחריו טופס הבלעדיות. הלקוח/ה מקבל/ת קישור אחד, ' +
+          'מאמת/ת פעם אחת וחותם/ת על שניהם ברצף.</div>' +
+        '<div class="form-subheading">טופס 1 מתוך 2</div>' +
+        '<div class="agr-preview">' + consentHtml + '</div>' +
+        '<div class="form-subheading" style="margin-top:14px">טופס 2 מתוך 2</div>'
+      : '') +
     '<div class="agr-preview">' + html + '</div>';
 
   agrEl('agrFoot').innerHTML =
@@ -33848,91 +34088,113 @@ function agrRenderStepPreview(){
 
 /* ---------- שמירה ---------- */
 
+/* הסכם אחד במסד: השורה, גוף המסמך (אחרי ה-insert, כי verify_code נוצר
+   במסד ומודפס בתחתיתו) והחותמים. ‏existingId - טיוטה שנשמרת מחדש. */
+async function agrPersistAgreement(kind, existingId, extra){
+  const w = agrWizard;
+  const tpl = agrTpl(kind);
+  const doc = agrBuildDoc(kind);
+  const propertyLine = w.properties.map(p => p.label).join(' · ');
+
+  const payload = {
+    agent_id: currentAgent.id,
+    agency_id: currentAgent.agency_id || null,
+    kind,
+    title: tpl.docTitle,
+    commission_pct: w.commission.pct === '' ? null : Number(w.commission.pct),
+    commission_amount: w.commission.amount === '' ? null : Number(w.commission.amount),
+    commission_note: w.commission.basis || null,
+    exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
+    exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
+    language: w.language,
+    notes: w.notes || null,
+    /* אימות לפני הצגת ההסכם, כברירת מחדל: בטופסי קונה ושוכר - רשימת
+       הנכסים שבמסמך היא עצמה המידע שמוגן, וקישור שהועבר הלאה חושף אותה.
+       בבלעדיות - שני הטפסים הם הראיה להתחייבות של בעל/ת הנכס, והאימות
+       (פעם אחת, בטופס הראשון) מוכיח שחתם/ה מי שבכרטיס. בטופס בעל/ת נכס
+       רגיל אין מה להגן עליו. */
+    require_otp: window.AgreementTemplates.requiresOtp(kind),
+    property_ids: w.properties.map(p => p.property_id).filter(Boolean),
+    client_ids: w.signers.map(s => s.client_id).filter(Boolean),
+    snapshot: {
+      property_line: propertyLine,
+      properties: w.properties.map(p => ({ property_id:p.property_id, fields:p.fields, notes:p.notes })),
+      signers: doc.signers,
+      commission: doc.commission,
+      exclusive: doc.exclusive,
+      questionnaire: w.questionnaire,
+      agent: doc.agent,
+    },
+    ...(extra || {}),
+  };
+
+  let record;
+  if (!existingId){
+    const { data, error } = await sb.from('agreements').insert(payload).select().single();
+    if (error) throw error;
+    record = data;
+  } else {
+    const { data, error } = await sb.from('agreements').update(payload).eq('id', existingId).select().single();
+    if (error) throw error;
+    record = data;
+    await sb.from('agreement_signers').delete().eq('agreement_id', existingId);
+  }
+  const agreementId = record.id;
+
+  const finalHtml = window.AgreementDoc.buildHtml(
+    Object.assign(agrBuildDoc(kind), { verifyCode: record.verify_code, createdAt: record.created_at }));
+
+  const { error: htmlErr } = await sb.from('agreements')
+    .update({ document_html: finalHtml }).eq('id', agreementId);
+  if (htmlErr) throw htmlErr;
+
+  const signerRows = w.signers.map((s, i) => ({
+    agreement_id: agreementId, ord: i, party: s.party,
+    full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
+    phone: s.phone.trim() || null, email: s.email.trim() || null,
+    address: s.address.trim() || null,
+    // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
+    // על עמודה שעוד לא קיימת (20270223090000)
+    self_fill: true,
+    // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
+    // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
+    ...(s.client_id ? { client_id: s.client_id } : {}),
+  }));
+  let { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
+  // ‏הדפדפן מתעדכן לפני שהמיגרציה רצה: בדקה הזו client_id עוד לא קיים, וזו
+  // לא סיבה להפיל הסכם. בלי הקישור הכתיבה לכרטיס נופלת להתאמה לפי נייד/מייל.
+  if (signersErr && /client_id/.test(signersErr.message || '')){
+    ({ error: signersErr } = await sb.from('agreement_signers')
+      .insert(signerRows.map(({ client_id, ...row }) => row)));
+  }
+  if (signersErr) throw signersErr;
+
+  return record;
+}
+
 async function agrSaveAndGoSign(btn){
   const w = agrWizard;
-  const tpl = agrTpl(w.kind);
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שומר…';
 
+  /* בלעדיות: קודם טופס ההסכמה לפעולות שיווק - מסמך נפרד, כנדרש בחוק
+     המתווכים - ואחריו הבלעדיות, שמצביעה עליו (marketing_consent_id,
+     20270829090000). דף החתימה מעביר את החותם/ת מהראשון לשני באימות אחד. */
+  const consentKind = window.AgreementTemplates.consentKind(w.kind);
+  let newConsentId = null;
   try {
-    const doc = agrBuildDoc();
-    const propertyLine = w.properties.map(p => p.label).join(' · ');
-
-    const payload = {
-      agent_id: currentAgent.id,
-      agency_id: currentAgent.agency_id || null,
-      kind: w.kind,
-      title: tpl.docTitle,
-      commission_pct: w.commission.pct === '' ? null : Number(w.commission.pct),
-      commission_amount: w.commission.amount === '' ? null : Number(w.commission.amount),
-      commission_note: w.commission.basis || null,
-      exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
-      exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
-      language: w.language,
-      notes: w.notes || null,
-      /* אימות בקוד דלוק כברירת מחדל בטופסי קונה ושוכר בלבד: שם רשימת
-         הנכסים שבמסמך היא עצמה המידע שמוגן, וקישור שהועבר הלאה חושף אותה.
-         בטופס של בעל/ת הנכס אין מה להגן עליו — הוא כבר יודע מה יש לו. */
-      require_otp: tpl.side === 'client',
-      property_ids: w.properties.map(p => p.property_id).filter(Boolean),
-      client_ids: w.signers.map(s => s.client_id).filter(Boolean),
-      snapshot: {
-        property_line: propertyLine,
-        properties: w.properties.map(p => ({ property_id:p.property_id, fields:p.fields, notes:p.notes })),
-        signers: doc.signers,
-        commission: doc.commission,
-        exclusive: doc.exclusive,
-        questionnaire: w.questionnaire,
-        agent: doc.agent,
-      },
-    };
-
-    let agreementId = w.agreementId;
-
-    if (!agreementId){
-      const { data, error } = await sb.from('agreements').insert(payload).select().single();
-      if (error) throw error;
-      agreementId = data.id;
-      // ‏verify_code נוצר במסד, והוא מודפס בתחתית המסמך — ולכן ה-HTML
-      // נבנה מחדש אחרי ההוספה ורק אז נשמר
-      w.record = data;
-    } else {
-      const { data, error } = await sb.from('agreements').update(payload).eq('id', agreementId).select().single();
-      if (error) throw error;
-      w.record = data;
-      await sb.from('agreement_signers').delete().eq('agreement_id', agreementId);
+    if (consentKind){
+      const consent = await agrPersistAgreement(consentKind, w.consentId || null, null);
+      if (!w.consentId) newConsentId = consent.id;
+      w.consentId = consent.id;
     }
 
-    const finalHtml = window.AgreementDoc.buildHtml(
-      Object.assign(agrBuildDoc(), { verifyCode: w.record.verify_code, createdAt: w.record.created_at }));
+    w.record = await agrPersistAgreement(w.kind, w.agreementId,
+      w.consentId ? { marketing_consent_id: w.consentId } : null);
+    w.agreementId = w.record.id;
+    newConsentId = null;
 
-    const { error: htmlErr } = await sb.from('agreements')
-      .update({ document_html: finalHtml }).eq('id', agreementId);
-    if (htmlErr) throw htmlErr;
-
-    const signerRows = w.signers.map((s, i) => ({
-      agreement_id: agreementId, ord: i, party: s.party,
-      full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
-      phone: s.phone.trim() || null, email: s.email.trim() || null,
-      address: s.address.trim() || null,
-      // רק כשמסומן: הדפדפן מתעדכן לפני שהמיגרציה רצה, והסכם רגיל לא ייפול
-      // על עמודה שעוד לא קיימת (20270223090000)
-      self_fill: true,
-      // הכרטיס שממנו החותם/ת נבחר/ה - לשם agreement-sign כותב את הת.ז.
-      // והשם המלא שהלקוח/ה השלים/ה בקישור (20270228090000)
-      ...(s.client_id ? { client_id: s.client_id } : {}),
-    }));
-    let { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
-    // ‏הדפדפן מתעדכן לפני שהמיגרציה רצה: בדקה הזו client_id עוד לא קיים, וזו
-    // לא סיבה להפיל הסכם. בלי הקישור הכתיבה לכרטיס נופלת להתאמה לפי נייד/מייל.
-    if (signersErr && /client_id/.test(signersErr.message || '')){
-      ({ error: signersErr } = await sb.from('agreement_signers')
-        .insert(signerRows.map(({ client_id, ...row }) => row)));
-    }
-    if (signersErr) throw signersErr;
-
-    w.agreementId = agreementId;
     await loadAgreements();
     await agrRefreshWizardRecord();
     // ההסכם הראשון סוגר צעד במדריך ההתחלה, והטריגר במסד פתח באותו רגע את
@@ -33942,7 +34204,14 @@ async function agrSaveAndGoSign(btn){
     agrRender();
   } catch(err){
     console.error(err);
-    showToast('שמירת ההסכם נכשלה: ' + (heErr(err) || 'שגיאה'));
+    // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
+    if (newConsentId){
+      await sb.from('agreements').delete().eq('id', newConsentId);
+      w.consentId = null;
+    }
+    showToast(/marketing_consent_id|agreements_kind_check/.test((err && err.message) || '')
+      ? 'המערכת מתעדכנת לטופס הבלעדיות החדש - נסו שוב בעוד דקה'
+      : 'שמירת ההסכם נכשלה: ' + (heErr(err) || 'שגיאה'));
     btn.disabled = false;
     btn.textContent = original;
   }
@@ -33982,6 +34251,14 @@ function agrRenderStepSign(){
   const done = prog.signed === prog.total && prog.total > 0;
 
   let html = '<p style="margin:0 0 12px;font-weight:600">בחתימתי, אני מאשר בזאת כי קראתי את ההסכם.</p>';
+
+  /* בלעדיות: הקישורים כאן הם של טופס הבלעדיות, ודף החתימה פותח קודם את
+     טופס ההסכמה לפעולות שיווק ועובר ממנו לבלעדיות באותו אימות */
+  if (rec.marketing_consent_id && !done){
+    html = '<div class="agr-warn">שני טפסים, קישור אחד: החותם/ת חותם/ת קודם על <b>ההסכמה לפעולות שיווק</b> ' +
+      'ומיד אחריה, בלי אימות נוסף, על <b>טופס הבלעדיות</b>. שני הטפסים יחד הם הראיה לבלעדיות, ' +
+      'וכל אחד מהם נשמר בהסכמים עם העותק החתום שלו.</div>' + html;
+  }
 
   if (done){
     html = '<div class="agr-warn" style="background:#F4F9F5;border-color:#C9E0D0;color:#2A5B36">' +
@@ -34296,7 +34573,10 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
   if (t.dataset.agrFlag){
     const patch = {};
     patch[t.dataset.agrFlag] = t.checked;
-    const { error } = await sb.from('agreements').update(patch).eq('id', agrWizard.agreementId);
+    // בבלעדיות - גם בטופס ההסכמה שלפניה: שם האימות קורה, והבלעדיות יורשת אותו
+    const consentId = agrWizard.consentId || (agrWizard.record && agrWizard.record.marketing_consent_id);
+    const { error } = await sb.from('agreements').update(patch)
+      .in('id', consentId ? [agrWizard.agreementId, consentId] : [agrWizard.agreementId]);
     if (error){
       showToast('העדכון נכשל: ' + heErr(error));
       t.checked = !t.checked;

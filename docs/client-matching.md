@@ -303,9 +303,24 @@ p_waive_features)`: מאפיין שברשימה מותר שיחסר, והוא ע
 קריאה — פונקציות חלון מחושבות לפני `LIMIT`, ולכן זו עדיין קריאה אחת לכל
 לקוח/ה, בדיוק כמו ב-`client_match_counts()`.
 
-‏`loadClients()` קורא ל-`client_match_top` וחוזר ל-`client_match_counts` אם
-היא נכשלת — במסד שהמיגרציה עדיין לא רצה בו פשוט אין תצוגה מקדימה, והמונה
-והכפתור ממשיכים לעבוד כרגיל.
+‏`loadClients()` קורא ל-`client_match_top` וחוזר ל-`client_match_counts` רק
+כשהפונקציה עצמה חסרה (`PGRST202` / `42883`) — מסד שהמיגרציה עדיין לא רצה
+בו. timeout (`57014`) או 5xx אינם מפעילים את הספירה השנייה: היא עושה את
+אותה עבודה ונופלת שמונה שניות אחר כך. במקום זה `clientMatchesUnavailable`
+מחליף את הסיכום "אין כרגע התאמות" ואת גלולת המונה (שנראית כמו אפס) בטקסט
+"לא הצלחנו לטעון את ההתאמות. נסו שוב." ובכפתור שקורא שוב ל-`loadClients()`.
+
+**‏`search_path` ריק הורד משתי העומסים** (`20271027140000`). פונקציית SQL
+עם `SET` אינה מוטמעת. ב-PostgreSQL 17 הטמעת SRF כן קורית לגוף שהוא
+`WITH … SELECT`, ובלבד שהקריאה ב-`FROM` / `LATERAL` ואין `proconfig`.
+‏`match_properties_for_client` קוראת כך (`cross join lateral`), ו-
+‏`client_match_top` / `client_match_counts` קוראות ל-plpgsql הזה, לא
+לפונקציה הסקלרית. הטמעה סקלרית אינה חלה: `RETURNS TABLE` אינו ביטוי
+‏SELECT יחיד. אחרי ה-`RESET`, ‏`EXPLAIN VERBOSE` על אותה צורת קריאה כבר
+אינו `Function Scan`. הגוף בסכימה מלאה, הן אינן `SECURITY DEFINER`,
+והקוראים נועלים `search_path` בעצמם. יועץ Supabase יציג
+`function_search_path_mutable` על שתיהן — חריג מתועד, לא חור. הבדיקה
+ב-`ops_agent/probes/security.py` נשארת על `SECURITY DEFINER` בלבד.
 
 ## אותו מנוע, מתוך הוואטסאפ
 

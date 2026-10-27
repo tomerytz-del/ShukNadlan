@@ -82,19 +82,19 @@ const CASES: Case[] = [
 
   /* ‏2. המסד ענה במפורש "אין שורה": נכס שנמכר ואינו active, כתבה שנמחקה.
         ‏406 הוא PGRST116 של PostgREST, ו-404 הוא נתיב שאינו קיים. */
-  { name: "נכס שאינו active (‏406)", url: "/property?id=9", status: 406, body: { code: "PGRST116" }, expect: "noindex" },
+  { name: "נכס שאינו active (‏406)", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 406, body: { code: "PGRST116" }, expect: "noindex" },
   { name: "משרד שנמחק (‏406)", url: "/agency?slug=a", status: 406, body: { code: "PGRST116" }, expect: "noindex" },
   { name: "כתבה שאינה קיימת (‏404)", url: "/article?slug=a", status: 404, body: {}, expect: "noindex" },
 
   /* ‏3. לא ידענו. כאן אסור להסיק דבר, והדף חייב לצאת בדיוק כמו שהוא —
         ‏noindex כאן היה מוחק נכסים חיים מגוגל בגלל תקלה של דקה. */
-  { name: "‏Supabase 500", url: "/property?id=9", status: 500, body: {}, expect: "untouched" },
-  { name: "מפתח שנשלל (‏401)", url: "/property?id=9", status: 401, body: {}, expect: "untouched" },
+  { name: "‏Supabase 500", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 500, body: {}, expect: "untouched" },
+  { name: "מפתח שנשלל (‏401)", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 401, body: {}, expect: "untouched" },
   { name: "‏RLS חוסם (‏403)", url: "/agency?slug=a", status: 403, body: {}, expect: "untouched" },
   { name: "‏PostgREST החזיר 400", url: "/agent?slug=a", status: 400, body: {}, expect: "untouched" },
 
   /* ‏4. המסלול הרגיל, כדי שהבדיקה לא תעבור על פונקציה שהפסיקה להזריק */
-  { name: "נכס קיים", url: "/property?id=9", status: 200, body: PROPERTY, expect: "tags" },
+  { name: "נכס קיים", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: PROPERTY, expect: "tags" },
   { name: "משרד קיים", url: "/agency?slug=a", status: 200, body: { name: "משרד", description: "ד" }, expect: "tags" },
   { name: "כתבה קיימת", url: "/article?slug=a", status: 200, body: { slug: "a", title: "כותרת" }, expect: "tags" },
 ];
@@ -163,7 +163,7 @@ async function render(row: unknown): Promise<string> {
   const ctx = {
     next: async () => new Response(PROP_PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
   } as never;
-  const res = await handler(new Request("https://shuknadlan.co.il/property?id=9"), ctx);
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"), ctx);
   return res.text();
 }
 
@@ -434,9 +434,9 @@ async function responseOf(url: string, status: number, body: unknown): Promise<R
   return await handler(new Request(`https://shuknadlan.co.il${url}`), context());
 }
 resetLastGood();
-const propDown = await responseOf("/property?id=9", 500, {});
+const propDown = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 500, {});
 const propDownHtml = await propDown.text();
-const propMiss = await responseOf("/property?id=9", 406, { code: "PGRST116" });
+const propMiss = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 406, { code: "PGRST116" });
 const propMissHtml = await propMiss.text();
 globalThis.fetch = (async () => {
   throw new Error("לא הייתה צריכה לצאת קריאה");
@@ -490,7 +490,7 @@ async function visible(row: unknown, agent: unknown, agentStatus = 200): Promise
       headers: { "content-type": "application/json" },
     });
   }) as typeof fetch;
-  const res = await handler(new Request("https://shuknadlan.co.il/property?id=9"), {
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"), {
     next: async () => new Response(VISIBLE, { headers: { "content-type": "text/html; charset=utf-8" } }),
   } as never);
   return await res.text();
@@ -576,15 +576,56 @@ propHttp.push(
     && bare.includes('rel="canonical"')],
 );
 resetLastGood();
-const propGood = await responseOf("/property?id=9", 200, PROPERTY);
+const propGood = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 200, PROPERTY);
 const propGoodHtml = await propGood.text();
-const propStale = await responseOf("/property?id=9", 500, {});
+const propStale = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 500, {});
 const propStaleHtml = await propStale.text();
 const agencyStale = await responseOf("/agency?slug=a", 500, {});
 const agencyStaleHtml = await agencyStale.text();
 propHttp.push(
   ["נכס, כשל אחרי הצלחה: 200 ואותו HTML", propStale.status === 200 && propStaleHtml === propGoodHtml && propGoodHtml !== PAGE && !propStale.headers.get("Retry-After")],
   ["משרד, כשל נשאר התשובה המקורית", agencyStale.status === 200 && agencyStaleHtml === PAGE],
+);
+const PROP = "11111111-1111-4111-8111-111111111111";
+const MIXED = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+let gluedFetch = false;
+let gluedNext = false;
+globalThis.fetch = (async () => {
+  gluedFetch = true;
+  throw new Error("לא הייתה צריכה לצאת קריאה");
+}) as typeof fetch;
+const glued = await handler(
+  new Request(`https://shuknadlan.co.il/property?id=${PROP}%D7%A9%D7%95%D7%A7&utm_source=fb&fbclid=abc`),
+  { next: async () => { gluedNext = true; return new Response(PAGE, { headers: { "content-type": "text/html" } }); } } as never,
+);
+const gluedLoc = glued.headers.get("Location") || "";
+const gluedParams = new URLSearchParams(gluedLoc.split("?")[1] || "");
+let upperNext = false;
+const upper = await handler(
+  new Request(`https://shuknadlan.co.il/property.html?id=${MIXED.toUpperCase()}&utm=1`, { method: "HEAD" }),
+  { next: async () => { upperNext = true; return new Response(PAGE, { headers: { "content-type": "text/html" } }); } } as never,
+);
+let bareFetch = false;
+globalThis.fetch = (async () => {
+  bareFetch = true;
+  return new Response("{}", { status: 500, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const garbage = await handler(new Request("https://shuknadlan.co.il/property?id=not-a-uuid"), context());
+const garbageHtml = await garbage.text();
+propHttp.push(
+  ["מזהה עם זנב: 301 ל-UUID נקי, עם utm ו-fbclid, בלי מסד",
+    glued.status === 301 && !gluedFetch && !gluedNext
+    && gluedLoc.startsWith("/property?")
+    && gluedParams.get("id") === PROP
+    && gluedParams.get("utm_source") === "fb"
+    && gluedParams.get("fbclid") === "abc"
+    && glued.headers.get("Cache-Control") === "public, max-age=3600"
+    && glued.headers.get("Netlify-CDN-Cache-Control") === "public, max-age=3600"],
+  ["UUID באותיות גדולות מ-/property.html: 301 לכתובת בלי סיומת",
+    upper.status === 301 && upper.headers.get("Location") === `/property?id=${MIXED}&utm=1` && !upperNext],
+  ["מזהה בלי UUID: 404 ולא 503, בלי קריאה למסד",
+    garbage.status === 404 && !bareFetch && NOINDEX.test(garbageHtml)
+    && !garbage.headers.get("Retry-After")],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
