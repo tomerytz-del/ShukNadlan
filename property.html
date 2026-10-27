@@ -243,7 +243,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.34) 55%,rgba(255,255,255,.56));
   }
   .bento-empty .empty-inner{position:relative;z-index:2}
-  .bento-video > video{position:relative;z-index:1}
+  /* הווידאו מעל הפלייסהולדר אחרי שיש פריים. בלי z-index ה-img
+     (absolute) נצבע מעליו. לא על סרטון עם פוסטר: שם הווידאו נשאר
+     בלי z-index משלו, ורילס אנכי נשאר על z-index:0. */
+  .bento-video:has(.hero-placeholder) > video{position:relative;z-index:1}
   /* התא שנושא את מונה התמונות מקבל הצללה משלו — התגית יושבת עליו ולא על
      התמונה הראשית, ובלי ההצללה היא נבלעת בתמונות בהירות. */
   .bento-thumb.carries-count::after{

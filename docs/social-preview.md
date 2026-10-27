@@ -179,7 +179,7 @@ SEO/GEO מהקוד מצאה את שניהם:
 `<img class="hero-placeholder">` של `/assets/property-placeholder.jpg`
 (`width="1600"` `height="1000"`, יחס 16/10 של תא יחיד). ה-`preload`
 שלו יושב מיד אחרי `charset`. הוא לא נוסף כשיש תמונה או פוסטר, והוא
-לא נכנס ל-`og:image` ול-JSON-LD. `renderGallery` משאיר את אותו צומת.
+לא נכנס ל-`og:image` ול-JSON-LD. `renderGallery` משאיר את אותו צומת רק כשמחלקת הסרטון תואמת את מה שהדפדפן ינגן. אחרת התא נבנה מחדש: תא סרטון שהנגן שלו כבוי (reduced-motion, Save-Data, 2G) הופך לתא ריק עם הלוגו וההודעה, ותא ריק ישן לא מקבל את הסרטון מעל הלוגו.
 
 **הכותרת והתיאור נכתבים לאותם id ש-`assets/property.js` כותב אליהם אחר כך**
 (`propTitle`, ‏`propDescription`, ו-`hidden` יורד מ-`descSection`), ובאותו

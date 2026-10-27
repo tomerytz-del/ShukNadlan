@@ -355,6 +355,111 @@ const PLACEHOLDER = "/assets/property-placeholder.jpg";
     && video.style.visibility === "");
 }
 
+{
+  const dom = makeDom();
+  dom.window.matchMedia = () => ({ matches: true });
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  img.className = "hero-placeholder";
+  main.appendChild(img);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "1");
+  g.renderGallery({
+    video_url: SRC,
+    images: [],
+    agencies: { name: "משרד לדוגמה", logo_url: "https://cdn.example/logo.png" },
+  });
+  const cell = grid.children.find((c: any) => String(c.className || "").includes("bento-main"));
+  check("reduced-motion על סרטון בלי פוסטר בונה תא ריק",
+    cell && cell !== main
+    && cell.classList.contains("bento-empty")
+    && !String(cell.className).includes("bento-video")
+    && !cell.classList.contains("bento-video")
+    && String(cell.innerHTML).includes("תמונות של הנכס יעלו בקרוב")
+    && String(cell.innerHTML).includes("משרד לדוגמה")
+    && !grid.children.some((c: any) => c.classList && c.classList.contains("bento-video")));
+}
+
+{
+  const dom = makeDom();
+  dom.sandbox.navigator.connection.saveData = true;
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  main.appendChild(img);
+  grid.appendChild(main);
+  g.renderGallery({ video_url: SRC, images: [] });
+  const cell = grid.children.find((c: any) => String(c.className || "").includes("bento-main"));
+  check("Save-Data על סרטון בלי פוסטר בונה תא ריק",
+    cell && cell.classList.contains("bento-empty") && !cell.classList.contains("bento-video")
+    && !String(cell.className).includes("bento-video"));
+}
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-empty");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  img.className = "hero-placeholder";
+  const logo = dom.document.createElement("div");
+  logo.className = "empty-inner";
+  main.appendChild(img);
+  main.appendChild(logo);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "1");
+  g.renderGallery({ video_url: SRC, images: [] });
+  const cell = grid.children.find((c: any) => String(c.className || "").includes("bento-main"));
+  const video = cell?.children.find((c: any) => c.tag === "video");
+  check("HTML ישן של תא ריק לא משאיר לוגו מתחת לסרטון",
+    cell && cell !== main
+    && cell.classList.contains("bento-video")
+    && !cell.classList.contains("bento-empty")
+    && !String(cell.className).includes("bento-empty")
+    && video
+    && !video.getAttribute("src")
+    && !cell.children.some((c: any) => c.className === "empty-inner"));
+}
+
+{
+  const dom = makeDom();
+  const g = boot(dom);
+  const grid = dom.document.getElementById("bentoGrid");
+  const main = dom.document.createElement("div");
+  main.classList.add("bento-main");
+  main.classList.add("bento-video");
+  const img = dom.document.createElement("img");
+  img.dataset.lcp = "1";
+  img.src = PLACEHOLDER;
+  img.className = "hero-placeholder";
+  const video = dom.document.createElement("video");
+  video.tag = "";
+  Object.defineProperty(video, "tagName", { value: "VIDEO" });
+  Object.defineProperty(video, "nodeName", { value: "VIDEO" });
+  main.appendChild(img);
+  main.appendChild(video);
+  grid.appendChild(main);
+  grid.setAttribute("data-count", "1");
+  g.renderGallery({ video_url: SRC, images: [] });
+  const vids = main.children.filter((c: any) => String(c.tagName || c.nodeName || c.tag || "").toUpperCase() === "VIDEO");
+  check("tagName של DOM אמיתי לא מוסיף וידאו שני", vids.length === 1 && grid.querySelector("img[data-lcp]") === img);
+}
+
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);
   process.exit(1);

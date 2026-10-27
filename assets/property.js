@@ -363,11 +363,15 @@ function isPlaceholderHero(img){
   const src = img.getAttribute('src') || '';
   return src === HERO_PLACEHOLDER;
 }
+/* tagName הוא ה-DOM בדפדפן ("VIDEO"). nodeName אותו דבר.
+   tag קיים רק ב-mock של הבדיקה, שאין לו tagName, ו-querySelector
+   שם מזהה רק img[data-lcp]. */
 function hasChildTag(parent, tag){
   const kids = parent && parent.children || [];
   const want = String(tag || '').toUpperCase();
   for (let i = 0; i < kids.length; i++){
-    const name = kids[i].tagName || kids[i].tag || '';
+    const el = kids[i];
+    const name = (el && (el.tagName || el.nodeName || el.tag)) || '';
     if (String(name).toUpperCase() === want) return true;
   }
   return false;
@@ -472,9 +476,14 @@ function renderGallery(p){
     && grid.getAttribute('data-count') === count
     && !!videoSrc === paintedVideo);
   /* בלי תמונה ובלי פוסטר ה-edge כבר שם img של הפלייסהולדר. מחיקת
-     הרשת הייתה מבקשת את הקובץ רק אחרי שאילתת הנכס. סרטון בלי פוסטר
-     מקבל את הווידאו ליד אותו img, וה-img נשאר עד שיש פריים. */
-  const keepPlaceholder = !!(kept && isPlaceholderHero(kept) && !heroSrc && !galleryImages.length);
+     הרשת הייתה מבקשת את הקובץ רק אחרי שאילתת הנכס. שומרים את הצומת
+     רק כשפריסת הסרטון תואמת את מה שהדפדפן ינגן: סרטון בלי פוסטר
+     שהשרת צייר כ-bento-video, ו-reduced-motion / Save-Data / 2G
+     מכבים אותו, נבנה מחדש כ-bento-empty (לוגו והודעה). HTML ישן
+     של bento-empty שאחריו נוסף סרטון גם הוא לא נשמר, אחרת
+     attachHeroVideo מוסיף את המחלקה והלוגו נשאר מתחת לסרטון. */
+  const keepPlaceholder = !!(kept && isPlaceholderHero(kept) && !heroSrc && !galleryImages.length
+    && !!videoSrc === paintedVideo);
   if (keepPlaceholder){
     grid.setAttribute('data-count', count);
     const main = elWithClass(grid, 'bento-main');
