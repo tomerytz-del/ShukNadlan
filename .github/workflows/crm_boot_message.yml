@@ -1,0 +1,26 @@
+name: נוסח מסך הביניים לפי יעד הקישור
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_boot_message_test.mjs"
+      - ".github/workflows/crm_boot_message.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "scripts/crm_boot_message_test.mjs"
+      - ".github/workflows/crm_boot_message.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת הנוסח
+        run: node scripts/crm_boot_message_test.mjs
