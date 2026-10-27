@@ -5,7 +5,7 @@
 -- (עמק הירדן) localities moved from market 'tiberias' to 'beit-shean'.
 --
 -- Version: above main (20271027150000) and the open PRs
--- (20271027150050, 20271027150100, 20271027160000).
+-- (20271027150050, 20271027150100, 20271028120000).
 --
 -- Why: scraped_lead_add -> city_id_for_name('אשדות יעקב') = null. CBS names
 -- carry a qualifier ('אשדות יעקב (איחוד)'), the scraper sends the bare or
