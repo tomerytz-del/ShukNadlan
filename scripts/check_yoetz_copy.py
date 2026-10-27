@@ -31,9 +31,9 @@ SKIP = {
     'brokers.html', 'silo.html', 'assets/brokers-render.js', 'assets/brokers.js', 'assets/silo-render.js', 'assets/silo.js',
     'assets/landing.js', 'netlify/edge-functions/brokers-page.ts', 'netlify/edge-functions/silo-page.ts',
 }
-# החלטה 10 (תומר, 27.10): ב-title וב-meta description של דפי המתווכים הניסוח המשולב "יועצי נדל״ן
-# ומתווכים" אושר; og:title/og:description שם ממתינים לאישור ולכן נשארים כמו שהם
-ALLOWED = re.compile(r'יועצי נדל״ן ומתווכים|<meta property="og:(?:title|description)" content="[^"]*"|חוק המתווכים, פרטי המתווך|(רשם|פנקס|חוק|תקנות) המתווכים|([\x27"])בלוג המתווכים\2|ניתוח שוק / בלוג המתווכים|(תקנות|חוק) \x27 \+\s*\x27המתווכים|/מתווכים|%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D')
+# החלטה 10 (תומר, 27.10, אושרה במלואה): ב-title, ב-meta description וב-og של דפי המתווכים הניסוח
+# המשולב "יועצי נדל״ן ומתווכים", וב-/agencies משפט גלוי אחד "יועצי נדל״ן (מתווכים) בעפולה ובעמק"
+ALLOWED = re.compile(r'יועצי נדל״ן ומתווכים|יועצי נדל״ן \(מתווכים\)|<meta property="og:(?:title|description)" content="[^"]*"|חוק המתווכים, פרטי המתווך|(רשם|פנקס|חוק|תקנות) המתווכים|([\x27"])בלוג המתווכים\2|ניתוח שוק / בלוג המתווכים|(תקנות|חוק) \x27 \+\s*\x27המתווכים|/מתווכים|%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D')
 WORD = re.compile(r'מתווכ|מתווך')
 
 
