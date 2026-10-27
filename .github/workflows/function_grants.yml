@@ -45,6 +45,8 @@ on:
       - "scripts/check_table_grants_test.py"
       - "scripts/check_leads_masked_invoker.py"
       - "scripts/check_leads_masked_invoker_test.py"
+      - "scripts/check_baseline_view_grants.py"
+      - "scripts/check_baseline_view_grants_test.py"
       - "schema.sql"
       - ".github/workflows/function_grants.yml"
   workflow_dispatch:
@@ -86,3 +88,13 @@ jobs:
 
       - name: leads_masked עם security_invoker
         run: python3 scripts/check_leads_masked_invoker.py
+
+      # ‏create or replace על market_city_names בלי security_invoker מאפס
+      # את האפשרות, ו-grant של כתיבה על שלושת ה-views (או revoke של
+      # agent_share_fit מ-authenticated) מחזיר חור שכבר נסגר בפרודקשן.
+      # הבדיקה העצמית קודם, מאותה סיבה כמו leads_masked.
+      - name: בדיקה עצמית - סגירת baseline_urgent_fixes
+        run: python3 scripts/check_baseline_view_grants_test.py
+
+      - name: סגירת baseline_urgent_fixes נשארת
+        run: python3 scripts/check_baseline_view_grants.py
