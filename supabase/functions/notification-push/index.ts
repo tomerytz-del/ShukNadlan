@@ -8,6 +8,7 @@ import {
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
+import { burstText, collapseForSend, BURST_DIGEST_TYPE } from "./burst-guard.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -177,6 +178,8 @@ type Item = {
   lead?: LeadInfo | null;
   // ‏סגירת מיניסייט (20271028100000). חסר - אין כפתור scn:.
   meeting_id?: string | null;
+  // ‏תקציר התפרצות (20271028140000). חסר בהודעה רגילה.
+  count?: number | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -310,6 +313,10 @@ function arrange(items: Item[]): Item[] {
  * לאותו מסך לא צריכות שלושה קישורים זהים ברצף.
  */
 function textBody(name: string | null, items: Item[], noLinks = false, topics = false): string {
+  const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
+  if (burst) {
+    return burstText(name, burst.count ?? items.length, SITE_BASE, gotoUrl(MANAGE_ACC)).slice(0, 4000);
+  }
   const first = firstName(name);
   const li = richLead(items);
   if (li) {
@@ -399,6 +406,11 @@ function ctaLabel(url: string): string {
  * לכבות את הערוץ (ראו MANAGE_ACC), ו-WhatsApp הופך כתובת בגוף ההודעה לקישור.
  */
 function templateSummary(items: Item[]): string {
+  const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
+  if (burst) {
+    const count = burst.count ?? items.length;
+    return `יש לך ${count} התראות חדשות באתר. ${SITE_BASE}/crm`.slice(0, 900);
+  }
   return items
     .map((it) => {
       const path = itemPath(it);
@@ -594,15 +606,15 @@ Deno.serve(async (req: Request) => {
   const digest = await loadDigestFlags(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
-    let items = withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
+    let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
-    )));
+    ))));
     const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
       ? items[0].type
       : null;
-    const lessType = digest.less && onlyType && !isLessKeptType(onlyType)
+    const lessType = digest.less && onlyType && onlyType !== BURST_DIGEST_TYPE && !isLessKeptType(onlyType)
       ? parseLessButton(`nless:${onlyType}`)
       : null;
     let status = "failed";
