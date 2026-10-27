@@ -1119,6 +1119,15 @@ function rememberPhotoAction(conv: ConversationState, text: string): void {
   ];
 }
 
+/** לחיצה על כפתור מחיקה או הסכם. בלי זה גבריאלה לא רואה מה הוובהוק כבר עשה. */
+function rememberListingAction(conv: ConversationState, text: string): void {
+  conv.history = [
+    ...conv.history,
+    { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: לחיצה על כפתור אישור]" },
+    { role: "assistant", content: text },
+  ];
+}
+
 /**
  * התמונה האחרונה באלבום: צירוף לנכס הפעיל בשיחה, או שאלה לאיזה נכס.
  *
@@ -1632,6 +1641,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       if (listingAct) {
         if (listingAct.text) await reply(from, listingAct.text, agent.id);
         if (listingAct.outbox?.length) await sendOutbox(from, listingAct.outbox, agent.id);
+        rememberListingAction(conv, listingAct.text || "הפעולה מהכפתור בוצעה.");
+        await saveConversation(agent.id, from, conv);
         return;
       }
       // ‏"תצוגה מקדימה" / "נוסח להעתקה" אחרי פתיחת מיניסייט (agent.ts): המזהה

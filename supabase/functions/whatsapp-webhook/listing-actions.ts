@@ -1,5 +1,7 @@
 // פעולות הרסניות מוואטסאפ: מחיקת תמונה, ביטול הסכם, והנפקה מחדש.
 // הכפתור נושא את המזהה. הכותרת לבדה אינה מספיקה. אין מחיקה בלי אישור.
+// הנפקה שומרת את התיקונים בבקשה, והכפתור נושא מזהה קצר שלה. מחיקה נושאת
+// טביעה של כתובות התמונות, כדי ששינוי סדר לא ימחק תמונה אחרת.
 
 export const IMAGE_DELETE_YES = "כן, למחוק";
 export const IMAGE_DELETE_NO = "לא למחוק";
@@ -8,9 +10,35 @@ export const AGREEMENT_CANCEL_NO = "להשאיר";
 export const AGREEMENT_REISSUE_YES = "כן, הסכם חדש";
 export const AGREEMENT_REISSUE_NO = "לא עכשיו";
 
+export const IMAGE_DELETE_STALE =
+  "התמונות השתנו בינתיים ולא מחקתי. אפשר לבקש שוב.";
+export const REISSUE_DONE =
+  "כבר הוצא הסכם חדש לבקשה הזו, ולא מוציאים עוד אחד.";
+export const REISSUE_EXPIRED =
+  "הבקשה פגה. אפשר לבקש הסכם חדש שוב.";
+export const REISSUE_MISSING =
+  "הבקשה לא נמצאה. אפשר לבקש הסכם חדש שוב.";
+export const REISSUE_BUSY =
+  "הבקשה כבר בטיפול. אם לא יצא הסכם חדש, אפשר לבקש שוב.";
+export const REISSUE_OLD_CANCELLED =
+  "ההסכם הישן כבר בוטל בהנפקה הזו. לא מוציאים עוד אחד.";
+export const REISSUE_STORE_MISSING =
+  "אי אפשר לאשר הנפקה כרגע. אפשר לנסות שוב אחרי עדכון המערכת.";
+
+/** כפתור הנפקה שקט אחרי שש שעות. וואטסאפ משאיר אותו לחיץ, והבקשה לא. */
+export const REISSUE_BUTTON_TTL_MS = 6 * 60 * 60 * 1000;
+
+export const REISSUE_OVERRIDE_KEYS = [
+  "commission_pct", "commission_amount", "commission_basis",
+  "exclusive_from", "exclusive_until", "notes", "client_email", "in_person_only",
+] as const;
+
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const IMAGE_RE = new RegExp(`^imgd:(y|n):(${UUID})(?::([0-9.]+))?$`, "i");
-const AGREEMENT_RE = new RegExp(`^ag(cx|rx):(y|n):(${UUID})$`, "i");
+const IMAGE_RE = new RegExp(
+  `^imgd:(y|n):(${UUID})(?::([0-9.]+)(?::([0-9a-f]{8}))?)?$`,
+  "i",
+);
+const AGREEMENT_RE = new RegExp(`^ag(cx|rx):(y|n):([0-9a-f]{12}|${UUID})$`, "i");
 
 export interface OwnedRow {
   agent_id: string;
@@ -46,16 +74,47 @@ export function imagesAfterRemove(
   return { ok: true, next, removed: n - next.length };
 }
 
+/** טביעה קצרה של כתובות התמונות שנבחרו. שינוי סדר משנה אותה. */
+export function imageUrlsHash(urls: readonly string[]): string {
+  let h = 0x811c9dc5;
+  const s = urls.join("\n");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export function imageDeleteMatches(
+  images: readonly string[],
+  positions: readonly number[],
+  hash: string | null | undefined,
+): boolean {
+  if (!hash) return false;
+  const urls: string[] = [];
+  for (const p of positions) {
+    if (!Number.isInteger(p) || p < 1 || p > images.length) return false;
+    urls.push(images[p - 1]);
+  }
+  return imageUrlsHash(urls) === hash.toLowerCase();
+}
+
 export function imageDeleteButtons(
   propertyId: string,
   positions: readonly number[],
+  images: readonly string[],
 ): { id: string; title: string }[] | null {
   const pos = [...new Set(positions.map(Number))]
     .filter((p) => Number.isInteger(p) && p >= 1 && p <= 99)
     .sort((a, b) => a - b)
     .slice(0, 12);
   if (!pos.length || !propertyId) return null;
-  const yes = `imgd:y:${propertyId}:${pos.join(".")}`;
+  const urls: string[] = [];
+  for (const p of pos) {
+    if (p > images.length || !images[p - 1]) return null;
+    urls.push(images[p - 1]);
+  }
+  const yes = `imgd:y:${propertyId}:${pos.join(".")}:${imageUrlsHash(urls)}`;
   const no = `imgd:n:${propertyId}`;
   if (yes.length > 200 || utf16len(IMAGE_DELETE_YES) > 20 || utf16len(IMAGE_DELETE_NO) > 20) return null;
   return [
@@ -68,6 +127,7 @@ export function parseImageDeleteButton(buttonId: string): {
   yes: boolean;
   propertyId: string;
   positions: number[];
+  hash: string | null;
 } | null {
   const m = IMAGE_RE.exec(String(buttonId || "").trim());
   if (!m) return null;
@@ -75,7 +135,12 @@ export function parseImageDeleteButton(buttonId: string): {
     ? m[3].split(".").map(Number).filter((n) => Number.isInteger(n) && n >= 1)
     : [];
   if (m[1].toLowerCase() === "y" && !positions.length) return null;
-  return { yes: m[1].toLowerCase() === "y", propertyId: m[2], positions };
+  return {
+    yes: m[1].toLowerCase() === "y",
+    propertyId: m[2],
+    positions,
+    hash: m[4] ? m[4].toLowerCase() : null,
+  };
 }
 
 export function agreementConfirmButtons(
@@ -87,8 +152,10 @@ export function agreementConfirmButtons(
   const yesTitle = action === "cancel" ? AGREEMENT_CANCEL_YES : AGREEMENT_REISSUE_YES;
   const noTitle = action === "cancel" ? AGREEMENT_CANCEL_NO : AGREEMENT_REISSUE_NO;
   if (utf16len(yesTitle) > 20 || utf16len(noTitle) > 20) return null;
+  const yes = `${prefix}:y:${agreementId}`;
+  if (yes.length > 200) return null;
   return [
-    { id: `${prefix}:y:${agreementId}`, title: yesTitle },
+    { id: yes, title: yesTitle },
     { id: `${prefix}:n:${agreementId}`, title: noTitle },
   ];
 }
@@ -105,6 +172,87 @@ export function parseAgreementButton(buttonId: string): {
     yes: m[2].toLowerCase() === "y",
     agreementId: m[3],
   };
+}
+
+export function newPendingActionId(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+export function reissueOverridePayload(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of REISSUE_OVERRIDE_KEYS) {
+    if (input[key] !== undefined) out[key] = input[key];
+  }
+  return out;
+}
+
+export interface PendingActionRow {
+  id: string;
+  agent_id?: string;
+  action?: string;
+  subject_id: string;
+  payload?: Record<string, unknown> | null;
+  expires_at: string;
+  claimed_at?: string | null;
+  executed_at?: string | null;
+  new_subject_id?: string | null;
+  result?: string | null;
+}
+
+export type ReissueDecision =
+  | { kind: "missing" }
+  | { kind: "expired" }
+  | { kind: "busy" }
+  | { kind: "done"; text: string }
+  | { kind: "superseded" }
+  | { kind: "run"; agreementId: string; overrides: Record<string, unknown> };
+
+/**
+ * לחיצה על כפתור הנפקה. done / superseded לא יוצרים הסכם נוסף.
+ * oldStatus=cancelled כשהבקשה כבר תפסה את ההסכם הישן ומחקה אותו.
+ */
+export function reissueClickDecision(
+  row: PendingActionRow | null | undefined,
+  nowMs: number,
+  oldStatus?: string | null,
+): ReissueDecision {
+  if (!row || !row.subject_id || (row.action && row.action !== "reissue")) return { kind: "missing" };
+  if (row.executed_at || row.new_subject_id) {
+    return { kind: "done", text: String(row.result || "").trim() || REISSUE_DONE };
+  }
+  const exp = Date.parse(String(row.expires_at || ""));
+  if (!Number.isFinite(exp) || exp <= nowMs) return { kind: "expired" };
+  if (row.claimed_at) {
+    if (oldStatus === "cancelled") return { kind: "superseded" };
+    return { kind: "busy" };
+  }
+  const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
+  return { kind: "run", agreementId: row.subject_id, overrides: payload };
+}
+
+export function reissueDecisionText(decision: ReissueDecision): string | null {
+  switch (decision.kind) {
+    case "run":
+      return null;
+    case "done":
+      return decision.text;
+    case "expired":
+      return REISSUE_EXPIRED;
+    case "busy":
+      return REISSUE_BUSY;
+    case "superseded":
+      return REISSUE_OLD_CANCELLED;
+    default:
+      return REISSUE_MISSING;
+  }
+}
+
+/** הטבלה עוד לא עלתה: הפונקציה נפרסת לפני המיגרציה. */
+export function pendingStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  if (code === "42P01" || code === "PGRST204" || code === "PGRST205") return true;
+  return /whatsapp_pending_actions|schema cache/i.test(String(error.message || ""));
 }
 
 export function reissueBlockedKind(kind: string): string | null {
@@ -144,8 +292,10 @@ export function reissuePrepareInput(
 ): Record<string, unknown> | { error: string } {
   const blocked = reissueBlockedKind(row.kind);
   if (blocked) return { error: blocked };
+  const clientIds = (row.client_ids || []).map((id) => String(id || "")).filter(Boolean);
   const clientId = String(
-    overrides.client_id || row.client_ids?.[0] || signers.find((s) => s.client_id)?.client_id || "",
+    overrides.client_id || clientIds[0] || signers.find((s) => Number(s.ord) === 0 && s.client_id)?.client_id ||
+      signers.find((s) => s.client_id)?.client_id || "",
   );
   if (!clientId) return { error: "אין לקוח/ה על ההסכם, אי אפשר להוציא חדש." };
   const propertyIds = Array.isArray(overrides.property_ids) && overrides.property_ids.length
@@ -154,11 +304,15 @@ export function reissuePrepareInput(
   if (!propertyIds.length) return { error: "אין נכס על ההסכם, אי אפשר להוציא חדש." };
   const extras = signers
     .filter((s) => Number(s.ord) > 0 && String(s.full_name || "").trim())
-    .map((s) => ({
-      full_name: String(s.full_name).trim(),
-      phone: s.phone || undefined,
-      email: s.email || undefined,
-    }));
+    .map((s, i) => {
+      const linked = String(s.client_id || clientIds[i + 1] || "").trim();
+      return {
+        full_name: String(s.full_name).trim(),
+        phone: s.phone || undefined,
+        email: s.email || undefined,
+        ...(linked ? { client_id: linked } : {}),
+      };
+    });
   const basis = BASES.has(String(row.commission_note || "")) ? String(row.commission_note) : undefined;
   return {
     kind: row.kind,
