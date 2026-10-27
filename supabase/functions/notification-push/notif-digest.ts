@@ -8,28 +8,60 @@ export const RESTORE_COMMAND = "החזר התראות";
 export const LESS_HOLD_DAYS = 30;
 
 /**
- * לא מופחתים ולא נדחים לחלון התקציר.
- * כל סוג ליד (כולל new_lead, lead_followup, lead_unrouted),
- * סיור, תזכורת מהיומן, והתראות אבטחה, תקציב ומערכת.
- * אותה רשימה ב-notification_push_less_kept_types, וכל סוג שמכיל lead.
+ * לא מופחתים ולא נדחים לחלון התקציר. רשימה מפורשת, בלי התאמת תת-מחרוזת.
+ * אותה רשימה ב-notification_push_less_kept_types() וב-NOTIF_LESS_KEPT.
+ *
+ * ליד אמיתי: new_lead ו-lead_unrouted. המשימה "לחזור לליד" היא
+ * agenda_reminder (auto_kind lead_followup אינו סוג ב-notifications).
+ * סיור: showcase_meeting. וגם security_alert, budget_alert, ops_alert.
+ *
+ * לא ברשימה, בכוונה: lead_prefs_default (תזכורת על העדפות), onboarding_lead
+ * (דרבון התחלה), open_demand (ביקוש אנונימי לכל הסוכנים בעיר, לא ליד ששובץ).
  */
 export const LESS_KEPT_TYPES = [
   "agenda_reminder",
   "showcase_meeting",
   "new_lead",
-  "lead_followup",
   "lead_unrouted",
-  "lead_prefs_default",
-  "onboarding_lead",
-  "open_demand",
   "security_alert",
   "budget_alert",
   "ops_alert",
 ] as const;
 
 export function isLessKeptType(type: string): boolean {
-  if ((LESS_KEPT_TYPES as readonly string[]).includes(type)) return true;
-  return String(type || "").includes("lead");
+  return (LESS_KEPT_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * חלון המבט של claim. דגל כבוי: עדיפות 72 שעות, כל השאר 12. בלי זה
+ * סוג מוגן היה עוקף את 12 השעות גם כשהתקציר כבוי.
+ */
+export function pushLookbackHours(opts: {
+  digestOn: boolean;
+  priority: boolean;
+  kept: boolean;
+  normalHours?: number;
+  priorityHours?: number;
+}): number {
+  const normal = opts.normalHours ?? 12;
+  const priorityHours = opts.priorityHours ?? 72;
+  if (opts.priority) return priorityHours;
+  if (!opts.digestOn) return normal;
+  if (opts.kept) return priorityHours;
+  return 24 * 7;
+}
+
+/**
+ * מה יוצא כשהמרווח, התקרה או פער התבנית חוסמים. דגל כבוי: רק עדיפות,
+ * כמו 20270825090000. הרחבה לסוג מוגן רק כשהתקציר דלוק.
+ */
+export function typesUnderCap(opts: {
+  digestOn: boolean;
+  types: string[];
+  priority: readonly string[];
+}): string[] {
+  const priority = new Set(opts.priority);
+  return opts.types.filter((t) => priority.has(t) || (opts.digestOn && isLessKeptType(t)));
 }
 
 const TOPIC_LABELS: Record<string, string> = {

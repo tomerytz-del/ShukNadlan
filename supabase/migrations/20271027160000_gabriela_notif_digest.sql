@@ -8,12 +8,17 @@
 -- יוצא כרגיל.
 -- "פחות כאלה" נשמר ב-agent_notif_less ומפחית סוג שאינו ברשימת
 -- notification_push_less_kept_types: הוא יוצא רק בחלון תקציר, ופעם
--- אחת בחלון, ל-30 יום. ליד (כולל new_lead, lead_followup,
--- lead_unrouted וכל סוג שמכיל lead), סיור, תזכורת מהיומן,
--- security_alert, budget_alert ו-ops_alert לא יורדים ולא נדחים
--- לחלון. התראה מופחתת שנוצרה אחרי 17:30 לא נזרקת בגלל חלון
--- המבט של 12 שעות: notification_push_less_hold שומר אותה עד 7 ימים
--- לחלון הבא, גם אחרי שישי-שבת. בלי שורות בטבלה אין שינוי.
+-- אחת בחלון, ל-30 יום. הרשימה מפורשת, בלי התאמת תת-מחרוזת:
+-- new_lead, lead_unrouted, showcase_meeting, agenda_reminder
+-- (זו ההודעה של משימת "לחזור לליד"; lead_followup אינו סוג התראה),
+-- security_alert, budget_alert, ops_alert.
+-- לא מוגנים: lead_prefs_default, onboarding_lead, open_demand.
+-- כשהדגל 0, המרווח, התקרה, פער התבנית וחלון 12 השעות זהים
+-- ל-20270825090000. הרחבה שלהם, וחלון 7 הימים לסוג רגיל, רק כשהדגל 1.
+-- התראה מופחתת שנוצרה אחרי 17:30 לא נזרקת: notification_push_less_hold
+-- שומר אותה עד 7 ימים, ורק כשהדגל דלוק. בלי שורות בטבלה אין שינוי.
+-- התראות שלא נשלחו ובנות יותר מ-12 שעות (חוץ מעדיפות ומ-quiet_hold)
+-- נרשמות skipped, כדי ששום דבר ישן לא ייצא כשהדגל יידלק אחר כך.
 
 insert into public.pricing_config (key, value, description) values
   ('notif_digest_enabled', 0, '1: התראות שאינן בעדיפות יוצאות רק בחלונות התקציר, עם תקרה יומית נמוכה יותר.'),
@@ -101,8 +106,9 @@ comment on function public.notif_il_digest_open(integer) is
 revoke all on function public.notif_il_digest_open(integer) from public, anon, authenticated;
 grant execute on function public.notif_il_digest_open(integer) to service_role;
 
--- הרשימה הסגורה זהה ל-LESS_KEPT_TYPES. כל סוג שמכיל lead נשמר גם אם
--- אינו ברשימה, כדי שסוג ליד חדש לא יידחה לחלון בלי שמישהו יזכור.
+-- הרשימה הסגורה זהה ל-LESS_KEPT_TYPES. בלי התאמת תת-מחרוזת:
+-- lead_prefs_default, onboarding_lead ו-open_demand אינם ליד שמחכה.
+-- lead_followup אינו ב-notifications_type_check; ההודעה היא agenda_reminder.
 create or replace function public.notification_push_less_kept_types()
 returns text[]
 language sql
@@ -113,11 +119,7 @@ as $$
     'agenda_reminder',
     'showcase_meeting',
     'new_lead',
-    'lead_followup',
     'lead_unrouted',
-    'lead_prefs_default',
-    'onboarding_lead',
-    'open_demand',
     'security_alert',
     'budget_alert',
     'ops_alert'
@@ -125,7 +127,7 @@ as $$
 $$;
 
 comment on function public.notification_push_less_kept_types() is
-  'סוגים ש"פחות כאלה" אינו מפחית ושחלון התקציר אינו דוחה. זהה ל-LESS_KEPT_TYPES.';
+  'סוגים ש"פחות כאלה" אינו מפחית ושחלון התקציר אינו דוחה. זהה ל-LESS_KEPT_TYPES. בלי lead_prefs_default, onboarding_lead, open_demand.';
 
 revoke all on function public.notification_push_less_kept_types() from public, anon, authenticated;
 grant execute on function public.notification_push_less_kept_types() to service_role;
@@ -136,12 +138,11 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select p_type = any(public.notification_push_less_kept_types())
-      or coalesce(p_type, '') like '%lead%';
+  select p_type = any(public.notification_push_less_kept_types());
 $$;
 
 comment on function public.notification_push_less_kept(text) is
-  'סוג שלא מופחת ולא נדחה לחלון התקציר: הרשימה, או כל סוג שמכיל lead.';
+  'סוג שלא מופחת ולא נדחה לחלון התקציר. רק הרשימה המפורשת, בלי תת-מחרוזת.';
 
 revoke all on function public.notification_push_less_kept(text) from public, anon, authenticated;
 grant execute on function public.notification_push_less_kept(text) to service_role;
@@ -302,7 +303,7 @@ as $$
              then array(
                select t from unnest(a.whatsapp_types) t
                 where t = any(cfg.priority)
-                   or public.notification_push_less_kept(t)
+                   or (cfg.digest_on = 1 and public.notification_push_less_kept(t))
              )
              else a.whatsapp_types
            end as raw_types,
@@ -366,6 +367,8 @@ declare
   v_look_p  int := coalesce((select value::int from public.pricing_config
                               where key = 'notif_push_priority_lookback_hours'), 72);
   v_prio    text[] := public.notification_push_priority_types();
+  v_digest_on int := coalesce((select value::int from public.pricing_config
+                                where key = 'notif_digest_enabled'), 0);
   v_digest  int := coalesce((select value::int from public.pricing_config
                               where key = 'notif_push_ambient_digest_minutes'), 180);
   v_wake    boolean;
@@ -408,12 +411,13 @@ begin
        and n.type = any(a.whatsapp_types)
        and (n.created_at > now() - make_interval(hours =>
               case
-                when n.type = any(v_prio) or public.notification_push_less_kept(n.type)
-                then v_look_p
+                when n.type = any(v_prio) then v_look_p
+                when v_digest_on = 1 and public.notification_push_less_kept(n.type) then v_look_p
+                when v_digest_on = 1 then 24 * 7
                 else v_look
               end)
             or public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)
-            or public.notification_push_less_hold(n.type, n.agent_id, n.created_at))
+            or (v_digest_on = 1 and public.notification_push_less_hold(n.type, n.agent_id, n.created_at)))
        and not exists (
          select 1 from public.notification_push_log l
           where l.agent_id = n.agent_id
@@ -439,7 +443,132 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'כמו 20271027150050, ובנוסף notification_push_less_hold: התראה מופחתת מחכה עד 7 ימים לחלון הבא ולא נעלמת אחרי 12 שעות.';
+  'כמו 20271027150050 כש-notif_digest_enabled = 0: עדיפות 72 שעות, כל השאר 12, ו-quiet_hold. כשהדגל 1 סוג רגיל נשמר 7 ימים לחלון הבא, ו-less_hold חל.';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
+
+-- skipped חוסם שליחה חוזרת כמו sent, בלי להיספר כהודעה שיצאה.
+-- שורת היומן נרשמת 25 שעות אחורה, כדי שלא תזיז את המרווח ואת התקרה.
+alter table public.notification_push_log drop constraint if exists notification_push_log_status_chk;
+alter table public.notification_push_log add constraint notification_push_log_status_chk
+  check (whatsapp_status in ('pending','sent','failed','skipped'));
+
+create or replace function public.notification_push_log_holds(
+  p_status  text,
+  p_created timestamptz
+)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select p_status in ('sent', 'skipped')
+      or (p_status = 'pending'
+          and p_created > now() - make_interval(mins => coalesce(
+                (select value::int from public.pricing_config
+                  where key = 'notif_push_pending_grace_minutes'), 30)));
+$$;
+
+comment on function public.notification_push_log_holds(text, timestamptz) is
+  'האם שורת יומן דחיפה חוסמת הודעה נוספת על אותן התראות. sent ו-skipped חוסמים תמיד. pending חוסם רק בחלון החסד.';
+
+revoke all on function public.notification_push_log_holds(text, timestamptz) from public, anon, authenticated;
+grant execute on function public.notification_push_log_holds(text, timestamptz) to service_role;
+
+-- התראות שלא נשלחו ובנות יותר מ-12 שעות, חוץ מעדיפות ומ-quiet_hold
+-- (אלה עדיין יוצאות היום). כך הדלקה מאוחרת של התקציר לא שופכת אותן.
+insert into public.notification_push_log
+  (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
+select n.agent_id,
+       array_agg(n.id),
+       array_agg(distinct n.type),
+       'text',
+       'skipped',
+       'older than 12h at digest migration; not pushed',
+       now() - interval '25 hours'
+  from public.notifications n
+ where not n.read
+   and n.created_at <= now() - interval '12 hours'
+   and not (n.type = any(public.notification_push_priority_types()))
+   and not public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)
+   and not exists (
+     select 1 from public.notification_push_log l
+      where l.agent_id = n.agent_id
+        and n.id = any(l.notification_ids)
+        and public.notification_push_log_holds(l.whatsapp_status, l.created_at)
+   )
+ group by n.agent_id;
+
+-- מחיקת שורת "פחות כאלה". דגל כבוי: מה שכבר מעל 12 שעות מסומן skipped
+-- ולא נשאר בלימבו. דגל דלוק: מה שבתוך 7 ימים יוצא בחלון הבא, ומה
+-- שמעבר לזה מסומן skipped. p_type null משחרר את כל הסוגים של הסוכן/ת.
+create or replace function public.notification_push_less_release(
+  p_agent uuid,
+  p_type  text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_on    int := coalesce((select value::int from public.pricing_config
+                            where key = 'notif_digest_enabled'), 0);
+  v_types text[];
+  v_cut   interval;
+begin
+  if p_agent is null then
+    return false;
+  end if;
+  if public.current_agent_id() is not null
+     and p_agent is distinct from public.current_agent_id() then
+    return false;
+  end if;
+
+  select coalesce(array_agg(less.notif_type), '{}'::text[])
+    into v_types
+    from public.agent_notif_less less
+   where less.agent_id = p_agent
+     and (p_type is null or less.notif_type = p_type);
+  if coalesce(array_length(v_types, 1), 0) = 0 then
+    return false;
+  end if;
+
+  v_cut := case when v_on = 1 then interval '7 days' else interval '12 hours' end;
+  insert into public.notification_push_log
+    (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
+  select n.agent_id,
+         array_agg(n.id),
+         array_agg(distinct n.type),
+         'text',
+         'skipped',
+         'released from less-of-these after the send window',
+         now() - interval '25 hours'
+    from public.notifications n
+   where n.agent_id = p_agent
+     and not n.read
+     and n.type = any(v_types)
+     and n.created_at <= now() - v_cut
+     and not (n.type = any(public.notification_push_priority_types()))
+     and not public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)
+     and not exists (
+       select 1 from public.notification_push_log l
+        where l.agent_id = n.agent_id
+          and n.id = any(l.notification_ids)
+          and public.notification_push_log_holds(l.whatsapp_status, l.created_at)
+     )
+   group by n.agent_id;
+
+  delete from public.agent_notif_less less
+   where less.agent_id = p_agent
+     and less.notif_type = any(v_types);
+  return true;
+end;
+$$;
+
+comment on function public.notification_push_less_release(uuid, text) is
+  'מוחק שורת הפחתה. דגל כבוי מסמן skipped את מה שכבר מעל 12 שעות. דגל דלוק משאיר עד 7 ימים לחלון הבא ומסמן skipped רק את מה שכבר מעבר. אין grant ל-anon. authenticated רק כש-p_agent הוא current_agent_id(), כי service_role קורא בלי JWT.';
+
+revoke all on function public.notification_push_less_release(uuid, text) from public, anon, authenticated;
+grant execute on function public.notification_push_less_release(uuid, text) to authenticated, service_role;

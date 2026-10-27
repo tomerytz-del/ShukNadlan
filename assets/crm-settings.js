@@ -585,7 +585,17 @@ function reminderRowHtml(){
     + `</div>`;
 }
 
-const NOTIF_LESS_KEPT = new Set(['agenda_reminder', 'showcase_meeting', 'new_lead']);
+// זהה ל-LESS_KEPT_TYPES ול-notification_push_less_kept_types().
+// lead_followup אינו סוג התראה: המשימה ביומן, וההודעה היא agenda_reminder.
+const NOTIF_LESS_KEPT = new Set([
+  'agenda_reminder',
+  'showcase_meeting',
+  'new_lead',
+  'lead_unrouted',
+  'security_alert',
+  'budget_alert',
+  'ops_alert',
+]);
 
 function notifTypeTitle(type){
   const t = (typeof NOTIF_TYPES !== 'undefined' ? NOTIF_TYPES : []).find(x => x.type === type);
@@ -837,17 +847,32 @@ function wireNotifScreen(){
     if (restore){
       const type = restore.getAttribute('data-np-less-restore');
       restore.disabled = true;
-      sb.from('agent_notif_less').delete().eq('agent_id', currentAgent.id).eq('notif_type', type)
-        .select('notif_type')
+      sb.rpc('notification_push_less_release', { p_agent: currentAgent.id, p_type: type })
         .then(({ data, error }) => {
-          if (error || !data || !data.length){
-            showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
-            restore.disabled = false;
+          if (!error){
+            if (data !== true){
+              showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
+              restore.disabled = false;
+              return;
+            }
+            notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
+            renderNotifLess();
+            showToast('ההתראות האלה חזרו לקצב הרגיל.');
             return;
           }
-          notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
-          renderNotifLess();
-          showToast('ההתראות האלה חזרו לקצב הרגיל.');
+          // עד שהמיגרציה עולה: אותה מחיקה, הצלחה רק אם נמחקה שורה.
+          return sb.from('agent_notif_less').delete().eq('agent_id', currentAgent.id).eq('notif_type', type)
+            .select('notif_type')
+            .then(({ data: rows, error: delErr }) => {
+              if (delErr || !rows || !rows.length){
+                showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
+                restore.disabled = false;
+                return;
+              }
+              notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
+              renderNotifLess();
+              showToast('ההתראות האלה חזרו לקצב הרגיל.');
+            });
         });
       return;
     }

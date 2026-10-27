@@ -12,10 +12,12 @@ import {
   minutesInTimeZone,
   parseLessButton,
   parseMoreButton,
+  pushLookbackHours,
   RESTORE_COMMAND,
   RESTORE_TITLE,
   topicBreak,
   topicLabel,
+  typesUnderCap,
 } from "../supabase/functions/notification-push/notif-digest.ts";
 
 let failed = 0;
@@ -104,13 +106,30 @@ check("ליד חדש לא מופחת", isLessKeptType("new_lead") && applyLessGa
   ["new_lead", "client_match"],
   { digestOpen: false, lastSentAgoMin: null, windowRadiusMin: 15 },
 ).join(",") === "new_lead");
-for (const leadType of ["lead_followup", "lead_unrouted", "lead_prefs_default", "onboarding_lead", "open_demand"]) {
-  check(`סוג ליד נשמר: ${leadType}`, isLessKeptType(leadType));
+check("ליד שלא שובץ נשמר", isLessKeptType("lead_unrouted"));
+for (const plain of ["lead_followup", "lead_prefs_default", "onboarding_lead", "open_demand", "lead_future_kind", "client_match"]) {
+  check(`לא מוגן: ${plain}`, !isLessKeptType(plain));
 }
 for (const alertType of ["security_alert", "budget_alert", "ops_alert"]) {
   check(`התראה נשמרת: ${alertType}`, isLessKeptType(alertType));
 }
-check("סוג ליד שלא ברשימה עדיין נשמר", isLessKeptType("lead_future_kind"));
+const priority = ["agenda_reminder", "showcase_meeting", "new_lead"];
+const capped = ["open_demand", "new_lead", "client_match", "lead_prefs_default", "security_alert"];
+check("דגלים כבויים: תקרה משאירה רק עדיפות", typesUnderCap({
+  digestOn: false, types: capped, priority,
+}).join(",") === "new_lead");
+check("דגל דלוק: תקרה משאירה גם מוגן", typesUnderCap({
+  digestOn: true, types: capped, priority,
+}).join(",") === "new_lead,security_alert");
+check("דגלים כבויים: מבט 12 שעות גם למוגן שאינו עדיפות", pushLookbackHours({
+  digestOn: false, priority: false, kept: true,
+}) === 12);
+check("דגלים כבויים: עדיפות נשארת 72 ומרווח 12 לסוג רגיל", pushLookbackHours({
+  digestOn: false, priority: true, kept: true,
+}) === 72 && pushLookbackHours({ digestOn: false, priority: false, kept: false }) === 12);
+check("דגל דלוק: סוג רגיל נשמר שבוע ולא נעלם אחרי 12 שעות", pushLookbackHours({
+  digestOn: true, priority: false, kept: false,
+}) === 24 * 7);
 
 const keptFn = sql.slice(
   sql.indexOf("function public.notification_push_less_kept_types"),
@@ -122,7 +141,7 @@ const keptPred = sql.slice(
   sql.indexOf("function public.notification_push_less_kept("),
   sql.indexOf("comment on function public.notification_push_less_kept(text)"),
 );
-check("כל סוג lead נשמר ב-SQL", keptPred.includes("notification_push_less_kept_types()") && keptPred.includes("like '%lead%'"));
+check("בלי התאמת תת-מחרוזת", keptPred.includes("notification_push_less_kept_types()") && !keptPred.includes("like '%lead%'"));
 const holdFn = sql.slice(
   sql.indexOf("function public.notification_push_less_hold"),
   sql.indexOf("comment on function public.notification_push_less_hold"),
@@ -142,8 +161,24 @@ const claimFn = sql.slice(
   sql.indexOf("function public.notification_push_claim"),
   sql.indexOf("comment on function public.notification_push_claim"),
 );
-check("ה-claim מחזיק מופחת ולא חותך אותו ב-12 שעות", claimFn.includes("notification_push_less_hold(n.type, n.agent_id, n.created_at)")
+check("ה-claim מחזיק מופחת ולא חותך אותו ב-12 שעות", claimFn.includes("v_digest_on = 1 and public.notification_push_less_hold(n.type, n.agent_id, n.created_at)")
   && claimFn.includes("meeting_id"));
+check("דגל כבוי: מבט 12 שעות, 72 רק לעדיפות", claimFn.includes("when n.type = any(v_prio) then v_look_p")
+  && claimFn.includes("when v_digest_on = 1 and public.notification_push_less_kept(n.type) then v_look_p")
+  && claimFn.includes("when v_digest_on = 1 then 24 * 7")
+  && claimFn.includes("else v_look")
+  && !claimFn.includes("or public.notification_push_less_kept(n.type)"));
+const capBranch = sql.slice(sql.indexOf("r.last_at is not null"), sql.indexOf("else a.whatsapp_types"));
+check("דגל כבוי: מרווח תקרה ופער תבנית רק לעדיפות", capBranch.includes("cfg.digest_on = 1 and public.notification_push_less_kept(t)")
+  && !capBranch.includes("or public.notification_push_less_kept(t)"));
+check("ישן מ-12 שעות מסומן skipped", sql.includes("whatsapp_status in ('pending','sent','failed','skipped')")
+  && sql.includes("p_status in ('sent', 'skipped')")
+  && sql.includes("interval '12 hours'")
+  && sql.includes("interval '25 hours'")
+  && sql.includes("not public.notification_push_quiet_hold"));
+check("החזרה מסמנת או שוטפת ולא משאירה בלימבו", sql.includes("function public.notification_push_less_release")
+  && sql.includes("interval '7 days'")
+  && sql.includes("current_agent_id()"));
 const stopBranch = sql.slice(sql.indexOf("cfg.stop_131049 = 1"), sql.indexOf("when cfg.digest_on = 1"));
 check("131049 משאיר דחוף ומוגן", stopBranch.includes("cfg.priority")
   && stopBranch.includes("notification_push_less_kept(t)")
@@ -165,9 +200,17 @@ check("החזרה לסוכן/ת", sql.includes("grant select, delete on table pu
 check("authenticated בלי שאר הפעלים", sql.includes("revoke all on table public.agent_notif_less from public, anon, authenticated")
   && !/grant\s+(?:all|insert|update|truncate)\b[^;]*agent_notif_less to authenticated/i.test(sql));
 const settings = readFileSync(new URL("../assets/crm-settings.js", import.meta.url), "utf8");
-const restoreAt = settings.indexOf("sb.from('agent_notif_less').delete()");
-const restore = settings.slice(restoreAt, restoreAt + 500);
-check("החזרה במסך רק אחרי מחיקה", restore.includes(".select('notif_type')") && restore.includes("!data.length"));
+const keptCrm = settings.slice(settings.indexOf("const NOTIF_LESS_KEPT"), settings.indexOf("function notifTypeTitle"));
+check("רשימת ה-CRM זהה", LESS_KEPT_TYPES.every((t) => keptCrm.includes(`'${t}'`))
+  && !keptCrm.includes("open_demand")
+  && !keptCrm.includes("lead_prefs_default")
+  && !keptCrm.includes("onboarding_lead")
+  && !keptCrm.includes("%lead%"));
+const restoreAt = settings.indexOf("notification_push_less_release");
+const restore = settings.slice(restoreAt, restoreAt + 900);
+check("החזרה במסך דרך הפונקציה, ומחיקה רק אם היא עוד לא עלתה", restore.includes("p_type: type")
+  && restore.includes(".select('notif_type')")
+  && restore.includes("!rows.length"));
 
 if (failed) {
   console.log(`\n${failed} בדיקות נכשלו`);
