@@ -28,10 +28,6 @@ const sql = readFileSync(
   new URL("../supabase/migrations/20271027160000_gabriela_notif_digest.sql", import.meta.url),
   "utf8",
 );
-const prioritySql = readFileSync(
-  new URL("../supabase/migrations/20270420090000_notification_push_priority.sql", import.meta.url),
-  "utf8",
-);
 
 /** הנוסחה שב-notif_il_digest_open, מתוך גוף הפונקציה ולא עותק נפרד. */
 function digestOpenFromSql(source: string, at: Date, radius: number | null): boolean {
@@ -103,19 +99,60 @@ check("חלון הבא מחזיר את הסוג", applyLessGate(["client_match"]
   digestOpen: true, lastSentAgoMin: 31, windowRadiusMin: 15,
 }).join(",") === "client_match");
 check("תזכורת נשמרת", isLessKeptType("agenda_reminder") && !isLessKeptType("client_match"));
+check("ליד חדש לא מופחת", isLessKeptType("new_lead") && applyLessGate(
+  ["new_lead", "client_match"],
+  ["new_lead", "client_match"],
+  { digestOpen: false, lastSentAgoMin: null, windowRadiusMin: 15 },
+).join(",") === "new_lead");
+for (const leadType of ["lead_followup", "lead_unrouted", "lead_prefs_default", "onboarding_lead", "open_demand"]) {
+  check(`סוג ליד נשמר: ${leadType}`, isLessKeptType(leadType));
+}
+for (const alertType of ["security_alert", "budget_alert", "ops_alert"]) {
+  check(`התראה נשמרת: ${alertType}`, isLessKeptType(alertType));
+}
+check("סוג ליד שלא ברשימה עדיין נשמר", isLessKeptType("lead_future_kind"));
 
-const prioFn = prioritySql.slice(
-  prioritySql.indexOf("function public.notification_push_priority_types"),
-  prioritySql.indexOf("comment on function public.notification_push_priority_types"),
+const keptFn = sql.slice(
+  sql.indexOf("function public.notification_push_less_kept_types"),
+  sql.indexOf("comment on function public.notification_push_less_kept_types"),
 );
-const prioList = [...prioFn.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
-check("הדחוף ב-SQL הוא אותה רשימה", prioList.join(",") === [...LESS_KEPT_TYPES].slice().sort().join(",")
-  || prioList.join(",") === LESS_KEPT_TYPES.join(","), prioList);
+const keptList = [...keptFn.matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]);
+check("רשימת ההגנה ב-SQL זהה", keptList.join(",") === LESS_KEPT_TYPES.join(","), keptList);
+const keptPred = sql.slice(
+  sql.indexOf("function public.notification_push_less_kept("),
+  sql.indexOf("comment on function public.notification_push_less_kept(text)"),
+);
+check("כל סוג lead נשמר ב-SQL", keptPred.includes("notification_push_less_kept_types()") && keptPred.includes("like '%lead%'"));
+const holdFn = sql.slice(
+  sql.indexOf("function public.notification_push_less_hold"),
+  sql.indexOf("comment on function public.notification_push_less_hold"),
+);
+check("החזקה עד 7 ימים ב-SQL", holdFn.includes("interval '7 days'")
+  && holdFn.includes("not public.notification_push_less_kept(p_type)")
+  && holdFn.includes("less.expires_at > now()"));
+/** אותו תנאי כמו בגוף notification_push_less_hold, בלי מסד. */
+function lessHoldApplies(ageHours: number, kept: boolean, rowLive: boolean): boolean {
+  return ageHours < 24 * 7 && !kept && rowLive;
+}
+check("אחרי 17:30 נשמר לחלון הבא", lessHoldApplies(15, false, true));
+check("אחרי שבוע ויום לא", !lessHoldApplies(24 * 8, false, true));
+check("ליד לא נכנס להחזקה", !lessHoldApplies(15, isLessKeptType("new_lead"), true));
+check("בלי שורה אין החזקה", !lessHoldApplies(15, false, false));
+const claimFn = sql.slice(
+  sql.indexOf("function public.notification_push_claim"),
+  sql.indexOf("comment on function public.notification_push_claim"),
+);
+check("ה-claim מחזיק מופחת ולא חותך אותו ב-12 שעות", claimFn.includes("notification_push_less_hold(n.type, n.agent_id, n.created_at)")
+  && claimFn.includes("meeting_id"));
+const stopBranch = sql.slice(sql.indexOf("cfg.stop_131049 = 1"), sql.indexOf("when cfg.digest_on = 1"));
+check("131049 משאיר דחוף ומוגן", stopBranch.includes("cfg.priority")
+  && stopBranch.includes("notification_push_less_kept(t)")
+  && !stopBranch.includes("'{}'::text[]"));
 
 const agentsBlock = sql.slice(sql.indexOf("agents as ("), sql.indexOf("recent as ("));
 check("פחות כאלה לא נמחק מהרשימה מראש", !agentsBlock.includes("not exists"));
 check("הפחתה רק לשורה בתוקף", sql.includes("less.expires_at > now()"));
-check("דחוף ועדיפות לא ברשימת ההפחתה", sql.includes("less.notif_type <> all"));
+check("דחוף ועדיפות לא ברשימת ההפחתה", sql.includes("not public.notification_push_less_kept(less.notif_type)"));
 check("הפחתה אחרי ה-CASE", sql.includes("raw_types") && sql.includes("greatest(s.digest_win, 1) * 2"));
 check("שקט נשאר על urgent", sql.includes("t = any(cfg.urgent)"));
 check("hold_hours מה-cfg", sql.includes("make_interval(hours => (select hold_hours from cfg))"));
@@ -125,8 +162,12 @@ check("תקרה 4 רק עם הדגל", sql.includes("when cfg.digest_on = 1 then
 check("131049 לא שולח תבנית", sql.includes("cfg.stop_131049 = 1") && sql.includes("131049"));
 check("החזרה לסוכן/ת", sql.includes("grant select, delete on table public.agent_notif_less to authenticated")
   && sql.includes("for delete") && sql.includes("current_agent_id()"));
-check("anon סגור", sql.includes("revoke all on table public.agent_notif_less from public, anon"));
-check("לא נוגעים במנעול ה-claim", !sql.includes("notification_push_claim"));
+check("authenticated בלי שאר הפעלים", sql.includes("revoke all on table public.agent_notif_less from public, anon, authenticated")
+  && !/grant\s+(?:all|insert|update|truncate)\b[^;]*agent_notif_less to authenticated/i.test(sql));
+const settings = readFileSync(new URL("../assets/crm-settings.js", import.meta.url), "utf8");
+const restoreAt = settings.indexOf("sb.from('agent_notif_less').delete()");
+const restore = settings.slice(restoreAt, restoreAt + 500);
+check("החזרה במסך רק אחרי מחיקה", restore.includes(".select('notif_type')") && restore.includes("!data.length"));
 
 if (failed) {
   console.log(`\n${failed} בדיקות נכשלו`);

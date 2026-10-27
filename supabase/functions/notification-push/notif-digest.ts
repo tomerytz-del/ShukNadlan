@@ -7,16 +7,41 @@ export const RESTORE_TITLE = "החזר כרגיל";
 export const RESTORE_COMMAND = "החזר התראות";
 export const LESS_HOLD_DAYS = 30;
 
-/** סוגים שכפתור "פחות כאלה" אינו מפחית: ליד, סיור, תזכורת מהיומן. */
-export const LESS_KEPT_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"] as const;
+/**
+ * לא מופחתים ולא נדחים לחלון התקציר.
+ * כל סוג ליד (כולל new_lead, lead_followup, lead_unrouted),
+ * סיור, תזכורת מהיומן, והתראות אבטחה, תקציב ומערכת.
+ * אותה רשימה ב-notification_push_less_kept_types, וכל סוג שמכיל lead.
+ */
+export const LESS_KEPT_TYPES = [
+  "agenda_reminder",
+  "showcase_meeting",
+  "new_lead",
+  "lead_followup",
+  "lead_unrouted",
+  "lead_prefs_default",
+  "onboarding_lead",
+  "open_demand",
+  "security_alert",
+  "budget_alert",
+  "ops_alert",
+] as const;
 
 export function isLessKeptType(type: string): boolean {
-  return (LESS_KEPT_TYPES as readonly string[]).includes(type);
+  if ((LESS_KEPT_TYPES as readonly string[]).includes(type)) return true;
+  return String(type || "").includes("lead");
 }
 
 const TOPIC_LABELS: Record<string, string> = {
   client_match: "התאמות",
   new_lead: "לידים",
+  lead_followup: "לידים",
+  lead_unrouted: "לידים",
+  lead_prefs_default: "לידים",
+  onboarding_lead: "לידים",
+  security_alert: "אבטחה",
+  budget_alert: "תקציב",
+  ops_alert: "מערכת",
   system: "עדכונים",
   agenda_reminder: "יומן",
   showcase_meeting: "סיורים",

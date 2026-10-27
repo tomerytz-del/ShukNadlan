@@ -1587,7 +1587,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         if (isLessKeptType(lessType)) {
           await reply(
             from,
-            `${topicLabel(lessType)} נשארות כרגיל. ליד, סיור ותזכורת מהיומן לא מופחתים.`,
+            `${topicLabel(lessType)} נשארות כרגיל. ליד, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת לא מופחתים.`,
             agent.id,
           );
           return;
@@ -1605,7 +1605,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         const lessBody =
           `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. ` +
           `הן יוצאות רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, ל-${LESS_HOLD_DAYS} יום. ` +
-          `ליד, סיור ותזכורת מהיומן ממשיכים כרגיל. ` +
+          `ליד, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
           `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
         await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
         return;

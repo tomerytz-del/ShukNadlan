@@ -838,8 +838,9 @@ function wireNotifScreen(){
       const type = restore.getAttribute('data-np-less-restore');
       restore.disabled = true;
       sb.from('agent_notif_less').delete().eq('agent_id', currentAgent.id).eq('notif_type', type)
-        .then(({ error }) => {
-          if (error){
+        .select('notif_type')
+        .then(({ data, error }) => {
+          if (error || !data || !data.length){
             showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
             restore.disabled = false;
             return;
