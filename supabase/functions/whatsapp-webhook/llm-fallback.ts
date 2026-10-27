@@ -40,16 +40,18 @@ export function isModelCallError(err: unknown): boolean {
   return false;
 }
 
+/** המסך שנפתח מהכפתור כשהמודל לא ענה. לא כתובת בגוף ההודעה. */
+export const FALLBACK_AGENT_PATH = "/crm?goto=bell";
+
 export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, siteBase: string): string {
   const site = siteBase.replace(/\/$/, "");
   if (audience === "agent") {
-    const crm = `${site}/crm`;
     if (kind === "billing") {
       return "אני לא זמינה לרגע בגלל תקלה אצלי, וההודעה שלך נשמרה. " +
-        `אפשר להמשיך בינתיים מהאזור האישי: ${crm}\nאפשר לשלוח לי שוב כשזה יסתדר.`;
+        "אפשר להמשיך בינתיים מהאזור האישי.\nאפשר לשלוח לי שוב כשזה יסתדר.";
     }
     return "משהו השתבש אצלי רגע לפני שעניתי, וההודעה שלך נשמרה. " +
-      `אפשר לשלוח אותה שוב, או להמשיך מהאזור האישי: ${crm}`;
+      "אפשר לשלוח אותה שוב, או להמשיך מהאזור האישי.";
   }
   if (kind === "billing") {
     return "אני לא זמינה לרגע בגלל תקלה אצלי. " +

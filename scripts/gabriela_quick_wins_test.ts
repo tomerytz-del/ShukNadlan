@@ -4,7 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { clientMatchesQuery, nameSkeleton, namesLikelySame, namesNeedConfirm, phoneKey, phonesMatch } from "../supabase/functions/whatsapp-webhook/hebrew-name.ts";
-import { adminAlertTitle, fallbackReply, isModelCallError, llmFailureKind } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
+import { adminAlertTitle, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmFailureKind } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
 import { pageLink, urlInSay } from "../supabase/functions/whatsapp-webhook/crm-pages.ts";
 import { paceRecipient, pairPaceTracked, resetPairPaceForTests, setPairReserve } from "../supabase/functions/_shared/wa-pair-pace.ts";
 
@@ -47,8 +47,9 @@ check("400 אינו זמני", other === "other");
 const billText = fallbackReply("billing", "agent", "https://shuknadlan.co.il/");
 const otherText = fallbackReply("other", "agent", "https://shuknadlan.co.il");
 const visitorText = fallbackReply("other", "visitor", "https://shuknadlan.co.il");
-check("תשובת יתרה לסוכן/ת עם קישור", billText.includes("לא זמינה") && billText.includes("https://shuknadlan.co.il/crm") && !billText.includes("אחזור") && !billText.includes("—"));
-check("תשובת כשל לסוכן/ת מציעה לשלוח שוב", otherText.includes("לשלוח") && otherText.includes("https://shuknadlan.co.il/crm") && !otherText.includes("—"));
+check("תשובת יתרה לסוכן/ת בלי קישור ארוך", billText.includes("לא זמינה") && !billText.includes("https://") && !billText.includes("אחזור") && !billText.includes("—"));
+check("תשובת כשל לסוכן/ת מציעה לשלוח שוב", otherText.includes("לשלוח") && !otherText.includes("https://") && !otherText.includes("—"));
+check("כפתור הכשל פותח את הפעמון", FALLBACK_AGENT_PATH === "/crm?goto=bell");
 check("גולש בלי אזור אישי", visitorText.includes("לשלוח") && !visitorText.includes("/crm") && !visitorText.includes("אחזור"));
 check("שגיאת מסד אינה כשל מודל", !isModelCallError({ message: "permission denied for table agent_clients", code: "42501" }));
 check("שגיאת Anthropic היא כשל מודל", isModelCallError({ name: "APIError", status: 529, message: "overloaded" }));
