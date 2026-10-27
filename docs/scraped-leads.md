@@ -60,7 +60,9 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
 `invalid_lead_type`, `invalid_source`, `missing_post_url`, `missing_city`,
 `missing_phone`, `missing_posted_at`, `post_too_old`, `invalid_deal_type`.
 `city_known: false` אומר שהעיר לא זוהתה ב-`cities` (`city_id_for_name`). שורה
-כזו לא תנותב ולא תוצג לאיש, ולכן כדאי לתקן את שם העיר.
+כזו לא תנותב ולא תוצג לאיש, ולכן כדאי לתקן את שם העיר. "קיבוץ X", "מושב X"
+ושם בלי המציין של הלמ"ס ("אשדות יעקב") **כן** מזוהים (ראו
+`docs/cities-and-regions.md`, "הגיבוי: קידומת וסוגריים").
 
 **הערכים חייבים להתאים לשאר המערכת:** `deal_type` הוא `sale` או `rent`.
 `property_type` כתוב כמו בהעדפות הסוכנים (`דירה`, `בית פרטי`, `מסחרי`...),
@@ -199,7 +201,7 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
 
 | פונקציה | מתי `true` |
 | --- | --- |
-| `agent_works_city(agent, city_id)` | המשרד יושב בעיר (`agencies.city_id`), העיר בשווקים של המשרד (`service_markets` מול `cities.market_slug`), או שכונה בעיר בהעדפות הלידים של הסוכן/ת |
+| `agent_works_city(agent, city_id)` | המשרד יושב בעיר (`agencies.city_id`), השוק של העיר (`cities.market_slug`) באזורי הפעילות של המשרד **או של הסוכן/ת עצמו/ה** (`agencies.service_markets` ‏+ `agency_members.service_markets`, כמו `agent_share_fit`; מ-`20271028090000`), או שכונה בעיר בהעדפות הלידים של הסוכן/ת. רק השורה של הסוכן/ת עצמו/ה - אזורי הפעילות של עמית/ה במשרד אינם מרחיבים |
 | `agent_handles_type(agent, type, deal)` | ההעדפות הפעילות כוללות את הסוג ואת העסקה, **או** שאין לסוכן/ת העדפות פעילות כלל (לא צמצם/ה דבר) |
 
 אותן שתיים משרתות את הניתוב אחרי הסכמה, את ההפצה ואת התצוגה. מי שמשנה את
