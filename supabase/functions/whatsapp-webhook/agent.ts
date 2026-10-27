@@ -74,6 +74,9 @@ import {
   confirmWritesNow,
   parsePublishButton,
   parseUnpublishedNudgeButton,
+  unpublishedNudgeButtonFresh,
+  unpublishedNudgeCanPublish,
+  UNPUB_BUTTON_TTL_MS,
   listingStatusForCreate,
   pendingStoreMissing,
   PUBLISH_ALREADY,
@@ -7102,16 +7105,40 @@ async function unpublishedNudgeReply(
 
   if (nudge.action === "publish") {
     if (prop.status === "active") return { text: PUBLISH_ALREADY };
+    if (!unpublishedNudgeCanPublish(prop.status)) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
+    }
+    const since = new Date(Date.now() - UNPUB_BUTTON_TTL_MS).toISOString();
+    const { data: note, error: noteErr } = await supabase.from("notifications")
+      .select("created_at")
+      .eq("agent_id", agent.id)
+      .eq("type", "unpublished_nudge")
+      .eq("related_property_id", prop.id)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (noteErr) {
+      console.error("unpublished nudge age failed", noteErr.code);
+      return { text: "לא הצלחתי לבדוק את הכפתור. אפשר לפרסם מאזור האישי." };
+    }
+    if (!unpublishedNudgeButtonFresh(note?.created_at, Date.now())) {
+      return { text: "הכפתור פג. אפשר לפרסם את הנכס מאזור האישי." };
+    }
     const nowIso = new Date().toISOString();
     const { data: updated, error } = await supabase.from("properties")
       .update({ status: "active", updated_at: nowIso })
       .eq("id", prop.id)
       .eq("agent_id", agent.id)
+      .in("status", ["unpublished", "draft"])
       .select("status, license_hold_at, title")
       .maybeSingle();
     if (error) {
       console.error("unpublished nudge publish failed", error.code, error.message);
       return { text: publishErrorText(error.message) };
+    }
+    if (!updated) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
     }
     if (updated?.license_hold_at || updated?.status !== "active") {
       return { text: "הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר." };
@@ -7121,6 +7148,9 @@ async function unpublishedNudgeReply(
   }
 
   if (nudge.action === "share") {
+    if (prop.status !== "unpublished" && prop.status !== "draft" && prop.status !== "active") {
+      return { text: "נכס שנמכר או בארכיון לא נפתח לשת״פ מהכפתור." };
+    }
     const { data, error } = await supabase.rpc("unpublished_collab_request", {
       p_property_id: prop.id,
       p_agent_id: agent.id,
@@ -7135,7 +7165,9 @@ async function unpublishedNudgeReply(
     }
     const row = (data || null) as { ok?: boolean; reason?: string; shared?: boolean } | null;
     if (!row || row.ok === false) return { text: "לא הצלחתי לרשום שת״פ. אפשר לנסות מאזור האישי." };
-    if (row.reason === "flag_off") return { text: "רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה." };
+    if (row.reason === "flag_off") {
+      return { text: "רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה. כשיידלק, ההפצה תצא." };
+    }
     if (row.reason === "waiting_for_publish") return { text: "רשמתי. ההפצה תצא אחרי שהנכס באוויר, בלי מספר טלפון." };
     if (row.reason === "already_sent") return { text: "הנכס כבר נפתח לשת״פ." };
     if (row.shared) return { text: "הנכס נפתח לשת״פ. נשלחה התראה למשרדים מתאימים, בלי מספר טלפון." };

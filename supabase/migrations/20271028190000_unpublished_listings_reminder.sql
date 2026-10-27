@@ -79,6 +79,12 @@ begin
   elsif new.status = 'active' then
     new.unpublished_at := null;
     new.unpublished_origin := null;
+  -- sold/archived שיצאו מ-active כבר חתמו unpublished_at. מעבר אחר כך
+  -- ל-unpublished מתחיל את השעון מחדש, אחרת תזכורת יוצאת על יום המכירה.
+  elsif new.status = 'unpublished'
+        and old.status in ('sold', 'rented', 'archived') then
+    new.unpublished_at := now();
+    new.unpublished_origin := 'draft';
   elsif new.status = 'unpublished' and new.unpublished_at is null then
     new.unpublished_at := now();
     if new.unpublished_origin is null then
@@ -224,6 +230,16 @@ as $$
               where s.agent_id = p.agent_id
                 and s.property_id = p.id
                 and (s.muted or s.snooze_until > now())
+           )
+       and (
+             p.unpublished_origin is distinct from 'taken_down'
+             or not exists (
+               select 1 from public.unpublished_nudge_log l
+                where l.agent_id = p.agent_id
+                  and not l.dry_run
+                  and p.id = any(l.property_ids)
+                  and l.created_at > now() - interval '30 days'
+             )
            )
   ),
   -- מתי נכנס נכס בפעם האחרונה — בכל סטטוס, כי גם נכס שנכנס ונמכר מיד הוא
@@ -498,6 +514,8 @@ begin
   if coalesce(v_on, 0) <> 1 then
     return jsonb_build_object('ok', true, 'shared', false, 'reason', 'flag_off');
   end if;
+  -- מול בקשה מהכרטיס וסבב שמרוקן בקשות שנרשמו כשהדגל היה כבוי.
+  perform pg_advisory_xact_lock(281900002);
 
   select * into v_prop from public.properties where id = p_property_id;
   if not found then
@@ -529,18 +547,60 @@ begin
   v_cap := least(greatest(coalesce(v_cap, 5), 1), 20);
   select name into v_agency_name from public.agencies where id = v_agent.agency_id;
 
-  with picked as (
-    select distinct on (m.agency_id) m.id as agent_id, m.agency_id
+  -- לא agent_share_fit: שם משרד בלי שווקים מתאים לכל עיר, והסדר
+  -- לפי uuid נתן תמיד לאותם משרדים. כאן חובה שוק של העיר, ואז מי
+  -- שקיבל הכי מזמן, ואז הגרלה. בתוך משרד נבחרת סוכן/ת אחת בהגרלה.
+  with eligible as (
+    select m.id as agent_id,
+           m.agency_id,
+           coalesce(off.last_offer, '-infinity'::timestamptz) as last_offer
       from public.agency_members m
+      join public.agencies g on g.id = m.agency_id
+      left join lateral (
+        select max(ps.created_at) as last_offer
+          from public.property_shares ps
+         where ps.shared_with_agency_id = m.agency_id
+      ) off on true
      where m.agency_id is distinct from v_agent.agency_id
        and m.active
        and m.license_status in ('verified', 'manual')
-       and public.agent_share_fit(m.id, v_prop.category, v_prop.city_id)
+       and v_prop.city_id is not null
+       and exists (
+             select 1
+               from public.cities c
+              where c.id = v_prop.city_id
+                and c.market_slug is not null
+                and c.market_slug = any (
+                  coalesce(m.service_markets, '{}'::text[])
+                  || coalesce(g.service_markets, '{}'::text[])
+                )
+           )
+       and (
+             coalesce(m.property_scope, g.property_scope, 'all') = 'all'
+             or (
+               coalesce(m.property_scope, g.property_scope, 'all') = 'private'
+               and v_prop.category is distinct from 'commercial'
+             )
+             or (
+               coalesce(m.property_scope, g.property_scope, 'all') = 'commercial'
+               and v_prop.category = 'commercial'
+             )
+           )
        and not exists (
              select 1 from public.agent_share_exclusions ex
               where ex.agent_id = v_agent.id and ex.agency_id = m.agency_id
            )
-     order by m.agency_id, m.created_at
+  ),
+  ranked as (
+    select agent_id, agency_id, last_offer,
+           row_number() over (partition by agency_id order by random()) as rn
+      from eligible
+  ),
+  picked as materialized (
+    select agent_id, agency_id
+      from ranked
+     where rn = 1
+     order by last_offer, random()
      limit v_cap
   ),
   ins as (
@@ -652,9 +712,57 @@ create trigger properties_unpublished_collab_after
   after update of status on public.properties
   for each row execute function public.properties_unpublished_collab_after();
 
+-- בקשות שנרשמו כשהדגל כבוי נשארות בלי fanout_at. כשהדגל נדלק הסבב
+-- מפיץ אותן, בתקרה לסבב, ולא מוחק אותן בשקט. עיר בלי שוק לא תופסת
+-- מקום בתקרה: אין למי לשלוח עד שיהיה שוק.
+create or replace function public.unpublished_collab_drain(p_limit int default 20)
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_on int;
+  v_n int := 0;
+  v_cap int;
+  r record;
+begin
+  if coalesce(auth.role(), '') is distinct from 'service_role'
+     and not public.current_is_platform_admin() then
+    return 0;
+  end if;
+  select coalesce(value::int, 0) into v_on
+    from public.pricing_config where key = 'gabriela_collab_share_enabled';
+  if coalesce(v_on, 0) <> 1 then
+    return 0;
+  end if;
+  v_cap := least(greatest(coalesce(p_limit, 20), 1), 50);
+  for r in
+    select o.property_id
+      from public.unpublished_collab_opt_in o
+      join public.properties p on p.id = o.property_id and p.agent_id = o.agent_id
+     where o.fanout_at is null
+       and p.status = 'active'
+       and exists (
+             select 1 from public.cities c
+              where c.id = p.city_id and c.market_slug is not null
+           )
+     order by o.created_at
+     limit v_cap
+  loop
+    perform public.unpublished_collab_fanout(r.property_id);
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end $$;
+
+revoke all on function public.unpublished_collab_drain(int) from public, anon, authenticated;
+grant execute on function public.unpublished_collab_drain(int) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- תזכורת אחת לסוכן/ת לשבוע, דרך הפעמון. הדגל 0 מחזיר ספירה ולא כותב.
 -- מילוי unpublished_at=now() אומר שסבב ראשון אחרי המיגרציה יוצא 0.
+-- taken_down מוזכר לכל היותר פעם ב-30 יום. טיוטה נשארת שבועית.
 -- ---------------------------------------------------------------------------
 create or replace function public.unpublished_nudge_enqueue(p_limit int default 25)
 returns jsonb
@@ -674,11 +782,16 @@ declare
   v_body text;
   v_title text;
   v_one uuid;
+  v_drained int := 0;
 begin
   if coalesce(auth.role(), '') is distinct from 'service_role'
      and not public.current_is_platform_admin() then
     return jsonb_build_object('ok', false, 'error', 'forbidden');
   end if;
+
+  -- שני סבבים במקביל לא שולחים פעמיים. הנעילה יורדת בסוף התנועה.
+  perform pg_advisory_xact_lock(281900001);
+  v_drained := public.unpublished_collab_drain(20);
 
   select coalesce(value::int, 0) into v_on
     from public.pricing_config where key = 'gabriela_unpublished_nudge_enabled';
@@ -705,6 +818,18 @@ begin
               where s.agent_id = p.agent_id and s.property_id = p.id
                 and (s.muted or s.snooze_until > now())
            )
+       -- taken_down הוא ירידה מכוונת: לכל היותר פעם ב-30 יום.
+       -- draft ומקור ריק (מילוי) נשארים על הקצב השבועי.
+       and (
+             p.unpublished_origin is distinct from 'taken_down'
+             or not exists (
+               select 1 from public.unpublished_nudge_log l
+                where l.agent_id = p.agent_id
+                  and not l.dry_run
+                  and p.id = any(l.property_ids)
+                  and l.created_at > now() - interval '30 days'
+             )
+           )
        and not exists (
              select 1 from public.unpublished_nudge_log l
               where l.agent_id = p.agent_id
@@ -717,7 +842,8 @@ begin
   if coalesce(v_on, 0) <> 1 then
     return jsonb_build_object(
       'ok', true, 'dry_run', true, 'enabled', false,
-      'agents', v_agents, 'properties', v_props, 'sent', 0);
+      'agents', v_agents, 'properties', v_props, 'sent', 0,
+      'collab_drained', v_drained);
   end if;
 
   for r in
@@ -738,6 +864,18 @@ begin
              select 1 from public.unpublished_reminder_snooze s
               where s.agent_id = p.agent_id and s.property_id = p.id
                 and (s.muted or s.snooze_until > now())
+           )
+       -- taken_down הוא ירידה מכוונת: לכל היותר פעם ב-30 יום.
+       -- draft ומקור ריק (מילוי) נשארים על הקצב השבועי.
+       and (
+             p.unpublished_origin is distinct from 'taken_down'
+             or not exists (
+               select 1 from public.unpublished_nudge_log l
+                where l.agent_id = p.agent_id
+                  and not l.dry_run
+                  and p.id = any(l.property_ids)
+                  and l.created_at > now() - interval '30 days'
+             )
            )
        and not exists (
              select 1 from public.unpublished_nudge_log l
@@ -791,7 +929,8 @@ begin
 
   return jsonb_build_object(
     'ok', true, 'dry_run', false, 'enabled', true,
-    'agents', v_agents, 'properties', v_props, 'sent', v_sent);
+    'agents', v_agents, 'properties', v_props, 'sent', v_sent,
+    'collab_drained', v_drained);
 end $$;
 
 revoke all on function public.unpublished_nudge_enqueue(int) from public, anon, authenticated;

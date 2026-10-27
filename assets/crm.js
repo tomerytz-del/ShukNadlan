@@ -15650,7 +15650,7 @@ function buildPropertyCard(p, agentId){
     });
     addQuickAction(actions, {
       label:'שת״פ', icon:'partners',
-      title:'בקשה לשת״פ. ההפצה למשרדים אחרים יוצאת רק כשהאפשרות דלוקה, אחרי שהנכס באוויר, בלי מספר טלפון, ועד תקרה למשרד',
+      title:'בקשה לשת״פ. ההפצה למשרדים אחרים יוצאת רק כשהאפשרות דלוקה, אחרי שהנכס באוויר, בלי מספר טלפון, ועד תקרה של משרדים לנכס',
       onClick: btn => requestUnpublishedCollab(p, btn),
     });
     addQuickAction(actions, {
@@ -16582,7 +16582,7 @@ async function requestUnpublishedCollab(p, btn){
     return;
   }
   if (data.reason === 'flag_off'){
-    showToast('רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה.', 5500);
+    showToast('רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה. כשיידלק, ההפצה תצא.', 5500);
     return;
   }
   if (data.reason === 'waiting_for_publish'){

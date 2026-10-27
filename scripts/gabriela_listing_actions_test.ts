@@ -33,6 +33,9 @@ import {
   UNPUB_PUBLISH,
   UNPUB_SHARE,
   unpublishedNudgeButtons,
+  unpublishedNudgeButtonFresh,
+  unpublishedNudgeCanPublish,
+  UNPUB_BUTTON_TTL_MS,
   publishDecisionText,
   draftElsewhereMissing,
   elsewhereDraftWarning,
@@ -259,6 +262,12 @@ check("פרסור תזכורת", parseUnpublishedNudgeButton(`unpub:p:${property
   && parseUnpublishedNudgeButton(`unpub:p:${propertyUuid}`)?.propertyId === propertyUuid);
 check("פרסום אינו תזכורת", parseUnpublishedNudgeButton(`pubx:y:${pubId}:${propertyUuid}`) === null);
 check("בלי מזהה נכס אין כפתורי תזכורת", unpublishedNudgeButtons("לא-מזהה") === null);
+check("פרסום מהכפתור רק לטיוטה", unpublishedNudgeCanPublish("unpublished") && unpublishedNudgeCanPublish("draft") && !unpublishedNudgeCanPublish("sold") && !unpublishedNudgeCanPublish("archived") && !unpublishedNudgeCanPublish("rented") && !unpublishedNudgeCanPublish("active"));
+const freshAt = new Date(Date.now() - 60 * 1000).toISOString();
+const staleAt = new Date(Date.now() - UNPUB_BUTTON_TTL_MS - 60 * 1000).toISOString();
+check("כפתור תזכורת טרי", unpublishedNudgeButtonFresh(freshAt, Date.now()));
+check("כפתור תזכורת ישן לא מפרסם", unpublishedNudgeButtonFresh(staleAt, Date.now()) === false);
+check("בלי תאריך הכפתור לא מפרסם", unpublishedNudgeButtonFresh(null, Date.now()) === false);
 const propertyId = "11111111-1111-1111-1111-111111111111";
 const pubRow = {
   id: pubId,

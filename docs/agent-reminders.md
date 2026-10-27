@@ -111,7 +111,7 @@
 | `stale_listings` | נכס פעיל שלא עודכן ולא הוקפץ 60 יום | 14 יום | "הנכסים שלי" |
 | `idle_listings` | לא נכנס נכס חדש 7 יום | 7 יום | "הנכסים שלי" |
 | `video_opportunity` | נכס פעיל בלי `video_url`, בלי `tour_3d_url` ובלי `has_virtual_tour` | 30 יום | "הנכסים שלי" |
-| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`unpublished_at` ישן מ-`agent_reminder_unpublished_days` (7). לא `created_at`. שורה שמסומנת "לא עכשיו" או "בלי תזכורת" לא נספרת. השורה הזו בתזכורת הישנה יוצאת רק כש-`gabriela_unpublished_digest_enabled=1` | 7 יום | "הנכסים שלי", מסונן לנכסים שלא באוויר |
+| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`unpublished_at` ישן מ-`agent_reminder_unpublished_days` (7). לא `created_at`. שורה שמסומנת "לא עכשיו" או "בלי תזכורת" לא נספרת. `taken_down` מוזכר לכל היותר פעם ב-30 יום. מקור ריק וטיוטה נשארים שבועיים. השורה הזו בתזכורת הישנה יוצאת רק כש-`gabriela_unpublished_digest_enabled=1` | 7 יום, ו-30 ל-`taken_down` | "הנכסים שלי", מסונן לנכסים שלא באוויר |
 
 **המרווח המינימלי הוא פר סוג, ולא פר הודעה** (`agent_reminder_kind_interval`).
 זו אותה הפרדה שחוזרת בכל המבנה: הממצא נכון כל הזמן, אבל ההזכרה עליו חוזרת
@@ -135,8 +135,11 @@
 `properties_stamp_unpublished_at` חותם `now()` כשסטטוס יוצא מ-`active`,
 ועל טיוטה חדשה (`unpublished` ביצירה) עם `unpublished_origin = 'draft'`.
 ירידה מ-`active` ל-`unpublished` נחתמת `taken_down`. חזרה ל-`active` מאפסת
-את שניהם. שורות שכבר היו `unpublished` במיגרציה קיבלו `unpublished_at = now()`
+את שניהם. מעבר מ-`sold`, `rented` או `archived` ל-`unpublished` מאפס את
+`unpublished_at` ומסמן `draft`, כדי שהשעון לא יישאר על יום המכירה.
+שורות שכבר היו `unpublished` במיגרציה קיבלו `unpublished_at = now()`
 ובלי מקור, כדי שסבב ראשון לא ישלח, והנוסח לא טוען שהן ירדו מהמדף.
+מקור ריק אינו `taken_down`.
 
 "לא עכשיו" (`unpublished_reminder_snooze`, 30 יום) ו"בלי תזכורת" (`muted`)
 מוציאים את הנכס מהספירה. הקצב לסוכן/ת הוא שבוע (`unpublished_nudge_log`),
@@ -153,10 +156,19 @@
 
 שת״פ (`unpublished_collab_request`) נרשם תמיד. ההפצה
 (`unpublished_collab_fanout`) רצה רק כש-`gabriela_collab_share_enabled = 1`,
-הנכס `active`, יש בקשה, ועוד לא הופץ. התקרה היא משרדים (`gabriela_collab_fanout_cap`,
-5), בלי המשרד של הבעלים, בלי מספר טלפון בגוף. ההתראה היא `collab_offer`
-עם `related_property_id`. טריגר אחרי מעבר ל-`active` מפיץ בקשה שנרשמה
-כשהנכס עוד לא היה באוויר.
+הנכס `active`, יש בקשה, ועוד לא הופץ. התקרה היא משרדים לנכס
+(`gabriela_collab_fanout_cap`, 5), לא תקרה לכל משרד. הבחירה דורשת שוק
+של עיר הנכס אצל הסוכן/ת או המשרד (`service_markets`). משרד בלי שווקים
+אינו מתאים, גם אם `agent_share_fit` היה מחזיר אמת. אחר כך מי שקיבל
+הצעה הכי מזמן (`property_shares.created_at`), ואז הגרלה. בלי המשרד של
+הבעלים, בלי מספר טלפון בגוף. ההתראה היא `collab_offer` עם
+`related_property_id`. טריגר אחרי מעבר ל-`active` מפיץ בקשה שנרשמה
+כשהנכס עוד לא היה באוויר. בקשה שנרשמה כשהדגל כבוי נשארת, ו-
+`unpublished_collab_drain` מפיץ עד 20 כאלה בסבב אחרי שהדגל נדלק.
+`unpublished_nudge_enqueue` נועל `pg_advisory_xact_lock` מפני שני סבבים.
+כפתור "לפרסם" בוואטסאפ (`unpub:p`) מפרסם רק `unpublished`, רק לבעל/ת
+הנכס, ורק אם יצאה תזכורת לאותו נכס ב-7 הימים האחרונים.
+`agent_reminders_claim` נקרא עם מפתח `service_role`.
 
 ---
 
